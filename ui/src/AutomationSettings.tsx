@@ -14,7 +14,7 @@ export type AutomationKey =
   | "conversation_model" | "background_model" | "structured_output" | "force_say_haiku_dm" | "web_search"
   | "group_exchange_gists" | "own_replies_verbatim" | "completion_review" | "answer_gate" | "mcp_auto_review"
   | "remembered_approval_hours" | "provider_retries" | "schedule_receipt_review" | "desktop_idle_seconds"
-  | "group_triage" | "group_triage_model";
+  | "group_triage" | "group_triage_model" | "task_retention_days";
 export type AutomationGroup = "models" | "replies" | "history" | "checks" | "reliability" | "schedules" | "computer";
 const groupOrder: AutomationGroup[] = ["models", "replies", "history", "checks", "reliability", "schedules", "computer"];
 
@@ -33,16 +33,17 @@ export type AutomationItem = {
   options?: string[];
   min?: number;
   max?: number;
-  unit?: "hours" | "minutes" | "seconds";
+  unit?: "hours" | "minutes" | "seconds" | "days";
 };
 type Value = boolean | number | string | null;
 type Names = {t: TFunction<"settings">; catalog: ModelCatalog | null};
 
 const hourPresets = [1, 4, 12, 24, 48, 72, 168, 720];
+const dayPresets = [0, 7, 14, 30, 60, 90, 180, 365, 730, 3650];
 
 function intChoices(item: AutomationItem, current: number): number[] {
   const min = item.min ?? 0, max = item.max ?? min;
-  const base = max - min <= 24 ? Array.from({length: max - min + 1}, (_, index) => min + index) : hourPresets.filter(value => value >= min && value <= max);
+  const base = max - min <= 24 ? Array.from({length: max - min + 1}, (_, index) => min + index) : (item.unit === "days" ? dayPresets : hourPresets).filter(value => value >= min && value <= max);
   return base.includes(current) ? base : [...base, current].sort((a, b) => a - b);
 }
 
@@ -59,6 +60,7 @@ function formatValue(item: AutomationItem, value: Value, {t, catalog}: Names): s
     if (value === 0) return t("automation.idle_off");
     return value % 60 === 0 ? t("automation.minutes", {count: value / 60}) : t("automation.seconds", {count: value});
   }
+  if (item.key === "task_retention_days" && value === 0) return t("automation.keep_all");
   if (item.unit) return t(`automation.${item.unit}`, {count: value});
   return String(value);
 }

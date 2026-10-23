@@ -169,7 +169,10 @@
     "note_group": "共有コンピューターのファイルは残ります。削除後はアプリ内で元に戻せません。",
     "retry": "削除を再試行",
     "title_bot": "Bot を削除しますか？",
-    "title_group": "グループを削除しますか？"
+    "title_group": "グループを削除しますか？",
+    "impact_given_other": "Botが出した未完了のタスク{{count}}件も一緒にキャンセルされます。",
+    "impact_held_other": "Botが担当中の未完了タスク{{count}}件がキャンセルされます。",
+    "impact_waits_other": "Botの待機{{count}}件が終了します。"
   },
   "detail": {
     "close": "詳細を閉じる",
@@ -297,7 +300,10 @@
     "reload": "グループ情報を再読み込み",
     "reloading": "再読み込み中…",
     "save": "グループ情報を保存",
-    "title": "グループ情報"
+    "title": "グループ情報",
+    "impact_given_other": "{{name}}を外すと、Botが出した未完了のタスク{{count}}件が終了します。",
+    "impact_held_other": "{{name}}を外すと、担当中の未完了タスク{{count}}件が終了します。",
+    "impact_waits_other": "{{name}}を外すと、Botの待機{{count}}件が終了します。"
   },
   "message": {
     "attachment": "添付ファイル",
@@ -576,7 +582,11 @@
       "colleague_result": "同僚の結果",
       "colleague_failure": "同僚の失敗",
       "group_mention": "グループでのメンション",
-      "other": "その他"
+      "other": "その他",
+      "waiting_on": "未解決の待機",
+      "task_record": "タスク記録",
+      "task_updates": "タスクの更新",
+      "wait_result": "待機の結果"
     }
   },
   "run_status": {

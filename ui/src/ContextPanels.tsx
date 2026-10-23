@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ApiError, request } from "./api";
+import { api, ApiError, request } from "./api";
 import { BotAvatar } from "./BotAvatar";
 import { BotAvatarPicker } from "./BotAvatarPicker";
 import { BotInspector } from "./BotInspector";
@@ -15,7 +15,7 @@ import { TofiIcon as Icon } from "./icons";
 import { followsGlobal } from "./modelCatalog";
 import { ModelFields } from "./ModelSettings";
 import { PrimaryBadge } from "./PrimaryAssistant";
-import type { Bot, Conversation, Memory } from "./types";
+import type { Bot, Conversation, Memory, TaskImpact } from "./types";
 import { WorkPreview } from "./workAgenda";
 import { LazyGroupAvatar as GroupAvatar } from "./LazyGroupAvatar";
 import type { BotSkillListing } from "./skillLibrary";
@@ -28,6 +28,29 @@ async function shareBotPackage(bot: Bot) {
     names = (listing.skills ?? []).filter(skill => skill.enabled && !skill.builtin).map(skill => skill.name);
   } catch { /* a share file without skill names is still a valid share file */ }
   downloadBotPackage(buildBotPackage(bot, names));
+}
+
+/** What removing members ends: open tasks they gave or hold, and waits they hold. Shown before saving; a failed read shows nothing. */
+function RemovalImpact({ groupId, removed }: { groupId: string; removed: { id: string; name: string }[] }) {
+  const { t } = useTranslation("chat");
+  const key = removed.map(bot => bot.id).join("\u0000");
+  const [impacts, setImpacts] = useState<{ id: string; name: string; impact: TaskImpact }[]>([]);
+  useEffect(() => {
+    if (!key) { setImpacts([]); return; }
+    const controller = new AbortController();
+    const names = new Map(removed.map(bot => [bot.id, bot.name]));
+    Promise.all(key.split("\u0000").map(id => api.botTaskImpact(id, groupId, controller.signal).then(impact => ({ id, name: names.get(id) ?? "", impact })).catch(() => null)))
+      .then(rows => { if (!controller.signal.aborted) setImpacts(rows.filter((row): row is { id: string; name: string; impact: TaskImpact } => !!row && row.impact.given_tasks + row.impact.held_tasks + row.impact.open_waits > 0)); });
+    return () => controller.abort();
+    // removed is derived from key; names only label the result.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupId, key]);
+  if (!impacts.length) return null;
+  return <div className="field-note members-impact" role="status">{impacts.map(({ id, name, impact }) => <p key={id}>
+    {impact.given_tasks > 0 && <>{t("members.impact_given", { name, count: impact.given_tasks })} </>}
+    {impact.held_tasks > 0 && <>{t("members.impact_held", { name, count: impact.held_tasks })} </>}
+    {impact.open_waits > 0 && t("members.impact_waits", { name, count: impact.open_waits })}
+  </p>)}</div>;
 }
 
 export function MembersPanel({ conversation, bots, onClose, onOpen, onSaved, onReload, onOpenWork, refreshToken }: {
@@ -143,6 +166,7 @@ export function MembersPanel({ conversation, bots, onClose, onOpen, onSaved, onR
         </div>)}
       </div>
       <p className="field-note">{t("members.pick_hint")}</p>
+      <RemovalImpact groupId={conversation.id} removed={bots.filter(bot => baselineIds.current.includes(bot.id) && !selectedIds.includes(bot.id)).map(bot => ({ id: bot.id, name: bot.name }))} />
       {error && <div className="members-manage-error" role="alert"><p className="error-text">{error}</p>{conflict && <button type="button" className="secondary-button" disabled={reloading} onClick={() => void reload()}>{reloading ? t("members.reloading") : t("members.reload")}</button>}</div>}
       <button className="primary-button" disabled={saving || reloading || !valid || !changed}>{saving ? t("action.saving") : t("members.save")}</button>
     </form>

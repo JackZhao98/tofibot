@@ -16,7 +16,7 @@ export type RunContextState =
   | { status: "error"; message: string }
   | { status: "ready"; snapshot: RunContextSnapshot };
 
-const KNOWN_KINDS = new Set(["system_guidance", "bot_instructions", "agent_report_prompt", "tool_evidence_policy", "durable_guidance", "computer_environment", "capability_guidance", "extension_discovery_policy", "voice_guidance", "extension_directory", "tools", "tools_on_demand", "memory", "summary", "history_message", "earlier_turns_note", "capability_refs", "schedule_states", "run_context", "request_note", "scheduled_task", "scheduled_order", "open_work", "tool_carryover", "form_answers", "group_profiles", "co_addressed", "coordination", "mentions_since_trigger", "handoff_task", "colleague_result", "colleague_failure", "group_mention", "other"]);
+const KNOWN_KINDS = new Set(["system_guidance", "bot_instructions", "agent_report_prompt", "tool_evidence_policy", "durable_guidance", "computer_environment", "capability_guidance", "extension_discovery_policy", "voice_guidance", "extension_directory", "tools", "tools_on_demand", "memory", "summary", "history_message", "earlier_turns_note", "capability_refs", "schedule_states", "run_context", "request_note", "scheduled_task", "scheduled_order", "open_work", "tool_carryover", "form_answers", "group_profiles", "co_addressed", "coordination", "mentions_since_trigger", "handoff_task", "colleague_result", "colleague_failure", "waiting_on", "task_record", "task_updates", "wait_result", "group_mention", "other"]);
 
 function useKindLabel() {
   const { t } = useTranslation("chat");

@@ -169,7 +169,10 @@
     "note_group": "共享电脑文件会保留。删除后无法在应用中恢复。",
     "retry": "重试删除",
     "title_bot": "删除 Bot？",
-    "title_group": "删除群聊？"
+    "title_group": "删除群聊？",
+    "impact_given_other": "它布置的 {{count}} 个未完成任务会随之取消。",
+    "impact_held_other": "它负责的 {{count}} 个未完成任务会被取消。",
+    "impact_waits_other": "它的 {{count}} 个等待会结束。"
   },
   "detail": {
     "close": "关闭详情",
@@ -297,7 +300,10 @@
     "reload": "重新载入群资料",
     "reloading": "重新载入中…",
     "save": "保存群资料",
-    "title": "群资料"
+    "title": "群资料",
+    "impact_given_other": "移出 {{name}} 会结束它布置的 {{count}} 个未完成任务。",
+    "impact_held_other": "移出 {{name}} 会结束它负责的 {{count}} 个未完成任务。",
+    "impact_waits_other": "移出 {{name}} 会结束它的 {{count}} 个等待。"
   },
   "message": {
     "attachment": "附件",
@@ -576,7 +582,11 @@
       "colleague_result": "同事的结果",
       "colleague_failure": "同事的失败",
       "group_mention": "群内提及",
-      "other": "其他"
+      "other": "其他",
+      "waiting_on": "未结束的等待",
+      "task_record": "任务记录",
+      "task_updates": "任务更新",
+      "wait_result": "等待结果"
     }
   },
   "run_status": {

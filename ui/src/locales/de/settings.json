@@ -893,6 +893,10 @@
       "group_triage_model": {
         "name": "Modell für die Gruppenzuweisung",
         "what": "Das Modell, das für eine nicht adressierte Gruppennachricht das Mitglied wählt. Automatisch heißt: das Hintergrundmodell."
+      },
+      "task_retention_days": {
+        "name": "Erledigte Aufgaben bleiben",
+        "what": "Nach dieser Anzahl Tage verliert eine abgeschlossene Aufgabe Auftragstext, Checkliste und Überarbeitungen. Titel und einzeiliges Ergebnis bleiben. 0 behält alles."
       }
     },
     "option": {
@@ -944,6 +948,8 @@
         "unknown_chat": "Eine Unterhaltung"
       },
       "used_one": "{{count}} Mal genutzt"
-    }
+    },
+    "days": "{{count}} Tage",
+    "keep_all": "Alles behalten"
   }
 }

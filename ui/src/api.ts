@@ -1,4 +1,4 @@
-import type { FollowupAccount, FollowupBotSettings, FollowupOverview, FollowupVerdict, AgentUsageTotal, Attachment, Bot, ComputerHealth, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, ModelCatalog, ModelProviderStatus, Run, RunContextSnapshot, RunHealth, Schedule, ScheduleKind, SchedulePatchInput, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WorkspaceEventEnvelope, WorkItem, Weekday } from "./types";
+import type { TaskImpact, FollowupAccount, FollowupBotSettings, FollowupOverview, FollowupVerdict, AgentUsageTotal, Attachment, Bot, ComputerHealth, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, ModelCatalog, ModelProviderStatus, Run, RunContextSnapshot, RunHealth, Schedule, ScheduleKind, SchedulePatchInput, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WorkspaceEventEnvelope, WorkItem, Weekday } from "./types";
 import { i18n } from "./i18n";
 import { codeText } from "./i18n/codeText";
 import { invalidateModelCatalog } from "./modelCatalogStore";
@@ -125,6 +125,7 @@ export const api = {
   schedules: (id: string) => request<{ schedules: Schedule[] }>(`/api/conversations/${encodeURIComponent(id)}/schedules`),
   scheduleAgenda: (id: string, scope: "bots" | "conversations", history = false) => request<{ schedules: Schedule[] }>(`/api/${scope}/${encodeURIComponent(id)}/schedules?${scope === "bots" ? `history=${history}` : `view=${history ? "history" : "upcoming"}`}`),
   workItems: (id: string, scope: "bots" | "conversations", history = false) => request<{ work_items: WorkItem[] }>(`/api/${scope}/${encodeURIComponent(id)}/work-items?history=${history}`),
+  botTaskImpact: (botId: string, groupId?: string, signal?: AbortSignal) => request<TaskImpact>(`/api/bots/${encodeURIComponent(botId)}/task-impact${groupId ? `?group_id=${encodeURIComponent(groupId)}` : ""}`, { signal }),
   createWorkItem: (conversation: string, input: Pick<WorkItem, "kind" | "title" | "bot_id"> & Partial<Pick<WorkItem, "description" | "parent_goal_id">>) => request<WorkItem>(`/api/conversations/${encodeURIComponent(conversation)}/work-items`, json(input)),
   updateWorkItem: (id: string, input: Partial<Pick<WorkItem, "title" | "description" | "status" | "bot_id">>) => request<WorkItem>(`/api/work-items/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(input) }),
   executeWorkItem: (id: string, request_id: string) => request<{ work_item: WorkItem; run: Run; duplicate: boolean }>(`/api/work-items/${encodeURIComponent(id)}/execute`, json({ request_id })),

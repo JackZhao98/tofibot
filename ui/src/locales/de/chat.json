@@ -169,7 +169,13 @@
     "note_group": "Dateien auf dem gemeinsamen Computer bleiben erhalten. Das lässt sich in der App nicht rückgängig machen.",
     "retry": "Erneut löschen",
     "title_bot": "Bot löschen?",
-    "title_group": "Gruppe löschen?"
+    "title_group": "Gruppe löschen?",
+    "impact_given_one": "{{count}} offene Aufgabe, die er vergeben hat, wird mit ihm abgebrochen.",
+    "impact_given_other": "{{count}} offene Aufgaben, die er vergeben hat, werden mit ihm abgebrochen.",
+    "impact_held_one": "{{count}} offene Aufgabe, die er bearbeitet, wird abgebrochen.",
+    "impact_held_other": "{{count}} offene Aufgaben, die er bearbeitet, werden abgebrochen.",
+    "impact_waits_one": "{{count}} Wartebedingung von ihm wird beendet.",
+    "impact_waits_other": "{{count}} Wartebedingungen von ihm werden beendet."
   },
   "detail": {
     "close": "Details schließen",
@@ -301,7 +307,13 @@
     "reload": "Gruppendetails neu laden",
     "reloading": "Wird neu geladen…",
     "save": "Gruppendetails speichern",
-    "title": "Gruppendetails"
+    "title": "Gruppendetails",
+    "impact_given_one": "Wird {{name}} entfernt, endet {{count}} offene Aufgabe, die er vergeben hat.",
+    "impact_given_other": "Wird {{name}} entfernt, enden {{count}} offene Aufgaben, die er vergeben hat.",
+    "impact_held_one": "Wird {{name}} entfernt, endet {{count}} offene Aufgabe, die er bearbeitet.",
+    "impact_held_other": "Wird {{name}} entfernt, enden {{count}} offene Aufgaben, die er bearbeitet.",
+    "impact_waits_one": "Wird {{name}} entfernt, endet {{count}} Wartebedingung von ihm.",
+    "impact_waits_other": "Wird {{name}} entfernt, enden {{count}} Wartebedingungen von ihm."
   },
   "message": {
     "attachment": "Anhang",
@@ -585,7 +597,11 @@
       "colleague_result": "Ergebnis der Kollegen",
       "colleague_failure": "Fehlschlag der Kollegen",
       "group_mention": "Gruppenerwähnung",
-      "other": "Sonstiges"
+      "other": "Sonstiges",
+      "waiting_on": "Offene Wartebedingungen",
+      "task_record": "Aufgabenakte",
+      "task_updates": "Aufgaben-Updates",
+      "wait_result": "Ergebnis der Wartebedingung"
     }
   },
   "run_status": {
