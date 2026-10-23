@@ -35,6 +35,9 @@ TOFI 每个版本改了什么，最新的在最上面。写给以后接手的人
 
 还没进任何 rc 的改动写在这里；打下一个 rc 时挪进那个 rc 的条目（决定 D27）。
 
+- 群里没 @ 人的消息：由后台模型按成员角色挑最合适的人回答（在岗成员只有一位时跳过；模型不可用或答案无效时退回主助理/随机）。Settings › Automatic behavior 新增“Route unaddressed group messages”和“Group routing model”（D60）。
+- reaction：模型历史里每条消息带 reaction 摘要；人给 Bot 的群消息点 reaction 会低优先级叫醒该 Bot（短时间内合并为一次、不要求回复），Bot 点的 reaction 不叫醒任何人；提示词改为用 reaction 代替简短回复来确认、同意、接活（D60）。
+
 ---
 
 ## v0.1.4（候选中，未发正式版）

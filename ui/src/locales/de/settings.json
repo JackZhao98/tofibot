@@ -885,6 +885,14 @@
       "desktop_idle_seconds": {
         "name": "Ruhezustand bei Inaktivität",
         "what": "Der gemeinsame Computer geht nach so langer Nichtnutzung in den Ruhezustand und wacht beim nächsten Werkzeugaufruf auf. Wird vom Computerdienst festgelegt."
+      },
+      "group_triage": {
+        "name": "Nicht adressierte Gruppennachrichten zuweisen",
+        "what": "Nennt eine Gruppennachricht niemanden, wählt ein Hintergrundmodell das Mitglied, dessen Rolle am besten passt. Aus schickt sie an den Primären Assistenten, ohne ihn an ein zufälliges Mitglied. Eine Gruppe mit nur einem aktiven Mitglied überspringt den Schritt."
+      },
+      "group_triage_model": {
+        "name": "Modell für die Gruppenzuweisung",
+        "what": "Das Modell, das für eine nicht adressierte Gruppennachricht das Mitglied wählt. Automatisch heißt: das Hintergrundmodell."
       }
     },
     "option": {

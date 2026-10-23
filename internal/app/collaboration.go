@@ -147,7 +147,10 @@ func (s *Store) addUserRuns(conv, content, client string, specs []runSpec, attac
 		return Message{}, nil, false, err
 	}
 	isGroup := convKind == "group"
-	if len(specs) == 0 {
+	// A group message that names no one carries either no spec or one bare
+	// triage request (no Bot yet). Both resolve inside this transaction.
+	triageAsked := len(specs) == 1 && specs[0].BotID == "" && specs[0].Kind == runKindTriage
+	if len(specs) == 0 || triageAsked {
 		kind := convKind
 		if kind != "group" {
 			return Message{}, nil, false, errors.New("at least one run target is required")
@@ -158,6 +161,18 @@ func (s *Store) addUserRuns(conv, content, client string, specs []runSpec, attac
 			return Message{}, nil, false, err
 		}
 		selected.Kind = runKindGroupChat
+		if triageAsked {
+			// The queued triage run is owned by the Bot the older rule picks, so a
+			// failed or unavailable triage can still hand the message to it. One
+			// active member leaves nothing to choose: skip the extra model call.
+			var active int
+			if err = tx.QueryRow(`SELECT COUNT(*) FROM members m JOIN bots b ON b.id=m.bot_id WHERE m.conversation_id=? AND b.archived=0`, conv).Scan(&active); err != nil {
+				return Message{}, nil, false, err
+			}
+			if active > 1 {
+				selected.Kind, selected.Model = runKindTriage, specs[0].Model
+			}
+		}
 		specs = []runSpec{selected}
 	}
 	// A human request supersedes stale queued work in an active conversation;
@@ -273,9 +288,10 @@ func (s *Store) addUserRuns(conv, content, client string, specs []runSpec, attac
 }
 
 // defaultGroupRunSpecTx chooses who answers a group message that names no
-// one: the Primary Assistant when it is an active member (the regular who
-// fields general talk and can wake others), otherwise a random active member.
-// It runs inside the ingress transaction; the saved run makes retries stable.
+// one when triage is off, skipped or unavailable: the Primary Assistant when it
+// is an active member (the regular who fields general talk and can wake
+// others), otherwise a random active member. It runs inside the ingress
+// transaction; the saved run makes retries stable.
 func (s *Store) defaultGroupRunSpecTx(tx *sql.Tx, conversationID string) (runSpec, error) {
 	var selected runSpec
 	err := tx.QueryRow(`SELECT b.id,b.model FROM members m JOIN bots b ON b.id=m.bot_id WHERE m.conversation_id=? AND b.archived=0
@@ -1346,4 +1362,17 @@ func (s *Store) CancelRunTree(id string) error {
 	}
 	s.cleanupRunTreeAttachments(id)
 	return nil
+}
+
+// fallbackGroupMember is the older rule outside a transaction: the Primary
+// Assistant when it is an active member, otherwise a random active member. A
+// failed triage hands the message to it.
+func (s *Store) fallbackGroupMember(conversationID string) (string, error) {
+	var id string
+	err := s.db.QueryRow(`SELECT b.id FROM members m JOIN bots b ON b.id=m.bot_id WHERE m.conversation_id=? AND b.archived=0
+		ORDER BY b.id=COALESCE((SELECT primary_bot_id FROM user_preferences WHERE id=1),'') DESC, RANDOM() LIMIT 1`, conversationID).Scan(&id)
+	if err == sql.ErrNoRows {
+		return "", ErrNoActiveMembers
+	}
+	return id, err
 }

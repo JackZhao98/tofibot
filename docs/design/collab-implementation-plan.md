@@ -137,6 +137,8 @@ C2（阶段 3）放在调度改造前：它只依赖阶段 2 的等待模型。B
 
 ### 阶段 5a
 
+> **进度（2026-10-23，分支 `feat/p5a-triage-reactions`）**：已做：按角色分诊（含设置、1 人跳过、失败退回旧规则）、reaction 摘要进历史、人点 reaction 低优先级合并叫醒（原属 5b 的“reaction 叫醒”一并提前做完，限群；见 D60）。未做（等阶段 2 的任务与等待合入）：`claim_task` / `pass_task`、认领界面、任务卡片，以及分诊提示里的“本群未完成任务和负责人”。
+
 - 分诊：复用 `runKindTriage`，无 @ 的群消息建 triage run 取代 `defaultGroupRunSpecTx`；模型拿名单、角色、本群未完成任务和负责人，严格解析；1 个成员跳过；后台模型不可用退回现行规则。
 - 认领与转交：`claim_task` / `pass_task`；转交后负责人变、派活人不变。
 - reaction 进上下文：历史里每条消息带紧凑 reaction 摘要。

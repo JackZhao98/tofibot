@@ -222,7 +222,7 @@ func TestCodexOnlyWorkspaceFallsBackToCodexModel(t *testing.T) {
 func TestAutomationSettingsInventoryAndDefaults(t *testing.T) {
 	s := providerServer(t, nil, nil)
 	body := autoGet(t, s)
-	want := []string{autoConversationModel, autoBackgroundModel, autoStructuredOutput, autoForceSayHaikuDM, autoWebSearch, autoGroupExchangeGists, autoOwnRepliesVerbatim, autoCompletionReview, autoAnswerGate, autoMCPReview, autoRememberedApprovalHrs, autoProviderRetries, autoScheduleReceiptReview, autoDesktopIdle}
+	want := []string{autoConversationModel, autoBackgroundModel, autoStructuredOutput, autoForceSayHaikuDM, autoWebSearch, autoGroupExchangeGists, autoOwnRepliesVerbatim, autoCompletionReview, autoAnswerGate, autoMCPReview, autoRememberedApprovalHrs, autoProviderRetries, autoScheduleReceiptReview, autoDesktopIdle, autoGroupTriage, autoGroupTriageModel}
 	if len(body.Items) != len(want) {
 		t.Fatalf("%d items, want %d", len(body.Items), len(want))
 	}
@@ -231,7 +231,7 @@ func TestAutomationSettingsInventoryAndDefaults(t *testing.T) {
 			t.Fatalf("item %d is %s, want %s", i, body.Items[i].Key, key)
 		}
 	}
-	defaults := map[string]any{autoConversationModel: "claude-sonnet-5-5", autoStructuredOutput: true, autoForceSayHaikuDM: true, autoWebSearch: true, autoGroupExchangeGists: true, autoOwnRepliesVerbatim: float64(3), autoCompletionReview: true, autoAnswerGate: float64(2), autoMCPReview: "off", autoRememberedApprovalHrs: float64(24), autoProviderRetries: float64(8), autoScheduleReceiptReview: true}
+	defaults := map[string]any{autoConversationModel: "claude-sonnet-5-5", autoStructuredOutput: true, autoForceSayHaikuDM: true, autoWebSearch: true, autoGroupExchangeGists: true, autoGroupTriage: true, autoOwnRepliesVerbatim: float64(3), autoCompletionReview: true, autoAnswerGate: float64(2), autoMCPReview: "off", autoRememberedApprovalHrs: float64(24), autoProviderRetries: float64(8), autoScheduleReceiptReview: true}
 	for key, def := range defaults {
 		item := body.find(t, key)
 		if item.Default != def || item.Value != def || item.Source != "default" {
@@ -263,6 +263,8 @@ func TestAutomationSettingsReadWriteEachItem(t *testing.T) {
 		{autoRememberedApprovalHrs, "48", float64(48), func() bool { return s.rememberedApprovalWindow().Hours() == 48 }},
 		{autoProviderRetries, "2", float64(2), func() bool { return s.providerRetries() == 2 }},
 		{autoScheduleReceiptReview, "false", false, func() bool { return !s.scheduleReceiptReviewEnabled() }},
+		{autoGroupTriage, "false", false, func() bool { return !s.groupTriageEnabled() }},
+		{autoGroupTriageModel, `"gpt-5-mini"`, "gpt-5-mini", func() bool { return s.groupTriageModel() == "gpt-5-mini" }},
 		{autoBackgroundModel, `"gpt-5-mini"`, "gpt-5-mini", func() bool { return s.backgroundModel(backgroundTriage) == "gpt-5-mini" }},
 		{autoConversationModel, `"gpt-6-luna"`, "gpt-6-luna", func() bool { m, _ := s.modelDefaults(); return m == "gpt-6-luna" }},
 	}

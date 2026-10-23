@@ -68,6 +68,7 @@
 | D55 | 只接受 `127.0.0.1` 回调的服务（Robinhood）：连接带 `oauth.redirect_policy: loopback`，从不登记或使用非环回回调；网页端一律“粘贴回填”（在自己浏览器登录，把落在打不开的 127.0.0.1 页上的地址贴回来），不走 https 弹窗；注册被 `invalid_redirect_uri` 码拒绝时自动记为环回 | 2026-10-22 | owner：“最稳当的就是用 127 然后粘贴回来链接”。固定端口沿用桌面的 43821；服务端是唯一解析方（严格比对主机/路径、state 常量时间、PKCE S256、服务方声明时校验 `iss`/RFC 9207），不回显不记录；待线上核实：用真实 Robinhood 账户确认端口、路径、`iss` | [0055](0055-loopback-only-oauth.md) |
 | D56 | 放行就动手：提示词写明“放行/已定方案=现在用工具做”，委派确认改用 `say(message)`；`say` 加必填自标 `outcome`，自标还有活没做（或说已交出却没叫醒任何人）且本轮没建定时的回答退回一次（所有非定时 run） | 2026-10-22 | B2：群里多 Bot 只答应不干活。电脑工具本来拿得到；根因是说完即交付、零工具回答从不复核、提示词把“开始吧”引向短回复。对标 Anthropic `default_to_action` 与 Claude Code Stop hook；自标不靠关键词 | [0056](0056-go-ahead-means-act.md) |
 | D57 | MCP 连接允许旧版 `initialize` 回退（所有连接）；只放宽协议版本，旧 SSE 传输仍拒绝 | 2026-10-23 | 真实服务（如 Robinhood）仍在旧规范，被 TOFI 自己的中间件拦死；SDK 原生回退即可。仅版本全不在支持范围时报 `unsupported_protocol` | [0057](0057-mcp-legacy-initialize-fallback.md) |
+| D60 | 群里没 @ 人的消息由后台模型按角色挑成员（设置可关、可换模型；失败退回主助理/随机）；人点的 reaction 进历史并低优先级叫醒该 Bot（合并、不要求回复），Bot 点的永不叫醒 | 2026-10-23 | 现行分诊只是主助理或随机；reaction 是单向通道。对标 AutoGen 选择器；reaction 不改任务状态 | [0060](0060-group-triage-and-reactions.md) |
 
 ## 怎么新增一条决定
 

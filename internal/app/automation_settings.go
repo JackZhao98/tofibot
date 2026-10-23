@@ -44,6 +44,8 @@ const (
 	autoProviderRetries       = "provider_retries"
 	autoScheduleReceiptReview = "schedule_receipt_review"
 	autoDesktopIdle           = "desktop_idle_seconds"
+	autoGroupTriage           = "group_triage"
+	autoGroupTriageModel      = "group_triage_model"
 
 	// defaultConversationModel is what conversations, scheduled runs and tool
 	// use run on until the owner picks another model.
@@ -94,6 +96,8 @@ var automationItems = []automationItem{
 	{Key: autoProviderRetries, Group: "reliability", Kind: autoKindInt, Default: strconv.Itoa(defaultProviderRetries), Min: 0, Max: 10, Env: "TOFI_PROVIDER_RETRIES"},
 	{Key: autoScheduleReceiptReview, Group: "schedules", Kind: autoKindBool, Default: "true"},
 	{Key: autoDesktopIdle, Group: "computer", Kind: autoKindReadOnly, Unit: "seconds"},
+	{Key: autoGroupTriage, Group: "replies", Kind: autoKindBool, Default: "true"},
+	{Key: autoGroupTriageModel, Group: "models", Kind: autoKindModel},
 }
 
 func automationItemFor(key string) (automationItem, bool) {
@@ -292,6 +296,26 @@ func (s *Server) fetchUses(model string, tools []Tool) int {
 	return webFetchMaxUses(model, tools)
 }
 
+// automaticModelItem names the model items that may be left on "automatic"
+// (an empty stored value) instead of holding a concrete model.
+func automaticModelItem(key string) bool {
+	return key == autoBackgroundModel || key == autoGroupTriageModel
+}
+
+// groupTriageEnabled says whether a group message that names no one is routed
+// by a background model to the best-suited member. Off restores the older rule
+// (the Primary Assistant, else a random member).
+func (s *Server) groupTriageEnabled() bool { return s.autoBool(autoGroupTriage) }
+
+// groupTriageModel is the model that routes unaddressed group messages: the
+// one chosen for this item, else the background model.
+func (s *Server) groupTriageModel() string {
+	if stored, ok := s.autoStored(autoGroupTriageModel); ok && stored != "" {
+		return stored
+	}
+	return s.backgroundModel(backgroundTriage)
+}
+
 func (s *Server) groupExchangeGistsEnabled() bool { return s.autoBool(autoGroupExchangeGists) }
 func (s *Server) ownRepliesVerbatim() int         { return s.autoInt(autoOwnRepliesVerbatim) }
 func (s *Server) completionReviewEnabled() bool   { return s.autoBool(autoCompletionReview) }
@@ -391,6 +415,8 @@ func (s *Server) automationView(ctx context.Context, item automationItem) automa
 	switch item.Key {
 	case autoBackgroundModel:
 		def = s.backgroundDefaultModel(backgroundTriage)
+	case autoGroupTriageModel:
+		def = s.backgroundModel(backgroundTriage)
 	}
 	v.Default = typedAutomationValue(item.Kind, def)
 	env, envSet := autoEnv(item)
@@ -417,6 +443,9 @@ func (s *Server) automationView(ctx context.Context, item automationItem) automa
 			cur = env
 		}
 		v.Effective = s.backgroundModel(backgroundTriage)
+	case autoGroupTriageModel:
+		cur, _ = s.autoStored(item.Key) // "" = the background model
+		v.Effective = s.groupTriageModel()
 	case autoDesktopIdle:
 		v.ReadOnly = true
 		v.Value, v.Default = nil, nil
@@ -432,17 +461,17 @@ func (s *Server) automationView(ctx context.Context, item automationItem) automa
 	default:
 		cur = s.autoValue(item.Key)
 	}
-	if envSet && item.Key != autoBackgroundModel {
+	if envSet && !automaticModelItem(item.Key) {
 		cur = env
 	}
-	if item.Key == autoBackgroundModel {
+	if automaticModelItem(item.Key) {
 		v.Value = cur
 	} else {
 		v.Value = typedAutomationValue(item.Kind, cur)
 	}
 	if v.Source == "" {
 		v.Source = "default"
-		if item.Key == autoBackgroundModel {
+		if automaticModelItem(item.Key) {
 			if cur != "" {
 				v.Source = "stored"
 			}
@@ -565,7 +594,7 @@ func (s *Server) parseAutomationValue(ctx context.Context, item automationItem, 
 			return nil, errors.New("expected a model ID")
 		}
 		v = strings.TrimSpace(v)
-		if item.Key == autoBackgroundModel {
+		if automaticModelItem(item.Key) {
 			switch strings.ToLower(v) {
 			case "", "auto", followGlobalModel:
 				return nil, nil // automatic
