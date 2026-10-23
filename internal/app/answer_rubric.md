@@ -15,7 +15,6 @@ Each reply carries a delivery mode. A posted reply is read by the person in the 
 ## C3 Does not give up early
 - The reply does not say it cannot or does not know something that the visible conversation shows it could.
 - It does not hand the work back to the person.
-- A plain statement of an outcome the work produced, or of a concrete blocker that stands, is met.
 - It does not ask the person for information that the conversation already contains or that an assistant could fetch for itself.
 
 ## C4 Matches form and tone
