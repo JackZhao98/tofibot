@@ -91,7 +91,7 @@ func TestWorkspaceCapabilitiesLoadsAnOnDemandToolForTheRun(t *testing.T) {
 	model := newFakeModel(t,
 		fakeStep{calls: []fakeCall{{"c1", "workspace_capabilities", `{"names":["workspace_list"]}`}}},
 		fakeStep{calls: []fakeCall{{"c2", "workspace_list", `{}`}}},
-		fakeStep{calls: []fakeCall{{"c3", "say", `{"purpose":"answer","text":"Listed."}`}}})
+		fakeStep{calls: []fakeCall{{"c3", "say", `{"purpose":"answer","outcome":"done","text":"Listed."}`}}})
 	s.engine = model.engine(t)
 	s.enqueue(c, old)
 	if got := waitRunTerminal(t, s, old.ID); got.Status != "done" {

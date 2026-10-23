@@ -39,7 +39,7 @@ func TestCiteTagsNeverReachStoredText(t *testing.T) {
 	}
 	live.structured = true
 	ctx := runtime.WithToolCallID(context.Background(), "cite1")
-	raw, _ := json.Marshal(map[string]string{"purpose": "answer", "text": in})
+	raw, _ := json.Marshal(map[string]string{"purpose": "answer", "outcome": "done", "text": in})
 	if _, err := s.sayTool(c, live).Execute(ctx, raw); err != nil {
 		t.Fatal(err)
 	}

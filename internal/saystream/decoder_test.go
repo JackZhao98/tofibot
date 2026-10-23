@@ -126,6 +126,25 @@ func TestDecoderToleratesMalformedInput(t *testing.T) {
 	}
 }
 
+func TestDecoderExposesOutcome(t *testing.T) {
+	var d Decoder
+	d.Feed(`{"purpose":"answer","outcome":"pen`)
+	if _, known := d.Outcome(); known {
+		t.Fatal("outcome known before its string closed")
+	}
+	got := d.Feed(`ding","text":"hi"}`)
+	if o, known := d.Outcome(); !known || o != "pending" || got != "hi" {
+		t.Fatalf("outcome = %q known=%v text=%q", o, known, got)
+	}
+	var e Decoder
+	if out := e.Feed(`{"purpose":"answer","text":"hi","outcome":"done"}`); out != "hi" {
+		t.Fatalf("text = %q", out)
+	}
+	if o, known := e.Outcome(); !known || o != "done" {
+		t.Fatalf("late outcome = %q known=%v", o, known)
+	}
+}
+
 func FuzzDecoderNeverPanics(f *testing.F) {
 	f.Add(args("answer", "hello \"world\" \n 😀"), 5)
 	f.Add(`{"purpose":"note"`, 3)

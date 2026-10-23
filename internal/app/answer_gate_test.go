@@ -109,7 +109,7 @@ func gateChatRun(t *testing.T, engine runtime.Engine, g *gradeProvider) (*Server
 }
 
 func sayAnswerCall(id, text string) fakeCall {
-	args, _ := json.Marshal(map[string]string{"purpose": "answer", "text": text})
+	args, _ := json.Marshal(map[string]string{"purpose": "answer", "outcome": "done", "text": text})
 	return fakeCall{id, "say", string(args)}
 }
 
@@ -269,10 +269,10 @@ func gateRunWithStore(t *testing.T, g *gradeProvider) (*Server, Run) {
 	t.Helper()
 	engine := dmFuncEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
 		req.OnToolCallDelta(runtime.ToolCallDelta{Index: 0, ID: "g1", Name: "say"})
-		for _, f := range []string{`{"purpose":"answer",`, `"text":"Held `, `then shown."}`} {
+		for _, f := range []string{`{"purpose":"answer","outcome":"done",`, `"text":"Held `, `then shown."}`} {
 			req.OnToolCallDelta(runtime.ToolCallDelta{Index: 0, Arguments: f})
 		}
-		_, err := callTool(ctx, req, "say", "g1", map[string]any{"purpose": "answer", "text": "Held then shown."})
+		_, err := callTool(ctx, req, "say", "g1", map[string]any{"purpose": "answer", "outcome": "done", "text": "Held then shown."})
 		return runtime.Result{}, err
 	})
 	return gateRunWith(t, engine, g, "")
@@ -313,10 +313,10 @@ func TestPersonTriggeredAnswerStreamsAndIsNeverGraded(t *testing.T) {
 	g := &gradeProvider{replies: []string{gradeGap}}
 	s, run := gateChatRun(t, dmFuncEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
 		req.OnToolCallDelta(runtime.ToolCallDelta{Index: 0, ID: "g1", Name: "say"})
-		req.OnToolCallDelta(runtime.ToolCallDelta{Index: 0, Arguments: `{"purpose":"answer","text":"Streams `})
+		req.OnToolCallDelta(runtime.ToolCallDelta{Index: 0, Arguments: `{"purpose":"answer","outcome":"done","text":"Streams `})
 		time.Sleep(150 * time.Millisecond) // the draft flushes on a timer
 		req.OnToolCallDelta(runtime.ToolCallDelta{Index: 0, Arguments: `right away."}`})
-		_, err := callTool(ctx, req, "say", "g1", map[string]any{"purpose": "answer", "text": "Streams right away."})
+		_, err := callTool(ctx, req, "say", "g1", map[string]any{"purpose": "answer", "outcome": "done", "text": "Streams right away."})
 		return runtime.Result{}, err
 	}), g)
 	if run.Status != "done" || g.calls.Load() != 0 {
