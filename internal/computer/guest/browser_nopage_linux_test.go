@@ -22,8 +22,10 @@ type nopageChrome struct {
 	mu     sync.Mutex
 	pages  []*fakePage
 	opened int
-	port   int
-	server *httptest.Server
+	// navError, when set, is the errorText Page.navigate answers with.
+	navError string
+	port     int
+	server   *httptest.Server
 }
 
 type fakePage struct {
@@ -98,6 +100,9 @@ func (f *nopageChrome) cdp(_ context.Context, wsURL string, _ int, method string
 		}
 		return json.RawMessage(`{}`), nil
 	case "Page.navigate":
+		if f.navError != "" {
+			return json.RawMessage(`{"errorText":"` + f.navError + `"}`), nil
+		}
 		page.url, _ = params["url"].(string)
 		return json.RawMessage(`{"frameId":"f","loaderId":"l"}`), nil
 	case "Page.getFrameTree":
