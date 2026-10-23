@@ -398,13 +398,13 @@ func newScheduledApprovalModel(t *testing.T, outcome string, remoteCalls *atomic
 					t.Errorf("receipt without remote evidence: %q", seen["execute-after"])
 				}
 				if sayProtocol {
-					call("receipt", "say", `{"purpose":"answer","text":"Synthetic scheduled write delivered.","sources":["fixture"]}`)
+					call("receipt", "say", `{"purpose":"answer","outcome":"done","text":"Synthetic scheduled write delivered.","sources":["fixture"]}`)
 				} else {
 					call("receipt", "complete_scheduled_task", `{"content":"Synthetic scheduled write delivered."}`)
 				}
 			case sayProtocol && outcome == "approve" && seen["receipt-again"] == "" && !strings.Contains(seen["receipt"], "Delivered"):
 				// The answer's one-time review refused it; send it again.
-				call("receipt-again", "say", `{"purpose":"answer","text":"Synthetic scheduled write delivered.","sources":["fixture"]}`)
+				call("receipt-again", "say", `{"purpose":"answer","outcome":"done","text":"Synthetic scheduled write delivered.","sources":["fixture"]}`)
 			default:
 				content := "Synthetic scheduled write delivered."
 				if outcome != "approve" {

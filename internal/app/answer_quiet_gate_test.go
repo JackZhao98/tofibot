@@ -116,7 +116,7 @@ func TestSayRefusesInvisibleTextForAnswerMessageAndNote(t *testing.T) {
 	tool := s.sayTool(c, live)
 	for _, purpose := range []string{"answer", "message", "note"} {
 		for _, text := range []string{"", "  \n\t", "\u200b", "\u200b\u200c\u200d\u2060\ufeff", "\x00", " \u200b\x00 "} {
-			args, _ := json.Marshal(map[string]string{"purpose": purpose, "text": text})
+			args, _ := json.Marshal(map[string]string{"purpose": purpose, "outcome": "done", "text": text})
 			_, err := tool.Execute(runtime.WithToolCallID(context.Background(), "inv-"+purpose), args)
 			o, ok := tooloutcome.FromError(err)
 			if !ok || o.Code != "say_text_empty" || o.Status != tooloutcome.Validation || o.NextAction != "repair_arguments" || o.Certainty != "not_executed" {
@@ -128,7 +128,7 @@ func TestSayRefusesInvisibleTextForAnswerMessageAndNote(t *testing.T) {
 		t.Fatal("an invisible answer was recorded")
 	}
 	// NUL is stripped from text that is otherwise visible.
-	if _, err := tool.Execute(runtime.WithToolCallID(context.Background(), "nul-1"), json.RawMessage(`{"purpose":"answer","text":"hel\u0000lo"}`)); err != nil {
+	if _, err := tool.Execute(runtime.WithToolCallID(context.Background(), "nul-1"), json.RawMessage(`{"purpose":"answer","outcome":"done","text":"hel\u0000lo"}`)); err != nil {
 		t.Fatal(err)
 	}
 	if rec, ok := s.store.sayAnswer(live.ID); !ok || rec.Text != "hello" {

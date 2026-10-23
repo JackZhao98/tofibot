@@ -3721,10 +3721,11 @@ func (s *Server) execute(c Conversation, r Run) {
 			// A say call's text is the only thing that streams into the chat
 			// draft; plain text goes to the live status line instead.
 			state := &sayRunState{
-				holdAnswers: saySendsSources(r),
-				raw:         controls.Raw,
-				reset:       controls.Reset,
-				flush:       controls.Flush,
+				holdAnswers:   saySendsSources(r),
+				checksPending: !saySendsSources(r),
+				raw:           controls.Raw,
+				reset:         controls.Reset,
+				flush:         controls.Flush,
 				demote: func(text string) {
 					demotedMu.Lock()
 					demoted = demotedDraft{turn: maxAssistantTurns, content: text}

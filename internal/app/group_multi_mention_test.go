@@ -201,7 +201,7 @@ func TestSayWakingAnAddressedBotIsRefusedThenThePlainAnswerPublishes(t *testing.
 		if req.BotID != f.tofi.ID {
 			return reply(ctx, req, "metaphor: foundations first", nil)
 		}
-		_, err := callTool(ctx, req, "say", "wake-"+req.RunID, map[string]any{"purpose": "answer", "text": "Strength first.", "wake": wakeOf(f.meta.ID, "add your angle")})
+		_, err := callTool(ctx, req, "say", "wake-"+req.RunID, map[string]any{"purpose": "answer", "outcome": "done", "text": "Strength first.", "wake": wakeOf(f.meta.ID, "add your angle")})
 		if err == nil {
 			refusals = append(refusals, "accepted")
 			return ""

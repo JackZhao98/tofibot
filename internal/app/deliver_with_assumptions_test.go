@@ -23,7 +23,7 @@ type noteThenAnswerEngine struct {
 
 func (e *noteThenAnswerEngine) Run(ctx context.Context, req runtime.Request) (runtime.Result, error) {
 	if req.BotID == e.noteBot {
-		if _, err := callTool(ctx, req, "say", "note-"+req.RunID, map[string]any{"purpose": "note", "text": e.note}); err != nil {
+		if _, err := callTool(ctx, req, "say", "note-"+req.RunID, map[string]any{"purpose": "note", "outcome": "pending", "text": e.note}); err != nil {
 			return runtime.Result{Content: "ERR " + err.Error()}, nil
 		}
 	}
@@ -131,7 +131,7 @@ type noteThenSilentEngine struct {
 func (e *noteThenSilentEngine) Run(ctx context.Context, req runtime.Request) (runtime.Result, error) {
 	if req.BotID == e.inputBot {
 		if e.note != "" {
-			if _, err := callTool(ctx, req, "say", "note-"+req.RunID, map[string]any{"purpose": "note", "text": e.note}); err != nil {
+			if _, err := callTool(ctx, req, "say", "note-"+req.RunID, map[string]any{"purpose": "note", "outcome": "pending", "text": e.note}); err != nil {
 				return runtime.Result{Content: "ERR " + err.Error()}, nil
 			}
 		}
