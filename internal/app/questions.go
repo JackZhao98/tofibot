@@ -554,6 +554,10 @@ func (s *Store) CreateQuestion(conv string, run Run, in askQuestionInput) (Quest
 		q.Status = questionRunDone
 	}
 	_, err = s.db.Exec(`INSERT INTO questions(id,run_id,conversation_id,bot_id,type,prompt,options_json,min_selections,max_selections,status,created_at,expires_at,updated_at,fields_json,source_url,allow_other,approval_json,private_input,handover_target) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, q.ID, q.RunID, q.ConversationID, q.BotID, q.Type, q.Prompt, string(opts), q.MinSelections, q.MaxSelections, q.Status, q.CreatedAt, nullString(q.ExpiresAt), q.UpdatedAt, string(fields), q.SourceURL, q.AllowOther, approval, q.PrivateInput, q.Target)
+	if err == nil {
+		// The question is one of the run's open waits while it is pending.
+		s.mirrorHumanAnswerWait(q)
+	}
 	return q, err
 }
 

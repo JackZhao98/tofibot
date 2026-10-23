@@ -156,7 +156,7 @@ func (s *Store) listWorkItemExecutions(workItemID string, limit int, conversatio
 		return nil, err
 	}
 	defer tx.Rollback()
-	item, err := scanWorkItem(tx.QueryRow(`SELECT `+workItemColumns+` FROM work_items WHERE id=?`, workItemID))
+	item, err := scanWorkItem(tx.QueryRow(`SELECT `+workItemAllColumns+` FROM work_items WHERE id=?`, workItemID))
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +261,7 @@ func (s *Store) StartWorkItem(id, requestID string) (Run, bool, error) {
 		return Run{}, false, err
 	}
 	defer tx.Rollback()
-	item, err := scanWorkItem(tx.QueryRow(`SELECT `+workItemColumns+` FROM work_items WHERE id=?`, id))
+	item, err := scanWorkItem(tx.QueryRow(`SELECT `+workItemAllColumns+` FROM work_items WHERE id=?`, id))
 	if err != nil {
 		return Run{}, false, err
 	}

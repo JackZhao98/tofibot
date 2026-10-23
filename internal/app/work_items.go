@@ -15,7 +15,12 @@ import (
 var ErrWorkItemInvalid = errors.New("invalid work item")
 var ErrWorkItemScope = errors.New("work item is outside the current conversation")
 
+// workItemColumns are the original columns of a board item; the task columns
+// (docs/decisions/0059-tasks-and-waits.md) follow them. Inserts that predate
+// tasks name only the original ones: the others default to a self-recorded item.
 const workItemColumns = `id,conversation_id,bot_id,kind,title,description,status,parent_goal_id,created_at,updated_at,completed_at`
+const workItemTaskColumns = `assigner_kind,assigner_bot_id,root_task_id,parent_task_id,origin_run_id,assignee_run_id,work_conversation_id,spec_version,run_spec_version,result_message_id,result_based_on_version,result_summary,depends_on,stall_count,message_count,submit_run_id,closed_at`
+const workItemAllColumns = workItemColumns + `,` + workItemTaskColumns
 
 type WorkItem struct {
 	Execution            *WorkItemExecution `json:"execution,omitempty"`
@@ -34,6 +39,29 @@ type WorkItem struct {
 	CreatedAt            string             `json:"created_at"`
 	UpdatedAt            string             `json:"updated_at"`
 	CompletedAt          string             `json:"completed_at,omitempty"`
+
+	// Task fields. A board item is also a task: who gave it, which tree it
+	// belongs to, which version of the request it follows and what came back.
+	AssignerKind         string          `json:"assigner_kind,omitempty"`
+	AssignerBotID        string          `json:"assigner_bot_id,omitempty"`
+	AssignerBotName      string          `json:"assigner_bot_name,omitempty"`
+	RootTaskID           string          `json:"root_task_id,omitempty"`
+	ParentTaskID         string          `json:"parent_task_id,omitempty"`
+	OriginRunID          string          `json:"origin_run_id,omitempty"`
+	AssigneeRunID        string          `json:"assignee_run_id,omitempty"`
+	WorkConversationID   string          `json:"work_conversation_id,omitempty"`
+	SpecVersion          int             `json:"spec_version"`
+	RunSpecVersion       int             `json:"-"`
+	ResultMessageID      string          `json:"result_message_id,omitempty"`
+	ResultBasedOnVersion int             `json:"result_based_on_version,omitempty"`
+	ResultSummary        string          `json:"result_summary,omitempty"`
+	DependsOn            string          `json:"depends_on,omitempty"`
+	StallCount           int             `json:"stall_count,omitempty"`
+	MessageCount         int             `json:"message_count,omitempty"`
+	SubmitRunID          string          `json:"-"`
+	ClosedAt             string          `json:"closed_at,omitempty"`
+	Checklist            []ChecklistItem `json:"checklist,omitempty"`
+	WaitingOn            []WaitView      `json:"waiting_on,omitempty"`
 }
 
 type WorkItemInput struct {
@@ -51,35 +79,73 @@ type WorkItemPatch struct {
 	BotID       *string `json:"bot_id,omitempty"`
 }
 
-func migrateWorkItems(db *sql.DB) error {
-	if db == nil {
-		return errors.New("work item database is required")
-	}
-	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS work_items (
+// workItemsDDL is the table as it is since tasks: the original columns, the
+// task columns, and a status CHECK that also allows input_required and failed.
+func workItemsDDL(name string) string {
+	return `CREATE TABLE ` + name + ` (
  id TEXT PRIMARY KEY,
  conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
  bot_id TEXT NOT NULL REFERENCES bots(id),
  kind TEXT NOT NULL CHECK(kind IN ('goal','task')),
  title TEXT NOT NULL,
  description TEXT NOT NULL DEFAULT '',
- status TEXT NOT NULL CHECK(status IN ('todo','in_progress','blocked','review','done','cancelled')),
- parent_goal_id TEXT REFERENCES work_items(id),
+ status TEXT NOT NULL CHECK(status IN ('todo','in_progress','blocked','review','done','cancelled','input_required','failed')),
+ parent_goal_id TEXT REFERENCES ` + name + `(id),
  created_at TEXT NOT NULL,
  updated_at TEXT NOT NULL,
- completed_at TEXT NOT NULL DEFAULT ''
- );
- CREATE INDEX IF NOT EXISTS work_items_conversation ON work_items(conversation_id,status,updated_at);
+ completed_at TEXT NOT NULL DEFAULT '',
+ assigner_kind TEXT NOT NULL DEFAULT '',
+ assigner_bot_id TEXT NOT NULL DEFAULT '',
+ root_task_id TEXT NOT NULL DEFAULT '',
+ parent_task_id TEXT NOT NULL DEFAULT '',
+ origin_run_id TEXT NOT NULL DEFAULT '',
+ assignee_run_id TEXT NOT NULL DEFAULT '',
+ work_conversation_id TEXT NOT NULL DEFAULT '',
+ spec_version INTEGER NOT NULL DEFAULT 1,
+ run_spec_version INTEGER NOT NULL DEFAULT 0,
+ result_message_id TEXT NOT NULL DEFAULT '',
+ result_based_on_version INTEGER NOT NULL DEFAULT 0,
+ result_summary TEXT NOT NULL DEFAULT '',
+ depends_on TEXT NOT NULL DEFAULT '',
+ stall_count INTEGER NOT NULL DEFAULT 0,
+ message_count INTEGER NOT NULL DEFAULT 0,
+ submit_run_id TEXT NOT NULL DEFAULT '',
+ closed_at TEXT NOT NULL DEFAULT ''
+ )`
+}
+
+const workItemsIndexesDDL = `CREATE INDEX IF NOT EXISTS work_items_conversation ON work_items(conversation_id,status,updated_at);
  CREATE INDEX IF NOT EXISTS work_items_bot ON work_items(bot_id,status,updated_at);
- CREATE INDEX IF NOT EXISTS work_items_parent ON work_items(parent_goal_id);`)
+ CREATE INDEX IF NOT EXISTS work_items_parent ON work_items(parent_goal_id);
+ CREATE INDEX IF NOT EXISTS work_items_root ON work_items(root_task_id,status);
+ CREATE INDEX IF NOT EXISTS work_items_assigner ON work_items(assigner_bot_id,status);
+ CREATE INDEX IF NOT EXISTS work_items_assignee_run ON work_items(assignee_run_id);`
+
+func migrateWorkItems(db *sql.DB) error {
+	if db == nil {
+		return errors.New("work item database is required")
+	}
+	var schema string
+	err := db.QueryRow(`SELECT sql FROM sqlite_master WHERE type='table' AND name='work_items'`).Scan(&schema)
+	if err == sql.ErrNoRows {
+		if _, err = db.Exec(strings.Replace(workItemsDDL("work_items"), "CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ", 1) + `;` + workItemsIndexesDDL); err != nil {
+			return err
+		}
+		return nil
+	}
 	if err != nil {
 		return err
 	}
-	var schema string
-	if err := db.QueryRow(`SELECT sql FROM sqlite_master WHERE type='table' AND name='work_items'`).Scan(&schema); err != nil {
+	if strings.Contains(schema, "'input_required'") {
+		// Already rebuilt. A table that gained the columns by a partial run is
+		// completed one column at a time.
+		for _, column := range strings.Split(workItemTaskColumns, ",") {
+			if err := ensureColumn(db, "work_items", column, `ALTER TABLE work_items ADD COLUMN `+workItemColumnDDL(column)); err != nil {
+				return err
+			}
+		}
+		_, err = db.Exec(workItemsIndexesDDL)
 		return err
-	}
-	if strings.Contains(schema, "'review'") {
-		return nil
 	}
 	// The existing CHECK constraint cannot be expanded with ALTER TABLE. Rebuild
 	// transactionally so production work items and parent links survive upgrade.
@@ -92,34 +158,36 @@ func migrateWorkItems(db *sql.DB) error {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err = tx.Exec(`CREATE TABLE work_items_next (
- id TEXT PRIMARY KEY,
- conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
- bot_id TEXT NOT NULL REFERENCES bots(id),
- kind TEXT NOT NULL CHECK(kind IN ('goal','task')),
- title TEXT NOT NULL,
- description TEXT NOT NULL DEFAULT '',
- status TEXT NOT NULL CHECK(status IN ('todo','in_progress','blocked','review','done','cancelled')),
- parent_goal_id TEXT REFERENCES work_items_next(id),
- created_at TEXT NOT NULL,
- updated_at TEXT NOT NULL,
- completed_at TEXT NOT NULL DEFAULT ''
- );
+	if _, err = tx.Exec(workItemsDDL("work_items_next") + `;
  INSERT INTO work_items_next (` + workItemColumns + `) SELECT ` + workItemColumns + ` FROM work_items;
  DROP TABLE work_items;
  ALTER TABLE work_items_next RENAME TO work_items;
- CREATE INDEX work_items_conversation ON work_items(conversation_id,status,updated_at);
- CREATE INDEX work_items_bot ON work_items(bot_id,status,updated_at);
- CREATE INDEX work_items_parent ON work_items(parent_goal_id);`); err != nil {
+ UPDATE work_items SET assigner_kind='self',assigner_bot_id=bot_id,root_task_id=id WHERE assigner_kind='';
+ ` + workItemsIndexesDDL); err != nil {
 		return err
 	}
 	return tx.Commit()
 }
 
+// workItemColumnDDL is the column definition of one task column, for a table
+// that has to be completed with ALTER TABLE.
+func workItemColumnDDL(column string) string {
+	switch column {
+	case "spec_version":
+		return column + ` INTEGER NOT NULL DEFAULT 1`
+	case "run_spec_version", "result_based_on_version", "stall_count", "message_count":
+		return column + ` INTEGER NOT NULL DEFAULT 0`
+	}
+	return column + ` TEXT NOT NULL DEFAULT ''`
+}
+
+// scanWorkItem reads workItemAllColumns, then (when names is true) the
+// conversation and Bot names.
 func scanWorkItem(row interface{ Scan(...any) error }, names ...bool) (WorkItem, error) {
 	var item WorkItem
 	var parent sql.NullString
-	dest := []any{&item.ID, &item.ConversationID, &item.BotID, &item.Kind, &item.Title, &item.Description, &item.Status, &parent, &item.CreatedAt, &item.UpdatedAt, &item.CompletedAt}
+	dest := []any{&item.ID, &item.ConversationID, &item.BotID, &item.Kind, &item.Title, &item.Description, &item.Status, &parent, &item.CreatedAt, &item.UpdatedAt, &item.CompletedAt,
+		&item.AssignerKind, &item.AssignerBotID, &item.RootTaskID, &item.ParentTaskID, &item.OriginRunID, &item.AssigneeRunID, &item.WorkConversationID, &item.SpecVersion, &item.RunSpecVersion, &item.ResultMessageID, &item.ResultBasedOnVersion, &item.ResultSummary, &item.DependsOn, &item.StallCount, &item.MessageCount, &item.SubmitRunID, &item.ClosedAt}
 	if len(names) > 0 && names[0] {
 		dest = append(dest, &item.ConversationName, &item.BotName, &item.ConversationArchived, &item.BotArchived)
 	}
@@ -147,7 +215,7 @@ func validateWorkItem(item WorkItem) error {
 		return fmt.Errorf("%w: only tasks may reference a parent goal", ErrWorkItemInvalid)
 	}
 	switch item.Status {
-	case "todo", "in_progress", "blocked", "review", "done", "cancelled":
+	case "todo", "in_progress", "blocked", "review", "done", "cancelled", "input_required", "failed":
 	default:
 		return fmt.Errorf("%w: invalid status", ErrWorkItemInvalid)
 	}
@@ -212,10 +280,22 @@ func (s *Store) createWorkItem(conversationID, botID string, in WorkItemInput, a
 			return WorkItem{}, fmt.Errorf("%w: parent must be a goal in this conversation", ErrWorkItemInvalid)
 		}
 	}
-	if _, err = tx.Exec(`INSERT INTO work_items(`+workItemColumns+`) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, item.ID, item.ConversationID, item.BotID, item.Kind, item.Title, item.Description, item.Status, nullString(item.ParentGoalID), t, t, ""); err != nil {
+	// Who gave the work: the person (board form), the Bot itself, or a member
+	// that recorded it for another member.
+	item.AssignerKind, item.AssignerBotID, item.RootTaskID, item.SpecVersion = "user", "", item.ID, 1
+	if actor != "" {
+		item.AssignerKind, item.AssignerBotID = "self", actor
+		if actor != botID {
+			item.AssignerKind = "bot"
+		}
+	}
+	if _, err = tx.Exec(`INSERT INTO work_items(`+workItemColumns+`,assigner_kind,assigner_bot_id,root_task_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, item.ID, item.ConversationID, item.BotID, item.Kind, item.Title, item.Description, item.Status, nullString(item.ParentGoalID), t, t, "", item.AssignerKind, item.AssignerBotID, item.RootTaskID); err != nil {
 		return WorkItem{}, err
 	}
 	if err = workItemNamesTx(tx, &item); err != nil {
+		return WorkItem{}, err
+	}
+	if err = decorateTaskTx(tx, &item); err != nil {
 		return WorkItem{}, err
 	}
 	if err = workItemEventTx(tx, item); err != nil {
@@ -239,7 +319,7 @@ func (s *Store) updateWorkItem(id string, patch WorkItemPatch, conversationID, a
 		return WorkItem{}, err
 	}
 	defer tx.Rollback()
-	item, err := scanWorkItem(tx.QueryRow(`SELECT `+workItemColumns+` FROM work_items WHERE id=?`, id))
+	item, err := scanWorkItem(tx.QueryRow(`SELECT `+workItemAllColumns+` FROM work_items WHERE id=?`, id))
 	if err != nil {
 		return WorkItem{}, err
 	}
@@ -277,17 +357,28 @@ func (s *Store) updateWorkItem(id string, patch WorkItemPatch, conversationID, a
 		return WorkItem{}, err
 	}
 	item.UpdatedAt = now()
-	if item.Status == "done" || item.Status == "cancelled" {
+	if isClosedWorkStatus(item.Status) {
 		if item.CompletedAt == "" {
 			item.CompletedAt = item.UpdatedAt
 		}
+		item.ClosedAt = item.CompletedAt
 	} else {
-		item.CompletedAt = ""
+		item.CompletedAt, item.ClosedAt = "", ""
 	}
-	if _, err = tx.Exec(`UPDATE work_items SET bot_id=?,title=?,description=?,status=?,updated_at=?,completed_at=? WHERE id=?`, item.BotID, item.Title, item.Description, item.Status, item.UpdatedAt, item.CompletedAt, id); err != nil {
+	if _, err = tx.Exec(`UPDATE work_items SET bot_id=?,title=?,description=?,status=?,updated_at=?,completed_at=?,closed_at=? WHERE id=?`, item.BotID, item.Title, item.Description, item.Status, item.UpdatedAt, item.CompletedAt, item.ClosedAt, id); err != nil {
 		return WorkItem{}, err
 	}
+	if isClosedWorkStatus(item.Status) {
+		// A task closed by hand settles whatever waited on it, and a task
+		// cancelled by hand takes its subtree with it.
+		if err = settleClosedTaskTx(tx, item); err != nil {
+			return WorkItem{}, err
+		}
+	}
 	if err = workItemNamesTx(tx, &item); err != nil {
+		return WorkItem{}, err
+	}
+	if err = decorateTaskTx(tx, &item); err != nil {
 		return WorkItem{}, err
 	}
 	if err = workItemEventTx(tx, item); err != nil {
@@ -310,7 +401,7 @@ func workItemEventTx(tx *sql.Tx, item WorkItem) error {
 	return insertWorkspaceEventTx(tx, workspaceScopeGroups, item.UpdatedAt)
 }
 
-const workItemReadColumns = `w.id,w.conversation_id,w.bot_id,w.kind,w.title,w.description,w.status,w.parent_goal_id,w.created_at,w.updated_at,w.completed_at,c.name,b.name,c.archived,b.archived`
+const workItemReadColumns = `w.id,w.conversation_id,w.bot_id,w.kind,w.title,w.description,w.status,w.parent_goal_id,w.created_at,w.updated_at,w.completed_at,w.assigner_kind,w.assigner_bot_id,w.root_task_id,w.parent_task_id,w.origin_run_id,w.assignee_run_id,w.work_conversation_id,w.spec_version,w.run_spec_version,w.result_message_id,w.result_based_on_version,w.result_summary,w.depends_on,w.stall_count,w.message_count,w.submit_run_id,w.closed_at,c.name,b.name,c.archived,b.archived`
 const workItemReadFrom = ` FROM work_items w JOIN conversations c ON c.id=w.conversation_id JOIN bots b ON b.id=w.bot_id`
 
 func workItemNamesTx(tx *sql.Tx, item *WorkItem) error {
@@ -326,7 +417,11 @@ func (s *Store) GetWorkItem(id string) (WorkItem, error) {
 	if err != nil {
 		return WorkItem{}, err
 	}
-	return projectWorkExecutionTx(tx, item)
+	item, err = projectWorkExecutionTx(tx, item)
+	if err != nil {
+		return WorkItem{}, err
+	}
+	return item, decorateTaskTx(tx, &item)
 }
 func (s *Store) ListWorkItems(conversationID, botID string, history bool) ([]WorkItem, error) {
 	if conversationID == "" && botID == "" {
@@ -343,9 +438,9 @@ func (s *Store) ListWorkItems(conversationID, botID string, history bool) ([]Wor
 		args = append(args, botID)
 	}
 	if history {
-		query += ` AND w.status IN ('done','cancelled')`
+		query += ` AND w.status IN ('done','cancelled','failed')`
 	} else {
-		query += ` AND w.status IN ('todo','in_progress','blocked','review')`
+		query += ` AND w.status IN ('todo','in_progress','blocked','review','input_required')`
 	}
 	query += ` ORDER BY w.updated_at DESC,w.id`
 	tx, err := s.db.Begin()
@@ -374,6 +469,9 @@ func (s *Store) ListWorkItems(conversationID, botID string, history bool) ([]Wor
 	for i, item := range items {
 		items[i], err = projectWorkExecutionTx(tx, item)
 		if err != nil {
+			return nil, err
+		}
+		if err = decorateTaskTx(tx, &items[i]); err != nil {
 			return nil, err
 		}
 	}
@@ -501,6 +599,10 @@ func (s *Server) writeWorkItemError(w http.ResponseWriter, err error) {
 }
 
 func (s *Server) workItemTools(c Conversation, r Run) []Tool {
+	return append(s.workItemBoardTools(c, r), s.taskWaitTools(c, r)...)
+}
+
+func (s *Server) workItemBoardTools(c Conversation, r Run) []Tool {
 	if c.Kind != "group" && c.Kind != "dm" {
 		return nil
 	}

@@ -5,10 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"strings"
-	"time"
 
 	"github.com/JackZhao98/tofibot/internal/runtime"
 )
@@ -21,8 +19,6 @@ const (
 	dispConcluded = "concluded"
 	dispFollowUp  = "follow_up"
 )
-
-const defaultWaitTimeout = 10 * time.Minute
 
 // visibleDelegationText: the delegated text is the colleague's brief; the
 // group shows only a short handoff line that can be expanded.
@@ -224,101 +220,16 @@ func (s *Server) groupRespondTools(c Conversation, r Run) []runtime.Tool {
 	}}}
 }
 
-const waitTimeoutRequest = "The wait timed out: the Bot you were waiting for has not posted. Say plainly what is still missing, or do your part with what is available."
-
-// registerWait persists the wait with its deadline so it survives restarts.
+// registerWait persists a follow_up wait with its deadline so it survives
+// restarts. It is a wait on another member's next post (docs/decisions/0059):
+// the registration shares the wait table and the cycle check with wait_for.
 func (s *Server) registerWait(c Conversation, r Run, waitFor string) error {
-	lineage := lineageKey(s.store.db, r.ID)
 	timeout := s.waitTimeout
 	if timeout <= 0 {
-		timeout = defaultWaitTimeout
+		timeout = waitTimeoutFor(waitBotPost)
 	}
-	deadline := time.Now().UTC().Add(timeout)
-	if _, err := s.store.db.Exec(`INSERT OR REPLACE INTO run_waits(run_id,conversation_id,bot_id,wait_for,lineage,status,deadline_at,created_at) VALUES(?,?,?,?,?,'pending',?,?)`, r.ID, c.ID, r.BotID, waitFor, lineage, deadline.Format(time.RFC3339Nano), now()); err != nil {
-		return err
-	}
-	s.armWait(r.ID, deadline)
-	return nil
-}
-
-func (s *Server) armWait(runID string, deadline time.Time) {
-	time.AfterFunc(time.Until(deadline), func() { s.fireWait(runID, "", waitTimeoutRequest, "expired") })
-}
-
-// armPendingWaits re-arms every pending wait after a start. Overdue waits fire
-// immediately; the conditional status update in fireWait keeps each wake single
-// even if this runs more than once. A wait whose waiter left the group, or whose
-// conversation was deleted, wakes nobody (wake creation checks membership, and
-// deleting the conversation cascades the wait away). A newer user message does
-// not cancel a wait: the wake is just another queued run behind it.
-func (s *Server) armPendingWaits() {
-	rows, err := s.store.db.Query(`SELECT run_id,deadline_at FROM run_waits WHERE status='pending'`)
-	if err != nil {
-		return
-	}
-	type pw struct {
-		id string
-		at time.Time
-	}
-	var all []pw
-	for rows.Next() {
-		var id, at string
-		if rows.Scan(&id, &at) == nil {
-			t, e := time.Parse(time.RFC3339Nano, at)
-			if e != nil {
-				t = time.Now()
-			}
-			all = append(all, pw{id, t})
-		}
-	}
-	rows.Close()
-	for _, w := range all {
-		s.armWait(w.id, w.at)
-	}
-}
-
-// fireWait wakes a registered waiter exactly once. msgID empty means timeout.
-func (s *Server) fireWait(waitRunID, msgID, request, status string) {
-	s.mu.Lock()
-	closing := s.closing
-	s.mu.Unlock()
-	if closing {
-		return
-	}
-	res, err := s.store.db.Exec(`UPDATE run_waits SET status=? WHERE run_id=? AND status='pending'`, status, waitRunID)
-	if err != nil {
-		return
-	}
-	if n, _ := res.RowsAffected(); n != 1 {
-		return
-	}
-	var conv, bot string
-	if s.store.db.QueryRow(`SELECT conversation_id,bot_id FROM run_waits WHERE run_id=?`, waitRunID).Scan(&conv, &bot) != nil {
-		return
-	}
-	waiter, err := s.store.GetRun(waitRunID)
-	if err != nil {
-		return
-	}
-	if msgID == "" {
-		// Anchor a timeout on a message from the group, never on a person's
-		// newest message: that one belongs to whoever the person is talking to.
-		if s.store.db.QueryRow(`SELECT id FROM messages WHERE conversation_id=? AND role='assistant' AND kind<>'bot_result' ORDER BY seq DESC LIMIT 1`, conv).Scan(&msgID) != nil {
-			msgID = waiter.TriggerMessageID
-		}
-		if msgID == "" {
-			return
-		}
-	}
-	c, err := s.store.GetConversation(conv)
-	if err != nil {
-		return
-	}
-	if wake, ok, err := s.store.addMentionWake(conv, waiter, msgID, bot, request, true); err == nil && ok {
-		s.enqueue(c, wake)
-	} else if err != nil {
-		log.Printf("[run] wait wake %s: %v", waitRunID, err)
-	}
+	_, err := s.store.registerWait(WaitSpec{BotID: r.BotID, RunID: r.ID, ConversationID: c.ID, Kind: waitBotPost, Target: waitFor, Timeout: timeout, Lineage: lineageKey(s.store.db, r.ID)})
+	return err
 }
 
 // applyDisposition runs once a group run has published its final message:
@@ -357,25 +268,13 @@ func (s *Server) applyDisposition(c Conversation, r Run, msg Message) {
 			}
 		}
 	}
-	rows, err := s.store.db.Query(`SELECT run_id FROM run_waits WHERE conversation_id=? AND wait_for=? AND status='pending' AND bot_id<>? AND lineage=?`, c.ID, r.BotID, r.BotID, lineageKey(s.store.db, r.ID))
-	if err != nil {
+	// A post from a Bot someone registered to wait for ends that wait; the
+	// waiter is woken by the inbox row the wait leaves.
+	if err := s.store.fulfillBotPostWaits(c.ID, r.BotID, lineageKey(s.store.db, r.ID), msg.ID); err != nil {
+		logTaskError("fulfil waits", err)
 		return
 	}
-	var waiters []string
-	for rows.Next() {
-		var id string
-		if rows.Scan(&id) == nil {
-			waiters = append(waiters, id)
-		}
-	}
-	rows.Close()
-	name := r.BotID
-	if b, e := s.store.GetBot(r.BotID); e == nil {
-		name = b.Name
-	}
-	for _, id := range waiters {
-		s.fireWait(id, msg.ID, fmt.Sprintf("%s posted the content you were waiting for (see the message above). Continue your part with it.", name), "fulfilled")
-	}
+	s.flushInbox()
 }
 
 // respondStructuredTool is respond for a run that follows the say protocol.

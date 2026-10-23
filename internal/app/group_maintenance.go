@@ -130,6 +130,20 @@ func (s *Store) UpdateGroup(id string, patch GroupUpdate) (Conversation, error) 
 		c.Name = *patch.Name
 	}
 	if membersChanged {
+		// A member that leaves takes with it the tasks it gave and held here and
+		// the waits it kept here; the group is idle (checked above), so no run
+		// is left working on them.
+		wanted := make(map[string]bool, len(requested))
+		for _, member := range requested {
+			wanted[member] = true
+		}
+		for _, member := range current {
+			if !wanted[member] {
+				if _, err = cascadeEndBotTx(tx, member, id); err != nil {
+					return Conversation{}, err
+				}
+			}
+		}
 		if _, err = tx.Exec(`DELETE FROM members WHERE conversation_id=?`, id); err != nil {
 			return Conversation{}, err
 		}

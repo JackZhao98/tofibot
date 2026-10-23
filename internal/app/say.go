@@ -327,13 +327,14 @@ const (
 	sayOutcomeDelegated = "delegated"
 	sayOutcomePending   = "pending"
 
-	sayOutcomeDescription = "With purpose answer, what your answer leaves of the request: done (the work asked for is finished in this turn, or this reply is all that was asked), blocked (a concrete obstacle stops the work and the answer names it), delegated (other members carry the rest through wake or handoff), pending (the answer agrees to, plans or promises work that has not been carried out). With note or message, pending."
+	sayOutcomeDescription = "With purpose answer, what your answer leaves of the request: done (the work asked for is finished in this turn, or this reply is all that was asked), blocked (a concrete obstacle stops the work and the answer names it), delegated (other members carry the rest through wake or delegate), pending (the answer agrees to, plans or promises work that has not been carried out; it counts as honest only while you hold an open wait for that work). With note or message, pending."
 
 	// answerPendingWorkReminder is the private send-back for an answer that
 	// leaves agreed work undone. It states the principle only.
-	answerPendingWorkReminder = "Your answer leaves work you agreed to undone. An agreed plan or a go-ahead is the instruction to carry it out: do the work now in this turn with your tools, or start the members who own it through wake or handoff, then answer with the result. If a concrete obstacle stops you, answer with what it is and what you tried. Keep this check private; the person has not seen the draft."
+	answerPendingWorkReminder = "Your answer leaves work you agreed to undone. An agreed plan or a go-ahead is the instruction to carry it out: do the work now in this turn with your tools, or start the members who own it through wake or delegate, then answer with the result. If a concrete obstacle stops you, answer with what it is and what you tried. Keep this check private; the person has not seen the draft."
 
 	sayWakeDescription    = "With purpose answer, group chats only: other members to start once your reply is posted, each with a concrete request, at most three. Omit it to start nobody; a plain @mention starts nobody. The group sees each request only as a handed-over line, so write it for the member."
+	sayTaskDescription    = "With purpose answer: the id of a task you hold. Delivering the answer submits it as that task's result."
 	saySourcesDescription = "With purpose answer, scheduled runs only: URLs or source names behind current or external information. Delivering the answer records this run as complete."
 	// sayQuietDescription states the principle only: it names the condition on
 	// the task's own instruction and carries no task wording.
@@ -410,6 +411,12 @@ func cleanSaySources(sources []string) ([]string, error) {
 // its completion record, as complete_scheduled_task's receipt was.
 func (s *Server) sayTool(c Conversation, r Run) Tool {
 	schema, strict := sayToolSchemaFor(c, r)
+	if s.store.botHoldsOpenTask(r.BotID) {
+		// The Bot holds a task from another member or the person: an answer may
+		// be its result. Optional fields keep the schema from being strict.
+		schema["properties"].(map[string]any)["task_id"] = map[string]any{"type": "string", "description": sayTaskDescription}
+		strict = false
+	}
 	return Tool{Name: "say", Strict: strict, Description: sayToolDescription, Parameters: schema, Local: true, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {
 			return "", err
@@ -421,6 +428,7 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			Wake    []groupWakeEntry `json:"wake"`
 			Sources []string         `json:"sources"`
 			Quiet   bool             `json:"quiet"`
+			TaskID  string           `json:"task_id"`
 		}
 		if json.Unmarshal(raw, &in) != nil {
 			return "", errors.New("invalid say arguments")
@@ -509,12 +517,24 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			}
 			if state != nil && state.checksPending && !saySendsSources(r) {
 				pendingLike := in.Outcome == sayOutcomePending || (in.Outcome == sayOutcomeDelegated && len(in.Wake) == 0 && !hasHandoff(s.store, r.ID))
-				if pendingLike && !s.store.runMadeSchedule(r.ID) && state.pendingCheck.CompareAndSwap(false, true) {
+				// Future work is real when a schedule exists for it or when this
+				// run holds an open wait for it.
+				if pendingLike && !s.store.runMadeSchedule(r.ID) && !s.store.runHasPendingWait(r.ID) && state.pendingCheck.CompareAndSwap(false, true) {
 					if state.demote != nil {
 						state.demote(text)
 					}
 					return fail(tooloutcome.New(tooloutcome.Transient, "answer_pending_work", "not_executed", answerPendingWorkReminder, "retry").Err())
 				}
+			}
+			// An answer that says the work is done must agree with the checklist of the
+			// task it completes. The send-back is the run's one, shared with the
+			// pending check above.
+			if state != nil && state.checksPending && !saySendsSources(r) && in.Outcome == sayOutcomeDone && s.store.openChecklistForSubmission(r.ID, r.BotID, strings.TrimSpace(in.TaskID)) > 0 &&
+				state.pendingCheck.CompareAndSwap(false, true) {
+				if state.demote != nil {
+					state.demote(text)
+				}
+				return fail(tooloutcome.New(tooloutcome.Transient, "answer_checklist_open", "not_executed", answerChecklistOpenReminder, "retry").Err())
 			}
 			if state != nil && state.review != nil && state.review() {
 				// The completion review text finals get: once, when tool work
@@ -541,9 +561,15 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 					return fail(tooloutcome.New(tooloutcome.Transient, "answer_revise", "not_executed", revision, "retry").Err())
 				}
 			}
+			if taskID := strings.TrimSpace(in.TaskID); taskID != "" {
+				if err := s.store.submitTaskForRun(r.ID, r.BotID, taskID); err != nil {
+					return fail(err)
+				}
+			}
 			if err := s.store.recordSayAnswerWith(r.ID, callID, text, extras); err != nil {
 				return fail(err)
 			}
+			s.store.noteSayOutcome(r.ID, in.Outcome)
 			if state != nil {
 				if extras.Quiet {
 					// Recorded, not posted: nothing of it reaches the draft.

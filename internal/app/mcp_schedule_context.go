@@ -715,14 +715,27 @@ func verifyMCPGroupWake(db reviewQuerier, child, parent Run, m Message) error {
 			return fail
 		}
 	case "wait":
-		var waitFor, status string
-		if child.BotID != parent.BotID || db.QueryRow(`SELECT wait_for,status FROM run_waits WHERE run_id=? AND bot_id=?`, parent.ID, child.BotID).Scan(&waitFor, &status) != nil {
+		if child.BotID != parent.BotID {
 			return fail
 		}
-		if status == "fulfilled" && m.SenderBotID != waitFor {
+		// The wake answers one of the parent's waits on a post: the member the wait
+		// named posted the anchor message, or the wait ended by its deadline.
+		rows, err := db.Query(`SELECT target,status FROM waits WHERE run_id=? AND bot_id=? AND kind=?`, parent.ID, child.BotID, waitBotPost)
+		if err != nil {
 			return fail
 		}
-		if status != "fulfilled" && status != "expired" {
+		matched := false
+		for rows.Next() {
+			var waitFor, status string
+			if rows.Scan(&waitFor, &status) != nil {
+				continue
+			}
+			if (status == waitFulfilled && m.SenderBotID == waitFor) || status == waitTimedOut {
+				matched = true
+			}
+		}
+		rows.Close()
+		if !matched {
 			return fail
 		}
 	default:

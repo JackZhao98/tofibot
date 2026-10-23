@@ -3,6 +3,7 @@ package app
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 type scopeFixture struct {
@@ -124,9 +125,7 @@ func TestGroupStopCancelsSiblingWakesAndExpiresPendingWaits(t *testing.T) {
 	if err != nil || !ok {
 		t.Fatalf("wake c: %v %v", ok, err)
 	}
-	if _, err := f.s.db.Exec(`INSERT INTO run_waits(run_id,conversation_id,bot_id,wait_for,lineage,status,deadline_at,created_at) VALUES(?,?,?,?,?,'pending',?,?)`, w2.ID, f.g.ID, f.c.ID, f.b.ID, lineageKey(f.s.db, w2.ID), "2999-01-01T00:00:00Z", now()); err != nil {
-		t.Fatal(err)
-	}
+	insertBotPostWait(t, f.s.db, w2.ID, f.g.ID, f.c.ID, f.b.ID, time.Now().Add(24*time.Hour))
 	if err := f.s.CancelRunTree(w1.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -135,10 +134,8 @@ func TestGroupStopCancelsSiblingWakesAndExpiresPendingWaits(t *testing.T) {
 			t.Errorf("%s is %s, want cancelled", name, got)
 		}
 	}
-	var status string
-	f.s.db.QueryRow(`SELECT status FROM run_waits WHERE run_id=?`, w2.ID).Scan(&status)
-	if status != "expired" {
-		t.Fatalf("pending wait is %s, want expired", status)
+	if status := waitStatusOf(t, f.s.db, w2.ID); status != waitCancelled {
+		t.Fatalf("pending wait is %s, want cancelled", status)
 	}
 }
 
@@ -159,15 +156,13 @@ func TestWaitTimeoutAnchorsOnGroupMessageNotPersonMessage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.store.db.Exec(`INSERT INTO run_waits(run_id,conversation_id,bot_id,wait_for,lineage,status,deadline_at,created_at) VALUES(?,?,?,?,?,'pending',?,?)`, runs[0].ID, g.ID, a.ID, b.ID, lineageKey(s.store.db, runs[0].ID), "2999-01-01T00:00:00Z", now()); err != nil {
-		t.Fatal(err)
-	}
+	insertBotPostWait(t, s.store.db, runs[0].ID, g.ID, a.ID, b.ID, time.Now().Add(24*time.Hour))
 	person, _, _, err := s.store.AddUserRuns(g.ID, "@bravo something else entirely", "c2", []runSpec{{BotID: b.ID, Model: b.Model}}, true)
 	if err != nil {
 		t.Fatal(err)
 	}
 	_ = person
-	s.fireWait(runs[0].ID, "", waitTimeoutRequest, "expired")
+	s.timeoutWaitsOf(t, runs[0].ID)
 	all, _ := s.store.Runs(g.ID)
 	var wake *Run
 	for i := range all {

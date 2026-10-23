@@ -317,7 +317,7 @@ func (s *Server) teamTools(c Conversation, r Run) []Tool {
 			}
 			return string(b), nil
 		}),
-		tool("send_group_message", "Start work in a different group by assigning one selected Bot. It rejects the current conversation: reply normally to publish here, and use handoff to delegate to another member of the current group.", map[string]any{"group_id": map[string]any{"type": "string"}, "bot_id": map[string]any{"type": "string"}, "message": map[string]any{"type": "string"}}, []string{"group_id", "bot_id", "message"}, func(ctx context.Context, args json.RawMessage) (string, error) { return s.teamSend(ctx, c, r, args) }),
+		tool("send_group_message", "Start work in a different group by assigning one selected Bot. It rejects the current conversation: reply normally to publish here, and use delegate to give a task to another member of the current group.", map[string]any{"group_id": map[string]any{"type": "string"}, "bot_id": map[string]any{"type": "string"}, "message": map[string]any{"type": "string"}}, []string{"group_id", "bot_id", "message"}, func(ctx context.Context, args json.RawMessage) (string, error) { return s.teamSend(ctx, c, r, args) }),
 	}
 }
 
@@ -441,7 +441,7 @@ func (s *Server) teamSend(ctx context.Context, c Conversation, r Run, args json.
 		return "", errors.New("group_id and message required")
 	}
 	if x.GroupID == c.ID {
-		return "", errors.New("send_group_message cannot target the current conversation; reply normally to publish here, or use handoff to delegate to another current group member")
+		return "", errors.New("send_group_message cannot target the current conversation; reply normally to publish here, or use delegate to give a task to another current group member")
 	}
 	key, err := teamKey("send_group_message", x)
 	if err != nil {

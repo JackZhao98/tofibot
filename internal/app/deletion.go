@@ -82,6 +82,20 @@ func (s *Store) deleteWorkspaceTargetWith(id string, bot bool, actor *Run, succe
 		}
 	}
 	conv := result.ConversationID
+	if bot {
+		// The tasks the Bot gave and held, its waits, and the runs that worked on
+		// those tasks end with it. This shares the transaction with the checks
+		// below, so a refused deletion leaves them as they were.
+		ended, cerr := cascadeEndBotTx(tx, id, "")
+		if cerr != nil {
+			return DeleteResult{}, cerr
+		}
+		if len(ended) > 0 {
+			if _, cerr = cancelTreeCollect(tx, `SELECT id FROM runs WHERE id IN (`+sqlMarks(len(ended))+`)`, anyArgs(ended)...); cerr != nil {
+				return DeleteResult{}, cerr
+			}
+		}
+	}
 	// Include forwarded descendants and origin-bound work. Removing a member
 	// also waits for its groups' work so an executing roster cannot go stale.
 	seeds := `SELECT id FROM runs WHERE conversation_id=? OR origin_conversation_id=?`
@@ -304,6 +318,8 @@ func (s *Server) routeDeletion(w http.ResponseWriter, r *http.Request, path stri
 		}
 		return true
 	}
+	// The deletion ended the tasks this Bot gave; stop the runs that worked on them.
+	s.cancelInactiveRuns()
 	writeJSON(w, 200, result)
 	return true
 }

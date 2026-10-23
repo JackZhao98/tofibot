@@ -208,11 +208,11 @@ func TestLiveWorkAgendaAcrossGroups(t *testing.T) {
 		t.Fatalf("completed task missing from history: %v", err)
 	}
 	unchangedGoal, err := server.store.GetWorkItem(goal.ID)
-	if err != nil || unchangedGoal != goal {
+	if err != nil || !reflect.DeepEqual(unchangedGoal, goal) {
 		t.Fatal("task completion changed its goal")
 	}
 	unchangedTask, err := server.store.GetWorkItem(secondTask.ID)
-	if err != nil || unchangedTask != secondTask {
+	if err != nil || !reflect.DeepEqual(unchangedTask, secondTask) {
 		t.Fatal("task completion changed the second group's task")
 	}
 	afterPlans, err := server.store.ListBotSchedules(a.ID, false)
@@ -277,12 +277,12 @@ func TestLiveWorkAgendaAcrossGroups(t *testing.T) {
 		t.Fatal("read-only schedule question changed open work")
 	}
 	for _, item := range finalOpen {
-		if item != goal && item != secondTask {
+		if !reflect.DeepEqual(item, goal) && !reflect.DeepEqual(item, secondTask) {
 			t.Fatal("read-only schedule question changed an existing commitment")
 		}
 	}
 	finalHistory, err := server.store.ListWorkItems("", a.ID, true)
-	if err != nil || len(finalHistory) != 1 || finalHistory[0] != completed {
+	if err != nil || len(finalHistory) != 1 || !reflect.DeepEqual(finalHistory[0], completed) {
 		t.Fatal("read-only schedule question changed task history")
 	}
 	finalPlans, err := server.store.ListBotSchedules(a.ID, false)
