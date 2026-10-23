@@ -70,7 +70,7 @@ export function RemoteForm({ initial, preset, options, route, busy, onSave, onCa
       if (!/^[a-zA-Z0-9_.-]{1,64}$/.test(name) || name === "." || name === "..") throw new Error(t("form.name_invalid"));
       const parsed = mcpTokenHeaders(headers, token, preset);
       setError("");
-      await onSave({ name, url, transport, headers: parsed, tool_allowlist: words(allow), tool_denylist: words(deny), ...(oauth ? { oauth: { client_id: savedClient ? "" : clientID, client_secret: savedClient ? "" : secret, scopes: words(scopes), auth_server_metadata_url: metadata } } : {}), ...(savedClient ? { google_client: true } : {}) });
+      await onSave({ name, url, transport, headers: parsed, tool_allowlist: words(allow), tool_denylist: words(deny), ...(oauth ? { oauth: { client_id: savedClient ? "" : clientID, client_secret: savedClient ? "" : secret, scopes: words(scopes), auth_server_metadata_url: metadata, ...(initial?.oauth?.redirect_policy ?? preset?.oauthRedirect ? { redirect_policy: initial?.oauth?.redirect_policy ?? preset?.oauthRedirect } : {}) } } : {}), ...(savedClient ? { google_client: true } : {}) });
     } catch (cause) { setError(message(cause)); }
   }}>
     <fieldset className="form-fields" disabled={busy}>

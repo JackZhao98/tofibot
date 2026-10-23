@@ -71,3 +71,16 @@
 .connect-dialog .integration-tile>svg:last-child,.connect-dialog .integration-tile>.integration-added{flex:none}
 .connect-env{display:grid;gap:8px;margin:0;padding:0;border:0;min-width:0}.connect-env legend{padding:0;margin-bottom:6px;font-size:13px}.connect-env-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:8px}.connect-env .secondary-button{justify-self:start}
 .mcp-service-source{overflow-wrap:anywhere}
+
+/* A connection waiting on the person: the status text is meta, the one primary button breathes (decision 0055 follow-up, D51). */
+.mcp-settings .mcp-service[data-kind=waiting] .mcp-service-status{font:var(--type-meta);font-size:12px}
+.mcp-settings .mcp-button[data-pending]{position:relative;overflow:visible}
+.mcp-settings .mcp-button[data-pending]::after{content:"";position:absolute;inset:-4px;border:var(--edge) solid var(--lagoon-text);border-radius:inherit;opacity:.35;pointer-events:none;animation:mcp-pending-breathe 2.8s var(--ease-inout) infinite}
+@keyframes mcp-pending-breathe{0%,100%{opacity:.12;transform:scale(.985)}50%{opacity:.5;transform:scale(1.025)}}
+@media(prefers-reduced-motion:reduce){.mcp-settings .mcp-button[data-pending]::after{animation:none;opacity:.35}}
+/* Paste-back sign-in. */
+.paste-back .paste-back-steps{margin:0;padding-left:20px;display:grid;gap:12px;font:var(--type-meta);color:var(--muted)}
+.paste-back .paste-back-steps label{display:grid;gap:6px;color:var(--ink)}
+.paste-back .paste-back-steps input{font-family:var(--mono);font-size:12px}
+.paste-back .paste-back-note{margin:0;font:var(--type-meta);color:var(--muted)}
+.paste-back .paste-back-error{margin:0;font:var(--type-meta);color:var(--danger)}

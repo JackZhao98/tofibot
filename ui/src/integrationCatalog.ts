@@ -33,6 +33,8 @@ export type IntegrationPreset = {
   scopes?: string[];
   /** Optional OAuth authorization-server metadata endpoint. */
   metadataURL?: string;
+  /** The provider accepts only a 127.0.0.1 redirect URI (native and CLI clients). Stored on the connection as `oauth.redirect_policy`; Tofi never registers or uses another redirect for it (decision 0055). */
+  oauthRedirect?: "loopback";
   /** Header used when auth is token based, e.g. Context7-API-Key. */
   tokenHeader?: string;
   /** Prefix used before a token value, e.g. `Bearer `. */
@@ -228,6 +230,7 @@ export const integrationCatalog: IntegrationPreset[] = [
     },
     auth: "oauth",
     dcr: true,
+    oauthRedirect: "loopback",
     get note() { return i18n.t("extensions:catalog.robinhood.note"); },
     status: "active",
   },

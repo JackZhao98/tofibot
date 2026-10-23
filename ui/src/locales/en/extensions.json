@@ -302,19 +302,32 @@
   },
   "oauth": {
     "help_body": "The sign-in method follows how you opened Tofi and works for Google, Notion and other OAuth services. A client you configure yourself needs the full redirect URL below registered in the service's console; services with automatic registration, like Notion, are handled by Tofi.",
-    "help_title": "Sign-in method and limits",
-    "waiting": "Waiting for {{title}} authorization"
+    "help_title": "Sign-in method and limits"
   },
   "origin": {
     "community": "Community maintained",
     "preset": "Connection preset",
     "vendor": "Maintained by provider"
   },
+  "paste": {
+    "error": {
+      "generic": "That address could not be verified. Check it and paste it again, or start over."
+    },
+    "label": "Redirected address",
+    "lead": "{{title}} redirects only to 127.0.0.1. Approve access in its sign-in page, then paste the address it lands on.",
+    "open": "Open {{title}} sign-in",
+    "starting": "Preparing sign-in…",
+    "step_copy": "After you approve, the browser shows a page that does not load. That is expected. Copy the full address from the address bar.",
+    "submit": "Finish sign-in",
+    "submitting": "Verifying…",
+    "title": "Sign in to {{title}}"
+  },
   "route": {
     "desktop": "Sign in with your system browser; you'll come back to this app when done. The shared computer isn't used.",
     "desktop_outdated": "This app version can't authorize locally yet. Update the app. Tofi won't switch to the shared computer on its own.",
     "http_blocked": "A plain HTTP connection can't receive the redirect safely, and no shared computer is set up. Use HTTPS or the Tofi app.",
     "loading": "Loading sign-in settings…",
+    "loopback_paste": "This service accepts only a 127.0.0.1 redirect. Sign in in your browser, then paste the address it redirects to back here.",
     "public_origin_missing": "Set TOFI_PUBLIC_ORIGIN (the public HTTPS address) on the server, then try again.",
     "vm": "You're connected over plain HTTP, so only this entry point authorizes on the shared computer. The service must support a local redirect. HTTPS or the Tofi app is recommended.",
     "web": "Sign in with this device's browser; the provider returns to Tofi's HTTPS server. The shared computer isn't used."

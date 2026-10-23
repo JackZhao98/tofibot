@@ -47,3 +47,25 @@ func (m *Manager) OAuthWebCallback(ctx context.Context, server, sid, code, state
 	err = m.OAuthCallbackForRedirect(ctx, sid, code, state, redirect)
 	return identity, err
 }
+
+// OAuthPasteCallback completes a flow from a pasted loopback redirect. Before the
+// ordinary checks (state, expiry, redirect, PKCE at the provider) it applies RFC
+// 9207: when the authorization server advertises `iss` in its responses, the pasted
+// response must carry exactly that issuer, or the flow is dropped (a mix-up
+// attack looks like this). iss is compared only for such servers.
+func (m *Manager) OAuthPasteCallback(ctx context.Context, server, sid, code, state, redirect, iss string, denied bool) (OAuthServiceIdentity, error) {
+	m.mu.Lock()
+	lookup := sid
+	if lookup == "" {
+		lookup = m.oauthState[state]
+	}
+	s, ok := m.oauth[lookup]
+	if ok && s.Flow != nil && s.Server == server && s.Flow.RequireIssuer && subtle.ConstantTimeCompare([]byte(state), []byte(s.Flow.State)) == 1 && subtle.ConstantTimeCompare([]byte(iss), []byte(s.Flow.Issuer)) != 1 {
+		delete(m.oauth, lookup)
+		delete(m.oauthState, s.Flow.State)
+		m.mu.Unlock()
+		return OAuthServiceIdentity{}, ErrOAuthIssuerMismatch
+	}
+	m.mu.Unlock()
+	return m.OAuthWebCallback(ctx, server, sid, code, state, redirect, denied)
+}

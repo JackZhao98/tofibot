@@ -74,6 +74,12 @@
     "api_disabled": "Google meldet, dass die API nicht aktiviert ist. Aktivieren Sie die Produkt-API und ihren MCP-Dienst im selben Projekt wie den OAuth-Client und aktualisieren Sie dann die Tools.",
     "access_denied": "Google hat den Zugriff verweigert. Befindet sich die App im Testmodus, prüfen Sie, ob dieses Konto ein Testnutzer ist; auch eine Konto- oder Organisationsbeschränkung ist möglich.",
     "permission_denied": "Google hat das Auslesen der Tools verweigert. Prüfen Sie, ob das Cloud-Projekt dem Google Workspace Developer Preview Program beigetreten ist und ob beim OAuth-Client „Use this client for an AI-powered agent“ angehakt ist (ab 2026-11-11 lehnt der Workspace-MCP nicht markierte Clients ab; die Einstellung ist nach dem 12.11. fest, dann ist ein neuer Client nötig), sowie die Aktivierung von API und MCP und die Kontoberechtigungen. Ein 401 oder 403 allein zeigt nicht, welcher Punkt es ist.",
-    "context_snapshot_unavailable": "Für diese Antwort wurde kein Kontext aufgezeichnet."
+    "context_snapshot_unavailable": "Für diese Antwort wurde kein Kontext aufgezeichnet.",
+    "oauth_denied": "Die Autorisierung wurde nicht erteilt.",
+    "oauth_loopback_only": "Diese Verbindung meldet sich nur über eine Weiterleitung an 127.0.0.1 an: auf dem geteilten Computer oder per Einfügen.",
+    "oauth_paste_invalid": "Das ist nicht die Weiterleitung, die diese Anmeldung erwartet. Fügen Sie die vollständige Adresse aus der Adressleiste ein.",
+    "oauth_paste_not_needed": "Diese Verbindung nutzt keine Anmeldung per Einfügen.",
+    "oauth_issuer_mismatch": "Diese Antwort stammt nicht vom erwarteten Autorisierungsserver. Verbinden Sie erneut.",
+    "oauth_loopback_required": "Dieser Dienst akzeptiert nur eine Weiterleitung an 127.0.0.1. Melden Sie sich per Einfügen an."
   }
 }

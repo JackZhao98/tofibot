@@ -64,13 +64,13 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   // Gmail MCP, a custom server), none of its data.
   const ENABLE = "https://console.cloud.google.com/apis/library/gmail.googleapis.com?project=tofi-sample-123456";
   const tools = n => ({tools: Array.from({length: n}, (_, i) => ({name: `tool_${i + 1}`, description: `Synthetic tool ${i + 1}`, tier: i % 3 === 0 ? "read_only" : "write", source: i % 3 === 0 ? "provider" : "default"})), read_only: Math.ceil(n / 3), write: n - Math.ceil(n / 3), high_risk: 0, checked: true});
-  const stub = (url, method, q) => {
+  const stub = (url, method, q, postData = "") => {
     const path = url.pathname;
     if (path === "/api/server-info") return {service: "tofi", protocol_version: 1, instance_id: "0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d", auth: {mode: "owner"}};
     if (path === "/api/auth/session") return {enabled: true, setup_required: false, authenticated: true, password_transport_allowed: true, multi_account: false, owner: {id: "acct_sample", username: "Ada Sample", email: "ada@example.test", role: "owner"}};
     if (path === "/api/bots") return {bots: [{id: "bot_research", name: "Research Bot", archived: false}]};
     if (path === "/api/preferences") return {timezone: "America/Los_Angeles", timezone_configured: true};
-    if (path === "/api/extensions/oauth-options") return {vm_available: false, web_callback_origin: "https://tofi.example.test", desktop_redirect_uri: ""};
+    if (path === "/api/extensions/oauth-options") return {vm_available: q.get("vm") === "1", web_callback_origin: "https://tofi.example.test", desktop_redirect_uri: ""};
     if (path === "/api/extensions/mcp" && method === "GET") return {servers: [
       ...(q.get("fresh") ? [] : [{name: "local_gog", url: "http://plugins.internal.example:8787/mcp/gog", transport: "streamable_http", headers: {Authorization: "Bearer x"}, status: {checked_at: "2026-10-21T09:30:00Z", ok: true, tool_count: 3}}]),
       {name: "notion", url: "https://mcp.notion.com/mcp", transport: "streamable_http", oauth: {client_id: "", connected: true}, status: {checked_at: "2026-10-21T09:30:00Z", ok: true, tool_count: 65}},
@@ -78,6 +78,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
         ? {checked_at: "2026-10-21T09:30:00Z", ok: false, tool_count: 23, error_class: "failed", error_code: "api_disabled", api: "gmail.googleapis.com", enable_url: ENABLE}
         : {checked_at: "2026-10-21T09:30:00Z", ok: true, tool_count: 23}},
       {name: "acme_tracker", url: "https://mcp.example.test/tracker", oauth: {client_id: "sample", connected: false}},
+      ...(q.get("loopback") ? [{name: "robinhood", url: "https://agent.robinhood.com/mcp/trading", transport: "streamable_http", oauth: {client_id: "", connected: false, redirect_policy: "loopback"}}] : []),
       ...(q.get("community") ? [{name: "acme_pkg", url: "http://plugins.internal.example:8787/mcp/acme", transport: "streamable_http", provenance: {origin: "community", kind: "npm", package: "acme-mcp", version: "1.0.0"}, status: {checked_at: "2026-10-21T09:30:00Z", ok: true, tool_count: 3}}] : []),
     ]};
     if (/^\/api\/extensions\/mcp\/[^/]+\/test$/.test(path) && method === "POST") {
@@ -93,6 +94,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       {name: "get_thing", description: "Marked by the owner", tier: "read_only", source: "owner", override: "read_only"},
       {name: "send_thing", description: "Writes", tier: "write", source: "default"}], read_only: 1, write: 2, high_risk: 0, checked: true};
     if (m && method === "GET") return tools(m[1] === "notion" ? 6 : m[1] === "google-gmail" ? 6 : 3);
+    // The computer dialog needs a live desktop the fixture does not have; a refused start still proves which route was taken.
+    if (/\/oauth\/vm\/start$/.test(path)) return {__status: 409, error: {code: "computer_busy", message: "The computer is busy."}};
+    if (/\/oauth\/paste\/start$/.test(path)) return {session_id: "sess_sample", authorization_url: "https://auth.example.test/authorize?state=sample", redirect_uri: "http://127.0.0.1:43821/oauth/callback"};
+    if (/\/oauth\/paste\/complete$/.test(path)) return JSON.parse(postData || "{}").url?.includes("code=good") ? {ok: true} : {__status: 400, error: {code: "oauth_paste_invalid", message: "The pasted address is not the redirect this sign-in expects."}};
     if (path === "/api/extensions/local-mcp") return {available: q.get("runner") !== "off", plugins: q.get("fresh") ? [] : [{id: "gog", state: "sleeping", tool_count: 3}]};
     if (path === "/api/extensions/local-mcp/gog/oauth/status") return q.get("gog") === "authorised" ? {connected: true, email: "you@example.test", scope: "readonly", services: (q.get("services") || "gmail").split(",")} : {connected: false, email: "", services: []};
     if (path === "/api/extensions/local-mcp/gog/oauth/start") return {authorization_url: "https://accounts.google.com/o/oauth2/v2/auth?state=sample"};
@@ -112,8 +117,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       if (url.origin !== origin) { await route.abort(); return; }
       if (!url.pathname.startsWith("/api/")) { await route.continue(); return; }
       if (method !== "GET" && !/\/test$/.test(url.pathname)) { writes.push(`${method} ${url.pathname}`); posts.push({path: url.pathname, body: request.postData() ?? ""}); }
-      const body = stub(url, method, new URLSearchParams(page.url().split("?")[1] ?? ""));
-      await route.fulfill({contentType: "application/json", body: JSON.stringify(body ?? {})});
+      const body = stub(url, method, new URLSearchParams(page.url().split("?")[1] ?? ""), request.postData() ?? "");
+      await route.fulfill({status: body?.__status ?? 200, contentType: "application/json", body: JSON.stringify(body ?? {})});
     });
     await page.goto(`${origin}/${basename(fixture)}/index.html?${new URLSearchParams({lang: "en", ...params})}`);
     try { await page.locator(".settings-page-body .mcp-settings").waitFor({timeout: 20000}); }
@@ -448,6 +453,53 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await rows.close();
     }
     console.log("PASS source links: GitHub link and star count in the directory and the details; no count, no number");
+
+    // ---- 7f. A provider that accepts only a 127.0.0.1 redirect (Robinhood) never takes the https popup: paste-back without a shared
+    // computer, the shared computer with one. One quiet route line says which and why; no illustration; the address is never echoed.
+    {
+      const paste = await open({loopback: "1"});
+      const rh = row(paste.page, "Robinhood");
+      await rh.waitFor();
+      assert.match(await rh.locator(".mcp-login-note").innerText(), /127\.0\.0\.1/, "the route line names the redirect");
+      const popupOpened = paste.page.waitForEvent("popup", {timeout: 8000});
+      await rh.getByRole("button", {name: "Authorize"}).click();
+      const dialog = paste.page.locator(".paste-back");
+      await dialog.waitFor();
+      await dialog.getByRole("link", {name: /Open Robinhood sign-in/}).waitFor();
+      assert.ok(paste.posts.some(post => /\/robinhood\/oauth\/paste\/start$/.test(post.path)), "paste-back session started");
+      assert.ok(!paste.posts.some(post => /\/oauth\/(start|vm\/start)$/.test(post.path)), "neither the https popup nor the computer route was used");
+      await popupOpened; // one sign-in tab, opened inside the click and pointed at the provider by the dialog
+      assert.equal(await paste.page.locator(".web-oauth-link, .web-oauth-provider").count(), 0, "no pending illustration");
+      const wrong = "http://127.0.0.1:43821/oauth/callback?code=wrong-code-value&state=x";
+      await dialog.getByLabel("Redirected address").fill(wrong);
+      await dialog.getByRole("button", {name: "Finish sign-in"}).click();
+      await dialog.locator(".paste-back-error").waitFor();
+      assert.doesNotMatch(await dialog.innerText(), /wrong-code-value/, "the pasted address is not echoed in the message");
+      assert.equal(await dialog.getByLabel("Redirected address").inputValue(), wrong, "the field is kept for another try");
+      await dialog.getByLabel("Redirected address").fill("http://127.0.0.1:43821/oauth/callback?code=good&state=s");
+      await dialog.getByRole("button", {name: "Finish sign-in"}).click();
+      await dialog.waitFor({state: "detached"});
+      const completes = paste.posts.filter(post => /\/oauth\/paste\/complete$/.test(post.path));
+      assert.equal(completes.length, 2, "each attempt is one request");
+      await paste.close();
+      const cancelled = await open({loopback: "1"});
+      await row(cancelled.page, "Robinhood").getByRole("button", {name: "Authorize"}).click();
+      await cancelled.page.locator(".paste-back").getByRole("button", {name: "Cancel"}).click();
+      await cancelled.page.locator(".paste-back").waitFor({state: "detached"});
+      assert.ok(cancelled.posts.some(post => /\/oauth\/desktop\/cancel$/.test(post.path)), "cancelling releases the pending flow");
+      await cancelled.close();
+      // A shared computer being available does not change the route: paste-back needs nothing from the server.
+      const withComputer = await open({loopback: "1", vm: "1"});
+      await row(withComputer.page, "Robinhood").getByRole("button", {name: "Authorize"}).click();
+      await withComputer.page.locator(".paste-back").waitFor();
+      assert.ok(!withComputer.posts.some(post => /\/oauth\/(start|vm\/start)$/.test(post.path)), "neither the https popup nor the computer route");
+      await withComputer.close();
+      // Other providers are unchanged: no route line, no paste-back.
+      const plain = await open();
+      assert.doesNotMatch(await row(plain.page, "acme_tracker").innerText(), /127\.0\.0\.1/, "another provider shows no loopback route line");
+      await plain.close();
+    }
+    console.log("PASS loopback-only provider: paste-back whether or not a shared computer exists, never the https popup; address not echoed; others unchanged");
 
     // ---- 8. Phone width: no horizontal overflow, 44 px targets for the controls that matter.
     {

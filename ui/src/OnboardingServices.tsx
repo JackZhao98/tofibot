@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { request } from "./api";
+import { ApiError, request } from "./api";
 import { isDesktop } from "./desktop";
 import { ServiceMark } from "./ServiceMark";
 import { Disclosure } from "./InteractionSystem";
 import { StatusBadge } from "./settings/components";
 import { TofiIcon } from "./icons";
 import { googleAPIEnableURL, googleAudienceURL, getIntegrationPreset, type IntegrationPreset } from "./integrationCatalog";
+import { PasteBackDialog } from "./connections/PasteBackDialog";
 import { mcpOAuthRoute, type OAuthOptions } from "./mcpOAuthRoute";
 import { mcpTokenHeaders } from "./mcpTokenHeaders";
 import { useTranslation } from "./i18n";
@@ -173,19 +174,20 @@ function ServiceConnect({ lead, preset, last, existing, botId, refreshServers, o
   const [error, setError] = useState("");
   const [options, setOptions] = useState<OAuthOptions | null>(null);
   const [vm, setVM] = useState<VMOAuthSession | null>(null);
+  const [paste, setPaste] = useState(false);
   const op = useRef(0);
   const alive = useRef(true);
   const popup = useRef<Window | null>(null);
   useEffect(() => { alive.current = true; return () => { alive.current = false; op.current++; }; }, []);
   useEffect(() => { if (preset.auth === "oauth") request<OAuthOptions>("/api/extensions/oauth-options").then(setOptions).catch(() => setOptions({ vm_available: false, web_callback_origin: "", desktop_redirect_uri: "" })); }, [preset.auth]);
-  const route = mcpOAuthRoute(window.location.protocol, isDesktop, Boolean(window.tofiDesktop?.authorizeMCP), options);
+  const route = mcpOAuthRoute(window.location.protocol, isDesktop, Boolean(window.tofiDesktop?.authorizeMCP), options, preset.oauthRedirect === "loopback");
   const google = Boolean(preset.googleAPIs);
   const name = preset.id;
   const fail = (cause: unknown, id: number) => { if (alive.current && op.current === id) { setPhase("error"); setError(cause instanceof Error && cause.message ? cause.message : t("onboarding.connect_failed", { name: preset.name })); } };
 
   async function save(id: number) {
     const headers = preset.auth === "token" ? mcpTokenHeaders("{}", token, preset) : {};
-    const oauth = preset.auth === "oauth" ? { oauth: { client_id: preset.dcr ? "" : clientId.trim(), client_secret: preset.dcr ? "" : clientSecret.trim(), scopes: preset.scopes ?? [], auth_server_metadata_url: preset.metadataURL ?? "" } } : {};
+    const oauth = preset.auth === "oauth" ? { oauth: { client_id: preset.dcr ? "" : clientId.trim(), client_secret: preset.dcr ? "" : clientSecret.trim(), scopes: preset.scopes ?? [], auth_server_metadata_url: preset.metadataURL ?? "", ...(preset.oauthRedirect ? { redirect_policy: preset.oauthRedirect } : {}) } } : {};
     await request("/api/extensions/mcp", { method: existing ? "PUT" : "POST", body: JSON.stringify({ name, url: preset.url, transport: "streamable_http", headers, tool_allowlist: [], tool_denylist: [], ...oauth }) });
     if (op.current !== id) throw new Error("cancelled");
   }
@@ -214,6 +216,7 @@ function ServiceConnect({ lead, preset, last, existing, botId, refreshServers, o
       } catch (cause) { fail(cause, id); }
       return;
     }
+    if (route.mode === "paste") { setPaste(true); return; }
     // Web: the window is opened inside the click (the caller), then pointed at the provider.
     try {
       const result = await request<{ authorization_url: string }>(endpoint(name) + "/oauth/start", post({}));
@@ -233,13 +236,17 @@ function ServiceConnect({ lead, preset, last, existing, botId, refreshServers, o
         if (closedPolls >= 3) break;
       }
       throw new Error(t("extensions:error.auth_incomplete"));
-    } catch (cause) { popup.current?.close(); fail(cause, id); }
+    } catch (cause) {
+      // The provider refused the public callback at registration; the server remembered it, so sign in by paste-back with the tab already open.
+      if (cause instanceof ApiError && cause.code === "oauth_loopback_required" && alive.current && op.current === id) { setPaste(true); return; }
+      popup.current?.close(); fail(cause, id);
+    }
   }
   async function connect() {
     const id = ++op.current;
     setError("");
     // Open the sign-in window now, while the click still counts as a user gesture.
-    if (preset.auth === "oauth" && route.mode === "web") { popup.current = window.open(endpoint(name) + "/oauth/pending", "_blank"); if (popup.current) popup.current.opener = null; }
+    if (preset.auth === "oauth" && (route.mode === "web" || route.mode === "paste")) { popup.current = window.open(endpoint(name) + "/oauth/pending", "_blank"); if (popup.current) popup.current.opener = null; }
     setPhase(preset.auth === "oauth" ? "authorizing" : "testing");
     try { await save(id); } catch (cause) { popup.current?.close(); if ((cause as Error).message !== "cancelled") fail(cause, id); return; }
     if (preset.auth === "oauth") await authorize(id); else await test(id);
@@ -276,6 +283,7 @@ function ServiceConnect({ lead, preset, last, existing, botId, refreshServers, o
         </div>
       )}
       </div>
+      {paste && <PasteBackDialog serverName={name} title={preset.name} popup={popup.current} onFinish={(status, detail) => { setPaste(false); const id = op.current; if (status === "complete") { void refreshServers(); void test(id); } else { setPhase("error"); setError(status === "cancelled" ? "" : detail || t("onboarding.connect_failed", { name: preset.name })); } }} />}
       {vm && <VMOAuthDialog session={vm} serverName={name} title={preset.name} onFinish={(status, detail) => { setVM(null); const id = op.current; if (status === "complete") { void refreshServers(); void test(id); } else { setPhase("error"); setError(detail || t("onboarding.connect_failed", { name: preset.name })); } }} />}
       <footer className="onb-foot">
         <button type="button" className="onb-quiet" onClick={() => { op.current++; popup.current?.close(); onResult("skipped"); }}>{t("onboarding.skip_service", { name: preset.name })}</button>

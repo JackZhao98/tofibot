@@ -8,7 +8,6 @@ import { integrationCatalog, LOCAL_PLUGIN_REPOS, type IntegrationPreset } from "
 import { RepoLink, useRepoStars } from "./connections/repoStars";
 import { isDesktop } from "./desktop";
 import { mcpOAuthRoute, type OAuthOptions, type OAuthRoute } from "./mcpOAuthRoute";
-import { CatStage } from "./CatStage";
 import { i18n, useTranslation } from "./i18n";
 import { formatRelativeTime } from "./i18n/format";
 import { CATS, EmptyState } from "./EmptyCat";
@@ -16,20 +15,14 @@ import { ConnectDialog, type DialogRequest } from "./connections/ConnectDialog";
 import { ConnectionRowView, type RowMenuItem, type RowPrimary } from "./connections/RowView";
 import { GoogleSetupLinks } from "./connections/RemoteForm";
 import { ToolTierPanel } from "./connections/ToolTierPanel";
+import { PasteBackDialog } from "./connections/PasteBackDialog";
 import { useLocalPlugins, type LocalState, type Plugin } from "./connections/localPlugins";
 import { connectionKind, primaryAction, type Phase } from "./connections/status";
 import { GOOGLE_SERVICE_NAME, googleServiceForAPI, googleServicesLabel, isConsoleURL, useGoogleOverview, type GoogleOverview } from "./connections/google";
 import { endpoint, localPluginId, message, normalizeTiers, post, toolsEndpoint, type MCP, type TestResult, type ToolTierList } from "./connections/shared";
-import "./oauth-link-motion.css";
 import "./connections/connections.css";
 
 export type { ToolTier, ToolTierView, ToolTierList } from "./connections/shared";
-
-/** Shown only while the user is signing in; never in a resting card. */
-function OAuthLinkMotion({ title }: { title: string }) {
-  const { t } = useTranslation("extensions");
-  return <div className="web-oauth-link" aria-label={t("oauth.waiting", { title })}><span className="web-oauth-node"><CatStage config={{ shape: "curl", pattern: "calico", palette: "calico" }} initialState="asleep" /></span><svg viewBox="0 0 200 60" aria-hidden="true"><path className="web-oauth-wait" d="M6 44 Q100 -6 194 44" /></svg><span className="web-oauth-provider"><TofiIcon name="key" size={22} /><small>{title}</small></span></div>;
-}
 
 /** A refused removal says why (a task is using the plugin) and the row stays. */
 const removeError = (e: unknown) => e instanceof ApiError && e.code === "plugin_busy" ? i18n.t("common:apiError.plugin_busy") : message(e);
@@ -103,7 +96,7 @@ export function MCPSettings({ refreshToken = 0, bots = [] }: { refreshToken?: nu
     {!loaded && <p className="mcp-placeholder">{t("mcp.loading")}</p>}
     {loaded && !listError && total === 0 && <EmptyState name="mcp-empty" className="extension-empty" look={CATS.yuzu} pose="curious" size={72} title={t("mcp.empty")} />}
     <div className="mcp-rows">
-      {servers.map(server => <MCPRow key={server.name} route={route} botId={bots.find(bot => !bot.archived)?.id} server={server} local={local} google={google} stars={stars} checkRequest={checks[server.name] ?? 0} refresh={refresh} refreshLocal={refreshLocal}
+      {servers.map(server => <MCPRow key={server.name} route={route} options={options} botId={bots.find(bot => !bot.archived)?.id} server={server} local={local} google={google} stars={stars} checkRequest={checks[server.name] ?? 0} refresh={refresh} refreshLocal={refreshLocal}
         onEdit={() => openDialog({ view: "edit", server, preset: presetFor(server) })} onAuthorizeLocal={() => openDialog({ view: "gog" })}
         onRemoved={() => { setServers(items => items.filter(item => item.name !== server.name)); void refreshAll(); }} />)}
       {orphans.map(plugin => <PluginRow key={plugin.id} plugin={plugin} onChanged={refreshAll} />)}
@@ -127,12 +120,15 @@ function PluginRow({ plugin, onChanged }: { plugin: Plugin; onChanged: () => Pro
   </ConnectionRowView>;
 }
 
-function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved, onAuthorizeLocal, route, botId, local, google, stars }: {
-  stars: Record<string, number>; route: OAuthRoute; botId?: string; server: MCP; local: LocalState; google: GoogleOverview | null; checkRequest: number; refresh: () => Promise<void>; refreshLocal: () => Promise<void>;
+function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved, onAuthorizeLocal, route: pageRoute, options, botId, local, google, stars }: {
+  stars: Record<string, number>; route: OAuthRoute; options: OAuthOptions | null; botId?: string; server: MCP; local: LocalState; google: GoogleOverview | null; checkRequest: number; refresh: () => Promise<void>; refreshLocal: () => Promise<void>;
   onEdit: () => void; onRemoved: () => void; onAuthorizeLocal: () => void;
 }) {
   const { t } = useTranslation(["extensions", "common"]);
   const known = server.status;
+  // A provider that accepts only a 127.0.0.1 redirect never takes the https popup: the shared computer, else paste-back.
+  const loopbackOnly = server.oauth?.redirect_policy === "loopback";
+  const route = loopbackOnly ? mcpOAuthRoute(window.location.protocol, isDesktop, Boolean(window.tofiDesktop?.authorizeMCP), options, true) : pageRoute;
   const [phase, setPhase] = useState<Phase>(server.oauth && !server.oauth.connected ? "auth" : known ? (known.ok ? "ready" : known.error_class === "auth" ? "auth" : "error") : "idle");
   const [checkedAt, setCheckedAt] = useState<string | undefined>(known?.checked_at);
   const [error, setError] = useState(known && !known.ok && known.error_class !== "auth" ? known.error_code === "api_disabled" ? "" : i18n.t("extensions:error.tools_failed") : "");
@@ -140,6 +136,8 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
   // Google said the API is not enabled in the project: which API, and the console page that enables it.
   const [apiIssue, setApiIssue] = useState<{ api: string; url: string } | null>(known?.error_code === "api_disabled" && isConsoleURL(known.enable_url) ? { api: known.api ?? "", url: known.enable_url } : null);
   const [vmSession, setVMSession] = useState<VMOAuthSession | null>(null);
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pastePopup, setPastePopup] = useState<Window | null>(null);
   const [confirm, setConfirm] = useState<"remove" | "disconnect" | "disconnect_google" | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [tiers, setTiers] = useState<ToolTierList | null>(null);
@@ -155,7 +153,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
   const account = isGog ? local.google : null;
   // A local plugin answers tools without ever having been given a Google account: that is "needs authorization".
   const accountMissing = isGog && account !== null && !account.connected;
-  const busy = vmSession !== null || (route.mode === "desktop" && phase === "waiting") || ["checking", "authorizing", "removing"].includes(phase);
+  const busy = vmSession !== null || pasteOpen || (route.mode === "desktop" && phase === "waiting") || ["checking", "authorizing", "removing"].includes(phase);
   useEffect(() => { alive.current = true; return () => { alive.current = false; operation.current++; abort.current?.abort(); if (nativePending.current) void window.tofiDesktop?.cancelMCPAuthorization?.(server.name).catch(() => {}); }; }, [server.name]);
   const check = useCallback(async () => {
     const id = ++operation.current; abort.current?.abort(); const controller = new AbortController(); abort.current = controller;
@@ -208,7 +206,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
   }, [server.name, server.url]);
   useEffect(() => { if (!vmSession && !previouslyConnected.current && server.oauth?.connected && checkRequest === 0) { setAuthURL(""); void check(); } else if (previouslyConnected.current && !server.oauth?.connected) { setPhase("auth"); } previouslyConnected.current = server.oauth?.connected; }, [server.oauth?.connected, checkRequest, check, vmSession]);
   useEffect(() => {
-    if (phase !== "waiting" || vmSession || isDesktop) return;
+    if (phase !== "waiting" || vmSession || pasteOpen || isDesktop) return;
     const timer = window.setInterval(() => {
       const popup = authorizationPopup.current;
       try {
@@ -221,7 +219,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
     }, 2000);
     const timeout = window.setTimeout(() => { setPhase("auth"); setError(i18n.t("extensions:error.auth_timeout")); }, 10 * 60 * 1000);
     return () => { window.clearInterval(timer); window.clearTimeout(timeout); };
-  }, [phase, refresh, check, server.name, vmSession]);
+  }, [phase, refresh, check, server.name, vmSession, pasteOpen]);
   // After the person enables the API in the console and comes back, look again.
   useEffect(() => {
     if (!apiIssue) return;
@@ -251,6 +249,11 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
       } catch (e) { if (alive.current && id === operation.current) { setPhase("auth"); setError(message(e)); } }
       return;
     }
+    if (route.mode === "paste") {
+      // The sign-in tab opens inside the click (a later window.open is blocked); the dialog points it at the provider.
+      const tab = window.open(endpoint(server.name) + "/oauth/pending", "_blank"); if (tab) tab.opener = null;
+      setPastePopup(tab); setPasteOpen(true); setPhase("waiting"); return;
+    }
     // Open during the user gesture; asynchronous window.open is blocked by many browsers.
     let popup: Window | null = null;
     try {
@@ -259,7 +262,11 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
       if (!alive.current || id !== operation.current) { popup?.close(); return; }
       const url = new URL(result.authorization_url); if (!["https:", "http:"].includes(url.protocol)) throw new Error(t("error.invalid_auth_url"));
       setAuthURL(url.href); setPhase("waiting"); if (popup && !popup.closed) popup.location.replace(url.href);
-    } catch (e) { popup?.close(); if (alive.current && id === operation.current) { setPhase("auth"); setError(message(e)); } }
+    } catch (e) {
+      // The provider refused the public callback at registration: the server remembered that, so sign in by paste-back with the tab already open.
+      if (e instanceof ApiError && e.code === "oauth_loopback_required" && alive.current && id === operation.current) { setPastePopup(popup); setPasteOpen(true); setPhase("waiting"); void refresh(); return; }
+      popup?.close(); if (alive.current && id === operation.current) { setPhase("auth"); setError(message(e)); }
+    }
   }
   async function verifyGoogle() {
     const id = ++operation.current; setPhase("checking"); setError("");
@@ -294,8 +301,8 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
     : action === "authorize" ? { label: t("connections.action.authorize"), disabled: busy || (route.mode === "blocked" && !accountMissing), onClick: authorizeNow }
     : action === "retry" ? { label: t("common:action.retry"), disabled: busy, onClick: () => { if (needsAuth || accountMissing) authorizeNow(); else void check(); } }
     : action === "connect" ? { label: t("mcp.connect"), disabled: busy, onClick: () => void check() }
-    : action === "cancel" ? { label: t("mcp.cancel_auth"), onClick: () => void window.tofiDesktop?.cancelMCPAuthorization?.(server.name).catch(e => setError(message(e))) }
-    : action === "continue" ? { label: t("mcp.continue_auth"), href: authURL } : null;
+    : action === "cancel" ? { label: t("mcp.cancel_auth"), pending: true, onClick: () => void window.tofiDesktop?.cancelMCPAuthorization?.(server.name).catch(e => setError(message(e))) }
+    : action === "continue" ? { label: t("mcp.continue_auth"), href: authURL, pending: true } : null;
   const hasTools = Boolean(tiers) && (tiers!.tools.length > 0 || phase === "ready");
   const source = sourceLine(server, preset, pluginId);
   const menu: RowMenuItem[] = [];
@@ -309,8 +316,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
   return <ConnectionRowView name={display} mark={isGog ? "Gmail" : display} state={error ? "error" : phase} kind={kind} statusText={statusText}
     detail={kind === "ready" && account?.connected ? [account.email, googleServicesLabel(account.services)].filter(Boolean).join(" · ") : undefined} checkedText={kind === "ready" && checkedAt ? t("status.checked", { when: formatRelativeTime(checkedAt) }) : undefined}
     primary={primary} menu={menu} menuBusy={busy} error={kind === "api_disabled" ? t("connections.error.api_disabled", { name: apiName }) : error}>
-    {!isDesktop && server.oauth && ["authorizing", "waiting"].includes(phase) && <OAuthLinkMotion title={display} />}
-    {route.mode === "blocked" && needsAuth && <div className="mcp-login-note"><p role="status">{route.note}</p></div>}
+    {(route.mode === "blocked" ? needsAuth : loopbackOnly && (needsAuth || phase === "waiting")) && <div className="mcp-login-note"><p role="status">{route.note}</p></div>}
     {detailsOpen && <div className="mcp-service-details">
       <p className="mcp-service-source">{source}</p>
       {server.provenance?.origin === "community" && <p className="mcp-service-source">{t("connections.details.community_review")}</p>}
@@ -323,6 +329,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
     </div>}
     {kind === "error" && preset?.googleAPIs && <div className="mcp-service-setup"><Disclosure title={t("google.help")} defaultOpen><GoogleSetupLinks preset={preset} docs /></Disclosure></div>}
     {vmSession && <VMOAuthDialog session={vmSession} serverName={server.name} title={display} onFinish={(status, detail) => { setVMSession(null); if (status === "complete") { void refresh(); void check(); } else { setPhase("auth"); setError(detail || ""); } }} />}
+    {pasteOpen && <PasteBackDialog serverName={server.name} title={display} popup={pastePopup} onFinish={(status, detail) => { setPasteOpen(false); setPastePopup(null); if (status === "complete") { void refresh(); void check(); } else { setPhase("auth"); setError(status === "cancelled" ? "" : detail || ""); } }} />}
     {confirm && <div className="mcp-confirm"><span>{confirmText}</span><button className="mcp-button" disabled={busy} onClick={() => setConfirm(null)}>{t("action.cancel")}</button><button className="mcp-button mcp-danger" disabled={busy} onClick={() => void confirmAction()}>{confirm === "remove" ? t("mcp.confirm.remove_submit") : t("mcp.confirm.disconnect_submit")}</button></div>}
   </ConnectionRowView>;
 }
