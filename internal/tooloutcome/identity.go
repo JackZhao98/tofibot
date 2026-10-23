@@ -78,5 +78,7 @@ func Bounded(o *Outcome) *Outcome {
 	copy.Code = limit(copy.Code, 128)
 	copy.Certainty = limit(copy.Certainty, 128)
 	copy.NextAction = limit(copy.NextAction, 128)
+	copy.Host = limit(copy.Host, 255)
+	copy.NetError = limit(copy.NetError, 128)
 	return &copy
 }

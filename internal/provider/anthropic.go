@@ -182,9 +182,10 @@ func (a *anthropicProvider) stream(ctx context.Context, req *ChatRequest, onDelt
 		}
 		return httpReq, nil
 	}
-	return streamWithWatchdogs(ctx, "anthropic", build, func(r io.Reader) (*ChatResponse, error) {
+	resp, err := streamWithWatchdogs(ctx, "anthropic", build, func(r io.Reader) (*ChatResponse, error) {
 		return parseAnthropicStream(r, onDelta)
 	})
+	return resp, codeRequestRejection(err)
 }
 
 // streamWithWatchdogs runs one streaming POST under the shared idle and wall
@@ -438,6 +439,10 @@ func (a *anthropicProvider) buildPayload(req *ChatRequest) (map[string]any, []st
 	return payload, betas
 }
 
+// anthropicContinueTurn is the user turn that closes a request whose history
+// ends with an assistant turn (see convertAnthropicMessages).
+const anthropicContinueTurn = "Continue."
+
 // anthropicMessage is one Messages API turn. Blocks are maps built here or
 // json.RawMessage replayed verbatim.
 type anthropicMessage struct {
@@ -509,6 +514,13 @@ func convertAnthropicMessages(msgs []Message, replay bool) (out []anthropicMessa
 		}
 	}
 
+	// Current Claude models reject a request whose last turn is the
+	// assistant's (prefill is gone), and no caller here wants one: history can
+	// end on the Bot's own reply, or on a user turn that rendered empty. Close
+	// the request with a user turn instead.
+	if n := len(out); n > 0 && out[n-1].Role == "assistant" {
+		out = append(out, anthropicMessage{Role: "user", Content: []any{map[string]any{"type": "text", "text": anthropicContinueTurn}}})
+	}
 	if n := len(out); n > 0 {
 		markCacheBreakpoint(out[n-1])
 		for i := n - 1; i >= 0; i-- {
@@ -521,6 +533,18 @@ func convertAnthropicMessages(msgs []Message, replay bool) (out []anthropicMessa
 		}
 	}
 	return out, replayed
+}
+
+// AnthropicTurnRoles reports the roles of the Messages API turns a history
+// converts to. The last one is always "user" (a tool result or user text) for
+// a history that has any turn.
+func AnthropicTurnRoles(msgs []Message, replay bool) []string {
+	turns, _ := convertAnthropicMessages(msgs, replay)
+	roles := make([]string, len(turns))
+	for i, turn := range turns {
+		roles[i] = turn.Role
+	}
+	return roles
 }
 
 func isToolResultBlock(block any) bool {

@@ -102,6 +102,10 @@ func IsRetryable(err error) bool {
 		return false
 	}
 
+	if IsRequestRejection(err) {
+		return false // the same request would be refused the same way
+	}
+
 	apiErr, ok := AsAPIError(err)
 	if ok {
 		switch {
@@ -309,4 +313,54 @@ func mentionsReasoningReplay(text string) bool {
 	lower := strings.ToLower(text)
 	return strings.Contains(lower, "encrypted_content") || strings.Contains(lower, "reasoning item") ||
 		reasoningItemIDPattern.MatchString(text)
+}
+
+// RequestPrefillRejected is the code of a request the provider refused because
+// it ended with an assistant message (assistant prefill is not supported by the
+// model). The request builder never sends one, so this marks a defect to fix,
+// not a condition to retry.
+const RequestPrefillRejected = "provider_invalid_request_prefill"
+
+// RequestRejectionError is a provider 400 that has a stable code. It wraps the
+// original APIError, so status and body classification still work, and it is
+// never retried: the identical request would be refused again.
+type RequestRejectionError struct {
+	Code string
+	Err  *APIError
+}
+
+func (e *RequestRejectionError) Error() string { return "[" + e.Code + "] " + e.Err.Error() }
+func (e *RequestRejectionError) Unwrap() error { return e.Err }
+
+// IsRequestRejection reports whether err carries a request-rejection code.
+func IsRequestRejection(err error) bool {
+	var rejection *RequestRejectionError
+	return errors.As(err, &rejection)
+}
+
+// RequestRejectionCode returns the code of a request rejection, or "".
+func RequestRejectionCode(err error) string {
+	var rejection *RequestRejectionError
+	if errors.As(err, &rejection) {
+		return rejection.Code
+	}
+	return ""
+}
+
+// codeRequestRejection tags a provider 400 that refuses an assistant-final
+// conversation. The match is on the API's own sentence about prefill in a 400
+// body; any other error is returned unchanged.
+func codeRequestRejection(err error) error {
+	if err == nil || IsRequestRejection(err) {
+		return err
+	}
+	apiErr, ok := AsAPIError(err)
+	if !ok || apiErr.StatusCode != 400 {
+		return err
+	}
+	body := strings.ToLower(apiErr.Body)
+	if strings.Contains(body, "prefill") || strings.Contains(body, "must end with a user message") {
+		return &RequestRejectionError{Code: RequestPrefillRejected, Err: apiErr}
+	}
+	return err
 }
