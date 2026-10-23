@@ -1,6 +1,6 @@
 import { i18n } from "../i18n";
 
-export type OAuth = { client_id: string; client_secret?: string; scopes?: string[]; auth_server_metadata_url?: string; connected?: boolean };
+export type OAuth = { client_id: string; client_secret?: string; scopes?: string[]; auth_server_metadata_url?: string; connected?: boolean; /** The provider accepts only a 127.0.0.1 redirect (catalog `oauthRedirect`). */ redirect_policy?: "loopback" };
 export type TestResult = { ok: boolean; tool_count?: number; auth_required?: boolean; diagnostics?: { message: string; code?: string; api?: string; enable_url?: string }[] };
 export type MCPTransport = "streamable_http" | "sse";
 export type MCPStatus = { checked_at: string; ok: boolean; tool_count: number; error_class?: "auth" | "failed"; error_code?: string; api?: string; enable_url?: string };

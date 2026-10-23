@@ -302,19 +302,32 @@
   },
   "oauth": {
     "help_body": "授權方式會自動依入口決定，適用於 Google、Notion 和其他 OAuth 服務。手動設定的用戶端需在服務後台登記下方完整的重新導向網址；Notion 等支援自動註冊的服務由 Tofi 處理。",
-    "help_title": "登入方式與限制",
-    "waiting": "等待 {{title}} 授權"
+    "help_title": "登入方式與限制"
   },
   "origin": {
     "community": "社群維護",
     "preset": "連線預設",
     "vendor": "由提供者維護"
   },
+  "paste": {
+    "error": {
+      "generic": "該網址無法通過驗證。請檢查後重新貼上，或重新開始。"
+    },
+    "label": "跳轉後的網址",
+    "lead": "{{title}} 只會跳轉到 127.0.0.1。在其登入頁核准存取後，把最終跳轉的網址貼進來。",
+    "open": "開啟 {{title}} 登入頁",
+    "starting": "正在準備登入…",
+    "step_copy": "核准後瀏覽器會顯示一個打不開的頁面，這是預期行為。請從網址列複製完整網址。",
+    "submit": "完成登入",
+    "submitting": "驗證中…",
+    "title": "登入 {{title}}"
+  },
   "route": {
     "desktop": "在系統瀏覽器登入，完成後自動返回此用戶端。不使用共用電腦。",
     "desktop_outdated": "此用戶端版本尚不支援本機授權，請更新用戶端。不會自動改用共用電腦。",
     "http_blocked": "HTTP 直連無法安全地重新導向，且未設定共用電腦。請改用 HTTPS 或 Tofi 用戶端。",
     "loading": "正在讀取授權設定…",
+    "loopback_paste": "此服務只接受 127.0.0.1 回呼。請在自己的瀏覽器中登入，再把跳轉後的網址貼回這裡。",
     "public_origin_missing": "請為伺服器設定正確的 TOFI_PUBLIC_ORIGIN（公開 HTTPS 網址）後再試一次。",
     "vm": "目前透過 HTTP 直連，僅此入口使用共用電腦授權。服務需支援本機重新導向；建議改用 HTTPS 或 Tofi 用戶端。",
     "web": "在目前裝置的瀏覽器登入，並重新導向回 Tofi 的 HTTPS 伺服器。不使用共用電腦。"

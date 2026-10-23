@@ -6,7 +6,8 @@ import { useTranslation } from "../i18n";
 import type { ConnectionKind } from "./status";
 
 export type RowMenuItem = { key: string; label: string; danger?: boolean; onSelect: () => void };
-export type RowPrimary = { label: string; onClick?: () => void; href?: string; disabled?: boolean };
+/** `pending`: the connection is waiting on the person; the button breathes (a ring, opacity and scale only; static under reduced motion). */
+export type RowPrimary = { label: string; onClick?: () => void; href?: string; disabled?: boolean; pending?: boolean };
 
 /**
  * One connection: icon, plain name, one honest status, at most one primary action and a "more actions" menu.
@@ -31,8 +32,8 @@ export function ConnectionRowView({ name, mark, state, kind, statusText, detail,
       </div>
       <div className="mcp-service-actions">
         {primary && (primary.href
-          ? <a className="mcp-button" href={primary.href} target="_blank" rel="noopener noreferrer">{primary.label}</a>
-          : <button type="button" className="mcp-button" data-primary disabled={primary.disabled} onClick={primary.onClick}>{primary.label}</button>)}
+          ? <a className="mcp-button" data-pending={primary.pending || undefined} href={primary.href} target="_blank" rel="noopener noreferrer">{primary.label}</a>
+          : <button type="button" className="mcp-button" data-primary data-pending={primary.pending || undefined} disabled={primary.disabled} onClick={primary.onClick}>{primary.label}</button>)}
         <div className="mcp-menu-anchor" ref={anchor}>
           <button ref={trigger} type="button" className="mcp-button mcp-menu-trigger" aria-label={label} aria-haspopup="menu" aria-expanded={open} disabled={menuBusy} onClick={() => setOpen(value => !value)} onKeyDown={arrowOpens(setOpen)}>
             <TofiIcon name="more" size={20} variant={open ? "filled" : "outline"} />

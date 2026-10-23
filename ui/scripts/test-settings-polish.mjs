@@ -436,12 +436,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   const tabScenario = (id, tab) => scenarios.push({id, tab, run: async () => {}});
   for (const tab of ["general", "connections", "skills", "approvals", "followups", "models", "automation", "computer", "keys", "usage", "advanced", "admin"]) tabScenario(tab, tab);
   scenarios.push(
-    // Sign-in in progress is the only place the key diagram appears; its provider label must sit under the key, not over it.
+    // Sign-in in progress shows no illustration (the old TOFI / key diagram is gone); the only cue is the primary button.
     {id: "connections-signin", tab: "connections", run: async ({page}) => {
       await click(page.locator('.mcp-service[aria-label="acme_docs"]').getByRole("button", {name: /^Authorize/}), "Connections: Authorize");
-      await page.locator(".web-oauth-provider").waitFor({timeout: 4000}).catch(() => warnings.push("step skipped: sign-in diagram did not appear"));
-      const boxes = await page.evaluate(() => { const p = document.querySelector(".web-oauth-provider"); if (!p) return null; const a = p.querySelector("svg").getBoundingClientRect(), b = p.querySelector("small").getBoundingClientRect(); return {iconBottom: a.bottom, labelTop: b.top}; });
-      if (boxes && boxes.labelTop < boxes.iconBottom - 0.5) throw new Error(`provider label overlaps the key icon (${boxes.labelTop} < ${boxes.iconBottom})`);
+      await page.waitForTimeout(400);
+      if (await page.locator(".web-oauth-link, .web-oauth-node, .web-oauth-provider").count()) throw new Error("the sign-in illustration is back");
     }},
     // Gmail (gogcli) OAuth client JSON, in the connect dialog: the picker is a styled button; the native file input must stay hidden before and after choosing.
     {id: "connections-google-json", tab: "connections", container: ".sheet", run: async ({page}) => {
