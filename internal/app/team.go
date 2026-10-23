@@ -215,7 +215,7 @@ func (s *Server) teamTools(c Conversation, r Run) []Tool {
 			})
 			return result, e
 		}),
-		tool("create_group", "Create a durable discussion group including the initiating bot.", map[string]any{"name": map[string]any{"type": "string"}, "bot_ids": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}}, []string{"name", "bot_ids"}, func(ctx context.Context, args json.RawMessage) (string, error) {
+		tool("create_group", "Create a durable discussion group including the initiating bot. Call list_groups first. Create a group only when no existing group has suitable members and purpose.", map[string]any{"name": map[string]any{"type": "string"}, "bot_ids": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}}, []string{"name", "bot_ids"}, func(ctx context.Context, args json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
