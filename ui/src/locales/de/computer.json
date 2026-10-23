@@ -287,7 +287,11 @@
       "no_private_key_in_file": "In der Datei wurde kein privater Schlüssel gefunden. Wähl eine Schlüsseldatei oder füg den Inhalt direkt ein.",
       "read_file": "Datei konnte nicht gelesen werden. Versuch es noch einmal oder füg den privaten Schlüssel ein.",
       "copy_manual": "Kopier ihn aus dem Feld mit dem öffentlichen Schlüssel unten (⌘C / Strg+C).",
-      "drop_single": "Zieh immer nur eine Schlüsseldatei hierher."
+      "drop_single": "Zieh immer nur eine Schlüsseldatei hierher.",
+      "env_bad_chars": "In einem Variablennamen nicht erlaubt: {{chars}}. Nur Großbuchstaben, Ziffern und Unterstrich verwenden.",
+      "env_leading_digit": "Ein Variablenname darf nicht mit einer Ziffer beginnen. Mit einem Buchstaben oder Unterstrich beginnen.",
+      "env_too_long": "Ein Variablenname darf höchstens 128 Zeichen lang sein.",
+      "env_reserved": "{{name}} ist vom System reserviert. Reserviert: {{list}} sowie jeder Name, der mit LD_ beginnt."
     },
     "status": {
       "saved_applied": "Gespeichert und angewendet. Neue Befehle und Terminals übernehmen es.",
@@ -327,7 +331,8 @@
       "key_file": "Dateiname des Schlüssels",
       "env_value": "Wert",
       "private_key": "Privater Schlüssel",
-      "private_key_placeholder": "Privaten Schlüssel einfügen oder Datei hierher ziehen"
+      "private_key_placeholder": "Privaten Schlüssel einfügen oder Datei hierher ziehen",
+      "env_name_hint": "Nur Großbuchstaben, Ziffern und Unterstrich; darf nicht mit einer Ziffer beginnen. Kleinbuchstaben, Leerzeichen und Bindestriche werden beim Tippen umgewandelt."
     },
     "choose_file": "Datei auswählen",
     "private_key_note": "Private Schlüssel landen nie im Chat. Verschlüsselte Schlüssel müssen auf dem Computer entsperrt werden.",
