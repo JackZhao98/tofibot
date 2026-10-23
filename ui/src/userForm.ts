@@ -56,6 +56,7 @@ export function userFormAnswerRows(fields: QuestionField[], answer: QuestionAnsw
     const value = Object.hasOwn(values, field.id) ? values[field.id] : undefined;
     const missing = value === undefined || value === "";
     return { id: field.id, label: field.label, value: missing ? t("form.answer.missing")
+      : typeof value === "object" && typeof value.saved_as === "string" && value.saved_as ? t("form.answer.private_saved", { name: value.saved_as })
       : field.type === "password" || typeof value === "object" ? t("form.answer.private")
         : typeof value === "string" ? value : t("form.answer.missing") };
   });

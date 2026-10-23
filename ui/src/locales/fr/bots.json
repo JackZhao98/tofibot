@@ -130,5 +130,29 @@
     "profile_aria": "Profil de {{name}}",
     "mention": "Mentionner {{name}}",
     "open_dm": "Ouvrir le message privé"
+  },
+  "secrets": {
+    "title": "Secrets",
+    "hint": "Les secrets que vous avez choisi de garder pour ce Bot. Lui seul peut les utiliser, une commande à la fois. Les valeurs ne sont jamais affichées.",
+    "loading": "Chargement des secrets…",
+    "empty": "Aucun secret enregistré. Cochez « Enregistrer pour ce Bot » quand un Bot demande un secret.",
+    "saved_at": "Enregistré {{time}}",
+    "last_used": "dernier usage {{time}}",
+    "never_used": "jamais utilisé",
+    "replace": "Remplacer",
+    "delete": "Supprimer",
+    "delete_question": "Supprimer {{name}} ? Ce Bot ne pourra plus l'utiliser.",
+    "new_value": "Nouvelle valeur pour {{name}}",
+    "replace_save": "Enregistrer la valeur",
+    "replacing": "Enregistrement…",
+    "cancel": "Annuler",
+    "status": {
+      "replaced": "{{name}} remplacé.",
+      "deleted": "{{name}} supprimé."
+    },
+    "error": {
+      "load": "Impossible de charger les secrets. Réessayez.",
+      "replace": "Impossible de remplacer la valeur. Réessayez."
+    }
   }
 }

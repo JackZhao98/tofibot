@@ -239,3 +239,8 @@ html:not([data-desktop]) .workspace .question-message .question-card.is-resolved
   .workspace .question-message .question-actions .primary-button { transition: none; }
   html:not([data-desktop]) .workspace .question-message .question-card.is-resolved.is-answered .question-result > :is(svg,span) { animation:none; }
 }
+
+.workspace .question-message .question-form-save { display: grid; gap: 12px; margin-top: 16px; min-width: 0; }
+.workspace .question-message .question-form-save-toggle { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; font: 13px/1.5 var(--body); color: var(--ink); }
+.workspace .question-message .question-form-save-toggle input { flex: none; width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--ink); }
+.workspace .question-message .question-form-save-toggle small { display: block; margin-top: 2px; color: var(--ink-soft); font-size: 12px; line-height: 1.5; }

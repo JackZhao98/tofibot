@@ -45,6 +45,9 @@ try {
   assert.equal(userFormAnswerRows(fields, { password: "unexpected-plaintext" })[2].value, "已私密提交", "never render raw password values from a malformed response");
   assert.equal(userFormAnswerRows(fields, { name: answer.password })[0].value, "已私密提交", "never stringify a hidden object in an ordinary field");
   assert.ok(userFormAnswerRows(fields, undefined).every(row => row.value === "未填写"));
+  // A kept private input shows only the variable name it was saved under, never the reference.
+  const kept = userFormAnswerRows(fields, { password: { secret_ref: "synthetic-reference-DO-NOT-RENDER", value_hidden: true, saved_as: "SYNTHETIC_KEY" } })[2].value;
+  assert.ok(kept.includes("SYNTHETIC_KEY") && !kept.includes("synthetic-reference"), "a saved private input names the variable only");
   const item = { question_id: "q", conversation_id: "c", bot_id: "b", run_id: "r", created_at: "2026-09-25T00:00:00Z", question: "Fill this", fields, status: "pending" };
   const identity = userFormIdentity(item);
   assert.equal(userFormIdentity({ ...item, updated_at: "later", answer }), identity, "polling does not reset a draft or include answers in identity");

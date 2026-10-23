@@ -126,5 +126,29 @@
     "profile_aria": "{{name}} 的资料",
     "mention": "提及 {{name}}",
     "open_dm": "打开私信"
+  },
+  "secrets": {
+    "title": "密钥",
+    "hint": "你选择保存给这个 Bot 的密钥。只有这个 Bot 能用，且每次只在一条命令里生效。值永远不会显示。",
+    "loading": "正在加载密钥…",
+    "empty": "还没有保存的密钥。Bot 请求密钥时，勾选“保存给这个 Bot”即可。",
+    "saved_at": "保存于 {{time}}",
+    "last_used": "最后使用 {{time}}",
+    "never_used": "从未使用",
+    "replace": "替换",
+    "delete": "删除",
+    "delete_question": "删除 {{name}}？这个 Bot 将不能再使用它。",
+    "new_value": "{{name}} 的新值",
+    "replace_save": "保存新值",
+    "replacing": "正在保存…",
+    "cancel": "取消",
+    "status": {
+      "replaced": "已替换 {{name}}。",
+      "deleted": "已删除 {{name}}。"
+    },
+    "error": {
+      "load": "无法加载密钥，请重试。",
+      "replace": "无法替换该值，请重试。"
+    }
   }
 }

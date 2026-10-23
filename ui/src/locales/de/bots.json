@@ -128,5 +128,29 @@
     "profile_aria": "Profil von {{name}}",
     "mention": "{{name}} erwähnen",
     "open_dm": "Direktnachricht öffnen"
+  },
+  "secrets": {
+    "title": "Geheimnisse",
+    "hint": "Geheimnisse, die du für diesen Bot gespeichert hast. Nur dieser Bot kann sie nutzen, jeweils für einen Befehl. Werte werden nie angezeigt.",
+    "loading": "Geheimnisse werden geladen …",
+    "empty": "Keine gespeicherten Geheimnisse. Wähle „Für diesen Bot speichern“, wenn ein Bot nach einem Geheimnis fragt.",
+    "saved_at": "Gespeichert {{time}}",
+    "last_used": "zuletzt genutzt {{time}}",
+    "never_used": "nie genutzt",
+    "replace": "Ersetzen",
+    "delete": "Löschen",
+    "delete_question": "{{name}} löschen? Dieser Bot kann es dann nicht mehr nutzen.",
+    "new_value": "Neuer Wert für {{name}}",
+    "replace_save": "Wert speichern",
+    "replacing": "Wird gespeichert …",
+    "cancel": "Abbrechen",
+    "status": {
+      "replaced": "{{name}} ersetzt.",
+      "deleted": "{{name}} gelöscht."
+    },
+    "error": {
+      "load": "Die Geheimnisse konnten nicht geladen werden. Versuche es erneut.",
+      "replace": "Der Wert konnte nicht ersetzt werden. Versuche es erneut."
+    }
   }
 }

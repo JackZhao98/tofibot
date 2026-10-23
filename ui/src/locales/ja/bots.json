@@ -126,5 +126,29 @@
     "profile_aria": "{{name}} のプロフィール",
     "mention": "{{name}} をメンション",
     "open_dm": "DM を開く"
+  },
+  "secrets": {
+    "title": "シークレット",
+    "hint": "この Bot 用に保存したシークレットです。使えるのはこの Bot だけで、コマンド 1 回ごとに渡されます。値は表示されません。",
+    "loading": "シークレットを読み込み中…",
+    "empty": "保存済みのシークレットはありません。Bot がシークレットを求めたら「この Bot 用に保存」にチェックしてください。",
+    "saved_at": "保存日時 {{time}}",
+    "last_used": "最終使用 {{time}}",
+    "never_used": "未使用",
+    "replace": "置き換え",
+    "delete": "削除",
+    "delete_question": "{{name}} を削除しますか？この Bot は使えなくなります。",
+    "new_value": "{{name}} の新しい値",
+    "replace_save": "値を保存",
+    "replacing": "保存中…",
+    "cancel": "キャンセル",
+    "status": {
+      "replaced": "{{name}} を置き換えました。",
+      "deleted": "{{name}} を削除しました。"
+    },
+    "error": {
+      "load": "シークレットを読み込めませんでした。もう一度お試しください。",
+      "replace": "値を置き換えられませんでした。もう一度お試しください。"
+    }
   }
 }

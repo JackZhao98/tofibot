@@ -13,6 +13,7 @@ import { isPrivateInputForm, userFormAnswerRows, userFormIdentity, userFormSchem
 import { canAnswerQuestion, presentTaskIssue } from "./taskIssuePresentation";
 import { i18n, useTranslation } from "./i18n";
 import { formatNumber } from "./i18n/format";
+import { allowedSecretEnv, normalizeSecretEnvInput, SECRET_ENV_RESERVED_NAMES, secretEnvProblem } from "./secretEnvName";
 import { TaskIssueCard } from "./TaskIssueCard";
 import "./question-card.css";
 import { intlLocale } from "./i18n/format";
@@ -136,7 +137,13 @@ function BinaryQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
 function UserFormCard({ item, bot, group, archived, onChanged }: QuestionCardProps) {
   const title = useId();
   const { t } = useTranslation("tasks");
+  const { t: tc } = useTranslation("computer");
   const privacy = `${title}-privacy`;
+  // "Save for this Bot" is the person's choice on a private-input card; the Bot only suggests a name.
+  const [saveForBot, setSaveForBot] = useState(false);
+  const [saveName, setSaveName] = useState(() => normalizeSecretEnvInput(item.fields?.[0]?.suggested_name ?? ""));
+  const saveProblem = saveForBot ? secretEnvProblem(saveName) : null;
+  const saveProblemText = saveProblem ? tc(`credentials.error.env_${saveProblem.code}`, { chars: saveProblem.code === "bad_chars" ? saveProblem.chars : "", name: saveProblem.code === "reserved" ? saveProblem.name : "", list: SECRET_ENV_RESERVED_NAMES.join(", ") }) : "";
   const form = useRef<HTMLFormElement | null>(null);
   const mounted = useRef(false);
   const inFlight = useRef(false);
@@ -184,7 +191,11 @@ function UserFormCard({ item, bot, group, archived, onChanged }: QuestionCardPro
         if (control instanceof HTMLElement) control.focus();
         return;
       }
-      body = JSON.stringify({ fields: values });
+      if (isPrivateInputForm(item) && saveForBot && !allowedSecretEnv(saveName)) {
+        setError(t("form.save.name_required"));
+        return;
+      }
+      body = JSON.stringify(isPrivateInputForm(item) && saveForBot ? { fields: values, save_as: saveName } : { fields: values });
     }
     inFlight.current = true;
     setBusy(cancel ? "cancel" : "submit"); setError("");
@@ -248,9 +259,18 @@ function UserFormCard({ item, bot, group, archived, onChanged }: QuestionCardPro
               </div>;
             })}
           </fieldset>}
+          {isPrivateInputForm(item) && !schemaError && <div className="question-form-save">
+            <label className="question-form-save-toggle"><input type="checkbox" checked={saveForBot} disabled={Boolean(busy) || archived} onChange={event => setSaveForBot(event.target.checked)} /><span>{t("form.save.label")}<small>{t("form.save.hint")}</small></span></label>
+            {saveForBot && <div className="question-form-field">
+              <label htmlFor={`${title}-save-name`}><span>{t("form.save.name")}</span></label>
+              <input id={`${title}-save-name`} value={saveName} disabled={Boolean(busy)} onChange={event => setSaveName(normalizeSecretEnvInput(event.target.value))} placeholder="MY_API_KEY" autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} aria-invalid={saveProblem ? true : undefined} aria-describedby={`${title}-save-hint`} />
+              <p className="field-note" id={`${title}-save-hint`}>{tc("credentials.field.env_name_hint")}</p>
+              {saveProblem && <p className="error-text" role="alert">{saveProblemText}</p>}
+            </div>}
+          </div>}
           {archived ? <p className="field-note">{t("form.archived")}</p> : <div className="question-actions">
             <button className="text-button" type="button" disabled={Boolean(busy)} onClick={() => void finish(true)}>{busy === "cancel" ? t("question.cancelling") : t("question.cancel")}</button>
-            <button className="primary-button" type="submit" disabled={Boolean(busy) || Boolean(schemaError)}>{busy === "submit" ? t("question.submitting") : t("form.submit")}</button>
+            <button className="primary-button" type="submit" disabled={Boolean(busy) || Boolean(schemaError) || Boolean(saveProblem)}>{busy === "submit" ? t("question.submitting") : t("form.submit")}</button>
           </div>}
         </> : <div className="question-result" role="status">
           <span>{current.status === "answered" ? t("form.submitted") : current.status === "expired" ? t("status.expired") : current.status === "run_done" ? t("question.resolution.run_done") : t("status.cancelled")}</span>
