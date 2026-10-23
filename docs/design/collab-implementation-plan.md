@@ -4,6 +4,8 @@
 
 > **阶段 1（C4）已实施**（分支 `feat/c4-skill-library`，[D58](../decisions/0058-skill-library-per-bot.md)）。owner 对 Q9–Q13 的结论：Q9 给每个现存 Bot 打勾（含已归档的，免得恢复后丢技能）、新 Bot 不带，Bot 导出只带名字；Q10 全局关闭转成每个 Bot 的关闭并去掉全局开关，三个 `tofi-*` 模板不算官方；Q11 Bot 装不要批准、发新版本要批准且只有安装者能发；Q12 自动跟最新、标“已更新”、可回退；Q13 与 Claude Code 插件目录一致，只做两层。实现与本节方案的差别：`PUT …/access` 不保留一版（直接删）；`skill_library` 没有 `official` 列（官方技能在二进制里，不进表）；账户管理里“限定技能只有管理员能改”的闸随它删除；Bot 在无人值守的 run 里不能装技能（只能开关自己的）。
 
+> **阶段 2（任务 + 等待）已实施**（分支 `feat/p2-tasks-waits`，[D59](../decisions/0059-tasks-and-waits.md)）：表 `waits`、`bot_inbox`、`task_checklist`、`task_revisions`，`work_items` 加任务列和 `input_required`/`failed`；`delegate`（`handoff`/`message` 作别名）、`wait_for`、`cancel_wait`、`task_update`、`task_ask`、`say` 的 `task_id`；成环检查、15 秒扫描器、超时即结果、`pending` 豁免、清单对账（共用每 run 一次的退回）、停止/删除/移出群连带取消、版本号与“基于第几版”、每日清理（Settings 可改，默认 30 天，不碰 D38 文件）、`[waiting on]` 上下文块、看板两列和删除确认的件数。owner 的结论（Q1 30 天、Q2 扩 `work_items`、Q5 混合等待、Q6 卡片保留且新消息进收件箱、Q15、Q17、Q18、Q19 与两条补充）见 D59。**没有做的（留给后面）**：Q5 的“短等待挂起同一 run”和 Q6 的“保留卡片”要阶段 4 的调度（本阶段叫醒一律开新 run，人在卡片开着时发的消息只存一行并保持现行行为）；`command_exit` 等待阶段 3 开放；委派回传仍由原来的 `group_followup` 回传 run 交付、`task_result` 等待是镜像（收编进收件箱放阶段 4）；`wake` 和 `send_group_message` 暂不建任务；3 轮停滞上报和 `depends_on` 解锁属阶段 5b；界面不能取消 Bot 的等待。
+
 ## 0. 阶段顺序
 
 | 顺序 | 内容 | 规模 |
@@ -99,7 +101,7 @@ C2（阶段 3）放在调度改造前：它只依赖阶段 2 的等待模型。B
 - 风险：迁移后新建 Bot 只有官方技能，要有清楚空状态；文件与表不一致时以文件为准并启动对账。
 - 测试：迁移等价性；未启用不进目录、`read_skill` 拒绝；不能改别人那列；版本与回滚；套装；实测 A 装 B 看不到、勾上后能用、A 发新版 B 拿到。
 
-### 阶段 2：任务 + 等待
+### 阶段 2：任务 + 等待（已实施，D59）
 
 - 任务：扩 `work_items`（`assigner_kind/assigner_bot_id/root_task_id/parent_task_id/origin_run_id/spec_version/result_message_id/result_based_on_version/depends_on/stall_count/message_count/closed_at`），状态加 `input_required`、`failed`（对 A2A 生命周期）。
 - 清单：`task_checklist(task_id, item_id, ord, text, status open|done|skipped|blocked, reason, …)`；只有建任务的人能增删条目，被派的人只能改状态和原因（对标长任务文章“只许改 passes”）。

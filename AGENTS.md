@@ -108,6 +108,37 @@ via `mcpOAuthRoute`; a loopback-only service, below, signs in by paste-back inst
 `ask_user_question`, park and expire in scheduled runs. `manage_extensions oauth_required` points at `request_connection` only in
 user-visible conversations.
 
+# Tasks and waits
+
+A delegation is a task and a wait (decision 0059, `internal/app/tasks*.go`, `waits.go`, `bot_inbox.go`, `wait_sweeper.go`, `task_*.go`). A task is a `work_items` row
+with task columns (`assigner_kind/assigner_bot_id`, `root_task_id/parent_task_id`, `origin_run_id/assignee_run_id`, `spec_version`, result fields, `closed_at`);
+statuses add `input_required` and `failed`. `recordTaskForChildTx` makes it inside the transaction that creates the child run (`AddHandoff`,
+`AddForwardHandoff`, `AddBotMessage(s)`), with the `task_result` wait the assigner holds; the existing return run still delivers the result, so that wait
+settles in silence (`delivery='legacy'`). Run hooks keep the task true: `SetRunStatus` (start, failed, cancelled), `finishRunOpts` (result, `done`/`review`/`blocked`),
+restart recovery, and the sweeper's `reconcileTaskRuns` for paths that miss them. A retry run takes over the task; a run a newer message took over passes it on.
+`task_checklist`: only the task's creator adds or removes items or changes the request; the holder sets an item's status and reason (every ended item has a reason).
+`say(outcome=done)` with an `open` item goes back once, in the run's one send-back shared with the `pending` check (`state.pendingCheck`).
+
+`waits` is the one table for waiting: kinds `bot_post`, `task_result`, `human_answer` (a mirror of a question card; the card keeps its own resume), `command_exit` (phase 3,
+`wait_for` refuses it), `timer`; groups `any`/`all`; a group settles once (`settleGroupTx`) into one `bot_inbox` row. `recordWaitTx` runs the cycle check in the same
+short transaction (walk <= 64 steps, code `wait_cycle`, a graph too large to walk is refused) and the limits (16 open per Bot, `wait_chain_limit` after 24 self-wakes in a row).
+A timeout is a result: `timed_out` (a timer is `fulfilled`). Per-kind defaults are `waitTimeoutFor` (15 min / 2 h / 30 min). There is no in-memory timer: one sweeper
+(`sweepWaits`, 15 s, also at start) ends due waits, reconciles question mirrors, and calls `flushInbox`. Tests call `sweepWaits` directly; do not add `time.AfterFunc`.
+`flushInbox` wakes a Bot with a new `group_followup` run whose `run_wakes.source` is `inbox` (the rows are the request, block `[wait result]`); a single `bot_post` wait in a
+group keeps the old mention wake (`via='mention'`). A Bot's own run reads unread rows as `[task updates]` (`consumeInboxForRun`, idempotent per run). Phase 2 wakes by a new
+run; reading the inbox inside a running turn is phase 4. `outcome=pending` is honest only while the run holds a pending wait (`runHasPendingWait`).
+
+Tools: `delegate` (one member = handoff path, several = message path; `title`, `checklist`), `wait_for` (receipt at once), `cancel_wait`, `task_update`, `task_ask`, `say` with
+`task_id`. `handoff` and `message` are deferred aliases for one version. `cancel_wait`, `task_update`, `task_ask` are on demand (`onDemandTools`): the `[waiting on]`,
+`[task record]` and question texts say how to load them. Tool and block texts are English principles in Simplified Technical English with no examples.
+A person's message to a member that holds a task bumps `spec_version` and stores a `task_update` row for both sides (`noteUserMessageForTasks`); results carry
+`result_based_on_version`. Context blocks `[waiting on]` (<= 1600 runes), `[task record]`, `[task updates]`, `[wait result]` each have a row in `contextMarkerKinds` and a
+`chat:runContext.kind.*` string in 7 locales. Stop (`CancelRunTree`), Bot delete (inside `deleteWorkspaceTargetWith`) and group member removal (`UpdateGroup`) end tasks,
+waits and the runs below them by `parent_task_id`/`origin_run_id`/`assignee_run_id`; `GET /api/bots/{id}/task-impact?group_id=` feeds the confirmation count.
+Retention (`task_retention_days`, default 30, 0 = keep) clears the request text, checklist and revisions of finished delegated tasks, ended waits and read inbox rows; it never
+touches messages, attachments or runs, so the files a failed run kept (decision 0038) stay. Messages a run sends after it registered a wait count against their own
+allowance of three (`chatSegmentCountTx`, decision 0050 unchanged before that). The new tables are not exported (`portable*`).
+
 # Security gates
 
 `manage_extensions` changes (MCP create/update/delete/test, Skill `skill_publish_version`) execute only after a person's

@@ -69,6 +69,7 @@
 | D56 | 放行就动手：提示词写明“放行/已定方案=现在用工具做”，委派确认改用 `say(message)`；`say` 加必填自标 `outcome`，自标还有活没做（或说已交出却没叫醒任何人）且本轮没建定时的回答退回一次（所有非定时 run） | 2026-10-22 | B2：群里多 Bot 只答应不干活。电脑工具本来拿得到；根因是说完即交付、零工具回答从不复核、提示词把“开始吧”引向短回复。对标 Anthropic `default_to_action` 与 Claude Code Stop hook；自标不靠关键词 | [0056](0056-go-ahead-means-act.md) |
 | D57 | MCP 连接允许旧版 `initialize` 回退（所有连接）；只放宽协议版本，旧 SSE 传输仍拒绝 | 2026-10-23 | 真实服务（如 Robinhood）仍在旧规范，被 TOFI 自己的中间件拦死；SDK 原生回退即可。仅版本全不在支持范围时报 `unsupported_protocol` | [0057](0057-mcp-legacy-initialize-fallback.md) |
 | D58 | 技能库：一个全局库，每个 Bot 一列启用；Bot 装技能和给自己开关不需批准，发新版本要人批准且只有安装者能发；官方技能默认开、可按 Bot 关；套装用 Claude Code 插件目录；删除只有用户 | 2026-10-23 | C4：Bot 装的技能只能是全工作区、装/删都要批准、能删 owner 的技能；文档互相打架。对标 Claude.ai 技能库、Claude Code 插件、Claude API 技能版本 | [0058](0058-skill-library-per-bot.md) |
+| D59 | 任务和等待：任务是 `work_items` 的一行（加 `input_required`/`failed`，清单只有派活人能增删）；等待一张表（5 种、`any`/`all`、成环检查、一个 15 秒扫描器、超时也是结果）；收件箱叫醒；委派即建任务；停止/删 Bot/移出群连带取消；用户改需求加版本号；每日清理（默认 30 天，不碰 D38 文件） | 2026-10-23 | C1/C2/C3 设计与实施方案阶段 2；三套等待（`run_waits`、委派回传、B1 回传）加问人归成“发出调用，结果晚点到”。对标 Agent Teams、A2A Task、Anthropic 多智能体研究系统 | [0059](0059-tasks-and-waits.md) |
 | D60 | 群里没 @ 人的消息由后台模型按角色挑成员（设置可关、可换模型；失败退回主助理/随机）；人点的 reaction 进历史并低优先级叫醒该 Bot（合并、不要求回复），Bot 点的永不叫醒 | 2026-10-23 | 现行分诊只是主助理或随机；reaction 是单向通道。对标 AutoGen 选择器；reaction 不改任务状态 | [0060](0060-group-triage-and-reactions.md) |
 
 ## 怎么新增一条决定

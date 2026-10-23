@@ -101,6 +101,7 @@ TOFI 是一个自托管的 AI Bot 工作台：后端是 Go 服务（`internal/`�
 | 主助理：每个账户固定一个；主动跟进功能在影子模式下运行（只记录，不发消息） | `92d5ee8`（已在 v0.1.3 中）；[proactive-followups.md](../agent-plan/proactive-followups.md)；`internal/app/followups_sweep.go:6` |
 | 模型分工：对话和所有需要自主行动的工作默认用 `claude-sonnet-5-5`；摘要、分诊、审核等后台轻活用 `claude-haiku-5-5` | `automation_settings.go:49`、`:52`；`ef59d81`；[D14](../decisions/0014-sonnet-conversation-haiku-background.md) |
 | Bot 的记忆，以及 Bot 之间的协作 | `internal/app/memory.go`、`internal/app/collaboration.go`；`README.md` 第 10 行 |
+| 任务和等待（未发布，分支 `feat/p2-tasks-waits`）：委派是任务（`delegate`，`handoff`/`message` 作别名），派活人拿到一张等结果的等待；Bot 用 `wait_for` 登记等某成员发言、等任务结束或等一段时间，立即得到回执，事件到了或到点了（超时也是结果）作为结果叫醒它（本阶段开新 run）；登记时查等待环；一个 15 秒的扫描器处理超时，重启不丢；任务有清单（只有派活人增删，持有人改状态和原因，说“做完”时对账一次）、版本号（人对持有人说话自动加一，结果标“基于第几版”）、`task_ask`（持有人中途提问）；停止、删除 Bot、移出群连带取消任务和等待；看板有“需要输入”“失败”两列；每日清理默认 30 天（设置里可改，不碰 D38 文件） | `internal/app/tasks.go`、`waits.go`、`bot_inbox.go`、`wait_sweeper.go`、`task_tools.go`、`task_cascade.go`、`task_retention.go`；`internal/app/tasks_test.go`、`tasks_say_test.go`；[D59](../decisions/0059-tasks-and-waits.md)；[implementation plan](../design/collab-implementation-plan.md) 阶段 2 |
 
 ### 4.4 电脑和浏览器
 
