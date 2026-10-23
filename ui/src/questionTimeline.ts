@@ -8,8 +8,10 @@ export interface QuestionField {
   type: "text" | "email" | "password" | "textarea";
   required: boolean;
   placeholder?: string;
+  /** The Bot's proposed variable name for "Save for this Bot"; the person decides. */
+  suggested_name?: string;
 }
-export type FormAnswer = Record<string, string | { secret_ref: string; value_hidden: true }>;
+export type FormAnswer = Record<string, string | { secret_ref: string; value_hidden: true; saved_as?: string }>;
 export type OtherAnswer = { values: string[]; other_text: string };
 /** Why an "unavailable" review produced no judgment; a finite union so every member has catalog text. */
 export type ReviewFailureCategory = "reviewer_not_configured" | "input_invalid" | "input_too_large" | "provider_error" | "timeout" | "malformed_response" | "empty_response";

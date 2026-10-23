@@ -314,7 +314,8 @@
     },
     "answer": {
       "missing": "입력 안 됨",
-      "private": "비공개로 제출됨"
+      "private": "비공개로 제출됨",
+      "private_saved": "비공개({{name}}(으)로 저장됨)"
     },
     "check_fields": "표시된 필드를 확인한 후 제출하세요.",
     "state_changed": "이 양식이 변경되었습니다. 계속하기 전에 업데이트된 상태를 확인하세요.",
@@ -332,7 +333,13 @@
     "optional": "선택",
     "archived": "대화를 복원하면 입력할 수 있습니다.",
     "submit": "제출하고 계속",
-    "submitted": "답변 제출됨"
+    "submitted": "답변 제출됨",
+    "save": {
+      "label": "이 Bot에 저장",
+      "hint": "저장하면 이 Bot이 다음부터 묻지 않고 사용할 수 있습니다. 이 Bot만 사용할 수 있으며, Bot 설정에서 교체하거나 삭제할 수 있습니다.",
+      "name": "변수 이름",
+      "name_required": "저장하려면 올바른 변수 이름을 입력하세요."
+    }
   },
   "tool": {
     "attempt": {

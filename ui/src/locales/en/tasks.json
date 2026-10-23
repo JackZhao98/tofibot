@@ -316,7 +316,8 @@
     },
     "answer": {
       "missing": "Not filled in",
-      "private": "Submitted privately"
+      "private": "Submitted privately",
+      "private_saved": "Private (saved as {{name}})"
     },
     "check_fields": "Check the marked fields, then submit.",
     "state_changed": "This form has changed. Check its updated status before continuing.",
@@ -334,7 +335,13 @@
     "optional": "Optional",
     "archived": "Restore the conversation to fill this in.",
     "submit": "Submit and continue",
-    "submitted": "Answer submitted"
+    "submitted": "Answer submitted",
+    "save": {
+      "label": "Save for this Bot",
+      "hint": "Keep it so this Bot can use it again without asking. Only this Bot can use it. You can replace or delete it in the Bot's settings.",
+      "name": "Variable name",
+      "name_required": "Enter a valid variable name to save this secret."
+    }
   },
   "tool": {
     "attempt": {

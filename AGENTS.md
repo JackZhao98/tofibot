@@ -88,6 +88,12 @@ outcome `conversation_not_user_visible`); a hidden Bot-to-Bot run reaches a huma
 through its reply, which returns to the assigning Bot or conversation. Mail drafts
 (`prepare_email`) are still a separate card path.
 
+Bot secrets (`internal/app/bot_secrets.go`, design `docs/design/bot-secrets.md`): the person, never the Bot, may tick "Save for this Bot" on a
+`request_secret_input` card (`save_as` in the answer, `AnswerUserFormSaving`); the record is vault kind `bot_env` scoped by `BotID`, never listed
+under Settings credentials. A Bot uses one only by naming it in `computer_shell` `secrets`: the host adds it to that one command's environment at
+dispatch (guest `shell.exec` `env`), masks it in the command's output and in later `computer_*` results of the run, and a Bot-scoped secret beats a
+global one of the same name. No Bot tool reads, lists values of, or deletes a secret; management is owner-only `/api/bots/{id}/secrets`.
+
 Two Bot-initiated handover cards ride the same rendezvous (`internal/app/handover.go`, UI `ui/src/HandoverCards.tsx`,
 `ui/src/TakeoverDialog.tsx`); they add question types `takeover` and `connection` and one stored column (`questions.handover_target`, added by
 `ensureColumn`). Their answer is one enumerated word (takeover: `done`/`cannot`; connection: `connected`/`failed`/`declined`) and the model result

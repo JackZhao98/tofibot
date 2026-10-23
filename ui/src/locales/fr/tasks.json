@@ -318,7 +318,8 @@
     },
     "answer": {
       "missing": "Non renseigné",
-      "private": "Envoyé en privé"
+      "private": "Envoyé en privé",
+      "private_saved": "Privé (enregistré sous {{name}})"
     },
     "check_fields": "Vérifiez les champs signalés, puis envoyez.",
     "state_changed": "Ce formulaire a changé. Vérifiez son nouvel état avant de continuer.",
@@ -336,7 +337,13 @@
     "optional": "Facultatif",
     "archived": "Restaurez la conversation pour remplir ce formulaire.",
     "submit": "Envoyer et continuer",
-    "submitted": "Réponse envoyée"
+    "submitted": "Réponse envoyée",
+    "save": {
+      "label": "Enregistrer pour ce Bot",
+      "hint": "Une fois enregistré, ce Bot pourra le réutiliser sans redemander. Lui seul peut l'utiliser. Vous pouvez le remplacer ou le supprimer dans les réglages du Bot.",
+      "name": "Nom de variable",
+      "name_required": "Saisissez un nom de variable valide pour enregistrer ce secret."
+    }
   },
   "tool": {
     "attempt": {

@@ -314,7 +314,8 @@
     },
     "answer": {
       "missing": "未填写",
-      "private": "已私密提交"
+      "private": "已私密提交",
+      "private_saved": "私密（已保存为 {{name}}）"
     },
     "check_fields": "请检查标出的字段后再提交。",
     "state_changed": "表单状态已变化，请确认刷新后的状态再操作。",
@@ -332,7 +333,13 @@
     "optional": "选填",
     "archived": "恢复会话后可填写。",
     "submit": "提交并继续",
-    "submitted": "已提交回答"
+    "submitted": "已提交回答",
+    "save": {
+      "label": "保存给这个 Bot",
+      "hint": "保存后，这个 Bot 以后可以直接使用，不用再问你。只有这个 Bot 能用，你可以在 Bot 设置里替换或删除。",
+      "name": "变量名",
+      "name_required": "请输入有效的变量名后再保存。"
+    }
   },
   "tool": {
     "attempt": {

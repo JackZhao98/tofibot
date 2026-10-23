@@ -126,5 +126,29 @@
     "profile_aria": "{{name}} 的個人資料",
     "mention": "提及 {{name}}",
     "open_dm": "開啟私訊"
+  },
+  "secrets": {
+    "title": "密鑰",
+    "hint": "你選擇為這個 Bot 保存的密鑰。只有這個 Bot 能用，且每次只在一條指令中生效。數值永遠不會顯示。",
+    "loading": "正在載入密鑰…",
+    "empty": "尚未儲存任何密鑰。Bot 要求密鑰時，勾選「儲存給這個 Bot」即可。",
+    "saved_at": "儲存於 {{time}}",
+    "last_used": "最後使用 {{time}}",
+    "never_used": "從未使用",
+    "replace": "替換",
+    "delete": "刪除",
+    "delete_question": "刪除 {{name}}？這個 Bot 將無法再使用它。",
+    "new_value": "{{name}} 的新值",
+    "replace_save": "儲存新值",
+    "replacing": "正在儲存…",
+    "cancel": "取消",
+    "status": {
+      "replaced": "已替換 {{name}}。",
+      "deleted": "已刪除 {{name}}。"
+    },
+    "error": {
+      "load": "無法載入密鑰，請重試。",
+      "replace": "無法替換該值，請重試。"
+    }
   }
 }

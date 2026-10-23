@@ -316,7 +316,8 @@
     },
     "answer": {
       "missing": "Nicht ausgefüllt",
-      "private": "Privat übermittelt"
+      "private": "Privat übermittelt",
+      "private_saved": "Privat (gespeichert als {{name}})"
     },
     "check_fields": "Prüfe die markierten Felder und sende dann ab.",
     "state_changed": "Dieses Formular hat sich geändert. Prüfe den aktuellen Status, bevor du weitermachst.",
@@ -334,7 +335,13 @@
     "optional": "Optional",
     "archived": "Stelle die Unterhaltung wieder her, um das auszufüllen.",
     "submit": "Absenden und fortfahren",
-    "submitted": "Antwort gesendet"
+    "submitted": "Antwort gesendet",
+    "save": {
+      "label": "Für diesen Bot speichern",
+      "hint": "Gespeichert kann dieser Bot es künftig ohne Rückfrage verwenden. Nur dieser Bot kann es nutzen. In den Bot-Einstellungen lässt es sich ersetzen oder löschen.",
+      "name": "Variablenname",
+      "name_required": "Gib einen gültigen Variablennamen ein, um das Geheimnis zu speichern."
+    }
   },
   "tool": {
     "attempt": {

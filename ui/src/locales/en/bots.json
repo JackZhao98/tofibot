@@ -128,5 +128,29 @@
     "profile_aria": "{{name}}'s profile",
     "mention": "Mention {{name}}",
     "open_dm": "Open direct message"
+  },
+  "secrets": {
+    "title": "Secrets",
+    "hint": "Secrets you chose to keep for this Bot. Only this Bot can use them, one command at a time. Values are never shown.",
+    "loading": "Loading secrets…",
+    "empty": "No saved secrets. Tick “Save for this Bot” when a Bot asks for a secret.",
+    "saved_at": "Saved {{time}}",
+    "last_used": "last used {{time}}",
+    "never_used": "never used",
+    "replace": "Replace",
+    "delete": "Delete",
+    "delete_question": "Delete {{name}}? This Bot can no longer use it.",
+    "new_value": "New value for {{name}}",
+    "replace_save": "Save value",
+    "replacing": "Saving…",
+    "cancel": "Cancel",
+    "status": {
+      "replaced": "{{name}} replaced.",
+      "deleted": "{{name}} deleted."
+    },
+    "error": {
+      "load": "Couldn't load the secrets. Try again.",
+      "replace": "Couldn't replace the value. Try again."
+    }
   }
 }
