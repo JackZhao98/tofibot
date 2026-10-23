@@ -4,14 +4,14 @@
 lifecycle, but exposes bounded discovery tools instead of every MCP schema:
 
 Remote MCP clients use `github.com/modelcontextprotocol/go-sdk` v1.8.0 and
-require protocol `2026-07-28`. They send `server/discover`; a sending middleware
-blocks the SDK's legacy `initialize` fallback before any older request reaches
-the server. Discovery must advertise the required revision, and the connected
-session is checked again. Saved protocol/session headers cannot override SDK
-negotiation. Existing `sse`/`legacy_sse` configuration remains editable, but
-connections are refused before network activity because HTTP+SSE does not
-support this revision. Settings inspection and tool search return safe,
-actionable `unsupported_protocol` or `unsupported_transport` diagnostics.
+negotiate natively: `server/discover` (2026-07-28) first, then the SDK's own
+legacy `initialize` fallback (2025-11-25 down to 2024-11-05) when the server
+does not support discover (D57). Saved protocol/session headers cannot override
+SDK negotiation. Existing `sse`/`legacy_sse` configuration remains editable, but
+connections are refused before network activity because HTTP+SSE is a separate
+transport that Tofi does not support. Settings inspection and tool search return
+safe, actionable `unsupported_protocol` (no mutually supported version) or
+`unsupported_transport` diagnostics.
 
 OAuth uses the official `auth.OAuthHandler` transport interface, SDK `oauthex`
 dynamic registration, and `oauth2` PKCE/code/refresh operations. Private token
