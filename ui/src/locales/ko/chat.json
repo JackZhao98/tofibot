@@ -169,7 +169,10 @@
     "note_group": "공유 컴퓨터 파일은 유지됩니다. 삭제 후에는 앱에서 되돌릴 수 없습니다.",
     "retry": "다시 삭제",
     "title_bot": "Bot을 삭제할까요?",
-    "title_group": "그룹을 삭제할까요?"
+    "title_group": "그룹을 삭제할까요?",
+    "impact_given_other": "이 Bot이 맡긴 진행 중인 작업 {{count}}개도 함께 취소됩니다.",
+    "impact_held_other": "이 Bot이 맡고 있는 진행 중인 작업 {{count}}개가 취소됩니다.",
+    "impact_waits_other": "이 Bot의 대기 {{count}}건이 종료됩니다."
   },
   "detail": {
     "close": "세부 정보 닫기",
@@ -297,7 +300,10 @@
     "reload": "그룹 정보 다시 불러오기",
     "reloading": "다시 불러오는 중…",
     "save": "그룹 정보 저장",
-    "title": "그룹 정보"
+    "title": "그룹 정보",
+    "impact_given_other": "{{name}}을(를) 제외하면 맡긴 진행 중인 작업 {{count}}개가 종료됩니다.",
+    "impact_held_other": "{{name}}을(를) 제외하면 맡고 있는 진행 중인 작업 {{count}}개가 종료됩니다.",
+    "impact_waits_other": "{{name}}을(를) 제외하면 대기 {{count}}건이 종료됩니다."
   },
   "message": {
     "attachment": "첨부 파일",
@@ -576,7 +582,11 @@
       "colleague_result": "동료의 결과",
       "colleague_failure": "동료의 실패",
       "group_mention": "그룹 멘션",
-      "other": "기타"
+      "other": "기타",
+      "waiting_on": "열린 대기",
+      "task_record": "작업 기록",
+      "task_updates": "작업 업데이트",
+      "wait_result": "대기 결과"
     }
   },
   "run_status": {

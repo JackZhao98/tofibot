@@ -5,7 +5,9 @@
     "blocked": "막힘",
     "review": "검토 중",
     "done": "완료",
-    "cancelled": "취소됨"
+    "cancelled": "취소됨",
+    "input_required": "입력 필요",
+    "failed": "실패"
   },
   "execution": {
     "status": {
@@ -133,7 +135,9 @@
       "in_progress": "진행 중",
       "blocked": "대기 / 막힘",
       "review": "검토 중",
-      "done": "완료"
+      "done": "완료",
+      "input_required": "입력 필요",
+      "failed": "실패"
     },
     "aria": "{{name}} 보드",
     "title": "팀 보드",
@@ -165,5 +169,28 @@
     "close_detail": "할 일 세부 정보 닫기",
     "status": "상태",
     "open_work": "목표 및 할 일 열기"
+  },
+  "facts": {
+    "from": "{{name}}에게서",
+    "version": "v{{version}}",
+    "version_title": "요청이 수정되었습니다",
+    "progress": "{{done}}/{{total}}",
+    "checklist_title": "완료된 체크리스트 항목",
+    "checklist": "체크리스트 {{done}}/{{total}}",
+    "waits_aria": "대기 중",
+    "wait_until": "{{time}}까지",
+    "wait": {
+      "bot_post": "게시물 대기",
+      "task_result": "작업 결과 대기",
+      "human_answer": "답변 대기",
+      "command_exit": "명령 종료 대기",
+      "timer": "타이머 대기"
+    },
+    "check": {
+      "open": "대기",
+      "done": "완료",
+      "skipped": "건너뜀",
+      "blocked": "막힘"
+    }
   }
 }

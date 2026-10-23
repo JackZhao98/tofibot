@@ -169,7 +169,16 @@
     "note_group": "Les fichiers de l’ordinateur partagé sont conservés. Action irréversible dans l’app.",
     "retry": "Réessayer la suppression",
     "title_bot": "Supprimer le Bot ?",
-    "title_group": "Supprimer le groupe ?"
+    "title_group": "Supprimer le groupe ?",
+    "impact_given_one": "{{count}} tâche ouverte qu'il a confiée sera annulée avec lui.",
+    "impact_given_many": "{{count}} tâches ouvertes qu'il a confiées seront annulées avec lui.",
+    "impact_given_other": "{{count}} tâches ouvertes qu'il a confiées seront annulées avec lui.",
+    "impact_held_one": "{{count}} tâche ouverte qu'il détient sera annulée.",
+    "impact_held_many": "{{count}} tâches ouvertes qu'il détient seront annulées.",
+    "impact_held_other": "{{count}} tâches ouvertes qu'il détient seront annulées.",
+    "impact_waits_one": "{{count}} attente qu'il tient prendra fin.",
+    "impact_waits_many": "{{count}} attentes qu'il tient prendront fin.",
+    "impact_waits_other": "{{count}} attentes qu'il tient prendront fin."
   },
   "detail": {
     "close": "Fermer les détails",
@@ -305,7 +314,16 @@
     "reload": "Recharger les informations du groupe",
     "reloading": "Rechargement…",
     "save": "Enregistrer le groupe",
-    "title": "Informations du groupe"
+    "title": "Informations du groupe",
+    "impact_given_one": "Retirer {{name}} met fin à {{count}} tâche ouverte qu'il a confiée.",
+    "impact_given_many": "Retirer {{name}} met fin à {{count}} tâches ouvertes qu'il a confiées.",
+    "impact_given_other": "Retirer {{name}} met fin à {{count}} tâches ouvertes qu'il a confiées.",
+    "impact_held_one": "Retirer {{name}} met fin à {{count}} tâche ouverte qu'il détient.",
+    "impact_held_many": "Retirer {{name}} met fin à {{count}} tâches ouvertes qu'il détient.",
+    "impact_held_other": "Retirer {{name}} met fin à {{count}} tâches ouvertes qu'il détient.",
+    "impact_waits_one": "Retirer {{name}} met fin à {{count}} attente qu'il tient.",
+    "impact_waits_many": "Retirer {{name}} met fin à {{count}} attentes qu'il tient.",
+    "impact_waits_other": "Retirer {{name}} met fin à {{count}} attentes qu'il tient."
   },
   "message": {
     "attachment": "Pièce jointe",
@@ -594,7 +612,11 @@
       "colleague_result": "Résultat d’un collègue",
       "colleague_failure": "Échec d’un collègue",
       "group_mention": "Mention dans le groupe",
-      "other": "Autre"
+      "other": "Autre",
+      "waiting_on": "Attentes ouvertes",
+      "task_record": "Dossier de la tâche",
+      "task_updates": "Mises à jour de la tâche",
+      "wait_result": "Résultat de l'attente"
     }
   },
   "run_status": {

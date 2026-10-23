@@ -5,7 +5,9 @@
     "blocked": "受阻",
     "review": "核查中",
     "done": "已完成",
-    "cancelled": "已取消"
+    "cancelled": "已取消",
+    "input_required": "待回复",
+    "failed": "失败"
   },
   "execution": {
     "status": {
@@ -133,7 +135,9 @@
       "in_progress": "进行中",
       "blocked": "等待 / 阻塞",
       "review": "核查中",
-      "done": "完成"
+      "done": "完成",
+      "input_required": "待回复",
+      "failed": "失败"
     },
     "aria": "{{name}} 看板",
     "title": "团队看板",
@@ -165,5 +169,28 @@
     "close_detail": "关闭待办详情",
     "status": "状态",
     "open_work": "打开目标与待办"
+  },
+  "facts": {
+    "from": "来自 {{name}}",
+    "version": "v{{version}}",
+    "version_title": "任务要求已修订",
+    "progress": "{{done}}/{{total}}",
+    "checklist_title": "已完成的清单项",
+    "checklist": "清单 {{done}}/{{total}}",
+    "waits_aria": "正在等待",
+    "wait_until": "至 {{time}}",
+    "wait": {
+      "bot_post": "等待发言",
+      "task_result": "等待任务结果",
+      "human_answer": "等待回答",
+      "command_exit": "等待命令结束",
+      "timer": "等待计时"
+    },
+    "check": {
+      "open": "待办",
+      "done": "完成",
+      "skipped": "已跳过",
+      "blocked": "受阻"
+    }
   }
 }

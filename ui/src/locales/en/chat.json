@@ -169,7 +169,13 @@
     "note_group": "Shared computer files are kept. This can't be undone in the app.",
     "retry": "Retry delete",
     "title_bot": "Delete Bot?",
-    "title_group": "Delete group?"
+    "title_group": "Delete group?",
+    "impact_given_one": "{{count}} open task it gave will be cancelled with it.",
+    "impact_given_other": "{{count}} open tasks it gave will be cancelled with it.",
+    "impact_held_one": "{{count}} open task it holds will be cancelled.",
+    "impact_held_other": "{{count}} open tasks it holds will be cancelled.",
+    "impact_waits_one": "{{count}} wait it holds will end.",
+    "impact_waits_other": "{{count}} waits it holds will end."
   },
   "detail": {
     "close": "Close details",
@@ -301,7 +307,13 @@
     "reload": "Reload group details",
     "reloading": "Reloading…",
     "save": "Save group details",
-    "title": "Group details"
+    "title": "Group details",
+    "impact_given_one": "Removing {{name}} ends {{count}} open task it gave.",
+    "impact_given_other": "Removing {{name}} ends {{count}} open tasks it gave.",
+    "impact_held_one": "Removing {{name}} ends {{count}} open task it holds.",
+    "impact_held_other": "Removing {{name}} ends {{count}} open tasks it holds.",
+    "impact_waits_one": "Removing {{name}} ends {{count}} wait it holds.",
+    "impact_waits_other": "Removing {{name}} ends {{count}} waits it holds."
   },
   "message": {
     "attachment": "Attachment",
@@ -585,7 +597,11 @@
       "colleague_result": "Colleague result",
       "colleague_failure": "Colleague failure",
       "group_mention": "Group mention",
-      "other": "Other"
+      "other": "Other",
+      "waiting_on": "Open waits",
+      "task_record": "Task record",
+      "task_updates": "Task updates",
+      "wait_result": "Wait result"
     }
   },
   "run_status": {

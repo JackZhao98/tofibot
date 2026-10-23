@@ -5,7 +5,9 @@
     "blocked": "ブロック中",
     "review": "レビュー中",
     "done": "完了",
-    "cancelled": "キャンセル済み"
+    "cancelled": "キャンセル済み",
+    "input_required": "入力待ち",
+    "failed": "失敗"
   },
   "execution": {
     "status": {
@@ -133,7 +135,9 @@
       "in_progress": "進行中",
       "blocked": "待機中／ブロック中",
       "review": "レビュー中",
-      "done": "完了"
+      "done": "完了",
+      "input_required": "入力待ち",
+      "failed": "失敗"
     },
     "aria": "{{name}}のボード",
     "title": "チームボード",
@@ -165,5 +169,28 @@
     "close_detail": "タスクの詳細を閉じる",
     "status": "ステータス",
     "open_work": "目標とタスクを開く"
+  },
+  "facts": {
+    "from": "{{name}}から",
+    "version": "v{{version}}",
+    "version_title": "依頼内容が改訂されています",
+    "progress": "{{done}}/{{total}}",
+    "checklist_title": "完了したチェックリスト項目",
+    "checklist": "チェックリスト {{done}}/{{total}}",
+    "waits_aria": "待機中",
+    "wait_until": "{{time}}まで",
+    "wait": {
+      "bot_post": "投稿を待機",
+      "task_result": "タスクの結果を待機",
+      "human_answer": "回答を待機",
+      "command_exit": "コマンドの終了を待機",
+      "timer": "タイマーを待機"
+    },
+    "check": {
+      "open": "未着手",
+      "done": "完了",
+      "skipped": "スキップ",
+      "blocked": "ブロック中"
+    }
   }
 }

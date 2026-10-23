@@ -11,6 +11,7 @@ import { ConfirmAction, Disclosure } from "./InteractionSystem";
 import { useUserTimezone } from "./UserTimezone";
 import { formatZonedTime } from "./timezone";
 import { WorkExecution } from "./WorkExecution";
+import { WorkTaskFacts } from "./WorkTaskFacts";
 import { workExecutionActive, workExecutionStatusKeys } from "./workExecutionState";
 import { useTranslation } from "./i18n";
 import { type Bot, type Conversation, type Schedule, type WorkItem, type WorkStatus } from "./types";
@@ -18,7 +19,7 @@ import { weeklyCadence } from "./scheduleCadence";
 import { message, useAgenda, type Scope } from "./workAgenda";
 import "./work-panel.css";
 
-const workStatusKeys = { todo: "status.todo", in_progress: "status.in_progress", blocked: "status.blocked", review: "status.review", done: "status.done", cancelled: "status.cancelled" } as const satisfies Record<WorkStatus, string>;
+const workStatusKeys = { todo: "status.todo", in_progress: "status.in_progress", blocked: "status.blocked", review: "status.review", input_required: "status.input_required", done: "status.done", cancelled: "status.cancelled", failed: "status.failed" } as const satisfies Record<WorkStatus, string>;
 type Props = { conversation: Conversation; conversations: Conversation[]; bots: Bot[]; refreshToken: number; onClose: () => void; onNavigate: (id: string) => void };
 
 export function WorkPanel(props: Props) {
@@ -82,10 +83,11 @@ function WorkPanelView({ conversation, conversations, bots, refreshToken, onClos
   function renderItem(item: WorkItem) {
     const readOnly = itemReadOnly(item);
     return <article className={`work-row work-${item.status}`} key={item.id}>
-      <button className="work-complete" aria-label={item.status === "done" ? t("panel.reopen_item", { title: item.title }) : t("panel.complete_item", { title: item.title })} disabled={!!pending || item.status === "cancelled" || readOnly || workExecutionActive(item)} onClick={() => void updateStatus(item, item.status === "done" ? "todo" : "done")}><span>{item.status === "done" && <TofiIcon name="check" size={16} variant="filled" />}</span></button>
+      <button className="work-complete" aria-label={item.status === "done" ? t("panel.reopen_item", { title: item.title }) : t("panel.complete_item", { title: item.title })} disabled={!!pending || item.status === "cancelled" || item.status === "failed" || readOnly || workExecutionActive(item)} onClick={() => void updateStatus(item, item.status === "done" ? "todo" : "done")}><span>{item.status === "done" && <TofiIcon name="check" size={16} variant="filled" />}</span></button>
       <div className="work-row-main"><strong>{item.title}</strong><div className="work-row-meta">{provenance(item)}{item.status !== "todo" && <span className={`work-state state-${item.status}`}>{t(workStatusKeys[item.status])}</span>}</div>
+        <WorkTaskFacts item={item} timezone={preference.timezone} />
         {item.parent_goal_id && <small className="work-parent">{items.find(goal => goal.id === item.parent_goal_id)?.title || t("panel.linked_group_goal")}</small>}
-        <details className="work-item-details"><summary>{t("panel.details")}</summary>{item.description && <p>{item.description}</p>}<small>{formatZonedTime(item.updated_at, preference.timezone)}</small><WorkExecution item={item} readOnly={!!readOnly} pending={!!pending} mutate={mutate} onExecuted={accept} />{!readOnly && <label>{t("panel.status")}<select aria-label={t("panel.status_aria", { title: item.title })} value={item.status} disabled={!!pending || workExecutionActive(item)} onChange={event => { const status = event.currentTarget.value as WorkStatus; void updateStatus(item, status); }}>{Object.entries(workStatusKeys).map(([value, key]) => <option key={value} value={value}>{t(key)}</option>)}</select></label>}</details>
+        <details className="work-item-details"><summary>{t("panel.details")}</summary>{item.description && <p>{item.description}</p>}<small>{formatZonedTime(item.updated_at, preference.timezone)}</small><WorkExecution item={item} readOnly={!!readOnly} pending={!!pending} mutate={mutate} onExecuted={accept} />{!readOnly && <label>{t("panel.status")}<select aria-label={t("panel.status_aria", { title: item.title })} value={item.status} disabled={!!pending || workExecutionActive(item)} onChange={event => { const status = event.currentTarget.value as WorkStatus; void updateStatus(item, status); }}>{Object.entries(workStatusKeys).filter(([value]) => value !== "input_required" && value !== "failed" || value === item.status).map(([value, key]) => <option key={value} value={value}>{t(key)}</option>)}</select></label>}</details>
       </div>
     </article>;
   }
@@ -129,7 +131,7 @@ function WorkCreate({ conversation, conversations, bots, goals, onDone, onCancel
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const members = bots.filter(bot => !bot.archived && (source.kind === "dm" ? bot.id === source.bot_id : source.bot_ids.includes(bot.id)));
-  const goalOptions = goals.filter(goal => goal.conversation_id === source.id && !["done", "cancelled"].includes(goal.status));
+  const goalOptions = goals.filter(goal => goal.conversation_id === source.id && !["done", "cancelled", "failed"].includes(goal.status));
   async function create(event: React.FormEvent) {
     event.preventDefault(); if (busy || !title.trim()) return;
     setBusy(true); onBusyChange(true); setError("");

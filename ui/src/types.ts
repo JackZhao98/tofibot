@@ -233,7 +233,10 @@ export interface Schedule {
   bot_archived?: boolean;
 }
 
-export type WorkStatus = "todo" | "in_progress" | "blocked" | "review" | "done" | "cancelled";
+export type WorkStatus = "todo" | "in_progress" | "blocked" | "review" | "input_required" | "done" | "cancelled" | "failed";
+export type WorkChecklistItem = { id: string; text: string; status: "open" | "done" | "skipped" | "blocked"; reason?: string; updated_at?: string };
+export type WorkWait = { id: string; kind: "bot_post" | "task_result" | "human_answer" | "command_exit" | "timer"; target?: string; target_name?: string; mode: "any" | "all"; group_id: string; deadline_at: string; note?: string };
+export type TaskImpact = { given_tasks: number; held_tasks: number; open_waits: number };
 export interface WorkExecution {
   id: string;
   work_item_id: string;
@@ -267,6 +270,24 @@ export interface WorkItem {
   updated_at: string;
   completed_at?: string;
   execution?: WorkExecution;
+  assigner_kind?: "user" | "bot" | "self";
+  assigner_bot_id?: string;
+  assigner_bot_name?: string;
+  root_task_id?: string;
+  parent_task_id?: string;
+  origin_run_id?: string;
+  assignee_run_id?: string;
+  work_conversation_id?: string;
+  spec_version?: number;
+  result_message_id?: string;
+  result_based_on_version?: number;
+  result_summary?: string;
+  depends_on?: string[];
+  stall_count?: number;
+  message_count?: number;
+  closed_at?: string;
+  checklist?: WorkChecklistItem[];
+  waiting_on?: WorkWait[];
 }
 
 export type ToolActivityStatus = "queued" | "running" | "completed" | "failed" | "interrupted";

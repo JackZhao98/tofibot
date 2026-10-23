@@ -295,3 +295,19 @@
 .workspace .work-create .work-weekdays button { padding: 6px 10px; border: 1px solid var(--line-soft); border-radius: 10px; background: var(--sunk); color: var(--ink-soft); font: 13px/1.4 var(--body); cursor: pointer; }
 .workspace .work-create .work-weekdays button[aria-pressed="true"] { border-color: var(--ink); background: var(--panel, var(--sunk)); color: var(--ink); }
 .workspace .work-create .work-weekdays button:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 2px; }
+
+/* Task facts: delegation chips, checklist, waits, one-line result. */
+.workspace .work-facts { display: grid; gap: 6px; margin-top: 6px; min-width: 0; color: var(--muted); font: 11px/1.4 var(--body); }
+.workspace .work-facts-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.workspace .work-chip { display: inline-flex; align-items: center; min-height: 19px; padding: 1px 6px; border: 1px solid var(--line-soft); border-radius: 6px; background: var(--surface-2); color: var(--ink-soft); font: 10px/1.2 var(--mono); }
+.workspace .work-facts-result { margin: 0; color: var(--ink-soft); overflow-wrap: anywhere; }
+.workspace .work-facts-waits { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; }
+.workspace .work-facts-waits small { color: var(--muted); }
+.workspace .work-facts-checklist { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.workspace .work-facts-checklist li { display: grid; grid-template-columns: auto 1fr; gap: 6px; align-items: baseline; }
+.workspace .work-facts-checklist small { display: block; color: var(--muted); }
+.workspace .work-check-mark { color: var(--muted); font: 10px/1.3 var(--mono); }
+.workspace .work-facts-checklist li[data-status="done"] .work-check-mark { color: var(--green-text); }
+.workspace .work-facts-checklist li[data-status="blocked"] .work-check-mark { color: var(--danger-text); }
+.workspace .work-panel :is(.state-input_required, .work-input_required .work-state) { border-color: color-mix(in srgb, var(--iris-text) 42%, var(--line-soft)); color: var(--iris-text); }
+.workspace .work-panel :is(.state-failed, .work-failed .work-state) { border-color: color-mix(in srgb, var(--danger) 42%, var(--line-soft)); color: var(--danger-text); }

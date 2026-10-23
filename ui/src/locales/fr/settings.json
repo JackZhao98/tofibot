@@ -902,6 +902,10 @@
       "group_triage_model": {
         "name": "Modèle d'aiguillage de groupe",
         "what": "Le modèle qui choisit le membre pour un message de groupe sans destinataire. Automatique signifie le modèle d'arrière-plan."
+      },
+      "task_retention_days": {
+        "name": "Durée de conservation des tâches terminées",
+        "what": "Passé ce nombre de jours, une tâche terminée perd le texte de la demande, sa liste de contrôle et ses révisions. Le titre et le résultat en une ligne restent. 0 conserve tout."
       }
     },
     "option": {
@@ -954,6 +958,8 @@
       },
       "used_one": "utilisée {{count}} fois",
       "used_many": "utilisée {{count}} fois"
-    }
+    },
+    "days": "{{count}} j",
+    "keep_all": "Tout conserver"
   }
 }

@@ -893,6 +893,10 @@
       "group_triage_model": {
         "name": "Group routing model",
         "what": "The model that picks the member for an unaddressed group message. Automatic means the background model."
+      },
+      "task_retention_days": {
+        "name": "Finished tasks kept for",
+        "what": "After this many days a finished task loses its request text, checklist and revisions. Its title and one-line result stay. 0 keeps everything."
       }
     },
     "option": {
@@ -944,6 +948,8 @@
         "unknown_chat": "A conversation"
       },
       "used_one": "used {{count}} time"
-    }
+    },
+    "days": "{{count}} d",
+    "keep_all": "Keep everything"
   }
 }

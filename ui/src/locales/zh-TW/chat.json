@@ -169,7 +169,10 @@
     "note_group": "共享電腦檔案會保留。刪除後無法在應用程式中還原。",
     "retry": "重試刪除",
     "title_bot": "刪除 Bot？",
-    "title_group": "刪除群組？"
+    "title_group": "刪除群組？",
+    "impact_given_other": "它交辦的 {{count}} 個未完成任務會一併取消。",
+    "impact_held_other": "它負責的 {{count}} 個未完成任務會被取消。",
+    "impact_waits_other": "它的 {{count}} 個等待會結束。"
   },
   "detail": {
     "close": "關閉詳細資料",
@@ -297,7 +300,10 @@
     "reload": "重新載入群組資料",
     "reloading": "重新載入中…",
     "save": "儲存群組資料",
-    "title": "群組資料"
+    "title": "群組資料",
+    "impact_given_other": "移出 {{name}} 會結束它交辦的 {{count}} 個未完成任務。",
+    "impact_held_other": "移出 {{name}} 會結束它負責的 {{count}} 個未完成任務。",
+    "impact_waits_other": "移出 {{name}} 會結束它的 {{count}} 個等待。"
   },
   "message": {
     "attachment": "附件",
@@ -576,7 +582,11 @@
       "colleague_result": "同事的結果",
       "colleague_failure": "同事的失敗",
       "group_mention": "群組提及",
-      "other": "其他"
+      "other": "其他",
+      "waiting_on": "未結束的等待",
+      "task_record": "任務記錄",
+      "task_updates": "任務更新",
+      "wait_result": "等待結果"
     }
   },
   "run_status": {

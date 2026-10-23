@@ -5,7 +5,9 @@
     "blocked": "Bloqué",
     "review": "En revue",
     "done": "Terminé",
-    "cancelled": "Annulé"
+    "cancelled": "Annulé",
+    "input_required": "Réponse attendue",
+    "failed": "Échec"
   },
   "execution": {
     "status": {
@@ -135,7 +137,9 @@
       "in_progress": "En cours",
       "blocked": "En attente / bloqué",
       "review": "En revue",
-      "done": "Terminé"
+      "done": "Terminé",
+      "input_required": "Réponse attendue",
+      "failed": "Échec"
     },
     "aria": "Tableau {{name}}",
     "title": "Tableau de l’équipe",
@@ -171,5 +175,28 @@
     "close_detail": "Fermer les détails de la tâche",
     "status": "État",
     "open_work": "Ouvrir les objectifs et tâches"
+  },
+  "facts": {
+    "from": "De {{name}}",
+    "version": "v{{version}}",
+    "version_title": "Demande révisée",
+    "progress": "{{done}}/{{total}}",
+    "checklist_title": "Points de la liste terminés",
+    "checklist": "Liste {{done}}/{{total}}",
+    "waits_aria": "En attente de",
+    "wait_until": "jusqu'à {{time}}",
+    "wait": {
+      "bot_post": "Attend un message",
+      "task_result": "Attend le résultat d'une tâche",
+      "human_answer": "Attend une réponse",
+      "command_exit": "Attend la fin d'une commande",
+      "timer": "Attend un minuteur"
+    },
+    "check": {
+      "open": "À faire",
+      "done": "Fait",
+      "skipped": "Ignoré",
+      "blocked": "Bloqué"
+    }
   }
 }

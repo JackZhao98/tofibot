@@ -5,7 +5,9 @@
     "blocked": "Blocked",
     "review": "In review",
     "done": "Done",
-    "cancelled": "Cancelled"
+    "cancelled": "Cancelled",
+    "input_required": "Needs input",
+    "failed": "Failed"
   },
   "execution": {
     "status": {
@@ -134,7 +136,9 @@
       "in_progress": "In progress",
       "blocked": "Waiting / blocked",
       "review": "In review",
-      "done": "Done"
+      "done": "Done",
+      "input_required": "Needs input",
+      "failed": "Failed"
     },
     "aria": "{{name}} board",
     "title": "Team board",
@@ -168,5 +172,28 @@
     "close_detail": "Close to-do details",
     "status": "Status",
     "open_work": "Open goals and to-dos"
+  },
+  "facts": {
+    "from": "From {{name}}",
+    "version": "v{{version}}",
+    "version_title": "Request text revised",
+    "progress": "{{done}}/{{total}}",
+    "checklist_title": "Checklist items done",
+    "checklist": "Checklist {{done}}/{{total}}",
+    "waits_aria": "Waiting on",
+    "wait_until": "until {{time}}",
+    "wait": {
+      "bot_post": "Waiting for a post",
+      "task_result": "Waiting for a task result",
+      "human_answer": "Waiting for an answer",
+      "command_exit": "Waiting for a command to exit",
+      "timer": "Waiting for a timer"
+    },
+    "check": {
+      "open": "Open",
+      "done": "Done",
+      "skipped": "Skipped",
+      "blocked": "Blocked"
+    }
   }
 }

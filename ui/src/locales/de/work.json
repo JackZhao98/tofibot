@@ -5,7 +5,9 @@
     "blocked": "Blockiert",
     "review": "In Prüfung",
     "done": "Erledigt",
-    "cancelled": "Abgebrochen"
+    "cancelled": "Abgebrochen",
+    "input_required": "Rückfrage offen",
+    "failed": "Fehlgeschlagen"
   },
   "execution": {
     "status": {
@@ -134,7 +136,9 @@
       "in_progress": "In Arbeit",
       "blocked": "Wartend / blockiert",
       "review": "In Prüfung",
-      "done": "Erledigt"
+      "done": "Erledigt",
+      "input_required": "Rückfrage offen",
+      "failed": "Fehlgeschlagen"
     },
     "aria": "Board von {{name}}",
     "title": "Team-Board",
@@ -168,5 +172,28 @@
     "close_detail": "To-do-Details schließen",
     "status": "Status",
     "open_work": "Ziele und To-dos öffnen"
+  },
+  "facts": {
+    "from": "Von {{name}}",
+    "version": "v{{version}}",
+    "version_title": "Auftrag wurde überarbeitet",
+    "progress": "{{done}}/{{total}}",
+    "checklist_title": "Erledigte Checklistenpunkte",
+    "checklist": "Checkliste {{done}}/{{total}}",
+    "waits_aria": "Wartet auf",
+    "wait_until": "bis {{time}}",
+    "wait": {
+      "bot_post": "Wartet auf einen Beitrag",
+      "task_result": "Wartet auf ein Aufgabenergebnis",
+      "human_answer": "Wartet auf eine Antwort",
+      "command_exit": "Wartet auf das Ende eines Befehls",
+      "timer": "Wartet auf einen Timer"
+    },
+    "check": {
+      "open": "Offen",
+      "done": "Erledigt",
+      "skipped": "Übersprungen",
+      "blocked": "Blockiert"
+    }
   }
 }
