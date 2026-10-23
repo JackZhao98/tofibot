@@ -669,8 +669,8 @@ func (s *Store) publishSay(ctx context.Context, run Run, clientID, kind, content
 		}
 	}
 	if kind == "segment" {
-		var count int
-		if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM messages WHERE run_id=? AND kind='segment' AND client_message_id LIKE 'chat-segment:%'`, run.ID).Scan(&count); err != nil {
+		count, err := chatSegmentCountTx(ctx, tx, run.ID)
+		if err != nil {
 			return Message{}, err
 		}
 		if count >= maxChatSegments {

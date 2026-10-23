@@ -198,16 +198,11 @@ type Config struct {
 	ComputerEnsure      func(context.Context) error
 }
 type Server struct {
-	dispositions       sync.Map // run id -> groupChoice recorded by the respond tool
-	sayRuns            sync.Map // run id -> *sayRunState of a structured run in flight
-	waitTimeout        time.Duration
-	reactionWakes      reactionWakeState
-	reactionWakeWindow time.Duration // 0 = defaultReactionWakeWindow
-	// The wait sweeper (wait_sweeper.go): one loop ends overdue waits, wakes the
-	// Bots with inbox rows, and runs the daily task cleanup.
-	waitSweepEvery                       time.Duration
-	waitSweepCancel                      context.CancelFunc
-	waitSweepDone                        chan struct{}
+	dispositions                         sync.Map // run id -> groupChoice recorded by the respond tool
+	sayRuns                              sync.Map // run id -> *sayRunState of a structured run in flight
+	waitTimeout                          time.Duration
+	reactionWakes                        reactionWakeState
+	reactionWakeWindow                   time.Duration // 0 = defaultReactionWakeWindow
 	desktopRestartedAt                   time.Time
 	gogStatus                            gogStatusCache
 	accountID                            string
@@ -299,6 +294,9 @@ type Server struct {
 	summaryJobs                          map[string]struct{}
 	summaryNext                          map[string]time.Time
 	summaryWG                            sync.WaitGroup
+
+	// Tasks and waits: the sweeper loop and the inbox flush lock (wait_sweeper.go).
+	tasks taskRuntime
 }
 
 // Store is a single SQLite writer. WAL plus one connection keeps sequence and
@@ -3472,6 +3470,7 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request, c Conversat
 		}
 		specs = []runSpec{{BotID: c.BotID, Model: b.Model}}
 	}
+	parked := s.store.botsParkedOnInput(c.ID) // read before the message replaces the card
 	m, runs, dup, e := s.store.AddUserRunsWithAttachments(c.ID, x.Content, x.ClientMessageID, specs, x.AttachmentIDs, interrupt)
 	if e != nil {
 		if errors.Is(e, ErrConversationBusy) {
@@ -3513,6 +3512,11 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request, c Conversat
 		targets = append(targets, run.BotID)
 	}
 	s.store.noteUserMessageForTasks(c.ID, m, targets)
+	for _, run := range runs {
+		if parked[run.BotID] {
+			s.store.recordUserMessageInbox(run.BotID, c.ID, run.ID, m)
+		}
+	}
 	s.cancelInactiveRuns()
 	for _, run := range runs {
 		s.enqueue(c, run)

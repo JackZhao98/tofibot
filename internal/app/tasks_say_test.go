@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -139,5 +140,39 @@ func TestSayOffersTaskIDOnlyToABotThatHoldsATask(t *testing.T) {
 	tool = s.sayTool(c, r)
 	if _, ok := tool.Parameters["properties"].(map[string]any)["task_id"]; !ok || tool.Strict {
 		t.Fatal("a Bot that holds a task does not see task_id")
+	}
+}
+
+// What a run says while it holds a wait does not use the allowance of
+// messages it had for its work (decision 0050 keeps three per run).
+func TestMessagesWhileWaitingDoNotUseTheWorkAllowance(t *testing.T) {
+	f := newTaskFix(t)
+	dm, _ := f.s.GetConversation(f.a.DMConversationID)
+	run := f.running(dm.ID, f.a)
+	say := func(i int) error {
+		_, err := f.s.PublishChatSegment(context.Background(), run, "call-"+itoa(i), "Beat "+itoa(i))
+		return err
+	}
+	for i := 1; i <= maxChatSegments; i++ {
+		if err := say(i); err != nil {
+			t.Fatalf("message %d: %v", i, err)
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if err := say(4); err == nil {
+		t.Fatal("a fourth message with no wait was accepted")
+	}
+	if _, err := f.s.registerWait(WaitSpec{BotID: f.a.ID, RunID: run.ID, ConversationID: dm.ID, Kind: waitTimer, Timeout: time.Hour}); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(2 * time.Millisecond)
+	for i := 4; i <= 3+maxChatSegments; i++ {
+		if err := say(i); err != nil {
+			t.Fatalf("message %d while waiting: %v", i, err)
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if err := say(10); err == nil {
+		t.Fatal("the allowance while waiting is not bounded")
 	}
 }

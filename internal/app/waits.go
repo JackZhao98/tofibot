@@ -368,7 +368,11 @@ func settleGroupTx(tx *sql.Tx, group string) error {
 			continue
 		}
 		live++
-		if w.Status != waitFulfilled || w.Delivery != deliveryLegacy {
+		// A wait that mirrors a call with its own return (a delegation's result, a
+		// question to the person) delivers nothing when it ends well; a question the
+		// person left unanswered is settled by the question flow, never twice.
+		own := w.Delivery == deliveryLegacy && (w.Status == waitFulfilled || w.Kind == waitHumanAnswer)
+		if !own {
 			silent = false
 		}
 	}
@@ -559,7 +563,7 @@ func (s *Store) waitingOnContext(botID string) string {
 	if err != nil || len(views) == 0 {
 		return ""
 	}
-	head := "[waiting on]\nWaits you hold. Each ends when its event arrives or its deadline passes, and you are woken with the result either way. End one you no longer need with cancel_wait.\n"
+	head := "[waiting on]\nWaits you hold. Each ends when its event arrives or its deadline passes, and you are woken with the result either way. End one you no longer need with cancel_wait; it loads on demand when you name it in workspace_capabilities.\n"
 	tail := "[/waiting on]"
 	var b strings.Builder
 	b.WriteString(head)
