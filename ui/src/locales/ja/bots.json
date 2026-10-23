@@ -150,5 +150,28 @@
       "load": "シークレットを読み込めませんでした。もう一度お試しください。",
       "replace": "値を置き換えられませんでした。もう一度お試しください。"
     }
+  },
+  "skills": {
+    "title": "Skill",
+    "hint": "この Bot が使える Skill です。ライブラリの Skill はここでオンにするまで使われません（Bot が自分でオンにすることもあります）。公式 Skill は、オフにしない限りオンです。",
+    "loading": "Skill を読み込み中…",
+    "empty": "ライブラリに Skill はまだありません。「設定 › Skills」で追加してください。",
+    "official_title": "公式 Skill",
+    "bundle_label": "バンドル {{name}}",
+    "bundle_count_other": "Skill {{count}} 個",
+    "on_of": "{{total}} 個中 {{on}} 個がオン",
+    "show_members": "{{name}} の Skill を表示",
+    "hide_members": "{{name}} の Skill を隠す",
+    "set_by": {
+      "owner_on": "あなたがオンにしました · {{time}}",
+      "owner_off": "あなたがオフにしました · {{time}}",
+      "bot_on": "この Bot がオンにしました · {{time}}",
+      "bot_off": "この Bot がオフにしました · {{time}}",
+      "migration": "以前の設定を引き継ぎました"
+    },
+    "error": {
+      "load": "この Bot の Skill を読み込めませんでした。",
+      "save": "保存できませんでした。もう一度お試しください。"
+    }
   }
 }

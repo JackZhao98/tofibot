@@ -16,6 +16,9 @@ import type { GoogleOverview } from "../../connections/google";
 import type { LocalState } from "../../connections/localPlugins";
 import { mcpOAuthRoute } from "../../mcpOAuthRoute";
 import { integrationCatalog } from "../../integrationCatalog";
+import { SkillLibraryView, type SkillLibraryViewProps } from "../../settings/SkillLibrary";
+import { BotSkillsView, type BotSkillsViewProps } from "../../BotSkills";
+import type { LibraryListing, BotSkillListing } from "../../skillLibrary";
 import type { CatalogSection, CatalogState } from "../types";
 
 const noop = () => {};
@@ -42,6 +45,42 @@ function connectDialog(id: string, label: string, request: DialogRequest, google
     render: () => <Reopen>{close => <ConnectDialog request={request} servers={[]} local={synthLocal} google={google} options={synthOptions} route={mcpOAuthRoute("https:", false, false, synthOptions)} onSave={async () => {}} onLocalChanged={async () => {}} onClose={close} />}</Reopen> };
 }
 
+// Settings › Skills (the library) and a Bot's Skills section (decision 0058). Synthetic data only; no request is made.
+const LIB: LibraryListing = {
+  skills: [
+    { name: "invoice-helper", description: "Summarize invoices and flag odd totals.", installed_by: { kind: "owner" }, installed_at: "2026-10-20T10:00:00Z", version: 1, enabled_bots: 1, bots_total: 3 },
+    { name: "weekly-report", description: "Draft the weekly status report.", installed_by: { kind: "bot", bot_id: "bot_mochi", bot_name: "Mochi" }, installed_at: "2026-10-21T10:00:00Z", version: 3, updated: true, updated_at: "2026-10-22T10:00:00Z", enabled_bots: 2, bots_total: 3,
+      versions: [{ version: 3, created_at: "2026-10-22T10:00:00Z", created_by: { kind: "bot", bot_name: "Mochi" }, note: "Shorter summary", current: true }, { version: 2, created_at: "2026-10-21T18:00:00Z", created_by: { kind: "bot", bot_name: "Mochi" }, current: false }, { version: 1, created_at: "2026-10-21T10:00:00Z", created_by: { kind: "bot", bot_name: "Mochi" }, current: false }] },
+    { name: "old-import", description: "Found on disk; the installer was not recorded.", installed_by: { kind: "legacy" }, version: 1, enabled_bots: 0, bots_total: 3 },
+    { name: "alpha-tool", description: "First tool of the office kit.", bundle_id: "office-kit", installed_by: { kind: "owner" }, installed_at: "2026-10-19T10:00:00Z", version: 1, enabled_bots: 1, bots_total: 3 },
+    { name: "beta-tool", description: "Second tool of the office kit.", bundle_id: "office-kit", installed_by: { kind: "owner" }, installed_at: "2026-10-19T10:00:00Z", version: 1, enabled_bots: 0, bots_total: 3 },
+    { name: "spreadsheet", description: "Build and reconcile XLSX workbooks with real numbers and formulas; verify the saved file.", builtin: true, enabled_bots: 3, bots_total: 3 },
+    { name: "slides", description: "Build slide decks and check every slide as the audience sees it.", builtin: true, enabled_bots: 2, bots_total: 3 },
+  ],
+  bundles: [{ id: "office-kit", description: "Office helpers", version: "1.0.0", installed_by: { kind: "owner" }, installed_at: "2026-10-19T10:00:00Z", skills: ["alpha-tool", "beta-tool"] }],
+};
+const libProps = (extra: Partial<SkillLibraryViewProps> = {}): SkillLibraryViewProps => ({
+  listing: LIB, loaded: true, loading: false, busy: false, error: "", notice: "", form: false, formState: { name: "", text: "" }, showReload: false,
+  onToggleForm: noop, onFormChange: noop, onSubmitForm: noop, onPickFolder: noop, onStarter: noop, onRemove: never, onRemoveBundle: never, onRollback: noop, onReload: noop, ...extra,
+});
+const libraryState = (id: string, label: string, props: Partial<SkillLibraryViewProps> | (() => Partial<SkillLibraryViewProps>), extra: Partial<CatalogState> = {}): CatalogState =>
+  ({ id: `skills-${id}`, kind: "inline", label, render: () => <SkillLibraryView {...libProps(typeof props === "function" ? props() : props)} />, ...extra });
+const BOT_LIST: BotSkillListing = {
+  skills: [
+    { name: "invoice-helper", description: "Summarize invoices and flag odd totals.", enabled: true, set_by: "owner", set_at: "2026-10-21T09:00:00Z" },
+    { name: "weekly-report", description: "Draft the weekly status report.", enabled: true, set_by: "bot", set_at: "2026-10-22T11:30:00Z" },
+    { name: "old-import", description: "Found on disk; the installer was not recorded.", enabled: false },
+    { name: "alpha-tool", description: "First tool of the office kit.", bundle_id: "office-kit", enabled: true, set_by: "migration", set_at: "2026-10-23T08:00:00Z" },
+    { name: "beta-tool", description: "Second tool of the office kit.", bundle_id: "office-kit", enabled: false },
+    { name: "spreadsheet", description: "Build and reconcile XLSX workbooks with real numbers and formulas; verify the saved file.", builtin: true, enabled: true },
+    { name: "slides", description: "Build slide decks and check every slide as the audience sees it.", builtin: true, enabled: false, set_by: "owner", set_at: "2026-10-22T12:00:00Z" },
+  ],
+  bundles: LIB.bundles,
+};
+const botProps = (extra: Partial<BotSkillsViewProps> = {}): BotSkillsViewProps => ({ botId: "bot_mochi", listing: BOT_LIST, loading: false, busy: false, error: "", onToggle: noop, onToggleBundle: noop, ...extra });
+const botState = (id: string, label: string, props: Partial<BotSkillsViewProps> | (() => Partial<BotSkillsViewProps>)): CatalogState =>
+  ({ id: `bot-skills-${id}`, kind: "inline", label, context: ["detail-content", "bot-v2-panel"], render: () => <BotSkillsView {...botProps(typeof props === "function" ? props() : props)} /> });
+
 function Theme() {
   const [value, setValue] = useState<"system" | "light" | "dark">("system");
   return <AppearancePicker value={value} onChange={setValue} />;
@@ -55,6 +94,18 @@ function Choice({ disabled = false }: { disabled?: boolean }) {
 export const settings: CatalogSection = {
   id: "settings", number: "17", title: "Settings rows and components", context: ["settings-page-body"],
   states: [
+    libraryState("library", "Skills library: owner, Bot-installed, bundle, official", {}),
+    libraryState("library-open", "Skills library: bundle expanded", () => ({ openBundles: ["office-kit"], notice: t("extensions:skills.library.added_notice") })),
+    libraryState("library-paste", "Skills library: paste form", { form: true, formState: { name: "research-assistant", text: "---\nname: research-assistant\ndescription: Research and verify sources\n---\nWorkflow instructions…" } }),
+    libraryState("library-empty", "Skills library: nothing added yet", { listing: { skills: LIB.skills.filter(skill => skill.builtin), bundles: [] } }),
+    libraryState("library-loading", "Skills library: loading", { loaded: false, loading: true, listing: { skills: [], bundles: [] } }),
+    libraryState("library-error", "Skills library: could not load", { error: "Synthetic: the library could not be read", showReload: true, listing: { skills: [], bundles: [] }, loaded: false }),
+    libraryState("library-busy", "Skills library: working", { busy: true }),
+    botState("list", "Bot settings, Skills: library as checkboxes", {}),
+    botState("bundle-open", "Bot settings, Skills: bundle expanded", { openBundles: ["office-kit"] }),
+    botState("empty", "Bot settings, Skills: library without Skills of its own", { listing: { skills: BOT_LIST.skills.filter(skill => skill.builtin), bundles: [] } }),
+    botState("loading", "Bot settings, Skills: loading", { loading: true, listing: { skills: [], bundles: [] } }),
+    botState("error", "Bot settings, Skills: could not save", () => ({ error: t("bots:skills.error.save") })),
     { id: "rows", kind: "inline", label: "Section, card and rows", render: () => <SettingsSection title={t("settings:appearance.title")} hint="3" description="A synthetic description under the section title.">
       <SettingsCard>
         <SettingsRow label="Row with a control" description="The control sits on the right; on a phone it drops below." control={<button type="button" className="secondary-button">{t("common:action.retry")}</button>} />

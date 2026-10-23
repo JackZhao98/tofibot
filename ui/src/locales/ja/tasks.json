@@ -241,8 +241,14 @@
         "mcp_create": "MCP サーバーを追加",
         "mcp_update": "MCP サーバーを変更",
         "mcp_delete": "MCP サーバーを削除",
-        "mcp_test": "MCP サーバーに接続"
-      }
+        "mcp_test": "MCP サーバーに接続",
+        "skill_publish_version": "Skill の新バージョンを公開"
+      },
+      "skill_new_version": "新しいバージョン",
+      "skill_added": "追加されるファイル",
+      "skill_removed": "削除されるファイル",
+      "skill_changed": "変更されるファイル",
+      "skill_enabled_bots": "従う Bot の数"
     },
     "standing_decision": "この Bot の常時許可により承認されました。確認は行われていません。実行されたかどうかは下のステップで確認できます。"
   },

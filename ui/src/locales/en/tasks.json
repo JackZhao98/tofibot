@@ -242,8 +242,14 @@
         "mcp_create": "Add an MCP server",
         "mcp_update": "Change an MCP server",
         "mcp_delete": "Delete an MCP server",
-        "mcp_test": "Connect to an MCP server"
-      }
+        "mcp_test": "Connect to an MCP server",
+        "skill_publish_version": "Publish a new Skill version"
+      },
+      "skill_new_version": "New version",
+      "skill_added": "Files added",
+      "skill_removed": "Files removed",
+      "skill_changed": "Files changed",
+      "skill_enabled_bots": "Bots that will follow it"
     },
     "standing_decision": "Approved by this Bot's standing allowance; no one was asked. The step below shows whether it ran."
   },

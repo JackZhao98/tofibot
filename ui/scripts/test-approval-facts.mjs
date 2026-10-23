@@ -29,6 +29,12 @@ try {
   assert.ok(html.includes("Written by the Bot") && html.includes("A tiny harmless helper") && html.includes("Nothing risky"), "model text stays as secondary text");
   assert.ok(!html.includes("extension skill_install helper #a1b2c3d4e5f6"), "the opaque token is no longer the target shown");
 
+  const publish = { kind: "skill_publish_version", name: "invoice-helper", change_id: "#a1b2c3d4e5f6", skill: { description: "Summarize invoices", files: ["SKILL.md (140 B)", "fetch.py (60 B)"], new_version: 3, added: ["fetch.py"], removed: ["old.sh"], changed: ["SKILL.md"], enabled_bots: 2 } };
+  const publishHtml = render(question(publish));
+  for (const text of ["Publish a new Skill version", "v3", "Files added", "fetch.py", "Files removed", "old.sh", "Files changed", "Bots that will follow it"]) {
+    assert.ok(publishHtml.includes(text), `publish facts show ${text}`);
+  }
+
   const mcp = { kind: "mcp_update", name: "files", source: "https://api.example.com/mcp?key=***", previous_source: "https://old.example.com/mcp", transport: "streamable_http", allow_tools: ["read_file"], header_names: ["Authorization"], change_id: "#0123456789ab" };
   const mcpHtml = render(question(mcp));
   for (const text of ["Change an MCP server", "https://api.example.com/mcp?key=***", "https://old.example.com/mcp", "streamable_http", "Only: read_file", "Authorization"]) {

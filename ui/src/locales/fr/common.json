@@ -80,6 +80,9 @@
     "oauth_paste_invalid": "Ce n’est pas la redirection attendue par cette connexion. Collez l’adresse complète de la barre d’adresse.",
     "oauth_paste_not_needed": "Cette connexion n’utilise pas la connexion par collage.",
     "oauth_issuer_mismatch": "Cette réponse ne provient pas du serveur d’autorisation attendu. Reconnectez-vous.",
-    "oauth_loopback_required": "Ce service n’accepte qu’une redirection vers 127.0.0.1. Connectez-vous par collage de l’adresse."
+    "oauth_loopback_required": "Ce service n’accepte qu’une redirection vers 127.0.0.1. Connectez-vous par collage de l’adresse.",
+    "skill_exists": "Un Skill ou un lot de ce nom est déjà dans la bibliothèque.",
+    "skill_in_bundle": "Ce Skill fait partie d’un lot. Supprimez plutôt le lot.",
+    "skill_unchanged": "Ces fichiers sont identiques à la version actuelle."
   }
 }

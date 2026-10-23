@@ -152,5 +152,29 @@
       "load": "Couldn't load the secrets. Try again.",
       "replace": "Couldn't replace the value. Try again."
     }
+  },
+  "skills": {
+    "title": "Skills",
+    "hint": "Skills this Bot can use. A library Skill is off until you turn it on here; the Bot can also turn Skills on for itself. Official Skills are on unless you turn them off.",
+    "loading": "Loading Skills…",
+    "empty": "The library has no Skills yet. Add them in Settings › Skills.",
+    "official_title": "Official Skills",
+    "bundle_label": "Bundle {{name}}",
+    "bundle_count_one": "{{count}} Skill",
+    "bundle_count_other": "{{count}} Skills",
+    "on_of": "{{on}} of {{total}} on",
+    "show_members": "Show the Skills in {{name}}",
+    "hide_members": "Hide the Skills in {{name}}",
+    "set_by": {
+      "owner_on": "Turned on by you · {{time}}",
+      "owner_off": "Turned off by you · {{time}}",
+      "bot_on": "Turned on by this Bot · {{time}}",
+      "bot_off": "Turned off by this Bot · {{time}}",
+      "migration": "Carried over from earlier settings"
+    },
+    "error": {
+      "load": "Could not load this Bot’s Skills.",
+      "save": "Could not save. Try again."
+    }
   }
 }

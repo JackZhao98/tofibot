@@ -80,6 +80,9 @@
     "oauth_paste_invalid": "That is not the redirect this sign-in expects. Paste the full address from the address bar.",
     "oauth_paste_not_needed": "This connection does not use paste-back sign-in.",
     "oauth_issuer_mismatch": "That response did not come from the expected authorization server. Connect again.",
-    "oauth_loopback_required": "This service accepts only a 127.0.0.1 redirect. Sign in with the paste-back step."
+    "oauth_loopback_required": "This service accepts only a 127.0.0.1 redirect. Sign in with the paste-back step.",
+    "skill_exists": "A Skill or bundle with that name is already in the library.",
+    "skill_in_bundle": "This Skill belongs to a bundle. Remove the bundle instead.",
+    "skill_unchanged": "Those files are the same as the current version."
   }
 }

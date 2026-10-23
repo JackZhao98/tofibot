@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { ApiError } from "./api";
+import { ApiError, request } from "./api";
 import { BotAvatar } from "./BotAvatar";
 import { BotAvatarPicker } from "./BotAvatarPicker";
 import { BotInspector } from "./BotInspector";
 import { BotSecrets } from "./BotSecrets";
+import { BotSkills } from "./BotSkills";
 import { buildBotPackage, downloadBotPackage } from "./botPackage";
 import { getBotAvatarConfig, saveBotAvatarConfig } from "./avatarStore";
 import { memoryDisplay } from "./displayMetadata";
@@ -17,6 +18,17 @@ import { PrimaryBadge } from "./PrimaryAssistant";
 import type { Bot, Conversation, Memory } from "./types";
 import { WorkPreview } from "./workAgenda";
 import { LazyGroupAvatar as GroupAvatar } from "./LazyGroupAvatar";
+import type { BotSkillListing } from "./skillLibrary";
+
+/** The share file names the library Skills the Bot has on, and nothing else about them. */
+async function shareBotPackage(bot: Bot) {
+  let names: string[] = [];
+  try {
+    const listing = await request<BotSkillListing>(`/api/bots/${encodeURIComponent(bot.id)}/skills`);
+    names = (listing.skills ?? []).filter(skill => skill.enabled && !skill.builtin).map(skill => skill.name);
+  } catch { /* a share file without skill names is still a valid share file */ }
+  downloadBotPackage(buildBotPackage(bot, names));
+}
 
 export function MembersPanel({ conversation, bots, onClose, onOpen, onSaved, onReload, onOpenWork, refreshToken }: {
   onOpenWork: () => void;
@@ -192,8 +204,8 @@ export function BotPanel({ bots, activeBot, onExportData, onClose, onUpdate, onC
           <button type="button" className="bot-v2-row" onClick={() => setView("config")}><span className="bot-v2-row-icon" aria-hidden="true"><Icon name="bot-config" size={18}/></span><span className="bot-v2-row-copy"><strong>{t("botPanel.config")}</strong><small>{role || t("botPanel.no_role")}</small></span><Icon name="chevron-right" size={16}/></button>
         </nav>
         {(activeBot.is_primary || (onMakePrimary && !activeBot.archived)) && <div className="bot-v2-primary">{activeBot.is_primary ? <><PrimaryBadge /><span className="muted small-text">{t("primary.bot_panel_note")}</span></> : <button type="button" className="text-button" onClick={() => void onMakePrimary?.(activeBot.id)}>{t("primary.make")}</button>}</div>}
-        <div className="bot-v2-footer"><button type="button" className="text-button" onClick={() => downloadBotPackage(buildBotPackage(activeBot))}><Icon name="share" size={15}/> {t("botPanel.export_share")}</button><button type="button" className="text-button" onClick={() => onExportData?.(activeBot.id)}>{t("botPanel.export_data")}</button></div>
-      </> : view === "appearance" ? <><div className="bot-v2-subtitle"><h2>{t("botPanel.style")}</h2><p>{t("botPanel.style_hint")}</p></div><BotAvatarPicker botId={activeBot.id} config={avatarConfig!} onChange={(next) => setAvatarConfig(saveBotAvatarConfig(activeBot.id, next))}/><button type="button" className="primary-button bot-v2-done" onClick={() => setView("home")}>{t("botPanel.done")}</button></> : <><div className="bot-v2-subtitle"><h2>{t("botPanel.config")}</h2><p>{t("botPanel.config_hint")}</p></div><form className="detail-form" aria-busy={saving} onSubmit={(event) => void submit(event)}><fieldset className="form-fields" disabled={saving}><label>{t("botPanel.name")}<input value={name} maxLength={200} onChange={(event) => setName(event.target.value)}/></label><label>{t("botPanel.instructions")}<textarea value={instructions} onChange={(event) => setInstructions(event.target.value)} placeholder={t("botPanel.instructions_placeholder")} rows={6}/></label><Disclosure title={t("botPanel.model_section")}><ModelFields disabled={saving} model={model} effort={effort} onChange={(next,level)=>{setModel(next);setEffort(level)}}/></Disclosure>{error && <p className="error-text" role="alert">{error}</p>}<button className="primary-button" disabled={!valid || saving}>{saving ? t("action.saving") : t("botPanel.save")}</button></fieldset></form><BotSecrets botId={activeBot.id}/><BotInspector botId={activeBot.id}/></>}
+        <div className="bot-v2-footer"><button type="button" className="text-button" onClick={() => void shareBotPackage(activeBot)}><Icon name="share" size={15}/> {t("botPanel.export_share")}</button><button type="button" className="text-button" onClick={() => onExportData?.(activeBot.id)}>{t("botPanel.export_data")}</button></div>
+      </> : view === "appearance" ? <><div className="bot-v2-subtitle"><h2>{t("botPanel.style")}</h2><p>{t("botPanel.style_hint")}</p></div><BotAvatarPicker botId={activeBot.id} config={avatarConfig!} onChange={(next) => setAvatarConfig(saveBotAvatarConfig(activeBot.id, next))}/><button type="button" className="primary-button bot-v2-done" onClick={() => setView("home")}>{t("botPanel.done")}</button></> : <><div className="bot-v2-subtitle"><h2>{t("botPanel.config")}</h2><p>{t("botPanel.config_hint")}</p></div><form className="detail-form" aria-busy={saving} onSubmit={(event) => void submit(event)}><fieldset className="form-fields" disabled={saving}><label>{t("botPanel.name")}<input value={name} maxLength={200} onChange={(event) => setName(event.target.value)}/></label><label>{t("botPanel.instructions")}<textarea value={instructions} onChange={(event) => setInstructions(event.target.value)} placeholder={t("botPanel.instructions_placeholder")} rows={6}/></label><Disclosure title={t("botPanel.model_section")}><ModelFields disabled={saving} model={model} effort={effort} onChange={(next,level)=>{setModel(next);setEffort(level)}}/></Disclosure>{error && <p className="error-text" role="alert">{error}</p>}<button className="primary-button" disabled={!valid || saving}>{saving ? t("action.saving") : t("botPanel.save")}</button></fieldset></form><BotSkills botId={activeBot.id} refreshToken={refreshToken}/><BotSecrets botId={activeBot.id}/><BotInspector botId={activeBot.id}/></>}
     </div>;
   }
   return <div className="detail-content">

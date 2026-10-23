@@ -150,5 +150,28 @@
       "load": "시크릿을 불러오지 못했습니다. 다시 시도하세요.",
       "replace": "값을 교체하지 못했습니다. 다시 시도하세요."
     }
+  },
+  "skills": {
+    "title": "Skill",
+    "hint": "이 Bot이 쓸 수 있는 Skill입니다. 라이브러리의 Skill은 여기서 켜기 전까지 꺼져 있으며, Bot이 스스로 켤 수도 있습니다. 공식 Skill은 끄지 않으면 켜져 있습니다.",
+    "loading": "Skill을 불러오는 중…",
+    "empty": "라이브러리에 Skill이 아직 없습니다. 설정 › Skills에서 추가하세요.",
+    "official_title": "공식 Skill",
+    "bundle_label": "번들 {{name}}",
+    "bundle_count_other": "Skill {{count}}개",
+    "on_of": "{{total}}개 중 {{on}}개 켜짐",
+    "show_members": "{{name}}의 Skill 보기",
+    "hide_members": "{{name}}의 Skill 숨기기",
+    "set_by": {
+      "owner_on": "내가 켰음 · {{time}}",
+      "owner_off": "내가 껐음 · {{time}}",
+      "bot_on": "이 Bot이 켰음 · {{time}}",
+      "bot_off": "이 Bot이 껐음 · {{time}}",
+      "migration": "이전 설정에서 가져옴"
+    },
+    "error": {
+      "load": "이 Bot의 Skill을 불러오지 못했습니다.",
+      "save": "저장하지 못했습니다. 다시 시도하세요."
+    }
   }
 }

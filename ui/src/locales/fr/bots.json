@@ -154,5 +154,30 @@
       "load": "Impossible de charger les secrets. Réessayez.",
       "replace": "Impossible de remplacer la valeur. Réessayez."
     }
+  },
+  "skills": {
+    "title": "Skills",
+    "hint": "Les Skills que ce Bot peut utiliser. Un Skill de la bibliothèque reste désactivé tant que vous ne l’activez pas ici ; le Bot peut aussi l’activer lui-même. Les Skills officiels sont activés sauf si vous les désactivez.",
+    "loading": "Chargement des Skills…",
+    "empty": "La bibliothèque ne contient pas encore de Skills. Ajoutez-en dans Réglages › Skills.",
+    "official_title": "Skills officiels",
+    "bundle_label": "Lot {{name}}",
+    "bundle_count_one": "{{count}} Skill",
+    "bundle_count_many": "{{count}} de Skills",
+    "bundle_count_other": "{{count}} Skills",
+    "on_of": "{{on}} sur {{total}} activés",
+    "show_members": "Afficher les Skills de {{name}}",
+    "hide_members": "Masquer les Skills de {{name}}",
+    "set_by": {
+      "owner_on": "Activé par vous · {{time}}",
+      "owner_off": "Désactivé par vous · {{time}}",
+      "bot_on": "Activé par ce Bot · {{time}}",
+      "bot_off": "Désactivé par ce Bot · {{time}}",
+      "migration": "Repris des réglages précédents"
+    },
+    "error": {
+      "load": "Impossible de charger les Skills de ce Bot.",
+      "save": "Enregistrement impossible. Réessayez."
+    }
   }
 }

@@ -28,6 +28,14 @@ export function approvalFactRows(facts: ApprovalFacts, t: Translate): Row[] {
     rows.push({ label: t("record.facts.skill_tools"), value: list(skill.allowed_tools) || t("record.facts.none") });
     rows.push({ label: t("record.facts.skill_files"), value: list(skill.files) || t("record.facts.none") });
     if (skill.has_scripts) rows.push({ label: t("record.facts.skill_scripts"), value: <span className="approval-warn">{t("record.facts.skill_scripts_present")}</span> });
+    if (facts.kind === "skill_publish_version") {
+      // The diff against the current files, counted by the server; the Bot's wording is not part of it.
+      if (skill.new_version) rows.push({ label: t("record.facts.skill_new_version"), value: `v${skill.new_version}` });
+      if (list(skill.added)) rows.push({ label: t("record.facts.skill_added"), value: list(skill.added) });
+      if (list(skill.removed)) rows.push({ label: t("record.facts.skill_removed"), value: list(skill.removed) });
+      if (list(skill.changed)) rows.push({ label: t("record.facts.skill_changed"), value: list(skill.changed) });
+      rows.push({ label: t("record.facts.skill_enabled_bots"), value: String(skill.enabled_bots ?? 0) });
+    }
   }
   if (facts.change_id) rows.push({ label: t("record.facts.change_id"), value: <code>{facts.change_id}</code> });
   return rows;

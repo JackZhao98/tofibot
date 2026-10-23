@@ -241,8 +241,14 @@
         "mcp_create": "添加 MCP 服务器",
         "mcp_update": "修改 MCP 服务器",
         "mcp_delete": "删除 MCP 服务器",
-        "mcp_test": "连接 MCP 服务器"
-      }
+        "mcp_test": "连接 MCP 服务器",
+        "skill_publish_version": "发布 Skill 新版本"
+      },
+      "skill_new_version": "新版本",
+      "skill_added": "新增文件",
+      "skill_removed": "删除文件",
+      "skill_changed": "修改文件",
+      "skill_enabled_bots": "会使用它的 Bot 数"
     },
     "standing_decision": "由此 Bot 的常驻许可批准，未询问任何人。下方步骤会显示是否已执行。"
   },
