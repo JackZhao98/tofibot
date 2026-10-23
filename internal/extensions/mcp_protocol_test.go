@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -16,72 +15,157 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-func TestMCPRequiresLatestWithoutSendingLegacyHandshake(t *testing.T) {
-	for _, mode := range []string{"method_not_found", "old_versions", "http_not_found", "old_sdk_server"} {
-		t.Run(mode, func(t *testing.T) {
-			var discovers, initializes atomic.Int32
-			var handler http.Handler
-			if mode == "old_sdk_server" {
-				server := mcp.NewServer(&mcp.Implementation{Name: "old", Version: "1"}, &mcp.ServerOptions{SupportedProtocolVersions: []string{"2025-11-25"}})
-				handler = fixtureHTTPHandler(server)
+// legacyMCPHandler is a hand-written JSON-RPC server for a pre-2026 MCP spec: it does not implement
+// server/discover, answers initialize with initVersion, and lists one tool.
+func legacyMCPHandler(t *testing.T, discoverMode, initVersion string, counts map[string]*atomic.Int32) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "no stream", http.StatusMethodNotAllowed)
+			return
+		}
+		var request struct {
+			ID     any    `json:"id"`
+			Method string `json:"method"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Errorf("invalid request: %v", err)
+			http.Error(w, "bad", 400)
+			return
+		}
+		if c := counts[request.Method]; c != nil {
+			c.Add(1)
+		}
+		if request.ID == nil {
+			w.WriteHeader(http.StatusAccepted)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		response := map[string]any{"jsonrpc": "2.0", "id": request.ID}
+		switch request.Method {
+		case "server/discover":
+			if discoverMode == "http_not_found" {
+				http.Error(w, "old endpoint", http.StatusNotFound)
+				return
 			}
+			response["error"] = map[string]any{"code": -32601, "message": "Method not found"}
+		case "initialize":
+			response["result"] = map[string]any{"protocolVersion": initVersion, "capabilities": map[string]any{"tools": map[string]any{}}, "serverInfo": map[string]any{"name": "legacy", "version": "1"}}
+		case "tools/list":
+			response["result"] = map[string]any{"tools": []any{map[string]any{"name": "legacy_tool", "inputSchema": map[string]any{"type": "object", "properties": map[string]any{}}}}}
+		default:
+			response["error"] = map[string]any{"code": -32601, "message": "Method not found"}
+		}
+		_ = json.NewEncoder(w).Encode(response)
+	})
+}
+
+// A server on an older supported spec (no server/discover) must connect through the SDK's native initialize
+// fallback and list its tools.
+func TestMCPLegacyInitializeFallbackConnects(t *testing.T) {
+	for _, discoverMode := range []string{"method_not_found", "http_not_found"} {
+		for _, version := range []string{"2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"} {
+			t.Run(discoverMode+"/"+version, func(t *testing.T) {
+				counts := map[string]*atomic.Int32{"server/discover": {}, "initialize": {}, "notifications/initialized": {}}
+				remote := httptest.NewServer(legacyMCPHandler(t, discoverMode, version, counts))
+				defer remote.Close()
+				manager := NewManager(Config{MCPConfigPath: filepath.Join(t.TempDir(), "mcp.json")})
+				if err := manager.SaveMCP("legacy", MCPServerConfig{URL: remote.URL}, false); err != nil {
+					t.Fatal(err)
+				}
+				prepared, err := manager.Prepare(context.Background())
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer prepared.Close()
+				if len(prepared.Diagnostics) != 0 || len(prepared.Tools) != 1 {
+					t.Fatalf("prepared diagnostics=%+v tools=%d", prepared.Diagnostics, len(prepared.Tools))
+				}
+				if counts["server/discover"].Load() == 0 || counts["initialize"].Load() == 0 || counts["notifications/initialized"].Load() == 0 {
+					t.Fatalf("discover=%d initialize=%d initialized=%d", counts["server/discover"].Load(), counts["initialize"].Load(), counts["notifications/initialized"].Load())
+				}
+				inspection := manager.InspectMCP(context.Background(), "legacy")
+				if inspection.AuthRequired || len(inspection.Diagnostics) != 0 {
+					t.Fatalf("inspection=%+v", inspection)
+				}
+			})
+		}
+	}
+}
+
+// A server that only offers versions outside the SDK's supported set still fails with the protocol diagnostic.
+func TestMCPUnsupportedProtocolStillDiagnosed(t *testing.T) {
+	for _, mode := range []string{"bogus_initialize", "discover_unsupported_error"} {
+		t.Run(mode, func(t *testing.T) {
 			remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				var request struct {
 					ID     any    `json:"id"`
 					Method string `json:"method"`
-					Params struct {
-						Meta map[string]any `json:"_meta"`
-					} `json:"params"`
 				}
-				if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-					t.Errorf("invalid request: %v", err)
-					http.Error(w, "bad", 400)
-					return
-				}
-				if request.Method == "initialize" {
-					initializes.Add(1)
-				}
-				if request.Method != "server/discover" {
-					t.Errorf("unexpected method %s", request.Method)
-					http.Error(w, "legacy", 500)
-					return
-				}
-				discovers.Add(1)
-				if request.Params.Meta[mcp.MetaKeyProtocolVersion] != requiredMCPProtocolVersion {
-					t.Errorf("protocol meta=%v", request.Params.Meta)
-				}
-				if mode == "old_sdk_server" {
-					body, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": request.ID, "method": request.Method, "params": map[string]any{"_meta": request.Params.Meta}})
-					r.Body = io.NopCloser(bytes.NewReader(body))
-					handler.ServeHTTP(w, r)
-					return
-				}
-				if mode == "http_not_found" {
-					http.Error(w, "old endpoint", http.StatusNotFound)
+				_ = json.NewDecoder(r.Body).Decode(&request)
+				if request.ID == nil {
+					w.WriteHeader(http.StatusAccepted)
 					return
 				}
 				w.Header().Set("Content-Type", "application/json")
 				response := map[string]any{"jsonrpc": "2.0", "id": request.ID}
-				if mode == "method_not_found" {
+				switch {
+				case mode == "discover_unsupported_error":
+					response["error"] = map[string]any{"code": mcp.CodeUnsupportedProtocolVersion, "message": "unsupported", "data": map[string]any{"supported": []string{"1999-01-01"}}}
+				case request.Method == "server/discover":
 					response["error"] = map[string]any{"code": -32601, "message": "Method not found"}
-				} else {
-					response["result"] = map[string]any{"supportedVersions": []string{"2025-11-25"}, "capabilities": map[string]any{}}
+				default:
+					response["result"] = map[string]any{"protocolVersion": "1999-01-01", "capabilities": map[string]any{}, "serverInfo": map[string]any{"name": "bogus", "version": "1"}}
 				}
 				_ = json.NewEncoder(w).Encode(response)
 			}))
 			defer remote.Close()
 			manager := NewManager(Config{MCPConfigPath: filepath.Join(t.TempDir(), "mcp.json")})
-			if err := manager.SaveMCP("old", MCPServerConfig{URL: remote.URL}, false); err != nil {
+			if err := manager.SaveMCP("bogus", MCPServerConfig{URL: remote.URL}, false); err != nil {
 				t.Fatal(err)
 			}
-			inspection := manager.InspectMCP(context.Background(), "old")
-			if inspection.AuthRequired || len(inspection.Diagnostics) != 1 || inspection.Diagnostics[0].Code != "unsupported_protocol" || !strings.Contains(inspection.Diagnostics[0].Message, requiredMCPProtocolVersion) {
+			inspection := manager.InspectMCP(context.Background(), "bogus")
+			if inspection.AuthRequired || len(inspection.Diagnostics) != 1 || inspection.Diagnostics[0].Code != "unsupported_protocol" {
 				t.Fatalf("inspection=%+v", inspection)
 			}
-			if discovers.Load() != 1 || initializes.Load() != 0 {
-				t.Fatalf("discover=%d initialize=%d", discovers.Load(), initializes.Load())
-			}
 		})
+	}
+}
+
+// A 2026-07-28 server keeps using server/discover and never sees the legacy handshake.
+func TestMCPCurrentServerUsesDiscoverOnly(t *testing.T) {
+	server := fixtureServer("latest", "1")
+	server.AddTool(fixtureTool("echo"), fixtureNoop)
+	handler := fixtureHTTPHandler(server)
+	var discovers, initializes atomic.Int32
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			body, _ := io.ReadAll(r.Body)
+			var request struct {
+				Method string `json:"method"`
+			}
+			_ = json.Unmarshal(body, &request)
+			r.Body = io.NopCloser(bytes.NewReader(body))
+			switch request.Method {
+			case "server/discover":
+				discovers.Add(1)
+			case "initialize":
+				initializes.Add(1)
+			}
+		}
+		handler.ServeHTTP(w, r)
+	}))
+	defer remote.Close()
+	manager := NewManager(Config{MCPConfigPath: filepath.Join(t.TempDir(), "mcp.json")})
+	if err := manager.SaveMCP("latest", MCPServerConfig{URL: remote.URL}, false); err != nil {
+		t.Fatal(err)
+	}
+	prepared, err := manager.Prepare(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer prepared.Close()
+	if len(prepared.Diagnostics) != 0 || len(prepared.Tools) != 1 || discovers.Load() == 0 || initializes.Load() != 0 {
+		t.Fatalf("diagnostics=%+v tools=%d discover=%d initialize=%d", prepared.Diagnostics, len(prepared.Tools), discovers.Load(), initializes.Load())
 	}
 }
 

@@ -12,18 +12,20 @@ import (
 
 const requiredMCPProtocolVersion = "2026-07-28"
 
-var errMCPProtocolIncompatible = errors.New("MCP protocol incompatible: Tofi requires 2026-07-28; upgrade this server to support server/discover")
 var errMCPLegacySSE = errors.New("Legacy MCP SSE transport is incompatible with 2026-07-28; switch this server to Streamable HTTP")
 
+// isMCPProtocolFailure reports that no mutually supported protocol version exists: the server rejected every
+// version the SDK offered, or answered initialize with a version outside the SDK's supported set. The SDK's
+// latter error type is unexported, so it is recognised by its fixed prefix; no upstream text is reflected.
 func isMCPProtocolFailure(err error) bool {
 	var rpc *jsonrpc.Error
-	if err != nil {
-		message := strings.ToLower(err.Error())
-		if strings.Contains(message, "server/discover") && (strings.Contains(message, "not found") || strings.Contains(message, "method not allowed") || strings.Contains(message, "upgrade required")) {
-			return true
-		}
+	if err == nil {
+		return false
 	}
-	return errors.Is(err, errMCPProtocolIncompatible) || errors.As(err, &rpc) && (rpc.Code == jsonrpc.CodeMethodNotFound || rpc.Code == mcp.CodeUnsupportedProtocolVersion)
+	if errors.As(err, &rpc) && rpc.Code == mcp.CodeUnsupportedProtocolVersion {
+		return true
+	}
+	return strings.Contains(err.Error(), "unsupported protocol version:")
 }
 
 func contains(values []string, value string) bool {
