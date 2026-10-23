@@ -18,6 +18,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
 type browserTarget struct {
@@ -186,7 +188,7 @@ func (s *Service) browserNavigatePage(ctx context.Context, botID string, d *desk
 		return nil, fmt.Errorf("decode Page.navigate result: %w", err)
 	}
 	if nav.ErrorText != "" {
-		return nil, fmt.Errorf("browser navigation failed: %s", nav.ErrorText)
+		return nil, &navigationError{outcome: tooloutcome.ClassifyNavigation(nav.ErrorText, u.Hostname())}
 	}
 	verified, verifyErr := s.waitForBrowserPage(ctx, d, target.TargetID, target.URL)
 	if verifyErr != nil {

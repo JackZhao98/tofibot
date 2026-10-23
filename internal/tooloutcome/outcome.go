@@ -26,13 +26,17 @@ const (
 const FileNotFound = "file_not_found"
 
 type Outcome struct {
-	Readiness   string `json:"readiness,omitempty"`
-	Version     int    `json:"version"`
-	Status      string `json:"status"`
-	Code        string `json:"code"`
-	Certainty   string `json:"execution_certainty"`
-	Message     string `json:"message"`
-	NextAction  string `json:"next_action"`
+	Readiness  string `json:"readiness,omitempty"`
+	Version    int    `json:"version"`
+	Status     string `json:"status"`
+	Code       string `json:"code"`
+	Certainty  string `json:"execution_certainty"`
+	Message    string `json:"message"`
+	NextAction string `json:"next_action"`
+	// Host and NetError describe a failed browser navigation: the host that
+	// was being loaded and Chrome's own net error name (ERR_*).
+	Host        string `json:"host,omitempty"`
+	NetError    string `json:"net_error,omitempty"`
 	Attempts    int    `json:"attempts,omitempty"`
 	RetryLimit  int    `json:"retry_limit,omitempty"`
 	RepairLimit int    `json:"repair_limit,omitempty"`
