@@ -272,8 +272,10 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// 8075: 7659 plus the memory and recall principle (+416 measured, decision 0044).
 				// 8200: 8075 plus the search-before-claiming-unavailable line in the MCP discovery
 				// policy (+167 measured, 2026-10-22: 8022 -> 8189).
-				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 8200 {
-					t.Errorf("ordinary DM provider system exceeds 8200 runes")
+				// 8225: plus the go-ahead-means-act sentence, less the computer section's "use tools only
+				// when ready" line (B2, +34 measured: 8189 -> 8223).
+				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 8225 {
+					t.Errorf("ordinary DM provider system exceeds 8225 runes")
 				}
 				// 7000: the lookup line's works-newer-than-the-model clause (~45) lands in
 				// every prompt, the longest of which sat 23 under 6950.
@@ -290,8 +292,10 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// 8843: plus the quiet-completion sentence in the scheduled result guidance (+223 measured on
 				// the scheduled descendant, the longest prompt; decision 0052).
 				// 8995: plus the same discovery line (+167 measured on the scheduled descendant, the longest prompt: 8824 -> 8991).
-				if fixed > 8995 {
-					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 8995)", fixed)
+				// 9120: plus the B2 go-ahead lines (core, group delegation, latest message, plan-as-result)
+				// less the computer "use tools only when ready" line (+124 measured on the scheduled descendant: 8991 -> 9115).
+				if fixed > 9120 {
+					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 9120)", fixed)
 				}
 				if !strings.Contains(system, bot.Instructions) {
 					t.Fatal("user instructions changed")
@@ -334,8 +338,9 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 					// 7609: 6700 plus the +170 lookup-line rewrite and the +183 computer-section principles,
 					// plus the built-in skills' directory rows (+616 measured, decision 0041; -60 when the descriptions shrank, D41 2026-10-21 addendum): 7609.
 					// 8025: 7609 plus the memory and recall principle (+416 measured, decision 0044).
-					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 8025 {
-						t.Errorf("structured DM provider system exceeds 8025 runes")
+					// 8060: plus the same B2 go-ahead sentence as the ordinary DM cap (+34 measured).
+					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 8060 {
+						t.Errorf("structured DM provider system exceeds 8060 runes")
 					}
 					if tc.kind == runKindGroupChat && !strings.Contains(system, "say(answer)") {
 						t.Error("structured group prompt does not name say(answer)")
