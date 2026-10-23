@@ -157,7 +157,7 @@ func (s *Server) microVMEnvironmentPrompt(ctx context.Context, botID string) str
 	} else if info.DesktopIdleSeconds != nil {
 		idle = fmt.Sprintf(" Desktop idle timeout: %ds (0 disables).", *info.DesktopIdleSeconds)
 	}
-	return fmt.Sprintf("\nShared Linux VM, separate from the service host and Mac; never claim host/Mac access. cwd=%s/bots/%s, HOME=/workspace/home; /workspace/shared, files, tools, Chrome profile and display are shared. Browser: %s. System directories are read-only (no sudo); install software only in user space (skill: software). Office, PDF, OCR and charting tools are preinstalled for English; fetch other languages' data or fonts into user directories. Attached files are on this computer at the listed paths. Use tools only when ready; otherwise report status. %s Stop the shared desktop only on user intent. Private keys use Secret Input; return public keys only.", root, botID, browser, computerBrowserEssentials) + idle
+	return fmt.Sprintf("\nShared Linux VM, separate from the service host and Mac; never claim host/Mac access. cwd=%s/bots/%s, HOME=/workspace/home; /workspace/shared, files, tools, Chrome profile and display are shared. Browser: %s. System directories are read-only (no sudo); install software only in user space (skill: software). Office, PDF, OCR and charting tools are preinstalled for English; fetch other languages' data or fonts into user directories. Attached files are on this computer at the listed paths. %s Stop the shared desktop only on user intent. Private keys use Secret Input; return public keys only.", root, botID, browser, computerBrowserEssentials) + idle
 }
 
 // computerBrowserEssentials is the always-present browser recipe; computer_help

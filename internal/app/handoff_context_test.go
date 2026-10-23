@@ -141,3 +141,58 @@ func TestBuildContextRetryChildRetainsOriginalHandoff(t *testing.T) {
 		t.Fatalf("retry context exceeds history budget: %d > %d", used, maxHistoryRunes)
 	}
 }
+
+// Under the say protocol plain text is private and say(answer) ends the turn,
+// so the handoff block must ask for the acknowledgement as a say message (B2:
+// a delegated Bot acknowledged with its answer and never did the work).
+func TestHandoffAcknowledgementFollowsSayProtocol(t *testing.T) {
+	s, err := OpenStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	parent, err := s.CreateBot("coordinator", "coordinate the group", "model")
+	if err != nil {
+		t.Fatal(err)
+	}
+	child, err := s.CreateBot("checker", "check assigned work", "model")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := s.CreateGroup("team", []string{parent.ID, child.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	parentRun, err := s.AddRun(c.ID, parent.ID, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.SetRunStatus(parentRun.ID, "running", ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err = s.AddMessage(c.ID, "user", "", parentRun.ID, "check the references", ""); err != nil {
+		t.Fatal(err)
+	}
+	_, childRun, err := s.AddHandoff(c.ID, parent.ID, child.ID, parentRun.ID, "check every reference and report problems")
+	if err != nil {
+		t.Fatal(err)
+	}
+	block := func(structured bool) string {
+		r := childRun
+		r.structured = structured
+		msgs, _ := (&Server{store: s}).buildContext(c, r, child)
+		for _, m := range msgs {
+			if strings.Contains(m.Content, "[current handoff task]") {
+				return m.Content
+			}
+		}
+		t.Fatalf("no handoff block (structured=%v)", structured)
+		return ""
+	}
+	if got := block(true); !strings.Contains(got, "say, purpose message") || strings.Contains(got, "normal assistant message") {
+		t.Fatalf("structured handoff acknowledgement does not use say(message): %s", got)
+	}
+	if got := block(false); !strings.Contains(got, "normal assistant message") {
+		t.Fatalf("plain handoff acknowledgement changed: %s", got)
+	}
+}

@@ -217,7 +217,7 @@ func safeCapabilityName(name string) bool {
 	return true
 }
 
-const taskCompletionGuidance = "Complete the requested deliverable and fields; continue authorized work until satisfied or concretely blocked. When a route fails or is refused, try the computer's other means before reporting a blocker or asking: the real signed-in browser, dismissing overlays and consent or subscription dialogs (never accepting a purchase), another source, your own earlier outputs and artifacts; a blocker report names the routes tried. Do not broaden scope. Never claim something was searched, verified or done without evidence. Keep checks internal: give the answer itself, not an account of how you got it. When information is missing but the work can proceed, proceed on sensible assumptions, state them in a line, and deliver; never close on questions your stated assumptions already settle. Ask once, and only when the gap blocks the work. A direct instruction is the confirmation that action needs, whatever your role notes list; confirm only consequential actions not asked for. Say that work is done only after doing it this turn. Asked to write or draft something, deliver the finished text in the chat with every part such a piece has; sending is only ever the person's step.\n"
+const taskCompletionGuidance = "Complete the requested deliverable and fields; continue authorized work until satisfied or concretely blocked. A go-ahead or an agreed plan is the instruction to do that work now, with your tools. When a route fails or is refused, try the computer's other means before reporting a blocker or asking: the real signed-in browser, dismissing overlays and consent or subscription dialogs (never accepting a purchase), another source, your own earlier outputs and artifacts; a blocker report names the routes tried. Do not broaden scope. Never claim something was searched, verified or done without evidence. Keep checks internal: give the answer itself, not an account of how you got it. When information is missing but the work can proceed, proceed on sensible assumptions, state them in a line, and deliver; never close on questions your stated assumptions already settle. Ask once, and only when the gap blocks the work. A direct instruction is the confirmation that action needs, whatever your role notes list; confirm only consequential actions not asked for. Say that work is done only after doing it this turn. Asked to write or draft something, deliver the finished text in the chat with every part such a piece has; sending is only ever the person's step.\n"
 
 const segmentedReplyGuidance = "Hide internal IDs/labels. Only for an intentional reply to an earlier message, start with its exact same-chat [message_id=UUID] label. Follow newer user instructions.\n"
 
@@ -245,7 +245,7 @@ func acknowledgesBeforeWork(c Conversation, r Run) bool {
 // groupLatestMessageLine sits beside the request of an unaddressed group
 // message: earlier conversation is background, the latest message is what is
 // answered. (In the system text alone, Haiku still reopened finished topics.)
-const groupLatestMessageLine = "Reply to the person's latest message alone and refer to an earlier topic only when that message does; a greeting or small talk gets a short reply of its own. " + lookupNoteLine
+const groupLatestMessageLine = "Reply to the person's latest message alone and refer to an earlier topic only when that message does (a go-ahead does: carry out the plan it approves); a greeting or small talk gets a short reply of its own. " + lookupNoteLine
 
 // lookupNoteLine is the lookup rule at the point of decision: beside the
 // person's request in every structured turn that answers a person, not only in
@@ -631,7 +631,16 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 			if c.Kind == "group" && r.Kind == runKindGroupTask {
 				returnGuidance += " Your completed result will wake the assigning member automatically; do not call handoff merely to return a result or acknowledge receipt."
 			}
-			fixed := fmt.Sprintf("[current handoff task]\nYou are %s (id=%s). Execute the current assignment; surrounding history is reference context. Briefly acknowledge the assigning member in your own voice before substantial work, using a normal assistant message before tool calls. Perform the work. %s Do not repeat or re-delegate the parent's original request. If the assignment needs another member, use handoff for a concrete bounded contribution, and stop when the requested work is complete.\nAssigned by %s (id=%s): ", bot.Name, bot.ID, returnGuidance, parentName, handoff.SenderBotID)
+			acknowledge := "Briefly acknowledge the assigning member in your own voice before substantial work, using a normal assistant message before tool calls."
+			if r.structured {
+				// Under the say protocol plain text is private and an answer ends the
+				// turn: the acknowledgement is a message or note, the answer the result.
+				acknowledge = "Briefly acknowledge the assigning member in your own voice with say, purpose message, before substantial work; say with purpose answer delivers the finished contribution and ends your turn."
+				if !c.UserVisible {
+					acknowledge = strings.Replace(acknowledge, "purpose message", "purpose note", 1)
+				}
+			}
+			fixed := fmt.Sprintf("[current handoff task]\nYou are %s (id=%s). Execute the current assignment; surrounding history is reference context. %s Perform the work in this turn. %s Do not repeat or re-delegate the parent's original request. If the assignment needs another member, use handoff for a concrete bounded contribution, and stop when the requested work is complete.\nAssigned by %s (id=%s): ", bot.Name, bot.ID, acknowledge, returnGuidance, parentName, handoff.SenderBotID)
 			contentLimit := handoffReserve - len([]rune(fixed)) - len([]rune("\n[/current handoff task]"))
 			if contentLimit < 0 {
 				contentLimit = 0
@@ -672,7 +681,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 			if c.Kind == "group" && !hiddenTrace {
 				assembled = " The person already sees each colleague's contribution in the group: publish the assembled outcome once, adding only what is missing, and leave a contribution that already stands as written without a second version of it."
 			}
-			fixed := fmt.Sprintf("[completed colleague task]\nYou are %s (id=%s), resuming after a colleague's completed contribution. Read the actual result below and %s. %s, integrate the result, and complete or advance %s. Do not repeat the original assignment, invent work, or send a courtesy handoff back. Delegate again only if a concrete unresolved task requires it; otherwise give the useful conclusion and stop.%s\nResult from %s (id=%s):\n", bot.Name, bot.ID, place, response, request, assembled, name, result.SenderBotID)
+			fixed := fmt.Sprintf("[completed colleague task]\nYou are %s (id=%s), resuming after a colleague's completed contribution. Read the actual result below and %s. %s, integrate the result, and complete or advance %s. Do not repeat the original assignment, invent work, or send a courtesy handoff back. Delegate again only if a concrete unresolved task requires it; otherwise give the useful conclusion and stop. A result that is only a plan gets carried out before you conclude.%s\nResult from %s (id=%s):\n", bot.Name, bot.ID, place, response, request, assembled, name, result.SenderBotID)
 			handoffText = trimRunes(fixed+result.Content+"\n[/completed colleague task]", handoffReserve)
 		}
 	}
@@ -940,7 +949,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 // groupDelegationGuidance is the group's division-of-labour principle. It
 // states when work goes to a colleague and when it stays, and relies on the
 // roster for each colleague's role.
-const groupDelegationGuidance = "Do the part your own role covers. Work a colleague's role covers better goes to that colleague with a concrete brief, and you integrate the result into the one reply the person gets. Hand off only when a colleague's role is needed for the result; input that would merely be nice to have is no reason to, and a request one member can fully own stays with that member. Small talk is answered directly."
+const groupDelegationGuidance = "Do the part your own role covers. On a go-ahead for planned work, do your part now and start the owners of the other parts. Work a colleague's role covers better goes to that colleague with a concrete brief, and you integrate the result into the one reply the person gets. Hand off only when a colleague's role is needed for the result; input that would merely be nice to have is no reason to, and a request one member can fully own stays with that member. Small talk is answered directly."
 
 // memberRoleLine is a member's role for the group roster: the opening of its
 // durable instructions, on one line.
