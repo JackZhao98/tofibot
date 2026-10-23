@@ -179,7 +179,7 @@ func TestSayRejectsBadArguments(t *testing.T) {
 		_, err := say(ctx, req, "a1", "answer", "fine")
 		return runtime.Result{}, err
 	}))
-	for i, want := range []string{"purpose must be", "text is required", "at most 1200", "text is required"} {
+	for i, want := range []string{"purpose must be", "nothing visible", "at most 1200", "nothing visible"} {
 		if len(errs) != 4 || errs[i] == nil || !strings.Contains(errs[i].Error(), want) {
 			t.Fatalf("bad call %d: error = %v, want %q", i+1, errs, want)
 		}
