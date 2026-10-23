@@ -56,9 +56,9 @@ func noRawSayJSON(t *testing.T, s *Server, convID string) {
 
 func TestSayArgumentsWrittenAsTextAreDeliveredAsTheAnswer(t *testing.T) {
 	for name, final := range map[string]string{
-		"plain":  `{"purpose":"answer","text":"It is half past four."}`,
-		"fenced": "```json\n{\"purpose\":\"answer\",\"text\":\"It is half past four.\"}\n```",
-		"padded": "\n  {\"purpose\":\"answer\",\"text\":\"It is half past four.\"}  \n",
+		"plain":  `{"purpose":"answer","outcome":"done","text":"It is half past four."}`,
+		"fenced": "```json\n{\"purpose\":\"answer\",\"outcome\":\"done\",\"text\":\"It is half past four.\"}\n```",
+		"padded": "\n  {\"purpose\":\"answer\",\"outcome\":\"done\",\"text\":\"It is half past four.\"}  \n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			s, run := dmRun(t, textFinalEngine{final: final})
@@ -78,10 +78,10 @@ func TestSayArgumentsWrittenAsTextAreDeliveredAsTheAnswer(t *testing.T) {
 
 func TestSayTextRecoveryIsDecidedBySchemaOnly(t *testing.T) {
 	for name, final := range map[string]string{
-		"wording around":   `Here you go: {"purpose":"answer","text":"It is half past four."}`,
-		"trailing wording": `{"purpose":"answer","text":"It is half past four."} Done.`,
-		"two objects":      `{"purpose":"answer","text":"a"}{"purpose":"answer","text":"b"}`,
-		"other fence":      "```python\n{\"purpose\":\"answer\",\"text\":\"x\"}\n```",
+		"wording around":   `Here you go: {"purpose":"answer","outcome":"done","text":"It is half past four."}`,
+		"trailing wording": `{"purpose":"answer","outcome":"done","text":"It is half past four."} Done.`,
+		"two objects":      `{"purpose":"answer","outcome":"done","text":"a"}{"purpose":"answer","outcome":"done","text":"b"}`,
+		"other fence":      "```python\n{\"purpose\":\"answer\",\"outcome\":\"done\",\"text\":\"x\"}\n```",
 		"no purpose key":   `{"text":"It is half past four."}`,
 		"other object":     `{"city":"Synthetic","time":"16:30"}`,
 	} {
@@ -106,8 +106,8 @@ func TestSayTextRecoveryIsDecidedBySchemaOnly(t *testing.T) {
 func TestInvalidSayArgumentsTextIsRepairedNotPublished(t *testing.T) {
 	for name, final := range map[string]string{
 		"unknown purpose": `{"purpose":"shout","text":"It is half past four."}`,
-		"extra field":     `{"purpose":"answer","text":"It is half past four.","mood":"calm"}`,
-		"text not string": `{"purpose":"answer","text":4}`,
+		"extra field":     `{"purpose":"answer","outcome":"done","text":"It is half past four.","mood":"calm"}`,
+		"text not string": `{"purpose":"answer","outcome":"done","text":4}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			var reminder string
@@ -145,7 +145,7 @@ func TestInvalidSayArgumentsTextWithNoRepairLeftIsNotPublished(t *testing.T) {
 // when the repair budget is spent) is published as its inner text.
 func TestValidSayTextAsTheFinalWithoutReviewPublishesTheInnerText(t *testing.T) {
 	s, run := dmRun(t, dmFuncEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
-		return runtime.Result{Content: `{"purpose":"answer","text":"It is half past four."}`}, nil
+		return runtime.Result{Content: `{"purpose":"answer","outcome":"done","text":"It is half past four."}`}, nil
 	}))
 	if got := visibleTexts(t, s, run.ID, run.ConversationID); run.Status != "done" || !equalStrings(got, []string{"It is half past four."}) {
 		t.Fatalf("run=%+v visible=%q", run, got)
@@ -157,7 +157,7 @@ func TestValidSayTextAsTheFinalWithoutReviewPublishesTheInnerText(t *testing.T) 
 
 // Through the real loop: the model writes the say arguments as its final text.
 func TestSayTextFinalThroughTheLoopIsDeliveredOnce(t *testing.T) {
-	model := newFakeModel(t, fakeStep{content: `{"purpose":"answer","text":"It is half past four."}`},
+	model := newFakeModel(t, fakeStep{content: `{"purpose":"answer","outcome":"done","text":"It is half past four."}`},
 		fakeStep{content: "a call that must not happen"})
 	s, run := serverWithModel(t, model, true)
 	if run.Status != "done" {
@@ -176,8 +176,8 @@ func TestSayTextFinalThroughTheLoopIsDeliveredOnce(t *testing.T) {
 func TestRecoveredSayAnswerGetsTheCompletionReview(t *testing.T) {
 	model := newFakeModel(t,
 		fakeStep{calls: []fakeCall{{"c1", "create_work_item", `{"kind":"task","title":"Check the numbers"}`}}},
-		fakeStep{content: `{"purpose":"answer","text":"First draft of the answer."}`},
-		fakeStep{calls: []fakeCall{{"c3", "say", `{"purpose":"answer","text":"Reviewed answer."}`}}},
+		fakeStep{content: `{"purpose":"answer","outcome":"done","text":"First draft of the answer."}`},
+		fakeStep{calls: []fakeCall{{"c3", "say", `{"purpose":"answer","outcome":"done","text":"Reviewed answer."}`}}},
 		fakeStep{content: "a call that must not happen"})
 	s, run := serverWithModel(t, model, true)
 	if run.Status != "done" {
@@ -202,7 +202,7 @@ func TestRecoveredSayAnswerGetsTheCompletionReview(t *testing.T) {
 
 func TestScheduledRunWithSayTextGetsItsReceipt(t *testing.T) {
 	engine := dmFuncEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
-		final := `{"purpose":"answer","text":"The synthetic digest is posted.","sources":["a"]}`
+		final := `{"purpose":"answer","outcome":"done","text":"The synthetic digest is posted.","sources":["a"]}`
 		reminder, err := req.BeforeFinalResponse(final)
 		if err != nil || reminder != "" {
 			return runtime.Result{}, errString("review: " + reminder)
