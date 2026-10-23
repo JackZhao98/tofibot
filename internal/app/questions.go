@@ -94,7 +94,7 @@ type ApprovalDetails struct {
 // ApprovalFacts describe an extension change from its payload. Nothing here is
 // model-written prose; secrets appear by name only.
 type ApprovalFacts struct {
-	Kind           string              `json:"kind"` // skill_install, skill_delete, mcp_create, mcp_update, mcp_delete, mcp_test
+	Kind           string              `json:"kind"` // skill_install, skill_publish_version, skill_delete (older cards), mcp_create, mcp_update, mcp_delete, mcp_test
 	Name           string              `json:"name"`
 	ChangeID       string              `json:"change_id,omitempty"`
 	Source         string              `json:"source,omitempty"`
@@ -114,6 +114,14 @@ type ApprovalSkillFacts struct {
 	AllowedTools []string `json:"allowed_tools,omitempty"`
 	Files        []string `json:"files,omitempty"`
 	HasScripts   bool     `json:"has_scripts,omitempty"`
+	// Set for skill_publish_version: the version the files would become, what
+	// they add, remove and change against the current files, and how many
+	// active Bots have the skill on and so would follow it.
+	NewVersion  int      `json:"new_version,omitempty"`
+	Added       []string `json:"added,omitempty"`
+	Removed     []string `json:"removed,omitempty"`
+	Changed     []string `json:"changed,omitempty"`
+	EnabledBots int      `json:"enabled_bots,omitempty"`
 }
 
 type Question struct {

@@ -91,6 +91,7 @@ func TestInstalledSkillWithScriptsReachesTheComputer(t *testing.T) {
 	if err := s.extensions.InstallSkill("only-text", map[string][]byte{"SKILL.md": []byte("---\nname: only-text\ndescription: text only\n---\nBODY")}); err != nil {
 		t.Fatal(err)
 	}
+	enableSkillsFor(t, s, bot.ID, "greeter", "only-text")
 	prepared, err := s.extensions.PrepareDiscoverableForBot(context.Background(), bot.ID)
 	if err != nil {
 		t.Fatal(err)

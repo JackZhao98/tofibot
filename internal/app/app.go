@@ -256,6 +256,7 @@ type Server struct {
 	scheduler                            *ScheduleWorker
 	followups                            *followupWorker
 	extensions                           *extensions.Manager
+	skillLibMu                           sync.Mutex
 	microVM                              *computer.Client
 	microVMInfoCache                     microVMInfoCache
 	computerWatchdog                     *computerWatchdog
@@ -777,10 +778,10 @@ CREATE INDEX IF NOT EXISTS events_delta ON events(conversation_id,id) WHERE type
 	if err := migratePortability(s.db); err != nil {
 		return err
 	}
-	if err := migrateSkillAccess(s.db); err != nil {
+	if err := migrateLegacySkillTables(s.db); err != nil {
 		return err
 	}
-	if err := migrateBuiltinSkillSetting(s.db); err != nil {
+	if err := migrateSkillLibrary(s.db); err != nil {
 		return err
 	}
 	if err := migrateToolActivity(s.db); err != nil {
@@ -2710,7 +2711,14 @@ func NewServer(c Config) (*Server, error) {
 	} else if switched > 0 {
 		log.Printf("[model-settings] %d Bot(s) now follow the global model", switched)
 	}
-	server.extensions = extensions.NewManager(extensions.Config{MCPConfigPath: c.MCPConfigPath, SkillsDir: c.SkillsDir, ExpandToolQuery: server.expandToolSearchQuery, HTTPTransport: server.localMCPTransport, ServerUsable: server.mcpServerUsable, SkillAccess: st.skillAccessFilter, BuiltinSkillsOff: st.builtinSkillsOff, ServerIdentityChanged: server.markStandingServerChanged})
+	server.extensions = extensions.NewManager(extensions.Config{MCPConfigPath: c.MCPConfigPath, SkillsDir: c.SkillsDir, ExpandToolQuery: server.expandToolSearchQuery, HTTPTransport: server.localMCPTransport, ServerUsable: server.mcpServerUsable, SkillAccess: st.skillEnabledFilter, ServerIdentityChanged: server.markStandingServerChanged})
+	if err := server.migrateSkillLibraryData(); err != nil {
+		st.Close()
+		return nil, fmt.Errorf("skill library migration: %w", err)
+	}
+	if _, err := server.reconcileSkillLibrary(); err != nil {
+		log.Printf("[skills] reconcile failed: %v", err)
+	}
 	if st.requireGuestAttachments && microVM != nil {
 		st.guestBlobs = microVM
 		st.cleanupDeletedAttachments()
@@ -2868,7 +2876,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if s.routeDesktopStream(w, r, p) {
 		return
 	}
-	if s.handleBotSecrets(w, r) || s.handleSecrets(w, r) || s.handleSSHKeys(w, r) || s.routeComputerResources(w, r, p) {
+	if s.handleBotSecrets(w, r) || s.handleBotSkills(w, r) || s.handleSecrets(w, r) || s.handleSSHKeys(w, r) || s.routeComputerResources(w, r, p) {
 		return
 	}
 	if s.routeComputers(w, r, p) {

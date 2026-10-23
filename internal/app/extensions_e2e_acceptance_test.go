@@ -125,6 +125,9 @@ func TestExtensionsHTTPProtocolAndSkillAcceptance(t *testing.T) {
 	if code, body := extensionAcceptanceHTTP(t, h, http.MethodPost, "/api/extensions/skills", map[string]any{"name": "acceptance-skill", "files": map[string]string{"SKILL.md": "---\nname: acceptance-skill\ndescription: acceptance\n---\n" + skillBody}}); code != http.StatusCreated {
 		t.Fatalf("skill install code=%d body=%s", code, body)
 	}
+	if code, body := extensionAcceptanceHTTP(t, h, http.MethodPut, "/api/bots/"+b.ID+"/skills/acceptance-skill", map[string]any{"enabled": true}); code != http.StatusOK {
+		t.Fatalf("skill enable code=%d body=%s", code, body)
+	}
 	engine.onRun = func(ctx context.Context, req runtime.Request) {
 		readSkill := false
 		for _, tool := range req.Tools {

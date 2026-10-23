@@ -140,20 +140,27 @@ func TestExtensionToolsMCPWritesAndMaskedReads(t *testing.T) {
 }
 
 func TestExtensionToolsSkillLifecycleAndActivation(t *testing.T) {
-	s, _, _, tool := extensionToolFixture(t)
+	s, _, r, tool := extensionToolFixture(t)
 	cursor := s.store.workspaceEventCursor()
 	extensionToolCall(t, tool, map[string]any{"action": "skill_install", "name": "fixture", "files": map[string]string{"SKILL.md": "---\nname: fixture\ndescription: independent fixture\n---\nUse local inputs.", "references/note.txt": "local fixture"}})
 	skills := installedSkills(s)
 	if len(skills) != 1 {
 		t.Fatalf("skill not installed: %#v", skills)
 	}
+	if enabled, _ := s.extensions.SkillsForBot(context.Background(), r.BotID); len(enabled) == 0 {
+		t.Fatal("the installing Bot does not have its skill on")
+	}
 	extensionToolCall(t, tool, map[string]any{"action": "skill_list"})
-	extensionToolCall(t, tool, map[string]any{"action": "skill_delete", "name": "fixture"})
-	if events := configEventsAfter(t, s, cursor); len(events) != 2 {
+	extensionToolCall(t, tool, map[string]any{"action": "skill_disable", "name": "fixture"})
+	extensionToolCall(t, tool, map[string]any{"action": "skill_enable", "name": "fixture"})
+	extensionToolCall(t, tool, map[string]any{"action": "skill_publish_version", "name": "fixture", "files": map[string]string{"SKILL.md": "---\nname: fixture\ndescription: independent fixture\n---\nUse local inputs, twice."}})
+	if events := configEventsAfter(t, s, cursor); len(events) != 4 {
 		t.Fatalf("want one config event per mutation, got %d", len(events))
 	}
-	skills = installedSkills(s)
-	if len(skills) != 0 {
+	if err := s.deleteSkill("fixture"); err != nil {
+		t.Fatal(err)
+	}
+	if skills = installedSkills(s); len(skills) != 0 {
 		t.Fatal("skill not deleted")
 	}
 }
@@ -194,7 +201,8 @@ func TestExtensionToolsValidationHasNoWritesOrSecretErrors(t *testing.T) {
 		`{"action":"mcp_create","name":"bad","url":"https://fixture-user:fixture-password@example.invalid"}`,
 		`{"action":"mcp_create","name":"bad","url":"https://example.invalid","oauth":{"client_id":"public","client_secret":"fixture-secret"}}`,
 		`{"action":"skill_install","name":"unsafe","files":{"SKILL.md":"---\nname: unsafe\ndescription: fixture\n---\nbody","../escape":"fixture-secret"}}`,
-		`{"action":"skill_set_enabled","name":"missing"}`,
+		`{"action":"skill_delete","name":"missing"}`,
+		`{"action":"skill_enable","name":"missing"}`,
 		`{"action":"mcp_test","name":"missing"}`,
 		`{"action":"mcp_list","unexpected":"fixture-secret"}`,
 		`{"action":"mcp_list"} {"fixture-secret":true}`,

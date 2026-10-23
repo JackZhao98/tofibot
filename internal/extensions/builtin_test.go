@@ -106,9 +106,15 @@ func TestBuiltinSkillsLoadOnDemand(t *testing.T) {
 	}
 }
 
-func TestBuiltinSkillsCanBeTurnedOff(t *testing.T) {
+func TestBuiltinSkillsCanBeTurnedOffForABot(t *testing.T) {
 	off := map[string]bool{"slides": true}
-	cfg := Config{BuiltinSkillsOff: func(context.Context) (map[string]bool, error) { return off, nil }}
+	cfg := Config{SkillAccess: func(_ context.Context, _ string, names []string) (map[string]bool, error) {
+		allowed := map[string]bool{}
+		for _, n := range names {
+			allowed[n] = !off[n]
+		}
+		return allowed, nil
+	}}
 	p := prepareBuiltin(t, cfg, "bot")
 	if strings.Contains(p.Instructions, `"name":"slides"`) || !strings.Contains(p.Instructions, `"name":"spreadsheet"`) {
 		t.Fatalf("directory after turning slides off: %q", p.Instructions)
@@ -120,7 +126,7 @@ func TestBuiltinSkillsCanBeTurnedOff(t *testing.T) {
 		t.Fatalf("SkillsForBot lists %d", len(views))
 	}
 	// The setting store failing withholds every built-in skill rather than granting by default.
-	failing := Config{BuiltinSkillsOff: func(context.Context) (map[string]bool, error) { return nil, errors.New("db down") }}
+	failing := Config{SkillAccess: func(context.Context, string, []string) (map[string]bool, error) { return nil, errors.New("db down") }}
 	q := prepareBuiltin(t, failing, "bot")
 	for _, name := range builtinNames {
 		if strings.Contains(q.Instructions, `"name":"`+name+`"`) {

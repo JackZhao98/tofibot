@@ -17,13 +17,16 @@ import (
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
-// Extension changes are workspace-wide and persistent: a Skill description is
-// loaded into every Bot's prompt and an MCP server receives requests from the
-// App. A Bot may therefore only make them with a person's decision on this
-// exact change, and never in a run nobody attends.
+// MCP changes are workspace-wide and persistent: an MCP server receives
+// requests from the App. A published Skill version is workspace-wide too: every
+// Bot that has the skill enabled follows the newest version. A Bot may
+// therefore only make these with a person's decision on this exact change, and
+// never in a run nobody attends. A Bot installing a skill, or turning a library
+// skill on or off for itself, touches no other Bot and needs no approval
+// (decision 0058).
 func extensionChangeGated(action string) bool {
 	switch action {
-	case "mcp_create", "mcp_update", "mcp_delete", "mcp_test", "skill_install", "skill_delete":
+	case "mcp_create", "mcp_update", "mcp_delete", "mcp_test", "skill_publish_version":
 		return true
 	}
 	return false
@@ -51,9 +54,10 @@ func (s *Server) guardExtensionChange(c Conversation, r Run, x extensionToolArgs
 			"Changing workspace extensions needs a person's decision and no one attends this run, so nothing was changed. Do not retry or route around it; say in your reply what change is needed so the owner can make it in chat or Settings.",
 			"explain_blocker").Err()
 	}
-	if x.Action == "skill_install" || x.Action == "skill_delete" {
-		// Access-restricted skills keep their own refusal, before any card.
-		if err := s.restrictedSkillGuard(r.BotID, x.Name); err != nil {
+	if x.Action == "skill_publish_version" {
+		// A Bot that did not install the skill, or a payload that changes
+		// nothing, is refused before any card is shown.
+		if err := s.skillPublishGuard(r.BotID, x); err != nil {
 			return nil, err
 		}
 	}
@@ -155,13 +159,17 @@ func (s *Server) extensionChangeFacts(x extensionToolArgs, token string) *Approv
 				}
 			}
 		}
-	case "skill_install":
-		files := make(map[string][]byte, len(x.Files))
-		for name, text := range x.Files {
-			files[name] = []byte(text)
-		}
+	case "skill_install", "skill_publish_version":
+		files := stringFiles(x.Files)
 		sum := extensions.SummarizeSkillFiles(files)
 		f.Skill = &ApprovalSkillFacts{Description: sum.Description, Excerpt: sum.Excerpt, AllowedTools: sum.AllowedTools, Files: sum.Files, HasScripts: sum.HasScripts}
+		if x.Action == "skill_publish_version" {
+			if preview, err := s.previewSkillPublish(f.Name, files); err == nil {
+				f.Skill.NewVersion = preview.Version
+				f.Skill.Added, f.Skill.Removed, f.Skill.Changed = preview.Added, preview.Removed, preview.Changed
+				f.Skill.EnabledBots = preview.EnabledBots
+			}
+		}
 	}
 	return f
 }

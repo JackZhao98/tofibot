@@ -30,7 +30,7 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 	if s.routeLocalMCP(w, r, p) {
 		return true
 	}
-	if s.routeSkillAccess(w, r, p) || s.routeBuiltinSkillEnabled(w, r, p) {
+	if s.routeSkillLibrary(w, r, p) {
 		return true
 	}
 	if s.routeVMOAuth(w, r, p) {
@@ -182,79 +182,6 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 	case strings.HasPrefix(p, "extensions/mcp/") && r.Method == http.MethodDelete:
 		name := strings.TrimPrefix(p, "extensions/mcp/")
 		if e := s.deleteMCPServer(name); e != nil {
-			writeErr(w, 404, "extensions", e.Error())
-		} else {
-			s.writeExtensionSaved(w, http.StatusOK)
-		}
-		return true
-	case p == "extensions/skills" && r.Method == http.MethodGet:
-		v, d := s.extensions.ListSkills()
-		access, err := s.store.skillAccessMap()
-		if err != nil {
-			writeErr(w, 500, "internal", "skill access unavailable")
-			return true
-		}
-		active, err := s.store.activeBotSet()
-		if err != nil {
-			writeErr(w, 500, "internal", "skill access unavailable")
-			return true
-		}
-		off, err := s.store.builtinSkillsOff(r.Context())
-		if err != nil {
-			writeErr(w, 500, "internal", "skill settings unavailable")
-			return true
-		}
-		out := make([]skillWithAccess, 0, len(v))
-		for _, x := range v {
-			view := accessViewFor(access, x.Name)
-			if view.Mode == "selected" {
-				// Rows for archived or deleted Bots are kept but not shown.
-				kept := []string{}
-				for _, id := range view.BotIDs {
-					if active[id] {
-						kept = append(kept, id)
-					}
-				}
-				view.BotIDs = kept
-			}
-			item := skillWithAccess{SkillView: x, Access: view}
-			if x.Builtin {
-				on := !off[x.Name]
-				item.Enabled = &on
-			}
-			out = append(out, item)
-		}
-		writeJSON(w, 200, map[string]any{"skills": out, "diagnostics": d})
-		return true
-	case p == "extensions/skills" && r.Method == http.MethodPost:
-		var in struct {
-			Name  string                     `json:"name"`
-			Files map[string]json.RawMessage `json:"files"`
-		}
-		if e := decodeExtensionJSON(r, &in); e != nil {
-			writeErr(w, 400, "invalid_request", e.Error())
-			return true
-		}
-		files := map[string][]byte{}
-		for p, b := range in.Files {
-			var text string
-			if e := json.Unmarshal(b, &text); e != nil {
-				writeErr(w, 400, "invalid_request", "files must be UTF-8 strings")
-				return true
-			}
-			files[p] = []byte(text)
-		}
-		if e := s.extensions.InstallSkill(in.Name, files); e != nil {
-			writeErr(w, 400, "extensions", e.Error())
-		} else {
-			s.writeExtensionSaved(w, http.StatusCreated)
-		}
-		return true
-	case strings.HasPrefix(p, "extensions/skills/") && r.Method == http.MethodDelete:
-		name := strings.TrimPrefix(p, "extensions/skills/")
-		if e := s.deleteSkill(name); errors.Is(e, extensions.ErrBuiltinSkill) {
-			writeErr(w, 400, "builtin_skill", e.Error())
-		} else if e != nil {
 			writeErr(w, 404, "extensions", e.Error())
 		} else {
 			s.writeExtensionSaved(w, http.StatusOK)

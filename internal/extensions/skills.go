@@ -68,7 +68,8 @@ func loadSkillsMode(root string, metadataOnly bool) ([]Skill, []Diagnostic) {
 			diags = append(diags, Diagnostic{Server: entry.Name(), Message: "skill directory symlink is not allowed"})
 			continue
 		}
-		if !entry.IsDir() {
+		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
+			// Dot folders hold staging copies and the version archive.
 			continue
 		}
 		dir := filepath.Join(rootReal, entry.Name())

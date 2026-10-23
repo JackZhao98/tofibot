@@ -274,10 +274,10 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// policy (+167 measured, 2026-10-22: 8022 -> 8189).
 				// 8225: plus the go-ahead-means-act sentence, less the computer section's "use tools only
 				// when ready" line (B2, +34 measured: 8189 -> 8223).
-				// 8308: plus the reaction principle (confirm, agree, acknowledge or take on work with a
-				// reaction, never task state; +83 measured: 8223 -> 8306), phase 5a, decision 0060.
-				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 8308 {
-					t.Errorf("ordinary DM provider system exceeds 8308 runes")
+				// 8304: the reaction principle (+83 measured: 8223 -> 8306, phase 5a, decision 0060) and the
+				// "Enabled Skills" directory header listing only enabled skills (-2 measured, decision 0058).
+				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 8304 {
+					t.Errorf("ordinary DM provider system exceeds 8304 runes")
 				}
 				// 7000: the lookup line's works-newer-than-the-model clause (~45) lands in
 				// every prompt, the longest of which sat 23 under 6950.

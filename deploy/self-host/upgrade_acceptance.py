@@ -250,10 +250,26 @@ class Acceptance:
         return {
             'bots': json.dumps(sorted(b['name'] for b in bots)),
             'skill_present': skill is not None,
-            'skill_access': json.dumps((skill or {}).get('access'), sort_keys=True),
+            # Which Bots can use the fixture skill, whatever model the server speaks: older servers report
+            # `access` on the skill; servers with the per-Bot library report each Bot's own choice.
+            'skill_bots': json.dumps(self.skill_bot_ids(client, bots, skill)),
             'timezone': preferences.get('timezone'),
             'key_names': json.dumps(sorted(k.get('name') for k in keys)),
         }
+
+    @staticmethod
+    def skill_bot_ids(client, bots, skill):
+        if skill is None:
+            return None
+        access = skill.get('access')
+        if access:
+            return sorted(b['id'] for b in bots) if access.get('mode') == 'all' else sorted(access.get('bot_ids') or [])
+        ids = []
+        for bot in bots:
+            view = client.request('/api/bots/%s/skills' % bot['id']).get('skills', [])
+            if any(item['name'] == skill['name'] and item.get('enabled') for item in view):
+                ids.append(bot['id'])
+        return sorted(ids)
 
     def add_bot(self, name):
         self.ensure_login().request('/api/bots', {'name': name, 'instructions': 'Synthetic marker.'}, expected=201)
@@ -273,7 +289,8 @@ class Acceptance:
         self.step('2. admin and synthetic data through the API')
         self.create_fixture()
         before_update = self.collect()
-        check(before_update['skill_present'] and 'selected' in before_update['skill_access'], 'fixture skill not restricted')
+        check(before_update['skill_present'] and json.loads(before_update['skill_bots']) == [self.host.state['api']['bot_id']],
+              'fixture skill not limited to the fixture Bot')
 
         self.step('3. custom line in tofi.env')
         self.host.state['custom_value'] = secrets.token_hex(6)

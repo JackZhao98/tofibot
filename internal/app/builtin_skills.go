@@ -2,104 +2,21 @@ package app
 
 import (
 	"context"
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
-	"net/http"
-	"strings"
 	"sync"
 
 	"github.com/JackZhao98/tofibot/internal/extensions"
 )
 
 // Built-in skills (decision 0041) are embedded in the binary by
-// internal/extensions. This file holds what the app adds around them:
-//
-//   - the Settings switch: a row in builtin_skill_off means "turned off", so a
-//     fresh workspace has every built-in skill on and a missing or unreadable
-//     table never silently enables a skill the person turned off;
-//   - the copy of a skill's scripts onto the Bot's computer, made when the skill
-//     is read (not at context build, not for skills nobody reads).
-func migrateBuiltinSkillSetting(db *sql.DB) error {
-	if db == nil {
-		return errors.New("database is required")
-	}
-	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS builtin_skill_off(
-skill_name TEXT PRIMARY KEY,
-updated_at TEXT NOT NULL
-)`)
-	return err
-}
-
-// builtinSkillsOff is the extensions.Config.BuiltinSkillsOff hook.
-func (s *Store) builtinSkillsOff(ctx context.Context) (map[string]bool, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	rows, err := s.db.QueryContext(ctx, `SELECT skill_name FROM builtin_skill_off`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := map[string]bool{}
-	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err != nil {
-			return nil, err
-		}
-		out[name] = true
-	}
-	return out, rows.Err()
-}
-
-func (s *Store) setBuiltinSkillEnabled(name string, enabled bool) error {
-	tx, err := s.db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	if enabled {
-		_, err = tx.Exec(`DELETE FROM builtin_skill_off WHERE skill_name=?`, name)
-	} else {
-		_, err = tx.Exec(`INSERT INTO builtin_skill_off(skill_name, updated_at) VALUES(?,?) ON CONFLICT(skill_name) DO UPDATE SET updated_at=excluded.updated_at`, name, now())
-	}
-	if err != nil {
-		return err
-	}
-	if err = insertWorkspaceEventTx(tx, workspaceScopeConfig, now()); err != nil {
-		return err
-	}
-	return tx.Commit()
-}
-
-// routeBuiltinSkillEnabled serves PUT /api/extensions/skills/<name>/enabled
-// {"enabled": bool} for built-in skills only. The change applies from the next run.
-func (s *Server) routeBuiltinSkillEnabled(w http.ResponseWriter, r *http.Request, p string) bool {
-	if !strings.HasPrefix(p, "extensions/skills/") || !strings.HasSuffix(p, "/enabled") || r.Method != http.MethodPut {
-		return false
-	}
-	name := strings.TrimSuffix(strings.TrimPrefix(p, "extensions/skills/"), "/enabled")
-	var in struct {
-		Enabled *bool `json:"enabled"`
-	}
-	if e := decodeExtensionJSON(r, &in); e != nil || in.Enabled == nil {
-		writeErr(w, 400, "invalid_request", "enabled must be true or false")
-		return true
-	}
-	if !extensions.IsBuiltinSkill(name) {
-		writeErr(w, 404, "not_found", "built-in skill not found")
-		return true
-	}
-	if err := s.store.setBuiltinSkillEnabled(name, *in.Enabled); err != nil {
-		writeErr(w, 500, "internal", "built-in skill setting not saved")
-		return true
-	}
-	writeJSON(w, 200, map[string]any{"ok": true, "next_run": true, "enabled": *in.Enabled})
-	return true
-}
+// internal/extensions. This file holds what the app adds around them: the copy
+// of a skill's scripts onto the Bot's computer, made when the skill is read
+// (not at context build, not for skills nobody reads). Whether a Bot has a
+// built-in skill on is its row in skill_enablement (skill_library.go): on
+// unless that Bot turned it off.
 
 // guestSkillsDir is where one version of a built-in skill lives on the
 // computer. It sits inside the uploads folder because that is the only place the

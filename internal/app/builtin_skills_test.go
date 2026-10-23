@@ -16,7 +16,6 @@ import (
 type listedBuiltin struct {
 	Name    string `json:"name"`
 	Builtin bool   `json:"builtin"`
-	Enabled *bool  `json:"enabled"`
 }
 
 func listSkillsHTTP(t *testing.T, h http.Handler) map[string]listedBuiltin {
@@ -49,61 +48,57 @@ func directoryOf(t *testing.T, s *Server, bot string) string {
 }
 
 func TestBuiltinSkillsAreListedAsBuiltinAndOnByDefault(t *testing.T) {
-	env := newSkillAccessEnv(t)
-	got := env.list(t)
-	if len(got) == 0 {
-		t.Fatal("no skills")
-	}
+	env := newLibEnv(t)
 	listed := listSkillsHTTP(t, env.handler)
 	for _, name := range []string{"spreadsheet", "document-report", "slides", "web-page", "code-delivery"} {
 		item, ok := listed[name]
-		if !ok || !item.Builtin || item.Enabled == nil || !*item.Enabled {
+		if !ok || !item.Builtin {
 			t.Fatalf("%s = %+v ok=%v", name, item, ok)
 		}
 		if !strings.Contains(directoryOf(t, env.s, env.a.ID), `"name":"`+name+`"`) {
 			t.Fatalf("%s is not offered to a Bot by default", name)
 		}
 	}
-	if listed["deploy"].Builtin || listed["deploy"].Enabled != nil {
+	if listed["deploy"].Builtin {
 		t.Fatalf("installed skill reported as built-in: %+v", listed["deploy"])
 	}
 }
 
-func TestBuiltinSkillCanBeTurnedOffAndOn(t *testing.T) {
-	env := newSkillAccessEnv(t)
-	status, body := extensionHTTP(t, env.handler, http.MethodPut, "/api/extensions/skills/slides/enabled", map[string]any{"enabled": false})
+func TestBuiltinSkillCanBeTurnedOffAndOnPerBot(t *testing.T) {
+	env := newLibEnv(t)
+	path := "/api/bots/" + env.a.ID + "/skills/slides"
+	status, body := extensionHTTP(t, env.handler, http.MethodPut, path, map[string]any{"enabled": false})
 	if status != http.StatusOK {
 		t.Fatalf("disable status=%d body=%s", status, body)
 	}
-	if item := listSkillsHTTP(t, env.handler)["slides"]; item.Enabled == nil || *item.Enabled {
-		t.Fatalf("slides still reported on: %+v", item)
-	}
-	dir := directoryOf(t, env.s, env.b.ID)
+	dir := directoryOf(t, env.s, env.a.ID)
 	if strings.Contains(dir, `"name":"slides"`) || !strings.Contains(dir, `"name":"spreadsheet"`) {
 		t.Fatalf("directory after turning slides off: %q", dir)
 	}
-	// The switch survives a restart of the store: it is a row, not memory.
-	off, err := env.s.store.builtinSkillsOff(context.Background())
-	if err != nil || !off["slides"] || len(off) != 1 {
-		t.Fatalf("off=%v err=%v", off, err)
+	// Another Bot keeps it: the switch is the Bot's own, not the workspace's.
+	if !strings.Contains(directoryOf(t, env.s, env.b.ID), `"name":"slides"`) {
+		t.Fatal("turning slides off for one Bot turned it off for another")
 	}
-	if status, _ = extensionHTTP(t, env.handler, http.MethodPut, "/api/extensions/skills/slides/enabled", map[string]any{"enabled": true}); status != http.StatusOK {
+	if status, _ = extensionHTTP(t, env.handler, http.MethodPut, path, map[string]any{"enabled": true}); status != http.StatusOK {
 		t.Fatalf("enable status=%d", status)
 	}
-	if !strings.Contains(directoryOf(t, env.s, env.b.ID), `"name":"slides"`) {
+	if !strings.Contains(directoryOf(t, env.s, env.a.ID), `"name":"slides"`) {
 		t.Fatal("slides did not come back")
 	}
-	// Only built-in skills have the switch; the body must say true or false.
-	if status, _ = extensionHTTP(t, env.handler, http.MethodPut, "/api/extensions/skills/deploy/enabled", map[string]any{"enabled": false}); status != http.StatusNotFound {
-		t.Fatalf("installed skill switch status=%d", status)
+	// The old workspace-wide switch is gone.
+	if status, _ = extensionHTTP(t, env.handler, http.MethodPut, "/api/extensions/skills/slides/enabled", map[string]any{"enabled": false}); status == http.StatusOK {
+		t.Fatalf("the global switch still answers: %d", status)
 	}
-	if status, _ = extensionHTTP(t, env.handler, http.MethodPut, "/api/extensions/skills/slides/enabled", map[string]any{}); status != http.StatusBadRequest {
+	if status, _ = extensionHTTP(t, env.handler, http.MethodPut, path, map[string]any{}); status != http.StatusBadRequest {
 		t.Fatalf("empty body status=%d", status)
+	}
+	if status, _ = extensionHTTP(t, env.handler, http.MethodPut, "/api/bots/"+env.a.ID+"/skills/ghost", map[string]any{"enabled": true}); status != http.StatusNotFound {
+		t.Fatalf("unknown skill status=%d", status)
 	}
 }
 
 func TestBuiltinSkillsCannotBeDeletedOrReplacedAsUserSkills(t *testing.T) {
-	env := newSkillAccessEnv(t)
+	env := newLibEnv(t)
 	status, body := extensionHTTP(t, env.handler, http.MethodDelete, "/api/extensions/skills/spreadsheet", nil)
 	if status != http.StatusBadRequest || !strings.Contains(string(body), "built-in") {
 		t.Fatalf("delete status=%d body=%s", status, body)
@@ -119,17 +114,6 @@ func TestBuiltinSkillsCannotBeDeletedOrReplacedAsUserSkills(t *testing.T) {
 	// The model-facing manage_extensions route reaches the same guard.
 	if err := env.s.deleteSkill("spreadsheet"); err == nil {
 		t.Fatal("deleteSkill removed a built-in skill")
-	}
-}
-
-func TestBuiltinSkillAccessCanStillLimitItToSelectedBots(t *testing.T) {
-	env := newSkillAccessEnv(t)
-	status, body := extensionHTTP(t, env.handler, http.MethodPut, "/api/extensions/skills/web-page/access", map[string]any{"mode": "selected", "bot_ids": []string{env.a.ID}})
-	if status != http.StatusOK {
-		t.Fatalf("access status=%d body=%s", status, body)
-	}
-	if !strings.Contains(directoryOf(t, env.s, env.a.ID), `"name":"web-page"`) || strings.Contains(directoryOf(t, env.s, env.b.ID), `"name":"web-page"`) {
-		t.Fatal("selected-Bot access did not apply to a built-in skill")
 	}
 }
 
@@ -197,7 +181,7 @@ func TestBuiltinSkillLoadsOnDemandAndItsScriptsReachTheComputer(t *testing.T) {
 }
 
 func TestInstalledSkillsAndComputerlessBotsAreLeftAlone(t *testing.T) {
-	env := newSkillAccessEnv(t)
+	env := newLibEnv(t)
 	prepared, err := env.s.extensions.PrepareDiscoverableForBot(context.Background(), env.a.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -211,6 +195,7 @@ func TestInstalledSkillsAndComputerlessBotsAreLeftAlone(t *testing.T) {
 	}
 	s, _, statuses := newGuestInputServer(t)
 	bot, _ := s.store.CreateBot("synthetic", "", "model")
+	enableSkillsFor(t, s, bot.ID, "notes")
 	if err := s.extensions.InstallSkill("notes", map[string][]byte{"SKILL.md": []byte("---\nname: notes\ndescription: notes skill\n---\nBODY_notes")}); err != nil {
 		t.Skipf("no skills directory in this fixture: %v", err)
 	}
