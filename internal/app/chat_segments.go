@@ -17,6 +17,18 @@ const maxChatSegments = 3
 
 const chatSegmentCadence = 420 * time.Millisecond
 
+// chatSegmentCountTx counts the messages a run has used from the allowance of
+// maxChatSegments (decision 0050). What a run says while it holds a wait is not
+// a beat of its work: once the run has registered a wait, only the messages
+// from that point count, so explaining a wait does not use the allowance of
+// the work before it (decision 0059).
+func chatSegmentCountTx(ctx context.Context, tx *sql.Tx, runID string) (int, error) {
+	var count int
+	err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM messages WHERE run_id=? AND kind='segment' AND client_message_id LIKE 'chat-segment:%'
+ AND ((SELECT MIN(created_at) FROM waits WHERE run_id=?) IS NULL OR created_at>=(SELECT MIN(created_at) FROM waits WHERE run_id=?))`, runID, runID, runID).Scan(&count)
+	return count, err
+}
+
 func (s *Store) paceChatSegment(ctx context.Context, runID string) error {
 	return s.paceSay(ctx, runID, chatSegmentClientPrefix)
 }
@@ -88,14 +100,15 @@ func (s *Store) PublishChatSegment(ctx context.Context, run Run, callID, content
 	if err != nil || status != "running" {
 		return Message{}, errors.New("run is no longer active")
 	}
-	var successors, count int
+	var successors int
 	if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM run_steering WHERE old_run_id=?`, run.ID).Scan(&successors); err != nil {
 		return Message{}, err
 	}
 	if successors > 0 {
 		return Message{}, errors.New("run has been interrupted by a newer message")
 	}
-	if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM messages WHERE run_id=? AND kind='segment' AND client_message_id LIKE 'chat-segment:%'`, run.ID).Scan(&count); err != nil {
+	count, err := chatSegmentCountTx(ctx, tx, run.ID)
+	if err != nil {
 		return Message{}, err
 	}
 	if count >= maxChatSegments {

@@ -1269,6 +1269,9 @@ func TestAQuestionToThePersonIsOneOfTheRunsOpenWaits(t *testing.T) {
 	if got := waitStatusOf(t, f.s.db, r3.ID); got != waitTimedOut {
 		t.Fatalf("wait of an expired question is %s", got)
 	}
+	if n := f.count(`SELECT COUNT(*) FROM bot_inbox WHERE wakes=1`); n != 0 {
+		t.Fatalf("an expired question woke the Bot through the inbox: %d (the question flow settles it)", n)
+	}
 }
 
 func TestARetryRunTakesOverTheTaskAndASteeredRunKeepsIt(t *testing.T) {
@@ -1336,5 +1339,39 @@ func TestAWaitChainEndsAfterTooManySelfWakes(t *testing.T) {
 	}
 	if _, err := f.s.registerWait(WaitSpec{BotID: f.a.ID, RunID: run.ID, ConversationID: dm.ID, Kind: waitTimer, Timeout: time.Hour}); codeOf(err) != "wait_chain_limit" {
 		t.Fatalf("the chain was not bounded: %v", err)
+	}
+}
+
+func TestAPersonsMessageWhileACardIsOpenLeavesAnInboxRow(t *testing.T) {
+	f := newTaskFix(t)
+	dm, _ := f.s.GetConversation(f.a.DMConversationID)
+	run := f.running(dm.ID, f.a)
+	q, err := f.s.CreateQuestion(dm.ID, run, askQuestionInput{Type: questionText, Question: "Which audience?"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parked := f.s.botsParkedOnInput(dm.ID); len(parked) != 0 {
+		t.Fatalf("parked before the run waits: %v", parked)
+	}
+	if _, err := f.s.db.Exec(`UPDATE runs SET status='waiting' WHERE id=?`, run.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.s.db.Exec(`INSERT INTO run_input_waits(run_id,question_id,checkpoint_json,state,created_at) VALUES(?,?,'{}','waiting',?)`, run.ID, q.ID, now()); err != nil {
+		t.Fatal(err)
+	}
+	parked := f.s.botsParkedOnInput(dm.ID)
+	if !parked[f.a.ID] || len(parked) != 1 {
+		t.Fatalf("parked %v", parked)
+	}
+	msg := Message{ID: "m1", Content: "Actually, make it short."}
+	f.s.recordUserMessageInbox(f.a.ID, dm.ID, "next-run", msg)
+	var body, by string
+	var wakes int
+	if err := f.s.db.QueryRow(`SELECT body,consumed_by_run,wakes FROM bot_inbox WHERE kind='user_message'`).Scan(&body, &by, &wakes); err != nil || body != msg.Content || by != "next-run" || wakes != 0 {
+		t.Fatalf("row %q %q %d %v", body, by, wakes, err)
+	}
+	// Today's behaviour is kept: the row never wakes and is never read twice.
+	if rows := f.s.consumeInboxForRun(f.a.ID, dm.ID, "another-run"); len(rows) != 0 {
+		t.Fatalf("another run read the stored message: %v", rows)
 	}
 }

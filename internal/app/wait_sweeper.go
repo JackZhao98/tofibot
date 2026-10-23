@@ -8,6 +8,7 @@ package app
 
 import (
 	"context"
+	"sync"
 	"time"
 )
 
@@ -35,18 +36,18 @@ func (s *Server) sweepWaits(at time.Time) {
 }
 
 func (s *Server) startWaitSweeper() {
-	if s.store == nil || s.waitSweepCancel != nil {
+	if s.store == nil || s.tasks.sweepCancel != nil {
 		return
 	}
-	interval := s.waitSweepEvery
+	interval := s.tasks.sweepEvery
 	if interval <= 0 {
 		interval = waitSweepTick
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	s.waitSweepCancel, s.waitSweepDone = cancel, make(chan struct{})
+	s.tasks.sweepCancel, s.tasks.sweepDone = cancel, make(chan struct{})
 	s.sweepWaits(time.Now()) // the start sweep: overdue waits end now
 	go func() {
-		defer close(s.waitSweepDone)
+		defer close(s.tasks.sweepDone)
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		var lastRetention time.Time
@@ -66,9 +67,17 @@ func (s *Server) startWaitSweeper() {
 }
 
 func (s *Server) stopWaitSweeper() {
-	if s.waitSweepCancel == nil {
+	if s.tasks.sweepCancel == nil {
 		return
 	}
-	s.waitSweepCancel()
-	<-s.waitSweepDone
+	s.tasks.sweepCancel()
+	<-s.tasks.sweepDone
+}
+
+// taskRuntime is the live state of the wait sweeper and the inbox flush.
+type taskRuntime struct {
+	sweepEvery  time.Duration
+	sweepCancel context.CancelFunc
+	sweepDone   chan struct{}
+	flushMu     sync.Mutex // one flush at a time: two would wake the same rows twice
 }

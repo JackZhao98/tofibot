@@ -19,6 +19,9 @@ var onDemandTools = map[string]bool{
 	"workspace_delete_bot": true, "workspace_delete_group": true, "list_groups": true,
 	"create_work_item": true, "update_work_item": true, "list_work_item_executions": true,
 	"list_schedules": true, "pause_schedule": true, "resume_schedule": true, "delete_schedule": true,
+	// Tools of the task system that only a Bot holding a task or a wait needs;
+	// the context blocks that tell it of the task or the wait name them.
+	"cancel_wait": true, "task_update": true, "task_ask": true,
 }
 
 // deferOnDemandTools marks the on-demand tools of a run's tool set.

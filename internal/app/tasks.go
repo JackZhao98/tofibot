@@ -716,7 +716,7 @@ func (s *Store) askTask(actor, runID, taskID, question string) (WorkItem, error)
 		return WorkItem{}, err
 	}
 	if err = addInboxTx(tx, InboxItem{BotID: item.AssignerBotID, ConversationID: item.ConversationID, Kind: inboxTaskQuestion, TaskID: item.ID, RootTaskID: item.RootTaskID,
-		Body: fmt.Sprintf("The member holding task %q (%s) asks: %s", item.Title, item.ID, question), Wakes: true, NeedsReply: true, AfterRun: runID}); err != nil {
+		Body: fmt.Sprintf("The member holding task %q (%s) asks: %s Answer with the answer field of task_update, which loads on demand when you name it in workspace_capabilities.", item.Title, item.ID, question), Wakes: true, NeedsReply: true, AfterRun: runID}); err != nil {
 		return WorkItem{}, err
 	}
 	if _, err = tx.Exec(`UPDATE work_items SET status='input_required',updated_at=? WHERE id=?`, now(), item.ID); err != nil {
@@ -817,6 +817,6 @@ func (s *Store) taskRecordContext(runID string) string {
 			b.WriteString("\n")
 		}
 	}
-	b.WriteString("[/task record]")
+	b.WriteString("Report each item with task_update, and ask the member that gave the task with task_ask. Both load on demand when you name them in workspace_capabilities.\n[/task record]")
 	return trimRunes(b.String(), 1800)
 }

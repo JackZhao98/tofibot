@@ -117,28 +117,11 @@ func (s *Store) taskImpactForBot(botID, groupID string) (taskImpact, error) {
 	return out, err
 }
 
-// cascadeEndBot ends what hangs on a Bot that is going: the tasks it gave and
+// cascadeEndBotTx ends what hangs on a Bot that is going: the tasks it gave and
 // held (and the open tasks below them), its waits, and the runs that worked on
-// the tasks. Waits other Bots hold on its posts are brought to their deadline
-// now, so each of those Bots is told by the ordinary timeout. groupID limits it
-// to one group, for a member that leaves.
-func (s *Store) cascadeEndBot(botID, groupID string) (taskImpact, []string, error) {
-	impact, err := s.taskImpactForBot(botID, groupID)
-	if err != nil {
-		return impact, nil, err
-	}
-	tx, err := s.db.Begin()
-	if err != nil {
-		return impact, nil, err
-	}
-	defer tx.Rollback()
-	runs, err := cascadeEndBotTx(tx, botID, groupID)
-	if err != nil {
-		return impact, nil, err
-	}
-	return impact, runs, tx.Commit()
-}
-
+// the tasks it gave; the caller stops those. Waits other Bots hold on its posts
+// are brought to their deadline now, so each of those Bots is told by the
+// ordinary timeout. groupID limits it to one group, for a member that leaves.
 func cascadeEndBotTx(tx *sql.Tx, botID, groupID string) ([]string, error) {
 	scope := ""
 	var scopeArgs []any
@@ -182,28 +165,6 @@ func cascadeEndBotTx(tx *sql.Tx, botID, groupID string) ([]string, error) {
 		return nil, err
 	}
 	return runs, nil
-}
-
-// cascadeEndBotWork is cascadeEndBot with the runs stopped: the way the
-// delete route and the group editor call it.
-func (s *Server) cascadeEndBotWork(botID, groupID string) (taskImpact, error) {
-	impact, runs, err := s.store.cascadeEndBot(botID, groupID)
-	if err != nil || len(runs) == 0 {
-		return impact, err
-	}
-	tx, err := s.store.db.Begin()
-	if err != nil {
-		return impact, err
-	}
-	defer tx.Rollback()
-	if _, err = cancelTreeCollect(tx, `SELECT id FROM runs WHERE id IN (`+sqlMarks(len(runs))+`)`, anyArgs(runs)...); err != nil {
-		return impact, err
-	}
-	if err = tx.Commit(); err != nil {
-		return impact, err
-	}
-	s.cancelInactiveRuns()
-	return impact, nil
 }
 
 // routeTaskImpact answers GET /api/bots/{id}/task-impact?group_id=: the numbers

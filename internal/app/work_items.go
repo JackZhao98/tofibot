@@ -119,7 +119,8 @@ const workItemsIndexesDDL = `CREATE INDEX IF NOT EXISTS work_items_conversation 
  CREATE INDEX IF NOT EXISTS work_items_parent ON work_items(parent_goal_id);
  CREATE INDEX IF NOT EXISTS work_items_root ON work_items(root_task_id,status);
  CREATE INDEX IF NOT EXISTS work_items_assigner ON work_items(assigner_bot_id,status);
- CREATE INDEX IF NOT EXISTS work_items_assignee_run ON work_items(assignee_run_id);`
+ CREATE INDEX IF NOT EXISTS work_items_assignee_run ON work_items(assignee_run_id);
+ CREATE INDEX IF NOT EXISTS work_items_submit_run ON work_items(submit_run_id) WHERE submit_run_id<>'';`
 
 func migrateWorkItems(db *sql.DB) error {
 	if db == nil {
@@ -638,7 +639,7 @@ func (s *Server) workItemBoardTools(c Conversation, r Run) []Tool {
 			attempts, err := s.store.listWorkItemExecutions(in.ID, limit, c.ID, r.BotID)
 			return encode(map[string]any{"executions": attempts}, err)
 		}},
-		{Name: "create_work_item", Description: "Record a durable goal or task in this conversation with an active member as its owner (defaults to you). This records a commitment; it does not start execution or schedule a future run. Use scheduling tools for work that must actually run later. A task may reference a goal in this same conversation.", Parameters: objectSchema(map[string]any{"kind": map[string]any{"type": "string", "enum": []string{"goal", "task"}}, "title": stringField, "description": stringField, "bot_id": stringField, "parent_goal_id": stringField}, []string{"kind", "title"}), Execute: func(ctx context.Context, data json.RawMessage) (string, error) {
+		{Name: "create_work_item", Description: "Record a durable goal or task in this conversation with an active member as its owner (defaults to you). The record starts no work and schedules no run: give work to a member with delegate, and use scheduling tools for work that must run later. A task may reference a goal in this same conversation.", Parameters: objectSchema(map[string]any{"kind": map[string]any{"type": "string", "enum": []string{"goal", "task"}}, "title": stringField, "description": stringField, "bot_id": stringField, "parent_goal_id": stringField}, []string{"kind", "title"}), Execute: func(ctx context.Context, data json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
@@ -653,7 +654,7 @@ func (s *Server) workItemBoardTools(c Conversation, r Run) []Tool {
 			item, err := s.store.createWorkItem(c.ID, owner, in, r.BotID)
 			return encode(item, err)
 		}},
-		{Name: "update_work_item", Description: "Update a durable goal or task only in the current conversation. Change its status, title, description, or active member owner. Mark done only when the work is complete; review means checking a delivered result; blocked means unresolved work remains. Reopen completed or cancelled work with todo. This does not start or schedule execution.", Parameters: objectSchema(map[string]any{"work_item_id": stringField, "status": map[string]any{"type": "string", "enum": []string{"todo", "in_progress", "blocked", "review", "done", "cancelled"}}, "title": stringField, "description": stringField, "bot_id": stringField}, []string{"work_item_id"}), Execute: func(ctx context.Context, data json.RawMessage) (string, error) {
+		{Name: "update_work_item", Description: "Update a durable goal or task only in the current conversation. Change its status, title, description, or active member owner. Mark done only when the work is complete; review means checking a delivered result; blocked means unresolved work remains; input_required means the work waits for an answer; failed means the work ended without its result. Reopen completed or cancelled work with todo. This does not start or schedule execution.", Parameters: objectSchema(map[string]any{"work_item_id": stringField, "status": map[string]any{"type": "string", "enum": []string{"todo", "in_progress", "blocked", "review", "done", "cancelled", "input_required", "failed"}}, "title": stringField, "description": stringField, "bot_id": stringField}, []string{"work_item_id"}), Execute: func(ctx context.Context, data json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}

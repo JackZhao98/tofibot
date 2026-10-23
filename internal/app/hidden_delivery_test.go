@@ -69,7 +69,7 @@ func hiddenDeliveryTool(tools []Tool) (Tool, bool) {
 func assertHiddenDeliveryContext(t *testing.T, system string, messages []Message, tools []Tool) {
 	t.Helper()
 	if !strings.Contains(system, "no user participant") || !strings.Contains(system, "ordinary final reply stays only in this trace") ||
-		!strings.Contains(system, "Group members:") || !strings.Contains(system, "call handoff with a listed member's exact id") ||
+		!strings.Contains(system, "Group members:") || !strings.Contains(system, "call delegate with a listed member's exact id") ||
 		!strings.Contains(system, "Never edit any Bot's profile") || strings.Contains(system, "Address the user's request yourself") {
 		t.Fatalf("incorrect hidden delivery instructions: %s", system)
 	}

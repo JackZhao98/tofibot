@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	delegateToolDescription = "Give a task to one or more members. Each member gets a task record with your brief, a version number and an optional checklist. The call returns a receipt at once and starts the work. The result returns to you later as an event that wakes you. Do not poll for it. Write the brief so that it stands alone: the goal, the form of the result, the tools and sources to use, and the limits. Use a checklist only when the work has separate parts. Make one call in a turn."
+	delegateToolDescription = "Give a task to one or more members. Each gets a task record: your brief, a version number and an optional checklist. The call returns a receipt at once and starts the work. The result returns later as an event that wakes you, so do not poll. Write the brief so that it stands alone: the goal, the form of the result, the tools and sources to use, and the limits. Add a checklist only for work with separate parts. Make one call per turn."
 
-	waitForToolDescription = "Start a wait and get a receipt at once. The wait ends when its event happens or its deadline passes, and then you are woken with the result. A timeout is a result too. After the receipt, tell the person what they need to know and end your turn; you do not keep the turn open. To wait for several events together, call again with the group id from the receipt. A group in mode all ends when every member has ended. A group in mode any ends at the first member that is fulfilled. A wait that would close a cycle of waits is refused."
+	waitForToolDescription = "Start a wait and get a receipt at once. The wait ends when its event happens or its deadline passes; then you are woken with the result, and a timeout is a result too. After the receipt, tell the person what they need and end your turn. To wait for several events together, repeat the call with the group id from the receipt: mode all ends when every member has ended, mode any at the first fulfilled member. A wait that would close a cycle is refused."
 
 	cancelWaitToolDescription = "End a wait you no longer need, for example when its event came another way or the work changed. A wait you end does not wake you."
 

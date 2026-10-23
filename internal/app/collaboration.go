@@ -1261,13 +1261,7 @@ func interruptInTransaction(tx *sql.Tx, conv string, addressed ...string) error 
 
 // Stop in a group also takes the stopped run's root and everything that
 // root started (sibling wakes included); co-addressed roots of the same
-// message are separate requests and keep running.
-func cancelTreeInTransaction(tx *sql.Tx, seed string, args ...any) error {
-	_, err := cancelTreeCollect(tx, seed, args...)
-	return err
-}
-
-// cancelTreeCollect is cancelTreeInTransaction that also reports the runs it
+// message are separate requests and keep running. It reports the runs it
 // cancelled, so the tasks and waits that belong to them can end with them.
 func cancelTreeCollect(tx *sql.Tx, seed string, args ...any) ([]string, error) {
 	rows, err := tx.Query(`WITH RECURSIVE seeds(id) AS (`+seed+`), ancestors(id,parent_run_id,kind,trigger_message_id) AS (
