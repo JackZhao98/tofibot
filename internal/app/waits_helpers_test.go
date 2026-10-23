@@ -2,6 +2,8 @@ package app
 
 import (
 	"database/sql"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -35,4 +37,11 @@ func waitStatusOf(t testing.TB, db *sql.DB, runID string) string {
 		t.Fatal(err)
 	}
 	return status
+}
+
+func httptestGet(s *Server, path string) *httptest.ResponseRecorder {
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", path, nil)
+	s.routeTaskImpact(rec, req, strings.TrimPrefix(path, "/api/"))
+	return rec
 }

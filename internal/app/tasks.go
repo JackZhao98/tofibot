@@ -355,6 +355,17 @@ func taskRunEndedTx(tx *sql.Tx, runID, status string) error {
 	case "failed":
 		next = "failed"
 	case "cancelled":
+		// A run a newer message took over from is not a stopped run: the task
+		// follows the Bot into the run that carries on.
+		var successor string
+		err := tx.QueryRow(`SELECT l.new_run_id FROM run_steering l JOIN runs n ON n.id=l.new_run_id WHERE l.old_run_id=? AND n.bot_id=? AND n.status IN ('queued','running','waiting')
+ ORDER BY n.queue_seq DESC,n.created_at DESC LIMIT 1`, runID, item.BotID).Scan(&successor)
+		if err == nil {
+			_, err = tx.Exec(`UPDATE work_items SET assignee_run_id=? WHERE id=?`, successor, item.ID)
+			return err
+		} else if err != sql.ErrNoRows {
+			return err
+		}
 		next = "cancelled"
 	default:
 		return nil

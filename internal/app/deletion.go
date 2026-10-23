@@ -152,7 +152,7 @@ func (s *Store) deleteWorkspaceTargetWith(id string, bot bool, actor *Run, succe
 		if _, err = tx.Exec(`UPDATE work_items SET parent_goal_id=NULL WHERE parent_goal_id IN (SELECT id FROM work_items WHERE bot_id=?)`, id); err != nil {
 			return DeleteResult{}, err
 		}
-		for _, query := range []string{`DELETE FROM work_items WHERE bot_id=?`, `DELETE FROM schedules WHERE bot_id=?`, `DELETE FROM memories WHERE bot_id=?`, `DELETE FROM computer_jobs WHERE bot_id=?`} {
+		for _, query := range []string{`DELETE FROM work_items WHERE bot_id=?`, `DELETE FROM waits WHERE bot_id=?`, `DELETE FROM bot_inbox WHERE bot_id=?`, `DELETE FROM schedules WHERE bot_id=?`, `DELETE FROM memories WHERE bot_id=?`, `DELETE FROM computer_jobs WHERE bot_id=?`} {
 			if _, err = tx.Exec(query, id); err != nil {
 				return DeleteResult{}, err
 			}
@@ -170,6 +170,8 @@ func (s *Store) deleteWorkspaceTargetWith(id string, bot bool, actor *Run, succe
 		`DELETE FROM tool_activities WHERE conversation_id=?`,
 		`DELETE FROM summaries WHERE conversation_id=?`,
 		`UPDATE work_items SET parent_goal_id=NULL WHERE parent_goal_id IN (SELECT id FROM work_items WHERE conversation_id=?)`,
+		`DELETE FROM waits WHERE conversation_id=?`,
+		`DELETE FROM bot_inbox WHERE conversation_id=?`,
 		`DELETE FROM conversations WHERE id=?`,
 	} {
 		if _, err = tx.Exec(query, conv); err != nil {
