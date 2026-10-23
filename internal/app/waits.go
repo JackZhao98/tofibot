@@ -41,6 +41,9 @@ const (
 	maxPendingWaitsPerBot = 16
 	// maxWaitCycleSteps bounds the walk of the wait graph at registration.
 	maxWaitCycleSteps = 64
+	// maxWaitChain bounds how many times in a row a Bot may wake itself from
+	// its own waits for one piece of work.
+	maxWaitChain = 24
 	// maxWaitNoteRunes bounds the Bot's own label on a wait.
 	maxWaitNoteRunes = 160
 	minTimerSeconds  = 5
@@ -245,6 +248,9 @@ func recordWaitTx(tx *sql.Tx, spec WaitSpec) (Wait, error) {
 			return Wait{}, waitRefusal("wait_group_closed", "That wait group has already ended. Start a new group.")
 		}
 		group, spec.Mode = spec.GroupID, mode
+	}
+	if spec.RunID != "" && spec.Delivery == deliveryEngine && inboxWakeDepthTx(tx, spec.RunID) >= maxWaitChain {
+		return Wait{}, waitRefusal("wait_chain_limit", fmt.Sprintf("You have woken yourself from your own waits %d times in a row for this work. Report where it stands to the person, or finish it, instead of waiting again.", maxWaitChain))
 	}
 	if !spec.SkipCycle {
 		cycle, err := waitCycleTx(tx, spec.BotID, spec.Kind, spec.Target)
@@ -723,3 +729,60 @@ func (s *Store) fulfillBotPostWaits(conversationID, botID, lineage, messageID st
 }
 
 var errWaitStore = errors.New("wait store is required")
+
+// inboxWakeDepthTx counts the wake runs, each started from inbox rows, that lead
+// to the run through its parents. A Bot that keeps waiting and waking reaches
+// the bound.
+func inboxWakeDepthTx(tx *sql.Tx, runID string) int {
+	depth := 0
+	for id, steps := runID, 0; id != "" && steps < 4*maxWaitChain; steps++ {
+		var source, parent sql.NullString
+		if err := tx.QueryRow(`SELECT (SELECT source FROM run_wakes w WHERE w.run_id=r.id),parent_run_id FROM runs r WHERE r.id=?`, id).Scan(&source, &parent); err != nil {
+			break
+		}
+		if source.String == wakeSourceInbox {
+			depth++
+		}
+		id = parent.String
+	}
+	return depth
+}
+
+// reconcileTaskRuns closes the tasks whose working run ended some way that did
+// not reach the task hooks (a recovery, an expiry): the task follows the run.
+func (s *Store) reconcileTaskRuns() error {
+	rows, err := s.db.Query(`SELECT w.assignee_run_id,r.status FROM work_items w JOIN runs r ON r.id=w.assignee_run_id
+ WHERE w.assigner_kind='bot' AND w.status IN (` + openTaskStatuses + `) AND r.status IN ('failed','cancelled')`)
+	if err != nil {
+		return err
+	}
+	type pair struct{ run, status string }
+	var pairs []pair
+	for rows.Next() {
+		var p pair
+		if err := rows.Scan(&p.run, &p.status); err != nil {
+			rows.Close()
+			return err
+		}
+		pairs = append(pairs, p)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return err
+	}
+	for _, p := range pairs {
+		tx, err := s.db.Begin()
+		if err != nil {
+			return err
+		}
+		if err = taskRunEndedTx(tx, p.run, p.status); err != nil {
+			tx.Rollback()
+			return err
+		}
+		if err = tx.Commit(); err != nil {
+			return err
+		}
+	}
+	return nil
+}

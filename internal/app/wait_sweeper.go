@@ -28,6 +28,9 @@ func (s *Server) sweepWaits(at time.Time) {
 	if err := s.store.reconcileHumanAnswerWaits(); err != nil {
 		logTaskError("human answer waits", err)
 	}
+	if err := s.store.reconcileTaskRuns(); err != nil {
+		logTaskError("task runs", err)
+	}
 	s.flushInbox()
 }
 
