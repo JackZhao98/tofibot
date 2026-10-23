@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/JackZhao98/tofibot/internal/runtime"
@@ -169,12 +171,16 @@ type sayRunState struct {
 	// grade reads the draft against the answer rubric and returns the private
 	// revision message, or "" to ship it; gradeOwed reports whether a grading
 	// may still happen, which holds the answer's text back from the stream.
-	grade     func(ctx context.Context, text string) string
+	grade     func(ctx context.Context, text string, quiet bool) string
 	gradeOwed func() bool
 	// holdAnswers keeps an answer's text out of the stream until the call
 	// executes: a scheduled answer may turn out to be quiet (D52), which is
 	// known only from a field that can follow the text.
 	holdAnswers bool
+	// emptyAnswer is set when an answer was refused for having nothing visible
+	// (say_text_empty); a run that then ends without a result fails with that
+	// code rather than with the generic missing-result error.
+	emptyAnswer atomic.Bool
 }
 
 // reviewOwed reports whether a say(answer) beginning now would be sent back
@@ -268,6 +274,26 @@ func (st *sayRunState) discard(callID string) {
 		}
 		st.owner = ""
 	}
+}
+
+// sayTextVisible reports whether text shows anything to a reader: at least one
+// rune that is not whitespace, a format character (zero-width space, joiner,
+// word joiner, byte-order mark and the like) or a control character (NUL
+// included). Text that fails it cannot be a reply, a message or a note, and it
+// is refused before the answer gate so the gate's round cap never lets it ship.
+func sayTextVisible(text string) bool {
+	for _, r := range text {
+		if !unicode.IsSpace(r) && !unicode.Is(unicode.Cf, r) && !unicode.IsControl(r) {
+			return true
+		}
+	}
+	return false
+}
+
+// sayTextEmptyError is the stable refusal for text with nothing visible. It is
+// a Validation outcome, so the repair budget of the operation applies.
+func sayTextEmptyError() error {
+	return tooloutcome.New(tooloutcome.Validation, "say_text_empty", "not_executed", "The text has nothing visible in it. Write the reply in words; to finish a scheduled run quietly, set quiet=true and record what was checked and the outcome.", "repair_arguments").Err()
 }
 
 // sayToolSchema lists purpose first and every property as required, with no
@@ -378,7 +404,7 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			return "", errors.New("invalid say arguments")
 		}
 		callID := runtime.ToolCallID(ctx)
-		text := strings.TrimSpace(stripProgressTags(in.Text))
+		text := strings.TrimSpace(stripProgressTags(strings.ReplaceAll(in.Text, "\x00", "")))
 		state := s.sayRun(r.ID)
 		fail := func(err error) (string, error) {
 			if state != nil {
@@ -386,14 +412,23 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			}
 			return "", err
 		}
-		if text == "" {
-			return fail(errors.New("text is required"))
+		emptyRefusal := func() (string, error) {
+			if state != nil && in.Purpose == sayAnswer {
+				state.emptyAnswer.Store(true)
+			}
+			return fail(sayTextEmptyError())
+		}
+		if !sayTextVisible(text) {
+			return emptyRefusal()
 		}
 		bot, err := s.store.GetBot(r.BotID)
 		if err != nil {
 			return fail(err)
 		}
 		text = cleanBotOutput(text, bot)
+		if !sayTextVisible(text) {
+			return emptyRefusal()
+		}
 		switch in.Purpose {
 		case sayAnswer:
 			if utf8.RuneCountInString(text) > maxSayAnswerRunes {
@@ -463,7 +498,7 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			if state != nil && state.grade != nil && len(in.Wake) == 0 {
 				// The answer gate: the draft is graded against the rubric before
 				// the person sees it. Gaps go back to the writer privately.
-				if revision := state.grade(ctx, text); revision != "" {
+				if revision := state.grade(ctx, text, extras.Quiet); revision != "" {
 					if state.demote != nil {
 						state.demote(text)
 					}

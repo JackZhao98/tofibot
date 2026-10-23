@@ -236,11 +236,11 @@ func TestMCPKnownToolNameResolvesWithoutSearch(t *testing.T) {
 	if got, err := execute(`{"name":"mcp_MAIL__read_inbox","arguments":{}}`); err != nil || got != "inbox" {
 		t.Fatalf("case-variant name=%q err=%v", got, err)
 	}
-	// Truly absent tools and unknown servers still require a schema.
+	// Truly absent tools still require a schema; an unknown server lists the connected ones.
 	for raw, code := range map[string]string{
 		`{"name":"mcp_mail__retired","arguments":{}}`:     "stale_schema",
 		`{"name":"mcp_mail__missing","arguments":{}}`:     "schema_required",
-		`{"name":"mcp_ghost__read_inbox","arguments":{}}`: "schema_required",
+		`{"name":"mcp_ghost__read_inbox","arguments":{}}`: "mcp_server_unknown",
 	} {
 		_, err := execute(raw)
 		if o, ok := tooloutcome.FromError(err); !ok || o.Code != code || o.Certainty != "not_executed" {

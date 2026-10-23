@@ -48,3 +48,13 @@ Claude Code 的后台任务（background tasks）：结果总会回到对话、�
 | 测试（Go） | `internal/app/schedule_quiet_result_test.go`：`TestQuietScheduledAnswerCompletesWithoutAChatMessage`、`TestDefaultScheduledAnswerIsStillPosted`、`TestOccurrenceAPIReturnsTheQuietResult`、`TestQuietIsRefusedOutsideScheduledRuns`、`TestQuietAnswerIsStillGradedByTheAnswerGate`、`TestLaterTurnContextCarriesQuietAndSkipsPostedResultsInTheWindow`、`TestScheduleResultsBlockIsAbsentWithoutSchedulesAndBounded` |
 | 测试（UI） | `ui/scripts/test-schedule-occurrences.mjs`、`test:catalog`（两个新状态） |
 | 相关决定 | [D04](0004-structured-output-say.md)、[D43](0043-answer-gate.md)、[D44](0044-recall-context-memory-and-search.md)、[D50](0050-acknowledge-then-work.md)、[D51](0051-notebook-brutal-style.md) |
+
+## 补记（2026-10-22，太平洋时间）：评分安静记录、拒绝不可见文字
+
+线上 rc.35 的“watch stock”定时任务（指令：只有补货才通知）暴露三处缺陷，都是 D43 回答闸与本决定相撞：
+
+1. **评分员不知道这是私下记录。** `say(answer, quiet:true)` 的结论“两款均无货，未发提醒”被当作发给人的回复，按“没补货别发消息”判 `answer_revise`。现在评分员的输入多一节“投递方式”：`posted`（人在聊天里读到）或 `quiet`（私下的完成记录，不发给人）；评分标准（`answer_rubric.md`）开头加一段原则：安静记录按记录评分，写明查了什么、结果对照任务自己的条件即满足所有条目，是否对人说话、任务是否要求安静属于投递方式，不在评分范围；C3 补一条：如实陈述工作产出的结果或确实存在的阻碍不算过早放弃（D50 的纯文字结尾路径以 `posted` 评分，同样受益）。评分员的系统文字只多一句“还能看到回复的投递方式”。
+2. **Bot 为了“保持安静”写出不可见文字**（rc.34 发出一条零宽空格消息；rc.35 先写零宽空格、再写 NUL）。`say` 现在对去掉空白、格式字符（Cf：U+200B–U+200D、U+2060、U+FEFF 等）和控制字符（Cc，含 NUL）后为空的文字一律拒绝，稳定码 `say_text_empty`，`tooloutcome.Validation`，下一步 `repair_arguments`，计入同一操作的修复次数（3 次后 `repair_budget_exhausted`）；对 answer、message、note 都适用；存入的文字去掉 NUL。拒绝发生在回答闸之前，所以闸的轮数用完后也一样。
+3. **轮数用完后不再无条件收草稿。** 仍保持“上限之后最新的一稿直接发出、不再评分”，但那一稿必须先过上面的可见性校验；定时运行的所有答案草稿都不可见时，运行以 `say_text_empty:` 开头的错误失败，不记录空结论。安静想表达“没什么可报”，用 `quiet=true` 加一句写明查了什么与结果的记录。
+
+测试：`internal/app/answer_quiet_gate_test.go`（`TestQuietRecordIsGradedAsAPrivateRecord`、`TestPostedReplyCarriesPostedModeToTheGrader`、`TestSayTextVisible`、`TestSayRefusesInvisibleTextForAnswerMessageAndNote`、`TestInvisibleDraftAfterTheRoundCapIsRefusedAndTheRunFails`、`TestValidDraftAfterTheRoundCapStillShips`）。
