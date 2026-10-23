@@ -36,6 +36,8 @@ type secretRecord struct {
 	Status         string `json:"status"`
 	CreatedAt      string `json:"created_at"`
 	Ciphertext     []byte `json:"ciphertext,omitempty"`
+	// Bot secrets only: when a command last received the value.
+	LastUsedAt string `json:"last_used_at,omitempty"`
 	// Model provider keys only: last successful verification and why the
 	// provider later rejected the key.
 	VerifiedAt string `json:"verified_at,omitempty"`
@@ -179,7 +181,7 @@ func (s *Server) handleSecrets(w http.ResponseWriter, r *http.Request) bool {
 		for _, record := range v.records {
 			// Run-scoped private inputs, provider keys and the workspace Google
 			// client are never listed.
-			if record.RunID != "" || record.Kind == modelProviderKind || record.Kind == googleClientKind {
+			if record.RunID != "" || record.Kind == modelProviderKind || record.Kind == googleClientKind || record.Kind == botSecretKind {
 				continue
 			}
 			list = append(list, publicSecret(record))
@@ -232,7 +234,7 @@ func (s *Server) handleSecrets(w http.ResponseWriter, r *http.Request) bool {
 	v.mu.Unlock()
 	// Model provider keys and the workspace Google client belong to the server;
 	// they are never listed, removed here, or installed on a computer.
-	if !ok || record.RunID != "" || record.Kind == modelProviderKind || record.Kind == googleClientKind {
+	if !ok || record.RunID != "" || record.Kind == modelProviderKind || record.Kind == googleClientKind || record.Kind == botSecretKind {
 		fail(404, "Not found")
 		return true
 	}

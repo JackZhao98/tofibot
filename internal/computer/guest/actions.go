@@ -67,6 +67,9 @@ type desktop struct {
 type shellArgs struct {
 	Command    string `json:"command"`
 	TimeoutSec int    `json:"timeout_sec"`
+	// Env holds secrets the host injects for this one command. They live only
+	// in the child's environment: never written to disk, never echoed.
+	Env map[string]string `json:"env,omitempty"`
 }
 
 type fileArgs struct {
@@ -475,6 +478,21 @@ func (s *Service) shell(parent context.Context, botID string, args shellArgs) (m
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Env = setEnv(cleanEnv(s.root, bot), "PWD", cwd)
 	cmd.Env = setEnv(cmd.Env, "TMPDIR", filepath.Join(cwd, "tmp"))
+	if len(args.Env) > 16 {
+		return nil, errors.New("too many injected variables")
+	}
+	injected := make([]string, 0, len(args.Env))
+	for name := range args.Env {
+		injected = append(injected, name)
+	}
+	sort.Strings(injected)
+	for _, name := range injected {
+		value := args.Env[name]
+		if !configuredEnvName(name) || len(value) > 65536 || strings.ContainsRune(value, 0) {
+			return nil, errors.New("invalid injected variable")
+		}
+		cmd.Env = setEnv(cmd.Env, name, value)
+	}
 	// Shell commands may launch grandchildren that inherit os/exec's output
 	// pipes. Bound the post-exit drain so cancellation cannot wait forever on a
 	// descendant that ignored the process-group signal.

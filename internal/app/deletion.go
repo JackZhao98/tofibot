@@ -176,6 +176,10 @@ func (s *Store) deleteWorkspaceTargetWith(id string, bot bool, actor *Run, succe
 	if err = tx.Commit(); err != nil {
 		return DeleteResult{}, err
 	}
+	if bot && s.portabilitySecrets != nil {
+		// A deleted Bot's saved secrets go with it.
+		s.portabilitySecrets.vault.purgeBotSecrets(id)
+	}
 	s.cleanupDeletedAttachments()
 	return result, nil
 }

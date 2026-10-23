@@ -28,11 +28,17 @@ type UserFormField struct {
 	Type        string `json:"type"`
 	Required    bool   `json:"required"`
 	Placeholder string `json:"placeholder,omitempty"`
+	// SuggestedName is the Bot's proposed variable name for "Save for this
+	// Bot". Only request_secret_input sets it; the person decides whether to
+	// save and under which name.
+	SuggestedName string `json:"suggested_name,omitempty"`
 }
 
 type formSecretAnswer struct {
 	SecretRef   string `json:"secret_ref"`
 	ValueHidden bool   `json:"value_hidden"`
+	// SavedAs is the name (never the value) the person kept it under for this Bot.
+	SavedAs string `json:"saved_as,omitempty"`
 }
 
 var userFormFieldID = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]{0,63}$`)
@@ -77,6 +83,9 @@ func normalizeUserForm(in askQuestionInput) (askQuestionInput, error) {
 	for i := range in.Fields {
 		f := &in.Fields[i]
 		f.Label = strings.TrimSpace(f.Label)
+		if f.SuggestedName != "" {
+			return in, errors.New("a suggested secret name belongs to a private input only")
+		}
 		if !userFormFieldID.MatchString(f.ID) || seen[f.ID] || f.Label == "" || utf8.RuneCountInString(f.Label) > 120 || utf8.RuneCountInString(f.Placeholder) > 200 {
 			return in, errors.New("fields need unique identifiers, short labels and placeholders")
 		}
@@ -112,6 +121,9 @@ func normalizePrivateInput(in askQuestionInput) (askQuestionInput, error) {
 	if !userFormFieldID.MatchString(f.ID) || f.Label == "" || utf8.RuneCountInString(f.Label) > 120 || f.Placeholder != "" {
 		return in, errors.New("a private input needs a short label")
 	}
+	if f.SuggestedName != "" && !allowedSecretEnv(f.SuggestedName) {
+		return in, errors.New("suggested_name must be an environment variable name: capital letters, digits and underscores")
+	}
 	in.Options = nil
 	return in, nil
 }
@@ -126,9 +138,10 @@ const privateInputFieldID = "secret"
 // name as a thin front for the form rendezvous: the same durable question,
 // suspension, restart and expiry rules, and the same vault write on answer.
 func (s *Server) secretInputTool(c Conversation, r Run) Tool {
-	return Tool{Name: "request_secret_input", Description: "Ask the human for one secret (a key, token or password) through a private input card, then continue. The value never enters chat, history or your tool result; the result is {secret:{secret_ref,value_hidden:true}}, an opaque reference usable only by use_secret_input in this run, for its computer actions (shell_exec, env, ssh); it is never typed into a page, so ask for a website password with ask_user_form instead. State the intended use accurately in purpose. Never ask for secrets in chat or in plain questions. Cancellation or expiry never permits inventing a value. The response window, restart and cleared-reference rules are on expires_in_seconds.", Parameters: objectSchema(map[string]any{
+	return Tool{Name: "request_secret_input", Description: "Ask the human for one secret (a key, token or password) through a private input card, then continue. The value never enters chat, history or your tool result; the result is {secret:{secret_ref,value_hidden:true}}, an opaque reference usable only by use_secret_input in this run, for its computer actions (shell_exec, env, ssh); it is never typed into a page, so ask for a website password with ask_user_form instead. State the intended use accurately in purpose. Never ask for secrets in chat or in plain questions. Cancellation or expiry never permits inventing a value. The person may choose on the card to keep the secret for this Bot; you cannot choose that. A kept secret is listed by name in your context and used by naming it in computer_shell secrets. The response window, restart and cleared-reference rules are on expires_in_seconds.", Parameters: objectSchema(map[string]any{
 		"label":              map[string]any{"type": "string", "description": "Short name of the secret, shown on the field"},
 		"purpose":            map[string]any{"type": "string", "description": "Why it is needed and exactly how it will be used"},
+		"suggested_name":     map[string]any{"type": "string", "description": "Environment variable name to offer if the person keeps the secret"},
 		"expires_in_seconds": questionExpirySchema(),
 	}, []string{"label", "purpose"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {
@@ -140,6 +153,7 @@ func (s *Server) secretInputTool(c Conversation, r Run) Tool {
 		var arg struct {
 			Label            string `json:"label"`
 			Purpose          string `json:"purpose"`
+			SuggestedName    string `json:"suggested_name"`
 			ExpiresInSeconds int    `json:"expires_in_seconds"`
 		}
 		if json.Unmarshal(raw, &arg) != nil || len(arg.Label) > 120 || len(arg.Purpose) > 500 || strings.TrimSpace(arg.Label) == "" || strings.TrimSpace(arg.Purpose) == "" {
@@ -150,7 +164,7 @@ func (s *Server) secretInputTool(c Conversation, r Run) Tool {
 		}
 		in, err := normalizeQuestionInput(askQuestionInput{
 			Question: strings.TrimSpace(arg.Purpose), Type: questionForm, PrivateInput: true, ExpiresInSeconds: arg.ExpiresInSeconds,
-			Fields: []UserFormField{{ID: privateInputFieldID, Label: arg.Label, Type: "password", Required: true}},
+			Fields: []UserFormField{{ID: privateInputFieldID, Label: arg.Label, Type: "password", Required: true, SuggestedName: strings.TrimSpace(arg.SuggestedName)}},
 		})
 		if err != nil {
 			return "", err
@@ -255,6 +269,13 @@ func validateFormValues(fields []UserFormField, values map[string]string) error 
 // plaintext fields and opaque password references. On failed SQL persistence,
 // newly created vault entries are removed; replay returns the first answer.
 func (s *Server) AnswerUserForm(id, actor string, values map[string]string) (Question, bool, error) {
+	return s.AnswerUserFormSaving(id, actor, values, "")
+}
+
+// AnswerUserFormSaving also keeps the private input for the card's Bot under
+// saveAs when the person chose "Save for this Bot". Only the HTTP answer route
+// passes a name, from the human's submitted answer; no Bot tool reaches it.
+func (s *Server) AnswerUserFormSaving(id, actor string, values map[string]string, saveAs string) (Question, bool, error) {
 	v := s.secretVault
 	// Database connection first, vault mutex second: portability transactions
 	// hold the connection and then wait for the vault, so this order is the
@@ -300,13 +321,20 @@ func (s *Server) AnswerUserForm(id, actor string, values map[string]string) (Que
 	if err := validateFormValues(q.Fields, values); err != nil {
 		return q, false, err
 	}
+	if saveAs != "" && (!q.isPrivateInput() || !allowedSecretEnv(saveAs) || v == nil) {
+		return q, false, errors.New("choose a valid variable name to save this secret")
+	}
 	answers := make(map[string]any, len(q.Fields))
 	created := []string{}
+	var replaced *secretRecord
 	committed := false
 	defer func() {
 		if !committed && len(created) > 0 {
 			for _, ref := range created {
 				delete(v.records, ref)
+			}
+			if replaced != nil {
+				v.records[replaced.ID] = *replaced
 			}
 			_ = v.saveLocked()
 		}
@@ -344,7 +372,16 @@ func (s *Server) AnswerUserForm(id, actor string, values map[string]string) (Que
 		}
 		v.records[record.ID] = record
 		created = append(created, record.ID)
-		answers[f.ID] = formSecretAnswer{SecretRef: record.ID, ValueHidden: true}
+		answer := formSecretAnswer{SecretRef: record.ID, ValueHidden: true}
+		if saveAs != "" {
+			savedID, old, err := v.storeBotSecretLocked(q.BotID, saveAs, f.Label, value)
+			if err != nil {
+				return q, false, err
+			}
+			created, replaced = append(created, savedID), old
+			answer.SavedAs = saveAs
+		}
+		answers[f.ID] = answer
 	}
 	if len(created) > 0 {
 		if err := v.saveLocked(); err != nil {
