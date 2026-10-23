@@ -270,8 +270,10 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// 7659: plus the five built-in skills' one-line directory rows (+616 measured, decision 0041; -60 when the descriptions shrank, D41 2026-10-21 addendum); the
 				// fixed overhead below does not include the directory, so its ceiling stays.
 				// 8075: 7659 plus the memory and recall principle (+416 measured, decision 0044).
-				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 8075 {
-					t.Errorf("ordinary DM provider system exceeds 8075 runes")
+				// 8200: 8075 plus the search-before-claiming-unavailable line in the MCP discovery
+				// policy (+167 measured, 2026-10-22: 8022 -> 8189).
+				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 8200 {
+					t.Errorf("ordinary DM provider system exceeds 8200 runes")
 				}
 				// 7000: the lookup line's works-newer-than-the-model clause (~45) lands in
 				// every prompt, the longest of which sat 23 under 6950.
@@ -287,8 +289,9 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// outside this prompt.
 				// 8843: plus the quiet-completion sentence in the scheduled result guidance (+223 measured on
 				// the scheduled descendant, the longest prompt; decision 0052).
-				if fixed > 8843 {
-					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 8843)", fixed)
+				// 8995: plus the same discovery line (+167 measured on the scheduled descendant, the longest prompt: 8824 -> 8991).
+				if fixed > 8995 {
+					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 8995)", fixed)
 				}
 				if !strings.Contains(system, bot.Instructions) {
 					t.Fatal("user instructions changed")
