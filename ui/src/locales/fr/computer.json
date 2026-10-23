@@ -269,6 +269,7 @@
   "credentials": {
     "error": {
       "exists": "Un fichier porte déjà ce nom. Choisissez-en un autre.",
+      "env_exists": "Une variable portant ce nom est déjà enregistrée. Supprimez-la d’abord dans la liste ou choisissez un autre nom.",
       "busy": "L'ordinateur traite une tâche. Réessayez plus tard.",
       "private_key_invalid": "Clé privée non reconnue. Vérifiez le format du fichier.",
       "private_key_filename": "Utilisez un nom de fichier de clé privée, par exemple id_ed25519_work. N'utilisez pas .pub, config ni known_hosts.",

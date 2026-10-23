@@ -180,3 +180,37 @@ func TestSecretDeleteFailureRestoresCurrentRecord(t *testing.T) {
 		t.Fatal("failed deletion lost the in-memory record")
 	}
 }
+
+// Settings "Keys & secrets": a saved environment variable survives a restart
+// (vault reload), and saving the same target twice is refused with the wording
+// the UI maps to "already saved", never stored twice.
+func TestSettingsEnvCredentialPersistsAndRefusesDuplicate(t *testing.T) {
+	dir := t.TempDir()
+	v, err := initializeSecretVault(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &Server{secretVault: v}
+	post := func() *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		s.handleSecrets(w, httptest.NewRequest("POST", "/api/computer/credentials", strings.NewReader(`{"name":"Token","kind":"env","target":"SERVICE_TOKEN","value":"fixture-secret"}`)))
+		return w
+	}
+	if w := post(); w.Code != 201 {
+		t.Fatalf("first save: %d %s", w.Code, w.Body.String())
+	}
+	dup := post()
+	if dup.Code != 409 || !strings.Contains(dup.Body.String(), "already exists") {
+		t.Fatalf("duplicate save: %d %s", dup.Code, dup.Body.String())
+	}
+	reloaded, err := initializeSecretVault(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s = &Server{secretVault: reloaded}
+	w := httptest.NewRecorder()
+	s.handleSecrets(w, httptest.NewRequest("GET", "/api/computer/credentials", nil))
+	if w.Code != 200 || strings.Count(w.Body.String(), "SERVICE_TOKEN") != 1 || strings.Contains(w.Body.String(), "fixture-secret") {
+		t.Fatalf("after reload: %d %s", w.Code, w.Body.String())
+	}
+}

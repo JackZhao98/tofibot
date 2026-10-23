@@ -265,6 +265,7 @@
   "credentials": {
     "error": {
       "exists": "此檔案名稱已存在，請換一個名稱。",
+      "env_exists": "已儲存同名的環境變數。請先在清單中刪除它，或換一個名稱。",
       "busy": "電腦正在處理任務，請稍後再試。",
       "private_key_invalid": "無法辨識私密金鑰，請檢查檔案格式。",
       "private_key_filename": "請使用私密金鑰檔名，例如 id_ed25519_work；不要使用 .pub、config 或 known_hosts。",

@@ -267,6 +267,7 @@
   "credentials": {
     "error": {
       "exists": "A file with this name already exists. Choose another name.",
+      "env_exists": "A variable with this name is already saved. Delete it from the list first, or choose another name.",
       "busy": "The computer is busy with a task. Try again later.",
       "private_key_invalid": "Couldn't read the private key. Check the file format.",
       "private_key_filename": "Use a private key file name, such as id_ed25519_work. Don't use .pub, config or known_hosts.",

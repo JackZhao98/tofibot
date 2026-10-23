@@ -267,6 +267,7 @@
   "credentials": {
     "error": {
       "exists": "Eine Datei mit diesem Namen gibt es schon. Wähl einen anderen Namen.",
+      "env_exists": "Eine Variable mit diesem Namen ist schon gespeichert. Lösch sie zuerst in der Liste oder wähl einen anderen Namen.",
       "busy": "Der Computer bearbeitet gerade eine Aufgabe. Versuch es später noch einmal.",
       "private_key_invalid": "Der private Schlüssel wurde nicht erkannt. Prüf das Dateiformat.",
       "private_key_filename": "Verwende einen Dateinamen für den privaten Schlüssel, z. B. id_ed25519_work – nicht .pub, config oder known_hosts.",
