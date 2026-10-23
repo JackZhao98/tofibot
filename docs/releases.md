@@ -35,6 +35,8 @@ TOFI 每个版本改了什么，最新的在最上面。写给以后接手的人
 
 还没进任何 rc 的改动写在这里；打下一个 rc 时挪进那个 rc 的条目（决定 D27）。
 
+- **修复：模型把 `say` 的参数写成纯文字，聊天里出现原始 JSON。** 10-22 rc.36 私聊里 `codex-gpt-5.6-terra` 没调用 `say`，把 `{"purpose":"answer","text":…}` 当最终文字写出，隐式回答规则把它原样发了出去。Responses 解析器没有丢调用（只声明 function 工具，`function_call` 项都映射，`output_text` 从不转成调用），原因在模型一侧。现在结构化模式下，最终文字若恰好是一个能通过 `say` 自己输入 schema 的 JSON 对象（或只含它的围栏代码块），就按那次 `say` 调用执行，D43/D45/D50 审查、sources 与 quiet 规则照常；`final_origin` 记为 `say_text_recovered`。长得像 `say` 参数但通不过 schema 的，走一次现有的最终回答修复，要求模型真正调用 `say`；修复用尽也绝不发布原始 JSON（详见 D04 补记）。
+
 ---
 
 ## v0.1.4（候选中，未发正式版）
