@@ -3759,6 +3759,13 @@ func (s *Server) execute(c Conversation, r Run) {
 		// If the run ends without a reviewed answer, it is published instead.
 		onReviewDraft = func(turnIndex int, content string) error {
 			flushStream()
+			if _, asSay := sayTextObject(content); structured && asSay {
+				// The say arguments written as text are never kept as a draft to
+				// publish; the repair asks for the call itself.
+				streamMu.Lock()
+				defer streamMu.Unlock()
+				return streamErr
+			}
 			demotedMu.Lock()
 			demoted = demotedDraft{turn: turnIndex, content: cleanBotOutput(content, botCfg), resetPending: !structured}
 			demotedMu.Unlock()
@@ -3947,6 +3954,35 @@ func (s *Server) execute(c Conversation, r Run) {
 			}
 		}
 	}
+	var sayTextRecovered atomic.Bool
+	var sayForText Tool
+	haveSayForText := false
+	if structured {
+		for _, t := range tools {
+			if t.Name == "say" {
+				sayForText, haveSayForText = t, true
+				break
+			}
+		}
+	}
+	if haveSayForText {
+		// A final that is the say arguments written as text becomes that call.
+		finalReview = sayTextFinalReview(ctx, sayForText, r.ID, &sayTextRecovered, finalReview)
+	}
+	// unwrapSayText keeps the say arguments written as text off the chat: a
+	// valid answer becomes its inner text, anything else of that shape is dropped.
+	unwrapSayText := func(content string) string {
+		if _, asSay := sayTextObject(content); !structured || !asSay {
+			return content
+		}
+		if haveSayForText {
+			if text, ok := sayTextAnswer(sayForText, content); ok {
+				sayTextRecovered.Store(true)
+				return text
+			}
+		}
+		return ""
+	}
 	runEngine := engine
 	var onToolCallDelta func(runtime.ToolCallDelta)
 	if sayStream != nil {
@@ -4084,6 +4120,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		}
 		demotedMu.Unlock()
 		publishDemotedDraft()
+		res.Content = unwrapSayText(res.Content)
 		// Partial output is split like a final turn: notes fold, the rest is
 		// the answer, and a tag never reaches the stored message.
 		notes, answer := finalSplit(cleanBotOutput(res.Content, botCfg))
@@ -4118,13 +4155,23 @@ func (s *Server) execute(c Conversation, r Run) {
 		// say(answer) is the run's answer; text after it is not published.
 		res.Content = sayRec.Text
 		repliedFinal = false
-		s.store.noteFinalOrigin(r.ID, finalOriginSay)
+		if sayTextRecovered.Load() {
+			s.store.noteFinalOrigin(r.ID, finalOriginSayTextRecovered)
+		} else {
+			s.store.noteFinalOrigin(r.ID, finalOriginSay)
+		}
 		if sayRec.Quiet && (r.Kind == runKindSchedule || r.scheduleTask != nil) {
 			// A quiet scheduled answer is the run's recorded conclusion; no chat
 			// message carries it (D52).
 			quietDone = true
 			res.Content = ""
 			s.store.noteFinalOrigin(r.ID, finalOriginQuiet)
+		}
+	}
+	if !said {
+		before := res.Content
+		if res.Content = unwrapSayText(res.Content); res.Content != "" && res.Content != before {
+			s.store.noteFinalOrigin(r.ID, finalOriginSayTextRecovered)
 		}
 	}
 	if r.Kind == runKindSchedule || r.scheduleTask != nil {

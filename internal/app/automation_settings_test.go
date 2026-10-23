@@ -456,8 +456,11 @@ func TestRunRequestFollowsAutomationSettings(t *testing.T) {
 			}
 			s.enqueue(c, run)
 			waitRunTerminal(t, s, run.ID)
-			if got.ForceToolUse != tc.force || (got.WebSearchMaxUses > 0) != tc.web || (got.BeforeFinalResponse != nil) != tc.final {
-				t.Fatalf("force=%v web=%d final=%v, want force=%v web=%v final=%v", got.ForceToolUse, got.WebSearchMaxUses, got.BeforeFinalResponse != nil, tc.force, tc.web, tc.final)
+			if got.ForceToolUse != tc.force || (got.WebSearchMaxUses > 0) != tc.web || got.BeforeFinalResponse == nil {
+				// A structured run always carries the final hook (say arguments written
+				// as text are recovered whatever the review setting); whether the
+				// completion review itself runs is tested through completionReviewEnabled.
+				t.Fatalf("force=%v web=%d final=%v, want force=%v web=%v and a final hook", got.ForceToolUse, got.WebSearchMaxUses, got.BeforeFinalResponse != nil, tc.force, tc.web)
 			}
 		})
 	}
