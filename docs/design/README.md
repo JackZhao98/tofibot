@@ -15,6 +15,7 @@
 | 3 | [`components.md`](components.md) | 每个组件的状态、焦点、键盘、关闭方式、位置、层级、动效、触屏；已知问题 C1–C43（§24 按严重度汇总）；§25 待确认 | 改某个组件之前，先读它那一节 |
 | 4 | [`migration.md`](migration.md) | 迁到 headless 库的分步方案：选型结论（§0）、体积实测（§2）、六步各改哪些文件、风险、owner 在预览里看哪里（§5）、owner 对 Q1–Q4 的回答（§7） | 参与迁移时；当前状态：**六步都已完成**（第 4 步不引入 Motion、右滑返回上线自研版；第 5 步 dnd-kit 不通过、保留自研拖动引擎），合在集成分支 `ds/integrate` 上，等 owner 预览和合并进 `main`；合并后的预览清单在"集成"一节 |
 | — | [`review-2026-10.md`](review-2026-10.md) | 2026-10 设计评审：13 个分区的问题（带截图与 `file:line`）、"纸与猫"改版提案、令牌改动、备选方向、分阶段实施与预算、owner 待定问题；HTML 稿在 [`proposals/index.html`](proposals/index.html)，截图在 `review-2026-10/` | 提案，未实施；owner 在第 6 节选完再动代码 |
+| — | [`ui-issues.md`](ui-issues.md) | owner 陆续报的界面问题清单（截图、初步判断、状态） | 进行中 |
 | — | [`style-notebook-brutal.md`](style-notebook-brutal.md) | **已定（[D51](../decisions/0051-notebook-brutal-style.md)）**：把现有风格（新粗野墨线与硬影 + 笔记本拟物 + 毛玻璃）写下来并拧紧——层级梯 L3→L0、按压物理令牌、深色墨线、工作行；对上一轮"纸与猫"的保留与撤回（§8）；配色想法单独放 §9 讨论；HTML 稿在 [`proposals-notebook/index.html`](proposals-notebook/index.html)（含按压实验台） | 已定，第一波实施中 |
 | — | [`new-page.md`](new-page.md) | 新页面、面板、设置页、对话框、组件的做法：选容器、Radix 与懒加载、令牌、7 种语言文案、目录页状态、无障碍、预算与测试、评审清单、要更新的文档；末节记录用两个现有组件走查时代码与步骤不一致处 | 开始做任何新界面时，和 `principles.md` 一起读 |
 | — | 组件目录页 `ui/catalog.html`（只在开发时可用，[D34](../decisions/0034-component-catalog-dev-only.md)） | `components.md` §1–§23 的每个组件、每种状态，浅色/深色、1280/390 px、7 种语言，真组件 + 假数据；`npm --prefix ui run dev` 后打开 http://localhost:5173/catalog.html | 改组件之前先看它现在长什么样；改完对照 |
