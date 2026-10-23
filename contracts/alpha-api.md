@@ -20,7 +20,7 @@
 - `POST /api/conversations/{id}/attachments` 上传 multipart 文件；`GET /api/attachments/{id}` 下载。每条消息最多 8 个附件，单个文件 20 MB；文本工具读取上限 128 KB，附件绑定必须属于同一聊天。
 - `POST /api/conversations/{id}/read` 接受 `{seq}`，读游标只能前进且不能超出当前最后消息；聊天列表返回 `unread_count`。
 - MCP：`GET/POST/PUT /api/extensions/mcp`，`PUT/DELETE /api/extensions/mcp/{name}`，`POST .../{name}/test`、`POST .../{name}/oauth/start`、`GET .../{name}/oauth/callback`、`POST .../{name}/oauth/disconnect`。
-- Skills：`GET/POST /api/extensions/skills`；`POST /api/extensions/skills/{name}/bots/{bot_id}` 接受 `{enabled}`；`DELETE /api/extensions/skills/{name}`。
+- Skills（决定 D58，一个全局库、每个 Bot 一列启用）：`GET /api/extensions/skills` 返回 `{skills, bundles, diagnostics}`（每项带 `installed_by`、`version`、`updated`、`versions`、`enabled_bots`/`bots_total`；官方技能 `builtin:true`）；`POST /api/extensions/skills` 接受 `{name, files}` 加一个技能；`POST /api/extensions/skill-bundles` 接受 `{files}` 加一个插件目录（`.claude-plugin/plugin.json` + `skills/<name>/SKILL.md`，两层）；`POST /api/extensions/skills/{name}/versions` 接受 `{files, note}` 发新版本；`POST /api/extensions/skills/{name}/rollback` 接受 `{version}`；`DELETE /api/extensions/skills/{name}`（套装成员 409 `skill_in_bundle`）与 `DELETE /api/extensions/skill-bundles/{id}`。某个 Bot 的启用：`GET /api/bots/{id}/skills`；`PUT /api/bots/{id}/skills/{name}` 与 `PUT /api/bots/{id}/skill-bundles/{bundle}` 接受 `{enabled}`，记录 `set_by`（owner|bot|migration）与时间。旧的 `PUT .../skills/{name}/access` 与 `PUT .../skills/{name}/enabled` 已删除。
 - 电脑：`GET /api/computers`、`POST /api/computers/pairings`、`POST /api/computers/pair`、`DELETE /api/computers/{id}`。设备凭据只返回一次，服务端只存摘要。
 - 设备用 Bearer 凭据请求 `PATCH /api/computers/{id}/capabilities`、`GET /api/computers/{id}/jobs`、`POST /api/computers/{id}/jobs/{job_id}/result`。UI/工具可通过 `POST /api/computers/{id}/actions`、`GET /api/computers/{id}/actions/{job_id}` 创建和读取任务；设备离线或能力未授权时拒绝执行。
 
@@ -52,7 +52,7 @@ runtime `Request` 使用 `OnDelta` 传递增量、`OnAssistantTurn` 发布完整
 
 扩展是可选的。`TOFI_MCP_CONFIG` 默认 `data/mcp.json`，支持远程 Streamable HTTP、headers、allow/deny 和按 Bot 授权。`bot_allowlists:null` 保持所有 Bot 可用；空对象表示全部禁用。OAuth 使用 PKCE、一次性有时限 state、原子私有凭据文件、刷新互斥和撤销后的失效保护。管理 API 隐藏凭据；配置变更于下次 run 生效。
 
-`TOFI_SKILLS_DIR` 默认 `data/skills`。安装包最多 1 MB UTF-8 内容，必须有名称匹配的 SKILL.md，拒绝符号链接和路径越界。安装后默认不授权，按 Bot 开启；运行时提供 list_skills、read_skill、read_skill_file。暂不支持 stdio、本地进程、脚本或依赖安装。
+`TOFI_SKILLS_DIR` 默认 `data/skills`。安装包最多 1 MB UTF-8 内容，必须有名称匹配的 SKILL.md，拒绝符号链接和路径越界。装进库之后默认对任何 Bot 都是关的，由用户在 Bot 设置里勾选（Bot 自己装的只对自己开）；官方技能默认对每个 Bot 开，可按 Bot 关。运行时提供 list_skills、read_skill、read_skill_file，目录只列这个 Bot 已启用的技能。暂不支持 stdio、本地进程、脚本或依赖安装。
 
 `create_bot`、`create_group`、`invite_bot` 和 `send_group_message` 用于组队。组队操作在一次任务树内有创建/派发上限并持久幂等；`send_group_message` 只能启动另一个群的任务。在当前群回复会自动发布，需要继续分工时使用 handoff。
 
