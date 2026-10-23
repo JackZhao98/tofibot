@@ -16,10 +16,12 @@ export interface PortableBotPackage {
     model: string;
     reasoning_effort?: string;
     avatar?: AvatarConfig;
+    /** Names of the library Skills this Bot had on: names only, never files. An import does not turn them on. */
+    skills?: string[];
   };
 }
 
-export function buildBotPackage(bot: Bot): PortableBotPackage {
+export function buildBotPackage(bot: Bot, skills: string[] = []): PortableBotPackage {
   return {
     format: BOT_PACKAGE_FORMAT,
     version: BOT_PACKAGE_VERSION,
@@ -30,9 +32,12 @@ export function buildBotPackage(bot: Bot): PortableBotPackage {
       model: bot.model,
       avatar: getBotAvatarConfig(bot.id),
       ...(bot.reasoning_effort ? { reasoning_effort: bot.reasoning_effort } : {}),
+      ...(skills.length ? { skills: [...skills].sort() } : {}),
     },
   };
 }
+
+const SKILL_NAME = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 
 export function parseBotPackage(source: string): PortableBotPackage {
   let value: unknown;
@@ -47,11 +52,13 @@ export function parseBotPackage(source: string): PortableBotPackage {
     throw new Error(i18n.t("bots:package.unsupported_version"));
   }
   if (!candidate.bot || typeof candidate.bot !== "object") throw new Error(i18n.t("bots:package.missing_bot"));
-  const bot = candidate.bot as { name?: unknown; instructions?: unknown; model?: unknown; reasoning_effort?: unknown; avatar?: unknown };
+  const bot = candidate.bot as { name?: unknown; instructions?: unknown; model?: unknown; reasoning_effort?: unknown; avatar?: unknown; skills?: unknown };
   if (typeof bot.name !== "string" || !bot.name.trim() || bot.name.length > 200) throw new Error(i18n.t("bots:package.invalid_name"));
   if (typeof bot.instructions !== "string" || bot.instructions.length > 200_000) throw new Error(i18n.t("bots:package.invalid_instructions"));
   if (typeof bot.model !== "string" || bot.model.length > 200) throw new Error(i18n.t("bots:package.invalid_model"));
   if (bot.reasoning_effort !== undefined && typeof bot.reasoning_effort !== "string") throw new Error(i18n.t("bots:package.invalid_reasoning"));
+  // Only well-formed names survive; anything else is dropped, never an error.
+  const skills = Array.isArray(bot.skills) ? bot.skills.filter((name): name is string => typeof name === "string" && name.length <= 64 && SKILL_NAME.test(name)).slice(0, 200) : [];
   let avatar: AvatarConfig | undefined;
   if (bot.avatar !== undefined) {
     try { avatar = normalizeAvatar(bot.avatar); } catch { throw new Error(i18n.t("bots:package.invalid_avatar")); }
@@ -66,6 +73,7 @@ export function parseBotPackage(source: string): PortableBotPackage {
       model: bot.model,
       ...(avatar ? { avatar } : {}),
       ...(bot.reasoning_effort ? { reasoning_effort: bot.reasoning_effort } : {}),
+      ...(skills.length ? { skills } : {}),
     },
   };
 }

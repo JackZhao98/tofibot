@@ -1,0 +1,32 @@
+/* Settings › Skills (library) and a Bot's Skills section (decision 0058) */
+.skill-library .skill-add-actions{display:flex;flex-wrap:wrap;gap:8px}
+.skill-library .extension-toolbar{flex-wrap:wrap}
+.extension-card .skill-tag{margin-left:8px;padding:2px 8px;border:1px solid var(--line);border-radius:999px;font:600 12px/1.5 var(--body);color:var(--text-soft);vertical-align:middle}
+.extension-card .skill-tag[data-tone=updated]{border-color:var(--lagoon-line,var(--line-strong));color:var(--ink)}
+.extension-card .skill-meta{margin:6px 0 0;color:var(--muted);font:var(--type-meta)}
+.skill-library .skill-group-title{margin:22px 0 6px;color:var(--muted);font:var(--type-meta);text-transform:none}
+.skill-library .skill-expand,.bot-skills .skill-expand{display:inline-flex;align-items:center;gap:6px;min-height:32px;color:var(--muted);font:var(--type-meta)}
+.skill-library .skill-expand[aria-expanded=true] svg,.bot-skills .skill-expand[aria-expanded=true] svg{transform:rotate(180deg)}
+.skill-library .skill-members{display:grid;gap:0;margin:10px 0 0 14px;padding-left:14px;border-left:1px solid var(--line-soft)}
+.workspace .settings-page-body .skill-library .skill-members .extension-card{padding:12px 14px;border:0;border-bottom:1px solid var(--line-soft);border-radius:0;background:transparent}
+.skill-library .skill-version-list{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.skill-library .skill-version-list li{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.skill-library .skill-version-copy{display:grid;gap:2px;min-width:0;color:var(--muted);font:var(--type-meta)}
+.skill-library .skill-version-copy strong{color:var(--ink);font:var(--type-row-title)}
+.skill-library .skill-version-note{overflow-wrap:anywhere}
+.skill-library .extension-actions .skill-expand{margin-right:auto}
+.bot-skills{margin-top:28px;min-width:0}
+.bot-skill-list,.bot-skill-members{display:grid;gap:0;margin:12px 0 0;padding:0;list-style:none}
+.bot-skill-members{margin:6px 0 0 30px;padding-left:12px;border-left:1px solid var(--line-soft)}
+.bot-skill-row{padding:10px 0;border-bottom:1px solid var(--line-soft)}
+.bot-skill-members .bot-skill-row:last-child{border-bottom:0}
+.bot-skill-row label{display:flex;align-items:flex-start;gap:12px;min-width:0;cursor:pointer}
+.bot-skill-row input[type=checkbox]{flex:none;width:18px;height:18px;margin:2px 0 0;accent-color:var(--ink)}
+.bot-skill-copy{display:grid;gap:2px;min-width:0}
+.bot-skill-copy strong{color:var(--ink);font:var(--type-row-title);overflow-wrap:anywhere}
+.bot-skill-copy small{color:var(--muted);font:var(--type-meta);overflow-wrap:anywhere}
+.bot-skill-copy em{color:var(--muted);font:var(--type-meta);font-style:normal}
+.bot-skill-bundle-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.bot-skill-bundle-head label{flex:1 1 auto}
+.bot-skill-group{margin:22px 0 0;color:var(--muted);font:var(--type-meta)}
+@media(prefers-reduced-motion:no-preference){.skill-library .skill-expand svg,.bot-skills .skill-expand svg{transition:transform var(--m-quick) var(--ease-out)}}

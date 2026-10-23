@@ -80,6 +80,9 @@
     "oauth_paste_invalid": "이 로그인이 기대하는 리디렉션 주소가 아닙니다. 주소 표시줄의 전체 주소를 붙여 넣으세요.",
     "oauth_paste_not_needed": "이 연결은 붙여넣기 로그인을 사용하지 않습니다.",
     "oauth_issuer_mismatch": "해당 응답은 예상한 인증 서버에서 온 것이 아닙니다. 다시 연결하세요.",
-    "oauth_loopback_required": "이 서비스는 127.0.0.1 리디렉션만 허용합니다. 붙여넣기 로그인을 사용하세요."
+    "oauth_loopback_required": "이 서비스는 127.0.0.1 리디렉션만 허용합니다. 붙여넣기 로그인을 사용하세요.",
+    "skill_exists": "같은 이름의 Skill 또는 번들이 이미 라이브러리에 있습니다.",
+    "skill_in_bundle": "이 Skill은 번들에 속해 있습니다. 번들을 통째로 삭제하세요.",
+    "skill_unchanged": "현재 버전과 파일이 같습니다."
   }
 }

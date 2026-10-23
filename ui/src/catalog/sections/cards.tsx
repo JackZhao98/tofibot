@@ -20,6 +20,8 @@ const card = (id: string, label: string, item: Question, extra: Partial<CatalogS
 const answered = (answer: Question["answer"], by = "user"): Partial<Question> => ({ status: "answered", answer, answered_by: by, updated_at: at(42) });
 const SKILL_FACTS = { kind: "skill_install" as const, name: "invoice-helper", change_id: "#a1b2c3d4e5f6", skill: { description: "Summarize invoices", excerpt: "Fetch invoices and summarize them.", allowed_tools: ["Bash", "Read"], files: ["SKILL.md (120 B)", "fetch.sh (40 B)"], has_scripts: true } };
 
+const PUBLISH_FACTS = { kind: "skill_publish_version" as const, name: "invoice-helper", change_id: "#0f1e2d3c4b5a", skill: { description: "Summarize invoices", files: ["SKILL.md (140 B)", "fetch.py (60 B)"], has_scripts: true, new_version: 3, added: ["fetch.py"], removed: ["fetch.sh"], changed: ["SKILL.md"], enabled_bots: 2 } };
+
 /** Answers fail, so a click shows the card's error state. */
 const refusing = isolated();
 const failingServer: typeof refusing = (url, init) => url.pathname.endsWith("/answer") ? json({ error: { code: "unavailable", message: "Synthetic: the server is busy" } }, 503) : refusing(url, init);
@@ -34,6 +36,7 @@ export const questions: CatalogSection = {
     card("form", "Web form (with a password field)", q("form", { question_type: "form", question: "Sign in to the synthetic portal", source_url: "https://portal.example.test", fields: [{ id: "email", label: "Email", type: "email", required: true, placeholder: "you@example.test" }, { id: "password", label: "Password", type: "password", required: true }] })),
     card("approval", "Approval", pendingApproval()),
     card("approval-facts", "Approval with server-checked facts", pendingApproval("dm_mochi", { question_id: "q_facts", question: "Install a Skill?", approval: { action: "Install invoice-helper", target: "extension skill_install invoice-helper #a1b2c3d4e5f6", impact: "The Bot can run its scripts", facts: SKILL_FACTS } })),
+    card("approval-publish", "Approval to publish a Skill version", pendingApproval("dm_mochi", { question_id: "q_publish", question: "Publish a new version of invoice-helper?", approval: { action: "Publish invoice-helper v3", target: "extension skill_publish_version invoice-helper #0f1e2d3c4b5a", impact: "Every Bot that has the Skill on follows it", facts: PUBLISH_FACTS } })),
     card("approval-standing", "Approval offering \"Always allow\"", pendingApproval("dm_mochi", { question_id: "q_standing", question: "Create the calendar event?", approval: { action: "Create a calendar event", target: "calendar.create_event", impact: "Adds one event", standing: { server: "calendar", tool: "create_event" } } })),
     card("reviewing", "Approval under automatic review", pendingApproval("dm_mochi", { question_id: "q_review", approval: { ...pendingApproval().approval!, review: { source: "auto-review", status: "reviewing", reason: "", model: "synthetic-model" } } })),
     card("error", "Answer failed", q("error", {}), { note: "the server refused the answer", drive: async step => { await step.click(".approval-accept"); await step.find(".approval-error"); } }),

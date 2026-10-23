@@ -80,6 +80,9 @@
     "oauth_paste_invalid": "這不是本次登入所預期的回呼網址。請貼上網址列中的完整網址。",
     "oauth_paste_not_needed": "此連線不使用貼上回填登入。",
     "oauth_issuer_mismatch": "該回應並非來自預期的授權伺服器，請重新連線。",
-    "oauth_loopback_required": "此服務只接受 127.0.0.1 回呼，請使用貼上回填登入。"
+    "oauth_loopback_required": "此服務只接受 127.0.0.1 回呼，請使用貼上回填登入。",
+    "skill_exists": "技能庫裡已有同名的 Skill 或套裝。",
+    "skill_in_bundle": "這個 Skill 屬於某個套裝，請移除整個套裝。",
+    "skill_unchanged": "這些檔案與目前版本相同。"
   }
 }

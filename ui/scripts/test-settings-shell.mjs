@@ -82,9 +82,23 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
   browser = await chromium.launch({executablePath: process.env.TOFI_TEST_CHROME || undefined});
 
-  const requested = [], unexpected = [], writes = [], accessWrites = [], tierWrites = [];
-  const skillAccess = new Map();
-  const builtinOn = new Map([["spreadsheet", true]]), enabledWrites = [];
+  const requested = [], unexpected = [], writes = [], tierWrites = [];
+  // The skill library the stub serves (decision 0058): owner-installed, Bot-installed with versions, a bundle, an official skill.
+  const libWrites = [];
+  const libState = () => ({
+    skills: [
+      {name: "research-assistant", description: "Research and verify sources", installed_by: {kind: "owner"}, installed_at: "2026-10-20T10:00:00Z", version: 1, enabled_bots: 1, bots_total: 3},
+      {name: "weekly-report", description: "Draft the weekly status report", installed_by: {kind: "bot", bot_id: "bot_research", bot_name: "Research Bot"}, installed_at: "2026-10-21T10:00:00Z", version: lib.weeklyVersion, updated: lib.weeklyVersion > 1, updated_at: "2026-10-22T10:00:00Z", enabled_bots: 2, bots_total: 3,
+        versions: [{version: 2, created_at: "2026-10-22T10:00:00Z", created_by: {kind: "bot", bot_name: "Research Bot"}, note: "Shorter summary", current: lib.weeklyVersion === 2}, {version: 1, created_at: "2026-10-21T10:00:00Z", created_by: {kind: "bot", bot_name: "Research Bot"}, current: lib.weeklyVersion === 1}]},
+      {name: "alpha-tool", description: "First tool of the kit", bundle_id: "office-kit", installed_by: {kind: "owner"}, installed_at: "2026-10-19T10:00:00Z", version: 1, enabled_bots: 1, bots_total: 3},
+      {name: "beta-tool", description: "Second tool of the kit", bundle_id: "office-kit", installed_by: {kind: "owner"}, installed_at: "2026-10-19T10:00:00Z", version: 1, enabled_bots: 0, bots_total: 3},
+      {name: "spreadsheet", description: "Build and reconcile XLSX workbooks with real numbers and formulas; verify the saved file.", builtin: true, enabled_bots: 3, bots_total: 3},
+      ...lib.added,
+    ].filter(skill => !lib.removed.has(skill.name)),
+    bundles: lib.removed.has("office-kit") ? [] : [{id: "office-kit", description: "Office helpers", version: "1.0.0", installed_by: {kind: "owner"}, installed_at: "2026-10-19T10:00:00Z", skills: ["alpha-tool", "beta-tool"]}],
+  });
+  const lib = {weeklyVersion: 2, added: [], removed: new Set()};
+  const resetLib = () => { libWrites.length = 0; lib.weeklyVersion = 2; lib.added = []; lib.removed = new Set(); };
   const updateState = {latest: "v0.1.0"};
   const INSTANCE = "0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d";
   const providers = [
@@ -145,7 +159,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/extensions/local-mcp") return {available: false, reason: "sample"};
     if (path === "/api/extensions/google") return {client: {configured: false}, apis: []};
     if (path === "/api/extensions/repo-stars") return {stars: {}};
-    if (path === "/api/extensions/skills") return {skills: [{name: "research-assistant", description: "Research and verify sources"}, {name: "spreadsheet", description: "Build and reconcile XLSX workbooks with real numbers and formulas; verify the saved file.", builtin: true, enabled: builtinOn.get("spreadsheet")}, {name: "weekly-report", description: "Draft the weekly status report"}].map(skill => ({...skill, access: skillAccess.get(skill.name) ?? {mode: "all"}}))};
+    if (path === "/api/extensions/skills") return libState();
     if (path === "/api/auto-review-settings") return {mode: "shadow", revision: 1, review_scope: "all_external_tools"};
     if (path === "/api/providers") return {providers};
     if (path === "/api/auth/codex") return {connected: true, expires_at: Date.parse("2026-11-01T00:00:00Z")};
@@ -262,19 +276,18 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       if (url.origin !== origin) { await route.abort(); return; }
       if (!url.pathname.startsWith("/api/")) { await route.continue(); return; }
       requested.push(`${method} ${url.pathname}`);
-      if (method === "PUT" && /^\/api\/extensions\/skills\/[^/]+\/access$/.test(url.pathname)) {
-        const payload = JSON.parse(request.postData() ?? "{}"), name = url.pathname.split("/")[4];
-        accessWrites.push(`${method} ${url.pathname} ${request.postData()}`);
-        skillAccess.set(name, payload.mode === "all" ? {mode: "all"} : {mode: "selected", bot_ids: payload.bot_ids});
-        await route.fulfill({contentType: "application/json", body: JSON.stringify({ok: true, access: skillAccess.get(name)})});
-        return;
-      }
-      if (method === "PUT" && /^\/api\/extensions\/skills\/[^/]+\/enabled$/.test(url.pathname)) {
-        const payload = JSON.parse(request.postData() ?? "{}"), name = url.pathname.split("/")[4];
-        enabledWrites.push(`${method} ${url.pathname} ${request.postData()}`);
-        builtinOn.set(name, payload.enabled);
-        await route.fulfill({contentType: "application/json", body: JSON.stringify({ok: true, enabled: payload.enabled})});
-        return;
+      if (url.pathname.startsWith("/api/extensions/skill")) {
+        const entry = `${method} ${url.pathname}${request.postData() ? " " + request.postData() : ""}`;
+        const parts = url.pathname.split("/");
+        if (method === "POST" && url.pathname === "/api/extensions/skills") {
+          const payload = JSON.parse(request.postData() ?? "{}");
+          lib.added.push({name: payload.name, description: "Added in the test", installed_by: {kind: "owner"}, installed_at: "2026-10-23T10:00:00Z", version: 1, enabled_bots: 0, bots_total: 3});
+          libWrites.push(entry);
+          await route.fulfill({status: 201, contentType: "application/json", body: JSON.stringify({ok: true})});
+          return;
+        }
+        if (method === "POST" && parts[5] === "rollback") { lib.weeklyVersion = JSON.parse(request.postData() ?? "{}").version; libWrites.push(entry); await route.fulfill({contentType: "application/json", body: JSON.stringify({ok: true})}); return; }
+        if (method === "DELETE") { lib.removed.add(parts[4]); if (parts[3] === "skill-bundles") { lib.removed.add("alpha-tool"); lib.removed.add("beta-tool"); } libWrites.push(entry); await route.fulfill({contentType: "application/json", body: JSON.stringify({ok: true})}); return; }
       }
       if (url.pathname.startsWith("/api/admin/")) {
         const answer = adminStub(url, method, request.postData());
@@ -463,94 +476,65 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     console.log("PASS german: Verbindungen, Genehmigungen and Schlüssel & Geheimnisse fit the 248px rail in at most two lines, no clipping");
   }
 
-  // ---- 7b. Skill access (Phase 2, 3.5 #2): change access to one Bot; the card shows "1 of 3 Bots"; reload keeps it.
+  // ---- 7b. Skill library (decision 0058): installer and version on each row, bundles expand, rollback, remove, one-click add.
   {
-    skillAccess.clear(); accessWrites.length = 0;
-    const card = (page, name) => page.locator('.settings-page-body[data-page="skills"] .extension-card').filter({hasText: name});
-    const summary = (page, name) => card(page, name).locator(".skill-access-summary");
+    resetLib();
+    const page$ = (page) => page.locator('.settings-page-body[data-page="skills"]');
+    const row = (page, name) => page$(page).locator(`[data-skill="${name}"]`);
     const {page, close} = await open({tab: "skills"});
-    await card(page, "research-assistant").waitFor();
-    assert.equal((await summary(page, "research-assistant").textContent()).trim(), "All Bots", "default access is All Bots");
-    assert.equal((await summary(page, "weekly-report").textContent()).trim(), "All Bots");
-    assert.equal(await card(page, "research-assistant").getByText("Who can use it", {exact: true}).count(), 1);
-    // Escape closes the sheet without writing.
-    await card(page, "research-assistant").getByRole("button", {name: "Change"}).click();
-    const sheet = page.getByRole("dialog", {name: "Who can use research-assistant"});
-    await sheet.waitFor();
-    assert.equal(await sheet.getByRole("radio", {name: /^All Bots/}).isChecked(), true);
-    assert.equal(await sheet.getByRole("checkbox").count(), 3, "checklist lists the three non-archived Bots");
-    assert.equal(await sheet.getByRole("checkbox").first().isDisabled(), true, "checklist is disabled while All Bots is chosen");
-    await page.keyboard.press("Escape");
-    await sheet.waitFor({state: "detached"});
-    assert.deepEqual(accessWrites, [], "closing the sheet writes nothing");
-    // Only selected Bots needs at least one Bot.
-    await card(page, "research-assistant").getByRole("button", {name: "Change"}).click();
-    await sheet.waitFor();
-    await sheet.getByRole("radio", {name: /^Only selected Bots/}).check();
-    assert.equal(await sheet.getByRole("button", {name: "Save"}).isDisabled(), true, "Save needs a Bot");
-    await sheet.getByRole("checkbox", {name: "Research Bot"}).check();
-    await sheet.getByRole("button", {name: "Save"}).click();
-    await sheet.waitFor({state: "detached"});
-    assert.deepEqual(accessWrites, ['PUT /api/extensions/skills/research-assistant/access {"mode":"selected","bot_ids":["bot_research"]}']);
-    await page.waitForFunction(() => document.querySelector('.settings-page-body[data-page="skills"]')?.innerText.includes("1 of 3 Bots"));
-    assert.equal((await summary(page, "research-assistant").textContent()).trim(), "1 of 3 Bots");
-    assert.equal((await summary(page, "weekly-report").textContent()).trim(), "All Bots", "the other skill is untouched");
-    await page.reload();
-    await card(page, "research-assistant").waitFor();
-    await page.waitForFunction(() => document.querySelector('.settings-page-body[data-page="skills"]')?.innerText.includes("1 of 3 Bots"));
-    assert.equal((await summary(page, "research-assistant").textContent()).trim(), "1 of 3 Bots", "reload keeps the restriction");
-    // Back to All Bots.
-    await card(page, "research-assistant").getByRole("button", {name: "Change"}).click();
-    await sheet.waitFor();
-    assert.equal(await sheet.getByRole("checkbox", {name: "Research Bot"}).isChecked(), true, "the sheet reopens with the saved selection");
-    await sheet.getByRole("radio", {name: /^All Bots/}).check();
-    await sheet.getByRole("button", {name: "Save"}).click();
-    await sheet.waitFor({state: "detached"});
-    assert.equal(accessWrites.at(-1), 'PUT /api/extensions/skills/research-assistant/access {"mode":"all"}');
-    await page.waitForFunction(() => !document.querySelector('.settings-page-body[data-page="skills"]')?.innerText.includes("1 of 3 Bots"));
+    await row(page, "research-assistant").waitFor();
+    const text = async (locator) => (await locator.innerText()).replace(/\s+/g, " ");
+    assert.match(await text(row(page, "research-assistant")), /v1 · Added by you, .* · On for 1 of 3 Bots/, "owner row: version, installer, how many Bots have it");
+    assert.match(await text(row(page, "weekly-report")), /Updated/, "a published version marks the row Updated");
+    assert.match(await text(row(page, "weekly-report")), /v2 · Added by Research Bot/, "a Bot installer is named");
+    assert.equal(await page$(page).getByRole("switch").count(), 0, "the library has no per-skill switch; Bots have their own");
+    assert.equal(await page$(page).getByText("Who can use it").count(), 0, "the old access row is gone");
+    // Official skills: tagged, no Remove, no switch.
+    assert.equal((await row(page, "spreadsheet").locator(".skill-tag").first().textContent()).trim(), "Built-in");
+    assert.equal(await row(page, "spreadsheet").getByRole("button", {name: "Remove"}).count(), 0, "an official skill has no Remove");
+    assert.match(await text(row(page, "spreadsheet")), /Official/);
+    // A bundle is one row; members appear on expand, with no Remove of their own.
+    const bundle = page$(page).locator('[data-bundle="office-kit"]');
+    assert.match(await text(bundle), /Bundle · 2 Skills/);
+    assert.equal(await page$(page).locator('[data-skill="alpha-tool"]').count(), 0, "bundle members are hidden until expanded");
+    await bundle.getByRole("button", {name: "Show 2 Skills"}).click();
+    await row(page, "alpha-tool").waitFor();
+    assert.equal(await row(page, "alpha-tool").getByRole("button", {name: "Remove"}).count(), 0, "a bundle member has no Remove of its own");
+    assert.equal(await bundle.getByRole("button", {name: "Remove"}).count(), 1, "the bundle has Remove");
+    assert.equal(await bundle.getByRole("button", {name: "Hide Skills"}).getAttribute("aria-expanded"), "true");
+    // Rollback: the versions list, restoring the earlier one.
+    await row(page, "weekly-report").getByRole("button", {name: "Versions (2)"}).click();
+    await row(page, "weekly-report").getByRole("button", {name: "Roll back to this version"}).click();
+    await page.waitForFunction(() => !document.querySelector('[data-skill="weekly-report"]')?.innerText.includes("Updated"));
+    assert.deepEqual(libWrites.filter(entry => entry.includes("rollback")), ['POST /api/extensions/skills/weekly-report/rollback {"version":1}']);
+    // Remove asks first and writes once.
+    await row(page, "research-assistant").getByRole("button", {name: "Remove"}).click();
+    assert.equal(libWrites.some(entry => entry.startsWith("DELETE")), false, "Remove asks before it writes");
+    await row(page, "research-assistant").getByRole("button", {name: /^Remove$/}).last().click();
+    await page.waitForFunction(() => !document.querySelector('[data-skill="research-assistant"]'));
+    assert.deepEqual(libWrites.filter(entry => entry.startsWith("DELETE")), ["DELETE /api/extensions/skills/research-assistant"]);
+    // One-click add from a starter template: no form, one POST, and the row appears (a template is a normal skill).
+    const starter = page$(page).locator(".skill-starters .integration-tile").first();
+    const starterTitle = (await starter.locator("strong").textContent()).trim();
+    await starter.click();
+    await page.waitForFunction(() => document.querySelector('.settings-page-body[data-page="skills"] .extension-notice'));
+    assert.match(await text(page$(page).locator(".extension-notice")), /Added to the library/);
+    assert.equal(libWrites.filter(entry => entry.startsWith("POST /api/extensions/skills ")).length, 1, "one click, one write");
+    assert.ok(!(await page$(page).locator(".skill-starters").innerText()).includes(starterTitle), "an added starter leaves the template list");
+    // Add folder is a styled button over a hidden folder input; paste opens the small form.
+    assert.equal(await page$(page).locator('input[type=file][webkitdirectory]').count(), 1);
+    await page$(page).getByRole("button", {name: "Paste SKILL.md"}).click();
+    await page$(page).getByLabel("Name").waitFor();
     await close();
     for (const lang of ["zh-CN", "de"]) {
+      resetLib();
       const view = await open({tab: "skills", lang});
-      await card(view.page, "research-assistant").waitFor();
-      const text = (await summary(view.page, "research-assistant").textContent()).trim();
-      assert.notEqual(text, "All Bots", `${lang}: the access summary is translated`);
+      await row(view.page, "weekly-report").waitFor();
+      const copy = await text(row(view.page, "weekly-report"));
+      assert.ok(!copy.includes("Updated") && !copy.includes("Added by"), `${lang}: the row is translated: ${copy}`);
       await view.close();
     }
-    console.log("PASS skill access: All Bots by default, sheet needs a Bot, saving shows 1 of 3 Bots, reload keeps it, back to All Bots, translated");
-  }
-
-  // ---- 7c. Built-in skills (decision 0041): tagged Built-in, on by default, switchable, never removable.
-  {
-    builtinOn.set("spreadsheet", true); enabledWrites.length = 0; skillAccess.clear();
-    const card = (page, name) => page.locator('.settings-page-body[data-page="skills"] .extension-card').filter({hasText: name});
-    const {page, close} = await open({tab: "skills"});
-    const sheet = card(page, "spreadsheet");
-    await sheet.waitFor();
-    assert.equal((await sheet.locator(".skill-builtin-tag").textContent()).trim(), "Built-in");
-    assert.equal(await card(page, "weekly-report").locator(".skill-builtin-tag").count(), 0, "installed skills carry no Built-in tag");
-    assert.equal(await sheet.getByRole("button", {name: "Remove"}).count(), 0, "a built-in skill has no Remove");
-    assert.equal(await card(page, "weekly-report").getByRole("button", {name: "Remove"}).count(), 1, "an installed skill keeps Remove");
-    const toggle = sheet.getByRole("switch", {name: "Use spreadsheet"});
-    assert.equal(await toggle.isChecked(), true, "built-in skills are on by default");
-    await toggle.click();
-    await page.waitForFunction(() => document.querySelector('.settings-page-body[data-page="skills"]')?.innerText.includes("Hidden from every Bot"));
-    assert.deepEqual(enabledWrites, ['PUT /api/extensions/skills/spreadsheet/enabled {"enabled":false}']);
-    assert.equal(await sheet.getByRole("switch", {name: "Use spreadsheet"}).isChecked(), false);
-    await page.reload();
-    await sheet.waitFor();
-    assert.equal(await sheet.getByRole("switch", {name: "Use spreadsheet"}).isChecked(), false, "reload keeps the switch off");
-    await sheet.getByRole("switch", {name: "Use spreadsheet"}).click();
-    await page.waitForFunction(() => !document.querySelector('.settings-page-body[data-page="skills"]')?.innerText.includes("Hidden from every Bot"));
-    assert.equal(enabledWrites.at(-1), 'PUT /api/extensions/skills/spreadsheet/enabled {"enabled":true}');
-    assert.equal(await sheet.getByRole("button", {name: "Change"}).count(), 1, "who-can-use access still applies to built-in skills");
-    await close();
-    for (const lang of ["zh-CN", "de"]) {
-      const view = await open({tab: "skills", lang});
-      await card(view.page, "spreadsheet").waitFor();
-      assert.notEqual((await card(view.page, "spreadsheet").locator(".skill-builtin-tag").textContent()).trim(), "Built-in", `${lang}: the Built-in tag is translated`);
-      await view.close();
-    }
-    console.log("PASS built-in skills: tagged, on by default, switch writes and survives reload, no Remove, translated");
+    console.log("PASS skill library: installer and version per row, bundle expands without member Remove, rollback, confirmed Remove, one-click starter, translated");
   }
 
   // ---- 7d. Run health card on the Usage page: counts by status, named failure reasons, tool timeouts; no provider text.
@@ -993,32 +977,6 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await mobile.close();
     }
     console.log(`PASS screenshots: ${count} saved to ${shots}`);
-  }
-
-  // ---- 9. Phase 2 screenshots: Skills page with an "All Bots" card, a "1 of 3 Bots" card and the open sheet.
-  if (process.env.SKILL_ACCESS_SHOTS) {
-    const dir = process.env.SKILL_ACCESS_SHOTS;
-    await mkdir(dir, {recursive: true});
-    let count = 0;
-    for (const theme of ["light", "dark"]) for (const [label, size] of [["desktop", {width: 1440, height: 900}], ["mobile", {width: 390, height: 844}]]) {
-      skillAccess.clear();
-      skillAccess.set("research-assistant", {mode: "selected", bot_ids: ["bot_research"]});
-      const {page, close} = await open({tab: "skills"}, {...size, theme});
-      if (label === "mobile") { await page.locator(".settings-mhome [data-tab=\"skills\"]").click().catch(() => {}); }
-      const cards = page.locator('.settings-page-body[data-page="skills"] .extension-card');
-      await cards.first().waitFor();
-      await page.waitForFunction(() => document.querySelector('.settings-page-body[data-page="skills"]')?.innerText.includes("1 of 3 Bots"));
-      await page.waitForTimeout(900);
-      await page.screenshot({path: join(dir, `skills-${label}-${theme}.png`)}); count++;
-      await cards.filter({hasText: "weekly-report"}).getByRole("button", {name: "Change"}).click();
-      await page.locator(".sheet").waitFor();
-      await page.getByRole("radio", {name: /^Only selected Bots/}).check();
-      await page.getByRole("checkbox", {name: "Inbox Bot"}).check();
-      await page.waitForTimeout(500);
-      await page.screenshot({path: join(dir, `skills-${label}-${theme}-sheet.png`)}); count++;
-      await close();
-    }
-    console.log(`PASS skill access screenshots: ${count} saved to ${dir}`);
   }
 
   // ---- 10. Update notice: banner for admins, Version card, per-version dismissal.

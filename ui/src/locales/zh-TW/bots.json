@@ -150,5 +150,28 @@
       "load": "無法載入密鑰，請重試。",
       "replace": "無法替換該值，請重試。"
     }
+  },
+  "skills": {
+    "title": "技能",
+    "hint": "這個 Bot 可以使用的 Skill。技能庫裡的 Skill 需要在這裡開啟才會生效，Bot 也可以自己為自己開啟。官方 Skill 預設開啟，可個別關閉。",
+    "loading": "正在讀取技能…",
+    "empty": "技能庫裡還沒有 Skill。請在「設定 › Skills」中加入。",
+    "official_title": "官方 Skill",
+    "bundle_label": "套裝 {{name}}",
+    "bundle_count_other": "{{count}} 個 Skill",
+    "on_of": "已開啟 {{on}} / {{total}}",
+    "show_members": "展開 {{name}} 裡的 Skill",
+    "hide_members": "收合 {{name}} 裡的 Skill",
+    "set_by": {
+      "owner_on": "由你開啟 · {{time}}",
+      "owner_off": "由你關閉 · {{time}}",
+      "bot_on": "由此 Bot 開啟 · {{time}}",
+      "bot_off": "由此 Bot 關閉 · {{time}}",
+      "migration": "沿用之前的設定"
+    },
+    "error": {
+      "load": "無法讀取此 Bot 的技能。",
+      "save": "儲存失敗，請重試。"
+    }
   }
 }

@@ -241,8 +241,14 @@
         "mcp_create": "MCP 서버 추가",
         "mcp_update": "MCP 서버 변경",
         "mcp_delete": "MCP 서버 삭제",
-        "mcp_test": "MCP 서버에 연결"
-      }
+        "mcp_test": "MCP 서버에 연결",
+        "skill_publish_version": "Skill 새 버전 게시"
+      },
+      "skill_new_version": "새 버전",
+      "skill_added": "추가되는 파일",
+      "skill_removed": "삭제되는 파일",
+      "skill_changed": "변경되는 파일",
+      "skill_enabled_bots": "따르게 될 Bot 수"
     },
     "standing_decision": "이 Bot의 상시 허용으로 승인되었으며 아무에게도 묻지 않았습니다. 실행 여부는 아래 단계에서 확인할 수 있습니다."
   },

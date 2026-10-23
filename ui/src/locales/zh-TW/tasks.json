@@ -241,8 +241,14 @@
         "mcp_create": "新增 MCP 伺服器",
         "mcp_update": "修改 MCP 伺服器",
         "mcp_delete": "刪除 MCP 伺服器",
-        "mcp_test": "連線 MCP 伺服器"
-      }
+        "mcp_test": "連線 MCP 伺服器",
+        "skill_publish_version": "發布 Skill 新版本"
+      },
+      "skill_new_version": "新版本",
+      "skill_added": "新增檔案",
+      "skill_removed": "刪除檔案",
+      "skill_changed": "修改檔案",
+      "skill_enabled_bots": "會使用它的 Bot 數"
     },
     "standing_decision": "由此 Bot 的常駐許可核准，未詢問任何人。下方步驟會顯示是否已執行。"
   },

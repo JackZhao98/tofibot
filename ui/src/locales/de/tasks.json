@@ -242,8 +242,14 @@
         "mcp_create": "MCP-Server hinzufügen",
         "mcp_update": "MCP-Server ändern",
         "mcp_delete": "MCP-Server löschen",
-        "mcp_test": "Mit MCP-Server verbinden"
-      }
+        "mcp_test": "Mit MCP-Server verbinden",
+        "skill_publish_version": "Neue Skill-Version veröffentlichen"
+      },
+      "skill_new_version": "Neue Version",
+      "skill_added": "Neue Dateien",
+      "skill_removed": "Entfernte Dateien",
+      "skill_changed": "Geänderte Dateien",
+      "skill_enabled_bots": "Bots, die ihr folgen werden"
     },
     "standing_decision": "Durch die Dauerfreigabe dieses Bots genehmigt; niemand wurde gefragt. Der Schritt darunter zeigt, ob er lief."
   },

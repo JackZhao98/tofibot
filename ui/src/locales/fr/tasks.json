@@ -243,8 +243,14 @@
         "mcp_create": "Ajouter un serveur MCP",
         "mcp_update": "Modifier un serveur MCP",
         "mcp_delete": "Supprimer un serveur MCP",
-        "mcp_test": "Se connecter à un serveur MCP"
-      }
+        "mcp_test": "Se connecter à un serveur MCP",
+        "skill_publish_version": "Publier une nouvelle version du Skill"
+      },
+      "skill_new_version": "Nouvelle version",
+      "skill_added": "Fichiers ajoutés",
+      "skill_removed": "Fichiers supprimés",
+      "skill_changed": "Fichiers modifiés",
+      "skill_enabled_bots": "Bots qui la suivront"
     },
     "standing_decision": "Approuvé par l'autorisation permanente de ce Bot ; personne n'a été sollicité. L'étape ci-dessous indique si l'appel a eu lieu."
   },

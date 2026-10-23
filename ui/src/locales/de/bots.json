@@ -152,5 +152,29 @@
       "load": "Die Geheimnisse konnten nicht geladen werden. Versuche es erneut.",
       "replace": "Der Wert konnte nicht ersetzt werden. Versuche es erneut."
     }
+  },
+  "skills": {
+    "title": "Skills",
+    "hint": "Skills, die dieser Bot nutzen kann. Ein Skill aus der Bibliothek ist aus, bis du ihn hier einschaltest; der Bot kann ihn auch selbst einschalten. Offizielle Skills sind an, solange du sie nicht ausschaltest.",
+    "loading": "Skills werden geladen …",
+    "empty": "Die Bibliothek enthält noch keine Skills. Füge sie unter Einstellungen › Skills hinzu.",
+    "official_title": "Offizielle Skills",
+    "bundle_label": "Bundle {{name}}",
+    "bundle_count_one": "{{count}} Skill",
+    "bundle_count_other": "{{count}} Skills",
+    "on_of": "{{on}} von {{total}} an",
+    "show_members": "Skills in {{name}} anzeigen",
+    "hide_members": "Skills in {{name}} ausblenden",
+    "set_by": {
+      "owner_on": "Von dir eingeschaltet · {{time}}",
+      "owner_off": "Von dir ausgeschaltet · {{time}}",
+      "bot_on": "Von diesem Bot eingeschaltet · {{time}}",
+      "bot_off": "Von diesem Bot ausgeschaltet · {{time}}",
+      "migration": "Aus früheren Einstellungen übernommen"
+    },
+    "error": {
+      "load": "Die Skills dieses Bots konnten nicht geladen werden.",
+      "save": "Speichern fehlgeschlagen. Versuche es erneut."
+    }
   }
 }

@@ -150,5 +150,28 @@
       "load": "无法加载密钥，请重试。",
       "replace": "无法替换该值，请重试。"
     }
+  },
+  "skills": {
+    "title": "技能",
+    "hint": "这个 Bot 可以使用的 Skill。技能库里的 Skill 需要在这里打开才会生效，Bot 也可以自己为自己打开。官方 Skill 默认开启，可单独关闭。",
+    "loading": "正在读取技能…",
+    "empty": "技能库里还没有 Skill。请在“设置 › Skills”中添加。",
+    "official_title": "官方 Skill",
+    "bundle_label": "套装 {{name}}",
+    "bundle_count_other": "{{count}} 个 Skill",
+    "on_of": "已开启 {{on}} / {{total}}",
+    "show_members": "展开 {{name}} 里的 Skill",
+    "hide_members": "收起 {{name}} 里的 Skill",
+    "set_by": {
+      "owner_on": "由你开启 · {{time}}",
+      "owner_off": "由你关闭 · {{time}}",
+      "bot_on": "由此 Bot 开启 · {{time}}",
+      "bot_off": "由此 Bot 关闭 · {{time}}",
+      "migration": "沿用之前的设置"
+    },
+    "error": {
+      "load": "无法读取此 Bot 的技能。",
+      "save": "保存失败，请重试。"
+    }
   }
 }

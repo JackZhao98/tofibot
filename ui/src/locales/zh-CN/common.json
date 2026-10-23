@@ -80,6 +80,9 @@
     "oauth_paste_invalid": "这不是本次登录所期望的回调地址。请粘贴地址栏中的完整地址。",
     "oauth_paste_not_needed": "该连接不使用粘贴回填登录。",
     "oauth_issuer_mismatch": "该响应并非来自预期的授权服务器，请重新连接。",
-    "oauth_loopback_required": "该服务只接受 127.0.0.1 回调，请使用粘贴回填登录。"
+    "oauth_loopback_required": "该服务只接受 127.0.0.1 回调，请使用粘贴回填登录。",
+    "skill_exists": "技能库里已有同名的 Skill 或套装。",
+    "skill_in_bundle": "这个 Skill 属于某个套装，请移除整个套装。",
+    "skill_unchanged": "这些文件与当前版本相同。"
   }
 }

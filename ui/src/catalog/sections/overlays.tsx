@@ -5,7 +5,6 @@ import { useState, type ReactNode } from "react";
 import { DeleteConversationDialog, type DeleteTarget } from "../../DeleteConversationDialog";
 import { ReassignPrimaryDialog } from "../../ReassignPrimaryDialog";
 import { AdminSheet, CopyButton, SecretField } from "../../AdminSheets";
-import { SkillAccessSheet } from "../../settings/SkillAccess";
 import { TakeoverDialog } from "../../TakeoverDialog";
 import { Onboarding } from "../../Onboarding";
 import { BotIdentityCard } from "../../BotIdentityCard";
@@ -58,8 +57,6 @@ export const dialogs: CatalogSection = {
       </AdminSheet>}</Reopen> },
     { id: "admin-sheet-locked", kind: "overlay", label: "Admin sheet, locked", note: "work in flight: Escape and outside clicks do nothing", probe: ".admin-sheet",
       render: () => <AdminSheet title="Creating synthetic-user…" locked onClose={noop}><p>Working…</p></AdminSheet> },
-    { id: "skill-access", kind: "overlay", label: "Skill access sheet", probe: ".skill-access-sheet", keyboard: { close: "Escape", reopen: REOPEN },
-      render: () => <Reopen label="Open access">{close => <SkillAccessSheet skill="invoice-helper" title="invoice-helper" access={{ mode: "selected", bot_ids: ["bot_mochi"] }} bots={BOTS} onClose={close} onSaved={close} />}</Reopen> },
     { id: "takeover", kind: "overlay", label: "Take over the screen", note: "no Escape: keys go to the remote computer", probe: ".handover-dialog",
       render: () => <TakeoverDialog botId="bot_mochi" questionId="q_takeover" site="https://login.example.test" prompt="Enter the verification code for the synthetic account." busy={false} error="" onResult={noop} onClose={noop} /> },
     { id: "takeover-error", kind: "overlay", label: "Take over the screen, failed", probe: ".handover-dialog",
