@@ -74,6 +74,12 @@
     "api_disabled": "Google indique que l’API n’est pas activée. Activez l’API du produit et son service MCP dans le même projet que le client OAuth, puis actualisez les outils.",
     "access_denied": "Google a refusé l’accès. Si l’application est en mode test, vérifiez que ce compte est un utilisateur test ; une restriction de compte ou d’organisation est aussi possible.",
     "permission_denied": "Google a refusé de lister les outils. Vérifiez que le projet Cloud a rejoint le Google Workspace Developer Preview Program, que le client OAuth a la case « Use this client for an AI-powered agent » cochée (dès le 2026-11-11, le MCP Workspace rejette les clients non marqués ; le réglage est figé après le 12/11, un nouveau client est alors nécessaire), ainsi que l’activation de l’API et du MCP et les autorisations du compte. Un 401 ou 403 seul ne dit pas lequel.",
-    "context_snapshot_unavailable": "Aucun contexte n’a été enregistré pour cette réponse."
+    "context_snapshot_unavailable": "Aucun contexte n’a été enregistré pour cette réponse.",
+    "oauth_denied": "L’autorisation n’a pas été accordée.",
+    "oauth_loopback_only": "Cette connexion ne se fait que par une redirection vers 127.0.0.1 : sur l’ordinateur partagé ou par collage de l’adresse.",
+    "oauth_paste_invalid": "Ce n’est pas la redirection attendue par cette connexion. Collez l’adresse complète de la barre d’adresse.",
+    "oauth_paste_not_needed": "Cette connexion n’utilise pas la connexion par collage.",
+    "oauth_issuer_mismatch": "Cette réponse ne provient pas du serveur d’autorisation attendu. Reconnectez-vous.",
+    "oauth_loopback_required": "Ce service n’accepte qu’une redirection vers 127.0.0.1. Connectez-vous par collage de l’adresse."
   }
 }

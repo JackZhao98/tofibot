@@ -302,19 +302,32 @@
   },
   "oauth": {
     "help_body": "授权方式自动跟随入口，适用于 Google、Notion 和其他 OAuth 服务。手动配置的客户端需在服务后台登记下方完整回调地址；Notion 等支持自动注册的服务由 Tofi 处理。",
-    "help_title": "登录方式与限制",
-    "waiting": "等待 {{title}} 授权"
+    "help_title": "登录方式与限制"
   },
   "origin": {
     "community": "社区维护",
     "preset": "连接预设",
     "vendor": "提供方维护"
   },
+  "paste": {
+    "error": {
+      "generic": "该地址无法通过验证。请检查后重新粘贴，或重新开始。"
+    },
+    "label": "跳转后的地址",
+    "lead": "{{title}} 只会跳转到 127.0.0.1。在其登录页批准访问后，把最终跳转的地址粘贴进来。",
+    "open": "打开 {{title}} 登录页",
+    "starting": "正在准备登录…",
+    "step_copy": "批准后浏览器会显示一个打不开的页面，这是预期行为。请从地址栏复制完整地址。",
+    "submit": "完成登录",
+    "submitting": "验证中…",
+    "title": "登录 {{title}}"
+  },
   "route": {
     "desktop": "在系统浏览器登录，完成后自动返回此客户端。不使用共享电脑。",
     "desktop_outdated": "此客户端版本尚不支持本地授权，请升级客户端。不会自动改用共享电脑。",
     "http_blocked": "HTTP 直连无法安全回调，且未配置共享电脑。请改用 HTTPS 或 Tofi 客户端。",
     "loading": "正在读取授权配置…",
+    "loopback_paste": "该服务只接受 127.0.0.1 回调。请在自己的浏览器中登录，再把跳转后的地址粘贴回这里。",
     "public_origin_missing": "请为服务器配置正确的 TOFI_PUBLIC_ORIGIN（公开 HTTPS 地址）后重试。",
     "vm": "当前通过 HTTP 直连，仅此入口使用共享电脑授权。服务需支持本地回调；推荐改用 HTTPS 或 Tofi 客户端。",
     "web": "在当前设备的浏览器登录，回调 Tofi 的 HTTPS 服务器。不使用共享电脑。"

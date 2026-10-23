@@ -74,6 +74,12 @@
     "api_disabled": "Google이 API가 사용 설정되지 않았다고 응답했습니다. OAuth 클라이언트와 같은 프로젝트에서 제품 API와 MCP 서비스를 사용 설정한 뒤 도구를 새로 고치세요.",
     "access_denied": "Google이 접근을 거부했습니다. 앱이 테스트 모드라면 이 계정이 테스트 사용자인지 확인하세요. 계정 또는 조직 제한일 수도 있습니다.",
     "permission_denied": "Google이 도구 읽기를 거부했습니다. Cloud 프로젝트가 Google Workspace Developer Preview Program에 가입했는지, OAuth 클라이언트에서 \"Use this client for an AI-powered agent\"가 선택되어 있는지(2026-11-11부터 Workspace MCP는 표시되지 않은 클라이언트를 거부하며, 이 설정은 11-12 이후 고정되므로 새 클라이언트가 필요합니다), API와 MCP 사용 설정 및 계정 권한을 확인하세요. 401 / 403만으로는 원인을 알 수 없습니다.",
-    "context_snapshot_unavailable": "이 답장에는 컨텍스트 기록이 없습니다."
+    "context_snapshot_unavailable": "이 답장에는 컨텍스트 기록이 없습니다.",
+    "oauth_denied": "권한이 승인되지 않았습니다.",
+    "oauth_loopback_only": "이 연결은 127.0.0.1 리디렉션으로만 로그인할 수 있습니다. 공유 컴퓨터 또는 붙여넣기 방식을 사용하세요.",
+    "oauth_paste_invalid": "이 로그인이 기대하는 리디렉션 주소가 아닙니다. 주소 표시줄의 전체 주소를 붙여 넣으세요.",
+    "oauth_paste_not_needed": "이 연결은 붙여넣기 로그인을 사용하지 않습니다.",
+    "oauth_issuer_mismatch": "해당 응답은 예상한 인증 서버에서 온 것이 아닙니다. 다시 연결하세요.",
+    "oauth_loopback_required": "이 서비스는 127.0.0.1 리디렉션만 허용합니다. 붙여넣기 로그인을 사용하세요."
   }
 }

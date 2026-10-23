@@ -22,6 +22,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
+	"github.com/modelcontextprotocol/go-sdk/oauthex"
 	"golang.org/x/oauth2"
 )
 
@@ -49,6 +50,7 @@ type OAuthView struct {
 	Scopes                []string `json:"scopes,omitempty"`
 	AuthServerMetadataURL string   `json:"auth_server_metadata_url,omitempty"`
 	Connected             bool     `json:"connected"`
+	RedirectPolicy        string   `json:"redirect_policy,omitempty"`
 }
 type SkillView struct {
 	Name        string `json:"name"`
@@ -113,7 +115,7 @@ func (m *Manager) ListMCP() ([]MCPServerView, error) {
 		c := cfg[n]
 		var oauth *OAuthView
 		if c.OAuth != nil {
-			oauth = &OAuthView{ClientID: c.OAuth.ClientID, Scopes: append([]string(nil), c.OAuth.Scopes...), AuthServerMetadataURL: c.OAuth.AuthServerMetadataURL}
+			oauth = &OAuthView{ClientID: c.OAuth.ClientID, Scopes: append([]string(nil), c.OAuth.Scopes...), AuthServerMetadataURL: c.OAuth.AuthServerMetadataURL, RedirectPolicy: c.OAuth.RedirectPolicy}
 			if c.OAuth.ClientSecret != "" {
 				oauth.ClientSecret = maskedSecret
 			}
@@ -205,6 +207,14 @@ func (m *Manager) SaveMCP(name string, c MCPServerConfig, updating bool) error {
 		} else {
 			c.OAuth.ClientSecret = ""
 		}
+	}
+	if c.OAuth != nil && c.OAuth.RedirectPolicy != "" && c.OAuth.RedirectPolicy != RedirectPolicyLoopback {
+		return errors.New("unsupported OAuth redirect policy")
+	}
+	// A loopback-only restriction is not dropped by a client that omits it
+	// while the server keeps dialling the same address.
+	if c.OAuth != nil && c.OAuth.RedirectPolicy == "" && exists && old.OAuth != nil && old.URL == c.URL {
+		c.OAuth.RedirectPolicy = old.OAuth.RedirectPolicy
 	}
 	if c.OAuth != nil && old.OAuth != nil {
 		// Management clients do not know the internal provenance field. Preserve
@@ -531,7 +541,41 @@ type OAuthConfig struct {
 	// through DCR. It lets a later loopback callback change trigger a new
 	// registration without treating a user-supplied client as replaceable.
 	DynamicClientRedirectURI string `json:"dynamic_client_redirect_uri,omitempty"`
+	// RedirectPolicy is a property of the connection, set from the curated
+	// catalog: "loopback" means the provider accepts only http://127.0.0.1
+	// redirect URIs (as native and CLI clients use). Such a connection never
+	// registers or uses any other redirect (OAuthStart enforces it). Empty
+	// means no restriction.
+	RedirectPolicy string `json:"redirect_policy,omitempty"`
 }
+
+// RedirectPolicyLoopback is the only non-empty OAuthConfig.RedirectPolicy.
+const RedirectPolicyLoopback = "loopback"
+
+// ErrOAuthLoopbackRequired is returned by OAuthStart when the provider's
+// dynamic client registration refused a public redirect by its error code
+// (invalid_redirect_uri). The connection has then been marked loopback-only and the
+// caller starts the loopback (paste-back) sign-in instead.
+var ErrOAuthLoopbackRequired = errors.New("the provider accepts only a 127.0.0.1 redirect; the connection is now loopback-only")
+
+// ErrOAuthIssuerMismatch: the authorization response's `iss` is missing or is not the server's issuer (RFC 9207).
+var ErrOAuthIssuerMismatch = errors.New("OAuth issuer check failed")
+
+// ErrOAuthLoopbackOnly is returned when a redirect other than http://127.0.0.1
+// is requested for a connection whose provider accepts loopback only.
+var ErrOAuthLoopbackOnly = errors.New("this connection accepts only a 127.0.0.1 redirect")
+
+// ValidateLoopbackRedirect accepts only http://127.0.0.1[:port]/path with no
+// credentials, query or fragment. "localhost" and other loopback spellings are
+// refused: the provider matches the literal address.
+func ValidateLoopbackRedirect(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "http" || u.Hostname() != "127.0.0.1" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path == "" {
+		return ErrOAuthLoopbackOnly
+	}
+	return nil
+}
+
 type FileTokenStore struct {
 	Path      string
 	target    string
@@ -736,6 +780,12 @@ func OAuthPublicError(err error) string {
 	if err == nil {
 		return ""
 	}
+	if errors.Is(err, ErrOAuthLoopbackRequired) {
+		return "This service accepts only a 127.0.0.1 redirect. Sign in with the paste-back step."
+	}
+	if errors.Is(err, ErrOAuthLoopbackOnly) {
+		return "This connection signs in only through a 127.0.0.1 redirect. Use the shared computer or the paste-back step."
+	}
 	msg := strings.ToLower(err.Error())
 	switch {
 	case strings.Contains(msg, "deadline exceeded"), strings.Contains(msg, "timeout"):
@@ -767,6 +817,10 @@ type OAuthFlow struct {
 	RegisteredClient bool
 	ClientID         string
 	ClientSecret     string
+	// Issuer is what the `iss` parameter of an authorization response must equal
+	// when the server advertises RFC 9207 support (RequireIssuer).
+	Issuer        string
+	RequireIssuer bool
 }
 
 func StartOAuth(ctx context.Context, cfg OAuthFlowConfig, endpoint ...string) (*OAuthFlow, error) {
@@ -774,6 +828,11 @@ func StartOAuth(ctx context.Context, cfg OAuthFlowConfig, endpoint ...string) (*
 	defer cancel()
 	if err := ValidateRedirectURI(cfg.RedirectURI); err != nil {
 		return nil, err
+	}
+	if cfg.LoopbackOnly {
+		if err := ValidateLoopbackRedirect(cfg.RedirectURI); err != nil {
+			return nil, err
+		}
 	}
 	// Resolve authorization metadata before starting the flow so providers
 	// publishing it at the origin
@@ -818,7 +877,8 @@ func StartOAuth(ctx context.Context, cfg OAuthFlowConfig, endpoint ...string) (*
 	}
 	ver := oauth2.GenerateVerifier()
 	h.SetExpectedState(state)
-	return &OAuthFlow{Handler: h, State: state, Verifier: ver, Metadata: *md, AuthServerMetadataURL: cfg.AuthServerMetadataURL, RegisteredClient: registered, ClientID: h.GetClientID(), ClientSecret: h.GetClientSecret()}, nil
+	issuer, requireIssuer := h.IssuerCheck()
+	return &OAuthFlow{Handler: h, State: state, Verifier: ver, Metadata: *md, AuthServerMetadataURL: cfg.AuthServerMetadataURL, RegisteredClient: registered, ClientID: h.GetClientID(), ClientSecret: h.GetClientSecret(), Issuer: issuer, RequireIssuer: requireIssuer}, nil
 }
 func (f *OAuthFlow) AuthorizationURL(ctx context.Context) (string, error) {
 	if f == nil || f.Handler == nil {
@@ -873,6 +933,42 @@ type dynamicOAuthClient struct {
 	ID, Secret, RedirectURI, MetadataURL string
 }
 
+// markLoopbackOnly records OAuthConfig.RedirectPolicy = loopback for a connection,
+// provided its destination is still the one the failed attempt saw.
+func (m *Manager) markLoopbackOnly(name string, seen MCPServerConfig) error {
+	m.mcpConfigFence.Lock()
+	defer m.mcpConfigFence.Unlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	cfgs, err := loadServers(m.cfg.MCPConfigPath)
+	if err != nil {
+		return err
+	}
+	c, ok := cfgs[name]
+	if !ok || c.OAuth == nil || c.URL != seen.URL {
+		return errCredentialInvalidated
+	}
+	if c.OAuth.RedirectPolicy == RedirectPolicyLoopback {
+		return nil
+	}
+	c.OAuth.RedirectPolicy = RedirectPolicyLoopback
+	cfgs[name] = c
+	return m.writeServers(cfgs)
+}
+
+// OAuthLoopbackOnly reports whether the named connection accepts only a
+// 127.0.0.1 redirect (OAuthConfig.RedirectPolicy). Unknown names are false.
+func (m *Manager) OAuthLoopbackOnly(name string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	cfgs, err := loadServers(m.cfg.MCPConfigPath)
+	if err != nil {
+		return false
+	}
+	c, ok := cfgs[name]
+	return ok && c.OAuth != nil && c.OAuth.RedirectPolicy == RedirectPolicyLoopback
+}
+
 func (m *Manager) OAuthStart(ctx context.Context, name, redirect string) (string, string, error) {
 	if !validExtensionName(name) {
 		return "", "", errors.New("invalid MCP server name")
@@ -890,6 +986,12 @@ func (m *Manager) OAuthStart(ctx context.Context, name, redirect string) (string
 	}
 	if e = ValidateRedirectURI(redirect); e != nil {
 		return "", "", e
+	}
+	loopbackOnly := c.OAuth.RedirectPolicy == RedirectPolicyLoopback
+	if loopbackOnly {
+		if e = ValidateLoopbackRedirect(redirect); e != nil {
+			return "", "", e
+		}
 	}
 	store := m.tokenStore(name, c)
 	if !store.active.Load() {
@@ -909,8 +1011,17 @@ func (m *Manager) OAuthStart(ctx context.Context, name, redirect string) (string
 		// continues serving the previous refresh token until commit succeeds.
 		exchangeStore = NewMemoryTokenStore()
 	}
-	f, e := StartOAuth(ctx, OAuthFlowConfig{ClientID: clientID, ClientSecret: clientSecret, RedirectURI: redirect, Scopes: c.OAuth.Scopes, AuthServerMetadataURL: c.OAuth.AuthServerMetadataURL, TokenStore: exchangeStore, PKCEEnabled: true}, c.URL)
+	f, e := StartOAuth(ctx, OAuthFlowConfig{ClientID: clientID, ClientSecret: clientSecret, RedirectURI: redirect, Scopes: c.OAuth.Scopes, AuthServerMetadataURL: c.OAuth.AuthServerMetadataURL, TokenStore: exchangeStore, PKCEEnabled: true, LoopbackOnly: loopbackOnly}, c.URL)
 	if e != nil {
+		// A provider that refuses a public redirect says so with a registration error code (never judged by wording).
+		// Remember that for this connection; the caller then signs in through the loopback route.
+		var registrationErr *oauthex.ClientRegistrationError
+		if !loopbackOnly && clientID == "" && errors.As(e, &registrationErr) && registrationErr.ErrorCode == "invalid_redirect_uri" && ValidateLoopbackRedirect(redirect) != nil {
+			if markErr := m.markLoopbackOnly(name, c); markErr != nil {
+				return "", "", markErr
+			}
+			return "", "", ErrOAuthLoopbackRequired
+		}
 		return "", "", e
 	}
 	sid, e := generateOAuthState()

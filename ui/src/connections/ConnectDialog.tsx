@@ -4,7 +4,8 @@ import { ModalDialog } from "../overlays/ModalDialog";
 import { TofiIcon } from "../icons";
 import { ServiceMark } from "../ServiceMark";
 import type { IntegrationPreset } from "../integrationCatalog";
-import type { OAuthOptions, OAuthRoute } from "../mcpOAuthRoute";
+import { mcpOAuthRoute, type OAuthOptions, type OAuthRoute } from "../mcpOAuthRoute";
+import { isDesktop } from "../desktop";
 import { useTranslation } from "../i18n";
 import type { LocalState } from "./localPlugins";
 import { GogSetup } from "./GogSetup";
@@ -47,6 +48,9 @@ export function ConnectDialog({ request, servers, local, google, options, route,
   const mark = view.view === "preset" ? view.preset.name : view.view === "edit" ? view.preset?.name ?? view.server.name : view.view === "gog" ? "Gmail" : "";
   const editing = view.view === "edit" ? view.server : null;
   const back = () => setView({ view: "directory" });
+  // The route this form's connection will take: a loopback-only provider (catalog property or saved setting) never gets the https popup.
+  const loopbackOnly = (view.view === "edit" ? view.server.oauth?.redirect_policy : view.view === "preset" ? view.preset.oauthRedirect : undefined) === "loopback";
+  const formRoute = loopbackOnly ? mcpOAuthRoute(window.location.protocol, isDesktop, Boolean(window.tofiDesktop?.authorizeMCP), options, true) : route;
   async function save(value: MCP) {
     setSaving(true);
     try { await onSave(value, Boolean(editing)); } finally { setSaving(false); }
@@ -62,7 +66,7 @@ export function ConnectDialog({ request, servers, local, google, options, route,
       {view.view === "directory" && <IntegrationBrowser query={query} servers={servers} onQueryChange={setQuery}
         localConnectors={local.available ? [{ id: "local-gog", added: servers.some(server => server.name === "local_gog") }] : []}
         onSelect={preset => setView({ view: "preset", preset })} onLocal={() => setView({ view: "gog" })} onCustom={() => setView({ view: "custom" })} onPackage={local.available ? () => setView({ view: "package" }) : undefined} />}
-      {(view.view === "preset" || view.view === "custom" || view.view === "edit") && <RemoteForm google={google} key={editing?.name ?? (view.view === "preset" ? view.preset.id : "custom")} initial={editing} preset={view.view === "preset" || view.view === "edit" ? view.preset : undefined} options={options} route={route} busy={saving} onSave={save} onCancel={fromDirectory && view.view !== "edit" ? back : onClose} />}
+      {(view.view === "preset" || view.view === "custom" || view.view === "edit") && <RemoteForm google={google} key={editing?.name ?? (view.view === "preset" ? view.preset.id : "custom")} initial={editing} preset={view.view === "preset" || view.view === "edit" ? view.preset : undefined} options={options} route={formRoute} busy={saving} onSave={save} onCancel={fromDirectory && view.view !== "edit" ? back : onClose} />}
       {view.view === "gog" && <GogSetup local={local} google={google} callbackOrigin={options?.web_callback_origin} onChanged={onLocalChanged} onDone={onClose} onCancel={fromDirectory ? back : onClose} />}
       {view.view === "package" && <PackageForm onInstalled={async () => { await onLocalChanged(); onClose(); }} onCancel={fromDirectory ? back : onClose} />}
     </div>

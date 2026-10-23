@@ -4,6 +4,7 @@ import { BotAvatar } from "./BotAvatar";
 import { isDesktop } from "./desktop";
 import { useTranslation } from "./i18n";
 import { MessageMarkdown } from "./MessageMarkdown";
+import { PasteBackDialog } from "./connections/PasteBackDialog";
 import { mcpOAuthRoute, type OAuthOptions } from "./mcpOAuthRoute";
 import { reconcileQuestion, type Question } from "./questionTimeline";
 import { canAnswerQuestion } from "./taskIssuePresentation";
@@ -100,6 +101,8 @@ function useConnect(name: string, botId: string, onConnected: () => void, onBloc
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState("");
   const [vm, setVM] = useState<VMOAuthSession | null>(null);
+  const [paste, setPaste] = useState(false);
+  const [pastePopup, setPastePopup] = useState<Window | null>(null);
   const popup = useRef<Window | null>(null);
   const alive = useRef(true);
   const operation = useRef(0);
@@ -127,16 +130,20 @@ function useConnect(name: string, botId: string, onConnected: () => void, onBloc
   }, [isConnected]);
   // Web popup: the provider returns to Tofi; the server flips the connection, so watch it.
   useEffect(() => {
-    if (phase !== "waiting" || vm || isDesktop) return;
+    if (phase !== "waiting" || vm || paste || isDesktop) return;
     const timer = window.setInterval(() => { void isConnected().then(yes => { if (yes && alive.current) { popup.current = null; setPhase("idle"); connected.current(); } }); }, 2000);
     const timeout = window.setTimeout(() => { setPhase("idle"); setError(t("handover.connection.error.timeout")); }, 10 * 60 * 1000);
     return () => { window.clearInterval(timer); window.clearTimeout(timeout); };
-  }, [phase, vm, isConnected, t]);
+  }, [phase, vm, paste, isConnected, t]);
   const post = (body: unknown) => ({ method: "POST", body: JSON.stringify(body) });
   const start = async () => {
     const id = ++operation.current;
     setError(""); setPhase("starting");
-    const route = mcpOAuthRoute(window.location.protocol, isDesktop, Boolean(window.tofiDesktop?.authorizeMCP), options);
+    // A provider that accepts only a 127.0.0.1 redirect never takes the https popup (decision 0055); unreadable means the popup is tried and refused by the server.
+    let loopbackOnly = false;
+    try { const list = await request<{ servers: { name: string; oauth?: { redirect_policy?: string } }[] }>("/api/extensions/mcp"); loopbackOnly = list.servers?.find(server => server.name === name)?.oauth?.redirect_policy === "loopback"; } catch { /* the server refuses a public redirect for such a connection anyway */ }
+    if (!alive.current || id !== operation.current) return;
+    const route = mcpOAuthRoute(window.location.protocol, isDesktop, Boolean(window.tofiDesktop?.authorizeMCP), options, loopbackOnly);
     if (route.mode === "blocked") { setPhase("idle"); blocked.current(route.note); return; }
     if (route.mode === "desktop") {
       setPhase("waiting");
@@ -152,6 +159,7 @@ function useConnect(name: string, botId: string, onConnected: () => void, onBloc
       } catch { if (alive.current && id === operation.current) { setPhase("idle"); setError(t("handover.connection.error.start")); } }
       return;
     }
+    if (route.mode === "paste") { setPastePopup(null); setPaste(true); setPhase("waiting"); return; }
     // Opened inside the click: many browsers block a window opened after an await.
     let opened: Window | null = null;
     try {
@@ -161,14 +169,23 @@ function useConnect(name: string, botId: string, onConnected: () => void, onBloc
       const url = new URL(result.authorization_url);
       if (!["https:", "http:"].includes(url.protocol)) throw new Error("scheme");
       setPhase("waiting"); if (opened && !opened.closed) opened.location.replace(url.href);
-    } catch { opened?.close(); if (alive.current && id === operation.current) { setPhase("idle"); setError(t("handover.connection.error.start")); } }
+    } catch (cause) {
+      // The provider refused the public callback at registration; the server remembered it, so sign in by paste-back.
+      if (cause instanceof ApiError && cause.code === "oauth_loopback_required" && alive.current && id === operation.current) { setPastePopup(opened); setPaste(true); setPhase("waiting"); return; }
+      opened?.close(); if (alive.current && id === operation.current) { setPhase("idle"); setError(t("handover.connection.error.start")); }
+    }
   };
   const finishVM = (status: string) => {
     setVM(null); setPhase("idle");
     if (status === "complete") connected.current();
     else if (status !== "cancelled") setError(t("handover.connection.error.incomplete"));
   };
-  return { phase, error, vm, start, finishVM, ready: options !== null, setError };
+  const finishPaste = (status: string, detail?: string) => {
+    setPaste(false); setPastePopup(null); setPhase("idle");
+    if (status === "complete") connected.current();
+    else if (status !== "cancelled") setError(detail || t("handover.connection.error.incomplete"));
+  };
+  return { phase, error, vm, paste, pastePopup, start, finishVM, finishPaste, ready: options !== null, setError };
 }
 
 export function ConnectionCard({ item, bot, group, archived, onChanged }: CardProps) {
@@ -188,6 +205,7 @@ export function ConnectionCard({ item, bot, group, archived, onChanged }: CardPr
         <button className="text-button" type="button" disabled={busy || waiting} onClick={() => void send("declined")}>{t("handover.connection.decline")}</button>
         <button className="primary-button" type="button" disabled={busy || waiting || !connect.ready} onClick={() => void connect.start()}>{waiting ? t("handover.connection.waiting") : connect.error || sendError ? t("handover.connection.retry") : t("handover.connection.connect")}</button>
       </div>
+      {connect.paste && <PasteBackDialog serverName={service} title={service} popup={connect.pastePopup} onFinish={connect.finishPaste} />}
       {connect.vm && <VMOAuthDialog session={connect.vm} serverName={service} title={service} onFinish={status => connect.finishVM(status)} />}
     </> : archived && current.status === "pending" ? <p className="field-note">{t("question.note.archived")}</p> : <div className="question-result" role="status"><span>{answered ?? ended}</span></div>}
     {(connect.error || sendError) && <p className="error-text" role="alert">{connect.error || sendError}</p>}

@@ -74,6 +74,12 @@
     "api_disabled": "Google 返回 API 未启用。请在 OAuth 客户端所属的同一个项目中启用产品 API 和 MCP 服务，再刷新工具。",
     "access_denied": "Google 拒绝了访问。若应用处于测试模式，请检查当前账号是否在测试用户中；也可能是账号或组织限制。",
     "permission_denied": "Google 拒绝读取工具。请确认 Cloud 项目已加入 Google Workspace Developer Preview Program，OAuth 客户端已勾选“Use this client for an AI-powered agent”（2026-11-11 起 Workspace MCP 拒绝未标记的客户端；该设置在 11-12 后固定，需新建客户端），并检查 API / MCP 启用状态和账号权限。401 / 403 本身不能确定是哪一项。",
-    "context_snapshot_unavailable": "这条回复没有上下文记录。"
+    "context_snapshot_unavailable": "这条回复没有上下文记录。",
+    "oauth_denied": "授权未获批准。",
+    "oauth_loopback_only": "该连接只能通过 127.0.0.1 回调登录：使用共享电脑，或粘贴回填。",
+    "oauth_paste_invalid": "这不是本次登录所期望的回调地址。请粘贴地址栏中的完整地址。",
+    "oauth_paste_not_needed": "该连接不使用粘贴回填登录。",
+    "oauth_issuer_mismatch": "该响应并非来自预期的授权服务器，请重新连接。",
+    "oauth_loopback_required": "该服务只接受 127.0.0.1 回调，请使用粘贴回填登录。"
   }
 }

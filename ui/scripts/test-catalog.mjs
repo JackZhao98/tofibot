@@ -199,6 +199,25 @@ try {
   if (await zh.evaluate(() => document.documentElement.lang) !== "zh-CN") fail("a frame with lng=zh-CN did not switch the product language"); else pass("frames render in the chosen language");
   await zh.close();
 
+  // The pending connection row has no illustration; its one cue is a breathing ring on the primary button (opacity and scale only), still under reduced motion.
+  if (!only || only.includes("settings")) for (const reduced of [false, true]) {
+    const waiting = await context.newPage();
+    await waiting.emulateMedia({ reducedMotion: reduced ? "reduce" : "no-preference" });
+    await waiting.goto(`${origin}/catalog.html?frame=settings&theme=light&lng=en&state=connection-waiting-loopback`);
+    await waiting.waitForFunction(() => document.documentElement.dataset.catalogReady === "1", null, { timeout: 30000 });
+    const cue = await waiting.evaluate(() => {
+      const button = document.querySelector('.mcp-service[data-kind="waiting"] [data-pending]');
+      const after = button ? getComputedStyle(button, "::after") : null;
+      return { found: Boolean(button), animation: after?.animationName ?? "", illustration: document.querySelectorAll(".web-oauth-link, .web-oauth-node, .web-oauth-provider").length, note: document.querySelector(".mcp-login-note")?.textContent ?? "" };
+    });
+    if (!cue.found) fail("pending row: the primary button carries no data-pending cue");
+    else if (cue.illustration) fail("pending row: the authorization illustration is back");
+    else if (reduced ? cue.animation !== "none" : cue.animation !== "mcp-pending-breathe") fail(`pending row: ring animation is "${cue.animation}" with reduced motion ${reduced ? "on" : "off"}`);
+    else if (!/127\.0\.0\.1/.test(cue.note)) fail("pending row: the route line does not say the redirect is 127.0.0.1");
+    else pass(`pending row: no illustration, ${reduced ? "static ring under reduced motion" : "breathing ring on the primary button"}, one route line`);
+    await waiting.close();
+  }
+
   if (networkApi.length) fail(`${networkApi.length} /api requests reached the network (the dev server would proxy them to a real TOFI): ${[...new Set(networkApi)].slice(0, 12).join(", ")}`);
   else pass("no /api request reached the network");
   const stored = (await context.storageState()).origins.flatMap(item => item.localStorage.map(entry => `${item.origin} ${entry.name}`));
