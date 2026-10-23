@@ -37,6 +37,7 @@ TOFI 每个版本改了什么，最新的在最上面。写给以后接手的人
 
 - **安静完成不再被回答闸卡死（D43 + D52）。** 线上 rc.35 的定时库存检查：带 `quiet` 的记录被评分员当成“发给人的消息”，按“没补货就别发消息”判不合格，Bot 于是改写成零宽字符、再改成 NUL，轮数用完后 NUL 无评分入库，结论成了空字符。现在：`say` 对空白、零宽/格式字符（Cf）和控制字符（Cc，含 NUL）组成的文字一律拒绝，稳定码 `say_text_empty`（验证类，下一步 `repair_arguments`，计入修复次数），对 answer、message、note 都适用，存入文字时去掉 NUL；评分员的输入新增“投递方式”（posted 或 quiet），安静记录按“私下的完成记录”评分，只看是否写明查了什么、结果对照任务自己的条件如何；到了轮数上限，只有有可见文字的草稿才会发出，草稿都不可见则运行以 `say_text_empty` 失败。
 - **MCP 发现不再死在写错的服务器名上。** 线上：Bot 搜 `google-gmail` 得到“MCP server not found”，就对人说没接邮件 MCP，实际接的是 `local_gog`。现在：`search_mcp_tools` 的 `server` 先按名字、忽略大小写和分隔符的显示标签、再按唯一命中的服务词（名字、标签、已存工具名）解析，结果里带 `server_requested` 与 `server_searched`；解析不了就返回 `mcp_server_unknown`（验证类，下一步 `repair_arguments`），把已连接的服务器（名字、标签、一行用途，最多 20 个、3000 字节，标明是数据）列出来；`call_mcp_tool` 的 `mcp_<服务器>__<工具>` 写了不存在的服务器同样处理。发现策略加一句：说某能力或连接不可用之前，先不指定服务器搜一遍已连接的工具。
+- **修复：模型把 `say` 的参数写成纯文字，聊天里出现原始 JSON。** 10-22 rc.36 私聊里 `codex-gpt-5.6-terra` 没调用 `say`，把 `{"purpose":"answer","text":…}` 当最终文字写出，隐式回答规则把它原样发了出去。Responses 解析器没有丢调用（只声明 function 工具，`function_call` 项都映射，`output_text` 从不转成调用），原因在模型一侧。现在结构化模式下，最终文字若恰好是一个能通过 `say` 自己输入 schema 的 JSON 对象（或只含它的围栏代码块），就按那次 `say` 调用执行，D43/D45/D50 审查、sources 与 quiet 规则照常；`final_origin` 记为 `say_text_recovered`。长得像 `say` 参数但通不过 schema 的，走一次现有的最终回答修复，要求模型真正调用 `say`；修复用尽也绝不发布原始 JSON（详见 D04 补记）。
 
 ---
 

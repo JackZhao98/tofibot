@@ -49,6 +49,10 @@ owner（jackzhao）。方案第 10 节记录：D1(a)、D2(a)、D3(a)、D6(a) 由
 - 关掉开关时，旧的 H1-H7 路径照旧，相关测试仍通过（方案第 12 节开头）。
 - 后续决定建立在这上面：[0005](0005-every-mentioned-bot-answers.md)、[0006](0006-closed-group-exchange-gist.md)、[0008](0008-internal-text-never-in-chat.md) 都只在开关打开时生效。
 
+## 补记（2026-10-22）：`say` 参数被写成纯文字
+
+rc.36 上 `codex-gpt-5.6-terra` 把 `say` 的参数 JSON 当最终文字写出，规则 2 把它原样发进聊天。补充规则：结构化模式下，最终文字（去首尾空白后）恰好是一个含 `purpose` 与 `text` 的 JSON 对象，或只含该对象的围栏代码块时，只按 `say` 自己的输入 schema 判定（不看措辞）：通过则当作那次 `say` 调用执行（`internal/app/say_text.go`，走同一个工具，审查、sources、quiet 规则全部照旧），`runs.final_origin` 记 `say_text_recovered`；通不过则走现有的一次最终回答修复（`finalResponseRepaired`），不新增机制；修复用尽时，有效的 answer 发布其内文，其余一律不发布。夹在别的文字里的 JSON、不是该形状的 JSON 保持原样，仍按规则 2 当隐式回答。
+
 ## 相关代码与文档
 
 | 类别 | 位置 |
