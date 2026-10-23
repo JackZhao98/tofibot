@@ -218,6 +218,23 @@ TOFI_EVAL_KEY_FILE=<密钥文件路径> TOFI_EVAL_ANTHROPIC_WORKSPACE=<workspace
 
 `eval/results/` 不进仓库，所以每次评测后把结论抄进 `docs/product/status.md`：日期、被测版本（tag 或 commit）、模型、任务数、完成数、评分模型、结果目录名。现有数字（rc.17、rc.21、rc.26 各模型完成数）在协调者的上下文清单里，已交给 `status.md`。
 
+### 5.4 断点扫描 `scripts/deadend-scan/`
+
+owner 2026-10-22：不追质量分，要保证流程和能力上没有断点（预览图只给路径、猜的 MCP 名字撞墙没有候选、`say` 参数被当正文发布、答案闸把安静收尾变成空文本）。这个脚本读运行记录，按结构化字段（结果码、状态、工具名、参数形状）找这类断点，不靠模型答案的措辞；只有"没有结果码、只剩错误文字"的情况才看文字，并标 `legacy-uncoded`（它就是该补结果码的候选）。只读：评测目录读文件，线上只发 GET。
+
+什么时候跑：
+
+- **每个 rc 之前**：对最近一轮评测目录跑一遍（`--eval ../tofibot-taskeval/eval/results/<名字>`），再对线上做一次抽样（协调者做：`--remote https://主机:端口 --cookie-file <jar> --insecure --since <上次发版时间> --exclude-title-prefix 评测`）。
+- 带 `--baseline` 时，硬检测（1 死胡同拒绝、4 格式泄漏、6 安静/空的定时收尾）出现基线里没有的 `检测|工具|结果码` 就返回退出码 1，可以以后接进发版闸；已确认可接受的断点用 `--write-baseline` 写进基线。
+
+怎么读报告：
+
+- 先看汇总表，硬检测（hard）非零先处理；软检测（2 相同参数重试、3 视觉声明无查看调用、5 产出图片/文档却没看过图、7 审核循环后变短、8 运行错误）是线索，要点开证据判断。
+- 每组一行：`工具 / 结果码 ×次数`，下面是 run id 和一段有界、已遮掩密钥的证据。次数多的先修。
+- 带 `legacy-uncoded` 的：错误没有结果码，先给它补码和 `next_action`，再谈提示词。
+- 检测 3 是启发式（对最终答案做小而公开的词表匹配），只当线索，不当缺陷结论。
+- 误报来源见 `scripts/deadend-scan/README.md`；脚本测试：`python3 -m unittest discover -s scripts/deadend-scan/tests -p 'test_*.py'`，按 3.1 用退出码证明。
+
 ## 6. UI 预览（不发 rc）
 
 D22：小的 UI 改动用开发服务器连真实服务器预览，不为每个小改动打一个 rc。
