@@ -449,7 +449,7 @@ func TestTeamSendRejectsCurrentGroupBeforeConsumingHandoffOrBudget(t *testing.T)
 	r.Status = "running"
 	send := teamTestTool(t, s, g, r, "send_group_message")
 	args := json.RawMessage(`{"group_id":"` + g.ID + `","bot_id":"` + b.ID + `","message":"review this"}`)
-	if _, err = send.Execute(context.Background(), args); err == nil || !strings.Contains(err.Error(), "use handoff") {
+	if _, err = send.Execute(context.Background(), args); err == nil || !strings.Contains(err.Error(), "use delegate") {
 		t.Fatalf("current-group dispatch was not rejected clearly: %v", err)
 	}
 	var handoffs, operations int

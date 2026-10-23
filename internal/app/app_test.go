@@ -334,7 +334,8 @@ func TestGroupMembershipHandoffAndEventReplay(t *testing.T) {
 		t.Fatal("handoff did not create run")
 	}
 	ev, err := s.Events(c.ID, 0)
-	if err != nil || len(ev) != 2 {
+	// The handoff notice and its run, and the board event of the task the handoff made.
+	if err != nil || len(ev) != 3 {
 		t.Fatalf("events=%d err=%v", len(ev), err)
 	}
 }

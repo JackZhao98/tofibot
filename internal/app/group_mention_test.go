@@ -292,6 +292,7 @@ func TestFollowUpTimeoutWakesWaiter(t *testing.T) {
 		if n > 0 {
 			break
 		}
+		f.server.sweepWaits(time.Now()) // the 15 s sweeper, run at once
 		time.Sleep(20 * time.Millisecond)
 	}
 	runs := f.settle(t)
@@ -418,9 +419,7 @@ func restartWithWait(t *testing.T, deadline time.Time) (*Server, Conversation, B
 	if _, err := store.SetRunStatus(runs[0].ID, "done", ""); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.db.Exec(`INSERT INTO run_waits(run_id,conversation_id,bot_id,wait_for,lineage,status,deadline_at,created_at) VALUES(?,?,?,?,?,'pending',?,?)`, runs[0].ID, g.ID, a.ID, b.ID, runs[0].TriggerMessageID, deadline.UTC().Format(time.RFC3339Nano), now()); err != nil {
-		t.Fatal(err)
-	}
+	insertBotPostWait(t, store.db, runs[0].ID, g.ID, a.ID, b.ID, deadline)
 	if err := store.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -445,15 +444,15 @@ func TestRestartFiresOverdueWaitOnce(t *testing.T) {
 	for wakeCount(s, g.ID) == 0 && time.Now().Before(deadline) {
 		time.Sleep(20 * time.Millisecond)
 	}
-	s.armPendingWaits() // double start
-	s.armPendingWaits()
+	s.sweepWaits(time.Now()) // a second pass changes nothing
+	s.sweepWaits(time.Now())
 	time.Sleep(300 * time.Millisecond)
 	if n := wakeCount(s, g.ID); n != 1 {
 		t.Fatalf("wakes=%d", n)
 	}
 	var status string
-	_ = s.store.db.QueryRow(`SELECT status FROM run_waits`).Scan(&status)
-	if status != "expired" {
+	_ = s.store.db.QueryRow(`SELECT status FROM waits`).Scan(&status)
+	if status != waitTimedOut {
 		t.Fatalf("status=%s", status)
 	}
 }
@@ -471,6 +470,7 @@ func TestRestartRearmsFutureWaitAtDeadline(t *testing.T) {
 	}
 	deadline := time.Now().Add(5 * time.Second)
 	for wakeCount(s, g.ID) == 0 && time.Now().Before(deadline) {
+		s.sweepWaits(time.Now()) // the 15 s sweeper, run at once
 		time.Sleep(20 * time.Millisecond)
 	}
 	time.Sleep(200 * time.Millisecond)
@@ -484,11 +484,11 @@ func TestWaitOfRemovedMemberWakesNobody(t *testing.T) {
 	if _, err := s.store.db.Exec(`DELETE FROM members WHERE conversation_id=? AND bot_id=?`, g.ID, a.ID); err != nil {
 		t.Fatal(err)
 	}
-	s.fireWait(func() string {
+	s.timeoutWaitsOf(t, func() string {
 		var id string
-		_ = s.store.db.QueryRow(`SELECT run_id FROM run_waits`).Scan(&id)
+		_ = s.store.db.QueryRow(`SELECT run_id FROM waits`).Scan(&id)
 		return id
-	}(), "", "x", "expired")
+	}())
 	if n := wakeCount(s, g.ID); n != 0 {
 		t.Fatalf("removed member woken: %d", n)
 	}

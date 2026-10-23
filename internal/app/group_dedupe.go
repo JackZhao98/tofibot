@@ -283,9 +283,9 @@ func (s *Server) coordinationContext(c Conversation, r Run, bot Bot) string {
 		return "[coordination]\nEvery Bot the user mentioned has returned its part. Use their results to finish the user's request, then reply.\n[/coordination]"
 	}
 	if r.Kind == runKindFollowup {
-		return "[coordination]\nThe user also mentioned these Bots, whose parts are still open. Hand the next one its part with handoff (one per turn) and wait for its result; when none remain, finish the user's request and reply.\n" + strings.Join(pending, "\n") + "\n[/coordination]"
+		return "[coordination]\nThe user also mentioned these Bots, whose parts are still open. Hand the next one its part with delegate (one per turn) and wait for its result; when none remain, finish the user's request and reply.\n" + strings.Join(pending, "\n") + "\n[/coordination]"
 	}
-	return "[coordination]\nThe user addressed this message to you and also mentioned the Bots below. You coordinate: hand each its part with handoff (one at a time, in order), use their returned results, then finish the user's request and reply.\n" + strings.Join(pending, "\n") + "\n[/coordination]"
+	return "[coordination]\nThe user addressed this message to you and also mentioned the Bots below. You coordinate: hand each its part with delegate (one at a time, in order), use their returned results, then finish the user's request and reply.\n" + strings.Join(pending, "\n") + "\n[/coordination]"
 }
 
 // delegationConflictError wraps ErrDelegationToMentionedBot with the target's

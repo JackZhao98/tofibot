@@ -89,6 +89,7 @@ var automationItems = []automationItem{
 	{Key: autoWebSearch, Group: "replies", Kind: autoKindBool, Default: "true", Env: "TOFI_WEB_SEARCH"},
 	{Key: autoGroupExchangeGists, Group: "history", Kind: autoKindBool, Default: "true"},
 	{Key: autoOwnRepliesVerbatim, Group: "history", Kind: autoKindInt, Default: strconv.Itoa(ownVerbatimReplies), Min: 1, Max: 20},
+	{Key: autoTaskRetentionDays, Group: "history", Kind: autoKindInt, Default: taskRetentionDefault(), Min: 0, Max: 3650, Unit: "days"},
 	{Key: autoCompletionReview, Group: "checks", Kind: autoKindBool, Default: "true"},
 	{Key: autoAnswerGate, Group: "checks", Kind: autoKindInt, Default: "2", Min: 0, Max: 5},
 	{Key: autoMCPReview, Group: "checks", Kind: autoKindEnum, Default: "off", Options: []string{"off", "shadow", "auto"}},

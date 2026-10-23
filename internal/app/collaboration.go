@@ -372,6 +372,10 @@ func (s *Store) AddForwardHandoff(origin, sender, bot, parent, task string) (Mes
 	if _, err = tx.Exec(`INSERT INTO runs(id,conversation_id,bot_id,status,error,parent_run_id,handoff_count,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, child.ID, targetConv, bot, child.Status, nil, parent, 0, child.Model, "", origin, taskMsg.ID, queueSeq, t, t); err != nil {
 		return Message{}, Run{}, err
 	}
+	if _, err = recordTaskForChildTx(tx, delegationChild{RunID: child.ID, RunConversation: targetConv, RunBot: bot, Origin: origin, Trigger: taskMsg.ID,
+		ParentRun: parent, ParentBot: sender, ParentConversation: origin, Brief: task, RunStatus: "queued"}); err != nil {
+		return Message{}, Run{}, err
+	}
 	for _, item := range []struct {
 		conv, typ string
 		value     any
@@ -459,6 +463,10 @@ func (s *Store) AddBotMessage(origin, sender, bot, parent, content string) (Mess
 	}
 	child := Run{ID: childID, ConversationID: traceID, BotID: bot, Status: "queued", ParentRunID: parent, Model: model, Kind: runKindMessage, OriginConversationID: origin, TriggerMessageID: traceMessage.ID, QueueSeq: queueSeq, CreatedAt: t, UpdatedAt: t}
 	if _, err = tx.Exec(`INSERT INTO runs(id,conversation_id,bot_id,status,error,parent_run_id,handoff_count,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, child.ID, traceID, bot, child.Status, nil, parent, 0, model, runKindMessage, origin, traceMessage.ID, queueSeq, t, t); err != nil {
+		return Message{}, Run{}, err
+	}
+	if _, err = recordTaskForChildTx(tx, delegationChild{RunID: child.ID, RunConversation: traceID, RunBot: bot, RunKind: runKindMessage, Origin: origin, Trigger: traceMessage.ID,
+		ParentRun: parent, ParentBot: sender, ParentConversation: origin, Brief: content, RunStatus: "queued"}); err != nil {
 		return Message{}, Run{}, err
 	}
 	// Only these capsules are copied into user-visible conversations. Their
@@ -611,6 +619,10 @@ func (s *Store) AddBotMessages(origin, sender string, targets []string, parent, 
 		}
 		run := Run{ID: childIDs[i], ConversationID: traceID, BotID: info.id, Status: "queued", ParentRunID: parent, Model: info.model, Kind: runKindMessage, OriginConversationID: origin, TriggerMessageID: traceMessage.ID, QueueSeq: queueSeq, CreatedAt: t, UpdatedAt: t}
 		if _, err = tx.Exec(`INSERT INTO runs(id,conversation_id,bot_id,status,error,parent_run_id,handoff_count,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, run.ID, traceID, run.BotID, run.Status, nil, parent, 0, run.Model, run.Kind, origin, traceMessage.ID, queueSeq, t, t); err != nil {
+			return Message{}, nil, err
+		}
+		if _, err = recordTaskForChildTx(tx, delegationChild{RunID: run.ID, RunConversation: traceID, RunBot: run.BotID, RunKind: runKindMessage, Origin: origin, Trigger: traceMessage.ID,
+			ParentRun: parent, ParentBot: sender, ParentConversation: origin, Brief: content, RunStatus: "queued"}); err != nil {
 			return Message{}, nil, err
 		}
 		runs = append(runs, run)
@@ -1164,6 +1176,8 @@ func (s *Server) executeForQueue(r Run) {
 		}
 	}
 	s.execute(c, r)
+	// The run has ended: events that waited for it to end can wake their Bots.
+	s.flushInbox()
 }
 func (s *Store) nextQueuedRun(conv string) (Run, bool, error) {
 	if err := s.refreshInputWaits(conv); err != nil {
@@ -1249,6 +1263,13 @@ func interruptInTransaction(tx *sql.Tx, conv string, addressed ...string) error 
 // root started (sibling wakes included); co-addressed roots of the same
 // message are separate requests and keep running.
 func cancelTreeInTransaction(tx *sql.Tx, seed string, args ...any) error {
+	_, err := cancelTreeCollect(tx, seed, args...)
+	return err
+}
+
+// cancelTreeCollect is cancelTreeInTransaction that also reports the runs it
+// cancelled, so the tasks and waits that belong to them can end with them.
+func cancelTreeCollect(tx *sql.Tx, seed string, args ...any) ([]string, error) {
 	rows, err := tx.Query(`WITH RECURSIVE seeds(id) AS (`+seed+`), ancestors(id,parent_run_id,kind,trigger_message_id) AS (
  SELECT r.id,r.parent_run_id,r.kind,r.trigger_message_id FROM runs r JOIN seeds ON seeds.id=r.id
  UNION SELECT r.id,r.parent_run_id,r.kind,r.trigger_message_id FROM runs r JOIN ancestors a ON a.parent_run_id=r.id
@@ -1259,48 +1280,48 @@ func cancelTreeInTransaction(tx *sql.Tx, seed string, args ...any) error {
  UNION SELECT r.id FROM runs r JOIN affected a ON r.parent_run_id=a.id
  ) SELECT id FROM runs WHERE id IN (SELECT id FROM affected) AND status IN ('queued','running','waiting')`, args...)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var ids []string
 	for rows.Next() {
 		var id string
 		if err = rows.Scan(&id); err != nil {
 			rows.Close()
-			return err
+			return nil, err
 		}
 		ids = append(ids, id)
 	}
 	err = rows.Err()
 	rows.Close()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	for _, id := range ids {
 		var parked bool
 		if err = tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM run_input_waits WHERE run_id=? AND state='waiting')`, id).Scan(&parked); err != nil {
-			return err
+			return nil, err
 		}
 		if parked {
 			if err = interruptToolActivitiesTx(tx, id, now()); err != nil {
-				return err
+				return nil, err
 			}
 			if _, err = tx.Exec(`UPDATE stream_drafts SET status='cancelled',updated_at=? WHERE run_id=? AND status='active'`, now(), id); err != nil {
-				return err
+				return nil, err
 			}
 		}
 		if _, err = tx.Exec(`UPDATE runs SET status='cancelled',error='stopped by user',updated_at=? WHERE id=?`, now(), id); err != nil {
-			return err
+			return nil, err
 		}
 		r, err := scanRun(tx.QueryRow(`SELECT id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at FROM runs WHERE id=?`, id))
 		if err != nil {
-			return err
+			return nil, err
 		}
 		data, _ := json.Marshal(r)
 		if _, err = tx.Exec(`INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, r.ConversationID, "run", string(data), now()); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return ids, nil
 }
 func (s *Server) cancelInactiveRuns() {
 	s.mu.Lock()
@@ -1345,16 +1366,14 @@ func (s *Store) CancelRunTree(id string) error {
 		return err
 	}
 	defer tx.Rollback()
-	if err = cancelTreeInTransaction(tx, `SELECT id FROM runs WHERE id=?`, id); err != nil {
+	cancelled, err := cancelTreeCollect(tx, `SELECT id FROM runs WHERE id=?`, id)
+	if err != nil {
 		return err
 	}
-	// A pending wait of the stopped lineage must not wake anyone later.
-	var convKind string
-	if err = tx.QueryRow(`SELECT cv.kind FROM runs r JOIN conversations cv ON cv.id=r.conversation_id WHERE r.id=?`, id).Scan(&convKind); err == nil && convKind == "group" {
-		if _, err = tx.Exec(`UPDATE run_waits SET status='expired' WHERE status='pending' AND lineage=?`, lineageKey(tx, id)); err != nil {
-			return err
-		}
-	} else if err != nil && err != sql.ErrNoRows {
+	// A pending wait of the stopped lineage must not wake anyone later. The
+	// tasks the stopped runs held or gave end with them, with the waits on
+	// them and the runs below them, in a direct message as in a group.
+	if err = cancelTaskWorkForRunsTx(tx, append(cancelled, id), lineageKey(tx, id)); err != nil {
 		return err
 	}
 	if err = tx.Commit(); err != nil {
