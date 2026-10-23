@@ -780,8 +780,8 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		if handoff != nil && m.ID == handoff.ID {
 			continue
 		}
-		// The routing line triage publishes ("Handed to X.") tells people who
-		// took the message; it carries nothing a Bot needs.
+		// Older triage routing published a "Handed to X." line; it carries
+		// nothing a Bot needs.
 		if m.Kind == "notice" && m.SenderBotID == "system" {
 			continue
 		}

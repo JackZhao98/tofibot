@@ -271,3 +271,48 @@ func TestTriageModelSettingChoosesTheModelAndDefaultsToTheBackgroundModel(t *tes
 		t.Fatalf("triage run=%+v, want model %s", runs[0], chosen)
 	}
 }
+
+func TestTriageRoutingPublishesNoChatMessageAndNoWorkingLine(t *testing.T) {
+	f := newTriageFixture(t)
+	f.e.hold = make(chan struct{})
+	f.post(t, f.group.ID, "Earnings season is here", "tri-quiet")
+	// While only the triage run is live, nobody shows as working.
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		f.e.mu.Lock()
+		started := len(f.e.triage)
+		f.e.mu.Unlock()
+		if started > 0 {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	convs, err := f.s.store.ListConversations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range convs {
+		if c.ID == f.group.ID && len(c.WorkingBotIDs) != 0 {
+			t.Fatalf("working during triage: %v", c.WorkingBotIDs)
+		}
+	}
+	close(f.e.hold)
+	runs := settleTriageRuns(t, f.s, f.group.ID, 2)
+	if answeringRun(runs).ParentRunID != runs[0].ID {
+		t.Fatalf("routing not recorded on the run: %+v", runs)
+	}
+	msgs, _, err := f.s.store.Messages(f.group.ID, 0, 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range msgs {
+		if m.Kind == "notice" || m.SenderBotID == "system" || strings.Contains(m.Content, "Handed to") {
+			t.Fatalf("routing published a chat message: %+v", m)
+		}
+	}
+	var events int
+	_ = f.s.store.db.QueryRow(`SELECT COUNT(*) FROM events WHERE conversation_id=? AND type='message' AND data LIKE '%Handed to%'`, f.group.ID).Scan(&events)
+	if events != 0 {
+		t.Fatal("routing emitted a message event")
+	}
+}

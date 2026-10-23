@@ -1137,7 +1137,7 @@ func (s *Store) ListConversations(includeArchived ...bool) ([]Conversation, erro
 	if e := members.Err(); e != nil {
 		return nil, e
 	}
-	working, e := s.db.Query(`SELECT conversation_id,bot_id FROM runs WHERE status IN ('queued','running','waiting') AND status IN ('queued','running') AND bot_id<>'' ORDER BY conversation_id,bot_id`)
+	working, e := s.db.Query(`SELECT conversation_id,bot_id FROM runs WHERE status IN ('queued','running','waiting') AND status IN ('queued','running') AND bot_id<>'' AND kind<>'triage' ORDER BY conversation_id,bot_id`)
 	if e != nil {
 		return nil, e
 	}
@@ -1720,8 +1720,12 @@ func (s *Store) AddHandoff(conv, sender, bot, parent, task string) (Message, Run
 	notice := &HandoffNotice{Type: "handoff", FromBotID: sender, ToBotID: bot, TargetConversationID: conv, TargetRunID: r.ID}
 	noticeData, _ := json.Marshal(notice)
 	m := Message{ID: uuid.NewString(), ConversationID: conv, Seq: seq, Role: "assistant", Kind: "notice", SenderBotID: sender, RunID: r.ID, Content: task, Notice: notice, CreatedAt: t}
-	if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, m.ID, conv, seq, m.Role, m.Kind, sender, r.ID, task, string(noticeData), t); err != nil {
-		return Message{}, Run{}, err
+	// Triage routing is recorded on the run (parent link, activity view), never
+	// as a chat message: the chosen member's reply shows who answered.
+	if sender != "system" {
+		if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, m.ID, conv, seq, m.Role, m.Kind, sender, r.ID, task, string(noticeData), t); err != nil {
+			return Message{}, Run{}, err
+		}
 	}
 	r.TriggerMessageID = m.ID
 	if routedTrigger != "" {
@@ -1744,6 +1748,9 @@ func (s *Store) AddHandoff(conv, sender, bot, parent, task string) (Message, Run
 		typ string
 		v   any
 	}{{"message", m}, {"run", r}} {
+		if ev.typ == "message" && sender == "system" {
+			continue
+		}
 		b, _ := json.Marshal(ev.v)
 		if _, err = tx.Exec(`INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, conv, ev.typ, string(b), t); err != nil {
 			return Message{}, Run{}, err
