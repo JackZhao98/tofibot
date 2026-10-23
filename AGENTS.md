@@ -110,10 +110,14 @@ user-visible conversations.
 
 # Security gates
 
-`manage_extensions` changes (MCP create/update/delete/test, Skill install/delete) execute only after a person's
+`manage_extensions` changes (MCP create/update/delete/test, Skill `skill_publish_version`) execute only after a person's
 approval of the exact payload (`internal/app/extension_gate.go`: request_approval target = digest token, one use) and are refused in unattended
-runs. The approval card carries server-built `approval.facts` (kind, name, address with masked query, transport, tool lists, header names, skill
-manifest summary) rendered above the Bot's own wording; the Bot cannot set them and a token the server has not seen in the run gets no card.
+runs. A Bot installing a skill for itself (`skill_install`) or turning a library skill on or off for itself (`skill_enable`/`skill_disable`) touches no
+other Bot and needs no approval (decision 0058); install is still refused when no person can see the run, enable and disable are allowed there. The
+approval card carries server-built `approval.facts` (kind, name, address with masked query, transport, tool lists, header names, skill manifest
+summary, and for a published version the new version number, files added/removed/changed against the current files and how many Bots follow it)
+rendered above the Bot's own wording; the Bot cannot set them and a token the server has not seen in the run gets no card. `skillPublishGuard` refuses,
+before any card, a publish by a Bot that did not install the skill, for a missing skill, an invalid file set or files equal to the current version.
 Bot-created MCP servers are refused for loopback/private/link-local/CGNAT/metadata hosts at create time (fail closed on DNS errors, odd numeric
 forms, IPv6/mapped/NAT64/6to4) and again at every connection: `bot_managed` servers dial through `extensions.GuardedTransport` (dial-time `Control`
 hook, no env proxy, redirects never followed). The owner's allow path is Settings: a server saved there is not `bot_managed`. A spent approval is
@@ -266,8 +270,9 @@ Deliverable Skills ship inside the binary (decision 0041): `internal/extensions/
 existing Skills tools (`list_skills`, `read_skill`, `read_skill_file`): the prompt directory carries one name and description line each, the body loads on
 `read_skill`, and the same call copies the skill's files to the Bot's computer at `/workspace/home/uploads/.skills/<name>/<digest>/`
 (`internal/app/builtin_skills.go`; inside uploads because the guest's `files.import_chunk` accepts nothing else). They are on for every Bot until
-turned off in Settings > Skills (`builtin_skill_off`, `PUT /api/extensions/skills/<name>/enabled`); an unreadable setting withholds them. They cannot be
-installed over or deleted, and an installed skill with a built-in name is ignored with a diagnostic. SKILL.md text is English principles only (no example
+that Bot turns one off (an off row in `skill_enablement`, set in the Bot's settings > Skills or by the Bot's own `skill_disable`; the old global
+`builtin_skill_off` is read once by the migration and never again); an unreadable lookup withholds them. They cannot be installed over or deleted, and
+an installed skill with a built-in name is ignored with a diagnostic. SKILL.md text is English principles only (no example
 sentences, Not/But contrasts, keyword lists, or a mandate to run a specific script; `tests/test_skill_text.py` enforces it): what good looks like, verify
 as the recipient will experience it, every claim true of the delivered file. Scripts are general capabilities only (decision 0041 addendum, owner rule
 2026-10-21: no task-tailored tools, builders or graders; the model writes its own code): `render_preview.py` (document/slides to page images),
@@ -276,6 +281,20 @@ as the recipient will experience it, every claim true of the delivered file. Scr
 description raises the prompt budget: measure it and move the caps in `internal/app/prompt_budget_test.go`. Run the script tests with
 `python3 -m unittest discover -s internal/extensions/builtin_skills/tests -p 'test_*.py'`; `slides/scripts/render_preview.py` and
 `document-report/scripts/render_preview.py` must stay byte-identical.
+Skill library (decision 0058, `internal/app/skill_library.go`, `skill_library_http.go`, `skill_tools.go`; file operations in `internal/extensions/skill_library.go`): one
+workspace library, one enabled set per Bot. Tables `skill_library` (installer, current version, bundle), `skill_versions` (files archived under
+`<skills>/.versions/<name>/<n>/`, newest 20 kept), `skill_bundles`, `skill_enablement(bot_id, skill_name, enabled, set_by, set_at)` and `skill_library_markers`;
+the files stay the source of truth and `reconcileSkillLibrary` makes the rows agree with them at startup and on each Settings list (diagnostic in the log). An
+installed skill with no enablement row is off and an official one is on, so a Bot created later has the official skills only; the filter is
+`Store.skillEnabledFilter` (`extensions.Config.SkillAccess`), so the prompt directory (`Enabled Skills (name and purpose):`) and `read_skill` see only the
+Bot's enabled set and fail closed on an error. The one-time migration (`migrateSkillLibraryData`, marker `skill_library_per_bot_v1`) turned the old model into
+rows without changing any existing Bot's set; `skill_access` and `builtin_skill_off` are kept and no longer read. Bot tool actions are `skill_list`
+(scope `enabled`|`library`), `skill_enable`/`skill_disable` (the run's own Bot id, never an argument; a bundle name changes all members), `skill_install` and
+`skill_publish_version`; there is no Bot delete. Delete, rollback and bundle install are owner routes (`/api/extensions/skills*`, `/api/extensions/skill-bundles*`);
+a Bot's column is owner-edited through `/api/bots/{id}/skills*`. A bundle is a Claude Code plugin folder (`.claude-plugin/plugin.json`, `skills/<name>/SKILL.md`),
+two levels only, installed all or nothing. A Bot export names the skills the Bot has on (`portableBot.EnabledSkills`) and nothing else; an import never turns one
+on. UI: Settings > Skills is the library (`ui/src/settings/SkillLibrary.tsx`), the Bot settings panel has the checkboxes (`ui/src/BotSkills.tsx`, beside Bot Secrets);
+catalog states `skills-*` and `bot-skills-*`.
 A model sees a rendered image only through `computer_files` `files.view` (`internal/app/computer_view_file.go`, decision 0054): shell output is text and the browser tool refuses `file://`; the result is bounded (8 MiB / 24 MP source, 1568 px long side, 640 KiB, 16 views per run) and the agent keeps the newest 4 tool images.
 
 # publish_file paths and failures

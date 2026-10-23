@@ -123,12 +123,10 @@
 │  ├─ 连接                               ← MCP 连接器
 │  │  ├─ 目录 + 添加自定义（名称/URL/连接方式/token/headers/OAuth 四字段/allow/deny）
 │  │  └─ 每行：连接 / 断开 / 编辑 / 移除 / Google 引导
-│  ├─ Skills
-│  │  ├─ 工具栏："工作区 Skill · 按需读取 · 可限定给指定 Bot" + 安装 Skill（选文件夹 / 手填 SKILL.md）
-│  │  ├─ Tofi 工作技能：3 张推荐卡片（资料调研、网页验收、文档交付）一键安装
-│  │  ├─ 5 个内置：spreadsheet / document-report / slides / web-page / code-delivery
-│  │  │   每个：「内置」标签 + 启用开关 + 谁能用（所有 Bot / 仅所选 Bot）
-│  │  └─ 已安装 Skill：谁能用 + 移除
+│  ├─ Skills（技能库，D58）
+│  │  ├─ 一键添加：起步模板、选文件夹（单个技能或插件目录）、粘贴 SKILL.md
+│  │  ├─ 一行一个技能或套装（套装可展开）：安装者、版本、「已更新」、开了几个 Bot、有版本时可回退、移除
+│  │  └─ 官方技能（内置）：默认对每个 Bot 开启，在各 Bot 的设置里单独关
 │  ├─ 审批
 │  │  ├─ 审查员模式：关闭 / 观察 / 自动   ← 与"自动行为 › 工具调用自动复核"同一值
 │  │  └─ 横幅："更多控制即将推出"
@@ -229,9 +227,8 @@ Anthropic 的 Workspace ID 进"高级连接选项"折叠，默认收起。
 └─ 推荐技能（未安装时显示）：三张卡片，点"添加"进上面列表
 ```
 
-- 五个内置合成**一个**开关"文件交付"。五个各自开关在代码里保留为内部默认（全开），不再上 UI。
-- 每个技能一个开关，全账户所有 Bot 生效。**删除"谁能用"。**
-- 不再显示"工作区 Skill · 按需读取 · 可限定给指定 Bot"。
+- （已被 [D58](../decisions/0058-skill-library-per-bot.md) 取代）本稿原提议"五个内置合成一个开关、每个技能一个开关全账户生效、删除谁能用"。现行做法相反：一个全局库，每个 Bot 一列自己的开关；技能库页不放任何开关，开关在 Bot 设置的"技能"一节。
+- 仍然成立：不再显示"工作区 Skill · 按需读取 · 可限定给指定 Bot"。
 
 ### 3.5 自动行为
 
@@ -329,9 +326,9 @@ Claude 的"Feature preview"就是这个形状：一个开关，后面才是细�
 | Workspace ID | 高级连接选项 › Workspace ID | 折叠，99% 的人用不到 |
 | 工作区 Skill · 按需读取 · 可限定给指定 Bot | （删除） | 三个内部概念 |
 | Tofi 工作技能 | 推荐技能 | "工作技能"没有信息 |
-| 内置 | 产品能力 | 它们不是用户装的 Skill |
-| spreadsheet / document-report / slides / web-page / code-delivery | 文件交付（一项） | 英文代码不能当标题 |
-| 启用此技能 + 谁能用 | 一个开关 | 一个 Skill 一个开关，全员生效 |
+| 内置 | 官方技能（D58） | 官方出品，默认对每个 Bot 开启，可按 Bot 关 |
+| spreadsheet / document-report / slides / web-page / code-delivery | 保持各自一项（D58 取代"合成一项"） | 每个 Bot 可单独关其中一个 |
+| 启用此技能 + 谁能用 | Bot 设置里的技能勾选（D58 取代"一个开关全员生效"） | 一个全局库，每个 Bot 一列 |
 | 审查员 / 审批模式 | 工具调用审批方式 | "审查员"是实现细节 |
 | 关闭 · 保留原有审批规则 / 观察 / 自动 | 每次问我 / 先记录建议 / 低风险自动放行 | 说结果，不说机制 |
 | 常驻许可 | 始终允许的工具 | 和审批卡片上的按钮"始终允许"同名 |
@@ -374,9 +371,9 @@ Claude 的"Feature preview"就是这个形状：一个开关，后面才是细�
 | 工具栏说明文字 | 删除 | 内部概念 |
 | 安装 Skill（文件夹 / 手填） | 保留 | 技能 › 安装 |
 | 推荐卡片 ×3 | 保留，改名 | 推荐技能，只在未安装时显示 |
-| 5 个内置各自的"启用"开关 | 合并 | 一个"文件交付"开关；5 个单项变内部默认（全开） |
-| 5 个内置各自的"谁能用" | 删除 | 一刀切全员 |
-| 已安装 Skill 的"谁能用" | 删除 | 同上；每个 Skill 一个开关 |
+| 5 个内置各自的"启用"开关 | 移到各 Bot 设置（D58） | 官方技能默认开，可按 Bot 关；设置 › Skills 里不再有开关 |
+| 5 个内置各自的"谁能用" | 被 Bot 勾选取代（D58） | 不再有"谁能用"弹窗；`SkillAccess.tsx` 已退役 |
+| 已安装 Skill 的"谁能用" | 被 Bot 勾选取代（D58） | 在 Bot 设置里勾选 |
 | 已安装 Skill 的"移除" | 保留 | 技能 |
 | **审批** | | |
 | 审查员模式下拉 | 合并 | 与自动行为里的"工具调用自动复核"是同一值；只在"权限"页留一份 |
@@ -427,8 +424,8 @@ Claude 的"Feature preview"就是这个形状：一个开关，后面才是细�
 |---|---|
 | 左栏扁平、以"通用"开头 | Claude（General / Appearance / Privacy / Billing / Connectors / Capabilities / Feature preview）、ChatGPT（General / Notifications / Personalization / Connected apps / Data controls / Security / Account） |
 | "连接器"一个列表 | Claude Connectors、ChatGPT Connected apps |
-| 技能一个开关、全账户生效 | Claude Settings › Capabilities 里的 Skills：每个一行一个开关，没有按会话/按项目限制 |
-| 产品自带能力不和用户技能混排 | Claude 把 docx/xlsx/pptx/pdf 作为自带 Skill，列在 Anthropic 分组，和用户上传的分开；我们更进一步合成一项，因为五个单项用户无从区分 |
+| 技能库一行一个技能或套装，一键添加 | Codex 的技能页；Claude Code 插件（一个插件打包多个技能） |
+| 官方技能和用户技能分组 | Claude 把 docx/xlsx/pptx/pdf 作为自带 Skill，列在 Anthropic 分组，和用户上传的分开（D58 仍分开列，不合成一项） |
 | 模型选择只有"默认模型"，详细选择在使用处 | Claude 的模型选择在输入框，设置里没有按用途的型号选择；ChatGPT 同 |
 | 没有型号专属开关 | Claude / ChatGPT 的设置页没有任何一项只对某个型号生效 |
 | 语音输入是一个按钮不是型号选择 | Claude、ChatGPT 的 Dictation |
@@ -453,12 +450,9 @@ Claude 的"Feature preview"就是这个形状：一个开关，后面才是细�
 - 通用页：删搬家横幅、旧归档入口。
 - 消失：注册表 2 项、7 种语言 ×（2 项 ×2 条 + 听写 6 条）≈ 70 条文案、`DictationSettings.tsx` 大部分。
 
-### 第 2 步：技能一刀切
+### 第 2 步：技能（已被 D58 取代，未按本稿执行）
 
-- 删"谁能用"：`ui/src/settings/SkillAccess.tsx`（86 行）、`internal/app/skill_access.go`（251 行）及其测试（约 400 行）、`skill_access` 表的迁移改为"不再读"（表保留，不做删表迁移）、`list_skills` 过滤逻辑去掉 bot 参数。
-- 五个内置合成一个"文件交付"开关：UI 只渲染一行；后端 `builtin_skill_off` 表继续按单项存，UI 开关一次写五行。英文 id 不再显示。
-- 删工具栏说明文字；推荐卡片改名。
-- 消失：约 740 行 Go/TS、7 语言 × 约 25 条文案。
+本稿原提议"删掉按 Bot 授权、全账户一个开关、五个内置合成一项"。2026-10-23 owner 定的现行做法（[D58](../decisions/0058-skill-library-per-bot.md)）相反：一个全局技能库，每个 Bot 有自己的启用集合；`skill_access` 和 `builtin_skill_off` 两张表只在一次性迁移里读一次，不删。保留的只有：删工具栏说明文字、推荐卡片改名、`SkillAccess.tsx` 退役。
 
 ### 第 3 步：权限页
 
@@ -477,7 +471,7 @@ Claude 的"Feature preview"就是这个形状：一个开关，后面才是细�
 
 ### 第 5 步：文档同步
 
-- 更新 `docs/decisions/0015` 的"影响"表（注册表清单）；新增一条决策记录本方案：**D15 的措辞修正为"每个用户可能想改的自动行为都有设置；只对某个型号成立的规则是内部默认，不是设置"**。D41 的"每个内置 Skill 单独可关、谁能用仍适用"改为"合成一项"。
+- 更新 `docs/decisions/0015` 的"影响"表（注册表清单）；新增一条决策记录本方案：**D15 的措辞修正为"每个用户可能想改的自动行为都有设置；只对某个型号成立的规则是内部默认，不是设置"**。D41 的"每个内置 Skill 单独可关"现由 D58 落实为按 Bot 关（不再合成一项，也没有全局开关）。
 - `AGENTS.md` 设置页一节指向本文件。
 
 ### 对 D15 的坦白

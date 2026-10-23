@@ -293,7 +293,7 @@ Bot 在干活时，聊天里只有一行：加载标记、现在在做什么、�
 | 1 | 删除 Bot/群确认 | `ui/src/DeleteConversationDialog.tsx`（用 `DialogShell`） | 是，`alertdialog`（Radix `Dialog`，不是 `AlertDialog`：要保留点遮罩关闭） | 是（忙时不关） | 是（忙时不关） | `ModalDialog` | 是，回到打开它的控件（App 在工作区变 `inert` 之前记下，`rememberDialogOpener`；以前这里还不回去）；从侧栏行菜单打开时回到那一行（菜单项随菜单卸载，`OverlaySlot` 的监听器在菜单打开时记下当时的焦点；`ds/integrate` 起，`test:overlays` 守着） | `--z-dialog` |
 | 2 | 隐藏主助理时选接任者 | `ui/src/ReassignPrimaryDialog.tsx:28`（`DialogShell`，第 3 步起懒加载） | 是 | 是 | 是 | `ModalDialog` | 同上 | `--z-dialog` |
 | 3 | 管理员表单 sheet、已记住的审批 | `ui/src/AdminSheets.tsx:12`，`ui/src/RememberedApprovals.tsx:59` | 是 | 是（`locked` 时不关） | 是（`locked` 时不关） | `ModalDialog`；打开时焦点在 sheet 本身 | 是 | `--z-dialog` + 1 |
-| 4 | 技能访问 sheet | `ui/src/settings/SkillAccess.tsx:65` | 是 | 是（保存中也关） | 是（忙时不关） | `ModalDialog` | 是 | `--z-dialog` + 1 |
+| 4 | （已退役，D58）技能访问 sheet | 原 `ui/src/settings/SkillAccess.tsx`，已删：技能改在 Bot 设置里勾选 | — | — | — | — | — | — |
 | 5 | 接管屏幕（handover） | `ui/src/TakeoverDialog.tsx:48-69` | 是 | **否**（按键要给远程电脑） | 否 | 自写（第 3 步没迁，风险 ③） | 是 | `--z-dialog` |
 | 6 | VM 里授权（MCP OAuth） | `ui/src/VMOAuthDialog.tsx:93` | 是 | **否**（按键给远程电脑；Esc 和 Tab 在远程键盘里直接转发，`RemoteDesktopControl` 自己停止冒泡） | 否 | `ModalDialog` | 是 | `--z-dialog` |
 | 7 | 相关对话只读窗（窄屏/桌面客户端时是模态） | `ui/src/ViewOnlyChat.tsx:59` | 宽屏网页是卡片（`ViewOnlyCard`，非模态），否则模态（`ModalDialog`） | 是 | — | 模态时 `ModalDialog`（卡片形态不陷） | 是（`returnFocus`） | `--z-dialog`；卡片 `--z-panel` |
@@ -553,6 +553,8 @@ Bot 在干活时，聊天里只有一行：加载标记、现在在做什么、�
 | 打开速度 | 设置窗第一帧 ≤ 32 ms（4 倍降速 ≤ 100 ms），之后 200 ms 内无超过 50 ms 的帧（`ui/scripts/test-shell-budget.mjs:4-5`） |
 
 **测试**：`test:settings-shell`、`test:settings-polish`、`test:automation-settings`、`test:shell-budget`。
+
+**技能库和 Bot 的技能勾选（D58）**：设置 › Skills 是库（`ui/src/settings/SkillLibrary.tsx`，外观 `SkillLibraryView` 不发请求）：顶部“添加文件夹 / 粘贴 SKILL.md”和起步模板（一键添加，模板装上就是普通技能），下面一行一个技能或套装；每行写版本、安装者和时间、“N 个 Bot 中开了几个”，有多个版本时可展开版本列表并回退或前进，装进来的技能有“移除”（就地确认），套装一行带“显示 N 个 Skill”展开，成员没有自己的移除；官方技能单独成组，标“内置”，没有移除也没有开关。Bot 设置面板（`ContextPanels.tsx`，在“Bot 的秘密”之上）有“技能”一节（`ui/src/BotSkills.tsx`，外观 `BotSkillsView`）：整个库按复选框列出，套装可展开且整体勾选（部分勾选显示半选），每个勾下面一行“由你开启 · 时间 / 由此 Bot 开启 · 时间 / 沿用之前的设置”，官方技能另成一组；勾一下立即保存。审批卡对“发布新版本”多显示新版本号、增/删/改的文件和跟随的 Bot 数。目录状态：`settings` 节的 `skills-*`、`bot-skills-*`，`questions` 节的 `approval-publish`。测试：`test:settings-shell`（7b）、`test:settings-polish`（`skills-*`）、`test:bot-skills`、`test:approval-facts`、`test:catalog`。
 
 **服务标识 `ServiceMark`**：目录里每个服务都戴它的真品牌图（`ui/src/ServiceMark.tsx`，唯一用法 `ServiceMark({name, id?})`，引导页、连接列表、目录、连接对话框共用）。品牌表只有一份：`ui/src/brandIcons.ts`（目录 id 或显示名 → `public/brand/services/` 里的本地资源，是否需要深色底）；图片永远 `alt=""`、保持比例、不用 CSS 滤镜改色，放在中性底板上（亮暗两种主题都是浅底板，黑色标志 Notion/GitHub 才有对比度；Robinhood 的品牌荧光绿在白底上看不见，所以只有它用深底板）。自定义/未知服务才显示通用图标，并带 `data-mark="generic"`。来源、许可和 sha256 在 `docs/integrations/icons/manifest.json` 与 `NOTICE.md`；OAuth 成功页用同一批文件（`internal/app/oauth_completion.go` 的白名单）。测试：`test:brand-icons`（每个目录 id 有标志、文件非空、清单有来源与 sha256、未改动的文件哈希一致、不落到通用图标）；目录状态 `service-marks`。
 

@@ -1,3 +1,5 @@
+> 2026-10-23：全局开关部分已被 [0058](0058-skill-library-per-bot.md) 取代（官方技能现在按 Bot 开关，`builtin_skill_off` 只在一次性迁移里读）。
+
 # 0041 内置交付技能：随产品发布的 Skill
 
 > 编号 D41，索引见 [README](README.md)。

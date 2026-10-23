@@ -140,7 +140,7 @@ CI 现在跑的 UI 守卫见 `process.md` 3.3。时间敏感的几项（`test:di
 | Radix | 没有用：原生 `<input type="checkbox" role="switch">`，样式是 `.debug-toggle` / `.auto-switch`（`settings-system.css:62`、`settings/automation.css:9`）。仓库没有 Radix Switch 依赖 | 与"按 Radix 来"字面不同，但与现状一致：本文第 2 节只要求对话框、菜单、弹出卡片走 Radix |
 | 文案 | `extensions:skills.builtin.*`，`aria-label` 带名字 | 一致 |
 | 错误 | `act()` 的失败路径没有核对 | 待确认 |
-| 目录页 | `components.md` 和目录页都没有这个开关和"内置"标签的状态（只有 §8 的"技能访问 sheet"） | **不一致**：第 5 步缺 |
+| 目录页 | 已补（D58）：`settings` 节的 `skills-*`（库，含“内置”标签）和 `bot-skills-*`（Bot 设置里的勾选），`components.md` §17 有说明；原“技能访问 sheet”已退役 | 一致 |
 | 触屏 | 开关 38×23 px（`settings-system.css:62`），整行是否有 44 px 点击区没有量过 | 待确认，第 6 步 |
 | 测试 | `test:settings-shell` 覆盖开关写请求（`test-settings-shell.mjs:87,272,521-526`） | 一致 |
 
