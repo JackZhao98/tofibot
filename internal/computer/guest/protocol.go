@@ -260,6 +260,13 @@ func (s *Service) handle(w http.ResponseWriter, r *http.Request) {
 			writeNotFound(w, missing, dir)
 			return
 		}
+		var navigation *navigationError
+		if errors.As(err, &navigation) {
+			// Chrome refused the load by a named net error; the code, host and
+			// next action travel as a structured outcome, not as prose.
+			writeNavigation(w, navigation)
+			return
+		}
 		var refusal *rejectedError
 		if errors.As(err, &refusal) {
 			// An explicit pre-action refusal proves nothing was performed.
@@ -315,6 +322,17 @@ func rejectedf(format string, args ...any) error {
 func writeRejection(w http.ResponseWriter, refusal error) {
 	o := tooloutcome.New(tooloutcome.Validation, "action_rejected", "not_executed", refusal.Error()+" Nothing was changed.", "repair_arguments")
 	writeJSON(w, http.StatusBadRequest, ActionResponse{OK: false, Error: refusal.Error(), Outcome: &o})
+}
+
+// navigationError is a page load Chrome could not complete (Page.navigate
+// errorText). Nothing on the page changed, so the outcome is definite.
+type navigationError struct{ outcome tooloutcome.Outcome }
+
+func (e *navigationError) Error() string { return e.outcome.Message }
+
+func writeNavigation(w http.ResponseWriter, e *navigationError) {
+	o := e.outcome
+	writeJSON(w, http.StatusBadGateway, ActionResponse{OK: false, Error: o.Message, Outcome: &o})
 }
 
 func rejected(err error) error { return &rejectedError{msg: err.Error()} }
