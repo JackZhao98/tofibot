@@ -55,7 +55,7 @@ func reply(ctx context.Context, req runtime.Request, text string, wake []map[str
 		if tool.Name != "say" {
 			continue
 		}
-		args := map[string]any{"purpose": "answer", "text": text}
+		args := map[string]any{"purpose": "answer", "outcome": "done", "text": text}
 		if wake != nil {
 			args["wake"] = wake
 		}
@@ -727,7 +727,7 @@ func (scheduledReplyEngine) Run(ctx context.Context, req runtime.Request) (runti
 	for _, tool := range req.Tools {
 		if tool.Name == "say" {
 			// The say protocol: the answer is the reply and the receipt.
-			_, err := callTool(ctx, req, "say", "scheduled-reply", map[string]any{"purpose": "answer", "text": "daily synthetic note", "sources": []string{"synthetic source"}})
+			_, err := callTool(ctx, req, "say", "scheduled-reply", map[string]any{"purpose": "answer", "outcome": "done", "text": "daily synthetic note", "sources": []string{"synthetic source"}})
 			return runtime.Result{}, err
 		}
 	}

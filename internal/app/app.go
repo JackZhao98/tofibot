@@ -1814,6 +1814,12 @@ func scheduleGroupFollowupTx(tx *sql.Tx, done Run, result Message) (Run, bool, e
 	} else if err != sql.ErrNoRows {
 		return Run{}, false, err
 	}
+	if sibling, found, err := fanOutReturnTx(tx, done, done.ConversationID); err != nil || found {
+		return sibling, found, err
+	}
+	if pending, err := fanOutPendingTx(tx, done); err != nil || pending {
+		return Run{}, false, err
+	}
 	t := now()
 	var queueSeq int64
 	if err := tx.QueryRow(`SELECT COALESCE(MAX(queue_seq),0)+1 FROM runs WHERE conversation_id=?`, done.ConversationID).Scan(&queueSeq); err != nil {
@@ -1886,6 +1892,12 @@ func scheduleDirectMessageFollowupTx(tx *sql.Tx, done Run, result Message) (Run,
 		return existing, true, nil
 	}
 	if err != sql.ErrNoRows {
+		return Run{}, false, err
+	}
+	if sibling, found, err := fanOutReturnTx(tx, done, origin); err != nil || found {
+		return sibling, found, err
+	}
+	if pending, err := fanOutPendingTx(tx, done); err != nil || pending {
 		return Run{}, false, err
 	}
 	t := now()
@@ -3721,10 +3733,11 @@ func (s *Server) execute(c Conversation, r Run) {
 			// A say call's text is the only thing that streams into the chat
 			// draft; plain text goes to the live status line instead.
 			state := &sayRunState{
-				holdAnswers: saySendsSources(r),
-				raw:         controls.Raw,
-				reset:       controls.Reset,
-				flush:       controls.Flush,
+				holdAnswers:   saySendsSources(r),
+				checksPending: !saySendsSources(r),
+				raw:           controls.Raw,
+				reset:         controls.Reset,
+				flush:         controls.Flush,
 				demote: func(text string) {
 					demotedMu.Lock()
 					demoted = demotedDraft{turn: maxAssistantTurns, content: text}

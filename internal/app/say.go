@@ -181,7 +181,16 @@ type sayRunState struct {
 	// (say_text_empty); a run that then ends without a result fails with that
 	// code rather than with the generic missing-result error.
 	emptyAnswer atomic.Bool
+	// pendingCheck is spent by the run's one send-back of an answer that
+	// leaves agreed work undone. checksPending is set for runs that gate on
+	// the outcome label (not scheduled runs).
+	pendingCheck  atomic.Bool
+	checksPending bool
 }
+
+// pendingOwed reports whether a pending or delegated answer beginning now may
+// still be sent back, which holds its text out of the stream.
+func (st *sayRunState) pendingOwed() bool { return st.checksPending && !st.pendingCheck.Load() }
 
 // reviewOwed reports whether a say(answer) beginning now would be sent back
 // for the one-time completion review.
@@ -301,8 +310,9 @@ func sayTextEmptyError() error {
 func sayToolSchema() map[string]any {
 	return objectSchema(map[string]any{
 		"purpose": map[string]any{"type": "string", "enum": []string{sayAnswer, sayNote, sayMessage}},
+		"outcome": map[string]any{"type": "string", "enum": []string{sayOutcomeDone, sayOutcomeBlocked, sayOutcomeDelegated, sayOutcomePending}, "description": sayOutcomeDescription},
 		"text":    map[string]any{"type": "string", "description": "What the person reads."},
-	}, []string{"purpose", "text"})
+	}, []string{"purpose", "outcome", "text"})
 }
 
 // sayWakesBots: a group answer may start other members.
@@ -312,6 +322,17 @@ func sayWakesBots(c Conversation) bool { return c.Kind == "group" && c.UserVisib
 func saySendsSources(r Run) bool { return r.Kind == runKindSchedule || r.scheduleTask != nil }
 
 const (
+	sayOutcomeDone      = "done"
+	sayOutcomeBlocked   = "blocked"
+	sayOutcomeDelegated = "delegated"
+	sayOutcomePending   = "pending"
+
+	sayOutcomeDescription = "With purpose answer, what your answer leaves of the request: done (the work asked for is finished in this turn, or this reply is all that was asked), blocked (a concrete obstacle stops the work and the answer names it), delegated (other members carry the rest through wake or handoff), pending (the answer agrees to, plans or promises work that has not been carried out). With note or message, pending."
+
+	// answerPendingWorkReminder is the private send-back for an answer that
+	// leaves agreed work undone. It states the principle only.
+	answerPendingWorkReminder = "Your answer leaves work you agreed to undone. An agreed plan or a go-ahead is the instruction to carry it out: do the work now in this turn with your tools, or start the members who own it through wake or handoff, then answer with the result. If a concrete obstacle stops you, answer with what it is and what you tried. Keep this check private; the person has not seen the draft."
+
 	sayWakeDescription    = "With purpose answer, group chats only: other members to start once your reply is posted, each with a concrete request, at most three. Omit it to start nobody; a plain @mention starts nobody. The group sees each request only as a handed-over line, so write it for the member."
 	saySourcesDescription = "With purpose answer, scheduled runs only: URLs or source names behind current or external information. Delivering the answer records this run as complete."
 	// sayQuietDescription states the principle only: it names the condition on
@@ -395,6 +416,7 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 		}
 		var in struct {
 			Purpose string           `json:"purpose"`
+			Outcome string           `json:"outcome"`
 			Text    string           `json:"text"`
 			Wake    []groupWakeEntry `json:"wake"`
 			Sources []string         `json:"sources"`
@@ -479,6 +501,20 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			}
 			for i := range extras.Wake {
 				extras.Wake[i].Request = strings.TrimSpace(extras.Wake[i].Request)
+			}
+			switch in.Outcome {
+			case "", sayOutcomeDone, sayOutcomeBlocked, sayOutcomeDelegated, sayOutcomePending:
+			default:
+				return fail(tooloutcome.New(tooloutcome.Validation, "say_outcome_invalid", "not_executed", "outcome must be one of done, blocked, delegated, pending.", "repair_arguments").Err())
+			}
+			if state != nil && state.checksPending && !saySendsSources(r) {
+				pendingLike := in.Outcome == sayOutcomePending || (in.Outcome == sayOutcomeDelegated && len(in.Wake) == 0 && !hasHandoff(s.store, r.ID))
+				if pendingLike && !s.store.runMadeSchedule(r.ID) && state.pendingCheck.CompareAndSwap(false, true) {
+					if state.demote != nil {
+						state.demote(text)
+					}
+					return fail(tooloutcome.New(tooloutcome.Transient, "answer_pending_work", "not_executed", answerPendingWorkReminder, "retry").Err())
+				}
 			}
 			if state != nil && state.review != nil && state.review() {
 				// The completion review text finals get: once, when tool work
@@ -714,4 +750,12 @@ func forceSayFor(c Conversation, r Run, model string) bool {
 		return false
 	}
 	return strings.Contains(strings.ToLower(model), "haiku")
+}
+
+// runMadeSchedule reports whether this run completed a create_schedule or
+// update_schedule call: future work promised through a schedule is real work.
+func (s *Store) runMadeSchedule(runID string) bool {
+	var n int
+	_ = s.db.QueryRow(`SELECT COUNT(*) FROM tool_activities WHERE run_id=? AND name IN ('create_schedule','update_schedule') AND status='completed'`, runID).Scan(&n)
+	return n > 0
 }

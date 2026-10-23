@@ -14,7 +14,7 @@ import (
 )
 
 func quietSayCall(id, text string, quiet bool) fakeCall {
-	args, _ := json.Marshal(map[string]any{"purpose": "answer", "text": text, "sources": []string{"synthetic source"}, "quiet": quiet})
+	args, _ := json.Marshal(map[string]any{"purpose": "answer", "outcome": "done", "text": text, "sources": []string{"synthetic source"}, "quiet": quiet})
 	return fakeCall{id, "say", string(args)}
 }
 
@@ -136,7 +136,7 @@ func TestQuietIsRefusedOutsideScheduledRuns(t *testing.T) {
 	if _, offered := tool.Parameters["properties"].(map[string]any)["quiet"]; offered {
 		t.Fatal("a chat turn is offered quiet")
 	}
-	_, err = tool.Execute(runtime.WithToolCallID(context.Background(), "q1"), json.RawMessage(`{"purpose":"answer","text":"nothing to report","quiet":true}`))
+	_, err = tool.Execute(runtime.WithToolCallID(context.Background(), "q1"), json.RawMessage(`{"purpose":"answer","outcome":"done","text":"nothing to report","quiet":true}`))
 	outcome, ok := tooloutcome.FromError(err)
 	if !ok || outcome.Code != "quiet_not_available" {
 		t.Fatalf("err = %v", err)
@@ -145,7 +145,7 @@ func TestQuietIsRefusedOutsideScheduledRuns(t *testing.T) {
 		t.Fatal("a refused quiet answer was recorded")
 	}
 	// The same turn can still answer normally.
-	if _, err := tool.Execute(runtime.WithToolCallID(context.Background(), "q2"), json.RawMessage(`{"purpose":"answer","text":"nothing to report"}`)); err != nil {
+	if _, err := tool.Execute(runtime.WithToolCallID(context.Background(), "q2"), json.RawMessage(`{"purpose":"answer","outcome":"done","text":"nothing to report"}`)); err != nil {
 		t.Fatal(err)
 	}
 	sched := live

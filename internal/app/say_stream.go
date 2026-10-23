@@ -26,6 +26,9 @@ type sayStreamCall struct {
 	// held: the answer may still be sent back for review, so its text is not
 	// streamed. If no review follows, the answer is shown whole instead.
 	held bool
+	// pendingHold: the answer may be sent back if its outcome says work is
+	// left undone; it streams only once the outcome is known to be finished.
+	pendingHold bool
 }
 
 func newSayStreamer(state *sayRunState) *sayStreamer {
@@ -56,12 +59,28 @@ func (st *sayStreamer) Delta(d runtime.ToolCallDelta) {
 		text := call.dec.Feed(d.Arguments)
 		begin := false
 		if !call.started {
-			if _, known := call.dec.Purpose(); !known {
+			purpose, known := call.dec.Purpose()
+			if !known {
 				return "", "", false
 			}
-			call.started, begin = true, true
-			purpose, _ := call.dec.Purpose()
+			call.pendingHold = purpose == sayAnswer && st.state.pendingOwed()
 			call.held = st.toolWork || st.state.reviewOwed() || (purpose == sayAnswer && (st.state.gradeIsOwed() || st.state.holdAnswers))
+			if call.pendingHold && !call.held {
+				if _, outKnown := call.dec.Outcome(); !outKnown && text == "" {
+					// Nothing is shown yet and the outcome is still to come: wait.
+					return "", "", false
+				}
+			}
+			call.started, begin = true, true
+		}
+		if call.pendingHold && !call.held {
+			// An answer that may be sent back for leaving work undone streams
+			// only once its outcome says the work is finished; text arriving
+			// before the outcome is known is held as well.
+			outcome, known := call.dec.Outcome()
+			if !known || outcome == sayOutcomePending || outcome == sayOutcomeDelegated {
+				call.held = true
+			}
 		}
 		if call.held {
 			return "", "", false

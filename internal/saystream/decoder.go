@@ -102,6 +102,7 @@ const (
 	stValue                   // expecting a value
 	stInText                  // inside the "text" string
 	stInPurpose               // inside the "purpose" string
+	stInOutcome               // inside the "outcome" string
 	stSkipString              // inside a string value we ignore
 	stSkipNested              // inside an object or array we ignore
 	stSkipScalar              // inside a number, true, false or null
@@ -114,20 +115,25 @@ const (
 // and released with the purpose, so a model that writes text first still
 // streams once the purpose arrives.
 type Decoder struct {
-	state   state
-	key     strings.Builder
-	cur     string
-	str     jsonStringDecoder
-	purpose strings.Builder
-	known   bool
-	held    strings.Builder
-	depth   int
-	inStr   bool // inside a string within a skipped nested value
-	nestEsc bool
+	state    state
+	key      strings.Builder
+	cur      string
+	str      jsonStringDecoder
+	purpose  strings.Builder
+	known    bool
+	outcome  strings.Builder
+	outKnown bool
+	held     strings.Builder
+	depth    int
+	inStr    bool // inside a string within a skipped nested value
+	nestEsc  bool
 }
 
 // Purpose returns the purpose once its string has closed.
 func (d *Decoder) Purpose() (string, bool) { return d.purpose.String(), d.known }
+
+// Outcome returns the outcome once its string has closed.
+func (d *Decoder) Outcome() (string, bool) { return d.outcome.String(), d.outKnown }
 
 // Feed consumes an arguments fragment and returns the text that is now
 // decided and may be shown.
@@ -180,6 +186,11 @@ func (d *Decoder) Feed(chunk string) string {
 				d.str.reset()
 				d.purpose.Reset()
 				d.state = stInPurpose
+			case r == '"' && d.cur == "outcome":
+				d.str.reset()
+				d.outcome.Reset()
+				d.outKnown = false
+				d.state = stInOutcome
 			case r == '"':
 				d.str.reset()
 				d.state = stSkipString
@@ -207,6 +218,14 @@ func (d *Decoder) Feed(chunk string) string {
 				}
 			} else {
 				d.purpose.WriteString(s)
+			}
+		case stInOutcome:
+			s, closed := d.str.feed(r)
+			if closed {
+				d.state = stAfterValue
+				d.outKnown = true
+			} else {
+				d.outcome.WriteString(s)
 			}
 		case stSkipString:
 			if _, closed := d.str.feed(r); closed {

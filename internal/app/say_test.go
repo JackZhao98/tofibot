@@ -27,7 +27,7 @@ func callTool(ctx context.Context, req runtime.Request, name, callID string, arg
 }
 
 func say(ctx context.Context, req runtime.Request, callID, purpose, text string) (string, error) {
-	return callTool(ctx, req, "say", callID, map[string]any{"purpose": purpose, "text": text})
+	return callTool(ctx, req, "say", callID, map[string]any{"purpose": purpose, "outcome": "done", "text": text})
 }
 
 func assistantRows(t *testing.T, s *Store, convID string) []Message {
@@ -174,7 +174,7 @@ func TestSayRejectsBadArguments(t *testing.T) {
 		_, e1 := say(ctx, req, "x1", "nothing", "text")
 		_, e2 := say(ctx, req, "x2", "answer", "   ")
 		_, e3 := say(ctx, req, "x3", "note", strings.Repeat("n", maxSayNoteRunes+1))
-		_, e4 := callTool(ctx, req, "say", "x4", map[string]any{"purpose": "answer"})
+		_, e4 := callTool(ctx, req, "say", "x4", map[string]any{"purpose": "answer", "outcome": "done"})
 		errs = []error{e1, e2, e3, e4}
 		_, err := say(ctx, req, "a1", "answer", "fine")
 		return runtime.Result{}, err
@@ -207,20 +207,20 @@ func TestSayPurposeGatesByRunKind(t *testing.T) {
 	live.structured = true
 	tool := s.sayTool(c, live)
 	ctx := runtime.WithToolCallID(context.Background(), "g1")
-	if _, err := tool.Execute(ctx, json.RawMessage(`{"purpose":"message","text":"hi"}`)); err == nil {
+	if _, err := tool.Execute(ctx, json.RawMessage(`{"purpose":"message","outcome":"pending","text":"hi"}`)); err == nil {
 		t.Fatal("a scheduled run was offered a mid-run message")
 	}
-	if _, err := tool.Execute(ctx, json.RawMessage(`{"purpose":"note","text":"working"}`)); err != nil {
+	if _, err := tool.Execute(ctx, json.RawMessage(`{"purpose":"note","outcome":"pending","text":"working"}`)); err != nil {
 		t.Fatalf("a scheduled run may post notes: %v", err)
 	}
-	if _, err := tool.Execute(ctx, json.RawMessage(`{"purpose":"answer","text":"done","wake":[{"bot_id":"x","request":"y"}]}`)); err == nil {
+	if _, err := tool.Execute(ctx, json.RawMessage(`{"purpose":"answer","outcome":"done","text":"done","wake":[{"bot_id":"x","request":"y"}]}`)); err == nil {
 		t.Fatal("a scheduled DM answer accepted a wake list")
 	}
 	if done, err := s.store.scheduleReceipt(live.ID); err != nil || done {
 		t.Fatalf("receipt before the answer = %v, %v", done, err)
 	}
 	// The answer with its sources is the completion record; no separate receipt.
-	if _, err := tool.Execute(ctx, json.RawMessage(`{"purpose":"answer","text":"done","sources":["synthetic source"," "]}`)); err != nil {
+	if _, err := tool.Execute(ctx, json.RawMessage(`{"purpose":"answer","outcome":"done","text":"done","sources":["synthetic source"," "]}`)); err != nil {
 		t.Fatalf("scheduled answer: %v", err)
 	}
 	if done, err := s.store.scheduleReceipt(live.ID); err != nil || !done {
@@ -347,7 +347,7 @@ func TestPlainTextBetweenToolsIsPublishedWhenTheFlagIsOff(t *testing.T) {
 // model call, and the plain text before it never reaches the chat.
 func TestSayAnswerEndsTheRealLoopWithoutAnotherModelCall(t *testing.T) {
 	model := newFakeModel(t,
-		fakeStep{content: "Let me answer.", calls: []fakeCall{{"c1", "say", `{"purpose":"answer","text":"Half past four."}`}, {"c2", "list_memory", `{}`}}},
+		fakeStep{content: "Let me answer.", calls: []fakeCall{{"c1", "say", `{"purpose":"answer","outcome":"done","text":"Half past four."}`}, {"c2", "list_memory", `{}`}}},
 		fakeStep{content: "an extra model call that must not happen"})
 	s, run := serverWithModel(t, model, true)
 	if run.Status != "done" {
@@ -629,7 +629,7 @@ func TestSayTextStreamsIntoTheDraftAndBecomesTheMessage(t *testing.T) {
 		req.OnDelta("Sure, let me write that down.")
 		time.Sleep(70 * time.Millisecond)
 		req.OnToolCallDelta(runtime.ToolCallDelta{Index: 1, ID: "call-s", Name: "say"})
-		for _, frag := range []string{`{"purpose":"answer",`, `"text":"Revenue `, `grew four `, `percent."}`} {
+		for _, frag := range []string{`{"purpose":"answer","outcome":"done",`, `"text":"Revenue `, `grew four `, `percent."}`} {
 			req.OnToolCallDelta(runtime.ToolCallDelta{Index: 1, Arguments: frag})
 			time.Sleep(70 * time.Millisecond)
 		}
@@ -667,7 +667,7 @@ func TestInternalTextOfAnAnsweringResponseDoesNotTakeTheSayBubble(t *testing.T) 
 		req.OnDelta("Let me answer.")
 		time.Sleep(70 * time.Millisecond)
 		req.OnToolCallDelta(runtime.ToolCallDelta{Index: 1, ID: "call-s", Name: "say"})
-		for _, frag := range []string{`{"purpose":"answer","text":"Half `, `past four."}`} {
+		for _, frag := range []string{`{"purpose":"answer","outcome":"done","text":"Half `, `past four."}`} {
 			req.OnToolCallDelta(runtime.ToolCallDelta{Index: 1, Arguments: frag})
 			time.Sleep(70 * time.Millisecond)
 		}
@@ -693,7 +693,7 @@ func TestInternalTextOfAnAnsweringResponseDoesNotTakeTheSayBubble(t *testing.T) 
 func TestSayNoteStreamsIntoTheDraftThenFoldsInPlace(t *testing.T) {
 	s, run := dmRun(t, dmFuncEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
 		req.OnToolCallDelta(runtime.ToolCallDelta{Index: 0, ID: "call-n", Name: "say"})
-		for _, frag := range []string{`{"purpose":"note","text":"Checking `, `the inbox."}`} {
+		for _, frag := range []string{`{"purpose":"note","outcome":"pending","text":"Checking `, `the inbox."}`} {
 			req.OnToolCallDelta(runtime.ToolCallDelta{Index: 0, Arguments: frag})
 			time.Sleep(70 * time.Millisecond)
 		}
@@ -720,7 +720,7 @@ func TestRefusedSayClearsItsStreamedDraft(t *testing.T) {
 			return runtime.Result{}, err
 		}
 		req.OnToolCallDelta(runtime.ToolCallDelta{Index: 0, ID: "a2", Name: "say"})
-		req.OnToolCallDelta(runtime.ToolCallDelta{Index: 0, Arguments: `{"purpose":"answer","text":"second answer"}`})
+		req.OnToolCallDelta(runtime.ToolCallDelta{Index: 0, Arguments: `{"purpose":"answer","outcome":"done","text":"second answer"}`})
 		_, err := say(ctx, req, "a2", "answer", "second answer")
 		if err == nil {
 			return runtime.Result{}, errors.New("second answer accepted")
@@ -851,7 +851,7 @@ func (m engineByBot) Run(ctx context.Context, req runtime.Request) (runtime.Resu
 // TestRespondRefusesReplyUnderTheFlag.)
 func TestGroupSayAnswerEndsTheTurn(t *testing.T) {
 	model := newFakeModel(t,
-		fakeStep{calls: []fakeCall{{"c1", "say", `{"purpose":"answer","text":"Spaces, and let a formatter decide."}`}}},
+		fakeStep{calls: []fakeCall{{"c1", "say", `{"purpose":"answer","outcome":"done","text":"Spaces, and let a formatter decide."}`}}},
 		fakeStep{content: "a model call that must not happen"})
 	byBot := engineByBot{}
 	f := newDedupeFixture(t, byBot)
@@ -965,7 +965,7 @@ func TestSayStreamAfterAReviewDraftKeepsEveryFragment(t *testing.T) {
 		go func() {
 			defer close(streamed)
 			req.OnToolCallDelta(runtime.ToolCallDelta{Index: 0, ID: "call-s", Name: "say"})
-			for _, frag := range []string{`{"purpose":"answer",`, `"text":"The reviewed `, `answer, in `, `three parts."}`} {
+			for _, frag := range []string{`{"purpose":"answer","outcome":"done",`, `"text":"The reviewed `, `answer, in `, `three parts."}`} {
 				req.OnToolCallDelta(runtime.ToolCallDelta{Index: 0, Arguments: frag})
 				time.Sleep(70 * time.Millisecond)
 			}

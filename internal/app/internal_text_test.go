@@ -40,7 +40,7 @@ func TestInternalTextAfterAHandoffIsNeverAChatKind(t *testing.T) {
 		if run.Kind != "" {
 			return reply(ctx, req, "the other line", nil)
 		}
-		if _, err := callTool(ctx, req, "say", "m1", map[string]any{"purpose": "message", "text": "My line."}); err != nil {
+		if _, err := callTool(ctx, req, "say", "m1", map[string]any{"purpose": "message", "outcome": "pending", "text": "My line."}); err != nil {
 			return "ERR " + err.Error()
 		}
 		for _, tool := range req.Tools {
@@ -129,9 +129,9 @@ func TestInternalRowsDoNotCountAsUnreadOrPreview(t *testing.T) {
 func TestRefusedAnswerAfterAHandoffEndsTheTurn(t *testing.T) {
 	var f dedupeFixture
 	model := newFakeModel(t,
-		fakeStep{calls: []fakeCall{{"c1", "say", `{"purpose":"message","text":"My line."}`}}},
+		fakeStep{calls: []fakeCall{{"c1", "say", `{"purpose":"message","outcome":"pending","text":"My line."}`}}},
 		fakeStep{calls: []fakeCall{{"c2", "handoff", fmt.Sprintf(`{"bot_id":"%s","task":"give the other line"}`, "META")}}},
-		fakeStep{calls: []fakeCall{{"c3", "say", `{"purpose":"answer","text":"The other line is on its way; I will add it."}`}}},
+		fakeStep{calls: []fakeCall{{"c3", "say", `{"purpose":"answer","outcome":"done","text":"The other line is on its way; I will add it."}`}}},
 		fakeStep{content: "Waiting on the other member now."})
 	byBot := engineByBot{}
 	f = newDedupeFixture(t, byBot)
