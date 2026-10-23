@@ -302,19 +302,32 @@
   },
   "oauth": {
     "help_body": "Le mode de connexion suit la façon dont vous avez ouvert Tofi et fonctionne pour Google, Notion et les autres services OAuth. Pour un client configuré manuellement, enregistrez l’URL de redirection complète ci-dessous dans la console du service ; les services à enregistrement automatique comme Notion sont gérés par Tofi.",
-    "help_title": "Mode de connexion et limites",
-    "waiting": "En attente de l’autorisation {{title}}"
+    "help_title": "Mode de connexion et limites"
   },
   "origin": {
     "community": "Maintenu par la communauté",
     "preset": "Préréglage de connexion",
     "vendor": "Maintenu par le fournisseur"
   },
+  "paste": {
+    "error": {
+      "generic": "Cette adresse n’a pas pu être vérifiée. Contrôlez-la et collez-la de nouveau, ou recommencez."
+    },
+    "label": "Adresse de redirection",
+    "lead": "{{title}} ne redirige que vers 127.0.0.1. Autorisez l’accès sur sa page de connexion, puis collez l’adresse affichée à la fin.",
+    "open": "Ouvrir la connexion à {{title}}",
+    "starting": "Préparation de la connexion…",
+    "step_copy": "Après validation, le navigateur affiche une page qui ne se charge pas. C’est normal. Copiez l’adresse complète depuis la barre d’adresse.",
+    "submit": "Terminer la connexion",
+    "submitting": "Vérification…",
+    "title": "Se connecter à {{title}}"
+  },
   "route": {
     "desktop": "Connectez-vous dans le navigateur du système ; vous revenez automatiquement à l’application ensuite. L’ordinateur partagé n’est pas utilisé.",
     "desktop_outdated": "Cette version de l’application ne prend pas encore en charge l’autorisation locale. Mettez-la à jour. L’ordinateur partagé n’est pas utilisé à la place.",
     "http_blocked": "Une connexion HTTP directe ne peut pas recevoir la redirection en toute sécurité, et aucun ordinateur partagé n’est configuré. Utilisez HTTPS ou l’application Tofi.",
     "loading": "Chargement des réglages d’autorisation…",
+    "loopback_paste": "Ce service n’accepte qu’une redirection vers 127.0.0.1. Connectez-vous dans votre navigateur, puis collez ici l’adresse vers laquelle il redirige.",
     "public_origin_missing": "Définissez TOFI_PUBLIC_ORIGIN (l’adresse HTTPS publique) sur le serveur, puis réessayez.",
     "vm": "Vous êtes connecté en HTTP direct : seul cet accès autorise via l’ordinateur partagé. Le service doit accepter une redirection locale. HTTPS ou l’application Tofi est recommandé.",
     "web": "Connectez-vous dans le navigateur de cet appareil ; la redirection revient vers le serveur HTTPS de Tofi. L’ordinateur partagé n’est pas utilisé."

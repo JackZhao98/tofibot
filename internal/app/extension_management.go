@@ -36,7 +36,7 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 	if s.routeVMOAuth(w, r, p) {
 		return true
 	}
-	if s.routeDesktopOAuth(w, r, p) {
+	if s.routeDesktopOAuth(w, r, p) || s.routePasteOAuth(w, r, p) {
 		return true
 	}
 	if s.routeMCPToolTiers(w, r, p) {
@@ -60,6 +60,12 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		return true
 	case strings.HasPrefix(p, "extensions/mcp/") && strings.HasSuffix(p, "/oauth/start") && r.Method == http.MethodPost:
 		name := strings.TrimSuffix(strings.TrimPrefix(p, "extensions/mcp/"), "/oauth/start")
+		// A provider that accepts only 127.0.0.1 redirects never gets the public-origin callback,
+		// neither registered nor requested (the Manager refuses it too).
+		if s.extensions.OAuthLoopbackOnly(name) {
+			writeErr(w, 400, "oauth_loopback_only", "This connection signs in only through a 127.0.0.1 redirect. Use the shared computer or the paste-back step.")
+			return true
+		}
 		origin := s.webOAuthOrigin(r)
 		if origin == "" || (r.TLS == nil && r.Header.Get("Origin") != origin) || (r.Header.Get("Origin") != "" && r.Header.Get("Origin") != origin) {
 			writeErr(w, 400, "oauth_https_required", "Web authorization requires HTTPS. Over plain HTTP, authorize from the shared computer or use HTTPS or the Tofi client.")
@@ -67,7 +73,11 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		}
 		redirect := origin + "/api/extensions/mcp/" + name + "/oauth/callback"
 		sid, u, e := s.extensions.OAuthStart(r.Context(), name, redirect)
-		if e != nil {
+		if errors.Is(e, extensions.ErrOAuthLoopbackRequired) {
+			// The provider refused the public callback at registration; the connection is now marked loopback-only
+			// and the client signs in through the paste-back route instead.
+			writeErr(w, 409, "oauth_loopback_required", "This service accepts only a 127.0.0.1 redirect. Sign in with the paste-back step.")
+		} else if e != nil {
 			writeErr(w, 400, "oauth", extensions.OAuthPublicError(e))
 		} else {
 			writeJSON(w, 200, map[string]any{"session_id": sid, "authorization_url": u})

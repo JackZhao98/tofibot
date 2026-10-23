@@ -302,19 +302,32 @@
   },
   "oauth": {
     "help_body": "Der Anmeldeweg richtet sich danach, wie Sie Tofi geöffnet haben, und gilt für Google, Notion und andere OAuth-Dienste. Bei selbst konfigurierten Clients tragen Sie die vollständige Weiterleitungs-URL unten im Dienst ein; Dienste mit automatischer Registrierung wie Notion übernimmt Tofi.",
-    "help_title": "Anmeldeweg und Grenzen",
-    "waiting": "Warten auf Autorisierung für {{title}}"
+    "help_title": "Anmeldeweg und Grenzen"
   },
   "origin": {
     "community": "Von der Community gepflegt",
     "preset": "Verbindungsvorlage",
     "vendor": "Vom Anbieter gepflegt"
   },
+  "paste": {
+    "error": {
+      "generic": "Diese Adresse konnte nicht bestätigt werden. Prüfen Sie sie und fügen Sie sie erneut ein oder beginnen Sie von vorn."
+    },
+    "label": "Weiterleitungsadresse",
+    "lead": "{{title}} leitet nur an 127.0.0.1 weiter. Erteilen Sie den Zugriff auf der Anmeldeseite und fügen Sie dann die Adresse ein, auf der Sie landen.",
+    "open": "Anmeldung bei {{title}} öffnen",
+    "starting": "Anmeldung wird vorbereitet…",
+    "step_copy": "Nach der Freigabe zeigt der Browser eine Seite, die nicht lädt. Das ist erwartet. Kopieren Sie die vollständige Adresse aus der Adressleiste.",
+    "submit": "Anmeldung abschließen",
+    "submitting": "Wird geprüft…",
+    "title": "Bei {{title}} anmelden"
+  },
   "route": {
     "desktop": "Melden Sie sich im Systembrowser an; danach geht es automatisch zurück in diese App. Der geteilte Computer wird nicht genutzt.",
     "desktop_outdated": "Diese App-Version kann noch nicht lokal autorisieren. Aktualisieren Sie die App. Es wird nicht automatisch auf den geteilten Computer ausgewichen.",
     "http_blocked": "Eine direkte HTTP-Verbindung kann die Weiterleitung nicht sicher empfangen, und kein geteilter Computer ist eingerichtet. Nutzen Sie HTTPS oder die Tofi-App.",
     "loading": "Autorisierungseinstellungen werden geladen…",
+    "loopback_paste": "Dieser Dienst akzeptiert nur eine Weiterleitung an 127.0.0.1. Melden Sie sich in Ihrem Browser an und fügen Sie die Zieladresse der Weiterleitung hier ein.",
     "public_origin_missing": "Setzen Sie auf dem Server TOFI_PUBLIC_ORIGIN (die öffentliche HTTPS-Adresse) und versuchen Sie es erneut.",
     "vm": "Sie sind per HTTP direkt verbunden, daher wird nur hier über den geteilten Computer autorisiert. Der Dienst muss eine lokale Weiterleitung unterstützen. Empfohlen: HTTPS oder die Tofi-App.",
     "web": "Melden Sie sich im Browser dieses Geräts an; die Weiterleitung geht an Tofis HTTPS-Server. Der geteilte Computer wird nicht genutzt."

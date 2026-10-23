@@ -74,6 +74,12 @@
     "api_disabled": "Google から API が有効でないと返されました。OAuth クライアントと同じプロジェクトで、製品 API とその MCP サービスを有効にしてから、ツールを更新してください。",
     "access_denied": "Google がアクセスを拒否しました。アプリがテストモードの場合は、このアカウントがテストユーザーか確認してください。アカウントや組織の制限の可能性もあります。",
     "permission_denied": "Google がツールの読み取りを拒否しました。Cloud プロジェクトが Google Workspace Developer Preview Program に参加していること、OAuth クライアントで「Use this client for an AI-powered agent」にチェックが入っていること（2026-11-11 以降、Workspace MCP は未設定のクライアントを拒否します。この設定は 11-12 以降固定されるため、新しいクライアントが必要です）、API と MCP の有効化状況およびアカウントの権限を確認してください。401 / 403 だけでは原因を特定できません。",
-    "context_snapshot_unavailable": "この返信にはコンテキストの記録がありません。"
+    "context_snapshot_unavailable": "この返信にはコンテキストの記録がありません。",
+    "oauth_denied": "認可は許可されませんでした。",
+    "oauth_loopback_only": "この接続は 127.0.0.1 へのリダイレクト経由でのみサインインできます。共有コンピューターか貼り付けで行ってください。",
+    "oauth_paste_invalid": "このサインインが想定するリダイレクト先ではありません。アドレスバーの完全なアドレスを貼り付けてください。",
+    "oauth_paste_not_needed": "この接続では貼り付けサインインは使いません。",
+    "oauth_issuer_mismatch": "そのレスポンスは想定した認可サーバーからのものではありません。もう一度接続してください。",
+    "oauth_loopback_required": "このサービスは 127.0.0.1 へのリダイレクトのみ受け付けます。貼り付けによるサインインを使ってください。"
   }
 }

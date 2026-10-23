@@ -493,7 +493,7 @@ Bot 在干活时，聊天里只有一行：加载标记、现在在做什么、�
 | 项 | 契约 |
 |---|---|
 | 接管 | 打开 `TakeoverDialog`，实时画面 + 远程控制；"完成"或"做不了"之前先把屏幕控制交还，让恢复的运行不排在这次控制后面（`TakeoverDialog.tsx:64-66`）；画面断流时每 1.5 s 截一张静态图（`:43`） |
-| 连接 | https 下开新窗口走 OAuth，必须在点击事件内同步 `window.open`（浏览器拦截 await 后的弹窗，`HandoverCards.tsx:156-159`）；http 下用共享电脑；弹窗开着时每 2 s 查一次是否已连上（`:132`），窗口重新获得焦点时也查（`:126`） |
+| 连接 | 只接受 127.0.0.1 回调的服务（Robinhood）一律走粘贴回填（`PasteBackDialog`，D55），不开 https 弹窗；其余：https 下开新窗口走 OAuth，必须在点击事件内同步 `window.open`（浏览器拦截 await 后的弹窗，`HandoverCards.tsx:156-159`）；http 下用共享电脑；弹窗开着时每 2 s 查一次是否已连上（`:132`），窗口重新获得焦点时也查（`:126`） |
 | 关闭 | 接管大窗没有 Escape（键要给远程电脑），用"关闭"按钮 |
 
 **测试**：`test:handover-cards`。
@@ -558,6 +558,8 @@ Bot 在干活时，聊天里只有一行：加载标记、现在在做什么、�
 
 **连接列表和连接对话框（设置 › 连接）**：模仿 Anthropic 的 Settings › Connectors。文件：`ui/src/MCPSettings.tsx`（页面和 `MCPRow` 的行为）、`ui/src/connections/`（`RowView` 一行的外观、`status.ts` 状态判定、`ConnectDialog` 对话框、`RemoteForm` / `GogSetup` / `PackageForm` 三种设置步骤、`ToolTierPanel`、`google.ts`、`localPlugins.ts`、`connections.css`）、`ui/src/IntegrationBrowser.tsx`（目录）。
 - **一行一个连接**：图标、人话名字、一个状态、至多一个主操作，其余进 ⋯ 菜单（`OverlayMenu`）。远程 MCP、本地插件、适配器同一种行，不重复；不出现 `local_gog`、Runner、休眠字样。状态只有：已连接 / 需要授权（插件没有 Google 账号也算，绝不写"已连接"）/ API 未启用（带"启用 … API"主按钮，来自结构化错误）/ 连接失败（带具名原因，Google 的启用帮助只在这时出现）/ 正在检查 / 等待授权 / 尚未验证。主操作：授权、启用 API、重试、连接。
+- **等待授权**：行上没有插图（原来的 TOFI 方块、虚线弧、钥匙块已删，D55 随附）。状态文字用 `--type-meta` 的安静样式；唯一的提示是主按钮（“继续授权” / 取消）上的呼吸光环：`.mcp-button[data-pending]::after`，2.8 s `--ease-inout`，只动 `opacity` 和 `transform`，`prefers-reduced-motion` 下静止（`RowPrimary.pending`）。
+- **只接受 127.0.0.1 回调的服务**（`oauth.redirect_policy: loopback`，目录属性 `oauthRedirect`）：行上多一行安静的路线说明（`.mcp-login-note`，`extensions:route.loopback_paste`），授权打开 `PasteBackDialog`（`connections/PasteBackDialog.tsx`，懒加载块里的 `ModalDialog`；`PasteBackView` 是不发请求的外观，目录用它）：一个“打开登录页”按钮、一句说明、一个“跳转后的地址”输入框、取消/完成登录。地址只送一次，不回显，成功/取消/被拒后清空；失败只显示具名原因（`apiError.oauth_paste_invalid` 等）。同一个对话框也用在交接卡（`request_connection`）和引导页。目录状态：`connection-waiting-loopback`、`connection-needs-auth-loopback`、`paste-back`、`paste-back-error`、`paste-back-starting`、`connect-robinhood`。
 - **详情**（⋯ › 查看详情）：来源一行（官方 / 社区 · 包名 / 自定义，`connections.source.*`）、账号和 Google 项目、Workspace 预览要求，工具列表（`ToolTierPanel`）只在这里。常驻行不显示工具数。
 - **配置都在对话框里**（`ModalDialog`，懒加载块）：目录（官方连接器；Gmail 走 gogcli 且排第一；Google Workspace 官方 MCP 收在"Workspace 预览（企业）"并写明预览计划要求；"添加社区或自定义连接"带第三方维护、写入先问的说明）→ 单步设置。工作区已有 Google 客户端时，不再要 JSON。关闭后焦点回到打开它的控件。
 - 目录状态：`settings` 节的 `connections-*`。测试：`test:connections`（行数、无内部 id、需要授权、对话框、目录、详情来源、API 未启用按钮、共用客户端、手机宽度、七种语言）、`test:integration-catalog`（目录只含官方、Google 项目解析与启用链接）、`test:settings-shell`、`test:settings-polish`、`test:overlays`。

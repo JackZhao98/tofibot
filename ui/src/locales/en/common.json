@@ -74,6 +74,12 @@
     "api_disabled": "Google reports the API is not enabled. Enable the product API and its MCP service in the same project as the OAuth client, then refresh the tools.",
     "access_denied": "Google denied access. If the app is in testing mode, check that this account is a test user; an account or organization restriction is also possible.",
     "permission_denied": "Google refused to list the tools. Confirm the Cloud project has joined the Google Workspace Developer Preview Program, that the OAuth client has \"Use this client for an AI-powered agent\" checked (from 2026-11-11 the Workspace MCP rejects unmarked clients; the setting is fixed after 11-12, so a new client is needed), and check the API and MCP enablement and the account's permissions. A 401 or 403 alone cannot tell which one it is.",
-    "context_snapshot_unavailable": "No context was recorded for this reply."
+    "context_snapshot_unavailable": "No context was recorded for this reply.",
+    "oauth_denied": "Authorization was not granted.",
+    "oauth_loopback_only": "This connection signs in only through a 127.0.0.1 redirect: on the shared computer or by paste-back.",
+    "oauth_paste_invalid": "That is not the redirect this sign-in expects. Paste the full address from the address bar.",
+    "oauth_paste_not_needed": "This connection does not use paste-back sign-in.",
+    "oauth_issuer_mismatch": "That response did not come from the expected authorization server. Connect again.",
+    "oauth_loopback_required": "This service accepts only a 127.0.0.1 redirect. Sign in with the paste-back step."
   }
 }

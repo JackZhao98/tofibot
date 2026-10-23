@@ -573,7 +573,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   // ---- 7f. Connections open on the cached state: no animation, no spinner; the quiet re-check updates in place or flips to the problem.
   {
     const card = (page, name) => page.locator(`.mcp-service[aria-label="${name}"]`);
-    const motion = ".web-mcp-plug, .web-oauth-link, .mcp-service[data-state=\"checking\"], .mcp-service[data-state=\"authorizing\"]";
+    const motion = ".web-mcp-plug, .mcp-service[data-state=\"checking\"], .mcp-service[data-state=\"authorizing\"]";
     const running = page => page.evaluate(() => document.getAnimations().filter(a => a.playState === "running" && a.effect?.target?.closest?.(".mcp-service")).length);
     // Slow background check: the first paint must already be the cached "Connected" line.
     const slow = await open({tab: "connections", testdelay: "1800"});

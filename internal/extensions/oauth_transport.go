@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -70,9 +71,12 @@ func (s *memoryTokenStore) SaveToken(ctx context.Context, token *Token) error {
 
 type OAuthFlowConfig struct {
 	ClientID, ClientSecret, RedirectURI, AuthServerMetadataURL string
-	Scopes                                                     []string
-	TokenStore                                                 TokenStore
-	PKCEEnabled                                                bool
+	// LoopbackOnly: the provider accepts only http://127.0.0.1 redirects, so
+	// registration and the authorization request refuse any other one.
+	LoopbackOnly bool
+	Scopes       []string
+	TokenStore   TokenStore
+	PKCEEnabled  bool
 }
 type AuthServerMetadata = oauthex.AuthServerMeta
 
@@ -82,6 +86,7 @@ type OAuthHandler struct {
 	cfg                    OAuthFlowConfig
 	baseURL, expectedState string
 	metadata               *AuthServerMetadata
+	issParamSupported      bool
 }
 
 func NewOAuthHandler(cfg OAuthFlowConfig) *OAuthHandler { return &OAuthHandler{cfg: cfg} }
@@ -102,13 +107,22 @@ func (h *OAuthHandler) GetServerMetadata(ctx context.Context) (*AuthServerMetada
 		metadataURL = resolved
 	}
 	var md AuthServerMetadata
-	status, err := fetchOAuthJSON(ctx, metadataURL, &md)
+	var raw json.RawMessage
+	status, err := fetchOAuthJSON(ctx, metadataURL, &raw)
 	if err != nil {
 		return nil, err
 	}
 	if status/100 != 2 {
 		return nil, fmt.Errorf("OAuth metadata: HTTP %d", status)
 	}
+	if err := json.Unmarshal(raw, &md); err != nil {
+		return nil, err
+	}
+	// RFC 9207: the server says whether every authorization response carries its issuer.
+	var extra struct {
+		IssParameterSupported bool `json:"authorization_response_iss_parameter_supported"`
+	}
+	_ = json.Unmarshal(raw, &extra)
 	if md.AuthorizationEndpoint == "" || md.TokenEndpoint == "" {
 		return nil, errors.New("OAuth metadata missing endpoints")
 	}
@@ -123,9 +137,24 @@ func (h *OAuthHandler) GetServerMetadata(ctx context.Context) (*AuthServerMetada
 		return nil, errors.New("OAuth metadata does not support S256 PKCE")
 	}
 	h.metadata = &md
+	h.issParamSupported = extra.IssParameterSupported
 	return &md, nil
 }
+
+// IssuerCheck returns the issuer an authorization response must carry in its
+// `iss` parameter (RFC 9207), when the server advertises that it sends one.
+func (h *OAuthHandler) IssuerCheck() (issuer string, required bool) {
+	if h.metadata == nil || !h.issParamSupported || h.metadata.Issuer == "" {
+		return "", false
+	}
+	return h.metadata.Issuer, true
+}
 func (h *OAuthHandler) RegisterClient(ctx context.Context, name string) error {
+	if h.cfg.LoopbackOnly {
+		if err := ValidateLoopbackRedirect(h.cfg.RedirectURI); err != nil {
+			return err
+		}
+	}
 	md, err := h.GetServerMetadata(ctx)
 	if err != nil {
 		return err
@@ -141,6 +170,11 @@ func (h *OAuthHandler) RegisterClient(ctx context.Context, name string) error {
 	return nil
 }
 func (h *OAuthHandler) config(ctx context.Context) (*oauth2.Config, error) {
+	if h.cfg.LoopbackOnly {
+		if err := ValidateLoopbackRedirect(h.cfg.RedirectURI); err != nil {
+			return nil, err
+		}
+	}
 	md, err := h.GetServerMetadata(ctx)
 	if err != nil {
 		return nil, err

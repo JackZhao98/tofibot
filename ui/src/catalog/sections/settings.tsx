@@ -4,11 +4,13 @@ import { Banner, DangerZone, FilePicker, Segmented, SettingsCard, SettingsDetail
 import { AppearancePicker, ConfirmAction, Disclosure } from "../../InteractionSystem";
 import { i18n } from "../../i18n";
 import "../../extensions-system.css";
+import "../../connections/connections.css";
 import { brandIcons } from "../../brandIcons";
 import { ServiceMark } from "../../ServiceMark";
 import { ConnectDialog, type DialogRequest } from "../../connections/ConnectDialog";
 import { ConnectionRowView, type RowMenuItem, type RowPrimary } from "../../connections/RowView";
 import { RepoLink } from "../../connections/repoStars";
+import { PasteBackView } from "../../connections/PasteBackDialog";
 import type { ConnectionKind } from "../../connections/status";
 import type { GoogleOverview } from "../../connections/google";
 import type { LocalState } from "../../connections/localPlugins";
@@ -104,11 +106,24 @@ export const settings: CatalogSection = {
     connectionRow("api-disabled", "Connection row, API not enabled", { name: "Google Gmail", kind: "api_disabled", state: "error", status: "API not enabled", primary: { label: "Enable Google Gmail API", href: "https://console.cloud.google.com/apis/library/gmail.googleapis.com?project=tofi-sample-123456" }, error: "The Google Gmail API isn’t enabled in your Google Cloud project. Enable it, then refresh." }),
     connectionRow("error", "Connection row, failed with a named reason", { name: "acme_tracker", kind: "error", status: "Connection failed", primary: { label: "Retry", onClick: noop }, error: "Couldn’t load tools. Check the server URL and credentials, then try again." }),
     connectionRow("checking", "Connection row, checking", { name: "Notion", kind: "checking", status: "Loading tools…" }),
-    connectionRow("waiting", "Connection row, waiting for authorization", { name: "Notion", kind: "waiting", status: "Waiting for authorization", primary: { label: "Continue authorization", href: "https://auth.example.test/" } }),
+    connectionRow("waiting", "Connection row, waiting for authorization", { name: "Notion", kind: "waiting", status: "Waiting for authorization", primary: { label: "Continue authorization", href: "https://auth.example.test/", pending: true } }),
+    { id: "connection-waiting-loopback", kind: "inline", label: "Connection row, waiting (loopback-only service): one quiet route line, breathing Continue button", note: "no illustration; the ring is opacity and scale only, static under reduced motion",
+      render: () => <div className="extension-panel mcp-settings"><div className="mcp-rows"><ConnectionRowView name="Robinhood" kind="waiting" state="waiting" statusText="Waiting for authorization" primary={{ label: "Continue authorization", href: "https://auth.example.test/", pending: true }} menu={connectionMenu}>
+        <div className="mcp-login-note"><p role="status">{mcpOAuthRoute("https:", false, false, synthOptions, true).note}</p></div>
+      </ConnectionRowView></div></div> },
+    { id: "connection-needs-auth-loopback", kind: "inline", label: "Connection row, needs authorization (loopback-only service): one quiet route line",
+      render: () => <div className="extension-panel mcp-settings"><div className="mcp-rows"><ConnectionRowView name="Robinhood" kind="needs_auth" state="auth" statusText="Needs authorization" primary={{ label: "Authorize", onClick: noop }} menu={connectionMenu}>
+        <div className="mcp-login-note"><p role="status">{mcpOAuthRoute("https:", false, false, synthOptions, true).note}</p></div>
+      </ConnectionRowView></div></div> },
+    { id: "paste-back", kind: "inline", label: "Paste-back sign-in, address field", note: "the pasted text is never echoed; only a named reason shows",
+      render: () => <PasteBackView title="Robinhood" session={{ authorization_url: "https://auth.example.test/authorize", redirect_uri: "http://127.0.0.1:43821/oauth/callback" }} pasted="" busy={false} error="" onPasted={noop} onSubmit={noop} onCancel={noop} /> },
+    { id: "paste-back-error", kind: "inline", label: "Paste-back sign-in, address refused", render: () => <PasteBackView title="Robinhood" session={{ authorization_url: "https://auth.example.test/authorize", redirect_uri: "http://127.0.0.1:43821/oauth/callback" }} pasted="http://127.0.0.1:43821/oauth/callback?code=sample&state=wrong" busy={false} error={t("common:apiError.oauth_paste_invalid")} onPasted={noop} onSubmit={noop} onCancel={noop} /> },
+    { id: "paste-back-starting", kind: "inline", label: "Paste-back sign-in, preparing", render: () => <PasteBackView title="Robinhood" session={null} pasted="" busy={false} error="" onPasted={noop} onSubmit={noop} onCancel={noop} /> },
     connectDialog("directory", "Add connection: directory", { view: "directory" }, null, { note: "Gmail (gogcli) first, official services, the Workspace preview grouping with its enrolment line, then Custom" }),
     connectDialog("gmail", "Add connection: Gmail via gogcli (first Google service)", { view: "gog" }),
     connectDialog("gmail-saved", "Gmail via gogcli with the workspace's Google client", { view: "gog" }, synthGoogle, { note: "no JSON to upload; the project's Enable Gmail API link" }),
     connectDialog("workspace", "Google Workspace MCP server with the saved client", { view: "preset", preset: integrationCatalog.find(item => item.id === "google-calendar")! }, synthGoogle),
+    connectDialog("robinhood", "Robinhood (loopback-only redirect): the route line explains why", { view: "preset", preset: integrationCatalog.find(item => item.id === "robinhood")! }),
     connectDialog("custom", "Custom connector", { view: "custom" }),
     connectDialog("package", "Local package", { view: "package" }),
     { id: "shell", kind: "app", label: "Settings window", note: "the real settings shell, opened from the gear beside the account",
