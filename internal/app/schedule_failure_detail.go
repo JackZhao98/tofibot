@@ -3,6 +3,11 @@ package app
 import "strings"
 
 const (
+	// scheduleEmptyAnswerCode names the failure of a scheduled run whose answer
+	// drafts all had nothing visible in them (say_text_empty).
+	scheduleEmptyAnswerCode  = "say_text_empty"
+	scheduleEmptyAnswerError = scheduleEmptyAnswerCode + ": the scheduled task's answer had nothing visible in it, so no result was recorded"
+
 	scheduleMissingReceiptError = "scheduled task returned without confirming a completed result"
 	scheduleUnconfirmedLabel    = "\n\nUNCONFIRMED assistant output (not proof of completion):\n"
 	maxScheduleFailureRunes     = 2400 // Includes the error, label and truncation marker.

@@ -3736,11 +3736,11 @@ func (s *Server) execute(c Conversation, r Run) {
 			state.review = func() bool { return observedToolWork.Load() && !reviewed.Swap(true) }
 			state.owed = func() bool { return observedToolWork.Load() && !reviewed.Load() }
 			state.gradeOwed = func() bool { return int(gradedRounds.Load()) < gateRounds && !inReceiptRepair.Load() }
-			state.grade = func(ctx context.Context, text string) string {
+			state.grade = func(ctx context.Context, text string, quiet bool) string {
 				if !state.gradeOwed() {
 					return ""
 				}
-				revision := s.gradeAnswer(ctx, graderModelProvider, graderModel, r.ID, int(gradedRounds.Load()), pm, text)
+				revision := s.gradeAnswer(ctx, graderModelProvider, graderModel, r.ID, int(gradedRounds.Load()), pm, text, quiet)
 				gradedRounds.Add(1)
 				return revision
 			}
@@ -3933,7 +3933,7 @@ func (s *Server) execute(c Conversation, r Run) {
 						return "", err
 					}
 					if !done {
-						revision := s.gradeAnswer(ctx, graderModelProvider, graderModel, r.ID, int(gradedRounds.Load()), pm, content)
+						revision := s.gradeAnswer(ctx, graderModelProvider, graderModel, r.ID, int(gradedRounds.Load()), pm, content, false)
 						gradedRounds.Add(1)
 						if revision != "" {
 							return revision + blockerRevisionTail, nil
@@ -4146,6 +4146,10 @@ func (s *Server) execute(c Conversation, r Run) {
 			return
 		}
 		if !confirmed {
+			if st := s.sayRun(r.ID); st != nil && st.emptyAnswer.Load() {
+				s.failRun(c, r, errors.New(scheduleEmptyAnswerError))
+				return
+			}
 			s.failRun(c, r, errors.New(scheduleFailureDetail(res.Content, botCfg)))
 			return
 		}

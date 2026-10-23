@@ -23,6 +23,18 @@ below; protocol upgrades change their configuration fingerprints so old
 protocol metadata is rebuilt.
 
 
+- Server names: `search_mcp_tools({server})` resolves the name exactly first, then
+  case- and separator-insensitively against the server's label (the installed
+  package, else its name read as words), then against a unique server whose name,
+  label or saved tool names contain a word of the request; a resolved result
+  reports `server_requested` and `server_searched`. A name that resolves to no
+  server (and a `call_mcp_tool` name `mcp_<server>__<tool>` naming a server that is
+  not connected) is refused with `mcp_server_unknown`, a validation outcome with
+  next action `repair_arguments`, whose message lists up to 20 connected servers
+  (name, label, a one-line purpose from the saved catalog; at most 3000 bytes) as
+  data. The discovery policy tells the model to search the connected tools without
+  naming a server before it tells the person a capability or connection is
+  unavailable.
 - `list_mcp_servers({query?, offset?})`: paginated server names and transports from local
   configuration; this does not connect to remote servers.
 - `search_mcp_catalog({query, offset?, limit?})`: ranks tool names and short descriptions
