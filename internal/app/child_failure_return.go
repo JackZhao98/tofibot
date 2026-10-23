@@ -95,11 +95,20 @@ func scheduleChildFailureReturnTx(tx *sql.Tx, runID string) (Run, bool, error) {
 	if err != sql.ErrNoRows {
 		return Run{}, false, err
 	}
+	if sibling, found, err := fanOutReturnTx(tx, done, origin); err != nil || found {
+		return sibling, false, err
+	}
+	if pending, err := fanOutPendingTx(tx, done); err != nil || pending {
+		return Run{}, false, err
+	}
 	var partial sql.NullString
 	_ = tx.QueryRow(`SELECT content FROM messages WHERE run_id=? AND role='assistant' AND sender_bot_id=? AND kind NOT IN ('notice') ORDER BY seq DESC LIMIT 1`, done.ID, done.BotID).Scan(&partial)
 	var childName sql.NullString
 	_ = tx.QueryRow(`SELECT name FROM bots WHERE id=?`, done.BotID).Scan(&childName)
 	context := childFailureContext(done, childName.String, partial.String)
+	if others := siblingOutcomes(tx, done, origin); len(others) > 0 {
+		context += "\nOther tasks assigned together with it:" + fanOutSiblingBlocks(others, 1800)
+	}
 
 	t := now()
 	var queueSeq int64
