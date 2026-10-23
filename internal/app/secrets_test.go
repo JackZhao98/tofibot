@@ -84,6 +84,17 @@ func TestSecretEnvTargetBoundary(t *testing.T) {
 	if !allowedSecretEnv("API_KEY") {
 		t.Fatal("valid variable rejected")
 	}
+	// Same cases as ui/scripts/test-secret-env-name.mjs (rule in ui/src/secretEnvName.ts). Change both together.
+	for _, name := range []string{"A", "_", "MY_API_KEY", "LDX", "PATHS", strings.Repeat("A", 128)} {
+		if !allowedSecretEnv(name) {
+			t.Fatalf("rejected %s", name)
+		}
+	}
+	for _, name := range []string{"", "a", "my key", "A.B", "TOFI_WORKSPACE", "PWD", "TMPDIR", "LD_", strings.Repeat("A", 129)} {
+		if allowedSecretEnv(name) {
+			t.Fatalf("accepted %q", name)
+		}
+	}
 	for _, value := range []string{"", "a\x00b", strings.Repeat("x", 65537)} {
 		if validSecretValue(value) {
 			t.Fatal("invalid value accepted")

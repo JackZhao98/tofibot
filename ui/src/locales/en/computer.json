@@ -287,7 +287,11 @@
       "no_private_key_in_file": "No private key found in that file. Choose a private key file or paste the key.",
       "read_file": "Couldn't read the file. Try again or paste the private key.",
       "copy_manual": "Copy it from the public key box below (⌘C / Ctrl+C).",
-      "drop_single": "Drop one private key file at a time."
+      "drop_single": "Drop one private key file at a time.",
+      "env_bad_chars": "Not allowed in a variable name: {{chars}}. Use uppercase letters, digits and underscore.",
+      "env_leading_digit": "A variable name can't start with a digit. Start with a letter or underscore.",
+      "env_too_long": "A variable name can be at most 128 characters.",
+      "env_reserved": "{{name}} is reserved by the system. Reserved: {{list}}, and any name starting with LD_."
     },
     "status": {
       "saved_applied": "Saved and applied. New commands and terminals pick it up.",
@@ -327,7 +331,8 @@
       "key_file": "Key file name",
       "env_value": "Value",
       "private_key": "Private key",
-      "private_key_placeholder": "Paste a private key, or drop the file here"
+      "private_key_placeholder": "Paste a private key, or drop the file here",
+      "env_name_hint": "Uppercase letters, digits and underscore only; must not start with a digit. Lowercase, spaces and hyphens are converted as you type."
     },
     "choose_file": "Choose file",
     "private_key_note": "Private keys never go to chat. Encrypted keys must be unlocked on the computer.",

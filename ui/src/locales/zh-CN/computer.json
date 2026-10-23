@@ -285,7 +285,11 @@
       "no_private_key_in_file": "文件中没有找到私钥，请选择私钥文件或直接粘贴内容。",
       "read_file": "无法读取文件，请重试或直接粘贴私钥。",
       "copy_manual": "请在下方公钥框内复制（⌘C / Ctrl+C）。",
-      "drop_single": "请一次只拖入一个私钥文件。"
+      "drop_single": "请一次只拖入一个私钥文件。",
+      "env_bad_chars": "变量名不能包含：{{chars}}。请只用大写字母、数字和下划线。",
+      "env_leading_digit": "变量名不能以数字开头，请以字母或下划线开头。",
+      "env_too_long": "变量名最长 128 个字符。",
+      "env_reserved": "{{name}} 是系统保留名。保留名：{{list}}，以及所有以 LD_ 开头的名称。"
     },
     "status": {
       "saved_applied": "已保存并应用。新启动的命令和终端会读取配置。",
@@ -325,7 +329,8 @@
       "key_file": "密钥文件名",
       "env_value": "变量值",
       "private_key": "私钥内容",
-      "private_key_placeholder": "粘贴私钥，或将文件拖到这里"
+      "private_key_placeholder": "粘贴私钥，或将文件拖到这里",
+      "env_name_hint": "仅限大写字母、数字和下划线，不能以数字开头。输入时会自动把小写字母转为大写，空格和连字符转为下划线。"
     },
     "choose_file": "选择文件",
     "private_key_note": "私钥不会发到聊天。加密私钥需在电脑中解锁。",

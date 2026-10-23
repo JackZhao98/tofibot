@@ -289,7 +289,11 @@
       "no_private_key_in_file": "Aucune clé privée trouvée dans ce fichier. Choisissez un fichier de clé privée ou collez son contenu.",
       "read_file": "Impossible de lire le fichier. Réessayez ou collez la clé privée.",
       "copy_manual": "Copiez-la depuis le champ de clé publique ci-dessous (⌘C / Ctrl+C).",
-      "drop_single": "Déposez un seul fichier de clé privée à la fois."
+      "drop_single": "Déposez un seul fichier de clé privée à la fois.",
+      "env_bad_chars": "Non autorisé dans un nom de variable : {{chars}}. Utilisez des majuscules, des chiffres et le tiret bas.",
+      "env_leading_digit": "Un nom de variable ne peut pas commencer par un chiffre. Commencez par une lettre ou un tiret bas.",
+      "env_too_long": "Un nom de variable fait 128 caractères au maximum.",
+      "env_reserved": "{{name}} est réservé par le système. Réservés : {{list}}, et tout nom commençant par LD_."
     },
     "status": {
       "saved_applied": "Enregistré et appliqué. Les nouvelles commandes et les nouveaux terminaux le prendront en compte.",
@@ -329,7 +333,8 @@
       "key_file": "Nom du fichier de clé",
       "env_value": "Valeur",
       "private_key": "Clé privée",
-      "private_key_placeholder": "Collez une clé privée ou déposez le fichier ici"
+      "private_key_placeholder": "Collez une clé privée ou déposez le fichier ici",
+      "env_name_hint": "Lettres majuscules, chiffres et tiret bas uniquement ; ne doit pas commencer par un chiffre. Les minuscules, espaces et traits d'union sont convertis pendant la saisie."
     },
     "choose_file": "Choisir un fichier",
     "private_key_note": "Les clés privées ne sont jamais envoyées dans le chat. Les clés chiffrées doivent être déverrouillées sur l'ordinateur.",

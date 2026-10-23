@@ -285,7 +285,11 @@
       "no_private_key_in_file": "檔案中沒有找到私密金鑰，請選擇私密金鑰檔案或直接貼上內容。",
       "read_file": "無法讀取檔案，請重試或直接貼上私密金鑰。",
       "copy_manual": "請在下方公開金鑰框內複製（⌘C / Ctrl+C）。",
-      "drop_single": "請一次只拖入一個私密金鑰檔案。"
+      "drop_single": "請一次只拖入一個私密金鑰檔案。",
+      "env_bad_chars": "變數名稱不能包含：{{chars}}。請只用大寫字母、數字和底線。",
+      "env_leading_digit": "變數名稱不能以數字開頭，請以字母或底線開頭。",
+      "env_too_long": "變數名稱最長 128 個字元。",
+      "env_reserved": "{{name}} 是系統保留名稱。保留名稱：{{list}}，以及所有以 LD_ 開頭的名稱。"
     },
     "status": {
       "saved_applied": "已儲存並套用。新啟動的指令和終端機會讀取設定。",
@@ -325,7 +329,8 @@
       "key_file": "金鑰檔名",
       "env_value": "變數值",
       "private_key": "私密金鑰內容",
-      "private_key_placeholder": "貼上私密金鑰，或將檔案拖曳到這裡"
+      "private_key_placeholder": "貼上私密金鑰，或將檔案拖曳到這裡",
+      "env_name_hint": "僅限大寫字母、數字和底線，不能以數字開頭。輸入時會自動把小寫字母轉為大寫，空格和連字號轉為底線。"
     },
     "choose_file": "選擇檔案",
     "private_key_note": "私密金鑰不會傳到聊天中。加密的私密金鑰需在電腦中解鎖。",
