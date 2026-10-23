@@ -885,6 +885,14 @@
       "desktop_idle_seconds": {
         "name": "Desktop idle hibernation",
         "what": "The shared computer hibernates after this long unused and wakes on the next tool call. Set by the computer service."
+      },
+      "group_triage": {
+        "name": "Route unaddressed group messages",
+        "what": "When a group message names no one, a background model picks the member whose role fits it best. Off sends it to the Primary Assistant, or to a random member when there is none. A group with one active member skips the step."
+      },
+      "group_triage_model": {
+        "name": "Group routing model",
+        "what": "The model that picks the member for an unaddressed group message. Automatic means the background model."
       }
     },
     "option": {

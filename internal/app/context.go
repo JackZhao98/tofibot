@@ -252,7 +252,7 @@ const groupLatestMessageLine = "Reply to the person's latest message alone and r
 // the system text, where a name the model believes it knows slips past it.
 const lookupNoteLine = "A name or term in the message that you do not recognize, or a named work, product, person or event even if the name seems familiar, is searched before you answer or ask."
 
-const reactionAndEmojiGuidance = "Use emoji and reactions sparingly when fitting.\n"
+const reactionAndEmojiGuidance = "Use a reaction, not a short message, to confirm, agree, acknowledge or take on work; it never changes task state. Emoji sparingly.\n"
 
 // Shared by scheduled roots and descendants; occurrence receipts remain run-specific.
 const scheduledResultGuidance = "\nSchedule status: use [schedule states], not old messages.\nOnce you have the assigned result and its sources, call complete_scheduled_task with both (source names/URLs), then give the same concise result as your final answer. If blocked after fallback, explain why without calling complete_scheduled_task."
@@ -458,7 +458,13 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	userMessageEligible, _ := botUserMessageEligible(s.store.db, r.BotID, r.ID, c.ID)
 	contextConversationID := contextConversationID(c, bot)
 	var before int64
-	if r.TriggerMessageID != "" {
+	reactionRequest, reactionWake := "", false
+	if r.Kind == runKindGroupMention {
+		reactionRequest, reactionWake = s.store.reactionWakeRequest(r.ID)
+	}
+	// A reaction wake reads the conversation as it stands now: the reacted
+	// message may be old, and what followed it matters.
+	if r.TriggerMessageID != "" && !reactionWake {
 		if anchor, err := s.store.GetMessage(r.TriggerMessageID); err == nil && anchor.ConversationID == contextConversationID {
 			before = anchor.Seq + 1
 			// The parent may publish its answer after enqueueing this handoff.
@@ -502,6 +508,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		}
 	}
 	msgs = s.foldClosedGroupExchanges(c, r, bot, msgs)
+	reactionNotes := s.store.reactionSummaries(msgs)
 	summaryBoundary := before
 	if summaryBoundary == 0 {
 		summaryBoundary = 1 << 62
@@ -719,7 +726,13 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 			handoffText = trimRunes(fixed+failureContext+"\n[/failed colleague task]", handoffReserve)
 		}
 	}
-	if r.Kind == runKindGroupMention {
+	if reactionWake {
+		handoffReserve = 2000
+		if remaining := maxHistoryRunes - used; remaining < handoffReserve {
+			handoffReserve = remaining
+		}
+		handoffText = trimRunes(fmt.Sprintf("[person reactions]\nYou are %s (id=%s). A person reacted to your messages listed below, which is why you are running now. No reply is required. A reaction is a light signal, not an instruction, and it does not change the state of any task. Read the transcript. Answer only when the reaction leaves something open, otherwise end your turn without posting.\n%s\n[/person reactions]", bot.Name, bot.ID, reactionRequest), handoffReserve)
+	} else if r.Kind == runKindGroupMention {
 		request := ""
 		_ = s.store.db.QueryRow(`SELECT request FROM run_wakes WHERE run_id=?`, r.ID).Scan(&request)
 		if result, err := s.store.GetMessage(r.TriggerMessageID); err == nil && result.ConversationID == c.ID {
@@ -767,6 +780,11 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		if handoff != nil && m.ID == handoff.ID {
 			continue
 		}
+		// The routing line triage publishes ("Handed to X.") tells people who
+		// took the message; it carries nothing a Bot needs.
+		if m.Kind == "notice" && m.SenderBotID == "system" {
+			continue
+		}
 		content := m.Content
 		role := m.Role
 		if m.Kind == groupExchangeGistKind {
@@ -811,6 +829,9 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 				verbatim[m.RunID] = true
 			}
 			ownKept++
+		}
+		if note := reactionNotes[m.ID]; note != "" {
+			content += "\n" + note
 		}
 		visual := runtime.Message{Role: role, Content: content}
 		if !own {

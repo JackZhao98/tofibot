@@ -201,6 +201,8 @@ type Server struct {
 	dispositions                         sync.Map // run id -> groupChoice recorded by the respond tool
 	sayRuns                              sync.Map // run id -> *sayRunState of a structured run in flight
 	waitTimeout                          time.Duration
+	reactionWakes                        reactionWakeState
+	reactionWakeWindow                   time.Duration // 0 = defaultReactionWakeWindow
 	desktopRestartedAt                   time.Time
 	gogStatus                            gogStatusCache
 	accountID                            string
@@ -1699,6 +1701,12 @@ func (s *Store) AddHandoff(conv, sender, bot, parent, task string) (Message, Run
 	runKind := ""
 	if conversationKind == "group" {
 		runKind = runKindGroupTask
+		if sender == "system" {
+			// Triage routing is not an assignment: the chosen member answers the
+			// person's message as it would have under the older rule, with no
+			// return run to the triage worker.
+			runKind = runKindGroupChat
+		}
 	}
 	r := Run{ID: uuid.NewString(), ConversationID: conv, BotID: bot, Status: "queued", ParentRunID: parent, Model: model, Kind: runKind, OriginConversationID: origin, CreatedAt: t, UpdatedAt: t}
 	var seq int64
@@ -3384,12 +3392,16 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request, c Conversat
 			// they replied to, exactly as an @mention would.
 			specs = []runSpec{{BotID: replied.ID, Model: replied.Model}}
 			interrupt = true
-		} else {
+		} else if s.groupTriageEnabled() {
 			// An unaddressed group round is scheduled transactionally by the
-			// durable ingress path: the Primary Assistant when it is a member,
-			// otherwise any active member. Keeping specs empty here prevents a
-			// stale HTTP roster from deciding the recipient before
-			// membership/archive checks commit.
+			// durable ingress path. A bare triage request lets that path queue a
+			// triage run (no model call inside the transaction) when the group has
+			// two or more active members; the roster is read at commit time, never
+			// from this possibly stale HTTP view.
+			specs = []runSpec{{Kind: runKindTriage, Model: s.groupTriageModel()}}
+		} else {
+			// Triage is off: the durable ingress path picks the Primary Assistant
+			// when it is a member, otherwise any active member.
 			specs = nil
 		}
 	} else {
@@ -3623,11 +3635,7 @@ func (s *Server) execute(c Conversation, r Run) {
 			s.failRun(c, r, me)
 			return
 		}
-		var roster strings.Builder
-		for _, member := range members {
-			fmt.Fprintf(&roster, "%s (%s): %s\n", member.Name, member.ID, trimRunes(member.Instructions, 1500))
-		}
-		system = "You are a routing triage worker. Select exactly one member for the user's request. Reply with only that member's exact id, exact name, or JSON {\"bot_id\":\"...\"}. Never answer the user and never invent a member.\nMembers:\n" + roster.String()
+		system = triageSystemPrompt(members)
 	}
 	if r.Kind != runKindTriage && s.extensions != nil {
 		prepared, err := s.extensions.PrepareDiscoverableForBotWithCallGate(ctx, r.BotID, cachedMCPTools, func(callCtx context.Context, call extensions.MCPCallApproval) error {
@@ -4111,6 +4119,9 @@ func (s *Server) execute(c Conversation, r Run) {
 		if persistErr == nil && ctx.Err() != nil {
 			status = "cancelled"
 		}
+		if status == "failed" && r.Kind == runKindTriage && s.routeAfterFailedTriage(c, r, e) {
+			return // an unavailable routing model hands the message to the default member
+		}
 		s.store.SetRunStatus(r.ID, status, e.Error())
 		if failed, fe := s.store.GetRun(r.ID); fe == nil {
 			_, _ = s.store.Event(c.ID, "run", failed)
@@ -4398,6 +4409,9 @@ type demotedDraft struct {
 }
 
 func (s *Server) failRun(c Conversation, r Run, err error) {
+	if r.Kind == runKindTriage && s.routeAfterFailedTriage(c, r, err) {
+		return
+	}
 	if changed, _ := s.store.SetRunStatus(r.ID, "failed", err.Error()); changed {
 		if failed, e := s.store.GetRun(r.ID); e == nil {
 			_, _ = s.store.Event(c.ID, "run", failed)

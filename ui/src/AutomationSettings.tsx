@@ -13,7 +13,8 @@ import "./settings/automation.css";
 export type AutomationKey =
   | "conversation_model" | "background_model" | "structured_output" | "force_say_haiku_dm" | "web_search"
   | "group_exchange_gists" | "own_replies_verbatim" | "completion_review" | "answer_gate" | "mcp_auto_review"
-  | "remembered_approval_hours" | "provider_retries" | "schedule_receipt_review" | "desktop_idle_seconds";
+  | "remembered_approval_hours" | "provider_retries" | "schedule_receipt_review" | "desktop_idle_seconds"
+  | "group_triage" | "group_triage_model";
 export type AutomationGroup = "models" | "replies" | "history" | "checks" | "reliability" | "schedules" | "computer";
 const groupOrder: AutomationGroup[] = ["models", "replies", "history", "checks", "reliability", "schedules", "computer"];
 
@@ -83,7 +84,7 @@ function Control({item, catalog, busy, label, onChange}: {item: AutomationItem; 
   const models = catalog?.models ?? [];
   const groups = groupModels(models);
   const current = String(item.value ?? "");
-  const automatic = item.key === "background_model";
+  const automatic = item.key === "background_model" || item.key === "group_triage_model";
   const known = models.some(option => option.id === current);
   const autoModel = String(item.default ?? "");
   return <select id={id} value={current} disabled={disabled || (!catalog && !current && !automatic)} onChange={event => onChange(event.target.value)}>
@@ -99,7 +100,7 @@ const AutomationRow = memo(function AutomationRow({item, catalog, busy, saved, e
   const {t} = useTranslation("settings");
   const name = t(`automation.item.${item.key}.name`);
   const changed = item.source === "stored";
-  const defaultText = item.key === "background_model" ? t("automation.auto", {model: catalog ? modelName(catalog.models, String(item.default ?? "")) : String(item.default ?? "")}) : formatValue(item, item.default, {t, catalog});
+  const defaultText = item.key === "background_model" || item.key === "group_triage_model" ? t("automation.auto", {model: catalog ? modelName(catalog.models, String(item.default ?? "")) : String(item.default ?? "")}) : formatValue(item, item.default, {t, catalog});
   const meta = <span className="auto-meta" data-source={item.source}>
     {item.kind !== "readonly" && <span>{t("automation.default_is", {value: defaultText})}</span>}
     {item.kind === "readonly" && <span>{t("automation.managed")}</span>}

@@ -18,6 +18,12 @@ func TestHTTPUnaddressedGroupMessageStartsRealMemberWithoutTriage(t *testing.T) 
 		t.Fatal(err)
 	}
 	defer s.Close()
+	// This pins the older rule (a real member answers directly), which is what
+	// group routing does with the triage setting off.
+	off := "false"
+	if err := s.saveAutomationValue(autoGroupTriage, &off); err != nil {
+		t.Fatal(err)
+	}
 	a, err := s.store.CreateBot("alpha", "", "alpha-model")
 	if err != nil {
 		t.Fatal(err)

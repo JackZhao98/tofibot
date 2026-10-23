@@ -894,6 +894,14 @@
       "desktop_idle_seconds": {
         "name": "Veille du bureau en cas d’inactivité",
         "what": "L’ordinateur partagé se met en veille après cette durée sans usage et se réveille au prochain appel d’outil. Réglé par le service de l’ordinateur."
+      },
+      "group_triage": {
+        "name": "Aiguiller les messages de groupe sans destinataire",
+        "what": "Quand un message de groupe ne nomme personne, un modèle d'arrière-plan choisit le membre dont le rôle convient le mieux. Désactivé : l'assistant principal, ou un membre au hasard s'il n'y en a pas. Un groupe à un seul membre actif saute l'étape."
+      },
+      "group_triage_model": {
+        "name": "Modèle d'aiguillage de groupe",
+        "what": "Le modèle qui choisit le membre pour un message de groupe sans destinataire. Automatique signifie le modèle d'arrière-plan."
       }
     },
     "option": {

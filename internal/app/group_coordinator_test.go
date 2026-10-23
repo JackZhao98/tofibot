@@ -121,6 +121,11 @@ func newCoordFixture(t *testing.T, names ...string) *coordFixture {
 	if err := s.store.putUserStructuredOutput(false); err != nil {
 		t.Fatal(err)
 	}
+	// Older routing rule: an unaddressed message goes straight to a member.
+	off := "false"
+	if err := s.saveAutomationValue(autoGroupTriage, &off); err != nil {
+		t.Fatal(err)
+	}
 	f := &coordFixture{server: s, engine: engine}
 	var ids []string
 	for _, n := range names {

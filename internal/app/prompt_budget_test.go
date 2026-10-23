@@ -274,8 +274,10 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// policy (+167 measured, 2026-10-22: 8022 -> 8189).
 				// 8225: plus the go-ahead-means-act sentence, less the computer section's "use tools only
 				// when ready" line (B2, +34 measured: 8189 -> 8223).
-				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 8225 {
-					t.Errorf("ordinary DM provider system exceeds 8225 runes")
+				// 8308: plus the reaction principle (confirm, agree, acknowledge or take on work with a
+				// reaction, never task state; +83 measured: 8223 -> 8306), phase 5a, decision 0060.
+				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 8308 {
+					t.Errorf("ordinary DM provider system exceeds 8308 runes")
 				}
 				// 7000: the lookup line's works-newer-than-the-model clause (~45) lands in
 				// every prompt, the longest of which sat 23 under 6950.
@@ -294,8 +296,9 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// 8995: plus the same discovery line (+167 measured on the scheduled descendant, the longest prompt: 8824 -> 8991).
 				// 9120: plus the B2 go-ahead lines (core, group delegation, latest message, plan-as-result)
 				// less the computer "use tools only when ready" line (+124 measured on the scheduled descendant: 8991 -> 9115).
-				if fixed > 9120 {
-					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 9120)", fixed)
+				// 9203: plus the same reaction principle (+83 measured on the scheduled descendant: 9115 -> 9198).
+				if fixed > 9203 {
+					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 9203)", fixed)
 				}
 				if !strings.Contains(system, bot.Instructions) {
 					t.Fatal("user instructions changed")
@@ -339,8 +342,9 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 					// plus the built-in skills' directory rows (+616 measured, decision 0041; -60 when the descriptions shrank, D41 2026-10-21 addendum): 7609.
 					// 8025: 7609 plus the memory and recall principle (+416 measured, decision 0044).
 					// 8060: plus the same B2 go-ahead sentence as the ordinary DM cap (+34 measured).
-					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 8060 {
-						t.Errorf("structured DM provider system exceeds 8060 runes")
+					// 8143: plus the same reaction principle (+83 measured).
+					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 8143 {
+						t.Errorf("structured DM provider system exceeds 8143 runes")
 					}
 					if tc.kind == runKindGroupChat && !strings.Contains(system, "say(answer)") {
 						t.Error("structured group prompt does not name say(answer)")
