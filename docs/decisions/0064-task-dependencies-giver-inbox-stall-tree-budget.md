@@ -4,7 +4,7 @@
 
 ## 决定
 
-owner 2026-10-23 定的：Q17 停滞阈值 3 轮；Q18 每棵任务树 60 条消息；两者都是 Settings › Automatic behavior 里的设置。
+owner 2026-10-23 定的：Q17 停滞阈值 3 轮；Q18 每棵任务树 60 条消息（10-24 修订为 30 条无进展消息，见文末）；两者都是 Settings › Automatic behavior 里的设置。
 
 1. **`delegate` 接受 `depends_on[]`（同一棵树的任务 id）。** 有未完成前置的任务是 `blocked`、没有 run（`assignee_run_id` 为空），前置列表存在 `work_items.depends_on`（逗号分隔；D59 时预留的列）。最后一个前置以 `done` 结束时，同一事务里把它改成 `todo` 并写一行叫醒持有人的收件箱（`task_update`，正文带需求原文和各前置的结果摘要）；叫醒新开的 run（或持有人正在跑时在边界读到）成为它的 `assignee_run_id`。前置以 `failed` 或 `cancelled` 结束时不解锁，改为通知派活人（`task_update`，叫醒），由派活人取消、移除依赖（`task_update` 的 `remove_depends_on`，没有未完成前置就开工）或重派。结束为 `review` 的前置不算完成，派活人验收为 `done` 才解锁。`settleClosedTaskTx` 是唯一入口，所以任何路径关闭任务都走同一套。
 2. **依赖查环，规则与 `wait_cycle` 同型。** 在登记的同一事务里，从新依赖出发沿已有 `depends_on` 走（至多 64 步），走回该任务就拒绝，稳定码 `dependency_cycle`；图大到走不完也拒绝。其他稳定码：`dependency_not_found`、`dependency_not_visible`（只能依赖自己派的或本会话里的任务）、`dependency_ended`（前置已失败或取消）、`dependency_other_tree`（前置必须同属一棵树，在树内派活也只能依赖本树）、`dependency_locked`（`add_depends_on` 只能用在尚未开工的 `blocked` 任务上，且只有派活人能改）、`dependency_too_many`（12 个）。派活人对每个等待任务持有一个引擎投递的 `task_result` 等待，任务结束时作为 `wait_result` 叫醒它。
@@ -35,3 +35,13 @@ owner 2026-10-23 定的：Q17 停滞阈值 3 轮；Q18 每棵任务树 60 条消
 - 等待任务不经 handoff，没有群里的“交接”行；5a 的任务卡片补这个。
 - 持有人暂停（`pending`）也算一轮；它在等一条长命令时每次被叫醒而清单没变，会在第 3 次被报。要避免就调高 `task_stall_rounds`。
 - 树预算按“成员之间的消息”计，不是群里全部消息；Bot 回答人不计。
+
+## owner 修订（2026-10-24）：预算防空转，不封顶真活
+
+Q18 的"每棵树 60 条消息"改为"**没有进展的连续 Bot 间消息**"。目的是防空转，不是限制正经工作；对人完全不可见。
+
+- **计数的是无进展消息。** 计什么不变（派活、提及叫醒、`task_ask`/`task_update` 消息、等发言/等结果），但计数在树内**任何进展**时归零：一个清单项结束（done/skipped/blocked 且带理由）、树里任一任务以 done 关闭、一份任务结果交上（run 以 done 或 review 交结果；仍在做或 blocked 的轮次不算）。`resetTreeIdleTx` 同时把 `reported` 清零，所以下一段空转可以再叫醒一次。有进展的长链永远摸不到上限。
+- **设置改名：** `task_tree_message_limit` → `task_tree_idle_message_limit`（"没有进展的 Bot 间消息"），默认 30，范围 10 至 500。`migrateAutomationSettings` 把旧键的值挪到新键（人改过就保留他的数字，没改过是新默认），再删旧键；重跑无副作用。设置页文案七种语言同改。
+- **到限时：** 照旧拒绝树内新的成员间派活（`task_message_limit`），直到进展把计数归零；给根 Bot 写**一行私有叫醒的收件箱**（带"系统数据"块：收尾还是继续，由它用自己的话告诉人）。**整个删除**会话里的 `system` 通知 `tree_limit`：不写消息、不发 message 事件、界面没有对应文案。人能看到的只有根 Bot 自己选择说的话。
+- 其余不变：树解析器、继承、派活人的回答照过、持有人 progress 不计。
+

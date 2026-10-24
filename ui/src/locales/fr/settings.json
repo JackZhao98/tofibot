@@ -915,9 +915,9 @@
         "name": "Signalement d'un blocage après",
         "what": "Lorsqu'un Bot qui détient une tâche termine autant de tours sans changer la liste de contrôle ni le statut de la tâche, le Bot à la racine du travail en est informé une fois. Le compte repart dès que la tâche avance."
       },
-      "task_tree_message_limit": {
-        "name": "Messages par arbre de tâches",
-        "what": "Le nombre maximal de messages que les Bots d'un même travail peuvent échanger. À la limite, ils cessent de se passer du travail, et le Bot racine et vous en êtes informés une fois."
+      "task_tree_idle_message_limit": {
+        "name": "Messages sans progrès par arbre de tâches",
+        "what": "Le nombre de messages que les Bots d'un même travail peuvent échanger sans progrès. Un progrès est un point de liste qui se termine, une tâche close comme faite ou un résultat remis ; il remet le compte à zéro. À la limite, ils cessent de se passer du travail jusqu'à un progrès, et le Bot racine décide de ce qu'il vous dit."
       }
     },
     "option": {

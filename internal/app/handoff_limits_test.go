@@ -44,7 +44,7 @@ func TestHandoffRejectsSelfLoopAndPastTheTreeBudget(t *testing.T) {
 	}
 	server := &Server{store: s, queues: map[string]*conversationQueue{}, runs: map[string]context.CancelFunc{}, convMu: map[string]*sync.Mutex{}}
 	const limit = 10
-	if _, err = s.db.Exec(`INSERT INTO automation_settings(key,value,updated_at) VALUES(?,?,?)`, autoTaskTreeMessageLimit, fmt.Sprint(limit), now()); err != nil {
+	if _, err = s.db.Exec(`INSERT INTO automation_settings(key,value,updated_at) VALUES(?,?,?)`, autoTaskTreeIdleLimit, fmt.Sprint(limit), now()); err != nil {
 		t.Fatal(err)
 	}
 

@@ -222,7 +222,7 @@ func TestCodexOnlyWorkspaceFallsBackToCodexModel(t *testing.T) {
 func TestAutomationSettingsInventoryAndDefaults(t *testing.T) {
 	s := providerServer(t, nil, nil)
 	body := autoGet(t, s)
-	want := []string{autoConversationModel, autoBackgroundModel, autoStructuredOutput, autoForceSayHaikuDM, autoWebSearch, autoGroupExchangeGists, autoOwnRepliesVerbatim, autoTaskRetentionDays, autoCompletionReview, autoAnswerGate, autoMCPReview, autoRememberedApprovalHrs, autoProviderRetries, autoScheduleReceiptReview, autoDesktopIdle, autoGroupTriage, autoGroupTriageModel, autoCommandCheckMinutes, autoTaskStallRounds, autoTaskTreeMessageLimit}
+	want := []string{autoConversationModel, autoBackgroundModel, autoStructuredOutput, autoForceSayHaikuDM, autoWebSearch, autoGroupExchangeGists, autoOwnRepliesVerbatim, autoTaskRetentionDays, autoCompletionReview, autoAnswerGate, autoMCPReview, autoRememberedApprovalHrs, autoProviderRetries, autoScheduleReceiptReview, autoDesktopIdle, autoGroupTriage, autoGroupTriageModel, autoCommandCheckMinutes, autoTaskStallRounds, autoTaskTreeIdleLimit}
 	if len(body.Items) != len(want) {
 		t.Fatalf("%d items, want %d", len(body.Items), len(want))
 	}
@@ -231,7 +231,7 @@ func TestAutomationSettingsInventoryAndDefaults(t *testing.T) {
 			t.Fatalf("item %d is %s, want %s", i, body.Items[i].Key, key)
 		}
 	}
-	defaults := map[string]any{autoConversationModel: "claude-sonnet-5-5", autoStructuredOutput: true, autoForceSayHaikuDM: true, autoWebSearch: true, autoGroupExchangeGists: true, autoGroupTriage: true, autoOwnRepliesVerbatim: float64(3), autoTaskRetentionDays: float64(30), autoCommandCheckMinutes: float64(60), autoTaskStallRounds: float64(3), autoTaskTreeMessageLimit: float64(60), autoCompletionReview: true, autoAnswerGate: float64(2), autoMCPReview: "off", autoRememberedApprovalHrs: float64(24), autoProviderRetries: float64(8), autoScheduleReceiptReview: true}
+	defaults := map[string]any{autoConversationModel: "claude-sonnet-5-5", autoStructuredOutput: true, autoForceSayHaikuDM: true, autoWebSearch: true, autoGroupExchangeGists: true, autoGroupTriage: true, autoOwnRepliesVerbatim: float64(3), autoTaskRetentionDays: float64(30), autoCommandCheckMinutes: float64(60), autoTaskStallRounds: float64(3), autoTaskTreeIdleLimit: float64(30), autoCompletionReview: true, autoAnswerGate: float64(2), autoMCPReview: "off", autoRememberedApprovalHrs: float64(24), autoProviderRetries: float64(8), autoScheduleReceiptReview: true}
 	for key, def := range defaults {
 		item := body.find(t, key)
 		if item.Default != def || item.Value != def || item.Source != "default" {
@@ -265,7 +265,7 @@ func TestAutomationSettingsReadWriteEachItem(t *testing.T) {
 		{autoScheduleReceiptReview, "false", false, func() bool { return !s.scheduleReceiptReviewEnabled() }},
 		{autoGroupTriage, "false", false, func() bool { return !s.groupTriageEnabled() }},
 		{autoTaskStallRounds, "5", float64(5), func() bool { return autoIntTx(s.store.db, autoTaskStallRounds) == 5 }},
-		{autoTaskTreeMessageLimit, "120", float64(120), func() bool { return autoIntTx(s.store.db, autoTaskTreeMessageLimit) == 120 }},
+		{autoTaskTreeIdleLimit, "120", float64(120), func() bool { return autoIntTx(s.store.db, autoTaskTreeIdleLimit) == 120 }},
 		{autoGroupTriageModel, `"gpt-5-mini"`, "gpt-5-mini", func() bool { return s.groupTriageModel() == "gpt-5-mini" }},
 		{autoBackgroundModel, `"gpt-5-mini"`, "gpt-5-mini", func() bool { return s.backgroundModel(backgroundTriage) == "gpt-5-mini" }},
 		{autoConversationModel, `"gpt-6-luna"`, "gpt-6-luna", func() bool { m, _ := s.modelDefaults(); return m == "gpt-6-luna" }},
@@ -286,10 +286,10 @@ func TestAutomationSettingsReadWriteEachItem(t *testing.T) {
 	if code := autoPutCode(t, s, `{"`+autoTaskStallRounds+`":0}`); code == http.StatusOK {
 		t.Fatalf("a stall threshold of 0 was accepted")
 	}
-	if code := autoPutCode(t, s, `{"`+autoTaskTreeMessageLimit+`":5}`); code == http.StatusOK {
+	if code := autoPutCode(t, s, `{"`+autoTaskTreeIdleLimit+`":5}`); code == http.StatusOK {
 		t.Fatalf("a tree limit of 5 was accepted")
 	}
-	if autoIntTx(s.store.db, autoTaskStallRounds) != 5 || autoIntTx(s.store.db, autoTaskTreeMessageLimit) != 120 {
+	if autoIntTx(s.store.db, autoTaskStallRounds) != 5 || autoIntTx(s.store.db, autoTaskTreeIdleLimit) != 120 {
 		t.Fatalf("a refused change altered the stored value")
 	}
 	// Linked items agree with the older surfaces.

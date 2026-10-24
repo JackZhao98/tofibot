@@ -408,6 +408,13 @@ func taskFinishedOneTx(tx *sql.Tx, done Run, item WorkItem, result Message, sayO
 		status, t, completed, completed, result.ID, summary, item.RunSpecVersion, item.ID); err != nil {
 		return err
 	}
+	// A result submitted for the task (done, or in review for the giver) is
+	// progress; a round that ends still working or blocked is not.
+	if status == "done" || status == "review" {
+		if err = resetTreeIdleTx(tx, item.RootTaskID); err != nil {
+			return err
+		}
+	}
 	// The result is in. Whoever waited on this task has it, in whatever state
 	// the task was left.
 	if err = settleTaskWaitsTx(tx, item.ID, waitFulfilled, result.ID); err != nil {
@@ -492,6 +499,12 @@ func taskEndedOneTx(tx *sql.Tx, runID, status string, item WorkItem) error {
 // Waits on it settle, and a cancelled or failed task takes the open tasks below
 // it along.
 func settleClosedTaskTx(tx *sql.Tx, item WorkItem) error {
+	if item.Status == "done" {
+		// A task that closes done is progress anywhere in its tree.
+		if err := resetTreeIdleTx(tx, item.RootTaskID); err != nil {
+			return err
+		}
+	}
 	switch item.Status {
 	case "done", "failed":
 		if err := settleTaskWaitsTx(tx, item.ID, waitFulfilled, ""); err != nil {
@@ -698,6 +711,12 @@ func (s *Store) updateTask(actor string, in TaskUpdate) (WorkItem, error) {
 		}
 		if n, _ := res.RowsAffected(); n == 0 {
 			return WorkItem{}, taskRefusal("checklist_item_unknown", "No checklist item has that id: "+change.ID)
+		}
+		if change.Status != checklistOpen {
+			// An item that ends is progress: the tree's idle-message count restarts.
+			if err = resetTreeIdleTx(tx, item.RootTaskID); err != nil {
+				return WorkItem{}, err
+			}
 		}
 	}
 	if len(in.AddDependsOn) > 0 || len(in.RemoveDependsOn) > 0 {

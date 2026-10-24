@@ -328,8 +328,8 @@ func TestRespondRejectsBadChoices(t *testing.T) {
 }
 
 // Adversarial scripted loop: the task tree budget (decision 0064, setting
-// task_tree_message_limit) stops the mention wakes, tells the root member once
-// and posts one line for the person. This replaces the old assertion of the
+// task_tree_message_limit) stops the mention wakes, wakes the root member once
+// privately and posts nothing for the person. This replaces the old assertion of the
 // fixed cap of eight wakes per lineage.
 func TestTreeBudgetStopsMentionWakeLoopAndReportsOnce(t *testing.T) {
 	var buf bytes.Buffer
@@ -340,7 +340,7 @@ func TestTreeBudgetStopsMentionWakeLoopAndReportsOnce(t *testing.T) {
 	engine := &mentionEngine{}
 	f = newDedupeFixture(t, engine)
 	const limit = 10
-	if _, err := f.server.store.db.Exec(`INSERT INTO automation_settings(key,value,updated_at) VALUES(?,?,?)`, autoTaskTreeMessageLimit, fmt.Sprint(limit), now()); err != nil {
+	if _, err := f.server.store.db.Exec(`INSERT INTO automation_settings(key,value,updated_at) VALUES(?,?,?)`, autoTaskTreeIdleLimit, fmt.Sprint(limit), now()); err != nil {
 		t.Fatal(err)
 	}
 	engine.reply = func(ctx context.Context, req runtime.Request, text string) string {
@@ -364,9 +364,9 @@ func TestTreeBudgetStopsMentionWakeLoopAndReportsOnce(t *testing.T) {
 	}
 	db := f.server.store.db
 	var notices, rows int
-	_ = db.QueryRow(`SELECT COUNT(*) FROM messages WHERE conversation_id=? AND kind='notice' AND sender_bot_id='system' AND notice_data LIKE '%tree_limit%'`, f.group.ID).Scan(&notices)
+	_ = db.QueryRow(`SELECT COUNT(*) FROM messages WHERE conversation_id=? AND kind='notice' AND notice_data LIKE '%tree_limit%'`, f.group.ID).Scan(&notices)
 	_ = db.QueryRow(`SELECT COUNT(*) FROM bot_inbox WHERE kind='task_update' AND wakes=1 AND body LIKE '%limit%'`).Scan(&rows)
-	if notices != 1 || rows != 1 {
+	if notices != 0 || rows != 1 {
 		t.Fatalf("the report must happen once: notices=%d inbox rows=%d", notices, rows)
 	}
 }
