@@ -536,7 +536,13 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 				}
 				return fail(tooloutcome.New(tooloutcome.Transient, "answer_checklist_open", "not_executed", answerChecklistOpenReminder, "retry").Err())
 			}
-			if state != nil && state.review != nil && state.review() {
+			// A pending answer while the run holds an open wait (a timer, a command
+			// watch, a reply being waited for) reports what is in progress and the
+			// wait wakes the Bot later. The review must not send it back: that
+			// keeps the Bot in a run that should have ended (B7). An answer that
+			// claims done is reviewed as before. The review stays unspent.
+			awaitsWake := in.Outcome == sayOutcomePending && !saySendsSources(r) && s.store.runHasPendingWait(r.ID)
+			if state != nil && state.review != nil && !awaitsWake && state.review() {
 				// The completion review text finals get: once, when tool work
 				// was done. The text is kept as the draft to publish if the
 				// run ends without a reviewed answer.
