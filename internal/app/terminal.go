@@ -312,7 +312,7 @@ func normalizeTerminalCommands(value map[string]any) {
 }
 
 const terminalToolDescription = "Open and operate a persistent PTY terminal in this Bot's VM workspace. The human sees tabs and live output in Terminal. Use for interactive or long-running commands. open starts a shell when command is omitted; read returns incremental text and a next_cursor; write sends text and control characters. A terminal keeps running after your turn ends and through hibernation. A restart of the computer ends every terminal; working files persist. User control blocks model actions. Close finished terminals. " +
-	"Run a long command in a terminal of its own with notify_on_exit: the system wakes you with the result when it ends, so do not poll. A timed check is added to the wait; when the command ends first, end the check with cancel_wait."
+	"Run a long command in a terminal of its own with notify_on_exit: the system wakes you with the result when it ends, so do not poll: after the receipt, tell the person what they need and end your turn. A timed check is added to the wait; when the command ends first, end the check with cancel_wait."
 
 // attachCommandWait registers the wait that notify_on_exit asks for, after the
 // action has succeeded. The action cannot be undone, so a refusal is reported
