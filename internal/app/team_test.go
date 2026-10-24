@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
 func teamTestTool(t *testing.T, s *Server, c Conversation, r Run, name string) Tool {
@@ -75,6 +77,7 @@ func TestTeamCreateBotAndGroupRetriesAreIdempotent(t *testing.T) {
 	if count != 1 {
 		t.Fatalf("created %d analysts", count)
 	}
+	s.markGroupsListed(r.ID)
 	group := teamTestTool(t, s, c, r, "create_group")
 	gargs := json.RawMessage(`{"name":"filing review","bot_ids":["` + other.ID + `"]}`)
 	g1, err := group.Execute(context.Background(), gargs)
@@ -289,12 +292,14 @@ func TestTeamFamilyLimitsIncludeAncestorAndDescendantRuns(t *testing.T) {
 		t.Fatalf("descendant escaped family cap: %v", err)
 	}
 	for i := 0; i < maxTeamGroups; i++ {
+		s.markGroupsListed(runs[i].ID)
 		createGroup := teamTestTool(t, s, c, runs[i], "create_group")
 		args := json.RawMessage(fmt.Sprintf(`{"name":"group-%d","bot_ids":["%s"]}`, i, peer.ID))
 		if _, err = createGroup.Execute(context.Background(), args); err != nil {
 			t.Fatalf("create group %d: %v", i, err)
 		}
 	}
+	s.markGroupsListed(runs[maxTeamGroups].ID)
 	createGroup := teamTestTool(t, s, c, runs[maxTeamGroups], "create_group")
 	if _, err = createGroup.Execute(context.Background(), json.RawMessage(`{"name":"too-many-groups","bot_ids":["`+peer.ID+`"]}`)); err == nil || !strings.Contains(err.Error(), "limit") {
 		t.Fatalf("descendant escaped group family cap: %v", err)
@@ -476,6 +481,7 @@ func TestTeamConcurrentRetryCreatesExactlyOneGroup(t *testing.T) {
 	owner, _ := s.store.CreateBot("owner", "coordinate", "model")
 	other, _ := s.store.CreateBot("other", "research", "model")
 	c, r := teamTestRun(t, s, owner)
+	s.markGroupsListed(r.ID)
 	group := teamTestTool(t, s, c, r, "create_group")
 	args := json.RawMessage(`{"name":"concurrent","bot_ids":["` + other.ID + `"]}`)
 	const callers = 12
@@ -549,5 +555,96 @@ func TestTeamDefaultModelNeverBecomesUpstreamModelName(t *testing.T) {
 	}
 	if _, err = tool.Execute(context.Background(), json.RawMessage(`{"name":"bad","instructions":"task","model":"invented-model"}`)); err == nil {
 		t.Fatal("invented upstream model accepted")
+	}
+}
+
+func groupCount(t *testing.T, s *Server) int {
+	t.Helper()
+	var n int
+	if err := s.store.db.QueryRow(`SELECT COUNT(*) FROM conversations WHERE kind='group'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+func TestCreateGroupRefusedUntilListedAndListsMatchingGroups(t *testing.T) {
+	s, err := NewServer(Config{DataDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	owner, _ := s.store.CreateBot("owner", "coordinate", "model")
+	a, _ := s.store.CreateBot("alpha", "research", "model")
+	b, _ := s.store.CreateBot("beta", "news", "model")
+	c, r := teamTestRun(t, s, owner)
+	// Seed a run that has listed, so two groups exist: one with a and b, one with a only.
+	_, seed := teamTestRun(t, s, owner)
+	s.markGroupsListed(seed.ID)
+	mk := teamTestTool(t, s, c, seed, "create_group")
+	if _, err = mk.Execute(context.Background(), json.RawMessage(`{"name":"AB desk","purpose":"daily market notes","bot_ids":["`+a.ID+`","`+b.ID+`"]}`)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = mk.Execute(context.Background(), json.RawMessage(`{"name":"A only","bot_ids":["`+a.ID+`"]}`)); err != nil {
+		t.Fatal(err)
+	}
+	var abID string
+	if err = s.store.db.QueryRow(`SELECT id FROM conversations WHERE name='AB desk'`).Scan(&abID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.store.db.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,content,created_at) VALUES('m1',?,1,'user','','what moved the market today?'||char(10)||'please summarize',?)`, abID, now()); err != nil {
+		t.Fatal(err)
+	}
+	before := groupCount(t, s)
+	create := teamTestTool(t, s, c, r, "create_group")
+	args := json.RawMessage(`{"name":"AB again","bot_ids":["` + a.ID + `","` + b.ID + `"]}`)
+	_, err = create.Execute(context.Background(), args)
+	o, ok := tooloutcome.FromError(err)
+	if !ok || o.Code != "group_list_first" || o.Certainty != "not_executed" {
+		t.Fatalf("first create not refused: %v", err)
+	}
+	for _, want := range []string{"AB desk", "daily market notes", "what moved the market today? please summarize", abID, "alpha", "beta"} {
+		if !strings.Contains(o.Message, want) {
+			t.Fatalf("refusal lacks %q: %s", want, o.Message)
+		}
+	}
+	if strings.Contains(o.Message, "A only") {
+		t.Fatalf("group without all members listed: %s", o.Message)
+	}
+	if groupCount(t, s) != before {
+		t.Fatal("refused call created a group")
+	}
+	if _, err = create.Execute(context.Background(), args); err != nil {
+		t.Fatalf("second create: %v", err)
+	}
+	if groupCount(t, s) != before+1 {
+		t.Fatal("second create did not create")
+	}
+}
+
+func TestCreateGroupAfterListGroupsCreatesAndStoresPurpose(t *testing.T) {
+	s, err := NewServer(Config{DataDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	owner, _ := s.store.CreateBot("owner", "coordinate", "model")
+	a, _ := s.store.CreateBot("alpha", "research", "model")
+	c, r := teamTestRun(t, s, owner)
+	if _, err = teamTestTool(t, s, c, r, "list_groups").Execute(context.Background(), json.RawMessage(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = teamTestTool(t, s, c, r, "create_group").Execute(context.Background(), json.RawMessage(`{"name":"review","purpose":"weekly filing review","bot_ids":["`+a.ID+`"]}`)); err != nil {
+		t.Fatal(err)
+	}
+	out, err := teamTestTool(t, s, c, r, "list_groups").Execute(context.Background(), json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, `"purpose":"weekly filing review"`) || !strings.Contains(out, `"name":"review"`) {
+		t.Fatalf("list_groups lacks purpose: %s", out)
+	}
+	long := strings.Repeat("x", maxGroupPurposeRunes+1)
+	if _, err = teamTestTool(t, s, c, r, "create_group").Execute(context.Background(), json.RawMessage(`{"name":"long","purpose":"`+long+`","bot_ids":["`+a.ID+`"]}`)); err == nil {
+		t.Fatal("over-long purpose accepted")
 	}
 }
