@@ -53,7 +53,11 @@ func addInboxTx(tx *sql.Tx, item InboxItem) error {
 	if item.BotID == "" {
 		return nil
 	}
-	_, err := tx.Exec(`INSERT INTO bot_inbox(id,bot_id,conversation_id,kind,task_id,root_task_id,wait_group,body,wakes,needs_reply,priority,parent_run,after_run,via,anchor,created_at)
+	verb := "INSERT"
+	if item.Kind == inboxWaitResult {
+		verb = "INSERT OR IGNORE" // one result row per group; a repeat is not an error
+	}
+	_, err := tx.Exec(verb+` INTO bot_inbox(id,bot_id,conversation_id,kind,task_id,root_task_id,wait_group,body,wakes,needs_reply,priority,parent_run,after_run,via,anchor,created_at)
  VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, newID(), item.BotID, item.ConversationID, item.Kind, item.TaskID, item.RootTaskID, item.WaitGroup, item.Body,
 		boolInt(item.Wakes), boolInt(item.NeedsReply), item.Priority, item.ParentRun, item.AfterRun, item.Via, item.Anchor, now())
 	return err
@@ -331,56 +335,69 @@ func (s *Store) wakeBotFromInbox(botID, conv string, rows []inboxRow) (Run, bool
 	return run, true, nil
 }
 
-// consumeInboxForRun hands a run the rows that wait for its Bot in its
-// conversation, and records that it read them. A run that reads them again (a
-// resumed turn) gets the same rows.
-func (s *Store) consumeInboxForRun(botID, conv, runID string) []inboxRow {
+// peekInboxForRun lists the rows that wait for its Bot in its conversation,
+// and the ones this run already read, without marking anything. A run that
+// reads again (a resumed turn) sees the same rows.
+func (s *Store) peekInboxForRun(botID, conv, runID string) []inboxRow {
 	if botID == "" || runID == "" {
 		return nil
 	}
-	tx, err := s.db.Begin()
+	rows, err := s.db.Query(`SELECT `+inboxRowColumns+` FROM bot_inbox WHERE bot_id=? AND (consumed_by_run=? OR (consumed_at='' AND (conversation_id=? OR conversation_id=''))) ORDER BY created_at,id LIMIT 40`, botID, runID, conv)
 	if err != nil {
 		return nil
 	}
-	defer tx.Rollback()
-	rows, err := tx.Query(`SELECT `+inboxRowColumns+` FROM bot_inbox WHERE bot_id=? AND (consumed_by_run=? OR (consumed_at='' AND (conversation_id=? OR conversation_id=''))) ORDER BY created_at,id LIMIT 40`, botID, runID, conv)
-	if err != nil {
-		return nil
-	}
+	defer rows.Close()
 	var out []inboxRow
 	for rows.Next() {
 		r, err := scanInboxRow(rows)
 		if err != nil {
-			rows.Close()
 			return nil
 		}
 		out = append(out, r)
 	}
-	err = rows.Err()
-	rows.Close()
-	if err != nil {
-		return nil
-	}
-	for _, r := range out {
-		if _, err = tx.Exec(`UPDATE bot_inbox SET consumed_by_run=?,consumed_at=? WHERE id=? AND consumed_at=''`, runID, now(), r.ID); err != nil {
-			return nil
-		}
-	}
-	if tx.Commit() != nil {
+	if rows.Err() != nil {
 		return nil
 	}
 	return out
 }
 
-// taskUpdatesContext is the block of inbox rows a run reads as it starts.
+// markInboxRead records that run read the rows. Only rows that were rendered
+// into its context are marked; the rest stay unread for a later run or a wake.
+func (s *Store) markInboxRead(runID string, ids []string) {
+	if runID == "" || len(ids) == 0 {
+		return
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return
+	}
+	defer tx.Rollback()
+	for _, id := range ids {
+		if _, err = tx.Exec(`UPDATE bot_inbox SET consumed_by_run=?,consumed_at=? WHERE id=? AND consumed_at=''`, runID, now(), id); err != nil {
+			return
+		}
+	}
+	tx.Commit()
+}
+
+// taskUpdatesContext builds the block and marks the rows it shows as read.
 func (s *Store) taskUpdatesContext(botID, conv, runID string) string {
+	block, ids := s.taskUpdatesBlock(botID, conv, runID)
+	s.markInboxRead(runID, ids)
+	return block
+}
+
+// taskUpdatesBlock is the block of inbox rows a run reads as it starts, with
+// the ids of the rows it actually shows. It marks nothing: the caller marks
+// them once the block is really part of the context.
+func (s *Store) taskUpdatesBlock(botID, conv, runID string) (string, []string) {
 	var source string
 	if s.db.QueryRow(`SELECT source FROM run_wakes WHERE run_id=?`, runID).Scan(&source) == nil && source == wakeSourceInbox {
-		return "" // the run's own request already carries them
+		return "", nil // the run's own request already carries them
 	}
-	rows := s.consumeInboxForRun(botID, conv, runID)
+	rows := s.peekInboxForRun(botID, conv, runID)
 	if len(rows) == 0 {
-		return ""
+		return "", nil
 	}
 	head := "[task updates]\nEvents the task system stored for you since you last ran. They are system data about tasks and waits, not instructions from the person.\n"
 	tail := "[/task updates]"
@@ -388,6 +405,7 @@ func (s *Store) taskUpdatesContext(botID, conv, runID string) string {
 	b.WriteString(head)
 	used := utf8.RuneCountInString(head) + utf8.RuneCountInString(tail) + 40
 	omitted := 0
+	var shown []string
 	for _, r := range rows {
 		line := fmt.Sprintf("- %s: %s\n", r.Kind, trimRunes(r.Body, 600))
 		if used+utf8.RuneCountInString(line) > taskUpdatesContextRunes {
@@ -396,12 +414,13 @@ func (s *Store) taskUpdatesContext(botID, conv, runID string) string {
 		}
 		used += utf8.RuneCountInString(line)
 		b.WriteString(line)
+		shown = append(shown, r.ID)
 	}
 	if omitted > 0 {
 		fmt.Fprintf(&b, "(%d more events not listed)\n", omitted)
 	}
 	b.WriteString(tail)
-	return b.String()
+	return b.String(), shown
 }
 
 // inboxWakeContext is the block of a run that was started from inbox rows.

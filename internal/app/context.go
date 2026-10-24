@@ -533,10 +533,15 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		used += len([]rune(metadata))
 	}
 	// What the Bot waits on, the task it holds and the events stored for it.
-	for _, block := range []string{s.store.waitingOnContext(bot.ID), s.store.taskRecordContext(r.ID), s.store.taskUpdatesContext(bot.ID, c.ID, r.ID)} {
+	updates, updateIDs := s.store.taskUpdatesBlock(bot.ID, c.ID, r.ID)
+	for i, block := range []string{s.store.waitingOnContext(bot.ID), s.store.taskRecordContext(r.ID), updates} {
 		if block != "" && used+len([]rune(block)) <= maxHistoryRunes {
 			pm = append(pm, runtime.Message{Role: "user", Content: block})
 			used += len([]rune(block))
+			if i == 2 {
+				// Only rows that reached the context count as read.
+				s.store.markInboxRead(r.ID, updateIDs)
+			}
 		}
 	}
 	if summary != "" {

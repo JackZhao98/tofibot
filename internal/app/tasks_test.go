@@ -1371,7 +1371,7 @@ func TestAPersonsMessageWhileACardIsOpenLeavesAnInboxRow(t *testing.T) {
 		t.Fatalf("row %q %q %d %v", body, by, wakes, err)
 	}
 	// Today's behaviour is kept: the row never wakes and is never read twice.
-	if rows := f.s.consumeInboxForRun(f.a.ID, dm.ID, "another-run"); len(rows) != 0 {
+	if rows := f.s.peekInboxForRun(f.a.ID, dm.ID, "another-run"); len(rows) != 0 {
 		t.Fatalf("another run read the stored message: %v", rows)
 	}
 }

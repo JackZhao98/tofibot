@@ -143,6 +143,11 @@ func migrateWaitsFromRunWaits(db *sql.DB) error {
  VALUES(?,?,?,?,?,?,?,'all','pending','engine',?,?,?)`, id, w.bot, w.run, w.conv, waitBotPost, w.waitFor, id, deadline, w.lineage, w.created); err != nil {
 			return err
 		}
+		// The copy is the wait from now on. Mark the old row so retention cannot
+		// make the next start copy it again, and an older binary does not fire it.
+		if _, err = tx.Exec(`UPDATE run_waits SET status='expired' WHERE run_id=? AND status='pending'`, w.run); err != nil {
+			return err
+		}
 	}
 	return tx.Commit()
 }
