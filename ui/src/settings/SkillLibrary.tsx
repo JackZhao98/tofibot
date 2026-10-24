@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { request } from "../api";
+import { api, request } from "../api";
 import { ConfirmAction, Disclosure } from "../InteractionSystem";
 import { TofiIcon } from "../icons";
 import { skillCatalog } from "../skillCatalog";
@@ -12,6 +12,33 @@ import "../extensions-system.css";
 import "../skill-library.css";
 
 const post = (body: unknown) => ({ method: "POST", body: JSON.stringify(body) });
+
+/** Which Bots get a new Skill (decision 0058): every active Bot, a chosen few, or none. */
+export type EnableChoice = { mode: "all" } | { mode: "bots"; ids: string[] };
+export type BotRef = { id: string; name: string };
+const enableField = (choice: EnableChoice): "all" | string[] => choice.mode === "all" ? "all" : choice.ids;
+
+/** The install choice: one primary button for every Bot, a secondary one that opens the checklist (empty pick = install for none). */
+export function EnableChoicePicker({ bots, busy, onChoose, onCancel }: { bots: BotRef[]; busy: boolean; onChoose: (choice: EnableChoice) => void; onCancel?: () => void }) {
+  const { t } = useTranslation("extensions");
+  const [choosing, setChoosing] = useState(false);
+  const [picked, setPicked] = useState<string[]>([]);
+  if (!choosing) return <div className="extension-actions skill-enable" data-step="default">
+    <button type="button" className="primary-button" disabled={busy} onClick={() => onChoose({ mode: "all" })}>{busy ? t("skills.installing") : t("skills.library.enable_all")}</button>
+    {bots.length > 0 && <button type="button" className="secondary-button" disabled={busy} onClick={() => setChoosing(true)}>{t("skills.library.choose_bots")}</button>}
+    {onCancel && <button type="button" className="secondary-button" disabled={busy} onClick={onCancel}>{t("action.cancel")}</button>}
+  </div>;
+  return <div className="skill-enable" data-step="choose">
+    <fieldset className="skill-enable-bots" disabled={busy}>
+      <legend>{t("skills.library.choose_title")}</legend>
+      {bots.map(bot => <label key={bot.id}><input type="checkbox" checked={picked.includes(bot.id)} onChange={event => setPicked(current => event.target.checked ? [...current, bot.id] : current.filter(id => id !== bot.id))} /><span>{bot.name}</span></label>)}
+    </fieldset>
+    <div className="extension-actions">
+      <button type="button" className="primary-button" disabled={busy} onClick={() => onChoose({ mode: "bots", ids: picked })}>{picked.length ? t("skills.library.add_enable", { count: picked.length }) : t("skills.library.add_without")}</button>
+      <button type="button" className="secondary-button" disabled={busy} onClick={() => setChoosing(false)}>{t("skills.library.back")}</button>
+    </div>
+  </div>;
+}
 
 function skillTitle(skill: { name: string }): string {
   return skillCatalog.find(item => item.name === skill.name)?.title ?? skill.name;
@@ -93,10 +120,11 @@ function BundleRow({ bundle, members, handlers, onRemoveBundle, defaultOpen }: {
 export type SkillLibraryViewProps = {
   listing: LibraryListing; loaded: boolean; loading: boolean; busy: boolean; error: string; notice: string;
   form: boolean; formState: AddFormState;
-  onToggleForm: () => void; onFormChange: (next: Partial<AddFormState>) => void; onSubmitForm: () => void;
+  onToggleForm: () => void; onFormChange: (next: Partial<AddFormState>) => void; onSubmitForm: (choice: EnableChoice) => void;
   onPickFolder: (files: File[]) => void; onStarter: (name: string) => void;
   onRemove: (name: string) => Promise<void>; onRemoveBundle: (id: string) => Promise<void>; onRollback: (name: string, version: number) => void;
   onReload: () => void; showReload: boolean; openBundles?: string[];
+  bots: BotRef[]; pending: string | null; onCancelPending: () => void; onConfirmPending: (choice: EnableChoice) => void;
 };
 export type AddFormState = { name: string; text: string };
 
@@ -114,7 +142,7 @@ export function SkillLibraryView(props: SkillLibraryViewProps) {
   const starters = skillCatalog.filter(item => !have.has(item.name));
   const empty = props.loaded && !props.error && installed.length === 0 && listing.bundles.length === 0;
   return <div className="extension-panel skill-library">
-    {props.error && !props.form && <Banner tone="error" title={props.error} />}
+    {props.error && !props.form && props.pending === null && <Banner tone="error" title={props.error} />}
     {props.notice && <p className="extension-notice" role="status">{props.notice}</p>}
     <div className="extension-toolbar">
       <span className="extension-global">{t("skills.library.intro")}</span>
@@ -125,17 +153,22 @@ export function SkillLibraryView(props: SkillLibraryViewProps) {
         <button type="button" className="secondary-button" disabled={props.busy} aria-expanded={props.form} onClick={props.onToggleForm}><TofiIcon name="plus" size={16} />{t("skills.library.add_paste")}</button>
       </span>
     </div>
-    {props.form && <form className="extension-form" aria-busy={props.busy} onSubmit={event => { event.preventDefault(); props.onSubmitForm(); }}>
+    {props.pending !== null && <section className="extension-form skill-pending" aria-label={t("skills.library.pending_title", { name: props.pending })}>
+      <strong>{t("skills.library.pending_title", { name: props.pending })}</strong>
+      {props.error && <p className="error-text" role="alert">{props.error}</p>}
+      <EnableChoicePicker bots={props.bots} busy={props.busy} onChoose={props.onConfirmPending} onCancel={props.onCancelPending} />
+    </section>}
+    {props.form && <form className="extension-form" aria-busy={props.busy} onSubmit={event => event.preventDefault()}>
       <fieldset className="form-fields" disabled={props.busy}>
         <label>{t("skills.name")}<input value={props.formState.name} onChange={event => props.onFormChange({ name: event.target.value })} placeholder="research-assistant" /></label>
         <label>SKILL.md<textarea rows={9} value={props.formState.text} onChange={event => props.onFormChange({ text: event.target.value })} placeholder={"---\nname: research-assistant\ndescription: Research and verify sources\n---\nWorkflow instructions…"} /></label>
         <p className="field-note">{t("skills.support_note")}</p>
         {props.error && <p className="error-text" role="alert">{props.error}</p>}
-        <div className="extension-actions"><button disabled={props.busy} type="submit" className="primary-button">{props.busy ? t("skills.installing") : t("skills.library.add_submit")}</button><button type="button" className="secondary-button" disabled={props.busy} onClick={props.onToggleForm}>{t("action.cancel")}</button></div>
+        <EnableChoicePicker bots={props.bots} busy={props.busy} onChoose={props.onSubmitForm} onCancel={props.onToggleForm} />
       </fieldset>
     </form>}
     {props.loading && !props.loaded && <p className="field-note" role="status">{t("skills.loading")}</p>}
-    {!props.form && props.loaded && starters.length > 0 && <section className="integration-section skill-starters">
+    {!props.form && props.pending === null && props.loaded && starters.length > 0 && <section className="integration-section skill-starters">
       <h3>{t("skills.starters")}</h3>
       <div className="integration-grid">{starters.map(skill => <button className="integration-tile" disabled={props.busy} key={skill.name} onClick={() => props.onStarter(skill.name)}>
         <span className="service-mark"><TofiIcon name="skill" size={20} /></span><span><strong>{skill.title}</strong><small>{skill.description}</small></span><TofiIcon name="plus" size={16} />
@@ -169,6 +202,8 @@ export function SkillLibrary({ refreshToken = 0, debug = false }: { refreshToken
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState(false);
   const [formState, setFormState] = useState<AddFormState>({ name: "", text: "" });
+  const [bots, setBots] = useState<BotRef[]>([]);
+  const [pending, setPending] = useState<{ title: string; run: (choice: EnableChoice) => Promise<void> } | null>(null);
   const version = useRef(0);
   const refresh = useCallback(async () => {
     const mine = ++version.current;
@@ -184,6 +219,11 @@ export function SkillLibrary({ refreshToken = 0, debug = false }: { refreshToken
       if (mine === version.current) setLoading(false);
     }
   }, []);
+  useEffect(() => {
+    let alive = true;
+    api.bots().then(result => { if (alive) setBots(result.bots.filter(bot => !bot.archived).map(bot => ({ id: bot.id, name: bot.name }))); }).catch(() => {});
+    return () => { alive = false; };
+  }, [refreshToken]);
   useEffect(() => { void refresh(); return () => { version.current++; }; }, [refresh, refreshToken]);
   useEffect(() => {
     const focus = () => { if (!document.hidden) void refresh(); };
@@ -192,41 +232,45 @@ export function SkillLibrary({ refreshToken = 0, debug = false }: { refreshToken
     return () => { window.removeEventListener("focus", focus); document.removeEventListener("visibilitychange", focus); };
   }, [refresh]);
 
-  async function act(run: () => Promise<unknown>, success?: string) {
-    if (busy) return;
+  async function act(run: () => Promise<unknown>, success?: string): Promise<boolean> {
+    if (busy) return false;
     setBusy(true); setError(""); setNotice("");
-    try { await run(); setNotice(success ?? t("skills.saved")); await refresh(); }
-    catch (cause) { setError(message(cause)); }
+    try { await run(); setNotice(success ?? t("skills.saved")); await refresh(); return true; }
+    catch (cause) { setError(message(cause)); return false; }
     finally { setBusy(false); }
   }
+  const addedNotice = (choice: EnableChoice) => choice.mode === "all" ? t("skills.library.added_all")
+    : choice.ids.length ? t("skills.library.added_some", { count: choice.ids.length }) : t("skills.library.added_notice");
+  /** One install: files go to the route with the owner's choice of Bots; the form or pending panel closes only on success. */
+  const install = (url: string, body: Record<string, unknown>, choice: EnableChoice) =>
+    act(() => request(url, post({ ...body, enable: enableField(choice) })), addedNotice(choice));
   async function pickFolder(files: File[]) {
     if (busy) return;
     try {
       const picked = await readSkillFolder(files);
-      await act(() => picked.kind === "bundle"
-        ? request("/api/extensions/skill-bundles", post({ files: picked.files }))
-        : request("/api/extensions/skills", post({ name: picked.name, files: picked.files })), t("skills.library.added_notice"));
+      setError(""); setNotice(""); setForm(false);
+      setPending({ title: picked.name, run: async choice => {
+        if (await (picked.kind === "bundle" ? install("/api/extensions/skill-bundles", { files: picked.files }, choice) : install("/api/extensions/skills", { name: picked.name, files: picked.files }, choice))) setPending(null);
+      } });
     } catch (cause) {
       const key = cause instanceof Error ? cause.message : "";
       setError(["no_skill_md", "too_large", "too_many_files", "bad_plugin", "no_plugin_manifest"].includes(key) ? t(`skills.error.${key}` as "skills.error.too_large", { max: 256 }) : message(cause));
     }
   }
-  function submitForm() {
+  function submitForm(choice: EnableChoice) {
     if (busy) return;
     if (!/^[a-zA-Z0-9_-]+$/.test(formState.name) || !formState.text.trim()) { setError(t("skills.error.missing_content")); return; }
-    void act(async () => {
-      await request("/api/extensions/skills", post({ name: formState.name, files: { "SKILL.md": formState.text } }));
-      setForm(false); setFormState({ name: "", text: "" });
-    }, t("skills.library.added_notice"));
+    void install("/api/extensions/skills", { name: formState.name, files: { "SKILL.md": formState.text } }, choice).then(ok => { if (ok) { setForm(false); setFormState({ name: "", text: "" }); } });
   }
   return <SkillLibraryView listing={listing} loaded={loaded} loading={loading} busy={busy} error={error} notice={notice}
     form={form} formState={formState} showReload={Boolean(error || debug)}
-    onToggleForm={() => { setError(""); setForm(value => !value); }}
+    bots={bots} pending={pending?.title ?? null} onCancelPending={() => { setError(""); setPending(null); }} onConfirmPending={choice => void pending?.run(choice)}
+    onToggleForm={() => { setError(""); setPending(null); setForm(value => !value); }}
     onFormChange={next => setFormState(current => ({ ...current, ...next }))} onSubmitForm={submitForm}
     onPickFolder={files => void pickFolder(files)}
-    onStarter={name => { const item = skillCatalog.find(entry => entry.name === name); if (item) void act(() => request("/api/extensions/skills", post({ name: item.name, files: { "SKILL.md": item.body } })), t("skills.library.added_notice")); }}
-    onRemove={name => act(() => request(`/api/extensions/skills/${encodeURIComponent(name)}`, { method: "DELETE" }), t("skills.removed"))}
-    onRemoveBundle={id => act(() => request(`/api/extensions/skill-bundles/${encodeURIComponent(id)}`, { method: "DELETE" }), t("skills.removed"))}
+    onStarter={name => { const item = skillCatalog.find(entry => entry.name === name); if (item) { setError(""); setNotice(""); setForm(false); setPending({ title: item.title, run: async choice => { if (await install("/api/extensions/skills", { name: item.name, files: { "SKILL.md": item.body } }, choice)) setPending(null); } }); } }}
+    onRemove={async name => { await act(() => request(`/api/extensions/skills/${encodeURIComponent(name)}`, { method: "DELETE" }), t("skills.removed")); }}
+    onRemoveBundle={async id => { await act(() => request(`/api/extensions/skill-bundles/${encodeURIComponent(id)}`, { method: "DELETE" }), t("skills.removed")); }}
     onRollback={(name, versionNumber) => void act(() => request(`/api/extensions/skills/${encodeURIComponent(name)}/rollback`, post({ version: versionNumber })), t("skills.library.rolled_back"))}
     onReload={() => { setLoading(true); void refresh(); }} />;
 }

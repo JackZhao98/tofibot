@@ -729,3 +729,80 @@ func TestSkillLibraryRoutesRejectBadInput(t *testing.T) {
 		t.Fatalf("bad method %d", status)
 	}
 }
+
+func TestOwnerInstallChoosesWhichBotsGetIt(t *testing.T) {
+	env := newLibEnv(t)
+	post := func(name string, enable any) (int, []byte) {
+		body := map[string]any{"name": name, "files": skillFiles(name, "BODY_"+name)}
+		if enable != nil {
+			body["enable"] = enable
+		}
+		return extensionHTTP(t, env.handler, http.MethodPost, "/api/extensions/skills", body)
+	}
+	on := func(name string) string {
+		var out []string
+		for _, b := range []Bot{env.a, env.b, env.c} {
+			if hasInDirectory(t, env.s, b.ID, name) {
+				out = append(out, b.Name)
+			}
+		}
+		return strings.Join(out, ",")
+	}
+	// Archived Bots are not "all".
+	if _, err := env.s.store.db.Exec(`UPDATE bots SET archived=1 WHERE id=?`, env.c.ID); err != nil {
+		t.Fatal(err)
+	}
+	if status, body := post("for-all", "all"); status != http.StatusCreated {
+		t.Fatalf("all %d %s", status, body)
+	}
+	if got := on("for-all"); got != "Alpha Bot,Bravo Bot" {
+		t.Fatalf("all enabled %q", got)
+	}
+	var setBy string
+	if err := env.s.store.db.QueryRow(`SELECT set_by FROM skill_enablement WHERE bot_id=? AND skill_name='for-all'`, env.a.ID).Scan(&setBy); err != nil || setBy != skillSetByOwner {
+		t.Fatalf("set_by %q %v", setBy, err)
+	}
+	if status, body := post("for-list", []string{env.b.ID}); status != http.StatusCreated {
+		t.Fatalf("list %d %s", status, body)
+	}
+	if got := on("for-list"); got != "Bravo Bot" {
+		t.Fatalf("list enabled %q", got)
+	}
+	for _, enable := range []any{"none", nil} {
+		if status, body := post("for-none-"+map[bool]string{true: "w", false: "o"}[enable != nil], enable); status != http.StatusCreated {
+			t.Fatalf("none %d %s", status, body)
+		}
+	}
+	if on("for-none-w") != "" || on("for-none-o") != "" {
+		t.Fatal("none or omitted must enable nobody")
+	}
+	// Invalid: unknown id, archived id, bad word. Nothing is installed.
+	for _, enable := range []any{[]string{"bot_nope"}, []string{env.c.ID}, "everyone", 7} {
+		if status, _ := post("bad", enable); status != http.StatusBadRequest {
+			t.Fatalf("enable %v gave %d", enable, status)
+		}
+	}
+	if _, found, _ := env.s.store.libraryRow("bad"); found {
+		t.Fatal("a refused install left a library row")
+	}
+	if _, err := os.Stat(filepath.Join(env.skills, "bad")); err == nil {
+		t.Fatal("a refused install left files")
+	}
+	// Bundle: every member, for the chosen Bots.
+	status, body := extensionHTTP(t, env.handler, http.MethodPost, "/api/extensions/skill-bundles", map[string]any{"files": bundleFiles("kit", "k-one", "k-two"), "enable": []string{env.a.ID}})
+	if status != http.StatusCreated {
+		t.Fatalf("bundle %d %s", status, body)
+	}
+	if on("k-one") != "Alpha Bot" || on("k-two") != "Alpha Bot" {
+		t.Fatalf("bundle members %q %q", on("k-one"), on("k-two"))
+	}
+	if status, _ = extensionHTTP(t, env.handler, http.MethodPost, "/api/extensions/skill-bundles", map[string]any{"files": bundleFiles("kit2", "k-three"), "enable": "all"}); status != http.StatusCreated {
+		t.Fatal(status)
+	}
+	if on("k-three") != "Alpha Bot,Bravo Bot" {
+		t.Fatalf("bundle all %q", on("k-three"))
+	}
+	if status, _ = extensionHTTP(t, env.handler, http.MethodPost, "/api/extensions/skill-bundles", map[string]any{"files": bundleFiles("kit3", "k-four"), "enable": []string{"bot_nope"}}); status != http.StatusBadRequest {
+		t.Fatalf("bundle invalid id %d", status)
+	}
+}
