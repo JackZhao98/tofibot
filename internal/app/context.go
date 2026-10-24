@@ -538,8 +538,8 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		if block != "" && used+len([]rune(block)) <= maxHistoryRunes {
 			pm = append(pm, runtime.Message{Role: "user", Content: block})
 			used += len([]rune(block))
-			if i == 2 {
-				// Only rows that reached the context count as read.
+			if i == 2 && r.consumeInbox {
+				// Only rows that reached a context that is sent count as read.
 				s.store.markInboxRead(r.ID, updateIDs)
 			}
 		}

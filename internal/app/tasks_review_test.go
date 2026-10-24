@@ -152,7 +152,7 @@ func TestARunThatDelegatesKeepsItsTaskOpenAndTheReturnRunFinishesIt(t *testing.T
 }
 
 // Finding 4: say(task_id=X) submits X, and a run that ends settles every task it holds.
-func TestSubmittedTaskWinsAndEveryHeldTaskSettles(t *testing.T) {
+func TestSubmittedTaskIsTheOnlyOneSettledAndWithoutSubmissionAllAre(t *testing.T) {
 	f := newTaskFix(t)
 	x := f.running(f.g.ID, f.a)
 	_, r, _ := f.s.AddHandoff(f.g.ID, f.a.ID, f.b.ID, x.ID, "First job")
@@ -173,14 +173,33 @@ func TestSubmittedTaskWinsAndEveryHeldTaskSettles(t *testing.T) {
 	if got, _, _ := taskForRunTx(f.s.db, r.ID); got.ID != t1.ID {
 		t.Fatalf("the submitted task is not the one picked: %s", got.Title)
 	}
-	msg, _, err := f.s.FinishRun(r.ID, f.g.ID, f.b.ID, "Both jobs done.")
+	msg, _, err := f.s.FinishRun(r.ID, f.g.ID, f.b.ID, "Second job done.")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, id := range []string{t0.ID, t1.ID} {
-		got, _ := f.s.GetWorkItem(id)
-		if got.Status != "done" || got.ResultMessageID != msg.ID {
-			t.Fatalf("task %s after the run ended: %s %q", got.Title, got.Status, got.ResultMessageID)
+	got1, _ := f.s.GetWorkItem(t1.ID)
+	if got1.Status != "done" || got1.ResultMessageID != msg.ID {
+		t.Fatalf("the submitted task: %s %q", got1.Status, got1.ResultMessageID)
+	}
+	if got0, _ := f.s.GetWorkItem(t0.ID); isClosedWorkStatus(got0.Status) || got0.ResultMessageID != "" {
+		t.Fatalf("a task that was not submitted was settled: %s", got0.Status)
+	}
+	// With no submission, the run's end settles every task it holds.
+	z := f.running(f.g.ID, f.a)
+	_, r3, _ := f.s.AddHandoff(f.g.ID, f.a.ID, f.c.ID, z.ID, "Third job")
+	f.start(r3.ID)
+	t3 := f.taskOf(r3.ID)
+	z2 := f.running(f.g.ID, f.b)
+	_, r4, _ := f.s.AddHandoff(f.g.ID, f.b.ID, f.c.ID, z2.ID, "Fourth job")
+	t4 := f.taskOf(r4.ID)
+	f.s.db.Exec(`UPDATE work_items SET assignee_run_id=? WHERE id=?`, r3.ID, t4.ID)
+	msg2, _, err := f.s.FinishRun(r3.ID, f.g.ID, f.c.ID, "Both done.")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{t3.ID, t4.ID} {
+		if got, _ := f.s.GetWorkItem(id); got.Status != "done" || got.ResultMessageID != msg2.ID {
+			t.Fatalf("task %s: %s", id, got.Status)
 		}
 	}
 }
@@ -255,5 +274,91 @@ func TestMentionRowWakeAndReadMarkAreOneTransaction(t *testing.T) {
 	}
 	if n := f.count(`SELECT COUNT(*) FROM bot_inbox WHERE wait_group='g1' AND consumed_at<>''`); n != 1 {
 		t.Fatal("the row is not read")
+	}
+}
+
+// B: a held task whose run is done, that gave nothing open and has nothing
+// active below it, is closed by the reconcile pass.
+func TestReconcileClosesAHeldTaskWhoseDelegationEndedWithoutAReturn(t *testing.T) {
+	f := newTaskFix(t)
+	x := f.running(f.g.ID, f.a)
+	_, r, _ := f.s.AddHandoff(f.g.ID, f.a.ID, f.b.ID, x.ID, "Write the report")
+	f.start(r.ID)
+	t0 := f.taskOf(r.ID)
+	_, c1, _ := f.s.AddHandoff(f.g.ID, f.b.ID, f.c.ID, r.ID, "Draw the figure")
+	f.start(c1.ID)
+	msg, _, err := f.s.FinishRun(r.ID, f.g.ID, f.b.ID, "Asked charlie.")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.s.reconcileTaskRuns(); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := f.s.GetWorkItem(t0.ID); isClosedWorkStatus(got.Status) {
+		t.Fatalf("closed while the child still works: %s", got.Status)
+	}
+	// The child's task ends with no return run, and its run is over.
+	f.s.db.Exec(`UPDATE waits SET status='cancelled',resolved_at=? WHERE target=(SELECT id FROM work_items WHERE assignee_run_id=?)`, now(), c1.ID)
+	f.s.db.Exec(`UPDATE work_items SET status='cancelled',closed_at=? WHERE assignee_run_id=?`, now(), c1.ID)
+	f.s.db.Exec(`UPDATE runs SET status='cancelled' WHERE id=?`, c1.ID)
+	if err := f.s.reconcileTaskRuns(); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := f.s.GetWorkItem(t0.ID)
+	if got.Status != "done" || got.ResultMessageID != msg.ID {
+		t.Fatalf("the task stayed open: %s %q", got.Status, got.ResultMessageID)
+	}
+}
+
+// C: the child may finish before the delegating run ends.
+func TestAChildThatFinishesFirstStillLeavesTheDelegatorsTaskOpen(t *testing.T) {
+	f := newTaskFix(t)
+	x := f.running(f.g.ID, f.a)
+	_, r, _ := f.s.AddHandoff(f.g.ID, f.a.ID, f.b.ID, x.ID, "Write the report")
+	f.start(r.ID)
+	t0 := f.taskOf(r.ID)
+	_, c1, _ := f.s.AddHandoff(f.g.ID, f.b.ID, f.c.ID, r.ID, "Draw the figure")
+	f.start(c1.ID)
+	if _, _, err := f.s.FinishRun(c1.ID, f.g.ID, f.c.ID, "Figure done."); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := f.s.FinishRun(r.ID, f.g.ID, f.b.ID, "Asked charlie."); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := f.s.GetWorkItem(t0.ID); isClosedWorkStatus(got.Status) || got.ResultMessageID != "" {
+		t.Fatalf("closed with the interim text: %s", got.Status)
+	}
+}
+
+// D: a context that is built and thrown away reads nothing.
+func TestAThrownAwayContextDoesNotMarkInboxRowsRead(t *testing.T) {
+	f := newTaskFix(t)
+	run := f.running(f.g.ID, f.a)
+	tx, _ := f.s.db.Begin()
+	if err := addInboxTx(tx, InboxItem{BotID: f.a.ID, ConversationID: f.g.ID, Kind: inboxTaskUpdate, Body: "a note"}); err != nil {
+		t.Fatal(err)
+	}
+	tx.Commit()
+	f.srv.buildContextParts(f.g, run, f.a)
+	if n := f.count(`SELECT COUNT(*) FROM bot_inbox WHERE consumed_at<>''`); n != 0 {
+		t.Fatalf("%d rows marked read by a discarded context", n)
+	}
+}
+
+// E: unread rows that never wake anyone do not stay for ever.
+func TestRetentionRemovesOldUnreadRowsThatDoNotWake(t *testing.T) {
+	f := newTaskFix(t)
+	tx, _ := f.s.db.Begin()
+	addInboxTx(tx, InboxItem{BotID: f.a.ID, ConversationID: f.g.ID, Kind: inboxTaskUpdate, Body: "never fits"})
+	addInboxTx(tx, InboxItem{BotID: f.a.ID, ConversationID: f.g.ID, Kind: inboxTaskQuestion, Body: "wakes", Wakes: true})
+	tx.Commit()
+	if _, err := f.s.cleanupFinishedTasks(time.Now().Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if n := f.count(`SELECT COUNT(*) FROM bot_inbox WHERE wakes=0`); n != 0 {
+		t.Fatalf("%d old unread non-waking rows kept", n)
+	}
+	if n := f.count(`SELECT COUNT(*) FROM bot_inbox WHERE wakes=1`); n != 1 {
+		t.Fatal("a waking row was removed")
 	}
 }

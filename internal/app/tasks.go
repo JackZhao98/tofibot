@@ -335,7 +335,17 @@ func taskRunFinishedTx(tx *sql.Tx, done Run, result Message, sayOutcome string) 
 	if err != nil {
 		return err
 	}
+	// A run that named a task with say(task_id) settled that task only.
+	submitted := false
 	for _, item := range items {
+		if item.SubmitRunID == done.ID {
+			submitted = true
+		}
+	}
+	for _, item := range items {
+		if submitted && item.SubmitRunID != done.ID {
+			continue
+		}
 		if err = taskFinishedOneTx(tx, done, item, result, sayOutcome); err != nil {
 			return err
 		}
@@ -350,11 +360,18 @@ func taskFinishedOneTx(tx *sql.Tx, done Run, item WorkItem, result Message, sayO
 	// run carries it on and gives the real result. Naming the task with
 	// say(task_id) is the only way to close it with this run's text.
 	if item.SubmitRunID != done.ID {
-		var given int
-		if err = tx.QueryRow(`SELECT COUNT(*) FROM work_items WHERE origin_run_id=? AND status NOT IN ('done','cancelled','failed')`, done.ID).Scan(&given); err != nil {
+		// Whether the run delegated at all, and whether a return run has already
+		// carried the result back, decides: a child may finish before this run does.
+		var given, returned int
+		if err = tx.QueryRow(`SELECT COUNT(*) FROM work_items WHERE origin_run_id=?`, done.ID).Scan(&given); err != nil {
 			return err
 		}
 		if given > 0 {
+			if err = tx.QueryRow(`SELECT COUNT(*) FROM runs WHERE kind=? AND status='done' AND parent_run_id IN (SELECT assignee_run_id FROM work_items WHERE origin_run_id=?)`, runKindFollowup, done.ID).Scan(&returned); err != nil {
+				return err
+			}
+		}
+		if given > 0 && returned == 0 {
 			if _, err = tx.Exec(`UPDATE work_items SET submit_run_id='',updated_at=? WHERE id=? AND submit_run_id=?`, now(), item.ID, done.ID); err != nil {
 				return err
 			}
