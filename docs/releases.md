@@ -36,6 +36,7 @@ TOFI 每个版本改了什么，最新的在最上面。写给以后接手的人
 还没进任何 rc 的改动写在这里；打下一个 rc 时挪进那个 rc 的条目（决定 D27）。
 
 - **命令结束等待（C2 第三阶段，[D61](decisions/0061-command-exit-waits.md)，分支 `feat/p3-command-exit`）。** `wait_for` 开放 `command_exit`，`computer_terminal` 的 `open`/`write` 加 `notify_on_exit`：Bot 起长命令后结束这一轮，命令结束（进程退出带退出码；shell 里的作业回到提示符、无退出码）时被叫醒，结果带最后 8 KB 输出；电脑重启则收到“被重启中断，最后输出在此”。必须配计时回看，Bot 没设就由系统加一条（Settings › Automatic behavior 的 `command_check_minutes`，默认 60 分钟）。有命令等待的终端不被 run 清理杀掉；`tofi update`/`restore`/`backup` 和 `tofi computers upgrade` 把它算忙；Settings 重启电脑的确认框先列出在等命令的 Bot。聊天里一行“命令已结束”，终端标签有铃铛。**需要重建 guest 镜像**（`terminal.list` 多 `foreground_job`）；旧 guest 照常，只是 shell 作业结束看不到。升级第一次启动加表 `command_waits`（只加表）。
+- 调度改造（D62）：一个 Bot 同一时间只跑一个 run（跨所有对话），不同 Bot 并行；对正在工作的 Bot 发的消息排队（输入框一直可用，气泡下有 “Queued, read at next step” 小字，读到后变 “Read”），run 在下一个边界原子读到并接着干，不再取消、不再只留摘要；读之前结束就接力续跑，读满 5 条或上下文过 60% 就让位；问人卡片开着时新消息进收件箱、卡片保留；Stop 变成菜单（Stop current step 只取消正在跑的工具，Stop all 照旧连带任务）。
 - 群里没 @ 人的消息：由后台模型按成员角色挑最合适的人回答（在岗成员只有一位时跳过；模型不可用或答案无效时退回主助理/随机）。Settings › Automatic behavior 新增“Route unaddressed group messages”和“Group routing model”（D60）。
 - 设置 › Skills 安装时选 Bot（D58 第 12 条）：安装文件夹、粘贴或起步模板后先问给哪些 Bot 开，默认主按钮“Enable for all Bots”，次选“Choose Bots…”勾选名单或一个都不勾；路由 `enable: "all" | "none" | [bot_id]`，与库记录同事务写 `skill_enablement`（`set_by=owner`），套装对每个成员生效，未知或已归档 id 整个请求 400。Bot 自己装不变。
 - reaction：模型历史里每条消息带 reaction 摘要；人给 Bot 的群消息点 reaction 会低优先级叫醒该 Bot（短时间内合并为一次、不要求回复），Bot 点的 reaction 不叫醒任何人；提示词改为用 reaction 代替简短回复来确认、同意、接活（D60）。

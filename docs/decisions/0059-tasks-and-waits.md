@@ -1,6 +1,6 @@
 # 0059 任务和等待：一个任务对象、一套等待、一个收件箱
 
-> 编号 D59，索引见 [README](README.md)。设计过程见 [collab-todo.md](../design/collab-todo.md) 的 C1、C2、C3 三节，实施方案见 [collab-implementation-plan.md](../design/collab-implementation-plan.md) 阶段 2。
+> 编号 D59，索引见 [README](README.md)。**第 3 点的“叫醒一律开新 run”和“人在卡片开着时发的消息只存一行”已被 [D62](0062-per-bot-lanes-and-queued-steering.md) 部分替代**：等待结果和收件箱事件在 Bot 正在跑时于下一个边界直接读到，卡片保留。设计过程见 [collab-todo.md](../design/collab-todo.md) 的 C1、C2、C3 三节，实施方案见 [collab-implementation-plan.md](../design/collab-implementation-plan.md) 阶段 2。
 
 ## 决定
 

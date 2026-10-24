@@ -124,8 +124,8 @@ short transaction (walk <= 64 steps, code `wait_cycle`, a graph too large to wal
 A timeout is a result: `timed_out` (a timer is `fulfilled`). Per-kind defaults are `waitTimeoutFor` (15 min / 2 h / 30 min). There is no in-memory timer: one sweeper
 (`sweepWaits`, 15 s, also at start) ends due waits, reconciles question mirrors, and calls `flushInbox`. Tests call `sweepWaits` directly; do not add `time.AfterFunc`.
 `flushInbox` wakes a Bot with a new `group_followup` run whose `run_wakes.source` is `inbox` (the rows are the request, block `[wait result]`); a single `bot_post` wait in a
-group keeps the old mention wake (`via='mention'`). A Bot's own run reads unread rows as `[task updates]` (`consumeInboxForRun`, idempotent per run). Phase 2 wakes by a new
-run; reading the inbox inside a running turn is phase 4. `outcome=pending` is honest only while the run holds a pending wait (`runHasPendingWait`).
+group keeps the old mention wake (`via='mention'`). A Bot's own run reads unread rows as `[task updates]` (`consumeInboxForRun`, idempotent per run) when it starts, and at each boundary while it runs
+(`drainInboxForRun`, decision 0062, section "Per-Bot lanes and queued steering"); a Bot that is not running is woken by a new run. `outcome=pending` is honest only while the run holds a pending wait (`runHasPendingWait`).
 
 Tools: `delegate` (one member = handoff path, several = message path; `title`, `checklist`), `wait_for` (receipt at once), `cancel_wait`, `task_update`, `task_ask`, `say` with
 `task_id`. `handoff` and `message` are deferred aliases for one version. `cancel_wait`, `task_update`, `task_ask` are on demand (`onDemandTools`): the `[waiting on]`,
@@ -146,6 +146,33 @@ was seen true (no exit code); a guest without the field reports process exit onl
 unreachable list is never "gone". `finishCommandWait` ends the wait through `resolveWaitTx` (pending-only, so once) and writes one `command_exit` notice line (sender `system`, not in model history).
 `terminal_cleanup.go` skips a Bot that holds a pending command wait. `tofi_host.py` counts pending command waits as busy (`command_waits`, read-only SQLite like `active_runs`); Settings asks
 `GET /api/command-waits` before a computer restart. A guest change needs a rebuilt guest image; `foreground_job` is a field of the existing `terminal.list`, so `microVMActions` and the watchdog list did not change.
+# Per-Bot lanes and queued steering
+
+One Bot runs one run at a time, across every conversation it is in; different Bots run in parallel (decision 0062, `internal/app/bot_lanes.go`, `steer.go`). The conversation worker
+(`runConversationWorker`) still looks at one conversation's queue, but `pickRunnable` returns the first run whose Bot has a free lane and `launchRun` starts it in its own goroutine
+under that lane (`Server.lanes`: Bot id to run id in memory, plus a database recheck of `status='running'` for the same Bot; a claimed approval settlement does not count).
+`triage` runs take no lane. A freed lane wakes every worker; a worker with something waiting on a lane or an order also rechecks every second. Heads of different conversations compete
+by `laneRank`: same task tree as the run that just left the lane > a person's message > a delegation > a schedule (approval settlement first); inside one conversation the older order
+stays. `runOrderBlocked` keeps two orders the serial worker gave for free: a run waits while the run that created it is running or queued, and a Bot addressed with others by one
+message waits for the ones addressed before it. Tests that call `execute` directly bypass lanes: do not add code that relies on `launchRun` for correctness of one run.
+
+A person's message to a Bot that is working is not a new run and cancels nothing. `addUserRunsSteering` (the ingress transaction) asks `steerTargetTx` for the Bot's running run in this
+conversation (or in work whose origin is this conversation), or its run parked on a question card; one that already recorded its `say(answer)`, one that yields to a steering successor, an
+approval settlement and a scheduled run are not targets (a message during a scheduled run starts a run of its own and the scheduled run yields to it, as before). The message is stored as always; a `bot_inbox` row (`kind=user_message`, `parent_run`, `anchor`=message id) says where it went, and the response carries
+`queued`. `Message.delivery` is `queued` for unread rows (history never lists `read`); reading emits the stream event `inbox {message_id, run_id, state}`. The run reads at the boundary before each
+model request: `Request.DrainInbox` (`agent.AgentConfig.DrainInbox`) calls `drainInboxForRun` (one transaction: marks the rows read, `drained=1`, emits the event), the agent appends one user
+turn (`renderInjection`: `[new message from the person]` with the principle, or `[events from the task system]`), checkpoints it and refills the run's time, call, step and cost budget once
+(`Continuation.BudgetCallsBase/StepBase/CostBase`). It reads at most `maxInjectionsPerRun` (5) messages and none past `injectContextShare` (60%) of the context window: the next unread message
+closes the run through `closeRunForContinuation` (a continuation run plus the old steering edge, then `steeringBoundary` yields). Other inbox rows of the Bot in this conversation (settled waits,
+a member's question, task updates; not `via=mention`, not rows waiting for a still-active run) are read the same way. Messages still unread when a run ends become one continuation run in the
+same transaction (`continueUnreadInboxTx`, from `finishRunOpts`, `SetRunStatus`, recovery and `MarkRunSteered`); Stop all drops them. A read that a restart lost before its checkpoint is given
+back (`returnUndeliveredDrainsTx`, in `claimRun`). While a question card is open the card stays and the message waits for the run that resumes (`supersedeInputWaitsTx` skips a parked run with an
+unread message). The `run_steering` edge and `steeringBoundary` remain for delegation, mention wakes and the cap; a person's message makes no edge any more. Delegation returns are still queued
+return runs (`group_followup`), not inbox reads.
+
+Two stop levels: `POST /api/runs/{id}/interrupt-step` cancels only the tool call in flight (`runtime.Request.BeginStep`, per-call context, typed outcome `step_interrupted`; 409 `no_step_in_flight`
+when only the model is running) and the run goes on; `POST /api/runs/{id}/cancel` is Stop all (`CancelRunTree`, tasks and waits too). The composer is always enabled; its Stop is the lazy
+`ComposerStop` (`ui/src/ComposerStopMenu.tsx`); the queued/read note is `DeliveryNote`, applied from the `inbox` event by `applyInbox` (`ui/src/messageDelivery.ts`).
 
 # Security gates
 
