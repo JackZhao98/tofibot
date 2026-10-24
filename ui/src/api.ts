@@ -111,7 +111,7 @@ export const api = {
     if (beforeSeq !== undefined) query.set("before_seq", String(beforeSeq));
     return request<{ messages: Message[] | null; drafts?: StreamDraft[] | null; has_more: boolean; event_cursor?: number }>(`/api/conversations/${encodeURIComponent(id)}/messages?${query}`).then((result) => ({ ...result, messages: result.messages ?? [], drafts: result.drafts ?? [] }));
   },
-  sendMessage: (id: string, input: { content: string; client_message_id: string; attachment_ids?: string[] }) => request<{ message: Message; run: Run; runs?: Run[] }>(`/api/conversations/${encodeURIComponent(id)}/messages`, json(input)),
+  sendMessage: (id: string, input: { content: string; client_message_id: string; attachment_ids?: string[] }) => request<{ message: Message; run?: Run | null; runs?: Run[]; queued?: { bot_id: string; run_id: string; inbox_id: string }[] }>(`/api/conversations/${encodeURIComponent(id)}/messages`, json(input)),
   setMessageReaction: (conversationId: string, messageId: string, emoji: string, present: boolean) => request<{ conversation_id: string; message_id: string; reactions: NonNullable<Message["reactions"]> }>(`/api/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}/reactions`, { method: "PUT", body: JSON.stringify({ emoji, present }) }),
   uploadAttachment: async (id: string, file: File) => { const body = new FormData(); body.append("file", file); return request<Attachment>(`/api/conversations/${encodeURIComponent(id)}/attachments`, { method: "POST", body }); },
   // The newest page of runs plus every active one; `before` (an ISO time) asks for the page of runs created earlier, to go with an older page of messages.
@@ -158,7 +158,7 @@ export function openConversationEvents(
   // Cursor 0 means this client has seen nothing yet: start at the live head instead of replaying the whole log.
   if (workspace) query.set("workspace_after", workspace.after > 0 ? String(workspace.after) : "head");
   const source = new EventSource(`/api/conversations/${encodeURIComponent(id)}/events?${query}`);
-  const types = ["message", "reaction", "run", "delta", "draft_reset", "thinking", "retrying", "memory", "memory_deleted", "schedule", "work_item", "tool", "bot"] as const;
+  const types = ["message", "reaction", "run", "delta", "draft_reset", "thinking", "retrying", "memory", "memory_deleted", "schedule", "work_item", "tool", "bot", "inbox"] as const;
   for (const type of types) {
     source.addEventListener(type, (event) => {
       onActivity?.();

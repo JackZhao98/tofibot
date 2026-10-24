@@ -2,6 +2,7 @@
 // into the tool steps. Task block (live line, Activity summary), web tool row and the compact live line, on synthetic
 // runs and tool steps; the clock of a live run starts when the frame opens.
 import { CompactLiveLine, RunStartContext, WebToolActivityRun } from "../../App";
+import { DeliveryNote } from "../../SendReceipt";
 import { RunContextBody, type RunContextState } from "../../RunContext";
 import { TaskRunBlock } from "../../TaskRunBlock";
 import { buildTaskOwners } from "../../taskIssuePresentation";
@@ -26,6 +27,14 @@ const summary = (runId: string, startedSecondsAgo: number, endedSecondsAgo: numb
   ({ run_id: runId, bot_id: BOT, tool_count: 3, completed_count: 3, failed_count: 0, interrupted_count: 0, pending_count: 0, started_at: ago(startedSecondsAgo), updated_at: ago(endedSecondsAgo) });
 const answer = (runId: string): Message =>
   ({ id: `m_${runId}`, conversation_id: CONVERSATION, seq: 3, role: "assistant", content: "The review is at 15:00 in the small room.", created_at: ago(2), sender_bot_id: BOT, sender_bot_name: "Mochi", run_id: runId });
+
+// A message sent while the Bot works: the quiet note in the failed-line slot under the bubble (SendReceipt.tsx).
+const sentWhileWorking = (state: "queued" | "read") => <article className="message message-user"><div className="message-body"><div className="message-content"><p>Also check the projector.</p></div><DeliveryNote state={state} /></div></article>;
+// Parallel Bots in one group: one line each, keyed by run, stacked.
+const twoLiveLines = () => <div>
+  <CompactLiveLine label="Browsing the web · 12s" botId={BOT} botName="Mochi" at={ago(12)} showName ariaLabel="Mochi is working" onOpen={noop} />
+  <CompactLiveLine label="Thinking · 4s" botId="bot_miso" botName="Miso" at={ago(4)} showName ariaLabel="Miso is working" />
+</div>;
 
 const noop = () => {};
 const none = async () => {};
@@ -102,4 +111,7 @@ export const processStates: CatalogState[] = [
   { id: "context-error", label: "Context, could not load", ...ctx, render: () => contextBody({ status: "error", message: "The request timed out." }) },
   { id: "process-compact", label: "Compact live line (nothing to open yet)", note: "a run that has not called a tool: the same line, not a button", ...ctx, render: () => <CompactLiveLine label="Thinking · 4s" botId={BOT} botName="Mochi" at={ago(4)} showName={false} ariaLabel="Mochi is working" /> },
   { id: "process-compact-open", label: "Compact live line with steps behind it", note: "activity hidden, a tool is running: a button", ...ctx, render: () => <CompactLiveLine label="Browsing the web · 12s" botId={BOT} botName="Mochi" at={ago(12)} showName={false} ariaLabel="Mochi is working" onOpen={noop} /> },
+  { id: "delivery-queued", label: "Queued note under a sent message", note: "sent while the Bot works: \"Queued, read at next step\" until its run reads it", ...ctx, render: () => sentWhileWorking("queued") },
+  { id: "delivery-read", label: "Read note under a sent message", note: "shown for a few seconds after the run read it, then it goes", ...ctx, render: () => sentWhileWorking("read") },
+  { id: "process-two-live", label: "Two Bots working in a group", note: "one live line each (name, status, seconds), stacked, keyed by run", ...ctx, render: twoLiveLines },
 ];

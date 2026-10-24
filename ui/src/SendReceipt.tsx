@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "./i18n";
 import { formatList } from "./i18n/format";
 import type { Receipt } from "./sendReceipts";
+import type { DeliveryState } from "./messageDelivery";
 import "./send-receipt.css";
 
 const tick = "M3 8.6l3.1 3.1L13 4.8";
@@ -44,4 +45,13 @@ export function SendReceiptMark({ state, names, group }: { state: "delivered" | 
   return <span className={`send-receipt-mark${settling ? " is-settling" : ""}${tip ? " has-tip" : ""}`} data-state={state} role="img" aria-label={label} tabIndex={tip ? -1 : undefined} data-roving={tip ? "" : undefined} data-hint={tip ? label : undefined} data-hint-tone={tip ? "quiet" : undefined}>
     <Mark state={state} />
   </span>;
+}
+
+/**
+ * A message sent while the Bot was working: one quiet line under the bubble. "Queued, read at next step" holds until the
+ * run reads it, then "Read" shows for a moment (the owner removes it, messageDelivery.ts). Same slot as the failed line.
+ */
+export function DeliveryNote({ state }: { state: DeliveryState }) {
+  const { t } = useTranslation("chat");
+  return <div className="send-receipt send-receipt-note" data-state={state} role="status">{t(`delivery.${state}`)}</div>;
 }

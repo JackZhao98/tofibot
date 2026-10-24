@@ -10,7 +10,9 @@
     "archive_busy": "아직 끝나지 않은 작업이 있습니다. 끝날 때까지 기다리거나 중지한 뒤 보관하세요.",
     "delete_busy": "관련 작업이 아직 실행 중입니다. 작업을 중지한 뒤 다시 삭제하세요.",
     "model_unconfigured": "모델이 설정되지 않았습니다. 설정의 ‘모델’에서 Codex를 연결하거나 API 키를 추가하세요.",
-    "no_active_members": "이 그룹에는 사용할 수 있는 멤버가 없습니다. 복원한 뒤 Bot을 하나 이상 추가하세요."
+    "no_active_members": "이 그룹에는 사용할 수 있는 멤버가 없습니다. 복원한 뒤 Bot을 하나 이상 추가하세요.",
+    "no_step_in_flight": "Bot이 생각 중이라 중지할 단계가 없습니다. 실행을 끝내려면 '모두 중지'를 사용하세요.",
+    "run_not_running": "해당 실행은 이미 끝났습니다."
   },
   "attachment": {
     "close_image": "이미지 닫기",
@@ -128,7 +130,11 @@
     "screenshot_unsupported": "이 브라우저는 화면 캡처를 지원하지 않습니다. 기존 이미지를 업로드하세요.",
     "send": "메시지 보내기",
     "stop": "중지",
+    "stop_all": "모두 중지",
     "stop_label": "{{name}}의 작업 중지",
+    "stop_menu": "중지 옵션",
+    "stop_step": "현재 단계 중지",
+    "stop_step_named": "{{name}}의 현재 단계 중지",
     "too_large": "{{name}}이(가) 20MB를 초과합니다",
     "uploading": "업로드 중…"
   },
@@ -173,6 +179,10 @@
     "impact_given_other": "이 Bot이 맡긴 진행 중인 작업 {{count}}개도 함께 취소됩니다.",
     "impact_held_other": "이 Bot이 맡고 있는 진행 중인 작업 {{count}}개가 취소됩니다.",
     "impact_waits_other": "이 Bot의 대기 {{count}}건이 종료됩니다."
+  },
+  "delivery": {
+    "queued": "대기 중, 다음 단계에서 읽음",
+    "read": "읽음"
   },
   "detail": {
     "close": "세부 정보 닫기",

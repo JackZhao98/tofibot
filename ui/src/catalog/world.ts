@@ -126,7 +126,7 @@ export type AppOptions = {
   /** Mochi has not picked up the last message yet (a queued run): it reads "delivered", not "read". */
   queued?: boolean;
   /** How sending a message ends. */
-  send?: "ok" | "fail" | "hang";
+  send?: "ok" | "fail" | "hang" | "queued";
   /** The first list load works, every refresh after it fails (the refresh toast). */
   refreshFails?: boolean;
   /** After the first list load no /api request answers, so nothing "gets through" to end the proxy-challenge notice. */
@@ -191,6 +191,8 @@ export function workspace(options: AppOptions): Synthetic {
         const body = JSON.parse(String(init?.body ?? "{}")) as { content: string; client_message_id: string };
         const message = user(id, list.length + 1, body.content, 45, { client_message_id: body.client_message_id, id: `m_${id}_sent_${list.length + 1}` });
         list.push(message);
+        // The addressed Bot is already working: no new run, the message waits for its next step.
+        if (options.send === "queued") { message.delivery = "queued"; return json({ message, run: null, runs: [], queued: [{ bot_id: "bot_mochi", run_id: "run_live", inbox_id: `inbox_${list.length}` }] }); }
         return json({ message, run: run(id, "bot_mochi", `run_sent_${list.length}`, message.id, "queued", 45) });
       }
       if (what === "messages") return json({ messages: list, drafts: options.running && id === "dm_mochi" ? [liveDraft()] : [], has_more: false, event_cursor: 0 });

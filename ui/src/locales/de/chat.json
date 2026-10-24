@@ -10,7 +10,9 @@
     "archive_busy": "Es laufen noch Aufgaben. Warte, bis sie fertig sind, oder stoppe sie vor dem Archivieren.",
     "delete_busy": "Zugehörige Aufgaben laufen noch. Stoppe sie und versuche dann erneut zu löschen.",
     "model_unconfigured": "Kein Modell eingerichtet. Verbinde Codex oder füge unter Einstellungen › Modelle einen API-Schlüssel hinzu.",
-    "no_active_members": "Diese Gruppe hat keine aktiven Mitglieder. Füge nach dem Wiederherstellen mindestens einen Bot hinzu."
+    "no_active_members": "Diese Gruppe hat keine aktiven Mitglieder. Füge nach dem Wiederherstellen mindestens einen Bot hinzu.",
+    "no_step_in_flight": "Der Bot denkt gerade nach, es läuft kein Schritt, der sich stoppen ließe. Mit „Alles stoppen“ beendest du den Lauf.",
+    "run_not_running": "Dieser Lauf läuft nicht mehr."
   },
   "attachment": {
     "close_image": "Bild schließen",
@@ -128,7 +130,11 @@
     "screenshot_unsupported": "Dieser Browser kann den Bildschirm nicht aufnehmen. Lade stattdessen ein vorhandenes Bild hoch.",
     "send": "Nachricht senden",
     "stop": "Stoppen",
+    "stop_all": "Alles stoppen",
     "stop_label": "{{name}} stoppen",
+    "stop_menu": "Stopp-Optionen",
+    "stop_step": "Aktuellen Schritt stoppen",
+    "stop_step_named": "Aktuellen Schritt von {{name}} stoppen",
     "too_large": "{{name}} ist größer als 20 MB",
     "uploading": "Wird hochgeladen…"
   },
@@ -176,6 +182,10 @@
     "impact_held_other": "{{count}} offene Aufgaben, die er bearbeitet, werden abgebrochen.",
     "impact_waits_one": "{{count}} Wartebedingung von ihm wird beendet.",
     "impact_waits_other": "{{count}} Wartebedingungen von ihm werden beendet."
+  },
+  "delivery": {
+    "queued": "In Warteschlange, wird beim nächsten Schritt gelesen",
+    "read": "Gelesen"
   },
   "detail": {
     "close": "Details schließen",

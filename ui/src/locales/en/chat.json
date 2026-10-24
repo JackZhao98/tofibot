@@ -10,7 +10,9 @@
     "archive_busy": "Some tasks are still running. Wait for them to finish or stop them before archiving.",
     "delete_busy": "Related tasks are still running. Stop them, then try deleting again.",
     "model_unconfigured": "No model is set up. Connect Codex or add an API key in Settings › Models.",
-    "no_active_members": "This group has no active members. After restoring it, add at least one Bot."
+    "no_active_members": "This group has no active members. After restoring it, add at least one Bot.",
+    "no_step_in_flight": "The Bot is thinking and no step is running to stop. Use Stop all to end the run.",
+    "run_not_running": "That run is no longer running."
   },
   "attachment": {
     "close_image": "Close image",
@@ -128,7 +130,11 @@
     "screenshot_unsupported": "This browser can't capture the screen. Upload an existing image instead.",
     "send": "Send message",
     "stop": "Stop",
+    "stop_all": "Stop all",
     "stop_label": "Stop {{name}}",
+    "stop_menu": "Stop options",
+    "stop_step": "Stop current step",
+    "stop_step_named": "Stop {{name}}'s current step",
     "too_large": "{{name}} is over 20 MB",
     "uploading": "Uploading…"
   },
@@ -176,6 +182,10 @@
     "impact_held_other": "{{count}} open tasks it holds will be cancelled.",
     "impact_waits_one": "{{count}} wait it holds will end.",
     "impact_waits_other": "{{count}} waits it holds will end."
+  },
+  "delivery": {
+    "queued": "Queued, read at next step",
+    "read": "Read"
   },
   "detail": {
     "close": "Close details",

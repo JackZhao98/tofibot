@@ -10,7 +10,9 @@
     "archive_busy": "Des tâches sont encore en cours. Attendez qu’elles se terminent ou arrêtez-les avant d’archiver.",
     "delete_busy": "Des tâches liées sont encore en cours. Arrêtez-les, puis réessayez de supprimer.",
     "model_unconfigured": "Aucun modèle configuré. Connectez Codex ou ajoutez une clé API dans Réglages › Modèles.",
-    "no_active_members": "Ce groupe n’a aucun membre actif. Après la restauration, ajoutez au moins un Bot."
+    "no_active_members": "Ce groupe n’a aucun membre actif. Après la restauration, ajoutez au moins un Bot.",
+    "no_step_in_flight": "Le Bot réfléchit et aucune étape n'est en cours. Utilisez « Tout arrêter » pour mettre fin à l'exécution.",
+    "run_not_running": "Cette exécution n'est plus en cours."
   },
   "attachment": {
     "close_image": "Fermer l’image",
@@ -128,7 +130,11 @@
     "screenshot_unsupported": "Ce navigateur ne peut pas capturer l’écran. Importez plutôt une image existante.",
     "send": "Envoyer le message",
     "stop": "Arrêter",
+    "stop_all": "Tout arrêter",
     "stop_label": "Arrêter {{name}}",
+    "stop_menu": "Options d'arrêt",
+    "stop_step": "Arrêter l'étape en cours",
+    "stop_step_named": "Arrêter l'étape en cours de {{name}}",
     "too_large": "{{name}} dépasse 20 Mo",
     "uploading": "Envoi…"
   },
@@ -179,6 +185,10 @@
     "impact_waits_one": "{{count}} attente qu'il tient prendra fin.",
     "impact_waits_many": "{{count}} attentes qu'il tient prendront fin.",
     "impact_waits_other": "{{count}} attentes qu'il tient prendront fin."
+  },
+  "delivery": {
+    "queued": "En attente, lu à la prochaine étape",
+    "read": "Lu"
   },
   "detail": {
     "close": "Fermer les détails",
