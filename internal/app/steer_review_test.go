@@ -151,8 +151,14 @@ func TestACoAddressedMemberWaitsForAWorkingMembersUnreadMessage(t *testing.T) {
 	if rows, err := s.store.drainInboxForRun(old, maxInjectionsPerRun); err != nil || len(rows) != 1 || rows[0].Anchor != m.ID {
 		t.Fatalf("drain %+v %v", rows, err)
 	}
+	if !s.store.runOrderBlocked(runs[0]) {
+		t.Fatal("B must keep waiting until A has answered, not only read")
+	}
+	if err := s.store.recordSayAnswer(old.ID, "call-a", "A's note."); err != nil {
+		t.Fatal(err)
+	}
 	if s.store.runOrderBlocked(runs[0]) {
-		t.Fatal("B is still blocked after A read the message")
+		t.Fatal("B is still blocked after A answered")
 	}
 }
 
@@ -183,5 +189,97 @@ func TestAnAgedPersonMessageRanksWithTheTaskTree(t *testing.T) {
 	person.CreatedAt = old
 	if !s.laneRankOf(person).before(s.laneRankOf(tree)) {
 		t.Fatal("an aged person's message is still held behind the busy tree")
+	}
+}
+
+// Re-review (b): a message from another conversation is not in this run's
+// history, whatever its seq: start must leave it for the boundary read.
+func TestStartingARunLeavesAMessageFromAnotherConversationUnread(t *testing.T) {
+	s, c, old := steerFixture(t, false)
+	other, _ := s.store.CreateBot("elsewhere", "", "model")
+	oc, _ := s.store.GetConversation(other.DMConversationID)
+	foreign, _, _ := s.store.AddMessage(oc.ID, "user", "", "", "Words from another chat.", "foreign")
+	succ := queueRun(t, s.store, c.ID, old.BotID, "", "")
+	if _, err := s.store.db.Exec(`UPDATE runs SET trigger_message_id=? WHERE id=?`, old.TriggerMessageID, succ.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.store.db.Exec(`INSERT INTO bot_inbox(id,bot_id,conversation_id,kind,body,anchor,parent_run,created_at) VALUES(?,?,?,?,?,?,?,?)`,
+		newID(), old.BotID, c.ID, inboxUserMessage, "x", foreign.ID, succ.ID, now()); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, err := s.store.claimRun(context.Background(), succ.ID); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	if n := s.store.unreadSteerCount(succ.ID); n != 1 {
+		t.Fatalf("a message outside the run's conversation was marked read at start (unread=%d)", n)
+	}
+}
+
+// Re-review 6: B waits until A has answered, and A's continuation is never
+// ordered behind B.
+func TestACoAddressedMemberWaitsForTheAnswerAndTheContinuationIsNotBlocked(t *testing.T) {
+	s, c, old := steerFixture(t, true)
+	if ok, err := s.store.SetRunStatus(old.ID, "running", ""); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	members, _ := s.memberBots(c)
+	var peer Bot
+	for _, b := range members {
+		if b.ID != old.BotID {
+			peer = b
+		}
+	}
+	_, runs, _, _, err := s.store.addUserRunsSteering(c.ID, "@a @b one answer please", "co2", []runSpec{{BotID: old.BotID, Model: old.Model}, {BotID: peer.ID, Model: peer.Model}}, nil)
+	if err != nil || len(runs) != 1 {
+		t.Fatalf("%+v %v", runs, err)
+	}
+	b := runs[0]
+	if rows, _ := s.store.drainInboxForRun(old, maxInjectionsPerRun); len(rows) != 1 {
+		t.Fatalf("drain %+v", rows)
+	}
+	if !s.store.runOrderBlocked(b) {
+		t.Fatal("B started when A had only read the message, not answered it")
+	}
+	if err := s.store.recordSayAnswer(old.ID, "call-a", "A's note."); err != nil {
+		t.Fatal(err)
+	}
+	if s.store.runOrderBlocked(b) {
+		t.Fatal("B is still blocked after A answered")
+	}
+	// The other path: A ends before reading; its continuation answers, and must
+	// not wait for B, which waits for it.
+	s2, c2, old2 := steerFixture(t, true)
+	if ok, err := s2.store.SetRunStatus(old2.ID, "running", ""); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	members2, _ := s2.memberBots(c2)
+	var peer2 Bot
+	for _, x := range members2 {
+		if x.ID != old2.BotID {
+			peer2 = x
+		}
+	}
+	_, runs2, _, _, err := s2.store.addUserRunsSteering(c2.ID, "@a @b again", "co3", []runSpec{{BotID: old2.BotID, Model: old2.Model}, {BotID: peer2.ID, Model: peer2.Model}}, nil)
+	if err != nil || len(runs2) != 1 {
+		t.Fatal(err)
+	}
+	if _, _, err := s2.store.FinishRun(old2.ID, c2.ID, old2.BotID, "Done."); err != nil {
+		t.Fatal(err)
+	}
+	var cont Run
+	all, _ := s2.store.Runs(c2.ID)
+	for _, r := range all {
+		if r.BotID == old2.BotID && r.ID != old2.ID {
+			cont = r
+		}
+	}
+	if cont.ID == "" {
+		t.Fatal("no continuation run")
+	}
+	if s2.store.runOrderBlocked(cont) {
+		t.Fatal("A's continuation is ordered behind B")
+	}
+	if !s2.store.runOrderBlocked(runs2[0]) {
+		t.Fatal("B does not wait for A's continuation to answer")
 	}
 }
