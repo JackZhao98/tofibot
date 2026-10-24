@@ -150,6 +150,8 @@ func migrateWorkItems(db *sql.DB) error {
 	}
 	// The existing CHECK constraint cannot be expanded with ALTER TABLE. Rebuild
 	// transactionally so production work items and parent links survive upgrade.
+	// The old table does not record who made an item, so the assigner stays unset
+	// (an unset assigner counts as the person) instead of naming the Bot as creator.
 	if _, err := db.Exec(`PRAGMA foreign_keys=OFF`); err != nil {
 		return err
 	}
@@ -163,7 +165,7 @@ func migrateWorkItems(db *sql.DB) error {
  INSERT INTO work_items_next (` + workItemColumns + `) SELECT ` + workItemColumns + ` FROM work_items;
  DROP TABLE work_items;
  ALTER TABLE work_items_next RENAME TO work_items;
- UPDATE work_items SET assigner_kind='self',assigner_bot_id=bot_id,root_task_id=id WHERE assigner_kind='';
+ UPDATE work_items SET root_task_id=id WHERE root_task_id='';
  ` + workItemsIndexesDDL); err != nil {
 		return err
 	}

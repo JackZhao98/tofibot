@@ -237,7 +237,7 @@ func TestMigrationMovesPendingRunWaitsAndLiveDelegations(t *testing.T) {
 	}
 }
 
-func TestWorkItemsKeepTheirRowsAndBecomeSelfRecordedTasks(t *testing.T) {
+func TestWorkItemsKeepTheirRowsWithNoCreatorClaimed(t *testing.T) {
 	f := newTaskFix(t)
 	goal := workItemCreate(t, f.s, f.g.ID, f.a.ID, "goal", "Shared goal")
 	// The table as before tasks: only the original columns.
@@ -266,7 +266,7 @@ func TestWorkItemsKeepTheirRowsAndBecomeSelfRecordedTasks(t *testing.T) {
 		}
 	}
 	got, err := f.s.GetWorkItem(goal.ID)
-	if err != nil || got.Title != "Shared goal" || got.AssignerKind != "self" || got.AssignerBotID != f.a.ID || got.RootTaskID != goal.ID || got.SpecVersion != 1 {
+	if err != nil || got.Title != "Shared goal" || got.AssignerKind != "" || got.AssignerBotID != "" || got.RootTaskID != goal.ID || got.SpecVersion != 1 {
 		t.Fatalf("migrated item %+v %v", got, err)
 	}
 	if _, err := f.s.UpdateWorkItem(goal.ID, WorkItemPatch{Status: workItemString("input_required")}); err != nil {

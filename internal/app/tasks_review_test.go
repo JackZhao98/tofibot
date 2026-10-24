@@ -201,3 +201,59 @@ func TestSubmitNeedsTheTasksConversation(t *testing.T) {
 		t.Fatalf("the run in the task's conversation was refused: %v", err)
 	}
 }
+
+// Finding 5: deleting a Bot ends the runs of what it gave, never the ancestors.
+func TestDeletingABotDoesNotCancelTheRootAboveIt(t *testing.T) {
+	f := newTaskFix(t)
+	x := f.running(f.g.ID, f.c)
+	_, ra, _ := f.s.AddHandoff(f.g.ID, f.c.ID, f.a.ID, x.ID, "Plan it")
+	f.start(ra.ID)
+	_, rb, _ := f.s.AddHandoff(f.g.ID, f.a.ID, f.b.ID, ra.ID, "Do part")
+	f.start(rb.ID)
+	if _, ok, err := f.s.FinishRun(ra.ID, f.g.ID, f.a.ID, "Handed on."); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	// The deletion may be refused for the group's other work; it must not
+	// cancel that work to get through.
+	f.s.DeleteBot(f.a.ID)
+	if r, _ := f.s.GetRun(x.ID); r.Status != "running" {
+		t.Fatalf("the unrelated root is %s", r.Status)
+	}
+}
+
+// Finding 11: the wake and the read mark are one transaction.
+func TestMentionRowWakeAndReadMarkAreOneTransaction(t *testing.T) {
+	f := newTaskFix(t)
+	waiter := f.running(f.g.ID, f.a)
+	var msgID string
+	if err := f.s.db.QueryRow(`SELECT id FROM messages WHERE conversation_id=? LIMIT 1`, f.g.ID).Scan(&msgID); err != nil {
+		t.Fatal(err)
+	}
+	tx, _ := f.s.db.Begin()
+	if err := addInboxTx(tx, InboxItem{BotID: f.a.ID, ConversationID: f.g.ID, Kind: inboxWaitResult, WaitGroup: "g1", Wakes: true, ParentRun: waiter.ID, Via: "mention", Anchor: msgID, Body: "go on"}); err != nil {
+		t.Fatal(err)
+	}
+	tx.Commit()
+	var row inboxRow
+	row, err := scanInboxRow(f.s.db.QueryRow(`SELECT ` + inboxRowColumns + ` FROM bot_inbox WHERE wait_group='g1'`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The read mark cannot be written: the wake must not be left behind alone.
+	if _, err := f.s.db.Exec(`CREATE TRIGGER nomark BEFORE UPDATE ON bot_inbox BEGIN SELECT RAISE(ABORT,'no'); END`); err != nil {
+		t.Fatal(err)
+	}
+	f.srv.deliverMentionRow(row, f.g.ID)
+	if n := f.count(`SELECT COUNT(*) FROM runs WHERE kind=?`, runKindGroupMention); n != 0 {
+		t.Fatalf("%d wake runs exist while the row is still unread", n)
+	}
+	// With the mark writable, one delivery gives one wake and a read row.
+	f.s.db.Exec(`DROP TRIGGER nomark`)
+	f.srv.deliverMentionRow(row, f.g.ID)
+	if n := f.count(`SELECT COUNT(*) FROM runs WHERE kind=?`, runKindGroupMention); n != 1 {
+		t.Fatalf("%d wake runs", n)
+	}
+	if n := f.count(`SELECT COUNT(*) FROM bot_inbox WHERE wait_group='g1' AND consumed_at<>''`); n != 1 {
+		t.Fatal("the row is not read")
+	}
+}

@@ -44,10 +44,17 @@ func TestOnDemandToolsLeaveTheDeclaredList(t *testing.T) {
 		}
 		// Tools that a prompt or guide names, and the everyday core, stay declared.
 		switch tl.Name {
-		case "say", "save_memory", "search_history", "create_schedule", "update_schedule", "prepare_email", "ask_user_question", "list_bots", "message", "list_work_items":
+		case "say", "save_memory", "search_history", "create_schedule", "update_schedule", "prepare_email", "ask_user_question", "list_bots", "list_work_items":
 			if tl.Deferred {
 				t.Fatalf("%s must stay declared", tl.Name)
 			}
+		}
+	}
+	// Decision 0059: message is an alias of delegate, kept one version. It runs
+	// when called but does not take a place in the declared list.
+	for _, tl := range tools {
+		if tl.Name == "message" && !tl.Deferred {
+			t.Error("message is an alias of delegate and must stay off the declared list")
 		}
 	}
 	for name := range onDemandTools {

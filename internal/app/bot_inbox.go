@@ -196,20 +196,19 @@ func (s *Server) deliverMentionRow(row inboxRow, conv string) {
 		_ = s.store.markInboxConsumed([]string{row.ID}, "-")
 		return
 	}
-	wake, ok, err := s.store.addMentionWake(conv, waiter, msgID, row.BotID, row.Body, true)
+	// The wake and the read mark commit together, so a failure between them
+	// cannot leave a run behind for a row that stays unread.
+	wake, ok, err := s.store.addMentionWakeConsuming(conv, waiter, msgID, row.BotID, row.Body, true, row.ID)
 	if err != nil {
 		log.Printf("[run] wait wake %s: %v", row.ParentRun, err)
 	}
-	runID := "-"
-	if ok {
-		runID = wake.ID
-	}
-	if e := s.store.markInboxConsumed([]string{row.ID}, runID); e != nil {
-		logTaskError("inbox consume", e)
-		return
-	}
 	if ok {
 		s.enqueue(c, wake)
+		return
+	}
+	// No wake was made (refused or failed): the row is read without a run.
+	if e := s.store.markInboxConsumed([]string{row.ID}, "-"); e != nil {
+		logTaskError("inbox consume", e)
 	}
 }
 
