@@ -906,9 +906,9 @@
         "name": "Stillstandsmeldung nach",
         "what": "Beendet ein Bot, der eine Aufgabe hält, so viele Runden ohne Änderung an Checkliste oder Status der Aufgabe, wird der Bot an der Wurzel der Arbeit einmal informiert. Die Zählung beginnt neu, sobald sich die Aufgabe bewegt."
       },
-      "task_tree_message_limit": {
-        "name": "Nachrichten pro Aufgabenbaum",
-        "what": "Die höchste Zahl an Nachrichten, die die Bots einer Arbeit untereinander austauschen dürfen. Am Limit geben sie einander keine Arbeit mehr weiter; der Wurzel-Bot und Sie werden einmal informiert."
+      "task_tree_idle_message_limit": {
+        "name": "Leerlauf-Nachrichten pro Aufgabenbaum",
+        "what": "Wie viele Nachrichten die Bots einer Arbeit untereinander ohne Fortschritt austauschen dürfen. Fortschritt ist ein abgeschlossener Checklistenpunkt, eine erledigte Aufgabe oder ein abgegebenes Ergebnis; er setzt den Zähler zurück. Am Limit geben sie einander keine Arbeit mehr weiter, bis Fortschritt eintritt, und der Wurzel-Bot entscheidet, was er Ihnen sagt."
       }
     },
     "option": {

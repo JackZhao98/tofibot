@@ -101,7 +101,7 @@ var automationItems = []automationItem{
 	{Key: autoGroupTriageModel, Group: "models", Kind: autoKindModel},
 	{Key: autoCommandCheckMinutes, Group: "computer", Kind: autoKindInt, Default: commandCheckMinutesDefault(), Min: 5, Max: 1440, Unit: "minutes"},
 	{Key: autoTaskStallRounds, Group: "checks", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskStallRounds), Min: 1, Max: 20},
-	{Key: autoTaskTreeMessageLimit, Group: "reliability", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskTreeMessageLimit), Min: 10, Max: 500},
+	{Key: autoTaskTreeIdleLimit, Group: "reliability", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskTreeIdleLimit), Min: 10, Max: 500},
 }
 
 func automationItemFor(key string) (automationItem, bool) {
@@ -129,6 +129,15 @@ func migrateAutomationSettings(db *sql.DB) error {
 key TEXT PRIMARY KEY,
 value TEXT NOT NULL,
 updated_at TEXT NOT NULL)`)
+	if err != nil {
+		return err
+	}
+	// task_tree_message_limit became task_tree_idle_message_limit (decision 0064,
+	// amended 2026-10-24): a number the person set stays; otherwise the new default.
+	if _, err = db.Exec(`INSERT OR IGNORE INTO automation_settings(key,value,updated_at) SELECT ?,value,updated_at FROM automation_settings WHERE key=?`, autoTaskTreeIdleLimit, autoTaskTreeOldLimit); err != nil {
+		return err
+	}
+	_, err = db.Exec(`DELETE FROM automation_settings WHERE key=?`, autoTaskTreeOldLimit)
 	return err
 }
 

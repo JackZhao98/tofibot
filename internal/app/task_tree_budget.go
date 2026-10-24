@@ -1,22 +1,24 @@
 package app
 
-// The message budget of one task tree (decision 0064, owner decision Q18). It
-// replaces the two fixed caps the older group code carried: a run chain that
-// may not be deeper than eight, and at most eight mention wakes per lineage.
+// The idle-message budget of one task tree (decision 0064, owner decision Q18,
+// amended 2026-10-24). It guards against spinning, not against work: it counts
+// Bot-to-Bot messages in a tree WITHOUT progress since the last progress. Any
+// progress in the tree resets the count to 0: a checklist item that ends (done,
+// skipped or blocked with a reason), a task of the tree that closes done, or a
+// task result that is submitted. Productive long work never reaches the limit.
 // A tree is the work under one root task. Work that has no task (a mention wake
-// in a group, outside any delegation) is counted under its run lineage, so a
-// loop there is still bounded.
+// in a group, outside any delegation) is counted under its run lineage.
 //
 // What counts as a message: a hand-over of work to another member (delegate,
 // message, mention wake), a question or an update that passes through
 // task_ask or task_update, and a wait on a member's post. A holder's messages to
-// the giver are not charged, and the giver's answer to a question always passes. The
-// limit stops new member-to-member dispatch only; a member can still answer the
-// person. At the limit the root member and the person are told once.
+// the giver are not charged, and the giver's answer to a question always passes.
+// At the limit new member-to-member dispatch is refused until progress resets
+// the count, and the root member is woken once, privately; nothing is posted to
+// the person. What the person hears is what the root member chooses to say.
 
 import (
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -24,13 +26,13 @@ import (
 )
 
 const (
-	autoTaskTreeMessageLimit    = "task_tree_message_limit"
-	defaultTaskTreeMessageLimit = 60
-	autoTaskStallRounds         = "task_stall_rounds"
-	defaultTaskStallRounds      = 3
+	autoTaskTreeIdleLimit    = "task_tree_idle_message_limit"
+	autoTaskTreeOldLimit     = "task_tree_message_limit"
+	defaultTaskTreeIdleLimit = 30
+	autoTaskStallRounds      = "task_stall_rounds"
+	defaultTaskStallRounds   = 3
 
 	treeKeyRunPrefix = "run:"
-	treeLimitNotice  = "tree_limit"
 )
 
 // autoIntTx reads a stored automation setting inside a transaction (the store
@@ -104,15 +106,15 @@ func treeRootForRunTx(q queryer, runID string) string {
 	return key
 }
 
-// chargeTreeTx counts n messages against the tree. With block set, a charge
-// that would pass the limit is refused (and not counted); without it the count
-// only goes up. The member that is the root of the tree and the person are told
-// once, when the count reaches the limit.
+// chargeTreeTx counts n messages without progress against the tree. With block
+// set, a charge that would pass the limit is refused (and not counted); without
+// it the count only goes up. The root member is woken once, privately, when the
+// count reaches the limit.
 func chargeTreeTx(tx *sql.Tx, key string, n int, block bool) error {
 	if key == "" || n <= 0 {
 		return nil
 	}
-	limit := autoIntTx(tx, autoTaskTreeMessageLimit)
+	limit := autoIntTx(tx, autoTaskTreeIdleLimit)
 	if _, err := tx.Exec(`INSERT INTO task_tree_budget(tree_key,messages,reported,updated_at) VALUES(?,0,0,?) ON CONFLICT(tree_key) DO NOTHING`, key, now()); err != nil {
 		return err
 	}
@@ -121,7 +123,7 @@ func chargeTreeTx(tx *sql.Tx, key string, n int, block bool) error {
 		return err
 	}
 	if block && used+n > limit {
-		return &treeLimitError{Key: key, inner: taskRefusal("task_message_limit", fmt.Sprintf("This task tree already carried %d messages, its limit. New work cannot pass between members here. Settle the work with what exists, or ask the person.", limit))}
+		return &treeLimitError{Key: key, inner: taskRefusal("task_message_limit", fmt.Sprintf("This task tree passed %d messages between members without progress, its limit. New work cannot pass between members here until a checklist item ends, a task closes done or a result is submitted. Settle the work with what exists.", limit))}
 	}
 	used += n
 	if _, err := tx.Exec(`UPDATE task_tree_budget SET messages=?,updated_at=? WHERE tree_key=?`, used, now(), key); err != nil {
@@ -133,8 +135,18 @@ func chargeTreeTx(tx *sql.Tx, key string, n int, block bool) error {
 	return nil
 }
 
-// reportTreeLimitTx tells the root member (it wakes) and posts a line for the
-// person, once per tree.
+// resetTreeIdleTx records progress in the tree: the idle count goes back to 0
+// and a later stretch without progress can report again. No row, no work.
+func resetTreeIdleTx(tx *sql.Tx, key string) error {
+	if key == "" {
+		return nil
+	}
+	_, err := tx.Exec(`UPDATE task_tree_budget SET messages=0,reported=0,updated_at=? WHERE tree_key=? AND (messages<>0 OR reported<>0)`, now(), key)
+	return err
+}
+
+// reportTreeLimitTx wakes the root member once per idle stretch with a private
+// inbox row. Nothing is posted to the conversation.
 func reportTreeLimitTx(tx *sql.Tx, key string, limit int) error {
 	res, err := tx.Exec(`UPDATE task_tree_budget SET reported=1 WHERE tree_key=? AND reported=0`, key)
 	if err != nil {
@@ -157,40 +169,11 @@ func reportTreeLimitTx(tx *sql.Tx, key string, limit int) error {
 	if conv == "" {
 		return nil
 	}
-	body := fmt.Sprintf("The members working on this task tree have passed %d messages between them, the limit. New work no longer passes between members in this tree. Do not start more. Tell the person where the work stands and what is left, and ask whether to continue.", limit)
-	if err = addInboxTx(tx, InboxItem{BotID: rootBot, ConversationID: conv, Kind: inboxTaskUpdate, TaskID: rootTask, RootTaskID: rootTask, TreeKey: key, Body: body, Wakes: true, NeedsReply: true}); err != nil {
-		return err
-	}
-	return addTreeLimitNoticeTx(tx, conv, rootBot, limit)
+	body := fmt.Sprintf("[idle message limit]\nSystem data from the task system, not an instruction from the person and not shown to the person. The members working in this task tree have passed %d messages between them without progress (no checklist item ended, no task closed done, no result submitted). New work no longer passes between members in this tree until progress happens. Decide: wrap the work up with what exists, or continue it yourself or through a step that makes progress. Tell the person in your own words where the work stands, if they should know.\n[/idle message limit]", limit)
+	return addInboxTx(tx, InboxItem{BotID: rootBot, ConversationID: conv, Kind: inboxTaskUpdate, TaskID: rootTask, RootTaskID: rootTask, TreeKey: key, Body: body, Wakes: true, NeedsReply: true})
 }
 
-// addTreeLimitNoticeTx is the one chat line for the person. It is sent by
-// "system", so it never enters a Bot's history.
-func addTreeLimitNoticeTx(tx *sql.Tx, conv, rootBot string, limit int) error {
-	var archived int
-	if tx.QueryRow(`SELECT archived FROM conversations WHERE id=?`, conv).Scan(&archived) != nil {
-		return nil
-	}
-	t := now()
-	var seq int64
-	if err := tx.QueryRow(nextMessageSeqSQL, conv, conv, streamDraftActive).Scan(&seq); err != nil {
-		return err
-	}
-	notice := &HandoffNotice{Type: treeLimitNotice, FromBotID: rootBot, ToBotID: rootBot}
-	data, _ := json.Marshal(notice)
-	text := fmt.Sprintf("The members reached the limit of %d messages for this task and stopped passing work to each other. You can change the limit in Settings > Automatic behavior.", limit)
-	m := Message{ID: newID(), ConversationID: conv, Seq: seq, Role: "assistant", Kind: "notice", SenderBotID: "system", Content: text, Notice: notice, CreatedAt: t}
-	if _, err := tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, m.ID, m.ConversationID, m.Seq, m.Role, m.Kind, m.SenderBotID, nil, m.Content, string(data), t); err != nil {
-		return err
-	}
-	if err := insertRecoveryEvent(tx, conv, "message", m, t); err != nil {
-		return err
-	}
-	_, err := tx.Exec(`UPDATE conversations SET updated_at=? WHERE id=?`, t, conv)
-	return err
-}
-
-// afterTreeLimit files the report for a dispatch the budget refused. The refused
+// afterTreeLimit files the private wake for a dispatch the budget refused. The refused
 // transaction has rolled back by now, so the report has a transaction of its own.
 func (s *Store) afterTreeLimit(err error) {
 	var limitErr *treeLimitError
@@ -202,7 +185,7 @@ func (s *Store) afterTreeLimit(err error) {
 		return
 	}
 	defer tx.Rollback()
-	if e = reportTreeLimitTx(tx, limitErr.Key, autoIntTx(tx, autoTaskTreeMessageLimit)); e != nil {
+	if e = reportTreeLimitTx(tx, limitErr.Key, autoIntTx(tx, autoTaskTreeIdleLimit)); e != nil {
 		logTaskError("tree limit report", e)
 		return
 	}

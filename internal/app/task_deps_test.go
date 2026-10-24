@@ -410,7 +410,7 @@ func TestStallThresholdIsASetting(t *testing.T) {
 func TestTreeLimitStopsDelegationAndReportsOnce(t *testing.T) {
 	f := newTaskFix(t)
 	const limit = 10
-	f.setSetting(autoTaskTreeMessageLimit, limit)
+	f.setSetting(autoTaskTreeIdleLimit, limit)
 	root := f.running(f.g.ID, f.a)
 	first := f.delegateTo(f.g, root, f.b, "Root work")
 	for i := 1; i < limit; i++ {
@@ -421,9 +421,10 @@ func TestTreeLimitStopsDelegationAndReportsOnce(t *testing.T) {
 	}
 	report := func() (int, int) {
 		return f.count(`SELECT COUNT(*) FROM bot_inbox WHERE bot_id=? AND wakes=1 AND body LIKE '%limit%' AND root_task_id=?`, f.a.ID, first.TaskID),
-			f.count(`SELECT COUNT(*) FROM messages WHERE conversation_id=? AND kind='notice' AND sender_bot_id='system' AND notice_data LIKE '%tree_limit%'`, f.g.ID)
+			f.count(`SELECT COUNT(*) FROM messages WHERE conversation_id=? AND notice_data LIKE '%tree_limit%'`, f.g.ID) +
+				f.count(`SELECT COUNT(*) FROM events WHERE conversation_id=? AND data LIKE '%tree_limit%'`, f.g.ID)
 	}
-	if rows, notices := report(); rows != 1 || notices != 1 {
+	if rows, notices := report(); rows != 1 || notices != 0 {
 		t.Fatalf("report at the limit: rows=%d notices=%d", rows, notices)
 	}
 	for i := 0; i < 2; i++ {
@@ -438,7 +439,7 @@ func TestTreeLimitStopsDelegationAndReportsOnce(t *testing.T) {
 	if _, err := call(t, f.tool(f.g, run, "task_ask"), map[string]any{"task_id": first.TaskID, "question": "Anything?"}); codeOf(err) != "task_message_limit" {
 		t.Fatalf("ask past the limit: %v", err)
 	}
-	if rows, notices := report(); rows != 1 || notices != 1 {
+	if rows, notices := report(); rows != 1 || notices != 0 {
 		t.Fatalf("the report repeated: rows=%d notices=%d", rows, notices)
 	}
 	// The root member is woken with it.
@@ -483,7 +484,7 @@ func TestWaitOnABlockedTaskStartsItsDeadlineAtUnlock(t *testing.T) {
 // returns the root task id.
 func (f taskFix) reachLimit(root Run, limit int) string {
 	f.t.Helper()
-	f.setSetting(autoTaskTreeMessageLimit, limit)
+	f.setSetting(autoTaskTreeIdleLimit, limit)
 	first := f.delegateTo(f.g, root, f.b, "Root work")
 	for i := 1; i < limit; i++ {
 		f.delegateTo(f.g, root, f.c, fmt.Sprintf("Part %d", i), first.TaskID)
@@ -582,7 +583,7 @@ func TestParallelDelegatesGiveThePersonOneReturn(t *testing.T) {
 
 func TestHolderProgressIsNotChargedAndTheAnswerToAnAskPassesTheLimit(t *testing.T) {
 	f := newTaskFix(t)
-	f.setSetting(autoTaskTreeMessageLimit, 10)
+	f.setSetting(autoTaskTreeIdleLimit, 10)
 	root := f.running(f.g.ID, f.a)
 	task := f.delegateTo(f.g, root, f.b, "Write")
 	run, _ := f.s.GetRun(f.taskRow(task.TaskID).AssigneeRunID)
@@ -742,7 +743,7 @@ func TestOriginRunLookupHasAnIndex(t *testing.T) {
 
 func TestLegacyBotPostWaitsAreCountedAndBounded(t *testing.T) {
 	f := newTaskFix(t)
-	f.setSetting(autoTaskTreeMessageLimit, 10)
+	f.setSetting(autoTaskTreeIdleLimit, 10)
 	root := f.running(f.g.ID, f.a)
 	var err error
 	for i := 0; i < 12 && err == nil; i++ {
