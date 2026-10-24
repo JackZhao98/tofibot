@@ -354,17 +354,28 @@ func (s *Store) runOrderBlocked(r Run) bool {
 	}
 	if r.ParentRunID == "" && r.TriggerMessageID != "" && (r.Kind == "" || r.Kind == runKindGroupChat) {
 		var n int
-		_ = s.db.QueryRow(`SELECT COUNT(*) FROM runs o WHERE o.conversation_id=? AND o.trigger_message_id=? AND o.id<>? AND o.queue_seq<? AND COALESCE(o.parent_run_id,'')='' AND o.kind IN ('',?) AND o.status IN ('queued','running')`,
-			r.ConversationID, r.TriggerMessageID, r.ID, r.QueueSeq, runKindGroupChat).Scan(&n)
-		if n > 0 {
-			return true
+		// A continuation run (it answers a message another run was sent) is the
+		// answer the later members wait for: it is never ordered behind them.
+		_ = s.db.QueryRow(`SELECT COUNT(*) FROM bot_inbox WHERE kind='user_message' AND consumed_by_run=? AND parent_run<>? AND anchor=?`, r.ID, r.ID, r.TriggerMessageID).Scan(&n)
+		continuation := n > 0
+		if !continuation {
+			_ = s.db.QueryRow(`SELECT COUNT(*) FROM runs o WHERE o.conversation_id=? AND o.trigger_message_id=? AND o.id<>? AND o.queue_seq<? AND COALESCE(o.parent_run_id,'')='' AND o.kind IN ('',?) AND o.status IN ('queued','running')`,
+				r.ConversationID, r.TriggerMessageID, r.ID, r.QueueSeq, runKindGroupChat).Scan(&n)
+			if n > 0 {
+				return true
+			}
 		}
-		// A member addressed together with this one that is still working took the
-		// message as an unread inbox row instead of a run: it counts as a
-		// predecessor until that member's run reads it.
-		_ = s.db.QueryRow(`SELECT COUNT(*) FROM bot_inbox b JOIN runs pr ON pr.id=b.parent_run
-			WHERE b.kind='user_message' AND b.consumed_at='' AND b.anchor=? AND b.conversation_id=? AND b.bot_id<>?
-			AND pr.status='running' AND COALESCE(pr.trigger_message_id,'')<>b.anchor`, r.TriggerMessageID, r.ConversationID, r.BotID).Scan(&n)
+		// A member addressed together with this one that was already working took
+		// the message as an inbox row instead of a run. Its note is input for this
+		// one, so this run waits until the run that has the message (the working run
+		// before it reads, then until it answers; a continuation until it answers).
+		_ = s.db.QueryRow(`SELECT COUNT(*) FROM bot_inbox b
+			JOIN runs pr ON pr.id=CASE WHEN b.consumed_at='' THEN b.parent_run ELSE b.consumed_by_run END
+			WHERE b.kind='user_message' AND b.anchor=? AND b.conversation_id=? AND b.bot_id<>? AND pr.id<>?
+			AND pr.status IN ('running','queued')
+			AND NOT EXISTS(SELECT 1 FROM run_say_answers a WHERE a.run_id=pr.id)
+			AND NOT (b.parent_run=pr.id AND COALESCE(pr.trigger_message_id,'')=b.anchor)`,
+			r.TriggerMessageID, r.ConversationID, r.BotID, r.ID).Scan(&n)
 		if n > 0 {
 			return true
 		}

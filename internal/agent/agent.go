@@ -1128,6 +1128,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 	// (queued steering): the bases move up to what the run had used by then.
 	budgetCallsBase, budgetStepBase := 0, 0
 	budgetCostBase := 0.0
+	stepLimit := maxSteps // steps allowed since the last refill; a refill keeps it inside the turn cap
 	budgetWrapUp := false
 	finalResponseRepaired := false
 	finalRepairPending := false
@@ -1148,6 +1149,9 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		state.Step = cfg.Continuation.Step
 		state.Tracker.RestoreModelBreakdown(cfg.Continuation.ModelUsage)
 		budgetCallsBase, budgetStepBase, budgetCostBase = cfg.Continuation.BudgetCallsBase, cfg.Continuation.BudgetStepBase, cfg.Continuation.BudgetCostBase
+		if cfg.Continuation.BudgetStepLimit > 0 {
+			stepLimit = cfg.Continuation.BudgetStepLimit
+		}
 	}
 	if cfg.ToolsOnly && cfg.OnCheckpoint != nil {
 		checkpoint = func(kind string, list []provider.Message) error {
@@ -1158,6 +1162,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				recoveryLedger, recoveryEpoch,
 			)
 			c.BudgetCallsBase, c.BudgetStepBase, c.BudgetCostBase = budgetCallsBase, budgetStepBase, budgetCostBase
+			c.BudgetStepLimit = stepLimit
 			if err := cfg.OnCheckpoint(kind, c); err != nil {
 				return fmt.Errorf("checkpoint %s: %w", kind, err)
 			}
@@ -1232,6 +1237,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				state = state.WithMessages(injected)
 				if refill {
 					budgetCallsBase, budgetStepBase, budgetCostBase = state.LLMCalls, state.Step, state.Tracker.TotalCost()
+					stepLimit = refilledStepLimit(maxSteps, assistantTurnIndex)
 					runStart = time.Now()
 					if waited := cfg.UserWaitDuration; waited != nil {
 						base := waited()
@@ -1277,7 +1283,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		}
 
 		state.Step++
-		if state.Step-budgetStepBase > maxSteps && !(repairRequest && state.Step-budgetStepBase == maxSteps+1) && !(finalRepairFinalRequest && state.Step-budgetStepBase == maxSteps+2) {
+		if state.Step-budgetStepBase > stepLimit && !(repairRequest && state.Step-budgetStepBase == stepLimit+1) && !(finalRepairFinalRequest && state.Step-budgetStepBase == stepLimit+2) {
 			state = state.WithError(fmt.Errorf("maximum agent steps exceeded without a final response"))
 			break
 		}
@@ -1783,7 +1789,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 						return state.ToResult(cfg.Model), nil
 					}
 					exceeded, _ := checkRunBudget(&cfg, state.LLMCalls-budgetCallsBase, state.Tracker.TotalCost()-budgetCostBase, runStart)
-					canUseNormalRepair := !budgetWrapUp && !exceeded && state.Step-budgetStepBase < maxSteps
+					canUseNormalRepair := !budgetWrapUp && !exceeded && state.Step-budgetStepBase < stepLimit
 					reminder, err := cfg.BeforeFinalResponse(cleanContent)
 					if err != nil {
 						return nil, fmt.Errorf("before final response: %w", err)
@@ -2172,6 +2178,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 							)
 							parked.Continuation.RecoveryEpoch = recoveryEpoch
 							parked.Continuation.BudgetCallsBase, parked.Continuation.BudgetStepBase, parked.Continuation.BudgetCostBase = budgetCallsBase, budgetStepBase, budgetCostBase
+							parked.Continuation.BudgetStepLimit = stepLimit
 							return parked, nil
 						}
 						resultMsg = tooloutcome.ModelResult(err)
@@ -3417,4 +3424,11 @@ func transientStreamFailure(err error) bool {
 		}
 	}
 	return false
+}
+
+// refilledStepLimit is the steps a refill grants: the normal allowance, cut so
+// the run's absolute assistant-turn index cannot pass the publishing cap
+// (MaxAssistantTurnIndex) before the allowance ends.
+func refilledStepLimit(maxSteps, turnIndex int) int {
+	return max(1, min(maxSteps, MaxAssistantTurnIndex-2-turnIndex))
 }

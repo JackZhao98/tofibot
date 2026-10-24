@@ -75,6 +75,8 @@ type Continuation struct {
 	BudgetCallsBase int     `json:"budget_calls_base,omitempty"`
 	BudgetStepBase  int     `json:"budget_step_base,omitempty"`
 	BudgetCostBase  float64 `json:"budget_cost_base,omitempty"`
+	// BudgetStepLimit is the steps allowed since that refill (0 = the run's normal limit).
+	BudgetStepLimit int `json:"budget_step_limit,omitempty"`
 }
 
 // continuationVersion is written by this build. Version 1 payloads (human
