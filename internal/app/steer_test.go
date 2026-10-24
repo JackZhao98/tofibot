@@ -155,7 +155,8 @@ func TestARunThatAlreadyAnsweredTakesNoMoreMessages(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, runs, queued := sendWhileWorking(t, s, c, old, "And another question.", "after-answer")
-	if len(runs) != 1 || len(queued) != 0 {
+	// The new run waits for the Bot's lane, so its message shows as queued for that run, not for the answered one.
+	if len(runs) != 1 || len(queued) != 1 || queued[0].RunID != runs[0].ID {
 		t.Fatalf("after the answer the message must start a run: runs=%+v queued=%+v", runs, queued)
 	}
 	if rows, _ := s.store.drainInboxForRun(old, maxInjectionsPerRun); len(rows) != 0 {

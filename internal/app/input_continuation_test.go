@@ -156,6 +156,10 @@ func TestInputContinuationAMessageKeepsTheCardAndIsReadOnResume(t *testing.T) {
 	if _, ok, err := s.nextQueuedRun(c.ID); err != nil || !ok {
 		t.Fatalf("the answered run is not ready: %v %v", ok, err)
 	}
+	// The run was started once before it parked; a resume is its second claim.
+	if _, err := s.db.Exec(`UPDATE runs SET attempt=1 WHERE id=?`, r.ID); err != nil {
+		t.Fatal(err)
+	}
 	if _, _, ok, err := s.claimInputContinuation(context.Background(), r.ID); err != nil || !ok {
 		t.Fatalf("claim: %v %v", ok, err)
 	}
