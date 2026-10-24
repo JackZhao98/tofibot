@@ -4,7 +4,7 @@
 
 ## 决定
 
-1. **任务就是 `work_items` 的一行（Q2）。** 看板条目加任务列：`assigner_kind`（`user`/`bot`/`self`）、`assigner_bot_id`、`root_task_id`、`parent_task_id`、`origin_run_id`、`assignee_run_id`、`work_conversation_id`、`spec_version`、`result_message_id`、`result_based_on_version`、`result_summary`、`depends_on`（存着，阶段 5b 才用）、`stall_count`、`message_count`、`closed_at`。状态 CHECK 加 `input_required`（持有人问了派活人）和 `failed`，照 `work_items.go` 原有写法在事务里重建表；旧条目在迁移里成为“自己给自己记的任务”（`assigner_kind='self'`）。人在看板上建的条目是 `user`。
+1. **任务就是 `work_items` 的一行（Q2）。** 看板条目加任务列：`assigner_kind`（`user`/`bot`/`self`）、`assigner_bot_id`、`root_task_id`、`parent_task_id`、`origin_run_id`、`assignee_run_id`、`work_conversation_id`、`spec_version`、`result_message_id`、`result_based_on_version`、`result_summary`、`depends_on`（存着，阶段 5b 才用）、`stall_count`、`message_count`、`closed_at`。状态 CHECK 加 `input_required`（持有人问了派活人）和 `failed`，照 `work_items.go` 原有写法在事务里重建表；旧条目在迁移里不记派活人（`assigner_kind` 留空，旧表没有记录创建者的列；留空按“人”处理，权限检查不把 Bot 当创建者）。人在看板上建的条目是 `user`。
 2. **三套等待并成一张表 `waits`。** 种类 `bot_post`（等某成员下一次发言，原 `respond follow_up`）、`task_result`（等任务结束）、`human_answer`（等人回答，镜像问人卡片，卡片的续跑机制不变）、`command_exit`（表里有，阶段 3 才能登记）、`timer`。同一 `group_id` 的等待成组，模式 `any`（第一个到齐的成员就结束，其余作废）或 `all`（全部结束才算）。一个组只交付一次，交付就是一行收件箱 `wait_result`；全部被取消的组不交付。表 `run_waits` 保留不再写。
 3. **等待是异步调用。** `wait_for` 立刻返回回执（`wait_id`、`group_id`、`ends_at`），Bot 说完该说的就结束这一轮；事件到了或到点了，作为结果叫醒它。**超时也是结果**：到点的等待状态是 `timed_out`（计时器是 `fulfilled`），结果正文写明超时，由 Bot 判断。本阶段叫醒一律是“结束这一轮，之后开新 run”（Q5 的“短等待挂起同一 run”属阶段 4）。
 4. **默认期限按种类（Q19）**：等 Bot 发言 15 分钟、等任务结果 2 小时、等人回答 30 分钟（问人卡片自己的到期为准）、等命令 24 小时（必须配计时器，阶段 3）；`wait_for` 的 `seconds` 可改，计时器 5 秒到 7 天。每个 Bot 同时最多 16 个未结束的等待；一个 Bot 从自己的等待连续叫醒自己满 24 次，再登记就被拒（`wait_chain_limit`），防止空转。

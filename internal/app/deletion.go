@@ -91,7 +91,7 @@ func (s *Store) deleteWorkspaceTargetWith(id string, bot bool, actor *Run, succe
 			return DeleteResult{}, cerr
 		}
 		if len(ended) > 0 {
-			if _, cerr = cancelTreeCollect(tx, `SELECT id FROM runs WHERE id IN (`+sqlMarks(len(ended))+`)`, anyArgs(ended)...); cerr != nil {
+			if _, cerr = cancelRunsBelowCollect(tx, `SELECT id FROM runs WHERE id IN (`+sqlMarks(len(ended))+`)`, anyArgs(ended)...); cerr != nil {
 				return DeleteResult{}, cerr
 			}
 		}

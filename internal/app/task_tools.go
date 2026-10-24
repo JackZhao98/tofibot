@@ -391,6 +391,6 @@ func (s *Store) botHoldsOpenTask(botID string) bool {
 		return false
 	}
 	var n int
-	_ = s.db.QueryRow(`SELECT COUNT(*) FROM work_items WHERE bot_id=? AND assigner_kind IN ('bot','user') AND kind='task' AND status IN (`+openTaskStatuses+`)`, botID).Scan(&n)
+	_ = s.db.QueryRow(`SELECT COUNT(*) FROM work_items WHERE bot_id=? AND assigner_kind IN ('bot','user','') AND kind='task' AND status IN (`+openTaskStatuses+`)`, botID).Scan(&n)
 	return n > 0
 }

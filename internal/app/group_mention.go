@@ -35,6 +35,12 @@ func (s *Store) AddMentionWake(conv string, poster Run, msgID, target, request s
 }
 
 func (s *Store) addMentionWake(conv string, poster Run, msgID, target, request string, allowSelf bool) (Run, bool, error) {
+	return s.addMentionWakeConsuming(conv, poster, msgID, target, request, allowSelf, "")
+}
+
+// addMentionWakeConsuming is addMentionWake; with an inbox row id it marks that
+// row read by the new run in the same transaction as the wake.
+func (s *Store) addMentionWakeConsuming(conv string, poster Run, msgID, target, request string, allowSelf bool, inboxRowID string) (Run, bool, error) {
 	if target == poster.BotID && !allowSelf {
 		return Run{}, false, nil
 	}
@@ -154,6 +160,11 @@ func (s *Store) addMentionWake(conv string, poster Run, msgID, target, request s
 	}
 	if err = insertEventTx(tx, conv, "run", run, t); err != nil {
 		return Run{}, false, err
+	}
+	if inboxRowID != "" {
+		if _, err = tx.Exec(`UPDATE bot_inbox SET consumed_by_run=?,consumed_at=? WHERE id=? AND consumed_at=''`, run.ID, t, inboxRowID); err != nil {
+			return Run{}, false, err
+		}
 	}
 	if err = tx.Commit(); err != nil {
 		return Run{}, false, err

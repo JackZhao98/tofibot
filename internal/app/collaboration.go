@@ -1290,6 +1290,36 @@ func cancelTreeCollect(tx *sql.Tx, seed string, args ...any) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	return cancelRunIDsTx(tx, ids)
+}
+
+// cancelRunsBelowCollect cancels the active runs picked by seed and their
+// descendants. It never walks up: the parents and the group root of a run stay.
+func cancelRunsBelowCollect(tx *sql.Tx, seed string, args ...any) ([]string, error) {
+	rows, err := tx.Query(`WITH RECURSIVE affected(id) AS (`+seed+` UNION SELECT r.id FROM runs r JOIN affected a ON r.parent_run_id=a.id)
+ SELECT id FROM runs WHERE id IN (SELECT id FROM affected) AND status IN ('queued','running','waiting')`, args...)
+	if err != nil {
+		return nil, err
+	}
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err = rows.Scan(&id); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	return cancelRunIDsTx(tx, ids)
+}
+
+func cancelRunIDsTx(tx *sql.Tx, ids []string) ([]string, error) {
+	var err error
 	for _, id := range ids {
 		var parked bool
 		if err = tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM run_input_waits WHERE run_id=? AND state='waiting')`, id).Scan(&parked); err != nil {
