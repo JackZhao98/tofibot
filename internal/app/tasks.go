@@ -195,6 +195,10 @@ func recordTaskForChildTx(tx *sql.Tx, child delegationChild) (WorkItem, error) {
 	}
 	if err == nil {
 		rootID, parentTask = anchorRoot, anchorID
+	} else if r := treeRootForRunTx(tx, child.ParentRun); r != "" {
+		// A run that gave tasks before, or that an inbox row woke inside a tree,
+		// gives into that tree.
+		rootID = r
 	}
 	id := newID()
 	if rootID == "" {
@@ -425,7 +429,7 @@ func taskFinishedOneTx(tx *sql.Tx, done Run, item WorkItem, result Message, sayO
 		}
 	} else if item.AssignerBotID != "" {
 		// The round ended with the task still open: it counts toward a stall.
-		if err = noteRoundEndedTx(tx, item); err != nil {
+		if err = noteRoundEndedTx(tx, item, done.ID); err != nil {
 			return err
 		}
 	}
@@ -558,6 +562,7 @@ func cancelTaskTreeTx(tx *sql.Tx, roots []string, includeRoots bool) (int, []str
 	}
 	cancelled := 0
 	var runs []string
+	var cancelledIDs []string
 	t := now()
 	for _, id := range ordered {
 		var status, run string
@@ -574,10 +579,22 @@ func cancelTaskTreeTx(tx *sql.Tx, roots []string, includeRoots bool) (int, []str
 			return 0, nil, err
 		}
 		cancelled++
+		cancelledIDs = append(cancelledIDs, id)
 		if err := settleTaskWaitsTx(tx, id, waitCancelled, ""); err != nil {
 			return 0, nil, err
 		}
 		if err := taskEventTx(tx, id); err != nil {
+			return 0, nil, err
+		}
+	}
+	// Tasks outside the subtree that waited on a cancelled task stay blocked; their
+	// givers are told (a dependent inside the subtree was cancelled above).
+	for _, id := range cancelledIDs {
+		var root string
+		if err := tx.QueryRow(`SELECT root_task_id FROM work_items WHERE id=?`, id).Scan(&root); err != nil {
+			continue
+		}
+		if err := notifyDependentsEndedTx(tx, root, id, "cancelled"); err != nil {
 			return 0, nil, err
 		}
 	}
@@ -755,7 +772,8 @@ func (s *Store) updateTask(actor string, in TaskUpdate) (WorkItem, error) {
 		return WorkItem{}, taskRefusal("task_status_invalid", "A status is in_progress, blocked, done or cancelled.")
 	}
 	if message {
-		if err = bumpTaskMessagesTx(tx, item.RootTaskID); err != nil {
+		// The giver's answer to a question always passes: the holder is waiting for it.
+		if err = bumpTaskMessagesTx(tx, item.RootTaskID, in.Answer == "" || in.Brief != nil); err != nil {
 			tx.Rollback()
 			s.afterTreeLimit(err)
 			return WorkItem{}, err
@@ -806,8 +824,8 @@ func noteTaskRevisionTx(tx *sql.Tx, item WorkItem, source, actor, text string) e
 // bumpTaskMessagesTx counts a message against the tree's budget (decision 0064)
 // and refuses past the limit, so two members cannot talk forever. The caller
 // rolls back and calls afterTreeLimit.
-func bumpTaskMessagesTx(tx *sql.Tx, root string) error {
-	return chargeTreeTx(tx, root, 1, true)
+func bumpTaskMessagesTx(tx *sql.Tx, root string, block bool) error {
+	return chargeTreeTx(tx, root, 1, block)
 }
 
 // askTask is task_ask: the member that holds the task asks the member that gave
@@ -839,7 +857,7 @@ func (s *Store) askTask(actor, runID, taskID, question string) (WorkItem, error)
 	if item.AssignerKind != "bot" || item.AssignerBotID == "" || item.AssignerBotID == actor {
 		return WorkItem{}, taskRefusal("task_no_assigner_bot", "No member gave this task. Ask the person with the question tool.")
 	}
-	if err = bumpTaskMessagesTx(tx, item.RootTaskID); err != nil {
+	if err = bumpTaskMessagesTx(tx, item.RootTaskID, true); err != nil {
 		tx.Rollback()
 		s.afterTreeLimit(err)
 		return WorkItem{}, err

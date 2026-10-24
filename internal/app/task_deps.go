@@ -17,7 +17,7 @@ import (
 
 const (
 	maxTaskDeps  = 12
-	maxDepsSteps = 64
+	maxDepsSteps = 256
 
 	// blockedWaitCeiling is the hard deadline of the giver's wait on a task that
 	// still waits on dependencies; the usual task-result deadline starts when it unlocks.
@@ -53,10 +53,7 @@ func cleanDepIDs(ids []string) []string {
 func dependencyCycleTx(q queryer, taskID string, deps []string) (bool, error) {
 	seen := map[string]bool{}
 	queue := append([]string(nil), deps...)
-	for steps := 0; len(queue) > 0; steps++ {
-		if steps >= maxDepsSteps {
-			return true, nil
-		}
+	for len(queue) > 0 {
 		id := queue[0]
 		queue = queue[1:]
 		if id == taskID {
@@ -64,6 +61,11 @@ func dependencyCycleTx(q queryer, taskID string, deps []string) (bool, error) {
 		}
 		if seen[id] {
 			continue
+		}
+		// Only a node not seen before costs a step, so a wide graph that shares
+		// nodes is walked in full.
+		if len(seen) >= maxDepsSteps {
+			return true, nil
 		}
 		seen[id] = true
 		var list string
@@ -287,6 +289,12 @@ func changeDepsTx(tx *sql.Tx, item WorkItem, giver string, add, remove []string)
 	return list, nil
 }
 
+// unlockRowSQL selects the inbox rows that start an unlocked task. Only a woken
+// run reads them (wakeBotFromInbox binds one task to it): a boundary read or a
+// context read leaves them alone, so a task never binds to a run that did not
+// start for it.
+const unlockRowSQL = `(kind='task_update' AND task_id<>'' AND EXISTS(SELECT 1 FROM work_items w WHERE w.id=bot_inbox.task_id AND w.bot_id=bot_inbox.bot_id AND w.status='todo' AND w.assignee_run_id=''))`
+
 // bindUnlockedTasksTx hands the tasks that rows unlocked to the run that reads
 // them: the run becomes their assignee. started says the run is already
 // working, so the task is in progress at once.
@@ -366,6 +374,13 @@ func (s *Store) addDependentTasks(conv, giver, parentRun string, recipients []st
 		}
 		root, parent = anchorRoot, anchorID
 	}
+	if tr := treeRootForRunTx(tx, parentRun); tr != "" {
+		// The run's tree, by the one resolver: the tasks it gave, or the rows that woke it.
+		if root != "" && root != tr {
+			return nil, taskRefusal("dependency_other_tree", "A task you give from inside a tree can wait only on tasks of that tree.")
+		}
+		root = tr
+	}
 	if root == "" {
 		// A task given beside the tasks this run already gave joins their tree.
 		var r2, p2 string
@@ -418,16 +433,8 @@ func (s *Store) addDependentTasks(conv, giver, parentRun string, recipients []st
 		if root == "" {
 			root = id // the first task of a new tree is its root
 		}
-		cycle, err := dependencyCycleTx(tx, id, deps)
-		if err != nil {
-			return nil, err
-		}
-		if cycle {
-			return nil, taskRefusal("dependency_cycle", "These dependencies form a cycle or are too large to check.")
-		}
-		if err = chargeTreeTx(tx, root, 1, true); err != nil {
-			return nil, err
-		}
+		// A task with a new id cannot be on a loop, so no cycle walk here: the
+		// walk guards task_update, which changes the lists of tasks that exist.
 		t := now()
 		if _, err = tx.Exec(`INSERT INTO work_items(`+workItemColumns+`,assigner_kind,assigner_bot_id,root_task_id,parent_task_id,origin_run_id,assignee_run_id,work_conversation_id,spec_version,depends_on)
  VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, id, conv, bot, "task", title, trimRunes(brief, maxTaskBriefRunes), status, nil, t, t, "",
@@ -442,7 +449,14 @@ func (s *Store) addDependentTasks(conv, giver, parentRun string, recipients []st
 				return nil, err
 			}
 		}
-		if _, err = recordWaitTx(tx, WaitSpec{BotID: giver, RunID: parentRun, ConversationID: conv, Kind: waitTaskResult, Target: id, Timeout: blockedWaitCeiling, RootTaskID: root, SkipCycle: true}); err != nil {
+		if err = chargeTreeTx(tx, treeKeyForRunTx(tx, parentRun), 1, true); err != nil {
+			return nil, err
+		}
+		// The parts of one hand-out share a wait group (mode all): the giver is woken
+		// once, after the last of them, so the person gets one return.
+		group := ""
+		_ = tx.QueryRow(`SELECT group_id FROM waits WHERE bot_id=? AND run_id=? AND kind=? AND delivery=? AND status='pending' AND group_mode=? ORDER BY created_at LIMIT 1`, giver, parentRun, waitTaskResult, deliveryEngine, waitModeAll).Scan(&group)
+		if _, err = recordWaitTx(tx, WaitSpec{BotID: giver, RunID: parentRun, ConversationID: conv, Kind: waitTaskResult, Target: id, Timeout: blockedWaitCeiling, RootTaskID: root, SkipCycle: true, GroupID: group, Mode: waitModeAll}); err != nil {
 			return nil, err
 		}
 		item, err := getTaskTx(tx, id)

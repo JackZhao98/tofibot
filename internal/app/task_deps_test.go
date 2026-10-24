@@ -135,9 +135,19 @@ func TestDependentTasksUnlockWhenTheLastDependencyIsDone(t *testing.T) {
 	if m := f.taskRow(merge.TaskID); m.Status != "todo" {
 		t.Fatalf("the merge did not unlock on its last dependency: %s", m.Status)
 	}
-	// A task made by the engine path returns its result as a wait result that wakes the giver.
-	if n := f.count(`SELECT COUNT(*) FROM bot_inbox WHERE bot_id=? AND kind='wait_result' AND wakes=1`, f.a.ID); n != 2 {
-		t.Fatalf("giver wait results %d", n)
+	// The parts of one hand-out share a wait group: the giver hears once, after the last part.
+	if n := f.count(`SELECT COUNT(*) FROM bot_inbox WHERE bot_id=? AND kind='wait_result'`, f.a.ID); n != 0 {
+		t.Fatalf("the giver was told before the last part ended: %d", n)
+	}
+	f.srv.flushInbox()
+	mergeRuns := f.wokenRuns(f.c)
+	mergeRun := mergeRuns[len(mergeRuns)-1]
+	f.start(mergeRun.ID)
+	if _, ok, err := f.s.FinishRun(mergeRun.ID, f.g.ID, f.c.ID, "Merged."); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	if n := f.count(`SELECT COUNT(*) FROM bot_inbox WHERE bot_id=? AND kind='wait_result' AND wakes=1`, f.a.ID); n != 1 {
+		t.Fatalf("giver wait results %d, want one for the whole hand-out", n)
 	}
 }
 
@@ -310,7 +320,7 @@ func TestHolderMessagesReachTheGiverProgressDoesNotWake(t *testing.T) {
 		t.Fatalf("progress still unread after the result: %d", n)
 	}
 	// The messages count against the tree.
-	if used := treeUsedTx(f.s.db, task.TaskID); used < 3 {
+	if used := treeUsedTx(f.s.db, task.TaskID); used != 2 {
 		t.Fatalf("tree used %d", used)
 	}
 }
@@ -464,5 +474,281 @@ func TestWaitOnABlockedTaskStartsItsDeadlineAtUnlock(t *testing.T) {
 	left := time.Until(deadline())
 	if left > waitTimeoutFor(waitTaskResult)+time.Minute || left < waitTimeoutFor(waitTaskResult)-time.Minute {
 		t.Fatalf("after unlock the deadline must be the usual %v from now, is %v", waitTimeoutFor(waitTaskResult), left)
+	}
+}
+
+// ---- Review round: one tree key everywhere, one reply, bounded waits ----
+
+// reachLimit makes the giver's tree hit its budget through dependent tasks and
+// returns the root task id.
+func (f taskFix) reachLimit(root Run, limit int) string {
+	f.t.Helper()
+	f.setSetting(autoTaskTreeMessageLimit, limit)
+	first := f.delegateTo(f.g, root, f.b, "Root work")
+	for i := 1; i < limit; i++ {
+		f.delegateTo(f.g, root, f.c, fmt.Sprintf("Part %d", i), first.TaskID)
+	}
+	return first.TaskID
+}
+
+// wokenRoot ends the giver's run and returns the run the inbox starts for it.
+func (f taskFix) wokenRoot(root Run) Run {
+	f.t.Helper()
+	if _, ok, err := f.s.FinishRun(root.ID, f.g.ID, f.a.ID, "Delegated."); err != nil || !ok {
+		f.t.Fatal(ok, err)
+	}
+	f.srv.flushInbox()
+	runs := f.wokenRuns(f.a)
+	if len(runs) == 0 {
+		f.t.Fatal("the giver was not woken")
+	}
+	f.start(runs[len(runs)-1].ID)
+	r, _ := f.s.GetRun(runs[len(runs)-1].ID)
+	return r
+}
+
+func TestAWokenRootCannotEscapeTheBudgetWithAFreshTree(t *testing.T) {
+	f := newTaskFix(t)
+	root := f.running(f.g.ID, f.a)
+	tree := f.reachLimit(root, 10)
+	woken := f.wokenRoot(root)
+	_, err := call(t, f.tool(f.g, woken, "delegate"), map[string]any{"bot_id": f.c.ID, "task": "Escape into a fresh tree"})
+	if codeOf(err) != "task_message_limit" {
+		t.Fatalf("the woken root started new dispatch after the limit: %v", err)
+	}
+	if n := f.count(`SELECT COUNT(*) FROM work_items WHERE root_task_id=title OR (root_task_id<>? AND title='Escape into a fresh tree')`, tree); n != 0 {
+		t.Fatalf("a fresh tree was opened: %d", n)
+	}
+	if _, err = call(t, f.tool(f.g, woken, "delegate"), map[string]any{"bot_id": f.c.ID, "task": "Escape with a wait", "depends_on": []string{tree}}); codeOf(err) != "task_message_limit" {
+		t.Fatalf("dependent dispatch after the limit: %v", err)
+	}
+}
+
+func TestAFailedDependencyWakesTheGiverIntoTheSameTree(t *testing.T) {
+	f := newTaskFix(t)
+	root := f.running(f.g.ID, f.a)
+	base := f.delegateTo(f.g, root, f.b, "Base work")
+	f.delegateTo(f.g, root, f.c, "Needs the base", base.TaskID)
+	baseRun := f.taskRow(base.TaskID).AssigneeRunID
+	f.start(baseRun)
+	f.s.SetRunStatus(baseRun, "failed", "synthetic")
+	woken := f.wokenRoot(root)
+	next := f.delegateTo(f.g, woken, f.c, "Another way")
+	if got := f.taskRow(next.TaskID).RootTaskID; got != base.TaskID {
+		t.Fatalf("the woken giver opened a new tree %q, want %q", got, base.TaskID)
+	}
+}
+
+func TestParallelDelegatesGiveThePersonOneReturn(t *testing.T) {
+	for _, classicFirst := range []bool{true, false} {
+		f := newTaskFix(t)
+		root := f.running(f.g.ID, f.a)
+		one := f.delegateTo(f.g, root, f.b, "Part one") // direct hand-over
+		two := f.delegateTo(f.g, root, f.c, "Part two") // through the inbox
+		f.srv.flushInbox()
+		cRun := f.wokenRuns(f.c)[0]
+		bRun := f.taskRow(one.TaskID).AssigneeRunID
+		if _, ok, err := f.s.FinishRun(root.ID, f.g.ID, f.a.ID, "Both are under way."); err != nil || !ok {
+			t.Fatal(ok, err)
+		}
+		finish := func(run, bot, text string) {
+			f.start(run)
+			if _, ok, err := f.s.FinishRun(run, f.g.ID, bot, text); err != nil || !ok {
+				t.Fatal(ok, err)
+			}
+			f.srv.flushInbox()
+		}
+		if classicFirst {
+			finish(bRun, f.b.ID, "One done.")
+			finish(cRun.ID, f.c.ID, "Two done.")
+		} else {
+			finish(cRun.ID, f.c.ID, "Two done.")
+			finish(bRun, f.b.ID, "One done.")
+		}
+		_ = two
+		f.srv.flushInbox()
+		rs, _ := f.s.Runs(f.g.ID)
+		n := 0
+		for _, r := range rs {
+			if r.BotID == f.a.ID && r.Kind == runKindFollowup {
+				n++
+			}
+		}
+		if n != 1 {
+			t.Fatalf("classicFirst=%v: the giver answered the person %d times, want 1", classicFirst, n)
+		}
+	}
+}
+
+func TestHolderProgressIsNotChargedAndTheAnswerToAnAskPassesTheLimit(t *testing.T) {
+	f := newTaskFix(t)
+	f.setSetting(autoTaskTreeMessageLimit, 10)
+	root := f.running(f.g.ID, f.a)
+	task := f.delegateTo(f.g, root, f.b, "Write")
+	run, _ := f.s.GetRun(f.taskRow(task.TaskID).AssigneeRunID)
+	f.start(run.ID)
+	run, _ = f.s.GetRun(run.ID)
+	for i := 0; i < 3; i++ {
+		publishAs(t, f.s, run, "segment", fmt.Sprint("m", i), "A progress message.")
+	}
+	if used := treeUsedTx(f.s.db, task.TaskID); used != 1 {
+		t.Fatalf("progress was charged: used=%d", used)
+	}
+	if _, err := call(t, f.tool(f.g, run, "task_ask"), map[string]any{"task_id": task.TaskID, "question": "Which one?"}); err != nil {
+		t.Fatal(err)
+	}
+	// The budget is spent now.
+	f.s.db.Exec(`UPDATE task_tree_budget SET messages=10 WHERE tree_key=?`, task.TaskID)
+	if _, err := call(t, f.tool(f.g, root, "task_update"), map[string]any{"task_id": task.TaskID, "answer": "The first one."}); err != nil {
+		t.Fatalf("the answer to a question must pass the limit: %v", err)
+	}
+}
+
+func TestAnUnlockRowIsNeverReadIntoAWorkingRunAndOneTaskBindsPerRun(t *testing.T) {
+	f := newTaskFix(t)
+	root := f.running(f.g.ID, f.a)
+	base := f.delegateTo(f.g, root, f.b, "Base")
+	t1 := f.delegateTo(f.g, root, f.c, "Task one", base.TaskID)
+	t2 := f.delegateTo(f.g, root, f.c, "Task two", base.TaskID)
+	run := f.taskRow(base.TaskID).AssigneeRunID
+	f.start(run)
+	if _, ok, err := f.s.FinishRun(run, f.g.ID, f.b.ID, "Base done."); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	// Charlie is working on something else: a boundary read must leave the unlock rows alone.
+	busy := f.running(f.g.ID, f.c)
+	rows, err := f.s.drainInboxForRun(busy, 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range rows {
+		if r.TaskID == t1.TaskID || r.TaskID == t2.TaskID {
+			t.Fatalf("an unlock row was read into a working run: %+v", r)
+		}
+	}
+	if f.taskRow(t1.TaskID).AssigneeRunID != "" || f.taskRow(t2.TaskID).AssigneeRunID != "" {
+		t.Fatal("a working run took a task it did not start for")
+	}
+	if _, ok, err := f.s.FinishRun(busy.ID, f.g.ID, f.c.ID, "Done with the other thing."); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	f.srv.flushInbox()
+	bound := f.count(`SELECT COUNT(*) FROM work_items WHERE id IN (?,?) AND assignee_run_id<>''`, t1.TaskID, t2.TaskID)
+	if bound != 1 {
+		t.Fatalf("one woken run must hold exactly one unlocked task, %d are bound", bound)
+	}
+	first := f.wokenRuns(f.c)
+	f.start(first[len(first)-1].ID)
+	if _, ok, err := f.s.FinishRun(first[len(first)-1].ID, f.g.ID, f.c.ID, "Task done."); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	f.srv.flushInbox()
+	if f.count(`SELECT COUNT(*) FROM work_items WHERE id IN (?,?) AND assignee_run_id<>''`, t1.TaskID, t2.TaskID) != 2 {
+		t.Fatal("the second unlocked task never started")
+	}
+}
+
+func TestARoundWithAPendingWaitOrOpenChildTasksIsNotQuiet(t *testing.T) {
+	f := newTaskFix(t)
+	root := f.running(f.g.ID, f.a)
+	task := f.delegateTo(f.g, root, f.b, "Coordinate")
+	call(t, f.tool(f.g, root, "task_update"), map[string]any{"task_id": task.TaskID, "add_items": []string{"one"}})
+	round := func(prepare func(Run)) {
+		r := queueRun(t, f.s, f.g.ID, f.b.ID, "", "")
+		f.s.db.Exec(`UPDATE work_items SET assignee_run_id=? WHERE id=?`, r.ID, task.TaskID)
+		f.start(r.ID)
+		if prepare != nil {
+			prepare(r)
+		}
+		if _, ok, err := f.s.FinishRun(r.ID, f.g.ID, f.b.ID, "Still going."); err != nil || !ok {
+			t.Fatal(ok, err)
+		}
+	}
+	reports := func() int {
+		return f.count(`SELECT COUNT(*) FROM bot_inbox WHERE bot_id=? AND wakes=1 AND body LIKE '%no change in its checklist%'`, f.a.ID)
+	}
+	for i := 0; i < 5; i++ {
+		round(func(r Run) {
+			if _, err := f.s.registerWait(WaitSpec{BotID: f.b.ID, RunID: r.ID, ConversationID: f.g.ID, Kind: waitTimer, Timeout: time.Hour}); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+	if reports() != 0 {
+		t.Fatalf("rounds that waited on something were reported as stalled")
+	}
+}
+
+func TestCancellingASubtreeTellsTheGiversOfDependentsOutsideIt(t *testing.T) {
+	f := newTaskFix(t)
+	root := f.running(f.g.ID, f.a)
+	base := f.delegateTo(f.g, root, f.b, "Base")
+	dependent := f.delegateTo(f.g, root, f.c, "Needs base", base.TaskID)
+	tx, _ := f.s.db.Begin()
+	if _, _, err := cancelTaskTreeTx(tx, []string{base.TaskID}, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	if n := f.count(`SELECT COUNT(*) FROM bot_inbox WHERE bot_id=? AND wakes=1 AND task_id=? AND body LIKE '%ended as cancelled%'`, f.a.ID, dependent.TaskID); n != 1 {
+		t.Fatalf("the giver of the dependent was not told: %d", n)
+	}
+}
+
+func TestAWideValidDependencyGraphPassesTheCycleCheck(t *testing.T) {
+	f := newTaskFix(t)
+	insert := func(id, deps string) {
+		if _, err := f.s.db.Exec(`INSERT INTO work_items(id,conversation_id,bot_id,kind,title,description,status,created_at,updated_at,root_task_id,depends_on) VALUES(?,?,?,'task',?, '', 'blocked', ?, ?, 'r', ?)`, id, f.g.ID, f.b.ID, id, now(), now(), deps); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var tops []string
+	for chain := 0; chain < 12; chain++ {
+		prev := ""
+		for depth := 0; depth < 6; depth++ {
+			id := fmt.Sprintf("c%d-%d", chain, depth)
+			insert(id, prev)
+			prev = id
+		}
+		tops = append(tops, prev)
+	}
+	cycle, err := dependencyCycleTx(f.s.db, "brand-new", tops)
+	if err != nil || cycle {
+		t.Fatalf("a wide valid graph was refused: cycle=%v err=%v", cycle, err)
+	}
+	// A shared node reached many times counts once.
+	insert("shared", "")
+	for i := 0; i < 40; i++ {
+		insert(fmt.Sprint("fan", i), "shared")
+	}
+	var fans []string
+	for i := 0; i < 12; i++ {
+		fans = append(fans, fmt.Sprint("fan", i))
+	}
+	if cycle, err = dependencyCycleTx(f.s.db, "brand-new", fans); err != nil || cycle {
+		t.Fatalf("shared nodes were counted twice: %v %v", cycle, err)
+	}
+}
+
+func TestOriginRunLookupHasAnIndex(t *testing.T) {
+	f := newTaskFix(t)
+	var n int
+	f.s.db.QueryRow(`SELECT COUNT(*) FROM pragma_index_list('work_items') WHERE name='work_items_origin_run'`).Scan(&n)
+	if n != 1 {
+		t.Fatal("no index on work_items.origin_run_id")
+	}
+}
+
+func TestLegacyBotPostWaitsAreCountedAndBounded(t *testing.T) {
+	f := newTaskFix(t)
+	f.setSetting(autoTaskTreeMessageLimit, 10)
+	root := f.running(f.g.ID, f.a)
+	var err error
+	for i := 0; i < 12 && err == nil; i++ {
+		_, err = f.s.registerWait(WaitSpec{BotID: f.a.ID, RunID: root.ID, ConversationID: f.g.ID, Kind: waitBotPost, Target: f.b.ID, Timeout: time.Hour})
+	}
+	if codeOf(err) != "task_message_limit" {
+		t.Fatalf("waits on posts were not bounded by the tree budget: %v", err)
 	}
 }

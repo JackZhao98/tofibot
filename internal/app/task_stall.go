@@ -27,12 +27,10 @@ func routeHolderMessageTx(tx *sql.Tx, runID, conv, botID, messageID, content str
 		return nil
 	}
 	body := fmt.Sprintf("Message from the holder of task %q (%s): %s", item.Title, item.ID, trimRunes(strings.TrimSpace(content), 600))
-	if err = addInboxTx(tx, InboxItem{BotID: item.AssignerBotID, ConversationID: item.ConversationID, Kind: inboxProgress, TaskID: item.ID, RootTaskID: item.RootTaskID,
-		Body: body, ParentRun: runID, Anchor: messageID}); err != nil {
-		return err
-	}
-	// The count only goes up here: an update is not refused, a dispatch past the limit is.
-	return chargeTreeTx(tx, item.RootTaskID, 1, false)
+	// A holder's message is not charged to the tree budget: only hand-overs and
+	// the questions and requests between members are (decision 0064).
+	return addInboxTx(tx, InboxItem{BotID: item.AssignerBotID, ConversationID: item.ConversationID, Kind: inboxProgress, TaskID: item.ID, RootTaskID: item.RootTaskID,
+		Body: body, ParentRun: runID, Anchor: messageID})
 }
 
 // supersedeProgressTx marks the progress rows of a run's task as read when the
@@ -60,6 +58,18 @@ func progressSigTx(q queryer, taskID string) string {
 	for _, c := range items {
 		b.WriteString("|" + c.ID + ":" + c.Status)
 	}
+	// A result, and the state of the tasks the holder gave on, are progress too.
+	// The result message is not in the signature: a holder that posts a result each
+	// round that the giver has not accepted is the same stall. The tasks it gave count.
+	if rows, err := q.Query(`SELECT id,status FROM work_items WHERE parent_task_id=? ORDER BY id`, taskID); err == nil {
+		for rows.Next() {
+			var id, st string
+			if rows.Scan(&id, &st) == nil {
+				b.WriteString("|child:" + id + ":" + st)
+			}
+		}
+		rows.Close()
+	}
 	return b.String()
 }
 
@@ -72,7 +82,7 @@ func baselineStallTx(tx *sql.Tx, taskID string) error {
 // noteRoundEndedTx counts one finished round of the task's holder. A round that
 // changed the signature resets the counter; the Nth quiet round in a row reports
 // once to the root member. It runs for a task that stays open.
-func noteRoundEndedTx(tx *sql.Tx, item WorkItem) error {
+func noteRoundEndedTx(tx *sql.Tx, item WorkItem, runID string) error {
 	var status, prev string
 	var count int
 	if err := tx.QueryRow(`SELECT status,stall_sig,stall_count FROM work_items WHERE id=?`, item.ID).Scan(&status, &prev, &count); err != nil {
@@ -82,7 +92,13 @@ func noteRoundEndedTx(tx *sql.Tx, item WorkItem) error {
 		return nil
 	}
 	sig := progressSigTx(tx, item.ID)
-	if prev == "" || sig != prev {
+	// A round that ended holding a wait, or with tasks it gave still open, is not
+	// quiet: the holder is working through others.
+	var busy int
+	if err := tx.QueryRow(`SELECT (SELECT COUNT(*) FROM waits WHERE run_id=? AND status='pending')+(SELECT COUNT(*) FROM work_items WHERE (parent_task_id=? OR origin_run_id=?) AND status IN (`+openTaskStatuses+`))`, runID, item.ID, runID).Scan(&busy); err != nil {
+		return err
+	}
+	if busy > 0 || prev == "" || sig != prev {
 		_, err := tx.Exec(`UPDATE work_items SET stall_sig=?,stall_count=0 WHERE id=?`, sig, item.ID)
 		return err
 	}

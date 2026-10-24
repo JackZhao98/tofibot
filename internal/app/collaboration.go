@@ -455,12 +455,12 @@ func (s *Store) addForwardHandoff(origin, sender, bot, parent, task string) (Mes
 	if _, err = tx.Exec(`INSERT INTO runs(id,conversation_id,bot_id,status,error,parent_run_id,handoff_count,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, child.ID, targetConv, bot, child.Status, nil, parent, 0, child.Model, "", origin, taskMsg.ID, queueSeq, t, t); err != nil {
 		return Message{}, Run{}, err
 	}
-	made, terr := recordTaskForChildTx(tx, delegationChild{RunID: child.ID, RunConversation: targetConv, RunBot: bot, Origin: origin, Trigger: taskMsg.ID,
+	_, terr := recordTaskForChildTx(tx, delegationChild{RunID: child.ID, RunConversation: targetConv, RunBot: bot, Origin: origin, Trigger: taskMsg.ID,
 		ParentRun: parent, ParentBot: sender, ParentConversation: origin, Brief: task, RunStatus: "queued"})
 	if terr != nil {
 		return Message{}, Run{}, terr
 	}
-	if err = chargeTreeTx(tx, made.RootTaskID, 1, true); err != nil {
+	if err = chargeTreeTx(tx, treeKeyForRunTx(tx, parent), 1, true); err != nil {
 		return Message{}, Run{}, err
 	}
 	for _, item := range []struct {
@@ -557,12 +557,12 @@ func (s *Store) addBotMessage(origin, sender, bot, parent, content string) (Mess
 	if _, err = tx.Exec(`INSERT INTO runs(id,conversation_id,bot_id,status,error,parent_run_id,handoff_count,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, child.ID, traceID, bot, child.Status, nil, parent, 0, model, runKindMessage, origin, traceMessage.ID, queueSeq, t, t); err != nil {
 		return Message{}, Run{}, err
 	}
-	made, terr := recordTaskForChildTx(tx, delegationChild{RunID: child.ID, RunConversation: traceID, RunBot: bot, RunKind: runKindMessage, Origin: origin, Trigger: traceMessage.ID,
+	_, terr := recordTaskForChildTx(tx, delegationChild{RunID: child.ID, RunConversation: traceID, RunBot: bot, RunKind: runKindMessage, Origin: origin, Trigger: traceMessage.ID,
 		ParentRun: parent, ParentBot: sender, ParentConversation: origin, Brief: content, RunStatus: "queued"})
 	if terr != nil {
 		return Message{}, Run{}, terr
 	}
-	if err = chargeTreeTx(tx, made.RootTaskID, 1, true); err != nil {
+	if err = chargeTreeTx(tx, treeKeyForRunTx(tx, parent), 1, true); err != nil {
 		return Message{}, Run{}, err
 	}
 	// Only these capsules are copied into user-visible conversations. Their
@@ -722,12 +722,12 @@ func (s *Store) addBotMessages(origin, sender string, targets []string, parent, 
 		if _, err = tx.Exec(`INSERT INTO runs(id,conversation_id,bot_id,status,error,parent_run_id,handoff_count,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, run.ID, traceID, run.BotID, run.Status, nil, parent, 0, run.Model, run.Kind, origin, traceMessage.ID, queueSeq, t, t); err != nil {
 			return Message{}, nil, err
 		}
-		made, terr := recordTaskForChildTx(tx, delegationChild{RunID: run.ID, RunConversation: traceID, RunBot: run.BotID, RunKind: runKindMessage, Origin: origin, Trigger: traceMessage.ID,
+		_, terr := recordTaskForChildTx(tx, delegationChild{RunID: run.ID, RunConversation: traceID, RunBot: run.BotID, RunKind: runKindMessage, Origin: origin, Trigger: traceMessage.ID,
 			ParentRun: parent, ParentBot: sender, ParentConversation: origin, Brief: content, RunStatus: "queued"})
 		if terr != nil {
 			return Message{}, nil, terr
 		}
-		if err = chargeTreeTx(tx, made.RootTaskID, 1, true); err != nil {
+		if err = chargeTreeTx(tx, treeKeyForRunTx(tx, parent), 1, true); err != nil {
 			return Message{}, nil, err
 		}
 		runs = append(runs, run)

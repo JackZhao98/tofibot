@@ -42,11 +42,14 @@ type InboxItem struct {
 	Wakes, NeedsReply                                                bool
 	Priority                                                         int
 	ParentRun, AfterRun, Via, Anchor                                 string
+	// TreeKey is the task tree the row belongs to; empty means the tree of RootTaskID, else of ParentRun.
+	TreeKey string
 }
 
 type inboxRow struct {
 	ID, BotID, ConversationID, Kind, TaskID, WaitGroup, Body string
 	ParentRun, AfterRun, Via, Anchor, CreatedAt              string
+	TreeKey                                                  string
 }
 
 func addInboxTx(tx *sql.Tx, item InboxItem) error {
@@ -57,19 +60,26 @@ func addInboxTx(tx *sql.Tx, item InboxItem) error {
 	if item.Kind == inboxWaitResult {
 		verb = "INSERT OR IGNORE" // one result row per group; a repeat is not an error
 	}
-	_, err := tx.Exec(verb+` INTO bot_inbox(id,bot_id,conversation_id,kind,task_id,root_task_id,wait_group,body,wakes,needs_reply,priority,parent_run,after_run,via,anchor,created_at)
- VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, newID(), item.BotID, item.ConversationID, item.Kind, item.TaskID, item.RootTaskID, item.WaitGroup, item.Body,
-		boolInt(item.Wakes), boolInt(item.NeedsReply), item.Priority, item.ParentRun, item.AfterRun, item.Via, item.Anchor, now())
+	key := item.TreeKey
+	if key == "" {
+		key = item.RootTaskID
+	}
+	if key == "" && item.ParentRun != "" {
+		key = treeKeyForRunTx(tx, item.ParentRun)
+	}
+	_, err := tx.Exec(verb+` INTO bot_inbox(id,bot_id,conversation_id,kind,task_id,root_task_id,wait_group,body,wakes,needs_reply,priority,parent_run,after_run,via,anchor,created_at,tree_key)
+ VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, newID(), item.BotID, item.ConversationID, item.Kind, item.TaskID, item.RootTaskID, item.WaitGroup, item.Body,
+		boolInt(item.Wakes), boolInt(item.NeedsReply), item.Priority, item.ParentRun, item.AfterRun, item.Via, item.Anchor, now(), key)
 	return err
 }
 
 func scanInboxRow(row interface{ Scan(...any) error }) (inboxRow, error) {
 	var r inboxRow
-	err := row.Scan(&r.ID, &r.BotID, &r.ConversationID, &r.Kind, &r.TaskID, &r.WaitGroup, &r.Body, &r.ParentRun, &r.AfterRun, &r.Via, &r.Anchor, &r.CreatedAt)
+	err := row.Scan(&r.ID, &r.BotID, &r.ConversationID, &r.Kind, &r.TaskID, &r.WaitGroup, &r.Body, &r.ParentRun, &r.AfterRun, &r.Via, &r.Anchor, &r.CreatedAt, &r.TreeKey)
 	return r, err
 }
 
-const inboxRowColumns = `id,bot_id,conversation_id,kind,task_id,wait_group,body,parent_run,after_run,via,anchor,created_at`
+const inboxRowColumns = `id,bot_id,conversation_id,kind,task_id,wait_group,body,parent_run,after_run,via,anchor,created_at,tree_key`
 
 // dueInboxRows are the rows that want a wake and have not been read.
 func (s *Store) dueInboxRows(botID string) ([]inboxRow, error) {
@@ -142,6 +152,12 @@ func (s *Server) flushInbox() {
 	var order []key
 	for _, row := range rows {
 		if row.AfterRun != "" && s.store.runIsActive(row.AfterRun) {
+			continue
+		}
+		if wait, drop := s.store.fanOutRowHeld(row); wait {
+			continue
+		} else if drop {
+			_ = s.store.markInboxConsumed([]string{row.ID}, "-")
 			continue
 		}
 		conv := row.ConversationID
@@ -233,6 +249,11 @@ func (s *Store) wakeBotFromInbox(botID, conv string, rows []inboxRow) (Run, bool
 			unread = append(unread, r)
 		}
 	}
+	// One run holds one unlocked task: the rows of the others wait for a run of their own.
+	unread, err = onlyFirstUnlockRow(tx, botID, unread)
+	if err != nil {
+		return Run{}, false, err
+	}
 	if rows = unread; len(rows) == 0 {
 		return Run{}, false, nil
 	}
@@ -296,8 +317,12 @@ func (s *Store) wakeBotFromInbox(botID, conv string, rows []inboxRow) (Run, bool
 		}
 	}
 	var texts []string
+	treeKey := ""
 	for _, r := range rows {
 		texts = append(texts, r.Body)
+		if treeKey == "" {
+			treeKey = r.TreeKey
+		}
 	}
 	request := trimRunes(strings.Join(texts, "\n\n"), maxInboxWakeRunes)
 	origin := conv
@@ -310,6 +335,11 @@ func (s *Store) wakeBotFromInbox(botID, conv string, rows []inboxRow) (Run, bool
 	if _, err = tx.Exec(`INSERT INTO runs(id,conversation_id,bot_id,status,parent_run_id,handoff_count,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		run.ID, run.ConversationID, run.BotID, run.Status, nullString(run.ParentRunID), 0, run.Model, run.Kind, run.OriginConversationID, "", run.QueueSeq, t, t); err != nil {
 		return Run{}, false, err
+	}
+	if treeKey != "" {
+		if _, err = tx.Exec(`UPDATE runs SET tree_key=? WHERE id=?`, treeKey, run.ID); err != nil {
+			return Run{}, false, err
+		}
 	}
 	if _, err = tx.Exec(`INSERT INTO run_wakes(run_id,request,source,digest) VALUES(?,?,?,?)`, run.ID, request, wakeSourceInbox, ""); err != nil {
 		return Run{}, false, err
@@ -338,6 +368,28 @@ func (s *Store) wakeBotFromInbox(botID, conv string, rows []inboxRow) (Run, bool
 	return run, true, nil
 }
 
+// onlyFirstUnlockRow keeps every row except the unlock rows after the first.
+func onlyFirstUnlockRow(tx *sql.Tx, botID string, rows []inboxRow) ([]inboxRow, error) {
+	var out []inboxRow
+	seen := false
+	for _, r := range rows {
+		if r.Kind == inboxTaskUpdate && r.TaskID != "" {
+			var n int
+			if err := tx.QueryRow(`SELECT COUNT(*) FROM work_items WHERE id=? AND bot_id=? AND status='todo' AND assignee_run_id=''`, r.TaskID, botID).Scan(&n); err != nil {
+				return nil, err
+			}
+			if n > 0 {
+				if seen {
+					continue
+				}
+				seen = true
+			}
+		}
+		out = append(out, r)
+	}
+	return out, nil
+}
+
 // peekInboxForRun lists the rows that wait for its Bot in its conversation,
 // and the ones this run already read, without marking anything. A run that
 // reads again (a resumed turn) sees the same rows.
@@ -345,7 +397,7 @@ func (s *Store) peekInboxForRun(botID, conv, runID string) []inboxRow {
 	if botID == "" || runID == "" {
 		return nil
 	}
-	rows, err := s.db.Query(`SELECT `+inboxRowColumns+` FROM bot_inbox WHERE bot_id=? AND kind<>'user_message' AND (consumed_by_run=? OR (consumed_at='' AND (conversation_id=? OR conversation_id=''))) ORDER BY created_at,id LIMIT 40`, botID, runID, conv)
+	rows, err := s.db.Query(`SELECT `+inboxRowColumns+` FROM bot_inbox WHERE bot_id=? AND kind<>'user_message' AND NOT `+unlockRowSQL+` AND (consumed_by_run=? OR (consumed_at='' AND (conversation_id=? OR conversation_id=''))) ORDER BY created_at,id LIMIT 40`, botID, runID, conv)
 	if err != nil {
 		return nil
 	}
@@ -382,13 +434,6 @@ func (s *Store) markInboxRead(runID string, ids []string) {
 		}
 		if n, _ := res.RowsAffected(); n != 1 {
 			continue
-		}
-		// A task the row unlocked (decision 0064) belongs to the run that read it.
-		var bot, kind, task string
-		if tx.QueryRow(`SELECT bot_id,kind,task_id FROM bot_inbox WHERE id=?`, id).Scan(&bot, &kind, &task) == nil {
-			if e = bindUnlockedTasksTx(tx, bot, runID, []inboxRow{{Kind: kind, TaskID: task}}, true); e != nil {
-				return
-			}
 		}
 	}
 	tx.Commit()

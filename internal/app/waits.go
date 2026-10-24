@@ -283,6 +283,15 @@ func (s *Store) registerWait(spec WaitSpec) (Wait, error) {
 			spec.RootTaskID = item.RootTaskID
 		}
 	}
+	// A wait on a member's post or on a task's result is a message of its tree
+	// (decision 0064): the older wait paths are counted and bounded too.
+	if (spec.Kind == waitBotPost || spec.Kind == waitTaskResult) && spec.RunID != "" {
+		if err := chargeTreeTx(tx, treeKeyForRunTx(tx, spec.RunID), 1, true); err != nil {
+			tx.Rollback()
+			s.afterTreeLimit(err)
+			return Wait{}, err
+		}
+	}
 	w, err := recordWaitTx(tx, spec)
 	if err != nil {
 		return Wait{}, err
