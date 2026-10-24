@@ -10,7 +10,9 @@
     "archive_busy": "還有未完成的任務，請等它結束或先停止後再封存。",
     "delete_busy": "還有相關任務正在執行。請先停止任務，再重試刪除。",
     "model_unconfigured": "尚未設定模型。請在設定的「模型」頁面連接 Codex 或新增 API 金鑰。",
-    "no_active_members": "這個群組沒有可用成員，還原後請先新增至少一個 Bot。"
+    "no_active_members": "這個群組沒有可用成員，還原後請先新增至少一個 Bot。",
+    "no_step_in_flight": "Bot 正在思考,沒有可停止的步驟。要結束這次執行,請選擇「全部停止」。",
+    "run_not_running": "該執行已不在進行中。"
   },
   "attachment": {
     "close_image": "關閉圖片",
@@ -128,7 +130,11 @@
     "screenshot_unsupported": "目前的瀏覽器不支援擷取螢幕，請上傳現有圖片。",
     "send": "傳送訊息",
     "stop": "停止",
+    "stop_all": "全部停止",
     "stop_label": "停止 {{name}} 的工作",
+    "stop_menu": "停止選項",
+    "stop_step": "停止目前步驟",
+    "stop_step_named": "停止 {{name}} 的目前步驟",
     "too_large": "{{name}} 超過 20MB",
     "uploading": "上傳中…"
   },
@@ -173,6 +179,10 @@
     "impact_given_other": "它交辦的 {{count}} 個未完成任務會一併取消。",
     "impact_held_other": "它負責的 {{count}} 個未完成任務會被取消。",
     "impact_waits_other": "它的 {{count}} 個等待會結束。"
+  },
+  "delivery": {
+    "queued": "已排隊,下一步時讀取",
+    "read": "已讀"
   },
   "detail": {
     "close": "關閉詳細資料",

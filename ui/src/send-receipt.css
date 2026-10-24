@@ -17,4 +17,11 @@
   .workspace .send-receipt-mark { transition:color var(--m-base) var(--ease-out); }
   .workspace .send-receipt-mark.is-settling svg { animation:send-receipt-settle var(--m-panel-in) var(--ease-out); }
 }
+/* Queued / read note under a message sent while the Bot works: the failed line's slot, quiet meta text. */
+.workspace .send-receipt-note[data-state="read"] { color:var(--accent-primary-text); animation:send-receipt-note-out var(--m-base) var(--ease-out) 4s both; }
+@media (prefers-reduced-motion:no-preference) {
+  .workspace .send-receipt-note[data-state="queued"] { animation:send-receipt-note-in var(--m-base) var(--ease-out); }
+}
+@keyframes send-receipt-note-in { from { opacity:0; } to { opacity:1; } }
+@keyframes send-receipt-note-out { from { opacity:1; } to { opacity:0; visibility:hidden; } }
 @keyframes send-receipt-settle { from { transform:scale(.7); opacity:.4; } to { transform:none; opacity:1; } }

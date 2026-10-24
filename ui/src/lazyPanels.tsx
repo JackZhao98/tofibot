@@ -11,7 +11,8 @@ import { DesktopPlaceholder } from "./DesktopPlaceholder";
  */
 const loaders = {
   settings: () => import("./settings/SettingsPanel"),
-  desktop: () => import("./BotDesktopPanel"),
+  // The desktop window shell rides with the panel it frames: both open on the same click.
+  desktop: () => Promise.all([import("./BotDesktopPanel"), import("./FloatingDesktop")]).then(([panel, shell]) => ({ ...panel, ...shell })),
   onboarding: () => import("./Onboarding"),
   work: () => import("./WorkPanel"),
   memory: () => import("./MemoryPanel"),
@@ -26,6 +27,7 @@ const loaders = {
   contextPanels: () => import("./ContextPanels"),
   questionCard: () => import("./QuestionCard"),
   runContext: () => import("./RunContext"),
+  stopMenu: () => import("./ComposerStopMenu"),
 } as const;
 export type PanelChunk = keyof typeof loaders;
 
@@ -66,6 +68,7 @@ function chunk<K extends PanelChunk, P extends object>(name: K, pick: (module: L
 
 export const SettingsPanel = chunk("settings", module => module.SettingsPanel);
 export const BotDesktopPanel = chunk("desktop", module => module.BotDesktopPanel);
+export const FloatingDesktop = chunk("desktop", module => module.FloatingDesktop);
 export const WorkPanel = chunk("work", module => module.WorkPanel);
 export const MemoryPanel = chunk("memory", module => module.MemoryPanel);
 export const TeamBoard = chunk("team", module => module.TeamBoard);
@@ -80,6 +83,7 @@ export const PermissionCoach = chunk("permissionCoach", module => module.Permiss
 export const UpdateBanner = chunk("updateBanner", module => module.UpdateBanner);
 export const QuestionCard = chunk("questionCard", module => module.QuestionCard);
 export const RunContextView = chunk("runContext", module => module.RunContextView);
+export const ComposerStop = chunk("stopMenu", module => module.ComposerStop);
 export const Onboarding = chunk("onboarding", module => module.Onboarding);
 
 export function preloadPanel(name: PanelChunk) {
@@ -100,7 +104,7 @@ const entryPoints: Array<[selector: string, chunk: PanelChunk]> = [
 const WARM_START_MS = 500;
 const WARM_STEP_MS = 200;
 export function warmPanelsWhenIdle(): () => void {
-  const order: PanelChunk[] = ["settings", "desktop", "contextPanels", "work", "memory", "team", "archive", "viewOnly", "remembered", "deleteDialog", "reassignPrimary", "permissionCoach", "updateBanner", "questionCard"];
+  const order: PanelChunk[] = ["settings", "desktop", "contextPanels", "work", "memory", "team", "archive", "viewOnly", "remembered", "deleteDialog", "reassignPrimary", "permissionCoach", "updateBanner", "questionCard", "stopMenu"];
   let timer = window.setTimeout(function step() {
     const next = order.shift();
     if (!next) return;

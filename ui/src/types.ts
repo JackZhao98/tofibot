@@ -151,6 +151,8 @@ export interface Message {
   run_id?: string;
   /** The sender's retry identity, present on a person's own messages. The server echoes it so an optimistic copy can be matched. */
   client_message_id?: string;
+  /** A person's message sent while the addressed Bot was working: "queued" until the run reads it at its next step, then "read". Absent for ordinary messages. */
+  delivery?: "queued" | "read";
   /** Client only: this message has not been stored by the server (yet). It never comes from the API. */
   local?: { state: "sending" | "failed"; error?: string };
   notice?: {

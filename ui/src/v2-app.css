@@ -282,6 +282,7 @@ html:not([data-desktop]) .workspace .composer-rich-text { font-size:16px; }
 :is(.workspace,[id="tofi-layers"]) .composer-add-menu .composer-add-icon { display:grid; place-items:center; flex:none; width:20px; color:var(--ink-soft); font:18px/1 var(--body); }
 :is(.workspace,[id="tofi-layers"]) .composer-add-menu kbd { margin-left:auto; color:var(--muted); background:transparent; font:11px/1 var(--mono); }
 :is(.workspace,[id="tofi-layers"]) .composer-add-menu>p { margin:6px 4px 0; padding:9px 2px 3px; border-top:1px solid var(--line-soft); color:var(--muted); font:11px/1.4 var(--body); }
+:is(.workspace,[id="tofi-layers"]) .composer-add-menu.composer-stop-menu { width:auto; min-width:200px; max-width:min(320px,calc(100vw - 32px)); }
 .workspace .composer-row>.send-button {
   width:40px; height:40px; min-width:40px; margin-left:0; border:var(--edge) solid var(--line);
   border-radius:12px; background:var(--yellow); color:var(--on-block); box-shadow:var(--hard-sm);

@@ -10,7 +10,9 @@
     "archive_busy": "未完了のタスクがあります。終了を待つか、停止してからアーカイブしてください。",
     "delete_busy": "関連するタスクが実行中です。タスクを停止してから、もう一度削除してください。",
     "model_unconfigured": "モデルが未設定です。設定の「モデル」で Codex を接続するか、APIキーを追加してください。",
-    "no_active_members": "このグループには利用できるメンバーがいません。復元したら、Bot を 1 つ以上追加してください。"
+    "no_active_members": "このグループには利用できるメンバーがいません。復元したら、Bot を 1 つ以上追加してください。",
+    "no_step_in_flight": "Bot は考え中で、停止できるステップがありません。実行を終えるには「すべて停止」を使ってください。",
+    "run_not_running": "その実行はすでに終了しています。"
   },
   "attachment": {
     "close_image": "画像を閉じる",
@@ -128,7 +130,11 @@
     "screenshot_unsupported": "このブラウザは画面キャプチャに対応していません。既存の画像をアップロードしてください。",
     "send": "メッセージを送信",
     "stop": "停止",
+    "stop_all": "すべて停止",
     "stop_label": "{{name}} の作業を停止",
+    "stop_menu": "停止オプション",
+    "stop_step": "現在のステップを停止",
+    "stop_step_named": "{{name}} の現在のステップを停止",
     "too_large": "{{name}} は 20MB を超えています",
     "uploading": "アップロード中…"
   },
@@ -173,6 +179,10 @@
     "impact_given_other": "Botが出した未完了のタスク{{count}}件も一緒にキャンセルされます。",
     "impact_held_other": "Botが担当中の未完了タスク{{count}}件がキャンセルされます。",
     "impact_waits_other": "Botの待機{{count}}件が終了します。"
+  },
+  "delivery": {
+    "queued": "待機中、次のステップで読み取り",
+    "read": "既読"
   },
   "detail": {
     "close": "詳細を閉じる",
