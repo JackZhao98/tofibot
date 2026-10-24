@@ -1,7 +1,7 @@
 package guest
 
 import (
-	"errors"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,6 +20,7 @@ func setEnv(env []string, key, value string) []string {
 }
 
 // ensureWorkspaceAlias keeps a human-readable link beside the shared HOME.
+// It returns an empty path (and no error) when no alias could be placed.
 // The UUID directory remains canonical; the link is only a navigation aid.
 func (s *Service) ensureWorkspaceAlias(botID, botName string) (string, error) {
 	bot, err := s.botDir(botID)
@@ -35,7 +36,7 @@ func (s *Service) ensureWorkspaceAlias(botID, botName string) (string, error) {
 	if slug == "" {
 		slug = "bot"
 	}
-	alias := filepath.Join(aliasRoot, slug+"--"+shortID)
+	base := slug + "--" + shortID
 	target, err := filepath.Abs(bot)
 	if err != nil {
 		return "", err
@@ -43,6 +44,24 @@ func (s *Service) ensureWorkspaceAlias(botID, botName string) (string, error) {
 
 	s.workspaceAliasMu.Lock()
 	defer s.workspaceAliasMu.Unlock()
+
+	// A plain directory or a link to another workspace may already sit on the
+	// preferred name. Never touch it: use a deterministic fallback name, or no
+	// alias at all. The alias must never block the Bot's computer.
+	alias := ""
+	for _, name := range []string{base, base + "-link"} {
+		path := filepath.Join(aliasRoot, name)
+		if aliasUsable(path, target) {
+			alias = path
+			break
+		}
+	}
+	if alias == "" {
+		log.Printf("computer guest: workspace alias for bot %s skipped: %s and %s are taken", shortID, base, base+"-link")
+	} else if filepath.Base(alias) != base {
+		log.Printf("computer guest: workspace alias %s is taken; using %s", base, filepath.Base(alias))
+	}
+
 	entries, err := os.ReadDir(aliasRoot)
 	if err != nil {
 		return "", err
@@ -59,25 +78,30 @@ func (s *Service) ensureWorkspaceAlias(botID, botName string) (string, error) {
 			}
 		}
 	}
-
-	info, err := os.Lstat(alias)
-	if err == nil {
-		if info.Mode()&os.ModeSymlink == 0 {
-			return "", errors.New("workspace alias collides with a non-symlink")
-		}
-		resolved, resolveErr := filepath.EvalSymlinks(alias)
-		if resolveErr != nil || filepath.Clean(resolved) != filepath.Clean(target) {
-			return "", errors.New("workspace alias points to another workspace")
-		}
+	if alias == "" {
+		return "", nil
+	}
+	if _, err := os.Lstat(alias); err == nil {
 		return alias, nil
 	}
-	if !os.IsNotExist(err) {
-		return "", err
-	}
 	if err := os.Symlink(target, alias); err != nil {
-		return "", err
+		log.Printf("computer guest: workspace alias %s not created: %v", filepath.Base(alias), err)
+		return "", nil
 	}
 	return alias, nil
+}
+
+// aliasUsable reports whether path is free or already links to target.
+func aliasUsable(path, target string) bool {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return os.IsNotExist(err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		return false
+	}
+	resolved, err := filepath.EvalSymlinks(path)
+	return err == nil && filepath.Clean(resolved) == filepath.Clean(target)
 }
 
 func (s *Service) workspaceAlias(botID string) (string, bool) {
