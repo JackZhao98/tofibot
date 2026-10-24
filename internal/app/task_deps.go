@@ -12,11 +12,16 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 )
 
 const (
 	maxTaskDeps  = 12
 	maxDepsSteps = 64
+
+	// blockedWaitCeiling is the hard deadline of the giver's wait on a task that
+	// still waits on dependencies; the usual task-result deadline starts when it unlocks.
+	blockedWaitCeiling = 24 * time.Hour
 )
 
 func parseDeps(list string) []string {
@@ -154,6 +159,10 @@ func unlockTaskTx(tx *sql.Tx, item WorkItem) (bool, error) {
 	}
 	if n, _ := res.RowsAffected(); n != 1 {
 		return false, nil
+	}
+	// The giver's wait on the task runs its usual deadline from now, not from when it was made.
+	if _, err = tx.Exec(`UPDATE waits SET deadline_at=? WHERE kind=? AND target=? AND status='pending'`, stampTime(time.Now().Add(waitTimeoutFor(waitTaskResult))), waitTaskResult, item.ID); err != nil {
+		return false, err
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "Task %q (%s) is unblocked: every task it waited on is done. It is yours now.", item.Title, item.ID)
@@ -433,7 +442,7 @@ func (s *Store) addDependentTasks(conv, giver, parentRun string, recipients []st
 				return nil, err
 			}
 		}
-		if _, err = recordWaitTx(tx, WaitSpec{BotID: giver, RunID: parentRun, ConversationID: conv, Kind: waitTaskResult, Target: id, Timeout: waitTimeoutFor(waitTaskResult), RootTaskID: root, SkipCycle: true}); err != nil {
+		if _, err = recordWaitTx(tx, WaitSpec{BotID: giver, RunID: parentRun, ConversationID: conv, Kind: waitTaskResult, Target: id, Timeout: blockedWaitCeiling, RootTaskID: root, SkipCycle: true}); err != nil {
 			return nil, err
 		}
 		item, err := getTaskTx(tx, id)
