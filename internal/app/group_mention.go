@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -18,16 +19,10 @@ import (
 // result, which wakes that Bot by the same rule.
 const runKindGroupMention = "group_mention"
 
-// maxMentionWakesPerLineage is a safety net only: wakes come from explicit
-// respond entries, so reaching it means a Bot loop that is a bug to investigate.
-// It bounds how many mention wakes one user message (or
-// scheduled occurrence) can cause in total, across all of its Bots.
-const maxMentionWakesPerLineage = 8
-
 // AddMentionWake queues a run for target because message msgID, posted by run
 // poster, mentioned it. It reports false (and no error) when no wake is due:
 // the target already has queued or waiting work (it reads the transcript when
-// it starts), the mention is a self-mention, a loop cap is reached, or this
+// it starts), the mention is a self-mention, the task tree budget is spent, or this
 // message already woke the target. A target that is running is steered: its
 // current turn yields at the next safe boundary and the wake takes over.
 func (s *Store) AddMentionWake(conv string, poster Run, msgID, target, request string) (Run, bool, error) {
@@ -65,39 +60,6 @@ func (s *Store) addMentionWakeConsuming(conv string, poster Run, msgID, target, 
 		} else if addressed {
 			return Run{}, false, nil
 		}
-	}
-	// Lineage: walk to the root run; its depth and the root's trigger bound the
-	// wake chain and the total wakes for the originating message.
-	depth, rootID, rootTrigger := 0, poster.ID, poster.TriggerMessageID
-	for id, steps := poster.ParentRunID, 0; id != ""; steps++ {
-		if steps > 64 {
-			return Run{}, false, nil
-		}
-		var parent, trigger sql.NullString
-		if err = tx.QueryRow(`SELECT parent_run_id,trigger_message_id FROM runs WHERE id=?`, id).Scan(&parent, &trigger); err != nil {
-			if err == sql.ErrNoRows {
-				break
-			}
-			return Run{}, false, err
-		}
-		depth++
-		rootID, rootTrigger = id, trigger.String
-		id = parent.String
-	}
-	if depth+1 > maxHandoffRounds {
-		log.Printf("[run] mention wake depth cap reached conv=%s poster=%s target=%s depth=%d (bug signal: Bots are looping)", conv, poster.ID, target, depth)
-		return Run{}, false, nil
-	}
-	var wakes int
-	if err = tx.QueryRow(`WITH RECURSIVE fam(id) AS (
-		SELECT id FROM runs WHERE conversation_id=? AND COALESCE(parent_run_id,'')='' AND (id=? OR (?<>'' AND trigger_message_id=?))
-		UNION SELECT r.id FROM runs r JOIN fam f ON r.parent_run_id=f.id
-	) SELECT COUNT(*) FROM runs WHERE id IN (SELECT id FROM fam) AND kind=?`, conv, rootID, rootTrigger, rootTrigger, runKindGroupMention).Scan(&wakes); err != nil {
-		return Run{}, false, err
-	}
-	if wakes >= maxMentionWakesPerLineage {
-		log.Printf("[run] mention wake cap reached conv=%s poster=%s target=%s wakes=%d (bug signal: Bots are looping)", conv, poster.ID, target, wakes)
-		return Run{}, false, nil
 	}
 	var already int
 	if err = tx.QueryRow(`SELECT COUNT(*) FROM runs WHERE conversation_id=? AND bot_id=? AND kind=? AND trigger_message_id=?`, conv, target, runKindGroupMention, msgID).Scan(&already); err != nil {
@@ -144,6 +106,20 @@ func (s *Store) addMentionWakeConsuming(conv string, poster Run, msgID, target, 
 	var queueSeq int64
 	if err = tx.QueryRow(`SELECT COALESCE(MAX(queue_seq),0)+1 FROM runs WHERE conversation_id=?`, conv).Scan(&queueSeq); err != nil {
 		return Run{}, false, err
+	}
+	if !allowSelf {
+		// A colleague's mention is a message of its tree (decision 0064). It replaces
+		// the fixed depth and wake caps: past the budget no wake is made.
+		if err = chargeTreeTx(tx, treeKeyForRunTx(tx, poster.ID), 1, true); err != nil {
+			var limit *treeLimitError
+			if errors.As(err, &limit) {
+				log.Printf("[run] mention wake refused: task tree budget reached conv=%s poster=%s target=%s", conv, poster.ID, target)
+				tx.Rollback()
+				s.afterTreeLimit(err)
+				return Run{}, false, nil
+			}
+			return Run{}, false, err
+		}
 	}
 	t := now()
 	run := Run{ID: newID(), ConversationID: conv, BotID: target, Status: "queued", ParentRunID: poster.ID, Model: model, Kind: runKindGroupMention, OriginConversationID: origin, TriggerMessageID: msgID, QueueSeq: queueSeq, CreatedAt: t, UpdatedAt: t}

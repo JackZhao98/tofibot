@@ -100,6 +100,8 @@ var automationItems = []automationItem{
 	{Key: autoGroupTriage, Group: "replies", Kind: autoKindBool, Default: "true"},
 	{Key: autoGroupTriageModel, Group: "models", Kind: autoKindModel},
 	{Key: autoCommandCheckMinutes, Group: "computer", Kind: autoKindInt, Default: commandCheckMinutesDefault(), Min: 5, Max: 1440, Unit: "minutes"},
+	{Key: autoTaskStallRounds, Group: "checks", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskStallRounds), Min: 1, Max: 20},
+	{Key: autoTaskTreeMessageLimit, Group: "reliability", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskTreeMessageLimit), Min: 10, Max: 500},
 }
 
 func automationItemFor(key string) (automationItem, bool) {

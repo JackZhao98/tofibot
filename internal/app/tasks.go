@@ -25,7 +25,6 @@ const (
 	maxChecklistTextRunes = 200
 	maxChecklistReason    = 400
 	maxTaskBriefRunes     = 8000
-	maxTaskTreeMessages   = 60 // Q18: messages one task tree may carry
 )
 
 // queryer is what a *sql.DB and a *sql.Tx both offer.
@@ -326,6 +325,9 @@ func taskRunStartedTx(tx *sql.Tx, runID string) error {
 	if _, err = tx.Exec(`UPDATE work_items SET status=?,run_spec_version=spec_version,completed_at='',closed_at='',updated_at=? WHERE id=?`, status, now(), item.ID); err != nil {
 		return err
 	}
+	if err = baselineStallTx(tx, item.ID); err != nil {
+		return err
+	}
 	return taskEventTx(tx, item.ID)
 }
 
@@ -414,8 +416,16 @@ func taskFinishedOneTx(tx *sql.Tx, done Run, item WorkItem, result Message, sayO
 			return err
 		}
 	}
+	if err = supersedeProgressTx(tx, item.ID, done.ID); err != nil {
+		return err
+	}
 	if isClosedWorkStatus(status) {
 		if err = settleClosedTaskTx(tx, WorkItem{ID: item.ID, Status: status, RootTaskID: item.RootTaskID}); err != nil {
+			return err
+		}
+	} else if item.AssignerBotID != "" {
+		// The round ended with the task still open: it counts toward a stall.
+		if err = noteRoundEndedTx(tx, item); err != nil {
 			return err
 		}
 	}
@@ -487,8 +497,17 @@ func settleClosedTaskTx(tx *sql.Tx, item WorkItem) error {
 		if err := settleTaskWaitsTx(tx, item.ID, waitCancelled, ""); err != nil {
 			return err
 		}
-		_, _, err := cancelTaskTreeTx(tx, []string{item.ID}, false)
-		return err
+		if _, _, err := cancelTaskTreeTx(tx, []string{item.ID}, false); err != nil {
+			return err
+		}
+	}
+	// Tasks that waited on this one (decision 0064): done unlocks them, failed or
+	// cancelled tells the member that gave each of them.
+	switch item.Status {
+	case "done":
+		return unlockDependentsTx(tx, item.RootTaskID, item.ID)
+	case "failed", "cancelled":
+		return notifyDependentsEndedTx(tx, item.RootTaskID, item.ID, item.Status)
 	}
 	return nil
 }
@@ -589,6 +608,10 @@ type TaskUpdate struct {
 	Items       []ChecklistChange
 	Reason      string
 	Answer      string
+	// AddDependsOn and RemoveDependsOn change what a blocked task that has not
+	// started waits on (decision 0064). Only the member that gave the task may.
+	AddDependsOn    []string
+	RemoveDependsOn []string
 }
 
 // updateTask applies a TaskUpdate for actor. It reports the change to the
@@ -616,7 +639,7 @@ func (s *Store) updateTask(actor string, in TaskUpdate) (WorkItem, error) {
 	}
 	t := now()
 	// Checklist membership and the request belong to the creator.
-	if len(in.AddItems) > 0 || len(in.RemoveItems) > 0 || in.Brief != nil || in.Answer != "" {
+	if len(in.AddItems) > 0 || len(in.RemoveItems) > 0 || in.Brief != nil || in.Answer != "" || len(in.AddDependsOn) > 0 || len(in.RemoveDependsOn) > 0 {
 		if !creator {
 			return WorkItem{}, taskRefusal("checklist_creator_only", "Only the member that gave the task may add or remove checklist items, change the request, or answer a question about it.")
 		}
@@ -658,6 +681,25 @@ func (s *Store) updateTask(actor string, in TaskUpdate) (WorkItem, error) {
 		}
 		if n, _ := res.RowsAffected(); n == 0 {
 			return WorkItem{}, taskRefusal("checklist_item_unknown", "No checklist item has that id: "+change.ID)
+		}
+	}
+	if len(in.AddDependsOn) > 0 || len(in.RemoveDependsOn) > 0 {
+		list, e := changeDepsTx(tx, item, actor, in.AddDependsOn, in.RemoveDependsOn)
+		if e != nil {
+			return WorkItem{}, e
+		}
+		item.DependsOn = list
+		open, e := depsOpenTx(tx, parseDeps(list))
+		if e != nil {
+			return WorkItem{}, e
+		}
+		if open == 0 {
+			// Nothing is left to wait on: the task starts.
+			if unlocked, e := unlockTaskTx(tx, item); e != nil {
+				return WorkItem{}, e
+			} else if unlocked {
+				item.Status = "todo"
+			}
 		}
 	}
 	message := false
@@ -714,6 +756,8 @@ func (s *Store) updateTask(actor string, in TaskUpdate) (WorkItem, error) {
 	}
 	if message {
 		if err = bumpTaskMessagesTx(tx, item.RootTaskID); err != nil {
+			tx.Rollback()
+			s.afterTreeLimit(err)
 			return WorkItem{}, err
 		}
 	}
@@ -759,21 +803,11 @@ func noteTaskRevisionTx(tx *sql.Tx, item WorkItem, source, actor, text string) e
 	return err
 }
 
-// bumpTaskMessagesTx counts a message against the tree and refuses past the
-// limit, so two members cannot talk forever.
+// bumpTaskMessagesTx counts a message against the tree's budget (decision 0064)
+// and refuses past the limit, so two members cannot talk forever. The caller
+// rolls back and calls afterTreeLimit.
 func bumpTaskMessagesTx(tx *sql.Tx, root string) error {
-	if root == "" {
-		return nil
-	}
-	var total int
-	if err := tx.QueryRow(`SELECT COALESCE(SUM(message_count),0) FROM work_items WHERE root_task_id=?`, root).Scan(&total); err != nil {
-		return err
-	}
-	if total >= maxTaskTreeMessages {
-		return taskRefusal("task_message_limit", fmt.Sprintf("This task tree already carried %d messages. Settle the work with what exists, or ask the person.", maxTaskTreeMessages))
-	}
-	_, err := tx.Exec(`UPDATE work_items SET message_count=message_count+1 WHERE id=?`, root)
-	return err
+	return chargeTreeTx(tx, root, 1, true)
 }
 
 // askTask is task_ask: the member that holds the task asks the member that gave
@@ -806,6 +840,8 @@ func (s *Store) askTask(actor, runID, taskID, question string) (WorkItem, error)
 		return WorkItem{}, taskRefusal("task_no_assigner_bot", "No member gave this task. Ask the person with the question tool.")
 	}
 	if err = bumpTaskMessagesTx(tx, item.RootTaskID); err != nil {
+		tx.Rollback()
+		s.afterTreeLimit(err)
 		return WorkItem{}, err
 	}
 	if err = addInboxTx(tx, InboxItem{BotID: item.AssignerBotID, ConversationID: item.ConversationID, Kind: inboxTaskQuestion, TaskID: item.ID, RootTaskID: item.RootTaskID,

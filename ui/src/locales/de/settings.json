@@ -901,6 +901,14 @@
       "command_check_minutes": {
         "name": "Prüfintervall für Befehle",
         "what": "Wartet ein Bot auf das Ende eines Befehls, weckt ihn nach dieser Zeit eine zeitgesteuerte Prüfung, falls das Endesignal verloren geht. Ein eigener Timer des Bots ersetzt sie."
+      },
+      "task_stall_rounds": {
+        "name": "Stillstandsmeldung nach",
+        "what": "Beendet ein Bot, der eine Aufgabe hält, so viele Runden ohne Änderung an Checkliste oder Status der Aufgabe, wird der Bot an der Wurzel der Arbeit einmal informiert. Die Zählung beginnt neu, sobald sich die Aufgabe bewegt."
+      },
+      "task_tree_message_limit": {
+        "name": "Nachrichten pro Aufgabenbaum",
+        "what": "Die höchste Zahl an Nachrichten, die die Bots einer Arbeit untereinander austauschen dürfen. Am Limit geben sie einander keine Arbeit mehr weiter; der Wurzel-Bot und Sie werden einmal informiert."
       }
     },
     "option": {

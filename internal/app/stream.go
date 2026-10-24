@@ -408,6 +408,12 @@ func (s *Store) publishAssistantPartsOpts(ctx context.Context, runID string, tur
 		if _, err = tx.Exec(`INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, runConversationID, "message", string(b), t); err != nil {
 			return Message{}, false, err
 		}
+		if kind == "segment" {
+			// What a holder posts reaches the member that gave the task (decision 0064).
+			if err = routeHolderMessageTx(tx, runID, runConversationID, runBotID, m.ID, m.Content); err != nil {
+				return Message{}, false, err
+			}
+		}
 		if i == 0 {
 			first = m
 			// Free the draft's reserved sequence so the next part (and the next

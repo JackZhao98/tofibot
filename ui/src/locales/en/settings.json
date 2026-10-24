@@ -901,6 +901,14 @@
       "command_check_minutes": {
         "name": "Command check interval",
         "what": "When a Bot waits for a command to end, a timed check wakes it after this long in case the end signal is lost. A timer the Bot sets itself replaces it."
+      },
+      "task_stall_rounds": {
+        "name": "Stall report after",
+        "what": "When a Bot that holds a task finishes this many rounds with no change in the task's checklist or status, the Bot at the root of the work is told once. The count starts again when the task moves."
+      },
+      "task_tree_message_limit": {
+        "name": "Messages per task tree",
+        "what": "The most messages the Bots of one piece of work may pass between them. At the limit they stop handing work to each other, and the root Bot and you are told once."
       }
     },
     "option": {

@@ -41,7 +41,6 @@ const (
 	// bot_result is a private context anchor used to resume the Bot that sent
 	// a message without leaking the recipient's reply into a user DM.
 	messageKindBotResult = "bot_result"
-	maxHandoffRounds     = 8
 )
 
 type conversationQueue struct {
@@ -385,6 +384,11 @@ func (s *Store) defaultGroupRunSpecTx(tx *sql.Tx, conversationID string) (runSpe
 // the source Bot's private conversation. The source receives a durable notice;
 // the explicit task is stored in the target canonical DM as the child anchor.
 func (s *Store) AddForwardHandoff(origin, sender, bot, parent, task string) (Message, Run, error) {
+	m, r, err := s.addForwardHandoff(origin, sender, bot, parent, task)
+	s.afterTreeLimit(err)
+	return m, r, err
+}
+func (s *Store) addForwardHandoff(origin, sender, bot, parent, task string) (Message, Run, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return Message{}, Run{}, err
@@ -451,8 +455,12 @@ func (s *Store) AddForwardHandoff(origin, sender, bot, parent, task string) (Mes
 	if _, err = tx.Exec(`INSERT INTO runs(id,conversation_id,bot_id,status,error,parent_run_id,handoff_count,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, child.ID, targetConv, bot, child.Status, nil, parent, 0, child.Model, "", origin, taskMsg.ID, queueSeq, t, t); err != nil {
 		return Message{}, Run{}, err
 	}
-	if _, err = recordTaskForChildTx(tx, delegationChild{RunID: child.ID, RunConversation: targetConv, RunBot: bot, Origin: origin, Trigger: taskMsg.ID,
-		ParentRun: parent, ParentBot: sender, ParentConversation: origin, Brief: task, RunStatus: "queued"}); err != nil {
+	made, terr := recordTaskForChildTx(tx, delegationChild{RunID: child.ID, RunConversation: targetConv, RunBot: bot, Origin: origin, Trigger: taskMsg.ID,
+		ParentRun: parent, ParentBot: sender, ParentConversation: origin, Brief: task, RunStatus: "queued"})
+	if terr != nil {
+		return Message{}, Run{}, terr
+	}
+	if err = chargeTreeTx(tx, made.RootTaskID, 1, true); err != nil {
 		return Message{}, Run{}, err
 	}
 	for _, item := range []struct {
@@ -479,6 +487,11 @@ func (s *Store) AddForwardHandoff(origin, sender, bot, parent, task string) (Mes
 // separate from handoff: it does not consume the parent handoff budget and it
 // never publishes the recipient's result back into the source conversation.
 func (s *Store) AddBotMessage(origin, sender, bot, parent, content string) (Message, Run, error) {
+	m, r, err := s.addBotMessage(origin, sender, bot, parent, content)
+	s.afterTreeLimit(err)
+	return m, r, err
+}
+func (s *Store) addBotMessage(origin, sender, bot, parent, content string) (Message, Run, error) {
 	content = strings.TrimSpace(content)
 	if content == "" {
 		return Message{}, Run{}, errors.New("message content is required")
@@ -544,8 +557,12 @@ func (s *Store) AddBotMessage(origin, sender, bot, parent, content string) (Mess
 	if _, err = tx.Exec(`INSERT INTO runs(id,conversation_id,bot_id,status,error,parent_run_id,handoff_count,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, child.ID, traceID, bot, child.Status, nil, parent, 0, model, runKindMessage, origin, traceMessage.ID, queueSeq, t, t); err != nil {
 		return Message{}, Run{}, err
 	}
-	if _, err = recordTaskForChildTx(tx, delegationChild{RunID: child.ID, RunConversation: traceID, RunBot: bot, RunKind: runKindMessage, Origin: origin, Trigger: traceMessage.ID,
-		ParentRun: parent, ParentBot: sender, ParentConversation: origin, Brief: content, RunStatus: "queued"}); err != nil {
+	made, terr := recordTaskForChildTx(tx, delegationChild{RunID: child.ID, RunConversation: traceID, RunBot: bot, RunKind: runKindMessage, Origin: origin, Trigger: traceMessage.ID,
+		ParentRun: parent, ParentBot: sender, ParentConversation: origin, Brief: content, RunStatus: "queued"})
+	if terr != nil {
+		return Message{}, Run{}, terr
+	}
+	if err = chargeTreeTx(tx, made.RootTaskID, 1, true); err != nil {
 		return Message{}, Run{}, err
 	}
 	// Only these capsules are copied into user-visible conversations. Their
@@ -601,6 +618,11 @@ func (s *Store) AddBotMessage(origin, sender, bot, parent, content string) (Mess
 // more recipients. The trace has no user-facing name; its identity is carried
 // by the message notice so clients can render “from ↔ to” directly.
 func (s *Store) AddBotMessages(origin, sender string, targets []string, parent, content string) (Message, []Run, error) {
+	m, r, err := s.addBotMessages(origin, sender, targets, parent, content)
+	s.afterTreeLimit(err)
+	return m, r, err
+}
+func (s *Store) addBotMessages(origin, sender string, targets []string, parent, content string) (Message, []Run, error) {
 	content = strings.TrimSpace(content)
 	if content == "" {
 		return Message{}, nil, errors.New("message content is required")
@@ -700,8 +722,12 @@ func (s *Store) AddBotMessages(origin, sender string, targets []string, parent, 
 		if _, err = tx.Exec(`INSERT INTO runs(id,conversation_id,bot_id,status,error,parent_run_id,handoff_count,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, run.ID, traceID, run.BotID, run.Status, nil, parent, 0, run.Model, run.Kind, origin, traceMessage.ID, queueSeq, t, t); err != nil {
 			return Message{}, nil, err
 		}
-		if _, err = recordTaskForChildTx(tx, delegationChild{RunID: run.ID, RunConversation: traceID, RunBot: run.BotID, RunKind: runKindMessage, Origin: origin, Trigger: traceMessage.ID,
-			ParentRun: parent, ParentBot: sender, ParentConversation: origin, Brief: content, RunStatus: "queued"}); err != nil {
+		made, terr := recordTaskForChildTx(tx, delegationChild{RunID: run.ID, RunConversation: traceID, RunBot: run.BotID, RunKind: runKindMessage, Origin: origin, Trigger: traceMessage.ID,
+			ParentRun: parent, ParentBot: sender, ParentConversation: origin, Brief: content, RunStatus: "queued"})
+		if terr != nil {
+			return Message{}, nil, terr
+		}
+		if err = chargeTreeTx(tx, made.RootTaskID, 1, true); err != nil {
 			return Message{}, nil, err
 		}
 		runs = append(runs, run)

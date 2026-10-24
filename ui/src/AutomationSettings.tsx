@@ -14,7 +14,7 @@ export type AutomationKey =
   | "conversation_model" | "background_model" | "structured_output" | "force_say_haiku_dm" | "web_search"
   | "group_exchange_gists" | "own_replies_verbatim" | "completion_review" | "answer_gate" | "mcp_auto_review"
   | "remembered_approval_hours" | "provider_retries" | "schedule_receipt_review" | "desktop_idle_seconds"
-  | "group_triage" | "group_triage_model" | "task_retention_days" | "command_check_minutes";
+  | "group_triage" | "group_triage_model" | "task_retention_days" | "command_check_minutes" | "task_stall_rounds" | "task_tree_message_limit";
 export type AutomationGroup = "models" | "replies" | "history" | "checks" | "reliability" | "schedules" | "computer";
 const groupOrder: AutomationGroup[] = ["models", "replies", "history", "checks", "reliability", "schedules", "computer"];
 
@@ -39,11 +39,12 @@ type Value = boolean | number | string | null;
 type Names = {t: TFunction<"settings">; catalog: ModelCatalog | null};
 
 const hourPresets = [1, 4, 12, 24, 48, 72, 168, 720];
+const countPresets = [10, 20, 30, 60, 120, 250, 500];
 const dayPresets = [0, 7, 14, 30, 60, 90, 180, 365, 730, 3650];
 
 function intChoices(item: AutomationItem, current: number): number[] {
   const min = item.min ?? 0, max = item.max ?? min;
-  const base = max - min <= 24 ? Array.from({length: max - min + 1}, (_, index) => min + index) : (item.unit === "days" ? dayPresets : hourPresets).filter(value => value >= min && value <= max);
+  const base = max - min <= 24 ? Array.from({length: max - min + 1}, (_, index) => min + index) : (item.unit === "days" ? dayPresets : item.key === "task_tree_message_limit" ? countPresets : hourPresets).filter(value => value >= min && value <= max);
   return base.includes(current) ? base : [...base, current].sort((a, b) => a - b);
 }
 

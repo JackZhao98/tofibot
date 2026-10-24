@@ -319,6 +319,10 @@ func (s *Store) wakeBotFromInbox(botID, conv string, rows []inboxRow) (Run, bool
 			return Run{}, false, err
 		}
 	}
+	// A task the rows unlocked (decision 0064) belongs to the run they start.
+	if err = bindUnlockedTasksTx(tx, botID, run.ID, rows, false); err != nil {
+		return Run{}, false, err
+	}
 	if parent != "" {
 		// The tasks the earlier run held follow the Bot into this one.
 		if _, err = tx.Exec(`UPDATE work_items SET assignee_run_id=? WHERE bot_id=? AND assignee_run_id=? AND status NOT IN ('done','cancelled','failed')`, run.ID, botID, parent); err != nil {
@@ -372,8 +376,19 @@ func (s *Store) markInboxRead(runID string, ids []string) {
 	}
 	defer tx.Rollback()
 	for _, id := range ids {
-		if _, err = tx.Exec(`UPDATE bot_inbox SET consumed_by_run=?,consumed_at=? WHERE id=? AND consumed_at=''`, runID, now(), id); err != nil {
+		res, e := tx.Exec(`UPDATE bot_inbox SET consumed_by_run=?,consumed_at=? WHERE id=? AND consumed_at=''`, runID, now(), id)
+		if e != nil {
 			return
+		}
+		if n, _ := res.RowsAffected(); n != 1 {
+			continue
+		}
+		// A task the row unlocked (decision 0064) belongs to the run that read it.
+		var bot, kind, task string
+		if tx.QueryRow(`SELECT bot_id,kind,task_id FROM bot_inbox WHERE id=?`, id).Scan(&bot, &kind, &task) == nil {
+			if e = bindUnlockedTasksTx(tx, bot, runID, []inboxRow{{Kind: kind, TaskID: task}}, true); e != nil {
+				return
+			}
 		}
 	}
 	tx.Commit()

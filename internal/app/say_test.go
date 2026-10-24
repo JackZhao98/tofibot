@@ -492,6 +492,12 @@ func TestStructuredRunKeepsShortAnswersAfterAHandoff(t *testing.T) {
 		if run.Kind == runKindGroupTask {
 			return "helper result"
 		}
+		if run.Kind == runKindFollowup {
+			// The return run ends the exchange. The old fixed cap of eight handoff
+			// rounds used to end this loop by itself; the tree budget (decision 0064)
+			// is sixty, so the fixture stops its own loop.
+			return ""
+		}
 		for _, tool := range req.Tools {
 			if tool.Name == "handoff" {
 				if _, err := tool.Execute(ctx, handoffArgs(f.meta.ID, "write the metaphor")); err != nil {

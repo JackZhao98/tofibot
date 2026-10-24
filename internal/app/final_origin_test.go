@@ -182,6 +182,11 @@ func TestFinalOriginLeadingMentionDispatch(t *testing.T) {
 	}
 	engine.reply = func(ctx context.Context, req runtime.Request, text string) string {
 		if req.BotID == f.tofi.ID {
+			if run, err := f.server.store.GetRun(req.RunID); err == nil && run.ParentRunID != "" {
+				// The return run ends the exchange. The old cap of eight handoff rounds
+				// used to end this loop; the tree budget (decision 0064) is sixty.
+				return "The analogy is in."
+			}
 			return "@metaphor draft one analogy for synthetic caching"
 		}
 		return reply(ctx, req, "Caching is a pantry near the kitchen.", nil)
