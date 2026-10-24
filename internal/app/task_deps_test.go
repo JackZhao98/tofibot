@@ -752,3 +752,37 @@ func TestLegacyBotPostWaitsAreCountedAndBounded(t *testing.T) {
 		t.Fatalf("waits on posts were not bounded by the tree budget: %v", err)
 	}
 }
+
+// Triage tasks and a passed task's queued run resolve to the same tree as any other.
+func TestTriageAndPassedRunsGiveIntoTheirTaskTree(t *testing.T) {
+	f := newTaskFix(t)
+	run := f.running(f.g.ID, f.b)
+	tx, _ := f.s.db.Begin()
+	if err := recordTriageTaskTx(tx, f.g.ID, f.b.ID, run.ID, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	triage := f.taskOf(run.ID)
+	if got := treeKeyForRunTx(f.s.db, run.ID); got != triage.ID {
+		t.Fatalf("triage tree key %q, want the triage task %q", got, triage.ID)
+	}
+	child := f.delegateTo(f.g, run, f.c, "Sub work")
+	if got := f.taskRow(child.TaskID).RootTaskID; got != triage.ID {
+		t.Fatalf("a delegation from a triage task opened tree %q, want %q", got, triage.ID)
+	}
+	// Pass the triage task: the new holder's queued run is in the same tree.
+	passed, newRun, err := f.s.passTask(f.b.ID, run.ID, triage.ID, f.a.ID, "fits alpha better")
+	if err != nil || passed.ID != triage.ID {
+		t.Fatal(err)
+	}
+	if got := treeKeyForRunTx(f.s.db, newRun.ID); got != triage.ID {
+		t.Fatalf("the passed run resolves to %q, want %q", got, triage.ID)
+	}
+	f.start(newRun.ID)
+	another := f.delegateTo(f.g, newRun, f.c, "More sub work")
+	if got := f.taskRow(another.TaskID).RootTaskID; got != triage.ID {
+		t.Fatalf("the passed holder opened tree %q", got)
+	}
+}
