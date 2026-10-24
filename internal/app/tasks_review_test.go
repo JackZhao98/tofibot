@@ -102,3 +102,102 @@ func TestInboxRowsNotShownStayUnreadForTheWake(t *testing.T) {
 		t.Fatalf("%d rows left for the wake, want %d", len(due), 10-shown)
 	}
 }
+
+// Finding 3: a run that delegates keeps the task it holds; the return run carries it on.
+func TestARunThatDelegatesKeepsItsTaskOpenAndTheReturnRunFinishesIt(t *testing.T) {
+	f := newTaskFix(t)
+	x := f.running(f.g.ID, f.a)
+	_, r, err := f.s.AddHandoff(f.g.ID, f.a.ID, f.b.ID, x.ID, "Write the report")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.start(r.ID)
+	t0 := f.taskOf(r.ID)
+	_, c1, err := f.s.AddHandoff(f.g.ID, f.b.ID, f.c.ID, r.ID, "Draw the figure")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := f.s.FinishRun(r.ID, f.g.ID, f.b.ID, "I asked charlie for the figure."); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := f.s.GetWorkItem(t0.ID); isClosedWorkStatus(got.Status) || got.ResultMessageID != "" {
+		t.Fatalf("the task closed with the interim text: %+v", got)
+	}
+	f.start(c1.ID)
+	if _, _, err := f.s.FinishRun(c1.ID, f.g.ID, f.c.ID, "Figure done."); err != nil {
+		t.Fatal(err)
+	}
+	var ret string
+	if err := f.s.db.QueryRow(`SELECT id FROM runs WHERE parent_run_id=? AND kind=?`, c1.ID, runKindFollowup).Scan(&ret); err != nil {
+		t.Fatalf("no return run: %v", err)
+	}
+	if got := waitStatusOf(t, f.s.db, x.ID); got != waitPending {
+		t.Fatalf("the giver's wait settled early: %s", got)
+	}
+	f.start(ret)
+	if got, _ := f.s.GetWorkItem(t0.ID); got.AssigneeRunID != ret || got.Status != "in_progress" {
+		t.Fatalf("the return run did not take the task: %+v", got)
+	}
+	msg, _, err := f.s.FinishRun(ret, f.g.ID, f.b.ID, "The report with the figure.")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ := f.s.GetWorkItem(t0.ID)
+	if got.Status != "done" || got.ResultMessageID != msg.ID {
+		t.Fatalf("task after the real result: %+v", got)
+	}
+	if st := waitStatusOf(t, f.s.db, x.ID); st != waitFulfilled {
+		t.Fatalf("the giver's wait is %s", st)
+	}
+}
+
+// Finding 4: say(task_id=X) submits X, and a run that ends settles every task it holds.
+func TestSubmittedTaskWinsAndEveryHeldTaskSettles(t *testing.T) {
+	f := newTaskFix(t)
+	x := f.running(f.g.ID, f.a)
+	_, r, _ := f.s.AddHandoff(f.g.ID, f.a.ID, f.b.ID, x.ID, "First job")
+	f.start(r.ID)
+	t0 := f.taskOf(r.ID)
+	y := f.running(f.g.ID, f.c)
+	_, r2, _ := f.s.AddHandoff(f.g.ID, f.c.ID, f.b.ID, y.ID, "Second job")
+	t1 := f.taskOf(r2.ID)
+	if _, err := f.s.db.Exec(`UPDATE work_items SET assignee_run_id=? WHERE id=?`, r.ID, t1.ID); err != nil {
+		t.Fatal(err)
+	}
+	if got, ok, _ := taskForRunTx(f.s.db, r.ID); !ok || got.ID != t0.ID {
+		t.Fatalf("without a submission the oldest is picked: %+v", got)
+	}
+	if err := f.s.submitTaskForRun(r.ID, f.b.ID, t1.ID); err != nil {
+		t.Fatal(err)
+	}
+	if got, _, _ := taskForRunTx(f.s.db, r.ID); got.ID != t1.ID {
+		t.Fatalf("the submitted task is not the one picked: %s", got.Title)
+	}
+	msg, _, err := f.s.FinishRun(r.ID, f.g.ID, f.b.ID, "Both jobs done.")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{t0.ID, t1.ID} {
+		got, _ := f.s.GetWorkItem(id)
+		if got.Status != "done" || got.ResultMessageID != msg.ID {
+			t.Fatalf("task %s after the run ended: %s %q", got.Title, got.Status, got.ResultMessageID)
+		}
+	}
+}
+
+// Finding 8: a run may submit only for a task of its own conversation.
+func TestSubmitNeedsTheTasksConversation(t *testing.T) {
+	f := newTaskFix(t)
+	x := f.running(f.g.ID, f.a)
+	_, r, _ := f.s.AddHandoff(f.g.ID, f.a.ID, f.b.ID, x.ID, "A job")
+	f.start(r.ID)
+	task := f.taskOf(r.ID)
+	dm, _ := f.s.GetConversation(f.b.DMConversationID)
+	elsewhere := f.running(dm.ID, f.b)
+	if err := f.s.submitTaskForRun(elsewhere.ID, f.b.ID, task.ID); codeOf(err) != "task_wrong_conversation" {
+		t.Fatalf("a run in another conversation submitted: %v", err)
+	}
+	if err := f.s.submitTaskForRun(r.ID, f.b.ID, task.ID); err != nil {
+		t.Fatalf("the run in the task's conversation was refused: %v", err)
+	}
+}
