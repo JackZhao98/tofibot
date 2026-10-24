@@ -12,7 +12,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
-	"github.com/google/uuid"
 )
 
 const (
@@ -87,8 +86,16 @@ func openChecklistCount(q queryer, taskID string) int {
 	return n
 }
 
-// addChecklistItemsTx appends items. Only the task's creator calls it.
+// addChecklistItemsTx appends items the task's creator gave.
 func addChecklistItemsTx(tx *sql.Tx, taskID string, texts []string) error {
+	return addChecklistItemsAsTx(tx, taskID, texts, false)
+}
+
+// addChecklistItemsAsTx appends items. An item the holder adds carries a progress
+// mark of the holder: ending it does not restart the tree's idle count, so
+// removing and adding items cannot manufacture progress. Any item shows a hidden
+// task: a checklist makes it a long task.
+func addChecklistItemsAsTx(tx *sql.Tx, taskID string, texts []string, byHolder bool) error {
 	var have, ord int
 	if err := tx.QueryRow(`SELECT COUNT(*),COALESCE(MAX(ord),0) FROM task_checklist WHERE task_id=?`, taskID).Scan(&have, &ord); err != nil {
 		return err
@@ -103,10 +110,18 @@ func addChecklistItemsTx(tx *sql.Tx, taskID string, texts []string) error {
 			return taskRefusal("checklist_item_invalid", fmt.Sprintf("Each item needs 1-%d characters.", maxChecklistTextRunes))
 		}
 		ord++
-		if _, err := tx.Exec(`INSERT INTO task_checklist(task_id,item_id,ord,text,status,reason,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)`,
-			taskID, strings.ReplaceAll(uuid.NewString(), "-", "")[:6], ord, text, checklistOpen, "", t, t); err != nil {
+		id := newItemID()
+		mark := ""
+		if byHolder {
+			mark = holderMarkPrefix + id
+		}
+		if _, err := tx.Exec(`INSERT INTO task_checklist(task_id,item_id,ord,text,status,reason,created_at,updated_at,mark) VALUES(?,?,?,?,?,?,?,?,?)`,
+			taskID, id, ord, text, checklistOpen, "", t, t, mark); err != nil {
 			return err
 		}
+	}
+	if len(texts) > 0 {
+		return promoteTaskVisibleTx(tx, taskID)
 	}
 	return nil
 }
@@ -123,6 +138,7 @@ func decorateTaskTx(q queryer, item *WorkItem) error {
 	}
 	item.Checklist = checklist
 	item.ClaimedAt = claimedAtTx(q, item.ID, item.BotID)
+	_ = q.QueryRow(`SELECT merged_into FROM work_items WHERE id=?`, item.ID).Scan(&item.MergedInto)
 	if item.AssignerBotID != "" {
 		_ = q.QueryRow(`SELECT name FROM bots WHERE id=?`, item.AssignerBotID).Scan(&item.AssignerBotName)
 	}
@@ -285,6 +301,10 @@ func taskRunStartedTx(tx *sql.Tx, runID string) error {
 				if _, err = tx.Exec(`UPDATE work_items SET assignee_run_id=? WHERE id=?`, runID, id); err != nil {
 					return err
 				}
+				// A second run works on the task.
+				if err = promoteTaskVisibleTx(tx, id); err != nil {
+					return err
+				}
 				item, ok, err = taskForRunTx(tx, runID)
 				if err != nil {
 					return err
@@ -315,6 +335,12 @@ func taskRunStartedTx(tx *sql.Tx, runID string) error {
 				item, ok, err = taskForRunTx(tx, runID)
 				if err != nil {
 					return err
+				}
+				// A second run works on the task.
+				if ok {
+					if err = promoteTaskVisibleTx(tx, item.ID); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -435,10 +461,16 @@ func taskFinishedOneTx(tx *sql.Tx, done Run, item WorkItem, result Message, sayO
 		if err = settleClosedTaskTx(tx, WorkItem{ID: item.ID, Status: status, RootTaskID: item.RootTaskID}); err != nil {
 			return err
 		}
-	} else if item.AssignerBotID != "" {
-		// The round ended with the task still open: it counts toward a stall.
-		if err = noteRoundEndedTx(tx, item, done.ID); err != nil {
+	} else {
+		// The first round ended with the task still open: it is a long task, not small talk.
+		if err = promoteTaskVisibleTx(tx, item.ID); err != nil {
 			return err
+		}
+		if item.AssignerBotID != "" {
+			// The round ended with the task still open: it counts toward a stall.
+			if err = noteRoundEndedTx(tx, item, done.ID); err != nil {
+				return err
+			}
 		}
 	}
 	return taskEventTx(tx, item.ID)
@@ -476,8 +508,11 @@ func taskEndedOneTx(tx *sql.Tx, runID, status string, item WorkItem) error {
 		err := tx.QueryRow(`SELECT l.new_run_id FROM run_steering l JOIN runs n ON n.id=l.new_run_id WHERE l.old_run_id=? AND n.bot_id=? AND n.status IN ('queued','running','waiting')
  ORDER BY n.queue_seq DESC,n.created_at DESC LIMIT 1`, runID, item.BotID).Scan(&successor)
 		if err == nil {
-			_, err = tx.Exec(`UPDATE work_items SET assignee_run_id=? WHERE id=?`, successor, item.ID)
-			return err
+			if _, err = tx.Exec(`UPDATE work_items SET assignee_run_id=? WHERE id=?`, successor, item.ID); err != nil {
+				return err
+			}
+			// A second run works on the task.
+			return promoteTaskVisibleTx(tx, item.ID)
 		} else if err != sql.ErrNoRows {
 			return err
 		}
@@ -627,26 +662,37 @@ func cancelTaskTreeTx(tx *sql.Tx, roots []string, includeRoots bool) (int, []str
 	return cancelled, runs, nil
 }
 
-// TaskUpdate is one change to a task. Which fields a caller may set depends on
-// its role: the creator edits the request and the checklist's membership, the
-// assignee reports status and per-item results.
+// TaskUpdate is one change to a task. Either side, the member that gave the
+// task and the member that holds it, may edit it (owner decision 2026-10-24);
+// every edit carries a reason. Only the giver answers a question or accepts or
+// cancels the task, and only the holder reports its status and the result of an
+// item.
 type TaskUpdate struct {
-	TaskID      string
-	Status      string
-	Brief       *string
-	AddItems    []string
-	RemoveItems []string
-	Items       []ChecklistChange
-	Reason      string
-	Answer      string
+	TaskID       string
+	Status       string
+	Brief        *string
+	AddItems     []string
+	RemoveItems  []string
+	RewriteItems []ChecklistRewrite
+	Order        []string
+	Items        []ChecklistChange
+	Reason       string
+	Answer       string
+	// Absorb names a task of the same tree that this task takes in.
+	Absorb string
 	// AddDependsOn and RemoveDependsOn change what a blocked task that has not
-	// started waits on (decision 0064). Only the member that gave the task may.
+	// started waits on (decision 0064).
 	AddDependsOn    []string
 	RemoveDependsOn []string
 }
 
+func (in TaskUpdate) structural() bool {
+	return len(in.AddItems) > 0 || len(in.RemoveItems) > 0 || len(in.RewriteItems) > 0 || len(in.Order) > 0 || in.Brief != nil ||
+		len(in.AddDependsOn) > 0 || len(in.RemoveDependsOn) > 0 || strings.TrimSpace(in.Absorb) != ""
+}
+
 // updateTask applies a TaskUpdate for actor. It reports the change to the
-// other side through the inbox.
+// other side through the inbox and records every edit with its reason.
 func (s *Store) updateTask(actor string, in TaskUpdate) (WorkItem, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -669,31 +715,66 @@ func (s *Store) updateTask(actor string, in TaskUpdate) (WorkItem, error) {
 		return WorkItem{}, taskRefusal("task_closed", "The task is closed. Give a new task instead.")
 	}
 	t := now()
-	// Checklist membership and the request belong to the creator.
-	if len(in.AddItems) > 0 || len(in.RemoveItems) > 0 || in.Brief != nil || in.Answer != "" || len(in.AddDependsOn) > 0 || len(in.RemoveDependsOn) > 0 {
-		if !creator {
-			return WorkItem{}, taskRefusal("checklist_creator_only", "Only the member that gave the task may add or remove checklist items, change the request, or answer a question about it.")
-		}
+	// Answering a question is the giver's.
+	if in.Answer != "" && !creator {
+		return WorkItem{}, taskRefusal("task_answer_giver_only", "Only the member that gave the task may answer a question about it.")
 	}
-	// Item results and the task's own progress belong to the assignee.
+	// Item results and the task's own progress belong to the holder.
 	if len(in.Items) > 0 || in.Status == "in_progress" || in.Status == "blocked" {
 		if !assignee {
 			return WorkItem{}, taskRefusal("task_assignee_only", "Only the member that holds the task may report its progress or the result of a checklist item.")
 		}
 	}
-	if len(in.AddItems) > 0 {
-		if err = addChecklistItemsTx(tx, item.ID, in.AddItems); err != nil {
-			return WorkItem{}, err
+	editReason := strings.TrimSpace(in.Reason)
+	if in.structural() {
+		if editReason == "" {
+			return WorkItem{}, taskRefusal("edit_reason_required", "Every edit of a task carries a reason: the request, the checklist, what the task waits on, or a merge.")
+		}
+		if utf8.RuneCountInString(editReason) > maxEditReason {
+			return WorkItem{}, taskRefusal("edit_reason_too_long", fmt.Sprintf("A reason holds at most %d characters.", maxEditReason))
 		}
 	}
-	for _, id := range in.RemoveItems {
-		res, e := tx.Exec(`DELETE FROM task_checklist WHERE task_id=? AND item_id=?`, item.ID, id)
-		if e != nil {
-			return WorkItem{}, e
+	var kinds, summary []string
+	byHolder := assignee && !creator
+	if len(in.AddItems) > 0 {
+		if err = addChecklistItemsAsTx(tx, item.ID, in.AddItems, byHolder); err != nil {
+			return WorkItem{}, err
 		}
-		if n, _ := res.RowsAffected(); n == 0 {
-			return WorkItem{}, taskRefusal("checklist_item_unknown", "No checklist item has that id: "+id)
+		kinds = append(kinds, "add_items")
+		summary = append(summary, fmt.Sprintf("Added items: %s.", trimRunes(strings.Join(in.AddItems, "; "), 600)))
+	}
+	if len(in.RemoveItems) > 0 {
+		var gone []string
+		for _, id := range in.RemoveItems {
+			var text, status string
+			if e := tx.QueryRow(`SELECT text,status FROM task_checklist WHERE task_id=? AND item_id=?`, item.ID, id).Scan(&text, &status); e != nil {
+				return WorkItem{}, taskRefusal("checklist_item_unknown", "No checklist item has that id: "+id)
+			}
+			if _, e := tx.Exec(`DELETE FROM task_checklist WHERE task_id=? AND item_id=?`, item.ID, id); e != nil {
+				return WorkItem{}, e
+			}
+			gone = append(gone, fmt.Sprintf("%q (was %s)", trimRunes(text, 120), status))
 		}
+		kinds = append(kinds, "remove_items")
+		summary = append(summary, "Removed items: "+strings.Join(gone, "; ")+".")
+	}
+	if len(in.RewriteItems) > 0 {
+		if err = rewriteChecklistTx(tx, item.ID, in.RewriteItems); err != nil {
+			return WorkItem{}, err
+		}
+		var texts []string
+		for _, rw := range in.RewriteItems {
+			texts = append(texts, strings.TrimSpace(rw.Text))
+		}
+		kinds = append(kinds, "rewrite_items")
+		summary = append(summary, "Rewrote items: "+trimRunes(strings.Join(texts, "; "), 600)+".")
+	}
+	if len(in.Order) > 0 {
+		if err = reorderChecklistTx(tx, item.ID, in.Order); err != nil {
+			return WorkItem{}, err
+		}
+		kinds = append(kinds, "reorder_items")
+		summary = append(summary, "Changed the order of the items.")
 	}
 	for _, change := range in.Items {
 		if !validChecklistStatus(change.Status) {
@@ -706,17 +787,26 @@ func (s *Store) updateTask(actor string, in TaskUpdate) (WorkItem, error) {
 		if utf8.RuneCountInString(reason) > maxChecklistReason {
 			return WorkItem{}, taskRefusal("checklist_reason_too_long", fmt.Sprintf("A reason holds at most %d characters.", maxChecklistReason))
 		}
-		res, e := tx.Exec(`UPDATE task_checklist SET status=?,reason=?,updated_at=? WHERE task_id=? AND item_id=?`, change.Status, reason, t, item.ID, change.ID)
-		if e != nil {
-			return WorkItem{}, e
-		}
-		if n, _ := res.RowsAffected(); n == 0 {
+		var before, text, mark string
+		if e := tx.QueryRow(`SELECT status,text,mark FROM task_checklist WHERE task_id=? AND item_id=?`, item.ID, change.ID).Scan(&before, &text, &mark); e != nil {
 			return WorkItem{}, taskRefusal("checklist_item_unknown", "No checklist item has that id: "+change.ID)
 		}
-		if change.Status != checklistOpen {
+		if _, e := tx.Exec(`UPDATE task_checklist SET status=?,reason=?,updated_at=? WHERE task_id=? AND item_id=?`, change.Status, reason, t, item.ID, change.ID); e != nil {
+			return WorkItem{}, e
+		}
+		if before == checklistBlocked && change.Status == checklistSkipped {
+			// A blocked item that becomes not needed is an edit of the scope: the giver is told.
+			kinds = append(kinds, "blocked_to_skipped")
+			summary = append(summary, fmt.Sprintf("Item %q was blocked and is now skipped: %s.", trimRunes(text, 120), trimRunes(reason, 200)))
+			if editReason == "" {
+				editReason = reason
+			}
+		}
+		if change.Status != checklistOpen && !holderOwnedMark(mark) {
 			// An item that ends for the first time is progress: the tree's
-			// idle-message count restarts. Reopening and ending it again is not.
-			if err = progressOnceTx(tx, item.RootTaskID, item.ID, "item:"+change.ID); err != nil {
+			// idle-message count restarts. Reopening and ending it again is not,
+			// and an item the holder added is not (it could add items to restart the count).
+			if err = progressOnceTx(tx, item.RootTaskID, item.ID, itemMarkKey(change.ID, mark)); err != nil {
 				return WorkItem{}, err
 			}
 		}
@@ -727,6 +817,8 @@ func (s *Store) updateTask(actor string, in TaskUpdate) (WorkItem, error) {
 			return WorkItem{}, e
 		}
 		item.DependsOn = list
+		kinds = append(kinds, "dependencies")
+		summary = append(summary, "Changed what the task waits on; it now waits on: "+list+".")
 		open, e := depsOpenTx(tx, parseDeps(list))
 		if e != nil {
 			return WorkItem{}, e
@@ -740,6 +832,13 @@ func (s *Store) updateTask(actor string, in TaskUpdate) (WorkItem, error) {
 			}
 		}
 	}
+	if strings.TrimSpace(in.Absorb) != "" {
+		if _, err = mergeTasksTx(tx, &item, in.Absorb, actor, editReason); err != nil {
+			return WorkItem{}, err
+		}
+		kinds = append(kinds, "merged_in")
+		summary = append(summary, "Absorbed task "+strings.TrimSpace(in.Absorb)+".")
+	}
 	message := false
 	if in.Brief != nil {
 		brief := strings.TrimSpace(*in.Brief)
@@ -752,18 +851,36 @@ func (s *Store) updateTask(actor string, in TaskUpdate) (WorkItem, error) {
 			if _, err = tx.Exec(`UPDATE work_items SET description=?,spec_version=? WHERE id=?`, brief, item.SpecVersion, item.ID); err != nil {
 				return WorkItem{}, err
 			}
-			if err = noteTaskRevisionTx(tx, item, "assigner", actor, brief); err != nil {
-				return WorkItem{}, err
-			}
-			// Both sides learn of the new version; the assigner's edit is
-			// not a message to itself.
-			if item.BotID != actor {
-				if err = addInboxTx(tx, InboxItem{BotID: item.BotID, ConversationID: item.WorkConversationOrConversation(), Kind: inboxTaskUpdate, TaskID: item.ID, RootTaskID: item.RootTaskID,
-					Body: fmt.Sprintf("The request for task %q (%s) changed. It is now version %d: %s", item.Title, item.ID, item.SpecVersion, trimRunes(brief, 1200)), Wakes: true, AfterRun: ""}); err != nil {
+			source := "assigner"
+			if byHolder {
+				source = "holder"
+				// The holder wrote this version: its own run is based on it.
+				if _, err = tx.Exec(`UPDATE work_items SET run_spec_version=spec_version WHERE id=?`, item.ID); err != nil {
 					return WorkItem{}, err
 				}
 			}
-			message = true
+			if err = noteTaskRevisionTx(tx, item, source, actor, brief, editReason); err != nil {
+				return WorkItem{}, err
+			}
+			kinds = append(kinds, "request")
+			if byHolder {
+				summary = append(summary, fmt.Sprintf("The request changed. It is now version %d: %s", item.SpecVersion, trimRunes(brief, 1200)))
+			} else if item.BotID != actor {
+				// The holder is woken: it works on a request that changed.
+				if err = addInboxTx(tx, InboxItem{BotID: item.BotID, ConversationID: item.WorkConversationOrConversation(), Kind: inboxTaskUpdate, TaskID: item.ID, RootTaskID: item.RootTaskID,
+					Body: fmt.Sprintf("The request for task %q (%s) changed. It is now version %d. Reason: %s The request: %s", item.Title, item.ID, item.SpecVersion, trimRunes(editReason, maxEditReason), trimRunes(brief, 1200)), Wakes: true, AfterRun: ""}); err != nil {
+					return WorkItem{}, err
+				}
+			}
+			message = creator
+		}
+	}
+	if len(kinds) > 0 {
+		if err = recordTaskEditTx(tx, item, actor, editRole(item, actor), kinds, editReason, strings.Join(summary, " ")); err != nil {
+			return WorkItem{}, err
+		}
+		if err = editNoticeTx(tx, item, actor, summary, editReason); err != nil {
+			return WorkItem{}, err
 		}
 	}
 	if in.Answer != "" {
@@ -837,8 +954,8 @@ func (w WorkItem) WorkConversationOrConversation() string {
 	return w.ConversationID
 }
 
-func noteTaskRevisionTx(tx *sql.Tx, item WorkItem, source, actor, text string) error {
-	_, err := tx.Exec(`INSERT OR REPLACE INTO task_revisions(task_id,version,source,actor,text,created_at) VALUES(?,?,?,?,?,?)`, item.ID, item.SpecVersion, source, actor, trimRunes(text, maxTaskBriefRunes), now())
+func noteTaskRevisionTx(tx *sql.Tx, item WorkItem, source, actor, text, reason string) error {
+	_, err := tx.Exec(`INSERT OR REPLACE INTO task_revisions(task_id,version,source,actor,text,created_at,reason) VALUES(?,?,?,?,?,?,?)`, item.ID, item.SpecVersion, source, actor, trimRunes(text, maxTaskBriefRunes), now(), trimRunes(reason, maxEditReason))
 	return err
 }
 
@@ -935,7 +1052,7 @@ func (s *Store) noteUserMessageForBotTasks(conversationID string, message Messag
 		if _, err = tx.Exec(`UPDATE work_items SET spec_version=?,updated_at=? WHERE id=?`, item.SpecVersion, now(), id); err != nil {
 			return err
 		}
-		if err = noteTaskRevisionTx(tx, item, "person", "", message.Content); err != nil {
+		if err = noteTaskRevisionTx(tx, item, "person", "", message.Content, ""); err != nil {
 			return err
 		}
 		note := fmt.Sprintf("The person changed the request for task %q (%s) with a new message. It is now version %d: %s", item.Title, item.ID, item.SpecVersion, trimRunes(message.Content, 1200))

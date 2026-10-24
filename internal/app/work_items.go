@@ -57,6 +57,7 @@ type WorkItem struct {
 	ResultSummary        string          `json:"result_summary,omitempty"`
 	DependsOn            string          `json:"depends_on,omitempty"`
 	StallCount           int             `json:"stall_count,omitempty"`
+	MergedInto           string          `json:"merged_into,omitempty"`
 	MessageCount         int             `json:"message_count,omitempty"`
 	SubmitRunID          string          `json:"-"`
 	ClosedAt             string          `json:"closed_at,omitempty"`
@@ -112,7 +113,9 @@ func workItemsDDL(name string) string {
  stall_count INTEGER NOT NULL DEFAULT 0,
  message_count INTEGER NOT NULL DEFAULT 0,
  submit_run_id TEXT NOT NULL DEFAULT '',
- closed_at TEXT NOT NULL DEFAULT ''
+ closed_at TEXT NOT NULL DEFAULT '',
+ hidden INTEGER NOT NULL DEFAULT 0,
+ merged_into TEXT NOT NULL DEFAULT ''
  )`
 }
 
@@ -146,6 +149,12 @@ func migrateWorkItems(db *sql.DB) error {
 			if err := ensureColumn(db, "work_items", column, `ALTER TABLE work_items ADD COLUMN `+workItemColumnDDL(column)); err != nil {
 				return err
 			}
+		}
+		if err := ensureColumn(db, "work_items", "hidden", `ALTER TABLE work_items ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0`); err != nil {
+			return err
+		}
+		if err := ensureColumn(db, "work_items", "merged_into", `ALTER TABLE work_items ADD COLUMN merged_into TEXT NOT NULL DEFAULT ''`); err != nil {
+			return err
 		}
 		_, err = db.Exec(workItemsIndexesDDL)
 		return err
@@ -396,6 +405,11 @@ func (s *Store) updateWorkItem(id string, patch WorkItemPatch, conversationID, a
 }
 
 func workItemEventTx(tx *sql.Tx, item WorkItem) error {
+	// Small talk stays out of every card and list until it shows itself to be a
+	// long task (task_edit.go); its row and history are kept.
+	if taskHiddenTx(tx, item.ID) {
+		return nil
+	}
 	data, err := json.Marshal(item)
 	if err != nil {
 		return err
@@ -438,7 +452,7 @@ func (s *Store) ListWorkItems(conversationID, botID string, history bool) ([]Wor
 	if conversationID == "" && botID == "" {
 		return nil, fmt.Errorf("%w: conversation or bot filter is required", ErrWorkItemInvalid)
 	}
-	query := `SELECT ` + workItemReadColumns + workItemReadFrom + ` WHERE 1=1`
+	query := `SELECT ` + workItemReadColumns + workItemReadFrom + ` WHERE w.hidden=0`
 	args := []any{}
 	if conversationID != "" {
 		query += ` AND w.conversation_id=?`

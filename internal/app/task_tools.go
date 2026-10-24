@@ -23,7 +23,7 @@ const (
 
 	cancelWaitToolDescription = "End a wait you no longer need, for example when its event came another way or the work changed. A wait you end does not wake you."
 
-	taskUpdateToolDescription = "Change a task you gave or hold. The member that gave the task may change its request (the version goes up and the holder is told), add or remove checklist items, change what a blocked task that has not started waits on, answer a question about the task, accept it as done, or cancel it. The member that holds the task may report its status, and set the status and the reason of each checklist item; it may not add or remove items. Work on one item at a time, and end each item as done, skipped or blocked with a reason."
+	taskUpdateToolDescription = "Change a task you gave or hold. Either side may edit it when new information needs it: change the request (the version goes up), add, remove, rewrite or reorder checklist items, change what a blocked task that has not started waits on, or absorb another task of the same tree into this one. Every edit needs a reason. The other side is told and the edit is recorded. Do not remove an item, or end it as skipped, to avoid hard work. The holder also reports its status and ends each checklist item as done, skipped or blocked with a reason. The giver also answers a question about the task, accepts it as done, or cancels it. Work on one item at a time."
 
 	taskAskToolDescription = "Ask the member that gave you a task a question about it. The task becomes input_required, and the question wakes that member after your turn ends. End your turn after you ask; you wake when the answer arrives. When the person gave the task, ask the person with the question tool."
 
@@ -292,15 +292,21 @@ func (s *Server) cancelWaitTool(r Run) Tool {
 func (s *Server) taskUpdateTool(r Run) Tool {
 	return Tool{Name: "task_update", Description: taskUpdateToolDescription, Local: true,
 		Parameters: objectSchema(map[string]any{
-			"task_id":           stringProp("The id of the task."),
-			"status":            map[string]any{"type": "string", "enum": []string{"in_progress", "blocked", "done", "cancelled"}, "description": "The holder reports in_progress or blocked. The giver accepts the task as done or cancels it."},
-			"reason":            stringProp("The reason for a blocked status."),
-			"brief":             stringProp("The giver's new request. The version goes up."),
-			"answer":            stringProp("The giver's answer to a question about the task."),
-			"add_items":         map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "The giver adds these checklist items."},
-			"remove_items":      map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "The giver removes the checklist items with these ids."},
-			"add_depends_on":    map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "The giver adds tasks of the same tree that a blocked task, not yet started, waits on."},
-			"remove_depends_on": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "The giver removes tasks that a blocked task, not yet started, waits on. A task that waits on nothing starts."},
+			"task_id":      stringProp("The id of the task."),
+			"status":       map[string]any{"type": "string", "enum": []string{"in_progress", "blocked", "done", "cancelled"}, "description": "The holder reports in_progress or blocked. The giver accepts the task as done or cancels it."},
+			"reason":       stringProp("The reason for an edit, or for a blocked status."),
+			"brief":        stringProp("The new request. The version goes up."),
+			"answer":       stringProp("The giver's answer to a question about the task."),
+			"add_items":    map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Checklist items to add."},
+			"remove_items": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Ids of checklist items to remove."},
+			"rewrite_items": map[string]any{"type": "array", "description": "Checklist items whose text changes.", "items": objectSchema(map[string]any{
+				"id":   map[string]any{"type": "string"},
+				"text": map[string]any{"type": "string"},
+			}, []string{"id", "text"})},
+			"order":             map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Item ids in their new order; items left out follow."},
+			"absorb_task_id":    stringProp("The id of a task of the same tree that this task takes in. Its checklist joins this one and it closes as merged."),
+			"add_depends_on":    map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Tasks of the same tree that a blocked task, not yet started, also waits on."},
+			"remove_depends_on": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Tasks that a blocked task, not yet started, no longer waits on. A task that waits on nothing starts."},
 			"items": map[string]any{"type": "array", "description": "The holder sets the status and reason of checklist items.", "items": objectSchema(map[string]any{
 				"id":     map[string]any{"type": "string"},
 				"status": map[string]any{"type": "string", "enum": []string{checklistOpen, checklistDone, checklistSkipped, checklistBlocked}},
@@ -312,21 +318,24 @@ func (s *Server) taskUpdateTool(r Run) Tool {
 				return "", err
 			}
 			var in struct {
-				TaskID      string            `json:"task_id"`
-				Status      string            `json:"status"`
-				Reason      string            `json:"reason"`
-				Brief       *string           `json:"brief"`
-				Answer      string            `json:"answer"`
-				AddItems    []string          `json:"add_items"`
-				RemoveItems []string          `json:"remove_items"`
-				Items       []ChecklistChange `json:"items"`
-				AddDeps     []string          `json:"add_depends_on"`
-				RemoveDeps  []string          `json:"remove_depends_on"`
+				TaskID      string             `json:"task_id"`
+				Status      string             `json:"status"`
+				Reason      string             `json:"reason"`
+				Brief       *string            `json:"brief"`
+				Answer      string             `json:"answer"`
+				AddItems    []string           `json:"add_items"`
+				RemoveItems []string           `json:"remove_items"`
+				Rewrite     []ChecklistRewrite `json:"rewrite_items"`
+				Order       []string           `json:"order"`
+				Absorb      string             `json:"absorb_task_id"`
+				Items       []ChecklistChange  `json:"items"`
+				AddDeps     []string           `json:"add_depends_on"`
+				RemoveDeps  []string           `json:"remove_depends_on"`
 			}
 			if json.Unmarshal(raw, &in) != nil || strings.TrimSpace(in.TaskID) == "" {
 				return "", errors.New("task_id is required")
 			}
-			item, err := s.store.updateTask(r.BotID, TaskUpdate{TaskID: strings.TrimSpace(in.TaskID), Status: in.Status, Brief: in.Brief, AddItems: in.AddItems, RemoveItems: in.RemoveItems, Items: in.Items, Reason: in.Reason, Answer: strings.TrimSpace(in.Answer), AddDependsOn: in.AddDeps, RemoveDependsOn: in.RemoveDeps})
+			item, err := s.store.updateTask(r.BotID, TaskUpdate{TaskID: strings.TrimSpace(in.TaskID), Status: in.Status, Brief: in.Brief, AddItems: in.AddItems, RemoveItems: in.RemoveItems, RewriteItems: in.Rewrite, Order: in.Order, Absorb: in.Absorb, Items: in.Items, Reason: in.Reason, Answer: strings.TrimSpace(in.Answer), AddDependsOn: in.AddDeps, RemoveDependsOn: in.RemoveDeps})
 			if err != nil {
 				return "", err
 			}
@@ -403,8 +412,21 @@ func (s *Store) submitTaskForRun(runID, botID, taskID string) error {
 	if conv != item.ConversationID && (item.WorkConversationID == "" || conv != item.WorkConversationID) {
 		return taskRefusal("task_wrong_conversation", "Submit a result only from the conversation the task lives in.")
 	}
-	_, err = s.db.Exec(`UPDATE work_items SET submit_run_id=? WHERE id=?`, runID, item.ID)
-	return err
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err = tx.Exec(`UPDATE work_items SET submit_run_id=? WHERE id=?`, runID, item.ID); err != nil {
+		return err
+	}
+	// A run other than the first one answers for the task: it is a long task.
+	if runID != item.AssigneeRunID {
+		if err = promoteTaskVisibleTx(tx, item.ID); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func (s *Store) noteSayOutcome(runID, outcome string) {

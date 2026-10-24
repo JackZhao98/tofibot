@@ -233,6 +233,9 @@ func recordWaitTx(tx *sql.Tx, spec WaitSpec) (Wait, error) {
 	if pending >= maxPendingWaitsPerBot && spec.Delivery == deliveryEngine {
 		return Wait{}, waitRefusal("wait_limit", fmt.Sprintf("You already hold %d open waits. Cancel one, or let one end, before you add another.", maxPendingWaitsPerBot))
 	}
+	if err := promoteRunTasksTx(tx, spec.RunID); err != nil {
+		return Wait{}, err
+	}
 	id := newID()
 	group := id
 	if spec.GroupID != "" {

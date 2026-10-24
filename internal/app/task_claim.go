@@ -82,6 +82,9 @@ func (s *Store) claimTask(actor, taskID string) (WorkItem, error) {
 	if _, err = tx.Exec(`INSERT INTO task_claims(task_id,bot_id,claimed_at) VALUES(?,?,?) ON CONFLICT(task_id) DO UPDATE SET bot_id=excluded.bot_id,claimed_at=CASE WHEN task_claims.bot_id=excluded.bot_id THEN task_claims.claimed_at ELSE excluded.claimed_at END`, item.ID, actor, t); err != nil {
 		return WorkItem{}, err
 	}
+	if err = promoteTaskVisibleTx(tx, item.ID); err != nil {
+		return WorkItem{}, err
+	}
 	if item.Status == "todo" {
 		if _, err = tx.Exec(`UPDATE work_items SET status='in_progress',updated_at=? WHERE id=?`, t, item.ID); err != nil {
 			return WorkItem{}, err
@@ -177,6 +180,9 @@ func (s *Store) passTask(actor, fromRunID, taskID, to, reason string) (WorkItem,
 	if _, err = tx.Exec(`UPDATE work_items SET bot_id=?,status='todo',assignee_run_id=?,submit_run_id='',updated_at=? WHERE id=?`, to, run.ID, t, item.ID); err != nil {
 		return WorkItem{}, Run{}, err
 	}
+	if err = promoteTaskVisibleTx(tx, item.ID); err != nil {
+		return WorkItem{}, Run{}, err
+	}
 	// The new holder reads why the task came to it when its run starts.
 	body := "Task " + quoteTitle(item.Title) + " (" + item.ID + ") was passed to you by " + fromName + ". Reason: " + trimRunes(reason, maxChecklistReason) + " Check that it fits your role, then claim it or do it."
 	if err = addInboxTx(tx, InboxItem{BotID: to, ConversationID: item.ConversationID, Kind: inboxTaskUpdate, TaskID: item.ID, RootTaskID: item.RootTaskID, Body: body}); err != nil {
@@ -267,7 +273,12 @@ func recordTriageTaskTx(tx *sql.Tx, conv, bot, runID, triggerID string) error {
 	if _, err := tx.Exec(`INSERT INTO task_revisions(task_id,version,source,actor,text,created_at) VALUES(?,?,?,?,?,?)`, id, 1, "person", "", trimRunes(content, maxTaskBriefRunes), t); err != nil {
 		return err
 	}
-	return taskEventTx(tx, id)
+	// A task for a person's message is small talk until it shows itself to be a
+	// long task (task_edit.go). The row is kept either way.
+	if _, err := tx.Exec(`UPDATE work_items SET hidden=1 WHERE id=?`, id); err != nil {
+		return err
+	}
+	return nil
 }
 
 const (
@@ -285,7 +296,7 @@ func (s *Store) taskCards(conversationID string) ([]WorkItem, error) {
 		return nil, err
 	}
 	defer tx.Rollback()
-	rows, err := tx.Query(`SELECT `+workItemReadColumns+workItemReadFrom+` WHERE w.kind='task' AND (w.conversation_id=? OR w.work_conversation_id=?)
+	rows, err := tx.Query(`SELECT `+workItemReadColumns+workItemReadFrom+` WHERE w.kind='task' AND w.hidden=0 AND (w.conversation_id=? OR w.work_conversation_id=?)
  AND (w.status IN (`+openTaskStatuses+`) OR (w.status IN ('done','failed') AND w.updated_at>?)) ORDER BY w.updated_at DESC,w.id LIMIT ?`, conversationID, conversationID, cutoff, maxTaskCards)
 	if err != nil {
 		return nil, err
