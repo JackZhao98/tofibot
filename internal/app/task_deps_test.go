@@ -456,7 +456,6 @@ func TestWaitOnABlockedTaskStartsItsDeadlineAtUnlock(t *testing.T) {
 	if left := time.Until(deadline()); left < 23*time.Hour {
 		t.Fatalf("a blocked task's wait must have the long ceiling, has %v", left)
 	}
-	// Past the usual deadline, the sweeper must not time it out while blocked.
 	run := f.taskRow(base.TaskID).AssigneeRunID
 	f.start(run)
 	if _, ok, err := f.s.FinishRun(run, f.g.ID, f.b.ID, "Base done."); err != nil || !ok {
