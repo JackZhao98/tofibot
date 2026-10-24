@@ -33,7 +33,7 @@ C2：Bot 起长命令、结束这一轮、命令结束再被叫醒。D59 已有�
 ## 影响
 
 - **guest 要重建镜像**：`terminal.list` 每行多一个 `foreground_job`（能判断时才有；进程已结束或判断失败时省略）。没有新增 guest 动作，所以不动 `microVMActions` 和看门狗名单。没换镜像的电脑照常工作，只是 shell 里的作业结束看不到，靠计时回看兜底。
-- 监视器用 `viewer` 来源调 `terminal.list`/`terminal.read`。命令等待存在期间电脑每 5 秒被问一次，这会让它保持清醒，是“命令在跑时电脑不休眠”的实现方式；hibernation 空闲判断是否把这类调用算作使用，要在真机上核对（见风险）。
+- 监视器用 `viewer` 来源调 `terminal.list`/`terminal.read`。命令等待存在期间电脑每 5 秒被问一次，这不是保持清醒的手段：guest 的休眠判断（`busyReasons`）自己把“用显式命令打开、进程还活着”的终端算作忙（`terminal_job`），shell 终端仍按前台作业判断。
 - 与计划的差别：升级忙判断读 App 数据库而不是新开 App 状态接口给 `tofi_host.py`（接口要认证，数据库只读路径已经用于数 run）；`GET /api/command-waits` 只给 Settings 用。
 - 不做：命令级检查点续跑、交互 shell 的退出码、输出全文保存（只留 8 KB，其余在终端里）。
 
