@@ -903,6 +903,10 @@
         "name": "Modèle d'aiguillage de groupe",
         "what": "Le modèle qui choisit le membre pour un message de groupe sans destinataire. Automatique signifie le modèle d'arrière-plan."
       },
+      "group_followup_to_working": {
+        "name": "Les messages de suite vont au membre encore à l'œuvre",
+        "what": "Quand un message de groupe ne nomme personne et qu'un membre travaille encore sur le message précédent de la personne, le nouveau message lui parvient comme note en file, lue à sa prochaine étape, au lieu d'être aiguillé de nouveau. Une fois sa réponse donnée, le message suivant est aiguillé comme d'habitude. Désactivé : tous ces messages sont aiguillés."
+      },
       "task_retention_days": {
         "name": "Durée de conservation des tâches terminées",
         "what": "Passé ce nombre de jours, une tâche terminée perd le texte de la demande, sa liste de contrôle et ses révisions. Le titre et le résultat en une ligne restent. 0 conserve tout."

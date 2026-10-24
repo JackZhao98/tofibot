@@ -42,10 +42,12 @@ func triageSystemPrompt(members []Bot, tasks []triageTask) string {
 		"If the latest message continues an unfinished task, choose the member that holds it. " +
 		"If no role fits, choose the primary assistant when the list has one, otherwise the member with the most general role. " +
 		"Never answer the message. Never choose a name or id that is not in the list. " +
-		"Reply with only the exact id of the chosen member, or JSON {\"bot_id\":\"...\"}.\nMembers:\n" + roster.String() + open.String()
+		"Reply with the exact id of the chosen member, or JSON {\"bot_id\":\"...\",\"brief\":\"...\"}. " +
+		"The brief is optional: one sentence in the language of the latest message that restates what the person wants, with every reference in the latest message resolved from the recent conversation. Leave it out when the message already stands alone.\nMembers:\n" + roster.String() + open.String()
 }
 
 const (
+	maxTriageBriefRunes = 200
 	maxTriageTasks      = 12
 	maxTriageTaskTitles = 80
 )
@@ -97,4 +99,14 @@ func (s *Server) routeAfterFailedTriage(c Conversation, r Run, cause error) bool
 	}
 	s.enqueue(c, child)
 	return true
+}
+
+// storeTriageBrief keeps the routing worker's one-line brief as the title of
+// the task the chosen member holds. The person's own words stay in the task
+// body and in the conversation history the member reads.
+func (s *Store) storeTriageBrief(runID, brief string) {
+	if brief == "" {
+		return
+	}
+	_, _ = s.db.Exec(`UPDATE work_items SET title=? WHERE assignee_run_id=? AND assigner_kind='user' AND kind='task'`, firstLine(brief, 120), runID)
 }

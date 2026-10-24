@@ -894,6 +894,10 @@
         "name": "Group routing model",
         "what": "The model that picks the member for an unaddressed group message. Automatic means the background model."
       },
+      "group_followup_to_working": {
+        "name": "Follow-up messages go to the member still working",
+        "what": "When a group message names no one and a member is still working on the person's previous message, the new message goes to that member as a queued note, read at its next step, instead of being routed again. Once that member has answered, the next message is routed as usual. Off routes every such message."
+      },
       "task_retention_days": {
         "name": "Finished tasks kept for",
         "what": "After this many days a finished task loses its request text, checklist and revisions. Its title and one-line result stay. 0 keeps everything."

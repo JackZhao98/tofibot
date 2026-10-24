@@ -894,6 +894,10 @@
         "name": "Modell für die Gruppenzuweisung",
         "what": "Das Modell, das für eine nicht adressierte Gruppennachricht das Mitglied wählt. Automatisch heißt: das Hintergrundmodell."
       },
+      "group_followup_to_working": {
+        "name": "Folgenachrichten gehen an das Mitglied, das noch arbeitet",
+        "what": "Nennt eine Gruppennachricht niemanden und arbeitet noch ein Mitglied an der vorherigen Nachricht der Person, geht die neue Nachricht als wartende Notiz an dieses Mitglied, das sie bei seinem nächsten Schritt liest, statt neu zugewiesen zu werden. Hat es geantwortet, wird die nächste Nachricht wie üblich zugewiesen. Aus weist jede solche Nachricht neu zu."
+      },
       "task_retention_days": {
         "name": "Erledigte Aufgaben bleiben",
         "what": "Nach dieser Anzahl Tage verliert eine abgeschlossene Aufgabe Auftragstext, Checkliste und Überarbeitungen. Titel und einzeiliges Ergebnis bleiben. 0 behält alles."

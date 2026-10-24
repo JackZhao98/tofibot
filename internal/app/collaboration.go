@@ -65,6 +65,9 @@ func (q *conversationQueue) close()   { q.stopNow(); <-q.done }
 
 type runSpec struct {
 	BotID, Model, Kind, ParentRunID, OriginConversationID string
+	// FollowUp (a bare triage request only) lets ingress queue the message for
+	// the member still working on the person's previous message.
+	FollowUp bool
 }
 
 func (s *Store) GetMessage(id string) (Message, error) {
@@ -158,6 +161,7 @@ func (s *Store) addUserRunsSteering(conv, content, client string, specs []runSpe
 	// A group message that names no one carries either no spec or one bare
 	// triage request (no Bot yet). Both resolve inside this transaction.
 	triageAsked := len(specs) == 1 && specs[0].BotID == "" && specs[0].Kind == runKindTriage
+	followUp := triageAsked && specs[0].FollowUp
 	if len(specs) == 0 || triageAsked {
 		kind := convKind
 		if kind != "group" {
@@ -188,7 +192,20 @@ func (s *Store) addUserRunsSteering(conv, content, client string, specs []runSpe
 	// requests name no Bot yet and always start their run.
 	steerAt := make([]string, len(specs))
 	runSpecs := make([]runSpec, 0, len(specs))
+	if followUp {
+		bot, run, ferr := followUpTargetTx(tx, conv)
+		if ferr != nil {
+			return Message{}, nil, nil, false, ferr
+		}
+		if run != "" {
+			specs = []runSpec{{BotID: bot, Kind: runKindGroupChat}}
+			steerAt = []string{run}
+		}
+	}
 	for i, spec := range specs {
+		if steerAt[i] != "" {
+			continue
+		}
 		if spec.BotID != "" && spec.Kind != runKindTriage {
 			if steerAt[i], err = steerTargetTx(tx, conv, spec.BotID); err != nil {
 				return Message{}, nil, nil, false, err
@@ -1087,31 +1104,42 @@ func (s *Server) memberBots(c Conversation) ([]Bot, error) {
 }
 
 func strictTriageTarget(raw string, members []Bot) (string, error) {
+	id, _, err := parseTriageAnswer(raw, members)
+	return id, err
+}
+
+// parseTriageAnswer reads the routing worker's answer: a bare member id, or
+// JSON with the member id and an optional one-line brief that restates the
+// message with its references resolved from the conversation.
+func parseTriageAnswer(raw string, members []Bot) (string, string, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
-		return "", errors.New("triage returned an empty target")
+		return "", "", errors.New("triage returned an empty target")
 	}
+	brief := ""
 	var obj struct {
 		BotID string `json:"bot_id"`
+		Brief string `json:"brief"`
 	}
 	if strings.HasPrefix(raw, "{") {
 		dec := json.NewDecoder(strings.NewReader(raw))
 		dec.DisallowUnknownFields()
 		if dec.Decode(&obj) != nil || obj.BotID == "" {
-			return "", errors.New("triage returned invalid JSON")
+			return "", "", errors.New("triage returned invalid JSON")
 		}
 		var extra any
 		if dec.Decode(&extra) != io.EOF {
-			return "", errors.New("triage returned extra data")
+			return "", "", errors.New("triage returned extra data")
 		}
 		raw = obj.BotID
+		brief = trimRunes(strings.Join(strings.Fields(obj.Brief), " "), maxTriageBriefRunes)
 	}
 	for _, b := range members {
 		if raw == b.ID || strings.EqualFold(raw, b.Name) {
-			return b.ID, nil
+			return b.ID, brief, nil
 		}
 	}
-	return "", fmt.Errorf("triage selected non-member %q", raw)
+	return "", "", fmt.Errorf("triage selected non-member %q", raw)
 }
 
 func leadingMentionTarget(content string, c Conversation, s *Server) (string, string) {
