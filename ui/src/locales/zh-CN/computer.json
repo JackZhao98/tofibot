@@ -153,6 +153,7 @@
     "take": "接管",
     "close_aria": "关闭终端面板",
     "tabs_aria": "终端会话",
+    "notifies_bot": "命令结束时通知 Bot",
     "connecting": "正在连接…",
     "empty": "还没有终端",
     "create": "新建终端",
@@ -221,6 +222,7 @@
   "resources": {
     "restart": {
       "title": "重启并应用配置？",
+      "command_waits": "正在等待命令结束：{{names}}。重启会终止这些命令，对应的 Bot 会收到“被中断”的结果和最后输出。",
       "impact": "请先停止正在执行的 Bot 任务。重启会中断所有 Bot 的桌面和终端，其中运行的进程也会停止；工作文件会保留。",
       "confirm": "确认重启"
     },

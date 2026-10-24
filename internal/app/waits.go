@@ -411,7 +411,13 @@ func deliverGroupTx(tx *sql.Tx, group, mode string, members []Wait) error {
 	for _, w := range members {
 		b.WriteString("\n- " + describeWaitTx(tx, w))
 	}
-	item.Body = trimRunes(b.String(), 3000)
+	limit := 3000
+	for _, w := range members {
+		if w.Kind == waitCommandExit {
+			limit = 3000 + commandTailBytes + 600 // the last output is part of the result
+		}
+	}
+	item.Body = trimRunes(b.String(), limit)
 	return addInboxTx(tx, item)
 }
 
@@ -465,9 +471,7 @@ func describeWaitTx(q queryer, w Wait) string {
 		}
 		return "the question to the person" + note + " went unanswered."
 	case waitCommandExit:
-		if w.Status == waitFulfilled {
-			return "the command ended" + note + "."
-		}
+		return describeCommandWait(w, note)
 	}
 	if w.Status == waitTimedOut {
 		return fmt.Sprintf("timed out waiting on %s %s%s.", w.Kind, name, note)

@@ -153,6 +153,7 @@
     "take": "接管",
     "close_aria": "關閉終端機面板",
     "tabs_aria": "終端機工作階段",
+    "notifies_bot": "指令結束時通知 Bot",
     "connecting": "正在連線…",
     "empty": "還沒有終端機",
     "create": "新增終端機",
@@ -221,6 +222,7 @@
   "resources": {
     "restart": {
       "title": "要重新啟動並套用設定嗎？",
+      "command_waits": "正在等待指令結束：{{names}}。重新啟動會終止這些指令，對應的 Bot 會收到「被中斷」的結果與最後輸出。",
       "impact": "請先停止正在執行的 Bot 任務。重新啟動會中斷所有 Bot 的桌面和終端機，其中執行的程式也會停止；工作檔案會保留。",
       "confirm": "確認重新啟動"
     },

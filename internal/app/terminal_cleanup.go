@@ -91,6 +91,7 @@ func (s *Server) reconcileTerminalCleanup(ctx context.Context) {
 	rows, err := s.store.db.QueryContext(ctx, `SELECT j.run_id,j.bot_id FROM run_terminal_cleanup j
 		LEFT JOIN runs r ON r.id=j.run_id
 		WHERE j.computer_socket=? AND (r.id IS NULL OR r.status IN ('cancelled','failed','interrupted'))
+		AND NOT EXISTS (SELECT 1 FROM waits w WHERE w.bot_id=j.bot_id AND w.kind='command_exit' AND w.status='pending')
 		ORDER BY j.created_at LIMIT 32`, s.microVM.Socket())
 	if err != nil {
 		return

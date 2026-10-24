@@ -17,6 +17,7 @@ import (
 
 	"github.com/creack/pty"
 	"github.com/google/uuid"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -87,9 +88,35 @@ func (t *terminal) snapshot(cursor uint64, maxBytes int) map[string]any {
 	}
 }
 
+// foregroundJob reports whether a job other than the shell owns the terminal's
+// foreground process group. ok is false when it cannot be told (no PTY, the
+// shell has ended, the ioctl failed); the caller must not read that as "no job".
+func foregroundJob(ptmx *os.File, shell int) (job, ok bool) {
+	if ptmx == nil || shell <= 0 {
+		return false, false
+	}
+	group, err := unix.IoctlGetInt(int(ptmx.Fd()), unix.TIOCGPGRP)
+	if err != nil || group <= 0 {
+		return false, false
+	}
+	return group != shell, true
+}
+
 func (t *terminal) summary() map[string]any {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	out := t.summaryLocked()
+	if !t.closed && !t.exited && t.cmd != nil && t.cmd.Process != nil {
+		// Present only when it can be told; a host that does not find the field
+		// (an older guest) falls back to process exit alone.
+		if job, ok := foregroundJob(t.pty, t.cmd.Process.Pid); ok {
+			out["foreground_job"] = job
+		}
+	}
+	return out
+}
+
+func (t *terminal) summaryLocked() map[string]any {
 	return map[string]any{
 		"id": t.id, "terminal_id": t.id, "bot_id": t.botID, "command": t.command,
 		"run_id": t.runID, "created_at": t.createdAt.UTC().Format(time.RFC3339Nano),

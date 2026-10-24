@@ -99,6 +99,7 @@ var automationItems = []automationItem{
 	{Key: autoDesktopIdle, Group: "computer", Kind: autoKindReadOnly, Unit: "seconds"},
 	{Key: autoGroupTriage, Group: "replies", Kind: autoKindBool, Default: "true"},
 	{Key: autoGroupTriageModel, Group: "models", Kind: autoKindModel},
+	{Key: autoCommandCheckMinutes, Group: "computer", Kind: autoKindInt, Default: commandCheckMinutesDefault(), Min: 5, Max: 1440, Unit: "minutes"},
 }
 
 func automationItemFor(key string) (automationItem, bool) {

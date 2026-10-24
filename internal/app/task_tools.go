@@ -19,7 +19,7 @@ import (
 const (
 	delegateToolDescription = "Give a task to one or more members. Each gets a task record: your brief, a version number and an optional checklist. The call returns a receipt at once and starts the work. The result returns later as an event that wakes you, so do not poll. Write the brief so that it stands alone: the goal, the form of the result, the tools and sources to use, and the limits. Add a checklist only for work with separate parts. Make one call per turn."
 
-	waitForToolDescription = "Start a wait and get a receipt at once. The wait ends when its event happens or its deadline passes; then you are woken with the result, and a timeout is a result too. After the receipt, tell the person what they need and end your turn. To wait for several events together, repeat the call with the group id from the receipt: mode all ends when every member has ended, mode any at the first fulfilled member. A wait that would close a cycle is refused."
+	waitForToolDescription = "Start a wait and get a receipt at once. The wait ends when its event happens or its deadline passes; then you are woken with the result, and a timeout is a result too. After the receipt, tell the person what they need and end your turn. To wait for several events together, repeat the call with the group id from the receipt: mode all ends when every member has ended, mode any at the first fulfilled member. A wait that would close a cycle is refused. A wait on a command (kind command_exit, target the terminal id) ends when the process ends, or, for a shell terminal, when the shell is back at its prompt; the result has the exit code when one exists and the last output. It always has a timer check in its group, mode any: add your own timer to the group first, or the system adds one. If the timer comes first, read the terminal and wait again when the command still runs."
 
 	cancelWaitToolDescription = "End a wait you no longer need, for example when its event came another way or the work changed. A wait you end does not wake you."
 
@@ -167,9 +167,9 @@ func (s *Store) shapeDelegatedTasks(runs []Run, title string, checklist []string
 func (s *Server) waitForTool(c Conversation, r Run) Tool {
 	return Tool{Name: "wait_for", Description: waitForToolDescription, Local: true,
 		Parameters: objectSchema(map[string]any{
-			"kind":    map[string]any{"type": "string", "enum": []string{waitBotPost, waitTaskResult, waitTimer}, "description": "What the wait is on: the next post of a member, the end of a task, or a set time."},
-			"target":  stringProp("The member id for bot_post; the task id for task_result."),
-			"seconds": map[string]any{"type": "integer", "description": "For a timer, how long to wait. For other kinds, an optional limit in place of the default."},
+			"kind":    map[string]any{"type": "string", "enum": []string{waitBotPost, waitTaskResult, waitCommandExit, waitTimer}, "description": "What the wait is on: the next post of a member, the end of a task, the end of a command in a terminal, or a set time."},
+			"target":  stringProp("The member id for bot_post; the task id for task_result; the terminal id for command_exit."),
+			"seconds": map[string]any{"type": "integer", "description": "For a timer, how long to wait. For other kinds, an optional limit in place of the default. For command_exit it is the limit of the command wait; the paired timer follows the setting."},
 			"group":   stringProp("The group id of an earlier receipt, to add this wait to that group."),
 			"mode":    map[string]any{"type": "string", "enum": []string{waitModeAny, waitModeAll}, "description": "The mode of a new group; it is fixed by its first wait."},
 			"note":    stringProp("Your own label for the wait."),
@@ -219,7 +219,14 @@ func (s *Server) waitForTool(c Conversation, r Run) Tool {
 					return "", waitRefusal("wait_timer_range", fmt.Sprintf("A timer waits %d seconds to 7 days.", minTimerSeconds))
 				}
 			case waitCommandExit:
-				return "", waitRefusal("wait_kind_unavailable", "A wait on a command's end is not available yet.")
+				if strings.TrimSpace(spec.Target) == "" {
+					return "", waitRefusal("wait_target_invalid", "A wait on a command needs the id of its terminal.")
+				}
+				receipt, err := s.registerCommandExit(ctx, commandExitRequest{Run: r, ConversationID: c.ID, TerminalID: spec.Target, Group: spec.GroupID, Note: in.Note, Seconds: in.Seconds})
+				if err != nil {
+					return "", err
+				}
+				return receiptJSON(receipt)
 			default:
 				return "", waitRefusal("wait_kind_invalid", "A wait is on a post from a member, a task's result or a timer.")
 			}

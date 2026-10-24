@@ -119,8 +119,7 @@ restart recovery, and the sweeper's `reconcileTaskRuns` for paths that miss them
 `task_checklist`: only the task's creator adds or removes items or changes the request; the holder sets an item's status and reason (every ended item has a reason).
 `say(outcome=done)` with an `open` item goes back once, in the run's one send-back shared with the `pending` check (`state.pendingCheck`).
 
-`waits` is the one table for waiting: kinds `bot_post`, `task_result`, `human_answer` (a mirror of a question card; the card keeps its own resume), `command_exit` (phase 3,
-`wait_for` refuses it), `timer`; groups `any`/`all`; a group settles once (`settleGroupTx`) into one `bot_inbox` row. `recordWaitTx` runs the cycle check in the same
+`waits` is the one table for waiting: kinds `bot_post`, `task_result`, `human_answer` (a mirror of a question card; the card keeps its own resume), `command_exit` (decision 0061), `timer`; groups `any`/`all`; a group settles once (`settleGroupTx`) into one `bot_inbox` row. `recordWaitTx` runs the cycle check in the same
 short transaction (walk <= 64 steps, code `wait_cycle`, a graph too large to walk is refused) and the limits (16 open per Bot, `wait_chain_limit` after 24 self-wakes in a row).
 A timeout is a result: `timed_out` (a timer is `fulfilled`). Per-kind defaults are `waitTimeoutFor` (15 min / 2 h / 30 min). There is no in-memory timer: one sweeper
 (`sweepWaits`, 15 s, also at start) ends due waits, reconciles question mirrors, and calls `flushInbox`. Tests call `sweepWaits` directly; do not add `time.AfterFunc`.
@@ -138,6 +137,15 @@ waits and the runs below them by `parent_task_id`/`origin_run_id`/`assignee_run_
 Retention (`task_retention_days`, default 30, 0 = keep) clears the request text, checklist and revisions of finished delegated tasks, ended waits and read inbox rows; it never
 touches messages, attachments or runs, so the files a failed run kept (decision 0038) stay. Messages a run sends after it registered a wait count against their own
 allowance of three (`chatSegmentCountTx`, decision 0050 unchanged before that). The new tables are not exported (`portable*`).
+
+Command-exit waits (decision 0061, `internal/app/command_exit.go`). `wait_for{kind:command_exit,target:<terminal id>}` or `computer_terminal` `notify_on_exit` on `open`/`write` (registered after
+the action succeeded; a refusal is reported inside the result, never as a failed call). `registerCommandExit` asks the guest first, then in one transaction records the wait, the paired timer (mode `any`; the
+Bot's own timer in the group counts, else one of `command_check_minutes`, default 60) and the cache row in `command_waits`. One monitor loop (`startCommandMonitor`, 5 s, `pollCommandExits`) reads pending
+`command_exit` waits and calls guest `terminal.list` (source `viewer`) only for Bots that hold one. Process exit gives the exit code; an interactive shell ends when `foreground_job` returns to false after it
+was seen true (no exit code); a guest without the field reports process exit only; a terminal missing from a successful list is `interrupted` (restart) and delivers the cached 8 KB tail. A failed or
+unreachable list is never "gone". `finishCommandWait` ends the wait through `resolveWaitTx` (pending-only, so once) and writes one `command_exit` notice line (sender `system`, not in model history).
+`terminal_cleanup.go` skips a Bot that holds a pending command wait. `tofi_host.py` counts pending command waits as busy (`command_waits`, read-only SQLite like `active_runs`); Settings asks
+`GET /api/command-waits` before a computer restart. A guest change needs a rebuilt guest image; `foreground_job` is a field of the existing `terminal.list`, so `microVMActions` and the watchdog list did not change.
 
 # Security gates
 

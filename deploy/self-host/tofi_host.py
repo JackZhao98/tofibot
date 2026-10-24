@@ -1408,30 +1408,69 @@ def plural(count, noun):
     return '%d %s%s' % (count, noun, '' if count == 1 else 's')
 
 
+def count_command_waits(database):
+    """Command-exit waits still pending: a Bot started a command and waits for
+    its end. A restart of the services or of the computer interrupts it."""
+    uri = 'file:%s?mode=ro' % urllib.parse.quote(str(database))
+    connection = sqlite3.connect(uri, uri=True, timeout=5)
+    try:
+        row = connection.execute("SELECT COUNT(*) FROM waits WHERE kind='command_exit' AND status='pending'").fetchone()
+    except sqlite3.OperationalError:
+        return 0  # an App older than the wait table has none
+    finally:
+        connection.close()
+    return int(row[0])
+
+
+def command_waits(account_id=None):
+    """Pending command-exit waits, over every App database (read-only, like
+    active_runs), or only the one of `account_id`. A file that cannot be read
+    counts 0: a broken database must never block recovery."""
+    total = 0
+    for database in run_databases():
+        if account_id is not None and database.parent.name != account_id:
+            continue
+        try:
+            total += count_command_waits(database)
+        except (sqlite3.Error, OSError, ValueError, TypeError):
+            continue
+    return total
+
+
+def busy_phrase(count, waits):
+    """`count` is runs plus command waits; name each part."""
+    runs = count - waits
+    parts = ([plural(runs, 'Bot run')] if runs or not waits else []) + (
+        [plural(waits, 'command') + ' a Bot waits on'] if waits else [])
+    return ' and '.join(parts)
+
+
 def wait_for_idle(action, wait_minutes=0, force=False):
-    """Return 0 when no Bot run is active, else wait up to `wait_minutes`
-    (polling every 15 s) and raise ActiveRunsError. `force` proceeds and
-    returns the count of runs that will be interrupted."""
-    count = active_runs()
+    """Return 0 when no Bot run is active and no Bot waits on a command, else
+    wait up to `wait_minutes` (polling every 15 s) and raise ActiveRunsError.
+    `force` proceeds and returns the count that will be interrupted."""
+    waits = command_waits()
+    count = active_runs() + waits
     if not count:
         return 0
     if force:
-        warn('%s active; --force interrupts them.' % plural(count, 'Bot run'))
+        warn('%s active; --force interrupts them.' % busy_phrase(count, waits))
         return count
     attempts = max(0, int(wait_minutes)) * 60 // RUN_POLL_SECONDS
     if attempts:
         say('%s %s active; waiting up to %s for them to finish before %s.'
-            % (plural(count, 'Bot run'), 'is' if count == 1 else 'are', plural(int(wait_minutes), 'minute'), action))
+            % (busy_phrase(count, waits), 'is' if count == 1 else 'are', plural(int(wait_minutes), 'minute'), action))
     for _ in range(attempts):
         time.sleep(RUN_POLL_SECONDS)
-        count = active_runs()
+        waits = command_waits()
+        count = active_runs() + waits
         if not count:
             say('Bot runs finished.')
             return 0
     raise ActiveRunsError(
         '%s still active; %s would interrupt %s. Nothing was changed. Wait for %s to finish, allow longer with '
         '--wait MINUTES, or add --force to interrupt %s.'
-        % (plural(count, 'Bot run'), action, 'it' if count == 1 else 'them', 'it' if count == 1 else 'them',
+        % (busy_phrase(count, waits), action, 'it' if count == 1 else 'them', 'it' if count == 1 else 'them',
            'it' if count == 1 else 'them'), count)
 
 
@@ -3760,7 +3799,14 @@ def computers_report(installed_guest, busy=False):
     answers = {}
     for (index, path), reply in zip(owners, replies):
         answers.setdefault(index, {})[path] = reply_body(reply)
-    return [computer_row(row, answers.get(index, {}), installed_guest, busy) for index, row in enumerate(rows)]
+    report = [computer_row(row, answers.get(index, {}), installed_guest, busy) for index, row in enumerate(rows)]
+    if busy:
+        for entry in report:
+            waits = command_waits(entry['account_id']) if entry['running'] else 0
+            if waits:
+                # The guest cannot see these: a Bot waits on a command, kept in the App database.
+                entry['busy'] = (entry['busy'] or []) + ['%s a Bot waits on' % plural(waits, 'command')]
+    return report
 
 
 def computer_row(row, answers, installed_guest, busy=False):

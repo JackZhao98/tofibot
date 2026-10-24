@@ -906,6 +906,10 @@
       "task_retention_days": {
         "name": "Durée de conservation des tâches terminées",
         "what": "Passé ce nombre de jours, une tâche terminée perd le texte de la demande, sa liste de contrôle et ses révisions. Le titre et le résultat en une ligne restent. 0 conserve tout."
+      },
+      "command_check_minutes": {
+        "name": "Intervalle de vérification des commandes",
+        "what": "Quand un Bot attend la fin d'une commande, une vérification minutée le réveille après ce délai au cas où le signal de fin serait perdu. Un minuteur défini par le Bot la remplace."
       }
     },
     "option": {

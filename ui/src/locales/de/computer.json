@@ -154,6 +154,7 @@
     "take": "Übernehmen",
     "close_aria": "Terminalbereich schließen",
     "tabs_aria": "Terminalsitzungen",
+    "notifies_bot": "Benachrichtigt den Bot, wenn der Befehl endet",
     "connecting": "Verbindung wird hergestellt…",
     "empty": "Noch keine Terminals",
     "create": "Terminal erstellen",
@@ -223,6 +224,7 @@
   "resources": {
     "restart": {
       "title": "Neu starten und Konfiguration anwenden?",
+      "command_waits": "Wartet auf das Ende eines Befehls: {{names}}. Ein Neustart beendet diese Befehle; jeder Bot erhält das Ergebnis „unterbrochen“ mit der letzten Ausgabe.",
       "impact": "Stoppe zuerst laufende Bot-Aufgaben. Ein Neustart unterbricht Desktop und Terminals aller Bots, darin laufende Prozesse werden beendet. Arbeitsdateien bleiben erhalten.",
       "confirm": "Neu starten"
     },
