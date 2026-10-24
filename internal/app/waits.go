@@ -14,6 +14,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -618,11 +619,14 @@ func (s *Store) expireDueWaits(at time.Time) (int, error) {
 		}
 		changed, err := resolveWaitTx(tx, id, status, "")
 		if err != nil {
+			// One wait that cannot end must not keep the later ones from timing out.
 			tx.Rollback()
-			return ended, err
+			log.Printf("expire wait %s: %v", id, err)
+			continue
 		}
 		if err = tx.Commit(); err != nil {
-			return ended, err
+			log.Printf("expire wait %s: %v", id, err)
+			continue
 		}
 		if changed {
 			ended++
