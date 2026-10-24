@@ -106,6 +106,7 @@ func (s *Service) busyReasons(now time.Time, quiet time.Duration) []string {
 			shell = t.cmd.Process.Pid
 		}
 		ptmx := t.pty
+		command := t.command
 		t.mu.Unlock()
 		if !open {
 			continue
@@ -114,7 +115,8 @@ func (s *Service) busyReasons(now time.Time, quiet time.Duration) []string {
 			reasons["terminal_output"] = true
 		}
 		// An interactive shell runs a job in its own foreground process group.
-		if job, ok := foregroundJob(ptmx, shell); ok && job {
+		job, known := foregroundJob(ptmx, shell)
+		if terminalRunsJob(command, job, known) {
 			reasons["terminal_job"] = true
 		}
 	}

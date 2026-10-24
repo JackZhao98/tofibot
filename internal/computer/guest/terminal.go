@@ -102,6 +102,45 @@ func foregroundJob(ptmx *os.File, shell int) (job, ok bool) {
 	return group != shell, true
 }
 
+// isShellCommand reports whether a terminal was opened as an interactive
+// shell (the default terminal, or a bare shell) rather than to run one command.
+func isShellCommand(command string) bool {
+	command = strings.TrimSpace(command)
+	if command == "" || strings.HasPrefix(command, "# tofi-default-terminal\n") {
+		return true
+	}
+	fields := strings.Fields(command)
+	if len(fields) > 0 && fields[0] == "exec" {
+		fields = fields[1:]
+	}
+	if len(fields) == 0 {
+		return false
+	}
+	switch filepath.Base(fields[0]) {
+	case "bash", "sh", "zsh", "fish", "dash", "ksh":
+	default:
+		return false
+	}
+	for _, f := range fields[1:] {
+		switch f {
+		case "-i", "-l", "--login", "--norc", "--noprofile", "-f":
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// terminalRunsJob is the rule hibernation uses for an open terminal: a shell
+// is busy while a job owns its foreground; a terminal opened with an explicit
+// command is the job itself and is busy for as long as the process lives.
+func terminalRunsJob(command string, job, jobKnown bool) bool {
+	if !isShellCommand(command) {
+		return true
+	}
+	return jobKnown && job
+}
+
 func (t *terminal) summary() map[string]any {
 	t.mu.Lock()
 	defer t.mu.Unlock()

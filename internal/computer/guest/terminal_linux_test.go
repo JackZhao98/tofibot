@@ -293,3 +293,21 @@ func TestTerminalListOmitsForegroundJobWhenProcessEnded(t *testing.T) {
 	}
 	t.Fatal("terminal did not exit")
 }
+
+func TestSilentExplicitCommandBlocksHibernation(t *testing.T) {
+	s := newTestService(t)
+	r, err := s.terminalOpen(context.Background(), testBot, "run", terminalOpenArgs{Command: "sleep 30", Cols: 80, Rows: 24})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := r["id"].(string)
+	t.Cleanup(func() { _, _ = s.terminalClose(testBot, terminalIDArgs{TerminalID: id}) })
+	time.Sleep(100 * time.Millisecond)
+	found := false
+	for _, reason := range s.busyReasons(time.Now(), time.Millisecond) {
+		found = found || reason == "terminal_job"
+	}
+	if !found {
+		t.Fatal("a silent explicit command did not hold hibernation off")
+	}
+}
