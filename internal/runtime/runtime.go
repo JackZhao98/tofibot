@@ -420,12 +420,23 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 				if err := tooloutcome.CheckBoundary(toolCtx, identity); err != nil {
 					return "", err
 				}
-				executionCtx := tooloutcome.WithExecutionIdentity(toolCtx, identity)
+				// The call runs in a context of its own, so "Stop current step" can end
+				// this call without ending the run.
+				stepCtx, cancelStep := context.WithCancelCause(toolCtx)
+				defer cancelStep(nil)
+				if req.BeginStep != nil {
+					end := req.BeginStep(func() { cancelStep(ErrStepInterrupted) })
+					defer end()
+				}
+				executionCtx := tooloutcome.WithExecutionIdentity(stepCtx, identity)
 				executionCtx = context.WithValue(executionCtx, toolCallIDContextKey{}, callID)
 				executionCtx = context.WithValue(executionCtx, endTurnContextKey{}, func() { turnEnded.Store(true) })
 				result, executeErr := executeWithDeadline(executionCtx, rawTool.Name, EffectiveToolTimeout(rawTool), identity.Risk == tooloutcome.Observation, func(ctx context.Context) (string, error) {
 					return rawTool.Execute(ctx, encoded)
 				})
+				if executeErr != nil && toolCtx.Err() == nil && errors.Is(context.Cause(stepCtx), ErrStepInterrupted) {
+					return "", StepInterruptedOutcome(rawTool.Name, identity.Risk == tooloutcome.Observation).Err()
+				}
 				var suspension *userInputSuspensionError
 				if executeErr != nil && !errors.As(executeErr, &suspension) && toolCtx.Err() == nil {
 					if _, classified := tooloutcome.FromError(executeErr); !classified {
@@ -553,6 +564,7 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 		OnToolCallDelta:          onToolCallDelta,
 		EndOnEmptyFinal:          req.EndOnEmptyFinal,
 		BeforeFinalResponse:      req.BeforeFinalResponse,
+		DrainInbox:               req.DrainInbox,
 		FinalResponseRepairTools: append([]string(nil), req.FinalResponseRepairTools...),
 		BeforeModelCall: func() error {
 			if turnEnded.Load() {

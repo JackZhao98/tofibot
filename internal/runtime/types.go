@@ -163,6 +163,15 @@ type Request struct {
 	// BeforeModelCall runs at the safe boundary immediately before each model
 	// request, after prior streaming and tool work has settled.
 	BeforeModelCall func() error
+	// DrainInbox is read at that boundary, right after BeforeModelCall: it
+	// returns the text of what reached the run since the last boundary (already
+	// marked read) or an empty string. See agent.AgentConfig.DrainInbox.
+	DrainInbox func() (string, error)
+	// BeginStep is called when a tool call starts executing. interrupt cancels
+	// that one call's context and nothing else: the call returns a typed
+	// step_interrupted outcome and the run goes on. end is called when the call
+	// has returned. It is the hook behind "Stop current step".
+	BeginStep func(interrupt func()) (end func())
 	// BeforeFinalResponse reviews cleaned, non-empty text-only final content.
 	// An empty reminder accepts; an error aborts; a non-empty reminder requests
 	// at most one repair using existing history and the remaining run budget.

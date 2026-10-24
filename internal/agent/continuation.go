@@ -69,6 +69,12 @@ type Continuation struct {
 
 	// RecoveryEpoch is the ledger window for observation retry limits.
 	RecoveryEpoch int `json:"recovery_epoch,omitempty"`
+
+	// Budget bases: what the run had used when a message read in place last
+	// refilled its call, step and cost budget (queued steering).
+	BudgetCallsBase int     `json:"budget_calls_base,omitempty"`
+	BudgetStepBase  int     `json:"budget_step_base,omitempty"`
+	BudgetCostBase  float64 `json:"budget_cost_base,omitempty"`
 }
 
 // continuationVersion is written by this build. Version 1 payloads (human

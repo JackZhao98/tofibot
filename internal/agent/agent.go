@@ -237,6 +237,13 @@ type AgentConfig struct {
 	// request. Callers may use it to observe durable steering input without
 	// interrupting an already-streaming response or an in-flight tool.
 	BeforeModelCall func() error
+	// DrainInbox is called at the same boundary, after BeforeModelCall. It
+	// returns the text of what reached this run since the last boundary (a
+	// person's message queued while the run worked, a settled wait), already
+	// marked read by the caller, or an empty string. The text is appended to the
+	// transcript as a user turn, checkpointed, and refills the run's time, call
+	// and step budget once. It is not called while the run is closing.
+	DrainInbox func() (string, error)
 	// BeforeFinalResponse optionally reviews cleaned, non-empty text-only final
 	// content. An empty reminder accepts it; an error aborts. A non-empty reminder
 	// requests one continuation with the existing history, without emitting the
@@ -1115,6 +1122,10 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 	// further tool calls. If the model still tries to call tools on the next
 	// iteration we force-terminate with whatever text content we have.
 	runStart := time.Now()
+	// A message read in place refills the run's time, call and step budget once
+	// (queued steering): the bases move up to what the run had used by then.
+	budgetCallsBase, budgetStepBase := 0, 0
+	budgetCostBase := 0.0
 	budgetWrapUp := false
 	finalResponseRepaired := false
 	finalRepairPending := false
@@ -1134,6 +1145,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		state.LLMCalls = cfg.Continuation.LLMCalls
 		state.Step = cfg.Continuation.Step
 		state.Tracker.RestoreModelBreakdown(cfg.Continuation.ModelUsage)
+		budgetCallsBase, budgetStepBase, budgetCostBase = cfg.Continuation.BudgetCallsBase, cfg.Continuation.BudgetStepBase, cfg.Continuation.BudgetCostBase
 	}
 	if cfg.ToolsOnly && cfg.OnCheckpoint != nil {
 		checkpoint = func(kind string, list []provider.Message) error {
@@ -1143,6 +1155,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				toolCallsSinceReport, toolCallsSinceReport >= cfg.MaxToolCallsBetweenReports && cfg.MaxToolCallsBetweenReports > 0,
 				recoveryLedger, recoveryEpoch,
 			)
+			c.BudgetCallsBase, c.BudgetStepBase, c.BudgetCostBase = budgetCallsBase, budgetStepBase, budgetCostBase
 			if err := cfg.OnCheckpoint(kind, c); err != nil {
 				return fmt.Errorf("checkpoint %s: %w", kind, err)
 			}
@@ -1199,11 +1212,41 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				return nil, fmt.Errorf("before model call: %w", err)
 			}
 		}
+		// Queued steering: what arrived for this run since the last boundary is
+		// read here, in one step, and appended as a user turn. A run that is
+		// closing (wrap-up, a repair request) reads nothing; its messages wait for
+		// the continuation run.
+		if cfg.DrainInbox != nil && !budgetWrapUp && !finalRepairPending && !finalRepairFinalPending && loopCtx.Err() == nil {
+			text, err := cfg.DrainInbox()
+			if err != nil {
+				if loopCtx.Err() != nil {
+					state = state.WithCancelled()
+					return state.ToResult(cfg.Model), nil
+				}
+				return nil, fmt.Errorf("drain inbox: %w", err)
+			}
+			if strings.TrimSpace(text) != "" {
+				injected := append(append([]provider.Message(nil), state.Messages...), provider.Message{Role: "user", Content: text})
+				state = state.WithMessages(injected)
+				budgetCallsBase, budgetStepBase, budgetCostBase = state.LLMCalls, state.Step, state.Tracker.TotalCost()
+				runStart = time.Now()
+				if waited := cfg.UserWaitDuration; waited != nil {
+					base := waited()
+					cfg.UserWaitDuration = func() time.Duration { return waited() - base }
+				}
+				if checkpoint != nil && checkpointErr == nil {
+					checkpointErr = checkpoint("tool", injected)
+				}
+				if checkpointErr != nil {
+					return nil, checkpointErr
+				}
+			}
+		}
 		repairRequest := finalRepairPending && finalRepairReserved
 		finalRepairFinalRequest := finalRepairFinalPending
 		if finalRepairPending && !finalRepairReserved && loopCtx.Err() == nil {
 			// Check before context preparation too: compaction may call the model.
-			if exceeded, reason := checkRunBudget(&cfg, state.LLMCalls, state.Tracker.TotalCost(), runStart); exceeded {
+			if exceeded, reason := checkRunBudget(&cfg, state.LLMCalls-budgetCallsBase, state.Tracker.TotalCost()-budgetCostBase, runStart); exceeded {
 				return nil, fmt.Errorf("final response repair budget exhausted: %s", reason)
 			}
 		}
@@ -1230,7 +1273,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		}
 
 		state.Step++
-		if state.Step > maxSteps && !(repairRequest && state.Step == maxSteps+1) && !(finalRepairFinalRequest && state.Step == maxSteps+2) {
+		if state.Step-budgetStepBase > maxSteps && !(repairRequest && state.Step-budgetStepBase == maxSteps+1) && !(finalRepairFinalRequest && state.Step-budgetStepBase == maxSteps+2) {
 			state = state.WithError(fmt.Errorf("maximum agent steps exceeded without a final response"))
 			break
 		}
@@ -1312,7 +1355,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				return state.ToResult(cfg.Model), nil
 			}
 			if !finalRepairReserved {
-				if exceeded, reason := checkRunBudget(&cfg, state.LLMCalls, state.Tracker.TotalCost(), runStart); exceeded {
+				if exceeded, reason := checkRunBudget(&cfg, state.LLMCalls-budgetCallsBase, state.Tracker.TotalCost()-budgetCostBase, runStart); exceeded {
 					return nil, fmt.Errorf("final response repair budget exhausted: %s", reason)
 				}
 			}
@@ -1624,7 +1667,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			return nil, errors.New("final receipt repair must end without additional tools")
 		}
 		if !repairRequest && (resp.HasToolCalls() || stripThinkTags(resp.Content) == "") {
-			if exceeded, reason := checkRunBudget(&cfg, state.LLMCalls, state.Tracker.TotalCost(), runStart); exceeded {
+			if exceeded, reason := checkRunBudget(&cfg, state.LLMCalls-budgetCallsBase, state.Tracker.TotalCost()-budgetCostBase, runStart); exceeded {
 				if !budgetWrapUp {
 					budgetReason = reason
 					budgetWrapUp = true
@@ -1735,8 +1778,8 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 						state = state.WithMessages(messages).WithCancelled()
 						return state.ToResult(cfg.Model), nil
 					}
-					exceeded, _ := checkRunBudget(&cfg, state.LLMCalls, state.Tracker.TotalCost(), runStart)
-					canUseNormalRepair := !budgetWrapUp && !exceeded && state.Step < maxSteps
+					exceeded, _ := checkRunBudget(&cfg, state.LLMCalls-budgetCallsBase, state.Tracker.TotalCost()-budgetCostBase, runStart)
+					canUseNormalRepair := !budgetWrapUp && !exceeded && state.Step-budgetStepBase < maxSteps
 					reminder, err := cfg.BeforeFinalResponse(cleanContent)
 					if err != nil {
 						return nil, fmt.Errorf("before final response: %w", err)
@@ -1746,7 +1789,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 						return state.ToResult(cfg.Model), nil
 					}
 					// The callback itself can consume the remaining time budget.
-					exceeded, _ = checkRunBudget(&cfg, state.LLMCalls, state.Tracker.TotalCost(), runStart)
+					exceeded, _ = checkRunBudget(&cfg, state.LLMCalls-budgetCallsBase, state.Tracker.TotalCost()-budgetCostBase, runStart)
 					canUseNormalRepair = canUseNormalRepair && !exceeded
 					canUseReservedRepair := !canUseNormalRepair && len(finalRepairToolNames) > 0
 					if strings.TrimSpace(reminder) != "" && (canUseNormalRepair || canUseReservedRepair) {
@@ -2124,6 +2167,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 								questionID, tc, recoveryLedger,
 							)
 							parked.Continuation.RecoveryEpoch = recoveryEpoch
+							parked.Continuation.BudgetCallsBase, parked.Continuation.BudgetStepBase, parked.Continuation.BudgetCostBase = budgetCallsBase, budgetStepBase, budgetCostBase
 							return parked, nil
 						}
 						resultMsg = tooloutcome.ModelResult(err)
