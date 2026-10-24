@@ -207,6 +207,7 @@ type Config struct {
 }
 type Server struct {
 	dispositions                         sync.Map // run id -> groupChoice recorded by the respond tool
+	groupGates                           sync.Map // run id -> *groupGate (create_group needs list_groups first)
 	sayRuns                              sync.Map // run id -> *sayRunState of a structured run in flight
 	stepStops                            sync.Map // run id -> *stepStop of the tool call in flight ("Stop current step")
 	waitTimeout                          time.Duration
@@ -695,6 +696,7 @@ CREATE INDEX IF NOT EXISTS events_delta ON events(conversation_id,id) WHERE type
 		{"user_visible", `ALTER TABLE conversations ADD COLUMN user_visible INTEGER NOT NULL DEFAULT 1`},
 		{"pin_order", `ALTER TABLE conversations ADD COLUMN pin_order INTEGER NOT NULL DEFAULT 0`},
 		{"sort_order", `ALTER TABLE conversations ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0`},
+		{"purpose", `ALTER TABLE conversations ADD COLUMN purpose TEXT NOT NULL DEFAULT ''`},
 	} {
 		if err = ensureColumn(s.db, "conversations", col.name, col.ddl); err != nil {
 			return err

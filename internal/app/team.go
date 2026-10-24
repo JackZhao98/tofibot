@@ -215,13 +215,14 @@ func (s *Server) teamTools(c Conversation, r Run) []Tool {
 			})
 			return result, e
 		}),
-		tool("create_group", "Create a durable discussion group including the initiating bot. Call list_groups first. Create a group only when no existing group has suitable members and purpose.", map[string]any{"name": map[string]any{"type": "string"}, "bot_ids": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}}, []string{"name", "bot_ids"}, func(ctx context.Context, args json.RawMessage) (string, error) {
+		tool("create_group", "Create a durable discussion group including the initiating bot. Call list_groups first; if you do not, the first call is refused and lists existing groups that hold the same members. Continue in a fitting group with send_group_message. Create a group only when no existing group has suitable members and purpose.", map[string]any{"name": map[string]any{"type": "string"}, "bot_ids": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "purpose": map[string]any{"type": "string", "description": "Optional short statement of what the group is for."}}, []string{"name", "bot_ids"}, func(ctx context.Context, args json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
 			var x struct {
-				Name   string   `json:"name"`
-				BotIDs []string `json:"bot_ids"`
+				Name    string   `json:"name"`
+				BotIDs  []string `json:"bot_ids"`
+				Purpose string   `json:"purpose,omitempty"`
 			}
 			if json.Unmarshal(args, &x) != nil {
 				return "", errors.New("name and bot_ids required")
@@ -229,6 +230,9 @@ func (s *Server) teamTools(c Conversation, r Run) []Tool {
 			var err error
 			if x.Name, err = normalizeTeamText(x.Name, "name", maxTeamNameRunes); err != nil {
 				return "", err
+			}
+			if x.Purpose = strings.TrimSpace(x.Purpose); len([]rune(x.Purpose)) > maxGroupPurposeRunes {
+				return "", errors.New("purpose is too long")
 			}
 			ids := append([]string{r.BotID}, x.BotIDs...)
 			seen := map[string]bool{}
@@ -245,6 +249,11 @@ func (s *Server) teamTools(c Conversation, r Run) []Tool {
 			}
 			sort.Strings(uniq)
 			x.BotIDs = uniq
+			if refusal, e := s.groupListFirst(r.ID, uniq); e != nil {
+				return "", e
+			} else if refusal != nil {
+				return "", refusal
+			}
 			key, err := teamKey("create_group", x)
 			if err != nil {
 				return "", err
@@ -271,7 +280,7 @@ func (s *Server) teamTools(c Conversation, r Run) []Tool {
 				}
 				id := uuid.NewString()
 				t := now()
-				if _, e = tx.Exec(`INSERT INTO conversations(id,kind,name,updated_at) VALUES(?,?,?,?)`, id, "group", x.Name, t); e != nil {
+				if _, e = tx.Exec(`INSERT INTO conversations(id,kind,name,updated_at,purpose) VALUES(?,?,?,?,?)`, id, "group", x.Name, t, x.Purpose); e != nil {
 					return "", e
 				}
 				for _, member := range uniq {
@@ -283,7 +292,7 @@ func (s *Server) teamTools(c Conversation, r Run) []Tool {
 				if e = marshalTeamEvent(tx, id, "conversation", g, t); e != nil {
 					return "", e
 				}
-				out, e := json.Marshal(g)
+				out, e := json.Marshal(groupListing{Conversation: g, Purpose: x.Purpose})
 				if e != nil {
 					return "", e
 				}
@@ -291,7 +300,7 @@ func (s *Server) teamTools(c Conversation, r Run) []Tool {
 			})
 		}),
 		tool("invite_bot", "Add an existing bot to a discussion group.", map[string]any{"group_id": map[string]any{"type": "string"}, "bot_id": map[string]any{"type": "string"}}, []string{"group_id", "bot_id"}, func(ctx context.Context, args json.RawMessage) (string, error) { return s.teamInvite(ctx, r, args) }),
-		tool("list_groups", "List discussion groups available to the initiating bot.", map[string]any{}, nil, func(ctx context.Context, args json.RawMessage) (string, error) {
+		tool("list_groups", "List discussion groups available to the initiating bot, with purpose and latest message.", map[string]any{}, nil, func(ctx context.Context, args json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
@@ -299,7 +308,7 @@ func (s *Server) teamTools(c Conversation, r Run) []Tool {
 			if e != nil {
 				return "", e
 			}
-			out := make([]Conversation, 0)
+			out := make([]groupListing, 0)
 			for _, g := range gs {
 				if g.Kind == "group" {
 					ok, e := s.store.IsMember(g.ID, r.BotID)
@@ -307,7 +316,11 @@ func (s *Server) teamTools(c Conversation, r Run) []Tool {
 						return "", e
 					}
 					if ok {
-						out = append(out, g)
+						var purpose string
+						if e = s.store.db.QueryRow(`SELECT purpose FROM conversations WHERE id=?`, g.ID).Scan(&purpose); e != nil {
+							return "", e
+						}
+						out = append(out, groupListing{Conversation: g, Purpose: purpose})
 					}
 				}
 			}
@@ -315,6 +328,7 @@ func (s *Server) teamTools(c Conversation, r Run) []Tool {
 			if e != nil {
 				return "", e
 			}
+			s.markGroupsListed(r.ID)
 			return string(b), nil
 		}),
 		tool("send_group_message", "Start work in a different group by assigning one selected Bot. It rejects the current conversation: reply normally to publish here, and use delegate to give a task to another member of the current group.", map[string]any{"group_id": map[string]any{"type": "string"}, "bot_id": map[string]any{"type": "string"}, "message": map[string]any{"type": "string"}}, []string{"group_id", "bot_id", "message"}, func(ctx context.Context, args json.RawMessage) (string, error) { return s.teamSend(ctx, c, r, args) }),
