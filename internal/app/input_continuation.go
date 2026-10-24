@@ -183,13 +183,18 @@ func (s *Store) preservesInputWait(runID string) bool {
 	return found
 }
 
-// A newer human message is steering, not an answer to the old card. Settle
-// parked waits at this safe boundary and carry their completed artifacts to
-// the successor, exactly as running work does at its next model boundary.
+// A newer human message is steering, not an answer to the old card. A person's
+// message to a Bot that is parked on a card is queued for it and the card stays
+// (decision 0062, Q6): the run reads the message when it resumes, so a parked
+// run with an unread message is never settled here. What this still settles is a
+// wait with a successor made by a delegation or a mention wake (a steering
+// edge): the wait is cancelled and its completed artifacts pass to the
+// successor, exactly as running work does at its next model boundary.
 func supersedeInputWaitsTx(tx *sql.Tx, conv string) error {
 	rows, err := tx.Query(`SELECT r.id FROM runs r JOIN run_input_waits w ON w.run_id=r.id
 		WHERE r.conversation_id=? AND r.status IN ('waiting','queued') AND w.state='waiting'
-		AND EXISTS(SELECT 1 FROM run_steering link JOIN runs n ON n.id=link.new_run_id WHERE link.old_run_id=r.id AND n.status='queued')`, conv)
+		AND EXISTS(SELECT 1 FROM run_steering link JOIN runs n ON n.id=link.new_run_id WHERE link.old_run_id=r.id AND n.status='queued')
+		AND NOT EXISTS(SELECT 1 FROM bot_inbox b WHERE b.kind='user_message' AND b.parent_run=r.id AND b.consumed_at='')`, conv)
 	if err != nil {
 		return err
 	}

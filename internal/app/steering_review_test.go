@@ -56,13 +56,29 @@ func steeringReviewFixture(t *testing.T, group bool) (*Server, Conversation, Run
 	return s, c, runs[0]
 }
 
+// steeringReviewInterject sends the person's change of mind and hands it to the
+// run that takes over. A message to a working Bot is queued for that Bot's run
+// (decision 0062); the tests below are about the other way a run yields, the
+// steering edge a delegation, a mention wake or the reading cap creates, so the
+// queued message is closed into a continuation run the way the cap does it.
+// When the Bot has no run to queue it for, the message starts a run as usual.
 func steeringReviewInterject(t *testing.T, s *Server, c Conversation, old Run) Run {
 	t.Helper()
-	_, runs, _, err := s.store.AddUserRuns(c.ID, "Change the next step and retain completed work", "review-interjection", []runSpec{{BotID: old.BotID, Model: old.Model, Kind: old.Kind}})
+	_, runs, queued, _, err := s.store.addUserRunsSteering(c.ID, "Change the next step and retain completed work", "review-interjection", []runSpec{{BotID: old.BotID, Model: old.Model, Kind: old.Kind}}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return runs[0]
+	if len(runs) == 1 {
+		return runs[0]
+	}
+	if len(queued) != 1 {
+		t.Fatalf("the interjection was neither queued nor given a run: %+v", queued)
+	}
+	successor, created, err := s.store.closeRunForContinuation(old.ID)
+	if err != nil || !created {
+		t.Fatalf("continuation: %+v %v %v", successor, created, err)
+	}
+	return successor
 }
 
 func TestSteeringReviewCompletedArtifactSurvivesHandover(t *testing.T) {

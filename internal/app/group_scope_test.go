@@ -76,14 +76,21 @@ func TestGroupMessageToAnotherBotLeavesRunningRoundAlone(t *testing.T) {
 	}
 }
 
-// A message that addresses the running Bot still steers it as before.
-func TestGroupMessageToTheRunningBotStillSteersIt(t *testing.T) {
+// A message that addresses the running Bot is queued for its run (decision
+// 0062): the run is not cancelled and no second run starts.
+func TestGroupMessageToTheRunningBotIsQueuedForIt(t *testing.T) {
 	f := newScopeFixture(t)
 	round := f.post(t, "@alpha work", f.a)
 	f.s.SetRunStatus(round[0].ID, "running", "")
-	f.post(t, "@alpha change course", f.a)
-	if steered, err := f.s.HasSteeringSuccessor(round[0].ID); err != nil || !steered {
-		t.Fatalf("addressed running Bot was not steered: %v %v", steered, err)
+	_, runs, queued, _, err := f.s.addUserRunsSteering(f.g.ID, "@alpha change course", "change-course", []runSpec{{BotID: f.a.ID, Model: f.a.Model}}, nil)
+	if err != nil || len(runs) != 0 || len(queued) != 1 || queued[0].RunID != round[0].ID {
+		t.Fatalf("addressed running Bot did not take the message: runs=%+v queued=%+v err=%v", runs, queued, err)
+	}
+	if got := f.status(t, round[0].ID); got != "running" {
+		t.Fatalf("the working run was %s", got)
+	}
+	if steered, err := f.s.HasSteeringSuccessor(round[0].ID); err != nil || steered {
+		t.Fatalf("a queued message made a steering edge: %v %v", steered, err)
 	}
 }
 

@@ -59,12 +59,19 @@ func TestTerminalCleanupPreservesWaitAndCleansStoppedParkedRun(t *testing.T) {
 				t.Fatal("parked/recovered wait cancelled its terminal")
 			}
 			if steer {
-				_, _, _, err = st.AddUserRuns(c.ID, "New instruction", "steer", []runSpec{{BotID: r.BotID, Model: r.Model}})
-				s.cancelInactiveRuns()
-			} else {
-				err = st.CancelRunTree(r.ID)
-				s.cancelInactiveRuns()
+				// Decision 0062: a person's message queues for the parked run and
+				// the card stays, so its terminal stays too. Only Stop ends both.
+				_, _, _, _, err = st.addUserRunsSteering(c.ID, "New instruction", "steer", []runSpec{{BotID: r.BotID, Model: r.Model}}, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				s.reconcileTerminalCleanup(context.Background())
+				if len(fake.actions) != 0 || cleanupCount(t, st) != 1 {
+					t.Fatal("a queued message cancelled the parked run's terminal")
+				}
 			}
+			err = st.CancelRunTree(r.ID)
+			s.cancelInactiveRuns()
 			if err != nil {
 				t.Fatal(err)
 			}

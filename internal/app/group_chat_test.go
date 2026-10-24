@@ -135,8 +135,16 @@ func TestActiveGroupSteeringCancelsOnlyCurrentRoundPeers(t *testing.T) {
 				active = child
 			}
 			steeringReviewInterject(t, s, group, root)
+			// Queued steering cancels nothing of a Bot that is working: with the
+			// root running the whole round stands. Once the root has handed on and a
+			// delegated child works, a message to the root still scopes its
+			// cancellation to the current round's peers.
+			peerStatus := "cancelled"
+			if !activeChild {
+				peerStatus = "queued"
+			}
 			for _, expected := range []struct{ id, status string }{
-				{peers[0].ID, "cancelled"},
+				{peers[0].ID, peerStatus},
 				{independent[0].ID, "queued"},
 				{active.ID, "running"},
 			} {
