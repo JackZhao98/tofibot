@@ -201,3 +201,93 @@ func TestIdleBudgetSettingMigratesTheOldKey(t *testing.T) {
 		t.Fatalf("a set new value must win: %d", got)
 	}
 }
+
+// A result the holder submits again and again, with the giver not accepting it,
+// is not progress after the first time for a spec version.
+func TestIdleBudgetResubmittedResultIsNotProgress(t *testing.T) {
+	f, holder := newIdleFix(t, 1)
+	f.endItem(holder) // first progress; a result below needs an open item to land in review
+	if _, err := call(t, f.tool(f.g, f.root, "task_update"), map[string]any{"task_id": f.first.TaskID, "add_items": []string{"never done"}}); err != nil {
+		t.Fatal(err)
+	}
+	submit := func(round int) {
+		t.Helper()
+		run := queueRun(t, f.s, f.g.ID, f.b.ID, "", "")
+		f.s.db.Exec(`UPDATE work_items SET assignee_run_id=? WHERE id=?`, run.ID, f.first.TaskID)
+		f.start(run.ID)
+		if _, ok, err := f.s.FinishRun(run.ID, f.g.ID, f.b.ID, fmt.Sprintf("Result %d.", round)); err != nil || !ok {
+			t.Fatal(ok, err)
+		}
+		if st := f.taskRow(f.first.TaskID).Status; st != "review" {
+			t.Fatalf("status %s, want review", st)
+		}
+	}
+	submit(0) // the first result counts
+	for i := 2; i <= 30; i++ {
+		if err := f.message(i); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for i := 1; i <= 40; i++ {
+		submit(i)
+	}
+	if used := treeUsedTx(f.s.db, f.tree); used != 29 {
+		t.Fatalf("resubmitted results reset the count: used=%d", used)
+	}
+	if err := f.message(31); err != nil {
+		t.Fatal(err) // 30th message
+	}
+	if codeOf(f.message(32)) != "task_message_limit" {
+		t.Fatal("not refused at 30")
+	}
+	if f.wakes() != 1 {
+		t.Fatalf("root woken %d times", f.wakes())
+	}
+	// A new spec version counts once again.
+	f.s.db.Exec(`UPDATE task_tree_budget SET messages=5,reported=0 WHERE tree_key=?`, f.tree) // the brief is itself a charged message, so make room
+	brief := "A changed request."
+	if _, err := call(t, f.tool(f.g, f.root, "task_update"), map[string]any{"task_id": f.first.TaskID, "brief": brief}); err != nil {
+		t.Fatal(err)
+	}
+	submit(100)
+	if used := treeUsedTx(f.s.db, f.tree); used != 0 {
+		t.Fatalf("a result for a new spec version must count: used=%d", used)
+	}
+	submit(101)
+	f.s.db.Exec(`UPDATE task_tree_budget SET messages=5 WHERE tree_key=?`, f.tree)
+	submit(102)
+	if used := treeUsedTx(f.s.db, f.tree); used != 5 {
+		t.Fatalf("the second result of that version reset the count: used=%d", used)
+	}
+}
+
+// An item that is reopened and ended again, or ended again with another reason,
+// is progress only the first time.
+func TestIdleBudgetRepeatedChecklistToggleIsProgressOnce(t *testing.T) {
+	f, holder := newIdleFix(t, 2)
+	item := f.taskRow(f.first.TaskID).Checklist[0].ID
+	set := func(status, reason string) {
+		t.Helper()
+		if _, err := call(t, f.tool(f.g, holder, "task_update"), map[string]any{"task_id": f.first.TaskID, "items": []map[string]any{{"id": item, "status": status, "reason": reason}}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for i := 2; i <= 10; i++ {
+		_ = f.message(i)
+	}
+	set("done", "finished")
+	if used := treeUsedTx(f.s.db, f.tree); used != 0 {
+		t.Fatalf("the first end must reset: %d", used)
+	}
+	for i := 2; i <= 6; i++ {
+		_ = f.message(i)
+	}
+	for i := 0; i < 10; i++ {
+		set("open", "")
+		set("done", fmt.Sprintf("again %d", i))
+		set("skipped", fmt.Sprintf("edited %d", i))
+	}
+	if used := treeUsedTx(f.s.db, f.tree); used != 5 {
+		t.Fatalf("toggling an item reset the count: %d", used)
+	}
+}

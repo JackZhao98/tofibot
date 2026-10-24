@@ -145,6 +145,25 @@ func resetTreeIdleTx(tx *sql.Tx, key string) error {
 	return err
 }
 
+// progressOnceTx records progress that can repeat without the work moving: a
+// result resubmitted every round, an item reopened and ended again. It counts
+// only the first time for its mark (result:<spec version>, item:<id>), so a
+// spinning pair cannot reset the idle count forever. Closing a task done does
+// not use it: that happens once.
+func progressOnceTx(tx *sql.Tx, key, taskID, mark string) error {
+	if key == "" {
+		return nil
+	}
+	res, err := tx.Exec(`INSERT OR IGNORE INTO task_tree_progress(task_id,mark,created_at) VALUES(?,?,?)`, taskID, mark, now())
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n != 1 {
+		return nil
+	}
+	return resetTreeIdleTx(tx, key)
+}
+
 // reportTreeLimitTx wakes the root member once per idle stretch with a private
 // inbox row. Nothing is posted to the conversation.
 func reportTreeLimitTx(tx *sql.Tx, key string, limit int) error {
