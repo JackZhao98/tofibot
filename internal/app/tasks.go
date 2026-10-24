@@ -409,9 +409,10 @@ func taskFinishedOneTx(tx *sql.Tx, done Run, item WorkItem, result Message, sayO
 		return err
 	}
 	// A result submitted for the task (done, or in review for the giver) is
-	// progress; a round that ends still working or blocked is not.
+	// progress the first time for a spec version; a holder that resubmits the
+	// same result each round, or a round that ends still working or blocked, is not.
 	if status == "done" || status == "review" {
-		if err = resetTreeIdleTx(tx, item.RootTaskID); err != nil {
+		if err = progressOnceTx(tx, item.RootTaskID, item.ID, fmt.Sprintf("result:%d", item.SpecVersion)); err != nil {
 			return err
 		}
 	}
@@ -713,8 +714,9 @@ func (s *Store) updateTask(actor string, in TaskUpdate) (WorkItem, error) {
 			return WorkItem{}, taskRefusal("checklist_item_unknown", "No checklist item has that id: "+change.ID)
 		}
 		if change.Status != checklistOpen {
-			// An item that ends is progress: the tree's idle-message count restarts.
-			if err = resetTreeIdleTx(tx, item.RootTaskID); err != nil {
+			// An item that ends for the first time is progress: the tree's
+			// idle-message count restarts. Reopening and ending it again is not.
+			if err = progressOnceTx(tx, item.RootTaskID, item.ID, "item:"+change.ID); err != nil {
 				return WorkItem{}, err
 			}
 		}

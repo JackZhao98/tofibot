@@ -126,6 +126,15 @@ CREATE INDEX IF NOT EXISTS command_waits_bot ON command_waits(bot_id);`); err !=
 )`); err != nil {
 		return err
 	}
+	// Progress that may repeat is counted once per mark (decision 0064 amendment).
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS task_tree_progress(
+ task_id TEXT NOT NULL,
+ mark TEXT NOT NULL,
+ created_at TEXT NOT NULL,
+ PRIMARY KEY(task_id,mark)
+)`); err != nil {
+		return err
+	}
 	// tree_key names the task tree a run or an inbox row belongs to (decision 0064):
 	// a woken run inherits the key of the rows that woke it.
 	if err := ensureColumn(db, "bot_inbox", "tree_key", `ALTER TABLE bot_inbox ADD COLUMN tree_key TEXT NOT NULL DEFAULT ''`); err != nil {

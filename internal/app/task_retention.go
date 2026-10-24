@@ -75,6 +75,9 @@ func (s *Store) cleanupFinishedTasks(cutoff time.Time) (retentionResult, error) 
 	if _, err = tx.Exec(`DELETE FROM task_tree_budget WHERE updated_at<?`, stamp); err != nil {
 		return out, err
 	}
+	if _, err = tx.Exec(`DELETE FROM task_tree_progress WHERE created_at<?`, stamp); err != nil {
+		return out, err
+	}
 	return out, tx.Commit()
 }
 
