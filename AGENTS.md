@@ -162,7 +162,7 @@ approval settlement and a scheduled run are not targets (a message during a sche
 `queued`. `Message.delivery` is `queued` for unread rows (history never lists `read`); reading emits the stream event `inbox {message_id, run_id, state}`. The run reads at the boundary before each
 model request: `Request.DrainInbox` (`agent.AgentConfig.DrainInbox`) calls `drainInboxForRun` (one transaction: marks the rows read, `drained=1`, emits the event), the agent appends one user
 turn (`renderInjection`: `[new message from the person]` with the principle, or `[events from the task system]`), checkpoints it and refills the run's time, call, step and cost budget once
-(`Continuation.BudgetCallsBase/StepBase/CostBase`). It reads at most `maxInjectionsPerRun` (5) messages and none past `injectContextShare` (60%) of the context window: the next unread message
+(`Continuation.BudgetCallsBase/StepBase/CostBase`). Every read counts toward `maxInjectionsPerRun` (5), and none happens past `injectContextShare` (60%) of the context window or within `minTurnsForReading` of the assistant-turn limit; only a person's message refills the budget (`DrainInbox` returns `refill`). Past those limits the next unread person message
 closes the run through `closeRunForContinuation` (a continuation run plus the old steering edge, then `steeringBoundary` yields). Other inbox rows of the Bot in this conversation (settled waits,
 a member's question, task updates; not `via=mention`, not rows waiting for a still-active run) are read the same way. Messages still unread when a run ends become one continuation run in the
 same transaction (`continueUnreadInboxTx`, from `finishRunOpts`, `SetRunStatus`, recovery and `MarkRunSteered`); Stop all drops them. A read that a restart lost before its checkpoint is given
@@ -171,8 +171,8 @@ unread message). The `run_steering` edge and `steeringBoundary` remain for deleg
 return runs (`group_followup`), not inbox reads.
 
 Two stop levels: `POST /api/runs/{id}/interrupt-step` cancels only the tool call in flight (`runtime.Request.BeginStep`, per-call context, typed outcome `step_interrupted`; 409 `no_step_in_flight`
-when only the model is running) and the run goes on; `POST /api/runs/{id}/cancel` is Stop all (`CancelRunTree`, tasks and waits too). The composer is always enabled; its Stop is the lazy
-`ComposerStop` (`ui/src/ComposerStopMenu.tsx`); the queued/read note is `DeliveryNote`, applied from the `inbox` event by `applyInbox` (`ui/src/messageDelivery.ts`).
+when only the model is running) and the run goes on; `POST /api/runs/{id}/cancel` is Stop all (`CancelRunTree`, tasks and waits too). The composer is always enabled; its Stop button is in the entry (Stop all by itself when the menu chunk is not loaded) and opens the lazy two-item
+`ComposerStopMenu` (`ui/src/ComposerStopMenu.tsx`; the step item only for a running run with a tool call in flight); the queued/read note is `DeliveryNote`, applied from the `inbox` event by `applyInbox` (`ui/src/messageDelivery.ts`).
 
 # Security gates
 

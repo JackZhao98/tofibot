@@ -21,6 +21,7 @@ package app
 import (
 	"sort"
 	"sync"
+	"time"
 )
 
 const (
@@ -30,6 +31,10 @@ const (
 	laneDelegation
 	laneSchedule
 )
+
+// laneStarveAfter is how long a person's message or delegation may wait behind
+// the task tree the Bot just left before it ranks with that tree.
+var laneStarveAfter = 3 * time.Minute
 
 type laneState struct {
 	mu       sync.Mutex
@@ -143,7 +148,16 @@ func (s *Server) laneRankOf(r Run) laneRank {
 	last := s.lanes.lastTree[r.BotID]
 	s.lanes.mu.Unlock()
 	same := last != "" && lineageKey(s.store.db, r.ID) == last
-	return laneRank{class: laneClass(r, expiry, same), createdAt: r.CreatedAt, queueSeq: r.QueueSeq, id: r.ID}
+	class := laneClass(r, expiry, same)
+	// A person's message or a delegation that has waited past the bound ranks with
+	// the task tree's own runs, oldest first, so a busy tree cannot hold it back
+	// for good.
+	if class == lanePerson || class == laneDelegation {
+		if created, err := time.Parse(time.RFC3339Nano, r.CreatedAt); err == nil && time.Since(created) > laneStarveAfter {
+			class = laneTree
+		}
+	}
+	return laneRank{class: class, createdAt: r.CreatedAt, queueSeq: r.QueueSeq, id: r.ID}
 }
 
 // laneWinner reports whether r is the run the Bot should take next among the
@@ -242,8 +256,11 @@ func (s *Server) isInflight(id string) bool {
 // an order or a lane held elsewhere: its worker rechecks on a short tick as well
 // as on the wake the end of a run sends, so no missed wake can strand it.
 func (s *Server) pickRunnable(conv string) (Run, bool, bool, error) {
-	if err := s.store.refreshInputWaits(conv); err != nil {
-		return Run{}, false, false, err
+	// A tick that only rechecks the lanes has nothing to settle unless a card is open.
+	if s.store.hasInputWait(conv) {
+		if err := s.store.refreshInputWaits(conv); err != nil {
+			return Run{}, false, false, err
+		}
 	}
 	if err := s.store.ensureSchedules(); err != nil {
 		return Run{}, false, false, err
@@ -339,6 +356,15 @@ func (s *Store) runOrderBlocked(r Run) bool {
 		var n int
 		_ = s.db.QueryRow(`SELECT COUNT(*) FROM runs o WHERE o.conversation_id=? AND o.trigger_message_id=? AND o.id<>? AND o.queue_seq<? AND COALESCE(o.parent_run_id,'')='' AND o.kind IN ('',?) AND o.status IN ('queued','running')`,
 			r.ConversationID, r.TriggerMessageID, r.ID, r.QueueSeq, runKindGroupChat).Scan(&n)
+		if n > 0 {
+			return true
+		}
+		// A member addressed together with this one that is still working took the
+		// message as an unread inbox row instead of a run: it counts as a
+		// predecessor until that member's run reads it.
+		_ = s.db.QueryRow(`SELECT COUNT(*) FROM bot_inbox b JOIN runs pr ON pr.id=b.parent_run
+			WHERE b.kind='user_message' AND b.consumed_at='' AND b.anchor=? AND b.conversation_id=? AND b.bot_id<>?
+			AND pr.status='running' AND COALESCE(pr.trigger_message_id,'')<>b.anchor`, r.TriggerMessageID, r.ConversationID, r.BotID).Scan(&n)
 		if n > 0 {
 			return true
 		}

@@ -107,12 +107,12 @@ func TestDrainInboxAppendsAUserTurnThatIsCheckpointed(t *testing.T) {
 	var checkpoints []string
 	result, err := e.Run(context.Background(), Request{BotID: "bot", RunID: "drain", Messages: []Message{{Role: "user", Content: "work"}},
 		Tools: []Tool{{Name: "work", Parameters: map[string]any{"type": "object"}, Execute: func(context.Context, json.RawMessage) (string, error) { return "ok", nil }}},
-		DrainInbox: func() (string, error) {
+		DrainInbox: func(int) (string, bool, error) {
 			boundary++
 			if boundary == 2 {
-				return "[new message from the person]\nmake it shorter\n[/new message from the person]", nil
+				return "[new message from the person]\nmake it shorter\n[/new message from the person]", true, nil
 			}
-			return "", nil
+			return "", false, nil
 		},
 		OnCheckpoint: func(kind string, raw json.RawMessage) error {
 			checkpoints = append(checkpoints, string(raw))
@@ -149,7 +149,7 @@ func TestDrainInboxAppendsAUserTurnThatIsCheckpointed(t *testing.T) {
 
 // Each message read in place refills the run's time budget once.
 func TestAReadMessageRefillsTheTimeBudget(t *testing.T) {
-	run := func(drain bool) Result {
+	run := func(drain, refillOnRead bool) Result {
 		paths.SetTofiHome(t.TempDir())
 		p := &toolsThenDone{n: 4}
 		e := &engine{provider: p, model: "test-model", config: Config{MaxDuration: 150 * time.Millisecond}}
@@ -160,12 +160,12 @@ func TestAReadMessageRefillsTheTimeBudget(t *testing.T) {
 				return "ok", nil
 			}}}}
 		if drain {
-			req.DrainInbox = func() (string, error) {
+			req.DrainInbox = func(int) (string, bool, error) {
 				boundary++
 				if boundary == 3 {
-					return "[new message from the person]\nkeep going\n[/new message from the person]", nil
+					return "[new message from the person]\nkeep going\n[/new message from the person]", refillOnRead, nil
 				}
-				return "", nil
+				return "", false, nil
 			}
 		}
 		result, err := e.Run(context.Background(), req)
@@ -174,10 +174,44 @@ func TestAReadMessageRefillsTheTimeBudget(t *testing.T) {
 		}
 		return result
 	}
-	if r := run(false); !r.BudgetExhausted && r.BudgetReason == "" {
+	if r := run(false, false); !r.BudgetExhausted && r.BudgetReason == "" {
 		t.Fatalf("without a message the 60 ms tool rounds should exhaust a 150 ms budget: %#v", r)
 	}
-	if r := run(true); r.BudgetExhausted || r.BudgetReason != "" {
+	if r := run(true, true); r.BudgetExhausted || r.BudgetReason != "" {
 		t.Fatalf("a message read in place did not refill the budget: %#v", r)
+	}
+}
+
+// Review item 2: text that is not a person's message (a settled wait, a task
+// update) is appended but does not refill the budget, so a stream of events
+// cannot keep a run alive.
+func TestOnlyAPersonsMessageRefillsTheBudget(t *testing.T) {
+	run := func(refill bool) Result {
+		paths.SetTofiHome(t.TempDir())
+		p := &toolsThenDone{n: 4}
+		e := &engine{provider: p, model: "test-model", config: Config{MaxDuration: 150 * time.Millisecond}}
+		boundary := 0
+		result, err := e.Run(context.Background(), Request{BotID: "bot", RunID: "refill", Messages: []Message{{Role: "user", Content: "work"}},
+			Tools: []Tool{{Name: "work", Parameters: map[string]any{"type": "object"}, Execute: func(context.Context, json.RawMessage) (string, error) {
+				time.Sleep(60 * time.Millisecond)
+				return "ok", nil
+			}}},
+			DrainInbox: func(int) (string, bool, error) {
+				boundary++
+				if boundary == 3 {
+					return "[events from the task system]\n- task_update: x\n[/events from the task system]", refill, nil
+				}
+				return "", false, nil
+			}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return result
+	}
+	if r := run(false); !r.BudgetExhausted && r.BudgetReason == "" {
+		t.Fatalf("an event refilled the budget: %#v", r)
+	}
+	if r := run(true); r.BudgetExhausted || r.BudgetReason != "" {
+		t.Fatalf("a person's message did not refill: %#v", r)
 	}
 }

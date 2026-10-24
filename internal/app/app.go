@@ -4022,43 +4022,52 @@ func (s *Server) execute(c Conversation, r Run) {
 	// that delivered its answer reads nothing. At the cap or past the context
 	// threshold, unread messages close the run through a continuation run.
 	injections := 0
-	drainInbox := func() (string, error) {
+	drainInbox := func(turnsLeft int) (string, bool, error) {
 		if ctx.Err() != nil || r.Kind == runKindTriage {
-			return "", nil
+			return "", false, nil
 		}
 		if _, answered := s.store.sayAnswer(r.ID); answered {
-			return "", nil
+			return "", false, nil
 		}
-		limit := maxInjectionsPerRun - injections
+		// Past the cap, past the context threshold or near the turn limit the run
+		// reads nothing more, of any kind: a person's unread message closes it
+		// through a continuation run, other events wait for the next run.
+		full := injections >= maxInjectionsPerRun || turnsLeft < minTurnsForReading
 		if window := provider.GetContextWindow(model); window > 0 && float64(estimatedInput.Load()) > injectContextShare*float64(window) {
-			limit = 0
+			full = true
 		}
-		if limit <= 0 && s.store.unreadSteerCount(r.ID) > 0 {
+		if full {
+			if s.store.unreadSteerCount(r.ID) == 0 {
+				return "", false, nil
+			}
 			successor, created, err := s.store.closeRunForContinuation(r.ID)
 			if err != nil {
-				return "", err
+				return "", false, err
 			}
 			if created {
 				s.enqueue(c, successor)
 			}
-			if err := steeringBoundary(); err != nil {
-				return "", err
-			}
-			return "", nil
+			return "", false, steeringBoundary()
 		}
-		rows, err := s.store.drainInboxForRun(r, max(limit, 0))
+		rows, err := s.store.drainInboxForRun(r, maxInjectionsPerRun-injections)
 		if err != nil || len(rows) == 0 {
-			return "", err
+			return "", false, err
 		}
 		// What is on screen as a draft is published first, so the timeline reads
 		// message, then answer.
 		publishDemotedDraft()
+		people := 0
 		for _, row := range rows {
 			if row.Kind == inboxUserMessage {
-				injections++
+				people++
 			}
 		}
-		return s.store.renderInjection(rows), nil
+		// Every read counts toward the cap; only a person's message refills the budget.
+		if people == 0 {
+			injections++
+		}
+		injections += people
+		return s.store.renderInjection(rows), people > 0, nil
 	}
 	if len(continuation) > 0 {
 		observed, observeErr := s.store.hasCompletionReviewToolWork(r.ID)
