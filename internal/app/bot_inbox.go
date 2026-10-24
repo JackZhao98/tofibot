@@ -337,7 +337,7 @@ func (s *Store) wakeBotFromInbox(botID, conv string, rows []inboxRow) (Run, bool
 		return Run{}, false, err
 	}
 	if treeKey != "" {
-		if _, err = tx.Exec(`UPDATE runs SET tree_key=? WHERE id=?`, treeKey, run.ID); err != nil {
+		if _, err = tx.Exec(`INSERT OR REPLACE INTO run_tree(run_id,tree_key) VALUES(?,?)`, run.ID, treeKey); err != nil {
 			return Run{}, false, err
 		}
 	}

@@ -131,7 +131,9 @@ CREATE INDEX IF NOT EXISTS command_waits_bot ON command_waits(bot_id);`); err !=
 	if err := ensureColumn(db, "bot_inbox", "tree_key", `ALTER TABLE bot_inbox ADD COLUMN tree_key TEXT NOT NULL DEFAULT ''`); err != nil {
 		return err
 	}
-	if err := ensureColumn(db, "runs", "tree_key", `ALTER TABLE runs ADD COLUMN tree_key TEXT NOT NULL DEFAULT ''`); err != nil {
+	// A side table, not a column of runs: a wider runs row changes the plans of the
+	// conversation list queries (TestBackendPerfPlansAvoidFullScans).
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS run_tree(run_id TEXT PRIMARY KEY, tree_key TEXT NOT NULL)`); err != nil {
 		return err
 	}
 	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS work_items_origin_run ON work_items(origin_run_id) WHERE origin_run_id<>''`); err != nil {
