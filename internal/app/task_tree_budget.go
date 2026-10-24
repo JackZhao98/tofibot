@@ -65,7 +65,7 @@ func (e *treeLimitError) Unwrap() error { return e.inner }
 
 // treeKeyForRunTx is the one resolver of a run's tree. Walking up the run's
 // parents, the nearest of: a key the run inherited from the inbox rows that woke
-// it (runs.tree_key), a task the run works on (assignee) or gave (origin). With
+// it (run_tree.tree_key), a task the run works on (assignee) or gave (origin). With
 // none of them, the tree is the run's own lineage. Every place that needs a tree
 // or a root asks here, so a woken run cannot start a tree of its own.
 func treeKeyForRunTx(q queryer, runID string) string {
@@ -76,7 +76,7 @@ func treeKeyForRunTx(q queryer, runID string) string {
 	err := q.QueryRow(`WITH RECURSIVE anc(id,depth) AS (
  SELECT ?,0 UNION ALL SELECT r.parent_run_id,a.depth+1 FROM runs r JOIN anc a ON r.id=a.id WHERE COALESCE(r.parent_run_id,'')<>'' AND a.depth<64
  ) SELECT k FROM (
-  SELECT anc.depth AS d,0 AS pri,r.tree_key AS k FROM runs r JOIN anc ON r.id=anc.id WHERE r.tree_key<>''
+  SELECT anc.depth AS d,0 AS pri,t.tree_key AS k FROM run_tree t JOIN anc ON t.run_id=anc.id WHERE t.tree_key<>''
   UNION ALL
   SELECT anc.depth,1,w.root_task_id FROM work_items w JOIN anc ON (anc.id=w.assignee_run_id OR anc.id=w.origin_run_id) WHERE w.root_task_id<>''
  ) ORDER BY d,pri LIMIT 1`, runID).Scan(&key)
