@@ -364,6 +364,13 @@ func (s *Store) submitTaskForRun(runID, botID, taskID string) error {
 	if isClosedWorkStatus(item.Status) {
 		return taskRefusal("task_closed", "The task is closed.")
 	}
+	var conv string
+	if err = s.db.QueryRow(`SELECT conversation_id FROM runs WHERE id=?`, runID).Scan(&conv); err != nil {
+		return taskRefusal("task_wrong_conversation", "Submit a result only from the conversation the task lives in.")
+	}
+	if conv != item.ConversationID && (item.WorkConversationID == "" || conv != item.WorkConversationID) {
+		return taskRefusal("task_wrong_conversation", "Submit a result only from the conversation the task lives in.")
+	}
 	_, err = s.db.Exec(`UPDATE work_items SET submit_run_id=? WHERE id=?`, runID, item.ID)
 	return err
 }

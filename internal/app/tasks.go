@@ -231,13 +231,33 @@ func recordTaskForChildTx(tx *sql.Tx, child delegationChild) (WorkItem, error) {
 }
 
 // taskForRunTx finds the open task a run works on: the run is its assignee run,
-// or the run submitted a result for it with say(task_id).
+// or the run submitted a result for it with say(task_id). A task the run named
+// with task_id comes first; otherwise the oldest.
 func taskForRunTx(q queryer, runID string) (WorkItem, bool, error) {
-	item, err := scanWorkItem(q.QueryRow(`SELECT `+workItemAllColumns+` FROM work_items WHERE (assignee_run_id=? OR submit_run_id=?) AND status NOT IN ('done','cancelled','failed') ORDER BY created_at LIMIT 1`, runID, runID))
+	item, err := scanWorkItem(q.QueryRow(`SELECT `+workItemAllColumns+` FROM work_items WHERE (assignee_run_id=? OR submit_run_id=?) AND status NOT IN ('done','cancelled','failed') ORDER BY (submit_run_id=?) DESC,created_at LIMIT 1`, runID, runID, runID))
 	if err == sql.ErrNoRows {
 		return WorkItem{}, false, nil
 	}
 	return item, err == nil, err
+}
+
+// tasksForRunTx lists every open task the run is the assignee of or submitted
+// a result for. A run that ends settles all of them.
+func tasksForRunTx(q queryer, runID string) ([]WorkItem, error) {
+	rows, err := q.Query(`SELECT `+workItemAllColumns+` FROM work_items WHERE (assignee_run_id=? OR submit_run_id=?) AND status NOT IN ('done','cancelled','failed') ORDER BY (submit_run_id=?) DESC,created_at,id`, runID, runID, runID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []WorkItem
+	for rows.Next() {
+		item, err := scanWorkItem(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
 }
 
 // taskRunStartedTx moves the task to in_progress when its run starts, and
@@ -276,6 +296,25 @@ func taskRunStartedTx(tx *sql.Tx, runID string) error {
 			}
 		}
 	}
+	if !ok && kind.String == runKindFollowup && parent.String != "" {
+		// The return run of a delegation carries on the task its Bot held when it
+		// handed the work out: the run that delegated ended without closing it.
+		var giver sql.NullString
+		_ = tx.QueryRow(`SELECT parent_run_id FROM runs WHERE id=?`, parent.String).Scan(&giver)
+		if giver.String != "" {
+			res, err := tx.Exec(`UPDATE work_items SET assignee_run_id=? WHERE assignee_run_id=? AND bot_id=? AND status NOT IN ('done','cancelled','failed')
+ AND (SELECT status FROM runs WHERE id=?) NOT IN ('queued','running','waiting')`, runID, giver.String, bot.String, giver.String)
+			if err != nil {
+				return err
+			}
+			if n, _ := res.RowsAffected(); n > 0 {
+				item, ok, err = taskForRunTx(tx, runID)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
 	if !ok || item.AssigneeRunID != runID {
 		return nil
 	}
@@ -292,9 +331,35 @@ func taskRunStartedTx(tx *sql.Tx, runID string) error {
 // taskRunFinishedTx records a successful run's result on its task and settles
 // the waits that were held on it. result is the message the run left.
 func taskRunFinishedTx(tx *sql.Tx, done Run, result Message, sayOutcome string) error {
-	item, ok, err := taskForRunTx(tx, done.ID)
-	if err != nil || !ok {
+	items, err := tasksForRunTx(tx, done.ID)
+	if err != nil {
 		return err
+	}
+	for _, item := range items {
+		if err = taskFinishedOneTx(tx, done, item, result, sayOutcome); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// taskFinishedOneTx settles one task of a run that ended well.
+func taskFinishedOneTx(tx *sql.Tx, done Run, item WorkItem, result Message, sayOutcome string) error {
+	var err error
+	// A run that handed work out and ended holds its own task open: the return
+	// run carries it on and gives the real result. Naming the task with
+	// say(task_id) is the only way to close it with this run's text.
+	if item.SubmitRunID != done.ID {
+		var given int
+		if err = tx.QueryRow(`SELECT COUNT(*) FROM work_items WHERE origin_run_id=? AND status NOT IN ('done','cancelled','failed')`, done.ID).Scan(&given); err != nil {
+			return err
+		}
+		if given > 0 {
+			if _, err = tx.Exec(`UPDATE work_items SET submit_run_id='',updated_at=? WHERE id=? AND submit_run_id=?`, now(), item.ID, done.ID); err != nil {
+				return err
+			}
+			return taskEventTx(tx, item.ID)
+		}
 	}
 	status := "done"
 	switch {
@@ -341,10 +406,20 @@ func taskRunFinishedTx(tx *sql.Tx, done Run, result Message, sayOutcome string) 
 
 // taskRunEndedTx handles a run that ended without a result.
 func taskRunEndedTx(tx *sql.Tx, runID, status string) error {
-	item, ok, err := taskForRunTx(tx, runID)
-	if err != nil || !ok {
+	items, err := tasksForRunTx(tx, runID)
+	if err != nil {
 		return err
 	}
+	for _, item := range items {
+		if err = taskEndedOneTx(tx, runID, status, item); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func taskEndedOneTx(tx *sql.Tx, runID, status string, item WorkItem) error {
+	var err error
 	if item.AssigneeRunID != runID {
 		// Only a run that was working for the task can fail it.
 		_, err = tx.Exec(`UPDATE work_items SET submit_run_id='' WHERE id=? AND submit_run_id=?`, item.ID, runID)
