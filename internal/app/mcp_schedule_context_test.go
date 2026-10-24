@@ -511,6 +511,12 @@ func TestScheduledMCPContextBoundedLineage(t *testing.T) {
 			f.exec(`UPDATE runs SET status='cancelled' WHERE id=?`, f.root.ID)
 		}},
 		{"ancestry over limit", false, scheduleSourceChat, false, func(f *scheduledMCPFixture) {
+			// The chain is deeper than the default idle budget of a task tree
+			// (decision 0064); this case tests the authorization ancestry bound.
+			limit := "500"
+			if err := f.s.store.putAutomationValue(autoTaskTreeIdleLimit, &limit); err != nil {
+				f.t.Fatal(err)
+			}
 			for i := 0; i < maxMCPAuthorizationAncestry; i++ {
 				bot := f.colleague
 				if f.r.BotID == bot.ID {
