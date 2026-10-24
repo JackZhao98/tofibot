@@ -1775,13 +1775,13 @@ func (s *Store) addHandoff(conv, sender, bot, parent, task string) (Message, Run
 		}
 	} else {
 		// The assignment is a task, with the wait its assigner holds for the result.
-		made, terr := recordTaskForChildTx(tx, delegationChild{RunID: r.ID, RunConversation: conv, RunBot: bot, RunKind: r.Kind, Origin: origin, Trigger: r.TriggerMessageID,
+		_, terr := recordTaskForChildTx(tx, delegationChild{RunID: r.ID, RunConversation: conv, RunBot: bot, RunKind: r.Kind, Origin: origin, Trigger: r.TriggerMessageID,
 			ParentRun: parent, ParentBot: sender, ParentConversation: conv, Brief: task, RunStatus: "queued"})
 		if terr != nil {
 			return Message{}, Run{}, terr
 		}
 		// A hand-over is a message of its tree (decision 0064).
-		if err = chargeTreeTx(tx, made.RootTaskID, 1, true); err != nil {
+		if err = chargeTreeTx(tx, treeKeyForRunTx(tx, parent), 1, true); err != nil {
 			return Message{}, Run{}, err
 		}
 	}

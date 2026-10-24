@@ -126,6 +126,17 @@ CREATE INDEX IF NOT EXISTS command_waits_bot ON command_waits(bot_id);`); err !=
 )`); err != nil {
 		return err
 	}
+	// tree_key names the task tree a run or an inbox row belongs to (decision 0064):
+	// a woken run inherits the key of the rows that woke it.
+	if err := ensureColumn(db, "bot_inbox", "tree_key", `ALTER TABLE bot_inbox ADD COLUMN tree_key TEXT NOT NULL DEFAULT ''`); err != nil {
+		return err
+	}
+	if err := ensureColumn(db, "runs", "tree_key", `ALTER TABLE runs ADD COLUMN tree_key TEXT NOT NULL DEFAULT ''`); err != nil {
+		return err
+	}
+	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS work_items_origin_run ON work_items(origin_run_id) WHERE origin_run_id<>''`); err != nil {
+		return err
+	}
 	if err := migrateWaitsFromRunWaits(db); err != nil {
 		return err
 	}

@@ -9,8 +9,8 @@ package app
 //
 // What counts as a message: a hand-over of work to another member (delegate,
 // message, mention wake), a question or an update that passes through
-// task_ask or task_update, and every message a holder posts in the conversation
-// of a task it holds for another member (decision 0064, "giver inbox"). The
+// task_ask or task_update, and a wait on a member's post. A holder's messages to
+// the giver are not charged, and the giver's answer to a question always passes. The
 // limit stops new member-to-member dispatch only; a member can still answer the
 // person. At the limit the root member and the person are told once.
 
@@ -63,18 +63,25 @@ type treeLimitError struct {
 func (e *treeLimitError) Error() string { return e.inner.Error() }
 func (e *treeLimitError) Unwrap() error { return e.inner }
 
-// treeKeyForRunTx names the tree a run belongs to: the root task of the nearest
-// task the run (or a run above it) works on or gave, else its run lineage.
+// treeKeyForRunTx is the one resolver of a run's tree. Walking up the run's
+// parents, the nearest of: a key the run inherited from the inbox rows that woke
+// it (runs.tree_key), a task the run works on (assignee) or gave (origin). With
+// none of them, the tree is the run's own lineage. Every place that needs a tree
+// or a root asks here, so a woken run cannot start a tree of its own.
 func treeKeyForRunTx(q queryer, runID string) string {
 	if runID == "" {
 		return ""
 	}
-	var root string
+	var key string
 	err := q.QueryRow(`WITH RECURSIVE anc(id,depth) AS (
  SELECT ?,0 UNION ALL SELECT r.parent_run_id,a.depth+1 FROM runs r JOIN anc a ON r.id=a.id WHERE COALESCE(r.parent_run_id,'')<>'' AND a.depth<64
- ) SELECT w.root_task_id FROM work_items w JOIN anc ON (anc.id=w.assignee_run_id OR anc.id=w.origin_run_id) WHERE w.root_task_id<>'' ORDER BY anc.depth LIMIT 1`, runID).Scan(&root)
-	if err == nil && root != "" {
-		return root
+ ) SELECT k FROM (
+  SELECT anc.depth AS d,0 AS pri,r.tree_key AS k FROM runs r JOIN anc ON r.id=anc.id WHERE r.tree_key<>''
+  UNION ALL
+  SELECT anc.depth,1,w.root_task_id FROM work_items w JOIN anc ON (anc.id=w.assignee_run_id OR anc.id=w.origin_run_id) WHERE w.root_task_id<>''
+ ) ORDER BY d,pri LIMIT 1`, runID).Scan(&key)
+	if err == nil && key != "" {
+		return key
 	}
 	top := runID
 	for steps := 0; steps < 64; steps++ {
@@ -85,6 +92,16 @@ func treeKeyForRunTx(q queryer, runID string) string {
 		top = parent.String
 	}
 	return treeKeyRunPrefix + top
+}
+
+// treeRootForRunTx is the root task of the run's tree, empty when the tree is a
+// run lineage that has no task yet.
+func treeRootForRunTx(q queryer, runID string) string {
+	key := treeKeyForRunTx(q, runID)
+	if strings.HasPrefix(key, treeKeyRunPrefix) {
+		return ""
+	}
+	return key
 }
 
 // chargeTreeTx counts n messages against the tree. With block set, a charge
@@ -141,7 +158,7 @@ func reportTreeLimitTx(tx *sql.Tx, key string, limit int) error {
 		return nil
 	}
 	body := fmt.Sprintf("The members working on this task tree have passed %d messages between them, the limit. New work no longer passes between members in this tree. Do not start more. Tell the person where the work stands and what is left, and ask whether to continue.", limit)
-	if err = addInboxTx(tx, InboxItem{BotID: rootBot, ConversationID: conv, Kind: inboxTaskUpdate, TaskID: rootTask, RootTaskID: rootTask, Body: body, Wakes: true, NeedsReply: true}); err != nil {
+	if err = addInboxTx(tx, InboxItem{BotID: rootBot, ConversationID: conv, Kind: inboxTaskUpdate, TaskID: rootTask, RootTaskID: rootTask, TreeKey: key, Body: body, Wakes: true, NeedsReply: true}); err != nil {
 		return err
 	}
 	return addTreeLimitNoticeTx(tx, conv, rootBot, limit)

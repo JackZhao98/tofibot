@@ -32,7 +32,30 @@ func fanOutPendingTx(tx *sql.Tx, done Run) (bool, error) {
 	}
 	var pending bool
 	err := tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM runs WHERE parent_run_id=? AND id<>? AND kind IN `+fanOutChildKinds+` AND status IN ('queued','running','waiting'))`, done.ParentRunID, done.ID).Scan(&pending)
+	if err != nil || pending {
+		return pending, err
+	}
+	// Parts the giver handed out through the inbox (no run of their own yet, or a
+	// woken run with no parent) are siblings too: their wait is still open.
+	err = tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM work_items w WHERE w.origin_run_id=? AND w.assignee_run_id<>? AND EXISTS(
+ SELECT 1 FROM waits x WHERE x.kind=? AND x.target=w.id AND x.delivery=? AND x.status='pending'))`, done.ParentRunID, done.ID, waitTaskResult, deliveryEngine).Scan(&pending)
 	return pending, err
+}
+
+// fanOutRowHeld decides what the inbox does with the wait result of a hand-out
+// that had parts on both paths: wait while a direct child still runs (its return
+// would answer the person), and drop the row once that return exists.
+func (s *Store) fanOutRowHeld(row inboxRow) (wait, drop bool) {
+	if row.Kind != inboxWaitResult || row.ParentRun == "" {
+		return false, false
+	}
+	var active, returned bool
+	_ = s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM runs WHERE parent_run_id=? AND kind IN `+fanOutChildKinds+` AND status IN ('queued','running','waiting'))`, row.ParentRun).Scan(&active)
+	if active {
+		return true, false
+	}
+	_ = s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM runs r WHERE r.kind=? AND r.parent_run_id IN (SELECT id FROM runs WHERE parent_run_id=? AND kind IN `+fanOutChildKinds+`))`, runKindFollowup, row.ParentRun).Scan(&returned)
+	return false, returned
 }
 
 // fanOutReturnTx finds a return run already created for this child's fan-out:

@@ -117,7 +117,7 @@ func (s *Store) drainInboxForRun(r Run, userLimit int) ([]inboxRow, error) {
 		return nil, err
 	}
 	defer tx.Rollback()
-	rows, err := tx.Query(`SELECT `+inboxRowColumns+` FROM bot_inbox WHERE bot_id=? AND consumed_at='' AND via<>'mention'
+	rows, err := tx.Query(`SELECT `+inboxRowColumns+` FROM bot_inbox WHERE bot_id=? AND consumed_at='' AND via<>'mention' AND NOT `+unlockRowSQL+`
 		AND ((kind='user_message' AND parent_run=?) OR (kind<>'user_message' AND (conversation_id=? OR conversation_id='')))
 		ORDER BY created_at,id LIMIT ?`, r.BotID, r.ID, r.ConversationID, maxDrainRows+maxInjectionsPerRun)
 	if err != nil {
@@ -178,10 +178,6 @@ func (s *Store) drainInboxForRun(r Run, userLimit int) ([]inboxRow, error) {
 	}
 	if len(taken) == 0 {
 		return nil, nil
-	}
-	// A task the rows unlocked (decision 0064) belongs to the run that reads them.
-	if err = bindUnlockedTasksTx(tx, r.BotID, r.ID, taken, true); err != nil {
-		return nil, err
 	}
 	if err = tx.Commit(); err != nil {
 		return nil, err
