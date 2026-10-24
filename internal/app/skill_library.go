@@ -352,7 +352,10 @@ func insertLibraryTx(tx *sql.Tx, name string, actor skillActor, bundleID, source
 //
 // installSkill puts a new skill in the library. The owner's install turns it on
 // for nobody; a Bot's install turns it on for that Bot only.
-func (s *Server) installSkill(actor skillActor, name string, files map[string][]byte, source string) error {
+//
+// enableFor lists Bots the owner chose to turn it on for at install time; the
+// rows are written (set_by=owner) in the same transaction as the library row.
+func (s *Server) installSkill(actor skillActor, name string, files map[string][]byte, source string, enableFor ...string) error {
 	s.skillLibMu.Lock()
 	defer s.skillLibMu.Unlock()
 	if err := s.extensions.InstallSkill(name, files); err != nil {
@@ -374,6 +377,12 @@ func (s *Server) installSkill(actor skillActor, name string, files map[string][]
 	if err = insertLibraryTx(tx, name, actor, "", source, extensions.SkillFilesDigest(files)); err == nil && actor.Kind == skillActorBot {
 		err = setSkillEnabledTx(tx, actor.BotID, name, true, skillSetByBot)
 	}
+	for _, id := range enableFor {
+		if err != nil {
+			break
+		}
+		err = setSkillEnabledTx(tx, id, name, true, skillSetByOwner)
+	}
 	if err == nil {
 		err = tx.Commit()
 	}
@@ -385,7 +394,8 @@ func (s *Server) installSkill(actor skillActor, name string, files map[string][]
 }
 
 // installSkillBundle installs every skill of a plugin folder, or none.
-func (s *Server) installSkillBundle(actor skillActor, bundle extensions.SkillBundle, source string) (libraryBundleView, error) {
+// enableFor works as for installSkill and applies to every member.
+func (s *Server) installSkillBundle(actor skillActor, bundle extensions.SkillBundle, source string, enableFor ...string) (libraryBundleView, error) {
 	s.skillLibMu.Lock()
 	defer s.skillLibMu.Unlock()
 	var view libraryBundleView
@@ -424,6 +434,12 @@ func (s *Server) installSkillBundle(actor skillActor, bundle extensions.SkillBun
 		if err = insertLibraryTx(tx, sk.Name, actor, bundle.Name, source, extensions.SkillFilesDigest(sk.Files)); err != nil {
 			cleanup()
 			return view, err
+		}
+		for _, id := range enableFor {
+			if err = setSkillEnabledTx(tx, id, sk.Name, true, skillSetByOwner); err != nil {
+				cleanup()
+				return view, err
+			}
 		}
 		view.Skills = append(view.Skills, sk.Name)
 	}

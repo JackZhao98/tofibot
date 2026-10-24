@@ -517,10 +517,31 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const starter = page$(page).locator(".skill-starters .integration-tile").first();
     const starterTitle = (await starter.locator("strong").textContent()).trim();
     await starter.click();
+    // The install flow asks which Bots get it; the default is one primary button for all of them.
+    const pending = page$(page).locator(".skill-pending");
+    await pending.waitFor();
+    assert.equal(libWrites.filter(entry => entry.startsWith("POST /api/extensions/skills ")).length, 0, "choosing Bots comes before the write");
+    assert.deepEqual(await pending.locator("button").allInnerTexts(), ["Enable for all Bots", "Choose Bots…", "Cancel"]);
+    assert.equal(await pending.locator("button.primary-button").innerText(), "Enable for all Bots", "the default is one primary button");
+    await pending.getByRole("button", {name: "Choose Bots…"}).click();
+    assert.deepEqual(await pending.locator(".skill-enable-bots label").allInnerTexts(), ["Research Bot", "Inbox Bot", "Notes Bot"], "only active Bots are listed");
+    assert.equal(await pending.getByRole("button", {name: "Add without enabling"}).count(), 1, "no Bot picked means install for none");
+    await pending.getByLabel("Inbox Bot").check();
+    await pending.getByRole("button", {name: "Add and enable for 1 Bot"}).click();
     await page.waitForFunction(() => document.querySelector('.settings-page-body[data-page="skills"] .extension-notice'));
-    assert.match(await text(page$(page).locator(".extension-notice")), /Added to the library/);
-    assert.equal(libWrites.filter(entry => entry.startsWith("POST /api/extensions/skills ")).length, 1, "one click, one write");
+    assert.match(await text(page$(page).locator(".extension-notice")), /Added to the library and turned on for 1 Bot/);
+    assert.match(libWrites.filter(entry => entry.startsWith("POST /api/extensions/skills "))[0], /"enable":\["bot_inbox"\]/, "the chosen Bot ids are sent");
+    const second = page$(page).locator(".skill-starters .integration-tile").first();
+    await second.click();
+    await pending.getByRole("button", {name: "Enable for all Bots"}).click();
+    await page.waitForFunction(() => document.querySelectorAll('.settings-page-body[data-page="skills"] .skill-pending').length === 0);
+    assert.match(libWrites.filter(entry => entry.startsWith("POST /api/extensions/skills "))[1], /"enable":"all"/, "one primary click installs for all Bots");
+    assert.match(await text(page$(page).locator(".extension-notice")), /turned on for every Bot/);
+    assert.equal(libWrites.filter(entry => entry.startsWith("POST /api/extensions/skills ")).length, 2);
     assert.ok(!(await page$(page).locator(".skill-starters").innerText()).includes(starterTitle), "an added starter leaves the template list");
+    await page$(page).getByRole("button", {name: "Paste SKILL.md"}).click();
+    assert.equal(await page$(page).locator("form .primary-button").innerText(), "Enable for all Bots", "the paste form offers the same default");
+    await page$(page).getByRole("button", {name: "Paste SKILL.md"}).click();
     // Add folder is a styled button over a hidden folder input; paste opens the small form.
     assert.equal(await page$(page).locator('input[type=file][webkitdirectory]').count(), 1);
     await page$(page).getByRole("button", {name: "Paste SKILL.md"}).click();

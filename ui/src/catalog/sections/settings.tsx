@@ -59,9 +59,10 @@ const LIB: LibraryListing = {
   ],
   bundles: [{ id: "office-kit", description: "Office helpers", version: "1.0.0", installed_by: { kind: "owner" }, installed_at: "2026-10-19T10:00:00Z", skills: ["alpha-tool", "beta-tool"] }],
 };
+const SYNTH_BOTS = [{ id: "bot_mochi", name: "Mochi" }, { id: "bot_taro", name: "Taro" }, { id: "bot_miso", name: "Miso" }];
 const libProps = (extra: Partial<SkillLibraryViewProps> = {}): SkillLibraryViewProps => ({
   listing: LIB, loaded: true, loading: false, busy: false, error: "", notice: "", form: false, formState: { name: "", text: "" }, showReload: false,
-  onToggleForm: noop, onFormChange: noop, onSubmitForm: noop, onPickFolder: noop, onStarter: noop, onRemove: never, onRemoveBundle: never, onRollback: noop, onReload: noop, ...extra,
+  onToggleForm: noop, onFormChange: noop, onSubmitForm: noop, onPickFolder: noop, onStarter: noop, onRemove: never, onRemoveBundle: never, onRollback: noop, onReload: noop, bots: SYNTH_BOTS, pending: null, onCancelPending: noop, onConfirmPending: noop, ...extra,
 });
 const libraryState = (id: string, label: string, props: Partial<SkillLibraryViewProps> | (() => Partial<SkillLibraryViewProps>), extra: Partial<CatalogState> = {}): CatalogState =>
   ({ id: `skills-${id}`, kind: "inline", label, render: () => <SkillLibraryView {...libProps(typeof props === "function" ? props() : props)} />, ...extra });
@@ -96,6 +97,7 @@ export const settings: CatalogSection = {
   states: [
     libraryState("library", "Skills library: owner, Bot-installed, bundle, official", {}),
     libraryState("library-open", "Skills library: bundle expanded", () => ({ openBundles: ["office-kit"], notice: t("extensions:skills.library.added_notice") })),
+    libraryState("library-pending", "Skills library: choose Bots for a new Skill", { pending: "Weekly report" }),
     libraryState("library-paste", "Skills library: paste form", { form: true, formState: { name: "research-assistant", text: "---\nname: research-assistant\ndescription: Research and verify sources\n---\nWorkflow instructions…" } }),
     libraryState("library-empty", "Skills library: nothing added yet", { listing: { skills: LIB.skills.filter(skill => skill.builtin), bundles: [] } }),
     libraryState("library-loading", "Skills library: loading", { loaded: false, loading: true, listing: { skills: [], bundles: [] } }),

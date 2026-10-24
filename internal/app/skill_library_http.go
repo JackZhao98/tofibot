@@ -1,7 +1,10 @@
 package app
 
 import (
+	"encoding/json"
+	"errors"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/JackZhao98/tofibot/internal/extensions"
@@ -10,8 +13,12 @@ import (
 // routeSkillLibrary serves the owner's library routes (decision 0058):
 //
 //	GET    /api/extensions/skills                       the library, bundles, who installed what
-//	POST   /api/extensions/skills                       {name, files} add one skill
-//	POST   /api/extensions/skill-bundles                {files} add a plugin folder (two levels)
+//	POST   /api/extensions/skills                       {name, files, enable?} add one skill
+//	POST   /api/extensions/skill-bundles                {files, enable?} add a plugin folder (two levels)
+//
+// enable is "all" (every active Bot), "none" (the default) or a list of active
+// Bot ids; the rows are written with the library row, in one transaction.
+//
 //	DELETE /api/extensions/skills/{name}                remove one skill (owner only; not a bundle member)
 //	DELETE /api/extensions/skill-bundles/{id}           remove a bundle and its skills
 //	POST   /api/extensions/skills/{name}/versions       {files, note} publish a new version
@@ -35,14 +42,19 @@ func (s *Server) routeSkillLibrary(w http.ResponseWriter, r *http.Request, p str
 		return true
 	case p == "extensions/skills" && r.Method == http.MethodPost:
 		var in struct {
-			Name  string            `json:"name"`
-			Files map[string]string `json:"files"`
+			Name   string            `json:"name"`
+			Files  map[string]string `json:"files"`
+			Enable enableSpec        `json:"enable"`
 		}
 		if e := decodeExtensionJSON(r, &in); e != nil {
-			writeErr(w, 400, "invalid_request", "files must be UTF-8 strings")
+			writeErr(w, 400, "invalid_request", "files must be UTF-8 strings and enable must be all, none or a list of Bot ids")
 			return true
 		}
-		if e := s.installSkill(skillActor{Kind: skillActorOwner}, in.Name, stringFiles(in.Files), "settings"); e != nil {
+		enableFor, ok := s.resolveEnableSpec(w, in.Enable)
+		if !ok {
+			return true
+		}
+		if e := s.installSkill(skillActor{Kind: skillActorOwner}, in.Name, stringFiles(in.Files), "settings", enableFor...); e != nil {
 			status, code, msg := skillLibraryError(e)
 			if code == "skill_exists" {
 				writeErr(w, 400, "extensions", msg)
@@ -55,10 +67,15 @@ func (s *Server) routeSkillLibrary(w http.ResponseWriter, r *http.Request, p str
 		return true
 	case p == "extensions/skill-bundles" && r.Method == http.MethodPost:
 		var in struct {
-			Files map[string]string `json:"files"`
+			Files  map[string]string `json:"files"`
+			Enable enableSpec        `json:"enable"`
 		}
 		if e := decodeExtensionJSON(r, &in); e != nil {
-			writeErr(w, 400, "invalid_request", "files must be UTF-8 strings")
+			writeErr(w, 400, "invalid_request", "files must be UTF-8 strings and enable must be all, none or a list of Bot ids")
+			return true
+		}
+		enableFor, ok := s.resolveEnableSpec(w, in.Enable)
+		if !ok {
 			return true
 		}
 		bundle, e := extensions.ParseSkillBundle(stringFiles(in.Files))
@@ -67,7 +84,7 @@ func (s *Server) routeSkillLibrary(w http.ResponseWriter, r *http.Request, p str
 			writeErr(w, status, code, msg)
 			return true
 		}
-		view, e := s.installSkillBundle(skillActor{Kind: skillActorOwner}, bundle, "settings")
+		view, e := s.installSkillBundle(skillActor{Kind: skillActorOwner}, bundle, "settings", enableFor...)
 		if e != nil {
 			status, code, msg := skillLibraryError(e)
 			writeErr(w, status, code, msg)
@@ -139,6 +156,66 @@ func (s *Server) routeSkillLibrary(w http.ResponseWriter, r *http.Request, p str
 		return true
 	}
 	return false
+}
+
+// enableSpec is the owner's choice of Bots at install time: "all", "none"
+// (also when omitted) or a list of Bot ids.
+type enableSpec struct {
+	All  bool
+	IDs  []string
+	Kind string // "", "all", "none", "list"
+}
+
+func (e *enableSpec) UnmarshalJSON(b []byte) error {
+	var word string
+	if json.Unmarshal(b, &word) == nil {
+		switch word {
+		case "all":
+			e.Kind, e.All = "all", true
+		case "none":
+			e.Kind = "none"
+		default:
+			return errors.New("enable must be all, none or a list of Bot ids")
+		}
+		return nil
+	}
+	if err := json.Unmarshal(b, &e.IDs); err != nil {
+		return errors.New("enable must be all, none or a list of Bot ids")
+	}
+	e.Kind = "list"
+	return nil
+}
+
+// resolveEnableSpec turns the choice into active Bot ids, or answers 400.
+func (s *Server) resolveEnableSpec(w http.ResponseWriter, spec enableSpec) ([]string, bool) {
+	if spec.Kind == "" || spec.Kind == "none" {
+		return nil, true
+	}
+	active, err := s.store.activeBotSet()
+	if err != nil {
+		writeErr(w, 500, "internal", "skill library unavailable")
+		return nil, false
+	}
+	var ids []string
+	if spec.All {
+		for id := range active {
+			ids = append(ids, id)
+		}
+		sort.Strings(ids)
+		return ids, true
+	}
+	seen := map[string]bool{}
+	for _, id := range spec.IDs {
+		if !active[id] {
+			writeErr(w, 400, "invalid_request", "enable lists a Bot that does not exist or is archived")
+			return nil, false
+		}
+		if !seen[id] {
+			seen[id] = true
+			ids = append(ids, id)
+		}
+	}
+	return ids, true
 }
 
 func stringFiles(in map[string]string) map[string][]byte {

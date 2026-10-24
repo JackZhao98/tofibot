@@ -16,6 +16,8 @@
 10. **提示词**：技能目录只列这个 Bot 已启用的技能（标题 `Enabled Skills (name and purpose):`，比原来短 2 个字符）；`read_skill`、`read_skill_file` 对未启用的技能和不存在的一样拒绝，因为工具本身就是按过滤后的列表建的。
 11. **只加不删的迁移**：`CREATE TABLE IF NOT EXISTS`，旧表 `skill_access`、`builtin_skill_off` 保留，迁移之后不再读。
 
+12. **安装时选 Bot（owner 10-23 追加）。** 用户在设置 › Skills 安装技能或套装（文件夹、粘贴、起步模板）时，安装流程问“给哪些 Bot 开”：默认一个主按钮“Enable for all Bots”（所有未归档 Bot），次选“Choose Bots…”勾选名单（什么都不勾 = 谁也不开）。owner 安装路由（`POST /api/extensions/skills`、`/skill-bundles`）接受可选字段 `enable`：`"all"`、`"none"`（缺省）或 Bot id 数组；id 不存在或已归档整个请求 400，什么都不装。开启行（`set_by=owner`）与库记录同一事务写入，套装对每个成员都写。Bot 工具安装不变（只开装它的那个 Bot）；无人值守的 Bot 安装仍拒绝。这条取代第 2 条里“用户装的技能没有行 = 谁也不开”的默认体验：路由缺省仍是谁也不开，界面默认是全开。
+
 ## 日期
 
 2026-10-23（PDT）

@@ -36,6 +36,7 @@ TOFI 每个版本改了什么，最新的在最上面。写给以后接手的人
 还没进任何 rc 的改动写在这里；打下一个 rc 时挪进那个 rc 的条目（决定 D27）。
 
 - 群里没 @ 人的消息：由后台模型按成员角色挑最合适的人回答（在岗成员只有一位时跳过；模型不可用或答案无效时退回主助理/随机）。Settings › Automatic behavior 新增“Route unaddressed group messages”和“Group routing model”（D60）。
+- 设置 › Skills 安装时选 Bot（D58 第 12 条）：安装文件夹、粘贴或起步模板后先问给哪些 Bot 开，默认主按钮“Enable for all Bots”，次选“Choose Bots…”勾选名单或一个都不勾；路由 `enable: "all" | "none" | [bot_id]`，与库记录同事务写 `skill_enablement`（`set_by=owner`），套装对每个成员生效，未知或已归档 id 整个请求 400。Bot 自己装不变。
 - reaction：模型历史里每条消息带 reaction 摘要；人给 Bot 的群消息点 reaction 会低优先级叫醒该 Bot（短时间内合并为一次、不要求回复），Bot 点的 reaction 不叫醒任何人；提示词改为用 reaction 代替简短回复来确认、同意、接活（D60）。
 - **技能库：一个全局库，每个 Bot 一列启用（C4，[D58](decisions/0058-skill-library-per-bot.md)，分支 `feat/c4-skill-library`）。** 升级后第一次启动跑一次迁移（标记 `skill_library_per_bot_v1`，只加表）：旧的“所有 Bot”技能给每个现存 Bot 打勾，有名单的只给名单上的，全局关掉的官方技能给每个 Bot 写关；之后新建的 Bot 只带官方技能。`skill_access`、`builtin_skill_off` 保留，不再读。Bot 装技能和给自己开关不要批准（装技能仍只在有人看得见的 run 里）；Bot 发新版本会更新到所有开了它的 Bot，要人批准（卡片带新版本号、增删改的文件、跟随的 Bot 数），只有装它的 Bot 能发；设置里标“已更新”并可回退；Bot 没有删除，删除只在设置里。套装用 Claude Code 插件目录（`.claude-plugin/plugin.json` + `skills/<name>/SKILL.md`）。设置 › Skills 变成库（一键添加、套装可展开、安装者和版本、移除、回退），Bot 设置里新增“技能”勾选（含谁何时设的）；`SkillAccess.tsx`、`PUT …/access`、`PUT …/enabled` 退役。提示词里技能目录只列已启用的，标题缩短 2 个字符（普通 DM 提示词 8223 → 8221）。Bot 分享文件带已启用的技能名字。**升级注意：** 迁移后新装的技能对任何 Bot 默认是关的，要在 Bot 设置里勾选；`deploy/self-host/upgrade_acceptance.py` 改为按 Bot 比较技能可用范围。
 
