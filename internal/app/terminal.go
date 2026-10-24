@@ -192,7 +192,7 @@ func (s *Server) terminalTool(r Run) Tool {
 	return Tool{Name: "computer_terminal", Description: terminalToolDescription, Parameters: objectSchema(map[string]any{
 		"action":      map[string]any{"type": "string", "enum": []string{"open", "list", "read", "write", "resize", "close"}},
 		"terminal_id": map[string]any{"type": "string"}, "command": map[string]any{"type": "string"}, "data": map[string]any{"type": "string"}, "cursor": map[string]any{"type": "integer", "minimum": 0}, "cols": map[string]any{"type": "integer"}, "rows": map[string]any{"type": "integer"},
-		"notify_on_exit": map[string]any{"type": "boolean", "description": "With open (and a command) or write: register a wait on the end of the command, so that the result wakes you. See the tool text."},
+		"notify_on_exit": map[string]any{"type": "boolean", "description": "With open (and a command) or write: register a wait on the end of the command. The result has the exit code and the last output. A restart of the computer interrupts the command and the result says so; decide whether to run it again. In a shell terminal the end is the return of the shell to its prompt, with no exit code. End your turn or talk with the person; read the output when the result arrives."},
 	}, []string{"action"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
 		var in map[string]json.RawMessage
 		_ = json.Unmarshal(raw, &in)
@@ -311,8 +311,8 @@ func normalizeTerminalCommands(value map[string]any) {
 	}
 }
 
-const terminalToolDescription = "Open and operate a persistent PTY terminal in this Bot's VM workspace. Tabs and live output are visible to the human in Terminal. Use for interactive or long-running commands. open starts a shell when command is omitted; read returns incremental text and a next_cursor; write sends text and control characters. A terminal keeps running after your turn ends and through a hibernation of the computer. A restart of the computer ends every terminal and its processes; working files persist. User control blocks model actions. Close finished terminals. " +
-	"Run a long command in a terminal of its own and set notify_on_exit on the call that starts it (open with a command, or write): the system watches the command and wakes you with the exit code and the last output when it ends. Then end your turn, or keep talking with the person; do not poll. The signal can be lost, so a timed check is added to the wait (mode any); when the command ends first, end the check with cancel_wait. Read the output when the result arrives. If a restart interrupted the command, the result says so; decide whether to run it again. In a shell terminal the end is the return of the shell to its prompt and no exit code is given."
+const terminalToolDescription = "Open and operate a persistent PTY terminal in this Bot's VM workspace. The human sees tabs and live output in Terminal. Use for interactive or long-running commands. open starts a shell when command is omitted; read returns incremental text and a next_cursor; write sends text and control characters. A terminal keeps running after your turn ends and through hibernation. A restart of the computer ends every terminal; working files persist. User control blocks model actions. Close finished terminals. " +
+	"Run a long command in a terminal of its own with notify_on_exit: the system wakes you with the result when it ends, so do not poll. A timed check is added to the wait; when the command ends first, end the check with cancel_wait."
 
 // attachCommandWait registers the wait that notify_on_exit asks for, after the
 // action has succeeded. The action cannot be undone, so a refusal is reported

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
 
 type receiptTask struct {
@@ -433,4 +434,36 @@ func TestTreeLimitStopsDelegationAndReportsOnce(t *testing.T) {
 	// The root member is woken with it.
 	f.srv.flushInbox()
 	_ = f.running // the root run is still running; the row waits for it
+}
+
+// The giver's wait on a blocked task has the long ceiling; the usual deadline starts at unlock.
+func TestWaitOnABlockedTaskStartsItsDeadlineAtUnlock(t *testing.T) {
+	f := newTaskFix(t)
+	root := f.running(f.g.ID, f.a)
+	base := f.delegateTo(f.g, root, f.b, "Base")
+	waiting := f.delegateTo(f.g, root, f.c, "Waits", base.TaskID)
+	deadline := func() time.Time {
+		var d string
+		if err := f.s.db.QueryRow(`SELECT deadline_at FROM waits WHERE kind='task_result' AND target=? AND status='pending'`, waiting.TaskID).Scan(&d); err != nil {
+			t.Fatal(err)
+		}
+		at, err := time.Parse(time.RFC3339Nano, d)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return at
+	}
+	if left := time.Until(deadline()); left < 23*time.Hour {
+		t.Fatalf("a blocked task's wait must have the long ceiling, has %v", left)
+	}
+	// Past the usual deadline, the sweeper must not time it out while blocked.
+	run := f.taskRow(base.TaskID).AssigneeRunID
+	f.start(run)
+	if _, ok, err := f.s.FinishRun(run, f.g.ID, f.b.ID, "Base done."); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	left := time.Until(deadline())
+	if left > waitTimeoutFor(waitTaskResult)+time.Minute || left < waitTimeoutFor(waitTaskResult)-time.Minute {
+		t.Fatalf("after unlock the deadline must be the usual %v from now, is %v", waitTimeoutFor(waitTaskResult), left)
+	}
 }
