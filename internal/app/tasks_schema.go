@@ -104,6 +104,12 @@ CREATE TABLE IF NOT EXISTS command_waits(
 CREATE INDEX IF NOT EXISTS command_waits_bot ON command_waits(bot_id);`); err != nil {
 		return err
 	}
+	// drained marks a row a running Bot read in place at a boundary (decision
+	// 0062), as opposed to one a run's context or a wake carried. A restart that
+	// lost the boundary before it was checkpointed gives these rows back.
+	if err := ensureColumn(db, "bot_inbox", "drained", `ALTER TABLE bot_inbox ADD COLUMN drained INTEGER NOT NULL DEFAULT 0`); err != nil {
+		return err
+	}
 	if err := migrateWaitsFromRunWaits(db); err != nil {
 		return err
 	}

@@ -187,7 +187,8 @@ func (s *Store) claimRun(ctx context.Context, runID string) (runClaim, bool, err
 		claim.Continuation, claim.Question = json.RawMessage(data), q
 	} else {
 		var cpAttempt int
-		err = tx.QueryRowContext(ctx, `SELECT attempt,checkpoint_json FROM run_checkpoints WHERE run_id=?`, runID).Scan(&cpAttempt, &data)
+		var cpAt string
+		err = tx.QueryRowContext(ctx, `SELECT attempt,checkpoint_json,updated_at FROM run_checkpoints WHERE run_id=?`, runID).Scan(&cpAttempt, &data, &cpAt)
 		if err != nil && err != sql.ErrNoRows {
 			return claim, false, err
 		}
@@ -196,10 +197,25 @@ func (s *Store) claimRun(ctx context.Context, runID string) (runClaim, bool, err
 				return claim, false, fmt.Errorf("run checkpoint attempt %d is not older than claim attempt %d", cpAttempt, claim.Attempt)
 			}
 			claim.Continuation, claim.Boundary = json.RawMessage(data), true
+			// What the run read in place after that checkpoint is not in its transcript.
+			if err = returnUndeliveredDrainsTx(tx, runID, cpAt); err != nil {
+				return claim, false, err
+			}
+		} else if claim.Attempt > 1 {
+			// A run that starts over has no transcript: it reads its messages again.
+			if err = returnUndeliveredDrainsTx(tx, runID, ""); err != nil {
+				return claim, false, err
+			}
 		}
 	}
 	if err = markScheduleStartedTx(tx, runID); err != nil {
 		return claim, false, err
+	}
+	// The first start of a run reads the messages it was made for.
+	if claim.Attempt == 1 {
+		if err = readAtStartTx(tx, runID); err != nil {
+			return claim, false, err
+		}
 	}
 	if err = tx.Commit(); err != nil {
 		return claim, false, err

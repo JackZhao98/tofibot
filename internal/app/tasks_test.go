@@ -44,9 +44,18 @@ var runCounter int
 func (f taskFix) running(conv string, bot Bot) Run {
 	f.t.Helper()
 	runCounter++
-	_, runs, _, err := f.s.AddUserRuns(conv, "synthetic request", "client-"+newID(), []runSpec{{BotID: bot.ID, Model: bot.Model}}, true)
+	m, runs, _, _, err := f.s.addUserRunsSteering(conv, "synthetic request", "client-"+newID(), []runSpec{{BotID: bot.ID, Model: bot.Model}}, nil, true)
 	if err != nil {
 		f.t.Fatal(err)
+	}
+	if len(runs) == 0 {
+		// The Bot is already working here, so the request was queued for that run
+		// (decision 0062). These tests need one more run of the same Bot, so
+		// make it the way a wake or a retry does.
+		runs = []Run{queueRun(f.t, f.s, conv, bot.ID, "", "")}
+		if _, err := f.s.db.Exec(`UPDATE runs SET trigger_message_id=? WHERE id=?`, m.ID, runs[0].ID); err != nil {
+			f.t.Fatal(err)
+		}
 	}
 	if ok, err := f.s.SetRunStatus(runs[0].ID, "running", ""); err != nil || !ok {
 		f.t.Fatalf("start run: %v %v", ok, err)
@@ -874,11 +883,11 @@ func TestPersonMessageBumpsTheVersionAndMarksAStaleResult(t *testing.T) {
 		t.Fatalf("version %d", task.SpecVersion)
 	}
 	// The person writes to the member that holds the task, in the group.
-	msg, runs, _, err := f.s.AddUserRuns(f.g.ID, "Make it about harbors instead", "client-harbor", []runSpec{{BotID: f.b.ID, Model: f.b.Model}}, true)
-	if err != nil {
-		t.Fatal(err)
+	msg, _, queued, _, err := f.s.addUserRunsSteering(f.g.ID, "Make it about harbors instead", "client-harbor", []runSpec{{BotID: f.b.ID, Model: f.b.Model}}, nil, true)
+	if err != nil || len(queued) != 1 {
+		t.Fatalf("the holder is working, so the message is queued for its run: %+v %v", queued, err)
 	}
-	f.s.noteUserMessageForTasks(f.g.ID, msg, []string{runs[0].BotID})
+	f.s.noteUserMessageForTasks(f.g.ID, msg, []string{queued[0].BotID})
 	got := f.taskOf(child.ID)
 	if got.SpecVersion != 2 {
 		t.Fatalf("version %d, want 2", got.SpecVersion)
@@ -1296,16 +1305,27 @@ func TestARetryRunTakesOverTheTaskAndASteeredRunKeepsIt(t *testing.T) {
 		t.Fatalf("task after retry %+v", got)
 	}
 	// A run a newer message took over from is not a stopped run.
+	if ok, err := f.s.SetRunStatus(root.ID, "done", ""); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
 	root2 := f.running(f.g.ID, f.a)
 	_, c2, _ := f.s.AddHandoff(f.g.ID, f.a.ID, f.c.ID, root2.ID, "Draw the figure")
 	f.start(c2.ID)
 	t2 := f.taskOf(c2.ID)
-	_, succ, _, err := f.s.AddUserRuns(f.g.ID, "@charlie also add a legend", "client-legend", []runSpec{{BotID: f.c.ID, Model: f.c.Model}}, true)
-	if err != nil {
-		t.Fatal(err)
+	// Rewritten for decision 0062. The message used to start a successor run that
+	// took the task over; it is now queued for the working run, which keeps the
+	// task. The take-over still happens when the run closes into a continuation
+	// run (the reading cap), and that must not look like a stop.
+	_, runs, queued, _, err := f.s.addUserRunsSteering(f.g.ID, "@charlie also add a legend", "client-legend", []runSpec{{BotID: f.c.ID, Model: f.c.Model}}, nil, true)
+	if err != nil || len(runs) != 0 || len(queued) != 1 || queued[0].RunID != c2.ID {
+		t.Fatalf("runs=%+v queued=%+v err=%v", runs, queued, err)
 	}
-	if _, err := f.s.db.Exec(`INSERT OR IGNORE INTO run_steering(new_run_id,old_run_id) VALUES(?,?)`, succ[0].ID, c2.ID); err != nil {
-		t.Fatal(err)
+	if got, _ := f.s.GetWorkItem(t2.ID); got.Status != "in_progress" || got.AssigneeRunID != c2.ID {
+		t.Fatalf("a queued message moved the task: %+v", got)
+	}
+	succ, created, err := f.s.closeRunForContinuation(c2.ID)
+	if err != nil || !created {
+		t.Fatal(created, err)
 	}
 	if ok, err := f.s.MarkRunSteered(c2.ID, "steered by newer user message"); err != nil || !ok {
 		t.Fatal(ok, err)
@@ -1313,7 +1333,7 @@ func TestARetryRunTakesOverTheTaskAndASteeredRunKeepsIt(t *testing.T) {
 	if err := f.s.reconcileTaskRuns(); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := f.s.GetWorkItem(t2.ID); got.Status == "cancelled" || got.AssigneeRunID != succ[0].ID {
+	if got, _ := f.s.GetWorkItem(t2.ID); got.Status == "cancelled" || got.AssigneeRunID != succ.ID {
 		t.Fatalf("steered task %+v", got)
 	}
 }
@@ -1342,7 +1362,9 @@ func TestAWaitChainEndsAfterTooManySelfWakes(t *testing.T) {
 	}
 }
 
-func TestAPersonsMessageWhileACardIsOpenLeavesAnInboxRow(t *testing.T) {
+// Rewritten for decision 0062 (Q6): a person's message while a card is open is
+// an unread row pointed at the parked run, and the card stays.
+func TestAPersonsMessageWhileACardIsOpenLeavesAnUnreadInboxRow(t *testing.T) {
 	f := newTaskFix(t)
 	dm, _ := f.s.GetConversation(f.a.DMConversationID)
 	run := f.running(dm.ID, f.a)
@@ -1350,28 +1372,26 @@ func TestAPersonsMessageWhileACardIsOpenLeavesAnInboxRow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if parked := f.s.botsParkedOnInput(dm.ID); len(parked) != 0 {
-		t.Fatalf("parked before the run waits: %v", parked)
-	}
 	if _, err := f.s.db.Exec(`UPDATE runs SET status='waiting' WHERE id=?`, run.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := f.s.db.Exec(`INSERT INTO run_input_waits(run_id,question_id,checkpoint_json,state,created_at) VALUES(?,?,'{}','waiting',?)`, run.ID, q.ID, now()); err != nil {
 		t.Fatal(err)
 	}
-	parked := f.s.botsParkedOnInput(dm.ID)
-	if !parked[f.a.ID] || len(parked) != 1 {
-		t.Fatalf("parked %v", parked)
+	m, runs, queued, _, err := f.s.addUserRunsSteering(dm.ID, "Actually, make it short.", "short", []runSpec{{BotID: f.a.ID, Model: f.a.Model}}, nil)
+	if err != nil || len(runs) != 0 || len(queued) != 1 {
+		t.Fatalf("runs=%+v queued=%+v err=%v", runs, queued, err)
 	}
-	msg := Message{ID: "m1", Content: "Actually, make it short."}
-	f.s.recordUserMessageInbox(f.a.ID, dm.ID, "next-run", msg)
-	var body, by string
+	var body, by, parent string
 	var wakes int
-	if err := f.s.db.QueryRow(`SELECT body,consumed_by_run,wakes FROM bot_inbox WHERE kind='user_message'`).Scan(&body, &by, &wakes); err != nil || body != msg.Content || by != "next-run" || wakes != 0 {
-		t.Fatalf("row %q %q %d %v", body, by, wakes, err)
+	if err := f.s.db.QueryRow(`SELECT body,consumed_by_run,parent_run,wakes FROM bot_inbox WHERE kind='user_message'`).Scan(&body, &by, &parent, &wakes); err != nil || body != m.Content || by != "" || parent != run.ID || wakes != 0 {
+		t.Fatalf("row %q consumed_by=%q parent=%q wakes=%d %v", body, by, parent, wakes, err)
 	}
-	// Today's behaviour is kept: the row never wakes and is never read twice.
+	if got, _ := f.s.GetQuestion(q.ID); got.Status != questionPending {
+		t.Fatalf("the card did not stay: %s", got.Status)
+	}
+	// Another run of the Bot does not read a message that belongs to the parked run.
 	if rows := f.s.peekInboxForRun(f.a.ID, dm.ID, "another-run"); len(rows) != 0 {
-		t.Fatalf("another run read the stored message: %v", rows)
+		t.Fatalf("a run starting meanwhile sees %d rows of the parked run", len(rows))
 	}
 }

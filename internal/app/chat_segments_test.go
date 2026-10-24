@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestChatSegmentsPersistInOrderAndStopAfterInterjection(t *testing.T) {
+func TestChatSegmentsPersistInOrderAndSurviveAQueuedInterjection(t *testing.T) {
 	s, r, c := streamFixture(t)
 	defer s.Close()
 	ctx := context.Background()
@@ -32,18 +32,22 @@ func TestChatSegmentsPersistInOrderAndStopAfterInterjection(t *testing.T) {
 	if _, err = s.PublishChatSegment(ctx, r, "call-one", "Different text."); err == nil {
 		t.Fatal("conflicting retry accepted")
 	}
-	_, runs, _, err := s.AddUserRuns(c.ID, "Wait, change direction.", "interrupt-after-segments", []runSpec{{BotID: r.BotID, Model: r.Model}})
-	if err != nil || len(runs) != 1 {
-		t.Fatalf("interjection: %+v %v", runs, err)
+	// Queued steering (decision 0062): the interjection starts no run and stops
+	// nothing. The working run keeps its right to speak, and the timeline reads
+	// segments, the person's message, then what the run says next.
+	_, runs, queued, _, err := s.addUserRunsSteering(c.ID, "Wait, change direction.", "interrupt-after-segments", []runSpec{{BotID: r.BotID, Model: r.Model}}, nil)
+	if err != nil || len(runs) != 0 || len(queued) != 1 || queued[0].RunID != r.ID {
+		t.Fatalf("interjection: runs=%+v queued=%+v %v", runs, queued, err)
 	}
-	if _, err = s.PublishChatSegment(ctx, r, "call-three", "Stale third thought."); err == nil {
-		t.Fatal("old run sent after user interjection")
+	third, err := s.PublishChatSegment(ctx, r, "call-three", "Third thought, after the message.")
+	if err != nil {
+		t.Fatalf("the working run was stopped by a queued message: %v", err)
 	}
 	msgs, _, err := s.Messages(c.ID, 0, 20)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(msgs) != 3 || msgs[0].ID != first.ID || msgs[1].ID != second.ID || msgs[2].Role != "user" {
+	if len(msgs) != 4 || msgs[0].ID != first.ID || msgs[1].ID != second.ID || msgs[2].Role != "user" || msgs[2].Delivery != "queued" || msgs[3].ID != third.ID {
 		t.Fatalf("conversation order: %+v", msgs)
 	}
 }

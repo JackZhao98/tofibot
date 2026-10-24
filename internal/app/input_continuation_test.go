@@ -106,33 +106,68 @@ func TestInputContinuationPreservesWaitingAtRecovery(t *testing.T) {
 	}
 }
 
-func TestInputContinuationStopAndSteeringInvalidateCard(t *testing.T) {
-	for _, steer := range []bool{false, true} {
-		t.Run(fmt.Sprint(steer), func(t *testing.T) {
-			s, c, r, q := parkedInputFixture(t)
-			defer s.Close()
-			if steer {
-				_, _, _, err := s.AddUserRuns(c.ID, "New instruction", "steer", []runSpec{{BotID: r.BotID, Model: r.Model}})
-				if err != nil {
-					t.Fatal(err)
-				}
-			} else if err := s.CancelRunTree(r.ID); err != nil {
-				t.Fatal(err)
-			}
-			got, _ := s.GetRun(r.ID)
-			question, _ := s.GetQuestion(q.ID)
-			if got.Status != "cancelled" || question.Status != questionCancelled || s.preservesInputWait(r.ID) {
-				t.Fatalf("stale wait: %+v %+v", got, question)
-			}
-			if _, _, err := s.AnswerQuestion(q.ID, "human", "late"); !errors.Is(err, ErrQuestionNotPending) {
-				t.Fatalf("late answer=%v", err)
-			}
-			var status string
-			_ = s.db.QueryRow(`SELECT status FROM tool_activities WHERE run_id=? AND call_id='wait-call'`, r.ID).Scan(&status)
-			if status != "interrupted" {
-				t.Fatalf("stale activity: %s", status)
-			}
-		})
+func TestInputContinuationStopInvalidatesTheCard(t *testing.T) {
+	s, _, r, q := parkedInputFixture(t)
+	defer s.Close()
+	if err := s.CancelRunTree(r.ID); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := s.GetRun(r.ID)
+	question, _ := s.GetQuestion(q.ID)
+	if got.Status != "cancelled" || question.Status != questionCancelled || s.preservesInputWait(r.ID) {
+		t.Fatalf("stale wait: %+v %+v", got, question)
+	}
+	if _, _, err := s.AnswerQuestion(q.ID, "human", "late"); !errors.Is(err, ErrQuestionNotPending) {
+		t.Fatalf("late answer=%v", err)
+	}
+	var status string
+	_ = s.db.QueryRow(`SELECT status FROM tool_activities WHERE run_id=? AND call_id='wait-call'`, r.ID).Scan(&status)
+	if status != "interrupted" {
+		t.Fatalf("stale activity: %s", status)
+	}
+}
+
+// Rewritten for decision 0062 (Q6). A person's message used to replace the open
+// question card: the parked run was cancelled and a new run answered. Now the
+// card stays, the message goes to the Bot's inbox pointed at the parked run, and
+// the run reads it when it resumes after the card is answered.
+func TestInputContinuationAMessageKeepsTheCardAndIsReadOnResume(t *testing.T) {
+	s, c, r, q := parkedInputFixture(t)
+	defer s.Close()
+	m, runs, queued, _, err := s.addUserRunsSteering(c.ID, "New instruction", "steer", []runSpec{{BotID: r.BotID, Model: r.Model}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(runs) != 0 || len(queued) != 1 || queued[0].RunID != r.ID {
+		t.Fatalf("the message was not queued for the parked run: runs=%+v queued=%+v", runs, queued)
+	}
+	got, _ := s.GetRun(r.ID)
+	question, _ := s.GetQuestion(q.ID)
+	if got.Status != runWaiting || question.Status != questionPending || !s.preservesInputWait(r.ID) {
+		t.Fatalf("the card did not stay: run=%+v question=%+v", got, question)
+	}
+	if n := s.unreadSteerCount(r.ID); n != 1 {
+		t.Fatalf("unread messages for the parked run: %d", n)
+	}
+	// The person answers the card: the run resumes and reads the message.
+	if _, _, err := s.AnswerQuestion(q.ID, "human", "answer"); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, err := s.nextQueuedRun(c.ID); err != nil || !ok {
+		t.Fatalf("the answered run is not ready: %v %v", ok, err)
+	}
+	if _, _, ok, err := s.claimInputContinuation(context.Background(), r.ID); err != nil || !ok {
+		t.Fatalf("claim: %v %v", ok, err)
+	}
+	rows, err := s.drainInboxForRun(r, maxInjectionsPerRun)
+	if err != nil || len(rows) != 1 || rows[0].Anchor != m.ID {
+		t.Fatalf("drain: %+v %v", rows, err)
+	}
+	if text := s.renderInjection(rows); !strings.Contains(text, "New instruction") || !strings.Contains(text, "addition or a correction") {
+		t.Fatalf("rendered turn: %q", text)
+	}
+	if rows, _ := s.drainInboxForRun(r, maxInjectionsPerRun); len(rows) != 0 {
+		t.Fatalf("a message was read twice: %+v", rows)
 	}
 }
 

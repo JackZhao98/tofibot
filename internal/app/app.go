@@ -106,6 +106,9 @@ type Message struct {
 	CreatedAt       string         `json:"created_at"`
 	Notice          *HandoffNotice `json:"notice,omitempty"`
 	Card            *DisplayCard   `json:"card,omitempty"`
+	// Delivery is "queued" while a working Bot has not read the person's message
+	// yet and "read" once it has (queued steering, decision 0062).
+	Delivery string `json:"delivery,omitempty"`
 }
 type HandoffNotice struct {
 	Type string `json:"type"`
@@ -205,6 +208,7 @@ type Config struct {
 type Server struct {
 	dispositions                         sync.Map // run id -> groupChoice recorded by the respond tool
 	sayRuns                              sync.Map // run id -> *sayRunState of a structured run in flight
+	stepStops                            sync.Map // run id -> *stepStop of the tool call in flight ("Stop current step")
 	waitTimeout                          time.Duration
 	reactionWakes                        reactionWakeState
 	reactionWakeWindow                   time.Duration // 0 = defaultReactionWakeWindow
@@ -255,6 +259,7 @@ type Server struct {
 	convMu                               map[string]*sync.Mutex
 	runs                                 map[string]context.CancelFunc
 	queues                               map[string]*conversationQueue
+	lanes                                laneState
 	triageModel                          string
 	automation                           automationCache
 	closing                              bool
@@ -465,6 +470,10 @@ func recoverInterruptedRuns(db *sql.DB) error {
 		}
 		if run.Status != "queued" {
 			ended = append(ended, run)
+			// Messages queued for a run the restart ended go to a continuation run.
+			if _, _, err = continueUnreadInboxTx(tx, run.ID, run.Status); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -1378,6 +1387,9 @@ func (s *Store) Messages(conv string, before, limit int64) ([]Message, bool, err
 	if err := s.hydrateMessageReactions(out); err != nil {
 		return nil, false, err
 	}
+	if err := s.hydrateMessageDelivery(out); err != nil {
+		return nil, false, err
+	}
 	if err := s.hydrateClientMessageIDs(conv, out); err != nil {
 		return nil, false, err
 	}
@@ -2112,6 +2124,20 @@ func (s *Store) SetRunStatus(id, status, msg string) (bool, error) {
 			return false, e
 		}
 	}
+	// Messages queued for the run that it never read go to a continuation run
+	// (or are dropped when the person stopped it).
+	var inboxRun Run
+	var inboxContinued bool
+	if n == 1 && (terminal || status == "done") {
+		if inboxRun, inboxContinued, e = continueUnreadInboxTx(tx, id, status); e != nil {
+			return false, e
+		}
+		if inboxContinued {
+			if e = passTasksOnTx(tx, id, inboxRun); e != nil {
+				return false, e
+			}
+		}
+	}
 	if n == 1 && status == "failed" {
 		if e = keepFailedRunFilesTx(tx, id, t); e != nil {
 			return false, e
@@ -2126,6 +2152,9 @@ func (s *Store) SetRunStatus(id, status, msg string) (bool, error) {
 	if failureReturned && s.onReturnQueued != nil {
 		s.onReturnQueued(failureReturn)
 	}
+	if inboxContinued && s.onReturnQueued != nil {
+		s.onReturnQueued(inboxRun)
+	}
 	if n == 1 && terminal {
 		s.cleanupRunAttachments(id)
 	}
@@ -2136,6 +2165,8 @@ func (s *Store) SetRunStatus(id, status, msg string) (bool, error) {
 // completed artifacts. A successor may still need to cite or bind those
 // artifacts, so ordinary cancellation cleanup would lose them.
 func (s *Store) MarkRunSteered(id, msg string) (bool, error) {
+	var inboxRun Run
+	var inboxContinued bool
 	tx, err := s.db.Begin()
 	if err != nil {
 		return false, err
@@ -2157,7 +2188,13 @@ func (s *Store) MarkRunSteered(id, msg string) (bool, error) {
 			if _, err = tx.Exec(`UPDATE run_attachments SET run_id=? WHERE run_id=? OR run_id IN (SELECT new_run_id FROM run_steering WHERE old_run_id=?)`, successor, id, id); err != nil {
 				return false, err
 			}
+			// Messages queued for the steered run are read by the run that takes over.
+			if _, err = tx.Exec(`UPDATE bot_inbox SET parent_run=? WHERE kind='user_message' AND parent_run=? AND consumed_at=''`, successor, id); err != nil {
+				return false, err
+			}
 		} else if err != sql.ErrNoRows {
+			return false, err
+		} else if inboxRun, inboxContinued, err = continueUnreadInboxTx(tx, id, "steered"); err != nil {
 			return false, err
 		}
 		run, scanErr := scanRun(tx.QueryRow(`SELECT id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at FROM runs WHERE id=?`, id))
@@ -2171,6 +2208,9 @@ func (s *Store) MarkRunSteered(id, msg string) (bool, error) {
 	}
 	if err = tx.Commit(); err != nil {
 		return false, err
+	}
+	if inboxContinued && s.onReturnQueued != nil {
+		s.onReturnQueued(inboxRun)
 	}
 	return n == 1, nil
 }
@@ -2330,6 +2370,13 @@ func (s *Store) finishRunOpts(id, conv, bot, content string, silent bool, failur
 	if _, err = tx.Exec(`UPDATE runs SET status=?,error=?,updated_at=? WHERE id=? AND status='running'`, terminal, nullString(failure), t, id); err != nil {
 		return Message{}, false, err
 	}
+	// A message queued for this run that it never read becomes a continuation
+	// run in the same transaction: the race between the last boundary and the
+	// end of the run loses nothing.
+	inboxRun, inboxContinued, err := continueUnreadInboxTx(tx, id, terminal)
+	if err != nil {
+		return Message{}, false, err
+	}
 	if draftID != "" {
 		if _, err = tx.Exec(`UPDATE stream_drafts SET content=?,status='done',revision=revision+1,updated_at=? WHERE run_id=? AND status='active'`, content, t, id); err != nil {
 			return Message{}, false, err
@@ -2385,6 +2432,11 @@ func (s *Store) finishRunOpts(id, conv, bot, content string, silent bool, failur
 	} else if err = taskRunEndedTx(tx, id, "failed"); err != nil {
 		return Message{}, false, err
 	}
+	if inboxContinued {
+		if err = passTasksOnTx(tx, id, inboxRun); err != nil {
+			return Message{}, false, err
+		}
+	}
 	returnTarget, shouldReturn, err := runReturnTargetTx(tx, done)
 	if err != nil {
 		return Message{}, false, err
@@ -2422,6 +2474,9 @@ func (s *Store) finishRunOpts(id, conv, bot, content string, silent bool, failur
 	}
 	if failureReturned && s.onReturnQueued != nil {
 		s.onReturnQueued(failureReturn)
+	}
+	if inboxContinued && s.onReturnQueued != nil {
+		s.onReturnQueued(inboxRun)
 	}
 	return m, true, nil
 }
@@ -3478,8 +3533,7 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request, c Conversat
 		}
 		specs = []runSpec{{BotID: c.BotID, Model: b.Model}}
 	}
-	parked := s.store.botsParkedOnInput(c.ID) // read before the message replaces the card
-	m, runs, dup, e := s.store.AddUserRunsWithAttachments(c.ID, x.Content, x.ClientMessageID, specs, x.AttachmentIDs, interrupt)
+	m, runs, queued, dup, e := s.store.addUserRunsSteering(c.ID, x.Content, x.ClientMessageID, specs, x.AttachmentIDs, interrupt)
 	if e != nil {
 		if errors.Is(e, ErrConversationBusy) {
 			writeErr(w, 409, "conversation_busy", "conversation has an active run")
@@ -3506,34 +3560,34 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request, c Conversat
 			writeErr(w, 500, "storage", e.Error())
 			return
 		}
-		var run Run
+		var run *Run
 		if len(runs) > 0 {
-			run = runs[0]
+			run = &runs[0]
 		}
 		writeJSON(w, 200, map[string]any{"message": m, "run": run, "runs": runs})
 		return
 	}
 	// A person's words to a member that holds a task from another member change
 	// that task's request: the version goes up and both sides are told.
-	targets := make([]string, 0, len(runs))
+	targets := make([]string, 0, len(runs)+len(queued))
 	for _, run := range runs {
 		targets = append(targets, run.BotID)
 	}
-	s.store.noteUserMessageForTasks(c.ID, m, targets)
-	for _, run := range runs {
-		if parked[run.BotID] {
-			s.store.recordUserMessageInbox(run.BotID, c.ID, run.ID, m)
-		}
+	for _, d := range queued {
+		targets = append(targets, d.BotID)
 	}
+	s.store.noteUserMessageForTasks(c.ID, m, targets)
 	s.cancelInactiveRuns()
 	for _, run := range runs {
 		s.enqueue(c, run)
 	}
-	var run Run
+	// A message queued for a working Bot starts no run. A Bot parked on a card
+	// keeps its card and reads the message when it resumes.
+	var run *Run
 	if len(runs) > 0 {
-		run = runs[0]
+		run = &runs[0]
 	}
-	writeJSON(w, 202, map[string]any{"message": m, "run": run, "runs": runs})
+	writeJSON(w, 202, map[string]any{"message": m, "run": run, "runs": runs, "queued": queued})
 }
 
 var replyMarkerPattern = regexp.MustCompile(`^\[message_id=([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\]`)
@@ -3683,7 +3737,9 @@ func (s *Server) execute(c Conversation, r Run) {
 	// One protocol for the whole run, even if the setting changes meanwhile.
 	structured := r.Kind != runKindTriage && s.store.structuredOutputOn()
 	r.structured = structured
-	r.consumeInbox = true
+	// A resumed run replays its own transcript, not this context, so the inbox rows
+	// stay unread for its boundary reads.
+	r.consumeInbox = len(continuation) == 0
 	r.ctxCapture = newContextCapture()
 	// The last committed summary and bounded recent history are enough to start
 	// the reply. Durable history maintenance runs after the response is saved.
@@ -3943,6 +3999,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		}
 	}
 	steeringCancelled := false
+	var estimatedInput atomic.Int64
 	steeringBoundary := func() error {
 		pending, err := s.store.HasSteeringSuccessor(r.ID)
 		if err != nil || !pending {
@@ -3959,6 +4016,49 @@ func (s *Server) execute(c Conversation, r Run) {
 		steeringCancelled = true
 		cancel()
 		return context.Canceled
+	}
+	// Queued steering: at each boundary the run reads what reached it (a person's
+	// message queued while it worked, a settled wait) in one atomic step. A run
+	// that delivered its answer reads nothing. At the cap or past the context
+	// threshold, unread messages close the run through a continuation run.
+	injections := 0
+	drainInbox := func() (string, error) {
+		if ctx.Err() != nil || r.Kind == runKindTriage {
+			return "", nil
+		}
+		if _, answered := s.store.sayAnswer(r.ID); answered {
+			return "", nil
+		}
+		limit := maxInjectionsPerRun - injections
+		if window := provider.GetContextWindow(model); window > 0 && float64(estimatedInput.Load()) > injectContextShare*float64(window) {
+			limit = 0
+		}
+		if limit <= 0 && s.store.unreadSteerCount(r.ID) > 0 {
+			successor, created, err := s.store.closeRunForContinuation(r.ID)
+			if err != nil {
+				return "", err
+			}
+			if created {
+				s.enqueue(c, successor)
+			}
+			if err := steeringBoundary(); err != nil {
+				return "", err
+			}
+			return "", nil
+		}
+		rows, err := s.store.drainInboxForRun(r, max(limit, 0))
+		if err != nil || len(rows) == 0 {
+			return "", err
+		}
+		// What is on screen as a draft is published first, so the timeline reads
+		// message, then answer.
+		publishDemotedDraft()
+		for _, row := range rows {
+			if row.Kind == inboxUserMessage {
+				injections++
+			}
+		}
+		return s.store.renderInjection(rows), nil
 	}
 	if len(continuation) > 0 {
 		observed, observeErr := s.store.hasCompletionReviewToolWork(r.ID)
@@ -4093,7 +4193,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		// text private, ending quietly is how that turn closes.
 		endOnEmptyFinal = func() bool { return hasHandoff(s.store, r.ID) }
 	}
-	res, e := runEngine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, ConversationID: c.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, StructuredOutput: structured, ForceToolUse: structured && s.forceSayHaikuDMEnabled() && forceSayFor(c, r, model), OnToolCallDelta: onToolCallDelta, EndOnEmptyFinal: endOnEmptyFinal, BeforeModelCall: steeringBoundary, BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
+	res, e := runEngine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, ConversationID: c.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, StructuredOutput: structured, ForceToolUse: structured && s.forceSayHaikuDMEnabled() && forceSayFor(c, r, model), OnToolCallDelta: onToolCallDelta, EndOnEmptyFinal: endOnEmptyFinal, BeforeModelCall: steeringBoundary, DrainInbox: drainInbox, BeginStep: s.beginStep(r.ID), BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
 		OnThinking: onThinking, OnRetry: onRetry, OnStreamReset: onStreamReset, OnReviewDraft: onReviewDraft,
 		Continuation:     continuation,
 		WebSearchMaxUses: s.searchUses(model, tools),
@@ -4122,6 +4222,7 @@ func (s *Server) execute(c Conversation, r Run) {
 			return s.store.SaveInputContinuation(ctx, r.ID, questionID, checkpoint)
 		},
 		OnContextEstimate: func(estimated int) {
+			estimatedInput.Store(int64(estimated))
 			if err := s.store.recordContextEstimate(r.ID, model, estimated); err != nil {
 				log.Printf("[usage] context estimate: %v", err)
 			}
@@ -4335,6 +4436,18 @@ func (s *Server) execute(c Conversation, r Run) {
 		}
 		if err := s.yieldComputerOwner(r); err != nil {
 			s.failRun(c, r, err)
+			return
+		}
+		// The chosen member is already working: the message is queued for its run.
+		if _, queued, qe := s.store.steerTriagedMessage(r, target); qe != nil {
+			s.failRun(c, r, qe)
+			return
+		} else if queued {
+			if changed, se := s.store.SetRunStatus(r.ID, "done", ""); se == nil && changed {
+				if done, de := s.store.GetRun(r.ID); de == nil {
+					_, _ = s.store.Event(c.ID, "run", done)
+				}
+			}
 			return
 		}
 		_, child, he := s.store.AddHandoff(c.ID, "system", target, r.ID, "")
@@ -4956,6 +5069,19 @@ func (s *Server) run(w http.ResponseWriter, r *http.Request, id string) {
 		s.cancelInactiveRuns()
 		x, _ = s.store.GetRun(id)
 		writeJSON(w, 200, x)
+		return
+	}
+	if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/interrupt-step") {
+		// "Stop current step": the call in flight is cancelled, the run goes on.
+		if x.Status != "running" {
+			writeErr(w, 409, "run_not_running", "run is not running")
+			return
+		}
+		if !s.interruptStep(id) {
+			writeErr(w, 409, "no_step_in_flight", "no tool call is running")
+			return
+		}
+		writeJSON(w, 200, map[string]any{"run_id": id, "interrupted": true})
 		return
 	}
 	if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/retry") {

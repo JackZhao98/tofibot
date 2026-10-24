@@ -142,7 +142,7 @@ func TestDuplicateClientIDAndFailedFanoutDoNotInterruptExistingRun(t *testing.T)
 	}
 }
 
-func TestSteeringCancelsQueuedRunWithoutCancellingRunningParent(t *testing.T) {
+func TestQueuedSteeringCancelsNeitherTheRunningParentNorItsQueuedChild(t *testing.T) {
 	s, err := OpenStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -165,14 +165,17 @@ func TestSteeringCancelsQueuedRunWithoutCancellingRunningParent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, _, _, err = s.AddUserRuns(g.ID, "new steering", "new", []runSpec{{BotID: a.ID, Model: a.Model}}, true)
-	if err != nil {
-		t.Fatal(err)
+	// Rewritten for queued steering (decision 0062): a message to the working Bot
+	// is read by its run at the next step. It cancels nothing, not the run and
+	// not the work the run already handed on.
+	_, runs, queued, _, err := s.addUserRunsSteering(g.ID, "new steering", "new", []runSpec{{BotID: a.ID, Model: a.Model}}, nil, true)
+	if err != nil || len(runs) != 0 || len(queued) != 1 || queued[0].RunID != parentRuns[0].ID {
+		t.Fatalf("runs=%+v queued=%+v err=%v", runs, queued, err)
 	}
 	gotParent, _ := s.GetRun(parentRuns[0].ID)
 	gotChild, _ := s.GetRun(child.ID)
-	if gotParent.Status != "running" || gotChild.Status != "cancelled" {
-		t.Fatalf("parent=%s child=%s; running parent must survive queued cancellation", gotParent.Status, gotChild.Status)
+	if gotParent.Status != "running" || gotChild.Status != "queued" {
+		t.Fatalf("parent=%s child=%s; a queued message must cancel neither", gotParent.Status, gotChild.Status)
 	}
 }
 

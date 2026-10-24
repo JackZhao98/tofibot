@@ -155,9 +155,9 @@ func TestScheduleFailureDetailLeavesOtherFailurePathsUnchanged(t *testing.T) {
 					wantStatus, wantError = "cancelled", context.Canceled.Error()
 					return res, ctx.Err()
 				case "steered":
-					if _, _, _, err := server.store.AddUserRuns(c.ID, "synthetic steering", "fixture-steering", []runSpec{{BotID: r.BotID, Model: r.Model}}); err != nil {
-						t.Fatal(err)
-					}
+					// A message to a working Bot is queued for it (decision 0062); the
+					// steered end this case is about is the one the reading cap makes.
+					steeringReviewInterject(t, server, c, r)
 					if err := req.BeforeModelCall(); !errors.Is(err, context.Canceled) {
 						t.Fatalf("steering error=%v", err)
 					}

@@ -45,10 +45,11 @@ const (
 )
 
 type conversationQueue struct {
-	wake chan struct{}
-	stop chan struct{}
-	done chan struct{}
-	once sync.Once
+	wake    chan struct{}
+	stop    chan struct{}
+	done    chan struct{}
+	once    sync.Once
+	running sync.WaitGroup // runs this worker started and has not seen finish
 }
 
 func newConversationQueue() *conversationQueue {
@@ -97,9 +98,17 @@ func (s *Store) AddUserRunsWithAttachments(conv, content, client string, specs [
 }
 
 func (s *Store) addUserRuns(conv, content, client string, specs []runSpec, attachmentIDs []string, interrupt ...bool) (Message, []Run, bool, error) {
+	m, runs, _, dup, err := s.addUserRunsSteering(conv, content, client, specs, attachmentIDs, interrupt...)
+	return m, runs, dup, err
+}
+
+// addUserRunsSteering is the ingress transaction. An addressed Bot that is
+// already working takes the message as inbox input (queued steering, decision
+// 0062) and gets no new run; the deliveries say which.
+func (s *Store) addUserRunsSteering(conv, content, client string, specs []runSpec, attachmentIDs []string, interrupt ...bool) (Message, []Run, []steerDelivery, bool, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
-		return Message{}, nil, false, err
+		return Message{}, nil, nil, false, err
 	}
 	defer tx.Rollback()
 	if client != "" {
@@ -121,7 +130,7 @@ func (s *Store) addUserRuns(conv, content, client string, specs []runSpec, attac
 				for rows.Next() {
 					x, xerr := scanRun(rows)
 					if xerr != nil {
-						return Message{}, nil, false, xerr
+						return Message{}, nil, nil, false, xerr
 					}
 					old = append(old, x)
 				}
@@ -136,15 +145,15 @@ func (s *Store) addUserRuns(conv, content, client string, specs []runSpec, attac
 					old = append(old, x)
 				}
 			}
-			return m, old, true, qerr
+			return m, old, nil, true, qerr
 		}
 		if err != sql.ErrNoRows {
-			return Message{}, nil, false, err
+			return Message{}, nil, nil, false, err
 		}
 	}
 	var convKind string
 	if err = tx.QueryRow(`SELECT kind FROM conversations WHERE id=?`, conv).Scan(&convKind); err != nil {
-		return Message{}, nil, false, err
+		return Message{}, nil, nil, false, err
 	}
 	isGroup := convKind == "group"
 	// A group message that names no one carries either no spec or one bare
@@ -153,12 +162,12 @@ func (s *Store) addUserRuns(conv, content, client string, specs []runSpec, attac
 	if len(specs) == 0 || triageAsked {
 		kind := convKind
 		if kind != "group" {
-			return Message{}, nil, false, errors.New("at least one run target is required")
+			return Message{}, nil, nil, false, errors.New("at least one run target is required")
 		}
 		var selected runSpec
 		selected, err = s.defaultGroupRunSpecTx(tx, conv)
 		if err != nil {
-			return Message{}, nil, false, err
+			return Message{}, nil, nil, false, err
 		}
 		selected.Kind = runKindGroupChat
 		if triageAsked {
@@ -167,7 +176,7 @@ func (s *Store) addUserRuns(conv, content, client string, specs []runSpec, attac
 			// active member leaves nothing to choose: skip the extra model call.
 			var active int
 			if err = tx.QueryRow(`SELECT COUNT(*) FROM members m JOIN bots b ON b.id=m.bot_id WHERE m.conversation_id=? AND b.archived=0`, conv).Scan(&active); err != nil {
-				return Message{}, nil, false, err
+				return Message{}, nil, nil, false, err
 			}
 			if active > 1 {
 				selected.Kind, selected.Model = runKindTriage, specs[0].Model
@@ -175,47 +184,89 @@ func (s *Store) addUserRuns(conv, content, client string, specs []runSpec, attac
 		}
 		specs = []runSpec{selected}
 	}
+	// An addressed Bot that is already working takes the message as inbox
+	// input: it gets no new run and nothing it is doing is cancelled. Triage
+	// requests name no Bot yet and always start their run.
+	steerAt := make([]string, len(specs))
+	runSpecs := make([]runSpec, 0, len(specs))
+	for i, spec := range specs {
+		if spec.BotID != "" && spec.Kind != runKindTriage {
+			if steerAt[i], err = steerTargetTx(tx, conv, spec.BotID); err != nil {
+				return Message{}, nil, nil, false, err
+			}
+		}
+		if steerAt[i] == "" {
+			runSpecs = append(runSpecs, spec)
+		}
+	}
 	// A human request supersedes stale queued work in an active conversation;
 	// independent schedule runs are excluded by interruptInTransaction.
 	// In a group the message only supersedes work of the Bots it addresses;
 	// the other members' unrelated work keeps running.
 	var addressed []string
 	if isGroup {
-		addressed = make([]string, 0, len(specs))
-		for _, spec := range specs {
+		addressed = make([]string, 0, len(runSpecs))
+		for _, spec := range runSpecs {
 			addressed = append(addressed, spec.BotID)
 		}
 	}
-	if err = interruptInTransaction(tx, conv, addressed...); err != nil {
-		return Message{}, nil, false, err
+	// Runs of the addressed Bots that already yield to a successor: read before
+	// the interrupt below cancels that successor.
+	yielding := map[string][]string{}
+	for _, spec := range runSpecs {
+		// A scheduled run takes no queued message (its answer is a receipt), so a
+		// person's message yields it the way it always did.
+		rows, qerr := tx.Query(`SELECT o.id FROM runs o WHERE o.conversation_id=? AND o.bot_id=? AND o.status='running'
+			AND (o.kind='schedule' OR EXISTS(SELECT 1 FROM run_steering l JOIN runs n ON n.id=l.new_run_id WHERE l.old_run_id=o.id AND n.status IN ('queued','running')))`, conv, spec.BotID)
+		if qerr != nil {
+			return Message{}, nil, nil, false, qerr
+		}
+		for rows.Next() {
+			var id string
+			if err = rows.Scan(&id); err != nil {
+				rows.Close()
+				return Message{}, nil, nil, false, err
+			}
+			yielding[spec.BotID] = append(yielding[spec.BotID], id)
+		}
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
+			return Message{}, nil, nil, false, err
+		}
+	}
+	if len(runSpecs) > 0 {
+		if err = interruptInTransaction(tx, conv, addressed...); err != nil {
+			return Message{}, nil, nil, false, err
+		}
 	}
 	// The HTTP layer resolves mentions before opening this transaction. A
 	// concurrent group maintenance request may have replaced those members in
 	// the meantime, so authorize every target again at the commit boundary.
 	for _, spec := range specs {
 		if err = requireCurrentMemberTx(tx, conv, spec.BotID); err != nil {
-			return Message{}, nil, false, err
+			return Message{}, nil, nil, false, err
 		}
 	}
 	t := now()
 	var seq, nextQueue int64
 	if err = tx.QueryRow(nextMessageSeqSQL, conv, conv, streamDraftActive).Scan(&seq); err != nil {
-		return Message{}, nil, false, err
+		return Message{}, nil, nil, false, err
 	}
 	if err = tx.QueryRow(`SELECT COALESCE(MAX(queue_seq),0) FROM runs WHERE conversation_id=?`, conv).Scan(&nextQueue); err != nil {
-		return Message{}, nil, false, err
+		return Message{}, nil, nil, false, err
 	}
 	m := Message{ID: newID(), ConversationID: conv, Seq: seq, Role: "user", Content: content, CreatedAt: t, ClientMessageID: client}
 	if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,run_id,content,created_at,client_message_id) VALUES(?,?,?,?,?,?,?,?,?)`, m.ID, conv, seq, m.Role, m.Kind, nil, content, t, nullString(client)); err != nil {
-		return Message{}, nil, false, err
+		return Message{}, nil, nil, false, err
 	}
 	if _, err = tx.Exec(`INSERT INTO user_message_ingress(message_id,created_at) VALUES(?,?)`, m.ID, t); err != nil {
-		return Message{}, nil, false, err
+		return Message{}, nil, nil, false, err
 	}
-	runs := make([]Run, 0, len(specs))
-	for _, spec := range specs {
+	runs := make([]Run, 0, len(runSpecs))
+	for _, spec := range runSpecs {
 		if spec.BotID == "" {
-			return Message{}, nil, false, errors.New("run bot is required")
+			return Message{}, nil, nil, false, errors.New("run bot is required")
 		}
 		nextQueue++
 		origin := spec.OriginConversationID
@@ -224,44 +275,72 @@ func (s *Store) addUserRuns(conv, content, client string, specs []runSpec, attac
 		}
 		r := Run{ID: newID(), ConversationID: conv, BotID: spec.BotID, Status: "queued", Kind: spec.Kind, Model: spec.Model, ParentRunID: spec.ParentRunID, OriginConversationID: origin, TriggerMessageID: m.ID, QueueSeq: nextQueue, CreatedAt: t, UpdatedAt: t}
 		if _, err = tx.Exec(`INSERT INTO runs(id,conversation_id,bot_id,status,error,parent_run_id,handoff_count,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, r.ID, r.ConversationID, r.BotID, r.Status, nil, nullString(r.ParentRunID), 0, r.Model, r.Kind, r.OriginConversationID, r.TriggerMessageID, r.QueueSeq, t, t); err != nil {
-			return Message{}, nil, false, err
+			return Message{}, nil, nil, false, err
 		}
 		runs = append(runs, r)
 	}
-	// Link this user request to work that was already running in the same
-	// conversation. The relation scopes carryover evidence to this request and
-	// prevents old steering results leaking into later retries or runs.
+	// A run of this Bot that is already yielding to an earlier successor (a
+	// delegation, a mention wake, or the close at the reading cap) yields to this
+	// newer run too, so its completed work reaches the run that finally takes over.
 	for _, r := range runs {
-		// In a group only the same Bot's active work is steered: another
-		// member's result must neither be cancelled nor handed to this Bot.
-		sameBot := ""
-		if isGroup {
-			sameBot = r.BotID
+		for _, old := range yielding[r.BotID] {
+			if _, err = tx.Exec(`INSERT OR IGNORE INTO run_steering(new_run_id,old_run_id) VALUES(?,?)`, r.ID, old); err != nil {
+				return Message{}, nil, nil, false, err
+			}
 		}
-		if _, err = tx.Exec(`WITH RECURSIVE prior(id) AS (
-			SELECT id FROM runs WHERE conversation_id=? AND id<>? AND (?='' OR bot_id=?) AND (status='running' OR
-				(status IN ('waiting','queued') AND EXISTS(SELECT 1 FROM run_input_waits w WHERE w.run_id=runs.id AND w.state='waiting')))
-			UNION SELECT link.old_run_id FROM run_steering link JOIN prior p ON link.new_run_id=p.id
-		) INSERT OR IGNORE INTO run_steering(new_run_id,old_run_id)
-			SELECT ?,id FROM prior`, conv, r.ID, sameBot, sameBot, r.ID); err != nil {
-			return Message{}, nil, false, err
+	}
+	// The messages a working Bot takes as inbox input, each pointed at its run.
+	var deliveries []steerDelivery
+	for i, spec := range specs {
+		if steerAt[i] == "" {
+			continue
 		}
+		rowID, rerr := addSteerRowTx(tx, conv, spec.BotID, steerAt[i], m)
+		if rerr != nil {
+			return Message{}, nil, nil, false, rerr
+		}
+		deliveries = append(deliveries, steerDelivery{BotID: spec.BotID, RunID: steerAt[i], RowID: rowID})
+	}
+	// A run that has to wait for its Bot's lane because the Bot works somewhere
+	// else (a direct message while the Bot is busy in a group) shows its message
+	// as queued too; the run reads it when it starts.
+	for _, r := range runs {
+		if r.Kind == runKindTriage {
+			continue
+		}
+		var busy int
+		if err = tx.QueryRow(`SELECT COUNT(*) FROM runs WHERE bot_id=? AND status='running' AND kind<>'triage' AND id<>?`, r.BotID, r.ID).Scan(&busy); err != nil {
+			return Message{}, nil, nil, false, err
+		}
+		if busy == 0 {
+			continue
+		}
+		rowID, rerr := addSteerRowTx(tx, conv, r.BotID, r.ID, m)
+		if rerr != nil {
+			return Message{}, nil, nil, false, rerr
+		}
+		deliveries = append(deliveries, steerDelivery{BotID: r.BotID, RunID: r.ID, RowID: rowID})
+	}
+	if len(deliveries) > 0 {
+		m.Delivery = "queued"
 	}
 	if err = supersedeInputWaitsTx(tx, conv); err != nil {
-		return Message{}, nil, false, err
+		return Message{}, nil, nil, false, err
 	}
-	if _, err = tx.Exec(`UPDATE messages SET run_id=? WHERE id=?`, runs[0].ID, m.ID); err != nil {
-		return Message{}, nil, false, err
+	if len(runs) > 0 {
+		if _, err = tx.Exec(`UPDATE messages SET run_id=? WHERE id=?`, runs[0].ID, m.ID); err != nil {
+			return Message{}, nil, nil, false, err
+		}
+		m.RunID = runs[0].ID
 	}
-	m.RunID = runs[0].ID
 	if len(attachmentIDs) > 0 {
 		if err = bindAttachmentsTx(tx, conv, m.ID, attachmentIDs); err != nil {
-			return Message{}, nil, false, err
+			return Message{}, nil, nil, false, err
 		}
 	}
 	m.Attachments, err = attachmentMetadata(tx, m.ID)
 	if err != nil {
-		return Message{}, nil, false, err
+		return Message{}, nil, nil, false, err
 	}
 	for _, v := range []struct {
 		typ   string
@@ -269,22 +348,22 @@ func (s *Store) addUserRuns(conv, content, client string, specs []runSpec, attac
 	}{{"message", m}} {
 		b, _ := json.Marshal(v.value)
 		if _, err = tx.Exec(`INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, conv, v.typ, string(b), t); err != nil {
-			return Message{}, nil, false, err
+			return Message{}, nil, nil, false, err
 		}
 	}
 	for _, r := range runs {
 		b, _ := json.Marshal(r)
 		if _, err = tx.Exec(`INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, conv, "run", string(b), t); err != nil {
-			return Message{}, nil, false, err
+			return Message{}, nil, nil, false, err
 		}
 	}
 	if _, err = tx.Exec(`UPDATE conversations SET updated_at=? WHERE id=?`, t, conv); err != nil {
-		return Message{}, nil, false, err
+		return Message{}, nil, nil, false, err
 	}
 	if err = tx.Commit(); err != nil {
-		return Message{}, nil, false, err
+		return Message{}, nil, nil, false, err
 	}
-	return m, runs, false, nil
+	return m, runs, deliveries, false, nil
 }
 
 // defaultGroupRunSpecTx chooses who answers a group message that names no
@@ -1114,24 +1193,38 @@ func (s *Server) wakeConversationWorkers() {
 	}
 }
 
+// runConversationWorker looks at one conversation's queued runs. It starts
+// every run whose Bot has a free lane (bot_lanes.go) in a goroutine of its own
+// and keeps picking, so the Bots of a group run in parallel while one Bot never
+// runs two things at once. Expiry settlement, schedule order and parked
+// questions keep their per-conversation polling.
 func (s *Server) runConversationWorker(conv string, q *conversationQueue) {
 	defer close(q.done)
+	defer q.running.Wait()
 	for {
 		select {
 		case <-q.stop:
 			return
 		default:
 		}
-		// Expiry settlement is independent of provider availability. Never leave
-		// a parked approval indefinitely waiting when the model disconnects.
-		r, ok, err := s.store.nextQueuedRun(conv)
-		s.mu.Lock()
-		active := s.runs[r.ID] != nil
-		s.mu.Unlock()
-		if err == nil && ok && !active && (s.modelConfigured() || s.store.hasApprovalExpiry(r.ID)) {
-			s.executeForQueue(r)
-			if !s.store.hasApprovalExpirySettlement(conv) {
-				continue
+		var pickErr error
+		waiting := false
+		for {
+			select {
+			case <-q.stop:
+				return
+			default:
+			}
+			// Expiry settlement is independent of provider availability. Never leave
+			// a parked approval indefinitely waiting when the model disconnects.
+			r, ok, blocked, err := s.pickRunnable(conv)
+			waiting = blocked
+			if err != nil {
+				pickErr = err
+				break
+			}
+			if !ok || !s.launchRun(q, r) {
+				break
 			}
 		}
 		// Pending input has a bounded expiry even without an HTTP answer. Poll
@@ -1139,7 +1232,7 @@ func (s *Server) runConversationWorker(conv string, q *conversationQueue) {
 		// checks. This also covers answers committed by internal callers.
 		var tick <-chan time.Time
 		var timer *time.Timer
-		if err != nil || s.store.hasInputWait(conv) || s.store.hasApprovalExpirySettlement(conv) || s.store.hasScheduleOrderBlocked(conv) {
+		if pickErr != nil || waiting || s.store.hasInputWait(conv) || s.store.hasApprovalExpirySettlement(conv) || s.store.hasScheduleOrderBlocked(conv) {
 			timer = time.NewTimer(time.Second)
 			tick = timer.C
 		}
@@ -1186,12 +1279,11 @@ func (s *Store) nextQueuedRun(conv string) (Run, bool, error) {
 	if err := s.ensureSchedules(); err != nil {
 		return Run{}, false, err
 	}
-	row := s.db.QueryRow(`SELECT id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at FROM runs WHERE conversation_id=? AND (status='queued' OR (status='running' AND EXISTS(SELECT 1 FROM approval_expiry_recoveries e WHERE e.run_id=runs.id AND e.state='claimed' AND e.retry_after<=?))) AND NOT (`+scheduleOrderBlockedSQL+`) ORDER BY CASE WHEN EXISTS(SELECT 1 FROM approval_expiry_recoveries e WHERE e.run_id=runs.id AND e.state IN ('ready','claimed')) THEN -1 WHEN kind IN ('group_task','group_followup','group_mention') THEN 0 WHEN kind='schedule' THEN 2 ELSE 1 END,queue_seq,created_at,id LIMIT 1`, conv, now(), scheduleTime(scheduleOrderClock().Add(-scheduleOrderMaxWait)))
-	r, err := scanRun(row)
-	if err == sql.ErrNoRows {
-		return Run{}, false, nil
+	runs, err := s.queuedRunsOrdered(conv, "")
+	if err != nil || len(runs) == 0 {
+		return Run{}, false, err
 	}
-	return r, err == nil, err
+	return runs[0], true, nil
 }
 
 // interruptInTransaction supersedes queued work around the active runs. When
@@ -1245,6 +1337,9 @@ func interruptInTransaction(tx *sql.Tx, conv string, addressed ...string) error 
 	rows.Close()
 	for _, id := range ids {
 		if _, err = tx.Exec(`UPDATE runs SET status='cancelled',error='interrupted by user mention',updated_at=? WHERE id=? AND status='queued'`, now(), id); err != nil {
+			return err
+		}
+		if _, _, err = continueUnreadInboxTx(tx, id, "cancelled"); err != nil {
 			return err
 		}
 		r, scanErr := scanRun(tx.QueryRow(`SELECT id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at FROM runs WHERE id=?`, id))
@@ -1334,6 +1429,10 @@ func cancelRunIDsTx(tx *sql.Tx, ids []string) ([]string, error) {
 			}
 		}
 		if _, err = tx.Exec(`UPDATE runs SET status='cancelled',error='stopped by user',updated_at=? WHERE id=?`, now(), id); err != nil {
+			return nil, err
+		}
+		// The person stopped the run: messages queued for it are dropped.
+		if _, _, err = continueUnreadInboxTx(tx, id, "cancelled"); err != nil {
 			return nil, err
 		}
 		r, err := scanRun(tx.QueryRow(`SELECT id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at FROM runs WHERE id=?`, id))
