@@ -38,7 +38,11 @@ func (s *Server) taskWaitTools(c Conversation, r Run) []Tool {
 	if (c.Kind != "group" && c.Kind != "dm") || r.Kind == runKindTriage {
 		return nil
 	}
-	return []Tool{s.delegateTool(c, r), s.waitForTool(c, r), s.cancelWaitTool(r), s.taskUpdateTool(r), s.taskAskTool(r)}
+	tools := []Tool{s.delegateTool(c, r), s.waitForTool(c, r), s.cancelWaitTool(r), s.taskUpdateTool(r), s.taskAskTool(r)}
+	if c.Kind == "group" {
+		tools = append(tools, s.claimTaskTool(r), s.passTaskTool(c, r))
+	}
+	return tools
 }
 
 func receiptJSON(value any) (string, error) {

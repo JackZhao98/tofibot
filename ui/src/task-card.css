@@ -1,0 +1,21 @@
+/* Task card in the timeline (decision 0060): one quiet line per task, the checklist on request. */
+.task-card{box-sizing:border-box;width:100%;max-width:var(--chat-max);min-width:0;margin-block:var(--space-2);padding-inline:var(--space-3);border:1px solid var(--border-soft);border-radius:var(--radius-md);background:var(--surface-card);color:var(--text-body);font:var(--type-meta);contain:layout style}
+.task-card .disclosure-toggle{min-height:36px;width:100%;font:var(--type-meta);color:var(--text-secondary)}
+.task-card-line{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.task-card[data-status=done] .task-card-line{color:var(--text-secondary)}
+.task-card[data-status=blocked] .task-card-line,.task-card[data-status=failed] .task-card-line{color:var(--status-error-text)}
+.task-card-title{margin:0 0 var(--space-2);font:var(--type-row-title);overflow-wrap:anywhere}
+.task-card-items{list-style:none;margin:0;padding:0 0 var(--space-2);display:grid;gap:var(--space-1)}
+.task-card-items li{display:flex;gap:var(--space-2);align-items:baseline;overflow-wrap:anywhere}
+.task-card-mark{flex:none;min-width:5.5em;color:var(--text-secondary)}
+.task-card-items li[data-status=done] .task-card-mark{color:var(--text-body)}
+.task-card-items li[data-status=blocked] .task-card-mark{color:var(--status-error-text)}
+/* Member list: what each member holds, compact and without a button. */
+.member-tasks{list-style:none;margin:var(--space-1) 0 0;padding:0;display:grid;gap:2px;font:var(--type-meta);color:var(--text-secondary)}
+.member-task{display:flex;flex-wrap:wrap;gap:var(--space-2);align-items:baseline;min-width:0}
+.member-task-state{flex:none;text-transform:none}
+.member-task[data-claimed] .member-task-state{color:var(--text-body)}
+.member-task-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:14em}
+.member-task-meta{flex:none}
+.member-manage-row{flex-wrap:wrap}
+.member-manage-row>.member-tasks{flex:1 0 100%;padding-inline-start:30px}

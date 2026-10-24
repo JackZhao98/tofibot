@@ -323,7 +323,8 @@
     "impact_held_one": "Removing {{name}} ends {{count}} open task it holds.",
     "impact_held_other": "Removing {{name}} ends {{count}} open tasks it holds.",
     "impact_waits_one": "Removing {{name}} ends {{count}} wait it holds.",
-    "impact_waits_other": "Removing {{name}} ends {{count}} waits it holds."
+    "impact_waits_other": "Removing {{name}} ends {{count}} waits it holds.",
+    "tasks_of": "Open tasks of {{name}}"
   },
   "message": {
     "attachment": "Attachment",

@@ -1,6 +1,6 @@
-# 0060 群里按角色分诊；人点的 reaction 成为真信号
+# 0060 群里按角色分诊、认领与转交、任务卡片；人点的 reaction 成为真信号
 
-> 编号 D60，索引见 [README](README.md)。实施方案阶段 5a（[collab-implementation-plan](../design/collab-implementation-plan.md)），设计在 [collab-todo C3 第 5、7 条](../design/collab-todo.md)。认领界面与任务卡片等阶段 2（任务与等待）合入后再做。
+> 编号 D60，索引见 [README](README.md)。实施方案阶段 5a（[collab-implementation-plan](../design/collab-implementation-plan.md)），设计在 [collab-todo C3 第 5、7 条](../design/collab-todo.md)。认领与转交、成员列表认领、任务卡片（C 部分）在阶段 2（任务与等待）合入后补上。
 
 ## 决定
 
@@ -17,11 +17,21 @@
 2. 会叫醒：**人**给某个 Bot 在群里的消息点 reaction，叫醒这个 Bot：低优先级（排在队尾，之后对它的新消息会取代这个排队的 run）、不要求回复（它可以什么都不发，也可以回应）。短时间内的一串 reaction 合并成一次叫醒（窗口 10 秒，第一个 reaction 开窗）。重复点同一个、窗口内又取消的不叫醒。Bot 点的 reaction 永远不叫醒任何人（防止来回客套）。被点消息的作者已归档或不再是成员，什么都不发生。叫醒 run 复用 `group_mention` 类型，`run_wakes.source = 'reaction'`，没有父 run；它读的是当前的对话，不是截止到被点消息。
 3. 提示词原则：用 reaction 代替一句简短回复来确认、同意、表示看到、接下活；reaction 不改变任务状态（状态只走正式的接活和交结果，防止随手 ✅ 绕过对账）。
 
+**C. 认领与转交、成员列表、任务卡片（owner 问题 8：不在群里发认领通知，改在成员列表显示每人认领了哪件任务；问题 20：卡片出现在群里和派过活的私聊）**
+
+1. 人在群里没 @ 谁的消息，分诊选定成员后，在建 run 的同一事务里成为一个任务：持有人是被选的成员，派活人是人（`assigner_kind='user'`，没有派活 Bot，不登记等待，不进收件箱），任务标题取消息首行，`assignee_run_id` 是那个回答 run。因此一轮就答完的简单问题，run 结束时任务自动记为 done，不需要任何工具调用；失败退回旧规则时同样建任务。
+2. 工具 `claim_task {task_id}`、`pass_task {task_id, to_bot_id, reason}`，仅群里提供，按需加载（`onDemandTools`，经 `workspace_capabilities` 点名）；`[task record]` 块在群任务里提示这两个工具。认领只有持有人能做，幂等，只写 `task_claims` 一行并发 `work_item` 事件，不发任何聊天消息，`todo` 变 `in_progress`。转交只有持有人能做，必须给理由（<= 400 字）；目标必须是本群在岗的另一位成员（`pass_target_not_member` / `pass_target_invalid`）；同一任务最多转 4 次（`pass_limit`，`task_passes` 表也是转交记录）；转交同事务：持有人改为新成员、状态回 `todo`、认领清除、`assignee_run_id` 指向给新成员新建的排队 run（`group_chat`，父 run 是转交者的 run）、新成员收件箱得一条不叫醒的说明（理由）；派活人、派活人的等待、任务树、清单都不变。转交不发聊天消息。
+3. 提示词（群里 `group_chat` 类型的 run，即先接到活的成员；定时 run 不带，所以 `prompt_budget_test` 的各上限不变；核心系统提示之外一小块 `[task triage]`，+388 字符）：原则是先接到活的成员对照各成员角色判断适不适合自己；合适且不会马上答完就认领；有更合适的成员就带理由转交；认领和转交都不在聊天里发声；简单请求一轮答完。分诊提示里加“本群未完成任务和持有人”（最多 12 条，每条标题 <= 80 字，只含 `todo / in_progress / blocked / review / input_required`，已归档成员的不列），并加一条原则：最新消息延续某个未完成任务时选它的持有人。
+4. 成员列表（群的 Members 面板）每位成员下面列出它持有的未完成任务（最多 3 条）：已认领的在前，写“已认领 / 已分派 · 标题 · x/y · 状态”，紧凑，没有按钮，不新增聊天行。数据来自 `GET /api/conversations/{id}/task-cards`（群里的任务，或派给这个 Bot 私聊的任务；未完成的，加最近 14 天内完成/失败的；最多 80 条）和 `work_item` 事件。
+5. 任务卡片：时间线里一任务一张卡，挂在启动该任务 run 的触发消息下面（找不到就挂在任务创建前最后一条消息下；比已加载历史还早的不画）。默认收起成一行“持有人 · 3/7 · 状态”，展开看标题和清单（每项状态与原因）。`work_item` 事件原地更新卡片，不产生消息；事件进 Workspace 前经一个合并器（每秒最多一次更新，首个事件立即放行）；卡片是纯数据（`TaskCardModel`），内容没变的任务保持同一个对象，所以行被 `rowModelEqual` 跳过。哪些任务画卡：未完成的，或带清单的，或别的 Bot 派的；被分诊的简单问题答完（done、无清单、人派的）不留卡，避免每条群消息都留一张卡。私聊里被派活的任务也在对应 Bot 的私聊里画卡（`workItemEventTx` 向 `work_conversation_id` 也发一份事件）。
+
 ## 取舍
 
 - 范围只到群：DM 里点 reaction 不叫醒（owner 问题 7 回答的是群场景；要扩到 DM 再说）。
 - 窗口在内存里，重启丢掉窗口内的叫醒；reaction 本身已落库，下次 run 读历史就能看到。
 - 叫醒的“低优先级、`needs_reply=0`”目前由 run 类型 + `reaction` 来源 + 提示词表达；阶段 2 的 `bot_inbox` 合入后改记为 `needs_reply=0` 的收件箱条目。
+- 任务卡片、成员列表和认领都没有新的聊天消息；认领不改 `work_items` 列，另用 `task_claims` / `task_passes` 两张加法表（认领状态由 `WorkItem.claimed_at` 在读时补上）。
+- 分诊建的任务在看板（TeamBoard）历史列里也会出现；`task_retention_days` 的清理仍只清人派之外的（`assigner_kind='bot'`）任务正文，人派任务的正文（就是那条消息）不清。
 - 提示词预算：核心系统提示 +83 字符（DM 上限 8225 到 8308，结构化 DM 8060 到 8143，固定开销上限 9120 到 9203），均为实测。
 
 ## 日期

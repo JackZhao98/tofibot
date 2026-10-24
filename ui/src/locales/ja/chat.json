@@ -313,7 +313,8 @@
     "title": "グループ情報",
     "impact_given_other": "{{name}}を外すと、Botが出した未完了のタスク{{count}}件が終了します。",
     "impact_held_other": "{{name}}を外すと、担当中の未完了タスク{{count}}件が終了します。",
-    "impact_waits_other": "{{name}}を外すと、Botの待機{{count}}件が終了します。"
+    "impact_waits_other": "{{name}}を外すと、Botの待機{{count}}件が終了します。",
+    "tasks_of": "{{name}} の未完了タスク"
   },
   "message": {
     "attachment": "添付ファイル",

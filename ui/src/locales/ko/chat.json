@@ -313,7 +313,8 @@
     "title": "그룹 정보",
     "impact_given_other": "{{name}}을(를) 제외하면 맡긴 진행 중인 작업 {{count}}개가 종료됩니다.",
     "impact_held_other": "{{name}}을(를) 제외하면 맡고 있는 진행 중인 작업 {{count}}개가 종료됩니다.",
-    "impact_waits_other": "{{name}}을(를) 제외하면 대기 {{count}}건이 종료됩니다."
+    "impact_waits_other": "{{name}}을(를) 제외하면 대기 {{count}}건이 종료됩니다.",
+    "tasks_of": "{{name}}의 진행 중 작업"
   },
   "message": {
     "attachment": "첨부 파일",

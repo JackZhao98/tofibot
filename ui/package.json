@@ -56,6 +56,7 @@
     "test:composer-typing": "node scripts/test-composer-typing.mjs",
     "test:sidebar-pins": "node scripts/test-sidebar-pins.mjs",
     "test:timeline-rows": "node scripts/test-timeline-rows.mjs",
+    "test:task-cards": "node scripts/test-task-cards.mjs",
     "test:switch-budget": "node scripts/test-switch-budget.mjs",
     "test:stream-cost": "node scripts/test-stream-cost.mjs",
     "test:tool-result-preview": "node scripts/test-tool-result-preview.mjs",

@@ -323,7 +323,8 @@
     "impact_held_one": "Wird {{name}} entfernt, endet {{count}} offene Aufgabe, die er bearbeitet.",
     "impact_held_other": "Wird {{name}} entfernt, enden {{count}} offene Aufgaben, die er bearbeitet.",
     "impact_waits_one": "Wird {{name}} entfernt, endet {{count}} Wartebedingung von ihm.",
-    "impact_waits_other": "Wird {{name}} entfernt, enden {{count}} Wartebedingungen von ihm."
+    "impact_waits_other": "Wird {{name}} entfernt, enden {{count}} Wartebedingungen von ihm.",
+    "tasks_of": "Offene Aufgaben von {{name}}"
   },
   "message": {
     "attachment": "Anhang",

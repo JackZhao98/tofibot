@@ -3,6 +3,8 @@
 import { QuestionCard } from "../../QuestionCard";
 import { ApprovalCard } from "../../ApprovalCard";
 import { StandingAllowances } from "../../StandingAllowances";
+import { MemberTask, TaskCard } from "../../TaskCard";
+import type { TaskCardModel } from "../../taskCards";
 import { BotAvatar } from "../../BotAvatar";
 import { REMEMBERED_APPROVAL_ACTOR, STANDING_ALLOWANCE_ACTOR, type Question } from "../../questionTimeline";
 import { json } from "../sandbox";
@@ -80,6 +82,13 @@ const handoverBase = { ...base, conversation_id: "dm_mochi" };
 const takeover = (extra: Partial<Question> = {}): Question => ({ ...handoverBase, question_id: "q_take", question_type: "takeover", question: "Enter the verification code for the synthetic account.", source_url: "https://login.example.test", ...extra });
 const connection = (extra: Partial<Question> = {}): Question => ({ ...handoverBase, question_id: "q_conn", question_type: "connection", question: "Connect Notes so I can file the summary.", target: "notes", ...extra });
 
+const CHECKLIST: TaskCardModel["items"] = [
+  { id: "c1", text: "Collect the venue quotes", status: "done" }, { id: "c2", text: "Compare price and distance", status: "done" }, { id: "c3", text: "Check the room is free on Thursday", status: "done" },
+  { id: "c4", text: "Draft the booking mail", status: "open" }, { id: "c5", text: "Ask the board for a budget exception", status: "blocked", reason: "Waiting for the board" },
+];
+const taskModel = (extra: Partial<TaskCardModel>): TaskCardModel => ({ id: "t_a", title: "Book the venue for the launch", holderId: "bot_miso", holderName: "Miso", status: "in_progress", done: 3, total: CHECKLIST.length, items: CHECKLIST, claimed: true, open: true, ...extra });
+const task = (id: string, label: string, model: TaskCardModel, note?: string, drive?: CatalogState["drive"]): CatalogState => ({ id, label, note, kind: "inline", render: () => <TaskCard card={model} />, drive });
+
 export const handover: CatalogSection = {
   id: "handover", number: "15", title: "Takeover and connection cards (HandoverCards)", context: ["catalog-column"],
   server: isolated({ "/api/extensions/oauth-options": { vm_available: true, web_callback_origin: "", desktop_redirect_uri: "" }, "/api/extensions/mcp": { servers: [{ name: "notes", oauth: { connected: false } }] } }),
@@ -94,6 +103,15 @@ export const handover: CatalogSection = {
     card("connection-declined", "Connection, declined", connection(answered("declined"))),
     card("connection-failed", "Connection, failed", connection(answered("failed"))),
     card("connection-archived", "Connection in an archived chat", connection(), { archived: true }),
+    // Task cards (decision 0060): one per task, one line, the checklist on request. Task events update them in place.
+    task("task-card", "Task card, collapsed", taskModel({}), "holder, checklist progress and the status on one line"),
+    task("task-card-open", "Task card, checklist open", taskModel({}), "the title and each item with its state", async step => { await step.click(".task-card .disclosure-toggle"); }),
+    task("task-card-todo", "Task card, waiting to start", taskModel({ status: "todo", done: 0, total: 0, items: [], claimed: false })),
+    task("task-card-blocked", "Task card, blocked", taskModel({ status: "blocked", done: 2 })),
+    task("task-card-done", "Task card, done", taskModel({ status: "done", done: 3, open: false, items: CHECKLIST.map(item => ({ ...item, status: "done" as const })) })),
+    { id: "member-tasks", label: "Member list, tasks a member holds", note: "claimed first, then assigned; no chat line", kind: "inline", render: () => <ul className="member-tasks" style={{ listStyle: "none", padding: 0 }}>
+      <MemberTask card={taskModel({ claimed: true })} /><MemberTask card={taskModel({ id: "t_b", title: "Draft the Thursday agenda", claimed: false, status: "todo", done: 0, total: 0, items: [] })} />
+    </ul> },
   ],
   gaps: ["Connecting (a popup is open) and popup blocked: need a real OAuth popup."],
 };

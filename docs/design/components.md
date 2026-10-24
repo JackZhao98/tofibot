@@ -742,6 +742,7 @@ Bot 在干活时，聊天里只有一行：加载标记、现在在做什么、�
 | 发送飞行 / 寄信飞行 | `ui/src/sendFlight.ts`，`ui/src/mailSendFlight.ts`，`mail-send-flight.css` | 纯动画，`--m-flight` 640 ms；`--z-drag`，追加到 `#tofi-layers`（迁移前是魔法数字 2147483000 和两处重复的 120，`tokens.md` Z6，第 1 步已修） |
 | 定时任务行 | `ui/src/ScheduledTaskRow.tsx`，`scheduled-task-row.css` | 时间线里的定时任务，可重试 |
 | 任务问题卡 | `ui/src/TaskIssueCard.tsx`，`taskIssuePresentation.ts` | 运行失败、需要处理时的说明卡 |
+| 任务卡片 / 成员任务行 | `ui/src/TaskCard.tsx`，`task-card.css`，`taskCards.ts` | 一任务一张卡，默认一行“持有人 · 3/7 · 状态”，展开看清单；事件原地更新、合并为每秒一次；成员面板里 `MemberTask` 列每位成员持有的任务（已认领在前）。决定 D60 C；目录在 §15 下（`task-card-*`、`member-tasks`） |
 | 邮件草稿卡 | `ui/src/MailDraftCard.tsx` | `prepare_email` 走的独立卡片路径（`AGENTS.md`）。页脚只剩「编辑 · 再想想 · 发送邮件」：没有"需要你批准"胶囊，也没有"发出后不能撤回"（按钮已经说明状态）；演示草稿才多一行安静的灰字"演示 · 不会发出" |
 | 空状态 | `ui/src/EmptyCat.tsx`，`empty-states.css` | 每种空状态一只固定姿势的猫；`test:empty-states` |
 | 软键盘 | `ui/src/visualViewport.ts` | 键盘弹起时设 `keyboard-viewport-open`，用 `--viewport-height`（`App.tsx:2441`） |

@@ -1762,7 +1762,13 @@ func (s *Store) AddHandoff(conv, sender, bot, parent, task string) (Message, Run
 	if _, err = tx.Exec(`INSERT INTO runs(id,conversation_id,bot_id,status,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, r.ID, conv, bot, r.Status, parent, r.Model, r.Kind, r.OriginConversationID, r.TriggerMessageID, r.QueueSeq, t, t); err != nil {
 		return Message{}, Run{}, err
 	}
-	if sender != "system" {
+	if sender == "system" {
+		// A person's message that triage routed is a task the chosen member holds,
+		// so the member can claim it or pass it (decision 0060). The person is the giver.
+		if err = recordTriageTaskTx(tx, conv, bot, r.ID, routedTrigger); err != nil {
+			return Message{}, Run{}, err
+		}
+	} else {
 		// The assignment is a task, with the wait its assigner holds for the result.
 		if _, err = recordTaskForChildTx(tx, delegationChild{RunID: r.ID, RunConversation: conv, RunBot: bot, RunKind: r.Kind, Origin: origin, Trigger: r.TriggerMessageID,
 			ParentRun: parent, ParentBot: sender, ParentConversation: conv, Brief: task, RunStatus: "queued"}); err != nil {
@@ -3763,7 +3769,7 @@ func (s *Server) execute(c Conversation, r Run) {
 			s.failRun(c, r, me)
 			return
 		}
-		system = triageSystemPrompt(members)
+		system = triageSystemPrompt(members, s.store.openTasksForTriage(c.ID))
 	}
 	if r.Kind != runKindTriage && s.extensions != nil {
 		prepared, err := s.extensions.PrepareDiscoverableForBotWithCallGate(ctx, r.BotID, cachedMCPTools, func(callCtx context.Context, call extensions.MCPCallApproval) error {

@@ -195,5 +195,10 @@
       "skipped": "Skipped",
       "blocked": "Blocked"
     }
+  },
+  "card": {
+    "label": "Task: {{title}}",
+    "claimed": "Claimed",
+    "assigned": "Assigned"
   }
 }

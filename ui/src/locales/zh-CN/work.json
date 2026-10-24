@@ -192,5 +192,10 @@
       "skipped": "已跳过",
       "blocked": "受阻"
     }
+  },
+  "card": {
+    "label": "任务:{{title}}",
+    "claimed": "已认领",
+    "assigned": "已分派"
   }
 }

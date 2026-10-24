@@ -293,6 +293,8 @@ export interface WorkItem {
   closed_at?: string;
   checklist?: WorkChecklistItem[];
   waiting_on?: WorkWait[];
+  /** When the holder claimed the task (claim_task); absent until it does. */
+  claimed_at?: string;
 }
 
 export type ToolActivityStatus = "queued" | "running" | "completed" | "failed" | "interrupted";

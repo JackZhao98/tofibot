@@ -333,7 +333,8 @@
     "impact_held_other": "Retirer {{name}} met fin à {{count}} tâches ouvertes qu'il détient.",
     "impact_waits_one": "Retirer {{name}} met fin à {{count}} attente qu'il tient.",
     "impact_waits_many": "Retirer {{name}} met fin à {{count}} attentes qu'il tient.",
-    "impact_waits_other": "Retirer {{name}} met fin à {{count}} attentes qu'il tient."
+    "impact_waits_other": "Retirer {{name}} met fin à {{count}} attentes qu'il tient.",
+    "tasks_of": "Tâches ouvertes de {{name}}"
   },
   "message": {
     "attachment": "Pièce jointe",

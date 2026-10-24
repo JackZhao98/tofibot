@@ -34,7 +34,7 @@ import { MailDraftCard, useMailDrafts } from "./MailDraftCard";
 import { buildQuestionTimeline, compareQuestionTime } from "./questionTimeline";
 import { useDebugMode } from "./debugMode";
 import type { SettingsEntry, SettingsTab, SettingsView } from "./SettingsShell";
-import { AfterPaint, ArchivePanel, UpdateBanner, PermissionCoach, BotPanelSkeleton, BotDesktopPanel, DeleteConversationDialog, ReassignPrimaryDialog, RememberedApprovalsSheet, BotPanel, MembersPanel, DesktopSkeleton, MemoryPanel, TeamBoard, ViewOnlyChat, WorkPanel, Onboarding, QuestionCard, RunContextView, ComposerStopMenu, FloatingDesktop, panelLoaded, preloadPanel, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle } from "./lazyPanels";
+import { AfterPaint, ArchivePanel, UpdateBanner, PermissionCoach, BotPanelSkeleton, BotDesktopPanel, DeleteConversationDialog, ReassignPrimaryDialog, RememberedApprovalsSheet, BotPanel, MembersPanel, DesktopSkeleton, MemoryPanel, TeamBoard, ViewOnlyChat, WorkPanel, Onboarding, QuestionCard, RunContextView, TaskCard, ComposerStopMenu, FloatingDesktop, panelLoaded, preloadPanel, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle } from "./lazyPanels";
 import { subscribeSettingsDeepLinks } from "./settings/deepLinks";
 import { BotIdentityCard } from "./BotIdentityCard";
 import { arrowOpens, OverlayMenu, OverlaySlot, SlotView } from "./overlays/OverlayHost";
@@ -84,6 +84,7 @@ import { mergeRunUpdates } from "./runMerge";
 import { draftDeltaApplies } from "./draftDelta";
 import { DraftStream, useLiveDraft } from "./draftStream";
 import { rowModelEqual } from "./timelineRow";
+import type { TaskCardModel, TaskFeed } from "./taskCards";
 import { layerRoot } from "./layers";
 import { WorkspaceToast } from "./WorkspaceToast";
 import { useProxyChallenge } from "./ProxyChallengeSlot";
@@ -94,7 +95,7 @@ import { useDictation } from "./useDictation";
 import { useSmoothStreamText } from "./useSmoothStreamText";
 import { observeVisualViewport, visualViewportMetrics } from "./visualViewport";
 import { getBotAvatarConfig, subscribeBotAvatar } from "./avatarStore";
-import type { Attachment, Bot, ComputerHealth, Config, Conversation, EventEnvelope, Memory, Message, Run, StreamDraft, ToolActivity, ToolActivityRunSummary, WorkspaceEventEnvelope } from "./types";
+import type { Attachment, Bot, ComputerHealth, Config, Conversation, EventEnvelope, Memory, Message, Run, StreamDraft, ToolActivity, ToolActivityRunSummary, WorkItem, WorkspaceEventEnvelope } from "./types";
 import { MOTION, EASE } from "./motion";
 
 const TerminalPanel = lazy(() => import("./TerminalPanel").then(module => ({ default: module.TerminalPanel })));
@@ -633,6 +634,9 @@ function Workspace() {
   const knownBotNames = useRef(new Map<string, string>());
   useEffect(() => { for (const bot of bots) knownBotNames.current.set(bot.id, bot.name); }, [bots]);
   const [streamConnected, setStreamConnected] = useState(true);
+  // Task cards (decision 0060): the active conversation's tasks. Task events reach this state through one coalescer, at most once a second.
+  const [taskItems, setTaskItems] = useState<readonly WorkItem[]>([]);
+  const taskCoalescer = useRef<TaskFeed | null>(null);
   // A restart or a Wi-Fi blip is over before anyone can act on it: announce a lost link only once it has lasted.
   const linkLost = useGraceFlag(!streamConnected, LINK_LOSS_GRACE_MS);
   const linkConnected = !linkLost;
@@ -1328,6 +1332,22 @@ function Workspace() {
   const quoteTimeline = useMemo(() => conversationItems.flatMap(item => item.kind === "message" ? [item.message] : []), [conversationItems]);
   const quoteIndexById = useMemo(() => new Map(quoteTimeline.map((item, i) => [item.id, i])), [quoteTimeline]);
   const messageById = useMemo(() => new Map(messages.map(message => [message.id, message])), [messages]);
+  // The card logic is its own chunk (taskCards.ts), loaded once; the entry bundle holds only this glue.
+  const [cardKit, setCardKit] = useState<typeof import("./taskCards") | null>(null);
+  useEffect(() => { let live = true; void import("./taskCards").then(kit => { if (live) setCardKit(kit); }); return () => { live = false; }; }, []);
+  useEffect(() => { setTaskItems([]); }, [activeId]);
+  useEffect(() => {
+    if (!activeId || !streamConnected || !cardKit) return;
+    const feed = cardKit.startFeed(activeId, setTaskItems, api.taskCards);
+    taskCoalescer.current = feed;
+    return () => { feed.cancel(); if (taskCoalescer.current === feed) taskCoalescer.current = null; };
+  }, [activeId, streamConnected, cardKit]);
+  const cardModels = useRef<Map<string, TaskCardModel> | undefined>(undefined);
+  const taskView = useMemo(() => {
+    const view = cardKit?.deriveCards(taskItems, botById, messages, runById, cardModels.current);
+    cardModels.current = view?.models;
+    return view;
+  }, [cardKit, taskItems, botById, messages, runById]);
   const terminalSummaryRunIDs = useMemo(() => [...new Set([...terminalToolRunIDs(messages, runs), ...supersededRunIDs])].sort(), [messages, runs, supersededRunIDs]);
   const terminalSummaryRunKey = terminalSummaryRunIDs.join("\u0000");
   const terminalSummaryRunIDSet = useMemo(() => new Set(terminalSummaryRunIDs), [terminalSummaryRunIDs]);
@@ -1641,6 +1661,7 @@ function Workspace() {
       setMemories((current) => current.filter((item) => item.id !== data.id));
     } else if (type === "schedule" || type === "work_item") {
       setScheduleRefresh((current) => current + 1);
+      if (type === "work_item") taskCoalescer.current?.push(data);
     } else if (type === "tool") {
       const activity = asToolActivity(data);
       if (activity && activity.conversation_id === conversationId && !(terminalRunIDs.current.has(activity.run_id) && ["queued", "running"].includes(activity.status))) upsertToolActivity(activity);
@@ -2553,6 +2574,7 @@ function Workspace() {
                         hasBar, copyText, activityRunId, activityToggle: Boolean(activityRunId && !showActivity), activityOpen: activityRunId ? revealedRuns.has(activityRunId) : false, canReply: !active.archived,
                         botNames, menuPosition: reactionMenu?.messageId === message.id ? reactionMenu : null,
                         ownerNodes: ownersHere.length ? ownersHere.map(renderTaskOwner) : undefined,
+                        taskCards: taskView?.byMessage.get(message.id),
                       };
                       return <MessageRow key={blockKey(message)} model={model} h={rowHandlers} stream={draftStream} />;
                     })}
@@ -2581,7 +2603,7 @@ function Workspace() {
           {displayedPanel === "memory" && activeId && <Suspense fallback={null}><MemoryPanel key={activeId} memories={memories} conversationId={activeId} scope={active?.kind === "group" ? "group" : "bot"} onClose={() => setPanel(null)} onCreate={async (input) => { const memory = await api.createMemory(activeId, input); setMemories((current) => [...current.filter((item) => item.id !== memory.id), memory]); }} onUpdate={async (id, input) => { const memory = await api.updateMemory(id, input); setMemories((current) => current.map((item) => item.id === id ? memory : item)); }} onDelete={async (id) => { await api.deleteMemory(id); setMemories((current) => current.filter((item) => item.id !== id)); }} /></Suspense>}
           {displayedPanel === "memory" && !activeId && <div className="detail-empty"><button className="close-button" aria-label={t("detail.close_memory")} onClick={() => setPanel(null)}><Icon name="close" size={18} /></button><EmptyState name="memory-pick" look={CATS.azuki} pose="curious" size={56}><p>{t("detail.memory_pick")}</p></EmptyState></div>}
           {displayedPanel === "schedule" && active && <Suspense fallback={null}><WorkPanel key={active.id} conversation={active} conversations={conversations} bots={bots} refreshToken={scheduleRefresh} onClose={() => setPanel(null)} onNavigate={id => { selectConversation(id); setMobileList(false); setPanel(null); }} /></Suspense>}
-          {displayedPanel === "members" && active?.kind === "group" && <Suspense fallback={null}><MembersPanel refreshToken={scheduleRefresh} onOpenWork={() => setPanel("schedule")} conversation={active} bots={bots} onClose={() => setPanel(null)} onOpen={(id) => { selectConversation(id); setMobileList(false); setPanel(null); }} onSaved={updateGroup} onReload={reloadGroup} /></Suspense>}
+          {displayedPanel === "members" && active?.kind === "group" && <Suspense fallback={null}><MembersPanel tasksByBot={taskView?.roster} refreshToken={scheduleRefresh} onOpenWork={() => setPanel("schedule")} conversation={active} bots={bots} onClose={() => setPanel(null)} onOpen={(id) => { selectConversation(id); setMobileList(false); setPanel(null); }} onSaved={updateGroup} onReload={reloadGroup} /></Suspense>}
         </aside>
       </div>
       {desktopBot && desktopOpen && <Suspense fallback={<DesktopSkeleton botId={desktopBot.id} />}><FloatingDesktop expanded={desktopExpanded} small={desktopSmall} sheet={desktopSheet} onShrink={() => setDesktopSize("small")} onClose={() => setPanel(null)}><Suspense fallback={<DesktopSkeleton botId={desktopBot.id} />}><BotDesktopPanel presence={desktopPresence} autoConnect={currentDesktopOwner?.kind === "bot"} expanded={desktopExpanded} sheet={desktopSheet} botId={desktopBot.id} botName={desktopBot.name} members={bots.map(bot => ({ id: bot.id, name: bot.name }))} onClose={(reason) => { if (reason === "shutdown") { setDesktopReady(false); setComputerInfo({ state: "stopped" }); } setPanel(null); }} onReadyChange={setDesktopReady} onExpandedChange={expanded => { setDesktopSize(expanded ? "big" : "small"); setPanel("desktop"); }} /></Suspense></FloatingDesktop></Suspense>}
@@ -2727,6 +2749,8 @@ interface RowModel {
   hasBar: boolean; copyText?: string; activityRunId?: string; activityToggle: boolean; activityOpen: boolean; canReply: boolean;
   botNames: Map<string, string>; menuPosition: { messageId: string; x: number; y: number; h?: number } | null;
   ownerNodes?: React.ReactNode[];
+  /** Task cards under this message: plain models whose identity holds until the task changes. */
+  taskCards?: TaskCardModel[];
 }
 
 /** Stable entry points a row calls; each forwards to the workspace's newest closure, so they never change identity. */
@@ -2779,6 +2803,7 @@ const MessageRow = memo(function MessageRow({ model: m, h, stream }: { model: Ro
     {m.canReact && <MessageReactions message={message} botNames={m.botNames} menuPosition={m.menuPosition} onCloseMenu={h.closeMenu} onSet={(emoji, present) => h.setReaction(message, emoji, present)} />}
     {actions && <div className="message-actions-row" data-host-id={message.id} data-side={message.role === "user" ? "user" : "bot"} data-gutter={m.isGroup && message.role !== "user" && message.kind !== "ui_card" ? "" : undefined}>{actions}</div>}
     {m.ownerNodes}
+    {m.taskCards && <Suspense fallback={null}>{m.taskCards.map(card => <TaskCard key={card.id} card={card} />)}</Suspense>}
     {m.afterTools ? <ToolActivityList activities={m.afterTools} summaries={m.afterSummaries} summaryErrors={m.afterSummaryErrors} summaryLoading={m.afterSummaryLoading} details={m.toolLists!.details} onLoadDetails={h.loadDetails} onRetrySummary={h.retrySummary} botById={m.toolLists!.botById} activeRunIds={m.toolLists!.activeRunIds} group={m.isGroup} /> : null}
   </div>;
 }, (previous, next) => previous.h === next.h && previous.stream === next.stream && rowModelEqual(previous.model, next.model));
