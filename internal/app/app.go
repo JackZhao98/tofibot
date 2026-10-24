@@ -141,6 +141,8 @@ type Run struct {
 	// structured is the workspace's structured-output setting, read once when
 	// the run starts: the say protocol governs this whole run.
 	structured bool
+	// consumeInbox: the context is built to be sent, so the inbox rows it shows count as read.
+	consumeInbox bool
 	// The tool call id of the proposal being reviewed, in memory only. Its own
 	// in-flight activity row is the call under review, never prior evidence.
 	reviewCallID string
@@ -3675,6 +3677,7 @@ func (s *Server) execute(c Conversation, r Run) {
 	// One protocol for the whole run, even if the setting changes meanwhile.
 	structured := r.Kind != runKindTriage && s.store.structuredOutputOn()
 	r.structured = structured
+	r.consumeInbox = true
 	r.ctxCapture = newContextCapture()
 	// The last committed summary and bounded recent history are enough to start
 	// the reply. Durable history maintenance runs after the response is saved.

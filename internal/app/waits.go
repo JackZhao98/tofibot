@@ -598,6 +598,11 @@ func (s *Store) waitingOnContext(botID string) string {
 // timer that reaches its time is fulfilled; any other wait timed out. It
 // returns how many it ended.
 func (s *Store) expireDueWaits(at time.Time) (int, error) {
+	// A task whose run is over with nothing left below it closes before its
+	// giver's wait can time out on it.
+	if err := s.closeAbandonedHeldTasks(); err != nil {
+		log.Printf("close abandoned tasks: %v", err)
+	}
 	ids, err := waitIDsTx(s.db, `SELECT id FROM waits WHERE status='pending' AND deadline_at<=? ORDER BY deadline_at,id LIMIT 500`, stampTime(at))
 	if err != nil {
 		return 0, err
@@ -759,6 +764,9 @@ func inboxWakeDepthTx(tx *sql.Tx, runID string) int {
 // reconcileTaskRuns closes the tasks whose working run ended some way that did
 // not reach the task hooks (a recovery, an expiry): the task follows the run.
 func (s *Store) reconcileTaskRuns() error {
+	if err := s.closeAbandonedHeldTasks(); err != nil {
+		return err
+	}
 	rows, err := s.db.Query(`SELECT w.assignee_run_id,r.status FROM work_items w JOIN runs r ON r.id=w.assignee_run_id
  WHERE w.assigner_kind='bot' AND w.status IN (` + openTaskStatuses + `) AND r.status IN ('failed','cancelled')`)
 	if err != nil {
@@ -785,6 +793,76 @@ func (s *Store) reconcileTaskRuns() error {
 			return err
 		}
 		if err = taskRunEndedTx(tx, p.run, p.status); err != nil {
+			tx.Rollback()
+			return err
+		}
+		if err = tx.Commit(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// closeAbandonedHeldTasks closes a task whose assignee run is done when that
+// run gave nothing that is still open, no run below it is active, and nothing
+// is left that would wake the Bot for it. The run's last answer is the result;
+// without one the task failed.
+func (s *Store) closeAbandonedHeldTasks() error {
+	rows, err := s.db.Query(`SELECT w.id,w.assignee_run_id FROM work_items w JOIN runs r ON r.id=w.assignee_run_id
+ WHERE w.assigner_kind='bot' AND w.status IN (` + openTaskStatuses + `) AND r.status='done'
+ AND NOT EXISTS(SELECT 1 FROM work_items g WHERE g.origin_run_id=w.assignee_run_id AND g.status NOT IN ('done','cancelled','failed'))
+ AND NOT EXISTS(WITH RECURSIVE below(id) AS (SELECT id FROM runs WHERE parent_run_id=w.assignee_run_id UNION SELECT x.id FROM runs x JOIN below b ON x.parent_run_id=b.id)
+  SELECT 1 FROM runs a WHERE a.id IN (SELECT id FROM below) AND a.status IN ('queued','running','waiting'))
+ AND NOT EXISTS(SELECT 1 FROM waits p WHERE p.run_id=w.assignee_run_id AND p.status='pending')
+ AND NOT EXISTS(SELECT 1 FROM bot_inbox i WHERE i.parent_run=w.assignee_run_id AND i.wakes=1 AND i.consumed_at='')`)
+	if err != nil {
+		return err
+	}
+	type pair struct{ task, run string }
+	var pairs []pair
+	for rows.Next() {
+		var p pair
+		if err := rows.Scan(&p.task, &p.run); err != nil {
+			rows.Close()
+			return err
+		}
+		pairs = append(pairs, p)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return err
+	}
+	for _, p := range pairs {
+		tx, err := s.db.Begin()
+		if err != nil {
+			return err
+		}
+		item, err := getTaskTx(tx, p.task)
+		if err != nil || isClosedWorkStatus(item.Status) {
+			tx.Rollback()
+			continue
+		}
+		var msgID, content string
+		_ = tx.QueryRow(`SELECT id,content FROM messages WHERE run_id=? AND role='assistant' ORDER BY seq DESC LIMIT 1`, p.run).Scan(&msgID, &content)
+		t := now()
+		status := "done"
+		if msgID == "" {
+			status = "failed"
+		}
+		if _, err = tx.Exec(`UPDATE work_items SET status=?,updated_at=?,completed_at=?,closed_at=?,result_message_id=?,result_summary=?,result_based_on_version=?,submit_run_id='' WHERE id=?`,
+			status, t, t, t, msgID, trimRunesMarker(strings.TrimSpace(content), 240, "…"), item.RunSpecVersion, item.ID); err != nil {
+			tx.Rollback()
+			return err
+		}
+		item.Status = status
+		if err = settleClosedTaskTx(tx, item); err == nil && status == "done" {
+			err = settleTaskWaitsTx(tx, item.ID, waitFulfilled, msgID)
+		}
+		if err == nil {
+			err = taskEventTx(tx, item.ID)
+		}
+		if err != nil {
 			tx.Rollback()
 			return err
 		}

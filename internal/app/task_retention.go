@@ -65,7 +65,7 @@ func (s *Store) cleanupFinishedTasks(cutoff time.Time) (retentionResult, error) 
 	}
 	n, _ := res.RowsAffected()
 	out.Waits = int(n)
-	res, err = tx.Exec(`DELETE FROM bot_inbox WHERE consumed_at<>'' AND consumed_at<?`, stamp)
+	res, err = tx.Exec(`DELETE FROM bot_inbox WHERE (consumed_at<>'' AND consumed_at<?) OR (consumed_at='' AND wakes=0 AND created_at<?)`, stamp, stamp)
 	if err != nil {
 		return out, err
 	}
