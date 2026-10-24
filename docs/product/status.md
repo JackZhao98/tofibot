@@ -1,6 +1,6 @@
 # TOFI 产品现状
 
-> 截至 2026-10-23 晚 PDT，依据 `main` @ `1e10e61`（即 tag `v0.1.4-rc.41`）。
+> 截至 2026-10-23 晚 PDT，依据 `main` @ `1e10e61`（即 tag `v0.1.4-rc.42`）。
 > 每次合并、发版或 owner 拍板，都要在同一个提交里更新本页（决策 [D27](../decisions/0027-docs-are-the-system.md)）。
 > 文中 `Dxx` 是 owner 决策编号，每条在 [`docs/decisions/`](../decisions/) 里有同编号的文件。没能核实的内容标为 **待确认**。
 > 路线图见 [roadmap.md](roadmap.md)，版本记录见 [../releases.md](../releases.md)，工作流程见 [../process.md](../process.md)。
@@ -21,8 +21,8 @@ TOFI 是一个自托管的 AI Bot 工作台：后端是 Go 服务（`internal/`�
 | 项目 | 版本 | 依据 |
 |---|---|---|
 | 最新稳定版 | `v0.1.3`（`3b6a885`，2026-10-15 09:32 PDT） | `git tag`；GitHub release 标为 latest |
-| 最新候选版 | `v0.1.4-rc.41`（`1e10e61`，2026-10-23 晚 PDT） | `git tag` |
-| 线上环境 | `v0.1.4-rc.41`，地址 tofi.speedowagon.com（2026-10-23 晚部署，迁移先在副本上断网演练通过；`sudo tofi status` 核对为 healthy，电脑已升级到 rc.41 guest） | 主机 `sudo tofi status` |
+| 最新候选版 | `v0.1.4-rc.42`（`72a5201`，2026-10-24 凌晨 PDT） | `git tag` |
+| 线上环境 | `v0.1.4-rc.42`，地址 tofi.speedowagon.com（2026-10-24 凌晨部署，`sudo tofi status` 核对为 healthy，电脑已升级到 rc.42 guest） | 主机 `sudo tofi status` |
 | v0.1.3 之后的改动 | 219 个提交，其中 55 个是合并 | `git log v0.1.3..v0.1.4-rc.29` |
 | 还保留的 GitHub 版本 | `v0.1.0`–`v0.1.3` 四个稳定版，加上 `v0.1.4-rc.26`–`rc.29`；更早的 rc 版本、它们的 tag 和容器镜像都已删除 | `git tag`；[D25](../decisions/0025-github-release-cleanup.md) |
 
