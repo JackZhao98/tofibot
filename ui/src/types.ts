@@ -289,6 +289,7 @@ export interface WorkItem {
   result_summary?: string;
   depends_on?: string[];
   stall_count?: number;
+  merged_into?: string;
   message_count?: number;
   closed_at?: string;
   checklist?: WorkChecklistItem[];

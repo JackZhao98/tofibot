@@ -227,7 +227,7 @@ func TestDependencyFailureAndCancelTellTheGiverAndDoNotUnlock(t *testing.T) {
 		t.Fatalf("body %q", body)
 	}
 	// The giver can remove the dependency of a blocked task; with none left it starts.
-	if _, err := call(t, f.tool(f.g, root2, "task_update"), map[string]any{"task_id": waiting2.TaskID, "remove_depends_on": []string{base2.TaskID}}); err != nil {
+	if _, err := call(t, f.tool(f.g, root2, "task_update"), map[string]any{"task_id": waiting2.TaskID, "reason": "synthetic edit", "remove_depends_on": []string{base2.TaskID}}); err != nil {
 		t.Fatal(err)
 	}
 	if got := f.taskRow(waiting2.TaskID); got.Status != "todo" || got.DependsOn != "" {
@@ -243,17 +243,17 @@ func TestDependencyCycleAndBadDependenciesAreRefused(t *testing.T) {
 	two := f.delegateTo(f.g, root, f.b, "Two", one.TaskID)
 	update := f.tool(f.g, root, "task_update")
 	// base is waited on by one and two; making one wait on two closes a loop.
-	if _, err := call(t, update, map[string]any{"task_id": one.TaskID, "add_depends_on": []string{two.TaskID}}); codeOf(err) != "dependency_cycle" {
+	if _, err := call(t, update, map[string]any{"task_id": one.TaskID, "reason": "synthetic edit", "add_depends_on": []string{two.TaskID}}); codeOf(err) != "dependency_cycle" {
 		t.Fatalf("cycle: %v", err)
 	}
 	if got := f.taskRow(one.TaskID).DependsOn; got != base.TaskID {
 		t.Fatalf("a refused change altered the list: %q", got)
 	}
-	if _, err := call(t, update, map[string]any{"task_id": one.TaskID, "add_depends_on": []string{one.TaskID}}); codeOf(err) != "dependency_cycle" {
+	if _, err := call(t, update, map[string]any{"task_id": one.TaskID, "reason": "synthetic edit", "add_depends_on": []string{one.TaskID}}); codeOf(err) != "dependency_cycle" {
 		t.Fatalf("self: %v", err)
 	}
 	// Started tasks cannot take new dependencies.
-	if _, err := call(t, update, map[string]any{"task_id": base.TaskID, "add_depends_on": []string{two.TaskID}}); codeOf(err) != "dependency_locked" {
+	if _, err := call(t, update, map[string]any{"task_id": base.TaskID, "reason": "synthetic edit", "add_depends_on": []string{two.TaskID}}); codeOf(err) != "dependency_locked" {
 		t.Fatalf("locked: %v", err)
 	}
 	// Unknown id, and tasks of two trees.
@@ -330,7 +330,7 @@ func TestStallIsReportedOnceAfterThreeQuietRoundsAndAgainOnlyAfterProgress(t *te
 	f := newTaskFix(t)
 	root := f.running(f.g.ID, f.a)
 	task := f.delegateTo(f.g, root, f.b, "Check three things")
-	if _, err := call(t, f.tool(f.g, root, "task_update"), map[string]any{"task_id": task.TaskID, "add_items": []string{"one", "two", "three"}}); err != nil {
+	if _, err := call(t, f.tool(f.g, root, "task_update"), map[string]any{"task_id": task.TaskID, "reason": "synthetic edit", "add_items": []string{"one", "two", "three"}}); err != nil {
 		t.Fatal(err)
 	}
 	items, _ := checklistTx(f.s.db, task.TaskID)
@@ -390,7 +390,7 @@ func TestStallThresholdIsASetting(t *testing.T) {
 	f.setSetting(autoTaskStallRounds, 2)
 	root := f.running(f.g.ID, f.a)
 	task := f.delegateTo(f.g, root, f.b, "Quiet work")
-	if _, err := call(t, f.tool(f.g, root, "task_update"), map[string]any{"task_id": task.TaskID, "add_items": []string{"one"}}); err != nil {
+	if _, err := call(t, f.tool(f.g, root, "task_update"), map[string]any{"task_id": task.TaskID, "reason": "synthetic edit", "add_items": []string{"one"}}); err != nil {
 		t.Fatal(err)
 	}
 	for i := 0; i < 2; i++ {
@@ -653,7 +653,7 @@ func TestARoundWithAPendingWaitOrOpenChildTasksIsNotQuiet(t *testing.T) {
 	f := newTaskFix(t)
 	root := f.running(f.g.ID, f.a)
 	task := f.delegateTo(f.g, root, f.b, "Coordinate")
-	call(t, f.tool(f.g, root, "task_update"), map[string]any{"task_id": task.TaskID, "add_items": []string{"one"}})
+	call(t, f.tool(f.g, root, "task_update"), map[string]any{"task_id": task.TaskID, "reason": "synthetic edit", "add_items": []string{"one"}})
 	round := func(prepare func(Run)) {
 		r := queueRun(t, f.s, f.g.ID, f.b.ID, "", "")
 		f.s.db.Exec(`UPDATE work_items SET assignee_run_id=? WHERE id=?`, r.ID, task.TaskID)

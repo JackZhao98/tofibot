@@ -43,7 +43,7 @@ func (s *Store) cleanupFinishedTasks(cutoff time.Time) (retentionResult, error) 
 		return out, err
 	}
 	defer tx.Rollback()
-	ids, err := waitIDsTx(tx, `SELECT id FROM work_items WHERE assigner_kind='bot' AND closed_at<>'' AND closed_at<? AND (description<>'' OR EXISTS(SELECT 1 FROM task_checklist c WHERE c.task_id=work_items.id) OR EXISTS(SELECT 1 FROM task_revisions r WHERE r.task_id=work_items.id))`, stamp)
+	ids, err := waitIDsTx(tx, `SELECT id FROM work_items WHERE assigner_kind='bot' AND closed_at<>'' AND closed_at<? AND (description<>'' OR EXISTS(SELECT 1 FROM task_checklist c WHERE c.task_id=work_items.id) OR EXISTS(SELECT 1 FROM task_revisions r WHERE r.task_id=work_items.id) OR EXISTS(SELECT 1 FROM task_edits e WHERE e.task_id=work_items.id))`, stamp)
 	if err != nil {
 		return out, err
 	}
@@ -52,6 +52,9 @@ func (s *Store) cleanupFinishedTasks(cutoff time.Time) (retentionResult, error) 
 			return out, err
 		}
 		if _, err = tx.Exec(`DELETE FROM task_checklist WHERE task_id=?`, id); err != nil {
+			return out, err
+		}
+		if _, err = tx.Exec(`DELETE FROM task_edits WHERE task_id=?`, id); err != nil {
 			return out, err
 		}
 		if _, err = tx.Exec(`DELETE FROM task_revisions WHERE task_id=?`, id); err != nil {

@@ -26,7 +26,7 @@ func newIdleFix(t *testing.T, items int) (idleFix, Run) {
 		texts[i] = fmt.Sprintf("step %d", i)
 	}
 	if items > 0 {
-		if _, err := call(t, f.tool(f.g, root, "task_update"), map[string]any{"task_id": first.TaskID, "add_items": texts}); err != nil {
+		if _, err := call(t, f.tool(f.g, root, "task_update"), map[string]any{"task_id": first.TaskID, "reason": "synthetic edit", "add_items": texts}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -207,7 +207,7 @@ func TestIdleBudgetSettingMigratesTheOldKey(t *testing.T) {
 func TestIdleBudgetResubmittedResultIsNotProgress(t *testing.T) {
 	f, holder := newIdleFix(t, 1)
 	f.endItem(holder) // first progress; a result below needs an open item to land in review
-	if _, err := call(t, f.tool(f.g, f.root, "task_update"), map[string]any{"task_id": f.first.TaskID, "add_items": []string{"never done"}}); err != nil {
+	if _, err := call(t, f.tool(f.g, f.root, "task_update"), map[string]any{"task_id": f.first.TaskID, "reason": "synthetic edit", "add_items": []string{"never done"}}); err != nil {
 		t.Fatal(err)
 	}
 	submit := func(round int) {
@@ -246,7 +246,7 @@ func TestIdleBudgetResubmittedResultIsNotProgress(t *testing.T) {
 	// A new spec version counts once again.
 	f.s.db.Exec(`UPDATE task_tree_budget SET messages=5,reported=0 WHERE tree_key=?`, f.tree) // the brief is itself a charged message, so make room
 	brief := "A changed request."
-	if _, err := call(t, f.tool(f.g, f.root, "task_update"), map[string]any{"task_id": f.first.TaskID, "brief": brief}); err != nil {
+	if _, err := call(t, f.tool(f.g, f.root, "task_update"), map[string]any{"task_id": f.first.TaskID, "reason": "synthetic edit", "brief": brief}); err != nil {
 		t.Fatal(err)
 	}
 	submit(100)

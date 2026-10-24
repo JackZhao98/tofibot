@@ -724,7 +724,7 @@ func TestRemovingAMemberEndsItsTasksInThatGroup(t *testing.T) {
 	}
 }
 
-func TestAssigneeCannotAddOrRemoveChecklistItems(t *testing.T) {
+func TestHolderEditsChecklistWithReasonAndOnlyTheGiverDecides(t *testing.T) {
 	f := newTaskFix(t)
 	root := f.running(f.g.ID, f.a)
 	del := f.tool(f.g, root, "delegate")
@@ -744,19 +744,18 @@ func TestAssigneeCannotAddOrRemoveChecklistItems(t *testing.T) {
 		t.Fatalf("task %+v", task)
 	}
 	first := task.Checklist[0].ID
-	// The holder may set an item's status with a reason, and nothing else about the list.
 	rb := f.running(f.g.ID, f.b)
 	update := f.tool(f.g, rb, "task_update")
 	for name, args := range map[string]map[string]any{
-		"add":        {"task_id": taskID, "add_items": []string{"Chapter three"}},
-		"remove":     {"task_id": taskID, "remove_items": []string{first}},
-		"new brief":  {"task_id": taskID, "brief": "Something else"},
-		"cancel":     {"task_id": taskID, "status": "cancelled"},
-		"accept":     {"task_id": taskID, "status": "done"},
-		"answer":     {"task_id": taskID, "answer": "yes"},
-		"no reason":  {"task_id": taskID, "items": []map[string]any{{"id": first, "status": "done"}}},
-		"bad status": {"task_id": taskID, "items": []map[string]any{{"id": first, "status": "finished", "reason": "x"}}},
-		"bad item":   {"task_id": taskID, "items": []map[string]any{{"id": "zzzzzz", "status": "done", "reason": "x"}}},
+		"add, no reason":    {"task_id": taskID, "add_items": []string{"Chapter three"}},
+		"remove, no reason": {"task_id": taskID, "remove_items": []string{first}},
+		"brief, no reason":  {"task_id": taskID, "brief": "Something else"},
+		"cancel":            {"task_id": taskID, "status": "cancelled"},
+		"accept":            {"task_id": taskID, "status": "done"},
+		"answer":            {"task_id": taskID, "answer": "yes"},
+		"no item reason":    {"task_id": taskID, "items": []map[string]any{{"id": first, "status": "done"}}},
+		"bad status":        {"task_id": taskID, "items": []map[string]any{{"id": first, "status": "finished", "reason": "x"}}},
+		"bad item":          {"task_id": taskID, "items": []map[string]any{{"id": "zzzzzz", "status": "done", "reason": "x"}}},
 	} {
 		if _, err := call(t, update, args); err == nil {
 			t.Errorf("holder %s was accepted", name)
@@ -772,12 +771,12 @@ func TestAssigneeCannotAddOrRemoveChecklistItems(t *testing.T) {
 	if got.Checklist[0].Status != checklistDone || got.Checklist[0].Reason != "read and checked" {
 		t.Fatalf("item %+v", got.Checklist[0])
 	}
-	// The giver may add and remove items, and may not set an item's status.
+	// The giver may add and remove items, with a reason, and may not set an item's status.
 	giver := f.tool(f.g, root, "task_update")
-	if _, err := call(t, giver, map[string]any{"task_id": taskID, "add_items": []string{"Chapter three"}}); err != nil {
+	if _, err := call(t, giver, map[string]any{"task_id": taskID, "reason": "scope", "add_items": []string{"Chapter three"}}); err != nil {
 		t.Fatalf("giver add: %v", err)
 	}
-	if _, err := call(t, giver, map[string]any{"task_id": taskID, "remove_items": []string{got.Checklist[1].ID}}); err != nil {
+	if _, err := call(t, giver, map[string]any{"task_id": taskID, "reason": "scope", "remove_items": []string{got.Checklist[1].ID}}); err != nil {
 		t.Fatalf("giver remove: %v", err)
 	}
 	if _, err := call(t, giver, map[string]any{"task_id": taskID, "items": []map[string]any{{"id": first, "status": "open"}}}); err == nil {
@@ -785,7 +784,7 @@ func TestAssigneeCannotAddOrRemoveChecklistItems(t *testing.T) {
 	}
 	// A third Bot has no part in the task.
 	rc := f.running(f.g.ID, f.c)
-	if _, err := call(t, f.tool(f.g, rc, "task_update"), map[string]any{"task_id": taskID, "add_items": []string{"x"}}); codeOf(err) != "task_forbidden" {
+	if _, err := call(t, f.tool(f.g, rc, "task_update"), map[string]any{"task_id": taskID, "reason": "x", "add_items": []string{"x"}}); codeOf(err) != "task_forbidden" {
 		t.Fatalf("outsider: %v", err)
 	}
 	final, _ := f.s.GetWorkItem(taskID)
@@ -926,7 +925,7 @@ func TestPersonMessageBumpsTheVersionAndMarksAStaleResult(t *testing.T) {
 	root2 := f.running(f.g.ID, f.a)
 	_, child2, _ := f.s.AddHandoff(f.g.ID, f.a.ID, f.c.ID, root2.ID, "Write the index")
 	t2 := f.taskOf(child2.ID)
-	if _, err := call(t, f.tool(f.g, root2, "task_update"), map[string]any{"task_id": t2.ID, "brief": "Write the index and the glossary"}); err != nil {
+	if _, err := call(t, f.tool(f.g, root2, "task_update"), map[string]any{"task_id": t2.ID, "reason": "synthetic edit", "brief": "Write the index and the glossary"}); err != nil {
 		t.Fatal(err)
 	}
 	if got := f.taskOf(child2.ID); got.SpecVersion != 2 || !strings.Contains(got.Description, "glossary") {

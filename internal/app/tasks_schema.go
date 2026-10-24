@@ -113,6 +113,9 @@ CREATE INDEX IF NOT EXISTS command_waits_bot ON command_waits(bot_id);`); err !=
 	if err := ensureTaskClaimTables(db); err != nil {
 		return err
 	}
+	if err := ensureTaskEditTables(db); err != nil {
+		return err
+	}
 	// stall_sig is the progress signature the stall counter compares (D64); the
 	// budget table counts the messages of one task tree.
 	if err := ensureColumn(db, "work_items", "stall_sig", `ALTER TABLE work_items ADD COLUMN stall_sig TEXT NOT NULL DEFAULT ''`); err != nil {
