@@ -71,6 +71,10 @@ func (s *Store) cleanupFinishedTasks(cutoff time.Time) (retentionResult, error) 
 	}
 	n, _ = res.RowsAffected()
 	out.Inbox = int(n)
+	// A tree nobody has charged since the cutoff starts from zero if it ever comes back.
+	if _, err = tx.Exec(`DELETE FROM task_tree_budget WHERE updated_at<?`, stamp); err != nil {
+		return out, err
+	}
 	return out, tx.Commit()
 }
 

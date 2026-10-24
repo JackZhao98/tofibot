@@ -92,9 +92,6 @@ func (s *Server) execHandoff(ctx context.Context, c Conversation, r Run, b json.
 	} else if _, e := s.store.GetBot(x.BotID); e != nil {
 		return "", nil, errors.New("bot not found")
 	}
-	if handoffDepth(s.store, r.ID) >= maxHandoffRounds {
-		return "", nil, errors.New("handoff budget exceeded")
-	}
 	if err := s.yieldComputerOwner(r); err != nil {
 		return "", nil, fmt.Errorf("cannot release shared desktop for handoff: %w", err)
 	}

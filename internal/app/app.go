@@ -1660,6 +1660,11 @@ func (s *Store) AddRun(conv, bot, parent string) (Run, error) {
 	return r, nil
 }
 func (s *Store) AddHandoff(conv, sender, bot, parent, task string) (Message, Run, error) {
+	m, r, err := s.addHandoff(conv, sender, bot, parent, task)
+	s.afterTreeLimit(err)
+	return m, r, err
+}
+func (s *Store) addHandoff(conv, sender, bot, parent, task string) (Message, Run, error) {
 	// Read before the transaction: the store has one connection.
 	coAddressedGuard := s.structuredOutputOn()
 	tx, err := s.db.Begin()
@@ -1770,8 +1775,13 @@ func (s *Store) AddHandoff(conv, sender, bot, parent, task string) (Message, Run
 		}
 	} else {
 		// The assignment is a task, with the wait its assigner holds for the result.
-		if _, err = recordTaskForChildTx(tx, delegationChild{RunID: r.ID, RunConversation: conv, RunBot: bot, RunKind: r.Kind, Origin: origin, Trigger: r.TriggerMessageID,
-			ParentRun: parent, ParentBot: sender, ParentConversation: conv, Brief: task, RunStatus: "queued"}); err != nil {
+		made, terr := recordTaskForChildTx(tx, delegationChild{RunID: r.ID, RunConversation: conv, RunBot: bot, RunKind: r.Kind, Origin: origin, Trigger: r.TriggerMessageID,
+			ParentRun: parent, ParentBot: sender, ParentConversation: conv, Brief: task, RunStatus: "queued"})
+		if terr != nil {
+			return Message{}, Run{}, terr
+		}
+		// A hand-over is a message of its tree (decision 0064).
+		if err = chargeTreeTx(tx, made.RootTaskID, 1, true); err != nil {
 			return Message{}, Run{}, err
 		}
 	}
@@ -4499,18 +4509,16 @@ func (s *Server) execute(c Conversation, r Run) {
 	// handoff or wake, and a leading mention in its text is only a mention.
 	if !structured && c.Kind == "group" && !pendingAfterFinal && !hasHandoff(s.store, r.ID) {
 		if target, task := leadingMentionTarget(res.Content, c, s); target != "" && task != "" && !s.store.isGroupReturnMention(r, target) {
-			if depth := handoffDepth(s.store, r.ID); depth < maxHandoffRounds {
-				if err := s.yieldComputerOwner(r); err != nil {
-					s.failRun(c, r, err)
-					return
-				}
-				if _, child, he := s.store.AddHandoff(c.ID, r.BotID, target, r.ID, task); he == nil {
-					// The assignment was already published with its structured
-					// recipient. Do not publish the same leading-mention reply twice.
-					res.Content = ""
-					s.store.noteFinalOrigin(r.ID, heuristicLeadingMention)
-					s.enqueue(c, child)
-				}
+			if err := s.yieldComputerOwner(r); err != nil {
+				s.failRun(c, r, err)
+				return
+			}
+			if _, child, he := s.store.AddHandoff(c.ID, r.BotID, target, r.ID, task); he == nil {
+				// The assignment was already published with its structured
+				// recipient. Do not publish the same leading-mention reply twice.
+				res.Content = ""
+				s.store.noteFinalOrigin(r.ID, heuristicLeadingMention)
+				s.enqueue(c, child)
 			}
 		}
 	}
@@ -4888,23 +4896,6 @@ func objectSchema(properties map[string]any, required []string) map[string]any {
 		required = []string{}
 	}
 	return map[string]any{"type": "object", "properties": properties, "required": required, "additionalProperties": false}
-}
-func handoffDepth(s *Store, id string) int {
-	n := 0
-	seen := map[string]bool{}
-	for id != "" {
-		if seen[id] {
-			return 99
-		}
-		seen[id] = true
-		r, e := s.GetRun(id)
-		if e != nil {
-			return 99
-		}
-		id = r.ParentRunID
-		n++
-	}
-	return n
 }
 func (s *Server) events(w http.ResponseWriter, r *http.Request, id string) {
 	after, _ := strconv.ParseInt(r.URL.Query().Get("after"), 10, 64)

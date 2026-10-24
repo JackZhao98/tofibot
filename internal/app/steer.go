@@ -179,6 +179,10 @@ func (s *Store) drainInboxForRun(r Run, userLimit int) ([]inboxRow, error) {
 	if len(taken) == 0 {
 		return nil, nil
 	}
+	// A task the rows unlocked (decision 0064) belongs to the run that reads them.
+	if err = bindUnlockedTasksTx(tx, r.BotID, r.ID, taken, true); err != nil {
+		return nil, err
+	}
 	if err = tx.Commit(); err != nil {
 		return nil, err
 	}

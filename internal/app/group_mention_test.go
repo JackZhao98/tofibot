@@ -327,8 +327,11 @@ func TestRespondRejectsBadChoices(t *testing.T) {
 	}
 }
 
-// Adversarial scripted loop: the cap trips and is logged as a bug signal.
-func TestWakeCapTripsAndIsLogged(t *testing.T) {
+// Adversarial scripted loop: the task tree budget (decision 0064, setting
+// task_tree_message_limit) stops the mention wakes, tells the root member once
+// and posts one line for the person. This replaces the old assertion of the
+// fixed cap of eight wakes per lineage.
+func TestTreeBudgetStopsMentionWakeLoopAndReportsOnce(t *testing.T) {
 	var buf bytes.Buffer
 	var logMu sync.Mutex
 	log.SetOutput(&lockedWriter{&logMu, &buf})
@@ -336,6 +339,10 @@ func TestWakeCapTripsAndIsLogged(t *testing.T) {
 	var f dedupeFixture
 	engine := &mentionEngine{}
 	f = newDedupeFixture(t, engine)
+	const limit = 10
+	if _, err := f.server.store.db.Exec(`INSERT INTO automation_settings(key,value,updated_at) VALUES(?,?,?)`, autoTaskTreeMessageLimit, fmt.Sprint(limit), now()); err != nil {
+		t.Fatal(err)
+	}
 	engine.reply = func(ctx context.Context, req runtime.Request, text string) string {
 		other := f.meta.ID
 		if req.BotID == f.meta.ID {
@@ -346,13 +353,21 @@ func TestWakeCapTripsAndIsLogged(t *testing.T) {
 	f.post(t, "@tofi start", f.tofi)
 	f.start(engine)
 	runs := f.settle(t)
-	if n := countKind(runs, runKindGroupMention, ""); n != maxMentionWakesPerLineage || len(runs) != maxMentionWakesPerLineage+1 {
-		t.Fatalf("wakes=%d runs=%d", n, len(runs))
+	if n := countKind(runs, runKindGroupMention, ""); n != limit {
+		t.Fatalf("wakes=%d want the budget %d (runs=%d)", n, limit, len(runs))
 	}
 	logMu.Lock()
-	defer logMu.Unlock()
-	if !strings.Contains(buf.String(), "cap reached") {
-		t.Fatalf("cap trip not logged: %q", buf.String())
+	logged := buf.String()
+	logMu.Unlock()
+	if !strings.Contains(logged, "budget reached") {
+		t.Fatalf("refusal not logged: %q", logged)
+	}
+	db := f.server.store.db
+	var notices, rows int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM messages WHERE conversation_id=? AND kind='notice' AND sender_bot_id='system' AND notice_data LIKE '%tree_limit%'`, f.group.ID).Scan(&notices)
+	_ = db.QueryRow(`SELECT COUNT(*) FROM bot_inbox WHERE kind='task_update' AND wakes=1 AND body LIKE '%limit%'`).Scan(&rows)
+	if notices != 1 || rows != 1 {
+		t.Fatalf("the report must happen once: notices=%d inbox rows=%d", notices, rows)
 	}
 }
 

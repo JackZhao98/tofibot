@@ -73,6 +73,7 @@
 | D60 | 群里没 @ 人的消息由后台模型按角色挑成员（设置可关、可换模型；失败退回主助理/随机），被选成员持有一个任务，可 `claim_task`（不发聊天消息，成员列表显示）或 `pass_task`（带理由，派活人不变），时间线里一任务一张可收起的卡片；人点的 reaction 进历史并低优先级叫醒该 Bot（合并、不要求回复），Bot 点的永不叫醒 | 2026-10-23 | 现行分诊只是主助理或随机；reaction 是单向通道。对标 AutoGen 选择器；reaction 不改任务状态 | [0060](0060-group-triage-and-reactions.md) |
 | D61 | 命令结束等待：`wait_for`/`computer_terminal notify_on_exit` 登记；host 每 5 秒只问有等待的 Bot（进程退出带退出码，shell 作业靠 guest `foreground_job`，旧 guest 只认进程退出）；每轮缓存 8 KB 输出，重启后送“被中断，最后输出在此”；必须配计时回看（默认 60 分钟，设置可改）；有等待的终端不被清理；升级/重启算忙 | 2026-10-23 | C2 设计与实施方案阶段 3；Q14 host 轮询加 guest 一个字段，Q19 命令等待无期限但必须配计时回看 | [0061](0061-command-exit-waits.md) |
 | D62 | 每个 Bot 全局一条线、不同 Bot 并行（跨对话的优先级：同树续跑 > 人的消息 > 委派 > 定时）；对正在工作的 Bot 发消息进收件箱排队，在下一个边界原子读取、写检查点，不取消；读之前结束就接力续跑；问人卡片保留；“停止当前步骤”与“全部停止”两档 | 2026-10-23 | 实施方案阶段 4；Q3 一条线、Q5 混合、Q6 卡片保留。对标 Claude Code 排队插话、Actor 模型每个成员独立会话 | [0062](0062-per-bot-lanes-and-queued-steering.md) |
+| D64 | 拆任务：`delegate` 的 `depends_on[]`（前置全 `done` 同事务解锁并叫醒持有人，前置失败/取消只通知派活人，查环同 `wait_cycle`）；持有人每句话进派活人收件箱（progress 不叫醒，提问/结果/停滞叫醒）；停滞 3 轮上报根 Bot 一次；按任务树 60 条消息取代 `maxHandoffRounds` 和提及叫醒上限，到限报根 Bot 和人一次；两个数都是 Automatic behavior 设置 | 2026-10-23 | 实施方案阶段 5b；Q17 停滞 3 轮、Q18 每树 60 条。对标 Agent Teams 任务依赖与成员消息送 lead、Anthropic 研究系统拆任务 | [0064](0064-task-dependencies-giver-inbox-stall-tree-budget.md) |
 
 ## 怎么新增一条决定
 

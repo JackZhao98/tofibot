@@ -8,6 +8,7 @@
 
 > **阶段 3（C2 命令结束）已实施**（分支 `feat/p3-command-exit`，[D61](../decisions/0061-command-exit-waits.md)）：`wait_for` 开放 `command_exit`，`computer_terminal` 加 `notify_on_exit`；host 每 5 秒只问有等待的 Bot，进程退出带退出码，shell 作业靠 guest `terminal.list` 新字段 `foreground_job`（旧 guest 只认进程退出）；每轮缓存 8 KB 输出，重启后送“被重启中断，最后输出在此”；必须配计时回看（系统补一条，设置 `command_check_minutes`，默认 60 分钟）；有等待的终端不被清理；`tofi update`/`computers upgrade` 算忙，Settings 重启前提示；聊天一行“命令已结束”、终端标签铃铛；七种语言。**与计划的差别**：升级忙判断读 App 数据库，没有新开 App 状态接口；`foreground_job` 是已有动作的字段，没有新增 guest 动作。**需要重建 guest 镜像。未做/待真机核对**：监视器的 `terminal.list` 是否让电脑保持清醒（hibernation 空闲判断）、`sleep 90 && echo done` 与重启中断的实测。
 > **阶段 4（调度改造）已实施**（分支 `feat/p4-scheduler`，[D62](../decisions/0062-per-bot-lanes-and-queued-steering.md)）：每个 Bot 一把全局租约（`bot_lanes.go`，不同 Bot 并行、跨对话优先级同树续跑 > 人的消息 > 委派 > 定时）；对正在工作的 Bot 发消息进 `bot_inbox`，run 在模型请求前的边界原子读取（`DrainInbox`）、写检查点、补一次预算，不取消；读之前结束在同一事务里接力续跑；读满 5 条或上下文过 60% 让位；问人卡片保留；停止两档（`interrupt-step`、`cancel`）；群里读取前先发布挂着的草稿；界面输入框常开、已排队/已读小标、Stop 菜单。与方案的差别：(1) 同一条消息 @ 多个成员仍按顺序（后面的成员要读前面成员的 note），一个 run 等创建它的 run 结束；(2) “每个工具之后”实际是工具批次结束后的下一个边界（提供方要求工具结果紧跟调用）；(3) 读满上限时让位用旧的 `run_steering` 边和工具结果摘要，不是把检查点交给续跑 run；(4) 委派回传仍是排队的回传 run，没有并入收件箱读取（见 D62 风险）；(5) 读取不带图片；(6) 提示词原则只在读取追加的那条用户消息里，不占别的 run 的预算。压测与被改写的旧测试见 D62。
+> **阶段 5b（拆任务与依赖、停滞上报、按任务树限量）已实施**（分支 `feat/p5b-deps-stall`，[D64](../decisions/0064-task-dependencies-giver-inbox-stall-tree-budget.md)）：`delegate` 的 `depends_on[]`（blocked 无 run、最后一个前置 done 同事务解锁并经收件箱叫醒持有人、前置失败/取消通知派活人、依赖查环、`task_update` 可增删依赖）；一个 run 的第二件及以后单人任务走收件箱，不占 handoff 名额，所以并行；持有人每句话进派活人收件箱（progress 不叫醒）；停滞 N 轮（设置 `task_stall_rounds`，默认 3）向根 Bot 上报一次；每棵任务树消息预算（设置 `task_tree_message_limit`，默认 60）取代 `maxHandoffRounds` 和 `maxMentionWakesPerLineage`，到限报根 Bot 和人一次；提示词原则在 `delegate` 说明里。reaction 叫醒（Q7）在 5a 之前已做。与计划的差别：计划写的“wake 上限 3”实为单次发言扇出宽度，保留；防循环的提及叫醒上限（8）才是被取代的；等待任务没有群里的“交接”通知行（任务卡片属 5a）。
 
 ## 0. 阶段顺序
 
@@ -18,7 +19,7 @@
 | 阶段 3 | C2 命令结束事件、定时回看、重启与休眠 | M |
 | 阶段 4 | 调度改造：每个 Bot 一条线、Bot 间并行、排队插话不取消 | L 偏 XL（风险最高） |
 | 阶段 5a | 群：按角色分诊、二次分诊与认领、reaction 进上下文、任务卡片 | M |
-| 阶段 5b | 群：拆任务与依赖解锁、reaction 叫醒、停滞上报、按任务树限总量 | M |
+| 阶段 5b（已实施，D64） | 群：拆任务与依赖解锁、reaction 叫醒、停滞上报、按任务树限总量 | M |
 
 C2（阶段 3）放在调度改造前：它只依赖阶段 2 的等待模型。Bot 起命令、登记 `command_exit` 等待、结束这一轮；命令结束后叫醒新 run，不需要先改调度。前提是先改一处：登记了等待的终端不随 run 清理（`terminal_cleanup.go:93` 现在会杀掉被取消/失败/中断 run 的 PTY）。
 
