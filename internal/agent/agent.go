@@ -241,9 +241,11 @@ type AgentConfig struct {
 	// returns the text of what reached this run since the last boundary (a
 	// person's message queued while the run worked, a settled wait), already
 	// marked read by the caller, or an empty string. The text is appended to the
-	// transcript as a user turn, checkpointed, and refills the run's time, call
-	// and step budget once. It is not called while the run is closing.
-	DrainInbox func() (string, error)
+	// transcript as a user turn and checkpointed. When refill is true (a person's
+	// message was read) it also refills the run's time, call and step budget once.
+	// turnsLeft is how many assistant turns the run may still publish. It is not
+	// called while the run is closing.
+	DrainInbox func(turnsLeft int) (text string, refill bool, err error)
 	// BeforeFinalResponse optionally reviews cleaned, non-empty text-only final
 	// content. An empty reminder accepts it; an error aborts. A non-empty reminder
 	// requests one continuation with the existing history, without emitting the
@@ -1217,7 +1219,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		// closing (wrap-up, a repair request) reads nothing; its messages wait for
 		// the continuation run.
 		if cfg.DrainInbox != nil && !budgetWrapUp && !finalRepairPending && !finalRepairFinalPending && loopCtx.Err() == nil {
-			text, err := cfg.DrainInbox()
+			text, refill, err := cfg.DrainInbox(MaxAssistantTurnIndex - assistantTurnIndex)
 			if err != nil {
 				if loopCtx.Err() != nil {
 					state = state.WithCancelled()
@@ -1228,11 +1230,13 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			if strings.TrimSpace(text) != "" {
 				injected := append(append([]provider.Message(nil), state.Messages...), provider.Message{Role: "user", Content: text})
 				state = state.WithMessages(injected)
-				budgetCallsBase, budgetStepBase, budgetCostBase = state.LLMCalls, state.Step, state.Tracker.TotalCost()
-				runStart = time.Now()
-				if waited := cfg.UserWaitDuration; waited != nil {
-					base := waited()
-					cfg.UserWaitDuration = func() time.Duration { return waited() - base }
+				if refill {
+					budgetCallsBase, budgetStepBase, budgetCostBase = state.LLMCalls, state.Step, state.Tracker.TotalCost()
+					runStart = time.Now()
+					if waited := cfg.UserWaitDuration; waited != nil {
+						base := waited()
+						cfg.UserWaitDuration = func() time.Duration { return waited() - base }
+					}
 				}
 				if checkpoint != nil && checkpointErr == nil {
 					checkpointErr = checkpoint("tool", injected)

@@ -11,6 +11,12 @@ import (
 	"github.com/JackZhao98/tofibot/internal/runtime"
 )
 
+// drain is one boundary read with plenty of turns left.
+func drain(req runtime.Request) (string, error) {
+	text, _, err := req.DrainInbox(1000)
+	return text, err
+}
+
 func steerFixture(t *testing.T, group bool) (*Server, Conversation, Run) {
 	t.Helper()
 	s, c, old := steeringReviewFixture(t, group)
@@ -39,7 +45,7 @@ func TestAMessageToAWorkingBotIsReadByTheSameRunAndCancelsNothing(t *testing.T) 
 	var first, second, third string
 	var queuedRun string
 	s.engine = steeringReviewEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
-		first, _ = req.DrainInbox()
+		first, _ = drain(req)
 		m, runs, queued := sendWhileWorking(t, s, c, old, "Please write it in English.", "english")
 		if len(runs) != 0 || len(queued) != 1 {
 			t.Fatalf("the message started a run or was not queued: runs=%+v queued=%+v", runs, queued)
@@ -51,8 +57,8 @@ func TestAMessageToAWorkingBotIsReadByTheSameRunAndCancelsNothing(t *testing.T) 
 		if msgs, _, _ := s.store.Messages(c.ID, 0, 20); msgs[len(msgs)-1].ID != m.ID || msgs[len(msgs)-1].Delivery != "queued" {
 			t.Fatalf("the message is not shown as queued: %+v", msgs[len(msgs)-1])
 		}
-		second, _ = req.DrainInbox()
-		third, _ = req.DrainInbox()
+		second, _ = drain(req)
+		third, _ = drain(req)
 		return runtime.Result{Content: "Here it is in English."}, nil
 	})
 	s.execute(c, old)
@@ -173,7 +179,7 @@ func TestARunReadsFiveMessagesThenCloses(t *testing.T) {
 	s.engine = steeringReviewEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
 		for i := 1; i <= maxInjectionsPerRun+1; i++ {
 			sendWhileWorking(t, s, c, old, "Message number "+string(rune('0'+i)), "cap-"+string(rune('0'+i)))
-			text, err := req.DrainInbox()
+			text, err := drain(req)
 			if i <= maxInjectionsPerRun {
 				if err != nil || text == "" {
 					t.Fatalf("message %d was not read: %q %v", i, text, err)
@@ -260,7 +266,7 @@ func TestTheDraftIsPublishedBeforeAMessageIsReadSoTheTimelineKeepsItsOrder(t *te
 			t.Fatal("a run was made")
 		}
 		held, _ = s.store.GetMessage(m.ID)
-		text, err := req.DrainInbox()
+		text, err := drain(req)
 		if err != nil || !strings.Contains(text, "Make it English.") {
 			t.Fatalf("drain: %q %v", text, err)
 		}

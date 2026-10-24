@@ -336,7 +336,7 @@ func TestSixBotsStreamingWithToolsOnOneConnectionDoNotStarveIt(t *testing.T) {
 			if err := timed(func() error { return req.OnCheckpoint("tool", []byte(`{"synthetic":true}`)) }); err != nil {
 				return runtime.Result{}, err
 			}
-			if _, err := req.DrainInbox(); err != nil {
+			if _, err := drain(req); err != nil {
 				return runtime.Result{}, err
 			}
 		}

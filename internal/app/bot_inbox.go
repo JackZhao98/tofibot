@@ -341,7 +341,7 @@ func (s *Store) peekInboxForRun(botID, conv, runID string) []inboxRow {
 	if botID == "" || runID == "" {
 		return nil
 	}
-	rows, err := s.db.Query(`SELECT `+inboxRowColumns+` FROM bot_inbox WHERE bot_id=? AND (consumed_by_run=? OR (consumed_at='' AND kind<>'user_message' AND (conversation_id=? OR conversation_id=''))) ORDER BY created_at,id LIMIT 40`, botID, runID, conv)
+	rows, err := s.db.Query(`SELECT `+inboxRowColumns+` FROM bot_inbox WHERE bot_id=? AND kind<>'user_message' AND (consumed_by_run=? OR (consumed_at='' AND (conversation_id=? OR conversation_id=''))) ORDER BY created_at,id LIMIT 40`, botID, runID, conv)
 	if err != nil {
 		return nil
 	}

@@ -83,7 +83,9 @@ export const PermissionCoach = chunk("permissionCoach", module => module.Permiss
 export const UpdateBanner = chunk("updateBanner", module => module.UpdateBanner);
 export const QuestionCard = chunk("questionCard", module => module.QuestionCard);
 export const RunContextView = chunk("runContext", module => module.RunContextView);
-export const ComposerStop = chunk("stopMenu", module => module.ComposerStop);
+export const ComposerStopMenu = chunk("stopMenu", module => module.ComposerStopMenu);
+/** True once a chunk is in memory (the Stop button opens its menu only then). */
+export const panelLoaded = (name: PanelChunk) => loaded.has(name);
 export const Onboarding = chunk("onboarding", module => module.Onboarding);
 
 export function preloadPanel(name: PanelChunk) {
@@ -95,6 +97,7 @@ const entryPoints: Array<[selector: string, chunk: PanelChunk]> = [
   [".sidebar-footer", "settings"],
   ["[data-computer-toggle]", "desktop"],
   [".chat-identity", "contextPanels"],
+  [".composer-stop", "stopMenu"],
 ];
 
 /**

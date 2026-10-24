@@ -25,6 +25,10 @@ const (
 	// a run stops reading new messages in place and lets a continuation run
 	// take them with a fresh context.
 	injectContextShare = 0.6
+	// minTurnsForReading is the headroom of published assistant turns below which
+	// a run stops reading: each read can lead to more turns, and the turn limit
+	// (MaxAssistantTurnIndex) ends a run that reaches it.
+	minTurnsForReading = 40
 
 	inboxReadByNoRun = "-"
 )
@@ -435,7 +439,13 @@ func passTasksOnTx(tx *sql.Tx, from string, to Run) error {
 // readAtStartTx marks the person messages pointed at a run that has just begun
 // as read by it: the run was made for them, so its own context holds them.
 func readAtStartTx(tx *sql.Tx, runID string) error {
-	rows, err := tx.Query(`SELECT id,conversation_id,bot_id,anchor FROM bot_inbox WHERE kind='user_message' AND parent_run=? AND consumed_at=''`, runID)
+	// Only messages inside the run's history are in its context. History ends at
+	// the run's trigger message, so a newer one (moved here from a run that
+	// yielded) stays unread for the first boundary read.
+	rows, err := tx.Query(`SELECT b.id,b.conversation_id,b.bot_id,b.anchor FROM bot_inbox b
+		WHERE b.kind='user_message' AND b.parent_run=? AND b.consumed_at=''
+		AND (COALESCE((SELECT trigger_message_id FROM runs WHERE id=b.parent_run),'')=''
+			OR COALESCE((SELECT seq FROM messages WHERE id=b.anchor),0) <= COALESCE((SELECT t.seq FROM runs r JOIN messages t ON t.id=r.trigger_message_id WHERE r.id=b.parent_run),0))`, runID)
 	if err != nil {
 		return err
 	}
