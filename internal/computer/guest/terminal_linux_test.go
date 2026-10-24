@@ -228,3 +228,68 @@ func TestTerminalCancelRunIsBotScopedAndPreservesHumanTakeover(t *testing.T) {
 	assertClosed(testBotB, otherBot, false)
 	assertClosed(testBot, human, false)
 }
+
+func terminalForegroundJob(t *testing.T, s *Service, id string) (bool, bool) {
+	t.Helper()
+	for _, row := range s.terminalList(testBot) {
+		if row["id"] == id {
+			v, ok := row["foreground_job"].(bool)
+			return v, ok
+		}
+	}
+	t.Fatal("terminal missing from list")
+	return false, false
+}
+
+func TestTerminalListReportsForegroundJob(t *testing.T) {
+	s := newTestService(t)
+	r, err := s.terminalOpen(context.Background(), testBot, "run", terminalOpenArgs{Command: "bash --norc --noprofile -i", Cols: 80, Rows: 24})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := r["id"].(string)
+	t.Cleanup(func() { _, _ = s.terminalClose(testBot, terminalIDArgs{TerminalID: id}) })
+	waitJob := func(want bool) {
+		t.Helper()
+		deadline := time.Now().Add(5 * time.Second)
+		for time.Now().Before(deadline) {
+			if job, ok := terminalForegroundJob(t, s, id); ok && job == want {
+				return
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+		job, ok := terminalForegroundJob(t, s, id)
+		t.Fatalf("foreground_job never became %v (now %v, present %v)", want, job, ok)
+	}
+	waitJob(false) // the shell at its prompt owns the foreground
+	if _, err = s.terminalWrite(testBot, "run", ActionSourceModel, terminalWriteArgs{TerminalID: id, Data: "sleep 30\n"}); err != nil {
+		t.Fatal(err)
+	}
+	waitJob(true) // a job owns it while the command runs
+	if _, err = s.terminalWrite(testBot, "run", ActionSourceModel, terminalWriteArgs{TerminalID: id, Data: "\x03"}); err != nil {
+		t.Fatal(err)
+	}
+	waitJob(false) // control returns to the shell
+}
+
+func TestTerminalListOmitsForegroundJobWhenProcessEnded(t *testing.T) {
+	s := newTestService(t)
+	r, err := s.terminalOpen(context.Background(), testBot, "run", terminalOpenArgs{Command: "true", Cols: 80, Rows: 24})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := r["id"].(string)
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		for _, row := range s.terminalList(testBot) {
+			if row["id"] == id && row["exited"] == true {
+				if _, present := row["foreground_job"]; present {
+					t.Fatal("an ended terminal must not report a foreground job")
+				}
+				return
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("terminal did not exit")
+}

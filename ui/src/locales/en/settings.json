@@ -897,6 +897,10 @@
       "task_retention_days": {
         "name": "Finished tasks kept for",
         "what": "After this many days a finished task loses its request text, checklist and revisions. Its title and one-line result stay. 0 keeps everything."
+      },
+      "command_check_minutes": {
+        "name": "Command check interval",
+        "what": "When a Bot waits for a command to end, a timed check wakes it after this long in case the end signal is lost. A timer the Bot sets itself replaces it."
       }
     },
     "option": {

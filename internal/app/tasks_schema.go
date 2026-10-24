@@ -90,7 +90,18 @@ CREATE TABLE IF NOT EXISTS bot_inbox(
 );
 CREATE INDEX IF NOT EXISTS bot_inbox_bot_open ON bot_inbox(bot_id,consumed_at,created_at);
 CREATE INDEX IF NOT EXISTS bot_inbox_root ON bot_inbox(root_task_id);
-CREATE UNIQUE INDEX IF NOT EXISTS bot_inbox_one_wait_result ON bot_inbox(wait_group) WHERE kind='wait_result' AND wait_group<>'';`); err != nil {
+CREATE UNIQUE INDEX IF NOT EXISTS bot_inbox_one_wait_result ON bot_inbox(wait_group) WHERE kind='wait_result' AND wait_group<>'';
+CREATE TABLE IF NOT EXISTS command_waits(
+ wait_id TEXT PRIMARY KEY,
+ bot_id TEXT NOT NULL,
+ terminal_id TEXT NOT NULL,
+ interactive INTEGER NOT NULL DEFAULT 0,
+ seen_job INTEGER NOT NULL DEFAULT 0,
+ cursor INTEGER NOT NULL DEFAULT 0,
+ tail TEXT NOT NULL DEFAULT '',
+ updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS command_waits_bot ON command_waits(bot_id);`); err != nil {
 		return err
 	}
 	if err := migrateWaitsFromRunWaits(db); err != nil {

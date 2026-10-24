@@ -475,12 +475,12 @@ func TestWaitForReturnsAReceiptAtOnceAndLimitsTheKinds(t *testing.T) {
 		t.Fatal("the run does not hold the wait")
 	}
 	for name, args := range map[string]map[string]any{
-		"timer too short":     {"kind": "timer", "seconds": 1},
-		"command not offered": {"kind": "command_exit", "target": "t1"},
-		"unknown kind":        {"kind": "mail"},
-		"self post":           {"kind": "bot_post", "target": f.a.ID},
-		"non-member post":     {"kind": "bot_post", "target": "nobody"},
-		"unknown task":        {"kind": "task_result", "target": "nothing"},
+		"timer too short":            {"kind": "timer", "seconds": 1},
+		"command without a computer": {"kind": "command_exit", "target": "t1"},
+		"unknown kind":               {"kind": "mail"},
+		"self post":                  {"kind": "bot_post", "target": f.a.ID},
+		"non-member post":            {"kind": "bot_post", "target": "nobody"},
+		"unknown task":               {"kind": "task_result", "target": "nothing"},
 	} {
 		if _, err := call(t, tool, args); err == nil {
 			t.Errorf("%s accepted", name)

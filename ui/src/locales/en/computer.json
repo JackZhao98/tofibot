@@ -154,6 +154,7 @@
     "take": "Take over",
     "close_aria": "Close terminal panel",
     "tabs_aria": "Terminal sessions",
+    "notifies_bot": "Notifies the Bot when the command ends",
     "connecting": "Connecting…",
     "empty": "No terminals yet",
     "create": "New terminal",
@@ -223,6 +224,7 @@
   "resources": {
     "restart": {
       "title": "Restart and apply the new configuration?",
+      "command_waits": "Waiting for a command to end: {{names}}. A restart stops those commands; each Bot gets the last output as an interrupted result.",
       "impact": "Stop any running Bot tasks first. Restarting interrupts every Bot's desktop and terminals, and processes running there stop too. Work files are kept.",
       "confirm": "Restart"
     },

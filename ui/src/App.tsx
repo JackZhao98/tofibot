@@ -1222,6 +1222,21 @@ function Workspace() {
   useEffect(() => {
     if (panel === "desktop" && !desktopBot) setPanel(null);
   }, [panel, desktopBot]);
+  // The "command finished" line in the chat opens the Terminal tab of the Bot that ran the command.
+  const [terminalBotId, setTerminalBotId] = useState<string | null>(null);
+  useEffect(() => {
+    const open = (event: Event) => {
+      const botId = (event as CustomEvent<{ botId?: string }>).detail?.botId;
+      if (!botId) return;
+      setTerminalBotId(botId);
+      setPanel("terminal");
+    };
+    window.addEventListener("tofi:open-terminal", open);
+    return () => window.removeEventListener("tofi:open-terminal", open);
+  }, []);
+  useEffect(() => {
+    if (panel !== "terminal") setTerminalBotId(null);
+  }, [panel]);
   // Ownership is only worth a 1 s poll while a computer is ready or the desktop panel is open.
   const desktopPresence = useDesktopPresence(Boolean(activeId) && (panel === "desktop" || (computerInfo ? computerInfo.state === "ready" : desktopReady)));
   const currentDesktopOwner = desktopPresence.ownership?.owner;
@@ -2565,7 +2580,7 @@ function Workspace() {
           {(panel === "bot-edit" || displayedPanel === "bot-edit") && <Suspense fallback={<BotPanelSkeleton onClose={() => transitionBotPanel(false)} />}><AfterPaint fallback={<BotPanelSkeleton onClose={() => transitionBotPanel(false)} />}><BotPanel onExportData={id => { setPortabilityBotID(id); setPortabilityFile(undefined); openSettings("advanced"); }} refreshToken={scheduleRefresh} memories={memories} onOpenWork={() => setPanel("schedule")} onOpenMemory={() => setPanel("memory")} key={activeBot?.id ?? "edit-empty"} bots={bots} activeBot={activeBot} onClose={() => transitionBotPanel(false)} onUpdate={updateBot} onCreateGroup={createGroup} onMakePrimary={makePrimary} /></AfterPaint></Suspense>}
           {displayedPanel === "settings" && <Suspense fallback={<SettingsSkeleton onClose={() => setPanel(null)} />}><AfterPaint fallback={<SettingsSkeleton onClose={() => setPanel(null)} />}><SettingsPanel tab={settingsTab} onTab={setSettingsTab} onClose={() => setPanel(null)} entry={settingsEntry} refreshToken={extensionRefresh} codexRefresh={codexStatusRefresh} onCodexConfigured={() => void refreshIndex()} legacyArchive={conversations.some(conversation => conversation.archived)} onOpenArchive={() => setPanel("archive")} pages={{ bots, conversation: active, timezone, usageBotId, portabilityBotID, portabilityFile, onPortabilityFileConsumed: () => setPortabilityFile(undefined), appearance, extensionRefresh, providersRefresh: codexStatusRefresh, onProvidersConfigured: () => void refreshIndex(), openTab: (tab) => openSettings(tab), onBotsChanged: () => refreshIndex() }} /></AfterPaint></Suspense>}
           {displayedPanel === "archive" && <Suspense fallback={null}><ArchivePanel onClose={() => setPanel(null)} onOpen={(id) => { selectConversation(id); setMobileList(false); setPanel(null); }} onLoaded={mergeArchived} onChanged={refreshAfterArchive} onDelete={confirmDelete} /></Suspense>}
-          {displayedPanel === "terminal" && desktopBot && <Suspense fallback={<DelayedFeedback><div className="inline-state" role="status">{t("detail.loading_terminal")}</div></DelayedFeedback>}><TerminalPanel key={desktopBot.id} botId={desktopBot.id} botName={desktopBot.name} onClose={() => setPanel(null)} /></Suspense>}
+          {displayedPanel === "terminal" && desktopBot && <Suspense fallback={<DelayedFeedback><div className="inline-state" role="status">{t("detail.loading_terminal")}</div></DelayedFeedback>}><TerminalPanel key={(terminalBotId && botById.get(terminalBotId)?.id) || desktopBot.id} botId={(terminalBotId && botById.get(terminalBotId)?.id) || desktopBot.id} botName={(terminalBotId && botById.get(terminalBotId)?.name) || desktopBot.name} onClose={() => setPanel(null)} /></Suspense>}
           {displayedPanel === "memory" && activeId && <Suspense fallback={null}><MemoryPanel key={activeId} memories={memories} conversationId={activeId} scope={active?.kind === "group" ? "group" : "bot"} onClose={() => setPanel(null)} onCreate={async (input) => { const memory = await api.createMemory(activeId, input); setMemories((current) => [...current.filter((item) => item.id !== memory.id), memory]); }} onUpdate={async (id, input) => { const memory = await api.updateMemory(id, input); setMemories((current) => current.map((item) => item.id === id ? memory : item)); }} onDelete={async (id) => { await api.deleteMemory(id); setMemories((current) => current.filter((item) => item.id !== id)); }} /></Suspense>}
           {displayedPanel === "memory" && !activeId && <div className="detail-empty"><button className="close-button" aria-label={t("detail.close_memory")} onClick={() => setPanel(null)}><Icon name="close" size={18} /></button><EmptyState name="memory-pick" look={CATS.azuki} pose="curious" size={56}><p>{t("detail.memory_pick")}</p></EmptyState></div>}
           {displayedPanel === "schedule" && active && <Suspense fallback={null}><WorkPanel key={active.id} conversation={active} conversations={conversations} bots={bots} refreshToken={scheduleRefresh} onClose={() => setPanel(null)} onNavigate={id => { selectConversation(id); setMobileList(false); setPanel(null); }} /></Suspense>}
@@ -2648,6 +2663,14 @@ export function MessageBubble({ receipt, message, replyTarget, replyTargetName, 
     // Posted by the server when a run continues from a checkpoint; the text is localized here.
     const resumeKey = message.notice.reason === "restart" ? "message.resume_restart" : "message.resume_continuing";
     return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div><span>{t(resumeKey)}</span></div></article>;
+  }
+  if (message.kind === "notice" && message.notice?.type === "command_exit") {
+    // Posted by the server when a command a Bot waited on has ended; the text is localized here.
+    const notice = message.notice;
+    const label = notice.reason === "interrupted" ? t("message.command_exit_interrupted")
+      : notice.reason === "closed" ? t("message.command_exit_closed")
+      : notice.exit_code !== undefined ? t("message.command_exit", { code: notice.exit_code }) : t("message.command_exit_unknown");
+    return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div><span>{label}</span> <button onClick={() => window.dispatchEvent(new CustomEvent("tofi:open-terminal", { detail: { botId: notice.from_bot_id } }))}>{t("message.open_terminal")}</button></div></article>;
   }
   const assignment = message.kind === "notice" && message.sender_bot_id !== "system" && message.notice &&
     (message.notice.type === "handoff" || message.notice.type === "forward") &&

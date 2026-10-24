@@ -14,9 +14,13 @@ const resourceError=(cause:unknown,fallback:string)=>cause instanceof Error?caus
 function RestartConfirmation({onCancel,onConfirm}:{onCancel:()=>void;onConfirm:()=>void}) {
  const {t}=useTranslation("computer");
  const cancel=useRef<HTMLButtonElement>(null);
+ // Bots that wait for a command to end: a restart stops those commands, so say so before the person confirms.
+ const [waiting,setWaiting]=useState<string[]>([]);
+ useEffect(()=>{let active=true;request<{count:number;bots:{name:string}[]}>("/api/command-waits").then(out=>{if(active&&out.count>0)setWaiting(out.bots.map(bot=>bot.name||"Bot"))}).catch(()=>{});return()=>{active=false}},[]);
  return <ConfirmDialog onClose={onCancel} initialFocus={cancel} overlayClassName="resource-restart-overlay"><div className="resource-restart-dialog" aria-labelledby="resource-restart-title" aria-describedby="resource-restart-impact">
   <h3 id="resource-restart-title">{t("resources.restart.title")}</h3>
   <p id="resource-restart-impact">{t("resources.restart.impact")}</p>
+  {waiting.length>0&&<p role="status">{t("resources.restart.command_waits",{names:waiting.join(", ")})}</p>}
   <div className="resource-restart-actions"><button ref={cancel} type="button" className="secondary-button" onClick={onCancel}>{t("resources.cancel")}</button><button type="button" className="primary-button" onClick={onConfirm}>{t("resources.restart.confirm")}</button></div>
  </div></ConfirmDialog>;
 }

@@ -165,6 +165,9 @@ export interface Message {
     target_run_ids?: string[];
     target_name?: string;
     target_bot_ids?: string[];
+    /** A "command_exit" notice: the terminal and, when the process ended, its exit code. */
+    terminal_id?: string;
+    exit_code?: number;
   };
   content: string;
   reactions?: Reaction[];

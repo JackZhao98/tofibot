@@ -79,5 +79,9 @@ type taskRuntime struct {
 	sweepEvery  time.Duration
 	sweepCancel context.CancelFunc
 	sweepDone   chan struct{}
-	flushMu     sync.Mutex // one flush at a time: two would wake the same rows twice
+	// The command-exit monitor (command_exit.go) has its own loop and tick.
+	commandEvery  time.Duration
+	commandCancel context.CancelFunc
+	commandDone   chan struct{}
+	flushMu       sync.Mutex // one flush at a time: two would wake the same rows twice
 }

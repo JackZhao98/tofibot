@@ -897,6 +897,10 @@
       "task_retention_days": {
         "name": "Erledigte Aufgaben bleiben",
         "what": "Nach dieser Anzahl Tage verliert eine abgeschlossene Aufgabe Auftragstext, Checkliste und Überarbeitungen. Titel und einzeiliges Ergebnis bleiben. 0 behält alles."
+      },
+      "command_check_minutes": {
+        "name": "Prüfintervall für Befehle",
+        "what": "Wartet ein Bot auf das Ende eines Befehls, weckt ihn nach dieser Zeit eine zeitgesteuerte Prüfung, falls das Endesignal verloren geht. Ein eigener Timer des Bots ersetzt sie."
       }
     },
     "option": {

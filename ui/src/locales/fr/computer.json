@@ -155,6 +155,7 @@
     "take": "Prendre la main",
     "close_aria": "Fermer le panneau du terminal",
     "tabs_aria": "Sessions de terminal",
+    "notifies_bot": "Prévient le Bot à la fin de la commande",
     "connecting": "Connexion…",
     "empty": "Aucun terminal pour l'instant",
     "create": "Créer un terminal",
@@ -225,6 +226,7 @@
   "resources": {
     "restart": {
       "title": "Redémarrer et appliquer la configuration ?",
+      "command_waits": "En attente de la fin d'une commande : {{names}}. Un redémarrage arrête ces commandes ; chaque Bot reçoit un résultat « interrompu » avec la dernière sortie.",
       "impact": "Arrêtez d'abord les tâches de Bot en cours. Le redémarrage interrompt le bureau et les terminaux de tous les Bots, et les processus qui y tournent s'arrêtent. Les fichiers de travail sont conservés.",
       "confirm": "Redémarrer"
     },

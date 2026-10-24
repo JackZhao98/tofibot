@@ -71,6 +71,7 @@
 | D58 | 技能库：一个全局库，每个 Bot 一列启用；Bot 装技能和给自己开关不需批准，发新版本要人批准且只有安装者能发；官方技能默认开、可按 Bot 关；套装用 Claude Code 插件目录；删除只有用户 | 2026-10-23 | C4：Bot 装的技能只能是全工作区、装/删都要批准、能删 owner 的技能；文档互相打架。对标 Claude.ai 技能库、Claude Code 插件、Claude API 技能版本 | [0058](0058-skill-library-per-bot.md) |
 | D59 | 任务和等待：任务是 `work_items` 的一行（加 `input_required`/`failed`，清单只有派活人能增删）；等待一张表（5 种、`any`/`all`、成环检查、一个 15 秒扫描器、超时也是结果）；收件箱叫醒；委派即建任务；停止/删 Bot/移出群连带取消；用户改需求加版本号；每日清理（默认 30 天，不碰 D38 文件） | 2026-10-23 | C1/C2/C3 设计与实施方案阶段 2；三套等待（`run_waits`、委派回传、B1 回传）加问人归成“发出调用，结果晚点到”。对标 Agent Teams、A2A Task、Anthropic 多智能体研究系统 | [0059](0059-tasks-and-waits.md) |
 | D60 | 群里没 @ 人的消息由后台模型按角色挑成员（设置可关、可换模型；失败退回主助理/随机）；人点的 reaction 进历史并低优先级叫醒该 Bot（合并、不要求回复），Bot 点的永不叫醒 | 2026-10-23 | 现行分诊只是主助理或随机；reaction 是单向通道。对标 AutoGen 选择器；reaction 不改任务状态 | [0060](0060-group-triage-and-reactions.md) |
+| D61 | 命令结束等待：`wait_for`/`computer_terminal notify_on_exit` 登记；host 每 5 秒只问有等待的 Bot（进程退出带退出码，shell 作业靠 guest `foreground_job`，旧 guest 只认进程退出）；每轮缓存 8 KB 输出，重启后送“被中断，最后输出在此”；必须配计时回看（默认 60 分钟，设置可改）；有等待的终端不被清理；升级/重启算忙 | 2026-10-23 | C2 设计与实施方案阶段 3；Q14 host 轮询加 guest 一个字段，Q19 命令等待无期限但必须配计时回看 | [0061](0061-command-exit-waits.md) |
 
 ## 怎么新增一条决定
 

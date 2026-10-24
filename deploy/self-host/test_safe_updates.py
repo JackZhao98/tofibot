@@ -797,6 +797,55 @@ class ActiveRunsTests(base.HostCase):
             self.assertEqual(tofi_host.wait_for_idle('the update', wait_minutes=10), 0)
         sleep.assert_not_called()
 
+    def make_waits(self, path, statuses):
+        connection = sqlite3.connect(str(path))
+        connection.execute('CREATE TABLE waits(id TEXT PRIMARY KEY, kind TEXT NOT NULL, status TEXT NOT NULL)')
+        connection.executemany('INSERT INTO waits VALUES (?, ?, ?)', [('w%d' % i, k, st) for i, (k, st) in enumerate(statuses)])
+        connection.commit()
+        connection.close()
+
+    def test_a_pending_command_wait_counts_as_busy(self):
+        make_runs_db(self.db, ['completed'])
+        self.make_waits(self.db, [('command_exit', 'pending'), ('command_exit', 'fulfilled'), ('timer', 'pending')])
+        self.assertEqual(tofi_host.command_waits(), 1)
+        with mock.patch.object(tofi_host.time, 'sleep'):
+            with self.assertRaises(tofi_host.ActiveRunsError) as caught:
+                tofi_host.wait_for_idle('the update')
+        self.assertEqual(caught.exception.count, 1)
+        self.assertIn('1 command a Bot waits on still active', str(caught.exception))
+        self.assertNotIn('Bot run', str(caught.exception))
+        self.assertEqual(tofi_host.wait_for_idle('the update', force=True), 1)
+
+    def test_runs_and_command_waits_are_named_together(self):
+        make_runs_db(self.db, ['running', 'running'])
+        self.make_waits(self.db, [('command_exit', 'pending')])
+        with self.assertRaisesRegex(HostError, '2 Bot runs and 1 command a Bot waits on still active'):
+            tofi_host.wait_for_idle('the update')
+
+    def test_no_wait_table_or_no_pending_wait_is_idle(self):
+        make_runs_db(self.db, ['completed'])
+        self.assertEqual(tofi_host.command_waits(), 0)
+        self.make_waits(self.db, [('command_exit', 'cancelled')])
+        self.assertEqual(tofi_host.command_waits(), 0)
+        self.assertEqual(tofi_host.wait_for_idle('the update'), 0)
+
+    def test_command_waits_are_counted_per_account_for_the_computers_report(self):
+        accounts = self.P.data / 'accounts'
+        for name, statuses in (('acct-a', [('command_exit', 'pending')]), ('acct-b', [])):
+            (accounts / name).mkdir(parents=True)
+            self.make_waits(accounts / name / 'tofi.db', statuses)
+        self.assertEqual(tofi_host.command_waits('acct-a'), 1)
+        self.assertEqual(tofi_host.command_waits('acct-b'), 0)
+        self.assertEqual(tofi_host.command_waits(), 1)
+        row = {'account_id': 'acct-a', 'short': 'acct-a', 'running': True, 'busy': []}
+        other = {'account_id': 'acct-b', 'short': 'acct-b', 'running': True, 'busy': []}
+        with mock.patch.object(tofi_host, 'broker_request', return_value={'computers': [{'account_id': 'acct-a', 'running': False},
+                                                                                       {'account_id': 'acct-b', 'running': False}]}), \
+                mock.patch.object(tofi_host, 'computer_row', side_effect=[row, other]):
+            report = tofi_host.computers_report('g1', busy=True)
+        self.assertEqual(report[0]['busy'], ['1 command a Bot waits on'])
+        self.assertEqual(report[1]['busy'], [])
+
 
 class GuardedCommandTests(base.ComputerCase):
     def busy(self, count=2):

@@ -114,10 +114,8 @@ func (s *Service) busyReasons(now time.Time, quiet time.Duration) []string {
 			reasons["terminal_output"] = true
 		}
 		// An interactive shell runs a job in its own foreground process group.
-		if ptmx != nil && shell > 0 {
-			if group, err := unix.IoctlGetInt(int(ptmx.Fd()), unix.TIOCGPGRP); err == nil && group > 0 && group != shell {
-				reasons["terminal_job"] = true
-			}
+		if job, ok := foregroundJob(ptmx, shell); ok && job {
+			reasons["terminal_job"] = true
 		}
 	}
 	if oauth != nil {

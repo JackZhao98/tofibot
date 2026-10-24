@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -81,6 +82,16 @@ func (s *Server) handleTerminalAction(w http.ResponseWriter, r *http.Request, bo
 				return
 			}
 			value["active_run_ids"] = ids
+			// Terminals whose command end wakes the Bot: the Terminal tab marks them.
+			notify, err := waitIDsTx(s.store.db, `SELECT target FROM waits WHERE bot_id=? AND kind='command_exit' AND status='pending'`, botID)
+			if err != nil {
+				writeErr(w, 500, "storage", "cannot inspect command waits")
+				return
+			}
+			if notify == nil {
+				notify = []string{}
+			}
+			value["notify_terminal_ids"] = notify
 		}
 		writeJSON(w, 200, map[string]any{"ok": true, "result": value})
 		return
@@ -178,15 +189,17 @@ func (s *Server) handleTerminalAction(w http.ResponseWriter, r *http.Request, bo
 }
 
 func (s *Server) terminalTool(r Run) Tool {
-	return Tool{Name: "computer_terminal", Description: "Open and operate a persistent PTY terminal in this Bot's VM workspace. Tabs and live output are visible to the human in Terminal. Use for interactive or long-running commands. open starts a shell when command is omitted; read returns incremental text and a next_cursor; write sends text/control characters. Sessions are bounded and end on VM restart; working files persist. User control blocks model actions. Close finished sessions.", Parameters: objectSchema(map[string]any{
+	return Tool{Name: "computer_terminal", Description: terminalToolDescription, Parameters: objectSchema(map[string]any{
 		"action":      map[string]any{"type": "string", "enum": []string{"open", "list", "read", "write", "resize", "close"}},
 		"terminal_id": map[string]any{"type": "string"}, "command": map[string]any{"type": "string"}, "data": map[string]any{"type": "string"}, "cursor": map[string]any{"type": "integer", "minimum": 0}, "cols": map[string]any{"type": "integer"}, "rows": map[string]any{"type": "integer"},
+		"notify_on_exit": map[string]any{"type": "boolean", "description": "With open (and a command) or write: register a wait on the end of the command, so that the result wakes you. See the tool text."},
 	}, []string{"action"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
 		var in map[string]json.RawMessage
 		_ = json.Unmarshal(raw, &in)
 		var action string
 		_ = json.Unmarshal(in["action"], &action)
 		delete(in, "action")
+		delete(in, "notify_on_exit")
 		if action == "open" {
 			var command string
 			_ = json.Unmarshal(in["command"], &command)
@@ -206,6 +219,16 @@ func (s *Server) terminalTool(r Run) Tool {
 			return "", tooloutcome.InvalidArguments("invalid terminal action")
 		}
 		delete(in, "action")
+		var notify bool
+		if raw, ok := in["notify_on_exit"]; ok {
+			if json.Unmarshal(raw, &notify) != nil {
+				return "", tooloutcome.InvalidArguments("notify_on_exit must be true or false")
+			}
+			delete(in, "notify_on_exit")
+			if notify && action != "open" && action != "write" {
+				return "", tooloutcome.InvalidArguments("notify_on_exit applies to open and write only")
+			}
+		}
 		if action == "open" {
 			var command string
 			_ = json.Unmarshal(in["command"], &command)
@@ -215,6 +238,9 @@ func (s *Server) terminalTool(r Run) Tool {
 		}
 		args, _ := json.Marshal(in)
 		result, err := s.microVMAction(ctx, r, "terminal."+action, args)
+		if err == nil && notify {
+			result = s.attachCommandWait(ctx, r, action, in, result)
+		}
 		if err != nil || action != "read" {
 			return result, err
 		}
@@ -283,4 +309,50 @@ func normalizeTerminalCommands(value map[string]any) {
 			}
 		}
 	}
+}
+
+const terminalToolDescription = "Open and operate a persistent PTY terminal in this Bot's VM workspace. Tabs and live output are visible to the human in Terminal. Use for interactive or long-running commands. open starts a shell when command is omitted; read returns incremental text and a next_cursor; write sends text and control characters. A terminal keeps running after your turn ends and through a hibernation of the computer. A restart of the computer ends every terminal and its processes; working files persist. User control blocks model actions. Close finished terminals. " +
+	"Run a long command in a terminal of its own and set notify_on_exit on the call that starts it (open with a command, or write): the system watches the command and wakes you with the exit code and the last output when it ends. Then end your turn, or keep talking with the person; do not poll. The signal can be lost, so a timed check is added to the wait (mode any); when the command ends first, end the check with cancel_wait. Read the output when the result arrives. If a restart interrupted the command, the result says so; decide whether to run it again. In a shell terminal the end is the return of the shell to its prompt and no exit code is given."
+
+// attachCommandWait registers the wait that notify_on_exit asks for, after the
+// action has succeeded. The action cannot be undone, so a refusal is reported
+// inside the result rather than as a failed call.
+func (s *Server) attachCommandWait(ctx context.Context, r Run, action string, in map[string]json.RawMessage, result string) string {
+	var terminalID string
+	if action == "write" {
+		_ = json.Unmarshal(in["terminal_id"], &terminalID)
+	} else {
+		var opened struct {
+			ID         string `json:"id"`
+			TerminalID string `json:"terminal_id"`
+		}
+		_ = json.Unmarshal([]byte(result), &opened)
+		terminalID = opened.TerminalID
+		if terminalID == "" {
+			terminalID = opened.ID
+		}
+	}
+	out := map[string]any{}
+	if json.Unmarshal([]byte(result), &out) != nil {
+		out = map[string]any{"result": result}
+	}
+	receipt, err := s.registerCommandExitFor(ctx, r, terminalID)
+	if err != nil {
+		out["notify_on_exit"] = map[string]any{"registered": false, "error": err.Error()}
+	} else {
+		receipt["registered"] = true
+		out["notify_on_exit"] = receipt
+	}
+	b, _ := json.Marshal(out)
+	return string(b)
+}
+
+func (s *Server) registerCommandExitFor(ctx context.Context, r Run, terminalID string) (map[string]any, error) {
+	if strings.TrimSpace(terminalID) == "" {
+		return nil, waitRefusal("terminal_not_found", "The call gave no terminal id to watch.")
+	}
+	if s.store == nil {
+		return nil, errors.New("store unavailable")
+	}
+	return s.registerCommandExit(ctx, commandExitRequest{Run: r, ConversationID: r.ConversationID, TerminalID: terminalID})
 }

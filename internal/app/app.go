@@ -119,6 +119,9 @@ type HandoffNotice struct {
 	TargetRunIDs         []string `json:"target_run_ids,omitempty"`
 	TargetName           string   `json:"target_name,omitempty"`
 	TargetBotIDs         []string `json:"target_bot_ids,omitempty"`
+	// TerminalID and ExitCode belong to a "command_exit" notice.
+	TerminalID string `json:"terminal_id,omitempty"`
+	ExitCode   *int   `json:"exit_code,omitempty"`
 }
 type Run struct {
 	ID                   string `json:"id"`
@@ -2775,6 +2778,7 @@ func NewServer(c Config) (*Server, error) {
 	server.computerWatchdog.start()
 	server.startStuckRunSweeper()
 	server.startWaitSweeper()
+	server.startCommandMonitor()
 	for _, id := range workerIDs {
 		server.startConversationWorker(id)
 	}
@@ -2788,6 +2792,7 @@ func NewServer(c Config) (*Server, error) {
 		server.stopTerminalCleanup()
 		server.computerWatchdog.stop()
 		server.stopStuckRunSweeper()
+		server.stopCommandMonitor()
 		server.stopWaitSweeper()
 		st.Close()
 		return nil, e
@@ -2808,6 +2813,7 @@ func (s *Server) Close() error {
 	s.stopTerminalCleanup()
 	s.computerWatchdog.stop()
 	s.stopStuckRunSweeper()
+	s.stopCommandMonitor()
 	s.stopWaitSweeper()
 	return s.store.Close()
 }
@@ -2955,7 +2961,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if s.routeDeletion(w, r, p) {
 		return
 	}
-	if s.routeAttachments(w, r, p) || s.routeInbox(w, r, p) || s.routeSidebarOrder(w, r, p) || s.routeSchedules(w, r, p) || s.routeWorkItems(w, r, p) || s.routeTaskImpact(w, r, p) || s.routeToolActivities(w, r, p) || s.routeRunContext(w, r, p) {
+	if s.routeAttachments(w, r, p) || s.routeInbox(w, r, p) || s.routeSidebarOrder(w, r, p) || s.routeSchedules(w, r, p) || s.routeWorkItems(w, r, p) || s.routeTaskImpact(w, r, p) || s.routeCommandWaits(w, r, p) || s.routeToolActivities(w, r, p) || s.routeRunContext(w, r, p) {
 		return
 	}
 	if s.routeRememberedApprovals(w, r, p) || s.routeStandingAllowances(w, r, p) || s.routeQuestions(w, r, p) {
