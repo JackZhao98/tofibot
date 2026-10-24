@@ -820,6 +820,7 @@ func (m *Manager) callMCPToolObserved(callCtx context.Context, cli *mcp.ClientSe
 	var out *mcp.CallToolResult
 	var err error
 	attempts := 0
+	endpoint := m.mcpSessionEndpoint(cli)
 	for {
 		attempts++
 		call := &mcpCallStatus{}
@@ -839,12 +840,12 @@ func (m *Manager) callMCPToolObserved(callCtx context.Context, cli *mcp.ClientSe
 		}
 		if !readOnly {
 			o := uncertainMCPOutcome(attempts)
-			if hint := m.googleAuthRejection(cli, call); hint != "" {
+			if hint := googleAuthRejection(endpoint, call); hint != "" {
 				o.Message += " " + hint
 			}
 			return "", o.Err()
 		}
-		if hint := m.googleAuthRejection(cli, call); hint != "" {
+		if hint := googleAuthRejection(endpoint, call); hint != "" {
 			o := tooloutcome.New(tooloutcome.Permanent, "mcp_permission_denied", "no_side_effect", hint, "explain_blocker")
 			o.Attempts = attempts
 			return "", o.Err()

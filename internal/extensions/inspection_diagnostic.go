@@ -89,17 +89,23 @@ type mcpSessionHTTP struct {
 	endpoint string
 }
 
+// mcpSessionEndpoint is the endpoint recorded for a live session, or "". Read it
+// before a call: a rejected tools/call can make the SDK close the session, and the
+// session's Wait goroutine then drops the entry before the failure is classified.
+func (m *Manager) mcpSessionEndpoint(cli *mcp.ClientSession) string {
+	if v, ok := m.mcpStatus.Load(cli); ok {
+		return v.(*mcpSessionHTTP).endpoint
+	}
+	return ""
+}
+
 // googleAuthRejection returns a fixed, person-facing next step when a Google
 // Workspace MCP host answered a tool call with HTTP 401 or 403. Google
 // documents no structured reason for either cause, so the classification is
 // host plus status; the hint says the status cannot tell the causes apart.
-func (m *Manager) googleAuthRejection(cli *mcp.ClientSession, call *mcpCallStatus) string {
-	v, ok := m.mcpStatus.Load(cli)
-	if !ok {
-		return ""
-	}
-	s := v.(*mcpSessionHTTP)
-	if status := call.status.Load(); !isGoogleWorkspaceMCPEndpoint(s.endpoint) || (status != http.StatusUnauthorized && status != http.StatusForbidden) {
+// endpoint is the one captured before the call (see mcpSessionEndpoint).
+func googleAuthRejection(endpoint string, call *mcpCallStatus) string {
+	if status := call.status.Load(); !isGoogleWorkspaceMCPEndpoint(endpoint) || (status != http.StatusUnauthorized && status != http.StatusForbidden) {
 		return ""
 	}
 	return "Google Workspace MCP rejected the call with an authorization status. Check in this order: (1) the Google Cloud project is enrolled in the Google Workspace Developer Preview Program; (2) the OAuth client is marked \"Use this client for an AI-powered agent\" (required from 2026-11-11, permanent on an existing client from 2026-11-12, so a new client is needed); (3) the product API and its MCP service are enabled, the scopes are granted and the account is a test user. The status alone cannot tell which one applies."
