@@ -3529,7 +3529,7 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request, c Conversat
 			// triage run (no model call inside the transaction) when the group has
 			// two or more active members; the roster is read at commit time, never
 			// from this possibly stale HTTP view.
-			specs = []runSpec{{Kind: runKindTriage, Model: s.groupTriageModel()}}
+			specs = []runSpec{{Kind: runKindTriage, Model: s.groupTriageModel(), FollowUp: s.groupFollowUpEnabled()}}
 		} else {
 			// Triage is off: the durable ingress path picks the Primary Assistant
 			// when it is a member, otherwise any active member.
@@ -4456,7 +4456,7 @@ func (s *Server) execute(c Conversation, r Run) {
 			s.failRun(c, r, me)
 			return
 		}
-		target, te := strictTriageTarget(res.Content, members)
+		target, brief, te := parseTriageAnswer(res.Content, members)
 		if te != nil {
 			s.failRun(c, r, te)
 			return
@@ -4482,6 +4482,7 @@ func (s *Server) execute(c Conversation, r Run) {
 			s.failRun(c, r, he)
 			return
 		}
+		s.store.storeTriageBrief(child.ID, brief)
 		if changed, se := s.store.SetRunStatus(r.ID, "done", ""); se == nil && changed {
 			if done, de := s.store.GetRun(r.ID); de == nil {
 				_, _ = s.store.Event(c.ID, "run", done)

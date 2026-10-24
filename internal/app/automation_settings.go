@@ -46,6 +46,7 @@ const (
 	autoDesktopIdle           = "desktop_idle_seconds"
 	autoGroupTriage           = "group_triage"
 	autoGroupTriageModel      = "group_triage_model"
+	autoGroupFollowUp         = "group_followup_to_working"
 
 	// defaultConversationModel is what conversations, scheduled runs and tool
 	// use run on until the owner picks another model.
@@ -99,6 +100,7 @@ var automationItems = []automationItem{
 	{Key: autoDesktopIdle, Group: "computer", Kind: autoKindReadOnly, Unit: "seconds"},
 	{Key: autoGroupTriage, Group: "replies", Kind: autoKindBool, Default: "true"},
 	{Key: autoGroupTriageModel, Group: "models", Kind: autoKindModel},
+	{Key: autoGroupFollowUp, Group: "replies", Kind: autoKindBool, Default: "true"},
 	{Key: autoCommandCheckMinutes, Group: "computer", Kind: autoKindInt, Default: commandCheckMinutesDefault(), Min: 5, Max: 1440, Unit: "minutes"},
 	{Key: autoTaskStallRounds, Group: "checks", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskStallRounds), Min: 1, Max: 20},
 	{Key: autoTaskTreeIdleLimit, Group: "reliability", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskTreeIdleLimit), Min: 10, Max: 500},
@@ -319,6 +321,11 @@ func automaticModelItem(key string) bool {
 // by a background model to the best-suited member. Off restores the older rule
 // (the Primary Assistant, else a random member).
 func (s *Server) groupTriageEnabled() bool { return s.autoBool(autoGroupTriage) }
+
+// groupFollowUpEnabled says whether an unaddressed group message sent while a
+// member still works on the person's previous message goes to that member as
+// queued steering instead of a new triage. Off triages every such message.
+func (s *Server) groupFollowUpEnabled() bool { return s.autoBool(autoGroupFollowUp) }
 
 // groupTriageModel is the model that routes unaddressed group messages: the
 // one chosen for this item, else the background model.

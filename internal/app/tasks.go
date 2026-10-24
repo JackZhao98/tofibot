@@ -975,6 +975,9 @@ func (s *Store) taskRecordContext(runID string) string {
 		fmt.Fprintf(&b, " given_by=%s (id=%s)", item.AssignerBotName, item.AssignerBotID)
 	}
 	b.WriteString("\n")
+	if item.AssignerKind == "user" && item.Title != "" && item.Title != firstLine(item.Description, 80) {
+		fmt.Fprintf(&b, "Brief of the request, resolved from the conversation: %s\nThe person's own words and the earlier turns are in the transcript.\n", item.Title)
+	}
 	if len(item.Checklist) > 0 {
 		b.WriteString("Checklist, one item at a time, each ended with a reason:\n")
 		for _, c := range item.Checklist {

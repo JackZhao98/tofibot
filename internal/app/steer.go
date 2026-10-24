@@ -475,3 +475,27 @@ func readAtStartTx(tx *sql.Tx, runID string) error {
 	}
 	return nil
 }
+
+// followUpTargetTx finds the member still working on the person's previous
+// message in conv: the run for a person message that is running or queued (or
+// parked on its own question) and has not delivered its answer. When several
+// members work on the person's latest messages, the one handling the most
+// recent person message wins. It returns the member and the run that reads the
+// message, or empty strings when nobody is working on one.
+func followUpTargetTx(tx *sql.Tx, conv string) (string, string, error) {
+	var bot, id string
+	err := tx.QueryRow(`SELECT r.bot_id,r.id FROM runs r
+		JOIN messages t ON t.id=r.trigger_message_id AND t.role='user' AND t.conversation_id=?
+		JOIN members m ON m.conversation_id=? AND m.bot_id=r.bot_id
+		JOIN bots b ON b.id=r.bot_id AND b.archived=0
+		WHERE r.conversation_id=? AND r.kind NOT IN ('triage','schedule')
+		AND (r.status IN ('running','queued') OR (r.status='waiting' AND EXISTS(SELECT 1 FROM run_input_waits w WHERE w.run_id=r.id AND w.state='waiting')))
+		AND NOT EXISTS(SELECT 1 FROM run_say_answers a WHERE a.run_id=r.id)
+		AND NOT EXISTS(SELECT 1 FROM approval_expiry_recoveries e WHERE e.run_id=r.id)
+		AND NOT EXISTS(SELECT 1 FROM run_steering l JOIN runs n ON n.id=l.new_run_id WHERE l.old_run_id=r.id AND n.status IN ('queued','running'))
+		ORDER BY t.seq DESC, r.created_at DESC LIMIT 1`, conv, conv, conv).Scan(&bot, &id)
+	if err == sql.ErrNoRows {
+		return "", "", nil
+	}
+	return bot, id, err
+}
