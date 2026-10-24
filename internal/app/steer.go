@@ -179,10 +179,23 @@ func (s *Store) drainInboxForRun(r Run, userLimit int) ([]inboxRow, error) {
 	if len(taken) == 0 {
 		return nil, nil
 	}
+	if users > 0 {
+		// The run has read the person's words: its work answers the version they made.
+		if err = runReadsCurrentVersionTx(tx, r.ID); err != nil {
+			return nil, err
+		}
+	}
 	if err = tx.Commit(); err != nil {
 		return nil, err
 	}
 	return taken, nil
+}
+
+// runReadsCurrentVersionTx marks the open tasks a run holds as based on their
+// current version: the run has read every person message that made it.
+func runReadsCurrentVersionTx(tx *sql.Tx, runID string) error {
+	_, err := tx.Exec(`UPDATE work_items SET run_spec_version=spec_version WHERE assignee_run_id=? AND run_spec_version<spec_version AND status NOT IN ('done','cancelled','failed')`, runID)
+	return err
 }
 
 // unreadSteerCount is the number of person messages still waiting for run.
@@ -419,6 +432,9 @@ func (s *Store) steerTriagedMessage(triage Run, target string) (steerDelivery, b
 	if err != nil {
 		return steerDelivery{}, false, err
 	}
+	if err = noteUserMessageForBotTasksTx(tx, triage.ConversationID, m, target, runID); err != nil {
+		return steerDelivery{}, false, err
+	}
 	if err = insertEventTx(tx, triage.ConversationID, "inbox", map[string]any{"conversation_id": triage.ConversationID, "message_id": m.ID, "run_id": runID, "bot_id": target, "state": "queued"}, now()); err != nil {
 		return steerDelivery{}, false, err
 	}
@@ -473,29 +489,51 @@ func readAtStartTx(tx *sql.Tx, runID string) error {
 			return err
 		}
 	}
+	if len(list) > 0 {
+		return runReadsCurrentVersionTx(tx, runID)
+	}
 	return nil
 }
 
-// followUpTargetTx finds the member still working on the person's previous
-// message in conv: the run for a person message that is running or queued (or
-// parked on its own question) and has not delivered its answer. When several
-// members work on the person's latest messages, the one handling the most
-// recent person message wins. It returns the member and the run that reads the
-// message, or empty strings when nobody is working on one.
-func followUpTargetTx(tx *sql.Tx, conv string) (string, string, error) {
-	var bot, id string
-	err := tx.QueryRow(`SELECT r.bot_id,r.id FROM runs r
+// workingMember is a member that is still working on an earlier message of the
+// person: its run, the person message the run handles, the title of the task it
+// holds and when the run was made.
+type workingMember struct {
+	BotID, Name, RunID, MessageID, Message, Title, Since string
+}
+
+// workingMembers lists the members whose run for a person message is running or
+// queued (or parked on its own question) and has not delivered its answer, the
+// one handling the most recent person message first, one entry per member.
+// except is a person message left out (the one being routed).
+func workingMembers(q queryer, conv, except string) ([]workingMember, error) {
+	rows, err := q.Query(`SELECT r.bot_id,b.name,r.id,t.id,t.content,r.created_at,
+		COALESCE((SELECT w.title FROM work_items w WHERE w.assignee_run_id=r.id AND w.kind='task' ORDER BY w.created_at LIMIT 1),'')
+		FROM runs r
 		JOIN messages t ON t.id=r.trigger_message_id AND t.role='user' AND t.conversation_id=?
 		JOIN members m ON m.conversation_id=? AND m.bot_id=r.bot_id
 		JOIN bots b ON b.id=r.bot_id AND b.archived=0
-		WHERE r.conversation_id=? AND r.kind NOT IN ('triage','schedule')
+		WHERE r.conversation_id=? AND r.kind NOT IN ('triage','schedule') AND t.id<>?
 		AND (r.status IN ('running','queued') OR (r.status='waiting' AND EXISTS(SELECT 1 FROM run_input_waits w WHERE w.run_id=r.id AND w.state='waiting')))
 		AND NOT EXISTS(SELECT 1 FROM run_say_answers a WHERE a.run_id=r.id)
 		AND NOT EXISTS(SELECT 1 FROM approval_expiry_recoveries e WHERE e.run_id=r.id)
 		AND NOT EXISTS(SELECT 1 FROM run_steering l JOIN runs n ON n.id=l.new_run_id WHERE l.old_run_id=r.id AND n.status IN ('queued','running'))
-		ORDER BY t.seq DESC, r.created_at DESC LIMIT 1`, conv, conv, conv).Scan(&bot, &id)
-	if err == sql.ErrNoRows {
-		return "", "", nil
+		ORDER BY t.seq DESC, r.created_at DESC`, conv, conv, conv, except)
+	if err != nil {
+		return nil, err
 	}
-	return bot, id, err
+	defer rows.Close()
+	var out []workingMember
+	seen := map[string]bool{}
+	for rows.Next() {
+		var w workingMember
+		if err = rows.Scan(&w.BotID, &w.Name, &w.RunID, &w.MessageID, &w.Message, &w.Since, &w.Title); err != nil {
+			return nil, err
+		}
+		if !seen[w.BotID] {
+			seen[w.BotID] = true
+			out = append(out, w)
+		}
+	}
+	return out, rows.Err()
 }

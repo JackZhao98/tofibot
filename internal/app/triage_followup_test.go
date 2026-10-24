@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"sync"
 	"testing"
@@ -21,14 +22,31 @@ type followUpEngine struct {
 	read    map[string]string // run's bot id -> text read at the boundary
 	ctx     map[string][]runtime.Message
 	brief   string
+	// steer makes the triage answer say the message adds to the target's work.
+	steer bool
+	// fail makes the triage model fail; gate holds a triage call until closed.
+	fail    bool
+	gate    chan struct{}
+	prompts []string
+	runs    map[string]int
 }
 
 func (e *followUpEngine) Run(_ context.Context, req runtime.Request) (runtime.Result, error) {
 	if isTriageRequest(req) {
 		e.mu.Lock()
 		e.triage++
-		target, brief := e.target, e.brief
+		target, brief, steer, fail, gate := e.target, e.brief, e.steer, e.fail, e.gate
+		e.prompts = append(e.prompts, req.System)
 		e.mu.Unlock()
+		if gate != nil {
+			<-gate
+		}
+		if fail {
+			return runtime.Result{}, errors.New("background model unavailable")
+		}
+		if steer {
+			return runtime.Result{Content: `{"bot_id":"` + target + `","steer":true}`}, nil
+		}
 		if brief != "" {
 			return runtime.Result{Content: `{"bot_id":"` + target + `","brief":"` + brief + `"}`}, nil
 		}
@@ -39,6 +57,10 @@ func (e *followUpEngine) Run(_ context.Context, req runtime.Request) (runtime.Re
 		e.ctx = map[string][]runtime.Message{}
 		e.read = map[string]string{}
 	}
+	if e.runs == nil {
+		e.runs = map[string]int{}
+	}
+	e.runs[req.BotID]++
 	e.ctx[req.BotID] = req.Messages
 	hold := e.hold
 	e.mu.Unlock()
@@ -89,12 +111,13 @@ func TestACorrectionDuringAMembersRunIsReadByThatRunAndNotTriaged(t *testing.T) 
 	if got := waitMemberRun(t, e); got != f.stocks.ID {
 		t.Fatalf("started %s", got)
 	}
-	e.target = f.travel.ID // a new triage would pick someone else
+	e.steer = true // triage says the message corrects the running work
 	f.post(t, f.group.ID, "I meant the other company", "fu-2")
+	waitTriageCalls(t, e, 2)
 	close(e.hold)
-	runs := settleTriageRuns(t, f.s, f.group.ID, 2)
-	if e.triageCalls() != 1 {
-		t.Fatalf("triage ran %d times, want 1", e.triageCalls())
+	runs := settleTriageRuns(t, f.s, f.group.ID, 3)
+	if e.triageCalls() != 2 {
+		t.Fatalf("triage ran %d times, want 2", e.triageCalls())
 	}
 	for _, r := range runs {
 		if r.BotID == f.travel.ID {
@@ -165,12 +188,11 @@ func TestTheMemberMostRecentlyWorkingOnAPersonMessageTakesTheFollowUp(t *testing
 	f.post(t, f.group.ID, "@Atlas itinerary", "fu-10")
 	waitMemberRun(t, e)
 	waitMemberRun(t, e)
+	e.target, e.steer = f.travel.ID, true
 	f.post(t, f.group.ID, "one more detail", "fu-11")
+	waitTriageCalls(t, e, 1)
 	close(e.hold)
-	settleTriageRuns(t, f.s, f.group.ID, 2)
-	if e.triageCalls() != 0 {
-		t.Fatalf("triage ran for a follow-up: %d", e.triageCalls())
-	}
+	settleTriageRuns(t, f.s, f.group.ID, 3)
 	if !strings.Contains(e.read[f.travel.ID], "one more detail") || strings.Contains(e.read[f.stocks.ID], "one more detail") {
 		t.Fatalf("read: stocks=%q travel=%q", e.read[f.stocks.ID], e.read[f.travel.ID])
 	}
@@ -229,4 +251,16 @@ func TestATriageAnswerWithoutABriefKeepsTheLiteralTitle(t *testing.T) {
 	}
 	close(e.hold)
 	settleTriageRuns(t, f.s, f.group.ID, 2)
+}
+
+func waitTriageCalls(t *testing.T, e *followUpEngine, n int) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		if e.triageCalls() >= n {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("triage ran %d times, want %d", e.triageCalls(), n)
 }

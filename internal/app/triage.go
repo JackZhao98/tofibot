@@ -16,7 +16,7 @@ import (
 
 // triageSystemPrompt is the routing worker's whole system prompt. It states
 // principles only; the member list is the sole variable part.
-func triageSystemPrompt(members []Bot, tasks []triageTask) string {
+func triageSystemPrompt(members []Bot, tasks []triageTask, working []workingMember) string {
 	var roster strings.Builder
 	for _, member := range members {
 		role := trimRunes(strings.Join(strings.Fields(member.Instructions), " "), 600)
@@ -36,20 +36,37 @@ func triageSystemPrompt(members []Bot, tasks []triageTask) string {
 			fmt.Fprintf(&open, "- %s [%s] held by %s (%s)\n", task.Title, task.Status, task.HolderName, task.HolderID)
 		}
 	}
+	var busy, steerRule strings.Builder
+	if len(working) > 0 {
+		busy.WriteString("Members working now on an earlier message of the person (the message, the task and the start time of each):\n")
+		for _, w := range working {
+			title := w.Title
+			if title == "" {
+				title = "none"
+			}
+			fmt.Fprintf(&busy, "- %s (%s) handles %q; task: %s; working since %s\n", w.Name, w.BotID, trimRunes(strings.Join(strings.Fields(w.Message), " "), maxTriageWorkingMessage), trimRunes(strings.Join(strings.Fields(title), " "), maxTriageTaskTitles), w.Since)
+		}
+		steerRule.WriteString("A member in the working list may be the one the latest message is about. " +
+			"If the latest message adds to or corrects the work that a member in that list is doing, reply with JSON {\"bot_id\":\"...\",\"steer\":true} with that member's id; the message then goes into that member's running work. " +
+			"If the latest message asks for work that another role fits better, choose that role and leave steer out. Use steer only for a member in the working list. ")
+	}
 	return "You route one group message to one member. Read the member list and the recent conversation. " +
 		"Choose the member whose role description best fits the work in the latest message. " +
 		"If the latest message continues a topic that one member already handles with the person, choose that member. " +
 		"If the latest message continues an unfinished task, choose the member that holds it. " +
 		"If no role fits, choose the primary assistant when the list has one, otherwise the member with the most general role. " +
+		steerRule.String() +
 		"Never answer the message. Never choose a name or id that is not in the list. " +
 		"Reply with the exact id of the chosen member, or JSON {\"bot_id\":\"...\",\"brief\":\"...\"}. " +
-		"The brief is optional: one sentence in the language of the latest message that restates what the person wants, with every reference in the latest message resolved from the recent conversation. Leave it out when the message already stands alone.\nMembers:\n" + roster.String() + open.String()
+		"The brief is optional: one sentence in the language of the latest message that restates what the person wants, with every reference in the latest message resolved from the recent conversation. Leave it out when the message already stands alone.\nMembers:\n" + roster.String() + open.String() + busy.String()
 }
 
 const (
 	maxTriageBriefRunes = 200
 	maxTriageTasks      = 12
 	maxTriageTaskTitles = 80
+	// maxTriageWorkingMessage bounds the person message shown for a working member.
+	maxTriageWorkingMessage = 160
 )
 
 // triageTask is one unfinished task of the group as the routing worker reads it.
@@ -82,6 +99,21 @@ func (s *Store) openTasksForTriage(conversationID string) []triageTask {
 func (s *Server) routeAfterFailedTriage(c Conversation, r Run, cause error) bool {
 	if cause == nil || errors.Is(cause, context.Canceled) {
 		return false
+	}
+	// With follow-up routing on, the message goes to the member still working
+	// on the person's most recent earlier message, as a queued message.
+	if s.groupFollowUpEnabled() {
+		if working, err := workingMembers(s.store.db, c.ID, r.TriggerMessageID); err == nil && len(working) > 0 {
+			if _, queued, qe := s.store.steerTriagedMessage(r, working[0].BotID); qe == nil && queued {
+				log.Printf("[triage] failed; queued the message for the working member conv=%s run=%s", c.ID, r.ID)
+				if changed, se := s.store.SetRunStatus(r.ID, "done", ""); se == nil && changed {
+					if done, de := s.store.GetRun(r.ID); de == nil {
+						_, _ = s.store.Event(c.ID, "run", done)
+					}
+				}
+				return true
+			}
+		}
 	}
 	target, err := s.store.fallbackGroupMember(c.ID)
 	if err != nil {

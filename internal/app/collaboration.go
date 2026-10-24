@@ -192,15 +192,17 @@ func (s *Store) addUserRunsSteering(conv, content, client string, specs []runSpe
 	// requests name no Bot yet and always start their run.
 	steerAt := make([]string, len(specs))
 	runSpecs := make([]runSpec, 0, len(specs))
+	// A follow-up the person sends while a member works on the previous message
+	// is still triaged (the triage run is told who works on what and may steer);
+	// the run owner it names is only a stand-in, so it must not cancel that
+	// owner's queued work.
+	skipInterrupt := false
 	if followUp {
-		bot, run, ferr := followUpTargetTx(tx, conv)
+		working, ferr := workingMembers(tx, conv, "")
 		if ferr != nil {
 			return Message{}, nil, nil, false, ferr
 		}
-		if run != "" {
-			specs = []runSpec{{BotID: bot, Kind: runKindGroupChat}}
-			steerAt = []string{run}
-		}
+		skipInterrupt = len(working) > 0
 	}
 	for i, spec := range specs {
 		if steerAt[i] != "" {
@@ -223,6 +225,9 @@ func (s *Store) addUserRunsSteering(conv, content, client string, specs []runSpe
 	if isGroup {
 		addressed = make([]string, 0, len(runSpecs))
 		for _, spec := range runSpecs {
+			if skipInterrupt && spec.Kind == runKindTriage {
+				continue
+			}
 			addressed = append(addressed, spec.BotID)
 		}
 	}
@@ -251,7 +256,7 @@ func (s *Store) addUserRunsSteering(conv, content, client string, specs []runSpe
 			return Message{}, nil, nil, false, err
 		}
 	}
-	if len(runSpecs) > 0 {
+	if len(runSpecs) > 0 && !skipInterrupt {
 		if err = interruptInTransaction(tx, conv, addressed...); err != nil {
 			return Message{}, nil, nil, false, err
 		}
@@ -313,6 +318,11 @@ func (s *Store) addUserRunsSteering(conv, content, client string, specs []runSpe
 		}
 		rowID, rerr := addSteerRowTx(tx, conv, spec.BotID, steerAt[i], m)
 		if rerr != nil {
+			return Message{}, nil, nil, false, rerr
+		}
+		// The version moves in the same transaction: the run reads the words
+		// at its next boundary and must find the task already changed.
+		if rerr = noteUserMessageForBotTasksTx(tx, conv, m, spec.BotID, steerAt[i]); rerr != nil {
 			return Message{}, nil, nil, false, rerr
 		}
 		deliveries = append(deliveries, steerDelivery{BotID: spec.BotID, RunID: steerAt[i], RowID: rowID})
@@ -1104,42 +1114,59 @@ func (s *Server) memberBots(c Conversation) ([]Bot, error) {
 }
 
 func strictTriageTarget(raw string, members []Bot) (string, error) {
-	id, _, err := parseTriageAnswer(raw, members)
-	return id, err
+	d, err := parseTriageDecision(raw, members)
+	return d.BotID, err
+}
+
+// triageDecision is the routing worker's answer: the member, an optional
+// one-line brief, and whether the message adds to or corrects the work that
+// member is already doing (steer).
+type triageDecision struct {
+	BotID string
+	Brief string
+	Steer bool
 }
 
 // parseTriageAnswer reads the routing worker's answer: a bare member id, or
 // JSON with the member id and an optional one-line brief that restates the
 // message with its references resolved from the conversation.
 func parseTriageAnswer(raw string, members []Bot) (string, string, error) {
+	d, err := parseTriageDecision(raw, members)
+	return d.BotID, d.Brief, err
+}
+
+func parseTriageDecision(raw string, members []Bot) (triageDecision, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
-		return "", "", errors.New("triage returned an empty target")
+		return triageDecision{}, errors.New("triage returned an empty target")
 	}
-	brief := ""
+	var out triageDecision
 	var obj struct {
 		BotID string `json:"bot_id"`
 		Brief string `json:"brief"`
+		Steer bool   `json:"steer"`
 	}
 	if strings.HasPrefix(raw, "{") {
 		dec := json.NewDecoder(strings.NewReader(raw))
 		dec.DisallowUnknownFields()
 		if dec.Decode(&obj) != nil || obj.BotID == "" {
-			return "", "", errors.New("triage returned invalid JSON")
+			return triageDecision{}, errors.New("triage returned invalid JSON")
 		}
 		var extra any
 		if dec.Decode(&extra) != io.EOF {
-			return "", "", errors.New("triage returned extra data")
+			return triageDecision{}, errors.New("triage returned extra data")
 		}
 		raw = obj.BotID
-		brief = trimRunes(strings.Join(strings.Fields(obj.Brief), " "), maxTriageBriefRunes)
+		out.Brief = trimRunes(strings.Join(strings.Fields(obj.Brief), " "), maxTriageBriefRunes)
+		out.Steer = obj.Steer
 	}
 	for _, b := range members {
 		if raw == b.ID || strings.EqualFold(raw, b.Name) {
-			return b.ID, brief, nil
+			out.BotID = b.ID
+			return out, nil
 		}
 	}
-	return "", "", fmt.Errorf("triage selected non-member %q", raw)
+	return triageDecision{}, fmt.Errorf("triage selected non-member %q", raw)
 }
 
 func leadingMentionTarget(content string, c Conversation, s *Server) (string, string) {

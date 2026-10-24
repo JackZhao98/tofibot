@@ -3589,11 +3589,12 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request, c Conversat
 	// that task's request: the version goes up and both sides are told.
 	targets := make([]string, 0, len(runs)+len(queued))
 	for _, run := range runs {
-		targets = append(targets, run.BotID)
+		if run.Kind != runKindTriage {
+			targets = append(targets, run.BotID)
+		}
 	}
-	for _, d := range queued {
-		targets = append(targets, d.BotID)
-	}
+	// Messages queued for a working run moved their task's version inside the
+	// ingress transaction already.
 	s.store.noteUserMessageForTasks(c.ID, m, targets)
 	s.cancelInactiveRuns()
 	for _, run := range runs {
@@ -3781,7 +3782,11 @@ func (s *Server) execute(c Conversation, r Run) {
 			s.failRun(c, r, me)
 			return
 		}
-		system = triageSystemPrompt(members, s.store.openTasksForTriage(c.ID))
+		var working []workingMember
+		if s.groupFollowUpEnabled() {
+			working, _ = workingMembers(s.store.db, c.ID, r.TriggerMessageID)
+		}
+		system = triageSystemPrompt(members, s.store.openTasksForTriage(c.ID), working)
 	}
 	if r.Kind != runKindTriage && s.extensions != nil {
 		prepared, err := s.extensions.PrepareDiscoverableForBotWithCallGate(ctx, r.BotID, cachedMCPTools, func(callCtx context.Context, call extensions.MCPCallApproval) error {
@@ -4456,7 +4461,8 @@ func (s *Server) execute(c Conversation, r Run) {
 			s.failRun(c, r, me)
 			return
 		}
-		target, brief, te := parseTriageAnswer(res.Content, members)
+		decision, te := parseTriageDecision(res.Content, members)
+		target, brief := decision.BotID, decision.Brief
 		if te != nil {
 			s.failRun(c, r, te)
 			return
@@ -4465,11 +4471,22 @@ func (s *Server) execute(c Conversation, r Run) {
 			s.failRun(c, r, err)
 			return
 		}
-		// The chosen member is already working: the message is queued for its run.
-		if _, queued, qe := s.store.steerTriagedMessage(r, target); qe != nil {
-			s.failRun(c, r, qe)
-			return
-		} else if queued {
+		// With follow-up routing on, only a steer decision queues the message for
+		// the chosen member's running work; any other answer is a new request and
+		// a busy member takes it from its lane. A steer decision whose run has
+		// already answered finds no run to read it and falls through to a new run.
+		// With the setting off, a chosen member that is working takes the message
+		// as queued input, as before.
+		steerable := decision.Steer || !s.groupFollowUpEnabled()
+		queued := false
+		if steerable {
+			var qe error
+			if _, queued, qe = s.store.steerTriagedMessage(r, target); qe != nil {
+				s.failRun(c, r, qe)
+				return
+			}
+		}
+		if queued {
 			if changed, se := s.store.SetRunStatus(r.ID, "done", ""); se == nil && changed {
 				if done, de := s.store.GetRun(r.ID); de == nil {
 					_, _ = s.store.Event(c.ID, "run", done)

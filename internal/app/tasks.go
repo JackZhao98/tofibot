@@ -1039,7 +1039,19 @@ func (s *Store) noteUserMessageForBotTasks(conversationID string, message Messag
 		return err
 	}
 	defer tx.Rollback()
-	ids, err := waitIDsTx(tx, `SELECT id FROM work_items WHERE bot_id=? AND assigner_kind='bot' AND status NOT IN ('done','cancelled','failed') AND (conversation_id=? OR work_conversation_id=?) ORDER BY created_at`, botID, conversationID, conversationID)
+	if err = noteUserMessageForBotTasksTx(tx, conversationID, message, botID, ""); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// noteUserMessageForBotTasksTx is the version rule inside the caller's
+// transaction. A message queued for a run that is working (runID) also changes
+// the task that run holds, whoever gave it: the run reads the words in place,
+// so its work now answers a newer version. The bump shares the transaction of
+// the delivery, so the run never reads the words before the version moved.
+func noteUserMessageForBotTasksTx(tx *sql.Tx, conversationID string, message Message, botID, runID string) error {
+	ids, err := waitIDsTx(tx, `SELECT id FROM work_items WHERE status NOT IN ('done','cancelled','failed') AND ((bot_id=? AND assigner_kind='bot' AND (conversation_id=? OR work_conversation_id=?)) OR (?<>'' AND assignee_run_id=?)) ORDER BY created_at`, botID, conversationID, conversationID, runID, runID)
 	if err != nil || len(ids) == 0 {
 		return err
 	}
@@ -1072,7 +1084,7 @@ func (s *Store) noteUserMessageForBotTasks(conversationID string, message Messag
 			return err
 		}
 	}
-	return tx.Commit()
+	return nil
 }
 
 // taskRecordContext is the block a run that holds a task reads: the request's

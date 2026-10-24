@@ -886,7 +886,7 @@ func TestPersonMessageBumpsTheVersionAndMarksAStaleResult(t *testing.T) {
 	if err != nil || len(queued) != 1 {
 		t.Fatalf("the holder is working, so the message is queued for its run: %+v %v", queued, err)
 	}
-	f.s.noteUserMessageForTasks(f.g.ID, msg, []string{queued[0].BotID})
+	// The ingress transaction moved the version with the delivery (B16).
 	got := f.taskOf(child.ID)
 	if got.SpecVersion != 2 {
 		t.Fatalf("version %d, want 2", got.SpecVersion)
