@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -108,6 +109,25 @@ func ToolTimeoutOutcome(name string, limit time.Duration, observation bool) tool
 	}
 	return tooloutcome.New(tooloutcome.Uncertain, ToolTimeoutCode, "unknown",
 		fmt.Sprintf("%s did not finish within %s and was cancelled. It may or may not have taken effect. Verify the target state before repeating it, use a different approach, or tell the user it is not responding.", name, limit),
+		"verify_effect")
+}
+
+// ErrStepInterrupted is the cancel cause of a call ended by "Stop current step".
+var ErrStepInterrupted = errors.New("the person interrupted this step")
+
+// StepInterruptedCode is the typed outcome code of such a call.
+const StepInterruptedCode = "step_interrupted"
+
+// StepInterruptedOutcome is the typed result of a call the person interrupted.
+// A read is known to have no side effects; anything else may have acted.
+func StepInterruptedOutcome(name string, observation bool) tooloutcome.Outcome {
+	if observation {
+		return tooloutcome.New(tooloutcome.Transient, StepInterruptedCode, "no_side_effects",
+			fmt.Sprintf("The person interrupted this step: %s was cancelled. It only reads, so nothing changed. Continue without it, or say what you need.", name),
+			"explain_blocker")
+	}
+	return tooloutcome.New(tooloutcome.Uncertain, StepInterruptedCode, "unknown",
+		fmt.Sprintf("The person interrupted this step: %s was cancelled. It may or may not have taken effect. Verify the target state before repeating it, or continue without it.", name),
 		"verify_effect")
 }
 
