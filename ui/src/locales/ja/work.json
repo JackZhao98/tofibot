@@ -192,5 +192,10 @@
       "skipped": "スキップ",
       "blocked": "ブロック中"
     }
+  },
+  "card": {
+    "label": "タスク: {{title}}",
+    "claimed": "引き受け済み",
+    "assigned": "割り当て済み"
   }
 }

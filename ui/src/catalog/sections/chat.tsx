@@ -28,6 +28,9 @@ export const bubbles: CatalogSection = {
     { id: "streaming", kind: "app", label: "Streaming", note: "a reply still being written: live text and cursor, the cat working, the stop button", app: { ...DM, running: true } },
     { id: "sending", kind: "app", label: "Sending", note: "the server has not answered: the bubble is dimmed", app: { ...DM, send: "hang" }, drive: step => send(step, "Is the room booked?") },
     { id: "failed", kind: "app", label: "Failed to send", note: "\"Not sent · Retry\" under the bubble", app: { ...DM, send: "fail" }, drive: async step => { await send(step, "Is the room booked?"); await step.find(".send-receipt-retry"); } },
+    { id: "task-card", kind: "app", label: "Task card under the message that started it", note: "one quiet line, \"Miso · 2/3 · In progress\"; no chat message", app: { ...GROUP, tasks: true }, drive: async step => { await step.find(".task-card"); } },
+    { id: "task-card-open", kind: "app", label: "Task card, checklist open", app: { ...GROUP, tasks: true }, drive: async step => { await step.click(".task-card .disclosure-toggle"); await step.find(".task-card-items"); } },
+    { id: "member-tasks", kind: "app", label: "Member list with the tasks each member holds", note: "Miso: claimed; Nori: assigned", app: { ...GROUP, tasks: true }, drive: async step => { await step.click(".chat-identity"); await step.find(".member-tasks"); } },
     { id: "brief", kind: "app", label: "Handoff brief open", app: GROUP, drive: async step => { await step.click(".assignment-brief summary"); } },
     // The process line: live and finished, collapsed and opened, task block and web tool row (process.tsx).
     ...processStates,

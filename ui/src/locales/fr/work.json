@@ -198,5 +198,10 @@
       "skipped": "Ignoré",
       "blocked": "Bloqué"
     }
+  },
+  "card": {
+    "label": "Tâche : {{title}}",
+    "claimed": "Prise en charge",
+    "assigned": "Assignée"
   }
 }

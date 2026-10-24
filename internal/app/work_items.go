@@ -62,6 +62,8 @@ type WorkItem struct {
 	ClosedAt             string          `json:"closed_at,omitempty"`
 	Checklist            []ChecklistItem `json:"checklist,omitempty"`
 	WaitingOn            []WaitView      `json:"waiting_on,omitempty"`
+	// ClaimedAt is when the holder claimed the task (claim_task); empty when it has not.
+	ClaimedAt string `json:"claimed_at,omitempty"`
 }
 
 type WorkItemInput struct {
@@ -401,6 +403,12 @@ func workItemEventTx(tx *sql.Tx, item WorkItem) error {
 	if _, err = tx.Exec(`INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, item.ConversationID, "work_item", string(data), item.UpdatedAt); err != nil {
 		return err
 	}
+	// A task delegated to a Bot's own chat shows its card there too (decision 0060).
+	if item.WorkConversationID != "" && item.WorkConversationID != item.ConversationID {
+		if _, err = tx.Exec(`INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, item.WorkConversationID, "work_item", string(data), item.UpdatedAt); err != nil {
+			return err
+		}
+	}
 	return insertWorkspaceEventTx(tx, workspaceScopeGroups, item.UpdatedAt)
 }
 
@@ -507,6 +515,9 @@ func (s *Server) routeWorkItems(w http.ResponseWriter, r *http.Request, path str
 			return true
 		}
 		writeJSON(w, 200, map[string]any{"executions": attempts})
+		return true
+	}
+	if s.routeTaskCards(w, r, parts) {
 		return true
 	}
 	if len(parts) == 3 && parts[0] == "work-items" && parts[2] == "execute" {

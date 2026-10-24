@@ -195,5 +195,10 @@
       "skipped": "Übersprungen",
       "blocked": "Blockiert"
     }
+  },
+  "card": {
+    "label": "Aufgabe: {{title}}",
+    "claimed": "Übernommen",
+    "assigned": "Zugewiesen"
   }
 }

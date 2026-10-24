@@ -95,6 +95,12 @@ function groupMessages(): Message[] {
   return list.map((message, index) => ({ ...message, seq: index + 1 }));
 }
 
+const TASKS = [
+  { id: "t_note", conversation_id: "grp_launch", bot_id: "bot_miso", bot_name: "Miso", kind: "task", title: "Draft the release note", description: "", status: "in_progress", assigner_kind: "user", assignee_run_id: "run_grp_launch_6", claimed_at: at(31), created_at: at(30), updated_at: at(36),
+    checklist: [{ id: "c1", text: "Read the launch checklist", status: "done" }, { id: "c2", text: "Write the first draft", status: "done" }, { id: "c3", text: "Cut it under 200 words", status: "open" }] },
+  { id: "t_venue", conversation_id: "grp_launch", bot_id: "bot_nori", bot_name: "Nori", kind: "task", title: "Confirm the venue for Thursday", description: "", status: "todo", assigner_kind: "user", assignee_run_id: "run_grp_launch_4", created_at: at(1), updated_at: at(1) },
+];
+
 function runsFor(conversationId: string, messages: Message[], options: AppOptions): Run[] {
   if (conversationId === "grp_launch") return [
     run(conversationId, "bot_mochi", "run_grp_launch_2", "m_grp_launch_1", "done", 1),
@@ -142,6 +148,8 @@ export type AppOptions = {
   /** A pending approval card in Mochi's chat. */
   approval?: boolean;
   computer?: "ready" | "starting";
+  /** The group has two tasks: Miso's release note (claimed, 2/3) and Nori's venue (assigned). The cards and the member list show them. */
+  tasks?: boolean;
   /** The server reports a newer release (the admin banner). */
   update?: boolean;
 };
@@ -200,6 +208,7 @@ export function workspace(options: AppOptions): Synthetic {
       if (what === "memories") return json({ memories: [] });
       if (what === "tools") return json({ activities: [], summaries: [], tool_count: 0, has_more: false });
       if (what === "schedules" || what === "schedule-occurrences" || what === "work-items" || what === "remembered-approvals") return json({ schedules: [], occurrences: [], work_items: [], grants: [] });
+      if (what === "task-cards") return json({ tasks: options.tasks && id === "grp_launch" ? TASKS : [] });
       if (what === "read") return json({ read_seq: 99 });
     }
     if (p === "/api/questions") return json({ questions: questions(url.searchParams.get("conversation_id") ?? "") });

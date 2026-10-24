@@ -110,6 +110,9 @@ CREATE INDEX IF NOT EXISTS command_waits_bot ON command_waits(bot_id);`); err !=
 	if err := ensureColumn(db, "bot_inbox", "drained", `ALTER TABLE bot_inbox ADD COLUMN drained INTEGER NOT NULL DEFAULT 0`); err != nil {
 		return err
 	}
+	if err := ensureTaskClaimTables(db); err != nil {
+		return err
+	}
 	if err := migrateWaitsFromRunWaits(db); err != nil {
 		return err
 	}

@@ -57,6 +57,18 @@ func TestOnDemandToolsLeaveTheDeclaredList(t *testing.T) {
 			t.Error("message is an alias of delegate and must stay off the declared list")
 		}
 	}
+	// claim_task and pass_task are group tools (decision 0060): they are deferred in a group's tool set.
+	other, _ := s.store.CreateBot("B", "", "m")
+	g, err := s.store.CreateGroup("g", []string{b.ID, other.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gc, _ := s.store.GetConversation(g.ID)
+	for _, tl := range deferOnDemandTools(s.tools(gc, Run{ID: "rg", ConversationID: gc.ID, BotID: b.ID, Status: "running"})) {
+		if tl.Deferred {
+			deferred[tl.Name] = true
+		}
+	}
 	for name := range onDemandTools {
 		if !deferred[name] {
 			t.Errorf("%s is listed on demand but not present as a deferred tool", name)

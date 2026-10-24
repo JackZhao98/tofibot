@@ -19,6 +19,8 @@ import type { Bot, Conversation, Memory, TaskImpact } from "./types";
 import { WorkPreview } from "./workAgenda";
 import { LazyGroupAvatar as GroupAvatar } from "./LazyGroupAvatar";
 import type { BotSkillListing } from "./skillLibrary";
+import { MemberTask } from "./TaskCard";
+import type { TaskCardModel } from "./taskCards";
 
 /** The share file names the library Skills the Bot has on, and nothing else about them. */
 async function shareBotPackage(bot: Bot) {
@@ -53,7 +55,9 @@ function RemovalImpact({ groupId, removed }: { groupId: string; removed: { id: s
   </p>)}</div>;
 }
 
-export function MembersPanel({ conversation, bots, onClose, onOpen, onSaved, onReload, onOpenWork, refreshToken }: {
+export function MembersPanel({ conversation, bots, onClose, onOpen, onSaved, onReload, onOpenWork, refreshToken, tasksByBot }: {
+  /** The open tasks each member holds (decision 0060); a claimed task shows as claimed. */
+  tasksByBot?: ReadonlyMap<string, TaskCardModel[]>;
   onOpenWork: () => void;
   refreshToken: number;
   conversation: Conversation;
@@ -162,6 +166,7 @@ export function MembersPanel({ conversation, bots, onClose, onOpen, onSaved, onR
         {bots.filter(bot => !bot.archived || baselineIds.current.includes(bot.id) || selectedIds.includes(bot.id)).map((bot) => <div key={bot.id} className={`member-option member-manage-row ${selectedIds.includes(bot.id) ? "selected" : ""}`}>
           <label><input type="checkbox" checked={selectedIds.includes(bot.id)} disabled={saving || reloading || (!selectedIds.includes(bot.id) && selectedIds.length >= 8)} onChange={() => toggleMember(bot.id)} />
           <BotAvatar id={bot.id} mini /><span>{bot.name}</span>{bot.is_primary && <PrimaryBadge />}</label>
+          {tasksByBot?.get(bot.id) && <ul className="member-tasks" aria-label={t("members.tasks_of", { name: bot.name })}>{tasksByBot.get(bot.id)!.slice(0, 3).map(card => <MemberTask key={card.id} card={card} />)}</ul>}
           <button type="button" className="text-button" disabled={saving || reloading} aria-label={t("members.open_dm", { name: bot.name })} onClick={() => onOpen(bot.dm_conversation_id)}>{t("members.dm")}</button>
         </div>)}
       </div>

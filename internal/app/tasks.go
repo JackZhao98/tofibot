@@ -123,6 +123,7 @@ func decorateTaskTx(q queryer, item *WorkItem) error {
 		return err
 	}
 	item.Checklist = checklist
+	item.ClaimedAt = claimedAtTx(q, item.ID, item.BotID)
 	if item.AssignerBotID != "" {
 		_ = q.QueryRow(`SELECT name FROM bots WHERE id=?`, item.AssignerBotID).Scan(&item.AssignerBotName)
 	}
@@ -909,6 +910,13 @@ func (s *Store) taskRecordContext(runID string) string {
 			b.WriteString("\n")
 		}
 	}
-	b.WriteString("Report each item with task_update, and ask the member that gave the task with task_ask. Both load on demand when you name them in workspace_capabilities.\n[/task record]")
+	if len(item.Checklist) > 0 || item.AssignerBotID != "" {
+		b.WriteString("Report each item with task_update, and ask the member that gave the task with task_ask. Both load on demand when you name them in workspace_capabilities.\n")
+	}
+	var kind string
+	if s.db.QueryRow(`SELECT kind FROM conversations WHERE id=?`, item.ConversationID).Scan(&kind) == nil && kind == "group" && item.WorkConversationOrConversation() == item.ConversationID {
+		b.WriteString("If the task does not fit your role, pass it to the member that fits; if it fits and you will work on it, claim it. claim_task and pass_task load on demand the same way.\n")
+	}
+	b.WriteString("[/task record]")
 	return trimRunes(b.String(), 1800)
 }

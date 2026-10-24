@@ -21,7 +21,7 @@ var onDemandTools = map[string]bool{
 	"list_schedules": true, "pause_schedule": true, "resume_schedule": true, "delete_schedule": true,
 	// Tools of the task system that only a Bot holding a task or a wait needs;
 	// the context blocks that tell it of the task or the wait name them.
-	"cancel_wait": true, "task_update": true, "task_ask": true,
+	"cancel_wait": true, "task_update": true, "task_ask": true, "claim_task": true, "pass_task": true,
 }
 
 // deferOnDemandTools marks the on-demand tools of a run's tool set.

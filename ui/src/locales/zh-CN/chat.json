@@ -313,7 +313,8 @@
     "title": "群资料",
     "impact_given_other": "移出 {{name}} 会结束它布置的 {{count}} 个未完成任务。",
     "impact_held_other": "移出 {{name}} 会结束它负责的 {{count}} 个未完成任务。",
-    "impact_waits_other": "移出 {{name}} 会结束它的 {{count}} 个等待。"
+    "impact_waits_other": "移出 {{name}} 会结束它的 {{count}} 个等待。",
+    "tasks_of": "{{name}} 的未完成任务"
   },
   "message": {
     "attachment": "附件",
