@@ -70,7 +70,7 @@ func (s *Store) inspectRecentRuns(ctx context.Context, c Conversation, current R
 	failureBudget := 6000
 	for i := range audits {
 		a := &audits[i]
-		err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM messages WHERE conversation_id=? AND sender_bot_id=? AND run_id=? AND role='assistant' AND COALESCE(kind,'') NOT IN ('progress','segment','internal')`, c.ID, current.BotID, a.ID).Scan(&a.FinalAnswers)
+		err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM messages WHERE conversation_id=? AND sender_bot_id=? AND run_id=? AND role='assistant' AND COALESCE(kind,'') NOT IN ('progress','segment','internal')`+notDelegationSQL, c.ID, current.BotID, a.ID).Scan(&a.FinalAnswers)
 		if err != nil {
 			return nil, err
 		}

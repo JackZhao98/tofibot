@@ -621,6 +621,11 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 				break
 			}
 			var m Message
+			if trig, te := s.store.GetMessage(candidate.TriggerMessageID); te == nil && s.store.isVisibleDelegation(trig, contextConversationID, bot.ID) {
+				// Decision 0065: the delegation is the assigning member's own message.
+				handoff = &trig
+				break
+			}
 			if e := s.store.db.QueryRow(`SELECT id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at FROM messages WHERE conversation_id=? AND run_id=? AND sender_bot_id IS NOT NULL AND sender_bot_id<>? AND kind='notice' ORDER BY seq LIMIT 1`, contextConversationID, candidate.ID, bot.ID).Scan(&m.ID, &m.ConversationID, &m.Seq, &m.Role, &m.Kind, &m.SenderBotID, &m.RunID, &m.Content, new(sql.NullString), &m.CreatedAt); e == nil {
 				handoff = &m
 			}
@@ -653,6 +658,9 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 			}
 			if c.Kind == "group" && r.Kind == runKindGroupTask {
 				returnGuidance += " Your completed result will wake the assigning member automatically; do not call delegate merely to return a result or acknowledge receipt."
+				if !hiddenTrace {
+					returnGuidance += " Address the assigning member by name in your report."
+				}
 			}
 			acknowledge := "Briefly acknowledge the assigning member in your own voice before substantial work, using a normal assistant message before tool calls."
 			if r.structured {
@@ -980,7 +988,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 			if r.structured {
 				voice, acknowledge, mentions = "What you say publishes here under your identity.", "Briefly acknowledge assigned work with say(message) before substantial tools, then post findings here.", "Mentions in text only refer to members; assign work with delegate or wake."
 			}
-			system += "\n" + voice + " " + groupDelegationGuidance + " For a concrete colleague task, call delegate with their exact member id and the assignment as the task. It publishes their mention and starts work: do not duplicate the message or narrate routing. After you delegate, end your turn; their completed result resumes you to integrate it. " + acknowledge + " Never delegate thanks, acknowledgements or completed results, or predict another member's answer. At most one delegation per reply and eight rounds per chain. send_group_message starts work only in another group. " + mentions
+			system += "\n" + voice + " " + groupDelegationGuidance + " For a concrete colleague task, call delegate with their exact member id and the assignment as the task. It posts your brief in the group, opening with their name, and starts work: do not duplicate or narrate it. After you delegate, end your turn; their completed result resumes you to integrate it. " + acknowledge + " Never delegate thanks, acknowledgements or completed results, or predict another member's answer. At most one delegation per reply and eight rounds per chain. send_group_message starts work only in another group. " + mentions
 		}
 	}
 	if r.Kind == runKindGroupChat && !hiddenTrace {

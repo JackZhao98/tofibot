@@ -204,7 +204,12 @@ func TestMigrationMovesPendingRunWaitsAndLiveDelegations(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Put the database back as the version before tasks left it: a delegation in
-	// flight with no task row, and a follow_up wait in the old table.
+	// flight with no task row, and a follow_up wait in the old table. That
+	// version published the delegation as a handoff notice line.
+	legacy, _ := json.Marshal(&HandoffNotice{Type: "handoff", FromBotID: f.a.ID, ToBotID: f.b.ID, TargetConversationID: f.g.ID, TargetRunID: child.ID})
+	if _, err := f.s.db.Exec(`UPDATE messages SET kind='notice',content='Write the page',run_id=?,notice_data=?,client_message_id=NULL WHERE id=?`, child.ID, string(legacy), child.TriggerMessageID); err != nil {
+		t.Fatal(err)
+	}
 	for _, q := range []string{`DELETE FROM waits`, `DELETE FROM work_items`} {
 		if _, err := f.s.db.Exec(q); err != nil {
 			t.Fatal(err)
@@ -1099,7 +1104,7 @@ func TestDelegateToSeveralMembersAndTheOldNamesStayAliases(t *testing.T) {
 	for _, task := range receipt.Tasks {
 		item, _ := f.s.GetWorkItem(task.TaskID)
 		holders[item.BotID] = true
-		if item.AssignerBotID != f.a.ID || item.SpecVersion != 1 || item.WorkConversationID == f.g.ID {
+		if item.AssignerBotID != f.a.ID || item.SpecVersion != 1 || item.WorkConversationID != f.g.ID {
 			t.Fatalf("task %+v", item)
 		}
 	}

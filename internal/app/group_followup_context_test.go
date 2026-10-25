@@ -99,7 +99,7 @@ func TestLeadingMentionPublishesOneAssignmentAndReturns(t *testing.T) {
 			if len(messages) != 4 {
 				t.Fatalf("duplicate assignment or empty bubble: %+v", messages)
 			}
-			if messages[1].Notice == nil || messages[1].SenderBotID != a.ID || messages[2].SenderBotID != b.ID || messages[3].SenderBotID != a.ID {
+			if messages[1].Notice != nil || messages[1].Kind != "" || !strings.HasPrefix(messages[1].Content, "@Reviewer") || messages[1].SenderBotID != a.ID || messages[2].SenderBotID != b.ID || messages[3].SenderBotID != a.ID {
 				t.Fatalf("wrong speakers: %+v", messages)
 			}
 			return

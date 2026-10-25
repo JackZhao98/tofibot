@@ -516,6 +516,21 @@ func validateMCPScheduleEdges(db reviewQuerier, chain []Run, byID map[string]Run
 		}
 		m := triggers[child.ID]
 		n := m.Notice
+		// Decision 0065: a delegation inside a group is the giver's own message.
+		if n == nil && child.Kind == runKindGroupTask && child.ConversationID == parent.ConversationID && m.ID != "" && m.ConversationID == child.ConversationID &&
+			m.Role == "assistant" && m.Kind == "" && m.SenderBotID == parent.BotID && m.RunID == parent.ID {
+			var marked bool
+			if db.QueryRow(`SELECT EXISTS(SELECT 1 FROM messages WHERE id=? AND client_message_id=?)`, m.ID, delegationClientPrefix+m.ID).Scan(&marked) == nil && marked {
+				expectedOrigin := parent.ConversationID
+				if parent.OriginConversationID != "" {
+					expectedOrigin = parent.OriginConversationID
+				}
+				if child.OriginConversationID != expectedOrigin {
+					return mcpContextFail(mcpContextAssignmentBinding)
+				}
+				return nil
+			}
+		}
 		if m.ConversationID != child.ConversationID || m.Role != "assistant" || m.Kind != "notice" || m.SenderBotID != parent.BotID || n == nil || n.FromBotID != parent.BotID || n.TargetConversationID != child.ConversationID {
 			return mcpContextFail(mcpContextAssignmentBinding)
 		}

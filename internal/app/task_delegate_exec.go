@@ -46,7 +46,20 @@ func (s *Server) execMessage(ctx context.Context, c Conversation, r Run, b json.
 	if err := s.yieldComputerOwner(r); err != nil {
 		return "", nil, fmt.Errorf("cannot release shared desktop for message: %w", err)
 	}
-	_, children, err := s.store.AddBotMessages(c.ID, r.BotID, recipients, r.ID, x.Content)
+	var children []Run
+	var err error
+	if s.store.sameGroupRecipients(c.ID, recipients) {
+		// Decision 0065: members of this group are asked openly, in the group.
+		_, children, err = s.store.AddGroupDelegations(c.ID, r.BotID, recipients, r.ID, x.Content)
+		if err != nil {
+			return "", nil, err
+		}
+		for _, child := range children {
+			s.enqueue(c, child)
+		}
+		return fmt.Sprintf("message sent to %d Bot(s)", len(children)), children, nil
+	}
+	_, children, err = s.store.AddBotMessages(c.ID, r.BotID, recipients, r.ID, x.Content)
 	if err != nil {
 		return "", nil, err
 	}

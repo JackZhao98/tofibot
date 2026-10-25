@@ -24,6 +24,10 @@ const (
 // group shows only a short handoff line that can be expanded.
 const visibleDelegationText = "The brief for that member: the request and the context and constraints they need. The group sees only a short handoff line; post your own view to the group separately if it matters."
 
+// delegationBriefText describes the task of delegate. In a group the brief is
+// the assigning member's own message, so the whole group reads it (decision 0065).
+const delegationBriefText = "The brief for that member: the request and the context and constraints they need. In a group it is posted as your message to that member, opening with their name, so write it for every reader of the group."
+
 const groupDispositionGuidance = `[group response]
 End each group turn with respond: reply (post; wake lists Bots to start, each with a concrete request; a plain @mention starts nothing), silent (not for you), concluded (a Bot's thanks/ok/done: post nothing), follow_up (waiting on a Bot: set wait_for, do not post "I'll wait"). Default reply, no wakes. Answer a person's greeting, goodbye or small talk briefly. Don't announce delegating.
 [/group response]
@@ -63,7 +67,7 @@ func normalizeReply(s string) string { return strings.Join(strings.Fields(s), " 
 // hasPostedMessage reports whether the run already published a visible message.
 func (s *Store) hasPostedMessage(runID string) bool {
 	var n int
-	_ = s.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE run_id=? AND role='assistant' AND kind IN ('','segment')`, runID).Scan(&n)
+	_ = s.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE run_id=? AND role='assistant' AND kind IN ('','segment')`+notDelegationSQL, runID).Scan(&n)
 	return n > 0
 }
 
@@ -244,7 +248,7 @@ func (s *Server) applyDisposition(c Conversation, r Run, msg Message) {
 	}
 	if msg.ID == "" {
 		// The reply was posted earlier in the run (or as a segment).
-		_ = s.store.db.QueryRow(`SELECT id FROM messages WHERE run_id=? AND role='assistant' AND kind IN ('','segment') ORDER BY seq DESC LIMIT 1`, r.ID).Scan(&msg.ID)
+		_ = s.store.db.QueryRow(`SELECT id FROM messages WHERE run_id=? AND role='assistant' AND kind IN ('','segment')`+notDelegationSQL+` ORDER BY seq DESC LIMIT 1`, r.ID).Scan(&msg.ID)
 	}
 	if c.Kind != "group" || !c.UserVisible || msg.ID == "" {
 		return

@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	delegateToolDescription = "Give a task to one or more members. Each gets a task record: your brief, a version number and an optional checklist. The call returns a receipt at once and starts the work. The result returns later as an event that wakes you, so do not poll. Write the brief so that it stands alone: the goal, the form of the result, the tools and sources to use, and the limits. Split broad work into tasks, each with one owner and one result, and give independent parts in the same turn so that they run in parallel. A part that needs the result of other tasks names their ids in depends_on: it waits, starts by itself when all of them are done, and you are told if one of them fails or is cancelled. Before parallel work on code, give a first task that fixes the interface the parts share, and make the parts depend on it. Match the number of tasks to the difficulty of the work: simple work needs one task. Add a checklist only for work with separate parts."
+	delegateToolDescription = "Give a task to one or more members. Each gets a task record: your brief, a version number and an optional checklist. The call returns a receipt at once and starts the work. The result returns later as an event that wakes you, so do not poll. Write the brief to stand alone: the goal, the form of the result, the tools and sources, and the limits. Split broad work into tasks, each with one owner and one result, and give independent parts in the same turn so that they run in parallel. A part that needs the result of other tasks names their ids in depends_on: it waits, starts by itself when all of them are done, and you are told if one of them fails or is cancelled. Before parallel work on code, give a first task that fixes the interface the parts share, and make the parts depend on it. Match the number of tasks to the difficulty of the work: simple work needs one task. Add a checklist only for work with separate parts."
 
 	waitForToolDescription = "Start a wait and get a receipt at once. The wait ends when its event happens or its deadline passes; then you are woken with the result, and a timeout is a result too. After the receipt, tell the person what they need and end your turn. To wait for several events together, repeat the call with the group id from the receipt: mode all ends when every member has ended, mode any at the first fulfilled member. A wait that would close a cycle is refused. A wait on a command (kind command_exit, target the terminal id) ends when the process ends, or, for a shell terminal, when the shell is back at its prompt; the result has the exit code when one exists and the last output. It always has a timer check in its group, mode any: add your own timer to the group first, or the system adds one. If the timer comes first, read the terminal and wait again when the command still runs."
 
@@ -55,7 +55,7 @@ func (s *Server) delegateTool(c Conversation, r Run) Tool {
 		Parameters: objectSchema(map[string]any{
 			"bot_id":     stringProp("Exact id of the member."),
 			"bot_ids":    map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Exact ids of the members, when more than one."},
-			"task":       stringProp(visibleDelegationText),
+			"task":       stringProp(delegationBriefText),
 			"title":      stringProp("A short name for the task."),
 			"checklist":  map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "The items of the task's checklist, in order."},
 			"depends_on": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Ids of tasks in the same tree that must end done before this task starts."},
@@ -104,6 +104,10 @@ func (s *Server) delegateTool(c Conversation, r Run) Tool {
 				receipts, err := s.store.AddDependentTasks(c.ID, r.BotID, r.ID, recipients, in.Task, in.Title, in.Checklist, deps)
 				if err != nil {
 					return "", err
+				}
+				if s.store.sameGroupRecipients(c.ID, recipients) {
+					// Decision 0065: the group reads the delegation, though these tasks start through the inbox.
+					s.store.publishDelegationMessage(c.ID, r.BotID, r.ID, recipients, in.Task)
 				}
 				s.flushInbox()
 				return receiptJSON(map[string]any{"tasks": receipts, "note": "A task that waits starts when every task it waits on is done. Every result returns to you as an event."})

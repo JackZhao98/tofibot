@@ -425,7 +425,7 @@ func TestScheduleRootHandoffWaitsForSourceReceipt(t *testing.T) {
 		t.Fatalf("source return must still be awaited: %+v err=%v", got, err)
 	}
 	var answers, completions int
-	if err := s.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE run_id=? AND role='assistant'`, root.ID).Scan(&answers); err != nil {
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE run_id=? AND role='assistant'`+notDelegationSQL, root.ID).Scan(&answers); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.db.QueryRow(`SELECT COUNT(*) FROM events WHERE type='schedule' AND json_extract(data,'$.id')=? AND json_extract(data,'$.status')='completed'`, x.ID).Scan(&completions); err != nil {

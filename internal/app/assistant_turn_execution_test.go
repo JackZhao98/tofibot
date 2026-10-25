@@ -106,8 +106,8 @@ func TestGroupHandoffReceivesPublishedIntermediateContribution(t *testing.T) {
 		if message.Content == publishedAgenda {
 			agenda = message
 		}
-		if message.Kind == "notice" {
-			notice = message
+		if message.Kind == "" && message.SenderBotID == a.ID && strings.HasPrefix(message.Content, "@") {
+			notice = message // the delegation, an ordinary message of the assigner (decision 0065)
 		}
 		if message.Content == "已交接给评审。" {
 			final = message
