@@ -366,6 +366,7 @@ two levels only, installed all or nothing. A Bot export names the skills the Bot
 on. UI: Settings > Skills is the library (`ui/src/settings/SkillLibrary.tsx`), the Bot settings panel has the checkboxes (`ui/src/BotSkills.tsx`, beside Bot Secrets);
 catalog states `skills-*` and `bot-skills-*`.
 A model sees a rendered image only through `computer_files` `files.view` (`internal/app/computer_view_file.go`, decision 0054): shell output is text and the browser tool refuses `file://`; the result is bounded (8 MiB / 24 MP source, 1568 px long side, 640 KiB, 16 views per run) and the agent keeps the newest 4 tool images.
+`generate_image` also returns the generated PNG as image content (same bounds and a per-run count of 16, cache hits included, `imageToolResult` in `internal/app/image_generation.go`), so the Bot sees what it made. `reference_attachment_id` may name an image made earlier in the same run; the edit replaces that source in the final reply's staged files, other generated images stay. Unnamed outputs get a per-request filename so they never supersede each other.
 
 # publish_file paths and failures
 

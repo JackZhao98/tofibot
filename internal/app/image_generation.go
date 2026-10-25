@@ -33,9 +33,10 @@ func (s *Server) imageGenerationTools(c Conversation, r Run) []Tool {
 
 func (s *Server) imageGenerationTool(c Conversation, r Run, generate func(context.Context, provider.ImageRequest) ([]byte, error)) Tool {
 	var mu sync.Mutex
-	return Tool{Name: "generate_image", Description: "Generate an image, or edit a referenced image attachment from this conversation, using the connected Codex image service. The resulting PNG is automatically attached to your final reply; do not publish it again. Use only for requested image work. May take several minutes and consumes the connected account's image allowance. Identical requests in the same run reuse the result. Never claim success if the tool returns an error.", Parameters: objectSchema(map[string]any{
+	var shown int
+	return Tool{Name: "generate_image", Description: "Generate an image, or edit an image attachment of this conversation, with the connected Codex image service. You see the generated image in the result. Check it as the reader will see it. To change it, call this tool again with reference_attachment_id set to the image to edit. The edit replaces its source in the final reply. Other generated images stay attached. Do not publish them again. Use only for requested image work. May take minutes. Uses the account image allowance. Identical requests in one run reuse the result. Never claim success on an error.", Parameters: objectSchema(map[string]any{
 		"prompt":                  map[string]any{"type": "string", "description": "A complete image brief, or precise editing instructions."},
-		"reference_attachment_id": map[string]any{"type": "string", "description": "Optional image attachment ID from this conversation to edit. Omit to create a new image."},
+		"reference_attachment_id": map[string]any{"type": "string", "description": "Optional image attachment ID to edit, including an image made earlier in this run. Omit to create a new image."},
 		"name":                    map[string]any{"type": "string", "description": "Optional output filename; .png is appended if absent."},
 	}, []string{"prompt"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		mu.Lock()
@@ -54,7 +55,8 @@ func (s *Server) imageGenerationTool(c Conversation, r Run, generate func(contex
 			return "", errors.New("generate_image requires a nonempty prompt up to 12000 bytes")
 		}
 		name := filepath.Base(strings.TrimSpace(in.Name))
-		if name == "." || name == "" {
+		unnamed := name == "." || name == ""
+		if unnamed {
 			name = "generated-image.png"
 		}
 		if !strings.HasSuffix(strings.ToLower(name), ".png") {
@@ -74,6 +76,10 @@ func (s *Server) imageGenerationTool(c Conversation, r Run, generate func(contex
 		sig, _ := json.Marshal([]string{in.Prompt, in.Reference, name})
 		digest := sha256.Sum256(sig)
 		key := "image:" + hex.EncodeToString(digest[:])
+		if unnamed {
+			// Separate images must not replace each other through one shared name.
+			name = "generated-image-" + hex.EncodeToString(digest[:3]) + ".png"
+		}
 		var id string
 		err := s.store.db.QueryRow(`SELECT attachment_id FROM run_attachments WHERE run_id=? AND request_key=? LIMIT 1`, r.ID, key).Scan(&id)
 		if err == nil {
@@ -81,7 +87,7 @@ func (s *Server) imageGenerationTool(c Conversation, r Run, generate func(contex
 			if e != nil {
 				return "", e
 			}
-			return imageAttachmentResult(a), nil
+			return s.imageToolResult(a, &shown), nil
 		}
 		if err != sql.ErrNoRows {
 			return "", err
@@ -122,8 +128,56 @@ func (s *Server) imageGenerationTool(c Conversation, r Run, generate func(contex
 			_ = s.store.deleteUnboundAttachment(a.ID)
 			return "", err
 		}
-		return imageAttachmentResult(staged), nil
+		if in.Reference != "" {
+			// An edit replaces its source in the final reply. The source stays
+			// stored in the conversation, unlisted, like any superseded file.
+			if _, err = s.store.db.Exec(`DELETE FROM run_attachments WHERE run_id=? AND attachment_id=? AND attachment_id<>?`, r.ID, in.Reference, staged.ID); err != nil {
+				return "", err
+			}
+		}
+		return s.imageToolResult(staged, &shown), nil
 	}}
+}
+
+// imageToolResult returns the attachment metadata plus, within the files.view
+// bounds and per-run count, the image itself so the model can see what it made.
+func (s *Server) imageToolResult(a Attachment, shown *int) string {
+	meta := imageAttachmentResult(a)
+	if *shown >= viewsPerRunMax {
+		return meta
+	}
+	_, path, err := s.store.Attachment(a.ID)
+	if err != nil {
+		return meta
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+	f, err := s.store.openAttachment(ctx, path)
+	if err != nil {
+		return meta
+	}
+	data, err := io.ReadAll(io.LimitReader(f, viewSourceBytesMax+1))
+	_ = f.Close()
+	if err != nil || len(data) > viewSourceBytesMax {
+		return meta
+	}
+	viewed, err := viewImageResult(a.Name, data)
+	if err != nil {
+		return meta
+	}
+	var v, m map[string]any
+	if json.Unmarshal([]byte(viewed), &v) != nil || json.Unmarshal([]byte(meta), &m) != nil {
+		return meta
+	}
+	*shown++
+	for _, k := range []string{"width", "height", "source_width", "source_height", "image_url"} {
+		m[k] = v[k]
+	}
+	out, err := json.Marshal(m)
+	if err != nil {
+		return meta
+	}
+	return string(out)
 }
 
 func imageAttachmentResult(a Attachment) string {
