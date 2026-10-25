@@ -208,18 +208,26 @@ func (s *Server) publishAttachmentTools(c Conversation, r Run) []Tool {
 	if s.microVM == nil {
 		return nil
 	}
-	return []Tool{{Name: "publish_file", Description: "Publish a regular file from the shared Linux VM as a persistent attachment in this conversation. Everything published rides with the reply and the person sees it, so publish only what they asked to receive; drafts, checks and other working files stay on the computer. Images are previewable; other files are downloadable after the VM stops. The result lists source_path and everything attached to the reply so far, and carries a url that opens the file for the signed-in person; when the person asks for the file or its link, give them that url, as a markdown link, instead of saying a link is unavailable.", Parameters: objectSchema(map[string]any{
+	return []Tool{{Name: "publish_file", Description: "Publish a regular file from the shared Linux VM as a persistent attachment in this conversation. Everything published rides with the reply and the person sees it, so publish only what they asked to receive; drafts, checks and other working files stay on the computer. Images are previewable; other files are downloadable after the VM stops. The result lists source_path and everything attached to the reply so far, and carries a url that opens the file for the signed-in person; when the person asks for the file or its link, give them that url, as a markdown link, instead of saying a link is unavailable. When the file is made from an image you generated, set replaces_attachment_id to that image so the reply carries the finished file instead of the raw one.", Parameters: objectSchema(map[string]any{
 		"path": map[string]any{"type": "string"}, "name": map[string]any{"type": "string"}, "request_key": map[string]any{"type": "string", "description": "Optional stable retry key"},
+		"replaces_attachment_id": map[string]any{"type": "string", "description": "Optional ID of an image made by generate_image in this run; it is dropped from the final reply once this file is published."},
 	}, []string{"path"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		var in struct {
 			Path       string `json:"path"`
 			Name       string `json:"name"`
 			RequestKey string `json:"request_key"`
+			Replaces   string `json:"replaces_attachment_id"`
 		}
 		d := json.NewDecoder(bytes.NewReader(raw))
 		d.DisallowUnknownFields()
 		if d.Decode(&in) != nil || strings.TrimSpace(in.Path) == "" {
 			return "", errors.New("publish_file requires path")
+		}
+		if in.Replaces != "" {
+			var n int
+			if err := s.store.db.QueryRow(`SELECT COUNT(*) FROM run_attachments WHERE run_id=? AND attachment_id=? AND request_key LIKE 'image:%'`, r.ID, in.Replaces).Scan(&n); err != nil || n == 0 {
+				return "", errors.New("replaces_attachment_id must name an image generate_image made in this run and still attached to the reply")
+			}
 		}
 		if in.RequestKey == "" {
 			in.RequestKey = in.Path
@@ -309,6 +317,13 @@ func (s *Server) publishAttachmentTools(c Conversation, r Run) []Tool {
 		if err != nil {
 			_ = s.store.deleteUnboundAttachment(created.ID)
 			return "", err
+		}
+		if in.Replaces != "" && in.Replaces != a.ID {
+			// The generated base stays stored in the conversation, unlisted,
+			// like any superseded file; only the final reply drops it.
+			if _, err = s.store.db.Exec(`DELETE FROM run_attachments WHERE run_id=? AND attachment_id=? AND request_key LIKE 'image:%'`, r.ID, in.Replaces); err != nil {
+				return "", err
+			}
 		}
 		return s.publishedFileResultFor(a, in.Path, s.store.runAttachmentNames(r.ID)), nil
 	}}}

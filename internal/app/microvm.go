@@ -409,6 +409,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 				return "", err
 			}
 			inputs.ensure(ctx, s, r)
+			s.flushGeneratedImages(ctx, r)
 			// Scheduled work may run after idle cleanup has stopped Chrome.
 			// Starting the shared desktop is idempotent, and makes the promised
 			// browser fallback usable without relying on the model to infer a

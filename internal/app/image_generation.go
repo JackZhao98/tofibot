@@ -34,7 +34,7 @@ func (s *Server) imageGenerationTools(c Conversation, r Run) []Tool {
 func (s *Server) imageGenerationTool(c Conversation, r Run, generate func(context.Context, provider.ImageRequest) ([]byte, error)) Tool {
 	var mu sync.Mutex
 	var shown int
-	return Tool{Name: "generate_image", Description: "Generate an image, or edit an image attachment of this conversation, with the connected Codex image service. You see the generated image in the result. Check it as the reader will see it. To change it, call this tool again with reference_attachment_id set to the image to edit. The edit replaces its source in the final reply. Other generated images stay attached. Do not publish them again. Use only for requested image work. May take minutes. Uses the account image allowance. Identical requests in one run reuse the result. Never claim success on an error.", Parameters: objectSchema(map[string]any{
+	return Tool{Name: "generate_image", Description: "Generate an image, or edit an image attachment of this conversation, with the connected Codex image service. You see the generated image in the result. Check it as the reader will see it. To change it, call this tool again with reference_attachment_id set to the image to edit. The edit replaces its source in the final reply. Other generated images stay attached. Do not publish them again. When you have a computer, the image is also there at computer_path for further work such as typesetting over it; publish the finished derivative with publish_file and replaces_attachment_id set to the generated image, so the person receives the derivative alone. Use only for requested image work. May take minutes. Uses the account image allowance. Identical requests in one run reuse the result. Never claim success on an error.", Parameters: objectSchema(map[string]any{
 		"prompt":                  map[string]any{"type": "string", "description": "A complete image brief, or precise editing instructions."},
 		"reference_attachment_id": map[string]any{"type": "string", "description": "Optional image attachment ID to edit, including an image made earlier in this run. Omit to create a new image."},
 		"name":                    map[string]any{"type": "string", "description": "Optional output filename; .png is appended if absent."},
@@ -87,7 +87,7 @@ func (s *Server) imageGenerationTool(c Conversation, r Run, generate func(contex
 			if e != nil {
 				return "", e
 			}
-			return s.imageToolResult(a, &shown), nil
+			return s.imageToolResult(a, &shown, s.noteGeneratedImage(ctx, c, r, a)), nil
 		}
 		if err != sql.ErrNoRows {
 			return "", err
@@ -135,14 +135,14 @@ func (s *Server) imageGenerationTool(c Conversation, r Run, generate func(contex
 				return "", err
 			}
 		}
-		return s.imageToolResult(staged, &shown), nil
+		return s.imageToolResult(staged, &shown, s.noteGeneratedImage(ctx, c, r, staged)), nil
 	}}
 }
 
 // imageToolResult returns the attachment metadata plus, within the files.view
 // bounds and per-run count, the image itself so the model can see what it made.
-func (s *Server) imageToolResult(a Attachment, shown *int) string {
-	meta := imageAttachmentResult(a)
+func (s *Server) imageToolResult(a Attachment, shown *int, computerPath string) string {
+	meta := imageAttachmentResult(a, computerPath)
 	if *shown >= viewsPerRunMax {
 		return meta
 	}
@@ -180,7 +180,11 @@ func (s *Server) imageToolResult(a Attachment, shown *int) string {
 	return string(out)
 }
 
-func imageAttachmentResult(a Attachment) string {
-	data, _ := json.Marshal(map[string]any{"attachment_id": a.ID, "name": a.Name, "mime": a.MIME, "size": a.Size, "url": "/api/attachments/" + a.ID, "delivery": "attached to final reply"})
+func imageAttachmentResult(a Attachment, computerPath string) string {
+	m := map[string]any{"attachment_id": a.ID, "name": a.Name, "mime": a.MIME, "size": a.Size, "url": "/api/attachments/" + a.ID, "delivery": "attached to final reply"}
+	if computerPath != "" {
+		m["computer_path"] = computerPath
+	}
+	data, _ := json.Marshal(m)
 	return string(data)
 }

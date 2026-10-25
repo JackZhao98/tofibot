@@ -275,6 +275,7 @@ type Server struct {
 	stuckRunDone                         chan struct{}
 	computerLeaseMu                      sync.Mutex
 	computerLeases                       map[string]*sync.Mutex
+	generatedOnComputer                  sync.Map // run id -> *generatedImages
 	computerOwnerMu                      sync.Mutex
 	computerOwners                       map[string]string
 	desktopQueueLeft                     map[string]time.Time
