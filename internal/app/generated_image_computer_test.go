@@ -46,7 +46,7 @@ func TestGeneratedImageReachesTheComputerOnNextSyncWithoutBootingIt(t *testing.T
 		t.Fatal(err)
 	}
 	p := genComputerPath(t, out)
-	if p != guestUploadsRoot+"/"+conv.ID+"/comic.png" {
+	if p != guestUploadsRoot+"/"+conv.ID+"/generated/comic.png" {
 		t.Fatalf("path=%q", p)
 	}
 	if _, err := os.Stat(p); err == nil || len(*statuses) != 0 {
@@ -191,5 +191,39 @@ func TestPublishFileReplacesGeneratedImageInFinalReply(t *testing.T) {
 	names := s.store.runAttachmentNames(run.ID)
 	if len(names) != 2 || names[0] != "other.png" || names[1] != "final.png" {
 		t.Fatalf("final reply=%v", names)
+	}
+}
+
+func TestPersonUploadWithGeneratedImageNameIsNotShadowed(t *testing.T) {
+	s, _, conv, run, bot, _ := genImageComputerFixture(t)
+	data := generatedPNG(t)
+	tool := s.imageGenerationTool(conv, run, func(context.Context, provider.ImageRequest) ([]byte, error) { return data, nil })
+	out, err := tool.Execute(context.Background(), json.RawMessage(`{"prompt":"panels","name":"comic"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	gp := genComputerPath(t, out)
+	files, _ := toolNamed(s.microVMTools(run), "computer_files")
+	if _, err := files.Execute(context.Background(), json.RawMessage(`{"action":"files.list","path":"."}`)); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.store.FinishRun(run.ID, conv.ID, bot.ID, "done"); err != nil {
+		t.Fatal(err)
+	}
+	mine := []byte("the person's own file")
+	_, run2, _ := sendWithFiles(t, s, conv.ID, bot.ID, "here", "gi-2", map[string][]byte{"comic.png": mine}, []string{"comic.png"})
+	if ok, err := s.store.SetRunStatus(run2.ID, "running", ""); err != nil || !ok {
+		t.Fatalf("running=%v %v", ok, err)
+	}
+	files2, _ := toolNamed(s.microVMTools(run2), "computer_files")
+	if _, err := files2.Execute(context.Background(), json.RawMessage(`{"action":"files.list","path":"."}`)); err != nil {
+		t.Fatal(err)
+	}
+	plain := guestUploadsRoot + "/" + conv.ID + "/comic.png"
+	if got, err := os.ReadFile(plain); err != nil || !bytes.Equal(got, mine) {
+		t.Fatalf("person's file shadowed: %q %v", got, err)
+	}
+	if got, err := os.ReadFile(gp); err != nil || !bytes.Equal(got, data) {
+		t.Fatalf("generated image moved: %v", err)
 	}
 }

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"log"
+	"strings"
 	"sync"
 	"time"
 )
@@ -41,15 +42,13 @@ func (s *Server) generatedImagesOf(runID string) *generatedImages {
 	return v.(*generatedImages)
 }
 
-// guestOutputCandidates are the conversation's files that share the uploads
-// folder: what people sent, then what Bots published earlier. People's files
-// come first so their paths never move; a later file with the same name gets
-// the id suffix.
+// Generated images live in "generated/" under the conversation's upload
+// folder, never beside people's files: a person's later upload with the same
+// name must reach its own plain path and not be shadowed by a Bot's image.
+// guestOutputCandidates are the files Bots published earlier in the
+// conversation; a later one with the same name gets the id suffix.
 func (s *Store) guestOutputCandidates(conv string) ([]guestInputCandidate, error) {
-	list, err := s.guestInputCandidates(conv, "")
-	if err != nil {
-		return nil, err
-	}
+	var list []guestInputCandidate
 	rows, err := s.db.Query(`SELECT a.id,a.conversation_id,a.name,a.mime,a.size,a.created_at FROM attachments a
 	 JOIN attachment_messages am ON am.attachment_id=a.id JOIN messages m ON m.id=am.message_id
 	 WHERE m.conversation_id=? AND m.role<>'user' GROUP BY a.id ORDER BY a.created_at,a.id`, conv)
@@ -101,9 +100,11 @@ func (s *Server) noteGeneratedImage(ctx context.Context, c Conversation, r Run, 
 		all = append(all, guestInputCandidate{Attachment: a})
 	}
 	path := guestInputPaths(c.ID, all)[a.ID]
-	if path == "" {
+	folder := guestUploadsRoot + "/" + guestInputName(c.ID) + "/"
+	if !strings.HasPrefix(path, folder) {
 		return ""
 	}
+	path = folder + "generated/" + strings.TrimPrefix(path, folder)
 	g.items = append(g.items, &generatedImage{a: a, path: path})
 	if g.used {
 		g.flushLocked(ctx, s, r)
