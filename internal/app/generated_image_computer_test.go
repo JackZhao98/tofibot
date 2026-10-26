@@ -3,6 +3,7 @@ package app
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -107,7 +108,7 @@ func TestEditedAndCachedGeneratedImagesLandOnTheComputer(t *testing.T) {
 	n := 0
 	tool := s.imageGenerationTool(conv, run, func(_ context.Context, in provider.ImageRequest) ([]byte, error) {
 		n++
-		if in.Reference != "" {
+		if len(in.References) > 0 {
 			return b, nil
 		}
 		return a, nil
@@ -225,5 +226,28 @@ func TestPersonUploadWithGeneratedImageNameIsNotShadowed(t *testing.T) {
 	}
 	if got, err := os.ReadFile(gp); err != nil || !bytes.Equal(got, data) {
 		t.Fatalf("generated image moved: %v", err)
+	}
+}
+
+// A file on the computer serves as a reference by its absolute path.
+func TestImageGenerationTakesAComputerFileAsReference(t *testing.T) {
+	s, _, conv, run, _, _ := genImageComputerFixture(t)
+	data := generatedPNG(t)
+	var got provider.ImageRequest
+	tool := s.imageGenerationTool(conv, run, func(_ context.Context, in provider.ImageRequest) ([]byte, error) { got = in; return data, nil })
+	base, err := tool.Execute(context.Background(), json.RawMessage(`{"prompt":"panels","name":"comic"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	files, _ := toolNamed(s.microVMTools(run), "computer_files")
+	if _, err := files.Execute(context.Background(), json.RawMessage(`{"action":"files.list","path":"."}`)); err != nil {
+		t.Fatal(err)
+	}
+	path := genComputerPath(t, base)
+	if _, err := tool.Execute(context.Background(), json.RawMessage(`{"prompt":"same style, new scene","references":["`+path+`"]}`)); err != nil {
+		t.Fatal(err)
+	}
+	if got.Edit || len(got.References) != 1 || got.References[0] != "data:image/png;base64,"+base64.StdEncoding.EncodeToString(data) {
+		t.Fatalf("request edit=%v refs=%d", got.Edit, len(got.References))
 	}
 }

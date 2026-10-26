@@ -44,35 +44,13 @@ func (s *Server) viewComputerFile(ctx context.Context, r Run, raw json.RawMessag
 	if json.Unmarshal(raw, &in) != nil || in.Path == "" {
 		return "", viewFileError("files.view requires the path of a PNG or JPEG file")
 	}
-	var data []byte
-	var version string
-	for offset := int64(0); ; {
-		args, _ := json.Marshal(map[string]any{"path": in.Path, "offset": offset, "limit": viewChunkBytes, "version": version})
-		out, err := s.microVMAction(ctx, r, "files.export_chunk", args)
-		if err != nil {
-			return "", err
-		}
-		var w struct {
-			Data    string `json:"data_base64"`
-			Next    int64  `json:"next_offset"`
-			Size    int64  `json:"size"`
-			EOF     bool   `json:"eof"`
-			Version string `json:"version"`
-		}
-		if json.Unmarshal([]byte(out), &w) != nil || w.Next < offset {
-			return "", errors.New("invalid file chunk from the computer")
-		}
-		if w.Size > viewSourceBytesMax {
-			return "", viewFileError("%s is %d bytes; files.view reads images up to %d bytes. Save a smaller copy and view that", in.Path, w.Size, viewSourceBytesMax)
-		}
-		chunk, err := base64.StdEncoding.DecodeString(w.Data)
-		if err != nil || int64(len(chunk)) != w.Next-offset {
-			return "", errors.New("invalid file chunk from the computer")
-		}
-		data, version, offset = append(data, chunk...), w.Version, w.Next
-		if w.EOF {
-			break
-		}
+	data, err := s.readComputerFile(ctx, r, in.Path, viewSourceBytesMax)
+	var tooLarge *fileTooLargeError
+	if errors.As(err, &tooLarge) {
+		return "", viewFileError("%s is %d bytes; files.view reads images up to %d bytes. Save a smaller copy and view that", in.Path, tooLarge.size, viewSourceBytesMax)
+	}
+	if err != nil {
+		return "", err
 	}
 	return viewImageResult(in.Path, data)
 }

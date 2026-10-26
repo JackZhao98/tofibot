@@ -45,7 +45,7 @@ func TestGenerateImageCodexTransportAndReference(t *testing.T) {
 				fmt.Fprint(w, imageStream([]byte("image data")))
 			}))
 			defer server.Close()
-			data, err := generateCodexImage(context.Background(), server.Client(), server.URL, "token\x00account", ImageRequest{Prompt: "Draw a circle", Reference: reference})
+			data, err := generateCodexImage(context.Background(), server.Client(), server.URL, "token\x00account", ImageRequest{Prompt: "Draw a circle", References: refsOf(reference), Edit: reference != ""})
 			if err != nil || string(data) != "image data" {
 				t.Fatalf("result %q %v", data, err)
 			}
@@ -90,4 +90,11 @@ func TestImageGenerationDoesNotExposeProviderBodyOrRetry(t *testing.T) {
 	if err != context.Canceled || calls != 1 {
 		t.Fatalf("cancel=%v calls=%d", err, calls)
 	}
+}
+
+func refsOf(reference string) []string {
+	if reference == "" {
+		return nil
+	}
+	return []string{reference}
 }

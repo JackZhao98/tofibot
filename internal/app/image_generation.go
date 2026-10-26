@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"image"
 	"io"
 	"path/filepath"
@@ -34,10 +35,11 @@ func (s *Server) imageGenerationTools(c Conversation, r Run) []Tool {
 func (s *Server) imageGenerationTool(c Conversation, r Run, generate func(context.Context, provider.ImageRequest) ([]byte, error)) Tool {
 	var mu sync.Mutex
 	var shown int
-	return Tool{Name: "generate_image", Description: "Generate an image, or edit an image attachment of this conversation, with the connected Codex image service. You see the generated image in the result. Check it as the reader will see it. To change it, call this tool again with reference_attachment_id set to the image to edit. The edit replaces its source in the final reply. Other generated images stay attached. Do not publish them again. When you have a computer, the image is also there at computer_path for further work such as typesetting over it; publish the finished derivative with publish_file and replaces_attachment_id set to the generated image, so the person receives the derivative alone. Use only for requested image work. May take minutes. Uses the account image allowance. Identical requests in one run reuse the result. Never claim success on an error.", Parameters: objectSchema(map[string]any{
-		"prompt":                  map[string]any{"type": "string", "description": "A complete image brief, or precise editing instructions."},
-		"reference_attachment_id": map[string]any{"type": "string", "description": "Optional image attachment ID to edit, including an image made earlier in this run. Omit to create a new image."},
-		"name":                    map[string]any{"type": "string", "description": "Optional output filename; .png is appended if absent."},
+	return Tool{Name: "generate_image", Description: "Generate an image with the connected Codex image service, either a new one or an edit of an existing one. references gives it images to draw on: attachments of this conversation (uploads, published files, images made earlier, including in this run) or image files on your computer by absolute path, up to 8. Without edit, it makes a new image and the references guide it (characters, style, composition), and they stay where they are. With edit, the first reference is the image to change; when that image is one you made in this run, the edit replaces it in the final reply. You see the generated image in the result. Check it as the reader will see it. Other generated images stay attached. Do not publish them again. When you have a computer, the image is also there at computer_path for further work such as typesetting over it; publish the finished derivative with publish_file and replaces_attachment_id set to the generated image, so the person receives the derivative alone. Use only for requested image work. May take minutes. Uses the account image allowance. Identical requests in one run reuse the result. Never claim success on an error.", Parameters: objectSchema(map[string]any{
+		"prompt":     map[string]any{"type": "string", "description": "A complete image brief, or precise editing instructions. Say what each reference is for."},
+		"references": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Optional images to draw on, in order: attachment IDs, or absolute paths of PNG, JPEG, GIF or WebP files on your computer."},
+		"edit":       map[string]any{"type": "boolean", "description": "true changes the first reference instead of making a new image."},
+		"name":       map[string]any{"type": "string", "description": "Optional output filename; .png is appended if absent."},
 	}, []string{"prompt"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		mu.Lock()
 		defer mu.Unlock()
@@ -45,9 +47,11 @@ func (s *Server) imageGenerationTool(c Conversation, r Run, generate func(contex
 			return "", err
 		}
 		var in struct {
-			Prompt    string `json:"prompt"`
-			Reference string `json:"reference_attachment_id"`
-			Name      string `json:"name"`
+			Prompt     string   `json:"prompt"`
+			References []string `json:"references"`
+			Edit       bool     `json:"edit"`
+			Reference  string   `json:"reference_attachment_id"` // earlier form: one image to edit
+			Name       string   `json:"name"`
 		}
 		d := json.NewDecoder(bytes.NewReader(raw))
 		d.DisallowUnknownFields()
@@ -65,15 +69,24 @@ func (s *Server) imageGenerationTool(c Conversation, r Run, generate func(contex
 		if len(name) > 180 {
 			return "", errors.New("image filename is too long")
 		}
-		input := provider.ImageRequest{Prompt: in.Prompt}
 		if in.Reference != "" {
-			var err error
-			input.Reference, err = s.store.attachmentImage(in.Reference, c.ID)
+			in.References, in.Edit = append([]string{in.Reference}, in.References...), true
+		}
+		if len(in.References) > imageReferencesMax {
+			return "", fmt.Errorf("at most %d references are allowed", imageReferencesMax)
+		}
+		if in.Edit && len(in.References) == 0 {
+			return "", errors.New("edit needs the image to change as the first reference")
+		}
+		input := provider.ImageRequest{Prompt: in.Prompt, Edit: in.Edit}
+		for _, ref := range in.References {
+			url, err := s.imageReference(ctx, c, r, ref)
 			if err != nil {
 				return "", err
 			}
+			input.References = append(input.References, url)
 		}
-		sig, _ := json.Marshal([]string{in.Prompt, in.Reference, name})
+		sig, _ := json.Marshal(map[string]any{"prompt": in.Prompt, "references": in.References, "edit": in.Edit, "name": name})
 		digest := sha256.Sum256(sig)
 		key := "image:" + hex.EncodeToString(digest[:])
 		if unnamed {
@@ -128,10 +141,11 @@ func (s *Server) imageGenerationTool(c Conversation, r Run, generate func(contex
 			_ = s.store.deleteUnboundAttachment(a.ID)
 			return "", err
 		}
-		if in.Reference != "" {
+		if in.Edit && !strings.HasPrefix(in.References[0], "/") {
 			// An edit replaces its source in the final reply. The source stays
 			// stored in the conversation, unlisted, like any superseded file.
-			if _, err = s.store.db.Exec(`DELETE FROM run_attachments WHERE run_id=? AND attachment_id=? AND attachment_id<>?`, r.ID, in.Reference, staged.ID); err != nil {
+			// References used to make a new image stay where they are.
+			if _, err = s.store.db.Exec(`DELETE FROM run_attachments WHERE run_id=? AND attachment_id=? AND attachment_id<>?`, r.ID, in.References[0], staged.ID); err != nil {
 				return "", err
 			}
 		}

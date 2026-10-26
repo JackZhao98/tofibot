@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"image"
 	"image/color"
+	"image/gif"
 	"image/png"
 	"os"
 	"strings"
@@ -207,7 +208,10 @@ func TestImageGenerationEditsJustGeneratedImageAndReplacesBase(t *testing.T) {
 	var refs []string
 	n := uint8(0)
 	tool := s.imageGenerationTool(c, r, func(_ context.Context, in provider.ImageRequest) ([]byte, error) {
-		refs = append(refs, in.Reference)
+		refs = append(refs, strings.Join(in.References, ","))
+		if len(in.References) > 0 && !in.Edit {
+			t.Error("the earlier reference_attachment_id form must edit")
+		}
 		n += 50
 		return coloredPNG(t, 16, 16, n), nil
 	})
@@ -275,5 +279,76 @@ func TestImageGenerationImageBudgetPerRun(t *testing.T) {
 	}
 	if withImage != viewsPerRunMax {
 		t.Fatalf("images delivered=%d want %d", withImage, viewsPerRunMax)
+	}
+}
+
+// A reference used to make a new image guides it and stays in the reply; the
+// image service gets every reference and is asked for a new image.
+func TestImageGenerationNewImageFromReferencesKeepsThem(t *testing.T) {
+	s, c, r, b := runningImageFixture(t)
+	var last provider.ImageRequest
+	n := uint8(0)
+	tool := s.imageGenerationTool(c, r, func(_ context.Context, in provider.ImageRequest) ([]byte, error) {
+		last = in
+		n += 40
+		return coloredPNG(t, 16, 16, n), nil
+	})
+	first := imageResultFields(t, mustExec(t, tool, `{"prompt":"hero sheet"}`))["attachment_id"].(string)
+	second := imageResultFields(t, mustExec(t, tool, `{"prompt":"city"}`))["attachment_id"].(string)
+	out := mustExec(t, tool, `{"prompt":"the hero walks the city","references":["`+first+`","`+second+`"]}`)
+	third := imageResultFields(t, out)["attachment_id"].(string)
+	if last.Edit || len(last.References) != 2 {
+		t.Fatalf("request edit=%v refs=%d", last.Edit, len(last.References))
+	}
+	msg, ok, err := s.store.FinishRun(r.ID, c.ID, b.ID, "Done.")
+	if err != nil || !ok {
+		t.Fatalf("finish=%v %v", ok, err)
+	}
+	if len(msg.Attachments) != 3 {
+		t.Fatalf("attachments=%d, want the two references and %s", len(msg.Attachments), third)
+	}
+	if _, err := tool.Execute(context.Background(), json.RawMessage(`{"prompt":"x","edit":true}`)); err == nil {
+		t.Fatal("edit without a reference must be refused")
+	}
+}
+
+func mustExec(t *testing.T, tool Tool, raw string) string {
+	t.Helper()
+	out, err := tool.Execute(context.Background(), json.RawMessage(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+func TestImageReferenceNormalizesFormatsAndSize(t *testing.T) {
+	gifImg := image.NewPaletted(image.Rect(0, 0, 4, 4), color.Palette{color.Black, color.White})
+	var g bytes.Buffer
+	if err := gif.Encode(&g, gifImg, nil); err != nil {
+		t.Fatal(err)
+	}
+	if url, err := imageReferenceDataURL("a.gif", g.Bytes()); err != nil || !strings.HasPrefix(url, "data:image/png;base64,") {
+		t.Fatalf("gif: %.40s %v", url, err)
+	}
+	webp := append([]byte("RIFF\x00\x00\x00\x00WEBP"), make([]byte, 16)...)
+	if url, err := imageReferenceDataURL("a.webp", webp); err != nil || !strings.HasPrefix(url, "data:image/webp;base64,") {
+		t.Fatalf("webp: %.40s %v", url, err)
+	}
+	big := image.NewRGBA(image.Rect(0, 0, 3000, 1000))
+	var p bytes.Buffer
+	if err := png.Encode(&p, big); err != nil {
+		t.Fatal(err)
+	}
+	url, err := imageReferenceDataURL("big.png", p.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := base64.StdEncoding.DecodeString(strings.SplitN(url, ",", 2)[1])
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(raw))
+	if err != nil || cfg.Width != imageReferenceLongSide {
+		t.Fatalf("scaled to %d (%v)", cfg.Width, err)
+	}
+	if _, err := imageReferenceDataURL("a.txt", []byte("hello")); err == nil {
+		t.Fatal("text must be refused")
 	}
 }

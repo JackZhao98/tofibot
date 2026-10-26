@@ -20,8 +20,12 @@ import (
 const maxGeneratedImage = 20 << 20
 
 type ImageRequest struct {
-	Prompt    string
-	Reference string // validated data URL owned by the current conversation
+	Prompt string
+	// References are validated data URLs the image draws on. With Edit the
+	// first one is the image being changed; otherwise a new image is made and
+	// the references guide it (characters, style, layout).
+	References []string
+	Edit       bool
 }
 
 // GenerateCodexImage does not refresh or write credentials, retry a potentially
@@ -37,8 +41,10 @@ func generateCodexImage(ctx context.Context, client *http.Client, endpoint, cred
 	}
 	content := []map[string]any{{"type": "input_text", "text": input.Prompt}}
 	action := "generate"
-	if input.Reference != "" {
-		content = append(content, map[string]any{"type": "input_image", "image_url": input.Reference})
+	for _, ref := range input.References {
+		content = append(content, map[string]any{"type": "input_image", "image_url": ref})
+	}
+	if input.Edit && len(input.References) > 0 {
 		action = "edit"
 	}
 	payload := map[string]any{
