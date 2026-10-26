@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """TOFI host lifecycle: install, start/stop, update/rollback, uninstall.
 
-Runs on a dedicated Linux x86_64 host with KVM as root, using only the Python
+Runs on a dedicated Linux x86_64 or aarch64 host with KVM as root, using only the Python
 standard library. install.sh downloads and verifies a release bundle, then hands
 off to `tofi install --manifest ...`; everything after that lives here.
 
@@ -82,6 +82,15 @@ SWAP_ADVISED_BELOW_MIB = 16 * 1024 - 512
 COMPUTER_MEMORY_MIB = 1024
 COMPUTER_MEMORY_MIN_MIB = 1024
 COMPUTER_MEMORY_DEFAULT_MIB = 2048
+# Hosts whose memory budget cannot hold the default computer step down this
+# ladder (all above the 1 GiB floor, which Chromium barely fits in).
+COMPUTER_MEMORY_SMALL_LADDER_MIB = (1536, 1280)
+# Release architectures: platform.machine() -> (manifest name, Docker name).
+HOST_ARCHES = {'x86_64': ('x86_64', 'amd64'), 'AMD64': ('x86_64', 'amd64'),
+               'aarch64': ('aarch64', 'arm64'), 'arm64': ('aarch64', 'arm64')}
+RELEASE_ARCHES = ('x86_64', 'aarch64')
+# At or below this MemTotal the host gets the small-host advisory.
+SMALL_HOST_MEMORY_MIB = 4608
 COMPUTER_MEMORY_MAX_MIB = 4096
 COMPUTER_OVERHEAD_MIB = 512
 MIN_DISK_BYTES = 30 * GIB
@@ -459,26 +468,69 @@ def validate_manifest(manifest, allow_loopback_app=False):
             raise HostError('The %s image must be pinned as %s@sha256:<digest>; got %r.' % (role, repo, reference))
     download = '%s/download/%s/' % (RELEASE_BASE, version)
     guest = manifest.get('guest')
-    guest_keys = {'version', 'url', 'sha256', 'manifest_sha256', 'guest_binary_sha256'}
-    if not isinstance(guest, dict) or set(guest) != guest_keys:
-        raise HostError('The release manifest guest entry is incomplete.')
-    if not VERSION_RE.match(str(guest['version'])):
-        raise HostError('The guest version %r is invalid.' % guest['version'])
-    for key in ('sha256', 'manifest_sha256', 'guest_binary_sha256'):
-        if not SHA_RE.match(str(guest[key])):
-            raise HostError('The guest %s is not a SHA-256 digest.' % key)
+    validate_guest_entry(guest, 'guest')
     bundle = manifest.get('bundle')
     if not isinstance(bundle, dict) or set(bundle) != {'url', 'sha256'} or not SHA_RE.match(str(bundle['sha256'])):
         raise HostError('The release manifest bundle entry is incomplete.')
-    guest_download = '%s/download/%s/' % (RELEASE_BASE, guest['version'])
-    if not str(guest['url']).startswith(guest_download) or not str(bundle['url']).startswith(download):
+    if not str(bundle['url']).startswith(download):
         raise HostError('Release artifacts must be downloaded from %s over HTTPS.' % RELEASE_BASE)
+    # Optional per-architecture Guest entries. The top-level `guest` stays the
+    # x86_64 one so hosts that predate `arches` read the same manifest.
+    arches = manifest.get('arches')
+    if arches is not None:
+        if not isinstance(arches, dict) or not set(arches) <= set(RELEASE_ARCHES):
+            raise HostError('The release manifest arches entry is invalid.')
+        for arch, entry in arches.items():
+            if not isinstance(entry, dict) or set(entry) != {'guest'}:
+                raise HostError('The release manifest %s entry is incomplete.' % arch)
+            validate_guest_entry(entry['guest'], 'guest (%s)' % arch)
+            if entry['guest']['version'] != guest['version']:
+                raise HostError('The %s guest version differs from the release guest version.' % arch)
+        if 'x86_64' in arches and arches['x86_64']['guest'] != guest:
+            raise HostError('The x86_64 guest entry must match the top-level guest entry.')
     min_host = manifest.get('min_host')
     if not isinstance(min_host, dict):
         raise HostError('The release manifest has no min_host requirements.')
     if not isinstance(manifest.get('data_schema'), str) or not manifest['data_schema']:
         raise HostError('The release manifest has no data_schema.')
     return manifest
+
+
+def validate_guest_entry(guest, label):
+    guest_keys = {'version', 'url', 'sha256', 'manifest_sha256', 'guest_binary_sha256'}
+    if not isinstance(guest, dict) or set(guest) != guest_keys:
+        raise HostError('The release manifest %s entry is incomplete.' % label)
+    if not VERSION_RE.match(str(guest['version'])):
+        raise HostError('The guest version %r is invalid.' % guest['version'])
+    for key in ('sha256', 'manifest_sha256', 'guest_binary_sha256'):
+        if not SHA_RE.match(str(guest[key])):
+            raise HostError('The guest %s is not a SHA-256 digest.' % key)
+    if not str(guest['url']).startswith('%s/download/%s/' % (RELEASE_BASE, guest['version'])):
+        raise HostError('Release artifacts must be downloaded from %s over HTTPS.' % RELEASE_BASE)
+
+
+def host_arch():
+    """(release arch, Docker arch) of this host, or None when unsupported."""
+    if platform.system() != 'Linux':
+        return None
+    return HOST_ARCHES.get(platform.machine())
+
+
+def guest_for_host(manifest, arch=None):
+    """The Guest entry of `manifest` for this host's architecture.
+
+    A manifest without `arches` (every release before arm64) carries x86_64 only.
+    """
+    if arch is None:
+        found = host_arch()
+        arch = found[0] if found else 'x86_64'
+    entry = (manifest.get('arches') or {}).get(arch)
+    if entry:
+        return entry['guest']
+    if arch == 'x86_64':
+        return manifest['guest']
+    raise HostError('Release %s has no Guest for %s hosts; it was built for x86_64 only. '
+                    'Install a newer release.' % (manifest['version'], arch))
 
 
 def manifest_notes_url(manifest):
@@ -788,8 +840,9 @@ def regenerate_certificate():
 def preflight(options):
     """Refuse an unsupported host before anything is written; return warnings."""
     warnings = []
-    if platform.system() != 'Linux' or platform.machine() not in ('x86_64', 'AMD64'):
-        raise HostError('TOFI needs Linux x86_64; this host is %s %s.' % (platform.system(), platform.machine()))
+    if host_arch() is None:
+        raise HostError('TOFI needs Linux x86_64 or aarch64; this host is %s %s.'
+                        % (platform.system(), platform.machine()))
     require_root()
     if not P.dev_kvm.exists() or not stat.S_ISCHR(P.dev_kvm.stat().st_mode):
         raise HostError('KVM is not available (/dev/kvm). Use bare metal or a VM with nested virtualization enabled.')
@@ -826,6 +879,10 @@ def preflight(options):
         raise HostError('TOFI needs at least 4 GiB of RAM; this host has %d MiB.' % memory)
     if memory < WARN_MEMORY_MIB:
         warnings.append('This host has %d MiB of RAM; 8 GiB or more is recommended.' % memory)
+    if memory <= SMALL_HOST_MEMORY_MIB:
+        _, reason = default_computer_resources(1, runtime_budgets()['memory_mib'])
+        warnings.append('This is a small host (%d MiB of RAM): it runs a single computer at a time. %s'
+                        % (memory, reason or ''))
     swap_warning, _ = memory_report()
     if swap_warning:
         warnings.append(swap_warning)
@@ -890,13 +947,17 @@ def default_computer_resources(cpu_budget, memory_budget_mib):
     vcpus = 2 if int(cpu_budget) >= 2 else 1
     budget = int(memory_budget_mib)
     target = min(COMPUTER_MEMORY_MAX_MIB, max(COMPUTER_MEMORY_DEFAULT_MIB, budget // 4))
-    for memory in (target, COMPUTER_MEMORY_DEFAULT_MIB, COMPUTER_MEMORY_MIN_MIB):
+    ladder = (target, COMPUTER_MEMORY_DEFAULT_MIB) + COMPUTER_MEMORY_SMALL_LADDER_MIB + (COMPUTER_MEMORY_MIN_MIB,)
+    for memory in ladder:
         if memory + COMPUTER_OVERHEAD_MIB <= budget:
             break
     reason = None
-    if memory < COMPUTER_MEMORY_DEFAULT_MIB:
+    if memory == COMPUTER_MEMORY_MIN_MIB:
         reason = ('The memory budget (%d MiB) cannot hold a %d MiB computer; using the %d MiB minimum, '
-                  'which is tight for Chrome.' % (budget, COMPUTER_MEMORY_DEFAULT_MIB, memory))
+                  'which is tight for Chromium.' % (budget, COMPUTER_MEMORY_DEFAULT_MIB, memory))
+    elif memory < COMPUTER_MEMORY_DEFAULT_MIB:
+        reason = ('The memory budget (%d MiB) cannot hold a %d MiB computer; using %d MiB, enough for Chromium '
+                  'with one or two pages. Add swap for headroom.' % (budget, COMPUTER_MEMORY_DEFAULT_MIB, memory))
     elif memory < target:
         reason = 'The memory budget (%d MiB) limits the computer to %d MiB.' % (budget, memory)
     if vcpus < 2:
@@ -1069,8 +1130,11 @@ def inspect_image(reference, role, data_schema=None):
         data = json.loads(run(['docker', 'image', 'inspect', reference]).stdout)[0]
     except (subprocess.SubprocessError, ValueError, IndexError) as error:
         raise HostError('Image %s is not available locally.' % reference) from error
-    if data.get('Architecture') != 'amd64' or data.get('Os') != 'linux':
-        raise HostError('Image %s is %s/%s; linux/amd64 is required.' % (reference, data.get('Os'), data.get('Architecture')))
+    found = host_arch()
+    docker_arch = found[1] if found else 'amd64'
+    if data.get('Architecture') != docker_arch or data.get('Os') != 'linux':
+        raise HostError('Image %s is %s/%s; linux/%s is required.'
+                        % (reference, data.get('Os'), data.get('Architecture'), docker_arch))
     # Docker shortens Docker Hub names in RepoDigests (caddy@sha256:...), so
     # compare the pinned digest itself.
     pinned = '@' + reference.partition('@')[2]
@@ -2609,7 +2673,7 @@ def fresh_install(manifest, options):
         env = render_env(manifest, options, budgets)
         prepare_directories()
         pull_images(env, manifest['data_schema'])
-        fetch_guest(manifest['guest'], bundle_manager(bundle))
+        fetch_guest(guest_for_host(manifest), bundle_manager(bundle))
         apply_host_config(bundle, env)
         state = new_state(manifest['version'])
         save_state(state)
@@ -2841,7 +2905,7 @@ def _upgrade(info, version, manifest_path, allow_schema_change, manifest, wait, 
                             'then re-run with --allow-schema-change.' % (current_schema, new_schema))
         install_bundle(manifest)
         bundle = P.releases / manifest['version']
-        fetch_guest(manifest['guest'], bundle_manager(bundle))
+        fetch_guest(guest_for_host(manifest), bundle_manager(bundle))
         announce_computer_impact(previous['env'], manifest)
         # A value tofi cannot write back must never be found after the services are down.
         format_env(candidate)
@@ -2957,7 +3021,7 @@ def restore_backup(backup_id, yes=False, wait=0, force=False, confirm=None, disk
         pull_images(candidate, None)
         install_bundle(manifest)
         bundle = P.releases / version
-        fetch_guest(manifest['guest'], bundle_manager(bundle))
+        fetch_guest(guest_for_host(manifest), bundle_manager(bundle))
         # Room for a backup of the current state plus the restored copy beside it.
         current = tree_bytes(P.data) + tree_bytes(P.etc)
         incoming = int(meta['sizes'].get('data_bytes') or 0) + int(meta['sizes'].get('etc_bytes') or 0)

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# TOFI one-command installer for a dedicated Linux x86_64 server with KVM.
+# TOFI one-command installer for a dedicated Linux x86_64 or aarch64 server with KVM.
 #
 #   curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh | sudo bash
 #   curl -fsSL .../install.sh | sudo bash -s -- --domain tofi.example.com --email you@example.com --yes
@@ -22,6 +22,7 @@ TOTAL_STEPS=12
 MIN_CPUS=2
 MIN_MEMORY_MIB=3584   # "4 GiB" machines report slightly less in MemTotal
 WARN_MEMORY_MIB=7680
+SMALL_HOST_MEMORY_MIB=4608   # at or below this, one computer at a time
 SWAP_ADVISED_BELOW_MIB=15872   # advise swap below "16 GiB" (MemTotal reads a little less)
 MIN_DISK_GIB=30
 WARN_DISK_GIB=40
@@ -361,7 +362,7 @@ check_platform() {
   uid=$(id -u)
   [[ $uid == 0 ]] || die "Run as root: curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh | sudo bash (current uid $uid)."
   platform=$(uname -sm)
-  [[ $platform == "Linux x86_64" ]] || die "TOFI servers need Linux x86_64; this machine is '$platform'."
+  [[ $platform == "Linux x86_64" || $platform == "Linux aarch64" ]] || die "TOFI servers need Linux x86_64 or aarch64; this machine is '$platform'."
   step_ok
 }
 
@@ -445,6 +446,7 @@ check_resources() {
   memory_mib=$(( memory_kib / 1024 ))
   (( memory_mib >= MIN_MEMORY_MIB )) || die "TOFI needs at least 4 GiB of RAM; this host has $memory_mib MiB."
   (( memory_mib >= WARN_MEMORY_MIB )) || warn "This host has $memory_mib MiB of RAM; 8 GiB or more is recommended."
+  (( memory_mib > SMALL_HOST_MEMORY_MIB )) || warn "This is a small host ($memory_mib MiB of RAM): TOFI runs one computer at a time and sizes it to fit (about 1.25 GiB), so add swap for headroom."
   local swap_kib
   swap_kib=$(awk '$1 == "SwapTotal:" { print $2 }' "$MEMINFO")
   if [[ -n $swap_kib ]] && (( swap_kib == 0 && memory_mib < SWAP_ADVISED_BELOW_MIB )); then
@@ -524,8 +526,10 @@ install_docker_from_repo() {
   install -m 0755 -d "$APT_KEYRINGS"
   curl -fsSL --proto '=https' --tlsv1.2 "https://download.docker.com/linux/$OS_ID/gpg" -o "$APT_KEYRINGS/docker.asc" || return 1
   chmod a+r "$APT_KEYRINGS/docker.asc"
-  printf 'deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/%s %s stable\n' \
-    "$OS_ID" "$OS_CODENAME" > "$APT_SOURCES/docker.list"
+  local apt_arch=amd64
+  [[ $(uname -sm) == *aarch64 ]] && apt_arch=arm64
+  printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/%s %s stable\n' \
+    "$apt_arch" "$OS_ID" "$OS_CODENAME" > "$APT_SOURCES/docker.list"
   if ! apt_get update || ! apt_get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin; then
     rm -f "$APT_SOURCES/docker.list"
     apt_get update || true
@@ -749,6 +753,8 @@ MIN_CPUS = 2
 MIN_MEMORY_MIB = 3584      # "4 GiB" machines report slightly less in MemTotal
 WARN_MEMORY_MIB = 7680
 SWAP_ADVISED_BELOW_MIB = 15872
+SMALL_HOST_MEMORY_MIB = 4608   # at or below this, one computer at a time (see tofi_host.default_computer_resources)
+SUPPORTED_PLATFORMS = ('Linux x86_64', 'Linux aarch64')
 MIN_DISK_GIB = 30
 WARN_DISK_GIB = 40
 SUPPORTED_SYSTEMS = {('ubuntu', '22.04'), ('ubuntu', '24.04'), ('debian', '12'), ('debian', '13')}
@@ -1362,8 +1368,8 @@ def check_host(facts, environ=None, fresh=True):
     failures, warnings = [], []
     if facts['uid'] != '0':
         failures.append('Run as root: %s (current uid %s).' % (INSTALL_COMMAND, facts['uid']))
-    if facts['platform'] != 'Linux x86_64':
-        failures.append("TOFI servers need Linux x86_64; this machine is '%s'." % facts['platform'])
+    if facts['platform'] not in SUPPORTED_PLATFORMS:
+        failures.append("TOFI servers need Linux x86_64 or aarch64; this machine is '%s'." % facts['platform'])
     info = facts['os']
     if info is None:
         failures.append('Cannot read %s; supported systems are Ubuntu 22.04/24.04 and Debian 12/13.'
@@ -1394,6 +1400,9 @@ def check_host(facts, environ=None, fresh=True):
             failures.append('TOFI needs at least 4 GiB of RAM; this host has %d MiB.' % memory)
         elif memory < WARN_MEMORY_MIB:
             warnings.append('This host has %d MiB of RAM; 8 GiB or more is recommended.' % memory)
+        if memory <= SMALL_HOST_MEMORY_MIB:
+            warnings.append('This is a small host (%d MiB of RAM): TOFI runs one computer at a time and sizes it '
+                            'to fit (about 1.25 GiB), so add swap for headroom.' % memory)
         if facts['swap_mib'] == 0 and memory < SWAP_ADVISED_BELOW_MIB:
             warnings.append('This host has %d MiB of RAM and no swap; a computer that runs out of memory can '
                             'freeze the whole host. Add swap (for example a 4 GiB swap file) or use 16 GiB of '
@@ -1414,8 +1423,8 @@ def machine_rows(facts, fresh=True, ports=None):
     """Rows for the "This machine" card: (status, label, text)."""
     rows = []
     platform = facts['platform']
-    system = '%s · %s' % (system_name(facts), platform)
-    supported = os_supported(facts) and platform == 'Linux x86_64'
+    system = '%s · %s' % (system_name(facts), platform)  # platform shows the architecture
+    supported = os_supported(facts) and platform in SUPPORTED_PLATFORMS
     rows.append(('ok' if supported else 'bad', 'System', system if supported else system + ' — not supported'))
     cpus = facts['cpus']
     rows.append(('ok' if cpus >= MIN_CPUS else 'bad', 'CPU', '%d vCPU%s' % (cpus, '' if cpus == 1 else 's')

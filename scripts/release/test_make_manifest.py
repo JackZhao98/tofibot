@@ -86,6 +86,68 @@ class ManifestTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             make_manifest.build_manifest('0.1', IMAGES, self.guest, self.release_json, self.bundle)
 
+    def make_aarch64(self, arch_field='aarch64', name=None):
+        archive = self.dir / (name or 'tofi-guest-%s-aarch64.tar.zst' % VERSION)
+        archive.write_bytes(b'synthetic arm guest archive')
+        release = self.dir / 'account-release-aarch64.json'
+        release.write_text(json.dumps({'guest_binary_sha256': 'f' * 64, 'schema': 1, 'arch': arch_field}))
+        return archive, release
+
+    def test_both_arches_keep_top_level_x86_64_and_add_arches(self):
+        archive, release = self.make_aarch64()
+        single = make_manifest.build_manifest(VERSION, IMAGES, self.guest, self.release_json, self.bundle)
+        both = make_manifest.build_manifest(VERSION, IMAGES, self.guest, self.release_json, self.bundle,
+                                            extra_guests={'aarch64': (archive, release)})
+        self.assertNotIn('arches', single)
+        # Old readers see the very same guest, images and bundle.
+        for key in ('schema', 'version', 'images', 'guest', 'bundle', 'data_schema'):
+            self.assertEqual(both[key], single[key], key)
+        base = 'https://github.com/JackZhao98/tofibot/releases/download/%s/' % VERSION
+        self.assertEqual(both['arches']['x86_64']['guest'], both['guest'])
+        arm = both['arches']['aarch64']['guest']
+        self.assertEqual(arm['url'], base + archive.name)
+        self.assertEqual(arm['sha256'], hashlib.sha256(b'synthetic arm guest archive').hexdigest())
+        self.assertEqual(arm['manifest_sha256'], hashlib.sha256(release.read_bytes()).hexdigest())
+        self.assertEqual(arm['guest_binary_sha256'], 'f' * 64)
+        self.assertEqual(both['min_host']['arches'], ['x86_64', 'aarch64'])
+        host = make_manifest.tofi_host
+        self.assertEqual(host.guest_for_host(both, 'aarch64'), arm)
+        self.assertEqual(host.guest_for_host(both, 'x86_64'), both['guest'])
+
+    def test_cli_with_aarch64(self):
+        archive, release = self.make_aarch64()
+        out = self.dir / 'm3.json'
+        args = ['--version', VERSION, '--app-image', IMAGES['app'],
+                '--worker-image', IMAGES['worker'], '--caddy-image', IMAGES['caddy'],
+                '--guest-archive', str(self.guest), '--guest-release-json', str(self.release_json),
+                '--bundle', str(self.bundle), '--out', str(out)]
+        self.assertEqual(make_manifest.main(args + ['--guest-aarch64-archive', str(archive),
+                                                    '--guest-aarch64-release-json', str(release)]), 0)
+        self.assertEqual(sorted(json.loads(out.read_text())['arches']), ['aarch64', 'x86_64'])
+        self.assertEqual(make_manifest.main(args + ['--guest-aarch64-archive', str(archive)]), 1)
+
+    def test_arch_mismatches_are_refused(self):
+        archive, release = self.make_aarch64(arch_field='x86_64')
+        with self.assertRaisesRegex(ValueError, 'arch x86_64'):
+            make_manifest.build_manifest(VERSION, IMAGES, self.guest, self.release_json, self.bundle,
+                                         extra_guests={'aarch64': (archive, release)})
+        archive, release = self.make_aarch64(name='tofi-guest-%s-x86_64.tar.zst.bak' % VERSION)
+        with self.assertRaisesRegex(ValueError, 'tofi-guest-'):
+            make_manifest.build_manifest(VERSION, IMAGES, self.guest, self.release_json, self.bundle,
+                                         extra_guests={'aarch64': (archive, release)})
+        # An x86_64 release json that claims aarch64 is refused as the x86_64 Guest.
+        self.release_json.write_text(json.dumps({'guest_binary_sha256': 'e' * 64, 'arch': 'aarch64'}))
+        with self.assertRaisesRegex(ValueError, 'arch aarch64'):
+            make_manifest.build_manifest(VERSION, IMAGES, self.guest, self.release_json, self.bundle)
+
+    def test_old_manifest_without_arches_still_validates(self):
+        old = make_manifest.build_manifest(VERSION, IMAGES, self.guest, self.release_json, self.bundle)
+        host = make_manifest.tofi_host
+        host.validate_manifest(old)
+        self.assertEqual(host.guest_for_host(old, 'x86_64'), old['guest'])
+        with self.assertRaisesRegex(host.HostError, 'no Guest for aarch64'):
+            host.guest_for_host(old, 'aarch64')
+
 
 class BundleTests(unittest.TestCase):
     def test_bundle_layout_and_reproducibility(self):

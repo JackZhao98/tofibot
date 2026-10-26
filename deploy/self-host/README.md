@@ -1,6 +1,6 @@
 # Self-host install (Linux + KVM)
 
-One command installs TOFI on a dedicated Linux x86_64 server with KVM: the same
+One command installs TOFI on a dedicated Linux x86_64 or aarch64 (arm64) server with KVM: the same
 App + Worker + one Firecracker computer per account as production, everything in
 Docker.
 
@@ -16,14 +16,23 @@ the gate before `v0.1.0`.
 
 | | Minimum | Recommended |
 |---|---|---|
-| CPU | Linux x86_64, 2 vCPUs, `/dev/kvm` | 4 vCPUs |
-| Memory | 4 GiB | 8 GiB |
+| CPU | Linux x86_64 or aarch64, 2 vCPUs, `/dev/kvm` | 4 vCPUs |
+| Memory | 4 GiB (one small computer; see below) | 8 GiB |
 | Disk free under `/var/lib` | 30 GiB | 40 GiB |
 | OS | Ubuntu 22.04/24.04, Debian 12/13 | |
 
 Also required: `/dev/net/tun`, cgroup v2 and AppArmor enabled in the kernel. The
 first account reserves an 8 GiB workspace disk plus 8 GiB internal space. Other
 distributions can try `TOFI_ALLOW_UNSUPPORTED=1`.
+
+aarch64 hosts (for example a NanoPi R5C, RK3568, Debian 13) get the same
+release: images are multi-arch manifest lists, and the installer and `tofi
+update` fetch the `tofi-guest-<tag>-aarch64.tar.zst` Guest. The computer's
+browser is Chromium there (Google Chrome has no arm64 Linux build). On a host
+with 4.5 GiB of RAM or less the installer passes with an advisory: the memory
+budget is `MemTotal - 2048` MiB, so a "4 GiB" board (about 3.9 GiB visible)
+defaults each computer to 1280 MiB RAM and runs one at a time; add swap. Larger
+hosts keep the 2048 MiB default.
 
 ## Interactive install
 
@@ -39,7 +48,7 @@ confirm:
    installation (not installed, installed vX, stopped with data retained,
    interrupted install/update/uninstall), and the LAN and public IPv4 addresses.
    Low-RAM, no-swap and disk advisories follow. A hard failure (not Linux
-   x86_64, unsupported distribution without `TOFI_ALLOW_UNSUPPORTED=1`, no KVM,
+   x86_64 or aarch64, unsupported distribution without `TOFI_ALLOW_UNSUPPORTED=1`, no KVM,
    not root, too small) is reported after the whole card, with every reason,
    and exits 1.
 2. **How should each account's computer run?** `KVM (Firecracker)` is the
@@ -237,7 +246,7 @@ challenge the notice appears about every half hour. TOFI sets no
 
 ## What install.sh does
 
-1. Root and `Linux x86_64`.
+1. Root and `Linux x86_64` or `Linux aarch64`.
 2. Supported distribution from `/etc/os-release`.
 3. `/dev/kvm`, `/dev/net/tun`, cgroup v2, AppArmor.
 4. CPU, memory, disk and free ports (8321 on any address), the "This machine"
@@ -560,13 +569,18 @@ current step and the last error. An update stores the previous `tofi.env`,
 ## Publishing a release
 
 `.github/workflows/release.yml` runs on a `v*` tag (or manually with a tag):
-tests, then clean `linux/amd64` builds of `ghcr.io/jackzhao98/tofi`,
+tests, with clean native builds of `ghcr.io/jackzhao98/tofi`,
 `tofi-worker` (and `tofi-mcp-runner` for development) with
-`TOFI_SOURCE_COMMIT`, the Guest release
+`TOFI_SOURCE_COMMIT` on `ubuntu-24.04` (amd64) and `ubuntu-24.04-arm` (arm64)
+runners at the same time (by digest, no tag); once `test` passes, one manifest
+list per image is tagged and pinned. The Guest release
 (`TOFI_ACCOUNT_RELEASE=1 deploy/microvm/build-images.sh`, packaged as
-`tofi-guest-<tag>-x86_64.tar.zst` with `tar --sparse`), the host bundle
-(`scripts/release/make_bundle.sh`) and `manifest.json`
-(`scripts/release/make_manifest.py`, Caddy pinned by digest). Tags containing
+`tofi-guest-<tag>-<arch>.tar.zst` with `tar --sparse`, arch `x86_64` or
+`aarch64`) is built natively per architecture, also alongside `test`. Then the
+host bundle (`scripts/release/make_bundle.sh`) and `manifest.json`
+(`scripts/release/make_manifest.py`, Caddy pinned by its multi-arch digest).
+The manifest keeps the x86_64 Guest as the top-level `guest` and adds an
+`arches` map; see decision 0066. Tags containing
 `-rc` become prereleases, which `releases/latest` never serves.
 
 One-time step: GitHub Actions' token cannot change package visibility. After the
