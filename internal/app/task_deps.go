@@ -10,6 +10,7 @@ package app
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -312,6 +313,9 @@ func bindUnlockedTasksTx(tx *sql.Tx, botID, runID string, rows []inboxRow, start
 			return err
 		}
 		if n, _ := res.RowsAffected(); n == 1 {
+			if err = deliverTaskAttachmentsTx(tx, row.TaskID, runID); err != nil {
+				return err
+			}
 			if err = taskEventTx(tx, row.TaskID); err != nil {
 				return err
 			}
@@ -320,19 +324,79 @@ func bindUnlockedTasksTx(tx *sql.Tx, botID, runID string, rows []inboxRow, start
 	return nil
 }
 
+// deliverTaskAttachmentsTx puts the files a waiting task carries where its run
+// reads: when the run's conversation cannot see them yet, a brief message of
+// the giver, bound to them, is posted there (a visible group already holds the
+// "@name brief" message that carries them).
+func deliverTaskAttachmentsTx(tx *sql.Tx, taskID, runID string) error {
+	rows, err := tx.Query(`SELECT attachment_id FROM task_attachments WHERE task_id=? ORDER BY attachment_id`, taskID)
+	if err != nil {
+		return err
+	}
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err = rows.Scan(&id); err != nil {
+			rows.Close()
+			return err
+		}
+		ids = append(ids, id)
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil || len(ids) == 0 {
+		return err
+	}
+	var conv, giver, brief, bot string
+	if err = tx.QueryRow(`SELECT assigner_bot_id,description,bot_id FROM work_items WHERE id=?`, taskID).Scan(&giver, &brief, &bot); err != nil {
+		return err
+	}
+	if err = tx.QueryRow(`SELECT conversation_id FROM runs WHERE id=?`, runID).Scan(&conv); err != nil {
+		return err
+	}
+	var missing []string
+	for _, id := range ids {
+		var n int
+		if err = tx.QueryRow(`SELECT COUNT(*) FROM attachments a WHERE a.id=? AND (a.conversation_id=? OR EXISTS(
+	 SELECT 1 FROM attachment_messages am JOIN messages m ON m.id=am.message_id WHERE am.attachment_id=a.id AND m.conversation_id=?))`, id, conv, conv).Scan(&n); err != nil {
+			return err
+		}
+		if n == 0 {
+			missing = append(missing, id)
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	var seq int64
+	if err = tx.QueryRow(nextMessageSeqSQL, conv, conv, streamDraftActive).Scan(&seq); err != nil {
+		return err
+	}
+	t := now()
+	notice := &HandoffNotice{Type: "handoff", FromBotID: giver, ToBotID: bot, TargetConversationID: conv, TargetRunID: runID}
+	noticeData, _ := json.Marshal(notice)
+	m := Message{ID: newID(), ConversationID: conv, Seq: seq, Role: "assistant", Kind: "notice", SenderBotID: giver, RunID: runID, Content: brief, Notice: notice, CreatedAt: t}
+	if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, m.ID, conv, seq, m.Role, m.Kind, giver, runID, brief, string(noticeData), t); err != nil {
+		return err
+	}
+	if err = bindDeliveredTx(tx, &m, missing); err != nil {
+		return err
+	}
+	return insertEventTx(tx, conv, "message", m, t)
+}
+
 // AddDependentTasks creates the tasks of a delegation that waits on other
 // tasks: one per recipient, with no run until they unlock. A task with no
 // dependency, or whose dependencies are all done, starts at once through the
 // inbox; this is how a run gives a second task after it used its one hand-over,
 // so independent parts run in parallel. The giver holds the wait for each
 // result, delivered through the inbox when the task ends.
-func (s *Store) AddDependentTasks(conv, giver, parentRun string, recipients []string, brief, title string, checklist, deps []string) ([]delegatedTaskReceipt, error) {
-	receipts, err := s.addDependentTasks(conv, giver, parentRun, recipients, brief, title, checklist, deps)
+func (s *Store) AddDependentTasks(conv, giver, parentRun string, recipients []string, brief, title string, checklist, deps []string, attachmentIDs ...string) ([]delegatedTaskReceipt, error) {
+	receipts, err := s.addDependentTasks(conv, giver, parentRun, recipients, brief, title, checklist, deps, attachmentIDs)
 	s.afterTreeLimit(err)
 	return receipts, err
 }
 
-func (s *Store) addDependentTasks(conv, giver, parentRun string, recipients []string, brief, title string, checklist, deps []string) ([]delegatedTaskReceipt, error) {
+func (s *Store) addDependentTasks(conv, giver, parentRun string, recipients []string, brief, title string, checklist, deps []string, attachmentIDs []string) ([]delegatedTaskReceipt, error) {
 	deps = cleanDepIDs(deps)
 	brief = strings.TrimSpace(brief)
 	title = strings.TrimSpace(title)
@@ -446,6 +510,11 @@ func (s *Store) addDependentTasks(conv, giver, parentRun string, recipients []st
 		}
 		if len(checklist) > 0 {
 			if err = addChecklistItemsTx(tx, id, checklist); err != nil {
+				return nil, err
+			}
+		}
+		for _, att := range attachmentIDs {
+			if _, err = tx.Exec(`INSERT OR IGNORE INTO task_attachments(task_id,attachment_id) VALUES(?,?)`, id, att); err != nil {
 				return nil, err
 			}
 		}

@@ -117,3 +117,46 @@ func TestGroupDelegationMessageCarriesAttachments(t *testing.T) {
 		t.Fatalf("event lacks the attachment: %v %s", err, ev)
 	}
 }
+
+// A task that waits carries its files: when the dependency is done and the task
+// starts, the brief that reaches its run holds them.
+func TestWaitingDelegationDeliversAttachmentsWhenItStarts(t *testing.T) {
+	f := newTaskFix(t)
+	dm, _ := f.s.GetConversation(f.a.DMConversationID)
+	att := f.textAttachment(dm.ID, "data.txt", "waiting payload")
+	root := f.running(dm.ID, f.a)
+	iface := f.delegateTo(dm, root, f.b, "Prepare the ground")
+	out, err := call(t, f.tool(dm, root, "delegate"), map[string]any{"bot_id": f.c.ID, "task": "Use the data", "depends_on": []string{iface.TaskID}, "attachment_ids": []string{att.ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var receipt struct {
+		Tasks []receiptTask `json:"tasks"`
+	}
+	if err = json.Unmarshal([]byte(out), &receipt); err != nil || len(receipt.Tasks) != 1 {
+		t.Fatalf("receipt %q %v", out, err)
+	}
+	waiting := receipt.Tasks[0]
+	charlieDM, _ := f.s.GetConversation(f.c.DMConversationID)
+	if ok, _ := f.s.attachmentAvailableInConversation(att.ID, charlieDM.ID); ok {
+		t.Fatal("file visible before the task starts")
+	}
+	ifaceRun := f.taskRow(iface.TaskID).AssigneeRunID
+	f.start(ifaceRun)
+	if _, ok, err := f.s.FinishRun(ifaceRun, f.b.DMConversationID, f.b.ID, "Ground prepared."); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	f.srv.flushInbox()
+	row := f.taskRow(waiting.TaskID)
+	if row.AssigneeRunID == "" {
+		t.Fatalf("task did not start: %+v", row)
+	}
+	run, _ := f.s.GetRun(row.AssigneeRunID)
+	if out, err := f.readAs(charlieDM, run, att.ID); err != nil || !strings.Contains(out, "waiting payload") {
+		t.Fatalf("read: %q %v", out, err)
+	}
+	staged, err := f.s.guestInputCandidates(charlieDM.ID, "")
+	if err != nil || len(staged) != 1 || staged[0].ID != att.ID {
+		t.Fatalf("staging %+v %v", staged, err)
+	}
+}

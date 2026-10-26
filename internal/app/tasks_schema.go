@@ -33,6 +33,11 @@ CREATE TABLE IF NOT EXISTS task_checklist(
  updated_at TEXT NOT NULL,
  PRIMARY KEY(task_id,item_id)
 );
+CREATE TABLE IF NOT EXISTS task_attachments(
+ task_id TEXT NOT NULL REFERENCES work_items(id) ON DELETE CASCADE,
+ attachment_id TEXT NOT NULL,
+ PRIMARY KEY(task_id,attachment_id)
+);
 CREATE TABLE IF NOT EXISTS task_revisions(
  task_id TEXT NOT NULL REFERENCES work_items(id) ON DELETE CASCADE,
  version INTEGER NOT NULL,

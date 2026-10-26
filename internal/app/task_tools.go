@@ -104,13 +104,10 @@ func (s *Server) delegateTool(c Conversation, r Run) Tool {
 			if deps := cleanDepIDs(in.DependsOn); len(deps) > 0 || (len(recipients) == 1 && s.store.handoffUsed(r.ID)) {
 				// The tasks wait, or this run gave its one direct task already: no run
 				// starts now, and no hand-over slot of this run is used.
-				if len(in.AttachmentIDs) > 0 && !s.store.sameGroupRecipients(c.ID, recipients) {
-					return "", taskRefusal("attachments_need_direct_delegation", "Attachments travel with a task that starts now, or with a task in a group you share with the member. Give this task without depends_on, or in the group.")
-				}
 				if c.Kind != "group" && c.Kind != "dm" {
 					return "", errors.New("delegate requires a conversation")
 				}
-				receipts, err := s.store.AddDependentTasks(c.ID, r.BotID, r.ID, recipients, in.Task, in.Title, in.Checklist, deps)
+				receipts, err := s.store.AddDependentTasks(c.ID, r.BotID, r.ID, recipients, in.Task, in.Title, in.Checklist, deps, in.AttachmentIDs...)
 				if err != nil {
 					return "", err
 				}
