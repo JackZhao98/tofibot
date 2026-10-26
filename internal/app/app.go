@@ -4887,7 +4887,7 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 	}
 	base = append(base, s.workspaceTools(c, r)...)
 	base = append(base, s.extensionManagementTools(c, r)...)
-	base = append(base, s.attachmentTools(c)...)
+	base = append(base, s.attachmentTools(c, r)...)
 	base = append(base, s.imageGenerationTools(c, r)...)
 	base = append(base, s.publishAttachmentTools(c, r)...)
 	if s.store.hasPairedComputer() {

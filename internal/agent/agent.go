@@ -2193,7 +2193,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 						}
 					}
 					imageURLs := visualImageURLs(fnName, argsMap, resultMsg)
-					if (fnName == "computer_action" || fnName == "computer_desktop" || fnName == "computer_browser" || fnName == "computer_files") && err == nil {
+					if resultCarriesImage[fnName] && err == nil {
 						resultMsg, imageURLs = computerScreenshot(resultMsg)
 					}
 					ctx.Log("[ExtraTool:%s] %s", fnName, truncate(resultMsg, 200))

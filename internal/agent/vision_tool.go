@@ -62,6 +62,15 @@ func isVisualImageURL(rawURL string) bool {
 	return true
 }
 
+// resultCarriesImage names the tools whose bounded result may carry an image
+// for the model to look at: computer screenshots and files.view, a generated
+// image, and an attachment read as an image. The image reaches the model as
+// vision input; left in the text it would be base64 the model cannot see.
+var resultCarriesImage = map[string]bool{
+	"computer_action": true, "computer_desktop": true, "computer_browser": true, "computer_files": true,
+	"generate_image": true, "read_attachment": true,
+}
+
 // Computer images originate in a paired device's bounded screenshot result.
 // Keep their bytes out of the textual transcript and send them through the
 // provider's existing vision input, preserving the associated tool call.

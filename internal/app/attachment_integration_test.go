@@ -76,7 +76,7 @@ func TestAttachmentMessageRollbackAndVisionContext(t *testing.T) {
 	if len(pm.ImageURLs) != 1 || !strings.HasPrefix(pm.ImageURLs[0], "data:image/png;base64,") || !strings.Contains(pm.Content, a.ID) {
 		t.Fatal("image missing from provider context")
 	}
-	if _, err = server.attachmentTools(c)[0].Execute(context.Background(), []byte(`{"attachment_id":"`+alien.ID+`"}`)); err == nil {
+	if _, err = server.attachmentTools(c, Run{})[0].Execute(context.Background(), []byte(`{"attachment_id":"`+alien.ID+`"}`)); err == nil {
 		t.Fatal("attachment tool leaked another DM")
 	}
 }

@@ -330,10 +330,6 @@ func TestImageReferenceNormalizesFormatsAndSize(t *testing.T) {
 	if url, err := imageReferenceDataURL("a.gif", g.Bytes()); err != nil || !strings.HasPrefix(url, "data:image/png;base64,") {
 		t.Fatalf("gif: %.40s %v", url, err)
 	}
-	webp := append([]byte("RIFF\x00\x00\x00\x00WEBP"), make([]byte, 16)...)
-	if url, err := imageReferenceDataURL("a.webp", webp); err != nil || !strings.HasPrefix(url, "data:image/webp;base64,") {
-		t.Fatalf("webp: %.40s %v", url, err)
-	}
 	big := image.NewRGBA(image.Rect(0, 0, 3000, 1000))
 	var p bytes.Buffer
 	if err := png.Encode(&p, big); err != nil {

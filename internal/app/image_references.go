@@ -8,11 +8,14 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	_ "image/gif"
 	"image/jpeg"
 	"image/png"
 	"io"
 	"strings"
 	"time"
+
+	_ "golang.org/x/image/webp"
 )
 
 // generate_image takes its references from anywhere the Bot can reach an
@@ -110,25 +113,19 @@ func (s *Server) imageReference(ctx context.Context, c Conversation, r Run, ref 
 	return imageReferenceDataURL(ref, data)
 }
 
-// imageReferenceDataURL accepts PNG, JPEG, GIF and WebP. A WebP within bounds
-// passes as it is; the others are scaled and re-encoded when they are too large,
-// and a GIF is sent as a PNG of its first frame.
+// imageReferenceDataURL accepts PNG, JPEG, GIF and WebP. A PNG or JPEG within
+// bounds passes as it is; larger ones are scaled and re-encoded, and a GIF or
+// WebP is sent as PNG (a GIF's first frame).
 func imageReferenceDataURL(ref string, data []byte) (string, error) {
-	if len(data) >= 12 && string(data[0:4]) == "RIFF" && string(data[8:12]) == "WEBP" {
-		if len(data) > imageReferenceEncodedMax {
-			return "", fmt.Errorf("%s is a WebP over %d bytes; save it as PNG or JPEG and reference that", ref, imageReferenceEncodedMax)
-		}
-		return "data:image/webp;base64," + base64.StdEncoding.EncodeToString(data), nil
-	}
 	config, format, err := image.DecodeConfig(bytes.NewReader(data))
-	if err != nil || (format != "png" && format != "jpeg" && format != "gif") {
+	if err != nil || (format != "png" && format != "jpeg" && format != "gif" && format != "webp") {
 		return "", fmt.Errorf("%s is not a PNG, JPEG, GIF or WebP image", ref)
 	}
 	if config.Width < 1 || config.Height < 1 || config.Width > viewSourceDimsMax || config.Height > viewSourceDimsMax || config.Width*config.Height > viewSourcePixelsMax {
 		return "", fmt.Errorf("%s is %dx%d pixels, too large to decode", ref, config.Width, config.Height)
 	}
 	longSide := max(config.Width, config.Height)
-	if format != "gif" && longSide <= imageReferenceLongSide && len(data) <= imageReferenceEncodedMax {
+	if format != "gif" && format != "webp" && longSide <= imageReferenceLongSide && len(data) <= imageReferenceEncodedMax {
 		return "data:image/" + format + ";base64," + base64.StdEncoding.EncodeToString(data), nil
 	}
 	img, _, err := image.Decode(bytes.NewReader(data))

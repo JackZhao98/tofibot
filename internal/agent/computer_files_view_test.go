@@ -16,6 +16,12 @@ import (
 // D54: a computer_files result that carries an image_url reaches the model as
 // vision input on the next request, not as base64 text.
 func TestComputerFilesImageResultReachesTheModelAsAnImage(t *testing.T) {
+	for _, name := range []string{"computer_files", "generate_image", "read_attachment"} {
+		t.Run(name, func(t *testing.T) { imageResultReachesTheModel(t, name) })
+	}
+}
+
+func imageResultReachesTheModel(t *testing.T, name string) {
 	var b bytes.Buffer
 	if err := png.Encode(&b, image.NewRGBA(image.Rect(0, 0, 4, 4))); err != nil {
 		t.Fatal(err)
@@ -23,10 +29,10 @@ func TestComputerFilesImageResultReachesTheModelAsAnImage(t *testing.T) {
 	uri := "data:image/png;base64," + base64.StdEncoding.EncodeToString(b.Bytes())
 	raw, _ := json.Marshal(map[string]any{"path": "slide.png", "width": 4, "height": 4, "image_url": uri})
 	p := &scriptedProvider{steps: []func(context.Context, *provider.ChatRequest, func(provider.StreamDelta)) (*provider.ChatResponse, error){
-		toolCallReply("c1", "computer_files", `{"action":"files.view","path":"slide.png"}`),
+		toolCallReply("c1", name, `{}`),
 		reply(provider.ChatResponse{Content: "seen"}),
 	}}
-	tool := ExtraBuiltinTool{Schema: provider.Tool{Name: "computer_files", Parameters: map[string]any{"type": "object"}},
+	tool := ExtraBuiltinTool{Schema: provider.Tool{Name: name, Parameters: map[string]any{"type": "object"}},
 		HandlerCtx: func(context.Context, map[string]interface{}) (string, error) { return string(raw), nil }}
 	if _, err := runLoop(t, AgentConfig{Provider: p, Prompt: "go", ExtraTools: []ExtraBuiltinTool{tool}}); err != nil {
 		t.Fatal(err)

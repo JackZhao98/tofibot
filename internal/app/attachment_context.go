@@ -1,15 +1,20 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image"
 	"io"
+	"net/http"
 	"strings"
+	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/JackZhao98/tofibot/internal/runtime"
 )
@@ -100,24 +105,136 @@ func (s *Store) attachmentAvailableInConversation(id, conv string) (bool, error)
 	return n > 0, err
 }
 
-func (s *Server) attachmentTools(c Conversation) []Tool {
-	return []Tool{{Name: "read_attachment", Description: "Read a text attachment from this conversation by its attachment_id. Binary documents remain downloadable but text extraction may be unavailable.", Parameters: objectSchema(map[string]any{"attachment_id": map[string]any{"type": "string"}}, []string{"attachment_id"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+// read_attachment reads any attachment the conversation can see: text comes
+// back as text, an image is shown to the model, and any other file is placed
+// on the computer so the Bot opens it there with its own tools.
+func (s *Server) attachmentTools(c Conversation, r Run) []Tool {
+	var mu sync.Mutex
+	views := 0
+	return []Tool{{Name: "read_attachment", Description: "Read an attachment of this conversation by its attachment_id. Text comes back as text (use offset to continue a long one), an image is shown to you, and any other file (PDF, Office document, archive) is placed on your computer and its computer_path returned, to open there with your tools.", Parameters: objectSchema(map[string]any{
+		"attachment_id": map[string]any{"type": "string"},
+		"offset":        map[string]any{"type": "integer", "minimum": 0, "description": "Optional byte offset to continue a long text"},
+	}, []string{"attachment_id"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
 		var x struct {
-			ID string `json:"attachment_id"`
+			ID     string `json:"attachment_id"`
+			Offset int64  `json:"offset"`
 		}
-		if json.Unmarshal(raw, &x) != nil || x.ID == "" {
+		if json.Unmarshal(raw, &x) != nil || x.ID == "" || x.Offset < 0 {
 			return "", errors.New("attachment_id required")
 		}
-		text, a, err := s.store.ReadAttachmentText(x.ID, c.ID)
+		a, path, err := s.store.Attachment(x.ID)
 		if err != nil {
 			return "", err
 		}
-		out, _ := json.Marshal(map[string]any{"name": a.Name, "content": text})
+		if ok, e := s.store.attachmentAvailableInConversation(x.ID, c.ID); e != nil || !ok {
+			return "", errors.New("attachment belongs to another conversation")
+		}
+		head, err := s.store.attachmentHead(ctx, path, 512)
+		if err != nil {
+			return "", err
+		}
+		if isTextAttachment(a) || strings.HasPrefix(http.DetectContentType(head), "text/") {
+			text, next, err := s.store.readAttachmentTextAt(path, x.Offset)
+			if err != nil {
+				return "", err
+			}
+			m := map[string]any{"name": a.Name, "content": text}
+			if next > 0 {
+				m["next_offset"] = next
+			}
+			out, _ := json.Marshal(m)
+			return string(out), nil
+		}
+		if _, format, e := image.DecodeConfig(bytes.NewReader(head)); e == nil && (format == "png" || format == "jpeg" || format == "gif" || format == "webp") || isWebP(head) {
+			mu.Lock()
+			defer mu.Unlock()
+			if views >= viewsPerRunMax {
+				return "", viewFileError("at most %d images can be viewed per run", viewsPerRunMax)
+			}
+			if a.Size > viewSourceBytesMax {
+				return "", viewFileError("%s is %d bytes, too large to view; read it on the computer and view a smaller copy", a.Name, a.Size)
+			}
+			data, err := s.store.attachmentHead(ctx, path, viewSourceBytesMax)
+			if err != nil {
+				return "", err
+			}
+			out, err := viewImageResult(a.Name, data)
+			if err != nil {
+				return "", err
+			}
+			views++
+			var m map[string]any
+			if json.Unmarshal([]byte(out), &m) == nil {
+				m["attachment_id"], m["name"] = a.ID, a.Name
+				if b, e := json.Marshal(m); e == nil {
+					out = string(b)
+				}
+			}
+			return out, nil
+		}
+		if s.microVM == nil {
+			return "", fmt.Errorf("%s is a %s file; without a computer only text and images can be read", a.Name, a.MIME)
+		}
+		if a.Size > guestImportMaxFile {
+			return "", fmt.Errorf("%s is %d bytes; files over %d bytes cannot be placed on the computer", a.Name, a.Size, guestImportMaxFile)
+		}
+		dst := guestUploadsRoot + "/" + c.ID + "/attachments/" + guestInputName(a.ID[:8]+"-"+a.Name)
+		if _, err := s.pushGuestInput(ctx, r, a, dst); err != nil {
+			return "", err
+		}
+		out, _ := json.Marshal(map[string]any{"name": a.Name, "mime": a.MIME, "size": a.Size, "computer_path": dst})
 		return string(out), nil
 	}}}
+}
+
+func isTextAttachment(a Attachment) bool {
+	return strings.HasPrefix(a.MIME, "text/") || a.MIME == "application/json"
+}
+
+func isWebP(b []byte) bool {
+	return len(b) >= 12 && string(b[0:4]) == "RIFF" && string(b[8:12]) == "WEBP"
+}
+
+// attachmentHead reads at most limit bytes of a stored attachment.
+func (s *Store) attachmentHead(ctx context.Context, path string, limit int64) ([]byte, error) {
+	readCtx, cancel := context.WithTimeout(ctx, 120*time.Second)
+	defer cancel()
+	f, err := s.openAttachment(readCtx, path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return io.ReadAll(io.LimitReader(f, limit))
+}
+
+// readAttachmentTextAt returns up to maxAttachmentText bytes of text from
+// offset, cut at a rune boundary, and the offset to continue from (0 at end).
+func (s *Store) readAttachmentTextAt(path string, offset int64) (string, int64, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+	f, err := s.openAttachment(ctx, path)
+	if err != nil {
+		return "", 0, err
+	}
+	defer f.Close()
+	if _, err = io.CopyN(io.Discard, f, offset); err != nil && !errors.Is(err, io.EOF) {
+		return "", 0, err
+	}
+	b, err := io.ReadAll(io.LimitReader(f, maxAttachmentText+1))
+	if err != nil {
+		return "", 0, err
+	}
+	if len(b) <= maxAttachmentText {
+		return string(b), 0, nil
+	}
+	b = b[:maxAttachmentText]
+	for i := 0; i < utf8.UTFMax && len(b) > 0 && !utf8.Valid(b); i++ {
+		b = b[:len(b)-1]
+	}
+	return string(b), offset + int64(len(b)), nil
 }
 
 func (s *Server) addAttachmentContext(c Conversation, m Message, pm *runtime.Message, imagesLeft *int, imageBudget *int64, guestPaths map[string]string) {

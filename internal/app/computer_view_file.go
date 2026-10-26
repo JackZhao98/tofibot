@@ -12,6 +12,8 @@ import (
 	"image/jpeg"
 	"image/png"
 
+	_ "golang.org/x/image/webp"
+
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
@@ -42,7 +44,7 @@ func (s *Server) viewComputerFile(ctx context.Context, r Run, raw json.RawMessag
 		Path string `json:"path"`
 	}
 	if json.Unmarshal(raw, &in) != nil || in.Path == "" {
-		return "", viewFileError("files.view requires the path of a PNG or JPEG file")
+		return "", viewFileError("files.view requires the path of a PNG, JPEG, GIF or WebP file")
 	}
 	data, err := s.readComputerFile(ctx, r, in.Path, viewSourceBytesMax)
 	var tooLarge *fileTooLargeError
@@ -60,8 +62,8 @@ func (s *Server) viewComputerFile(ctx context.Context, r Run, raw json.RawMessag
 // pixels; source_width and source_height describe the file.
 func viewImageResult(path string, data []byte) (string, error) {
 	config, format, err := image.DecodeConfig(bytes.NewReader(data))
-	if err != nil || (format != "png" && format != "jpeg") {
-		return "", viewFileError("%s is not a PNG or JPEG image; files.view shows those two formats", path)
+	if err != nil || (format != "png" && format != "jpeg" && format != "gif" && format != "webp") {
+		return "", viewFileError("%s is not a PNG, JPEG, GIF or WebP image", path)
 	}
 	if config.Width < 1 || config.Height < 1 || config.Width > viewSourceDimsMax || config.Height > viewSourceDimsMax || config.Width*config.Height > viewSourcePixelsMax {
 		return "", viewFileError("%s is %dx%d pixels, too large to view; save a smaller copy and view that", path, config.Width, config.Height)
@@ -72,7 +74,15 @@ func viewImageResult(path string, data []byte) (string, error) {
 	}
 	longSide := max(config.Width, config.Height)
 	encoded, mime := data, "image/"+format
-	if longSide > viewLongSideMax || len(data) > viewDeliveredMax {
+	if format == "gif" || format == "webp" {
+		// The vision input takes PNG and JPEG; a GIF shows its first frame.
+		var b bytes.Buffer
+		if png.Encode(&b, img) != nil {
+			return "", viewFileError("%s cannot be converted for viewing", path)
+		}
+		encoded, mime = b.Bytes(), "image/png"
+	}
+	if longSide > viewLongSideMax || len(encoded) > viewDeliveredMax {
 		for target := min(longSide, viewLongSideMax); ; target = target * 3 / 4 {
 			if target < 240 {
 				return "", viewFileError("%s cannot be reduced to a viewable size", path)
