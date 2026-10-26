@@ -12,6 +12,7 @@
     "subject": "件名",
     "sending_needs_checking": "送信結果の確認が必要です",
     "full_text": "メール下書きの全文",
+    "attachments": "添付ファイル",
     "body": "本文",
     "discard": "変更を破棄",
     "saving": "保存中…",

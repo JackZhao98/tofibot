@@ -132,7 +132,8 @@ func (r *Runner) Handler(token string) http.Handler {
 				_ = json.NewEncoder(w).Encode(map[string]any{"connected": result.Email != "", "email": result.Email, "scope": result.Scope, "services": authorisedServicesOf(result)})
 			case parts[4] == "send" && req.Method == http.MethodPost:
 				var input GogSendRequest
-				if err := decodeJSON(req, &input); err != nil {
+				// Up to 20 MB of attachments, base64 encoded, plus the message.
+				if err := decodeJSONLimit(req, &input, gogSendBodyLimit); err != nil {
 					http.Error(w, "invalid mail request", 400)
 					return
 				}
@@ -268,11 +269,15 @@ func (r *Runner) mcpHandler(ctx context.Context, p *plugin) (http.Handler, error
 }
 
 func decodeJSON(req *http.Request, target any) error {
+	return decodeJSONLimit(req, target, 1<<20)
+}
+
+func decodeJSONLimit(req *http.Request, target any, limit int64) error {
 	if req.Body == nil {
 		return errors.New("missing body")
 	}
 	defer req.Body.Close()
-	decoder := json.NewDecoder(io.LimitReader(req.Body, 1<<20))
+	decoder := json.NewDecoder(io.LimitReader(req.Body, limit))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(target); err != nil {
 		return err

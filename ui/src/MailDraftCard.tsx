@@ -9,6 +9,9 @@ import { i18n, useTranslation } from "./i18n";
 import { formatClock } from "./i18n/format";
 import "./mail-draft-card.css";
 import { sameData } from "./sameData";
+import { fileSize } from "./filePreviewModel";
+
+export type MailDraftAttachment = { id: string; name: string; mime: string; size: number };
 
 export type MailDraft = {
   draft_id: string;
@@ -19,6 +22,7 @@ export type MailDraft = {
   subject: string;
   body: string;
   demo: boolean;
+  attachments?: MailDraftAttachment[];
   status: "pending" | "sending" | "sent" | "declined" | "unknown";
   revision: number;
   created_at: string;
@@ -45,6 +49,11 @@ export function useMailDrafts(conversationId: string | null) {
     return () => { window.clearInterval(timer); window.removeEventListener("focus", focus); };
   }, [refresh]);
   return { items: snapshot.id === conversationId ? snapshot.drafts : [], refresh, error };
+}
+
+function DraftAttachments({ items, label }: { items?: MailDraftAttachment[]; label: string }) {
+  if (!items?.length) return null;
+  return <ul className="mail-draft-attachments" aria-label={label}>{items.map(item => <li key={item.id}><a href={`/api/attachments/${encodeURIComponent(item.id)}`} target="_blank" rel="noreferrer"><TofiIcon name="file" size={14} aria-hidden="true" /><span>{item.name}</span><small>{fileSize(item.size)}</small></a></li>)}</ul>;
 }
 
 export function MailDraftCard({ draft, bot, group, archived, onDemoAction, onChanged, issueOwned = false }: { issueOwned?: boolean; draft: MailDraft; bot?: Bot; group: boolean; archived?: boolean; onDemoAction?: (action: "save" | "send" | "decline", fields: { to: string; subject: string; body: string }) => Promise<void>; onChanged: () => Promise<void> }) {
@@ -95,7 +104,7 @@ export function MailDraftCard({ draft, bot, group, archived, onDemoAction, onCha
   const pending = draft.status === "pending" || animating;
   if (draft.status === "sent" || draft.status === "declined") return <article className={`task-mail-record mail-draft-done is-${draft.status}${actedHere.current ? " is-arriving" : ""}`} data-draft-id={draft.draft_id} tabIndex={-1}>
     <p><span className="mail-draft-done-dot" aria-hidden="true" />{taskDraftLabel(draft)}: {draft.status === "declined" ? t("draft.declined") : draft.demo ? t("draft.demo_done") : t("draft.sent")}<time>{t(draft.status === "declined" ? "draft.declined_at" : "draft.sent_at", { time: formatClock(draft.updated_at) })}</time></p>
-    <details><summary>{t("draft.view_record")}</summary><dl><dt>TO</dt><dd>{draft.to}</dd><dt>{t("draft.subject")}</dt><dd>{draft.subject}</dd></dl><p>{draft.body}</p></details>
+    <details><summary>{t("draft.view_record")}</summary><dl><dt>TO</dt><dd>{draft.to}</dd><dt>{t("draft.subject")}</dt><dd>{draft.subject}</dd></dl><p>{draft.body}</p><DraftAttachments items={draft.attachments} label={t("draft.attachments")} /></details>
   </article>;
   return <article className={`mail-draft-message${group ? " is-group" : " is-dm"}`} data-draft-id={draft.draft_id} tabIndex={-1}>
     {group && <div className="mail-draft-identity"><BotAvatar id={draft.bot_id} mini /><strong>{bot?.name ?? "Bot"}</strong></div>}
@@ -108,6 +117,7 @@ export function MailDraftCard({ draft, bot, group, archived, onDemoAction, onCha
         <span className="mail-draft-stamp" aria-hidden="true"><BotAvatar id={draft.bot_id} mini /></span>
       </div>
       <div className="mail-draft-paper">{editing ? <textarea aria-label={t("draft.body")} value={body} onChange={event => setBody(event.target.value)} disabled={Boolean(busy)} rows={8} /> : <p>{draft.body}</p>}</div>
+      <DraftAttachments items={draft.attachments} label={t("draft.attachments")} />
       <footer>{editing ? <><button type="button" disabled={Boolean(busy)} onClick={() => { setTo(draft.to); setSubject(draft.subject); setBody(draft.body); setEditing(false); setError(""); }}>{t("draft.discard")}</button><button type="button" className="mail-draft-save" disabled={Boolean(busy || !changed)} onClick={() => void act("save")}>{busy === "save" ? t("draft.saving") : t("draft.save")}</button></>
         : draft.status === "pending" ? <>
           <button type="button" className="mail-draft-text-action" disabled={Boolean(busy || archived)} onClick={() => setEditing(true)}><TofiIcon name="edit" size={15} aria-hidden="true" />{t("draft.edit")}</button>

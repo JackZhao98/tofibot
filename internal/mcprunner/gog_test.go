@@ -3,6 +3,7 @@ package mcprunner
 import (
 	"context"
 	"debug/buildinfo"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -42,6 +43,20 @@ func TestFakeGogProcess(t *testing.T) {
 		_, _ = fmt.Fprint(os.Stdout, `{"files":[]}`)
 	case strings.Contains(args, "gmail search"):
 		_, _ = fmt.Fprint(os.Stdout, `{"messages":[]}`)
+	case strings.Contains(args, "gmail send") && strings.Contains(args, "--attach"):
+		var got []string
+		for i, a := range os.Args {
+			if a != "--attach" || i+1 >= len(os.Args) {
+				continue
+			}
+			data, err := os.ReadFile(os.Args[i+1])
+			if err != nil {
+				os.Exit(6)
+			}
+			got = append(got, filepath.Base(os.Args[i+1])+"="+string(data))
+		}
+		out, _ := json.Marshal(map[string]any{"id": "sent-2", "attached": got})
+		_, _ = os.Stdout.Write(out)
 	case strings.Contains(args, "gmail send"):
 		if !strings.Contains(args, "--body-file -") || strings.Contains(args, "private draft body") {
 			os.Exit(4)
@@ -357,5 +372,41 @@ func TestRecycleOfABusyChildClosesItWhenTheLastLeaseIsReleased(t *testing.T) {
 	}
 	if !has() {
 		t.Fatal("deferred restart leaked to the fresh child")
+	}
+}
+
+func TestGogSendAttachesFilesUnderTheirRealNames(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "fake-gog")
+	script := fmt.Sprintf("#!/bin/sh\nexec '%s' -test.run=TestFakeGogProcess -- \"$@\"\n", strings.ReplaceAll(os.Args[0], "'", "'\\''"))
+	if err := os.WriteFile(bin, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	r, err := New([]Spec{{ID: "gog", Kind: "builtin_gog", Command: bin, WorkDir: dir, Env: map[string]string{"TOFI_FAKE_GOG": "1"}}}, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	redirect := "https://tofi.example/api/extensions/local-mcp/gog/oauth/callback"
+	credentials, _ := json.Marshal(map[string]any{"web": map[string]any{"client_id": "id", "client_secret": "secret", "redirect_uris": []string{redirect}}})
+	if _, err := r.GogStart(context.Background(), "gog", GogStartRequest{Email: "person@gmail.com", CredentialsJSON: credentials, RedirectURI: redirect, Scope: "read-send"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.GogFinish(context.Background(), "gog", GogFinishRequest{RedirectedURL: redirect + "?code=code&state=fixture-state"}); err != nil {
+		t.Fatal(err)
+	}
+	enc := func(s string) string { return base64.StdEncoding.EncodeToString([]byte(s)) }
+	out, err := r.GogSend(context.Background(), "gog", GogSendRequest{To: "person@example.com", Subject: "Hello", Body: "private draft body", Attachments: []GogAttachment{
+		{Name: "季度报告.pdf", MIME: "application/pdf", DataBase64: enc("pdf-bytes")},
+		{Name: "../../etc/passwd", MIME: "text/plain", DataBase64: enc("x")},
+	}})
+	if err != nil || !strings.Contains(string(out), "季度报告.pdf=pdf-bytes") || !strings.Contains(string(out), ".._.._etc_passwd=x") {
+		t.Fatalf("send result=%s err=%v", out, err)
+	}
+	if _, err := r.GogSend(context.Background(), "gog", GogSendRequest{To: "person@example.com", Subject: "Hello", Body: "private draft body", Attachments: []GogAttachment{{Name: "a", DataBase64: "***"}}}); err == nil {
+		t.Fatal("undecodable attachment accepted")
+	}
+	if strings.Contains(attachmentFileName("a/b\\c"), "/") || attachmentFileName("-rf") == "-rf" || attachmentFileName("..") == ".." {
+		t.Fatal("unsafe file name kept")
 	}
 }

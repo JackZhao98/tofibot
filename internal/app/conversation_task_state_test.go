@@ -352,7 +352,7 @@ func TestConversationTaskStateSurvivesReopenAndRetryIsSingleUse(t *testing.T) {
 func TestConversationTaskStateUsesMailDraftOutcome(t *testing.T) {
 	s, c, run := questionFixture(t)
 	defer s.Close()
-	draft, err := s.AddMailDraft(context.Background(), c.ID, run, "example@example.test", "Synthetic review", "No email is sent", true)
+	draft, err := s.AddMailDraft(context.Background(), c.ID, run, "example@example.test", "Synthetic review", "No email is sent", true, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
