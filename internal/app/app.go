@@ -51,6 +51,9 @@ type Bot struct {
 	// IsPrimary marks the account's Primary Assistant. It is derived from
 	// user_preferences at read time (withEffectiveModels), never stored here.
 	IsPrimary bool `json:"is_primary,omitempty"`
+	// OnboardingPending is true while the Bot's first-run setup chat is
+	// unfinished. Derived from bot_onboarding at read time, never stored here.
+	OnboardingPending bool `json:"onboarding_pending,omitempty"`
 	// EffectiveModel and EffectiveReasoningEffort are what the Bot executes
 	// with now; Model/ReasoningEffort stay raw ("default" follows global).
 	EffectiveModel           string `json:"effective_model,omitempty"`

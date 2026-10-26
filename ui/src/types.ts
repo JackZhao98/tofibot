@@ -53,6 +53,8 @@ export interface Bot {
   archived?: boolean;
   /** The account's Primary Assistant: owns the owner's general chores. Exactly one active Bot has it. */
   is_primary?: boolean;
+  /** First-run setup chat unfinished (server-derived); the greeting plays once while this holds. */
+  onboarding_pending?: boolean;
 }
 
 export type FollowupMode = "off" | "shadow" | "on";

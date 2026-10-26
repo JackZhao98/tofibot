@@ -147,7 +147,7 @@ func TestFirstBotIsPreCreatedOnlyWhenNoneExist(t *testing.T) {
 		t.Fatalf("created=%+v err=%v", made, err)
 	}
 	messages, _, err := s.store.Messages(made.Bot.DMConversationID, 0, 10)
-	if err != nil || len(messages) != 1 || messages[0].Content != onboardingWelcome("de") {
+	if err != nil || len(messages) != 3 || messages[0].Content != onboardingWelcome("de")[0] || messages[2].Content != onboardingWelcome("de")[2] {
 		t.Fatalf("opening message=%+v err=%v", messages, err)
 	}
 	if pending, err := s.store.onboardingPending(made.Bot.ID); err != nil || !pending {
@@ -197,23 +197,28 @@ func TestFirstBotRefusesWhenABotAppearsInTheTransaction(t *testing.T) {
 // and the model-facing onboarding prompt carries the name rules.
 func TestOnboardingOpeningMessageAndPrompt(t *testing.T) {
 	for language := range uiLanguages {
-		text := onboardingWelcome(language)
-		if text == "" || (language != "en" && text == onboardingWelcome("en")) {
-			t.Fatalf("language %s has no distinct opening message: %q", language, text)
+		texts := onboardingWelcome(language)
+		if len(texts) != 3 {
+			t.Fatalf("language %s has %d opening messages", language, len(texts))
 		}
-		if strings.Contains(text, "\n") || len([]rune(text)) > 200 {
-			t.Fatalf("opening message for %s is not short: %q", language, text)
+		for i, text := range texts {
+			if text == "" || (language != "en" && text == onboardingWelcome("en")[i]) {
+				t.Fatalf("language %s message %d is not distinct: %q", language, i, text)
+			}
+			if strings.Contains(text, "\n") || len([]rune(text)) > 200 {
+				t.Fatalf("opening message %d for %s is not short: %q", i, language, text)
+			}
 		}
 	}
 	if len(onboardingWelcomes) != len(uiLanguages) {
 		t.Fatalf("welcomes=%d languages=%d", len(onboardingWelcomes), len(uiLanguages))
 	}
-	if got := onboardingWelcome("xx"); got != onboardingWelcome("en") {
+	if got := onboardingWelcome("xx"); got[0] != onboardingWelcome("en")[0] {
 		t.Fatalf("unknown language did not fall back: %q", got)
 	}
-	en := onboardingWelcome("en")
-	if !strings.Contains(en, "called") || !strings.Contains(en, "you pick") || !strings.Contains(en, "help with") {
-		t.Fatalf("english opening misses a question: %q", en)
+	en := strings.Join(onboardingWelcome("en"), " ")
+	if !strings.Contains(en, "called") {
+		t.Fatalf("english opening misses the name question: %q", en)
 	}
 
 	prompt := onboardingSystemPrompt

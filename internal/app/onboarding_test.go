@@ -25,18 +25,23 @@ func TestOnboardingCreationIsIdempotentAndSurvivesRestart(t *testing.T) {
 		t.Fatalf("first create bot=%+v duplicate=%v err=%v", b, duplicate, err)
 	}
 	messages, _, err := s.store.Messages(b.DMConversationID, 0, 20)
-	if err != nil || len(messages) != 1 {
+	if err != nil || len(messages) != 3 {
 		t.Fatalf("initial messages=%d err=%v", len(messages), err)
 	}
-	if messages[0].Role != "assistant" || messages[0].Kind != "" || messages[0].SenderBotID != b.ID || messages[0].Content != onboardingWelcome("en") {
-		t.Fatalf("unexpected welcome=%+v", messages[0])
+	for i, m := range messages {
+		if m.Seq != int64(i+1) || m.Role != "assistant" || m.Kind != "" || m.SenderBotID != b.ID || m.Content != onboardingWelcome("en")[i] {
+			t.Fatalf("unexpected welcome %d=%+v", i, m)
+		}
 	}
 	var pending int
 	if err = s.store.db.QueryRow(`SELECT COUNT(*) FROM bot_onboarding WHERE bot_id=? AND status='pending'`, b.ID).Scan(&pending); err != nil || pending != 1 {
 		t.Fatalf("pending=%d err=%v", pending, err)
 	}
+	if !s.withEffectiveModel(context.Background(), b).OnboardingPending {
+		t.Fatal("new onboarding Bot is not flagged onboarding_pending")
+	}
 	events, err := s.store.Events(b.DMConversationID, 0)
-	if err != nil || len(events) != 2 {
+	if err != nil || len(events) != 4 {
 		t.Fatalf("creation events=%d err=%v", len(events), err)
 	}
 	again, duplicate, err := s.store.CreateOnboardingBot(key, "different-model")
@@ -63,7 +68,7 @@ func TestOnboardingCreationIsIdempotentAndSurvivesRestart(t *testing.T) {
 	if err != nil || !duplicate || afterRestart.ID != b.ID {
 		t.Fatalf("restart retry bot=%+v duplicate=%v err=%v", afterRestart, duplicate, err)
 	}
-	if err = s.store.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE conversation_id=?`, b.DMConversationID).Scan(&count); err != nil || count != 1 {
+	if err = s.store.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE conversation_id=?`, b.DMConversationID).Scan(&count); err != nil || count != 3 {
 		t.Fatalf("welcome count=%d err=%v", count, err)
 	}
 }

@@ -70,6 +70,8 @@ import { CatStage, type CatHandle } from "./CatStage";
 import { CATS, EmptyCat, EmptyState } from "./EmptyCat";
 import { FirstRunHero } from "./FirstRunHero";
 import { FinishSetupChip, ModelBanner } from "./OnboardingChrome";
+import { GreetingSetup } from "./GreetingSetup";
+import { useGreetingPlayback } from "./onboardingGreeting";
 import { chipStep, onboardingMode, parseOnboardingState, resumeStep, type OnboardingState, type OnboardingStep } from "./onboardingFlow";
 import { LoadingCat } from "./motion-lab/lib/LoadingCat";
 import { flipList } from "./motion-lab/lib/flip";
@@ -1315,7 +1317,13 @@ function Workspace() {
   const lastReplySeq = useMemo(() => messageRecords.reduce((max, item) => item.role === "assistant" && !item.local && (!item.kind || item.kind === "segment") ? Math.max(max, item.seq) : max, 0), [messageRecords]);
   const visibleMessages = useMemo(() => mergeMessageTimeline(messageRecords.filter(message => message.role === "user" || !message.run_id || !supersededRunIDs.has(message.run_id)), Object.values(drafts).filter(draft => !runById.has(draft.run_id) || !isTerminalRun(runById.get(draft.run_id)!))), [messageRecords, drafts, supersededRunIDs, runById]);
   const foldedProgress = useMemo(() => foldCompletedProgress(visibleMessages, runs), [visibleMessages, runs]);
-  const messages = foldedProgress.visible;
+  // First-Bot greeting: hidden behind a setup screen, then revealed one message at a time (onboardingGreeting.ts).
+  const greetingTexts = useMemo(() => {
+    if (!activeBot?.onboarding_pending || active?.kind !== "dm" || loadedId !== activeId || loadingMessages || hasMore || !messageRecords.length) return [];
+    return messageRecords.every(message => !message.local && message.conversation_id === activeId && message.role === "assistant" && !message.kind) ? messageRecords.map(message => message.content) : [];
+  }, [activeBot?.onboarding_pending, active?.kind, loadedId, activeId, loadingMessages, hasMore, messageRecords]);
+  const greeting = useGreetingPlayback(activeBot?.id, Boolean(activeBot?.onboarding_pending), greetingTexts, matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const messages = useMemo(() => greeting.stage === "done" ? foldedProgress.visible : foldedProgress.visible.slice(0, greeting.shown), [foldedProgress.visible, greeting.stage, greeting.shown]);
   const scheduledRootKey = useMemo(() => occurrenceRootKey(messageRecords.filter(message => message.kind === "scheduled_task" && message.conversation_id === activeId).map(message => message.run_id ?? "")), [messageRecords, activeId]);
   const occurrenceRead = useScheduleOccurrences(activeId, scheduledRootKey, scheduleRefresh);
   const metadataRead = useScheduleMetadata(isDesktop ? null : activeId, scheduledRootKey, scheduleRefresh);
@@ -2484,7 +2492,7 @@ function Workspace() {
                   {historyError && !viewport.boundaryError && <div className="history-error history-error-older" role="alert"><span>{t("history.older_failed", { error: historyError })}</span><button onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.retrying") : t("common:action.retry")}</button></div>}
                   {hasMore && <button className="load-older" onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.loading") : t("history.load_older")}</button>}
                   {(questions.error || mailDrafts.error || snapshotError) && <div className="task-state-read-error"><span>{i18n.t("tasks:issue.status_unavailable")}</span><button type="button" className="text-button" onClick={() => void refreshTaskStatus().catch(() => setSnapshotError("read_unavailable"))}>{i18n.t("tasks:issue.action.refresh_status")}</button></div>}
-                  {snapshotError && loadedId !== active.id && !loadingMessages ? <div className="inline-state" role="status" data-snapshot-unavailable="true"><div className="spinner" />{t("history.unavailable_retrying")}</div> : loadingMessages ? <DelayedFeedback key={`loading-${active.id}`}><div className={`inline-state${isDesktop ? "" : " web-loading-state"}`}>{isDesktop ? <div className="spinner" /> : <LoadingCat size={34} />}{t("history.loading_messages")}</div></DelayedFeedback> : loadedId !== active.id ? null : conversationItems.length === 0 ?
+                  {snapshotError && loadedId !== active.id && !loadingMessages ? <div className="inline-state" role="status" data-snapshot-unavailable="true"><div className="spinner" />{t("history.unavailable_retrying")}</div> : loadingMessages ? <DelayedFeedback key={`loading-${active.id}`}><div className={`inline-state${isDesktop ? "" : " web-loading-state"}`}>{isDesktop ? <div className="spinner" /> : <LoadingCat size={34} />}{t("history.loading_messages")}</div></DelayedFeedback> : loadedId !== active.id ? null : conversationItems.length === 0 ? greeting.stage === "setup" ? <GreetingSetup /> : greeting.stage === "typing" ? null :
                     <EmptyState name="conversation" className="conversation-empty" look={CATS.mochi} pose="curious" size={84}><h2>{t("empty.start_chat")}</h2><p>{t("empty.start_chat_body")}</p></EmptyState> :
                     conversationItems.map((item, index) => {
                       if (index < timelineFrom) return null;
@@ -2579,6 +2587,7 @@ function Workspace() {
                       };
                       return <MessageRow key={blockKey(message)} model={model} h={rowHandlers} stream={draftStream} />;
                     })}
+                  {greeting.stage === "typing" && activeBot && <CompactLiveLine key={`greeting-${greeting.shown}`} label={`${t("live.thinking")}…`} botId={activeBot.id} botName={activeBot.name} at={activeBot.created_at} showName={false} ariaLabel={t("live.status_label", { name: activeBot.name })} />}
                   <ToolActivityList activities={toolTimeline.fallback} summaries={terminalToolSummaries.filter(summary => toolTimeline.fallback.some(activity => activity.run_id === summary.run_id))} details={toolDetailState} onLoadDetails={loadToolDetails} botById={botById} activeRunIds={activeRunIds} group={active.kind === "group"} />
                   {taskOwners.filter(owner => !owner.anchor).map(renderTaskOwner)}
                   {!isDesktop && pendingRuns.filter(run => !ownedRunIDs.has(run.id)).map(run => <LiveRunStatus key={run.id} run={run} botName={run.kind === "triage" ? "Tofi" : botById.get(run.bot_id)?.name ?? "Bot"} showName={active.kind === "group"} />)}

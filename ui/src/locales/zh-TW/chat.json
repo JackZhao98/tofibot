@@ -350,6 +350,7 @@
     "unsupported": "目前的瀏覽器不支援系統通知"
   },
   "onboarding": {
+    "greeting_setup": "正在準備一切…",
     "progress": "{{step}} / {{total}}",
     "status_required": "必填",
     "status_done": "已完成",

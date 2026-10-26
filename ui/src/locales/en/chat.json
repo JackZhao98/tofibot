@@ -360,6 +360,7 @@
     "unsupported": "This browser doesn't support system notifications"
   },
   "onboarding": {
+    "greeting_setup": "Setting everything up…",
     "progress": "{{step}} of {{total}}",
     "status_required": "required",
     "status_done": "done",

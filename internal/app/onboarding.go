@@ -15,28 +15,56 @@ import (
 const onboardingBotName = "New Bot"
 
 // onboardingSystemPrompt is model-facing and stays English.
-const onboardingSystemPrompt = "\nYou are onboarding a newly created self-hosted Bot in its persistent direct message. Continue as this same Bot across future runs. Use only capabilities actually connected and exposed in this run; never claim an unavailable capability. Reply in the user's language. Your opening message asked the user two things: what to call you and what you should help with. Settle both in this chat. If the user gives a name, use it exactly. If they say you should pick, or they do not care, choose a short friendly name yourself and tell them what you chose. Then confirm or ask for the role you will take on; derive a durable role/persona from their assignment: who you are, your job, the scope you own (what you take responsibility for and act on unprompted, which leaves ordinary conversation open), and temperament; never reply formats, fixed phrasings or examples. Persist both with set_bot_profile (name and instructions together) before completing setup. Until you call set_bot_profile your display name is a placeholder, so do not introduce yourself by it. Ask at most one clarification question at a time, and keep each reply short and warm. Keep the role and persona durable for future work; do not change model or permissions."
+const onboardingSystemPrompt = "\nYou are onboarding a newly created self-hosted Bot in its persistent direct message. Continue as this same Bot across future runs. Use only capabilities actually connected and exposed in this run; never claim an unavailable capability. Reply in the user's language. Your opening messages welcomed the user and asked what to call you. Settle the name first: if the user gives a name, use it exactly; if they let you pick, or they do not care, choose a short friendly name yourself and say what you chose. Once the name is settled, introduce yourself under that name and show what you can do: offer a few concrete, specific, impressive tasks you could do for this person right now, grounded only in the tools exposed in this run. You work in your own computer with a real browser, so any website is within reach; mention mail, files, schedules or other areas only when their tools are present. Name actual tasks rather than categories, and vary them instead of reusing a stock list. Then ask what they want help with. Derive a durable role/persona from their assignment: who you are, your job, the scope you own (what you take responsibility for and act on unprompted, which leaves ordinary conversation open), and temperament; never reply formats, fixed phrasings or examples. Persist the name and role with set_bot_profile (name and instructions together) before completing setup. Until you call set_bot_profile your display name is a placeholder; once the user has settled your name, use that name when you introduce yourself even though the profile is not yet saved. Ask at most one clarification question at a time, and keep each reply short and warm. Keep the role and persona durable for future work; do not change model or permissions."
 
 var errBotsExist = errors.New("a Bot already exists")
 
-// onboardingWelcomes is the new Bot's opening message in each UI language. It
-// asks two things in one breath: what to call the Bot (which it may pick for
-// itself) and what it should help with.
-var onboardingWelcomes = map[string]string{
-	"en":    "Hi! First things first: what should I be called? If you'd rather not decide, just say \"you pick\" and I'll choose a name. And what would you like me to help with?",
-	"zh-CN": "你好！先问一句：你想叫我什么？不想费心的话说「你来取」，我自己挑一个。另外，你希望我帮你做什么？",
-	"zh-TW": "你好！先問一句：你想叫我什麼？不想費心的話說「你來取」，我自己挑一個。另外，你希望我幫你做什麼？",
-	"ja":    "こんにちは！まず、私のことは何と呼びますか？決めるのが面倒なら「おまかせ」と言ってください、自分で名前を選びます。それと、どんなことを手伝いましょうか？",
-	"ko":    "안녕하세요! 먼저, 저를 뭐라고 부를까요? 고르기 귀찮으면 \"알아서 정해\"라고 말해 주세요, 제가 이름을 고를게요. 그리고 어떤 일을 도와드릴까요?",
-	"de":    "Hallo! Zuerst: Wie soll ich heißen? Wenn du dich nicht entscheiden magst, sag einfach \"such du aus\", dann wähle ich einen Namen. Und wobei soll ich dir helfen?",
-	"fr":    "Bonjour ! D'abord, comment dois-je m'appeler ? Si tu préfères ne pas choisir, dis \"choisis toi-même\" et je prendrai un nom. Et sur quoi veux-tu que je t'aide ?",
+// onboardingWelcomes is the new Bot's greeting in each UI language: three
+// short messages, stored in order as seq 1..3. The UI plays them one by one;
+// the last one asks what to call the Bot.
+var onboardingWelcomes = map[string][]string{
+	"en": {
+		"Hi, welcome to TOFI.",
+		"I'm your own Bot, with a computer of my own.",
+		"First, what should I be called? You can also let me pick.",
+	},
+	"zh-CN": {
+		"你好，欢迎来到 TOFI。",
+		"我是你的专属 Bot，有一台自己的电脑。",
+		"先给我起个名字吧？想让我自己取也行。",
+	},
+	"zh-TW": {
+		"你好，歡迎來到 TOFI。",
+		"我是你的專屬 Bot，有一台自己的電腦。",
+		"先幫我取個名字吧？想讓我自己取也行。",
+	},
+	"ja": {
+		"こんにちは、TOFI へようこそ。",
+		"私はあなた専用の Bot で、自分のパソコンを持っています。",
+		"まず、私の名前を決めてもらえますか？おまかせでも大丈夫です。",
+	},
+	"ko": {
+		"안녕하세요, TOFI에 오신 걸 환영해요.",
+		"저는 당신만의 Bot이고, 제 컴퓨터가 따로 있어요.",
+		"먼저 제 이름을 지어 주실래요? 제가 골라도 괜찮아요.",
+	},
+	"de": {
+		"Hallo, willkommen bei TOFI.",
+		"Ich bin dein eigener Bot, mit einem eigenen Computer.",
+		"Wie soll ich heißen? Du kannst es auch mir überlassen.",
+	},
+	"fr": {
+		"Bonjour, bienvenue sur TOFI.",
+		"Je suis ton Bot, avec mon propre ordinateur.",
+		"D'abord, comment veux-tu m'appeler ? Tu peux aussi me laisser choisir.",
+	},
 }
 
-// onboardingWelcome returns the opening message for a UI language, English
+// onboardingWelcome returns the greeting messages for a UI language, English
 // when the language is unknown.
-func onboardingWelcome(language string) string {
-	if text, ok := onboardingWelcomes[language]; ok {
-		return text
+func onboardingWelcome(language string) []string {
+	if texts, ok := onboardingWelcomes[language]; ok {
+		return texts
 	}
 	return onboardingWelcomes["en"]
 }
@@ -80,6 +108,23 @@ func (s *Store) onboardingPending(botID string) (bool, error) {
 		return false, err
 	}
 	return status == "pending", nil
+}
+
+// pendingOnboardingBots returns the ids of Bots whose setup chat is unfinished.
+func (s *Store) pendingOnboardingBots() map[string]bool {
+	out := map[string]bool{}
+	rows, err := s.db.Query(`SELECT bot_id FROM bot_onboarding WHERE status='pending'`)
+	if err != nil {
+		return out
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		if rows.Scan(&id) == nil {
+			out[id] = true
+		}
+	}
+	return out
 }
 
 // CreateOnboardingBot creates the Bot, its canonical DM, the initial ordinary
@@ -156,12 +201,14 @@ func (s *Store) createOnboardingBot(clientCreationID, model, reasoningEffort, la
 	if err = claimPrimaryIfEmptyTx(tx, b.ID, t); err != nil {
 		return Bot{}, false, err
 	}
-	message := Message{ID: uuid.NewString(), ConversationID: b.DMConversationID, Seq: 1, Role: "assistant", SenderBotID: b.ID, Content: onboardingWelcome(language), CreatedAt: t}
-	if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, message.ID, message.ConversationID, message.Seq, message.Role, message.Kind, message.SenderBotID, nil, message.Content, nil, message.CreatedAt); err != nil {
-		return Bot{}, false, err
-	}
-	if err = insertEventTx(tx, b.DMConversationID, "message", message, t); err != nil {
-		return Bot{}, false, err
+	for i, text := range onboardingWelcome(language) {
+		message := Message{ID: uuid.NewString(), ConversationID: b.DMConversationID, Seq: int64(i + 1), Role: "assistant", SenderBotID: b.ID, Content: text, CreatedAt: t}
+		if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, message.ID, message.ConversationID, message.Seq, message.Role, message.Kind, message.SenderBotID, nil, message.Content, nil, message.CreatedAt); err != nil {
+			return Bot{}, false, err
+		}
+		if err = insertEventTx(tx, b.DMConversationID, "message", message, t); err != nil {
+			return Bot{}, false, err
+		}
 	}
 	if err = insertEventTx(tx, b.DMConversationID, "bot", map[string]any{"conversation_id": b.DMConversationID, "bot": b}, t); err != nil {
 		return Bot{}, false, err

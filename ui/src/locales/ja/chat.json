@@ -350,6 +350,7 @@
     "unsupported": "このブラウザはシステム通知に対応していません"
   },
   "onboarding": {
+    "greeting_setup": "準備しています…",
     "progress": "{{step}} / {{total}}",
     "status_required": "必須",
     "status_done": "完了",

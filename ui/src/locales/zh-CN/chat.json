@@ -350,6 +350,7 @@
     "unsupported": "当前浏览器不支持系统通知"
   },
   "onboarding": {
+    "greeting_setup": "正在准备一切…",
     "progress": "{{step}} / {{total}}",
     "status_required": "必填",
     "status_done": "已完成",

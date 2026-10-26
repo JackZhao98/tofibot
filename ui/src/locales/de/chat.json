@@ -360,6 +360,7 @@
     "unsupported": "Dieser Browser unterstützt keine Systembenachrichtigungen"
   },
   "onboarding": {
+    "greeting_setup": "Alles wird eingerichtet…",
     "progress": "{{step}} von {{total}}",
     "status_required": "erforderlich",
     "status_done": "erledigt",

@@ -350,6 +350,7 @@
     "unsupported": "이 브라우저는 시스템 알림을 지원하지 않습니다"
   },
   "onboarding": {
+    "greeting_setup": "모든 걸 준비하고 있어요…",
     "progress": "{{step}} / {{total}}",
     "status_required": "필수",
     "status_done": "완료",

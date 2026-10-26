@@ -276,8 +276,9 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// when ready" line (B2, +34 measured: 8189 -> 8223).
 				// 8304: the reaction principle (+83 measured: 8223 -> 8306, phase 5a, decision 0060) and the
 				// "Enabled Skills" directory header listing only enabled skills (-2 measured, decision 0058).
-				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 8304 {
-					t.Errorf("ordinary DM provider system exceeds 8304 runes")
+				// 8624: plus the what-can-you-do principle in the voice guidance (+320 measured).
+				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 8624 {
+					t.Errorf("ordinary DM provider system exceeds 8624 runes")
 				}
 				// 7000: the lookup line's works-newer-than-the-model clause (~45) lands in
 				// every prompt, the longest of which sat 23 under 6950.
@@ -343,8 +344,9 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 					// 8025: 7609 plus the memory and recall principle (+416 measured, decision 0044).
 					// 8060: plus the same B2 go-ahead sentence as the ordinary DM cap (+34 measured).
 					// 8143: plus the same reaction principle (+83 measured).
-					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 8143 {
-						t.Errorf("structured DM provider system exceeds 8143 runes")
+					// 8463: plus the what-can-you-do principle in the voice guidance (+320 measured).
+					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 8463 {
+						t.Errorf("structured DM provider system exceeds 8463 runes")
 					}
 					if tc.kind == runKindGroupChat && !strings.Contains(system, "say(answer)") {
 						t.Error("structured group prompt does not name say(answer)")

@@ -370,6 +370,7 @@
     "unsupported": "Ce navigateur ne prend pas en charge les notifications système"
   },
   "onboarding": {
+    "greeting_setup": "Tout se met en place…",
     "progress": "{{step}} sur {{total}}",
     "status_required": "obligatoire",
     "status_done": "terminé",
