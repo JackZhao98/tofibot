@@ -59,6 +59,7 @@ export function useGreetingPlayback(botId: string | undefined, pending: boolean,
     // messages is read for its length only; its contents are fixed for one Bot.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, botId, count]);
-  if (!active) return DONE;
+  // The start effect runs after paint; hold the setup screen from the first render so the greeting never flashes.
+  if (!active) return eligible && !reduced && botId && !run && !hasPlayed(botId) ? { stage: "setup", shown: 0 } : DONE;
   return active.step < 0 ? { stage: "setup", shown: 0 } : { stage: "typing", shown: active.step };
 }
