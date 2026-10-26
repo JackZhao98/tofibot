@@ -12,6 +12,7 @@
     "subject": "Subject",
     "sending_needs_checking": "Sending result needs checking",
     "full_text": "Full email draft",
+    "attachments": "Attachments",
     "body": "Email body",
     "discard": "Discard changes",
     "saving": "Saving…",

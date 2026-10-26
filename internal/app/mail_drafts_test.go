@@ -116,7 +116,7 @@ func TestMailDraftOnlyHumanCanSendExactRevision(t *testing.T) {
 
 func TestMailDraftDoesNotSendWithoutScope(t *testing.T) {
 	s, conv, run := mailDraftFixture(t)
-	d, err := s.store.AddMailDraft(context.Background(), conv.ID, run, "recipient@example.com", "Subject", "Body", false)
+	d, err := s.store.AddMailDraft(context.Background(), conv.ID, run, "recipient@example.com", "Subject", "Body", false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
