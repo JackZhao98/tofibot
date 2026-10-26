@@ -976,7 +976,10 @@ class VM:
         try:
             for line in Path("/proc/cpuinfo").read_text().splitlines():
                 key = line.split(":", 1)[0].strip()
-                if key in ("vendor_id", "model name", "flags") and line not in cpu:
+                # x86 reports vendor_id/model name/flags; aarch64 reports the
+                # implementer/part/variant IDs and Features instead.
+                if key in ("vendor_id", "model name", "flags", "CPU implementer", "CPU architecture",
+                           "CPU variant", "CPU part", "Features") and line not in cpu:
                     cpu.append(line)
                 if key == "processor" and cpu:
                     break
