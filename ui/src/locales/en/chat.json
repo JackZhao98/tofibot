@@ -68,7 +68,9 @@
     "save": "Save",
     "style": "Style",
     "style_hint": "See how this cat looks in the list and in chat.",
-    "title": "Bot profile"
+    "title": "Bot profile",
+    "artifacts": "Artifacts",
+    "artifacts_hint": "Files and images this Bot produced"
   },
   "codex": {
     "connect": "Connect Codex",
@@ -251,7 +253,8 @@
     "computer_on": "Shared computer, on",
     "computer_off": "Shared computer, off",
     "computer_driving": "Shared computer, on. {{name}} is working in it",
-    "remembered_approvals": "Remembered approvals"
+    "remembered_approvals": "Remembered approvals",
+    "open_artifacts": "Open artifacts"
   },
   "history": {
     "boundary_failed": "Couldn't load your unread position.",

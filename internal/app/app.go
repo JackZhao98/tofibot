@@ -3049,7 +3049,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if s.routeDeletion(w, r, p) {
 		return
 	}
-	if s.routeAttachments(w, r, p) || s.routeInbox(w, r, p) || s.routeSidebarOrder(w, r, p) || s.routeSchedules(w, r, p) || s.routeWorkItems(w, r, p) || s.routeTaskImpact(w, r, p) || s.routeCommandWaits(w, r, p) || s.routeToolActivities(w, r, p) || s.routeRunContext(w, r, p) {
+	if s.routeAttachments(w, r, p) || s.routeArtifacts(w, r, p) || s.routeInbox(w, r, p) || s.routeSidebarOrder(w, r, p) || s.routeSchedules(w, r, p) || s.routeWorkItems(w, r, p) || s.routeTaskImpact(w, r, p) || s.routeCommandWaits(w, r, p) || s.routeToolActivities(w, r, p) || s.routeRunContext(w, r, p) {
 		return
 	}
 	if s.routeRememberedApprovals(w, r, p) || s.routeStandingAllowances(w, r, p) || s.routeQuestions(w, r, p) {

@@ -154,7 +154,7 @@ export function OwnerAccount() {
 }
 
 /** The compact identity dock shares the authenticated session with Settings. */
-export function SidebarAccount({ onSettings, onUsage, onConnection, onArchive, connected = true }: { onSettings: () => void; onUsage: () => void; onConnection: () => void; onArchive: () => void; connected?: boolean }) {
+export function SidebarAccount({ onSettings, onUsage, onConnection, onArchive, onArtifacts, connected = true }: { onSettings: () => void; onUsage: () => void; onConnection: () => void; onArchive: () => void; onArtifacts: () => void; connected?: boolean }) {
   const { session, logout } = useContext(SessionContext);
   const appearance = useAppearance();
   const [open, setOpen] = useState(false);
@@ -179,6 +179,7 @@ export function SidebarAccount({ onSettings, onUsage, onConnection, onArchive, c
       <button onClick={() => navigate(onUsage)}><TofiIcon name="activity" size={16}/>{t("common:nav.usage")}</button>
       <div className="sidebar-account-themes" role="group" aria-label={t("common:theme.label")}>{(["system","light","dark"] as const).map(theme => <button key={theme} role="menuitemradio" aria-checked={appearance.preference === theme} data-keep-open="" onClick={() => appearance.choose(theme)}>{t(`common:theme.${theme}`)}</button>)}</div>
       <button onClick={() => navigate(onConnection)}><TofiIcon name="server" size={16}/>{t("common:nav.connection")}</button>
+      <button onClick={() => navigate(onArtifacts)}><TofiIcon name="folder" size={16}/>{t("common:nav.artifacts")}</button>
       <button onClick={() => navigate(onArchive)}><TofiIcon name="archive" size={16}/>{t("common:nav.archived")}</button>
       {session?.enabled && <><div className="sidebar-account-menu-rule"/><button className="sidebar-account-logout" disabled={busy} onClick={() => { setBusy(true); setError(""); void logout().catch(cause => setError(cause instanceof Error ? cause.message : t("account.sign_out_failed"))).finally(() => setBusy(false)); }}>{busy ? t("account.signing_out") : t("account.sign_out")}</button></>}
       {error && <p className="error-text" role="alert">{error}</p>}

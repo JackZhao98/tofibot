@@ -3,7 +3,8 @@
     "settings": "Einstellungen",
     "usage": "Nutzung",
     "connection": "Modelle und Anbieter",
-    "archived": "Archivierte Unterhaltungen"
+    "archived": "Archivierte Unterhaltungen",
+    "artifacts": "Artefakte"
   },
   "theme": {
     "label": "Darstellung",

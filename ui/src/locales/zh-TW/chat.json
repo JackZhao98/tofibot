@@ -68,7 +68,9 @@
     "save": "儲存",
     "style": "樣式",
     "style_hint": "看看這隻貓在清單和聊天裡是什麼樣子。",
-    "title": "Bot 資料"
+    "title": "Bot 資料",
+    "artifacts": "作品",
+    "artifacts_hint": "這個 Bot 產出的檔案與圖片"
   },
   "codex": {
     "connect": "連接 Codex",
@@ -247,7 +249,8 @@
     "computer_on": "共享電腦,已開機",
     "computer_off": "共享電腦,已關機",
     "computer_driving": "共享電腦,已開機。{{name}} 正在使用",
-    "remembered_approvals": "記住的核准"
+    "remembered_approvals": "記住的核准",
+    "open_artifacts": "開啟作品"
   },
   "history": {
     "boundary_failed": "暫時無法載入未讀位置。",

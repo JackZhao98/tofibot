@@ -3,7 +3,8 @@
     "settings": "설정",
     "usage": "사용량",
     "connection": "모델 및 제공업체",
-    "archived": "보관된 대화"
+    "archived": "보관된 대화",
+    "artifacts": "산출물"
   },
   "theme": {
     "label": "화면 모드",

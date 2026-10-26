@@ -173,5 +173,36 @@
       "load": "无法读取此 Bot 的技能。",
       "save": "保存失败，请重试。"
     }
+  },
+  "artifacts": {
+    "title_all": "作品",
+    "title_bot": "{{name}} 的作品",
+    "title_conversation": "{{name}} 中的作品",
+    "close": "关闭作品",
+    "tabs_label": "类型",
+    "type_all": "全部",
+    "type_images": "图片",
+    "type_documents": "文档",
+    "include_uploads": "包含我上传的",
+    "search_label": "按名称搜索作品",
+    "search_placeholder": "按名称搜索",
+    "loading": "正在加载作品",
+    "error": "无法加载作品，请重试。",
+    "retry": "重试",
+    "load_more": "加载更多",
+    "empty": "还没有作品。Bot 产出的文件和图片会出现在这里。",
+    "empty_filtered": "没有符合筛选条件的作品。",
+    "open": "打开 {{name}}",
+    "go_to_message": "跳到消息",
+    "go_aria": "跳到包含 {{name}} 的消息",
+    "uploaded": "你上传的",
+    "archived": "已归档",
+    "earlier_versions": "历史版本（{{count}}）",
+    "hide_versions": "收起历史版本",
+    "versions_loading": "正在加载历史版本",
+    "versions_error": "无法加载历史版本。",
+    "latest": "最新",
+    "you": "你",
+    "list_label": "作品列表"
   }
 }

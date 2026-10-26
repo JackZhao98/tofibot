@@ -173,5 +173,36 @@
       "load": "この Bot の Skill を読み込めませんでした。",
       "save": "保存できませんでした。もう一度お試しください。"
     }
+  },
+  "artifacts": {
+    "title_all": "成果物",
+    "title_bot": "{{name}} の成果物",
+    "title_conversation": "{{name}} の成果物",
+    "close": "成果物を閉じる",
+    "tabs_label": "種類",
+    "type_all": "すべて",
+    "type_images": "画像",
+    "type_documents": "ドキュメント",
+    "include_uploads": "自分のアップロードを含める",
+    "search_label": "名前で成果物を検索",
+    "search_placeholder": "名前で検索",
+    "loading": "成果物を読み込み中",
+    "error": "成果物を読み込めませんでした。もう一度お試しください。",
+    "retry": "再試行",
+    "load_more": "さらに読み込む",
+    "empty": "成果物はまだありません。Bot が作成したファイルや画像がここに表示されます。",
+    "empty_filtered": "条件に一致する成果物はありません。",
+    "open": "{{name}} を開く",
+    "go_to_message": "メッセージへ移動",
+    "go_aria": "{{name}} を含むメッセージへ移動",
+    "uploaded": "自分でアップロード",
+    "archived": "アーカイブ済み",
+    "earlier_versions": "以前のバージョン（{{count}}）",
+    "hide_versions": "以前のバージョンを隠す",
+    "versions_loading": "以前のバージョンを読み込み中",
+    "versions_error": "以前のバージョンを読み込めませんでした。",
+    "latest": "最新",
+    "you": "自分",
+    "list_label": "成果物の一覧"
   }
 }

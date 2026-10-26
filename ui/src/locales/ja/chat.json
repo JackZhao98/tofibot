@@ -68,7 +68,9 @@
     "save": "保存",
     "style": "スタイル",
     "style_hint": "この猫がリストやチャットでどう見えるか確認しましょう。",
-    "title": "Bot プロフィール"
+    "title": "Bot プロフィール",
+    "artifacts": "成果物",
+    "artifacts_hint": "この Bot が作成したファイルと画像"
   },
   "codex": {
     "connect": "Codex に接続",
@@ -247,7 +249,8 @@
     "computer_on": "共有コンピューター(オン)",
     "computer_off": "共有コンピューター(オフ)",
     "computer_driving": "共有コンピューター(オン)。{{name}} が作業中",
-    "remembered_approvals": "記憶した承認"
+    "remembered_approvals": "記憶した承認",
+    "open_artifacts": "成果物を開く"
   },
   "history": {
     "boundary_failed": "未読位置を読み込めませんでした。",
