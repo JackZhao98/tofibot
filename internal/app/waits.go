@@ -822,10 +822,12 @@ func (s *Store) reconcileTaskRuns() error {
 // closeAbandonedHeldTasks closes a task whose assignee run is done when that
 // run gave nothing that is still open, no run below it is active, and nothing
 // is left that would wake the Bot for it. The run's last answer is the result;
-// without one the task failed.
+// without one the task failed. A person's task that waits on the person (input
+// required, blocked, in review) is theirs to move and stays as it is.
 func (s *Store) closeAbandonedHeldTasks() error {
 	rows, err := s.db.Query(`SELECT w.id,w.assignee_run_id FROM work_items w JOIN runs r ON r.id=w.assignee_run_id
  WHERE w.status IN (` + openTaskStatuses + `) AND r.status='done'
+ AND (w.assigner_kind='bot' OR w.status IN ('todo','in_progress'))
  AND NOT EXISTS(SELECT 1 FROM work_items g WHERE g.origin_run_id=w.assignee_run_id AND g.status NOT IN ('done','cancelled','failed'))
  AND NOT EXISTS(WITH RECURSIVE below(id) AS (SELECT id FROM runs WHERE parent_run_id=w.assignee_run_id UNION SELECT x.id FROM runs x JOIN below b ON x.parent_run_id=b.id)
   SELECT 1 FROM runs a WHERE a.id IN (SELECT id FROM below) AND a.status IN ('queued','running','waiting'))

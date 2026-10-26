@@ -94,3 +94,20 @@ func TestSweeperSettlesARootTaskTheHookLeftOpen(t *testing.T) {
 		t.Fatalf("stuck root task is %s %q", got.Status, got.ResultSummary)
 	}
 }
+
+// A person's task left waiting on the person is not the sweeper's to close.
+func TestSweeperLeavesAPersonsTaskThatWaitsOnThem(t *testing.T) {
+	for _, status := range []string{"input_required", "blocked", "review"} {
+		f := newTaskFix(t)
+		root, rootTask := f.runChain()
+		if _, err := f.s.db.Exec(`UPDATE work_items SET status=?,assignee_run_id=?,closed_at='',completed_at='',result_message_id='',result_summary='' WHERE id=?`, status, root.ID, rootTask.ID); err != nil {
+			t.Fatal(err)
+		}
+		if err := f.s.reconcileTaskRuns(); err != nil {
+			t.Fatal(err)
+		}
+		if got, _ := f.s.GetWorkItem(rootTask.ID); got.Status != status {
+			t.Fatalf("%s task became %s", status, got.Status)
+		}
+	}
+}
