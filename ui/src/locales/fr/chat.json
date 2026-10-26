@@ -68,7 +68,9 @@
     "save": "Enregistrer",
     "style": "Style",
     "style_hint": "Voyez à quoi ressemble ce chat dans la liste et dans le chat.",
-    "title": "Profil du Bot"
+    "title": "Profil du Bot",
+    "artifacts": "Artefacts",
+    "artifacts_hint": "Fichiers et images produits par ce Bot"
   },
   "codex": {
     "connect": "Connecter Codex",
@@ -255,7 +257,8 @@
     "computer_on": "Ordinateur partagé, allumé",
     "computer_off": "Ordinateur partagé, éteint",
     "computer_driving": "Ordinateur partagé, allumé. {{name}} y travaille",
-    "remembered_approvals": "Approbations mémorisées"
+    "remembered_approvals": "Approbations mémorisées",
+    "open_artifacts": "Ouvrir les artefacts"
   },
   "history": {
     "boundary_failed": "Impossible de charger la position non lue.",

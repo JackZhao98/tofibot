@@ -179,5 +179,36 @@
       "load": "Impossible de charger les Skills de ce Bot.",
       "save": "Enregistrement impossible. Réessayez."
     }
+  },
+  "artifacts": {
+    "title_all": "Artefacts",
+    "title_bot": "Artefacts de {{name}}",
+    "title_conversation": "Artefacts dans {{name}}",
+    "close": "Fermer les artefacts",
+    "tabs_label": "Type",
+    "type_all": "Tous",
+    "type_images": "Images",
+    "type_documents": "Documents",
+    "include_uploads": "Inclure mes envois",
+    "search_label": "Rechercher des artefacts par nom",
+    "search_placeholder": "Rechercher par nom",
+    "loading": "Chargement des artefacts",
+    "error": "Impossible de charger les artefacts. Réessayez.",
+    "retry": "Réessayer",
+    "load_more": "Charger plus",
+    "empty": "Aucun artefact pour l'instant. Les fichiers et images produits par vos Bots apparaissent ici.",
+    "empty_filtered": "Aucun artefact ne correspond à ces filtres.",
+    "open": "Ouvrir {{name}}",
+    "go_to_message": "Aller au message",
+    "go_aria": "Aller au message contenant {{name}}",
+    "uploaded": "Envoyé par vous",
+    "archived": "Archivé",
+    "earlier_versions": "Versions antérieures ({{count}})",
+    "hide_versions": "Masquer les versions antérieures",
+    "versions_loading": "Chargement des versions antérieures",
+    "versions_error": "Impossible de charger les versions antérieures.",
+    "latest": "Dernière",
+    "you": "Vous",
+    "list_label": "Liste des artefacts"
   }
 }

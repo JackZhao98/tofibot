@@ -3,7 +3,8 @@
     "settings": "設定",
     "usage": "用量",
     "connection": "模型與供應商",
-    "archived": "已封存的對話"
+    "archived": "已封存的對話",
+    "artifacts": "作品"
   },
   "language": {
     "label": "語言",

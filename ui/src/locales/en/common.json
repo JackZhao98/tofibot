@@ -3,7 +3,8 @@
     "settings": "Settings",
     "usage": "Usage",
     "connection": "Models and providers",
-    "archived": "Archived conversations"
+    "archived": "Archived conversations",
+    "artifacts": "Artifacts"
   },
   "language": {
     "label": "Language",

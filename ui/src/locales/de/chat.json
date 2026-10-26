@@ -68,7 +68,9 @@
     "save": "Speichern",
     "style": "Stil",
     "style_hint": "So sieht diese Katze in der Liste und im Chat aus.",
-    "title": "Bot-Profil"
+    "title": "Bot-Profil",
+    "artifacts": "Artefakte",
+    "artifacts_hint": "Dateien und Bilder, die dieser Bot erzeugt hat"
   },
   "codex": {
     "connect": "Codex verbinden",
@@ -251,7 +253,8 @@
     "computer_on": "Gemeinsamer Computer, an",
     "computer_off": "Gemeinsamer Computer, aus",
     "computer_driving": "Gemeinsamer Computer, an. {{name}} arbeitet darin",
-    "remembered_approvals": "Gemerkte Genehmigungen"
+    "remembered_approvals": "Gemerkte Genehmigungen",
+    "open_artifacts": "Artefakte öffnen"
   },
   "history": {
     "boundary_failed": "Ungelesen-Position konnte nicht geladen werden.",

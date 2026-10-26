@@ -176,5 +176,36 @@
       "load": "Die Skills dieses Bots konnten nicht geladen werden.",
       "save": "Speichern fehlgeschlagen. Versuche es erneut."
     }
+  },
+  "artifacts": {
+    "title_all": "Artefakte",
+    "title_bot": "Artefakte von {{name}}",
+    "title_conversation": "Artefakte in {{name}}",
+    "close": "Artefakte schließen",
+    "tabs_label": "Typ",
+    "type_all": "Alle",
+    "type_images": "Bilder",
+    "type_documents": "Dokumente",
+    "include_uploads": "Meine Uploads einbeziehen",
+    "search_label": "Artefakte nach Namen suchen",
+    "search_placeholder": "Nach Namen suchen",
+    "loading": "Artefakte werden geladen",
+    "error": "Artefakte konnten nicht geladen werden. Versuche es erneut.",
+    "retry": "Erneut versuchen",
+    "load_more": "Mehr laden",
+    "empty": "Noch keine Artefakte. Dateien und Bilder, die deine Bots erzeugen, erscheinen hier.",
+    "empty_filtered": "Kein Artefakt passt zu diesen Filtern.",
+    "open": "{{name}} öffnen",
+    "go_to_message": "Zur Nachricht",
+    "go_aria": "Zur Nachricht mit {{name}}",
+    "uploaded": "Von dir hochgeladen",
+    "archived": "Archiviert",
+    "earlier_versions": "Frühere Versionen ({{count}})",
+    "hide_versions": "Frühere Versionen ausblenden",
+    "versions_loading": "Frühere Versionen werden geladen",
+    "versions_error": "Frühere Versionen konnten nicht geladen werden.",
+    "latest": "Neueste",
+    "you": "Du",
+    "list_label": "Artefaktliste"
   }
 }

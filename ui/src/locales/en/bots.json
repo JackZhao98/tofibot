@@ -176,5 +176,36 @@
       "load": "Could not load this Bot’s Skills.",
       "save": "Could not save. Try again."
     }
+  },
+  "artifacts": {
+    "title_all": "Artifacts",
+    "title_bot": "{{name}}'s artifacts",
+    "title_conversation": "Artifacts in {{name}}",
+    "close": "Close artifacts",
+    "tabs_label": "Type",
+    "type_all": "All",
+    "type_images": "Images",
+    "type_documents": "Documents",
+    "include_uploads": "Include my uploads",
+    "search_label": "Search artifacts by name",
+    "search_placeholder": "Search by name",
+    "loading": "Loading artifacts",
+    "error": "Could not load artifacts. Try again.",
+    "retry": "Retry",
+    "load_more": "Load more",
+    "empty": "No artifacts yet. Files and images your Bots produce show up here.",
+    "empty_filtered": "No artifact matches these filters.",
+    "open": "Open {{name}}",
+    "go_to_message": "Go to message",
+    "go_aria": "Go to the message that carries {{name}}",
+    "uploaded": "Uploaded by you",
+    "archived": "Archived",
+    "earlier_versions": "Earlier versions ({{count}})",
+    "hide_versions": "Hide earlier versions",
+    "versions_loading": "Loading earlier versions",
+    "versions_error": "Could not load earlier versions.",
+    "latest": "Latest",
+    "you": "You",
+    "list_label": "Artifact list"
   }
 }

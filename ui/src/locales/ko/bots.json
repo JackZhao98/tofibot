@@ -173,5 +173,36 @@
       "load": "이 Bot의 Skill을 불러오지 못했습니다.",
       "save": "저장하지 못했습니다. 다시 시도하세요."
     }
+  },
+  "artifacts": {
+    "title_all": "산출물",
+    "title_bot": "{{name}}의 산출물",
+    "title_conversation": "{{name}}의 산출물",
+    "close": "산출물 닫기",
+    "tabs_label": "유형",
+    "type_all": "전체",
+    "type_images": "이미지",
+    "type_documents": "문서",
+    "include_uploads": "내가 올린 파일 포함",
+    "search_label": "이름으로 산출물 검색",
+    "search_placeholder": "이름으로 검색",
+    "loading": "산출물 불러오는 중",
+    "error": "산출물을 불러오지 못했습니다. 다시 시도하세요.",
+    "retry": "다시 시도",
+    "load_more": "더 보기",
+    "empty": "아직 산출물이 없습니다. Bot이 만든 파일과 이미지가 여기에 표시됩니다.",
+    "empty_filtered": "조건에 맞는 산출물이 없습니다.",
+    "open": "{{name}} 열기",
+    "go_to_message": "메시지로 이동",
+    "go_aria": "{{name}}이(가) 있는 메시지로 이동",
+    "uploaded": "내가 올림",
+    "archived": "보관됨",
+    "earlier_versions": "이전 버전 ({{count}})",
+    "hide_versions": "이전 버전 숨기기",
+    "versions_loading": "이전 버전 불러오는 중",
+    "versions_error": "이전 버전을 불러오지 못했습니다.",
+    "latest": "최신",
+    "you": "나",
+    "list_label": "산출물 목록"
   }
 }

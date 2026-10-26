@@ -3,7 +3,8 @@
     "settings": "设置",
     "usage": "用量",
     "connection": "模型与提供方",
-    "archived": "已归档的对话"
+    "archived": "已归档的对话",
+    "artifacts": "作品"
   },
   "language": {
     "label": "语言",

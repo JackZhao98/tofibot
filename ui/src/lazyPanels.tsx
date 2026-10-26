@@ -18,6 +18,7 @@ const loaders = {
   memory: () => import("./MemoryPanel"),
   team: () => import("./TeamBoard"),
   archive: () => import("./ArchivePanel"),
+  artifacts: () => import("./ArtifactsPanel"),
   viewOnly: () => import("./ViewOnlyChat"),
   remembered: () => import("./RememberedApprovals"),
   deleteDialog: () => import("./DeleteConversationDialog"),
@@ -74,6 +75,7 @@ export const WorkPanel = chunk("work", module => module.WorkPanel);
 export const MemoryPanel = chunk("memory", module => module.MemoryPanel);
 export const TeamBoard = chunk("team", module => module.TeamBoard);
 export const ArchivePanel = chunk("archive", module => module.ArchivePanel);
+export const ArtifactsPanel = chunk("artifacts", module => module.ArtifactsPanel);
 export const ViewOnlyChat = chunk("viewOnly", module => module.ViewOnlyChat);
 export const RememberedApprovalsSheet = chunk("remembered", module => module.RememberedApprovalsSheet);
 export const DeleteConversationDialog = chunk("deleteDialog", module => module.DeleteConversationDialog);

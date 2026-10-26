@@ -68,7 +68,9 @@
     "save": "저장",
     "style": "스타일",
     "style_hint": "이 고양이가 목록과 채팅에서 어떻게 보이는지 확인하세요.",
-    "title": "Bot 프로필"
+    "title": "Bot 프로필",
+    "artifacts": "산출물",
+    "artifacts_hint": "이 Bot이 만든 파일과 이미지"
   },
   "codex": {
     "connect": "Codex 연결",
@@ -247,7 +249,8 @@
     "computer_on": "공유 컴퓨터, 켜짐",
     "computer_off": "공유 컴퓨터, 꺼짐",
     "computer_driving": "공유 컴퓨터, 켜짐. {{name}}이(가) 작업 중",
-    "remembered_approvals": "기억된 승인"
+    "remembered_approvals": "기억된 승인",
+    "open_artifacts": "산출물 열기"
   },
   "history": {
     "boundary_failed": "읽지 않은 위치를 불러오지 못했습니다.",

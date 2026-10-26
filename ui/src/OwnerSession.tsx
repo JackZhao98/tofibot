@@ -155,7 +155,7 @@ export function OwnerAccount() {
 }
 
 /** The compact identity dock shares the authenticated session with Settings. */
-export function SidebarAccount({ onSettings, onUsage, onConnection, onArchive, connected = true }: { onSettings: () => void; onUsage: () => void; onConnection: () => void; onArchive: () => void; connected?: boolean }) {
+export function SidebarAccount({ onSettings, onUsage, onConnection, onArchive, onArtifacts, connected = true }: { onSettings: () => void; onUsage: () => void; onConnection: () => void; onArchive: () => void; onArtifacts: () => void; connected?: boolean }) {
   const { session, logout } = useContext(SessionContext);
   const appearance = useAppearance();
   const { preference: language } = useLanguage();
@@ -186,6 +186,7 @@ export function SidebarAccount({ onSettings, onUsage, onConnection, onArchive, c
         {LANGUAGES.map(code => <button key={code} role="menuitemradio" lang={code} aria-checked={language === code} data-keep-open="" onClick={() => pickLanguage(code)}>{LANGUAGE_ENDONYMS[code]}</button>)}
       </OverlaySubmenu>
       <button onClick={() => navigate(onConnection)}><TofiIcon name="server" size={16}/>{t("common:nav.connection")}</button>
+      <button onClick={() => navigate(onArtifacts)}><TofiIcon name="folder" size={16}/>{t("common:nav.artifacts")}</button>
       <button onClick={() => navigate(onArchive)}><TofiIcon name="archive" size={16}/>{t("common:nav.archived")}</button>
       {session?.enabled && <><div className="sidebar-account-menu-rule"/><button className="sidebar-account-logout" disabled={busy} onClick={() => { setBusy(true); setError(""); void logout().catch(cause => setError(cause instanceof Error ? cause.message : t("account.sign_out_failed"))).finally(() => setBusy(false)); }}>{busy ? t("account.signing_out") : t("account.sign_out")}</button></>}
       {error && <p className="error-text" role="alert">{error}</p>}
