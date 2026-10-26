@@ -56,13 +56,13 @@ func (s *Store) sameGroupRecipients(conv string, recipients []string) bool {
 // AddGroupDelegations gives one brief to several members of the group in one
 // visible message of the assigner. Each recipient gets a queued group task run
 // triggered by that message, with its task and the wait the assigner holds.
-func (s *Store) AddGroupDelegations(conv, sender string, targets []string, parent, brief string) (Message, []Run, error) {
-	m, runs, err := s.addGroupDelegations(conv, sender, targets, parent, brief)
+func (s *Store) AddGroupDelegations(conv, sender string, targets []string, parent, brief string, attachmentIDs ...string) (Message, []Run, error) {
+	m, runs, err := s.addGroupDelegations(conv, sender, targets, parent, brief, attachmentIDs)
 	s.afterTreeLimit(err)
 	return m, runs, err
 }
 
-func (s *Store) addGroupDelegations(conv, sender string, targets []string, parent, brief string) (Message, []Run, error) {
+func (s *Store) addGroupDelegations(conv, sender string, targets []string, parent, brief string, attachmentIDs []string) (Message, []Run, error) {
 	brief = strings.TrimSpace(brief)
 	if brief == "" {
 		return Message{}, nil, errors.New("message content is required")
@@ -124,6 +124,9 @@ func (s *Store) addGroupDelegations(conv, sender string, targets []string, paren
 	if err = insertVisibleDelegationTx(tx, m); err != nil {
 		return Message{}, nil, err
 	}
+	if err = bindDeliveredTx(tx, &m, attachmentIDs); err != nil {
+		return Message{}, nil, err
+	}
 	if err = insertEventTx(tx, conv, "message", m, t); err != nil {
 		return Message{}, nil, err
 	}
@@ -172,7 +175,7 @@ func (s *Store) isVisibleDelegation(m Message, conv, bot string) bool {
 // publishDelegationMessage posts the delegation message for tasks that start
 // through the inbox (a task that waits, or a second task of one run). The
 // message triggers nothing: the tasks carry the work. A failure is logged.
-func (s *Store) publishDelegationMessage(conv, sender, runID string, recipients []string, brief string) {
+func (s *Store) publishDelegationMessage(conv, sender, runID string, recipients []string, brief string, attachmentIDs ...string) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		log.Printf("[delegate] message: %v", err)
@@ -195,6 +198,9 @@ func (s *Store) publishDelegationMessage(conv, sender, runID string, recipients 
 	t := now()
 	m := visibleDelegationMessage(conv, seq, sender, runID, names, strings.TrimSpace(brief), t)
 	if err = insertVisibleDelegationTx(tx, m); err == nil {
+		err = bindDeliveredTx(tx, &m, attachmentIDs)
+	}
+	if err == nil {
 		err = insertEventTx(tx, conv, "message", m, t)
 	}
 	if err == nil {

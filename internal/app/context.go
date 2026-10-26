@@ -902,7 +902,12 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	r.ctxCapture.markHistoryStart(len(pm))
 	pm = append(pm, chosen...)
 	if handoffText != "" {
-		pm = append(pm, runtime.Message{Role: "user", Content: handoffText})
+		hm := runtime.Message{Role: "user", Content: handoffText}
+		if handoff != nil {
+			// The brief stands in for its message above; its attachments ride with it.
+			s.addAttachmentContext(c, *handoff, &hm, &imagesLeft, &imageBudget, guestPaths)
+		}
+		pm = append(pm, hm)
 	}
 	// Volatile facts trail the history, just before the final input, so the
 	// system text stays cache-stable and the current request stays last.

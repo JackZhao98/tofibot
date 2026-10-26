@@ -331,7 +331,7 @@ func (s *Server) teamTools(c Conversation, r Run) []Tool {
 			s.markGroupsListed(r.ID)
 			return string(b), nil
 		}),
-		tool("send_group_message", "Start work in a different group by assigning one selected Bot. It rejects the current conversation: reply normally to publish here, and use delegate to give a task to another member of the current group.", map[string]any{"group_id": map[string]any{"type": "string"}, "bot_id": map[string]any{"type": "string"}, "message": map[string]any{"type": "string"}}, []string{"group_id", "bot_id", "message"}, func(ctx context.Context, args json.RawMessage) (string, error) { return s.teamSend(ctx, c, r, args) }),
+		tool("send_group_message", "Start work in a different group by assigning one selected Bot. It rejects the current conversation: reply normally to publish here, and use delegate to give a task to another member of the current group.", map[string]any{"group_id": map[string]any{"type": "string"}, "bot_id": map[string]any{"type": "string"}, "message": map[string]any{"type": "string"}, "attachment_ids": attachmentIDsProp}, []string{"group_id", "bot_id", "message"}, func(ctx context.Context, args json.RawMessage) (string, error) { return s.teamSend(ctx, c, r, args) }),
 	}
 }
 
@@ -439,9 +439,10 @@ func (s *Server) teamSend(ctx context.Context, c Conversation, r Run, args json.
 		return "", err
 	}
 	var x struct {
-		GroupID string `json:"group_id"`
-		BotID   string `json:"bot_id,omitempty"`
-		Message string `json:"message"`
+		GroupID       string   `json:"group_id"`
+		BotID         string   `json:"bot_id,omitempty"`
+		Message       string   `json:"message"`
+		AttachmentIDs []string `json:"attachment_ids,omitempty"`
 	}
 	if json.Unmarshal(args, &x) != nil {
 		return "", errors.New("group_id and message required")
@@ -453,6 +454,9 @@ func (s *Server) teamSend(ctx context.Context, c Conversation, r Run, args json.
 			return "", err
 		}
 		return "", errors.New("group_id and message required")
+	}
+	if x.AttachmentIDs, err = s.store.checkDelegateAttachments(c.ID, x.AttachmentIDs); err != nil {
+		return "", err
 	}
 	if x.GroupID == c.ID {
 		return "", errors.New("send_group_message cannot target the current conversation; reply normally to publish here, or use delegate to give a task to another current group member")
@@ -569,6 +573,9 @@ func (s *Server) teamSend(ctx context.Context, c Conversation, r Run, args json.
 		}
 		m := Message{ID: uuid.NewString(), ConversationID: group.ID, Seq: seq, Role: "assistant", Kind: "notice", SenderBotID: r.BotID, RunID: childID, Content: x.Message, Notice: notice, CreatedAt: t}
 		if _, e := tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at,client_message_id) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, m.ID, group.ID, seq, m.Role, m.Kind, r.BotID, childID, m.Content, string(noticeData), t, "team:"+r.ID+":"+key); e != nil {
+			return "", e
+		}
+		if e := bindDeliveredTx(tx, &m, x.AttachmentIDs); e != nil {
 			return "", e
 		}
 		var q int64

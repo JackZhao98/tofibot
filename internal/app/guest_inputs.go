@@ -47,7 +47,7 @@ type guestInputCandidate struct {
 func (s *Store) guestInputCandidates(conv, trigger string) ([]guestInputCandidate, error) {
 	rows, err := s.db.Query(`SELECT a.id,a.conversation_id,a.name,a.mime,a.size,a.created_at,MAX(m.id=?) FROM attachments a
 	 JOIN attachment_messages am ON am.attachment_id=a.id JOIN messages m ON m.id=am.message_id
-	 WHERE m.conversation_id=? AND m.role='user' GROUP BY a.id ORDER BY a.created_at,a.id`, trigger, conv)
+	 WHERE m.conversation_id=? AND (m.role='user' OR (m.role='assistant' AND (m.kind='notice' OR COALESCE(m.client_message_id,'') LIKE 'delegation:%'))) GROUP BY a.id ORDER BY a.created_at,a.id`, trigger, conv)
 	if err != nil {
 		return nil, err
 	}

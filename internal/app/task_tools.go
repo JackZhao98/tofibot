@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	delegateToolDescription = "Give a task to one or more members. Each gets a task record: your brief, a version number and an optional checklist. The call returns a receipt at once and starts the work. The result returns later as an event that wakes you, so do not poll. Write the brief to stand alone: the goal, the form of the result, the tools and sources, and the limits. Split broad work into tasks, each with one owner and one result, and give independent parts in the same turn so that they run in parallel. A part that needs the result of other tasks names their ids in depends_on: it waits, starts by itself when all of them are done, and you are told if one of them fails or is cancelled. Before parallel work on code, give a first task that fixes the interface the parts share, and make the parts depend on it. Match the number of tasks to the difficulty of the work: simple work needs one task. Add a checklist only for work with separate parts."
+	delegateToolDescription = "Give a task to one or more members. Each gets a task record: your brief, a version number and an optional checklist. The call returns a receipt at once and starts the work. The result returns later as an event that wakes you, so do not poll. Write the brief to stand alone: the goal, the form of the result, the tools and sources, and the limits. Split broad work into tasks, each with one owner and one result, and give independent parts in the same turn so that they run in parallel. A part that needs the result of other tasks names their ids in depends_on: it waits, starts by itself when all of them are done, and you are told if one of them fails or is cancelled. Before parallel work on code, give a first task that fixes the interface the parts share, and make the parts depend on it. Match the number of tasks to the difficulty of the work: simple work needs one task. Add a checklist only for work with separate parts. Pass files the member needs in attachment_ids."
 
 	waitForToolDescription = "Start a wait and get a receipt at once. The wait ends when its event happens or its deadline passes; then you are woken with the result, and a timeout is a result too. After the receipt, tell the person what they need and end your turn. To wait for several events together, repeat the call with the group id from the receipt: mode all ends when every member has ended, mode any at the first fulfilled member. A wait that would close a cycle is refused. A wait on a command (kind command_exit, target the terminal id) ends when the process ends, or, for a shell terminal, when the shell is back at its prompt; the result has the exit code when one exists and the last output. It always has a timer check in its group, mode any: add your own timer to the group first, or the system adds one. If the timer comes first, read the terminal and wait again when the command still runs."
 
@@ -53,24 +53,26 @@ func receiptJSON(value any) (string, error) {
 func (s *Server) delegateTool(c Conversation, r Run) Tool {
 	return Tool{Name: "delegate", Description: delegateToolDescription, Local: true,
 		Parameters: objectSchema(map[string]any{
-			"bot_id":     stringProp("Exact id of the member."),
-			"bot_ids":    map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Exact ids of the members, when more than one."},
-			"task":       stringProp(delegationBriefText),
-			"title":      stringProp("A short name for the task."),
-			"checklist":  map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "The items of the task's checklist, in order."},
-			"depends_on": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Ids of tasks in the same tree that must end done before this task starts."},
+			"bot_id":         stringProp("Exact id of the member."),
+			"bot_ids":        map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Exact ids of the members, when more than one."},
+			"task":           stringProp(delegationBriefText),
+			"title":          stringProp("A short name for the task."),
+			"checklist":      map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "The items of the task's checklist, in order."},
+			"depends_on":     map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Ids of tasks in the same tree that must end done before this task starts."},
+			"attachment_ids": attachmentIDsProp,
 		}, []string{"task"}),
 		Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
 			var in struct {
-				BotID     string   `json:"bot_id"`
-				BotIDs    []string `json:"bot_ids"`
-				Task      string   `json:"task"`
-				Title     string   `json:"title"`
-				Checklist []string `json:"checklist"`
-				DependsOn []string `json:"depends_on"`
+				BotID         string   `json:"bot_id"`
+				BotIDs        []string `json:"bot_ids"`
+				Task          string   `json:"task"`
+				Title         string   `json:"title"`
+				Checklist     []string `json:"checklist"`
+				DependsOn     []string `json:"depends_on"`
+				AttachmentIDs []string `json:"attachment_ids"`
 			}
 			if json.Unmarshal(raw, &in) != nil {
 				return "", errors.New("invalid delegate arguments")
@@ -87,6 +89,10 @@ func (s *Server) delegateTool(c Conversation, r Run) Tool {
 			if len(recipients) == 0 || in.Task == "" {
 				return "", errors.New("bot_id or bot_ids and task are required")
 			}
+			var aerr error
+			if in.AttachmentIDs, aerr = s.store.checkDelegateAttachments(c.ID, in.AttachmentIDs); aerr != nil {
+				return "", aerr
+			}
 			if len(in.Checklist) > maxChecklistItems {
 				return "", taskRefusal("checklist_too_long", fmt.Sprintf("A checklist holds at most %d items.", maxChecklistItems))
 			}
@@ -98,6 +104,9 @@ func (s *Server) delegateTool(c Conversation, r Run) Tool {
 			if deps := cleanDepIDs(in.DependsOn); len(deps) > 0 || (len(recipients) == 1 && s.store.handoffUsed(r.ID)) {
 				// The tasks wait, or this run gave its one direct task already: no run
 				// starts now, and no hand-over slot of this run is used.
+				if len(in.AttachmentIDs) > 0 && !s.store.sameGroupRecipients(c.ID, recipients) {
+					return "", taskRefusal("attachments_need_direct_delegation", "Attachments travel with a task that starts now, or with a task in a group you share with the member. Give this task without depends_on, or in the group.")
+				}
 				if c.Kind != "group" && c.Kind != "dm" {
 					return "", errors.New("delegate requires a conversation")
 				}
@@ -107,7 +116,7 @@ func (s *Server) delegateTool(c Conversation, r Run) Tool {
 				}
 				if s.store.sameGroupRecipients(c.ID, recipients) {
 					// Decision 0065: the group reads the delegation, though these tasks start through the inbox.
-					s.store.publishDelegationMessage(c.ID, r.BotID, r.ID, recipients, in.Task)
+					s.store.publishDelegationMessage(c.ID, r.BotID, r.ID, recipients, in.Task, in.AttachmentIDs...)
 				}
 				s.flushInbox()
 				return receiptJSON(map[string]any{"tasks": receipts, "note": "A task that waits starts when every task it waits on is done. Every result returns to you as an event."})
@@ -116,10 +125,10 @@ func (s *Server) delegateTool(c Conversation, r Run) Tool {
 			var runs []Run
 			var err error
 			if len(recipients) == 1 {
-				args, _ := json.Marshal(map[string]string{"bot_id": recipients[0], "task": in.Task})
+				args, _ := json.Marshal(map[string]any{"bot_id": recipients[0], "task": in.Task, "attachment_ids": in.AttachmentIDs})
 				out, runs, err = s.execHandoff(ctx, c, r, args)
 			} else {
-				args, _ := json.Marshal(map[string]any{"bot_ids": recipients, "content": in.Task})
+				args, _ := json.Marshal(map[string]any{"bot_ids": recipients, "content": in.Task, "attachment_ids": in.AttachmentIDs})
 				out, runs, err = s.execMessage(ctx, c, r, args)
 			}
 			if err != nil {

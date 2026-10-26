@@ -410,12 +410,12 @@ func (s *Store) defaultGroupRunSpecTx(tx *sql.Tx, conversationID string) (runSpe
 // AddForwardHandoff crosses a DM boundary without making the target Bot read
 // the source Bot's private conversation. The source receives a durable notice;
 // the explicit task is stored in the target canonical DM as the child anchor.
-func (s *Store) AddForwardHandoff(origin, sender, bot, parent, task string) (Message, Run, error) {
-	m, r, err := s.addForwardHandoff(origin, sender, bot, parent, task)
+func (s *Store) AddForwardHandoff(origin, sender, bot, parent, task string, attachmentIDs ...string) (Message, Run, error) {
+	m, r, err := s.addForwardHandoff(origin, sender, bot, parent, task, attachmentIDs)
 	s.afterTreeLimit(err)
 	return m, r, err
 }
-func (s *Store) addForwardHandoff(origin, sender, bot, parent, task string) (Message, Run, error) {
+func (s *Store) addForwardHandoff(origin, sender, bot, parent, task string, attachmentIDs []string) (Message, Run, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return Message{}, Run{}, err
@@ -464,6 +464,9 @@ func (s *Store) addForwardHandoff(origin, sender, bot, parent, task string) (Mes
 	taskMsg.Notice = notice
 	noticeData, _ := json.Marshal(notice)
 	if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, taskMsg.ID, targetConv, targetSeq, taskMsg.Role, taskMsg.Kind, sender, childID, task, string(noticeData), t); err != nil {
+		return Message{}, Run{}, err
+	}
+	if err = bindDeliveredTx(tx, &taskMsg, attachmentIDs); err != nil {
 		return Message{}, Run{}, err
 	}
 	var originSeq int64
@@ -644,12 +647,12 @@ func (s *Store) addBotMessage(origin, sender, bot, parent, content string) (Mess
 // AddBotMessages creates one hidden Bot-only trace for one sender and one or
 // more recipients. The trace has no user-facing name; its identity is carried
 // by the message notice so clients can render “from ↔ to” directly.
-func (s *Store) AddBotMessages(origin, sender string, targets []string, parent, content string) (Message, []Run, error) {
-	m, r, err := s.addBotMessages(origin, sender, targets, parent, content)
+func (s *Store) AddBotMessages(origin, sender string, targets []string, parent, content string, attachmentIDs ...string) (Message, []Run, error) {
+	m, r, err := s.addBotMessages(origin, sender, targets, parent, content, attachmentIDs)
 	s.afterTreeLimit(err)
 	return m, r, err
 }
-func (s *Store) addBotMessages(origin, sender string, targets []string, parent, content string) (Message, []Run, error) {
+func (s *Store) addBotMessages(origin, sender string, targets []string, parent, content string, attachmentIDs []string) (Message, []Run, error) {
 	content = strings.TrimSpace(content)
 	if content == "" {
 		return Message{}, nil, errors.New("message content is required")
@@ -737,6 +740,9 @@ func (s *Store) addBotMessages(origin, sender string, targets []string, parent, 
 	}
 	traceMessage := Message{ID: newID(), ConversationID: traceID, Seq: traceSeq, Role: "assistant", Kind: "notice", SenderBotID: sender, RunID: childIDs[0], Content: content, Notice: traceNotice, CreatedAt: t}
 	if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, traceMessage.ID, traceID, traceSeq, traceMessage.Role, traceMessage.Kind, sender, childIDs[0], content, string(noticeData), t); err != nil {
+		return Message{}, nil, err
+	}
+	if err = bindDeliveredTx(tx, &traceMessage, attachmentIDs); err != nil {
 		return Message{}, nil, err
 	}
 	runs := make([]Run, 0, len(infos))

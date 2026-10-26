@@ -18,12 +18,17 @@ func (s *Server) execMessage(ctx context.Context, c Conversation, r Run, b json.
 		return "", nil, errors.New("message requires a conversation")
 	}
 	var x struct {
-		BotID   string   `json:"bot_id"`
-		BotIDs  []string `json:"bot_ids"`
-		Content string   `json:"content"`
+		BotID         string   `json:"bot_id"`
+		BotIDs        []string `json:"bot_ids"`
+		Content       string   `json:"content"`
+		AttachmentIDs []string `json:"attachment_ids"`
 	}
 	if json.Unmarshal(b, &x) != nil {
 		return "", nil, errors.New("invalid message")
+	}
+	var aerr error
+	if x.AttachmentIDs, aerr = s.store.checkDelegateAttachments(c.ID, x.AttachmentIDs); aerr != nil {
+		return "", nil, aerr
 	}
 	x.Content = strings.TrimSpace(x.Content)
 	recipients := append([]string(nil), x.BotIDs...)
@@ -50,7 +55,7 @@ func (s *Server) execMessage(ctx context.Context, c Conversation, r Run, b json.
 	var err error
 	if s.store.sameGroupRecipients(c.ID, recipients) {
 		// Decision 0065: members of this group are asked openly, in the group.
-		_, children, err = s.store.AddGroupDelegations(c.ID, r.BotID, recipients, r.ID, x.Content)
+		_, children, err = s.store.AddGroupDelegations(c.ID, r.BotID, recipients, r.ID, x.Content, x.AttachmentIDs...)
 		if err != nil {
 			return "", nil, err
 		}
@@ -59,7 +64,7 @@ func (s *Server) execMessage(ctx context.Context, c Conversation, r Run, b json.
 		}
 		return fmt.Sprintf("message sent to %d Bot(s)", len(children)), children, nil
 	}
-	_, children, err = s.store.AddBotMessages(c.ID, r.BotID, recipients, r.ID, x.Content)
+	_, children, err = s.store.AddBotMessages(c.ID, r.BotID, recipients, r.ID, x.Content, x.AttachmentIDs...)
 	if err != nil {
 		return "", nil, err
 	}
@@ -84,11 +89,16 @@ func (s *Server) execHandoff(ctx context.Context, c Conversation, r Run, b json.
 		return "", nil, errors.New("handoff requires a conversation")
 	}
 	var x struct {
-		BotID string `json:"bot_id"`
-		Task  string `json:"task"`
+		BotID         string   `json:"bot_id"`
+		Task          string   `json:"task"`
+		AttachmentIDs []string `json:"attachment_ids"`
 	}
 	if json.Unmarshal(b, &x) != nil {
 		return "", nil, errors.New("invalid handoff")
+	}
+	var aerr error
+	if x.AttachmentIDs, aerr = s.store.checkDelegateAttachments(c.ID, x.AttachmentIDs); aerr != nil {
+		return "", nil, aerr
 	}
 	x.Task = strings.TrimSpace(x.Task)
 	if c.Kind == "group" && x.Task == "" {
@@ -111,9 +121,9 @@ func (s *Server) execHandoff(ctx context.Context, c Conversation, r Run, b json.
 	var child Run
 	var e error
 	if c.Kind == "dm" {
-		_, child, e = s.store.AddForwardHandoff(c.ID, r.BotID, x.BotID, r.ID, x.Task)
+		_, child, e = s.store.AddForwardHandoff(c.ID, r.BotID, x.BotID, r.ID, x.Task, x.AttachmentIDs...)
 	} else {
-		_, child, e = s.store.AddHandoff(c.ID, r.BotID, x.BotID, r.ID, x.Task)
+		_, child, e = s.store.AddHandoff(c.ID, r.BotID, x.BotID, r.ID, x.Task, x.AttachmentIDs...)
 	}
 	if e != nil {
 		var conflict *delegationConflictError
