@@ -208,7 +208,8 @@
     const marks=pieces.map(p=>`<path d="${p.d}" fill="${p.fill}" transform="${p.transform}"/>`).join('');
     const bakedMarks=pieces.map(bakeMark),eyeSpecs=cat.eyeCenters;
     const eyes=cat.eyes.map((d,i)=>path(d,eyeInk(fill,bakedMarks,eyeSpecs[i]))).join('');
-    const outline=white?`<path d="${cat.body}" fill="none" stroke="#292B29" stroke-width="4.5" stroke-linejoin="round"/>`:'';
+    // No cat gets an outline (owner 2026-10-26); white coats included.
+    const outline='';
     const label=`${cat.name} · ${plain?'纯色':patterns.find(p=>p.id===patternId)?.name||'花纹'} · ${colors.name}`;
     return {pieces,bakedMarks,fill,label,marks,eyes,outline,defs:`<clipPath id="${id}-coat"><path d="${cat.body}"/></clipPath>`};
   }
@@ -276,6 +277,6 @@ export function createCoat(shape,pattern,palette){
   const parts=renderParts(cat,'D',palette,pattern,'material');
   const appearance=resolveAppearance('D',palette,pattern);
   return {fill:parts.fill,marks:parts.bakedMarks,label:parts.label,
-    outline:appearance.white,
+    outline:false,
     eyeColors:shape.eyeCenters.map(eye=>eyeInk(parts.fill,parts.bakedMarks,eye))};
 }

@@ -308,10 +308,10 @@ export function mountCat(host,options={}){
     legsG=element('g');pawsG=element('g');bodyG=element('g');
     const lim=performances[shape.key].limbs||{paws:[],legs:[]};
     floor=edge(shape.body);
-    legs=lim.legs.map(x=>{const n=element('rect',{width:20,rx:10,'stroke-width':4,stroke:'#292B29'});legsG.append(n);return {x,y:floor(x),n};});
+    legs=lim.legs.map(x=>{const n=element('rect',{width:20,rx:10});legsG.append(n);return {x,y:floor(x),n};});
     paws=lim.paws.map((x,i)=>{
       const g=element('g');
-      const pad=element('rect',{x:-13,y:-10,width:26,height:19,rx:9.5,'stroke-width':3.6,stroke:'#292B29'});
+      const pad=element('rect',{x:-13,y:-10,width:26,height:19,rx:9.5});
       const toes=element('path',{d:'M -4 3 L -4 8 M 4 3 L 4 8',stroke:'#292B29','stroke-width':2.2,'stroke-linecap':'round',opacity:.55});
       g.append(pad,toes);pawsG.append(g);return {x,y:floor(x)-5,g,pad,i};
     });
