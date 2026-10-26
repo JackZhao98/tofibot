@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { request } from "./api";
-import { errorText } from "./i18n/errors";
-import { LANGUAGES, LANGUAGE_ENDONYMS, isLanguagePreference, matchLanguage, preferenceToServer, setLanguagePreference, useLanguage, useTranslation, type LanguagePreference } from "./i18n";
+import { chooseLanguage } from "./saveLanguage";
+import { LANGUAGES, LANGUAGE_ENDONYMS, isLanguagePreference, matchLanguage, useLanguage, useTranslation, type LanguagePreference } from "./i18n";
 import "./timezone-settings.css";
 
 /**
@@ -16,10 +15,8 @@ export function LanguageSetting() {
   const browser = matchLanguage(typeof navigator === "undefined" ? [] : navigator.languages ?? [navigator.language]) ?? "en";
   async function choose(next: LanguagePreference) {
     setBusy(true); setError("");
-    await setLanguagePreference(next);
-    try { await request("/api/preferences", { method: "PUT", body: JSON.stringify({ language: preferenceToServer(next) }) }); }
-    catch (cause) { setError(errorText(cause, "settings", t("language.save_failed"))); }
-    finally { setBusy(false); }
+    setError(await chooseLanguage(next, t("language.save_failed")));
+    setBusy(false);
   }
   return <section className="timezone-setting language-setting">
     <div><h3>{t("language.title")}{language !== "en" && <span lang="en"> · Language</span>}</h3><p className="field-note">{t("language.note")}</p></div>

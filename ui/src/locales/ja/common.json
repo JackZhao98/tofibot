@@ -5,6 +5,10 @@
     "connection": "モデルとプロバイダ",
     "archived": "アーカイブした会話"
   },
+  "language": {
+    "label": "言語",
+    "auto": "自動（ブラウザに従う）"
+  },
   "theme": {
     "label": "外観",
     "system": "システム",

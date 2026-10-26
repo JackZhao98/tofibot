@@ -5,11 +5,11 @@
 // press; a keyboard open focuses the first item, a pointer open focuses the menu itself (no ring, arrows still work).
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as RadixPopover from "@radix-ui/react-popover";
-import { Children, cloneElement, Fragment, isValidElement, useEffect, useLayoutEffect, useRef, type ReactElement, type ReactNode } from "react";
+import { Children, cloneElement, Fragment, isValidElement, useEffect, useLayoutEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { layerRoot } from "../layers";
 import { holdAvatarLife } from "../lib/tofi-avatar/index.js";
-import type { OverlayMenuProps, OverlayPopoverProps } from "./OverlayHost";
+import { OverlaySubmenu, type OverlayMenuProps, type OverlayPopoverProps } from "./OverlayHost";
 
 // Menus keep 8 px from the viewport edge (the account menu sits 10 px above the bottom), popovers 12 px as they did.
 const MENU_PADDING = 8, POPOVER_PADDING = 12;
@@ -44,12 +44,28 @@ function tabFrom(origin: HTMLElement | null | undefined, back: boolean) {
 }
 
 type ItemProps = { children?: ReactNode; disabled?: boolean; "data-keep-open"?: string };
+/** A flyout: the label is a Radix sub trigger. Escape closes only the flyout and returns to its label (Radix would close the menu). */
+function Submenu({ label, icon, className, children }: { label: string; icon?: ReactNode; className: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const trigger = useRef<HTMLDivElement>(null);
+  return <DropdownMenu.Sub open={open} onOpenChange={setOpen}>
+    <DropdownMenu.SubTrigger ref={trigger} className="menu-subtrigger">{icon}<span>{label}</span><i className="menu-subtrigger-chevron" aria-hidden="true" /></DropdownMenu.SubTrigger>
+    <DropdownMenu.Portal container={layerRoot()}>
+      <DropdownMenu.SubContent className={className} aria-label={label} sideOffset={6} alignOffset={-8} collisionPadding={MENU_PADDING}
+        onEscapeKeyDown={event => { event.preventDefault(); setOpen(false); trigger.current?.focus(); }}>
+        {asItems(children)}
+      </DropdownMenu.SubContent>
+    </DropdownMenu.Portal>
+  </DropdownMenu.Sub>;
+}
+
 /** Every <button> among the children (at any depth inside plain elements and fragments) becomes a Radix item on the same element. */
 function asItems(children: ReactNode): ReactNode {
   return Children.map(children, child => {
     if (!isValidElement(child)) return child;
     const props = child.props as ItemProps;
     if (child.type === Fragment) return asItems(props.children);
+    if (child.type === OverlaySubmenu) return <Submenu {...(props as unknown as Parameters<typeof Submenu>[0])} />;
     if (child.type === "button") {
       return <DropdownMenu.Item asChild disabled={props.disabled}
         // A press that began elsewhere (the long-press that opened a context menu) must not choose the item it ends on.

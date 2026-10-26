@@ -44,6 +44,10 @@ function useRadix() {
   return radix;
 }
 
+/** A submenu inside an OverlayMenu: `label` opens a flyout of the child buttons (rendered by RadixOverlays; ArrowRight opens,
+ * ArrowLeft and Escape return to the label). Only a marker here, so the entry carries no Radix. */
+export function OverlaySubmenu(_: { label: string; icon?: ReactNode; className: string; children: ReactNode }): ReactNode { return null; }
+
 /** Radix DropdownMenu (non-modal) on TOFI's markup. Children are the existing items; every <button> becomes a menu item. */
 export function OverlayMenu(props: OverlayMenuProps) { const module = useRadix(); return module ? <module.Menu {...props} /> : null; }
 /** Radix Popover (non-modal) anchored to an element or a virtual rect. */

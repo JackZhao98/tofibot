@@ -5,6 +5,10 @@
     "connection": "Modèles et fournisseurs",
     "archived": "Conversations archivées"
   },
+  "language": {
+    "label": "Langue",
+    "auto": "Automatique (suivre le navigateur)"
+  },
   "theme": {
     "label": "Apparence",
     "system": "Système",

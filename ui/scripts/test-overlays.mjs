@@ -215,6 +215,31 @@ await check("account menu: the theme choices are radio items that keep the menu 
   await context.close();
 });
 
+await check("account menu: Language is a submenu of radio items; ArrowRight opens, ArrowLeft and Escape return to the item", async () => {
+  const { page, context } = await fx.open({});
+  await page.locator(".sidebar-account-identity").click();
+  await onTop(page, ".sidebar-account-menu");
+  const trigger = page.locator(".sidebar-account-menu .menu-subtrigger");
+  await trigger.focus();
+  await page.keyboard.press("ArrowRight");
+  await sleep(200);
+  const sub = page.locator(".sidebar-account-submenu");
+  assert.equal(await sub.count(), 1, "ArrowRight opens the submenu");
+  const items = sub.locator("[role=menuitemradio]");
+  assert.ok(await items.count() >= 2, "Auto and every language are listed");
+  assert.equal(await sub.locator("[role=menuitemradio][aria-checked=true]").count(), 1, "exactly one choice is marked");
+  assert.ok(await items.filter({ hasText: "English" }).count() === 1, "languages carry their own names");
+  await page.keyboard.press("ArrowLeft");
+  await sleep(200);
+  assert.equal(await sub.count(), 0, "ArrowLeft closes the submenu");
+  assert.equal(await page.evaluate(() => document.activeElement?.classList.contains("menu-subtrigger")), true, "focus returns to the Language item");
+  await page.keyboard.press("ArrowRight"); await sleep(200);
+  await page.keyboard.press("Escape"); await sleep(200);
+  assert.equal(await sub.count(), 0, "Escape closes the submenu");
+  assert.equal(await page.locator(".sidebar-account-menu").count(), 1, "Escape in the submenu leaves the parent menu open");
+  await context.close();
+});
+
 await check("MCP menu inside Settings: stacks above Settings, Escape closes only the menu", async () => {
   const { page, context } = await fx.open({});
   await settingsMcp(page);

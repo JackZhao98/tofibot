@@ -5,6 +5,10 @@
     "connection": "模型与提供方",
     "archived": "已归档的对话"
   },
+  "language": {
+    "label": "语言",
+    "auto": "自动（跟随浏览器）"
+  },
   "theme": {
     "label": "外观主题",
     "system": "系统",

@@ -5,6 +5,10 @@
     "connection": "模型與供應商",
     "archived": "已封存的對話"
   },
+  "language": {
+    "label": "語言",
+    "auto": "自動（跟隨瀏覽器）"
+  },
   "theme": {
     "label": "外觀",
     "system": "跟隨系統",

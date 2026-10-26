@@ -5,6 +5,10 @@
     "connection": "모델 및 제공업체",
     "archived": "보관된 대화"
   },
+  "language": {
+    "label": "언어",
+    "auto": "자동(브라우저 따름)"
+  },
   "theme": {
     "label": "화면 모드",
     "system": "시스템",

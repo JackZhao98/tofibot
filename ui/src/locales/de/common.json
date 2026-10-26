@@ -5,6 +5,10 @@
     "connection": "Modelle und Anbieter",
     "archived": "Archivierte Unterhaltungen"
   },
+  "language": {
+    "label": "Sprache",
+    "auto": "Automatisch (Browser folgen)"
+  },
   "theme": {
     "label": "Darstellung",
     "system": "System",

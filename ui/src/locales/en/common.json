@@ -5,6 +5,10 @@
     "connection": "Models and providers",
     "archived": "Archived conversations"
   },
+  "language": {
+    "label": "Language",
+    "auto": "Auto (follow browser)"
+  },
   "theme": {
     "label": "Appearance",
     "system": "System",
