@@ -206,19 +206,23 @@ jobs:
         env:
           APP: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi@${{ steps.lists.outputs.app }}
           WORKER: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi-worker@${{ steps.lists.outputs.worker }}
+        # Read each platform's config from the registry. Pulling the same
+        # digest twice for two platforms fails ("cannot overwrite digest").
         run: |
-          for platform in linux/amd64 linux/arm64; do
-            docker pull --quiet --platform "$platform" "$APP"
-            docker pull --quiet --platform "$platform" "$WORKER"
-            docker image inspect "$APP" --format '{{.Architecture}} {{json .Config.Labels}}' | tee /dev/stderr \
-              | grep -q "^${platform#linux/} .*\"io.tofi.data-schema\":\"tofi-account-data-v1\""
-            docker image inspect "$APP" --format '{{json .Config.Labels}}' | grep -q '"io.tofi.account-runtime":"1"'
-            docker image inspect "$WORKER" --format '{{.Architecture}} {{json .Config.Labels}}' | tee /dev/stderr \
-              | grep -q "^${platform#linux/} .*\"io.tofi.account-worker\":\"1\""
-            for image in "$APP" "$WORKER"; do
-              docker image inspect "$image" --format '{{json .Config.Labels}}' \
-                | grep -q '"io.tofi.account-guest-protocol":"tofi-account-guest-v1"'
+          check() { # image platform label=value...
+            local image=$1 platform=$2; shift 2
+            local cfg
+            cfg=$(docker buildx imagetools inspect "$image" --format "{{json (index .Image \"$platform\")}}")
+            echo "$platform $(jq -c '{architecture, labels: .config.Labels}' <<<"$cfg")" >&2
+            test "$(jq -r .architecture <<<"$cfg")" = "${platform#linux/}"
+            for pair in "$@"; do
+              test "$(jq -r --arg k "${pair%%=*}" '.config.Labels[$k] // empty' <<<"$cfg")" = "${pair#*=}"
             done
+          }
+          for platform in linux/amd64 linux/arm64; do
+            check "$APP" "$platform" io.tofi.data-schema=tofi-account-data-v1 io.tofi.account-runtime=1 \
+              io.tofi.account-guest-protocol=tofi-account-guest-v1
+            check "$WORKER" "$platform" io.tofi.account-worker=1 io.tofi.account-guest-protocol=tofi-account-guest-v1
           done
 
   # One sealed Guest release per architecture, built natively (the image
