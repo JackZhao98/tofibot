@@ -2,8 +2,10 @@ package app
 
 // The say tool is the one typed way text reaches a person
 // (docs/agent-plan/structured-output.md). purpose=answer is the run's result
-// and ends the turn, purpose=note is transient progress that folds away, and
-// purpose=message is a visible beat while the run continues.
+// and ends the turn, purpose=note is a short progress update posted to the chat
+// (folded only where the run has no visible chat, or where it is a co-addressed
+// member's draft for the next member), and purpose=message is a self-contained
+// visible beat while the run continues.
 
 import (
 	"context"
@@ -40,7 +42,7 @@ const (
 
 // sayToolDescription states the contract as principles. It carries no sample
 // wording: examples belong in acceptance tests, not in prompts.
-const sayToolDescription = "How you speak to the person: every reply goes through this tool; text you write outside it is private working text. purpose=answer delivers your reply and ends your turn: call it once, as your last action, with the complete reply. purpose=note posts a brief transient progress note while you keep working. purpose=message posts one self-contained message mid-run (at most three per run). Your answer reports the work at the extent and counts the tool results show, and names where anything you leave for the person to rely on lives, including state a later run reads. A named work, product, person or event in your answer was confirmed by a search in this run, and a figure or attribution presented as sourced comes from a page you opened in this run; otherwise the answer says it is from memory. Deliver the whole result with the assumptions you made stated in a line; end on the result, never on a request for details it already assumed, and an invitation to supply them is such a request. Details the person left out are defaults to state in a line; ask in the reply only when no default lets the work proceed. An instructed action needs no further confirmation; say that work is done only once it is done. Once you have delegated, speak only to add what the person has yet to read; who does what is internal. Your text speaks to the person; a request to a member travels in wake, where its wording stays out of the chat."
+const sayToolDescription = "How you speak to the person: every reply goes through this tool; text you write outside it is private working text. purpose=answer delivers your reply and ends your turn: call it once, as your last action, with the complete reply. purpose=note posts a brief progress update to the chat while you keep working. purpose=message posts one self-contained message mid-run (at most three per run). Your answer reports the work at the extent and counts the tool results show, and names where anything you leave for the person to rely on lives, including state a later run reads. A named work, product, person or event in your answer was confirmed by a search in this run, and a figure or attribution presented as sourced comes from a page you opened in this run; otherwise the answer says it is from memory. Deliver the whole result with the assumptions you made stated in a line; end on the result, never on a request for details it already assumed, and an invitation to supply them is such a request. Details the person left out are defaults to state in a line; ask in the reply only when no default lets the work proceed. An instructed action needs no further confirmation; say that work is done only once it is done. Once you have delegated, speak only to add what the person has yet to read; who does what is internal. Your text speaks to the person; a request to a member travels in wake, where its wording stays out of the chat."
 
 func migrateSay(db *sql.DB) error {
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS run_say_answers(
@@ -605,10 +607,16 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 					return fail(err)
 				}
 			}
-			if in.Purpose == sayNote && len(s.store.coAddressedRoots(r)) > 0 {
-				// A co-addressed member's note can carry its whole part for a
-				// later member to build on; it stays folded, so it may be longer.
-				limit = maxSayCoAddressedNoteRunes
+			if in.Purpose == sayNote {
+				if len(s.store.coAddressedRoots(r)) > 0 {
+					// A co-addressed member's note can carry its whole part for a
+					// later member to build on; it stays folded, so it may be longer.
+					limit = maxSayCoAddressedNoteRunes
+				} else if c.UserVisible && r.Kind != runKindSchedule {
+					// A progress update is a real message the person reads in the
+					// chat, not a line hidden in the run's activity.
+					kind = "segment"
+				}
 			}
 			if utf8.RuneCountInString(text) > limit {
 				if limit != 1200 {
@@ -632,7 +640,8 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 
 const chatSegmentClientPrefix = "chat-segment:"
 
-// publishSay stores a note (kind progress) or a message (kind segment). The
+// publishSay stores a note (kind segment, or progress where it folds) or a
+// message (kind segment). The
 // provider call ID in clientID makes a replay return the first publication.
 // With adopt, the message takes the identity of the draft the call's text
 // was streamed into, so the bubble turns into the message in place.
@@ -665,16 +674,16 @@ func (s *Store) publishSay(ctx context.Context, run Run, clientID, kind, content
 	if successors > 0 {
 		return Message{}, errors.New("run has been interrupted by a newer message")
 	}
-	if kind == "progress" {
+	if strings.HasPrefix(clientID, sayNoteClientPrefix) {
 		var count int
-		if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM messages WHERE run_id=? AND kind='progress' AND client_message_id LIKE 'say-note:%'`, run.ID).Scan(&count); err != nil {
+		if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM messages WHERE run_id=? AND client_message_id LIKE 'say-note:%'`, run.ID).Scan(&count); err != nil {
 			return Message{}, err
 		}
 		if count >= maxSayNotes {
 			return Message{}, errors.New("note limit reached; deliver the answer")
 		}
 	}
-	if kind == "segment" {
+	if strings.HasPrefix(clientID, chatSegmentClientPrefix) {
 		count, err := chatSegmentCountTx(ctx, tx, run.ID)
 		if err != nil {
 			return Message{}, err

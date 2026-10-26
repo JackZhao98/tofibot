@@ -61,9 +61,9 @@ func TestInternalTextAfterAHandoffIsNeverAChatKind(t *testing.T) {
 	}
 }
 
-// A plain turn between tool calls is internal; a say note is still a progress
-// row (its design: visible while the run works, folded when it is done); the
-// flag-off <progress> note keeps its kind.
+// A plain turn between tool calls is internal; a say note is a visible
+// segment the person reads in the chat; the flag-off <progress> note keeps its
+// kind.
 func TestInternalAndProgressKindsStayDistinct(t *testing.T) {
 	s, run := dmRun(t, dmFuncEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
 		if err := req.OnAssistantTurn(1, "Looking at the numbers before I answer."); err != nil {
@@ -81,7 +81,7 @@ func TestInternalAndProgressKindsStayDistinct(t *testing.T) {
 	if k := visibleOrFoldedKinds(t, s.store, "Looking at the numbers"); k[messageKindInternal] != 1 || len(k) != 1 {
 		t.Fatalf("plain turn kinds = %v", k)
 	}
-	if k := visibleOrFoldedKinds(t, s.store, "Halfway through"); k["progress"] != 1 || len(k) != 1 {
+	if k := visibleOrFoldedKinds(t, s.store, "Halfway through"); k["segment"] != 1 || len(k) != 1 {
 		t.Fatalf("say note kinds = %v", k)
 	}
 	s2, run2 := dmRunMode(t, dmFuncEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
