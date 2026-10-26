@@ -362,7 +362,7 @@ jobs:
               | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])') || token=
             if [[ -z $token ]] || ! curl -fsS -o /dev/null \
                 -H "Authorization: Bearer $token" \
-                -H 'Accept: application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
+                -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
                 "https://ghcr.io/v2/$IMAGE_OWNER/$repository/manifests/$TAG"; then
               echo "::error::ghcr.io/$IMAGE_OWNER/$repository is not publicly pullable. Make the package public (GitHub > Packages > $repository > Package settings > Change visibility), then re-run this job."
               exit 1
