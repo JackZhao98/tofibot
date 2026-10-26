@@ -325,6 +325,7 @@ A new guest action must also be added to `microVMActions` and the watchdog timeo
 # Bot computer image tooling
 
 `deploy/microvm/Dockerfile` ships English-only office, PDF, OCR and charting tools (decision 0037); other languages are fetched by the Bot into user
+`build-images.sh` builds natively on x86_64 or aarch64 (no cross-building; `TOFI_GUEST_ARCH` must equal the host). aarch64 uses the Firecracker aarch64 release, the CI `aarch64/vmlinux-6.1.186` Image (kept as `vmlinux`), a Debian trixie base and Debian `chromium` (x86_64 keeps Ubuntu + Google Chrome). The guest picks `google-chrome-stable` or `chromium` at runtime (`internal/computer/guest/browser_binary.go`); `account-release.json` carries an `arch` field that the checker validates against the ELF headers. Verified on a NanoPi R5C (RK3568): boot, guest actions, Chromium page, hibernate/restore.
 directories, so the guest sets `TESSDATA_PREFIX=~/.local/share/tessdata` (links to the shipped data, writable; `internal/computer/guest/tessdata.go`) and
 `/etc/fonts/local.conf` lists `~/.local/share/fonts`. Do not preinstall language packs or force a matplotlib font. `python-pptx` has no noble package and is
 installed from a pinned wheel. `deploy/microvm/smoke-office.sh` is the in-image smoke test (run as uid 1000); run it after any change to that layer.
