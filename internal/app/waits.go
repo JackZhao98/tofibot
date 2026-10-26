@@ -825,7 +825,7 @@ func (s *Store) reconcileTaskRuns() error {
 // without one the task failed.
 func (s *Store) closeAbandonedHeldTasks() error {
 	rows, err := s.db.Query(`SELECT w.id,w.assignee_run_id FROM work_items w JOIN runs r ON r.id=w.assignee_run_id
- WHERE w.assigner_kind='bot' AND w.status IN (` + openTaskStatuses + `) AND r.status='done'
+ WHERE w.status IN (` + openTaskStatuses + `) AND r.status='done'
  AND NOT EXISTS(SELECT 1 FROM work_items g WHERE g.origin_run_id=w.assignee_run_id AND g.status NOT IN ('done','cancelled','failed'))
  AND NOT EXISTS(WITH RECURSIVE below(id) AS (SELECT id FROM runs WHERE parent_run_id=w.assignee_run_id UNION SELECT x.id FROM runs x JOIN below b ON x.parent_run_id=b.id)
   SELECT 1 FROM runs a WHERE a.id IN (SELECT id FROM below) AND a.status IN ('queued','running','waiting'))
@@ -859,11 +859,17 @@ func (s *Store) closeAbandonedHeldTasks() error {
 			tx.Rollback()
 			continue
 		}
+		// The result is the last answer of the Bot's latest run below the assignee
+		// run (its return runs carried the task on), else the assignee run's own.
 		var msgID, content string
-		_ = tx.QueryRow(`SELECT id,content FROM messages WHERE run_id=? AND role='assistant' ORDER BY seq DESC LIMIT 1`, p.run).Scan(&msgID, &content)
+		_ = tx.QueryRow(`WITH RECURSIVE below(id) AS (SELECT ? UNION SELECT x.id FROM runs x JOIN below b ON x.parent_run_id=b.id)
+ SELECT m.id,m.content FROM messages m JOIN runs r ON r.id=m.run_id
+ WHERE m.run_id IN (SELECT id FROM below) AND r.bot_id=? AND r.status='done' AND m.role='assistant'
+ ORDER BY m.seq DESC LIMIT 1`, p.run, item.BotID).Scan(&msgID, &content)
 		t := now()
 		status := "done"
-		if msgID == "" {
+		if msgID == "" && item.AssignerKind != "user" {
+			// A person's task ends done without a message; a delegated one failed.
 			status = "failed"
 		}
 		if _, err = tx.Exec(`UPDATE work_items SET status=?,updated_at=?,completed_at=?,closed_at=?,result_message_id=?,result_summary=?,result_based_on_version=?,submit_run_id='' WHERE id=?`,
