@@ -32,7 +32,13 @@ func scheduledInDM(t *testing.T, f dedupeFixture, content string) Run {
 	makeDue(t, f.server.store, x.ID, time.Now().Add(-time.Minute))
 	claimed, err := f.server.store.ClaimDueSchedules(time.Now())
 	if err != nil || len(claimed) != 1 {
-		t.Fatalf("claim=%+v err=%v", claimed, err)
+		// The server's own ScheduleWorker may have claimed it first; either way
+		// exactly one run exists for the occurrence.
+		runs, _ := f.server.store.Runs(dm.ID)
+		if len(runs) != 1 {
+			t.Fatalf("claim=%+v err=%v runs=%+v", claimed, err, runs)
+		}
+		claimed = runs
 	}
 	f.server.enqueue(dm, claimed[0])
 	return waitRunTerminal(t, f.server, claimed[0].ID)
