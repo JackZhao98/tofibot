@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 """Write the release manifest.json that install.sh and `tofi update` trust.
 
-Inputs are the pushed image digests and the built release files; every
-artifact is hashed here, and the result is checked with the same validator the
-host uses (deploy/self-host/tofi_host.py validate_manifest).
+Inputs are the pushed image digests (multi-arch manifest lists) and the built
+release files; every artifact is hashed here, and the result is checked with
+the same validator the host uses (deploy/self-host/tofi_host.py
+validate_manifest).
+
+Compatibility: the top-level `guest` entry is always the x86_64 Guest, exactly
+as before arm64, so a host that predates `arches` reads the same file. The
+`arches` map carries one Guest entry per architecture (x86_64 repeats the
+top-level one). Image digests are manifest lists and serve both architectures.
 
 Example:
   scripts/release/make_manifest.py --version v0.1.0 \
@@ -12,6 +18,8 @@ Example:
     --caddy-image docker.io/library/caddy@sha256:... \
     --guest-archive dist/tofi-guest-v0.1.0-x86_64.tar.zst \
     --guest-release-json /opt/tofi-guest-build/v0.1.0/account-release.json \
+    --guest-aarch64-archive dist/tofi-guest-v0.1.0-aarch64.tar.zst \
+    --guest-aarch64-release-json dist/account-release-aarch64.json \
     --bundle dist/tofi-host-v0.1.0.tar.gz --out dist/manifest.json
 """
 import argparse
@@ -45,29 +53,39 @@ def sha256_file(path):
     return digest.hexdigest()
 
 
+def guest_entry(arch, guest_version, archive, release_json):
+    archive = Path(archive)
+    release = json.loads(Path(release_json).read_text())
+    if archive.name != 'tofi-guest-%s-%s.tar.zst' % (guest_version, arch):
+        raise ValueError('guest archive must be named tofi-guest-%s-%s.tar.zst' % (guest_version, arch))
+    # account-release.json carries `arch` since arm64; older ones are x86_64.
+    built_for = release.get('arch', 'x86_64')
+    if built_for != arch:
+        raise ValueError('%s says arch %s but was passed as the %s Guest' % (release_json, built_for, arch))
+    return {
+        'version': guest_version,
+        'url': '%s/download/%s/%s' % (tofi_host.RELEASE_BASE, guest_version, archive.name),
+        'sha256': sha256_file(archive),
+        'manifest_sha256': sha256_file(release_json),
+        'guest_binary_sha256': release['guest_binary_sha256'],
+    }
+
+
 def build_manifest(version, images, guest_archive, guest_release_json, bundle, data_schema=DATA_SCHEMA,
-                   guest_version=None, notes_url=None):
+                   guest_version=None, notes_url=None, extra_guests=None):
+    """extra_guests: {arch: (archive, account-release.json)} for architectures
+    besides x86_64, which stays the positional pair."""
     guest_version = guest_version or version
-    guest_archive = Path(guest_archive)
     bundle = Path(bundle)
-    release = json.loads(Path(guest_release_json).read_text())
     download = '%s/download/%s/' % (tofi_host.RELEASE_BASE, version)
-    guest_download = '%s/download/%s/' % (tofi_host.RELEASE_BASE, guest_version)
-    if guest_archive.name != 'tofi-guest-%s-x86_64.tar.zst' % guest_version:
-        raise ValueError('guest archive must be named tofi-guest-%s-x86_64.tar.zst' % guest_version)
+    x86 = guest_entry('x86_64', guest_version, guest_archive, guest_release_json)
     if bundle.name != 'tofi-host-%s.tar.gz' % version:
         raise ValueError('host bundle must be named tofi-host-%s.tar.gz' % version)
     manifest = {
         'schema': 1,
         'version': version,
         'images': dict(images),
-        'guest': {
-            'version': guest_version,
-            'url': guest_download + guest_archive.name,
-            'sha256': sha256_file(guest_archive),
-            'manifest_sha256': sha256_file(guest_release_json),
-            'guest_binary_sha256': release['guest_binary_sha256'],
-        },
+        'guest': x86,
         'bundle': {
             'url': download + bundle.name,
             'sha256': sha256_file(bundle),
@@ -77,6 +95,14 @@ def build_manifest(version, images, guest_archive, guest_release_json, bundle, d
         # Optional for readers: older manifests have none.
         'notes_url': notes_url or '%s/tag/%s' % (tofi_host.RELEASE_BASE, version),
     }
+    if extra_guests:
+        arches = {'x86_64': {'guest': dict(x86)}}
+        for arch, (archive, release_json) in sorted(extra_guests.items()):
+            if arch == 'x86_64' or arch not in tofi_host.RELEASE_ARCHES:
+                raise ValueError('unsupported extra Guest architecture %r' % arch)
+            arches[arch] = {'guest': guest_entry(arch, guest_version, archive, release_json)}
+        manifest['arches'] = arches
+        manifest['min_host'] = dict(MIN_HOST, arches=['x86_64'] + sorted(extra_guests))
     try:
         tofi_host.validate_manifest(manifest)
     except tofi_host.HostError as error:
@@ -92,15 +118,25 @@ def main(argv=None):
     parser.add_argument('--caddy-image', required=True)
     parser.add_argument('--guest-archive', required=True)
     parser.add_argument('--guest-release-json', required=True)
+    parser.add_argument('--guest-aarch64-archive')
+    parser.add_argument('--guest-aarch64-release-json')
     parser.add_argument('--bundle', required=True)
     parser.add_argument('--data-schema', default=DATA_SCHEMA)
     parser.add_argument('--notes-url', help='release notes page (default: the GitHub release for --version)')
     parser.add_argument('--out', required=True)
     args = parser.parse_args(argv)
     images = {'app': args.app_image, 'worker': args.worker_image, 'caddy': args.caddy_image}
+    extra = {}
+    if bool(args.guest_aarch64_archive) != bool(args.guest_aarch64_release_json):
+        print('make_manifest: pass --guest-aarch64-archive and --guest-aarch64-release-json together',
+              file=sys.stderr)
+        return 1
+    if args.guest_aarch64_archive:
+        extra['aarch64'] = (args.guest_aarch64_archive, args.guest_aarch64_release_json)
     try:
         manifest = build_manifest(args.version, images, args.guest_archive, args.guest_release_json,
-                                  args.bundle, args.data_schema, notes_url=args.notes_url)
+                                  args.bundle, args.data_schema, notes_url=args.notes_url,
+                                  extra_guests=extra)
     except (OSError, ValueError, KeyError) as error:
         print('make_manifest: ' + str(error), file=sys.stderr)
         return 1

@@ -371,6 +371,24 @@ class InstallScriptTests(InstallBase):
         result = self.run_script(STUB_NPROC='1')
         self.assertIn('at least 2 vCPUs; this host has 1', result.stderr)
 
+    def test_aarch64_four_gib_host_installs_with_advisory(self):
+        self.host_file('proc/meminfo', 'MemTotal: 3999000 kB\nSwapTotal: 2097152 kB\n')
+        result = self.run_script('--yes', STUB_UNAME='Linux aarch64')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn('need Linux x86_64', result.stderr)
+        self.assertIn('small host (3905 MiB of RAM)', result.stderr)
+        self.assertIn('8 GiB or more is recommended', result.stderr)
+        self.host_file('proc/meminfo', 'MemTotal: 8152000 kB\nSwapTotal: 4194300 kB\n')
+        result = self.run_script('--yes', STUB_UNAME='Linux aarch64')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn('small host', result.stderr)
+
+    def test_unsupported_architectures_are_refused(self):
+        for platform in ('Linux riscv64', 'Linux armv7l'):
+            result = self.run_script('--yes', STUB_UNAME=platform)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn('Linux x86_64 or aarch64; this machine is \'%s\'' % platform, result.stderr)
+
     def test_every_failure_is_listed_after_the_summary(self):
         result = self.run_script(STUB_UNAME='Darwin arm64', STUB_UID='501', STUB_NPROC='1')
         self.assertEqual(result.returncode, 1)

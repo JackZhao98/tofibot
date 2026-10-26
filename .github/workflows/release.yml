@@ -2,7 +2,10 @@ name: release
 
 # Publishes a TOFI release from a tag vX.Y.Z (or vX.Y.Z-rc.N, published as a
 # prerelease): App/Worker images on ghcr.io pinned by digest, the sealed
-# account Guest release, the host bundle, manifest.json and install.sh.
+# account Guest release per architecture (x86_64, aarch64), the host bundle,
+# manifest.json and install.sh. Images are multi-arch manifest lists; images
+# and guest build natively in parallel with `test`, and nothing is tagged or
+# published until `test` passes.
 # One-time setup per package (tofi, tofi-worker, tofi-mcp-runner): make the
 # ghcr.io package public; see deploy/self-host/README.md "Publishing a release".
 
@@ -52,15 +55,27 @@ jobs:
     needs: version
     uses: ./.github/workflows/ci.yml
 
+  # Every image is built natively per architecture (hosted runners: ubuntu-24.04
+  # for amd64, ubuntu-24.04-arm for arm64; the repo is public) and pushed by
+  # digest without a tag. Building starts in parallel with `test`; the tag, the
+  # manifest list and everything downstream wait for `test` (image-manifest).
   images:
-    needs: [version, test]
-    runs-on: ubuntu-24.04
+    needs: version
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - slug: amd64
+            platform: linux/amd64
+            runner: ubuntu-24.04
+          - slug: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
     permissions:
       contents: read
       packages: write
-    outputs:
-      app: ${{ steps.app.outputs.digest }}
-      worker: ${{ steps.worker.outputs.digest }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -81,8 +96,7 @@ jobs:
         with:
           context: .
           file: Dockerfile
-          platforms: linux/amd64
-          push: true
+          platforms: ${{ matrix.platform }}
           provenance: false
           sbom: false
           no-cache: true
@@ -90,7 +104,7 @@ jobs:
           build-args: |
             TOFI_SOURCE_COMMIT=${{ steps.commit.outputs.sha }}
             TOFI_VERSION=${{ needs.version.outputs.tag }}
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi:${{ needs.version.outputs.tag }}
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi,push-by-digest=true,name-canonical=true,push=true
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ needs.version.outputs.tag }}
@@ -100,52 +114,127 @@ jobs:
         with:
           context: .
           file: deploy/microvm/Worker.Dockerfile
-          platforms: linux/amd64
-          push: true
+          platforms: ${{ matrix.platform }}
           provenance: false
           sbom: false
           no-cache: true
           pull: true
           build-args: TOFI_SOURCE_COMMIT=${{ steps.commit.outputs.sha }}
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi-worker:${{ needs.version.outputs.tag }}
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi-worker,push-by-digest=true,name-canonical=true,push=true
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ needs.version.outputs.tag }}
       - name: MCP runner image (development compose only; not in the manifest)
+        id: runner
         uses: docker/build-push-action@v6
         with:
           context: .
           file: deploy/mcp-runner/Dockerfile
-          platforms: linux/amd64
-          push: true
+          platforms: ${{ matrix.platform }}
           provenance: false
           sbom: false
           no-cache: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi-mcp-runner:${{ needs.version.outputs.tag }}
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi-mcp-runner,push-by-digest=true,name-canonical=true,push=true
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ needs.version.outputs.tag }}
-      - name: Check image labels
+      - name: Record digests
         env:
-          APP: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi@${{ steps.app.outputs.digest }}
-          WORKER: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi-worker@${{ steps.worker.outputs.digest }}
+          APP: ${{ steps.app.outputs.digest }}
+          WORKER: ${{ steps.worker.outputs.digest }}
+          RUNNER: ${{ steps.runner.outputs.digest }}
         run: |
-          docker pull --quiet "$APP"
-          docker pull --quiet "$WORKER"
-          docker image inspect "$APP" --format '{{json .Config.Labels}}' | tee /dev/stderr \
-            | grep -q '"io.tofi.data-schema":"tofi-account-data-v1"'
-          docker image inspect "$APP" --format '{{json .Config.Labels}}' | grep -q '"io.tofi.account-runtime":"1"'
-          docker image inspect "$WORKER" --format '{{json .Config.Labels}}' | tee /dev/stderr \
-            | grep -q '"io.tofi.account-worker":"1"'
-          for image in "$APP" "$WORKER"; do
-            docker image inspect "$image" --format '{{json .Config.Labels}}' \
-              | grep -q '"io.tofi.account-guest-protocol":"tofi-account-guest-v1"'
+          mkdir -p digests
+          printf '%s' "$APP" > digests/tofi
+          printf '%s' "$WORKER" > digests/tofi-worker
+          printf '%s' "$RUNNER" > digests/tofi-mcp-runner
+          cat digests/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image-digests-${{ matrix.slug }}
+          path: digests/
+          retention-days: 7
+
+  # Waits for `test`: only now do the release tags exist. Joins the two
+  # per-architecture images of each repository into one manifest list; the
+  # list digest is what manifest.json pins, so one reference serves both.
+  image-manifest:
+    needs: [version, test, images]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      app: ${{ steps.lists.outputs.app }}
+      worker: ${{ steps.lists.outputs.worker }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: image-digests-*
+          path: digests/
+      - uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: image=mirror.gcr.io/moby/buildkit:buildx-stable-1
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Manifest lists
+        id: lists
+        run: |
+          for repository in tofi tofi-worker tofi-mcp-runner; do
+            ref="$REGISTRY/$IMAGE_OWNER/$repository"
+            docker buildx imagetools create -t "$ref:$TAG" \
+              "$ref@$(cat "digests/image-digests-amd64/$repository")" \
+              "$ref@$(cat "digests/image-digests-arm64/$repository")"
+            digest=$(docker buildx imagetools inspect "$ref:$TAG" --format '{{json .Manifest}}' \
+              | python3 -c '
+          import json, sys
+          manifest = json.load(sys.stdin)
+          platforms = {"%s/%s" % (m["platform"]["os"], m["platform"]["architecture"]) for m in manifest.get("manifests", [])}
+          if platforms != {"linux/amd64", "linux/arm64"}:
+              sys.exit("expected a linux/amd64 + linux/arm64 manifest list, got %s" % sorted(platforms))
+          print(manifest["digest"])')
+            echo "$repository $digest"
+            case $repository in
+              tofi) echo "app=$digest" >> "$GITHUB_OUTPUT" ;;
+              tofi-worker) echo "worker=$digest" >> "$GITHUB_OUTPUT" ;;
+            esac
+          done
+      - name: Check image labels (both architectures)
+        env:
+          APP: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi@${{ steps.lists.outputs.app }}
+          WORKER: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi-worker@${{ steps.lists.outputs.worker }}
+        run: |
+          for platform in linux/amd64 linux/arm64; do
+            docker pull --quiet --platform "$platform" "$APP"
+            docker pull --quiet --platform "$platform" "$WORKER"
+            docker image inspect "$APP" --format '{{.Architecture}} {{json .Config.Labels}}' | tee /dev/stderr \
+              | grep -q "^${platform#linux/} .*\"io.tofi.data-schema\":\"tofi-account-data-v1\""
+            docker image inspect "$APP" --format '{{json .Config.Labels}}' | grep -q '"io.tofi.account-runtime":"1"'
+            docker image inspect "$WORKER" --format '{{.Architecture}} {{json .Config.Labels}}' | tee /dev/stderr \
+              | grep -q "^${platform#linux/} .*\"io.tofi.account-worker\":\"1\""
+            for image in "$APP" "$WORKER"; do
+              docker image inspect "$image" --format '{{json .Config.Labels}}' \
+                | grep -q '"io.tofi.account-guest-protocol":"tofi-account-guest-v1"'
+            done
           done
 
+  # One sealed Guest release per architecture, built natively (the image
+  # assembler cannot cross-build). Independent of `test` so it runs alongside it.
   guest:
-    needs: [version, test]
-    runs-on: ubuntu-24.04
+    needs: version
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
     env:
       BUILD_ROOT: /opt/tofi-guest-build
     steps:
@@ -166,33 +255,40 @@ jobs:
           chmod 0755 deploy/microvm/tofi-guest
           file deploy/microvm/tofi-guest
       - name: Assemble the sealed account Guest release
+        env:
+          ARCH: ${{ matrix.arch }}
         run: |
+          [[ $(uname -m) == "$ARCH" ]] || { echo "::error::runner is $(uname -m), expected $ARCH"; exit 1; }
           sudo mkdir -p /run/lock "$BUILD_ROOT"
           sudo TOFI_ACCOUNT_RELEASE=1 bash deploy/microvm/build-images.sh "$BUILD_ROOT/$TAG"
+          [[ $(sudo python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("arch"))' "$BUILD_ROOT/$TAG/account-release.json") == "$ARCH" ]] \
+            || { echo "::error::account-release.json arch is not $ARCH"; exit 1; }
           sudo python3 deploy/microvm/account_release_check.py \
             --release-dir "$BUILD_ROOT/$TAG" \
             --manager-source "$PWD/deploy/microvm/manager.py" \
             --guest-sha256 "$(sudo python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["guest_binary_sha256"])' "$BUILD_ROOT/$TAG/account-release.json")"
       - name: Package (sparse tar + zstd)
+        env:
+          ARCH: ${{ matrix.arch }}
         run: |
           mkdir -p dist
-          archive="dist/tofi-guest-$TAG-x86_64.tar.zst"
+          archive="dist/tofi-guest-$TAG-$ARCH.tar.zst"
           sudo tar --sparse --numeric-owner --owner=0 --group=0 -C "$BUILD_ROOT/$TAG" -cf - . \
             | zstd -T0 -12 -q -o "$archive"
           sha256sum "$archive" | awk '{ print $1 }' > "$archive.sha256"
-          sudo cp "$BUILD_ROOT/$TAG/account-release.json" dist/account-release.json
-          sudo chown "$(id -u):$(id -g)" dist/account-release.json
+          sudo cp "$BUILD_ROOT/$TAG/account-release.json" "dist/account-release-$ARCH.json"
+          sudo chown "$(id -u):$(id -g)" "dist/account-release-$ARCH.json"
           ls -l dist
           sudo cat "$BUILD_ROOT/$TAG.build-info/browser-version.txt" || true
       - uses: actions/upload-artifact@v4
         with:
-          name: guest
+          name: guest-${{ matrix.arch }}
           path: dist/
           retention-days: 7
           compression-level: 0
 
   bundle:
-    needs: [version, images, guest]
+    needs: [version, image-manifest, guest]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -200,35 +296,44 @@ jobs:
           ref: refs/tags/${{ needs.version.outputs.tag }}
       - uses: actions/download-artifact@v4
         with:
-          name: guest
+          pattern: guest-*
+          merge-multiple: true
           path: dist/
       - uses: docker/setup-buildx-action@v3
         with:
           driver-opts: image=mirror.gcr.io/moby/buildkit:buildx-stable-1
       - name: Host bundle
         run: bash scripts/release/make_bundle.sh "$TAG" dist
-      - name: Pin Caddy by digest
+      - name: Pin Caddy by multi-arch digest
         id: caddy
         run: |
           digest=$(docker buildx imagetools inspect "mirror.gcr.io/library/caddy:$CADDY_TAG" --format '{{json .Manifest}}' \
-            | python3 -c 'import json,sys; print(json.load(sys.stdin)["digest"])')
+            | python3 -c '
+          import json, sys
+          manifest = json.load(sys.stdin)
+          platforms = {"%s/%s" % (m["platform"]["os"], m["platform"]["architecture"]) for m in manifest.get("manifests", [])}
+          if not {"linux/amd64", "linux/arm64"} <= platforms:
+              sys.exit("the Caddy pin must be a manifest list with linux/amd64 and linux/arm64, got %s" % sorted(platforms))
+          print(manifest["digest"])')
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
       - name: manifest.json
         env:
-          APP: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi@${{ needs.images.outputs.app }}
-          WORKER: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi-worker@${{ needs.images.outputs.worker }}
+          APP: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi@${{ needs.image-manifest.outputs.app }}
+          WORKER: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi-worker@${{ needs.image-manifest.outputs.worker }}
           CADDY: docker.io/library/caddy@${{ steps.caddy.outputs.digest }}
         run: |
           python3 scripts/release/make_manifest.py --version "$TAG" \
             --app-image "$APP" --worker-image "$WORKER" --caddy-image "$CADDY" \
             --guest-archive "dist/tofi-guest-$TAG-x86_64.tar.zst" \
-            --guest-release-json dist/account-release.json \
+            --guest-release-json dist/account-release-x86_64.json \
+            --guest-aarch64-archive "dist/tofi-guest-$TAG-aarch64.tar.zst" \
+            --guest-aarch64-release-json dist/account-release-aarch64.json \
             --bundle "dist/tofi-host-$TAG.tar.gz" \
             --notes-url "https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG" \
             --out dist/manifest.json
           cat dist/manifest.json
           cp install.sh dist/install.sh
-          rm dist/account-release.json
+          rm dist/account-release-*.json
       - uses: actions/upload-artifact@v4
         with:
           name: release
@@ -237,7 +342,7 @@ jobs:
           compression-level: 0
 
   publish:
-    needs: [version, bundle]
+    needs: [version, test, bundle]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -268,7 +373,7 @@ jobs:
           if [[ $PRERELEASE == true ]]; then
             flags+=(--prerelease --latest=false)
           fi
-          notes="Install on a Linux x86_64 server with KVM:
+          notes="Install on a Linux x86_64 or aarch64 server with KVM:
 
           \`\`\`
           curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh | sudo bash -s -- --version $TAG
@@ -276,4 +381,5 @@ jobs:
           gh release create "$TAG" "${flags[@]}" --notes "$notes" \
             dist/manifest.json dist/install.sh \
             "dist/tofi-host-$TAG.tar.gz" "dist/tofi-host-$TAG.tar.gz.sha256" \
-            "dist/tofi-guest-$TAG-x86_64.tar.zst" "dist/tofi-guest-$TAG-x86_64.tar.zst.sha256"
+            "dist/tofi-guest-$TAG-x86_64.tar.zst" "dist/tofi-guest-$TAG-x86_64.tar.zst.sha256" \
+            "dist/tofi-guest-$TAG-aarch64.tar.zst" "dist/tofi-guest-$TAG-aarch64.tar.zst.sha256"

@@ -45,6 +45,8 @@ MIN_CPUS = 2
 MIN_MEMORY_MIB = 3584      # "4 GiB" machines report slightly less in MemTotal
 WARN_MEMORY_MIB = 7680
 SWAP_ADVISED_BELOW_MIB = 15872
+SMALL_HOST_MEMORY_MIB = 4608   # at or below this, one computer at a time (see tofi_host.default_computer_resources)
+SUPPORTED_PLATFORMS = ('Linux x86_64', 'Linux aarch64')
 MIN_DISK_GIB = 30
 WARN_DISK_GIB = 40
 SUPPORTED_SYSTEMS = {('ubuntu', '22.04'), ('ubuntu', '24.04'), ('debian', '12'), ('debian', '13')}
@@ -658,8 +660,8 @@ def check_host(facts, environ=None, fresh=True):
     failures, warnings = [], []
     if facts['uid'] != '0':
         failures.append('Run as root: %s (current uid %s).' % (INSTALL_COMMAND, facts['uid']))
-    if facts['platform'] != 'Linux x86_64':
-        failures.append("TOFI servers need Linux x86_64; this machine is '%s'." % facts['platform'])
+    if facts['platform'] not in SUPPORTED_PLATFORMS:
+        failures.append("TOFI servers need Linux x86_64 or aarch64; this machine is '%s'." % facts['platform'])
     info = facts['os']
     if info is None:
         failures.append('Cannot read %s; supported systems are Ubuntu 22.04/24.04 and Debian 12/13.'
@@ -690,6 +692,9 @@ def check_host(facts, environ=None, fresh=True):
             failures.append('TOFI needs at least 4 GiB of RAM; this host has %d MiB.' % memory)
         elif memory < WARN_MEMORY_MIB:
             warnings.append('This host has %d MiB of RAM; 8 GiB or more is recommended.' % memory)
+        if memory <= SMALL_HOST_MEMORY_MIB:
+            warnings.append('This is a small host (%d MiB of RAM): TOFI runs one computer at a time and sizes it '
+                            'to fit (about 1.25 GiB), so add swap for headroom.' % memory)
         if facts['swap_mib'] == 0 and memory < SWAP_ADVISED_BELOW_MIB:
             warnings.append('This host has %d MiB of RAM and no swap; a computer that runs out of memory can '
                             'freeze the whole host. Add swap (for example a 4 GiB swap file) or use 16 GiB of '
@@ -710,8 +715,8 @@ def machine_rows(facts, fresh=True, ports=None):
     """Rows for the "This machine" card: (status, label, text)."""
     rows = []
     platform = facts['platform']
-    system = '%s · %s' % (system_name(facts), platform)
-    supported = os_supported(facts) and platform == 'Linux x86_64'
+    system = '%s · %s' % (system_name(facts), platform)  # platform shows the architecture
+    supported = os_supported(facts) and platform in SUPPORTED_PLATFORMS
     rows.append(('ok' if supported else 'bad', 'System', system if supported else system + ' — not supported'))
     cpus = facts['cpus']
     rows.append(('ok' if cpus >= MIN_CPUS else 'bad', 'CPU', '%d vCPU%s' % (cpus, '' if cpus == 1 else 's')

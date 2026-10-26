@@ -160,9 +160,34 @@ class PreflightTests(HostCase):
 
     def test_wrong_platform(self):
         with self.healthy_host(), mock.patch.object(tofi_host.platform, 'system', return_value='Darwin'):
-            self.refuses('Linux x86_64')
+            self.refuses('Linux x86_64 or aarch64')
+        with self.healthy_host(), mock.patch.object(tofi_host.platform, 'machine', return_value='riscv64'):
+            self.refuses('Linux x86_64 or aarch64')
+        with self.healthy_host(), mock.patch.object(tofi_host.platform, 'machine', return_value='armv7l'):
+            self.refuses('Linux x86_64 or aarch64')
+
+    def test_aarch64_host_passes_preflight(self):
         with self.healthy_host(), mock.patch.object(tofi_host.platform, 'machine', return_value='aarch64'):
-            self.refuses('Linux x86_64')
+            self.assertEqual(tofi_host.preflight(self.options()), [])
+            # Every other check still applies on arm64.
+            self.P.dev_kvm = self.root / 'dev/kvm'
+            self.refuses('KVM is not available')
+
+    def test_four_gib_host_passes_with_small_host_advisory(self):
+        # A "4 GiB" board reports about 3.8 GiB in MemTotal.
+        self.write(self.P.meminfo, 'MemTotal:       3980000 kB\nMemAvailable:   3500000 kB\nSwapTotal: 2097152 kB\n')
+        with self.healthy_host(), mock.patch.object(tofi_host.platform, 'machine', return_value='aarch64'):
+            warnings = tofi_host.preflight(self.options())
+        self.assertTrue(any('8 GiB or more is recommended' in w for w in warnings), warnings)
+        small = [w for w in warnings if 'small host' in w]
+        self.assertEqual(len(small), 1, warnings)
+        self.assertIn('1280 MiB', small[0])
+        self.write(self.P.meminfo, 'MemTotal:       2000000 kB\n')
+        with self.healthy_host():
+            self.refuses('at least 4 GiB of RAM')
+        self.write(self.P.meminfo, 'MemTotal:       8000000 kB\nMemAvailable:   7000000 kB\n')
+        with self.healthy_host():
+            self.assertFalse([w for w in tofi_host.preflight(self.options()) if 'small host' in w])
 
     def test_not_root(self):
         with self.healthy_host(), mock.patch.object(tofi_host, 'require_root',
@@ -333,7 +358,10 @@ class RenderTests(HostCase):
             (3, 8192, (2, 2048)),    # a quarter is below the floor
             (1, 6000, (1, 2048)),    # one CPU budgeted
             (1, 2560, (1, 2048)),    # exactly fits 2048 + 512 overhead
-            (1, 2559, (1, 1024)),    # falls back to the old minimum
+            (1, 2559, (1, 1536)),    # small hosts step down: 1536, then 1280
+            (1, 2047, (1, 1280)),
+            (1, 1858, (1, 1280)),    # the 4 GiB board: MemTotal 3906 MiB less 2048
+            (1, 1791, (1, 1024)),    # below 1280 + 512: the old minimum
             (1, 1536, (1, 1024)),
         ]
         for cpu, memory, expected in cases:
@@ -345,6 +373,10 @@ class RenderTests(HostCase):
             self.assertLessEqual(config['memory_mib'] + 512, memory)
         self.assertIsNone(tofi_host.default_computer_resources(3, 13800)[1])
         self.assertIn('minimum', tofi_host.default_computer_resources(1, 1536)[1])
+        reason = tofi_host.default_computer_resources(1, 1858)[1]
+        self.assertIn('1280 MiB', reason)
+        self.assertIn('Chromium', reason)
+        self.assertNotIn('minimum', reason)
 
     def test_worker_memory_budget_lower_bound_is_1536(self):
         tofi_host.render_worker_config(OLD, 1, 1536, GUEST_SHA, 'c' * 64)
@@ -477,7 +509,68 @@ class RenderTests(HostCase):
         self.assertLess(parsed.index(['apparmor_parser', '-Q']), parsed.index(['apparmor_parser', '-r']))
 
 
+def multi_arch_manifest(version=NEW, digit='2'):
+    value = manifest(version, digit)
+    arm = dict(value['guest'], url=value['guest']['url'].replace('x86_64', 'aarch64'),
+               sha256='7' * 64, manifest_sha256='8' * 64, guest_binary_sha256='9' * 64)
+    value['arches'] = {'x86_64': {'guest': dict(value['guest'])}, 'aarch64': {'guest': arm}}
+    return value
+
+
+class ArchManifestTests(unittest.TestCase):
+    def test_guest_is_chosen_by_host_architecture(self):
+        value = tofi_host.validate_manifest(multi_arch_manifest())
+        self.assertEqual(tofi_host.guest_for_host(value, 'x86_64'), value['guest'])
+        arm = tofi_host.guest_for_host(value, 'aarch64')
+        self.assertTrue(arm['url'].endswith('-aarch64.tar.zst'))
+        self.assertEqual(arm['guest_binary_sha256'], '9' * 64)
+        for machine, expected in (('x86_64', 'x86_64'), ('AMD64', 'x86_64'), ('aarch64', 'aarch64'),
+                                  ('arm64', 'aarch64')):
+            with mock.patch.object(tofi_host.platform, 'system', return_value='Linux'), \
+                    mock.patch.object(tofi_host.platform, 'machine', return_value=machine):
+                self.assertEqual(tofi_host.guest_for_host(value), tofi_host.guest_for_host(value, expected))
+
+    def test_old_manifest_serves_x86_64_only(self):
+        old = tofi_host.validate_manifest(manifest())
+        self.assertNotIn('arches', old)
+        self.assertEqual(tofi_host.guest_for_host(old, 'x86_64'), old['guest'])
+        with self.assertRaisesRegex(tofi_host.HostError, 'no Guest for aarch64'):
+            tofi_host.guest_for_host(old, 'aarch64')
+
+    def test_a_host_that_ignores_arches_reads_the_same_manifest(self):
+        # The pre-arm64 validator checked exactly these top-level keys.
+        value = multi_arch_manifest()
+        legacy = {k: v for k, v in value.items() if k != 'arches'}
+        tofi_host.validate_manifest(legacy)
+        self.assertEqual(legacy['guest'], value['arches']['x86_64']['guest'])
+
+    def test_bad_arches_are_refused(self):
+        value = multi_arch_manifest()
+        value['arches']['aarch64']['guest']['sha256'] = 'nothex'
+        with self.assertRaisesRegex(tofi_host.HostError, 'SHA-256'):
+            tofi_host.validate_manifest(value)
+        value = multi_arch_manifest()
+        value['arches']['riscv64'] = value['arches']['aarch64']
+        with self.assertRaisesRegex(tofi_host.HostError, 'arches'):
+            tofi_host.validate_manifest(value)
+        value = multi_arch_manifest()
+        value['arches']['x86_64']['guest']['sha256'] = 'e' * 64
+        with self.assertRaisesRegex(tofi_host.HostError, 'must match'):
+            tofi_host.validate_manifest(value)
+        value = multi_arch_manifest()
+        value['arches']['aarch64']['guest']['url'] = 'https://evil.example/guest.tar.zst'
+        with self.assertRaisesRegex(tofi_host.HostError, 'HTTPS'):
+            tofi_host.validate_manifest(value)
+
+
 class DockerTests(HostCase):
+    def setUp(self):
+        super().setUp()
+        for name, value in (('system', 'Linux'), ('machine', 'x86_64')):
+            patcher = mock.patch.object(tofi_host.platform, name, return_value=value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
     def inspect(self, reference, labels, entrypoint, arch='amd64', digests=None):
         data = [{'Architecture': arch, 'Os': 'linux',
                  'RepoDigests': digests if digests is not None else [reference],
@@ -498,6 +591,13 @@ class DockerTests(HostCase):
         self.inspect(app, labels, ['/app/tofi'], arch='arm64')
         with self.assertRaisesRegex(tofi_host.HostError, 'linux/amd64'):
             tofi_host.inspect_image(app, 'app')
+        # An arm64 host wants the arm64 variant of the same pinned manifest list.
+        with mock.patch.object(tofi_host.platform, 'machine', return_value='aarch64'):
+            tofi_host.inspect_image(app, 'app')
+            self.inspect(app, labels, ['/app/tofi'], arch='amd64')
+            with self.assertRaisesRegex(tofi_host.HostError, 'linux/arm64'):
+                tofi_host.inspect_image(app, 'app')
+        self.inspect(app, labels, ['/app/tofi'])
         self.inspect(app, labels, ['/app/tofi'], digests=['ghcr.io/jackzhao98/tofi@sha256:' + '0' * 64])
         with self.assertRaisesRegex(tofi_host.HostError, 'pinned digest'):
             tofi_host.inspect_image(app, 'app')
@@ -729,6 +829,28 @@ class LifecycleTests(LifecycleBase):
         self.assertEqual(tofi_host.current_release(), NEW)
         self.assertEqual(self.phase(), 'installed')
         self.assertEqual((self.P.data / 'tofi.db').read_bytes(), DATA)
+
+    def test_upgrade_fetches_the_guest_for_this_architecture(self):
+        self.installed()
+        with mock.patch.object(tofi_host.platform, 'system', return_value='Linux'), \
+                mock.patch.object(tofi_host.platform, 'machine', return_value='aarch64'):
+            tofi_host.upgrade(manifest_path=str(self.write_manifest(multi_arch_manifest())))
+        guest = self.fetch_guest.call_args.args[0]
+        self.assertTrue(guest['url'].endswith('-aarch64.tar.zst'), guest['url'])
+
+    def test_upgrade_fetches_the_x86_64_guest_on_x86_64(self):
+        self.installed()
+        with mock.patch.object(tofi_host.platform, 'system', return_value='Linux'), \
+                mock.patch.object(tofi_host.platform, 'machine', return_value='x86_64'):
+            tofi_host.upgrade(manifest_path=str(self.write_manifest(multi_arch_manifest())))
+        self.assertTrue(self.fetch_guest.call_args.args[0]['url'].endswith('-x86_64.tar.zst'))
+
+    def test_upgrade_to_an_x86_64_only_release_refuses_on_arm64(self):
+        self.installed()
+        with mock.patch.object(tofi_host.platform, 'system', return_value='Linux'), \
+                mock.patch.object(tofi_host.platform, 'machine', return_value='aarch64'):
+            with self.assertRaisesRegex(tofi_host.HostError, 'no Guest for aarch64'):
+                tofi_host.upgrade(manifest_path=str(self.write_manifest(manifest())))
 
     def test_upgrade_failure_rolls_back_env_and_journal(self):
         before = self.installed()
@@ -1891,6 +2013,21 @@ class TuiTests(unittest.TestCase):
         self.assertEqual(len(warnings), 2)   # no swap, disk under 40 GiB
         failures, _ = tofi_tui.check_host(self.facts(kvm=False, kvm_reason='no /dev/kvm', apparmor='N', cpus=1), {})
         self.assertEqual([f.split(' ')[0] for f in failures], ['KVM', 'AppArmor', 'TOFI'])
+
+    def test_aarch64_machine_row_and_small_host_advisory(self):
+        arm = self.facts(platform='Linux aarch64', memory_mib=3906, swap_mib=2048)
+        rows = {label: (kind, text) for kind, label, text in tofi_tui.machine_rows(arm)}
+        self.assertEqual(rows['System'], ('ok', 'Debian 12 · Linux aarch64'))
+        self.assertEqual(rows['RAM'][0], 'warn')
+        failures, warnings = tofi_tui.check_host(arm, {})
+        self.assertEqual(failures, [])
+        self.assertEqual(len([w for w in warnings if 'small host' in w]), 1)
+        failures, _ = tofi_tui.check_host(self.facts(platform='Linux riscv64'), {})
+        self.assertIn('x86_64 or aarch64', failures[0])
+        kind, _, text = tofi_tui.machine_rows(self.facts(platform='Linux riscv64'))[0]
+        self.assertEqual(kind, 'bad')
+        _, warnings = tofi_tui.check_host(self.facts(memory_mib=7960, swap_mib=4096), {})
+        self.assertFalse([w for w in warnings if 'small host' in w])
 
     def test_card_framed_plain_and_narrow(self):
         rows = [('ok', 'System', 'Ubuntu 24.04'),
