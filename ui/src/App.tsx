@@ -30,7 +30,7 @@ import { requestFullToolResult, setToolResultLoader } from "./toolResultLoader";
 import { taskStateLabel } from "./ConversationTaskStatus";
 import { LazyGroupAvatar as GroupAvatar } from "./LazyGroupAvatar";
 import { rowIndicator } from "./rowIndicator";
-import { MailDraftCard, useMailDrafts } from "./MailDraftCard";
+import { useMailDrafts } from "./mailDrafts";
 import { buildQuestionTimeline, compareQuestionTime } from "./questionTimeline";
 import { useDebugMode } from "./debugMode";
 import type { SettingsEntry, SettingsTab, SettingsView } from "./SettingsShell";
@@ -98,6 +98,7 @@ import { getBotAvatarConfig, subscribeBotAvatar } from "./avatarStore";
 import type { Attachment, Bot, ComputerHealth, Config, Conversation, EventEnvelope, Memory, Message, Run, StreamDraft, ToolActivity, ToolActivityRunSummary, WorkItem, WorkspaceEventEnvelope } from "./types";
 import { MOTION, EASE } from "./motion";
 
+const MailDraftCard = lazy(() => import("./MailDraftCard").then(module => ({ default: module.MailDraftCard })));
 const TerminalPanel = lazy(() => import("./TerminalPanel").then(module => ({ default: module.TerminalPanel })));
 
 type Panel = "group-create" | "bot-edit" | "memory" | "schedule" | "settings" | "members" | "desktop" | "terminal" | "archive" | null;
@@ -2270,7 +2271,7 @@ function Workspace() {
       onRefresh={refreshTaskStatus} onLoadDetails={loadToolDetails}
       renderMessage={message => <MessageBubble key={message.id} message={message} sender={botById.get(owner.family.latest.bot_id)} run={message.run_id ? runById.get(message.run_id) : undefined} showAvatar={false} showIdentity={false} />}
       renderQuestion={question => <Suspense key={question.question_id} fallback={null}><QuestionCard item={question} bot={botById.get(question.bot_id)} group={active?.kind === "group"} archived={active?.archived} onChanged={async resolved => { await questions.refresh(resolved); await refreshConversations(); }} /></Suspense>}
-      renderDraft={draft => <MailDraftCard key={draft.draft_id} draft={draft} bot={botById.get(draft.bot_id)} group={active?.kind === "group"} archived={active?.archived} issueOwned onChanged={async () => { await mailDrafts.refresh(); await refreshConversations(); }} />} />;
+      renderDraft={draft => <Suspense key={draft.draft_id} fallback={null}><MailDraftCard draft={draft} bot={botById.get(draft.bot_id)} group={active?.kind === "group"} archived={active?.archived} issueOwned onChanged={async () => { await mailDrafts.refresh(); await refreshConversations(); }} /></Suspense>} />;
   }
   const taskAnnouncements = new Map(taskOwners.map(owner => {
     const run = owner.family.latest;
@@ -2493,7 +2494,7 @@ function Workspace() {
                         const draft = item.draft;
                         if (ownedBy(draft)) return taskOwners.filter(owner => owner.anchor?.kind === "draft" && owner.anchor.id === draft.draft_id).map(renderTaskOwner);
                         const divider = !previousTime || dateInTimezone(previousTime, timezone) !== dateInTimezone(draft.created_at, timezone) || +new Date(draft.created_at) - +new Date(previousTime) >= 10 * 60_000;
-                        return <div className="message-block" key={`mail-draft-${draft.draft_id}`}>{divider && <div className="date-divider"><span>{formatDateDivider(draft.created_at, timezone)}</span></div>}<MailDraftCard draft={draft} bot={botById.get(draft.bot_id)} group={active.kind === "group"} archived={active.archived} onChanged={async () => { await mailDrafts.refresh(); await refreshConversations(); }} /></div>;
+                        return <div className="message-block" key={`mail-draft-${draft.draft_id}`}>{divider && <div className="date-divider"><span>{formatDateDivider(draft.created_at, timezone)}</span></div>}<Suspense fallback={null}><MailDraftCard draft={draft} bot={botById.get(draft.bot_id)} group={active.kind === "group"} archived={active.archived} onChanged={async () => { await mailDrafts.refresh(); await refreshConversations(); }} /></Suspense></div>;
                       }
                       if (item.kind === "question") {
                         const question = item.question;
