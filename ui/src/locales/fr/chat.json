@@ -291,7 +291,7 @@
     "status_label": "État de {{name}}",
     "thinking": "Réflexion",
     "thinking_about": "Réflexion : {{headline}}",
-    "triaging": "Recherche du bon membre",
+    "triaging": "Réflexion",
     "waiting_confirm": "En attente de votre confirmation",
     "waiting_start": "En attente de démarrage",
     "writing_fast": "Tape à toute vitesse"
@@ -756,7 +756,7 @@
     "queue_position": "N° {{position}} dans la file",
     "resting": "Au repos",
     "status_label": "État des membres",
-    "triaging": "Recherche du bon membre…",
+    "triaging": "Réflexion…",
     "uncertain": "État non confirmé",
     "working": "Au travail"
   },

@@ -281,7 +281,7 @@
     "status_label": "{{name}} 的工作状态",
     "thinking": "正在思考",
     "thinking_about": "正在思考：{{headline}}",
-    "triaging": "正在安排合适的成员",
+    "triaging": "正在思考",
     "waiting_confirm": "等待你确认",
     "waiting_start": "等待启动",
     "writing_fast": "正在疯狂码字"
@@ -706,7 +706,7 @@
     "queue_position": "排队第 {{position}} 位",
     "resting": "休息中",
     "status_label": "成员工作状态",
-    "triaging": "正在安排合适的成员…",
+    "triaging": "正在思考…",
     "uncertain": "状态待确认",
     "working": "正在工作"
   },

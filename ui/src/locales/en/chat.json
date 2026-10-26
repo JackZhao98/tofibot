@@ -286,7 +286,7 @@
     "status_label": "{{name}} status",
     "thinking": "Thinking",
     "thinking_about": "Thinking: {{headline}}",
-    "triaging": "Finding the right member",
+    "triaging": "Thinking",
     "waiting_confirm": "Waiting for your confirmation",
     "waiting_start": "Waiting to start",
     "writing_fast": "Typing furiously"
@@ -731,7 +731,7 @@
     "queue_position": "#{{position}} in queue",
     "resting": "Resting",
     "status_label": "Member status",
-    "triaging": "Finding the right member…",
+    "triaging": "Thinking…",
     "uncertain": "Status unconfirmed",
     "working": "Working"
   },

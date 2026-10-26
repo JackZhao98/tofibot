@@ -286,7 +286,7 @@
     "status_label": "Status von {{name}}",
     "thinking": "Denkt nach",
     "thinking_about": "Denkt nach: {{headline}}",
-    "triaging": "Passendes Mitglied wird gesucht",
+    "triaging": "Denkt nach",
     "waiting_confirm": "Wartet auf deine Bestätigung",
     "waiting_start": "Wartet auf Start",
     "writing_fast": "Tippt wie verrückt"
@@ -731,7 +731,7 @@
     "queue_position": "Platz {{position}} in der Warteschlange",
     "resting": "Ruht",
     "status_label": "Mitgliederstatus",
-    "triaging": "Passendes Mitglied wird gesucht…",
+    "triaging": "Denkt nach…",
     "uncertain": "Status unbestätigt",
     "working": "Arbeitet"
   },

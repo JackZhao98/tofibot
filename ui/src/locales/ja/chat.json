@@ -281,7 +281,7 @@
     "status_label": "{{name}} の作業状況",
     "thinking": "考え中",
     "thinking_about": "考え中：{{headline}}",
-    "triaging": "適切なメンバーを割り当て中",
+    "triaging": "考え中",
     "waiting_confirm": "確認待ち",
     "waiting_start": "開始待ち",
     "writing_fast": "猛烈に入力中"
@@ -706,7 +706,7 @@
     "queue_position": "待ち順 {{position}} 番目",
     "resting": "休憩中",
     "status_label": "メンバーの作業状況",
-    "triaging": "適切なメンバーを割り当て中…",
+    "triaging": "考え中…",
     "uncertain": "状態は未確認です",
     "working": "作業中"
   },
