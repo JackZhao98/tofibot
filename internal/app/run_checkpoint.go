@@ -211,9 +211,14 @@ func (s *Store) claimRun(ctx context.Context, runID string) (runClaim, bool, err
 	if err = markScheduleStartedTx(tx, runID); err != nil {
 		return claim, false, err
 	}
-	// The first start of a run reads the messages it was made for.
+	// The first start of a run reads the messages it was made for, and the task
+	// its Bot held moves into it: this is the one queued->running transition, so
+	// the hook cannot live anywhere else (decision 0059).
 	if claim.Attempt == 1 {
 		if err = readAtStartTx(tx, runID); err != nil {
+			return claim, false, err
+		}
+		if err = taskRunStartedTx(tx, runID); err != nil {
 			return claim, false, err
 		}
 	}
