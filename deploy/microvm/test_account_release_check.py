@@ -96,6 +96,27 @@ class AccountReleaseCheckTests(unittest.TestCase):
             with self.assertRaisesRegex(checker.ReleaseCheckError, "embedded in rootfs"):
                 self.validate()
 
+    def test_arch_field_is_validated_against_the_firecracker_binary(self):
+        elf = lambda machine: b"\x7fELF" + bytes(14) + machine.to_bytes(2, "little") + bytes(8)
+        self.release.chmod(0o755)
+        (self.release / "bin").chmod(0o755)
+        for name in ("bin/firecracker", "bin/jailer"):
+            path = self.release / name
+            path.chmod(0o644)
+            path.write_bytes(elf(183))
+            self.manifest["files_sha256"][name] = self.digest(path.read_bytes())
+        self.manifest["arch"] = "aarch64"
+        self.write_manifest()
+        self.assertEqual(self.validate()["arch"], "aarch64")
+        self.manifest["arch"] = "x86_64"
+        self.write_manifest()
+        with self.assertRaisesRegex(checker.ReleaseCheckError, "not x86_64"):
+            self.validate()
+        self.manifest["arch"] = "riscv64"
+        self.write_manifest()
+        with self.assertRaisesRegex(checker.ReleaseCheckError, "arch must be one of"):
+            self.validate()
+
     def test_pins_exact_manifest_bytes(self):
         digest = checker._sha256(self.release / "account-release.json")
         self.assertEqual(self.validate(expected_manifest_sha256=digest)["manifest_sha256"], digest)

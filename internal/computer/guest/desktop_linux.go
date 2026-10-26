@@ -35,7 +35,7 @@ func (s *Service) startDesktop(ctx context.Context, botID string) (map[string]an
 		return nil, fmt.Errorf("create shared desktop workspace: %w", err)
 	}
 	var err error
-	for _, name := range []string{"Xvfb", "fluxbox", "tint2", "google-chrome-stable", "feh", "pcmanfm", "dbus-run-session", "xterm", "setsid"} {
+	for _, name := range []string{"Xvfb", "fluxbox", "tint2", browserBinary(), "feh", "pcmanfm", "dbus-run-session", "xterm", "setsid"} {
 		if _, err := exec.LookPath(name); err != nil {
 			return nil, fmt.Errorf("desktop dependency %s is unavailable", name)
 		}
@@ -180,7 +180,7 @@ func (s *Service) startDesktop(ctx context.Context, botID string) (map[string]an
 	d.chromeLog = &limitedBuffer{limit: 16 * 1024, tail: true}
 	if err := startChromeWithReadiness(startCtx, d, env); err != nil {
 		s.abortDesktopStart(ctx, botID, d, err)
-		return nil, chromeStartError("start google-chrome-stable", err)
+		return nil, chromeStartError("start "+browserBinary(), err)
 	}
 	if err := startChromeController(d, env); err != nil {
 		s.abortDesktopStart(ctx, botID, d, err)
@@ -489,7 +489,7 @@ func activeChromeForProfile(procRoot, profile string) (int, error) {
 		}
 		exe = strings.TrimSuffix(exe, " (deleted)")
 		name := strings.ToLower(filepath.Base(exe))
-		if name != "chrome" && name != "google-chrome" && name != "google-chrome-stable" {
+		if !browserProcessNames[name] {
 			continue
 		}
 		cmdline, err := os.ReadFile(filepath.Join(pidDir, "cmdline"))

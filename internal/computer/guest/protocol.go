@@ -203,7 +203,7 @@ func (s *Service) handle(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
 			"kind": "firecracker", "state": "ready", "workspace_root": s.root,
-			"browser": "google-chrome-stable",
+			"browser": browserBinary(),
 		})
 		return
 	}

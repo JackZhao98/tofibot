@@ -27,11 +27,11 @@ func (s *Service) healthStatus() (int, map[string]any) {
 	_ = os.Remove(name)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	version := exec.CommandContext(ctx, "google-chrome-stable", "--version")
+	version := exec.CommandContext(ctx, browserBinary(), "--version")
 	version.Env = cleanEnv(s.root, filepath.Join(s.root, "home"))
 	out, err := version.CombinedOutput()
-	if err != nil || !strings.Contains(string(out), "Google Chrome") {
-		result["error"] = fmt.Sprintf("google-chrome-stable is not ready: %s", strings.TrimSpace(string(out)))
+	if err != nil || !versionIsBrowser(string(out)) {
+		result["error"] = fmt.Sprintf("%s is not ready: %s", browserBinary(), strings.TrimSpace(string(out)))
 		return 503, result
 	}
 	result["browser_version"] = strings.TrimSpace(string(out))

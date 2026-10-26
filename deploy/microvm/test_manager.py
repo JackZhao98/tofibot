@@ -454,6 +454,20 @@ class ProxyTests(unittest.TestCase):
         for value in (0, 2, 900, 86400):
             self.assertEqual(manager.validate_config(dict(config(), desktop_idle_seconds=value))["desktop_idle_seconds"], value)
 
+    def test_boot_args_and_machine_config_follow_the_host_architecture(self):
+        with mock.patch.object(manager, "HOST_ARCH", "x86_64"):
+            cfg = self.vm.firecracker_config()
+            args = cfg["boot-source"]["boot_args"].split()
+            self.assertEqual(args[:4], ["console=ttyS0", "reboot=k", "panic=1", "pci=off"])
+            self.assertIs(cfg["machine-config"]["smt"], False)
+        with mock.patch.object(manager, "HOST_ARCH", "aarch64"):
+            cfg = self.vm.firecracker_config()
+            args = cfg["boot-source"]["boot_args"].split()
+            self.assertEqual(args[:4], ["keep_bootcon", "console=ttyS0", "reboot=k", "panic=1"])
+            self.assertNotIn("pci=off", args)
+            self.assertIn("root=/dev/vda", args)
+            self.assertNotIn("smt", cfg["machine-config"])
+
     def test_browser_tab_limit_is_bounded_and_reaches_the_guest(self):
         for value in (-1, 21, True, "3 init=/bin/sh"):
             with self.assertRaises(ValueError):

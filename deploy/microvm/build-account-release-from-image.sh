@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # Ordinary isolated artifact build: no VM, mounts, device grants or service changes.
 set -euo pipefail
-[[ $(uname -sm) == 'Linux x86_64' ]] || { echo 'Linux x86_64 required' >&2; exit 2; }
+case $(uname -sm) in
+  'Linux x86_64') arch=x86_64 ;;
+  'Linux aarch64') arch=aarch64 ;;
+  *) echo 'Linux x86_64 or aarch64 required' >&2; exit 2 ;;
+esac
 image_id=${1:?Provide an immutable Docker image ID}
 binary_release=${2:?Provide the read-only kernel/VM binary source release}
 release_dir=${3:?Provide a new absolute destination}
@@ -31,4 +35,4 @@ cp "$source_dir/manager.py" "$scratch/source/manager.py"
 cp "$binary_release/vmlinux" "$scratch/source/vmlinux"
 cp "$binary_release/bin/firecracker" "$scratch/source/bin/firecracker"
 cp "$binary_release/bin/jailer" "$scratch/source/bin/jailer"
-python3 "$source_dir/account_release_assemble.py" --source-dir "$scratch/source" --release-dir "$release_dir" --guest-binary "$scratch/rootfs/usr/local/bin/tofi-guest"
+python3 "$source_dir/account_release_assemble.py" --source-dir "$scratch/source" --release-dir "$release_dir" --guest-binary "$scratch/rootfs/usr/local/bin/tofi-guest" --arch "$arch"

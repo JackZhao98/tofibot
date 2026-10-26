@@ -1,20 +1,30 @@
+# x86_64 keeps Ubuntu and Google Chrome. Google publishes no Linux arm64 Chrome,
+# and Ubuntu's chromium is a snap stub, so build-images.sh builds aarch64 on
+# Debian trixie and installs Debian's chromium package.
+ARG COMPUTER_BASE=mirror.gcr.io/library/ubuntu:24.04
 FROM mirror.gcr.io/library/node:22-bookworm-slim AS node-runtime
 FROM mirror.gcr.io/library/golang:1.26.8-bookworm@sha256:a688600ca24f8a4d3ca77f95b0dd40704a9fc787c826660eb7ba0b641b8b175d AS gogcli-build
 RUN CGO_ENABLED=0 GOBIN=/out go install github.com/openclaw/gogcli/cmd/gog@v0.40.0
-FROM mirror.gcr.io/library/ubuntu:24.04 AS computer-base
+FROM ${COMPUTER_BASE} AS computer-base
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl wget gnupg bash coreutils util-linux iproute2 procps \
     nano less ripgrep tar \
     xvfb fluxbox xdotool imagemagick x11-utils dbus-x11 ffmpeg \
     python3 python3-venv python3-websocket git openssh-client unzip fonts-liberation fonts-noto-cjk \
-    && curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg \
-    && echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main' > /etc/apt/sources.list.d/google-chrome.list \
-    && apt-get update && apt-get install -y --no-install-recommends google-chrome-stable \
+    && if [ "$(dpkg --print-architecture)" = amd64 ]; then \
+         curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg \
+         && echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main' > /etc/apt/sources.list.d/google-chrome.list \
+         && apt-get update && apt-get install -y --no-install-recommends google-chrome-stable \
+         && echo google-chrome-stable > /etc/tofi-browser-command; \
+       else \
+         apt-get install -y --no-install-recommends chromium \
+         && echo chromium > /etc/tofi-browser-command; \
+       fi \
     && rm -rf /var/lib/apt/lists/* \
     && (getent passwd 1000 >/dev/null || useradd -m -u 1000 -s /bin/bash bot) \
     && mkdir -p /workspace /run /tmp /dev/shm /var/tmp /var/log \
-    && google-chrome-stable --version > /etc/tofi-browser-version \
+    && "$(cat /etc/tofi-browser-command)" --version > /etc/tofi-browser-version \
     && dpkg-query -W > /etc/tofi-image-packages
 FROM computer-base
 COPY --from=node-runtime /usr/local/ /usr/local/

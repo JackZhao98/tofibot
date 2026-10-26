@@ -276,7 +276,7 @@ func startChromeWithReadiness(ctx context.Context, d *desktop, env []string) err
 	}
 	workarea := chromeDesktopWorkarea(ctx, env)
 	for attempt := 0; attempt < 2; attempt++ {
-		cmd, err := startDesktopProcess("google-chrome-stable", chromeStartArgs(d.profile, d.display, d.remotePort, workarea...), env, d.chromeLog)
+		cmd, err := startDesktopProcess(browserBinary(), chromeStartArgs(d.profile, d.display, d.remotePort, workarea...), env, d.chromeLog)
 		if err != nil {
 			return err
 		}
@@ -469,7 +469,7 @@ func stopManagedChromeIfPresent(ctx context.Context, d *desktop) (bool, error) {
 }
 
 const chromeRestoreWindowScript = `
-for class in google-chrome google-chrome-stable; do
+for class in google-chrome google-chrome-stable chromium Chromium; do
   ids=$(xdotool search --class "$class" 2>/dev/null || true)
   for id in $ids; do
     if xdotool windowmap "$id" >/dev/null 2>&1 && xdotool windowactivate --sync "$id" >/dev/null 2>&1; then exit 0; fi

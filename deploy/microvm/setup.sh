@@ -2,7 +2,7 @@
 # Install the computer for an existing, single-workspace Docker deployment.
 set -euo pipefail
 umask 077
-[[ $(id -u) == 0 && $(uname -sm) == 'Linux x86_64' ]] || { echo 'Run on the Linux x86_64 Docker host with sudo' >&2; exit 2; }
+[[ $(id -u) == 0 && ( $(uname -sm) == 'Linux x86_64' || $(uname -sm) == 'Linux aarch64' ) ]] || { echo 'Run on the Linux x86_64 or aarch64 Docker host with sudo' >&2; exit 2; }
 source_dir=$(cd "$(dirname "$0")" && pwd)
 repo_dir=$(cd "$source_dir/../.." && pwd)
 deploy_root=${1:?Usage: setup.sh /absolute/tofi-deployment [prepared-release-directory]}
@@ -26,7 +26,7 @@ slot=${TOFI_COMPUTER_SLOT:-1}
 [[ $computer_id =~ ^[a-z0-9][a-z0-9-]{0,39}$ && $slot =~ ^[0-9]+$ && $slot -ge 1 && $slot -le 250 ]] || { echo 'Invalid fixed computer identity/slot' >&2; exit 2; }
 release_dir=${2:-/opt/tofi-computer/releases/$(date -u +%Y%m%dT%H%M%SZ)}
 if [[ ! -f "$release_dir/SHA256SUMS" ]]; then
- echo 'Preparing Linux and Google Chrome image…'
+ echo 'Preparing Linux and browser image…'
  docker build --target guest-artifact --output "type=local,dest=$source_dir" "$repo_dir"
  bash "$source_dir/build-images.sh" "$release_dir"
 fi

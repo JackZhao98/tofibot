@@ -14,6 +14,7 @@ import http.server
 import json
 import os
 from pathlib import Path
+import platform
 import re
 import select
 import shutil
@@ -26,6 +27,11 @@ import sys
 import threading
 import time
 
+# The microVM runs natively on the host's architecture (no emulation).
+HOST_ARCH = platform.machine()
+if HOST_ARCH in ("arm64", "ARM64"):
+    HOST_ARCH = "aarch64"
+BROWSER_NAME = "Chromium" if HOST_ARCH == "aarch64" else "Google Chrome"
 MAX_BODY = 2 * 1024 * 1024
 MAX_RESPONSE = 3 * 1024 * 1024
 MAX_BLOB = 20 * 1024 * 1024
@@ -741,20 +747,30 @@ class VM:
         return value
 
     def firecracker_config(self):
-        boot_args = ("console=ttyS0 reboot=k panic=1 pci=off root=/dev/vda ro init=/sbin/tofi-init "
-                     f"tofi_ip={self.guest_net}.2 tofi_gateway={self.guest_net}.1 "
-                     f"tofi_desktop_idle={self.guest_desktop_idle()} "
-                     f"tofi_browser_tabs={self.c.get('browser_max_tabs', DEFAULT_BROWSER_MAX_TABS)}")
+        if HOST_ARCH == "aarch64":
+            # Firecracker aarch64 exposes an MMIO 8250-compatible UART that the
+            # kernel names ttyS0. There is no PCI bus by default, no i8042 and
+            # no x86 reboot=k path; keep_bootcon keeps early boot output.
+            boot_args = "keep_bootcon console=ttyS0 reboot=k panic=1 "
+        else:
+            boot_args = "console=ttyS0 reboot=k panic=1 pci=off "
+        boot_args += ("root=/dev/vda ro init=/sbin/tofi-init "
+                      f"tofi_ip={self.guest_net}.2 tofi_gateway={self.guest_net}.1 "
+                      f"tofi_desktop_idle={self.guest_desktop_idle()} "
+                      f"tofi_browser_tabs={self.c.get('browser_max_tabs', DEFAULT_BROWSER_MAX_TABS)}")
         config = {
             "boot-source": {"kernel_image_path": "/vmlinux", "boot_args": boot_args},
             "drives": [
                 {"drive_id": "rootfs", "path_on_host": "/rootfs.ext4", "is_root_device": True, "is_read_only": True},
                 {"drive_id": "workspace", "path_on_host": "/workspace.ext4", "is_root_device": False, "is_read_only": False},
             ],
-            "machine-config": {"vcpu_count": self.c.get("vcpus", 2), "mem_size_mib": self.c.get("memory_mib", 4096), "smt": False},
+            "machine-config": {"vcpu_count": self.c.get("vcpus", 2), "mem_size_mib": self.c.get("memory_mib", 4096)},
             "network-interfaces": [{"iface_id": "eth0", "guest_mac": f"06:00:00:00:{self.slot:02x}:02", "host_dev_name": "tap0"}],
             "vsock": {"guest_cid": 3, "uds_path": "/run/v.sock"},
         }
+        if HOST_ARCH != "aarch64":
+            # SMT control is x86_64-only in Firecracker; aarch64 rejects it.
+            config["machine-config"]["smt"] = False
         if self.c.get("memory_balloon", True):
             config["boot-source"]["boot_args"] += f" page_reporting.page_reporting_order={PAGE_REPORTING_ORDER}"
             config["balloon"] = {"amount_mib": 0, "deflate_on_oom": True,
@@ -1440,7 +1456,7 @@ class VM:
             self.state = "error"
             self.error = "microVM stopped unexpectedly"
         value = {"kind": "firecracker", "id": self.c["id"], "state": self.state, "phase": self.phase,
-                 "workspace_root": "/workspace", "browser": "Google Chrome",
+                 "workspace_root": "/workspace", "browser": BROWSER_NAME,
                  "error": self.error, "vcpus": self.c.get("vcpus", 2),
                  "memory_mib": self.c.get("memory_mib", 4096),
                  "disk_gib": self.current_resources()["disk_gib"],

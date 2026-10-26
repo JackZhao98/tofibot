@@ -29,8 +29,12 @@ FILES = (
 )
 MANIFEST_KEYS = {
     "schema", "protocol", "files_sha256", "guest_binary_sha256",
-    "capabilities", "features", "operator_metadata",
+    "capabilities", "features", "operator_metadata", "arch",
 }
+# Release architectures; the manifest "arch" field is optional for releases
+# built before aarch64 support and means x86_64 when absent.
+ARCHES = {"x86_64", "aarch64"}
+_ELF_MACHINE = {62: "x86_64", 183: "aarch64"}
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -87,6 +91,20 @@ def _sha256(path):
     except OSError as exc:
         raise ReleaseCheckError(f"cannot read file for hashing: {path}") from exc
     return digest.hexdigest()
+
+
+def _check_elf_arch(path, arch):
+    """The Firecracker binary must be an ELF executable for the claimed arch."""
+    try:
+        with path.open("rb") as source:
+            head = source.read(20)
+    except OSError as exc:
+        raise ReleaseCheckError(f"cannot read file for architecture check: {path}") from exc
+    if len(head) < 20 or head[:4] != b"\x7fELF":
+        raise ReleaseCheckError(f"{path.name} is not an ELF executable")
+    machine = _ELF_MACHINE.get(int.from_bytes(head[18:20], "little"))
+    if machine != arch:
+        raise ReleaseCheckError(f"{path.name} is built for {machine or 'an unknown architecture'}, not {arch}")
 
 
 def _unique_object(pairs):
@@ -168,6 +186,9 @@ def validate_release(release_dir, manager_source, guest_sha256, expected_manifes
         raise ReleaseCheckError("release schema must be integer 1")
     if manifest.get("protocol") != PROTOCOL:
         raise ReleaseCheckError(f"release protocol must be {PROTOCOL}")
+    arch = manifest.get("arch")
+    if arch is not None and arch not in ARCHES:
+        raise ReleaseCheckError(f"manifest arch must be one of {sorted(ARCHES)}")
     expected_files = manifest.get("files_sha256")
     if not isinstance(expected_files, dict) or set(expected_files) != set(FILES):
         raise ReleaseCheckError("files_sha256 must name exactly the required release files")
@@ -219,6 +240,9 @@ def validate_release(release_dir, manager_source, guest_sha256, expected_manifes
     for optional in ("features", "operator_metadata"):
         if optional in manifest and not isinstance(manifest[optional], (dict, list, str)):
             raise ReleaseCheckError(f"{optional} must be descriptive JSON metadata")
+    if arch is not None:
+        _check_elf_arch(root / "bin" / "firecracker", arch)
+        _check_elf_arch(root / "bin" / "jailer", arch)
     source_digest = _sha256(manager)
     if source_digest != expected_files["manager.py"]:
         raise ReleaseCheckError("operator manager source does not match candidate manager.py")
@@ -227,6 +251,7 @@ def validate_release(release_dir, manager_source, guest_sha256, expected_manifes
         "release_dir": str(root),
         "protocol": PROTOCOL,
         "schema": 1,
+        "arch": arch,
         "files_sha256": dict(expected_files),
         "guest_binary_sha256": guest_digest,
         "manifest_sha256": manifest_digest,

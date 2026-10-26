@@ -45,7 +45,7 @@ def _copy_regular(source, destination, mode):
     return digest.hexdigest()
 
 
-def assemble_release(source_dir, release_dir, *, guest_binary=None):
+def assemble_release(source_dir, release_dir, *, guest_binary=None, arch=None):
     """Create a sealed release at a previously unused absolute path.
 
     ``guest_binary`` is optional provenance input from the same image build. It
@@ -65,6 +65,8 @@ def assemble_release(source_dir, release_dir, *, guest_binary=None):
     if not destination.name or destination.name in (".", ".."):
         raise checker.ReleaseCheckError("invalid release destination")
 
+    if arch is not None and arch not in checker.ARCHES:
+        raise checker.ReleaseCheckError(f"arch must be one of {sorted(checker.ARCHES)}")
     guest_source = None
     if guest_binary is not None:
         guest_source = checker._no_symlink_path(Path(guest_binary))
@@ -99,6 +101,9 @@ def assemble_release(source_dir, release_dir, *, guest_binary=None):
             "features": [],
             "operator_metadata": {},
         }
+        if arch is not None:
+            manifest["arch"] = arch
+            checker._check_elf_arch(staging / "bin" / "firecracker", arch)
         manifest_bytes = (json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n").encode()
         manifest_path = staging / "account-release.json"
         with manifest_path.open("xb") as output:
@@ -143,9 +148,11 @@ def main(argv=None):
     parser.add_argument("--source-dir", required=True, help="absolute build output with the five fixed files")
     parser.add_argument("--release-dir", required=True, help="new absolute release directory")
     parser.add_argument("--guest-binary", help="optional build guest binary to cross-check against ext4")
+    parser.add_argument("--arch", choices=sorted(checker.ARCHES), help="release architecture recorded in the manifest")
     args = parser.parse_args(argv)
     try:
-        result = assemble_release(args.source_dir, args.release_dir, guest_binary=args.guest_binary)
+        result = assemble_release(args.source_dir, args.release_dir, guest_binary=args.guest_binary,
+                                  arch=args.arch)
     except (checker.ReleaseCheckError, OSError) as exc:
         print(json.dumps({"valid": False, "error": str(exc)}), file=sys.stderr)
         return 1

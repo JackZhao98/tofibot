@@ -68,7 +68,7 @@ if [[ -n "${page_reporting_order:-}" ]]; then
   (
     reclaimed=0
     while sleep 30; do
-      if pgrep -x chrome >/dev/null 2>&1; then
+      if pgrep -x chrome >/dev/null 2>&1 || pgrep -x chromium >/dev/null 2>&1; then
         reclaimed=0
       elif [[ $reclaimed == 0 ]]; then
         echo 1 > /proc/sys/vm/drop_caches 2>/dev/null || true
