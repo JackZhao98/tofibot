@@ -2,12 +2,16 @@ import { createContext, useContext, type KeyboardEvent as ReactKeyboardEvent, ty
 
 /**
  * What a widget needs to be moved in the column (docs/design/widgets-and-sidebar.md section 2.1): the grip button's label and the two
- * handlers. A card with a header draws its own grip; the bare computer has no header, so `ContextCard` offers the same grip through this
- * context and the monitor draws it in its hover cluster next to the close button. Tiny on purpose: the contextCard and desktop chunks share it.
+ * handlers. A card with a header draws its own grip; the bare computer has no header, so `ContextCard` offers the same engine through this
+ * context and the monitor's screen starts the drag itself (`onPress`: press and move or hold, no handle). Tiny on purpose: the contextCard and desktop chunks share it.
  */
 export type WidgetGripApi = {
   label: string; hint: string;
   onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
+  /** A press on a surface that also clicks (the computer's screen): a drag only once the pointer travels ~6 px, or is held (mouse ~350 ms, touch ~400 ms) and then moves; otherwise the press stays a click. */
+  onPress: (event: ReactPointerEvent<HTMLElement>) => void;
+  /** True for a moment after a drag ends, so the click that follows the release does not also fire. */
+  wasDragged: () => boolean;
   onKeyDown: (event: ReactKeyboardEvent<HTMLElement>) => void;
 };
 

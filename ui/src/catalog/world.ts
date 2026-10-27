@@ -166,8 +166,8 @@ export type AppOptions = {
   runs?: boolean | "tools";
   /** The server reports a newer release (the admin banner). */
   update?: boolean;
-  /** What GET /api/conversations/{id}/usage answers for the Usage widget: the whole picture, no tool split (older runs), or no context snapshot. */
-  usage?: "full" | "split-unavailable" | "no-snapshot";
+  /** What GET /api/conversations/{id}/usage answers for the Usage widget: the whole picture, no tool split (older runs), no context snapshot, or a 404 (a server release without the route). */
+  usage?: "full" | "split-unavailable" | "no-snapshot" | "old-server";
 };
 
 const SCREEN = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800"><rect width="1280" height="800" fill="#d9e6ee"/><rect width="1280" height="36" fill="#33495a"/><rect x="120" y="140" width="560" height="360" rx="14" fill="#fff"/><text x="160" y="200" font-size="34" font-family="sans-serif" fill="#33495a">Synthetic screen</text></svg>')}`;
@@ -226,7 +226,7 @@ export function workspace(options: AppOptions): Synthetic {
       if (what === "schedules" || what === "schedule-occurrences" || what === "work-items" || what === "remembered-approvals") return json({ schedules: [], occurrences: [], work_items: [], grants: [] });
       if (what === "task-cards") return json({ tasks: options.tasks && id === "grp_launch" ? TASKS : [] });
       if (what === "read") return json({ read_seq: 99 });
-      if (what === "usage") return json(usageFor(id, options.usage ?? "full"));
+      if (what === "usage") return options.usage === "old-server" ? json({ error: { code: "not_found", message: "not found" } }, 404) : json(usageFor(id, options.usage ?? "full"));
     }
     if (p === "/api/questions") return json({ questions: questions(url.searchParams.get("conversation_id") ?? "") });
     if (p === "/api/mail-drafts") return json({ drafts: [] });

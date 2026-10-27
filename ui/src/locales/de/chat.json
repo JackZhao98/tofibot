@@ -779,6 +779,7 @@
     "coverage": "Anfragedetails decken {{covered}} von {{runs}} Läufen ab (7 Tage gespeichert).",
     "empty": "Die Nutzung erscheint nach dem ersten Lauf in dieser Unterhaltung.",
     "error": "Nutzung konnte nicht gelesen werden.",
+    "needs_newer_server": "Die Nutzung dieses Chats braucht einen neueren Server.",
     "estimated": "Vor dem Aufruf geschätzt",
     "input": "Eingabe",
     "loading": "Nutzung wird geladen",
@@ -811,6 +812,7 @@
     "totals": "Summen",
     "unpriced_one": "{{count}} Anfrage hat keinen Preis und fehlt in der Summe",
     "unpriced_other": "{{count}} Anfragen haben keinen Preis und fehlen in der Summe",
+    "used_percent": "{{percent}} belegt",
     "window_estimated": "Fenster geschätzt"
   },
   "viewOnly": {

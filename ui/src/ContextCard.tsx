@@ -36,7 +36,7 @@ export function ContextCard({ id, order, collapsed = false, leaving = false, foc
   // The computer is the bare monitor: no header row. Its title is the chin's status text (and a hidden heading for focus), it closes
   // with the chin's chevron and folds into its own strip (docs/design/widgets-and-sidebar.md section 6).
   const bare = id === "computer";
-  // Dragging starts from the header (any part that is not a button) or from the grip; Alt+Up / Alt+Down anywhere in the header moves it too.
+  // Dragging starts from the header (any part that is not a button), from the grip, or by pressing and moving on the title; Alt+Up / Alt+Down anywhere in the header moves it too.
   const startFromHeader = (event: ReactPointerEvent<HTMLElement>) => {
     const target = event.target as Element;
     if (!target.closest("button") && event.pointerType !== "touch") grip.onPointerDown(event);
@@ -44,16 +44,20 @@ export function ContextCard({ id, order, collapsed = false, leaving = false, foc
   const keyFromHeader = (event: ReactKeyboardEvent<HTMLElement>) => { if (event.altKey) grip.onKeyDown(event); };
   return <div className="widget-slot" data-slot={id} data-leaving={leaving || undefined} inert={leaving || undefined} style={{ order }}><section ref={ref} className={`context-card${collapsed ? " is-collapsed" : ""}${bare ? " is-bare" : ""}`} data-card={id} aria-label={title}>
     {bare ? <h2 ref={heading} tabIndex={-1} className="sr-only">{title}</h2> : <header className="context-card-header" onPointerDown={startFromHeader} onKeyDown={keyFromHeader}>
-      <h2 ref={heading} tabIndex={-1}>{title}</h2>
-      <WidgetGrip grip={grip} className="context-card-button context-card-grip" />
-      <button type="button" className="context-card-button context-card-fold" aria-expanded={!collapsed} aria-controls={bodyId} aria-label={foldLabel} data-hint={foldLabel} onClick={() => onToggle(id)}><Icon name="chevron-down" size={16} /></button>
-      <button type="button" className="context-card-button" aria-label={closeLabel} data-hint={closeLabel} onClick={() => onClose(id)}><Icon name="close" size={16} /></button>
+      {/* The title is the fold control: "Title ⌄", the chevron right after the words, turning as the card folds. A press on it that travels
+          (or is held) is a drag of the card instead (WidgetGripApi.onPress), so a click still folds. */}
+      <h2 ref={heading} tabIndex={-1}><button type="button" className="context-card-fold" aria-expanded={!collapsed} aria-controls={bodyId} aria-label={foldLabel} data-hint={foldLabel}
+        onPointerDown={grip.onPress} onClick={() => { if (!grip.wasDragged()) onToggle(id); }}><span>{title}</span><Icon name="chevron-down" size={14} /></button></h2>
+      <span className="context-card-actions"><WidgetGrip grip={grip} className="context-card-button context-card-grip" />
+      <button type="button" className="context-card-button context-card-close" aria-label={closeLabel} data-hint={closeLabel} onClick={() => onClose(id)}><Icon name="close" size={16} /></button></span>
     </header>}
     <div id={bodyId} className="context-card-body" inert={collapsed || undefined}><div className="context-card-inner">{bare ? <WidgetGripContext.Provider value={grip}>{children}</WidgetGripContext.Provider> : children}</div></div>
   </section></div>;
 }
 
 type Drag = { id: WidgetId; startY: number; pointerY: number; grabDy: number; startIndex: number; moved: boolean };
+/** Press-to-drag on a surface that also clicks (the computer's screen): travel beyond the slop starts a drag; held, a smaller move does. */
+const PRESS_SLOP = 6, PRESS_MS = 350, PRESS_TOUCH_MS = 400;
 const translateY = (el: HTMLElement) => parseFloat(getComputedStyle(el).translate.split(" ")[1] ?? "0") || 0;
 
 /**
@@ -80,6 +84,7 @@ export function WidgetColumn({ ids, order, folded, focus, covered, onFold, onClo
   const drag = useRef<Drag | null>(null);
   const before = useRef<Map<string, number> | null>(null);
   const spoke = useRef(0);
+  const justDragged = useRef(false);
 
   const slotOf = (id: string) => colRef.current?.querySelector<HTMLElement>(`.widget-slot[data-slot="${id}"]`) ?? null;
   const say = (id: WidgetId, index: number, count: number) => setAnnounce(`${latest.current.t("widgetOrder.moved", { title: latest.current.t(TITLE_KEY[id]), position: index + 1, count })}${spoke.current++ % 2 ? "\u200b" : ""}`);
@@ -129,13 +134,21 @@ export function WidgetColumn({ ids, order, folded, focus, covered, onFold, onClo
     follow();
   }, [key]);
 
-  const startDrag = useCallback((id: WidgetId, event: ReactPointerEvent<HTMLElement>) => {
+  const startDrag = useCallback((id: WidgetId, event: ReactPointerEvent<HTMLElement>, press = false) => {
     const el = slotOf(id);
     if (event.button !== 0 || drag.current || !el) return;
-    if (!(event.target as Element).closest("button")) event.preventDefault();
+    justDragged.current = false;
+    if (!press && !(event.target as Element).closest("button")) event.preventDefault();
+    const touch = event.pointerType === "touch";
+    const startX = event.clientX;
+    let held = false;
+    // A press that also clicks: held long enough it is a drag-in-waiting (a touch must be held, so a swipe still scrolls the column).
+    const hold = press ? window.setTimeout(() => { held = true; }, touch ? PRESS_TOUCH_MS : PRESS_MS) : 0;
     const d: Drag = { id, startY: event.clientY, pointerY: event.clientY, grabDy: event.clientY - el.getBoundingClientRect().top, startIndex: latest.current.live.indexOf(id), moved: false };
     drag.current = d;
     const finish = (cancel: boolean) => {
+      window.clearTimeout(hold);
+      window.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("pointermove", onMoveEvent);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onCancel);
@@ -144,6 +157,8 @@ export function WidgetColumn({ ids, order, folded, focus, covered, onFold, onClo
       document.documentElement.removeAttribute("data-widget-dragging");
       const node = slotOf(id);
       if (!d.moved) return;
+      justDragged.current = true;
+      window.setTimeout(() => { justDragged.current = false; }, 400);
       if (cancel && latest.current.live.indexOf(id) !== d.startIndex) moveTo(id, d.startIndex);
       node?.removeAttribute("data-dragging");
       if (node) node.style.translate = "";
@@ -153,17 +168,24 @@ export function WidgetColumn({ ids, order, folded, focus, covered, onFold, onClo
     const onMoveEvent = (e: PointerEvent) => {
       d.pointerY = e.clientY;
       if (!d.moved) {
-        if (Math.abs(e.clientY - d.startY) < 4) return;
+        if (press) {
+          const dist = Math.hypot(e.clientX - startX, e.clientY - d.startY);
+          if (touch && !held) { if (dist > PRESS_SLOP) finish(true); return; }
+          if (dist < (held ? 2 : PRESS_SLOP)) return;
+        } else if (Math.abs(e.clientY - d.startY) < 4) return;
         d.moved = true;
         slotOf(id)?.setAttribute("data-dragging", "");
         document.documentElement.setAttribute("data-widget-dragging", "");
       }
       follow();
     };
+    // A held touch that starts moving is the drag: keep the page and the column from scrolling under it.
+    const onTouchMove = (e: TouchEvent) => { if (d.moved || held) e.preventDefault(); };
     const onUp = () => finish(false);
     const onCancel = () => finish(true);
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); finish(true); } };
     window.addEventListener("pointermove", onMoveEvent);
+    if (touch && press) window.addEventListener("touchmove", onTouchMove, { passive: false });
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onCancel);
     document.addEventListener("keydown", onKey, true);
@@ -187,7 +209,7 @@ export function WidgetColumn({ ids, order, folded, focus, covered, onFold, onClo
 
   const grips = useMemo(() => Object.fromEntries(WIDGET_ORDER.map(id => {
     const title = t(TITLE_KEY[id]);
-    return [id, { label: t("widgetOrder.grip", { title }), hint: t("widgetOrder.grip_hint"), onPointerDown: (event: ReactPointerEvent<HTMLElement>) => startDrag(id, event), onKeyDown: (event: ReactKeyboardEvent<HTMLElement>) => keyMove(id, event) } satisfies WidgetGripApi];
+    return [id, { label: t("widgetOrder.grip", { title }), hint: t("widgetOrder.grip_hint"), onPointerDown: (event: ReactPointerEvent<HTMLElement>) => startDrag(id, event), onPress: (event: ReactPointerEvent<HTMLElement>) => startDrag(id, event, true), wasDragged: () => justDragged.current, onKeyDown: (event: ReactKeyboardEvent<HTMLElement>) => keyMove(id, event) } satisfies WidgetGripApi];
   })) as Record<WidgetId, WidgetGripApi>, [t, startDrag, keyMove]);
 
   if (!shown.length) return null;

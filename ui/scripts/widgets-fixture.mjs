@@ -71,7 +71,8 @@ export async function openWorkspace(browser, origin, state, { width = 1440, heig
       return json({ items: items.sort((a, b) => b.message_seq - a.message_seq).slice(0, Number(url.searchParams.get("limit") || 50)), next_cursor: "" });
     }
     const usage = p.match(/^\/api\/conversations\/([^/]+)\/usage$/);
-    if (usage) { state.usageReads = (state.usageReads ?? 0) + 1; return state.usage === "fail" ? route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: { code: "internal", message: "synthetic" } }) }) : json(state.usage ?? usageFor(usage[1])); }
+    if (usage) { state.usageReads = (state.usageReads ?? 0) + 1; if (state.usage === "404") return route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: { code: "not_found", message: "not found" } }) });
+      return state.usage === "fail" ? route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: { code: "internal", message: "synthetic" } }) }) : json(state.usage ?? usageFor(usage[1])); }
     const conversation = p.match(/^\/api\/conversations\/([^/]+)\/(messages|events)$/);
     if (conversation && conversation[2] === "messages") return json({ messages: state.messages[conversation[1]] ?? talk(conversation[1] === GROUP.id ? GROUP : conversation[1] === DM2.id ? DM2 : DM), has_more: false, event_cursor: 0 });
     if (conversation && conversation[2] === "events") {

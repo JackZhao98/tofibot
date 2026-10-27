@@ -754,6 +754,7 @@
     "coverage": "요청 상세는 {{runs}}회 중 {{covered}}회 실행분입니다(7일 보관).",
     "empty": "이 대화에서 첫 실행이 끝나면 사용량이 표시됩니다.",
     "error": "사용량을 불러오지 못했습니다.",
+    "needs_newer_server": "이 대화의 사용량을 보려면 더 최신 서버가 필요합니다.",
     "estimated": "호출 전 추정",
     "input": "입력",
     "loading": "사용량 불러오는 중",
@@ -784,6 +785,7 @@
     "tools": "도구",
     "totals": "합계",
     "unpriced_other": "가격이 없는 요청 {{count}}건은 제외됨",
+    "used_percent": "{{percent}} 사용",
     "window_estimated": "창 크기는 추정"
   },
   "viewOnly": {

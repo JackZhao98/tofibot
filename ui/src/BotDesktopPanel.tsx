@@ -12,7 +12,7 @@ import { TofiIcon } from "./icons";
 import { RemoteDesktopControl, type RemoteControlHandle } from "./RemoteDesktopControl";
 import { i18n, useTranslation } from "./i18n";
 import { MOTION, EASE } from "./motion";
-import { useWidgetGrip, WidgetGrip } from "./widgetGrip";
+import { useWidgetGrip } from "./widgetGrip";
 
 type Props = { /** The widget's strip form: the screen is a thumbnail, the chin's status and switch sit beside it. */ folded?: boolean; onFold?: () => void; onUnfold?: () => void; expanded?: boolean; sheet?: boolean; passivePreview?: boolean; autoConnect?: boolean; presence?: DesktopPresenceState; botId: string; botName: string; members?: Array<{ id: string; name: string }>; onClose: (reason?: "hide" | "shutdown") => void; onReadyChange?: (ready: boolean) => void; onExpandedChange?: (expanded: boolean) => void };
 type ComputerInfo = { kind: string; state: string; phase?: string; desktop_starting?: boolean; workspace_root?: string; browser?: string; error?: string };
@@ -734,16 +734,18 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   // The small web form keeps one control on its glass corner: close. The screen itself enlarges (the button below), the fold is
   // automatic and the strip is one click back; the fold, enlarge and power controls live with the big window.
   const compactWeb = !expanded && !isDesktop;
-  // In the widget column the monitor has no header, so its grip (move up or down, by drag or keys) lives in the hover cluster beside the close button.
+  // In the widget column the monitor has no header and no handle: pressing the screen and moving (or holding, then moving) drags the widget, a plain
+  // press is the click that enlarges, and Alt+Up / Alt+Down on the screen button move it (ContextCard's engine, through the grip context).
   const widgetGrip = useWidgetGrip();
   const windowButtons = [
-    compactWeb && widgetGrip && <WidgetGrip key="grip" grip={widgetGrip} className="desktop-control-button desktop-control-grip" />,
     !compactWeb && onFold && !expanded && !folded && <button key="fold" type="button" className="desktop-control-button desktop-control-fold" aria-label={t("desktop.fold_aria")} title={t("desktop.fold")} onClick={onFold}><TofiIcon name="chevron-down" size={16} /></button>,
     !compactWeb && !sheet && <button key="expand" type="button" className="desktop-control-button desktop-control-expand" aria-label={expanded ? t("desktop.shrink_aria") : t("desktop.expand_aria")} title={expanded ? t("desktop.shrink") : t("desktop.expand")} onClick={() => setExpanded(!expanded)}><span className={`desktop-expand-glyph${expanded ? " is-expanded" : ""}`} aria-hidden="true" /></button>,
     <button key="close" type="button" className="desktop-control-button computer-hide-button" aria-label={t("desktop.close_aria")} data-hint={compactWeb ? t("desktop.close") : undefined} title={compactWeb ? undefined : t("desktop.close")} onClick={() => closePanel("hide")}><TofiIcon name="close" size={16} /></button>,
   ];
   // The small screen is one button: the middle of it enlarges. The hint (glyph and words) fades in over a soft scrim on hover and focus.
-  const enlargeButton = !expanded && !folded && <button type="button" className="desktop-enlarge" aria-label={t("desktop.expand_aria")} onClick={() => setExpanded(true)}>
+  const enlargeButton = !expanded && !folded && <button type="button" className="desktop-enlarge" aria-label={t("desktop.expand_aria")} aria-keyshortcuts={widgetGrip ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
+    onPointerDown={widgetGrip && !isDesktop ? widgetGrip.onPress : undefined} onKeyDown={widgetGrip ? widgetGrip.onKeyDown : undefined}
+    onClick={() => { if (widgetGrip?.wasDragged()) return; setExpanded(true); }}>
     <span className="desktop-enlarge-hint" aria-hidden="true"><span className="desktop-expand-glyph" />{t("desktop.enlarge_hint")}</span>
   </button>;
   const windowActions = <div className="computer-detail-heading-actions computer-floating-actions">

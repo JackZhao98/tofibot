@@ -9,7 +9,7 @@
    Sidebar: a real third grid track at the window edge (.sidebar-pane) that PUSHES the chat. Open animates the track with
    --m-panel-in, close with --m-panel-out; expanding changes --sidebar-w with --m-base. The chat and the widget column shrink
    with it (--widget-w). Widget chrome and sidebar chrome are in context-column.css / sidebar-shell.css and load with their chunks. */
-:root { --panel-elevation-edge:-14px 0 32px -22px rgba(42,32,25,.32); --panel-float-elevation:0 1px 3px rgba(42,32,25,.08), 0 3px 12px -3px rgba(42,32,25,.22); --panel-gap:12px; --panel-radius:16px; }
+:root { --panel-elevation-edge:-14px 0 32px -22px rgba(42,32,25,.32); --panel-float-elevation:0 1px 3px rgba(42,32,25,.08), 0 3px 12px -3px rgba(42,32,25,.22); --panel-gap:12px; --panel-radius:16px; --widget-bleed-l:44px; --widget-bleed-r:16px; --widget-bleed-b:16px; }
 :root[data-theme="dark"] { --panel-elevation-edge:-14px 0 32px -20px rgba(0,0,0,.75); --panel-float-elevation:0 1px 3px rgba(0,0,0,.5), 0 3px 12px -3px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.04); }
 @media (min-width:1100px) {
   html:not([data-desktop]) .workspace .workspace-grid {
@@ -39,19 +39,26 @@
   html:not([data-desktop]) .workspace .sidebar-pane > * { flex:none; width:calc(var(--sidebar-w) - 2 * var(--panel-gap)); max-width:100%; height:100%; border-radius:var(--panel-radius); box-shadow:var(--panel-float-elevation); background:var(--surface); overflow:hidden; transition:width var(--sidebar-dur) var(--ease-settle), opacity var(--m-panel-out) var(--ease-settle); animation:sidebar-shell-in var(--m-panel-in) var(--ease-out) backwards; }
   html:not([data-desktop]) .workspace .sidebar-pane.is-leaving > * { opacity:0; }
 
-  /* Widgets. */
+  /* Widgets. The column is a scroll container, so it would clip its cards' shadows at its own edge: it is laid out --widget-bleed-* larger than
+     the cards on the left, right and bottom and pads them back in, so the shadows draw in full on every side. It also runs up under the header
+     (top 0, padding for the header's height) and sits one layer below it, and the composer's box (which spans under the column and is one layer above it) lets the pointer through its empty padding (below), so cards that scroll up pass under the same progressive blur as the
+     messages (progressive-blur.css) instead of ending at a hard line. */
   html:not([data-desktop]) .workspace .detail-pane.widget-column {
     display:flex; flex-direction:column; align-items:stretch; gap:0; box-sizing:border-box;
     border:0; background:transparent; box-shadow:none; overflow:hidden auto; overscroll-behavior:contain; animation:none;
-    grid-column:2; grid-row:1; justify-self:end; align-self:start; z-index:var(--z-panel); position:relative; inset:auto; translate:none;
-    width:var(--widget-w); height:calc(100% - var(--chat-header-height,64px)); margin:var(--chat-header-height,64px) var(--scroll-bar-w,0px) 0 0;
-    padding:6px 14px 16px 2px; pointer-events:none; scrollbar-width:none; scrollbar-gutter:auto;
+    grid-column:2; grid-row:1; justify-self:end; align-self:start; z-index:calc(var(--z-chrome) - 1); position:relative; inset:auto; translate:none;
+    width:calc(var(--widget-w) + var(--widget-bleed-l) + var(--widget-bleed-r)); height:100%; margin:0 calc(var(--scroll-bar-w,0px) - var(--widget-bleed-r)) 0 0;
+    padding:calc(var(--chat-header-height,64px) + 6px) calc(14px + var(--widget-bleed-r)) calc(16px + var(--widget-bleed-b)) calc(2px + var(--widget-bleed-l)); pointer-events:none; scrollbar-width:none; scrollbar-gutter:auto;
     transition:width var(--m-panel-out) var(--ease-settle);
   }
   html:not([data-desktop]) .workspace .workspace-grid.sidebar-open .detail-pane.widget-column { transition-duration:var(--sidebar-dur); }
   html:not([data-desktop]) .workspace .detail-pane.widget-column::-webkit-scrollbar { display:none; }
   /* An expanded computer is a full-window dialog: it leaves the column in place and floats over the page. */
   html:not([data-desktop]) .workspace .detail-pane.widget-column:has(.computer-detail.is-expanded) { position:relative; inset:auto; z-index:auto; width:auto; height:100%; margin:0; padding:0; overflow:hidden auto; background:transparent; box-shadow:none; pointer-events:auto; }
+  /* The composer box spans the whole chat width (its padding-right only keeps the field clear of the column), so while widgets are open it passes the pointer through its empty
+     padding and only its own parts take it; the column, one layer below the header and the composer, stays clickable at the bottom of a short window. */
+  html:not([data-desktop]) .workspace .workspace-grid.context-open .composer { pointer-events:none; }
+  html:not([data-desktop]) .workspace .workspace-grid.context-open .composer > * { pointer-events:auto; }
   /* Only the widgets take the pointer; wheel over them scrolls the column, over empty chat space it scrolls the messages. */
   html:not([data-desktop]) .workspace .detail-pane.widget-column > * { pointer-events:auto; }
   html:not([data-desktop]) .workspace .workspace-grid.context-open { --context-room:calc(var(--widget-w) + var(--scroll-bar-w,0px)); }

@@ -779,6 +779,7 @@
     "coverage": "Request detail covers {{covered}} of {{runs}} runs (kept 7 days).",
     "empty": "Usage shows up after the first run in this chat.",
     "error": "Couldn't read usage.",
+    "needs_newer_server": "Usage for this chat needs a newer server.",
     "estimated": "Estimated before the call",
     "input": "Input",
     "loading": "Loading usage",
@@ -811,6 +812,7 @@
     "totals": "Totals",
     "unpriced_one": "{{count}} request has no price and is left out",
     "unpriced_other": "{{count}} requests have no price and are left out",
+    "used_percent": "{{percent}} used",
     "window_estimated": "window estimated"
   },
   "viewOnly": {

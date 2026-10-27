@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { request } from "./api";
+import { ApiError, request } from "./api";
 import { useTranslation } from "./i18n";
 import { formatNumber } from "./i18n/format";
 import { TofiIcon as Icon } from "./icons";
@@ -26,12 +26,14 @@ const THROTTLE_MS = 4000;
 const partKind = (kind: string) => (PART_KINDS as readonly string[]).includes(kind) ? kind as typeof PART_KINDS[number] : "other";
 const compact = (value: number) => formatNumber(value, { notation: "compact", maximumFractionDigits: value < 1000 ? 0 : 1 });
 const money = (value: number) => value > 0 && value < 0.01 ? `<${formatNumber(0.01, { style: "currency", currency: "USD" })}` : formatNumber(value, { style: "currency", currency: "USD" });
+/** A part's share of the window: under one percent reads "<1%", never a rounded zero. */
+const share = (tokens: number, window: number) => window > 0 && tokens > 0 ? (tokens / window < 0.005 ? `<${percent(0.01)}` : percent(tokens / window)) : "";
 const percent = (value: number) => formatNumber(value, { style: "percent", maximumFractionDigits: 0 });
 
 /** Reads the usage of one conversation: once on open, and again (throttled) when a run in it finishes. No timer runs while it is idle. */
 function useConversationUsage(conversationId: string, running: boolean) {
   const [data, setData] = useState<ConversationUsage | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<false | "error" | "unsupported">(false);
   const [retry, setRetry] = useState(0);
   const last = useRef(0);
   const timer = useRef(0);
@@ -43,7 +45,7 @@ function useConversationUsage(conversationId: string, running: boolean) {
     last.current = Date.now();
     request<ConversationUsage>(`/api/conversations/${encodeURIComponent(conversationId)}/usage`, { signal: controller.signal }).then(
       body => { setData(body); setFailed(false); },
-      () => { if (!controller.signal.aborted) setFailed(true); },
+      error => { if (!controller.signal.aborted) setFailed((error instanceof ApiError && (error.status === 404 || error.status === 405)) ? "unsupported" : "error"); },
     );
   }, [conversationId]);
   useEffect(() => { read(); return () => { abort.current?.abort(); window.clearTimeout(timer.current); }; }, [read, retry]);
@@ -58,18 +60,6 @@ function useConversationUsage(conversationId: string, running: boolean) {
   return { data, failed, reload: () => setRetry(n => n + 1) };
 }
 
-/** A ring that fills from empty the first time it is drawn (the stroke offset is a transition, so reduced motion is instant). */
-function Ring({ fraction, tone, label }: { fraction: number; tone: "ok" | "warn" | "full"; label: string }) {
-  const [drawn, setDrawn] = useState(false);
-  useEffect(() => { const frame = requestAnimationFrame(() => setDrawn(true)); return () => cancelAnimationFrame(frame); }, []);
-  const radius = 22, circumference = 2 * Math.PI * radius;
-  const shown = drawn ? Math.min(1, Math.max(0, fraction)) : 0;
-  return <svg className={`usage-ring is-${tone}`} viewBox="0 0 56 56" role="img" aria-label={label}>
-    <circle className="usage-ring-track" cx="28" cy="28" r={radius} />
-    <circle className="usage-ring-value" cx="28" cy="28" r={radius} strokeDasharray={circumference} strokeDashoffset={circumference * (1 - shown)} />
-  </svg>;
-}
-
 export function UsageWidget({ conversationId, running, onAll }: { conversationId: string; running: boolean; onAll: () => void }) {
   const { t } = useTranslation("chat");
   const { data, failed, reload } = useConversationUsage(conversationId, running);
@@ -78,7 +68,9 @@ export function UsageWidget({ conversationId, running, onAll }: { conversationId
 
   let body;
   if (!data) {
-    body = failed
+    body = failed === "unsupported"
+      ? <p className="usage-widget-note" role="status">{t("usageWidget.needs_newer_server")}</p>
+      : failed
       ? <div className="usage-widget-note" role="alert">{t("usageWidget.error")} <button type="button" className="usage-widget-retry" onClick={reload}>{t("usageWidget.retry")}</button></div>
       : <div className="usage-widget-skeleton" aria-busy="true" aria-label={t("usageWidget.loading")}><i /><i /><i /></div>;
   } else if (!data.latest_context && !data.totals.input_tokens && !data.totals.output_tokens) {
@@ -95,24 +87,18 @@ export function UsageWidget({ conversationId, running, onAll }: { conversationId
       {ctx && <section className="usage-widget-section" aria-labelledby={`${conversationId}-uw-context`}>
         <h3 id={`${conversationId}-uw-context`}>{t("usageWidget.context")}</h3>
         <div className="usage-now">
-          <div className="usage-ring-wrap">
-            <Ring fraction={fraction} tone={tone} label={t("usageWidget.ring_label", { used: compact(ctx.used_tokens), window: compact(ctx.window_tokens), percent: percent(fraction) })} />
-            <span className="usage-ring-percent" aria-hidden="true">{ctx.used_measured ? "" : "≈"}{percent(fraction)}</span>
-          </div>
-          <div className="usage-now-text">
-            <strong>{ctx.used_measured ? "" : "≈"}{compact(ctx.used_tokens)} <span>/ {ctx.window_known ? "" : "≈"}{compact(ctx.window_tokens)}</span></strong>
-            <small>{name(ctx.model)}</small>
-            <small>{ctx.used_measured ? t("usageWidget.measured") : t("usageWidget.estimated")}{ctx.window_known ? "" : ` · ${t("usageWidget.window_estimated")}`}</small>
-          </div>
+          <strong className={`usage-used is-${tone}`}>{ctx.used_measured ? "" : "≈"}{t("usageWidget.used_percent", { percent: percent(fraction) })}</strong>
+          <span className="usage-now-figures">{ctx.used_measured ? "" : "≈"}{compact(ctx.used_tokens)} / {ctx.window_known ? "" : "≈"}{compact(ctx.window_tokens)}</span>
         </div>
-        {ctx.parts.length ? <>
-          <div className="usage-parts-bar" role="img" aria-label={t("usageWidget.parts_label")}>
-            {ctx.parts.map(part => <i key={part.kind} className={`usage-part k-${part.kind}`} style={{ flexGrow: part.tokens }} />)}
-          </div>
-          <ul className="usage-legend">
-            {ctx.parts.map(part => <li key={part.kind}><i className={`usage-swatch k-${part.kind}`} aria-hidden="true" /><span>{t(`usageWidget.part.${partKind(part.kind)}`)}</span><b>{part.estimated ? "≈" : ""}{compact(part.tokens)}</b></li>)}
-          </ul>
-        </> : <p className="usage-widget-line">{t("usageWidget.parts_unavailable")}</p>}
+        <small className="usage-now-meta">{name(ctx.model)} · {ctx.used_measured ? t("usageWidget.measured") : t("usageWidget.estimated")}{ctx.window_known ? "" : ` · ${t("usageWidget.window_estimated")}`}</small>
+        {/* The bar is the window: a segment per context part (or one for what is used when there is no snapshot), the rest empty. */}
+        <div className="usage-parts-bar" role="img" aria-label={t("usageWidget.ring_label", { used: compact(ctx.used_tokens), window: compact(ctx.window_tokens), percent: percent(fraction) })}>
+          {ctx.parts.length ? ctx.parts.map(part => <i key={part.kind} className={`usage-part k-${part.kind}`} style={{ flexGrow: part.tokens }} />) : <i className={`usage-part k-used is-${tone}`} style={{ flexGrow: ctx.used_tokens }} />}
+          {ctx.window_tokens > ctx.used_tokens && <i className="usage-rest" style={{ flexGrow: ctx.window_tokens - (ctx.parts.length ? ctx.parts_tokens || ctx.used_tokens : ctx.used_tokens) }} />}
+        </div>
+        {ctx.parts.length ? <ul className="usage-legend">
+          {ctx.parts.map(part => <li key={part.kind}><i className={`usage-swatch k-${part.kind}`} aria-hidden="true" /><span>{t(`usageWidget.part.${partKind(part.kind)}`)}</span><b>{part.estimated ? "≈" : ""}{compact(part.tokens)}</b><em>{share(part.tokens, ctx.window_tokens)}</em></li>)}
+        </ul> : <p className="usage-widget-line">{t("usageWidget.parts_unavailable")}</p>}
       </section>}
 
       <section className="usage-widget-section" aria-labelledby={`${conversationId}-uw-split`}>

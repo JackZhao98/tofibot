@@ -754,6 +754,7 @@
     "coverage": "請求明細涵蓋 {{runs}} 次執行中的 {{covered}} 次（保留 7 天）。",
     "empty": "這個對話執行一次後才會有用量。",
     "error": "無法讀取用量。",
+    "needs_newer_server": "此對話的用量需要較新版本的伺服器。",
     "estimated": "呼叫前估算",
     "input": "輸入",
     "loading": "正在讀取用量",
@@ -784,6 +785,7 @@
     "tools": "工具",
     "totals": "合計",
     "unpriced_other": "{{count}} 次請求沒有定價，未計入",
+    "used_percent": "已用 {{percent}}",
     "window_estimated": "視窗為估算值"
   },
   "viewOnly": {

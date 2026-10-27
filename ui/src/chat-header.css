@@ -6,13 +6,14 @@ html:not([data-desktop]) .workspace .chat-header {
   background:transparent; border-bottom:0; box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none;
 }
 
-/* Identity pill */
+/* Identity pill: the composer's glass (conversation-workspace.css .composer-row): --glass fill, --blur backdrop, --sheen rim, 9% ink border. */
 html:not([data-desktop]) .workspace .chat-identity {
   min-height:44px; padding:4px 16px 4px 5px; gap:9px;
-  border:1px solid var(--line-soft); border-radius:999px; background:var(--surface);
-  transition:border-color var(--m-quick) var(--ease-out),background-color var(--m-quick) var(--ease-out);
+  border:1px solid color-mix(in srgb,var(--ink) 9%,transparent); border-radius:999px;
+  background:var(--glass); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur); box-shadow:var(--sheen);
+  transition:border-color var(--m-quick) var(--ease-out);
 }
-html:not([data-desktop]) .workspace .chat-identity:hover { border-color:var(--line); background:var(--surface); }
+html:not([data-desktop]) .workspace .chat-identity:hover { border-color:color-mix(in srgb,var(--ink) 18%,transparent); }
 html:not([data-desktop]) .workspace .chat-identity:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
 html:not([data-desktop]) .workspace .member-avatar-stack { min-width:34px; }
 html:not([data-desktop]) .workspace .member-avatar-stack .avatar { width:34px; height:34px; flex-basis:34px; margin-left:-10px; border-radius:50%; background:var(--surface-2); }
@@ -23,7 +24,8 @@ html:not([data-desktop]) .workspace .chat-name-pill small { font:10px/1.2 var(--
 
 /* Action pill: one rounded group; the open surface is marked with a lagoon tint. */
 html:not([data-desktop]) .workspace .header-actions {
-  gap:2px; padding:3px; border:1px solid var(--line-soft); border-radius:999px; background:var(--surface);
+  gap:2px; padding:3px; border:1px solid color-mix(in srgb,var(--ink) 9%,transparent); border-radius:999px;
+  background:var(--glass); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur); box-shadow:var(--sheen);
 }
 html:not([data-desktop]) .workspace .header-actions :is(.computer-button,.ghost-button) {
   width:36px; height:36px; min-width:36px; padding:0; border:0; border-radius:50%;
@@ -40,6 +42,7 @@ html:not([data-desktop]) .workspace .header-actions .header-more { display:flex;
 }
 @media (prefers-reduced-transparency:reduce) {
   html:not([data-desktop]) .workspace .chat-header { background:transparent; }
+  html:not([data-desktop]) .workspace :is(.chat-identity,.header-actions) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
 }
 html:not([data-desktop]) .workspace .header-actions :is(.computer-button,.ghost-button) { display:grid; place-items:center; }
 

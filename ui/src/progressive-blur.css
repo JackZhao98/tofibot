@@ -10,7 +10,7 @@ html:not([data-desktop]) .workspace .message-scroll { mask-image:none; -webkit-m
 html:not([data-desktop]) .workspace .chat-header { pointer-events:none; isolation:isolate; --pbt-ramp:30px; --pbt-blur-1:3px; --pbt-blur-2:9px; --pbt-tint:30%; }
 html:not([data-desktop]) .workspace .chat-header > * { pointer-events:auto; }
 html:not([data-desktop]) .workspace .chat-header::before,
-html:not([data-desktop]) .workspace .chat-header::after { content:""; position:absolute; z-index:-1; left:0; right:0; top:0; height:calc(100% + var(--pbt-ramp)); pointer-events:none; }
+html:not([data-desktop]) .workspace .chat-header::after { content:""; position:absolute; z-index:-1; left:0; right:var(--scroll-bar-w,0px); top:0; height:calc(100% + var(--pbt-ramp)); pointer-events:none; }
 html:not([data-desktop]) .workspace .chat-header::before {
   background:linear-gradient(to bottom,color-mix(in srgb,var(--bg) var(--pbt-tint),transparent),transparent);
   -webkit-backdrop-filter:blur(var(--pbt-blur-1)); backdrop-filter:blur(var(--pbt-blur-1));

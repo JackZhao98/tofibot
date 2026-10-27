@@ -804,6 +804,7 @@
     "coverage": "Le détail des requêtes couvre {{covered}} exécutions sur {{runs}} (conservé 7 jours).",
     "empty": "L’utilisation apparaît après la première exécution de cette conversation.",
     "error": "Impossible de lire l’utilisation.",
+    "needs_newer_server": "L’utilisation de cette conversation nécessite un serveur plus récent.",
     "estimated": "Estimé avant l’appel",
     "input": "Entrée",
     "loading": "Chargement de l’utilisation",
@@ -838,6 +839,7 @@
     "unpriced_many": "{{count}} de requêtes sans prix sont exclues",
     "unpriced_one": "{{count}} requête sans prix est exclue",
     "unpriced_other": "{{count}} requêtes sans prix sont exclues",
+    "used_percent": "{{percent}} utilisé",
     "window_estimated": "fenêtre estimée"
   },
   "viewOnly": {

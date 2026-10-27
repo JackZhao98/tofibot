@@ -22,16 +22,25 @@
 .widget-slot[data-dragging] .context-card.is-bare { box-shadow:none; filter:drop-shadow(0 16px 22px rgba(0,0,0,.3)); }
 html[data-widget-dragging], html[data-widget-dragging] * { user-select:none; -webkit-user-select:none; }
 .context-card-header { user-select:none; -webkit-user-select:none; }
-.context-card-grip { touch-action:none; opacity:0; transition:opacity var(--m-quick) var(--ease-out), background-color var(--m-press) var(--ease-out), color var(--m-press) var(--ease-out); }
-.context-card-header:is(:hover,:focus-within) .context-card-grip, .widget-slot[data-dragging] .context-card-grip { opacity:1; }
-@media (pointer:coarse) { .context-card-grip { opacity:1; } }
+.context-card-grip { touch-action:none; }
+/* Resting header: just "Title ⌄" (the way Claude desktop's side cards read). The grip and the close X appear while the card is hovered or has keyboard focus, and while it is lifted. */
+.context-card-actions { display:flex; align-items:center; gap:2px; flex:none; margin-left:auto; opacity:0; transition:opacity var(--m-quick) var(--ease-out); }
+.context-card:is(:hover,:has(:focus-visible)) .context-card-actions, .widget-slot[data-dragging] .context-card-actions { opacity:1; }
+@media (pointer:coarse) { .context-card-actions { opacity:1; } }
+.context-card-grip, .context-card-close { transition:background-color var(--m-press) var(--ease-out), color var(--m-press) var(--ease-out); }
 .context-card-header { display:flex; align-items:center; gap:2px; min-height:40px; padding:4px 6px 4px 14px; }
-.context-card-header h2 { flex:1; min-width:0; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink); font:600 13px/1.3 var(--display); outline:none; }
+.context-card-header h2 { flex:0 1 auto; min-width:0; margin:0; outline:none; font:inherit; }
+/* The title is a quiet section label (--text-process, AA on the card surface in both themes); the chevron follows the words. */
+.context-card-fold { display:inline-flex; align-items:center; gap:3px; min-height:28px; margin-left:-6px; padding:0 6px; border:0; border-radius:8px; background:transparent; color:var(--text-process); font:500 12.5px/1.3 var(--body); letter-spacing:0; transition:color var(--m-press) var(--ease-out); }
+.context-card-fold span { white-space:nowrap; }
+.context-card-fold:hover { color:var(--ink); }
+.context-card-fold svg { flex:none; transition:rotate var(--m-base) var(--ease-out); }
+.context-card.is-collapsed .context-card-fold svg { rotate:-90deg; }
+@media (pointer:coarse) { .context-card-fold { min-height:44px; } }
 .context-card-button { display:grid; place-items:center; flex:none; width:28px; height:28px; padding:0; border:0; border-radius:8px; background:transparent; color:var(--ink-soft); }
 .context-card-button:hover { background:var(--surface-2); color:var(--ink); }
-.context-card-button svg { transition:rotate var(--m-base) var(--ease-out); }
-.context-card.is-collapsed .context-card-fold svg { rotate:-90deg; }
 @media (pointer:coarse) { .context-card-button { width:44px; height:44px; } }
+.context-card-button svg { transition:rotate var(--m-base) var(--ease-out); }
 
 /* Folding a card animates its row height; the content stays mounted (a live computer session survives it). */
 .context-card-body { display:grid; grid-template-rows:1fr; transition:grid-template-rows var(--m-base) var(--ease-out); }
@@ -55,7 +64,7 @@ html[data-widget-dragging], html[data-widget-dragging] * { user-select:none; -we
 
 @media (prefers-reduced-motion:reduce) {
   .widget-slot, .widget-slot[data-leaving] { animation:none; transition:none; }
-  .context-card, .context-card-grip { transition:none; }
-  .context-card-body, .context-card-button svg, .context-card.is-collapsed .context-card-inner { transition:none; }
+  .context-card, .context-card-grip, .context-card-close, .context-card-actions, .context-card-fold, .context-card-fold svg, .context-card-button svg { transition:none; }
+  .context-card-body, .context-card.is-collapsed .context-card-inner { transition:none; }
 }
 @media (forced-colors:active) { .context-card { outline:1px solid CanvasText; } }

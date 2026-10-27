@@ -754,6 +754,7 @@
     "coverage": "请求明细覆盖 {{runs}} 次运行中的 {{covered}} 次（保留 7 天）。",
     "empty": "这个对话运行一次后才会有用量。",
     "error": "读取用量失败。",
+    "needs_newer_server": "此对话的用量需要更新版本的服务器。",
     "estimated": "调用前估算",
     "input": "输入",
     "loading": "正在读取用量",
@@ -784,6 +785,7 @@
     "tools": "工具",
     "totals": "合计",
     "unpriced_other": "{{count}} 次请求无定价，未计入",
+    "used_percent": "已用 {{percent}}",
     "window_estimated": "窗口为估算值"
   },
   "viewOnly": {

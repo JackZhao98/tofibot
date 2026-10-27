@@ -5,7 +5,7 @@
 //    `tofi:open-sidebar` opens it, and an unknown value is ignored;
 //  - Usage widget: More > Usage opens it, it reads the conversation's usage once, again (throttled) when a run finishes and never while idle,
 //    says why a tool split is missing instead of inventing one, and links to Settings > Usage;
-//  - widgets reorder: Alt+Up / Down and the grip's arrow keys (announced, focus stays), dragging by the header or the computer's grip (live
+//  - widgets reorder: Alt+Up / Down and the grip's arrow keys (announced, focus stays), dragging by the header or by pressing and moving on the computer's screen (live
 //    reflow, Escape puts it back, no click-to-enlarge), the order is the person's (every conversation, a reload, auto-open lands in place);
 //  - Escape closes one thing per press, in the order: Radix menu, big computer -> compact, cover, sidebar, widgets bottom-up
 //    (Artifacts, then Members, then Computer); a native top-layer dialog is left to itself.
@@ -187,8 +187,10 @@ try {
     assert.equal(await page.locator(".settings-tabs").count(), 0);
     const body = page.locator('[data-card="usage"]');
     assert.match(await body.locator(".usage-now").textContent(), /61\.4K.*200K/, "used / window");
-    assert.match(await body.locator(".usage-ring-percent").textContent(), /31%/);
-    assert.equal(await body.locator(".usage-parts-bar i").count(), 7, "one segment per context part");
+    assert.match(await body.locator(".usage-used").textContent(), /31% used/, "one summary line: percent used, then used / window");
+    assert.equal(await body.locator(".usage-parts-bar i.usage-part").count(), 7, "one segment per context part");
+    assert.equal(await body.locator(".usage-parts-bar i.usage-rest").count(), 1, "the rest of the window is the empty end of the bar");
+    assert.match(await body.locator(".usage-legend li").first().textContent(), /Instructions.*≈6\.8K.*3%/, "name, tokens, share of the window");
     assert.match(await body.locator(".usage-legend").textContent(), /≈6\.8K/, "estimated parts are marked");
     assert.match(await body.locator(".usage-split-legend").textContent(), /Tools.*24 calls/s, "tools against conversation, with counts");
     assert.match(await body.locator(".usage-totals").textContent(), /1\.3M.*52\.3K.*41.*≈ \$1\.86/s, "totals and the equivalent cost");
@@ -203,7 +205,7 @@ try {
     assert.equal(state.usageReads, opened, "a run starting does not read");
     state.usage = usageFor(DM.id, { total: 120_000 });
     state.push(DM.id, "run", { id: "run-usage-1", conversation_id: DM.id, bot_id: BOT.id, status: "done", created_at: "2026-10-26T12:00:00Z" });
-    await poll(page, () => /60%/.test(document.querySelector('[data-card="usage"] .usage-ring-percent')?.textContent ?? ""), null, 12000);
+    await poll(page, () => /60% used/.test(document.querySelector('[data-card="usage"] .usage-used')?.textContent ?? ""), null, 12000);
     assert.equal(state.usageReads, opened + 1, "a finished run reads once more");
     // No tool split: one quiet line, no bar and no numbers.
     state.usage = usageFor(DM.id, { split: false, snapshot: false });
@@ -214,8 +216,8 @@ try {
     assert.match(lines, /Per-call detail is kept for 7 days/);
     assert.match(lines, /No breakdown for the latest run/);
     assert.equal(await body.locator(".usage-split-bar").count(), 0, "no invented split");
-    assert.equal(await body.locator(".usage-parts-bar").count(), 0, "no parts bar without a snapshot");
-    assert.equal(await body.locator(".usage-ring-value").count(), 1, "the ring still shows used / window");
+    assert.equal(await body.locator(".usage-parts-bar i.usage-part").count(), 1, "no snapshot: the bar is one segment of what is used");
+    assert.match(await body.locator(".usage-now").textContent(), /61\.4K \/ 200K/, "the summary still shows used / window");
     // A failed read says so and can be retried.
     state.usage = "fail";
     await page.getByRole("button", { name: /^Close Usage/ }).click();
@@ -225,11 +227,25 @@ try {
     state.usage = undefined;
     await page.getByRole("button", { name: "Try again" }).click();
     await page.locator('[data-card="usage"] .usage-now').waitFor();
+    // An older server has no such route (404): a calm line, the All usage link, and no Try again loop.
+    state.usage = "404";
+    await page.getByRole("button", { name: /^Close Usage/ }).click();
+    await settled(page);
+    await page.getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menuitem", { name: "Usage" }).click();
+    await page.locator('[data-card="usage"]').getByText("Usage for this chat needs a newer server.").waitFor();
+    assert.equal(await page.locator('[data-card="usage"]').getByRole("button", { name: "Try again" }).count(), 0, "no retry for a missing route");
+    assert.equal(await page.locator('[data-card="usage"] [role=alert]').count(), 0, "not an alarm");
+    assert.equal(await page.getByRole("button", { name: "All usage" }).count(), 1, "the link is still there");
+    state.usage = undefined;
+    await page.getByRole("button", { name: /^Close Usage/ }).click();
+    await settled(page);
+    await openUsage(page);
     // All usage -> Settings > Usage.
     await page.getByRole("button", { name: "All usage" }).click();
     await page.locator(".settings-tabs").first().waitFor({ timeout: 8000 });
     assert.deepEqual(errors, []);
-    results.push("usage: opens from More, reads once, re-reads when a run finishes (never idle), names why a split is missing, retries a failed read, links to Settings");
+    results.push("usage: opens from More, reads once, re-reads when a run finishes (never idle), names why a split is missing, retries a failed read, a 404 (older server) is one calm line without retry, links to Settings");
     await context.close();
   }
 
@@ -265,15 +281,53 @@ try {
     assert.deepEqual(await visual(page), ["computer", "usage", "artifacts"], "Alt+Down from the fold button moves Artifacts down");
     await page.getByRole("button", { name: /^Collapse Artifacts/ }).click();
     await page.getByRole("button", { name: /^Expand Artifacts/ }).click();
-    // The computer has no header: its grip sits in the hover cluster and does not enlarge the screen.
-    await page.locator("[data-desktop-frame]").hover();
-    const computerGrip = page.locator('[data-card="computer"] .desktop-window-controls .widget-grip');
-    assert.equal(await computerGrip.count(), 1, "the computer has a grip beside its close button");
-    await computerGrip.focus();
-    await page.keyboard.press("ArrowDown");
+    // The computer has no header and no handle: Alt+Down on its screen button moves it, and the screen does not enlarge.
+    assert.equal(await page.locator('[data-card="computer"] .widget-grip').count(), 0, "the computer has no separate grip any more");
+    await page.locator('[data-card="computer"] .desktop-enlarge').focus();
+    await page.keyboard.press("Alt+ArrowDown");
     await settled(page);
     assert.deepEqual(await visual(page), ["usage", "computer", "artifacts"], "the computer moves by keyboard too");
     assert.equal(await page.locator(".desktop-floating-shell.is-expanded").count(), 0, "moving it does not enlarge it");
+    // Press and move on the screen drags it (no handle); a plain press is still the click that enlarges.
+    {
+      const screen = () => page.locator('[data-card="computer"] .desktop-enlarge').boundingBox();
+      let at = await screen();
+      const cx = at.x + at.width / 2, cy = at.y + at.height / 2;
+      await page.mouse.move(cx, cy);
+      await page.mouse.down();
+      await page.mouse.move(cx, cy + 3, { steps: 2 });
+      assert.equal(await page.locator("[data-dragging]").count(), 0, "under the slop a press has not become a drag");
+      await page.mouse.move(cx, cy + 12, { steps: 3 });
+      assert.equal(await page.locator("[data-dragging]").count(), 1, "moving past the slop lifts the widget");
+      await page.mouse.move(cx, cy + 700, { steps: 24 });
+      await page.waitForTimeout(350);
+      await page.mouse.up();
+      await settled(page);
+      assert.equal((await visual(page)).at(-1), "computer", "dragged by the screen to the bottom");
+      assert.equal(await page.locator(".computer-detail.is-expanded").count(), 0, "a drag is not a click: nothing enlarged");
+      // Held, then a small move also drags (Escape cancels).
+      at = await screen();
+      await page.mouse.move(at.x + at.width / 2, at.y + at.height / 2);
+      await page.mouse.down();
+      await page.waitForTimeout(450);
+      await page.mouse.move(at.x + at.width / 2, at.y + at.height / 2 - 3, { steps: 2 });
+      assert.equal(await page.locator("[data-dragging]").count(), 1, "held, a small move drags");
+      await page.keyboard.press("Escape");
+      await page.mouse.up();
+      await settled(page);
+      assert.equal(await page.locator(".computer-detail.is-expanded").count(), 0, "cancelled: nothing enlarged");
+      // A short press without movement is the click.
+      at = await screen();
+      await page.mouse.click(at.x + at.width / 2, at.y + at.height / 2);
+      await page.locator(".computer-detail.is-expanded").waitFor({ timeout: 4000 });
+      await page.keyboard.press("Escape");
+      await settled(page);
+      assert.equal(await page.locator(".computer-detail.is-expanded").count(), 0, "Escape shrinks it again");
+      await page.locator('[data-card="computer"] .desktop-enlarge').focus();
+      await page.keyboard.press("Alt+ArrowUp");
+      await settled(page);
+      assert.deepEqual(await visual(page), ["usage", "computer", "artifacts"], "back where the next steps expect it");
+    }
     // Dragging by the header: the card follows the pointer, the others make room as its middle crosses theirs, it settles where it is let go.
     const box = async card => header(page, card).boundingBox();
     const from = await box("usage");
@@ -334,8 +388,47 @@ try {
     await poll(page, () => document.querySelector('.widget-column [data-card="artifacts"]'), null, 12000);
     await settled(page);
     assert.deepEqual(await visual(page), ["usage", "artifacts"], "Artifacts opened by itself lands below Usage, where the person put it");
+    // The header reads "Title ⌄": the title is the fold button with the chevron right after the words, the close X shows only while the card is hovered or focused,
+    // a click on the title folds, and a press that travels reorders without folding. The title colour passes AA on the card in this theme.
+    {
+      const title = page.locator('[data-card="usage"] .context-card-fold');
+      assert.equal(await title.getAttribute("aria-expanded"), "true");
+      const geometry = await title.evaluate(node => { const t = node.querySelector("span").getBoundingClientRect(), c = node.querySelector("svg").getBoundingClientRect(), h = node.closest(".context-card-header").getBoundingClientRect(); return { gap: c.left - t.right, titleLeft: t.left - h.left, chevronRight: h.right - c.right }; });
+      assert.ok(geometry.gap >= 0 && geometry.gap < 10, `the chevron follows the title words (gap ${geometry.gap})`);
+      assert.ok(geometry.chevronRight > 120, "the chevron is not at the far right");
+      await page.evaluate(() => document.activeElement?.blur());
+      await page.mouse.move(5, 5);
+      await page.waitForTimeout(300);
+      assert.equal(await page.locator('[data-card="usage"] .context-card-actions').evaluate(node => getComputedStyle(node).opacity), "0", "at rest the header is just the title and the chevron");
+      await title.hover();
+      await page.waitForTimeout(300);
+      assert.equal(await page.locator('[data-card="usage"] .context-card-actions').evaluate(node => getComputedStyle(node).opacity), "1", "the grip and the close X appear on hover");
+      const contrast = await title.evaluate(node => {
+        const lum = css => { const m = css.match(/[\d.]+/g).map(Number); const [r, g, b] = m.slice(0, 3).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+        node.style.transition = "none"; node.style.color = getComputedStyle(node).color;
+        const fg = lum(getComputedStyle(node.querySelector("span")).color); const bg = lum(getComputedStyle(node.closest(".context-card")).backgroundColor);
+        return (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05);
+      });
+      assert.ok(contrast >= 4.5, `the title passes AA on the card (${contrast.toFixed(2)})`);
+      await title.click();
+      await page.locator('[data-card="usage"].is-collapsed').waitFor();
+      await title.click();
+      await page.locator('[data-card="usage"]:not(.is-collapsed)').waitFor();
+      // Press on the title and move: the card is dragged (to the bottom), not folded.
+      const at = await title.boundingBox();
+      await page.mouse.move(at.x + 12, at.y + at.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(at.x + 12, at.y + at.height / 2 + 14, { steps: 3 });
+      assert.equal(await page.locator("[data-dragging]").count(), 1, "a press that travels on the title lifts the card");
+      await page.mouse.move(at.x + 12, at.y + 600, { steps: 20 });
+      await page.waitForTimeout(350);
+      await page.mouse.up();
+      await settled(page);
+      assert.deepEqual(await visual(page), ["artifacts", "usage"], "dragged by its title");
+      assert.equal(await page.locator('[data-card="usage"].is-collapsed').count(), 0, "a drag does not fold it");
+    }
     assert.deepEqual(errors, []);
-    results.push("reorder: grip arrows, Alt+Up/Down, End, the computer's grip, header drag with live reflow, Escape restores, order kept across conversations and reloads");
+    results.push("reorder: grip arrows, Alt+Up/Down, End, the computer's screen (Alt+arrows, press-and-move, hold-then-move, plain press enlarges), header and title drag with live reflow, Escape restores, order kept across conversations and reloads");
     await context.close();
   }
 
