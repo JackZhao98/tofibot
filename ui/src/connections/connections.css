@@ -3,9 +3,6 @@
 .mcp-settings .mcp-service[data-kind=error] .mcp-service-status i,.mcp-settings .mcp-service[data-kind=api_disabled] .mcp-service-status i{background:var(--danger);opacity:1}
 .mcp-service-detail{margin-left:2px;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
 .mcp-service-detail::before{content:"\00b7";margin-right:6px}
-.mcp-tools-title{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:36px}
-.mcp-tools-title strong{font:600 12px/1.4 var(--display);color:var(--ink-soft)}
-.mcp-tools-title .text-button{min-height:36px;padding:0 4px;font-size:12px}
 
 /* The connect dialog reuses the sheet frame; the directory and forms inside it are plain lists, not cards. */
 .sheet.connect-dialog{width:min(560px,100%);gap:16px;padding:0}
@@ -49,12 +46,8 @@
   .connect-head{padding:14px 16px 8px}
   .connect-dialog>:is(.connect-directory,.connect-form,.connect-body){padding:0 16px 16px}
 }
-.mcp-service-details{display:grid;gap:8px;margin:10px 0 0 52px;max-width:65ch}
-.mcp-service-source{margin:0;font-size:12px;line-height:1.6;color:var(--muted);overflow-wrap:anywhere}
-.mcp-settings .mcp-service-details .mcp-service-tools{margin:4px 0 0}
 .connect-dialog .integration-preview .disclosure{margin:0}
 .connect-dialog .integration-preview .integration-catalog-note{margin:0 0 8px}
-@media(max-width:420px){.mcp-service-details{margin-left:0}}
 .repo-link{display:inline-flex;align-items:center;gap:6px;min-height:24px;color:var(--muted);font-size:12px;text-decoration:none;overflow-wrap:anywhere}
 .repo-link:hover{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
 .repo-link:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:3px;border-radius:var(--radius-sm)}
@@ -70,7 +63,6 @@
 .connect-dialog .integration-tile>span:nth-child(2){flex:1;min-width:0}
 .connect-dialog .integration-tile>svg:last-child,.connect-dialog .integration-tile>.integration-added{flex:none}
 .connect-env{display:grid;gap:8px;margin:0;padding:0;border:0;min-width:0}.connect-env legend{padding:0;margin-bottom:6px;font-size:13px}.connect-env-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:8px}.connect-env .secondary-button{justify-self:start}
-.mcp-service-source{overflow-wrap:anywhere}
 
 /* A connection waiting on the person: the status text is meta, the one primary button breathes (decision 0055 follow-up, D51). */
 .mcp-settings .mcp-service[data-kind=waiting] .mcp-service-status{font:var(--type-meta);font-size:12px}
@@ -84,3 +76,71 @@
 .paste-back .paste-back-steps input{font-family:var(--mono);font-size:12px}
 .paste-back .paste-back-note{margin:0;font:var(--type-meta);color:var(--muted)}
 .paste-back .paste-back-error{margin:0;font:var(--type-meta);color:var(--danger)}
+
+/* Connections list and detail page (docs/design/tools-and-connections.md sections 3.2, 3.3). Filled surfaces, no outlined
+   containers; transitions run on motion tokens and are instant under reduced motion. */
+.mcp-settings[data-nav=forward] .mcp-detail{animation:conn-push var(--m-panel-in) var(--ease-out) both}
+.mcp-settings[data-nav=back] .mcp-list-pane:not([hidden]){animation:conn-pop var(--m-panel-in) var(--ease-out) both}
+@keyframes conn-push{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
+@keyframes conn-pop{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.mcp-settings[data-nav] .mcp-detail,.mcp-settings[data-nav] .mcp-list-pane{animation:none!important}}
+.mcp-settings .mcp-service[data-kind=paused] .mcp-service-status i{background:var(--muted);opacity:.5}
+.mcp-empty{display:grid;justify-items:center;gap:12px;padding:8px 0 24px}
+.mcp-empty .extension-empty{padding:32px 12px 8px}
+.mcp-empty .extension-empty p{margin:6px 0 0;color:var(--muted);font-size:13px}
+.mcp-empty-tiles{display:flex;flex-wrap:wrap;justify-content:center;gap:10px}
+.mcp-empty-tile{display:flex;align-items:center;gap:10px;min-height:56px;padding:8px 18px 8px 8px;border:0;border-radius:16px;background:var(--surface-2);color:var(--ink);font:600 13px/1 var(--display);transition:background var(--m-quick) var(--ease-out)}
+.mcp-empty-tile:hover{background:var(--sunk)}
+.mcp-empty-browse{min-height:36px;color:var(--muted);font-size:12px}
+
+.mcp-detail{display:grid;gap:24px;align-content:start}
+.mcp-detail-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.mcp-detail-back{display:grid;place-items:center;flex:none;width:36px;height:36px;border:0;border-radius:50%;background:var(--surface-2);color:var(--ink);transition:background var(--m-quick) var(--ease-out)}
+.mcp-detail-back:hover{background:var(--sunk)}
+.mcp-detail-title{min-width:0;flex:1 1 160px}
+.mcp-detail-title h3{margin:0;font:600 18px/1.3 var(--display);overflow-wrap:anywhere}
+.mcp-detail-title p{margin:2px 0 0;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.mcp-detail-actions{display:flex;align-items:center;gap:8px;flex:none}
+.conn-section h4{margin:0 0 10px;font:600 15px/1.3 var(--display);color:var(--ink)}
+.conn-lead{margin:0 0 10px;max-width:65ch;font-size:12.5px;line-height:1.6;color:var(--muted);overflow-wrap:anywhere}
+.conn-card{display:grid;gap:8px;padding:14px 16px;border-radius:18px;background:var(--surface-2)}
+.conn-card .mcp-service-error{margin:0}
+.conn-card .conn-lead{margin:0}
+.conn-card .mcp-service-setup{margin:4px 0 0}
+.conn-status-line{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.conn-status .mcp-service-status{margin:0;font-size:13px;color:var(--ink)}
+.conn-status[data-kind=ready] .mcp-service-status i{background:var(--green);opacity:1}
+.conn-status[data-kind=needs_auth] .mcp-service-status i{background:var(--honey);opacity:1}
+.conn-status[data-kind=error] .mcp-service-status i,.conn-status[data-kind=api_disabled] .mcp-service-status i{background:var(--danger);opacity:1}
+.conn-status[data-kind=paused] .mcp-service-status i{background:var(--muted);opacity:.5}
+.conn-status[data-kind=checking] .mcp-service-status i,.conn-status[data-kind=waiting] .mcp-service-status i{animation:mcp-pulse 1.3s var(--ease-inout) infinite}
+.conn-section .mcp-tool-group{margin:0 0 10px;padding:12px 6px 6px;border-radius:18px;background:var(--surface-2)}
+.conn-section .mcp-tool-group h5{margin:0 0 4px 10px}
+.mcp-tool:hover{background:var(--sunk)}
+.mcp-tier-anchor{flex:none;position:relative}
+.mcp-tier-trigger{display:inline-flex;align-items:center;justify-content:space-between;gap:8px;min-height:34px;padding:0 12px;border:0;border-radius:var(--radius-pill);background:var(--surface);color:var(--ink);font:500 12.5px/1 var(--body);white-space:nowrap;transition:background var(--m-quick) var(--ease-out)}
+.mcp-tier-trigger:hover:not(:disabled){background:var(--sunk)}
+.mcp-tier-trigger:disabled{opacity:.5}
+.mcp-tier-trigger:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+.mcp-tier-trigger[data-tier=high_risk]{color:var(--danger-text)}
+.mcp-tier-menu button{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.mcp-tier-menu button[aria-current=true]{font-weight:600;color:var(--ink)}
+.mcp-menu-note{margin:6px 11px 4px;max-width:30ch;font-size:12px;line-height:1.5;color:var(--muted)}
+.conn-facts{display:grid;gap:10px;margin:0}
+.conn-facts>div{display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr);gap:12px;font-size:12.5px;line-height:1.5}
+.conn-facts dt{color:var(--muted)}
+.conn-facts dd{margin:0;overflow-wrap:anywhere}
+.conn-facts code{font:12px/1.5 var(--mono)}
+.conn-danger-actions{display:flex;flex-wrap:wrap;gap:8px}
+.conn-danger .mcp-confirm{margin:0}
+@media(max-width:480px){
+  .mcp-service-row{flex-wrap:wrap}
+  .mcp-service-open{flex:1 1 100%;padding-bottom:4px}
+  .mcp-service-actions{flex:1 1 100%;justify-content:flex-end;padding:0 16px 12px}
+  .mcp-service-error,.mcp-login-note,.mcp-confirm{margin-left:16px}
+  .conn-facts>div{grid-template-columns:1fr;gap:2px}
+  .mcp-detail-actions{flex:1 1 100%;justify-content:flex-end}
+}
+.permissions-how .permissions-how-row{display:grid;gap:2px;padding:12px 16px}
+.permissions-how .permissions-how-row strong{font:600 13.5px/1.4 var(--display)}
+.permissions-how .permissions-how-row p{margin:0;font-size:12.5px;line-height:1.5;color:var(--muted)}

@@ -45,9 +45,9 @@
         "name": "Skills",
         "description": "管理可复用的工作方法"
       },
-      "approvals": {
-        "name": "审批",
-        "description": "决定 Bot 的操作在执行前由谁来把关。"
+      "permissions": {
+        "name": "权限",
+        "description": "什么会先问你，你放行了什么。"
       },
       "followups": {
         "name": "跟进事项（预览）",
@@ -63,7 +63,7 @@
         "description_none": "为这台服务器添加电脑的方式"
       },
       "keys": {
-        "name": "密钥与机密",
+        "name": "电脑密钥",
         "description": "直接配置电脑需要的环境变量和 SSH 密钥"
       },
       "usage": {
@@ -682,12 +682,6 @@
     "activity_note": "在 Bot 的回复下方显示它执行的步骤。默认关闭，仍可从消息的操作菜单里打开。",
     "activity_save_failed": "保存失败，请重试。"
   },
-  "approvals": {
-    "heading": "审查员",
-    "draft_label": "审查员",
-    "soon_title": "更多控制即将推出",
-    "soon_body": "信任默认值和始终允许的规则将随“连接”更新一起到来。"
-  },
   "advanced": {
     "server": "服务器",
     "data": "数据",
@@ -946,34 +940,9 @@
     "saved": "已保存",
     "loading": "加载中…",
     "managed": "由电脑服务管理",
-    "standing": {
-      "title": "常驻许可",
-      "description": "你允许某个 Bot 不经询问就使用的工具。Bot 自行工作时（例如按计划运行）同样适用。撤销后，该 Bot 下次调用会再次询问你。",
-      "empty": "还没有常驻许可。在审批卡片上选择“始终允许”即可添加。",
-      "granted": "{{time}} 允许",
-      "last_used": "上次使用 {{time}}",
-      "never_used": "尚未使用",
-      "revoke": "撤销",
-      "revoking": "正在撤销…",
-      "revoke_failed": "无法撤销，请重试。",
-      "load_failed": "无法加载常驻许可。",
-      "server_changed": "服务器已变更，将重新询问。",
-      "tool_changed": "服务器重新定义了该工具，将重新询问。",
-      "tier_changed": "该工具的设置已变更，将重新询问。",
-      "used_other": "已使用 {{count}} 次",
-      "remembered": {
-        "title": "在对话中记住的批准",
-        "description": "你在某个对话里选择记住的批准，只在该对话内有效，到期自动结束。",
-        "empty": "没有任何对话记住了批准。",
-        "target_identifier": "目标：{{target}}",
-        "target_exact": "仅限已批准的完整参数",
-        "ends": "{{time}} 结束",
-        "chat": "对话：{{name}}",
-        "unknown_chat": "某个对话"
-      }
-    },
     "days": "{{count}} 天",
-    "keep_all": "全部保留"
+    "keep_all": "全部保留",
+    "in_permissions": "在“权限”里设置"
   },
   "webtools": {
     "title": "网页搜索与抓取",
@@ -1046,5 +1015,42 @@
     "limit_option": "每天 {{count}} 次",
     "limit_unlimited": "不限",
     "used_today": "最近 24 小时 {{count}} 次"
+  },
+  "permissionsPage": {
+    "heading": "审查员",
+    "draft_label": "审查员",
+    "standing": {
+      "title": "始终放行",
+      "description": "你允许某个 Bot 不经询问就使用的工具。Bot 自行工作时（例如按计划运行）同样适用。撤销后，该 Bot 下次调用会再次询问你。",
+      "empty": "还没有常驻许可。在审批卡片上选择“始终允许”即可添加。",
+      "granted": "{{time}} 允许",
+      "last_used": "上次使用 {{time}}",
+      "never_used": "尚未使用",
+      "revoke": "撤销",
+      "revoking": "正在撤销…",
+      "revoke_failed": "无法撤销，请重试。",
+      "load_failed": "无法加载常驻许可。",
+      "server_changed": "服务器已变更，将重新询问。",
+      "tool_changed": "服务器重新定义了该工具，将重新询问。",
+      "tier_changed": "该工具的设置已变更，将重新询问。",
+      "used_other": "已使用 {{count}} 次",
+      "remembered": {
+        "title": "在对话中记住的批准",
+        "description": "你在某个对话里选择记住的批准，只在该对话内有效，到期自动结束。",
+        "empty": "没有任何对话记住了批准。",
+        "target_identifier": "目标：{{target}}",
+        "target_exact": "仅限已批准的完整参数",
+        "ends": "{{time}} 结束",
+        "chat": "对话：{{name}}",
+        "unknown_chat": "某个对话"
+      }
+    },
+    "how": {
+      "title": "工具怎么问",
+      "link": "在“连接”里逐个工具设置",
+      "read": "服务方或你标为只读的工具。",
+      "write": "默认档。每次调用都会审核：你明确要求的直接执行，其余的先问你。",
+      "high": "每次调用都由你决定。没人可问时，调用不会执行。"
+    }
   }
 }

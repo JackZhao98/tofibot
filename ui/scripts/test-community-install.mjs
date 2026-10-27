@@ -73,11 +73,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   const en = await open("en");
   const row = en.page.locator('.mcp-service[aria-label="discord"]');
   await row.waitFor();
-  await row.getByRole("button", {name: /More actions/}).click();
-  await en.page.getByRole("menuitem", {name: "View details"}).or(en.page.getByRole("button", {name: "View details"})).first().click();
-  const details = await row.locator(".mcp-service-details").textContent();
-  assert.ok(details.includes(`Community · ${PACKAGE} ${VERSION}`), "details name the package and version");
-  assert.ok(details.includes("its tools ask for approval until you mark them read-only"), "details say how its tools are treated");
+  await row.locator(".mcp-service-open").click();
+  const detail = en.page.locator(".mcp-detail");
+  await detail.waitFor();
+  assert.ok((await detail.locator(".mcp-detail-title p").textContent()).includes(`Community · ${PACKAGE} ${VERSION}`), "the page names the package and version");
+  assert.ok((await detail.textContent()).includes("its tools ask for approval until you mark them read-only"), "the page says how its tools are treated");
+  await detail.getByRole("button", {name: "Back to Connections"}).click();
   assert.equal(await en.page.locator('.mcp-service[aria-label="curated_docs"]').count(), 1);
 
   await en.page.getByRole("button", {name: "Add connection"}).click();
@@ -112,12 +113,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   const zh = await open("zh-CN");
   const zhRow = zh.page.locator('.mcp-service[aria-label="discord"]');
   await zhRow.waitFor();
-  await zhRow.locator(".mcp-menu-trigger").click();
-  await zh.page.getByText("查看详情").first().click();
-  assert.match(await zhRow.locator(".mcp-service-details").textContent(), new RegExp(`社区 · ${PACKAGE} ${VERSION}`));
+  await zhRow.locator(".mcp-service-open").click();
+  assert.match(await zh.page.locator(".mcp-detail .mcp-detail-title p").textContent(), new RegExp(`社区 · ${PACKAGE} ${VERSION}`));
   await zh.close();
   assert.deepEqual(unexpected, [], "no unstubbed request and no page error");
-  console.log("PASS community install: details name package and version, masked variable values, digest validation, exact install payload, secret never in the page, zh-CN copy");
+  console.log("PASS community install: the connection page names package and version, masked variable values, digest validation, exact install payload, secret never in the page, zh-CN copy");
 } finally {
   await browser?.close();
   await server?.close();

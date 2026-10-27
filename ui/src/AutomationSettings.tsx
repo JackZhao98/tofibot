@@ -7,7 +7,6 @@ import type {ModelCatalog} from "./types";
 import {useModelCatalog} from "./useModelCatalog";
 import {useTranslation} from "./i18n";
 import {SettingsCard, SettingsRow, SettingsSection} from "./settings/components";
-import {StandingAllowances} from "./StandingAllowances";
 import "./settings/automation.css";
 
 /** Every automatic behavior the server reports, in the order the page lists them. */
@@ -68,7 +67,7 @@ function formatValue(item: AutomationItem, value: Value, {t, catalog}: Names): s
   return String(value);
 }
 
-function Control({item, catalog, busy, label, onChange}: {item: AutomationItem; catalog: ModelCatalog | null; busy: boolean; label: string; onChange: (value: Value) => void}) {
+function Control({item, catalog, busy, label, onChange, onOpenPermissions}: {item: AutomationItem; catalog: ModelCatalog | null; busy: boolean; label: string; onChange: (value: Value) => void; onOpenPermissions?: () => void}) {
   const {t} = useTranslation("settings");
   const id = `auto-${item.key}`;
   const disabled = busy || item.locked === true;
@@ -78,8 +77,9 @@ function Control({item, catalog, busy, label, onChange}: {item: AutomationItem; 
   if (item.kind === "readonly") {
     return <span className="auto-static">{formatValue(item, item.value, {t, catalog})}</span>;
   }
+  // The reviewer mode lives in one place, Settings > Permissions; this row shows the value (D15) and links there.
   if (item.kind === "enum") {
-    return <select id={id} value={String(item.value)} disabled={disabled} onChange={event => onChange(event.target.value)}>{(item.options ?? []).map(option => <option key={option} value={option}>{t(`automation.option.mcp_auto_review.${option as "off" | "shadow" | "auto"}`)}</option>)}</select>;
+    return <span className="auto-static auto-linked">{formatValue(item, item.value, {t, catalog})}{onOpenPermissions && <button type="button" className="text-button" onClick={onOpenPermissions}>{t("automation.in_permissions")}</button>}</span>;
   }
   if (item.kind === "int") {
     const current = typeof item.value === "number" ? item.value : 0;
@@ -99,9 +99,9 @@ function Control({item, catalog, busy, label, onChange}: {item: AutomationItem; 
   </select>;
 }
 
-type RowProps = {item: AutomationItem; catalog: ModelCatalog | null; busy: boolean; saved: boolean; error: string; onChange: (key: AutomationKey, value: Value) => void};
+type RowProps = {onOpenPermissions?: () => void; item: AutomationItem; catalog: ModelCatalog | null; busy: boolean; saved: boolean; error: string; onChange: (key: AutomationKey, value: Value) => void};
 
-const AutomationRow = memo(function AutomationRow({item, catalog, busy, saved, error, onChange}: RowProps) {
+const AutomationRow = memo(function AutomationRow({item, catalog, busy, saved, error, onChange, onOpenPermissions}: RowProps) {
   const {t} = useTranslation("settings");
   const name = t(`automation.item.${item.key}.name`);
   const changed = item.source === "stored";
@@ -111,17 +111,17 @@ const AutomationRow = memo(function AutomationRow({item, catalog, busy, saved, e
     {item.kind === "readonly" && <span>{t("automation.managed")}</span>}
     {item.locked && <span className="auto-chip is-env" title={item.env}>{t("automation.env")}</span>}
     {changed && !item.locked && <span className="auto-chip">{t("automation.changed")}</span>}
-    {changed && !item.locked && item.kind !== "readonly" && <button type="button" className="text-button auto-reset" disabled={busy} onClick={() => onChange(item.key, null)}>{t("automation.reset")}</button>}
+    {changed && !item.locked && item.kind !== "readonly" && item.kind !== "enum" && <button type="button" className="text-button auto-reset" disabled={busy} onClick={() => onChange(item.key, null)}>{t("automation.reset")}</button>}
     {saved && <span role="status" className="auto-saved">{t("automation.saved")}</span>}
   </span>;
   return <div className="auto-row" data-key={item.key} data-source={item.source} aria-busy={busy || undefined}>
     <SettingsRow inline={item.kind === "bool"} labelFor={item.kind === "bool" || item.kind === "readonly" ? undefined : `auto-${item.key}`} label={name}
       description={<>{t(`automation.item.${item.key}.what`)}{meta}{error && <span className="error-text auto-error" role="alert">{error}</span>}</>}
-      control={<Control item={item} catalog={catalog} busy={busy} label={name} onChange={value => onChange(item.key, value)}/>}/>
+      control={<Control item={item} catalog={catalog} busy={busy} label={name} onChange={value => onChange(item.key, value)} onOpenPermissions={onOpenPermissions}/>}/>
   </div>;
 });
 
-export function AutomationSettings() {
+export function AutomationSettings({onOpenPermissions}: {onOpenPermissions?: () => void} = {}) {
   const {t} = useTranslation("settings");
   // The computer's own switches (idle sleep, command checks, the widget auto-open) do nothing without one.
   const hasComputer = useHasComputer();
@@ -173,9 +173,8 @@ export function AutomationSettings() {
       const rows = items.filter(item => item.group === group && (hasComputer || (item.group !== "computer" && item.key !== "widget_computer_auto")));
       if (!rows.length) return null;
       return <SettingsSection key={group} title={t(`automation.group.${group}.title`)} description={t(`automation.group.${group}.description`)}>
-        <SettingsCard>{rows.map(item => <AutomationRow key={item.key} item={item} catalog={catalog} busy={busy === item.key} saved={saved === item.key} error={errors[item.key] ?? ""} onChange={change}/>)}</SettingsCard>
+        <SettingsCard>{rows.map(item => <AutomationRow key={item.key} item={item} catalog={catalog} busy={busy === item.key} saved={saved === item.key} error={errors[item.key] ?? ""} onChange={change} onOpenPermissions={onOpenPermissions}/>)}</SettingsCard>
       </SettingsSection>;
     })}
-    <StandingAllowances/>
   </div>;
 }

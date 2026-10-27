@@ -298,7 +298,9 @@
       "refresh": "Refresh tools",
       "remove": "Remove service"
     },
-    "more_actions": "More actions for {{name}}"
+    "more_actions": "More actions for {{name}}",
+    "empty_body": "Bots can read and act in the services you connect.",
+    "browse_all": "Browse all"
   },
   "oauth": {
     "help_body": "The sign-in method follows how you opened Tofi and works for Google, Notion and other OAuth services. A client you configure yourself needs the full redirect URL below registered in the service's console; services with automatic registration, like Notion, are handled by Tofi.",
@@ -410,24 +412,23 @@
     "remove_confirm": "Remove this Skill for every Bot?",
     "removed": "Skill removed",
     "saved": "Saved",
-    "starters": "Tofi work Skills",
     "support_note": "Instructions and reference files are supported. Bundled scripts never run automatically.",
     "builtin": {
       "tag": "Built-in"
-    }
+    },
+    "templates": "Templates"
   },
   "status": {
     "authorizing": "Opening authorization…",
     "checked": "Checked {{when}}",
-    "checking": "Loading tools…",
-    "failed": "Connection failed",
-    "needs_auth": "Needs authorization",
+    "checking": "Checking…",
+    "failed": "Can’t connect",
+    "needs_auth": "Needs sign-in",
     "removing": "Working…",
-    "unverified": "Not verified yet",
     "waiting": "Waiting for authorization",
     "connected": "Connected",
-    "not_connected": "Not connected",
-    "api_disabled": "API not enabled"
+    "setup": "Setup needed",
+    "paused": "Paused"
   },
   "vm": {
     "cancel": "Cancel authorization",
@@ -451,37 +452,36 @@
     "error": {
       "refresh_failed": "Couldn't refresh the tool list."
     },
-    "explain": "Tools the provider marks read only run without review. Other tools are reviewed each time: a call you asked for runs on its own; anything else asks you first. Tools set to always ask you always do.",
+    "explain": "Runs without asking: tools the service marks read only, or you mark. Asks when unsure: each call is reviewed, so what you asked for runs and the rest asks you first. Always asks me: you decide every call.",
     "group": {
-      "read_only": "Read only (marked by provider)",
-      "write": "Reviewed each time",
-      "high_risk": "Always ask me"
+      "read_only": "Runs without asking",
+      "write": "Asks when unsure",
+      "high_risk": "Always asks me"
     },
     "refresh": "Refresh tools",
     "refreshing": "Refreshing…",
-    "select_label": "Tier for {{name}}",
+    "select_label": "Permission for {{name}}",
     "source": {
       "owner": "Set by you",
-      "provider": "Marked by provider"
+      "provider": "Marked by the service"
     },
     "tier": {
-      "auto": "Automatic (provider)",
-      "read_only": "Read only",
-      "write": "Reviewed each time",
-      "high_risk": "Always ask me"
+      "auto": "Automatic · follows the service’s mark",
+      "read_only": "Runs without asking",
+      "write": "Asks when unsure",
+      "high_risk": "Always asks me"
     },
-    "title": "Tools · {{count}}"
+    "title": "Tools · {{count}}",
+    "raise_note": "Changing to “Always asks me” ends its allowances."
   },
   "connections": {
     "title": "Connections",
     "add": "Add connection",
     "action": {
-      "authorize": "Authorize",
+      "authorize": "Sign in",
       "enable_api": "Enable {{name}} API"
     },
     "menu": {
-      "details": "View details",
-      "hide_details": "Hide details",
       "sign_in_again": "Sign in again"
     },
     "dialog": {
@@ -494,7 +494,7 @@
       }
     },
     "source": {
-      "gog": "Community · gogcli · Gmail API",
+      "gog": "Built in · gogcli · Gmail API",
       "local": "Community · {{name}}",
       "vendor": "Official · {{host}}",
       "community": "Community · {{host}}",
@@ -503,7 +503,6 @@
     },
     "details": {
       "account": "Account: {{email}}",
-      "services": "Authorized services: {{services}}",
       "project": "Google Cloud project: {{project}}",
       "community_review": "Community code: its tools ask for approval until you mark them read-only."
     },
@@ -519,13 +518,29 @@
     "repo": {
       "label": "Source on GitHub: {{repo}}",
       "with_stars": "Source on GitHub: {{repo}}, {{count}} stars"
+    },
+    "open": "Open {{name}}",
+    "row": {
+      "tools_one": "{{count}} tool",
+      "tools_other": "{{count}} tools"
     }
   },
   "capabilities": {
-    "title": "What this can do",
-    "read": "Can read",
-    "write": "Can write",
-    "more": "+{{count}} more",
     "community_note": "Community code: writes ask every time, and its own read-only marks are ignored. Mark a tool read only below to let it run without asking."
+  },
+  "detail": {
+    "back": "Back to Connections",
+    "status": "Status",
+    "danger": "Danger zone",
+    "advanced": {
+      "title": "Advanced",
+      "source": "Source",
+      "address": "Address",
+      "signin": "Sign-in",
+      "loopback": "127.0.0.1 redirect only",
+      "package": "Package and version",
+      "project": "Google Cloud project",
+      "repository": "Repository"
+    }
   }
 }

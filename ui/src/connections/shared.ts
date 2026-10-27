@@ -4,25 +4,12 @@ export type OAuth = { client_id: string; client_secret?: string; scopes?: string
 export type TestResult = { ok: boolean; tool_count?: number; auth_required?: boolean; diagnostics?: { message: string; code?: string; api?: string; enable_url?: string }[] };
 export type MCPTransport = "streamable_http" | "sse";
 export type MCPStatus = { checked_at: string; ok: boolean; tool_count: number; error_class?: "auth" | "failed"; error_code?: string; api?: string; enable_url?: string };
-export type MCP = { name: string; url: string; transport?: MCPTransport; status?: MCPStatus; headers?: Record<string, string>; tool_allowlist?: string[]; tool_denylist?: string[]; oauth?: OAuth; google_client?: boolean; provenance?: { origin: string; kind?: string; package?: string; version?: string } };
+export type MCP = { name: string; url: string; transport?: MCPTransport; status?: MCPStatus; headers?: Record<string, string>; tool_allowlist?: string[]; tool_denylist?: string[]; oauth?: OAuth; google_client?: boolean; /** Paused connections keep their configuration but are not used (absent = on). */ enabled?: boolean; provenance?: { origin: string; kind?: string; package?: string; version?: string } };
 
-/** Tool tiers (docs/agent-plan/mcp-tool-tiers.md): read_only (marked by the provider, or by you) runs without review, write is reviewed each time, high_risk ("Always ask me") always asks a person. */
+/** Tool tiers (docs/agent-plan/mcp-tool-tiers.md). The words a person sees: read_only "Runs without asking" (marked by the service, or by you), write "Asks when unsure", high_risk "Always asks me". */
 export type ToolTier = "read_only" | "write" | "high_risk";
 export type ToolTierView = { name: string; description?: string; tier: ToolTier; source: "owner" | "provider" | "default"; override?: ToolTier; changed?: boolean; duplicated?: boolean; read_only_hint?: boolean; destructive_hint?: boolean };
 export type ToolTierList = { tools: ToolTierView[]; read_only: number; write: number; high_risk: number; checked?: boolean; error_class?: "auth" | "failed"; diagnostics?: { message: string }[] };
-/**
- * "What this can do", built from the tool list and the tiers the server resolved, never from written copy. Read is what
- * runs without asking; write is everything reviewed (write and always-ask). A community connection's own read-only
- * hints do not count (D47): only a tool the owner marked read only is read.
- */
-export type Capabilities = { read: ToolTierView[]; write: ToolTierView[] };
-export function capabilities(tiers: ToolTierList, community = false): Capabilities {
-  const read: ToolTierView[] = [], write: ToolTierView[] = [];
-  for (const tool of tiers.tools) (tool.tier === "read_only" && (!community || tool.source === "owner") ? read : write).push(tool);
-  return { read, write };
-}
-/** How many tool names the summary lists before "+N more". */
-export const CAPABILITY_NAMES = 6;
 export const TIERS: readonly ToolTier[] = ["read_only", "write", "high_risk"];
 
 export const toolsEndpoint = (name: string) => `/api/extensions/mcp/${encodeURIComponent(name)}/tools`;

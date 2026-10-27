@@ -298,7 +298,9 @@
       "refresh": "Actualiser les outils",
       "remove": "Supprimer le service"
     },
-    "more_actions": "Autres actions pour {{name}}"
+    "more_actions": "Autres actions pour {{name}}",
+    "empty_body": "Les Bots peuvent lire et agir dans les services que vous connectez.",
+    "browse_all": "Tout parcourir"
   },
   "oauth": {
     "help_body": "Le mode de connexion suit la façon dont vous avez ouvert Tofi et fonctionne pour Google, Notion et les autres services OAuth. Pour un client configuré manuellement, enregistrez l’URL de redirection complète ci-dessous dans la console du service ; les services à enregistrement automatique comme Notion sont gérés par Tofi.",
@@ -415,24 +417,23 @@
     "remove_confirm": "Supprimer ce Skill pour tous les Bots ?",
     "removed": "Skill supprimé",
     "saved": "Enregistré",
-    "starters": "Skills de travail Tofi",
     "support_note": "Instructions et fichiers de référence pris en charge ; les scripts fournis ne s’exécutent jamais automatiquement.",
     "builtin": {
       "tag": "Intégré"
-    }
+    },
+    "templates": "Modèles"
   },
   "status": {
     "authorizing": "Ouverture de l’autorisation…",
     "checked": "Vérifié {{when}}",
-    "checking": "Chargement des outils…",
-    "failed": "Échec de la connexion",
-    "needs_auth": "Autorisation requise",
+    "checking": "Vérification…",
+    "failed": "Connexion impossible",
+    "needs_auth": "Identification requise",
     "removing": "Traitement…",
-    "unverified": "Pas encore vérifié",
     "waiting": "En attente d’autorisation",
     "connected": "Connecté",
-    "not_connected": "Non connecté",
-    "api_disabled": "API non activée"
+    "setup": "Configuration requise",
+    "paused": "En pause"
   },
   "vm": {
     "cancel": "Annuler l’autorisation",
@@ -456,37 +457,36 @@
     "error": {
       "refresh_failed": "Impossible d'actualiser la liste des outils."
     },
-    "explain": "Les outils que le fournisseur marque en lecture seule s'exécutent sans contrôle. Les autres outils sont contrôlés à chaque appel : un appel que vous avez demandé s'exécute seul ; tout le reste vous demande d'abord. Les outils réglés sur « Toujours me demander » demandent toujours.",
+    "explain": "S’exécute sans demander : outils que le service ou vous marquez en lecture seule. Demande en cas de doute : chaque appel est examiné ; ce que vous avez demandé s’exécute, le reste vous demande d’abord. Demande toujours : vous décidez de chaque appel.",
     "group": {
-      "read_only": "Lecture seule (marqué par le fournisseur)",
-      "write": "Contrôlé à chaque appel",
-      "high_risk": "Toujours me demander"
+      "read_only": "S’exécute sans demander",
+      "write": "Demande en cas de doute",
+      "high_risk": "Demande toujours"
     },
     "refresh": "Actualiser les outils",
     "refreshing": "Actualisation…",
-    "select_label": "Niveau de {{name}}",
+    "select_label": "Autorisation pour {{name}}",
     "source": {
       "owner": "Défini par vous",
-      "provider": "Marqué par le fournisseur"
+      "provider": "Marqué par le service"
     },
     "tier": {
-      "auto": "Automatique (fournisseur)",
-      "read_only": "Lecture seule",
-      "write": "Contrôlé à chaque appel",
-      "high_risk": "Toujours me demander"
+      "auto": "Automatique · suit le repère du service",
+      "read_only": "S’exécute sans demander",
+      "write": "Demande en cas de doute",
+      "high_risk": "Demande toujours"
     },
-    "title": "Outils · {{count}}"
+    "title": "Outils · {{count}}",
+    "raise_note": "Passer à « Demande toujours » met fin à ses autorisations."
   },
   "connections": {
     "title": "Connexions",
     "add": "Ajouter une connexion",
     "action": {
-      "authorize": "Autoriser",
+      "authorize": "Se connecter",
       "enable_api": "Activer l’API {{name}}"
     },
     "menu": {
-      "details": "Voir les détails",
-      "hide_details": "Masquer les détails",
       "sign_in_again": "Se reconnecter"
     },
     "dialog": {
@@ -499,7 +499,7 @@
       }
     },
     "source": {
-      "gog": "Communauté · gogcli · API Gmail",
+      "gog": "Intégré · gogcli · API Gmail",
       "local": "Communauté · {{name}}",
       "vendor": "Officiel · {{host}}",
       "community": "Communauté · {{host}}",
@@ -508,7 +508,6 @@
     },
     "details": {
       "account": "Compte : {{email}}",
-      "services": "Services autorisés : {{services}}",
       "project": "Projet Google Cloud : {{project}}",
       "community_review": "Code communautaire : ses outils demandent une approbation tant que vous ne les marquez pas en lecture seule."
     },
@@ -524,13 +523,30 @@
     "repo": {
       "label": "Code source sur GitHub : {{repo}}",
       "with_stars": "Code source sur GitHub : {{repo}}, {{count}} étoiles"
+    },
+    "open": "Ouvrir {{name}}",
+    "row": {
+      "tools_one": "{{count}} outil",
+      "tools_many": "{{count}} outils",
+      "tools_other": "{{count}} outils"
     }
   },
   "capabilities": {
-    "title": "Ce que cela peut faire",
-    "read": "Lecture",
-    "write": "Écriture",
-    "more": "+{{count}} autres",
     "community_note": "Code communautaire : les écritures demandent toujours confirmation, et ses propres marques de lecture seule sont ignorées. Marquez un outil en lecture seule ci-dessous pour qu'il s'exécute sans demander."
+  },
+  "detail": {
+    "back": "Retour aux connexions",
+    "status": "État",
+    "danger": "Zone de danger",
+    "advanced": {
+      "title": "Avancé",
+      "source": "Source",
+      "address": "Adresse",
+      "signin": "Connexion",
+      "loopback": "Redirection vers 127.0.0.1 uniquement",
+      "package": "Paquet et version",
+      "project": "Projet Google Cloud",
+      "repository": "Dépôt"
+    }
   }
 }

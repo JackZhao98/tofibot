@@ -45,9 +45,9 @@
         "name": "Skills",
         "description": "Gérer des méthodes de travail réutilisables"
       },
-      "approvals": {
-        "name": "Approbations",
-        "description": "Qui vérifie les actions d’un Bot avant leur exécution."
+      "permissions": {
+        "name": "Autorisations",
+        "description": "Ce qui vous demande d’abord et ce que vous avez autorisé."
       },
       "followups": {
         "name": "Relances (aperçu)",
@@ -63,7 +63,7 @@
         "description_none": "Façons d'ajouter un ordinateur à ce serveur"
       },
       "keys": {
-        "name": "Clés et secrets",
+        "name": "Clés de l’ordinateur",
         "description": "Variables d’environnement et clés SSH de l’ordinateur"
       },
       "usage": {
@@ -700,12 +700,6 @@
     "activity_note": "Affiche les étapes d’un Bot sous ses réponses. Désactivé par défaut ; elles restent accessibles depuis le menu d’actions d’un message.",
     "activity_save_failed": "Échec de l’enregistrement. Réessayez."
   },
-  "approvals": {
-    "heading": "Relecteur",
-    "draft_label": "Relecteur",
-    "soon_title": "D’autres réglages arrivent",
-    "soon_body": "Les valeurs de confiance par défaut et les règles toujours autorisées arriveront avec la mise à jour des Connexions."
-  },
   "advanced": {
     "server": "Serveur",
     "data": "Données",
@@ -964,36 +958,9 @@
     "saved": "Enregistré",
     "loading": "Chargement…",
     "managed": "Géré par le service de l’ordinateur",
-    "standing": {
-      "title": "Autorisations permanentes",
-      "description": "Outils qu'un Bot peut utiliser sans demander. Cela vaut aussi lorsque le Bot travaille seul, par exemple selon un planning. Une fois révoquée, la prochaine requête de ce Bot vous redemande.",
-      "empty": "Aucune autorisation permanente pour l'instant. Choisissez « Toujours autoriser » sur une carte d'approbation pour en ajouter une.",
-      "granted": "Autorisé {{time}}",
-      "last_used": "Dernier usage {{time}}",
-      "never_used": "Jamais utilisé",
-      "revoke": "Révoquer",
-      "revoking": "Révocation…",
-      "revoke_failed": "Impossible de révoquer. Réessayez.",
-      "load_failed": "Impossible de charger les autorisations permanentes.",
-      "server_changed": "Serveur modifié. La question sera reposée.",
-      "tool_changed": "Le serveur a redéfini l'outil. La question sera reposée.",
-      "tier_changed": "Le réglage de cet outil a changé. La question sera reposée.",
-      "used_other": "utilisée {{count}} fois",
-      "remembered": {
-        "title": "Mémorisées dans une conversation",
-        "description": "Approbations mémorisées au sein d'une conversation. Elles ne valent que là et prennent fin d'elles-mêmes.",
-        "empty": "Rien n'est mémorisé dans aucune conversation.",
-        "target_identifier": "Cible : {{target}}",
-        "target_exact": "Exactement les arguments approuvés",
-        "ends": "Se termine {{time}}",
-        "chat": "Conversation : {{name}}",
-        "unknown_chat": "Une conversation"
-      },
-      "used_one": "utilisée {{count}} fois",
-      "used_many": "utilisée {{count}} fois"
-    },
     "days": "{{count}} j",
-    "keep_all": "Tout conserver"
+    "keep_all": "Tout conserver",
+    "in_permissions": "À régler dans « Autorisations »"
   },
   "webtools": {
     "title": "Recherche et lecture web",
@@ -1066,5 +1033,44 @@
     "limit_option": "{{count}} par jour",
     "limit_unlimited": "Sans limite",
     "used_today": "{{count}} sur les dernières 24 h"
+  },
+  "permissionsPage": {
+    "heading": "Relecteur",
+    "draft_label": "Relecteur",
+    "standing": {
+      "title": "Autorisations permanentes",
+      "description": "Outils qu'un Bot peut utiliser sans demander. Cela vaut aussi lorsque le Bot travaille seul, par exemple selon un planning. Une fois révoquée, la prochaine requête de ce Bot vous redemande.",
+      "empty": "Aucune autorisation permanente pour l'instant. Choisissez « Toujours autoriser » sur une carte d'approbation pour en ajouter une.",
+      "granted": "Autorisé {{time}}",
+      "last_used": "Dernier usage {{time}}",
+      "never_used": "Jamais utilisé",
+      "revoke": "Révoquer",
+      "revoking": "Révocation…",
+      "revoke_failed": "Impossible de révoquer. Réessayez.",
+      "load_failed": "Impossible de charger les autorisations permanentes.",
+      "server_changed": "Serveur modifié. La question sera reposée.",
+      "tool_changed": "Le serveur a redéfini l'outil. La question sera reposée.",
+      "tier_changed": "Le réglage de cet outil a changé. La question sera reposée.",
+      "used_other": "utilisée {{count}} fois",
+      "remembered": {
+        "title": "Mémorisées dans une conversation",
+        "description": "Approbations mémorisées au sein d'une conversation. Elles ne valent que là et prennent fin d'elles-mêmes.",
+        "empty": "Rien n'est mémorisé dans aucune conversation.",
+        "target_identifier": "Cible : {{target}}",
+        "target_exact": "Exactement les arguments approuvés",
+        "ends": "Se termine {{time}}",
+        "chat": "Conversation : {{name}}",
+        "unknown_chat": "Une conversation"
+      },
+      "used_one": "utilisée {{count}} fois",
+      "used_many": "utilisée {{count}} fois"
+    },
+    "how": {
+      "title": "Comment les outils demandent",
+      "link": "À régler par outil dans « Connexions »",
+      "read": "Outils que le service ou vous marquez en lecture seule.",
+      "write": "Par défaut. Chaque appel est examiné : ce que vous avez demandé s’exécute, le reste vous demande d’abord.",
+      "high": "Vous décidez de chaque appel. Sans personne à qui demander, l’appel ne s’exécute pas."
+    }
   }
 }

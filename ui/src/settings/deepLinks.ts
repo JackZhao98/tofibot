@@ -6,6 +6,9 @@ export const settingsDeepLinks: Record<string, SettingsTab> = {
   "tofi:open-codex-settings": "models",
 };
 
+/** Settings tab ids that were renamed: the old id still opens the page that replaced it. */
+export const legacySettingsTabs: Record<string, SettingsTab> = { approvals: "permissions" };
+
 /** Listens for every deep-link event and calls `open` with its tab. Returns the unsubscribe. */
 export function subscribeSettingsDeepLinks(open: (tab: SettingsTab) => void): () => void {
   const handlers = Object.entries(settingsDeepLinks).map(([name, tab]) => {

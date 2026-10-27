@@ -298,7 +298,9 @@
       "refresh": "重新整理工具",
       "remove": "移除服務"
     },
-    "more_actions": "{{name}} 的更多操作"
+    "more_actions": "{{name}} 的更多操作",
+    "empty_body": "Bot 可以在你連線的服務裡讀取和操作。",
+    "browse_all": "瀏覽全部"
   },
   "oauth": {
     "help_body": "授權方式會自動依入口決定，適用於 Google、Notion 和其他 OAuth 服務。手動設定的用戶端需在服務後台登記下方完整的重新導向網址；Notion 等支援自動註冊的服務由 Tofi 處理。",
@@ -405,24 +407,23 @@
     "remove_confirm": "要為所有 Bot 移除這個 Skill 嗎？",
     "removed": "Skill 已移除",
     "saved": "已儲存",
-    "starters": "Tofi 工作技能",
     "support_note": "支援說明與參考檔案；不會自動執行附帶的指令碼。",
     "builtin": {
       "tag": "內建"
-    }
+    },
+    "templates": "範本"
   },
   "status": {
     "authorizing": "正在開啟授權…",
     "checked": "{{when}}已檢查",
-    "checking": "正在讀取工具…",
-    "failed": "連線失敗",
-    "needs_auth": "需要授權",
+    "checking": "正在檢查…",
+    "failed": "連不上",
+    "needs_auth": "需要登入",
     "removing": "處理中…",
-    "unverified": "尚未驗證",
     "waiting": "等待授權",
     "connected": "已連線",
-    "not_connected": "未連線",
-    "api_disabled": "API 未啟用"
+    "setup": "需要設定",
+    "paused": "已暫停"
   },
   "vm": {
     "cancel": "取消授權",
@@ -446,37 +447,36 @@
     "error": {
       "refresh_failed": "無法重新整理工具清單。"
     },
-    "explain": "服務方標記為唯讀的工具直接執行，不經審核。其他工具每次呼叫都會審核：你明確要求的呼叫自動執行，其餘的先問你。設為「總是問我」的工具每次都會問。",
+    "explain": "不問就跑：服務方或你標為唯讀的工具。拿不準時問：每次呼叫都會審核，你明確要求的直接執行，其餘的先問你。每次都問：每次呼叫都由你決定。",
     "group": {
-      "read_only": "唯讀（服務方標記）",
-      "write": "每次審核",
-      "high_risk": "總是問我"
+      "read_only": "不問就跑",
+      "write": "拿不準時問",
+      "high_risk": "每次都問"
     },
     "refresh": "重新整理工具",
     "refreshing": "正在重新整理…",
-    "select_label": "{{name}} 的級別",
+    "select_label": "{{name}} 的權限",
     "source": {
       "owner": "你設定的",
       "provider": "服務方標記"
     },
     "tier": {
-      "auto": "自動（服務方）",
-      "read_only": "唯讀",
-      "write": "每次審核",
-      "high_risk": "總是問我"
+      "auto": "自動 · 跟隨服務方標示",
+      "read_only": "不問就跑",
+      "write": "拿不準時問",
+      "high_risk": "每次都問"
     },
-    "title": "工具 · {{count}}"
+    "title": "工具 · {{count}}",
+    "raise_note": "改為「每次都問」會撤銷它已有的放行。"
   },
   "connections": {
     "title": "連線",
     "add": "新增連線",
     "action": {
-      "authorize": "授權",
+      "authorize": "登入",
       "enable_api": "啟用 {{name}} API"
     },
     "menu": {
-      "details": "查看詳細資料",
-      "hide_details": "收合詳細資料",
       "sign_in_again": "重新登入"
     },
     "dialog": {
@@ -489,7 +489,7 @@
       }
     },
     "source": {
-      "gog": "社群 · gogcli · Gmail API",
+      "gog": "內建 · gogcli · Gmail API",
       "local": "社群 · {{name}}",
       "vendor": "官方 · {{host}}",
       "community": "社群 · {{host}}",
@@ -498,7 +498,6 @@
     },
     "details": {
       "account": "帳號：{{email}}",
-      "services": "已授權服務：{{services}}",
       "project": "Google Cloud 專案：{{project}}",
       "community_review": "社群程式碼：其工具在你標為唯讀之前每次都要確認。"
     },
@@ -514,13 +513,28 @@
     "repo": {
       "label": "GitHub 原始碼：{{repo}}",
       "with_stars": "GitHub 原始碼：{{repo}}，{{count}} 個星號"
+    },
+    "open": "開啟 {{name}}",
+    "row": {
+      "tools_other": "{{count}} 個工具"
     }
   },
   "capabilities": {
-    "title": "這能做什麼",
-    "read": "可讀取",
-    "write": "可寫入",
-    "more": "另 {{count}} 個",
     "community_note": "社群程式碼：寫入每次都先詢問，它自己標示的唯讀不採信。在下方把某個工具標為唯讀，它才不再詢問。"
+  },
+  "detail": {
+    "back": "返回連線",
+    "status": "狀態",
+    "danger": "危險操作",
+    "advanced": {
+      "title": "進階",
+      "source": "來源",
+      "address": "位址",
+      "signin": "登入",
+      "loopback": "僅接受 127.0.0.1 回呼",
+      "package": "套件與版本",
+      "project": "Google Cloud 專案",
+      "repository": "程式碼儲存庫"
+    }
   }
 }

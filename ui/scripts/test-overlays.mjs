@@ -1,7 +1,7 @@
 // Menus and popovers (docs/design/migration.md step 2): one host, one set of keyboard and dismissal rules, Radix only in a
 // lazy chunk. Production bundle, synthetic data, real browser.
 //  1. Bundle: the entry stays within the shell budget, Radix is only in the RadixOverlays chunk, which the entry loads dynamically.
-//  2. Every menu (new, more, account, attachments, Settings > Connections MCP row, sidebar row): mouse open, Enter / Space /
+//  2. Every menu (new, more, account, attachments, Settings > Connections: a tool's permission menu on the connection page, sidebar row): mouse open, Enter / Space /
 //     ArrowDown open with focus on the first item, arrows and Home/End move, Escape closes and returns focus to the trigger,
 //     Tab closes and moves on from the trigger, a press outside closes, pressing the trigger again closes; the surface sits in
 //     #tofi-layers above everything at its centre.
@@ -91,7 +91,9 @@ async function onTop(page, menu) {
 }
 async function settingsMcp(page) {
   await page.evaluate(() => window.dispatchEvent(new Event("tofi:open-tool-settings")));
-  await page.locator(".mcp-menu-trigger").first().waitFor({ timeout: 10000 });
+  // A row opens its connection's page; the "more actions" menu lives in that page's header.
+  await page.locator(".mcp-service-open").first().click({ timeout: 10000 });
+  await page.locator(".mcp-tier-trigger").first().waitFor({ timeout: 10000 });
   await sleep(400);
 }
 
@@ -101,7 +103,7 @@ const MENUS = [
   { name: "more", trigger: ".header-more > button", menu: ".more-menu", place: [".chat-header", (m, a) => [m.right - (a.right - 14), m.top - (a.bottom + 8)]] },
   { name: "account", trigger: ".sidebar-account-identity", menu: ".sidebar-account-menu", place: [".sidebar-account", (m, a) => [m.left - a.left, m.bottom - (a.top - 10)]] },
   { name: "attachments", trigger: ".composer-add-wrap > button", menu: ".composer-add-menu", place: [".composer-add-wrap", (m, a) => [m.left - a.left, m.bottom - (a.top - 12)]] },
-  { name: "MCP row", trigger: ".mcp-menu-trigger", menu: ".mcp-menu", setup: settingsMcp, place: [".mcp-menu-anchor", (m, a) => [m.right - a.right, m.top - (a.bottom + 7)]] },
+  { name: "MCP tool permission", trigger: ".mcp-tier-trigger", menu: ".mcp-tier-menu", setup: settingsMcp, place: [".mcp-tier-anchor", (m, a) => [m.right - a.right, m.top - (a.bottom + 6)]] },
 ];
 const COLLAPSED = [
   { name: "new", trigger: ".create-menu-anchor > button", menu: ".create-menu", place: [".create-menu-anchor", (m, a) => [m.left - (a.right + 12), m.top - a.top]] },

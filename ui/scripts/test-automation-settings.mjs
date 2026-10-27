@@ -33,9 +33,10 @@ try {
 import React from 'react';import {createRoot} from 'react-dom/client';
 import {i18nReady,setLanguage} from '../src/i18n';
 import {AutomationSettings} from '../src/AutomationSettings';
+import {PermissionsPage} from '../src/settings/SettingsPages';
 import {TimezoneProvider} from '../src/UserTimezone';
 const query=new URLSearchParams(location.search);
-void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><div className="workspace"><div className="settings-page-body" data-page="automation"><AutomationSettings/></div></div></TimezoneProvider>));
+void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><div className="workspace"><div className="settings-page-body" data-page={query.get('page')||'automation'}>{query.get('page')==='permissions'?<PermissionsPage openTab={tab=>{(window as any).__openTab=tab}}/>:<AutomationSettings onOpenPermissions={()=>{(window as any).__openTab='permissions'}}/>}</div></div></TimezoneProvider>));
 `);
   server = await createServer({configFile: false, root: ui, plugins: [react()], server: {host: "127.0.0.1", port: 0, hmr: false}, logLevel: "error"});
   await server.listen();
@@ -102,6 +103,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       }
       return {items: KEYS.map(view)};
     }
+    if (path === "/api/auto-review-settings" && method === "GET") return {mode: state.stored.mcp_auto_review ?? "off", review_scope: "all_external_tools"};
+    if (path === "/api/auto-review-settings" && method === "PUT") { state.stored.mcp_auto_review = body.mode; return {mode: body.mode, review_scope: "all_external_tools"}; }
     if (path === "/api/preferences") return {timezone: "America/Los_Angeles", timezone_configured: true};
     if (path === "/api/standing-allowances" && method === "GET") return {allowances: state.allowances, remembered: state.remembered};
     if (path.startsWith("/api/standing-allowances/") && method === "DELETE") {
@@ -137,7 +140,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await route.fulfill({status, contentType: "application/json", body: JSON.stringify(payload)});
     });
     await page.goto(`${origin}/${basename(fixture)}/index.html?${new URLSearchParams(params)}`);
-    await page.locator(".auto-row").first().waitFor({timeout: 20000});
+    await page.locator(params.page === "permissions" ? ".permissions-page" : ".auto-row").first().waitFor({timeout: 20000});
     return {page, errors, close: () => context.close()};
   }
   const row = (page, key) => page.locator(`.auto-row[data-key="${key}"]`);
@@ -153,12 +156,17 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       assert.ok(text.length > 60, `${key}: name and one-sentence description are shown: ${text}`);
       if (key !== "desktop_idle_seconds") assert.match(text, /Default: /, `${key}: shows its default`);
     }
-    assert.equal(await t.page.locator(".settings-sec h4").count(), 10, "eight calm groups, then standing allowances and chat-scoped approvals");
+    assert.equal(await t.page.locator(".settings-sec h4").count(), 8, "eight calm groups; the allowance tables live on the Permissions page");
+    assert.equal(await t.page.locator(".standing-item, .standing-list").count(), 0, "no allowance table on this page");
     assert.match(await row(t.page, "conversation_model").innerText(), /Claude Sonnet 5\.5/, "conversation model default and value are named");
     assert.equal(await row(t.page, "conversation_model").locator("select").inputValue(), "claude-sonnet-5-5");
     assert.match(await row(t.page, "background_model").innerText(), /Automatic · Claude Haiku 5\.5/, "background model says what automatic means");
     assert.equal(await row(t.page, "web_search").getByRole("switch").isChecked(), true, "on-by-default switches start on");
-    assert.equal(await row(t.page, "mcp_auto_review").locator("select").inputValue(), "off");
+    // The reviewer mode has one control, on the Permissions page; this row shows the value (D15) and links there.
+    assert.equal(await row(t.page, "mcp_auto_review").locator("select, input, [role=switch]").count(), 0, "no second control for the reviewer mode");
+    assert.match(await row(t.page, "mcp_auto_review").innerText(), /Off/);
+    await row(t.page, "mcp_auto_review").getByRole("button", {name: "Set in Permissions"}).click();
+    assert.equal(await t.page.evaluate(() => window.__openTab), "permissions", "the link opens the Permissions page");
     assert.equal(await row(t.page, "provider_retries").locator("select").inputValue(), "5");
     assert.equal(await row(t.page, "remembered_approval_hours").locator("select").inputValue(), "24");
     assert.match(await row(t.page, "desktop_idle_seconds").innerText(), /5 min/, "the computer service's idle timeout is shown");
@@ -191,17 +199,14 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.ok(elapsed < 1500, `toggle round trip took ${elapsed}ms`);
     await row(t.page, "provider_retries").locator("select").selectOption("2");
     await t.page.waitForFunction(() => document.querySelector('.auto-row[data-key="provider_retries"] .auto-chip'));
-    await row(t.page, "mcp_auto_review").locator("select").selectOption("shadow");
-    await t.page.waitForFunction(() => document.querySelector('.auto-row[data-key="mcp_auto_review"] .auto-chip'));
     await row(t.page, "background_model").locator("select").selectOption("claude-opus-5-5");
     await t.page.waitForFunction(() => document.querySelector('.auto-row[data-key="background_model"] .auto-chip'));
-    assert.equal(requests.length, 4);
-    assert.deepEqual(state.stored, {web_search: false, provider_retries: 2, mcp_auto_review: "shadow", background_model: "claude-opus-5-5"});
+    assert.equal(requests.length, 3);
+    assert.deepEqual(state.stored, {web_search: false, provider_retries: 2, background_model: "claude-opus-5-5"});
     await t.page.reload();
     await t.page.locator(".auto-row").first().waitFor();
     assert.equal(await row(t.page, "web_search").getByRole("switch").isChecked(), false, "persisted across a reload");
     assert.equal(await row(t.page, "provider_retries").locator("select").inputValue(), "2");
-    assert.equal(await row(t.page, "mcp_auto_review").locator("select").inputValue(), "shadow");
     assert.equal(await row(t.page, "background_model").locator("select").inputValue(), "claude-opus-5-5");
     // Reset returns to the default and drops the marker.
     requests.length = 0;
@@ -259,11 +264,17 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   {
     reset();
     Object.assign(state, sample());
-    const t = await open();
+    const t = await open({page: "permissions"}, {});
+    await t.page.locator(".permissions-page").waitFor();
     const items = t.page.locator(".standing-item[data-allowance-id]");
     await items.first().waitFor();
     assert.equal(await items.count(), 4);
     assert.match(await t.page.locator(".settings-page-body").innerText(), /also applies when the Bot works on its own, for example on a schedule/, "Settings says the allowance applies when the Bot works on its own");
+    assert.deepEqual(await t.page.locator(".permissions-how-row strong").allInnerTexts(), ["Runs without asking", "Asks when unsure", "Always asks me"], "the three words, in order");
+    assert.equal(await t.page.locator("#auto-review-mode").inputValue(), "off", "the reviewer mode has its one control here");
+    assert.equal(await t.page.locator(".permissions-page .settings-banner").count(), 0, "no 'more controls are on the way' banner");
+    assert.match(await t.page.locator(".permissions-page").innerText(), /Always allowed/);
+    assert.match(await t.page.locator(".permissions-page").innerText(), /Remembered in chats/);
     const first = (await items.nth(0).innerText()).replace(/\s+/g, " ");
     assert.match(first, /tofi/); assert.match(first, /notion-update-page/); assert.match(first, /notion/);
     assert.match(first, /Allowed .*2026/); assert.match(first, /Last used .*2026/); assert.match(first, /used 3 times/);
@@ -287,6 +298,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await t.page.waitForFunction(n => document.querySelectorAll(".standing-item[data-allowance-id]").length === n, left - 1);
     }
     assert.match(await t.page.locator(".settings-page-body").innerText(), /No standing allowances yet/);
+    // Settings still carries its own table of words: Permissions in the rail copy, never Approvals.
+    assert.doesNotMatch(await t.page.locator(".settings-page-body").innerText(), /Standing allowances/);
     assert.deepEqual(t.errors, [], `page errors: ${t.errors}`);
     await t.close();
     console.log("PASS standing allowances list Bot, server, tool and dates, and Revoke removes them");
@@ -307,6 +320,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.deepEqual(clipped, [], `${lang}: clipped text`);
     if (shots && (lang === "en" || lang === "zh-CN")) await t.page.locator(".settings-page-body").screenshot({path: join(shots, `automation-390-${lang}.png`)});
     await t.close();
+    const permissions = await open({lang, page: "permissions"}, {width: 390, height: 844, locale});
+    const permissionsText = await permissions.page.locator(".settings-page-body").innerText();
+    assert.ok(!/permissionsPage\.|extensions:|settings:/.test(permissionsText), `${lang}: raw key on the Permissions page`);
+    assert.ok(await permissions.page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth) <= 1, `${lang}: Permissions page overflows`);
+    await permissions.close();
   }
   console.log("PASS all seven languages render the page at 390px without raw keys or overflow");
 

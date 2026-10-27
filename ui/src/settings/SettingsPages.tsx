@@ -29,6 +29,7 @@ import type {Bot, Conversation} from "../types";
 import type {ThemePreference} from "../InteractionSystem";
 import {Banner, DangerZone, SettingsCard, SettingsSection} from "./components";
 import {RunHealthCard} from "./RunHealthCard";
+import {StandingAllowances} from "../StandingAllowances";
 
 /** Pieces that live in App.tsx and are handed in, so this folder never imports App. */
 export type SettingsSlots={codex:ReactNode;notifications:ReactNode;providersRefresh:number;onProvidersConfigured:()=>void;legacyArchive:ReactNode};
@@ -52,10 +53,10 @@ export function SettingsPages(props:SettingsPagesProps){
   case "general": return <GeneralPage {...props}/>;
   case "connections": return <ExtensionPanel bots={bots} kind="mcp" refreshToken={props.extensionRefresh}/>;
   case "skills": return <ExtensionPanel bots={bots} kind="skills" refreshToken={props.extensionRefresh}/>;
-  case "approvals": return <ApprovalsPage/>;
+  case "permissions": return <PermissionsPage openTab={props.openTab}/>;
   case "followups": return <FollowupsSettings/>;
   case "models": return <ModelsPage {...props}/>;
-  case "automation": return <AutomationSettings/>;
+  case "automation": return <AutomationSettings onOpenPermissions={()=>props.openTab("permissions")}/>;
   case "computer": return <ComputerPage/>;
   case "keys": return <ComputerCredentials bots={activeBots}/>;
   case "usage": return <div className="settings-stack"><RunHealthCard/><UsagePanel preferredBotId={props.usageBotId} timezone={props.timezone}/></div>;
@@ -96,11 +97,16 @@ function ModelsPage({slots}:SettingsPagesProps){
  </div>;
 }
 
-function ApprovalsPage(){
- const {t}=useTranslation("settings");
- return <div className="settings-stack">
+/** Permissions: who reviews calls, how each kind of tool asks, and every allowance you have given (revocable here). */
+export function PermissionsPage({openTab}:{openTab:(tab:SettingsTab)=>void}){
+ const {t}=useTranslation(["settings","extensions"]);
+ const rows=[["read_only","read"],["write","write"],["high_risk","high"]] as const;
+ return <div className="settings-stack permissions-page">
   <AutoReviewSettings/>
-  <Banner tone="info" title={t("approvals.soon_title")}>{t("approvals.soon_body")}</Banner>
+  <SettingsSection title={t("permissionsPage.how.title")} hint={<button type="button" className="text-button" onClick={()=>openTab("connections")}>{t("permissionsPage.how.link")}</button>}>
+   <SettingsCard className="permissions-how">{rows.map(([tier,key])=><div key={tier} className="permissions-how-row" data-tier={tier}><strong>{t(`extensions:tools.tier.${tier}`)}</strong><p>{t(`permissionsPage.how.${key}`)}</p></div>)}</SettingsCard>
+  </SettingsSection>
+  <StandingAllowances/>
  </div>;
 }
 

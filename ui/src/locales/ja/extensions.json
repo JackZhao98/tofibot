@@ -298,7 +298,9 @@
       "refresh": "ツールを更新",
       "remove": "サービスを削除"
     },
-    "more_actions": "{{name}} のその他の操作"
+    "more_actions": "{{name}} のその他の操作",
+    "empty_body": "接続したサービスの中で、Bot が読み取りや操作を行えます。",
+    "browse_all": "すべて見る"
   },
   "oauth": {
     "help_body": "認可方法は開いた入口に合わせて自動で決まり、Google、Notion などの OAuth サービスに対応します。手動で設定したクライアントは、下のリダイレクト URL をそのままサービスの管理画面に登録してください。Notion など自動登録に対応したサービスは Tofi が処理します。",
@@ -405,24 +407,23 @@
     "remove_confirm": "すべての Bot からこの Skill を削除しますか？",
     "removed": "Skill を削除しました",
     "saved": "保存しました",
-    "starters": "Tofi のお仕事 Skill",
     "support_note": "説明と参考ファイルに対応しています。同梱のスクリプトは自動実行されません。",
     "builtin": {
       "tag": "組み込み"
-    }
+    },
+    "templates": "テンプレート"
   },
   "status": {
     "authorizing": "認可を開いています…",
     "checked": "{{when}}に確認",
-    "checking": "ツールを読み込み中…",
-    "failed": "接続に失敗しました",
-    "needs_auth": "認可が必要です",
+    "checking": "確認中…",
+    "failed": "接続できません",
+    "needs_auth": "サインインが必要",
     "removing": "処理中…",
-    "unverified": "未確認",
     "waiting": "認可を待っています",
     "connected": "接続済み",
-    "not_connected": "未接続",
-    "api_disabled": "API が有効になっていません"
+    "setup": "設定が必要",
+    "paused": "一時停止中"
   },
   "vm": {
     "cancel": "認可をキャンセル",
@@ -446,37 +447,36 @@
     "error": {
       "refresh_failed": "ツール一覧を更新できませんでした。"
     },
-    "explain": "提供元が読み取り専用と示したツールは審査なしで実行されます。その他のツールは呼び出しごとに審査され、あなたが依頼した呼び出しはそのまま実行、それ以外は先に確認します。「毎回確認」に設定したツールは常に確認します。",
+    "explain": "確認なしで実行：サービス側またはあなたが読み取り専用とした操作。迷ったら確認：呼び出しごとに審査し、依頼した操作はそのまま実行、それ以外は先に確認します。毎回確認：呼び出しのたびにあなたが決めます。",
     "group": {
-      "read_only": "読み取り専用（提供元の表示）",
-      "write": "呼び出しごとに審査",
+      "read_only": "確認なしで実行",
+      "write": "迷ったら確認",
       "high_risk": "毎回確認"
     },
     "refresh": "ツールを更新",
     "refreshing": "更新中…",
-    "select_label": "{{name}} のティア",
+    "select_label": "{{name}} の権限",
     "source": {
       "owner": "手動設定",
-      "provider": "提供元の表示"
+      "provider": "サービス側の表示"
     },
     "tier": {
-      "auto": "自動（提供元）",
-      "read_only": "読み取り専用",
-      "write": "呼び出しごとに審査",
+      "auto": "自動 · 提供元の表示に従う",
+      "read_only": "確認なしで実行",
+      "write": "迷ったら確認",
       "high_risk": "毎回確認"
     },
-    "title": "ツール · {{count}}"
+    "title": "ツール · {{count}}",
+    "raise_note": "「毎回確認」に変えると、そのツールの許可は取り消されます。"
   },
   "connections": {
     "title": "接続",
     "add": "接続を追加",
     "action": {
-      "authorize": "認可",
+      "authorize": "サインイン",
       "enable_api": "{{name}} API を有効にする"
     },
     "menu": {
-      "details": "詳細を表示",
-      "hide_details": "詳細を隠す",
       "sign_in_again": "再度サインイン"
     },
     "dialog": {
@@ -489,7 +489,7 @@
       }
     },
     "source": {
-      "gog": "コミュニティ · gogcli · Gmail API",
+      "gog": "内蔵 · gogcli · Gmail API",
       "local": "コミュニティ · {{name}}",
       "vendor": "公式 · {{host}}",
       "community": "コミュニティ · {{host}}",
@@ -498,7 +498,6 @@
     },
     "details": {
       "account": "アカウント：{{email}}",
-      "services": "認可済みのサービス：{{services}}",
       "project": "Google Cloud プロジェクト：{{project}}",
       "community_review": "コミュニティ製コード：読み取り専用にするまで、そのツールは毎回確認が必要です。"
     },
@@ -514,13 +513,28 @@
     "repo": {
       "label": "GitHub のソース：{{repo}}",
       "with_stars": "GitHub のソース：{{repo}}、スター {{count}} 件"
+    },
+    "open": "{{name}} を開く",
+    "row": {
+      "tools_other": "{{count}} 個のツール"
     }
   },
   "capabilities": {
-    "title": "できること",
-    "read": "読み取り",
-    "write": "書き込み",
-    "more": "ほか {{count}} 件",
     "community_note": "コミュニティ製のコードです。書き込みは毎回確認し、ツール自身の読み取り専用の表示は無視します。下でツールを読み取り専用にすると、確認なしで実行されます。"
+  },
+  "detail": {
+    "back": "接続に戻る",
+    "status": "状態",
+    "danger": "危険な操作",
+    "advanced": {
+      "title": "詳細設定",
+      "source": "提供元",
+      "address": "アドレス",
+      "signin": "サインイン",
+      "loopback": "127.0.0.1 へのリダイレクトのみ",
+      "package": "パッケージとバージョン",
+      "project": "Google Cloud プロジェクト",
+      "repository": "リポジトリ"
+    }
   }
 }

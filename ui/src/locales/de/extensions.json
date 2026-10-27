@@ -298,7 +298,9 @@
       "refresh": "Tools aktualisieren",
       "remove": "Dienst entfernen"
     },
-    "more_actions": "Weitere Aktionen für {{name}}"
+    "more_actions": "Weitere Aktionen für {{name}}",
+    "empty_body": "Bots können in den Diensten lesen und handeln, die du verbindest.",
+    "browse_all": "Alle ansehen"
   },
   "oauth": {
     "help_body": "Der Anmeldeweg richtet sich danach, wie Sie Tofi geöffnet haben, und gilt für Google, Notion und andere OAuth-Dienste. Bei selbst konfigurierten Clients tragen Sie die vollständige Weiterleitungs-URL unten im Dienst ein; Dienste mit automatischer Registrierung wie Notion übernimmt Tofi.",
@@ -410,24 +412,23 @@
     "remove_confirm": "Diesen Skill für alle Bots entfernen?",
     "removed": "Skill entfernt",
     "saved": "Gespeichert",
-    "starters": "Tofi-Arbeits-Skills",
     "support_note": "Anleitungen und Referenzdateien werden unterstützt; mitgelieferte Skripte laufen nie automatisch.",
     "builtin": {
       "tag": "Integriert"
-    }
+    },
+    "templates": "Vorlagen"
   },
   "status": {
     "authorizing": "Autorisierung wird geöffnet…",
     "checked": "Geprüft {{when}}",
-    "checking": "Tools werden geladen…",
-    "failed": "Verbindung fehlgeschlagen",
-    "needs_auth": "Autorisierung erforderlich",
+    "checking": "Wird geprüft…",
+    "failed": "Keine Verbindung",
+    "needs_auth": "Anmeldung nötig",
     "removing": "Wird bearbeitet…",
-    "unverified": "Noch nicht geprüft",
     "waiting": "Warten auf Autorisierung",
     "connected": "Verbunden",
-    "not_connected": "Nicht verbunden",
-    "api_disabled": "API nicht aktiviert"
+    "setup": "Einrichtung nötig",
+    "paused": "Pausiert"
   },
   "vm": {
     "cancel": "Autorisierung abbrechen",
@@ -451,37 +452,36 @@
     "error": {
       "refresh_failed": "Tool-Liste konnte nicht aktualisiert werden."
     },
-    "explain": "Tools, die der Anbieter als nur lesend markiert, laufen ohne Prüfung. Andere Tools werden bei jedem Aufruf geprüft: ein Aufruf, den du verlangt hast, läuft von selbst; alles andere fragt dich zuerst. Tools mit „Immer mich fragen“ fragen immer.",
+    "explain": "Läuft ohne Rückfrage: Tools, die der Dienst oder du als nur lesend markierst. Fragt bei Unsicherheit: Jeder Aufruf wird geprüft; was du verlangt hast, läuft, alles andere fragt zuerst. Fragt immer nach: Du entscheidest jeden Aufruf.",
     "group": {
-      "read_only": "Nur lesend (vom Anbieter markiert)",
-      "write": "Bei jedem Aufruf geprüft",
-      "high_risk": "Immer mich fragen"
+      "read_only": "Läuft ohne Rückfrage",
+      "write": "Fragt bei Unsicherheit",
+      "high_risk": "Fragt immer nach"
     },
     "refresh": "Tools aktualisieren",
     "refreshing": "Wird aktualisiert…",
-    "select_label": "Stufe für {{name}}",
+    "select_label": "Berechtigung für {{name}}",
     "source": {
       "owner": "Von dir gesetzt",
-      "provider": "Vom Anbieter markiert"
+      "provider": "Vom Dienst markiert"
     },
     "tier": {
-      "auto": "Automatisch (Anbieter)",
-      "read_only": "Nur lesend",
-      "write": "Bei jedem Aufruf geprüft",
-      "high_risk": "Immer mich fragen"
+      "auto": "Automatisch · folgt der Markierung des Dienstes",
+      "read_only": "Läuft ohne Rückfrage",
+      "write": "Fragt bei Unsicherheit",
+      "high_risk": "Fragt immer nach"
     },
-    "title": "Tools · {{count}}"
+    "title": "Tools · {{count}}",
+    "raise_note": "Die Umstellung auf „Fragt immer nach“ beendet seine Freigaben."
   },
   "connections": {
     "title": "Verbindungen",
     "add": "Verbindung hinzufügen",
     "action": {
-      "authorize": "Autorisieren",
+      "authorize": "Anmelden",
       "enable_api": "{{name}}-API aktivieren"
     },
     "menu": {
-      "details": "Details anzeigen",
-      "hide_details": "Details ausblenden",
       "sign_in_again": "Erneut anmelden"
     },
     "dialog": {
@@ -494,7 +494,7 @@
       }
     },
     "source": {
-      "gog": "Community · gogcli · Gmail-API",
+      "gog": "Integriert · gogcli · Gmail-API",
       "local": "Community · {{name}}",
       "vendor": "Offiziell · {{host}}",
       "community": "Community · {{host}}",
@@ -503,7 +503,6 @@
     },
     "details": {
       "account": "Konto: {{email}}",
-      "services": "Freigegebene Dienste: {{services}}",
       "project": "Google-Cloud-Projekt: {{project}}",
       "community_review": "Community-Code: Seine Tools verlangen eine Freigabe, bis Sie sie als schreibgeschützt markieren."
     },
@@ -519,13 +518,29 @@
     "repo": {
       "label": "Quellcode auf GitHub: {{repo}}",
       "with_stars": "Quellcode auf GitHub: {{repo}}, {{count}} Sterne"
+    },
+    "open": "{{name}} öffnen",
+    "row": {
+      "tools_one": "{{count}} Tool",
+      "tools_other": "{{count}} Tools"
     }
   },
   "capabilities": {
-    "title": "Was das kann",
-    "read": "Lesen",
-    "write": "Schreiben",
-    "more": "+{{count}} weitere",
     "community_note": "Community-Code: Schreibzugriffe fragen jedes Mal nach, seine eigenen Nur-Lesen-Markierungen werden ignoriert. Markieren Sie unten ein Tool als schreibgeschützt, damit es ohne Nachfrage läuft."
+  },
+  "detail": {
+    "back": "Zurück zu Verbindungen",
+    "status": "Status",
+    "danger": "Gefahrenbereich",
+    "advanced": {
+      "title": "Erweitert",
+      "source": "Herkunft",
+      "address": "Adresse",
+      "signin": "Anmeldung",
+      "loopback": "Nur Weiterleitung an 127.0.0.1",
+      "package": "Paket und Version",
+      "project": "Google-Cloud-Projekt",
+      "repository": "Repository"
+    }
   }
 }

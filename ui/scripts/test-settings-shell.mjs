@@ -14,9 +14,9 @@ const {createServer} = await import("vite");
 const {default: react} = await import("@vitejs/plugin-react");
 
 const LANGS = ["en", "zh-CN", "zh-TW", "ja", "ko", "de", "fr"];
-const TABS = ["general", "connections", "skills", "approvals", "followups", "models", "automation", "computer", "keys", "usage", "advanced"];
-const ICONS = {general: "sliders", connections: "plug", skills: "skill", approvals: "shield-check", followups: "bell", models: "sparkles", automation: "workflow", computer: "monitor", keys: "key", usage: "progress", advanced: "settings", admin: "group"};
-const NAMES = {general: "General", connections: "Connections", skills: "Skills", approvals: "Approvals", followups: "Follow-ups (preview)", models: "Models", automation: "Automatic behavior", computer: "Computer", keys: "Keys & secrets", usage: "Usage", advanced: "Advanced", admin: "Admin console"};
+const TABS = ["general", "connections", "skills", "permissions", "followups", "models", "automation", "computer", "keys", "usage", "advanced"];
+const ICONS = {general: "sliders", connections: "plug", skills: "skill", permissions: "shield-check", followups: "bell", models: "sparkles", automation: "workflow", computer: "monitor", keys: "key", usage: "progress", advanced: "settings", admin: "group"};
+const NAMES = {general: "General", connections: "Connections", skills: "Skills", permissions: "Permissions", followups: "Follow-ups (preview)", models: "Models", automation: "Automatic behavior", computer: "Computer", keys: "Computer keys", usage: "Usage", advanced: "Advanced", admin: "Admin console"};
 
 // ---- Catalog checks (every locale): groups, page names and descriptions are real translations.
 const catalogs = {};
@@ -323,7 +323,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.deepEqual(icons, TABS.map(id => ICONS[id]), "icons match the contract");
     // The connections badge counts saved connections that need sign-in, from the saved list alone.
     assert.equal((await page.locator('.settings-tabs [data-tab="connections"] .settings-count').textContent()).trim(), "1");
-    assert.equal(await page.locator('.settings-tabs [data-tab="approvals"] .settings-count').count(), 0, "approvals badge stays hidden in Phase 1");
+    assert.equal(await page.locator('.settings-tabs [data-tab="permissions"] .settings-count').count(), 0, "permissions badge stays hidden in Phase 1");
     await page.waitForTimeout(600);
     for (const forbidden of ["/api/extensions/local-mcp", "/api/computers", "/api/computer/"]) assert.ok(!requested.some(line => line.includes(forbidden)), `opening Settings on General made no ${forbidden} request`);
     await close();
@@ -338,7 +338,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   // ---- 2. Each tab renders its heading and description; 3. deep links; 6. dirty draft.
   {
     const {page, close} = await open({admin: "1"});
-    const markers = {general: "Language and region", connections: "Add", skills: "research-assistant", approvals: "Reviewer", models: "Defaults for new Bots", computer: null, keys: null, usage: null, advanced: "Danger zone", admin: null};
+    const markers = {general: "Language and region", connections: "Add", skills: "research-assistant", permissions: "Reviewer", models: "Defaults for new Bots", computer: null, keys: null, usage: null, advanced: "Danger zone", admin: null};
     for (const id of [...TABS, "admin"]) {
       await page.locator(`.settings-tabs [data-tab="${id}"]`).click();
       await page.waitForFunction(tab => document.querySelector(`.settings-tabs [aria-current="page"]`)?.dataset.tab === tab, id);
@@ -470,11 +470,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       assert.ok(item.lines <= 2, `${item.text}: ${item.lines} lines`);
       assert.equal(item.inside, true, `${item.text}: inside its rail item`);
     }
-    for (const text of ["Verbindungen", "Genehmigungen", "Schlüssel & Geheimnisse"]) assert.ok(report.some(item => item.text === text), `German rail shows ${text}`);
+    for (const text of ["Verbindungen", "Berechtigungen", "Computer-Schlüssel"]) assert.ok(report.some(item => item.text === text), `German rail shows ${text}`);
     const rail = await page.locator(".settings-tabs").evaluate(element => element.getBoundingClientRect().width);
     assert.equal(Math.round(rail), 248, "rail is 248px wide");
     await close();
-    console.log("PASS german: Verbindungen, Genehmigungen and Schlüssel & Geheimnisse fit the 248px rail in at most two lines, no clipping");
+    console.log("PASS german: Verbindungen, Berechtigungen and Computer-Schlüssel fit the 248px rail in at most two lines, no clipping");
   }
 
   // ---- 7b. Skill library (decision 0058): installer and version on each row, bundles expand, rollback, remove, one-click add.
@@ -515,7 +515,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await page.waitForFunction(() => !document.querySelector('[data-skill="research-assistant"]'));
     assert.deepEqual(libWrites.filter(entry => entry.startsWith("DELETE")), ["DELETE /api/extensions/skills/research-assistant"]);
     // One-click add from a starter template: no form, one POST, and the row appears (a template is a normal skill).
-    const starter = page$(page).locator(".skill-starters .integration-tile").first();
+    const starter = page$(page).locator(".skill-templates .integration-tile").first();
     const starterTitle = (await starter.locator("strong").textContent()).trim();
     await starter.click();
     // The install flow asks which Bots get it; the default is one primary button for all of them.
@@ -532,14 +532,14 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await page.waitForFunction(() => document.querySelector('.settings-page-body[data-page="skills"] .extension-notice'));
     assert.match(await text(page$(page).locator(".extension-notice")), /Added to the library and turned on for 1 Bot/);
     assert.match(libWrites.filter(entry => entry.startsWith("POST /api/extensions/skills "))[0], /"enable":\["bot_inbox"\]/, "the chosen Bot ids are sent");
-    const second = page$(page).locator(".skill-starters .integration-tile").first();
+    const second = page$(page).locator(".skill-templates .integration-tile").first();
     await second.click();
     await pending.getByRole("button", {name: "Enable for all Bots"}).click();
     await page.waitForFunction(() => document.querySelectorAll('.settings-page-body[data-page="skills"] .skill-pending').length === 0);
     assert.match(libWrites.filter(entry => entry.startsWith("POST /api/extensions/skills "))[1], /"enable":"all"/, "one primary click installs for all Bots");
     assert.match(await text(page$(page).locator(".extension-notice")), /turned on for every Bot/);
     assert.equal(libWrites.filter(entry => entry.startsWith("POST /api/extensions/skills ")).length, 2);
-    assert.ok(!(await page$(page).locator(".skill-starters").innerText()).includes(starterTitle), "an added starter leaves the template list");
+    assert.ok(!(await page$(page).locator(".skill-templates").innerText()).includes(starterTitle), "an added template leaves the template list");
     await page$(page).getByRole("button", {name: "Paste SKILL.md"}).click();
     assert.equal(await page$(page).locator("form .primary-button").innerText(), "Enable for all Bots", "the paste form offers the same default");
     await page$(page).getByRole("button", {name: "Paste SKILL.md"}).click();
@@ -587,10 +587,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await tracker.waitFor({timeout: 15000});
     const first = (await tracker.locator(".mcp-service-status").textContent()).trim();
     assert.match(first, /^Connected/, `cached status on first paint, got "${first}"`);
-    assert.doesNotMatch(first, /tool/i, "the status line carries no tool count; tools are in the details view");
+    assert.match(first, /\d+ tools?/, "the status line carries the tool count; the tools themselves are on the connection's page");
     assert.equal(await slow.page.locator(motion).count(), 0, "no test animation while the quiet check runs");
     assert.equal(await running(slow.page), 0, "nothing animates inside a connection card");
-    assert.equal(await tracker.locator(".mcp-menu-trigger").isDisabled(), false, "menu is not busy during the quiet check");
+    assert.equal(await tracker.locator(".mcp-service-open").isDisabled(), false, "the row stays open-able during the quiet check");
     assert.equal(await tracker.getAttribute("data-state"), "ready");
     await slow.page.waitForFunction(() => /Checked/.test(document.querySelector('.mcp-service[aria-label="acme_tracker"] .mcp-service-status')?.textContent ?? ""), null, {timeout: 10000});
     assert.match(await tracker.locator(".mcp-service-checked").textContent(), /^Checked /, "tiny checked timestamp appears");
@@ -603,42 +603,42 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await badTracker.waitFor({timeout: 15000});
     assert.match((await badTracker.locator(".mcp-service-status").textContent()).trim(), /^Connected/, "starts from the cached state");
     await bad.page.waitForFunction(() => document.querySelector('.mcp-service[aria-label="acme_tracker"]')?.getAttribute("data-state") === "error", null, {timeout: 12000});
-    assert.match(await badTracker.locator(".mcp-service-status").textContent(), /Connection failed/);
+    assert.match(await badTracker.locator(".mcp-service-status").textContent(), /Can.t connect/);
     assert.ok((await badTracker.locator(".mcp-service-error").textContent()).trim().length > 5, "a named reason is shown");
     assert.equal(requested.filter(line => /acme_tracker\/test$/.test(line)).length - before, 2, "one quiet retry before showing the problem");
     assert.equal(await bad.page.locator(motion).count(), 0);
     await bad.close();
     console.log("PASS connections: cached Connected on first paint, no animation or spinner, quiet re-check, failure flips after one retry");
-    // Tool tiers: the summary counts read-only tools, the disclosure groups tools by tier with markers, and the selector writes an owner override.
+    // Tool permissions: the connection's page groups tools by permission with markers, and the menu writes an owner override.
     const tiersPage = await open({tab: "connections"});
     const tiered = card(tiersPage.page, "acme_tracker");
     await tiered.waitFor({timeout: 15000});
-    assert.equal(await tiered.locator(".mcp-service-tools").count(), 0, "a resting row shows no tool list");
-    await tiered.locator(".mcp-menu-trigger").click();
-    await tiersPage.page.getByRole("menuitem", {name: "View details"}).click();
-    await tiered.locator(".mcp-tool-group[data-tier=read_only]").waitFor();
-    assert.deepEqual(await tiered.locator(".mcp-tool-group[data-tier] h5").allTextContents(), ["Read only (marked by provider)2", "Reviewed each time2", "Always ask me2"], "three groups with counts");
-    assert.deepEqual(await tiered.locator(".mcp-tool[data-source=owner] code").allTextContents(), ["get_issue", "delete_issue", "post_comment"], "owner overrides are marked");
-    assert.equal(await tiered.locator(".mcp-tool[data-changed=true]").count(), 2, "changed tools are marked");
-    assert.equal(await tiered.locator(".mcp-tier-mark.is-changed").first().textContent(), "Changed");
-    assert.equal(await tiered.locator(".mcp-tool[data-source=provider] .mcp-tier-mark").first().textContent(), "Marked by provider");
-    assert.equal(await tiered.locator(".mcp-tool[data-source=default] .mcp-tier-mark:not(.is-changed)").count(), 1, "an unmarked tool carries no source marker; only the duplicated listing is marked");
-    const selector = tiered.locator('.mcp-tier-select[aria-label="Tier for create_issue"]');
-    assert.equal(await selector.inputValue(), "auto");
-    assert.equal(await selector.evaluate(element => getComputedStyle(element).appearance), "none", "the tier selector is styled, not the UA select");
-    await selector.selectOption("high_risk");
+    assert.equal(await tiersPage.page.locator(".mcp-tool-group").count(), 0, "a resting list shows no tool list");
+    await tiered.locator(".mcp-service-open").click();
+    const detail = tiersPage.page.locator(".mcp-detail");
+    await detail.locator(".mcp-tool-group[data-tier=read_only]").waitFor();
+    assert.deepEqual(await detail.locator(".mcp-tool-group[data-tier] h5").allTextContents(), ["Runs without asking2", "Asks when unsure2", "Always asks me2"], "three groups with counts");
+    assert.deepEqual(await detail.locator(".mcp-tool[data-source=owner] code").allTextContents(), ["get_issue", "delete_issue", "post_comment"], "owner overrides are marked");
+    assert.equal(await detail.locator(".mcp-tool[data-changed=true]").count(), 2, "changed tools are marked");
+    assert.equal(await detail.locator(".mcp-tier-mark.is-changed").first().textContent(), "Changed");
+    assert.equal(await detail.locator(".mcp-tool[data-source=provider] .mcp-tier-mark").first().textContent(), "Marked by the service");
+    assert.equal(await detail.locator(".mcp-tool[data-source=default] .mcp-tier-mark:not(.is-changed)").count(), 1, "an unmarked tool carries no source marker; only the duplicated listing is marked");
+    const selector = detail.getByRole("button", {name: "Permission for create_issue"});
+    assert.equal(await detail.locator("select").count(), 0, "the permission is a menu, not a native select");
+    await selector.click();
+    assert.equal(await tiersPage.page.getByRole("menuitem", {name: /^Automatic/}).getAttribute("aria-current"), "true", "no override: Automatic is current");
+    await tiersPage.page.getByRole("menuitem", {name: "Always asks me"}).click();
     await tiersPage.page.waitForTimeout(400);
-    assert.deepEqual(tierWrites, [`PUT /api/extensions/mcp/acme_tracker/tools/create_issue {"tier":"high_risk"}`], "the selector writes exactly one owner override");
-    assert.equal(await tiered.locator(".mcp-service-tools .mcp-tools-note:not([data-capability])").count(), 0, "nothing is pending: no classification note");
-    assert.equal(await tiered.locator(".mcp-tools-head .mcp-button").textContent(), "Refresh tools", "the disclosure refreshes the tool list; nothing classifies");
+    assert.deepEqual(tierWrites, [`PUT /api/extensions/mcp/acme_tracker/tools/create_issue {"tier":"high_risk"}`], "the menu writes exactly one owner override");
+    assert.equal(await detail.getByRole("button", {name: "Refresh tools"}).textContent(), "Refresh tools", "the page refreshes the tool list; nothing classifies");
     assert.doesNotMatch(await tiersPage.page.locator('.mcp-service[aria-label="notes_search"] .mcp-service-status').textContent(), /Classifying/, "no classifying status anywhere");
+    await detail.getByRole("button", {name: "Back to Connections"}).click();
     const docs = card(tiersPage.page, "acme_docs");
-    await docs.locator(".mcp-menu-trigger").click();
-    await tiersPage.page.getByRole("menuitem", {name: "View details"}).click();
-    await docs.locator(".mcp-service-details").waitFor();
-    assert.equal(await docs.locator(".mcp-service-tools").count(), 0, "a connection without a tool list has details (its source) but no tools section");
+    await docs.locator(".mcp-service-open").click();
+    await tiersPage.page.locator(".mcp-detail").waitFor();
+    assert.equal(await tiersPage.page.locator(".mcp-detail .mcp-tool-group").count(), 0, "a connection without a tool list has a page (its source) but no tool groups");
     await tiersPage.close();
-    console.log("PASS connections tools: opened from the menu, tier groups, markers, styled selector, one override write");
+    console.log("PASS connections tools: opened from the row, permission groups, markers, overlay menu, one override write");
   }
 
   // ---- 7c. Admin console: list, detail, role, disk, password, deactivation and the delete flow (stubbed API).

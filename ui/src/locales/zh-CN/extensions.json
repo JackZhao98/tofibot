@@ -298,7 +298,9 @@
       "refresh": "刷新工具",
       "remove": "移除服务"
     },
-    "more_actions": "{{name}} 的更多操作"
+    "more_actions": "{{name}} 的更多操作",
+    "empty_body": "Bot 可以在你连接的服务里读取和操作。",
+    "browse_all": "浏览全部"
   },
   "oauth": {
     "help_body": "授权方式自动跟随入口，适用于 Google、Notion 和其他 OAuth 服务。手动配置的客户端需在服务后台登记下方完整回调地址；Notion 等支持自动注册的服务由 Tofi 处理。",
@@ -405,24 +407,23 @@
     "remove_confirm": "为所有 Bot 移除这个 Skill？",
     "removed": "Skill 已移除",
     "saved": "已保存",
-    "starters": "Tofi 工作技能",
     "support_note": "支持说明与参考文件；不自动运行附带脚本。",
     "builtin": {
       "tag": "内置"
-    }
+    },
+    "templates": "模板"
   },
   "status": {
     "authorizing": "正在打开授权…",
     "checked": "{{when}}已检查",
-    "checking": "正在读取工具…",
-    "failed": "连接失败",
-    "needs_auth": "需要授权",
+    "checking": "正在检查…",
+    "failed": "连不上",
+    "needs_auth": "需要登录",
     "removing": "处理中…",
-    "unverified": "尚未验证",
     "waiting": "等待授权",
     "connected": "已连接",
-    "not_connected": "未连接",
-    "api_disabled": "API 未启用"
+    "setup": "需要设置",
+    "paused": "已暂停"
   },
   "vm": {
     "cancel": "取消授权",
@@ -446,37 +447,36 @@
     "error": {
       "refresh_failed": "无法刷新工具列表。"
     },
-    "explain": "服务方标记为只读的工具直接执行，不经审核。其他工具每次调用都会审核：你明确要求的调用自动执行，其余的先问你。设为“总是问我”的工具每次都会问。",
+    "explain": "不问就跑：服务方或你标为只读的工具。拿不准时问：每次调用都会审核，你明确要求的直接执行，其余的先问你。每次都问：每次调用都由你决定。",
     "group": {
-      "read_only": "只读（服务方标记）",
-      "write": "每次审核",
-      "high_risk": "总是问我"
+      "read_only": "不问就跑",
+      "write": "拿不准时问",
+      "high_risk": "每次都问"
     },
     "refresh": "刷新工具",
     "refreshing": "正在刷新…",
-    "select_label": "{{name}} 的级别",
+    "select_label": "{{name}} 的权限",
     "source": {
       "owner": "你设置的",
       "provider": "服务方标记"
     },
     "tier": {
-      "auto": "自动（服务方）",
-      "read_only": "只读",
-      "write": "每次审核",
-      "high_risk": "总是问我"
+      "auto": "自动 · 跟随服务方标注",
+      "read_only": "不问就跑",
+      "write": "拿不准时问",
+      "high_risk": "每次都问"
     },
-    "title": "工具 · {{count}}"
+    "title": "工具 · {{count}}",
+    "raise_note": "改为“每次都问”会撤销它已有的放行。"
   },
   "connections": {
     "title": "连接",
     "add": "添加连接",
     "action": {
-      "authorize": "授权",
+      "authorize": "登录",
       "enable_api": "启用 {{name}} API"
     },
     "menu": {
-      "details": "查看详情",
-      "hide_details": "收起详情",
       "sign_in_again": "重新登录"
     },
     "dialog": {
@@ -489,7 +489,7 @@
       }
     },
     "source": {
-      "gog": "社区 · gogcli · Gmail API",
+      "gog": "自带 · gogcli · Gmail API",
       "local": "社区 · {{name}}",
       "vendor": "官方 · {{host}}",
       "community": "社区 · {{host}}",
@@ -498,7 +498,6 @@
     },
     "details": {
       "account": "账号：{{email}}",
-      "services": "已授权服务：{{services}}",
       "project": "Google Cloud 项目：{{project}}",
       "community_review": "社区代码：其工具在你标为只读之前每次都要确认。"
     },
@@ -514,13 +513,28 @@
     "repo": {
       "label": "GitHub 源码：{{repo}}",
       "with_stars": "GitHub 源码：{{repo}}，{{count}} 个星标"
+    },
+    "open": "打开 {{name}}",
+    "row": {
+      "tools_other": "{{count}} 个工具"
     }
   },
   "capabilities": {
-    "title": "这能做什么",
-    "read": "可读取",
-    "write": "可写入",
-    "more": "另 {{count}} 个",
     "community_note": "社区代码：写入每次都先问，它自己标的只读不算数。在下方把某个工具标为只读，它才不再询问。"
+  },
+  "detail": {
+    "back": "返回连接",
+    "status": "状态",
+    "danger": "危险操作",
+    "advanced": {
+      "title": "高级",
+      "source": "来源",
+      "address": "地址",
+      "signin": "登录",
+      "loopback": "仅接受 127.0.0.1 回调",
+      "package": "软件包与版本",
+      "project": "Google Cloud 项目",
+      "repository": "代码仓库"
+    }
   }
 }

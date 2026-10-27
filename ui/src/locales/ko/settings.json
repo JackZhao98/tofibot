@@ -45,9 +45,9 @@
         "name": "Skills",
         "description": "재사용할 수 있는 작업 방식 관리"
       },
-      "approvals": {
-        "name": "승인",
-        "description": "Bot의 작업을 실행 전에 누가 확인할지 정합니다."
+      "permissions": {
+        "name": "권한",
+        "description": "먼저 물어보는 것과 허용해 둔 것."
       },
       "followups": {
         "name": "후속 항목(미리보기)",
@@ -63,7 +63,7 @@
         "description_none": "이 서버에 컴퓨터를 추가하는 방법"
       },
       "keys": {
-        "name": "키 및 비밀",
+        "name": "컴퓨터 키",
         "description": "컴퓨터에 필요한 환경 변수와 SSH 키를 직접 설정"
       },
       "usage": {
@@ -682,12 +682,6 @@
     "activity_note": "Bot이 수행한 단계를 답장 아래에 표시합니다. 기본값은 꺼짐이며, 메시지의 작업 메뉴에서 열 수 있습니다.",
     "activity_save_failed": "저장하지 못했습니다. 다시 시도하세요."
   },
-  "approvals": {
-    "heading": "검토자",
-    "draft_label": "검토자",
-    "soon_title": "더 많은 설정이 곧 추가됩니다",
-    "soon_body": "신뢰 기본값과 항상 허용 규칙은 연결 업데이트와 함께 제공됩니다."
-  },
   "advanced": {
     "server": "서버",
     "data": "데이터",
@@ -946,34 +940,9 @@
     "saved": "저장됨",
     "loading": "불러오는 중…",
     "managed": "컴퓨터 서비스에서 관리",
-    "standing": {
-      "title": "상시 허용",
-      "description": "Bot이 묻지 않고 쓸 수 있게 허용한 도구입니다. Bot이 혼자 작업할 때(예: 예약 실행)에도 적용됩니다. 철회하면 해당 Bot의 다음 호출에서 다시 묻습니다.",
-      "empty": "아직 상시 허용이 없습니다. 승인 카드에서 '항상 허용'을 선택하면 추가됩니다.",
-      "granted": "{{time}}에 허용",
-      "last_used": "마지막 사용 {{time}}",
-      "never_used": "아직 사용 안 함",
-      "revoke": "철회",
-      "revoking": "철회하는 중…",
-      "revoke_failed": "철회하지 못했습니다. 다시 시도하세요.",
-      "load_failed": "상시 허용을 불러오지 못했습니다.",
-      "server_changed": "서버가 변경되었습니다. 다시 묻습니다.",
-      "tool_changed": "서버가 도구 정의를 변경했습니다. 다시 묻습니다.",
-      "tier_changed": "이 도구의 설정이 변경되었습니다. 다시 묻습니다.",
-      "used_other": "{{count}}회 사용",
-      "remembered": {
-        "title": "채팅에서 기억한 승인",
-        "description": "한 대화 안에서 기억하도록 한 승인입니다. 그 대화에만 적용되며 저절로 종료됩니다.",
-        "empty": "어떤 채팅에도 기억된 승인이 없습니다.",
-        "target_identifier": "대상: {{target}}",
-        "target_exact": "승인한 인수와 정확히 같은 경우만",
-        "ends": "{{time}}에 종료",
-        "chat": "채팅: {{name}}",
-        "unknown_chat": "어떤 대화"
-      }
-    },
     "days": "{{count}}일",
-    "keep_all": "모두 보관"
+    "keep_all": "모두 보관",
+    "in_permissions": "‘권한’에서 설정"
   },
   "webtools": {
     "title": "웹 검색 및 가져오기",
@@ -1046,5 +1015,42 @@
     "limit_option": "하루 {{count}}회",
     "limit_unlimited": "제한 없음",
     "used_today": "최근 24시간 {{count}}회"
+  },
+  "permissionsPage": {
+    "heading": "검토자",
+    "draft_label": "검토자",
+    "standing": {
+      "title": "상시 허용",
+      "description": "Bot이 묻지 않고 쓸 수 있게 허용한 도구입니다. Bot이 혼자 작업할 때(예: 예약 실행)에도 적용됩니다. 철회하면 해당 Bot의 다음 호출에서 다시 묻습니다.",
+      "empty": "아직 상시 허용이 없습니다. 승인 카드에서 '항상 허용'을 선택하면 추가됩니다.",
+      "granted": "{{time}}에 허용",
+      "last_used": "마지막 사용 {{time}}",
+      "never_used": "아직 사용 안 함",
+      "revoke": "철회",
+      "revoking": "철회하는 중…",
+      "revoke_failed": "철회하지 못했습니다. 다시 시도하세요.",
+      "load_failed": "상시 허용을 불러오지 못했습니다.",
+      "server_changed": "서버가 변경되었습니다. 다시 묻습니다.",
+      "tool_changed": "서버가 도구 정의를 변경했습니다. 다시 묻습니다.",
+      "tier_changed": "이 도구의 설정이 변경되었습니다. 다시 묻습니다.",
+      "used_other": "{{count}}회 사용",
+      "remembered": {
+        "title": "채팅에서 기억한 승인",
+        "description": "한 대화 안에서 기억하도록 한 승인입니다. 그 대화에만 적용되며 저절로 종료됩니다.",
+        "empty": "어떤 채팅에도 기억된 승인이 없습니다.",
+        "target_identifier": "대상: {{target}}",
+        "target_exact": "승인한 인수와 정확히 같은 경우만",
+        "ends": "{{time}}에 종료",
+        "chat": "채팅: {{name}}",
+        "unknown_chat": "어떤 대화"
+      }
+    },
+    "how": {
+      "title": "도구가 묻는 방식",
+      "link": "도구별 설정은 ‘연결’에서",
+      "read": "서비스나 내가 읽기 전용으로 표시한 도구.",
+      "write": "기본값입니다. 호출마다 검토하여 요청한 호출은 실행하고 나머지는 먼저 묻습니다.",
+      "high": "모든 호출을 내가 결정합니다. 물어볼 사람이 없으면 호출은 실행되지 않습니다."
+    }
   }
 }
