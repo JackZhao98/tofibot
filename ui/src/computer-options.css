@@ -1,0 +1,5 @@
+.computer-options .computer-command-label{display:block;margin-top:10px;color:var(--muted);font:var(--type-meta)}
+.computer-options .computer-command{display:block;margin-top:6px;padding:10px 12px;border:1px solid var(--line-soft);border-radius:var(--radius-md);background:var(--sunk);color:var(--ink);font:var(--type-code);overflow-wrap:anywhere;user-select:text}
+.computer-options .computer-command-note{display:block;margin-top:8px;color:var(--muted);font:var(--type-meta)}
+.computer-options .computer-soon{display:inline-flex;align-items:center;gap:5px;flex:none;padding:3px 9px;border-radius:999px;background:var(--sunk);color:var(--muted);font:600 11px/1.4 var(--mono);white-space:nowrap}
+.computer-options .computer-soon>svg{flex:none}

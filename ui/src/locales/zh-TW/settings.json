@@ -59,7 +59,8 @@
       },
       "computer": {
         "name": "電腦",
-        "description": "共用的 Linux 電腦、儲存空間與執行資源"
+        "description": "共用的 Linux 電腦、儲存空間與執行資源",
+        "description_none": "為這台伺服器新增電腦的方式"
       },
       "keys": {
         "name": "金鑰與機密",
@@ -107,7 +108,8 @@
         "ready": "執行中",
         "starting": "啟動中",
         "stopped": "已停止",
-        "waiting": "等待中"
+        "waiting": "等待中",
+        "none": "未新增"
       }
     }
   },
@@ -501,7 +503,8 @@
       "forbidden": "只有 Admin 才能執行此操作。",
       "export_in_use": "該備份所屬帳號的刪除尚未完成。",
       "passphrase_unavailable": "密語無法使用。"
-    }
+    },
+    "intro_no_computer": "建立帳號、指定誰是 Admin，並管理他們的登入。成員首次登入時需要更換初始密碼。"
   },
   "connection": {
     "label": "目前的伺服器連線",
@@ -571,7 +574,9 @@
     "note": "執行前 VM 會自動保留一個可復原的 checkpoint；第一個新建立的帳號會成為 admin。",
     "confirm_label": "輸入 PURGE 以確認",
     "purging": "正在清除…",
-    "submit": "清除所有資料"
+    "submit": "清除所有資料",
+    "description_no_computer": "清空所有 Bot、對話、任務、附件和配對裝置。伺服器安裝、Codex 連線和其他服務設定會保留。",
+    "note_no_computer": "新建立的第一個帳號會成為 admin。"
   },
   "portability": {
     "title": "資料搬移",

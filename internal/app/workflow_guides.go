@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 )
 
 // Built-in skills: task-specific procedures loaded only when a task matches,
@@ -24,8 +25,22 @@ const commitmentGuide = `Track genuine ongoing commitments with work-item tools:
 
 const teamAssemblyGuide = `To assemble a team, call list_groups first. If a group has suitable members and purpose, continue the work in that group with send_group_message. Use invite_bot to add a missing member. Create a new group only when no group fits, and state its purpose. A first create_group call without list_groups is refused and lists the groups that hold the same members; continue in a fitting one, or repeat create_group when the purpose differs. Reuse suitable existing Bots. Create specialists only for missing skills. Use create_group, then send_group_message once to start work. Inside a group, assistant replies publish automatically. Use handoff for a concrete contribution from a listed member and end the turn after successful dispatch; its completed result resumes you. Do not duplicate dispatch, predict results, or send courtesy handoffs. Compare evidence, contribute distinct ideas and integrate a useful conclusion. A one-time message does not authorize changes to another Bot's durable instructions.`
 
-func workflowGuideTool() Tool {
-	return Tool{Name: "read_workflow_guide", Description: "Read one built-in skill when the task matches it: research (looking things up, news, comparing sources), mail (finding or reading email), web_tasks (forms, orders, bookings, sending or changing things on websites), software (installing or removing software on your computer), commitments (ongoing work and schedules), team (assembling Bots). Chat and simple questions need none; reuse a skill already read. No side effects.", Parameters: objectSchema(map[string]any{"topic": map[string]any{"type": "string", "enum": []string{"research", "mail", "web_tasks", "software", "commitments", "team"}}}, []string{"topic"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+// researchBrowserSentence is the one research-guide sentence that needs a computer.
+const researchBrowserSentence = " A scripted fetch is a quick first try; when a site refuses it, read the page in the real browser before calling it unreachable."
+
+func workflowGuideTool() Tool { return workflowGuideToolFor(true) }
+
+// workflowGuideToolFor lists only the guides a workspace can act on: mail,
+// web_tasks and software drive the Bot's computer, so a workspace with none
+// offers research, commitments and team.
+func workflowGuideToolFor(computer bool) Tool {
+	description := "Read one built-in skill when the task matches it: research (looking things up, news, comparing sources), mail (finding or reading email), web_tasks (forms, orders, bookings, sending or changing things on websites), software (installing or removing software on your computer), commitments (ongoing work and schedules), team (assembling Bots). Chat and simple questions need none; reuse a skill already read. No side effects."
+	topics := []string{"research", "mail", "web_tasks", "software", "commitments", "team"}
+	if !computer {
+		description = "Read one built-in skill when the task matches it: research (looking things up, news, comparing sources), commitments (ongoing work and schedules), team (assembling Bots). Chat and simple questions need none; reuse a skill already read. No side effects."
+		topics = []string{"research", "commitments", "team"}
+	}
+	return Tool{Name: "read_workflow_guide", Description: description, Parameters: objectSchema(map[string]any{"topic": map[string]any{"type": "string", "enum": topics}}, []string{"topic"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
@@ -35,8 +50,14 @@ func workflowGuideTool() Tool {
 		if err := json.Unmarshal(raw, &in); err != nil {
 			return "", err
 		}
+		if !computer && in.Topic != "research" && in.Topic != "commitments" && in.Topic != "team" {
+			return "", errors.New("unsupported workflow guide topic")
+		}
 		switch in.Topic {
 		case "research":
+			if !computer {
+				return strings.TrimSuffix(researchGuide, researchBrowserSentence), nil
+			}
 			return researchGuide, nil
 		case "mail":
 			return mailGuide, nil

@@ -1,6 +1,7 @@
 import {memo, useCallback, useEffect, useRef, useState} from "react";
 import type {TFunction} from "i18next";
 import {request} from "./api";
+import {useHasComputer} from "./computerCapability";
 import {modelName, groupModels} from "./modelCatalog";
 import type {ModelCatalog} from "./types";
 import {useModelCatalog} from "./useModelCatalog";
@@ -122,6 +123,8 @@ const AutomationRow = memo(function AutomationRow({item, catalog, busy, saved, e
 
 export function AutomationSettings() {
   const {t} = useTranslation("settings");
+  // The computer's own switches (idle sleep, command checks, the widget auto-open) do nothing without one.
+  const hasComputer = useHasComputer();
   const [items, setItems] = useState<AutomationItem[] | null>(null);
   const {catalog} = useModelCatalog();
   const [loadError, setLoadError] = useState("");
@@ -167,7 +170,7 @@ export function AutomationSettings() {
   return <div className="settings-stack auto-page">
     <p className="settings-sec-desc auto-intro">{t("automation.intro")}</p>
     {groupOrder.map(group => {
-      const rows = items.filter(item => item.group === group);
+      const rows = items.filter(item => item.group === group && (hasComputer || (item.group !== "computer" && item.key !== "widget_computer_auto")));
       if (!rows.length) return null;
       return <SettingsSection key={group} title={t(`automation.group.${group}.title`)} description={t(`automation.group.${group}.description`)}>
         <SettingsCard>{rows.map(item => <AutomationRow key={item.key} item={item} catalog={catalog} busy={busy === item.key} saved={saved === item.key} error={errors[item.key] ?? ""} onChange={change}/>)}</SettingsCard>

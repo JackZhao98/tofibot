@@ -8,12 +8,14 @@ import {formatDateTime, formatNumber} from "./i18n/format";
 import {useTranslation} from "./i18n";
 import {TofiIcon} from "./icons";
 import {useOwnerSession} from "./OwnerSession";
+import {useHasComputer} from "./computerCapability";
 import {Banner, SettingsCard, SettingsSection} from "./settings/components";
 
 const gib = (bytes: number) => formatNumber(Math.round((bytes / GIB) * 10) / 10);
 
 export function AdminAccounts() {
   const {t} = useTranslation("settings");
+  const hasComputer = useHasComputer();
   const session = useOwnerSession();
   const allowed = Boolean(session?.multi_account && session.owner?.role === "admin");
   const selfId = session?.owner?.id ?? "";
@@ -37,11 +39,11 @@ export function AdminAccounts() {
   }, []);
   const refresh = useCallback(async () => {
     const list = await refreshAccounts();
-    const [capacityResult, exportsResult] = await Promise.allSettled([adminApi.capacity(), adminApi.exports()]);
-    if (capacityResult.status === "fulfilled") { setCapacity(capacityResult.value); setCapacityError(false); } else { setCapacity(null); setCapacityError(true); }
+    const [capacityResult, exportsResult] = await Promise.allSettled([hasComputer ? adminApi.capacity() : Promise.reject(new Error("no computer")), adminApi.exports()]);
+    if (capacityResult.status === "fulfilled") { setCapacity(capacityResult.value); setCapacityError(false); } else { setCapacity(null); setCapacityError(hasComputer); }
     if (exportsResult.status === "fulfilled") setExportsList(exportsResult.value);
     return list;
-  }, [refreshAccounts]);
+  }, [refreshAccounts, hasComputer]);
 
   useEffect(() => { if (allowed) void refresh().catch(cause => setError(adminError(cause))); }, [allowed, refresh]);
 
@@ -90,10 +92,10 @@ export function AdminAccounts() {
   }
 
   return <section className="admin-accounts" aria-busy={busy}>
-    <p className="admin-intro">{t("admin.intro")}</p>
+    <p className="admin-intro">{t(hasComputer ? "admin.intro" : "admin.intro_no_computer")}</p>
     {error && <p role="alert" className="admin-error">{error}</p>}
 
-    <SettingsSection title={t("admin.summary.title")}>
+    {hasComputer && <SettingsSection title={t("admin.summary.title")}>
       {capacity ? <SettingsCard className="admin-capacity">
         <dl>
           <div><dt>{t("admin.summary.total")}</dt><dd>{gib(total)} <small>GiB</small></dd></div>
@@ -102,7 +104,7 @@ export function AdminAccounts() {
         </dl>
         {capacity.warning && <p className="admin-capacity-low"><TofiIcon name="alert" size={16} aria-hidden="true"/>{t("admin.summary.low")}</p>}
       </SettingsCard> : capacityError ? <Banner tone="warn" title={t("admin.capacity_unavailable")}/> : null}
-    </SettingsSection>
+    </SettingsSection>}
 
     <SettingsSection title={t("admin.accounts.title")} hint={accounts ? formatNumber(accounts.length) : undefined}>
       <div className="admin-list-actions"><button type="button" className="primary-button" onClick={() => setAdding(true)} disabled={busy}><TofiIcon name="user-add" size={16} aria-hidden="true"/>{t("admin.add")}</button></div>
@@ -118,7 +120,7 @@ export function AdminAccounts() {
               <span className="admin-row-email">{account.email.endsWith("@account.invalid") ? t("admin.no_email") : account.email}</span>
             </span>
             <AccountBadges account={account}/>
-            <span className="admin-row-computer">{computer}</span>
+            {hasComputer && <span className="admin-row-computer">{computer}</span>}
             <TofiIcon name="chevron-right" size={18} aria-hidden="true"/>
           </button>;
         })}

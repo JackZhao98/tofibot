@@ -83,7 +83,7 @@ func TestScheduledFinalReviewLeavesOtherRunKindsUnchanged(t *testing.T) {
 func TestScheduledBrowserFallbackStartsStoppedDesktopBeforeSearching(t *testing.T) {
 	s, bot, conversation := scheduleTestStore(t)
 	defer s.Close()
-	server := &Server{store: s}
+	server := &Server{store: s, microVM: unreachableComputerClient(t)}
 	for _, run := range []Run{
 		{BotID: bot.ID, Kind: runKindSchedule},
 		{BotID: bot.ID, Kind: runKindMessage, scheduleTask: &Message{Content: "synthetic scheduled assignment"}},
@@ -99,5 +99,14 @@ func TestScheduledBrowserFallbackStartsStoppedDesktopBeforeSearching(t *testing.
 				t.Fatalf("scheduled kind=%q missing browser fallback guidance %q", run.Kind, required)
 			}
 		}
+	}
+}
+
+func TestScheduledRunWithoutComputerGetsNoBrowserFallback(t *testing.T) {
+	s, bot, conversation := scheduleTestStore(t)
+	defer s.Close()
+	_, system := (&Server{store: s}).buildContextParts(conversation, Run{BotID: bot.ID, Kind: runKindSchedule}, bot)
+	if strings.Contains(system, "computer_browser") || !strings.Contains(system, "report that concrete blocker instead of claiming") {
+		t.Fatal("no-computer scheduled prompt is wrong")
 	}
 }

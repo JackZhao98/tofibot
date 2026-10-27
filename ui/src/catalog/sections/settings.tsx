@@ -10,6 +10,7 @@ import { ServiceMark } from "../../ServiceMark";
 import { ConnectDialog, type DialogRequest } from "../../connections/ConnectDialog";
 import { ConnectionRowView, type RowMenuItem, type RowPrimary } from "../../connections/RowView";
 import { RepoLink } from "../../connections/repoStars";
+import { ComputerOptions } from "../../ComputerOptions";
 import { PasteBackView } from "../../connections/PasteBackDialog";
 import type { ConnectionKind } from "../../connections/status";
 import type { GoogleOverview } from "../../connections/google";
@@ -95,6 +96,7 @@ function Choice({ disabled = false }: { disabled?: boolean }) {
 export const settings: CatalogSection = {
   id: "settings", number: "17", title: "Settings rows and components", context: ["settings-page-body"],
   states: [
+    { id: "computer-none", kind: "inline", label: "Computer page on a server with no computer", note: "what works without one, and the ways to add a computer", render: () => <ComputerOptions /> },
     libraryState("library", "Skills library: owner, Bot-installed, bundle, official", {}),
     libraryState("library-open", "Skills library: bundle expanded", () => ({ openBundles: ["office-kit"], notice: t("extensions:skills.library.added_notice") })),
     libraryState("library-pending", "Skills library: choose Bots for a new Skill", { pending: "Weekly report" }),

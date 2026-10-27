@@ -227,7 +227,9 @@
     "title_group": "グループを削除しますか？",
     "impact_given_other": "Botが出した未完了のタスク{{count}}件も一緒にキャンセルされます。",
     "impact_held_other": "Botが担当中の未完了タスク{{count}}件がキャンセルされます。",
-    "impact_waits_other": "Botの待機{{count}}件が終了します。"
+    "impact_waits_other": "Botの待機{{count}}件が終了します。",
+    "note_bot_no_computer": "グループでの過去のメッセージは残ります。アプリ内では元に戻せません。",
+    "note_group_no_computer": "アプリ内では元に戻せません。"
   },
   "delivery": {
     "queued": "待機中、次のステップで読み取り",

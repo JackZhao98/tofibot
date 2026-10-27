@@ -43,6 +43,7 @@ import { useConversationScroll } from "./useConversationScroll";
 import { conversationPath, readConversationRoute, readSideParam, withSideParam } from "./conversationRoute";
 import { useConversationNavigation } from "./useConversationNavigation";
 import { useDesktopPresence } from "./desktopPresence";
+import { setComputerCapability, useHasComputer } from "./computerCapability";
 import type { DeleteTarget } from "./DeleteConversationDialog";
 import { PrimaryBadge, otherActiveBots } from "./PrimaryAssistant";
 import type { ViewOnlyChatTarget } from "./ViewOnlyChat";
@@ -863,6 +864,7 @@ function Workspace() {
   const applyConfig = useCallback((nextConfig: Config) => {
     const previous = configRef.current;
     configRef.current = nextConfig;
+    setComputerCapability(nextConfig.computer);
     setConfig((current) => sameData(current, nextConfig) ? current : nextConfig);
     if (previous && (previous.model_configured !== nextConfig.model_configured || previous.default_model !== nextConfig.default_model || previous.provider !== nextConfig.provider)) {
       setCodexStatusRefresh((current) => current + 1);
@@ -1242,7 +1244,10 @@ function Workspace() {
     if (columnMode && opener?.isConnected) requestAnimationFrame(() => { if (!document.activeElement || document.activeElement === document.body || document.querySelector(".detail-pane")?.contains(document.activeElement)) opener.focus({ preventScroll: true }); });
   }, [anyOpen, columnMode]);
   useEffect(() => { setHeaderMenuOpen(false); }, [activeId]);
+  // A server with no computer backend has nothing to poll: no /info request, no status bar, no presence poll.
+  const noComputer = config?.computer?.backend === "none";
   useEffect(() => {
+    if (noComputer) { setComputerInfo(null); return; }
     let alive = true;
     let timer = 0;
     // Steady states (no computer, ready, hibernated) change rarely, so they re-check slowly; transitions poll fast.
@@ -1258,7 +1263,7 @@ function Workspace() {
     document.addEventListener("visibilitychange", onVisible);
     void refreshComputer();
     return () => { alive = false; window.clearTimeout(timer); document.removeEventListener("visibilitychange", onVisible); };
-  }, []);
+  }, [noComputer]);
   useEffect(() => {
     const refresh = () => {
       if (workspaceRequestBusy()) return;
@@ -1275,7 +1280,8 @@ function Workspace() {
   const botById = useMemo(() => new Map(bots.map((bot) => [bot.id, bot])), [bots]);
   const botByConversationId = useMemo(() => new Map(bots.map((bot) => [bot.dm_conversation_id, bot])), [bots]);
   const activeBot = active?.bot_id ? botById.get(active.bot_id) : undefined;
-  const desktopBot = activeBot ?? (active?.kind === "group" ? botById.get(active.bot_ids[0]) : undefined);
+  // No computer backend: no desktop Bot, so the header button, the Computer widget, its auto-open and the Terminal panel all stay away.
+  const desktopBot = noComputer ? undefined : activeBot ?? (active?.kind === "group" ? botById.get(active.bot_ids[0]) : undefined);
   const computerShown = surfaces.widgets.includes("computer");
   const computerFolded = surfaces.folded.includes("computer");
   const desktopOpen = Boolean(desktopBot && computerShown);
@@ -1301,7 +1307,7 @@ function Workspace() {
     if (sidebarId !== "terminal") setTerminalBotId(null);
   }, [sidebarId]);
   // Ownership is only worth a 1 s poll while a computer is ready or the desktop panel is open.
-  const desktopPresence = useDesktopPresence(Boolean(activeId) && (computerShown || (computerInfo ? computerInfo.state === "ready" : desktopReady)));
+  const desktopPresence = useDesktopPresence(Boolean(activeId) && !noComputer && (computerShown || (computerInfo ? computerInfo.state === "ready" : desktopReady)));
   const currentDesktopOwner = desktopPresence.ownership?.owner;
     const activeDesktopOwner = !desktopPresence.unavailable && currentDesktopOwner?.kind === "bot" && currentDesktopOwner.conversation_id === active?.id ? currentDesktopOwner : null;
   const computerOn = computerInfo ? computerInfo.state === "ready" : desktopReady;
@@ -2765,6 +2771,7 @@ const SNAPSHOT_CACHE_MESSAGES = 60;
 interface ConversationSnapshot { messages: Message[]; drafts: Record<string, StreamDraft>; runs: Run[]; toolActivities: ToolActivity[]; toolSummaries: ToolActivityRunSummary[]; memories: Memory[]; hasMore: boolean }
 
 export function MessageBubble({ receipt, message, replyTarget, replyTargetName, sender, senderName, targetBot, run, tools, scheduleOccurrence, schedulePending, schedule, onRetrySchedule, onDraftReply, draft, relatedChat, onOpenRelatedChat, compact = false, showAvatar = true, showIdentity = true, noticeTargetAvailable = true, allowOpenDM = false, onNavigate, onMention }: { receipt?: React.ReactNode; relatedChat?: ViewOnlyChatTarget | null; onOpenRelatedChat?: (target: ViewOnlyChatTarget) => void; noticeTargetAvailable?: boolean; allowOpenDM?: boolean; onMention?: (bot: Bot) => void; message: Message; replyTarget?: Message; replyTargetName?: string; sender?: Bot; senderName?: string; targetBot?: Bot; run?: Run; tools?: React.ReactNode; scheduleOccurrence?: ScheduleOccurrence; schedulePending?: boolean; schedule?: Schedule; onRetrySchedule?: (id: string) => Promise<void>; onDraftReply?: () => Promise<boolean>; draft?: string | StreamDraft; compact?: boolean; showAvatar?: boolean; showIdentity?: boolean; onNavigate?: (id: string) => void }) {
+  const hasComputer = useHasComputer();
   const { t } = useTranslation("chat");
   const {timezone} = useUserTimezone();
   const toolsRunning = run?.status === "running" || run?.status === "queued";
@@ -2809,7 +2816,7 @@ export function MessageBubble({ receipt, message, replyTarget, replyTargetName, 
     const label = notice.reason === "interrupted" ? t("message.command_exit_interrupted")
       : notice.reason === "closed" ? t("message.command_exit_closed")
       : notice.exit_code !== undefined ? t("message.command_exit", { code: notice.exit_code }) : t("message.command_exit_unknown");
-    return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div><span>{label}</span> <button onClick={() => window.dispatchEvent(new CustomEvent("tofi:open-terminal", { detail: { botId: notice.from_bot_id } }))}>{t("message.open_terminal")}</button></div></article>;
+    return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div><span>{label}</span> {hasComputer && <button onClick={() => window.dispatchEvent(new CustomEvent("tofi:open-terminal", { detail: { botId: notice.from_bot_id } }))}>{t("message.open_terminal")}</button>}</div></article>;
   }
   const assignment = message.kind === "notice" && message.sender_bot_id !== "system" && message.notice &&
     (message.notice.type === "handoff" || message.notice.type === "forward") &&

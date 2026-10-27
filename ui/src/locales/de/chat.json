@@ -231,7 +231,9 @@
     "impact_held_one": "{{count}} offene Aufgabe, die er bearbeitet, wird abgebrochen.",
     "impact_held_other": "{{count}} offene Aufgaben, die er bearbeitet, werden abgebrochen.",
     "impact_waits_one": "{{count}} Wartebedingung von ihm wird beendet.",
-    "impact_waits_other": "{{count}} Wartebedingungen von ihm werden beendet."
+    "impact_waits_other": "{{count}} Wartebedingungen von ihm werden beendet.",
+    "note_bot_no_computer": "Frühere Nachrichten in Gruppen bleiben erhalten. Das lässt sich in der App nicht rückgängig machen.",
+    "note_group_no_computer": "Das lässt sich in der App nicht rückgängig machen."
   },
   "delivery": {
     "queued": "In Warteschlange, wird beim nächsten Schritt gelesen",

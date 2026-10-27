@@ -59,7 +59,8 @@
       },
       "computer": {
         "name": "Ordinateur",
-        "description": "Ordinateur Linux partagé, stockage et ressources d’exécution"
+        "description": "Ordinateur Linux partagé, stockage et ressources d’exécution",
+        "description_none": "Façons d'ajouter un ordinateur à ce serveur"
       },
       "keys": {
         "name": "Clés et secrets",
@@ -107,7 +108,8 @@
         "ready": "En marche",
         "starting": "Démarrage",
         "stopped": "Arrêté",
-        "waiting": "En attente"
+        "waiting": "En attente",
+        "none": "Aucun"
       }
     }
   },
@@ -511,7 +513,8 @@
       "forbidden": "Seul un Admin peut faire cela.",
       "export_in_use": "Cet export est encore lié à un compte dont la suppression n’est pas terminée.",
       "passphrase_unavailable": "La phrase secrète n’est pas disponible."
-    }
+    },
+    "intro_no_computer": "Crée des comptes, choisis qui est Admin et gère leur connexion. Les membres changent leur mot de passe initial à la première connexion."
   },
   "connection": {
     "label": "Connexion actuelle au serveur",
@@ -581,7 +584,9 @@
     "note": "La VM conserve d’abord automatiquement un checkpoint restaurable. Le premier compte créé ensuite devient admin.",
     "confirm_label": "Saisissez PURGE pour confirmer",
     "purging": "Suppression…",
-    "submit": "Supprimer toutes les données"
+    "submit": "Supprimer toutes les données",
+    "description_no_computer": "Supprime tous les Bots, conversations, tâches, pièces jointes et appareils associés. L'installation du serveur, la connexion Codex et les autres réglages du service sont conservés.",
+    "note_no_computer": "Le premier nouveau compte devient admin."
   },
   "portability": {
     "title": "Transfert de données",

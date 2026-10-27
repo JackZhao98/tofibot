@@ -4,6 +4,7 @@ import { DialogShell } from "./DialogShell";
 import { BotAvatar } from "./BotAvatar";
 import { TofiIcon } from "./icons";
 import { useTranslation } from "./i18n";
+import { useHasComputer } from "./computerCapability";
 import { PrimarySuccessorSelect } from "./PrimaryAssistant";
 import type { Bot, TaskImpact } from "./types";
 
@@ -12,6 +13,7 @@ export type DeleteTarget = { id: string; conversationId: string; name: string; k
 
 export function DeleteConversationDialog({ target, bots = [], onDelete, onClose, returnFocus }: { target: DeleteTarget; /** Every Bot; the successor choices are the other active ones. */ bots?: Bot[]; onDelete: (target: DeleteTarget, successorId?: string) => Promise<void>; onClose: () => void; returnFocus?: HTMLElement | null }) {
   const { t } = useTranslation("chat");
+  const hasComputer = useHasComputer();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [successor, setSuccessor] = useState("");
@@ -45,7 +47,7 @@ export function DeleteConversationDialog({ target, bots = [], onDelete, onClose,
     <div className="delete-dialog-identity">{target.kind === "bot" ? <BotAvatar id={target.id} mini /> : <TofiIcon name="group" size={26} />}<span>{target.name}</span></div>
     <h2 id={headingId}>{target.kind === "bot" ? t("deleteDialog.title_bot") : t("deleteDialog.title_group")}</h2>
     <p id={descriptionId}>{target.kind === "bot" ? t("deleteDialog.body_bot") : t("deleteDialog.body_group")}</p>
-    <p className="delete-dialog-note">{target.kind === "bot" ? t("deleteDialog.note_bot") : t("deleteDialog.note_group")}</p>
+    <p className="delete-dialog-note">{target.kind === "bot" ? t(hasComputer ? "deleteDialog.note_bot" : "deleteDialog.note_bot_no_computer") : t(hasComputer ? "deleteDialog.note_group" : "deleteDialog.note_group_no_computer")}</p>
     {impact && impact.given_tasks + impact.held_tasks + impact.open_waits > 0 && <div className="delete-dialog-note" role="status">
       {impact.given_tasks > 0 && <p>{t("deleteDialog.impact_given", { count: impact.given_tasks })}</p>}
       {impact.held_tasks > 0 && <p>{t("deleteDialog.impact_held", { count: impact.held_tasks })}</p>}

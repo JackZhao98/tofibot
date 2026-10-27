@@ -227,7 +227,9 @@
     "title_group": "그룹을 삭제할까요?",
     "impact_given_other": "이 Bot이 맡긴 진행 중인 작업 {{count}}개도 함께 취소됩니다.",
     "impact_held_other": "이 Bot이 맡고 있는 진행 중인 작업 {{count}}개가 취소됩니다.",
-    "impact_waits_other": "이 Bot의 대기 {{count}}건이 종료됩니다."
+    "impact_waits_other": "이 Bot의 대기 {{count}}건이 종료됩니다.",
+    "note_bot_no_computer": "그룹에 남긴 지난 메시지는 그대로 남아요. 앱에서는 되돌릴 수 없어요.",
+    "note_group_no_computer": "앱에서는 되돌릴 수 없어요."
   },
   "delivery": {
     "queued": "대기 중, 다음 단계에서 읽음",
