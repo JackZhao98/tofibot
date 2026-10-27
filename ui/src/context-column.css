@@ -43,9 +43,6 @@
 .context-card.is-bare .detail-content { padding:0; }
 /* The computer's screen sits in the card body instead of floating over the chat. */
 .workspace .context-card .desktop-floating-shell.is-docked:not(.is-expanded) { position:relative; inset:auto; z-index:auto; width:auto; padding:0 0 4px; pointer-events:auto; }
-.workspace .context-card .desktop-floating-shell.is-docked.is-small .desktop-presence-canvas>.computer-detail { margin-bottom:30px; }
-/* The card header already closes the computer; the screen's own hide control would be a second close. */
-.workspace .context-card .desktop-floating-shell.is-docked:not(.is-expanded) .computer-hide-button { display:none; }
 /* While the screen is a full-window dialog, the card header behind it is out of reach (and out of the accessibility tree). */
 .context-card:has(.desktop-floating-shell.is-expanded)>.context-card-header { visibility:hidden; }
 

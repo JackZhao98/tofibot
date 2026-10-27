@@ -96,10 +96,11 @@ try {
     await page.waitForTimeout(5000);
     assert.equal(await page.locator(".computer-detail.is-folded").count(), 0, "not folded 5 s after the Bot let go");
     assert.deepEqual(await cards(page), ["computer"]);
-    // Manual fold and unfold: the video element is the same node throughout.
+    // The small screen has no fold button, no capsule, no chin controls and no shadow; the fold is the 30 s one (the video element is the same node throughout).
+    for (const gone of [".desktop-control-fold", ".desktop-frame-status", ".desktop-power", ".desktop-driver-switch", ".desktop-drop"]) assert.equal(await page.locator(`[data-card="computer"] ${gone}`).count(), 0, `the small computer has no ${gone}`);
+    assert.equal(await page.locator(".computer-detail").evaluate(node => getComputedStyle(node).boxShadow.replace(/rgba?\([^)]*\) 0px 0px 0px 1px/, "none")), "none", "no shadow under the small computer");
     await page.evaluate(() => { window.__screen = document.querySelector(".computer-screen-wrap"); });
-    await page.locator(".computer-detail").hover();
-    await page.locator(".desktop-control-fold").click();
+    await poll(page, () => document.querySelector(".computer-detail.is-folded"), null, 40000);
     await page.waitForTimeout(500);
     assert.equal(await page.locator(".computer-detail.is-folded").count(), 1);
     const strip = await page.locator(".computer-detail").boundingBox();
@@ -108,7 +109,7 @@ try {
     const thumb = await page.locator(".computer-screen-wrap").boundingBox();
     assert.ok(thumb.width <= 80 && thumb.height <= 44 && thumb.x < strip.x + strip.width / 3, "a small live thumbnail sits on the left");
     assert.ok(await page.locator(".desktop-chin-text").isVisible(), "the status text is visible in the strip");
-    assert.ok(await page.locator(".desktop-driver-switch").isVisible(), "the Bot / You switch is on the right");
+    assert.equal(await page.locator(".desktop-driver-switch").count(), 0, "the Bot / You switch lives in the big window only");
     if (shots) await page.screenshot({ path: `${shots}/computer-folded-1440.png` });
     await page.locator(".desktop-strip-open").click();
     await page.waitForTimeout(500);
@@ -124,7 +125,7 @@ try {
     await poll(page, () => !document.querySelector(".computer-detail.is-folded"), null, 6000);
     // Closing in a run suppresses the same run, not the next.
     await page.locator(".computer-detail").hover();
-    await page.locator(".desktop-power").click();
+    await page.locator(".computer-hide-button").click();
     await poll(page, () => !document.querySelector('[data-card="computer"]'));
     await page.waitForTimeout(2500);
     assert.deepEqual(await cards(page), [], "closed by hand, it does not reopen for the same run");

@@ -30,11 +30,6 @@
       "other": "电脑{{state}}"
     },
     "other_bot": "其他 Bot",
-    "frame": {
-      "paused": "画面已暂停 · 非实时",
-      "live": "实时画面",
-      "snapshot": "截图查看 · 刚刚更新"
-    },
     "announce": {
       "connecting": "正在连接桌面",
       "disconnected": "已断开桌面查看",
@@ -46,6 +41,7 @@
     "expand_aria": "放大共享电脑",
     "shrink": "缩小",
     "expand": "放大",
+    "enlarge_hint": "点击放大",
     "hide_aria": "隐藏共享电脑",
     "minimize": "最小化",
     "close": "关闭",
@@ -89,7 +85,6 @@
     "video_aria": "Bot 当前桌面实时视频",
     "pointer_click": "{{name}} · 点击",
     "placeholder": {
-      "elapsed": "{{status}} · {{seconds}} 秒",
       "waking": "正在唤醒电脑",
       "connecting": "正在连接屏幕",
       "resuming": "正在从休眠中恢复",

@@ -58,6 +58,9 @@
 @media(min-width:768px) and (max-width:1099px){
   .workspace .workspace-grid{grid-template-columns:var(--sidebar-width) minmax(0,1fr)}
   .workspace .detail-pane.context-panel{width:min(400px,calc(100vw - 48px))}
+  /* The drawer floats like the wide sidebar: a 12px gap on every side, rounded, --surface, soft elevation, no outline. */
+  html:not([data-desktop]) .workspace .detail-pane.context-panel:not(:has(.computer-detail.is-expanded)){inset:var(--panel-gap,12px) var(--panel-gap,12px) var(--panel-gap,12px) auto;height:auto;max-height:calc(var(--viewport-height,100dvh) - 2 * var(--panel-gap,12px));border:0;border-radius:var(--panel-radius,16px);background:var(--surface);box-shadow:var(--panel-float-elevation)}
+  html:not([data-desktop]) .workspace .detail-pane.context-panel:not(.visible){transform:translateX(calc(100% + var(--panel-gap,12px) + 24px))}
 }
 /* Container width, rather than window width, also covers desktop context panels. */
 .workspace .chat-pane{container-type:inline-size}

@@ -104,7 +104,7 @@ export const computer: CatalogSection = {
   states: [
     { id: "small", kind: "app", label: "Small window", app: DM, widths: ["desktop"], probe: ".desktop-floating-shell", drive: openComputer },
     { id: "expanded", kind: "app", label: "Big window", note: "Escape steps back to the small window", app: DM, widths: ["desktop"], probe: ".desktop-floating-shell.is-expanded", keyboard: { close: "Escape" },
-      drive: async step => { await openComputer(step); await step.click(".desktop-control-expand"); await step.wait(500); } },
+      drive: async step => { await openComputer(step); await step.click(".desktop-enlarge"); await step.wait(500); } },
     { id: "sheet", kind: "app", label: "Full-screen sheet (phone)", app: DM, widths: ["phone"], probe: ".desktop-floating-shell", keyboard: { close: "Escape" }, drive: openComputer },
     { id: "starting", kind: "app", label: "Starting", app: { ...DM, computer: "starting" }, widths: ["desktop"], probe: ".desktop-floating-shell", drive: openComputer },
     { id: "waking", kind: "app", label: "Waking the computer (hibernated)", note: "opening the window wakes it; no \"Paused\" caption", app: { ...DM, computer: "hibernated" }, widths: ["desktop"], probe: ".desktop-floating-shell", drive: openComputer },
