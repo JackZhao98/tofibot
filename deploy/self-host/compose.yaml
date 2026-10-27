@@ -9,15 +9,19 @@ x-bind: &bind
     propagation: rprivate
 
 services:
+  # The computer. Only started when tofi.env says TOFI_COMPUTER_BACKEND=kvm (the
+  # host tool then adds --profile computer-kvm); a server without one never
+  # pulls, creates or starts it. Its variables may be empty for that reason.
   worker:
-    image: ${TOFI_WORKER_IMAGE:?set in /etc/tofi/tofi.env}
+    profiles: [computer-kvm]
+    image: ${TOFI_WORKER_IMAGE:-}
     pull_policy: never
     user: "0:0"
     restart: unless-stopped
     read_only: true
     cgroup: private
-    cpus: ${TOFI_CPU_BUDGET:?set in /etc/tofi/tofi.env}
-    mem_limit: ${TOFI_WORKER_MEMORY_LIMIT:?set in /etc/tofi/tofi.env}
+    cpus: ${TOFI_CPU_BUDGET:-1}
+    mem_limit: ${TOFI_WORKER_MEMORY_LIMIT:-1g}
     pids_limit: 512
     stop_grace_period: 180s
     cap_drop: [ALL]
@@ -48,8 +52,8 @@ services:
         target: /etc/tofi-worker/config.json
         read_only: true
       - <<: *bind
-        source: /var/lib/tofi/guest/${TOFI_GUEST_VERSION:?set in /etc/tofi/tofi.env}
-        target: /var/lib/tofi/guest/${TOFI_GUEST_VERSION:?set in /etc/tofi/tofi.env}
+        source: /var/lib/tofi/guest/${TOFI_GUEST_VERSION:-}
+        target: /var/lib/tofi/guest/${TOFI_GUEST_VERSION:-}
         read_only: true
 
   app:
@@ -89,9 +93,14 @@ services:
       TOFI_AUTO_UPDATE: ${TOFI_AUTO_UPDATE:-off}
       TOFI_MULTI_ACCOUNT: "1"
       TOFI_ACCOUNT_MAINTENANCE: "0"
-      TOFI_ACCOUNT_PROVISIONER_SOCKET: /run/tofi/broker.sock
-      TOFI_ACCOUNT_COMPUTER_SOCKET_ROOT: /run/tofi/accounts
-      TOFI_ACCOUNT_COMPUTER_DISK_GIB: "8"
+      # kvm | none. Empty (an env file from before computers were optional) lets the App decide
+      # from the socket paths below.
+      TOFI_COMPUTER_BACKEND: ${TOFI_COMPUTER_BACKEND:-}
+      # Set to the Worker's sockets by `tofi install` / `tofi computer add kvm`, empty without a
+      # computer. Unset (older env files) keeps the paths every earlier release used.
+      TOFI_ACCOUNT_PROVISIONER_SOCKET: ${TOFI_ACCOUNT_PROVISIONER_SOCKET-/run/tofi/broker.sock}
+      TOFI_ACCOUNT_COMPUTER_SOCKET_ROOT: ${TOFI_ACCOUNT_COMPUTER_SOCKET_ROOT-/run/tofi/accounts}
+      TOFI_ACCOUNT_COMPUTER_DISK_GIB: ${TOFI_ACCOUNT_COMPUTER_DISK_GIB-8}
       TOFI_ACCOUNT_DB_MAX_BYTES: "1073741824"
     # Direct mode publishes HTTPS on TOFI_BIND (0.0.0.0 by default, 127.0.0.1
     # with --local-only). With --domain the installer sets TOFI_BIND=127.0.0.1,

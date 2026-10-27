@@ -95,6 +95,12 @@ COMPUTER_MEMORY_MAX_MIB = 4096
 COMPUTER_OVERHEAD_MIB = 512
 MIN_DISK_BYTES = 30 * GIB
 WARN_DISK_BYTES = 40 * GIB
+# A server without a computer (TOFI_COMPUTER_BACKEND=none) needs far less: no
+# Worker, no Guest, no account disks.
+MIN_MEMORY_NONE_MIB = 1792
+WARN_MEMORY_NONE_MIB = 3584
+MIN_DISK_NONE_BYTES = 10 * GIB
+WARN_DISK_NONE_BYTES = 20 * GIB
 # The first account needs an 8 GiB workspace disk plus 8 GiB internal reserve.
 FIRST_ACCOUNT_BYTES = 16 * GIB
 DEFAULT_PORT = 8321
@@ -105,8 +111,12 @@ CERT_RENEW_SECONDS = 30 * 86400
 # Interfaces whose addresses are never how a person reaches this server.
 VIRTUAL_INTERFACE_PREFIXES = ('lo', 'docker', 'br-', 'veth', 'virbr', 'tap', 'fc', 'tun', 'cni', 'flannel')
 
-REQUIRED_TOOLS = ['docker', 'apparmor_parser', 'systemd-tmpfiles', 'systemctl',
-                  'debugfs', 'e2fsck', 'tar', 'zstd', 'openssl']
+REQUIRED_TOOLS = ['docker', 'systemd-tmpfiles', 'systemctl', 'tar', 'openssl']
+# Only the computer (Worker + Guest) needs these.
+COMPUTER_TOOLS = ['apparmor_parser', 'debugfs', 'e2fsck', 'zstd']
+COMPUTER_APT_PACKAGES = ['zstd', 'e2fsprogs', 'apparmor', 'apparmor-utils']
+# compose.yaml starts the Worker only under this profile.
+COMPUTER_PROFILE = 'computer-kvm'
 
 PHASES = {'prepared', 'installing', 'install-failed', 'installed',
           'upgrading', 'upgrade-failed', 'rolling-back', 'rollback-failed',
@@ -120,15 +130,18 @@ ENV_KEYS = ['TOFI_VERSION', 'TOFI_DOMAIN', 'TOFI_EMAIL', 'TOFI_HTTP_PORT', 'TOFI
             'TOFI_CADDY_IMAGE', 'TOFI_GUEST_VERSION', 'TOFI_CPU_BUDGET',
             'TOFI_MEMORY_BUDGET_MIB', 'TOFI_WORKER_MEMORY_LIMIT', 'TOFI_TLS_CERT_FILE',
             'TOFI_TLS_KEY_FILE', 'TOFI_OWNER_ALLOW_LAN_HTTP', 'TOFI_COMPUTER_BACKEND',
-            'TOFI_TRUSTED_PROXIES', 'TOFI_AUTO_UPDATE']
+            'TOFI_TRUSTED_PROXIES', 'TOFI_AUTO_UPDATE', 'TOFI_ACCOUNT_PROVISIONER_SOCKET',
+            'TOFI_ACCOUNT_COMPUTER_SOCKET_ROOT', 'TOFI_ACCOUNT_COMPUTER_DISK_GIB']
 # Reverse proxies whose X-Forwarded-For the App believes when it keys sign-in
 # rate limits. With --domain the only peer is the Caddy container, whose address
 # is somewhere in Docker's default bridge pools (the App port is bound to
 # loopback, so nothing else can reach it). Direct installs trust nobody.
 LOCAL_PROXY_CIDRS = '172.16.0.0/12,192.168.0.0/16'
-# How account computers run. Only KVM (Firecracker) exists today; the value is
-# recorded so later releases can add backends without guessing.
-COMPUTER_BACKENDS = {'kvm': None, 'gvisor': 'not supported yet (coming in a later release)',
+# How account computers run. `none` is a server and web app without any
+# computer (the Worker never starts); KVM (Firecracker) is the only computer
+# there is today. The value is recorded so later releases can add backends
+# without guessing.
+COMPUTER_BACKENDS = {'none': None, 'kvm': None, 'gvisor': 'not supported yet (coming in a later release)',
                      'container': 'not supported yet (coming in a later release)'}
 
 
@@ -837,46 +850,42 @@ def regenerate_certificate():
         return {'regenerated': True, 'fingerprint': fingerprint}
 
 
-def preflight(options):
-    """Refuse an unsupported host before anything is written; return warnings."""
-    warnings = []
-    if host_arch() is None:
-        raise HostError('TOFI needs Linux x86_64 or aarch64; this host is %s %s.'
-                        % (platform.system(), platform.machine()))
-    require_root()
+def backend_of(env):
+    """The computer backend recorded in tofi.env: kvm or none. A missing value
+    is kvm, the only mode installs had before computers became optional."""
+    return (env.get('TOFI_COMPUTER_BACKEND') or 'kvm')
+
+
+def has_computer(env):
+    return backend_of(env) == 'kvm'
+
+
+def computer_host_problems():
+    """Why this kernel cannot run KVM computers (empty: it can), most basic first."""
+    problems = []
     if not P.dev_kvm.exists() or not stat.S_ISCHR(P.dev_kvm.stat().st_mode):
-        raise HostError('KVM is not available (/dev/kvm). Use bare metal or a VM with nested virtualization enabled.')
+        problems.append('KVM is not available (/dev/kvm). Use bare metal or a VM with nested virtualization enabled.')
     if not P.dev_tun.exists() or not stat.S_ISCHR(P.dev_tun.stat().st_mode):
-        raise HostError('The TUN device /dev/net/tun is missing; load the tun kernel module (modprobe tun).')
+        problems.append('The TUN device /dev/net/tun is missing; load the tun kernel module (modprobe tun).')
     if not P.cgroup_controllers.exists():
-        raise HostError('cgroup v2 is required; boot with systemd.unified_cgroup_hierarchy=1.')
+        problems.append('cgroup v2 is required; boot with systemd.unified_cgroup_hierarchy=1.')
     try:
         apparmor = P.apparmor_enabled.read_text().strip()
     except OSError:
         apparmor = 'missing'
     if apparmor != 'Y':
-        raise HostError('AppArmor must be enabled in the kernel (found %s); enable it and reboot.' % apparmor)
-    missing = [tool for tool in REQUIRED_TOOLS if not shutil.which(tool)]
-    if missing:
-        raise HostError('Missing host tools: %s. Re-run install.sh, which installs them.' % ', '.join(missing))
-    try:
-        info = json.loads(run(['docker', 'info', '--format', '{{json .}}']).stdout)
-    except (subprocess.SubprocessError, ValueError) as error:
-        raise HostError('Docker is not running; start it with `systemctl start docker`.') from error
-    if str(info.get('CgroupVersion')) != '2':
-        raise HostError('Docker must use cgroup v2 (found %s).' % info.get('CgroupVersion'))
-    if not any('apparmor' in item for item in info.get('SecurityOptions') or []):
-        raise HostError('Docker must run with AppArmor enabled (security options: %s).' % info.get('SecurityOptions'))
-    try:
-        run(['docker', 'compose', 'version'])
-    except subprocess.SubprocessError as error:
-        raise HostError('Docker Compose v2 is missing; install docker-compose-plugin.') from error
-    cpus = os.cpu_count() or 0
-    if cpus < MIN_CPUS:
-        raise HostError('TOFI needs at least %d vCPUs; this host has %d.' % (MIN_CPUS, cpus))
-    memory = meminfo_mib()['MemTotal']
-    if memory < MIN_MEMORY_MIB:
-        raise HostError('TOFI needs at least 4 GiB of RAM; this host has %d MiB.' % memory)
+        problems.append('AppArmor must be enabled in the kernel (found %s); enable it and reboot.' % apparmor)
+    return problems
+
+
+def default_computer():
+    """kvm when this host can run computers, otherwise none."""
+    return 'none' if computer_host_problems() else 'kvm'
+
+
+def computer_memory_warnings(memory):
+    """Advisories about running computers on a host with `memory` MiB of RAM."""
+    warnings = []
     if memory < WARN_MEMORY_MIB:
         warnings.append('This host has %d MiB of RAM; 8 GiB or more is recommended.' % memory)
     if memory <= SMALL_HOST_MEMORY_MIB:
@@ -886,11 +895,63 @@ def preflight(options):
     swap_warning, _ = memory_report()
     if swap_warning:
         warnings.append(swap_warning)
+    return warnings
+
+
+def preflight(options):
+    """Refuse an unsupported host before anything is written; return warnings.
+
+    The KVM, TUN, cgroup v2 and AppArmor checks, the computer tools and the
+    computer-sized memory and disk minimums apply only to a `kvm` install; a
+    `none` install needs just Docker and a small machine."""
+    warnings = []
+    computer = options.get('computer') or 'kvm'
+    kvm = computer == 'kvm'
+    if host_arch() is None:
+        raise HostError('TOFI needs Linux x86_64 or aarch64; this host is %s %s.'
+                        % (platform.system(), platform.machine()))
+    require_root()
+    if kvm:
+        problems = computer_host_problems()
+        if problems:
+            raise HostError(problems[0])
+    tools = REQUIRED_TOOLS + (COMPUTER_TOOLS if kvm else [])
+    missing = [tool for tool in tools if not shutil.which(tool)]
+    if missing:
+        raise HostError('Missing host tools: %s. Re-run install.sh, which installs them.' % ', '.join(missing))
+    try:
+        info = json.loads(run(['docker', 'info', '--format', '{{json .}}']).stdout)
+    except (subprocess.SubprocessError, ValueError) as error:
+        raise HostError('Docker is not running; start it with `systemctl start docker`.') from error
+    if kvm:
+        if str(info.get('CgroupVersion')) != '2':
+            raise HostError('Docker must use cgroup v2 (found %s).' % info.get('CgroupVersion'))
+        if not any('apparmor' in item for item in info.get('SecurityOptions') or []):
+            raise HostError('Docker must run with AppArmor enabled (security options: %s).' % info.get('SecurityOptions'))
+    try:
+        run(['docker', 'compose', 'version'])
+    except subprocess.SubprocessError as error:
+        raise HostError('Docker Compose v2 is missing; install docker-compose-plugin.') from error
+    cpus = os.cpu_count() or 0
+    min_cpus = MIN_CPUS if kvm else 1
+    if cpus < min_cpus:
+        raise HostError('TOFI needs at least %d vCPUs; this host has %d.' % (min_cpus, cpus))
+    memory = meminfo_mib()['MemTotal']
+    if kvm:
+        if memory < MIN_MEMORY_MIB:
+            raise HostError('TOFI needs at least 4 GiB of RAM; this host has %d MiB.' % memory)
+        warnings += computer_memory_warnings(memory)
+    else:
+        if memory < MIN_MEMORY_NONE_MIB:
+            raise HostError('TOFI needs at least 2 GiB of RAM; this host has %d MiB.' % memory)
+        if memory < WARN_MEMORY_NONE_MIB:
+            warnings.append('This host has %d MiB of RAM; 4 GiB or more is recommended.' % memory)
     free = free_disk_bytes()
-    if free < MIN_DISK_BYTES:
-        raise HostError('TOFI needs at least 30 GiB free under /var/lib; %.1f GiB is free.' % (free / GIB))
-    if free < WARN_DISK_BYTES:
-        warnings.append('Only %.1f GiB is free under /var/lib; 40 GiB or more is recommended.' % (free / GIB))
+    min_disk, warn_disk = (MIN_DISK_BYTES, WARN_DISK_BYTES) if kvm else (MIN_DISK_NONE_BYTES, WARN_DISK_NONE_BYTES)
+    if free < min_disk:
+        raise HostError('TOFI needs at least %d GiB free under /var/lib; %.1f GiB is free.' % (min_disk // GIB, free / GIB))
+    if free < warn_disk:
+        warnings.append('Only %.1f GiB is free under /var/lib; %d GiB or more is recommended.' % (free / GIB, warn_disk // GIB))
     if not own_project_running():
         bind = options['bind']
         port = options['port']
@@ -906,7 +967,7 @@ def preflight(options):
     others = run(['docker', 'ps', '-q', '--filter', 'label=com.docker.compose.project!=' + PROJECT], check=False)
     if others.stdout.strip():
         warnings.append('Other containers are running on this host; TOFI sizes its budgets for the whole machine.')
-    if firecracker_running():
+    if kvm and firecracker_running():
         warnings.append('Firecracker processes not managed by TOFI are running; leave spare capacity for them.')
     return warnings
 
@@ -1020,7 +1081,8 @@ def render_env(manifest, options, budgets):
         # Behind a reverse proxy the user already runs: trust exactly the
         # addresses they named; otherwise nobody.
         trusted_proxies = options.get('behind_proxy') or ''
-    return {
+    computer = options.get('computer') or 'kvm'
+    values = {
         'TOFI_VERSION': manifest['version'],
         'TOFI_DOMAIN': domain,
         'TOFI_EMAIL': options.get('email') or '',
@@ -1028,19 +1090,51 @@ def render_env(manifest, options, budgets):
         'TOFI_BIND': bind,
         'TOFI_PUBLIC_ORIGIN': origin,
         'TOFI_APP_IMAGE': manifest['images']['app'],
-        'TOFI_WORKER_IMAGE': manifest['images']['worker'],
         'TOFI_CADDY_IMAGE': manifest['images']['caddy'],
-        'TOFI_GUEST_VERSION': manifest['guest']['version'],
-        'TOFI_CPU_BUDGET': str(budgets['cpu']),
-        'TOFI_MEMORY_BUDGET_MIB': str(budgets['memory_mib']),
-        'TOFI_WORKER_MEMORY_LIMIT': '%dm' % (budgets['memory_mib'] + 256),
         'TOFI_TLS_CERT_FILE': cert,
         'TOFI_TLS_KEY_FILE': key,
         'TOFI_OWNER_ALLOW_LAN_HTTP': allow_lan_http,
-        'TOFI_COMPUTER_BACKEND': options.get('computer') or 'kvm',
         'TOFI_TRUSTED_PROXIES': trusted_proxies,
         'TOFI_AUTO_UPDATE': options.get('auto_update') if options.get('auto_update') in AUTO_UPDATE_MODES else 'off',
     }
+    values.update(computer_env(computer, manifest, budgets))
+    return values
+
+
+# What the App needs to reach the Worker (the same values compose.yaml falls
+# back to when tofi.env predates these keys).
+COMPUTER_APP_ENV = {'TOFI_ACCOUNT_PROVISIONER_SOCKET': '/run/tofi/broker.sock',
+                    'TOFI_ACCOUNT_COMPUTER_SOCKET_ROOT': '/run/tofi/accounts',
+                    'TOFI_ACCOUNT_COMPUTER_DISK_GIB': '8'}
+
+
+def computer_env(backend, manifest=None, budgets=None):
+    """The tofi.env keys that belong to the computer. With backend `none` every
+    one is empty: the Worker never starts, and the App gets no broker or
+    control sockets (it then runs without computer tools)."""
+    if backend != 'kvm':
+        return {'TOFI_COMPUTER_BACKEND': 'none', 'TOFI_WORKER_IMAGE': '', 'TOFI_GUEST_VERSION': '',
+                'TOFI_CPU_BUDGET': '', 'TOFI_MEMORY_BUDGET_MIB': '', 'TOFI_WORKER_MEMORY_LIMIT': '',
+                'TOFI_ACCOUNT_PROVISIONER_SOCKET': '', 'TOFI_ACCOUNT_COMPUTER_SOCKET_ROOT': '',
+                'TOFI_ACCOUNT_COMPUTER_DISK_GIB': ''}
+    return {'TOFI_COMPUTER_BACKEND': 'kvm',
+            'TOFI_WORKER_IMAGE': manifest['images']['worker'],
+            'TOFI_GUEST_VERSION': manifest['guest']['version'],
+            'TOFI_CPU_BUDGET': str(budgets['cpu']),
+            'TOFI_MEMORY_BUDGET_MIB': str(budgets['memory_mib']),
+            'TOFI_WORKER_MEMORY_LIMIT': '%dm' % (budgets['memory_mib'] + 256),
+            **COMPUTER_APP_ENV}
+
+
+def complete_computer_env(env):
+    """Fill the socket keys an install from before they were written lacks, so
+    an update never turns an existing computer off. No-op for backend none."""
+    if has_computer(env):
+        for key, value in COMPUTER_APP_ENV.items():
+            if not env.get(key):
+                env[key] = value
+        env['TOFI_COMPUTER_BACKEND'] = 'kvm'
+    return env
 
 
 def render_caddyfile(bundle, domain, email):
@@ -1069,9 +1163,8 @@ def bundle_manager(bundle):
     return MICROVM / 'manager.py'
 
 
-def apply_host_config(bundle, env):
-    """Write worker.json, seccomp, AppArmor, tmpfiles, Caddyfile and unit from `bundle`."""
-    bundle = Path(bundle)
+def computer_config(env):
+    """worker.json for the Guest release `env` pins (reads its release manifest)."""
     guest_dir = P.guest / env['TOFI_GUEST_VERSION']
     release_manifest = guest_dir / 'account-release.json'
     guest_manifest = json.loads(release_manifest.read_text())
@@ -1081,12 +1174,41 @@ def apply_host_config(bundle, env):
     _, reason = default_computer_resources(env['TOFI_CPU_BUDGET'], env['TOFI_MEMORY_BUDGET_MIB'])
     if reason:
         warn(reason)
+    return config
+
+
+def apply_computer_files(bundle, config):
+    """Write worker.json, the seccomp profile and the AppArmor profile (kvm only)."""
+    write_json(P.worker_json, config, 0o600)
+    write_file(P.seccomp, (Path(bundle) / 'worker.seccomp.json').read_bytes(), 0o600)
+    load_apparmor(bundle)
+
+
+def apply_host_config(bundle, env):
+    """Write tofi.env, TLS, Caddyfile, tmpfiles and unit from `bundle`; with a
+    computer (backend kvm) also worker.json, seccomp and AppArmor."""
+    bundle = Path(bundle)
+    complete_computer_env(env)
+    config = computer_config(env) if has_computer(env) else None
     ensure_tls(env)
     write_env(env)
-    write_json(P.worker_json, config, 0o600)
-    write_file(P.seccomp, (bundle / 'worker.seccomp.json').read_bytes(), 0o600)
+    if config is not None:
+        write_json(P.worker_json, config, 0o600)
+        write_file(P.seccomp, (bundle / 'worker.seccomp.json').read_bytes(), 0o600)
     if env.get('TOFI_DOMAIN'):
         write_file(P.caddyfile, render_caddyfile(bundle, env['TOFI_DOMAIN'], env.get('TOFI_EMAIL')), 0o644)
+    if config is not None:
+        load_apparmor(bundle)
+    write_file(P.tmpfiles, (bundle / 'tofi.conf').read_text(), 0o644)
+    run(['systemd-tmpfiles', '--create', str(P.tmpfiles)])
+    write_file(P.unit, (bundle / 'tofi.service').read_text(), 0o644)
+    write_auto_update_units()
+    run(['systemctl', 'daemon-reload'], check=False)
+    return config
+
+
+def load_apparmor(bundle):
+    """Check, write and load the Worker's AppArmor profile."""
     profile = render_apparmor(bundle)
     candidate = P.etc / '.worker.apparmor.candidate'
     write_file(candidate, profile, 0o644)
@@ -1096,28 +1218,32 @@ def apply_host_config(bundle, env):
         candidate.unlink(missing_ok=True)
     write_file(P.apparmor_profile, profile, 0o644)
     run(['apparmor_parser', '-r', '-W', str(P.apparmor_profile)])
-    write_file(P.tmpfiles, (bundle / 'tofi.conf').read_text(), 0o644)
-    run(['systemd-tmpfiles', '--create', str(P.tmpfiles)])
-    write_file(P.unit, (bundle / 'tofi.service').read_text(), 0o644)
-    write_auto_update_units()
-    run(['systemctl', 'daemon-reload'], check=False)
-    return config
 
 
-def prepare_directories():
-    for path, mode in [(P.etc, 0o700), (P.var, 0o755), (P.worker, 0o700), (P.guest, 0o755),
-                       (P.caddy, 0o700)]:
+def prepare_directories(computer=True):
+    dirs = [(P.etc, 0o700), (P.var, 0o755), (P.caddy, 0o700)]
+    if computer:
+        dirs += [(P.worker, 0o700), (P.guest, 0o755)]
+    for path, mode in dirs:
+        path.mkdir(parents=True, exist_ok=True)
+        os.chmod(path, mode)
+    if computer:
+        prepare_computer_directories()
+    for name in ('data', 'config'):
+        (P.caddy / name).mkdir(exist_ok=True)
+    P.data.mkdir(exist_ok=True)
+    os.chown(P.data, APP_UID, APP_UID)
+    os.chmod(P.data, 0o700)
+
+
+def prepare_computer_directories():
+    for path, mode in [(P.worker, 0o700), (P.guest, 0o755)]:
         path.mkdir(parents=True, exist_ok=True)
         os.chmod(path, mode)
     for name in ('state', 'config', 'ledger', 'unused-units'):
         child = P.worker / name
         child.mkdir(exist_ok=True)
         os.chmod(child, 0o700)
-    for name in ('data', 'config'):
-        (P.caddy / name).mkdir(exist_ok=True)
-    P.data.mkdir(exist_ok=True)
-    os.chown(P.data, APP_UID, APP_UID)
-    os.chmod(P.data, 0o700)
 
 
 # --------------------------------------------------------------------------
@@ -1157,7 +1283,9 @@ def inspect_image(reference, role, data_schema=None):
 
 
 def pull_images(env, data_schema):
-    roles = [('app', env['TOFI_APP_IMAGE']), ('worker', env['TOFI_WORKER_IMAGE'])]
+    roles = [('app', env['TOFI_APP_IMAGE'])]
+    if has_computer(env):
+        roles.append(('worker', env['TOFI_WORKER_IMAGE']))
     if env.get('TOFI_DOMAIN'):
         roles.append(('caddy', env['TOFI_CADDY_IMAGE']))
     for role, reference in roles:
@@ -1223,13 +1351,24 @@ def compose_file():
     return P.current / 'compose.yaml'
 
 
-def compose(*args, env=None, timeout=600):
+def compose(*args, env=None, timeout=600, profiles=()):
     env = env if env is not None else read_env()
+    return run(compose_command(env, profiles) + list(args), timeout=timeout)
+
+
+def compose_command(env, extra_profiles=()):
+    """`docker compose` with the project's profiles: tls with a domain, and
+    computer-kvm (the Worker) only when this install has a computer."""
     command = ['docker', 'compose', '--project-name', PROJECT, '--env-file', str(P.env_file),
                '-f', str(compose_file())]
+    profiles = list(extra_profiles)
     if env.get('TOFI_DOMAIN'):
-        command += ['--profile', 'tls']
-    return run(command + list(args), timeout=timeout)
+        profiles.append('tls')
+    if has_computer(env):
+        profiles.append(COMPUTER_PROFILE)
+    for profile in dict.fromkeys(profiles):
+        command += ['--profile', profile]
+    return command
 
 
 def project_containers():
@@ -1371,8 +1510,9 @@ def app_docker_health():
 
 
 def start_services(env, first_install=False, state=None):
-    compose('up', '-d', '--no-build', '--pull', 'never', '--remove-orphans', 'worker', env=env)
-    worker_ready(first_install=first_install)
+    if has_computer(env):
+        compose('up', '-d', '--no-build', '--pull', 'never', '--remove-orphans', 'worker', env=env)
+        worker_ready(first_install=first_install)
     if state is not None and state.get('transaction') and state['transaction']['kind'] == 'install':
         transition(state, 'installing', 'start-app')
     services = ['app', 'caddy'] if env.get('TOFI_DOMAIN') else ['app']
@@ -2665,19 +2805,23 @@ def systemd_start():
 def fresh_install(manifest, options):
     progress = tofi_tui.Progress(tofi_tui.UI(sys.stdout))
     try:
-        progress.begin(10, 'Preparing host configuration, images and the computer release')
+        options = dict(options, computer=options.get('computer') or 'kvm')
+        computer = options['computer'] == 'kvm'
+        progress.begin(10, 'Preparing host configuration, images and the computer release' if computer
+                       else 'Preparing host configuration and images')
         for message in preflight(options):
             warn(message)
         bundle = ASSETS
         budgets = runtime_budgets()
         env = render_env(manifest, options, budgets)
-        prepare_directories()
+        prepare_directories(computer)
         pull_images(env, manifest['data_schema'])
-        fetch_guest(guest_for_host(manifest), bundle_manager(bundle))
+        if computer:
+            fetch_guest(guest_for_host(manifest), bundle_manager(bundle))
         apply_host_config(bundle, env)
         state = new_state(manifest['version'])
         save_state(state)
-        progress.begin(11, 'Starting the Worker, then the App')
+        progress.begin(11, 'Starting the Worker, then the App' if computer else 'Starting the App')
         finish_install(state, env)
         progress.end()
     except BaseException:
@@ -2709,7 +2853,8 @@ def final_message(env):
     info = {'version': env.get('TOFI_VERSION', ''), 'urls': urls, 'setup_key': secret,
             'domain': env.get('TOFI_DOMAIN', ''), 'port': env.get('TOFI_HTTP_PORT') or str(DEFAULT_PORT),
             'fingerprint': certificate_fingerprint() if app_scheme(env) == 'https' else None,
-            'local_only': not env.get('TOFI_DOMAIN') and env.get('TOFI_BIND') != '0.0.0.0'}
+            'local_only': not env.get('TOFI_DOMAIN') and env.get('TOFI_BIND') != '0.0.0.0',
+            'computer': backend_of(env)}
     sys.stdout.write(render_banner(info, color_mode(sys.stdout), terminal_width()))
     sys.stdout.flush()
     notes = render_proxy_notes(env)
@@ -2748,6 +2893,8 @@ def render_banner(info, mode=None, width=80):
         lines.append(row('Next', 'enter the key, create your admin, connect a model'))
     else:
         lines.append(row('Sign in', 'with your existing admin account'))
+    if info.get('computer') == 'none':
+        lines.append(row('Computer', 'none · add one later: ' + paint.bold('sudo tofi computer add kvm')))
     lines.append('')
     if info.get('domain'):
         lines.append('  Allow TCP 80 and 443.')
@@ -2836,7 +2983,7 @@ def snapshot():
     """What rollback needs to restore the running version exactly."""
     return {
         'env': read_env(),
-        'worker_json': json.loads(P.worker_json.read_text()),
+        'worker_json': json.loads(P.worker_json.read_text()) if P.worker_json.exists() else None,
         'bundle': current_release(),
     }
 
@@ -2886,13 +3033,16 @@ def _upgrade(info, version, manifest_path, allow_schema_change, manifest, wait, 
             confirm(previous['env']['TOFI_VERSION'], manifest)
         wait_for_idle('the update', wait, force)
         candidate = dict(previous['env'])
+        computer = has_computer(candidate)
         candidate.update({
             'TOFI_VERSION': manifest['version'],
             'TOFI_APP_IMAGE': manifest['images']['app'],
-            'TOFI_WORKER_IMAGE': manifest['images']['worker'],
             'TOFI_CADDY_IMAGE': manifest['images']['caddy'],
-            'TOFI_GUEST_VERSION': manifest['guest']['version'],
         })
+        if computer:
+            # An install without a computer keeps no Worker image or Guest pin: nothing to pull or fetch.
+            candidate.update({'TOFI_WORKER_IMAGE': manifest['images']['worker'],
+                              'TOFI_GUEST_VERSION': manifest['guest']['version']})
         # Everything that can be checked happens before anything is stopped.
         pull_images(candidate, None)
         current_schema = image_label(previous['env']['TOFI_APP_IMAGE'], DATA_SCHEMA_LABEL)
@@ -2905,8 +3055,9 @@ def _upgrade(info, version, manifest_path, allow_schema_change, manifest, wait, 
                             'then re-run with --allow-schema-change.' % (current_schema, new_schema))
         install_bundle(manifest)
         bundle = P.releases / manifest['version']
-        fetch_guest(guest_for_host(manifest), bundle_manager(bundle))
-        announce_computer_impact(previous['env'], manifest)
+        if computer:
+            fetch_guest(guest_for_host(manifest), bundle_manager(bundle))
+            announce_computer_impact(previous['env'], manifest)
         # A value tofi cannot write back must never be found after the services are down.
         format_env(candidate)
         format_env(previous['env'])
@@ -2931,12 +3082,13 @@ def _upgrade(info, version, manifest_path, allow_schema_change, manifest, wait, 
             start_services(candidate)
             complete(state, version=manifest['version'])
         except BaseException as error:
-            reject_candidate(state, error, manifest['version'], candidate['TOFI_GUEST_VERSION'], previous,
+            reject_candidate(state, error, manifest['version'], candidate.get('TOFI_GUEST_VERSION'), previous,
                              'update rejected; previous version restored')
         state.pop('last_update_failure', None)
         save_state(state)
         prune_releases(keep=[manifest['version'], previous['bundle']],
-                       keep_guests=[candidate['TOFI_GUEST_VERSION'], previous['env']['TOFI_GUEST_VERSION']])
+                       keep_guests=[candidate.get('TOFI_GUEST_VERSION'), previous['env'].get('TOFI_GUEST_VERSION')]
+                       if computer else None)
         try:
             removed = prune_backups()
         except OSError as error:
@@ -2945,7 +3097,7 @@ def _upgrade(info, version, manifest_path, allow_schema_change, manifest, wait, 
         if removed:
             say('Removed older backups: %s.' % ', '.join(removed))
         say('Updated to %s.' % manifest['version'])
-        older = sorted(guest_references() - {candidate['TOFI_GUEST_VERSION']})
+        older = sorted(guest_references() - {candidate['TOFI_GUEST_VERSION']}) if computer else []
         if older:
             say('Hibernated computers still hold snapshots from %s: each cold-boots on %s at its next use. '
                 'See `sudo tofi computers`; switch them now with `sudo tofi computers upgrade --all`.'
@@ -3011,17 +3163,24 @@ def restore_backup(backup_id, yes=False, wait=0, force=False, confirm=None, disk
         previous = snapshot()
         manifest = restore_manifest(version)
         candidate = dict(previous['env'])
+        # The restored settings decide the backend; a backup that held a computer
+        # (it recorded a Guest) puts one back even on an install that has none now.
+        computer = has_computer(previous['env']) or bool(meta.get('guest'))
         candidate.update({
             'TOFI_VERSION': version,
             'TOFI_APP_IMAGE': meta.get('app_image') or manifest['images']['app'],
-            'TOFI_WORKER_IMAGE': meta.get('worker_image') or manifest['images']['worker'],
             'TOFI_CADDY_IMAGE': meta.get('caddy_image') or manifest['images']['caddy'],
-            'TOFI_GUEST_VERSION': meta.get('guest') or manifest['guest']['version'],
         })
+        if computer:
+            candidate.update({'TOFI_COMPUTER_BACKEND': 'kvm',
+                              'TOFI_WORKER_IMAGE': meta.get('worker_image') or manifest['images']['worker'],
+                              'TOFI_GUEST_VERSION': meta.get('guest') or manifest['guest']['version']})
         pull_images(candidate, None)
         install_bundle(manifest)
         bundle = P.releases / version
-        fetch_guest(guest_for_host(manifest), bundle_manager(bundle))
+        if computer:
+            prepare_computer_directories()
+            fetch_guest(guest_for_host(manifest), bundle_manager(bundle))
         # Room for a backup of the current state plus the restored copy beside it.
         current = tree_bytes(P.data) + tree_bytes(P.etc)
         incoming = int(meta['sizes'].get('data_bytes') or 0) + int(meta['sizes'].get('etc_bytes') or 0)
@@ -3069,12 +3228,13 @@ def restore_backup(backup_id, yes=False, wait=0, force=False, confirm=None, disk
                 except OSError as error:
                     warn('Could not remove %s (%s); delete it by hand.' % (snapshot_aside, error))
         except BaseException as error:
-            reject_candidate(state, error, version, candidate['TOFI_GUEST_VERSION'], previous,
+            reject_candidate(state, error, version, candidate.get('TOFI_GUEST_VERSION'), previous,
                              'restore failed; previous state recovered')
         state.pop('last_update_failure', None)
         save_state(state)
         prune_releases(keep=[version, previous['bundle']],
-                       keep_guests=[candidate['TOFI_GUEST_VERSION'], previous['env']['TOFI_GUEST_VERSION']])
+                       keep_guests=[candidate.get('TOFI_GUEST_VERSION'), previous['env'].get('TOFI_GUEST_VERSION')]
+                       if computer else None)
         say('Restored backup %s; TOFI %s is running with its data and settings.' % (item['id'], version))
         return {'restored': item['id'], 'version': version, 'pre_restore_backup': pre_restore}
 
@@ -3145,7 +3305,7 @@ def discard_candidate(version, guest_version, previous):
     """Remove a rejected update's bundle and Guest release, never the running ones."""
     if version != previous.get('bundle') and version != current_release():
         remove_tree(P.releases / version)
-    if guest_version != previous['env'].get('TOFI_GUEST_VERSION'):
+    if guest_version and guest_version != previous['env'].get('TOFI_GUEST_VERSION'):
         remove_tree(P.guest / guest_version)
 
 
@@ -3203,7 +3363,8 @@ def rollback(state):
         transition(state, 'rolling-back', 'restore-config')
         bundle = P.releases / previous['bundle'] if previous.get('bundle') else ASSETS
         apply_host_config(bundle, env)
-        write_json(P.worker_json, previous['worker_json'])
+        if previous.get('worker_json') is not None:
+            write_json(P.worker_json, previous['worker_json'])
         if previous.get('bundle'):
             switch_current(previous['bundle'])
         transition(state, 'rolling-back', 'start-previous')
@@ -3217,12 +3378,14 @@ def rollback(state):
 
 def prune_releases(keep, keep_guests):
     """Drop host bundles outside `keep`, and Guest releases outside
-    `keep_guests` that no hibernated computer's snapshot was taken with."""
+    `keep_guests` that no hibernated computer's snapshot was taken with.
+    `keep_guests` None (an install without a computer) leaves Guests alone."""
     for entry in P.releases.iterdir() if P.releases.is_dir() else []:
         if entry.name.startswith('.') or entry.name in keep:
             continue
         remove_tree(entry)
-    prune_guests(keep_guests)
+    if keep_guests is not None:
+        prune_guests([guest for guest in keep_guests if guest])
 
 
 def uninstall(purge=False, confirm=None):
@@ -3401,6 +3564,7 @@ def status(details=False):
     except (OSError, HostError):
         env = None
     if env is not None:
+        result['computer_backend'] = backend_of(env)
         result['auto_update'] = env.get('TOFI_AUTO_UPDATE') == 'patch'
         if details and result['auto_update']:
             result['next_check'] = auto_update_next_check()
@@ -3415,10 +3579,11 @@ def status(details=False):
         result['run_health'] = run_health()
         if state.get('last_computers_upgrade'):
             result['last_computers_upgrade'] = state['last_computers_upgrade']
-        try:
-            result['computers'] = computers_report(env.get('TOFI_GUEST_VERSION'))
-        except (HostError, OSError, ValueError, subprocess.SubprocessError) as error:
-            result['computers_error'] = str(error)
+        if has_computer(env):
+            try:
+                result['computers'] = computers_report(env.get('TOFI_GUEST_VERSION'))
+            except (HostError, OSError, ValueError, subprocess.SubprocessError) as error:
+                result['computers_error'] = str(error)
     return result
 
 
@@ -3524,10 +3689,12 @@ def render_status(result, mode=None, verbose=False, access=None):
     row_runs = run_health_summary(result.get('run_health'))
     if row_runs:
         row('Runs', row_runs)
+    no_computer = result.get('computer_backend') == 'none'
     if verbose and versions:
         row('App', short_image(versions.get('app_image')))
-        row('Worker', short_image(versions.get('worker_image')))
-        row('Guest', versions.get('guest') or '-')
+        if not no_computer:
+            row('Worker', short_image(versions.get('worker_image')))
+            row('Guest', versions.get('guest') or '-')
     if result.get('transaction'):
         row('Pending', '%(kind)s at step %(step)s · sudo tofi install resumes it' % result['transaction'])
     if result.get('last_error'):
@@ -3548,7 +3715,9 @@ def render_status(result, mode=None, verbose=False, access=None):
         row('Run', 'sudo tofi install   finishes the rollback to %s; your data and backups are kept '
             '(sudo tofi backups)' % target)
     computers = result.get('computers')
-    if 'computers_error' in result:
+    if no_computer:
+        row('Computer', 'none · server and web only · ' + paint.bold('sudo tofi computer add kvm') + ' adds one')
+    elif 'computers_error' in result:
         row('Computers', 'unknown (%s)' % result['computers_error'])
     elif computers is not None:
         if not computers:
@@ -3562,7 +3731,8 @@ def render_status(result, mode=None, verbose=False, access=None):
             row('Computers', ' · '.join(['%d' % len(computers)] + ['%d %s' % (counts[s], s) for s in order]))
             lines.append('')
             lines += render_computers(computers, versions.get('guest'))
-    lines += ['', '  ' + paint.dim('tofi update · tofi logs · tofi computers · tofi doctor')]
+    lines += ['', '  ' + paint.dim('tofi update · tofi logs · %s · tofi doctor'
+                                  % ('tofi computer add kvm' if no_computer else 'tofi computers'))]
     return '\n'.join(lines) + '\n'
 
 
@@ -3672,9 +3842,10 @@ def check_update(version=None, manifest_path=None):
         if not version:
             remember_latest(manifest)
     components = [('version', env.get('TOFI_VERSION'), manifest['version']),
-                  ('app', env.get('TOFI_APP_IMAGE'), manifest['images']['app']),
-                  ('worker', env.get('TOFI_WORKER_IMAGE'), manifest['images']['worker']),
-                  ('guest', env.get('TOFI_GUEST_VERSION'), manifest['guest']['version'])]
+                  ('app', env.get('TOFI_APP_IMAGE'), manifest['images']['app'])]
+    if has_computer(env):
+        components += [('worker', env.get('TOFI_WORKER_IMAGE'), manifest['images']['worker']),
+                       ('guest', env.get('TOFI_GUEST_VERSION'), manifest['guest']['version'])]
     if env.get('TOFI_DOMAIN'):
         components.append(('caddy', env.get('TOFI_CADDY_IMAGE'), manifest['images']['caddy']))
     try:
@@ -3694,6 +3865,10 @@ def check_update(version=None, manifest_path=None):
                                              ' --manifest ' + str(manifest_path) if manifest_path else '')}
     if not schema['compatible'] and report['update_available']:
         report['apply'] += ' --allow-schema-change'
+    report['computer_backend'] = backend_of(env)
+    if not has_computer(env):
+        report['computers'] = []
+        return report
     try:
         report['computers'] = computers_report(env.get('TOFI_GUEST_VERSION'), busy=True)
     except HostError as error:
@@ -3723,7 +3898,9 @@ def render_update_check(report):
     lines += format_table(['COMPONENT', 'INSTALLED', 'AVAILABLE', ''], table)
     if report['update_available']:
         lines.append('')
-        if report.get('computers') is None:
+        if report.get('computer_backend') == 'none':
+            lines.append('Computer     none: nothing to restart or download for it')
+        elif report.get('computers') is None:
             lines.append('Computers    unknown (%s)' % report.get('computers_error', 'Worker not reachable'))
         else:
             lines += update_impact_lines(report['computers'], report['components'])
@@ -4084,6 +4261,166 @@ def prune_guests(keep):
 
 
 # --------------------------------------------------------------------------
+# Adding and removing the computer (`tofi computer add kvm` / `remove`)
+
+
+def ensure_computer_tools():
+    """Install the host tools a computer needs (an install without one skipped them)."""
+    missing = [tool for tool in COMPUTER_TOOLS if not shutil.which(tool)]
+    if not missing:
+        return
+    if not shutil.which('apt-get'):
+        raise HostError('A computer needs %s on this host; install %s and retry.'
+                        % (', '.join(missing), ' '.join(COMPUTER_APT_PACKAGES)))
+    say('Installing host tools for the computer (%s).' % ' '.join(COMPUTER_APT_PACKAGES))
+    run(['env', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', '-qq', '-o', 'DPkg::Lock::Timeout=300', 'install', '-y',
+         '--no-install-recommends'] + COMPUTER_APT_PACKAGES, timeout=1800)
+    still = [tool for tool in COMPUTER_TOOLS if not shutil.which(tool)]
+    if still:
+        raise HostError('Still missing host tools after installing %s: %s.' % (' '.join(COMPUTER_APT_PACKAGES), ', '.join(still)))
+
+
+def computer_add_preflight():
+    """Everything a computer needs that a server-and-web install did not check.
+    Raises before anything changes; returns warnings."""
+    problems = computer_host_problems()
+    if problems:
+        raise HostError('This host cannot run a computer, and nothing was changed. %s' % ' '.join(problems))
+    ensure_computer_tools()
+    try:
+        info = json.loads(run(['docker', 'info', '--format', '{{json .}}']).stdout)
+    except (subprocess.SubprocessError, ValueError) as error:
+        raise HostError('Docker is not running; start it with `systemctl start docker`.') from error
+    if str(info.get('CgroupVersion')) != '2':
+        raise HostError('Docker must use cgroup v2 (found %s).' % info.get('CgroupVersion'))
+    if not any('apparmor' in item for item in info.get('SecurityOptions') or []):
+        raise HostError('Docker must run with AppArmor enabled (security options: %s).' % info.get('SecurityOptions'))
+    cpus = os.cpu_count() or 0
+    if cpus < MIN_CPUS:
+        raise HostError('A computer needs at least %d vCPUs; this host has %d.' % (MIN_CPUS, cpus))
+    memory = meminfo_mib()['MemTotal']
+    if memory < MIN_MEMORY_MIB:
+        raise HostError('A computer needs at least 4 GiB of RAM; this host has %d MiB.' % memory)
+    free = free_disk_bytes()
+    if free < FIRST_ACCOUNT_BYTES:
+        raise HostError('The first computer needs 16 GiB free under /var/lib (8 GiB workspace + 8 GiB internal); '
+                        '%.1f GiB is free.' % (free / GIB))
+    return computer_memory_warnings(memory)
+
+
+def stop_worker(env):
+    """Stop and remove the Worker container (it hibernates the computers first)."""
+    compose('stop', 'worker', env=env, timeout=900)
+    compose('rm', '-f', 'worker', env=env)
+
+
+def computer_add(backend='kvm', wait=0, force=False):
+    """`tofi computer add kvm`: give a server-and-web install a KVM computer.
+
+    Idempotent. Checks the host, fetches the Guest release of the installed
+    version, writes worker.json and the AppArmor profile, switches tofi.env to
+    backend kvm, starts the Worker and restarts the App. A failure puts
+    tofi.env back and restarts the App as it was."""
+    if backend != 'kvm':
+        raise HostError('Only kvm (Firecracker) computers exist today: tofi computer add kvm.')
+    require_root()
+    with lifecycle_lock():
+        state = load_state()
+        if state is None:
+            raise HostError('TOFI is not installed; run install.sh.')
+        if state['phase'] != 'installed':
+            raise HostError('TOFI is in phase %s; run `sudo tofi install` to resume first.' % state['phase'])
+        env = read_env()
+        if has_computer(env):
+            try:
+                running = any(service_of(c) == 'worker' and c['State'].get('Running') for c in project_containers())
+            except (subprocess.SubprocessError, ValueError, OSError):
+                running = False
+            if running:
+                say('This server already has a computer (KVM); nothing to do. See `sudo tofi computers`.')
+                return {'added': False, 'computer': 'kvm'}
+            say('The computer is set up but its Worker is not running; finishing the setup.')
+        for message in computer_add_preflight():
+            warn(message)
+        manifest = restore_manifest(env['TOFI_VERSION'])
+        bundle = P.current.resolve() if P.current.exists() else ASSETS
+        candidate = dict(env)
+        candidate.update(computer_env('kvm', manifest, runtime_budgets()))
+        format_env(candidate)
+        wait_for_idle('adding the computer', wait, force)
+        say('Adding a KVM computer to TOFI %s.' % env['TOFI_VERSION'])
+        prepare_computer_directories()
+        pull_images(candidate, manifest['data_schema'])
+        fetch_guest(guest_for_host(manifest), bundle_manager(bundle))
+        apply_computer_files(bundle, computer_config(candidate))
+        write_env(candidate)
+        try:
+            # The Worker first, then the App: it restarts with the broker sockets in its environment.
+            start_services(candidate, first_install=True)
+        except BaseException as error:
+            write_env(env)
+            try:
+                stop_worker(candidate)
+                start_services(env)
+            except (HostError, OSError, subprocess.SubprocessError) as restore_error:
+                warn('Could not restart TOFI as it was (%s); run `sudo tofi start`.' % restore_error)
+            raise HostError('Adding the computer failed (%s); tofi.env is back to server and web only.' % error) from error
+    say('Computer added (KVM, Firecracker). Each account gets one; open the web app to use it.')
+    return {'added': True, 'computer': 'kvm'}
+
+
+def computer_remove(purge=False, yes=False, wait=0, force=False):
+    """`tofi computer remove`: stop the Worker, set backend none, restart the App.
+
+    The computers' disks, state and the Guest release stay on disk (so
+    `tofi computer add kvm` brings them back) unless `purge`."""
+    require_root()
+    with lifecycle_lock():
+        state = load_state()
+        if state is None:
+            raise HostError('TOFI is not installed.')
+        if state['phase'] != 'installed':
+            raise HostError('TOFI is in phase %s; run `sudo tofi install` to resume first.' % state['phase'])
+        env = read_env()
+        leftovers = [path for path in (P.worker_state, P.guest) if path.is_dir() and any(path.iterdir())]
+        if not has_computer(env) and not (purge and leftovers):
+            say('This server has no computer (backend none); nothing to do.')
+            return {'removed': False, 'computer': 'none'}
+        if purge and not yes:
+            if not sys.stdin.isatty():
+                raise HostError('--purge deletes every computer disk and its state; add --yes to confirm.')
+            if not ask_yes('Delete all computer disks, their state and the Guest release? This cannot be undone.'):
+                raise HostError('Cancelled; nothing was changed.')
+        if has_computer(env):
+            wait_for_idle('removing the computer', wait, force)
+            stop_worker(env)
+            candidate = dict(env)
+            candidate.update(computer_env('none'))
+            write_env(candidate)
+            try:
+                start_services(candidate)
+            except BaseException as error:
+                write_env(env)
+                try:
+                    start_services(env)
+                except (HostError, OSError, subprocess.SubprocessError) as restore_error:
+                    warn('Could not restart TOFI as it was (%s); run `sudo tofi start`.' % restore_error)
+                raise HostError('Removing the computer failed (%s); tofi.env is back as it was.' % error) from error
+        if purge:
+            if P.apparmor_profile.exists():
+                run(['apparmor_parser', '-R', str(P.apparmor_profile)], check=False)
+            for path in (P.apparmor_profile, P.worker_json, P.seccomp):
+                path.unlink(missing_ok=True)
+            for path in (P.worker, P.guest):
+                remove_tree(path)
+            say('Computer removed; its disks, state and Guest release were deleted.')
+        else:
+            say('Computer removed. Computer disks and state are kept under /var/lib/tofi/worker; '
+                '`sudo tofi computer add kvm` brings them back, `sudo tofi computer remove --purge` deletes them.')
+    return {'removed': True, 'computer': 'none', 'purged': bool(purge)}
+
+
+# --------------------------------------------------------------------------
 # Diagnostics
 
 
@@ -4125,7 +4462,8 @@ def doctor():
     def images():
         env = read_env()
         inspect_image(env['TOFI_APP_IMAGE'], 'app')
-        inspect_image(env['TOFI_WORKER_IMAGE'], 'worker')
+        if has_computer(env):
+            inspect_image(env['TOFI_WORKER_IMAGE'], 'worker')
 
     def disk():
         free = free_disk_bytes()
@@ -4149,24 +4487,35 @@ def doctor():
         return 'SHA256 ' + (certificate_fingerprint() or '?')
 
     def computer_backend():
-        backend = read_env().get('TOFI_COMPUTER_BACKEND') or 'kvm'
+        backend = backend_of(read_env())
+        if backend == 'none':
+            return 'none (server and web only; `sudo tofi computer add kvm` adds one)'
         if backend not in COMPUTER_BACKENDS:
             raise HostError('unknown TOFI_COMPUTER_BACKEND=%s in /etc/tofi/tofi.env' % backend)
         if COMPUTER_BACKENDS[backend]:
             raise HostError('%s is %s; set TOFI_COMPUTER_BACKEND=kvm' % (backend, COMPUTER_BACKENDS[backend]))
         return 'kvm (Firecracker)'
 
+    try:
+        computer = has_computer(read_env())
+    except (OSError, HostError):
+        computer = True
     host_card()
-    check('KVM device', kvm)
     check('Computer backend', computer_backend)
-    check('cgroup v2', lambda: P.cgroup_controllers.read_text() and None)
-    check('AppArmor profile', apparmor_loaded)
+    # Without a computer nothing here needs KVM, cgroup v2 or AppArmor: a host
+    # that lacks them is a healthy server-and-web install, not an error.
+    if computer:
+        check('KVM device', kvm)
+        check('cgroup v2', lambda: P.cgroup_controllers.read_text() and None)
+        check('AppArmor profile', apparmor_loaded)
     check('/run/tofi ownership', run_dir)
-    check('Worker config', lambda: validate_config(json.loads(P.worker_json.read_text())) and None)
-    check('Guest release', guest)
+    if computer:
+        check('Worker config', lambda: validate_config(json.loads(P.worker_json.read_text())) and None)
+        check('Guest release', guest)
     check('Images', images)
     check('Disk', disk)
-    check('Memory', memory)
+    if computer:
+        check('Memory', memory)
     check('HTTPS certificate', certificate)
     check('App health', lambda: health(attempts=3) and None)
     for result, name, detail in checks:
@@ -4185,7 +4534,11 @@ def host_card(stream=None):
         port = DEFAULT_PORT
     facts = tofi_tui.detect(tofi_tui.Host(environ), environ, port=port, lookup_public=False)
     ui = tofi_tui.UI(stream or sys.stdout)
-    ui.card('This machine', tofi_tui.machine_rows(facts, fresh=facts['phase'] is None))
+    try:
+        computer = backend_of(read_env())
+    except (OSError, HostError):
+        computer = 'kvm'
+    ui.card('This machine', tofi_tui.machine_rows(facts, fresh=facts['phase'] is None, computer=computer))
     return facts
 
 
@@ -4194,7 +4547,8 @@ def version():
     try:
         env = read_env()
         info.update(installed=env.get('TOFI_VERSION'), app_image=env.get('TOFI_APP_IMAGE'),
-                    worker_image=env.get('TOFI_WORKER_IMAGE'), guest=env.get('TOFI_GUEST_VERSION'))
+                    worker_image=env.get('TOFI_WORKER_IMAGE'), guest=env.get('TOFI_GUEST_VERSION'),
+                    computer=backend_of(env))
     except OSError:
         pass
     return info
@@ -4218,9 +4572,10 @@ def parse_args(argv):
                                 help='listen on 127.0.0.1 only (still HTTPS); reach it with an SSH tunnel')
     install_parser.add_argument('--lan', action='store_true', help=argparse.SUPPRESS)
     install_parser.add_argument('--port', type=int)
-    install_parser.add_argument('--computer', default='kvm',
-                                help='how account computers run: kvm (Firecracker); gvisor and container '
-                                     'are not supported yet')
+    install_parser.add_argument('--computer', default=None,
+                                help='none: server and web app only; kvm: also run account computers '
+                                     '(Firecracker, needs /dev/kvm). Default: kvm when this host supports it, '
+                                     'otherwise none. Add one later with `tofi computer add kvm`')
     install_parser.add_argument('--yes', action='store_true')
     auto = install_parser.add_mutually_exclusive_group()
     auto.add_argument('--auto-update', dest='auto_update', action='store_true', default=None,
@@ -4252,6 +4607,19 @@ def parse_args(argv):
                                help='report what would change and exit 0 (up to date), 10 (update available) '
                                     'or 1 (error); changes nothing')
     update_parser.add_argument('--json', action='store_true', help='with --check: machine-readable output')
+    computer_parser = sub.add_parser('computer', help='add or remove this server\'s computer')
+    computer_sub = computer_parser.add_subparsers(dest='computer_command', required=True)
+    add_parser = computer_sub.add_parser(
+        'add', help='install a computer (KVM, Firecracker) on a server that has none: checks the host, '
+                    'downloads the Guest, starts the Worker and restarts the App')
+    add_parser.add_argument('backend', choices=['kvm'])
+    add_guard_flags(add_parser)
+    remove_parser = computer_sub.add_parser(
+        'remove', help='stop the Worker and go back to server and web only; computers\' disks are kept')
+    remove_parser.add_argument('--purge', action='store_true',
+                               help='also delete the computers\' disks, their state and the Guest release')
+    remove_parser.add_argument('--yes', '-y', action='store_true', help='do not ask for confirmation (needed with --purge)')
+    add_guard_flags(remove_parser)
     computers_parser = sub.add_parser('computers', help='list account computers and their Guest release')
     computers_parser.add_argument('--json', action='store_true', help='machine-readable output')
     computers_sub = computers_parser.add_subparsers(dest='computers_command')
@@ -4336,12 +4704,14 @@ def install_options(args):
         proxies = ','.join(entries)
     if args.email and not args.domain:
         raise HostError('--email is only used with --domain.')
-    computer = (getattr(args, 'computer', None) or 'kvm').lower()
-    if computer not in COMPUTER_BACKENDS:
-        raise HostError('--computer must be kvm, gvisor or container.')
-    if COMPUTER_BACKENDS[computer]:
-        raise HostError('--computer %s is %s; only kvm (Firecracker) is available.'
+    computer = (getattr(args, 'computer', None) or '').lower()
+    if computer and computer not in COMPUTER_BACKENDS:
+        raise HostError('--computer must be none or kvm.')
+    if computer and COMPUTER_BACKENDS[computer]:
+        raise HostError('--computer %s is %s; use none or kvm (Firecracker).'
                         % (computer, COMPUTER_BACKENDS[computer]))
+    if not computer:
+        computer = default_computer()
     domain = (args.domain or '').lower().rstrip('.')
     if domain and not DOMAIN_RE.match(domain):
         raise HostError('%r is not a valid domain name.' % args.domain)
@@ -4413,7 +4783,21 @@ def main(argv=None):
                 access = {}
             sys.stdout.write(render_status(result, color_mode(sys.stdout), args.verbose, access))
             return 0
+        if args.command == 'computer':
+            guard = guard_options(args, interactive_default=True)
+            if args.computer_command == 'add':
+                computer_add(args.backend, *guard)
+            else:
+                computer_remove(args.purge, args.yes, *guard)
+            return 0
         if args.command == 'computers':
+            require_root()
+            if not has_computer(read_env()):
+                if getattr(args, 'json', False):
+                    print(json.dumps({'computer': 'none', 'computers': []}, indent=2))
+                else:
+                    say('This server has no computer (backend none). Add one with: sudo tofi computer add kvm')
+                return 0
             if args.computers_command == 'upgrade':
                 report = upgrade_computers(args.account, args.all, args.force)
                 sys.stdout.write(json.dumps(report, indent=2) + '\n' if args.json else render_upgrade(report))
@@ -4495,8 +4879,7 @@ def main(argv=None):
             say(secret)
             return 0
         if args.command == 'logs':
-            command = ['docker', 'compose', '--project-name', PROJECT, '--env-file', str(P.env_file),
-                       '-f', str(compose_file()), '--profile', 'tls', 'logs', '--tail', '200', '-f']
+            command = compose_command(read_env(), ['tls']) + ['logs', '--tail', '200', '-f']
             if args.service:
                 command.append(args.service)
             os.execvp('docker', command)
@@ -4860,6 +5243,9 @@ def audit_versions(env, online=False):
 def audit_computers(env):
     title = 'Computer images (Guest)'
     guest, server = env.get('TOFI_GUEST_VERSION'), env.get('TOFI_VERSION')
+    if not has_computer(env):
+        return audit_finding(AUDIT_PASS, 'versions.computers', title,
+                             'no computer is installed (TOFI_COMPUTER_BACKEND=none): no Guest to keep current')
     if not guest or not (P.guest / guest / 'account-release.json').is_file():
         return audit_finding(AUDIT_FAIL, 'versions.computers', title,
                              'the pinned Guest release %s is not on disk under %s' % (guest, P.guest),
