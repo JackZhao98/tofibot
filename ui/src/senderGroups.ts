@@ -67,19 +67,19 @@ function markSpeakerChanges(root: ParentNode): void {
  */
 const NOT_BUBBLE = ".message-ui-card, .message-notice, .message-assignment";
 
-function runUnit(block: Element): { from: string; at: number; open: boolean } | undefined {
+function runUnit(block: Element): { from: string; at: number; open: boolean; joinable: boolean } | undefined {
   // `open`: nothing follows the bubble in its block (no task block, owner node, tool row, reaction chips), so a next bubble may join it.
-  // Anything before the bubble host (a date or unread divider) keeps the block from joining the one above.
+  // `joinable`: nothing precedes the bubble host (a date or unread divider), so it may join the block above; it can still start a run.
+  const host = Array.from(block.children).find(child => child.classList.contains("message-hover-host"));
+  if (!host) return undefined;
   let open = true;
-  for (const child of block.children) {
-    if (child.classList.contains("message-hover-host") || child.classList.contains("message-actions-row")) continue;
-    if (!block.firstElementChild?.classList.contains("message-hover-host")) return undefined;
-    open = false;
+  for (let child = host.nextElementSibling; child; child = child.nextElementSibling) {
+    if (!child.classList.contains("message-actions-row")) open = false;
   }
-  if (!block.firstElementChild?.classList.contains("message-hover-host")) return undefined;
-  const article = block.querySelector<HTMLElement>(":scope > .message-hover-host > article.message[data-from]");
+  const joinable = block.firstElementChild === host;
+  const article = host.querySelector<HTMLElement>(":scope > article.message[data-from]");
   if (!article || article.matches(NOT_BUBBLE) || article.querySelector(".message-tools")) return undefined;
-  return { from: article.dataset.from ?? "", at: Date.parse(article.dataset.at ?? ""), open };
+  return { from: article.dataset.from ?? "", at: Date.parse(article.dataset.at ?? ""), open, joinable };
 }
 
 function setFlag(element: HTMLElement, name: "joinsPrev" | "joinsNext", on: boolean): void {
@@ -91,11 +91,11 @@ function markBubbleRuns(root: ParentNode): void {
   let previous: { block: HTMLElement; from: string; at: number; open: boolean } | undefined;
   for (const block of root.querySelectorAll<HTMLElement>(".message-block")) {
     const unit = runUnit(block);
-    const joins = Boolean(unit && previous?.open && previous.block === block.previousElementSibling && unit.from && unit.from === previous.from
+    const joins = Boolean(unit?.joinable && previous?.open && previous.block === block.previousElementSibling && unit.from && unit.from === previous.from
       && Number.isFinite(unit.at) && Number.isFinite(previous.at) && Math.abs(unit.at - previous.at) < SENDER_GROUP_WINDOW_MS);
     setFlag(block, "joinsPrev", joins);
     if (previous) setFlag(previous.block, "joinsNext", joins);
-    previous = unit ? { block, ...unit } : undefined;
+    previous = unit ? { block, from: unit.from, at: unit.at, open: unit.open } : undefined;
     if (!unit) setFlag(block, "joinsNext", false);
   }
   // Nothing follows the list's last block, so it never joins forward.

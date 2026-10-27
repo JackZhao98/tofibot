@@ -43,14 +43,14 @@
 .composer-input::placeholder { color:var(--muted); }
 .composer-icon {
   display:grid; place-items:center; width:46px; height:46px; flex:none; border:0; border-radius:14px;
-  background:transparent; color:var(--ink-soft); cursor:pointer; transition:background-color 120ms ease;
+  background:transparent; color:var(--ink-soft); transition:background-color 120ms ease;
 }
 .composer-icon:hover { background:var(--surface-2); color:var(--ink); }
 .composer-icon.plus svg { transition:rotate var(--spring-ms) var(--spring); }
 .composer-icon.plus.is-open svg { rotate:45deg; }
 
 .send-button {
-  display:grid; place-items:center; width:46px; height:46px; flex:none; border-radius:14px; cursor:pointer;
+  display:grid; place-items:center; width:46px; height:46px; flex:none; border-radius:14px;
   border:var(--edge) solid transparent; background:var(--surface-2); color:var(--muted);
   transition:background-color 160ms ease, color 160ms ease, transform var(--ease-press) ease, box-shadow var(--ease-press) ease;
 }
@@ -72,7 +72,7 @@
 }
 .plus-menu button {
   display:flex; align-items:center; gap:10px; padding:9px 10px; border:0; border-radius:10px;
-  background:none; color:var(--ink); font:var(--type-row-title); text-align:left; cursor:pointer;
+  background:none; color:var(--ink); font:var(--type-row-title); text-align:left;
   animation:item-in 380ms var(--spring) both; animation-delay:calc(var(--i) * 45ms + 70ms);
 }
 .plus-menu button:hover { background:var(--surface); }
@@ -85,7 +85,7 @@
 
 .stage-note { font:var(--type-meta); color:var(--muted); }
 .send-style { display:inline-flex; padding:3px; border-radius:11px; background:var(--sunk); }
-.send-style button { padding:6px 12px; border:0; border-radius:8px; background:none; color:var(--ink-soft); font:600 13px/1.2 var(--body); cursor:pointer; transition:background-color 200ms ease, color 200ms ease; }
+.send-style button { padding:6px 12px; border:0; border-radius:8px; background:none; color:var(--ink-soft); font:600 13px/1.2 var(--body); transition:background-color 200ms ease, color 200ms ease; }
 .send-style button[aria-checked="true"] { background:var(--surface); color:var(--ink); box-shadow:0 0 0 1px var(--line-soft); }
 
 @keyframes send-pop { 0% { scale:.5; rotate:-30deg; } 100% { scale:1; rotate:0deg; } }

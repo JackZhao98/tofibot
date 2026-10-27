@@ -36,7 +36,7 @@ button { font:inherit; color:inherit; }
 }
 
 .theme-toggle {
-  position:relative; width:40px; height:40px; border-radius:12px; cursor:pointer;
+  position:relative; width:40px; height:40px; border-radius:12px;
   background:var(--surface); border:var(--edge) solid var(--line); box-shadow:var(--hard-sm);
   transition:transform var(--ease-press) ease, box-shadow var(--ease-press) ease;
 }
@@ -109,7 +109,7 @@ button { font:inherit; color:inherit; }
 /* Buttons follow the v2 press model: lift on hover, sink into the shadow on press. */
 .lab-btn {
   display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:38px; padding:8px 14px;
-  border:var(--edge) solid var(--line); border-radius:12px; cursor:pointer;
+  border:var(--edge) solid var(--line); border-radius:12px;
   font:var(--type-button); color:var(--ink); background:var(--surface); box-shadow:var(--hard-sm);
   transition:transform var(--ease-press) ease, box-shadow var(--ease-press) ease, background-color var(--ease-press) ease;
 }

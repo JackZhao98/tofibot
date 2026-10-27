@@ -12,7 +12,7 @@
 .workspace .settings-page-body .settings-tag{font-size:12px;letter-spacing:0}
 
 /* Select: one custom control (no native chevron on the field itself). The chevron is drawn here, so the space it needs is reserved here too, !important: component rules with a padding shorthand (and later cascade fights) must never push the label under it. */
-.workspace .settings-page-body select,.sheet select,[data-onboarding] select{appearance:none;-webkit-appearance:none;padding-right:38px!important;cursor:pointer;
+.workspace .settings-page-body select,.sheet select,[data-onboarding] select{appearance:none;-webkit-appearance:none;padding-right:38px!important;
   background-image:linear-gradient(45deg,transparent 50%,var(--ink-soft) 50%),linear-gradient(135deg,var(--ink-soft) 50%,transparent 50%)!important;
   background-position:calc(100% - 19px) 50%,calc(100% - 14px) 50%!important;background-size:5px 5px,5px 5px!important;background-repeat:no-repeat!important}
 .workspace .settings-page-body select:disabled,.sheet select:disabled{cursor:not-allowed}

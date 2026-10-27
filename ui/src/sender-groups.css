@@ -81,15 +81,16 @@ html[data-desktop] .workspace .message-scroll { padding-bottom:calc(var(--compos
 /* Spacing inside a run: 3px instead of the 10px margin + the reserved actions row. */
 .workspace .message-block[data-joins-next][data-message-id] .message-hover-host .message { margin-bottom:3px; }
 
-/* Hover devices: a bubble that joins the next one gives up its reserved 28px actions row; the bar floats beside the bubble on the open
-   side (left of the person's, right of a Bot's), vertically centred on it, as a small chip on --z-raised so it never moves a bubble
-   and never covers the next bubble's text. Focus inside the block mounts it like the hover does. The run's last bubble keeps its in-flow row. */
+/* Hover devices: a bubble that joins the next one gives up its reserved 28px actions row. Its bar floats instead, straddling the bubble's top
+   edge (24px chip, so it stays within the bubbles' padding) on the aligned side (the person's right, a Bot's left), as a small chip on --z-raised: it never moves a bubble, covers only the
+   previous bubble's bottom padding, never the next bubble. Focus inside the block mounts it like the hover does. The run's last bubble
+   keeps its in-flow row (and with it the time and the receipt). */
 @media (hover:hover) {
   .workspace .message-block[data-joins-next] { position:relative; }
-  .workspace .message-block[data-joins-next] > .message-actions-row { position:absolute; inset:0; z-index:var(--z-raised); min-height:0; margin:0; align-items:center; pointer-events:none; }
-  .workspace .message-block[data-joins-next] > .message-actions-row[data-side="bot"] { justify-content:flex-end; }
-  .workspace .message-block[data-joins-next] > .message-actions-row[data-side="user"] { justify-content:flex-start; }
-  .workspace .message-block[data-joins-next] > .message-actions-row[data-gutter] { padding-left:0; }
+  .workspace .message-block[data-joins-next] > .message-actions-row { position:absolute; --bar-btn:24px; top:-14px; left:0; right:0; z-index:var(--z-raised); height:24px; min-height:0; margin:0; pointer-events:none; }
+  .workspace .message-block[data-joins-next] > .message-actions-row[data-side="user"] { justify-content:flex-end; padding-right:8px; }
+  .workspace .message-block[data-joins-next] > .message-actions-row[data-side="bot"] { justify-content:flex-start; padding-left:8px; }
+  .workspace .message-block[data-joins-next] > .message-actions-row[data-gutter] { padding-left:calc(var(--sender-gutter) + 8px); }
   .workspace .message-block[data-joins-next] > .message-actions-row .message-hover-actions { pointer-events:auto; padding:0 4px; border:1px solid var(--line-soft); border-radius:10px; background:var(--surface); }
-  .workspace .message-block[data-joins-next] > .message-actions-row[data-side="bot"]:not([data-gutter]) .message-hover-actions button:first-child { margin-left:0; }
+  .workspace .message-block[data-joins-next] > .message-actions-row[data-side="bot"] .message-hover-actions button:first-child { margin-left:0; }
 }

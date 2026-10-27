@@ -11,7 +11,7 @@
 .wakeable-cat {
   --cat:96px;
   position:relative; display:grid; place-items:center; width:calc(var(--cat) * 1.42); height:calc(var(--cat) * 1.42); padding:0;
-  border:0; border-radius:50%; background:var(--dots); color:inherit; cursor:pointer;
+  border:0; border-radius:50%; background:var(--dots); color:inherit;
   transition:transform 260ms cubic-bezier(.34,1.56,.64,1);
 }
 .wakeable-cat:hover { transform:translateY(-3px); }

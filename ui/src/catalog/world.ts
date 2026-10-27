@@ -83,7 +83,7 @@ function dmMessages(options: AppOptions): Message[] {
   return list.map((message, index) => ({ ...message, seq: index + 1 }));
 }
 
-function groupMessages(): Message[] {
+function groupMessages(options: AppOptions): Message[] {
   const c = "grp_launch";
   const list: Message[] = [
     user(c, 1, "Morning all. Where are we on the launch checklist?", 0),
@@ -96,6 +96,11 @@ function groupMessages(): Message[] {
     reply(c, 6, "bot_miso", "I'll draft the release note next.", 35),
     user(c, 7, "Thanks, everyone.", 40),
   ];
+  // Bubble runs in a group: the person's three, then Mochi's three (avatar and name on the group's last bubble only).
+  if (options.runs) list.push(
+    user(c, 8, "One more thing for the review.", 60), user(c, 9, "Please add the venue.", 60.4), user(c, 10, "And the catering count.", 60.8),
+    reply(c, 11, "bot_mochi", "Adding both now.", 62), reply(c, 12, "bot_mochi", "Venue is in.", 62.3), reply(c, 13, "bot_mochi", "Catering count is in too: twelve.", 62.6),
+  );
   return list.map((message, index) => ({ ...message, seq: index + 1 }));
 }
 
@@ -115,6 +120,7 @@ function runsFor(conversationId: string, messages: Message[], options: AppOption
   ];
   if (conversationId !== "dm_mochi") return [];
   const lastUser = messages[messages.length - 1];
+  if (options.runs === "tools") return [run(conversationId, "bot_mochi", "run_dm_mochi_11", "m_dm_mochi_11", "done", 62), run(conversationId, "bot_mochi", "run_live", lastUser.id, "done", 40)];
   return [run(conversationId, "bot_mochi", "run_live", lastUser.id, options.running ? "running" : options.queued ? "queued" : "done", 40)];
 }
 
@@ -155,7 +161,7 @@ export type AppOptions = {
   /** The group has two tasks: Miso's release note (claimed, 2/3) and Nori's venue (assigned). The cards and the member list show them. */
   tasks?: boolean;
   /** Two bubble runs of three at the end of Mochi's chat: the person's, then Mochi's (corners merge, 3px apart). */
-  runs?: boolean;
+  runs?: boolean | "tools";
   /** The server reports a newer release (the admin banner). */
   update?: boolean;
 };
@@ -165,7 +171,7 @@ const SCREEN = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.
 /** The server the real App talks to inside a catalog frame. */
 export function workspace(options: AppOptions): Synthetic {
   let conversationReads = 0;
-  const messages = new Map<string, Message[]>([["dm_mochi", dmMessages(options)], ["grp_launch", groupMessages()],
+  const messages = new Map<string, Message[]>([["dm_mochi", dmMessages(options)], ["grp_launch", groupMessages(options)],
     ["dm_miso", [user("dm_miso", 1, "Can you check the launch copy?", 10), reply("dm_miso", 2, "bot_miso", "On it.", 11), reply("dm_miso", 3, "bot_miso", "Found three small fixes.", 25), reply("dm_miso", 4, "bot_miso", "Three copy fixes are ready for review.", 30)]],
     ["dm_nori", [user("dm_nori", 1, "Find a venue for the launch review.", 15), reply("dm_nori", 2, "bot_nori", "Should I book the venue for Thursday?", 20)]],
     ["dm_ledger", [user("dm_ledger", 1, "Archive last quarter's receipts.", -520), reply("dm_ledger", 2, "bot_ledger", "Archived.", -510)]]]);
@@ -179,7 +185,7 @@ export function workspace(options: AppOptions): Synthetic {
     const p = url.pathname;
     const method = init?.method ?? "GET";
     if (p === "/api/server-info") return json({ service: "tofi", protocol_version: 1, instance_id: "00000000-0000-4000-8000-00000000ca7a", auth: { mode: "none" } });
-    if (p === "/api/preferences") return json({ timezone: "UTC", timezone_configured: true, language: localStorage.getItem("tofi.language") ?? "en", show_activity: false });
+    if (p === "/api/preferences") return json({ timezone: "UTC", timezone_configured: true, language: localStorage.getItem("tofi.language") ?? "en", show_activity: options.runs === "tools" });
     if (options.challenge && conversationReads > 1) return new Promise<Response>(() => {});
     // A refresh after the first load fails across the board, as when the server goes away (one failing read alone is
     // cleared again by the next successful one).
@@ -212,7 +218,7 @@ export function workspace(options: AppOptions): Synthetic {
       if (what === "messages") return json({ messages: list, drafts: options.running && id === "dm_mochi" ? [liveDraft()] : [], has_more: false, event_cursor: 0 });
       if (what === "runs") return json({ runs: runsFor(id, list, options), has_more: false });
       if (what === "memories") return json({ memories: [] });
-      if (what === "tools") return json({ activities: [], summaries: [], tool_count: 0, has_more: false });
+      if (what === "tools") return json({ activities: [], summaries: options.runs === "tools" && id === "dm_mochi" ? [{ run_id: "run_dm_mochi_11", bot_id: "bot_mochi", tool_count: 2, completed_count: 2, failed_count: 0, interrupted_count: 0, pending_count: 0, started_at: at(62), updated_at: at(62.2) }] : [], tool_count: 0, has_more: false });
       if (what === "schedules" || what === "schedule-occurrences" || what === "work-items" || what === "remembered-approvals") return json({ schedules: [], occurrences: [], work_items: [], grants: [] });
       if (what === "task-cards") return json({ tasks: options.tasks && id === "grp_launch" ? TASKS : [] });
       if (what === "read") return json({ read_seq: 99 });

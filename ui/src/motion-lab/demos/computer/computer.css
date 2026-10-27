@@ -68,7 +68,7 @@
 }
 @media (prefers-reduced-transparency:reduce) { .fd-controls, .fd-capsule { background:var(--desktop-controls-solid); -webkit-backdrop-filter:none; backdrop-filter:none; } }
 .fd-power {
-  display:grid; place-items:center; width:36px; height:36px; border-radius:50%; cursor:pointer;
+  display:grid; place-items:center; width:36px; height:36px; border-radius:50%;
   border:1px solid var(--desktop-controls-edge); background:transparent; color:var(--desktop-controls-ink);
 }
 .fd-power:hover:not(:disabled) { background:var(--desktop-controls-hover); }
@@ -84,7 +84,7 @@
 .fd-token.is-bot { left:6px; }
 .fd-token.is-you { left:84px; }
 .fd-take {
-  padding:8px 14px; border:0; border-radius:10px; cursor:pointer; background:var(--clay); color:var(--on-block); font:var(--type-button);
+  padding:8px 14px; border:0; border-radius:10px; background:var(--clay); color:var(--on-block); font:var(--type-button);
   transition:background-color 200ms ease, transform var(--ease-press) ease;
 }
 .fd-take:active:not(:disabled) { transform:translate(1px,1px); }
@@ -150,7 +150,7 @@
 .perm-copy small { font:var(--type-meta); color:var(--muted); }
 .perm-check { display:grid; place-items:center; width:22px; height:22px; border-radius:50%; background:var(--green); color:var(--on-block); animation:perm-pop 460ms cubic-bezier(.34,1.8,.64,1); }
 @keyframes perm-pop { from { scale:0; } }
-.perm-switch { position:relative; width:42px; height:24px; padding:0; border:0; border-radius:999px; background:var(--line-soft); cursor:pointer; transition:background-color 240ms ease; }
+.perm-switch { position:relative; width:42px; height:24px; padding:0; border:0; border-radius:999px; background:var(--line-soft); transition:background-color 240ms ease; }
 .perm-switch:disabled { cursor:default; }
 .perm-switch[aria-checked="true"] { background:var(--lagoon); }
 .perm-knob { position:absolute; left:3px; top:3px; width:18px; height:18px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.28); transition:transform 380ms cubic-bezier(.34,1.56,.64,1); }

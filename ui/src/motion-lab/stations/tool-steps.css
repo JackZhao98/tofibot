@@ -45,7 +45,7 @@
 .footer-time { font-variant-numeric:tabular-nums; }
 .tools-toggle {
   display:inline-flex; align-items:center; gap:4px; padding:4px 6px; margin-left:4px; border:0; border-radius:8px;
-  background:none; cursor:pointer; font:var(--type-status); color:var(--muted);
+  background:none; font:var(--type-status); color:var(--muted);
 }
 .tools-toggle:hover { color:var(--ink); background:var(--surface-2); }
 .chevron { display:inline-grid; transition:rotate var(--spring-ms) var(--spring); }
@@ -55,7 +55,7 @@
 @media (hover:none) { .footer-actions { opacity:1; } }
 .icon-quiet {
   display:grid; place-items:center; width:30px; height:30px; border:0; border-radius:9px;
-  background:none; color:var(--ink-soft); cursor:pointer;
+  background:none; color:var(--ink-soft);
 }
 .icon-quiet:hover { background:var(--surface-2); color:var(--ink); }
 .tools-drawer { flex-basis:100%; display:grid; grid-template-rows:0fr; transition:grid-template-rows var(--spring-ms) var(--spring); }

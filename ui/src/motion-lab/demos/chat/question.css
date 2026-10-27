@@ -27,7 +27,7 @@
 
 .q-opt {
   display:grid; grid-template-columns:28px minmax(0,1fr); align-items:center; gap:10px; width:100%; margin-top:6px; padding:8px 10px;
-  border:1px solid var(--line-soft); border-radius:12px; background:var(--surface); color:var(--ink); text-align:left; cursor:pointer;
+  border:1px solid var(--line-soft); border-radius:12px; background:var(--surface); color:var(--ink); text-align:left;
   transition:transform var(--ease-press) ease, border-color 160ms ease, background-color 200ms ease, padding 420ms cubic-bezier(.22,1,.36,1), margin 420ms cubic-bezier(.22,1,.36,1);
 }
 .q-opt:not(:disabled):hover { border-color:var(--line); transform:translate(-1px,-1px); }

@@ -1,7 +1,7 @@
 *{box-sizing:border-box}
  html,body,#root{min-width:320px;min-height:100%}
  body{margin:0}
- /* Cursor convention (Claude.ai): controls keep the arrow; only a plain text link keeps the native hand. No component declares cursor:pointer. */
+ /* Cursor convention (Claude.ai): controls keep the arrow; only a plain text link keeps the native hand. No component declares a pointer cursor. */
  button,summary,select,label[for],[role="button"],[role="tab"],[role="menuitem"],[role="option"],[role="switch"],[role="checkbox"],[role="radio"],input[type="checkbox"],input[type="radio"],input[type="range"],input[type="file"],input[type="button"],input[type="submit"]{cursor:default}
  button:disabled{cursor:not-allowed}
 

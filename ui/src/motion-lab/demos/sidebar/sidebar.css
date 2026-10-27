@@ -10,7 +10,7 @@
 .side-logo { font:700 21px/1 var(--display); transition:opacity 180ms ease; }
 .side-toggle {
   flex:none; display:grid; place-items:center; width:40px; height:40px; border:0; border-radius:12px;
-  background:transparent; color:var(--ink-soft); cursor:pointer; transition:background-color 120ms ease, transform 480ms cubic-bezier(.22,1,.36,1);
+  background:transparent; color:var(--ink-soft); transition:background-color 120ms ease, transform 480ms cubic-bezier(.22,1,.36,1);
 }
 .side-toggle:hover { background:var(--surface); color:var(--ink); }
 .side-stage.is-collapsed .side-logo { opacity:0; }
@@ -23,7 +23,7 @@
 .side-row {
   position:relative; display:grid; grid-template-columns:46px minmax(0,1fr) auto; align-items:center; gap:10px;
   width:100%; min-height:0; overflow:hidden; padding:8px 8px 8px 5px;
-  border:var(--edge) solid transparent; border-radius:16px; background:none; color:var(--ink); text-align:left; cursor:pointer;
+  border:var(--edge) solid transparent; border-radius:16px; background:none; color:var(--ink); text-align:left;
   transition:background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, scale 260ms cubic-bezier(.34,1.56,.64,1);
 }
 .side-row:hover { background:var(--surface); }
