@@ -254,7 +254,7 @@ const barGeometry = (page, id) => page.evaluate(id => {
   if (!barEl) return null;
   const content = blockEl.querySelector(".message-content");
   const others = [...document.querySelectorAll(".message-block")].filter(el => el !== blockEl).flatMap(el => [...el.querySelectorAll(".message-content, .message-reactions")].map(rect));
-  return { bar: rect(barEl), content: rect(content), others, avatars: [...document.querySelectorAll(".sender-avatar")].map(rect), vw: innerWidth, isUser: blockEl.querySelector(".message-user") !== null, position: getComputedStyle(barEl).position, background: getComputedStyle(barEl).backgroundColor, shadow: getComputedStyle(barEl).boxShadow, borderWidth: getComputedStyle(barEl).borderTopWidth };
+  return { joinsNext: blockEl.dataset.joinsNext === "true", bar: rect(barEl), content: rect(content), others, avatars: [...document.querySelectorAll(".sender-avatar")].map(rect), vw: innerWidth, isUser: blockEl.querySelector(".message-user") !== null, position: getComputedStyle(barEl).position, background: getComputedStyle(barEl).backgroundColor, shadow: getComputedStyle(barEl).boxShadow, borderWidth: getComputedStyle(barEl).borderTopWidth };
 }, id);
 const intersects = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0.5 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0.5;
 const heights = page => page.evaluate(() => [...document.querySelectorAll(".message-block")].map(el => el.getBoundingClientRect().height));
@@ -279,6 +279,17 @@ for (const [layout, inGroup, ids] of [["DM", false, ["m1", "m2", "m3", "m4", "m5
       const after = await heights(page);
       assert.deepEqual(after, before, `${layout} ${id}: hovering changed a message height`);
       const g = await barGeometry(page, id);
+      if (g.joinsNext) {
+        // A bubble that joins the next one has no reserved row: its bar floats over its own top edge (bubble padding only), on the aligned side.
+        assert.equal(g.position, "static", `${layout} ${id}: the floating bar's own box stays static inside its absolute row`);
+        assert.ok(g.bar.top >= g.content.top - 40 && g.bar.bottom <= g.content.top + 12, `${layout} ${id}: the floating bar (${g.bar.top}..${g.bar.bottom}) is not on the bubble's top edge (${g.content.top})`);
+        assert.ok(g.bar.bottom <= g.content.bottom - 12, `${layout} ${id}: the floating bar reaches the bubble's own text`);
+        const next = g.others.find(other => other.top >= g.content.bottom - 0.5 && other.top - g.content.bottom < 8);
+        if (next) assert.ok(!intersects(g.bar, next), `${layout} ${id}: the floating bar covers the next bubble`);
+        for (const other of g.avatars) assert.ok(!intersects(g.bar, other), `${layout} ${id}: bar covers an avatar`);
+        for (const other of g.others) if (other.bottom <= g.content.top + 0.5) assert.ok(g.bar.top >= other.bottom - 12, `${layout} ${id}: the floating bar covers the previous bubble's text`);
+        assert.ok(g.bar.left >= 0 && g.bar.right <= g.vw, `${layout} ${id}: bar stays inside the window`);
+      } else {
       assert.ok(g.bar.top >= g.content.bottom - 0.5, `${layout} ${id}: bar top ${g.bar.top} is above its bubble's bottom ${g.content.bottom}`);
       assert.ok(g.bar.top - g.content.bottom <= 40, `${layout} ${id}: bar is ${g.bar.top - g.content.bottom}px below its bubble`);
       assert.ok(g.bar.left >= 0 && g.bar.right <= g.vw, `${layout} ${id}: bar stays inside the window`);
@@ -288,6 +299,7 @@ for (const [layout, inGroup, ids] of [["DM", false, ["m1", "m2", "m3", "m4", "m5
       else assert.ok(g.bar.left >= g.content.left - 8 && g.bar.left <= g.content.left + 8, `${layout} ${id}: bar is not on the bubble's left edge (${g.bar.left} vs ${g.content.left})`);
       // Quiet style: no container.
       assert.ok(g.background === "rgba(0, 0, 0, 0)" && g.shadow === "none" && g.borderWidth === "0px", `${layout} ${id}: the bar draws a container`);
+      }
       // Pointer path bubble -> bar crosses no dead space.
       const bb = await block(page, id).locator(".message-hover-actions").boundingBox();
       const fromY = box.y + box.height - 2, toY = bb.y + bb.height / 2;
@@ -302,13 +314,16 @@ for (const [layout, inGroup, ids] of [["DM", false, ["m1", "m2", "m3", "m4", "m5
   });
 }
 
-await check("the gap between messages holds the bar: same sender and speaker change, and the bar's row is reserved", async () => {
+await check("the gap between messages: a run is 3px with a floating bar, the run's last bubble reserves the bar's row, a speaker change is wider", async () => {
   for (const [layout, inGroup, run, change] of [["DM", false, ["m2", "m3"], ["m3", "m4"]], ["group", true, ["g2", "g3"], ["g4", "g5"]]]) {
     const { page, context } = await open({ inGroup });
     const gap = async (a, b) => page.evaluate(([a, b]) => document.querySelector(`[data-message-id="${b}"] .message`).getBoundingClientRect().top - document.querySelector(`[data-message-id="${a}"] .message`).getBoundingClientRect().bottom, [a, b]);
     const sameSender = await gap(...run), speaker = await gap(...change);
     console.log(`  ${layout}: gap between consecutive messages of one sender ${sameSender}px, at a speaker change ${speaker}px`);
-    assert.ok(sameSender >= 32, `${layout}: the gap inside a sender's run is ${sameSender}px, too tight for the bar`);
+    // Messages of one sender inside a bubble run sit 3px apart (their bars float); the run's last bubble keeps the row below it.
+    assert.ok(sameSender >= 2 && sameSender <= 6, `${layout}: the gap inside a sender's run is ${sameSender}px, want about 3`);
+    const rows = await page.evaluate(() => [...document.querySelectorAll(".message-block[data-joins-prev]:not([data-joins-next])")].map(b => getComputedStyle(b.querySelector(".message-actions-row")).minHeight));
+    assert.ok(rows.length > 0 && rows.every(row => row === "28px"), `${layout}: a run's last bubble keeps its reserved 28px row (${rows.join(", ")})`);
     assert.ok(speaker > sameSender, `${layout}: a speaker change (${speaker}px) is not wider than a run (${sameSender}px)`);
     await context.close();
   }
