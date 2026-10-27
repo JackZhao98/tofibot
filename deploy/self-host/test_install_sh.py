@@ -253,9 +253,10 @@ class InstallBase(unittest.TestCase):
             os.symlink('socket:[%s]' % inode, fd_dir / str(len(list(fd_dir.iterdir())) + 3))
             (self.root / 'proc' / str(pid) / 'comm').write_text(process + '\n')
 
-    def installed(self, phase='installed', version=VERSION, status_tool=False):
+    def installed(self, phase='installed', version=VERSION, status_tool=False, backend=None):
         self.host_file('etc/tofi/install-state.json', json.dumps({'schema': 1, 'phase': phase}))
-        self.host_file('etc/tofi/tofi.env', 'TOFI_VERSION=%s\n' % version)
+        self.host_file('etc/tofi/tofi.env', 'TOFI_VERSION=%s\n' % version
+                       + ('TOFI_COMPUTER_BACKEND=%s\n' % backend if backend else ''))
         if status_tool:
             self.host_file('usr/local/bin/tofi', STATUS_TOFI)
             (self.root / 'usr/local/bin/tofi').chmod(0o755)
@@ -313,8 +314,29 @@ class InstallBase(unittest.TestCase):
     def assertNotShown(self, term, needle):
         self.assertNotIn(' '.join(needle.split()), term.flat)
 
-    def handoff(self):
+    def handoff_all(self):
         return (self.root / 'handoff.args').read_text().splitlines()
+
+    def handoff(self):
+        """The arguments handed to `tofi install`, without the `--computer X` pair (see handoff_computer)."""
+        args = self.handoff_all()
+        index = args.index('--computer')
+        return args[:index] + args[index + 2:]
+
+    def handoff_computer(self):
+        args = self.handoff_all()
+        return args[args.index('--computer') + 1]
+
+    def apt_installed(self):
+        """Packages the install step asked apt to install."""
+        found = []
+        for call in self.stub_calls():
+            if call.startswith('apt-get') and ' install -y ' in call:
+                found = call.split(' install -y ')[1].replace('--no-install-recommends', '').split()
+        return found   # the last install, so a test can run the script more than once
+
+    def docker_security_checked(self):
+        return any('CgroupVersion' in c or 'SecurityOptions' in c for c in self.stub_calls())
 
 
 class InstallScriptTests(InstallBase):
@@ -336,40 +358,141 @@ class InstallScriptTests(InstallBase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('Unsupported system fedora 40', result.stderr)
 
-    def test_missing_kvm_shows_summary_and_options_then_refuses(self):
-        before = self.host_tree()
+    def test_missing_kvm_installs_the_server_and_web_only(self):
         self.host_file('proc/cpuinfo', 'processor : 0\nflags : fpu sse2 hypervisor\n')
-        result = self.run_script(TOFI_DEV_KVM=str(self.root / 'dev/kvm'))
+        result = self.run_script('--yes', TOFI_DEV_KVM=str(self.root / 'dev/kvm'))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('No computer on this host, so TOFI installs the server and web app only. KVM is not '
+                      'available (/dev/kvm). Use bare metal or a VM with nested virtualization enabled.',
+                      ' '.join(result.stderr.split()))
+        self.assertIn('sudo tofi computer add kvm', result.stderr)
+        out = ' '.join(result.stdout.split())
+        self.assertIn('This machine', out)
+        self.assertIn('KVM no /dev/kvm — the CPU does not expose virtualization', out)
+        self.assertLess(out.index('This machine'), out.index('Ready to install'))
+        self.assertIn('Computers none: server and web app only', out)
+        self.assertEqual(self.handoff_computer(), 'none')
+        self.assertEqual(self.apt_installed(), ['ca-certificates', 'curl', 'tar', 'python3', 'openssl', 'iproute2'])
+        self.assertFalse(self.docker_security_checked(), 'cgroup v2 / AppArmor in Docker only matter for a computer')
+        self.assertEqual(os.readlink(self.root / 'opt/tofi/current'), 'releases/' + VERSION)
+
+    def test_missing_cgroup_or_apparmor_or_tun_also_means_no_computer(self):
+        for name, setup in (('cgroup', lambda: (self.root / 'sys/fs/cgroup/cgroup.controllers').unlink()),
+                            ('apparmor', lambda: self.host_file('sys/module/apparmor/parameters/enabled', 'N\n')),
+                            ('tun', lambda: None)):
+            with self.subTest(missing=name):
+                setup()
+                extra = {'TOFI_DEV_TUN': str(self.root / 'dev/net/tun')} if name == 'tun' else {}
+                result = self.run_script('--yes', **extra)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn('No computer on this host', result.stderr)
+                self.assertEqual(self.handoff_computer(), 'none')
+                self.host_file('sys/fs/cgroup/cgroup.controllers', 'cpu io memory pids\n')
+                self.host_file('sys/module/apparmor/parameters/enabled', 'Y\n')
+
+    def test_explicit_kvm_without_kvm_still_refuses_with_the_reason(self):
+        self.host_file('proc/cpuinfo', 'flags : fpu vmx sse2\n')
+        before = self.host_tree()
+        result = self.run_script('--computer', 'kvm', '--yes', TOFI_DEV_KVM=str(self.root / 'dev/kvm'))
         self.assertEqual(result.returncode, 1)
         self.assertIn('KVM is not available (/dev/kvm). Use bare metal or a VM with nested '
                       'virtualization enabled.', result.stderr)
-        out = result.stdout
-        self.assertLess(out.index('This machine'), out.index("How should each account's computer run?"))
-        self.assertIn('1) KVM (Firecracker) — not supported: no /dev/kvm — the CPU does not expose '
-                      'virtualization', ' '.join(out.split()))
-        self.assertIn('2) gVisor container — not supported yet (coming in a later release)', out)
-        self.assertIn('3) Plain container — not supported yet (coming in a later release)', out)
-        self.assertIn('every option above is unsupported', ' '.join(out.split()))
-        self.host_file('proc/cpuinfo', 'flags : fpu vmx sse2\n')
+        self.assertIn('modprobe kvm_intel', ' '.join(result.stderr.split()))
+        self.assertIn('This machine', result.stdout)
+        self.assert_no_side_effects(before)
+
+    def test_computer_none_on_a_kvm_host(self):
+        result = self.run_script('--computer', 'none', '--yes')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn('No computer on this host', result.stderr)
+        self.assertEqual(self.handoff_computer(), 'none')
+        self.assertNotIn('zstd', self.apt_installed())
+        self.assertNotIn('apparmor', self.apt_installed())
+        self.assertFalse(self.docker_security_checked())
+        self.assertIn('Computers none', ' '.join(result.stdout.split()))
+        result = self.run_script(TOFI_COMPUTER='none', TOFI_YES='1')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.handoff_computer(), 'none', 'TOFI_COMPUTER answers like the flag')
+
+    def test_kvm_host_installs_the_computer_by_default(self):
+        result = self.run_script('--yes')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.handoff_computer(), 'kvm')
+        self.assertEqual(self.apt_installed(), ['ca-certificates', 'curl', 'tar', 'python3', 'openssl', 'iproute2',
+                                                'zstd', 'e2fsprogs', 'apparmor', 'apparmor-utils'])
+        self.assertTrue(self.docker_security_checked())
+        self.assertIn('Computers KVM (Firecracker)', ' '.join(result.stdout.split()))
+
+    def test_a_host_too_small_for_a_computer_gets_none(self):
+        # 3 GiB: fine for the server, too little for a computer.
+        self.host_file('proc/meminfo', 'MemTotal: 3000000 kB\n')
+        result = self.run_script('--yes')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('A computer needs at least 4 GiB of RAM; this host has 2929 MiB', result.stderr)
+        self.assertEqual(self.handoff_computer(), 'none')
+        # A 20 GiB disk: same.
+        self.host_file('proc/meminfo', 'MemTotal: 8152000 kB\n')
+        result = self.run_script('--yes', STUB_DF_AVAIL_KIB=str(20 * 1024 * 1024))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.handoff_computer(), 'none')
+        self.assertIn('A computer needs at least 30 GiB free under /var/lib; 20 GiB is free.', result.stderr)
+
+    def test_existing_server_without_a_computer_is_reported_on_a_host_without_kvm(self):
+        self.installed(status_tool=True, backend='none')
         before = self.host_tree()
         result = self.run_script(TOFI_DEV_KVM=str(self.root / 'dev/kvm'))
-        self.assertIn('modprobe kvm_intel', ' '.join(result.stdout.split()))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('TOFI v0.1.0 is already installed', result.stdout)
+        self.assertNotIn('No computer on this host', result.stderr)
         self.assert_no_side_effects(before)
+        # And a re-run that resumes it keeps the backend and installs no computer packages.
+        self.installed('install-failed', backend='none')
+        result = self.run_script('--yes', TOFI_DEV_KVM=str(self.root / 'dev/kvm'))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.handoff_computer(), 'none')
+        self.assertNotIn('zstd', self.apt_installed())
+
+    def test_existing_computer_install_keeps_its_computer_packages(self):
+        self.installed('install-failed')   # no backend recorded: an install from before this was optional
+        result = self.run_script('--yes')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.handoff_computer(), 'kvm')
+        self.assertIn('zstd', self.apt_installed())
 
     def test_small_disk_refused_without_files(self):
         before = self.host_tree()
-        result = self.run_script(STUB_DF_AVAIL_KIB=str(20 * 1024 * 1024))
+        result = self.run_script('--computer', 'kvm', STUB_DF_AVAIL_KIB=str(20 * 1024 * 1024))
         self.assertEqual(result.returncode, 1)
         self.assertIn('TOFI needs at least 30 GiB free under /var/lib; 20 GiB is free.', result.stderr)
+        self.assert_no_side_effects(before)
+        # A server without a computer needs only 10 GiB.
+        result = self.run_script('--computer', 'none', STUB_DF_AVAIL_KIB=str(5 * 1024 * 1024))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('TOFI needs at least 10 GiB free under /var/lib; 5 GiB is free.', result.stderr)
         self.assert_no_side_effects(before)
 
     def test_small_memory_and_cpu_refused(self):
         self.host_file('proc/meminfo', 'MemTotal: 2048000 kB\n')
-        result = self.run_script()
+        result = self.run_script('--computer', 'kvm')
         self.assertIn('at least 4 GiB of RAM; this host has 2000 MiB', result.stderr)
         self.host_file('proc/meminfo', 'MemTotal: 8152000 kB\n')
-        result = self.run_script(STUB_NPROC='1')
+        result = self.run_script('--computer', 'kvm', STUB_NPROC='1')
         self.assertIn('at least 2 vCPUs; this host has 1', result.stderr)
+
+    def test_a_server_without_a_computer_needs_little(self):
+        self.host_file('proc/meminfo', 'MemTotal: 1500000 kB\n')
+        before = self.host_tree()
+        result = self.run_script('--yes')
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('TOFI needs at least 2 GiB of RAM; this host has 1464 MiB.', result.stderr)
+        self.assert_no_side_effects(before)
+        self.host_file('proc/meminfo', 'MemTotal: 2048000 kB\n')
+        result = self.run_script('--yes')   # 2 GiB: no computer, but it installs
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.handoff_computer(), 'none')
+        self.assertIn('4 GiB or more is recommended', result.stderr)
+        result = self.run_script('--yes', STUB_NPROC='1')
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_aarch64_four_gib_host_installs_with_advisory(self):
         self.host_file('proc/meminfo', 'MemTotal: 3999000 kB\nSwapTotal: 2097152 kB\n')
@@ -390,7 +513,7 @@ class InstallScriptTests(InstallBase):
             self.assertIn('Linux x86_64 or aarch64; this machine is \'%s\'' % platform, result.stderr)
 
     def test_every_failure_is_listed_after_the_summary(self):
-        result = self.run_script(STUB_UNAME='Darwin arm64', STUB_UID='501', STUB_NPROC='1')
+        result = self.run_script('--computer', 'kvm', STUB_UNAME='Darwin arm64', STUB_UID='501', STUB_NPROC='1')
         self.assertEqual(result.returncode, 1)
         self.assertIn("this machine is 'Darwin arm64'", result.stderr)
         self.assertIn('current uid 501', result.stderr)
@@ -457,8 +580,9 @@ class InstallScriptTests(InstallBase):
                                  '--email', 'ops@example.com', '--port', '9000', '--yes')
         self.assertEqual(result.returncode, 0, result.stderr)
         manifest_path = str(self.root / 'opt/tofi/releases' / VERSION / 'manifest.json')
-        self.assertEqual(self.handoff(), ['install', '--manifest', manifest_path, '--domain', 'tofi.example.com',
-                                          '--email', 'ops@example.com', '--port', '9000', '--yes'])
+        self.assertEqual(self.handoff_all(), ['install', '--manifest', manifest_path, '--computer', 'kvm',
+                                              '--domain', 'tofi.example.com',
+                                              '--email', 'ops@example.com', '--port', '9000', '--yes'])
         self.assertEqual(os.readlink(self.root / 'opt/tofi/current'), 'releases/' + VERSION)
         self.assertEqual(os.readlink(self.root / 'usr/local/bin/tofi'), str(self.root / 'opt/tofi/current/bin/tofi'))
         self.assertEqual(json.loads(Path(manifest_path).read_text())['version'], VERSION)
@@ -615,7 +739,7 @@ class InstallScriptTests(InstallBase):
                               (['--computer', 'gvisor'], '--computer gvisor is not supported yet (coming in a '
                                                          'later release)'),
                               (['--computer', 'container'], 'not supported yet'),
-                              (['--computer', 'xen'], '--computer must be kvm, gvisor or container'),
+                              (['--computer', 'xen'], '--computer must be none or kvm'),
                               (['--bogus'], 'Unknown option')]:
             with self.subTest(args=args):
                 result = self.run_script(*args)
@@ -635,7 +759,15 @@ class InstallScriptTests(InstallBase):
         self.assertNotIn('This machine', result.stdout)
         for number in range(1, 10):
             self.assertIn('[%d/12]' % number, result.stdout)
-        result = self.run_script(TOFI_INSTALLER_UI='plain', TOFI_DEV_KVM=str(self.root / 'dev/kvm'))
+        # Without KVM the python-less path also installs the server and web app only ...
+        result = self.run_script('--yes', TOFI_INSTALLER_UI='plain', TOFI_DEV_KVM=str(self.root / 'dev/kvm'))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('No computer on this host', result.stderr)
+        self.assertEqual(self.handoff_computer(), 'none')
+        self.assertNotIn('zstd', self.apt_installed())
+        # ... unless a computer was asked for.
+        result = self.run_script('--computer', 'kvm', TOFI_INSTALLER_UI='plain',
+                                 TOFI_DEV_KVM=str(self.root / 'dev/kvm'))
         self.assertEqual(result.returncode, 1)
         self.assertIn('KVM is not available (/dev/kvm)', result.stderr)
 
@@ -651,7 +783,7 @@ class InteractiveTests(InstallBase):
     def test_all_defaults_with_enter(self):
         before = self.host_tree()
         term = self.terminal(TOFI_PROMPT='plain')
-        term.expect("How should each account's computer run?").expect('Choose 1-3 or a name [1]:').line()
+        term.expect('Install a computer now?').expect('Choose 1-2 or a name [1]:').line()
         no_proxy(term).expect('How will you open TOFI?').expect('[1]:').line()
         term.expect('Port for TOFI').expect('[8321]:').line()
         term.expect('Install fix releases automatically? (recommended)')
@@ -662,9 +794,10 @@ class InteractiveTests(InstallBase):
         term.expect('Proceed? [Y/n]').line()
         self.assertEqual(term.finish(), 0, term.text)
         self.assertEqual(self.handoff()[3:], ['--auto-update'])
-        for shown in ('1) KVM (Firecracker) (recommended)',
+        self.assertEqual(self.handoff_computer(), 'kvm')
+        for shown in ('1) Yes, install a computer (KVM, Firecracker) (recommended)',
+                      '2) Not now — server and web app only',
                       '1) By IP over HTTPS (self-signed) https://192.168.1.20:8321 (recommended)',
-                      '2) gVisor container — not supported yet (coming in a later release)',
                       '✓ Docker ready', '✓ Host tools v0.1.0 verified'):
             self.assertShown(term, shown)
         self.assertNotShown(term, '[5/12]')
@@ -672,9 +805,7 @@ class InteractiveTests(InstallBase):
     def test_arrow_key_menu(self):
         term = self.terminal()
         term.expect('Enter select')
-        term.send('\x1b[B').send('\r')   # down to gVisor, Enter: refused
-        term.expect('gVisor container is not supported yet (coming in a later release).')
-        term.send('\x1b[A').send('\r')   # back up to KVM
+        term.send('\x1b[B').send('\x1b[A').send('\r')   # down to "Not now", back up to the computer, Enter
         no_proxy(term).expect('How will you open TOFI?').expect('Enter select')
         term.send('\x1b[B').send('\x1b[B').send('\r')   # this machine only
         term.expect('Port for TOFI').line('9100')
@@ -765,19 +896,19 @@ class InteractiveTests(InstallBase):
         before = self.host_tree()
         term = self.terminal(TOFI_PROMPT='plain')
         term.expect('[1]:')
-        for answer in ('9', 'banana', '2', 'gvisor', ' 3 '):
+        for answer in ('9', 'banana', '3', 'gvisor', ' 4 '):
             term.line(answer)
         term.expect('Too many invalid answers — cancelled, nothing was changed.')
         self.assertEqual(term.finish(), 1)
-        self.assertShown(term, "'banana' is not one of the choices; type 1-3 or a name.")
-        self.assertShown(term, 'Plain container is not supported yet')
+        self.assertShown(term, "'banana' is not one of the choices; type 1-2 or a name.")
+        self.assertShown(term, "'gvisor' is not one of the choices")
         self.assert_no_side_effects(before)
 
     def test_ctrl_c_before_proceed_cancels_without_changes(self):
         before = self.host_tree()
-        answered = [('Choose 1-3', '\r'), ('Tunnel...)? [y/N]', 'n\r'), ('Choose 1-3', '\r'),
+        answered = [('Choose 1-2', '\r'), ('Tunnel...)? [y/N]', 'n\r'), ('Choose 1-3', '\r'),
                     ('[8321]:', '\r'), ('Turn on automatic fix releases?', '\r')]
-        for prompt, count in (('Choose 1-3', 0), ('Tunnel...)? [y/N]', 1), ('Port for TOFI', 3),
+        for prompt, count in (('Choose 1-2', 0), ('Tunnel...)? [y/N]', 1), ('Port for TOFI', 3),
                               ('Turn on automatic', 4), ('Proceed?', 5)):
             with self.subTest(prompt=prompt):
                 term = self.terminal(TOFI_PROMPT='plain')
@@ -811,7 +942,7 @@ class InteractiveTests(InstallBase):
         before = self.host_tree()
         for prompt_env in ('plain', None):
             term = self.terminal(TOFI_PROMPT=prompt_env)
-            term.expect('Choose 1-3' if prompt_env else 'Enter select').send('\x04')
+            term.expect('Choose 1-2' if prompt_env else 'Enter select').send('\x04')
             term.expect('No answer: the terminal closed (end of input) — cancelled, nothing was changed.')
             self.assertEqual(term.finish(), 1)
             self.assert_no_side_effects(before)
@@ -819,7 +950,7 @@ class InteractiveTests(InstallBase):
     def test_flags_answer_questions(self):
         term = self.terminal('--domain', 'tofi.example.com', '--email', 'ops@example.com', '--port', '9000',
                              TOFI_PROMPT='plain', STUB_DNS='203.0.113.5')
-        term.expect("How should each account's computer run?").expect('[1]:').line()
+        term.expect('Install a computer now?').expect('[1]:').line()
         term.expect('With a domain (automatic HTTPS)  (set by --domain)')
         term.expect('Turn on automatic fix releases? [Y/n]').line()
         term.expect('Proceed? [Y/n]').line()
@@ -830,12 +961,20 @@ class InteractiveTests(InstallBase):
         self.assertEqual(self.handoff()[3:], ['--domain', 'tofi.example.com', '--email', 'ops@example.com',
                                               '--port', '9000', '--auto-update'])
         term = self.terminal('--computer', 'kvm', '--local-only', TOFI_PROMPT='plain')
-        term.expect('KVM (Firecracker)  (set by --computer)')
+        term.expect('Yes, install a computer (KVM, Firecracker)  (set by --computer)')
         term.expect('This machine only (SSH tunnel)  (set by --local-only)')
         term.expect('Port for TOFI').line()
         term.expect('Turn on automatic fix releases? [Y/n]').line()
         term.expect('Proceed? [Y/n]').line()
         self.assertEqual(term.finish(), 0, term.text)
+        self.assertEqual(self.handoff_computer(), 'kvm')
+        term = self.terminal('--computer', 'none', '--local-only', TOFI_PROMPT='plain')
+        term.expect('Not now — server and web app only  (set by --computer)')
+        term.expect('Port for TOFI').line()
+        term.expect('Turn on automatic fix releases? [Y/n]').line()
+        term.expect('Proceed? [Y/n]').line()
+        self.assertEqual(term.finish(), 0, term.text)
+        self.assertEqual(self.handoff_computer(), 'none')
         # A flag answers the auto-update question too.
         term = self.terminal('--no-auto-update', '--local-only', TOFI_PROMPT='plain')
         term.expect('[1]:').line()
@@ -865,13 +1004,47 @@ class InteractiveTests(InstallBase):
                 self.assertNotShown(term, 'Choose')
                 self.assertNotShown(term, 'Enter select')
 
-    def test_no_kvm_on_a_terminal_shows_summary_then_exits(self):
-        term = self.terminal(TOFI_DEV_KVM=str(self.root / 'dev/kvm'))
-        self.assertEqual(term.finish(), 1)
-        self.assertShown(term, 'This machine')
-        self.assertShown(term, '— not supported: no /dev/kvm')
-        self.assertShown(term, 'every option above is unsupported')
-        self.assertNotShown(term, 'Enter select')
+    def test_no_kvm_on_a_terminal_installs_without_asking_about_a_computer(self):
+        self.host_file('proc/cpuinfo', 'processor : 0\nflags : fpu sse2 hypervisor\n')
+        term = self.terminal(TOFI_PROMPT='plain', TOFI_DEV_KVM=str(self.root / 'dev/kvm'))
+        term.expect('This machine')
+        no_proxy(term).expect('How will you open TOFI?').expect('[1]:').line()
+        term.expect('Port for TOFI').line()
+        term.expect('Turn on automatic fix releases? [Y/n]').line()
+        term.expect('Ready to install')
+        term.expect('Proceed? [Y/n]').line()
+        self.assertEqual(term.finish(), 0, term.text)
+        self.assertShown(term, 'No computer on this host, so TOFI installs the server and web app only.')
+        self.assertShown(term, 'KVM is not available (/dev/kvm)')
+        self.assertShown(term, 'sudo tofi computer add kvm')
+        self.assertShown(term, 'none: server and web app only')
+        self.assertNotShown(term, 'Install a computer now?')
+        self.assertNotShown(term, 'not supported yet')
+        self.assertEqual(self.handoff_computer(), 'none')
+
+    def test_not_now_installs_the_server_and_web_only(self):
+        term = self.terminal(TOFI_PROMPT='plain')
+        term.expect('Install a computer now?').expect('[1]:').line('later')
+        no_proxy(term).expect('[1]:').line()
+        term.expect('Port for TOFI').line()
+        term.expect('Turn on automatic fix releases? [Y/n]').line('n')
+        term.expect('Ready to install')
+        term.expect('Computers none: server and web app only')
+        term.expect('Proceed? [Y/n]').line()
+        self.assertEqual(term.finish(), 0, term.text)
+        self.assertEqual(self.handoff_computer(), 'none')
+        self.assertNotIn('zstd', self.apt_installed())
+
+    def test_arrow_menu_offers_the_computer_on_a_kvm_host(self):
+        term = self.terminal()
+        term.expect('Install a computer now?')
+        term.expect('Enter select').send('\x1b[B').send('\r')   # down to "Not now"
+        no_proxy(term).expect('Enter select').send('\r')
+        term.expect('Port for TOFI').line()
+        term.expect('Turn on automatic fix releases? [Y/n]').line()
+        term.expect('Proceed? [Y/n]').line()
+        self.assertEqual(term.finish(), 0, term.text)
+        self.assertEqual(self.handoff_computer(), 'none')
 
     def test_prerelease_needs_explicit_confirmation(self):
         self.only_prereleases()

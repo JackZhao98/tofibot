@@ -138,8 +138,16 @@ jobs:
             --env-file deploy/self-host/testdata/tofi.env --profile tls config --quiet
           docker compose -f deploy/self-host/compose.yaml \
             --env-file deploy/self-host/testdata/tofi-direct.env config --quiet
+          # The computer is a profile: off by default, on with computer-kvm.
+          docker compose -f deploy/self-host/compose.yaml \
+            --env-file deploy/self-host/testdata/tofi.env --profile computer-kvm config --services | sort | tr '\n' ' ' \
+            | grep -qx 'app worker '
           docker compose -f deploy/self-host/compose.yaml \
             --env-file deploy/self-host/testdata/tofi.env config --services | sort | tr '\n' ' ' \
-            | grep -qx 'app worker '
+            | grep -qx 'app '
+          # A server without a computer renders with every computer variable empty.
+          docker compose -f deploy/self-host/compose.yaml \
+            --env-file deploy/self-host/testdata/tofi-none.env config --services | sort | tr '\n' ' ' \
+            | grep -qx 'app '
       - name: Dev compose renders
         run: docker compose -f compose.yaml config --quiet

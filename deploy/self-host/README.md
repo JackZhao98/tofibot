@@ -1,8 +1,14 @@
-# Self-host install (Linux + KVM)
+# Self-host install (Linux; KVM optional)
 
-One command installs TOFI on a dedicated Linux x86_64 or aarch64 (arm64) server with KVM: the same
-App + Worker + one Firecracker computer per account as production, everything in
-Docker.
+One command installs TOFI on a dedicated Linux x86_64 or aarch64 (arm64) server, everything in
+Docker. The computer is optional (`TOFI_COMPUTER_BACKEND=none|kvm`):
+
+- **With KVM** (the default on a host that has it): the same App + Worker + one Firecracker
+  computer per account as production.
+- **Without** (any host, or `--computer none`): the App and the web page only. No Worker
+  container, no Guest download, no AppArmor or seccomp profile. `sudo tofi computer add kvm`
+  adds the computer later on a host that has KVM; `sudo tofi computer remove` takes it away
+  again and keeps its disks (`--purge` deletes them).
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh | sudo bash
@@ -16,14 +22,20 @@ the gate before `v0.1.0`.
 
 | | Minimum | Recommended |
 |---|---|---|
-| CPU | Linux x86_64 or aarch64, 2 vCPUs, `/dev/kvm` | 4 vCPUs |
-| Memory | 4 GiB (one small computer; see below) | 8 GiB |
-| Disk free under `/var/lib` | 30 GiB | 40 GiB |
+| CPU | Linux x86_64 or aarch64, 2 vCPUs, `/dev/kvm` (1 vCPU, no KVM without a computer) | 4 vCPUs |
+| Memory | 4 GiB (one small computer; see below). 2 GiB without a computer | 8 GiB (4 GiB without a computer) |
+| Disk free under `/var/lib` | 30 GiB (10 GiB without a computer) | 40 GiB (20 GiB) |
 | OS | Ubuntu 22.04/24.04, Debian 12/13 | |
 
-Also required: `/dev/net/tun`, cgroup v2 and AppArmor enabled in the kernel. The
-first account reserves an 8 GiB workspace disk plus 8 GiB internal space. Other
-distributions can try `TOFI_ALLOW_UNSUPPORTED=1`.
+With a computer also required: `/dev/net/tun`, cgroup v2 and AppArmor enabled in the
+kernel. The first account reserves an 8 GiB workspace disk plus 8 GiB internal space.
+Without a computer none of that is checked, and Docker needs neither cgroup v2 nor
+AppArmor. Other distributions can try `TOFI_ALLOW_UNSUPPORTED=1`.
+
+A host that cannot run computers is not refused: the installer lists the reasons
+(`No computer on this host, so TOFI installs the server and web app only. KVM is not
+available (/dev/kvm)...`) and installs without one. An explicit `--computer kvm` on such a
+host still stops, with the specific reason.
 
 aarch64 hosts (for example a NanoPi R5C, RK3568, Debian 13) get the same
 release: images are multi-arch manifest lists, and the installer and `tofi
@@ -48,14 +60,17 @@ confirm:
    installation (not installed, installed vX, stopped with data retained,
    interrupted install/update/uninstall), and the LAN and public IPv4 addresses.
    Low-RAM, no-swap and disk advisories follow. A hard failure (not Linux
-   x86_64 or aarch64, unsupported distribution without `TOFI_ALLOW_UNSUPPORTED=1`, no KVM,
+   x86_64 or aarch64, unsupported distribution without `TOFI_ALLOW_UNSUPPORTED=1`,
    not root, too small) is reported after the whole card, with every reason,
-   and exits 1.
-2. **How should each account's computer run?** `KVM (Firecracker)` is the
-   default. `gVisor container` and `Plain container` are listed dimmed with
-   "not supported yet (coming in a later release)". Without `/dev/kvm` all three
-   are dimmed and the installer explains why it cannot continue. The choice is
-   stored as `TOFI_COMPUTER_BACKEND=kvm` in `/etc/tofi/tofi.env`.
+   and exits 1. A missing `/dev/kvm`, TUN, cgroup v2 or AppArmor is shown as
+   information, not a failure: it only decides the next question.
+2. **Install a computer now?** Asked only on a host that can run KVM computers:
+   `Yes, install a computer (KVM, Firecracker)` (default; `--yes` means yes) or `Not now
+   - server and web app only`. A host that cannot is not asked: the installer prints why
+   there is no computer and how to add one later. `--computer none|kvm` answers in
+   advance; `gvisor` and `container` exit "not supported yet". The choice is stored as
+   `TOFI_COMPUTER_BACKEND=kvm|none` in `/etc/tofi/tofi.env` and handed to `tofi install
+   --computer`.
 3. **Is TOFI behind a reverse proxy you already run (Caddy, Nginx, Traefik,
    Cloudflare Tunnel...)?** Asked first, default no. Yes selects the direct
    install (self-signed HTTPS on the port, no bundled Caddy), asks for the
@@ -131,7 +146,7 @@ every exposure variable. With `sudo`, pass variables after it:
 
 | Flag | Variable | Meaning |
 |---|---|---|
-| `--computer kvm` | `TOFI_COMPUTER` | how computers run; `gvisor`/`container` exit "not supported yet" |
+| `--computer none\|kvm` | `TOFI_COMPUTER` | `none`: server and web app only; `kvm`: also a Firecracker computer per account (needs `/dev/kvm`). Default: `kvm` where the host supports it, else `none`. `gvisor`/`container` exit "not supported yet" |
 | `--domain NAME` | `TOFI_DOMAIN` | public HTTPS through Caddy (ports 80/443 free, DNS here); sets `TOFI_PUBLIC_ORIGIN` |
 | `--behind-proxy IP[,IP\|CIDR...]` | `TOFI_BEHIND_PROXY` | a proxy you already run sits in front: direct install, those addresses written to `TOFI_TRUSTED_PROXIES`, Caddy/Nginx snippets printed; excludes `--domain` and `--local-only` |
 | `--email ADDRESS` | `TOFI_EMAIL` | Let's Encrypt contact (with `--domain`) |
@@ -248,15 +263,17 @@ challenge the notice appears about every half hour. TOFI sets no
 
 1. Root and `Linux x86_64` or `Linux aarch64`.
 2. Supported distribution from `/etc/os-release`.
-3. `/dev/kvm`, `/dev/net/tun`, cgroup v2, AppArmor.
+3. `/dev/kvm`, `/dev/net/tun`, cgroup v2, AppArmor: they decide the computer. Fatal only
+   with `--computer kvm`; otherwise a host lacking one installs with `--computer none`.
 4. CPU, memory, disk and free ports (8321 on any address), the "This machine"
    card, then the questions (in a terminal) and Proceed. Steps 1-4 change
    nothing on the host; they only read (plus, for a fresh install, the latest
    release manifest from GitHub and one public-IP lookup).
-5. `apt-get install ca-certificates curl tar zstd python3 e2fsprogs apparmor apparmor-utils openssl iproute2`.
+5. `apt-get install ca-certificates curl tar python3 openssl iproute2`, and with a
+   computer also `zstd e2fsprogs apparmor apparmor-utils`.
 6. Docker Engine + Compose plugin from Docker's apt repository when missing
-   (falls back to get.docker.com for brand-new distributions); verifies Docker
-   uses cgroup v2 and AppArmor.
+   (falls back to get.docker.com for brand-new distributions); with a computer,
+   verifies Docker uses cgroup v2 and AppArmor.
 7. Downloads `manifest.json` from GitHub Releases over HTTPS and validates it:
    images pinned as `name@sha256:...`, artifact URLs from this repository's
    releases, checksums for every file.
@@ -295,11 +312,13 @@ Later accounts are created by the Admin. Then open Settings -> Model provider.
 | Command | Effect |
 |---|---|
 | `tofi status [--json]` | Installed and latest version, App/Worker images, Guest release, services, health, URLs, certificate fingerprint and one row per account computer (in a terminal the install summary first) |
+| `tofi computer add kvm [--wait MINUTES] [--force]` | Give a server without a computer one: checks KVM, TUN, cgroup v2, AppArmor, Docker, 2 vCPUs, 4 GiB RAM and 16 GiB free (installing `zstd e2fsprogs apparmor apparmor-utils` if missing), pulls the Worker image, fetches the Guest of the installed version, writes `worker.json`, seccomp and AppArmor, sets `TOFI_COMPUTER_BACKEND=kvm`, starts the Worker and restarts the App (after active Bot runs finish, like `stop`). Idempotent; a failure puts `tofi.env` back and the App as it was. Nothing changes if the host cannot run KVM |
+| `tofi computer remove [--purge] [--yes] [--wait MINUTES] [--force]` | Stop the Worker (computers hibernate), set `TOFI_COMPUTER_BACKEND=none`, restart the App. Computer disks, state and the Guest release stay under `/var/lib/tofi` so `computer add kvm` brings them back; `--purge` (needs `--yes` or a typed confirmation) deletes them and the AppArmor profile |
 | `tofi computers [--json]` | The account computer rows alone: state, Guest release, pending upgrade, memory, last wake |
 | `tofi computers upgrade --all \| --account <id> [--force]` | Move computers on an older Guest release to the installed one (idle ones now, busy ones deferred unless `--force`), then remove Guest releases no computer uses |
 | `tofi start` / `tofi stop [--wait MINUTES] [--force]` | Start (Worker first, readiness, App) / stop cleanly; never removes data. `stop` waits for active Bot runs like `update` does (the systemd unit passes `--force` so shutdown is never refused) |
 | `tofi update --check [--version X] [--json]` | Report what an update would change (versions, image digests, Guest, data schema, effect on computers) without touching anything; exit 0 up to date, 10 update available, 1 error |
-| `tofi update [--version X] [--yes] [--wait MINUTES] [--force] [--allow-schema-change]` | Pull and check the new images and Guest before stopping anything; refuse a different `io.tofi.data-schema` unless allowed; take a backup, then switch; on failure restore the backup, the previous images, Guest pin and host files ("update rejected; previous version restored"). Asks for confirmation on a terminal unless `--yes`; `--check` also prints the release notes link |
+| `tofi update [--version X] [--yes] [--wait MINUTES] [--force] [--allow-schema-change]` | Pull and check the new images and Guest before stopping anything; refuse a different `io.tofi.data-schema` unless allowed; take a backup, then switch; on failure restore the backup, the previous images, Guest pin and host files ("update rejected; previous version restored"). Asks for confirmation on a terminal unless `--yes`; `--check` also prints the release notes link. With backend `none` there is no Worker image or Guest to pull, fetch, prune or report, and the manifest's `guest`/`arches` entries are ignored |
 | `tofi update --auto` | What the daily timer runs: nothing unless `TOFI_AUTO_UPDATE=patch`; installs only a newer patch of the installed major.minor, never an rc, never when a Bot run is active (skipped, not waited for) |
 | `tofi config auto-update on\|off` | Switch automatic fix releases and the systemd timer |
 | `tofi config trusted-proxies [IP\|CIDR ...] [--clear]` | Show, set or clear the reverse proxies trusted for `X-Forwarded-For`; printing the Caddy/Nginx snippets when set |
@@ -312,7 +331,7 @@ Later accounts are created by the Admin. Then open Settings -> Model provider.
 | `tofi setup-secret` | Print the pending setup key |
 | `tofi regenerate-cert` | Replace the self-signed certificate (new names/IPs, new fingerprint) and restart the App |
 | `tofi logs [app\|worker\|caddy]` | Follow container logs |
-| `tofi doctor` | The installer's "This machine" card, then check KVM, computer backend, cgroup, profile, `/run/tofi`, Worker config, Guest release, images, disk, health |
+| `tofi doctor` | The installer's "This machine" card, then check KVM, computer backend, cgroup, profile, `/run/tofi`, Worker config, Guest release, images, disk, health. With backend `none` the KVM, cgroup, profile, Worker, Guest and memory checks are not run (a host without KVM is healthy) |
 | `tofi security audit [--json] [--online]` | Read-only report of where this install deviates from safe defaults: HTTPS and certificate type, listening interfaces and public addresses, plain-HTTP sign-in, pending Admin setup key, login limiter and trusted proxies, modes and owners of `/etc/tofi`, the data dir, vault files, the TLS key and backups, credential-looking names in `tofi.env` (names only, never values), plaintext model keys, installed vs latest release (stored check; `--online` fetches), Guest vs hibernated computers, newest backup age. PASS/WARN/FAIL with one fix line each; exit 0 (no FAIL), 2 (a FAIL), 1 (could not run). Changes nothing |
 | `tofi version` | Host tool, installed release and images |
 

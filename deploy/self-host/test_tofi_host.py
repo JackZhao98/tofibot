@@ -23,6 +23,9 @@ import tofi_host  # noqa: E402
 import tofi_tui  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
+# Lifecycle tests replace these with mocks; a few tests need the real ones.
+REAL_PULL_IMAGES = tofi_host.pull_images
+REAL_START_SERVICES = tofi_host.start_services
 GUEST_SHA = 'a' * 64
 OLD = 'v0.1.0'
 NEW = 'v0.2.0'
@@ -283,6 +286,38 @@ class PreflightTests(HostCase):
             warnings = tofi_host.preflight(self.options())
         self.assertEqual(len(warnings), 2)
 
+    def test_none_needs_no_kvm_cgroup_apparmor_tools_or_size(self):
+        self.P.dev_kvm = self.root / 'dev/kvm'
+        self.P.dev_tun = self.root / 'dev/net/tun'
+        self.P.meminfo.write_text('MemTotal: 2500000 kB\nMemAvailable: 2000000 kB\n')
+        none = self.options(computer='none')
+        info = {'CgroupVersion': '1', 'SecurityOptions': ['name=seccomp']}
+        with self.healthy_host(), \
+                mock.patch.object(tofi_host.shutil, 'which',
+                                  side_effect=lambda t: None if t in tofi_host.COMPUTER_TOOLS else '/bin/' + t), \
+                mock.patch.object(tofi_host.os, 'cpu_count', return_value=1), \
+                mock.patch.object(tofi_host, 'free_disk_bytes', return_value=12 * tofi_host.GIB):
+            self.P.cgroup_controllers.unlink()
+            self.P.apparmor_enabled.unlink()
+            tofi_host.run.side_effect = lambda args, **kw: completed(json.dumps(info) if args[:2] == ['docker', 'info'] else '')
+            warnings = tofi_host.preflight(none)
+            self.assertTrue(any('4 GiB or more is recommended' in w for w in warnings), warnings)
+            self.assertFalse([w for w in warnings if 'computer' in w], warnings)
+            # The same host is refused as soon as a computer is asked for.
+            self.refuses(r'KVM is not available', self.options(computer='kvm'))
+
+    def test_none_still_needs_docker_a_little_memory_and_disk(self):
+        none = self.options(computer='none')
+        self.P.meminfo.write_text('MemTotal: 1500000 kB\n')
+        with self.healthy_host():
+            self.refuses('at least 2 GiB of RAM; this host has 1464 MiB', none)
+        self.P.meminfo.write_text('MemTotal: 8000000 kB\n')
+        with self.healthy_host(), mock.patch.object(tofi_host, 'free_disk_bytes', return_value=8 * tofi_host.GIB):
+            self.refuses(r'10 GiB free under /var/lib; 8\.0 GiB is free', none)
+        with self.healthy_host():
+            tofi_host.run.side_effect = subprocess.CalledProcessError(1, ['docker'])
+            self.refuses('Docker is not running', none)
+
 
 class MemoryAdvisoryTests(HostCase):
     healthy_host = PreflightTests.healthy_host
@@ -395,7 +430,7 @@ class RenderTests(HostCase):
 
         def env_for(*argv):
             return tofi_host.render_env(manifest(), tofi_host.install_options(
-                tofi_host.parse_args(['install'] + list(argv))), budgets)
+                tofi_host.parse_args(['install', '--computer', 'kvm'] + list(argv))), budgets)
 
         tls_files = ('/etc/tofi-tls/cert.pem', '/etc/tofi-tls/key.pem')
         default = env_for()
@@ -770,7 +805,8 @@ class LifecycleTests(LifecycleBase):
         self.make_bundle(OLD)
         self.P.opt.mkdir(parents=True, exist_ok=True)
         os.symlink('releases/' + OLD, self.P.current)
-        options = tofi_host.install_options(tofi_host.parse_args(['install', '--manifest', 'm.json']))
+        options = tofi_host.install_options(
+            tofi_host.parse_args(['install', '--manifest', 'm.json', '--computer', 'kvm']))
         addresses = [('inet', '192.0.2.39'), ('inet', '192.168.7.2'), ('inet6', '2001:db8::39')]
         with mock.patch.object(tofi_host, 'preflight', return_value=[]), \
                 mock.patch.object(tofi_host, 'ASSETS', self.P.releases / OLD), \
@@ -1877,8 +1913,10 @@ class ComputerBackendTests(HostCase):
         return tofi_host.parse_args(['install', '--manifest', 'm.json', *extra])
 
     def test_backend_is_recorded_in_tofi_env(self):
+        self.write(self.P.cgroup_controllers, 'cpu memory io\n')
+        self.write(self.P.apparmor_enabled, 'Y\n')
         options = tofi_host.install_options(self.args())
-        self.assertEqual(options['computer'], 'kvm')
+        self.assertEqual(options['computer'], 'kvm', 'a host that can run KVM defaults to a computer')
         env = tofi_host.render_env(manifest(), options, {'cpu': 3, 'memory_mib': 6144})
         self.assertEqual(env['TOFI_COMPUTER_BACKEND'], 'kvm')
         self.assertIn('TOFI_COMPUTER_BACKEND=kvm\n', tofi_host.format_env(env))
@@ -1886,7 +1924,8 @@ class ComputerBackendTests(HostCase):
     def test_trusted_proxies_survive_a_rewrite_of_tofi_env(self):
         # An operator behind an external reverse proxy adds the value by hand;
         # `tofi update` rebuilds the file from the installed env and must keep it.
-        env = tofi_host.render_env(manifest(), tofi_host.install_options(self.args()), {'cpu': 3, 'memory_mib': 6144})
+        env = tofi_host.render_env(manifest(), tofi_host.install_options(self.args('--computer', 'kvm')),
+                                   {'cpu': 3, 'memory_mib': 6144})
         env['TOFI_TRUSTED_PROXIES'] = '192.0.2.0/24'
         path = self.P.env_file
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -1899,7 +1938,7 @@ class ComputerBackendTests(HostCase):
         for backend in ('gvisor', 'container'):
             with self.assertRaisesRegex(tofi_host.HostError, r'not supported yet \(coming in a later release\)'):
                 tofi_host.install_options(self.args('--computer', backend))
-        with self.assertRaisesRegex(tofi_host.HostError, 'must be kvm, gvisor or container'):
+        with self.assertRaisesRegex(tofi_host.HostError, 'must be none or kvm'):
             tofi_host.install_options(self.args('--computer', 'xen'))
 
     def test_doctor_shows_the_machine_card_and_backend(self):
@@ -1920,6 +1959,467 @@ class ComputerBackendTests(HostCase):
         sys.stdout.seek(0)
         self.assertFalse(tofi_host.doctor())
         self.assertRegex(sys.stdout.getvalue(), r'FAIL +Computer backend +gvisor is not supported yet')
+
+
+class NoComputerCase(ComputerCase):
+    """A server-and-web install: TOFI_COMPUTER_BACKEND=none, no Worker, no Guest."""
+
+    def installed_none(self, phase='installed', version=OLD):
+        self.make_bundle(version)
+        (self.P.releases / version / 'manifest.json').write_text(json.dumps(manifest(version, '1')))
+        self.P.opt.mkdir(parents=True, exist_ok=True)
+        os.symlink('releases/' + version, self.P.current)
+        options = {'domain': '', 'email': '', 'bind': '0.0.0.0', 'port': 8321, 'computer': 'none'}
+        env = tofi_host.render_env(manifest(version, '1'), options, {'cpu': 3, 'memory_mib': 6144})
+        tofi_host.prepare_directories(False)
+        tofi_host.apply_host_config(self.P.releases / version, env)
+        (self.P.data / 'tofi.db').write_bytes(DATA)
+        state = tofi_host.new_state(version)
+        tofi_host.complete(state, phase)
+        self.commands.clear()
+        return env
+
+    def kvm_host(self):
+        """A kernel that can run KVM computers."""
+        self.write(self.P.cgroup_controllers, 'cpu memory io\n')
+        self.write(self.P.apparmor_enabled, 'Y\n')
+
+    def compose_calls(self):
+        return [c for c in self.commands if c[:2] == ['docker', 'compose']]
+
+
+class NoComputerRenderTests(NoComputerCase):
+    def test_env_has_no_computer_variables(self):
+        env = self.installed_none()
+        self.assertEqual(env['TOFI_COMPUTER_BACKEND'], 'none')
+        for key in ('TOFI_WORKER_IMAGE', 'TOFI_GUEST_VERSION', 'TOFI_CPU_BUDGET', 'TOFI_MEMORY_BUDGET_MIB',
+                    'TOFI_WORKER_MEMORY_LIMIT', 'TOFI_ACCOUNT_PROVISIONER_SOCKET',
+                    'TOFI_ACCOUNT_COMPUTER_SOCKET_ROOT', 'TOFI_ACCOUNT_COMPUTER_DISK_GIB'):
+            self.assertEqual(env[key], '', key)
+        self.assertEqual(tofi_host.read_env()['TOFI_COMPUTER_BACKEND'], 'none')
+        self.assertIn('TOFI_ACCOUNT_PROVISIONER_SOCKET=\n', self.P.env_file.read_text())
+        self.assertEqual(env['TOFI_APP_IMAGE'], image('app', '1'))
+
+    def test_kvm_env_carries_the_sockets_the_app_needs(self):
+        env = tofi_host.render_env(manifest(), {'domain': '', 'bind': '0.0.0.0', 'port': 8321},
+                                   {'cpu': 3, 'memory_mib': 6144})
+        self.assertEqual(env['TOFI_COMPUTER_BACKEND'], 'kvm')
+        self.assertEqual(env['TOFI_ACCOUNT_PROVISIONER_SOCKET'], '/run/tofi/broker.sock')
+        self.assertEqual(env['TOFI_ACCOUNT_COMPUTER_SOCKET_ROOT'], '/run/tofi/accounts')
+        self.assertEqual(env['TOFI_ACCOUNT_COMPUTER_DISK_GIB'], '8')
+        self.assertEqual(env['TOFI_WORKER_IMAGE'], image('worker', '2'))
+
+    def test_no_worker_files_are_written(self):
+        self.installed_none()
+        self.assertFalse(self.P.worker_json.exists())
+        self.assertFalse(self.P.seccomp.exists())
+        self.assertFalse(self.P.apparmor_profile.exists())
+        self.assertFalse(self.P.worker.exists())
+        self.assertFalse(self.P.guest.exists())
+        self.assertFalse([c for c in self.commands if c[0] == 'apparmor_parser'])
+        self.assertTrue(self.P.tmpfiles.exists(), '/run/tofi stays: the App mounts it')
+
+    def test_an_older_env_without_socket_keys_keeps_its_computer(self):
+        env = self.installed()
+        for key in ('TOFI_ACCOUNT_PROVISIONER_SOCKET', 'TOFI_ACCOUNT_COMPUTER_SOCKET_ROOT',
+                    'TOFI_ACCOUNT_COMPUTER_DISK_GIB'):
+            env.pop(key)
+        tofi_host.apply_host_config(self.P.current, env)
+        written = tofi_host.read_env()
+        self.assertEqual(written['TOFI_ACCOUNT_PROVISIONER_SOCKET'], '/run/tofi/broker.sock')
+        self.assertEqual(written['TOFI_ACCOUNT_COMPUTER_DISK_GIB'], '8')
+        # An env from before TOFI_COMPUTER_BACKEND existed is a kvm install.
+        old = {key: value for key, value in env.items() if key != 'TOFI_COMPUTER_BACKEND'}
+        tofi_host.apply_host_config(self.P.current, old)
+        self.assertEqual(tofi_host.read_env()['TOFI_COMPUTER_BACKEND'], 'kvm')
+
+    def test_compose_enables_the_worker_profile_only_with_a_computer(self):
+        none = {'TOFI_COMPUTER_BACKEND': 'none'}
+        self.assertNotIn(tofi_host.COMPUTER_PROFILE, tofi_host.compose_command(none))
+        self.assertNotIn(tofi_host.COMPUTER_PROFILE, tofi_host.compose_command({'TOFI_DOMAIN': 'tofi.example.com',
+                                                                                'TOFI_COMPUTER_BACKEND': 'none'}))
+        command = tofi_host.compose_command({'TOFI_DOMAIN': 'tofi.example.com', 'TOFI_COMPUTER_BACKEND': 'kvm'})
+        self.assertEqual([command[i + 1] for i, word in enumerate(command) if word == '--profile'],
+                         ['tls', 'computer-kvm'])
+        # No value at all is what every install before this release has: a computer.
+        self.assertIn(tofi_host.COMPUTER_PROFILE, tofi_host.compose_command({}))
+        text = (HERE / 'compose.yaml').read_text()
+        self.assertIn('profiles: [computer-kvm]', text)
+        worker = text.split('  worker:')[1].split('  app:')[0]
+        self.assertNotIn(':?', worker, 'computer variables must be optional for a server without a computer')
+
+    def test_install_options_follow_the_host(self):
+        args = lambda *extra: tofi_host.parse_args(['install', '--manifest', 'm.json', *extra])  # noqa: E731
+        # No cgroup v2 / AppArmor under the test root: this host cannot run computers.
+        self.assertEqual(tofi_host.install_options(args())['computer'], 'none')
+        self.kvm_host()
+        self.assertEqual(tofi_host.install_options(args())['computer'], 'kvm')
+        self.assertEqual(tofi_host.install_options(args('--computer', 'none'))['computer'], 'none')
+        self.P.dev_kvm = self.root / 'dev/kvm'
+        self.assertEqual(tofi_host.install_options(args())['computer'], 'none')
+        self.assertEqual(tofi_host.install_options(args('--computer', 'kvm'))['computer'], 'kvm',
+                         'asking for kvm is preflight\'s to refuse, with its own reason')
+
+
+class NoComputerLifecycleTests(NoComputerCase):
+    def test_fresh_install_has_no_worker_guest_or_computer_step(self):
+        self.make_bundle(OLD)
+        self.P.opt.mkdir(parents=True, exist_ok=True)
+        os.symlink('releases/' + OLD, self.P.current)
+        options = tofi_host.install_options(
+            tofi_host.parse_args(['install', '--manifest', 'm.json', '--computer', 'none']))
+        with mock.patch.object(tofi_host, 'preflight', return_value=[]) as preflight, \
+                mock.patch.object(tofi_host, 'ASSETS', self.P.releases / OLD), \
+                mock.patch.object(tofi_host, 'interface_addresses', return_value=[('inet', '192.0.2.39')]), \
+                mock.patch.object(tofi_host.os, 'cpu_count', return_value=4):
+            self.P.data.mkdir(parents=True)
+            tofi_host.install(str(self.write_manifest(manifest(OLD, '1'))), options)
+        self.assertEqual(preflight.call_args.args[0]['computer'], 'none')
+        self.assertEqual(self.phase(), 'installed')
+        self.fetch_guest.assert_not_called()
+        self.assertEqual(self.pull.call_args.args[0]['TOFI_COMPUTER_BACKEND'], 'none')
+        self.assertFalse(self.P.worker_json.exists())
+        self.assertFalse(self.P.guest.exists())
+        self.assertFalse(self.P.worker.exists())
+        self.assertEqual(tofi_host.read_env()['TOFI_WORKER_IMAGE'], '')
+        out = sys.stdout.getvalue()
+        self.assertIn('Computer    none · add one later: sudo tofi computer add kvm', out)
+
+    def test_pull_images_skips_the_worker_without_a_computer(self):
+        calls = []
+        with mock.patch.object(tofi_host, 'inspect_image', side_effect=lambda ref, role, schema=None: calls.append(role)):
+            REAL_PULL_IMAGES({'TOFI_COMPUTER_BACKEND': 'none', 'TOFI_APP_IMAGE': image('app', '1'),
+                                   'TOFI_WORKER_IMAGE': ''}, 'tofi-account-data-v1')
+            self.assertEqual(calls, ['app'])
+            del calls[:]
+            REAL_PULL_IMAGES({'TOFI_COMPUTER_BACKEND': 'kvm', 'TOFI_APP_IMAGE': image('app', '1'),
+                                   'TOFI_WORKER_IMAGE': image('worker', '1')}, 'tofi-account-data-v1')
+            self.assertEqual(calls, ['app', 'worker'])
+        pulls = [c[-1] for c in self.commands if c[:2] == ['docker', 'pull']]
+        self.assertNotIn('', pulls)
+        self.assertEqual(len(pulls), 3)
+
+    def test_update_skips_the_guest_and_the_worker(self):
+        self.installed_none()
+        result = tofi_host.upgrade(manifest_path=str(self.write_manifest(manifest())))
+        self.assertTrue(result['upgraded'])
+        self.fetch_guest.assert_not_called()
+        env = tofi_host.read_env()
+        self.assertEqual((env['TOFI_VERSION'], env['TOFI_COMPUTER_BACKEND']), (NEW, 'none'))
+        self.assertEqual((env['TOFI_WORKER_IMAGE'], env['TOFI_GUEST_VERSION']), ('', ''))
+        self.assertEqual(env['TOFI_APP_IMAGE'], image('app', '2'))
+        self.assertFalse(self.P.guest.exists(), 'nothing to download or keep for a computer that is not there')
+        self.assertFalse(self.P.worker_json.exists())
+        self.assertNotIn('Hibernated computers', sys.stdout.getvalue())
+        self.assertEqual(self.phase(), 'installed')
+
+    def test_update_check_reports_no_worker_or_guest(self):
+        self.installed_none()
+        code, out = self.main('update', '--check')
+        self.assertEqual(code, 10)
+        self.assertNotIn('Worker image', out)
+        self.assertNotIn('Guest release', out)
+        self.assertIn('App image', out)
+        self.assertIn('Computer     none', out)
+        self.calls.assert_not_called()
+        code, out = self.main('update', '--check', '--json')
+        report = json.loads(out)
+        self.assertEqual([c['name'] for c in report['components']], ['version', 'app'])
+        self.assertEqual(report['computer_backend'], 'none')
+
+    def test_a_failed_update_rolls_back_without_a_worker_config(self):
+        self.installed_none()
+        env_bytes = self.P.env_file.read_bytes()
+        self.start_services.side_effect = [tofi_host.HostError('candidate unhealthy'), None]
+        with self.assertRaisesRegex(tofi_host.HostError, 'update rejected; previous version restored'):
+            tofi_host.upgrade(manifest_path=str(self.write_manifest(manifest())))
+        self.assertEqual(self.P.env_file.read_bytes(), env_bytes)
+        self.assertEqual(tofi_host.current_release(), OLD)
+        self.assertFalse(self.P.worker_json.exists())
+        self.assertEqual(self.phase(), 'installed')
+
+    def test_start_services_never_touches_the_worker(self):
+        env = self.installed_none()
+        with mock.patch.object(tofi_host, 'worker_ready') as ready, mock.patch.object(tofi_host, 'health'):
+            REAL_START_SERVICES(env)
+        ready.assert_not_called()
+        calls = self.compose_calls()
+        self.assertEqual(len(calls), 1, calls)
+        self.assertEqual(calls[0][-1], 'app')
+        self.assertNotIn('worker', calls[0])
+        self.assertNotIn(tofi_host.COMPUTER_PROFILE, calls[0])
+        self.commands.clear()
+        with mock.patch.object(tofi_host, 'worker_ready') as ready, mock.patch.object(tofi_host, 'health'):
+            REAL_START_SERVICES(dict(env, TOFI_COMPUTER_BACKEND='kvm'))
+        ready.assert_called_once()
+        self.assertEqual([c[-1] for c in self.compose_calls()], ['worker', 'app'])
+
+    def test_backups_and_the_security_audit_cope_without_worker_directories(self):
+        self.installed_none()
+        self.assertEqual(tofi_host.worker_meta_roots(), [])
+        self.assertEqual(tofi_host.account_disks(), [])
+        finding = tofi_host.audit_computers(tofi_host.read_env())
+        self.assertEqual(finding['level'], tofi_host.AUDIT_PASS)
+        self.assertIn('no computer is installed', finding['detail'])
+
+
+class NoComputerDiagnosticsTests(NoComputerCase):
+    def test_status_says_none_and_never_asks_the_worker(self):
+        self.installed_none()
+        with mock.patch.object(tofi_host, 'health', return_value=True), \
+                mock.patch.object(tofi_host, 'project_containers', return_value=[]):
+            result = tofi_host.status(details=True)
+        self.assertEqual(result['computer_backend'], 'none')
+        self.assertNotIn('computers', result)
+        self.assertNotIn('computers_error', result)
+        self.calls.assert_not_called()
+        text = tofi_host.render_status(result, None, verbose=True)
+        self.assertIn('Computer     none · server and web only · sudo tofi computer add kvm adds one', text)
+        self.assertNotIn('Computers', text)
+        self.assertNotIn('Worker', text)
+        self.assertNotIn('Guest', text)
+        self.assertIn('tofi computer add kvm', text.splitlines()[-1])
+
+    def test_status_with_a_computer_is_unchanged(self):
+        self.installed()
+        with mock.patch.object(tofi_host, 'health', return_value=True), \
+                mock.patch.object(tofi_host, 'project_containers', return_value=[]):
+            result = tofi_host.status(details=True)
+        text = tofi_host.render_status(result, None)
+        self.assertIn('Computers', text)
+        self.assertNotIn('Computer     none', text)
+
+    def test_doctor_does_not_flag_missing_kvm_when_the_backend_is_none(self):
+        self.installed_none()
+        self.P.dev_kvm = self.root / 'dev/kvm'
+        for name in ('health', 'inspect_image', 'certificate_usable'):
+            patcher = mock.patch.object(tofi_host, name, return_value=True)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        tofi_host.doctor()
+        out = sys.stdout.getvalue()
+        self.assertRegex(out, r'ok +Computer backend +none \(server and web only')
+        for absent in ('KVM device', 'cgroup v2', 'AppArmor profile', 'Worker config', 'Guest release', 'Memory'):
+            self.assertNotIn(absent, out.split('This machine', 1)[1].split('\n\n', 1)[-1])
+        self.assertNotRegex(out, r'FAIL +(KVM|AppArmor|Worker|Guest)')
+        self.assertRegex(out, r'ok +Images')
+        self.assertIn('KVM', out.split('This machine', 1)[1].split('Computer backend')[0], 'the card still shows it')
+
+    def test_doctor_with_a_computer_still_fails_without_kvm(self):
+        self.installed()
+        self.P.dev_kvm = self.root / 'dev/kvm'
+        for name in ('health', 'inspect_image', 'validate_release', 'certificate_usable'):
+            patcher = mock.patch.object(tofi_host, name, return_value=True)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.assertFalse(tofi_host.doctor())
+        self.assertRegex(sys.stdout.getvalue(), r'FAIL +KVM device')
+
+    def test_computers_command_explains_there_is_none(self):
+        self.installed_none()
+        code, out = self.main('computers')
+        self.assertEqual(code, 0)
+        self.assertIn('no computer', out)
+        self.assertIn('sudo tofi computer add kvm', out)
+        code, out = self.main('computers', '--json')
+        self.assertEqual(json.loads(out), {'computer': 'none', 'computers': []})
+        self.assertEqual(self.main('computers', 'upgrade', '--all')[0], 0)
+        self.calls.assert_not_called()
+
+    def test_machine_card_marks_kvm_as_information_without_a_computer(self):
+        facts = tofi_tui.detect(tofi_tui.Host({'TOFI_TEST_ROOT': str(self.root), 'TOFI_DEV_KVM': str(self.root / 'dev/kvm')}),
+                                {}, lookup_public=False)
+        none = dict((label, kind) for kind, label, _ in tofi_tui.machine_rows(facts, computer='none'))
+        kvm = dict((label, kind) for kind, label, _ in tofi_tui.machine_rows(facts, computer='kvm'))
+        self.assertEqual((none['KVM'], kvm['KVM']), ('info', 'bad'))
+        self.assertEqual((none['Kernel'], kvm['Kernel']), ('info', 'bad'))
+
+
+class ComputerAddRemoveTests(NoComputerCase):
+    def setUp(self):
+        super().setUp()
+        self.kvm_host()
+        self.preflight = mock.patch.object(tofi_host, 'computer_add_preflight', return_value=[]).start()
+        self.running = []
+        mock.patch.object(tofi_host, 'project_containers', side_effect=lambda: list(self.running)).start()
+
+    def worker_container(self):
+        return {'Id': 'w1', 'Config': {'Labels': {'com.docker.compose.service': 'worker'}},
+                'State': {'Running': True, 'Pid': 4242, 'ExitCode': 0}}
+
+    def test_add_installs_the_computer_on_a_server_that_has_none(self):
+        self.installed_none()
+        result = tofi_host.computer_add('kvm')
+        self.assertEqual(result, {'added': True, 'computer': 'kvm'})
+        env = tofi_host.read_env()
+        self.assertEqual(env['TOFI_COMPUTER_BACKEND'], 'kvm')
+        self.assertEqual(env['TOFI_WORKER_IMAGE'], image('worker', '1'))
+        self.assertEqual(env['TOFI_GUEST_VERSION'], OLD)
+        self.assertEqual(env['TOFI_ACCOUNT_PROVISIONER_SOCKET'], '/run/tofi/broker.sock')
+        self.assertEqual(env['TOFI_ACCOUNT_COMPUTER_DISK_GIB'], '8')
+        self.fetch_guest.assert_called_once()
+        self.assertEqual(self.fetch_guest.call_args.args[0]['version'], OLD)
+        tofi_host.validate_config(json.loads(self.P.worker_json.read_text()))
+        self.assertTrue(self.P.seccomp.exists() and self.P.apparmor_profile.exists())
+        self.assertIn(['apparmor_parser', '-r'], [c[:2] for c in self.commands])
+        self.assertTrue((self.P.worker / 'state').is_dir())
+        self.pull.assert_called_once()
+        self.assertEqual(self.pull.call_args.args[0]['TOFI_COMPUTER_BACKEND'], 'kvm')
+        self.start_services.assert_called_once()
+        self.assertEqual(self.start_services.call_args.args[0]['TOFI_COMPUTER_BACKEND'], 'kvm')
+        self.assertTrue(self.start_services.call_args.kwargs['first_install'])
+        self.assertEqual(self.phase(), 'installed')
+        self.assertEqual((self.P.data / 'tofi.db').read_bytes(), DATA)
+        self.assertIn('Computer added', sys.stdout.getvalue())
+
+    def test_add_is_idempotent(self):
+        self.installed_none()
+        tofi_host.computer_add('kvm')
+        self.running = [self.worker_container()]
+        self.fetch_guest.reset_mock()
+        self.start_services.reset_mock()
+        before = self.P.env_file.read_bytes()
+        self.assertEqual(tofi_host.computer_add('kvm'), {'added': False, 'computer': 'kvm'})
+        self.fetch_guest.assert_not_called()
+        self.start_services.assert_not_called()
+        self.assertEqual(self.P.env_file.read_bytes(), before)
+        self.assertIn('already has a computer', sys.stdout.getvalue())
+
+    def test_add_finishes_a_computer_whose_worker_is_not_running(self):
+        self.installed()   # backend kvm already, Worker container absent
+        self.assertTrue(tofi_host.computer_add('kvm')['added'])
+        self.start_services.assert_called_once()
+
+    def test_add_on_a_host_without_kvm_changes_nothing(self):
+        self.installed_none()
+        mock.patch.stopall()
+        self.addCleanup(mock.patch.stopall)
+        self.write(self.P.cgroup_controllers, 'cpu\n')
+        self.P.dev_kvm = self.root / 'dev/kvm'
+        before = self.P.env_file.read_bytes()
+        with mock.patch.object(tofi_host, 'require_root'), \
+                self.assertRaisesRegex(tofi_host.HostError, r'cannot run a computer, and nothing was changed.*/dev/kvm'):
+            tofi_host.computer_add('kvm')
+        self.assertEqual(self.P.env_file.read_bytes(), before)
+        self.assertFalse(self.P.worker_json.exists())
+
+    def test_add_preflight_checks_docker_cpu_memory_and_disk(self):
+        mock.patch.stopall()
+        self.addCleanup(mock.patch.stopall)
+        self.write(self.P.apparmor_enabled, 'Y\n')
+        self.write(self.P.cgroup_controllers, 'cpu\n')
+        info = {'CgroupVersion': '2', 'SecurityOptions': ['name=apparmor']}
+        stack = contextlib.ExitStack()
+        self.addCleanup(stack.close)
+        stack.enter_context(mock.patch.object(tofi_host, 'run', side_effect=lambda args, **kw: completed(json.dumps(info))))
+        stack.enter_context(mock.patch.object(tofi_host, 'ensure_computer_tools'))
+        stack.enter_context(mock.patch.object(tofi_host.os, 'cpu_count', return_value=4))
+        stack.enter_context(mock.patch.object(tofi_host, 'free_disk_bytes', return_value=50 * tofi_host.GIB))
+        self.write(self.P.meminfo, 'MemTotal: 8000000 kB\nSwapTotal: 4194300 kB\n')
+        self.assertEqual(tofi_host.computer_add_preflight(), [])
+        self.write(self.P.meminfo, 'MemTotal: 2500000 kB\n')
+        with self.assertRaisesRegex(tofi_host.HostError, 'at least 4 GiB of RAM'):
+            tofi_host.computer_add_preflight()
+        self.write(self.P.meminfo, 'MemTotal: 8000000 kB\n')
+        with mock.patch.object(tofi_host, 'free_disk_bytes', return_value=10 * tofi_host.GIB), \
+                self.assertRaisesRegex(tofi_host.HostError, 'first computer needs 16 GiB'):
+            tofi_host.computer_add_preflight()
+        with mock.patch.object(tofi_host.os, 'cpu_count', return_value=1), \
+                self.assertRaisesRegex(tofi_host.HostError, 'at least 2 vCPUs'):
+            tofi_host.computer_add_preflight()
+
+    def test_a_failed_add_puts_the_server_back_as_it_was(self):
+        self.installed_none()
+        before = self.P.env_file.read_bytes()
+        self.start_services.side_effect = [tofi_host.HostError('Worker did not become ready'), None]
+        with self.assertRaisesRegex(tofi_host.HostError, 'Adding the computer failed.*Worker did not become ready'):
+            tofi_host.computer_add('kvm')
+        self.assertEqual(self.P.env_file.read_bytes(), before)
+        self.assertEqual(tofi_host.read_env()['TOFI_COMPUTER_BACKEND'], 'none')
+        self.assertEqual(self.start_services.call_count, 2)
+        self.assertEqual(self.start_services.call_args.args[0]['TOFI_COMPUTER_BACKEND'], 'none')
+        self.assertIn(['stop', 'worker'], [c[-2:] for c in self.compose_calls()])
+
+    def test_add_refuses_unknown_backends_and_a_pending_transaction(self):
+        with self.assertRaisesRegex(tofi_host.HostError, 'Only kvm'):
+            tofi_host.computer_add('e2b')
+        self.installed_none(phase='upgrade-failed')
+        with self.assertRaisesRegex(tofi_host.HostError, 'resume'):
+            tofi_host.computer_add('kvm')
+
+    def test_remove_stops_the_worker_keeps_the_data_and_sets_none(self):
+        self.installed()
+        (self.P.worker / 'state' / 'acct').mkdir(parents=True)
+        (self.P.worker / 'state' / 'acct' / 'workspace.ext4').write_bytes(b'disk')
+        result = tofi_host.computer_remove()
+        self.assertEqual(result, {'removed': True, 'computer': 'none', 'purged': False})
+        env = tofi_host.read_env()
+        self.assertEqual((env['TOFI_COMPUTER_BACKEND'], env['TOFI_WORKER_IMAGE'], env['TOFI_GUEST_VERSION']),
+                         ('none', '', ''))
+        tails = [c[-2:] for c in self.compose_calls()]
+        self.assertIn(['stop', 'worker'], tails)
+        self.assertIn(['-f', 'worker'], tails)
+        stop = next(c for c in self.compose_calls() if c[-2:] == ['stop', 'worker'])
+        self.assertIn(tofi_host.COMPUTER_PROFILE, stop, 'the stop is issued while the profile is still on')
+        self.assertEqual(self.start_services.call_args.args[0]['TOFI_COMPUTER_BACKEND'], 'none')
+        self.assertEqual((self.P.worker / 'state' / 'acct' / 'workspace.ext4').read_bytes(), b'disk')
+        self.assertTrue(self.P.worker_json.exists() and (self.P.guest / OLD).is_dir())
+        self.assertEqual((self.P.data / 'tofi.db').read_bytes(), DATA)
+        self.assertIn('computer add kvm', sys.stdout.getvalue())
+        # And adding it back finds the same disks.
+        self.fetch_guest.reset_mock()
+        self.assertTrue(tofi_host.computer_add('kvm')['added'])
+        self.assertEqual((self.P.worker / 'state' / 'acct' / 'workspace.ext4').read_bytes(), b'disk')
+
+    def test_remove_purge_deletes_the_computer_state(self):
+        self.installed()
+        (self.P.worker / 'state' / 'acct').mkdir(parents=True)
+        (self.P.worker / 'state' / 'acct' / 'workspace.ext4').write_bytes(b'disk')
+        with self.assertRaisesRegex(tofi_host.HostError, 'add --yes'):
+            tofi_host.computer_remove(purge=True)
+        self.assertEqual(tofi_host.read_env()['TOFI_COMPUTER_BACKEND'], 'kvm', 'refusal changes nothing')
+        result = tofi_host.computer_remove(purge=True, yes=True)
+        self.assertTrue(result['purged'])
+        for path in (self.P.worker, self.P.guest, self.P.worker_json, self.P.seccomp, self.P.apparmor_profile):
+            self.assertFalse(path.exists(), path)
+        self.assertEqual((self.P.data / 'tofi.db').read_bytes(), DATA)
+        self.assertIn(['apparmor_parser', '-R'], [c[:2] for c in self.commands])
+
+    def test_remove_on_a_server_without_a_computer_is_a_no_op(self):
+        self.installed_none()
+        self.start_services.reset_mock()
+        before = self.P.env_file.read_bytes()
+        self.assertEqual(tofi_host.computer_remove(), {'removed': False, 'computer': 'none'})
+        self.assertEqual(self.P.env_file.read_bytes(), before)
+        self.start_services.assert_not_called()
+
+    def test_remove_failure_restores_the_computer(self):
+        self.installed()
+        before = self.P.env_file.read_bytes()
+        self.start_services.side_effect = [tofi_host.HostError('app unhealthy'), None]
+        with self.assertRaisesRegex(tofi_host.HostError, 'Removing the computer failed'):
+            tofi_host.computer_remove()
+        self.assertEqual(self.P.env_file.read_bytes(), before)
+
+    def test_remove_waits_for_busy_runs(self):
+        self.installed()
+        self.active_runs.return_value = 2
+        with self.assertRaises(tofi_host.ActiveRunsError):
+            tofi_host.computer_remove()
+        self.assertEqual(tofi_host.read_env()['TOFI_COMPUTER_BACKEND'], 'kvm')
+
+    def test_cli_wiring(self):
+        self.installed_none()
+        code, out = self.main('computer', 'add', 'kvm')
+        self.assertEqual(code, 0)
+        self.assertEqual(tofi_host.read_env()['TOFI_COMPUTER_BACKEND'], 'kvm')
+        code, out = self.main('computer', 'remove')
+        self.assertEqual(code, 0)
+        self.assertEqual(tofi_host.read_env()['TOFI_COMPUTER_BACKEND'], 'none')
+        with self.assertRaises(SystemExit):
+            tofi_host.parse_args(['computer', 'add', 'e2b'])
+        args = tofi_host.parse_args(['computer', 'remove', '--purge', '--yes', '--force'])
+        self.assertEqual((args.computer_command, args.purge, args.yes, args.force), ('remove', True, True, True))
 
 
 class ProgressTests(unittest.TestCase):
