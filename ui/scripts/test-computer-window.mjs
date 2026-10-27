@@ -80,9 +80,9 @@ try {
     await shot(page, "small-loading-light-1440");
     // Hibernation states are named, not shown as a generic boot.
     state.info = info("resuming");
-    await page.getByText("Resuming from hibernation").waitFor({ timeout: 6000 });
+    await page.getByText(/Waking the computer/).waitFor({ timeout: 6000 });
     state.info = info("hibernated");
-    await page.getByText(/Asleep/).waitFor({ timeout: 6000 });
+    await page.getByText(/Waking the computer/).waitFor({ timeout: 6000 });
     assert.deepEqual(errors, []);
     results.push("small loading");
     await context.close();
