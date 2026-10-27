@@ -231,7 +231,9 @@
     "impact_held_one": "{{count}} open task it holds will be cancelled.",
     "impact_held_other": "{{count}} open tasks it holds will be cancelled.",
     "impact_waits_one": "{{count}} wait it holds will end.",
-    "impact_waits_other": "{{count}} waits it holds will end."
+    "impact_waits_other": "{{count}} waits it holds will end.",
+    "note_bot_no_computer": "Its past messages in groups are kept. This can't be undone in the app.",
+    "note_group_no_computer": "This can't be undone in the app."
   },
   "delivery": {
     "queued": "Queued, read at next step",

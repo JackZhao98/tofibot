@@ -4,6 +4,8 @@ import {AutomationSettings} from "../AutomationSettings";
 import {DebugSettings} from "../BotInspector";
 import {ComputerCredentials} from "../ComputerCredentials";
 import {ComputerPanel} from "../ComputerPanel";
+import {ComputerOptions} from "../ComputerOptions";
+import {useHasComputer} from "../computerCapability";
 import {ComputerResources} from "../ComputerResources";
 import {ConnectionInfo} from "../ConnectionInfo";
 import {DictationSettings} from "../DictationSettings";
@@ -53,13 +55,18 @@ export function SettingsPages(props:SettingsPagesProps){
   case "followups": return <FollowupsSettings/>;
   case "models": return <ModelsPage {...props}/>;
   case "automation": return <AutomationSettings/>;
-  case "computer": return <><ComputerResources/><ComputerPanel/></>;
+  case "computer": return <ComputerPage/>;
   case "keys": return <ComputerCredentials bots={activeBots}/>;
   case "usage": return <div className="settings-stack"><RunHealthCard/><UsagePanel preferredBotId={props.usageBotId} timezone={props.timezone}/></div>;
   case "advanced": return <AdvancedPage {...props} bots={bots} activeBots={activeBots}/>;
   case "admin": return <Suspense fallback={null}><AdminAccounts/></Suspense>;
   default: return unreachable(page);
  }
+}
+
+/** With no computer backend the page explains the options; otherwise it is the computer's own settings. */
+function ComputerPage(){
+ return useHasComputer()?<><ComputerResources/><ComputerPanel/></>:<ComputerOptions/>;
 }
 
 function GeneralPage({appearance,slots,openTab,bots,onBotsChanged}:SettingsPagesProps){

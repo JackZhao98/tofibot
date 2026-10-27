@@ -78,7 +78,7 @@ func (s *Server) pushGuestBytes(ctx context.Context, r Run, dst string, data []b
 // untouched. A skill's files are inert until the Bot chooses to run them.
 func (s *Server) withBuiltinSkillStaging(r Run, tools []Tool) []Tool {
 	if s.microVM == nil {
-		return tools
+		return s.withNoComputerSkillNote(tools)
 	}
 	var mu sync.Mutex
 	staged := map[string]string{}
@@ -133,6 +133,42 @@ func (s *Server) withBuiltinSkillStaging(r Run, tools []Tool) []Tool {
 				return "This skill's files are on the computer in " + dir + ".\n\n" + body, nil
 			}
 			return "This skill's files are on the computer in " + dir + " (scripts under " + dir + "/scripts, run with python3).\n\n" + body, nil
+		}
+	}
+	return out
+}
+
+// noComputerSkillNote leads the text of a skill whose scripts need a computer
+// when the workspace has none.
+const noComputerSkillNote = "This Bot has no computer, so this skill's scripts, rendering and verification steps cannot run. Do only what needs no computer, deliver the result as text in the chat, and say plainly which steps could not be done.\n\n"
+
+// withNoComputerSkillNote makes read_skill state that a skill with files
+// beyond SKILL.md cannot run its scripts here.
+func (s *Server) withNoComputerSkillNote(tools []Tool) []Tool {
+	out := make([]Tool, len(tools))
+	copy(out, tools)
+	for i := range out {
+		if out[i].Name != "read_skill" || out[i].Execute == nil {
+			continue
+		}
+		inner := out[i].Execute
+		out[i].Execute = func(ctx context.Context, raw json.RawMessage) (string, error) {
+			body, err := inner(ctx, raw)
+			if err != nil {
+				return body, err
+			}
+			var in struct {
+				Name string `json:"name"`
+			}
+			if json.Unmarshal(raw, &in) != nil {
+				return body, nil
+			}
+			if !extensions.IsBuiltinSkill(in.Name) {
+				if files, _, ierr := s.extensions.InstalledSkillFiles(in.Name); ierr != nil || len(files) < 2 {
+					return body, nil
+				}
+			}
+			return noComputerSkillNote + body, nil
 		}
 	}
 	return out

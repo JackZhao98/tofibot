@@ -111,7 +111,11 @@ func (s *Store) attachmentAvailableInConversation(id, conv string) (bool, error)
 func (s *Server) attachmentTools(c Conversation, r Run) []Tool {
 	var mu sync.Mutex
 	views := 0
-	return []Tool{{Name: "read_attachment", Description: "Read an attachment of this conversation by its attachment_id. Text comes back as text (use offset to continue a long one), an image is shown to you, and any other file (PDF, Office document, archive) is placed on your computer and its computer_path returned, to open there with your tools.", Parameters: objectSchema(map[string]any{
+	description := "Read an attachment of this conversation by its attachment_id. Text comes back as text (use offset to continue a long one), an image is shown to you, and any other file (PDF, Office document, archive) is placed on your computer and its computer_path returned, to open there with your tools."
+	if s.microVM == nil {
+		description = "Read an attachment of this conversation by its attachment_id. Text comes back as text (use offset to continue a long one) and an image is shown to you; any other file type (PDF, Office document, archive) cannot be opened here."
+	}
+	return []Tool{{Name: "read_attachment", Description: description, Parameters: objectSchema(map[string]any{
 		"attachment_id": map[string]any{"type": "string"},
 		"offset":        map[string]any{"type": "integer", "minimum": 0, "description": "Optional byte offset to continue a long text"},
 	}, []string{"attachment_id"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -155,6 +159,9 @@ func (s *Server) attachmentTools(c Conversation, r Run) []Tool {
 				return "", viewFileError("at most %d images can be viewed per run", viewsPerRunMax)
 			}
 			if a.Size > viewSourceBytesMax {
+				if s.microVM == nil {
+					return "", viewFileError("%s is %d bytes, too large to view", a.Name, a.Size)
+				}
 				return "", viewFileError("%s is %d bytes, too large to view; read it on the computer and view a smaller copy", a.Name, a.Size)
 			}
 			data, err := s.store.attachmentHead(ctx, path, viewSourceBytesMax)

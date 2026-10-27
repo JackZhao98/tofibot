@@ -366,5 +366,25 @@
     "sync_pending": "The computer is busy. It will sync shortly.",
     "truncated": "Too many keys; only some are shown.",
     "retry": "Retry"
+  },
+  "none": {
+    "title": "This server has no computer",
+    "body": "Bots work without one: they chat, remember, keep schedules and use connected services. Work that needs a real browser, a shell or a desktop waits until a computer is added.",
+    "options": "Add a computer",
+    "soon": "Coming later",
+    "kvm": {
+      "name": "On this server",
+      "what": "Run Bot computers on this server's own hardware. The host needs KVM and at least 4 GiB of memory.",
+      "run": "Run this on the server host:",
+      "after": "This page updates by itself once the computer is attached."
+    },
+    "own": {
+      "name": "Your own computer",
+      "what": "Let a Bot work on a machine you already own."
+    },
+    "e2b": {
+      "name": "E2B cloud sandbox",
+      "what": "Rent a computer from E2B with your own key."
+    }
   }
 }

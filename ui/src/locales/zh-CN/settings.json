@@ -59,7 +59,8 @@
       },
       "computer": {
         "name": "电脑",
-        "description": "共享 Linux 电脑、存储与运行资源"
+        "description": "共享 Linux 电脑、存储与运行资源",
+        "description_none": "为这台服务器添加电脑的方式"
       },
       "keys": {
         "name": "密钥与机密",
@@ -107,7 +108,8 @@
         "ready": "运行中",
         "starting": "启动中",
         "stopped": "已停止",
-        "waiting": "等待中"
+        "waiting": "等待中",
+        "none": "未添加"
       }
     }
   },
@@ -501,7 +503,8 @@
       "forbidden": "只有 Admin 才能执行此操作。",
       "export_in_use": "该备份所属账号的删除尚未完成。",
       "passphrase_unavailable": "口令不可用。"
-    }
+    },
+    "intro_no_computer": "创建账号、指定谁是 Admin，并管理他们的登录。成员首次登录时需要更换初始密码。"
   },
   "connection": {
     "label": "当前服务器连接",
@@ -571,7 +574,9 @@
     "note": "执行前 VM 会自动保留一个可恢复 checkpoint；新创建的第一个账号会成为 admin。",
     "confirm_label": "输入 PURGE 确认",
     "purging": "正在清空…",
-    "submit": "清空全部数据"
+    "submit": "清空全部数据",
+    "description_no_computer": "清空所有 Bot、对话、任务、附件和配对设备。服务器安装、Codex 连接和其他服务配置会保留。",
+    "note_no_computer": "新创建的第一个账号会成为 admin。"
   },
   "portability": {
     "title": "数据迁移",

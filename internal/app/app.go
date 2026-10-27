@@ -192,6 +192,9 @@ type Config struct {
 	// ComputerSocket points at the service-owned control socket for the one
 	// configured Firecracker workspace. It is never selected by a request.
 	ComputerSocket string
+	// ComputerBackend is "none" (no computer: sockets are ignored), "kvm", or
+	// empty (kvm when a socket is configured, else none). See computer_capabilities.go.
+	ComputerBackend string
 	// IsolatedWorkspace prevents process-wide credentials and computer defaults from entering a tenant runtime.
 	IsolatedWorkspace bool
 	// Account provisioning is opt-in; paths are deployment configuration only.
@@ -2753,7 +2756,9 @@ func NewServer(c Config) (*Server, error) {
 	if c.PublicOrigin == "" {
 		c.PublicOrigin = os.Getenv("TOFI_PUBLIC_ORIGIN")
 	}
-	if c.ComputerSocket == "" && !c.IsolatedWorkspace {
+	if c.ComputerBackend == ComputerBackendNone {
+		c.ComputerSocket = ""
+	} else if c.ComputerSocket == "" && !c.IsolatedWorkspace {
 		c.ComputerSocket = computer.ConfiguredSocket()
 	}
 	if c.TranscriptionAPIKey == "" && !c.IsolatedWorkspace {
@@ -3089,7 +3094,13 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	case p == "system/update":
 		serveSystemUpdate(w, r)
 	case p == "config":
-		writeJSON(w, 200, map[string]any{"model_configured": s.modelConfigured(), "default_model": s.effectiveDefaultModel(r.Context()), "background_model": s.backgroundModel(backgroundTriage), "provider": s.activeProvider()})
+		writeJSON(w, 200, map[string]any{"model_configured": s.modelConfigured(), "default_model": s.effectiveDefaultModel(r.Context()), "background_model": s.backgroundModel(backgroundTriage), "provider": s.activeProvider(), "computer": s.computerCapabilities()})
+	case p == "computer/capabilities":
+		if r.Method != http.MethodGet {
+			writeErr(w, 405, "method_not_allowed", "use GET")
+			return
+		}
+		writeJSON(w, 200, s.computerCapabilities())
 	case p == "auth/codex" || p == "auth/codex/connect" || p == "auth/codex/verify" || strings.HasPrefix(p, "auth/codex/connect/"):
 		s.codexAuth(w, r, strings.TrimPrefix(p, "auth/codex"))
 	case strings.HasPrefix(p, "bots/") && strings.HasSuffix(p, "/debug-preview"):
@@ -3248,7 +3259,7 @@ func (s *Server) bots(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if x.Onboarding {
-			b, duplicate, e := s.store.createOnboardingBot(x.ClientCreationID, x.Model, x.ReasoningEffort, s.onboardingLocale(x.Locale), false)
+			b, duplicate, e := s.store.createOnboardingBot(x.ClientCreationID, x.Model, x.ReasoningEffort, s.onboardingLocale(x.Locale), s.microVM != nil, false)
 			if e != nil {
 				writeErr(w, 400, "invalid_request", e.Error())
 				return
@@ -4882,7 +4893,7 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 			return "scheduled result accepted for this run; now provide the same result as the final answer in the current conversation, preserving its delivery rules", nil
 		}})
 	}
-	base = append(base, workflowGuideTool())
+	base = append(base, workflowGuideToolFor(s.microVM != nil))
 	base = append(base, s.runAuditTools(c, r)...)
 	base = append(base, s.groupChatTools(c, r)...)
 	base = append(base, s.groupRespondTools(c, r)...)

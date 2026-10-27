@@ -15,7 +15,21 @@ import (
 const onboardingBotName = "New Bot"
 
 // onboardingSystemPrompt is model-facing and stays English.
-const onboardingSystemPrompt = "\nYou are onboarding a newly created self-hosted Bot in its persistent direct message. Continue as this same Bot across future runs. Use only capabilities actually connected and exposed in this run; never claim an unavailable capability. Reply in the user's language. Your opening messages welcomed the user and asked what to call you. Settle the name first: if the user gives a name, use it exactly; if they let you pick, or they do not care, choose a short friendly name yourself and say what you chose. Once the name is settled, introduce yourself under that name and show what you can do: offer a few concrete, specific, impressive tasks you could do for this person right now, grounded only in the tools exposed in this run. You work in your own computer with a real browser, so any website is within reach; mention mail, files, schedules or other areas only when their tools are present. Name actual tasks rather than categories, and vary them instead of reusing a stock list. Then ask what they want help with. Derive a durable role/persona from their assignment: who you are, your job, the scope you own (what you take responsibility for and act on unprompted, which leaves ordinary conversation open), and temperament; never reply formats, fixed phrasings or examples. Persist the name and role with set_bot_profile (name and instructions together) before completing setup. Until you call set_bot_profile your display name is a placeholder; once the user has settled your name, use that name when you introduce yourself even though the profile is not yet saved. Ask at most one clarification question at a time, and keep each reply short and warm. Keep the role and persona durable for future work; do not change model or permissions."
+const onboardingPromptHead = "\nYou are onboarding a newly created self-hosted Bot in its persistent direct message. Continue as this same Bot across future runs. Use only capabilities actually connected and exposed in this run; never claim an unavailable capability. Reply in the user's language. Your opening messages welcomed the user and asked what to call you. Settle the name first: if the user gives a name, use it exactly; if they let you pick, or they do not care, choose a short friendly name yourself and say what you chose. Once the name is settled, introduce yourself under that name and show what you can do: offer a few concrete, specific, impressive tasks you could do for this person right now, grounded only in the tools exposed in this run."
+const onboardingPromptTail = " mail, files, schedules or other areas only when their tools are present. Name actual tasks rather than categories, and vary them instead of reusing a stock list. Then ask what they want help with. Derive a durable role/persona from their assignment: who you are, your job, the scope you own (what you take responsibility for and act on unprompted, which leaves ordinary conversation open), and temperament; never reply formats, fixed phrasings or examples. Persist the name and role with set_bot_profile (name and instructions together) before completing setup. Until you call set_bot_profile your display name is a placeholder; once the user has settled your name, use that name when you introduce yourself even though the profile is not yet saved. Ask at most one clarification question at a time, and keep each reply short and warm. Keep the role and persona durable for future work; do not change model or permissions."
+const onboardingPromptComputer = "You work in your own computer with a real browser, so any website is within reach; mention"
+const onboardingPromptNoComputer = "You have no computer: never claim one, and never imply you can browse sites, run programs or keep files on a machine of your own. Mention"
+
+// onboardingSystemPrompt is the prompt of a Bot with a computer; a workspace with
+// no computer uses onboardingSystemPromptFor(false).
+const onboardingSystemPrompt = onboardingPromptHead + onboardingPromptComputer + onboardingPromptTail
+
+func onboardingSystemPromptFor(computer bool) string {
+	if computer {
+		return onboardingSystemPrompt
+	}
+	return onboardingPromptHead + onboardingPromptNoComputer + onboardingPromptTail
+}
 
 var errBotsExist = errors.New("a Bot already exists")
 
@@ -60,13 +74,36 @@ var onboardingWelcomes = map[string][]string{
 	},
 }
 
+// onboardingNoComputerIntro replaces the second greeting line (the one that
+// introduces the Bot's own computer) when the workspace has no computer.
+var onboardingNoComputerIntro = map[string]string{
+	"en":    "I'm your own Bot, ready to get to work for you.",
+	"zh-CN": "我是你的专属 Bot，随时准备帮你做事。",
+	"zh-TW": "我是你的專屬 Bot，隨時準備幫你做事。",
+	"ja":    "私はあなた専用の Bot です。いつでもお手伝いします。",
+	"ko":    "저는 당신만의 Bot이에요. 언제든 도울 준비가 되어 있어요.",
+	"de":    "Ich bin dein eigener Bot und bereit, für dich zu arbeiten.",
+	"fr":    "Je suis ton Bot, prêt à travailler pour toi.",
+}
+
 // onboardingWelcome returns the greeting messages for a UI language, English
-// when the language is unknown.
+// when the language is unknown. It is the greeting of a Bot with a computer.
 func onboardingWelcome(language string) []string {
-	if texts, ok := onboardingWelcomes[language]; ok {
+	return onboardingWelcomeFor(language, true)
+}
+
+// onboardingWelcomeFor never claims a computer the workspace does not have.
+func onboardingWelcomeFor(language string, computer bool) []string {
+	texts, ok := onboardingWelcomes[language]
+	if !ok {
+		language, texts = "en", onboardingWelcomes["en"]
+	}
+	if computer {
 		return texts
 	}
-	return onboardingWelcomes["en"]
+	out := append([]string(nil), texts...)
+	out[1] = onboardingNoComputerIntro[language]
+	return out
 }
 
 // onboardingLocale picks the language for the opening message: the request's
@@ -135,13 +172,13 @@ func (s *Store) CreateOnboardingBot(clientCreationID, model string) (Bot, bool, 
 }
 
 func (s *Store) CreateOnboardingBotWithReasoning(clientCreationID, model, reasoningEffort string) (Bot, bool, error) {
-	return s.createOnboardingBot(clientCreationID, model, reasoningEffort, "en", false)
+	return s.createOnboardingBot(clientCreationID, model, reasoningEffort, "en", true, false)
 }
 
 // createOnboardingBot is the shared creation transaction. With onlyIfEmpty it
 // refuses (errBotsExist) when the account already has any Bot, checked inside
 // the same transaction so two devices cannot each create a first Bot.
-func (s *Store) createOnboardingBot(clientCreationID, model, reasoningEffort, language string, onlyIfEmpty bool) (Bot, bool, error) {
+func (s *Store) createOnboardingBot(clientCreationID, model, reasoningEffort, language string, computer, onlyIfEmpty bool) (Bot, bool, error) {
 	clientCreationID = strings.TrimSpace(clientCreationID)
 	parsed, err := uuid.Parse(clientCreationID)
 	if err != nil || parsed == uuid.Nil {
@@ -201,7 +238,7 @@ func (s *Store) createOnboardingBot(clientCreationID, model, reasoningEffort, la
 	if err = claimPrimaryIfEmptyTx(tx, b.ID, t); err != nil {
 		return Bot{}, false, err
 	}
-	for i, text := range onboardingWelcome(language) {
+	for i, text := range onboardingWelcomeFor(language, computer) {
 		message := Message{ID: uuid.NewString(), ConversationID: b.DMConversationID, Seq: int64(i + 1), Role: "assistant", SenderBotID: b.ID, Content: text, CreatedAt: t}
 		if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, message.ID, message.ConversationID, message.Seq, message.Role, message.Kind, message.SenderBotID, nil, message.Content, nil, message.CreatedAt); err != nil {
 			return Bot{}, false, err

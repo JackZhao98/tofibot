@@ -188,7 +188,7 @@ func TestFirstBotRefusesWhenABotAppearsInTheTransaction(t *testing.T) {
 	if _, err := s.store.CreateBot("racer", "", "model"); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := s.store.createOnboardingBot("2f2a7e0e-5b0e-4f55-9d0c-0a4a3c5b8d12", followGlobalModel, followGlobalModel, "en", true); err != errBotsExist {
+	if _, _, err := s.store.createOnboardingBot("2f2a7e0e-5b0e-4f55-9d0c-0a4a3c5b8d12", followGlobalModel, followGlobalModel, "en", true, true); err != errBotsExist {
 		t.Fatalf("err=%v", err)
 	}
 }

@@ -32,6 +32,16 @@ source-tree review. Retain third-party notices and verify release contents.
 Web UI text is localized: user-visible strings live in `ui/src/locales/<lang>/<namespace>.json`
 (rules in ui/src/locales/README.md); `npm --prefix ui run test:i18n` blocks new hardcoded text.
 
+# Computer is optional
+
+A workspace may have no computer. `TOFI_COMPUTER_BACKEND=none|kvm` (unset: `kvm` when a computer socket is configured, else `none`; `cmd/tofi/accounts.go`)
+decides it, in single and multi-account mode alike; `none` needs no Worker socket, provisioner or disk quota. `s.microVM == nil` is the server's one test for
+it, exposed as `GET /api/computer/capabilities` and `computer` in `GET /api/config` (`{backend, available, capabilities}`, `computer_capabilities.go`). Model-facing text
+must not claim a computer when there is none: use the capability-driven variants (`taskCompletionGuidanceFor`, `onboardingSystemPromptFor`, `onboardingWelcomeFor`,
+`scheduledFallbackGuidance`, `noComputerStatus`) and never add a computer sentence to an always-on prompt. The Web app reads `config.computer` through
+`ui/src/computerCapability.ts` (`useHasComputer`) and hides every computer surface; Settings > Computer then lists how to add one. The web app never installs on the host.
+Design and record: docs/design/computer-optional.md (P0, P1 done).
+
 # Web UI motion
 
 One vocabulary, in `ui/src/design-tokens.css` and mirrored for Web Animations in `ui/src/motion.ts`: durations

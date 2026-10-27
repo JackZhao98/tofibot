@@ -227,7 +227,9 @@
     "title_group": "刪除群組？",
     "impact_given_other": "它交辦的 {{count}} 個未完成任務會一併取消。",
     "impact_held_other": "它負責的 {{count}} 個未完成任務會被取消。",
-    "impact_waits_other": "它的 {{count}} 個等待會結束。"
+    "impact_waits_other": "它的 {{count}} 個等待會結束。",
+    "note_bot_no_computer": "群組裡的歷史發言會保留。刪除後無法在 App 中復原。",
+    "note_group_no_computer": "刪除後無法在 App 中復原。"
   },
   "delivery": {
     "queued": "已排隊,下一步時讀取",

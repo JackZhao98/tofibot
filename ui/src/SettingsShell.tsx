@@ -9,6 +9,7 @@ import {useConnectionAttention} from "./settings/useConnectionAttention";
 import {providerForModel, providerLabels} from "./modelCatalog";
 import {useLanguage, useTranslation} from "./i18n";
 import {ConfirmDialog} from "./overlays/ModalDialog";
+import {useHasComputer} from "./computerCapability";
 
 export type SettingsTab="general"|"connections"|"skills"|"approvals"|"followups"|"models"|"automation"|"computer"|"keys"|"usage"|"advanced"|"admin";
 export type SettingsView="home"|"page";
@@ -35,17 +36,19 @@ function useNarrow(){
  return narrow;
 }
 /** Right-side value hints for the mobile list. Fetched only while the list is showing, and none of them probes a service. */
-function useMobileHints(enabled:boolean){
+function useMobileHints(enabled:boolean,hasComputer:boolean){
  const [hints,setHints]=useState<{model?:string;computer?:string;keys?:number}>({});
  useEffect(()=>{
   if(!enabled)return;
   const controller=new AbortController();const {signal}=controller;
   const merge=(patch:object)=>{if(!signal.aborted)setHints(current=>({...current,...patch}))};
   request<{model:string}>("/api/model-settings",{signal}).then(value=>merge({model:value.model?providerLabels[providerForModel(value.model)]:undefined})).catch(()=>{});
-  request<{state:string}>("/api/computers/firecracker/info",{signal}).then(value=>merge({computer:value.state})).catch(()=>{});
-  request<{credentials:{kind?:string}[]}>("/api/computer/credentials",{signal}).then(value=>merge({keys:(value.credentials??[]).length})).catch(()=>{});
+  if(hasComputer){
+   request<{state:string}>("/api/computers/firecracker/info",{signal}).then(value=>merge({computer:value.state})).catch(()=>{});
+   request<{credentials:{kind?:string}[]}>("/api/computer/credentials",{signal}).then(value=>merge({keys:(value.credentials??[]).length})).catch(()=>{});
+  }
   return()=>controller.abort();
- },[enabled]);
+ },[enabled,hasComputer]);
  return hints;
 }
 export function SettingsShell({tab,onTab,onClose,renderPage,entry,refreshToken=0}:{tab:SettingsTab;onTab:(tab:SettingsTab)=>void;onClose:()=>void;renderPage:(tab:SettingsTab)=>ReactNode;entry?:SettingsEntry;refreshToken?:number}){
@@ -54,7 +57,9 @@ export function SettingsShell({tab,onTab,onClose,renderPage,entry,refreshToken=0
  const session=useOwnerSession();
  const identity=useAccountIdentity();
  const isAdmin=Boolean(session?.multi_account&&session.owner?.role==="admin");
- const visibleGroups:Group[]=useMemo(()=>isAdmin?groups.map(item=>item.id==="system"?{...item,items:[...item.items,adminPage]}:item):groups,[isAdmin]);
+ const hasComputer=useHasComputer();
+ // Without a computer the Keys page (environment variables and SSH keys, used only inside it) is hidden; Computer stays and explains the options.
+ const visibleGroups:Group[]=useMemo(()=>groups.map(item=>item.id==="system"&&isAdmin?{...item,items:[...item.items,adminPage]}:{...item,items:hasComputer?item.items:item.items.filter(page=>page.id!=="keys")}),[isAdmin,hasComputer]);
  const allItems=visibleGroups.flatMap(item=>item.items);
  const attention=useConnectionAttention(refreshToken);
  const counts:Partial<Record<SettingsTab,{value:number;tone:"honey"|"iris"}>>={...(attention>0?{connections:{value:attention,tone:"honey"}}:{})};
@@ -62,8 +67,9 @@ export function SettingsShell({tab,onTab,onClose,renderPage,entry,refreshToken=0
  const [mobileView,setMobileView]=useState<SettingsView>(entry?.view??"home");
  const entrySeq=useRef(entry?.seq);
  useEffect(()=>{if(entry&&entry.seq!==entrySeq.current){entrySeq.current=entry.seq;setMobileView(entry.view)}},[entry]);
- const hints=useMobileHints(narrow&&mobileView==="home");
+ const hints=useMobileHints(narrow&&mobileView==="home",hasComputer);
  useEffect(()=>{if(tab==="admin"&&!isAdmin)onTab("general")},[tab,isAdmin,onTab]);
+ useEffect(()=>{if(tab==="keys"&&!hasComputer)onTab("computer")},[tab,hasComputer,onTab]);
  const [visited,setVisited]=useState<SettingsTab[]>([tab]);
  const [drafts,setDrafts]=useState<Record<string,SettingsDraft>>({});
  const [pending,setPending]=useState<Target|null>(null);
@@ -122,6 +128,7 @@ export function SettingsShell({tab,onTab,onClose,renderPage,entry,refreshToken=0
  const [slot,setSlot]=useState<HTMLElement|null>(null);
  const hint=(id:SettingsTab):string=>{
   if(id==="models")return hints.model??"";
+  if(id==="computer"&&!hasComputer)return t("shell.hint.computer.none");
   if(id==="computer")return hints.computer?t(`shell.hint.computer.${hints.computer==="ready"||hints.computer==="starting"||hints.computer==="stopped"?hints.computer:"waiting"}`):"";
   if(id==="keys")return hints.keys===undefined?"":String(hints.keys);
   return "";
@@ -145,7 +152,7 @@ export function SettingsShell({tab,onTab,onClose,renderPage,entry,refreshToken=0
    </div>
   </div>
   <div className="settings-content" inert={narrow&&!mobileOpen}>
-   <header className="settings-page-heading"><button type="button" className="settings-back" aria-label={t("shell.back")} onClick={()=>navigate("home")}><TofiIcon name="chevron-left" size={20}/></button><div className="settings-page-title"><h2>{t(selected.name)}</h2><p>{t(selected.description)}</p></div><div className="settings-header-actions" ref={setSlot}/><button className="settings-dismiss" aria-label={t("shell.close")} onClick={()=>navigate("close")}><TofiIcon name="close" size={20}/></button></header>
+   <header className="settings-page-heading"><button type="button" className="settings-back" aria-label={t("shell.back")} onClick={()=>navigate("home")}><TofiIcon name="chevron-left" size={20}/></button><div className="settings-page-title"><h2>{t(selected.name)}</h2><p>{selected.id==="computer"&&!hasComputer?t("shell.page.computer.description_none"):t(selected.description)}</p></div><div className="settings-header-actions" ref={setSlot}/><button className="settings-dismiss" aria-label={t("shell.close")} onClick={()=>navigate("close")}><TofiIcon name="close" size={20}/></button></header>
    <SettingsHeaderSlotContext.Provider value={slot}>{pages.map(page=><div key={page} hidden={page!==tab} data-page={page} className="settings-page-body"><SettingsDraftContext.Provider value={providers[page]}><SettingsActivityContext.Provider value={page===tab}>{renderPage(page)}</SettingsActivityContext.Provider></SettingsDraftContext.Provider></div>)}</SettingsHeaderSlotContext.Provider>
    {activeDrafts.length>0&&<div className="settings-save-bar" role="status"><span>{t("shell.unsaved")}</span><button type="button" disabled={busy} onClick={()=>activeDrafts.forEach(draft=>draft.discard())}>{t("shell.discard")}</button><button type="button" className="primary-button" disabled={busy} onClick={()=>void saveActive()}>{saving?t("shell.saving"):t("shell.save")}</button></div>}
   </div>
