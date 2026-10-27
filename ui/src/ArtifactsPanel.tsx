@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { request } from "./api";
 import { BotAvatar } from "./BotAvatar";
 import { CATS, EmptyState } from "./EmptyCat";
@@ -41,6 +41,18 @@ type Props = {
   scopes?: Array<{ mode: Props["mode"]; label: string }>;
   onScope?: (mode: Props["mode"]) => void;
 };
+
+/** Arrow keys, Home and End move between the tabs of a tablist and select the one they land on (the buttons are a roving tab stop). */
+function tabsKeys(event: React.KeyboardEvent<HTMLElement>) {
+  const keys: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
+  const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+  const at = tabs.indexOf(document.activeElement as HTMLButtonElement);
+  if (at < 0) return;
+  const to = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : keys[event.key] === undefined ? -1 : (at + keys[event.key] + tabs.length) % tabs.length;
+  if (to < 0) return;
+  event.preventDefault();
+  tabs[to].focus(); tabs[to].click();
+}
 
 /** Everything the Bots produced, at three levels: the whole account, one Bot, one conversation. Read-only. */
 export function ArtifactsPanel({ mode, conversation, bot, onClose, onOpenMessage, scopes, onScope }: Props) {
@@ -100,10 +112,10 @@ export function ArtifactsPanel({ mode, conversation, bot, onClose, onOpenMessage
   return <div className="detail-content artifacts-panel">
     <div className="detail-heading"><div><h2>{title}</h2></div><button type="button" className="close-button" aria-label={t("artifacts.close")} onClick={onClose}><TofiIcon name="close" size={20} /></button></div>
     <div className="artifacts-toolbar">
-      {scopes && onScope && <div className="artifacts-tabs artifacts-scopes" role="tablist" aria-label={t("artifacts.scope_label")}>{scopes.map(item => <button key={item.mode} type="button" role="tab" aria-selected={mode === item.mode} onClick={() => onScope(item.mode)}>{item.label}</button>)}</div>}
-      <div className="artifacts-tabs" role="tablist" aria-label={t("artifacts.tabs_label")}>{kinds.map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={kind === value} onClick={() => setKind(value)}>{label}</button>)}</div>
-      <label className="debug-toggle artifacts-uploads"><span>{t("artifacts.include_uploads")}</span><input type="checkbox" role="switch" checked={uploads} onChange={event => setUploads(event.target.checked)} /></label>
+      {scopes && onScope && <div className="artifacts-tabs artifacts-scopes" role="tablist" aria-label={t("artifacts.scope_label")} onKeyDown={tabsKeys}>{scopes.map(item => <button key={item.mode} type="button" role="tab" tabIndex={mode === item.mode ? 0 : -1} aria-selected={mode === item.mode} onClick={() => onScope(item.mode)}>{item.label}</button>)}</div>}
+      <div className="artifacts-tabs artifacts-kinds" role="tablist" aria-label={t("artifacts.tabs_label")} onKeyDown={tabsKeys}>{kinds.map(([value, label]) => <button key={value} type="button" role="tab" tabIndex={kind === value ? 0 : -1} aria-selected={kind === value} onClick={() => setKind(value)}>{label}</button>)}</div>
       <label className="artifacts-search"><TofiIcon name="search" size={16} /><input type="search" aria-label={t("artifacts.search_label")} placeholder={t("artifacts.search_placeholder")} value={search} onChange={event => setSearch(event.target.value)} /></label>
+      <label className="debug-toggle artifacts-uploads"><span>{t("artifacts.include_uploads")}</span><input type="checkbox" role="switch" checked={uploads} onChange={event => setUploads(event.target.checked)} /></label>
     </div>
     {error && <p className="error-text" role="alert">{error} <button type="button" className="text-button" onClick={() => items.length ? void loadMore() : setAttempt(value => value + 1)}>{t("artifacts.retry")}</button></p>}
     {loading && !items.length ? <DelayedFeedback><div className="inline-state" role="status"><div className="spinner" />{t("artifacts.loading")}</div></DelayedFeedback>
@@ -131,7 +143,7 @@ function ArtifactCard({ item, showBot, showConversation, onOpenMessage }: { item
 
   return <li className="artifact-card">
     <button type="button" className="artifact-open" aria-label={t("artifacts.open", { name: item.name })} onClick={() => openItem(item)}>
-      <span className="artifact-thumb">{isRaster(item) ? <img src={attachmentUrl(item.id)} alt="" loading="lazy" decoding="async" /> : <FileTile name={item.name} kind={kind} />}</span>
+      <span className="artifact-thumb">{isRaster(item) ? <img src={attachmentUrl(item.id)} alt="" loading="lazy" decoding="async" /> : <FileTile name={item.name} kind={kind} />}{item.version_count > 1 && <span className="artifact-badge" aria-hidden="true">v{item.version_count}</span>}</span>
       <span className="artifact-copy"><b className="artifact-name">{item.name}</b><small>{fileSize(item.size)}{item.uploaded ? ` · ${t("artifacts.uploaded")}` : ""}</small></span>
     </button>
     <div className="artifact-meta">
@@ -159,21 +171,39 @@ export function ArtifactsWidget({ conversationId, refreshToken, onAll }: { conve
   const { t } = useTranslation("bots");
   const [items, setItems] = useState<ArtifactItem[] | null>(null);
   const [failed, setFailed] = useState(false);
+  // A file that arrives after the list was first drawn is flagged for a moment (--m-quick fade) and read out once.
+  const known = useRef<Set<string> | null>(null);
+  const [fresh, setFresh] = useState<ReadonlySet<string>>(new Set());
+  const [announce, setAnnounce] = useState("");
+  useEffect(() => { known.current = null; setItems(null); setFresh(new Set()); }, [conversationId]);
   useEffect(() => {
     const abort = new AbortController();
-    fetchArtifacts({ scope: "conversation", id: conversationId, include_uploads: "0", limit: "4" }, abort.signal).then(page => { setItems(page.items ?? []); setFailed(false); }, () => { if (!abort.signal.aborted) setFailed(true); });
+    fetchArtifacts({ scope: "conversation", id: conversationId, include_uploads: "0", limit: "4" }, abort.signal).then(page => {
+      const next = page.items ?? [];
+      const before = known.current;
+      known.current = new Set([...(before ?? []), ...next.map(item => item.id)]);
+      const arrived = before ? next.filter(item => !before.has(item.id)) : [];
+      setItems(next); setFailed(false);
+      if (arrived.length) { setFresh(new Set(arrived.map(item => item.id))); setAnnounce(t("artifacts.widget_new", { name: arrived[0].name })); }
+    }, () => { if (!abort.signal.aborted) setFailed(true); });
     return () => abort.abort();
-  }, [conversationId, refreshToken]);
+  }, [conversationId, refreshToken, t]);
+  useEffect(() => {
+    if (!fresh.size) return;
+    const timer = window.setTimeout(() => setFresh(new Set()), 1800);
+    return () => window.clearTimeout(timer);
+  }, [fresh]);
   return <div className="artifacts-widget">
     {items === null ? (failed ? <p className="artifacts-widget-note" role="alert">{t("artifacts.error")}</p> : <div className="artifacts-widget-skeleton" aria-busy="true" aria-label={t("artifacts.loading")}><i /><i /></div>)
       : !items.length ? <p className="artifacts-widget-note">{t("artifacts.widget_empty")}</p>
-      : <ul className="artifacts-widget-list" aria-label={t("artifacts.list_label")}>{items.map(item => <li key={item.id}>
+      : <ul className="artifacts-widget-list" aria-label={t("artifacts.list_label")}>{items.map(item => <li key={item.id} data-fresh={fresh.has(item.id) || undefined}>
         <button type="button" className="artifact-row" aria-label={t("artifacts.open", { name: item.name })} onClick={() => openItem(item)}>
           <span className="artifact-row-thumb">{isRaster(item) ? <img src={attachmentUrl(item.id)} alt="" loading="lazy" decoding="async" /> : <FileTile name={item.name} kind={fileKind(item.name, item.mime)} />}</span>
           <span className="artifact-row-name">{item.name}</span>
           <time dateTime={item.created_at}>{formatRelativeTime(item.created_at)}</time>
         </button>
       </li>)}</ul>}
+    <span className="sr-only" role="status">{announce}</span>
     <button type="button" className="artifacts-widget-all" onClick={onAll}>{t("artifacts.widget_all")}<TofiIcon name="arrow-right" size={14} /></button>
   </div>;
 }

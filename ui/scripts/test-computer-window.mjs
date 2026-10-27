@@ -102,7 +102,8 @@ try {
       setTimeout(() => { state.info = info("ready"); }, 2500);
     };
     const { context, page, errors, button } = await open({ state });
-    await page.waitForResponse(response => response.url().endsWith("/api/computers/firecracker/info"));
+    // The info read may have answered before this line (waiting for the response races the page load): the header button is the proof it was read.
+    await page.waitForFunction(() => document.querySelector("[data-computer-toggle]") !== null);
     await page.waitForTimeout(2200); // two more polls
     assert.equal(await page.locator(".computer-preparing").count(), 0, "no banner for a hibernated computer");
     assert.equal(state.wakes, 0, "nothing wakes it before the window opens");
@@ -291,22 +292,25 @@ try {
     await shot(mobile.page, "sheet-failure-light-390");
     await mobile.context.close();
   }
-  // 7. Quiet by default: a Bot using the computer never opens a window or shows a pill. The header button reports the
+  // 7. A Bot using the computer opens the widget by itself, without a pill. The header button reports the
   //    power state (green on / neutral off, with aria-label + title, not colour alone) and a static dot while a Bot drives it.
   {
     const owner = { owner: { bot_id: "bot-synthetic", run_id: "run-1", kind: "bot", conversation_id: "conv-synthetic" }, waiting: [] };
     const state = { info: info("hibernated"), capture: "image", requests: [], ownership: { owner: null, waiting: [] } };
     const { context, page, errors, button } = await open({ state });
     const bg = () => button.evaluate(element => getComputedStyle(element).backgroundColor);
-    await page.waitForResponse(response => response.url().endsWith("/api/computers/firecracker/info"));
+    // The info read may have answered before this line (waiting for the response races the page load): the header button is the proof it was read.
+    await page.waitForFunction(() => document.querySelector("[data-computer-toggle]") !== null);
     await page.waitForTimeout(1500);
     assert.equal(await button.getAttribute("data-computer-state"), "off");
     assert.equal(await button.getAttribute("aria-label"), "Shared computer, off");
     assert.equal(await button.getAttribute("title"), "Shared computer, off");
     assert.equal(await button.evaluate(element => element.classList.contains("is-on")), false, "neutral when asleep");
     const neutral = await bg();
-    // The computer comes up, then a Bot starts driving it: nothing opens on its own.
+    // The computer comes up (nothing opens), then a Bot starts driving it.
     state.info = info("ready");
+    // A settled (hibernated) computer is re-read every 30 s; the page re-reads at once when it becomes visible again.
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
     await page.waitForFunction(() => document.querySelector("[data-computer-toggle]")?.getAttribute("data-computer-state") === "on", null, { timeout: 8000 });
     assert.equal(await button.getAttribute("aria-label"), "Shared computer, on");
     await page.waitForTimeout(400); // past the colour transition
@@ -319,27 +323,24 @@ try {
     assert.match(await button.getAttribute("aria-label"), /Mochi is working in it/);
     assert.equal(await page.locator(".computer-driven-dot").count(), 1, "a small dot marks a Bot driving the computer");
     assert.equal(await page.locator(".computer-driven-dot").evaluate(element => getComputedStyle(element).animationName), "none", "the dot does not animate");
-    await page.waitForTimeout(2500);
-    assert.equal(await page.locator(".desktop-floating-shell").count(), 0, "a Bot using the computer never opens a window");
+    // A Bot taking the desktop in this conversation opens the Computer widget by itself (Automatic behavior, on by default): docked in the
+    // chat column as the bare monitor, with frames, and no pill.
+    await shell(page, "is-small").waitFor({ timeout: 6000 });
+    assert.equal(await shell(page, "is-docked").count(), 1, "the widget is the docked monitor");
+    assert.equal(await page.locator('[data-card="computer"] .context-card-header').count(), 0, "no card header: the computer is the bare monitor");
+    await page.locator("[data-desktop-frame].desktop-live-screen").waitFor({ timeout: 6000 });
     assert.equal(await page.getByText(/is using the computer/).count(), 0, "no 'using the computer' pill");
     assert.equal(await page.locator(".desktop-mini-status, .desktop-presence-launcher").count(), 0);
-    assert.ok(!state.requests.includes("/api/computers/firecracker/actions"), "no capture is requested while the window is closed");
-    // Opening is the user's call, and frames arrive while the Bot holds the computer (the server serves view captures beside its lease).
-    const clicked = Date.now();
-    await button.click();
-    await shell(page, "is-small").waitFor();
-    await page.locator("[data-desktop-frame].desktop-live-screen").waitFor({ timeout: 4000 });
-    assert.ok(Date.now() - clicked < 2500, `first frame ${Date.now() - clicked}ms after opening`);
-    assert.equal(await page.getByText(/is using the computer/).count(), 0);
     await shot(page, "quiet-open-driven-light-1440");
     // Back to neutral when the computer sleeps.
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Close shared computer" }).click().catch(() => undefined);
     state.ownership = { owner: null, waiting: [] };
     state.info = info("hibernated");
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
     await page.waitForFunction(() => document.querySelector("[data-computer-toggle]")?.getAttribute("data-computer-state") === "off", null, { timeout: 8000 });
     assert.deepEqual(errors, []);
-    results.push("quiet button + no auto-open");
+    results.push("power button + the Bot taking the desktop opens the widget");
     await context.close();
   }
 

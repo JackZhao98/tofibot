@@ -100,7 +100,10 @@
       "hibernating": "최대 절전 모드로 들어가는 중…",
       "no_desktop": "Bot이 데스크톱 없이 브라우저로 작업하고 있습니다",
       "retry": "다시 시도"
-    }
+    },
+    "fold": "접기",
+    "fold_aria": "공유 컴퓨터를 막대로 접기",
+    "unfold_aria": "공유 컴퓨터 보기"
   },
   "remote": {
     "error": {

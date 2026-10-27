@@ -30,12 +30,15 @@ export function ContextCard({ id, order, collapsed = false, leaving = false, foc
   }, [focusN]);
   const foldLabel = t(collapsed ? "contextCard.expand" : "contextCard.collapse", { title });
   const closeLabel = t("contextCard.close", { title });
-  return <div className="widget-slot" data-leaving={leaving || undefined} inert={leaving || undefined} style={{ order }}><section ref={ref} className={`context-card${collapsed ? " is-collapsed" : ""}${id === "computer" ? " is-bare" : ""}`} data-card={id} aria-label={title}>
-    <header className="context-card-header">
+  // The computer is the bare monitor: no header row. Its title is the chin's status text (and a hidden heading for focus), it closes
+  // with the chin's chevron and folds into its own strip (docs/design/widgets-and-sidebar.md section 6).
+  const bare = id === "computer";
+  return <div className="widget-slot" data-leaving={leaving || undefined} inert={leaving || undefined} style={{ order }}><section ref={ref} className={`context-card${collapsed ? " is-collapsed" : ""}${bare ? " is-bare" : ""}`} data-card={id} aria-label={title}>
+    {bare ? <h2 ref={heading} tabIndex={-1} className="sr-only">{title}</h2> : <header className="context-card-header">
       <h2 ref={heading} tabIndex={-1}>{title}</h2>
       <button type="button" className="context-card-button context-card-fold" aria-expanded={!collapsed} aria-controls={bodyId} aria-label={foldLabel} data-hint={foldLabel} onClick={() => onToggle(id)}><Icon name="chevron-down" size={16} /></button>
       <button type="button" className="context-card-button" aria-label={closeLabel} data-hint={closeLabel} onClick={() => onClose(id)}><Icon name="close" size={16} /></button>
-    </header>
+    </header>}
     <div id={bodyId} className="context-card-body" inert={collapsed || undefined}><div className="context-card-inner">{children}</div></div>
   </section></div>;
 }
@@ -52,6 +55,6 @@ export function WidgetColumn({ ids, folded, focus, covered, onFold, onClose, ren
   const { shown, leaving } = useLeaving(ids, WIDGET_ORDER, 220);
   if (!shown.length) return null;
   return <aside className={`detail-pane context-panel context-column widget-column visible${covered ? " is-covered" : ""}`} aria-label={t("detail.label")}>
-    {shown.map(id => { const node = render(id, leaving.has(id)); return node && <ContextCard key={id} id={id} order={WIDGET_ORDER.indexOf(id)} collapsed={folded.includes(id)} leaving={leaving.has(id)} focusN={focus.id === id ? focus.n : 0} onToggle={onFold} onClose={onClose as (id: string) => void}>{node}</ContextCard>; })}
+    {shown.map(id => { const node = render(id, leaving.has(id)); return node && <ContextCard key={id} id={id} order={WIDGET_ORDER.indexOf(id)} collapsed={id !== "computer" && folded.includes(id)} leaving={leaving.has(id)} focusN={focus.id === id ? focus.n : 0} onToggle={onFold} onClose={onClose as (id: string) => void}>{node}</ContextCard>; })}
   </aside>;
 }

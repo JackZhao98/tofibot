@@ -13,7 +13,7 @@ import { RemoteDesktopControl, type RemoteControlHandle } from "./RemoteDesktopC
 import { i18n, useTranslation } from "./i18n";
 import { MOTION, EASE } from "./motion";
 
-type Props = { expanded?: boolean; sheet?: boolean; passivePreview?: boolean; autoConnect?: boolean; presence?: DesktopPresenceState; botId: string; botName: string; members?: Array<{ id: string; name: string }>; onClose: (reason?: "hide" | "shutdown") => void; onReadyChange?: (ready: boolean) => void; onExpandedChange?: (expanded: boolean) => void };
+type Props = { /** The widget's strip form: the screen is a thumbnail, the chin's status and switch sit beside it. */ folded?: boolean; onFold?: () => void; onUnfold?: () => void; expanded?: boolean; sheet?: boolean; passivePreview?: boolean; autoConnect?: boolean; presence?: DesktopPresenceState; botId: string; botName: string; members?: Array<{ id: string; name: string }>; onClose: (reason?: "hide" | "shutdown") => void; onReadyChange?: (ready: boolean) => void; onExpandedChange?: (expanded: boolean) => void };
 type ComputerInfo = { kind: string; state: string; phase?: string; desktop_starting?: boolean; workspace_root?: string; browser?: string; error?: string };
 type ViewerState = "disconnected" | "connecting" | "connected";
 type FrameStatus = "shown" | "busy" | "not-running" | "waking" | "failed";
@@ -122,7 +122,7 @@ export function DesktopStatusAnnouncement({ ready, text }: { ready: boolean; tex
 }
 
 
-export function BotDesktopPanel({ botId, botName, members = [], autoConnect = false, passivePreview = false, expanded: expandedProp, sheet = false, presence, onClose, onReadyChange, onExpandedChange }: Props) {
+export function BotDesktopPanel({ botId, botName, members = [], autoConnect = false, passivePreview = false, expanded: expandedProp, sheet = false, folded = false, onFold, onUnfold, presence, onClose, onReadyChange, onExpandedChange }: Props) {
   const debug = useDebugMode();
   const { t } = useTranslation("computer");
   const phaseText = (phase: string) => known(phaseKeys, phase) ? t(phaseKeys[phase]) : phase;
@@ -743,6 +743,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   }
 
   const windowButtons = [
+    onFold && !expanded && !folded && <button key="fold" type="button" className="desktop-control-button desktop-control-fold" aria-label={t("desktop.fold_aria")} title={t("desktop.fold")} onClick={onFold}><TofiIcon name="chevron-down" size={16} /></button>,
     !sheet && <button key="expand" type="button" className="desktop-control-button desktop-control-expand" aria-label={expanded ? t("desktop.shrink_aria") : t("desktop.expand_aria")} title={expanded ? t("desktop.shrink") : t("desktop.expand")} onClick={() => setExpanded(!expanded)}><span className={`desktop-expand-glyph${expanded ? " is-expanded" : ""}`} aria-hidden="true" /></button>,
     <button key="close" type="button" className="desktop-control-button computer-hide-button" aria-label={t("desktop.close_aria")} title={t("desktop.close")} onClick={() => closePanel("hide")}><TofiIcon name="close" size={16} /></button>,
   ];
@@ -815,8 +816,8 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   // A drop hanging from the bezel's bottom edge holds the cat ⇄ you switch (Motion Lab · 电脑, fused into the frame).
   const controlBar = !isDesktop && <div className={`desktop-chin is-${capsule.tone}`}>
     <span className="desktop-drop" aria-hidden="true" />
-    <button type="button" className="desktop-power" aria-label={t("desktop.hide_aria")} data-hint={t("desktop.power_hint")} onClick={() => void powerOff()}><TofiIcon name="chevron-down" size={15} /></button>
-    <span className="sr-only" role="status">{capsule.text}</span>
+    <button type="button" className="desktop-power" aria-label={onFold && !expanded ? t("desktop.close_aria") : t("desktop.hide_aria")} data-hint={t("desktop.power_hint")} onClick={() => void powerOff()}><TofiIcon name="chevron-down" size={15} /></button>
+    <span className="sr-only desktop-chin-text" role="status">{capsule.text}</span>
     <button type="button" role="switch" aria-checked={humanControlled} className={`desktop-driver-switch is-${humanControlled ? "you" : "bot"}`} disabled={!switchEnabled}
       aria-label={humanControlled ? t("desktop.control.release") : t("desktop.control.take")} data-hint={humanControlled ? t("desktop.control.release") : t("desktop.control.take")} onClick={toggleDriver}>
       <span className="desktop-driver-thumb" aria-hidden="true"><TofiIcon name="mouse" size={11} /></span>
@@ -825,7 +826,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
     </button>
   </div>;
 
-  return <div ref={screenRef} className={`detail-content computer-detail ${expanded ? "is-expanded" : ""}${driver ? ` is-driven-by-${driver}` : ""}`}>
+  return <div ref={screenRef} className={`detail-content computer-detail ${expanded ? "is-expanded" : ""}${folded && !expanded ? " is-folded" : ""}${driver ? ` is-driven-by-${driver}` : ""}`}>
     <DesktopStatusAnnouncement key={selectedBotId} ready={info !== null} text={viewerAnnouncement} />
     {!passivePreview && expanded && !isDesktop && !sheet && <div className="desktop-expanded-scrim" aria-hidden="true" onClick={() => setExpanded(false)} />}
     {expanded && isDesktop && <div className="detail-heading computer-floating-heading"><div className="computer-heading-copy"><h2 className="sr-only">{t("desktop.title")}</h2></div>{windowActions}</div>}
@@ -839,6 +840,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
       {previewControls}
     </div>}
     {!passivePreview && controlBar}
+    {folded && onUnfold && <button type="button" className="desktop-strip-open" aria-label={t("desktop.unfold_aria")} onClick={onUnfold} />}
     {debug && !passivePreview && <fieldset className="computer-aux-fields" disabled={humanControlled}><details className="computer-tools"><summary>{t("desktop.tools.title")}</summary><div className="computer-tools-body"><div className="computer-key-row"><button className="secondary-button" disabled={busy || !controlsReady} onClick={() => void perform("desktop.key", { key: "Return" })}>Enter</button><button className="secondary-button" disabled={busy || !controlsReady} onClick={() => void perform("desktop.key", { key: "Escape" })}>Esc</button><button className="secondary-button" disabled={busy || !controlsReady} onClick={() => void perform("desktop.key", { key: "c", modifiers: ["ctrl"] })}>Ctrl+C</button></div><label>{t("desktop.tools.open_browser")}<input disabled={busy || !controlsReady} value={url} onChange={event => setURL(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && controlsReady && !busyRef.current && url.trim()) { event.preventDefault(); void perform("browser.navigate", { url }); } }} placeholder="https://…" /></label><label>{t("desktop.tools.run_shell", { name: botName })}<textarea disabled={busy || connectionLost || !ready} value={command} onChange={event => setCommand(event.target.value)} rows={3} placeholder={t("desktop.tools.shell_placeholder")} /></label><button className="primary-button" disabled={busy || connectionLost || !ready || !command.trim()} onClick={() => void perform("shell.exec", { command })}>{t("desktop.tools.run")}</button>{output && <pre className="computer-output">{output}</pre>}{info && <details className="computer-technical"><summary>{t("desktop.tools.technical")}</summary><dl><div><dt>{t("desktop.tools.workspace")}</dt><dd>{info.workspace_root || "/workspace"}</dd></div><div><dt>{t("desktop.tools.browser")}</dt><dd>{info.browser || "Google Chrome"}</dd></div></dl></details>}</div></details></fieldset>}
   </div>;
 }

@@ -98,6 +98,7 @@ import { observeVisualViewport, visualViewportMetrics } from "./visualViewport";
 import { getBotAvatarConfig, subscribeBotAvatar } from "./avatarStore";
 import type { Attachment, Bot, ComputerHealth, Config, Conversation, EventEnvelope, Memory, Message, Run, StreamDraft, ToolActivity, ToolActivityRunSummary, WorkItem, WorkspaceEventEnvelope } from "./types";
 import { MOTION, EASE } from "./motion";
+import { useWidgetAutomation } from "./useWidgetAutomation";
 import { applyPanel, closeAll, closeCover, closeSidebar, closeWidget, emptySurfaces, escapeTarget, foldWidget, isEmpty, openCover, openSidebar, openWidget, toggleSidebar, toggleSidebarExpanded, toggleWidget, type CoverId, type LegacyPanel, type SidebarId, type WidgetId } from "./surfaces";
 import type { SurfaceCtx } from "./SurfaceViews";
 
@@ -577,12 +578,16 @@ function Workspace() {
     if (target && isEmpty(state)) rememberOpener();
     return applyPanel(state, target, columnRef.current);
   }), []);
-  const closeWidgetId = useCallback((id: WidgetId) => setSurfaces(state => closeWidget(state, id)), []);
-  const foldWidgetId = useCallback((id: string) => setSurfaces(state => foldWidget(state, id as WidgetId)), []);
+  // The widgets' own life (useWidgetAutomation, below) needs to hear about what the person closes or unfolds.
+  const surfacesRef = useRef(surfaces);
+  surfacesRef.current = surfaces;
+  const widgetNotes = useRef<{ noteClose: (id: WidgetId) => void; noteUnfold: (id: WidgetId) => void }>({ noteClose: () => {}, noteUnfold: () => {} });
+  const closeWidgetId = useCallback((id: WidgetId) => { widgetNotes.current.noteClose(id); setSurfaces(state => closeWidget(state, id)); }, []);
+  const foldWidgetId = useCallback((id: string) => { if (surfacesRef.current.folded.includes(id as WidgetId)) widgetNotes.current.noteUnfold(id as WidgetId); setSurfaces(state => foldWidget(state, id as WidgetId)); }, []);
   const closeSidebarPanel = useCallback(() => setSurfaces(state => closeSidebar(state)), []);
   const closeCoverPanel = useCallback(() => setSurfaces(state => closeCover(state)), []);
   const openCoverPanel = useCallback((id: CoverId) => setSurfaces(state => { if (isEmpty(state)) rememberOpener(); return openCover(state, id); }), []);
-  const toggleWidgetId = useCallback((id: WidgetId) => setSurfaces(state => { if (isEmpty(state)) rememberOpener(); return toggleWidget(state, id); }), []);
+  const toggleWidgetId = useCallback((id: WidgetId) => { if (surfacesRef.current.widgets.includes(id)) widgetNotes.current.noteClose(id); setSurfaces(state => { if (isEmpty(state)) rememberOpener(); return toggleWidget(state, id); }); }, []);
   const toggleSidebarId = useCallback((id: SidebarId) => setSurfaces(state => { if (isEmpty(state)) rememberOpener(); return toggleSidebar(state, id); }), []);
   const sidebarId = surfaces.sidebar?.id ?? null;
   const cover = surfaces.cover;
@@ -1198,6 +1203,8 @@ function Workspace() {
     const onEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !event.defaultPrevented && !document.querySelector(".computer-detail.is-expanded, [data-tofi-modal]") && !document.querySelector('.widget-column [aria-busy="true"], .sidebar-pane [aria-busy="true"]')) {
         event.preventDefault();
+        const target = escapeTarget(surfacesRef.current);
+        if (target?.layer === "widget") widgetNotes.current.noteClose(target.id);
         setSurfaces(state => { const target = escapeTarget(state); return !target ? state : target.layer === "sidebar" ? closeSidebar(state) : target.layer === "widget" ? closeWidget(state, target.id) : state; });
       }
     };
@@ -1250,6 +1257,7 @@ function Workspace() {
   const activeBot = active?.bot_id ? botById.get(active.bot_id) : undefined;
   const desktopBot = activeBot ?? (active?.kind === "group" ? botById.get(active.bot_ids[0]) : undefined);
   const computerShown = surfaces.widgets.includes("computer");
+  const computerFolded = surfaces.folded.includes("computer");
   const desktopOpen = Boolean(desktopBot && computerShown);
   // Narrow screens skip the small window: the big view is a full-screen sheet.
   const desktopExpanded = desktopOpen && (desktopSheet || desktopSize === "big");
@@ -1277,6 +1285,7 @@ function Workspace() {
   const currentDesktopOwner = desktopPresence.ownership?.owner;
     const activeDesktopOwner = !desktopPresence.unavailable && currentDesktopOwner?.kind === "bot" && currentDesktopOwner.conversation_id === active?.id ? currentDesktopOwner : null;
   const computerOn = computerInfo ? computerInfo.state === "ready" : desktopReady;
+  widgetNotes.current = useWidgetAutomation({ activeId: activeId ?? undefined, ready: loadedId === activeId && !loadingMessages, messages: messageRecords, columnMode, hasComputer: Boolean(desktopBot), surfaces, setSurfaces, botRunId: activeDesktopOwner?.run_id, holderKind: currentDesktopOwner?.kind, bigComputer: desktopExpanded });
   const computerStateLabel = !computerOn ? t("header.computer_off") : activeDesktopOwner ? t("header.computer_driving", { name: botById.get(activeDesktopOwner.bot_id)?.name ?? "Bot" }) : t("header.computer_on");
   const query = search.trim().toLowerCase();
   const sortedConversations = useMemo(() => [...pinnedOf(conversations), ...listOrder(conversations)], [conversations]);
@@ -2513,7 +2522,7 @@ function Workspace() {
   if (loading && !conversations.length) return <BootScreen label={t("workspace.loading")} />;
 
   const artifactsOn = columnMode ? surfaces.widgets.includes("artifacts") : cover === "artifacts";
-  const desktopNode = (leaving = false) => desktopBot && (desktopOpen || leaving) ? <Suspense fallback={<DesktopSkeleton botId={desktopBot.id} />}><FloatingDesktop docked={columnMode} expanded={desktopExpanded} small={desktopSmall || leaving} sheet={desktopSheet} onShrink={() => setDesktopSize("small")} onClose={() => closeWidgetId("computer")}><Suspense fallback={<DesktopSkeleton botId={desktopBot.id} />}><BotDesktopPanel presence={desktopPresence} autoConnect={currentDesktopOwner?.kind === "bot"} expanded={desktopExpanded} sheet={desktopSheet} botId={desktopBot.id} botName={desktopBot.name} members={bots.map(bot => ({ id: bot.id, name: bot.name }))} onClose={(reason) => { if (reason === "shutdown") { setDesktopReady(false); setComputerInfo({ state: "stopped" }); } closeWidgetId("computer"); }} onReadyChange={setDesktopReady} onExpandedChange={expanded => { setDesktopSize(expanded ? "big" : "small"); setPanel("desktop"); }} /></Suspense></FloatingDesktop></Suspense> : null;
+  const desktopNode = (leaving = false) => desktopBot && (desktopOpen || leaving) ? <Suspense fallback={<DesktopSkeleton botId={desktopBot.id} />}><FloatingDesktop docked={columnMode} folded={columnMode && computerFolded} expanded={desktopExpanded} small={desktopSmall || leaving} sheet={desktopSheet} onShrink={() => setDesktopSize("small")} onClose={() => closeWidgetId("computer")}><Suspense fallback={<DesktopSkeleton botId={desktopBot.id} />}><BotDesktopPanel presence={desktopPresence} folded={columnMode && computerFolded} onFold={columnMode ? () => foldWidgetId("computer") : undefined} onUnfold={() => foldWidgetId("computer")} autoConnect={currentDesktopOwner?.kind === "bot"} expanded={desktopExpanded} sheet={desktopSheet} botId={desktopBot.id} botName={desktopBot.name} members={bots.map(bot => ({ id: bot.id, name: bot.name }))} onClose={(reason) => { if (reason === "shutdown") { setDesktopReady(false); setComputerInfo({ state: "stopped" }); } closeWidgetId("computer"); }} onReadyChange={setDesktopReady} onExpandedChange={expanded => { setDesktopSize(expanded ? "big" : "small"); setPanel("desktop"); }} /></Suspense></FloatingDesktop></Suspense> : null;
   const computerButton = desktopBot && <button className={`computer-button${computerOn ? " is-on" : ""}${computerOn && activeDesktopOwner ? " is-driven" : ""}`} data-computer-toggle="" data-computer-state={computerOn ? (activeDesktopOwner ? "driven" : "on") : "off"} data-hint={computerStateLabel} title={computerStateLabel} aria-label={computerStateLabel} aria-pressed={computerShown} onClick={() => { if (computerShown) closeWidgetId("computer"); else { setDesktopSize("small"); setPanel("desktop"); } }}><Icon name="monitor" size={17} variant={computerShown ? "filled" : "outline"} animated />{computerOn && activeDesktopOwner && <span className="computer-driven-dot" aria-hidden="true" />}</button>;
   // The markup of the sidebar views, widgets and covers lives in the lazy chunk SurfaceViews; the workspace hands it the data and the few actions.
   const openFromPanel = (id: string) => { selectConversation(id); setMobileList(false); setPanel(null); };

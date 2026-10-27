@@ -101,7 +101,10 @@
       "hibernating": "Going to sleep…",
       "no_desktop": "The Bot is working in the browser without a desktop",
       "retry": "Retry"
-    }
+    },
+    "fold": "Fold",
+    "fold_aria": "Fold shared computer to a strip",
+    "unfold_aria": "Show shared computer"
   },
   "remote": {
     "error": {

@@ -206,6 +206,7 @@
     "list_label": "成果物の一覧",
     "scope_label": "範囲",
     "widget_empty": "このチャットで Bot が作成したファイルがここに表示されます。",
-    "widget_all": "すべての成果物"
+    "widget_all": "すべての成果物",
+    "widget_new": "新しいファイル: {{name}}"
   }
 }

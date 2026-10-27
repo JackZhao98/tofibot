@@ -158,6 +158,8 @@ export type AppOptions = {
   /** A pending approval card in Mochi's chat. */
   approval?: boolean;
   computer?: "ready" | "starting" | "hibernated" | "resuming" | "desktop-starting";
+  /** Mochi holds the desktop in her own chat (the Computer widget opens by itself and the bezel carries her colour). */
+  driver?: "bot";
   /** The group has two tasks: Miso's release note (claimed, 2/3) and Nori's venue (assigned). The cards and the member list show them. */
   tasks?: boolean;
   /** Two bubble runs of three at the end of Mochi's chat: the person's, then Mochi's (corners merge, 3px apart). */
@@ -225,11 +227,15 @@ export function workspace(options: AppOptions): Synthetic {
     }
     if (p === "/api/questions") return json({ questions: questions(url.searchParams.get("conversation_id") ?? "") });
     if (p === "/api/mail-drafts") return json({ drafts: [] });
-    if (p === "/api/artifacts") return json({ items: ARTIFACTS.filter(item => item.conversation_id === url.searchParams.get("id")), next_cursor: "" });
+    if (p === "/api/artifacts") {
+      const scope = url.searchParams.get("scope"), id = url.searchParams.get("id");
+      const items = ARTIFACTS.filter(item => scope === "bot" ? item.bot_id === id : scope === "conversation" ? item.conversation_id === id : true);
+      return json({ items: items.slice(0, Number(url.searchParams.get("limit") || 50)), next_cursor: "" });
+    }
     if (p.startsWith("/api/attachments/")) return new Response("# Week 42 summary\n\nSign-ups are up **8%** on last week.\n\n- Review at 15:00\n- Retention is flat\n", { status: 200, headers: { "Content-Type": "text/markdown" } });
     if (p === "/api/computers/firecracker/info") return json({ kind: "firecracker", state: options.computer === "starting" || options.computer === "hibernated" || options.computer === "resuming" ? options.computer : "ready", phase: options.computer === "starting" ? "booting" : undefined, desktop_starting: options.computer === "desktop-starting" || undefined });
-    if (p === "/api/computers/firecracker/actions") return json({ ok: true, result: { image_url: SCREEN } });
-    if (p === "/api/computer/desktop-ownership") return json({ owner: null, waiting: [] });
+    if (p === "/api/computers/firecracker/actions") return json({ ok: true, result: String(init?.body ?? "").includes("desktop.control.acquire") ? { control_id: "ctl_catalog" } : { image_url: SCREEN } });
+    if (p === "/api/computer/desktop-ownership") return json({ owner: options.driver === "bot" ? { kind: "bot", bot_id: "bot_mochi", run_id: "run_driver", conversation_id: "dm_mochi" } : null, waiting: [] });
     if (p === "/api/system/update") return json({ current: "v0.1.4", latest: options.update ? "v0.1.5" : "v0.1.4", update_available: Boolean(options.update), notes_url: "", checked_at: at(0), auto_update: "off" });
     return json({});
   };

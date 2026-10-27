@@ -47,6 +47,9 @@ const (
 	autoGroupTriage           = "group_triage"
 	autoGroupTriageModel      = "group_triage_model"
 	autoGroupFollowUp         = "group_followup_to_working"
+	// The web workspace reads the two widget switches (docs/design/widgets-and-sidebar.md); the server stores them and nothing else.
+	autoWidgetArtifacts = "widget_artifacts_auto"
+	autoWidgetComputer  = "widget_computer_auto"
 
 	// defaultConversationModel is what conversations, scheduled runs and tool
 	// use run on until the owner picks another model.
@@ -108,6 +111,8 @@ var automationItems = []automationItem{
 	{Key: autoCommandCheckMinutes, Group: "computer", Kind: autoKindInt, Default: commandCheckMinutesDefault(), Min: 5, Max: 1440, Unit: "minutes"},
 	{Key: autoTaskStallRounds, Group: "checks", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskStallRounds), Min: 1, Max: 20},
 	{Key: autoTaskTreeIdleLimit, Group: "reliability", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskTreeIdleLimit), Min: 10, Max: 500},
+	{Key: autoWidgetArtifacts, Group: "widgets", Kind: autoKindBool, Default: "true"},
+	{Key: autoWidgetComputer, Group: "widgets", Kind: autoKindBool, Default: "true"},
 }
 
 func automationItemFor(key string) (automationItem, bool) {

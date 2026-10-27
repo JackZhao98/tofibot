@@ -58,6 +58,7 @@
     "test:timeline-rows": "node scripts/test-timeline-rows.mjs",
     "test:task-cards": "node scripts/test-task-cards.mjs",
     "test:surfaces": "node scripts/test-surfaces.mjs",
+    "test:widgets-auto": "node scripts/test-widgets-auto.mjs",
     "test:switch-budget": "node scripts/test-switch-budget.mjs",
     "test:stream-cost": "node scripts/test-stream-cost.mjs",
     "test:tool-result-preview": "node scripts/test-tool-result-preview.mjs",

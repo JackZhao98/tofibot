@@ -212,6 +212,7 @@
     "list_label": "Liste des artefacts",
     "scope_label": "Portée",
     "widget_empty": "Les fichiers produits par vos Bots dans ce chat apparaissent ici.",
-    "widget_all": "Tous les artefacts"
+    "widget_all": "Tous les artefacts",
+    "widget_new": "Nouveau fichier : {{name}}"
   }
 }

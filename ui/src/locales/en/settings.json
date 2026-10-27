@@ -827,6 +827,10 @@
       "computer": {
         "title": "Computer",
         "description": "Automatic sleep for the shared computer."
+      },
+      "widgets": {
+        "title": "Side widgets",
+        "description": "Small blocks that open beside the chat on their own."
       }
     },
     "item": {
@@ -913,6 +917,14 @@
       "task_tree_idle_message_limit": {
         "name": "Idle messages per task tree",
         "what": "How many messages the Bots of one piece of work may pass between them without progress. Progress is a checklist item that ends, a task that closes done, or a result handed in, and it restarts the count. At the limit they stop handing work to each other until progress happens, and the root Bot decides what to tell you."
+      },
+      "widget_artifacts_auto": {
+        "name": "Open Artifacts when a Bot makes a file",
+        "what": "The first time a Bot hands over a file in a chat, the Artifacts widget opens beside the messages. Later files refresh its list. Off keeps it closed until you open it."
+      },
+      "widget_computer_auto": {
+        "name": "Open the shared computer when a Bot uses it",
+        "what": "When a Bot takes the shared computer in the chat you are viewing, its widget opens beside the messages. It stays open and folds into a strip 30 seconds after the Bot lets go. Off keeps it closed until you open it."
       }
     },
     "option": {

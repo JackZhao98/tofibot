@@ -206,6 +206,7 @@
     "list_label": "作品列表",
     "scope_label": "範圍",
     "widget_empty": "Bot 在此對話中產出的檔案會顯示在這裡。",
-    "widget_all": "全部作品"
+    "widget_all": "全部作品",
+    "widget_new": "新檔案:{{name}}"
   }
 }

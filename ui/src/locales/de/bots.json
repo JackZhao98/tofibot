@@ -209,6 +209,7 @@
     "list_label": "Artefaktliste",
     "scope_label": "Bereich",
     "widget_empty": "Dateien, die deine Bots in diesem Chat erzeugen, erscheinen hier.",
-    "widget_all": "Alle Artefakte"
+    "widget_all": "Alle Artefakte",
+    "widget_new": "Neue Datei: {{name}}"
   }
 }

@@ -827,6 +827,10 @@
       "computer": {
         "title": "Computer",
         "description": "Automatischer Ruhezustand des gemeinsamen Computers."
+      },
+      "widgets": {
+        "title": "Seitliche Widgets",
+        "description": "Kleine Blöcke, die sich von selbst neben dem Chat öffnen."
       }
     },
     "item": {
@@ -913,6 +917,14 @@
       "task_tree_idle_message_limit": {
         "name": "Leerlauf-Nachrichten pro Aufgabenbaum",
         "what": "Wie viele Nachrichten die Bots einer Arbeit untereinander ohne Fortschritt austauschen dürfen. Fortschritt ist ein abgeschlossener Checklistenpunkt, eine erledigte Aufgabe oder ein abgegebenes Ergebnis; er setzt den Zähler zurück. Am Limit geben sie einander keine Arbeit mehr weiter, bis Fortschritt eintritt, und der Wurzel-Bot entscheidet, was er Ihnen sagt."
+      },
+      "widget_artifacts_auto": {
+        "name": "Artefakte öffnen, wenn ein Bot eine Datei erstellt",
+        "what": "Sobald ein Bot in einem Chat zum ersten Mal eine Datei übergibt, öffnet sich das Artefakte-Widget neben den Nachrichten. Weitere Dateien aktualisieren die Liste. Aus lässt es geschlossen, bis du es öffnest."
+      },
+      "widget_computer_auto": {
+        "name": "Geteilten Computer öffnen, wenn ein Bot ihn nutzt",
+        "what": "Übernimmt ein Bot den geteilten Computer im Chat, den du gerade ansiehst, öffnet sich sein Widget neben den Nachrichten. Es bleibt offen und klappt 30 Sekunden nach dem Loslassen des Bots zu einem Streifen zusammen. Aus lässt es geschlossen, bis du es öffnest."
       }
     },
     "option": {

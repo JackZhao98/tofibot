@@ -1,4 +1,4 @@
-import { createContext, Fragment, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { createContext, Fragment, lazy, Suspense, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { CATS, EmptyCat } from "./EmptyCat";
 import { BrandLogo } from "./BrandLogo";
 import { BootScreen } from "./BootScreen";
@@ -9,8 +9,11 @@ import { hydrateDesktopState, isDesktop, flushDesktopState } from "./desktop";
 import { i18n, LANGUAGES, LANGUAGE_ENDONYMS, useLanguage, useTranslation, type LanguagePreference } from "./i18n";
 import { chooseLanguage } from "./saveLanguage";
 import { authRequest, type OwnerSession } from "./ownerAuthApi";
-import { OwnerSetup, PasswordChecklist } from "./OwnerSetup";
 import { AuthLanguageSwitch } from "./AuthLanguageSwitch";
+
+// First-run setup and the password checklist are only ever drawn on the gate: keep them out of the entry bundle.
+const OwnerSetup = lazy(() => import("./OwnerSetup").then(module => ({ default: module.OwnerSetup })));
+const PasswordChecklist = lazy(() => import("./OwnerSetup").then(module => ({ default: module.PasswordChecklist })));
 
 export function useOwnerSession(){return useContext(SessionContext).session}
 const SessionContext = createContext<{ session: OwnerSession | null; logout: () => Promise<void> }>({ session: null, logout: async () => {} });
@@ -103,7 +106,7 @@ export function OwnerSessionGate({ children }: { children: ReactNode }) {
     <AuthLanguageSwitch />
     <section className="owner-card">
       <BrandLogo variant="calico" />
-      {!session ? <><h1>{t("gate.connect_title")}</h1>{error ? <><EmptyCat look={CATS.nori} pose="asleep" size={72} name="gate-offline" /><p className="owner-error" role="alert">{error}</p><button className="primary-button" onClick={() => void refresh()}>{t("gate.reconnect")}</button></> : null}</> : session.setup_required && session.password_transport_allowed && !mustChange ? <OwnerSetup onDone={finishAuth} /> : <>
+      {!session ? <><h1>{t("gate.connect_title")}</h1>{error ? <><EmptyCat look={CATS.nori} pose="asleep" size={72} name="gate-offline" /><p className="owner-error" role="alert">{error}</p><button className="primary-button" onClick={() => void refresh()}>{t("gate.reconnect")}</button></> : null}</> : session.setup_required && session.password_transport_allowed && !mustChange ? <Suspense fallback={null}><OwnerSetup onDone={finishAuth} /></Suspense> : <>
         <h1>{mustChange ? t("gate.title.set_password") : session.setup_required ? t("gate.title.welcome_new") : expired ? t("gate.title.sign_in_again") : t("gate.title.welcome_back")}</h1>
         <p className="owner-subtitle">{mustChange ? t("gate.subtitle.change_initial") : session.setup_required ? t("gate.subtitle.create_admin") : t("gate.subtitle.sign_in")}</p>
         {!session.password_transport_allowed ? <p className="owner-error" role="alert">{t("error.password_transport_required")}</p> : <form onSubmit={async event => {
@@ -121,7 +124,7 @@ export function OwnerSessionGate({ children }: { children: ReactNode }) {
           {mustChange ? <label>{t("field.current_initial_password")}<input name="current_password" type="password" autoComplete="current-password" required disabled={pending}/></label>
             : <label>{t("field.identifier")}<input name="identifier" autoComplete="username" autoCapitalize="none" spellCheck={false} required autoFocus disabled={pending} /></label>}
           <label>{t("field.password")}<input name="password" type="password" autoComplete={mustChange ? "new-password" : "current-password"} required minLength={mustChange ? 12 : undefined} maxLength={1024} disabled={pending} aria-describedby={mustChange ? rulesID : undefined} onChange={mustChange ? event => setNewPassword(event.target.value) : undefined} /></label>
-          {mustChange && <PasswordChecklist id={rulesID} password={newPassword} username={session.owner?.username ?? ""} email={session.owner?.email ?? ""} />}
+          {mustChange && <Suspense fallback={null}><PasswordChecklist id={rulesID} password={newPassword} username={session.owner?.username ?? ""} email={session.owner?.email ?? ""} /></Suspense>}
           {error && <p className="owner-error" role="alert">{error}</p>}
           <button className="primary-button" disabled={pending}>{pending ? t("gate.submit.wait") : mustChange ? t("gate.submit.update_password") : t("gate.submit.sign_in")}</button>
         </form>}

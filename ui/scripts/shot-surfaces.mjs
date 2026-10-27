@@ -1,14 +1,17 @@
 // Screenshots of widgets, sidebar and covers (docs/design/widgets-and-sidebar.md) at 1440 / 1100 / 960 / 390, light + dark,
 // plus frame strips of each enter and exit. Synthetic data only.
-// Run: PLAYWRIGHT_MODULE=<playwright/index.mjs> node scripts/shot-surfaces.mjs   (SHOT_DIR, WIDTHS=1440,1100, THEMES=light)
+// Run: PLAYWRIGHT_MODULE=<playwright/index.mjs> node scripts/shot-surfaces.mjs   (SHOT_DIR, WIDTHS=1440,1100, THEMES=light,
+// SECTIONS=base,r2: "base" is the round-1 set, "r2" the automatic widgets, the strip, the Artifacts cover and their frame strips)
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { installStubs, launch, startUi, ui } from "./computer-window-fixture.mjs";
+import { BOT as WBOT, DM as WDM, GROUP as WGROUP, botOwner, newState, openWorkspace } from "./widgets-fixture.mjs";
 
 const out = process.env.SHOT_DIR || resolve(ui, "../artifacts/surfaces");
 mkdirSync(out, { recursive: true });
 const widths = (process.env.WIDTHS || "1440,1100,960,390").split(",").map(Number);
 const themes = (process.env.THEMES || "light,dark").split(",");
+const sections = (process.env.SECTIONS || "base,r2").split(",");
 const NOW = "2026-10-26T12:00:00Z";
 const BOT = { id: "bot-synthetic", name: "Mochi", instructions: "Synthetic bot", model: "default", dm_conversation_id: "conv-synthetic", created_at: NOW };
 const BOT2 = { id: "bot-two", name: "Atlas", instructions: "Second synthetic bot", model: "default", dm_conversation_id: "conv-two", created_at: NOW };
@@ -52,35 +55,82 @@ async function open(theme, width) {
  * the person saw rather than what a screenshot loop happened to catch. `action` runs after the recording starts; `settle` ms later the
  * frames are cut to `count` evenly spaced ones between the action and the last change, written as <name>-f1..fN.png plus a contact sheet.
  */
-async function strip(page, name, action, { count = 5, settle = 700, clip } = {}) {
+async function strip(page, name, action, { count = 5, settle = 700, clip, detect = false, span = 0.32, appears } = {}) {
   const client = await page.context().newCDPSession(page);
   const frames = [];
   client.on("Page.screencastFrame", event => { frames.push({ t: event.metadata.timestamp, data: event.data }); client.send("Page.screencastFrameAck", { sessionId: event.sessionId }).catch(() => {}); });
-  await client.send("Page.startScreencast", { format: "png", everyNthFrame: 1 });
+  await client.send("Page.startScreencast", { format: "jpeg", quality: 85, everyNthFrame: 1 }); // jpeg: the encoder keeps up, so no painted frame is dropped
   await page.waitForTimeout(120);
   const start = Date.now() / 1000;
+  // The moment the selector enters the page, read inside the page (a round trip to Node would arrive late).
+  if (appears) await page.evaluate(selector => { window.__appeared = 0; const seen = () => { if (document.querySelector(selector)) { window.__appeared = Date.now() / 1000; return true; } return false; }; if (!seen()) { const watch = new MutationObserver(() => { if (seen()) watch.disconnect(); }); watch.observe(document.documentElement, { childList: true, subtree: true, attributes: true }); } }, appears);
   await action();
+  // `appears`: the change comes later than the action (a poll, a stream reconnect). The strip starts when this selector is in the page.
+  let appeared = 0;
+  if (appears) { await page.waitForFunction(() => window.__appeared > 0, null, { timeout: 15000 }); appeared = await page.evaluate(() => window.__appeared); }
   await page.waitForTimeout(settle);
   await client.send("Page.stopScreencast");
   await client.detach();
-  const after = frames.filter(frame => frame.t >= start - 0.02);
+  let begin = appeared ? appeared - 0.03 : start;
+  const after = frames.filter(frame => frame.t >= begin - 0.02);
   if (after.length < 2) { console.log("strip", name, "caught", after.length, "frames"); }
   const picked = [];
-  for (let i = 0; i < count; i++) { const target = start + (i / (count - 1)) * Math.min(0.32, Math.max(0.1, (after.at(-1)?.t ?? start) - start)); picked.push(after.reduce((best, frame) => Math.abs(frame.t - target) < Math.abs(best.t - target) ? frame : best, after[0] ?? frames.at(-1))); }
+  for (let i = 0; i < count; i++) { const target = begin + (i / (count - 1)) * Math.min(span, Math.max(0.1, (after.at(-1)?.t ?? begin) - begin)); picked.push(after.reduce((best, frame) => Math.abs(frame.t - target) < Math.abs(best.t - target) ? frame : best, after[0] ?? frames.at(-1))); }
   mkdirSync(`${out}/strips`, { recursive: true });
   const { writeFileSync } = await import("node:fs");
-  picked.forEach((frame, i) => writeFileSync(`${out}/strips/${name}-f${i + 1}.png`, Buffer.from(frame.data, "base64")));
+  picked.forEach((frame, i) => writeFileSync(`${out}/strips/${name}-f${i + 1}.jpg`, Buffer.from(frame.data, "base64")));
+  const start0 = begin;
   const sheet = await page.context().newPage();
   const size = page.viewportSize();
   const tile = 620, tileHeight = Math.round(tile * size.height / size.width);
-  await sheet.setViewportSize({ width: tile * 3 + 30, height: (tileHeight + 22) * Math.ceil(picked.length / 3) + 18 });
-  await sheet.setContent(`<body style="margin:0;background:#222;display:flex;flex-wrap:wrap;gap:6px;padding:6px">${picked.map((frame, i) => `<figure style="margin:0;width:${tile}px;color:#ddd;font:12px monospace"><img style="display:block;width:${tile}px;height:${tileHeight}px" src="data:image/png;base64,${frame.data}">f${i + 1} +${Math.round((frame.t - start) * 1000)}ms</figure>`).join("")}</body>`);
+  await sheet.setViewportSize({ width: tile * 3 + 30, height: ((clip ? Math.round(tile * clip.height / clip.width) : tileHeight) + 22) * Math.ceil(picked.length / 3) + 18 });
+  await sheet.setContent(`<body style="margin:0;background:#222;display:flex;flex-wrap:wrap;gap:6px;padding:6px">${picked.map((frame, i) => `<figure style="margin:0;width:${tile}px;color:#ddd;font:12px monospace">${clip ? `<div style="width:${tile}px;height:${Math.round(tile * clip.height / clip.width)}px;overflow:hidden"><img style="display:block;transform-origin:0 0;transform:scale(${tile / clip.width}) translate(${-clip.x}px,${-clip.y}px);width:${size.width}px;height:${size.height}px" src="data:image/jpeg;base64,${frame.data}"></div>` : `<img style="display:block;width:${tile}px;height:${tileHeight}px" src="data:image/jpeg;base64,${frame.data}">`}f${i + 1} +${Math.round((frame.t - start0) * 1000)}ms</figure>`).join("")}</body>`);
   await sheet.screenshot({ path: `${out}/strips/${name}.png` });
   await sheet.close();
-  return picked.map(frame => Math.round((frame.t - start) * 1000));
+  return picked.map(frame => Math.round((frame.t - start0) * 1000));
 }
 
-for (const theme of themes) {
+/**
+ * Frames of a transition at exact animation times, independent of how loaded the machine is (the screencast above drops frames when it is):
+ * every CSS and Web Animation that is running at the moment the change lands is paused in the page (before it can paint), then set to
+ * each time in `times` and photographed. `click` is a selector clicked inside the page (so the pause happens in the same task as the React
+ * commit); `run` is a Node-side trigger (a state change the page polls or streams in); `appears` is the selector whose arrival is the change.
+ */
+async function stepStrip(page, name, { click, run, appears, times = [0, 45, 90, 135, 180, 230, 290], clip }) {
+  await page.evaluate(async ({ click, appears }) => {
+    window.__stepped = false;
+    window.__pause = () => { if (window.__stepped) return; window.__stepped = true; window.__anims = document.getAnimations().map(a => ({ a, young: Number(a.currentTime ?? 0) < 600 })); for (const { a } of window.__anims) if (a.playState !== "finished") a.pause(); };
+    if (appears) { const seen = () => { if (document.querySelector(appears)) { window.__pause(); return true; } return false; }; if (!seen()) { const watch = new MutationObserver(() => { if (seen()) watch.disconnect(); }); watch.observe(document.documentElement, { childList: true, subtree: true, attributes: true }); } }
+    if (click) { document.querySelector(click).click(); /* React flushes a click in a microtask */ for (let i = 0; i < 4; i++) await Promise.resolve(); if (!appears) window.__pause(); }
+  }, { click, appears });
+  if (run) await run();
+  await page.waitForFunction(() => window.__stepped, null, { timeout: 15000 });
+  mkdirSync(`${out}/strips`, { recursive: true });
+  const shots = [];
+  for (const t of times) {
+    await page.evaluate(time => { for (const { a, young } of window.__anims) if (young) { try { a.currentTime = time; } catch { /* finished */ } } for (const a of document.getAnimations()) if (!window.__anims.some(item => item.a === a)) a.pause(); }, t);
+    await page.waitForTimeout(40);
+    const buffer = await page.screenshot(clip ? { clip } : {});
+    shots.push(buffer);
+    const { writeFileSync } = await import("node:fs");
+    writeFileSync(`${out}/strips/${name}-f${shots.length}.png`, buffer);
+  }
+  await page.evaluate(() => {
+    // Hand the page back: what was started by the change runs to its end; what was already running goes on (a finished animation must not be played again: it would restart).
+    for (const { a, young } of window.__anims) { try { if (young && a.effect.getComputedTiming().iterations !== Infinity) a.finish(); else if (a.playState === "paused") a.play(); } catch { /* done */ } }
+    for (const a of document.getAnimations()) { try { if (a.playState === "paused") a.play(); } catch { /* done */ } }
+    window.__stepped = false;
+  });
+  const sheet = await page.context().newPage();
+  const tile = 300, ratio = clip ? clip.height / clip.width : page.viewportSize().height / page.viewportSize().width;
+  await sheet.setViewportSize({ width: tile * 4 + 30, height: Math.ceil(shots.length / 4) * (Math.round(tile * ratio) + 20) + 14 });
+  await sheet.setContent(`<body style="margin:0;background:#222;display:flex;flex-wrap:wrap;gap:6px;padding:6px">${shots.map((buffer, i) => `<figure style="margin:0;width:${tile}px;color:#ddd;font:11px monospace"><img style="display:block;width:${tile}px" src="data:image/png;base64,${buffer.toString("base64")}">f${i + 1} +${times[i]}ms</figure>`).join("")}</body>`);
+  await sheet.screenshot({ path: `${out}/strips/${name}.png` });
+  await sheet.close();
+  return times;
+}
+
+for (const theme of sections.includes("base") ? themes : []) {
   for (const width of widths) {
     const { context, page } = await open(theme, width);
     const file = suffix => `${out}/${theme}-${width}-${suffix}.png`;
@@ -123,7 +173,7 @@ for (const theme of themes) {
 }
 
 // ---- enter / exit strips (1440, and the cover at 390) ----
-if (process.env.STRIPS !== "0") {
+if (process.env.STRIPS !== "0" && sections.includes("base")) {
   for (const theme of themes) {
     {
       const { context, page } = await open(theme, 1440);
@@ -155,6 +205,94 @@ if (process.env.STRIPS !== "0") {
       log("cover-close", await strip(page, `${theme}-390-cover-bot-settings-close`, () => page.keyboard.press("Escape")));
       await context.close();
     }
+  }
+}
+// ---- round 2: automatic widgets, the computer strip, the Artifacts cover (synthetic workspace, widgets-fixture.mjs) ----
+if (sections.includes("r2")) {
+  const RIGHT = { x: 1040, y: 0, width: 400, height: 520 };
+  for (const theme of themes) {
+    const T = `${theme}-1440`;
+    const log = (name, times) => console.log(`${theme} ${name}: ${times.join(",")} ms`);
+    const quiet = page => page.waitForTimeout(900);
+    const file = (page, suffix) => `${out}/${T}-${suffix}.png`;
+    const label = (page, text) => page.getByRole("button", { name: text, exact: true });
+    // A. Artifacts: appears with the first file; the next one flags its row.
+    {
+      const state = newState();
+      const { context, page } = await openWorkspace(browser, origin, state, { theme });
+      await page.waitForTimeout(3500); // the idle chunk warm-up has finished, as it has long before a Bot hands over a file
+      await page.screenshot({ path: file(page, "r2-dm-no-files") });
+      log("artifacts-auto-appear", await stepStrip(page, `${T}-artifacts-auto-appear`, { appears: '[data-card="artifacts"]', run: async () => { state.addFile(1); }, clip: RIGHT }));
+      await page.waitForTimeout(1200);
+      await page.screenshot({ path: file(page, "widget-artifacts-auto") });
+      state.addFile(2); await page.waitForTimeout(1500); state.addFile(3); await page.waitForTimeout(3200); // the earlier highlights have faded
+      log("artifacts-new-highlight", await stepStrip(page, `${T}-artifacts-new-highlight`, { appears: 'li[data-fresh]', run: async () => { state.addFile(4); }, times: [0, 25, 50, 75, 100, 140, 200], clip: RIGHT }));
+      await page.screenshot({ path: file(page, "widget-artifacts-4") });
+      await quiet(page);
+      log("cover-open-from-all", await stepStrip(page, `${T}-artifacts-cover-open-from-all`, { click: ".artifacts-widget-all", appears: ".cover-window", times: [0, 40, 80, 120, 170, 230, 290] }));
+      await page.waitForTimeout(900);
+      await page.screenshot({ path: file(page, "cover-artifacts-scope-chat") });
+      await page.getByRole("tab", { name: "This Bot" }).click(); await page.waitForTimeout(700);
+      await page.screenshot({ path: file(page, "cover-artifacts-scope-bot") });
+      await page.getByRole("tab", { name: "All", exact: true }).first().click(); await page.waitForTimeout(700);
+      await page.screenshot({ path: file(page, "cover-artifacts-scope-all") });
+      await page.getByRole("tab", { name: "Images" }).click(); await page.waitForTimeout(600);
+      await page.screenshot({ path: file(page, "cover-artifacts-type-images") });
+      await page.getByRole("tab", { name: "Documents" }).click(); await page.getByRole("switch").check(); await page.waitForTimeout(600);
+      await page.screenshot({ path: file(page, "cover-artifacts-uploads-on") });
+      await context.close();
+    }
+    // B. Computer: appears when a Bot takes the desktop, folds into the strip, unfolds; 30 s after release it folds by itself.
+    {
+      const state = newState();
+      state.addFile(1); state.addFile(2);
+      const { context, page } = await openWorkspace(browser, origin, state, { theme });
+      await page.waitForTimeout(3500);
+      log("computer-auto-appear", await stepStrip(page, `${T}-computer-auto-appear`, { appears: '[data-card="computer"]', run: async () => { state.ownership = botOwner(); }, clip: RIGHT }));
+      await page.locator(".desktop-live-screen").waitFor({ state: "attached" });
+      await page.waitForTimeout(2000);
+      await page.screenshot({ path: file(page, "widget-computer-driven-bot") });
+      await page.locator(".computer-detail").hover();
+      log("computer-fold", await stepStrip(page, `${T}-computer-fold`, { click: ".desktop-control-fold", clip: RIGHT }));
+      await page.mouse.move(600, 400); await page.waitForTimeout(700);
+      await page.screenshot({ path: file(page, "widget-computer-folded") });
+      log("computer-unfold", await stepStrip(page, `${T}-computer-unfold`, { click: ".desktop-strip-open", clip: RIGHT }));
+      await page.mouse.move(600, 400); await page.waitForTimeout(700);
+      state.ownership = { owner: null, waiting: [] };
+      await page.waitForTimeout(31500);
+      await page.screenshot({ path: file(page, "widget-computer-folded-after-30s") });
+      console.log(theme, "computer folded by itself after the Bot let go:", await page.locator(".computer-detail.is-folded").count() === 1);
+      // you: taking the mouse opens the big window.
+      await page.locator(".desktop-strip-open").click(); await page.waitForTimeout(600);
+      await page.locator(".desktop-driver-switch").click();
+      await page.locator(".computer-detail.is-expanded.is-driven-by-you").waitFor({ timeout: 8000 }).catch(() => console.log("no is-driven-by-you"));
+      await page.waitForTimeout(700);
+      await page.screenshot({ path: file(page, "computer-driven-you-big") });
+      await context.close();
+    }
+    // C. Space: a group with three widgets on a 700 px window.
+    {
+      const state = newState();
+      state.addFile(1, WGROUP);
+      const { context, page } = await openWorkspace(browser, origin, state, { theme, group: true, height: 700 });
+      await page.locator(".chat-identity").click();
+      await label(page, "Open artifacts").click();
+      state.ownership = botOwner("run-g", WGROUP);
+      await page.waitForTimeout(3500);
+      await page.screenshot({ path: file(page, "space-rule-700") });
+      await context.close();
+    }
+  }
+  // D. Narrower widths and phone: the Artifacts cover.
+  for (const width of [1100, 390]) {
+    const state = newState();
+    for (let n = 1; n <= 5; n++) state.addFile(n);
+    const { context, page } = await openWorkspace(browser, origin, state, { theme: "light", width, height: width < 700 ? 800 : 900 });
+    await page.getByRole("button", { name: "Open artifacts" }).click(); await page.waitForTimeout(900);
+    if (width >= 1100) await page.getByRole("button", { name: "All artifacts" }).click();
+    await page.waitForTimeout(900);
+    await page.screenshot({ path: `${out}/light-${width}-r2-artifacts-cover.png` });
+    await context.close();
   }
 }
 console.log("errors:", errors.length ? errors : "none");

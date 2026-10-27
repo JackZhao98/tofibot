@@ -235,3 +235,23 @@ html:not([data-desktop]) .desktop-floating-shell.is-sheet .desktop-presence-canv
 .desktop-placeholder-retry:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 @media(prefers-reduced-motion:reduce){.desktop-floating-shell,.desktop-floating-shell *,.desktop-floating-shell *::before,.desktop-floating-shell *::after{transition:none!important}}
 @media(prefers-reduced-motion:reduce){.desktop-placeholder:is(.is-waking,.is-connecting,.is-resuming) .desktop-placeholder-line::before{animation:none}}
+
+/* Folded: the docked monitor as a 56px strip (docs/design/widgets-and-sidebar.md section 6). Same bezel and glow; the screen is a
+   letterboxed live thumbnail on the left (the video stays mounted), the chin's status text sits in the middle and the Bot / You switch
+   on the right. The drop, the chevron and the corner buttons are gone; the whole strip is one button that brings the monitor back. */
+html:not([data-desktop]) .workspace .desktop-floating-shell.is-docked.is-folded .desktop-presence-canvas>.computer-detail.is-folded{
+  display:grid;grid-template-columns:72px minmax(0,1fr) auto;align-items:center;column-gap:10px;height:56px;margin-bottom:0;padding:6px 8px 6px 6px;box-sizing:border-box;overflow:hidden}
+html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-folded :is(.computer-screen-wrap,.desktop-launch-surface){grid-area:1/1;order:0;display:grid;place-items:center;width:72px;height:40px;aspect-ratio:auto;min-height:0;border-radius:8px!important;clip-path:inset(0 round 8px);pointer-events:none}
+.computer-detail.is-folded .computer-screen-wrap :is(.remote-desktop,.remote-desktop-surface){width:100%;height:100%;min-height:0;aspect-ratio:auto}
+.computer-detail.is-folded .computer-screen-wrap :is(video,canvas,img,.computer-screen){width:100%;height:100%;object-fit:contain}
+.computer-detail.is-folded .computer-screen-wrap .remote-desktop-surface{display:grid;place-items:center;overflow:hidden}
+.computer-detail.is-folded :is(.desktop-window-controls,.desktop-frame-status,.error-banner,.computer-info,.remote-control-bar,.desktop-expanded-scrim){display:none}
+.computer-detail.is-folded .desktop-chin{position:static;display:contents;translate:none;width:auto;height:auto;padding:0}
+.computer-detail.is-folded :is(.desktop-drop,.desktop-power){display:none}
+.computer-detail.is-folded .desktop-chin-text{position:static;grid-area:1/2;width:auto;height:auto;margin:0;overflow:hidden;clip:auto;clip-path:none;text-overflow:ellipsis;color:var(--desktop-controls-ink);font:600 12px/1.3 var(--display)}
+.computer-detail.is-folded .desktop-driver-switch{position:relative;z-index:2;grid-area:1/3}
+.desktop-strip-open{position:absolute;inset:0;z-index:1;width:100%;height:100%;padding:0;border:0;border-radius:inherit;background:transparent}
+.desktop-strip-open:hover{background:color-mix(in srgb,var(--desktop-controls-ink) 7%,transparent)}
+.desktop-control-fold svg{rotate:180deg}
+.computer-detail.is-folded .desktop-launch-surface :is(.desktop-placeholder-line,.desktop-placeholder-retry,.desktop-preview-controls){display:none}
+.computer-detail.is-folded .desktop-launch-surface .desktop-placeholder-cat .avatar{width:28px;height:28px}

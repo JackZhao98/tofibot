@@ -209,6 +209,7 @@
     "list_label": "Artifact list",
     "scope_label": "Scope",
     "widget_empty": "Files your Bots make in this chat show up here.",
-    "widget_all": "All artifacts"
+    "widget_all": "All artifacts",
+    "widget_new": "New file: {{name}}"
   }
 }

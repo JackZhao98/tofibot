@@ -100,7 +100,10 @@
       "hibernating": "正在进入休眠…",
       "no_desktop": "Bot 正在用浏览器工作，没有使用桌面",
       "retry": "重试"
-    }
+    },
+    "fold": "折叠",
+    "fold_aria": "把共享电脑折成窄栏",
+    "unfold_aria": "显示共享电脑"
   },
   "remote": {
     "error": {

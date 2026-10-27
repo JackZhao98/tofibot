@@ -34,9 +34,9 @@ function useComposerAnchor(active: boolean) {
 }
 
 /** The window opens only on the user's explicit request (the header computer button). */
-export function FloatingDesktop({ expanded, small = false, sheet = false, docked = false, onShrink, onClose, children }: {
+export function FloatingDesktop({ expanded, small = false, sheet = false, docked = false, folded = false, onShrink, onClose, children }: {
   /** The big window (dialog). `small` is the floating picture-in-picture window; `sheet` is the narrow-screen full-screen form of the big one. */
-  expanded: boolean; small?: boolean; sheet?: boolean; /** The small form sits in the context column's card instead of floating over the chat. */ docked?: boolean; onShrink?: () => void; onClose: () => void; children: ReactNode;
+  expanded: boolean; small?: boolean; sheet?: boolean; /** The small form sits in the context column's card instead of floating over the chat. */ docked?: boolean; /** Docked and folded: the monitor is a 56px strip (the video stays mounted). */ folded?: boolean; onShrink?: () => void; onClose: () => void; children: ReactNode;
 }) {
   const { t } = useTranslation("computer");
   const shellRef = useRef<HTMLDivElement>(null);
@@ -132,7 +132,37 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
     }
   }, [windowMode]);
 
-  return <div ref={shellRef} className={`desktop-floating-shell${expanded ? " is-expanded" : ""}${small ? " is-small" : ""}${expanded && sheet ? " is-sheet" : ""}${docked ? " is-docked" : ""}`} style={small && !docked ? anchor : undefined}
+  // Compact <-> strip: the bezel's height, the screen (its box animates from the old size) and the chin's contents move with --m-base.
+  const foldedRef = useRef(folded);
+  const foldFromRef = useRef<{ detail: DOMRect; margin: number; wrap?: DOMRect } | null>(null);
+  if (foldedRef.current !== folded && !foldFromRef.current) {
+    const detail = shellRef.current?.querySelector<HTMLElement>(detailSelector);
+    foldFromRef.current = detail ? { detail: detail.getBoundingClientRect(), margin: parseFloat(getComputedStyle(detail).marginBottom) || 0, wrap: detail.querySelector<HTMLElement>(".computer-screen-wrap, .desktop-launch-surface")?.getBoundingClientRect() } : null;
+  }
+  useLayoutEffect(() => {
+    const was = foldedRef.current;
+    foldedRef.current = folded;
+    const from = foldFromRef.current;
+    foldFromRef.current = null;
+    const detail = shellRef.current?.querySelector<HTMLElement>(detailSelector);
+    if (was === folded || !from || !detail || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    // Measure the new form before any animation starts: an animated bezel height squeezes the screen inside it.
+    const to = detail.getBoundingClientRect();
+    const margin = parseFloat(getComputedStyle(detail).marginBottom) || 0;
+    const wrap = detail.querySelector<HTMLElement>(".computer-screen-wrap, .desktop-launch-surface");
+    const now = wrap?.getBoundingClientRect();
+    const timing = { duration: MOTION.base, easing: EASE.settle };
+    detail.animate([{ height: `${from.detail.height}px`, marginBottom: `${from.margin}px`, overflow: "hidden" }, { height: `${to.height}px`, marginBottom: `${margin}px`, overflow: "hidden" }], timing);
+    // The screen's own box grows or shrinks (its width and height, not a scale: the corners and the picture keep their shape).
+    if (wrap && now && from.wrap && from.wrap.width && now.width) wrap.animate([
+      { width: `${from.wrap.width}px`, height: `${from.wrap.height}px`, aspectRatio: "auto", clipPath: `inset(0 round ${folded ? 12 : 8}px)` },
+      { width: `${now.width}px`, height: `${now.height}px`, aspectRatio: "auto", clipPath: `inset(0 round ${folded ? 8 : 12}px)` },
+    ], timing);
+    // The strip's text and switch, or the chin, arrive after the screen has mostly moved.
+    for (const item of detail.querySelectorAll<HTMLElement>(folded ? ".desktop-chin-text, .desktop-driver-switch" : ".desktop-chin")) item.animate([{ opacity: 0 }, { opacity: 1 }], { ...timing, delay: MOTION.base * 0.4, fill: "backwards" });
+  }, [folded]);
+
+  return <div ref={shellRef} className={`desktop-floating-shell${expanded ? " is-expanded" : ""}${folded && docked && !expanded ? " is-folded" : ""}${small ? " is-small" : ""}${expanded && sheet ? " is-sheet" : ""}${docked ? " is-docked" : ""}`} style={small && !docked ? anchor : undefined}
     role={expanded ? "dialog" : "group"} aria-modal={expanded || undefined} aria-label={t("desktop.title")} tabIndex={expanded ? -1 : undefined}>
     <div id={contentId} className="desktop-presence-content">
       <div className="desktop-presence-canvas">{children}</div>

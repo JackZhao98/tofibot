@@ -102,7 +102,10 @@
       "hibernating": "Passage en hibernation…",
       "no_desktop": "Le Bot travaille dans le navigateur, sans bureau",
       "retry": "Réessayer"
-    }
+    },
+    "fold": "Replier",
+    "fold_aria": "Replier l'ordinateur partagé en bandeau",
+    "unfold_aria": "Afficher l'ordinateur partagé"
   },
   "remote": {
     "error": {

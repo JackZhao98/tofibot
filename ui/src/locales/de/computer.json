@@ -101,7 +101,10 @@
       "hibernating": "Wechselt in den Ruhezustand…",
       "no_desktop": "Der Bot arbeitet im Browser, ohne Desktop",
       "retry": "Erneut versuchen"
-    }
+    },
+    "fold": "Einklappen",
+    "fold_aria": "Geteilten Computer zu einem Streifen einklappen",
+    "unfold_aria": "Geteilten Computer anzeigen"
   },
   "remote": {
     "error": {

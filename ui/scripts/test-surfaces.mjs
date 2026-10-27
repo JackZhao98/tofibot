@@ -12,7 +12,7 @@ const output = await mkdtemp(join(tmpdir(), "tofi-surfaces-"));
 try {
   await promisify(execFile)(join(root, "node_modules/.bin/tsc"), ["src/surfaces.ts", "--ignoreConfig", "--target", "ES2022", "--module", "ES2022", "--moduleResolution", "Bundler", "--outDir", output, "--skipLibCheck", "--pretty", "false"], { cwd: root });
   const S = await import(pathToFileURL(join(output, "surfaces.js")));
-  const { emptySurfaces: empty, openWidget, closeWidget, toggleWidget, foldWidget, openSidebar, closeSidebar, toggleSidebar, toggleSidebarExpanded, openCover, closeCover, closeAll, escapeTarget, applyPanel, isEmpty, WIDGET_ORDER } = S;
+  const { emptySurfaces: empty, openWidget, closeWidget, toggleWidget, foldWidget, openSidebar, closeSidebar, toggleSidebar, toggleSidebarExpanded, autoOpenWidget, setWidgetFolded, openCover, closeCover, closeAll, escapeTarget, applyPanel, isEmpty, WIDGET_ORDER } = S;
   const shape = s => ({ widgets: s.widgets, folded: s.folded, sidebar: s.sidebar, cover: s.cover });
   const run = (...steps) => steps.reduce((state, step) => step(state), empty());
 
@@ -42,6 +42,20 @@ try {
   assert.deepEqual(refocus.focus, { id: "computer", n: state.focus.n + 1 });
   assert.deepEqual(closeWidget(state, "computer").folded, [], "closing drops the fold");
   assert.deepEqual(openWidget(closeWidget(state, "computer"), "computer").folded, [], "a reopened widget is not folded");
+
+  // Automatic opening and folding: no focus move, a cover stays, nothing else changes, and a no-op is the same object.
+  state = run(s => openWidget(s, "members"), s => openCover(s, "settings"));
+  const auto = autoOpenWidget(state, "computer");
+  assert.deepEqual(auto.widgets, ["computer", "members"], "an automatic open keeps the fixed order");
+  assert.equal(auto.cover, "settings", "an open cover stays");
+  assert.deepEqual(auto.focus, state.focus, "an automatic open does not bump focus");
+  assert.equal(autoOpenWidget(auto, "computer"), auto, "already open: same object");
+  assert.equal(setWidgetFolded(idle, "computer", true), idle, "a closed widget cannot be folded");
+  const folded = setWidgetFolded(auto, "computer", true);
+  assert.deepEqual(folded.folded, ["computer"]);
+  assert.equal(setWidgetFolded(folded, "computer", true), folded, "folding a folded widget: same object");
+  assert.deepEqual(setWidgetFolded(folded, "computer", false).folded, []);
+  assert.deepEqual(folded.focus, auto.focus, "an automatic fold does not bump focus");
 
   // Sidebar: one at a time, replace keeps the width, expand toggles, close.
   state = run(s => openSidebar(s, "tasks"));

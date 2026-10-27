@@ -39,6 +39,9 @@ export const openWidget = (s: Surfaces, id: WidgetId): Surfaces => ({
   ...s, widgets: inOrder([...s.widgets, id]), folded: s.folded.filter(item => item !== id), cover: null, focus: bump(s, id),
 });
 
+/** A widget that opens by itself (the first file, the Bot taking the computer): no focus move, and an open cover stays. */
+export const autoOpenWidget = (s: Surfaces, id: WidgetId): Surfaces => s.widgets.includes(id) ? s : { ...s, widgets: inOrder([...s.widgets, id]) };
+
 export const closeWidget = (s: Surfaces, id: WidgetId): Surfaces =>
   s.widgets.includes(id) ? { ...s, widgets: s.widgets.filter(item => item !== id), folded: s.folded.filter(item => item !== id) } : s;
 
@@ -47,6 +50,10 @@ export const toggleWidget = (s: Surfaces, id: WidgetId): Surfaces => s.widgets.i
 /** Folds an open widget to its header, or unfolds it. */
 export const foldWidget = (s: Surfaces, id: WidgetId): Surfaces =>
   s.widgets.includes(id) ? { ...s, folded: s.folded.includes(id) ? s.folded.filter(item => item !== id) : [...s.folded, id] } : s;
+
+/** Folds or unfolds a widget without touching anything else (the automatic folds: the idle computer, the space rule). */
+export const setWidgetFolded = (s: Surfaces, id: WidgetId, folded: boolean): Surfaces =>
+  !s.widgets.includes(id) || s.folded.includes(id) === folded ? s : { ...s, folded: folded ? [...s.folded, id] : s.folded.filter(item => item !== id) };
 
 /** Opens a sidebar view. Another one already open is replaced and keeps the track's width (expanded or not). */
 export const openSidebar = (s: Surfaces, id: SidebarId): Surfaces => ({

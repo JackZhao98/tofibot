@@ -3,7 +3,10 @@
 .workspace .detail-content.artifacts-panel > .detail-heading { padding-bottom: 16px; border-bottom: 1px solid var(--line-soft); }
 .workspace .detail-content.artifacts-panel > .detail-heading h2 { overflow-wrap: anywhere; color: var(--ink); font: 600 21px/1.3 var(--display); }
 
-.workspace .artifacts-toolbar { display: grid; gap: 12px; margin: 18px 0 20px; }
+.workspace .artifacts-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin: 18px 0 20px; }
+.workspace .artifacts-toolbar .artifacts-tabs { flex: 0 1 auto; }
+.workspace .artifacts-toolbar .artifacts-tabs button { flex: 1 1 auto; white-space: nowrap; }
+.workspace .artifacts-toolbar .artifacts-search { flex: 1 1 220px; min-width: 0; }
 .workspace .artifacts-tabs {
   display: flex;
   gap: 3px;
@@ -26,6 +29,8 @@
 .workspace .artifacts-tabs button:hover { color: var(--ink); }
 .workspace .artifacts-tabs button[aria-selected="true"] { border: 2px solid var(--line); background: var(--clay); box-shadow: var(--hard-sm); color: var(--on-block); }
 .workspace .artifacts-uploads { margin: 0; }
+/* In a cover or a widget the heading is the frame's own (title and close live there). */
+.workspace :is(.cover-body,.context-card) .detail-content.artifacts-panel > .detail-heading { display: none; }
 .workspace .artifacts-search {
   display: flex;
   align-items: center;
@@ -37,16 +42,23 @@
   background: var(--sunk);
   color: var(--muted);
 }
-.workspace .artifacts-search input { flex: 1; min-width: 0; margin: 0; padding: 8px 0; border: 0; background: transparent; color: var(--ink); font: 13px/1.4 var(--body); }
-.workspace .artifacts-search input:focus-visible { outline: none; }
+.workspace .artifacts-search input[type="search"] { flex: 1; min-width: 0; height: auto; min-height: 0; margin: 0; padding: 8px 0; border: 0; border-radius: 0; box-shadow: none !important; background: transparent; color: var(--ink); font: 13px/1.4 var(--body); }
+.workspace .artifacts-search input[type="search"]:focus-visible { outline: none; }
 .workspace .artifacts-search:focus-within { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 3px; }
 
-.workspace .artifacts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+/* Tiles by the panel's own width (cover or narrow window): two columns from 480px, three when it is wide. */
+.workspace .detail-content.artifacts-panel { container-type: inline-size; }
+.workspace .artifacts-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; }
+@container (min-width: 820px) { .workspace .artifacts-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@container (max-width: 479px) { .workspace .artifacts-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .workspace .artifacts-tabs { width: 100%; } }
 .workspace .artifact-card { display: grid; align-content: start; gap: 8px; min-width: 0; padding: 8px; border: 1px solid var(--line-soft); border-radius: var(--radius-md); background: var(--surface-2); }
 .workspace .artifact-open { display: grid; gap: 8px; min-width: 0; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; }
 .workspace .artifact-open:hover .artifact-name { text-decoration: underline; }
-.workspace .artifact-thumb { display: grid; place-items: center; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 8px; background: var(--sunk); }
+.workspace .artifact-thumb { position: relative; display: grid; place-items: center; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 8px; background: var(--sunk); }
 .workspace .artifact-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.workspace .artifact-badge { position: absolute; top: 6px; right: 6px; padding: 2px 7px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 72%, transparent); color: var(--surface); font: 600 11px/1.3 var(--mono); }
+.workspace .artifact-card { transition: border-color var(--m-press) var(--ease-out), box-shadow var(--m-press) var(--ease-out); }
+.workspace .artifact-card:hover { border-color: var(--line); box-shadow: var(--card-elevation, none); }
 .workspace .artifact-copy { display: grid; gap: 2px; min-width: 0; }
 .workspace .artifact-name { overflow: hidden; color: var(--ink); font: 600 13px/1.35 var(--display); text-overflow: ellipsis; white-space: nowrap; }
 .workspace .artifact-copy small { color: var(--muted); font: 11px/1.3 var(--mono); }
@@ -78,7 +90,7 @@
 /* The widget form: one column, latest few, a 36px thumbnail per row (docs/design/widgets-and-sidebar.md section 4). */
 .workspace .artifacts-widget { display: grid; gap: 2px; padding: 0 8px 8px; }
 .workspace .artifacts-widget-list { display: grid; gap: 1px; margin: 0; padding: 0; list-style: none; }
-.workspace .artifact-row { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 4px 8px 4px 4px; border: 0; border-radius: 10px; background: transparent; color: var(--ink); text-align: left; transition: background-color var(--m-press) var(--ease-out); }
+.workspace .artifact-row { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 4px 8px 4px 4px; border: 0; border-radius: 10px; background: transparent; color: var(--ink); text-align: left; transition: background-color var(--m-quick) var(--ease-out); }
 .workspace .artifact-row:hover { background: var(--surface-2); }
 .workspace .artifact-row-thumb { display: grid; place-items: center; width: 36px; height: 36px; overflow: hidden; border-radius: 8px; background: var(--sunk); }
 .workspace .artifact-row-thumb img { width: 100%; height: 100%; object-fit: cover; }
@@ -93,4 +105,12 @@
 .workspace .artifacts-widget button:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 2px; }
 .workspace .artifacts-scopes { margin-bottom: 0; }
 @media (pointer: coarse) { .workspace .artifact-row { min-height: 48px; } }
-.workspace .artifacts-uploads { display: flex; align-items: center; justify-content: space-between; gap: 12px; font: 13px/1.4 var(--body); }
+.workspace .artifacts-uploads { display: inline-flex; flex: none; align-items: center; gap: 10px; min-height: 40px; padding: 0 4px; color: var(--ink); font: 600 13px/1.4 var(--display); }
+.workspace .artifacts-uploads input { flex: none; margin: 0; }
+.workspace .artifacts-uploads input:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 3px; }
+
+/* A file that arrives while the widget is open: the row slips in and wears a lagoon tint that fades out (all --m-quick). */
+.workspace .artifacts-widget-list li[data-fresh] { overflow: clip; animation: artifact-row-in var(--m-quick) var(--ease-out) backwards; }
+.workspace .artifacts-widget-list li[data-fresh] .artifact-row { background: color-mix(in srgb, var(--lagoon) 20%, transparent); }
+@keyframes artifact-row-in { from { opacity: 0; translate: 0 -6px; max-height: 0; } to { max-height: 56px; } }
+@media (prefers-reduced-motion: reduce) { .workspace .artifacts-widget-list li[data-fresh] { animation: none; } .workspace .artifact-row { transition: none; } }

@@ -14,9 +14,10 @@ export type AutomationKey =
   | "conversation_model" | "background_model" | "structured_output" | "force_say_haiku_dm" | "web_search"
   | "group_exchange_gists" | "own_replies_verbatim" | "completion_review" | "answer_gate" | "mcp_auto_review"
   | "remembered_approval_hours" | "provider_retries" | "schedule_receipt_review" | "desktop_idle_seconds"
-  | "group_triage" | "group_triage_model" | "group_followup_to_working" | "task_retention_days" | "command_check_minutes" | "task_stall_rounds" | "task_tree_idle_message_limit";
-export type AutomationGroup = "models" | "replies" | "history" | "checks" | "reliability" | "schedules" | "computer";
-const groupOrder: AutomationGroup[] = ["models", "replies", "history", "checks", "reliability", "schedules", "computer"];
+  | "group_triage" | "group_triage_model" | "group_followup_to_working" | "task_retention_days" | "command_check_minutes" | "task_stall_rounds" | "task_tree_idle_message_limit"
+  | "widget_artifacts_auto" | "widget_computer_auto";
+export type AutomationGroup = "models" | "replies" | "history" | "checks" | "reliability" | "schedules" | "computer" | "widgets";
+const groupOrder: AutomationGroup[] = ["models", "replies", "history", "checks", "reliability", "schedules", "computer", "widgets"];
 
 export type AutomationItem = {
   key: AutomationKey;
@@ -151,6 +152,8 @@ export function AutomationSettings() {
         return next && JSON.stringify(next) !== JSON.stringify(item) ? next : item;
       }));
       setSaved(key);
+      // The workspace reads the two widget switches; tell it now instead of at its next load.
+      window.dispatchEvent(new Event("tofi:automation-changed"));
     } catch (cause) {
       setErrors(current => ({...current, [key]: cause instanceof Error ? cause.message : t("action.save_failed")}));
     } finally {

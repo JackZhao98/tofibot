@@ -117,7 +117,7 @@ input[type="radio"]:checked::after { content:""; width:8px; height:8px; border-r
 :is(input[type="checkbox"]:not([role="switch"]),input[type="radio"]):disabled { opacity:.45; cursor:not-allowed; }
 .field-note,.settings-page-body .field-note { color:var(--muted); font-size:11px; }
 .error-text,.settings-feedback.error { color:var(--danger-text); font-size:11px; }
-.workspace .settings-page-body .debug-toggle input:checked { background:var(--blue); }
+.workspace :is(.settings-page-body,.cover-body) .debug-toggle input:checked { background:var(--blue); }
 .search-box { min-height:42px; border:1.5px solid var(--line-soft); background:var(--surface-2); }
 .search-box:has(:focus-visible) { border-color:var(--line); box-shadow:0 0 0 3px color-mix(in srgb,var(--focus) 32%,transparent); }
 

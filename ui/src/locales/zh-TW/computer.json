@@ -100,7 +100,10 @@
       "hibernating": "正在進入休眠…",
       "no_desktop": "Bot 正在用瀏覽器工作，沒有使用桌面",
       "retry": "重試"
-    }
+    },
+    "fold": "摺疊",
+    "fold_aria": "把共用電腦摺成窄欄",
+    "unfold_aria": "顯示共用電腦"
   },
   "remote": {
     "error": {

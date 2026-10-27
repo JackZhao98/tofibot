@@ -19,7 +19,7 @@ const {default: react} = await import("@vitejs/plugin-react");
 const shots = process.env.AUTOMATION_SHOTS;
 if (shots) await mkdir(shots, {recursive: true});
 
-const KEYS = ["conversation_model", "background_model", "structured_output", "force_say_haiku_dm", "web_search", "group_exchange_gists", "own_replies_verbatim", "completion_review", "answer_gate", "mcp_auto_review", "remembered_approval_hours", "provider_retries", "schedule_receipt_review", "desktop_idle_seconds"];
+const KEYS = ["conversation_model", "background_model", "structured_output", "force_say_haiku_dm", "web_search", "group_exchange_gists", "own_replies_verbatim", "completion_review", "answer_gate", "mcp_auto_review", "remembered_approval_hours", "provider_retries", "schedule_receipt_review", "desktop_idle_seconds", "widget_artifacts_auto", "widget_computer_auto"];
 
 const fixture = await mkdtemp(join(ui, ".automation-settings-"));
 let server, browser;
@@ -57,6 +57,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     provider_retries: {group: "reliability", kind: "int", def: 5, min: 0, max: 10},
     schedule_receipt_review: {group: "schedules", kind: "bool", def: true},
     desktop_idle_seconds: {group: "computer", kind: "readonly"},
+    widget_artifacts_auto: {group: "widgets", kind: "bool", def: true},
+    widget_computer_auto: {group: "widgets", kind: "bool", def: true},
   };
   const state = {};
   const requests = [];
@@ -151,7 +153,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       assert.ok(text.length > 60, `${key}: name and one-sentence description are shown: ${text}`);
       if (key !== "desktop_idle_seconds") assert.match(text, /Default: /, `${key}: shows its default`);
     }
-    assert.equal(await t.page.locator(".settings-sec h4").count(), 9, "seven calm groups, then standing allowances and chat-scoped approvals");
+    assert.equal(await t.page.locator(".settings-sec h4").count(), 10, "eight calm groups, then standing allowances and chat-scoped approvals");
     assert.match(await row(t.page, "conversation_model").innerText(), /Claude Sonnet 5\.5/, "conversation model default and value are named");
     assert.equal(await row(t.page, "conversation_model").locator("select").inputValue(), "claude-sonnet-5-5");
     assert.match(await row(t.page, "background_model").innerText(), /Automatic · Claude Haiku 5\.5/, "background model says what automatic means");

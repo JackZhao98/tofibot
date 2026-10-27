@@ -206,6 +206,7 @@
     "list_label": "산출물 목록",
     "scope_label": "범위",
     "widget_empty": "이 채팅에서 Bot이 만든 파일이 여기에 표시됩니다.",
-    "widget_all": "모든 산출물"
+    "widget_all": "모든 산출물",
+    "widget_new": "새 파일: {{name}}"
   }
 }
