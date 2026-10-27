@@ -28,6 +28,7 @@ const loaders = {
   contextPanels: () => import("./ContextPanels"),
   outsidePanel: () => import("./OutsidePanel"),
   sidePanel: () => import("./SidePanel"),
+  greetingSetup: () => import("./GreetingSetup"),
   questionCard: () => import("./QuestionCard"),
   runContext: () => import("./RunContext"),
   stopMenu: () => import("./ComposerStopMenu"),
@@ -86,6 +87,7 @@ export const BotPanel = chunk("contextPanels", module => module.BotPanel);
 export const MembersPanel = chunk("contextPanels", module => module.MembersPanel);
 export const OutsideHeader = chunk("outsidePanel", module => module.OutsideHeader);
 export const SidePanel = chunk("sidePanel", module => module.SidePanel);
+export const GreetingSetup = chunk("greetingSetup", module => module.GreetingSetup);
 export const PermissionCoach = chunk("permissionCoach", module => module.PermissionCoach);
 export const UpdateBanner = chunk("updateBanner", module => module.UpdateBanner);
 export const QuestionCard = chunk("questionCard", module => module.QuestionCard);

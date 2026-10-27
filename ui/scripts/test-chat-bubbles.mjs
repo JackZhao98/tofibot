@@ -454,7 +454,7 @@ try {
   await scenario("toggle on restores Activity rows and drops the action", async () => {
     const { page, context } = await open("/g/grp_1", { width: 1180, height: 820, theme: "light", world: { ...emptyWorld(), showActivity: true } });
     try {
-      const n = await page.evaluate(() => ({ rows: document.querySelectorAll(".message-list .task-activity").length, actions: document.querySelectorAll('[aria-label="查看工作过程"]').length, text: document.querySelector(".message-list").textContent.includes("工作过程") }));
+      const n = await page.evaluate(() => ({ rows: document.querySelectorAll(".message-list .task-activity").length, actions: document.querySelectorAll('[aria-label="查看工作过程"]').length, text: [...document.querySelectorAll(".message-list [aria-label]")].some(el => el.getAttribute("aria-label").includes("工作过程")) }));
       assert.ok(n.rows >= 3 && n.text, "Activity rows are back");
       assert.equal(n.actions, 0, "no View activity action when the rows are already shown");
     } finally { await context.close(); }
