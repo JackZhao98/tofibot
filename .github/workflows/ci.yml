@@ -24,6 +24,9 @@ jobs:
       - name: go vet
         run: go vet ./...
       - name: go test
+        # TOFI_SKIP_TIMING=1 leaves out wall-clock latency bounds in Go tests (see docs/process.md 3.3); shared runners are too noisy for them.
+        env:
+          TOFI_SKIP_TIMING: '1'
         # internal/app runs 5-7 minutes on hosted runners; the 10-minute default timed out once (run 39711758364).
         run: go test -timeout 30m ./...
 

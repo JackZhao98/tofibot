@@ -114,6 +114,7 @@ func TestACorrectionDuringAMembersRunIsReadByThatRunAndNotTriaged(t *testing.T) 
 	e.steer = true // triage says the message corrects the running work
 	f.post(t, f.group.ID, "I meant the other company", "fu-2")
 	waitTriageCalls(t, e, 2)
+	waitTriageDone(t, f.s, f.group.ID, 2)
 	close(e.hold)
 	runs := settleTriageRuns(t, f.s, f.group.ID, 3)
 	if e.triageCalls() != 2 {
@@ -191,6 +192,7 @@ func TestTheMemberMostRecentlyWorkingOnAPersonMessageTakesTheFollowUp(t *testing
 	e.target, e.steer = f.travel.ID, true
 	f.post(t, f.group.ID, "one more detail", "fu-11")
 	waitTriageCalls(t, e, 1)
+	waitTriageDone(t, f.s, f.group.ID, 1)
 	close(e.hold)
 	settleTriageRuns(t, f.s, f.group.ID, 3)
 	if !strings.Contains(e.read[f.travel.ID], "one more detail") || strings.Contains(e.read[f.stocks.ID], "one more detail") {
@@ -263,4 +265,29 @@ func waitTriageCalls(t *testing.T, e *followUpEngine, n int) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatalf("triage ran %d times, want %d", e.triageCalls(), n)
+}
+
+// waitTriageDone waits until n triage runs of the group have finished. A
+// triage run is marked done only after it queued its message for the working
+// member, so a test that releases the member's run before this can race the
+// hand-off: the run then ends with an empty inbox and the message starts a
+// continuation run instead.
+func waitTriageDone(t *testing.T, s *Server, group string, n int) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	done := 0
+	for time.Now().Before(deadline) {
+		runs, _ := s.store.Runs(group)
+		done = 0
+		for _, r := range runs {
+			if r.Kind == runKindTriage && r.Status != "queued" && r.Status != "running" {
+				done++
+			}
+		}
+		if done >= n {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("%d triage runs finished, want %d", done, n)
 }
