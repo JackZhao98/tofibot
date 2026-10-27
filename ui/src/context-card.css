@@ -56,8 +56,8 @@
 .view-only-message { align-items:flex-start; }
 .view-only-message>.avatar { flex:none; margin-top:-3px; }
 .view-only-message[data-focused="true"] .view-only-message-bubble { box-shadow:none; }
-.view-only-message.is-bot[data-focused="true"] .view-only-message-bubble { margin:0 -10px; padding:8px 10px; border-left:3px solid var(--lagoon); border-radius:4px 12px 12px 4px; background:color-mix(in srgb,var(--lagoon) 9%,transparent); }
-.view-only-message.is-user[data-focused="true"] .view-only-message-bubble { border-color:var(--lagoon); }
+.view-only-message.is-bot[data-focused="true"] .view-only-message-bubble { background:color-mix(in srgb,var(--lagoon) 22%,var(--bubble-bot)); }
+.view-only-message.is-user[data-focused="true"] .view-only-message-bubble { background:color-mix(in srgb,var(--lagoon) 22%,var(--bubble-user)); }
 /* Every card shares one frame: the same inner padding, and a heading row with one divider beneath it. */
 @media (min-width:1100px) {
   html:not([data-desktop]) .workspace .detail-pane.context-panel>.detail-content { padding:16px 20px 20px; }

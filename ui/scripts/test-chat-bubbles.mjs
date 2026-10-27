@@ -1,5 +1,5 @@
 // Group + direct chat Bot message layout: one container style per conversation type, one avatar+name
-// per sender group, avatar top-aligned with the name row, tail (if any) inside the avatar's box.
+// per sender group (filled bubbles, no outlines), avatar top-aligned with the name row, tail (if any) inside the avatar's box.
 // Synthetic data (same shape as real messages/runs/tools); the app's /api is answered in the browser.
 // Run: PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:chat-bubbles
 // BUBBLES_SHOT_PREFIX=before|after names the screenshots in artifacts/chat-bubbles/.
@@ -158,8 +158,10 @@ function check(label, m, kind) {
   // Same container for every kind (the pointed corner is the only allowed difference).
   const styles = new Set(bots.map(b => JSON.stringify(b.style)));
   if (styles.size !== 1) failures.push(`container styles differ: ${[...styles].join(" | ")}`);
+  // Bubbles are filled, never stroked: no outline, a real fill, in both conversation types.
+  for (const b of bots) { if (!b.style.border.startsWith("0px")) failures.push(`${b.id}: bubble has an outline (${b.style.border})`); if (b.style.background === "rgba(0, 0, 0, 0)") failures.push(`${b.id}: bubble has no fill`); }
   if (kind === "dm") {
-    for (const b of bots) { if (b.avatar || b.name) failures.push(`${b.id}: direct chat shows avatar/name`); if (b.tail) failures.push(`${b.id}: direct chat bubble has a tail`); if (b.style.border.startsWith("1px")) failures.push(`${b.id}: direct chat message is boxed`); }
+    for (const b of bots) { if (b.avatar || b.name) failures.push(`${b.id}: direct chat shows avatar/name`); if (b.tail) failures.push(`${b.id}: direct chat bubble has a tail`); }
     if (m.units.some(u => u.type === "activity")) failures.push("direct chat renders group Activity heads");
   } else {
     // Sender groups run in document order: the name is a light caption above the first unit, the avatar
