@@ -74,7 +74,7 @@ function Backdrop({ view, phase }: { view: "list" | "chat"; phase: string }) {
       </div>
     </div>
     <div className="boot-frost" aria-hidden="true" />
-    <span className="boot-logo-wrap" aria-hidden="true"><img className="boot-logo" src="/brand/tofi-logo-calico.svg?v=contour-gray-2" alt="" width="96" height="96" decoding="async" style={{ "--boot-phase": phase } as React.CSSProperties} /></span>
+    <span className="boot-logo-wrap" aria-hidden="true"><img className="boot-logo" src="/brand/tofi-logo-calico-awake.svg?v=awake-1" alt="" width="96" height="96" decoding="async" style={{ "--boot-phase": phase } as React.CSSProperties} /></span>
   </>;
 }
 
