@@ -178,10 +178,15 @@ await check("reduced motion: menus open and close at once", async () => {
   for (const [trigger, menu] of [[".create-menu-anchor > button", ".create-menu"], [".header-more > button", ".more-menu"]]) {
     await page.locator(trigger).click();
     await page.locator(menu).waitFor();
-    // "At once" means by the next painted frame; a fixed sleep can end before a slow runner paints one.
-    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-    const seen = await page.evaluate(selector => { const el = document.querySelector(selector); const cs = getComputedStyle(el); return { opacity: cs.opacity, animation: `${cs.animationName} ${cs.animationDuration}`, running: el.getAnimations().map(a => `${a.animationName ?? a.constructor.name}:${a.playState}@${a.currentTime}`) }; }, menu);
-    assert.equal(seen.opacity, "1", `${menu} is fully there at once (${JSON.stringify(seen)})`);
+    // Reduced motion means the menu's own animation and transitions take no time. Read the durations instead of
+    // sampling opacity at a moment: on a loaded runner the document timeline may not have ticked yet.
+    const seen = await page.evaluate(selector => {
+      const el = document.querySelector(selector); const cs = getComputedStyle(el);
+      const seconds = value => Math.max(...value.split(",").map(part => part.trim().endsWith("ms") ? parseFloat(part) / 1000 : parseFloat(part) || 0));
+      return { animation: seconds(cs.animationDuration), transition: seconds(cs.transitionDuration), name: cs.animationName };
+    }, menu);
+    assert.ok(seen.animation <= 0.001 && seen.transition <= 0.001, `${menu} has no motion under reduced motion (${JSON.stringify(seen)})`);
+    await page.waitForFunction(selector => getComputedStyle(document.querySelector(selector)).opacity === "1", menu, { timeout: 2000 });
     const t0 = Date.now();
     await page.keyboard.press("Escape");
     await closed(page, menu);
