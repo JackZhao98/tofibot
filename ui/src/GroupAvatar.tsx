@@ -14,12 +14,12 @@ const LAYOUT: Record<number, { x: number; y: number; d: number }[]> = {
   4: [{ x: 30, y: 30, d: 56 }, { x: 70, y: 30, d: 56 }, { x: 30, y: 70, d: 56 }, { x: 70, y: 70, d: 56 }],
 };
 
-/** The collapsed rail draws the same heads apart, none overlapping: one diagonal pair, or a 2 x 2 grid for three and four. */
+/** The collapsed rail draws the same overlapping heads as the list, a little larger so each face still reads at rail size. */
 const RAIL: Record<number, { x: number; y: number; d: number }[]> = {
   1: [{ x: 50, y: 50, d: 90 }],
-  2: [{ x: 29, y: 29, d: 56 }, { x: 71, y: 71, d: 56 }],
-  3: [{ x: 25, y: 26, d: 48 }, { x: 75, y: 26, d: 48 }, { x: 50, y: 76, d: 48 }],
-  4: [{ x: 25, y: 25, d: 48 }, { x: 75, y: 25, d: 48 }, { x: 25, y: 75, d: 48 }, { x: 75, y: 75, d: 48 }],
+  2: [{ x: 33, y: 50, d: 68 }, { x: 67, y: 50, d: 68 }],
+  3: [{ x: 50, y: 32, d: 62 }, { x: 30, y: 68, d: 62 }, { x: 70, y: 68, d: 62 }],
+  4: [{ x: 31, y: 31, d: 60 }, { x: 69, y: 31, d: 60 }, { x: 31, y: 69, d: 60 }, { x: 69, y: 69, d: 60 }],
 };
 const place = (spot: { x: number; y: number; d: number }, name: string) => ({ [`--${name}-l`]: `${spot.x - spot.d / 2}%`, [`--${name}-t`]: `${spot.y - spot.d / 2}%`, [`--${name}-s`]: `${spot.d}%` });
 

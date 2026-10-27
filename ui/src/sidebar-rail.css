@@ -70,8 +70,10 @@
   }
   .workspace .sidebar-collapsed :is(.contact-row.active,.pin-tile.active)::before { transform:scaleY(1); }
 
-  /* Group: the heads apart, none overlapping (positions are --rail-* on each head, see GroupAvatar.tsx). */
-  .workspace .sidebar-collapsed .group-head { left:var(--rail-l); top:var(--rail-t); width:var(--rail-s); height:var(--rail-s); background:color-mix(in srgb,var(--ink) 8%,transparent); box-shadow:none; }
+  /* Group: the overlapping heads of the list, a little larger (positions are --rail-* on each head, see GroupAvatar.tsx). */
+  .workspace .sidebar-collapsed .group-head { left:var(--rail-l); top:var(--rail-t); width:var(--rail-s); height:var(--rail-s); }
+  /* Three heads: the top one is drawn over the two below, or their ears would hide its face. */
+  .workspace .sidebar-collapsed .group-heads[data-count="3"] .group-head:first-child { z-index:1; }
 
   /* One badge, top-right of the avatar: unread count, question, failure, working dot. */
   .workspace .sidebar-collapsed .conversation-row>.conversation-status,
