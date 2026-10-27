@@ -66,3 +66,10 @@ release-manifest:
 	  --guest-archive dist/tofi-guest-$(VERSION)-x86_64.tar.zst \
 	  --guest-release-json $(GUEST_RELEASE_JSON) \
 	  --bundle dist/tofi-host-$(VERSION).tar.gz --out dist/manifest.json
+
+# Everything ci.yml runs, locally, before pushing to main or tagging (docs/process.md 3.6).
+# make ci-local          changed files only (fast static checks always)
+# make ci-local ARGS=--all   every ci.yml job
+.PHONY: ci-local
+ci-local:
+	scripts/ci-local.sh $(ARGS)

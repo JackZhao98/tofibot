@@ -363,10 +363,15 @@ for (const [width, height] of [[1280, 860], [390, 844]]) {
 
 await check("sidebar row menu: a 450 ms touch press opens it at 390 px, a short tap opens the chat instead", async () => {
   if (engineName !== "chromium") return console.log("  (touch through CDP: Chromium only)");
-  const { page, context } = await fx.open({ width: 390, height: 844, path: "/", waitFor: ".conversation-row", touch: true });
+  // The drag engine is a lazy chunk loaded in idle time. A slow machine (a shared CI runner) loads it late; hold it back 2.5 s so
+  // that is the test's every run, not a coin flip. The press must wait for the engine to be there, not for a guessed time.
+  fx.delays.pattern = /sidebarDndEngine-[\w-]+\.js$/; fx.delays.ms = 2500;
+  let opened;
+  try { opened = await fx.open({ width: 390, height: 844, path: "/", waitFor: ".conversation-row", touch: true }); } finally { fx.delays.pattern = null; }
+  const { page, context } = opened;
   const cdp = await context.newCDPSession(page);
   const touchAt = async (type, x, y) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y, id: 1 }] });
-  await sleep(1600); // the drag engine loads in idle time
+  await page.locator("[data-dnd-ready]").waitFor({ state: "attached", timeout: 30000 }); // the engine marks the list when it listens
   const b = await row(page, "Simile Cat").boundingBox();
   await touchAt("touchStart", b.x + b.width / 2, b.y + b.height / 2);
   await sleep(450);
