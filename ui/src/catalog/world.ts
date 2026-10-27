@@ -225,6 +225,8 @@ export function workspace(options: AppOptions): Synthetic {
     }
     if (p === "/api/questions") return json({ questions: questions(url.searchParams.get("conversation_id") ?? "") });
     if (p === "/api/mail-drafts") return json({ drafts: [] });
+    if (p === "/api/artifacts") return json({ items: ARTIFACTS.filter(item => item.conversation_id === url.searchParams.get("id")), next_cursor: "" });
+    if (p.startsWith("/api/attachments/")) return new Response("# Week 42 summary\n\nSign-ups are up **8%** on last week.\n\n- Review at 15:00\n- Retention is flat\n", { status: 200, headers: { "Content-Type": "text/markdown" } });
     if (p === "/api/computers/firecracker/info") return json({ kind: "firecracker", state: options.computer === "starting" ? "starting" : "ready", phase: options.computer === "starting" ? "booting" : undefined });
     if (p === "/api/computers/firecracker/actions") return json({ ok: true, result: { image_url: SCREEN } });
     if (p === "/api/computer/desktop-ownership") return json({ owner: null, waiting: [] });
@@ -232,6 +234,13 @@ export function workspace(options: AppOptions): Synthetic {
     return json({});
   };
 }
+
+/** Files the Bot produced in the direct chat (GET /api/artifacts, conversation scope): the side panel's Outputs card. */
+const ARTIFACTS = [
+  { id: "att_summary", name: "week-42-summary.md", mime: "text/markdown", size: 3100 },
+  { id: "att_signups", name: "signups.csv", mime: "text/csv", size: 18800 },
+  { id: "att_retention", name: "retention-chart.png", mime: "image/png", size: 52000 },
+].map(item => ({ ...item, created_at: "2026-10-09T12:00:00Z", conversation_id: "dm_mochi", conversation_name: "Mochi", conversation_kind: "dm", conversation_archived: false, bot_id: "bot_mochi", message_id: "m1", message_seq: 1, uploaded: false, version_group: item.id, version_count: 1 }));
 
 /** The server behind an isolated component: the records it reads, answers that succeed, and nothing else. */
 export function isolated(extra: Record<string, unknown> = {}): Synthetic {

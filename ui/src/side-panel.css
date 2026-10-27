@@ -1,0 +1,54 @@
+/* In-chat side panel: summary cards right of the conversation (docs/design/side-panels.md). Loads with SidePanel.
+   Cards are filled surfaces with a soft elevation: no outline, no hard offset shadow. Which widths show it is decided
+   by the container query below and by the eager rules in context-card.css (--side-room). */
+.side-panel { --side-gap:12px; display:flex; flex-direction:column; gap:var(--side-gap); box-sizing:border-box; min-width:0; overflow:hidden auto; overscroll-behavior:contain; scrollbar-width:thin; color:var(--ink); }
+.chat-pane > .side-panel:not(.is-sheet) { position:absolute; z-index:var(--z-raised); inset:calc(var(--chat-header-height, 64px) + 4px) 12px 12px auto; width:var(--side-panel-width, 264px); padding:2px 2px 4px; animation:side-panel-enter var(--m-panel-in) var(--ease-out) backwards; }
+@keyframes side-panel-enter { from { opacity:0; translate:12px 0; } }
+@container (max-width:679px) { .chat-pane > .side-panel:not(.is-sheet) { display:none; } }
+
+.side-card { flex:none; border-radius:18px; background:var(--surface); box-shadow:var(--panel-elevation); overflow:clip; }
+.side-card > h3 { margin:0; font:inherit; }
+.side-card-head { display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; min-height:40px; padding:6px 12px 6px 16px; border:0; background:transparent; color:var(--ink); font:600 13px/1.3 var(--display); text-align:start; cursor:pointer; }
+.side-card-head:hover { background:var(--surface-2); }
+.side-card-head svg { flex:none; color:var(--muted); transition:rotate var(--m-base) var(--ease-out); }
+.side-card.is-folded .side-card-head svg { rotate:-90deg; }
+.side-card-fold { display:grid; grid-template-rows:1fr; transition:grid-template-rows var(--m-base) var(--ease-out); }
+.side-card.is-folded .side-card-fold { grid-template-rows:0fr; }
+.side-card-inner { display:grid; gap:2px; min-height:0; min-width:0; padding:0 6px 6px; overflow:clip; }
+.side-card.is-folded .side-card-inner { visibility:hidden; transition:visibility 0s var(--m-base); }
+
+.side-row { display:flex; align-items:center; gap:10px; width:100%; min-width:0; min-height:44px; padding:6px 8px 6px 10px; border:0; border-radius:12px; background:transparent; color:var(--ink); text-align:start; cursor:pointer; }
+.side-row:hover { background:var(--surface-2); }
+.side-row > svg { flex:none; margin-inline-start:auto; color:var(--muted); }
+.side-lines { display:grid; flex:1; gap:2px; min-width:0; }
+.side-lines strong { display:flex; align-items:center; gap:6px; overflow:hidden; font:600 13px/1.35 var(--body); text-overflow:ellipsis; white-space:nowrap; }
+.side-lines small { overflow:hidden; color:var(--muted); font:12px/1.35 var(--body); text-overflow:ellipsis; white-space:nowrap; }
+.side-row .file-tile { flex-basis:28px; width:28px; height:32px; padding-bottom:4px; border-radius:6px; font-size:8px; }
+.side-row .file-tile::after { border-width:0 9px 9px 0; }
+.side-row .file-tile::after { border-color:transparent var(--surface) transparent transparent; }
+.side-row:hover .file-tile::after { border-color:transparent var(--surface-2) transparent transparent; }
+.side-avatars { display:inline-flex; flex:none; }
+.side-more { justify-self:start; min-height:32px; margin:0 0 0 10px; padding:4px 8px; border:0; border-radius:8px; background:transparent; color:var(--ink-soft); font:600 12px/1.3 var(--body); cursor:pointer; }
+.side-more:hover { background:var(--surface-2); color:var(--ink); }
+
+.side-thumb { display:grid; flex:none; place-items:center; width:56px; height:38px; border-radius:8px; background:var(--sunk); color:var(--ink-soft); }
+.side-thumb[data-state="running"] { background:color-mix(in srgb, var(--lagoon, #4a9a8c) 20%, var(--sunk)); color:var(--ink); }
+.side-dot { flex:none; width:7px; height:7px; border-radius:50%; background:var(--muted); }
+.side-dot[data-state="running"] { background:var(--lagoon, #4a9a8c); }
+.side-dot[data-state="starting"] { background:var(--yellow, #d9a21b); }
+.side-progress { display:block; block-size:4px; margin-block-start:4px; border-radius:2px; background:var(--sunk); overflow:clip; }
+.side-progress > i { display:block; block-size:100%; border-radius:2px; background:var(--lagoon, #4a9a8c); }
+
+/* Without room beside the conversation the panel is a sheet from the right edge, portaled into the layer root. */
+.side-backdrop { position:fixed; z-index:calc(var(--z-panel) - 1); inset:0; border:0; background:color-mix(in srgb, var(--ink) 22%, transparent); animation:side-fade var(--m-panel-in) var(--ease-out) backwards; }
+.side-panel.is-sheet { position:fixed; z-index:var(--z-panel); inset:0 0 0 auto; width:min(360px, calc(100vw - 48px)); padding:0 12px 16px; background:var(--bg); box-shadow:var(--panel-elevation); animation:side-sheet-enter var(--m-panel-in) var(--ease-out) backwards; }
+.side-sheet-bar { display:flex; align-items:center; justify-content:space-between; flex:none; min-height:56px; padding-inline-start:6px; }
+.side-sheet-bar strong { font:600 15px/1.3 var(--display); }
+@keyframes side-fade { from { opacity:0; } }
+@keyframes side-sheet-enter { from { opacity:0; translate:24px 0; } }
+@media (pointer:coarse) { .side-card-head { min-height:44px; } .side-row { min-height:48px; } }
+@media (prefers-reduced-motion:reduce) {
+  .chat-pane > .side-panel:not(.is-sheet), .side-backdrop, .side-panel.is-sheet { animation:none; }
+  .side-card-fold, .side-card-head svg, .side-card.is-folded .side-card-inner { transition:none; }
+}
+@media (forced-colors:active) { .side-card { outline:1px solid CanvasText; } }

@@ -1,20 +1,35 @@
-/* Wide browser windows (>= 1100 px): the context panels live in their own column at the right edge of the grid,
-   as filled cards stacked top to bottom (docs/design/context-column.md). The chat column shrinks by the column's
-   width, so messages and composer stay centered together in what is left and nothing hides under a panel.
-   Card chrome (surface, elevation, header) is in context-column.css and loads with ContextCard. */
+/* Two right-hand layers (docs/design/side-panels.md). The side panel sits inside the chat column (side-panel.css, lazy);
+   the outside panel is the third grid column at the window's right edge, one view at a time, filled and without a
+   border. Both are web-only and need >= 1100 px; below that the drawer / sheet rules in conversation-workspace.css
+   and styles.css keep working. Chrome of the outside panel's header is in outside-panel.css (lazy). */
+:root { --panel-elevation:0 1px 2px rgba(42,32,25,.06), 0 10px 28px -14px rgba(42,32,25,.28); --panel-elevation-edge:-14px 0 32px -22px rgba(42,32,25,.32); --side-panel-width:264px; }
+:root[data-theme="dark"] { --panel-elevation:0 1px 2px rgba(0,0,0,.45), 0 12px 30px -14px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.04); --panel-elevation-edge:-14px 0 32px -20px rgba(0,0,0,.75); }
 @media (min-width:1100px) {
-  html:not([data-desktop]) .workspace .workspace-grid { position:relative; --context-width:clamp(320px,28vw,384px); }
-  html:not([data-desktop]) .workspace .workspace-grid.terminal-context { --context-width:clamp(340px,38vw,560px); }
-
-  html:not([data-desktop]) .workspace .detail-pane.context-column {
-    display:flex; flex-direction:column; align-items:stretch; gap:12px; padding:12px 14px 16px 2px; box-sizing:border-box;
-    border:0; background:transparent; box-shadow:none; overflow:hidden auto; overscroll-behavior:contain; scrollbar-gutter:stable;
+  html:not([data-desktop]) .workspace .workspace-grid {
+    position:relative;
+    /* Default 480 px where there is room; the chat column keeps at least ~470 px. Expanded takes most of the window. */
+    --outside-width:clamp(360px, calc(100vw - var(--sidebar-width) - 560px), 480px);
+    --outside-width-wide:max(var(--outside-width), calc(100vw - var(--sidebar-width) - 520px));
+    --context-width:var(--outside-width);
   }
-  html:not([data-desktop]) .workspace .detail-pane.context-column:has(.terminal-panel) { background:transparent; overflow:hidden auto; }
-  html:not([data-desktop]) .workspace .detail-pane.context-column.visible { animation:context-column-enter var(--m-panel-in) var(--ease-out) backwards; }
-  html:not([data-desktop]) .workspace .detail-pane.context-column.surface-exiting { animation:context-column-leave var(--m-panel-out) var(--ease-settle) both; }
-  /* An expanded computer is a full-window dialog: it leaves the column in place and floats over the page. */
-  html:not([data-desktop]) .workspace .detail-pane.context-column:has(.computer-detail.is-expanded) { position:relative; inset:auto; z-index:auto; width:auto; height:100%; overflow:hidden auto; background:transparent; pointer-events:auto; }
+  html:not([data-desktop]) .workspace .workspace-grid.terminal-context { --context-width:clamp(340px,38vw,560px); }
+  html:not([data-desktop]) .workspace .workspace-grid.outside-wide { --context-width:var(--outside-width-wide); }
+
+  html:not([data-desktop]) .workspace .detail-pane.outside-panel {
+    display:flex; flex-direction:column; align-items:stretch; box-sizing:border-box; border:0; background:var(--surface); box-shadow:var(--panel-elevation-edge);
+    overflow:hidden; overscroll-behavior:contain;
+  }
+  html:not([data-desktop]) .workspace .detail-pane.outside-panel > :not(.outside-header) { flex:1 1 auto; min-height:0; overflow:hidden auto; }
+  html:not([data-desktop]) .workspace .detail-pane.outside-panel.visible { animation:outside-panel-enter var(--m-panel-in) var(--ease-out) backwards; }
+  html:not([data-desktop]) .workspace .detail-pane.outside-panel.surface-exiting { animation:outside-panel-leave var(--m-panel-out) var(--ease-settle) both; }
+  /* An expanded computer is a full-window dialog: it leaves the panel in place and floats over the page. */
+  html:not([data-desktop]) .workspace .detail-pane.outside-panel:has(.computer-detail.is-expanded) { position:relative; inset:auto; z-index:auto; width:auto; height:100%; overflow:hidden auto; background:transparent; box-shadow:none; pointer-events:auto; }
+
+  /* Beside the conversation: messages and composer leave room for the side panel (it hides itself, and this room with it, when the chat column is narrow). */
+  html:not([data-desktop]) .workspace .workspace-grid.side-open { --side-room:calc(var(--side-panel-width) + 24px); }
+  @container (min-width:680px) {
+    html:not([data-desktop]) .workspace .workspace-grid.side-open :is(.chat-body,.composer) { padding-right:var(--side-room); }
+  }
 
   /* Make room so the read-only chat card never covers messages or the composer. */
   html:not([data-desktop]) .workspace .workspace-grid.card-open :is(.chat-body,.composer) { padding-right:var(--card-room,0px); transition:padding-right var(--m-panel-in) var(--ease-out); }
@@ -32,12 +47,14 @@
 @media (min-width:1360px) {
   html:not([data-desktop]) .workspace .workspace-grid.card-open { --card-room:424px; }
 }
+/* The header button that shows or hides the side panel: the sidebar glyph, mirrored to the right edge. */
+.side-toggle svg { scale:-1 1; }
 @keyframes context-card-enter { from { opacity:.4; scale:.96; translate:6px -6px; } to { opacity:1; scale:1; translate:0 0; } }
 @keyframes context-card-leave { to { opacity:0; scale:.97; translate:4px -4px; } }
-@keyframes context-column-enter { from { opacity:0; } }
-@keyframes context-column-leave { to { opacity:0; } }
+@keyframes outside-panel-enter { from { opacity:0; translate:16px 0; } }
+@keyframes outside-panel-leave { to { opacity:0; translate:8px 0; } }
 @media (prefers-reduced-motion:reduce) {
-  html:not([data-desktop]) .view-only-chat.is-card, html:not([data-desktop]) .workspace .detail-pane.context-column { animation:none!important; }
+  html:not([data-desktop]) .view-only-chat.is-card, html:not([data-desktop]) .workspace .detail-pane.outside-panel { animation:none!important; }
   html:not([data-desktop]) .workspace .workspace-grid.card-open :is(.chat-body,.composer) { transition:none; }
 }
 

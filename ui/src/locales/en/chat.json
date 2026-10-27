@@ -189,13 +189,6 @@
     "queued": "Queued, read at next step",
     "read": "Read"
   },
-  "contextCard": {
-    "bot": "Bot profile",
-    "close": "Close {{title}}",
-    "collapse": "Collapse {{title}}",
-    "computer": "Shared computer",
-    "expand": "Expand {{title}}"
-  },
   "detail": {
     "close": "Close details",
     "close_memory": "Close memory",
@@ -504,6 +497,24 @@
       "microsoft_learn": "No account needed. This lets your Bots search Microsoft docs."
     }
   },
+  "outsidePanel": {
+    "close": "Close {{title}}",
+    "expand": "Widen panel",
+    "restore": "Restore panel width",
+    "title": {
+      "archive": "Archive",
+      "artifacts": "Artifacts",
+      "bot-edit": "Bot settings",
+      "desktop": "Shared computer",
+      "file": "File preview",
+      "group-create": "New group",
+      "members": "Members",
+      "memory": "Memory",
+      "outputs": "Outputs",
+      "schedule": "Tasks",
+      "terminal": "Terminal"
+    }
+  },
   "primary": {
     "badge": "Primary",
     "badge_hint": "Primary Assistant: handles your general chores",
@@ -639,6 +650,28 @@
     "queued": "Queued",
     "running": "Replying",
     "waiting": "Waiting for reply"
+  },
+  "sidePanel": {
+    "bot": "Bot",
+    "computer": "Computer",
+    "computer_asleep": "Asleep",
+    "computer_off": "Not started",
+    "computer_running": "Running",
+    "computer_starting": "Starting",
+    "fold": "Collapse {{title}}",
+    "hide": "Hide side panel",
+    "label": "Conversation overview",
+    "members": "Members",
+    "model_default": "Default model",
+    "open_computer": "Open the computer",
+    "open_tasks": "Open tasks",
+    "outputs": "Outputs",
+    "show": "Show side panel",
+    "show_all": "Show all",
+    "tasks": "Tasks",
+    "tasks_done": "{{done}} of {{total}} done",
+    "tasks_open": "{{open}} open",
+    "unfold": "Expand {{title}}"
   },
   "sidebar": {
     "collapse": "Collapse sidebar",
