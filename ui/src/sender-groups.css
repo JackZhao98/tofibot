@@ -66,6 +66,30 @@ html[data-desktop] .workspace .message-scroll { padding-bottom:calc(var(--compos
 /* A delegation in a group: one quiet handoff line; the brief opens on request. */
 .workspace .message-assignment > div { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:center; gap:4px 10px; color:var(--muted); font:12px/1.5 var(--body); }
 .workspace .message-assignment .assignment-brief { flex-basis:100%; max-width:min(560px, 100%); margin:0 auto; text-align:left; }
-.workspace .message-assignment .assignment-brief > summary { width:fit-content; margin:0 auto; cursor:pointer; color:var(--muted); }
+.workspace .message-assignment .assignment-brief > summary { width:fit-content; margin:0 auto; color:var(--muted); }
 .workspace .message-assignment .assignment-brief[open] > summary { margin-bottom:6px; }
 .workspace .message-assignment .assignment-brief .message-markdown, .workspace .message-assignment .assignment-brief > div { padding:8px 12px; border:1px solid var(--line-soft); border-radius:12px; background:var(--surface-2); color:var(--ink-soft); font-size:13px; }
+
+/* Bubble runs (markBubbleRuns in senderGroups.ts): consecutive plain bubbles from one speaker with nothing between them. Only the
+   ALIGNED side (right for the person, left for a Bot) merges to --bubble-joined; the far side stays round because widths differ.
+   First of a run: aligned bottom corner. Middle: aligned top and bottom. Last: aligned top; its bottom keeps the single-bubble
+   corner (the person's tail is top-right, so the first bubble keeps it; a group Bot's bottom-left tail stays on data-last). */
+.workspace .message-block[data-joins-prev] .message-user .message-content { border-top-right-radius:var(--bubble-joined); }
+.workspace .message-block[data-joins-next] .message-user .message-content { border-bottom-right-radius:var(--bubble-joined); }
+.workspace .message-block[data-joins-prev] .message.message-bot:not(.message-ui-card) .message-content { border-top-left-radius:var(--bubble-joined); }
+.workspace .message-block[data-joins-next] .message.message-bot:not(.message-ui-card) .message-content { border-bottom-left-radius:var(--bubble-joined); }
+/* Spacing inside a run: 3px instead of the 10px margin + the reserved actions row. */
+.workspace .message-block[data-joins-next][data-message-id] .message-hover-host .message { margin-bottom:3px; }
+
+/* Hover devices: a bubble that joins the next one gives up its reserved 28px actions row; the bar floats beside the bubble on the open
+   side (left of the person's, right of a Bot's), vertically centred on it, as a small chip on --z-raised so it never moves a bubble
+   and never covers the next bubble's text. Focus inside the block mounts it like the hover does. The run's last bubble keeps its in-flow row. */
+@media (hover:hover) {
+  .workspace .message-block[data-joins-next] { position:relative; }
+  .workspace .message-block[data-joins-next] > .message-actions-row { position:absolute; inset:0; z-index:var(--z-raised); min-height:0; margin:0; align-items:center; pointer-events:none; }
+  .workspace .message-block[data-joins-next] > .message-actions-row[data-side="bot"] { justify-content:flex-end; }
+  .workspace .message-block[data-joins-next] > .message-actions-row[data-side="user"] { justify-content:flex-start; }
+  .workspace .message-block[data-joins-next] > .message-actions-row[data-gutter] { padding-left:0; }
+  .workspace .message-block[data-joins-next] > .message-actions-row .message-hover-actions { pointer-events:auto; padding:0 4px; border:1px solid var(--line-soft); border-radius:10px; background:var(--surface); }
+  .workspace .message-block[data-joins-next] > .message-actions-row[data-side="bot"]:not([data-gutter]) .message-hover-actions button:first-child { margin-left:0; }
+}

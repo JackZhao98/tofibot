@@ -23,6 +23,18 @@ const steps = (runId: string, live: boolean): ToolActivity[] => [
   tool(runId, 2, "call_mcp_tool", "completed", 35, 22, MCP_BROWSER),
   tool(runId, 3, "call_mcp_tool", live ? "running" : "completed", 20, live ? 0 : 6, MCP_BROWSER),
 ];
+// A longer run: a failed call and a run of identical calls, for the compact Activity list.
+const richSteps = (runId: string, live: boolean): ToolActivity[] => {
+  const send = (n: number, ago0: number, ago1: number, status: ToolActivity["status"] = "completed") => tool(runId, n, "say", status, ago0, ago1, JSON.stringify({ text: `Update ${n}` }));
+  return [
+    tool(runId, 1, "search_history", "completed", 17, 16.9, JSON.stringify({ query: "launch review notes" })),
+    tool(runId, 2, "workspace_capabilities", "completed", 16.8, 16.7),
+    { ...tool(runId, 3, "call_mcp_tool", "failed", 16.6, 14, MCP_BROWSER), result: "" },
+    send(4, 14, 13.9), send(5, 13.8, 13.7), send(6, 13.6, live ? 0 : 13.5, live ? "running" : "completed"),
+  ];
+};
+const richSummary = (runId: string): ToolActivityRunSummary =>
+  ({ run_id: runId, bot_id: BOT, tool_count: 6, completed_count: 5, failed_count: 1, interrupted_count: 0, pending_count: 0, started_at: ago(18), updated_at: ago(1) });
 const summary = (runId: string, startedSecondsAgo: number, endedSecondsAgo: number): ToolActivityRunSummary =>
   ({ run_id: runId, bot_id: BOT, tool_count: 3, completed_count: 3, failed_count: 0, interrupted_count: 0, pending_count: 0, started_at: ago(startedSecondsAgo), updated_at: ago(endedSecondsAgo) });
 const answer = (runId: string): Message =>
@@ -38,11 +50,11 @@ const twoLiveLines = () => <div>
 
 const noop = () => {};
 const none = async () => {};
-function block(runId: string, status: Run["status"], options: { live: boolean; liveStatus?: string; hideActivity: boolean }) {
+function block(runId: string, status: Run["status"], options: { live: boolean; liveStatus?: string; hideActivity: boolean; rich?: boolean }) {
   const current = status === "done" ? run(runId, "done", 48, 2) : run(runId, status, 12);
   const messages = status === "done" ? [answer(runId)] : [];
   const [owner] = buildTaskOwners([current], messages, [], []);
-  return <TaskRunBlock owner={owner} tools={steps(runId, options.live)} questions={[]} drafts={[]} messages={messages} summaries={status === "done" ? [summary(runId, 48, 2)] : []} details={{ [runId]: { loaded: 3, toolCount: 3, hasMore: false, loading: false } }}
+  return <TaskRunBlock owner={owner} tools={options.rich ? richSteps(runId, options.live) : steps(runId, options.live)} questions={[]} drafts={[]} messages={messages} summaries={status === "done" ? [options.rich ? richSummary(runId) : summary(runId, 48, 2)] : []} details={{ [runId]: { loaded: options.rich ? 6 : 3, toolCount: options.rich ? 6 : 3, hasMore: false, loading: false } }}
     onOpenTools={noop} onRefresh={none} onLoadDetails={none} liveStatus={options.liveStatus} hideActivity={options.hideActivity} renderQuestion={() => null} renderDraft={() => null} />;
 }
 function web(runId: string, live: boolean) {
@@ -99,6 +111,8 @@ export const processStates: CatalogState[] = [
   { id: "process-live-focus", label: "Process line, live, keyboard focus", ...ctx, render: () => block("run_p5", "running", { live: true, liveStatus: "Browsing the web", hideActivity: true }), force: [{ selector: ".task-run-live-line button", state: "focus" }] },
   { id: "process-complete", label: "Process line, finished", note: "no mark; \"Activity · 3 tools · 46s\"", ...ctx, render: () => block("run_p6", "done", { live: false, hideActivity: false }) },
   { id: "process-complete-open", label: "Process line, finished, opened", ...ctx, render: () => block("run_p7", "done", { live: false, hideActivity: false }), drive: expand("details.task-activity > summary") },
+  { id: "process-complete-rich-open", label: "Activity, finished, opened, with a failed call", note: "compact rows: status icon, no timeline rail; the failed row stays red; runs of the same call fold into one row with a count", ...ctx, render: () => block("run_p8", "done", { live: false, hideActivity: false, rich: true }), drive: expand("details.task-activity > summary") },
+  { id: "process-live-rich-open", label: "Activity, live, opened, with a failed call", ...ctx, render: () => block("run_p9", "running", { live: true, liveStatus: "Sending a message", hideActivity: false, rich: true }), drive: expand("details.task-activity > summary") },
   { id: "process-web-live", label: "Web tool row, live", note: "Web build: the same line on the tool row", ...ctx, render: () => web("run_w1", true) },
   { id: "process-web-live-open", label: "Web tool row, live, opened", ...ctx, render: () => web("run_w2", true), drive: expand(".web-tool-toggle") },
   { id: "process-web-complete", label: "Web tool row, finished", ...ctx, render: () => web("run_w3", false) },

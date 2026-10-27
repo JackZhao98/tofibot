@@ -64,7 +64,7 @@ button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 /* Chat header, timeline and bubbles are owned by v2-app.css. */
 .scheduled-task-row{max-width:var(--chat-max);margin:8px auto 16px;color:var(--muted);font-size:12px}
 .scheduled-task-row details{border-radius:10px;background:var(--surface-soft)}
-.scheduled-task-row summary{display:flex;align-items:center;gap:8px;min-height:36px;padding:6px 10px;cursor:pointer;list-style:none}
+.scheduled-task-row summary{display:flex;align-items:center;gap:8px;min-height:36px;padding:6px 10px;list-style:none}
 .scheduled-task-row summary::-webkit-details-marker{display:none}
 .scheduled-task-row summary:hover{color:var(--text);background:var(--surface-hover);border-radius:10px}
 .scheduled-task-dot{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:var(--muted)}
@@ -89,10 +89,10 @@ button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 #tofi-layers [data-layer="dialog"]{z-index:calc(var(--z-dialog) + 1)}
 @keyframes menu-enter{from{opacity:0;transform:translateY(-4px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
 @keyframes menu-leave{to{opacity:0;transform:translateY(-3px) scale(.98)}}
-.action-hint{position:fixed;z-index:var(--z-tooltip);max-width:200px;padding:7px 10px;color:var(--on-accent);background:var(--accent);box-shadow:var(--float-shadow);border-radius:8px;font-size:12px;line-height:18px;pointer-events:none;animation:hint-enter var(--m-quick) var(--ease-out) both}
+.action-hint{position:fixed;z-index:var(--z-tooltip);max-width:200px;padding:4px 8px;color:var(--tooltip-ink);background:var(--tooltip-bg);box-shadow:none;border-radius:6px;font-size:12px;line-height:16px;pointer-events:none;animation:hint-enter var(--m-quick) var(--ease-out) both}
 @keyframes hint-enter{from{opacity:0}to{opacity:1}}
-/* A group's read-by names (SendReceiptMark): the same delegated hint in the quiet surface look it had inside the row. */
-.action-hint.is-quiet{width:max-content;max-width:min(240px,70vw);padding:5px 9px;border:1px solid var(--line-soft);color:var(--ink);background:var(--surface);box-shadow:0 4px 14px rgb(0 0 0 / 14%);font:12px/1.35 var(--body)}
+/* A group's read-by names (SendReceiptMark): the same delegated hint (neutral chip), sized to its text. */
+.action-hint.is-quiet{width:max-content;max-width:min(240px,70vw);font:12px/16px var(--body)}
 .detail-pane.visible{background:var(--surface);animation:drawer-enter var(--m-panel-in) var(--ease-out) both;box-shadow:var(--float-shadow)}
 .detail-pane.surface-exiting{animation:drawer-leave var(--m-panel-out) var(--ease-settle) both;pointer-events:none}
 @keyframes drawer-enter{from{opacity:.6;translate:24px 0}to{opacity:1;translate:0 0}}
@@ -255,7 +255,7 @@ html[data-desktop] .new-arrival .message-user .message-content{transform-origin:
 .disclosure-inner>.model-fields{margin:8px 0}
 .member-manage-row{display:flex;gap:8px}
 .members-manage-picker .member-manage-row:has(input:disabled){opacity:1;cursor:default}
-.member-manage-row>label{display:flex;align-items:center;gap:9px;flex:1;min-width:0;cursor:pointer}
+.member-manage-row>label{display:flex;align-items:center;gap:9px;flex:1;min-width:0;}
 .member-manage-row>label:has(input:disabled){opacity:.55;cursor:not-allowed}
 .member-manage-row>label>span:last-child{overflow-wrap:anywhere}
 .member-manage-row>.text-button{flex:none;padding:7px 8px;color:var(--text-soft);font-size:12px}
@@ -283,7 +283,7 @@ html[data-desktop] .new-arrival .message-user .message-content{transform-origin:
 .form-fields{display:contents;border:0;padding:0;margin:0;min-width:0}
 form[aria-busy=true]{cursor:progress}
 .create-member-picker{gap:4px}
-.create-member-picker .member-option{padding:12px;border:0;border-radius:12px;min-height:52px;cursor:pointer;background:transparent;color:var(--text);margin:0}
+.create-member-picker .member-option{padding:12px;border:0;border-radius:12px;min-height:52px;background:transparent;color:var(--text);margin:0}
 .create-member-picker .member-option:hover{background:var(--surface-hover)}
 .create-member-picker .member-option.selected{background:var(--selected-bg)}
 .create-member-picker .member-option>span:not(.avatar){flex:1;min-width:0;overflow-wrap:anywhere}

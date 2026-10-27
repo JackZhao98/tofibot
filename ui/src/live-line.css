@@ -1,7 +1,6 @@
 /* Process line: what a Bot is doing right now, as one quiet line that opens into the tool steps.
    Used by the task block's live line and Activity summary, the web tool row and the compact live line. */
 .process-line{display:flex;align-items:center;gap:var(--space-2);box-sizing:border-box;max-width:100%;min-width:0;min-height:28px;margin:0;padding:0;border:0;border-radius:6px;background:none;color:var(--text-process);font:var(--type-meta);font-variant-numeric:tabular-nums;text-align:start;list-style:none}
-button.process-line,summary.process-line{cursor:pointer}
 button.process-line:hover,summary.process-line:hover{color:var(--text-secondary)}
 .process-line:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 summary.process-line::-webkit-details-marker{display:none}

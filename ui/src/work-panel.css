@@ -10,7 +10,6 @@
   background: var(--surface-2);
   color: var(--ink);
   text-align: left;
-  cursor: pointer;
   transition: background-color var(--m-press) var(--ease-out), border-color var(--m-press) var(--ease-out);
 }
 .workspace .work-preview:hover:not(:disabled) { border-color: var(--line); background: var(--surface); }
@@ -44,7 +43,6 @@
   background: transparent;
   color: var(--ink-soft);
   font: 600 13px/1.2 var(--display);
-  cursor: pointer;
   transition: transform var(--m-press) var(--ease-out), background-color var(--m-press) var(--ease-out), color var(--m-press) var(--ease-out), box-shadow var(--m-press) var(--ease-out);
 }
 .workspace .work-tabs button:hover,
@@ -113,7 +111,6 @@
   border: 0;
   background: transparent;
   color: var(--ink);
-  cursor: pointer;
 }
 .workspace .work-complete > span {
   display: grid;
@@ -141,7 +138,7 @@
 .workspace .work-provenance { min-width: 0; }
 .workspace .work-provenance span { display: inline-flex; align-items: center; gap: 5px; }
 .workspace .work-provenance .avatar { width: 18px; height: 18px; }
-.workspace .work-provenance button { padding: 0; border: 0; background: transparent; color: var(--ink-soft); font: inherit; text-align: left; cursor: pointer; }
+.workspace .work-provenance button { padding: 0; border: 0; background: transparent; color: var(--ink-soft); font: inherit; text-align: left; }
 .workspace .work-provenance button:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 .workspace .work-state {
   display: inline-flex;
@@ -174,7 +171,6 @@
   color: var(--ink-soft);
   font-size: 12px;
   list-style: none;
-  cursor: pointer;
 }
 .workspace .work-item-details summary:hover,
 .workspace .work-item-details[open] summary { background: var(--surface-2); color: var(--ink); }
@@ -201,7 +197,7 @@
 .workspace .work-schedule time { display: block; margin-bottom: 6px; color: var(--muted); font: 11px/1.4 var(--mono); font-variant-numeric: tabular-nums; }
 .workspace .work-schedule .work-row-meta { margin-top: 6px; }
 .workspace .work-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 5px 0; }
-.workspace .work-actions button { min-height: 34px; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-soft); font: 12px/1.3 var(--body); cursor: pointer; }
+.workspace .work-actions button { min-height: 34px; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-soft); font: 12px/1.3 var(--body); }
 .workspace .work-actions button:not(:disabled):hover { background: var(--surface-2); color: var(--ink); }
 .workspace .work-actions button:disabled { cursor: not-allowed; opacity: .5; }
 
@@ -292,7 +288,7 @@
 
 .workspace .work-create .work-weekdays { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; border: 0; min-width: 0; }
 .workspace .work-create .work-weekdays legend { padding: 0 0 6px; color: var(--ink-soft); font: 12px/1.4 var(--body); }
-.workspace .work-create .work-weekdays button { padding: 6px 10px; border: 1px solid var(--line-soft); border-radius: 10px; background: var(--sunk); color: var(--ink-soft); font: 13px/1.4 var(--body); cursor: pointer; }
+.workspace .work-create .work-weekdays button { padding: 6px 10px; border: 1px solid var(--line-soft); border-radius: 10px; background: var(--sunk); color: var(--ink-soft); font: 13px/1.4 var(--body); }
 .workspace .work-create .work-weekdays button[aria-pressed="true"] { border-color: var(--ink); background: var(--panel, var(--sunk)); color: var(--ink); }
 .workspace .work-create .work-weekdays button:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 2px; }
 

@@ -105,3 +105,10 @@
 @media(prefers-reduced-transparency:reduce){
   .view-only-chat-header,.view-only-chat-footer{background:var(--surface);-webkit-backdrop-filter:none;backdrop-filter:none}
 }
+/* View-only replay: the same bubble-run rule (aligned side only); the speaker caption shows on the run's first bubble. */
+.view-only-message[data-joins-prev] { margin-top:-15px; }
+.view-only-message[data-joins-prev] .view-only-message-copy small { display:none; }
+.view-only-message.is-user[data-joins-prev] .view-only-message-bubble { border-top-right-radius:var(--bubble-joined); }
+.view-only-message.is-user[data-joins-next] .view-only-message-bubble { border-bottom-right-radius:var(--bubble-joined); }
+.view-only-message.is-bot[data-joins-prev] .view-only-message-bubble { border-top-left-radius:var(--bubble-joined); }
+.view-only-message.is-bot[data-joins-next] .view-only-message-bubble { border-bottom-left-radius:var(--bubble-joined); }

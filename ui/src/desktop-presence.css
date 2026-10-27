@@ -7,7 +7,7 @@
 .desktop-floating-shell .desktop-presence-canvas>.computer-detail{width:100%;max-height:none;padding:0;overflow:visible;pointer-events:auto;border:0;border-radius:0;background:transparent;box-shadow:none}
 .desktop-floating-shell .computer-floating-actions{position:absolute;top:8px;right:8px;display:flex;align-items:center;gap:4px;padding:4px;border:0;border-radius:10px;background:var(--desktop-controls-glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);opacity:1;pointer-events:auto;transition:opacity var(--m-quick) var(--ease-out)}
 .desktop-preview-surface:hover .computer-floating-actions,.desktop-preview-surface:focus-within .computer-floating-actions,.desktop-floating-shell.is-dragging .computer-floating-actions{opacity:1;pointer-events:auto}
-.desktop-floating-shell .desktop-control-button{box-sizing:border-box;display:grid;place-items:center;flex:0 0 26px;width:26px;height:26px;min-width:0;min-height:0;padding:0;border:0;border-radius:7px;color:var(--desktop-controls-ink);background:transparent;box-shadow:none;cursor:pointer}
+.desktop-floating-shell .desktop-control-button{box-sizing:border-box;display:grid;place-items:center;flex:0 0 26px;width:26px;height:26px;min-width:0;min-height:0;padding:0;border:0;border-radius:7px;color:var(--desktop-controls-ink);background:transparent;box-shadow:none;}
 .desktop-floating-shell .desktop-control-button svg{display:block;width:16px;height:16px;flex:none}
 .desktop-floating-shell .desktop-control-button:hover{color:var(--desktop-controls-ink);background:transparent}
 .desktop-floating-shell .desktop-control-button:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
@@ -159,13 +159,13 @@ html:not([data-desktop]) .desktop-floating-shell .computer-detail :is(.computer-
 .desktop-drop::after{background:var(--bezel-fill);-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 172 44' preserveAspectRatio='none'%3E%3Cpath d='M0 2Q14 2 14 12V26A16 16 0 0 0 30 42H142A16 16 0 0 0 158 26V12Q158 2 172 2Z'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 172 44' preserveAspectRatio='none'%3E%3Cpath d='M0 2Q14 2 14 12V26A16 16 0 0 0 30 42H142A16 16 0 0 0 158 26V12Q158 2 172 2Z'/%3E%3C/svg%3E")}
 .computer-detail.is-driven-by-bot .desktop-drop{filter:drop-shadow(0 10px 16px color-mix(in srgb,var(--lagoon) 45%,transparent))}
 .computer-detail.is-driven-by-you .desktop-drop{filter:drop-shadow(0 10px 16px color-mix(in srgb,var(--clay) 40%,transparent))}
-.desktop-power{display:grid;place-items:center;width:26px;height:26px;flex:none;padding:0;border:1px solid var(--desktop-controls-edge);border-radius:50%;background:transparent;color:var(--desktop-controls-ink);cursor:pointer}
+.desktop-power{display:grid;place-items:center;width:26px;height:26px;flex:none;padding:0;border:1px solid var(--desktop-controls-edge);border-radius:50%;background:transparent;color:var(--desktop-controls-ink);}
 .desktop-power:hover{background:var(--desktop-controls-hover)}
 .desktop-boot-phase{color:var(--desktop-controls-ink);font:var(--type-status);opacity:.8}
 .desktop-floating-shell .desktop-bot-starting{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:8px}
 
 /* The switch: the thumb is the hand on the mouse. It springs to the cat or to you and takes that side's color. */
-.desktop-driver-switch{position:relative;display:grid;grid-template-columns:1fr 1fr;align-items:center;width:100px;height:34px;flex:none;padding:3px;border:1px solid var(--desktop-controls-edge);border-radius:999px;background:var(--desktop-switch-track);cursor:pointer}
+.desktop-driver-switch{position:relative;display:grid;grid-template-columns:1fr 1fr;align-items:center;width:100px;height:34px;flex:none;padding:3px;border:1px solid var(--desktop-controls-edge);border-radius:999px;background:var(--desktop-switch-track);}
 .desktop-driver-switch:disabled{opacity:.45;cursor:default}
 .desktop-driver-thumb{position:absolute;top:3px;left:4px;width:44px;height:26px;border-radius:999px;background:var(--lagoon);transition:transform var(--m-panel-in) var(--ease-spring),background-color var(--m-panel-in) var(--ease-out)}
 .desktop-driver-thumb svg{position:absolute;top:-6px;right:-4px;width:14px;height:14px;padding:2px;border-radius:50%;background:var(--surface);color:var(--ink);box-sizing:border-box;box-shadow:var(--desktop-switch-badge-shadow)}
@@ -228,7 +228,7 @@ html:not([data-desktop]) .desktop-floating-shell.is-sheet .desktop-presence-canv
 .desktop-placeholder-line{display:flex;align-items:center;justify-content:center;gap:8px;max-width:100%;margin:0;color:var(--desktop-controls-ink);font:600 clamp(12px,2.4cqw,15px)/1.4 var(--body);letter-spacing:.01em;text-wrap:balance}
 .desktop-placeholder:is(.is-waking,.is-connecting,.is-resuming) .desktop-placeholder-line::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:var(--lagoon);animation:desktop-mini-breathe 1.8s var(--ease-inout) infinite}
 .desktop-placeholder.is-failed .desktop-placeholder-line::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:var(--danger)}
-.desktop-placeholder-retry{min-height:34px;padding:6px 16px;border:1px solid var(--desktop-controls-edge);border-radius:999px;background:var(--desktop-controls-hover);color:var(--desktop-controls-ink);font:600 13px/1 var(--body);cursor:pointer}
+.desktop-placeholder-retry{min-height:34px;padding:6px 16px;border:1px solid var(--desktop-controls-edge);border-radius:999px;background:var(--desktop-controls-hover);color:var(--desktop-controls-ink);font:600 13px/1 var(--body);}
 .desktop-placeholder-retry:hover{background:color-mix(in srgb,var(--desktop-controls-ink) 22%,transparent)}
 .desktop-placeholder-retry:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 @media(prefers-reduced-motion:reduce){.desktop-floating-shell,.desktop-floating-shell *,.desktop-floating-shell *::before,.desktop-floating-shell *::after{transition:none!important}}

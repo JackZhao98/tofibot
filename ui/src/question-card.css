@@ -87,7 +87,6 @@ html:not([data-desktop]) .workspace .question-message .question-options label.se
   border-radius: 12px;
   background: var(--surface-2);
   color: var(--ink);
-  cursor: pointer;
   transition: transform var(--m-press) var(--ease-out), border-color var(--m-press) var(--ease-out), background-color var(--m-press) var(--ease-out), box-shadow var(--m-press) var(--ease-out), max-height var(--m-panel-in) var(--ease-out), padding var(--m-panel-in) var(--ease-out), opacity var(--m-base) var(--ease-out);
 }
 .workspace .question-message .question-options label:hover { border-color: var(--line); background: var(--surface); }
@@ -241,6 +240,6 @@ html:not([data-desktop]) .workspace .question-message .question-card.is-resolved
 }
 
 .workspace .question-message .question-form-save { display: grid; gap: 12px; margin-top: 16px; min-width: 0; }
-.workspace .question-message .question-form-save-toggle { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; font: 13px/1.5 var(--body); color: var(--ink); }
+.workspace .question-message .question-form-save-toggle { display: flex; align-items: flex-start; gap: 10px; font: 13px/1.5 var(--body); color: var(--ink); }
 .workspace .question-message .question-form-save-toggle input { flex: none; width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--ink); }
 .workspace .question-message .question-form-save-toggle small { display: block; margin-top: 2px; color: var(--ink-soft); font-size: 12px; line-height: 1.5; }

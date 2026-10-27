@@ -76,6 +76,10 @@ function dmMessages(options: AppOptions): Message[] {
     reply(c, base + 5, "bot_mochi", "Done. Miso has the copy and will reply in your chat with her.", 32),
     user(c, base + 6, "Great, last thing: what time is the review?", 40),
   );
+  if (options.runs) list.push(
+    user(c, base + 7, "Also, can you book the small room?", 60), user(c, base + 8, "For 15:00 on Thursday.", 60.4), user(c, base + 9, "Eight people, with a screen.", 60.8),
+    reply(c, base + 10, "bot_mochi", "Checking the calendar.", 62), reply(c, base + 11, "bot_mochi", "The small room is free.", 62.3), reply(c, base + 12, "bot_mochi", "Booked it for 15:00 Thursday, eight seats, screen included.", 62.6),
+  );
   return list.map((message, index) => ({ ...message, seq: index + 1 }));
 }
 
@@ -150,6 +154,8 @@ export type AppOptions = {
   computer?: "ready" | "starting";
   /** The group has two tasks: Miso's release note (claimed, 2/3) and Nori's venue (assigned). The cards and the member list show them. */
   tasks?: boolean;
+  /** Two bubble runs of three at the end of Mochi's chat: the person's, then Mochi's (corners merge, 3px apart). */
+  runs?: boolean;
   /** The server reports a newer release (the admin banner). */
   update?: boolean;
 };

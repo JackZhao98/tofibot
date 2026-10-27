@@ -3,6 +3,6 @@
 .memory-description { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
 .memory-edit { display:grid; gap:10px; }
 .memory-details { margin-top:10px; }
-.memory-details summary { cursor:pointer; color:var(--text-soft); font-size:12px; }
+.memory-details summary { color:var(--text-soft); font-size:12px; }
 .memory-details p { margin-top:8px; overflow-wrap:anywhere; }
 .memory-search { display:grid; gap:6px; margin-bottom:12px; }

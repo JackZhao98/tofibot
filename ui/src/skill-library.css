@@ -20,7 +20,7 @@
 .bot-skill-members{margin:6px 0 0 30px;padding-left:12px;border-left:1px solid var(--line-soft)}
 .bot-skill-row{padding:10px 0;border-bottom:1px solid var(--line-soft)}
 .bot-skill-members .bot-skill-row:last-child{border-bottom:0}
-.bot-skill-row label{display:flex;align-items:flex-start;gap:12px;min-width:0;cursor:pointer}
+.bot-skill-row label{display:flex;align-items:flex-start;gap:12px;min-width:0;}
 .bot-skill-row input[type=checkbox]{flex:none;width:18px;height:18px;margin:2px 0 0;accent-color:var(--ink)}
 .bot-skill-copy{display:grid;gap:2px;min-width:0}
 .bot-skill-copy strong{color:var(--ink);font:var(--type-row-title);overflow-wrap:anywhere}

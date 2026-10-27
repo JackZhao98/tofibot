@@ -9,7 +9,7 @@
 
 .context-card-header { display:flex; align-items:center; gap:2px; min-height:48px; padding:6px 8px 6px 18px; }
 .context-card-header h2 { flex:1; min-width:0; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink); font:600 15px/1.3 var(--display); }
-.context-card-button { display:grid; place-items:center; flex:none; width:32px; height:32px; padding:0; border:0; border-radius:10px; background:transparent; color:var(--ink-soft); cursor:pointer; }
+.context-card-button { display:grid; place-items:center; flex:none; width:32px; height:32px; padding:0; border:0; border-radius:10px; background:transparent; color:var(--ink-soft); }
 .context-card-button:hover { background:var(--surface-2); color:var(--ink); }
 .context-card-button svg { transition:rotate var(--m-base) var(--ease-out); }
 .context-card.is-collapsed .context-card-button[aria-expanded="false"] svg { rotate:-90deg; }

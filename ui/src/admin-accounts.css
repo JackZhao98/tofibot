@@ -17,7 +17,7 @@
 .admin-list-actions{display:flex;justify-content:flex-end;margin:-38px 0 12px}
 .admin-list-actions .primary-button{display:inline-flex;align-items:center;gap:8px;min-height:40px}
 .settings-card.admin-list{overflow:hidden}
-.admin-row{display:grid;grid-template-columns:40px minmax(0,1.4fr) auto minmax(120px,1fr) 18px;align-items:center;gap:14px;width:100%;padding:12px 16px;border:0;border-radius:0;background:transparent;color:var(--ink);text-align:left;cursor:pointer}
+.admin-row{display:grid;grid-template-columns:40px minmax(0,1.4fr) auto minmax(120px,1fr) 18px;align-items:center;gap:14px;width:100%;padding:12px 16px;border:0;border-radius:0;background:transparent;color:var(--ink);text-align:left;}
 .admin-row:hover{background:var(--surface-2)}
 .admin-row:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:-2px}
 .admin-row>svg{color:var(--muted)}
@@ -41,7 +41,7 @@
 .admin-value{color:var(--ink);font:600 13px/1.4 var(--body)}
 .admin-danger-rows>*+*{border-top:1px dashed color-mix(in srgb,var(--danger) 35%,var(--line-soft))}
 .admin-danger-rows .settings-row-v2{padding-left:0;padding-right:0}
-.admin-danger-button{min-height:40px;padding:8px 14px;border:2px solid var(--line);border-radius:10px;background:var(--danger);color:var(--on-danger);font:600 13px/1 var(--body);cursor:pointer}
+.admin-danger-button{min-height:40px;padding:8px 14px;border:2px solid var(--line);border-radius:10px;background:var(--danger);color:var(--on-danger);font:600 13px/1 var(--body);}
 .admin-danger-button:hover:not(:disabled){filter:brightness(1.06)}
 .admin-danger-button:disabled{opacity:.45;cursor:not-allowed}
 .admin-danger-button:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}

@@ -9,6 +9,7 @@ import { useTranslation } from "./i18n";
 import type { Bot, Conversation, Message } from "./types";
 import { mergeViewOnlyHistory, type ViewOnlyHistory, type ViewOnlyHistoryPage } from "./viewOnlyHistory";
 import { layerRoot } from "./layers";
+import { SENDER_GROUP_WINDOW_MS } from "./senderGroups";
 import { ModalDialog } from "./overlays/ModalDialog";
 
 export type ViewOnlyChatTarget = {
@@ -159,11 +160,16 @@ function ViewOnlyChatHistory({ conversationId, runId, botById, closeRef }: { con
     {history && !history.hasMore && <p ref={startRef} tabIndex={-1} className="muted" style={{ textAlign: "center", fontSize: 12 }}>{t("viewOnly.at_start")}</p>}
     <span className="sr-only" role="status" aria-live="polite">{announcement}</span>
     {history && !history.messages.length && <EmptyState name="view-only-empty" className="conversation-empty" look={CATS.mochi} pose={history.hasMore ? "curious" : "asleep"}><h2>{history.hasMore ? t("viewOnly.no_match") : t("viewOnly.empty")}</h2></EmptyState>}
-    <div id={listId} className="view-only-message-list">{history?.messages.map((message: Message) => {
+    <div id={listId} className="view-only-message-list">{history?.messages.map((message: Message, index: number, all: Message[]) => {
       const bot = message.sender_bot_id ? botById.get(message.sender_bot_id) : undefined;
       const label = bot?.name ?? message.sender_bot_name ?? (message.role === "user" ? t("message.you") : "Bot");
       const user = message.role === "user" && !message.sender_bot_id;
-      return <article className={`view-only-message ${user ? "is-user" : "is-bot"}`} key={message.id} data-message-id={message.id} tabIndex={-1} data-focused={(runId !== undefined && message.run_id === runId) || undefined}>
+      // Bubble runs (same speaker within the window, nothing between) merge their facing corners, as in the live chat.
+      const speaker = (m: Message) => m.role === "user" && !m.sender_bot_id ? "user" : m.sender_bot_id ?? "bot";
+      const near = (a: Message, b: Message) => speaker(a) === speaker(b) && Math.abs(Date.parse(a.created_at) - Date.parse(b.created_at)) < SENDER_GROUP_WINDOW_MS;
+      const joinsPrev = index > 0 && near(all[index - 1], message);
+      const joinsNext = index < all.length - 1 && near(message, all[index + 1]);
+      return <article className={`view-only-message ${user ? "is-user" : "is-bot"}`} data-joins-prev={joinsPrev || undefined} data-joins-next={joinsNext || undefined} key={message.id} data-message-id={message.id} tabIndex={-1} data-focused={(runId !== undefined && message.run_id === runId) || undefined}>
         {!user && <BotAvatar id={message.sender_bot_id ?? "bot"} mini />}
         <div className="view-only-message-copy"><small>{label}</small><div className="view-only-message-bubble"><MessageMarkdown content={message.content} /></div></div>
       </article>;

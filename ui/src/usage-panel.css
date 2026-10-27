@@ -2,7 +2,7 @@
 .workspace .usage-explanation { max-width:65ch; margin:0 0 22px; color:var(--ink-soft); font:13px/1.65 var(--body); }
 .workspace .usage-layout { display:grid; grid-template-columns:minmax(170px,220px) minmax(0,1fr); gap:26px; }
 .workspace .usage-agents { display:flex; flex-direction:column; gap:5px; border-right:1px solid var(--line-soft); padding-right:12px; }
-.workspace .usage-agents button { display:flex; align-items:center; gap:10px; min-width:0; width:100%; padding:8px; border:1px solid transparent; border-radius:12px; background:transparent; color:var(--ink); text-align:left; cursor:pointer; }
+.workspace .usage-agents button { display:flex; align-items:center; gap:10px; min-width:0; width:100%; padding:8px; border:1px solid transparent; border-radius:12px; background:transparent; color:var(--ink); text-align:left; }
 .workspace .usage-agents button:hover { background:var(--surface-2); }
 .workspace .usage-agents button[aria-current="true"] { border-color:var(--line); background:var(--surface-2); }
 .workspace .usage-agents .avatar { flex:none; width:30px; height:30px; }
@@ -12,14 +12,14 @@
 .workspace .usage-detail { min-width:0; }
 .workspace .usage-summary { padding-bottom:20px; border-bottom:1px solid var(--line-soft); }
 .workspace .usage-ranges { display:flex; gap:5px; margin:0 0 18px; flex-wrap:wrap; }
-.workspace .usage-ranges button { border:1px solid var(--line); border-radius:9px; padding:6px 10px; background:transparent; color:var(--ink-soft); font:12px/1.3 var(--body); cursor:pointer; }
+.workspace .usage-ranges button { border:1px solid var(--line); border-radius:9px; padding:6px 10px; background:transparent; color:var(--ink-soft); font:12px/1.3 var(--body); }
 .workspace .usage-ranges button:hover { background:var(--surface-2); }
 .workspace .usage-ranges button[aria-pressed="true"] { background:var(--ink); border-color:var(--ink); color:var(--surface); }
 .workspace .usage-summary p { margin:12px 0 0; color:var(--muted); font:12px/1.5 var(--body); }
 .workspace .usage-summary a { color:inherit; text-underline-offset:2px; }
 .workspace .usage-call-list { max-height:320px; overflow:auto; border-top:1px solid var(--line-soft); }
 .workspace .usage-call { padding:10px 0; border-bottom:1px solid var(--line-soft); }
-.workspace .usage-call summary { display:flex; align-items:center; gap:10px; cursor:pointer; font:12px/1.4 var(--body); }
+.workspace .usage-call summary { display:flex; align-items:center; gap:10px; font:12px/1.4 var(--body); }
 .workspace .usage-call summary:hover { color:var(--green-text); }
 .workspace .usage-call summary time { flex:none; color:var(--muted); font-family:var(--mono); font-size:12px; }
 .workspace .usage-call summary span { min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -42,7 +42,7 @@
 .workspace .usage-context-numbers strong { font-family:var(--mono); font-variant-numeric:tabular-nums; }
 .workspace .usage-context p { margin:7px 0 0; color:var(--muted); font:12px/1.5 var(--body); }
 .workspace .usage-error { display:flex; justify-content:space-between; gap:12px; margin-bottom:16px; color:var(--danger-text); font:12px/1.5 var(--body); }
-.workspace .usage-error button { padding:0; border:0; background:transparent; color:inherit; text-decoration:underline; cursor:pointer; }
+.workspace .usage-error button { padding:0; border:0; background:transparent; color:inherit; text-decoration:underline; }
 .workspace .usage-empty { color:var(--muted); font:13px/1.55 var(--body); }
 @media(max-width:700px) { .workspace .usage-layout { display:block; } .workspace .usage-agents { flex-direction:row; gap:6px; overflow:auto; margin-bottom:18px; padding:0 0 10px; border-right:0; border-bottom:1px solid var(--line-soft); } .workspace .usage-agents button { width:auto; flex:none; max-width:170px; } }
 /* Motion Lab's one-time odometer and seven-day bars, using real request rows. */

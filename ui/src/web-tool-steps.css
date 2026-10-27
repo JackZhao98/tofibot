@@ -12,7 +12,7 @@ html:not([data-desktop]) .workspace .web-tool-body>.related-message-link{order:4
 html:not([data-desktop]) .workspace .web-tool-run{margin:0;color:var(--ink-soft)}
 html:not([data-desktop]) .workspace .web-tool-disclosure{margin:0}
 html:not([data-desktop]) .workspace .web-tool-summary{display:flex;align-items:center;gap:8px;min-width:0;min-height:30px;padding:0;color:var(--text-process);font:var(--type-meta)}
-html:not([data-desktop]) .workspace .web-tool-toggle{display:inline-flex;align-items:center;gap:var(--space-2);min-width:0;max-width:100%;margin-left:4px;padding:4px 6px;border:0;border-radius:8px;background:transparent;color:inherit;font:inherit;cursor:pointer}
+html:not([data-desktop]) .workspace .web-tool-toggle{display:inline-flex;align-items:center;gap:var(--space-2);min-width:0;max-width:100%;margin-left:4px;padding:4px 6px;border:0;border-radius:8px;background:transparent;color:inherit;font:inherit;}
 html:not([data-desktop]) .workspace .web-tool-toggle:hover{color:var(--text-secondary);background:var(--surface-2)}
 html:not([data-desktop]) .workspace .web-tool-toggle.is-static{cursor:default}
 html:not([data-desktop]) .workspace .web-tool-toggle.is-static:hover{color:inherit;background:transparent}
@@ -32,7 +32,7 @@ html:not([data-desktop]) .workspace .web-tool-step{display:grid;grid-template-co
 html:not([data-desktop]) .workspace .web-tool-run.is-complete .web-tool-step{animation:none}
 html:not([data-desktop]) .workspace .web-tool-step>svg{margin-top:1px}
 html:not([data-desktop]) .workspace .web-tool-step-detail{min-width:0}
-html:not([data-desktop]) .workspace .web-tool-step-detail>summary{display:block;min-height:0;padding:0;border:0;background:none;color:inherit;cursor:pointer;list-style:none}
+html:not([data-desktop]) .workspace .web-tool-step-detail>summary{display:block;min-height:0;padding:0;border:0;background:none;color:inherit;list-style:none}
 html:not([data-desktop]) .workspace .web-tool-step-detail>summary::-webkit-details-marker{display:none}
 html:not([data-desktop]) .workspace .web-tool-step-detail>summary:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 html:not([data-desktop]) .workspace .web-tool-step-label{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -51,7 +51,7 @@ html:not([data-desktop]) .workspace .web-tool-note :is(p,ul,ol){margin:0 0 4px}
 @media(max-width:700px){html:not([data-desktop]) .workspace .web-tool-step{grid-template-columns:16px minmax(0,1fr) auto;gap:5px}}
 /* View context (D53): one quiet row under the steps; the view itself is run-context.css, loaded with its chunk. */
 html:not([data-desktop]) .workspace .run-context-entry{margin:2px 0 8px 12px}
-html:not([data-desktop]) .workspace .run-context-toggle{display:inline-flex;align-items:center;gap:var(--space-2);margin-left:-2px;padding:4px 6px;border:0;border-radius:8px;background:transparent;color:var(--text-process);font:var(--type-meta);cursor:pointer}
+html:not([data-desktop]) .workspace .run-context-toggle{display:inline-flex;align-items:center;gap:var(--space-2);margin-left:-2px;padding:4px 6px;border:0;border-radius:8px;background:transparent;color:var(--text-process);font:var(--type-meta);}
 html:not([data-desktop]) .workspace .run-context-toggle:hover{color:var(--text-secondary);background:var(--surface-2)}
 html:not([data-desktop]) .workspace .run-context-toggle:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 html:not([data-desktop]) .workspace .run-context-toggle[aria-expanded="true"] .web-tool-chevron{rotate:90deg}

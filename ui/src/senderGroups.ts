@@ -33,6 +33,7 @@ export function markSenderGroups(root: ParentNode | null): void {
     units.push(element);
   }
   markSpeakerChanges(root);
+  markBubbleRuns(root);
   // The avatar sits beside the group's last unit: the one the next unit does not continue.
   units.forEach((element, index) => {
     const last = !units[index + 1] || units[index + 1].dataset.continues !== "true";
@@ -55,4 +56,48 @@ function markSpeakerChanges(root: ParentNode): void {
     else if (element.hasAttribute("data-speaker-change")) element.removeAttribute("data-speaker-change");
     previous = speaker;
   }
+}
+
+/**
+ * Bubble runs: consecutive plain bubbles from one speaker (`data-from`: "user", a Bot id, or "bot") within the group window,
+ * with nothing rendered between them, sit closer and merge their facing corners (chat-app convention). A block joins the one
+ * before it only when both blocks hold nothing but the bubble host and the actions row (a divider, tool row, task card, owner node,
+ * reaction chips or an error note in either block breaks the run) and the blocks are adjacent siblings. Sets `data-joins-prev` /
+ * `data-joins-next` on the `.message-block`; attribute writes only, when changed, no layout reads.
+ */
+const NOT_BUBBLE = ".message-ui-card, .message-notice, .message-assignment";
+
+function runUnit(block: Element): { from: string; at: number; open: boolean } | undefined {
+  // `open`: nothing follows the bubble in its block (no task block, owner node, tool row, reaction chips), so a next bubble may join it.
+  // Anything before the bubble host (a date or unread divider) keeps the block from joining the one above.
+  let open = true;
+  for (const child of block.children) {
+    if (child.classList.contains("message-hover-host") || child.classList.contains("message-actions-row")) continue;
+    if (!block.firstElementChild?.classList.contains("message-hover-host")) return undefined;
+    open = false;
+  }
+  if (!block.firstElementChild?.classList.contains("message-hover-host")) return undefined;
+  const article = block.querySelector<HTMLElement>(":scope > .message-hover-host > article.message[data-from]");
+  if (!article || article.matches(NOT_BUBBLE) || article.querySelector(".message-tools")) return undefined;
+  return { from: article.dataset.from ?? "", at: Date.parse(article.dataset.at ?? ""), open };
+}
+
+function setFlag(element: HTMLElement, name: "joinsPrev" | "joinsNext", on: boolean): void {
+  if (on) { if (element.dataset[name] !== "true") element.dataset[name] = "true"; }
+  else if (element.dataset[name] !== undefined) delete element.dataset[name];
+}
+
+function markBubbleRuns(root: ParentNode): void {
+  let previous: { block: HTMLElement; from: string; at: number; open: boolean } | undefined;
+  for (const block of root.querySelectorAll<HTMLElement>(".message-block")) {
+    const unit = runUnit(block);
+    const joins = Boolean(unit && previous?.open && previous.block === block.previousElementSibling && unit.from && unit.from === previous.from
+      && Number.isFinite(unit.at) && Number.isFinite(previous.at) && Math.abs(unit.at - previous.at) < SENDER_GROUP_WINDOW_MS);
+    setFlag(block, "joinsPrev", joins);
+    if (previous) setFlag(previous.block, "joinsNext", joins);
+    previous = unit ? { block, ...unit } : undefined;
+    if (!unit) setFlag(block, "joinsNext", false);
+  }
+  // Nothing follows the list's last block, so it never joins forward.
+  if (previous) setFlag(previous.block, "joinsNext", false);
 }

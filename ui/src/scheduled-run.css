@@ -40,7 +40,6 @@
   color:inherit;
   text-align:left;
   font:inherit;
-  cursor:pointer;
 }
 .scheduled-run-toggle:hover .scheduled-run-title { color:var(--ink-soft); }
 .scheduled-run-toggle:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px; border-radius:4px; }
@@ -70,12 +69,12 @@
 .scheduled-run-notes, .scheduled-run-recovery { margin:0 0 16px; color:var(--muted); font:12px/1.6 var(--body); overflow-wrap:anywhere; }
 .scheduled-run-notes p, .scheduled-run-recovery p { margin:0; }
 .scheduled-run-recovery > details { margin-top:6px; }
-.scheduled-run-recovery summary { width:fit-content; cursor:pointer; color:var(--ink-soft); }
+.scheduled-run-recovery summary { width:fit-content; color:var(--ink-soft); }
 .scheduled-run-recovery summary:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px; }
 .scheduled-run-recovery .scheduled-run-error { margin-top:7px; color:var(--danger-text); white-space:pre-wrap; }
 .scheduled-run-failure { display:flex; align-items:baseline; flex-wrap:wrap; gap:5px 12px; padding:0 0 14px; color:var(--danger-text); font:13px/1.6 var(--body); }
 .scheduled-run-failure > p { flex:1; min-width:150px; margin:0; overflow-wrap:anywhere; }
-.scheduled-run-retry { display:inline-flex; align-items:center; gap:4px; padding:2px 0; border:0; border-radius:3px; background:transparent; color:var(--ink); box-shadow:none; text-decoration:underline; text-underline-offset:3px; font:600 13px/1.5 var(--body); cursor:pointer; }
+.scheduled-run-retry { display:inline-flex; align-items:center; gap:4px; padding:2px 0; border:0; border-radius:3px; background:transparent; color:var(--ink); box-shadow:none; text-decoration:underline; text-underline-offset:3px; font:600 13px/1.5 var(--body); }
 .scheduled-run-retry > span { display:inline-grid; }
 .scheduled-run-retry:hover { color:var(--danger-text); }
 .scheduled-run-retry:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:4px; }
@@ -102,7 +101,7 @@
 }
 
 .scheduled-run-description { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; margin-top:5px; color:var(--ink-soft); font:var(--type-meta); overflow-wrap:anywhere; }
-.scheduled-run-details summary { color:var(--muted); cursor:pointer; font:600 12px/1.5 var(--body); }
+.scheduled-run-details summary { color:var(--muted); font:600 12px/1.5 var(--body); }
 .scheduled-run-details[open] > p { margin-top:8px; }
 
 .scheduled-run-result { margin:0 0 16px; padding:12px 14px; border-radius:12px; background:var(--sunk); }

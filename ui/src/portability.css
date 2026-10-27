@@ -15,7 +15,7 @@
 .portability-actions{justify-content:flex-end;padding:12px 16px 14px}
 .portability-choices{display:grid;gap:0;border:1px solid var(--line-soft);border-radius:12px;background:var(--surface-2)}
 .portability-choices>.check-row+.check-row{border-top:1px solid var(--line-soft)}
-.workspace .settings-page-body .check-row{display:flex;flex-direction:row;align-items:center;gap:12px;margin:0;padding:10px 14px;min-height:44px;color:var(--ink);font:14px/1.4 var(--body);cursor:pointer;overflow-wrap:anywhere}
+.workspace .settings-page-body .check-row{display:flex;flex-direction:row;align-items:center;gap:12px;margin:0;padding:10px 14px;min-height:44px;color:var(--ink);font:14px/1.4 var(--body);overflow-wrap:anywhere}
 .check-row>span{min-width:0}
 .check-row:has(input:disabled){cursor:default;color:var(--ink-soft)}
 .check-row:has(input:focus-visible){outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:-2px;border-radius:12px}

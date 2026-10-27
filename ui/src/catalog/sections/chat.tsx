@@ -25,6 +25,8 @@ export const bubbles: CatalogSection = {
   states: [
     { id: "dm", kind: "app", label: "Direct chat", note: "user and Bot messages, Markdown with a table and code, a reaction, a related-chat link, a resume notice", app: DM },
     { id: "group", kind: "app", label: "Group chat", note: "avatars and names, consecutive messages from one sender merged, a handoff line with its brief", app: GROUP },
+    { id: "bubble-runs", kind: "app", label: "Bubble runs", note: "three bubbles in a row from the person, then three from Mochi: 3px apart, the aligned-side corners merge to --bubble-joined; the hover bar floats on the open side", app: { ...DM, runs: true },
+      drive: async step => { await step.hover(await step.find(`${block("m_dm_mochi_8")} .message-hover-host`)); await step.find(`${block("m_dm_mochi_8")} .message-hover-actions`); } },
     { id: "streaming", kind: "app", label: "Streaming", note: "a reply still being written: live text and cursor, the cat working, the stop button", app: { ...DM, running: true } },
     { id: "sending", kind: "app", label: "Sending", note: "the server has not answered: the bubble is dimmed", app: { ...DM, send: "hang" }, drive: step => send(step, "Is the room booked?") },
     { id: "failed", kind: "app", label: "Failed to send", note: "\"Not sent · Retry\" under the bubble", app: { ...DM, send: "fail" }, drive: async step => { await send(step, "Is the room booked?"); await step.find(".send-receipt-retry"); } },

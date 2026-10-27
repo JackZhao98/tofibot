@@ -7,7 +7,7 @@
 .workspace .send-receipt[data-state="sending"] .send-receipt-mark { opacity:.8; }
 .workspace .send-receipt-mark.has-tip { cursor:default; border-radius:4px; }
 .workspace .send-receipt-mark:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
-.workspace .send-receipt-retry { height:14px; padding:0; border:0; background:transparent; color:var(--danger-text); font:inherit; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+.workspace .send-receipt-retry { height:14px; padding:0; border:0; background:transparent; color:var(--danger-text); font:inherit; text-decoration:underline; text-underline-offset:2px; }
 .workspace .send-receipt-retry:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px; border-radius:3px; }
 /* A press target of 44px on touch without growing the row: the hit area extends over the empty space beside the bubble. */
 @media (pointer:coarse) { .workspace .send-receipt-retry { position:relative; } .workspace .send-receipt-retry::after { content:""; position:absolute; inset:-15px -12px; } }

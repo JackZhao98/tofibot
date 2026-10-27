@@ -24,7 +24,7 @@
 .workspace .mail-draft-attachments span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .workspace .mail-draft-attachments small { flex:none; color:var(--muted); font:12px/1.2 var(--body); }
 .workspace .mail-draft-letter footer { display:flex; align-items:center; justify-content:flex-end; gap:10px; min-height:42px; padding:9px 18px; border-top:1px dashed var(--paper-rule); color:var(--muted); font:12px/1.4 var(--body); }
-.workspace .mail-draft-letter footer button { min-height:36px; padding:7px 12px; border:1px solid var(--line); border-radius:9px; background:var(--surface); color:var(--ink); cursor:pointer; font:600 13px/1.2 var(--body); }
+.workspace .mail-draft-letter footer button { min-height:36px; padding:7px 12px; border:1px solid var(--line); border-radius:9px; background:var(--surface); color:var(--ink); font:600 13px/1.2 var(--body); }
 .workspace .mail-draft-letter footer .mail-draft-save { background:var(--clay); color:var(--on-block); }
 .workspace .mail-draft-letter footer .mail-draft-text-action { display:inline-flex; align-items:center; gap:5px; margin-right:auto; border:0; background:transparent; color:var(--paper-ink); }
 .workspace .mail-draft-hint { display:flex; align-items:center; gap:7px; min-width:0; color:var(--paper-muted); }

@@ -21,7 +21,6 @@
   background: transparent;
   color: var(--ink-soft);
   font: 600 13px/1.2 var(--display);
-  cursor: pointer;
   transition: background-color var(--m-press) var(--ease-out), color var(--m-press) var(--ease-out), box-shadow var(--m-press) var(--ease-out);
 }
 .workspace .artifacts-tabs button:hover { color: var(--ink); }
@@ -44,7 +43,7 @@
 
 .workspace .artifacts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
 .workspace .artifact-card { display: grid; align-content: start; gap: 8px; min-width: 0; padding: 8px; border: 1px solid var(--line-soft); border-radius: var(--radius-md); background: var(--surface-2); }
-.workspace .artifact-open { display: grid; gap: 8px; min-width: 0; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.workspace .artifact-open { display: grid; gap: 8px; min-width: 0; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; }
 .workspace .artifact-open:hover .artifact-name { text-decoration: underline; }
 .workspace .artifact-thumb { display: grid; place-items: center; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 8px; background: var(--sunk); }
 .workspace .artifact-thumb img { width: 100%; height: 100%; object-fit: cover; }
@@ -62,7 +61,7 @@
 .workspace .artifact-versions-toggle { justify-self: start; font: 600 12px/1.3 var(--display); }
 .workspace .artifact-versions { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
 .workspace .artifact-versions li { display: flex; align-items: center; gap: 4px; }
-.workspace .artifact-versions li > button:first-child { display: flex; flex: 1; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; padding: 4px 6px; border: 0; border-radius: 6px; background: transparent; color: var(--ink-soft); font: 12px/1.3 var(--body); text-align: left; cursor: pointer; }
+.workspace .artifact-versions li > button:first-child { display: flex; flex: 1; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; padding: 4px 6px; border: 0; border-radius: 6px; background: transparent; color: var(--ink-soft); font: 12px/1.3 var(--body); text-align: left; }
 .workspace .artifact-versions li > button:first-child:hover { background: var(--sunk); }
 .workspace .artifact-versions li small { color: var(--muted); font: 11px/1.3 var(--mono); }
 .workspace .artifact-versions-note { color: var(--muted); font: 12px/1.4 var(--body); }

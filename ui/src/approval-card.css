@@ -30,13 +30,13 @@
 .approval-review-reason { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; color:var(--ink-soft); }
 .approval-review-risk[data-risk="high"] { color:var(--danger-text); font-weight:600; }
 .approval-payload { min-width:0; margin-top:11px; color:var(--ink-soft); }
-.approval-payload summary { width:max-content; max-width:100%; cursor:pointer; font:600 12px/1.6 var(--body); text-decoration:underline; text-underline-offset:3px; }
+.approval-payload summary { width:max-content; max-width:100%; font:600 12px/1.6 var(--body); text-decoration:underline; text-underline-offset:3px; }
 .approval-payload summary:focus-visible,.approval-payload pre:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px; }
 .approval-payload pre { box-sizing:border-box; max-width:100%; max-height:min(42vh,420px); overflow:auto; margin:10px 0 0; padding:12px; border:1px solid var(--line-soft); border-radius:10px; background:var(--sunk); color:var(--ink); white-space:pre-wrap; overflow-wrap:anywhere; font:12px/1.5 var(--mono); }
 .approval-actions { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:14px; padding:0 4px 5px 0; }
 .approval-actions > button {
   min-height:42px; padding:9px 18px; border:2px solid var(--line); border-radius:13px;
-  background:var(--surface); color:var(--ink); box-shadow:var(--hard-sm); cursor:pointer;
+  background:var(--surface); color:var(--ink); box-shadow:var(--hard-sm);
   font:600 16px/1.2 var(--display); transition:transform var(--m-press) var(--ease-out),box-shadow var(--m-press) var(--ease-out),background-color var(--m-press) var(--ease-out);
 }
 .approval-actions > .approval-accept { background:var(--clay); color:var(--on-block); }
@@ -46,9 +46,9 @@
 .approval-actions > button:disabled { opacity:.58; cursor:default; }
 .approval-card button:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px; }
 .approval-secondary { margin-left:auto; }
-.approval-secondary button { padding:6px 0; border:0; background:none; box-shadow:none; color:var(--muted); font:13px/1.5 var(--body); text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+.approval-secondary button { padding:6px 0; border:0; background:none; box-shadow:none; color:var(--muted); font:13px/1.5 var(--body); text-decoration:underline; text-underline-offset:3px; }
 .approval-remember { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; margin-top:4px; padding:0 4px 2px 0; }
-.approval-remember-button { padding:5px 0; border:0; background:none; box-shadow:none; color:var(--ink-soft); font:600 13px/1.5 var(--body); text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+.approval-remember-button { padding:5px 0; border:0; background:none; box-shadow:none; color:var(--ink-soft); font:600 13px/1.5 var(--body); text-decoration:underline; text-underline-offset:3px; }
 .approval-remember-button:disabled { opacity:.58; cursor:default; }
 .approval-remember-hint { color:var(--muted); font:12px/1.5 var(--body); overflow-wrap:anywhere; }
 .approval-note { margin:8px 0 0; color:var(--muted); font:12px/1.6 var(--body); }
