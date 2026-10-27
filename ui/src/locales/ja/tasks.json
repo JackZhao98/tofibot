@@ -411,6 +411,16 @@
       "files_read": "ファイルを読む",
       "files_write": "ファイルを書き込む",
       "files_list": "ファイル一覧"
+    },
+    "via": "{{source}} 経由",
+    "source": {
+      "tavily": "Tavily",
+      "brave": "Brave Search",
+      "searxng": "SearXNG",
+      "firecrawl": "Firecrawl",
+      "brightdata": "Bright Data",
+      "builtin": "内蔵の取得",
+      "computer": "Bot のコンピュータ"
     }
   },
   "review": {

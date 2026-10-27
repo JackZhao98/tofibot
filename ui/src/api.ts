@@ -1,4 +1,4 @@
-import type { TaskImpact, FollowupAccount, FollowupBotSettings, FollowupOverview, FollowupVerdict, AgentUsageTotal, Attachment, Bot, ComputerHealth, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, ModelCatalog, ModelProviderStatus, Run, RunContextSnapshot, RunHealth, Schedule, ScheduleKind, SchedulePatchInput, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WorkspaceEventEnvelope, WorkItem, Weekday } from "./types";
+import type { TaskImpact, FollowupAccount, FollowupBotSettings, FollowupOverview, FollowupVerdict, AgentUsageTotal, Attachment, Bot, ComputerHealth, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, ModelCatalog, ModelProviderStatus, Run, RunContextSnapshot, RunHealth, Schedule, ScheduleKind, SchedulePatchInput, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WebToolsView, WorkspaceEventEnvelope, WorkItem, Weekday } from "./types";
 import { i18n } from "./i18n";
 import { codeText } from "./i18n/codeText";
 import { invalidateModelCatalog } from "./modelCatalogStore";
@@ -73,6 +73,12 @@ export const api = {
   listProviders: (signal?: AbortSignal) => request<{ providers: ModelProviderStatus[] | null }>("/api/providers", { signal }).then((result) => result.providers ?? []),
   setProviderKey: (id: "openai" | "anthropic", key: string, workspaceId?: string) => request<ModelProviderStatus>(`/api/providers/${encodeURIComponent(id)}/key`, { method: "PUT", body: JSON.stringify(workspaceId ? { key, workspace_id: workspaceId } : { key }) }).then((result) => { invalidateModelCatalog(); return result; }),
   deleteProviderKey: (id: "openai" | "anthropic") => request<unknown>(`/api/providers/${encodeURIComponent(id)}/key`, { method: "DELETE" }).then((result) => { invalidateModelCatalog(); return result; }),
+  webTools: (signal?: AbortSignal) => request<WebToolsView>("/api/web-tools", { signal }),
+  setWebToolOrder: (chain: "search" | "fetch", order: string[]) => request<WebToolsView>(`/api/web-tools/${chain}/order`, { method: "PUT", body: JSON.stringify({ order }) }),
+  setWebToolEnabled: (chain: "search" | "fetch", id: string, enabled: boolean) => request<WebToolsView>(`/api/web-tools/${chain}/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ enabled }) }),
+  saveWebProvider: (id: string, body: { key?: string; zone?: string; base_url?: string }) => request<WebToolsView>(`/api/web-tools/providers/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(body) }),
+  removeWebProvider: (id: string) => request<WebToolsView>(`/api/web-tools/providers/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  testWebProvider: (id: string) => request<WebToolsView>(`/api/web-tools/providers/${encodeURIComponent(id)}/test`, { method: "POST" }),
   models: (signal?: AbortSignal) => request<ModelCatalog>("/api/models", { signal }),
   bots: async (includeArchived = false) => {
     const result = await request<{ bots: Bot[] | null }>(`/api/bots${includeArchived ? "?include_archived=true" : ""}`);

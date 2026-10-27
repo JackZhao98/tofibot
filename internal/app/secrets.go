@@ -181,7 +181,7 @@ func (s *Server) handleSecrets(w http.ResponseWriter, r *http.Request) bool {
 		for _, record := range v.records {
 			// Run-scoped private inputs, provider keys and the workspace Google
 			// client are never listed.
-			if record.RunID != "" || record.Kind == modelProviderKind || record.Kind == googleClientKind || record.Kind == botSecretKind {
+			if record.RunID != "" || record.Kind == modelProviderKind || record.Kind == googleClientKind || record.Kind == botSecretKind || record.Kind == webProviderKind {
 				continue
 			}
 			list = append(list, publicSecret(record))
@@ -234,7 +234,7 @@ func (s *Server) handleSecrets(w http.ResponseWriter, r *http.Request) bool {
 	v.mu.Unlock()
 	// Model provider keys and the workspace Google client belong to the server;
 	// they are never listed, removed here, or installed on a computer.
-	if !ok || record.RunID != "" || record.Kind == modelProviderKind || record.Kind == googleClientKind || record.Kind == botSecretKind {
+	if !ok || record.RunID != "" || record.Kind == modelProviderKind || record.Kind == googleClientKind || record.Kind == botSecretKind || record.Kind == webProviderKind {
 		fail(404, "Not found")
 		return true
 	}

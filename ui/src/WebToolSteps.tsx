@@ -2,7 +2,7 @@ import { TofiIcon as Icon } from "./icons";
 import { MessageMarkdown } from "./MessageMarkdown";
 import { requestFullToolResult } from "./toolResultLoader";
 import { ToolStatusIcon } from "./ToolStatusIcon";
-import { toolDisplayLabel, toolDisplayState, toolActionLabel, toolArgumentPreview, toolActivityKey, foldToolRuns, formatStepSeconds } from "./toolTimeline";
+import { toolDisplayLabel, toolDisplayState, toolActionLabel, toolArgumentPreview, toolSourceLabel, toolActivityKey, foldToolRuns, formatStepSeconds } from "./toolTimeline";
 import { useTranslation } from "./i18n";
 import { formatExactTime } from "./timezone";
 import { toggleDisclosure } from "./TaskRunBlock";
@@ -34,7 +34,7 @@ export function WebToolSteps({ entries, live, now, timezone }: { entries: WebToo
     const problem = ["failed", "not_executed", "interrupted"].includes(state);
     return <li className={`web-tool-step is-${state}${problem ? " is-problem" : ""}`} key={toolActivityKey(activity)}>
       <ToolStatusIcon state={active ? "running" : state} label={toolDisplayLabel(activity)} />
-      <details className="web-tool-step-detail" onToggle={event => { if (event.currentTarget.open) requestFullToolResult(activity); }}><summary onClick={toggleDisclosure}><span className="web-tool-step-label">{toolStepLabel(activity)}{toolArgumentPreview(activity) ? ` · ${toolArgumentPreview(activity)}` : ""}</span></summary>
+      <details className="web-tool-step-detail" onToggle={event => { if (event.currentTarget.open) requestFullToolResult(activity); }}><summary onClick={toggleDisclosure}><span className="web-tool-step-label">{toolStepLabel(activity)}{toolArgumentPreview(activity) ? ` · ${toolArgumentPreview(activity)}` : ""}{toolSourceLabel(activity) ? ` · ${toolSourceLabel(activity)}` : ""}</span></summary>
         <div className="tool-activity-details"><small>{Number.isFinite(Date.parse(activity.started_at)) ? formatExactTime(activity.started_at, timezone) : ""} · {timezone}</small><div><span>{t("tools.arguments")}</span><pre>{activity.arguments || t("tools.none")}</pre></div><div><span>{t("tools.result")}</span>{activity.outcome && <p className="tool-outcome" role="note">{activity.outcome.message}</p>}<pre>{activity.result || (active ? t("tools.waiting_result") : t("tools.none"))}</pre></div>{activity.truncated && <small>{t("tools.truncated")}</small>}</div>
       </details>
       <span className="web-tool-step-meta">{problem && <span className="web-tool-step-state">{toolDisplayLabel(activity)}</span>}{duration !== undefined && duration >= 1 && <span className="web-tool-quiet">{formatStepSeconds(duration)}</span>}</span>

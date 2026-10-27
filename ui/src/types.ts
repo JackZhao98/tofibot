@@ -462,3 +462,32 @@ export interface WorkspaceEventEnvelope {
 
 /** The server watchdog's view of the shared computer (GET /api/computers/firecracker/info). */
 export type ComputerHealth = { state: "healthy" | "suspect" | "restarting" | "unresponsive" | "unknown"; failures?: number; restarts?: number; restarted_at?: string; next_restart_at?: string };
+
+/** One source in a web search or web fetch chain (`GET /api/web-tools`). */
+export interface WebSourceEntry {
+  id: string;
+  label: string;
+  kind: "native" | "builtin" | "api" | "self_hosted" | "computer";
+  paid: boolean;
+  /** Always available and always first: not reordered, not switched off. */
+  fixed: boolean;
+  enabled: boolean;
+  status: "ready" | "needs_key" | "needs_address" | "error" | "always" | "off";
+  /** A stable code (auth_failed, quota_exceeded, blocked, empty_content, needs_javascript, network, not_configured). */
+  error_code?: string;
+  key_hint?: string;
+  zone?: string;
+  base_url?: string;
+  fields?: ("key" | "zone" | "base_url")[];
+  testable: boolean;
+  tested_at?: string;
+}
+
+export interface WebToolsView {
+  enabled: boolean;
+  computer: boolean;
+  search: WebSourceEntry[];
+  fetch: WebSourceEntry[];
+  search_offered: boolean;
+  test?: { id: string; ok: boolean; code: string };
+}

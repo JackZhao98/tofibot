@@ -411,6 +411,16 @@
       "files_read": "파일 읽기",
       "files_write": "파일 쓰기",
       "files_list": "파일 목록"
+    },
+    "via": "{{source}} 경유",
+    "source": {
+      "tavily": "Tavily",
+      "brave": "Brave Search",
+      "searxng": "SearXNG",
+      "firecrawl": "Firecrawl",
+      "brightdata": "Bright Data",
+      "builtin": "기본 제공 가져오기",
+      "computer": "Bot 컴퓨터"
     }
   },
   "review": {

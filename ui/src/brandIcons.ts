@@ -38,6 +38,12 @@ export const brandIcons: BrandIcon[] = [
   { key: "microsoft-learn", ids: ["microsoft-learn"], match: /\bMicrosoft\b/i, src: dir + "microsoft-learn.svg", label: "Microsoft Learn" },
   { key: "discord", ids: ["discord"], match: /\bDiscord\b/i, src: dir + "discord-color.svg", label: "Discord" },
   { key: "slack", ids: ["slack"], match: /\bSlack\b/i, src: dir + "slack.png", label: "Slack" },
+  // Web search and fetch providers (Settings > Web search & fetch); not directory services, so no catalog ids.
+  { key: "tavily", ids: [], match: /\bTavily\b/i, src: dir + "tavily.svg", label: "Tavily" },
+  { key: "brave", ids: [], match: /\bBrave\b/i, src: dir + "brave.svg", label: "Brave Search" },
+  { key: "searxng", ids: [], match: /\bSearXNG\b/i, src: dir + "searxng.svg", label: "SearXNG" },
+  { key: "firecrawl", ids: [], match: /\bFirecrawl\b/i, src: dir + "firecrawl.png", label: "Firecrawl" },
+  { key: "brightdata", ids: [], match: /\bBright Data\b/i, src: dir + "brightdata.png", label: "Bright Data" },
   { key: "yahoo-finance", ids: ["yahoo-finance"], match: /\bYahoo\b/i, src: dir + "yahoo-finance.svg", label: "Yahoo Finance" },
 ];
 

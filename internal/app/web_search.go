@@ -22,6 +22,10 @@ const webSearchMaxUsesPerRequest = 3
 // billed as ordinary input on the request that read it).
 const webFetchMaxUsesPerRequest = 3
 
+// Runs whose model has no server-side search get the server-run tools instead
+// (web_tools.go, decision 0068): same names, ordered provider chains, results
+// that name their source. The model's own tools win whenever they are offered.
+
 // webSearchMaxUses is the per-request search cap for a run, 0 when the run has
 // no server-side search: the model is not an Anthropic one, the owner switched
 // it off (TOFI_WEB_SEARCH=off), or a tool of the same name already exists.

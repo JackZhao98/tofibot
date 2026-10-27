@@ -3023,7 +3023,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if s.routeUsage(w, r, p) || s.routeUsageRuns(w, r, p) {
 		return
 	}
-	if s.routeProviders(w, r, p) {
+	if s.routeProviders(w, r, p) || s.routeWebTools(w, r, p) {
 		return
 	}
 	if p == "automation-settings" {
@@ -4900,6 +4900,7 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 	if s.store.hasPairedComputer() {
 		base = append(base, s.computerTools(r)...)
 	}
+	base = append(base, s.webTools(r)...)
 	base = append(base, s.microVMTools(r)...)
 	return append(append(append(base, s.teamTools(c, r)...), s.scheduleTools(c, r)...), s.workItemTools(c, r)...)
 }

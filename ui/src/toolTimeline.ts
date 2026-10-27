@@ -152,6 +152,19 @@ export function toolActionLabel(activity: Pick<ToolActivity, "name" | "arguments
 }
 
 /**
+ * Which provider served a web_search / web_fetch call: the server puts it first in the result (`{"source":"tavily",...}`),
+ * so it is readable even from a shortened preview. Returns "via Tavily"-style text, or undefined when the result names none.
+ */
+export function toolSourceLabel(activity: Pick<ToolActivity, "name" | "result">, locale?: Language): string | undefined {
+  if (activity.name !== "web_search" && activity.name !== "web_fetch") return undefined;
+  const id = /^\s*\{"source":"([a-z]{2,20})"/.exec(activity.result ?? "")?.[1];
+  if (!id) return undefined;
+  const t = i18n.getFixedT(locale ?? null, "tasks");
+  const known = ["tavily", "brave", "searxng", "firecrawl", "brightdata", "builtin", "computer"].includes(id);
+  return t("tool.via", { source: known ? t(`tool.source.${id as "tavily"}`) : id });
+}
+
+/**
  * Consecutive finished calls of the same tool and action fold into one group (a row with a count). Anything that is
  * running, queued or has a problem stays its own entry, so a failure is never hidden inside a fold.
  */

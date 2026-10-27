@@ -16,6 +16,7 @@ import {ModelDefaults} from "../ModelSettings";
 import {OwnerAccount} from "../OwnerSession";
 import {PortabilitySettings} from "../PortabilitySettings";
 import {ModelProviders} from "../ProviderSettings";
+import {WebToolsSettings} from "../WebToolsSettings";
 import type {SettingsTab} from "../SettingsShell";
 import {ShowActivitySetting,TimezoneSetting} from "../UserTimezone";
 import {UsagePanel} from "../UsagePanel";
@@ -82,6 +83,7 @@ function ModelsPage({slots}:SettingsPagesProps){
   <div className="settings-stack">
    <ModelProviders refreshToken={slots.providersRefresh} onConfigured={slots.onProvidersConfigured} codex={slots.codex}/>
    <ModelDefaults/>
+   <WebToolsSettings/>
   </div>
   <div className="settings-stack"><SettingsSection title={t("dictation.title")}><DictationSettings/></SettingsSection></div>
  </div>;

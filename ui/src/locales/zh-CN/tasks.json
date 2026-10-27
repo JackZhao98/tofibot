@@ -411,6 +411,16 @@
       "files_read": "读取文件",
       "files_write": "写入文件",
       "files_list": "列出文件"
+    },
+    "via": "经 {{source}}",
+    "source": {
+      "tavily": "Tavily",
+      "brave": "Brave Search",
+      "searxng": "SearXNG",
+      "firecrawl": "Firecrawl",
+      "brightdata": "Bright Data",
+      "builtin": "内置抓取",
+      "computer": "Bot 的电脑"
     }
   },
   "review": {

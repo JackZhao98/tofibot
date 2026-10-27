@@ -417,6 +417,16 @@
       "files_read": "Datei lesen",
       "files_write": "Datei schreiben",
       "files_list": "Dateien auflisten"
+    },
+    "via": "über {{source}}",
+    "source": {
+      "tavily": "Tavily",
+      "brave": "Brave Search",
+      "searxng": "SearXNG",
+      "firecrawl": "Firecrawl",
+      "brightdata": "Bright Data",
+      "builtin": "eingebauter Abruf",
+      "computer": "Computer des Bots"
     }
   },
   "review": {

@@ -19,6 +19,8 @@ import { integrationCatalog } from "../../integrationCatalog";
 import { SkillLibraryView, type SkillLibraryViewProps } from "../../settings/SkillLibrary";
 import { BotSkillsView, type BotSkillsViewProps } from "../../BotSkills";
 import type { LibraryListing, BotSkillListing } from "../../skillLibrary";
+import { WebToolsSettings } from "../../WebToolsSettings";
+import type { WebSourceEntry, WebToolsView } from "../../types";
 import type { CatalogSection, CatalogState } from "../types";
 
 const noop = () => {};
@@ -92,9 +94,34 @@ function Choice({ disabled = false }: { disabled?: boolean }) {
     options={(["system", "light", "dark"] as const).map(key => ({ value: key, label: t(`settings:appearance.${key}`) }))} />;
 }
 
+// Settings › Web search & fetch (components.md §17): two ordered lists of sources, synthetic keys and addresses only.
+const webSource = (id: string, label: string, kind: WebSourceEntry["kind"], extra: Partial<WebSourceEntry> = {}): WebSourceEntry =>
+  ({ id, label, kind, paid: false, fixed: false, enabled: true, status: "needs_key", testable: kind !== "computer", ...extra });
+const webNative = webSource("native", "Model web search", "native", { fixed: true, status: "always", testable: false });
+const webBuiltin = webSource("builtin", "Built-in fetch", "builtin", { fixed: true, status: "always" });
+const webView = (search: WebSourceEntry[], fetch: WebSourceEntry[], extra: Partial<WebToolsView> = {}): WebToolsView =>
+  ({ enabled: true, computer: false, search: [webNative, ...search], fetch: [webBuiltin, ...fetch], search_offered: true, ...extra });
+const webTavily = (extra: Partial<WebSourceEntry> = {}) => webSource("tavily", "Tavily", "api", { paid: true, fields: ["key"], ...extra });
+const webBrave = (extra: Partial<WebSourceEntry> = {}) => webSource("brave", "Brave Search", "api", { paid: true, fields: ["key"], ...extra });
+const webSearx = (extra: Partial<WebSourceEntry> = {}) => webSource("searxng", "SearXNG", "self_hosted", { fields: ["base_url"], status: "needs_address", ...extra });
+const webFirecrawl = (extra: Partial<WebSourceEntry> = {}) => webSource("firecrawl", "Firecrawl", "api", { paid: true, fields: ["key"], ...extra });
+const webBright = (extra: Partial<WebSourceEntry> = {}) => webSource("brightdata", "Bright Data", "api", { paid: true, fields: ["key", "zone"], ...extra });
+const webComputer = (extra: Partial<WebSourceEntry> = {}) => webSource("computer", "Bot computer", "computer", { status: "ready", ...extra });
+const webState = (id: string, label: string, view: WebToolsView, extra: Partial<CatalogState> = {}): CatalogState =>
+  ({ id: `web-tools-${id}`, kind: "inline", label: `Web search & fetch: ${label}`, render: () => <WebToolsSettings initial={view} />, ...extra });
+
 export const settings: CatalogSection = {
   id: "settings", number: "17", title: "Settings rows and components", context: ["settings-page-body"],
   states: [
+    webState("needs-setup", "nothing set up (the notice says Bots cannot search)", webView([webTavily(), webBrave(), webSearx()], [webFirecrawl(), webBright()], { search_offered: false })),
+    webState("ready", "ready, one key rejected, one out of credit", webView(
+      [webTavily({ status: "ready", key_hint: "…9a2f" }), webBrave({ status: "error", error_code: "quota_exceeded", key_hint: "…77c1" }), webSearx({ status: "ready", base_url: "http://searxng.example.test:8080" })],
+      [webFirecrawl({ status: "error", error_code: "auth_failed", key_hint: "…b3d0" }), webBright({ status: "ready", key_hint: "…4e18", zone: "web_unlocker1" })])),
+    webState("computer", "with a Bot computer, one source switched off", webView(
+      [webTavily({ status: "off", enabled: false, key_hint: "…9a2f" }), webBrave(), webSearx(), webComputer()], [webFirecrawl(), webBright(), webComputer()], { computer: true })),
+    webState("form-open", "key form open", webView([webTavily({ status: "ready", key_hint: "…9a2f" }), webBrave(), webSearx()], [webFirecrawl(), webBright()]),
+      { drive: step => step.click('.web-row[data-id="tavily"] button[aria-expanded]').then(() => undefined) }),
+    webState("master-off", "web search switched off in Automatic behavior", webView([webTavily({ status: "ready", key_hint: "…9a2f" }), webBrave(), webSearx()], [webFirecrawl(), webBright()], { enabled: false })),
     libraryState("library", "Skills library: owner, Bot-installed, bundle, official", {}),
     libraryState("library-open", "Skills library: bundle expanded", () => ({ openBundles: ["office-kit"], notice: t("extensions:skills.library.added_notice") })),
     libraryState("library-pending", "Skills library: choose Bots for a new Skill", { pending: "Weekly report" }),
