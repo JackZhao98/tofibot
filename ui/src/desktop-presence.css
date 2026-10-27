@@ -206,6 +206,7 @@ html:not([data-desktop]) .desktop-floating-shell.is-expanded .remote-desktop-sur
 .computer-detail:is(:hover,:focus-within) .desktop-window-controls,.desktop-floating-shell.is-expanded .desktop-window-controls{opacity:1}
 @media(hover:none){.desktop-window-controls{opacity:1}}
 .desktop-window-controls .desktop-control-button{color:var(--desktop-controls-ink)}
+.desktop-window-controls .widget-grip{touch-action:none}
 .desktop-window-controls .desktop-control-button:hover{background:var(--desktop-controls-hover)}
 @media(max-width:700px){.desktop-window-controls .desktop-control-button{flex-basis:36px;width:36px;height:36px}}
 @media(prefers-reduced-motion:reduce){.desktop-window-controls{transition:none}}

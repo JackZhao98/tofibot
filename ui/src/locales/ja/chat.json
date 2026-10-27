@@ -190,7 +190,8 @@
       "memory": "メモリ",
       "outputs": "成果物",
       "schedule": "タスク",
-      "terminal": "ターミナル"
+      "terminal": "ターミナル",
+      "usage": "使用量"
     }
   },
   "cover": {
@@ -746,6 +747,47 @@
     "waiting_result": "結果を待っています…",
     "waiting_step": "{{name}} を待機中 · ステップ {{step}}"
   },
+  "usageWidget": {
+    "all": "すべての使用量",
+    "calls_other": "{{count}} 回の呼び出し",
+    "context": "コンテキスト",
+    "conversation": "会話",
+    "cost": "参考金額",
+    "coverage": "リクエスト詳細は {{runs}} 回中 {{covered}} 回分（7 日間保持）。",
+    "empty": "この会話で最初の実行が終わると使用量が表示されます。",
+    "error": "使用量を読み込めませんでした。",
+    "estimated": "呼び出し前の推定",
+    "input": "入力",
+    "loading": "使用量を読み込み中",
+    "measured": "モデルの報告値",
+    "output": "出力",
+    "part": {
+      "instructions": "指示",
+      "history": "履歴",
+      "tool_definitions": "ツール定義",
+      "tool_results": "ツール結果",
+      "memory_notes": "メモリとメモ",
+      "attachments": "添付",
+      "other": "その他"
+    },
+    "parts_label": "コンテキストの内訳",
+    "parts_unavailable": "直近の実行には内訳がありません。",
+    "requests": "リクエスト",
+    "retry": "再試行",
+    "review": "レビュー",
+    "ring_label": "コンテキストウィンドウの {{percent}} を使用、{{used}} / {{window}} トークン",
+    "split": "ツールと会話",
+    "split_label": "ツール {{tools}}、会話 {{conversation}}",
+    "split_unavailable": {
+      "call_detail_incomplete": "呼び出しごとの詳細は 7 日間のみ保持されるため、この会話は分けられません。",
+      "no_usage": "この会話の使用量はまだ記録されていません。"
+    },
+    "tool_runs_other": "ツール実行 {{count}} 回",
+    "tools": "ツール",
+    "totals": "合計",
+    "unpriced_other": "価格のないリクエスト {{count}} 件は含まれていません",
+    "window_estimated": "ウィンドウは推定"
+  },
   "viewOnly": {
     "at_start": "会話の先頭です",
     "close": "閉じる",
@@ -761,6 +803,13 @@
     "older_failed": "以前のメッセージを読み込めませんでした。",
     "read_only": "閲覧専用の会話",
     "retry_older": "以前のメッセージを再読み込み"
+  },
+  "widgetOrder": {
+    "at_bottom": "{{title}}はすでに末尾です",
+    "at_top": "{{title}}はすでに先頭です",
+    "grip": "{{title}}を移動",
+    "grip_hint": "ドラッグで移動、または矢印キー",
+    "moved": "{{title}}は {{count}} 件中 {{position}} 番目になりました"
   },
   "working": {
     "aria": "{{name}}：{{status}}",

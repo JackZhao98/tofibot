@@ -1,6 +1,6 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { api } from "./api";
-import { ArchivePanel, ArtifactsPanel, ArtifactsWidget, chunk, MemoryPanel, ViewOnlyChat, WorkPanel } from "./lazyPanels";
+import { ArchivePanel, ArtifactsPanel, ArtifactsWidget, chunk, MemoryPanel, UsageWidget, ViewOnlyChat, WorkPanel } from "./lazyPanels";
 import { GroupSettingsPanel } from "./GroupSettingsPanel";
 import { MembersWidget } from "./MembersWidget";
 import { NewGroupDialog } from "./NewGroupDialog";
@@ -33,6 +33,10 @@ export type SurfaceCtx = {
   artifactsMode: "artifacts" | "artifacts-bot" | "artifacts-group"; setArtifactsMode: (mode: SurfaceCtx["artifactsMode"]) => void;
   /** Opens Settings on a tab (the cover that is open is replaced). */
   openSettings: (tab: SettingsTab) => void;
+  /** Opens Settings › Usage for this conversation's Bot (the Usage widget's "All usage"). */
+  openUsageSettings: () => void;
+  /** A run of the conversation on screen is queued or running (the Usage widget re-reads when it finishes). */
+  running: boolean;
   /** The workspace's surface state: the views close and open surfaces with the functions of surfaces.ts. */
   surf: (update: (current: Surfaces) => Surfaces) => void;
   openConversation: (id: string) => void; openMessage: (conversationId: string, messageId: string) => void; openSettingsAdvanced: (botId: string) => void;
@@ -72,6 +76,7 @@ export function SidebarView({ id, ctx }: { id: SidebarId; ctx: SurfaceCtx }) {
 export function WidgetView({ id, ctx }: { id: Exclude<WidgetId, "computer">; ctx: SurfaceCtx }) {
   const { active } = ctx;
   if (id === "members") return active?.kind === "group" ? <MembersWidget conversation={active} bots={ctx.bots} tasksByBot={ctx.roster} onOpen={ctx.openConversation} onSettings={() => ctx.surf(current => openCover(current, "group-settings"))} /> : null;
+  if (id === "usage") return active ? <Suspense fallback={null}><UsageWidget conversationId={active.id} running={ctx.running} onAll={ctx.openUsageSettings} /></Suspense> : null;
   return active ? <Suspense fallback={null}><ArtifactsWidget conversationId={active.id} refreshToken={ctx.lastMessageId} onAll={() => { ctx.setArtifactsMode("artifacts-group"); ctx.surf(current => openCover(current, "artifacts")); }} /></Suspense> : null;
 }
 

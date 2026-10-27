@@ -1,6 +1,6 @@
 import { useEffect, useRef, type RefObject } from "react";
 import { topLayerDialog } from "./layers";
-import { escapeTarget, type EscapeTarget, type Surfaces } from "./surfaces";
+import { escapeTarget, type EscapeTarget, type Surfaces, type WidgetId } from "./surfaces";
 
 /**
  * Escape for every surface, in one place (docs/design/widgets-and-sidebar.md section 7). One press closes one thing, in this order:
@@ -24,7 +24,7 @@ export function useSurfaceEscape({ surfaces, bigComputer, phoneSheet, shrinkComp
   /** The big window is a full-screen sheet (no compact form to go back to). */
   phoneSheet: boolean;
   shrinkComputer: () => void;
-  closeWidget: (id: "computer" | "members" | "artifacts") => void;
+  closeWidget: (id: WidgetId) => void;
   closeSidebar: () => void;
   /** Settings is a cover that is not a Radix dialog: it owns its unsaved-changes question. */
   closeSettings: () => void;

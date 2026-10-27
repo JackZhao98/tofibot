@@ -191,7 +191,8 @@
       "memory": "Memory",
       "outputs": "Outputs",
       "schedule": "Tasks",
-      "terminal": "Terminal"
+      "terminal": "Terminal",
+      "usage": "Usage"
     }
   },
   "cover": {
@@ -770,6 +771,50 @@
     "waiting_result": "Waiting for result…",
     "waiting_step": "Waiting for {{name}} · step {{step}}"
   },
+  "usageWidget": {
+    "all": "All usage",
+    "calls_one": "{{count}} call",
+    "calls_other": "{{count}} calls",
+    "context": "Context",
+    "conversation": "Conversation",
+    "cost": "Equivalent cost",
+    "coverage": "Request detail covers {{covered}} of {{runs}} runs (kept 7 days).",
+    "empty": "Usage shows up after the first run in this chat.",
+    "error": "Couldn't read usage.",
+    "estimated": "Estimated before the call",
+    "input": "Input",
+    "loading": "Loading usage",
+    "measured": "Reported by the model",
+    "output": "Output",
+    "part": {
+      "instructions": "Instructions",
+      "history": "History",
+      "tool_definitions": "Tool definitions",
+      "tool_results": "Tool results",
+      "memory_notes": "Memory and notes",
+      "attachments": "Attachments",
+      "other": "Other"
+    },
+    "parts_label": "Context by part",
+    "parts_unavailable": "No breakdown for the latest run.",
+    "requests": "Requests",
+    "retry": "Try again",
+    "review": "Review",
+    "ring_label": "Context window {{percent}} used, {{used}} of {{window}} tokens",
+    "split": "Tools and conversation",
+    "split_label": "Tools {{tools}}, conversation {{conversation}}",
+    "split_unavailable": {
+      "call_detail_incomplete": "Per-call detail is kept for 7 days, so this chat can't be split.",
+      "no_usage": "No usage recorded in this chat yet."
+    },
+    "tool_runs_one": "{{count}} tool run",
+    "tool_runs_other": "{{count}} tool runs",
+    "tools": "Tools",
+    "totals": "Totals",
+    "unpriced_one": "{{count}} request has no price and is left out",
+    "unpriced_other": "{{count}} requests have no price and are left out",
+    "window_estimated": "window estimated"
+  },
   "viewOnly": {
     "at_start": "Start of conversation",
     "close": "Close",
@@ -786,6 +831,13 @@
     "older_failed": "Couldn't load earlier messages.",
     "read_only": "Read-only conversation",
     "retry_older": "Retry loading earlier messages"
+  },
+  "widgetOrder": {
+    "at_bottom": "{{title}} is already last",
+    "at_top": "{{title}} is already first",
+    "grip": "Move {{title}}",
+    "grip_hint": "Drag to move, or use the arrow keys",
+    "moved": "{{title}} is now {{position}} of {{count}}"
   },
   "working": {
     "aria": "{{name}}: {{status}}",

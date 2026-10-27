@@ -12,17 +12,18 @@ const output = await mkdtemp(join(tmpdir(), "tofi-surfaces-"));
 try {
   await promisify(execFile)(join(root, "node_modules/.bin/tsc"), ["src/surfaces.ts", "--ignoreConfig", "--target", "ES2022", "--module", "ES2022", "--moduleResolution", "Bundler", "--outDir", output, "--skipLibCheck", "--pretty", "false"], { cwd: root });
   const S = await import(pathToFileURL(join(output, "surfaces.js")));
-  const { emptySurfaces: empty, openWidget, closeWidget, toggleWidget, foldWidget, openSidebar, closeSidebar, toggleSidebar, toggleSidebarExpanded, autoOpenWidget, setWidgetFolded, openCover, closeCover, closeAll, escapeTarget, isEmpty, WIDGET_ORDER, stashWidgets, suppressedRunsOf, forgetWidgets, enterConversation } = S;
+  const { emptySurfaces: empty, openWidget, closeWidget, toggleWidget, foldWidget, openSidebar, closeSidebar, toggleSidebar, toggleSidebarExpanded, autoOpenWidget, setWidgetFolded, openCover, closeCover, closeAll, escapeTarget, isEmpty, WIDGET_ORDER, stashWidgets, suppressedRunsOf, forgetWidgets, enterConversation, moveWidget, normalizeWidgetOrder, sortWidgets, spaceFoldTarget } = S;
   const shape = s => ({ widgets: s.widgets, folded: s.folded, sidebar: s.sidebar, cover: s.cover });
   const run = (...steps) => steps.reduce((state, step) => step(state), empty());
 
-  // Fixed order, whatever the opening order; one of each; at most three.
-  assert.deepEqual(WIDGET_ORDER, ["computer", "members", "artifacts"]);
-  const orders = [["artifacts", "members", "computer"], ["members", "artifacts", "computer"], ["computer", "artifacts", "members"], ["artifacts", "artifacts", "computer", "computer"]];
+  // The default order, whatever the opening order; one of each; at most four.
+  assert.deepEqual(WIDGET_ORDER, ["computer", "members", "artifacts", "usage"]);
+  assert.deepEqual(empty().order, [...WIDGET_ORDER], "a fresh state follows the default order");
+  const orders = [["artifacts", "members", "computer"], ["members", "artifacts", "computer"], ["computer", "artifacts", "members"], ["artifacts", "artifacts", "computer", "computer"], ["usage", "artifacts", "members", "computer"]];
   for (const opened of orders) {
     const state = run(...opened.map(id => s => openWidget(s, id)));
     assert.deepEqual(state.widgets, [...WIDGET_ORDER].filter(id => opened.includes(id)), `order for ${opened}`);
-    assert.ok(state.widgets.length <= 3);
+    assert.ok(state.widgets.length <= 4);
   }
 
   // Close and toggle.
@@ -134,6 +135,55 @@ try {
   forgetWidgets(memory, "C");
   assert.equal(memory.has("C"), false);
   assert.equal(suppressedRunsOf(memory, "C").size, 0);
+
+  // Reordering (D67 addendum): the order is the person's, applies to every open and every later open, and keeps the slots of closed widgets.
+  const four = run(...WIDGET_ORDER.map(id => s => openWidget(s, id)));
+  assert.deepEqual(four.widgets, [...WIDGET_ORDER]);
+  const moved = moveWidget(four, "usage", 0);
+  assert.deepEqual(moved.widgets, ["usage", "computer", "members", "artifacts"], "to the top");
+  assert.deepEqual(moved.order, ["usage", "computer", "members", "artifacts"], "the saved order follows");
+  assert.equal(moveWidget(moved, "usage", 0), moved, "already there: same object");
+  assert.equal(moveWidget(idle, "usage", 0), idle, "a closed widget cannot be moved");
+  assert.deepEqual(moveWidget(four, "computer", 99).widgets, ["members", "artifacts", "usage", "computer"], "past the end clamps to the bottom");
+  assert.deepEqual(moveWidget(four, "members", -5).widgets, ["members", "computer", "artifacts", "usage"], "before the start clamps to the top");
+  assert.deepEqual(moveWidget(four, "computer", 1).widgets, ["members", "computer", "artifacts", "usage"], "one step down");
+  assert.deepEqual(moveWidget(four, "artifacts", 1).widgets, ["computer", "artifacts", "members", "usage"], "one step up");
+  // Closed widgets keep their slots: with Members closed, moving Usage above Computer leaves Members where it was.
+  let sparse = run(s => openWidget(s, "computer"), s => openWidget(s, "artifacts"), s => openWidget(s, "usage"));
+  sparse = moveWidget(sparse, "usage", 0);
+  assert.deepEqual(sparse.widgets, ["usage", "computer", "artifacts"]);
+  assert.deepEqual(sparse.order, ["usage", "members", "computer", "artifacts"], "the closed Members keeps its slot between the open ones");
+  const reopened = openWidget(sparse, "members");
+  assert.deepEqual(reopened.widgets, ["usage", "members", "computer", "artifacts"], "a widget that opens later lands at its saved place");
+  assert.deepEqual(autoOpenWidget(sparse, "members").widgets, ["usage", "members", "computer", "artifacts"], "so does one that opens by itself");
+  assert.deepEqual(closeAll(moved).order, moved.order, "closing everything keeps the order");
+  assert.deepEqual(closeWidget(moved, "usage").order, moved.order, "closing a widget keeps the order");
+  // The order is the same in every conversation: entering one sorts what it remembers by the person's order.
+  const memo = new Map();
+  stashWidgets(memo, "A", four);
+  assert.deepEqual(enterConversation(moved, memo, "A").widgets, ["usage", "computer", "members", "artifacts"], "a remembered set comes back in the current order");
+  // A saved order from storage: junk dropped, repeats dropped, missing widgets appended in the default order.
+  assert.deepEqual(normalizeWidgetOrder(null), [...WIDGET_ORDER]);
+  assert.deepEqual(normalizeWidgetOrder("members"), [...WIDGET_ORDER]);
+  assert.deepEqual(normalizeWidgetOrder(["artifacts", "bogus", "artifacts", 3, "computer"]), ["artifacts", "computer", "members", "usage"]);
+  assert.deepEqual(normalizeWidgetOrder(["usage", "computer", "members", "artifacts"]), ["usage", "computer", "members", "artifacts"]);
+  assert.deepEqual(sortWidgets(["members", "usage", "computer"], ["usage", "computer", "members", "artifacts"]), ["usage", "computer", "members"]);
+  // Escape follows the person's order from the bottom up, and the computer still goes last wherever it sits.
+  const flipped = moveWidget(moveWidget(four, "computer", 3), "usage", 0);
+  assert.deepEqual(flipped.widgets, ["usage", "members", "artifacts", "computer"]);
+  assert.deepEqual(escapeTarget(flipped), { layer: "widget", id: "artifacts" }, "the computer at the bottom is not the first to close");
+  assert.deepEqual(escapeTarget(closeWidget(closeWidget(closeWidget(flipped, "usage"), "members"), "artifacts")), { layer: "widget", id: "computer" }, "alone, it closes");
+  // Space rule: from the bottom of the order up, never the computer, never one the person unfolded; the first fold is unconditional.
+  assert.equal(spaceFoldTarget(run(s => openWidget(s, "computer"), s => openWidget(s, "members")), { overflow: true }), null, "two widgets: nothing to fold");
+  assert.equal(spaceFoldTarget(run(s => openWidget(s, "computer"), s => openWidget(s, "members"), s => openWidget(s, "artifacts")), { overflow: false }), "artifacts", "three, default order: Artifacts first");
+  assert.equal(spaceFoldTarget(four, { overflow: false }), "usage", "four: Usage first, before Artifacts and Members");
+  const usageFolded = setWidgetFolded(four, "usage", true);
+  assert.equal(spaceFoldTarget(usageFolded, { overflow: false }), null, "the next fold waits for an overflow");
+  assert.equal(spaceFoldTarget(usageFolded, { overflow: true }), "artifacts");
+  assert.equal(spaceFoldTarget(usageFolded, { overflow: true, skip: new Set(["artifacts"]) }), "members", "one the person unfolded is skipped");
+  assert.equal(spaceFoldTarget(setWidgetFolded(setWidgetFolded(usageFolded, "artifacts", true), "members", true), { overflow: true }), null, "the computer never folds this way");
+  assert.equal(spaceFoldTarget(flipped, { overflow: false }), "artifacts", "follows the saved order: Artifacts is the lowest non-computer widget");
+  assert.equal(spaceFoldTarget(moveWidget(four, "usage", 0), { overflow: false }), "artifacts", "Usage moved to the top is not the first to fold");
 
   console.log("surfaces ok");
 } finally {

@@ -190,7 +190,8 @@
       "memory": "메모리",
       "outputs": "산출물",
       "schedule": "작업",
-      "terminal": "터미널"
+      "terminal": "터미널",
+      "usage": "사용량"
     }
   },
   "cover": {
@@ -746,6 +747,47 @@
     "waiting_result": "결과를 기다리는 중…",
     "waiting_step": "{{name}} 대기 중 · {{step}}단계"
   },
+  "usageWidget": {
+    "all": "전체 사용량",
+    "calls_other": "호출 {{count}}회",
+    "context": "컨텍스트",
+    "conversation": "대화",
+    "cost": "참고 금액",
+    "coverage": "요청 상세는 {{runs}}회 중 {{covered}}회 실행분입니다(7일 보관).",
+    "empty": "이 대화에서 첫 실행이 끝나면 사용량이 표시됩니다.",
+    "error": "사용량을 불러오지 못했습니다.",
+    "estimated": "호출 전 추정",
+    "input": "입력",
+    "loading": "사용량 불러오는 중",
+    "measured": "모델이 보고한 값",
+    "output": "출력",
+    "part": {
+      "instructions": "지침",
+      "history": "기록",
+      "tool_definitions": "도구 정의",
+      "tool_results": "도구 결과",
+      "memory_notes": "메모리와 노트",
+      "attachments": "첨부",
+      "other": "기타"
+    },
+    "parts_label": "구성별 컨텍스트",
+    "parts_unavailable": "최근 실행의 구성 내역이 없습니다.",
+    "requests": "요청",
+    "retry": "다시 시도",
+    "review": "검토",
+    "ring_label": "컨텍스트 창 {{percent}} 사용, {{used}} / {{window}} 토큰",
+    "split": "도구와 대화",
+    "split_label": "도구 {{tools}}, 대화 {{conversation}}",
+    "split_unavailable": {
+      "call_detail_incomplete": "호출별 상세는 7일간만 보관되어 이 대화는 나눌 수 없습니다.",
+      "no_usage": "이 대화에는 아직 기록된 사용량이 없습니다."
+    },
+    "tool_runs_other": "도구 실행 {{count}}회",
+    "tools": "도구",
+    "totals": "합계",
+    "unpriced_other": "가격이 없는 요청 {{count}}건은 제외됨",
+    "window_estimated": "창 크기는 추정"
+  },
   "viewOnly": {
     "at_start": "대화의 처음입니다",
     "close": "닫기",
@@ -761,6 +803,13 @@
     "older_failed": "이전 메시지를 불러오지 못했습니다.",
     "read_only": "읽기 전용 대화",
     "retry_older": "이전 메시지 다시 불러오기"
+  },
+  "widgetOrder": {
+    "at_bottom": "{{title}}은(는) 이미 맨 아래입니다",
+    "at_top": "{{title}}은(는) 이미 맨 위입니다",
+    "grip": "{{title}} 이동",
+    "grip_hint": "드래그하거나 화살표 키로 이동",
+    "moved": "{{title}}: {{count}}개 중 {{position}}번째"
   },
   "working": {
     "aria": "{{name}}: {{status}}",

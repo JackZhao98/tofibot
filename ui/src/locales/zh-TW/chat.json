@@ -190,7 +190,8 @@
       "memory": "記憶",
       "outputs": "產出",
       "schedule": "任務",
-      "terminal": "終端機"
+      "terminal": "終端機",
+      "usage": "用量"
     }
   },
   "cover": {
@@ -746,6 +747,47 @@
     "waiting_result": "等待結果…",
     "waiting_step": "等待 {{name}} · 第 {{step}} 步"
   },
+  "usageWidget": {
+    "all": "全部用量",
+    "calls_other": "{{count}} 次呼叫",
+    "context": "上下文",
+    "conversation": "對話",
+    "cost": "等值費用",
+    "coverage": "請求明細涵蓋 {{runs}} 次執行中的 {{covered}} 次（保留 7 天）。",
+    "empty": "這個對話執行一次後才會有用量。",
+    "error": "無法讀取用量。",
+    "estimated": "呼叫前估算",
+    "input": "輸入",
+    "loading": "正在讀取用量",
+    "measured": "模型回報",
+    "output": "輸出",
+    "part": {
+      "instructions": "指令",
+      "history": "歷史",
+      "tool_definitions": "工具定義",
+      "tool_results": "工具結果",
+      "memory_notes": "記憶與備註",
+      "attachments": "附件",
+      "other": "其他"
+    },
+    "parts_label": "依部分劃分的上下文",
+    "parts_unavailable": "最近一次執行沒有可用的組成明細。",
+    "requests": "請求",
+    "retry": "重試",
+    "review": "審查",
+    "ring_label": "上下文視窗已用 {{percent}}，{{used}} / {{window}} token",
+    "split": "工具與對話",
+    "split_label": "工具 {{tools}}，對話 {{conversation}}",
+    "split_unavailable": {
+      "call_detail_incomplete": "逐次呼叫明細只保留 7 天，這個對話無法拆分。",
+      "no_usage": "這個對話還沒有用量記錄。"
+    },
+    "tool_runs_other": "{{count}} 次工具執行",
+    "tools": "工具",
+    "totals": "合計",
+    "unpriced_other": "{{count}} 次請求沒有定價，未計入",
+    "window_estimated": "視窗為估算值"
+  },
   "viewOnly": {
     "at_start": "已到對話開頭",
     "close": "關閉",
@@ -761,6 +803,13 @@
     "older_failed": "暫時無法讀取更早的訊息。",
     "read_only": "唯讀對話",
     "retry_older": "重試讀取更早的訊息"
+  },
+  "widgetOrder": {
+    "at_bottom": "{{title}}已在最下",
+    "at_top": "{{title}}已在最上",
+    "grip": "移動{{title}}",
+    "grip_hint": "拖曳移動，或使用方向鍵",
+    "moved": "{{title}}現在排第 {{position}} / {{count}}"
   },
   "working": {
     "aria": "{{name}}：{{status}}",

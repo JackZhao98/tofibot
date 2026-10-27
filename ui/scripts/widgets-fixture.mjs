@@ -18,6 +18,19 @@ const text = (n, role, content, conversation = DM) => ({ id: `msg-${conversation
 export const talk = (conversation = DM) => [text(1, "user", "Can you pull the quarterly numbers together?", conversation), text(2, "assistant", "On it. I will put the results in files you can open.", conversation)];
 export const botOwner = (run = "run-1", conversation = DM) => ({ owner: { kind: "bot", bot_id: BOT.id, run_id: run, conversation_id: conversation.id }, waiting: [] });
 
+/** GET /api/conversations/{id}/usage as the Usage widget reads it (internal/app/conversation_usage.go). */
+export const usageFor = (conversationId, { split = true, snapshot = true, total = 61_400 } = {}) => ({
+  conversation_id: conversationId,
+  totals: { runs: 14, runs_with_call_detail: split ? 14 : 3, requests: 41, input_tokens: 1_284_000, output_tokens: 52_300, equivalent_usd: 1.86, unpriced_requests: 0 },
+  per_model: [{ model: "synthetic-model", requests: 41, input_tokens: 1_284_000, output_tokens: 52_300, equivalent_usd: 1.86, unpriced_requests: 0 }],
+  latest_context: {
+    run_id: "run-usage", model: "synthetic-model", used_tokens: total, used_measured: true, window_tokens: 200_000, window_known: true,
+    parts: snapshot ? [["instructions", 6800], ["history", 31200], ["tool_definitions", 9400], ["tool_results", 8900], ["memory_notes", 3100], ["attachments", 1100], ["other", 900]].map(([kind, tokens]) => ({ kind, tokens, estimated: true })) : [],
+    parts_tokens: snapshot ? total : 0, ...(snapshot ? {} : { parts_code: "context_snapshot_unavailable" }),
+  },
+  tool_split: split ? { available: true, tool_tokens: 742_000, conversation_tokens: 468_000, review_tokens: 21_000, tool_model_calls: 24, conversation_model_calls: 15, tool_calls: 52, basis: "calls" } : { available: false, code: "call_detail_incomplete" },
+});
+
 /**
  * `state` is read live by the stubs: { artifacts: {[conversationId]: item[]}, messages: {[conversationId]: message[]}, ownership, settings: {widget_artifacts_auto, widget_computer_auto},
  * events: {[conversationId]: [{id, type, data}]}, info }. `push(conversationId, type, data)` queues a conversation stream event.
@@ -57,6 +70,8 @@ export async function openWorkspace(browser, origin, state, { width = 1440, heig
       const items = scope === "conversation" ? all.filter(item => item.conversation_id === id) : scope === "bot" ? all.filter(item => item.bot_id === id) : all;
       return json({ items: items.sort((a, b) => b.message_seq - a.message_seq).slice(0, Number(url.searchParams.get("limit") || 50)), next_cursor: "" });
     }
+    const usage = p.match(/^\/api\/conversations\/([^/]+)\/usage$/);
+    if (usage) { state.usageReads = (state.usageReads ?? 0) + 1; return state.usage === "fail" ? route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: { code: "internal", message: "synthetic" } }) }) : json(state.usage ?? usageFor(usage[1])); }
     const conversation = p.match(/^\/api\/conversations\/([^/]+)\/(messages|events)$/);
     if (conversation && conversation[2] === "messages") return json({ messages: state.messages[conversation[1]] ?? talk(conversation[1] === GROUP.id ? GROUP : conversation[1] === DM2.id ? DM2 : DM), has_more: false, event_cursor: 0 });
     if (conversation && conversation[2] === "events") {

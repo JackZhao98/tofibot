@@ -166,6 +166,8 @@ export type AppOptions = {
   runs?: boolean | "tools";
   /** The server reports a newer release (the admin banner). */
   update?: boolean;
+  /** What GET /api/conversations/{id}/usage answers for the Usage widget: the whole picture, no tool split (older runs), or no context snapshot. */
+  usage?: "full" | "split-unavailable" | "no-snapshot";
 };
 
 const SCREEN = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800"><rect width="1280" height="800" fill="#d9e6ee"/><rect width="1280" height="36" fill="#33495a"/><rect x="120" y="140" width="560" height="360" rx="14" fill="#fff"/><text x="160" y="200" font-size="34" font-family="sans-serif" fill="#33495a">Synthetic screen</text></svg>')}`;
@@ -224,6 +226,7 @@ export function workspace(options: AppOptions): Synthetic {
       if (what === "schedules" || what === "schedule-occurrences" || what === "work-items" || what === "remembered-approvals") return json({ schedules: [], occurrences: [], work_items: [], grants: [] });
       if (what === "task-cards") return json({ tasks: options.tasks && id === "grp_launch" ? TASKS : [] });
       if (what === "read") return json({ read_seq: 99 });
+      if (what === "usage") return json(usageFor(id, options.usage ?? "full"));
     }
     if (p === "/api/questions") return json({ questions: questions(url.searchParams.get("conversation_id") ?? "") });
     if (p === "/api/mail-drafts") return json({ drafts: [] });
@@ -242,6 +245,27 @@ export function workspace(options: AppOptions): Synthetic {
     if (p === "/api/computer/desktop-ownership") return json({ owner: options.driver === "bot" ? { kind: "bot", bot_id: "bot_mochi", run_id: "run_driver", conversation_id: "dm_mochi" } : null, waiting: [] });
     if (p === "/api/system/update") return json({ current: "v0.1.4", latest: options.update ? "v0.1.5" : "v0.1.4", update_available: Boolean(options.update), notes_url: "", checked_at: at(0), auto_update: "off" });
     return json({});
+  };
+}
+
+/** GET /api/conversations/{id}/usage (internal/app/conversation_usage.go): synthetic figures for the Usage widget. */
+function usageFor(id: string, mode: NonNullable<AppOptions["usage"]>) {
+  const part = (kind: string, tokens: number) => ({ kind, tokens, estimated: true });
+  return {
+    conversation_id: id,
+    totals: { runs: 14, runs_with_call_detail: mode === "split-unavailable" ? 3 : 14, requests: 41, input_tokens: 1_284_000, output_tokens: 52_300, equivalent_usd: 1.86, unpriced_requests: 0 },
+    per_model: [
+      { model: "gpt-6-luna", requests: 33, input_tokens: 1_090_000, output_tokens: 44_000, equivalent_usd: 1.52, unpriced_requests: 0 },
+      { model: "gpt-6-luna-mini", requests: 8, input_tokens: 194_000, output_tokens: 8_300, equivalent_usd: 0.34, unpriced_requests: 0 },
+    ],
+    latest_context: {
+      run_id: "run_dm_mochi_11", model: "gpt-6-luna", used_tokens: 61_400, used_measured: true, window_tokens: 200_000, window_known: true,
+      parts: mode === "no-snapshot" ? [] : [part("instructions", 6_800), part("history", 31_200), part("tool_definitions", 9_400), part("tool_results", 8_900), part("memory_notes", 3_100), part("attachments", 1_100), part("other", 900)],
+      parts_tokens: mode === "no-snapshot" ? 0 : 61_400,
+      ...(mode === "no-snapshot" ? { parts_code: "context_snapshot_unavailable" } : {}),
+    },
+    tool_split: mode === "split-unavailable" ? { available: false, code: "call_detail_incomplete" }
+      : { available: true, tool_tokens: 742_000, conversation_tokens: 468_000, review_tokens: 21_000, tool_model_calls: 24, conversation_model_calls: 15, tool_calls: 52, basis: "calls" },
   };
 }
 
