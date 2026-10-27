@@ -249,6 +249,34 @@ func TestComputerRestartingFailsToolCallsFastAndInfoShowsHealth(t *testing.T) {
 	}
 }
 
+func TestComputerInfoReportsDesktopStartingWhileStartInFlight(t *testing.T) {
+	s, _ := hungComputerServer(t, func() computer.GuestHealth { return computer.GuestHealth{Guest: "ok"} })
+	read := func() bool {
+		rec := httptest.NewRecorder()
+		if !s.routeComputers(rec, httptest.NewRequest(http.MethodGet, "/api/computers/firecracker/info", nil), "computers/firecracker/info") {
+			t.Fatal("computer info route not handled")
+		}
+		var body struct {
+			DesktopStarting bool `json:"desktop_starting"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		return body.DesktopStarting
+	}
+	if read() {
+		t.Fatal("desktop_starting set with no start in flight")
+	}
+	s.desktopStarting.Add(1)
+	if !read() {
+		t.Fatal("desktop_starting not set while a start is in flight")
+	}
+	s.desktopStarting.Add(-1)
+	if read() {
+		t.Fatal("desktop_starting stuck after the start finished")
+	}
+}
+
 func TestComputerToolsCarryTheComputerDeadline(t *testing.T) {
 	s, _ := hungComputerServer(t, func() computer.GuestHealth { return computer.GuestHealth{Guest: "ok"} })
 	want := map[string]bool{"computer_shell": true, "computer_files": true, "computer_desktop": true, "computer_browser": true}

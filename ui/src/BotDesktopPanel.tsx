@@ -14,7 +14,7 @@ import { i18n, useTranslation } from "./i18n";
 import { MOTION, EASE } from "./motion";
 
 type Props = { expanded?: boolean; sheet?: boolean; passivePreview?: boolean; autoConnect?: boolean; presence?: DesktopPresenceState; botId: string; botName: string; members?: Array<{ id: string; name: string }>; onClose: (reason?: "hide" | "shutdown") => void; onReadyChange?: (ready: boolean) => void; onExpandedChange?: (expanded: boolean) => void };
-type ComputerInfo = { kind: string; state: string; phase?: string; workspace_root?: string; browser?: string; error?: string };
+type ComputerInfo = { kind: string; state: string; phase?: string; desktop_starting?: boolean; workspace_root?: string; browser?: string; error?: string };
 type ViewerState = "disconnected" | "connecting" | "connected";
 type FrameStatus = "shown" | "busy" | "not-running" | "waking" | "failed";
 
@@ -677,6 +677,13 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
     return () => window.clearTimeout(timer);
   }, [imageURL, videoState]);
   const frameStale = connectionLost || viewerState !== "connected" || videoState !== "live" && (videoState !== "fallback" || !fallbackFrameReady || frameNow - lastFrameAt >= 5000);
+  // Staged status while the computer comes back: the server's own state says which stage (hibernated/resuming = waking
+  // the computer, ready + desktop_starting = starting the desktop). "Paused" is only for a stream that broke while the computer runs.
+  const computerWaking = !passivePreview && (info?.state === "hibernated" || info?.state === "resuming");
+  const desktopStarting = info?.state === "ready" && info.desktop_starting === true;
+  const wakeStatus = computerWaking ? (info?.state === "resuming" && info.phase && info.phase !== "hibernated" ? t("desktop.placeholder.resuming_phase", { phase: phaseText(info.phase) }) : t("desktop.placeholder.waking_computer"))
+    : desktopStarting ? t("desktop.placeholder.starting_desktop") : "";
+  const wakeOverlay = Boolean(wakeStatus);
   const frameCaption = frameStale ? t("desktop.frame.paused") : videoState === "live" ? t("desktop.frame.live") : t("desktop.frame.snapshot");
   const botWorking = ownership?.owner?.kind === "bot" && !humanControlled;
   // Ownership can briefly outlive the VM's boot transition. Do not present
@@ -783,6 +790,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   // What the empty screen says: one line, and a Retry inside the frame when it failed.
   const failedReason = error || (info?.state === "error" ? t("desktop.state.error") : connectionLost ? t("desktop.error.connection_lost") : "");
   const placeholder: { tone: DesktopPlaceholderTone; status: string } = failedReason ? { tone: "failed", status: failedReason }
+    : wakeStatus ? { tone: "resuming", status: wakeStatus }
     : info?.state === "hibernated" ? { tone: "hibernated", status: t("desktop.placeholder.hibernated") }
     : info?.state === "hibernating" ? { tone: "hibernated", status: t("desktop.placeholder.hibernating") }
     : info?.state === "resuming" ? { tone: "resuming", status: info.phase && info.phase !== "hibernated" ? t("desktop.placeholder.resuming_phase", { phase: phaseText(info.phase) }) : t("desktop.placeholder.resuming") }
@@ -825,7 +833,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
     {!isDesktop && !passivePreview && <div className="desktop-window-controls">{windowButtons}</div>}
     {(error || connectionLost) && (imageURL || debug) && <p className="error-banner" role="alert">{connectionLost ? t("desktop.error.connection_lost") : error}</p>}
     {!botWorking && info && (debug || info.state !== "ready" && (imageURL || isDesktop)) && <div className="computer-info"><div className="computer-info-main"><strong>{known(stateKeys, info.state) ? t(stateKeys[info.state]) : t("desktop.state.other", { state: info.state })}</strong><small>{info.phase && info.state !== "error" && info.state !== "stopped" ? t("desktop.phase_label", { phase: phaseText(info.phase) }) : t("desktop.state_synced")}</small></div>{info.error && <small className="error-text">{info.error}</small>}{(info.state === "error" || info.state === "stopped") && <button className="secondary-button" disabled={busy} onClick={() => void retry()}>{t("desktop.retry_prepare")}</button>}</div>}
-    {imageURL && <div data-desktop-frame="" className={`computer-screen-wrap desktop-presence-frame desktop-preview-surface desktop-live-screen${humanControlled ? " is-human-controlled" : ""}`}><div className={`desktop-frame-status${frameStale ? " is-stale" : ""}`}>{frameCaption}</div><RemoteDesktopControl key={selectedBotId} controlRef={controlRef} onControlChange={setHumanControlled} botId={selectedBotId} enabled={!passivePreview && !!screenReady && !busy} blocked={passivePreview || showOwnershipStatus && Boolean(ownership?.owner && !humanControlled)} takeoverRun={showOwnershipStatus && !ownershipUnavailable && ownership?.owner?.kind === "bot" ? { id: ownership.owner.run_id, name: botLabel(ownership.owner.bot_id), botId: ownership.owner.bot_id } : undefined} expanded={expanded} onExpand={() => setExpanded(true)} waiting={!!ownership?.waiting.length}>{videoState !== "stopped" && (videoState !== "fallback" || !fallbackFrameReady) ? <DesktopVideo key={`${selectedBotId}:${videoSession}`} botId={selectedBotId} cursor={isDesktop && !humanControlled ? "visible" : "hidden"} enabled={!!ready && (viewerState === "connected" || preserveViewerRef.current) && desktopActive} poster={imageURL} onState={videoStateChanged}  /> : <img className="computer-screen" src={imageURL} alt={t("desktop.screen_alt")}  />}<DesktopPointerMarker presence={desktopPresence} humanControlled={humanControlled || !screenReady || busy} botLabel={botLabel} /></RemoteDesktopControl>{previewControls}</div>}
+    {imageURL && <div data-desktop-frame="" className={`computer-screen-wrap desktop-presence-frame desktop-preview-surface desktop-live-screen${humanControlled ? " is-human-controlled" : ""}`}>{!wakeOverlay && <div className={`desktop-frame-status${frameStale ? " is-stale" : ""}`}>{frameCaption}</div>}<RemoteDesktopControl key={selectedBotId} controlRef={controlRef} onControlChange={setHumanControlled} botId={selectedBotId} enabled={!passivePreview && !!screenReady && !busy} blocked={passivePreview || showOwnershipStatus && Boolean(ownership?.owner && !humanControlled)} takeoverRun={showOwnershipStatus && !ownershipUnavailable && ownership?.owner?.kind === "bot" ? { id: ownership.owner.run_id, name: botLabel(ownership.owner.bot_id), botId: ownership.owner.bot_id } : undefined} expanded={expanded} onExpand={() => setExpanded(true)} waiting={!!ownership?.waiting.length}>{videoState !== "stopped" && (videoState !== "fallback" || !fallbackFrameReady) ? <DesktopVideo key={`${selectedBotId}:${videoSession}`} botId={selectedBotId} cursor={isDesktop && !humanControlled ? "visible" : "hidden"} enabled={!!ready && (viewerState === "connected" || preserveViewerRef.current) && desktopActive} poster={imageURL} onState={videoStateChanged}  /> : <img className="computer-screen" src={imageURL} alt={t("desktop.screen_alt")}  />}<DesktopPointerMarker presence={desktopPresence} humanControlled={humanControlled || !screenReady || busy} botLabel={botLabel} /></RemoteDesktopControl>{wakeOverlay && <div className="desktop-wake-overlay"><DesktopPlaceholder tone="resuming" status={wakeStatus} botId={ownership?.owner?.bot_id ?? botId} /></div>}{previewControls}</div>}
     {!imageURL && <div className="desktop-preview-surface desktop-launch-surface" data-desktop-frame="" onClick={() => { if (!expanded) setExpanded(true); }}>
       <DesktopPlaceholder tone={placeholder.tone} status={placeholder.status} botId={ownership?.owner?.bot_id ?? botId} onRetry={retryDesktop} />
       {previewControls}

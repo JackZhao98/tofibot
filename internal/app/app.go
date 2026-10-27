@@ -217,6 +217,7 @@ type Server struct {
 	reactionWakes                        reactionWakeState
 	reactionWakeWindow                   time.Duration // 0 = defaultReactionWakeWindow
 	desktopRestartedAt                   time.Time
+	desktopStarting                      atomic.Int32 // desktop.start calls in flight; the computer info reports it as desktop_starting
 	gogStatus                            gogStatusCache
 	accountID                            string
 	mcpApprovalMu                        sync.Mutex

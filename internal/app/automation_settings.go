@@ -54,9 +54,13 @@ const (
 	// anthropicBackgroundModel is the default for background work when the
 	// conversation default is an Anthropic model.
 	anthropicBackgroundModel = "claude-haiku-5-5"
-	// codexDefaultModel is the conversation default for a workspace that only
-	// has a Codex sign-in.
+	// codexDefaultModel is the small Codex model for background work beside a
+	// Codex conversation default (as Haiku is beside a Claude one).
 	codexDefaultModel = "codex-gpt-5.6-luna"
+	// codexConversationFallback is the conversation default for a Codex-only
+	// workspace while the live catalog is not loaded; with a catalog, the newest
+	// Sol in it wins (codexConversationDefault).
+	codexConversationFallback = "codex-gpt-6-sol"
 
 	defaultProviderRetries = 8
 )
@@ -352,17 +356,17 @@ func (s *Server) rememberedApprovalWindow() time.Duration {
 }
 
 // backgroundDefaultModel is what background work runs on when no background
-// model is chosen: Haiku beside an Anthropic conversation default, otherwise the
-// conversation default itself.
+// model is chosen: Haiku beside an Anthropic conversation default, Luna beside a
+// Codex one (the reviewer for reviews), otherwise the conversation default itself.
 func (s *Server) backgroundDefaultModel(purpose string) string {
 	conversation, _ := s.modelDefaults()
 	switch p := runtime.ModelProvider(conversation); {
 	case p == providerAnthropic:
 		return anthropicBackgroundModel
-	case p == providerCodex && purpose == backgroundAnswerGrade && s.codexConnected():
-		return codexDefaultModel // the smallest Codex model
 	case p == providerCodex && purpose == backgroundReview && s.codexConnected():
 		return codexReviewModel // Codex ships a purpose-built reviewer
+	case p == providerCodex && s.codexConnected():
+		return codexDefaultModel // the smallest Codex model
 	}
 	return conversation
 }

@@ -249,27 +249,38 @@ func TestTerminalListReportsForegroundJob(t *testing.T) {
 	}
 	id := r["id"].(string)
 	t.Cleanup(func() { _, _ = s.terminalClose(testBot, terminalIDArgs{TerminalID: id}) })
-	waitJob := func(want bool) {
+	// retry runs about twice a second while the wait lasts. A Ctrl-C written the
+	// instant the job gets the terminal can reach the forked child before it has
+	// reset the shell's SIGINT handling and be dropped; sending it again is
+	// harmless (at the prompt it only redraws the prompt).
+	waitJob := func(want bool, retry func()) {
 		t.Helper()
 		deadline := time.Now().Add(5 * time.Second)
+		next := time.Now().Add(500 * time.Millisecond)
 		for time.Now().Before(deadline) {
 			if job, ok := terminalForegroundJob(t, s, id); ok && job == want {
 				return
+			}
+			if retry != nil && time.Now().After(next) {
+				retry()
+				next = time.Now().Add(500 * time.Millisecond)
 			}
 			time.Sleep(20 * time.Millisecond)
 		}
 		job, ok := terminalForegroundJob(t, s, id)
 		t.Fatalf("foreground_job never became %v (now %v, present %v)", want, job, ok)
 	}
-	waitJob(false) // the shell at its prompt owns the foreground
+	waitJob(false, nil) // the shell at its prompt owns the foreground
 	if _, err = s.terminalWrite(testBot, "run", ActionSourceModel, terminalWriteArgs{TerminalID: id, Data: "sleep 30\n"}); err != nil {
 		t.Fatal(err)
 	}
-	waitJob(true) // a job owns it while the command runs
+	waitJob(true, nil) // a job owns it while the command runs
 	if _, err = s.terminalWrite(testBot, "run", ActionSourceModel, terminalWriteArgs{TerminalID: id, Data: "\x03"}); err != nil {
 		t.Fatal(err)
 	}
-	waitJob(false) // control returns to the shell
+	waitJob(false, func() {
+		_, _ = s.terminalWrite(testBot, "run", ActionSourceModel, terminalWriteArgs{TerminalID: id, Data: "\x03"})
+	}) // control returns to the shell
 }
 
 func TestTerminalListOmitsForegroundJobWhenProcessEnded(t *testing.T) {

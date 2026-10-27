@@ -94,6 +94,8 @@
       "connecting": "画面に接続中",
       "resuming": "休止状態から復帰中",
       "resuming_phase": "復帰中 · {{phase}}",
+      "waking_computer": "コンピューターを起動しています…",
+      "starting_desktop": "デスクトップを起動しています…",
       "hibernated": "スリープ中 · 復帰しています…",
       "hibernating": "休止状態に入っています…",
       "no_desktop": "Bot はデスクトップを使わず、ブラウザで作業しています",

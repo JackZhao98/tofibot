@@ -45,6 +45,7 @@ func TestTriageTellsWhoIsWorkingOnWhatAndASteerAnswerGoesToThatRun(t *testing.T)
 	e.steer = true
 	f.post(t, f.group.ID, "only the US listing", "st-2")
 	waitTriageCalls(t, e, 2)
+	waitTriageDone(t, f.s, f.group.ID, 2)
 	p := lastPrompt(e)
 	for _, want := range []string{"Quill", "analyze SOFI", "working since"} {
 		if !strings.Contains(p, want) {
@@ -103,6 +104,7 @@ func TestFailedTriageFallsBackToTheMemberWorkingOnTheLatestMessage(t *testing.T)
 			}
 			f.post(t, f.group.ID, "only the US listing", "st-5")
 			waitTriageCalls(t, e, 2)
+			waitTriageDone(t, f.s, f.group.ID, 2)
 			close(e.hold)
 			settleTriageRuns(t, f.s, f.group.ID, 3)
 			if n := e.runCount(f.stocks.ID); n != 1 {

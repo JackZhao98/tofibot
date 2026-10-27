@@ -107,6 +107,9 @@ export const computer: CatalogSection = {
       drive: async step => { await openComputer(step); await step.click(".desktop-control-expand"); await step.wait(500); } },
     { id: "sheet", kind: "app", label: "Full-screen sheet (phone)", app: DM, widths: ["phone"], probe: ".desktop-floating-shell", keyboard: { close: "Escape" }, drive: openComputer },
     { id: "starting", kind: "app", label: "Starting", app: { ...DM, computer: "starting" }, widths: ["desktop"], probe: ".desktop-floating-shell", drive: openComputer },
+    { id: "waking", kind: "app", label: "Waking the computer (hibernated)", note: "opening the window wakes it; no \"Paused\" caption", app: { ...DM, computer: "hibernated" }, widths: ["desktop"], probe: ".desktop-floating-shell", drive: openComputer },
+    { id: "waking-restoring", kind: "app", label: "Waking the computer (restoring)", app: { ...DM, computer: "resuming" }, widths: ["desktop"], probe: ".desktop-floating-shell", drive: openComputer },
+    { id: "desktop-starting", kind: "app", label: "Starting the desktop", note: "computer is up, desktop.start in flight; covers the stale frame", app: { ...DM, computer: "desktop-starting" }, widths: ["desktop"], probe: ".desktop-floating-shell", drive: openComputer },
   ],
   gaps: ["Hibernating, connection lost and your-control states: need the live desktop stream."],
 };
