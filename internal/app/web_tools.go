@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -84,6 +85,63 @@ type webToolsConfig struct {
 	FetchOrder  []string `json:"fetch_order"`
 	Disabled    []string `json:"disabled"`
 	SearXNGURL  string   `json:"searxng_url,omitempty"`
+	// Rolling 24-hour caps per paid source. Nil means the default; -1 means no cap.
+	DailySearch *int `json:"daily_search,omitempty"`
+	DailyFetch  *int `json:"daily_fetch,omitempty"`
+}
+
+// webDailyDefault is the per-source cap of paid calls in any 24 hours.
+const webDailyDefault = 300
+
+func (c webToolsConfig) limit(chain string) int {
+	p := c.DailySearch
+	if chain == webChainFetch {
+		p = c.DailyFetch
+	}
+	if p == nil {
+		return webDailyDefault
+	}
+	return *p
+}
+
+func migrateWebToolCalls(db *sql.DB) error {
+	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS web_tool_calls(
+source TEXT NOT NULL,
+at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS web_tool_calls_source_at ON web_tool_calls(source,at)`)
+	return err
+}
+
+// webUsedToday counts the calls booked for a source in the last 24 hours.
+func (s *Server) webUsedToday(id string) int {
+	var n int
+	cutoff := stampTime(time.Now().Add(-24 * time.Hour))
+	if err := s.store.db.QueryRow(`SELECT COUNT(*) FROM web_tool_calls WHERE source=? AND at>?`, id, cutoff).Scan(&n); err != nil {
+		return 0
+	}
+	return n
+}
+
+// bookWebCall records one call to a paid source and drops rows older than two days.
+func (s *Server) bookWebCall(id string) {
+	if sp, ok := webSpec(id); !ok || !sp.Paid {
+		return
+	}
+	if _, err := s.store.db.Exec(`INSERT INTO web_tool_calls(source,at) VALUES(?,?)`, id, now()); err != nil {
+		log.Printf("[web-tools] book %s call: %v", id, err)
+		return
+	}
+	_, _ = s.store.db.Exec(`DELETE FROM web_tool_calls WHERE source=? AND at<?`, id, stampTime(time.Now().Add(-48*time.Hour)))
+}
+
+// webLimitReached: a paid source that used its daily cap is skipped, so the
+// chain falls to the free sources.
+func (s *Server) webLimitReached(chain, id string, cfg webToolsConfig) bool {
+	if sp, ok := webSpec(id); !ok || !sp.Paid {
+		return false
+	}
+	limit := cfg.limit(chain)
+	return limit >= 0 && s.webUsedToday(id) >= limit
 }
 
 // normalizeOrder keeps known ids once each, then appends the missing ones in
@@ -247,6 +305,7 @@ type trackedSearch struct {
 }
 
 func (t trackedSearch) Search(ctx context.Context, q string, n int) ([]webtools.SearchResult, error) {
+	t.s.bookWebCall(t.ID())
 	res, err := t.SearchProvider.Search(ctx, q, n)
 	if err == nil {
 		t.s.noteWebProvider(t.ID(), "", false)
@@ -262,6 +321,7 @@ type trackedFetch struct {
 }
 
 func (t trackedFetch) Fetch(ctx context.Context, u string, n int) (webtools.Page, error) {
+	t.s.bookWebCall(t.ID())
 	p, err := t.FetchProvider.Fetch(ctx, u, n)
 	if err == nil {
 		t.s.noteWebProvider(t.ID(), "", false)
@@ -273,9 +333,9 @@ func (t trackedFetch) Fetch(ctx context.Context, u string, n int) (webtools.Page
 
 // webComputerExists says whether this Bot workspace has a computer at all;
 // webComputerOn whether it can take a request now.
-func (s *Server) webComputerExists() bool { return s.microVM != nil }
+func (s *Server) webComputerExists() bool { return s.hasComputerCapability(CapBrowser) }
 func (s *Server) webComputerOn() bool {
-	return s.microVM != nil && s.computerAdmission() == nil
+	return s.webComputerExists() && s.computerAdmission() == nil
 }
 
 // searchProviderFor builds one search provider; nil when it is not usable now.
@@ -283,7 +343,7 @@ func (s *Server) searchProviderFor(id string, cfg webToolsConfig, r *Run) webtoo
 	switch id {
 	case "tavily", "brave":
 		sec, ok := s.webSecret(id)
-		if !ok || sec.Error == string(webtools.AuthFailed) {
+		if !ok || sec.Error == string(webtools.AuthFailed) || s.webLimitReached(webChainSearch, id, cfg) {
 			return nil
 		}
 		if id == "tavily" {
@@ -307,11 +367,11 @@ func (s *Server) searchProviderFor(id string, cfg webToolsConfig, r *Run) webtoo
 	return nil
 }
 
-func (s *Server) fetchProviderFor(id string, r *Run) webtools.FetchProvider {
+func (s *Server) fetchProviderFor(id string, cfg webToolsConfig, r *Run) webtools.FetchProvider {
 	switch id {
 	case "firecrawl", "brightdata":
 		sec, ok := s.webSecret(id)
-		if !ok || sec.Error == string(webtools.AuthFailed) || (id == "brightdata" && sec.Zone == "") {
+		if !ok || sec.Error == string(webtools.AuthFailed) || (id == "brightdata" && sec.Zone == "") || s.webLimitReached(webChainFetch, id, cfg) {
 			return nil
 		}
 		if id == "firecrawl" {
@@ -353,7 +413,7 @@ func (s *Server) fetchChain(r *Run) []webtools.FetchProvider {
 		if !cfg.enabled(webChainFetch, id) {
 			continue
 		}
-		if p := s.fetchProviderFor(id, r); p != nil {
+		if p := s.fetchProviderFor(id, cfg, r); p != nil {
 			out = append(out, p)
 		}
 	}
@@ -500,6 +560,11 @@ func resultTarget(raw string) string {
 }
 
 func (s *Server) computerWebFetch(ctx context.Context, r Run, rawURL string, maxChars int) (webtools.Page, error) {
+	// The computer's browser resolves the name itself and is not behind the
+	// dial guard: refuse now if any answer is a blocked address.
+	if err := webtools.CheckResolved(ctx, rawURL); err != nil {
+		return webtools.Page{}, err
+	}
 	page, err := s.computerReadPage(ctx, r, rawURL)
 	if err != nil {
 		return webtools.Page{}, err
@@ -574,6 +639,7 @@ type webEntry struct {
 	Zone      string   `json:"zone,omitempty"`
 	BaseURL   string   `json:"base_url,omitempty"`
 	Fields    []string `json:"fields,omitempty"`
+	UsedToday int      `json:"used_today,omitempty"`
 	Testable  bool     `json:"testable"`
 	TestedAt  string   `json:"tested_at,omitempty"`
 }
@@ -616,7 +682,13 @@ func (s *Server) webEntryFor(id, chain string, cfg webToolsConfig) webEntry {
 			e.Status, e.KeyHint, e.Zone, e.TestedAt = "ready", sec.Hint, sec.Zone, sec.VerifiedAt
 		}
 	}
-	if !e.Enabled && e.Status == "ready" {
+	if sp.Paid {
+		e.UsedToday = s.webUsedToday(id)
+		if e.Status == "ready" && s.webLimitReached(chain, id, cfg) {
+			e.Status = "limit"
+		}
+	}
+	if !e.Enabled && (e.Status == "ready" || e.Status == "limit") {
 		e.Status = "off"
 	}
 	return e
@@ -729,6 +801,28 @@ func (s *Server) routeWebTools(w http.ResponseWriter, r *http.Request, p string)
 			return true
 		}
 		writeJSON(w, http.StatusOK, s.webToolsView())
+	case len(parts) == 1 && parts[0] == "limits" && r.Method == http.MethodPut:
+		var in struct {
+			Search *int `json:"search"`
+			Fetch  *int `json:"fetch"`
+		}
+		ok := func(p *int) bool { return p == nil || *p == -1 || (*p >= 0 && *p <= 100000) }
+		if decode(r, &in) != nil || !ok(in.Search) || !ok(in.Fetch) || (in.Search == nil && in.Fetch == nil) {
+			writeErr(w, http.StatusBadRequest, "invalid_request", "invalid request")
+			return true
+		}
+		cfg := s.webConfig()
+		if in.Search != nil {
+			cfg.DailySearch = in.Search
+		}
+		if in.Fetch != nil {
+			cfg.DailyFetch = in.Fetch
+		}
+		if s.saveWebConfig(cfg) != nil {
+			writeErr(w, http.StatusInternalServerError, "storage", "could not save the limit")
+			return true
+		}
+		writeJSON(w, http.StatusOK, s.webToolsView())
 	case len(parts) == 3 && parts[0] == "providers" && parts[2] == "test" && r.Method == http.MethodPost:
 		s.testWebProvider(w, r, parts[1])
 	case len(parts) == 2 && parts[0] == "providers" && (r.Method == http.MethodPut || r.Method == http.MethodDelete):
@@ -763,13 +857,13 @@ func (s *Server) routeWebTools(w http.ResponseWriter, r *http.Request, p string)
 			return true
 		}
 		if sp.Kind == "self_hosted" {
-			u, err := url.Parse(strings.TrimSpace(in.BaseURL))
-			if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || len(in.BaseURL) > 300 {
+			u, err := webtools.CleanBaseURL(in.BaseURL)
+			if err != nil || len(in.BaseURL) > 300 {
 				writeErr(w, http.StatusBadRequest, "invalid_address", "Enter the address of your instance, starting with http:// or https://.")
 				return true
 			}
 			cfg := s.webConfig()
-			cfg.SearXNGURL = strings.TrimRight(u.String(), "/")
+			cfg.SearXNGURL = u.String()
 			if s.saveWebConfig(cfg) != nil {
 				writeErr(w, http.StatusInternalServerError, "storage", "could not save the address")
 				return true
@@ -815,6 +909,7 @@ const webProbeTimeout = 45 * time.Second
 func (s *Server) testWebProvider(w http.ResponseWriter, r *http.Request, id string) {
 	ctx, cancel := context.WithTimeout(r.Context(), webProbeTimeout)
 	defer cancel()
+	s.bookWebCall(id) // a test is a real, billed call
 	var err error
 	cfg := s.webConfig()
 	switch id {

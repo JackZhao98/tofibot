@@ -76,6 +76,7 @@ export const api = {
   webTools: (signal?: AbortSignal) => request<WebToolsView>("/api/web-tools", { signal }),
   setWebToolOrder: (chain: "search" | "fetch", order: string[]) => request<WebToolsView>(`/api/web-tools/${chain}/order`, { method: "PUT", body: JSON.stringify({ order }) }),
   setWebToolEnabled: (chain: "search" | "fetch", id: string, enabled: boolean) => request<WebToolsView>(`/api/web-tools/${chain}/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ enabled }) }),
+  setWebToolLimits: (limits: { search?: number; fetch?: number }) => request<WebToolsView>("/api/web-tools/limits", { method: "PUT", body: JSON.stringify(limits) }),
   saveWebProvider: (id: string, body: { key?: string; zone?: string; base_url?: string }) => request<WebToolsView>(`/api/web-tools/providers/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(body) }),
   removeWebProvider: (id: string) => request<WebToolsView>(`/api/web-tools/providers/${encodeURIComponent(id)}`, { method: "DELETE" }),
   testWebProvider: (id: string) => request<WebToolsView>(`/api/web-tools/providers/${encodeURIComponent(id)}/test`, { method: "POST" }),

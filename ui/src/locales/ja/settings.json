@@ -1009,7 +1009,8 @@
       "needs_key": "キーが必要",
       "needs_address": "アドレスが必要",
       "error": "エラー",
-      "off": "オフ"
+      "off": "オフ",
+      "limit": "1 日の上限に達しました"
     },
     "test_ok": "動作中",
     "test": "テスト",
@@ -1037,6 +1038,13 @@
       "network": "接続できません",
       "not_configured": "未設定",
       "unsupported_content": "テキストではありません"
-    }
+    },
+    "limits_title": "有料ソースの 1 日あたりの上限",
+    "limits_note": "有料ソースは 24 時間にこの回数を超えると止まり、リストは無料のソースに移ります。",
+    "limit_search": "ソースごとの検索回数",
+    "limit_fetch": "ソースごとの取得回数",
+    "limit_option": "1 日 {{count}} 回",
+    "limit_unlimited": "上限なし",
+    "used_today": "直近 24 時間で {{count}} 回"
   }
 }

@@ -1009,7 +1009,8 @@
       "needs_key": "需要金鑰",
       "needs_address": "需要位址",
       "error": "錯誤",
-      "off": "已關閉"
+      "off": "已關閉",
+      "limit": "已達每日上限"
     },
     "test_ok": "運作正常",
     "test": "測試",
@@ -1037,6 +1038,13 @@
       "network": "連線失敗",
       "not_configured": "尚未設定",
       "unsupported_content": "不是文字"
-    }
+    },
+    "limits_title": "付費來源的每日上限",
+    "limits_note": "每個付費來源在 24 小時內達到這個次數就會停用，清單轉向免費來源。",
+    "limit_search": "每個來源的搜尋次數",
+    "limit_fetch": "每個來源的擷取次數",
+    "limit_option": "每天 {{count}} 次",
+    "limit_unlimited": "不限",
+    "used_today": "最近 24 小時 {{count}} 次"
   }
 }

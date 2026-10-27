@@ -23,8 +23,10 @@ var (
 	BraveEndpoint  = "https://api.search.brave.com/res/v1/web/search"
 )
 
-// APIClient is the shared HTTP client for the fixed vendor hosts and the
-// owner's SearXNG address. It follows no proxy settings it was not given.
+// APIClient is the HTTP client for the fixed vendor hosts and the owner's
+// SearXNG address. It uses the environment proxy settings like any other
+// outbound call of the server (an operator may route vendor traffic through a
+// proxy); only the built-in fetch of arbitrary pages ignores them.
 func APIClient() *http.Client { return &http.Client{Timeout: apiTimeout} }
 
 // statusCode maps a vendor HTTP status to a code, never by body text.
@@ -170,8 +172,8 @@ type SearXNG struct {
 func (SearXNG) ID() string { return "searxng" }
 
 func (s SearXNG) Search(ctx context.Context, query string, limit int) ([]SearchResult, error) {
-	base, err := url.Parse(strings.TrimRight(strings.TrimSpace(s.BaseURL), "/"))
-	if err != nil || (base.Scheme != "http" && base.Scheme != "https") || base.Host == "" {
+	base, err := CleanBaseURL(s.BaseURL)
+	if err != nil {
 		return nil, fail(NotConfigured)
 	}
 	q := url.Values{"q": {query}, "format": {"json"}}
@@ -214,4 +216,14 @@ func (s SearXNG) Search(ctx context.Context, query string, limit int) ([]SearchR
 		}
 	}
 	return res, nil
+}
+
+// CleanBaseURL keeps only scheme and host[:port] of an instance address, so a
+// stored address cannot carry a path, query, fragment or credentials.
+func CleanBaseURL(raw string) (*url.URL, error) {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil {
+		return nil, fail(BadRequest)
+	}
+	return &url.URL{Scheme: u.Scheme, Host: u.Host}, nil
 }

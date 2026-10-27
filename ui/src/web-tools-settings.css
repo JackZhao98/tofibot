@@ -43,3 +43,6 @@
  .web-row-form-foot{flex-direction:column}
 }
 @media(prefers-reduced-motion:reduce){.web-row{transition:none}}
+.web-limits{margin:0 0 14px}
+.web-limit-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;border-top:1px solid var(--line-soft)}
+.web-limit-row label{color:var(--text-soft);font-size:13px}

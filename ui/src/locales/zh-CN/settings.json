@@ -1009,7 +1009,8 @@
       "needs_key": "需要密钥",
       "needs_address": "需要地址",
       "error": "出错",
-      "off": "已关闭"
+      "off": "已关闭",
+      "limit": "已达每日上限"
     },
     "test_ok": "工作正常",
     "test": "测试",
@@ -1037,6 +1038,13 @@
       "network": "连接失败",
       "not_configured": "尚未设置",
       "unsupported_content": "不是文本"
-    }
+    },
+    "limits_title": "付费来源的每日上限",
+    "limits_note": "每个付费来源在 24 小时内达到这个次数就会停用，列表转向免费来源。",
+    "limit_search": "每个来源的搜索次数",
+    "limit_fetch": "每个来源的抓取次数",
+    "limit_option": "每天 {{count}} 次",
+    "limit_unlimited": "不限",
+    "used_today": "最近 24 小时 {{count}} 次"
   }
 }

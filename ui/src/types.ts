@@ -484,7 +484,9 @@ export interface WebSourceEntry {
   /** Always available and always first: not reordered, not switched off. */
   fixed: boolean;
   enabled: boolean;
-  status: "ready" | "needs_key" | "needs_address" | "error" | "always" | "off";
+  status: "ready" | "needs_key" | "needs_address" | "error" | "always" | "off" | "limit";
+  /** Calls booked in the last 24 hours (paid sources only). */
+  used_today?: number;
   /** A stable code (auth_failed, quota_exceeded, blocked, empty_content, needs_javascript, network, not_configured). */
   error_code?: string;
   key_hint?: string;
@@ -501,5 +503,7 @@ export interface WebToolsView {
   search: WebSourceEntry[];
   fetch: WebSourceEntry[];
   search_offered: boolean;
+  /** Daily cap per paid source; -1 means no cap. */
+  limits?: { search: number; fetch: number };
   test?: { id: string; ok: boolean; code: string };
 }

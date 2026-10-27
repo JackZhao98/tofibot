@@ -14,7 +14,7 @@ import "./web-tools-settings.css";
 type Chain = "search" | "fetch";
 type Outcome = {ok: boolean; code: string};
 
-const badge: Record<WebSourceEntry["status"], BadgeState> = {ready: "ok", always: "ok", needs_key: "need", needs_address: "need", error: "bad", off: "asleep"};
+const badge: Record<WebSourceEntry["status"], BadgeState> = {ready: "ok", always: "ok", needs_key: "need", needs_address: "need", error: "bad", off: "asleep", limit: "need"};
 const placeholders: Record<string, string> = {tavily: "tvly-…", brave: "BSA…", firecrawl: "fc-…", brightdata: ""};
 
 /** Settings section: where Bots search and read the web. Two ordered lists; a source that fails hands over to the next by error code. */
@@ -68,6 +68,16 @@ export function WebToolsSettings({initial}: {initial?: WebToolsView}) {
    onSave={(id, body) => run(() => api.saveWebProvider(id, body), t("webtools.save_failed"))}
    onRemove={id => run(() => api.removeWebProvider(id), t("webtools.remove_failed"))}
    onTest={id => void test(id)} />)}
+  {view?.limits && <SettingsCard className="web-limits">
+   <div className="web-chain-head"><h5>{t("webtools.limits_title")}</h5><p>{t("webtools.limits_note")}</p></div>
+   {(["search", "fetch"] as const).map(chain => <div className="web-limit-row" key={chain}>
+    <label htmlFor={`web-limit-${chain}`}>{t(`webtools.limit_${chain}`)}</label>
+    <select id={`web-limit-${chain}`} value={String(view.limits![chain])} onChange={event => void run(() => api.setWebToolLimits({[chain]: Number(event.target.value)}))}>
+     {[...new Set([50, 100, 300, 1000, view.limits![chain]].filter(value => value !== -1))].sort((a, b) => a - b).map(value => <option key={value} value={value}>{t("webtools.limit_option", {count: value})}</option>)}
+     <option value="-1">{t("webtools.limit_unlimited")}</option>
+    </select>
+   </div>)}
+  </SettingsCard>}
   <p className="sr-only" role="status" aria-live="polite">{announce}</p>
  </SettingsSection>;
 }
@@ -135,7 +145,7 @@ function SourceRow({entry, chain, index, count, outcome, testing, busy, dragging
  const needsSetup = entry.status === "needs_key" || entry.status === "needs_address";
  const configurable = Boolean(entry.fields?.length);
  const statusText = testing ? t("webtools.testing") : entry.status === "error" ? t("webtools.status.error") : outcome?.ok && entry.status === "ready" ? t("webtools.test_ok") : t(`webtools.status.${entry.status}` as "webtools.status.ready");
- const detail = entry.kind === "self_hosted" ? entry.base_url : entry.key_hint ? t("providers.configured_hint", {hint: entry.key_hint}) : "";
+ const detail = entry.kind === "self_hosted" ? entry.base_url : [entry.key_hint ? t("providers.configured_hint", {hint: entry.key_hint}) : "", entry.used_today ? t("webtools.used_today", {count: entry.used_today}) : ""].filter(Boolean).join(" · ");
  return <li className="web-row" data-id={entry.id} data-chain={chain} data-movable={!entry.fixed} data-status={entry.status} data-dragging={dragging || undefined} data-over={over || undefined}>
   <div className="web-row-main">
    {entry.fixed ? <span className="web-grip-spacer" aria-hidden="true" /> : <button type="button" className="web-grip" aria-label={t("webtools.move_label", {name: entry.label})} aria-keyshortcuts="ArrowUp ArrowDown" title={t("webtools.move_hint")} {...grip}><GripGlyph size={16} /></button>}

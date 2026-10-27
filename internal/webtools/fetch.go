@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"mime"
+	"net"
 	"net/http"
 	"net/netip"
 	"net/url"
@@ -50,6 +51,40 @@ func ValidateTarget(raw string) (*url.URL, error) {
 	return u, nil
 }
 
+// resolveIPs is the resolver CheckResolved uses; tests replace it.
+var resolveIPs = func(ctx context.Context, host string) ([]net.IPAddr, error) {
+	return net.DefaultResolver.LookupIPAddr(ctx, host)
+}
+
+// CheckResolved resolves the host of rawURL now and refuses when any answer is
+// a blocked address. It is for callers that cannot dial through the guarded
+// transport (the Bot computer's browser). It narrows the DNS-rebinding window
+// to the time between this check and the browser's own lookup; it does not
+// close it, and it cannot see redirects the browser follows.
+func CheckResolved(ctx context.Context, rawURL string) error {
+	u, err := ValidateTarget(rawURL)
+	if err != nil {
+		return err
+	}
+	host := strings.TrimSuffix(u.Hostname(), ".")
+	if _, err := netip.ParseAddr(host); err == nil {
+		return nil // a literal was judged by ValidateTarget
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	addrs, err := resolveIPs(ctx, host)
+	if err != nil || len(addrs) == 0 {
+		return fail(Network)
+	}
+	for _, a := range addrs {
+		ip, ok := netip.AddrFromSlice(a.IP)
+		if !ok || extensions.BlockedAddr(ip) {
+			return fail(TargetRefused)
+		}
+	}
+	return nil
+}
+
 // Builtin fetches a page with a plain GET through the guarded transport and
 // turns it into readable Markdown.
 type Builtin struct {
@@ -71,12 +106,30 @@ func (b Builtin) client() *http.Client {
 			if len(via) >= MaxRedirects {
 				return errTooManyRedirects
 			}
-			if _, err := ValidateTarget(req.URL.String()); err != nil {
+			if _, err := b.checkTarget(req.URL.String()); err != nil {
 				return err
 			}
 			return nil
 		},
 	}
+}
+
+// checkBuiltinTarget is ValidateTarget plus the port rule of the built-in
+// fetch: only the ports websites use. Other ports fall through to the next
+// source (a hosted fetcher or the computer), they are not refused outright.
+func (b Builtin) checkTarget(raw string) (*url.URL, error) {
+	u, err := ValidateTarget(raw)
+	if err != nil {
+		return nil, err
+	}
+	if b.Transport != nil {
+		return u, nil // a replaced transport is a test seam; httptest ports are random
+	}
+	switch u.Port() {
+	case "", "80", "443", "8080", "8443":
+		return u, nil
+	}
+	return nil, fail(Unsupported)
 }
 
 var errTooManyRedirects = errors.New("too many redirects")
@@ -96,7 +149,7 @@ func readableType(ct string) (kind string, ok bool) {
 }
 
 func (b Builtin) Fetch(ctx context.Context, rawURL string, maxChars int) (Page, error) {
-	u, err := ValidateTarget(rawURL)
+	u, err := b.checkTarget(rawURL)
 	if err != nil {
 		return Page{}, err
 	}
@@ -144,7 +197,7 @@ func (b Builtin) Fetch(ctx context.Context, rawURL string, maxChars int) (Page, 
 	final := resp.Request.URL
 	var title, text string
 	if kind == "html" {
-		doc := ParseHTML(string(body), final)
+		doc := ParseHTML(ctx, string(body), final)
 		title, text = doc.Title, doc.Markdown
 		if len([]rune(strings.TrimSpace(text))) < 80 {
 			if doc.Scripts > 0 {
@@ -192,7 +245,11 @@ func (f Firecrawl) Fetch(ctx context.Context, rawURL string, maxChars int) (Page
 	}
 	req.Header.Set("Authorization", "Bearer "+f.Key)
 	req.Header.Set("Content-Type", "application/json")
-	raw, err := do(f.Client, req)
+	c := f.Client
+	if c == nil {
+		c = &http.Client{Timeout: 60 * time.Second} // above the 45 s scrape timeout it asks for
+	}
+	raw, err := do(c, req)
 	if err != nil {
 		return Page{}, err
 	}
@@ -264,11 +321,13 @@ func (b BrightData) Fetch(ctx context.Context, rawURL string, maxChars int) (Pag
 	case resp.StatusCode == 400:
 		return Page{}, fail(NotConfigured) // unknown zone
 	case resp.StatusCode == 407:
+		// Web Unlocker passes the target's own status through on format raw, so a
+		// 401, 403 or 429 is usually the site refusing, not our key. Only 407
+		// (proxy authentication) and 402 (no credit) speak for the account.
 		return Page{}, fail(AuthFailed)
+	case resp.StatusCode == 402:
+		return Page{}, fail(QuotaExceeded)
 	case resp.StatusCode < 200 || resp.StatusCode >= 300:
-		if c := statusCode(resp.StatusCode); c != Network {
-			return Page{}, fail(c)
-		}
 		return Page{}, fail(Blocked)
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, MaxBodyBytes+1))
@@ -286,7 +345,7 @@ func (b BrightData) Fetch(ctx context.Context, rawURL string, maxChars int) (Pag
 	if kind, _ := readableType(resp.Header.Get("Content-Type")); kind == "text" {
 		text = strings.TrimSpace(text)
 	} else {
-		doc := ParseHTML(text, base)
+		doc := ParseHTML(ctx, text, base)
 		title, text = doc.Title, doc.Markdown
 		if len([]rune(strings.TrimSpace(text))) < 80 {
 			if doc.Scripts > 0 {

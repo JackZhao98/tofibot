@@ -98,3 +98,27 @@ func TestMCPClientDoesNotFollowRedirectsToInternalHosts(t *testing.T) {
 		t.Fatalf("a redirect was followed to an internal host (%d hits)", inner.Load())
 	}
 }
+
+func TestBlockedAddrCoversHostAndOriginAndNewRanges(t *testing.T) {
+	oldIf, oldLook, oldTTL := interfaceAddrs, lookupHost, ownTTL
+	defer func() {
+		interfaceAddrs, lookupHost, ownTTL = oldIf, oldLook, oldTTL
+		ownMu.Lock()
+		ownAddrs = nil
+		ownMu.Unlock()
+	}()
+	ownTTL = 0
+	interfaceAddrs = func() ([]net.Addr, error) {
+		return []net.Addr{&net.IPNet{IP: net.ParseIP("203.0.113.9"), Mask: net.CIDRMask(24, 32)}}, nil
+	}
+	lookupHost = func(ctx context.Context, host string) ([]string, error) { return []string{"198.51.100.7"}, nil }
+	t.Setenv("TOFI_PUBLIC_ORIGIN", "https://tofi.example.test")
+	for in, want := range map[string]bool{
+		"203.0.113.9": true, "198.51.100.7": true, "203.0.113.10": false, "93.184.216.34": false,
+		"64:ff9b:1::1": true, "::127.0.0.1": true, "::10.0.0.1": true, "::8.8.8.8": false, "2606:4700::1": false,
+	} {
+		if got := BlockedAddr(netip.MustParseAddr(in)); got != want {
+			t.Errorf("%s: got %v want %v", in, got, want)
+		}
+	}
+}

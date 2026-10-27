@@ -2,10 +2,13 @@ package webtools
 
 import (
 	"context"
+	"github.com/JackZhao98/tofibot/internal/extensions"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 // plain is a transport without the address guard, for tests against httptest
@@ -58,7 +61,7 @@ func TestGuardedTransportRefusesLoopbackAtDialTime(t *testing.T) {
 	// "localhost" passes the literal check and resolves to loopback: the case
 	// DNS rebinding relies on. Only the dial-time guard can refuse it.
 	target := url
-	_, err := Builtin{}.Fetch(context.Background(), target, 0)
+	_, err := Builtin{Transport: extensions.GuardedTransport()}.Fetch(context.Background(), target, 0)
 	if CodeOf(err) != TargetRefused {
 		t.Fatalf("got %v", err)
 	}
@@ -75,7 +78,7 @@ func TestRedirectToPrivateIsRefused(t *testing.T) {
 	}
 	// A redirect to a name that resolves to loopback dies at the dial guard
 	// even with the default transport: the first hop is already refused.
-	if _, err := (Builtin{}).Fetch(context.Background(), url, 0); CodeOf(err) != TargetRefused {
+	if _, err := (Builtin{Transport: extensions.GuardedTransport()}).Fetch(context.Background(), url, 0); CodeOf(err) != TargetRefused {
 		t.Fatalf("guarded: %v", err)
 	}
 }
@@ -123,7 +126,7 @@ func TestBuiltinExtractsReadableMarkdown(t *testing.T) {
 }
 
 func TestBodyFallbackKeepsContentOutsideMain(t *testing.T) {
-	doc := ParseHTML(`<body><nav>menu</nav><div><p>`+strings.Repeat("body words ", 20)+`</p></div><footer>foot</footer></body>`, nil)
+	doc := ParseHTML(context.Background(), `<body><nav>menu</nav><div><p>`+strings.Repeat("body words ", 20)+`</p></div><footer>foot</footer></body>`, nil)
 	if !strings.Contains(doc.Markdown, "body words") || strings.Contains(doc.Markdown, "menu") || strings.Contains(doc.Markdown, "foot") {
 		t.Fatalf("%q", doc.Markdown)
 	}
@@ -181,5 +184,100 @@ func TestBuiltinSizeCaps(t *testing.T) {
 	p, err = Builtin{Transport: plain}.Fetch(context.Background(), txt, MaxMaxChars)
 	if err != nil || !p.Truncated || len(p.Content) != MaxMaxChars {
 		t.Fatalf("text: truncated=%v len=%d err=%v", p.Truncated, len(p.Content), err)
+	}
+}
+
+func under(t *testing.T, name string, limit time.Duration, fn func()) {
+	t.Helper()
+	start := time.Now()
+	fn()
+	if d := time.Since(start); d > limit {
+		t.Errorf("%s took %v, limit %v", name, d, limit)
+	}
+}
+
+// Regression: 2 MiB inputs that were quadratic (raw-text close-tag search copied the rest
+// of the page per tag; newline handling rescanned the output per block).
+func TestExtractorStaysLinearOnHostileInput(t *testing.T) {
+	scripts := strings.Repeat("<SCRIPT>x</SCRIPT>", MaxBodyBytes/18)
+	under(t, "script storm", time.Second, func() { ParseHTML(context.Background(), "<html><body>"+scripts, nil) })
+	blocks := strings.Repeat("<br><p>", MaxBodyBytes/7)
+	under(t, "br/p storm", time.Second, func() { ParseHTML(context.Background(), "<html><body>"+blocks, nil) })
+	nested := strings.Repeat("<div><a href=x>", MaxBodyBytes/15)
+	under(t, "nested anchors", time.Second, func() { ParseHTML(context.Background(), nested, nil) })
+	unclosed := strings.Repeat("<script>", MaxBodyBytes/8)
+	under(t, "unclosed scripts", time.Second, func() { ParseHTML(context.Background(), unclosed, nil) })
+}
+
+func TestExtractorStopsOnCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	under(t, "cancelled", 200*time.Millisecond, func() { ParseHTML(ctx, strings.Repeat("<p>word</p>", 400000), nil) })
+}
+
+func TestIndexFold(t *testing.T) {
+	for _, c := range []struct {
+		s     string
+		start int
+		want  int
+	}{{"ab</SCRIPT>", 0, 2}, {"ab</script>", 2, 0}, {"<</Script ", 0, 1}, {"no tag", 0, -1}, {"</scrip", 0, -1}} {
+		if got := indexFold(c.s, c.start, "</script"); got != c.want {
+			t.Errorf("%q from %d: %d want %d", c.s, c.start, got, c.want)
+		}
+	}
+}
+
+func TestBuiltinPortRuleAndBrightDataCredentialCodes(t *testing.T) {
+	// A port outside 80/443/8080/8443 is not fetched by the built-in; the chain goes on.
+	if _, err := (Builtin{}).Fetch(context.Background(), "http://example.com:8000/", 0); CodeOf(err) != Unsupported {
+		t.Fatalf("port 8000: %v", err)
+	}
+	for _, p := range []string{"", ":80", ":443", ":8080", ":8443"} {
+		if _, err := (Builtin{}).checkTarget("https://example.com" + p + "/"); err != nil {
+			t.Errorf("port %q refused: %v", p, err)
+		}
+	}
+	for status, want := range map[int]Code{401: Blocked, 403: Blocked, 429: Blocked, 407: AuthFailed, 402: QuotaExceeded, 502: Blocked} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(status) }))
+		_, err := BrightData{Key: "k", Zone: "z", Endpoint: srv.URL}.Fetch(context.Background(), "https://example.com", 0)
+		srv.Close()
+		if CodeOf(err) != want {
+			t.Errorf("bright data %d: got %v want %s", status, err, want)
+		}
+	}
+}
+
+func TestCheckResolvedRefusesAnyBlockedAnswer(t *testing.T) {
+	old := resolveIPs
+	defer func() { resolveIPs = old }()
+	answers := map[string][]string{"ok.example": {"93.184.216.34"}, "mixed.example": {"93.184.216.34", "10.0.0.7"}, "meta.example": {"169.254.169.254"}}
+	resolveIPs = func(_ context.Context, host string) ([]net.IPAddr, error) {
+		var out []net.IPAddr
+		for _, a := range answers[host] {
+			out = append(out, net.IPAddr{IP: net.ParseIP(a)})
+		}
+		return out, nil
+	}
+	for host, want := range map[string]Code{"ok.example": "", "mixed.example": TargetRefused, "meta.example": TargetRefused, "none.example": Network} {
+		err := CheckResolved(context.Background(), "https://"+host+"/")
+		got := Code("")
+		if err != nil {
+			got = CodeOf(err)
+		}
+		if got != want {
+			t.Errorf("%s: got %q want %q", host, got, want)
+		}
+	}
+}
+
+func TestCleanBaseURLKeepsSchemeAndHostOnly(t *testing.T) {
+	u, err := CleanBaseURL(" http://searx.lan:8080/some/path?x=1#frag ")
+	if err != nil || u.String() != "http://searx.lan:8080" {
+		t.Fatalf("%v %v", u, err)
+	}
+	for _, bad := range []string{"ftp://x", "http://u:p@x", "", "http://"} {
+		if _, err := CleanBaseURL(bad); err == nil {
+			t.Errorf("%q accepted", bad)
+		}
 	}
 }

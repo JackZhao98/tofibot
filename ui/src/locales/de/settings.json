@@ -1019,7 +1019,8 @@
       "needs_key": "Schlüssel nötig",
       "needs_address": "Adresse nötig",
       "error": "Fehler",
-      "off": "Aus"
+      "off": "Aus",
+      "limit": "Tageslimit erreicht"
     },
     "test_ok": "Funktioniert",
     "test": "Testen",
@@ -1047,6 +1048,13 @@
       "network": "Nicht erreichbar",
       "not_configured": "Nicht eingerichtet",
       "unsupported_content": "Kein Text"
-    }
+    },
+    "limits_title": "Tageslimit für kostenpflichtige Quellen",
+    "limits_note": "Jede kostenpflichtige Quelle stoppt nach so vielen Aufrufen in 24 Stunden, und die Liste wechselt zu den kostenlosen Quellen.",
+    "limit_search": "Suchaufrufe pro Quelle",
+    "limit_fetch": "Abrufe pro Quelle",
+    "limit_option": "{{count}} pro Tag",
+    "limit_unlimited": "Kein Limit",
+    "used_today": "{{count}} in den letzten 24 Std."
   }
 }

@@ -1,11 +1,15 @@
 package extensions
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"net/netip"
+	"net/url"
+	"os"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -34,6 +38,7 @@ var blockedPrefixes = func() []netip.Prefix {
 		"fe80::/10",      // link-local
 		"ff00::/8",       // multicast
 		"100::/64",       // discard-only
+		"64:ff9b:1::/48", // local-use NAT64 (RFC 8215)
 		"2001:db8::/32",  // documentation
 	} {
 		out = append(out, netip.MustParsePrefix(p))
@@ -49,8 +54,15 @@ func BlockedAddr(a netip.Addr) bool {
 	if !a.IsValid() {
 		return true
 	}
+	if hostOwnAddr(a) {
+		return true
+	}
 	if a.Is6() {
 		b := a.As16()
+		// IPv4-compatible ::a.b.c.d (deprecated): judged by the IPv4 it carries.
+		if allZero(b[:12]) && !allZero(b[12:]) {
+			return BlockedAddr(netip.AddrFrom4([4]byte{b[12], b[13], b[14], b[15]}))
+		}
 		if a.Is6() && netip.MustParsePrefix("64:ff9b::/96").Contains(a) {
 			return BlockedAddr(netip.AddrFrom4([4]byte{b[12], b[13], b[14], b[15]}))
 		}
@@ -64,6 +76,65 @@ func BlockedAddr(a netip.Addr) bool {
 		}
 	}
 	return false
+}
+
+func allZero(b []byte) bool {
+	for _, x := range b {
+		if x != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// The addresses of this host itself and of the server's public origin are off
+// limits too: a service bound to the host's LAN or public address is not
+// "private" by prefix, yet it is the server's own side of the network. The set
+// is refreshed at most once a minute, on use.
+var (
+	ownMu          sync.Mutex
+	ownAt          time.Time
+	ownAddrs       map[netip.Addr]bool
+	ownTTL         = time.Minute
+	interfaceAddrs = net.InterfaceAddrs
+	lookupHost     = func(ctx context.Context, host string) ([]string, error) {
+		return net.DefaultResolver.LookupHost(ctx, host)
+	}
+)
+
+func hostOwnAddr(a netip.Addr) bool {
+	ownMu.Lock()
+	defer ownMu.Unlock()
+	if ownAddrs == nil || time.Since(ownAt) > ownTTL {
+		next := map[netip.Addr]bool{}
+		if addrs, err := interfaceAddrs(); err == nil {
+			for _, ia := range addrs {
+				if p, err := netip.ParsePrefix(ia.String()); err == nil {
+					next[p.Addr().Unmap().WithZone("")] = true
+				} else if ip, err := netip.ParseAddr(ia.String()); err == nil {
+					next[ip.Unmap().WithZone("")] = true
+				}
+			}
+		}
+		if raw := strings.TrimSpace(os.Getenv("TOFI_PUBLIC_ORIGIN")); raw != "" {
+			if u, err := url.Parse(raw); err == nil && u.Hostname() != "" {
+				if ip, err := netip.ParseAddr(u.Hostname()); err == nil {
+					next[ip.Unmap().WithZone("")] = true
+				} else {
+					ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+					names, _ := lookupHost(ctx, u.Hostname())
+					cancel()
+					for _, n := range names {
+						if ip, err := netip.ParseAddr(n); err == nil {
+							next[ip.Unmap().WithZone("")] = true
+						}
+					}
+				}
+			}
+		}
+		ownAddrs, ownAt = next, time.Now()
+	}
+	return ownAddrs[a]
 }
 
 // guardControl runs for every outgoing connection attempt with the address

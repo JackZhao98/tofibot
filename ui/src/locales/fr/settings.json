@@ -1029,7 +1029,8 @@
       "needs_key": "Clé requise",
       "needs_address": "Adresse requise",
       "error": "Erreur",
-      "off": "Désactivé"
+      "off": "Désactivé",
+      "limit": "Limite quotidienne atteinte"
     },
     "test_ok": "Fonctionne",
     "test": "Tester",
@@ -1057,6 +1058,13 @@
       "network": "Injoignable",
       "not_configured": "Non configuré",
       "unsupported_content": "Pas du texte"
-    }
+    },
+    "limits_title": "Limite quotidienne des sources payantes",
+    "limits_note": "Chaque source payante s'arrête après ce nombre d'appels en 24 heures, et la liste passe aux sources gratuites.",
+    "limit_search": "Recherches par source",
+    "limit_fetch": "Lectures par source",
+    "limit_option": "{{count}} par jour",
+    "limit_unlimited": "Sans limite",
+    "used_today": "{{count}} sur les dernières 24 h"
   }
 }

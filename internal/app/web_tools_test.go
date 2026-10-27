@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/JackZhao98/tofibot/internal/extensions"
 	"github.com/JackZhao98/tofibot/internal/webtools"
 )
 
@@ -285,6 +286,8 @@ func TestFetchToolRefusesPrivateTargetsAndFallsBack(t *testing.T) {
 	site := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(403) }))
 	defer site.Close()
 
+	webBuiltinTransport = extensions.GuardedTransport()
+	t.Cleanup(func() { webBuiltinTransport = nil })
 	s := webServer(t)
 	putWebKey(t, s, "firecrawl", testFCKey)
 	var fetch Tool
@@ -316,5 +319,86 @@ func TestFetchToolRefusesPrivateTargetsAndFallsBack(t *testing.T) {
 	_, err = fetch.Execute(context.Background(), json.RawMessage(`{"url":"`+local+`"}`))
 	if err == nil || !strings.Contains(err.Error(), "builtin:blocked") || strings.Contains(err.Error(), "firecrawl") {
 		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestDailyLimitSkipsPaidSourcesAndShowsInSettings(t *testing.T) {
+	var tavily, searx atomic.Int32
+	tav := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tavily.Add(1)
+		w.Write([]byte(`{"results":[{"title":"T","url":"https://t.example","content":"c"}]}`))
+	}))
+	defer tav.Close()
+	sx := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		searx.Add(1)
+		w.Write([]byte(`{"results":[{"title":"S","url":"https://s.example","content":"c"}]}`))
+	}))
+	defer sx.Close()
+	old := webtools.TavilyEndpoint
+	webtools.TavilyEndpoint = tav.URL
+	t.Cleanup(func() { webtools.TavilyEndpoint = old })
+	s := webServer(t)
+	putWebKey(t, s, "tavily", testTavilyKey)
+	if rec := providerRequest(t, s, http.MethodPut, "/api/web-tools/providers/searxng", `{"base_url":"`+sx.URL+`/ignored/path?x=1"}`); rec.Code != 200 {
+		t.Fatal(rec.Body.String())
+	}
+	if got := s.webConfig().SearXNGURL; got != sx.URL {
+		t.Fatalf("path and query must be stripped on save: %q", got)
+	}
+	if rec := providerRequest(t, s, http.MethodPut, "/api/web-tools/limits", `{"search":2}`); rec.Code != 200 {
+		t.Fatal(rec.Body.String())
+	}
+	var search Tool
+	for _, tool := range s.webTools(Run{Model: "gpt-5.5"}) {
+		if tool.Name == "web_search" {
+			search = tool
+		}
+	}
+	served := func() string {
+		out, err := search.Execute(context.Background(), json.RawMessage(`{"query":"q"}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var res webtools.SearchResponse
+		json.Unmarshal([]byte(out), &res)
+		return res.Source
+	}
+	if served() != "tavily" || served() != "tavily" {
+		t.Fatal("the first two calls go to the paid source")
+	}
+	e, _ := entryByID(webEntries(t, s, "search"), "tavily")
+	if e.Status != "limit" || e.UsedToday != 2 {
+		t.Fatalf("settings must show the limit: %+v", e)
+	}
+	if served() != "searxng" || tavily.Load() != 2 || searx.Load() != 1 {
+		t.Fatalf("after the cap the chain falls to the free source: tavily=%d searx=%d", tavily.Load(), searx.Load())
+	}
+	providerRequest(t, s, http.MethodPut, "/api/web-tools/limits", `{"search":-1}`)
+	if served() != "tavily" {
+		t.Fatal("no cap, paid source serves again")
+	}
+	if rec := providerRequest(t, s, http.MethodPut, "/api/web-tools/limits", `{"search":-5}`); rec.Code != 400 {
+		t.Fatalf("bad limit accepted: %d", rec.Code)
+	}
+}
+
+func TestSiteRefusalFromBrightDataDoesNotDisableTheKey(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(403) }))
+	defer srv.Close()
+	old := webtools.BrightDataEndpoint
+	webtools.BrightDataEndpoint = srv.URL
+	t.Cleanup(func() { webtools.BrightDataEndpoint = old })
+	webBuiltinTransport = http.DefaultTransport
+	t.Cleanup(func() { webBuiltinTransport = nil })
+	s := webServer(t)
+	if rec := providerRequest(t, s, http.MethodPut, "/api/web-tools/providers/brightdata", `{"key":"bd-key-12345678","zone":"z1"}`); rec.Code != 200 {
+		t.Fatal(rec.Body.String())
+	}
+	_, err := (trackedFetch{webtools.BrightData{Key: "bd-key-12345678", Zone: "z1"}, s}).Fetch(context.Background(), "https://example.com/", 0)
+	if webtools.CodeOf(err) != webtools.Blocked {
+		t.Fatalf("a site's 403 is blocked, got %v", err)
+	}
+	if e, _ := entryByID(webEntries(t, s, "fetch"), "brightdata"); e.Status != "ready" {
+		t.Fatalf("the key must stay usable: %+v", e)
 	}
 }

@@ -1,6 +1,7 @@
 package webtools
 
 import (
+	"context"
 	"html"
 	"net/url"
 	"strings"
@@ -94,13 +95,19 @@ func parseAttrs(s string) map[string]string {
 }
 
 // parseTree is a tolerant HTML reader: unknown or unbalanced markup never fails.
-func parseTree(src string) *node {
+func parseTree(ctx context.Context, src string) *node {
 	root := &node{tag: "#root"}
+	nodes, tokens := 0, 0
 	stack := []*node{root}
 	top := func() *node { return stack[len(stack)-1] }
-	add := func(n *node) { top().children = append(top().children, n) }
+	add := func(n *node) { top().children = append(top().children, n); nodes++ }
 	i := 0
 	for i < len(src) {
+		// A page that would build more nodes than a real one ever has, or a
+		// cancelled request, ends the read with what was built so far.
+		if tokens++; nodes > maxNodes || (tokens&1023 == 0 && ctx.Err() != nil) {
+			return root
+		}
 		lt := strings.IndexByte(src[i:], '<')
 		if lt < 0 {
 			add(&node{text: src[i:]})
@@ -164,8 +171,7 @@ func parseTree(src string) *node {
 			continue
 		}
 		if rawTextTags[name] {
-			closeTag := "</" + name
-			k := strings.Index(strings.ToLower(src[i:]), closeTag)
+			k := indexFold(src, i, "</"+name)
 			if k < 0 {
 				n.children = []*node{{text: src[i:]}}
 				i = len(src)
@@ -187,6 +193,35 @@ func parseTree(src string) *node {
 	return root
 }
 
+// indexFold returns the offset from start of the first ASCII case-insensitive
+// occurrence of the lower-case needle in s[start:], or -1. It copies nothing.
+func indexFold(s string, start int, needle string) int {
+	for i := start; ; i++ {
+		j := strings.IndexByte(s[i:], '<')
+		if j < 0 {
+			return -1
+		}
+		i += j
+		if len(s)-i < len(needle) {
+			return -1
+		}
+		ok := true
+		for k := 0; k < len(needle); k++ {
+			c := s[i+k]
+			if c >= 'A' && c <= 'Z' {
+				c += 'a' - 'A'
+			}
+			if c != needle[k] {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			return i - start
+		}
+	}
+}
+
 func (n *node) find(match func(*node) bool) *node {
 	if n.tag != "" && match(n) {
 		return n
@@ -199,18 +234,37 @@ func (n *node) find(match func(*node) bool) *node {
 	return nil
 }
 
-func (n *node) plain() string {
-	if n.tag == "" {
-		return n.text
-	}
+// plain is the text under n, cut at limit bytes so nested anchors stay cheap.
+func (n *node) plain(limit int) string {
 	var b strings.Builder
-	for _, c := range n.children {
-		b.WriteString(c.plain())
+	var walk func(*node)
+	walk = func(x *node) {
+		if b.Len() >= limit {
+			return
+		}
+		if x.tag == "" {
+			b.WriteString(x.text)
+			return
+		}
+		for _, c := range x.children {
+			walk(c)
+		}
 	}
+	walk(n)
 	return b.String()
 }
 
+// Ceilings for one ParseHTML call, shared by every render it makes.
+const (
+	maxNodes     = 500000
+	maxVisits    = 1500000
+	maxRenderLen = 4 << 20
+)
+
 type renderer struct {
+	ctx    context.Context
+	work   *int
+	trail  int // newlines at the end of b
 	b      strings.Builder
 	base   *url.URL
 	chrome bool // drop nav, header, footer and aside
@@ -218,24 +272,45 @@ type renderer struct {
 	quote  int
 }
 
-func (r *renderer) nl(n int) {
-	s := r.b.String()
-	have := 0
-	for i := len(s) - 1; i >= 0 && s[i] == '\n'; i-- {
-		have++
-	}
-	if len(s) == 0 {
+// w writes s and keeps the count of trailing newlines, so nl never rescans.
+func (r *renderer) w(s string) {
+	if s == "" {
 		return
 	}
-	for ; have < n; have++ {
+	r.b.WriteString(s)
+	t := 0
+	for i := len(s) - 1; i >= 0 && s[i] == '\n'; i-- {
+		t++
+	}
+	if t == len(s) {
+		r.trail += t
+	} else {
+		r.trail = t
+	}
+}
+
+func (r *renderer) nl(n int) {
+	if r.b.Len() == 0 {
+		return
+	}
+	for ; r.trail < n; r.trail++ {
 		r.b.WriteByte('\n')
 	}
+}
+
+// done reports that the budget, the output ceiling or the request is spent.
+func (r *renderer) done() bool {
+	*r.work++
+	if *r.work > maxVisits || r.b.Len() > maxRenderLen {
+		return true
+	}
+	return *r.work&1023 == 0 && r.ctx.Err() != nil
 }
 
 func (r *renderer) text(s string) {
 	s = html.UnescapeString(s)
 	if r.pre > 0 {
-		r.b.WriteString(s)
+		r.w(s)
 		return
 	}
 	var out strings.Builder
@@ -260,9 +335,9 @@ func (r *renderer) text(s string) {
 		t = strings.TrimLeft(t, " ")
 	}
 	if r.quote > 0 && (cur == "" || strings.HasSuffix(cur, "\n")) && t != "" {
-		r.b.WriteString("> ")
+		r.w("> ")
 	}
-	r.b.WriteString(t)
+	r.w(t)
 }
 
 func (r *renderer) resolve(href string) string {
@@ -290,6 +365,9 @@ func (r *renderer) children(n *node) {
 }
 
 func (r *renderer) walk(n *node) {
+	if r.done() {
+		return
+	}
 	if n.tag == "" {
 		r.text(n.text)
 		return
@@ -300,7 +378,7 @@ func (r *renderer) walk(n *node) {
 	switch n.tag {
 	case "h1", "h2", "h3", "h4", "h5", "h6":
 		r.nl(2)
-		r.b.WriteString(strings.Repeat("#", int(n.tag[1]-'0')) + " ")
+		r.w(strings.Repeat("#", int(n.tag[1]-'0')) + " ")
 		r.children(n)
 		r.nl(2)
 	case "p", "div", "section", "article", "main", "ul", "ol", "table", "figure", "details", "dl", "address", "fieldset":
@@ -314,14 +392,14 @@ func (r *renderer) walk(n *node) {
 		r.quote--
 		r.nl(2)
 	case "br":
-		r.b.WriteByte('\n')
+		r.w("\n")
 	case "hr":
 		r.nl(2)
-		r.b.WriteString("---")
+		r.w("---")
 		r.nl(2)
 	case "li", "dt", "dd":
 		r.nl(1)
-		r.b.WriteString("- ")
+		r.w("- ")
 		r.children(n)
 		r.nl(1)
 	case "tr":
@@ -330,44 +408,44 @@ func (r *renderer) walk(n *node) {
 		r.nl(1)
 	case "td", "th":
 		r.children(n)
-		r.b.WriteString(" | ")
+		r.w(" | ")
 	case "pre":
 		r.nl(2)
-		r.b.WriteString("```\n")
+		r.w("```\n")
 		r.pre++
 		r.children(n)
 		r.pre--
 		r.nl(1)
-		r.b.WriteString("```")
+		r.w("```")
 		r.nl(2)
 	case "code":
 		if r.pre > 0 {
 			r.children(n)
 			return
 		}
-		r.b.WriteString("`")
+		r.w("`")
 		r.children(n)
-		r.b.WriteString("`")
+		r.w("`")
 	case "strong", "b":
-		r.b.WriteString("**")
+		r.w("**")
 		r.children(n)
-		r.b.WriteString("**")
+		r.w("**")
 	case "em", "i":
-		r.b.WriteString("*")
+		r.w("*")
 		r.children(n)
-		r.b.WriteString("*")
+		r.w("*")
 	case "a":
-		label := strings.Join(strings.Fields(n.plain()), " ")
+		label := strings.Join(strings.Fields(n.plain(2000)), " ")
 		href := r.resolve(n.attrs["href"])
 		if href == "" || len(label) < 1 {
 			r.children(n)
 			return
 		}
-		r.b.WriteString("[" + strings.ReplaceAll(label, "]", ")") + "](" + href + ")")
+		r.w("[" + strings.ReplaceAll(label, "]", ")") + "](" + href + ")")
 	case "img":
 		// An image is not text; its alt text is kept when the page has it.
 		if alt := strings.TrimSpace(n.attrs["alt"]); alt != "" {
-			r.b.WriteString(alt)
+			r.w(alt)
 		}
 	default:
 		r.children(n)
@@ -407,11 +485,12 @@ func tidy(s string) string {
 // browser.read uses: the text of main, article or [role=main], else the whole
 // body. Scripts, styles and hidden elements never count; navigation, headers,
 // footers and asides are dropped only when the whole body is read.
-func ParseHTML(src string, base *url.URL) Doc {
-	root := parseTree(src)
+func ParseHTML(ctx context.Context, src string, base *url.URL) Doc {
+	root := parseTree(ctx, src)
+	work := 0
 	doc := Doc{}
 	if t := root.find(func(n *node) bool { return n.tag == "title" }); t != nil {
-		doc.Title = strings.Join(strings.Fields(html.UnescapeString(t.plain())), " ")
+		doc.Title = strings.Join(strings.Fields(html.UnescapeString(t.plain(2000))), " ")
 		if r := []rune(doc.Title); len(r) > 300 {
 			doc.Title = string(r[:300])
 		}
@@ -427,7 +506,7 @@ func ParseHTML(src string, base *url.URL) Doc {
 	}
 	scripts(root)
 	render := func(n *node, chrome bool) string {
-		r := &renderer{base: base, chrome: chrome}
+		r := &renderer{ctx: ctx, work: &work, base: base, chrome: chrome}
 		r.walk(n)
 		return tidy(r.b.String())
 	}

@@ -1019,7 +1019,8 @@
       "needs_key": "Needs a key",
       "needs_address": "Needs an address",
       "error": "Error",
-      "off": "Off"
+      "off": "Off",
+      "limit": "Daily limit reached"
     },
     "test_ok": "Working",
     "test": "Test",
@@ -1047,6 +1048,13 @@
       "network": "Couldn't reach it",
       "not_configured": "Not set up",
       "unsupported_content": "Not text"
-    }
+    },
+    "limits_title": "Daily limit for paid sources",
+    "limits_note": "Each paid source stops after this many calls in 24 hours, and the list moves to the free sources.",
+    "limit_search": "Search calls per source",
+    "limit_fetch": "Fetch calls per source",
+    "limit_option": "{{count}} a day",
+    "limit_unlimited": "No limit",
+    "used_today": "{{count}} in the last 24 h"
   }
 }

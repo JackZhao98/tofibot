@@ -139,7 +139,10 @@ updated_at TEXT NOT NULL);`)
 	if err = migrateFollowGlobalMarker(db); err != nil {
 		return err
 	}
-	return migrateProviderCatalogCache(db)
+	if err = migrateProviderCatalogCache(db); err != nil {
+		return err
+	}
+	return migrateWebToolCalls(db)
 }
 
 func (s *Store) getModelSettings() (modelSettings, error) {

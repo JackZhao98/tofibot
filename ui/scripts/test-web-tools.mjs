@@ -48,7 +48,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     Object.assign(state, {
       computer: false, masterOn: true, failNext: false, testDelay: 0,
       order: {search: ["tavily", "brave", "searxng", "computer"], fetch: ["firecrawl", "brightdata", "computer"]},
-      off: new Set(), keys: {}, errors: {}, address: "", testResult: {},
+      off: new Set(), keys: {}, errors: {}, address: "", testResult: {}, limits: {search: 300, fetch: 300}, used: {},
     });
     requests.length = 0;
   };
@@ -67,11 +67,15 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const e = {id, label: sp.label, kind: sp.kind, paid: sp.paid, fixed: false, enabled, fields: sp.fields, testable: true, status: "needs_key"};
     if (sp.kind === "self_hosted") { e.base_url = state.address; e.status = state.address ? "ready" : "needs_address"; }
     else if (state.keys[id]) { e.status = state.errors[id] ? "error" : "ready"; e.key_hint = "…" + state.keys[id].slice(-4); if (state.errors[id]) e.error_code = state.errors[id]; }
-    if (!enabled && e.status === "ready") e.status = "off";
+    if (sp.paid) {
+      if (state.used[id]) e.used_today = state.used[id];
+      if (e.status === "ready" && state.limits[chain] >= 0 && (state.used[id] ?? 0) >= state.limits[chain]) e.status = "limit";
+    }
+    if (!enabled && (e.status === "ready" || e.status === "limit")) e.status = "off";
     return e;
   };
   const viewOf = () => ({
-    enabled: state.masterOn, computer: state.computer,
+    enabled: state.masterOn, computer: state.computer, limits: state.limits,
     search: [{id: "native", label: "Model web search", kind: "native", paid: false, fixed: true, enabled: true, status: "always", testable: false}, ...state.order.search.filter(id => id !== "computer" || state.computer).map(id => entry("search", id))],
     fetch: [{id: "builtin", label: "Built-in fetch", kind: "builtin", paid: false, fixed: true, enabled: true, status: "always", testable: true}, ...state.order.fetch.filter(id => id !== "computer" || state.computer).map(id => entry("fetch", id))],
     search_offered: Object.keys(state.keys).some(id => id in specs && ["tavily", "brave"].includes(id) && !state.errors[id]) || Boolean(state.address),
@@ -80,6 +84,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const path = url.pathname;
     if (path === "/api/web-tools" && method === "GET") return viewOf();
     let m;
+    if (path === "/api/web-tools/limits" && method === "PUT") { Object.assign(state.limits, body); return viewOf(); }
     if ((m = path.match(/^\/api\/web-tools\/(search|fetch)\/order$/)) && method === "PUT") {
       if (state.failNext) { state.failNext = false; return [500, {error: {code: "storage", message: "could not save the order"}}]; }
       const known = body.order.filter(id => state.order[m[1]].includes(id));
@@ -289,6 +294,24 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await t.page.waitForFunction(() => document.querySelector('.web-row[data-chain="search"][data-id="tavily"]')?.dataset.status === "ready");
     await t.close();
     console.log("PASS switches turn sources off and on; the computer row follows the computer");
+  }
+
+  // ---- 6b. Daily limit: the cap is adjustable; a paid source at its cap says so and shows its count.
+  {
+    reset();
+    state.keys = {tavily: "tvly-aaaa1111"}; state.used = {tavily: 300};
+    const t = await open();
+    assert.match(await row(t.page, "search", "tavily").innerText(), /Daily limit reached/);
+    assert.match(await row(t.page, "search", "tavily").innerText(), /300 in the last 24 h/);
+    assert.equal(await row(t.page, "search", "tavily").getAttribute("data-status"), "limit");
+    await t.page.locator("#web-limit-search").selectOption("1000");
+    await t.page.waitForFunction(() => document.querySelector('.web-row[data-id="tavily"]')?.dataset.status === "ready");
+    assert.equal(requests.at(-1), 'PUT /api/web-tools/limits {"search":1000}');
+    await t.page.locator("#web-limit-fetch").selectOption("-1");
+    await t.page.waitForFunction(() => document.querySelector("#web-limit-fetch").value === "-1");
+    assert.equal(requests.at(-1), 'PUT /api/web-tools/limits {"fetch":-1}');
+    await t.close();
+    console.log("PASS the daily limit is adjustable and shown on the source");
   }
 
   // ---- 7. Master switch off, seven languages, dark theme, phone width.

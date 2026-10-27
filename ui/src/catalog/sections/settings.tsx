@@ -118,6 +118,7 @@ export const settings: CatalogSection = {
     webState("ready", "ready, one key rejected, one out of credit", webView(
       [webTavily({ status: "ready", key_hint: "…9a2f" }), webBrave({ status: "error", error_code: "quota_exceeded", key_hint: "…77c1" }), webSearx({ status: "ready", base_url: "http://searxng.example.test:8080" })],
       [webFirecrawl({ status: "error", error_code: "auth_failed", key_hint: "…b3d0" }), webBright({ status: "ready", key_hint: "…4e18", zone: "web_unlocker1" })])),
+    webState("limit", "a paid source at its daily limit", webView([webTavily({ status: "limit", key_hint: "…9a2f", used_today: 300 }), webBrave({ status: "ready", key_hint: "…77c1", used_today: 12 }), webSearx({ status: "ready", base_url: "http://searxng.example.test:8080" })], [webFirecrawl(), webBright()], { limits: { search: 300, fetch: 300 } })),
     webState("computer", "with a Bot computer, one source switched off", webView(
       [webTavily({ status: "off", enabled: false, key_hint: "…9a2f" }), webBrave(), webSearx(), webComputer()], [webFirecrawl(), webBright(), webComputer()], { computer: true })),
     webState("form-open", "key form open", webView([webTavily({ status: "ready", key_hint: "…9a2f" }), webBrave(), webSearx()], [webFirecrawl(), webBright()]),
