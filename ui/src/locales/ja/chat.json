@@ -158,6 +158,25 @@
     "verifying": "Linux と Chrome を確認中",
     "restoring": "保存したセッションを復元中"
   },
+  "contextCard": {
+    "back": "{{title}}をカードに戻す",
+    "close": "{{title}}を閉じる",
+    "collapse": "{{title}}を折りたたむ",
+    "expand": "{{title}}を展開",
+    "title": {
+      "archive": "アーカイブ",
+      "artifacts": "アーティファクト",
+      "bot-edit": "Bot 設定",
+      "desktop": "共有コンピューター",
+      "group-create": "新しいグループ",
+      "members": "メンバー",
+      "memory": "メモリ",
+      "outputs": "成果物",
+      "schedule": "タスク",
+      "terminal": "ターミナル"
+    },
+    "widen": "{{title}}を全高で開く"
+  },
   "create": {
     "create_bot": "Bot を作成",
     "creating": "作成中…",
@@ -485,24 +504,6 @@
       "microsoft_learn": "アカウントは不要です。Bot が Microsoft のドキュメントを検索できるようになります。"
     }
   },
-  "outsidePanel": {
-    "close": "{{title}}を閉じる",
-    "expand": "パネルを広げる",
-    "restore": "パネル幅を戻す",
-    "title": {
-      "archive": "アーカイブ",
-      "artifacts": "アーティファクト",
-      "bot-edit": "Bot 設定",
-      "desktop": "共有コンピューター",
-      "file": "ファイルのプレビュー",
-      "group-create": "新しいグループ",
-      "members": "メンバー",
-      "memory": "メモリ",
-      "outputs": "成果物",
-      "schedule": "タスク",
-      "terminal": "ターミナル"
-    }
-  },
   "primary": {
     "badge": "メイン",
     "badge_hint": "メインアシスタント：日々の雑用を担当します",
@@ -635,28 +636,6 @@
     "queued": "待機中",
     "running": "返信中",
     "waiting": "返信待ち"
-  },
-  "sidePanel": {
-    "bot": "Bot",
-    "computer": "コンピューター",
-    "computer_asleep": "スリープ中",
-    "computer_off": "未起動",
-    "computer_running": "実行中",
-    "computer_starting": "起動中",
-    "fold": "{{title}}を折りたたむ",
-    "hide": "サイドパネルを隠す",
-    "label": "会話の概要",
-    "members": "メンバー",
-    "model_default": "既定のモデル",
-    "open_computer": "コンピューターを開く",
-    "open_tasks": "タスクを開く",
-    "outputs": "成果物",
-    "show": "サイドパネルを表示",
-    "show_all": "すべて表示",
-    "tasks": "タスク",
-    "tasks_done": "{{total}} 件中 {{done}} 件完了",
-    "tasks_open": "未完了 {{open}} 件",
-    "unfold": "{{title}}を展開"
   },
   "sidebar": {
     "collapse": "サイドバーを閉じる",

@@ -63,5 +63,3 @@
 .message-code-block > .message-code { margin:0; border-radius:0 0 10px 10px; }
 .message-code-block > .message-code.is-collapsed { max-height:calc(16 * 1.5em + 22px); overflow-y:hidden; }
 .message-code-more { display:block; width:100%; margin-top:2px; text-align:left; }
-.fp-name { overflow:hidden; font:600 14px/1.3 var(--body); text-overflow:ellipsis; white-space:nowrap; }
-.fp-shell.is-embedded .fp-head { border-bottom:0; padding-top:4px; }

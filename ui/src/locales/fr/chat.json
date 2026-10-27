@@ -158,6 +158,25 @@
     "verifying": "Vérification de Linux et Chrome",
     "restoring": "Restauration de la session enregistrée"
   },
+  "contextCard": {
+    "back": "Remettre {{title}} avec les cartes",
+    "close": "Fermer {{title}}",
+    "collapse": "Replier {{title}}",
+    "expand": "Déplier {{title}}",
+    "title": {
+      "archive": "Archives",
+      "artifacts": "Artefacts",
+      "bot-edit": "Réglages du Bot",
+      "desktop": "Ordinateur partagé",
+      "group-create": "Nouveau groupe",
+      "members": "Membres",
+      "memory": "Mémoire",
+      "outputs": "Productions",
+      "schedule": "Tâches",
+      "terminal": "Terminal"
+    },
+    "widen": "Ouvrir {{title}} sur toute la hauteur"
+  },
   "create": {
     "create_bot": "Créer un Bot",
     "creating": "Création…",
@@ -509,24 +528,6 @@
       "microsoft_learn": "Aucun compte nécessaire. Tes Bots pourront ainsi chercher dans la documentation Microsoft."
     }
   },
-  "outsidePanel": {
-    "close": "Fermer {{title}}",
-    "expand": "Élargir le panneau",
-    "restore": "Largeur normale",
-    "title": {
-      "archive": "Archives",
-      "artifacts": "Artefacts",
-      "bot-edit": "Réglages du Bot",
-      "desktop": "Ordinateur partagé",
-      "file": "Aperçu du fichier",
-      "group-create": "Nouveau groupe",
-      "members": "Membres",
-      "memory": "Mémoire",
-      "outputs": "Productions",
-      "schedule": "Tâches",
-      "terminal": "Terminal"
-    }
-  },
   "primary": {
     "badge": "Principal",
     "badge_hint": "Assistant principal : s’occupe de vos tâches courantes",
@@ -665,28 +666,6 @@
     "queued": "En file d’attente",
     "running": "Répond",
     "waiting": "En attente de réponse"
-  },
-  "sidePanel": {
-    "bot": "Bot",
-    "computer": "Ordinateur",
-    "computer_asleep": "En veille",
-    "computer_off": "Non démarré",
-    "computer_running": "En marche",
-    "computer_starting": "Démarrage",
-    "fold": "Replier {{title}}",
-    "hide": "Masquer le panneau latéral",
-    "label": "Aperçu de la conversation",
-    "members": "Membres",
-    "model_default": "Modèle par défaut",
-    "open_computer": "Ouvrir l'ordinateur",
-    "open_tasks": "Ouvrir les tâches",
-    "outputs": "Productions",
-    "show": "Afficher le panneau latéral",
-    "show_all": "Tout afficher",
-    "tasks": "Tâches",
-    "tasks_done": "{{done}} sur {{total}} terminées",
-    "tasks_open": "{{open}} en cours",
-    "unfold": "Déplier {{title}}"
   },
   "sidebar": {
     "collapse": "Réduire la barre latérale",

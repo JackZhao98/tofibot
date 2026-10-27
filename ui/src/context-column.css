@@ -1,0 +1,56 @@
+/* Cards in the on-demand column (docs/design/side-panels.md). Loads with ContextCard, the lazy chunk that draws them.
+   A card is a filled surface with a soft elevation: no outline, no hard offset shadow. Layout of the column itself
+   (grid track, scrolling, enter/leave) is eager and lives in context-card.css. */
+:root { --card-elevation:0 1px 2px rgba(42,32,25,.06), 0 10px 28px -14px rgba(42,32,25,.28); }
+:root[data-theme="dark"] { --card-elevation:0 1px 2px rgba(0,0,0,.45), 0 12px 30px -14px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.04); }
+
+.context-card { flex:none; min-width:0; border-radius:14px; background:var(--surface); color:var(--ink); box-shadow:var(--card-elevation); overflow:clip; animation:context-card-rise var(--m-panel-in) var(--ease-out) backwards; }
+@keyframes context-card-rise { from { opacity:0; translate:0 8px; } }
+
+.context-card-header { display:flex; align-items:center; gap:2px; min-height:40px; padding:4px 6px 4px 14px; }
+.context-card-header h2 { flex:1; min-width:0; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink); font:600 13px/1.3 var(--display); outline:none; }
+.context-card-button { display:grid; place-items:center; flex:none; width:28px; height:28px; padding:0; border:0; border-radius:8px; background:transparent; color:var(--ink-soft); }
+.context-card-button:hover { background:var(--surface-2); color:var(--ink); }
+.context-card-button svg { transition:rotate var(--m-base) var(--ease-out); }
+.context-card.is-collapsed .context-card-fold svg { rotate:-90deg; }
+@media (pointer:coarse) { .context-card-button { width:44px; height:44px; } }
+
+/* Folding a card animates its row height; the content stays mounted (a live computer session survives it). */
+.context-card-body { display:grid; grid-template-rows:1fr; transition:grid-template-rows var(--m-base) var(--ease-out); }
+.context-card.is-collapsed .context-card-body { grid-template-rows:0fr; }
+.context-card-inner { min-height:0; min-width:0; overflow:clip; }
+.context-card.is-collapsed .context-card-inner { visibility:hidden; transition:visibility 0s var(--m-base); }
+
+/* The card in the outside panel: the whole column (full height, window edge), header on top, content scrolls below it. */
+.context-card.is-wide { display:flex; flex-direction:column; flex:1 1 auto; min-height:0; border-radius:0; box-shadow:none; background:transparent; animation:none; overflow:hidden; }
+.context-card.is-wide .context-card-header { min-height:48px; padding:6px 10px 6px 20px; }
+.context-card.is-wide .context-card-header h2 { font-size:15px; }
+.context-card.is-wide .context-card-body { flex:1 1 auto; min-height:0; display:block; overflow:hidden auto; }
+.context-card.is-wide .context-card-inner { overflow:visible; }
+
+/* Panels inside a card: the card is the surface, so a panel drops its own frame, its own title and its own close
+   button (the card header carries both) and keeps one inner padding. */
+.context-card .detail-content { padding:2px 14px 14px; background:transparent; }
+.context-card.is-wide .detail-content { padding:4px 20px 24px; }
+.context-card .detail-heading :is(h2,.close-button) { display:none; }
+.context-card .detail-heading:not(:has(> :not(h2):not(.close-button))) { display:none; }
+.context-card .detail-content > .detail-heading { min-height:0; margin:0 0 12px; padding:0; border:0; }
+.context-card:has(.terminal-panel) { height:min(560px,calc(var(--viewport-height,100dvh) - 40px)); }
+.context-card:has(.terminal-panel) :is(.context-card-body,.context-card-inner) { height:100%; }
+.context-card.is-wide:has(.terminal-panel) { height:auto; }
+.context-card.is-wide .terminal-panel { height:100%; }
+
+/* The computer's screen sits in the card body instead of floating over the chat. */
+.workspace .context-card .desktop-floating-shell.is-docked:not(.is-expanded) { position:relative; inset:auto; z-index:auto; width:auto; padding:0 12px 4px; pointer-events:auto; }
+.workspace .context-card.is-wide .desktop-floating-shell.is-docked:not(.is-expanded) { padding:0 16px 8px; }
+.workspace .context-card .desktop-floating-shell.is-docked.is-small .desktop-presence-canvas>.computer-detail { margin-bottom:30px; }
+/* The card header already closes the computer; the screen's own hide control would be a second close. */
+.workspace .context-card .desktop-floating-shell.is-docked:not(.is-expanded) .computer-hide-button { display:none; }
+/* While the screen is a full-window dialog, the card header behind it is out of reach (and out of the accessibility tree). */
+.context-card:has(.desktop-floating-shell.is-expanded)>.context-card-header { visibility:hidden; }
+
+@media (prefers-reduced-motion:reduce) {
+  .context-card { animation:none; }
+  .context-card-body, .context-card-button svg, .context-card.is-collapsed .context-card-inner { transition:none; }
+}
+@media (forced-colors:active) { .context-card { outline:1px solid CanvasText; } }

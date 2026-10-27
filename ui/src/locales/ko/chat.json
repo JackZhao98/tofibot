@@ -158,6 +158,25 @@
     "verifying": "Linux 및 Chrome 확인 중",
     "restoring": "저장된 세션 복원 중"
   },
+  "contextCard": {
+    "back": "{{title}} 카드로 되돌리기",
+    "close": "{{title}} 닫기",
+    "collapse": "{{title}} 접기",
+    "expand": "{{title}} 펼치기",
+    "title": {
+      "archive": "보관함",
+      "artifacts": "아티팩트",
+      "bot-edit": "Bot 설정",
+      "desktop": "공유 컴퓨터",
+      "group-create": "새 그룹",
+      "members": "멤버",
+      "memory": "메모리",
+      "outputs": "산출물",
+      "schedule": "작업",
+      "terminal": "터미널"
+    },
+    "widen": "{{title}} 전체 높이로 열기"
+  },
   "create": {
     "create_bot": "Bot 만들기",
     "creating": "만드는 중…",
@@ -485,24 +504,6 @@
       "microsoft_learn": "계정이 필요 없어요. 연결하면 Bot이 Microsoft 문서를 검색할 수 있어요."
     }
   },
-  "outsidePanel": {
-    "close": "{{title}} 닫기",
-    "expand": "패널 넓히기",
-    "restore": "패널 너비 복원",
-    "title": {
-      "archive": "보관함",
-      "artifacts": "아티팩트",
-      "bot-edit": "Bot 설정",
-      "desktop": "공유 컴퓨터",
-      "file": "파일 미리보기",
-      "group-create": "새 그룹",
-      "members": "멤버",
-      "memory": "메모리",
-      "outputs": "산출물",
-      "schedule": "작업",
-      "terminal": "터미널"
-    }
-  },
   "primary": {
     "badge": "기본",
     "badge_hint": "기본 어시스턴트: 일상적인 일을 맡습니다",
@@ -635,28 +636,6 @@
     "queued": "대기 중",
     "running": "답장하는 중",
     "waiting": "답장 대기 중"
-  },
-  "sidePanel": {
-    "bot": "Bot",
-    "computer": "컴퓨터",
-    "computer_asleep": "절전 중",
-    "computer_off": "시작 안 됨",
-    "computer_running": "실행 중",
-    "computer_starting": "시작 중",
-    "fold": "{{title}} 접기",
-    "hide": "사이드 패널 숨기기",
-    "label": "대화 개요",
-    "members": "멤버",
-    "model_default": "기본 모델",
-    "open_computer": "컴퓨터 열기",
-    "open_tasks": "작업 열기",
-    "outputs": "산출물",
-    "show": "사이드 패널 표시",
-    "show_all": "모두 보기",
-    "tasks": "작업",
-    "tasks_done": "{{total}}개 중 {{done}}개 완료",
-    "tasks_open": "진행 중 {{open}}개",
-    "unfold": "{{title}} 펼치기"
   },
   "sidebar": {
     "collapse": "사이드바 접기",

@@ -26,8 +26,7 @@ const loaders = {
   permissionCoach: () => import("./PermissionCoach"),
   updateBanner: () => import("./UpdateNotice"),
   contextPanels: () => import("./ContextPanels"),
-  outsidePanel: () => import("./OutsidePanel"),
-  sidePanel: () => import("./SidePanel"),
+  contextCard: () => import("./ContextCard"),
   greetingSetup: () => import("./GreetingSetup"),
   questionCard: () => import("./QuestionCard"),
   runContext: () => import("./RunContext"),
@@ -88,8 +87,7 @@ export const DeleteConversationDialog = chunk("deleteDialog", module => module.D
 export const ReassignPrimaryDialog = chunk("reassignPrimary", module => module.ReassignPrimaryDialog);
 export const BotPanel = chunk("contextPanels", module => module.BotPanel);
 export const MembersPanel = chunk("contextPanels", module => module.MembersPanel);
-export const OutsideHeader = chunk("outsidePanel", module => module.OutsideHeader);
-export const SidePanel = chunk("sidePanel", module => module.SidePanel);
+export const ContextCard = chunk("contextCard", module => module.ContextCard);
 export const GreetingSetup = chunk("greetingSetup", module => module.GreetingSetup);
 export const PermissionCoach = chunk("permissionCoach", module => module.PermissionCoach);
 export const UpdateBanner = chunk("updateBanner", module => module.UpdateBanner);
@@ -130,6 +128,8 @@ const entryPoints: Array<[selector: string, chunk: PanelChunk]> = [
   [".sidebar-footer", "settings"],
   ["[data-computer-toggle]", "desktop"],
   [".chat-identity", "contextPanels"],
+  [".chat-identity", "contextCard"],
+  ["[data-computer-toggle]", "contextCard"],
   [".composer-stop", "stopMenu"],
   [".task-activity > summary", "taskActivity"],
   [".web-tool-toggle", "toolSteps"],
@@ -142,7 +142,7 @@ const entryPoints: Array<[selector: string, chunk: PanelChunk]> = [
 const WARM_START_MS = 500;
 const WARM_STEP_MS = 200;
 export function warmPanelsWhenIdle(): () => void {
-  const order: PanelChunk[] = ["settings", "taskActivity", "toolSteps", "desktop", "contextPanels", "outsidePanel", "sidePanel", "work", "memory", "team", "archive", "viewOnly", "remembered", "deleteDialog", "reassignPrimary", "permissionCoach", "updateBanner", "questionCard", "stopMenu"];
+  const order: PanelChunk[] = ["settings", "taskActivity", "toolSteps", "desktop", "contextPanels", "contextCard", "work", "memory", "team", "archive", "viewOnly", "remembered", "deleteDialog", "reassignPrimary", "permissionCoach", "updateBanner", "questionCard", "stopMenu"];
   let timer = window.setTimeout(function step() {
     const next = order.shift();
     if (!next) return;

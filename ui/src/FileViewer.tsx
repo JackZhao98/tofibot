@@ -30,8 +30,7 @@ function Lines({ text, label }: { text: string; label: string }) {
   </div>;
 }
 
-/** `embedded`: the viewer fills the outside panel, whose own header closes it (no back or close button here). */
-export function Viewer({ target, canBack = false, previous, embedded = false }: { target: PreviewTarget; canBack?: boolean; previous?: PreviewTarget; embedded?: boolean }) {
+function Viewer({ target, canBack, previous }: { target: PreviewTarget; canBack: boolean; previous?: PreviewTarget }) {
   const { t } = useTranslation("chat");
   const [meta, setMeta] = useState(target);
   const [body, setBody] = useState<Body>({ state: "loading" });
@@ -99,13 +98,13 @@ export function Viewer({ target, canBack = false, previous, embedded = false }: 
       {body.truncated && <p className="fp-note">{t("attachment.truncated")}</p>}</>;
   }
 
-  return <div className={`fp-shell${embedded ? " is-embedded" : ""}`} data-file-kind={kind}>
+  return <div className="fp-shell" data-file-kind={kind}>
     <header className="fp-head">
-      {canBack && !embedded && <button type="button" className="fp-icon" onClick={popFilePreview} aria-label={t("attachment.viewer_back", { name: previous?.name ?? "" })}><TofiIcon name="arrow-left" size={18} /></button>}
+      {canBack && <button type="button" className="fp-icon" onClick={popFilePreview} aria-label={t("attachment.viewer_back", { name: previous?.name ?? "" })}><TofiIcon name="arrow-left" size={18} /></button>}
       <FileTile name={meta.name} kind={kind} />
-      <div className="fp-title">{embedded ? <strong className="fp-name">{meta.name}</strong> : <h2 id="fp-title">{meta.name}</h2>}<small>{meta.size ? fileSize(meta.size) : ""}</small></div>
+      <div className="fp-title"><h2 id="fp-title">{meta.name}</h2><small>{meta.size ? fileSize(meta.size) : ""}</small></div>
       {download}
-      {!embedded && <button type="button" className="fp-icon" onClick={closeFilePreview} aria-label={t("attachment.viewer_close")}><TofiIcon name="close" size={18} /></button>}
+      <button type="button" className="fp-icon" onClick={closeFilePreview} aria-label={t("attachment.viewer_close")}><TofiIcon name="close" size={18} /></button>
     </header>
     <div className="fp-body" ref={ref} tabIndex={-1}>{content}</div>
   </div>;

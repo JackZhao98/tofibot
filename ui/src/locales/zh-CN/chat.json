@@ -158,6 +158,25 @@
     "verifying": "验证 Linux 与 Chrome",
     "restoring": "正在恢复已保存的会话"
   },
+  "contextCard": {
+    "back": "将{{title}}放回卡片栏",
+    "close": "关闭{{title}}",
+    "collapse": "折叠{{title}}",
+    "expand": "展开{{title}}",
+    "title": {
+      "archive": "归档",
+      "artifacts": "产出文件",
+      "bot-edit": "Bot 设置",
+      "desktop": "共享电脑",
+      "group-create": "新建群组",
+      "members": "成员",
+      "memory": "记忆",
+      "outputs": "产出",
+      "schedule": "任务",
+      "terminal": "终端"
+    },
+    "widen": "将{{title}}展开到右侧整栏"
+  },
   "create": {
     "create_bot": "创建 Bot",
     "creating": "创建中…",
@@ -485,24 +504,6 @@
       "microsoft_learn": "无需账号。连接后你的 Bot 就能搜索 Microsoft 文档。"
     }
   },
-  "outsidePanel": {
-    "close": "关闭{{title}}",
-    "expand": "加宽面板",
-    "restore": "恢复面板宽度",
-    "title": {
-      "archive": "归档",
-      "artifacts": "产出文件",
-      "bot-edit": "Bot 设置",
-      "desktop": "共享电脑",
-      "file": "文件预览",
-      "group-create": "新建群组",
-      "members": "成员",
-      "memory": "记忆",
-      "outputs": "产出",
-      "schedule": "任务",
-      "terminal": "终端"
-    }
-  },
   "primary": {
     "badge": "主助理",
     "badge_hint": "主助理：负责你的日常杂事",
@@ -635,28 +636,6 @@
     "queued": "排队中",
     "running": "正在回复",
     "waiting": "等待回复"
-  },
-  "sidePanel": {
-    "bot": "Bot",
-    "computer": "电脑",
-    "computer_asleep": "已休眠",
-    "computer_off": "未启动",
-    "computer_running": "运行中",
-    "computer_starting": "启动中",
-    "fold": "折叠{{title}}",
-    "hide": "隐藏侧栏",
-    "label": "对话概览",
-    "members": "成员",
-    "model_default": "默认模型",
-    "open_computer": "打开电脑",
-    "open_tasks": "打开任务",
-    "outputs": "产出",
-    "show": "显示侧栏",
-    "show_all": "查看全部",
-    "tasks": "任务",
-    "tasks_done": "共 {{total}} 项，已完成 {{done}} 项",
-    "tasks_open": "{{open}} 项进行中",
-    "unfold": "展开{{title}}"
   },
   "sidebar": {
     "collapse": "收起侧栏",
