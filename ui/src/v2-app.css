@@ -443,74 +443,9 @@ html:not([data-desktop]) .workspace .composer .working-member.work-companion .wo
 .workspace .memory-footer button { width:auto; min-height:32px; margin:0; padding:5px 9px; border:1px solid var(--line-soft); border-radius:9px; background:var(--surface); color:var(--ink-soft); font:600 12px/1.2 var(--body); }
 .workspace .memory-footer button:hover:not(:disabled) { border-color:var(--line); color:var(--ink); }
 .workspace .memory-footer .danger-link { border-color:var(--danger); color:var(--danger-text); }
-.workspace .bot-avatar-picker { border:1px solid var(--line-soft); background:var(--surface-2); border-radius:16px; }
-.workspace .bot-avatar-preview-row>.avatar { width:100px; height:100px; flex-basis:100px; }
-.workspace .bot-v2-panel { padding:18px 20px 32px; }
-.workspace .bot-v2-heading { padding:0 0 18px; margin:0; border-bottom:1px solid var(--line-soft); }
-.workspace .bot-v2-heading-actions { display:flex; align-items:center; gap:6px; }
-.workspace .bot-v2-back { display:inline-flex; align-items:center; gap:6px; min-height:36px; padding:6px 8px; border:0; border-radius:9px; color:var(--ink-soft); background:transparent; }
-.workspace .bot-v2-back:hover { color:var(--ink); background:var(--surface-2); }
-.workspace .bot-v2-hero {
-  position:relative; display:grid; place-items:center; width:164px; height:164px; margin:24px auto 12px;
-  padding:0; border:2px solid var(--line-soft); border-radius:32px; background:var(--surface) var(--dots);
-  color:var(--ink); box-shadow:var(--hard-sm);
-}
-.workspace .bot-v2-hero:hover { border-color:var(--line); transform:translate(-1px,-1px); }
-.workspace .bot-v2-cat { width:132px; height:132px; }
-.workspace .bot-v2-cat>.avatar,.workspace .bot-v2-cat>.avatar>.tofi-avatar { display:block; width:100%; height:100%; }
-.workspace .bot-v2-change { position:absolute; right:-8px; bottom:-10px; display:flex; align-items:center; gap:4px; padding:5px 8px; border:1px solid var(--line); border-radius:8px; background:var(--yellow); color:var(--on-block); font:600 11px/1 var(--display); }
-.workspace .bot-v2-identity { text-align:center; padding:0 8px 20px; }
-.workspace .bot-v2-identity h2 { margin:0; color:var(--ink); font:600 23px/1.3 var(--display); }
-.workspace .bot-v2-identity p { max-width:33ch; margin:6px auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink-soft); font:13px/1.4 var(--body); }
-.workspace .bot-v2-identity small { color:var(--muted); font:10px/1.4 var(--mono); }
-.workspace .bot-v2-section { padding:18px 0; border-top:1px solid var(--line-soft); }
-.workspace .bot-v2-section h3 { margin:0; color:var(--ink); font:600 16px/1.35 var(--display); }
-.workspace .bot-v2-section h3 small { margin-left:4px; color:var(--muted); font:11px/1 var(--mono); }
-.workspace .bot-v2-section p { margin:8px 0 0; color:var(--muted); font-size:12px; }
-.workspace .bot-v2-memory-preview { display:grid; gap:0; margin-top:6px; }
-.workspace .bot-v2-memory-preview p { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:7px 0; border-bottom:1px solid var(--line-soft); color:var(--ink-soft); }
-.workspace .bot-v2-section-heading { display:flex; justify-content:space-between; align-items:center; gap:8px; }
-.workspace .bot-v2-section-heading .text-button { margin:0; color:var(--ink-soft); }
-.workspace .bot-v2-section .work-preview {
-  width:100%; min-height:72px; margin:8px 0 0; padding:12px 14px;
-  border:1px solid var(--line-soft); border-radius:12px;
-  background:var(--surface-2); box-shadow:none; color:var(--ink-soft); text-align:left;
-}
-.workspace .bot-v2-section .work-preview:hover { border-color:var(--line); background:var(--surface); }
-.workspace .bot-v2-section .work-preview strong { color:var(--ink); font:600 13px/1.4 var(--display); }
-.workspace .bot-v2-section .work-preview small { color:var(--muted); font:11px/1.45 var(--body); }
-.workspace .bot-v2-config-list>button { display:flex; justify-content:space-between; align-items:center; width:100%; min-height:46px; padding:9px 0; border:0; border-bottom:1px solid var(--line-soft); background:transparent; color:var(--ink-soft); text-align:left; }
-.workspace .bot-v2-config-list>button:hover { color:var(--ink); }
 .workspace .bot-v2-subtitle { margin:18px 0 16px; }
 .workspace .bot-v2-subtitle h2 { margin:0 0 4px; color:var(--ink); font:600 20px/1.3 var(--display); }
 .workspace .bot-v2-subtitle p { margin:0; color:var(--muted); font-size:12px; }
-.workspace .bot-v2-panel .bot-avatar-picker { display:grid; gap:14px; padding:18px; }
-.workspace .bot-avatar-v2 h3 { margin:8px 0 -7px; color:var(--ink); font:600 14px/1.3 var(--display); }
-.workspace .bot-avatar-v2 h3 small { color:var(--muted); font:10px/1 var(--mono); }
-.workspace .bot-avatar-stage { display:grid; place-items:center; min-height:202px; border-radius:14px; background:var(--surface) var(--dots); }
-.workspace .bot-avatar-stage>.avatar,.workspace .bot-avatar-stage>.avatar>.tofi-avatar { display:block; width:180px; height:180px; }
-.workspace .bot-avatar-state { display:flex; gap:3px; padding:3px; border:1px solid var(--line-soft); border-radius:10px; background:var(--sunk); }
-.workspace .bot-avatar-state button { flex:1; min-height:33px; border:0; border-radius:7px; color:var(--ink-soft); background:transparent; font:600 11px/1.2 var(--display); }
-.workspace .bot-avatar-state button[aria-pressed="true"] { color:var(--on-block); background:var(--yellow); }
-.workspace .bot-avatar-sizes { display:flex; align-items:flex-end; justify-content:space-around; padding:12px 5px; border-bottom:1px solid var(--line-soft); }
-.workspace .bot-avatar-sizes>div { display:grid; justify-items:center; gap:5px; }
-.workspace .bot-avatar-sizes>div>span { display:block; }
-.workspace .bot-avatar-sizes .avatar,.workspace .bot-avatar-sizes .tofi-avatar { display:block; width:100%; height:100%; }
-.workspace .bot-avatar-sizes small { color:var(--muted); font:10px/1 var(--mono); }
-.workspace .bot-avatar-choice-heading { display:flex; align-items:center; justify-content:space-between; }
-.workspace .bot-avatar-choice-heading h3 { margin:0; }
-.workspace .bot-avatar-shapes { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; }
-.workspace .bot-avatar-shapes button { display:grid; justify-items:center; gap:3px; min-width:0; padding:7px 3px; border:1px solid var(--line-soft); border-radius:10px; background:var(--surface); color:var(--ink-soft); font:11px/1.2 var(--body); }
-.workspace .bot-avatar-shapes button:hover,.workspace .bot-avatar-patterns button:hover,.workspace .bot-avatar-palettes button:hover { border-color:var(--line); }
-.workspace .bot-avatar-shapes button[aria-pressed="true"],.workspace .bot-avatar-patterns button[aria-pressed="true"],.workspace .bot-avatar-palettes button[aria-pressed="true"] { border:2px solid var(--line); color:var(--ink); background:var(--surface-2); }
-.workspace .bot-avatar-shapes .avatar,.workspace .bot-avatar-shapes .tofi-avatar { display:block; width:44px; height:44px; }
-.workspace .bot-avatar-patterns { display:flex; flex-wrap:wrap; gap:5px; }
-.workspace .bot-avatar-patterns button { min-height:30px; padding:5px 8px; border:1px solid var(--line-soft); border-radius:8px; color:var(--ink-soft); background:var(--surface); font:11px/1.2 var(--body); }
-.workspace .bot-avatar-palettes { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
-.workspace .bot-avatar-palettes button { display:flex; align-items:center; gap:6px; min-width:0; min-height:34px; padding:4px 6px; border:1px solid var(--line-soft); border-radius:8px; color:var(--ink-soft); background:var(--surface); text-align:left; }
-.workspace .bot-avatar-palettes button>span { display:block; width:18px; height:18px; flex:none; border:2px solid; border-radius:50%; }
-.workspace .bot-avatar-palettes button small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:10px/1.2 var(--body); }
-.workspace .bot-v2-panel .bot-v2-done { display:flex; width:100%; margin-top:12px; }
 :is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.member-panel,.sidebar-account-menu,.mcp-menu) { background:color-mix(in srgb,var(--surface) 99.5%,transparent); border:2px solid var(--line); border-radius:16px; box-shadow:var(--sheen),var(--hard-sm); -webkit-backdrop-filter:blur(32px) saturate(1.4); backdrop-filter:blur(32px) saturate(1.4); }
 :is(.workspace,[id="tofi-layers"]) .sidebar-context-menu { padding:6px; }
 :is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.sidebar-account-menu,.mcp-menu)>button,
@@ -528,7 +463,6 @@ html:not([data-desktop]) .workspace .composer .working-member.work-companion .wo
   .workspace .chat-header { padding-inline:10px; }
   .workspace .message-scroll { padding-inline:16px; }
   .workspace .composer { padding-inline:12px; }
-  .workspace .bot-avatar-preview-row>.avatar { width:72px; height:72px; flex-basis:72px; }
 }
 @media (prefers-reduced-motion:reduce) {
   .workspace .sidebar-logo-expand :is(.sidebar-logo-art,.sidebar-logo-arrow),
@@ -594,30 +528,6 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
 
 /* Bot profile: one header (title + close), the cat and identity, then one list of equal rows —
    plans, memory, name/role/model — each opening exactly one page. Sharing sits quietly at the end. */
-.workspace .bot-v2-heading { justify-content:space-between; padding:0 0 14px; }
-.workspace .bot-v2-profile { display:grid; justify-items:center; gap:4px; padding:4px 0 18px; }
-.workspace .bot-v2-profile .bot-v2-hero { width:136px; height:136px; margin:14px auto 10px; border-radius:28px; }
-.workspace .bot-v2-profile .bot-v2-cat { width:108px; height:108px; }
-.workspace .bot-v2-profile .bot-v2-change { right:-6px; bottom:-6px; display:grid; place-items:center; width:28px; height:28px; padding:0; border:1.5px solid var(--line); border-radius:50%; }
-.workspace .bot-v2-profile .bot-v2-identity { padding:0 8px; }
-.workspace .bot-v2-model { display:inline-block; margin-top:6px; padding:3px 9px; border:1px solid var(--line-soft); border-radius:999px; background:var(--surface-2); color:var(--muted); font:10px/1.4 var(--mono); }
-.workspace .bot-v2-rows { display:grid; gap:8px; }
-.workspace .bot-v2-rows :is(.bot-v2-row,.work-preview) {
-  display:grid; grid-template-columns:36px minmax(0,1fr) auto; align-items:center; gap:12px; width:100%; min-height:60px;
-  margin:0; padding:10px 12px 10px 10px; border:1px solid var(--line-soft); border-radius:14px; background:var(--surface-2);
-  color:var(--ink); text-align:left; transition:border-color var(--m-quick) var(--ease-out),background-color var(--m-quick) var(--ease-out);
-}
-.workspace .bot-v2-rows :is(.bot-v2-row,.work-preview):hover:not(:disabled) { border-color:var(--line); background:var(--surface); }
-.workspace .bot-v2-rows :is(.bot-v2-row,.work-preview):focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
-.workspace .bot-v2-row-icon { display:grid; place-items:center; width:36px; height:36px; border:1px solid var(--line-soft); border-radius:10px; background:var(--surface); color:var(--ink-soft); }
-.workspace .bot-v2-rows :is(.bot-v2-row-copy,.work-preview-copy) { display:grid; gap:3px; min-width:0; }
-.workspace .bot-v2-rows :is(.bot-v2-row-copy,.work-preview-copy) strong { color:var(--ink); font:600 13px/1.35 var(--display); }
-.workspace .bot-v2-rows :is(.bot-v2-row-copy,.work-preview-copy) strong span { margin-left:4px; color:var(--muted); font:11px/1 var(--mono); }
-.workspace .bot-v2-rows :is(.bot-v2-row-copy,.work-preview-copy) small { overflow:hidden; color:var(--muted); font:11px/1.45 var(--body); white-space:nowrap; text-overflow:ellipsis; }
-.workspace .bot-v2-rows .bot-v2-row>svg, .workspace .bot-v2-rows .work-preview>span[aria-hidden="true"]:last-child { color:var(--muted); font-size:18px; line-height:1; }
-.workspace .bot-v2-footer { display:flex; justify-content:center; padding:18px 0 2px; }
-.workspace .bot-v2-footer .text-button { display:inline-flex; align-items:center; gap:6px; color:var(--muted); font:var(--type-meta); }
-.workspace .bot-v2-footer .text-button:hover { color:var(--ink); }
 .workspace .members-v2-rows { margin-bottom:18px; }
 .workspace .message-list.is-positioning{visibility:hidden}
 /* Reduced motion turns every transition into a ~0s one, and the default `transition-property: all` then defers each

@@ -1,0 +1,19 @@
+/* Members widget (MembersWidget.tsx), inside a context card. Loads with the lazy chunk `membersWidget`. Filled hover states only. */
+.members-widget { display:grid; gap:2px; padding:0 8px 10px; }
+.mw-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:0 6px 4px 10px; color:var(--muted); font:12px/1.4 var(--body); }
+.mw-gear { display:grid; place-items:center; flex:none; width:28px; height:28px; padding:0; border:0; border-radius:8px; background:transparent; color:var(--ink-soft); transition:background-color var(--m-press) var(--ease-out), color var(--m-press) var(--ease-out); }
+.mw-gear:hover { background:var(--surface-2); color:var(--ink); }
+.mw-gear:focus-visible, .mw-open:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
+.mw-list { display:grid; gap:2px; margin:0; padding:0; list-style:none; }
+.mw-member { display:grid; border-radius:12px; transition:background-color var(--m-press) var(--ease-out); }
+.mw-member:hover { background:var(--surface-2); }
+.mw-open { display:flex; align-items:center; gap:10px; min-height:40px; padding:5px 10px; border:0; border-radius:12px; background:transparent; color:var(--ink); text-align:left; }
+.mw-avatar { display:grid; flex:none; width:28px; height:28px; }
+.mw-avatar .avatar, .mw-avatar .tofi-avatar { display:block; width:100%; height:100%; }
+.mw-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:600 13px/1.4 var(--body); }
+.mw-open .primary-badge { border:0; background:var(--surface-2); }
+.mw-member:hover .primary-badge { background:var(--surface); }
+.mw-tasks, .mw-idle { margin:0 10px 8px 48px; padding:0; }
+.mw-idle { color:var(--muted); font:12px/1.4 var(--body); }
+@media (pointer:coarse) { .mw-gear { width:44px; height:44px; } .mw-open { min-height:48px; } }
+@media (prefers-reduced-motion:reduce) { .mw-gear, .mw-member { transition:none; } }

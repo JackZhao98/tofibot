@@ -1,0 +1,32 @@
+/* The unsaved-changes bar and the leave question shared by the edit forms inside covers (CoverForm.tsx). Loads with it.
+   Filled surfaces only: an inverse bar (the same ink as the tooltips), no outlines. Enter --m-quick, leave --m-press. */
+.cover-dirty-bar { position:absolute; z-index:var(--z-raised); left:20px; right:20px; bottom:18px; display:flex; justify-content:center; pointer-events:none;
+  opacity:0; visibility:hidden; transform:translateY(calc(100% + 28px));
+  transition:transform var(--m-press) var(--ease-in), opacity var(--m-press) var(--ease-in), visibility 0s linear var(--m-press); }
+.cover-dirty-bar[data-open] { opacity:1; visibility:visible; transform:none; transition:transform var(--m-quick) var(--ease-out), opacity var(--m-quick) var(--ease-out), visibility 0s; }
+.cover-dirty-inner { display:flex; align-items:center; gap:8px; width:min(560px,100%); min-height:52px; padding:8px 8px 8px 18px; border-radius:16px; background:var(--inverse); color:var(--on-inverse); box-shadow:0 14px 34px -12px rgba(20,14,8,.5); pointer-events:auto; }
+.cover-dirty-text { flex:1; min-width:0; font:500 13px/1.4 var(--body); overflow-wrap:anywhere; }
+.cover-dirty-bar[data-error] .cover-dirty-text { color:color-mix(in srgb,var(--danger) 55%,var(--on-inverse)); }
+.cover-dirty-bar button { flex:none; min-height:36px; padding:0 14px; border:0; border-radius:11px; font:600 13px/1 var(--body); transition:background-color var(--m-press) var(--ease-out), opacity var(--m-press) var(--ease-out); }
+.cover-dirty-bar button:focus-visible { outline:var(--focus-ring-width) solid var(--on-inverse); outline-offset:2px; }
+.cover-dirty-bar button:disabled { opacity:.5; }
+.cover-dirty-discard { background:transparent; color:var(--on-inverse); }
+.cover-dirty-discard:hover:not(:disabled) { background:color-mix(in srgb,var(--on-inverse) 14%,transparent); }
+.cover-dirty-save { background:var(--on-inverse); color:var(--inverse); }
+.cover-dirty-save:hover:not(:disabled) { background:color-mix(in srgb,var(--on-inverse) 88%,var(--inverse)); }
+@media (max-width:767px) { .cover-dirty-bar { left:12px; right:12px; bottom:calc(12px + env(safe-area-inset-bottom)); } .cover-dirty-inner { padding-left:14px; } }
+@media (prefers-reduced-motion:reduce) { .cover-dirty-bar, .cover-dirty-bar[data-open], .cover-dirty-bar button { transition:none; } }
+
+/* Leave question: a small filled card over the cover. */
+.cover-leave-scrim { position:fixed; inset:0; z-index:calc(var(--z-dialog) + 1); display:grid; place-items:center; padding:24px; background:color-mix(in srgb,var(--ink) 30%,transparent); animation:cover-leave-scrim-in var(--m-quick) var(--ease-out) both; }
+.cover-leave-dialog { width:min(400px,100%); padding:24px; border-radius:20px; background:var(--surface); color:var(--ink); box-shadow:0 24px 60px -20px rgba(20,14,8,.55); outline:none; animation:modal-enter var(--m-base) var(--ease-out) both; }
+.cover-leave-dialog h3 { margin:0 0 8px; font:600 18px/1.3 var(--display); }
+.cover-leave-dialog p { margin:0 0 22px; color:var(--ink-soft); font:14px/1.6 var(--body); }
+.cover-leave-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
+.cover-leave-actions button { min-height:40px; padding:0 16px; border:0; border-radius:12px; font:600 13px/1 var(--body); }
+.cover-leave-actions button:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
+.cover-leave-discard { background:var(--surface-2); color:var(--danger-text); }
+.cover-leave-discard:hover:not(:disabled) { background:var(--sunk); }
+.cover-leave-keep { background:var(--inverse); color:var(--on-inverse); }
+@keyframes cover-leave-scrim-in { from { opacity:0; } }
+@media (prefers-reduced-motion:reduce) { .cover-leave-scrim, .cover-leave-dialog { animation:none; } }

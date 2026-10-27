@@ -25,7 +25,7 @@ const loaders = {
   reassignPrimary: () => import("./ReassignPrimaryDialog"),
   permissionCoach: () => import("./PermissionCoach"),
   updateBanner: () => import("./UpdateNotice"),
-  contextPanels: () => import("./ContextPanels"),
+  botSettings: () => import("./BotSettingsPanel"),
   contextCard: () => import("./ContextCard"),
   sidebarShell: () => import("./SidebarShell"),
   coverShell: () => import("./CoverShell"),
@@ -64,7 +64,7 @@ function load(name: PanelChunk): Promise<void> {
  * per component, which would paint the skeleton for a frame even when the idle warm-up had long finished.
  * A failed download renders nothing and retries on the next mount instead of unmounting the app.
  */
-function chunk<K extends PanelChunk, P extends object>(name: K, pick: (module: Loaded<K>) => ComponentType<P>): ComponentType<P> {
+export function chunk<K extends PanelChunk, P extends object>(name: K, pick: (module: Loaded<K>) => ComponentType<P>): ComponentType<P> {
   return function PanelChunkBoundary(props: P) {
     if (!loaded.has(name)) {
       const failed = failedAt.get(name);
@@ -89,8 +89,6 @@ export const ViewOnlyChat = chunk("viewOnly", module => module.ViewOnlyChat);
 export const RememberedApprovalsSheet = chunk("remembered", module => module.RememberedApprovalsSheet);
 export const DeleteConversationDialog = chunk("deleteDialog", module => module.DeleteConversationDialog);
 export const ReassignPrimaryDialog = chunk("reassignPrimary", module => module.ReassignPrimaryDialog);
-export const BotPanel = chunk("contextPanels", module => module.BotPanel);
-export const MembersPanel = chunk("contextPanels", module => module.MembersPanel);
 export const WidgetColumn = chunk("contextCard", module => module.WidgetColumn);
 export const SidebarShell = chunk("sidebarShell", module => module.SidebarShell);
 export const CoverShell = chunk("coverShell", module => module.CoverShell);
@@ -136,7 +134,7 @@ export function preloadPanel(name: PanelChunk) {
 const entryPoints: Array<[selector: string, chunk: PanelChunk]> = [
   [".sidebar-footer", "settings"],
   ["[data-computer-toggle]", "desktop"],
-  [".chat-identity", "contextPanels"],
+  [".chat-identity", "botSettings"],
   [".chat-identity", "contextCard"],
   [".chat-identity", "coverShell"],
   [".header-actions", "sidebarShell"],
@@ -154,7 +152,7 @@ const entryPoints: Array<[selector: string, chunk: PanelChunk]> = [
 const WARM_START_MS = 500;
 const WARM_STEP_MS = 200;
 export function warmPanelsWhenIdle(): () => void {
-  const order: PanelChunk[] = ["settings", "taskActivity", "toolSteps", "desktop", "contextPanels", "contextCard", "sidebarShell", "coverShell", "surfaceViews", "artifacts", "work", "memory", "team", "archive", "viewOnly", "remembered", "deleteDialog", "reassignPrimary", "permissionCoach", "updateBanner", "questionCard", "stopMenu"];
+  const order: PanelChunk[] = ["settings", "taskActivity", "toolSteps", "desktop", "contextCard", "sidebarShell", "coverShell", "surfaceViews", "botSettings", "artifacts", "work", "memory", "team", "archive", "viewOnly", "remembered", "deleteDialog", "reassignPrimary", "permissionCoach", "updateBanner", "questionCard", "stopMenu"];
   let timer = window.setTimeout(function step() {
     const next = order.shift();
     if (!next) return;
@@ -201,14 +199,6 @@ export function SettingsSkeleton({ onClose }: { onClose: () => void }) {
     <div className="settings-content">
       <header className="settings-page-heading"><div className="settings-page-title"><h2>{t("shell.title")}</h2></div></header>
     </div>
-  </div>;
-}
-
-/** Bot panel frame: heading and close, so the card is recognisable while its rows mount. */
-export function BotPanelSkeleton({ onClose }: { onClose: () => void }) {
-  const { t } = useTranslation("chat");
-  return <div className="detail-content bot-v2-panel" aria-busy="true">
-    <div className="detail-heading bot-v2-heading"><h2>{t("botPanel.title")}</h2><button className="close-button" aria-label={t("botPanel.close")} onClick={onClose}><Icon name="close" size={18} /></button></div>
   </div>;
 }
 

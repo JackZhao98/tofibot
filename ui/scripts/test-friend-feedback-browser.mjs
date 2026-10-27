@@ -248,15 +248,17 @@ try {
     assert.match(await page.locator(".detail-content").filter({ has: page.getByRole("heading", { name: "这个 Bot 的记忆", exact: true }) }).innerText(), /不同模型/);
     await page.getByRole("button", { name: "关闭记忆", exact: true }).click();
     await menu("Bot 设置");
-    await page.getByRole("button", { name: /名称、职能与模型/ }).click();
-    await page.getByText("模型与思考", { exact: true }).click();
+    await page.locator('.bs-nav-item[data-section="model"]').click();
     await page.locator(".model-fields select").first().selectOption("fixture-b");
     assert.match(await page.locator(".model-fields").innerText(), /保留已保存的记忆和聊天记录/);
     const saved = page.waitForResponse(response => response.request().method() === "PATCH" && new URL(response.url()).pathname === `/api/bots/${botID}`);
-    await page.getByRole("button", { name: "保存", exact: true }).click();
+    await page.locator(".cover-dirty-save").click();
     assert.equal((await saved).status(), 200);
     assert.equal(writes.length, 1); assert.equal(writes[0].model, "fixture-b");
-    await page.locator(".bot-v2-panel").waitFor({ state: "detached" });
+    // Saving keeps the cover open (the dirty bar leaves); Escape then closes it without a question.
+    await page.locator(".cover-dirty-bar[data-open]").waitFor({ state: "detached" });
+    await page.keyboard.press("Escape");
+    await page.locator(".bot-settings").waitFor({ state: "detached" });
     assert.equal(await page.locator(".message-content").filter({ hasText: "Saved chat history." }).count(), 1);
     assert.equal(await composer.inputValue(), "Unsent draft");
     await menu("这个 Bot 的记忆");

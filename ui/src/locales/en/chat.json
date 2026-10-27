@@ -72,6 +72,38 @@
     "artifacts": "Artifacts",
     "artifacts_hint": "Files and images this Bot produced"
   },
+  "botSettings": {
+    "nav": "Bot settings sections",
+    "back": "All sections",
+    "avatar_title": "Avatar",
+    "avatar_hint": "How this cat looks in the list and in chat.",
+    "name_required": "A name is required.",
+    "primary_title": "Primary Assistant",
+    "primary_off": "Handles your general chores. One Bot holds this role at a time.",
+    "archived_title": "Archived",
+    "archived_body": "Hidden from your list. Its chats and memory are kept.",
+    "model_pinned": "Pinned to {{model}}",
+    "share_hint": "Role, model and Skill names in one file. No chats, memory or secrets.",
+    "data_hint": "Chats, memory and files. Opens Settings › Advanced.",
+    "export_action": "Export",
+    "delete_hint": "Removes this Bot and its chat. This can't be undone.",
+    "section": {
+      "identity": "Identity",
+      "role": "Role",
+      "model": "Model",
+      "skills": "Skills",
+      "secrets": "Secrets",
+      "advanced": "Advanced"
+    },
+    "desc": {
+      "identity": "Avatar, name and Primary Assistant.",
+      "role": "What this Bot is responsible for. It reads this before every reply.",
+      "model": "Which model this Bot runs on and how much it thinks.",
+      "advanced": "System prompt, export and delete."
+    },
+    "role_count_one": "{{count}} character",
+    "role_count_other": "{{count}} characters"
+  },
   "codex": {
     "connect": "Connect Codex",
     "connected": "Codex connected",
@@ -176,7 +208,15 @@
     }
   },
   "cover": {
-    "close": "Close {{title}}"
+    "close": "Close {{title}}",
+    "discard": "Discard",
+    "keep_editing": "Keep editing",
+    "leave_body": "You have edits that haven't been saved. Closing now throws them away.",
+    "leave_discard": "Discard changes",
+    "leave_title": "Discard unsaved changes?",
+    "save": "Save",
+    "saved": "Saved",
+    "unsaved": "Unsaved changes"
   },
   "create": {
     "create_bot": "Create Bot",
@@ -249,6 +289,11 @@
   "groupCreate": {
     "close": "Close new group",
     "create": "Create group"
+  },
+  "groupSettings": {
+    "memory_title": "Group memory",
+    "memory_hint": "Notes every member of this group can read.",
+    "delete_hint": "Removes the group and its chat. This can't be undone."
   },
   "header": {
     "back_to_chat": "Back to conversation",
@@ -354,6 +399,9 @@
     "impact_waits_one": "Removing {{name}} ends {{count}} wait it holds.",
     "impact_waits_other": "Removing {{name}} ends {{count}} waits it holds.",
     "tasks_of": "Open tasks of {{name}}"
+  },
+  "membersWidget": {
+    "idle": "No open tasks"
   },
   "message": {
     "attachment": "Attachment",

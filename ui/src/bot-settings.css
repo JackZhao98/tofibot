@@ -1,0 +1,153 @@
+/* Bot settings cover (BotSettingsPanel.tsx, docs/design/widgets-and-sidebar.md section 5). Loads with the lazy chunk `botSettings`.
+   Owner taste: filled surfaces, no outlined containers or rows, no hand cursor (the global convention), tooltips are data-hint.
+   Section switch cross-fades with --m-quick; below 900px the section list and the page are two layers that slide (--m-base). */
+.bot-settings { --bs-lift:0 1px 2px rgba(42,32,25,.08), 0 6px 16px -10px rgba(42,32,25,.32); --bs-pop:0 18px 48px -14px rgba(20,14,8,.45), 0 2px 6px rgba(20,14,8,.12); }
+:root[data-theme="dark"] .bot-settings, :root[data-theme="dark"] .bot-style-pop { --bs-lift:0 1px 2px rgba(0,0,0,.45); --bs-pop:0 18px 48px -14px rgba(0,0,0,.75), inset 0 1px 0 rgba(255,255,255,.05); }
+.cover-body:has(> .bot-settings) { overflow:hidden; }
+.bot-settings { position:relative; display:grid; grid-template-columns:232px minmax(0,1fr); height:100%; min-height:0; overflow:hidden; background:var(--surface); }
+
+/* The section list. */
+.bs-nav { display:flex; flex-direction:column; gap:6px; min-width:0; min-height:0; padding:18px 12px 18px; overflow-y:auto; background:var(--surface-2); }
+.bs-who { display:flex; align-items:center; gap:12px; padding:2px 8px 14px; }
+.bs-who-avatar { display:grid; flex:none; width:44px; height:44px; }
+.bs-who-avatar > .avatar, .bs-who-avatar > .avatar > .tofi-avatar { display:block; width:100%; height:100%; }
+.bs-who-copy { display:grid; gap:2px; min-width:0; }
+.bs-who-copy strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink); font:600 15px/1.3 var(--display); }
+.bs-who-copy small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted); font:12px/1.4 var(--body); }
+.bs-nav-list { display:grid; grid-template-columns:minmax(0,1fr); gap:2px; }
+.bs-nav-item { display:flex; align-items:center; gap:10px; width:100%; min-height:42px; padding:8px 10px; border:0; border-radius:12px; background:transparent; color:var(--ink-soft); text-align:left; font:500 13px/1.3 var(--body);
+  transition:background-color var(--m-press) var(--ease-out), color var(--m-press) var(--ease-out), box-shadow var(--m-quick) var(--ease-out); }
+.bs-nav-item:hover { background:color-mix(in srgb,var(--sunk) 65%,transparent); color:var(--ink); }
+.bs-nav-item[aria-current="page"] { background:var(--surface); color:var(--ink); font-weight:600; box-shadow:var(--bs-lift); }
+.bs-nav-item:focus-visible, .bs-button:focus-visible, .bs-back:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
+.bs-nav-label { flex:1; min-width:0; }
+.bs-nav-hint, .bs-nav-chevron { display:none; }
+
+/* The page. */
+.bs-page { position:relative; display:flex; flex-direction:column; min-width:0; min-height:0; background:var(--surface); }
+.bs-head { display:flex; align-items:center; gap:10px; flex:none; padding:20px 28px 10px; }
+.bs-back { display:none; flex:none; place-items:center; width:40px; height:40px; margin-left:-10px; padding:0; border:0; border-radius:12px; background:transparent; color:var(--ink-soft); }
+.bs-back:hover { background:var(--surface-2); color:var(--ink); }
+.bs-head-copy { flex:1; min-width:0; }
+.bs-head h3 { margin:0; color:var(--ink); font:600 20px/1.3 var(--display); outline:none; }
+.bs-head p { margin:2px 0 0; color:var(--muted); font:13px/1.5 var(--body); }
+.bs-saved { flex:none; padding:4px 10px; border-radius:999px; background:var(--surface-2); color:var(--ink-soft); font:600 12px/1.3 var(--body); opacity:0; transform:translateY(2px); transition:opacity var(--m-quick) var(--ease-out), transform var(--m-quick) var(--ease-out); }
+.bs-saved[data-on] { opacity:1; transform:none; }
+.bs-scroll { flex:1 1 auto; min-height:0; padding:8px 28px 104px; overflow:hidden auto; overscroll-behavior:contain; }
+
+/* Sections stack in one cell so the outgoing one can fade while the incoming one fades in. */
+.bs-sections { display:grid; min-width:0; }
+.bs-section { grid-area:1 / 1; min-width:0; }
+.bs-section[data-state="in"] { animation:bs-fade-in var(--m-quick) var(--ease-out) both; }
+.bs-section[data-state="out"] { animation:bs-fade-out var(--m-quick) var(--ease-out) both; pointer-events:none; }
+@keyframes bs-fade-in { from { opacity:0; } }
+@keyframes bs-fade-out { to { opacity:0; } }
+.bs-stack { display:grid; gap:12px; min-width:0; }
+
+/* Rows and fields are filled, never outlined. */
+.bs-row { display:flex; align-items:center; gap:14px; min-width:0; padding:14px 16px; border-radius:14px; background:var(--surface-2); }
+.bs-row[data-danger] { background:color-mix(in srgb,var(--danger) 9%,var(--surface-2)); }
+.bs-row-copy { display:grid; flex:1; gap:2px; min-width:0; }
+.bs-row-copy strong { color:var(--ink); font:600 14px/1.4 var(--body); }
+.bs-row[data-danger] .bs-row-copy strong { color:var(--danger-text); }
+.bs-row-copy small { color:var(--muted); font:13px/1.5 var(--body); }
+.bs-row .primary-badge { border:0; background:var(--surface); }
+.bs-avatar { display:grid; flex:none; width:72px; height:72px; }
+.bs-avatar > .avatar, .bs-avatar > .avatar > .tofi-avatar { display:block; width:100%; height:100%; }
+.bs-button { flex:none; min-height:36px; padding:0 14px; border:0; border-radius:11px; background:var(--surface); color:var(--ink); box-shadow:var(--bs-lift); font:600 13px/1 var(--body);
+  transition:background-color var(--m-press) var(--ease-out), box-shadow var(--m-press) var(--ease-out); }
+.bs-button:hover:not(:disabled) { background:color-mix(in srgb,var(--sunk) 55%,var(--surface)); }
+.bs-button:disabled { opacity:.55; }
+.bs-button.is-danger { color:var(--danger-text); }
+.bs-button.is-danger:hover:not(:disabled) { background:color-mix(in srgb,var(--danger) 14%,var(--surface)); }
+
+.bs-field { display:grid; gap:8px; margin:0; }
+.bs-field > span:not(.sr-only), .bot-settings .model-fields label { color:var(--ink-soft); font:600 12px/1.3 var(--body); }
+.cover-window .bot-settings :is(.bs-field input, .bs-field textarea, .model-fields select, .bs-section .bot-secret-replace input, .bs-section .bot-inspector input) { width:100%; margin:0; padding:11px 14px; border:0; border-radius:12px; background:var(--surface-2); color:var(--ink); box-shadow:none; font:14px/1.5 var(--body); }
+.cover-window .bot-settings .model-fields select { padding-right:40px; -webkit-appearance:none; appearance:none; background-image:linear-gradient(45deg,transparent 50%,var(--ink-soft) 50%),linear-gradient(135deg,var(--ink-soft) 50%,transparent 50%); background-position:calc(100% - 21px) 50%,calc(100% - 16px) 50%; background-size:5px 5px; background-repeat:no-repeat; }
+.cover-window .bot-settings .bs-field textarea { min-height:236px; resize:vertical; line-height:1.6; }
+.cover-window .bot-settings :is(.bs-field input, .bs-field textarea, .model-fields select):focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:1px; }
+.cover-window .bot-settings .bs-field input[aria-invalid="true"] { background:color-mix(in srgb,var(--danger) 10%,var(--surface-2)); }
+.cover-window .bot-settings :is(.bs-field input, .bs-field textarea, .model-fields select):disabled { opacity:.6; }
+.bs-field-error { color:var(--danger-text); font:12px/1.4 var(--body); }
+.bs-count { justify-self:end; color:var(--muted); font:11px/1.2 var(--mono); }
+.bot-settings .model-fields { display:grid; gap:16px; }
+.bot-settings .model-fields label { display:grid; gap:8px; }
+.bs-model-line { margin:0; padding:12px 16px; border-radius:12px; background:var(--surface-2); color:var(--ink-soft); font:13px/1.5 var(--body); }
+
+/* Skills, Secrets and the prompt preview keep their components and lose their rules. */
+.bs-section :is(.bot-skills, .bot-secrets) { margin-top:0; }
+.bs-section .bot-v2-subtitle { margin:0 0 14px; }
+.bs-section .bot-v2-subtitle h2 { position:absolute; width:1px; height:1px; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.bs-section .bot-v2-subtitle p { margin:0; color:var(--muted); font:13px/1.5 var(--body); }
+.bs-section :is(.bot-skill-list, .bot-secret-list) { gap:8px; margin-top:0; }
+.bs-section :is(.bot-skill-row, .bot-secret-row) { padding:12px 14px; border:0; border-radius:14px; background:var(--surface-2); }
+.bs-section .bot-skill-members { gap:6px; margin:10px 0 0; padding:0; border:0; }
+.bs-section .bot-skill-members .bot-skill-row { background:var(--surface); }
+.bs-section :is(.primary-button, .secondary-button) { min-height:36px; padding:0 14px; border:0; border-radius:11px; background:var(--inverse); color:var(--on-inverse); box-shadow:none; font:600 13px/1 var(--body); }
+.bs-section .bot-inspector { margin:0; padding:14px 16px; border:0; border-radius:14px; background:var(--surface-2); }
+.bs-section .bot-inspector > summary { color:var(--ink); font:600 14px/1.4 var(--body); }
+.bs-section .prompt-preview { max-height:320px; overflow:auto; margin:10px 0 12px; padding:12px 14px; border:0; border-radius:10px; background:var(--surface); color:var(--ink-soft); font:12px/1.55 var(--mono); white-space:pre-wrap; }
+.bs-section .settings-feedback { margin:8px 0 0; color:var(--ink-soft); font:13px/1.5 var(--body); }
+
+/* The avatar picker opens on its own button, in the layer root (outside .workspace), so it carries its own rules here. */
+.bot-style-pop { z-index:calc(var(--z-dialog) + 1); width:min(372px,calc(100vw - 24px)); max-height:min(640px,var(--radix-popover-content-available-height,640px)); overflow:hidden auto; overscroll-behavior:contain; padding:14px; border:0; border-radius:20px; background:var(--surface); color:var(--ink); box-shadow:var(--bs-pop); outline:none;
+  transform-origin:var(--radix-popover-content-transform-origin); animation:bs-pop-in var(--m-base) var(--ease-out) both; }
+.bot-style-pop[data-state="closed"] { animation:bs-pop-out var(--m-quick) var(--ease-settle) both; pointer-events:none; }
+@keyframes bs-pop-in { from { opacity:0; transform:translateY(-4px) scale(.97); } }
+@keyframes bs-pop-out { to { opacity:0; transform:translateY(-3px) scale(.98); } }
+.bot-style-pop .bot-avatar-picker.bot-avatar-v2 { display:grid; gap:14px; margin:0; padding:0; border:0; background:transparent; }
+.bot-style-pop .bot-avatar-stage { position:relative; display:grid; place-items:center; min-height:190px; overflow:hidden; border-radius:14px; background:var(--surface-2); }
+.bot-style-pop .bot-avatar-stage > .avatar, .bot-style-pop .bot-avatar-stage > .avatar > .tofi-avatar { display:block; width:150px; height:150px; }
+.bot-style-pop .bot-avatar-state { display:flex; gap:3px; padding:3px; border-radius:12px; background:var(--surface-2); }
+.bot-style-pop .bot-avatar-sizes { display:flex; align-items:flex-end; justify-content:space-around; padding:2px 4px; }
+.bot-style-pop .bot-avatar-sizes > div { display:grid; justify-items:center; gap:5px; }
+.bot-style-pop .bot-avatar-sizes > div > span { display:block; }
+.bot-style-pop .bot-avatar-sizes :is(.avatar, .tofi-avatar) { display:block; width:100%; height:100%; }
+.bot-style-pop .bot-avatar-sizes small { color:var(--muted); font:10px/1 var(--mono); }
+.bot-style-pop h3 { margin:6px 0 -6px; color:var(--ink); font:600 13px/1.3 var(--display); }
+.bot-style-pop h3 small { margin-left:4px; color:var(--muted); font:10px/1 var(--mono); }
+.bot-style-pop .bot-avatar-choice-heading { display:flex; align-items:center; justify-content:space-between; }
+.bot-style-pop .bot-avatar-choice-heading h3 { margin:6px 0 0; }
+.bot-style-pop :is(.bot-avatar-state, .bot-avatar-shapes, .bot-avatar-palettes, .bot-avatar-patterns) button { border:0; background:var(--surface-2); color:var(--ink-soft); transition:background-color var(--m-press) var(--ease-out), color var(--m-press) var(--ease-out); }
+.bot-style-pop :is(.bot-avatar-state, .bot-avatar-shapes, .bot-avatar-palettes, .bot-avatar-patterns) button:hover { background:var(--sunk); }
+.bot-style-pop .bot-avatar-state button { flex:1; min-height:33px; border-radius:9px; background:transparent; font:600 12px/1.2 var(--body); }
+.bot-style-pop :is(.bot-avatar-state, .bot-avatar-shapes, .bot-avatar-palettes, .bot-avatar-patterns) button[aria-pressed="true"] { background:var(--inverse); color:var(--on-inverse); }
+.bot-style-pop .bot-avatar-shapes { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; }
+.bot-style-pop .bot-avatar-shapes button { display:grid; justify-items:center; gap:3px; min-width:0; padding:8px 4px; border-radius:12px; font:10px/1.2 var(--body); }
+.bot-style-pop .bot-avatar-shapes :is(.avatar, .tofi-avatar) { display:block; width:44px; height:44px; }
+.bot-style-pop .bot-avatar-patterns { display:flex; flex-wrap:wrap; gap:6px; }
+.bot-style-pop .bot-avatar-patterns button { min-height:32px; padding:5px 11px; border-radius:9px; font:500 12px/1.2 var(--body); }
+.bot-style-pop .bot-avatar-palettes { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+.bot-style-pop .bot-avatar-palettes button { display:flex; align-items:center; gap:6px; min-width:0; min-height:36px; padding:4px 8px; border-radius:10px; }
+.bot-style-pop .bot-avatar-palettes button > span { display:block; flex:none; width:18px; height:18px; border:2px solid; border-radius:50%; }
+.bot-style-pop .bot-avatar-palettes button small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:11px/1.2 var(--body); }
+.bot-style-pop .field-note { margin:0; color:var(--muted); font:12px/1.5 var(--body); }
+.bot-style-pop .text-button { color:var(--ink-soft); }
+.bot-style-pop button:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
+
+/* Below 900px the list and the page are two layers: choosing a section slides the page in, the back arrow slides it out. */
+@media (max-width:899px) {
+  .bot-settings { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr); }
+  .bs-nav, .bs-page { grid-area:1 / 1; transition:transform var(--m-base) var(--ease-out), opacity var(--m-base) var(--ease-out); }
+  .bs-nav { padding:12px 14px 24px; }
+  .bs-who { padding:6px 6px 16px; }
+  .bs-who-avatar { width:56px; height:56px; }
+  .bs-nav-list { gap:8px; }
+  .bs-nav-item { min-height:56px; padding:10px 14px; border-radius:14px; background:var(--surface); font-size:14px; }
+  .bs-nav-item[aria-current="page"] { box-shadow:none; font-weight:500; }
+  .bs-nav-hint { display:block; max-width:42%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted); font:12px/1.3 var(--body); }
+  .bs-nav-chevron { display:block; flex:none; color:var(--muted); }
+  .bs-page { z-index:var(--z-raised); transform:translateX(100%); visibility:hidden; transition:transform var(--m-base) var(--ease-out), visibility 0s linear var(--m-base); }
+  .bot-settings[data-view="page"] .bs-page { transform:none; visibility:visible; transition:transform var(--m-base) var(--ease-out), visibility 0s; }
+  .bot-settings[data-view="page"] .bs-nav { transform:translateX(-24%); opacity:.5; }
+  .bs-head { padding:14px 18px 8px; }
+  .bs-back { display:grid; }
+  .bs-scroll { padding:8px 18px 104px; }
+  .bs-row { flex-wrap:wrap; }
+}
+@media (pointer:coarse) { .bs-button { min-height:44px; } .bs-nav-item { min-height:52px; } }
+@media (prefers-reduced-motion:reduce) {
+  .bs-nav, .bs-page, .bs-nav-item, .bs-saved, .bs-button, .bot-style-pop, .bot-style-pop button, .bs-section { transition:none!important; animation:none!important; }
+}
+@media (forced-colors:active) { .bs-nav-item[aria-current="page"], .bs-button { outline:1px solid CanvasText; } }

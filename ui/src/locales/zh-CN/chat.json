@@ -72,6 +72,37 @@
     "artifacts": "作品",
     "artifacts_hint": "这个 Bot 产出的文件和图片"
   },
+  "botSettings": {
+    "nav": "Bot 设置分区",
+    "back": "全部分区",
+    "avatar_title": "头像",
+    "avatar_hint": "这只猫在列表和聊天里的样子。",
+    "name_required": "名称不能为空。",
+    "primary_title": "主助理",
+    "primary_off": "负责你的日常杂事。同一时间只有一个 Bot 担任此角色。",
+    "archived_title": "已归档",
+    "archived_body": "已从列表中隐藏，聊天和记忆都保留着。",
+    "model_pinned": "固定使用 {{model}}",
+    "share_hint": "职能、模型和 Skill 名称，合成一个文件。不含聊天、记忆和密钥。",
+    "data_hint": "聊天、记忆和文件。会打开设置 › 高级。",
+    "export_action": "导出",
+    "delete_hint": "删除这个 Bot 和它的聊天，无法撤销。",
+    "section": {
+      "identity": "身份",
+      "role": "职能",
+      "model": "模型",
+      "skills": "Skills",
+      "secrets": "密钥",
+      "advanced": "高级"
+    },
+    "desc": {
+      "identity": "头像、名称和主助理。",
+      "role": "这个 Bot 负责什么。它在每次回复前都会读到这里。",
+      "model": "这个 Bot 用哪个模型，思考多深。",
+      "advanced": "系统提示词、导出和删除。"
+    },
+    "role_count_other": "{{count}} 个字符"
+  },
   "codex": {
     "connect": "连接 Codex",
     "connected": "Codex 已连接",
@@ -176,7 +207,15 @@
     }
   },
   "cover": {
-    "close": "关闭{{title}}"
+    "close": "关闭{{title}}",
+    "discard": "放弃",
+    "keep_editing": "继续编辑",
+    "leave_body": "你有尚未保存的修改，现在关闭会丢掉它们。",
+    "leave_discard": "放弃更改",
+    "leave_title": "放弃未保存的更改？",
+    "save": "保存",
+    "saved": "已保存",
+    "unsaved": "有未保存的更改"
   },
   "create": {
     "create_bot": "创建 Bot",
@@ -246,6 +285,11 @@
   "groupCreate": {
     "close": "关闭新建群",
     "create": "创建群"
+  },
+  "groupSettings": {
+    "memory_title": "群共享记忆",
+    "memory_hint": "本群每位成员都能读到的笔记。",
+    "delete_hint": "删除这个群和它的聊天，无法撤销。"
   },
   "header": {
     "back_to_chat": "返回对话",
@@ -344,6 +388,9 @@
     "impact_held_other": "移出 {{name}} 会结束它负责的 {{count}} 个未完成任务。",
     "impact_waits_other": "移出 {{name}} 会结束它的 {{count}} 个等待。",
     "tasks_of": "{{name}} 的未完成任务"
+  },
+  "membersWidget": {
+    "idle": "没有进行中的任务"
   },
   "message": {
     "attachment": "附件",

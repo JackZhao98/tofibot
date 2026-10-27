@@ -39,7 +39,7 @@ const gzip = eager.reduce((sum, file) => sum + zlib.gzipSync(readFileSync(join(d
 const entryText = eager.map(file => readFileSync(join(dist, file), "utf8")).join("\n");
 const chunks = name => [...entryText.matchAll(new RegExp(`assets/${name}-[\\w-]+\\.js`, "g"))].map(match => match[0]);
 if (only.includes("struct")) {
-for (const name of ["SettingsPanel", "BotDesktopPanel", "Onboarding", "ContextPanels", "WorkPanel", "TeamBoard"]) {
+for (const name of ["SettingsPanel", "BotDesktopPanel", "Onboarding", "BotSettingsPanel", "WorkPanel", "TeamBoard"]) {
   assert.ok(chunks(name).length > 0, `${name} is a separate chunk that the entry only references dynamically`);
   assert.ok(!eager.some(file => file.includes(`/${name}-`)), `${name} is not an entry-time chunk`);
 }

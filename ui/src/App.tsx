@@ -2093,7 +2093,6 @@ function Workspace() {
     snapshotGeneration.current += 1;
     setBots((current) => current.map((item) => item.id === id ? updated : item));
     if (input.name) setConversations((current) => current.map((item) => item.bot_id === id ? { ...item, name: updated.name } : item));
-    setPanel(null);
   }
 
   async function createGroup(name: string, botIds: string[]) {
