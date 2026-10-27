@@ -31,6 +31,9 @@ import (
 	"github.com/JackZhao98/tofibot/internal/runtime"
 )
 
+// contextImageTokens is the flat estimate for one image in a message.
+const contextImageTokens = 1500
+
 const (
 	contextSnapshotVersion = 1
 	// maxContextSnapshotBytes bounds one run's stored parts (uncompressed JSON).
@@ -277,7 +280,7 @@ func contextKindFor(content string) string {
 }
 
 func partFor(kind, role, text string, images int) ContextPart {
-	return ContextPart{Kind: kind, Role: role, Chars: len([]rune(text)), Tokens: agent.EstimateTextTokens(text) + images*1500, Text: text}
+	return ContextPart{Kind: kind, Role: role, Chars: len([]rune(text)), Tokens: agent.EstimateTextTokens(text) + images*contextImageTokens, Text: text}
 }
 
 // finishMessages turns the final message list into parts. pm is the list
