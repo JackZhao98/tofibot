@@ -85,7 +85,10 @@
   --sidebar-bg:var(--sunk); --selected-bg:var(--surface-2); --line-strong:var(--line-soft);
   --text:var(--ink); --text-soft:var(--ink-soft); --accent:var(--yellow);
   --focus-ring:var(--focus); --focus-ring-width:2px; --focus-ring-offset:3px; --success:var(--green); --on-accent:var(--on-block);
-  --bubble-user:var(--surface-2);
+  /* Message bubbles are filled, never stroked: depth comes from the tone against the page paper (--bg). Bot = a warm
+     stone tone; user = a calm clay tint. --bubble-inset is the well code blocks and tables sit in inside a bubble. */
+  --bubble-bot:#e8e4dd; --bubble-bot-ink:var(--ink); --bubble-user:#f1d9c8; --bubble-user-ink:var(--ink);
+  --bubble-inset:#f6f3ee; --bubble-inset-ink:#352b22; --bubble-radius:18px; --bubble-tail:5px;
   --float-shadow:var(--hard);
   /* Motion vocabulary (one scale; the guard is scripts/test-motion-tokens.mjs, the JS mirror is motion.ts).
      Durations: instant = hover fades, press = pressed feedback, quick = toggles/tooltips/fades, base = arrivals,
@@ -119,5 +122,6 @@
   --glass:rgba(31,28,24,.52); --glass-strong:rgba(31,28,24,.8);
   --glass-edge:rgba(241,230,214,.2); --sheen:inset 0 1px 0 rgba(255,255,255,.08);
   --float-shadow:var(--hard);
+  --bubble-bot:#2b2722; --bubble-user:#4a3125; --bubble-inset:#1c1915; --bubble-inset-ink:#f0e2cf;
   --mail-paper:#fbf4e6;
 }

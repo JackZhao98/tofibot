@@ -1,8 +1,10 @@
 /* One layout for Bot messages in a conversation type.
-   Group chat: every Bot message (final, segment, progress) is the same bordered bubble. Units from the
+   Every Bot message (final or segment) is a filled bubble in both conversation types: tone against the page paper, no outline
+   (--bubble-bot in design-tokens.css). Group chat: units from the
    same Bot (messages, Activity rows, live status) form a sender group: the name is a light caption above the
    first unit, the avatar sits level with the last unit's bottom edge. A speaker change gets more room above. The bubble's pointed corner is the last bubble's bottom-left,
-   facing the avatar. Direct chat: every Bot message is plain text, whatever its kind.
+   facing the avatar. Direct chat: the same bubble with no tail (there is no avatar to face), a little wider so long answers read well.
+   Activity, process and live-status lines are never bubbles: they stay quiet lines in the column, in groups and in direct chat.
    Grouping is computed in senderGroups.ts as [data-continues] and [data-last]. */
 :root { --sender-avatar:34px; --sender-gap:10px; --sender-gutter:calc(var(--sender-avatar) + var(--sender-gap)); --sender-caption:21px; }
 html[data-desktop] { --sender-avatar:38px; }
@@ -20,10 +22,10 @@ html[data-desktop] { --sender-avatar:38px; }
 .workspace .message.is-group.message-bot:not(.message-ui-card) .message-body { display:flex; flex-direction:column; align-items:flex-start; }
 .workspace .message.is-group .message-meta { order:-1; min-height:0; margin:0 0 4px 2px; }
 .workspace .message.is-group.message-bot:not(.message-ui-card) .message-content {
-  position:relative; display:block; width:fit-content; max-width:min(78%, 680px); padding:9px 13px;
-  border:1px solid var(--line-soft); border-radius:16px; background:var(--surface-2); color:var(--ink);
+  position:relative; display:block; width:fit-content; max-width:min(78%, 680px); padding:10px 14px;
+  border:0; border-radius:var(--bubble-radius); background:var(--bubble-bot); color:var(--bubble-bot-ink);
 }
-.workspace .message.is-group.message-bot[data-last="true"] .message-content { border-bottom-left-radius:5px; }
+.workspace .message.is-group.message-bot[data-last="true"] .message-content { border-bottom-left-radius:var(--bubble-tail); }
 .workspace .message-block:has(.message.is-group) > .message-reactions { margin-left:var(--sender-gutter); }
 @media (max-width:640px) { .workspace .message.is-group.message-bot .message-content { max-width:100%; } }
 
@@ -35,8 +37,15 @@ html[data-desktop] { --sender-avatar:38px; }
 .workspace .tool-message.web-tool-run[data-sender] .web-tool-summary { min-height:26px; }
 .workspace .tool-message.web-tool-run[data-sender] .web-tool-toggle { margin-left:-6px; }
 
-/* Direct chat: no container for any kind. */
-.workspace .message.is-dm.message-bot .message-content { border:0; border-radius:0; background:transparent; padding:2px 0 0; }
+/* Direct chat: the same filled bubble, no tail. Cards (.message-ui-card) are not bubbles. */
+.workspace .message.is-dm.message-bot:not(.message-ui-card) .message-content {
+  width:fit-content; max-width:min(86%, 720px); padding:10px 14px;
+  border:0; border-radius:var(--bubble-radius); background:var(--bubble-bot); color:var(--bubble-bot-ink);
+}
+/* Code and tables inside a bubble sit in a lighter (dark: deeper) well instead of the page-level code colours, which match the bubble tone. */
+.workspace :is(.message-bot,.message-user) .message-content :not(pre)>code { border:0; background:var(--bubble-inset); color:var(--bubble-inset-ink); }
+.workspace :is(.message-bot,.message-user) .message-content :is(pre,.message-code) { border:0; background:var(--bubble-inset); color:var(--bubble-inset-ink); }
+.workspace :is(.message-bot,.message-user) .message-content blockquote { border-left-color:color-mix(in srgb,var(--muted) 45%,transparent); }
 
 /* Room under the last message: composer + its fade (24px) + a gap; the perched cat reserves more.
    --composer-height is kept current by a ResizeObserver on the composer (App.tsx). */

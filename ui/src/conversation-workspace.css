@@ -89,8 +89,8 @@
 .view-only-chat-body{padding:24px clamp(16px,4vw,48px) 110px;scrollbar-gutter:stable}
 .view-only-message-list{max-width:var(--v2-chat-width,760px)}
 .view-only-message-copy small{color:var(--muted);font:11px/1.4 var(--mono)}
-.view-only-message:not(.is-user) .view-only-message-bubble{padding:0;border:0;border-radius:0;background:transparent;color:var(--ink);}
-.view-only-message.is-user .view-only-message-bubble{padding:10px 14px;border:1px solid var(--line-soft);border-radius:16px 5px 16px 16px;background:var(--surface-2);color:var(--ink);}
+.view-only-message:not(.is-user) .view-only-message-bubble{padding:10px 14px;border:0;border-radius:var(--bubble-radius);background:var(--bubble-bot);color:var(--bubble-bot-ink);}
+.view-only-message.is-user .view-only-message-bubble{padding:10px 14px;border:0;border-radius:var(--bubble-radius) var(--bubble-tail) var(--bubble-radius) var(--bubble-radius);background:var(--bubble-user);color:var(--bubble-user-ink);}
 .view-only-chat-footer{min-height:64px;padding-bottom:max(10px,env(safe-area-inset-bottom));border-color:var(--glass-edge);background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
 .view-only-chat-footer>span{display:inline-flex;align-items:center;gap:6px}
 .view-only-chat-footer .secondary-button{min-height:44px}
