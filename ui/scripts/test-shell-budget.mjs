@@ -26,8 +26,8 @@ const engineName = process.env.SHELL_BUDGET_ENGINE === "webkit" ? "webkit" : "ch
 const engine = pw[engineName];
 
 const only = (process.env.SHELL_BUDGET_ONLY || "struct,panel,phone").split(",");
-// 80% of the pre-split size, plus 1 500 B for the compact Activity list (state icons, folded runs, symmetric drawer; Oct 2026).
-const EAGER_GZIP_BUDGET = Math.floor(394_757 * 0.8) + 1_500;
+// 80% of the pre-split size.
+const EAGER_GZIP_BUDGET = Math.floor(394_757 * 0.8);
 const ownDist = !process.env.SHELL_BUDGET_DIST;
 const dist = process.env.SHELL_BUDGET_DIST || mkdtempSync(join(tmpdir(), "tofi-shell-budget-"));
 if (ownDist) await build({ configFile: false, root: ui, plugins: [react()], build: { outDir: dist, emptyOutDir: true }, logLevel: "error" });

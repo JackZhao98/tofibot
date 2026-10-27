@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useState, type ComponentType, type ReactNode } from "react";
+import { startTransition, useEffect, useState, useSyncExternalStore, type ComponentType, type ReactNode } from "react";
 import { useTranslation } from "./i18n";
 import { TofiIcon as Icon } from "./icons";
 import { DesktopPlaceholder } from "./DesktopPlaceholder";
@@ -33,6 +33,8 @@ const loaders = {
   runContext: () => import("./RunContext"),
   stopMenu: () => import("./ComposerStopMenu"),
   taskCard: () => import("./TaskCard"),
+  taskActivity: () => import("./TaskActivityBody"),
+  toolSteps: () => import("./WebToolSteps"),
 } as const;
 export type PanelChunk = keyof typeof loaders;
 
@@ -41,12 +43,13 @@ const loaded = new Map<PanelChunk, unknown>();
 const pending = new Map<PanelChunk, Promise<void>>();
 const failedAt = new Map<PanelChunk, number>();
 const RETRY_AFTER_MS = 3000;
+const listeners = new Set<() => void>();
 
 function load(name: PanelChunk): Promise<void> {
   let promise = pending.get(name);
   if (!promise) {
     promise = loaders[name]().then(
-      module => { loaded.set(name, module); failedAt.delete(name); },
+      module => { loaded.set(name, module); failedAt.delete(name); for (const listener of listeners) listener(); },
       () => { failedAt.set(name, Date.now()); pending.delete(name); },
     );
     pending.set(name, promise);
@@ -96,6 +99,26 @@ export const TaskCard = chunk("taskCard", module => module.TaskCard);
 export const ComposerStopMenu = chunk("stopMenu", module => module.ComposerStopMenu);
 /** True once a chunk is in memory (the Stop button opens its menu only then). */
 export const panelLoaded = (name: PanelChunk) => loaded.has(name);
+export const whenPanelLoaded = (name: PanelChunk) => load(name);
+const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; };
+/** Re-renders its caller once the chunk lands (steps that must be in the DOM to be found wait on it). */
+export const usePanelLoaded = (name: PanelChunk) => useSyncExternalStore(subscribe, () => loaded.has(name), () => loaded.has(name));
+
+/**
+ * For content that only shows after a person opens something: draws nothing until the chunk is in memory, with no
+ * Suspense boundary (React 19 would hold a revealed boundary), and on the same commit once it is.
+ */
+function quiet<K extends PanelChunk, P extends object>(name: K, pick: (module: Loaded<K>) => ComponentType<P>): ComponentType<P> {
+  return function QuietChunk(props: P) {
+    const ready = usePanelLoaded(name);
+    useEffect(() => { if (!ready) preloadPanel(name); }, [ready]);
+    if (!ready) return null;
+    const Component = pick(loaded.get(name) as Loaded<K>);
+    return <Component {...props} />;
+  };
+}
+export const TaskActivityBody = quiet("taskActivity", module => module.TaskActivityBody);
+export const WebToolSteps = quiet("toolSteps", module => module.WebToolSteps);
 export const Onboarding = chunk("onboarding", module => module.Onboarding);
 
 export function preloadPanel(name: PanelChunk) {
@@ -108,6 +131,8 @@ const entryPoints: Array<[selector: string, chunk: PanelChunk]> = [
   ["[data-computer-toggle]", "desktop"],
   [".chat-identity", "contextPanels"],
   [".composer-stop", "stopMenu"],
+  [".task-activity > summary", "taskActivity"],
+  [".web-tool-toggle", "toolSteps"],
 ];
 
 /**
@@ -117,7 +142,7 @@ const entryPoints: Array<[selector: string, chunk: PanelChunk]> = [
 const WARM_START_MS = 500;
 const WARM_STEP_MS = 200;
 export function warmPanelsWhenIdle(): () => void {
-  const order: PanelChunk[] = ["settings", "desktop", "contextPanels", "outsidePanel", "sidePanel", "work", "memory", "team", "archive", "viewOnly", "remembered", "deleteDialog", "reassignPrimary", "permissionCoach", "updateBanner", "questionCard", "stopMenu"];
+  const order: PanelChunk[] = ["settings", "taskActivity", "toolSteps", "desktop", "contextPanels", "outsidePanel", "sidePanel", "work", "memory", "team", "archive", "viewOnly", "remembered", "deleteDialog", "reassignPrimary", "permissionCoach", "updateBanner", "questionCard", "stopMenu"];
   let timer = window.setTimeout(function step() {
     const next = order.shift();
     if (!next) return;

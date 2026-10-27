@@ -16,6 +16,8 @@ try {
   await i18n.i18nReady;await i18n.loadLanguage("en");await i18n.loadLanguage("zh-CN");
   const p=await server.ssrLoadModule("/src/taskIssuePresentation.ts");
   const {TaskRunBlock}=await server.ssrLoadModule("/src/TaskRunBlock.tsx");
+  // The opened Activity list is a lazy chunk (lazyPanels.tsx); static markup needs it in memory first.
+  await (await server.ssrLoadModule("/src/lazyPanels.tsx")).whenPanelLoaded("taskActivity");
   const {MailDraftCard}=await server.ssrLoadModule("/src/MailDraftCard.tsx");
   const previous={...run,status:"failed",error:"server_is_overloaded"};
   const latest={...run,id:"synthetic-retry-done",parent_run_id:run.id,status:"done",created_at:"2026-10-05T10:05:00Z",updated_at:"2026-10-05T10:06:00Z"};

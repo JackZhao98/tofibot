@@ -318,3 +318,7 @@ export function buildToolTimeline(messages: Message[], activities: ToolActivity[
   }
   return { beforeMessageId, afterMessageId, fallback: orderToolActivities(fallback) };
 }
+
+export function toolActivityKey(activity: Pick<ToolActivity, "run_id" | "call_id">) {
+  return `${activity.run_id}\u0000${activity.call_id}`;
+}

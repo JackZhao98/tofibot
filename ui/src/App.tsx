@@ -2,7 +2,6 @@ import { useGraceFlag } from "./useGraceFlag";
 import { readReplyMarker } from "./replyMarker";
 import { thinkingHeadline } from "./thinkingHeadline";
 import { TaskRunBlock, taskBlockVisible, toggleDisclosure } from "./TaskRunBlock";
-import { ToolStatusIcon } from "./ToolStatusIcon";
 import { LiveMark } from "./LiveMark";
 import { markSenderGroups } from "./senderGroups";
 import { sameData } from "./sameData";
@@ -16,7 +15,7 @@ import { WebFileDropOverlay } from "./WebFileDropOverlay";
 import { SidebarAccount } from "./OwnerSession";
 import { desktopState, updateDesktopState, isDesktop, type DesktopCommand } from "./desktop";
 import {TimezoneProvider, useUserTimezone} from "./UserTimezone";
-import {dateInTimezone, dateTimeFormat, formatZonedTime} from "./timezone";
+import {dateInTimezone, dateTimeFormat, formatExactTime, formatZonedTime} from "./timezone";
 import {AttachmentList} from "./MessageAttachment";
 import {FilePreviewHost, Viewer as FilePane} from "./FileViewer";
 import {MessageReactions} from "./MessageReactions";
@@ -26,7 +25,7 @@ import { CopyFeedbackIcon } from "./CopyFeedbackIcon";
 import { attachmentUrl } from "./filePreviewModel";
 import { DisplayCard } from "./DisplayCard";
 import { useQuestions } from "./useQuestions";
-import { toolDisplayState, toolDisplayLabel } from "./toolTimeline";
+import { toolDisplayState, toolDisplayLabel, toolActivityKey } from "./toolTimeline";
 import { requestFullToolResult, setToolResultLoader } from "./toolResultLoader";
 import { taskStateLabel } from "./ConversationTaskStatus";
 import { LazyGroupAvatar as GroupAvatar } from "./LazyGroupAvatar";
@@ -35,7 +34,7 @@ import { useMailDrafts } from "./mailDrafts";
 import { buildQuestionTimeline, compareQuestionTime } from "./questionTimeline";
 import { useDebugMode } from "./debugMode";
 import type { SettingsEntry, SettingsTab, SettingsView } from "./SettingsShell";
-import { AfterPaint, ArchivePanel, ArtifactsPanel, OutsideHeader, SidePanel, GreetingSetup, UpdateBanner, PermissionCoach, BotPanelSkeleton, BotDesktopPanel, DeleteConversationDialog, ReassignPrimaryDialog, RememberedApprovalsSheet, BotPanel, MembersPanel, DesktopSkeleton, MemoryPanel, TeamBoard, ViewOnlyChat, WorkPanel, Onboarding, QuestionCard, RunContextView, TaskCard, ComposerStopMenu, FloatingDesktop, panelLoaded, preloadPanel, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle } from "./lazyPanels";
+import { AfterPaint, ArchivePanel, ArtifactsPanel, OutsideHeader, SidePanel, GreetingSetup, UpdateBanner, PermissionCoach, BotPanelSkeleton, BotDesktopPanel, DeleteConversationDialog, ReassignPrimaryDialog, RememberedApprovalsSheet, BotPanel, MembersPanel, DesktopSkeleton, MemoryPanel, TeamBoard, ViewOnlyChat, WorkPanel, Onboarding, QuestionCard, RunContextView, TaskCard, ComposerStopMenu, FloatingDesktop, panelLoaded, preloadPanel, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle, WebToolSteps, whenPanelLoaded } from "./lazyPanels";
 import { subscribeSettingsDeepLinks } from "./settings/deepLinks";
 import { BotIdentityCard } from "./BotIdentityCard";
 import { arrowOpens, OverlayMenu, OverlaySlot, SlotView } from "./overlays/OverlayHost";
@@ -80,7 +79,7 @@ import { DeliveryNote, SendReceipt, SendReceiptMark } from "./SendReceipt";
 import { applyInbox } from "./messageDelivery";
 import { receiptFor, runsByTrigger } from "./sendReceipts";
 import { activeBotRuns, botRecentlyActive, latestBotWorkTime, latestHumanMessageTime } from "./botActivity";
-import { reconcileToolActivity, activeToolForRun, buildToolRunAnchors, buildToolSummaryAnchors, buildToolTimeline, compareToolActivities, elapsedToolSeconds, foldToolRuns, formatStepSeconds, orderToolActivities, toolActionLabel, toolArgumentPreview, toolAttemptIssues } from "./toolTimeline";
+import { reconcileToolActivity, activeToolForRun, buildToolRunAnchors, buildToolSummaryAnchors, buildToolTimeline, compareToolActivities, elapsedToolSeconds,  orderToolActivities, toolActionLabel, toolArgumentPreview, toolAttemptIssues } from "./toolTimeline";
 import { foldCompletedProgress, isMidRunKind } from "./runProgress";
 import { mergeRunUpdates } from "./runMerge";
 import { draftDeltaApplies } from "./draftDelta";
@@ -276,10 +275,6 @@ function asBot(data: EventEnvelope): Bot | null {
     typeof candidate.dm_conversation_id === "string" ? value as Bot : null;
 }
 
-function toolActivityKey(activity: Pick<ToolActivity, "run_id" | "call_id">) {
-  return `${activity.run_id}\u0000${activity.call_id}`;
-}
-
 function messageId() {
   if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
   // LAN HTTP does not expose randomUUID, but still supports getRandomValues.
@@ -439,10 +434,6 @@ function formatRunDuration(ms: number, precise = true) {
 }
 function formatTime(value: string, timeZone: string) {
   return dateTimeFormat(intlLocale(), { hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(value));
-}
-
-function formatExactTime(value: string, timeZone?: string) {
-  return dateTimeFormat(intlLocale(), { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone }).format(new Date(value));
 }
 
 function formatListTime(value: string, timeZone: string) {
@@ -3045,17 +3036,6 @@ function ToolActivityList({ activities, progress = [], summaries = [], summaryEr
 
 type ToolRunProps = { senderId?: string; runId: string; items: ToolActivity[]; notes: Message[]; summary?: ToolActivityRunSummary; summaryError?: string; summaryLoading?: boolean; detail?: ToolDetailState; onLoadDetails?: (runId: string, offset: number) => Promise<void>; onRetrySummary?: (runId: string) => void; live: boolean; now: number; timezone: string; botName: string };
 
-function toolStepLabel(activity: ToolActivity) {
-  // Drop the Chinese progressive prefix 正在 ("in the middle of") from a step label.
-  return toolActionLabel(activity).replace(/^\u6b63\u5728/, "");
-}
-
-function webToolSeconds(activity: ToolActivity, now: number): number | undefined {
-  const started = Date.parse(activity.started_at);
-  const ended = activity.status === "running" ? now : Date.parse(activity.updated_at);
-  return Number.isFinite(started) && Number.isFinite(ended) && ended >= started ? (ended - started) / 1000 : undefined;
-}
-
 function toolSummaryIssues(summary?: ToolActivityRunSummary): string {
   if (!summary) return "";
   return [summary.failed_count ? i18n.t("chat:tools.failed_count", { count: summary.failed_count }) : "", summary.interrupted_count ? i18n.t("chat:tools.interrupted_count", { count: summary.interrupted_count }) : "", summary.pending_count ? i18n.t("chat:tools.pending_count", { count: summary.pending_count }) : "", summary.expired_count ? i18n.t("chat:tools.expired") : "", summary.skipped_count ? i18n.t("chat:tools.skipped_count", { count: summary.skipped_count }) : ""].filter(Boolean).join(" · ");
@@ -3133,27 +3113,6 @@ function WebToolActivityRun({ runId, items, notes, summary, summaryError, summar
   useLayoutEffect(() => { if (focusToggleOfRun === runId) { focusToggleOfRun = ""; toggleRef.current?.focus({ preventScroll: true }); } }, [runId]);
   const issueCount = summary ? summary.failed_count + summary.interrupted_count + summary.pending_count : items.filter(item => ["failed", "not_executed", "interrupted"].includes(toolDisplayState(item))).length;
   const fullLabel = `${activityLabel}${!live && count !== undefined ? ` · ${t("tools.call_count", { count })}` : ""}${issues ? ` · ${issues}` : ""}${notes.length ? ` · ${t("tools.report_count", { count: notes.length })}` : ""}${!live && duration !== undefined ? ` · ${duration}` : ""}`;
-  const renderStep = (activity: ToolActivity, liveRun: boolean) => {
-    const duration = webToolSeconds(activity, now);
-    const active = liveRun && (activity.status === "running" || activity.status === "queued");
-    const state = toolDisplayState(activity);
-    const problem = ["failed", "not_executed", "interrupted"].includes(state);
-    return <li className={`web-tool-step is-${state}${problem ? " is-problem" : ""}`} key={toolActivityKey(activity)}>
-      <ToolStatusIcon state={active ? "running" : state} label={toolDisplayLabel(activity)} />
-      <details className="web-tool-step-detail" onToggle={event => { if (event.currentTarget.open) requestFullToolResult(activity); }}><summary onClick={toggleDisclosure}><span className="web-tool-step-label">{toolStepLabel(activity)}{toolArgumentPreview(activity) ? ` · ${toolArgumentPreview(activity)}` : ""}</span></summary>
-        <div className="tool-activity-details"><small>{Number.isFinite(Date.parse(activity.started_at)) ? formatExactTime(activity.started_at, timezone) : ""} · {timezone}</small><div><span>{t("tools.arguments")}</span><pre>{activity.arguments || t("tools.none")}</pre></div><div><span>{t("tools.result")}</span>{activity.outcome && <p className="tool-outcome" role="note">{activity.outcome.message}</p>}<pre>{activity.result || (active ? t("tools.waiting_result") : t("tools.none"))}</pre></div>{activity.truncated && <small>{t("tools.truncated")}</small>}</div>
-      </details>
-      <span className="web-tool-step-meta">{problem && <span className="web-tool-step-state">{toolDisplayLabel(activity)}</span>}{duration !== undefined && duration >= 1 && <span className="web-tool-quiet">{formatStepSeconds(duration)}</span>}</span>
-    </li>;
-  };
-  const stepList = (() => {
-    const result: ({ type: "note"; at: string; note: Message } | { type: "tool"; at: string; activity: ToolActivity; group?: ToolActivity[] })[] = [];
-    let buffer: ToolActivity[] = [];
-    const flush = () => { for (const fold of foldToolRuns(buffer)) result.push({ type: "tool", at: fold.items[0].started_at, activity: fold.items[0], group: fold.items.length > 1 ? fold.items : undefined }); buffer = []; };
-    for (const entry of entries) { if (entry.type === "tool") buffer.push(entry.activity); else { flush(); result.push(entry); } }
-    flush();
-    return result;
-  })();
   return <section data-activity-run={runId} className={`tool-message web-tool-run${live ? " is-live" : ` is-complete${issues ? " has-tool-issues" : ""}`}`} aria-label={t("tools.steps_label", { name: botName })} data-sender={senderId || undefined} data-at={senderId && Number.isFinite(lastTime) ? new Date(lastTime).toISOString() : undefined}>
     {senderId && <SenderHead id={senderId} name={botName} />}
     <div className="web-tool-disclosure">
@@ -3161,8 +3120,11 @@ function WebToolActivityRun({ runId, items, notes, summary, summaryError, summar
         {!live && Number.isFinite(lastTime) && <time>{formatTime(new Date(lastTime).toISOString(), timezone)}</time>}
         <button type="button" ref={toggleRef} className="web-tool-toggle" aria-label={live ? undefined : fullLabel} aria-expanded={expanded} aria-controls={`web-tool-drawer-${runId}`} onClick={() => {
           const next = !expanded;
-          setExpanded(next);
-          if (next) { const label = labelRef.current; if (label && label.scrollWidth > label.clientWidth) setClipped(true); loadDetails(); }
+          const label = labelRef.current;
+          if (next) { if (label && label.scrollWidth > label.clientWidth) setClipped(true); loadDetails(); }
+          // The drawer opens on its steps, never empty: a cold chunk is waited for (it is warmed on hover) before the open starts.
+          if (next && !panelLoaded("toolSteps")) void whenPanelLoaded("toolSteps").then(() => setExpanded(true));
+          else setExpanded(next);
         }}>
           {live && <LiveMark />}
           {!live && <Icon className="web-tool-chevron" name="chevron-right" size={14} />}
@@ -3173,17 +3135,7 @@ function WebToolActivityRun({ runId, items, notes, summary, summaryError, summar
       </div>
       <div className={`web-tool-drawer${expanded ? " is-open" : ""}`} id={`web-tool-drawer-${runId}`} aria-hidden={!expanded} inert={!expanded}><div className="web-tool-drawer-inner">
       {clipped && <p className="web-tool-full">{fullLabel}</p>}
-      <ol className="web-tool-steps" ref={stepsRef}>{summaryLoading && <li className="web-tool-step is-note"><span>{t("tools.summary_loading")}</span></li>}{summaryError && <li className="web-tool-step is-note"><span>{t("tools.summary_failed", { error: summaryError })}</span><button type="button" className="secondary-button" onClick={() => onRetrySummary?.(runId)}>{t("common:action.retry")}</button></li>}{!entries.length && <li className="web-tool-step is-note"><span>{detail?.loading ? t("tools.details_loading") : detail?.error ? t("tools.details_failed", { error: detail.error }) : t("tools.expand_to_load")}</span></li>}{stepList.map(entry => {
-        if (entry.type === "note") return <li className="web-tool-step is-note" key={entry.note.id}><Icon name="file-text" size={16} /><div className="web-tool-step-copy"><span>{t("tools.progress_note")}</span><div className="web-tool-note"><MessageMarkdown content={entry.note.content} /></div></div><time>{formatExactTime(entry.note.created_at, timezone)}</time></li>;
-        const activity = entry.activity;
-        if (entry.group) return <li className="web-tool-step web-tool-group is-completed" key={`group-${toolActivityKey(activity)}`}>
-          <ToolStatusIcon state="completed" label={toolDisplayLabel(activity)} />
-          <details className="web-tool-step-detail"><summary onClick={toggleDisclosure}><span className="web-tool-step-label">{toolStepLabel(activity)}<span className="web-tool-count" aria-label={t("tools.call_count", { count: entry.group.length })}> ×{entry.group.length}</span><Icon className="web-tool-group-chevron" name="chevron-right" size={12} aria-hidden="true" /></span></summary>
-            <ol className="web-tool-group-steps">{entry.group.map(item => renderStep(item, false))}</ol></details>
-          <span className="web-tool-step-meta">{(() => { const total = entry.group.reduce((sum, item) => sum + (webToolSeconds(item, now) ?? 0), 0); return total >= 1 ? formatStepSeconds(total) : ""; })()}</span>
-        </li>;
-        return renderStep(activity, live);
-      })}{hasMoreDetails && <li className="web-tool-step is-note"><button type="button" className="secondary-button" disabled={detail?.loading} onClick={loadDetails}>{detail?.loading ? t("action.loading") : t("tools.load_more", { shown: items.length, total: count ?? "?" })}</button></li>}</ol>
+      <ol className="web-tool-steps" ref={stepsRef}>{summaryLoading && <li className="web-tool-step is-note"><span>{t("tools.summary_loading")}</span></li>}{summaryError && <li className="web-tool-step is-note"><span>{t("tools.summary_failed", { error: summaryError })}</span><button type="button" className="secondary-button" onClick={() => onRetrySummary?.(runId)}>{t("common:action.retry")}</button></li>}{!entries.length && <li className="web-tool-step is-note"><span>{detail?.loading ? t("tools.details_loading") : detail?.error ? t("tools.details_failed", { error: detail.error }) : t("tools.expand_to_load")}</span></li>}<WebToolSteps entries={entries} live={live} now={now} timezone={timezone} />{hasMoreDetails && <li className="web-tool-step is-note"><button type="button" className="secondary-button" disabled={detail?.loading} onClick={loadDetails}>{detail?.loading ? t("action.loading") : t("tools.load_more", { shown: items.length, total: count ?? "?" })}</button></li>}</ol>
       <RunContextEntry runId={runId} timezone={timezone} />
       </div></div>
     </div>

@@ -13,6 +13,8 @@ try {
  const i18n=await server.ssrLoadModule("/src/i18n/index.ts");await i18n.i18nReady;await i18n.loadLanguage("en");await i18n.setLanguage("zh-CN");
  const p=await server.ssrLoadModule("/src/taskIssuePresentation.ts");
  const {TaskRunBlock}=await server.ssrLoadModule("/src/TaskRunBlock.tsx");
+ // The opened Activity list is a lazy chunk (lazyPanels.tsx); static markup needs it in memory first.
+ await (await server.ssrLoadModule("/src/lazyPanels.tsx")).whenPanelLoaded("taskActivity");
  const {toolDisplayLabel,reconcileToolActivity}=await server.ssrLoadModule("/src/toolTimeline.ts");
  const {reconcileQuestion}=await server.ssrLoadModule("/src/questionTimeline.ts");
  const {mergeRunUpdates}=await server.ssrLoadModule("/src/runMerge.ts");

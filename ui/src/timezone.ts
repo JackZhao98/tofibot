@@ -22,3 +22,6 @@ export function formatZonedTime(value:string,timeZone:string){
  if(!value||!Number.isFinite(Date.parse(value)))return i18n.t("common:time.unknown");
  return dateTimeFormat(intlLocale(),{timeZone,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).format(new Date(value));
 }
+export function formatExactTime(value: string, timeZone?: string) {
+  return dateTimeFormat(intlLocale(), { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone }).format(new Date(value));
+}

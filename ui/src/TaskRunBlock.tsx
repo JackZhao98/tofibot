@@ -1,20 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { TofiIcon } from "./icons";
 import { LiveMark } from "./LiveMark";
-import { MessageMarkdown } from "./MessageMarkdown";
-import { requestFullToolResult } from "./toolResultLoader";
-import { ToolStatusIcon } from "./ToolStatusIcon";
-import { toolDisplayLabel, foldToolRuns, orderToolActivities, toolDisplayState, toolStepTitle, toolStepSeconds, formatStepSeconds, toolStepDetail } from "./toolTimeline";
+import { toolDisplayState, formatStepSeconds, orderToolActivities } from "./toolTimeline";
 import { TaskIssueCard } from "./TaskIssueCard";
-import { canAnswerQuestion, presentTaskIssue, taskCertaintyText, taskOutcomeText, taskPhaseLabel, taskPhaseVisible, taskStatusText, type TaskOwner } from "./taskIssuePresentation";
+import { canAnswerQuestion, presentTaskIssue, taskPhaseLabel, taskPhaseVisible, type TaskOwner } from "./taskIssuePresentation";
 import { useTranslation, type Language } from "./i18n";
-import { formatClock } from "./i18n/format";
-import { approvalFactRows } from "./extensionFacts";
 import { REMEMBERED_APPROVAL_ACTOR, STANDING_ALLOWANCE_ACTOR, type Question } from "./questionTimeline";
 import type { MailDraft } from "./MailDraftCard";
 import type { Message, ToolActivity, ToolActivityRunSummary } from "./types";
 import { isTerminalRun } from "./runFamily";
 import { prefersReducedMotion } from "./motion-lab/lib/hooks";
+import { TaskActivityBody, panelLoaded, usePanelLoaded, whenPanelLoaded } from "./lazyPanels";
 import "./task-issue-card.css";
 import { MOTION, EASE } from "./motion";
 
@@ -67,6 +64,21 @@ export function toggleDisclosure(event: React.MouseEvent<HTMLElement>) {
   animateDisclosure(details, details.dataset.drawer ? details.dataset.drawer === "closing" : !details.open);
 }
 
+/**
+ * Opens the Activity drawer on its list, never empty: while the list's chunk is still downloading (it is warmed on
+ * hover and in idle time) the open waits for it, then starts on the commit that has the steps in it.
+ */
+export function openActivity(details: HTMLDetailsElement) {
+  if (panelLoaded("taskActivity")) { animateDisclosure(details, true); return; }
+  void whenPanelLoaded("taskActivity").then(() => { flushSync(() => {}); animateDisclosure(details, true); });
+}
+
+function toggleActivity(event: React.MouseEvent<HTMLElement>) {
+  const details = event.currentTarget.parentElement;
+  if (details instanceof HTMLDetailsElement && !details.open && !details.dataset.drawer && !panelLoaded("taskActivity")) { event.preventDefault(); openActivity(details); return; }
+  toggleDisclosure(event);
+}
+
 /** A live status this long can be cut on a phone; opened, the first row carries it whole. */
 const LONG_STATUS = 28;
 
@@ -77,48 +89,10 @@ export function ActivityDisclosure({ children, locale, detail, count, duration, 
   // steps stay folded until someone opens it. The line is the <summary>, so Enter and Space open it natively.
   // Finished: a chevron, the tool glyph, the count and the time; the words are the accessible name.
   const name = [t("activity.title"), detail, issues ? t("step.state.failed") + " " + issues : ""].filter(Boolean).join(" · ");
-  return <details className={`task-activity${live ? " is-live" : ""}`} ref={disclosureRef} onToggle={event => { setOpen(event.currentTarget.open); if (event.currentTarget.open) onOpen(); }}><summary className="process-line" role="button" aria-expanded={open} aria-label={live ? undefined : name} onClick={toggleDisclosure}>{live ? <><LiveMark /><span className="process-line-text task-activity-live" role="status">{live.label}</span><TofiIcon className="process-line-chevron" name="chevron-right" size={14} aria-hidden="true" /></> : <><TofiIcon className="process-line-chevron" name="chevron-right" size={14} aria-hidden="true" /><TofiIcon className="activity-glyph" name="terminal" size={14} aria-hidden="true" /><span className="process-line-text" aria-hidden="true">{count !== undefined && <span>{count}</span>}{duration && <span className="task-activity-detail">{duration}</span>}{issues ? <span className="task-activity-problem"><TofiIcon name="alert" size={13} aria-hidden="true" />{issues}</span> : null}</span></>}</summary><div className="task-activity-records">{live && live.full.length > LONG_STATUS && <p className="task-live-full">{live.full}</p>}{children}</div></details>;
+  return <details className={`task-activity${live ? " is-live" : ""}`} ref={disclosureRef} onToggle={event => { setOpen(event.currentTarget.open); if (event.currentTarget.open) onOpen(); }}><summary className="process-line" role="button" aria-expanded={open} aria-label={live ? undefined : name} onClick={toggleActivity}>{live ? <><LiveMark /><span className="process-line-text task-activity-live" role="status">{live.label}</span><TofiIcon className="process-line-chevron" name="chevron-right" size={14} aria-hidden="true" /></> : <><TofiIcon className="process-line-chevron" name="chevron-right" size={14} aria-hidden="true" /><TofiIcon className="activity-glyph" name="terminal" size={14} aria-hidden="true" /><span className="process-line-text" aria-hidden="true">{count !== undefined && <span>{count}</span>}{duration && <span className="task-activity-detail">{duration}</span>}{issues ? <span className="task-activity-problem"><TofiIcon name="alert" size={13} aria-hidden="true" />{issues}</span> : null}</span></>}</summary><div className="task-activity-records">{live && live.full.length > LONG_STATUS && <p className="task-live-full">{live.full}</p>}{children}</div></details>;
 }
 
-/** One step: marker, human action, short argument, then state and duration. */
-const problemStates = ["failed", "not_executed", "interrupted"];
-const stepDiagnostics = (tool: ToolActivity) => JSON.stringify({ tool: tool.name, run_id: tool.run_id, call_id: tool.call_id, status: tool.status, outcome_status: tool.outcome?.status, code: tool.outcome?.code, certainty: tool.outcome?.execution_certainty, started_at: tool.started_at, updated_at: tool.updated_at }, null, 2);
-
-function ToolStepRecord({ tool, locale, now, onOpenTools }: { tool: ToolActivity; locale?: Language; now?: number; onOpenTools?: () => void }) {
-  const [copied, setCopied] = useState("");
-  const { t } = useTranslation("tasks", { lng: locale });
-  const state = toolDisplayState(tool), preview = toolStepDetail(tool);
-  const live = tool.status === "running" && now !== undefined ? Math.max(0, (now - Date.parse(tool.started_at)) / 1000) : undefined;
-  const seconds = toolStepSeconds(tool) ?? (Number.isFinite(live) ? live : undefined);
-  const started = Date.parse(tool.started_at);
-  const problem = problemStates.includes(state);
-  // A problem step explains itself in words first; codes stay in technical details.
-  const reason = tool.outcome?.code || tool.outcome?.status ? taskOutcomeText(tool.outcome, locale) : state === "interrupted" ? t("step.interrupted") : t("step.failed");
-  async function copyDiagnostics() {
-    try { await navigator.clipboard.writeText(stepDiagnostics(tool)); setCopied(t("step.copied")); }
-    catch { setCopied(t("step.copy_failed")); }
-  }
-  return <li className={`task-step is-${state}${problem ? " is-problem" : ""}`} data-step={`${tool.run_id}:${tool.call_id}`}>
-    <details onToggle={event => { if (event.currentTarget.open) requestFullToolResult(tool); }}><summary onClick={toggleDisclosure}><ToolStatusIcon state={state} label={toolDisplayLabel(tool, locale)} /><span className="task-step-title">{toolStepTitle(tool)}{preview && <span className="task-step-argument"> · {preview}</span>}{problem && state === "not_executed" && tool.outcome?.code && <span className="task-step-argument task-step-reason"> · {reason}</span>}</span>{problem ? <span className="task-step-state">{toolDisplayLabel(tool, locale)}{seconds !== undefined && seconds >= 1 && <time> · {formatStepSeconds(seconds)}</time>}</span> : seconds !== undefined && seconds >= 1 && <time className="task-step-time-quiet">{formatStepSeconds(seconds)}</time>}</summary>
-      <div className="task-step-body">{problem && <div className="task-step-problem" role="group" aria-label={t("step.problem")}>
-        <p><strong>{reason}</strong>{tool.outcome?.execution_certainty && <> · {taskCertaintyText(tool.outcome.execution_certainty, locale)}</>}</p>
-        <div className="task-step-actions"><button type="button" className="secondary-button" onClick={() => void copyDiagnostics()}><TofiIcon name="copy" size={15} aria-hidden="true" />{t("step.copy_diagnostics")}</button>{tool.outcome?.code === "mcp_review_setup_missing" && onOpenTools && <button type="button" className="secondary-button" onClick={onOpenTools}>{t("step.open_tool_settings")}</button>}</div>
-        {copied && <p className="task-step-feedback" role="status">{copied}</p>}
-        <details className="task-step-technical"><summary>{t("step.technical_details")}</summary>{tool.outcome?.message && <p>{tool.outcome.message}</p>}<pre tabIndex={0}>{stepDiagnostics(tool)}</pre></details>
-      </div>}
-      <div className="tool-activity-details">{Number.isFinite(started) && <span className="task-step-time">{t("step.started", { time: formatClock(started, { seconds: true, language: locale }) })}</span>}<span>{t("step.arguments")}</span><pre tabIndex={0}>{tool.arguments || t("step.none")}</pre>{!problem && tool.outcome?.message && <p className="tool-outcome">{tool.outcome.message}</p>}<span>{t("step.result")}</span><pre tabIndex={0}>{tool.result || t("step.no_result")}</pre></div></div></details>
-  </li>;
-}
-
-/** A run of identical finished calls as one row with a count; opening it lists the calls. */
-function ToolStepGroup({ items, locale, onOpenTools }: { items: ToolActivity[]; locale?: Language; onOpenTools?: () => void }) {
-  const { t } = useTranslation("tasks", { lng: locale });
-  const total = items.reduce((sum, tool) => sum + (toolStepSeconds(tool) ?? 0), 0);
-  return <li className="task-step task-step-group is-completed">
-    <details><summary onClick={toggleDisclosure}><ToolStatusIcon state="completed" label={toolDisplayLabel(items[0], locale)} /><span className="task-step-title">{toolStepTitle(items[0])}<span className="task-step-count" aria-label={t("step.group_count", { count: items.length })}> ×{items.length}</span><TofiIcon className="task-step-chevron" name="chevron-right" size={12} aria-hidden="true" /></span>{total >= 1 && <time className="task-step-time-quiet">{formatStepSeconds(total)}</time>}</summary>
-      <div className="task-step-body"><ol className="task-step-nested">{items.map(tool => <ToolStepRecord key={`${tool.run_id}:${tool.call_id}`} tool={tool} locale={locale} onOpenTools={onOpenTools} />)}</ol></div></details>
-  </li>;
-}
+export const problemStates = ["failed", "not_executed", "interrupted"];
 
 /** One durable owner replaces progress in place; actual final answers stay in chat. */
 type BlockScopeInput = Pick<TaskRunBlockProps, "owner" | "tools" | "questions" | "drafts" | "messages" | "summaries" | "details" | "connected" | "locale">;
@@ -176,13 +150,13 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
       if (!detail && onLoadDetails) void onLoadDetails(attempt.id, 0);
     }
   }
-  const attemptStatus = (status: string) => ({ done: t("activity.attempt.done"), failed: t("activity.attempt.failed"), cancelled: t("activity.attempt.cancelled"), interrupted: t("activity.attempt.interrupted") } as Record<string, string>)[status] ?? t("activity.attempt.ended");
   const toolTotal = owner.family.attempts.reduce<number | undefined>((sum, attempt) => { const count = summaries.find(item => item.run_id === attempt.id)?.tool_count ?? details[attempt.id]?.toolCount; return count === undefined || sum === undefined ? undefined : sum + count; }, 0);
   const runSeconds = run.status !== "running" && run.status !== "queued" ? (Date.parse(run.updated_at) - Date.parse(run.created_at)) / 1000 : NaN;
   const runSecondsOk = Number.isFinite(runSeconds) && runSeconds >= 0 && Boolean(toolTotal);
   const activityIssues = currentTools.filter(tool => problemStates.includes(toolDisplayState(tool))).length;
   const activityDetail = [toolTotal ? t("activity.tool_count", { count: toolTotal }) : "", Number.isFinite(runSeconds) && runSeconds >= 0 && toolTotal ? formatStepSeconds(runSeconds) : ""].filter(Boolean).join(" · ") || undefined;
   const [pendingStep, setPendingStep] = useState("");
+  const bodyReady = usePanelLoaded("taskActivity");
   // While the Bot works the steps are open and the running step's clock ticks;
   // when the run ends they fold into the summary line (Motion Lab ToolSteps).
   const live = !isTerminalRun(run);
@@ -209,7 +183,7 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
     step.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
     step.querySelector<HTMLElement>("summary")?.focus({ preventScroll: true });
     setPendingStep("");
-  }, [pendingStep, tools]);
+  }, [pendingStep, tools, bodyReady]);
   // Hidden Activity is mounted on request (a message's "View activity", or a card's own action) and opened once it exists.
   const [revealedHere, setRevealedHere] = useState(false);
   const revealed = revealedByMenu || revealedHere;
@@ -220,12 +194,12 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
     if (!showActivity || !openWhenShown.current || !disclosure.current) return;
     openWhenShown.current = false;
     // The record opens as a drawer (--m-base) instead of pushing the list down in one frame.
-    animateDisclosure(disclosure.current, true);
+    openActivity(disclosure.current);
     disclosure.current.querySelector("summary")?.focus({ preventScroll: true });
     disclosure.current.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   }, [showActivity, revealedByMenu]);
   function viewActivity() {
-    if (disclosure.current) { animateDisclosure(disclosure.current, true); disclosure.current.querySelector("summary")?.focus(); }
+    if (disclosure.current) { openActivity(disclosure.current); disclosure.current.querySelector("summary")?.focus(); }
     else { openWhenShown.current = true; setRevealedHere(true); }
   }
   if (!taskBlockVisible({ owner, tools, questions, drafts, messages, summaries, details, connected, locale, hideActivity, revealed })) return null;
@@ -241,27 +215,7 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
     {currentDrafts.filter(draft => draft.status !== "unknown").map(renderDraft)}
     {!showActivity && liveLine && <p className="task-run-live-line"><button type="button" className="process-line" aria-expanded="false" onClick={viewActivity}><LiveMark />{namedLive && <span className="task-activity-name">{botName}</span>}<span className="process-line-text task-activity-live" role="status">{liveLine.label}</span><TofiIcon className="process-line-chevron" name="chevron-right" size={14} aria-hidden="true" /></button></p>}
     {showActivity && <ActivityDisclosure locale={locale} detail={activityDetail} count={toolTotal || undefined} duration={runSecondsOk ? formatStepSeconds(runSeconds) : undefined} issues={activityIssues} live={liveLine} disclosureRef={disclosure} onOpen={loadInitial}>
-      {owner.family.previous.map((attempt, index) => <p key={attempt.id} className="task-record-meta">{t("activity.previous_attempt", { number: index + 1, status: attemptStatus(attempt.status) })}</p>)}
-      {rememberedDecisions.map(question => <p key={question.question_id} className="task-record-meta task-remembered-record" data-question-record-id={question.question_id}>{t(question.answered_by === STANDING_ALLOWANCE_ACTOR ? "record.standing_decision" : "record.remembered_decision")}</p>)}
-      {recordedQuestions.map(question => <section className="task-question-record" key={question.question_id} data-question-record-id={question.question_id} tabIndex={-1}>
-        <p>{question.question_type === "approval" ? question.approval?.review_only || question.approval?.review?.status.startsWith("shadow") ? t("record.observation_only") : question.status === "answered" && question.answer === true ? t("record.approved_unconfirmed") : question.status === "expired" ? t("record.approval_expired") : t("record.decision") : t("record.answer")}</p>
-        <dl><div><dt>{t("record.status")}</dt><dd>{taskStatusText(question.approval?.review?.status ?? question.status, locale)}</dd></div>{question.outcome && <div><dt>{t("record.execution")}</dt><dd>{taskCertaintyText(question.outcome.execution_certainty, locale)}</dd></div>}</dl>
-        {question.question_type === "approval" && <details><summary>{t("record.view_proposal")}</summary><MessageMarkdown content={question.question} />{question.approval?.facts && <dl className="approval-verified-record">{approvalFactRows(question.approval.facts, t).map((row, index) => <div key={index}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl>}{question.approval && <dl><div><dt>{t("record.action")}</dt><dd>{question.approval.action}</dd></div><div><dt>{t("record.target")}</dt><dd>{question.approval.target}</dd></div><div><dt>{t("record.impact")}</dt><dd>{question.approval.impact}</dd></div></dl>}{question.approval?.payload && <details><summary>{t("record.view_full_arguments")}</summary><pre tabIndex={0}>{question.approval.payload}</pre></details>}</details>}
-        {question.question_type !== "approval" && renderQuestion(question)}
-      </section>)}
-      <ol className={`task-tool-records${live ? " is-live" : ""}`}>{foldToolRuns(tools).map(group => group.items.length > 1 ? <ToolStepGroup key={`${group.items[0].run_id}:${group.items[0].call_id}`} items={group.items} locale={locale} onOpenTools={onOpenTools} /> : <ToolStepRecord key={`${group.items[0].run_id}:${group.items[0].call_id}`} tool={group.items[0]} locale={locale} now={live ? now : undefined} onOpenTools={onOpenTools} />)}</ol>
-      {drafts.filter(draft => draft.run_id !== run.id || draft.status === "unknown").map(renderDraft)}
-      {notes.map(note => <details className="task-progress-record" key={note.id}><summary>{t("activity.progress_report")}</summary><MessageMarkdown content={note.content} /></details>)}
-      {owner.family.previous.flatMap(attempt => messages.filter(message => message.run_id === attempt.id && message.role === "assistant" && message.kind !== "progress").map(message => <div key={message.id}>{renderMessage ? renderMessage(message) : <MessageMarkdown content={message.content} />}</div>))}
-      {!tools.length && !recordedQuestions.length && !notes.length && <p className="task-record-meta">{owner.family.attempts.every(attempt => summaries.find(item => item.run_id === attempt.id)?.tool_count === 0) ? t("activity.no_tool_steps") : t("activity.no_records")}</p>}
-      {owner.family.attempts.map(attempt => {
-        const detail = details[attempt.id], count = summaries.find(item => item.run_id === attempt.id)?.tool_count ?? detail?.toolCount;
-        const loaded = tools.filter(tool => tool.run_id === attempt.id).length;
-        return <div key={attempt.id} className="task-record-page">
-          {detail?.error && <p>{t("activity.records_unavailable")}</p>}
-          {count !== 0 && (detail?.hasMore !== false || (count !== undefined && loaded < count)) && <button type="button" className="secondary-button" disabled={detail?.loading} onClick={() => void onLoadDetails?.(attempt.id, detail?.loaded ?? 0)}>{detail?.loading ? t("activity.loading") : t("activity.load")}{count !== undefined ? ` (${loaded}/${count})` : ""}</button>}
-        </div>;
-      })}
+      <TaskActivityBody owner={owner} tools={tools} drafts={drafts} messages={messages} summaries={summaries} details={details} live={live} now={now} locale={locale} recordedQuestions={recordedQuestions} rememberedDecisions={rememberedDecisions} notes={notes} onOpenTools={onOpenTools} onLoadDetails={onLoadDetails} renderMessage={renderMessage} renderQuestion={renderQuestion} renderDraft={renderDraft} />
     </ActivityDisclosure>}
   </section>;
 }
