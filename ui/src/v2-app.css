@@ -366,8 +366,8 @@ html:not([data-desktop]) .workspace .composer .working-member.work-companion .wo
 .workspace .scheduled-task-recovery summary { color:var(--ink-soft); }
 .workspace .scheduled-task-recovery .error-text { max-height:160px; overflow:auto; font:11px/1.5 var(--mono); }
 .workspace .scheduled-task-recovery button { min-height:34px; margin-top:2px; padding:5px 9px; border:1px solid var(--line-soft); border-radius:8px; }
-.workspace .jump-latest { display:inline-flex; align-items:center; justify-content:center; gap:6px; width:40px; height:40px; min-height:40px; padding:0; border:2px solid var(--line); border-radius:50%; background:var(--surface); color:var(--ink); box-shadow:var(--hard-sm); font:600 12px/1 var(--mono); transition:transform var(--m-press) var(--ease-out),box-shadow var(--m-press) var(--ease-out); }
-.workspace .jump-latest:has(.jump-new-count) { width:auto; padding:0 12px; border-radius:999px; }
+.workspace .jump-latest { left:0; right:0; margin-inline:auto; display:inline-flex; align-items:center; justify-content:center; gap:6px; width:40px; height:40px; min-height:40px; padding:0; border:2px solid var(--line); border-radius:50%; background:var(--surface); color:var(--ink); box-shadow:var(--hard-sm); font:600 12px/1 var(--mono); transition:transform var(--m-press) var(--ease-out),box-shadow var(--m-press) var(--ease-out); }
+.workspace .jump-latest:has(.jump-new-count) { width:fit-content; padding:0 12px; border-radius:999px; }
 .workspace .jump-latest:hover { transform:translate(-1px,-1px); box-shadow:var(--hard); }
 .workspace .jump-latest:active { transform:translate(2px,3px); box-shadow:none; }
 

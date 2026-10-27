@@ -58,7 +58,8 @@
 
   /* The chat gives way to the widgets with the same motion: --m-panel-in while they open, --m-panel-out while they close. */
   html:not([data-desktop]) .workspace .workspace-grid .message-scroll { padding-right:calc(clamp(18px,4vw,64px) + var(--context-room,0px)); transition:padding-right var(--m-panel-out) var(--ease-settle); }
-  html:not([data-desktop]) .workspace .workspace-grid .jump-latest { right:calc(clamp(16px,4vw,32px) + var(--context-room,0px)); transition:right var(--m-panel-out) var(--ease-settle); }
+  /* The jump pill sits at the middle of the message column, so it moves left with the column when widgets open. */
+  html:not([data-desktop]) .workspace .workspace-grid .jump-latest { left:0; right:var(--context-room,0px); transition:right var(--m-panel-out) var(--ease-settle); }
   html:not([data-desktop]) .workspace .workspace-grid .team-board-screen { padding-right:calc(clamp(12px,3vw,30px) + var(--context-room,0px)); transition:padding-right var(--m-panel-out) var(--ease-settle); }
   html:not([data-desktop]) .workspace .workspace-grid .composer { padding-right:calc(clamp(16px,4vw,32px) + var(--context-room,0px)); transition:padding-right var(--m-panel-out) var(--ease-settle); }
   html:not([data-desktop]) .workspace .workspace-grid:is(.context-open,.sidebar-open) .message-scroll { transition-duration:var(--sidebar-dur); transition-timing-function:var(--ease-out); }
