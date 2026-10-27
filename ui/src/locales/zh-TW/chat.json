@@ -186,13 +186,6 @@
     "queued": "已排隊,下一步時讀取",
     "read": "已讀"
   },
-  "contextCard": {
-    "bot": "Bot 資料",
-    "close": "關閉{{title}}",
-    "collapse": "摺疊{{title}}",
-    "computer": "共用電腦",
-    "expand": "展開{{title}}"
-  },
   "detail": {
     "close": "關閉詳細資料",
     "close_memory": "關閉記憶",
@@ -492,6 +485,24 @@
       "microsoft_learn": "無需帳號。連接後你的 Bot 就能搜尋 Microsoft 文件。"
     }
   },
+  "outsidePanel": {
+    "close": "關閉{{title}}",
+    "expand": "加寬面板",
+    "restore": "還原面板寬度",
+    "title": {
+      "archive": "封存",
+      "artifacts": "產出檔案",
+      "bot-edit": "Bot 設定",
+      "desktop": "共用電腦",
+      "file": "檔案預覽",
+      "group-create": "新增群組",
+      "members": "成員",
+      "memory": "記憶",
+      "outputs": "產出",
+      "schedule": "任務",
+      "terminal": "終端機"
+    }
+  },
   "primary": {
     "badge": "主要助理",
     "badge_hint": "主要助理：負責你的日常雜事",
@@ -624,6 +635,28 @@
     "queued": "排隊中",
     "running": "正在回覆",
     "waiting": "等待回覆"
+  },
+  "sidePanel": {
+    "bot": "Bot",
+    "computer": "電腦",
+    "computer_asleep": "已休眠",
+    "computer_off": "未啟動",
+    "computer_running": "執行中",
+    "computer_starting": "啟動中",
+    "fold": "摺疊{{title}}",
+    "hide": "隱藏側欄",
+    "label": "對話概覽",
+    "members": "成員",
+    "model_default": "預設模型",
+    "open_computer": "開啟電腦",
+    "open_tasks": "開啟任務",
+    "outputs": "產出",
+    "show": "顯示側欄",
+    "show_all": "查看全部",
+    "tasks": "任務",
+    "tasks_done": "共 {{total}} 項，已完成 {{done}} 項",
+    "tasks_open": "{{open}} 項進行中",
+    "unfold": "展開{{title}}"
   },
   "sidebar": {
     "collapse": "收合側邊欄",

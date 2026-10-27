@@ -26,7 +26,8 @@ const loaders = {
   permissionCoach: () => import("./PermissionCoach"),
   updateBanner: () => import("./UpdateNotice"),
   contextPanels: () => import("./ContextPanels"),
-  contextCard: () => import("./ContextCard"),
+  outsidePanel: () => import("./OutsidePanel"),
+  sidePanel: () => import("./SidePanel"),
   questionCard: () => import("./QuestionCard"),
   runContext: () => import("./RunContext"),
   stopMenu: () => import("./ComposerStopMenu"),
@@ -83,7 +84,8 @@ export const DeleteConversationDialog = chunk("deleteDialog", module => module.D
 export const ReassignPrimaryDialog = chunk("reassignPrimary", module => module.ReassignPrimaryDialog);
 export const BotPanel = chunk("contextPanels", module => module.BotPanel);
 export const MembersPanel = chunk("contextPanels", module => module.MembersPanel);
-export const ContextCard = chunk("contextCard", module => module.ContextCard);
+export const OutsideHeader = chunk("outsidePanel", module => module.OutsideHeader);
+export const SidePanel = chunk("sidePanel", module => module.SidePanel);
 export const PermissionCoach = chunk("permissionCoach", module => module.PermissionCoach);
 export const UpdateBanner = chunk("updateBanner", module => module.UpdateBanner);
 export const QuestionCard = chunk("questionCard", module => module.QuestionCard);
@@ -113,7 +115,7 @@ const entryPoints: Array<[selector: string, chunk: PanelChunk]> = [
 const WARM_START_MS = 500;
 const WARM_STEP_MS = 200;
 export function warmPanelsWhenIdle(): () => void {
-  const order: PanelChunk[] = ["settings", "desktop", "contextPanels", "contextCard", "work", "memory", "team", "archive", "viewOnly", "remembered", "deleteDialog", "reassignPrimary", "permissionCoach", "updateBanner", "questionCard", "stopMenu"];
+  const order: PanelChunk[] = ["settings", "desktop", "contextPanels", "outsidePanel", "sidePanel", "work", "memory", "team", "archive", "viewOnly", "remembered", "deleteDialog", "reassignPrimary", "permissionCoach", "updateBanner", "questionCard", "stopMenu"];
   let timer = window.setTimeout(function step() {
     const next = order.shift();
     if (!next) return;

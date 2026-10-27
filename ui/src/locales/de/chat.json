@@ -189,13 +189,6 @@
     "queued": "In Warteschlange, wird beim nächsten Schritt gelesen",
     "read": "Gelesen"
   },
-  "contextCard": {
-    "bot": "Bot-Profil",
-    "close": "{{title}} schließen",
-    "collapse": "{{title}} einklappen",
-    "computer": "Geteilter Computer",
-    "expand": "{{title}} ausklappen"
-  },
   "detail": {
     "close": "Details schließen",
     "close_memory": "Erinnerungen schließen",
@@ -504,6 +497,24 @@
       "microsoft_learn": "Kein Konto nötig. So können deine Bots Microsoft-Dokumentation durchsuchen."
     }
   },
+  "outsidePanel": {
+    "close": "{{title}} schließen",
+    "expand": "Bereich verbreitern",
+    "restore": "Normale Breite",
+    "title": {
+      "archive": "Archiv",
+      "artifacts": "Artefakte",
+      "bot-edit": "Bot-Einstellungen",
+      "desktop": "Geteilter Computer",
+      "file": "Dateivorschau",
+      "group-create": "Neue Gruppe",
+      "members": "Mitglieder",
+      "memory": "Gedächtnis",
+      "outputs": "Ergebnisse",
+      "schedule": "Aufgaben",
+      "terminal": "Terminal"
+    }
+  },
   "primary": {
     "badge": "Haupt",
     "badge_hint": "Hauptassistent: übernimmt deine allgemeinen Aufgaben",
@@ -639,6 +650,28 @@
     "queued": "In der Warteschlange",
     "running": "Antwortet",
     "waiting": "Wartet auf Antwort"
+  },
+  "sidePanel": {
+    "bot": "Bot",
+    "computer": "Computer",
+    "computer_asleep": "Im Ruhezustand",
+    "computer_off": "Nicht gestartet",
+    "computer_running": "Läuft",
+    "computer_starting": "Startet",
+    "fold": "{{title}} einklappen",
+    "hide": "Seitenleiste ausblenden",
+    "label": "Überblick über die Unterhaltung",
+    "members": "Mitglieder",
+    "model_default": "Standardmodell",
+    "open_computer": "Computer öffnen",
+    "open_tasks": "Aufgaben öffnen",
+    "outputs": "Ergebnisse",
+    "show": "Seitenleiste einblenden",
+    "show_all": "Alle anzeigen",
+    "tasks": "Aufgaben",
+    "tasks_done": "{{done}} von {{total}} erledigt",
+    "tasks_open": "{{open}} offen",
+    "unfold": "{{title}} ausklappen"
   },
   "sidebar": {
     "collapse": "Seitenleiste einklappen",

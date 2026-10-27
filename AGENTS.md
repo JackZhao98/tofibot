@@ -312,6 +312,10 @@ unmounts with the menu and the workspace turns inert in the same commit; from th
 on (recorded by the `OverlaySlot` listener; `test:overlays` holds it). Menus and dialogs share one copy of the Radix primitives
 (one layer stack), so keep the four `@radix-ui/*` packages on versions npm dedupes.
 
+# Web UI side panels
+
+Web only, 1100 px and wider (docs/design/side-panels.md). Two layers right of the conversation. The side panel (`ui/src/SidePanel.tsx`, lazy chunk `sidePanel`) sits inside `.chat-pane`: summary cards (Computer, Outputs, Bot or Members, Tasks), shown when they have content, a header toggle hides it (`localStorage` `tofi.sidePanel.hidden`), it hides itself when the chat column is under 680 px, and below 1100 px it is a drawer. The outside panel is the `.detail-pane` grid column at the window edge, one view at a time (`panelState` in `ui/src/contextStack.ts`, header `OutsideHeader` in the lazy chunk `outsidePanel`): a card opens a view there (full computer, file preview, Bot settings, artifacts, tasks, terminal, memory, archive, members); Escape closes it, focus goes in on open and back to the opener on close; width token `--outside-width` (360-480 px) and an expand button (`.outside-wide`). Keep both layers out of the entry bundle (`test:shell-budget`); new cards need strings in 7 locales and a catalog state (section 11).
+
 # Chat uploads on the Bot's computer
 
 Files a person sends in chat are copied to the guest at `/workspace/home/uploads/<conversation id>/<name>` (`internal/app/guest_inputs.go`,

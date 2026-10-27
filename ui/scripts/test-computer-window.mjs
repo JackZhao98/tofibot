@@ -69,10 +69,10 @@ try {
     for (const value of await samples(page)) within(value, "small loading");
     const box = await shell(page, "is-small").boundingBox();
     const frame = await page.locator("[data-desktop-frame]").boundingBox();
-    // Wide browser windows dock the small screen in the context column's card; narrower ones float it over the chat.
+    // Wide browser windows dock the small screen in the outside panel; narrower ones float it over the chat.
     if (await shell(page, "is-docked").count()) {
-      const card = await page.locator('[data-card="desktop"]').boundingBox();
-      assert.ok(frame.width >= 300 && frame.width <= 420 && box.x >= card.x - 1 && box.x + box.width <= card.x + card.width + 1, `docked frame ${frame.width} sits inside its card`);
+      const card = await page.locator(".detail-pane.outside-panel").boundingBox();
+      assert.ok(frame.width >= 300 && frame.width <= 480 && box.x >= card.x - 1 && box.x + box.width <= card.x + card.width + 1, `docked frame ${frame.width} sits inside the outside panel`);
     } else {
       assert.ok(frame.width >= 360 && frame.width <= 420, `small frame width ${frame.width}`);
       const composer = await page.locator(".composer").first().boundingBox();

@@ -52,6 +52,8 @@ async function open({ width = 1180, height = 820, motion = "no-preference", touc
   if (process.env.CHAT_MOTION_CSS) await context.addInitScript(css => document.addEventListener("DOMContentLoaded", () => { const st = document.createElement("style"); st.textContent = css; document.head.append(st); }), process.env.CHAT_MOTION_CSS);
   await context.addInitScript(() => {
     try { localStorage.setItem("tofi:appearance", "light"); } catch {}
+    // These checks measure the message column, not the side panel (docs/design/side-panels.md): keep it hidden.
+    try { localStorage.setItem("tofi.sidePanel.hidden", "1"); } catch {}
     // The clipboard is recorded, not used, so the check is the same in every engine and permission state.
     Object.defineProperty(navigator, "clipboard", { value: { writeText: async text => { window.__clip = text; } }, configurable: true });
     window.__streams = [];
