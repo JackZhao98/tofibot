@@ -252,18 +252,14 @@ if (sections.includes("r2")) {
       await page.locator(".desktop-live-screen").waitFor({ state: "attached" });
       await page.waitForTimeout(2000);
       await page.screenshot({ path: file(page, "widget-computer-driven-bot") });
-      await page.locator(".computer-detail").hover();
-      log("computer-fold", await stepStrip(page, `${T}-computer-fold`, { click: ".desktop-control-fold", clip: RIGHT }));
-      await page.mouse.move(600, 400); await page.waitForTimeout(700);
-      await page.screenshot({ path: file(page, "widget-computer-folded") });
-      log("computer-unfold", await stepStrip(page, `${T}-computer-unfold`, { click: ".desktop-strip-open", clip: RIGHT }));
-      await page.mouse.move(600, 400); await page.waitForTimeout(700);
+      // There is no fold button on the small screen: the fold is the 30 s one after the Bot lets go.
       state.ownership = { owner: null, waiting: [] };
       await page.waitForTimeout(31500);
       await page.screenshot({ path: file(page, "widget-computer-folded-after-30s") });
       console.log(theme, "computer folded by itself after the Bot let go:", await page.locator(".computer-detail.is-folded").count() === 1);
       // you: taking the mouse opens the big window.
       await page.locator(".desktop-strip-open").click(); await page.waitForTimeout(600);
+      await page.locator(".desktop-enlarge").click(); await page.waitForTimeout(800);
       await page.locator(".desktop-driver-switch").click();
       await page.locator(".computer-detail.is-expanded.is-driven-by-you").waitFor({ timeout: 8000 }).catch(() => console.log("no is-driven-by-you"));
       await page.waitForTimeout(700);

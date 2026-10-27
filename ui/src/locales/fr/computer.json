@@ -32,11 +32,6 @@
       "other": "Ordinateur : {{state}}"
     },
     "other_bot": "Un autre Bot",
-    "frame": {
-      "paused": "En pause · pas en direct",
-      "live": "En direct",
-      "snapshot": "Vue par captures · mise à jour à l'instant"
-    },
     "announce": {
       "connecting": "Connexion au bureau",
       "disconnected": "Affichage du bureau interrompu",
@@ -48,6 +43,7 @@
     "expand_aria": "Agrandir l'ordinateur partagé",
     "shrink": "Réduire",
     "expand": "Agrandir",
+    "enlarge_hint": "Cliquer pour agrandir",
     "hide_aria": "Masquer l'ordinateur partagé",
     "minimize": "Réduire dans la barre",
     "close": "Fermer",
@@ -91,7 +87,6 @@
     "video_aria": "Vidéo en direct du bureau du Bot",
     "pointer_click": "{{name}} · clic",
     "placeholder": {
-      "elapsed": "{{status}} · {{seconds}} s",
       "waking": "Réveil de l'ordinateur",
       "connecting": "Connexion à l'écran",
       "resuming": "Reprise depuis l'hibernation",

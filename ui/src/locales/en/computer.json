@@ -31,11 +31,6 @@
       "other": "Computer: {{state}}"
     },
     "other_bot": "Another Bot",
-    "frame": {
-      "paused": "Paused · not live",
-      "live": "Live",
-      "snapshot": "Screenshot view · just updated"
-    },
     "announce": {
       "connecting": "Connecting to the desktop",
       "disconnected": "Stopped viewing the desktop",
@@ -47,6 +42,7 @@
     "expand_aria": "Enlarge shared computer",
     "shrink": "Shrink",
     "expand": "Enlarge",
+    "enlarge_hint": "Click to enlarge",
     "hide_aria": "Hide shared computer",
     "minimize": "Minimize",
     "close": "Close",
@@ -90,7 +86,6 @@
     "video_aria": "Live video of the Bot's desktop",
     "pointer_click": "{{name}} · click",
     "placeholder": {
-      "elapsed": "{{status}} · {{seconds}}s",
       "waking": "Waking the computer",
       "connecting": "Connecting to the screen",
       "resuming": "Resuming from hibernation",

@@ -9,8 +9,8 @@
    Sidebar: a real third grid track at the window edge (.sidebar-pane) that PUSHES the chat. Open animates the track with
    --m-panel-in, close with --m-panel-out; expanding changes --sidebar-w with --m-base. The chat and the widget column shrink
    with it (--widget-w). Widget chrome and sidebar chrome are in context-column.css / sidebar-shell.css and load with their chunks. */
-:root { --panel-elevation-edge:-14px 0 32px -22px rgba(42,32,25,.32); }
-:root[data-theme="dark"] { --panel-elevation-edge:-14px 0 32px -20px rgba(0,0,0,.75); }
+:root { --panel-elevation-edge:-14px 0 32px -22px rgba(42,32,25,.32); --panel-float-elevation:0 1px 3px rgba(42,32,25,.08), 0 3px 12px -3px rgba(42,32,25,.22); --panel-gap:12px; --panel-radius:16px; }
+:root[data-theme="dark"] { --panel-elevation-edge:-14px 0 32px -20px rgba(0,0,0,.75); --panel-float-elevation:0 1px 3px rgba(0,0,0,.5), 0 3px 12px -3px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.04); }
 @media (min-width:1100px) {
   html:not([data-desktop]) .workspace .workspace-grid {
     position:relative;
@@ -29,14 +29,15 @@
   html:not([data-desktop]) .workspace .workspace-grid > .chat-pane { grid-column:2; grid-row:1; }
 
   html:not([data-desktop]) .workspace .sidebar-pane {
-    grid-column:3; grid-row:1; position:relative; z-index:var(--z-panel); display:flex; justify-content:flex-end; min-width:0; min-height:0; height:100%; overflow:hidden;
-    background:var(--surface); box-shadow:var(--panel-elevation-edge);
+    grid-column:3; grid-row:1; position:relative; z-index:var(--z-panel); display:flex; justify-content:flex-end; box-sizing:border-box; min-width:0; min-height:0; height:100%; overflow:hidden;
+    padding:var(--panel-gap); background:transparent;
   }
+  /* The sidebar is a floating panel: the track carries the gap (to the window edge, the top and bottom, and the chat), the shell inside is the
+     rounded --surface rectangle with a soft elevation and no outline (docs/design/widgets-and-sidebar.md section 2.2). */
   /* The shell keeps the track's final width and sits against the window edge, so while the track opens the panel slides in with its
      edge instead of squeezing its content. Expanding animates the width with the track (same duration). */
-  html:not([data-desktop]) .workspace .sidebar-pane > * { flex:none; width:var(--sidebar-w); max-width:100%; transition:width var(--sidebar-dur) var(--ease-settle), opacity var(--m-panel-out) var(--ease-settle); animation:sidebar-shell-in var(--m-panel-in) var(--ease-out) backwards; }
+  html:not([data-desktop]) .workspace .sidebar-pane > * { flex:none; width:calc(var(--sidebar-w) - 2 * var(--panel-gap)); max-width:100%; height:100%; border-radius:var(--panel-radius); box-shadow:var(--panel-float-elevation); background:var(--surface); overflow:hidden; transition:width var(--sidebar-dur) var(--ease-settle), opacity var(--m-panel-out) var(--ease-settle); animation:sidebar-shell-in var(--m-panel-in) var(--ease-out) backwards; }
   html:not([data-desktop]) .workspace .sidebar-pane.is-leaving > * { opacity:0; }
-  html:not([data-desktop]) .workspace .sidebar-pane.is-leaving { box-shadow:none; transition:box-shadow var(--m-panel-out) var(--ease-settle); }
 
   /* Widgets. */
   html:not([data-desktop]) .workspace .detail-pane.widget-column {

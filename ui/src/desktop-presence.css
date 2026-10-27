@@ -2,8 +2,6 @@
 .desktop-preview-surface{position:relative}
 .desktop-launch-surface{order:1;position:relative;flex:none;width:100%;aspect-ratio:8/5;max-height:none;container-type:inline-size;border:2px solid var(--desktop-bezel);border-radius:16px;background:var(--desktop-screen);overflow:hidden}
 .desktop-preview-controls{position:absolute;inset:0;z-index:8;pointer-events:none}
-.desktop-floating-shell:not(:has(.is-expanded)) .desktop-preview-surface{cursor:grab;touch-action:none}
-.desktop-floating-shell.is-dragging .desktop-preview-surface{cursor:grabbing}
 .desktop-floating-shell .desktop-presence-canvas>.computer-detail{width:100%;max-height:none;padding:0;overflow:visible;pointer-events:auto;border:0;border-radius:0;background:transparent;box-shadow:none}
 .desktop-floating-shell .computer-floating-actions{position:absolute;top:8px;right:8px;display:flex;align-items:center;gap:4px;padding:4px;border:0;border-radius:10px;background:var(--desktop-controls-glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);opacity:1;pointer-events:auto;transition:opacity var(--m-quick) var(--ease-out)}
 .desktop-preview-surface:hover .computer-floating-actions,.desktop-preview-surface:focus-within .computer-floating-actions,.desktop-floating-shell.is-dragging .computer-floating-actions{opacity:1;pointer-events:auto}
@@ -190,10 +188,8 @@ html:not([data-desktop]) .desktop-floating-shell .remote-desktop>.error-text{bor
 /* Quiet activity presence, with an observational preview and an explicit dialog. */
 .desktop-presence-dot{position:absolute;top:7px;right:7px;width:7px;height:7px;border-radius:50%;background:var(--lagoon)}
 .desktop-presence-content,.desktop-presence-content>.desktop-presence-canvas{display:contents}
-.desktop-frame-status{position:absolute;z-index:9;top:8px;left:8px;max-width:calc(100% - 16px);padding:4px 7px;border-radius:6px;background:var(--desktop-controls-solid);color:var(--desktop-controls-ink);font:12px/1.4 var(--body);pointer-events:none}
-.desktop-frame-status.is-stale{font-weight:600}
 @media(prefers-reduced-motion:reduce){.desktop-floating-shell .computer-screen-wrap{transition:none}}
-@media(forced-colors:active){.desktop-presence-dot{background:Highlight}.desktop-frame-status{background:Canvas;color:CanvasText}}
+@media(forced-colors:active){.desktop-presence-dot{background:Highlight}}
 /* Computer window. Small is a floating picture-in-picture screen docked above the composer; big is the dialog.
    Both are the same 16:10 frame, so nothing is ever squashed while the picture loads. */
 .desktop-floating-shell.is-small{width:min(392px,calc(100vw - 24px));pointer-events:auto}
@@ -225,6 +221,7 @@ html:not([data-desktop]) .desktop-floating-shell.is-sheet .desktop-presence-canv
 .desktop-launch-surface>.desktop-launch-preview.desktop-placeholder,.desktop-wake-overlay>.desktop-launch-preview.desktop-placeholder{position:absolute;inset:0;display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:clamp(6px,2cqw,14px);width:100%;height:100%;aspect-ratio:auto;margin:0;border:0;border-radius:0;overflow:hidden;padding:0 12px;box-sizing:border-box;text-align:center;background:var(--desktop-screen)!important;color:var(--desktop-controls-ink)!important}
 .desktop-placeholder-grid{position:absolute;inset:0;background-image:radial-gradient(circle,color-mix(in srgb,var(--desktop-controls-ink) 18%,transparent) 1px,transparent 1.5px);background-size:18px 18px;background-position:center;-webkit-mask-image:radial-gradient(ellipse at 50% 46%,#000 25%,transparent 85%);mask-image:radial-gradient(ellipse at 50% 46%,#000 25%,transparent 85%)}
 .desktop-placeholder-cat,.desktop-placeholder-line,.desktop-placeholder-retry{position:relative}
+.desktop-placeholder-retry{z-index:3}
 .desktop-placeholder-cat{display:grid;place-items:center}
 .desktop-placeholder .desktop-placeholder-cat .avatar{width:clamp(52px,15cqw,100px);height:clamp(52px,15cqw,100px)}
 .desktop-placeholder-line{display:flex;align-items:center;justify-content:center;gap:8px;max-width:100%;margin:0;color:var(--desktop-controls-ink);font:600 clamp(12px,2.4cqw,15px)/1.4 var(--body);letter-spacing:.01em;text-wrap:balance}
@@ -237,21 +234,39 @@ html:not([data-desktop]) .desktop-floating-shell.is-sheet .desktop-presence-canv
 @media(prefers-reduced-motion:reduce){.desktop-placeholder:is(.is-waking,.is-connecting,.is-resuming) .desktop-placeholder-line::before{animation:none}}
 
 /* Folded: the docked monitor as a 56px strip (docs/design/widgets-and-sidebar.md section 6). Same bezel and glow; the screen is a
-   letterboxed live thumbnail on the left (the video stays mounted), the chin's status text sits in the middle and the Bot / You switch
-   on the right. The drop, the chevron and the corner buttons are gone; the whole strip is one button that brings the monitor back. */
+   letterboxed live thumbnail on the left (the video stays mounted) and the status text sits beside it (the Bot / You switch lives in the
+   big window only). The drop, the chevron and the corner buttons are gone; the whole strip is one button that brings the monitor back. */
 html:not([data-desktop]) .workspace .desktop-floating-shell.is-docked.is-folded .desktop-presence-canvas>.computer-detail.is-folded{
-  display:grid;grid-template-columns:72px minmax(0,1fr) auto;align-items:center;column-gap:10px;height:56px;margin-bottom:0;padding:6px 8px 6px 6px;box-sizing:border-box;overflow:hidden}
+  display:grid;grid-template-columns:72px minmax(0,1fr);align-items:center;column-gap:10px;height:56px;margin-bottom:0;padding:6px 8px 6px 6px;box-sizing:border-box;overflow:hidden}
 html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-folded :is(.computer-screen-wrap,.desktop-launch-surface){grid-area:1/1;order:0;display:grid;place-items:center;width:72px;height:40px;aspect-ratio:auto;min-height:0;border-radius:8px!important;clip-path:inset(0 round 8px);pointer-events:none}
 .computer-detail.is-folded .computer-screen-wrap :is(.remote-desktop,.remote-desktop-surface){width:100%;height:100%;min-height:0;aspect-ratio:auto}
 .computer-detail.is-folded .computer-screen-wrap :is(video,canvas,img,.computer-screen){width:100%;height:100%;object-fit:contain}
 .computer-detail.is-folded .computer-screen-wrap .remote-desktop-surface{display:grid;place-items:center;overflow:hidden}
-.computer-detail.is-folded :is(.desktop-window-controls,.desktop-frame-status,.error-banner,.computer-info,.remote-control-bar,.desktop-expanded-scrim){display:none}
+.computer-detail.is-folded :is(.desktop-window-controls,.desktop-enlarge,.error-banner,.computer-info,.remote-control-bar,.desktop-expanded-scrim){display:none}
 .computer-detail.is-folded .desktop-chin{position:static;display:contents;translate:none;width:auto;height:auto;padding:0}
 .computer-detail.is-folded :is(.desktop-drop,.desktop-power){display:none}
 .computer-detail.is-folded .desktop-chin-text{position:static;grid-area:1/2;width:auto;height:auto;margin:0;overflow:hidden;clip:auto;clip-path:none;text-overflow:ellipsis;color:var(--desktop-controls-ink);font:600 12px/1.3 var(--display)}
-.computer-detail.is-folded .desktop-driver-switch{position:relative;z-index:2;grid-area:1/3}
 .desktop-strip-open{position:absolute;inset:0;z-index:1;width:100%;height:100%;padding:0;border:0;border-radius:inherit;background:transparent}
 .desktop-strip-open:hover{background:color-mix(in srgb,var(--desktop-controls-ink) 7%,transparent)}
 .desktop-control-fold svg{rotate:180deg}
 .computer-detail.is-folded .desktop-launch-surface :is(.desktop-placeholder-line,.desktop-placeholder-retry,.desktop-preview-controls){display:none}
 .computer-detail.is-folded .desktop-launch-surface .desktop-placeholder-cat .avatar{width:28px;height:28px}
+
+/* The small computer (web): a bare screen. No capsule, no chin, no shadow under it; the glass corner holds one X that shows on hover and
+   focus; the middle of the screen is a button that enlarges it, and says so on hover. Only the big window keeps the bottom group. */
+html:not([data-desktop]) .desktop-floating-shell:not(.is-expanded) .desktop-presence-canvas>.computer-detail{margin-bottom:0;box-shadow:none}
+html:not([data-desktop]) .desktop-floating-shell:not(.is-expanded) .desktop-presence-canvas>.computer-detail.is-driven-by-bot{box-shadow:0 0 0 1px var(--lagoon)}
+html:not([data-desktop]) .desktop-floating-shell:not(.is-expanded) .desktop-presence-canvas>.computer-detail.is-driven-by-you{box-shadow:0 0 0 1px var(--clay)}
+.computer-detail:not(.is-expanded) .desktop-chin{display:contents}
+.desktop-floating-shell:not(.is-expanded) .desktop-window-controls{top:12px;right:12px;padding:2px;border-radius:999px}
+.desktop-floating-shell:not(.is-expanded) .desktop-window-controls .desktop-control-button{border-radius:50%}
+.desktop-enlarge{position:absolute;inset:0;z-index:3;display:grid;place-items:center;width:100%;height:100%;padding:0;border:0;border-radius:inherit;background:transparent;color:var(--desktop-controls-ink);cursor:zoom-in;transition:background-color var(--m-quick) var(--ease-out)}
+.desktop-enlarge-hint{display:inline-flex;align-items:center;gap:8px;max-width:calc(100% - 24px);padding:8px 14px;border-radius:999px;background:var(--desktop-controls-glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);font:600 13px/1 var(--body);white-space:nowrap;opacity:0;transition:opacity var(--m-quick) var(--ease-out);pointer-events:none}
+.desktop-enlarge:is(:hover,:focus-visible){background:color-mix(in srgb,var(--desktop-bezel) 26%,transparent)}
+.desktop-enlarge:is(:hover,:focus-visible) .desktop-enlarge-hint{opacity:1}
+.desktop-enlarge:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:-3px}
+@media(prefers-reduced-transparency:reduce){.desktop-enlarge-hint{background:var(--desktop-controls-solid);-webkit-backdrop-filter:none;backdrop-filter:none}}
+@media(forced-colors:active){.desktop-enlarge-hint{background:Canvas;color:CanvasText}}
+/* The glass corner is dark in both themes, so its icons stay light (the big window's generic button ink is the page's dark ink). */
+html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .desktop-window-controls .desktop-control-button{color:var(--desktop-controls-ink)}
+html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .desktop-window-controls .desktop-control-button:hover{background:var(--desktop-controls-hover)}

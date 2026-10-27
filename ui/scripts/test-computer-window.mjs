@@ -80,9 +80,10 @@ try {
       assert.ok(box.x + box.width <= 1440 && box.x >= 0, "small window inside the viewport");
     }
     assert.equal(await shell(page, "is-expanded").count(), 0, "the button opens the small window first");
-    assert.match(await page.locator(".desktop-placeholder-line").innerText(), /\d+s$/, "the status line counts seconds");
+    await page.waitForTimeout(2200);
+    assert.doesNotMatch(await page.locator(".desktop-placeholder-line").innerText(), /\d+\s?(s|秒)\b|·/, "the status line has no seconds counter");
     assert.equal(await page.locator(".desktop-placeholder-grid").count(), 1, "dot texture present");
-    assert.ok(await page.getByRole("switch").isVisible(), "control switch stays reachable in the small window");
+    assert.equal(await page.getByRole("switch").count(), 0, "the Bot / You switch belongs to the big window");
     await shot(page, "small-loading-light-1440");
     // Hibernation states are named, not shown as a generic boot.
     state.info = info("resuming");

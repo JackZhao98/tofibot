@@ -30,11 +30,6 @@
       "other": "コンピューター：{{state}}"
     },
     "other_bot": "別の Bot",
-    "frame": {
-      "paused": "一時停止 · ライブではありません",
-      "live": "ライブ",
-      "snapshot": "スクリーンショット表示 · 更新済み"
-    },
     "announce": {
       "connecting": "デスクトップに接続中",
       "disconnected": "デスクトップの表示を終了しました",
@@ -46,6 +41,7 @@
     "expand_aria": "共有コンピューターを拡大",
     "shrink": "縮小",
     "expand": "拡大",
+    "enlarge_hint": "クリックして拡大",
     "hide_aria": "共有コンピューターを隠す",
     "minimize": "最小化",
     "close": "閉じる",
@@ -89,7 +85,6 @@
     "video_aria": "Bot のデスクトップのライブ映像",
     "pointer_click": "{{name}} · クリック",
     "placeholder": {
-      "elapsed": "{{status}} · {{seconds}}秒",
       "waking": "コンピューターを起こしています",
       "connecting": "画面に接続中",
       "resuming": "休止状態から復帰中",

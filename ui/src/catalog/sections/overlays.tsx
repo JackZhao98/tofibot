@@ -15,6 +15,8 @@ import type { AppOptions } from "../world";
 
 const DM: AppOptions = { path: "/b/bot_mochi" };
 const GROUP: AppOptions = { path: "/g/grp_launch" };
+/** The folded-strip state releases the desktop mid-drive (the fold is the 30 s timer after the Bot lets go), so its options object is mutated. */
+const foldedApp: AppOptions = { ...DM, driver: "bot" };
 /** The list view: on a phone the sidebar is the whole screen; on a wide screen it is the same as a chat. */
 const LIST: AppOptions = { path: "/" };
 const noop = () => {};
@@ -147,10 +149,17 @@ export const popovers: CatalogSection = {
       drive: async step => { await step.click("[data-computer-toggle]"); await step.find(".context-card[data-card='computer']"); await step.click("button[aria-label='Open artifacts']"); await step.find(".context-card[data-card='artifacts'] .artifact-row"); await step.click(".context-card[data-card='artifacts'] .context-card-fold"); await step.wait(700); } },
     { id: "widget-computer-driven-bot", kind: "app", label: "Widget: computer, a Bot has the mouse", note: "opens by itself when a Bot takes the desktop in this chat; the bezel takes the Bot's colour and the chin switch sits on the Bot", app: { ...DM, driver: "bot" }, widths: ["desktop"], probe: ".context-card",
       drive: async step => { await step.find(".context-card[data-card='computer'] .is-driven-by-bot"); await step.wait(1200); } },
-    { id: "widget-computer-driven-you", kind: "app", label: "Computer: you have the mouse (big window)", note: "taking the mouse opens the big window; the chin switch is on You and the bezel takes the person's colour. Shrinking it hands the mouse back, so the widget itself is never in this state", app: DM, widths: ["desktop"], probe: ".desktop-floating-shell.is-expanded", keyboard: { close: "Escape" },
-      drive: async step => { await step.wait(1000); await step.click("[data-computer-toggle]"); await step.find(".context-card[data-card='computer'] .desktop-driver-switch"); await step.wait(1200); await step.click(".desktop-driver-switch"); await step.find(".computer-detail.is-expanded.is-driven-by-you"); await step.wait(700); } },
-    { id: "widget-computer-folded", kind: "app", label: "Widget: computer folded to its strip", note: "56px: a letterboxed live thumbnail, the status text, the Bot / You switch; the video stays mounted; a click on the strip opens it again", app: { ...DM, driver: "bot" }, widths: ["desktop"], probe: ".context-card",
-      drive: async step => { await step.find(".context-card[data-card='computer'] .is-driven-by-bot"); await step.wait(1200); await step.click(".desktop-control-fold"); await step.find(".computer-detail.is-folded"); await step.wait(700); } },
+    { id: "widget-computer-driven-you", kind: "app", label: "Computer: you have the mouse (big window)", note: "taking the mouse opens the big window (from the switch in its bottom group); the switch is on You and the bezel takes the person's colour. Shrinking it hands the mouse back, so the widget itself is never in this state", app: DM, widths: ["desktop"], probe: ".desktop-floating-shell.is-expanded", keyboard: { close: "Escape" },
+      drive: async step => { await step.wait(1000); await step.click("[data-computer-toggle]"); await step.find(".context-card[data-card='computer'] .desktop-enlarge"); await step.wait(1200); await step.click(".desktop-enlarge"); await step.find(".computer-detail.is-expanded .desktop-driver-switch"); await step.wait(700); await step.click(".desktop-driver-switch"); await step.find(".computer-detail.is-expanded.is-driven-by-you"); await step.wait(700); } },
+    { id: "widget-computer-folded", kind: "app", label: "Widget: computer folded to its strip", note: "56px: a letterboxed live thumbnail and the status text (the Bot / You switch lives in the big window); the video stays mounted; a click on the strip opens it again. The small screen has no fold button: it folds itself 30 s after the Bot lets go (shortened here)", app: foldedApp, widths: ["desktop"], probe: ".context-card",
+      drive: async step => {
+        await step.find(".context-card[data-card='computer'] .is-driven-by-bot"); await step.wait(1200);
+        // The fold is a 30 s timer that starts when the Bot lets go: release the desktop and shorten the timer for this frame.
+        const timer = window.setTimeout.bind(window);
+        window.setTimeout = ((handler: TimerHandler, delay?: number, ...args: unknown[]) => timer(handler, delay === 30_000 ? 600 : delay, ...args)) as typeof window.setTimeout;
+        delete foldedApp.driver;
+        await step.find(".computer-detail.is-folded", 12000); await step.wait(700);
+      } },
     { id: "sidebar-tasks", kind: "app", label: "Sidebar: Tasks (≥1100 px)", note: "a real grid track at the window edge that pushes the chat; the widgets shrink with it", app: DM, widths: ["desktop"], probe: ".sidebar-pane",
       drive: async step => { await step.click("button[aria-label='Tasks']"); await step.find(".sidebar-pane .sidebar-shell"); await step.wait(800); } },
     { id: "sidebar-expanded", kind: "app", label: "Sidebar: expanded", note: "clamp(480px, 50vw, 760px); the chat keeps at least 480px", app: DM, widths: ["desktop"], probe: ".sidebar-pane",

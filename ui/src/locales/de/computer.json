@@ -31,11 +31,6 @@
       "other": "Computer: {{state}}"
     },
     "other_bot": "Ein anderer Bot",
-    "frame": {
-      "paused": "Pausiert · nicht live",
-      "live": "Live",
-      "snapshot": "Screenshot-Ansicht · gerade aktualisiert"
-    },
     "announce": {
       "connecting": "Verbindung zum Desktop wird hergestellt",
       "disconnected": "Desktop-Ansicht getrennt",
@@ -47,6 +42,7 @@
     "expand_aria": "Gemeinsamen Computer vergrößern",
     "shrink": "Verkleinern",
     "expand": "Vergrößern",
+    "enlarge_hint": "Zum Vergrößern klicken",
     "hide_aria": "Gemeinsamen Computer ausblenden",
     "minimize": "Minimieren",
     "close": "Schließen",
@@ -90,7 +86,6 @@
     "video_aria": "Live-Video vom Desktop des Bots",
     "pointer_click": "{{name}} · Klick",
     "placeholder": {
-      "elapsed": "{{status}} · {{seconds}} s",
       "waking": "Computer wird geweckt",
       "connecting": "Verbindung zum Bildschirm wird hergestellt",
       "resuming": "Wird aus dem Ruhezustand geholt",
