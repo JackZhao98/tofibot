@@ -27,7 +27,5 @@
 .file-tile .ft-glyph { color:var(--ft); fill:currentColor; }
 .file-tile .ft-label { position:absolute; left:11%; right:11%; bottom:9%; display:grid; place-items:center; height:24%; min-height:10px; padding:0 1px; overflow:hidden; border-radius:999px; background:var(--ft); color:#fff; font:700 max(7.5px,.2em)/1 var(--mono); letter-spacing:.02em; white-space:nowrap; }
 /* Below ~30px the glyph would be mush: the page, fold and format label carry the type alone. */
-.file-tile.is-small .ft-glyph { display:none; }
 .file-tile.is-thumb { width:var(--tile); height:var(--tile); overflow:hidden; border-radius:max(6px,.2em); background:var(--sunk); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 10%,transparent); }
 .file-tile.is-thumb img { display:block; width:100%; height:100%; object-fit:cover; }
-.file-tile.is-small .ft-label { font-size:6.4px; letter-spacing:-.02em; min-height:9px; }

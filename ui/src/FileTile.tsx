@@ -18,15 +18,16 @@ function Glyph({ tone }: { tone: string }) {
 
 /**
  * Type tile: a rounded page with a soft fold, a glyph for the family and the format in mono.
- * Size follows --tile (default 40px high); colours are the --ft-* family tokens, light and dark.
+ * Size follows --tile (default 40px high); below 36px the format label is dropped (it cannot fit) and the glyph, enlarged, carries the family by shape and colour; colours are the --ft-* family tokens, light and dark.
  * With `thumb` an image shows its own picture, rounded, instead of the page.
  */
 export function FileTile({ name, kind, thumb, size }: { name: string; kind: FileKind; thumb?: string; size?: number }) {
   const tone = tileTone(kind);
+  const small = Boolean(size && size < 36);
   const style = size ? { "--tile": `${size}px` } as React.CSSProperties : undefined;
   if (thumb && kind === "image") return <span className="file-tile is-thumb" style={style} data-file-tone={tone} data-file-kind={kind} aria-hidden="true"><img src={thumb} alt="" loading="lazy" decoding="async" /></span>;
-  return <span className={`file-tile${size && size < 30 ? " is-small" : ""}`} style={style} data-file-tone={tone} data-file-kind={kind} aria-hidden="true">
-    <svg viewBox="0 0 32 40" focusable="false"><path className="ft-page" d="M5.5.5h13.6c.5 0 1 .2 1.4.6l10.4 10.4c.4.4.6.9.6 1.4v22.6a5 5 0 0 1-5 5H5.5a5 5 0 0 1-5-5V5.5a5 5 0 0 1 5-5z"/><path className="ft-fold" d="M19.6.7 31.3 12.4h-7.2a4.5 4.5 0 0 1-4.5-4.5z"/><svg className="ft-glyph" x="8" y="13" width="16" height="14" viewBox="0 0 16 14"><Glyph tone={tone} /></svg></svg>
-    <span className="ft-label">{tileLabel(name, kind)}</span>
+  return <span className={`file-tile${small ? " is-small" : ""}`} style={style} data-file-tone={tone} data-file-kind={kind} aria-hidden="true">
+    <svg viewBox="0 0 32 40" focusable="false"><path className="ft-page" d="M5.5.5h13.6c.5 0 1 .2 1.4.6l10.4 10.4c.4.4.6.9.6 1.4v22.6a5 5 0 0 1-5 5H5.5a5 5 0 0 1-5-5V5.5a5 5 0 0 1 5-5z"/><path className="ft-fold" d="M19.6.7 31.3 12.4h-7.2a4.5 4.5 0 0 1-4.5-4.5z"/><svg className="ft-glyph" {...(small ? { x: 5, y: 14, width: 22, height: 19 } : { x: 8, y: 13, width: 16, height: 14 })} viewBox="0 0 16 14"><Glyph tone={tone} /></svg></svg>
+    {!small && <span className="ft-label">{tileLabel(name, kind)}</span>}
   </span>;
 }
