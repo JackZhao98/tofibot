@@ -1,7 +1,8 @@
 import { useGraceFlag } from "./useGraceFlag";
 import { readReplyMarker } from "./replyMarker";
 import { thinkingHeadline } from "./thinkingHeadline";
-import { TaskRunBlock, taskBlockVisible } from "./TaskRunBlock";
+import { TaskRunBlock, taskBlockVisible, toggleDisclosure } from "./TaskRunBlock";
+import { ToolStatusIcon } from "./ToolStatusIcon";
 import { LiveMark } from "./LiveMark";
 import { markSenderGroups } from "./senderGroups";
 import { sameData } from "./sameData";
@@ -51,7 +52,7 @@ import { occurrenceRootKey, type ScheduleOccurrence } from "./scheduleOccurrence
 import { useScheduleOccurrences } from "./useScheduleOccurrences";
 import { useScheduleMetadata } from "./useScheduleMetadata";
 import type { Schedule } from "./types";
-import { TofiIcon as Icon, type TofiIconName } from "./icons";
+import { TofiIcon as Icon } from "./icons";
 import { ComposerGlyph } from "./ComposerGlyph";
 import { formatRelativeTime, intlLocale } from "./i18n/format";
 import { BrandLogo } from "./BrandLogo";
@@ -80,7 +81,7 @@ import { DeliveryNote, SendReceipt, SendReceiptMark } from "./SendReceipt";
 import { applyInbox } from "./messageDelivery";
 import { receiptFor, runsByTrigger } from "./sendReceipts";
 import { activeBotRuns, botRecentlyActive, latestBotWorkTime, latestHumanMessageTime } from "./botActivity";
-import { reconcileToolActivity, activeToolForRun, buildToolRunAnchors, buildToolSummaryAnchors, buildToolTimeline, compareToolActivities, elapsedToolSeconds, orderToolActivities, toolActionLabel, toolArgumentPreview, toolAttemptIssues } from "./toolTimeline";
+import { reconcileToolActivity, activeToolForRun, buildToolRunAnchors, buildToolSummaryAnchors, buildToolTimeline, compareToolActivities, elapsedToolSeconds, foldToolRuns, formatStepSeconds, orderToolActivities, toolActionLabel, toolArgumentPreview, toolAttemptIssues } from "./toolTimeline";
 import { foldCompletedProgress, isMidRunKind } from "./runProgress";
 import { mergeRunUpdates } from "./runMerge";
 import { draftDeltaApplies } from "./draftDelta";
@@ -3008,15 +3009,6 @@ function ToolActivityList({ activities, progress = [], summaries = [], summaryEr
 
 type ToolRunProps = { senderId?: string; runId: string; items: ToolActivity[]; notes: Message[]; summary?: ToolActivityRunSummary; summaryError?: string; summaryLoading?: boolean; detail?: ToolDetailState; onLoadDetails?: (runId: string, offset: number) => Promise<void>; onRetrySummary?: (runId: string) => void; live: boolean; now: number; timezone: string; botName: string };
 
-function toolStepIcon(name: string): TofiIconName {
-  // Labels may be Chinese (搜索/查找, 网页/打开, 读取/文件/文档, 修改/写入); escaped so the source holds no UI text.
-  if (/search|\u641c\u7d22|\u67e5\u627e|find/i.test(name)) return "search";
-  if (/browser|\u7f51\u9875|navigate|\u6253\u5f00|url/i.test(name)) return "globe";
-  if (/read|\u8bfb\u53d6|\u6587\u4ef6|\u6587\u6863/i.test(name)) return "file-text";
-  if (/write|edit|\u4fee\u6539|\u5199\u5165/i.test(name)) return "edit";
-  return "terminal";
-}
-
 function toolStepLabel(activity: ToolActivity) {
   // Drop the Chinese progressive prefix 正在 ("in the middle of") from a step label.
   return toolActionLabel(activity).replace(/^\u6b63\u5728/, "");
@@ -3103,37 +3095,58 @@ function WebToolActivityRun({ runId, items, notes, summary, summaryError, summar
   useEffect(() => { if (revealedHere) loadDetails(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // Opened from this run's live line: focus stays where the line was.
   useLayoutEffect(() => { if (focusToggleOfRun === runId) { focusToggleOfRun = ""; toggleRef.current?.focus({ preventScroll: true }); } }, [runId]);
+  const issueCount = summary ? summary.failed_count + summary.interrupted_count + summary.pending_count : items.filter(item => ["failed", "not_executed", "interrupted"].includes(toolDisplayState(item))).length;
   const fullLabel = `${activityLabel}${!live && count !== undefined ? ` · ${t("tools.call_count", { count })}` : ""}${issues ? ` · ${issues}` : ""}${notes.length ? ` · ${t("tools.report_count", { count: notes.length })}` : ""}${!live && duration !== undefined ? ` · ${duration}` : ""}`;
+  const renderStep = (activity: ToolActivity, liveRun: boolean) => {
+    const duration = webToolSeconds(activity, now);
+    const active = liveRun && (activity.status === "running" || activity.status === "queued");
+    const state = toolDisplayState(activity);
+    const problem = ["failed", "not_executed", "interrupted"].includes(state);
+    return <li className={`web-tool-step is-${state}${problem ? " is-problem" : ""}`} key={toolActivityKey(activity)}>
+      <ToolStatusIcon state={active ? "running" : state} label={toolDisplayLabel(activity)} />
+      <details className="web-tool-step-detail" onToggle={event => { if (event.currentTarget.open) requestFullToolResult(activity); }}><summary onClick={toggleDisclosure}><span className="web-tool-step-label">{toolStepLabel(activity)}{toolArgumentPreview(activity) ? ` · ${toolArgumentPreview(activity)}` : ""}</span></summary>
+        <div className="tool-activity-details"><small>{Number.isFinite(Date.parse(activity.started_at)) ? formatExactTime(activity.started_at, timezone) : ""} · {timezone}</small><div><span>{t("tools.arguments")}</span><pre>{activity.arguments || t("tools.none")}</pre></div><div><span>{t("tools.result")}</span>{activity.outcome && <p className="tool-outcome" role="note">{activity.outcome.message}</p>}<pre>{activity.result || (active ? t("tools.waiting_result") : t("tools.none"))}</pre></div>{activity.truncated && <small>{t("tools.truncated")}</small>}</div>
+      </details>
+      <span className="web-tool-step-meta">{problem && <span className="web-tool-step-state">{toolDisplayLabel(activity)}</span>}{duration !== undefined && duration >= 1 && <span className="web-tool-quiet">{formatStepSeconds(duration)}</span>}</span>
+    </li>;
+  };
+  const stepList = (() => {
+    const result: ({ type: "note"; at: string; note: Message } | { type: "tool"; at: string; activity: ToolActivity; group?: ToolActivity[] })[] = [];
+    let buffer: ToolActivity[] = [];
+    const flush = () => { for (const fold of foldToolRuns(buffer)) result.push({ type: "tool", at: fold.items[0].started_at, activity: fold.items[0], group: fold.items.length > 1 ? fold.items : undefined }); buffer = []; };
+    for (const entry of entries) { if (entry.type === "tool") buffer.push(entry.activity); else { flush(); result.push(entry); } }
+    flush();
+    return result;
+  })();
   return <section data-activity-run={runId} className={`tool-message web-tool-run${live ? " is-live" : ` is-complete${issues ? " has-tool-issues" : ""}`}`} aria-label={t("tools.steps_label", { name: botName })} data-sender={senderId || undefined} data-at={senderId && Number.isFinite(lastTime) ? new Date(lastTime).toISOString() : undefined}>
     {senderId && <SenderHead id={senderId} name={botName} />}
     <div className="web-tool-disclosure">
       <div className="web-tool-summary">
         {!live && Number.isFinite(lastTime) && <time>{formatTime(new Date(lastTime).toISOString(), timezone)}</time>}
-        <button type="button" ref={toggleRef} className="web-tool-toggle" aria-expanded={expanded} aria-controls={`web-tool-drawer-${runId}`} onClick={() => {
+        <button type="button" ref={toggleRef} className="web-tool-toggle" aria-label={live ? undefined : fullLabel} aria-expanded={expanded} aria-controls={`web-tool-drawer-${runId}`} onClick={() => {
           const next = !expanded;
           setExpanded(next);
           if (next) { const label = labelRef.current; if (label && label.scrollWidth > label.clientWidth) setClipped(true); loadDetails(); }
         }}>
           {live && <LiveMark />}
           {!live && <Icon className="web-tool-chevron" name="chevron-right" size={14} />}
-          <span ref={labelRef} className={`process-line-text${live ? " web-tool-live-label" : ""}`}>{fullLabel}</span>
+          {live ? <span ref={labelRef} className="process-line-text web-tool-live-label">{fullLabel}</span>
+            : <><Icon className="web-tool-glyph" name="terminal" size={14} aria-hidden="true" /><span ref={labelRef} className="process-line-text web-tool-compact" aria-hidden="true">{count !== undefined && <span>{count}</span>}{duration !== undefined && <span className="web-tool-quiet">{duration}</span>}{issueCount > 0 && <span className="web-tool-issues"><Icon name="alert" size={13} aria-hidden="true" />{issueCount}</span>}{notes.length > 0 && <span className="web-tool-quiet"><Icon name="file-text" size={13} aria-hidden="true" />{notes.length}</span>}</span></>}
           {live && <Icon className="web-tool-chevron" name="chevron-right" size={14} aria-hidden="true" />}
         </button>
       </div>
       <div className={`web-tool-drawer${expanded ? " is-open" : ""}`} id={`web-tool-drawer-${runId}`} aria-hidden={!expanded} inert={!expanded}><div className="web-tool-drawer-inner">
       {clipped && <p className="web-tool-full">{fullLabel}</p>}
-      <ol className="web-tool-steps" ref={stepsRef}>{summaryLoading && <li className="web-tool-step is-note"><span>{t("tools.summary_loading")}</span></li>}{summaryError && <li className="web-tool-step is-note"><span>{t("tools.summary_failed", { error: summaryError })}</span><button type="button" className="secondary-button" onClick={() => onRetrySummary?.(runId)}>{t("common:action.retry")}</button></li>}{!entries.length && <li className="web-tool-step is-note"><span>{detail?.loading ? t("tools.details_loading") : detail?.error ? t("tools.details_failed", { error: detail.error }) : t("tools.expand_to_load")}</span></li>}{entries.map(entry => {
+      <ol className="web-tool-steps" ref={stepsRef}>{summaryLoading && <li className="web-tool-step is-note"><span>{t("tools.summary_loading")}</span></li>}{summaryError && <li className="web-tool-step is-note"><span>{t("tools.summary_failed", { error: summaryError })}</span><button type="button" className="secondary-button" onClick={() => onRetrySummary?.(runId)}>{t("common:action.retry")}</button></li>}{!entries.length && <li className="web-tool-step is-note"><span>{detail?.loading ? t("tools.details_loading") : detail?.error ? t("tools.details_failed", { error: detail.error }) : t("tools.expand_to_load")}</span></li>}{stepList.map(entry => {
         if (entry.type === "note") return <li className="web-tool-step is-note" key={entry.note.id}><Icon name="file-text" size={16} /><div className="web-tool-step-copy"><span>{t("tools.progress_note")}</span><div className="web-tool-note"><MessageMarkdown content={entry.note.content} /></div></div><time>{formatExactTime(entry.note.created_at, timezone)}</time></li>;
         const activity = entry.activity;
-        const duration = webToolSeconds(activity, now);
-        const active = live && (activity.status === "running" || activity.status === "queued");
-        return <li className={`web-tool-step is-${toolDisplayState(activity)}`} key={toolActivityKey(activity)}>
-          <Icon name={toolStepIcon(toolStepLabel(activity))} size={16} />
-          <details className="web-tool-step-detail" onToggle={event => { if (event.currentTarget.open) requestFullToolResult(activity); }}><summary><span className="web-tool-step-label">{toolStepLabel(activity)}{toolArgumentPreview(activity) ? ` · ${toolArgumentPreview(activity)}` : ""}</span></summary>
-            <div className="tool-activity-details"><small>{Number.isFinite(Date.parse(activity.started_at)) ? formatExactTime(activity.started_at, timezone) : ""} · {timezone}</small><div><span>{t("tools.arguments")}</span><pre>{activity.arguments || t("tools.none")}</pre></div><div><span>{t("tools.result")}</span>{activity.outcome && <p className="tool-outcome" role="note">{activity.outcome.message}</p>}<pre>{activity.result || (active ? t("tools.waiting_result") : t("tools.none"))}</pre></div>{activity.truncated && <small>{t("tools.truncated")}</small>}</div>
-          </details>
-          <span className="web-tool-step-meta">{active ? <span className="web-tool-breath" aria-hidden="true" /> : <Icon name={activity.status === "completed" ? "check" : toolDisplayState(activity) !== activity.status ? "clock" : "alert"} size={14} variant="filled" />}{toolDisplayLabel(activity)}{duration === undefined ? "" : ` · ${duration.toFixed(1)}s`}</span>
+        if (entry.group) return <li className="web-tool-step web-tool-group is-completed" key={`group-${toolActivityKey(activity)}`}>
+          <ToolStatusIcon state="completed" label={toolDisplayLabel(activity)} />
+          <details className="web-tool-step-detail"><summary onClick={toggleDisclosure}><span className="web-tool-step-label">{toolStepLabel(activity)}<span className="web-tool-count" aria-label={t("tools.call_count", { count: entry.group.length })}> ×{entry.group.length}</span><Icon className="web-tool-group-chevron" name="chevron-right" size={12} aria-hidden="true" /></span></summary>
+            <ol className="web-tool-group-steps">{entry.group.map(item => renderStep(item, false))}</ol></details>
+          <span className="web-tool-step-meta">{(() => { const total = entry.group.reduce((sum, item) => sum + (webToolSeconds(item, now) ?? 0), 0); return total >= 1 ? formatStepSeconds(total) : ""; })()}</span>
         </li>;
+        return renderStep(activity, live);
       })}{hasMoreDetails && <li className="web-tool-step is-note"><button type="button" className="secondary-button" disabled={detail?.loading} onClick={loadDetails}>{detail?.loading ? t("action.loading") : t("tools.load_more", { shown: items.length, total: count ?? "?" })}</button></li>}</ol>
       <RunContextEntry runId={runId} timezone={timezone} />
       </div></div>

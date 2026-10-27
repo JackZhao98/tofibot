@@ -170,6 +170,7 @@
     "copy_diagnostics": "复制诊断信息",
     "open_tool_settings": "打开工具设置",
     "technical_details": "技术详情",
+    "group_count_other": "{{count}} 次调用",
     "started": "开始于 {{time}}",
     "arguments": "参数",
     "none": "（无）",

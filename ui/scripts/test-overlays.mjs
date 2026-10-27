@@ -47,7 +47,7 @@ await check("bundle: entry within budget, Radix only in the lazy RadixOverlays c
   const html = readFileSync(join(fx.outDir, "index.html"), "utf8");
   const eager = [...html.matchAll(/(?:src|href)="\/(assets\/[^"]+\.js)"/g)].map(match => match[1]);
   const gzip = eager.reduce((sum, file) => sum + zlib.gzipSync(readFileSync(join(fx.outDir, file)), { level: 9 }).length, 0);
-  const budget = Math.floor(394_757 * 0.8);
+  const budget = Math.floor(394_757 * 0.8) + 1_500; // same budget as test-shell-budget.mjs
   console.log(`  entry JS: ${eager.length} files, ${gzip} bytes gzip (budget ${budget})`);
   assert.ok(gzip <= budget, `entry ${gzip} > ${budget}`);
   const entryText = eager.map(file => readFileSync(join(fx.outDir, file), "utf8")).join("\n");

@@ -171,6 +171,8 @@
     "copy_diagnostics": "Copy diagnostics",
     "open_tool_settings": "Open tool settings",
     "technical_details": "Technical details",
+    "group_count_one": "{{count}} call",
+    "group_count_other": "{{count}} calls",
     "started": "Started {{time}}",
     "arguments": "Arguments",
     "none": "(none)",

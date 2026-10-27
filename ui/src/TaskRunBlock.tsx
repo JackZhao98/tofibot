@@ -3,7 +3,8 @@ import { TofiIcon } from "./icons";
 import { LiveMark } from "./LiveMark";
 import { MessageMarkdown } from "./MessageMarkdown";
 import { requestFullToolResult } from "./toolResultLoader";
-import { toolDisplayLabel, orderToolActivities, toolDisplayState, toolStepTitle, toolStepSeconds, formatStepSeconds, toolStepDetail } from "./toolTimeline";
+import { ToolStatusIcon } from "./ToolStatusIcon";
+import { toolDisplayLabel, foldToolRuns, orderToolActivities, toolDisplayState, toolStepTitle, toolStepSeconds, formatStepSeconds, toolStepDetail } from "./toolTimeline";
 import { TaskIssueCard } from "./TaskIssueCard";
 import { canAnswerQuestion, presentTaskIssue, taskCertaintyText, taskOutcomeText, taskPhaseLabel, taskPhaseVisible, taskStatusText, type TaskOwner } from "./taskIssuePresentation";
 import { useTranslation, type Language } from "./i18n";
@@ -36,8 +37,15 @@ export function animateDisclosure(details: HTMLDetailsElement, open: boolean) {
   if (open) details.open = true;
   details.dataset.drawer = open ? "opening" : "closing";
   const to = open ? body.scrollHeight + body.offsetHeight - body.clientHeight : 0;
+  // A border-box height cannot go below the body's own padding and border, so a body that has either would stop short
+  // of zero and snap the last pixels when <details> finally hides it (the old close ended 17px high, then jumped). They
+  // ride the same animation, from what is there to nothing and back.
+  const box = getComputedStyle(body);
+  const edges = { paddingBlockStart: box.paddingBlockStart, paddingBlockEnd: box.paddingBlockEnd, borderBlockStartWidth: box.borderBlockStartWidth, borderBlockEndWidth: box.borderBlockEndWidth };
+  const none = { paddingBlockStart: "0px", paddingBlockEnd: "0px", borderBlockStartWidth: "0px", borderBlockEndWidth: "0px" };
   body.style.overflow = "clip";
-  const height = body.animate({ height: [`${from}px`, `${to}px`] }, { duration: open ? MOTION.base : MOTION.panelOut, easing: open ? EASE.out : EASE.settle });
+  // fill keeps the closed pose until the attribute flips, so no frame shows the body at full height again.
+  const height = body.animate(open ? [{ height: `${from}px`, ...(from ? {} : none) }, { height: `${to}px`, ...edges }] : [{ height: `${from}px`, ...edges }, { height: "0px", ...none }], { duration: open ? MOTION.base : MOTION.panelOut, easing: open ? EASE.out : EASE.settle, fill: "forwards" });
   const fade = body.animate(open ? { opacity: [0, 1], translate: ["0 -6px", "0 0"] } : { opacity: [1, 0], translate: ["0 0", "0 -4px"] }, { duration: open ? MOTION.base : MOTION.quick, easing: open ? EASE.out : EASE.settle, fill: "forwards" });
   drawers.set(body, [height, fade]);
   height.finished.then(() => {
@@ -45,6 +53,7 @@ export function animateDisclosure(details: HTMLDetailsElement, open: boolean) {
     delete details.dataset.drawer;
     body.style.overflow = "";
     if (!open) details.open = false;
+    height.cancel();
     fade.cancel();
   }, () => {});
 }
@@ -61,12 +70,14 @@ export function toggleDisclosure(event: React.MouseEvent<HTMLElement>) {
 /** A live status this long can be cut on a phone; opened, the first row carries it whole. */
 const LONG_STATUS = 28;
 
-export function ActivityDisclosure({ children, locale, detail, problem, live, disclosureRef, onOpen }: { children: ReactNode; locale?: Language; detail?: string; problem?: string; live?: { label: string; full: string }; disclosureRef: React.RefObject<HTMLDetailsElement | null>; onOpen: () => void }) {
+export function ActivityDisclosure({ children, locale, detail, count, duration, issues, live, disclosureRef, onOpen }: { children: ReactNode; locale?: Language; /** The whole line in words (the accessible name). */ detail?: string; count?: number; duration?: string; /** Steps that did not finish; shown red. */ issues?: number; live?: { label: string; full: string }; disclosureRef: React.RefObject<HTMLDetailsElement | null>; onOpen: () => void }) {
   const { t } = useTranslation("tasks", { lng: locale });
   const [open, setOpen] = useState(false);
   // While the Bot works the whole block is one quiet process line (loading mark, what it is doing, seconds); the
   // steps stay folded until someone opens it. The line is the <summary>, so Enter and Space open it natively.
-  return <details className={`task-activity${live ? " is-live" : ""}`} ref={disclosureRef} onToggle={event => { setOpen(event.currentTarget.open); if (event.currentTarget.open) onOpen(); }}><summary className="process-line" role="button" aria-expanded={open} onClick={toggleDisclosure}>{live ? <><LiveMark /><span className="process-line-text task-activity-live" role="status">{live.label}</span><TofiIcon className="process-line-chevron" name="chevron-right" size={14} aria-hidden="true" /></> : <><TofiIcon name="chevron-right" size={16} aria-hidden="true" /><span className="process-line-text">{t("activity.title")}{detail && <span className="task-activity-detail"> · {detail}</span>}{problem && <span className="task-activity-problem"> · {problem}</span>}</span></>}</summary><div className="task-activity-records">{live && live.full.length > LONG_STATUS && <p className="task-live-full">{live.full}</p>}{children}</div></details>;
+  // Finished: a chevron, the tool glyph, the count and the time; the words are the accessible name.
+  const name = [t("activity.title"), detail, issues ? t("step.state.failed") + " " + issues : ""].filter(Boolean).join(" · ");
+  return <details className={`task-activity${live ? " is-live" : ""}`} ref={disclosureRef} onToggle={event => { setOpen(event.currentTarget.open); if (event.currentTarget.open) onOpen(); }}><summary className="process-line" role="button" aria-expanded={open} aria-label={live ? undefined : name} onClick={toggleDisclosure}>{live ? <><LiveMark /><span className="process-line-text task-activity-live" role="status">{live.label}</span><TofiIcon className="process-line-chevron" name="chevron-right" size={14} aria-hidden="true" /></> : <><TofiIcon className="process-line-chevron" name="chevron-right" size={14} aria-hidden="true" /><TofiIcon className="activity-glyph" name="terminal" size={14} aria-hidden="true" /><span className="process-line-text" aria-hidden="true">{count !== undefined && <span>{count}</span>}{duration && <span className="task-activity-detail">{duration}</span>}{issues ? <span className="task-activity-problem"><TofiIcon name="alert" size={13} aria-hidden="true" />{issues}</span> : null}</span></>}</summary><div className="task-activity-records">{live && live.full.length > LONG_STATUS && <p className="task-live-full">{live.full}</p>}{children}</div></details>;
 }
 
 /** One step: marker, human action, short argument, then state and duration. */
@@ -88,7 +99,7 @@ function ToolStepRecord({ tool, locale, now, onOpenTools }: { tool: ToolActivity
     catch { setCopied(t("step.copy_failed")); }
   }
   return <li className={`task-step is-${state}${problem ? " is-problem" : ""}`} data-step={`${tool.run_id}:${tool.call_id}`}>
-    <details onToggle={event => { if (event.currentTarget.open) requestFullToolResult(tool); }}><summary onClick={toggleDisclosure}><span className="task-step-marker" aria-hidden="true" /><span className="task-step-title">{toolStepTitle(tool)}{preview && <span className="task-step-argument"> · {preview}</span>}{problem && state === "not_executed" && tool.outcome?.code && <span className="task-step-argument task-step-reason"> · {reason}</span>}</span><span className="task-step-state">{toolDisplayLabel(tool, locale)}{seconds !== undefined && <time> · {formatStepSeconds(seconds)}</time>}</span></summary>
+    <details onToggle={event => { if (event.currentTarget.open) requestFullToolResult(tool); }}><summary onClick={toggleDisclosure}><ToolStatusIcon state={state} label={toolDisplayLabel(tool, locale)} /><span className="task-step-title">{toolStepTitle(tool)}{preview && <span className="task-step-argument"> · {preview}</span>}{problem && state === "not_executed" && tool.outcome?.code && <span className="task-step-argument task-step-reason"> · {reason}</span>}</span>{problem ? <span className="task-step-state">{toolDisplayLabel(tool, locale)}{seconds !== undefined && seconds >= 1 && <time> · {formatStepSeconds(seconds)}</time>}</span> : seconds !== undefined && seconds >= 1 && <time className="task-step-time-quiet">{formatStepSeconds(seconds)}</time>}</summary>
       <div className="task-step-body">{problem && <div className="task-step-problem" role="group" aria-label={t("step.problem")}>
         <p><strong>{reason}</strong>{tool.outcome?.execution_certainty && <> · {taskCertaintyText(tool.outcome.execution_certainty, locale)}</>}</p>
         <div className="task-step-actions"><button type="button" className="secondary-button" onClick={() => void copyDiagnostics()}><TofiIcon name="copy" size={15} aria-hidden="true" />{t("step.copy_diagnostics")}</button>{tool.outcome?.code === "mcp_review_setup_missing" && onOpenTools && <button type="button" className="secondary-button" onClick={onOpenTools}>{t("step.open_tool_settings")}</button>}</div>
@@ -96,6 +107,16 @@ function ToolStepRecord({ tool, locale, now, onOpenTools }: { tool: ToolActivity
         <details className="task-step-technical"><summary>{t("step.technical_details")}</summary>{tool.outcome?.message && <p>{tool.outcome.message}</p>}<pre tabIndex={0}>{stepDiagnostics(tool)}</pre></details>
       </div>}
       <div className="tool-activity-details">{Number.isFinite(started) && <span className="task-step-time">{t("step.started", { time: formatClock(started, { seconds: true, language: locale }) })}</span>}<span>{t("step.arguments")}</span><pre tabIndex={0}>{tool.arguments || t("step.none")}</pre>{!problem && tool.outcome?.message && <p className="tool-outcome">{tool.outcome.message}</p>}<span>{t("step.result")}</span><pre tabIndex={0}>{tool.result || t("step.no_result")}</pre></div></div></details>
+  </li>;
+}
+
+/** A run of identical finished calls as one row with a count; opening it lists the calls. */
+function ToolStepGroup({ items, locale, onOpenTools }: { items: ToolActivity[]; locale?: Language; onOpenTools?: () => void }) {
+  const { t } = useTranslation("tasks", { lng: locale });
+  const total = items.reduce((sum, tool) => sum + (toolStepSeconds(tool) ?? 0), 0);
+  return <li className="task-step task-step-group is-completed">
+    <details><summary onClick={toggleDisclosure}><ToolStatusIcon state="completed" label={toolDisplayLabel(items[0], locale)} /><span className="task-step-title">{toolStepTitle(items[0])}<span className="task-step-count" aria-label={t("step.group_count", { count: items.length })}> ×{items.length}</span><TofiIcon className="task-step-chevron" name="chevron-right" size={12} aria-hidden="true" /></span>{total >= 1 && <time className="task-step-time-quiet">{formatStepSeconds(total)}</time>}</summary>
+      <div className="task-step-body"><ol className="task-step-nested">{items.map(tool => <ToolStepRecord key={`${tool.run_id}:${tool.call_id}`} tool={tool} locale={locale} onOpenTools={onOpenTools} />)}</ol></div></details>
   </li>;
 }
 
@@ -158,6 +179,8 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
   const attemptStatus = (status: string) => ({ done: t("activity.attempt.done"), failed: t("activity.attempt.failed"), cancelled: t("activity.attempt.cancelled"), interrupted: t("activity.attempt.interrupted") } as Record<string, string>)[status] ?? t("activity.attempt.ended");
   const toolTotal = owner.family.attempts.reduce<number | undefined>((sum, attempt) => { const count = summaries.find(item => item.run_id === attempt.id)?.tool_count ?? details[attempt.id]?.toolCount; return count === undefined || sum === undefined ? undefined : sum + count; }, 0);
   const runSeconds = run.status !== "running" && run.status !== "queued" ? (Date.parse(run.updated_at) - Date.parse(run.created_at)) / 1000 : NaN;
+  const runSecondsOk = Number.isFinite(runSeconds) && runSeconds >= 0 && Boolean(toolTotal);
+  const activityIssues = currentTools.filter(tool => problemStates.includes(toolDisplayState(tool))).length;
   const activityDetail = [toolTotal ? t("activity.tool_count", { count: toolTotal }) : "", Number.isFinite(runSeconds) && runSeconds >= 0 && toolTotal ? formatStepSeconds(runSeconds) : ""].filter(Boolean).join(" · ") || undefined;
   const [pendingStep, setPendingStep] = useState("");
   // While the Bot works the steps are open and the running step's clock ticks;
@@ -217,7 +240,7 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
     {decisions.map(renderQuestion)}
     {currentDrafts.filter(draft => draft.status !== "unknown").map(renderDraft)}
     {!showActivity && liveLine && <p className="task-run-live-line"><button type="button" className="process-line" aria-expanded="false" onClick={viewActivity}><LiveMark />{namedLive && <span className="task-activity-name">{botName}</span>}<span className="process-line-text task-activity-live" role="status">{liveLine.label}</span><TofiIcon className="process-line-chevron" name="chevron-right" size={14} aria-hidden="true" /></button></p>}
-    {showActivity && <ActivityDisclosure locale={locale} detail={activityDetail} live={liveLine} disclosureRef={disclosure} onOpen={loadInitial}>
+    {showActivity && <ActivityDisclosure locale={locale} detail={activityDetail} count={toolTotal || undefined} duration={runSecondsOk ? formatStepSeconds(runSeconds) : undefined} issues={activityIssues} live={liveLine} disclosureRef={disclosure} onOpen={loadInitial}>
       {owner.family.previous.map((attempt, index) => <p key={attempt.id} className="task-record-meta">{t("activity.previous_attempt", { number: index + 1, status: attemptStatus(attempt.status) })}</p>)}
       {rememberedDecisions.map(question => <p key={question.question_id} className="task-record-meta task-remembered-record" data-question-record-id={question.question_id}>{t(question.answered_by === STANDING_ALLOWANCE_ACTOR ? "record.standing_decision" : "record.remembered_decision")}</p>)}
       {recordedQuestions.map(question => <section className="task-question-record" key={question.question_id} data-question-record-id={question.question_id} tabIndex={-1}>
@@ -226,7 +249,7 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
         {question.question_type === "approval" && <details><summary>{t("record.view_proposal")}</summary><MessageMarkdown content={question.question} />{question.approval?.facts && <dl className="approval-verified-record">{approvalFactRows(question.approval.facts, t).map((row, index) => <div key={index}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl>}{question.approval && <dl><div><dt>{t("record.action")}</dt><dd>{question.approval.action}</dd></div><div><dt>{t("record.target")}</dt><dd>{question.approval.target}</dd></div><div><dt>{t("record.impact")}</dt><dd>{question.approval.impact}</dd></div></dl>}{question.approval?.payload && <details><summary>{t("record.view_full_arguments")}</summary><pre tabIndex={0}>{question.approval.payload}</pre></details>}</details>}
         {question.question_type !== "approval" && renderQuestion(question)}
       </section>)}
-      <ol className={`task-tool-records${live ? " is-live" : ""}`}>{tools.map(tool => <ToolStepRecord key={`${tool.run_id}:${tool.call_id}`} tool={tool} locale={locale} now={live ? now : undefined} onOpenTools={onOpenTools} />)}</ol>
+      <ol className={`task-tool-records${live ? " is-live" : ""}`}>{foldToolRuns(tools).map(group => group.items.length > 1 ? <ToolStepGroup key={`${group.items[0].run_id}:${group.items[0].call_id}`} items={group.items} locale={locale} onOpenTools={onOpenTools} /> : <ToolStepRecord key={`${group.items[0].run_id}:${group.items[0].call_id}`} tool={group.items[0]} locale={locale} now={live ? now : undefined} onOpenTools={onOpenTools} />)}</ol>
       {drafts.filter(draft => draft.run_id !== run.id || draft.status === "unknown").map(renderDraft)}
       {notes.map(note => <details className="task-progress-record" key={note.id}><summary>{t("activity.progress_report")}</summary><MessageMarkdown content={note.content} /></details>)}
       {owner.family.previous.flatMap(attempt => messages.filter(message => message.run_id === attempt.id && message.role === "assistant" && message.kind !== "progress").map(message => <div key={message.id}>{renderMessage ? renderMessage(message) : <MessageMarkdown content={message.content} />}</div>))}

@@ -170,6 +170,7 @@
     "copy_diagnostics": "複製診斷資訊",
     "open_tool_settings": "開啟工具設定",
     "technical_details": "技術詳細資料",
+    "group_count_other": "{{count}} 次呼叫",
     "started": "開始於 {{time}}",
     "arguments": "參數",
     "none": "（無）",

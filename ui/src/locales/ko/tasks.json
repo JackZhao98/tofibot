@@ -170,6 +170,7 @@
     "copy_diagnostics": "진단 정보 복사",
     "open_tool_settings": "도구 설정 열기",
     "technical_details": "기술 세부 정보",
+    "group_count_other": "호출 {{count}}회",
     "started": "{{time}} 시작",
     "arguments": "인수",
     "none": "(없음)",

@@ -19,19 +19,17 @@
 .task-activity>summary{display:flex;align-items:center;gap:var(--space-2);font:var(--type-meta);list-style:none}
 .task-activity>summary::-webkit-details-marker{display:none}
 .task-activity>summary>svg{transition:transform var(--m-base) var(--ease-out)}
-.task-activity[open]:not([data-drawer=closing])>summary>svg{transform:rotate(90deg)}
-.task-activity-records{box-sizing:border-box;padding-block:var(--space-2);min-width:0;border-block-start:1px solid var(--border-soft)}
+.task-activity>summary>svg.activity-glyph{margin-inline-start:var(--space-1)}
+.task-activity[open]:not([data-drawer=closing])>summary>svg.process-line-chevron{transform:rotate(90deg)}
+.task-activity[data-drawer=closing]>summary>svg{transition-duration:var(--m-panel-out)}
+/* The steps carry no divider and no padding of their own: the drawer animates height alone, so closing ends at zero. */
+.task-activity-records{box-sizing:border-box;display:flow-root;min-width:0}
 .task-activity-detail{color:var(--text-process);font:inherit}
 /* Steps sit on one thin rail; each marker carries state by shape as well as color. */
-.task-tool-records{position:relative;list-style:none;padding:0 0 0 var(--space-4);margin:0}
-.task-tool-records::before{content:"";position:absolute;inset-block:14px;inset-inline-start:5px;width:1px;background:var(--border-soft)}
-.task-tool-records summary{display:flex;align-items:center;gap:var(--space-2);list-style:none;font:var(--type-code)}
+.task-tool-records{list-style:none;padding:0;margin:0}
+.task-tool-records summary{display:flex;align-items:center;gap:var(--space-2);min-height:28px;padding-block:0;list-style:none;font:var(--type-meta)}
 .task-tool-records summary::-webkit-details-marker{display:none}
-.task-step-marker{position:relative;flex:0 0 auto;width:7px;height:7px;margin-inline-start:calc(-1 * var(--space-4) + 2px);border-radius:50%;background:var(--text-secondary)}
-.task-step.is-running .task-step-marker,.task-step.is-queued .task-step-marker{background:var(--lagoon);animation:task-step-breathe 1.6s var(--ease-inout) infinite}
 /* A step that failed, was blocked or was interrupted is red: a diamond and red state words. */
-.task-step.is-problem .task-step-marker{border-radius:1px;background:var(--status-error);box-shadow:none;transform:rotate(45deg)}
-.task-step.is-expired .task-step-marker,.task-step.is-skipped .task-step-marker,.task-step.is-unknown .task-step-marker{background:transparent;box-shadow:inset 0 0 0 1.5px var(--text-secondary)}
 .task-step-title{min-width:0;color:var(--text-body);overflow-wrap:anywhere}
 .task-step-argument{color:var(--text-secondary)}
 .task-step-state{flex:0 0 auto;margin-inline-start:auto;color:var(--text-secondary);white-space:nowrap}
@@ -74,3 +72,25 @@
 /* Activity hidden: a working run is the same process line ("Browsing the web · 10s"); it goes when the run ends. */
 .task-run-live-line{display:flex;margin:0}
 .task-activity-name{flex:none;color:var(--text-secondary);font:var(--type-meta)}
+
+/* Compact Activity: one meta-size row per call, the state is an icon (its word is the accessible name), the time is
+   small and quiet and only shows from one second up. A problem row keeps its words, red, on a faint wash. */
+.task-activity>summary .process-line-text{display:inline-flex;align-items:center;gap:var(--space-2)}
+.task-activity>summary .task-activity-detail::before{content:"\00b7";margin-inline-end:var(--space-2)}
+.task-activity>summary .task-activity-problem{display:inline-flex;align-items:center;gap:2px}
+.task-activity-records{padding-inline-start:var(--space-1)}
+.task-tool-records .tool-status{display:inline-flex;align-items:center;justify-content:center;flex:0 0 14px;width:14px;height:14px;color:var(--text-secondary)}
+.task-tool-records .tool-status.is-done{color:var(--text-process)}
+.task-tool-records .tool-status.is-problem{color:var(--status-error-text)}
+.task-step-time-quiet{flex:0 0 auto;margin-inline-start:auto;color:var(--text-process);font:var(--type-meta);font-variant-numeric:tabular-nums;white-space:nowrap}
+.task-step-count{color:var(--text-process);font-variant-numeric:tabular-nums}
+.task-step.is-problem>details>summary{border-radius:var(--radius-sm,8px);background:color-mix(in srgb,var(--status-error) 7%,transparent);padding-inline:var(--space-2);margin-inline:calc(-1 * var(--space-2))}
+.task-step-nested{list-style:none;margin:0;padding:0 0 0 var(--space-4)}
+.task-step-body{padding-inline-start:calc(14px + var(--space-2))}
+.task-step-group>details>.task-step-body{padding-inline-start:0}
+.task-tool-records summary:hover .task-step-title{color:var(--text)}
+@media(pointer:coarse){.task-tool-records summary{min-height:36px}}
+.task-step-chevron{flex:none;margin-inline-start:calc(-1 * var(--space-1));color:var(--text-process);transition:transform var(--m-base) var(--ease-out)}
+.task-step-group>details[open]:not([data-drawer=closing])>summary .task-step-chevron{transform:rotate(90deg)}
+.task-step-group>details[data-drawer=closing]>summary .task-step-chevron{transition-duration:var(--m-panel-out)}
+@media(prefers-reduced-motion:reduce){.task-step-chevron{transition:none}}

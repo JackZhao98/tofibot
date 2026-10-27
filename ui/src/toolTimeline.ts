@@ -151,6 +151,22 @@ export function toolActionLabel(activity: Pick<ToolActivity, "name" | "arguments
   return i18n.getFixedT(locale ?? null, "tasks")(`tool.action.${toolActionCode(activity)}`, { name: activity.name });
 }
 
+/**
+ * Consecutive finished calls of the same tool and action fold into one group (a row with a count). Anything that is
+ * running, queued or has a problem stays its own entry, so a failure is never hidden inside a fold.
+ */
+export function foldToolRuns<T extends Pick<ToolActivity, "name" | "arguments" | "status" | "outcome">>(items: T[]): { key: string; items: T[] }[] {
+  const groups: { key: string; items: T[]; code: string }[] = [];
+  for (const [index, item] of items.entries()) {
+    const foldable = toolDisplayState(item) === "completed";
+    const code = foldable ? `${item.name}|${toolActionCode(item)}` : "";
+    const last = groups[groups.length - 1];
+    if (foldable && last && last.code === code) last.items.push(item);
+    else groups.push({ key: `${index}`, items: [item], code });
+  }
+  return groups.map(({ key, items: grouped }) => ({ key, items: grouped }));
+}
+
 /** A step's human title for records: the action without the live progress wording. */
 export function toolStepTitle(activity: Pick<ToolActivity, "name" | "arguments">, locale?: Language): string {
   return i18n.getFixedT(locale ?? null, "tasks")(`tool.title.${toolActionCode(activity)}`, { name: activity.name });

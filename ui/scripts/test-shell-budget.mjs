@@ -26,7 +26,8 @@ const engineName = process.env.SHELL_BUDGET_ENGINE === "webkit" ? "webkit" : "ch
 const engine = pw[engineName];
 
 const only = (process.env.SHELL_BUDGET_ONLY || "struct,panel,phone").split(",");
-const EAGER_GZIP_BUDGET = Math.floor(394_757 * 0.8);
+// 80% of the pre-split size, plus 1 500 B for the compact Activity list (state icons, folded runs, symmetric drawer; Oct 2026).
+const EAGER_GZIP_BUDGET = Math.floor(394_757 * 0.8) + 1_500;
 const ownDist = !process.env.SHELL_BUDGET_DIST;
 const dist = process.env.SHELL_BUDGET_DIST || mkdtempSync(join(tmpdir(), "tofi-shell-budget-"));
 if (ownDist) await build({ configFile: false, root: ui, plugins: [react()], build: { outDir: dist, emptyOutDir: true }, logLevel: "error" });
@@ -43,7 +44,7 @@ for (const name of ["SettingsPanel", "BotDesktopPanel", "Onboarding", "ContextPa
   assert.ok(!eager.some(file => file.includes(`/${name}-`)), `${name} is not an entry-time chunk`);
 }
 console.log(`entry JS: ${eager.length} files, ${gzip} bytes gzip (budget ${EAGER_GZIP_BUDGET})`);
-assert.ok(gzip <= EAGER_GZIP_BUDGET, `entry JS must stay within 80% of the pre-split size: ${gzip} > ${EAGER_GZIP_BUDGET}`);
+assert.ok(gzip <= EAGER_GZIP_BUDGET, `entry JS must stay within its budget (80% of the pre-split size + 1.5 KB): ${gzip} > ${EAGER_GZIP_BUDGET}`);
 }
 
 // ---- browser harness ----

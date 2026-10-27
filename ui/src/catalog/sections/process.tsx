@@ -57,10 +57,10 @@ function block(runId: string, status: Run["status"], options: { live: boolean; l
   return <TaskRunBlock owner={owner} tools={options.rich ? richSteps(runId, options.live) : steps(runId, options.live)} questions={[]} drafts={[]} messages={messages} summaries={status === "done" ? [options.rich ? richSummary(runId) : summary(runId, 48, 2)] : []} details={{ [runId]: { loaded: options.rich ? 6 : 3, toolCount: options.rich ? 6 : 3, hasMore: false, loading: false } }}
     onOpenTools={noop} onRefresh={none} onLoadDetails={none} liveStatus={options.liveStatus} hideActivity={options.hideActivity} renderQuestion={() => null} renderDraft={() => null} />;
 }
-function web(runId: string, live: boolean) {
-  const items = steps(runId, live);
+function web(runId: string, live: boolean, rich = false) {
+  const items = rich ? richSteps(runId, live) : steps(runId, live);
   return <RunStartContext.Provider value={new Map([[runId, Date.now() - 12_000]])}>
-    <WebToolActivityRun runId={runId} items={items} notes={[]} summary={live ? undefined : summary(runId, 40, 6)} live={live} now={Date.now()} timezone="UTC" botName="Mochi" detail={{ loaded: 3, toolCount: 3, hasMore: false, loading: false }} onLoadDetails={none} />
+    <WebToolActivityRun runId={runId} items={items} notes={[]} summary={live ? undefined : rich ? richSummary(runId) : summary(runId, 40, 6)} live={live} now={Date.now()} timezone="UTC" botName="Mochi" detail={{ loaded: items.length, toolCount: items.length, hasMore: false, loading: false }} onLoadDetails={none} />
   </RunStartContext.Provider>;
 }
 
@@ -109,10 +109,12 @@ export const processStates: CatalogState[] = [
   { id: "process-live-long", label: "Process line, live, long text", note: "never wraps: it ends in an ellipsis; opened, the whole text is the first row", ...ctx, render: () => block("run_p3", "running", { live: true, liveStatus: LONG, hideActivity: true }) },
   { id: "process-live-long-open", label: "Process line, live, long text, opened", ...ctx, render: () => block("run_p4", "running", { live: true, liveStatus: LONG, hideActivity: true }), drive: expand(".task-run-live-line button") },
   { id: "process-live-focus", label: "Process line, live, keyboard focus", ...ctx, render: () => block("run_p5", "running", { live: true, liveStatus: "Browsing the web", hideActivity: true }), force: [{ selector: ".task-run-live-line button", state: "focus" }] },
-  { id: "process-complete", label: "Process line, finished", note: "no mark; \"Activity · 3 tools · 46s\"", ...ctx, render: () => block("run_p6", "done", { live: false, hideActivity: false }) },
+  { id: "process-complete", label: "Process line, finished", note: "no mark; chevron, tool glyph, count, time (\"3 · 46s\"); the words are the accessible name", ...ctx, render: () => block("run_p6", "done", { live: false, hideActivity: false }) },
   { id: "process-complete-open", label: "Process line, finished, opened", ...ctx, render: () => block("run_p7", "done", { live: false, hideActivity: false }), drive: expand("details.task-activity > summary") },
-  { id: "process-complete-rich-open", label: "Activity, finished, opened, with a failed call", note: "compact rows: status icon, no timeline rail; the failed row stays red; runs of the same call fold into one row with a count", ...ctx, render: () => block("run_p8", "done", { live: false, hideActivity: false, rich: true }), drive: expand("details.task-activity > summary") },
+  { id: "process-complete-rich-open", label: "Activity, finished, opened, with a failed call", note: "compact rows: status icon, no timeline rail, time only from 1 s; the failed row stays red with its words; runs of the same call fold into one row with a count", ...ctx, render: () => block("run_p8", "done", { live: false, hideActivity: false, rich: true }), drive: expand("details.task-activity > summary") },
   { id: "process-live-rich-open", label: "Activity, live, opened, with a failed call", ...ctx, render: () => block("run_p9", "running", { live: true, liveStatus: "Sending a message", hideActivity: false, rich: true }), drive: expand("details.task-activity > summary") },
+  { id: "process-web-complete-rich-open", label: "Web tool row, finished, opened, with a failed call", ...ctx, render: () => web("run_w6", false, true), drive: expand(".web-tool-toggle") },
+  { id: "process-web-live-rich-open", label: "Web tool row, live, opened, with a failed call", ...ctx, render: () => web("run_w7", true, true), drive: expand(".web-tool-toggle") },
   { id: "process-web-live", label: "Web tool row, live", note: "Web build: the same line on the tool row", ...ctx, render: () => web("run_w1", true) },
   { id: "process-web-live-open", label: "Web tool row, live, opened", ...ctx, render: () => web("run_w2", true), drive: expand(".web-tool-toggle") },
   { id: "process-web-complete", label: "Web tool row, finished", ...ctx, render: () => web("run_w3", false) },

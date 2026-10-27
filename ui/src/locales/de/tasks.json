@@ -171,6 +171,8 @@
     "copy_diagnostics": "Diagnose kopieren",
     "open_tool_settings": "Tool-Einstellungen öffnen",
     "technical_details": "Technische Details",
+    "group_count_one": "{{count}} Aufruf",
+    "group_count_other": "{{count}} Aufrufe",
     "started": "Gestartet {{time}}",
     "arguments": "Argumente",
     "none": "(keine)",
