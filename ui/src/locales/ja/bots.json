@@ -58,6 +58,9 @@
       "bot_missing": "この Bot のプロフィールが見つからないため、復元できません。"
     },
     "title": "以前のアーカイブ",
+    "search_label": "アーカイブ済みの Bot とグループを検索",
+    "search_placeholder": "アーカイブを検索",
+    "no_match": "一致するアーカイブ済みの Bot やグループはありません。",
     "close_aria": "アーカイブを閉じる",
     "schedule_note": "復元後、スケジュールタスクは手動で有効にしてください。",
     "reload": "再読み込み",

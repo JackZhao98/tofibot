@@ -711,8 +711,6 @@
     "empty": "Noch keine Unterhaltungen. Erstelle einen Bot, um loszulegen.",
     "expand": "Seitenleiste ausklappen",
     "expand_panel": "{{title}} verbreitern",
-    "hidden_bot": "Ausgeblendeter Bot",
-    "hidden_bots": "Ausgeblendete Bots",
     "hide": "In der Seitenleiste ausblenden",
     "label_separator": ", ",
     "mark_unread": "Als ungelesen markieren",

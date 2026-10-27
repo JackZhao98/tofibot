@@ -100,7 +100,7 @@
   --m-instant:80ms; --m-press:120ms; --m-quick:140ms; --m-base:220ms; --m-panel-in:280ms; --m-panel-out:180ms; --m-flight:640ms;
   --ease-out:cubic-bezier(.22,1,.36,1); --ease-settle:cubic-bezier(.2,.8,.2,1);
   --ease-spring:cubic-bezier(.34,1.3,.64,1); --ease-inout:cubic-bezier(.45,0,.2,1); --ease-in:cubic-bezier(.5,0,.75,0);
-  --chat-max:760px; --sidebar-width:272px; --sidebar-collapsed:80px; --settings-rail:216px;
+  --chat-max:760px; --sidebar-width:272px; --sidebar-collapsed:72px; --settings-rail:216px;
   /* Layer scale (docs/design/tokens.md §9.3; the guard is scripts/test-layers.mjs, the JS mirror is layers.ts). Global
      layers are only for things placed against the viewport (position:fixed or portaled into #tofi-layers); stacking
      inside a component uses its own stacking context and the local integers -1..3. One step between neighbours is

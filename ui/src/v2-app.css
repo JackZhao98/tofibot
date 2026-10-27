@@ -110,35 +110,6 @@
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-themes button[aria-checked="true"] { color:var(--on-block); background:var(--yellow); }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-rule { height:1px; margin:6px 5px; background:var(--line-soft); }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>.sidebar-account-logout { color:var(--danger-text); }
-.workspace .sidebar-collapsed .sidebar-account-copy,.workspace .sidebar-collapsed .sidebar-account-settings { display:none; }
-.workspace .sidebar-collapsed .sidebar-account-identity { justify-content:center; padding:6px 0; }
-@media (min-width:768px) {
-  .workspace .workspace-grid.sidebar-collapsed { --sidebar-width:80px; }
-  .workspace .sidebar-collapsed .contact-pane { padding-inline:6px; }
-  .workspace .sidebar-collapsed .contact-row { padding-inline:4px; }
-  .workspace .sidebar-collapsed .sidebar-top { align-items:center; gap:8px; margin:0 0 12px; }
-  .workspace .sidebar-collapsed .sidebar-logo-expand {
-    position:relative; display:grid; place-items:center; width:48px; height:48px; padding:0;
-    border:0; border-radius:14px; background:transparent; color:var(--ink-soft);
-  }
-  .workspace .sidebar-collapsed .sidebar-logo-expand:is(:hover,:focus-visible) { background:var(--surface); }
-  .workspace .sidebar-collapsed .sidebar-logo-expand .brand-logo { width:40px; }
-  .workspace .sidebar-collapsed .sidebar-logo-expand .brand-logo img { width:40px; height:40px; }
-  .workspace .sidebar-collapsed .sidebar-logo-art,
-  .workspace .sidebar-collapsed .sidebar-logo-arrow { grid-area:1/1; transition:opacity var(--m-press) var(--ease-out),transform var(--m-base) var(--ease-out); }
-  .workspace .sidebar-collapsed .sidebar-logo-arrow { opacity:0; transform:scale(.78); }
-  .workspace .sidebar-collapsed .sidebar-logo-expand:is(:hover,:focus-visible) .sidebar-logo-art { opacity:0; transform:scale(.78); }
-  .workspace .sidebar-collapsed .sidebar-logo-expand:is(:hover,:focus-visible) .sidebar-logo-arrow { opacity:1; transform:scale(1); }
-  .workspace .sidebar-collapsed .sidebar-actions,
-  .workspace .sidebar-collapsed .create-menu-anchor { width:100%; display:flex; align-items:center; flex-direction:column; }
-  .workspace .sidebar-collapsed .create-menu-anchor>.icon-button {
-    width:46px; height:46px; min-width:46px; padding:0;
-    border:1px solid var(--line-soft); border-radius:14px;
-    background:var(--surface); color:var(--ink);
-  }
-  .workspace .sidebar-collapsed .create-menu-anchor>.icon-button svg { width:22px; height:22px; }
-}
-
 /* The reading plane is warm, quiet, and independent of the floating chrome. */
 .workspace .chat-header {
   min-height:70px; padding:10px clamp(14px,3vw,28px);

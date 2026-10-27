@@ -28,6 +28,7 @@ export function ArchivePanel({ onClose, onOpen, onLoaded, onChanged, onDelete }:
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -70,11 +71,14 @@ export function ArchivePanel({ onClose, onOpen, onLoaded, onChanged, onDelete }:
     }
   }
 
+  const needle = search.trim().toLowerCase();
+  const shown = needle ? conversations.filter(item => [item.name, ...item.bot_ids.map(id => bots.find(bot => bot.id === id)?.name ?? "")].some(name => name.toLowerCase().includes(needle))) : conversations;
   return <div className="detail-content archive-panel">
     <div className="detail-heading"><div><h2>{t("archive.title")}</h2></div><button className="close-button" aria-label={t("archive.close_aria")} onClick={onClose}><TofiIcon name="close" size={20} /></button></div>
+    {conversations.length > 0 && <label className="search-box archive-search"><TofiIcon name="search" size={16} /><input aria-label={t("archive.search_label")} value={search} onChange={event => setSearch(event.target.value)} placeholder={t("archive.search_placeholder")} /></label>}
     {conversations.length > 0 && <p className="field-note">{t("archive.schedule_note")}</p>}
     {error && <p className="error-text" role="alert">{error} <button type="button" className="text-button" disabled={loading || busyId !== null} onClick={() => void load()}>{t("archive.reload")}</button></p>}
-    {loading ? <div className="inline-state"><div className="spinner" />{t("archive.loading")}</div> : !conversations.length ? !error && <EmptyState name="archive-empty" className="panel-empty is-card" look={CATS.kiwi} pose="asleep"><p>{t("archive.empty")}</p></EmptyState> : <div className="archive-list">{conversations.map((conversation) => {
+    {loading ? <div className="inline-state"><div className="spinner" />{t("archive.loading")}</div> : !conversations.length ? !error && <EmptyState name="archive-empty" className="panel-empty is-card" look={CATS.kiwi} pose="asleep"><p>{t("archive.empty")}</p></EmptyState> : shown.length === 0 ? <p className="field-note" role="status">{t("archive.no_match")}</p> : <div className="archive-list">{shown.map((conversation) => {
       const bot = conversation.kind === "dm" ? bots.find((item) => item.id === conversation.bot_id || item.dm_conversation_id === conversation.id) : undefined;
       return <article className="archive-card" key={conversation.id}>
         {bot ? <BotAvatar id={bot.id} mini /> : <span className="archive-group-mark" aria-hidden="true"><GroupAvatar ids={conversation.bot_ids} iconSize={20} /></span>}

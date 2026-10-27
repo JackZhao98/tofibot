@@ -1,14 +1,14 @@
-html:not([data-desktop]) .workspace .conversation-row .contact-copy { max-width:220px; opacity:1; overflow:hidden; transition:max-width var(--m-panel-in) var(--ease-out),opacity var(--m-quick) var(--ease-out); }
-html:not([data-desktop]) .workspace .sidebar-collapsed .conversation-row .contact-copy { max-width:0; opacity:0; pointer-events:none; }
-html:not([data-desktop]) .workspace .conversation-row .conversation-time { opacity:1; transition:opacity var(--m-quick) var(--ease-out); }
-html:not([data-desktop]) .workspace .sidebar-collapsed .conversation-row .conversation-time { opacity:0; pointer-events:none; }
+html .workspace .conversation-row .contact-copy { max-width:220px; opacity:1; overflow:hidden; transition:max-width var(--m-panel-in) var(--ease-out),opacity var(--m-quick) var(--ease-out); }
+html .workspace .sidebar-collapsed .conversation-row .contact-copy { max-width:0; opacity:0; pointer-events:none; }
+html .workspace .conversation-row .conversation-time { opacity:1; transition:opacity var(--m-quick) var(--ease-out); }
+html .workspace .sidebar-collapsed .conversation-row .conversation-time { opacity:0; pointer-events:none; }
 html:not([data-desktop]) .workspace .sidebar-account-monogram i { animation:web-side-connection-pop var(--m-panel-in) var(--ease-spring); }
 html:not([data-desktop]) .workspace .sidebar-account.is-offline .sidebar-account-monogram i { background:var(--danger); animation:web-side-connection-shake var(--m-panel-in) var(--ease-out),web-side-connection-fade 1.4s var(--ease-inout) 440ms infinite; }
 html:not([data-desktop]) .workspace .sidebar-account.is-offline .sidebar-account-copy small { color:var(--danger-text); }
 @keyframes web-side-connection-pop { 0% { scale:0; } 60% { scale:1.35; } 100% { scale:1; } }
 @keyframes web-side-connection-shake { 0%,100% { translate:0; } 20% { translate:-4px; } 40% { translate:4px; } 60% { translate:-2px; } 80% { translate:2px; } }
 @keyframes web-side-connection-fade { 50% { opacity:.45; } }
-@media (prefers-reduced-motion:reduce) { html:not([data-desktop]) .workspace .conversation-row .contact-copy,html:not([data-desktop]) .workspace .conversation-row .conversation-time { transition:none; } html:not([data-desktop]) .workspace .sidebar-account-monogram i,html:not([data-desktop]) .workspace .sidebar-account.is-offline .sidebar-account-monogram i { animation:none; } }
+@media (prefers-reduced-motion:reduce) { html .workspace .conversation-row .contact-copy,html .workspace .conversation-row .conversation-time { transition:none; } html:not([data-desktop]) .workspace .sidebar-account-monogram i,html:not([data-desktop]) .workspace .sidebar-account.is-offline .sidebar-account-monogram i { animation:none; } }
 /* On phones the empty workspace hero is hidden behind the list, so the list offers the first step itself. */
 .workspace .empty-copy>p { margin:0; }
 .workspace .sidebar-empty-create { display:none; }

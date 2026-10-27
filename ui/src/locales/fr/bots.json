@@ -58,6 +58,9 @@
       "bot_missing": "Profil de ce Bot introuvable : impossible de le restaurer."
     },
     "title": "Anciennes archives",
+    "search_label": "Rechercher dans les Bots et groupes archivés",
+    "search_placeholder": "Rechercher dans les archives",
+    "no_match": "Aucun Bot ni groupe archivé ne correspond.",
     "close_aria": "Fermer les archives",
     "schedule_note": "Après la restauration, réactivez manuellement les tâches planifiées.",
     "reload": "Recharger",

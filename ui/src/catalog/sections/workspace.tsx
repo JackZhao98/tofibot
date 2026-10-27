@@ -36,9 +36,14 @@ const groupAvatars = (id: string, label: string, offset: number): CatalogState =
 export const rows: CatalogSection = {
   id: "rows", number: "6", title: "Sidebar conversation rows",
   states: [
-    { id: "list", kind: "app", label: "Rows", note: "group (working), unread count, a question waiting (?), hidden Bots folded at the end", app: LIST },
+    { id: "list", kind: "app", label: "Rows", note: "group (working), unread count, a question waiting (?)", app: LIST },
     { id: "indicators", kind: "app", label: "One status per row", note: "Miso: waiting (?) over 3 unread. Nori: failed (!) over 1 unread. Juno: 2 unread. Pip: working dot. Kit: finished task, nothing shown. The title stays bold while there are unread messages.", app: { path: "/", indicators: true } },
     { id: "indicators-collapsed", kind: "app", label: "One status per row, collapsed rail", app: { path: "/", indicators: true }, widths: ["desktop"], drive: async step => { await step.click(".sidebar-toggle"); await step.wait(400); } },
+    { id: "rail-selected-dm", kind: "app", label: "Collapsed rail: selected Bot", note: "soft filled pill and the accent bar on the rail edge; no outline, no hard shadow", app: { ...DM, indicators: true }, widths: ["desktop"], drive: async step => { await step.click(".sidebar-toggle"); await step.wait(400); } },
+    { id: "rail-selected-group", kind: "app", label: "Collapsed rail: selected group", note: "the heads apart in the pill, none overlapping", app: { ...GROUP, indicators: true }, widths: ["desktop"], drive: async step => { await step.click(".sidebar-toggle"); await step.wait(400); } },
+    { id: "rail-unread", kind: "app", label: "Collapsed rail: unread count", note: "Juno: the count badge, top-right of the avatar", app: { path: "/", indicators: true }, widths: ["desktop"], drive: async step => { await step.click(".sidebar-toggle"); await step.wait(400); await step.focus(ROW("dm_juno")); } },
+    { id: "rail-question", kind: "app", label: "Collapsed rail: question waiting", note: "Miso: the ? badge, same size and place as the count", app: { path: "/", indicators: true }, widths: ["desktop"], drive: async step => { await step.click(".sidebar-toggle"); await step.wait(400); await step.focus(ROW("dm_miso")); } },
+    { id: "rail-hover", kind: "app", label: "Collapsed rail: hover tooltip", note: "lighter fill, the name in a black hint to the right of the rail", app: { path: "/", indicators: true }, widths: ["desktop"], drive: async step => { await step.click(".sidebar-toggle"); await step.wait(400); await step.hover(ROW("dm_nori")); await step.wait(800); } },
     groupAvatars("group-avatars", "Group avatars, set A", 0),
     groupAvatars("group-avatars-b", "Group avatars, set B (other shapes and coats)", 9),
     { id: "group-avatar-shapes", kind: "inline", label: "Every shape as one head", note: "each cat cropped to its face at 44 px and 64 px",
@@ -49,7 +54,6 @@ export const rows: CatalogSection = {
     { id: "hover", kind: "app", label: "Hover", app: LIST, force: [{ selector: ROW("dm_miso"), state: "hover" }] },
     { id: "focus", kind: "app", label: "Keyboard focus", app: LIST, drive: async step => { await step.focus(ROW("dm_miso")); } },
     { id: "pressed", kind: "app", label: "Pressed", app: LIST, force: [{ selector: ROW("dm_nori"), state: "active" }] },
-    { id: "hidden", kind: "app", label: "Hidden Bots open", app: LIST, drive: async step => { await step.click(".hidden-bots-toggle"); await step.wait(200); } },
     { id: "search", kind: "app", label: "Search with no match", app: LIST, drive: async step => { await step.type(".search-box input", "zzz"); await step.wait(200); } },
     { id: "collapsed", kind: "app", label: "Sidebar collapsed", note: "avatars only; names move into hints", app: LIST, widths: ["desktop"],
       drive: async step => { await step.click(".sidebar-toggle"); await step.wait(400); } },

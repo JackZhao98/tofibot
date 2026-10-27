@@ -105,21 +105,6 @@ button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .theme-swatch i{height:3px;border-radius:4px;background:var(--swatch-light-ink)}.theme-swatch i:last-child{width:60%}
 .theme-swatch-dark{background:var(--swatch-dark-bg);border-left-color:var(--swatch-dark-edge)}.theme-swatch-dark i{background:var(--swatch-dark-ink)}
 .theme-swatch-system{background:linear-gradient(90deg,var(--swatch-light-bg) 50%,var(--swatch-dark-bg) 50%)}
-@media(min-width:768px){
- .workspace-grid.sidebar-collapsed{--sidebar-width:80px}
- .sidebar-collapsed .contact-pane{padding-inline:8px}
- .sidebar-collapsed .sidebar-top{margin:0 0 14px;flex-direction:column;gap:10px}
- .sidebar-collapsed .brand-logo{width:38px;gap:0}
- .sidebar-collapsed .brand-logo>span{display:none}
- .sidebar-collapsed .sidebar-actions{flex-direction:column}
- .sidebar-collapsed .search-box,.sidebar-collapsed .section-label,.sidebar-collapsed .sidebar-settings-button>span,html[data-desktop] .sidebar-collapsed .contact-copy,html[data-desktop] .sidebar-collapsed .conversation-time{display:none}
- .sidebar-collapsed .contact-row{position:relative;min-height:56px;padding:8px;justify-content:center}
-  .sidebar-collapsed .sidebar-settings-button{justify-content:center;padding:8px}
- .sidebar-collapsed .sidebar-footer{padding-inline:0}
- .sidebar-collapsed .create-menu-anchor{position:static}
- .sidebar-collapsed .sidebar-actions{position:relative}
- .sidebar-collapsed .contact-pane{overflow:visible}
-}
 @media(min-width:1280px){
  .workspace-grid:has(.detail-pane.visible){grid-template-columns:var(--sidebar-width) minmax(0,1fr) 340px}
  .workspace-grid:has(.settings-tabs),.workspace-grid:has(.computer-detail.is-expanded){grid-template-columns:var(--sidebar-width) minmax(0,1fr)}
@@ -187,11 +172,6 @@ html[data-desktop] .message-avatar .avatar{width:38px;height:38px}
 .conversation-row>.avatar{width:48px;height:48px;flex-basis:48px}
 .contact-row .contact-copy{min-width:0}
 
-@media(min-width:768px){
-  .sidebar-collapsed .contact-pane{padding-inline:4px}
-  .sidebar-collapsed .contact-row{padding-inline:4px}
-  .sidebar-collapsed .conversation-row>.avatar{width:46px;height:46px;flex-basis:46px}
-}
 
 @media(max-width:767px){
   .chat-header{padding-inline:10px}
@@ -271,7 +251,7 @@ form[aria-busy=true]{cursor:progress}
 
 @media(pointer:coarse){
   .top-icon-button,.icon-button,.ghost-button,.computer-button,.close-button,.back-button{width:44px;height:44px;min-width:44px}
-  .scheduled-task-row summary,.tool-activity summary,.work-item-details summary,.hidden-bots-toggle{min-height:44px}
+  .scheduled-task-row summary,.tool-activity summary,.work-item-details summary{min-height:44px}
 }
 @media(forced-colors:active){
   :root,:root[data-theme="dark"]{--focus-ring:Highlight;--muted:CanvasText}

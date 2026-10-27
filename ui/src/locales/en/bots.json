@@ -58,6 +58,9 @@
       "bot_missing": "Can't find this Bot's profile, so it can't be restored."
     },
     "title": "Old archive",
+    "search_label": "Search archived Bots and groups",
+    "search_placeholder": "Search the archive",
+    "no_match": "No archived Bot or group matches.",
     "close_aria": "Close archive",
     "schedule_note": "After restoring, scheduled tasks must be turned back on manually.",
     "reload": "Reload",

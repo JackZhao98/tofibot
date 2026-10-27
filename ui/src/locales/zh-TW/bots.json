@@ -58,6 +58,9 @@
       "bot_missing": "找不到這個 Bot 的身分資料，無法還原。"
     },
     "title": "舊封存",
+    "search_label": "搜尋已封存的 Bot 與群組",
+    "search_placeholder": "搜尋封存",
+    "no_match": "沒有符合的已封存 Bot 或群組。",
     "close_aria": "關閉封存",
     "schedule_note": "還原後，排程任務需手動啟用。",
     "reload": "重新載入",

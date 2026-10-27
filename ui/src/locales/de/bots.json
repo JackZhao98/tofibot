@@ -58,6 +58,9 @@
       "bot_missing": "Das Profil dieses Bots wurde nicht gefunden, daher ist keine Wiederherstellung möglich."
     },
     "title": "Altes Archiv",
+    "search_label": "Archivierte Bots und Gruppen durchsuchen",
+    "search_placeholder": "Archiv durchsuchen",
+    "no_match": "Kein archivierter Bot und keine archivierte Gruppe passt.",
     "close_aria": "Archiv schließen",
     "schedule_note": "Nach dem Wiederherstellen musst du geplante Aufgaben manuell wieder aktivieren.",
     "reload": "Neu laden",

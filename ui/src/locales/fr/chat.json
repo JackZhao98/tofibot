@@ -727,8 +727,6 @@
     "empty": "Aucune conversation pour l’instant. Créez un Bot pour commencer.",
     "expand": "Développer la barre latérale",
     "expand_panel": "Élargir {{title}}",
-    "hidden_bot": "Bot masqué",
-    "hidden_bots": "Bots masqués",
     "hide": "Masquer de la barre latérale",
     "label_separator": ", ",
     "mark_unread": "Marquer comme non lu",

@@ -58,6 +58,9 @@
       "bot_missing": "이 Bot의 프로필을 찾을 수 없어 복원할 수 없습니다."
     },
     "title": "이전 보관함",
+    "search_label": "보관된 Bot과 그룹 검색",
+    "search_placeholder": "보관함 검색",
+    "no_match": "일치하는 보관된 Bot이나 그룹이 없습니다.",
     "close_aria": "보관함 닫기",
     "schedule_note": "복원 후 예약 작업은 직접 다시 켜야 합니다.",
     "reload": "다시 불러오기",

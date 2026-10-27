@@ -7,8 +7,8 @@ html[data-desktop="darwin"] .chat-header{height:64px;min-height:64px;-webkit-app
 html[data-desktop="darwin"] .chat-header button,html[data-desktop="darwin"] .chat-header input{-webkit-app-region:no-drag}
 /* The macOS drag strip stays over the sidebar column and over a drawer's backdrop, as it always has: one step above --z-panel. */
 html[data-desktop="darwin"] .native-titlebar{position:fixed;inset:0 auto auto 0;width:var(--native-sidebar-width,272px);height:48px;z-index:calc(var(--z-panel) + 1);-webkit-app-region:drag;user-select:none}
-html[data-desktop="darwin"] .workspace:has(.sidebar-collapsed){--native-sidebar-width:80px}
-html[data-desktop="darwin"] .workspace:has(.sidebar-collapsed) .native-titlebar{width:80px}
+html[data-desktop="darwin"] .workspace:has(.sidebar-collapsed){--native-sidebar-width:var(--sidebar-collapsed)}
+html[data-desktop="darwin"] .workspace:has(.sidebar-collapsed) .native-titlebar{width:var(--sidebar-collapsed)}
 html[data-desktop="darwin"] .sidebar-collapsed .contact-pane{padding-top:58px}
 html[data-desktop="darwin"] .sidebar-collapsed .sidebar-top{margin-top:0}
 html[data-desktop="darwin"] .contact-row.active{background:color-mix(in srgb,var(--selected-bg) 78%,transparent)}

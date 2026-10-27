@@ -663,7 +663,6 @@ function Workspace() {
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [sidebarLayout, setSidebarLayout] = useState<SidebarLayout>(readSidebarLayout);
-  const [hiddenBotsOpen, setHiddenBotsOpen] = useState(false);
   const [sidebarMenuSlot] = useState(() => new OverlaySlot<SidebarContextMenu>());
   const setSidebarContextMenu = sidebarMenuSlot.set;
   // The element that had focus when the sidebar row menu opened (the row, from the keyboard): read synchronously by the
@@ -1321,7 +1320,6 @@ function Workspace() {
     const names = conversation.kind === "dm" ? [conversation.name, botByConversationId.get(conversation.id)?.instructions ?? ""] : [conversation.name, ...conversation.bot_ids.map((id) => botById.get(id)?.name ?? "")];
     return names.some((name) => name.toLowerCase().includes(query));
   });
-  const hiddenBots = bots.filter((bot) => bot.archived && (!query || bot.name.toLowerCase().includes(query)));
   const visibleSidebarConversations = filteredConversations.filter((conversation) => !conversation.archived);
   const pinnedConversations = visibleSidebarConversations.filter((conversation) => conversation.pinned);
   const customSidebarSections = Object.entries(sidebarLayout.sections).reduce<Record<string, Conversation[]>>((groups, [id, name]) => {
@@ -2387,12 +2385,6 @@ function Workspace() {
       onMenu={event => setSidebarContextMenu({ conversation, x: event.clientX, y: event.clientY })} />;
   }
 
-  function hiddenBotRow(bot: Bot) {
-    const conversation = conversations.find((item) => item.kind === "dm" && (item.bot_id === bot.id || item.id === bot.dm_conversation_id));
-    if (!conversation) return null;
-    return <button key={bot.id} className="contact-row conversation-row hidden-bot-row" aria-label={bot.name} onClick={() => { selectConversation(conversation.id); setMobileList(false); }} onContextMenu={(event) => { event.preventDefault(); setSidebarContextMenu({ conversation, x: event.clientX, y: event.clientY }); }}><Avatar label={bot.name} id={bot.id} motion={conversationMotion(conversation, bot.id)} /><span className="contact-copy"><strong>{bot.name}</strong><small>{t("sidebar.hidden_bot")}</small></span></button>;
-  }
-
   async function deleteConversation(target: DeleteTarget, successorId?: string) {
     try {
       if (target.kind === "bot") await api.deleteBot(target.id, successorId);
@@ -2584,7 +2576,6 @@ function Workspace() {
             <div className="sr-only" role="status" aria-live="polite" ref={sidebarLiveRef} />
             {onboardingState !== "sheet" && !visibleSidebarConversations.length && !query && !bots.length && !conversations.length && <FirstRunHero side onCreate={() => void createNewBot()} busy={newBotBusy} error={newBotError} />}
             {onboardingState !== "sheet" && !visibleSidebarConversations.length && <EmptyState name="sidebar" className={`empty-copy is-compact${!query && !bots.length && !conversations.length ? " first-run-hide-mobile" : ""}`} look={CATS.mochi} pose={query ? "curious" : "asleep"}><p>{query ? t("sidebar.no_match") : t("sidebar.empty")}</p>{!query && <button className="primary-button sidebar-empty-create" disabled={newBotBusy} onClick={() => void createNewBot()}>{newBotBusy ? t("create.creating") : t("create.create_bot")}</button>}</EmptyState>}
-            {hiddenBots.length > 0 && <section className="hidden-bots-section"><button type="button" className="hidden-bots-toggle" aria-expanded={hiddenBotsOpen} onClick={() => setHiddenBotsOpen((open) => !open)}><span>{t("sidebar.hidden_bots")}</span><Icon name="chevron-right" size={16} /></button>{hiddenBotsOpen && hiddenBots.map(hiddenBotRow)}</section>}
           </div>
           <div className="sidebar-footer">{onboardingState === "chip" && <FinishSetupChip step={chipStep(modelReady)} onClick={() => setOnboardingForced(chipStep(modelReady))} />}<SidebarAccount connected={linkConnected} onSettings={() => { setPortabilityBotID(""); setPortabilityFile(undefined); openSettings("general", "home"); }} onUsage={() => { setUsageBotId(""); openSettings("usage"); }} onConnection={() => openSettings("models")} onArchive={() => openSidebarId("archive")} onArtifacts={() => { setArtifactsMode("artifacts"); openCoverPanel("artifacts"); }} /></div>
         </aside>

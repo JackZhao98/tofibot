@@ -711,8 +711,6 @@
     "empty": "No conversations yet. Create a Bot to get started.",
     "expand": "Expand sidebar",
     "expand_panel": "Widen {{title}}",
-    "hidden_bot": "Hidden Bot",
-    "hidden_bots": "Hidden Bots",
     "hide": "Hide from sidebar",
     "label_separator": ", ",
     "mark_unread": "Mark as unread",

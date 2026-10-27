@@ -58,10 +58,3 @@
 .pin-tile-badge[data-status="working"] { width:11px; height:11px; border-radius:50%; background:var(--blue); box-shadow:0 0 0 2px var(--sunk); animation:v2-breathe 2.4s var(--ease-inout) infinite; }
 @media (prefers-reduced-motion:reduce) { .pin-tile-badge[data-status="working"] { animation:none; } }
 @media (forced-colors:active) { .pin-tile.active { outline:2px solid Highlight; } }
-
-/* The collapsed rail shows the tiles as a single column of cats. */
-.sidebar-collapsed .pin-dock { grid-template-columns:1fr; }
-.sidebar-collapsed .pin-tile { padding:4px 0; }
-.sidebar-collapsed .pin-tile .avatar { width:44px; height:44px; flex-basis:44px; }
-.sidebar-collapsed .pin-tile-name { display:none; }
-.sidebar-collapsed .pin-frame-hint { display:none; }

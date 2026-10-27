@@ -695,8 +695,6 @@
     "empty": "還沒有對話，先建立一個 Bot 吧。",
     "expand": "展開側邊欄",
     "expand_panel": "加寬{{title}}",
-    "hidden_bot": "已隱藏的 Bot",
-    "hidden_bots": "已隱藏的 Bot",
     "hide": "從側邊欄隱藏",
     "label_separator": "，",
     "mark_unread": "標為未讀",

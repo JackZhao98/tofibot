@@ -1,0 +1,102 @@
+/* The collapsed sidebar: a calm 72 px rail. One item size on one vertical axis: a 52 x 48 hit target around a 40 px avatar,
+   centred, 4 px apart. Selected is a soft filled pill (token surface, no outline, no hard shadow) with a short accent bar on
+   the rail's left edge; hover is a lighter fill. Badges sit top-right of the avatar, one size. Names come from the delegated
+   hint (data-hint, shown to the right by ActionHints), never from text in the rail. Width and label fade run on motion tokens
+   (the grid track in interaction-system.css and the copy fade in web-sidebar-list.css); reduced motion is instant.
+   Components: docs/design/components.md, "Sidebar conversation rows". Rows are not draggable here (App.tsx); the pinned
+   tiles keep their drag engine, untouched. */
+@media (min-width:768px) {
+  .workspace .workspace-grid.sidebar-collapsed { --sidebar-width:var(--sidebar-collapsed); }
+  .workspace .sidebar-collapsed {
+    --rail-item-w:52px; --rail-item-h:48px; --rail-avatar:40px;
+  }
+  .workspace .sidebar-collapsed .contact-pane { padding-inline:10px; overflow:visible; }
+  .workspace .sidebar-collapsed :is(.search-box,.section-label) { display:none; }
+  .workspace .sidebar-collapsed .contact-section { margin-inline:-10px; padding-inline:10px; align-items:center; scrollbar-width:none; }
+  .workspace .sidebar-collapsed .contact-section::-webkit-scrollbar { display:none; }
+
+  /* Top: expand control (the logo) and "+" on the same axis as the items. */
+  .workspace .sidebar-collapsed .sidebar-top { flex-direction:column; align-items:center; gap:8px; margin:0 0 14px; min-height:0; }
+  .workspace .sidebar-collapsed .sidebar-actions,
+  .workspace .sidebar-collapsed .create-menu-anchor { position:relative; width:100%; display:flex; align-items:center; justify-content:center; flex-direction:column; }
+  .workspace .sidebar-collapsed .create-menu-anchor { position:static; }
+  .workspace .sidebar-collapsed .sidebar-logo-expand {
+    position:relative; display:grid; place-items:center; width:var(--rail-item-w); height:var(--rail-item-h); padding:0;
+    border:0; border-radius:14px; background:transparent; color:var(--ink-soft);
+  }
+  .workspace .sidebar-collapsed .sidebar-logo-expand .brand-logo { width:34px; gap:0; }
+  .workspace .sidebar-collapsed .sidebar-logo-expand .brand-logo img { width:34px; height:34px; }
+  .workspace .sidebar-collapsed .brand-logo>span { display:none; }
+  .workspace .sidebar-collapsed .create-menu-anchor>.icon-button {
+    width:40px; height:40px; min-width:0; padding:0; border:0; border-radius:12px;
+    background:color-mix(in srgb,var(--surface) 70%,transparent); color:var(--ink-soft); box-shadow:none; transform:none;
+  }
+  .workspace .sidebar-collapsed .create-menu-anchor>.icon-button svg { width:20px; height:20px; }
+  .workspace .sidebar-collapsed :is(.sidebar-logo-expand,.create-menu-anchor>.icon-button):is(:hover,:focus-visible) { background:var(--surface); color:var(--ink); }
+  .workspace .sidebar-collapsed .sidebar-logo-art,
+  .workspace .sidebar-collapsed .sidebar-logo-arrow { grid-area:1/1; transition:opacity var(--m-press) var(--ease-out),transform var(--m-base) var(--ease-out); }
+  .workspace .sidebar-collapsed .sidebar-logo-arrow { opacity:0; transform:scale(.78); }
+  .workspace .sidebar-collapsed .sidebar-logo-expand:is(:hover,:focus-visible) .sidebar-logo-art { opacity:0; transform:scale(.78); }
+  .workspace .sidebar-collapsed .sidebar-logo-expand:is(:hover,:focus-visible) .sidebar-logo-arrow { opacity:1; transform:scale(1); }
+
+  /* Items: rows and pinned tiles share one box. */
+  .workspace .sidebar-collapsed :is(.contact-row,.pin-tile) {
+    position:relative; width:var(--rail-item-w); height:var(--rail-item-h); min-height:0; margin:0 0 4px; padding:0; gap:0;
+    display:grid; place-items:center; flex:0 0 auto; border:0; border-radius:14px; background:transparent; box-shadow:none; transform:none;
+    transition:background-color var(--m-press) var(--ease-out);
+  }
+  .workspace .sidebar-collapsed :is(.contact-row,.pin-tile):hover { background:color-mix(in srgb,var(--surface) 70%,transparent); transform:none; box-shadow:none; }
+  .workspace .sidebar-collapsed :is(.contact-row.active,.pin-tile.active),
+  .workspace .sidebar-collapsed :is(.contact-row.active,.pin-tile.active):hover { background:var(--surface); border-color:transparent; box-shadow:none; transform:none; }
+  .workspace .sidebar-collapsed :is(.contact-row,.pin-tile):active { transform:none; box-shadow:none; }
+  .workspace .sidebar-collapsed :is(.contact-row,.pin-tile):focus-visible { outline-offset:0; }
+  .workspace .sidebar-collapsed .contact-row .contact-copy,.workspace .sidebar-collapsed .conversation-time { position:absolute; }
+  .workspace .sidebar-collapsed .conversation-row>.avatar,
+  .workspace .sidebar-collapsed .pin-tile .avatar,
+  .workspace .sidebar-collapsed .pin-tile .bot-avatar,
+  .workspace .sidebar-collapsed .pin-tile-art { width:var(--rail-avatar); height:var(--rail-avatar); flex:0 0 var(--rail-avatar); border-radius:12px; }
+  .workspace .sidebar-collapsed .pin-tile-art { display:grid; place-items:center; }
+  .workspace .sidebar-collapsed .pin-tile-name,.workspace .sidebar-collapsed .pin-frame-hint { display:none; }
+  .workspace .sidebar-collapsed .pin-dock { display:flex; flex-direction:column; align-items:center; gap:0; padding:0 0 4px; }
+  .workspace .sidebar-collapsed .pin-frame { padding:0; border-width:0; }
+  .workspace .sidebar-collapsed .pin-frame[data-dnd="row"] { border-width:2px; }
+  .workspace .sidebar-collapsed .contact-section>:is(.pin-frame,.sidebar-custom-section) { width:100%; display:flex; flex-direction:column; align-items:center; }
+  .workspace .sidebar-collapsed .pin-frame:not([data-empty]) { padding-bottom:6px; margin-bottom:6px; }
+
+  /* The selected accent: a short bar on the rail's left edge, growing in from the middle. */
+  .workspace .sidebar-collapsed :is(.contact-row,.pin-tile)::before {
+    content:""; position:absolute; left:-10px; top:50%; width:3px; height:20px; margin-top:-10px; border-radius:0 3px 3px 0;
+    background:var(--ink); transform:scaleY(0); transition:transform var(--m-base) var(--ease-out);
+  }
+  .workspace .sidebar-collapsed :is(.contact-row.active,.pin-tile.active)::before { transform:scaleY(1); }
+
+  /* Group: the heads apart, none overlapping (positions are --rail-* on each head, see GroupAvatar.tsx). */
+  .workspace .sidebar-collapsed .group-head { left:var(--rail-l); top:var(--rail-t); width:var(--rail-s); height:var(--rail-s); background:color-mix(in srgb,var(--ink) 8%,transparent); box-shadow:none; }
+
+  /* One badge, top-right of the avatar: unread count, question, failure, working dot. */
+  .workspace .sidebar-collapsed .conversation-row>.conversation-status,
+  .workspace .sidebar-collapsed .pin-tile-badge {
+    position:absolute; top:3px; right:2px; bottom:auto; left:auto; box-sizing:border-box; display:grid; place-items:center;
+    min-width:16px; width:auto; height:16px; padding:0 4px; border:0; border-radius:999px; box-shadow:none;
+    font:600 10px/1 var(--mono); pointer-events:none;
+  }
+  .workspace .sidebar-collapsed :is(.conversation-status,.pin-tile-badge)[data-status="unread"] { background:var(--orange); color:var(--on-block); }
+  .workspace .sidebar-collapsed :is(.conversation-status,.pin-tile-badge):is([data-status="attention"],[data-status="failed"]) { min-width:16px; padding:0; border:0; background:var(--iris); color:var(--on-block); font:700 11px/1 var(--mono); }
+  .workspace .sidebar-collapsed :is(.conversation-status,.pin-tile-badge)[data-status="failed"] { background:var(--danger); color:#fff; }
+  .workspace .sidebar-collapsed :is(.conversation-status,.pin-tile-badge)[data-status="working"] { top:6px; right:6px; min-width:0; width:9px; height:9px; padding:0; background:var(--blue); }
+
+  /* Bottom: the account avatar on the same axis, no divider. */
+  .workspace .sidebar-collapsed .sidebar-footer { border-top:0; padding:10px 0 0; display:grid; justify-items:center; }
+  .workspace .sidebar-collapsed .sidebar-account { width:var(--rail-item-w); }
+  .workspace .sidebar-collapsed .sidebar-account-copy,.workspace .sidebar-collapsed .sidebar-account-settings { display:none; }
+  .workspace .sidebar-collapsed .sidebar-account-identity {
+    width:var(--rail-item-w); height:var(--rail-item-h); flex:none; justify-content:center; padding:0; border-radius:14px; box-shadow:none; transform:none;
+  }
+  .workspace .sidebar-collapsed .sidebar-account-identity:is(:hover,:focus-visible,[aria-expanded="true"]) { background:color-mix(in srgb,var(--surface) 70%,transparent); transform:none; box-shadow:none; }
+  .workspace .sidebar-collapsed .sidebar-account-monogram { width:36px; height:36px; flex-basis:36px; border:0; font-size:15px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .workspace .sidebar-collapsed :is(.contact-row,.pin-tile),
+  .workspace .sidebar-collapsed :is(.contact-row,.pin-tile)::before,
+  .workspace .sidebar-collapsed :is(.sidebar-logo-art,.sidebar-logo-arrow) { transition:none; }
+}

@@ -8,5 +8,4 @@
 .workspace .conversation-row>.conversation-status[data-status="working"]{right:17px;bottom:17px;min-width:9px;width:9px;height:9px;padding:0;background:var(--blue);animation:v2-breathe 2.4s var(--ease-inout) infinite}
 .workspace .conversation-row:has(>.conversation-status) .contact-copy small{padding-right:34px}
 .workspace .conversation-row[data-unread] .contact-copy :is(strong,small){color:var(--ink);font-weight:700}
-.workspace .sidebar-collapsed .conversation-row>.conversation-status{top:6px;right:6px;bottom:auto}
 @media(prefers-reduced-motion:reduce){.workspace .conversation-row>.conversation-status[data-status="working"]{animation:none}}

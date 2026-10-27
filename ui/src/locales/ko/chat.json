@@ -695,8 +695,6 @@
     "empty": "아직 대화가 없습니다. 먼저 Bot을 만들어 보세요.",
     "expand": "사이드바 펼치기",
     "expand_panel": "{{title}} 넓히기",
-    "hidden_bot": "숨긴 Bot",
-    "hidden_bots": "숨긴 Bot",
     "hide": "사이드바에서 숨기기",
     "label_separator": ", ",
     "mark_unread": "읽지 않음으로 표시",

@@ -58,6 +58,9 @@
       "bot_missing": "找不到这个 Bot 的身份资料，无法恢复。"
     },
     "title": "旧归档",
+    "search_label": "搜索已归档的 Bot 和群组",
+    "search_placeholder": "搜索归档",
+    "no_match": "没有匹配的已归档 Bot 或群组。",
     "close_aria": "关闭归档",
     "schedule_note": "恢复后，定时任务需手动启用。",
     "reload": "重新载入",
