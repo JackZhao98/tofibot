@@ -2465,6 +2465,44 @@ function Workspace() {
   }, []);
   // Sender marks change the gaps between rows after the scroll position was set: the position is taken again once they are in.
   useLayoutEffect(() => { markSenderGroups(messageListRef.current); viewport.reposition(); }, [viewport.reposition, conversationItems, timelineFrom, taskOwners, toolTimeline, pendingRuns, drafts, loadingMessages, active?.id, active?.kind, active?.archived, teamBoardOpen, viewport.unreadSeq, error, historyError, hasMore, runs, toolSummaryAnchors, toolSummaryErrorAnchors, toolSummaryLoadingAnchors, toolDetailState, toolSummaryState, loadedToolActivities, terminalToolSummaries, questions.items, mailDrafts.items, activityView, bots, conversations, messageRecords]);
+  // The card column sits inside the chat area, to the left of the message scrollbar (context-card.css): its right edge stops at
+  // the scrollbar, so the scrollbar's width is measured (0 for overlay scrollbars) and published as --scroll-bar-w.
+  const chatShown = Boolean(active);
+  useLayoutEffect(() => {
+    const el = viewport.scrollRef.current;
+    const grid = el?.closest<HTMLElement>(".workspace-grid");
+    if (!el || !grid || !columnMode) return;
+    const measure = () => grid.style.setProperty("--scroll-bar-w", `${Math.max(0, el.offsetWidth - el.clientWidth)}px`);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => { observer.disconnect(); grid.style.removeProperty("--scroll-bar-w"); };
+  }, [columnMode, chatShown, viewport.scrollRef]);
+  // Opening or closing a card changes the scroller's right padding, which re-wraps the lines. WebKit has no native scroll
+  // anchoring, so a reader in the middle of the history keeps their message at the same offset while the padding animates.
+  const cardRoom = columnMode && contextPanelOpen && !panelState.wide;
+  const cardRoomSeen = useRef(cardRoom);
+  useLayoutEffect(() => {
+    if (cardRoomSeen.current === cardRoom) return;
+    cardRoomSeen.current = cardRoom;
+    const el = viewport.scrollRef.current;
+    if (!el || el.scrollHeight - el.scrollTop - el.clientHeight < 80) return; // at the bottom the viewport's own follow keeps it
+    const top = el.getBoundingClientRect().top;
+    const node = Array.from(el.querySelectorAll<HTMLElement>("[data-message-seq]")).find(candidate => candidate.getBoundingClientRect().bottom > top + 1);
+    if (!node) return;
+    const offset = node.getBoundingClientRect().top - top;
+    const until = performance.now() + 450;
+    let frame = 0;
+    const stop = () => { cancelAnimationFrame(frame); el.removeEventListener("wheel", stop); el.removeEventListener("pointerdown", stop); el.removeEventListener("touchstart", stop); };
+    const hold = () => {
+      if (!node.isConnected) return stop();
+      el.scrollTop += node.getBoundingClientRect().top - el.getBoundingClientRect().top - offset;
+      if (performance.now() < until) frame = requestAnimationFrame(hold); else stop();
+    };
+    el.addEventListener("wheel", stop, { passive: true }); el.addEventListener("pointerdown", stop); el.addEventListener("touchstart", stop, { passive: true });
+    frame = requestAnimationFrame(hold);
+    return stop;
+  }, [cardRoom, viewport.scrollRef]);
 
   if (!indexInitialized.current && workspaceError) return <BootScreen label={t("workspace.connection_unavailable")} immediate><h2>{t("workspace.connection_unavailable")}</h2><p>{workspaceError}</p><button className="primary-button" disabled={loading} onClick={() => void refreshIndex()}>{loading ? t("action.retrying") : t("common:action.retry")}</button></BootScreen>;
   if (loading && !conversations.length) return <BootScreen label={t("workspace.loading")} />;
@@ -2629,7 +2667,6 @@ function Workspace() {
                   {error && !proxyChallenged && <div className="error-banner system-notice" role="alert">{error}</div>}
                 </div></ActivityViewContext.Provider></RunStartContext.Provider></ExpiryFinishingContext.Provider>
               </div>
-              <div className="edge-blur is-bottom" aria-hidden="true"><i /><i /></div>
               {viewport.showJump && <button className="jump-latest" aria-label={t("history.jump_latest")} onClick={jumpLatest}><Icon name="arrow-down" size={18} variant="filled" />{viewport.newCount > 0 && <span className="jump-new-count">{t("history.new_count", { count: viewport.newCount })}</span>}</button>}
             </div>
             {active.kind === "group" && !active.archived && !active.bot_ids.some(id => botById.has(id) && !botById.get(id)?.archived) ? <div className="composer empty-group-composer"><span>{t("composer.no_members")}</span><button className="secondary-button" onClick={() => setPanel("members")}>{t("composer.add_members")}</button></div> : <Composer workStatus={<WorkingMembers isGroup={active.kind === "group"} companionBotId={active.kind === "dm" ? active.bot_id || active.bot_ids[0] : undefined} companionMotion={active.kind === "dm" ? conversationMotion(active, active.bot_id || active.bot_ids[0]) : undefined} workingBotIds={active.working_bot_ids ?? []} drafts={Object.values(drafts)} runs={runs} botById={botById} toolActivities={toolActivities} signals={runSignals} connected={streamConnected} />} activeRun={runs.find(run => run.status === "running" || run.status === "queued" || run.status === "waiting")} allRuns={runs} stepRunIds={stepRunIds} latestReplyId={messages.filter(message => message.role === "assistant").at(-1)?.id} onRunsStopped={stopped => setRuns(current => mergeRunUpdates(current, stopped))} onStopError={setError} avatarMention={avatarMention} conversation={active} bots={bots} draft={composerDrafts[active.id] ?? emptyComposerDraft()} onDraftChange={updateComposerDraft} onSend={send} onSendStart={jumpLatest} onSent={jumpLatest} modelConfigured={config?.model_configured ?? false} onConnectModel={connectModel} draftReady={composerDraftReady} readOnly={Boolean(active.archived)} />}

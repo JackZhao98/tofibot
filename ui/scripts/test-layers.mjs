@@ -172,7 +172,6 @@ await check("overlays stacked on one point paint in the order of the scale, the 
     pane.removeAttribute("inert"); // inert while no panel is open, and inert boxes are not hit-tested
     pane.insertAdjacentHTML("beforeend", '<div class="settings-tabs"></div>');
     pane.dataset.probe = "settings";
-    document.querySelector(".chat-body").insertAdjacentHTML("beforeend", '<div class="edge-blur" data-probe="edge-blur"></div>');
   }, STACK);
   await page.waitForTimeout(400); // reduced motion still runs a 0.01 ms transition on every property
   const order = await page.evaluate(debug => {
@@ -188,7 +187,7 @@ await check("overlays stacked on one point paint in the order of the scale, the 
     if (debug) return [...seen, "|", ...[...document.querySelectorAll("[data-probe]")].map(el => { const r = el.getBoundingClientRect(), cs = getComputedStyle(el); return `${el.dataset.probe}:${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)}x${Math.round(r.height)} ${cs.display}/${cs.visibility}/${cs.pointerEvents}/z${cs.zIndex}/${cs.position}`; })];
     return seen;
   }, Boolean(process.env.LAYERS_DEBUG));
-  const expected = ["drop-ghost", "hint", "toast", "sheet", ["delete", "settings", "onboarding", "leave", "restart"], "boot", "menu", "identity", "card", "floating-computer", "composer", "edge-blur"];
+  const expected = ["drop-ghost", "hint", "toast", "sheet", ["delete", "settings", "onboarding", "leave", "restart"], "boot", "menu", "identity", "card", "floating-computer", "composer"];
   const flat = expected.flat();
   for (const name of flat) truthy(order.includes(name), `"${name}" is not hit at the shared point; seen top to bottom: ${order.join(" > ")}`);
   const rank = name => expected.findIndex(entry => entry === name || (Array.isArray(entry) && entry.includes(name)));

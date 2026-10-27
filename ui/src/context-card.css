@@ -1,5 +1,5 @@
-/* The on-demand card column (docs/design/side-panels.md). The third grid column exists only while a card is open (the grid
-   rules in conversation-workspace.css); it is the .detail-pane, holding the open cards stacked top to bottom. A card
+/* The on-demand card column (docs/design/side-panels.md): the .detail-pane, holding the open cards stacked top to bottom, laid
+   over the right part of the chat area (not a grid track; see below). A card
    moved to the outside panel takes the whole column, full height at the window's right edge. Web only, >= 1100 px;
    below that the drawer / sheet rules in conversation-workspace.css and styles.css keep working. Card chrome (surface,
    elevation, header) is in context-column.css and loads with ContextCard. */
@@ -27,6 +27,27 @@
   /* An expanded computer is a full-window dialog: it leaves the column in place and floats over the page. */
   html:not([data-desktop]) .workspace .detail-pane.context-column:has(.computer-detail.is-expanded) { position:relative; inset:auto; z-index:auto; width:auto; height:100%; overflow:hidden auto; background:transparent; box-shadow:none; pointer-events:auto; }
 
+  /* The card column lives INSIDE the chat area. The grid keeps no third track for it: the message scroller spans the whole
+     chat area, so its scrollbar stays at the right edge of the chat, right of the cards. The column is laid over the right
+     part of that area under the header (its right edge stops at the scrollbar, --scroll-bar-w measured in App.tsx); the
+     message list and the composer keep their centred column in the space left of it (--context-room, animated). Only the
+     outside panel (.outside-open) is a real grid track at the window edge. */
+  html:not([data-desktop]) .workspace .workspace-grid > .chat-pane { grid-column:2; grid-row:1; }
+  html:not([data-desktop]) .workspace .workspace-grid.context-open:not(.outside-open) { grid-template-columns:var(--sidebar-width) minmax(0,1fr) 0px; }
+  html:not([data-desktop]) .workspace .workspace-grid:not(.outside-open) .detail-pane.context-column {
+    grid-column:2; grid-row:1; justify-self:end; align-self:start; z-index:var(--z-panel);
+    width:var(--context-width); height:calc(100% - var(--chat-header-height,64px)); margin:var(--chat-header-height,64px) var(--scroll-bar-w,0px) 0 0;
+    padding:6px 14px 16px 2px; pointer-events:none; scrollbar-width:none; scrollbar-gutter:auto;
+  }
+  html:not([data-desktop]) .workspace .workspace-grid:not(.outside-open) .detail-pane.context-column::-webkit-scrollbar { display:none; }
+  /* Only the cards take the pointer; wheel over them scrolls the column, over empty chat space it scrolls the messages. */
+  html:not([data-desktop]) .workspace .workspace-grid:not(.outside-open) .detail-pane.context-column > * { pointer-events:auto; }
+  html:not([data-desktop]) .workspace .workspace-grid.context-open:not(.outside-open) { --context-room:calc(var(--context-width) + var(--scroll-bar-w,0px)); }
+  html:not([data-desktop]) .workspace .workspace-grid .message-scroll { padding-right:calc(clamp(18px,4vw,64px) + var(--context-room,0px)); transition:padding-right var(--m-panel-in) var(--ease-out); }
+  html:not([data-desktop]) .workspace .workspace-grid .jump-latest { right:calc(clamp(16px,4vw,32px) + var(--context-room,0px)); transition:right var(--m-panel-in) var(--ease-out); }
+  html:not([data-desktop]) .workspace .workspace-grid .team-board-screen { padding-right:calc(clamp(12px,3vw,30px) + var(--context-room,0px)); transition:padding-right var(--m-panel-in) var(--ease-out); }
+  html:not([data-desktop]) .workspace .workspace-grid .composer { padding-right:calc(clamp(16px,4vw,32px) + var(--context-room,0px)); transition:padding-right var(--m-panel-in) var(--ease-out); }
+
   /* Make room so the read-only chat card never covers messages or the composer. */
   html:not([data-desktop]) .workspace .workspace-grid.card-open :is(.chat-body,.composer) { padding-right:var(--card-room,0px); transition:padding-right var(--m-panel-in) var(--ease-out); }
 
@@ -50,6 +71,7 @@
 @media (prefers-reduced-motion:reduce) {
   html:not([data-desktop]) .view-only-chat.is-card, html:not([data-desktop]) .workspace .detail-pane.context-column { animation:none!important; }
   html:not([data-desktop]) .workspace .workspace-grid.card-open :is(.chat-body,.composer) { transition:none; }
+  html:not([data-desktop]) .workspace .workspace-grid :is(.message-scroll,.composer,.jump-latest,.team-board-screen) { transition:none; }
 }
 
 /* Read-only chat reads top-down (avatar beside the name, then the message), and the messages that

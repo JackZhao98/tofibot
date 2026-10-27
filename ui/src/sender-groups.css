@@ -47,7 +47,7 @@ html[data-desktop] { --sender-avatar:38px; }
 .workspace :is(.message-bot,.message-user) .message-content :is(pre,.message-code) { border:0; background:var(--bubble-inset); color:var(--bubble-inset-ink); }
 .workspace :is(.message-bot,.message-user) .message-content blockquote { border-left-color:color-mix(in srgb,var(--muted) 45%,transparent); }
 
-/* Room under the last message: composer + its fade (24px) + a gap; the perched cat reserves more.
+/* Room under the last message: composer + a 24px margin + a gap; the perched cat reserves more.
    --composer-height is kept current by a ResizeObserver on the composer (App.tsx). */
 html:not([data-desktop]) .workspace .message-scroll { padding-bottom:calc(var(--composer-height,110px) + 24px + 20px); }
 html:not([data-desktop]) .workspace .chat-pane:has(.composer-perch) .message-scroll { padding-bottom:calc(var(--composer-height,110px) + 64px); }

@@ -84,60 +84,18 @@ for (const size of sizes) {
   });
 }
 
-await check("the strip above the composer is a progressive blur: stacked masked backdrop layers, no veil", async () => {
+await check("there is no blur or veil above the composer (owner 2026-10-26); the header keeps its blur", async () => {
   const { page, context } = await fixture.open({ viewport: { width: 1440, height: 1028 } });
   const info = await page.evaluate(() => {
-    const strip = document.querySelector(".edge-blur.is-bottom");
-    const layers = [...strip.children].map(layer => { const cs = getComputedStyle(layer); return { blur: parseFloat((cs.backdropFilter || cs.webkitBackdropFilter || "").replace(/.*blur\(([\d.]+)px\).*/, "$1")) || 0, mask: cs.maskImage || cs.webkitMaskImage || "none", height: layer.getBoundingClientRect().height }; });
-    const sr = strip.getBoundingClientRect(), composer = document.querySelector(".composer").getBoundingClientRect();
     const veil = getComputedStyle(document.querySelector(".composer"), "::before");
-    const sheetText = [...document.styleSheets].flatMap(s => { try { return [...s.cssRules].map(r => r.cssText); } catch { return []; } }).join("\n");
-    return { layers, strip: { top: sr.top, bottom: sr.bottom, height: sr.height, pointer: getComputedStyle(strip).pointerEvents }, composerTop: composer.top, veilImage: veil.backgroundImage, veilColor: veil.backgroundColor, webkitPair: /-webkit-backdrop-filter:\s*blur/.test(sheetText) || /webkitBackdropFilter|-webkit-backdrop-filter/.test(sheetText) };
+    const scroll = getComputedStyle(document.querySelector(".message-scroll"));
+    return { strips: document.querySelectorAll(".edge-blur").length, veilContent: veil.content, veilImage: veil.backgroundImage, mask: scroll.maskImage || scroll.webkitMaskImage || "none", header: getComputedStyle(document.querySelector(".chat-header"), "::before").backdropFilter };
   });
-  report.blur = info;
-  assert.ok(info.layers.length >= 2, `${info.layers.length} blur layers`);
-  assert.ok(info.layers.every(l => l.blur > 0), "every layer blurs");
-  assert.ok(info.layers.every(l => /gradient/.test(l.mask)), "every layer is masked by a gradient band");
-  assert.ok(info.layers.every((l, i, all) => i === 0 || l.blur > all[i - 1].blur), "the layers strengthen");
-  assert.ok(info.strip.bottom >= info.composerTop, "the strip reaches the composer");
-  assert.equal(info.strip.pointer, "none", "the strip must not eat clicks");
-  assert.ok(info.veilImage === "none" && /rgba\(0, 0, 0, 0\)|transparent/.test(info.veilColor), `a flat veil is still painted over the pane (${info.veilImage} ${info.veilColor})`);
-  assert.ok(info.webkitPair, "the -webkit-backdrop-filter pair is present");
-  assert.ok(/-webkit-mask-image/.test(blurCss) && /-webkit-backdrop-filter/.test(blurCss), "the source carries the -webkit- pairs for Safari");
-  await context.close();
-});
-
-await check("the blur ramps: a striped pattern is sharp above the strip and blurred at the composer", async () => {
-  if (!pixels) return;
-  const { page, context } = await fixture.open({ viewport: { width: 1440, height: 1028 } });
-  const strip = await page.evaluate(() => { const r = document.querySelector(".edge-blur.is-bottom").getBoundingClientRect(); const comp = document.querySelector(".composer-row").getBoundingClientRect(); return { top: r.top, bottom: r.bottom, composerTop: comp.top }; });
-  // A high-contrast stripe field under the whole strip (beneath the blur layers, above the messages): its sharpness is what the blur removes.
-  await page.evaluate(({ top }) => {
-    const field = document.createElement("div");
-    field.id = "stripes"; field.style.cssText = `position:fixed;z-index:2;left:520px;width:520px;top:${top - 50}px;bottom:0;background:repeating-linear-gradient(90deg,#000 0 2px,#fff 2px 4px);pointer-events:none`;
-    document.querySelector(".chat-body").append(field);
-  }, { top: strip.top });
-  await page.waitForTimeout(200);
-  const sharpness = async y => {
-    const png = await page.screenshot({ clip: { x: 540, y, width: 400, height: 4 } });
-    return page.evaluate(async base64 => {
-      const image = new Image(); image.src = "data:image/png;base64," + base64; await image.decode();
-      const c = document.createElement("canvas"); c.width = image.width; c.height = image.height; const ctx = c.getContext("2d"); ctx.drawImage(image, 0, 0);
-      const d = ctx.getImageData(0, 0, c.width, c.height).data; let sum = 0;
-      for (let i = 4; i < d.length; i += 4) sum += Math.abs(d[i] - d[i - 4]);
-      return sum / (c.width * c.height);
-    }, png.toString("base64"));
-  };
-  const sharp = await sharpness(Math.round(strip.top) - 30);
-  const rows = [];
-  for (const f of [0.1, 0.35, 0.6, 0.85]) rows.push(await sharpness(Math.round(strip.top + (strip.composerTop - strip.top) * f)));
-  const deep = rows.at(-1);
-  report.ramp = { sharp: +sharp.toFixed(1), rows: rows.map(v => +v.toFixed(1)) };
-  console.log("    ramp", JSON.stringify(report.ramp));
-  assert.ok(sharp > 100, `the stripe field is not rendering (${sharp})`);
-  assert.ok(deep < sharp * 0.5, `the composer edge is not blurred enough (sharpness ${deep.toFixed(1)} vs ${sharp.toFixed(1)})`);
-  rows.forEach((v, i) => assert.ok(i === 0 || v <= rows[i - 1] + 1, `the ramp is not monotonic at step ${i}: ${rows.map(r => r.toFixed(1)).join(" > ")}`));
-  assert.ok(rows[0] > deep * 1.3, "the blur must grow gradually, not switch on");
+  report.noBottomBlur = info;
+  assert.equal(info.strips, 0, "no bottom blur strip is rendered");
+  assert.ok(info.veilContent === "none" || info.veilContent === "normal" || info.veilImage === "none", `no veil above the composer (${info.veilContent} ${info.veilImage})`);
+  assert.equal(info.mask, "none", "the message pane has no bottom fade mask");
+  assert.ok(/blur/.test(info.header), "the header blur stays");
   await context.close();
 });
 
@@ -193,7 +151,7 @@ await check("the header is see-through frosted glass: content runs under it, blu
 
 await check("scrolling under the blur stays inside the frame budget", async () => {
   // "off" is the pane as it was: no strip, no header glass, the composer field on its own frosted glass.
-  const OFF = ".edge-blur{display:none!important}.chat-header::before,.chat-header::after{display:none!important}.composer-row{-webkit-backdrop-filter:var(--blur)!important;backdrop-filter:var(--blur)!important}";
+  const OFF = ".chat-header::before,.chat-header::after{display:none!important}.composer-row{-webkit-backdrop-filter:var(--blur)!important;backdrop-filter:var(--blur)!important}";
   const once = async hide => {
     const { page, context } = await fixture.open({ viewport: { width: 1180, height: 820 } });
     if (hide) await page.addStyleTag({ content: OFF });

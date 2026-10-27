@@ -40,8 +40,14 @@
 .context-card.is-wide:has(.terminal-panel) { height:auto; }
 .context-card.is-wide .terminal-panel { height:100%; }
 
+/* The computer is a bare widget: its monitor is the widget, so the card draws no surface, padding or elevation around it. Only the
+   title row (fold, expand, close) stays, on the page background above the monitor. */
+.context-card.is-bare { background:transparent; box-shadow:none; overflow:visible; }
+.context-card.is-bare .context-card-header { padding-left:4px; }
+.context-card.is-bare:not(.is-collapsed) .context-card-inner { overflow:visible; }
+.context-card.is-bare .detail-content { padding:0; }
 /* The computer's screen sits in the card body instead of floating over the chat. */
-.workspace .context-card .desktop-floating-shell.is-docked:not(.is-expanded) { position:relative; inset:auto; z-index:auto; width:auto; padding:0 12px 4px; pointer-events:auto; }
+.workspace .context-card .desktop-floating-shell.is-docked:not(.is-expanded) { position:relative; inset:auto; z-index:auto; width:auto; padding:0 0 4px; pointer-events:auto; }
 .workspace .context-card.is-wide .desktop-floating-shell.is-docked:not(.is-expanded) { padding:0 16px 8px; }
 .workspace .context-card .desktop-floating-shell.is-docked.is-small .desktop-presence-canvas>.computer-detail { margin-bottom:30px; }
 /* The card header already closes the computer; the screen's own hide control would be a second close. */

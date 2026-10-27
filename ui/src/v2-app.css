@@ -162,7 +162,6 @@
 .workspace .header-actions .computer-button.is-ready { color:var(--green-text); }
 .workspace .message-scroll { padding:26px clamp(18px,4vw,64px) calc(var(--composer-height,110px) + 28px); }
 /* The floating composer is reserved once; its own padding provides the gap. */
-html:not([data-desktop]) .workspace .message-scroll { mask-image:none; }
 /* Keep the latest reply above the cat; older messages may scroll behind it. */
 .workspace .message-list { max-width:var(--v2-chat-width); margin:auto; }
 .workspace .date-divider,.workspace .unread-divider { margin:24px auto; color:var(--muted); font:11px/1.3 var(--mono); }
@@ -248,12 +247,7 @@ html:not([data-desktop]) .workspace .new-arrival:not(.was-streamed) .message-bot
 
 /* Composer remains a single semantic form, now the preview's two-level object. */
 .workspace .composer { padding:14px clamp(16px,4vw,32px) max(18px,env(safe-area-inset-bottom)); background:transparent; }
-.workspace .composer::before { background:var(--bg); }
-/* Fade above the composer; its entire input and safe-area region is opaque. */
-html:not([data-desktop]) .workspace .composer::before {
-  inset:-64px 0 0;
-  background:linear-gradient(to bottom,transparent,var(--bg) 64px);
-}
+/* No fade or blur above the composer (owner, 2026-10-26); the field has its own frosted glass. */
 .workspace .composer .composer-row {
   position:relative; z-index:3; min-height:104px; grid-template-rows:minmax(52px,auto) 40px;
   grid-template-columns:40px minmax(0,1fr) 40px 42px; column-gap:8px;
@@ -541,7 +535,6 @@ html:not([data-desktop]) .workspace .composer .working-member.work-companion .wo
   .workspace .sidebar-account-identity { transition:none; }
 }
 @media (prefers-reduced-transparency:reduce) {
-  html:not([data-desktop]) .workspace .composer::before { background:linear-gradient(to bottom,transparent,var(--bg) 64px); }
   .workspace .chat-header { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
   .workspace .composer .composer-row,:is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.member-panel,.sidebar-account-menu,.mcp-menu) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
   :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }

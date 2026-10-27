@@ -24,7 +24,7 @@ export async function installStubs(page, state) {
     state.requests?.push(p);
     if (p === "/api/server-info") return json({ service: "tofi", protocol_version: 1, instance_id: "00000000-0000-4000-8000-000000000001", auth: { mode: "none" } });
     if (p === "/api/bots") return json({ bots: [BOT] });
-    if (p === "/api/conversations") return json({ conversations: [CONVERSATION] });
+    if (p === "/api/conversations") return json({ conversations: [state.conversation ?? CONVERSATION] });
     if (p === "/api/computers/firecracker/info") return json(state.info);
     if (p === "/api/computers/firecracker/retry") { state.retries = (state.retries ?? 0) + 1; return json({ accepted: true }); }
     if (p === "/api/computers/firecracker/wake") { state.wakes = (state.wakes ?? 0) + 1; state.onWake?.(); return json({ accepted: true, state: "resuming" }, 202); }

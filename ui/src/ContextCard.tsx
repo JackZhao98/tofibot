@@ -29,7 +29,7 @@ export function ContextCard({ id, title, order, collapsed = false, wide = false,
   const foldLabel = t(collapsed ? "contextCard.expand" : "contextCard.collapse", { title });
   const wideLabel = t(wide ? "contextCard.back" : "contextCard.widen", { title });
   const closeLabel = t("contextCard.close", { title });
-  return <section ref={ref} className={`context-card${collapsed ? " is-collapsed" : ""}${wide ? " is-wide" : ""}`} data-card={id} style={{ order }} aria-label={title}>
+  return <section ref={ref} className={`context-card${collapsed ? " is-collapsed" : ""}${wide ? " is-wide" : ""}${id === "desktop" && !wide ? " is-bare" : ""}`} data-card={id} style={{ order }} aria-label={title}>
     <header className="context-card-header">
       <h2 ref={heading} tabIndex={-1}>{title}</h2>
       {!wide && <button type="button" className="context-card-button context-card-fold" aria-expanded={!collapsed} aria-controls={bodyId} aria-label={foldLabel} data-hint={foldLabel} onClick={() => onToggle(id)}><Icon name="chevron-down" size={16} /></button>}
