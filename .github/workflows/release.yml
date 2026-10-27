@@ -311,7 +311,11 @@ jobs:
       - name: Pin Caddy by multi-arch digest
         id: caddy
         run: |
-          digest=$(docker buildx imagetools inspect "mirror.gcr.io/library/caddy:$CADDY_TAG" --format '{{json .Manifest}}' \
+          # The mirror can lag a fresh Caddy tag (it answers the tag with an index it does not hold yet);
+          # fall back to Docker Hub for this one read.
+          manifest=$(docker buildx imagetools inspect "mirror.gcr.io/library/caddy:$CADDY_TAG" --format '{{json .Manifest}}' 2>/dev/null) \
+            || manifest=$(docker buildx imagetools inspect "docker.io/library/caddy:$CADDY_TAG" --format '{{json .Manifest}}')
+          digest=$(printf '%s' "$manifest" \
             | python3 -c '
           import json, sys
           manifest = json.load(sys.stdin)
