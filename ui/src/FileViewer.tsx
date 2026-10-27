@@ -5,14 +5,12 @@ import { useTranslation } from "./i18n";
 import { MessageMarkdown, ViewerLinkContext } from "./MessageMarkdown";
 import {
   attachmentUrl, closeFilePreview, extensionOf, fileKind, fileSize, isPreviewable, parseDelimited, popFilePreview,
-  readTextHead, tileLabel, tileTone, useFilePreviewStack, type FileKind, type PreviewTarget,
+  readTextHead, useFilePreviewStack, type FileKind, type PreviewTarget,
 } from "./filePreviewModel";
+import { FileTile } from "./FileTile";
 import "./file-preview.css";
 
-/** Type tile: folded corner, format in mono, one colour per format family. */
-export function FileTile({ name, kind }: { name: string; kind: FileKind }) {
-  return <span className="file-tile" data-file-tone={tileTone(kind)} data-file-kind={kind} aria-hidden="true">{tileLabel(name, kind)}</span>;
-}
+export { FileTile };
 
 type Body =
   | { state: "loading" }

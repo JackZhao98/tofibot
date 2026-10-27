@@ -147,31 +147,33 @@ try {
     const row = page.locator(".delivered-attachment.is-file").first();
     const box = await row.boundingBox();
     assert.equal(Math.round(box.width), 340);
-    const tones = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll(".attachment-file-row")].map(r => { const t = r.querySelector(".file-tile"); return [r.querySelector(".attachment-name").textContent, { tone: t.dataset.fileTone, label: t.textContent, bg: getComputedStyle(t).backgroundColor }]; })));
-    assert.deepEqual(Object.fromEntries(Object.entries(tones).map(([k, v]) => [k, v.tone])), { "frevana-seo-analysis.md": "md", "notes.txt": "txt", "data.csv": "xlsx", "config.json": "json", "paper.pdf": "pdf", "model.xlsx": "xlsx", "bundle.zip": "zip", "tool.py": "code", "huge.log": "txt" });
+    const tones = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll(".attachment-file-row")].map(r => { const t = r.querySelector(".file-tile"); return [r.querySelector(".attachment-name").textContent, { tone: t.dataset.fileTone, label: t.textContent, bg: getComputedStyle(t.querySelector(".ft-label")).backgroundColor }]; })));
+    assert.deepEqual(Object.fromEntries(Object.entries(tones).map(([k, v]) => [k, v.tone])), { "frevana-seo-analysis.md": "md", "notes.txt": "txt", "data.csv": "sheet", "config.json": "json", "paper.pdf": "pdf", "model.xlsx": "sheet", "bundle.zip": "archive", "tool.py": "code", "huge.log": "txt" });
     assert.equal(tones["model.xlsx"].label, "XLSX"); assert.equal(tones["paper.pdf"].label, "PDF"); assert.equal(tones["tool.py"].label, "PY");
     assert.notEqual(tones["model.xlsx"].bg, tones["paper.pdf"].bg);
-    assert.equal(tones["paper.pdf"].bg, "rgb(184, 67, 47)"); assert.equal(tones["model.xlsx"].bg, "rgb(77, 138, 93)");
+    assert.equal(tones["paper.pdf"].bg, "rgb(200, 64, 47)"); assert.equal(tones["model.xlsx"].bg, "rgb(47, 125, 82)");
     const dl = page.locator(".attachment-file-row", { hasText: "notes.txt" }).locator("a.attachment-download");
     assert.equal(await dl.isVisible(), true); assert.equal(await dl.getAttribute("download"), "notes.txt");
     assert.match(await dl.getAttribute("href"), /\/api\/attachments\/att_txt$/);
     assert.equal(await page.locator(".attachment-file-row").first().evaluate(el => getComputedStyle(el.closest(".delivered-attachment")).backgroundColor !== "rgba(0, 0, 0, 0)"), true);
   });
 
-  await step("images: 3-up grid with +N expands; single image keeps the 340px frame", async () => {
-    const grid = page.locator(".delivered-attachment-grid");
-    assert.equal(await grid.locator(".attachment-grid-tile").count(), 3);
-    assert.equal((await grid.locator(".attachment-grid-more").innerText()).trim(), "+2");
-    assert.equal(Math.round((await grid.boundingBox()).width), 340);
-    await grid.locator(".attachment-grid-tile").first().click();
+  await step("images: thumbnails in a gallery (2 cols for 2, 3 for 5), reserved boxes, lightbox; single image keeps its box", async () => {
+    const grid = page.locator(".attachment-gallery:not(.is-single)").first();
+    assert.equal(await grid.locator(".attachment-thumb").count(), 5);
+    assert.equal(await grid.getAttribute("data-count"), "5");
+    assert.equal(await grid.evaluate(el => getComputedStyle(el).gridTemplateColumns.split(" ").length), 3);
+    assert.ok(await grid.locator("img").first().evaluate(img => img.getAttribute("loading") === "lazy" && img.hasAttribute("width") && img.hasAttribute("height")), "lazy with reserved size");
+    assert.ok((await grid.boundingBox()).width <= 320);
+    await grid.locator(".attachment-thumb").first().click();
     assert.equal(await grid.locator("dialog[open]").count(), 1);
     await page.keyboard.press("Escape");
-    await grid.locator(".is-more").click();
-    assert.equal(await grid.locator(".attachment-grid-tile").count(), 5);
-    const frame = page.locator(".attachment-image-frame");
-    assert.equal(await frame.count(), 1);
-    assert.equal(Math.round((await page.locator(".delivered-attachment.is-image").boundingBox()).width), 340);
-    assert.equal(await frame.evaluate(el => getComputedStyle(el).borderRadius), "13px");
+    await page.waitForTimeout(100);
+    const single = page.locator(".attachment-gallery.is-single");
+    assert.equal(await single.count(), 1);
+    const box = await single.boundingBox();
+    assert.ok(box.width <= 320 && box.height <= 360 && box.width >= 96, JSON.stringify(box));
+    assert.equal(await single.locator(".attachment-thumb").evaluate(el => getComputedStyle(el).borderRadius), "14px");
   });
 
   await step("code block has header, copy and fold", async () => {

@@ -5,6 +5,8 @@ import type { ScheduleOccurrence } from "../../scheduleOccurrences";
 import { MailDraftCard } from "../../MailDraftCard";
 import { TaskIssueCard } from "../../TaskIssueCard";
 import { presentTaskIssue } from "../../taskIssuePresentation";
+import { FileTile } from "../../FileTile";
+import { fileKind } from "../../filePreviewModel";
 import { CATS, EmptyCat, EmptyState } from "../../EmptyCat";
 import GroupAvatar from "../../GroupAvatar";
 import { catalog, normalizeConfig, paletteOptions, type AvatarConfig } from "../../lib/tofi-avatar/index.js";
@@ -147,8 +149,11 @@ const failedRun: Run = { id: "run_failed", conversation_id: "dm_mochi", bot_id: 
 export const other: CatalogSection = {
   id: "other", number: "23", title: "Other patterns",
   states: [
-    { id: "file-drop", kind: "app", label: "Dropping a file on the window", app: DM, probe: ".web-drop-overlay.is-dragging .web-drop-zone",
-      drive: async step => { const data = new DataTransfer(); data.items.add(new File(["synthetic"], "synthetic.txt", { type: "text/plain" })); document.body.dispatchEvent(new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer: data })); await step.find(".web-drop-overlay.is-dragging", 3000); await step.wait(300); } },
+    { id: "file-drop", kind: "app", label: "Dragging a file over the window (composer lifts, Drop to add)", app: DM, probe: ".composer[data-file-drag] .composer-drop",
+      drive: async step => { const data = new DataTransfer(); data.items.add(new File(["synthetic"], "synthetic.txt", { type: "text/plain" })); document.body.dispatchEvent(new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer: data })); await step.find(".composer[data-file-drag]", 3000); await step.wait(300); } },
+    { id: "file-tiles", kind: "inline", label: "File type tiles, every family (40 px, 30 px, 56 px)", context: ["catalog-column"],
+      render: () => <div style={{ display: "grid", gap: 14 }}>{[40, 30, 56].map(size => <div key={size} style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "end" }}>
+        {([["report.pdf", ""], ["photo.png", "image/png"], ["model.xlsx", ""], ["data.csv", ""], ["brief.docx", ""], ["notes.txt", ""], ["README.md", ""], ["deck.pptx", ""], ["tool.py", ""], ["config.json", ""], ["bundle.zip", ""], ["take.mp3", ""], ["clip.mp4", ""], ["blob.bin", ""]] as const).map(([name, mime]) => <FileTile key={name} name={name} kind={fileKind(name, mime)} size={size} />)}</div>)}</div> },
     scheduledState("queued", "Scheduled task, queued"),
     scheduledState("running", "Scheduled task, running"),
     scheduledState("done", "Scheduled task, done"),

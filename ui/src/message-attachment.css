@@ -8,30 +8,12 @@
   background: var(--surface-2);
   color: var(--ink);
 }
-.workspace .sent-attachment-pill { display:inline-flex; max-width:min(220px,100%); height:32px; margin:6px 6px 0 0; padding:0; vertical-align:middle; border:1px solid var(--line-soft); border-radius:999px; background:var(--surface); color:var(--ink); }
-.workspace .sent-attachment-main { display:flex; align-items:center; gap:7px; min-width:0; max-width:100%; height:100%; padding:3px 8px 3px 4px; border:0; border-radius:999px; background:transparent; color:var(--ink); text-decoration:none; }
-.workspace .sent-attachment-main:hover { background:var(--surface-2); }
-.workspace .sent-attachment-main img { width:24px; height:24px; flex:none; border:1px solid var(--line-soft); border-radius:50%; object-fit:cover; }
-.workspace .sent-attachment-type { display:grid; place-items:center; min-width:24px; height:22px; flex:none; padding:0 4px; border-radius:999px; background:var(--blue); color:var(--on-block); font:600 9px/1 var(--mono); }
-.workspace .sent-attachment-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:13px/1 var(--body); }
-.workspace .sent-attachment-main small { flex:none; color:var(--muted); font:10px/1 var(--mono); }
-.workspace .delivered-attachment.is-image { background: var(--sunk); }
-.workspace .attachment-preview { display: block; line-height: 0; background: var(--sunk); }
-.workspace .attachment-preview img {
-  display: block;
-  width: 100%;
-  max-height: 340px;
-  margin: auto;
-  object-fit: contain;
-}
-
 .workspace .delivered-attachment.is-file { border-radius: 14px; }
 .workspace .attachment-file-row { position: relative; display: flex; align-items: center; gap: 12px; padding: 10px 12px; }
-.workspace .attachment-file-row .file-tile::after { border-color: transparent var(--surface-2) transparent transparent; }
 .workspace .attachment-file-open { display: grid; gap: 3px; min-width: 0; flex: 1; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; font: inherit; }
 .workspace .attachment-file-open:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 3px; border-radius: 6px; }
 .workspace .attachment-file-row:hover { border-color: var(--line); }
-.workspace .message-content .attachment-name {
+.workspace .attachment-name {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -42,7 +24,7 @@
 }
 .workspace .attachment-file-open:hover .attachment-name { text-decoration: underline; text-underline-offset: 3px; }
 .workspace .attachment-file-open small { color: var(--muted); font: 11px/1.4 var(--mono); }
-.workspace .message-content .attachment-download,
+.workspace .attachment-download,
 .workspace .attachment-native-actions button {
   display: inline-flex;
   align-items: center;
@@ -58,63 +40,10 @@
   font: 600 11px/1.2 var(--display);
   text-decoration: none;
 }
-.workspace .message-content .attachment-download:hover,
+.workspace .attachment-download:hover,
 .workspace .attachment-native-actions button:not(:disabled):hover { border-color: var(--line); color: var(--ink); }
 .workspace .attachment-native-actions { display: flex; align-items: center; gap: 5px; flex: none; }
 .workspace .attachment-native-actions button:disabled { cursor: wait; opacity: .58; }
-.workspace .attachment-image-frame { position: relative; overflow: hidden; border-radius: 13px; }
-.workspace .attachment-image-frame .attachment-preview { width: 100%; padding: 0; border: 0; background: var(--sunk); cursor: zoom-in; }
-.workspace .attachment-image-frame .attachment-preview img { width: 100%; height: auto; max-height: 340px; object-fit: contain; }
-.workspace .attachment-image-caption,
-.workspace .attachment-image-actions {
-  position: absolute;
-  z-index: 2;
-  opacity: 0;
-  -webkit-backdrop-filter: var(--blur);
-  backdrop-filter: var(--blur);
-  transition: opacity var(--m-quick) var(--ease-out);
-}
-.workspace .attachment-image-caption {
-  bottom: 8px;
-  left: 8px;
-  max-width: 65%;
-  overflow: hidden;
-  padding: 4px 7px;
-  border: 1px solid var(--glass-edge);
-  border-radius: 7px;
-  background: var(--glass-strong);
-  color: var(--ink);
-  font: 10px/1.4 var(--mono);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  pointer-events: none;
-}
-.workspace .attachment-image-actions {
-  top: 8px;
-  right: 8px;
-  display: flex;
-  gap: 3px;
-  padding: 3px;
-  border: 1px solid var(--glass-edge);
-  border-radius: 10px;
-  background: var(--glass-strong);
-}
-.workspace .attachment-image-frame:is(:hover, :focus-within) :is(.attachment-image-caption, .attachment-image-actions) { opacity: 1; }
-.workspace .attachment-image-actions :is(button, a) {
-  display: grid;
-  width: 30px;
-  height: 30px;
-  place-items: center;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--ink);
-}
-.workspace .attachment-image-actions :is(button, a):hover { background: color-mix(in srgb, var(--ink) 12%, transparent); }
-.workspace .attachment-image-actions button:disabled { cursor: wait; opacity: .55; }
-.workspace .attachment-image-actions :is(button, a):focus-visible,
-.workspace .attachment-image-frame .attachment-preview:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: -2px; }
-
 .workspace .attachment-lightbox {
   position: relative;
   max-width: min(95vw, 1200px);
@@ -155,19 +84,31 @@ html:not([data-desktop]) .workspace .attachment-lightbox > button { position:fix
 .workspace .attachment-recovery button { padding: 0; border: 0; background: transparent; color: var(--ink); font-size: 12px; }
 .workspace .attachment-recovery button:hover { text-decoration: underline; text-underline-offset: 3px; }
 
-@media (hover: none), (pointer: coarse) {
-  .workspace .attachment-image-actions,
-  .workspace .attachment-image-caption { opacity: 1; }
-  .workspace .attachment-image-actions :is(button, a) { width: 40px; height: 40px; }
-}
-@media (prefers-reduced-motion: reduce) { .workspace .attachment-image-caption, .workspace .attachment-image-actions { transition: none; } html:not([data-desktop]) .workspace .attachment-lightbox::backdrop,html:not([data-desktop]) .workspace .attachment-lightbox small { animation:none; } }
-@media (prefers-reduced-transparency: reduce) {
-  .workspace .attachment-image-caption,
-  .workspace .attachment-image-actions { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
-}
+@media (prefers-reduced-motion: reduce) { html:not([data-desktop]) .workspace .attachment-lightbox::backdrop,html:not([data-desktop]) .workspace .attachment-lightbox small { animation:none; } }
 
-.workspace .delivered-attachment-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; width: min(340px, 100%); margin: 10px 0 4px; }
-.workspace .attachment-grid-tile { position: relative; display: block; aspect-ratio: 1; padding: 0; overflow: hidden; border: 1px solid var(--line-soft); border-radius: 12px; background: var(--sunk); cursor: zoom-in; }
-.workspace .attachment-grid-tile img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.workspace .attachment-grid-more { position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 58%, transparent); -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); color: var(--ink); font: 700 20px/1 var(--mono); }
-.workspace .attachment-grid-tile:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 2px; }
+
+/* Message attachments. A user's sit in .message-attachments above the text bubble (no bubble of their own, like a photo in iMessage);
+   a Bot's stay in its message. Images are one gallery; files are cards. */
+.workspace .message-attachments { display:flex; flex-direction:column; gap:6px; width:min(340px,100%); max-width:100%; margin:0 0 4px auto; align-items:flex-end; }
+.workspace .message-attachments > .delivered-attachment { margin:0; }
+.workspace .message-user.is-media-only .message-attachments { margin-bottom:8px; }
+.workspace .attachment-gallery { display:grid; gap:3px; width:min(320px,100%); max-width:100%; margin:6px 0 2px; }
+.workspace .message-attachments .attachment-gallery { margin:0; }
+.workspace .attachment-gallery.is-single { display:block; max-width:100%; }
+.workspace .attachment-thumb { position:relative; display:block; aspect-ratio:1; min-width:0; padding:0; overflow:hidden; border:0; border-radius:10px; background:var(--sunk); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 9%,transparent); cursor:zoom-in; contain:paint; }
+.workspace .attachment-gallery.is-single .attachment-thumb { width:100%; height:100%; aspect-ratio:auto; border-radius:14px; }
+.workspace .attachment-thumb img { position:absolute; inset:0; display:block; width:100%; height:100%; object-fit:cover; transition:filter var(--m-base) var(--ease-out); }
+.workspace .attachment-thumb::after { content:""; position:absolute; inset:0; border-radius:inherit; box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 9%,transparent); pointer-events:none; }
+@media (hover:hover) { .workspace .attachment-thumb:hover img { filter:brightness(.94); } }
+.workspace .attachment-thumb:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
+.workspace .attachment-thumb.is-failed { display:grid; place-items:center; cursor:pointer; }
+.workspace .attachment-lightbox-bar { display:flex; align-items:center; gap:6px; margin-top:12px; }
+.workspace .attachment-lightbox-bar small { flex:1; min-width:0; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.workspace .attachment-lightbox-bar :is(button,a) { display:grid; width:32px; height:32px; place-items:center; border:1px solid var(--line-soft); border-radius:10px; background:var(--surface-2); color:var(--ink); }
+.workspace .attachment-lightbox-error { color:var(--danger-text); }
+html:not([data-desktop]) .workspace .attachment-lightbox-bar { justify-content:center; }
+html:not([data-desktop]) .workspace .attachment-lightbox-bar small { flex:0 1 auto; }
+/* A sent or arriving message rises into place; history and switches never get .new-arrival. */
+@keyframes attachments-arrive { from { opacity:0; transform:translateY(8px); } }
+.workspace .new-arrival .message-attachments { animation:attachments-arrive var(--m-base) var(--ease-out) both; }
+@media (prefers-reduced-motion:reduce) { .workspace .new-arrival .message-attachments { animation:none; } }

@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import type { Attachment } from "./types";
 
-export type FileKind = "md" | "txt" | "code" | "csv" | "tsv" | "json" | "pdf" | "image" | "xlsx" | "docx" | "pptx" | "zip" | "other";
+export type FileKind = "md" | "txt" | "code" | "csv" | "tsv" | "json" | "pdf" | "image" | "xlsx" | "docx" | "pptx" | "zip" | "audio" | "video" | "other";
 
 const codeExtensions = new Set(["js", "jsx", "ts", "tsx", "mjs", "cjs", "py", "go", "rs", "rb", "java", "kt", "swift", "c", "h", "cc", "cpp", "hpp", "cs", "php", "sh", "bash", "zsh", "sql", "css", "scss", "html", "htm", "xml", "yml", "yaml", "toml", "ini", "env", "lua", "r", "pl", "vue", "svelte", "diff", "patch", "dockerfile"]);
 const textExtensions = new Set(["txt", "log", "text", "conf", "cfg", "rst", "tex", "srt", "vtt"]);
@@ -25,6 +25,8 @@ export function fileKind(name: string, mime = ""): FileKind {
   if (ext === "docx" || ext === "doc" || ext === "odt" || ext === "rtf") return "docx";
   if (ext === "pptx" || ext === "ppt" || ext === "key" || ext === "odp") return "pptx";
   if (["zip", "tar", "gz", "tgz", "7z", "rar", "bz2", "xz"].includes(ext)) return "zip";
+  if (["mp3", "wav", "m4a", "aac", "flac", "ogg", "oga", "opus", "aiff"].includes(ext) || type.startsWith("audio/")) return "audio";
+  if (["mp4", "mov", "m4v", "webm", "mkv", "avi", "mpg", "mpeg"].includes(ext) || type.startsWith("video/")) return "video";
   if (textExtensions.has(ext)) return "txt";
   if (codeExtensions.has(ext)) return "code";
   if (type === "text/plain" || type.startsWith("text/")) return ext ? "code" : "txt";
@@ -34,7 +36,7 @@ export function fileKind(name: string, mime = ""): FileKind {
 export const previewableKinds: ReadonlySet<FileKind> = new Set(["md", "txt", "code", "csv", "tsv", "json", "pdf", "image"]);
 export const isPreviewable = (kind: FileKind) => previewableKinds.has(kind);
 
-const kindLabels: Record<FileKind, string> = { md: "MD", txt: "TXT", code: "", csv: "CSV", tsv: "TSV", json: "JSON", pdf: "PDF", image: "IMG", xlsx: "XLSX", docx: "DOCX", pptx: "PPTX", zip: "ZIP", other: "" };
+const kindLabels: Record<FileKind, string> = { md: "MD", txt: "TXT", code: "", csv: "CSV", tsv: "TSV", json: "JSON", pdf: "PDF", image: "IMG", xlsx: "XLSX", docx: "DOCX", pptx: "PPTX", zip: "ZIP", audio: "", video: "", other: "" };
 /** Short mono label for the type tile: the format, never translated. */
 export function tileLabel(name: string, kind: FileKind): string {
   const fixed = kindLabels[kind];
@@ -42,9 +44,15 @@ export function tileLabel(name: string, kind: FileKind): string {
   const ext = extensionOf(name).replace(/[^a-z0-9]/g, "").slice(0, 4).toUpperCase();
   return ext || "FILE";
 }
-/** Tile colour group; drives the palette in message-attachment.css. */
+/** Tile family: drives the colour and the glyph in file-preview.css / FileTile.tsx. Spreadsheets, slides, archives and media each get one. */
 export function tileTone(kind: FileKind): string {
-  return kind === "csv" || kind === "tsv" ? "xlsx" : kind === "pptx" ? "docx" : kind;
+  switch (kind) {
+    case "csv": case "tsv": case "xlsx": return "sheet";
+    case "pptx": return "slides";
+    case "zip": return "archive";
+    case "audio": case "video": return "media";
+    default: return kind;
+  }
 }
 
 export function fileSize(bytes: number) {

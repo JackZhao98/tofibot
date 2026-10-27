@@ -122,7 +122,7 @@
     "cancel_reply": "取消回复",
     "dictate": "开始听写",
     "drop_hint": "也可以直接拖进来或粘贴",
-    "drop_release": "松手，添加到消息",
+    "drop_add": "松开即可添加",
     "file": "文件",
     "image": "图片",
     "input_label": "发送给 {{name}}",

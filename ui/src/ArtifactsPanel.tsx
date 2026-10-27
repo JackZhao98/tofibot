@@ -3,7 +3,7 @@ import { request } from "./api";
 import { BotAvatar } from "./BotAvatar";
 import { CATS, EmptyState } from "./EmptyCat";
 import { DelayedFeedback } from "./DelayedFeedback";
-import { FileTile } from "./FileViewer";
+import { FileTile } from "./FileTile";
 import { attachmentUrl, fileKind, fileSize, openFilePreview } from "./filePreviewModel";
 import { formatRelativeTime } from "./i18n/format";
 import { useTranslation } from "./i18n";
@@ -143,7 +143,7 @@ function ArtifactCard({ item, showBot, showConversation, onOpenMessage }: { item
 
   return <li className="artifact-card">
     <button type="button" className="artifact-open" aria-label={t("artifacts.open", { name: item.name })} onClick={() => openItem(item)}>
-      <span className="artifact-thumb">{isRaster(item) ? <img src={attachmentUrl(item.id)} alt="" loading="lazy" decoding="async" /> : <FileTile name={item.name} kind={kind} />}{item.version_count > 1 && <span className="artifact-badge" aria-hidden="true">v{item.version_count}</span>}</span>
+      <span className="artifact-thumb">{isRaster(item) ? <img src={attachmentUrl(item.id)} alt="" loading="lazy" decoding="async" /> : <FileTile name={item.name} kind={kind} size={56} />}{item.version_count > 1 && <span className="artifact-badge" aria-hidden="true">v{item.version_count}</span>}</span>
       <span className="artifact-copy"><b className="artifact-name">{item.name}</b><small>{fileSize(item.size)}{item.uploaded ? ` · ${t("artifacts.uploaded")}` : ""}</small></span>
     </button>
     <div className="artifact-meta">
@@ -198,7 +198,7 @@ export function ArtifactsWidget({ conversationId, refreshToken, onAll }: { conve
       : !items.length ? <p className="artifacts-widget-note">{t("artifacts.widget_empty")}</p>
       : <ul className="artifacts-widget-list" aria-label={t("artifacts.list_label")}>{items.map(item => <li key={item.id} data-fresh={fresh.has(item.id) || undefined}>
         <button type="button" className="artifact-row" aria-label={t("artifacts.open", { name: item.name })} onClick={() => openItem(item)}>
-          <span className="artifact-row-thumb">{isRaster(item) ? <img src={attachmentUrl(item.id)} alt="" loading="lazy" decoding="async" /> : <FileTile name={item.name} kind={fileKind(item.name, item.mime)} />}</span>
+          <span className="artifact-row-thumb">{isRaster(item) ? <img src={attachmentUrl(item.id)} alt="" loading="lazy" decoding="async" /> : <FileTile name={item.name} kind={fileKind(item.name, item.mime)} size={30} />}</span>
           <span className="artifact-row-name">{item.name}</span>
           <time dateTime={item.created_at}>{formatRelativeTime(item.created_at)}</time>
         </button>

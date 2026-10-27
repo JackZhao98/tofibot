@@ -122,7 +122,7 @@
     "cancel_reply": "返信をキャンセル",
     "dictate": "音声入力を開始",
     "drop_hint": "ドラッグ＆ドロップや貼り付けでも追加できます",
-    "drop_release": "ドロップしてメッセージに追加",
+    "drop_add": "ドロップして追加",
     "file": "ファイル",
     "image": "画像",
     "input_label": "{{name}} に送信",

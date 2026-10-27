@@ -124,7 +124,7 @@
     "cancel_reply": "Annuler la réponse",
     "dictate": "Démarrer la dictée",
     "drop_hint": "Vous pouvez aussi glisser ou coller des fichiers ici",
-    "drop_release": "Relâchez pour ajouter au message",
+    "drop_add": "Déposez pour ajouter",
     "file": "Fichier",
     "image": "Image",
     "input_label": "Envoyer à {{name}}",

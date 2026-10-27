@@ -1,27 +1,29 @@
-html:not([data-desktop]) .web-drop-overlay {
-  position:fixed; inset:0; z-index:var(--z-drag); display:grid; place-items:center; padding:24px;
-  background:color-mix(in srgb,var(--bg) 48%,transparent);
-  -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px);
-  color:var(--ink); opacity:0; visibility:hidden; pointer-events:none;
-  transition:opacity var(--m-base) var(--ease-out),visibility 0s 180ms;
+/* Files dragged over the window: the chat stays; a soft scrim dims the pane and the composer lifts to say "Drop to add".
+   Entering takes --m-base, leaving the shorter --m-quick; reduced motion switches instantly. State: [data-file-drag] set by WebFileDropOverlay. */
+html:not([data-desktop]) .workspace .chat-pane::after {
+  content:""; position:absolute; inset:0; z-index:calc(var(--z-chrome) - 1); pointer-events:none;
+  background:color-mix(in srgb,var(--bg) 34%,transparent); opacity:0; visibility:hidden; transition:opacity var(--m-quick) var(--ease-in),visibility 0s var(--m-quick);
 }
-html:not([data-desktop]) .web-drop-overlay.is-dragging { opacity:1; visibility:visible; transition-delay:0s; }
-html:not([data-desktop]) .web-drop-zone {
-  width:min(100%,420px); min-height:216px; padding:24px; display:grid;
-  place-content:center; justify-items:center; gap:16px;
-  border:2px dashed var(--line); border-radius:var(--r-lg);
-  background:var(--glass); font:600 16px/1.5 var(--display);
-  transform:translateY(8px) scale(.97); transition:transform var(--m-panel-in) var(--ease-out);
+html:not([data-desktop]) .workspace .chat-pane[data-file-drag]::after { opacity:1; visibility:visible; transition:opacity var(--m-base) var(--ease-out); }
+html:not([data-desktop]) .workspace .composer .composer-row { transition:transform var(--m-quick) var(--ease-in),box-shadow var(--m-quick) var(--ease-in),border-color var(--m-quick) var(--ease-in); }
+html:not([data-desktop]) .workspace .composer[data-file-drag] .composer-row {
+  transform:translateY(-6px); border-color:var(--lagoon);
+  box-shadow:var(--sheen),0 0 0 3px color-mix(in srgb,var(--lagoon) 26%,transparent),0 14px 30px -12px color-mix(in srgb,var(--ink) 34%,transparent);
+  transition-duration:var(--m-base); transition-timing-function:var(--ease-out);
 }
-html:not([data-desktop]) .web-drop-overlay.is-dragging .web-drop-zone { transform:none; }
-html:not([data-desktop]) .web-drop-arrow {
-  display:grid; place-items:center; width:52px; height:52px; border-radius:16px;
-  border:var(--edge) solid var(--line); background:var(--clay); color:var(--on-block); box-shadow:var(--hard-sm);
+html:not([data-desktop]) .composer-drop {
+  position:absolute; inset:0; z-index:3; display:flex; align-items:center; justify-content:center; gap:10px; border-radius:inherit;
+  border:1.5px dashed color-mix(in srgb,var(--lagoon) 80%,transparent); background:color-mix(in srgb,var(--surface) 90%,var(--lagoon));
+  color:var(--lagoon-text); font:600 15px/1.3 var(--display); pointer-events:none;
+  opacity:0; visibility:hidden; transition:opacity var(--m-quick) var(--ease-in),visibility 0s var(--m-quick);
 }
-html:not([data-desktop]) .web-drop-overlay.is-dragging .web-drop-arrow { animation:web-drop-bob 900ms var(--ease-inout) infinite; }
-@keyframes web-drop-bob { 50% { transform:translateY(-6px); } }
-.web-drop-ghost { position:fixed; z-index:var(--z-drag); pointer-events:none; display:inline-flex; align-items:center; gap:6px; height:32px; padding:3px 5px 3px 4px; border:1px solid var(--line-soft); border-radius:999px; background:var(--surface-2); color:var(--ink-soft); font:11px/1.4 var(--body); box-shadow:var(--hard-sm); white-space:nowrap; }
-.web-drop-ghost .composer-attachment-type { display:grid; place-items:center; min-width:24px; height:22px; border-radius:999px; background:var(--blue); color:var(--on-block); font:600 9px/1 var(--mono); }
+html:not([data-desktop]) .workspace .composer[data-file-drag] .composer-drop { opacity:1; visibility:visible; transition:opacity var(--m-base) var(--ease-out); }
+html:not([data-desktop]) .workspace .composer[data-file-drag] .composer-row > :not(.composer-drop, .web-upload-ring) { opacity:0; transition:opacity var(--m-quick) var(--ease-in); }
+html:not([data-desktop]) .composer-drop-icon { display:grid; place-items:center; width:32px; height:32px; border-radius:10px; background:color-mix(in srgb,var(--lagoon) 24%,transparent); }
+html:not([data-desktop]) .workspace .composer[data-file-drag] .composer-drop-icon { animation:composer-drop-bob 900ms var(--ease-inout) infinite; }
+@keyframes composer-drop-bob { 50% { transform:translateY(-3px); } }
+.web-drop-ghost { position:fixed; z-index:var(--z-drag); pointer-events:none; display:inline-flex; align-items:center; gap:6px; height:40px; padding:3px 8px 3px 4px; border:1px solid var(--line-soft); border-radius:12px; background:var(--surface-2); color:var(--ink-soft); font:11px/1.4 var(--body); box-shadow:var(--hard-sm); white-space:nowrap; }
+.web-drop-ghost .composer-attachment-type { display:grid; place-items:center; min-width:32px; height:32px; }
 .web-drop-ghost .composer-attachment-name { overflow:hidden; text-overflow:ellipsis; }
 .web-drop-ghost > button { display:none; }
 html:not([data-desktop]) .workspace .composer-row { position:relative; }
@@ -34,11 +36,9 @@ html:not([data-desktop]) .workspace .web-upload-ring { position:absolute; inset:
   animation:web-upload-travel 1.5s linear infinite; }
 @keyframes web-upload-travel { to { --web-upload-angle:360deg; } }
 @media (prefers-reduced-motion:reduce) {
-  html:not([data-desktop]) :is(.web-drop-overlay,.web-drop-zone) { transition:none; }
-  html:not([data-desktop]) .web-drop-overlay.is-dragging .web-drop-arrow,
+  html:not([data-desktop]) .workspace .chat-pane::after,
+  html:not([data-desktop]) .workspace .composer .composer-row,
+  html:not([data-desktop]) .composer-drop { transition:none; }
+  html:not([data-desktop]) .workspace .composer[data-file-drag] .composer-drop-icon,
   html:not([data-desktop]) .workspace .web-upload-ring { animation:none; }
-}
-@media (prefers-reduced-transparency:reduce) {
-  html:not([data-desktop]) .web-drop-overlay { background:var(--bg); -webkit-backdrop-filter:none; backdrop-filter:none; }
-  html:not([data-desktop]) .web-drop-zone { background:var(--surface); }
 }
