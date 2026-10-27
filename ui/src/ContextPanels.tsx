@@ -178,7 +178,7 @@ export function MembersPanel({ conversation, bots, onClose, onOpen, onSaved, onR
   </div>;
 }
 
-export function BotPanel({ bots, activeBot, onExportData, onClose, onUpdate, onCreateGroup, onOpenWork, onOpenMemory, onOpenArtifacts, onMakePrimary, memories = [], refreshToken = 0 }: { onMakePrimary?: (id: string) => Promise<void>; onExportData?: (id: string) => void; onOpenWork?: () => void; onOpenMemory?: () => void; onOpenArtifacts?: () => void; memories?: Memory[]; refreshToken?: number; bots: Bot[]; activeBot?: Bot; onClose: () => void; onUpdate: (id: string, input: Partial<Pick<Bot, "name" | "instructions" | "model" | "reasoning_effort">>) => Promise<void>; onCreateGroup: (name: string, botIds: string[]) => Promise<void> }) {
+export function BotPanel({ chromeless = false, bots, activeBot, onExportData, onClose, onUpdate, onCreateGroup, onOpenWork, onOpenMemory, onOpenArtifacts, onMakePrimary, memories = [], refreshToken = 0 }: { chromeless?: boolean; onMakePrimary?: (id: string) => Promise<void>; onExportData?: (id: string) => void; onOpenWork?: () => void; onOpenMemory?: () => void; onOpenArtifacts?: () => void; memories?: Memory[]; refreshToken?: number; bots: Bot[]; activeBot?: Bot; onClose: () => void; onUpdate: (id: string, input: Partial<Pick<Bot, "name" | "instructions" | "model" | "reasoning_effort">>) => Promise<void>; onCreateGroup: (name: string, botIds: string[]) => Promise<void> }) {
   const { t } = useTranslation("chat");
   const mode = activeBot ? "bot" : "group";
   const [view, setView] = useState<"home" | "appearance" | "config">("home");
@@ -214,10 +214,10 @@ export function BotPanel({ bots, activeBot, onExportData, onClose, onUpdate, onC
     const latestMemoryDisplay = memories.length ? memoryDisplay(memories.at(-1)) : undefined;
     const latestMemory = latestMemoryDisplay ? `${latestMemoryDisplay.title} · ${latestMemoryDisplay.description}` : undefined;
     return <div className="detail-content bot-v2-panel">
-      <div className="detail-heading bot-v2-heading">
+      {(!chromeless || view !== "home") && <div className="detail-heading bot-v2-heading">
         {view === "home" ? <h2>{t("botPanel.title")}</h2> : <button type="button" className="bot-v2-back" onClick={() => setView("home")}><Icon name="arrow-left" size={18}/> {t("botPanel.back")}</button>}
-        <button className="close-button" aria-label={t("botPanel.close")} data-hint={t("botPanel.close_hint")} onClick={onClose}><Icon name="close" size={18} /></button>
-      </div>
+        {!chromeless && <button className="close-button" aria-label={t("botPanel.close")} data-hint={t("botPanel.close_hint")} onClick={onClose}><Icon name="close" size={18} /></button>}
+      </div>}
       {view === "home" ? <>
         {/* One entry per destination: the cat opens its style, each row opens one page. */}
         <div className="bot-v2-profile">

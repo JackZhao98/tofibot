@@ -186,6 +186,13 @@
     "queued": "待機中、次のステップで読み取り",
     "read": "既読"
   },
+  "contextCard": {
+    "bot": "Bot プロフィール",
+    "close": "{{title}}を閉じる",
+    "collapse": "{{title}}を折りたたむ",
+    "computer": "共有コンピューター",
+    "expand": "{{title}}を展開"
+  },
   "detail": {
     "close": "詳細を閉じる",
     "close_memory": "メモリーを閉じる",

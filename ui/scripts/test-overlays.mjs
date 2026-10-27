@@ -420,7 +420,7 @@ await check("layers: @ menu, attachment and account menus escape their container
   await context.close();
 });
 
-await check("Z4: at 1280 px the header menu opens above the context card", async () => {
+await check("Z4: at 1280 px the header menu opens above the context column (it no longer reaches under it)", async () => {
   const { page, context } = await fx.open({});
   await page.locator(".chat-identity").click();
   await page.locator(".detail-pane.context-panel.visible").waitFor({ timeout: 4000 });
@@ -428,8 +428,8 @@ await check("Z4: at 1280 px the header menu opens above the context card", async
   await page.locator(".header-more > button").click();
   await onTop(page, ".more-menu");
   const over = await page.evaluate(() => { const m = document.querySelector(".more-menu").getBoundingClientRect(), c = document.querySelector(".detail-pane.context-panel").getBoundingClientRect(); const x = Math.max(m.left, c.left) + 10, y = Math.max(m.top, c.top) + 10; return { overlap: x < Math.min(m.right, c.right) && y < Math.min(m.bottom, c.bottom), hit: Boolean(document.elementFromPoint(x, y)?.closest(".more-menu")) }; });
-  assert.ok(over.overlap, "the menu overlaps the card in this layout");
-  assert.ok(over.hit, "the menu is above the card where they overlap");
+  // The panel is a real grid column since the context-card column change, so the menu normally stays beside it; if the two ever meet, the menu must win.
+  assert.ok(!over.overlap || over.hit, "the menu is above the column where they overlap");
   await context.close();
 });
 

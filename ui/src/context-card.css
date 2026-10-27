@@ -1,33 +1,26 @@
-/* Wide browser windows: context surfaces (Bot settings, memory, plans, members, terminal, and the
-   read-only forwarded chat) float as one card at the chat's top right instead of a full-height column.
-   The card follows the design system's block style: ink edge, large radius, surface fill, and the
-   offset hard shadow used by the composer and menus (no blurred shadow). Its height follows its content. */
+/* Wide browser windows (>= 1100 px): the context panels live in their own column at the right edge of the grid,
+   as filled cards stacked top to bottom (docs/design/context-column.md). The chat column shrinks by the column's
+   width, so messages and composer stay centered together in what is left and nothing hides under a panel.
+   Card chrome (surface, elevation, header) is in context-column.css and loads with ContextCard. */
 @media (min-width:1100px) {
-  html:not([data-desktop]) .workspace .workspace-grid { position:relative; }
-  /* No third column: the chat keeps its width and only makes room for the card. */
-  html:not([data-desktop]) .workspace .workspace-grid.context-open { grid-template-columns:var(--sidebar-width) minmax(0,1fr) 0px; }
+  html:not([data-desktop]) .workspace .workspace-grid { position:relative; --context-width:clamp(320px,28vw,384px); }
+  html:not([data-desktop]) .workspace .workspace-grid.terminal-context { --context-width:clamp(340px,38vw,560px); }
 
-  html:not([data-desktop]) .workspace .detail-pane.context-panel,
-  html:not([data-desktop]) .view-only-chat.is-card {
-    --card-top:66px; /* just under the header's action pill */
-    position:absolute; z-index:var(--z-panel); inset:var(--card-top) 16px auto auto;
-    width:min(400px,calc(100vw - var(--sidebar-width,260px) - 64px)); height:auto;
-    max-height:calc(var(--viewport-height,100dvh) - var(--card-top) - var(--composer-height,110px) - 20px);
-    overflow:auto; overscroll-behavior:contain; box-sizing:border-box;
-    border:var(--edge) solid var(--line); border-radius:22px; background:var(--surface); box-shadow:var(--hard);
-    transform-origin:top right;
+  html:not([data-desktop]) .workspace .detail-pane.context-column {
+    display:flex; flex-direction:column; align-items:stretch; gap:12px; padding:12px 14px 16px 2px; box-sizing:border-box;
+    border:0; background:transparent; box-shadow:none; overflow:hidden auto; overscroll-behavior:contain; scrollbar-gutter:stable;
   }
-  html:not([data-desktop]) .workspace .detail-pane.context-panel { grid-column:auto; grid-row:auto; }
-  html:not([data-desktop]) .workspace .detail-pane.context-panel.visible { visibility:visible; animation:context-card-enter var(--m-panel-in) var(--ease-out) both; }
-  html:not([data-desktop]) .workspace .detail-pane.context-panel.surface-exiting { animation:context-card-leave var(--m-panel-out) var(--ease-settle) both; }
-  /* The terminal needs a stable canvas rather than a content height. */
-  html:not([data-desktop]) .workspace .detail-pane.context-panel:has(.terminal-panel) { width:min(560px,calc(100vw - var(--sidebar-width,260px) - 64px)); height:min(560px,calc(var(--viewport-height,100dvh) - var(--card-top) - var(--composer-height,110px) - 20px)); overflow:hidden; }
+  html:not([data-desktop]) .workspace .detail-pane.context-column:has(.terminal-panel) { background:transparent; overflow:hidden auto; }
+  html:not([data-desktop]) .workspace .detail-pane.context-column.visible { animation:context-column-enter var(--m-panel-in) var(--ease-out) backwards; }
+  html:not([data-desktop]) .workspace .detail-pane.context-column.surface-exiting { animation:context-column-leave var(--m-panel-out) var(--ease-settle) both; }
+  /* An expanded computer is a full-window dialog: it leaves the column in place and floats over the page. */
+  html:not([data-desktop]) .workspace .detail-pane.context-column:has(.computer-detail.is-expanded) { position:relative; inset:auto; z-index:auto; width:auto; height:100%; overflow:hidden auto; background:transparent; pointer-events:auto; }
 
-  /* Make room so the open card never covers messages or the composer. */
+  /* Make room so the read-only chat card never covers messages or the composer. */
   html:not([data-desktop]) .workspace .workspace-grid.card-open :is(.chat-body,.composer) { padding-right:var(--card-room,0px); transition:padding-right var(--m-panel-in) var(--ease-out); }
 
   /* Read-only forwarded chat as a card: header, scrolling history, compact footer. */
-  html:not([data-desktop]) .view-only-chat.is-card { position:fixed; z-index:var(--z-panel); inset:var(--card-top) 16px auto auto; display:flex; flex-direction:column; width:min(440px,calc(100vw - 32px)); overflow:hidden; animation:context-card-enter var(--m-panel-in) var(--ease-out) both; }
+  html:not([data-desktop]) .view-only-chat.is-card { --card-top:66px; position:fixed; z-index:var(--z-panel); inset:var(--card-top) 16px auto auto; display:flex; flex-direction:column; width:min(440px,calc(100vw - 32px)); overflow:hidden; animation:context-card-enter var(--m-panel-in) var(--ease-out) both; }
   html:not([data-desktop]) .view-only-chat.is-card .view-only-chat-header { min-height:0; padding:12px 12px 12px 16px; border-bottom:1px solid var(--line-soft); background:transparent; -webkit-backdrop-filter:none; backdrop-filter:none; }
   html:not([data-desktop]) .view-only-chat.is-card .view-only-chat-identity strong { max-width:120px; font-size:13px; }
   html:not([data-desktop]) .view-only-chat.is-card .view-only-chat-close { flex-basis:36px; width:36px; height:36px; }
@@ -41,14 +34,11 @@
 }
 @keyframes context-card-enter { from { opacity:.4; scale:.96; translate:6px -6px; } to { opacity:1; scale:1; translate:0 0; } }
 @keyframes context-card-leave { to { opacity:0; scale:.97; translate:4px -4px; } }
+@keyframes context-column-enter { from { opacity:0; } }
+@keyframes context-column-leave { to { opacity:0; } }
 @media (prefers-reduced-motion:reduce) {
-  html:not([data-desktop]) .workspace .detail-pane.context-panel, html:not([data-desktop]) .view-only-chat.is-card { animation:none!important; }
+  html:not([data-desktop]) .view-only-chat.is-card, html:not([data-desktop]) .workspace .detail-pane.context-column { animation:none!important; }
   html:not([data-desktop]) .workspace .workspace-grid.card-open :is(.chat-body,.composer) { transition:none; }
-}
-
-/* One heading size for every card, whichever panel fills it. */
-@media (min-width:1100px) {
-  html:not([data-desktop]) .workspace .detail-pane.context-panel .detail-heading h2 { color:var(--ink); font:600 17px/1.3 var(--display); }
 }
 
 /* Read-only chat reads top-down (avatar beside the name, then the message), and the messages that
@@ -58,8 +48,3 @@
 .view-only-message[data-focused="true"] .view-only-message-bubble { box-shadow:none; }
 .view-only-message.is-bot[data-focused="true"] .view-only-message-bubble { background:color-mix(in srgb,var(--lagoon) 22%,var(--bubble-bot)); }
 .view-only-message.is-user[data-focused="true"] .view-only-message-bubble { background:color-mix(in srgb,var(--lagoon) 22%,var(--bubble-user)); }
-/* Every card shares one frame: the same inner padding, and a heading row with one divider beneath it. */
-@media (min-width:1100px) {
-  html:not([data-desktop]) .workspace .detail-pane.context-panel>.detail-content { padding:16px 20px 20px; }
-  html:not([data-desktop]) .workspace .detail-pane.context-panel>.detail-content>.detail-heading { min-height:40px; margin:0 0 16px; padding:0 0 12px; border-bottom:1px solid var(--line-soft); }
-}

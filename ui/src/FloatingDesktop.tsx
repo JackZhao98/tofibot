@@ -34,9 +34,9 @@ function useComposerAnchor(active: boolean) {
 }
 
 /** The window opens only on the user's explicit request (the header computer button). */
-export function FloatingDesktop({ expanded, small = false, sheet = false, onShrink, onClose, children }: {
+export function FloatingDesktop({ expanded, small = false, sheet = false, docked = false, onShrink, onClose, children }: {
   /** The big window (dialog). `small` is the floating picture-in-picture window; `sheet` is the narrow-screen full-screen form of the big one. */
-  expanded: boolean; small?: boolean; sheet?: boolean; onShrink?: () => void; onClose: () => void; children: ReactNode;
+  expanded: boolean; small?: boolean; sheet?: boolean; /** The small form sits in the context column's card instead of floating over the chat. */ docked?: boolean; onShrink?: () => void; onClose: () => void; children: ReactNode;
 }) {
   const { t } = useTranslation("computer");
   const shellRef = useRef<HTMLDivElement>(null);
@@ -47,10 +47,10 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, onShri
   const escapeRef = useRef<() => void>(onClose);
   escapeRef.current = !sheet && onShrink ? onShrink : onClose;
   const contentId = useId();
-  const anchor = useComposerAnchor(small);
+  const anchor = useComposerAnchor(small && !docked);
   // Beside the small window the messages reflow instead of sitting under it (desktop widths only).
   useLayoutEffect(() => {
-    if (!small) return;
+    if (!small || docked) return;
     const root = document.documentElement;
     const apply = () => {
       const width = shellRef.current?.getBoundingClientRect().width ?? 0;
@@ -60,7 +60,7 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, onShri
     apply();
     window.addEventListener("resize", apply);
     return () => { window.removeEventListener("resize", apply); root.style.removeProperty("--desktop-reserve"); delete root.dataset.desktopReserve; };
-  }, [small]);
+  }, [small, docked]);
 
   useEffect(() => {
     if (!expanded) return;
@@ -132,7 +132,7 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, onShri
     }
   }, [windowMode]);
 
-  return <div ref={shellRef} className={`desktop-floating-shell${expanded ? " is-expanded" : ""}${small ? " is-small" : ""}${expanded && sheet ? " is-sheet" : ""}`} style={small ? anchor : undefined}
+  return <div ref={shellRef} className={`desktop-floating-shell${expanded ? " is-expanded" : ""}${small ? " is-small" : ""}${expanded && sheet ? " is-sheet" : ""}${docked ? " is-docked" : ""}`} style={small && !docked ? anchor : undefined}
     role={expanded ? "dialog" : "group"} aria-modal={expanded || undefined} aria-label={t("desktop.title")} tabIndex={expanded ? -1 : undefined}>
     <div id={contentId} className="desktop-presence-content">
       <div className="desktop-presence-canvas">{children}</div>

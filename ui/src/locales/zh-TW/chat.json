@@ -186,6 +186,13 @@
     "queued": "已排隊,下一步時讀取",
     "read": "已讀"
   },
+  "contextCard": {
+    "bot": "Bot 資料",
+    "close": "關閉{{title}}",
+    "collapse": "摺疊{{title}}",
+    "computer": "共用電腦",
+    "expand": "展開{{title}}"
+  },
   "detail": {
     "close": "關閉詳細資料",
     "close_memory": "關閉記憶",
