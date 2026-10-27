@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -50,9 +51,64 @@ func (s *Server) modelDefaults() (string, string) {
 		}
 	}
 	if s.codexConnected() {
-		return codexDefaultModel, effort
+		return s.codexConversationDefault(), effort
 	}
 	return model, effort
+}
+
+// codexConversationDefault is the newest Sol model in the live Codex catalog,
+// or codexConversationFallback before the catalog is known.
+func (s *Server) codexConversationDefault() string {
+	best, bestVersion := "", []int(nil)
+	for _, m := range s.cachedProviderCatalog(providerCodex) {
+		if version, ok := codexSolVersion(m.ID); ok && versionAfter(version, bestVersion) {
+			best, bestVersion = m.ID, version
+		}
+	}
+	if best == "" {
+		return codexConversationFallback
+	}
+	return best
+}
+
+// codexSolVersion parses "codex-gpt-<major>[.<minor>...]-sol".
+func codexSolVersion(id string) ([]int, bool) {
+	rest, ok := strings.CutPrefix(id, "codex-gpt-")
+	if !ok {
+		return nil, false
+	}
+	number, ok := strings.CutSuffix(rest, "-sol")
+	if !ok || number == "" {
+		return nil, false
+	}
+	var out []int
+	for _, part := range strings.Split(number, ".") {
+		n, err := strconv.Atoi(part)
+		if err != nil || n < 0 {
+			return nil, false
+		}
+		out = append(out, n)
+	}
+	return out, true
+}
+
+func versionAfter(a, b []int) bool {
+	if b == nil {
+		return true
+	}
+	for i := 0; i < len(a) || i < len(b); i++ {
+		var x, y int
+		if i < len(a) {
+			x = a[i]
+		}
+		if i < len(b) {
+			y = b[i]
+		}
+		if x != y {
+			return x > y
+		}
+	}
+	return false
 }
 
 func (s *Server) modelProviderUsable(model string) bool {

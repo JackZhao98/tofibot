@@ -209,11 +209,19 @@ func TestCodexOnlyWorkspaceFallsBackToCodexModel(t *testing.T) {
 	if err := s.codex.SaveAccessOnlyCredential("synthetic-access", "", 4102444800000); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := s.modelDefaults(); got != codexDefaultModel {
+	if got, _ := s.modelDefaults(); got != codexConversationFallback {
 		t.Fatalf("Sonnet default is unusable without an Anthropic key; got %s", got)
 	}
 	if got := s.backgroundModel(backgroundTriage); got != codexDefaultModel {
 		t.Fatalf("background=%s", got)
+	}
+	// With a live catalog the newest Sol wins; background work stays on the small model.
+	s.rememberProviderCatalog(providerCodex, []ModelOption{{ID: "codex-gpt-5.6-sol"}, {ID: "codex-gpt-6.1-sol"}, {ID: "codex-gpt-6-sol"}, {ID: "codex-gpt-6.2-luna"}, {ID: "codex-gpt-6-astra"}})
+	if got, _ := s.modelDefaults(); got != "codex-gpt-6.1-sol" {
+		t.Fatalf("conversation default with catalog = %s", got)
+	}
+	if got := s.backgroundModel(backgroundTriage); got != codexDefaultModel {
+		t.Fatalf("background with catalog = %s", got)
 	}
 }
 
