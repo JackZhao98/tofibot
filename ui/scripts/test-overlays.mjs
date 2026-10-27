@@ -178,7 +178,8 @@ await check("reduced motion: menus open and close at once", async () => {
   for (const [trigger, menu] of [[".create-menu-anchor > button", ".create-menu"], [".header-more > button", ".more-menu"]]) {
     await page.locator(trigger).click();
     await page.locator(menu).waitFor();
-    await sleep(40);
+    // "At once" means by the next painted frame; a fixed sleep can end before a slow runner paints one.
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const seen = await page.evaluate(selector => { const el = document.querySelector(selector); const cs = getComputedStyle(el); return { opacity: cs.opacity, animation: `${cs.animationName} ${cs.animationDuration}`, running: el.getAnimations().map(a => `${a.animationName ?? a.constructor.name}:${a.playState}@${a.currentTime}`) }; }, menu);
     assert.equal(seen.opacity, "1", `${menu} is fully there at once (${JSON.stringify(seen)})`);
     const t0 = Date.now();
