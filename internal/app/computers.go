@@ -837,7 +837,9 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 		writeJSON(w, http.StatusOK, struct {
 			computer.Info
 			Health *ComputerHealth `json:"health,omitempty"`
-		}{info, s.computerWatchdog.view()})
+			// DesktopStarting is true while a desktop.start is in flight on a running computer.
+			DesktopStarting bool `json:"desktop_starting,omitempty"`
+		}{info, s.computerWatchdog.view(), s.desktopStarting.Load() > 0})
 		return true
 	}
 	if len(parts) == 2 && parts[0] == microVMComputerID && parts[1] == "wake" && r.Method == http.MethodPost {

@@ -280,6 +280,11 @@ func (s *Server) microVMActionFromSource(ctx context.Context, r Run, name string
 			botName = bot.Name
 		}
 	}
+	if name == "desktop.start" {
+		// The window shows "Starting the desktop" while any caller (a run, the person's window, a Chrome restart) is inside this call.
+		s.desktopStarting.Add(1)
+		defer s.desktopStarting.Add(-1)
+	}
 	action := computer.Action{BotID: r.BotID, BotName: botName, RunID: r.ID, Name: name, Args: args, Source: source}
 	if identity, ok := tooloutcome.ExecutionIdentity(ctx); ok && name == "files.write" && identity.GuardVersion == 1 {
 		action.WriteIdentity = &identity

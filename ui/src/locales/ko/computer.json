@@ -94,6 +94,8 @@
       "connecting": "화면에 연결하는 중",
       "resuming": "최대 절전 모드에서 복귀하는 중",
       "resuming_phase": "깨우는 중 · {{phase}}",
+      "waking_computer": "컴퓨터를 깨우는 중…",
+      "starting_desktop": "데스크톱을 시작하는 중…",
       "hibernated": "절전 중 · 깨우는 중…",
       "hibernating": "최대 절전 모드로 들어가는 중…",
       "no_desktop": "Bot이 데스크톱 없이 브라우저로 작업하고 있습니다",

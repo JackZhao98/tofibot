@@ -95,6 +95,8 @@
       "connecting": "Verbindung zum Bildschirm wird hergestellt",
       "resuming": "Wird aus dem Ruhezustand geholt",
       "resuming_phase": "Wird geweckt · {{phase}}",
+      "waking_computer": "Computer wird geweckt …",
+      "starting_desktop": "Desktop wird gestartet …",
       "hibernated": "Im Ruhezustand · wird geweckt…",
       "hibernating": "Wechselt in den Ruhezustand…",
       "no_desktop": "Der Bot arbeitet im Browser, ohne Desktop",

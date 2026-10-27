@@ -147,7 +147,7 @@ export type AppOptions = {
   indicators?: boolean;
   /** A pending approval card in Mochi's chat. */
   approval?: boolean;
-  computer?: "ready" | "starting";
+  computer?: "ready" | "starting" | "hibernated" | "resuming" | "desktop-starting";
   /** The group has two tasks: Miso's release note (claimed, 2/3) and Nori's venue (assigned). The cards and the member list show them. */
   tasks?: boolean;
   /** The server reports a newer release (the admin banner). */
@@ -213,7 +213,7 @@ export function workspace(options: AppOptions): Synthetic {
     }
     if (p === "/api/questions") return json({ questions: questions(url.searchParams.get("conversation_id") ?? "") });
     if (p === "/api/mail-drafts") return json({ drafts: [] });
-    if (p === "/api/computers/firecracker/info") return json({ kind: "firecracker", state: options.computer === "starting" ? "starting" : "ready", phase: options.computer === "starting" ? "booting" : undefined });
+    if (p === "/api/computers/firecracker/info") return json({ kind: "firecracker", state: options.computer === "starting" || options.computer === "hibernated" || options.computer === "resuming" ? options.computer : "ready", phase: options.computer === "starting" ? "booting" : undefined, desktop_starting: options.computer === "desktop-starting" || undefined });
     if (p === "/api/computers/firecracker/actions") return json({ ok: true, result: { image_url: SCREEN } });
     if (p === "/api/computer/desktop-ownership") return json({ owner: null, waiting: [] });
     if (p === "/api/system/update") return json({ current: "v0.1.4", latest: options.update ? "v0.1.5" : "v0.1.4", update_available: Boolean(options.update), notes_url: "", checked_at: at(0), auto_update: "off" });

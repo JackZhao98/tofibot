@@ -94,6 +94,8 @@
       "connecting": "正在連接螢幕",
       "resuming": "正在從休眠中恢復",
       "resuming_phase": "正在喚醒 · {{phase}}",
+      "waking_computer": "正在喚醒電腦…",
+      "starting_desktop": "正在啟動桌面…",
       "hibernated": "休眠中 · 正在喚醒…",
       "hibernating": "正在進入休眠…",
       "no_desktop": "Bot 正在用瀏覽器工作，沒有使用桌面",

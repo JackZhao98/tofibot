@@ -96,6 +96,8 @@
       "connecting": "Connexion à l'écran",
       "resuming": "Reprise depuis l'hibernation",
       "resuming_phase": "Réveil · {{phase}}",
+      "waking_computer": "Réveil de l’ordinateur…",
+      "starting_desktop": "Démarrage du bureau…",
       "hibernated": "En veille · réveil en cours…",
       "hibernating": "Passage en hibernation…",
       "no_desktop": "Le Bot travaille dans le navigateur, sans bureau",

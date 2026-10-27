@@ -95,6 +95,8 @@
       "connecting": "Connecting to the screen",
       "resuming": "Resuming from hibernation",
       "resuming_phase": "Waking · {{phase}}",
+      "waking_computer": "Waking the computer…",
+      "starting_desktop": "Starting the desktop…",
       "hibernated": "Asleep · waking up…",
       "hibernating": "Going to sleep…",
       "no_desktop": "The Bot is working in the browser without a desktop",
