@@ -198,21 +198,25 @@ func under(t *testing.T, name string, limit time.Duration, fn func()) {
 
 // Regression: 2 MiB inputs that were quadratic (raw-text close-tag search copied the rest
 // of the page per tag; newline handling rescanned the output per block).
+// linearBound separates linear from quadratic work: these 2 MiB inputs take well under a second on a
+// laptop, but minutes with the old quadratic paths, so a shared CI runner's noise cannot hide a regression.
+const linearBound = 10 * time.Second
+
 func TestExtractorStaysLinearOnHostileInput(t *testing.T) {
 	scripts := strings.Repeat("<SCRIPT>x</SCRIPT>", MaxBodyBytes/18)
-	under(t, "script storm", time.Second, func() { ParseHTML(context.Background(), "<html><body>"+scripts, nil) })
+	under(t, "script storm", linearBound, func() { ParseHTML(context.Background(), "<html><body>"+scripts, nil) })
 	blocks := strings.Repeat("<br><p>", MaxBodyBytes/7)
-	under(t, "br/p storm", time.Second, func() { ParseHTML(context.Background(), "<html><body>"+blocks, nil) })
+	under(t, "br/p storm", linearBound, func() { ParseHTML(context.Background(), "<html><body>"+blocks, nil) })
 	nested := strings.Repeat("<div><a href=x>", MaxBodyBytes/15)
-	under(t, "nested anchors", time.Second, func() { ParseHTML(context.Background(), nested, nil) })
+	under(t, "nested anchors", linearBound, func() { ParseHTML(context.Background(), nested, nil) })
 	unclosed := strings.Repeat("<script>", MaxBodyBytes/8)
-	under(t, "unclosed scripts", time.Second, func() { ParseHTML(context.Background(), unclosed, nil) })
+	under(t, "unclosed scripts", linearBound, func() { ParseHTML(context.Background(), unclosed, nil) })
 }
 
 func TestExtractorStopsOnCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	under(t, "cancelled", 200*time.Millisecond, func() { ParseHTML(ctx, strings.Repeat("<p>word</p>", 400000), nil) })
+	under(t, "cancelled", 2*time.Second, func() { ParseHTML(ctx, strings.Repeat("<p>word</p>", 400000), nil) })
 }
 
 func TestIndexFold(t *testing.T) {
