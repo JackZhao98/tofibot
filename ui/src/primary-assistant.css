@@ -4,4 +4,3 @@
 .primary-successor{display:grid;gap:7px;margin:16px 0 4px}
 .primary-successor label{color:var(--ink-soft);font:var(--type-meta)}
 .primary-successor select{width:100%;min-height:40px}
-.bot-v2-primary{display:flex;align-items:center;gap:10px;flex-wrap:wrap}

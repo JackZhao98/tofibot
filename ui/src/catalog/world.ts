@@ -10,7 +10,7 @@ const T0 = Math.floor(Date.now() / 60_000) * 60_000 - 45 * 60_000;
 export const at = (minutes: number) => new Date(T0 + minutes * 60_000).toISOString();
 
 export const BOTS: Bot[] = [
-  { id: "bot_mochi", name: "Mochi", instructions: "Synthetic", model: "default", dm_conversation_id: "dm_mochi", created_at: at(-9000), is_primary: true },
+  { id: "bot_mochi", name: "Mochi", instructions: "Synthetic", model: "default", dm_conversation_id: "dm_mochi", created_at: at(-9000), is_primary: true, effective_model: "synthetic-model", effective_reasoning_effort: "medium" },
   { id: "bot_miso", name: "Miso", instructions: "Synthetic", model: "default", dm_conversation_id: "dm_miso", created_at: at(-8000) },
   { id: "bot_nori", name: "Nori", instructions: "Synthetic", model: "default", dm_conversation_id: "dm_nori", created_at: at(-7000) },
   { id: "bot_ledger", name: "Ledger", instructions: "Synthetic", model: "default", dm_conversation_id: "dm_ledger", created_at: at(-6000), archived: true },
@@ -233,6 +233,10 @@ export function workspace(options: AppOptions): Synthetic {
       return json({ items: items.slice(0, Number(url.searchParams.get("limit") || 50)), next_cursor: "" });
     }
     if (p.startsWith("/api/attachments/")) return new Response("# Week 42 summary\n\nSign-ups are up **8%** on last week.\n\n- Review at 15:00\n- Retention is flat\n", { status: 200, headers: { "Content-Type": "text/markdown" } });
+    if (p === "/api/model-settings") return json({ model: "synthetic-model", reasoning_effort: "medium" });
+    const botRead = /^\/api\/bots\/[^/]+\/(skills|secrets|debug-preview)$/.exec(p);
+    if (botRead) return json(botRead[1] === "skills" ? BOT_SKILLS : botRead[1] === "secrets" ? BOT_SECRETS : { system_prompt: "You are Mochi.\nYou keep the launch calendar and chase owners for updates.", tools: [] });
+    if (p.endsWith("/task-impact")) return json({ given_tasks: 0, held_tasks: 0, open_waits: 0 });
     if (p === "/api/computers/firecracker/info") return json({ kind: "firecracker", state: options.computer === "starting" || options.computer === "hibernated" || options.computer === "resuming" ? options.computer : "ready", phase: options.computer === "starting" ? "booting" : undefined, desktop_starting: options.computer === "desktop-starting" || undefined });
     if (p === "/api/computers/firecracker/actions") return json({ ok: true, result: String(init?.body ?? "").includes("desktop.control.acquire") ? { control_id: "ctl_catalog" } : { image_url: SCREEN } });
     if (p === "/api/computer/desktop-ownership") return json({ owner: options.driver === "bot" ? { kind: "bot", bot_id: "bot_mochi", run_id: "run_driver", conversation_id: "dm_mochi" } : null, waiting: [] });
@@ -240,6 +244,14 @@ export function workspace(options: AppOptions): Synthetic {
     return json({});
   };
 }
+
+/** What Bot settings reads for the Skills and Secrets sections. */
+const BOT_SKILLS = { skills: [
+  { name: "web-research", description: "Search the web and read pages", builtin: true, enabled: true },
+  { name: "calendar-notes", description: "Keep a running calendar of launches", enabled: true, set_by: "owner", set_at: at(-60) },
+  { name: "release-notes", description: "Draft release notes from merged work", enabled: false },
+], bundles: [] };
+const BOT_SECRETS = { secrets: [{ name: "LAUNCH_API_TOKEN", created_at: at(-3000) }, { name: "STATUS_PAGE_KEY", created_at: at(-2000), last_used_at: at(-30) }] };
 
 /** Files the Bot produced in the direct chat (GET /api/artifacts, conversation scope): the Artifacts widget. */
 const ARTIFACTS = [

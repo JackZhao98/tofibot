@@ -123,7 +123,7 @@ export function ModalDialog(props: ModalDialogProps) {
 export function ConfirmDialog(props: Omit<ModalDialogProps, "closeOnOutside" | "overlayClassName"> & { overlayClassName: string }) {
   const { onOpenChange, content } = useModalBehaviour({ ...props, closeOnOutside: false });
   return <AlertDialog.Root open onOpenChange={onOpenChange}>
-    <AlertDialog.Portal container={layerRoot()}>
+    <AlertDialog.Portal container={props.container ?? layerRoot()}>
       <Scrim className={props.overlayClassName} data={props.overlayProps}><AlertDialog.Content asChild {...content}>{props.children}</AlertDialog.Content></Scrim>
     </AlertDialog.Portal>
   </AlertDialog.Root>;

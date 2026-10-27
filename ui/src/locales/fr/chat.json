@@ -72,6 +72,39 @@
     "artifacts": "Artefacts",
     "artifacts_hint": "Fichiers et images produits par ce Bot"
   },
+  "botSettings": {
+    "nav": "Sections des réglages du Bot",
+    "back": "Toutes les sections",
+    "avatar_title": "Avatar",
+    "avatar_hint": "Voyez à quoi ressemble ce chat dans la liste et dans le chat.",
+    "name_required": "Un nom est requis.",
+    "primary_title": "Assistant principal",
+    "primary_off": "S’occupe de vos tâches courantes. Un seul Bot à la fois tient ce rôle.",
+    "archived_title": "Archivé",
+    "archived_body": "Masqué de votre liste. Ses discussions et sa mémoire sont conservées.",
+    "model_pinned": "Fixé sur {{model}}",
+    "share_hint": "Rôle, modèle et noms des Skills dans un seul fichier. Sans discussions, mémoire ni secrets.",
+    "data_hint": "Discussions, mémoire et fichiers. Ouvre Réglages › Avancé.",
+    "export_action": "Exporter",
+    "delete_hint": "Supprime ce Bot et sa discussion. Cette action est irréversible.",
+    "section": {
+      "identity": "Identité",
+      "role": "Rôle",
+      "model": "Modèle",
+      "skills": "Skills",
+      "secrets": "Secrets",
+      "advanced": "Avancé"
+    },
+    "desc": {
+      "identity": "Avatar, nom et assistant principal.",
+      "role": "De quoi ce Bot est responsable. Il le lit avant chaque réponse.",
+      "model": "Sur quel modèle ce Bot tourne et à quel point il réfléchit.",
+      "advanced": "Prompt système, export et suppression."
+    },
+    "role_count_many": "{{count}} caractères",
+    "role_count_one": "{{count}} caractère",
+    "role_count_other": "{{count}} caractères"
+  },
   "codex": {
     "connect": "Connecter Codex",
     "connected": "Codex connecté",
@@ -176,7 +209,15 @@
     }
   },
   "cover": {
-    "close": "Fermer {{title}}"
+    "close": "Fermer {{title}}",
+    "discard": "Annuler",
+    "keep_editing": "Continuer à modifier",
+    "leave_body": "Certaines modifications ne sont pas enregistrées. Si vous fermez maintenant, elles seront perdues.",
+    "leave_discard": "Abandonner les modifications",
+    "leave_title": "Abandonner les modifications non enregistrées ?",
+    "save": "Enregistrer",
+    "saved": "Enregistré",
+    "unsaved": "Modifications non enregistrées"
   },
   "create": {
     "create_bot": "Créer un Bot",
@@ -252,6 +293,11 @@
   "groupCreate": {
     "close": "Fermer le nouveau groupe",
     "create": "Créer le groupe"
+  },
+  "groupSettings": {
+    "memory_title": "Mémoire du groupe",
+    "memory_hint": "Notes que chaque membre de ce groupe peut lire.",
+    "delete_hint": "Supprime le groupe et sa discussion. Cette action est irréversible."
   },
   "header": {
     "back_to_chat": "Retour à la conversation",
@@ -364,6 +410,9 @@
     "impact_waits_many": "Retirer {{name}} met fin à {{count}} attentes qu'il tient.",
     "impact_waits_other": "Retirer {{name}} met fin à {{count}} attentes qu'il tient.",
     "tasks_of": "Tâches ouvertes de {{name}}"
+  },
+  "membersWidget": {
+    "idle": "Aucune tâche en cours"
   },
   "message": {
     "attachment": "Pièce jointe",

@@ -72,6 +72,37 @@
     "artifacts": "산출물",
     "artifacts_hint": "이 Bot이 만든 파일과 이미지"
   },
+  "botSettings": {
+    "nav": "Bot 설정 섹션",
+    "back": "모든 섹션",
+    "avatar_title": "아바타",
+    "avatar_hint": "이 고양이가 목록과 채팅에서 보이는 모습입니다.",
+    "name_required": "이름을 입력하세요.",
+    "primary_title": "기본 어시스턴트",
+    "primary_off": "일상적인 일을 맡습니다. 이 역할은 한 번에 하나의 Bot만 가질 수 있습니다.",
+    "archived_title": "보관됨",
+    "archived_body": "목록에서 숨겨져 있습니다. 채팅과 메모리는 그대로 남아 있습니다.",
+    "model_pinned": "{{model}}로 고정",
+    "share_hint": "역할, 모델, Skill 이름을 파일 하나에 담습니다. 채팅, 메모리, 시크릿은 포함되지 않습니다.",
+    "data_hint": "채팅, 메모리, 파일. 설정 › 고급이 열립니다.",
+    "export_action": "내보내기",
+    "delete_hint": "이 Bot과 채팅을 삭제합니다. 되돌릴 수 없습니다.",
+    "section": {
+      "identity": "정체성",
+      "role": "역할",
+      "model": "모델",
+      "skills": "Skills",
+      "secrets": "시크릿",
+      "advanced": "고급"
+    },
+    "desc": {
+      "identity": "아바타, 이름, 기본 어시스턴트.",
+      "role": "이 Bot이 맡는 일. 답장하기 전에 매번 읽습니다.",
+      "model": "이 Bot이 쓰는 모델과 추론 깊이.",
+      "advanced": "시스템 프롬프트, 내보내기, 삭제."
+    },
+    "role_count_other": "{{count}}자"
+  },
   "codex": {
     "connect": "Codex 연결",
     "connected": "Codex 연결됨",
@@ -176,7 +207,15 @@
     }
   },
   "cover": {
-    "close": "{{title}} 닫기"
+    "close": "{{title}} 닫기",
+    "discard": "되돌리기",
+    "keep_editing": "계속 편집",
+    "leave_body": "저장하지 않은 수정 내용이 있습니다. 지금 닫으면 사라집니다.",
+    "leave_discard": "변경 사항 버리기",
+    "leave_title": "저장하지 않은 변경 사항을 버릴까요?",
+    "save": "저장",
+    "saved": "저장됨",
+    "unsaved": "저장되지 않은 변경 사항"
   },
   "create": {
     "create_bot": "Bot 만들기",
@@ -246,6 +285,11 @@
   "groupCreate": {
     "close": "새 그룹 닫기",
     "create": "그룹 만들기"
+  },
+  "groupSettings": {
+    "memory_title": "그룹 메모리",
+    "memory_hint": "이 그룹의 모든 멤버가 읽을 수 있는 메모입니다.",
+    "delete_hint": "그룹과 채팅을 삭제합니다. 되돌릴 수 없습니다."
   },
   "header": {
     "back_to_chat": "대화로 돌아가기",
@@ -344,6 +388,9 @@
     "impact_held_other": "{{name}}을(를) 제외하면 맡고 있는 진행 중인 작업 {{count}}개가 종료됩니다.",
     "impact_waits_other": "{{name}}을(를) 제외하면 대기 {{count}}건이 종료됩니다.",
     "tasks_of": "{{name}}의 진행 중 작업"
+  },
+  "membersWidget": {
+    "idle": "진행 중인 작업 없음"
   },
   "message": {
     "attachment": "첨부 파일",

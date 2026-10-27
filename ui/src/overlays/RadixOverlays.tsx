@@ -128,7 +128,7 @@ export function Menu({ open, onOpenChange, className, id, label, trigger, anchor
   </DropdownMenu.Root>;
 }
 
-export function Popover({ open, onOpenChange, className, anchor, takeFocus = true, closeOnScroll = false, side = "bottom", align = "start", sideOffset = 0, alignOffset = 0, children, ...rest }: OverlayPopoverProps) {
+export function Popover({ open, onOpenChange, className, anchor, container, takeFocus = true, closeOnScroll = false, side = "bottom", align = "start", sideOffset = 0, alignOffset = 0, children, ...rest }: OverlayPopoverProps) {
   const opener = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null);
   const outside = useRef(false);
   const content = useRef<HTMLDivElement>(null);
@@ -146,7 +146,7 @@ export function Popover({ open, onOpenChange, className, anchor, takeFocus = tru
   }, [open, closeOnScroll]);
   return <RadixPopover.Root open={open} onOpenChange={onOpenChange}>
     <RadixPopover.Anchor virtualRef={anchor} />
-    <RadixPopover.Portal container={layerRoot()}>
+    <RadixPopover.Portal container={container ?? layerRoot()}>
       <RadixPopover.Content ref={content} className={className} side={side} align={align} sideOffset={sideOffset} alignOffset={alignOffset} collisionPadding={POPOVER_PADDING} data-layer={layerOf(opener.current)} {...rest}
         onOpenAutoFocus={event => { if (!takeFocus) event.preventDefault(); }}
         onCloseAutoFocus={event => { event.preventDefault(); restoreFocus(opener.current, outside.current); }}

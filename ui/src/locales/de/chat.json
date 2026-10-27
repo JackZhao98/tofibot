@@ -72,6 +72,38 @@
     "artifacts": "Artefakte",
     "artifacts_hint": "Dateien und Bilder, die dieser Bot erzeugt hat"
   },
+  "botSettings": {
+    "nav": "Bereiche der Bot-Einstellungen",
+    "back": "Alle Bereiche",
+    "avatar_title": "Avatar",
+    "avatar_hint": "So sieht diese Katze in der Liste und im Chat aus.",
+    "name_required": "Ein Name ist erforderlich.",
+    "primary_title": "Hauptassistent",
+    "primary_off": "Übernimmt deine allgemeinen Aufgaben. Diese Rolle hat immer nur ein Bot.",
+    "archived_title": "Archiviert",
+    "archived_body": "In deiner Liste ausgeblendet. Chats und Erinnerungen bleiben erhalten.",
+    "model_pinned": "Festgelegt auf {{model}}",
+    "share_hint": "Rolle, Modell und Skill-Namen in einer Datei. Ohne Chats, Erinnerungen und Geheimnisse.",
+    "data_hint": "Chats, Erinnerungen und Dateien. Öffnet Einstellungen › Erweitert.",
+    "export_action": "Exportieren",
+    "delete_hint": "Entfernt diesen Bot und seinen Chat. Das lässt sich nicht rückgängig machen.",
+    "section": {
+      "identity": "Identität",
+      "role": "Rolle",
+      "model": "Modell",
+      "skills": "Skills",
+      "secrets": "Geheimnisse",
+      "advanced": "Erweitert"
+    },
+    "desc": {
+      "identity": "Avatar, Name und Hauptassistent.",
+      "role": "Wofür dieser Bot zuständig ist. Er liest das vor jeder Antwort.",
+      "model": "Auf welchem Modell dieser Bot läuft und wie tief er nachdenkt.",
+      "advanced": "Systemprompt, Export und Löschen."
+    },
+    "role_count_one": "{{count}} Zeichen",
+    "role_count_other": "{{count}} Zeichen"
+  },
   "codex": {
     "connect": "Codex verbinden",
     "connected": "Codex verbunden",
@@ -176,7 +208,15 @@
     }
   },
   "cover": {
-    "close": "{{title}} schließen"
+    "close": "{{title}} schließen",
+    "discard": "Verwerfen",
+    "keep_editing": "Weiter bearbeiten",
+    "leave_body": "Du hast Änderungen, die noch nicht gespeichert sind. Wenn du jetzt schließt, gehen sie verloren.",
+    "leave_discard": "Änderungen verwerfen",
+    "leave_title": "Nicht gespeicherte Änderungen verwerfen?",
+    "save": "Speichern",
+    "saved": "Gespeichert",
+    "unsaved": "Nicht gespeicherte Änderungen"
   },
   "create": {
     "create_bot": "Bot erstellen",
@@ -249,6 +289,11 @@
   "groupCreate": {
     "close": "Neue Gruppe schließen",
     "create": "Gruppe erstellen"
+  },
+  "groupSettings": {
+    "memory_title": "Gruppenerinnerungen",
+    "memory_hint": "Notizen, die alle Mitglieder dieser Gruppe lesen können.",
+    "delete_hint": "Entfernt die Gruppe und ihren Chat. Das lässt sich nicht rückgängig machen."
   },
   "header": {
     "back_to_chat": "Zurück zur Unterhaltung",
@@ -354,6 +399,9 @@
     "impact_waits_one": "Wird {{name}} entfernt, endet {{count}} Wartebedingung von ihm.",
     "impact_waits_other": "Wird {{name}} entfernt, enden {{count}} Wartebedingungen von ihm.",
     "tasks_of": "Offene Aufgaben von {{name}}"
+  },
+  "membersWidget": {
+    "idle": "Keine offenen Aufgaben"
   },
   "message": {
     "attachment": "Anhang",

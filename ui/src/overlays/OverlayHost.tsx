@@ -26,6 +26,8 @@ export type OverlayPopoverProps = Placement & Omit<HTMLAttributes<HTMLElement>, 
   onOpenChange: (open: boolean) => void;
   className: string;
   anchor: RefObject<Measurable | null>;
+  /** Where the surface is portaled (default: the layer root). Inside a cover, which Radix hides the layer root from, pass the cover's own container. */
+  container?: HTMLElement | null;
   /** Move focus into the surface on open (the first control). Hover cards leave focus where it is. */
   takeFocus?: boolean;
   /** Close when anything outside the surface scrolls or the window resizes. */

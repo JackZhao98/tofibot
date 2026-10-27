@@ -1,6 +1,9 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { api } from "./api";
-import { ArchivePanel, ArtifactsPanel, ArtifactsWidget, BotPanel, MemoryPanel, MembersPanel, ViewOnlyChat, WorkPanel } from "./lazyPanels";
+import { ArchivePanel, ArtifactsPanel, ArtifactsWidget, chunk, MemoryPanel, ViewOnlyChat, WorkPanel } from "./lazyPanels";
+import { GroupSettingsPanel } from "./GroupSettingsPanel";
+import { MembersWidget } from "./MembersWidget";
+import { NewGroupDialog } from "./NewGroupDialog";
 import { DelayedFeedback } from "./DelayedFeedback";
 import { CATS, EmptyState } from "./EmptyCat";
 import { useTranslation } from "./i18n";
@@ -10,6 +13,10 @@ import type { Bot, Conversation, Memory } from "./types";
 import type { TaskCardModel } from "./taskCards";
 import type { ViewOnlyChatTarget } from "./ViewOnlyChat";
 
+// Bot settings is the heavy cover (model list, Skills, Secrets, the avatar picker): its own chunk, declared here so the entry carries only the
+// loader line. Group settings, the New group dialog and the Members widget are small and ride with this module (the entry budget has no room
+// for a loader each).
+const BotSettingsPanel = chunk("botSettings", module => module.BotSettingsPanel);
 const TerminalPanel = lazy(() => import("./TerminalPanel").then(module => ({ default: module.TerminalPanel })));
 
 /**
@@ -62,7 +69,7 @@ export function SidebarView({ id, ctx }: { id: SidebarId; ctx: SurfaceCtx }) {
 /** One widget's content (inside its card). */
 export function WidgetView({ id, ctx }: { id: Exclude<WidgetId, "computer">; ctx: SurfaceCtx }) {
   const { active } = ctx;
-  if (id === "members") return active?.kind === "group" ? <Suspense fallback={null}><MembersPanel tasksByBot={ctx.roster} refreshToken={ctx.refreshToken} onOpenWork={() => ctx.setPanel("schedule")} conversation={active} bots={ctx.bots} onClose={() => ctx.surf(current => closeWidget(current, "members"))} onOpen={ctx.openConversation} onSaved={ctx.updateGroup} onReload={ctx.reloadGroup} /></Suspense> : null;
+  if (id === "members") return active?.kind === "group" ? <MembersWidget conversation={active} bots={ctx.bots} tasksByBot={ctx.roster} onOpen={ctx.openConversation} onSettings={() => ctx.surf(current => openCover(current, "group-settings"))} /> : null;
   return active ? <Suspense fallback={null}><ArtifactsWidget conversationId={active.id} refreshToken={ctx.lastMessageId} onAll={() => { ctx.setArtifactsMode("artifacts-group"); ctx.surf(current => openCover(current, "artifacts")); }} /></Suspense> : null;
 }
 
@@ -71,9 +78,13 @@ export function CoverView({ id, ctx }: { id: CoverId; ctx: SurfaceCtx }) {
   const { t } = useTranslation("chat");
   const { active, activeBot } = ctx;
   const close = () => ctx.surf(closeCover);
-  if (id === "bot-settings") return <Suspense fallback={null}><BotPanel chromeless key={activeBot?.id ?? "edit-empty"} onExportData={ctx.openSettingsAdvanced} refreshToken={ctx.refreshToken} memories={ctx.memories} onOpenWork={() => ctx.setPanel("schedule")} onOpenMemory={() => ctx.setPanel("memory")} onOpenArtifacts={() => { ctx.setArtifactsMode("artifacts-bot"); ctx.setPanel("artifacts-bot"); }} bots={ctx.bots} activeBot={activeBot} onClose={close} onUpdate={ctx.updateBot} onCreateGroup={ctx.createGroup} onMakePrimary={ctx.makePrimary} /></Suspense>;
-  if (id === "new-group") return <Suspense fallback={null}><BotPanel chromeless key="new-group" bots={ctx.bots.filter(bot => !bot.archived)} onClose={close} onUpdate={ctx.updateBot} onCreateGroup={ctx.createGroup} /></Suspense>;
-  if (id === "group-settings") return active?.kind === "group" ? <Suspense fallback={null}><MembersPanel tasksByBot={ctx.roster} refreshToken={ctx.refreshToken} onOpenWork={() => ctx.setPanel("schedule")} conversation={active} bots={ctx.bots} onClose={close} onOpen={ctx.openConversation} onSaved={ctx.updateGroup} onReload={ctx.reloadGroup} /></Suspense> : null;
+  if (id === "bot-settings") {
+    if (!activeBot) return null;
+    const dm = ctx.conversations.find(item => item.id === activeBot.dm_conversation_id) ?? active;
+    return <Suspense fallback={null}><BotSettingsPanel key={activeBot.id} bot={activeBot} refreshToken={ctx.refreshToken} onUpdate={ctx.updateBot} onMakePrimary={ctx.makePrimary} onExportData={ctx.openSettingsAdvanced} onDelete={() => { if (dm) ctx.confirmDelete(dm); }} /></Suspense>;
+  }
+  if (id === "new-group") return <NewGroupDialog bots={ctx.bots.filter(bot => !bot.archived)} onCreate={ctx.createGroup} />;
+  if (id === "group-settings") return active?.kind === "group" ? <GroupSettingsPanel key={active.id} conversation={active} bots={ctx.bots} onSaved={ctx.updateGroup} onReload={ctx.reloadGroup} onOpenMemory={() => ctx.setPanel("memory")} onDelete={() => ctx.confirmDelete(active)} /> : null;
   if (id === "artifacts") {
     const scopes = active ? [
       { mode: "artifacts-group" as const, label: t(active.kind === "group" ? "header.artifacts_scope_group" : "header.artifacts_scope_chat") },

@@ -1,8 +1,4 @@
 @property --paint-r { syntax:"<length>"; inherits:false; initial-value:0px; }
-html:not([data-desktop])::view-transition-group(web-bot-cat) { animation-duration:var(--m-flight); animation-timing-function:var(--ease-spring); }
-html:not([data-desktop])::view-transition-old(web-bot-cat),html:not([data-desktop])::view-transition-new(web-bot-cat) { animation-duration:var(--m-flight); height:100%; object-fit:contain; }
-html:not([data-desktop]) .workspace .workspace-grid.bot-panel-ready:not(.bot-panel-open) .chat-identity .member-avatar-stack > .avatar:first-child { view-transition-name:web-bot-cat; }
-html:not([data-desktop]) .workspace .workspace-grid.bot-panel-open .bot-v2-hero .bot-v2-cat > .avatar { view-transition-name:web-bot-cat; }
-html:not([data-desktop]) .workspace .bot-avatar-stage { position:relative; overflow:hidden; }
-html:not([data-desktop]) .workspace .bot-avatar-stage .web-avatar-paint { position:absolute; z-index:2; pointer-events:none; -webkit-mask:radial-gradient(circle at var(--x) var(--y),transparent var(--paint-r),black calc(var(--paint-r) + 1.5px)); mask:radial-gradient(circle at var(--x) var(--y),transparent var(--paint-r),black calc(var(--paint-r) + 1.5px)); }
-html:not([data-desktop]) .workspace .bot-avatar-stage .web-avatar-paint > .avatar,html:not([data-desktop]) .workspace .bot-avatar-stage .web-avatar-paint > .avatar > .tofi-avatar { display:block; width:100%; height:100%; }
+html:not([data-desktop]) .bot-style-pop .bot-avatar-stage { position:relative; overflow:hidden; }
+html:not([data-desktop]) .bot-style-pop .bot-avatar-stage .web-avatar-paint { position:absolute; z-index:2; pointer-events:none; -webkit-mask:radial-gradient(circle at var(--x) var(--y),transparent var(--paint-r),black calc(var(--paint-r) + 1.5px)); mask:radial-gradient(circle at var(--x) var(--y),transparent var(--paint-r),black calc(var(--paint-r) + 1.5px)); }
+html:not([data-desktop]) .bot-style-pop .bot-avatar-stage .web-avatar-paint > .avatar,html:not([data-desktop]) .bot-style-pop .bot-avatar-stage .web-avatar-paint > .avatar > .tofi-avatar { display:block; width:100%; height:100%; }

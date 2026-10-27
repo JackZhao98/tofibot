@@ -1,0 +1,48 @@
+/* Group settings cover (GroupSettingsPanel.tsx) and the member picker NewGroupDialog shares with it. Loads with either chunk.
+   Filled surfaces, no outlined rows, the global arrow cursor. */
+.cover-body:has(> .group-settings) { overflow:hidden; }
+.group-settings { position:relative; display:flex; flex-direction:column; height:100%; min-height:0; background:var(--surface); }
+.gs-scroll { flex:1 1 auto; min-height:0; padding:24px 28px 104px; overflow:hidden auto; overscroll-behavior:contain; }
+.gs-column { display:grid; gap:18px; width:min(640px,100%); margin:0 auto; }
+.gs-field { display:grid; gap:8px; margin:0; }
+.gs-field > span { color:var(--ink-soft); font:600 12px/1.3 var(--body); }
+.cover-window .group-settings .gs-field input, .new-group-dialog .gs-field input { width:100%; margin:0; padding:11px 14px; border:0; border-radius:12px; background:var(--surface-2); color:var(--ink); box-shadow:none; font:14px/1.5 var(--body); }
+.cover-window .group-settings .gs-field input:focus-visible, .new-group-dialog .gs-field input:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:1px; }
+.gs-field input:disabled { opacity:.6; }
+.gs-block { display:grid; gap:10px; min-width:0; }
+.gs-block-head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
+.gs-block-head h3 { margin:0; color:var(--ink-soft); font:600 12px/1.3 var(--body); }
+.gs-count { color:var(--muted); font:11px/1.2 var(--mono); }
+.gs-members { display:grid; gap:6px; max-height:340px; overflow:hidden auto; overscroll-behavior:contain; }
+.gs-member { display:flex; align-items:center; gap:12px; min-height:52px; padding:8px 14px; border-radius:14px; background:var(--surface-2); color:var(--ink); transition:background-color var(--m-press) var(--ease-out); }
+.gs-member:hover:not(:has(input:disabled)) { background:var(--sunk); }
+.gs-member[data-selected] { background:color-mix(in srgb,var(--ink) 9%,var(--surface-2)); }
+.gs-member:has(input:disabled):not([data-selected]) { opacity:.5; }
+.gs-member input { flex:none; width:18px; height:18px; margin:0; accent-color:var(--ink); }
+.gs-member input:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
+.gs-member-avatar { display:grid; flex:none; width:32px; height:32px; }
+.gs-member-avatar .avatar, .gs-member-avatar .tofi-avatar { display:block; width:100%; height:100%; }
+.gs-member-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:500 14px/1.4 var(--body); }
+.gs-member .primary-badge { border:0; background:var(--surface); }
+.gs-hint { margin:0; color:var(--muted); font:12px/1.5 var(--body); }
+.gs-note { padding:10px 14px; border-radius:12px; background:color-mix(in srgb,var(--honey) 16%,var(--surface-2)); color:var(--ink-soft); font:13px/1.5 var(--body); }
+.gs-note p { margin:0; }
+.gs-note p + p { margin-top:4px; }
+.gs-row { display:flex; align-items:center; gap:14px; width:100%; min-height:60px; padding:12px 16px; border:0; border-radius:14px; background:var(--surface-2); color:var(--ink); text-align:left; transition:background-color var(--m-press) var(--ease-out); }
+button.gs-row:hover { background:var(--sunk); }
+button.gs-row:focus-visible, .gs-button:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
+.gs-row > svg { flex:none; color:var(--muted); }
+.gs-row-icon { display:grid; place-items:center; flex:none; width:36px; height:36px; border-radius:11px; background:var(--surface); color:var(--ink-soft); }
+.gs-row-copy { display:grid; flex:1; gap:2px; min-width:0; }
+.gs-row-copy strong { font:600 14px/1.4 var(--body); }
+.gs-row-copy small { color:var(--muted); font:13px/1.5 var(--body); }
+.gs-row.is-danger { background:color-mix(in srgb,var(--danger) 9%,var(--surface-2)); }
+.gs-row.is-danger .gs-row-copy strong { color:var(--danger-text); }
+.gs-button { flex:none; min-height:36px; padding:0 14px; border:0; border-radius:11px; background:var(--surface); color:var(--ink); box-shadow:0 1px 2px rgba(42,32,25,.08), 0 6px 16px -10px rgba(42,32,25,.32); font:600 13px/1 var(--body); transition:background-color var(--m-press) var(--ease-out); }
+:root[data-theme="dark"] .gs-button { box-shadow:0 1px 2px rgba(0,0,0,.45); }
+.gs-button:hover:not(:disabled) { background:color-mix(in srgb,var(--sunk) 55%,var(--surface)); }
+.gs-button.is-danger { color:var(--danger-text); }
+.gs-button.is-danger:hover:not(:disabled) { background:color-mix(in srgb,var(--danger) 14%,var(--surface)); }
+@media (max-width:767px) { .gs-scroll { padding:18px 18px 104px; } }
+@media (prefers-reduced-motion:reduce) { .gs-member, .gs-row, .gs-button { transition:none; } }
+@media (forced-colors:active) { .gs-member[data-selected] { outline:2px solid Highlight; } }

@@ -72,6 +72,37 @@
     "artifacts": "成果物",
     "artifacts_hint": "この Bot が作成したファイルと画像"
   },
+  "botSettings": {
+    "nav": "Bot 設定のセクション",
+    "back": "すべてのセクション",
+    "avatar_title": "アバター",
+    "avatar_hint": "この猫がリストやチャットでどう見えるか。",
+    "name_required": "名前を入力してください。",
+    "primary_title": "メインアシスタント",
+    "primary_off": "日々の雑用を担当します。この役割を持てる Bot は一度に 1 つです。",
+    "archived_title": "アーカイブ済み",
+    "archived_body": "リストには表示されません。チャットとメモリーは残っています。",
+    "model_pinned": "{{model}} に固定",
+    "share_hint": "役割、モデル、Skill 名を 1 つのファイルに。チャット、メモリー、シークレットは含みません。",
+    "data_hint": "チャット、メモリー、ファイル。設定 › 詳細設定が開きます。",
+    "export_action": "書き出す",
+    "delete_hint": "この Bot とそのチャットを削除します。元に戻せません。",
+    "section": {
+      "identity": "アイデンティティ",
+      "role": "役割",
+      "model": "モデル",
+      "skills": "Skills",
+      "secrets": "シークレット",
+      "advanced": "詳細"
+    },
+    "desc": {
+      "identity": "アバター、名前、メインアシスタント。",
+      "role": "この Bot の担当範囲。返信のたびに読み込まれます。",
+      "model": "この Bot が使うモデルと推論の深さ。",
+      "advanced": "システムプロンプト、書き出し、削除。"
+    },
+    "role_count_other": "{{count}} 文字"
+  },
   "codex": {
     "connect": "Codex に接続",
     "connected": "Codex に接続済み",
@@ -176,7 +207,15 @@
     }
   },
   "cover": {
-    "close": "{{title}}を閉じる"
+    "close": "{{title}}を閉じる",
+    "discard": "破棄",
+    "keep_editing": "編集を続ける",
+    "leave_body": "保存していない編集があります。今閉じると失われます。",
+    "leave_discard": "変更を破棄",
+    "leave_title": "未保存の変更を破棄しますか？",
+    "save": "保存",
+    "saved": "保存しました",
+    "unsaved": "未保存の変更があります"
   },
   "create": {
     "create_bot": "Bot を作成",
@@ -246,6 +285,11 @@
   "groupCreate": {
     "close": "新しいグループを閉じる",
     "create": "グループを作成"
+  },
+  "groupSettings": {
+    "memory_title": "グループメモリー",
+    "memory_hint": "このグループの全メンバーが読めるメモ。",
+    "delete_hint": "グループとそのチャットを削除します。元に戻せません。"
   },
   "header": {
     "back_to_chat": "会話に戻る",
@@ -344,6 +388,9 @@
     "impact_held_other": "{{name}}を外すと、担当中の未完了タスク{{count}}件が終了します。",
     "impact_waits_other": "{{name}}を外すと、Botの待機{{count}}件が終了します。",
     "tasks_of": "{{name}} の未完了タスク"
+  },
+  "membersWidget": {
+    "idle": "進行中のタスクなし"
   },
   "message": {
     "attachment": "添付ファイル",
