@@ -10,6 +10,7 @@ import { ServiceMark } from "../../ServiceMark";
 import { ConnectDialog, type DialogRequest } from "../../connections/ConnectDialog";
 import { ConnectionRowView, type RowMenuItem, type RowPrimary } from "../../connections/RowView";
 import { RepoLink } from "../../connections/repoStars";
+import { ComputerOptions } from "../../ComputerOptions";
 import { PasteBackView } from "../../connections/PasteBackDialog";
 import type { ConnectionKind } from "../../connections/status";
 import type { GoogleOverview } from "../../connections/google";
@@ -122,6 +123,7 @@ export const settings: CatalogSection = {
     webState("form-open", "key form open", webView([webTavily({ status: "ready", key_hint: "…9a2f" }), webBrave(), webSearx()], [webFirecrawl(), webBright()]),
       { drive: step => step.click('.web-row[data-id="tavily"] button[aria-expanded]').then(() => undefined) }),
     webState("master-off", "web search switched off in Automatic behavior", webView([webTavily({ status: "ready", key_hint: "…9a2f" }), webBrave(), webSearx()], [webFirecrawl(), webBright()], { enabled: false })),
+    { id: "computer-none", kind: "inline", label: "Computer page on a server with no computer", note: "what works without one, and the ways to add a computer", render: () => <ComputerOptions /> },
     libraryState("library", "Skills library: owner, Bot-installed, bundle, official", {}),
     libraryState("library-open", "Skills library: bundle expanded", () => ({ openBundles: ["office-kit"], notice: t("extensions:skills.library.added_notice") })),
     libraryState("library-pending", "Skills library: choose Bots for a new Skill", { pending: "Weekly report" }),

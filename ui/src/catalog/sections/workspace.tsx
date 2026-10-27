@@ -113,6 +113,8 @@ export const computer: CatalogSection = {
     { id: "starting", kind: "app", label: "Starting", app: { ...DM, computer: "starting" }, widths: ["desktop"], probe: ".desktop-floating-shell", drive: openComputer },
     { id: "waking", kind: "app", label: "Waking the computer (hibernated)", note: "opening the window wakes it; no \"Paused\" caption", app: { ...DM, computer: "hibernated" }, widths: ["desktop"], probe: ".desktop-floating-shell", drive: openComputer },
     { id: "waking-restoring", kind: "app", label: "Waking the computer (restoring)", app: { ...DM, computer: "resuming" }, widths: ["desktop"], probe: ".desktop-floating-shell", drive: openComputer },
+    { id: "none", kind: "app", label: "No computer on the server", note: "no monitor button in the header, no Computer widget, no computer requests; Settings > Computer explains the options", app: { ...DM, computer: "none" }, probe: ".chat-header",
+      drive: async step => { await step.wait(1200); if (document.querySelector("[data-computer-toggle]")) throw new Error("the computer button is shown without a computer"); } },
     { id: "desktop-starting", kind: "app", label: "Starting the desktop", note: "computer is up, desktop.start in flight; covers the stale frame", app: { ...DM, computer: "desktop-starting" }, widths: ["desktop"], probe: ".desktop-floating-shell", drive: openComputer },
   ],
   gaps: ["Hibernating, connection lost and your-control states: need the live desktop stream."],

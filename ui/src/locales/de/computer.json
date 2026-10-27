@@ -366,5 +366,25 @@
     "sync_pending": "Der Computer ist beschäftigt. Er synchronisiert gleich automatisch.",
     "truncated": "Viele Schlüssel – es wird nur ein Teil angezeigt.",
     "retry": "Erneut versuchen"
+  },
+  "none": {
+    "title": "Dieser Server hat keinen Computer",
+    "body": "Bots arbeiten auch ohne: Sie chatten, merken sich Dinge, führen Zeitpläne aus und nutzen verbundene Dienste. Arbeit, die einen echten Browser, eine Shell oder einen Desktop braucht, wartet, bis ein Computer hinzugefügt wird.",
+    "options": "Computer hinzufügen",
+    "soon": "Kommt später",
+    "kvm": {
+      "name": "Auf diesem Server",
+      "what": "Bot-Computer laufen auf der Hardware dieses Servers. Der Host braucht KVM und mindestens 4 GiB Arbeitsspeicher.",
+      "run": "Auf dem Server-Host ausführen:",
+      "after": "Diese Seite aktualisiert sich selbst, sobald der Computer angebunden ist."
+    },
+    "own": {
+      "name": "Dein eigener Computer",
+      "what": "Lass einen Bot auf einem Rechner arbeiten, den du schon besitzt."
+    },
+    "e2b": {
+      "name": "E2B-Cloud-Sandbox",
+      "what": "Miete mit deinem eigenen Schlüssel einen Computer bei E2B."
+    }
   }
 }

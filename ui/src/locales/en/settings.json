@@ -59,7 +59,8 @@
       },
       "computer": {
         "name": "Computer",
-        "description": "Shared Linux computer, storage and runtime resources"
+        "description": "Shared Linux computer, storage and runtime resources",
+        "description_none": "Options for adding a computer to this server"
       },
       "keys": {
         "name": "Keys & secrets",
@@ -107,7 +108,8 @@
         "ready": "Running",
         "starting": "Starting",
         "stopped": "Stopped",
-        "waiting": "Waiting"
+        "waiting": "Waiting",
+        "none": "Not added"
       }
     }
   },
@@ -506,7 +508,8 @@
       "forbidden": "Only an Admin can do that.",
       "export_in_use": "That export is still tied to an account whose deletion hasn't finished.",
       "passphrase_unavailable": "The passphrase isn't available."
-    }
+    },
+    "intro_no_computer": "Create accounts, choose who is an Admin and manage their sign-in. Members change their initial password at first sign-in."
   },
   "connection": {
     "label": "Current server connection",
@@ -576,7 +579,9 @@
     "note": "The VM keeps a restorable checkpoint first. The first new account becomes the admin.",
     "confirm_label": "Type PURGE to confirm",
     "purging": "Deleting…",
-    "submit": "Delete all data"
+    "submit": "Delete all data",
+    "description_no_computer": "Deletes all Bots, conversations, tasks, attachments and paired devices. The server install, Codex connection and other service settings are kept.",
+    "note_no_computer": "The first new account becomes the admin."
   },
   "portability": {
     "title": "Data transfer",

@@ -227,7 +227,9 @@
     "title_group": "删除群聊？",
     "impact_given_other": "它布置的 {{count}} 个未完成任务会随之取消。",
     "impact_held_other": "它负责的 {{count}} 个未完成任务会被取消。",
-    "impact_waits_other": "它的 {{count}} 个等待会结束。"
+    "impact_waits_other": "它的 {{count}} 个等待会结束。",
+    "note_bot_no_computer": "群里的历史发言会保留。删除后无法在应用中恢复。",
+    "note_group_no_computer": "删除后无法在应用中恢复。"
   },
   "delivery": {
     "queued": "已排队,下一步时读取",

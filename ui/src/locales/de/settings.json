@@ -59,7 +59,8 @@
       },
       "computer": {
         "name": "Computer",
-        "description": "Gemeinsamer Linux-Computer, Speicher und Laufzeitressourcen"
+        "description": "Gemeinsamer Linux-Computer, Speicher und Laufzeitressourcen",
+        "description_none": "Möglichkeiten, diesem Server einen Computer hinzuzufügen"
       },
       "keys": {
         "name": "Schlüssel & Geheimnisse",
@@ -107,7 +108,8 @@
         "ready": "Läuft",
         "starting": "Startet",
         "stopped": "Gestoppt",
-        "waiting": "Wartet"
+        "waiting": "Wartet",
+        "none": "Keiner"
       }
     }
   },
@@ -506,7 +508,8 @@
       "forbidden": "Das darf nur ein Admin.",
       "export_in_use": "Dieser Export gehört noch zu einem Konto, dessen Löschung nicht abgeschlossen ist.",
       "passphrase_unavailable": "Die Passphrase ist nicht verfügbar."
-    }
+    },
+    "intro_no_computer": "Lege Konten an, bestimme, wer Admin ist, und verwalte die Anmeldung. Mitglieder ändern ihr Startpasswort bei der ersten Anmeldung."
   },
   "connection": {
     "label": "Aktuelle Serververbindung",
@@ -576,7 +579,9 @@
     "note": "Die VM legt vorher automatisch einen wiederherstellbaren checkpoint an. Das erste neu erstellte Konto wird admin.",
     "confirm_label": "Zur Bestätigung PURGE eingeben",
     "purging": "Wird gelöscht…",
-    "submit": "Alle Daten löschen"
+    "submit": "Alle Daten löschen",
+    "description_no_computer": "Löscht alle Bots, Unterhaltungen, Aufgaben, Anhänge und gekoppelten Geräte. Serverinstallation, Codex-Verbindung und andere Diensteinstellungen bleiben erhalten.",
+    "note_no_computer": "Das erste neu erstellte Konto wird admin."
   },
   "portability": {
     "title": "Datenübertragung",

@@ -4,6 +4,7 @@ import {DISK_SIZES, GIB, LEGACY_OWNER_ID, adminApi, generatePassword, initialOf,
 import {formatNumber} from "./i18n/format";
 import {useTranslation} from "./i18n";
 import {TofiIcon} from "./icons";
+import {useHasComputer} from "./computerCapability";
 import {Banner, DangerZone, Segmented, SettingsCard, SettingsRow, SettingsSection} from "./settings/components";
 
 type Props = {
@@ -21,6 +22,7 @@ type Props = {
 /** One account: Role, Computer, Sign-in and the Danger zone. Destructive actions the server forbids are explained, not offered. */
 export function AccountDetail({account, accounts, disk, capacity, selfId, busy, run, onBack, onDelete}: Props) {
   const {t} = useTranslation("settings");
+  const hasComputer = useHasComputer();
   const isSelf = account.id === selfId;
   const isLegacy = account.id === LEGACY_OWNER_ID;
   const activeAdmins = accounts.filter(item => item.role === "admin" && !item.disabled && !item.deleting);
@@ -72,7 +74,7 @@ export function AccountDetail({account, accounts, disk, capacity, selfId, busy, 
       </SettingsCard>
     </SettingsSection>
 
-    <SettingsSection title={t("admin.detail.computer.title")}>
+    {hasComputer && <SettingsSection title={t("admin.detail.computer.title")}>
       <SettingsCard>
         <SettingsRow label={t("admin.detail.computer.state")} control={<span className="admin-value">{stateLabel}</span>}/>
         {disk ? <>
@@ -85,7 +87,7 @@ export function AccountDetail({account, accounts, disk, capacity, selfId, busy, 
               onClick={() => void run(async () => { await adminApi.quota(account.id, size); setDiskDone(true); })}>{t("admin.detail.computer.save", {size: formatNumber(size)})}</button>}/>
         </> : <p className="settings-card-note">{t("admin.detail.computer.none")}</p>}
       </SettingsCard>
-    </SettingsSection>
+    </SettingsSection>}
 
     <SettingsSection title={t("admin.detail.signin.title")}>
       <SettingsCard>

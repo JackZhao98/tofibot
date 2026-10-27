@@ -59,7 +59,8 @@
       },
       "computer": {
         "name": "컴퓨터",
-        "description": "공유 Linux 컴퓨터, 스토리지, 실행 리소스"
+        "description": "공유 Linux 컴퓨터, 스토리지, 실행 리소스",
+        "description_none": "이 서버에 컴퓨터를 추가하는 방법"
       },
       "keys": {
         "name": "키 및 비밀",
@@ -107,7 +108,8 @@
         "ready": "실행 중",
         "starting": "시작 중",
         "stopped": "중지됨",
-        "waiting": "대기 중"
+        "waiting": "대기 중",
+        "none": "없음"
       }
     }
   },
@@ -501,7 +503,8 @@
       "forbidden": "Admin만 할 수 있는 작업입니다.",
       "export_in_use": "이 내보내기는 아직 삭제가 끝나지 않은 계정에 연결되어 있습니다.",
       "passphrase_unavailable": "암호문을 사용할 수 없습니다."
-    }
+    },
+    "intro_no_computer": "계정을 만들고, 누가 Admin인지 정하고, 로그인을 관리해요. 멤버는 처음 로그인할 때 초기 비밀번호를 바꿔요."
   },
   "connection": {
     "label": "현재 서버 연결",
@@ -571,7 +574,9 @@
     "note": "실행 전에 VM이 복원 가능한 checkpoint를 자동으로 남깁니다. 처음 새로 만든 계정이 admin이 됩니다.",
     "confirm_label": "확인하려면 PURGE 입력",
     "purging": "삭제 중…",
-    "submit": "모든 데이터 삭제"
+    "submit": "모든 데이터 삭제",
+    "description_no_computer": "모든 Bot, 대화, 작업, 첨부 파일, 연결된 기기를 삭제해요. 서버 설치, Codex 연결, 다른 서비스 설정은 그대로 남아요.",
+    "note_no_computer": "새로 만든 첫 번째 계정이 admin이 돼요."
   },
   "portability": {
     "title": "데이터 이전",

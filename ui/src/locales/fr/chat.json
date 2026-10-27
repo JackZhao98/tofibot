@@ -235,7 +235,9 @@
     "impact_held_other": "{{count}} tâches ouvertes qu'il détient seront annulées.",
     "impact_waits_one": "{{count}} attente qu'il tient prendra fin.",
     "impact_waits_many": "{{count}} attentes qu'il tient prendront fin.",
-    "impact_waits_other": "{{count}} attentes qu'il tient prendront fin."
+    "impact_waits_other": "{{count}} attentes qu'il tient prendront fin.",
+    "note_bot_no_computer": "Ses anciens messages dans les groupes sont conservés. Impossible à annuler dans l'app.",
+    "note_group_no_computer": "Impossible à annuler dans l'app."
   },
   "delivery": {
     "queued": "En attente, lu à la prochaine étape",

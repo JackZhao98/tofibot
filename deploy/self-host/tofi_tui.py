@@ -49,6 +49,11 @@ SMALL_HOST_MEMORY_MIB = 4608   # at or below this, one computer at a time (see t
 SUPPORTED_PLATFORMS = ('Linux x86_64', 'Linux aarch64')
 MIN_DISK_GIB = 30
 WARN_DISK_GIB = 40
+# Without a computer (server and web app only) the host can be much smaller.
+MIN_MEMORY_NONE_MIB = 1792   # "2 GiB"
+WARN_MEMORY_NONE_MIB = 3584
+MIN_DISK_NONE_GIB = 10
+WARN_DISK_NONE_GIB = 20
 SUPPORTED_SYSTEMS = {('ubuntu', '22.04'), ('ubuntu', '24.04'), ('debian', '12'), ('debian', '13')}
 
 VERSION_RE = re.compile(r'^v\d+\.\d+\.\d+(-rc\.\d+)?$')
@@ -582,6 +587,14 @@ def installed_state(host):
     return phase, version, None
 
 
+def installed_backend(host):
+    """kvm or none: the computer backend an existing install recorded (kvm when it records none)."""
+    for line in (read_text(host.env_file) or '').splitlines():
+        if line.startswith('TOFI_COMPUTER_BACKEND='):
+            return line.split('=', 1)[1].strip() or 'kvm'
+    return 'kvm'
+
+
 def _real(host, path):
     return path[len(host.root):] if host.root and path.startswith(host.root) else path
 
@@ -631,6 +644,7 @@ def detect(host=None, environ=None, port=DEFAULT_PORT, lookup_public=True):
     facts['ports'] = Ports(host)
     facts['port'] = int(port)
     facts['phase'], facts['installed'], facts['journal_error'] = installed_state(host)
+    facts['backend'] = installed_backend(host) if facts['phase'] else None
     addresses = [address for family, address in interface_addresses() if family == 'inet']
     facts['lan'] = [address for address in addresses if not is_public(address)]
     public = [address for address in addresses if is_public(address)]
@@ -653,10 +667,50 @@ def os_supported(facts):
     return (info.get('ID'), info.get('VERSION_ID')) in SUPPORTED_SYSTEMS
 
 
-def check_host(facts, environ=None, fresh=True):
-    """(failures, warnings): the installer's hard stops and advisories, in step order."""
+def kernel_problems(facts):
+    """Why this kernel cannot run KVM computers: /dev/kvm, TUN, cgroup v2, AppArmor."""
+    host = facts['host']
+    problems = []
+    if not facts['kvm']:
+        problems.append('KVM is not available (/dev/kvm). Use bare metal or a VM with nested virtualization '
+                        'enabled. (%s)' % facts['kvm_reason'])
+    if not facts['tun']:
+        problems.append("The TUN device (/dev/net/tun) is missing; load it with 'modprobe tun' and retry.")
+    if not facts['cgroup2']:
+        problems.append('cgroup v2 is required (no %s); boot with systemd.unified_cgroup_hierarchy=1.'
+                        % _real(host, host.cgroup))
+    if facts['apparmor'] != 'Y':
+        problems.append("AppArmor must be enabled in the kernel (found '%s'); enable it and reboot."
+                        % facts['apparmor'])
+    return problems
+
+
+def computer_problems(facts, fresh=True):
+    """Why this host cannot run a computer (KVM), as short sentences; empty when it can.
+
+    These are the checks that used to stop the installer. They now only decide
+    whether a computer is offered: without one the server and web app install anyway."""
+    problems = kernel_problems(facts)
+    if facts['cpus'] < MIN_CPUS:
+        problems.append('A computer needs at least %d vCPUs; this host has %d.' % (MIN_CPUS, facts['cpus']))
+    memory = facts['memory_mib']
+    if memory is not None and memory < MIN_MEMORY_MIB:
+        problems.append('A computer needs at least 4 GiB of RAM; this host has %d MiB.' % memory)
+    disk = facts['disk_gib']
+    if fresh and disk is not None and disk < MIN_DISK_GIB:
+        problems.append('A computer needs at least %d GiB free under /var/lib; %d GiB is free.'
+                        % (MIN_DISK_GIB, disk))
+    return problems
+
+
+def check_host(facts, environ=None, fresh=True, computer='kvm'):
+    """(failures, warnings): the installer's hard stops and advisories, in step order.
+
+    `computer` is kvm or none. KVM, TUN, cgroup v2, AppArmor and the computer-sized
+    memory and disk minimums are hard stops only for kvm."""
     environ = os.environ if environ is None else environ
     host = facts['host']
+    kvm = computer == 'kvm'
     failures, warnings = [], []
     if facts['uid'] != '0':
         failures.append('Run as root: %s (current uid %s).' % (INSTALL_COMMAND, facts['uid']))
@@ -673,54 +727,60 @@ def check_host(facts, environ=None, fresh=True):
         else:
             failures.append("Unsupported system '%s'; TOFI supports Ubuntu 22.04/24.04 and Debian 12/13 "
                             '(set TOFI_ALLOW_UNSUPPORTED=1 to try anyway).' % label)
-    if not facts['kvm']:
-        failures.append('KVM is not available (/dev/kvm). Use bare metal or a VM with nested virtualization '
-                        'enabled. (%s)' % facts['kvm_reason'])
-    if not facts['tun']:
-        failures.append("The TUN device (/dev/net/tun) is missing; load it with 'modprobe tun' and retry.")
-    if not facts['cgroup2']:
-        failures.append('cgroup v2 is required (no %s); boot with systemd.unified_cgroup_hierarchy=1.'
-                        % _real(host, host.cgroup))
-    if facts['apparmor'] != 'Y':
-        failures.append("AppArmor must be enabled in the kernel (found '%s'); enable it and reboot."
-                        % facts['apparmor'])
-    if facts['cpus'] < MIN_CPUS:
-        failures.append('TOFI needs at least %d vCPUs; this host has %d.' % (MIN_CPUS, facts['cpus']))
+    if kvm:
+        failures += kernel_problems(facts)
     memory = facts['memory_mib']
+    min_cpus = MIN_CPUS if kvm else 1
+    if facts['cpus'] < min_cpus:
+        failures.append('TOFI needs at least %d vCPUs; this host has %d.' % (min_cpus, facts['cpus']))
     if memory is not None:
-        if memory < MIN_MEMORY_MIB:
-            failures.append('TOFI needs at least 4 GiB of RAM; this host has %d MiB.' % memory)
-        elif memory < WARN_MEMORY_MIB:
-            warnings.append('This host has %d MiB of RAM; 8 GiB or more is recommended.' % memory)
-        if memory <= SMALL_HOST_MEMORY_MIB:
-            warnings.append('This is a small host (%d MiB of RAM): TOFI runs one computer at a time and sizes it '
-                            'to fit (about 1.25 GiB), so add swap for headroom.' % memory)
-        if facts['swap_mib'] == 0 and memory < SWAP_ADVISED_BELOW_MIB:
-            warnings.append('This host has %d MiB of RAM and no swap; a computer that runs out of memory can '
-                            'freeze the whole host. Add swap (for example a 4 GiB swap file) or use 16 GiB of '
-                            'RAM or more.' % memory)
+        if kvm:
+            if memory < MIN_MEMORY_MIB:
+                failures.append('TOFI needs at least 4 GiB of RAM; this host has %d MiB.' % memory)
+            elif memory < WARN_MEMORY_MIB:
+                warnings.append('This host has %d MiB of RAM; 8 GiB or more is recommended.' % memory)
+            if memory <= SMALL_HOST_MEMORY_MIB:
+                warnings.append('This is a small host (%d MiB of RAM): TOFI runs one computer at a time and sizes '
+                                'it to fit (about 1.25 GiB), so add swap for headroom.' % memory)
+            if facts['swap_mib'] == 0 and memory < SWAP_ADVISED_BELOW_MIB:
+                warnings.append('This host has %d MiB of RAM and no swap; a computer that runs out of memory can '
+                                'freeze the whole host. Add swap (for example a 4 GiB swap file) or use 16 GiB of '
+                                'RAM or more.' % memory)
+        else:
+            if memory < MIN_MEMORY_NONE_MIB:
+                failures.append('TOFI needs at least 2 GiB of RAM; this host has %d MiB.' % memory)
+            elif memory < WARN_MEMORY_NONE_MIB:
+                warnings.append('This host has %d MiB of RAM; 4 GiB or more is recommended.' % memory)
     disk = facts['disk_gib']
     if disk is not None:
-        if fresh and disk < MIN_DISK_GIB:
-            failures.append('TOFI needs at least %d GiB free under /var/lib; %d GiB is free.' % (MIN_DISK_GIB, disk))
-        elif disk < WARN_DISK_GIB:
+        min_disk, warn_disk = (MIN_DISK_GIB, WARN_DISK_GIB) if kvm else (MIN_DISK_NONE_GIB, WARN_DISK_NONE_GIB)
+        if fresh and disk < min_disk:
+            failures.append('TOFI needs at least %d GiB free under /var/lib; %d GiB is free.' % (min_disk, disk))
+        elif disk < warn_disk:
             warnings.append('Only %d GiB is free under /var/lib; %d GiB or more is recommended.'
-                            % (disk, WARN_DISK_GIB))
+                            % (disk, warn_disk))
     if facts['journal_error']:
         failures.append(facts['journal_error'])
     return failures, warnings
 
 
-def machine_rows(facts, fresh=True, ports=None):
-    """Rows for the "This machine" card: (status, label, text)."""
+def machine_rows(facts, fresh=True, ports=None, computer='kvm'):
+    """Rows for the "This machine" card: (status, label, text).
+
+    `computer` is kvm or none: without a computer a missing /dev/kvm or kernel
+    feature is information, not a problem, and the size thresholds are lower."""
+    kvm = computer == 'kvm'
+    min_cpus = MIN_CPUS if kvm else 1
+    min_memory, warn_memory = (MIN_MEMORY_MIB, WARN_MEMORY_MIB) if kvm else (MIN_MEMORY_NONE_MIB, WARN_MEMORY_NONE_MIB)
+    min_disk, warn_disk = (MIN_DISK_GIB, WARN_DISK_GIB) if kvm else (MIN_DISK_NONE_GIB, WARN_DISK_NONE_GIB)
     rows = []
     platform = facts['platform']
     system = '%s · %s' % (system_name(facts), platform)  # platform shows the architecture
     supported = os_supported(facts) and platform in SUPPORTED_PLATFORMS
     rows.append(('ok' if supported else 'bad', 'System', system if supported else system + ' — not supported'))
     cpus = facts['cpus']
-    rows.append(('ok' if cpus >= MIN_CPUS else 'bad', 'CPU', '%d vCPU%s' % (cpus, '' if cpus == 1 else 's')
-                 + ('' if cpus >= MIN_CPUS else ' — needs %d' % MIN_CPUS)))
+    rows.append(('ok' if cpus >= min_cpus else 'bad', 'CPU', '%d vCPU%s' % (cpus, '' if cpus == 1 else 's')
+                 + ('' if cpus >= min_cpus else ' — needs %d' % min_cpus)))
     memory, swap = facts['memory_mib'], facts['swap_mib']
     if memory is None:
         rows.append(('warn', 'RAM', 'unknown'))
@@ -729,31 +789,33 @@ def machine_rows(facts, fresh=True, ports=None):
         kind = 'ok'
         if swap == 0:
             text += ' · no swap'
-            kind = 'warn' if memory < SWAP_ADVISED_BELOW_MIB else kind
+            kind = 'warn' if kvm and memory < SWAP_ADVISED_BELOW_MIB else kind
         elif swap:
             text += ' · swap %.1f GiB' % (swap / 1024.0)
-        if memory < MIN_MEMORY_MIB:
-            kind, text = 'bad', text + ' — needs 4 GiB'
-        elif memory < WARN_MEMORY_MIB:
-            kind, text = 'warn', text + ' (8 GiB recommended)'
+        if memory < min_memory:
+            kind, text = 'bad', text + (' — needs 4 GiB' if kvm else ' — needs 2 GiB')
+        elif memory < warn_memory:
+            kind, text = 'warn', text + (' (8 GiB recommended)' if kvm else ' (4 GiB recommended)')
         rows.append((kind, 'RAM', text))
     disk = facts['disk_gib']
     if disk is None:
         rows.append(('warn', 'Disk', 'free space unknown'))
     else:
-        kind = 'ok' if disk >= WARN_DISK_GIB else 'warn' if (disk >= MIN_DISK_GIB or not fresh) else 'bad'
+        kind = 'ok' if disk >= warn_disk else 'warn' if (disk >= min_disk or not fresh) else 'bad'
         rows.append((kind, 'Disk', '%d GiB free under /var/lib%s' % (
-            disk, ' — needs %d' % MIN_DISK_GIB if kind == 'bad' else '')))
+            disk, ' — needs %d' % min_disk if kind == 'bad' else '')))
     if facts['docker'] in (None,):
         rows.append(('info', 'Docker', 'not installed — will be installed'))
     else:
         rows.append(('ok', 'Docker', facts['docker']))
-    rows.append(('ok', 'KVM', '/dev/kvm ready') if facts['kvm'] else ('bad', 'KVM', facts['kvm_reason']))
+    # Only a computer needs KVM and these kernel features; without one they are information.
+    missing_kind = 'bad' if kvm else 'info'
+    rows.append(('ok', 'KVM', '/dev/kvm ready') if facts['kvm'] else (missing_kind, 'KVM', facts['kvm_reason']))
     kernel = [('cgroup v2', facts['cgroup2']), ('AppArmor', facts['apparmor'] == 'Y'), ('TUN', facts['tun'])]
     if all(ok for _, ok in kernel):
         rows.append(('ok', 'Kernel', 'cgroup v2 · AppArmor · TUN'))
     else:
-        rows.append(('bad', 'Kernel', ' · '.join(name + ('' if ok else ' missing') for name, ok in kernel)))
+        rows.append((missing_kind, 'Kernel', ' · '.join(name + ('' if ok else ' missing') for name, ok in kernel)))
     table = facts['ports']
     wanted = ports or [facts['port'], 80, 443]
     busy = [port for port in wanted if table.busy(port)]
@@ -1325,13 +1387,27 @@ class Installer:
         if messages and self.ui.fancy:
             self.ui.write()
 
-    def computer_options(self, facts):
-        kvm = Option('kvm', 'KVM (Firecracker)', aliases=('firecracker', 'kvm (firecracker)'),
-                     unsupported=None if facts['kvm'] else 'not supported: ' + facts['kvm_reason'])
-        return [kvm,
-                Option('gvisor', 'gVisor container', aliases=('gvisor',), unsupported=NOT_YET),
-                Option('container', 'Plain container', aliases=('container', 'plain', 'docker'),
-                       unsupported=NOT_YET)]
+    def computer_options(self):
+        return [Option('kvm', 'Yes, install a computer (KVM, Firecracker)',
+                       aliases=('yes', 'y', 'kvm', 'firecracker', 'kvm (firecracker)')),
+                Option('none', 'Not now — server and web app only',
+                       aliases=('no', 'n', 'none', 'later', 'not now', 'skip'))]
+
+    def resolve_computer(self, facts, fresh):
+        """(computer, problems): kvm or none for this run, and why this host cannot run a computer.
+
+        An existing install keeps its recorded backend. A flag decides a fresh one;
+        otherwise a host that can run KVM computers gets kvm (asked about later) and any
+        other host gets none instead of a refusal."""
+        if not fresh:
+            return facts.get('backend') or 'kvm', []
+        problems = computer_problems(facts, fresh)
+        requested = (self.value('computer') or '').lower()
+        if requested == 'kvm':
+            return 'kvm', problems
+        if requested:
+            return 'none', problems
+        return ('none' if problems else 'kvm'), problems
 
     def run(self):
         ui = self.ui
@@ -1339,25 +1415,16 @@ class Installer:
         ui.header('installer')
         if not ui.fancy:
             for number, text in enumerate(['Checking platform', 'Checking operating system',
-                                           'Checking KVM, TUN, cgroup v2 and AppArmor',
+                                           'Checking KVM, TUN, cgroup v2 and AppArmor (for a computer)',
                                            'Checking CPU, memory, disk and ports'], 1):
                 ui.write('[%d/%d] %s' % (number, TOTAL_STEPS, text))
         facts = detect(environ=self.environ, port=port)
         fresh = facts['phase'] is None
-        ui.card('This machine', machine_rows(facts, fresh))
-        failures, warnings = check_host(facts, self.environ, fresh)
+        self.computer, self.computer_problems = self.resolve_computer(facts, fresh)
+        ui.card('This machine', machine_rows(facts, fresh, computer=self.computer))
+        failures, warnings = check_host(facts, self.environ, fresh, self.computer)
         self.warnings(warnings)
         if failures:
-            if not facts['kvm']:
-                ui.title("How should each account's computer run?")
-                for line in Prompter(ui, -1, {'TOFI_PROMPT': 'plain'}).option_lines(
-                        self.computer_options(facts), -1, 0, False):
-                    ui.write(line)
-                ui.write()
-                ui.para('TOFI cannot run account computers here: every option above is unsupported. Use bare '
-                        'metal, or a cloud VM with nested virtualization (KVM) enabled, then run the '
-                        'installer again.')
-                ui.write()
             return self.fail(failures)
         if not fresh:
             return self.existing(facts)
@@ -1411,20 +1478,34 @@ class Installer:
         interactive = self.ask is not None
         sources = {}
 
-        # a. Computer backend.
-        computer = self.value('computer', 'kvm').lower()
-        question = "How should each account's computer run?"
-        options = self.computer_options(facts)
-        if computer != 'kvm':
-            return self.fail(['--computer %s is %s; only kvm (Firecracker) is available.' % (computer, NOT_YET)])
-        if self.source('computer'):
+        # a. Computer: offered where KVM works, explained where it does not. Never a reason to stop.
+        requested = (self.value('computer') or '').lower()
+        question = 'Install a computer now?'
+        options = self.computer_options()
+        if requested in ('gvisor', 'container'):
+            return self.fail(['--computer %s is %s; use none or kvm (Firecracker).' % (requested, NOT_YET)])
+        if requested not in ('', 'kvm', 'none'):
+            return self.fail(["--computer must be none or kvm; got '%s'." % requested])
+        computer = self.computer
+        if requested:
             sources['computer'] = self.source('computer')
+            if requested == 'kvm' and self.computer_problems:
+                return self.fail(self.computer_problems)
             if interactive:
-                self.set_by(question, options[0].label, self.source('computer'))
+                self.set_by(question, options[0 if computer == 'kvm' else 1].label, self.source('computer'))
+        elif self.computer_problems:
+            self.warnings(['No computer on this host, so TOFI installs the server and web app only. %s Add a '
+                           'computer later with "sudo tofi computer add kvm" once this host (or a new one) '
+                           'supports KVM.' % ' '.join(self.computer_problems)])
         elif interactive:
-            self.ask.choose(question, options, 0)
+            ui.title(question)
+            ui.para('A computer is a private virtual machine per account where Bots run commands and browse. '
+                    'This host supports it (about 1.25 GiB of RAM each). Skip it to run the server and web '
+                    'app only; "sudo tofi computer add kvm" adds one any time.')
+            computer = self.ask.choose(question, options, 0).key
         if interactive:
             ui.write()
+        self.computer = computer
 
         # b. Access.
         tls_busy = [p for p in (80, 443) if ports.busy(p)]
@@ -1597,7 +1678,9 @@ class Installer:
         # e. Summary and confirmation.
         source_note = lambda key: ('  (set by %s)' % sources[key]) if key in sources else ''  # noqa: E731
         rows = [('ok', 'Release', '%s %s' % (version, version_note)),
-                ('ok', 'Computers', 'KVM (Firecracker), one per account' + source_note('computer'))]
+                ('ok', 'Computers', ('KVM (Firecracker), one per account' if self.computer == 'kvm' else
+                                     'none: server and web app only (sudo tofi computer add kvm adds one later)')
+                 + source_note('computer'))]
         if mode == 'domain':
             rows.append(('ok', 'Open', 'https://%s (Let\'s Encrypt)%s' % (domain, source_note('access'))))
             rows.append(('ok', 'Email', email or 'none'))
@@ -1628,7 +1711,8 @@ class Installer:
         if ui.fancy:
             ui.title('Installing TOFI %s' % version)
         result = {'ACTION': 'install', 'VERSION': version, 'DOMAIN': domain, 'EMAIL': email,
-                  'BEHIND_PROXY': proxies, 'LOCAL_ONLY': '1' if mode == 'local' else '0', 'COMPUTER': 'kvm', 'EXISTING': '0',
+                  'BEHIND_PROXY': proxies, 'LOCAL_ONLY': '1' if mode == 'local' else '0', 'COMPUTER': self.computer,
+                  'EXISTING': '0',
                   'PORT': str(port) if (self.source('port') or port != DEFAULT_PORT) else '',
                   'AUTO_UPDATE': '' if auto_update is None else 'patch' if auto_update else 'off'}
         write_result(self.result_path, result)

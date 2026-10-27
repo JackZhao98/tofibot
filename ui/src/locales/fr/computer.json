@@ -368,5 +368,25 @@
     "sync_pending": "L'ordinateur est occupé. La synchronisation se fera automatiquement.",
     "truncated": "Trop de clés : seule une partie est affichée.",
     "retry": "Réessayer"
+  },
+  "none": {
+    "title": "Ce serveur n'a pas d'ordinateur",
+    "body": "Les Bots fonctionnent sans : ils discutent, retiennent, suivent des planifications et utilisent les services connectés. Ce qui demande un vrai navigateur, un shell ou un bureau attend qu'un ordinateur soit ajouté.",
+    "options": "Ajouter un ordinateur",
+    "soon": "Bientôt",
+    "kvm": {
+      "name": "Sur ce serveur",
+      "what": "Faites tourner les ordinateurs des Bots sur le matériel de ce serveur. L'hôte doit avoir KVM et au moins 4 Gio de mémoire.",
+      "run": "À exécuter sur l'hôte du serveur :",
+      "after": "Cette page se met à jour toute seule dès que l'ordinateur est rattaché."
+    },
+    "own": {
+      "name": "Ton propre ordinateur",
+      "what": "Laisse un Bot travailler sur une machine que tu possèdes déjà."
+    },
+    "e2b": {
+      "name": "Bac à sable cloud E2B",
+      "what": "Loue un ordinateur chez E2B avec ta propre clé."
+    }
   }
 }

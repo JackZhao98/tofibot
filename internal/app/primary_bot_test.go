@@ -95,7 +95,7 @@ func TestPrimaryDefaultsToFirstBotAndStaysPut(t *testing.T) {
 
 func TestPrimaryOnboardingFirstBotBecomesPrimary(t *testing.T) {
 	s, _ := primaryTestServer(t)
-	b, _, err := s.store.createOnboardingBot(uuid.NewString(), followGlobalModel, followGlobalModel, "en", true)
+	b, _, err := s.store.createOnboardingBot(uuid.NewString(), followGlobalModel, followGlobalModel, "en", true, true)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -56,7 +56,7 @@ func TestSafetyAndGuideRoutingRemainInTheProductionPrompt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, core := (&Server{store: store}).buildContextParts(conv, Run{ID: "research-run", BotID: bot.ID, ConversationID: conv.ID}, bot)
+	_, core := (&Server{store: store, microVM: unreachableComputerClient(t)}).buildContextParts(conv, Run{ID: "research-run", BotID: bot.ID, ConversationID: conv.ID}, bot)
 	system, err := assembleRunSystem(runSystemPrompt{Core: core, BotInstructions: bot.Instructions, Computer: syntheticComputerPrompt(t, bot.ID)})
 	if err != nil {
 		t.Fatal(err)
@@ -121,7 +121,7 @@ func TestRunPromptBudgetPreservesDMAndGroupPoliciesWithComputer(t *testing.T) {
 		if conv.Kind == "group" {
 			run.Kind = runKindGroupChat
 		}
-		_, core := (&Server{store: store}).buildContextParts(conv, run, bot)
+		_, core := (&Server{store: store, microVM: unreachableComputerClient(t)}).buildContextParts(conv, run, bot)
 		for _, instructions := range []string{bot.Instructions, strings.Repeat("User-authored role detail. ", 1500)} {
 			parts := runSystemPrompt{Core: core, BotInstructions: instructions, Durable: runtimeDurablePrompt, Computer: computerPrompt, Extensions: prepared.Instructions, Capabilities: runtimeCapabilityPrompt}
 			system, err := assembleRunSystem(parts)
@@ -167,7 +167,7 @@ func TestScheduledRunFitsFixedPromptWithComputer(t *testing.T) {
 	}
 	computer := syntheticComputerPrompt(t, bot.ID)
 	for _, conv := range []Conversation{dm, group} {
-		_, core := (&Server{store: store}).buildContextParts(conv, Run{ID: "scheduled", BotID: bot.ID, Kind: runKindSchedule, ConversationID: conv.ID}, bot)
+		_, core := (&Server{store: store, microVM: unreachableComputerClient(t)}).buildContextParts(conv, Run{ID: "scheduled", BotID: bot.ID, Kind: runKindSchedule, ConversationID: conv.ID}, bot)
 		prompt, err := assembleRunSystem(runSystemPrompt{Core: core, BotInstructions: bot.Instructions, Durable: runtimeDurablePrompt, Computer: computer, Capabilities: runtimeCapabilityPrompt})
 		if err != nil {
 			t.Fatalf("%s scheduled prompt: %v", conv.Kind, err)
@@ -212,6 +212,9 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 	}
 	defer prepared.Close()
 	computerPrompt := syntheticComputerPrompt(t, bot.ID)
+	// The matrix measures a Bot with a computer, the larger prompt; the no-computer
+	// prompt is measured below.
+	withComputer := &Server{store: store, microVM: unreachableComputerClient(t)}
 	policy, directory := extensions.DiscoveryInstructionParts(prepared.Instructions)
 	for _, tc := range []struct {
 		name       string
@@ -234,7 +237,7 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				if tc.descendant {
 					run.scheduleTask = &Message{Content: "Synthetic scheduled task"}
 				}
-				_, core := (&Server{store: store}).buildContextParts(tc.conv, run, bot)
+				_, core := withComputer.buildContextParts(tc.conv, run, bot)
 				fixed := len([]rune(strings.Join([]string{core, toolEvidencePolicy, runtimeDurablePrompt, computerPrompt, runtimeCapabilityPrompt, policy}, "\n")))
 				system, err := assembleRunSystem(runSystemPrompt{Core: core, BotInstructions: bot.Instructions, Durable: runtimeDurablePrompt, Computer: computerPrompt, Capabilities: runtimeCapabilityPrompt, Extensions: prepared.Instructions})
 				t.Logf("core=%d evidence=%d durable=%d computer=%d capability=%d discovery=%d directory=%d fixed=%d final=%d agent_suffix=%d provider_system=%d", len([]rune(core)), len([]rune(toolEvidencePolicy)), len([]rune(runtimeDurablePrompt)), len([]rune(computerPrompt)), len([]rune(runtimeCapabilityPrompt)), len([]rune(policy)), len([]rune(directory)), fixed, len([]rune(system)), runtime.SystemPromptOverheadRunes(), len([]rune(system))+runtime.SystemPromptOverheadRunes())
@@ -386,6 +389,53 @@ func TestScopePrincipleIsPresentAndExampleFree(t *testing.T) {
 	for _, bad := range []string{"\"", "“", "「", "e.g.", "for example", "such as", "but not", "not a ", "rather than"} {
 		if strings.Contains(voiceGuidance[idx:], bad) {
 			t.Fatalf("scope principle contains example/contrast wording %q", bad)
+		}
+	}
+}
+
+func unreachableComputerClient(t *testing.T) *computer.Client {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "tfc-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	client, err := computer.New(computer.Config{Socket: dir + "/missing.sock"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return client
+}
+
+// A Bot with no computer gets a smaller prompt than one with a computer and its
+// system text names no computer route.
+func TestNoComputerPromptIsSmallerAndNamesNoComputerRoute(t *testing.T) {
+	store, err := OpenStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	bot, err := store.CreateBot("Synthetic", "Preserve my user-authored role exactly.", "model")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dm, err := store.GetConversation(bot.DMConversationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	none := &Server{store: store}
+	with := &Server{store: store, microVM: unreachableComputerClient(t)}
+	for _, kind := range []string{"", runKindSchedule} {
+		run := Run{ID: "none", BotID: bot.ID, ConversationID: dm.ID, Kind: kind, structured: true}
+		_, coreNone := none.buildContextParts(dm, run, bot)
+		_, coreWith := with.buildContextParts(dm, run, bot)
+		if len([]rune(coreNone)) >= len([]rune(coreWith)) {
+			t.Errorf("kind %q: no-computer core %d runes is not smaller than %d", kind, len([]rune(coreNone)), len([]rune(coreWith)))
+		}
+		for _, word := range []string{"signed-in browser", "computer_browser", "shared desktop", "browser.snapshot"} {
+			if strings.Contains(coreNone, word) {
+				t.Errorf("kind %q: no-computer core names %q", kind, word)
+			}
 		}
 	}
 }

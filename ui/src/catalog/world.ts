@@ -157,7 +157,8 @@ export type AppOptions = {
   indicators?: boolean;
   /** A pending approval card in Mochi's chat. */
   approval?: boolean;
-  computer?: "ready" | "starting" | "hibernated" | "resuming" | "desktop-starting";
+  /** "none": the server has no computer backend (no header button, no Computer widget, Settings explains the options). */
+  computer?: "ready" | "starting" | "hibernated" | "resuming" | "desktop-starting" | "none";
   /** Mochi holds the desktop in her own chat (the Computer widget opens by itself and the bezel carries her colour). */
   driver?: "bot";
   /** The group has two tasks: Miso's release note (claimed, 2/3) and Nori's venue (assigned). The cards and the member list show them. */
@@ -195,7 +196,7 @@ export function workspace(options: AppOptions): Synthetic {
     // cleared again by the next successful one).
     if (options.refreshFails && conversationReads > 1 && (p === "/api/config" || p === "/api/bots")) return json({ error: { code: "unavailable", message: "Synthetic: the server is busy" } }, 503);
     if (p === "/api/models") return json({ models: [{ id: "synthetic-model", name: "Synthetic model", provider: "anthropic", reasoning_efforts: ["low","medium","high"], default_reasoning: "medium" }], source: "live" });
-    if (p === "/api/config") return json({ model_configured: options.modelConfigured !== false, default_model: "synthetic-model", provider: "synthetic" });
+    if (p === "/api/config") return json({ model_configured: options.modelConfigured !== false, default_model: "synthetic-model", provider: "synthetic", computer: options.computer === "none" ? { backend: "none", available: false, capabilities: [] } : { backend: "kvm", available: true, capabilities: ["shell", "files", "browser", "desktop", "desktop_stream", "terminal", "hibernate", "mcp_runner", "oauth_bridge", "secret_sink", "resources"] } });
     if (p === "/api/onboarding") return json({ step: 3, completed: true, skipped: false });
     if (p === "/api/primary-assistant") return json({ bot_id: "bot_mochi" });
     if (p === "/api/bots") return json({ bots: url.searchParams.get("include_archived") ? bots : bots.filter(item => !item.archived) });
@@ -240,6 +241,7 @@ export function workspace(options: AppOptions): Synthetic {
     const botRead = /^\/api\/bots\/[^/]+\/(skills|secrets|debug-preview)$/.exec(p);
     if (botRead) return json(botRead[1] === "skills" ? BOT_SKILLS : botRead[1] === "secrets" ? BOT_SECRETS : { system_prompt: "You are Mochi.\nYou keep the launch calendar and chase owners for updates.", tools: [] });
     if (p.endsWith("/task-impact")) return json({ given_tasks: 0, held_tasks: 0, open_waits: 0 });
+    if (options.computer === "none" && (p === "/api/computers/firecracker/info" || p === "/api/computers/firecracker/actions" || p === "/api/computer/desktop-ownership")) return json({ error: { code: "not_configured", message: "computer VM is not configured" } }, 404);
     if (p === "/api/computers/firecracker/info") return json({ kind: "firecracker", state: options.computer === "starting" || options.computer === "hibernated" || options.computer === "resuming" ? options.computer : "ready", phase: options.computer === "starting" ? "booting" : undefined, desktop_starting: options.computer === "desktop-starting" || undefined });
     if (p === "/api/computers/firecracker/actions") return json({ ok: true, result: String(init?.body ?? "").includes("desktop.control.acquire") ? { control_id: "ctl_catalog" } : { image_url: SCREEN } });
     if (p === "/api/computer/desktop-ownership") return json({ owner: options.driver === "bot" ? { kind: "bot", bot_id: "bot_mochi", run_id: "run_driver", conversation_id: "dm_mochi" } : null, waiting: [] });

@@ -59,7 +59,8 @@
       },
       "computer": {
         "name": "コンピュータ",
-        "description": "共有 Linux コンピュータ、ストレージ、実行リソース"
+        "description": "共有 Linux コンピュータ、ストレージ、実行リソース",
+        "description_none": "このサーバーにコンピューターを追加する方法"
       },
       "keys": {
         "name": "キーとシークレット",
@@ -107,7 +108,8 @@
         "ready": "稼働中",
         "starting": "起動中",
         "stopped": "停止中",
-        "waiting": "待機中"
+        "waiting": "待機中",
+        "none": "未追加"
       }
     }
   },
@@ -501,7 +503,8 @@
       "forbidden": "この操作は Admin だけができます。",
       "export_in_use": "このエクスポートは、削除が完了していないアカウントに紐づいています。",
       "passphrase_unavailable": "パスフレーズは利用できません。"
-    }
+    },
+    "intro_no_computer": "アカウントの作成、Admin の指定、サインインの管理ができます。メンバーは初回サインイン時に初期パスワードを変更します。"
   },
   "connection": {
     "label": "現在のサーバー接続",
@@ -571,7 +574,9 @@
     "note": "実行前に VM が復元可能な checkpoint を自動で残します。最初に新しく作成したアカウントが admin になります。",
     "confirm_label": "確認のため PURGE と入力",
     "purging": "削除中…",
-    "submit": "すべてのデータを削除"
+    "submit": "すべてのデータを削除",
+    "description_no_computer": "すべての Bot、会話、タスク、添付ファイル、ペアリング済みデバイスを削除します。サーバーのインストール、Codex 接続、その他のサービス設定は残ります。",
+    "note_no_computer": "最初に作成されたアカウントが admin になります。"
   },
   "portability": {
     "title": "データ移行",

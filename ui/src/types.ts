@@ -406,7 +406,19 @@ export interface Memory {
   updated_at: string;
 }
 
+/** GET /api/computer/capabilities, and `computer` in GET /api/config. */
+export interface ComputerCapability {
+  /** "none": the server runs without a computer; "kvm": the Firecracker Worker. */
+  backend: "none" | "kvm";
+  /** A computer is attached (its live state still comes from the computer info endpoint). */
+  available: boolean;
+  /** shell, files, browser, desktop, desktop_stream, terminal, hibernate, mcp_runner, oauth_bridge, secret_sink, resources. */
+  capabilities: string[];
+}
+
 export interface Config {
+  /** Absent on a server that predates the capability field: treat as a computer being present. */
+  computer?: ComputerCapability;
   /** True when any model provider (Codex, OpenAI or Claude) is configured. */
   model_configured: boolean;
   default_model: string;
