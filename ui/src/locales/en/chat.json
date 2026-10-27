@@ -123,7 +123,7 @@
     "cancel_reply": "Cancel reply",
     "dictate": "Start dictation",
     "drop_hint": "You can also drag files here or paste them",
-    "drop_release": "Drop to add to your message",
+    "drop_add": "Drop to add",
     "file": "File",
     "image": "Image",
     "input_label": "Send to {{name}}",

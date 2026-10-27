@@ -122,7 +122,7 @@
     "cancel_reply": "답장 취소",
     "dictate": "받아쓰기 시작",
     "drop_hint": "끌어다 놓거나 붙여 넣어도 됩니다",
-    "drop_release": "놓으면 메시지에 추가됩니다",
+    "drop_add": "여기에 놓아 추가",
     "file": "파일",
     "image": "이미지",
     "input_label": "{{name}}에게 보내기",

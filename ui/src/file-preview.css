@@ -1,23 +1,10 @@
 /* File cards, tiles and the file viewer (BotAttachments v2q). */
-.file-tile { position:relative; display:grid; flex:0 0 40px; width:40px; height:46px; place-items:end center; padding:0 2px 6px; overflow:hidden; border-radius:8px; background:#7a6f60; color:#fff; font:700 9px/1 var(--mono); letter-spacing:0; }
-.file-tile::after { position:absolute; top:0; right:0; width:0; height:0; border-style:solid; border-width:0 12px 12px 0; border-color:transparent var(--surface-2) transparent transparent; content:""; }
-.file-tile[data-file-tone="xlsx"] { background:#4d8a5d; }
-.file-tile[data-file-tone="pdf"] { background:#b8432f; }
-.file-tile[data-file-tone="docx"] { background:#3b6fb0; }
-.file-tile[data-file-tone="md"] { background:#7b64c4; }
-.file-tile[data-file-tone="json"] { background:#a97b14; }
-.file-tile[data-file-tone="code"] { background:#2f8f7e; }
-.file-tile[data-file-tone="zip"] { background:#b8643f; }
-.file-tile[data-file-tone="txt"] { background:#7a6f60; }
-.file-tile[data-file-tone="image"] { background:#c0487a; }
 
 .file-preview { width:min(960px, calc(100vw - 48px)); max-width:none; height:min(88dvh, 900px); max-height:none; padding:0; overflow:hidden; border:2px solid var(--line); border-radius:16px; background:var(--surface); box-shadow:var(--hard); color:var(--ink); }
 .file-preview[open] { display:block; }
 .file-preview::backdrop { background:var(--lightbox-scrim, rgba(0,0,0,.5)); }
 .fp-shell { display:flex; flex-direction:column; width:100%; height:100%; }
 .fp-head { display:flex; flex:none; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid var(--line-soft); background:var(--surface); }
-.fp-head .file-tile { --fold: var(--surface); }
-.fp-head .file-tile::after { border-color:transparent var(--surface) transparent transparent; }
 .fp-title { display:grid; flex:1; gap:2px; min-width:0; }
 .fp-title h2 { margin:0; overflow:hidden; font:600 14px/1.3 var(--body); text-overflow:ellipsis; white-space:nowrap; }
 .fp-title small { color:var(--muted); font:11px/1.2 var(--mono); }

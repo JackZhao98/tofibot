@@ -94,7 +94,6 @@
 .workspace .artifact-row:hover { background: var(--surface-2); }
 .workspace .artifact-row-thumb { display: grid; place-items: center; width: 36px; height: 36px; overflow: hidden; border-radius: 8px; background: var(--sunk); }
 .workspace .artifact-row-thumb img { width: 100%; height: 100%; object-fit: cover; }
-.workspace .artifact-row-thumb .file-tile { transform: scale(.62); }
 .workspace .artifact-row-name { overflow: hidden; font: 600 13px/1.35 var(--display); text-overflow: ellipsis; white-space: nowrap; }
 .workspace .artifact-row time { color: var(--muted); font: 11px/1.3 var(--mono); white-space: nowrap; }
 .workspace .artifacts-widget-note { margin: 0; padding: 6px 10px 10px; color: var(--muted); font: var(--type-meta); }

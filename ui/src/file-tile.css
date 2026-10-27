@@ -1,0 +1,31 @@
+/* File type tile (FileTile.tsx): one set for attachments, artifacts and the viewer. Sized by --tile (the tile's height). */
+:root {
+  --ft-pdf:#c8402f; --ft-image:#b83d70; --ft-sheet:#2f7d52; --ft-doc:#2f63b5; --ft-md:#6d51c4; --ft-slides:#c0601f;
+  --ft-code:#1f7a6b; --ft-json:#9a6a00; --ft-archive:#9a5530; --ft-media:#4a52c0; --ft-text:#6b6558; --ft-other:#6b6558;
+  --ft-page-mix:9%; --ft-fold-mix:26%; --ft-edge-mix:24%;
+}
+:root[data-theme="dark"] {
+  --ft-pdf:#d8604f; --ft-image:#cc5c8a; --ft-sheet:#3f9467; --ft-doc:#4a7fd0; --ft-md:#8267d8; --ft-slides:#d27a3a;
+  --ft-code:#2f9484; --ft-json:#b8861a; --ft-archive:#b8704a; --ft-media:#6870d4; --ft-text:#857d6e; --ft-other:#857d6e;
+  --ft-page-mix:16%; --ft-fold-mix:34%; --ft-edge-mix:34%;
+}
+.file-tile { --ft:var(--ft-other); --tile:40px; position:relative; display:block; flex:0 0 auto; width:calc(var(--tile) * .8); height:var(--tile); color:var(--ft); font-size:var(--tile); line-height:1; }
+.file-tile[data-file-tone="pdf"] { --ft:var(--ft-pdf); }
+.file-tile[data-file-tone="image"] { --ft:var(--ft-image); }
+.file-tile[data-file-tone="sheet"] { --ft:var(--ft-sheet); }
+.file-tile[data-file-tone="docx"] { --ft:var(--ft-doc); }
+.file-tile[data-file-tone="md"] { --ft:var(--ft-md); }
+.file-tile[data-file-tone="slides"] { --ft:var(--ft-slides); }
+.file-tile[data-file-tone="code"] { --ft:var(--ft-code); }
+.file-tile[data-file-tone="json"] { --ft:var(--ft-json); }
+.file-tile[data-file-tone="archive"] { --ft:var(--ft-archive); }
+.file-tile[data-file-tone="media"] { --ft:var(--ft-media); }
+.file-tile[data-file-tone="txt"] { --ft:var(--ft-text); }
+.file-tile > svg { display:block; width:100%; height:100%; overflow:visible; fill:currentColor; }
+.file-tile .ft-page { fill:color-mix(in srgb,var(--ft) var(--ft-page-mix),var(--surface)); stroke:color-mix(in srgb,var(--ft) var(--ft-edge-mix),transparent); stroke-width:1; vector-effect:non-scaling-stroke; }
+.file-tile .ft-fold { fill:color-mix(in srgb,var(--ft) var(--ft-fold-mix),var(--surface)); }
+.file-tile .ft-glyph { color:var(--ft); fill:currentColor; }
+.file-tile .ft-label { position:absolute; left:11%; right:11%; bottom:9%; display:grid; place-items:center; height:24%; min-height:10px; padding:0 1px; overflow:hidden; border-radius:999px; background:var(--ft); color:#fff; font:700 max(7.5px,.2em)/1 var(--mono); letter-spacing:.02em; white-space:nowrap; }
+/* Below ~30px the glyph would be mush: the page, fold and format label carry the type alone. */
+.file-tile.is-thumb { width:var(--tile); height:var(--tile); overflow:hidden; border-radius:max(6px,.2em); background:var(--sunk); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 10%,transparent); }
+.file-tile.is-thumb img { display:block; width:100%; height:100%; object-fit:cover; }
