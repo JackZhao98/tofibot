@@ -160,7 +160,7 @@ const STACK = [
   ["boot", "#root", '<div class="boot boot-dissolve">b</div>', "cover"],
   ["menu", "#tofi-layers", '<div class="sidebar-context-menu" role="menu">m</div>', "menu"], // a Radix menu since step 2
   ["identity", "#tofi-layers", '<section class="bot-identity-card">i</section>', "popover"],
-  ["card", "#tofi-layers", '<div class="view-only-chat is-card">c</div>', "panel"],
+  ["sidebar", ".workspace", '<aside class="sidebar-pane" style="position:fixed">c</aside>', "panel"],
   ["floating-computer", ".workspace", '<div class="desktop-floating-shell">f</div>', "pill"],
 ];
 await check("overlays stacked on one point paint in the order of the scale, the settings window among the dialogs", async () => {
@@ -187,7 +187,7 @@ await check("overlays stacked on one point paint in the order of the scale, the 
     if (debug) return [...seen, "|", ...[...document.querySelectorAll("[data-probe]")].map(el => { const r = el.getBoundingClientRect(), cs = getComputedStyle(el); return `${el.dataset.probe}:${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)}x${Math.round(r.height)} ${cs.display}/${cs.visibility}/${cs.pointerEvents}/z${cs.zIndex}/${cs.position}`; })];
     return seen;
   }, Boolean(process.env.LAYERS_DEBUG));
-  const expected = ["drop-ghost", "hint", "toast", "sheet", ["delete", "settings", "onboarding", "leave", "restart"], "boot", "menu", "identity", "card", "floating-computer", "composer"];
+  const expected = ["drop-ghost", "hint", "toast", "sheet", ["delete", "settings", "onboarding", "leave", "restart"], "boot", "menu", "identity", "sidebar", "floating-computer", "composer"];
   const flat = expected.flat();
   for (const name of flat) truthy(order.includes(name), `"${name}" is not hit at the shared point; seen top to bottom: ${order.join(" > ")}`);
   const rank = name => expected.findIndex(entry => entry === name || (Array.isArray(entry) && entry.includes(name)));

@@ -159,7 +159,6 @@
     "restoring": "正在恢复已保存的会话"
   },
   "contextCard": {
-    "back": "将{{title}}放回卡片栏",
     "close": "关闭{{title}}",
     "collapse": "折叠{{title}}",
     "expand": "展开{{title}}",
@@ -174,8 +173,10 @@
       "outputs": "产出",
       "schedule": "任务",
       "terminal": "终端"
-    },
-    "widen": "将{{title}}展开到右侧整栏"
+    }
+  },
+  "cover": {
+    "close": "关闭{{title}}"
   },
   "create": {
     "create_bot": "创建 Bot",
@@ -268,8 +269,14 @@
     "computer_on": "共享电脑,已开机",
     "computer_off": "共享电脑,已关机",
     "computer_driving": "共享电脑,已开机。{{name}} 正在使用",
-    "remembered_approvals": "记住的批准",
-    "open_artifacts": "打开作品"
+    "remembered_approvals": "此会话的批准",
+    "open_artifacts": "打开作品",
+    "tasks": "任务",
+    "group_settings": "群设置",
+    "artifacts_scope_chat": "本会话",
+    "artifacts_scope_group": "本群",
+    "artifacts_scope_bot": "这个 Bot",
+    "artifacts_scope_all": "全部"
   },
   "history": {
     "boundary_failed": "暂时无法加载未读位置。",
@@ -638,7 +645,9 @@
     "waiting": "等待回复"
   },
   "sidebar": {
+    "close_panel": "关闭{{title}}",
     "collapse": "收起侧栏",
+    "collapse_panel": "收窄{{title}}",
     "copy_id": "Copy conversation ID",
     "copy_link": "Copy conversation link",
     "delete": "Delete",
@@ -650,6 +659,7 @@
     "drop_to_pin_hint": "固定在列表最上方",
     "empty": "还没有会话，先创建一个 Bot 吧。",
     "expand": "展开侧栏",
+    "expand_panel": "加宽{{title}}",
     "hidden_bot": "Hidden Bot",
     "hidden_bots": "Hidden Bots",
     "hide": "Hide from sidebar",

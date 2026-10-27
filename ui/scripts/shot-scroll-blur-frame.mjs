@@ -1,5 +1,5 @@
 // Screenshots for the scrollbar / bottom-blur / computer-frame change (docs/design/side-panels.md):
-// a long chat with the computer card and the Bot card open (scrollbar at the right edge of the chat), the bottom of a group chat
+// a long chat with the computer and Artifacts widgets open (scrollbar at the right edge of the chat), the bottom of a group chat
 // (no blur above the composer) and the computer card close-up. 1440 and 1100, light and dark. Synthetic data only.
 // Run: PLAYWRIGHT_MODULE=<playwright/index.mjs> SHOT_DIR=/tmp/scroll-blur-frame node scripts/shot-scroll-blur-frame.mjs
 import { mkdirSync } from "node:fs";
@@ -38,16 +38,16 @@ for (const theme of ["light", "dark"]) {
       if (kind === "dm") {
         await page.locator("[data-computer-toggle]").click();
         await page.waitForTimeout(1500);
-        await page.locator(".chat-identity").click();
+        await page.getByRole("button", { name: "Open artifacts", exact: true }).click();
         await page.waitForTimeout(1500);
         await page.screenshot({ path: name("cards") });
         const geometry = await page.evaluate(() => {
           const r = selector => document.querySelector(selector)?.getBoundingClientRect().toJSON();
           const scroll = document.querySelector(".message-scroll");
-          return { chat: r(".chat-pane"), scroller: r(".message-scroll"), scrollBar: scroll.offsetWidth - scroll.clientWidth, column: r(".detail-pane.context-column"), composer: r(".composer"), list: r(".message-list") };
+          return { chat: r(".chat-pane"), scroller: r(".message-scroll"), scrollBar: scroll.offsetWidth - scroll.clientWidth, column: r(".widget-column"), composer: r(".composer"), list: r(".message-list") };
         });
         console.log(theme, width, JSON.stringify(geometry));
-        const card = page.locator('[data-card="desktop"]');
+        const card = page.locator('[data-card="computer"]');
         await card.scrollIntoViewIfNeeded();
         const box = await card.boundingBox();
         await page.screenshot({ path: name("computer-card"), clip: { x: box.x - 8, y: box.y - 8, width: box.width + 16, height: Math.min(box.height + 60, 900 - box.y + 8) } });

@@ -159,7 +159,6 @@
     "restoring": "保存したセッションを復元中"
   },
   "contextCard": {
-    "back": "{{title}}をカードに戻す",
     "close": "{{title}}を閉じる",
     "collapse": "{{title}}を折りたたむ",
     "expand": "{{title}}を展開",
@@ -174,8 +173,10 @@
       "outputs": "成果物",
       "schedule": "タスク",
       "terminal": "ターミナル"
-    },
-    "widen": "{{title}}を全高で開く"
+    }
+  },
+  "cover": {
+    "close": "{{title}}を閉じる"
   },
   "create": {
     "create_bot": "Bot を作成",
@@ -268,8 +269,14 @@
     "computer_on": "共有コンピューター(オン)",
     "computer_off": "共有コンピューター(オフ)",
     "computer_driving": "共有コンピューター(オン)。{{name}} が作業中",
-    "remembered_approvals": "記憶した承認",
-    "open_artifacts": "成果物を開く"
+    "remembered_approvals": "このチャットの承認",
+    "open_artifacts": "成果物を開く",
+    "tasks": "タスク",
+    "group_settings": "グループ設定",
+    "artifacts_scope_chat": "このチャット",
+    "artifacts_scope_group": "このグループ",
+    "artifacts_scope_bot": "この Bot",
+    "artifacts_scope_all": "すべて"
   },
   "history": {
     "boundary_failed": "未読位置を読み込めませんでした。",
@@ -638,7 +645,9 @@
     "waiting": "返信待ち"
   },
   "sidebar": {
+    "close_panel": "{{title}}を閉じる",
     "collapse": "サイドバーを閉じる",
+    "collapse_panel": "{{title}}を狭める",
     "copy_id": "会話 ID をコピー",
     "copy_link": "会話のリンクをコピー",
     "delete": "削除",
@@ -650,6 +659,7 @@
     "drop_to_pin_hint": "リストの先頭に表示され続けます",
     "empty": "まだ会話はありません。まず Bot を作成しましょう。",
     "expand": "サイドバーを開く",
+    "expand_panel": "{{title}}を広げる",
     "hidden_bot": "非表示の Bot",
     "hidden_bots": "非表示の Bot",
     "hide": "サイドバーから隠す",

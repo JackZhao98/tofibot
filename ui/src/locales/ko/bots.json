@@ -203,6 +203,9 @@
     "versions_error": "이전 버전을 불러오지 못했습니다.",
     "latest": "최신",
     "you": "나",
-    "list_label": "산출물 목록"
+    "list_label": "산출물 목록",
+    "scope_label": "범위",
+    "widget_empty": "이 채팅에서 Bot이 만든 파일이 여기에 표시됩니다.",
+    "widget_all": "모든 산출물"
   }
 }

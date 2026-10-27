@@ -27,6 +27,9 @@ const loaders = {
   updateBanner: () => import("./UpdateNotice"),
   contextPanels: () => import("./ContextPanels"),
   contextCard: () => import("./ContextCard"),
+  sidebarShell: () => import("./SidebarShell"),
+  coverShell: () => import("./CoverShell"),
+  surfaceViews: () => import("./SurfaceViews"),
   greetingSetup: () => import("./GreetingSetup"),
   questionCard: () => import("./QuestionCard"),
   runContext: () => import("./RunContext"),
@@ -81,13 +84,19 @@ export const MemoryPanel = chunk("memory", module => module.MemoryPanel);
 export const TeamBoard = chunk("team", module => module.TeamBoard);
 export const ArchivePanel = chunk("archive", module => module.ArchivePanel);
 export const ArtifactsPanel = chunk("artifacts", module => module.ArtifactsPanel);
+export const ArtifactsWidget = chunk("artifacts", module => module.ArtifactsWidget);
 export const ViewOnlyChat = chunk("viewOnly", module => module.ViewOnlyChat);
 export const RememberedApprovalsSheet = chunk("remembered", module => module.RememberedApprovalsSheet);
 export const DeleteConversationDialog = chunk("deleteDialog", module => module.DeleteConversationDialog);
 export const ReassignPrimaryDialog = chunk("reassignPrimary", module => module.ReassignPrimaryDialog);
 export const BotPanel = chunk("contextPanels", module => module.BotPanel);
 export const MembersPanel = chunk("contextPanels", module => module.MembersPanel);
-export const ContextCard = chunk("contextCard", module => module.ContextCard);
+export const WidgetColumn = chunk("contextCard", module => module.WidgetColumn);
+export const SidebarShell = chunk("sidebarShell", module => module.SidebarShell);
+export const CoverShell = chunk("coverShell", module => module.CoverShell);
+export const SidebarView = chunk("surfaceViews", module => module.SidebarView);
+export const WidgetView = chunk("surfaceViews", module => module.WidgetView);
+export const CoverView = chunk("surfaceViews", module => module.CoverView);
 export const GreetingSetup = chunk("greetingSetup", module => module.GreetingSetup);
 export const PermissionCoach = chunk("permissionCoach", module => module.PermissionCoach);
 export const UpdateBanner = chunk("updateBanner", module => module.UpdateBanner);
@@ -129,6 +138,9 @@ const entryPoints: Array<[selector: string, chunk: PanelChunk]> = [
   ["[data-computer-toggle]", "desktop"],
   [".chat-identity", "contextPanels"],
   [".chat-identity", "contextCard"],
+  [".chat-identity", "coverShell"],
+  [".header-actions", "sidebarShell"],
+  [".header-actions", "contextCard"],
   ["[data-computer-toggle]", "contextCard"],
   [".composer-stop", "stopMenu"],
   [".task-activity > summary", "taskActivity"],
@@ -142,7 +154,7 @@ const entryPoints: Array<[selector: string, chunk: PanelChunk]> = [
 const WARM_START_MS = 500;
 const WARM_STEP_MS = 200;
 export function warmPanelsWhenIdle(): () => void {
-  const order: PanelChunk[] = ["settings", "taskActivity", "toolSteps", "desktop", "contextPanels", "contextCard", "work", "memory", "team", "archive", "viewOnly", "remembered", "deleteDialog", "reassignPrimary", "permissionCoach", "updateBanner", "questionCard", "stopMenu"];
+  const order: PanelChunk[] = ["settings", "taskActivity", "toolSteps", "desktop", "contextPanels", "contextCard", "sidebarShell", "coverShell", "surfaceViews", "artifacts", "work", "memory", "team", "archive", "viewOnly", "remembered", "deleteDialog", "reassignPrimary", "permissionCoach", "updateBanner", "questionCard", "stopMenu"];
   let timer = window.setTimeout(function step() {
     const next = order.shift();
     if (!next) return;

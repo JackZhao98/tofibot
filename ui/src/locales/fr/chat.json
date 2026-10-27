@@ -159,7 +159,6 @@
     "restoring": "Restauration de la session enregistrée"
   },
   "contextCard": {
-    "back": "Remettre {{title}} avec les cartes",
     "close": "Fermer {{title}}",
     "collapse": "Replier {{title}}",
     "expand": "Déplier {{title}}",
@@ -174,8 +173,10 @@
       "outputs": "Productions",
       "schedule": "Tâches",
       "terminal": "Terminal"
-    },
-    "widen": "Ouvrir {{title}} sur toute la hauteur"
+    }
+  },
+  "cover": {
+    "close": "Fermer {{title}}"
   },
   "create": {
     "create_bot": "Créer un Bot",
@@ -276,8 +277,14 @@
     "computer_on": "Ordinateur partagé, allumé",
     "computer_off": "Ordinateur partagé, éteint",
     "computer_driving": "Ordinateur partagé, allumé. {{name}} y travaille",
-    "remembered_approvals": "Approbations mémorisées",
-    "open_artifacts": "Ouvrir les artefacts"
+    "remembered_approvals": "Approbations dans ce chat",
+    "open_artifacts": "Ouvrir les artefacts",
+    "tasks": "Tâches",
+    "group_settings": "Paramètres du groupe",
+    "artifacts_scope_chat": "Ce chat",
+    "artifacts_scope_group": "Ce groupe",
+    "artifacts_scope_bot": "Ce Bot",
+    "artifacts_scope_all": "Tous"
   },
   "history": {
     "boundary_failed": "Impossible de charger la position non lue.",
@@ -668,7 +675,9 @@
     "waiting": "En attente de réponse"
   },
   "sidebar": {
+    "close_panel": "Fermer {{title}}",
     "collapse": "Réduire la barre latérale",
+    "collapse_panel": "Rétrécir {{title}}",
     "copy_id": "Copier l’ID de la conversation",
     "copy_link": "Copier le lien de la conversation",
     "delete": "Supprimer",
@@ -680,6 +689,7 @@
     "drop_to_pin_hint": "Reste en haut de votre liste",
     "empty": "Aucune conversation pour l’instant. Créez un Bot pour commencer.",
     "expand": "Développer la barre latérale",
+    "expand_panel": "Élargir {{title}}",
     "hidden_bot": "Bot masqué",
     "hidden_bots": "Bots masqués",
     "hide": "Masquer de la barre latérale",

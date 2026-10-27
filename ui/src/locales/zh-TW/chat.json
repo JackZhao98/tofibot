@@ -159,7 +159,6 @@
     "restoring": "正在恢復已儲存的工作階段"
   },
   "contextCard": {
-    "back": "將{{title}}放回卡片欄",
     "close": "關閉{{title}}",
     "collapse": "摺疊{{title}}",
     "expand": "展開{{title}}",
@@ -174,8 +173,10 @@
       "outputs": "產出",
       "schedule": "任務",
       "terminal": "終端機"
-    },
-    "widen": "將{{title}}展開到右側整欄"
+    }
+  },
+  "cover": {
+    "close": "關閉{{title}}"
   },
   "create": {
     "create_bot": "建立 Bot",
@@ -268,8 +269,14 @@
     "computer_on": "共享電腦,已開機",
     "computer_off": "共享電腦,已關機",
     "computer_driving": "共享電腦,已開機。{{name}} 正在使用",
-    "remembered_approvals": "記住的核准",
-    "open_artifacts": "開啟作品"
+    "remembered_approvals": "此對話的核准",
+    "open_artifacts": "開啟作品",
+    "tasks": "任務",
+    "group_settings": "群組設定",
+    "artifacts_scope_chat": "本對話",
+    "artifacts_scope_group": "本群組",
+    "artifacts_scope_bot": "這個 Bot",
+    "artifacts_scope_all": "全部"
   },
   "history": {
     "boundary_failed": "暫時無法載入未讀位置。",
@@ -638,7 +645,9 @@
     "waiting": "等待回覆"
   },
   "sidebar": {
+    "close_panel": "關閉{{title}}",
     "collapse": "收合側邊欄",
+    "collapse_panel": "收窄{{title}}",
     "copy_id": "複製對話 ID",
     "copy_link": "複製對話連結",
     "delete": "刪除",
@@ -650,6 +659,7 @@
     "drop_to_pin_hint": "固定在清單最上方",
     "empty": "還沒有對話，先建立一個 Bot 吧。",
     "expand": "展開側邊欄",
+    "expand_panel": "加寬{{title}}",
     "hidden_bot": "已隱藏的 Bot",
     "hidden_bots": "已隱藏的 Bot",
     "hide": "從側邊欄隱藏",

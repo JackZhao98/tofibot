@@ -159,7 +159,6 @@
     "restoring": "Gespeicherte Sitzung wird wiederhergestellt"
   },
   "contextCard": {
-    "back": "{{title}} zurück zu den Karten",
     "close": "{{title}} schließen",
     "collapse": "{{title}} einklappen",
     "expand": "{{title}} ausklappen",
@@ -174,8 +173,10 @@
       "outputs": "Ergebnisse",
       "schedule": "Aufgaben",
       "terminal": "Terminal"
-    },
-    "widen": "{{title}} in voller Höhe öffnen"
+    }
+  },
+  "cover": {
+    "close": "{{title}} schließen"
   },
   "create": {
     "create_bot": "Bot erstellen",
@@ -272,8 +273,14 @@
     "computer_on": "Gemeinsamer Computer, an",
     "computer_off": "Gemeinsamer Computer, aus",
     "computer_driving": "Gemeinsamer Computer, an. {{name}} arbeitet darin",
-    "remembered_approvals": "Gemerkte Genehmigungen",
-    "open_artifacts": "Artefakte öffnen"
+    "remembered_approvals": "Genehmigungen in diesem Chat",
+    "open_artifacts": "Artefakte öffnen",
+    "tasks": "Aufgaben",
+    "group_settings": "Gruppeneinstellungen",
+    "artifacts_scope_chat": "Dieser Chat",
+    "artifacts_scope_group": "Diese Gruppe",
+    "artifacts_scope_bot": "Dieser Bot",
+    "artifacts_scope_all": "Alle"
   },
   "history": {
     "boundary_failed": "Ungelesen-Position konnte nicht geladen werden.",
@@ -653,7 +660,9 @@
     "waiting": "Wartet auf Antwort"
   },
   "sidebar": {
+    "close_panel": "{{title}} schließen",
     "collapse": "Seitenleiste einklappen",
+    "collapse_panel": "{{title}} verschmälern",
     "copy_id": "Unterhaltungs-ID kopieren",
     "copy_link": "Link zur Unterhaltung kopieren",
     "delete": "Löschen",
@@ -665,6 +674,7 @@
     "drop_to_pin_hint": "Bleibt oben in deiner Liste",
     "empty": "Noch keine Unterhaltungen. Erstelle einen Bot, um loszulegen.",
     "expand": "Seitenleiste ausklappen",
+    "expand_panel": "{{title}} verbreitern",
     "hidden_bot": "Ausgeblendeter Bot",
     "hidden_bots": "Ausgeblendete Bots",
     "hide": "In der Seitenleiste ausblenden",

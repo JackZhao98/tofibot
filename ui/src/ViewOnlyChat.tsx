@@ -1,6 +1,5 @@
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { CATS, EmptyState } from "./EmptyCat";
-import { createPortal } from "react-dom";
 import { request } from "./api";
 import { BotAvatar } from "./BotAvatar";
 import { MessageMarkdown } from "./MessageMarkdown";
@@ -8,7 +7,6 @@ import { TofiIcon } from "./icons";
 import { useTranslation } from "./i18n";
 import type { Bot, Conversation, Message } from "./types";
 import { mergeViewOnlyHistory, type ViewOnlyHistory, type ViewOnlyHistoryPage } from "./viewOnlyHistory";
-import { layerRoot } from "./layers";
 import { SENDER_GROUP_WINDOW_MS } from "./senderGroups";
 import { ModalDialog } from "./overlays/ModalDialog";
 
@@ -37,51 +35,28 @@ function Participant({ ids, name }: { ids: string[]; name: string }) {
   return <div className="view-only-chat-participant"><AvatarStack ids={ids} /><strong>{name}</strong></div>;
 }
 
-export function ViewOnlyChat({ target, bots, onClose, returnFocus, card = false }: { target: ViewOnlyChatTarget; bots: Bot[]; onClose: () => void; returnFocus?: HTMLElement | null; card?: boolean }) {
+export function ViewOnlyChat({ target, bots, onClose, returnFocus, sidebar = false }: { target: ViewOnlyChatTarget; bots: Bot[]; onClose: () => void; returnFocus?: HTMLElement | null; sidebar?: boolean }) {
   const { t } = useTranslation("chat");
   const closeRef = useRef<HTMLButtonElement>(null);
   const botById = useMemo(() => new Map(bots.map((bot) => [bot.id, bot])), [bots]);
   const sourceIDs = participantIds(target.source, target.sourceBotIds);
   const targetIDs = participantIds(target.target, target.targetBotIds);
-  const surface = (modal: boolean, ref?: RefObject<HTMLDivElement | null>) => <div ref={ref} className={`view-only-chat${modal ? "" : " is-card"}`} role="dialog" aria-label={t("viewOnly.label")}>
+  // In the sidebar the shell carries the title and the close; the surface keeps who talked to whom, the history and the footer.
+  const surface = <div className={`view-only-chat${sidebar ? " is-sidebar" : ""}`} role={sidebar ? "region" : "dialog"} aria-label={t("viewOnly.label")}>
     <header className="view-only-chat-header">
       <div className="view-only-chat-identity">
         <Participant ids={sourceIDs} name={target.sourceName ?? target.source.name} />
         <span className="view-only-chat-arrow" aria-hidden="true"><TofiIcon name="bot-handoff" size={24} style={{ verticalAlign: "middle" }} /></span>
         <Participant ids={targetIDs} name={target.targetName ?? target.target.name} />
       </div>
-      <button ref={closeRef} type="button" className="view-only-chat-close" aria-label={t("viewOnly.close_label")} data-hint={t("viewOnly.close_label")} onClick={onClose}><TofiIcon name="close" size={20} /></button>
+      {!sidebar && <button ref={closeRef} type="button" className="view-only-chat-close" aria-label={t("viewOnly.close_label")} data-hint={t("viewOnly.close_label")} onClick={onClose}><TofiIcon name="close" size={20} /></button>}
     </header>
     <ViewOnlyChatHistory key={JSON.stringify([target.target.id, target.runId ?? null])} conversationId={target.target.id} runId={target.runId} botById={botById} closeRef={closeRef} />
-    <footer className="view-only-chat-footer"><span><TofiIcon name="lock" size={16} /> {t("viewOnly.read_only")}</span><button type="button" className="secondary-button" onClick={onClose}>{t("viewOnly.close")}</button></footer>
+    <footer className="view-only-chat-footer"><span><TofiIcon name="lock" size={16} /> {t("viewOnly.read_only")}</span>{!sidebar && <button type="button" className="secondary-button" onClick={onClose}>{t("viewOnly.close")}</button>}</footer>
   </div>;
-  // Narrow windows and the desktop app: a full-screen modal (Radix Dialog: trap, Escape, focus return, background hidden).
-  // Crossing the breakpoint swaps one surface for the other, which remounts the history.
-  if (!card) return <ModalDialog onClose={onClose} initialFocus={closeRef} returnFocus={returnFocus}>{surface(true)}</ModalDialog>;
-  return <ViewOnlyCard onClose={onClose} returnFocus={returnFocus} closeRef={closeRef} render={ref => surface(false, ref)} />;
-}
-
-/** The ≥1100 px web card: non-modal, the chat beside it stays usable, so focus is not trapped. Escape still closes it. */
-function ViewOnlyCard({ onClose, returnFocus, closeRef, render }: { onClose: () => void; returnFocus?: HTMLElement | null; closeRef: RefObject<HTMLButtonElement | null>; render: (ref: RefObject<HTMLDivElement | null>) => ReactNode }) {
-  const dialogRef = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    const trigger = returnFocus ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
-    const dialog = dialogRef.current;
-    // A modal that just turned into this card leaves focus on its (removed) close button: take it.
-    closeRef.current?.focus();
-    // Restore after the caller removes inert. StrictMode's simulated cleanup
-    // must not move focus out of a dialog that is still mounted.
-    return () => { queueMicrotask(() => { if (!dialog?.isConnected && trigger?.isConnected) trigger.focus(); }); };
-  }, [returnFocus, closeRef]);
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) return;
-      if (event.key === "Escape") { event.preventDefault(); onClose(); }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
-  return createPortal(render(dialogRef), layerRoot());
+  // The wide web layout draws it in the sidebar. Narrow windows and the desktop app: a full-screen modal (Radix Dialog: trap, Escape, focus return, background hidden).
+  if (sidebar) return surface;
+  return <ModalDialog onClose={onClose} initialFocus={closeRef} returnFocus={returnFocus}>{surface}</ModalDialog>;
 }
 
 function ViewOnlyChatHistory({ conversationId, runId, botById, closeRef }: { conversationId: string; runId?: string; botById: Map<string, Bot>; closeRef: RefObject<HTMLButtonElement | null> }) {

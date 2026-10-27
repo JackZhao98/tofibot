@@ -37,6 +37,8 @@ type ModalDialogProps = {
   initialFocus?: RefObject<HTMLElement | null>;
   /** Where focus returns on close. Default: whatever had focus when the dialog opened. */
   returnFocus?: HTMLElement | null;
+  /** Where the dialog is portaled. Default: the layer root. A cover whose panels are styled under `.workspace` goes inside it. */
+  container?: HTMLElement | null;
 };
 
 const TABBABLE = 'button:not(:disabled), a[href], input:not(:disabled):not([type="hidden"]), select:not(:disabled), textarea:not(:disabled), summary, [tabindex]:not([tabindex="-1"])';
@@ -112,7 +114,7 @@ export function ModalDialog(props: ModalDialogProps) {
   const { onOpenChange, content } = useModalBehaviour(props);
   const body = <Dialog.Content asChild {...content}>{props.children}</Dialog.Content>;
   return <Dialog.Root open onOpenChange={onOpenChange}>
-    <Dialog.Portal container={layerRoot()}>{props.overlayClassName ? <Scrim className={props.overlayClassName} data={props.overlayProps}>{body}</Scrim> : body}</Dialog.Portal>
+    <Dialog.Portal container={props.container ?? layerRoot()}>{props.overlayClassName ? <Scrim className={props.overlayClassName} data={props.overlayProps}>{body}</Scrim> : body}</Dialog.Portal>
   </Dialog.Root>;
 }
 

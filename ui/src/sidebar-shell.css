@@ -1,0 +1,28 @@
+/* The sidebar's frame (docs/design/widgets-and-sidebar.md section 2.2). Loads with SidebarShell; the grid track itself is eager in
+   context-card.css. Header: 15px/600 title, expand, close; filled --surface; the left edge is only the soft panel shadow. */
+.sidebar-shell { display:flex; flex-direction:column; height:100%; min-width:0; min-height:0; background:var(--surface); color:var(--ink); }
+.sidebar-shell-header { display:flex; align-items:center; gap:2px; flex:none; min-height:48px; padding:6px 10px 6px 20px; }
+.sidebar-shell-header h2 { flex:1; min-width:0; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink); font:600 15px/1.3 var(--display); outline:none; animation:sidebar-layer-in var(--m-quick) var(--ease-out) backwards; }
+.sidebar-shell-expand svg { transition:rotate var(--m-base) var(--ease-out); }
+.sidebar-shell-body { position:relative; flex:1 1 auto; min-height:0; overflow:hidden; }
+/* One layer per panel. The arriving one fades in; the leaving one fades out on top and stops taking input. */
+.sidebar-layer { position:absolute; inset:0; overflow:hidden auto; overscroll-behavior:contain; animation:sidebar-layer-in var(--m-quick) var(--ease-out) backwards; }
+.sidebar-layer[data-leaving] { opacity:0; pointer-events:none; transition:opacity var(--m-quick) var(--ease-out); }
+.sidebar-layer.is-fill { overflow:hidden; }
+@keyframes sidebar-layer-in { from { opacity:0; } }
+/* The panels inside lose their own heading and close (the header carries both) and keep one inner padding. */
+.sidebar-shell .detail-content { padding:2px 20px 24px; background:transparent; }
+.sidebar-shell .detail-heading :is(h2,.close-button) { display:none; }
+.sidebar-shell .detail-heading:not(:has(> :not(h2):not(.close-button))) { display:none; }
+.sidebar-shell .detail-content > .detail-heading { min-height:0; margin:0 0 12px; padding:0; border:0; }
+.sidebar-shell .terminal-panel { width:100%; height:100%; min-height:0; border:0; border-radius:0; box-shadow:none; }
+.sidebar-shell .view-only-chat.is-sidebar { position:static; z-index:auto; display:flex; flex-direction:column; width:100%; height:100%; animation:none; border:0; border-radius:0; box-shadow:none; background:transparent; }
+@media (prefers-reduced-motion:reduce) {
+  .sidebar-shell-header h2, .sidebar-layer { animation:none; }
+  .sidebar-layer[data-leaving], .sidebar-shell-expand svg { transition:none; }
+}
+/* The forwarded chat as a sidebar view: its own close lives in the shell header, the surface keeps participants, history and footer. */
+.sidebar-shell .view-only-chat.is-sidebar .view-only-chat-header { min-height:0; padding:12px 20px; border-bottom:1px solid var(--line-soft); background:transparent; -webkit-backdrop-filter:none; backdrop-filter:none; }
+.sidebar-shell .view-only-chat.is-sidebar .view-only-chat-body { flex:1 1 auto; min-height:0; padding:16px 20px 20px; }
+.sidebar-shell .view-only-chat.is-sidebar .view-only-message-copy { max-width:88%; }
+.sidebar-shell .view-only-chat.is-sidebar .view-only-chat-footer { min-height:0; padding:8px 20px; justify-content:flex-start; border-top:1px solid var(--line-soft); background:transparent; -webkit-backdrop-filter:none; backdrop-filter:none; color:var(--muted); font:var(--type-meta); }

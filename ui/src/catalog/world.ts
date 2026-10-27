@@ -235,11 +235,11 @@ export function workspace(options: AppOptions): Synthetic {
   };
 }
 
-/** Files the Bot produced in the direct chat (GET /api/artifacts, conversation scope): the side panel's Outputs card. */
+/** Files the Bot produced in the direct chat (GET /api/artifacts, conversation scope): the Artifacts widget. */
 const ARTIFACTS = [
   { id: "att_summary", name: "week-42-summary.md", mime: "text/markdown", size: 3100 },
   { id: "att_signups", name: "signups.csv", mime: "text/csv", size: 18800 },
-  { id: "att_retention", name: "retention-chart.png", mime: "image/png", size: 52000 },
+  { id: "att_retention", name: "retention-chart.svg", mime: "image/svg+xml", size: 52000 }, // not a raster: a thumbnail <img> would be a request the catalog cannot answer
 ].map(item => ({ ...item, created_at: "2026-10-09T12:00:00Z", conversation_id: "dm_mochi", conversation_name: "Mochi", conversation_kind: "dm", conversation_archived: false, bot_id: "bot_mochi", message_id: "m1", message_seq: 1, uploaded: false, version_group: item.id, version_count: 1 }));
 
 /** The server behind an isolated component: the records it reads, answers that succeed, and nothing else. */

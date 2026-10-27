@@ -152,16 +152,15 @@ await check("delete dialog while busy: neither Escape nor the scrim closes it; a
 
 await check("Escape closes only the top layer: the dialog first, then the non-modal panel under it", async () => {
   const { page, context, errors } = await fixture.open({ viewport: { width: 1280, height: 820 }, motion: "reduce" });
-  await page.locator(".header-more > button").click();
-  await page.locator(".more-menu[data-state=open] button", { hasText: "Schedule" }).click();
-  await page.waitForFunction(() => document.querySelector(".workspace-grid")?.classList.contains("context-open"));
+  await page.getByRole("button", { name: "Tasks", exact: true }).click();
+  await page.waitForFunction(() => document.querySelector(".workspace-grid")?.classList.contains("sidebar-open"));
   await menuDelete(page);
   await page.keyboard.press("Escape");
   await page.locator(".delete-dialog").waitFor({ state: "detached", timeout: 2000 });
   await page.waitForTimeout(100);
-  truthy(await page.evaluate(() => document.querySelector(".workspace-grid").classList.contains("context-open")), "one Escape closed the dialog and the panel under it");
+  truthy(await page.evaluate(() => document.querySelector(".workspace-grid").classList.contains("sidebar-open")), "one Escape closed the dialog and the panel under it");
   await page.keyboard.press("Escape");
-  await page.waitForFunction(() => !document.querySelector(".workspace-grid").classList.contains("context-open"), null, { timeout: 2000 });
+  await page.waitForFunction(() => !document.querySelector(".workspace-grid").classList.contains("sidebar-open"), null, { timeout: 2000 });
   truthy(!errors.length, errors.join("; "));
   await context.close();
 });

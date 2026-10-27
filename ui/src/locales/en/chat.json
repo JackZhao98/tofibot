@@ -159,7 +159,6 @@
     "restoring": "Restoring saved session"
   },
   "contextCard": {
-    "back": "Return {{title}} to the cards",
     "close": "Close {{title}}",
     "collapse": "Collapse {{title}}",
     "expand": "Expand {{title}}",
@@ -174,8 +173,10 @@
       "outputs": "Outputs",
       "schedule": "Tasks",
       "terminal": "Terminal"
-    },
-    "widen": "Open {{title}} full height"
+    }
+  },
+  "cover": {
+    "close": "Close {{title}}"
   },
   "create": {
     "create_bot": "Create Bot",
@@ -272,8 +273,14 @@
     "computer_on": "Shared computer, on",
     "computer_off": "Shared computer, off",
     "computer_driving": "Shared computer, on. {{name}} is working in it",
-    "remembered_approvals": "Remembered approvals",
-    "open_artifacts": "Open artifacts"
+    "remembered_approvals": "Approvals in this chat",
+    "open_artifacts": "Open artifacts",
+    "tasks": "Tasks",
+    "group_settings": "Group settings",
+    "artifacts_scope_chat": "This chat",
+    "artifacts_scope_group": "This group",
+    "artifacts_scope_bot": "This Bot",
+    "artifacts_scope_all": "All"
   },
   "history": {
     "boundary_failed": "Couldn't load your unread position.",
@@ -653,7 +660,9 @@
     "waiting": "Waiting for reply"
   },
   "sidebar": {
+    "close_panel": "Close {{title}}",
     "collapse": "Collapse sidebar",
+    "collapse_panel": "Narrow {{title}}",
     "copy_id": "Copy conversation ID",
     "copy_link": "Copy conversation link",
     "delete": "Delete",
@@ -665,6 +674,7 @@
     "drop_to_pin_hint": "Keeps it at the top of your list",
     "empty": "No conversations yet. Create a Bot to get started.",
     "expand": "Expand sidebar",
+    "expand_panel": "Widen {{title}}",
     "hidden_bot": "Hidden Bot",
     "hidden_bots": "Hidden Bots",
     "hide": "Hide from sidebar",

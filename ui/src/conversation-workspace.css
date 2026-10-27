@@ -39,7 +39,7 @@
   /* Release the closing context column immediately. Otherwise the legacy
      :has(.detail-pane.visible) rule keeps it alive until the retained panel
      unmounts, producing two separate closing motions with a pause between. */
-  .workspace .workspace-grid:not(.context-open):not(:has(.settings-tabs)):not(:has(.computer-detail.is-expanded)){grid-template-columns:var(--sidebar-width) minmax(0,1fr) 0px}
+  html[data-desktop] .workspace .workspace-grid:not(.context-open):not(:has(.settings-tabs)):not(:has(.computer-detail.is-expanded)){grid-template-columns:var(--sidebar-width) minmax(0,1fr) 0px}
   .workspace .detail-pane.context-panel{position:relative;inset:auto;grid-column:3;grid-row:1;display:block;min-width:0;width:auto;height:100%;max-height:100%;overflow:auto;transform:none;translate:none;scale:none;animation:none;transition:none;border-radius:0;box-shadow:none;visibility:hidden}
   .workspace .detail-pane.context-panel.visible{visibility:visible;pointer-events:auto}
   .workspace .detail-pane.context-panel.surface-exiting{pointer-events:none}

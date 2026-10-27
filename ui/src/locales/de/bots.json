@@ -206,6 +206,9 @@
     "versions_error": "Frühere Versionen konnten nicht geladen werden.",
     "latest": "Neueste",
     "you": "Du",
-    "list_label": "Artefaktliste"
+    "list_label": "Artefaktliste",
+    "scope_label": "Bereich",
+    "widget_empty": "Dateien, die deine Bots in diesem Chat erzeugen, erscheinen hier.",
+    "widget_all": "Alle Artefakte"
   }
 }

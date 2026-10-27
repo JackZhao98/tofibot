@@ -159,7 +159,6 @@
     "restoring": "저장된 세션 복원 중"
   },
   "contextCard": {
-    "back": "{{title}} 카드로 되돌리기",
     "close": "{{title}} 닫기",
     "collapse": "{{title}} 접기",
     "expand": "{{title}} 펼치기",
@@ -174,8 +173,10 @@
       "outputs": "산출물",
       "schedule": "작업",
       "terminal": "터미널"
-    },
-    "widen": "{{title}} 전체 높이로 열기"
+    }
+  },
+  "cover": {
+    "close": "{{title}} 닫기"
   },
   "create": {
     "create_bot": "Bot 만들기",
@@ -268,8 +269,14 @@
     "computer_on": "공유 컴퓨터, 켜짐",
     "computer_off": "공유 컴퓨터, 꺼짐",
     "computer_driving": "공유 컴퓨터, 켜짐. {{name}}이(가) 작업 중",
-    "remembered_approvals": "기억된 승인",
-    "open_artifacts": "산출물 열기"
+    "remembered_approvals": "이 채팅의 승인",
+    "open_artifacts": "산출물 열기",
+    "tasks": "작업",
+    "group_settings": "그룹 설정",
+    "artifacts_scope_chat": "이 채팅",
+    "artifacts_scope_group": "이 그룹",
+    "artifacts_scope_bot": "이 Bot",
+    "artifacts_scope_all": "전체"
   },
   "history": {
     "boundary_failed": "읽지 않은 위치를 불러오지 못했습니다.",
@@ -638,7 +645,9 @@
     "waiting": "답장 대기 중"
   },
   "sidebar": {
+    "close_panel": "{{title}} 닫기",
     "collapse": "사이드바 접기",
+    "collapse_panel": "{{title}} 좁히기",
     "copy_id": "대화 ID 복사",
     "copy_link": "대화 링크 복사",
     "delete": "삭제",
@@ -650,6 +659,7 @@
     "drop_to_pin_hint": "목록 맨 위에 계속 표시됩니다",
     "empty": "아직 대화가 없습니다. 먼저 Bot을 만들어 보세요.",
     "expand": "사이드바 펼치기",
+    "expand_panel": "{{title}} 넓히기",
     "hidden_bot": "숨긴 Bot",
     "hidden_bots": "숨긴 Bot",
     "hide": "사이드바에서 숨기기",

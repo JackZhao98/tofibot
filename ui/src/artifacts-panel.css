@@ -74,3 +74,23 @@
   .workspace .detail-content.artifacts-panel { padding-inline: 16px; }
   .workspace .artifacts-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 }
+
+/* The widget form: one column, latest few, a 36px thumbnail per row (docs/design/widgets-and-sidebar.md section 4). */
+.workspace .artifacts-widget { display: grid; gap: 2px; padding: 0 8px 8px; }
+.workspace .artifacts-widget-list { display: grid; gap: 1px; margin: 0; padding: 0; list-style: none; }
+.workspace .artifact-row { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 4px 8px 4px 4px; border: 0; border-radius: 10px; background: transparent; color: var(--ink); text-align: left; transition: background-color var(--m-press) var(--ease-out); }
+.workspace .artifact-row:hover { background: var(--surface-2); }
+.workspace .artifact-row-thumb { display: grid; place-items: center; width: 36px; height: 36px; overflow: hidden; border-radius: 8px; background: var(--sunk); }
+.workspace .artifact-row-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.workspace .artifact-row-thumb .file-tile { transform: scale(.62); }
+.workspace .artifact-row-name { overflow: hidden; font: 600 13px/1.35 var(--display); text-overflow: ellipsis; white-space: nowrap; }
+.workspace .artifact-row time { color: var(--muted); font: 11px/1.3 var(--mono); white-space: nowrap; }
+.workspace .artifacts-widget-note { margin: 0; padding: 6px 10px 10px; color: var(--muted); font: var(--type-meta); }
+.workspace .artifacts-widget-skeleton { display: grid; gap: 6px; padding: 4px; }
+.workspace .artifacts-widget-skeleton i { display: block; height: 36px; border-radius: 8px; background: var(--sunk); }
+.workspace .artifacts-widget-all { display: flex; align-items: center; justify-content: space-between; min-height: 36px; margin-top: 2px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; color: var(--ink-soft); font: 600 12px/1.3 var(--display); transition: background-color var(--m-press) var(--ease-out), color var(--m-press) var(--ease-out); }
+.workspace .artifacts-widget-all:hover { background: var(--surface-2); color: var(--ink); }
+.workspace .artifacts-widget button:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 2px; }
+.workspace .artifacts-scopes { margin-bottom: 0; }
+@media (pointer: coarse) { .workspace .artifact-row { min-height: 48px; } }
+.workspace .artifacts-uploads { display: flex; align-items: center; justify-content: space-between; gap: 12px; font: 13px/1.4 var(--body); }

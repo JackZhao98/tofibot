@@ -1,18 +1,20 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { useTranslation } from "./i18n";
 import { TofiIcon as Icon } from "./icons";
+import { WIDGET_ORDER, type WidgetId } from "./surfaces";
+import { useLeaving } from "./surfacePresence";
 import "./context-column.css";
 
 /**
- * One card in the on-demand column at the right (docs/design/side-panels.md): title on the left; fold, expand and close
- * on the right. `wide` is the card that was moved into the full-height outside panel: its header has the way back
- * (instead of fold and expand) and close. A folded card keeps its content mounted (a live computer session must
- * survive it) and only hides it; a card moved to the outside panel keeps its place in the tree, so it is not remounted.
+ * One widget in the column inside the chat (docs/design/widgets-and-sidebar.md): title on the left; fold and close on
+ * the right. A folded widget keeps its content mounted (a live computer session must survive it) and only hides it.
+ * `leaving` is set while the widget plays its exit; the card stays in place until the motion is over.
  */
-export function ContextCard({ id, title, order, collapsed = false, wide = false, focusN = 0, onToggle, onWide, onClose, children }: {
-  id: string; title: string; order: number; collapsed?: boolean; wide?: boolean; focusN?: number; onToggle: (id: string) => void; onWide: (id: string) => void; onClose: (id: string) => void; children: ReactNode;
+export function ContextCard({ id, order, collapsed = false, leaving = false, focusN = 0, onToggle, onClose, children }: {
+  id: string; order: number; collapsed?: boolean; leaving?: boolean; focusN?: number; onToggle: (id: string) => void; onClose: (id: string) => void; children: ReactNode;
 }) {
   const { t } = useTranslation("chat");
+  const title = t(id === "computer" ? "contextCard.title.desktop" : id === "members" ? "contextCard.title.members" : "contextCard.title.artifacts");
   const ref = useRef<HTMLElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const bodyId = useId();
@@ -27,15 +29,29 @@ export function ContextCard({ id, title, order, collapsed = false, wide = false,
     return () => cancelAnimationFrame(frame);
   }, [focusN]);
   const foldLabel = t(collapsed ? "contextCard.expand" : "contextCard.collapse", { title });
-  const wideLabel = t(wide ? "contextCard.back" : "contextCard.widen", { title });
   const closeLabel = t("contextCard.close", { title });
-  return <section ref={ref} className={`context-card${collapsed ? " is-collapsed" : ""}${wide ? " is-wide" : ""}${id === "desktop" && !wide ? " is-bare" : ""}`} data-card={id} style={{ order }} aria-label={title}>
+  return <div className="widget-slot" data-leaving={leaving || undefined} inert={leaving || undefined} style={{ order }}><section ref={ref} className={`context-card${collapsed ? " is-collapsed" : ""}${id === "computer" ? " is-bare" : ""}`} data-card={id} aria-label={title}>
     <header className="context-card-header">
       <h2 ref={heading} tabIndex={-1}>{title}</h2>
-      {!wide && <button type="button" className="context-card-button context-card-fold" aria-expanded={!collapsed} aria-controls={bodyId} aria-label={foldLabel} data-hint={foldLabel} onClick={() => onToggle(id)}><Icon name="chevron-down" size={16} /></button>}
-      <button type="button" className="context-card-button context-card-wide" aria-pressed={wide} aria-label={wideLabel} data-hint={wideLabel} onClick={() => onWide(id)}><Icon name={wide ? "chevron-right" : "external-link"} size={16} /></button>
+      <button type="button" className="context-card-button context-card-fold" aria-expanded={!collapsed} aria-controls={bodyId} aria-label={foldLabel} data-hint={foldLabel} onClick={() => onToggle(id)}><Icon name="chevron-down" size={16} /></button>
       <button type="button" className="context-card-button" aria-label={closeLabel} data-hint={closeLabel} onClick={() => onClose(id)}><Icon name="close" size={16} /></button>
     </header>
     <div id={bodyId} className="context-card-body" inert={collapsed || undefined}><div className="context-card-inner">{children}</div></div>
-  </section>;
+  </section></div>;
+}
+
+/**
+ * The column of widgets inside the chat: the open ones in the fixed order, plus the ones playing their exit (the column itself
+ * goes when the last one has left). `render` returns a widget's content; null skips it.
+ */
+export function WidgetColumn({ ids, folded, focus, covered, onFold, onClose, render }: {
+  ids: readonly WidgetId[]; folded: readonly WidgetId[]; focus: { id: string | null; n: number }; covered: boolean;
+  onFold: (id: string) => void; onClose: (id: WidgetId) => void; render: (id: WidgetId, leaving: boolean) => ReactNode;
+}) {
+  const { t } = useTranslation("chat");
+  const { shown, leaving } = useLeaving(ids, WIDGET_ORDER, 220);
+  if (!shown.length) return null;
+  return <aside className={`detail-pane context-panel context-column widget-column visible${covered ? " is-covered" : ""}`} aria-label={t("detail.label")}>
+    {shown.map(id => { const node = render(id, leaving.has(id)); return node && <ContextCard key={id} id={id} order={WIDGET_ORDER.indexOf(id)} collapsed={folded.includes(id)} leaving={leaving.has(id)} focusN={focus.id === id ? focus.n : 0} onToggle={onFold} onClose={onClose as (id: string) => void}>{node}</ContextCard>; })}
+  </aside>;
 }

@@ -34,7 +34,7 @@ import { useMailDrafts } from "./mailDrafts";
 import { buildQuestionTimeline, compareQuestionTime } from "./questionTimeline";
 import { useDebugMode } from "./debugMode";
 import type { SettingsEntry, SettingsTab, SettingsView } from "./SettingsShell";
-import { AfterPaint, ArchivePanel, ArtifactsPanel, ContextCard, GreetingSetup, UpdateBanner, PermissionCoach, BotPanelSkeleton, BotDesktopPanel, DeleteConversationDialog, ReassignPrimaryDialog, RememberedApprovalsSheet, BotPanel, MembersPanel, DesktopSkeleton, MemoryPanel, TeamBoard, ViewOnlyChat, WorkPanel, Onboarding, QuestionCard, RunContextView, TaskCard, ComposerStopMenu, FloatingDesktop, panelLoaded, preloadPanel, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle, WebToolSteps, whenPanelLoaded } from "./lazyPanels";
+import { AfterPaint, CoverShell, CoverView, SidebarShell, SidebarView, WidgetColumn, WidgetView, GreetingSetup, UpdateBanner, PermissionCoach, BotDesktopPanel, DeleteConversationDialog, ReassignPrimaryDialog, RememberedApprovalsSheet, DesktopSkeleton, TeamBoard, ViewOnlyChat, Onboarding, QuestionCard, RunContextView, TaskCard, ComposerStopMenu, FloatingDesktop, panelLoaded, preloadPanel, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle, WebToolSteps, whenPanelLoaded } from "./lazyPanels";
 import { subscribeSettingsDeepLinks } from "./settings/deepLinks";
 import { BotIdentityCard } from "./BotIdentityCard";
 import { arrowOpens, OverlayMenu, OverlaySlot, SlotView } from "./overlays/OverlayHost";
@@ -98,12 +98,12 @@ import { observeVisualViewport, visualViewportMetrics } from "./visualViewport";
 import { getBotAvatarConfig, subscribeBotAvatar } from "./avatarStore";
 import type { Attachment, Bot, ComputerHealth, Config, Conversation, EventEnvelope, Memory, Message, Run, StreamDraft, ToolActivity, ToolActivityRunSummary, WorkItem, WorkspaceEventEnvelope } from "./types";
 import { MOTION, EASE } from "./motion";
-import { closePanel, currentPanel, emptyPanelState, openPanel, toggleCollapsed, toggleWide } from "./contextStack";
+import { applyPanel, closeAll, closeCover, closeSidebar, closeWidget, emptySurfaces, escapeTarget, foldWidget, isEmpty, openCover, openSidebar, openWidget, toggleSidebar, toggleSidebarExpanded, toggleWidget, type CoverId, type LegacyPanel, type SidebarId, type WidgetId } from "./surfaces";
+import type { SurfaceCtx } from "./SurfaceViews";
 
 const MailDraftCard = lazy(() => import("./MailDraftCard").then(module => ({ default: module.MailDraftCard })));
-const TerminalPanel = lazy(() => import("./TerminalPanel").then(module => ({ default: module.TerminalPanel })));
 
-type Panel = "group-create" | "bot-edit" | "memory" | "schedule" | "settings" | "members" | "desktop" | "terminal" | "archive" | "artifacts" | "artifacts-bot" | "artifacts-group" | "file" | null;
+type Panel = LegacyPanel | null;
 type SidebarLayout = { pinned: string[]; sections: Record<string, string> };
 type SidebarContextMenu = { x: number; y: number; conversation: Conversation };
 type ToolDetailState = { loaded: number; toolCount: number; hasMore: boolean; loading: boolean; error?: string };
@@ -566,25 +566,34 @@ function Workspace() {
   /** Opens Settings on a tab. On a narrow screen a deep link lands on the page itself; the plain Settings button lands on the list. */
   const openSettings = (tab: SettingsTab, view: SettingsView = "page") => { setSettingsTab(tab); setSettingsEntry(current => ({ seq: current.seq + 1, view })); setPanel("settings"); };
   const [usageBotId, setUsageBotId] = useState("");
-  // Open cards, newest first (docs/design/side-panels.md): the column exists only while there is one; narrow screens keep one at a time.
+  // What is open (docs/design/widgets-and-sidebar.md): widgets in the chat, one sidebar at the window edge, one exclusive cover.
+  // `setPanel(id)` is the adapter the older call sites still use; it maps the old panel ids to a tier (surfaces.ts applyPanel).
   const panelOpener = useRef<HTMLElement | null>(null);
   const columnRef = useRef(false);
-  const exitState = useRef<ReturnType<typeof emptyPanelState<Exclude<Panel, null>>> | null>(null);
-  const [panelState, setPanelState] = useState(() => emptyPanelState<Exclude<Panel, null>>());
-  const panel: Panel = currentPanel(panelState);
-  const has = (id: string) => panelState.cards.includes(id as Exclude<Panel, null>);
+  const [surfaces, setSurfaces] = useState(emptySurfaces);
+  const anyOpen = !isEmpty(surfaces);
   const rememberOpener = () => { const focused = document.activeElement; panelOpener.current = focused instanceof HTMLElement && focused !== document.body ? focused : null; };
-  const setPanel = useCallback((next: Panel | ((current: Panel) => Panel)) => setPanelState(state => {
-    const target = typeof next === "function" ? next(currentPanel(state)) : next;
-    if (target && !state.cards.length) rememberOpener();
-    return openPanel(state, target, columnRef.current);
+  const setPanel = useCallback((target: Panel) => setSurfaces(state => {
+    if (target && isEmpty(state)) rememberOpener();
+    return applyPanel(state, target, columnRef.current);
   }), []);
-  const closeCard = useCallback((id: string) => setPanelState(state => closePanel(state, id)), []);
-  const toggleCard = useCallback((id: string) => setPanelState(state => toggleCollapsed(state, id)), []);
-  const widenCard = useCallback((id: string) => setPanelState(state => toggleWide(state, id)), []);
-  /** Header buttons that open a card and close it again: only that card goes. */
-  const toggleCardOpen = (id: Exclude<Panel, null>) => { if (has(id)) closeCard(id); else setPanel(id); };
-  const displayedPanel = useSurfacePresence(panel, 380);
+  const closeWidgetId = useCallback((id: WidgetId) => setSurfaces(state => closeWidget(state, id)), []);
+  const foldWidgetId = useCallback((id: string) => setSurfaces(state => foldWidget(state, id as WidgetId)), []);
+  const closeSidebarPanel = useCallback(() => setSurfaces(state => closeSidebar(state)), []);
+  const closeCoverPanel = useCallback(() => setSurfaces(state => closeCover(state)), []);
+  const openCoverPanel = useCallback((id: CoverId) => setSurfaces(state => { if (isEmpty(state)) rememberOpener(); return openCover(state, id); }), []);
+  const toggleWidgetId = useCallback((id: WidgetId) => setSurfaces(state => { if (isEmpty(state)) rememberOpener(); return toggleWidget(state, id); }), []);
+  const toggleSidebarId = useCallback((id: SidebarId) => setSurfaces(state => { if (isEmpty(state)) rememberOpener(); return toggleSidebar(state, id); }), []);
+  const sidebarId = surfaces.sidebar?.id ?? null;
+  const cover = surfaces.cover;
+  // Each surface plays its exit before it leaves the tree: widgets one by one, the sidebar's content while the track closes,
+  // a cover while it fades (leaving is shorter than entering, motion tokens in the CSS).
+  const displayedSidebar = useSurfacePresence(sidebarId, 220);
+  const displayedCover = useSurfacePresence(cover, 240);
+  const lastSidebarExpanded = useRef(false);
+  if (surfaces.sidebar) lastSidebarExpanded.current = surfaces.sidebar.expanded;
+  /** The scope the Artifacts cover opens with: the account menu opens the whole account, the widget's All this conversation. */
+  const [artifactsMode, setArtifactsMode] = useState<"artifacts" | "artifacts-bot" | "artifacts-group">("artifacts");
   const [desktopReady, setDesktopReady] = useState(false);
   // Keep in sync with conversation-workspace.css: three columns need room for chat.
   const [compactViewport, setCompactViewport] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 1099px)").matches);
@@ -607,7 +616,6 @@ function Workspace() {
   const [workspaceError, setWorkspaceError] = useState("");
   const workspaceErrorShown = useGraceFlag(Boolean(workspaceError), LINK_LOSS_GRACE_MS);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
-  const [rememberedOpen, setRememberedOpen] = useState(false);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [sidebarLayout, setSidebarLayout] = useState<SidebarLayout>(readSidebarLayout);
   const [hiddenBotsOpen, setHiddenBotsOpen] = useState(false);
@@ -633,8 +641,8 @@ function Workspace() {
   const viewOnlyChatTriggerRef = useRef<HTMLElement | null>(null);
   function openRelatedChat(target: ViewOnlyChatTarget) {
     viewOnlyChatTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    // On wide browser windows the read-only chat takes the same top-right card as context panels.
-    if (!isDesktop && !compactViewport && panel && panel !== "settings") setPanel(null);
+    // On wide browser windows the read-only chat is a sidebar view; elsewhere a full-screen modal.
+    if (columnMode) setSurfaces(state => { if (isEmpty(state)) rememberOpener(); return openSidebar(state, "conversation"); });
     setViewOnlyChat(target);
   }
   const showCreateMenu = useSurfacePresence(createMenuOpen ? "open" : null);
@@ -672,7 +680,7 @@ function Workspace() {
     setMobileList(false); setPanel(null); setViewOnlyChat(null); setTaskFocus(null);
   }, [historyVersion]);
   // The phone push and panel openings are the frames that matter most; the cats' idle breathing waits them out.
-  useEffect(() => { holdAvatarLife(320); }, [mobileList, panel]);
+  useEffect(() => { holdAvatarLife(320); }, [mobileList, anyOpen]);
   const [search, setSearch] = useState("");
   const [activityNow, setActivityNow] = useState(() => Date.now());
   const [lastUserActivity, setLastUserActivity] = useState<Record<string, number>>({});
@@ -683,12 +691,14 @@ function Workspace() {
     const time = latestHumanMessageTime(messageRecords, runs);
     if (time) setLastUserActivity(current => time > (current[activeId] ?? 0) ? { ...current, [activeId]: time } : current);
   }, [activeId, loadedId, messageRecords, runs]);
-  // The shared computer is a floating surface. It must not reserve the
-  // detail-pane column or push the chat inward while it is open.
-  const contextPanelOpen = Boolean(panel && panel !== "settings" && (panel !== "desktop" || columnMode));
-  // One top-right card at a time: opening a context panel closes the read-only chat card.
-  useEffect(() => { if (contextPanelOpen && !isDesktop) setViewOnlyChat(null); }, [contextPanelOpen]);
-  const modalPanelOpen = Boolean(panel && panel !== "desktop" && (panel === "settings" || compactViewport));
+  // The widget column reserves room in the chat while any widget is open (the shared computer is a floating window below 1100 px).
+  const contextPanelOpen = columnMode && surfaces.widgets.length > 0;
+  // On the wide layout the read-only chat lives in the sidebar: once the sidebar is gone (or shows something else for good) it is released.
+  useEffect(() => { if (columnMode && viewOnlyChat && displayedSidebar !== "conversation") setViewOnlyChat(null); }, [columnMode, viewOnlyChat, displayedSidebar]);
+  // The Settings window and the narrow drawer are modal panes (focus trap, backdrop); the other covers are Radix dialogs of their own.
+  const modalPanelOpen = Boolean(cover === "settings" || (compactViewport && surfaces.sidebar && !cover));
+  // Below 1100 px the widget column does not exist: the computer is a floating window, the other widgets open as covers.
+  useEffect(() => { if (!columnMode) setSurfaces(state => state.widgets.some(id => id !== "computer") ? state.widgets.reduce((next, id) => id === "computer" ? next : closeWidget(next, id), state) : state); }, [columnMode]);
   const readSent = useRef<Record<string, number>>({});
   const readRetryAfter = useRef<Record<string, number>>({});
   const [viewportHeight, setViewportHeight] = useState<number>();
@@ -791,7 +801,7 @@ function Workspace() {
     const focus = document.activeElement;
     if (focus instanceof Element && focus.closest(".terminal-panel,.remote-desktop-surface,.remote-desktop.in-control,.xterm")) return;
     if (document.querySelector('[aria-modal="true"]') && command !== "settings") return;
-    if (command === "settings") { setSettingsEntry(current => ({ seq: current.seq + 1, view: "home" })); setPanel(current => current === "settings" ? null : "settings"); }
+    if (command === "settings") { setSettingsEntry(current => ({ seq: current.seq + 1, view: "home" })); setSurfaces(state => state.cover === "settings" ? closeAll(state) : openCover(state, "settings")); }
     else if (command === "toggle-sidebar") setSidebarCollapsed(value => !value);
     else if (command === "new-conversation") { setCreateMenuOpen(true); setSidebarCollapsed(false); setPanel(null); }
     else if (command === "search") {
@@ -1113,7 +1123,7 @@ function Workspace() {
     let frame: number | undefined;
     if (modalPanelOpen && !previousPanelModal.current) {
       const focused = document.activeElement;
-      const fallback = document.querySelector<HTMLElement>(panel === "settings" ? `[aria-label="${t("common:nav.settings")}"]` : `[aria-label="${t("header.more")}"]`);
+      const fallback = document.querySelector<HTMLElement>(cover === "settings" ? `[aria-label="${t("common:nav.settings")}"]` : `[aria-label="${t("header.more")}"]`);
       panelTriggerRef.current = focused instanceof HTMLElement && focused !== document.body && focused.isConnected && !detailPaneRef.current?.contains(focused) ? focused : fallback;
       frame = window.requestAnimationFrame(() => {
         const pane = detailPaneRef.current;
@@ -1149,7 +1159,7 @@ function Workspace() {
         }
         if (document.querySelector(".computer-detail.is-expanded") || detailPaneRef.current?.querySelector('[aria-busy="true"]')) return;
         event.preventDefault();
-        setPanel(null);
+        setSurfaces(state => state.cover ? closeCover(state) : closeSidebar(state));
         return;
       }
       // A menu over the pane has already moved focus on this Tab (RadixOverlays tabFrom) and cancelled the key.
@@ -1182,27 +1192,28 @@ function Workspace() {
     document.addEventListener("keydown", trap);
     return () => document.removeEventListener("keydown", trap);
   }, [modalPanelOpen]);
+  // Escape on the wide layout closes one surface: the sidebar first, then the lowest widget (the cover is a Radix dialog and claims its own Escape).
   useEffect(() => {
-    if (!panel || modalPanelOpen) return;
+    if (modalPanelOpen || cover || (!sidebarId && !surfaces.widgets.length)) return;
     const onEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !event.defaultPrevented && panel !== "settings" && !document.querySelector(".computer-detail.is-expanded, [data-tofi-modal]") && !detailPaneRef.current?.querySelector('[aria-busy="true"]')) {
+      if (event.key === "Escape" && !event.defaultPrevented && !document.querySelector(".computer-detail.is-expanded, [data-tofi-modal]") && !document.querySelector('.widget-column [aria-busy="true"], .sidebar-pane [aria-busy="true"]')) {
         event.preventDefault();
-        closeCard(panelState.wide ?? panel);
+        setSurfaces(state => { const target = escapeTarget(state); return !target ? state : target.layer === "sidebar" ? closeSidebar(state) : target.layer === "widget" ? closeWidget(state, target.id) : state; });
       }
     };
     document.addEventListener("keydown", onEscape);
     return () => document.removeEventListener("keydown", onEscape);
-  }, [panel, panelState.wide, modalPanelOpen, closeCard]);
+  }, [sidebarId, surfaces.widgets, cover, modalPanelOpen]);
   // Closing the outside panel gives focus back to what opened it.
   const hadPanel = useRef(false);
   useEffect(() => {
-    if (panel) { hadPanel.current = true; return; }
+    if (anyOpen) { hadPanel.current = true; return; }
     if (!hadPanel.current) return;
     hadPanel.current = false;
     const opener = panelOpener.current;
     panelOpener.current = null;
     if (columnMode && opener?.isConnected) requestAnimationFrame(() => { if (!document.activeElement || document.activeElement === document.body || document.querySelector(".detail-pane")?.contains(document.activeElement)) opener.focus({ preventScroll: true }); });
-  }, [panel, columnMode]);
+  }, [anyOpen, columnMode]);
   useEffect(() => { setHeaderMenuOpen(false); }, [activeId]);
   useEffect(() => {
     let alive = true;
@@ -1237,21 +1248,15 @@ function Workspace() {
   const botById = useMemo(() => new Map(bots.map((bot) => [bot.id, bot])), [bots]);
   const botByConversationId = useMemo(() => new Map(bots.map((bot) => [bot.dm_conversation_id, bot])), [bots]);
   const activeBot = active?.bot_id ? botById.get(active.bot_id) : undefined;
-  function transitionBotPanel(open: boolean) {
-    const update = () => { if (open) setPanel("bot-edit"); else closeCard("bot-edit"); };
-    const start = (document as Document & { startViewTransition?: (callback: () => void) => unknown }).startViewTransition;
-    if (isDesktop || !activeBot || !start || matchMedia("(prefers-reduced-motion: reduce)").matches) { update(); return; }
-    start.call(document, () => flushSync(update));
-  }
   const desktopBot = activeBot ?? (active?.kind === "group" ? botById.get(active.bot_ids[0]) : undefined);
-  const computerShown = has("desktop");
+  const computerShown = surfaces.widgets.includes("computer");
   const desktopOpen = Boolean(desktopBot && computerShown);
   // Narrow screens skip the small window: the big view is a full-screen sheet.
   const desktopExpanded = desktopOpen && (desktopSheet || desktopSize === "big");
   const desktopSmall = desktopOpen && !desktopExpanded;
   useEffect(() => {
-    if (computerShown && !desktopBot) closeCard("desktop");
-  }, [computerShown, desktopBot, closeCard]);
+    if (computerShown && !desktopBot) closeWidgetId("computer");
+  }, [computerShown, desktopBot, closeWidgetId]);
   // The "command finished" line in the chat opens the Terminal tab of the Bot that ran the command.
   const [terminalBotId, setTerminalBotId] = useState<string | null>(null);
   useEffect(() => {
@@ -1265,8 +1270,8 @@ function Workspace() {
     return () => window.removeEventListener("tofi:open-terminal", open);
   }, []);
   useEffect(() => {
-    if (!has("terminal")) setTerminalBotId(null);
-  }, [panel, panelState.cards.length]);
+    if (sidebarId !== "terminal") setTerminalBotId(null);
+  }, [sidebarId]);
   // Ownership is only worth a 1 s poll while a computer is ready or the desktop panel is open.
   const desktopPresence = useDesktopPresence(Boolean(activeId) && (computerShown || (computerInfo ? computerInfo.state === "ready" : desktopReady)));
   const currentDesktopOwner = desktopPresence.ownership?.owner;
@@ -2480,7 +2485,7 @@ function Workspace() {
   }, [columnMode, chatShown, viewport.scrollRef]);
   // Opening or closing a card changes the scroller's right padding, which re-wraps the lines. WebKit has no native scroll
   // anchoring, so a reader in the middle of the history keeps their message at the same offset while the padding animates.
-  const cardRoom = columnMode && contextPanelOpen && !panelState.wide;
+  const cardRoom = columnMode && (contextPanelOpen || Boolean(surfaces.sidebar));
   const cardRoomSeen = useRef(cardRoom);
   useLayoutEffect(() => {
     if (cardRoomSeen.current === cardRoom) return;
@@ -2507,24 +2512,28 @@ function Workspace() {
   if (!indexInitialized.current && workspaceError) return <BootScreen label={t("workspace.connection_unavailable")} immediate><h2>{t("workspace.connection_unavailable")}</h2><p>{workspaceError}</p><button className="primary-button" disabled={loading} onClick={() => void refreshIndex()}>{loading ? t("action.retrying") : t("common:action.retry")}</button></BootScreen>;
   if (loading && !conversations.length) return <BootScreen label={t("workspace.loading")} />;
 
-  // The cards in the column, newest first. A card that is leaving keeps its place until the column is gone.
-  if (panelState.cards.length) exitState.current = panelState; else if (!displayedPanel) exitState.current = null;
-  const shownState = panelState.cards.length ? panelState : exitState.current ?? panelState;
-  const cardIds: string[] = columnMode && displayedPanel && displayedPanel !== "settings" ? shownState.cards : [];
-  const visibleIds: string[] = columnMode ? cardIds : displayedPanel ? [displayedPanel] : [];
-  const shown = (id: string) => visibleIds.includes(id);
-  const wideId = columnMode ? shownState.wide : null;
-  const cardTitle = (id: string) => id === "desktop" ? t("contextCard.title.desktop") : id === "bot-edit" ? t("contextCard.title.bot-edit") : id === "members" ? t("contextCard.title.members") : id === "schedule" ? t("contextCard.title.schedule")
-    : id === "artifacts-group" ? t("contextCard.title.outputs") : id.startsWith("artifacts") ? t("contextCard.title.artifacts") : id === "archive" ? t("contextCard.title.archive") : id === "terminal" ? t("contextCard.title.terminal")
-    : id === "memory" ? t("contextCard.title.memory") : t("contextCard.title.group-create");
-  const card = (id: string, node: React.ReactNode) => !columnMode ? node : <Suspense key={id} fallback={null}><ContextCard id={id} title={cardTitle(id)} order={cardIds.indexOf(id)} collapsed={shownState.collapsed.includes(id)} wide={wideId === id} focusN={panelState.focus.id === id ? panelState.focus.n : 0} onToggle={toggleCard} onWide={widenCard} onClose={closeCard}>{node}</ContextCard></Suspense>;
-  const desktopNode = desktopBot && desktopOpen ? <Suspense fallback={<DesktopSkeleton botId={desktopBot.id} />}><FloatingDesktop docked={columnMode} expanded={desktopExpanded} small={desktopSmall} sheet={desktopSheet} onShrink={() => setDesktopSize("small")} onClose={() => closeCard("desktop")}><Suspense fallback={<DesktopSkeleton botId={desktopBot.id} />}><BotDesktopPanel presence={desktopPresence} autoConnect={currentDesktopOwner?.kind === "bot"} expanded={desktopExpanded} sheet={desktopSheet} botId={desktopBot.id} botName={desktopBot.name} members={bots.map(bot => ({ id: bot.id, name: bot.name }))} onClose={(reason) => { if (reason === "shutdown") { setDesktopReady(false); setComputerInfo({ state: "stopped" }); } closeCard("desktop"); }} onReadyChange={setDesktopReady} onExpandedChange={expanded => { setDesktopSize(expanded ? "big" : "small"); setPanel("desktop"); }} /></Suspense></FloatingDesktop></Suspense> : null;
+  const artifactsOn = columnMode ? surfaces.widgets.includes("artifacts") : cover === "artifacts";
+  const desktopNode = (leaving = false) => desktopBot && (desktopOpen || leaving) ? <Suspense fallback={<DesktopSkeleton botId={desktopBot.id} />}><FloatingDesktop docked={columnMode} expanded={desktopExpanded} small={desktopSmall || leaving} sheet={desktopSheet} onShrink={() => setDesktopSize("small")} onClose={() => closeWidgetId("computer")}><Suspense fallback={<DesktopSkeleton botId={desktopBot.id} />}><BotDesktopPanel presence={desktopPresence} autoConnect={currentDesktopOwner?.kind === "bot"} expanded={desktopExpanded} sheet={desktopSheet} botId={desktopBot.id} botName={desktopBot.name} members={bots.map(bot => ({ id: bot.id, name: bot.name }))} onClose={(reason) => { if (reason === "shutdown") { setDesktopReady(false); setComputerInfo({ state: "stopped" }); } closeWidgetId("computer"); }} onReadyChange={setDesktopReady} onExpandedChange={expanded => { setDesktopSize(expanded ? "big" : "small"); setPanel("desktop"); }} /></Suspense></FloatingDesktop></Suspense> : null;
+  const computerButton = desktopBot && <button className={`computer-button${computerOn ? " is-on" : ""}${computerOn && activeDesktopOwner ? " is-driven" : ""}`} data-computer-toggle="" data-computer-state={computerOn ? (activeDesktopOwner ? "driven" : "on") : "off"} data-hint={computerStateLabel} title={computerStateLabel} aria-label={computerStateLabel} aria-pressed={computerShown} onClick={() => { if (computerShown) closeWidgetId("computer"); else { setDesktopSize("small"); setPanel("desktop"); } }}><Icon name="monitor" size={17} variant={computerShown ? "filled" : "outline"} animated />{computerOn && activeDesktopOwner && <span className="computer-driven-dot" aria-hidden="true" />}</button>;
+  // The markup of the sidebar views, widgets and covers lives in the lazy chunk SurfaceViews; the workspace hands it the data and the few actions.
+  const openFromPanel = (id: string) => { selectConversation(id); setMobileList(false); setPanel(null); };
+  const surfaceCtx: SurfaceCtx = {
+    active, activeBot, desktopBot, bots, conversations, botById, memories, setMemories, terminalBotId, viewOnlyChat, setViewOnlyChat, refreshToken: scheduleRefresh, roster: taskView?.roster, lastMessageId: messages.at(-1)?.id,
+    artifactsMode, setArtifactsMode, setPanel, surf: setSurfaces, openConversation: openFromPanel, openMessage: (conversationId, messageId) => { setTaskFocus({ conversationId, kind: "message", id: messageId }); openFromPanel(conversationId); },
+    openSettingsAdvanced: botId => { setPortabilityBotID(botId); setPortabilityFile(undefined); openSettings("advanced"); },
+    mergeArchived, refreshAfterArchive, confirmDelete, updateBot, createGroup, makePrimary, updateGroup, reloadGroup,
+  };
+  const sidebarLoading = <DelayedFeedback><div className="inline-state" role="status"><div className="spinner" /></div></DelayedFeedback>;
+  const sidebarContent = (id: SidebarId) => <Suspense fallback={sidebarLoading}><SidebarView id={id} ctx={surfaceCtx} /></Suspense>;
+  const sidebarExpandedShown = surfaces.sidebar ? surfaces.sidebar.expanded : lastSidebarExpanded.current;
+  const settingsShown = displayedCover === "settings";
+  const drawerShown = !columnMode && !settingsShown && displayedSidebar !== null;
   return (
     <div inert={Boolean(deleteTarget || hidePrimaryTarget || (viewOnlyChat && (isDesktop || compactViewport))) || undefined} className={`workspace${keyboardViewportOpen ? " keyboard-viewport-open" : ""}`} style={viewportHeight ? { "--viewport-height": `${viewportHeight}px` } as React.CSSProperties : undefined}>
       <Suspense fallback={null}><UpdateBanner /></Suspense>
       {workspaceErrorShown && indexInitialized.current && !proxyChallenged && <WorkspaceToast onRetry={() => void refreshIndex()} />}
       {computerInfo && ((computerInfo.state !== "ready" && computerInfo.state !== "hibernated" && computerInfo.state !== "hibernating") || computerHealthAlert(computerInfo.health)) && !computerShown && <div className="stream-status workspace-status computer-preparing" role="status"><strong>{computerInfo.health?.state === "unresponsive" ? t("computer.health_unresponsive") : computerInfo.health?.state === "restarting" ? t("computer.health_restarting") : computerInfo.state === "starting" ? t("computer.starting") : computerInfo.state === "resuming" ? t("computer.resuming") : computerInfo.state === "error" ? t("computer.failed") : computerInfo.state === "stopped" ? t("computer.stopped") : t("computer.unavailable")}</strong><span>{(computerInfo.state === "starting" || computerInfo.state === "resuming") && computerInfo.phase ? ` · ${computerPhaseKeys[computerInfo.phase] ? t(computerPhaseKeys[computerInfo.phase]) : computerInfo.phase}` : ""}{computerInfo.error ? ` · ${computerInfo.error}` : ""}</span>{(computerInfo.state === "error" || computerInfo.state === "stopped" || computerInfo.health?.state === "unresponsive") && <button className="secondary-button" onClick={() => void api.computerRetry().then(() => api.computerInfo()).then(setComputerInfo).catch(cause => setError(errorText(cause)))}>{t("common:action.retry")}</button>}</div>}
-      <div className="native-titlebar" aria-hidden="true" /><ActionHints /><div className={`workspace-grid${sidebarCollapsed ? " sidebar-collapsed" : ""}${contextPanelOpen ? " context-open" : ""}${viewOnlyChat ? " card-open" : ""}${activeBot ? " bot-panel-ready" : ""}${has("bot-edit") ? " bot-panel-open" : ""}${shown("terminal") ? " terminal-context" : ""}${columnMode && panelState.wide ? " outside-open" : ""}`}>
+      <div className="native-titlebar" aria-hidden="true" /><ActionHints /><div className={`workspace-grid${sidebarCollapsed ? " sidebar-collapsed" : ""}${contextPanelOpen ? " context-open" : ""}${columnMode && surfaces.sidebar ? " sidebar-open" : ""}${columnMode && sidebarExpandedShown ? " sidebar-expanded" : ""}${cover ? " cover-open" : ""}`}>
         <aside className={`contact-pane ${mobileList ? "open" : ""}`} inert={modalPanelOpen || desktopExpanded || undefined}>
           <div className="sidebar-top">{sidebarCollapsed ? <button className="sidebar-logo-expand" type="button" aria-label={t("sidebar.expand")} data-hint={t("sidebar.expand")} onClick={() => setSidebarCollapsed(false)}><span className="sidebar-logo-art"><BrandLogo variant="calico" /></span><span className="sidebar-logo-arrow" aria-hidden="true"><Icon name="sidebar" size={20} /></span></button> : <BrandLogo variant="calico" />}<div className="sidebar-actions">{!sidebarCollapsed && <button className="top-icon-button sidebar-toggle" aria-label={t("sidebar.collapse")} data-hint={t("sidebar.collapse")} onClick={() => setSidebarCollapsed(true)}><Icon name="sidebar" size={20} /></button>}<div className="create-menu-anchor" ref={createMenuRef}><button ref={createMenuTriggerRef} className="icon-button" onClick={() => setCreateMenuOpen((open) => !open)} onKeyDown={arrowOpens(setCreateMenuOpen)} data-hint={t("create.menu")} aria-label={t("create.menu")} aria-haspopup="menu" aria-expanded={createMenuOpen} aria-controls={createMenuOpen ? "create-menu" : undefined}><Icon name="plus" size={18} animated /></button><input ref={botImportRef} type="file" hidden accept=".json,.tofi-bot,application/json" onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void importBotPackage(file); }} />{showCreateMenu && <OverlayMenu open={createMenuOpen} onOpenChange={setCreateMenuOpen} id="create-menu" className="create-menu" label={t("create.menu")} trigger={createMenuTriggerRef} anchor={createMenuRef} {...(sidebarCollapsed && matchMedia("(min-width:768px)").matches ? { side: "right", sideOffset: 12 } : { align: "end", sideOffset: 8 })}><button disabled={newBotBusy} onClick={() => { createMenuTriggerRef.current?.focus(); void createNewBot(); }}><Icon name="bot-add" size={18} /><span>{newBotBusy ? t("create.creating") : t("create.new_bot")}</span></button><button onClick={() => { createMenuTriggerRef.current?.focus(); setCreateMenuOpen(false); setPanel("group-create"); }}><Icon name="group-add" size={18} /><span>{t("create.new_group")}</span></button><button disabled={botImportBusy} onClick={() => { setCreateMenuOpen(false); botImportRef.current?.click(); }}><Icon name="upload" size={18} /><span>{botImportBusy ? t("create.importing") : t("create.import_bot")}</span></button>{(newBotError || botImportError) && <p className="error-text" role="alert">{newBotError || botImportError}</p>}</OverlayMenu>}</div></div></div>
           <label className="search-box"><Icon name="search" size={16} /><input aria-label={t("sidebar.search_label")} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("sidebar.search_placeholder")} /></label>
@@ -2537,7 +2546,7 @@ function Workspace() {
             {onboardingState !== "sheet" && !visibleSidebarConversations.length && <EmptyState name="sidebar" className={`empty-copy is-compact${!query && !bots.length && !conversations.length ? " first-run-hide-mobile" : ""}`} look={CATS.mochi} pose={query ? "curious" : "asleep"}><p>{query ? t("sidebar.no_match") : t("sidebar.empty")}</p>{!query && <button className="primary-button sidebar-empty-create" disabled={newBotBusy} onClick={() => void createNewBot()}>{newBotBusy ? t("create.creating") : t("create.create_bot")}</button>}</EmptyState>}
             {hiddenBots.length > 0 && <section className="hidden-bots-section"><button type="button" className="hidden-bots-toggle" aria-expanded={hiddenBotsOpen} onClick={() => setHiddenBotsOpen((open) => !open)}><span>{t("sidebar.hidden_bots")}</span><Icon name="chevron-right" size={16} /></button>{hiddenBotsOpen && hiddenBots.map(hiddenBotRow)}</section>}
           </div>
-          <div className="sidebar-footer">{onboardingState === "chip" && <FinishSetupChip step={chipStep(modelReady)} onClick={() => setOnboardingForced(chipStep(modelReady))} />}<SidebarAccount connected={linkConnected} onSettings={() => { setPortabilityBotID(""); setPortabilityFile(undefined); openSettings("general", "home"); }} onUsage={() => { setUsageBotId(""); openSettings("usage"); }} onConnection={() => openSettings("models")} onArchive={() => setPanel("archive")} onArtifacts={() => setPanel("artifacts")} /></div>
+          <div className="sidebar-footer">{onboardingState === "chip" && <FinishSetupChip step={chipStep(modelReady)} onClick={() => setOnboardingForced(chipStep(modelReady))} />}<SidebarAccount connected={linkConnected} onSettings={() => { setPortabilityBotID(""); setPortabilityFile(undefined); openSettings("general", "home"); }} onUsage={() => { setUsageBotId(""); openSettings("usage"); }} onConnection={() => openSettings("models")} onArchive={() => setPanel("archive")} onArtifacts={() => { setArtifactsMode("artifacts"); openCoverPanel("artifacts"); }} /></div>
         </aside>
         {onboardingState === "sheet" && onboarding && <Suspense fallback={null}><Onboarding initialStep={onboardingForced ?? resumeStep(onboarding, modelReady)} modelConfigured={modelReady} bot={bots.find((item) => !item.archived)} onProgress={saveOnboarding} onModelChanged={refreshConfig} onBot={adoptOnboardingBot} onSkip={() => { saveOnboarding({ skipped: true }); setOnboardingForced(null); }} onFinish={finishOnboarding} /></Suspense>}
         <SlotView slot={sidebarMenuSlot}>{menu => <OverlayMenu open onOpenChange={open => { if (!open) setSidebarContextMenu(null); }} className="sidebar-context-menu" label={menu.conversation.name} point={menu} key={`${menu.conversation.id}:${menu.x}:${menu.y}`}>
@@ -2555,7 +2564,7 @@ function Workspace() {
 
         <main className={`chat-pane ${!mobileList ? "mobile-chat" : ""}`} inert={modalPanelOpen || desktopExpanded || undefined}>
           {!active ? routeUnavailable ? <div className="conversation-empty" role="alert"><EmptyCat look={CATS.nori} pose="curious" size={72} name="route-unavailable" /><h2>{t("route.unavailable_title")}</h2><p>{t("route.unavailable_body")}</p><button className="secondary-button" onClick={() => setMobileList(true)}>{t("route.back_to_list")}</button></div> : onboardingState === "sheet" ? null : <FirstRunHero onCreate={() => void createNewBot()} busy={newBotBusy} error={newBotError} /> : <>
-            <div className="chat-header" ref={chatHeaderRef}><div className="chat-title"><button className="back-button" onClick={() => setMobileList(true)} aria-label={t("route.back_to_list")}><Icon name="arrow-left" size={19} /></button><button className="chat-identity" onClick={() => active.kind === "group" ? setPanel("members") : transitionBotPanel(true)} aria-label={t("header.open_members")}><span className="member-avatar-stack">{(active.kind === "group" ? active.bot_ids : [active.bot_id ?? active.id]).slice(0, 4).map((id) => <Avatar key={id} label={botById.get(id)?.name ?? active.name} id={id} mini motion={conversationMotion(active, id)} />)}</span><span className="chat-name-pill"><h1>{active.name}</h1>{active.kind === "group" && <small>{t("header.member_count", { count: active.bot_ids.length })}</small>}</span></button></div><div className="header-actions">{active.kind === "group" && <button className="computer-button" data-hint={t("header.team_board")} aria-label={teamBoardOpen ? t("header.back_to_chat") : t("header.open_team_board")} aria-pressed={teamBoardOpen} onClick={() => { setPanel(null); setTeamBoardOpen(value => !value); }}><Icon name="layout-grid" size={18} variant={teamBoardOpen ? "filled" : "outline"} /></button>}{active.kind === "group" && <button className="computer-button" data-hint={t("header.open_artifacts")} aria-label={t("header.open_artifacts")} aria-pressed={has("artifacts-group")} onClick={() => { setTeamBoardOpen(false); toggleCardOpen("artifacts-group"); }}><Icon name="folder" size={18} variant={has("artifacts-group") ? "filled" : "outline"} /></button>}{desktopBot && <button className={`computer-button${computerOn ? " is-on" : ""}${computerOn && activeDesktopOwner ? " is-driven" : ""}`} data-computer-toggle="" data-computer-state={computerOn ? (activeDesktopOwner ? "driven" : "on") : "off"} data-hint={computerStateLabel} title={computerStateLabel} aria-label={computerStateLabel} aria-pressed={computerShown} onClick={() => { if (computerShown) closeCard("desktop"); else { setDesktopSize("small"); setPanel("desktop"); } }}><Icon name="monitor" size={17} variant={computerShown ? "filled" : "outline"} animated />{computerOn && activeDesktopOwner && <span className="computer-driven-dot" aria-hidden="true" />}</button>}{desktopBot && <button className="computer-button" data-hint={t("header.terminal")} aria-label={t("header.open_terminal")} aria-pressed={has("terminal")} onClick={() => toggleCardOpen("terminal")}><Icon name="terminal" size={18} variant={has("terminal") ? "filled" : "outline"} /></button>}<div className="header-more"><button ref={headerMenuTriggerRef} className="ghost-button" data-hint={t("header.more")} aria-label={t("header.more")} aria-haspopup="menu" aria-expanded={headerMenuOpen} aria-controls={headerMenuOpen ? "conversation-more-menu" : undefined} onClick={() => setHeaderMenuOpen((open) => !open)} onKeyDown={arrowOpens(setHeaderMenuOpen)}><Icon name="more" size={17} /></button>{showHeaderMenu && <OverlayMenu open={headerMenuOpen} onOpenChange={setHeaderMenuOpen} id="conversation-more-menu" className="more-menu" label={t("header.more")} trigger={headerMenuTriggerRef} anchor={chatHeaderRef} align="end" sideOffset={8} alignOffset={14}><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); void copyConversationLink(active); }}>{t("header.copy_link")}</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); setPanel("schedule"); }}>{t("header.schedule")}</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); setPanel("memory"); }}>{active.kind === "group" ? t("header.group_memory") : t("header.bot_memory")}</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); setUsageBotId(active.kind === "dm" ? active.bot_id ?? "" : ""); setSettingsTab("usage"); setPanel("settings"); }}>{t("header.usage")}</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); setRememberedOpen(true); }}>{t("header.remembered_approvals")}</button>{active.kind === "dm" && activeBot && !activeBot.archived && !activeBot.is_primary && <button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); void makePrimary(activeBot.id); }}>{t("primary.make")}</button>}{active.kind === "dm" && <button onClick={() => { headerMenuTriggerRef.current?.focus(); setPanel("bot-edit"); setHeaderMenuOpen(false); }}>{t("header.bot_settings")}</button>}<button className="delete-menu-action" onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); confirmDelete(active); }}>{active.kind === "dm" ? t("header.delete_bot") : t("header.delete_group")}</button></OverlayMenu>}</div></div></div>
+            <div className="chat-header" ref={chatHeaderRef}><div className="chat-title"><button className="back-button" onClick={() => setMobileList(true)} aria-label={t("route.back_to_list")}><Icon name="arrow-left" size={19} /></button><button className="chat-identity" onClick={() => active.kind === "group" ? (columnMode ? toggleWidgetId("members") : setPanel("members")) : setPanel("bot-edit")} aria-label={t("header.open_members")}><span className="member-avatar-stack">{(active.kind === "group" ? active.bot_ids : [active.bot_id ?? active.id]).slice(0, 4).map((id) => <Avatar key={id} label={botById.get(id)?.name ?? active.name} id={id} mini motion={conversationMotion(active, id)} />)}</span><span className="chat-name-pill"><h1>{active.name}</h1>{active.kind === "group" && <small>{t("header.member_count", { count: active.bot_ids.length })}</small>}</span></button></div><div className="header-actions">{active.kind === "group" && <button className="computer-button" data-hint={t("header.team_board")} aria-label={teamBoardOpen ? t("header.back_to_chat") : t("header.open_team_board")} aria-pressed={teamBoardOpen} onClick={() => { setPanel(null); setTeamBoardOpen(value => !value); }}><Icon name="layout-grid" size={18} variant={teamBoardOpen ? "filled" : "outline"} /></button>}{active.kind === "dm" && computerButton}<button className="computer-button" data-hint={t("header.open_artifacts")} aria-label={t("header.open_artifacts")} aria-pressed={artifactsOn} onClick={() => { setTeamBoardOpen(false); if (columnMode) toggleWidgetId("artifacts"); else { setArtifactsMode("artifacts-group"); openCoverPanel("artifacts"); } }}><Icon name="folder" size={18} variant={artifactsOn ? "filled" : "outline"} /></button>{active.kind === "group" && computerButton}{active.kind === "dm" && <button className="computer-button" data-hint={t("header.tasks")} aria-label={t("header.tasks")} aria-pressed={sidebarId === "tasks"} onClick={() => toggleSidebarId("tasks")}><Icon name="checklist" size={18} variant={sidebarId === "tasks" ? "filled" : "outline"} /></button>}<div className="header-more"><button ref={headerMenuTriggerRef} className="ghost-button" data-hint={t("header.more")} aria-label={t("header.more")} aria-haspopup="menu" aria-expanded={headerMenuOpen} aria-controls={headerMenuOpen ? "conversation-more-menu" : undefined} onClick={() => setHeaderMenuOpen((open) => !open)} onKeyDown={arrowOpens(setHeaderMenuOpen)}><Icon name="more" size={17} /></button>{showHeaderMenu && <OverlayMenu open={headerMenuOpen} onOpenChange={setHeaderMenuOpen} id="conversation-more-menu" className="more-menu" label={t("header.more")} trigger={headerMenuTriggerRef} anchor={chatHeaderRef} align="end" sideOffset={8} alignOffset={14}>{desktopBot && <button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); setPanel("terminal"); }}>{t("header.terminal")}</button>}<button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); setPanel("memory"); }}>{active.kind === "group" ? t("header.group_memory") : t("header.bot_memory")}</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); setUsageBotId(active.kind === "dm" ? active.bot_id ?? "" : ""); setSettingsTab("usage"); setPanel("settings"); }}>{t("header.usage")}</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); openCoverPanel("approvals"); }}>{t("header.remembered_approvals")}</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); void copyConversationLink(active); }}>{t("header.copy_link")}</button>{active.kind === "dm" ? <button onClick={() => { headerMenuTriggerRef.current?.focus(); setPanel("bot-edit"); setHeaderMenuOpen(false); }}>{t("header.bot_settings")}</button> : <button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); openCoverPanel("group-settings"); }}>{t("header.group_settings")}</button>}<button className="delete-menu-action" onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); confirmDelete(active); }}>{active.kind === "dm" ? t("header.delete_bot") : t("header.delete_group")}</button></OverlayMenu>}</div></div></div>
             <RunStatusAnnouncement key={`run-status-${active.id}`} conversationId={active.id} runs={runs} botById={botById} ready={loadedId === active.id && !loadingMessages} taskAnnouncements={taskAnnouncements} />
             {teamBoardOpen && active.kind === "group" ? <Suspense fallback={null}><TeamBoard key={`team-board-${active.id}`} conversation={active} bots={bots} timezone={timezone} onClose={() => setTeamBoardOpen(false)} onOpenWork={() => { setTeamBoardOpen(false); setPanel("schedule"); }} /></Suspense> : <>
             <div className="chat-body">
@@ -2669,31 +2678,27 @@ function Workspace() {
               </div>
               {viewport.showJump && <button className="jump-latest" aria-label={t("history.jump_latest")} onClick={jumpLatest}><Icon name="arrow-down" size={18} variant="filled" />{viewport.newCount > 0 && <span className="jump-new-count">{t("history.new_count", { count: viewport.newCount })}</span>}</button>}
             </div>
-            {active.kind === "group" && !active.archived && !active.bot_ids.some(id => botById.has(id) && !botById.get(id)?.archived) ? <div className="composer empty-group-composer"><span>{t("composer.no_members")}</span><button className="secondary-button" onClick={() => setPanel("members")}>{t("composer.add_members")}</button></div> : <Composer workStatus={<WorkingMembers isGroup={active.kind === "group"} companionBotId={active.kind === "dm" ? active.bot_id || active.bot_ids[0] : undefined} companionMotion={active.kind === "dm" ? conversationMotion(active, active.bot_id || active.bot_ids[0]) : undefined} workingBotIds={active.working_bot_ids ?? []} drafts={Object.values(drafts)} runs={runs} botById={botById} toolActivities={toolActivities} signals={runSignals} connected={streamConnected} />} activeRun={runs.find(run => run.status === "running" || run.status === "queued" || run.status === "waiting")} allRuns={runs} stepRunIds={stepRunIds} latestReplyId={messages.filter(message => message.role === "assistant").at(-1)?.id} onRunsStopped={stopped => setRuns(current => mergeRunUpdates(current, stopped))} onStopError={setError} avatarMention={avatarMention} conversation={active} bots={bots} draft={composerDrafts[active.id] ?? emptyComposerDraft()} onDraftChange={updateComposerDraft} onSend={send} onSendStart={jumpLatest} onSent={jumpLatest} modelConfigured={config?.model_configured ?? false} onConnectModel={connectModel} draftReady={composerDraftReady} readOnly={Boolean(active.archived)} />}
+            {active.kind === "group" && !active.archived && !active.bot_ids.some(id => botById.has(id) && !botById.get(id)?.archived) ? <div className="composer empty-group-composer"><span>{t("composer.no_members")}</span><button className="secondary-button" onClick={() => openCoverPanel("group-settings")}>{t("composer.add_members")}</button></div> : <Composer workStatus={<WorkingMembers isGroup={active.kind === "group"} companionBotId={active.kind === "dm" ? active.bot_id || active.bot_ids[0] : undefined} companionMotion={active.kind === "dm" ? conversationMotion(active, active.bot_id || active.bot_ids[0]) : undefined} workingBotIds={active.working_bot_ids ?? []} drafts={Object.values(drafts)} runs={runs} botById={botById} toolActivities={toolActivities} signals={runSignals} connected={streamConnected} />} activeRun={runs.find(run => run.status === "running" || run.status === "queued" || run.status === "waiting")} allRuns={runs} stepRunIds={stepRunIds} latestReplyId={messages.filter(message => message.role === "assistant").at(-1)?.id} onRunsStopped={stopped => setRuns(current => mergeRunUpdates(current, stopped))} onStopError={setError} avatarMention={avatarMention} conversation={active} bots={bots} draft={composerDrafts[active.id] ?? emptyComposerDraft()} onDraftChange={updateComposerDraft} onSend={send} onSendStart={jumpLatest} onSent={jumpLatest} modelConfigured={config?.model_configured ?? false} onConnectModel={connectModel} draftReady={composerDraftReady} readOnly={Boolean(active.archived)} />}
             </>}
           </>}
         </main>
 
-        {modalPanelOpen && <button type="button" className="detail-backdrop" aria-label={t("detail.close")} onClick={() => { if (displayedPanel === "settings") window.dispatchEvent(new Event("tofi-settings-close")); else if (!detailPaneRef.current?.querySelector('[aria-busy="true"]')) setPanel(null); }} />}
-        <aside ref={detailPaneRef} className={`detail-pane ${displayedPanel !== "settings" && (displayedPanel !== "desktop" || columnMode) ? "context-panel" : ""} ${columnMode && displayedPanel && displayedPanel !== "settings" ? "context-column" : ""}${wideId && displayedPanel !== "settings" ? " has-wide" : ""} ${(panel === "bot-edit" || displayedPanel) && (displayedPanel !== "desktop" || columnMode) ? "visible" : ""} ${!panel && displayedPanel && (displayedPanel !== "desktop" || columnMode) ? "surface-exiting" : ""}`} inert={!panel || undefined} role={modalPanelOpen ? "dialog" : undefined} aria-modal={modalPanelOpen ? true : undefined} aria-label={panel === "settings" ? t("common:nav.settings") : panel === "terminal" ? t("header.terminal") : t("detail.label")} tabIndex={modalPanelOpen ? -1 : undefined}>
-          {shown("group-create") && card("group-create", <Suspense fallback={null}><BotPanel key="new-group" bots={bots.filter((bot) => !bot.archived)} onClose={() => closeCard("group-create")} onUpdate={updateBot} onCreateGroup={createGroup} /></Suspense>)}
-          {rememberedOpen && active && <Suspense fallback={null}><RememberedApprovalsSheet conversationId={active.id} onClose={() => setRememberedOpen(false)} /></Suspense>}
-          {(panel === "bot-edit" || shown("bot-edit")) && card("bot-edit", <Suspense fallback={<BotPanelSkeleton onClose={() => transitionBotPanel(false)} />}><AfterPaint fallback={<BotPanelSkeleton onClose={() => transitionBotPanel(false)} />}><BotPanel chromeless={columnMode} onExportData={id => { setPortabilityBotID(id); setPortabilityFile(undefined); openSettings("advanced"); }} refreshToken={scheduleRefresh} memories={memories} onOpenWork={() => setPanel("schedule")} onOpenMemory={() => setPanel("memory")} onOpenArtifacts={() => setPanel("artifacts-bot")} key={activeBot?.id ?? "edit-empty"} bots={bots} activeBot={activeBot} onClose={() => transitionBotPanel(false)} onUpdate={updateBot} onCreateGroup={createGroup} onMakePrimary={makePrimary} /></AfterPaint></Suspense>)}
-          {columnMode && shown("desktop") && desktopNode && card("desktop", desktopNode)}
-          {displayedPanel === "settings" && <Suspense fallback={<SettingsSkeleton onClose={() => setPanel(null)} />}><AfterPaint fallback={<SettingsSkeleton onClose={() => setPanel(null)} />}><SettingsPanel tab={settingsTab} onTab={setSettingsTab} onClose={() => setPanel(null)} entry={settingsEntry} refreshToken={extensionRefresh} codexRefresh={codexStatusRefresh} onCodexConfigured={() => void refreshIndex()} legacyArchive={conversations.some(conversation => conversation.archived)} onOpenArchive={() => setPanel("archive")} pages={{ bots, conversation: active, timezone, usageBotId, portabilityBotID, portabilityFile, onPortabilityFileConsumed: () => setPortabilityFile(undefined), appearance, extensionRefresh, providersRefresh: codexStatusRefresh, onProvidersConfigured: () => void refreshIndex(), openTab: (tab) => openSettings(tab), onBotsChanged: () => refreshIndex() }} /></AfterPaint></Suspense>}
-          {visibleIds.filter(id => id.startsWith("artifacts")).map(id => card(id, <Suspense fallback={null}><ArtifactsPanel key={`${id}:${id === "artifacts-group" ? active?.id : id === "artifacts-bot" ? activeBot?.id : ""}`} mode={id as "artifacts"} conversation={active} bot={activeBot} onClose={() => closeCard(id)} onOpenMessage={(conversationId, messageId) => { setTaskFocus({ conversationId, kind: "message", id: messageId }); selectConversation(conversationId); setMobileList(false); setPanel(null); }} /></Suspense>))}
-          {shown("archive") && card("archive", <Suspense fallback={null}><ArchivePanel onClose={() => closeCard("archive")} onOpen={(id) => { selectConversation(id); setMobileList(false); setPanel(null); }} onLoaded={mergeArchived} onChanged={refreshAfterArchive} onDelete={confirmDelete} /></Suspense>)}
-          {shown("terminal") && desktopBot && card("terminal", <Suspense fallback={<DelayedFeedback><div className="inline-state" role="status">{t("detail.loading_terminal")}</div></DelayedFeedback>}><TerminalPanel key={(terminalBotId && botById.get(terminalBotId)?.id) || desktopBot.id} botId={(terminalBotId && botById.get(terminalBotId)?.id) || desktopBot.id} botName={(terminalBotId && botById.get(terminalBotId)?.name) || desktopBot.name} onClose={() => closeCard("terminal")} /></Suspense>)}
-          {shown("memory") && activeId && card("memory", <Suspense fallback={null}><MemoryPanel key={activeId} memories={memories} conversationId={activeId} scope={active?.kind === "group" ? "group" : "bot"} onClose={() => closeCard("memory")} onCreate={async (input) => { const memory = await api.createMemory(activeId, input); setMemories((current) => [...current.filter((item) => item.id !== memory.id), memory]); }} onUpdate={async (id, input) => { const memory = await api.updateMemory(id, input); setMemories((current) => current.map((item) => item.id === id ? memory : item)); }} onDelete={async (id) => { await api.deleteMemory(id); setMemories((current) => current.filter((item) => item.id !== id)); }} /></Suspense>)}
-          {shown("memory") && !activeId && card("memory", <div className="detail-empty"><button className="close-button" aria-label={t("detail.close_memory")} onClick={() => setPanel(null)}><Icon name="close" size={18} /></button><EmptyState name="memory-pick" look={CATS.azuki} pose="curious" size={56}><p>{t("detail.memory_pick")}</p></EmptyState></div>)}
-          {shown("schedule") && active && card("schedule", <Suspense fallback={null}><WorkPanel key={active.id} conversation={active} conversations={conversations} bots={bots} refreshToken={scheduleRefresh} onClose={() => closeCard("schedule")} onNavigate={id => { selectConversation(id); setMobileList(false); setPanel(null); }} /></Suspense>)}
-          {shown("members") && active?.kind === "group" && card("members", <Suspense fallback={null}><MembersPanel tasksByBot={taskView?.roster} refreshToken={scheduleRefresh} onOpenWork={() => setPanel("schedule")} conversation={active} bots={bots} onClose={() => closeCard("members")} onOpen={(id) => { selectConversation(id); setMobileList(false); setPanel(null); }} onSaved={updateGroup} onReload={reloadGroup} /></Suspense>)}
+        {modalPanelOpen && <button type="button" className="detail-backdrop" aria-label={t("detail.close")} onClick={() => { if (settingsShown) window.dispatchEvent(new Event("tofi-settings-close")); else if (!detailPaneRef.current?.querySelector('[aria-busy="true"]')) closeSidebarPanel(); }} />}
+        {columnMode && <Suspense fallback={null}><WidgetColumn ids={surfaces.widgets} folded={surfaces.folded} focus={surfaces.focus} covered={Boolean(cover)} onFold={foldWidgetId} onClose={closeWidgetId} render={(id, leaving) => id === "computer" ? desktopNode(leaving) : id === "members" && active?.kind !== "group" || !active ? null : <WidgetView id={id} ctx={surfaceCtx} />} /></Suspense>}
+        {columnMode && displayedSidebar && <aside className={`sidebar-pane${surfaces.sidebar ? "" : " is-leaving"}${cover ? " is-covered" : ""}`} inert={!surfaces.sidebar || undefined} aria-label={t("detail.label")}>
+          <Suspense fallback={<div className="sidebar-shell" aria-busy="true" />}><SidebarShell id={displayedSidebar} expanded={sidebarExpandedShown} focusN={surfaces.focus.id === displayedSidebar ? surfaces.focus.n : 0} onExpand={() => setSurfaces(toggleSidebarExpanded)} onClose={closeSidebarPanel} content={sidebarContent} /></Suspense>
+        </aside>}
+        <aside ref={detailPaneRef} className={`detail-pane ${settingsShown || drawerShown ? "visible" : ""} ${drawerShown ? "context-panel" : ""} ${(settingsShown && !cover) || (drawerShown && !surfaces.sidebar) ? "surface-exiting" : ""}`} inert={!(cover === "settings" || (!columnMode && surfaces.sidebar && !cover)) || undefined} role={modalPanelOpen ? "dialog" : undefined} aria-modal={modalPanelOpen ? true : undefined} aria-label={settingsShown ? t("common:nav.settings") : displayedSidebar === "terminal" ? t("header.terminal") : t("detail.label")} tabIndex={modalPanelOpen ? -1 : undefined}>
+          {settingsShown && <Suspense fallback={<SettingsSkeleton onClose={closeCoverPanel} />}><AfterPaint fallback={<SettingsSkeleton onClose={closeCoverPanel} />}><SettingsPanel tab={settingsTab} onTab={setSettingsTab} onClose={closeCoverPanel} entry={settingsEntry} refreshToken={extensionRefresh} codexRefresh={codexStatusRefresh} onCodexConfigured={() => void refreshIndex()} legacyArchive={conversations.some(conversation => conversation.archived)} onOpenArchive={() => setPanel("archive")} pages={{ bots, conversation: active, timezone, usageBotId, portabilityBotID, portabilityFile, onPortabilityFileConsumed: () => setPortabilityFile(undefined), appearance, extensionRefresh, providersRefresh: codexStatusRefresh, onProvidersConfigured: () => void refreshIndex(), openTab: (tab) => openSettings(tab), onBotsChanged: () => refreshIndex() }} /></AfterPaint></Suspense>}
+          {drawerShown && displayedSidebar && sidebarContent(displayedSidebar)}
         </aside>
+        {displayedCover && displayedCover !== "settings" && displayedCover !== "approvals" && <Suspense fallback={null}><CoverShell id={displayedCover} leaving={!cover} wide={displayedCover === "artifacts"} returnFocus={panelOpener.current} onClose={closeCoverPanel}><CoverView id={displayedCover} ctx={surfaceCtx} /></CoverShell></Suspense>}
+        {cover === "approvals" && active && <Suspense fallback={null}><RememberedApprovalsSheet conversationId={active.id} onClose={closeCoverPanel} /></Suspense>}
       </div>
-      {!columnMode && desktopNode}
+      {!columnMode && desktopNode()}
       {deleteTarget && <Suspense fallback={null}><DeleteConversationDialog target={deleteTarget} bots={bots} onDelete={deleteConversation} onClose={() => setDeleteTarget(null)} returnFocus={dialogOpener.current} /></Suspense>}
       {hidePrimaryTarget && <Suspense fallback={null}><ReassignPrimaryDialog bot={hidePrimaryTarget} bots={bots} onConfirm={async (successorId) => { await api.setBotArchived(hidePrimaryTarget.id, true, successorId); setSidebarContextMenu(null); await refreshIndex(); }} onClose={() => setHidePrimaryTarget(null)} returnFocus={dialogOpener.current} /></Suspense>}
-      {viewOnlyChat && <Suspense fallback={null}><ViewOnlyChat target={viewOnlyChat} bots={bots} card={!isDesktop && !compactViewport} returnFocus={viewOnlyChatTriggerRef.current} onClose={() => setViewOnlyChat(null)} /></Suspense>}
+      {viewOnlyChat && !columnMode && <Suspense fallback={null}><ViewOnlyChat target={viewOnlyChat} bots={bots} returnFocus={viewOnlyChatTriggerRef.current} onClose={() => setViewOnlyChat(null)} /></Suspense>}
       <FilePreviewHost />
     </div>
   );
