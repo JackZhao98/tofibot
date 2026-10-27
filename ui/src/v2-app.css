@@ -435,8 +435,8 @@ html:not([data-desktop]) .workspace .composer .working-member.work-companion .wo
 @media (prefers-reduced-motion:reduce) { .workspace .v2-tool-step.tool-status-running .v2-tool-step-marker { animation:none; } }
 /* Authentication, inspector, and secondary views belong to the same world. */
 .workspace .detail-pane { color:var(--ink); }
-.workspace :is(.memory-card,.archive-card,.extension-card,.verification-card,.bot-share-card,.schedule-card) { border:1px solid var(--line-soft); border-radius:12px; background:var(--surface-2); }
-.workspace :is(.memory-card,.archive-card,.extension-card,.verification-card,.bot-share-card,.schedule-card) strong { color:var(--ink); }
+.workspace :is(.memory-card,.archive-card,.extension-card,.verification-card,.schedule-card) { border:1px solid var(--line-soft); border-radius:12px; background:var(--surface-2); }
+.workspace :is(.memory-card,.archive-card,.extension-card,.verification-card,.schedule-card) strong { color:var(--ink); }
 .workspace form>.primary-button,.workspace form>.secondary-button { align-self:start; height:auto; }
 .workspace .memory-create>.secondary-button { justify-self:end; width:auto; min-height:40px; padding:9px 16px; }
 .workspace .memory-footer>span:last-child { gap:8px; }
@@ -446,17 +446,17 @@ html:not([data-desktop]) .workspace .composer .working-member.work-companion .wo
 .workspace .bot-v2-subtitle { margin:18px 0 16px; }
 .workspace .bot-v2-subtitle h2 { margin:0 0 4px; color:var(--ink); font:600 20px/1.3 var(--display); }
 .workspace .bot-v2-subtitle p { margin:0; color:var(--muted); font-size:12px; }
-:is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.member-panel,.sidebar-account-menu,.mcp-menu) { background:color-mix(in srgb,var(--surface) 99.5%,transparent); border:2px solid var(--line); border-radius:16px; box-shadow:var(--sheen),var(--hard-sm); -webkit-backdrop-filter:blur(32px) saturate(1.4); backdrop-filter:blur(32px) saturate(1.4); }
+:is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu) { background:color-mix(in srgb,var(--surface) 99.5%,transparent); border:2px solid var(--line); border-radius:16px; box-shadow:var(--sheen),var(--hard-sm); -webkit-backdrop-filter:blur(32px) saturate(1.4); backdrop-filter:blur(32px) saturate(1.4); }
 :is(.workspace,[id="tofi-layers"]) .sidebar-context-menu { padding:6px; }
 :is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.sidebar-account-menu,.mcp-menu)>button,
 :is(.workspace,[id="tofi-layers"]) .mention-menu>button { display:flex; align-items:center; gap:9px; width:100%; min-height:42px; padding:8px 10px; border:0; border-radius:10px; background:transparent; color:var(--ink); box-shadow:none; text-align:left; font:14px/1.3 var(--body); white-space:normal; overflow-wrap:anywhere; }
-:is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.member-panel,.sidebar-account-menu,.mcp-menu) button:hover:not(:disabled) { background:var(--surface-2); color:var(--ink); transform:none; box-shadow:none; }
+:is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu) button:hover:not(:disabled) { background:var(--surface-2); color:var(--ink); transform:none; box-shadow:none; }
 :is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu)>button:disabled { color:var(--muted); background:transparent; }
 :is(.workspace,[id="tofi-layers"]) .sidebar-context-menu .delete-menu-action { color:var(--danger-text); }
 :is(.workspace,[id="tofi-layers"]) .mention-menu>button.selected { background:var(--surface-2); }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>.sidebar-account-logout:hover { color:var(--danger-text); }
-:is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.member-panel,.sidebar-account-menu,.mcp-menu) .delete-menu-action:hover { color:var(--danger-text); }
-@supports not (backdrop-filter:blur(1px)) { :is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.member-panel,.sidebar-account-menu,.mcp-menu) { background:var(--surface); } }
+:is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu) .delete-menu-action:hover { color:var(--danger-text); }
+@supports not (backdrop-filter:blur(1px)) { :is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu) { background:var(--surface); } }
 
 @media (max-width:767px) {
   .workspace .contact-pane { padding-inline:8px; }
@@ -470,7 +470,7 @@ html:not([data-desktop]) .workspace .composer .working-member.work-companion .wo
 }
 @media (prefers-reduced-transparency:reduce) {
   .workspace .chat-header { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
-  .workspace .composer .composer-row,:is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.member-panel,.sidebar-account-menu,.mcp-menu) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
+  .workspace .composer .composer-row,:is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
   :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
 }
 html:not([data-desktop]) .workspace .conversation-empty{align-content:center;justify-items:center;gap:6px}
@@ -525,10 +525,9 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
 
 /* Group chats: reactions and live status line up with the message text, not the avatar column. */
 
-
 /* Bot profile: one header (title + close), the cat and identity, then one list of equal rows —
    plans, memory, name/role/model — each opening exactly one page. Sharing sits quietly at the end. */
-.workspace .members-v2-rows { margin-bottom:18px; }
+
 .workspace .message-list.is-positioning{visibility:hidden}
 /* Reduced motion turns every transition into a ~0s one, and the default `transition-property: all` then defers each
    layout change (a speaker-change margin, say) by a frame. The message list changes layout as it renders; it must not. */

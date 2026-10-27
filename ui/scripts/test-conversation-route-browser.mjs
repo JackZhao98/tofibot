@@ -22,7 +22,7 @@ const initial = taskCounts(await state());
 
 try {
   for (const [layout, width, height, native] of [["desktop", 1280, 900, false], ["narrow", 390, 844, false], ["native-bridge", 1280, 900, true]]) {
-    const context = await browser.newContext({ viewport: { width, height }, permissions: ["clipboard-read", "clipboard-write"] });
+    const context = await browser.newContext({ viewport: { width, height }, locale: "zh-CN", permissions: ["clipboard-read", "clipboard-write"] });
     const [alpha, bravo] = accounts;
     const [one, two, archived, deleted] = alpha.bots;
     const page = await context.newPage();
@@ -129,7 +129,7 @@ try {
     await page.screenshot({ path: `${output}/${layout}-group.png` });
 
     await page.getByRole("button", { name: "更多操作", exact: true }).click();
-    await page.getByRole("button", { name: "复制会话链接", exact: true }).click();
+    await page.getByRole("menuitem", { name: "复制会话链接", exact: true }).click();
     assert.equal(await page.evaluate(() => navigator.clipboard.readText()), `${origin}/g/${alpha.group.id}`);
     const copied = await context.newPage();
     await copied.goto(`${origin}/g/${alpha.group.id}`);
@@ -154,6 +154,25 @@ try {
     await sidebar(one.name);
     await chat(`/b/${one.id}`, one.name);
     await record("unavailable-recovery-by-sidebar");
+
+    // The sidebar view is the one surface the address carries: a direct link opens it, a switch keeps it (and the address), and a link
+    // without it has none. Wide windows only (narrow ones draw it as a drawer).
+    if (width >= 1100) {
+      await page.goto(`${origin}/b/${two.id}?side=memory`);
+      await chat(`/b/${two.id}?side=memory`, two.name);
+      await page.locator(".sidebar-pane").waitFor();
+      await sidebar(one.name);
+      await chat(`/b/${one.id}?side=memory`, one.name);
+      assert.equal(await page.locator(".sidebar-pane:not(.is-leaving)").count(), 1, "the sidebar stays across a switch");
+      await page.goBack();
+      await chat(`/b/${two.id}?side=memory`, two.name);
+      await page.goto(`${origin}/b/${one.id}?side=nonsense`);
+      await chat(`/b/${one.id}?side=nonsense`, one.name);
+      assert.equal(await page.locator(".sidebar-pane").count(), 0, "an unknown ?side= opens nothing");
+      await page.goto(`${origin}/b/${one.id}`);
+      await chat(`/b/${one.id}`, one.name);
+      await record("side-param-opens-sidebar-and-follows-a-switch");
+    }
 
     // Real assistant message causes the existing notification path to refresh.
     await page.request.post(origin + "/acceptance/notification");
@@ -186,13 +205,13 @@ try {
     await page.waitForURL(/\/[bg]\/[^/]+$/);
     assert.equal((await page.locator("body").innerText()).includes(alpha.username), false);
     await record("root-default-validates-native-saved-selection-in-current-account");
-    const writes = requests.filter(request => !["GET", "HEAD"].includes(request.method) && !request.path.startsWith("/api/auth/") && !request.path.endsWith("/read"));
+    const writes = requests.filter(request => !["GET", "HEAD"].includes(request.method) && !request.path.startsWith("/api/auth/") && !request.path.endsWith("/read") && request.path !== "/api/preferences");
     assert.deepEqual(writes, [], "opening links and history must perform no execution/create/update/delete writes");
 
     // Deliberate synthetic creation/deletion also uses the same navigation path.
     // These are explicit UI actions after the zero-write navigation assertions.
     await page.getByRole("button", { name: "新建 Bot 或群", exact: true }).click();
-    await page.getByRole("button", { name: "新建 Bot", exact: true }).click();
+    await page.getByRole("menuitem", { name: "新建 Bot", exact: true }).click();
     await page.waitForURL(/\/b\/[^/]+$/);
     await page.waitForFunction(previous => location.pathname !== previous, new URL(results.at(-1).path, origin).pathname);
     const newBotPath = new URL(page.url()).pathname;
@@ -203,10 +222,10 @@ try {
     await record("created-bot-selection-and-reload");
     if (width < 600) await page.getByRole("button", { name: "返回消息列表", exact: true }).click();
     await page.getByRole("button", { name: "新建 Bot 或群", exact: true }).click();
-    await page.getByRole("button", { name: "新建群", exact: true }).click();
+    await page.getByRole("menuitem", { name: "新建群", exact: true }).click();
     const createdName = layout + " Created Group";
     await page.getByPlaceholder("群名称").fill(createdName);
-    for (const bot of bravo.bots.slice(0, 2)) await page.locator(".member-option").filter({ hasText: bot.name }).getByRole("checkbox").check();
+    for (const bot of bravo.bots.slice(0, 2)) await page.locator(".gs-member").filter({ hasText: bot.name }).getByRole("checkbox").check();
     await page.getByRole("button", { name: "创建群", exact: true }).click();
     await page.waitForURL(/\/g\/[^/]+$/);
     const createdPath = new URL(page.url()).pathname;
@@ -215,7 +234,7 @@ try {
     await chat(createdPath, createdName);
     await record("created-group-selection-and-reload");
     await page.getByRole("button", { name: "更多操作", exact: true }).click();
-    await page.getByRole("button", { name: "删除群聊", exact: true }).click();
+    await page.getByRole("menuitem", { name: "删除群聊", exact: true }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "删除群聊", exact: true }).click();
     await page.getByRole("heading", { name: "无法打开这个会话" }).waitFor();
     assert.equal(new URL(page.url()).pathname, createdPath, "active deletion must not silently select another chat");

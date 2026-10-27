@@ -15,3 +15,22 @@ export function subscribeSettingsDeepLinks(open: (tab: SettingsTab) => void): ()
   });
   return () => handlers.forEach(([name, handler]) => window.removeEventListener(name, handler));
 }
+
+/**
+ * `tofi:open-sidebar` opens one sidebar view in the workspace (Tasks, Memory, Terminal or Archive), the way the `?side=` address does.
+ * Anything that can reach `window` can dispatch it: `window.dispatchEvent(new CustomEvent("tofi:open-sidebar", { detail: { id: "tasks" } }))`.
+ */
+export const OPEN_SIDEBAR_EVENT = "tofi:open-sidebar";
+export type SidebarDeepLink = "tasks" | "memory" | "terminal" | "archive";
+
+export const openSidebarDeepLink = (id: SidebarDeepLink) => window.dispatchEvent(new CustomEvent(OPEN_SIDEBAR_EVENT, { detail: { id } }));
+
+/** Listens for `tofi:open-sidebar` and calls `open` with a known id. Returns the unsubscribe. */
+export function subscribeSidebarDeepLinks(open: (id: SidebarDeepLink) => void): () => void {
+  const handler = (event: Event) => {
+    const id = (event as CustomEvent<{ id?: string }>).detail?.id;
+    if (id === "tasks" || id === "memory" || id === "terminal" || id === "archive") open(id);
+  };
+  window.addEventListener(OPEN_SIDEBAR_EVENT, handler);
+  return () => window.removeEventListener(OPEN_SIDEBAR_EVENT, handler);
+}

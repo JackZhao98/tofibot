@@ -10,23 +10,12 @@ button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 /* V2 controls live in v2-foundations.css, not a second generic rule set. */
 .search-box:has(:focus-visible){outline:2px solid var(--focus-ring);outline-offset:2px}
 .search-box input:focus-visible,.composer-row textarea:focus-visible{outline:none}
-.bot-share-card{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:18px;padding:15px;border:1px solid var(--line);border-radius:14px;background:var(--surface-soft)}
-.bot-share-card strong{display:block;color:var(--text);font-size:14px}
-.bot-share-card p{max-width:360px;margin:4px 0 0;color:var(--muted);font-size:12px;line-height:1.5}
-.bot-share-card .secondary-button{flex:0 0 auto;min-height:40px;padding:8px 12px;font-size:13px}
+
 .bot-avatar-picker{display:grid;gap:12px;margin:0 0 18px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--surface-soft)}
-.bot-avatar-preview-row{display:flex;align-items:center;gap:12px}
-.bot-avatar-preview-row>.avatar{width:64px;height:64px;flex:0 0 64px;background:transparent}
-.bot-avatar-preview-row>div{min-width:0;flex:1}
-.bot-avatar-preview-row strong{display:block;color:var(--text);font-size:14px}
-.bot-avatar-preview-row p{margin:3px 0 0;color:var(--muted);font-size:12px;line-height:1.45}
-.bot-avatar-preview-row .secondary-button{min-height:38px;padding:7px 11px;font-size:13px}
-.bot-avatar-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.bot-avatar-fields label{min-width:0}
-.bot-avatar-fields select{margin-top:5px;padding:8px 9px;font-size:13px}
+
 .tofi-avatar{display:block;width:100%;height:100%}
 .tofi-avatar>svg{display:block;width:100%;height:100%}
-@media(max-width:520px){.bot-avatar-fields{grid-template-columns:1fr}.bot-share-card{align-items:flex-start;flex-direction:column}.bot-share-card .secondary-button{width:100%}}
+
 .workspace-grid{--sidebar-width:272px;grid-template-columns:var(--sidebar-width) minmax(0,1fr);transition:grid-template-columns var(--m-panel-in) var(--ease-out)}
 .sidebar-toggle{color:var(--muted)}
 /* Time belongs beside the name, not in a column stealing preview width. */
@@ -141,7 +130,7 @@ button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
  .detail-pane:has(.settings-tabs){border-radius:0}.appearance-setting{padding:24px 16px}
  .top-icon-button,.icon-button,.ghost-button,.computer-button{width:40px;height:40px;min-width:40px}
 }
-:root[data-theme="dark"] .message-code,:root[data-theme="dark"] .message-table,:root[data-theme="dark"] .computer-info,:root[data-theme="dark"] .codex-status,:root[data-theme="dark"] .verification-card,:root[data-theme="dark"] .memory-card,:root[data-theme="dark"] .schedule-card,:root[data-theme="dark"] .member-card,:root[data-theme="dark"] .extension-card,:root[data-theme="dark"] .connection-info{background:var(--surface-soft);border-color:var(--line);color:var(--text)}
+:root[data-theme="dark"] .message-code,:root[data-theme="dark"] .message-table,:root[data-theme="dark"] .computer-info,:root[data-theme="dark"] .codex-status,:root[data-theme="dark"] .verification-card,:root[data-theme="dark"] .memory-card,:root[data-theme="dark"] .schedule-card,:root[data-theme="dark"] .extension-card,:root[data-theme="dark"] .connection-info{background:var(--surface-soft);border-color:var(--line);color:var(--text)}
 :root[data-theme="dark"] .computer-detail.is-expanded{background:var(--surface)}
 :root[data-theme="dark"] .message-content code{background:var(--surface-hover);color:var(--text)}
 :root[data-theme="dark"] .composer-row,:root[data-theme="dark"] .composer-toolbar,:root[data-theme="dark"] .tool-activity-details{background:var(--surface-soft)}
@@ -253,12 +242,7 @@ html[data-desktop] .new-arrival .message-user .message-content{transform-origin:
 .disclosure-inner{min-height:0;overflow:hidden}
 .disclosure-inner>label{display:grid;gap:7px;margin:10px 0}
 .disclosure-inner>.model-fields{margin:8px 0}
-.member-manage-row{display:flex;gap:8px}
-.members-manage-picker .member-manage-row:has(input:disabled){opacity:1;cursor:default}
-.member-manage-row>label{display:flex;align-items:center;gap:9px;flex:1;min-width:0;}
-.member-manage-row>label:has(input:disabled){opacity:.55;cursor:not-allowed}
-.member-manage-row>label>span:last-child{overflow-wrap:anywhere}
-.member-manage-row>.text-button{flex:none;padding:7px 8px;color:var(--text-soft);font-size:12px}
+
 :root[data-theme="dark"] .member-option{background:var(--surface);border-color:var(--line)}
 :root[data-theme="dark"] .member-option.selected{background:var(--selected-bg);border-color:var(--line-strong)}
 .archive-open{display:block;max-width:100%;padding:0;border:0;background:transparent;color:var(--text);text-align:left;font-weight:600;overflow-wrap:anywhere}
@@ -282,13 +266,7 @@ html[data-desktop] .new-arrival .message-user .message-content{transform-origin:
 /* Shared form geometry; fieldsets freeze pending inputs without another visual box. */
 .form-fields{display:contents;border:0;padding:0;margin:0;min-width:0}
 form[aria-busy=true]{cursor:progress}
-.create-member-picker{gap:4px}
-.create-member-picker .member-option{padding:12px;border:0;border-radius:12px;min-height:52px;background:transparent;color:var(--text);margin:0}
-.create-member-picker .member-option:hover{background:var(--surface-hover)}
-.create-member-picker .member-option.selected{background:var(--selected-bg)}
-.create-member-picker .member-option>span:not(.avatar){flex:1;min-width:0;overflow-wrap:anywhere}
-.create-member-picker .member-option>input{margin-left:auto;width:16px;height:16px;flex:0 0 16px}
-.create-member-picker .member-option:has(input:disabled){opacity:.5;cursor:default}
+
 .notification-status{font-size:13px;color:var(--muted);margin:12px 0 0;line-height:1.6}
 
 @media(pointer:coarse){

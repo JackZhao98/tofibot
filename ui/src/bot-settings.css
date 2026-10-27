@@ -151,3 +151,7 @@
   .bs-nav, .bs-page, .bs-nav-item, .bs-saved, .bs-button, .bot-style-pop, .bot-style-pop button, .bs-section { transition:none!important; animation:none!important; }
 }
 @media (forced-colors:active) { .bs-nav-item[aria-current="page"], .bs-button { outline:1px solid CanvasText; } }
+
+/* The Skills section points at the library: a quiet text link, no hand cursor, no outline until focus. */
+.bs-link { display:inline-flex; align-items:center; gap:4px; align-self:flex-start; min-height:32px; padding:0 2px; border:0; background:none; color:var(--ink-soft); font:var(--type-meta); }
+.bs-link:hover { color:var(--ink); }

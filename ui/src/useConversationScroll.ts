@@ -26,6 +26,8 @@ interface Visit {
   nearBottom: boolean;
   width: number;
   height: number;
+  /** The message list's own width at the last sync (-1 before the first): a widget opening beside it narrows the column without resizing the pane. */
+  listWidth: number;
   baseline: number;
   detached: boolean;
   resumeIntent: boolean;
@@ -135,7 +137,7 @@ export function useConversationScroll(options: Options) {
     if (visit.current?.glide) { cancelAnimationFrame(visit.current.glide.raf); visit.current.glide = null; }
     const snapshot = id ? snapshots.current.get(id) ?? null : null;
     visit.current = { id, readSeq: options.conversation?.read_seq ?? 0, entryMax: snapshot?.entryMax ?? null,
-      resume: snapshot, positioned: false, landing: snapshot ? (snapshot.atBottom ? "bottom" : "elsewhere") : null, atBottom: snapshot?.atBottom ?? true, nearBottom: true, width: 0, height: 0,
+      resume: snapshot, positioned: false, landing: snapshot ? (snapshot.atBottom ? "bottom" : "elsewhere") : null, atBottom: snapshot?.atBottom ?? true, nearBottom: true, width: 0, height: 0, listWidth: -1,
       baseline: 0, detached: snapshot?.detached ?? false, resumeIntent: false, lastScrollTop: 0,
       prepend: null, followNext: false, loadingBoundary: false, boundaryFailed: false, hold: null, glide: null, lastGrowth: 0, bottomTop: 0, dipFrame: -1, positionedAt: 0, lastRecordId: "", distance: 0, gestureAt: 0 };
   }
@@ -155,9 +157,13 @@ export function useConversationScroll(options: Options) {
     const el = scrollRef.current;
     const v = visit.current;
     if (!el || !v?.positioned) return;
-    if (v.atBottom && (v.width !== el.clientWidth || v.height !== el.clientHeight)) el.scrollTop = el.scrollHeight;
+    // A widget or the sidebar opening re-wraps the text beside the pane: the page grows under a reader who did not scroll. That is not
+    // leaving the bottom, so a following reader is put back at once instead of being read as scrolled away by the next scroll event.
+    const listWidth = el.querySelector<HTMLElement>(".message-list")?.clientWidth ?? -1;
+    if (v.atBottom && (v.width !== el.clientWidth || v.height !== el.clientHeight || (v.listWidth >= 0 && listWidth >= 0 && v.listWidth !== listWidth))) el.scrollTop = el.scrollHeight;
     v.width = el.clientWidth;
     v.height = el.clientHeight;
+    v.listWidth = listWidth;
     const distanceFromBottom = el.scrollHeight - el.clientHeight - el.scrollTop;
     // A glide is following the bottom on purpose: the pane is mid-hop, not scrolled away.
     const bottom = distanceFromBottom < 48 || Boolean(v.glide && !v.detached);

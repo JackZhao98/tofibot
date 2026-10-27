@@ -40,11 +40,6 @@
     "title": "记忆",
     "description": "已保存的记忆；展开查看完整内容。"
   },
-  "preview": {
-    "title": "目标与待办",
-    "sync_failed": "暂时无法同步，打开重试",
-    "empty": "暂无待办"
-  },
   "panel": {
     "load_failed": "暂时无法载入",
     "original_conversation": "原会话",

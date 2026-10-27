@@ -8,7 +8,7 @@ import { BotSkills } from "./BotSkills";
 import { buildBotPackage, downloadBotPackage } from "./botPackage";
 import { getBotAvatarConfig, saveBotAvatarConfig } from "./avatarStore";
 import { DirtyBar, LeaveConfirm } from "./CoverForm";
-import { coverContainer, useCover, useCoverGuard } from "./coverGuard";
+import { coverContainer, requestCoverClose, useCover, useCoverGuard } from "./coverGuard";
 import { errorText } from "./errorText";
 import { useTranslation } from "./i18n";
 import { TofiIcon as Icon, type TofiIconName } from "./icons";
@@ -18,6 +18,7 @@ import { OverlayPopover } from "./overlays/OverlayHost";
 import { PrimaryBadge } from "./PrimaryAssistant";
 import type { BotSkillListing } from "./skillLibrary";
 import { usePreviousWhileFading } from "./surfacePresence";
+import type { SettingsTab } from "./SettingsShell";
 import type { Bot } from "./types";
 import "./bot-settings.css";
 
@@ -64,11 +65,13 @@ function Row({ title, hint, children, danger }: { title: string; hint?: string; 
   </div>;
 }
 
-export function BotSettingsPanel({ bot, refreshToken = 0, onUpdate, onMakePrimary, onExportData, onDelete }: {
+export function BotSettingsPanel({ bot, refreshToken = 0, onUpdate, onMakePrimary, onExportData, onOpenSettings, onDelete }: {
   bot: Bot; refreshToken?: number;
   onUpdate: (id: string, input: Partial<Pick<Bot, "name" | "instructions" | "model" | "reasoning_effort">>) => Promise<void>;
   onMakePrimary: (id: string) => Promise<void>;
   onExportData: (id: string) => void;
+  /** Opens Settings on a tab; the cover is replaced (after the unsaved-changes question, when there is something unsaved). */
+  onOpenSettings: (tab: SettingsTab) => void;
   onDelete: () => void;
 }) {
   const { t } = useTranslation("chat");
@@ -114,6 +117,8 @@ export function BotSettingsPanel({ bot, refreshToken = 0, onUpdate, onMakePrimar
 
   // Closing with unsaved changes asks first (every way out goes through CoverShell, which asks the guard).
   const [asking, setAsking] = useState(false);
+  // Where the person goes once they have said "discard": the close button, Escape and the scrim leave; the Settings link goes on to Settings.
+  const afterLeave = useRef<(() => void) | null>(null);
   useCoverGuard(dirty, () => setAsking(true));
 
   // Phones: the section list, then a page. Wide: both, and the list marks the page.
@@ -174,7 +179,9 @@ export function BotSettingsPanel({ bot, refreshToken = 0, onUpdate, onMakePrimar
       <ModelFields disabled={busy} model={draft.model} effort={draft.effort} onChange={(model, effort) => setDraft(current => ({ ...current, model, effort }))} />
       <p className="bs-model-line">{modelLine}{bot.effective_reasoning_effort && follows ? ` · ${bot.effective_reasoning_effort}` : ""}</p>
     </div>,
-    skills: <div className="bs-stack"><BotSkills botId={bot.id} refreshToken={refreshToken} /></div>,
+    skills: <div className="bs-stack"><BotSkills botId={bot.id} refreshToken={refreshToken} />
+      <button type="button" className="bs-link" onClick={() => { const go = () => onOpenSettings("skills"); afterLeave.current = go; requestCoverClose(go); }}>{t("botSettings.skills_link")}<Icon name="chevron-right" size={14} /></button>
+    </div>,
     secrets: <div className="bs-stack"><BotSecrets botId={bot.id} /></div>,
     advanced: <div className="bs-stack">
       <BotInspector botId={bot.id} />
@@ -221,6 +228,6 @@ export function BotSettingsPanel({ bot, refreshToken = 0, onUpdate, onMakePrimar
     <OverlayPopover open={styleOpen} onOpenChange={setStyleOpen} className="bot-style-pop" anchor={styleButton} container={coverContainer()} side="bottom" align="start" sideOffset={8} aria-label={t("botPanel.style")}>
       <BotAvatarPicker botId={bot.id} config={avatar} onChange={next => setAvatar(saveBotAvatarConfig(bot.id, next))} />
     </OverlayPopover>
-    {asking && <LeaveConfirm busy={busy} onKeep={() => setAsking(false)} onLeave={() => { setAsking(false); cover.close(); }} />}
+    {asking && <LeaveConfirm busy={busy} onKeep={() => { afterLeave.current = null; setAsking(false); }} onLeave={() => { const go = afterLeave.current ?? cover.close; afterLeave.current = null; setAsking(false); go(); }} />}
   </div>;
 }

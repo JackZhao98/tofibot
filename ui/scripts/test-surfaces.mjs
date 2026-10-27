@@ -12,7 +12,7 @@ const output = await mkdtemp(join(tmpdir(), "tofi-surfaces-"));
 try {
   await promisify(execFile)(join(root, "node_modules/.bin/tsc"), ["src/surfaces.ts", "--ignoreConfig", "--target", "ES2022", "--module", "ES2022", "--moduleResolution", "Bundler", "--outDir", output, "--skipLibCheck", "--pretty", "false"], { cwd: root });
   const S = await import(pathToFileURL(join(output, "surfaces.js")));
-  const { emptySurfaces: empty, openWidget, closeWidget, toggleWidget, foldWidget, openSidebar, closeSidebar, toggleSidebar, toggleSidebarExpanded, autoOpenWidget, setWidgetFolded, openCover, closeCover, closeAll, escapeTarget, applyPanel, isEmpty, WIDGET_ORDER } = S;
+  const { emptySurfaces: empty, openWidget, closeWidget, toggleWidget, foldWidget, openSidebar, closeSidebar, toggleSidebar, toggleSidebarExpanded, autoOpenWidget, setWidgetFolded, openCover, closeCover, closeAll, escapeTarget, isEmpty, WIDGET_ORDER, stashWidgets, suppressedRunsOf, forgetWidgets, enterConversation } = S;
   const shape = s => ({ widgets: s.widgets, folded: s.folded, sidebar: s.sidebar, cover: s.cover });
   const run = (...steps) => steps.reduce((state, step) => step(state), empty());
 
@@ -92,42 +92,48 @@ try {
   assert.equal(isEmpty(cleared), true);
   assert.equal(isEmpty(state), false);
 
-  // Escape order: cover, then sidebar, then the lowest widget; the computer goes last.
-  state = run(s => openWidget(s, "computer"), s => openWidget(s, "members"), s => openWidget(s, "artifacts"), s => openSidebar(s, "memory"), s => openCover(s, "settings"));
-  const escapes = [];
-  for (let step = 0; step < 8; step++) {
-    const target = escapeTarget(state);
-    if (!target) break;
-    escapes.push(`${target.layer}:${target.id}`);
-    state = target.layer === "cover" ? closeCover(state) : target.layer === "sidebar" ? closeSidebar(state) : closeWidget(state, target.id);
-  }
-  assert.deepEqual(escapes, ["cover:settings", "sidebar:memory", "widget:artifacts", "widget:members", "widget:computer"]);
+  // Escape order (section 7, after native dialogs and Radix layers, which the hook leaves to themselves): the big computer steps back to
+  // compact, then the cover, then the sidebar, then the widgets from the bottom up (Artifacts, Members, Computer).
+  const everything = () => run(s => openWidget(s, "computer"), s => openWidget(s, "members"), s => openWidget(s, "artifacts"), s => openSidebar(s, "memory"), s => openCover(s, "settings"));
+  const walk = (start, options) => {
+    let current = start;
+    const seen = [];
+    for (let step = 0; step < 10; step++) {
+      const target = escapeTarget(current, options);
+      if (!target) break;
+      seen.push(target.layer === "computer-big" ? "computer-big" : `${target.layer}:${target.id}`);
+      current = target.layer === "computer-big" ? options.afterBig(current) : target.layer === "cover" ? closeCover(current) : target.layer === "sidebar" ? closeSidebar(current) : closeWidget(current, target.id);
+    }
+    return seen;
+  };
+  assert.deepEqual(walk(everything(), {}), ["cover:settings", "sidebar:memory", "widget:artifacts", "widget:members", "widget:computer"]);
+  const afterBig = { bigComputer: true, afterBig: current => { afterBig.bigComputer = false; return current; } };
+  assert.deepEqual(walk(everything(), afterBig), ["computer-big", "cover:settings", "sidebar:memory", "widget:artifacts", "widget:members", "widget:computer"], "big computer, cover, sidebar, then widgets bottom-up");
+  assert.deepEqual(escapeTarget(run(s => openSidebar(s, "tasks"), s => openWidget(s, "computer")), { bigComputer: true }), { layer: "computer-big" });
+  assert.deepEqual(escapeTarget(run(s => openSidebar(s, "tasks")), { bigComputer: true }), { layer: "sidebar", id: "tasks" }, "a big computer that is not an open widget is not a target");
+  assert.deepEqual(escapeTarget(run(s => openWidget(s, "members"), s => openWidget(s, "computer"))), { layer: "widget", id: "members" }, "the computer is last");
   assert.equal(escapeTarget(idle), null);
 
-  // The setPanel adapter, wide web layout: old ids to tiers.
-  const adapted = [
-    ["desktop", s => s.widgets, ["computer"]],
-    ["members", s => s.widgets, ["members"]],
-    ["artifacts-group", s => s.widgets, ["artifacts"]],
-    ["artifacts-bot", s => s.widgets, ["artifacts"]],
-    ["artifacts", s => s.cover, "artifacts"],
-    ["bot-edit", s => s.cover, "bot-settings"],
-    ["group-create", s => s.cover, "new-group"],
-    ["settings", s => s.cover, "settings"],
-    ["schedule", s => s.sidebar?.id, "tasks"],
-    ["memory", s => s.sidebar?.id, "memory"],
-    ["terminal", s => s.sidebar?.id, "terminal"],
-    ["archive", s => s.sidebar?.id, "archive"],
-  ];
-  for (const [panel, read, want] of adapted) assert.deepEqual(read(applyPanel(idle, panel, true)), want, `wide: ${panel}`);
-  // Narrow window: widgets other than the computer become covers.
-  assert.equal(applyPanel(idle, "members", false).cover, "group-settings");
-  assert.deepEqual(applyPanel(idle, "members", false).widgets, []);
-  assert.equal(applyPanel(idle, "artifacts-group", false).cover, "artifacts");
-  assert.deepEqual(applyPanel(idle, "desktop", false).widgets, ["computer"], "the computer is a floating window there, still a widget in state");
-  assert.equal(applyPanel(idle, "file", true), idle);
-  state = run(s => openWidget(s, "computer"), s => openSidebar(s, "tasks"), s => openCover(s, "settings"));
-  assert.ok(isEmpty(applyPanel(state, null, true)), "null closes every tier");
+  // Widgets are remembered per conversation; the sidebar stays and re-scopes; a cover closes; suppressed runs outlive the widgets.
+  const memory = new Map();
+  const inA = run(s => openWidget(s, "computer"), s => openWidget(s, "artifacts"), s => foldWidget(s, "artifacts"), s => openSidebar(s, "tasks"), s => toggleSidebarExpanded(s), s => openCover(s, "bot-settings"));
+  stashWidgets(memory, "A", inA);
+  const inB = enterConversation(inA, memory, "B");
+  assert.deepEqual(shape(inB), { widgets: [], folded: [], sidebar: { id: "tasks", expanded: true }, cover: null }, "a conversation with nothing remembered opens empty; the sidebar stays and a cover closes");
+  stashWidgets(memory, "B", openWidget(inB, "members"));
+  const backInA = enterConversation(openWidget(inB, "members"), memory, "A");
+  assert.deepEqual(shape(backInA), { widgets: ["computer", "artifacts"], folded: ["artifacts"], sidebar: { id: "tasks", expanded: true }, cover: null }, "back in A its widgets and folds come back");
+  assert.deepEqual(enterConversation(backInA, memory, "B").widgets, ["members"], "B kept its own");
+  assert.deepEqual(enterConversation(backInA, memory, null).widgets, [], "no conversation, no widgets");
+  assert.equal(enterConversation(openSidebar(idle, "archive"), memory, "A").sidebar.id, "archive", "Archive stays");
+  suppressedRunsOf(memory, "C").add("run-1");
+  stashWidgets(memory, "C", idle);
+  assert.ok(memory.get("C").suppressedRuns.has("run-1"), "closed-in runs survive an empty conversation");
+  stashWidgets(memory, "A", idle);
+  assert.equal(memory.has("A"), false, "an empty record with no suppressed runs is dropped");
+  forgetWidgets(memory, "C");
+  assert.equal(memory.has("C"), false);
+  assert.equal(suppressedRunsOf(memory, "C").size, 0);
 
   console.log("surfaces ok");
 } finally {

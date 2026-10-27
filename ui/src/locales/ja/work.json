@@ -40,11 +40,6 @@
     "title": "メモリー",
     "description": "保存されたメモリーです。展開するとすべて表示されます。"
   },
-  "preview": {
-    "title": "目標とタスク",
-    "sync_failed": "同期できませんでした。開いて再試行してください。",
-    "empty": "タスクはありません"
-  },
   "panel": {
     "load_failed": "読み込めませんでした",
     "original_conversation": "元の会話",

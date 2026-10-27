@@ -1,4 +1,4 @@
-/* Cards in the on-demand column (docs/design/side-panels.md). Loads with ContextCard, the lazy chunk that draws them.
+/* Widgets in the column inside the chat (docs/design/widgets-and-sidebar.md). Loads with ContextCard, the lazy chunk that draws them.
    A card is a filled surface with a soft elevation: no outline, no hard offset shadow. Layout of the column itself
    (grid track, scrolling, enter/leave) is eager and lives in context-card.css. */
 :root { --card-elevation:0 1px 2px rgba(42,32,25,.06), 0 10px 28px -14px rgba(42,32,25,.28); }
@@ -35,19 +35,15 @@
 .context-card .detail-heading:not(:has(> :not(h2):not(.close-button))) { display:none; }
 .context-card .detail-content > .detail-heading { min-height:0; margin:0 0 12px; padding:0; border:0; }
 
-/* The computer is a bare widget: its monitor is the widget, so the card draws no surface, padding or elevation around it. Only the
-   title row (fold, expand, close) stays, on the page background above the monitor. */
+/* The computer is a bare widget: its monitor is the widget, so the card draws no surface, header, padding or elevation around it. */
 .context-card.is-bare { background:transparent; box-shadow:none; overflow:visible; }
-.context-card.is-bare .context-card-header { padding-left:4px; }
 .context-card.is-bare:not(.is-collapsed) .context-card-inner { overflow:visible; }
 .context-card.is-bare .detail-content { padding:0; }
 /* The computer's screen sits in the card body instead of floating over the chat. */
 .workspace .context-card .desktop-floating-shell.is-docked:not(.is-expanded) { position:relative; inset:auto; z-index:auto; width:auto; padding:0 0 4px; pointer-events:auto; }
 .workspace .context-card .desktop-floating-shell.is-docked.is-small .desktop-presence-canvas>.computer-detail { margin-bottom:30px; }
-/* The card header already closes the computer; the screen's own hide control would be a second close. */
+/* The chin's chevron already closes the computer; the screen's own hide control would be a second close. */
 .workspace .context-card .desktop-floating-shell.is-docked:not(.is-expanded) .computer-hide-button { display:none; }
-/* While the screen is a full-window dialog, the card header behind it is out of reach (and out of the accessibility tree). */
-.context-card:has(.desktop-floating-shell.is-expanded)>.context-card-header { visibility:hidden; }
 
 @media (prefers-reduced-motion:reduce) {
   .widget-slot, .widget-slot[data-leaving] { animation:none; transition:none; }

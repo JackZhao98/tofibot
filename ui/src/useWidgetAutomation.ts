@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { request } from "./api";
-import { autoOpenWidget, setWidgetFolded, type Surfaces, type WidgetId } from "./surfaces";
+import { autoOpenWidget, setWidgetFolded, suppressedRunsOf, type Surfaces, type WidgetId, type WidgetsByConversation } from "./surfaces";
 import type { Message } from "./types";
 
 type Switches = { artifacts: boolean; computer: boolean };
@@ -28,7 +28,7 @@ function useSwitches(): React.RefObject<Switches> {
  * after the Bot lets go, and stays closed for a run the person closed it in; with every widget open on a short window the Artifacts and
  * then the Members widget fold, except the ones the person unfolded. Nothing here moves focus or closes a cover.
  */
-export function useWidgetAutomation({ activeId, ready, messages, columnMode, hasComputer, surfaces, setSurfaces, botRunId, holderKind, bigComputer }: {
+export function useWidgetAutomation({ activeId, ready, messages, columnMode, hasComputer, surfaces, setSurfaces, botRunId, holderKind, bigComputer, memory }: {
   activeId?: string; ready: boolean; messages: readonly Message[]; columnMode: boolean; hasComputer: boolean; surfaces: Surfaces;
   setSurfaces: (update: (current: Surfaces) => Surfaces) => void;
   /** The run of the Bot that holds the desktop in this conversation. */
@@ -36,6 +36,8 @@ export function useWidgetAutomation({ activeId, ready, messages, columnMode, has
   /** Who holds the desktop now, in any conversation. */
   holderKind?: string;
   bigComputer: boolean;
+  /** What each conversation remembers of its widgets (surfaces.ts); the runs the person closed the computer in are kept there. */
+  memory: { readonly current: WidgetsByConversation };
 }) {
   const switches = useSwitches();
   const [short, setShort] = useState(() => media("(max-height: 759.98px)")?.matches ?? false);
@@ -67,16 +69,15 @@ export function useWidgetAutomation({ activeId, ready, messages, columnMode, has
   }, [activeId, ready, messages, columnMode, setSurfaces, switches]);
 
   // Computer: a Bot takes the desktop in this conversation.
-  const suppressed = useRef(new Set<string>());
   const lastRun = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (!botRunId) { lastRun.current = undefined; return; }
     if (lastRun.current === botRunId) return;
     lastRun.current = botRunId;
-    if (!columnMode || !hasComputer || !switches.current.computer || suppressed.current.has(botRunId)) return;
+    if (!columnMode || !hasComputer || !switches.current.computer || !activeId || suppressedRunsOf(memory.current, activeId).has(botRunId)) return;
     // A folded strip opens again for a new run: the person should see the Bot at work.
     setSurfaces(state => state.widgets.includes("computer") ? setWidgetFolded(state, "computer", false) : autoOpenWidget(state, "computer"));
-  }, [botRunId, columnMode, hasComputer, setSurfaces, switches]);
+  }, [botRunId, columnMode, hasComputer, setSurfaces, switches, activeId, memory]);
 
   // Thirty seconds after the Bot let go of the desktop, the open computer folds into its strip (not while someone else holds it or the big window is up).
   const botRan = useRef(false);
@@ -105,9 +106,9 @@ export function useWidgetAutomation({ activeId, ready, messages, columnMode, has
   }, [columnMode, short, activeId, surfaces.widgets, surfaces.folded, setSurfaces]);
 
   const noteClose = useCallback((id: WidgetId) => {
-    if (id === "computer" && lastRun.current) suppressed.current.add(lastRun.current);
+    if (id === "computer" && lastRun.current && activeId) suppressedRunsOf(memory.current, activeId).add(lastRun.current);
     if (id === "artifacts" && activeId) filed.current.add(activeId);
-  }, [activeId]);
+  }, [activeId, memory]);
   const noteUnfold = useCallback((id: WidgetId) => {
     if (!activeId) return;
     const set = unfolded.current.get(activeId) ?? new Set<WidgetId>();

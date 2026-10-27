@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
-import { scheduleDisplay } from "./displayMetadata";
-import { i18n, useTranslation } from "./i18n";
+import { i18n } from "./i18n";
 import type { Schedule, WorkItem } from "./types";
 import "./work-panel.css";
 
-/** The agenda read and the one-line preview that Bot and member panels show. The full panel (WorkPanel.tsx) loads on demand. */
+/** The agenda read behind the Tasks sidebar (WorkPanel.tsx) and the team board. */
 export type Scope = { id: string; type: "bots" | "conversations" };
 export const message = (cause: unknown) => cause instanceof Error ? cause.message : i18n.t("work:panel.load_failed");
 
@@ -47,12 +46,4 @@ export function useAgenda(scope: Scope, history: boolean, refreshToken: number) 
     setItems(current => current.map(value => value.id === item.id ? item : value));
   };
   return { items, schedules, loading, error, reload, accept };
-}
-
-export function WorkPreview({ scope, refreshToken, onOpen, disabled = false, leading }: { disabled?: boolean; scope: Scope; refreshToken: number; onOpen: () => void; leading?: ReactNode }) {
-  const { t } = useTranslation("work");
-  const { items, schedules, loading, error } = useAgenda(scope, false, refreshToken);
-  const total = items.length + schedules.length;
-  const titles = [...items.map(item => item.title), ...schedules.map(item => scheduleDisplay(item).title)].slice(0, 2);
-  return <button className="work-preview" disabled={disabled} onClick={onOpen}>{leading}<span className="work-preview-copy"><strong>{t("preview.title")} <span>{loading ? "" : total}</span></strong><small>{error ? t("preview.sync_failed") : loading ? "" : titles.length ? titles.join(" · ") : t("preview.empty")}</small></span><span aria-hidden="true">›</span></button>;
 }

@@ -17,5 +17,4 @@
 .member-task[data-claimed] .member-task-state{color:var(--text-body)}
 .member-task-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:14em}
 .member-task-meta{flex:none}
-.member-manage-row{flex-wrap:wrap}
-.member-manage-row>.member-tasks{flex:1 0 100%;padding-inline-start:30px}
+

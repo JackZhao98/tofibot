@@ -40,11 +40,6 @@
     "title": "記憶",
     "description": "已儲存的記憶；展開查看完整內容。"
   },
-  "preview": {
-    "title": "目標與待辦",
-    "sync_failed": "暫時無法同步，開啟以重試",
-    "empty": "目前沒有待辦"
-  },
   "panel": {
     "load_failed": "暫時無法載入",
     "original_conversation": "原對話",

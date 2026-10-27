@@ -40,11 +40,6 @@
     "title": "Gedächtnis",
     "description": "Gespeichertes Gedächtnis. Aufklappen, um alles zu sehen."
   },
-  "preview": {
-    "title": "Ziele und To-dos",
-    "sync_failed": "Synchronisierung fehlgeschlagen. Öffnen, um es erneut zu versuchen.",
-    "empty": "Keine To-dos"
-  },
   "panel": {
     "load_failed": "Laden fehlgeschlagen",
     "original_conversation": "Ursprüngliche Unterhaltung",

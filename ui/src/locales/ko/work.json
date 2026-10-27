@@ -40,11 +40,6 @@
     "title": "메모리",
     "description": "저장된 메모리입니다. 펼쳐서 전체 내용을 확인하세요."
   },
-  "preview": {
-    "title": "목표 및 할 일",
-    "sync_failed": "동기화하지 못했습니다. 열어서 다시 시도하세요.",
-    "empty": "할 일 없음"
-  },
   "panel": {
     "load_failed": "불러오지 못했습니다",
     "original_conversation": "원래 대화",

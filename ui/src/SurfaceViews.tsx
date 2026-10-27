@@ -8,7 +8,8 @@ import { DelayedFeedback } from "./DelayedFeedback";
 import { CATS, EmptyState } from "./EmptyCat";
 import { useTranslation } from "./i18n";
 import { TofiIcon as Icon } from "./icons";
-import { closeCover, closeSidebar, closeWidget, openCover, type CoverId, type LegacyPanel, type SidebarId, type Surfaces, type WidgetId } from "./surfaces";
+import { closeCover, closeSidebar, openCover, openSidebar, type CoverId, type SidebarId, type Surfaces, type WidgetId } from "./surfaces";
+import type { SettingsTab } from "./SettingsShell";
 import type { Bot, Conversation, Memory } from "./types";
 import type { TaskCardModel } from "./taskCards";
 import type { ViewOnlyChatTarget } from "./ViewOnlyChat";
@@ -30,7 +31,8 @@ export type SurfaceCtx = {
   terminalBotId: string | null; viewOnlyChat: ViewOnlyChatTarget | null; setViewOnlyChat: (target: ViewOnlyChatTarget | null) => void;
   refreshToken: number; roster?: ReadonlyMap<string, TaskCardModel[]>; lastMessageId?: string;
   artifactsMode: "artifacts" | "artifacts-bot" | "artifacts-group"; setArtifactsMode: (mode: SurfaceCtx["artifactsMode"]) => void;
-  setPanel: (panel: LegacyPanel | null) => void;
+  /** Opens Settings on a tab (the cover that is open is replaced). */
+  openSettings: (tab: SettingsTab) => void;
   /** The workspace's surface state: the views close and open surfaces with the functions of surfaces.ts. */
   surf: (update: (current: Surfaces) => Surfaces) => void;
   openConversation: (id: string) => void; openMessage: (conversationId: string, messageId: string) => void; openSettingsAdvanced: (botId: string) => void;
@@ -81,10 +83,10 @@ export function CoverView({ id, ctx }: { id: CoverId; ctx: SurfaceCtx }) {
   if (id === "bot-settings") {
     if (!activeBot) return null;
     const dm = ctx.conversations.find(item => item.id === activeBot.dm_conversation_id) ?? active;
-    return <Suspense fallback={null}><BotSettingsPanel key={activeBot.id} bot={activeBot} refreshToken={ctx.refreshToken} onUpdate={ctx.updateBot} onMakePrimary={ctx.makePrimary} onExportData={ctx.openSettingsAdvanced} onDelete={() => { if (dm) ctx.confirmDelete(dm); }} /></Suspense>;
+    return <Suspense fallback={null}><BotSettingsPanel key={activeBot.id} bot={activeBot} refreshToken={ctx.refreshToken} onUpdate={ctx.updateBot} onMakePrimary={ctx.makePrimary} onExportData={ctx.openSettingsAdvanced} onOpenSettings={ctx.openSettings} onDelete={() => { if (dm) ctx.confirmDelete(dm); }} /></Suspense>;
   }
   if (id === "new-group") return <NewGroupDialog bots={ctx.bots.filter(bot => !bot.archived)} onCreate={ctx.createGroup} />;
-  if (id === "group-settings") return active?.kind === "group" ? <GroupSettingsPanel key={active.id} conversation={active} bots={ctx.bots} onSaved={ctx.updateGroup} onReload={ctx.reloadGroup} onOpenMemory={() => ctx.setPanel("memory")} onDelete={() => ctx.confirmDelete(active)} /> : null;
+  if (id === "group-settings") return active?.kind === "group" ? <GroupSettingsPanel key={active.id} conversation={active} bots={ctx.bots} onSaved={ctx.updateGroup} onReload={ctx.reloadGroup} onOpenMemory={() => ctx.surf(current => openSidebar(current, "memory"))} onDelete={() => ctx.confirmDelete(active)} /> : null;
   if (id === "artifacts") {
     const scopes = active ? [
       { mode: "artifacts-group" as const, label: t(active.kind === "group" ? "header.artifacts_scope_group" : "header.artifacts_scope_chat") },

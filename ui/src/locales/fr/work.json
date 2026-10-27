@@ -40,11 +40,6 @@
     "title": "Mémoire",
     "description": "Mémoire enregistrée. Développez pour tout voir."
   },
-  "preview": {
-    "title": "Objectifs et tâches",
-    "sync_failed": "Synchronisation impossible. Ouvrez pour réessayer.",
-    "empty": "Aucune tâche"
-  },
   "panel": {
     "load_failed": "Chargement impossible",
     "original_conversation": "Conversation d’origine",

@@ -40,11 +40,6 @@
     "title": "Memory",
     "description": "Saved memory. Expand to see all of it."
   },
-  "preview": {
-    "title": "Goals and to-dos",
-    "sync_failed": "Couldn't sync. Open to retry.",
-    "empty": "No to-dos"
-  },
   "panel": {
     "load_failed": "Couldn't load",
     "original_conversation": "Original conversation",

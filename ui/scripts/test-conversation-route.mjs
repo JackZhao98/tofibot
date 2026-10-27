@@ -10,7 +10,7 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const output = await mkdtemp(join(tmpdir(), "tofi-conversation-route-"));
 try {
   await promisify(execFile)(join(root, "node_modules/.bin/tsc"), ["src/conversationRoute.ts", "--ignoreConfig", "--target", "ES2022", "--module", "ES2022", "--moduleResolution", "Bundler", "--outDir", output, "--skipLibCheck", "--pretty", "false"], { cwd: root });
-  const { readConversationRoute, resolveConversationRoute, conversationPath } = await import(pathToFileURL(join(output, "conversationRoute.js")));
+  const { readConversationRoute, resolveConversationRoute, conversationPath, readSideParam, withSideParam, SIDE_PARAMS } = await import(pathToFileURL(join(output, "conversationRoute.js")));
   const bot = { id: "bot-one", dm_conversation_id: "dm-one" };
   const dm = { id: "dm-one", kind: "dm", bot_id: bot.id };
   const group = { id: "group-one", kind: "group" };
@@ -33,6 +33,20 @@ try {
   assert.equal(resolveConversationRoute({ kind: "group", id: group.id }, bots, [{ ...group, user_visible: false }]), undefined);
   assert.equal(resolveConversationRoute({ kind: "bot", id: bot.id }, bots, [{ ...dm, bot_id: "other" }]), undefined);
   assert.equal(resolveConversationRoute({ kind: "bot", id: bot.id }, bots, [{ ...dm, archived: true }]).id, dm.id, "archived links remain readable");
+  // The sidebar view is the one surface in the address: ?side=tasks|memory|terminal|archive. Anything else is ignored, other parameters survive.
+  assert.deepEqual([...SIDE_PARAMS], ["tasks", "memory", "terminal", "archive"]);
+  for (const id of SIDE_PARAMS) assert.equal(readSideParam(`?side=${id}`), id);
+  for (const search of ["", "?", "?side=", "?side=conversation", "?side=artifacts", "?side=TASKS", "?side=tasks%00", "?sidebar=tasks", "?x=side=tasks"]) assert.equal(readSideParam(search), null, search);
+  assert.equal(readSideParam("?a=1&side=memory&b=2"), "memory");
+  assert.equal(readSideParam("?side=nope&side=tasks"), null, "the first value counts");
+  assert.equal(withSideParam("", "tasks"), "?side=tasks");
+  assert.equal(withSideParam("?side=tasks", null), "");
+  assert.equal(withSideParam("?side=tasks", "archive"), "?side=archive");
+  assert.equal(withSideParam("?a=1&side=memory", null), "?a=1");
+  assert.equal(withSideParam("?a=1", "terminal"), "?a=1&side=terminal");
+  assert.equal(withSideParam("?a=1", null), "?a=1");
+  // The address survives a conversation switch with the same query string, and the route itself ignores the query.
+  assert.deepEqual(readConversationRoute("/b/bot-one"), { kind: "bot", id: bot.id });
   console.log("PASS: conversation route parsing, identity, authenticated-index isolation and archived access");
 } finally {
   await rm(output, { recursive: true, force: true });

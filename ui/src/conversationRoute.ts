@@ -30,3 +30,25 @@ export function resolveConversationRoute(route: ConversationRoute, bots: Bot[], 
   const bot = bots.find(bot => bot.id === route.id);
   return bot && conversations.find(conversation => conversation.id === bot.dm_conversation_id && conversation.kind === "dm" && conversation.user_visible !== false && (!conversation.bot_id || conversation.bot_id === bot.id));
 }
+
+/**
+ * The one piece of surface state that lives in the address: which sidebar view is open (`?side=tasks`). A sidebar is a working view
+ * worth sharing or reloading into; widgets are "right now" and covers are edit state, so neither is written. `conversation` (the
+ * read-only chat of another conversation) needs a target the address cannot carry, so it is not in the list either.
+ */
+export const SIDE_PARAMS = ["tasks", "memory", "terminal", "archive"] as const;
+export type SideParam = (typeof SIDE_PARAMS)[number];
+
+export function readSideParam(search: string): SideParam | null {
+  const value = new URLSearchParams(search).get("side");
+  return SIDE_PARAMS.find(id => id === value) ?? null;
+}
+
+/** The query string for `side` (null removes it), every other parameter kept in place. */
+export function withSideParam(search: string, side: SideParam | null): string {
+  const params = new URLSearchParams(search);
+  if (side) params.set("side", side);
+  else params.delete("side");
+  const text = params.toString();
+  return text ? `?${text}` : "";
+}

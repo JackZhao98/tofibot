@@ -73,35 +73,54 @@ export const closeCover = (s: Surfaces): Surfaces => s.cover ? { ...s, cover: nu
 
 export const closeAll = (s: Surfaces): Surfaces => isEmpty(s) ? s : { ...emptySurfaces(), focus: s.focus };
 
-/** What Escape closes first: the cover, else the sidebar, else the lowest widget (the computer, the one that is live, last). */
-export function escapeTarget(s: Surfaces): { layer: "cover"; id: CoverId } | { layer: "sidebar"; id: SidebarId } | { layer: "widget"; id: WidgetId } | null {
+/** What one Escape closes (section 7 of the design, after native dialogs and Radix layers, which claim the key themselves). */
+export type EscapeTarget =
+  | { layer: "computer-big" }
+  | { layer: "cover"; id: CoverId }
+  | { layer: "sidebar"; id: SidebarId }
+  | { layer: "widget"; id: WidgetId };
+
+/**
+ * The order of `useSurfaceEscape`: the big computer window steps back to compact, then the cover, then the sidebar, then the widgets
+ * from the bottom up (Artifacts, Members, and the computer last: it is the live one).
+ */
+export function escapeTarget(s: Surfaces, o: { bigComputer?: boolean } = {}): EscapeTarget | null {
+  if (o.bigComputer && s.widgets.includes("computer")) return { layer: "computer-big" };
   if (s.cover) return { layer: "cover", id: s.cover };
   if (s.sidebar) return { layer: "sidebar", id: s.sidebar.id };
   const last = s.widgets.at(-1);
   return last ? { layer: "widget", id: last } : null;
 }
 
-/** The ids the old single-panel code used. `setPanel(id)` call sites still speak them; `applyPanel` maps them to a tier. */
-export type LegacyPanel = "group-create" | "bot-edit" | "memory" | "schedule" | "settings" | "members" | "desktop" | "terminal" | "archive" | "artifacts" | "artifacts-bot" | "artifacts-group" | "file";
+/**
+ * What a conversation remembers of its widgets while another one is on screen (in memory only: a reload keeps just the sidebar,
+ * which lives in the address). `suppressedRuns` are the computer runs the person closed the widget in, so they never bring it back.
+ */
+export type WidgetMemo = { widgets: WidgetId[]; folded: WidgetId[]; suppressedRuns: Set<string> };
+export type WidgetsByConversation = Map<string, WidgetMemo>;
+
+/** Writes down the widgets of the conversation that is being left. A record with nothing in it is dropped. */
+export function stashWidgets(memory: WidgetsByConversation, id: string, s: Surfaces): void {
+  const suppressedRuns = memory.get(id)?.suppressedRuns ?? new Set<string>();
+  if (!s.widgets.length && !suppressedRuns.size) memory.delete(id);
+  else memory.set(id, { widgets: s.widgets, folded: s.folded, suppressedRuns });
+}
+
+/** The runs the person closed the computer widget in, for this conversation (created on first use). */
+export function suppressedRunsOf(memory: WidgetsByConversation, id: string): Set<string> {
+  let memo = memory.get(id);
+  if (!memo) { memo = { widgets: [], folded: [], suppressedRuns: new Set() }; memory.set(id, memo); }
+  return memo.suppressedRuns;
+}
+
+/** Forgets a conversation (deleted, archived): nothing of it comes back. */
+export const forgetWidgets = (memory: WidgetsByConversation, id: string): void => { memory.delete(id); };
 
 /**
- * The `setPanel` adapter: an old panel id opens its tier. `column` is the wide web layout; below it widgets other than
- * the computer (a floating window there) do not exist, so the same entry opens the matching cover instead.
- * "artifacts" is the account menu's whole-account view (a cover); "artifacts-bot" / "artifacts-group" are this
- * conversation's (the widget).
+ * Entering a conversation: its remembered widgets come back (none if it has none), the cover closes, and the sidebar stays: Archive
+ * is about the account, and Tasks, Memory and Terminal are drawn for whatever conversation is on screen, so they follow it.
  */
-export function applyPanel(s: Surfaces, panel: LegacyPanel | null, column: boolean): Surfaces {
-  switch (panel) {
-    case null: return closeAll(s);
-    case "desktop": return openWidget(s, "computer");
-    case "members": return column ? openWidget(s, "members") : openCover(s, "group-settings");
-    case "artifacts-bot": case "artifacts-group": return column ? openWidget(s, "artifacts") : openCover(s, "artifacts");
-    case "artifacts": return openCover(s, "artifacts");
-    case "bot-edit": return openCover(s, "bot-settings");
-    case "group-create": return openCover(s, "new-group");
-    case "settings": return openCover(s, "settings");
-    case "schedule": return openSidebar(s, "tasks");
-    case "memory": case "terminal": case "archive": return openSidebar(s, panel);
-    case "file": return s;
-  }
+export function enterConversation(s: Surfaces, memory: WidgetsByConversation, id: string | null): Surfaces {
+  const memo = id ? memory.get(id) : undefined;
+  return { ...s, widgets: memo?.widgets ?? [], folded: memo?.folded ?? [], cover: null };
 }

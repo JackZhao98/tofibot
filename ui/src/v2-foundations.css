@@ -178,7 +178,7 @@ input[type="radio"]:checked::after { content:""; width:8px; height:8px; border-r
 
 /* Surfaces — the normal card is flat or hairline, never a raised slab. */
 :root[data-theme] :is(.archive-card,.memory-card,.schedule-card,.extension-card,.verification-card,
-    .member-option,.bot-share-card,.bot-avatar-picker) {
+    .member-option,.bot-avatar-picker) {
   background:var(--surface-2); border:1px solid var(--line-soft);
   border-radius:16px; box-shadow:none; color:var(--ink-soft);
 }

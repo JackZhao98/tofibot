@@ -34,18 +34,15 @@ function useComposerAnchor(active: boolean) {
 }
 
 /** The window opens only on the user's explicit request (the header computer button). */
-export function FloatingDesktop({ expanded, small = false, sheet = false, docked = false, folded = false, onShrink, onClose, children }: {
+export function FloatingDesktop({ expanded, small = false, sheet = false, docked = false, folded = false, onClose, children }: {
   /** The big window (dialog). `small` is the floating picture-in-picture window; `sheet` is the narrow-screen full-screen form of the big one. */
-  expanded: boolean; small?: boolean; sheet?: boolean; /** The small form sits in the context column's card instead of floating over the chat. */ docked?: boolean; /** Docked and folded: the monitor is a 56px strip (the video stays mounted). */ folded?: boolean; onShrink?: () => void; onClose: () => void; children: ReactNode;
+  expanded: boolean; small?: boolean; sheet?: boolean; /** The small form sits in the context column's card instead of floating over the chat. */ docked?: boolean; /** Docked and folded: the monitor is a 56px strip (the video stays mounted). */ folded?: boolean; onClose: () => void; children: ReactNode;
 }) {
   const { t } = useTranslation("computer");
   const shellRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
-  // Escape steps big -> small; only a window with no small form (the sheet) closes outright.
-  const escapeRef = useRef<() => void>(onClose);
-  escapeRef.current = !sheet && onShrink ? onShrink : onClose;
   const contentId = useId();
   const anchor = useComposerAnchor(small && !docked);
   // Beside the small window the messages reflow instead of sitting under it (desktop widths only).
@@ -72,11 +69,8 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
     });
     const keyboard = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.isComposing || !shell) return;
-      if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        escapeRef.current();
-      } else if (event.key === "Tab") {
+      // Escape is useSurfaceEscape's: the big window steps back to the compact one there.
+      if (event.key === "Tab") {
         const items = Array.from(shell.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], summary, [tabindex]:not([tabindex="-1"])'))
           .filter(element => !element.closest('[inert]') && element.getClientRects().length > 0);
         if (!items.length) { event.preventDefault(); shell.focus(); return; }
@@ -87,14 +81,9 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
         }
       }
     };
-    // Remote keyboard input stops bubbling. Escape still closes this viewer;
-    // composition cancellation and normal guest keys keep their input path.
-    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") keyboard(event); };
-    window.addEventListener("keydown", escape, true);
     window.addEventListener("keydown", keyboard);
     return () => {
       window.cancelAnimationFrame(frame);
-      window.removeEventListener("keydown", escape, true);
       window.removeEventListener("keydown", keyboard);
       // Do not override focus moved deliberately to another workspace surface.
       if (document.activeElement === document.body || shell?.contains(document.activeElement)) {

@@ -101,7 +101,6 @@ export function SettingsShell({tab,onTab,onClose,renderPage,entry,refreshToken=0
  const discardAndContinue=()=>{if(!pending||busy)return;for(const draft of Object.values(drafts).filter(item=>pending==="close"?item.dirty:item.page===tab&&item.dirty))draft.discard();finish(pending)};
  useEffect(()=>{if(!dirty)return;const warn=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue=""};window.addEventListener("beforeunload",warn);return()=>window.removeEventListener("beforeunload",warn)},[dirty]);
  useEffect(()=>{const close=(event:Event)=>{event.preventDefault();navigate("close")};window.addEventListener("tofi-settings-close",close);return()=>window.removeEventListener("tofi-settings-close",close)});
- useEffect(()=>{const key=(event:KeyboardEvent)=>{if(event.key==="Escape"&&!event.defaultPrevented&&!pending){event.preventDefault();navigate("close")}};document.addEventListener("keydown",key);return()=>document.removeEventListener("keydown",key)});
  const providers=useMemo(()=>Object.fromEntries(pagesForProviders(visited,tab).map(page=>[page,{page,register}])),[visited,tab,register]);
  useEffect(()=>setVisited(current=>current.includes(tab)?current:[...current,tab]),[tab]);
  const pages=visited.includes(tab)?visited:[...visited,tab];
