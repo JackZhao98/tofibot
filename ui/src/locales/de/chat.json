@@ -189,6 +189,13 @@
     "queued": "In Warteschlange, wird beim nächsten Schritt gelesen",
     "read": "Gelesen"
   },
+  "contextCard": {
+    "bot": "Bot-Profil",
+    "close": "{{title}} schließen",
+    "collapse": "{{title}} einklappen",
+    "computer": "Geteilter Computer",
+    "expand": "{{title}} ausklappen"
+  },
   "detail": {
     "close": "Details schließen",
     "close_memory": "Erinnerungen schließen",

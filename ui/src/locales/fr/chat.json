@@ -192,6 +192,13 @@
     "queued": "En attente, lu à la prochaine étape",
     "read": "Lu"
   },
+  "contextCard": {
+    "bot": "Profil du Bot",
+    "close": "Fermer {{title}}",
+    "collapse": "Replier {{title}}",
+    "computer": "Ordinateur partagé",
+    "expand": "Déplier {{title}}"
+  },
   "detail": {
     "close": "Fermer les détails",
     "close_memory": "Fermer la mémoire",

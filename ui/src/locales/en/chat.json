@@ -189,6 +189,13 @@
     "queued": "Queued, read at next step",
     "read": "Read"
   },
+  "contextCard": {
+    "bot": "Bot profile",
+    "close": "Close {{title}}",
+    "collapse": "Collapse {{title}}",
+    "computer": "Shared computer",
+    "expand": "Expand {{title}}"
+  },
   "detail": {
     "close": "Close details",
     "close_memory": "Close memory",
