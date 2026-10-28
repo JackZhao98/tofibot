@@ -509,3 +509,98 @@ func TestGatewayFollowsARevokedTokenEpoch(t *testing.T) {
 		t.Fatal("revoking one account changed another's token")
 	}
 }
+
+func TestMigrationRefusesGoogleDataWithoutItsKeyringPassword(t *testing.T) {
+	srv, _, root := runnerHub(t)
+	guest := guestWithGog()
+	delete(guest.files, guestRunnerDir+"/plugins/gog/keyring-password")
+	s := migratedServer(t, srv.URL, runnerAccountA, guest)
+	if _, err := s.migrateGuestRunner(context.Background()); err == nil || !strings.Contains(err.Error(), "keyring password") {
+		t.Fatalf("switched with an unreadable Google token: %v", err)
+	}
+	if s.runnerMigration.switched.Load() {
+		t.Fatal("the account switched")
+	}
+	if _, err := os.Stat(filepath.Join(root, "accounts", runnerAccountA, "state", "plugins", "gog")); !os.IsNotExist(err) {
+		t.Fatalf("a refused copy left state in the container: %v", err)
+	}
+	// A Google plugin that was never connected has no password-bound data and may switch.
+	empty := guestWithGog()
+	for k := range empty.files {
+		if strings.Contains(k, "/gog/") {
+			delete(empty.files, k)
+		}
+	}
+	s2 := migratedServer(t, srv.URL, runnerAccountB, empty)
+	if _, err := s2.migrateGuestRunner(context.Background()); err != nil {
+		t.Fatalf("a never-connected plugin must still switch: %v", err)
+	}
+}
+
+func TestSwitchRecordsGuestDigestsAndNoContent(t *testing.T) {
+	srv, _, _ := runnerHub(t)
+	guest := guestWithGog()
+	s := migratedServer(t, srv.URL, runnerAccountA, guest)
+	if _, err := s.migrateGuestRunner(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(s.runnerMigration.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var st localRunnerState
+	if err := json.Unmarshal(raw, &st); err != nil {
+		t.Fatal(err)
+	}
+	if st.GuestDigests["manifest"] != digestOf(guest.files[guestRunnerDir+"/manifest.json"]) || st.GuestDigests["gog/keyring-password"] != digestOf([]byte("guest-keyring-password")) {
+		t.Fatalf("digests not recorded: %v", st.GuestDigests)
+	}
+	if strings.Contains(string(raw), "guest-keyring-password") || strings.Contains(string(raw), "synthetic-encrypted-token") {
+		t.Fatal("the switch record carries file content")
+	}
+}
+
+func TestGuestThatMovedOnAfterTheSwitchIsReportedAndNothingIsOverwritten(t *testing.T) {
+	srv, _, root := runnerHub(t)
+	guest := guestWithGog()
+	s := migratedServer(t, srv.URL, runnerAccountA, guest)
+	if _, err := s.migrateGuestRunner(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if conflicts, err := s.checkGuestDrift(context.Background()); err != nil || len(conflicts) != 0 {
+		t.Fatalf("an unchanged guest is a conflict: %v %v", conflicts, err)
+	}
+	container := filepath.Join(root, "accounts", runnerAccountA, "state", "plugins", "gog", "gog-account.json")
+	before, _ := os.ReadFile(container)
+	// A rollback ran the old release: the guest Runner reconnected another mailbox.
+	guest.set(guestRunnerDir+"/plugins/gog/gog-account.json", `{"email":"other@example.test","scope":"readonly"}`)
+	conflicts, err := s.checkGuestDrift(context.Background())
+	if err != nil || len(conflicts) != 1 || conflicts[0] != "gog" {
+		t.Fatalf("conflicts=%v err=%v", conflicts, err)
+	}
+	if got := s.RunnerConflicts(); len(got) != 1 || got[0] != "gog" {
+		t.Fatalf("RunnerConflicts = %v", got)
+	}
+	after, _ := os.ReadFile(container)
+	if string(after) != string(before) {
+		t.Fatalf("the container's copy was overwritten: %s", after)
+	}
+	if string(guest.files[guestRunnerDir+"/plugins/gog/gog-account.json"]) != `{"email":"other@example.test","scope":"readonly"}` {
+		t.Fatal("the computer's copy was touched")
+	}
+	// The conflict is on disk, so it survives a restart of the account runtime.
+	raw, _ := os.ReadFile(s.runnerMigration.path)
+	if !strings.Contains(string(raw), `"conflict":["gog"]`) {
+		t.Fatalf("conflict not persisted: %s", raw)
+	}
+	// The guest back at the recorded state clears it.
+	guest.set(guestRunnerDir+"/plugins/gog/gog-account.json", `{"email":"user@example.test","scope":"read-send"}`)
+	if conflicts, err := s.checkGuestDrift(context.Background()); err != nil || len(conflicts) != 0 || len(s.RunnerConflicts()) != 0 {
+		t.Fatalf("conflict not cleared: %v %v", conflicts, err)
+	}
+	// A plugin that appeared on the computer after the switch is a conflict too (it is not copied).
+	guest.set(guestRunnerDir+"/manifest.json", string(guest.files[guestRunnerDir+"/manifest.json"])+" ")
+	if conflicts, _ := s.checkGuestDrift(context.Background()); len(conflicts) != 1 || conflicts[0] != "manifest" {
+		t.Fatalf("manifest change: %v", conflicts)
+	}
+}

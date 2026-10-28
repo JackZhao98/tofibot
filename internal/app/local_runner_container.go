@@ -54,6 +54,15 @@ type localRunnerState struct {
 	Plugins  []string `json:"plugins,omitempty"`
 	Kept     []string `json:"kept_existing,omitempty"`
 	Attached bool     `json:"attached"`
+	// GuestDigests is what the computer's Runner held (manifest and every file
+	// copied, as SHA-256 digests, no content) when the account switched. A later
+	// start compares the computer against it: a rollback to an older release
+	// resumes the guest Runner, which then diverges from the container's copy.
+	GuestDigests map[string]string `json:"guest_digests,omitempty"`
+	// Conflict lists plugins whose copy on the computer differs from the one the
+	// container was seeded with. Both copies are kept; nothing is overwritten.
+	Conflict   []string `json:"conflict,omitempty"`
+	ConflictAt int64    `json:"conflict_at,omitempty"`
 }
 
 type localRunnerMigration struct {
@@ -311,6 +320,19 @@ func snapshotGuestRunner(ctx context.Context, g guestRunnerFiles) (snap runnerSn
 		if err := collectGuestTree(ctx, g, dir+"/home", "home", 0, &budget, add); err != nil {
 			return runnerSnapshot{}, false, err
 		}
+		if rec.Request.Kind == "builtin_gog" {
+			// The stored Google token is encrypted under the keyring password. Data without
+			// its password is useless in the container and the guest's copy is the only
+			// one that could still be repaired, so the account does not switch.
+			hasKeyring, hasHome := false, false
+			for _, f := range plugin.Files {
+				hasKeyring = hasKeyring || f.Path == "keyring-password"
+				hasHome = hasHome || strings.HasPrefix(f.Path, "home/")
+			}
+			if hasHome && !hasKeyring {
+				return runnerSnapshot{}, false, fmt.Errorf("plugin %q has Google data on the computer but no keyring password; not switching", id)
+			}
+		}
 		snap.plugins = append(snap.plugins, plugin)
 	}
 	return snap, true, nil
@@ -426,7 +448,7 @@ func (s *Server) migrateGuestRunner(ctx context.Context) (runnerMigrationReport,
 	}
 	if !found || len(first.plugins) == 0 {
 		report.Nothing = true
-		return report, s.switchToContainerRunner(ctx, nil, nil)
+		return report, s.switchToContainerRunner(ctx, nil, nil, first.digests)
 	}
 	base, token, err := s.containerRunnerConfig()
 	if err != nil {
@@ -467,15 +489,15 @@ func (s *Server) migrateGuestRunner(ctx context.Context) (runnerMigrationReport,
 	if !sameDigests(first.digests, second.digests) {
 		return report, errors.New("the computer's Runner state changed while it was copied")
 	}
-	return report, s.switchToContainerRunner(ctx, ids, report.Kept)
+	return report, s.switchToContainerRunner(ctx, ids, report.Kept, first.digests)
 }
 
 // switchToContainerRunner records the verified copy, points the account at the
 // container, and re-attaches every local connection to it.
-func (s *Server) switchToContainerRunner(ctx context.Context, ids, kept []string) error {
+func (s *Server) switchToContainerRunner(ctx context.Context, ids, kept []string, guestDigests map[string]string) error {
 	m := &s.runnerMigration
 	m.mu.Lock()
-	m.state = localRunnerState{State: "container", At: time.Now().Unix(), Plugins: ids, Kept: kept}
+	m.state = localRunnerState{State: "container", At: time.Now().Unix(), Plugins: ids, Kept: kept, GuestDigests: guestDigests}
 	err := m.persistLocked()
 	m.mu.Unlock()
 	if err != nil {
@@ -486,6 +508,72 @@ func (s *Server) switchToContainerRunner(ctx context.Context, ids, kept []string
 	s.gogStatus.checked = time.Time{}
 	s.gogStatus.mu.Unlock()
 	return s.attachMigratedConnections(ctx)
+}
+
+// checkGuestDrift compares the computer's Runner with what it held when the
+// account switched. A difference means the guest Runner was used after the
+// switch (typically after rolling back to a release that predates the container
+// and upgrading again). Nothing is imported and nothing on either side is
+// changed: the container's copy is the one in use, the computer's copy stays
+// where it is, and the plugins that differ are recorded as a conflict for the
+// owner to resolve. It reads only.
+func (s *Server) checkGuestDrift(ctx context.Context) ([]string, error) {
+	m := &s.runnerMigration
+	m.mu.Lock()
+	recorded := m.state.GuestDigests
+	m.mu.Unlock()
+	if len(recorded) == 0 {
+		return nil, nil // switched by a release that did not record digests
+	}
+	snap, found, err := snapshotGuestRunner(ctx, s.guestRunnerFiles())
+	if err != nil {
+		return nil, err
+	}
+	var differing []string
+	if found {
+		seen := map[string]bool{}
+		for key, digest := range snap.digests {
+			if recorded[key] != digest {
+				seen[strings.SplitN(key, "/", 2)[0]] = true
+			}
+		}
+		for key := range recorded {
+			if _, ok := snap.digests[key]; !ok {
+				seen[strings.SplitN(key, "/", 2)[0]] = true
+			}
+		}
+		for id := range seen {
+			differing = append(differing, id)
+		}
+		sort.Strings(differing)
+	}
+	m.mu.Lock()
+	changed := strings.Join(m.state.Conflict, ",") != strings.Join(differing, ",")
+	m.state.Conflict = differing
+	if len(differing) > 0 && changed {
+		m.state.ConflictAt = time.Now().Unix()
+	}
+	if len(differing) == 0 {
+		m.state.ConflictAt = 0
+	}
+	var perr error
+	if changed {
+		perr = m.persistLocked()
+	}
+	m.mu.Unlock()
+	if len(differing) > 0 {
+		log.Printf("[runner] the computer's Runner changed after the switch (%s): both copies are kept and the container's copy stays in use", strings.Join(differing, ", "))
+	}
+	return differing, perr
+}
+
+// RunnerConflicts lists the plugins whose copy on the computer differs from the
+// one the container was seeded with (both are kept).
+func (s *Server) RunnerConflicts() []string {
+	m := &s.runnerMigration
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]string(nil), m.state.Conflict...)
 }
 
 // attachMigratedConnections points every existing local_<id> connection at the
@@ -582,16 +670,27 @@ func (s *Server) startLocalRunnerMigration() {
 				m.mu.Lock()
 				pending := !m.state.Attached
 				m.mu.Unlock()
-				if !pending {
-					return
+				if pending {
+					attemptCtx, done := context.WithTimeout(ctx, runnerMigrationAttempt)
+					err := s.attachMigratedConnections(attemptCtx)
+					done()
+					if err != nil {
+						continue
+					}
+				}
+				// Once per start: has the computer's Runner moved on since the switch?
+				// Only while the computer is already up; this never wakes it.
+				if !s.runnerMigrationDue(ctx) {
+					continue
 				}
 				attemptCtx, done := context.WithTimeout(ctx, runnerMigrationAttempt)
-				err := s.attachMigratedConnections(attemptCtx)
+				_, err := s.checkGuestDrift(attemptCtx)
 				done()
-				if err == nil {
-					return
+				if err != nil {
+					log.Printf("[runner] comparing the computer's Runner with the container's copy will be retried: %v", err)
+					continue
 				}
-				continue
+				return
 			}
 			if !s.runnerMigrationDue(ctx) {
 				continue
