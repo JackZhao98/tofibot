@@ -46,6 +46,7 @@ type AccountGateway struct {
 	legacyComputerPhase string
 	deleteRunning       map[string]bool
 	runnerKey           runnerMasterKey
+	runnerEpochs        runnerEpochCache
 	// deleteHook lets tests fail a deletion step; nil in production.
 	deleteHook func(step string) error
 	downloads  downloadLimiter

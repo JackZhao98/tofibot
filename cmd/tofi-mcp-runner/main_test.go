@@ -17,3 +17,13 @@ func TestAccountsModeRefusesToShareOneUIDUnlessAskedByName(t *testing.T) {
 		t.Fatalf("started without per-account uids: %v", err)
 	}
 }
+
+func TestServerBoundsSlowClients(t *testing.T) {
+	srv := newServer("127.0.0.1:0", nil)
+	if srv.ReadHeaderTimeout <= 0 || srv.ReadTimeout <= 0 || srv.IdleTimeout <= 0 {
+		t.Fatalf("a slow client can hold a connection forever: %+v", srv)
+	}
+	if srv.WriteTimeout != 0 {
+		t.Fatal("a write timeout would cut long MCP streams")
+	}
+}

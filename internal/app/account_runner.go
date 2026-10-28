@@ -2,7 +2,9 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -39,14 +41,64 @@ func (g *AccountGateway) runnerMaster() ([]byte, error) {
 	return key, nil
 }
 
-// runnerTokenFunc issues the bearer token of one account.
+// runnerEpochTTL is how long a token epoch read from the Runner is trusted. A
+// revocation therefore takes effect for the gateway within this time.
+const runnerEpochTTL = 15 * time.Second
+
+type runnerEpochCache struct {
+	mu sync.Mutex
+	m  map[string]runnerEpoch
+}
+
+type runnerEpoch struct {
+	epoch int
+	at    time.Time
+}
+
+// runnerEpoch is the account's token epoch on the Runner (0 until a revocation).
+// The epoch is not secret. When the Runner cannot be asked, the last known value
+// is used, or 0 if there is none; the Runner then answers 401 and the next call
+// asks again.
+func (g *AccountGateway) runnerEpoch(accountID string) int {
+	c := &g.runnerEpochs
+	c.mu.Lock()
+	entry, ok := c.m[accountID]
+	c.mu.Unlock()
+	if ok && time.Since(entry.at) < runnerEpochTTL {
+		return entry.epoch
+	}
+	epoch := entry.epoch
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(g.config.RunnerGatewayURL, "/")+mcprunner.AccountPathPrefix+accountID+"/epoch", nil); err == nil {
+		client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+		if resp, err := client.Do(req); err == nil {
+			var out struct {
+				Epoch int `json:"epoch"`
+			}
+			if resp.StatusCode == http.StatusOK && json.NewDecoder(io.LimitReader(resp.Body, 1<<10)).Decode(&out) == nil && out.Epoch >= 0 {
+				epoch = out.Epoch
+			}
+			resp.Body.Close()
+		}
+	}
+	c.mu.Lock()
+	if c.m == nil {
+		c.m = map[string]runnerEpoch{}
+	}
+	c.m[accountID] = runnerEpoch{epoch: epoch, at: time.Now()}
+	c.mu.Unlock()
+	return epoch
+}
+
+// runnerTokenFunc issues the bearer token of one account at its current epoch.
 func (g *AccountGateway) runnerTokenFunc(accountID string) func() (string, error) {
 	return func() (string, error) {
 		key, err := g.runnerMaster()
 		if err != nil {
 			return "", err
 		}
-		return mcprunner.AccountToken(key, accountID), nil
+		return mcprunner.AccountTokenAt(key, accountID, g.runnerEpoch(accountID)), nil
 	}
 }
 

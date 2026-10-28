@@ -236,6 +236,13 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		http.NotFound(w, req)
 		return
 	}
+	// The token epoch is not a secret: the gateway reads it to derive the current
+	// token. It is 0 for an account that never revoked, whether or not it exists.
+	if rest == "epoch" && req.Method == http.MethodGet {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]int{"epoch": h.reg.epoch(id)})
+		return
+	}
 	if !h.authorized(req, id) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
@@ -248,6 +255,18 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"deleted": true})
+		return
+	}
+	if rest == "v1/token/revoke" && req.Method == http.MethodPost {
+		// Authorised by the current token; the answer is the epoch whose token works from now on.
+		epoch, err := h.reg.bumpEpoch(id)
+		if err != nil {
+			log.Printf("hub: token revocation of account %s failed: %v", id, err)
+			http.Error(w, "could not revoke the token", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]int{"epoch": epoch})
 		return
 	}
 	t, release, err := h.acquire(id)
@@ -287,7 +306,7 @@ func splitAccountPath(req *http.Request) (id, rest string, ok bool) {
 }
 
 func (h *Hub) authorized(req *http.Request, id string) bool {
-	want := "Bearer " + AccountToken(h.cfg.Master, id)
+	want := "Bearer " + AccountTokenAt(h.cfg.Master, id, h.reg.epoch(id))
 	got := req.Header.Get("Authorization")
 	return subtle.ConstantTimeCompare([]byte(got), []byte(want)) == 1
 }

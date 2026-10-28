@@ -2,6 +2,7 @@ package mcprunner
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -201,5 +202,77 @@ func TestPurgeAndEvictionKillWhatIsLeftUnderTheAccountUID(t *testing.T) {
 	defer mu.Unlock()
 	if len(killed) != 2 || killed[1] != 501 {
 		t.Fatalf("killed %v", killed)
+	}
+}
+
+func TestTokenEpochRevokesOneAccountsTokenOnly(t *testing.T) {
+	hub, root := newTestHub(t, nil)
+	oldA, oldB := tokenOf(accountA), tokenOf(accountB)
+	if AccountTokenAt(testMaster, accountA, 0) != oldA || AccountTokenAt(testMaster, accountA, 1) == oldA || AccountTokenAt(testMaster, accountA, 1) == AccountTokenAt(testMaster, accountA, 2) {
+		t.Fatal("epochs do not change the token as required")
+	}
+	// The epoch is readable without a token and is 0 for every account at first.
+	epoch := func(h *Hub, id string) string {
+		req := httptest.NewRequest(http.MethodGet, "/a/"+id+"/epoch", nil)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, req)
+		return strings.TrimSpace(w.Body.String())
+	}
+	if got := epoch(hub, accountA); got != `{"epoch":0}` {
+		t.Fatalf("epoch = %s", got)
+	}
+	// Only the holder of the current token can revoke it.
+	if w := call(hub, http.MethodPost, "/a/"+accountA+"/v1/token/revoke", tokenOf(accountB), nil); w.Code != http.StatusUnauthorized {
+		t.Fatalf("B revoked A: %d", w.Code)
+	}
+	w := call(hub, http.MethodPost, "/a/"+accountA+"/v1/token/revoke", oldA, nil)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"epoch":1`) {
+		t.Fatalf("revoke: %d %s", w.Code, w.Body.String())
+	}
+	if w := call(hub, http.MethodGet, "/a/"+accountA+"/v1/plugins", oldA, nil); w.Code != http.StatusUnauthorized {
+		t.Fatalf("the revoked token works: %d", w.Code)
+	}
+	if w := call(hub, http.MethodGet, "/a/"+accountA+"/v1/plugins", AccountTokenAt(testMaster, accountA, 1), nil); w.Code != http.StatusOK {
+		t.Fatalf("the new token is refused: %d", w.Code)
+	}
+	if w := call(hub, http.MethodGet, "/a/"+accountB+"/v1/plugins", oldB, nil); w.Code != http.StatusOK {
+		t.Fatalf("B's token changed: %d", w.Code)
+	}
+	// The epoch survives a restart.
+	hub.Close()
+	hub2, err := NewHub(HubConfig{Root: root, Master: testMaster})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer hub2.Close()
+	if w := call(hub2, http.MethodGet, "/a/"+accountA+"/v1/plugins", oldA, nil); w.Code != http.StatusUnauthorized {
+		t.Fatalf("revocation lost over a restart: %d", w.Code)
+	}
+	if got := epoch(hub2, accountA); got != `{"epoch":1}` {
+		t.Fatalf("epoch after restart = %s", got)
+	}
+}
+
+func TestValidateSpecWithinCleansBeforeComparing(t *testing.T) {
+	state := "/runner/accounts/" + accountA + "/state"
+	plugin := state + "/plugins/p"
+	good := Spec{ID: "p", Kind: "npm", Command: plugin + "/node_modules/.bin/p", WorkDir: plugin, Env: map[string]string{"HOME": plugin + "/home", "PATH_HINT": "/usr/local/bin"}}
+	if err := validateSpecWithin(good, state); err != nil {
+		t.Fatal(err)
+	}
+	for name, mutate := range map[string]func(*Spec){
+		"env via /usr/..": func(s *Spec) { s.Env = map[string]string{"X": "/usr/../runner/accounts/" + accountB + "/state"} },
+		"command via ..":  func(s *Spec) { s.Command = plugin + "/../../../" + accountB + "/state/plugins/p/bin" },
+		"work dir via ..": func(s *Spec) { s.WorkDir = plugin + "/../q" },
+		"secret via ..": func(s *Spec) {
+			s.SecretEnv = map[string]string{"K": plugin + "/../../../" + accountB + "/manifest.json"}
+		},
+		"env prefix confusion": func(s *Spec) { s.Env = map[string]string{"X": plugin + "-other/home"} },
+	} {
+		spec := good
+		mutate(&spec)
+		if err := validateSpecWithin(spec, state); err == nil {
+			t.Fatalf("%s accepted", name)
+		}
 	}
 }

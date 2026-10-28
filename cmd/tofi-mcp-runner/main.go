@@ -55,7 +55,7 @@ func main() {
 		addr = "127.0.0.1:8390"
 	}
 	log.Printf("MCP runner listening on %s", addr)
-	log.Fatal(http.ListenAndServe(addr, runner.Handler(token)))
+	log.Fatal(newServer(addr, runner.Handler(token)).ListenAndServe())
 }
 
 // serveAccounts runs the multi-account Runner: one process, one namespace,
@@ -113,8 +113,19 @@ func serveAccounts() error {
 		addr = "0.0.0.0:8390"
 	}
 	log.Printf("MCP runner (accounts, uid isolation=%v) listening on %s", isolate, addr)
-	server := &http.Server{Addr: addr, Handler: hub, ReadHeaderTimeout: 10 * time.Second}
-	return server.ListenAndServe()
+	return newServer(addr, hub).ListenAndServe()
+}
+
+// newServer bounds how long a client may hold a connection without finishing a
+// request. There is no WriteTimeout: tool calls and MCP streams are long by design.
+func newServer(addr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       2 * time.Minute, // the largest body is a 40 MiB import on the local network
+		IdleTimeout:       2 * time.Minute,
+	}
 }
 
 func loadToken() (string, error) {

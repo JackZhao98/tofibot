@@ -35,7 +35,7 @@ func runnerHub(t *testing.T) (*httptest.Server, *mcprunner.Hub, string) {
 	}
 	t.Cleanup(mcprunner.UseGogBinary(gog))
 	root := t.TempDir()
-	hub, err := mcprunner.NewHub(mcprunner.HubConfig{Root: root, Master: runnerTestMaster})
+	hub, err := mcprunner.NewHub(mcprunner.HubConfig{Root: root, Master: runnerTestMaster, MinFreeBytes: mcprunner.MinFreeDisabled})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -463,5 +463,49 @@ func TestLocalConnectionsWorkOnTheContainerWithNoComputer(t *testing.T) {
 	s.routeLocalMCP(w, httptest.NewRequest(http.MethodGet, "/api/extensions/local-mcp", nil), "extensions/local-mcp")
 	if w.Code != 200 || !strings.Contains(w.Body.String(), `"available":true`) || !strings.Contains(w.Body.String(), `"gog"`) {
 		t.Fatalf("list: %d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestGatewayFollowsARevokedTokenEpoch(t *testing.T) {
+	srv, _, _ := runnerHub(t)
+	keyFile := filepath.Join(t.TempDir(), "master")
+	if err := os.WriteFile(keyFile, runnerTestMaster, 0600); err != nil {
+		t.Fatal(err)
+	}
+	newGateway := func() *AccountGateway {
+		return &AccountGateway{config: Config{RunnerGatewayURL: srv.URL, RunnerMasterKeyFile: keyFile}}
+	}
+	get := func(id, token string) int {
+		req, _ := http.NewRequest("GET", srv.URL+"/a/"+id+"/v1/plugins", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		return resp.StatusCode
+	}
+	old, _ := newGateway().runnerTokenFunc(runnerAccountA)()
+	if get(runnerAccountA, old) != 200 {
+		t.Fatal("the original token is refused")
+	}
+	req, _ := http.NewRequest("POST", srv.URL+"/a/"+runnerAccountA+"/v1/token/revoke", nil)
+	req.Header.Set("Authorization", "Bearer "+old)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil || resp.StatusCode != 200 {
+		t.Fatalf("revoke: %v %v", resp, err)
+	}
+	resp.Body.Close()
+	if get(runnerAccountA, old) != 401 {
+		t.Fatal("a revoked token still works")
+	}
+	fresh, err := newGateway().runnerTokenFunc(runnerAccountA)()
+	if err != nil || fresh == old || get(runnerAccountA, fresh) != 200 {
+		t.Fatalf("the gateway did not pick up the new epoch: %v", err)
+	}
+	// Another account's token is unaffected.
+	other, _ := newGateway().runnerTokenFunc(runnerAccountB)()
+	if other != mcprunner.AccountToken(runnerTestMaster, runnerAccountB) || get(runnerAccountB, other) != 200 {
+		t.Fatal("revoking one account changed another's token")
 	}
 }
