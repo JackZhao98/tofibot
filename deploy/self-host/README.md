@@ -564,6 +564,24 @@ and keeps its state under `/var/lib/tofi/data/runner` (inside the data backup).
 Without a Runner image, local connections still run inside the account computer
 as before. See `docs/decisions/0071-runner-container.md`.
 
+The Runner runs code a person installed, so it is fenced: it has no shared memory
+(`ipc: none`), it reaches the App over the internal network `runner_link`, and it
+goes out only through its own bridge `runner_egress` (172.30.77.0/24). `tofi`
+adds firewall rules (iptables chain `TOFI-RUNNER-EGRESS`, hooked into
+`DOCKER-USER` and `INPUT`) so that bridge cannot reach the host, private
+networks (10/8, 172.16/12, 192.168/16, 100.64/10), 169.254.0.0/16 or the other
+Docker networks of this install; they are rewritten on every start and removed by
+`tofi uninstall`. Without `iptables` (or with Docker's nftables backend, which
+has no `DOCKER-USER` chain) `tofi` warns and the Runner starts unfenced: add
+equivalent rules yourself for 172.30.77.0/24. If 172.30.77.0/24 is in use on
+your network, change it in `compose.yaml` and `RUNNER_EGRESS_SUBNET` in
+`tofi_host.py`.
+
+Once an account keeps its local connections in the Runner container, `tofi update`
+refuses a release that predates it (the connections would fall back to an older
+copy on the account's computer). `sudo tofi update --version <older>
+--allow-runner-downgrade` overrides that on purpose; automatic updates never do.
+
 Budgets: the Worker gets `max(1, nproc-1)` vCPUs and
 `max(1536, MemTotal-2048)` MiB for account computers (1 vCPU / 1 GiB each), with
 1 GiB host memory headroom. Each computer has a virtio balloon with free page

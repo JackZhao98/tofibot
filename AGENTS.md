@@ -233,7 +233,7 @@ writes `mcp_standing_allowance_uses` (null `call_id` when the runtime gave none)
 Local MCP Runner (decision 0071): in multi-account self-host it is the `runner` container (profile `runner`), not a process in the guest. Each account has a namespace
 `/a/<account id>`, a token derived from the master key (`mcprunner.AccountToken`), a uid and private directories; `localRunnerConfig` uses it when the account has no computer or its
 guest Runner state has been copied and verified (`local_runner_container.go`, state file `local-runner.json`). Never route a request to another account's namespace, never give a
-workspace the master key, and keep `internal/mcprunner/hub_test.go` cross-account refusals passing. The guest Runner code stays only as the source of that copy.
+workspace the master key, and keep `internal/mcprunner/hub_test.go` cross-account refusals passing. Root-side file work inside an account (below `plugins/<id>` or `tmp/`, which the account's uid owns) must go through `os.Root` (`confined.go`), never `os.ReadFile`/`os.RemoveAll`/path `chown` on a path the account can swap; the directory owner, not `uids.json`, is the authority for an account's uid. The guest Runner code stays only as the source of that copy.
 Community connections (decision 0047): TOFI curates official connectors only; a community MCP is installed by the person under Settings > Connections > Add connection > Custom > Local package
 (npm or PyPI, pinned version, optional npm `sha512-` digest verified after install). Its secrets are 0600 files in the Runner, never in a response, status or manifest.
 `attachLocalMCP` writes `provenance` (origin `community`, kind, package, version) from the Runner's status only; it is part of the configuration fingerprint, so a
