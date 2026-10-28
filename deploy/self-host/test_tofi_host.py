@@ -2048,6 +2048,67 @@ class NoComputerRenderTests(NoComputerCase):
         worker = text.split('  worker:')[1].split('  app:')[0]
         self.assertNotIn(':?', worker, 'computer variables must be optional for a server without a computer')
 
+    def test_runner_container_is_its_own_service_under_its_own_profile(self):
+        text = (HERE / 'compose.yaml').read_text()
+        self.assertIn('profiles: [runner]', text)
+        runner = text.split('  runner:')[1].split('  app:')[0]
+        # Independent of the computer: no worker dependency, no computer variable, no required variable.
+        self.assertNotIn('TOFI_COMPUTER', runner)
+        self.assertNotIn('worker', runner)
+        self.assertNotIn(':?', runner)
+        self.assertNotIn('/dev/kvm', runner)
+        # The minimum that gives every account its own uid, and nothing else.
+        self.assertIn('cap_drop: [ALL]', runner)
+        self.assertIn('cap_add: [SETUID, SETGID, CHOWN, DAC_OVERRIDE, FOWNER]', runner)
+        self.assertIn('no-new-privileges:true', runner)
+        self.assertIn('read_only: true', runner)
+        self.assertNotIn('ports:', runner)  # never published
+        # It sees only its own directory below the data dir, never the App's data.
+        self.assertIn('source: /var/lib/tofi/data/runner', runner)
+        self.assertEqual(runner.count('source:'), 1)
+        self.assertNotIn('target: /app/data', runner)
+        self.assertNotIn('/run/tofi', runner)
+        # /tmp is closed to the account uids; children use their own TMPDIR.
+        self.assertIn('/tmp:rw,nosuid,nodev,noexec,mode=0700', runner)
+        self.assertIn('TOFI_MCP_RUNNER_MODE: accounts', runner)
+        # The App learns where it is from tofi.env, and may have neither.
+        app = text.split('  app:')[1].split('  caddy:')[0]
+        self.assertIn('TOFI_RUNNER_URL: ${TOFI_RUNNER_URL:-}', app)
+        self.assertNotIn('depends_on', app)
+
+    def test_runner_profile_follows_the_runner_image_not_the_computer(self):
+        def profiles(env):
+            command = tofi_host.compose_command(env)
+            return [command[i + 1] for i, word in enumerate(command) if word == '--profile']
+
+        self.assertNotIn('runner', profiles({'TOFI_COMPUTER_BACKEND': 'none'}))
+        image = tofi_host.IMAGE_REPOS['app'].replace('/tofi', '/tofi-mcp-runner') + '@sha256:' + '4' * 64
+        self.assertEqual(profiles({'TOFI_COMPUTER_BACKEND': 'none', 'TOFI_RUNNER_IMAGE': image}), ['runner'])
+        self.assertEqual(profiles({'TOFI_COMPUTER_BACKEND': 'kvm', 'TOFI_RUNNER_IMAGE': image, 'TOFI_DOMAIN': 'a.example.com'}),
+                         ['tls', 'computer-kvm', 'runner'])
+
+    def test_manifest_may_pin_the_runner_image_and_only_in_its_own_repository(self):
+        plain = manifest()
+        self.assertEqual(tofi_host.runner_env(plain), {})
+        pinned = manifest()
+        pinned['images']['runner'] = tofi_host.OPTIONAL_IMAGE_REPOS['runner'] + '@sha256:' + '5' * 64
+        tofi_host.validate_manifest(plain)
+        tofi_host.validate_manifest(pinned)
+        env = tofi_host.runner_env(pinned)
+        self.assertEqual(env['TOFI_RUNNER_IMAGE'], pinned['images']['runner'])
+        self.assertEqual(env['TOFI_RUNNER_URL'], 'http://runner:8390')
+        self.assertTrue(env['TOFI_RUNNER_MASTER_KEY_FILE'].startswith('/app/data/runner/'))
+        for bad in (tofi_host.IMAGE_REPOS['app'] + '@sha256:' + '5' * 64, 'docker.io/evil/runner@sha256:' + '5' * 64,
+                    tofi_host.OPTIONAL_IMAGE_REPOS['runner'] + ':latest'):
+            broken = manifest()
+            broken['images']['runner'] = bad
+            with self.assertRaises(tofi_host.HostError):
+                tofi_host.validate_manifest(broken)
+        extra = manifest()
+        extra['images']['other'] = image('app', '1')
+        with self.assertRaises(tofi_host.HostError):
+            tofi_host.validate_manifest(extra)
+
     def test_install_options_follow_the_host(self):
         args = lambda *extra: tofi_host.parse_args(['install', '--manifest', 'm.json', *extra])  # noqa: E731
         # No cgroup v2 / AppArmor under the test root: this host cannot run computers.

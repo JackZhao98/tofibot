@@ -56,6 +56,50 @@ services:
         target: /var/lib/tofi/guest/${TOFI_GUEST_VERSION:-}
         read_only: true
 
+  # The local MCP Runner (Gmail, community packages). It runs outside every computer, so local
+  # connections survive a computer wipe and exist with TOFI_COMPUTER_BACKEND=none. One process serves
+  # all accounts, each in its own namespace (URL prefix /a/<account id>, token, directory, uid).
+  # Only started when tofi.env names a Runner image (the host tool then adds --profile runner).
+  # root with five capabilities is the minimum to give each account its own uid; the container sees
+  # only <data>/runner, never the App's database, vault or attachments. See D69.
+  runner:
+    profiles: [runner]
+    image: ${TOFI_RUNNER_IMAGE:-}
+    pull_policy: never
+    user: "0:0"
+    restart: unless-stopped
+    init: true
+    read_only: true
+    cpus: 1
+    mem_limit: 1g
+    pids_limit: 1024
+    cap_drop: [ALL]
+    cap_add: [SETUID, SETGID, CHOWN, DAC_OVERRIDE, FOWNER]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      # Closed to every account uid: children use their own TMPDIR below /runner.
+      - /tmp:rw,nosuid,nodev,noexec,mode=0700,size=64m
+    environment:
+      TOFI_MCP_RUNNER_MODE: accounts
+      TOFI_MCP_RUNNER_ROOT: /runner
+      TOFI_MCP_RUNNER_MASTER_KEY_FILE: /runner/master.key
+      TOFI_MCP_RUNNER_AUTH_UID: "10001"
+      TOFI_MCP_RUNNER_LISTEN: 0.0.0.0:8390
+    volumes:
+      - type: bind
+        source: /var/lib/tofi/data/runner
+        target: /runner
+        bind:
+          create_host_path: true
+          propagation: rprivate
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:8390/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
   app:
     image: ${TOFI_APP_IMAGE:?set in /etc/tofi/tofi.env}
     pull_policy: never
@@ -102,6 +146,10 @@ services:
       TOFI_ACCOUNT_COMPUTER_SOCKET_ROOT: ${TOFI_ACCOUNT_COMPUTER_SOCKET_ROOT-/run/tofi/accounts}
       TOFI_ACCOUNT_COMPUTER_DISK_GIB: ${TOFI_ACCOUNT_COMPUTER_DISK_GIB-8}
       TOFI_ACCOUNT_DB_MAX_BYTES: "1073741824"
+      # The local MCP Runner container (profile runner). Both empty: no Runner, local connections
+      # need a computer. The key file lives in the Runner's directory, which the App also sees.
+      TOFI_RUNNER_URL: ${TOFI_RUNNER_URL:-}
+      TOFI_RUNNER_MASTER_KEY_FILE: ${TOFI_RUNNER_MASTER_KEY_FILE:-}
     # Direct mode publishes HTTPS on TOFI_BIND (0.0.0.0 by default, 127.0.0.1
     # with --local-only). With --domain the installer sets TOFI_BIND=127.0.0.1,
     # so only Caddy is reachable from outside; the loopback port serves health checks.

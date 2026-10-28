@@ -124,7 +124,7 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ needs.version.outputs.tag }}
-      - name: MCP runner image (development compose only; not in the manifest)
+      - name: MCP runner image (local connections; pinned in the manifest)
         id: runner
         uses: docker/build-push-action@v6
         with:
@@ -167,6 +167,7 @@ jobs:
     outputs:
       app: ${{ steps.lists.outputs.app }}
       worker: ${{ steps.lists.outputs.worker }}
+      runner: ${{ steps.lists.outputs.runner }}
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -200,6 +201,7 @@ jobs:
             case $repository in
               tofi) echo "app=$digest" >> "$GITHUB_OUTPUT" ;;
               tofi-worker) echo "worker=$digest" >> "$GITHUB_OUTPUT" ;;
+              tofi-mcp-runner) echo "runner=$digest" >> "$GITHUB_OUTPUT" ;;
             esac
           done
       - name: Check image labels (both architectures)
@@ -328,10 +330,11 @@ jobs:
         env:
           APP: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi@${{ needs.image-manifest.outputs.app }}
           WORKER: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi-worker@${{ needs.image-manifest.outputs.worker }}
+          RUNNER: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi-mcp-runner@${{ needs.image-manifest.outputs.runner }}
           CADDY: docker.io/library/caddy@${{ steps.caddy.outputs.digest }}
         run: |
           python3 scripts/release/make_manifest.py --version "$TAG" \
-            --app-image "$APP" --worker-image "$WORKER" --caddy-image "$CADDY" \
+            --app-image "$APP" --worker-image "$WORKER" --runner-image "$RUNNER" --caddy-image "$CADDY" \
             --guest-archive "dist/tofi-guest-$TAG-x86_64.tar.zst" \
             --guest-release-json dist/account-release-x86_64.json \
             --guest-aarch64-archive "dist/tofi-guest-$TAG-aarch64.tar.zst" \
@@ -361,7 +364,7 @@ jobs:
           path: dist/
       - name: Images must be publicly pullable
         run: |
-          for repository in tofi tofi-worker; do
+          for repository in tofi tofi-worker tofi-mcp-runner; do
             token=$(curl -fsS "https://ghcr.io/token?scope=repository:$IMAGE_OWNER/$repository:pull" \
               | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])') || token=
             if [[ -z $token ]] || ! curl -fsS -o /dev/null \

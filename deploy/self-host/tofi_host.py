@@ -64,6 +64,8 @@ IMAGE_REPOS = {
     'worker': 'ghcr.io/jackzhao98/tofi-worker',
     'caddy': 'docker.io/library/caddy',
 }
+# The local MCP Runner image is pinned by manifests that carry it; older manifests do not.
+OPTIONAL_IMAGE_REPOS = {'runner': 'ghcr.io/jackzhao98/tofi-mcp-runner'}
 APP_ENTRYPOINT = ['/app/tofi']
 WORKER_ENTRYPOINT = ['python3', '/opt/tofi-worker/worker_entrypoint.py',
                      '--config', '/etc/tofi-worker/config.json']
@@ -117,6 +119,8 @@ COMPUTER_TOOLS = ['apparmor_parser', 'debugfs', 'e2fsck', 'zstd']
 COMPUTER_APT_PACKAGES = ['zstd', 'e2fsprogs', 'apparmor', 'apparmor-utils']
 # compose.yaml starts the Worker only under this profile.
 COMPUTER_PROFILE = 'computer-kvm'
+# compose.yaml starts the local MCP Runner only under this profile (tofi.env names its image).
+RUNNER_PROFILE = 'runner'
 
 PHASES = {'prepared', 'installing', 'install-failed', 'installed',
           'upgrading', 'upgrade-failed', 'rolling-back', 'rollback-failed',
@@ -471,9 +475,9 @@ def validate_manifest(manifest, allow_loopback_app=False):
     if not isinstance(version, str) or not VERSION_RE.match(version):
         raise HostError('The release manifest version %r is not vMAJOR.MINOR.PATCH[-rc.N].' % version)
     images = manifest.get('images')
-    if not isinstance(images, dict) or set(images) != set(IMAGE_REPOS):
-        raise HostError('The release manifest must pin exactly the app, worker and caddy images.')
-    for role, repo in IMAGE_REPOS.items():
+    if not isinstance(images, dict) or set(images) - set(OPTIONAL_IMAGE_REPOS) != set(IMAGE_REPOS):
+        raise HostError('The release manifest must pin exactly the app, worker and caddy images (and optionally the runner).')
+    for role, repo in {**IMAGE_REPOS, **{k: v for k, v in OPTIONAL_IMAGE_REPOS.items() if k in images}}.items():
         reference = images[role]
         name, _, digest = str(reference).partition('@sha256:')
         loopback_app = allow_loopback_app and role == 'app' and name.startswith(LOOPBACK_REGISTRIES)
@@ -1098,7 +1102,19 @@ def render_env(manifest, options, budgets):
         'TOFI_AUTO_UPDATE': options.get('auto_update') if options.get('auto_update') in AUTO_UPDATE_MODES else 'off',
     }
     values.update(computer_env(computer, manifest, budgets))
+    values.update(runner_env(manifest))
     return values
+
+
+def runner_env(manifest):
+    """The tofi.env keys of the local MCP Runner container; none when the
+    release does not carry its image (the App then keeps local connections on
+    the computer, as before)."""
+    image = (manifest.get('images') or {}).get('runner')
+    if not image:
+        return {}
+    return {'TOFI_RUNNER_IMAGE': image, 'TOFI_RUNNER_URL': 'http://runner:8390',
+            'TOFI_RUNNER_MASTER_KEY_FILE': '/app/data/runner/master.key'}
 
 
 # What the App needs to reach the Worker (the same values compose.yaml falls
@@ -1288,6 +1304,8 @@ def pull_images(env, data_schema):
         roles.append(('worker', env['TOFI_WORKER_IMAGE']))
     if env.get('TOFI_DOMAIN'):
         roles.append(('caddy', env['TOFI_CADDY_IMAGE']))
+    if env.get('TOFI_RUNNER_IMAGE'):
+        roles.append(('runner', env['TOFI_RUNNER_IMAGE']))
     for role, reference in roles:
         try:
             run(['docker', 'pull', '--quiet', reference], timeout=1800)
@@ -1366,6 +1384,8 @@ def compose_command(env, extra_profiles=()):
         profiles.append('tls')
     if has_computer(env):
         profiles.append(COMPUTER_PROFILE)
+    if env.get('TOFI_RUNNER_IMAGE'):
+        profiles.append(RUNNER_PROFILE)
     for profile in dict.fromkeys(profiles):
         command += ['--profile', profile]
     return command
@@ -3039,6 +3059,7 @@ def _upgrade(info, version, manifest_path, allow_schema_change, manifest, wait, 
             'TOFI_APP_IMAGE': manifest['images']['app'],
             'TOFI_CADDY_IMAGE': manifest['images']['caddy'],
         })
+        candidate.update(runner_env(manifest))
         if computer:
             # An install without a computer keeps no Worker image or Guest pin: nothing to pull or fetch.
             candidate.update({'TOFI_WORKER_IMAGE': manifest['images']['worker'],
@@ -3424,7 +3445,7 @@ def finish_uninstall(state):
     return {'uninstalled': True, 'data_retained': True}
 
 
-IMAGE_ENV_KEYS = ('TOFI_APP_IMAGE', 'TOFI_WORKER_IMAGE', 'TOFI_CADDY_IMAGE')
+IMAGE_ENV_KEYS = ('TOFI_APP_IMAGE', 'TOFI_WORKER_IMAGE', 'TOFI_CADDY_IMAGE', 'TOFI_RUNNER_IMAGE')
 
 
 def installation_images(state):
@@ -3453,13 +3474,13 @@ def installation_images(state):
         manifests = sorted(P.releases.glob('*/manifest.json'))
     except OSError:
         manifests = []
-    allowed = tuple(repository + '@' for repository in IMAGE_REPOS.values())
+    allowed = tuple(repository + '@' for repository in (*IMAGE_REPOS.values(), *OPTIONAL_IMAGE_REPOS.values()))
     for path in manifests:
         try:
             images = json.loads(path.read_text()).get('images') or {}
         except (OSError, ValueError, AttributeError):
             continue
-        for role in IMAGE_REPOS:
+        for role in (*IMAGE_REPOS, *OPTIONAL_IMAGE_REPOS):
             reference = images.get(role) if isinstance(images, dict) else None
             if isinstance(reference, str) and reference.startswith(allowed):
                 add(reference)

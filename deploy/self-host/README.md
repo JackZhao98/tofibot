@@ -555,8 +555,14 @@ is public and `tofi status` can still check health. In that mode Caddy reaches
 the App over the Docker bridge, which is why `TOFI_OWNER_ALLOW_LAN_HTTP=1` stays
 for it; the default HTTPS mode sets it to `0`. The App healthcheck picks `https`
 or `http` from `TOFI_TLS_CERT_FILE` (busybox `wget` with Alpine's `ssl_client`).
-The shared `mcp-runner` is not part of this stack; account computers run MCP
-inside their Guest.
+The local MCP Runner (Gmail, community packages) is the `runner` service under
+profile `runner`, started when `tofi.env` names `TOFI_RUNNER_IMAGE` (releases
+whose manifest pins `images.runner` set it, with `TOFI_RUNNER_URL` and
+`TOFI_RUNNER_MASTER_KEY_FILE`). It runs outside every computer, so it works with
+`TOFI_COMPUTER_BACKEND=none`, serves each account in its own namespace and uid,
+and keeps its state under `/var/lib/tofi/data/runner` (inside the data backup).
+Without a Runner image, local connections still run inside the account computer
+as before. See `docs/decisions/0069-runner-container.md`.
 
 Budgets: the Worker gets `max(1, nproc-1)` vCPUs and
 `max(1536, MemTotal-2048)` MiB for account computers (1 vCPU / 1 GiB each), with
@@ -589,7 +595,7 @@ current step and the last error. An update stores the previous `tofi.env`,
 
 `.github/workflows/release.yml` runs on a `v*` tag (or manually with a tag):
 tests, with clean native builds of `ghcr.io/jackzhao98/tofi`,
-`tofi-worker` (and `tofi-mcp-runner` for development) with
+`tofi-worker` and `tofi-mcp-runner` with
 `TOFI_SOURCE_COMMIT` on `ubuntu-24.04` (amd64) and `ubuntu-24.04-arm` (arm64)
 runners at the same time (by digest, no tag); once `test` passes, one manifest
 list per image is tagged and pinned. The Guest release
