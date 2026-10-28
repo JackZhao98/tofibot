@@ -36,9 +36,9 @@ func computerRecoveryIdentity(bot, computerID, action string, raw json.RawMessag
 		"shell.exec": "command timeout_sec",
 		"files.list": "path", "files.read": "path offset limit", "files.view": "path", "files.write": "path content append expected_sha256",
 		"desktop.start": "", "desktop.stop": "", "desktop.capture": "",
-		"desktop.click": "x y button screenshot_width screenshot_height", "desktop.type": "text", "desktop.key": "key modifiers", "desktop.scroll": "direction amount",
+		"desktop.click": "x y button clicks screenshot_width screenshot_height", "desktop.type": "text", "desktop.key": "key modifiers", "desktop.scroll": "direction amount",
 		"terminal.open": "command cols rows", "terminal.list": "", "terminal.read": "terminal_id cursor max_bytes", "terminal.write": "terminal_id data data_base64", "terminal.resize": "terminal_id cols rows", "terminal.close": "terminal_id",
-		"browser.navigate": "url target_id", "browser.snapshot": "target_id", "browser.read": "find max_chars", "browser.click": "click find max_chars", "browser.new": "url", "browser.switch": "target_id", "browser.close": "target_id",
+		"browser.navigate": "url target_id", "browser.snapshot": "target_id", "browser.read": "find max_chars", "browser.click": "click find max_chars", "browser.upload": "files attachment_ids selector click", "browser.new": "url", "browser.switch": "target_id", "browser.close": "target_id",
 	}
 	if keys, known := fields[action]; known {
 		effective := map[string]json.RawMessage{}

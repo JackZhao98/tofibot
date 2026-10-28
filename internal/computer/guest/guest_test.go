@@ -519,3 +519,38 @@ func mustEval(t *testing.T, p string) string {
 	}
 	return r
 }
+
+func TestDesktopClickCountIsBoundedAndAccepted(t *testing.T) {
+	s := newTestService(t)
+	for _, n := range []int{-1, 4} {
+		status, out := postAction(t, s.Handler(), testBot, "run-1", "desktop.click", map[string]any{"x": 1, "y": 1, "clicks": n})
+		if status != http.StatusBadRequest || out.OK || !strings.Contains(out.Error, "clicks") {
+			t.Fatalf("clicks=%d accepted: %d %#v", n, status, out)
+		}
+	}
+	for _, n := range []int{0, 1, 2, 3} {
+		status, out := postAction(t, s.Handler(), testBot, "run-1", "desktop.click", map[string]any{"x": 1, "y": 1, "clicks": n})
+		if status == http.StatusBadRequest && (strings.Contains(out.Error, "unknown field") || strings.Contains(out.Error, "clicks")) {
+			t.Fatalf("clicks=%d rejected by preflight: %q", n, out.Error)
+		}
+	}
+}
+
+func TestClickXArgsMakeOneProcessWithRepeat(t *testing.T) {
+	join := func(a []string) string { return strings.Join(a, " ") }
+	if got := join(clickXArgs(5, 6, 1, 0)); got != "mousemove --sync 5 6 click 1" {
+		t.Fatalf("single: %s", got)
+	}
+	if got := join(clickXArgs(5, 6, 1, 1)); got != "mousemove --sync 5 6 click 1" {
+		t.Fatalf("one: %s", got)
+	}
+	if got := join(clickXArgs(5, 6, 3, 2)); got != "mousemove --sync 5 6 click --repeat 2 --delay 70 3" {
+		t.Fatalf("double: %s", got)
+	}
+	if got := join(clickXArgs(5, 6, 1, 3)); got != "mousemove --sync 5 6 click --repeat 3 --delay 70 1" {
+		t.Fatalf("triple: %s", got)
+	}
+	if doubleClickGapMS >= 400 {
+		t.Fatal("the gap must sit well inside the toolkit double-click interval")
+	}
+}

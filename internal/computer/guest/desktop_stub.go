@@ -15,7 +15,7 @@ func (s *Service) startDesktop(context.Context, string) (map[string]any, error) 
 func (s *Service) desktopCapture(context.Context, string) (map[string]any, error) {
 	return nil, errLinuxGuestOnly
 }
-func (s *Service) desktopClick(context.Context, string, int, int, int, int, int) (map[string]any, error) {
+func (s *Service) desktopClick(context.Context, string, int, int, int, int, int, int) (map[string]any, error) {
 	return nil, errLinuxGuestOnly
 }
 func (s *Service) desktopType(context.Context, string, string) (map[string]any, error) {

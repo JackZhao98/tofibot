@@ -161,11 +161,15 @@ func validateDesktopClickArgs(raw []byte) error {
 		X                int  `json:"x"`
 		Y                int  `json:"y"`
 		Button           int  `json:"button"`
+		Clicks           int  `json:"clicks"`
 		ScreenshotWidth  *int `json:"screenshot_width"`
 		ScreenshotHeight *int `json:"screenshot_height"`
 	}
 	if err := decodeArgs(raw, &args); err != nil {
 		return err
+	}
+	if args.Clicks < 0 || args.Clicks > maxDesktopClicks {
+		return errors.New("desktop.click clicks must be between 1 and 3")
 	}
 	if (args.ScreenshotWidth == nil) != (args.ScreenshotHeight == nil) {
 		return errors.New("screenshot_width and screenshot_height must be provided together")

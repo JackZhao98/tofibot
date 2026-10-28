@@ -498,6 +498,8 @@ func TestMicroVMToolsUseGuestActionContract(t *testing.T) {
 		{"computer_desktop", `{"action":"desktop.stop"}`},
 		{"computer_desktop", `{"action":"desktop.capture"}`},
 		{"computer_desktop", `{"action":"desktop.click","x":10,"y":20,"screenshot_width":1280,"screenshot_height":800}`},
+		{"computer_desktop", `{"action":"double_click","x":10,"y":20,"screenshot_width":1280,"screenshot_height":800}`},
+		{"computer_desktop", `{"action":"desktop.triple_click","x":10,"y":20}`},
 		{"computer_desktop", `{"action":"desktop.type","text":"ok"}`},
 		{"computer_desktop", `{"action":"desktop.scroll","direction":"down","amount":3}`},
 		{"computer_desktop", `{"action":"desktop.key","key":"Return","modifiers":[]}`},

@@ -1303,7 +1303,7 @@ func (s *Service) captureResult(d *desktop, png []byte) (map[string]any, error) 
 	return result, nil
 }
 
-func (s *Service) desktopClick(ctx context.Context, botID string, x, y, button, screenshotW, screenshotH int) (map[string]any, error) {
+func (s *Service) desktopClick(ctx context.Context, botID string, x, y, button, clicks, screenshotW, screenshotH int) (map[string]any, error) {
 	d, err := s.currentDesktop(ctx, botID)
 	if err != nil {
 		return nil, err
@@ -1327,7 +1327,10 @@ func (s *Service) desktopClick(ctx context.Context, botID string, x, y, button, 
 	if button < 1 || button > 5 {
 		return nil, errors.New("desktop.click button must be between 1 and 5")
 	}
-	return runXTool(ctx, d, "mousemove", "--sync", strconv.Itoa(x), strconv.Itoa(y), "click", strconv.Itoa(button))
+	if clicks < 0 || clicks > maxDesktopClicks {
+		return nil, errors.New("desktop.click clicks must be between 1 and 3")
+	}
+	return runXTool(ctx, d, clickXArgs(x, y, button, clicks)...)
 }
 
 func (s *Service) desktopType(ctx context.Context, botID, text string) (map[string]any, error) {

@@ -21,7 +21,9 @@ const (
 	browserReadMinChars     = 12000
 )
 
-const browserReadScript = `
+// browserScriptHead is the part of every browser helper that finds the shared
+// Chrome, defines the DevTools helpers and picks the foreground page.
+const browserScriptHead = `
 import base64, glob, json, re, sys, time, urllib.request, websocket
 opts = json.loads(base64.b64decode(sys.argv[1]))
 port = None
@@ -50,27 +52,6 @@ def send(ws, method, params):
             return msg.get("result", {})
 def evaluate(ws, expr):
     return send(ws, "Runtime.evaluate", {"expression": expr, "returnByValue": True}).get("result", {}).get("value")
-EXTRACT = r"""(() => {
-  const max = %d, find = %s;
-  const root = document.querySelector('main, article, [role=main]') || document.body;
-  let text = (root && root.innerText || '').replace(/\n{3,}/g, '\n\n').trim();
-  if (root !== document.body && text.length < 400) text = (document.body.innerText || '').replace(/\n{3,}/g, '\n\n').trim();
-  let matches = [];
-  if (find) {
-    const lower = text.toLowerCase(), needle = find.toLowerCase();
-    for (let i = lower.indexOf(needle); i >= 0 && matches.length < 20; i = lower.indexOf(needle, i + needle.length))
-      matches.push(text.slice(Math.max(0, i - 300), i + needle.length + 300));
-  }
-  const seen = new Set(), links = [];
-  for (const a of document.querySelectorAll('a[href]')) {
-    const label = (a.innerText || a.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ');
-    if (!label || label.length < 3 || seen.has(a.href) || !/^https?:/.test(a.href)) continue;
-    seen.add(a.href); links.push({text: label.slice(0, 160), url: a.href});
-    if (links.length >= 80) break;
-  }
-  const budget = find && matches.length ? Math.min(max, 3000) : max;
-  return {title: document.title, url: location.href, truncated: text.length > budget, chars: text.length, text: text.slice(0, budget), matches, links};
-})()"""
 LOCATE = r"""((needle) => {
   needle = needle.toLowerCase();
   const sel = 'a,button,[role=button],[role=link],[role=row],[role=option],[role=tab],[role=menuitem],tr,li,summary,label,[onclick],[tabindex]';
@@ -103,6 +84,30 @@ def focused(pages):
 page_target, target = focused(pages)
 if target is None:
     print(json.dumps({"error": "no_focused_page", "tabs": [{"title": t.get("title"), "url": t.get("url"), "target_id": t.get("id")} for t in pages]}, ensure_ascii=False)); sys.exit(0)
+`
+
+const browserReadBody = `
+EXTRACT = r"""(() => {
+  const max = %d, find = %s;
+  const root = document.querySelector('main, article, [role=main]') || document.body;
+  let text = (root && root.innerText || '').replace(/\n{3,}/g, '\n\n').trim();
+  if (root !== document.body && text.length < 400) text = (document.body.innerText || '').replace(/\n{3,}/g, '\n\n').trim();
+  let matches = [];
+  if (find) {
+    const lower = text.toLowerCase(), needle = find.toLowerCase();
+    for (let i = lower.indexOf(needle); i >= 0 && matches.length < 20; i = lower.indexOf(needle, i + needle.length))
+      matches.push(text.slice(Math.max(0, i - 300), i + needle.length + 300));
+  }
+  const seen = new Set(), links = [];
+  for (const a of document.querySelectorAll('a[href]')) {
+    const label = (a.innerText || a.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ');
+    if (!label || label.length < 3 || seen.has(a.href) || !/^https?:/.test(a.href)) continue;
+    seen.add(a.href); links.push({text: label.slice(0, 160), url: a.href});
+    if (links.length >= 80) break;
+  }
+  const budget = find && matches.length ? Math.min(max, 3000) : max;
+  return {title: document.title, url: location.href, truncated: text.length > budget, chars: text.length, text: text.slice(0, budget), matches, links};
+})()"""
 out = {}
 if opts.get("probe"):
     sx, sy, sw, sh = opts["probe"]
@@ -151,6 +156,8 @@ target.close()
 out.update(page or {"error": "no_readable_page"})
 print(json.dumps(out, ensure_ascii=False))
 `
+
+const browserReadScript = browserScriptHead + browserReadBody
 
 type browserReadArgs struct {
 	Find     string `json:"find,omitempty"`

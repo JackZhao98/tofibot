@@ -205,6 +205,7 @@ func (s *Service) dispatchAction(ctx context.Context, req ActionRequest) (any, e
 			X                int  `json:"x"`
 			Y                int  `json:"y"`
 			Button           int  `json:"button"`
+			Clicks           int  `json:"clicks"`
 			ScreenshotWidth  *int `json:"screenshot_width"`
 			ScreenshotHeight *int `json:"screenshot_height"`
 		}
@@ -221,7 +222,7 @@ func (s *Service) dispatchAction(ctx context.Context, req ActionRequest) (any, e
 				return nil, errors.New("screenshot dimensions must be within 1..1280 by 1..800")
 			}
 		}
-		return s.desktopClick(ctx, req.BotID, args.X, args.Y, args.Button, width, height)
+		return s.desktopClick(ctx, req.BotID, args.X, args.Y, args.Button, args.Clicks, width, height)
 	case "desktop.scroll":
 		var args struct {
 			Direction string `json:"direction"`

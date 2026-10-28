@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -327,4 +328,23 @@ func validateInputEvents(events []DesktopInputEvent) error {
 		}
 	}
 	return nil
+}
+
+// maxDesktopClicks is the most clicks one desktop.click may carry (triple).
+const maxDesktopClicks = 3
+
+// doubleClickGapMS separates the clicks of one multi-click. It is far inside
+// the toolkit double-click interval (GTK and Qt default to 400 ms) and well
+// above the 0 ms the same-spot rule needs, so the server counts them as one
+// gesture without a slow machine splitting it.
+const doubleClickGapMS = 70
+
+// clickXArgs is the xdotool command line for clicks presses of button at x, y
+// delivered in one process, so the gap between them is the tool's own.
+func clickXArgs(x, y, button, clicks int) []string {
+	args := []string{"mousemove", "--sync", strconv.Itoa(x), strconv.Itoa(y), "click"}
+	if clicks > 1 {
+		args = append(args, "--repeat", strconv.Itoa(clicks), "--delay", strconv.Itoa(doubleClickGapMS))
+	}
+	return append(args, strconv.Itoa(button))
 }
