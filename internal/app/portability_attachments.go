@@ -121,7 +121,7 @@ func (b portableBundle) validatePortableAttachments(cat map[string]bool, ids map
 			return bad()
 		}
 		switch x.Reason {
-		case "missing", "unavailable", "unsafe_file", "too_large", "bundle_limit", "changed_metadata":
+		case "missing", "unavailable", "pending_copy", "unsafe_file", "too_large", "bundle_limit", "changed_metadata":
 		default:
 			return bad()
 		}
@@ -426,17 +426,27 @@ func (s *Store) readPortableAttachment(ctx context.Context, dbFile, id, disk str
 		if err != nil || alias != id {
 			return nil, "unsafe_file"
 		}
-		if s.guestBlobs == nil {
-			return nil, "unavailable"
-		}
-		data, err = s.guestBlobs.GetBlob(ctx, id)
-		if err != nil {
-			return nil, "missing"
+		// Prefer the server copy: copy the row out of the guest now so the
+		// export reads the same bytes every later read will.
+		if cerr := s.copyGuestAttachment(ctx, id); cerr != nil {
+			var mismatch *guestSizeMismatch
+			switch {
+			case errors.As(cerr, &mismatch):
+				data = mismatch.data
+			case errors.Is(cerr, errFileGoneFromComputer):
+				return nil, "missing"
+			default:
+				// No computer, or it does not answer: the bytes may still be on
+				// its disk, so this is a pending copy, not a loss.
+				return nil, "pending_copy"
+			}
+		} else {
+			return s.readPortableAttachment(ctx, dbFile, id, id+".upload", size)
 		}
 	} else {
 		// Account exports never read a host fallback. Legacy local files must have
 		// the exact managed UUID name and be regular, single-link, non-symlink files.
-		if s.requireGuestAttachments || disk != id+".upload" {
+		if disk != id+".upload" {
 			return nil, "unsafe_file"
 		}
 		folder := filepath.Join(filepath.Dir(dbFile), "attachments")

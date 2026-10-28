@@ -342,6 +342,20 @@ Web only, 1100 px and wider; the design is `docs/design/widgets-and-sidebar.md` 
 - Every surface animates in and out with the motion tokens (leaving shorter than entering, reduced motion instant, no empty frame: `useLeaving` and `useSurfacePresence` in `surfacePresence.ts`). Below 1100 px the drawer/sheet stays (a 400 px drawer with a scrim; the computer is the floating window; Members and Artifacts open as covers); Electron is unchanged.
 - Keep all of it out of the entry bundle except `surfaces.ts`, `surfacePresence.ts`, `useSurfaceEscape.ts` and the header (`test:shell-budget`). A new surface needs a title in 7 locales and a catalog state. Tests: `test:surfaces`, `test:surfaces-browser` (memory, `?side=`, Escape order, Usage widget, reordering), `test:widgets-auto`, `test:switch-budget` (includes two widgets open), `test:conversation-route`, `test:settings-shell`, `test:bot-skills`, `test:computer-window`. `scripts/shot-surfaces.mjs` (`SECTIONS=r2`) and `scripts/shot-bot-settings.mjs` take screenshots and enter/exit frame strips by pausing every animation and setting `currentTime`, so a loaded machine cannot drop frames.
 
+# Server file store (computer-decoupling S1)
+
+Every file a client shows or downloads (uploads, `publish_file`, generated images, outbox files) is written by `Store.addAttachmentOpts`
+(`internal/app/attachments.go`) to `<account data dir>/attachments/<uuid>.upload`, in every mode, with or without a computer. The row records
+`sha256`, `origin` (`upload|published|generated|outbox|mirror`) and `bot_id` (additive columns). The guest copy under `/workspace/home/uploads` is
+a cache. The old guest-only form `disk_name = "vm:<uuid>"` is read-only legacy: `guest_attachments.go` copies such rows to the server (lazily on
+read, and `file_store_copier.go` every 10 minutes, 50 rows per pass, at most one wake of a sleeping computer per hour). Order of one copy: read the
+guest object, check its length, write a temp file and fsync, hash the file and compare, rename, then repoint the row and journal the guest object
+in one transaction. The guest object is deleted later by `cleanupDeletedAttachments`, which re-checks the server file against the row's sha256.
+A `vm:` file that cannot be reached answers HTTP 409 `file_on_detached_computer`. `tofi computer remove --purge` refuses while any `vm:` row
+exists unless `--discard-unsaved-files`. Outbox: `/workspace/home/outbox` is copied by `outbox_sync.go` at the end of a run that used the computer
+(20 MiB per file, 200 MiB and 8 files per reply, symlinks refused by the guest, nothing deleted on the computer). Design:
+`docs/design/computer-decoupling.md`.
+
 # Chat uploads on the Bot's computer
 
 Files a person sends in chat are copied to the guest at `/workspace/home/uploads/<conversation id>/<name>` (`internal/app/guest_inputs.go`,

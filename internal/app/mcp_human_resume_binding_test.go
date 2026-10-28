@@ -189,7 +189,7 @@ func TestAutoReviewV5HumanRequiredDurableResume(t *testing.T) {
 			case "checkpoint question":
 				_, err = f.s.store.db.Exec(`UPDATE run_input_waits SET checkpoint_json=json_set(checkpoint_json,'$.agent.question_id','wrong-question') WHERE run_id=?`, f.r.ID)
 			case "attachment add":
-				_, err = f.s.store.db.Exec(`INSERT INTO attachments VALUES('synthetic-resume-file',?,'synthetic','text/plain',1,'synthetic-resume-file',?)`, f.c.ID, now())
+				_, err = f.s.store.db.Exec(`INSERT INTO attachments(id,conversation_id,name,mime,size,disk_name,created_at) VALUES('synthetic-resume-file',?,'synthetic','text/plain',1,'synthetic-resume-file',?)`, f.c.ID, now())
 				if err == nil {
 					err = f.s.store.BindAttachments(f.c.ID, oldAttachmentMessage, []string{"synthetic-resume-file"})
 				}

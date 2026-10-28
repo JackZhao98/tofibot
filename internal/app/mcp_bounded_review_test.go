@@ -208,7 +208,7 @@ func TestMCPBoundedReviewDelegatedChatChild(t *testing.T) {
 func TestScheduledMCPReviewWithOldAttachmentAndLongSource(t *testing.T) {
 	f := newScheduledMCPFixture(t, false, scheduleSourceChat)
 	// An upload bound to the earlier source request, long before the occurrence.
-	f.exec(`INSERT INTO attachments VALUES('synthetic-old-upload',?,'synthetic-old.pdf','application/pdf',9,'synthetic-old-upload','2000-01-01T00:00:00Z')`, f.c.ID)
+	f.exec(`INSERT INTO attachments(id,conversation_id,name,mime,size,disk_name,created_at) VALUES('synthetic-old-upload',?,'synthetic-old.pdf','application/pdf',9,'synthetic-old-upload','2000-01-01T00:00:00Z')`, f.c.ID)
 	if err := f.s.store.BindAttachments(f.c.ID, f.source.TriggerMessageID, []string{"synthetic-old-upload"}); err != nil {
 		t.Fatal(err)
 	}
@@ -290,7 +290,7 @@ INSERT INTO messages(id,conversation_id,seq,role,content,created_at) SELECT prin
 func TestMCPContextRequiredTellsModelToStopRetrying(t *testing.T) {
 	f := newProvenanceReviewFixture(t)
 	q := newMCPReviewProposal(t, f)
-	diagnosticExec(t, f, `INSERT INTO attachments VALUES('synthetic-current',?,'synthetic','text/plain',1,'synthetic-current',?)`, f.c.ID, now())
+	diagnosticExec(t, f, `INSERT INTO attachments(id,conversation_id,name,mime,size,disk_name,created_at) VALUES('synthetic-current',?,'synthetic','text/plain',1,'synthetic-current',?)`, f.c.ID, now())
 	if err := f.s.store.BindAttachments(f.c.ID, f.r.TriggerMessageID, []string{"synthetic-current"}); err != nil {
 		t.Fatal(err)
 	}
