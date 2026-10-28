@@ -60,7 +60,17 @@ type HubConfig struct {
 	// accounts ever seen (default 30 minutes). Its state stays; the next request
 	// opens it again.
 	AccountIdleTimeout time.Duration
+	// Limits caps every child process of an account (default DefaultLimits when
+	// IsolateUIDs is on; none otherwise, because a cap on the Runner's own uid
+	// would cap the Runner).
+	Limits Limits
+	// MinFreeBytes refuses installs and imports while the data filesystem has less
+	// than this free (default 1 GiB; MinFreeDisabled turns the guard off).
+	MinFreeBytes uint64
 }
+
+// MinFreeDisabled is a MinFreeBytes value that turns the disk guard off.
+const MinFreeDisabled = ^uint64(0)
 
 type tenant struct {
 	id      string
@@ -87,6 +97,15 @@ func NewHub(cfg HubConfig) (*Hub, error) {
 	}
 	if cfg.AccountIdleTimeout <= 0 {
 		cfg.AccountIdleTimeout = 30 * time.Minute
+	}
+	if cfg.IsolateUIDs && cfg.Limits.zero() {
+		cfg.Limits = DefaultLimits
+	}
+	switch cfg.MinFreeBytes {
+	case 0:
+		cfg.MinFreeBytes = 1 << 30
+	case MinFreeDisabled:
+		cfg.MinFreeBytes = 0
 	}
 	if cfg.UIDBase <= 0 {
 		cfg.UIDBase = 20000
@@ -389,7 +408,7 @@ func (h *Hub) openLocked(id string) (*tenant, error) {
 			return nil, err
 		}
 	}
-	runner, err := NewWithOptions(specs, h.cfg.IdleTimeout, Options{Cred: cred, Tmp: tmp, ManifestDir: dir})
+	runner, err := NewWithOptions(specs, h.cfg.IdleTimeout, Options{Cred: cred, Tmp: tmp, ManifestDir: dir, Limits: h.cfg.Limits, MinFreeBytes: h.cfg.MinFreeBytes})
 	if err != nil {
 		return nil, err
 	}

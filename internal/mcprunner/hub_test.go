@@ -37,7 +37,7 @@ func newTestHub(t *testing.T, mutate func(*HubConfig)) (*Hub, string) {
 	t.Helper()
 	fakeGog(t)
 	root := t.TempDir()
-	cfg := HubConfig{Root: root, Master: testMaster}
+	cfg := HubConfig{Root: root, Master: testMaster, MinFreeBytes: MinFreeDisabled}
 	if mutate != nil {
 		mutate(&cfg)
 	}

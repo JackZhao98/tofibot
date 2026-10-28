@@ -50,6 +50,8 @@ type Spec struct {
 	// that account's own uid with a private temporary directory.
 	Cred *syscall.Credential `json:"-"`
 	Tmp  string              `json:"-"`
+	// Limits is set by the Runner that owns the spec, like Cred.
+	Limits Limits `json:"-"`
 	// open opens the plugin's directory through the Runner's anchored walk (see
 	// confined.go). Nil for a spec built by hand: the path is then opened directly.
 	open func() (*os.Root, error)
@@ -89,6 +91,10 @@ type Options struct {
 	Tmp string
 	// ManifestDir holds manifest.json outside the area the children can write.
 	ManifestDir string
+	// Limits caps every child (processes of the uid, open files, file size).
+	Limits Limits
+	// MinFreeBytes refuses installs and imports when the data filesystem has less free.
+	MinFreeBytes uint64
 }
 
 // manifestPath is where the installed-plugin record lives.
@@ -101,7 +107,7 @@ func (r *Runner) manifestPath(stateDir string) string {
 
 // stamp attaches the Runner's process identity to a spec.
 func (r *Runner) stamp(spec Spec) Spec {
-	spec.Cred, spec.Tmp = r.opts.Cred, r.opts.Tmp
+	spec.Cred, spec.Tmp, spec.Limits = r.opts.Cred, r.opts.Tmp, r.opts.Limits
 	id := spec.ID
 	workDir := spec.WorkDir
 	spec.open = func() (*os.Root, error) {
@@ -461,7 +467,8 @@ func start(startCtx, life context.Context, spec Spec) (*mcp.ClientSession, conte
 	// The child starts inside its own directory and is named relative to it, so
 	// /proc/<pid>/cmdline (readable by every uid in the container) does not carry
 	// the account's id.
-	processCmd := exec.CommandContext(procCtx, launchCommand(spec), spec.Args...)
+	command, args := spec.Limits.launch(launchCommand(spec), spec.Args)
+	processCmd := exec.CommandContext(procCtx, command, args...)
 	processCmd.Dir = spec.WorkDir
 	processCmd.Env = []string{"PATH=/usr/local/bin:/usr/bin:/bin", "LANG=C.UTF-8", "TMPDIR=" + spec.tmpDir()}
 	for key, value := range spec.Env {

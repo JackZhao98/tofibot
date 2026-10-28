@@ -138,6 +138,9 @@ func (r *Runner) install(ctx context.Context, input InstallRequest, fill func(pl
 	if exists {
 		return errors.New("plugin already installed")
 	}
+	if err := checkFreeSpace(dir, r.opts.MinFreeBytes); err != nil {
+		return err
+	}
 	target := filepath.Join(dir, "plugins", input.ID)
 	plugins, err := r.pluginsRoot()
 	if err != nil {
@@ -312,6 +315,7 @@ func installSecretEnv(pr *os.Root, target string, values map[string]string) (map
 }
 
 func (r *Runner) runInstaller(ctx context.Context, dir, command string, args ...string) error {
+	command, args = r.opts.Limits.launch(command, args)
 	cmd := exec.CommandContext(ctx, command, args...)
 	cmd.Dir = dir
 	tmp := r.opts.Tmp

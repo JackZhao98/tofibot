@@ -16,6 +16,11 @@ import (
 )
 
 func main() {
+	// Plugins start through this binary so their resource limits are set after the
+	// uid change and before their first instruction (mcprunner.Limits).
+	if mcprunner.RunLauncher(os.Args) {
+		return
+	}
 	if os.Getenv("TOFI_MCP_RUNNER_MODE") == "accounts" {
 		if err := serveAccounts(); err != nil {
 			log.Fatal(err)
@@ -87,7 +92,18 @@ func serveAccounts() error {
 			return err
 		}
 	}
-	hub, err := mcprunner.NewHub(mcprunner.HubConfig{Root: root, Master: []byte(key), IsolateUIDs: isolate})
+	cfg := mcprunner.HubConfig{Root: root, Master: []byte(key), IsolateUIDs: isolate}
+	if raw := os.Getenv("TOFI_MCP_RUNNER_MIN_FREE_MB"); raw != "" {
+		mb, err := strconv.ParseUint(raw, 10, 32)
+		if err != nil {
+			return errors.New("TOFI_MCP_RUNNER_MIN_FREE_MB must be a number of megabytes (0 turns the guard off)")
+		}
+		cfg.MinFreeBytes = mb << 20
+		if mb == 0 {
+			cfg.MinFreeBytes = mcprunner.MinFreeDisabled
+		}
+	}
+	hub, err := mcprunner.NewHub(cfg)
 	if err != nil {
 		return err
 	}

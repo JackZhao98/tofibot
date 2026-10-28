@@ -213,3 +213,26 @@ func TestRootPurgeKillsEveryProcessOfTheAccountUID(t *testing.T) {
 		t.Fatalf("processes of the purged account survive: %v", left)
 	}
 }
+
+// Children run with the account limits set by the launcher.
+func TestRootChildrenRunWithResourceLimits(t *testing.T) {
+	if runtime.GOOS != "linux" || os.Geteuid() != 0 {
+		t.Skip("needs Linux and root")
+	}
+	hub, _ := newTestHub(t, func(c *HubConfig) { c.IsolateUIDs = true })
+	if w := call(hub, http.MethodPost, "/a/"+accountA+"/v1/plugins", tokenOf(accountA), map[string]any{"id": "gog", "kind": "builtin_gog"}); w.Code != http.StatusCreated {
+		t.Fatalf("install: %d", w.Code)
+	}
+	tenant, _ := hub.tenant(accountA)
+	spec, _ := tenant.runner.gogSpec("gog")
+	spec.Command = "/bin/sh"
+	out, err := runGog(context.Background(), spec, nil, "-c", "grep -E '^Max (processes|open files|file size)' /proc/self/limits")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"128", "1024", "1073741824"} {
+		if !strings.Contains(string(out), want) {
+			t.Fatalf("limits %q do not contain %s", out, want)
+		}
+	}
+}

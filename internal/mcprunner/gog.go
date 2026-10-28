@@ -292,7 +292,8 @@ func runGog(ctx context.Context, spec Spec, input []byte, args ...string) ([]byt
 	if err != nil {
 		return nil, err
 	}
-	cmd := exec.CommandContext(ctx, spec.Command, args...)
+	command, launchArgs := spec.Limits.launch(spec.Command, args)
+	cmd := exec.CommandContext(ctx, command, launchArgs...)
 	cmd.Dir = spec.WorkDir
 	cmd.Env = env
 	if spec.Cred != nil {
