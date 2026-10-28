@@ -11,7 +11,7 @@
     --rail-item-w:52px; --rail-item-h:48px; --rail-avatar:40px;
   }
   .workspace .sidebar-collapsed .contact-pane { padding-inline:10px; overflow:visible; }
-  .workspace .sidebar-collapsed :is(.section-label) { display:none; }
+  .workspace .sidebar-collapsed :is(.search-box,.section-label) { display:none; }
   .workspace .sidebar-collapsed .contact-section { margin-inline:-10px; padding-inline:10px; align-items:center; scrollbar-width:none; }
   .workspace .sidebar-collapsed .contact-section::-webkit-scrollbar { display:none; }
 
@@ -27,12 +27,12 @@
   .workspace .sidebar-collapsed .sidebar-logo-expand .brand-logo { width:34px; gap:0; }
   .workspace .sidebar-collapsed .sidebar-logo-expand .brand-logo img { width:34px; height:34px; }
   .workspace .sidebar-collapsed .brand-logo>span { display:none; }
-  .workspace .sidebar-collapsed :is(.create-menu-anchor>.icon-button,.search-trigger) {
+  .workspace .sidebar-collapsed .create-menu-anchor>.icon-button {
     width:40px; height:40px; min-width:0; padding:0; border:0; border-radius:12px;
     background:color-mix(in srgb,var(--surface) 70%,transparent); color:var(--ink-soft); box-shadow:none; transform:none;
   }
-  .workspace .sidebar-collapsed :is(.create-menu-anchor>.icon-button,.search-trigger) svg { width:20px; height:20px; }
-  .workspace .sidebar-collapsed :is(.sidebar-logo-expand,.create-menu-anchor>.icon-button,.search-trigger):is(:hover,:focus-visible) { background:var(--surface); color:var(--ink); }
+  .workspace .sidebar-collapsed .create-menu-anchor>.icon-button svg { width:20px; height:20px; }
+  .workspace .sidebar-collapsed :is(.sidebar-logo-expand,.create-menu-anchor>.icon-button):is(:hover,:focus-visible) { background:var(--surface); color:var(--ink); }
   .workspace .sidebar-collapsed .sidebar-logo-art,
   .workspace .sidebar-collapsed .sidebar-logo-arrow { grid-area:1/1; transition:opacity var(--m-press) var(--ease-out),transform var(--m-base) var(--ease-out); }
   .workspace .sidebar-collapsed .sidebar-logo-arrow { opacity:0; transform:scale(.78); }

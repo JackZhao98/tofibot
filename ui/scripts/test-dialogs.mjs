@@ -97,7 +97,7 @@ await check("delete dialog: focus on Cancel, Tab stays inside, page hidden, aria
   truthy(state.focus === "Cancel", `focus starts on "${state.focus}", not Cancel`);
   // Radix hides the rest of the page from screen readers (aria-hidden on everything outside the dialog except live
   // regions and their ancestors), in an effect after the first paint; the app also makes the workspace inert.
-  const BEHIND = [".header-more > button", ".composer textarea", ".message-scroll", ".search-trigger"];
+  const BEHIND = [".header-more > button", ".composer textarea", ".message-scroll", ".sidebar-search, .search-box input"];
   const unhidden = () => page.evaluate(BEHIND => BEHIND.filter(selector => { const el = document.querySelector(selector); return el && !el.closest('[aria-hidden="true"]'); }), BEHIND);
   await page.waitForFunction(BEHIND => BEHIND.every(selector => { const el = document.querySelector(selector); return !el || el.closest('[aria-hidden="true"]'); }), BEHIND, { timeout: 1000 }).catch(() => {});
   const visibleBehind = await unhidden();

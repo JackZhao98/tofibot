@@ -220,17 +220,6 @@ export function workspace(options: AppOptions): Synthetic {
       if (options.boot === "fail" || (options.refreshFails && conversationReads > 1)) return json({ error: { code: "unavailable", message: "Synthetic: the server is busy" } }, 503);
       return json({ conversations: url.searchParams.get("include_archived") ? conversations : conversations.filter(item => !item.archived) });
     }
-    if (p === "/api/search" && method === "GET") {
-      // The synthetic search: a case-insensitive substring over the fixtures' messages, newest first, like internal/app/search.go.
-      const q = (url.searchParams.get("q") ?? "").trim().toLowerCase();
-      const hits = !q ? [] : conversations.filter(item => !item.archived).flatMap(item => (messages.get(item.id) ?? []).flatMap(message => {
-        const at = message.content.toLowerCase().indexOf(q);
-        if (at < 0 || message.kind === "notice") return [];
-        const start = Math.max(0, at - 40);
-        return [{ id: message.id, conversation_id: item.id, conversation_name: item.name, conversation_kind: item.kind, seq: message.seq, role: message.role, created_at: message.created_at, snippet: (start ? "\u2026" : "") + message.content.slice(start, start + 140), match_start: at - start + (start ? 1 : 0), match_len: q.length }];
-      })).sort((x, y) => y.created_at.localeCompare(x.created_at)).slice(0, Number(url.searchParams.get("limit") ?? 20));
-      return json({ query: q, chats: [], messages: hits });
-    }
     const conversationPath = /^\/api\/conversations\/([^/]+)\/([a-z-]+)$/.exec(p);
     if (conversationPath) {
       const [, id, what] = conversationPath;
