@@ -36,6 +36,10 @@ const launcherArg = "__tofi-limits"
 // nearly full. Nothing was written.
 var ErrLowDisk = errors.New("not enough free disk space to install")
 
+// launcherExecutable is the binary that acts as the launcher; tests replace it
+// with a copy every uid can execute.
+var launcherExecutable = os.Executable
+
 // launch returns the command and arguments to give to exec so that the child
 // starts with the limits applied. Without limits (single-tenant, development) it
 // returns them unchanged.
@@ -43,7 +47,7 @@ func (l Limits) launch(command string, args []string) (string, []string) {
 	if l.zero() {
 		return command, args
 	}
-	self, err := os.Executable()
+	self, err := launcherExecutable()
 	if err != nil {
 		return command, args
 	}

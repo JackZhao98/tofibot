@@ -41,6 +41,9 @@ func newTestHub(t *testing.T, mutate func(*HubConfig)) (*Hub, string) {
 	if mutate != nil {
 		mutate(&cfg)
 	}
+	if cfg.IsolateUIDs && os.Geteuid() == 0 {
+		shareTestBinary(t)
+	}
 	hub, err := NewHub(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -487,4 +490,30 @@ func TestImportWriteRefusesSymlinks(t *testing.T) {
 	if err := writeImportFiles(tr, files); err == nil {
 		t.Fatal("wrote over a symlink")
 	}
+}
+
+// shareTestBinary lets account uids execute the test binary, which acts as the
+// launcher children start through. `go test` builds it in a root-only 0700
+// directory; in production the Runner binary is world-executable. Only the test
+// harness is adjusted: the product still launches os.Executable().
+func shareTestBinary(t *testing.T) {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "tofi-launcher-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(os.Args[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "launcher")
+	if err := os.WriteFile(path, data, 0755); err != nil {
+		t.Fatal(err)
+	}
+	old := launcherExecutable
+	launcherExecutable = func() (string, error) { return path, nil }
+	t.Cleanup(func() { launcherExecutable = old; os.RemoveAll(dir) })
 }
