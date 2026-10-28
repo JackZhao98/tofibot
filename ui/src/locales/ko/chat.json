@@ -40,6 +40,10 @@
     "unavailable": "파일을 사용할 수 없습니다. 다시 시도하세요.",
     "unsupported": "미리보기를 지원하지 않습니다",
     "unsupported_hint": "이 형식은 다운로드만 가능합니다.",
+    "upload_failed": "{{name}}을(를) 업로드하지 못했습니다",
+    "upload_failed_short": "업로드 안 됨",
+    "uploading": "{{name}} 업로드 중",
+    "uploading_short": "업로드 중…",
     "viewer": "파일 미리보기",
     "viewer_back": "{{name}}(으)로 돌아가기",
     "viewer_close": "미리보기 닫기",
@@ -117,12 +121,14 @@
   "composer": {
     "add_attachment": "첨부 파일 추가",
     "add_members": "멤버 추가",
+    "already_sent": "이 메시지는 이미 전송되었습니다. 대화에 표시되어 있습니다.",
     "archived": "보관된 대화입니다. 복원하면 계속 채팅할 수 있습니다",
     "cancel_mic": "마이크 시작 취소",
     "cancel_reply": "답장 취소",
+    "check_failed": "이 메시지가 전송되었는지 확인하지 못했습니다. 온라인 상태가 되면 다시 시도하세요.",
     "dictate": "받아쓰기 시작",
-    "drop_hint": "끌어다 놓거나 붙여 넣어도 됩니다",
     "drop_add": "여기에 놓아 추가",
+    "drop_hint": "끌어다 놓거나 붙여 넣어도 됩니다",
     "file": "파일",
     "image": "이미지",
     "input_label": "{{name}}에게 보내기",
@@ -155,8 +161,7 @@
     "stop_menu": "중지 옵션",
     "stop_step": "현재 단계 중지",
     "stop_step_named": "{{name}}의 현재 단계 중지",
-    "too_large": "{{name}}이(가) 20MB를 초과합니다",
-    "uploading": "업로드 중…"
+    "too_large": "{{name}}이(가) 20MB를 초과합니다"
   },
   "computer": {
     "failed": "공유 컴퓨터를 준비하지 못했습니다",
@@ -581,7 +586,16 @@
     "read_by": "읽음: {{names}}",
     "failed": "전송 안 됨",
     "retry": "다시 보내기",
-    "retry_label": "이 메시지 다시 보내기"
+    "retry_label": "이 메시지 다시 보내기",
+    "retrying": "연결이 돌아왔습니다. 다시 보내는 중…",
+    "hint_offline": "오프라인입니다.",
+    "hint_network": "연결이 끊겼습니다.",
+    "hint_server": "서버에 연결할 수 없습니다.",
+    "will_retry": "연결이 돌아오면 다시 시도합니다.",
+    "edit": "수정",
+    "edit_label": "이 메시지를 입력창에서 수정",
+    "delete": "삭제",
+    "delete_label": "전송되지 않은 이 메시지 삭제"
   },
   "related": {
     "bot_conversation": "Bot 대화",

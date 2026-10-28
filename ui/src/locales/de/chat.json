@@ -40,6 +40,10 @@
     "unavailable": "Datei nicht verfügbar. Versuche es erneut.",
     "unsupported": "Keine Vorschau verfügbar",
     "unsupported_hint": "Dieser Dateityp kann nur heruntergeladen werden.",
+    "upload_failed": "{{name}} wurde nicht hochgeladen",
+    "upload_failed_short": "Nicht hochgeladen",
+    "uploading": "{{name}} wird hochgeladen",
+    "uploading_short": "Wird hochgeladen …",
     "viewer": "Dateivorschau",
     "viewer_back": "Zurück zu {{name}}",
     "viewer_close": "Vorschau schließen",
@@ -118,12 +122,14 @@
   "composer": {
     "add_attachment": "Anhang hinzufügen",
     "add_members": "Mitglieder hinzufügen",
+    "already_sent": "Diese Nachricht wurde bereits gesendet. Sie steht in der Unterhaltung.",
     "archived": "Unterhaltung archiviert. Stelle sie wieder her, um weiterzuschreiben.",
     "cancel_mic": "Mikrofonstart abbrechen",
     "cancel_reply": "Antwort abbrechen",
+    "check_failed": "Es konnte nicht geprüft werden, ob die Nachricht gesendet wurde. Versuche es erneut, sobald du wieder online bist.",
     "dictate": "Diktat starten",
-    "drop_hint": "Du kannst Dateien auch hierher ziehen oder einfügen",
     "drop_add": "Zum Hinzufügen loslassen",
+    "drop_hint": "Du kannst Dateien auch hierher ziehen oder einfügen",
     "file": "Datei",
     "image": "Bild",
     "input_label": "An {{name}} senden",
@@ -156,8 +162,7 @@
     "stop_menu": "Stopp-Optionen",
     "stop_step": "Aktuellen Schritt stoppen",
     "stop_step_named": "Aktuellen Schritt von {{name}} stoppen",
-    "too_large": "{{name}} ist größer als 20 MB",
-    "uploading": "Wird hochgeladen…"
+    "too_large": "{{name}} ist größer als 20 MB"
   },
   "computer": {
     "failed": "Gemeinsamer Computer konnte nicht starten",
@@ -596,7 +601,16 @@
     "read_by": "Gelesen von {{names}}",
     "failed": "Nicht gesendet",
     "retry": "Erneut senden",
-    "retry_label": "Diese Nachricht erneut senden"
+    "retry_label": "Diese Nachricht erneut senden",
+    "retrying": "Verbindung wieder da. Wird erneut gesendet …",
+    "hint_offline": "Du bist offline.",
+    "hint_network": "Verbindung unterbrochen.",
+    "hint_server": "Server nicht erreichbar.",
+    "will_retry": "Wird erneut versucht, sobald du wieder online bist.",
+    "edit": "Bearbeiten",
+    "edit_label": "Diese Nachricht im Eingabefeld bearbeiten",
+    "delete": "Löschen",
+    "delete_label": "Diese nicht gesendete Nachricht löschen"
   },
   "related": {
     "bot_conversation": "Bot-Unterhaltung",

@@ -40,6 +40,10 @@
     "unavailable": "檔案暫時無法使用，請重試。",
     "unsupported": "暫不支援預覽",
     "unsupported_hint": "這類檔案只能下載檢視。",
+    "upload_failed": "{{name}} 未能上傳",
+    "upload_failed_short": "未上傳",
+    "uploading": "正在上傳 {{name}}",
+    "uploading_short": "上傳中…",
     "viewer": "檔案預覽",
     "viewer_back": "返回 {{name}}",
     "viewer_close": "關閉預覽",
@@ -117,12 +121,14 @@
   "composer": {
     "add_attachment": "新增附件",
     "add_members": "新增成員",
+    "already_sent": "這則訊息其實已經送出，就在對話裡。",
     "archived": "對話已封存，還原後可繼續聊天",
     "cancel_mic": "取消啟動麥克風",
     "cancel_reply": "取消回覆",
+    "check_failed": "無法確認這則訊息是否已送出。恢復網路後再試。",
     "dictate": "開始聽寫",
-    "drop_hint": "也可以直接拖進來或貼上",
     "drop_add": "放開即可新增",
+    "drop_hint": "也可以直接拖進來或貼上",
     "file": "檔案",
     "image": "圖片",
     "input_label": "傳送給 {{name}}",
@@ -155,8 +161,7 @@
     "stop_menu": "停止選項",
     "stop_step": "停止目前步驟",
     "stop_step_named": "停止 {{name}} 的目前步驟",
-    "too_large": "{{name}} 超過 20MB",
-    "uploading": "上傳中…"
+    "too_large": "{{name}} 超過 20MB"
   },
   "computer": {
     "failed": "共享電腦準備失敗",
@@ -581,7 +586,16 @@
     "read_by": "{{names}} 已讀",
     "failed": "未傳送",
     "retry": "重試",
-    "retry_label": "重新傳送這則訊息"
+    "retry_label": "重新傳送這則訊息",
+    "retrying": "網路已恢復，正在重新傳送…",
+    "hint_offline": "目前離線。",
+    "hint_network": "連線已中斷。",
+    "hint_server": "伺服器暫時無法使用。",
+    "will_retry": "恢復連線後會自動重試一次。",
+    "edit": "編輯",
+    "edit_label": "在輸入框中編輯這則訊息",
+    "delete": "刪除",
+    "delete_label": "刪除這則未傳送的訊息"
   },
   "related": {
     "bot_conversation": "Bot 對話",

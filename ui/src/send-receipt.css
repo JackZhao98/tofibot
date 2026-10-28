@@ -25,3 +25,17 @@
 @keyframes send-receipt-note-in { from { opacity:0; } to { opacity:1; } }
 @keyframes send-receipt-note-out { from { opacity:1; } to { opacity:0; visibility:hidden; } }
 @keyframes send-receipt-settle { from { transform:scale(.7); opacity:.4; } to { transform:none; opacity:1; } }
+
+/* Composer resilience: a failed message offers Retry, Edit and Delete; a message sent again by itself says so. */
+.workspace .message-user .send-receipt.is-failed { flex-wrap:wrap; gap:0 12px; height:auto; min-height:14px; row-gap:2px; }
+.workspace .send-receipt-text { color:var(--danger-text); }
+.workspace .send-receipt-action { height:14px; padding:0; border:0; background:transparent; color:var(--muted); font:inherit; text-decoration:underline; text-underline-offset:2px; }
+.workspace .send-receipt-action:hover { color:var(--ink); }
+.workspace .send-receipt-action:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px; border-radius:3px; }
+.workspace .send-receipt-hint { flex-basis:100%; text-align:right; color:var(--muted); }
+.workspace .message-user .send-receipt.is-retrying { gap:5px; }
+.workspace .send-receipt.is-retrying svg { flex:none; }
+@media (pointer:coarse) { .workspace .send-receipt-action { position:relative; } .workspace .send-receipt-action::after { content:""; position:absolute; inset:-15px -8px; } }
+@media (prefers-reduced-motion:no-preference) {
+  .workspace .send-receipt.is-failed, .workspace .send-receipt.is-retrying { animation:send-receipt-note-in var(--m-base) var(--ease-out); }
+}

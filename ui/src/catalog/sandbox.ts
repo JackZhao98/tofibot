@@ -66,6 +66,23 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   return realFetch(input, init);
 };
 
+/** XHR (uploads with progress) is answered here too: it never touches the network. A first progress step shows, then the synthetic answer decides. */
+class SyntheticXHR extends EventTarget {
+  upload: { onprogress: ((event: { lengthComputable: boolean; loaded: number; total: number }) => void) | null } = { onprogress: null };
+  withCredentials = false; status = 0; responseText = "";
+  onload: (() => void) | null = null; onerror: (() => void) | null = null; ontimeout: (() => void) | null = null;
+  #url = ""; #method = "GET";
+  open(method: string, url: string) { this.#method = method.toUpperCase(); this.#url = url; }
+  send() {
+    const url = new URL(this.#url, location.href);
+    setTimeout(() => this.upload.onprogress?.({ lengthComputable: true, loaded: 40, total: 100 }), 30);
+    Promise.resolve(answer(url, { method: this.#method })).then(async response => {
+      this.status = response.status; this.responseText = await response.text(); this.onload?.();
+    }, () => this.onerror?.());
+  }
+}
+(window as unknown as { XMLHttpRequest: unknown }).XMLHttpRequest = SyntheticXHR;
+
 type Listener = (event: MessageEvent<string>) => void;
 /** Event streams never connect. `window.__catalogEmit(type, data)` delivers a frame to every open stream. */
 class SyntheticEventSource extends EventTarget {

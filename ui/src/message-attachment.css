@@ -112,3 +112,13 @@ html:not([data-desktop]) .workspace .attachment-lightbox-bar small { flex:0 1 au
 @keyframes attachments-arrive { from { opacity:0; transform:translateY(8px); } }
 .workspace .new-arrival .message-attachments { animation:attachments-arrive var(--m-base) var(--ease-out) both; }
 @media (prefers-reduced-motion:reduce) { .workspace .new-arrival .message-attachments { animation:none; } }
+
+/* Optimistic send: the file shows from this device while it goes up; a thin bar tracks the upload (transform only). */
+.workspace .attachment-thumb.is-pending { cursor:default; display:grid; place-items:center; }
+.workspace .attachment-thumb.is-pending img { opacity:.78; }
+.workspace .upload-progress { position:relative; display:block; height:3px; overflow:hidden; background:color-mix(in srgb,var(--ink) 12%,transparent); }
+.workspace .upload-progress.is-overlay { position:absolute; inset:auto 0 0 0; z-index:1; }
+.workspace .upload-progress-bar { position:absolute; inset:0; background:var(--accent-primary-text); transform-origin:left center; }
+.workspace .upload-progress.is-failed .upload-progress-bar { background:var(--danger-text); opacity:.5; }
+.workspace .delivered-attachment.is-pending .attachment-file-open { cursor:default; }
+@media (prefers-reduced-motion:no-preference) { .workspace .upload-progress-bar { transition:transform var(--m-quick) var(--ease-out); } }

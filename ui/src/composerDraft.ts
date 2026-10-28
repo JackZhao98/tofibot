@@ -23,3 +23,35 @@ export function composerDraftMatchesMessage(draft: { content: string; attachment
 export function composerClientMessageId(signature: string, pending: PendingComposerMessage | undefined, createId: () => string) {
   return pending?.signature === signature ? pending.id : createId();
 }
+
+type StoredAttachment = { key: string; name: string; size: number; lastModified: number };
+type DraftShape = { content: string; attachments: StoredAttachment[]; reply?: ComposerReply; pending?: PendingComposerMessage };
+
+/** Reads the stored drafts, dropping anything damaged. Files (bytes) are never stored: such an attachment comes back to be picked again. */
+export function parseStoredDrafts(raw: string | null | undefined): Record<string, DraftShape> {
+  try {
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, DraftShape>;
+    if (!parsed || typeof parsed !== "object") return {};
+    return Object.fromEntries(Object.entries(parsed).flatMap(([id, draft]): [string, DraftShape][] => {
+      if (!draft || typeof draft.content !== "string" || !Array.isArray(draft.attachments)) return [];
+      const attachments = draft.attachments.filter((a) => a && typeof a.key === "string" && typeof a.name === "string" && Number.isFinite(a.size) && Number.isFinite(a.lastModified)).map((a) => ({ ...a }));
+      const reply = draft.reply && typeof draft.reply.id === "string" && typeof draft.reply.name === "string" && typeof draft.reply.excerpt === "string" ? { id: draft.reply.id, name: draft.reply.name, excerpt: draft.reply.excerpt } : undefined;
+      return [[id, { content: draft.content, attachments, reply, pending: draft.pending && typeof draft.pending.id === "string" && typeof draft.pending.signature === "string" ? draft.pending : undefined }]];
+    }));
+  } catch { return {}; }
+}
+
+/** `stored`: every draft without its File objects; `kept`: the ones worth keeping (text, files or a reply). */
+export function storableDrafts<D extends { content: string; attachments: { file?: unknown }[]; reply?: ComposerReply; pending?: PendingComposerMessage }>(drafts: Record<string, D>) {
+  const stored = Object.fromEntries(Object.entries(drafts).map(([id, draft]) => [id, { content: draft.content, reply: draft.reply, pending: draft.pending, attachments: draft.attachments.map(({ file: _file, ...rest }) => rest) }]));
+  const kept = Object.fromEntries(Object.entries(stored).filter(([, d]) => d.content || d.attachments.length || d.reply));
+  return { stored, kept };
+}
+
+/** The acknowledgement of a sent message clears exactly the draft it came from, in its own conversation, and never a newer edit. */
+export function clearSentDraft<D extends { content: string; attachments: ComposerAttachmentIdentity[]; reply?: ComposerReply; pending?: PendingComposerMessage }>(drafts: Record<string, D>, conversationId: string, signature: string, clientMessageId: string, empty: D): Record<string, D> {
+  const source = drafts[conversationId];
+  if (!source || !composerDraftMatchesMessage(source, signature, clientMessageId)) return drafts;
+  return { ...drafts, [conversationId]: empty };
+}

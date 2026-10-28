@@ -15,6 +15,16 @@ export async function send(step: Drive, text: string) {
   await step.type(".composer textarea", text);
   await step.click(".composer .send-button");
 }
+/** Puts a picture in the composer the way the file picker does: the product's own change handler reads it. */
+async function attachPicture(step: Drive) {
+  const png = Uint8Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="), c => c.charCodeAt(0));
+  await step.find(".composer textarea");
+  const input = step.root.querySelector<HTMLInputElement>('.composer input[type="file"]');
+  if (!input) throw new Error("catalog: no file input in the composer");
+  const files = new DataTransfer(); files.items.add(new File([png], "floorplan.png", { type: "image/png" }));
+  input.files = files.files; input.dispatchEvent(new Event("change", { bubbles: true }));
+  await step.find(".composer-attachment-pill, .composer-attachment-name");
+}
 async function hoverMessage(step: Drive, selector: string) {
   await step.hover(await step.find(`${selector} .message-hover-host`));
   await step.find(`${selector} .message-hover-actions`);
@@ -63,8 +73,13 @@ export const receipts: CatalogSection = {
     { id: "read-group", kind: "app", label: "Read in a group, names on hover", app: GROUP,
       drive: step => hoverMessage(step, block("m_grp_launch_7")), force: [{ selector: `${block("m_grp_launch_7")} .send-receipt-mark.has-tip`, state: "hover" }] },
     { id: "sending", kind: "app", label: "Sending", note: "no mark; the bubble is dimmed and a screen reader hears \"Sending\"", app: { ...DM, send: "hang" }, drive: step => send(step, "Is the room booked?") },
-    { id: "failed", kind: "app", label: "Failed, retry", app: { ...DM, send: "fail" }, drive: async step => { await send(step, "Is the room booked?"); await step.find(".send-receipt-retry"); },
+    { id: "failed", kind: "app", label: "Failed, retry", note: "\"Not sent · Retry\", Edit, Delete; the reason in the app's words", app: { ...DM, send: "fail" }, drive: async step => { await send(step, "Is the room booked?"); await step.find(".send-receipt-retry"); },
       force: [{ selector: ".send-receipt-retry", state: "focus" }] },
+    { id: "pending", kind: "app", label: "Pending, with a picture", note: "the bubble is there at once, dimmed; the picture shows from this device with its upload bar", app: { ...DM, send: "upload" },
+      drive: async step => { await attachPicture(step); await send(step, "Here is the floor plan."); await step.find(".attachment-thumb.is-pending .upload-progress"); } },
+    { id: "offline", kind: "app", label: "Offline", note: "\"Not sent\" with \"You're offline\" and the promise of one automatic try", app: { ...DM, send: "offline" }, drive: async step => { await send(step, "Is the room booked?"); await step.find(".send-receipt-hint"); } },
+    { id: "retrying", kind: "app", label: "Retrying", note: "the connection is back: \"Sending again\" on show while the one automatic try is in flight", app: { ...DM, send: "flaky" },
+      drive: async step => { await send(step, "Is the room booked?"); await step.find(".send-receipt-retry"); window.dispatchEvent(new Event("online")); await step.find('.send-receipt[data-state="retrying"]'); } },
   ],
 };
 
@@ -87,7 +102,7 @@ export const composer: CatalogSection = {
     { id: "focus-send", kind: "app", label: "Send button, keyboard focus", app: DM,
       drive: async step => { await step.type(".composer textarea", "Ready to send"); }, force: [{ selector: ".composer .send-button", state: "focus" }] },
   ],
-  gaps: ["Read-only (archived conversation): the archived Bot is not reachable from the synthetic sidebar yet.", "Dictation (recording, transcribing): needs a microphone.", "Uploading attachment ring: needs a file upload in flight; drop a file on a frame to try it."],
+  gaps: ["Read-only (archived conversation): the archived Bot is not reachable from the synthetic sidebar yet.", "Dictation (recording, transcribing): needs a microphone.", "Uploading: see section 3, Pending."],
 };
 
 export const perch: CatalogSection = {

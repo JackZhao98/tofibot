@@ -40,6 +40,10 @@
     "unavailable": "文件暂时不可用，请重试。",
     "unsupported": "暂不支持预览",
     "unsupported_hint": "这类文件只能下载查看。",
+    "upload_failed": "{{name}} 未能上传",
+    "upload_failed_short": "未上传",
+    "uploading": "正在上传 {{name}}",
+    "uploading_short": "上传中…",
     "viewer": "文件预览",
     "viewer_back": "返回 {{name}}",
     "viewer_close": "关闭预览",
@@ -117,12 +121,14 @@
   "composer": {
     "add_attachment": "添加附件",
     "add_members": "添加成员",
+    "already_sent": "这条消息其实已经发出，就在对话里。",
     "archived": "会话已归档，恢复后可继续聊天",
     "cancel_mic": "取消启动麦克风",
     "cancel_reply": "取消回复",
+    "check_failed": "无法确认这条消息是否已发出。恢复网络后再试。",
     "dictate": "开始听写",
-    "drop_hint": "也可以直接拖进来或粘贴",
     "drop_add": "松开即可添加",
+    "drop_hint": "也可以直接拖进来或粘贴",
     "file": "文件",
     "image": "图片",
     "input_label": "发送给 {{name}}",
@@ -155,8 +161,7 @@
     "stop_menu": "停止选项",
     "stop_step": "停止当前步骤",
     "stop_step_named": "停止 {{name}} 的当前步骤",
-    "too_large": "{{name}} 超过 20MB",
-    "uploading": "上传中…"
+    "too_large": "{{name}} 超过 20MB"
   },
   "computer": {
     "failed": "共享电脑准备失败",
@@ -581,7 +586,16 @@
     "read_by": "{{names}} 已读",
     "failed": "未发送",
     "retry": "重试",
-    "retry_label": "重新发送这条消息"
+    "retry_label": "重新发送这条消息",
+    "retrying": "网络已恢复，正在重新发送…",
+    "hint_offline": "当前离线。",
+    "hint_network": "连接已断开。",
+    "hint_server": "服务器暂时不可用。",
+    "will_retry": "恢复连接后会自动重试一次。",
+    "edit": "编辑",
+    "edit_label": "在输入框中编辑这条消息",
+    "delete": "删除",
+    "delete_label": "删除这条未发送的消息"
   },
   "related": {
     "bot_conversation": "Bot conversation",

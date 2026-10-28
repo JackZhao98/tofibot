@@ -40,6 +40,10 @@
     "unavailable": "File unavailable. Try again.",
     "unsupported": "Preview not available",
     "unsupported_hint": "This file type can only be downloaded.",
+    "upload_failed": "{{name}} was not uploaded",
+    "upload_failed_short": "Not uploaded",
+    "uploading": "Uploading {{name}}",
+    "uploading_short": "Uploading…",
     "viewer": "File preview",
     "viewer_back": "Back to {{name}}",
     "viewer_close": "Close preview",
@@ -118,12 +122,14 @@
   "composer": {
     "add_attachment": "Add attachment",
     "add_members": "Add members",
+    "already_sent": "That message was already sent. It is in the conversation.",
     "archived": "Conversation archived. Restore it to keep chatting.",
     "cancel_mic": "Cancel microphone start",
     "cancel_reply": "Cancel reply",
+    "check_failed": "Couldn't check whether this message was sent. Try again when you're back online.",
     "dictate": "Start dictation",
-    "drop_hint": "You can also drag files here or paste them",
     "drop_add": "Drop to add",
+    "drop_hint": "You can also drag files here or paste them",
     "file": "File",
     "image": "Image",
     "input_label": "Send to {{name}}",
@@ -156,8 +162,7 @@
     "stop_menu": "Stop options",
     "stop_step": "Stop current step",
     "stop_step_named": "Stop {{name}}'s current step",
-    "too_large": "{{name}} is over 20 MB",
-    "uploading": "Uploading…"
+    "too_large": "{{name}} is over 20 MB"
   },
   "computer": {
     "failed": "Shared computer failed to start",
@@ -596,7 +601,16 @@
     "read_by": "Read by {{names}}",
     "failed": "Not sent",
     "retry": "Retry",
-    "retry_label": "Retry sending this message"
+    "retry_label": "Retry sending this message",
+    "retrying": "Connection is back. Sending again…",
+    "hint_offline": "You're offline.",
+    "hint_network": "Connection lost.",
+    "hint_server": "Server unavailable.",
+    "will_retry": "Will try again when you're back.",
+    "edit": "Edit",
+    "edit_label": "Edit this message in the composer",
+    "delete": "Delete",
+    "delete_label": "Delete this unsent message"
   },
   "related": {
     "bot_conversation": "Bot conversation",

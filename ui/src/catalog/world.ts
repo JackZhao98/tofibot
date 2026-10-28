@@ -142,7 +142,7 @@ export type AppOptions = {
   /** Mochi has not picked up the last message yet (a queued run): it reads "delivered", not "read". */
   queued?: boolean;
   /** How sending a message ends. */
-  send?: "ok" | "fail" | "hang" | "queued";
+  send?: "ok" | "fail" | "hang" | "queued" | "offline" | "flaky" | "upload";
   /** The first list load works, every refresh after it fails (the refresh toast). */
   refreshFails?: boolean;
   /** After the first list load no /api request answers, so nothing "gets through" to end the proxy-challenge notice. */
@@ -187,6 +187,7 @@ function updateAnswer(update: AppOptions["update"]) {
 /** The server the real App talks to inside a catalog frame. */
 export function workspace(options: AppOptions): Synthetic {
   let conversationReads = 0;
+  let flakyTries = 0;
   const messages = new Map<string, Message[]>([["dm_mochi", dmMessages(options)], ["grp_launch", groupMessages(options)],
     ["dm_miso", [user("dm_miso", 1, "Can you check the launch copy?", 10), reply("dm_miso", 2, "bot_miso", "On it.", 11), reply("dm_miso", 3, "bot_miso", "Found three small fixes.", 25), reply("dm_miso", 4, "bot_miso", "Three copy fixes are ready for review.", 30)]],
     ["dm_nori", [user("dm_nori", 1, "Find a venue for the launch review.", 15), reply("dm_nori", 2, "bot_nori", "Should I book the venue for Thursday?", 20)]],
@@ -222,7 +223,11 @@ export function workspace(options: AppOptions): Synthetic {
       const [, id, what] = conversationPath;
       const list = messages.get(id) ?? [];
       if (what === "messages" && method === "POST") {
-        if (options.send === "hang") return new Promise<Response>(() => {});
+        if (options.send === "hang" || options.send === "upload") return new Promise<Response>(() => {});
+        // The network is gone: the browser reports offline and the request itself fails. "flaky": the first try fails, every later one waits.
+        if (options.send === "offline") { Object.defineProperty(navigator, "onLine", { get: () => false, configurable: true }); return Promise.reject(new TypeError("Failed to fetch")); }
+        if (options.send === "flaky" && (flakyTries += 1) > 1) return new Promise<Response>(() => {});
+        if (options.send === "flaky") return json({ error: { code: "unavailable", message: "Synthetic: restarting for an update" } }, 503);
         if (options.send === "fail") return json({ error: { code: "unavailable", message: "Synthetic: sending failed" } }, 503);
         const body = JSON.parse(String(init?.body ?? "{}")) as { content: string; client_message_id: string };
         const message = user(id, list.length + 1, body.content, 45, { client_message_id: body.client_message_id, id: `m_${id}_sent_${list.length + 1}` });
@@ -231,6 +236,8 @@ export function workspace(options: AppOptions): Synthetic {
         if (options.send === "queued") { message.delivery = "queued"; return json({ message, run: null, runs: [], queued: [{ bot_id: "bot_mochi", run_id: "run_live", inbox_id: `inbox_${list.length}` }] }); }
         return json({ message, run: run(id, "bot_mochi", `run_sent_${list.length}`, message.id, "queued", 45) });
       }
+      // A file that never finishes uploading (its tile shows the bar at 40 %).
+      if (what === "attachments" && method === "POST") return new Promise<Response>(() => {});
       if (what === "messages") return json({ messages: list, drafts: options.running && id === "dm_mochi" ? [liveDraft()] : [], has_more: false, event_cursor: 0 });
       if (what === "runs") return json({ runs: runsFor(id, list, options), has_more: false });
       if (what === "memories") return json({ memories: [] });

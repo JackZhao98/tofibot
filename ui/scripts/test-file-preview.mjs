@@ -166,6 +166,8 @@ try {
     assert.ok(await grid.locator("img").first().evaluate(img => img.getAttribute("loading") === "lazy" && img.hasAttribute("width") && img.hasAttribute("height")), "lazy with reserved size");
     assert.ok((await grid.boundingBox()).width <= 320);
     await grid.locator(".attachment-thumb").first().click();
+    // The lightbox is a lazy chunk, drawn once a picture is opened.
+    await grid.locator("dialog[open]").waitFor({ timeout: 5000 });
     assert.equal(await grid.locator("dialog[open]").count(), 1);
     await page.keyboard.press("Escape");
     await page.waitForTimeout(100);

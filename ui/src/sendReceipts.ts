@@ -1,7 +1,7 @@
 import type { Message, Run } from "./types";
 
-export type ReceiptState = "sending" | "failed" | "delivered" | "read";
-export type Receipt = { state: ReceiptState; readBy: string[]; error?: string };
+export type ReceiptState = "sending" | "retrying" | "failed" | "delivered" | "read";
+export type Receipt = { state: ReceiptState; readBy: string[]; error?: string; reason?: "offline" | "network" | "server" | "rejected"; auto?: boolean };
 
 /** Failure codes that only a run which actually began executing can report. */
 const STARTED_FAILURES = new Set(["execution_failed", "no_final_answer", "budget_exhausted", "tool_stuck", "resumed_repeatedly", "connection_interrupted"]);
@@ -35,7 +35,7 @@ export function runsByTrigger(runs: readonly Run[]): Map<string, Run[]> {
  */
 export function receiptFor(message: Message, runsForMessage: readonly Run[] | undefined, laterReply: boolean): Receipt | null {
   if (!carriesReceipt(message)) return null;
-  if (message.local) return { state: message.local.state, readBy: [], error: message.local.error };
+  if (message.local) return { state: message.local.state, readBy: [], error: message.local.error, reason: message.local.reason, auto: message.local.auto };
   const readBy = [...new Set((runsForMessage ?? []).filter(runStarted).map(run => run.bot_id))];
   if (readBy.length || laterReply) return { state: "read", readBy };
   return { state: "delivered", readBy: [] };

@@ -40,6 +40,10 @@
     "unavailable": "Fichier indisponible. Réessayez.",
     "unsupported": "Aperçu indisponible",
     "unsupported_hint": "Ce type de fichier ne peut être que téléchargé.",
+    "upload_failed": "{{name}} n’a pas été téléversé",
+    "upload_failed_short": "Non téléversé",
+    "uploading": "Téléversement de {{name}}",
+    "uploading_short": "Téléversement…",
     "viewer": "Aperçu du fichier",
     "viewer_back": "Retour à {{name}}",
     "viewer_close": "Fermer l'aperçu",
@@ -119,12 +123,14 @@
   "composer": {
     "add_attachment": "Ajouter une pièce jointe",
     "add_members": "Ajouter des membres",
+    "already_sent": "Ce message a déjà été envoyé. Il figure dans la conversation.",
     "archived": "Conversation archivée. Restaurez-la pour continuer.",
     "cancel_mic": "Annuler le démarrage du micro",
     "cancel_reply": "Annuler la réponse",
+    "check_failed": "Impossible de vérifier si ce message a été envoyé. Réessayez une fois de nouveau en ligne.",
     "dictate": "Démarrer la dictée",
-    "drop_hint": "Vous pouvez aussi glisser ou coller des fichiers ici",
     "drop_add": "Déposez pour ajouter",
+    "drop_hint": "Vous pouvez aussi glisser ou coller des fichiers ici",
     "file": "Fichier",
     "image": "Image",
     "input_label": "Envoyer à {{name}}",
@@ -157,8 +163,7 @@
     "stop_menu": "Options d'arrêt",
     "stop_step": "Arrêter l'étape en cours",
     "stop_step_named": "Arrêter l'étape en cours de {{name}}",
-    "too_large": "{{name}} dépasse 20 Mo",
-    "uploading": "Envoi…"
+    "too_large": "{{name}} dépasse 20 Mo"
   },
   "computer": {
     "failed": "Échec du démarrage de l’ordinateur partagé",
@@ -611,7 +616,16 @@
     "read_by": "Lu par {{names}}",
     "failed": "Non envoyé",
     "retry": "Réessayer",
-    "retry_label": "Réessayer d’envoyer ce message"
+    "retry_label": "Réessayer d’envoyer ce message",
+    "retrying": "Connexion rétablie. Nouvel envoi…",
+    "hint_offline": "Vous êtes hors ligne.",
+    "hint_network": "Connexion perdue.",
+    "hint_server": "Serveur indisponible.",
+    "will_retry": "Nouvelle tentative dès le retour de la connexion.",
+    "edit": "Modifier",
+    "edit_label": "Modifier ce message dans la zone de saisie",
+    "delete": "Supprimer",
+    "delete_label": "Supprimer ce message non envoyé"
   },
   "related": {
     "bot_conversation": "Conversation entre Bots",

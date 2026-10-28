@@ -156,7 +156,7 @@ export interface Message {
   /** A person's message sent while the addressed Bot was working: "queued" until the run reads it at its next step, then "read". Absent for ordinary messages. */
   delivery?: "queued" | "read";
   /** Client only: this message has not been stored by the server (yet). It never comes from the API. */
-  local?: { state: "sending" | "failed"; error?: string };
+  local?: { state: "sending" | "retrying" | "failed"; error?: string; /** Why it failed: drives the line under the bubble and whether the app tries again by itself. */ reason?: "offline" | "network" | "server" | "rejected"; /** The app already tried again on its own once (so it does not loop). */ auto?: boolean };
   notice?: {
     type: string;
     /** Why a "resume" notice was posted, e.g. "restart". */
@@ -194,6 +194,10 @@ export interface Attachment {
   mime: string;
   size: number;
   created_at: string;
+  /** Client only: the file is still on this device on its way up (optimistic send). `progress` is 0..1; `key` is the stable tile identity. */
+  pending?: { progress: number; failed?: boolean };
+  /** Client only: the tile's identity from selection to the server's copy, so the swap from local to uploaded replays nothing. */
+  clientKey?: string;
 }
 
 export interface StreamDraft {
