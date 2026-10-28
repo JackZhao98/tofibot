@@ -936,6 +936,11 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	// Volatile facts trail the history, just before the final input, so the
 	// system text stays cache-stable and the current request stays last.
 	noteText := s.runContextNote(context.Background())
+	if r.Kind == runKindSchedule || r.scheduleTask != nil {
+		if occurrence := s.scheduleOccurrenceNote(r); occurrence != "" {
+			noteText += "\n" + occurrence
+		}
+	}
 	noteBase := noteText
 	states := s.scheduleStateNote(c, r, s.userLocation())
 	if states != "" {

@@ -606,6 +606,7 @@ CREATE TABLE IF NOT EXISTS members(conversation_id TEXT NOT NULL,bot_id TEXT NOT
 CREATE TABLE IF NOT EXISTS messages(id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL,seq INTEGER NOT NULL,role TEXT NOT NULL,kind TEXT NOT NULL DEFAULT '',sender_bot_id TEXT,run_id TEXT,content TEXT NOT NULL,notice_data TEXT,created_at TEXT NOT NULL,client_message_id TEXT,UNIQUE(conversation_id,seq),UNIQUE(conversation_id,client_message_id),FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS message_reactions(message_id TEXT NOT NULL,actor_key TEXT NOT NULL,emoji TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(message_id,actor_key,emoji),FOREIGN KEY(message_id) REFERENCES messages(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS memories(id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL,bot_id TEXT,content TEXT NOT NULL,revision INTEGER NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE);
+CREATE TABLE IF NOT EXISTS memory_provenance(memory_id TEXT PRIMARY KEY,origin TEXT NOT NULL,FOREIGN KEY(memory_id) REFERENCES memories(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS runs(id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL,bot_id TEXT NOT NULL,status TEXT NOT NULL,error TEXT,parent_run_id TEXT,handoff_count INTEGER NOT NULL DEFAULT 0,model TEXT NOT NULL DEFAULT '',kind TEXT NOT NULL DEFAULT '',origin_conversation_id TEXT NOT NULL DEFAULT '',trigger_message_id TEXT NOT NULL DEFAULT '',queue_seq INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS run_wakes(run_id TEXT PRIMARY KEY,request TEXT NOT NULL,source TEXT NOT NULL DEFAULT 'wake',digest TEXT NOT NULL DEFAULT '',FOREIGN KEY(run_id) REFERENCES runs(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS run_waits(run_id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL,bot_id TEXT NOT NULL,wait_for TEXT NOT NULL,lineage TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','fulfilled','expired')),deadline_at TEXT NOT NULL,created_at TEXT NOT NULL,FOREIGN KEY(run_id) REFERENCES runs(id) ON DELETE CASCADE);
@@ -1470,6 +1471,12 @@ func (s *Store) AddMemory(conv, bot, content string) (Memory, error) {
 }
 
 func (s *Store) AddMemoryWithMetadata(conv, bot string, input MemoryInput) (Memory, error) {
+	return s.addMemoryWithOrigin(conv, bot, input, "")
+}
+
+// addMemoryWithOrigin records who the memory came from beside the row. An
+// empty origin writes no provenance, which readers report as unrecorded.
+func (s *Store) addMemoryWithOrigin(conv, bot string, input MemoryInput, origin string) (Memory, error) {
 	title, description, err := normalizeDisplayMetadata(input.Title, input.Description, false)
 	if err != nil {
 		return Memory{}, err
@@ -1486,6 +1493,11 @@ func (s *Store) AddMemoryWithMetadata(conv, bot string, input MemoryInput) (Memo
 	defer tx.Rollback()
 	if _, e = tx.Exec(`INSERT INTO memories(id,conversation_id,bot_id,content,title,description,revision,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`, m.ID, conv, nullString(bot), m.Content, m.Title, m.Description, 1, t, t); e != nil {
 		return Memory{}, e
+	}
+	if origin != "" {
+		if _, e = tx.Exec(`INSERT INTO memory_provenance(memory_id,origin) VALUES(?,?)`, m.ID, origin); e != nil {
+			return Memory{}, e
+		}
 	}
 	if e = insertEventTx(tx, conv, "memory", m, t); e != nil {
 		return Memory{}, e
@@ -3464,7 +3476,7 @@ func (s *Server) conversation(w http.ResponseWriter, r *http.Request, id string)
 		if bot == "" {
 			bot = ""
 		}
-		m, e := s.store.AddMemoryWithMetadata(id, bot, x)
+		m, e := s.store.addMemoryWithOrigin(id, bot, x, memoryOriginOwner)
 		if e != nil {
 			writeErr(w, 500, "storage", e.Error())
 			return
@@ -4757,7 +4769,7 @@ func externalEffectToolSets(name string) bool {
 }
 
 func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
-	base := []Tool{{Name: "save_memory", Description: "Save scoped factual memory with a concise localized title and user-facing description. Use it when you learn something durable about the person or their world (facts about them, the people, animals and things in their life, preferences, plans, decisions) that will matter in later conversations, at the moment you learn it and without being asked, so it survives after the conversation has moved on or its early turns have left your context. Saved memories are listed in your context at the start of each turn. Content is the faithful memory body, not an execution prompt; preserve facts and quoted user wording. Write any assistant-authored instructions in English.", Parameters: objectSchema(memoryInputProperties(), []string{"title", "description", "content"}), Execute: func(ctx context.Context, b json.RawMessage) (string, error) {
+	base := []Tool{{Name: "save_memory", Description: "Save scoped factual memory with a concise localized title and user-facing description. Use it when you learn something durable about the person or their world (facts about them, the people, animals and things in their life, preferences, plans, decisions) that will matter in later conversations, at the moment you learn it and without being asked, so it survives after the conversation has moved on or its early turns have left your context. Saved memories are listed in your context at the start of each turn. Content is the faithful memory body, not an execution prompt; preserve facts and quoted user wording. Write any assistant-authored instructions in English. A lasting change to how a recurring task runs also belongs in that schedule's instructions through update_schedule; a memory alone does not change the schedule.", Parameters: objectSchema(memoryInputProperties(), []string{"title", "description", "content"}), Execute: func(ctx context.Context, b json.RawMessage) (string, error) {
 		var x MemoryInput
 		if json.Unmarshal(b, &x) != nil || strings.TrimSpace(x.Content) == "" {
 			return "", errors.New("content required")
@@ -4779,7 +4791,7 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 		if m, ok := duplicateMemory(existing, x.Content); ok {
 			return "already saved; existing memory id " + m.ID, nil
 		}
-		m, e := s.store.AddMemoryWithMetadata(s.memoryConversationID(c, r.BotID), memoryBot, x)
+		m, e := s.store.addMemoryWithOrigin(s.memoryConversationID(c, r.BotID), memoryBot, x, s.botMemoryOrigin(r, x.Source))
 		return m.ID, e
 	}}, {Name: "search_history", ApprovalExpiryReadOnly: true, Description: "Search this conversation's full stored history for messages containing the given text. Your context holds only recent turns plus a summary of older ones, so use this when the person refers to something said earlier that you do not see in the visible conversation, the summary or the memory, before you answer from general knowledge or say you do not know. The match is on literal text, case-insensitive: query with a distinctive word or short phrase the person is likely to have used, and try another wording if nothing comes back. Returns matching messages in order, up to 50.", Parameters: objectSchema(map[string]any{"query": map[string]any{"type": "string"}}, []string{"query"}), Execute: func(ctx context.Context, b json.RawMessage) (string, error) {
 		var x struct {

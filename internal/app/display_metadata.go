@@ -15,6 +15,9 @@ type MemoryInput struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	Content     string `json:"content"`
+	// Source is the Bot's own statement of where a saved memory came from. It
+	// is read only on a Bot save; the host adds what it can verify beside it.
+	Source string `json:"source,omitempty"`
 }
 
 type MemoryPatch struct {
@@ -101,7 +104,7 @@ func displayDescriptionSchema() map[string]any {
 }
 
 func memoryInputProperties() map[string]any {
-	return map[string]any{"title": displayTitleSchema(), "description": displayDescriptionSchema(), "content": map[string]any{"type": "string", "minLength": 1, "description": "Faithful factual memory body. Preserve names, facts, user wording and language. This is data, not an execution prompt. Any instructions authored by you must be English."}}
+	return map[string]any{"source": map[string]any{"type": "string", "enum": []string{memorySourceUserStated, memorySourceInferred}, "description": "Where the memory comes from: user_stated when the person said it themselves in this conversation, bot_inferred when you concluded it. Optional."}, "title": displayTitleSchema(), "description": displayDescriptionSchema(), "content": map[string]any{"type": "string", "minLength": 1, "description": "Faithful factual memory body. Preserve names, facts, user wording and language. This is data, not an execution prompt. Any instructions authored by you must be English."}}
 }
 
 // Language is a semantic generation requirement, not an ASCII restriction:
@@ -110,6 +113,7 @@ const authoredInstructionGuidance = "Author instruction prompts in English; pres
 
 func memoryUpdateProperties() map[string]any {
 	properties := memoryInputProperties()
+	delete(properties, "source")
 	properties["id"] = map[string]any{"type": "string"}
 	return properties
 }
