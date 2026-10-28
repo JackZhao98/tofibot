@@ -68,6 +68,8 @@ export const approvals: CatalogSection = {
     approval("verified", "With server-checked facts", { verified: [{ label: "Server", value: "calendar" }, { label: "Tool", value: "create_event" }], verifiedTitle: "Checked by Tofi", factsCaption: "Written by the Bot" }),
     approval("remember", "With \"Approve and remember\"", { onRemember: noop, rememberHint: "Later calls to the same address in this chat go ahead without asking." }),
     approval("always", "With \"Always allow\"", { onAlwaysAllow: noop, alwaysAllowHint: "Mochi may use calendar.create_event without asking, also when nobody is watching." }),
+    approval("standing-manage", "With \"Always allow\" and the Manage link to the tool's row in Connections", { onAlwaysAllow: noop, alwaysAllowHint: "Always allow lets Mochi use create_event on calendar without asking, also when it works on its own, until you revoke it in Settings.", manage: { label: "Manage create_event on calendar in Settings", onClick: noop } }),
+    approval("standing-decided", "Decided by a standing allowance, with Manage to Permissions", { resolution: { label: "Approved by a standing allowance", accepted: true }, manage: { label: "Manage allowances in Settings", onClick: noop } }),
     approval("busy", "Working", { busy: "accept" }),
     approval("error", "Failed", { error: "Synthetic: the answer was not saved" }),
     approval("payload-open", "Arguments open", {}, { drive: async step => { await step.click(".approval-payload summary"); } }),

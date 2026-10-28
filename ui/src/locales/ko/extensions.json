@@ -467,14 +467,20 @@
       "high_risk": "항상 묻기"
     },
     "title": "도구 · {{count}}",
-    "raise_note": "‘항상 묻기’로 바꾸면 이 도구의 허용이 철회됩니다."
+    "raise_note": "‘항상 묻기’로 바꾸면 이 도구의 허용이 철회됩니다.",
+    "allowance": {
+      "always": "항상 허용",
+      "revoke": "{{bot}}의 {{tool}} 허용 취소",
+      "stale": "허용이 무효화됨 · 다시 묻습니다"
+    }
   },
   "connections": {
     "title": "연결",
     "add": "연결 추가",
     "action": {
       "authorize": "로그인",
-      "enable_api": "{{name}} API 사용 설정"
+      "enable_api": "{{name}} API 사용 설정",
+      "resume": "다시 시작"
     },
     "menu": {
       "sign_in_again": "다시 로그인"
@@ -535,6 +541,9 @@
       "package": "패키지 및 버전",
       "project": "Google Cloud 프로젝트",
       "repository": "저장소"
-    }
+    },
+    "pause": "연결 일시중지",
+    "resume": "연결 다시 시작",
+    "paused_note": "일시중지됨. Bot이 이 연결을 사용할 수 없습니다. 로그인, 도구 설정, 허용은 그대로 유지됩니다."
   }
 }

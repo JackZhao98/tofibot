@@ -60,7 +60,15 @@ type MCPServerConfig struct {
 	// the configuration fingerprint, so reinstalling another package or version
 	// under the same name voids standing allowances and stale approvals.
 	Provenance *MCPProvenance `json:"provenance,omitempty"`
+	// Enabled is nil (on) or false (paused). A paused server keeps its
+	// configuration, credentials, tool marks and allowances but no run sees it.
+	// It is not part of the configuration fingerprint, so resuming does not
+	// void an allowance. Only SetMCPEnabled writes it; SaveMCP keeps it.
+	Enabled *bool `json:"enabled,omitempty"`
 }
+
+// Paused reports whether the owner paused the server.
+func (c MCPServerConfig) Paused() bool { return c.Enabled != nil && !*c.Enabled }
 
 // MCPOriginCommunity marks a package a person chose and installed themselves,
 // as opposed to a connector TOFI curates.
@@ -203,7 +211,7 @@ func (m *Manager) MCPCallCurrent(call MCPCallApproval) bool {
 func (m *Manager) mcpCallCurrentLocked(call MCPCallApproval) bool {
 	servers, err := loadServers(m.cfg.MCPConfigPath)
 	cfg, ok := servers[call.Server]
-	return err == nil && ok && call.ConfigVersion != "" && metadataFingerprint(call.Server, cfg) == call.ConfigVersion && m.tierBindingCurrent(call, cfg)
+	return err == nil && ok && !cfg.Paused() && call.ConfigVersion != "" && metadataFingerprint(call.Server, cfg) == call.ConfigVersion && m.tierBindingCurrent(call, cfg)
 }
 
 // Hold the configuration fence through dispatch so a settings edit cannot
@@ -290,6 +298,7 @@ func (m *Manager) schemaVersion(name string, cfg MCPServerConfig) string {
 // A stable fingerprint allows private metadata-only index files to survive an
 // App restart. The original URL, headers and credentials never enter the file.
 func metadataFingerprint(name string, cfg MCPServerConfig) string {
+	cfg.Enabled = nil // pausing is not an identity change
 	b, err := json.Marshal(cfg)
 	if err != nil {
 		return ""
@@ -364,6 +373,12 @@ func (m *Manager) prepareMode(ctx context.Context, botID string, scoped, discove
 	skills, skillDiags := m.loadAllSkills(discoverable, discoverable)
 	servers = cloneServers(servers)
 	m.mu.RUnlock()
+	// A paused server is invisible to runs: no discovery, no search, no call.
+	for name, cfg := range servers {
+		if cfg.Paused() {
+			delete(servers, name)
+		}
+	}
 	// The access lookup may touch the database, so it runs outside m.mu. Nothing
 	// below sees the unfiltered slice.
 	skills, skillDiags = m.filterSkillsForBot(ctx, botID, skills, skillDiags)

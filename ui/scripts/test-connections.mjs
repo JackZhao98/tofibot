@@ -48,7 +48,10 @@ import {useAppearance} from '../src/InteractionSystem';
 import {SettingsShell,type SettingsEntry,type SettingsTab} from '../src/SettingsShell';
 import {SettingsPages} from '../src/settings/SettingsPages';
 import {CodexPanel,NotificationSetting} from '../src/settings/AppSlots';
+import {openConnectionDeepLink} from '../src/settings/deepLinks';
 const query=new URLSearchParams(location.search);
+(window as any).openConnectionDeepLink=openConnectionDeepLink;
+{const wait=query.get('pending');if(wait){const [server,tool]=wait.split(':');openConnectionDeepLink({server,tool});}}
 const bots=[{id:'bot_research',name:'Research Bot',is_primary:true,archived:false,model:'default',reasoning_effort:'default'}] as any;
 function Fixture(){
  const appearance=useAppearance();
@@ -77,7 +80,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/extensions/mcp" && method === "GET" && q.get("empty")) return {servers: []};
     if (path === "/api/extensions/mcp" && method === "GET") return {servers: [
       ...(q.get("fresh") ? [] : [{name: "local_gog", url: "http://plugins.internal.example:8787/mcp/gog", transport: "streamable_http", headers: {Authorization: "Bearer x"}, status: {checked_at: "2026-10-21T09:30:00Z", ok: true, tool_count: 3}}]),
-      {name: "notion", url: "https://mcp.notion.com/mcp", transport: "streamable_http", oauth: {client_id: "", connected: true}, status: {checked_at: "2026-10-21T09:30:00Z", ok: true, tool_count: 65}},
+      {name: "notion", url: "https://mcp.notion.com/mcp", transport: "streamable_http", ...(q.get("paused") === "notion" ? {enabled: false} : {}), oauth: {client_id: "", connected: true}, status: {checked_at: "2026-10-21T09:30:00Z", ok: true, tool_count: 65}},
       {name: "google-gmail", url: "https://gmailmcp.googleapis.com/mcp/v1", transport: "streamable_http", oauth: {client_id: "sample", connected: true}, status: q.get("apidisabled") === "status"
         ? {checked_at: "2026-10-21T09:30:00Z", ok: false, tool_count: 23, error_class: "failed", error_code: "api_disabled", api: "gmail.googleapis.com", enable_url: ENABLE}
         : {checked_at: "2026-10-21T09:30:00Z", ok: true, tool_count: 23}},
@@ -109,6 +112,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/extensions/repo-stars") return q.get("nostars") ? {stars: {}} : {stars: {"openclaw/gogcli": 8520, "upstash/context7": 63467, "github/github-mcp-server": 33839, "makenotion/notion-mcp-server": 4673, "MicrosoftDocs/mcp": 1951}};
     if (path === "/api/extensions/google") return q.get("gclient") ? {client: {configured: true, project_id: "tofi-sample-123456", project_number: "622599621014"}, apis: []} : {client: {configured: false}, apis: []};
     if (path === "/api/auto-review-settings") return {mode: "auto", review_scope: "all_external_tools"};
+    if (path === "/api/standing-allowances" && q.get("allow") === "chips") return {allowances: [
+      {id: "al-3", bot_id: "bot_research", bot_name: "Research Bot", server: "notion", tool: "tool_2", state: "active", created_at: "2026-10-21T16:00:00Z", use_count: 5, last_used_at: "2026-10-26T14:30:00Z"},
+      {id: "al-4", bot_id: "bot_research", bot_name: "Research Bot", server: "acme_tracker", tool: "tool_2", state: "active", created_at: "2026-10-21T16:00:00Z", use_count: 1}], remembered: []};
     if (path === "/api/standing-allowances") return q.get("allow") ? {allowances: [
       {id: "al-1", bot_id: "bot_research", bot_name: "Research Bot", server: "notion", tool: "create_page", state: "active", created_at: "2026-10-21T16:00:00Z", use_count: 5, last_used_at: "2026-10-26T14:30:00Z"},
       {id: "al-2", bot_id: "bot_research", bot_name: "Research Bot", server: "acme_tracker", tool: "send_message", state: "server_changed", created_at: "2026-10-22T16:00:00Z", use_count: 0}],
@@ -193,6 +199,25 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
         await community.page.locator('[data-section="tools"]').scrollIntoViewIfNeeded();
         await shot(community.page, "detail-community", width, theme);
         await community.close();
+        const paused = await open({paused: "notion"}, {width, height, theme});
+        await paused.page.locator('.mcp-service[aria-label="Notion"][data-kind="paused"]').waitFor();
+        await shot(paused.page, "row-paused", width, theme);
+        await openDetail(paused.page, "Notion");
+        await paused.page.waitForTimeout(500);
+        await shot(paused.page, "detail-paused", width, theme);
+        await paused.close();
+        const chips = await open({allow: "chips"}, {width, height, theme});
+        await openDetail(chips.page, "Notion");
+        await chips.page.locator(".mcp-allowance").waitFor();
+        await chips.page.locator('[data-section="tools"]').scrollIntoViewIfNeeded();
+        await chips.page.waitForTimeout(500);
+        await shot(chips.page, "detail-allowance-chips", width, theme);
+        await chips.close();
+        const link = await open({pending: "notion:tool_5"}, {width, height, theme});
+        await link.page.waitForFunction(() => document.querySelector('.mcp-tool[data-tool="tool_5"]')?.hasAttribute("data-flash"), null, {timeout: 5000});
+        await link.page.waitForTimeout(120);
+        await shot(link.page, "detail-deeplink-flash", width, theme);
+        await link.close();
         const empty = await open({empty: "1", fresh: "1"}, {width, height, theme});
         await empty.page.locator(".mcp-empty").waitFor();
         await empty.page.waitForTimeout(900);
@@ -647,6 +672,73 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await plain.close();
     }
     console.log("PASS loopback-only provider: paste-back whether or not a shared computer exists, never the https popup; address not echoed; others unchanged");
+
+
+    // ---- 6f. Pause and Resume keep everything; the approval card's Manage link opens the connection on the tool.
+    {
+      // A paused connection reads Paused with Resume; its page says what is kept and offers Resume connection.
+      const {page, close, posts} = await open({paused: "notion"});
+      const notion = row(page, "Notion");
+      await page.locator('.mcp-service[aria-label="Notion"][data-kind="paused"]').waitFor();
+      assert.match((await notion.locator(".mcp-service-status").innerText()).trim(), /^Paused/);
+      assert.deepEqual(posts.filter(post => /\/mcp\/notion\/test$/.test(post.path)), [], "a paused connection is not probed");
+      const detail = await openDetail(page, "Notion");
+      assert.match(await detail.locator(".conn-status").innerText(), /Paused\. Bots can't use this connection/, "the page says what pausing keeps");
+      assert.equal(await detail.locator(".conn-status").getByRole("button", {name: "Resume"}).count(), 1, "Resume leads on the status line");
+      await detail.locator(".conn-danger").getByRole("button", {name: "Resume connection"}).click();
+      await page.waitForTimeout(200);
+      const resume = posts.find(post => /\/mcp\/notion\/enabled$/.test(post.path));
+      assert.ok(resume, "Resume is one PUT to the enabled route");
+      assert.deepEqual(JSON.parse(resume.body), {enabled: true});
+      await close();
+      // Pausing a running connection is one PUT, from the Danger section, never a removal.
+      const running = await open();
+      const page2 = running.page;
+      const d2 = await openDetail(page2, "Notion");
+      assert.equal(await d2.locator(".conn-danger").getByRole("button", {name: "Pause connection"}).count(), 1);
+      await d2.locator(".conn-danger").getByRole("button", {name: "Pause connection"}).click();
+      await page2.waitForTimeout(200);
+      const pause = running.posts.find(post => /\/mcp\/notion\/enabled$/.test(post.path));
+      assert.deepEqual(pause && JSON.parse(pause.body), {enabled: false});
+      assert.ok(!running.posts.some(post => /DELETE|oauth\/disconnect/.test(post.path) && /notion/.test(post.path)), "pausing removes and disconnects nothing");
+      await running.close();
+      console.log("PASS pause: a paused row reads Paused with Resume and is not probed; pause and resume are one PUT each; nothing is removed");
+    }
+    {
+      // Always allowed chips: one per allowance on this connection, a revoke that fades the chip out.
+      const {page, close, writes} = await open({allow: "chips"});
+      const detail = await openDetail(page, "Notion");
+      const chip = detail.locator('.mcp-tool[data-tool="tool_2"] .mcp-allowance');
+      await chip.waitFor();
+      assert.match(await chip.innerText(), /Always allowed · Research Bot/);
+      assert.equal(await detail.locator(".mcp-allowance").count(), 1, "another connection's allowance is not shown here");
+      await chip.getByRole("button", {name: "Revoke Research Bot's allowance for tool_2"}).click();
+      await detail.locator(".mcp-allowance").waitFor({state: "detached", timeout: 3000});
+      assert.ok(writes.includes("DELETE /api/standing-allowances/al-3"), "Revoke deletes that allowance");
+      await close();
+      console.log("PASS allowances: chips under the tool, only this connection's, Revoke removes the chip");
+    }
+    {
+      // The deep link: a target set before the page mounts, and one sent while it is open, both land on the tool and flash it.
+      const early = await open({pending: "notion:tool_5"});
+      const detail = early.page.locator(".mcp-detail");
+      await detail.waitFor();
+      assert.match(await detail.locator(".mcp-detail-title h3").innerText(), /Notion/, "the connection's page opens by itself");
+      await early.page.waitForFunction(() => document.querySelector('.mcp-tool[data-tool="tool_5"]')?.hasAttribute("data-flash"), null, {timeout: 5000});
+      await early.page.waitForFunction(() => !document.querySelector('.mcp-tool[data-flash]'), null, {timeout: 5000});
+      await early.close();
+      const live = await open();
+      await live.page.evaluate(() => window.openConnectionDeepLink({server: "notion", tool: "tool_3"}));
+      await live.page.locator(".mcp-detail").waitFor();
+      await live.page.waitForFunction(() => document.querySelector('.mcp-tool[data-tool="tool_3"]')?.hasAttribute("data-flash"), null, {timeout: 5000});
+      await live.close();
+      // A link to a connection that is gone leaves the list, not a blank page.
+      const gone = await open({pending: "vanished:tool_1"});
+      await gone.page.waitForTimeout(800);
+      assert.equal(await gone.page.locator(".mcp-list-pane").evaluate(el => el.hidden), false, "an unknown connection leaves the list showing");
+      await gone.close();
+      console.log("PASS deep link: opens the connection and flashes the tool, early or while open; an unknown connection is ignored");
+    }
 
     // ---- 8. Phone width: no horizontal overflow, 44 px targets for the controls that matter.
     {

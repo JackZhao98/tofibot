@@ -49,7 +49,7 @@ const detailBase: ConnectionDetailViewProps = {
   name: "Notion", mark: "Notion", source: "Official · mcp.notion.com", serverName: "notion", kind: "ready", statusText: "Connected", detail: "6 tools", checkedText: "Checked 2 minutes ago",
   primary: null, menu: [{ key: "edit", label: "Edit settings", onSelect: noop }], busy: false, facts: [], tiers: NOTION_TOOLS, onTiers: noop, community: false,
   advanced: { source: "Official · mcp.notion.com", repo: { name: "makenotion/notion-mcp-server", stars: 4673 }, address: "https://mcp.notion.com/mcp", transport: "streamable_http", scopes: ["read", "write"] },
-  danger: [{ key: "disconnect", label: "Disconnect", onSelect: noop }, { key: "remove", label: "Remove service", remove: true, onSelect: noop }], confirm: null, onBack: noop, onRefresh: noop, refreshing: false,
+  danger: [{ key: "pause", label: "Pause connection", onSelect: noop }, { key: "disconnect", label: "Disconnect", onSelect: noop }, { key: "remove", label: "Remove service", remove: true, onSelect: noop }], confirm: null, allowances: [], onRevoke: async () => {}, onDropAllowance: noop, onBack: noop, onRefresh: noop, refreshing: false,
 };
 function connectionDetail(id: string, label: string, props: Partial<ConnectionDetailViewProps>, extra: Partial<CatalogState> = {}): CatalogState {
   return { id: `connection-detail-${id}`, kind: "inline", label, ...extra, render: () => <div className="extension-panel mcp-settings" data-view="detail"><div className="mcp-detail-pane"><ConnectionDetailView {...detailBase} {...props} /></div></div> };
@@ -237,6 +237,13 @@ export const settings: CatalogSection = {
     connectionDetail("community", "Connection page: community package", { name: "acme_pkg", serverName: "local_acme_pkg", source: "Community · acme-mcp 1.0.0", community: true,
       tiers: { read_only: 1, write: 2, high_risk: 0, tools: [{ name: "get_thing", description: "Marked by the owner", tier: "read_only", source: "owner", override: "read_only" }, { name: "list_things", description: "The package says read only; ignored", tier: "write", source: "default", read_only_hint: true }, { name: "send_thing", description: "Writes", tier: "write", source: "default" }] },
       advanced: { source: "Community · acme-mcp 1.0.0", pkg: "acme-mcp 1.0.0", communityNote: true } }),
+    connectionDetail("paused", "Connection page: paused, Resume leads, allowances kept", { name: "Discord", mark: "Discord", serverName: "discord", source: "Community · @discord-mcp/cli 0.32.1", kind: "paused", statusText: "Paused", detail: undefined, checkedText: undefined, community: true,
+      note: "Paused. Bots can't use this connection. Its sign-in, tool settings and allowances are kept.", primary: { label: "Resume", onClick: noop },
+      danger: [{ key: "pause", label: "Resume connection", onSelect: noop }, { key: "remove", label: "Remove service", remove: true, onSelect: noop }] }),
+    connectionDetail("allowances", "Connection page: Always allowed chips under a tool (one active, one voided)", { allowances: [
+      { id: "al_1", bot_id: "bot_taro", bot_name: "Taro", server: "notion", tool: "create_page", state: "active", created_at: "2026-10-21T10:00:00Z", use_count: 5, last_used_at: "2026-10-26T14:02:00Z" },
+      { id: "al_2", bot_id: "bot_mochi", bot_name: "Mochi", server: "notion", tool: "create_page", state: "tool_changed", created_at: "2026-10-22T10:00:00Z", use_count: 0 },
+    ] }, { note: "each chip has its own Revoke; the chip fades out over --m-press, in over --m-quick" }),
     connectionDetail("remove-confirm", "Connection page: confirming removal", { confirm: { text: "Remove Notion?", submit: "Remove", onCancel: noop, onConfirm: noop } }),
     connectDialog("directory", "Add connection: directory", { view: "directory" }, null, { note: "Gmail (gogcli) first, official services, the Workspace preview grouping with its enrolment line, then Custom" }),
     connectDialog("gmail", "Add connection: Gmail via gogcli (first Google service)", { view: "gog" }),

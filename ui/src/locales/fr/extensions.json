@@ -477,14 +477,20 @@
       "high_risk": "Demande toujours"
     },
     "title": "Outils · {{count}}",
-    "raise_note": "Passer à « Demande toujours » met fin à ses autorisations."
+    "raise_note": "Passer à « Demande toujours » met fin à ses autorisations.",
+    "allowance": {
+      "always": "Toujours autorisé",
+      "revoke": "Révoquer l'autorisation de {{bot}} pour {{tool}}",
+      "stale": "Autorisation annulée · redemande"
+    }
   },
   "connections": {
     "title": "Connexions",
     "add": "Ajouter une connexion",
     "action": {
       "authorize": "Se connecter",
-      "enable_api": "Activer l’API {{name}}"
+      "enable_api": "Activer l’API {{name}}",
+      "resume": "Reprendre"
     },
     "menu": {
       "sign_in_again": "Se reconnecter"
@@ -547,6 +553,9 @@
       "package": "Paquet et version",
       "project": "Projet Google Cloud",
       "repository": "Dépôt"
-    }
+    },
+    "pause": "Mettre la connexion en pause",
+    "resume": "Reprendre la connexion",
+    "paused_note": "En pause. Les Bots ne peuvent pas utiliser cette connexion. La connexion, les réglages des outils et les autorisations sont conservés."
   }
 }

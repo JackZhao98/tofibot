@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { request } from "../api";
+import { BotAvatar } from "../BotAvatar";
+import type { StandingAllowance } from "../StandingAllowances";
 import { Disclosure } from "../InteractionSystem";
 import { TofiIcon } from "../icons";
 import { ServiceMark } from "../ServiceMark";
@@ -26,6 +28,10 @@ export type ConnectionDetailViewProps = {
   facts: string[];
   tiers: ToolTierList | null; onTiers: (value: ToolTierList) => void; community: boolean; toolsError?: string;
   advanced: AdvancedFacts; help?: ReactNode;
+  /** A tool to scroll to and flash once the list is in (the approval card's "Manage" link). */
+  focusTool?: string;
+  /** The "Always allowed" rows for this connection and how to revoke one; `onDropAllowance` removes a chip after its exit. */
+  allowances: StandingAllowance[]; onRevoke: (item: StandingAllowance) => Promise<void>; onDropAllowance: (id: string) => void;
   danger: DetailDanger; confirm: DetailConfirm | null;
   onBack: () => void; onRefresh: () => void; refreshing: boolean;
 };
@@ -54,7 +60,7 @@ function TierMenu({ tool, busy, saving, onPick }: { tool: ToolTierView; busy: bo
 }
 
 /** Tools grouped by permission, a menu per tool, community rule stated. */
-function ToolsSection({ serverName, tiers, onTiers, busy, community, refreshing, loadError }: { serverName: string; tiers: ToolTierList | null; onTiers: (value: ToolTierList) => void; busy: boolean; community: boolean; refreshing: boolean; loadError?: string }) {
+function ToolsSection({ serverName, tiers, onTiers, busy, community, refreshing, loadError, focusTool, allowances, onRevoke, onDrop }: { serverName: string; tiers: ToolTierList | null; onTiers: (value: ToolTierList) => void; busy: boolean; community: boolean; refreshing: boolean; loadError?: string; focusTool?: string; allowances: StandingAllowance[]; onRevoke: (item: StandingAllowance) => Promise<void>; onDrop: (id: string) => void }) {
   const { t } = useTranslation("extensions");
   const [saving, setSaving] = useState("");
   const [error, setError] = useState("");
@@ -68,8 +74,33 @@ function ToolsSection({ serverName, tiers, onTiers, busy, community, refreshing,
     } catch (e) { if (alive.current) setError(message(e)); }
     finally { if (alive.current) setSaving(""); }
   }
+  // "Always allowed" chips: the same rows as Settings > Permissions, filtered to this connection (MCPRow reads them).
+  const [leaving, setLeaving] = useState<string[]>([]);
+  async function revoke(item: StandingAllowance) {
+    setError("");
+    try {
+      await onRevoke(item);
+      if (!alive.current) return;
+      // The chip leaves with a short fade; reduced motion has no animation to wait for.
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) onDrop(item.id);
+      else setLeaving(list => [...list, item.id]);
+    } catch (e) { if (alive.current) setError(message(e)); }
+  }
+  // Arriving from an approval card: bring the tool into view and flash it once.
+  const list = useRef<HTMLDivElement>(null);
+  const [flash, setFlash] = useState("");
+  useEffect(() => {
+    if (!focusTool || !tiers) return;
+    const row = [...(list.current?.querySelectorAll<HTMLElement>("[data-tool]") ?? [])].find(node => node.dataset.tool === focusTool);
+    if (!row) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    row.scrollIntoView({ block: "center", behavior: reduced ? "auto" : "smooth" });
+    setFlash(focusTool);
+    const timer = window.setTimeout(() => setFlash(""), 1600);
+    return () => window.clearTimeout(timer);
+  }, [focusTool, tiers]);
   const groups = tiers ? TIERS.map(tier => ({ tier, tools: tiers.tools.filter(tool => tool.tier === tier) })) : [];
-  return <section className="conn-section" data-section="tools" aria-labelledby="conn-tools-title" aria-busy={refreshing}>
+  return <section className="conn-section" data-section="tools" aria-labelledby="conn-tools-title" aria-busy={refreshing} ref={list}>
     <h4 id="conn-tools-title">{t("tools.title", { count: tiers?.tools.length ?? 0 })}</h4>
     <p className="conn-lead">{t("tools.explain")}</p>
     {community && <p className="conn-lead" data-capability="community">{t("capabilities.community_note")}</p>}
@@ -79,8 +110,15 @@ function ToolsSection({ serverName, tiers, onTiers, busy, community, refreshing,
       <h5>{t(`tools.group.${group.tier}`)}<span className="mcp-tool-count">{group.tools.length}</span></h5>
       <ul>{group.tools.map(tool => {
         const marker = tool.source === "owner" ? t("tools.source.owner") : tool.source === "provider" ? t("tools.source.provider") : "";
-        return <li key={tool.name} className="mcp-tool" data-tool={tool.name} data-source={tool.source} data-changed={tool.changed ? "true" : undefined}>
-          <div className="mcp-tool-copy"><code>{tool.name}</code>{tool.description && <p>{tool.description}</p>}<span className="mcp-tool-marks">{marker && <small className="mcp-tier-mark">{marker}</small>}{tool.duplicated && <small className="mcp-tier-mark">{t("tools.duplicated")}</small>}{tool.changed && <small className="mcp-tier-mark is-changed">{t("tools.changed")}</small>}</span></div>
+        const granted = allowances.filter(item => item.tool === tool.name);
+        return <li key={tool.name} className="mcp-tool" data-tool={tool.name} data-source={tool.source} data-changed={tool.changed ? "true" : undefined} data-flash={flash === tool.name ? "true" : undefined}>
+          <div className="mcp-tool-copy"><code>{tool.name}</code>{tool.description && <p>{tool.description}</p>}<span className="mcp-tool-marks">{marker && <small className="mcp-tier-mark">{marker}</small>}{tool.duplicated && <small className="mcp-tier-mark">{t("tools.duplicated")}</small>}{tool.changed && <small className="mcp-tier-mark is-changed">{t("tools.changed")}</small>}</span>
+            {granted.length > 0 && <ul className="mcp-allowances" aria-label={t("tools.allowance.always")}>{granted.map(item => <li key={item.id} className="mcp-allowance" data-state={item.state} data-leaving={leaving.includes(item.id) ? "true" : undefined}
+              onAnimationEnd={() => { if (leaving.includes(item.id)) { onDrop(item.id); setLeaving(list => list.filter(id => id !== item.id)); } }}>
+              <BotAvatar id={item.bot_id} mini />
+              <span>{item.state === "active" ? t("tools.allowance.always") : t("tools.allowance.stale")} · {item.bot_name}</span>
+              <button type="button" aria-label={t("tools.allowance.revoke", { bot: item.bot_name, tool: tool.name })} disabled={leaving.includes(item.id)} onClick={() => void revoke(item)}><TofiIcon name="close" size={12} aria-hidden="true" /></button>
+            </li>)}</ul>}</div>
           <TierMenu tool={tool} busy={busy || refreshing} saving={saving === tool.name} onPick={value => void setTier(tool, value)} />
         </li>;
       })}</ul>
@@ -143,7 +181,7 @@ export function ConnectionDetailView(props: ConnectionDetailViewProps) {
         {props.help}
       </div>
     </section>
-    <ToolsSection serverName={props.serverName} tiers={props.tiers} onTiers={props.onTiers} busy={props.busy} community={props.community} refreshing={props.refreshing} loadError={props.toolsError} />
+    <ToolsSection serverName={props.serverName} tiers={props.tiers} onTiers={props.onTiers} busy={props.busy} community={props.community} refreshing={props.refreshing} loadError={props.toolsError} focusTool={props.focusTool} allowances={props.allowances} onRevoke={props.onRevoke} onDrop={props.onDropAllowance} />
     <AdvancedSection facts={props.advanced} />
     <section className="conn-section conn-danger" data-section="danger" aria-labelledby="conn-danger-title">
       <h4 id="conn-danger-title">{t("detail.danger")}</h4>

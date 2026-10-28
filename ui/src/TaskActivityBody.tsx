@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import "./approval-card.css";
 import { TofiIcon } from "./icons";
 import { MessageMarkdown } from "./MessageMarkdown";
 import { requestFullToolResult } from "./toolResultLoader";
@@ -6,6 +7,7 @@ import { ToolStatusIcon } from "./ToolStatusIcon";
 import { toolDisplayLabel, foldToolRuns, toolDisplayState, toolStepTitle, toolStepSeconds, formatStepSeconds, toolStepDetail } from "./toolTimeline";
 import { taskCertaintyText, taskOutcomeText, taskStatusText, type TaskOwner } from "./taskIssuePresentation";
 import { useTranslation, type Language } from "./i18n";
+import { openPermissionsDeepLink } from "./settings/deepLinks";
 import { formatClock } from "./i18n/format";
 import { approvalFactRows } from "./extensionFacts";
 import { REMEMBERED_APPROVAL_ACTOR, STANDING_ALLOWANCE_ACTOR, type Question } from "./questionTimeline";
@@ -63,7 +65,7 @@ export function TaskActivityBody({ owner, tools, drafts, messages, summaries, de
   const attemptStatus = (status: string) => ({ done: t("activity.attempt.done"), failed: t("activity.attempt.failed"), cancelled: t("activity.attempt.cancelled"), interrupted: t("activity.attempt.interrupted") } as Record<string, string>)[status] ?? t("activity.attempt.ended");
   return <>
       {owner.family.previous.map((attempt, index) => <p key={attempt.id} className="task-record-meta">{t("activity.previous_attempt", { number: index + 1, status: attemptStatus(attempt.status) })}</p>)}
-      {rememberedDecisions.map(question => <p key={question.question_id} className="task-record-meta task-remembered-record" data-question-record-id={question.question_id}>{t(question.answered_by === STANDING_ALLOWANCE_ACTOR ? "record.standing_decision" : "record.remembered_decision")}</p>)}
+      {rememberedDecisions.map(question => <p key={question.question_id} className="task-record-meta task-remembered-record" data-question-record-id={question.question_id}>{t(question.answered_by === STANDING_ALLOWANCE_ACTOR ? "record.standing_decision" : "record.remembered_decision")}{question.answered_by === STANDING_ALLOWANCE_ACTOR && <> <button type="button" className="text-button approval-manage" aria-label={t("approval.manage_allowances")} onClick={openPermissionsDeepLink}>{t("approval.manage")}<TofiIcon name="chevron-right" size={12} aria-hidden="true" /></button></>}</p>)}
       {recordedQuestions.map(question => <section className="task-question-record" key={question.question_id} data-question-record-id={question.question_id} tabIndex={-1}>
         <p>{question.question_type === "approval" ? question.approval?.review_only || question.approval?.review?.status.startsWith("shadow") ? t("record.observation_only") : question.status === "answered" && question.answer === true ? t("record.approved_unconfirmed") : question.status === "expired" ? t("record.approval_expired") : t("record.decision") : t("record.answer")}</p>
         <dl><div><dt>{t("record.status")}</dt><dd>{taskStatusText(question.approval?.review?.status ?? question.status, locale)}</dd></div>{question.outcome && <div><dt>{t("record.execution")}</dt><dd>{taskCertaintyText(question.outcome.execution_certainty, locale)}</dd></div>}</dl>

@@ -467,14 +467,20 @@
       "high_risk": "每次都問"
     },
     "title": "工具 · {{count}}",
-    "raise_note": "改為「每次都問」會撤銷它已有的放行。"
+    "raise_note": "改為「每次都問」會撤銷它已有的放行。",
+    "allowance": {
+      "always": "一律放行",
+      "revoke": "撤銷 {{bot}} 對 {{tool}} 的放行",
+      "stale": "放行已失效 · 會再次詢問"
+    }
   },
   "connections": {
     "title": "連線",
     "add": "新增連線",
     "action": {
       "authorize": "登入",
-      "enable_api": "啟用 {{name}} API"
+      "enable_api": "啟用 {{name}} API",
+      "resume": "恢復"
     },
     "menu": {
       "sign_in_again": "重新登入"
@@ -535,6 +541,9 @@
       "package": "套件與版本",
       "project": "Google Cloud 專案",
       "repository": "程式碼儲存庫"
-    }
+    },
+    "pause": "暫停連線",
+    "resume": "恢復連線",
+    "paused_note": "已暫停。Bot 用不了這個連線,登入狀態、工具設定和放行都保留。"
   }
 }

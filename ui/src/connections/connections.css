@@ -149,3 +149,18 @@
 .permissions-how .permissions-how-row{display:grid;gap:2px;padding:12px 16px}
 .permissions-how .permissions-how-row strong{font:600 13.5px/1.4 var(--display)}
 .permissions-how .permissions-how-row p{margin:0;font-size:12.5px;line-height:1.5;color:var(--muted)}
+
+/* Always-allowed chips under a tool (step 3). In: fade and rise over --m-quick; out: a shorter fade (--m-press). Reduced motion: none. */
+.mcp-allowances{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 0;padding:0;list-style:none}
+.mcp-allowance{display:inline-flex;align-items:center;gap:6px;min-height:26px;padding:0 4px 0 6px;border-radius:var(--radius-pill);background:color-mix(in srgb,var(--green) 13%,transparent);color:var(--ink);font:var(--type-status);animation:conn-chip-in var(--m-quick) var(--ease-out) both}
+.mcp-allowance[data-state]:not([data-state=active]){background:color-mix(in srgb,var(--honey) 18%,transparent)}
+.mcp-allowance[data-leaving]{animation:conn-chip-out var(--m-press) var(--ease-in) both;pointer-events:none}
+.mcp-allowance button{display:grid;place-items:center;width:20px;height:20px;border:0;border-radius:50%;background:transparent;color:var(--ink-soft);transition:background var(--m-quick) var(--ease-out)}
+.mcp-allowance button:hover:not(:disabled){background:color-mix(in srgb,var(--text) 10%,transparent);color:var(--ink)}
+.mcp-allowance button:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:1px}
+@keyframes conn-chip-in{from{opacity:0;transform:translateY(3px) scale(.96)}}
+@keyframes conn-chip-out{to{opacity:0;transform:scale(.96)}}
+/* Arriving from an approval card: the tool's row takes a tint that fades out over --m-flight. */
+.mcp-tool[data-flash]{animation:conn-tool-flash var(--m-flight) var(--ease-out) both}
+@keyframes conn-tool-flash{from{background:color-mix(in srgb,var(--lagoon) 28%,transparent)}to{background:transparent}}
+@media(prefers-reduced-motion:reduce){.mcp-allowance,.mcp-allowance[data-leaving]{animation:none}.mcp-tool[data-flash]{animation:none;background:color-mix(in srgb,var(--lagoon) 22%,transparent)}}

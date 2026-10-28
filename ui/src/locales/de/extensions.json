@@ -472,14 +472,20 @@
       "high_risk": "Fragt immer nach"
     },
     "title": "Tools · {{count}}",
-    "raise_note": "Die Umstellung auf „Fragt immer nach“ beendet seine Freigaben."
+    "raise_note": "Die Umstellung auf „Fragt immer nach“ beendet seine Freigaben.",
+    "allowance": {
+      "always": "Immer erlaubt",
+      "revoke": "Freigabe von {{bot}} für {{tool}} widerrufen",
+      "stale": "Freigabe ungültig · fragt erneut"
+    }
   },
   "connections": {
     "title": "Verbindungen",
     "add": "Verbindung hinzufügen",
     "action": {
       "authorize": "Anmelden",
-      "enable_api": "{{name}}-API aktivieren"
+      "enable_api": "{{name}}-API aktivieren",
+      "resume": "Fortsetzen"
     },
     "menu": {
       "sign_in_again": "Erneut anmelden"
@@ -541,6 +547,9 @@
       "package": "Paket und Version",
       "project": "Google-Cloud-Projekt",
       "repository": "Repository"
-    }
+    },
+    "pause": "Verbindung pausieren",
+    "resume": "Verbindung fortsetzen",
+    "paused_note": "Pausiert. Bots können diese Verbindung nicht nutzen. Anmeldung, Werkzeugeinstellungen und Freigaben bleiben erhalten."
   }
 }

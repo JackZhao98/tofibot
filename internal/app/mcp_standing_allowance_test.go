@@ -861,3 +861,20 @@ func TestStandingAllowanceUseRecordedInClaimTransaction(t *testing.T) {
 		}
 	})
 }
+
+// Pausing a connection does not change its identity: the allowance stays
+// active, and resuming needs no new approval.
+func TestMCPPauseKeepsAllowances(t *testing.T) {
+	f := newAutoReviewFixture(t)
+	id := approveAlways(t, f)
+	if err := f.s.extensions.SetMCPEnabled("fixture", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.s.extensions.SetMCPEnabled("fixture", true); err != nil {
+		t.Fatal(err)
+	}
+	list, err := f.s.listStandingAllowances()
+	if err != nil || len(list) != 1 || list[0].ID != id || list[0].State != "active" {
+		t.Fatalf("allowance after pause and resume: %+v %v", list, err)
+	}
+}

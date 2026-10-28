@@ -521,7 +521,10 @@
     "payload_label": "전체 도구 인수, 일반 텍스트",
     "submitting": "제출 중…",
     "remember": "승인하고 이 채팅에서 기억하기",
-    "always_allow": "항상 허용"
+    "always_allow": "항상 허용",
+    "manage": "관리",
+    "manage_connection": "설정에서 {{server}}의 {{tool}} 관리",
+    "manage_allowances": "설정에서 허용 관리"
   },
   "remembered": {
     "title": "기억된 승인",

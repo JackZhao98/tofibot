@@ -472,14 +472,20 @@
       "high_risk": "Always asks me"
     },
     "title": "Tools · {{count}}",
-    "raise_note": "Changing to “Always asks me” ends its allowances."
+    "raise_note": "Changing to “Always asks me” ends its allowances.",
+    "allowance": {
+      "always": "Always allowed",
+      "revoke": "Revoke {{bot}}'s allowance for {{tool}}",
+      "stale": "Allowance voided · asks again"
+    }
   },
   "connections": {
     "title": "Connections",
     "add": "Add connection",
     "action": {
       "authorize": "Sign in",
-      "enable_api": "Enable {{name}} API"
+      "enable_api": "Enable {{name}} API",
+      "resume": "Resume"
     },
     "menu": {
       "sign_in_again": "Sign in again"
@@ -541,6 +547,9 @@
       "package": "Package and version",
       "project": "Google Cloud project",
       "repository": "Repository"
-    }
+    },
+    "pause": "Pause connection",
+    "resume": "Resume connection",
+    "paused_note": "Paused. Bots can't use this connection. Its sign-in, tool settings and allowances are kept."
   }
 }

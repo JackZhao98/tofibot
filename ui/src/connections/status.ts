@@ -27,8 +27,9 @@ export function connectionKind(input: { phase: Phase; needsAuth: boolean; error:
 export const needsAttention = (kind: ConnectionKind) => kind === "needs_auth" || kind === "api_disabled" || kind === "error";
 
 /** The one action a row leads with; everything else lives in the connection's detail page. */
-export type PrimaryAction = "authorize" | "enable_api" | "retry" | "continue" | "cancel" | "none";
+export type PrimaryAction = "authorize" | "resume" | "enable_api" | "retry" | "continue" | "cancel" | "none";
 export function primaryAction(kind: ConnectionKind, hasContinueLink: boolean, cancellable: boolean): PrimaryAction {
+  if (kind === "paused") return "resume";
   if (kind === "needs_auth") return "authorize";
   if (kind === "api_disabled") return "enable_api";
   if (kind === "error") return "retry";

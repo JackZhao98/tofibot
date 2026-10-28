@@ -46,6 +46,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (/^\/api\/extensions\/mcp\/[^/]+\/tools$/.test(path) && method === "GET") return {tools: [], read_only: 0, write: 0, high_risk: 0};
     if (/^\/api\/extensions\/mcp\/[^/]+\/test$/.test(path) && method === "POST") return {ok: true, tool_count: 3};
     if (path === "/api/extensions/repo-stars") return {stars: {}};
+    if (path === "/api/standing-allowances") return {allowances: [], remembered: []};
     if (path === "/api/extensions/google") return {client: {configured: false}, apis: []};
     if (path === "/api/extensions/oauth-options") return {vm_available: false, web_callback_origin: "https://tofi.example.test", desktop_redirect_uri: ""};
     if (path === "/api/extensions/local-mcp" && method === "GET") return {available: true, plugins};

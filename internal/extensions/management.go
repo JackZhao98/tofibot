@@ -43,6 +43,8 @@ type MCPServerView struct {
 	Status *MCPStatus `json:"status,omitempty"`
 	// Provenance is set for packages a person installed into the local Runner.
 	Provenance *MCPProvenance `json:"provenance,omitempty"`
+	// Enabled is present only as false: the owner paused this server.
+	Enabled *bool `json:"enabled,omitempty"`
 }
 type OAuthView struct {
 	ClientID              string   `json:"client_id"`
@@ -128,7 +130,12 @@ func (m *Manager) ListMCP() ([]MCPServerView, error) {
 			st := st
 			status = &st
 		}
-		out = append(out, MCPServerView{Name: n, URL: c.URL, Transport: c.Transport, Headers: maskedHeaders(c.Headers), ToolAllowlist: append([]string(nil), c.ToolAllowlist...), ToolDenylist: append([]string(nil), c.ToolDenylist...), BotAllowlists: c.BotAllowlists, OAuth: oauth, Status: status, Provenance: c.Provenance})
+		var enabled *bool
+		if c.Paused() {
+			off := false
+			enabled = &off
+		}
+		out = append(out, MCPServerView{Enabled: enabled, Name: n, URL: c.URL, Transport: c.Transport, Headers: maskedHeaders(c.Headers), ToolAllowlist: append([]string(nil), c.ToolAllowlist...), ToolDenylist: append([]string(nil), c.ToolDenylist...), BotAllowlists: c.BotAllowlists, OAuth: oauth, Status: status, Provenance: c.Provenance})
 	}
 	return out, nil
 }
@@ -198,6 +205,8 @@ func (m *Manager) SaveMCP(name string, c MCPServerConfig, updating bool) error {
 	if c.Provenance == nil && exists && old.URL == c.URL {
 		c.Provenance = old.Provenance
 	}
+	// Pausing belongs to the owner's own route; no edit or Bot update changes it.
+	c.Enabled = old.Enabled
 	c.Headers = copyHeaders(c.Headers, old.Headers)
 	if c.OAuth == nil {
 		c.OAuth = old.OAuth
@@ -251,6 +260,35 @@ func (m *Manager) SaveMCP(name string, c MCPServerConfig, updating bool) error {
 	if exists && credentialTargetChanged(old, c) {
 		return m.invalidateCredentialLocked(name)
 	}
+	return nil
+}
+
+// SetMCPEnabled pauses or resumes a server. The configuration, credentials,
+// tool marks and fingerprint stay as they are, so allowances survive.
+func (m *Manager) SetMCPEnabled(name string, enabled bool) error {
+	m.mcpConfigFence.Lock()
+	defer m.mcpConfigFence.Unlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	cfg, e := loadServers(m.cfg.MCPConfigPath)
+	if e != nil {
+		return e
+	}
+	c, ok := cfg[name]
+	if !ok {
+		return os.ErrNotExist
+	}
+	if enabled {
+		c.Enabled = nil
+	} else {
+		off := false
+		c.Enabled = &off
+	}
+	cfg[name] = c
+	if err := m.writeServers(cfg); err != nil {
+		return err
+	}
+	m.invalidateCatalogs(name)
 	return nil
 }
 

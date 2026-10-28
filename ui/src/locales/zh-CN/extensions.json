@@ -467,14 +467,20 @@
       "high_risk": "每次都问"
     },
     "title": "工具 · {{count}}",
-    "raise_note": "改为“每次都问”会撤销它已有的放行。"
+    "raise_note": "改为“每次都问”会撤销它已有的放行。",
+    "allowance": {
+      "always": "始终放行",
+      "revoke": "撤销 {{bot}} 对 {{tool}} 的放行",
+      "stale": "放行已失效 · 会再次询问"
+    }
   },
   "connections": {
     "title": "连接",
     "add": "添加连接",
     "action": {
       "authorize": "登录",
-      "enable_api": "启用 {{name}} API"
+      "enable_api": "启用 {{name}} API",
+      "resume": "恢复"
     },
     "menu": {
       "sign_in_again": "重新登录"
@@ -535,6 +541,9 @@
       "package": "软件包与版本",
       "project": "Google Cloud 项目",
       "repository": "代码仓库"
-    }
+    },
+    "pause": "暂停连接",
+    "resume": "恢复连接",
+    "paused_note": "已暂停。Bot 用不了这个连接,登录状态、工具设置和放行都保留。"
   }
 }

@@ -19,6 +19,8 @@ import { GoogleSetupLinks } from "./connections/RemoteForm";
 import { PasteBackDialog } from "./connections/PasteBackDialog";
 import { useLocalPlugins, type LocalState, type Plugin } from "./connections/localPlugins";
 import { CONNECTIONS_CHANGED } from "./settings/useConnectionAttention";
+import { useConnectionAllowances } from "./connections/allowances";
+import { OPEN_CONNECTION_EVENT, takeConnectionTarget } from "./settings/deepLinks";
 import { connectionKind, primaryAction, type Phase } from "./connections/status";
 import { GOOGLE_SERVICE_NAME, googleServiceForAPI, googleServicesLabel, isConsoleURL, useGoogleOverview, type GoogleOverview } from "./connections/google";
 import { endpoint, localPluginId, message, normalizeTiers, post, toolsEndpoint, type MCP, type TestResult, type ToolTierList } from "./connections/shared";
@@ -105,7 +107,17 @@ export function MCPSettings({ refreshToken = 0, bots = [] }: { refreshToken?: nu
     const preset = integrationCatalog.find(item => item.id === id);
     openDialog(id === "google" ? (local.available ? { view: "gog" } : { view: "directory" }) : preset ? { view: "preset", preset } : { view: "directory" });
   };
-  const open = (name: string) => { setNav("forward"); setSelected(name); };
+  const [focusTool, setFocusTool] = useState<string | undefined>();
+  const open = (name: string, tool?: string) => { setNav("forward"); setFocusTool(tool); setSelected(name); };
+  // The approval card's "Manage" link: a target waits for this page when Settings was closed, or arrives as an event when it is open.
+  useEffect(() => {
+    const take = () => { const target = takeConnectionTarget(); if (target) open(target.server, target.tool); };
+    take();
+    window.addEventListener(OPEN_CONNECTION_EVENT, take);
+    return () => window.removeEventListener(OPEN_CONNECTION_EVENT, take);
+  }, []);
+  // A link to a connection that is gone (removed since the card was written) leaves the list showing, not a blank page.
+  useEffect(() => { if (loaded && selected && !servers.some(server => server.name === selected)) { setSelected(null); setNav(""); } }, [loaded, selected, servers]);
   const close = () => { setNav("back"); setSelected(null); };
   return <div className="extension-panel mcp-settings" data-view={selected ? "detail" : "list"} data-nav={nav || undefined}>
     <div className="mcp-list-pane" hidden={selected !== null} inert={selected !== null || undefined}>
@@ -115,7 +127,7 @@ export function MCPSettings({ refreshToken = 0, bots = [] }: { refreshToken?: nu
       {empty && <ConnectionsEmpty onStart={startTile} onBrowse={() => openDialog({ view: "directory" })} />}
       <div className="mcp-rows">
         {servers.map(server => <MCPRow key={server.name} route={route} options={options} botId={bots.find(bot => !bot.archived)?.id} server={server} local={local} google={google} stars={stars} checkRequest={checks[server.name] ?? 0} refresh={refresh} refreshLocal={refreshLocal}
-          selected={selected === server.name} detailSlot={detailSlot} dialogSlot={dialogSlot} onOpen={() => open(server.name)} onBack={close}
+          selected={selected === server.name} focusTool={selected === server.name ? focusTool : undefined} detailSlot={detailSlot} dialogSlot={dialogSlot} onOpen={() => open(server.name)} onBack={close}
           onEdit={() => openDialog({ view: "edit", server, preset: presetFor(server) })} onAuthorizeLocal={() => openDialog({ view: "gog" })}
           onRemoved={() => { setServers(items => items.filter(item => item.name !== server.name)); setSelected(null); setNav("back"); void refreshAll(); }} />)}
         {orphans.map(plugin => <PluginRow key={plugin.id} plugin={plugin} onChanged={refreshAll} />)}
@@ -142,10 +154,10 @@ function PluginRow({ plugin, onChanged }: { plugin: Plugin; onChanged: () => Pro
   </ConnectionRowView>;
 }
 
-function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved, onAuthorizeLocal, route: pageRoute, options, botId, local, google, stars, selected, detailSlot, dialogSlot, onOpen, onBack }: {
+function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved, onAuthorizeLocal, route: pageRoute, options, botId, local, google, stars, selected, focusTool, detailSlot, dialogSlot, onOpen, onBack }: {
   stars: Record<string, number>; route: OAuthRoute; options: OAuthOptions | null; botId?: string; server: MCP; local: LocalState; google: GoogleOverview | null; checkRequest: number; refresh: () => Promise<void>; refreshLocal: () => Promise<void>;
   onEdit: () => void; onRemoved: () => void; onAuthorizeLocal: () => void;
-  selected: boolean; detailSlot: HTMLElement | null; dialogSlot: HTMLElement | null; onOpen: () => void; onBack: () => void;
+  selected: boolean; focusTool?: string; detailSlot: HTMLElement | null; dialogSlot: HTMLElement | null; onOpen: () => void; onBack: () => void;
 }) {
   const { t } = useTranslation(["extensions", "common"]);
   const known = server.status;
@@ -179,7 +191,9 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
   // A local plugin answers tools without ever having been given a Google account: that is "needs authorization".
   const accountMissing = isGog && account !== null && !account.connected;
   const paused = server.enabled === false;
-  const busy = vmSession !== null || pasteOpen || (route.mode === "desktop" && phase === "waiting") || ["checking", "authorizing", "removing"].includes(phase);
+  const [pausing, setPausing] = useState(false);
+  const allowances = useConnectionAllowances(server.name, selected);
+  const busy = pausing || vmSession !== null || pasteOpen || (route.mode === "desktop" && phase === "waiting") || ["checking", "authorizing", "removing"].includes(phase);
   useEffect(() => { alive.current = true; return () => { alive.current = false; operation.current++; abort.current?.abort(); if (nativePending.current) void window.tofiDesktop?.cancelMCPAuthorization?.(server.name).catch(() => {}); }; }, [server.name]);
   const check = useCallback(async () => {
     const id = ++operation.current; abort.current?.abort(); const controller = new AbortController(); abort.current = controller;
@@ -318,6 +332,18 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
       setConfirm(null);
     } catch (e) { if (alive.current && id === operation.current) { if (confirm === "remove") { setPhase("ready"); setConfirm(null); } else setPhase("error"); setError(confirm === "remove" ? removeError(e) : message(e)); } }
   }
+  // Pause keeps the configuration, sign-in, tool marks and allowances; only the Bots lose sight of it.
+  async function setPaused(next: boolean) {
+    setPausing(true); setError("");
+    abort.current?.abort(); operation.current++;
+    try {
+      await request(endpoint(server.name) + "/enabled", { method: "PUT", body: JSON.stringify({ enabled: !next }) });
+      if (!alive.current) return;
+      await refresh();
+      if (!next && alive.current) void check();
+    } catch (e) { if (alive.current) setError(message(e)); }
+    finally { if (alive.current) setPausing(false); }
+  }
   const needsAuth = Boolean(server.oauth) && (!server.oauth?.connected || phase === "auth");
   const apiService = apiIssue ? googleServiceForAPI(apiIssue.api) : "";
   const apiName = apiService ? GOOGLE_SERVICE_NAME[apiService] : display;
@@ -326,6 +352,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
   const action = primaryAction(kind, Boolean(authURL), route.mode === "desktop");
   const authorizeNow = () => { if (accountMissing && !needsAuth) onAuthorizeLocal(); else void authorize(); };
   const primary: RowPrimary | null = action === "enable_api" && apiIssue ? { label: t("connections.action.enable_api", { name: apiName }), href: apiIssue.url }
+    : action === "resume" ? { label: t("connections.action.resume"), disabled: busy, onClick: () => void setPaused(false) }
     : action === "authorize" ? { label: t("connections.action.authorize"), disabled: busy || (route.mode === "blocked" && !accountMissing), onClick: authorizeNow }
     : action === "retry" ? { label: t("common:action.retry"), disabled: busy, onClick: () => { if (needsAuth || accountMissing) authorizeNow(); else void check(); } }
     : action === "cancel" ? { label: t("mcp.cancel_auth"), pending: true, onClick: () => void window.tofiDesktop?.cancelMCPAuthorization?.(server.name).catch(e => setError(message(e))) }
@@ -351,7 +378,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
   const menu: RowMenuItem[] = [];
   if (!pluginId) menu.push({ key: "edit", label: t("mcp.menu.edit"), onSelect: onEdit });
   if (isGog && account?.connected) menu.push({ key: "sign_in_again", label: t("connections.menu.sign_in_again"), onSelect: onAuthorizeLocal }, { key: "verify", label: t("local.google.verify"), onSelect: () => void verifyGoogle() });
-  const danger: DetailDanger = [];
+  const danger: DetailDanger = [{ key: "pause", label: paused ? t("detail.resume") : t("detail.pause"), onSelect: () => void setPaused(!paused) }];
   if (!pluginId && server.oauth?.connected) danger.push({ key: "disconnect", label: t("mcp.menu.disconnect"), onSelect: () => setConfirm("disconnect") });
   if (isGog && account?.connected) danger.push({ key: "disconnect_google", label: t("local.google.disconnect"), onSelect: () => setConfirm("disconnect_google") });
   danger.push({ key: "remove", label: t("mcp.menu.remove"), remove: true, onSelect: () => setConfirm("remove") });
@@ -374,7 +401,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
       {loginNote && <div className="mcp-login-note"><p role="status">{loginNote}</p></div>}
     </ConnectionRowView>
     {selected && detailSlot && createPortal(<Suspense fallback={null}><ConnectionDetailView name={display} mark={isGog ? "Gmail" : display} source={source} serverName={server.name} kind={kind} statusText={statusText} detail={detail} checkedText={checked}
-      error={rowError} note={loginNote || undefined} primary={primary} menu={menu} busy={busy} facts={facts} tiers={tiers} onTiers={setTiers} community={server.provenance?.origin === "community"} toolsError={toolsError} advanced={advanced} help={help}
+      error={rowError} note={paused ? t("detail.paused_note") : loginNote || undefined} focusTool={focusTool} allowances={allowances.allowances} onRevoke={allowances.revoke} onDropAllowance={allowances.drop} primary={primary} menu={menu} busy={busy} facts={facts} tiers={tiers} onTiers={setTiers} community={server.provenance?.origin === "community"} toolsError={toolsError} advanced={advanced} help={help}
       danger={danger} confirm={confirm ? { text: confirmText, submit: confirm === "remove" ? t("mcp.confirm.remove_submit") : t("mcp.confirm.disconnect_submit"), onCancel: () => setConfirm(null), onConfirm: () => void confirmAction() } : null}
       onBack={leave} onRefresh={() => void refreshTools()} refreshing={refreshing} /></Suspense>, detailSlot)}
     {dialogSlot && createPortal(<>
