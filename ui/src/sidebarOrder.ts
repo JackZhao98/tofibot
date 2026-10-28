@@ -3,10 +3,9 @@ import type { Conversation } from "./types";
 /**
  * Sidebar ordering.
  *
- * Pinned conversations sit in the tile dock in pin_order. The rest of the list is recency (latest message first)
- * until the person reorders by hand; from then on their order wins and new activity no longer moves rows. A
- * conversation the server has never placed (sort_order 0: created after the last manual reorder) enters at the top,
- * newest first, until the next reorder numbers it.
+ * Pinned conversations sit in the tile dock in pin_order, the person's own order. The rest of the list is recency,
+ * as in every chat app: a message sent or received moves its conversation to the top. A stored manual sort_order
+ * only breaks ties between rows with the same time.
  */
 const recency = (conversation: Conversation) => +new Date(conversation.last_message?.created_at ?? conversation.updated_at);
 
@@ -16,9 +15,7 @@ export function pinnedOf(list: Conversation[]): Conversation[] {
 
 export function listOrder(list: Conversation[]): Conversation[] {
   const rest = list.filter(conversation => !conversation.pinned);
-  const fresh = rest.filter(conversation => !((conversation.sort_order ?? 0) > 0)).sort((a, b) => recency(b) - recency(a) || a.id.localeCompare(b.id));
-  const placed = rest.filter(conversation => (conversation.sort_order ?? 0) > 0).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id.localeCompare(b.id));
-  return [...fresh, ...placed];
+  return rest.sort((a, b) => recency(b) - recency(a) || (a.sort_order || Infinity) - (b.sort_order || Infinity) || a.id.localeCompare(b.id));
 }
 
 export type SidebarIds = { pinned: string[]; order: string[] };

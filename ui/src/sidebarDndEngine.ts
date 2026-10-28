@@ -282,9 +282,8 @@ export function mountSidebarDnd(scroller: HTMLElement, ctx: DndContext): () => v
       const overDrop = d.py < d.srect.top || cy < d.zoneBottom;
       const overDock = Boolean(d.dockBox && dock.length && cy >= d.dockBox.top && cy <= d.dockBox.top + d.dockBox.height);
       if (overDrop || overDock) return { where: { dock: [...dock, d.id], list: list.filter(id => id !== d.id) }, over: "pin" };
-      const rest = list.filter(id => id !== d.id);
-      const at = rest.filter(id => middle(id) < cy).length;
-      return { where: { dock: dock, list: moveItem([...rest, d.id], rest.length, at) }, over: "" };
+      // The list is ordered by recency: a row moves only into the pinned dock, never among other rows.
+      return { where: { dock, list }, over: "" };
     }
     const dockBottom = d.dockBox ? d.dockBox.top + d.dockBox.height : 0;
     if (cy <= dockBottom + 12) {
@@ -405,7 +404,8 @@ export function mountSidebarDnd(scroller: HTMLElement, ctx: DndContext): () => v
     if (!el || !scroller!.contains(el)) return;
     const zone = el.dataset.dndZone as Zone;
     const step = ({ ArrowUp: -1, ArrowLeft: -1, ArrowDown: 1, ArrowRight: 1 } as Record<string, number>)[event.key];
-    if (!step || (zone === "list" && (event.key === "ArrowLeft" || event.key === "ArrowRight"))) return;
+    // List rows follow recency; only pinned tiles take a manual order.
+    if (!step || zone === "list") return;
     event.preventDefault();
     const where = idsOf();
     const ids = where[zone];
