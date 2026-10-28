@@ -2747,6 +2747,11 @@ func NewServer(c Config) (*Server, error) {
 		return nil, e
 	}
 	st.requireGuestAttachments = c.IsolatedWorkspace || c.AccountRuntime
+	// Runs started before the first live catalog fetch still get the windows
+	// the last stored Codex catalog reported.
+	if models, err := st.cachedModels(); err == nil {
+		publishCatalogWindows(models)
+	}
 	if c.Listen == "" {
 		c.Listen = os.Getenv("TOFI_LISTEN")
 	}
@@ -4310,8 +4315,8 @@ func (s *Server) execute(c Conversation, r Run) {
 			}
 		},
 		OnReasoningReplayRejected: func() { s.store.PublishReasoningReplayOff(r) },
-		OnUsage: func(input, output int64) {
-			if err := s.store.recordModelUsage(r.ID, input, output); err != nil {
+		OnUsage: func(u provider.Usage) {
+			if err := s.store.recordModelUsage(r.ID, u); err != nil {
 				log.Printf("[usage] model usage: %v", err)
 			}
 		},

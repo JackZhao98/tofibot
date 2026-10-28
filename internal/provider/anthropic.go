@@ -910,6 +910,7 @@ func parseAnthropicStream(body io.Reader, onDelta func(StreamDelta)) (*ChatRespo
 	blocks := map[int]*anthropicBlock{}
 	var usage struct {
 		input, output, cacheRead, cacheWrite, webSearches, webFetches int64
+		cacheReported                                                 bool
 	}
 	readUsage := func(raw json.RawMessage) {
 		var u struct {
@@ -930,6 +931,9 @@ func parseAnthropicStream(body io.Reader, onDelta func(StreamDelta)) (*ChatRespo
 			if v != nil && *v > 0 {
 				*dst = *v
 			}
+		}
+		if u.CacheReadInputTokens != nil || u.CacheCreationInputTokens != nil {
+			usage.cacheReported = true
 		}
 		set(&usage.input, u.InputTokens)
 		set(&usage.output, u.OutputTokens)
@@ -1082,6 +1086,7 @@ func parseAnthropicStream(body io.Reader, onDelta func(StreamDelta)) (*ChatRespo
 		OutputTokens:     usage.output,
 		CacheReadTokens:  usage.cacheRead,
 		CacheWriteTokens: usage.cacheWrite,
+		CacheReported:    usage.cacheReported,
 	}
 
 	ordered := make([]*anthropicBlock, 0, len(blocks))

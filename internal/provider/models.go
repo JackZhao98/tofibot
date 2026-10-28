@@ -1,6 +1,9 @@
 package provider
 
-import "strings"
+import (
+	"strings"
+	"sync"
+)
 
 // ModelInfo holds metadata for a known model.
 type ModelInfo struct {
@@ -22,12 +25,12 @@ var Registry = map[string]ModelInfo{
 	"codex-gpt-6-astra": {Provider: "openai_codex", APIType: "responses", ContextWindow: 272000},
 	"codex-gpt-6-sol":   {Provider: "openai_codex", APIType: "responses", ContextWindow: 272000},
 	"codex-gpt-6-luna":  {Provider: "openai_codex", APIType: "responses", ContextWindow: 272000},
-	"codex-gpt-5.4":     {Provider: "openai_codex", APIType: "responses", ContextWindow: 400000},
-	"codex-gpt-5.5":     {Provider: "openai_codex", APIType: "responses", ContextWindow: 400000},
+	"codex-gpt-5.4":     {Provider: "openai_codex", APIType: "responses", ContextWindow: 272000},
+	"codex-gpt-5.5":     {Provider: "openai_codex", APIType: "responses", ContextWindow: 272000},
 	// ─── OpenAI — Responses API ───
-	"o3":         {Provider: "openai", APIType: "responses", ContextWindow: 200000, InputCostPer1M: 2.00, OutputCostPer1M: 8.00},
+	"o3":         {Provider: "openai", APIType: "responses", ContextWindow: 200000, InputCostPer1M: 2.00, OutputCostPer1M: 8.00, CacheReadCostPer1M: 0.50},
 	"o3-pro":     {Provider: "openai", APIType: "responses", ContextWindow: 200000, InputCostPer1M: 20.00, OutputCostPer1M: 80.00},
-	"o4-mini":    {Provider: "openai", APIType: "responses", ContextWindow: 200000, InputCostPer1M: 1.10, OutputCostPer1M: 4.40},
+	"o4-mini":    {Provider: "openai", APIType: "responses", ContextWindow: 200000, InputCostPer1M: 1.10, OutputCostPer1M: 4.40, CacheReadCostPer1M: 0.275},
 	"gpt-5":      {Provider: "openai", APIType: "responses", ContextWindow: 1047576, InputCostPer1M: 1.25, OutputCostPer1M: 10.00},
 	"gpt-5.1":    {Provider: "openai", APIType: "responses", ContextWindow: 1047576, InputCostPer1M: 1.25, OutputCostPer1M: 10.00},
 	"gpt-5.2":    {Provider: "openai", APIType: "responses", ContextWindow: 1047576, InputCostPer1M: 1.75, OutputCostPer1M: 14.00},
@@ -37,18 +40,18 @@ var Registry = map[string]ModelInfo{
 	"gpt-5-nano": {Provider: "openai", APIType: "responses", ContextWindow: 1047576, InputCostPer1M: 0.05, OutputCostPer1M: 0.40},
 
 	// ─── OpenAI — Chat Completions (also work with Responses API) ───
-	"gpt-4o":       {Provider: "openai", ContextWindow: 128000, InputCostPer1M: 2.50, OutputCostPer1M: 10.00},
-	"gpt-4o-mini":  {Provider: "openai", ContextWindow: 128000, InputCostPer1M: 0.15, OutputCostPer1M: 0.60},
-	"gpt-4.1":      {Provider: "openai", ContextWindow: 1047576, InputCostPer1M: 2.00, OutputCostPer1M: 8.00},
-	"gpt-4.1-mini": {Provider: "openai", ContextWindow: 1047576, InputCostPer1M: 0.40, OutputCostPer1M: 1.60},
-	"gpt-4.1-nano": {Provider: "openai", ContextWindow: 1047576, InputCostPer1M: 0.10, OutputCostPer1M: 0.40},
+	"gpt-4o":       {Provider: "openai", ContextWindow: 128000, InputCostPer1M: 2.50, OutputCostPer1M: 10.00, CacheReadCostPer1M: 1.25},
+	"gpt-4o-mini":  {Provider: "openai", ContextWindow: 128000, InputCostPer1M: 0.15, OutputCostPer1M: 0.60, CacheReadCostPer1M: 0.075},
+	"gpt-4.1":      {Provider: "openai", ContextWindow: 1047576, InputCostPer1M: 2.00, OutputCostPer1M: 8.00, CacheReadCostPer1M: 0.50},
+	"gpt-4.1-mini": {Provider: "openai", ContextWindow: 1047576, InputCostPer1M: 0.40, OutputCostPer1M: 1.60, CacheReadCostPer1M: 0.10},
+	"gpt-4.1-nano": {Provider: "openai", ContextWindow: 1047576, InputCostPer1M: 0.10, OutputCostPer1M: 0.40, CacheReadCostPer1M: 0.025},
 
 	// ─── Anthropic (first-party list prices, 2026-09) ───
-	"claude-fable-5-1":         {Provider: "anthropic", ContextWindow: 1000000, MaxOutputTokens: 128000, InputCostPer1M: 10.00, OutputCostPer1M: 50.00, CacheReadCostPer1M: 0.25},
-	"claude-mythos-5-1":        {Provider: "anthropic", ContextWindow: 1000000, MaxOutputTokens: 128000, InputCostPer1M: 10.00, OutputCostPer1M: 50.00, CacheReadCostPer1M: 0.25},
+	"claude-fable-5-1":         {Provider: "anthropic", ContextWindow: 1000000, MaxOutputTokens: 128000, InputCostPer1M: 10.00, OutputCostPer1M: 50.00},
+	"claude-mythos-5-1":        {Provider: "anthropic", ContextWindow: 1000000, MaxOutputTokens: 128000, InputCostPer1M: 10.00, OutputCostPer1M: 50.00},
 	"claude-fable-5":           {Provider: "anthropic", ContextWindow: 1000000, MaxOutputTokens: 128000, InputCostPer1M: 10.00, OutputCostPer1M: 50.00},
 	"claude-mythos-5":          {Provider: "anthropic", ContextWindow: 1000000, MaxOutputTokens: 128000, InputCostPer1M: 10.00, OutputCostPer1M: 50.00},
-	"claude-opus-5-5":          {Provider: "anthropic", ContextWindow: 1000000, MaxOutputTokens: 128000, InputCostPer1M: 4.00, OutputCostPer1M: 20.00, CacheReadCostPer1M: 0.20},
+	"claude-opus-5-5":          {Provider: "anthropic", ContextWindow: 1000000, MaxOutputTokens: 128000, InputCostPer1M: 4.00, OutputCostPer1M: 20.00},
 	"claude-opus-5":            {Provider: "anthropic", ContextWindow: 1000000, MaxOutputTokens: 128000, InputCostPer1M: 5.00, OutputCostPer1M: 25.00},
 	"claude-opus-4-8":          {Provider: "anthropic", ContextWindow: 1000000, MaxOutputTokens: 128000, InputCostPer1M: 5.00, OutputCostPer1M: 25.00},
 	"claude-opus-4-7":          {Provider: "anthropic", ContextWindow: 1000000, MaxOutputTokens: 128000, InputCostPer1M: 5.00, OutputCostPer1M: 25.00},
@@ -158,9 +161,52 @@ func DetectProvider(model string) string {
 	}
 }
 
-// GetContextWindow returns the context window size for a model.
-// Falls back to 128000 for unknown models.
+// catalogWindows holds context windows a provider's own model catalog
+// reported (the Codex /models payload), keyed by lowercase model ID. They are
+// the provider's statement of the limit, so they outrank the static table.
+var (
+	catalogWindowsMu sync.RWMutex
+	catalogWindows   = map[string]int{}
+)
+
+// SetCatalogContextWindows replaces the catalog-reported windows. Entries
+// that are not positive are ignored; the previous set is dropped entirely, so
+// a model that left the catalog stops using a stale value.
+func SetCatalogContextWindows(windows map[string]int) {
+	next := make(map[string]int, len(windows))
+	for id, w := range windows {
+		if w > 0 {
+			next[strings.ToLower(strings.TrimSpace(id))] = w
+		}
+	}
+	catalogWindowsMu.Lock()
+	catalogWindows = next
+	catalogWindowsMu.Unlock()
+}
+
+func catalogWindow(model string) int {
+	catalogWindowsMu.RLock()
+	defer catalogWindowsMu.RUnlock()
+	return catalogWindows[strings.ToLower(strings.TrimSpace(model))]
+}
+
+// ContextWindowKnown reports whether GetContextWindow has real data for the
+// model (a catalog report or a table row) rather than the heuristic fallback.
+func ContextWindowKnown(model string) bool {
+	if catalogWindow(model) > 0 {
+		return true
+	}
+	info, ok := GetModelInfo(model)
+	return ok && info.ContextWindow > 0
+}
+
+// GetContextWindow returns the context window size for a model: the window
+// the provider's catalog reported, else the table row, else a heuristic.
+// Check ContextWindowKnown to tell the heuristic apart.
 func GetContextWindow(model string) int {
+	if w := catalogWindow(model); w > 0 {
+		return w
+	}
 	if info, ok := GetModelInfo(model); ok {
 		if info.ContextWindow > 0 {
 			return info.ContextWindow

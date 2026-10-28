@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"github.com/JackZhao98/tofibot/internal/provider"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -27,7 +28,7 @@ func TestUsageRecordsRunContextAndAgentTool(t *testing.T) {
 	if err = s.recordContextEstimate(first.ID, bot.Model, 12000); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.recordModelUsage(first.ID, 12500, 750); err != nil {
+	if err = s.recordModelUsage(first.ID, provider.Usage{InputTokens: 12500, OutputTokens: 750}); err != nil {
 		t.Fatal(err)
 	}
 	if err = s.recordContextCompact(first.ID, 4500); err != nil {
@@ -88,10 +89,10 @@ func TestUsagePeriodsPricesAndRetention(t *testing.T) {
 	if err = s.recordContextEstimate(runs[0].ID, bot.Model, 100); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.recordModelUsage(runs[0].ID, 1_000_000, 100_000); err != nil {
+	if err = s.recordModelUsage(runs[0].ID, provider.Usage{InputTokens: 1_000_000, OutputTokens: 100_000}); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.recordModelUsage(runs[0].ID, 50, 25); err != nil {
+	if err = s.recordModelUsage(runs[0].ID, provider.Usage{InputTokens: 50, OutputTokens: 25}); err != nil {
 		t.Fatal(err)
 	}
 	calls, err := s.listUsageCalls()
@@ -117,7 +118,7 @@ func TestUsagePeriodsPricesAndRetention(t *testing.T) {
 	if err != nil || len(period) != 1 || period[0].Requests != 2 {
 		t.Fatalf("30d=%+v err=%v", period, err)
 	}
-	if _, ok := usageEquivalent("codex-unknown", 100, 100); ok {
+	if _, ok := usageEquivalent("codex-unknown", provider.Usage{InputTokens: 100, OutputTokens: 100}); ok {
 		t.Fatal("unknown model must not be priced")
 	}
 }
@@ -139,7 +140,7 @@ func TestReviewUsageIsSeparateFromChat(t *testing.T) {
 	if err = s.recordContextEstimate(runs[0].ID, bot.Model, 100); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.recordModelUsage(runs[0].ID, 1000, 100); err != nil {
+	if err = s.recordModelUsage(runs[0].ID, provider.Usage{InputTokens: 1000, OutputTokens: 100}); err != nil {
 		t.Fatal(err)
 	}
 	if err = s.recordAuxiliaryModelUsage(runs[0].ID, "gpt-5-mini", 400, 40); err != nil {
@@ -154,7 +155,7 @@ func TestReviewUsageIsSeparateFromChat(t *testing.T) {
 			t.Fatalf("%v chat=%+v err=%v", window, chat, err)
 		}
 		review, err := s.usagePeriod(window, usageKindReview)
-		if err != nil || len(review) != 1 || review[0].Requests != 2 || review[0].InputTokens != 600 || review[0].OutputTokens != 60 || review[0].UnpricedRequests != 2 {
+		if err != nil || len(review) != 1 || review[0].Requests != 2 || review[0].InputTokens != 600 || review[0].OutputTokens != 60 || review[0].UnpricedRequests != 1 {
 			t.Fatalf("%v review=%+v err=%v", window, review, err)
 		}
 	}

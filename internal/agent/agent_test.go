@@ -32,7 +32,7 @@ func TestAgentContextUsageCallbacks(t *testing.T) {
 	defer execCtx.Cancel()
 	estimated, actual, output := 0, int64(0), int64(0)
 	_, err := RunAgentLoop(AgentConfig{Ctx: context.Background(), Provider: usageCallbackProvider{}, Model: "codex-gpt-6-sol", Prompt: "hello", ToolsOnly: true,
-		OnContextEstimate: func(value int) { estimated = value }, OnUsage: func(input, out int64) { actual = input; output = out }}, execCtx)
+		OnContextEstimate: func(value int) { estimated = value }, OnUsage: func(u provider.Usage) { actual = u.InputTokens; output = u.OutputTokens }}, execCtx)
 	if err != nil || estimated <= 0 || actual != 42 || output != 5 {
 		t.Fatalf("estimate=%d actual=%d output=%d err=%v", estimated, actual, output, err)
 	}

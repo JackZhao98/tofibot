@@ -60,7 +60,7 @@ func TestWebFetchIsCountedWithoutMoneyOrARequest(t *testing.T) {
 	if err = s.recordContextEstimate(runs[0].ID, bot.Model, 1000); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.recordModelUsage(runs[0].ID, 1000, 100); err != nil {
+	if err = s.recordModelUsage(runs[0].ID, provider.Usage{InputTokens: 1000, OutputTokens: 100}); err != nil {
 		t.Fatal(err)
 	}
 	base, _ := s.usagePeriod(time.Hour, usageKindChat)

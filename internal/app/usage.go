@@ -73,7 +73,8 @@ type UsagePeriod struct {
 }
 
 // API-equivalent prices are a dated reference, not Codex billing. Cached input
-// is unavailable from this provider adapter, so all input is priced uncached.
+// is priced at 0.1x of the input rate (the cached-input price OpenAI lists for
+// the GPT-5 and later families).
 func usageReferencePrice(model string) (input, output float64, ok bool) {
 	switch strings.TrimPrefix(model, "codex-") {
 	case "gpt-6-astra":
@@ -97,13 +98,24 @@ func usageReferencePrice(model string) (input, output float64, ok bool) {
 	}
 }
 
-func usageEquivalent(model string, input, output int64) (float64, bool) {
-	i, o, ok := usageReferencePrice(model)
-	if input > 272_000 {
-		i *= 2
-		o *= 1.5
+// usageEquivalent is the API-list-price equivalent of one model call and
+// whether the model has a known price. Codex models use the reference table
+// above; every other model uses the provider registry (dated and aliased IDs
+// match by prefix), with cache reads and writes at their own rates.
+func usageEquivalent(model string, u provider.Usage) (float64, bool) {
+	if i, o, ok := usageReferencePrice(model); ok {
+		if u.InputTokens > 272_000 {
+			i *= 2
+			o *= 1.5
+		}
+		read := min(max(u.CacheReadTokens, 0), u.InputTokens)
+		return (float64(u.InputTokens-read)*i + float64(read)*i*0.1 + float64(u.OutputTokens)*o) / 1_000_000, true
 	}
-	return (float64(input)*i + float64(output)*o) / 1_000_000, ok
+	info, ok := provider.GetModelInfo(model)
+	if !ok || info.InputCostPer1M <= 0 {
+		return 0, false
+	}
+	return provider.CalculateCost(model, u), true
 }
 
 func migrateUsage(db *sql.DB) error {
@@ -142,6 +154,19 @@ func migrateUsage(db *sql.DB) error {
 	if err := ensureColumn(db, "usage_hourly", "review_equivalent_usd", `ALTER TABLE usage_hourly ADD COLUMN review_equivalent_usd REAL NOT NULL DEFAULT 0`); err != nil {
 		return err
 	}
+	// Prompt-cache accounting. cache_reported marks calls whose provider sent
+	// cache fields at all; total_cache_input is the input of those calls only,
+	// so a hit rate never divides by traffic that could not report a cache.
+	for _, col := range []string{"last_cache_read", "last_cache_reported", "total_cache_read", "total_cache_input"} {
+		if err := ensureColumn(db, "run_usage", col, `ALTER TABLE run_usage ADD COLUMN `+col+` INTEGER NOT NULL DEFAULT 0`); err != nil {
+			return err
+		}
+	}
+	for _, col := range []string{"cache_read_tokens", "cache_write_tokens", "cache_reported"} {
+		if err := ensureColumn(db, "usage_calls", col, `ALTER TABLE usage_calls ADD COLUMN `+col+` INTEGER NOT NULL DEFAULT 0`); err != nil {
+			return err
+		}
+	}
 	for _, col := range []string{"estimated_system", "estimated_messages", "estimated_reasoning"} {
 		if err := ensureColumn(db, "run_usage", col, `ALTER TABLE run_usage ADD COLUMN `+col+` INTEGER NOT NULL DEFAULT 0`); err != nil {
 			return err
@@ -159,7 +184,7 @@ func pruneUsage(db *sql.DB, at time.Time) error {
 }
 
 func (s *Store) recordContextEstimate(runID, model string, estimated int) error {
-	_, known := provider.GetModelInfo(model)
+	known := provider.ContextWindowKnown(model)
 	window := provider.GetContextWindow(model)
 	_, err := s.db.Exec(`INSERT INTO run_usage(run_id,model,window_tokens,window_known,estimated_input,updated_at)
 	 VALUES(?,?,?,?,?,?) ON CONFLICT(run_id) DO UPDATE SET estimated_input=excluded.estimated_input,updated_at=excluded.updated_at`,
@@ -174,7 +199,8 @@ func (s *Store) recordContextBreakdown(runID string, b runtime.ContextBreakdown)
 	return err
 }
 
-func (s *Store) recordModelUsage(runID string, input, output int64) error {
+func (s *Store) recordModelUsage(runID string, u provider.Usage) error {
+	input, output := u.InputTokens, u.OutputTokens
 	t := time.Now().UTC()
 	stamp := stampTime(t)
 	tx, err := s.db.Begin()
@@ -187,11 +213,15 @@ func (s *Store) recordModelUsage(runID string, input, output int64) error {
 	if err != nil {
 		return err
 	}
-	price, known := usageEquivalent(model, input, output)
-	if _, err = tx.Exec(`UPDATE run_usage SET last_input=?,total_input=total_input+?,total_output=total_output+?,updated_at=? WHERE run_id=?`, input, input, output, stamp, runID); err != nil {
+	price, known := usageEquivalent(model, u)
+	var cacheInput int64
+	if u.CacheReported {
+		cacheInput = input
+	}
+	if _, err = tx.Exec(`UPDATE run_usage SET last_input=?,total_input=total_input+?,total_output=total_output+?,last_cache_read=?,last_cache_reported=?,total_cache_read=total_cache_read+?,total_cache_input=total_cache_input+?,updated_at=? WHERE run_id=?`, input, input, output, u.CacheReadTokens, u.CacheReported, u.CacheReadTokens, cacheInput, stamp, runID); err != nil {
 		return err
 	}
-	if _, err = tx.Exec(`INSERT INTO usage_calls(run_id,bot_id,model,input_tokens,output_tokens,equivalent_usd,price_known,trigger_content,occurred_at) VALUES(?,?,?,?,?,?,?,?,?)`, runID, botID, model, input, output, price, known, prompt, stamp); err != nil {
+	if _, err = tx.Exec(`INSERT INTO usage_calls(run_id,bot_id,model,input_tokens,output_tokens,equivalent_usd,price_known,trigger_content,occurred_at,cache_read_tokens,cache_write_tokens,cache_reported) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, runID, botID, model, input, output, price, known, prompt, stamp, u.CacheReadTokens, u.CacheWriteTokens, u.CacheReported); err != nil {
 		return err
 	}
 	unknown := 0
@@ -223,7 +253,7 @@ func (s *Store) recordAuxiliaryModelUsage(runID, model string, input, output int
 	if err = tx.QueryRow(`SELECT r.bot_id,COALESCE(m.content,'') FROM runs r LEFT JOIN messages m ON m.id=r.trigger_message_id WHERE r.id=?`, runID).Scan(&botID, &prompt); err != nil {
 		return err
 	}
-	price, known := usageEquivalent(model, input, output)
+	price, known := usageEquivalent(model, provider.Usage{InputTokens: input, OutputTokens: output})
 	if _, err = tx.Exec(`UPDATE run_usage SET total_input=total_input+?,total_output=total_output+?,updated_at=? WHERE run_id=?`, input, output, stamp, runID); err != nil {
 		return err
 	}
@@ -425,7 +455,8 @@ func (s *Server) contextUsageTool(runID string) Tool {
 const usageKindSearch = "web_search"
 
 // webSearchUSD is the provider's list price of one server-side search
-// ($10 per 1,000 searches).
+// ($10 per 1,000 searches; Anthropic's pricing page, "Web search tool").
+// Web fetch has no per-request fee there, so only its page text is billed, as input.
 const webSearchUSD = 0.01
 
 // usageKindFetch marks one page a run's model read through the provider's

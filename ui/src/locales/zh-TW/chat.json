@@ -763,6 +763,7 @@
   },
   "usageWidget": {
     "all": "全部用量",
+    "cache_hit": "快取命中率",
     "calls_other": "{{count}} 次呼叫",
     "context": "上下文",
     "conversation": "對話",

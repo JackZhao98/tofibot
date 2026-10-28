@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"github.com/JackZhao98/tofibot/internal/provider"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -177,14 +178,14 @@ func TestRouteConversationUsage(t *testing.T) {
 	if err = s.recordContextEstimate(id, bot.Model, 900); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.recordModelUsage(id, 1000, 100); err != nil {
+	if err = s.recordModelUsage(id, provider.Usage{InputTokens: 1000, OutputTokens: 100}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = s.db.Exec(`INSERT INTO tool_activities(conversation_id,bot_id,run_id,call_id,name,status,started_at,updated_at) VALUES(?,?,?,?,?,?,?,?)`,
 		bot.DMConversationID, bot.ID, id, "c1", "web_search", "completed", now(), now()); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.recordModelUsage(id, 1500, 50); err != nil {
+	if err = s.recordModelUsage(id, provider.Usage{InputTokens: 1500, OutputTokens: 50}); err != nil {
 		t.Fatal(err)
 	}
 	if err = s.saveRunContextSnapshot(ContextSnapshot{Version: contextSnapshotVersion, RunID: id, ConversationID: bot.DMConversationID, BotID: bot.ID, Model: bot.Model, CapturedAt: now(),

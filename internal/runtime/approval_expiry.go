@@ -109,7 +109,7 @@ func (e *engine) finishApprovalExpiry(ctx context.Context, req Request, model st
 		result.InputTokens += response.Usage.InputTokens
 		result.OutputTokens += response.Usage.OutputTokens
 		if req.OnUsage != nil {
-			req.OnUsage(response.Usage.InputTokens, response.Usage.OutputTokens)
+			req.OnUsage(response.Usage)
 		}
 		if len(response.ToolCalls) == 0 {
 			result.Content = strings.TrimSpace(response.Content)

@@ -787,6 +787,7 @@
   },
   "usageWidget": {
     "all": "Gesamte Nutzung",
+    "cache_hit": "Cache-Trefferquote",
     "calls_one": "{{count}} Aufruf",
     "calls_other": "{{count}} Aufrufe",
     "context": "Kontext",

@@ -66,6 +66,11 @@ type ConversationUsageTotals struct {
 	OutputTokens     int64   `json:"output_tokens"`
 	EquivalentUSD    float64 `json:"equivalent_usd"`
 	UnpricedRequests int64   `json:"unpriced_requests"`
+	// CacheReadTokens are input tokens served from the provider's prompt
+	// cache. CacheHitRate is cache reads over the input of the calls whose
+	// provider reported cache fields; null when none did.
+	CacheReadTokens int64    `json:"cache_read_tokens"`
+	CacheHitRate    *float64 `json:"cache_hit_rate"`
 }
 
 type ConversationUsageModel struct {
@@ -90,6 +95,11 @@ type ConversationLatestContext struct {
 	UsedMeasured bool   `json:"used_measured"`
 	WindowTokens int    `json:"window_tokens"`
 	WindowKnown  bool   `json:"window_known"`
+	// CacheReadTokens and CacheHitRate describe the last model call: the part
+	// of its input served from the prompt cache. The rate is null when the
+	// provider reported no cache fields for that call.
+	CacheReadTokens int64    `json:"cache_read_tokens"`
+	CacheHitRate    *float64 `json:"cache_hit_rate"`
 	// Parts describe the run's first model call (the stored snapshot); they
 	// are estimates. PartsCode is set, and Parts empty, when no snapshot exists.
 	Parts       []ConversationContextPart `json:"parts"`
@@ -128,6 +138,20 @@ type convUsageRun struct {
 	WindowTokens        int
 	WindowKnown         bool
 	EstimatedIn, LastIn int64
+	// Cache accounting: the last call's reads and whether it reported cache
+	// fields, the run's total reads, and the input of reporting calls.
+	LastCacheRead, TotalCacheRead, TotalCacheInput int64
+	LastCacheReported                              bool
+}
+
+// cacheHitRate is reads over the input they were counted against, or nil
+// when no input reported a cache (a rate of zero would claim a miss).
+func cacheHitRate(read, input int64) *float64 {
+	if input <= 0 {
+		return nil
+	}
+	rate := float64(min(max(read, 0), input)) / float64(input)
+	return &rate
 }
 
 type convUsageCall struct {
@@ -150,10 +174,13 @@ func computeConversationUsage(id string, runs []convUsageRun, calls []convUsageC
 	models := map[string]*ConversationUsageModel{}
 	split := ConversationToolSplit{Basis: "model_calls_followed_by_tool_start"}
 	complete := len(runs) > 0
+	var cacheInput int64
 	for _, r := range runs {
 		out.Totals.Runs++
 		out.Totals.InputTokens += r.TotalIn
 		out.Totals.OutputTokens += r.TotalOut
+		out.Totals.CacheReadTokens += r.TotalCacheRead
+		cacheInput += r.TotalCacheInput
 		cs := byRun[r.RunID]
 		var in, o int64
 		for _, c := range cs {
@@ -240,6 +267,7 @@ func computeConversationUsage(id string, runs []convUsageRun, calls []convUsageC
 		split.Available = true
 		out.ToolSplit = split
 	}
+	out.Totals.CacheHitRate = cacheHitRate(out.Totals.CacheReadTokens, cacheInput)
 	for _, m := range models {
 		out.PerModel = append(out.PerModel, *m)
 	}
@@ -258,9 +286,15 @@ func computeConversationUsage(id string, runs []convUsageRun, calls []convUsageC
 
 func latestContext(r convUsageRun, snap *ContextSnapshot) *ConversationLatestContext {
 	lc := &ConversationLatestContext{RunID: r.RunID, Model: r.Model, WindowTokens: r.WindowTokens, WindowKnown: r.WindowKnown, Parts: []ConversationContextPart{}}
-	if lc.WindowTokens <= 0 {
+	// A window stored from the heuristic is replaced once the model's real
+	// window is known (the provider catalog can arrive after the run began).
+	if lc.WindowTokens <= 0 || !lc.WindowKnown {
 		lc.WindowTokens = provider.GetContextWindow(r.Model)
-		_, lc.WindowKnown = provider.GetModelInfo(r.Model)
+		lc.WindowKnown = provider.ContextWindowKnown(r.Model)
+	}
+	if r.LastCacheReported {
+		lc.CacheReadTokens = r.LastCacheRead
+		lc.CacheHitRate = cacheHitRate(r.LastCacheRead, r.LastIn)
 	}
 	// The provider-reported input of the last call is what the window held;
 	// before any call returned, only the pre-call estimate exists.
@@ -300,19 +334,20 @@ func latestContext(r convUsageRun, snap *ContextSnapshot) *ConversationLatestCon
 
 func (s *Store) conversationUsage(id string) (ConversationUsage, error) {
 	var runs []convUsageRun
-	rows, err := s.db.Query(`SELECT u.run_id,u.model,u.total_input,u.total_output,u.window_tokens,u.window_known,u.estimated_input,u.last_input
+	rows, err := s.db.Query(`SELECT u.run_id,u.model,u.total_input,u.total_output,u.window_tokens,u.window_known,u.estimated_input,u.last_input,u.last_cache_read,u.last_cache_reported,u.total_cache_read,u.total_cache_input
 	 FROM run_usage u JOIN runs r ON r.id=u.run_id WHERE r.conversation_id=? ORDER BY u.updated_at ASC,u.run_id ASC`, id)
 	if err != nil {
 		return ConversationUsage{}, err
 	}
 	for rows.Next() {
 		var x convUsageRun
-		var known int
-		if err = rows.Scan(&x.RunID, &x.Model, &x.TotalIn, &x.TotalOut, &x.WindowTokens, &known, &x.EstimatedIn, &x.LastIn); err != nil {
+		var known, cacheReported int
+		if err = rows.Scan(&x.RunID, &x.Model, &x.TotalIn, &x.TotalOut, &x.WindowTokens, &known, &x.EstimatedIn, &x.LastIn, &x.LastCacheRead, &cacheReported, &x.TotalCacheRead, &x.TotalCacheInput); err != nil {
 			rows.Close()
 			return ConversationUsage{}, err
 		}
 		x.WindowKnown = known != 0
+		x.LastCacheReported = cacheReported != 0
 		runs = append(runs, x)
 	}
 	if err = rows.Close(); err != nil {

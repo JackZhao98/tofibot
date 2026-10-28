@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/JackZhao98/tofibot/internal/provider"
 	"io"
 	"log"
 	"strings"
@@ -281,7 +282,7 @@ func (s *Server) runChatSweep(ctx context.Context, botID string, now time.Time) 
 		Messages: []runtime.Message{{Role: "user", Content: "Messages (JSON):\n" + string(payload)}},
 	})
 	res.ModelCalled = true
-	usd, known := usageEquivalent(model, result.InputTokens, result.OutputTokens)
+	usd, known := usageEquivalent(model, provider.Usage{InputTokens: result.InputTokens, OutputTokens: result.OutputTokens})
 	record := sweepRecord{BotID: botID, Source: followupSourceChat, StartedAt: now, ItemsSeen: len(items), Model: model, InputTokens: result.InputTokens, OutputTokens: result.OutputTokens, USD: usd, PriceKnown: known}
 
 	var parsed parsedLoops

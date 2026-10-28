@@ -223,20 +223,14 @@ func (o *openaiChatCompletions) parseResponse(body string) (*ChatResponse, error
 				} `json:"tool_calls"`
 			} `json:"message"`
 		} `json:"choices"`
-		Usage struct {
-			PromptTokens     int64 `json:"prompt_tokens"`
-			CompletionTokens int64 `json:"completion_tokens"`
-		} `json:"usage"`
+		Usage completionsUsage `json:"usage"`
 	}
 	if err := json.Unmarshal([]byte(body), &resp); err != nil {
 		return nil, fmt.Errorf("parse response: %w", err)
 	}
 
 	result := &ChatResponse{
-		Usage: Usage{
-			InputTokens:  resp.Usage.PromptTokens,
-			OutputTokens: resp.Usage.CompletionTokens,
-		},
+		Usage: resp.Usage.usage(),
 	}
 
 	if len(resp.Choices) > 0 {
@@ -301,10 +295,7 @@ func (o *openaiChatCompletions) parseStream(body io.Reader, onDelta func(StreamD
 					} `json:"tool_calls"`
 				} `json:"delta"`
 			} `json:"choices"`
-			Usage *struct {
-				PromptTokens     int64 `json:"prompt_tokens"`
-				CompletionTokens int64 `json:"completion_tokens"`
-			} `json:"usage"`
+			Usage *completionsUsage `json:"usage"`
 		}
 		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
 			continue
@@ -364,8 +355,7 @@ func (o *openaiChatCompletions) parseStream(body io.Reader, onDelta func(StreamD
 
 		// Usage (last chunk)
 		if chunk.Usage != nil {
-			result.Usage.InputTokens = chunk.Usage.PromptTokens
-			result.Usage.OutputTokens = chunk.Usage.CompletionTokens
+			result.Usage = chunk.Usage.usage()
 		}
 	}
 
@@ -393,4 +383,23 @@ func (o *openaiChatCompletions) parseStream(body io.Reader, onDelta func(StreamD
 	}
 
 	return result, nil
+}
+
+// completionsUsage is the usage object of a Chat Completions response. The
+// cached part of prompt_tokens is prompt_tokens_details.cached_tokens.
+type completionsUsage struct {
+	PromptTokens        int64 `json:"prompt_tokens"`
+	CompletionTokens    int64 `json:"completion_tokens"`
+	PromptTokensDetails *struct {
+		CachedTokens int64 `json:"cached_tokens"`
+	} `json:"prompt_tokens_details"`
+}
+
+func (u completionsUsage) usage() Usage {
+	out := Usage{InputTokens: u.PromptTokens, OutputTokens: u.CompletionTokens}
+	if u.PromptTokensDetails != nil {
+		out.CacheReported = true
+		out.CacheReadTokens = min(max(u.PromptTokensDetails.CachedTokens, 0), u.PromptTokens)
+	}
+	return out
 }

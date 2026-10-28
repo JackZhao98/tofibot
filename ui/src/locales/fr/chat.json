@@ -811,6 +811,7 @@
   },
   "usageWidget": {
     "all": "Toute l’utilisation",
+    "cache_hit": "Taux de succès du cache",
     "calls_many": "{{count}} d’appels",
     "calls_one": "{{count}} appel",
     "calls_other": "{{count}} appels",

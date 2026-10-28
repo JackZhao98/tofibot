@@ -474,6 +474,26 @@ func (o *openaiResponses) doRequest(ctx context.Context, payload map[string]inte
 	return string(respBody), nil
 }
 
+// responsesUsage is the usage object of a Responses API response (also the
+// Codex backend's). input_tokens counts the whole prompt; the cached part is
+// reported under input_tokens_details.cached_tokens and is a subset of it.
+type responsesUsage struct {
+	InputTokens        int64 `json:"input_tokens"`
+	OutputTokens       int64 `json:"output_tokens"`
+	InputTokensDetails *struct {
+		CachedTokens int64 `json:"cached_tokens"`
+	} `json:"input_tokens_details"`
+}
+
+func (u responsesUsage) usage() Usage {
+	out := Usage{InputTokens: u.InputTokens, OutputTokens: u.OutputTokens}
+	if u.InputTokensDetails != nil {
+		out.CacheReported = true
+		out.CacheReadTokens = min(max(u.InputTokensDetails.CachedTokens, 0), u.InputTokens)
+	}
+	return out
+}
+
 // parseResponse parses a non-streaming Responses API response.
 func (o *openaiResponses) parseResponse(body string) (*ChatResponse, error) {
 	result := &ChatResponse{}
@@ -481,17 +501,13 @@ func (o *openaiResponses) parseResponse(body string) (*ChatResponse, error) {
 	// Parse output items
 	var resp struct {
 		Output []json.RawMessage `json:"output"`
-		Usage  struct {
-			InputTokens  int64 `json:"input_tokens"`
-			OutputTokens int64 `json:"output_tokens"`
-		} `json:"usage"`
+		Usage  responsesUsage    `json:"usage"`
 	}
 	if err := json.Unmarshal([]byte(body), &resp); err != nil {
 		return nil, fmt.Errorf("parse response: %w", err)
 	}
 
-	result.Usage.InputTokens = resp.Usage.InputTokens
-	result.Usage.OutputTokens = resp.Usage.OutputTokens
+	result.Usage = resp.Usage.usage()
 
 	for _, raw := range resp.Output {
 		var item struct {
@@ -821,15 +837,11 @@ func (o *openaiResponses) parseStream(body io.Reader, onDelta func(StreamDelta))
 			completed = true
 			var ev struct {
 				Response struct {
-					Usage struct {
-						InputTokens  int64 `json:"input_tokens"`
-						OutputTokens int64 `json:"output_tokens"`
-					} `json:"usage"`
+					Usage responsesUsage `json:"usage"`
 				} `json:"response"`
 			}
 			if json.Unmarshal([]byte(data), &ev) == nil {
-				result.Usage.InputTokens = ev.Response.Usage.InputTokens
-				result.Usage.OutputTokens = ev.Response.Usage.OutputTokens
+				result.Usage = ev.Response.Usage.usage()
 			}
 
 		case "error":

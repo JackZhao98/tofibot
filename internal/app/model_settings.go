@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/JackZhao98/tofibot/internal/provider"
 	"io"
 	"net/http"
 	"os"
@@ -26,6 +27,26 @@ type ModelOption struct {
 	Provider         string   `json:"provider"`
 	ReasoningEfforts []string `json:"reasoning_efforts"`
 	DefaultReasoning string   `json:"default_reasoning"`
+	// ContextWindow is the window the provider's catalog reported for this
+	// model, in tokens; 0 when the catalog carries none.
+	ContextWindow int `json:"context_window,omitempty"`
+}
+
+// publishCatalogWindows hands the catalog-reported windows to the provider
+// package, which prefers them to its static table. Called wherever a Codex
+// catalog (live, stored or local snapshot) becomes the active one.
+func publishCatalogWindows(models []ModelOption) {
+	windows := make(map[string]int, len(models))
+	for _, m := range models {
+		if m.ContextWindow > 0 {
+			windows[m.ID] = m.ContextWindow
+		}
+	}
+	// A catalog that reports no windows (an old snapshot) must not wipe a
+	// set a newer one supplied.
+	if len(windows) > 0 {
+		provider.SetCatalogContextWindows(windows)
+	}
 }
 
 type modelSettings struct {
@@ -350,6 +371,7 @@ func (s *Server) loadCodexModels(ctx context.Context) ([]ModelOption, string, st
 					s.modelCatalogMu.Lock()
 					s.modelCatalog, s.modelCatalogAt, s.modelCatalogSource = append([]ModelOption(nil), models...), time.Now(), "live"
 					s.modelCatalogMu.Unlock()
+					publishCatalogWindows(models)
 					return models, "live", ""
 				}
 			}
@@ -359,6 +381,7 @@ func (s *Server) loadCodexModels(ctx context.Context) ([]ModelOption, string, st
 		s.modelCatalogMu.Lock()
 		s.modelCatalog, s.modelCatalogAt, s.modelCatalogSource = append([]ModelOption(nil), models...), time.Now(), "cache"
 		s.modelCatalogMu.Unlock()
+		publishCatalogWindows(models)
 		return models, "cache", "live model metadata is unavailable; showing the last successful snapshot"
 	}
 	if models, err := readLocalCodexModelCache(); err == nil && len(models) > 0 {
@@ -366,6 +389,7 @@ func (s *Server) loadCodexModels(ctx context.Context) ([]ModelOption, string, st
 		s.modelCatalogMu.Lock()
 		s.modelCatalog, s.modelCatalogAt, s.modelCatalogSource = append([]ModelOption(nil), models...), time.Now(), "cache"
 		s.modelCatalogMu.Unlock()
+		publishCatalogWindows(models)
 		return models, "cache", "live model metadata is unavailable; showing the local Codex metadata snapshot"
 	}
 	return []ModelOption{}, "fallback", "model metadata is unavailable; connect the configured provider to load available models"
@@ -499,6 +523,7 @@ func (s *Server) loadModelsCached() []ModelOption {
 		s.modelCatalogMu.Unlock()
 		if len(codexModels) == 0 {
 			codexModels, _ = s.store.cachedModels()
+			publishCatalogWindows(codexModels)
 		}
 		for _, option := range codexModels {
 			option.Provider = "codex"
@@ -540,6 +565,8 @@ type codexModelsResponse struct {
 		ID                 string `json:"id"`
 		DisplayName        string `json:"display_name"`
 		DefaultReasoning   string `json:"default_reasoning_level"`
+		ContextWindow      int    `json:"context_window"`
+		MaxContextWindow   int    `json:"max_context_window"`
 		SupportedReasoning []struct {
 			Effort string `json:"effort"`
 		} `json:"supported_reasoning_levels"`
@@ -610,7 +637,11 @@ func normalizeCodexModels(raw codexModelsResponse) []ModelOption {
 			continue
 		}
 		id = "codex-" + strings.TrimPrefix(id, "codex-")
-		option := ModelOption{ID: id, Name: m.DisplayName, DefaultReasoning: m.DefaultReasoning}
+		option := ModelOption{ID: id, Name: m.DisplayName, DefaultReasoning: m.DefaultReasoning, ContextWindow: m.ContextWindow}
+		if option.ContextWindow <= 0 {
+			option.ContextWindow = m.MaxContextWindow
+		}
+		option.ContextWindow = max(option.ContextWindow, 0)
 		if option.Name == "" {
 			option.Name = id
 		}

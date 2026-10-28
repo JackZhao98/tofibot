@@ -787,6 +787,7 @@
   },
   "usageWidget": {
     "all": "All usage",
+    "cache_hit": "Cache hit rate",
     "calls_one": "{{count}} call",
     "calls_other": "{{count}} calls",
     "context": "Context",

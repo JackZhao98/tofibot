@@ -153,7 +153,7 @@ func TestAnthropicStreamParsesThinkingTextAndParallelToolCalls(t *testing.T) {
 	if args[3] != `{"q":"tofi"}` || args[4] != `{"url":"https://x"}` || names[3] != "lookup" || names[4] != "fetch" {
 		t.Fatalf("streamed tool deltas = %v %v", args, names)
 	}
-	if resp.Usage != (Usage{InputTokens: 2400, OutputTokens: 42, CacheReadTokens: 2000, CacheWriteTokens: 300}) {
+	if resp.Usage != (Usage{InputTokens: 2400, OutputTokens: 42, CacheReadTokens: 2000, CacheWriteTokens: 300, CacheReported: true}) {
 		t.Fatalf("usage = %+v", resp.Usage)
 	}
 	if len(resp.ReasoningItems) != 1 || resp.ReasoningItems[0].Provider != "anthropic" || resp.ReasoningItems[0].EncryptedContent != "" {
@@ -524,8 +524,8 @@ func TestAnthropicRollingCacheBreakpointMarksPreviousRequestEnd(t *testing.T) {
 
 func TestAnthropicUsageCost(t *testing.T) {
 	u := Usage{InputTokens: 1_000_000, OutputTokens: 1_000_000, CacheReadTokens: 500_000, CacheWriteTokens: 100_000}
-	// Opus 5.5: 400k uncached × $4 + 500k reads × $0.20 + 100k writes × $5 + 1M out × $20.
-	want := 1.6 + 0.1 + 0.5 + 20.0
+	// Opus 5.5: 400k uncached × $4 + 500k reads × $0.40 (0.1x) + 100k writes × $5 (1.25x) + 1M out × $20.
+	want := 1.6 + 0.2 + 0.5 + 20.0
 	if got := CalculateCost("claude-opus-5-5", u); got < want-1e-9 || got > want+1e-9 {
 		t.Fatalf("cost = %v, want %v", got, want)
 	}

@@ -15,6 +15,8 @@
 .usage-used.is-full { color: var(--clay-text); }
 .usage-now-figures { color: var(--muted); font: 500 13px/1.3 var(--body); font-variant-numeric: tabular-nums; }
 .usage-now-meta { overflow: hidden; margin-top: -4px; color: var(--muted); font: 12px/1.4 var(--body); text-overflow: ellipsis; white-space: nowrap; }
+.usage-now-meta.usage-cache { margin-top: -2px; }
+.usage-cache b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
 
 /* One shared palette for the context parts, the split and their legends (tokens only: light and dark come with them). */
 .usage-widget .usage-part, .usage-widget .usage-swatch, .usage-split-bar i { --c: var(--muted); background: var(--c); }

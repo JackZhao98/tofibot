@@ -203,6 +203,9 @@ type Usage struct {
 	OutputTokens     int64
 	CacheReadTokens  int64
 	CacheWriteTokens int64
+	// CacheReported is true when the provider's usage object carried cache
+	// fields at all, so zero cache reads means a miss rather than "unknown".
+	CacheReported bool `json:"CacheReported,omitempty"`
 }
 
 // Add accumulates usage from another Usage.
@@ -211,6 +214,7 @@ func (u *Usage) Add(other Usage) {
 	u.OutputTokens += other.OutputTokens
 	u.CacheReadTokens += other.CacheReadTokens
 	u.CacheWriteTokens += other.CacheWriteTokens
+	u.CacheReported = u.CacheReported || other.CacheReported
 }
 
 // Option configures provider creation.

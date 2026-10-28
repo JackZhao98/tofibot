@@ -219,7 +219,7 @@ type AgentConfig struct {
 	OnContextEstimate         func(estimatedInput int)                                  // Estimated input for the next model call, after pre-call compaction
 	OnContextBreakdown        func(ContextBreakdown)                                    // Same estimate split into system/tools, messages and reasoning
 	OnReasoningReplayRejected func()                                                    // Provider rejected replayed reasoning; replay is off for the rest of the run
-	OnUsage                   func(inputTokens, outputTokens int64)                     // Provider-reported usage for one model call
+	OnUsage                   func(provider.Usage)                                      // Provider-reported usage for one model call
 	// WebSearchMaxUses, when positive, adds the provider's server-side web
 	// search to ordinary model requests (searches per request capped at this);
 	// OnWebSearches receives what each response searched and the billed count.
@@ -1183,7 +1183,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		for _, usage := range c.Calls {
 			state = state.RecordAPICall(cfg.Model, usage)
 			if cfg.OnUsage != nil {
-				cfg.OnUsage(usage.InputTokens, usage.OutputTokens)
+				cfg.OnUsage(usage)
 			}
 		}
 		if cfg.LiveUsage != nil && len(c.Calls) > 0 {
@@ -1492,7 +1492,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			if resp != nil {
 				state = state.RecordAPICall(cfg.Model, resp.Usage)
 				if cfg.OnUsage != nil {
-					cfg.OnUsage(resp.Usage.InputTokens, resp.Usage.OutputTokens)
+					cfg.OnUsage(resp.Usage)
 				}
 				if cfg.OnWebSearches != nil && (len(resp.WebSearches) > 0 || resp.WebSearchRequests > 0) {
 					cfg.OnWebSearches(resp.WebSearches, resp.WebSearchRequests)
@@ -1588,7 +1588,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 					lastContent = resp.Content
 					state = state.RecordAPICall(cfg.Model, resp.Usage)
 					if cfg.OnUsage != nil {
-						cfg.OnUsage(resp.Usage.InputTokens, resp.Usage.OutputTokens)
+						cfg.OnUsage(resp.Usage)
 					}
 				}
 				state = state.WithMessages(messages)
@@ -1614,7 +1614,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		apiDuration := time.Since(apiStart)
 		state = state.RecordAPICall(cfg.Model, resp.Usage)
 		if cfg.OnUsage != nil {
-			cfg.OnUsage(resp.Usage.InputTokens, resp.Usage.OutputTokens)
+			cfg.OnUsage(resp.Usage)
 		}
 		if cfg.OnWebSearches != nil && (len(resp.WebSearches) > 0 || resp.WebSearchRequests > 0) {
 			cfg.OnWebSearches(resp.WebSearches, resp.WebSearchRequests)

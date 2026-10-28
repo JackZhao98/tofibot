@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/JackZhao98/tofibot/internal/agent"
+	"github.com/JackZhao98/tofibot/internal/provider"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"time"
 )
@@ -127,7 +128,7 @@ type Request struct {
 	OnAssistantTurn   func(turnIndex int, content string) error
 	OnToolEvent       func(ToolEvent) error
 	OnContextEstimate func(estimatedInput int)
-	OnUsage           func(inputTokens, outputTokens int64)
+	OnUsage           func(provider.Usage)
 	// WebSearchMaxUses, when positive, gives the model the provider's own
 	// server-side web search (Anthropic models; searches per model request
 	// capped at this). Each search is reported through OnToolEvent as a

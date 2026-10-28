@@ -51,7 +51,7 @@ func TestOverflowCompactionCallIsTracked(t *testing.T) {
 	var reported []int64
 	var live provider.Usage
 	result, err := runLoop(t, AgentConfig{Provider: p, Messages: history, LiveUsage: &live,
-		OnUsage: func(in, out int64) { reported = append(reported, in, out) }})
+		OnUsage: func(u provider.Usage) { reported = append(reported, u.InputTokens, u.OutputTokens) }})
 	if err != nil || result.Content != "final" {
 		t.Fatalf("result=%+v err=%v", result, err)
 	}

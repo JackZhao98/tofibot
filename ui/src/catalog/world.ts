@@ -280,13 +280,13 @@ function usageFor(id: string, mode: NonNullable<AppOptions["usage"]>) {
   const part = (kind: string, tokens: number) => ({ kind, tokens, estimated: true });
   return {
     conversation_id: id,
-    totals: { runs: 14, runs_with_call_detail: mode === "split-unavailable" ? 3 : 14, requests: 41, input_tokens: 1_284_000, output_tokens: 52_300, equivalent_usd: 1.86, unpriced_requests: 0 },
+    totals: { runs: 14, runs_with_call_detail: mode === "split-unavailable" ? 3 : 14, requests: 41, input_tokens: 1_284_000, output_tokens: 52_300, equivalent_usd: 1.86, unpriced_requests: 0, cache_read_tokens: 802_000, cache_hit_rate: 0.62 },
     per_model: [
       { model: "gpt-6-luna", requests: 33, input_tokens: 1_090_000, output_tokens: 44_000, equivalent_usd: 1.52, unpriced_requests: 0 },
       { model: "gpt-6-luna-mini", requests: 8, input_tokens: 194_000, output_tokens: 8_300, equivalent_usd: 0.34, unpriced_requests: 0 },
     ],
     latest_context: {
-      run_id: "run_dm_mochi_11", model: "gpt-6-luna", used_tokens: 61_400, used_measured: true, window_tokens: 200_000, window_known: true,
+      run_id: "run_dm_mochi_11", model: "gpt-6-luna", used_tokens: 61_400, used_measured: true, window_tokens: 200_000, window_known: true, cache_read_tokens: 52_200, cache_hit_rate: 0.85,
       parts: mode === "no-snapshot" ? [] : [part("instructions", 6_800), part("history", 31_200), part("tool_definitions", 9_400), part("tool_results", 8_900), part("memory_notes", 3_100), part("attachments", 1_100), part("other", 900)],
       parts_tokens: mode === "no-snapshot" ? 0 : 61_400,
       ...(mode === "no-snapshot" ? { parts_code: "context_snapshot_unavailable" } : {}),

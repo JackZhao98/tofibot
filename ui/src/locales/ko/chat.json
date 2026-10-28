@@ -763,6 +763,7 @@
   },
   "usageWidget": {
     "all": "전체 사용량",
+    "cache_hit": "캐시 적중률",
     "calls_other": "호출 {{count}}회",
     "context": "컨텍스트",
     "conversation": "대화",

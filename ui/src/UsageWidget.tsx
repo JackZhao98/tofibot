@@ -10,10 +10,10 @@ import "./usage-widget.css";
 /** The shape of GET /api/conversations/{id}/usage (internal/app/conversation_usage.go; AGENTS.md "Conversation usage"). */
 export type ConversationUsage = {
   conversation_id: string;
-  totals: { runs: number; runs_with_call_detail: number; requests: number; input_tokens: number; output_tokens: number; equivalent_usd: number; unpriced_requests: number };
+  totals: { runs: number; runs_with_call_detail: number; requests: number; input_tokens: number; output_tokens: number; equivalent_usd: number; unpriced_requests: number; cache_read_tokens?: number; cache_hit_rate?: number | null };
   per_model: { model: string; requests: number; input_tokens: number; output_tokens: number; equivalent_usd: number; unpriced_requests: number }[];
   latest_context: null | {
-    run_id: string; model: string; used_tokens: number; used_measured: boolean; window_tokens: number; window_known: boolean;
+    run_id: string; model: string; used_tokens: number; used_measured: boolean; window_tokens: number; window_known: boolean; cache_read_tokens?: number; cache_hit_rate?: number | null;
     parts: { kind: string; tokens: number; estimated: boolean }[]; parts_tokens: number; parts_code?: string;
   };
   tool_split: { available: true; tool_tokens: number; conversation_tokens: number; review_tokens: number; tool_model_calls: number; conversation_model_calls: number; tool_calls: number; basis?: string } | { available: false; code: string };
@@ -26,6 +26,8 @@ const THROTTLE_MS = 4000;
 const partKind = (kind: string) => (PART_KINDS as readonly string[]).includes(kind) ? kind as typeof PART_KINDS[number] : "other";
 const compact = (value: number) => formatNumber(value, { notation: "compact", maximumFractionDigits: value < 1000 ? 0 : 1 });
 const money = (value: number) => value > 0 && value < 0.01 ? `<${formatNumber(0.01, { style: "currency", currency: "USD" })}` : formatNumber(value, { style: "currency", currency: "USD" });
+/** Cache hit rate; a dash when the provider reported no cache data (older servers omit the field). */
+const rate = (value: number | null | undefined) => value == null ? "—" : percent(value);
 /** A part's share of the window: under one percent reads "<1%", never a rounded zero. */
 const share = (tokens: number, window: number) => window > 0 && tokens > 0 ? (tokens / window < 0.005 ? `<${percent(0.01)}` : percent(tokens / window)) : "";
 const percent = (value: number) => formatNumber(value, { style: "percent", maximumFractionDigits: 0 });
@@ -91,6 +93,7 @@ export function UsageWidget({ conversationId, running, onAll }: { conversationId
           <span className="usage-now-figures">{ctx.used_measured ? "" : "≈"}{compact(ctx.used_tokens)} / {ctx.window_known ? "" : "≈"}{compact(ctx.window_tokens)}</span>
         </div>
         <small className="usage-now-meta">{name(ctx.model)} · {ctx.used_measured ? t("usageWidget.measured") : t("usageWidget.estimated")}{ctx.window_known ? "" : ` · ${t("usageWidget.window_estimated")}`}</small>
+        <small className="usage-now-meta usage-cache">{t("usageWidget.cache_hit")} · <b>{rate(ctx.cache_hit_rate)}</b>{ctx.cache_hit_rate != null && ctx.cache_read_tokens ? ` · ${compact(ctx.cache_read_tokens)}` : ""}</small>
         {/* The bar is the window: a segment per context part (or one for what is used when there is no snapshot), the rest empty. */}
         <div className="usage-parts-bar" role="img" aria-label={t("usageWidget.ring_label", { used: compact(ctx.used_tokens), window: compact(ctx.window_tokens), percent: percent(fraction) })}>
           {ctx.parts.length ? ctx.parts.map(part => <i key={part.kind} className={`usage-part k-${part.kind}`} style={{ flexGrow: part.tokens }} />) : <i className={`usage-part k-used is-${tone}`} style={{ flexGrow: ctx.used_tokens }} />}
@@ -121,6 +124,7 @@ export function UsageWidget({ conversationId, running, onAll }: { conversationId
           <div><dt>{t("usageWidget.input")}</dt><dd>{compact(totals.input_tokens)}</dd></div>
           <div><dt>{t("usageWidget.output")}</dt><dd>{compact(totals.output_tokens)}</dd></div>
           <div><dt>{t("usageWidget.requests")}</dt><dd>{totals.requests ? formatNumber(totals.requests) : "–"}</dd></div>
+          <div><dt>{t("usageWidget.cache_hit")}</dt><dd>{rate(totals.cache_hit_rate)}</dd></div>
           <div><dt>{t("usageWidget.cost")}</dt><dd title={totals.unpriced_requests ? t("usageWidget.unpriced", { count: totals.unpriced_requests }) : undefined}>{totals.requests ? `≈ ${money(totals.equivalent_usd)}` : "–"}</dd></div>
         </dl>
         {data.per_model.length > 1 && <ul className="usage-models">{data.per_model.slice(0, 3).map(row => <li key={row.model}><span>{name(row.model)}</span><b>{compact(row.input_tokens + row.output_tokens)}</b></li>)}</ul>}
