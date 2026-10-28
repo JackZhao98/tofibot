@@ -105,12 +105,19 @@ func TestRootAccountCannotRedirectRootSideOperations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	spec.Command = "/bin/sh"
+	// The shell runs as the account uid without the plugin's secrets, so every
+	// refusal below comes from file permissions, not from a missing secret.
+	shell := spec
+	shell.Command = "/bin/sh"
+	shell.SecretEnv = nil
 	run := func(script string) error {
-		_, err := runGog(context.Background(), spec, nil, "-c", script)
+		_, err := runGog(context.Background(), shell, nil, "-c", script)
 		return err
 	}
 	dirA, dirB := filepath.Join(root, "accounts", accountA), filepath.Join(root, "accounts", accountB)
+	if err := run("touch " + filepath.Join(dirA, "state", "plugins", "gog", "probe")); err != nil {
+		t.Fatalf("the account cannot write its own plugin directory: %v", err)
+	}
 	// The account cannot rename or replace the directories above its plugin.
 	for _, script := range []string{
 		"mv " + filepath.Join(dirA, "state", "plugins") + " " + filepath.Join(dirA, "state", "plugins.x"),
@@ -125,7 +132,7 @@ func TestRootAccountCannotRedirectRootSideOperations(t *testing.T) {
 	before := snapshotTree(t, dirB)
 	// It can replace what it owns: the files inside its own plugin directory.
 	own := filepath.Join(dirA, "state", "plugins", "gog")
-	if err := run("rm " + filepath.Join(own, "keyring-password") + " && ln -s " + filepath.Join(dirB, "state", "plugins", "gog", "keyring-password") + " " + filepath.Join(own, "keyring-password") +
+	if err := run("rm -f " + filepath.Join(own, "keyring-password") + " && ln -s " + filepath.Join(dirB, "state", "plugins", "gog", "keyring-password") + " " + filepath.Join(own, "keyring-password") +
 		" && ln -s " + filepath.Join(dirB, "manifest.json") + " " + filepath.Join(own, "gog-account.json")); err != nil {
 		t.Fatalf("the account could not plant its own links: %v", err)
 	}
