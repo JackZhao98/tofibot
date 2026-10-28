@@ -52,6 +52,7 @@
     "answered": "已回答",
     "expired": "已過期",
     "cancelled": "已取消",
+    "superseded": "已取消 — 你傳送了新訊息",
     "run_done": "執行已結束",
     "approval_expired": "核准已過期",
     "approval_denied": "未核准",

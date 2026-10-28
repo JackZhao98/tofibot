@@ -3651,7 +3651,11 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request, c Conversat
 		s.enqueue(c, run)
 	}
 	// A message queued for a working Bot starts no run. A Bot parked on a card
-	// keeps its card and reads the message when it resumes.
+	// had that card closed as superseded in the ingress transaction: wake the
+	// worker so the run resumes with the message now.
+	if len(queued) > 0 {
+		s.startConversationWorker(c.ID)
+	}
 	var run *Run
 	if len(runs) > 0 {
 		run = &runs[0]
@@ -4537,6 +4541,7 @@ func (s *Server) execute(c Conversation, r Run) {
 			}
 		}
 		if queued {
+			s.startConversationWorker(c.ID)
 			if changed, se := s.store.SetRunStatus(r.ID, "done", ""); se == nil && changed {
 				if done, de := s.store.GetRun(r.ID); de == nil {
 					_, _ = s.store.Event(c.ID, "run", done)

@@ -247,6 +247,9 @@ func (s *Server) inputResumeResult(q Question) string {
 	if isHandoverType(q.Type) {
 		return handoverResult(q)
 	}
+	if q.Status == questionCancelled && q.AnsweredBy == questionSupersededBy {
+		return supersededResult
+	}
 	if q.Status != questionAnswered {
 		b, _ := json.Marshal(map[string]string{"status": q.Status})
 		return string(b)
@@ -312,3 +315,8 @@ func (s *Server) inputResumeOutcome(q Question) *tooloutcome.Outcome {
 func mcpApprovalRecordedOutcome() tooloutcome.Outcome {
 	return tooloutcome.New("approval_recorded", "approval_recorded", "not_executed", "The human approved this exact call; it has not executed yet. Call call_mcp_tool again now with the identical name and arguments. Do not search, refresh schemas or inspect first, and do not change any argument.", "repeat_exact_call")
 }
+
+// supersededResult is what a run reads when the person wrote instead of
+// answering its card. The words are fixed; the person's message itself reaches
+// the run through the inbox, not through this result.
+const supersededResult = `{"status":"cancelled","reason":"superseded_by_user_message","executed":false,"note":"The person sent a new message instead of answering. This proposal was cancelled and must not be executed. Read their new message and follow up on it: revise the proposal, answer, or ask again."}`

@@ -52,6 +52,7 @@
     "answered": "Beantwortet",
     "expired": "Abgelaufen",
     "cancelled": "Abgebrochen",
+    "superseded": "Abgebrochen — du hast eine neue Nachricht gesendet",
     "run_done": "Lauf beendet",
     "approval_expired": "Freigabe abgelaufen",
     "approval_denied": "Abgelehnt",

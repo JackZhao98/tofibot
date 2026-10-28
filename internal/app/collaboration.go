@@ -325,6 +325,11 @@ func (s *Store) addUserRunsSteering(conv, content, client string, specs []runSpe
 		if rerr = noteUserMessageForBotTasksTx(tx, conv, m, spec.BotID, steerAt[i]); rerr != nil {
 			return Message{}, nil, nil, false, rerr
 		}
+		// The person wrote instead of answering: a card the run is parked on
+		// closes as superseded and the run resumes with this message.
+		if rerr = supersedeRunQuestionsTx(tx, steerAt[i]); rerr != nil {
+			return Message{}, nil, nil, false, rerr
+		}
 		deliveries = append(deliveries, steerDelivery{BotID: spec.BotID, RunID: steerAt[i], RowID: rowID})
 	}
 	// A run that has to wait for its Bot's lane because the Bot works somewhere

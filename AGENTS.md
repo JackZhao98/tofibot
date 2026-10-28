@@ -123,6 +123,12 @@ outcome `conversation_not_user_visible`); a hidden Bot-to-Bot run reaches a huma
 through its reply, which returns to the assigning Bot or conversation. Mail drafts
 (`prepare_email`) are still a separate card path.
 
+A person's own message supersedes an open card: `addUserRunsSteering` (and `steerTriagedMessage`) call `supersedeRunQuestionsTx` (`steer.go`) in the same
+transaction that queues the message for the parked or working run. Every pending card of that run (approval, MCP call approval, question, form; not takeover or
+connection) goes to `cancelled` with `answered_by='superseded'` (card field `superseded`), through the same single `UPDATE ... WHERE status='pending'` as the other
+cancel path, so an Approve that committed first stands and a superseded card can never be approved. The run resumes at once and reads `supersededResult`
+(`executed:false`), then the message at its next boundary. Schedule runs and runs under a schedule are left alone; other Bots' messages never come through this path.
+
 Bot secrets (`internal/app/bot_secrets.go`, design `docs/design/bot-secrets.md`): the person, never the Bot, may tick "Save for this Bot" on a
 `request_secret_input` card (`save_as` in the answer, `AnswerUserFormSaving`); the record is vault kind `bot_env` scoped by `BotID`, never listed
 under Settings credentials. A Bot uses one only by naming it in `computer_shell` `secrets`: the host adds it to that one command's environment at

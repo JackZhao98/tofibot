@@ -432,6 +432,9 @@ func (s *Store) steerTriagedMessage(triage Run, target string) (steerDelivery, b
 	if err != nil {
 		return steerDelivery{}, false, err
 	}
+	if err = supersedeRunQuestionsTx(tx, runID); err != nil {
+		return steerDelivery{}, false, err
+	}
 	if err = noteUserMessageForBotTasksTx(tx, triage.ConversationID, m, target, runID); err != nil {
 		return steerDelivery{}, false, err
 	}
@@ -536,4 +539,68 @@ func workingMembers(q queryer, conv, except string) ([]workingMember, error) {
 		}
 	}
 	return out, rows.Err()
+}
+
+// questionSupersededBy marks a card the person's own newer message closed
+// (answered_by of a cancelled question). It is not an actor: no answer
+// carries it, and AnswerQuestion refuses a card that is no longer pending.
+const questionSupersededBy = "superseded"
+
+// supersedeRunQuestionsTx closes, in the caller's transaction, every card the
+// run is blocked on (approval, MCP call approval, question, form) because the
+// person wrote instead of answering. It is the cancel path (status cancelled)
+// with one reason; the UPDATE only takes a card that is still pending, so an
+// answer that committed first stands and a card closed here is never answered
+// afterwards. Takeover and connection cards stay: the person acts on another
+// surface there, and a chat message is not an answer. A run of a schedule, or
+// one that descends from one, has no person at the card and is left alone.
+func supersedeRunQuestionsTx(tx *sql.Tx, runID string) error {
+	var unattended bool
+	if err := tx.QueryRow(`WITH RECURSIVE ancestors(id,parent_run_id) AS (
+		SELECT id,parent_run_id FROM runs WHERE id=?
+		UNION
+		SELECT parent.id,parent.parent_run_id FROM runs parent JOIN ancestors child ON parent.id=child.parent_run_id
+	) SELECT EXISTS(SELECT 1 FROM runs WHERE id=? AND kind=?) OR EXISTS(SELECT 1 FROM ancestors a JOIN schedule_occurrences o ON o.run_id=a.id JOIN runs root ON root.id=o.run_id AND root.kind=?)`,
+		runID, runID, runKindSchedule, runKindSchedule).Scan(&unattended); err != nil {
+		return err
+	}
+	if unattended {
+		return nil
+	}
+	rows, err := tx.Query(`SELECT id FROM questions WHERE run_id=? AND status=? AND type NOT IN (?,?)`, runID, questionPending, questionTakeover, questionConnection)
+	if err != nil {
+		return err
+	}
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err = rows.Scan(&id); err != nil {
+			rows.Close()
+			return err
+		}
+		ids = append(ids, id)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return err
+	}
+	for _, id := range ids {
+		t := now()
+		res, err := tx.Exec(`UPDATE questions SET status=?,answered_by=?,updated_at=? WHERE id=? AND status=?`, questionCancelled, questionSupersededBy, t, id, questionPending)
+		if err != nil {
+			return err
+		}
+		if n, _ := res.RowsAffected(); n != 1 {
+			continue
+		}
+		q, err := scanQuestion(tx.QueryRow(`SELECT `+questionColumns+` FROM questions WHERE id=?`, id))
+		if err != nil {
+			return err
+		}
+		if err = insertEventTx(tx, q.ConversationID, "question", q.Card(), t); err != nil {
+			return err
+		}
+	}
+	return nil
 }

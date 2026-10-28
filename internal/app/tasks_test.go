@@ -1366,8 +1366,8 @@ func TestAWaitChainEndsAfterTooManySelfWakes(t *testing.T) {
 	}
 }
 
-// Rewritten for decision 0062 (Q6): a person's message while a card is open is
-// an unread row pointed at the parked run, and the card stays.
+// A person's message while a card is open is an unread row pointed at the
+// parked run, and the card is closed as superseded.
 func TestAPersonsMessageWhileACardIsOpenLeavesAnUnreadInboxRow(t *testing.T) {
 	f := newTaskFix(t)
 	dm, _ := f.s.GetConversation(f.a.DMConversationID)
@@ -1391,8 +1391,8 @@ func TestAPersonsMessageWhileACardIsOpenLeavesAnUnreadInboxRow(t *testing.T) {
 	if err := f.s.db.QueryRow(`SELECT body,consumed_by_run,parent_run,wakes FROM bot_inbox WHERE kind='user_message'`).Scan(&body, &by, &parent, &wakes); err != nil || body != m.Content || by != "" || parent != run.ID || wakes != 0 {
 		t.Fatalf("row %q consumed_by=%q parent=%q wakes=%d %v", body, by, parent, wakes, err)
 	}
-	if got, _ := f.s.GetQuestion(q.ID); got.Status != questionPending {
-		t.Fatalf("the card did not stay: %s", got.Status)
+	if got, _ := f.s.GetQuestion(q.ID); got.Status != questionCancelled || got.AnsweredBy != questionSupersededBy {
+		t.Fatalf("the card was not superseded: %s", got.Status)
 	}
 	// Another run of the Bot does not read a message that belongs to the parked run.
 	if rows := f.s.peekInboxForRun(f.a.ID, dm.ID, "another-run"); len(rows) != 0 {

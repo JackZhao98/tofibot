@@ -87,7 +87,7 @@ const reviewStatusKeys = {
   policy_denied: "status.policy_denied", unavailable: "status.review_unavailable",
   human_required: "status.awaiting_approval", not_reviewed: "status.awaiting_approval", invalidated: "status.awaiting_approval", not_eligible: "status.awaiting_approval",
   reviewing: "status.reviewing", allow: "status.passed", approved: "status.passed",
-  pending: "status.pending", answered: "status.answered", expired: "status.expired", cancelled: "status.cancelled", run_done: "status.run_done",
+  pending: "status.pending", answered: "status.answered", expired: "status.expired", cancelled: "status.cancelled", superseded: "status.superseded", run_done: "status.run_done",
   approval_expired: "status.approval_expired", approval_denied: "status.approval_denied", uncertain_effect: "status.needs_checking",
   need_information: "status.need_information", validation_error: "status.validation_error",
   transient_failure: "status.transient_failure", permanent_failure: "status.permanent_failure",
@@ -186,7 +186,7 @@ export function presentTaskIssue({ run, family, tools = [], questions = [], draf
       if (question.status === "expired") add("expired");
       if (question.question_type === "approval" && question.status === "answered" && question.answer === false && question.answered_by !== "auto-review") add("human_denied");
     }
-    evidence.push({ source: "question", id: question.question_id, status: review?.status ?? question.status, certainty: question.outcome?.execution_certainty, model: review?.model, updatedAt: question.updated_at, contextCode: review?.context_failure?.code, failureCategory: review?.failure_category });
+    evidence.push({ source: "question", id: question.question_id, status: review?.status ?? (question.superseded ? "superseded" : question.status), certainty: question.outcome?.execution_certainty, model: review?.model, updatedAt: question.updated_at, contextCode: review?.context_failure?.code, failureCategory: review?.failure_category });
   }
   for (const draft of drafts) {
     evidence.push({ source: "draft", id: draft.draft_id, status: draft.status, certainty: draft.status === "unknown" ? "unknown" : undefined, updatedAt: draft.updated_at });

@@ -52,6 +52,7 @@
     "answered": "Answered",
     "expired": "Expired",
     "cancelled": "Cancelled",
+    "superseded": "Cancelled — you sent a new message",
     "run_done": "Run ended",
     "approval_expired": "Approval expired",
     "approval_denied": "Declined",

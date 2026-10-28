@@ -52,6 +52,7 @@
     "answered": "답변함",
     "expired": "만료됨",
     "cancelled": "취소됨",
+    "superseded": "취소됨 — 새 메시지를 보냈습니다",
     "run_done": "실행 종료",
     "approval_expired": "승인 만료",
     "approval_denied": "거절됨",

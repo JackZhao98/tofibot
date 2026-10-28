@@ -177,6 +177,9 @@ type QuestionCard struct {
 	Status         string               `json:"status"`
 	ExpiresAt      string               `json:"expires_at,omitempty"`
 	Target         string               `json:"target,omitempty"`
+	// Superseded: the person's own newer message closed this card (status
+	// cancelled). Nothing was answered and nothing ran.
+	Superseded bool `json:"superseded,omitempty"`
 	// DetailOmitted marks a compact list row: approval payload and facts were
 	// left out and are served by GET /api/questions/{id}.
 	DetailOmitted bool `json:"detail_omitted,omitempty"`
@@ -513,6 +516,7 @@ func (s *Server) CreateQuestion(conv string, run Run, in askQuestionInput) (Ques
 
 func (q Question) Card() QuestionCard {
 	card := QuestionCard{Type: "question", QuestionID: q.ID, Question: q.Prompt, QuestionType: q.Type, Options: q.Options, AllowOther: q.AllowOther, Fields: q.Fields, SourceURL: q.SourceURL, Approval: q.Approval, MinSelections: q.MinSelections, MaxSelections: q.MaxSelections, RunID: q.RunID, ConversationID: q.ConversationID, BotID: q.BotID, CreatedAt: q.CreatedAt, UpdatedAt: q.UpdatedAt, Answer: q.Answer, AnsweredBy: q.AnsweredBy, Status: q.Status, ExpiresAt: q.ExpiresAt, Target: q.Target}
+	card.Superseded = q.Status == questionCancelled && q.AnsweredBy == questionSupersededBy
 	if q.Status == questionPending || (q.Type == questionApproval && q.Status == questionExpired) {
 		status, code, message, next := tooloutcome.NeedInformation, "human_input", "Task is waiting for the requested information.", "answer_question"
 		if q.Type == questionApproval {
@@ -1197,6 +1201,9 @@ func (s *Server) WaitQuestion(ctx context.Context, id string) (json.RawMessage, 
 		case questionAnswered:
 			return q.Answer, nil
 		case questionCancelled, questionExpired:
+			if q.Status == questionCancelled && q.AnsweredBy == questionSupersededBy {
+				return json.RawMessage(supersededResult), nil
+			}
 			return json.RawMessage(fmt.Sprintf(`{"status":%q}`, q.Status)), nil
 		case questionRunDone:
 			return nil, fmt.Errorf("question %s: %s", id, q.Status)

@@ -5,6 +5,8 @@ import { CompactLiveLine, RunStartContext, WebToolActivityRun } from "../../App"
 import { DeliveryNote } from "../../SendReceipt";
 import { RunContextBody, type RunContextState } from "../../RunContext";
 import { TaskRunBlock } from "../../TaskRunBlock";
+import { QuestionCard } from "../../QuestionCard";
+import { bot, pendingApproval } from "../world";
 import { buildTaskOwners } from "../../taskIssuePresentation";
 import type { Message, Run, RunContextSnapshot, ToolActivity, ToolActivityRunSummary } from "../../types";
 import type { CatalogState } from "../types";
@@ -50,12 +52,13 @@ const twoLiveLines = () => <div>
 
 const noop = () => {};
 const none = async () => {};
-function block(runId: string, status: Run["status"], options: { live: boolean; liveStatus?: string; hideActivity: boolean; rich?: boolean }) {
+function block(runId: string, status: Run["status"], options: { live: boolean; liveStatus?: string; hideActivity: boolean; rich?: boolean; approval?: boolean }) {
   const current = status === "done" ? run(runId, "done", 48, 2) : run(runId, status, 12);
   const messages = status === "done" ? [answer(runId)] : [];
-  const [owner] = buildTaskOwners([current], messages, [], []);
-  return <TaskRunBlock owner={owner} tools={options.rich ? richSteps(runId, options.live) : steps(runId, options.live)} questions={[]} drafts={[]} messages={messages} summaries={status === "done" ? [options.rich ? richSummary(runId) : summary(runId, 48, 2)] : []} details={{ [runId]: { loaded: options.rich ? 6 : 3, toolCount: options.rich ? 6 : 3, hasMore: false, loading: false } }}
-    onOpenTools={noop} onRefresh={none} onLoadDetails={none} liveStatus={options.liveStatus} hideActivity={options.hideActivity} renderQuestion={() => null} renderDraft={() => null} />;
+  const pending = options.approval ? [pendingApproval(CONVERSATION, { question_id: `q_${runId}`, run_id: runId })] : [];
+  const [owner] = buildTaskOwners([current], messages, pending, []);
+  return <TaskRunBlock owner={owner} tools={options.rich ? richSteps(runId, options.live) : steps(runId, options.live)} questions={pending} drafts={[]} messages={messages} summaries={status === "done" ? [options.rich ? richSummary(runId) : summary(runId, 48, 2)] : []} details={{ [runId]: { loaded: options.rich ? 6 : 3, toolCount: options.rich ? 6 : 3, hasMore: false, loading: false } }}
+    onOpenTools={noop} onRefresh={none} onLoadDetails={none} liveStatus={options.liveStatus} hideActivity={options.hideActivity} renderQuestion={question => <QuestionCard key={question.question_id} item={question} bot={bot(question.bot_id)} onChanged={none} />} renderDraft={() => null} />;
 }
 function web(runId: string, live: boolean, rich = false) {
   const items = rich ? richSteps(runId, live) : steps(runId, live);
@@ -109,6 +112,8 @@ export const processStates: CatalogState[] = [
   { id: "process-live-long", label: "Process line, live, long text", note: "never wraps: it ends in an ellipsis; opened, the whole text is the first row", ...ctx, render: () => block("run_p3", "running", { live: true, liveStatus: LONG, hideActivity: true }) },
   { id: "process-live-long-open", label: "Process line, live, long text, opened", ...ctx, render: () => block("run_p4", "running", { live: true, liveStatus: LONG, hideActivity: true }), drive: expand(".task-run-live-line button") },
   { id: "process-live-focus", label: "Process line, live, keyboard focus", ...ctx, render: () => block("run_p5", "running", { live: true, liveStatus: "Browsing the web", hideActivity: true }), force: [{ selector: ".task-run-live-line button", state: "focus" }] },
+  { id: "process-waiting-card", label: "Waiting on an approval card, Activity shown", note: "the process line and the steps sit above the card; the card they wait on is the last item of the turn", ...ctx, render: () => block("run_pa1", "waiting", { live: true, liveStatus: "Waiting for your confirmation", hideActivity: false, approval: true }), drive: expand("details.task-activity > summary") },
+  { id: "process-waiting-card-hidden", label: "Waiting on an approval card, Activity hidden", note: "the live line is above the card", ...ctx, render: () => block("run_pa2", "waiting", { live: true, liveStatus: "Waiting for your confirmation", hideActivity: true, approval: true }) },
   { id: "process-complete", label: "Process line, finished", note: "no mark; chevron, tool glyph, count, time (\"3 · 46s\"); the words are the accessible name", ...ctx, render: () => block("run_p6", "done", { live: false, hideActivity: false }) },
   { id: "process-complete-open", label: "Process line, finished, opened", ...ctx, render: () => block("run_p7", "done", { live: false, hideActivity: false }), drive: expand("details.task-activity > summary") },
   { id: "process-complete-rich-open", label: "Activity, finished, opened, with a failed call", note: "compact rows: status icon, no timeline rail, time only from 1 s; the failed row stays red with its words; runs of the same call fold into one row with a count", ...ctx, render: () => block("run_p8", "done", { live: false, hideActivity: false, rich: true }), drive: expand("details.task-activity > summary") },

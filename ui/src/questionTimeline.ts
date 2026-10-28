@@ -39,6 +39,8 @@ export interface Question {
   status: "pending" | "answered" | "cancelled" | "run_done" | "expired";
   answer?: QuestionAnswer;
   answered_by?: string;
+  /** The person's own newer message closed this card (status cancelled): nothing was answered and nothing ran. */
+  superseded?: boolean;
   created_at: string;
   updated_at?: string;
   expires_at?: string;

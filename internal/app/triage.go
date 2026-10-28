@@ -105,6 +105,7 @@ func (s *Server) routeAfterFailedTriage(c Conversation, r Run, cause error) bool
 	if s.groupFollowUpEnabled() {
 		if working, err := workingMembers(s.store.db, c.ID, r.TriggerMessageID); err == nil && len(working) > 0 {
 			if _, queued, qe := s.store.steerTriagedMessage(r, working[0].BotID); qe == nil && queued {
+				s.startConversationWorker(c.ID)
 				log.Printf("[triage] failed; queued the message for the working member conv=%s run=%s", c.ID, r.ID)
 				if changed, se := s.store.SetRunStatus(r.ID, "done", ""); se == nil && changed {
 					if done, de := s.store.GetRun(r.ID); de == nil {

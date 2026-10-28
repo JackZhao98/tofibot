@@ -211,11 +211,12 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
     {senderHead ? head : showName && botName && <p className="task-run-identity">{botName}</p>}
     {issue ? <TaskIssueCard issue={issue} locale={locale} onRetry={onRetryRun ? () => onRetryRun(run.id) : undefined} onFeedback={onFeedback} onOpenStep={openStep} onAction={issue.action === "open_tools" ? onOpenTools : issue.action === "open_codex" ? () => { window.dispatchEvent(new Event("tofi:open-codex-settings")); } : issue.action === "refresh_status" ? onRefresh : viewActivity} /> : taskPhaseVisible(run) && <p className="task-run-phase">{taskPhaseLabel(input)}</p>}
     {/* A separate valid proposal survives another call's failure/unknown effect. */}
-    {decisions.map(renderQuestion)}
-    {currentDrafts.filter(draft => draft.status !== "unknown").map(renderDraft)}
     {!showActivity && liveLine && <p className="task-run-live-line"><button type="button" className="process-line" aria-expanded="false" onClick={viewActivity}><LiveMark />{namedLive && <span className="task-activity-name">{botName}</span>}<span className="process-line-text task-activity-live" role="status">{liveLine.label}</span><TofiIcon className="process-line-chevron" name="chevron-right" size={14} aria-hidden="true" /></button></p>}
     {showActivity && <ActivityDisclosure locale={locale} detail={activityDetail} count={toolTotal || undefined} duration={runSecondsOk ? formatStepSeconds(runSeconds) : undefined} issues={activityIssues} live={liveLine} disclosureRef={disclosure} onOpen={loadInitial}>
       <TaskActivityBody owner={owner} tools={tools} drafts={drafts} messages={messages} summaries={summaries} details={details} live={live} now={now} locale={locale} recordedQuestions={recordedQuestions} rememberedDecisions={rememberedDecisions} notes={notes} onOpenTools={onOpenTools} onLoadDetails={onLoadDetails} renderMessage={renderMessage} renderQuestion={renderQuestion} renderDraft={renderDraft} />
     </ActivityDisclosure>}
+    {/* The card the person must answer is the newest, bottom-most item of the turn: the process line and the activity list sit above it. */}
+    {currentDrafts.filter(draft => draft.status !== "unknown").map(renderDraft)}
+    {decisions.map(renderQuestion)}
   </section>;
 }

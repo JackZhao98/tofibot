@@ -51,6 +51,8 @@ export const questions: CatalogSection = {
     card("declined", "Declined", pendingApproval("dm_mochi", { question_id: "q_declined", ...answered(false) })),
     card("expired", "Expired", q("expired", { status: "expired" })),
     card("cancelled", "Cancelled", q("cancelled", { status: "cancelled" })),
+    card("superseded", "Superseded by your message", q("superseded", { status: "cancelled", superseded: true, answered_by: "superseded" })),
+    card("superseded-approval", "Approval, superseded by your message", pendingApproval("dm_mochi", { question_id: "q_superseded", status: "cancelled", superseded: true, answered_by: "superseded", updated_at: at(42) })),
     card("run-done", "Run already finished", q("run_done", { status: "run_done" })),
     card("archived", "In an archived chat", q("archived", {}), { archived: true }),
     card("group", "In a group", q("group", { bot_id: "bot_nori", conversation_id: "grp_launch" }), { group: true }),

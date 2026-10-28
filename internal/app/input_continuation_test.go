@@ -127,11 +127,10 @@ func TestInputContinuationStopInvalidatesTheCard(t *testing.T) {
 	}
 }
 
-// Rewritten for decision 0062 (Q6). A person's message used to replace the open
-// question card: the parked run was cancelled and a new run answered. Now the
-// card stays, the message goes to the Bot's inbox pointed at the parked run, and
-// the run reads it when it resumes after the card is answered.
-func TestInputContinuationAMessageKeepsTheCardAndIsReadOnResume(t *testing.T) {
+// A person's message while the run is parked on a card closes the card as
+// superseded (never answered), queues the message for the run, and the run
+// resumes at once: it reads a fixed "superseded" result and then the message.
+func TestInputContinuationAMessageSupersedesTheCardAndIsReadOnResume(t *testing.T) {
 	s, c, r, q := parkedInputFixture(t)
 	defer s.Close()
 	m, runs, queued, _, err := s.addUserRunsSteering(c.ID, "New instruction", "steer", []runSpec{{BotID: r.BotID, Model: r.Model}}, nil)
@@ -141,27 +140,30 @@ func TestInputContinuationAMessageKeepsTheCardAndIsReadOnResume(t *testing.T) {
 	if len(runs) != 0 || len(queued) != 1 || queued[0].RunID != r.ID {
 		t.Fatalf("the message was not queued for the parked run: runs=%+v queued=%+v", runs, queued)
 	}
-	got, _ := s.GetRun(r.ID)
 	question, _ := s.GetQuestion(q.ID)
-	if got.Status != runWaiting || question.Status != questionPending || !s.preservesInputWait(r.ID) {
-		t.Fatalf("the card did not stay: run=%+v question=%+v", got, question)
+	if question.Status != questionCancelled || question.AnsweredBy != questionSupersededBy || !question.Card().Superseded || len(question.Answer) != 0 {
+		t.Fatalf("the card was not superseded: %+v", question)
+	}
+	if _, _, err := s.AnswerQuestion(q.ID, "human", "late"); !errors.Is(err, ErrQuestionNotPending) {
+		t.Fatalf("a superseded card took an answer: %v", err)
 	}
 	if n := s.unreadSteerCount(r.ID); n != 1 {
 		t.Fatalf("unread messages for the parked run: %d", n)
 	}
-	// The person answers the card: the run resumes and reads the message.
-	if _, _, err := s.AnswerQuestion(q.ID, "human", "answer"); err != nil {
-		t.Fatal(err)
-	}
+	// The run resumes without anyone answering.
 	if _, ok, err := s.nextQueuedRun(c.ID); err != nil || !ok {
-		t.Fatalf("the answered run is not ready: %v %v", ok, err)
+		t.Fatalf("the superseded run is not ready: %v %v", ok, err)
 	}
 	// The run was started once before it parked; a resume is its second claim.
 	if _, err := s.db.Exec(`UPDATE runs SET attempt=1 WHERE id=?`, r.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, ok, err := s.claimInputContinuation(context.Background(), r.ID); err != nil || !ok {
+	_, resumed, ok, err := s.claimInputContinuation(context.Background(), r.ID)
+	if err != nil || !ok {
 		t.Fatalf("claim: %v %v", ok, err)
+	}
+	if got := (&Server{store: s}).inputResumeResult(resumed); got != supersededResult || !strings.Contains(got, `"executed":false`) {
+		t.Fatalf("resume result: %s", got)
 	}
 	rows, err := s.drainInboxForRun(r, maxInjectionsPerRun)
 	if err != nil || len(rows) != 1 || rows[0].Anchor != m.ID {

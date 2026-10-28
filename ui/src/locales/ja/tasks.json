@@ -52,6 +52,7 @@
     "answered": "回答済み",
     "expired": "期限切れ",
     "cancelled": "キャンセル済み",
+    "superseded": "キャンセル済み — 新しいメッセージを送信しました",
     "run_done": "実行終了",
     "approval_expired": "承認の期限切れ",
     "approval_denied": "拒否済み",
