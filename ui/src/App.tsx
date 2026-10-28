@@ -63,7 +63,8 @@ import { usePhoneSwipeBack } from "./usePhoneSwipeBack";
 import { createContext, lazy, memo, startTransition, Suspense, useCallback, useContext, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { errorText } from "./errorText";
-import { api, ApiError, openConversationEvents, openWorkspaceEvents } from "./api";
+import { api, ApiError, openConversationEvents, openWorkspaceEvents, request } from "./api";
+import { codeText } from "./i18n/codeText";
 import { MessageMarkdown } from "./MessageMarkdown";
 import { BotAvatar, type AvatarMotion } from "./BotAvatar";
 import { holdAvatarLife } from "./lib/tofi-avatar/index.js";
@@ -77,7 +78,7 @@ import { LoadingCat } from "./motion-lab/lib/LoadingCat";
 import { flipList } from "./motion-lab/lib/flip";
 import { flySentMessage } from "./sendFlight";
 import { FileTile } from "./FileTile";
-import { DeliveryNote, SendReceipt, SendReceiptMark } from "./SendReceipt";
+import { DeliveryNote, SendReceipt, SendReceiptMark, preloadSendFailure } from "./SendReceipt";
 import { applyInbox } from "./messageDelivery";
 import { receiptFor, runsByTrigger } from "./sendReceipts";
 import { activeBotRuns, botRecentlyActive, latestBotWorkTime, latestHumanMessageTime } from "./botActivity";
@@ -93,8 +94,9 @@ import { WorkspaceToast } from "./WorkspaceToast";
 import { useProxyChallenge } from "./ProxyChallengeSlot";
 import { shouldShowReplyQuote } from "./replyQuote";
 import { buildRetryFamilies, indexMessages, isTerminalRun, retryFamilyAnchor } from "./runFamily";
-import { composerClientMessageId, composerDraftMatchesMessage, composerMessageContent, composerMessageSignature, type ComposerReply } from "./composerDraft";
-import { failReason, outboxStorageKey, readOutbox, reconcileOutbox, retryable, writeOutbox, type FailReason, type OutboxAttachment, type OutboxEntry } from "./outbox";
+import { clearSentDraft, composerClientMessageId, composerDraftMatchesMessage, composerMessageContent, composerMessageSignature, parseStoredDrafts, storableDrafts, type ComposerReply } from "./composerDraft";
+import { outboxStorageKey, writeOutbox, type OutboxEntry, type SendPayload } from "./outbox";
+import type { OutboxContext, OutboxController } from "./outboxController";
 import { adoptPreview, dropPreview, registerPreview } from "./attachmentImages";
 import { useDictation } from "./useDictation";
 import { useSmoothStreamText } from "./useSmoothStreamText";
@@ -186,8 +188,6 @@ type ComposerDraft = {
   reply?: ComposerReply;
   pending?: { signature: string; id: string };
 };
-/** One outgoing message with everything a (re)send needs. `attachments[].file` is present until the upload finished or the page reloaded. */
-type SendPayload = { conversationId: string; content: string; plain: string; reply?: ComposerReply; attachments: ComposerAttachment[]; createdAt: string; inFlight: boolean; auto: boolean };
 type StoredComposerDraft = Omit<ComposerDraft, "attachments"> & { attachments: Omit<ComposerAttachment, "file">[] };
 type ComposerDrafts = Record<string, ComposerDraft>;
 
@@ -202,16 +202,7 @@ function readComposerDrafts(key: string): ComposerDrafts {
   try {
     const nativeDrafts = isDesktop ? desktopState().drafts : undefined;
     // Drafts live in localStorage (they outlive the tab); sessionStorage is read once for drafts saved by an earlier version.
-    const raw = nativeDrafts ? JSON.stringify(nativeDrafts) : localStorage.getItem(key) ?? sessionStorage.getItem(key);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as Record<string, StoredComposerDraft>;
-    if (!parsed || typeof parsed !== "object") return {};
-    return Object.fromEntries(Object.entries(parsed).flatMap(([id, draft]) => {
-      if (!draft || typeof draft.content !== "string" || !Array.isArray(draft.attachments)) return [];
-      const attachments = draft.attachments.filter((attachment) => attachment && typeof attachment.key === "string" && typeof attachment.name === "string" && Number.isFinite(attachment.size) && Number.isFinite(attachment.lastModified)).map((attachment) => ({ ...attachment }));
-      const reply = draft.reply && typeof draft.reply.id === "string" && typeof draft.reply.name === "string" && typeof draft.reply.excerpt === "string" ? { id: draft.reply.id, name: draft.reply.name, excerpt: draft.reply.excerpt } : undefined;
-      return [[id, { content: draft.content, attachments, reply, pending: draft.pending && typeof draft.pending.id === "string" && typeof draft.pending.signature === "string" ? draft.pending : undefined }]];
-    }));
+    return parseStoredDrafts(nativeDrafts ? JSON.stringify(nativeDrafts) : localStorage.getItem(key) ?? sessionStorage.getItem(key)) as ComposerDrafts;
   } catch {
     return {};
   }
@@ -219,9 +210,8 @@ function readComposerDrafts(key: string): ComposerDrafts {
 
 function writeComposerDrafts(key: string, drafts: ComposerDrafts) {
   try {
-    const stored: Record<string, StoredComposerDraft> = Object.fromEntries(Object.entries(drafts).map(([id, draft]) => [id, { content: draft.content, reply: draft.reply, pending: draft.pending, attachments: draft.attachments.map(({ file: _file, ...attachment }) => attachment) }]));
+    const { stored, kept } = storableDrafts(drafts);
     // Empty drafts are not stored at all; with none left the key goes (and the old per-tab copy, so it cannot come back).
-    const kept = Object.fromEntries(Object.entries(stored).filter(([, draft]) => draft.content || draft.attachments.length || draft.reply));
     if (Object.keys(kept).length) localStorage.setItem(key, JSON.stringify(kept)); else localStorage.removeItem(key);
     sessionStorage.removeItem(key);
     updateDesktopState({ drafts: stored });
@@ -254,13 +244,6 @@ const computerPhaseKeys: Record<string, "computer_phase.checking" | "computer_ph
  */
 function blockKey(message: Message) {
   return message.role === "user" && message.client_message_id ? `cm:${message.client_message_id}` : message.id;
-}
-
-/** The server's copy of a sent message replaces its optimistic one wherever either arrives first. */
-function reconcileSent(list: Message[], server: Message): Message[] {
-  const client = server.client_message_id;
-  const rest = list.filter(item => item.id !== server.id && !(client && item.local && item.client_message_id === client));
-  return [...rest, server].sort((a, b) => a.seq - b.seq);
 }
 
 function asMessage(data: EventEnvelope): Message | null {
@@ -851,8 +834,8 @@ function Workspace() {
       const key = composerDraftStorageKey(info.instance_id, accountId);
       composerStorageKey.current = key;
       outboxKey.current = outboxStorageKey(window.location.origin, info.instance_id, accountId);
-      outbox.current = readOutbox(outboxKey.current);
-      setOutboxVersion(version => version + 1);
+      // A previous page may have left unsent messages: read them (lazily) only if the key exists.
+      try { if (localStorage.getItem(outboxKey.current) !== null) void outboxController().then(c => c.load()); } catch { /* storage unavailable */ }
       const stored = readComposerDrafts(key);
       setComposerDrafts((current) => {
         const merged = { ...stored, ...current };
@@ -2006,143 +1989,38 @@ function Workspace() {
 
   const saveOutbox = () => { if (outboxKey.current) writeOutbox(outboxKey.current, outbox.current); };
   const outboxPut = (entry: OutboxEntry) => { outbox.current = [...outbox.current.filter(item => item.clientMessageId !== entry.clientMessageId), entry]; saveOutbox(); };
-  const outboxPatch = (id: string, patch: Partial<OutboxEntry>) => { outbox.current = outbox.current.map(item => item.clientMessageId === id ? { ...item, ...patch } : item); saveOutbox(); };
-  const outboxDrop = (id: string) => { if (!outbox.current.some(item => item.clientMessageId === id)) return; outbox.current = outbox.current.filter(item => item.clientMessageId !== id); saveOutbox(); };
-  const setLocalState = (conversationId: string, clientMessageId: string, local: NonNullable<Message["local"]>, patchAttachment?: (a: Attachment) => Attachment) =>
-    patchConversation(conversationId, list => list.map(item => item.local && item.client_message_id === clientMessageId ? { ...item, local, ...(patchAttachment && item.attachments ? { attachments: item.attachments.map(patchAttachment) } : {}) } : item));
-
-  /**
-   * Sends (or re-sends) one outgoing message: uploads the files that are not up yet (progress on their tiles), then posts the
-   * message. The same client_message_id on every attempt makes a retry safe: the server stores it once and replays its answer.
-   */
-  async function deliver(clientMessageId: string, auto = false): Promise<void> {
-    const payload = sendPayloads.current.get(clientMessageId);
-    if (!payload || payload.inFlight) return;
-    payload.inFlight = true;
-    payload.auto = payload.auto || auto;
-    const { conversationId } = payload;
-    try {
-      for (const attachment of payload.attachments) {
-        if (attachment.id) continue;
-        const file = attachment.file;
-        if (!file) throw new Error(i18n.t("chat:composer.reselect_file", { name: attachment.name }));
-        const temp = `local:${attachment.key}`;
-        let shown = 0, shownAt = 0;
-        const uploaded = await api.uploadAttachment(conversationId, file, fraction => {
-          // At most ~12 repaints a second, and only for a visible step: progress is a hint, not a stream of renders.
-          const now = performance.now();
-          if (fraction < 1 && (fraction - shown < .03 || now - shownAt < 80)) return;
-          shown = fraction; shownAt = now;
-          patchConversation(conversationId, list => list.map(item => item.local && item.client_message_id === clientMessageId && item.attachments ? { ...item, attachments: item.attachments.map(a => a.clientKey === attachment.key && a.pending ? { ...a, pending: { progress: fraction } } : a) } : item));
-        });
-        attachment.id = uploaded.id;
-        adoptPreview(temp, uploaded.id, file);
-        outboxPatch(clientMessageId, { attachments: payload.attachments.map(({ file: _file, ...rest }) => rest) });
-        patchConversation(conversationId, list => list.map(item => item.local && item.client_message_id === clientMessageId && item.attachments ? { ...item, attachments: item.attachments.map(a => a.clientKey === attachment.key ? { ...uploaded, clientKey: attachment.key } : a) } : item));
-      }
-      const result = await api.sendMessage(conversationId, { content: payload.content, client_message_id: clientMessageId, attachment_ids: payload.attachments.flatMap(a => a.id ? [a.id] : []) });
-      sendPayloads.current.delete(clientMessageId);
-      outboxDrop(clientMessageId);
-      // This response is known human ingress, even if its run event has not arrived yet.
-      const sentAt = Date.parse(result.message.created_at);
-      if (Number.isFinite(sentAt)) setLastUserActivity(current => ({ ...current, [conversationId]: Math.max(current[conversationId] ?? 0, sentAt) }));
-      // A message to a Bot that was already working creates no run (`queued` names the run that will read it).
-      const newRuns = result.runs?.length ? result.runs : result.run ? [result.run] : [];
-      // The bubble keeps its identity (blockKey); only its content, status and runs update.
-      patchConversation(conversationId, list => reconcileSent(list, { ...result.message, client_message_id: result.message.client_message_id ?? clientMessageId }), list => mergeRunUpdates(list, newRuns));
-      updateConversationPreview(result.message);
-      if (activeIdRef.current === conversationId) setError("");
-    } catch (cause) {
-      const reason: FailReason = failReason(cause, navigator.onLine);
-      const text = errorText(cause);
-      outboxPatch(clientMessageId, { error: text, reason, attachments: payload.attachments.map(({ file: _file, ...rest }) => rest) });
-      setLocalState(conversationId, clientMessageId, { state: "failed", error: text, reason, auto: payload.auto || !retryable(reason) }, a => a.pending ? { ...a, pending: { progress: 0, failed: true } } : a);
-    } finally {
-      payload.inFlight = false;
-    }
-  }
-
-  /** The payload of a message restored after a reload: usable only if every file is already on the server. */
-  function restorePayload(clientMessageId: string): SendPayload | undefined {
-    const entry = outbox.current.find(item => item.clientMessageId === clientMessageId);
-    if (!entry || entry.attachments.some(a => !a.id)) return undefined;
-    const payload: SendPayload = { conversationId: entry.conversationId, content: entry.content, plain: entry.plain, reply: entry.reply, attachments: entry.attachments.map(a => ({ ...a })), createdAt: entry.createdAt, inFlight: false, auto: true };
-    sendPayloads.current.set(clientMessageId, payload);
-    return payload;
-  }
   const canRetrySend = (clientMessageId: string) => sendPayloads.current.has(clientMessageId) || Boolean(outbox.current.find(item => item.clientMessageId === clientMessageId) && !outbox.current.find(item => item.clientMessageId === clientMessageId)!.attachments.some(a => !a.id));
 
-  /** Retry on the bubble: the same message goes out again under the same id, with nothing retyped. */
-  function retrySend(clientMessageId: string, auto = false) {
-    const payload = sendPayloads.current.get(clientMessageId) ?? restorePayload(clientMessageId);
-    if (!payload || payload.inFlight) return Promise.resolve();
-    setLocalState(payload.conversationId, clientMessageId, { state: auto ? "retrying" : "sending", auto: payload.auto || auto }, a => a.pending ? { ...a, pending: { progress: 0 } } : a);
-    return deliver(clientMessageId, auto);
-  }
+  // Everything after the bubble is on screen (upload, post, retry, edit, delete, restore) is the lazy outbox controller.
+  const outboxContext = useRef<OutboxContext>(null as unknown as OutboxContext);
+  outboxContext.current = { payloads: sendPayloads, outbox, outboxKey, activeId: activeIdRef, messages: messageRecordsRef, patch: patchConversation, setMessages, setLastUserActivity, updatePreview: updateConversationPreview, setError, bump: () => setOutboxVersion(version => version + 1), updateDraft: updateComposerDraft, helpers: { errorText, mergeRunUpdates, adoptPreview, dropPreview }, api: { sendMessage: api.sendMessage, messages: id => api.messages(id), uploadViaRequest: (path, body) => request<Attachment>(path, { method: "POST", body }) }, text: (key, options) => String(i18n.t(key as never, options as never)), errors: { ApiError, codeText } };
+  const controller = useRef<Promise<OutboxController> | undefined>(undefined);
+  const outboxController = () => (controller.current ??= import("./outboxController").then(module => module.createOutboxController(() => outboxContext.current)).catch(cause => { controller.current = undefined; throw cause; }));
+  const retrySend = (clientMessageId: string) => { void outboxController().then(c => c.retrySend(clientMessageId)); };
+  const deleteUnsent = (clientMessageId: string) => { void outboxController().then(c => c.deleteUnsent(clientMessageId)); };
+  const editUnsent = (clientMessageId: string) => { void outboxController().then(c => c.editUnsent(clientMessageId)); };
+  /** The first attempt of a message. If the chunk cannot load (no connection, never cached) the bubble fails like any other send. */
+  const deliver = (clientMessageId: string, conversationId: string) => void outboxController().then(c => c.deliver(clientMessageId), () => {
+    outbox.current = outbox.current.map(entry => entry.clientMessageId === clientMessageId ? { ...entry, reason: "network" as const } : entry); saveOutbox();
+    patchConversation(conversationId, list => list.map(item => item.local && item.client_message_id === clientMessageId ? { ...item, local: { state: "failed" as const, reason: "network" as const } } : item));
+  });
 
-  /** Delete on a failed bubble: the message goes away for good, here and in the outbox. */
-  function deleteUnsent(clientMessageId: string) {
-    const payload = sendPayloads.current.get(clientMessageId);
-    const entry = outbox.current.find(item => item.clientMessageId === clientMessageId);
-    const conversationId = payload?.conversationId ?? entry?.conversationId;
-    if (!conversationId || payload?.inFlight) return;
-    for (const attachment of payload?.attachments ?? entry?.attachments ?? []) dropPreview(`local:${attachment.key}`);
-    sendPayloads.current.delete(clientMessageId);
-    outboxDrop(clientMessageId);
-    patchConversation(conversationId, list => list.filter(item => !(item.local && item.client_message_id === clientMessageId)));
-  }
-
-  /** Edit on a failed bubble: the text, reply and files go back to the composer (ahead of what is typed there) and the bubble goes. */
-  function editUnsent(clientMessageId: string) {
-    const payload = sendPayloads.current.get(clientMessageId);
-    const entry = outbox.current.find(item => item.clientMessageId === clientMessageId);
-    const source = payload ?? (entry && { conversationId: entry.conversationId, plain: entry.plain, reply: entry.reply, attachments: entry.attachments as ComposerAttachment[], inFlight: false });
-    if (!source || source.inFlight) return;
-    const { conversationId } = source;
-    updateComposerDraft(conversationId, current => ({
-      ...current,
-      content: current.content.trim() ? `${source.plain}\n${current.content}` : source.plain,
-      reply: current.reply ?? source.reply,
-      attachments: [...source.attachments, ...current.attachments.filter(a => !source.attachments.some(b => b.key === a.key))].slice(0, 8).map(a => ({ ...a })),
-      pending: undefined,
-    }));
-    for (const attachment of source.attachments) dropPreview(`local:${attachment.key}`);
-    sendPayloads.current.delete(clientMessageId);
-    outboxDrop(clientMessageId);
-    patchConversation(conversationId, list => list.filter(item => !(item.local && item.client_message_id === clientMessageId)));
-    requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus());
-  }
-
-  /**
-   * The connection is back (browser online event, or the live stream reconnected): each message that failed for a reason that
-   * can pass (offline, network, 5xx) is sent again once, in the order it was written, and says so on its bubble ("Sending again").
-   * A refusal (4xx) and a message restored after a reload are never sent by themselves.
-   */
-  const autoRetry = useRef<() => void>(() => {});
-  autoRetry.current = () => {
-    const failed = outbox.current
-      .filter(entry => entry.reason && retryable(entry.reason) && sendPayloads.current.get(entry.clientMessageId)?.auto === false)
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-    if (!failed.length) return;
-    void (async () => { for (const entry of failed) await retrySend(entry.clientMessageId, true); })();
-  };
+  // The lazy controller loads in idle time after start (so it is cached before the connection can drop) and then watches for the
+  // connection coming back: the browser's online event, and the live stream reconnecting.
   useEffect(() => {
-    const online = () => autoRetry.current();
-    window.addEventListener("online", online);
-    return () => window.removeEventListener("online", online);
+    const load = () => { void preloadSendFailure().catch(() => {}); void outboxController().catch(() => {}); };
+    const idle = (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+    if (idle) { const id = idle.call(window, load, { timeout: 4000 }); return () => (window as unknown as { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(id); }
+    const timer = window.setTimeout(load, 2500);
+    return () => window.clearTimeout(timer);
   }, []);
-  const wasConnected = useRef(true);
-  useEffect(() => {
-    if (streamConnected && !wasConnected.current) autoRetry.current();
-    wasConnected.current = streamConnected;
-  }, [streamConnected]);
+  useEffect(() => { void controller.current?.then(c => c.connection(streamConnected), () => {}); }, [streamConnected]);
   // Messages that were still unsent when the page closed come back as failed bubbles, once their conversation is on screen.
   useEffect(() => {
-    if (!outboxKey.current || !activeId || loadedId !== activeId || !outbox.current.length) return;
-    const present = new Set(messageRecordsRef.current.filter(item => item.local).map(item => item.client_message_id ?? ""));
-    const { add, keep, done } = reconcileOutbox(outbox.current, activeId, messageRecordsRef.current, present);
-    if (done.length) { outbox.current = keep; saveOutbox(); }
-    if (add.length) setMessages(current => [...current, ...add.filter(item => !current.some(row => row.client_message_id === item.client_message_id))]);
+    if (!outboxKey.current || !activeId || loadedId !== activeId || !outbox.current.some(entry => entry.conversationId === activeId)) return;
+    let alive = true;
+    void outboxController().then(c => { if (alive) c.restore(activeId); }, () => {});
+    return () => { alive = false; };
   }, [activeId, loadedId, outboxVersion]);
 
   /**
@@ -2157,16 +2035,16 @@ function Workspace() {
     const stamp = new Date().toISOString();
     const attachments = files.map(file => ({ ...file }));
     sendPayloads.current.set(clientMessageId, { conversationId, content: text, plain, reply, attachments, createdAt: stamp, inFlight: false, auto: false });
+    // Lazy parts a failure needs (its actions, the controller) are fetched now too, while the connection still works.
+    void preloadSendFailure().catch(() => {}); void outboxController().catch(() => {});
     outboxPut({ clientMessageId, conversationId, content: text, plain, reply, attachments: attachments.map(({ file: _file, ...rest }) => rest), createdAt: stamp });
     await Promise.all(attachments.map(file => file.file && !file.id ? registerPreview(`local:${file.key}`, file.file) : undefined));
     const shown: Attachment[] = attachments.map(file => ({ id: file.id ?? `local:${file.key}`, conversation_id: conversationId, name: file.name, mime: file.type, size: file.size, created_at: stamp, clientKey: file.key, ...(file.id ? {} : { pending: { progress: 0 } }) }));
     const key = `cm:${clientMessageId}`;
     // Clear only the exact source draft that was sent.
     const clearDraft = () => { if (draftSignature) setComposerDrafts((current) => {
-      const source = current[conversationId];
-      if (!source || !composerDraftMatchesMessage(source, draftSignature, clientMessageId)) return current;
-      const next = { ...current, [conversationId]: emptyComposerDraft() };
-      if (composerStorageKey.current) writeComposerDrafts(composerStorageKey.current, next);
+      const next = clearSentDraft(current, conversationId, draftSignature, clientMessageId, emptyComposerDraft());
+      if (next !== current && composerStorageKey.current) writeComposerDrafts(composerStorageKey.current, next);
       return next;
     }); };
     const addLocal = (list: Message[]) => {
@@ -2188,7 +2066,7 @@ function Workspace() {
       if (flightOrigin && target) flySentMessage(flightOrigin, target);
     }
     setError("");
-    void deliver(clientMessageId);
+    deliver(clientMessageId, conversationId);
     return true;
   }
 
@@ -2614,7 +2492,7 @@ function Workspace() {
       document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus();
     },
     retrySend: clientMessageId => void retrySend(clientMessageId),
-    editUnsent: clientMessageId => editUnsent(clientMessageId),
+    editUnsent: clientMessageId => void editUnsent(clientMessageId),
     deleteUnsent: clientMessageId => deleteUnsent(clientMessageId),
     retryRun: runId => retryRun(runId),
     loadDetails: (runId, offset) => loadToolDetails(runId, offset),

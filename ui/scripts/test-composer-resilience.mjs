@@ -224,6 +224,35 @@ await check("a message the server already stored (answer lost) does not come bac
   await context.close();
 });
 
+await check("Edit after an ambiguous failure: the server already has it -> no duplicate, the person is told", async () => {
+  const { page, context } = await open();
+  await page.route("**/dm_a/messages", async route => { if (route.request().method() === "POST") { await route.fetch(); await route.abort("connectionreset"); } else await route.continue(); });
+  await type(page, "edited but delivered");
+  await block(page, "edited but delivered").locator('.send-receipt[data-state="failed"]').waitFor({ timeout: 5000 });
+  assert.equal(stored("edited but delivered"), 1);
+  await page.unroute("**/dm_a/messages");
+  await block(page, "edited but delivered").locator(".send-receipt-edit").click();
+  await page.locator(".error-banner", { hasText: /already sent/i }).waitFor({ timeout: 5000 });
+  assert.equal(await page.locator(".composer textarea").inputValue(), "", "nothing moved to the composer");
+  assert.equal(await block(page, "edited but delivered").count(), 1, "one bubble: the stored message");
+  assert.equal(await page.locator(".send-receipt[data-state=failed]").count(), 0);
+  assert.equal(stored("edited but delivered"), 1, "still stored once");
+  await context.close();
+});
+
+await check("Edit when the check cannot be made keeps the bubble (no risk of a duplicate)", async () => {
+  const { page, context } = await open();
+  mock.failSends = true;
+  await type(page, "cannot check");
+  await block(page, "cannot check").locator('.send-receipt[data-state="failed"]').waitFor();
+  await page.route("**/dm_a/messages**", route => route.request().method() === "GET" ? route.abort("connectionreset") : route.continue());
+  await block(page, "cannot check").locator(".send-receipt-edit").click();
+  await page.locator(".error-banner", { hasText: /couldn't check/i }).waitFor({ timeout: 5000 });
+  assert.equal(await block(page, "cannot check").locator('.send-receipt[data-state="failed"]').count(), 1, "the bubble stays");
+  assert.equal(await page.locator(".composer textarea").inputValue(), "");
+  await context.close();
+});
+
 await check("Delete removes the failed message for good; Edit puts it back in the composer", async () => {
   const { page, context } = await open();
   mock.failSends = true;

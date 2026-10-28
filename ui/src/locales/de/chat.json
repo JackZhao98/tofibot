@@ -122,12 +122,14 @@
   "composer": {
     "add_attachment": "Anhang hinzufügen",
     "add_members": "Mitglieder hinzufügen",
+    "already_sent": "Diese Nachricht wurde bereits gesendet. Sie steht in der Unterhaltung.",
     "archived": "Unterhaltung archiviert. Stelle sie wieder her, um weiterzuschreiben.",
     "cancel_mic": "Mikrofonstart abbrechen",
     "cancel_reply": "Antwort abbrechen",
+    "check_failed": "Es konnte nicht geprüft werden, ob die Nachricht gesendet wurde. Versuche es erneut, sobald du wieder online bist.",
     "dictate": "Diktat starten",
-    "drop_hint": "Du kannst Dateien auch hierher ziehen oder einfügen",
     "drop_add": "Zum Hinzufügen loslassen",
+    "drop_hint": "Du kannst Dateien auch hierher ziehen oder einfügen",
     "file": "Datei",
     "image": "Bild",
     "input_label": "An {{name}} senden",
@@ -160,8 +162,7 @@
     "stop_menu": "Stopp-Optionen",
     "stop_step": "Aktuellen Schritt stoppen",
     "stop_step_named": "Aktuellen Schritt von {{name}} stoppen",
-    "too_large": "{{name}} ist größer als 20 MB",
-    "uploading": "Wird hochgeladen…"
+    "too_large": "{{name}} ist größer als 20 MB"
   },
   "computer": {
     "failed": "Gemeinsamer Computer konnte nicht starten",

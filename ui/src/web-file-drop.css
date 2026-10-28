@@ -18,7 +18,7 @@ html:not([data-desktop]) .composer-drop {
   opacity:0; visibility:hidden; transition:opacity var(--m-quick) var(--ease-in),visibility 0s var(--m-quick);
 }
 html:not([data-desktop]) .workspace .composer[data-file-drag] .composer-drop { opacity:1; visibility:visible; transition:opacity var(--m-base) var(--ease-out); }
-html:not([data-desktop]) .workspace .composer[data-file-drag] .composer-row > :not(.composer-drop, .web-upload-ring) { opacity:0; transition:opacity var(--m-quick) var(--ease-in); }
+html:not([data-desktop]) .workspace .composer[data-file-drag] .composer-row > :not(.composer-drop) { opacity:0; transition:opacity var(--m-quick) var(--ease-in); }
 html:not([data-desktop]) .composer-drop-icon { display:grid; place-items:center; width:32px; height:32px; border-radius:10px; background:color-mix(in srgb,var(--lagoon) 24%,transparent); }
 html:not([data-desktop]) .workspace .composer[data-file-drag] .composer-drop-icon { animation:composer-drop-bob 900ms var(--ease-inout) infinite; }
 @keyframes composer-drop-bob { 50% { transform:translateY(-3px); } }
@@ -27,18 +27,9 @@ html:not([data-desktop]) .workspace .composer[data-file-drag] .composer-drop-ico
 .web-drop-ghost .composer-attachment-name { overflow:hidden; text-overflow:ellipsis; }
 .web-drop-ghost > button { display:none; }
 html:not([data-desktop]) .workspace .composer-row { position:relative; }
-/* A quarter-length lagoon arc travels around the composer while a file uploads. */
-@property --web-upload-angle { syntax:"<angle>"; inherits:false; initial-value:0deg; }
-html:not([data-desktop]) .workspace .web-upload-ring { position:absolute; inset:-3px; z-index:4; box-sizing:border-box; padding:3.5px; border-radius:22px; pointer-events:none;
-  background:conic-gradient(from var(--web-upload-angle),var(--lagoon) 0 26%,transparent 26% 100%);
-  -webkit-mask:linear-gradient(black 0 0) content-box,linear-gradient(black 0 0); -webkit-mask-composite:xor;
-  mask:linear-gradient(black 0 0) content-box exclude,linear-gradient(black 0 0);
-  animation:web-upload-travel 1.5s linear infinite; }
-@keyframes web-upload-travel { to { --web-upload-angle:360deg; } }
 @media (prefers-reduced-motion:reduce) {
   html:not([data-desktop]) .workspace .chat-pane::after,
   html:not([data-desktop]) .workspace .composer .composer-row,
   html:not([data-desktop]) .composer-drop { transition:none; }
-  html:not([data-desktop]) .workspace .composer[data-file-drag] .composer-drop-icon,
-  html:not([data-desktop]) .workspace .web-upload-ring { animation:none; }
+  html:not([data-desktop]) .workspace .composer[data-file-drag] .composer-drop-icon { animation:none; }
 }

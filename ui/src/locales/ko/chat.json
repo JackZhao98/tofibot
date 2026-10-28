@@ -121,12 +121,14 @@
   "composer": {
     "add_attachment": "첨부 파일 추가",
     "add_members": "멤버 추가",
+    "already_sent": "이 메시지는 이미 전송되었습니다. 대화에 표시되어 있습니다.",
     "archived": "보관된 대화입니다. 복원하면 계속 채팅할 수 있습니다",
     "cancel_mic": "마이크 시작 취소",
     "cancel_reply": "답장 취소",
+    "check_failed": "이 메시지가 전송되었는지 확인하지 못했습니다. 온라인 상태가 되면 다시 시도하세요.",
     "dictate": "받아쓰기 시작",
-    "drop_hint": "끌어다 놓거나 붙여 넣어도 됩니다",
     "drop_add": "여기에 놓아 추가",
+    "drop_hint": "끌어다 놓거나 붙여 넣어도 됩니다",
     "file": "파일",
     "image": "이미지",
     "input_label": "{{name}}에게 보내기",
@@ -159,8 +161,7 @@
     "stop_menu": "중지 옵션",
     "stop_step": "현재 단계 중지",
     "stop_step_named": "{{name}}의 현재 단계 중지",
-    "too_large": "{{name}}이(가) 20MB를 초과합니다",
-    "uploading": "업로드 중…"
+    "too_large": "{{name}}이(가) 20MB를 초과합니다"
   },
   "computer": {
     "failed": "공유 컴퓨터를 준비하지 못했습니다",

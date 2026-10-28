@@ -121,12 +121,14 @@
   "composer": {
     "add_attachment": "添付ファイルを追加",
     "add_members": "メンバーを追加",
+    "already_sent": "このメッセージはすでに送信されています。会話に表示されています。",
     "archived": "会話はアーカイブ済みです。復元するとチャットを続けられます",
     "cancel_mic": "マイクの起動をキャンセル",
     "cancel_reply": "返信をキャンセル",
+    "check_failed": "このメッセージが送信済みか確認できませんでした。オンラインに戻ってからもう一度お試しください。",
     "dictate": "音声入力を開始",
-    "drop_hint": "ドラッグ＆ドロップや貼り付けでも追加できます",
     "drop_add": "ドロップして追加",
+    "drop_hint": "ドラッグ＆ドロップや貼り付けでも追加できます",
     "file": "ファイル",
     "image": "画像",
     "input_label": "{{name}} に送信",
@@ -159,8 +161,7 @@
     "stop_menu": "停止オプション",
     "stop_step": "現在のステップを停止",
     "stop_step_named": "{{name}} の現在のステップを停止",
-    "too_large": "{{name}} は 20MB を超えています",
-    "uploading": "アップロード中…"
+    "too_large": "{{name}} は 20MB を超えています"
   },
   "computer": {
     "failed": "共有コンピューターの準備に失敗しました",

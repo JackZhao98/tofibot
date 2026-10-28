@@ -19,22 +19,25 @@ function Mark({ state }: { state: Receipt["state"] }) {
  * as a mark at its end next to the time (SendReceiptMark), and own no row of their own. The two states that must be seen without
  * asking stay on the bubble: sending (the bubble is dimmed, the words are for assistive tech) and failed (the retry line).
  */
+type FailureModule = typeof import("./SendFailure");
+let failureChunk: Promise<FailureModule> | undefined;
+/** Called when a message is sent, so the chunk is in the cache before a failure (maybe a lost connection) needs it. */
+export const preloadSendFailure = () => (failureChunk ??= import("./SendFailure"));
+
 export function SendReceipt({ receipt, onRetry, onEdit, onDelete }: { receipt: Receipt; names?: string[]; group?: boolean; onRetry?: () => void; onEdit?: () => void; onDelete?: () => void }) {
   const { t } = useTranslation("chat");
-  if (receipt.state === "failed") {
-    // Network and server trouble say so, and promise one automatic try when the connection is back (only while that is true).
-    const hint = receipt.reason === "offline" ? t("receipt.hint_offline") : receipt.reason === "network" ? t("receipt.hint_network") : receipt.reason === "server" ? t("receipt.hint_server") : "";
-    const promise = hint && !receipt.auto && onRetry ? ` ${t("receipt.will_retry")}` : "";
-    return <div className="send-receipt is-failed" data-state="failed" data-reason={receipt.reason}>
-      {onRetry && <button type="button" className="send-receipt-retry" title={receipt.error} aria-label={`${t("receipt.failed")}. ${t("receipt.retry_label")}`} onClick={onRetry}>{t("receipt.failed")} · {t("receipt.retry")}</button>}
-      {!onRetry && <span className="send-receipt-text" title={receipt.error}>{t("receipt.failed")}</span>}
-      {onEdit && <button type="button" className="send-receipt-action send-receipt-edit" aria-label={t("receipt.edit_label")} onClick={onEdit}>{t("receipt.edit")}</button>}
-      {onDelete && <button type="button" className="send-receipt-action send-receipt-delete" aria-label={t("receipt.delete_label")} onClick={onDelete}>{t("receipt.delete")}</button>}
-      {hint && <span className="send-receipt-hint" role="status">{hint}{promise}</span>}
-    </div>;
-  }
-  // Retrying is on show, not hidden: the person sees that the app is sending again by itself.
-  if (receipt.state === "retrying") return <div className="send-receipt is-retrying" data-state="retrying" role="status"><Mark state="sending" /><span>{t("receipt.retrying")}</span></div>;
+  const [chunk, setChunk] = useState<FailureModule | null>(null);
+  const needsChunk = receipt.state === "failed" || receipt.state === "retrying";
+  useEffect(() => {
+    if (!needsChunk || chunk) return;
+    let alive = true;
+    preloadSendFailure().then(module => { if (alive) setChunk(module); }, () => { failureChunk = undefined; });
+    return () => { alive = false; };
+  }, [needsChunk, chunk]);
+  if (needsChunk && chunk) return <chunk.SendFailure receipt={receipt} onRetry={onRetry} onEdit={onEdit} onDelete={onDelete} />;
+  // Until the chunk is there (or when it cannot load, offline after a reload): the minimum, with Retry.
+  if (receipt.state === "failed") return <div className="send-receipt is-failed" data-state="failed">{onRetry ? <button type="button" className="send-receipt-retry" title={receipt.error} onClick={onRetry}>{t("receipt.failed")} · {t("receipt.retry")}</button> : <span className="send-receipt-text" title={receipt.error}>{t("receipt.failed")}</span>}</div>;
+  if (receipt.state === "retrying") return <div className="send-receipt is-retrying" data-state="retrying" role="status"><span>{t("receipt.retrying")}</span></div>;
   if (receipt.state === "sending") return <span className="sr-only send-receipt-status" data-state="sending" role="status">{t("receipt.sending")}</span>;
   return null;
 }

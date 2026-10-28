@@ -122,7 +122,8 @@ const rowFor = (page, name) => page.locator(".conversation-row").filter({ has: p
 async function openConversation(page, name) {
   const row = rowFor(page, name);
   if (!(await row.first().isVisible())) await page.locator(".mobile-back, [aria-label*='conversations' i]").first().click().catch(() => {});
-  await row.first().click();
+  // A finger, not a mouse, on a phone: a mouse click would leave a hovering pointer over the list that opens (and a phone has none).
+  if (page.viewportSize().width < 500) await row.first().tap(); else await row.first().click();
   await page.locator(".composer textarea").waitFor();
   await page.locator(".message-list .message-block").first().waitFor();
 }
@@ -175,7 +176,9 @@ async function productionBase() {
   production = { served, outDir, base: `http://127.0.0.1:${served.httpServer.address().port}` };
   return production.base;
 }
-for (const mode of ["production", "dev server"]) await check(`${mode}: the bubble is on screen within 50 ms of Enter, with the composer cleared, while the server takes 1 s`, async () => {
+// The dev server variant runs here; the production one runs last (see the end): building for production in this process
+// leaves the dev server serving React's production JSX runtime ("_jsxDEV is not a function") for every later test.
+const timingCheck = mode => check(`${mode}: the bubble is on screen within 50 ms of Enter, with the composer cleared, while the server takes 1 s`, async () => {
   const { page, context, errors } = await open({ base: mode === "production" ? await productionBase() : origin });
   mock.sendDelayMs = 1000;
   const timings = [], frames = [];
@@ -213,6 +216,7 @@ for (const mode of ["production", "dev server"]) await check(`${mode}: the bubbl
   assert.deepEqual(errors, []);
   await context.close();
 });
+await timingCheck("dev server");
 
 for (const view of ["desktop", "phone"]) {
   await check(`${view}: sending, delivered, read, in place, with one bubble all the way`, async () => {
@@ -452,6 +456,8 @@ await check("reduced motion: no flight, no settle animation, no colour or opacit
   assert.match(css.transition, /^0s/);
   await context.close();
 });
+
+await timingCheck("production");
 
 await browser.close();
 await server.close();

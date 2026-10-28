@@ -1,17 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { isDesktop, type NativeFile } from "./desktop";
 import type { Attachment } from "./types";
 import { TofiIcon } from "./icons";
-import { CopyFeedbackIcon } from "./CopyFeedbackIcon";
 import { useTranslation } from "./i18n";
 import { FileTile } from "./FileTile";
 import { attachmentUrl, dedupeAttachments, fileKind, fileSize, isPreviewable, openFilePreview, rememberAttachments, targetOf } from "./filePreviewModel";
 import { galleryColumns, hasPreview, imageSize, rememberImageSize, singleBox, thumbnailUrl } from "./attachmentImages";
 import "./message-attachment.css";
-import { MOTION, EASE } from "./motion";
 
 const isImage = (a: Attachment) => a.mime.startsWith("image/") && a.mime !== "image/svg+xml";
-const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+/** The lightbox is only drawn once a picture is opened: its code is a lazy chunk (kept out of the entry bundle). */
+const Lightbox = lazy(() => import("./AttachmentLightbox"));
+const loadLightbox = () => void import("./AttachmentLightbox");
 
 /** Optimistic send: how far the file has gone up. A real progressbar for assistive tech; the bar is a transform, never a layout change. */
 function UploadProgress({ pending, name, ring = false }: { pending: NonNullable<Attachment["pending"]>; name: string; ring?: boolean }) {
@@ -66,67 +66,6 @@ function FileCard({ attachment }: { attachment: Attachment }) {
   </div>;
 }
 
-/** The image lightbox (native <dialog>, top layer): zooms from the thumbnail, Copy / Download, arrows step through the message's images. */
-function Lightbox({ images, index, onIndex, onClose, origin }: { images: Attachment[]; index: number | null; onIndex: (index: number) => void; onClose: () => void; origin: () => HTMLElement | null }) {
-  const { t } = useTranslation(["chat", "common"]);
-  const dialog = useRef<HTMLDialogElement>(null);
-  const zoomImage = useRef<HTMLImageElement>(null);
-  const closing = useRef(false);
-  const [copied, setCopied] = useState(false);
-  const [error, setError] = useState("");
-  const current = index === null ? null : images[index] ?? null;
-  const delta = useCallback(() => {
-    const from = origin()?.getBoundingClientRect(); const to = zoomImage.current?.getBoundingClientRect();
-    return from && to && from.width && from.height && to.width && to.height ? `translate(${from.left - to.left}px,${from.top - to.top}px) scale(${from.width / to.width},${from.height / to.height})` : null;
-  }, [origin]);
-  useEffect(() => {
-    const d = dialog.current; if (!d) return;
-    if (index !== null && !d.open) {
-      d.showModal();
-      if (!isDesktop && !reducedMotion()) { const start = delta(); if (start) zoomImage.current?.animate({ transform: [start, "none"] }, { duration: MOTION.panelIn, easing: EASE.out }); }
-    }
-    if (index === null && d.open) d.close();
-  }, [index, delta]);
-  const close = useCallback(async () => {
-    const d = dialog.current; if (!d || closing.current) return;
-    if (isDesktop || reducedMotion()) { onClose(); return; }
-    closing.current = true; d.classList.add("is-closing");
-    const end = delta();
-    if (end) { try { await zoomImage.current?.animate({ transform: ["none", end] }, { duration: MOTION.panelOut, easing: EASE.inout, fill: "forwards" }).finished; } catch { /* Closing still proceeds if animation is interrupted. */ } }
-    d.classList.remove("is-closing"); closing.current = false; onClose();
-  }, [delta, onClose]);
-  useEffect(() => { setCopied(false); setError(""); }, [index]);
-  async function copy() {
-    if (!current) return;
-    try {
-      const response = await fetch(attachmentUrl(current.id));
-      if (!response.ok) throw new Error(t("attachment.read_failed"));
-      const blob = await response.blob();
-      if (!blob.type.startsWith("image/")) throw new Error(t("attachment.not_image"));
-      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-      setCopied(true); window.setTimeout(() => setCopied(false), 1800);
-    } catch { setError(t("attachment.copy_failed")); }
-  }
-  async function save() {
-    if (!current || !window.tofiDesktop) return;
-    try { const file = await window.tofiDesktop.prepareAttachment(current.id); await window.tofiDesktop.saveAttachment(file.handle); } catch (cause) { setError(cause instanceof Error ? cause.message : t("attachment.unavailable")); }
-  }
-  return <dialog ref={dialog} className="attachment-lightbox" onClose={onClose} onCancel={event => { event.preventDefault(); void close(); }} onClick={event => { if (event.target === dialog.current) void close(); }}
-    onKeyDown={event => { if (index === null || images.length < 2) return; if (event.key === "ArrowRight") onIndex((index + 1) % images.length); if (event.key === "ArrowLeft") onIndex((index + images.length - 1) % images.length); }}>
-    <button type="button" onClick={() => void close()} aria-label={t("attachment.close_image")}><TofiIcon name="close" size={20} /></button>
-    {current && <>
-      <img ref={zoomImage} src={attachmentUrl(current.id)} alt={current.name} />
-      <div className="attachment-lightbox-bar">
-        <small>{current.name}{images.length > 1 && ` · ${(index ?? 0) + 1}/${images.length}`}</small>
-        <button type="button" onClick={() => void copy()} aria-label={t("attachment.copy", { name: current.name })}>{isDesktop ? <TofiIcon name="copy" size={16} /> : <CopyFeedbackIcon copied={copied} />}</button>
-        {isDesktop ? <button type="button" onClick={() => void save()} aria-label={t("attachment.save", { name: current.name })}><TofiIcon name="download" size={16} /></button> : <a href={attachmentUrl(current.id)} download={current.name} aria-label={t("attachment.download", { name: current.name })}><TofiIcon name="download" size={16} /></a>}
-      </div>
-      {error && <small className="attachment-lightbox-error" role="alert">{error}</small>}
-      {copied && <span className="sr-only" role="status">{t("attachment.copied")}</span>}
-    </>}
-  </dialog>;
-}
-
 /**
  * The images of one message as thumbnails: one image keeps its aspect ratio (fitted into 320 x 360), several share a
  * tidy grid (2 -> 2 columns, 3 -> 3, 4 -> 2x2, 5-6 -> 3, 7-8 -> 4). Every box is reserved from the known size (or 4:3)
@@ -147,7 +86,7 @@ function ImageGallery({ images }: { images: Attachment[] }) {
       {hasPreview(a.id) ? <img src={thumbnailUrl(a.id)} alt="" width={box?.width ?? 160} height={box?.height ?? 160} decoding="async" draggable={false} /> : <FileTile name={a.name} kind="image" size={32} />}
       <UploadProgress pending={a.pending} name={a.name} ring />
     </div>;
-    return <button type="button" key={a.clientKey ?? a.id} ref={node => { tiles.current[index] = node; }} className="attachment-thumb" onClick={() => setZoom(index)} aria-label={t("attachment.zoom_image", { name: a.name })}>
+    return <button type="button" key={a.clientKey ?? a.id} ref={node => { tiles.current[index] = node; }} className="attachment-thumb" onPointerEnter={loadLightbox} onFocus={loadLightbox} onClick={() => setZoom(index)} aria-label={t("attachment.zoom_image", { name: a.name })}>
       <img src={thumbnailUrl(a.id)} alt={a.name} width={box?.width ?? 160} height={box?.height ?? 160} loading="lazy" decoding="async" draggable={false}
         onLoad={event => { const img = event.currentTarget; if (!imageSize(a.id)) rememberImageSize(a.id, img.naturalWidth, img.naturalHeight); }}
         onError={() => setFailed(current => new Set(current).add(a.id))} />
@@ -156,7 +95,7 @@ function ImageGallery({ images }: { images: Attachment[] }) {
   return <div className={`attachment-gallery${single ? " is-single" : ""}`} role="group" aria-label={t("attachment.image_group", { count: images.length })}
     style={single && box ? { width: box.width, aspectRatio: `${box.width} / ${box.height}` } : { gridTemplateColumns: `repeat(${columns}, 1fr)` }} data-count={images.length}>
     {images.map(tile)}
-    <Lightbox images={images} index={zoom} onIndex={setZoom} onClose={() => setZoom(null)} origin={origin} />
+    {zoom !== null && <Suspense fallback={null}><Lightbox images={images} index={zoom} onIndex={setZoom} onClose={() => setZoom(null)} origin={origin} /></Suspense>}
   </div>;
 }
 

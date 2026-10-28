@@ -121,12 +121,14 @@
   "composer": {
     "add_attachment": "新增附件",
     "add_members": "新增成員",
+    "already_sent": "這則訊息其實已經送出，就在對話裡。",
     "archived": "對話已封存，還原後可繼續聊天",
     "cancel_mic": "取消啟動麥克風",
     "cancel_reply": "取消回覆",
+    "check_failed": "無法確認這則訊息是否已送出。恢復網路後再試。",
     "dictate": "開始聽寫",
-    "drop_hint": "也可以直接拖進來或貼上",
     "drop_add": "放開即可新增",
+    "drop_hint": "也可以直接拖進來或貼上",
     "file": "檔案",
     "image": "圖片",
     "input_label": "傳送給 {{name}}",
@@ -159,8 +161,7 @@
     "stop_menu": "停止選項",
     "stop_step": "停止目前步驟",
     "stop_step_named": "停止 {{name}} 的目前步驟",
-    "too_large": "{{name}} 超過 20MB",
-    "uploading": "上傳中…"
+    "too_large": "{{name}} 超過 20MB"
   },
   "computer": {
     "failed": "共享電腦準備失敗",
