@@ -33,33 +33,75 @@ const (
 
 const searchHiddenKinds = `'bot_result','scheduled_task','internal','progress','notice','message_ref'`
 
-// migrateSearch creates the index, its triggers and, only when the index is new, fills it
-// from existing messages. Every statement is idempotent.
-func migrateSearch(db *sql.DB) error {
-	var exists int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='messages_fts'`).Scan(&exists); err != nil {
-		return err
+// The index is a standalone FTS5 table (it keeps its own copy of the text), not an external-content table keyed on
+// messages.rowid. messages has a TEXT primary key, so its rowid is not stable (VACUUM may renumber it) and an
+// external-content index trusts the caller to say exactly what was indexed; one stray delete or a purge that empties
+// the shadow tables corrupts the file ("database disk image is malformed"). Here search_message_ids maps each message
+// id to the FTS rowid, so every statement is keyed by message id, deletes by rowid never need the old text, and a
+// desynchronised index is only a wrong answer that migrateSearch repairs on the next start.
+// Purge must not touch messages_fts_* (shadow tables of the virtual table): see purgeWorkspaceData.
+const searchIndexSQL = `CREATE TABLE IF NOT EXISTS search_message_ids(seq INTEGER PRIMARY KEY AUTOINCREMENT, mid TEXT NOT NULL UNIQUE);
+CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(content, tokenize='trigram');
+CREATE TRIGGER IF NOT EXISTS messages_fts_ai AFTER INSERT ON messages BEGIN
+  INSERT OR IGNORE INTO search_message_ids(mid) VALUES (new.id);
+  DELETE FROM messages_fts WHERE rowid=(SELECT seq FROM search_message_ids WHERE mid=new.id);
+  INSERT INTO messages_fts(rowid, content) SELECT seq, new.content FROM search_message_ids WHERE mid=new.id;
+END;
+CREATE TRIGGER IF NOT EXISTS messages_fts_ad AFTER DELETE ON messages BEGIN
+  DELETE FROM messages_fts WHERE rowid=(SELECT seq FROM search_message_ids WHERE mid=old.id);
+  DELETE FROM search_message_ids WHERE mid=old.id;
+END;
+CREATE TRIGGER IF NOT EXISTS messages_fts_au AFTER UPDATE OF content ON messages BEGIN
+  DELETE FROM messages_fts WHERE rowid=(SELECT seq FROM search_message_ids WHERE mid=old.id);
+  INSERT OR IGNORE INTO search_message_ids(mid) VALUES (new.id);
+  INSERT INTO messages_fts(rowid, content) SELECT seq, new.content FROM search_message_ids WHERE mid=new.id;
+END;`
+
+func rebuildSearchIndex(tx *sql.Tx) error {
+	for _, q := range []string{
+		`DELETE FROM messages_fts`,
+		`DELETE FROM search_message_ids`,
+		`INSERT INTO search_message_ids(mid) SELECT id FROM messages`,
+		`INSERT INTO messages_fts(rowid, content) SELECT i.seq, m.content FROM search_message_ids i JOIN messages m ON m.id=i.mid`,
+	} {
+		if _, err := tx.Exec(q); err != nil {
+			return err
+		}
 	}
+	return nil
+}
+
+// migrateSearch creates the index and its triggers, and fills it when it is new, when an older external-content
+// index is found (dropped first), or when its row count no longer matches messages. Idempotent.
+func migrateSearch(db *sql.DB) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err = tx.Exec(`CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(content, content='messages', content_rowid='rowid', tokenize='trigram');
-CREATE TRIGGER IF NOT EXISTS messages_fts_ai AFTER INSERT ON messages BEGIN
-  INSERT INTO messages_fts(rowid, content) VALUES (new.rowid, new.content);
-END;
-CREATE TRIGGER IF NOT EXISTS messages_fts_ad AFTER DELETE ON messages BEGIN
-  INSERT INTO messages_fts(messages_fts, rowid, content) VALUES ('delete', old.rowid, old.content);
-END;
-CREATE TRIGGER IF NOT EXISTS messages_fts_au AFTER UPDATE OF content ON messages BEGIN
-  INSERT INTO messages_fts(messages_fts, rowid, content) VALUES ('delete', old.rowid, old.content);
-  INSERT INTO messages_fts(rowid, content) VALUES (new.rowid, new.content);
-END;`); err != nil {
+	var old string
+	_ = tx.QueryRow(`SELECT sql FROM sqlite_master WHERE name='messages_fts'`).Scan(&old)
+	stale := strings.Contains(old, "content='messages'")
+	if stale {
+		for _, q := range []string{`DROP TRIGGER IF EXISTS messages_fts_ai`, `DROP TRIGGER IF EXISTS messages_fts_ad`, `DROP TRIGGER IF EXISTS messages_fts_au`, `DROP TABLE messages_fts`} {
+			if _, err = tx.Exec(q); err != nil {
+				return err
+			}
+		}
+	}
+	fresh := old == "" || stale
+	if _, err = tx.Exec(searchIndexSQL); err != nil {
 		return err
 	}
-	if exists == 0 {
-		if _, err = tx.Exec(`INSERT INTO messages_fts(messages_fts) VALUES ('rebuild')`); err != nil {
+	if !fresh {
+		var messages, indexed int
+		if err = tx.QueryRow(`SELECT (SELECT COUNT(*) FROM messages), (SELECT COUNT(*) FROM search_message_ids)`).Scan(&messages, &indexed); err != nil {
+			return err
+		}
+		fresh = messages != indexed
+	}
+	if fresh {
+		if err = rebuildSearchIndex(tx); err != nil {
 			return err
 		}
 	}
@@ -168,7 +210,7 @@ func (s *Store) searchMessages(q string, limit int) ([]SearchMessage, error) {
 	var rows *sql.Rows
 	var err error
 	if utf8.RuneCountInString(q) >= 3 {
-		rows, err = s.db.Query(cols+` WHERE m.rowid IN (SELECT rowid FROM messages_fts WHERE messages_fts MATCH ?) AND`+visible+legacyScheduledMessageSQL("m")+
+		rows, err = s.db.Query(cols+` WHERE m.id IN (SELECT i.mid FROM messages_fts f JOIN search_message_ids i ON i.seq=f.rowid WHERE messages_fts MATCH ?) AND`+visible+legacyScheduledMessageSQL("m")+
 			` ORDER BY m.created_at DESC,m.seq DESC LIMIT ?`, ftsPhrase(q), limit)
 	} else {
 		rows, err = s.db.Query(cols+` WHERE m.content LIKE ? ESCAPE '\' AND`+visible+legacyScheduledMessageSQL("m")+

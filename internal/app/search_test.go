@@ -209,3 +209,135 @@ func TestRouteSearch(t *testing.T) {
 		t.Fatal("matched another route")
 	}
 }
+
+func searchIntegrity(t *testing.T, s *Store) {
+	t.Helper()
+	var ok string
+	if err := s.db.QueryRow(`PRAGMA integrity_check`).Scan(&ok); err != nil || ok != "ok" {
+		t.Fatalf("integrity_check=%q err=%v", ok, err)
+	}
+	if _, err := s.db.Exec(`INSERT INTO messages_fts(messages_fts) VALUES('integrity-check')`); err != nil {
+		t.Fatalf("fts integrity-check: %v", err)
+	}
+}
+
+func searchCount(t *testing.T, s *Store, q string) int {
+	t.Helper()
+	r, err := s.SearchAll(q, "messages", 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return len(r.Messages)
+}
+
+// The index must survive every path that rewrites rows or tables: workspace purge, VACUUM, a table-rebuild
+// migration, INSERT OR REPLACE (an import) and a reopen after drift.
+func TestSearchIndexSurvivesPurgeVacuumRebuildImportAndDrift(t *testing.T) {
+	dir := t.TempDir()
+	s, err := OpenStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { s.Close() }()
+	bot, err := s.CreateBot("Index Bot", "", "codex-gpt-6-sol")
+	if err != nil {
+		t.Fatal(err)
+	}
+	conv := bot.DMConversationID
+	for i := 0; i < 5; i++ {
+		putMsg(t, s, conv, "", fmt.Sprintf("durable needle %d", i), fmt.Sprintf("2026-05-0%dT00:00:00.000000000Z", i+1))
+	}
+	if searchCount(t, s, "durable needle") != 5 {
+		t.Fatal("setup")
+	}
+
+	// VACUUM renumbers rowids of a TEXT-keyed table; the index is keyed by message id.
+	if _, err = s.db.Exec(`DELETE FROM messages WHERE content LIKE '%needle 0'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.db.Exec(`VACUUM`); err != nil {
+		t.Fatal(err)
+	}
+	searchIntegrity(t, s)
+	if n := searchCount(t, s, "durable needle"); n != 4 {
+		t.Fatalf("after vacuum n=%d", n)
+	}
+	if _, err = s.db.Exec(`DELETE FROM messages WHERE content LIKE '%needle 1'`); err != nil {
+		t.Fatal(err)
+	}
+	if n := searchCount(t, s, "durable needle"); n != 3 {
+		t.Fatalf("delete after vacuum removed the wrong entry: n=%d", n)
+	}
+
+	// An import that replaces a row (no delete trigger fires) must not duplicate or corrupt.
+	if _, err = s.db.Exec(`INSERT OR REPLACE INTO messages(id,conversation_id,seq,role,kind,content,created_at) SELECT id,conversation_id,seq,role,kind,'replaced needle',created_at FROM messages WHERE content LIKE '%needle 2'`); err != nil {
+		t.Fatal(err)
+	}
+	searchIntegrity(t, s)
+	if n := searchCount(t, s, "replaced needle"); n != 1 {
+		t.Fatalf("replace n=%d", n)
+	}
+
+	// A table-rebuild migration drops the triggers with the table; the next start restores and refills.
+	var ddl string
+	if err = s.db.QueryRow(`SELECT sql FROM sqlite_master WHERE type='table' AND name='messages'`).Scan(&ddl); err != nil {
+		t.Fatal(err)
+	}
+	ddl = strings.Replace(ddl, "messages(", "messages_next(", 1)
+	if _, err = s.db.Exec(`PRAGMA foreign_keys=OFF; ` + ddl + `; INSERT INTO messages_next SELECT * FROM messages; DROP TABLE messages; ALTER TABLE messages_next RENAME TO messages; PRAGMA foreign_keys=ON`); err != nil {
+		t.Fatal(err)
+	}
+	if err = migrateSearch(s.db); err != nil {
+		t.Fatal(err)
+	}
+	searchIntegrity(t, s)
+	if n := searchCount(t, s, "needle"); n != 3 {
+		t.Fatalf("after rebuild n=%d", n)
+	}
+	if _, err = s.db.Exec(`DELETE FROM messages WHERE content LIKE 'durable needle 3'`); err != nil {
+		t.Fatal(err)
+	}
+	if n := searchCount(t, s, "needle"); n != 2 {
+		t.Fatalf("trigger after rebuild n=%d", n)
+	}
+
+	// Drift (rows written with the triggers dropped) is repaired on the next start.
+	if _, err = s.db.Exec(`DROP TRIGGER messages_fts_ai`); err != nil {
+		t.Fatal(err)
+	}
+	putMsg(t, s, conv, "", "untracked gadget", "2026-06-01T00:00:00.000000000Z")
+	if searchCount(t, s, "gadget") != 0 {
+		t.Fatal("expected drift")
+	}
+	if err = migrateSearch(s.db); err != nil {
+		t.Fatal(err)
+	}
+	if searchCount(t, s, "gadget") != 1 {
+		t.Fatal("drift not repaired")
+	}
+
+	// Workspace purge, then use, then reopen.
+	if err = s.purgeWorkspaceData(); err != nil {
+		t.Fatal(err)
+	}
+	searchIntegrity(t, s)
+	if n := searchCount(t, s, "needle"); n != 0 {
+		t.Fatalf("purge left %d hits", n)
+	}
+	bot2, err := s.CreateBot("After Purge", "", "codex-gpt-6-sol")
+	if err != nil {
+		t.Fatal(err)
+	}
+	putMsg(t, s, bot2.DMConversationID, "", "fresh needle", "2026-07-01T00:00:00.000000000Z")
+	if searchCount(t, s, "fresh needle") != 1 {
+		t.Fatal("search after purge")
+	}
+	s.Close()
+	if s, err = OpenStore(dir); err != nil {
+		t.Fatal(err)
+	}
+	searchIntegrity(t, s)
+	if searchCount(t, s, "fresh needle") != 1 {
+		t.Fatal("search after reopen")
+	}
+}

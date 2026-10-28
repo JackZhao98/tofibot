@@ -32,6 +32,11 @@ func (s *Store) purgeWorkspaceData() error {
 		if name == "workspace_owner" || strings.HasPrefix(name, "owner_") {
 			continue
 		}
+		// FTS5 shadow tables (messages_fts_data, _idx, _docsize, _config, _content) belong to the virtual table:
+		// emptying them by hand corrupts the index. The virtual table itself is emptied with its own DELETE.
+		if strings.HasPrefix(name, "messages_fts_") {
+			continue
+		}
 		tables = append(tables, name)
 	}
 	if err := rows.Close(); err != nil {
