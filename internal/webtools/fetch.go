@@ -196,19 +196,26 @@ func (b Builtin) Fetch(ctx context.Context, rawURL string, maxChars int) (Page, 
 	}
 	final := resp.Request.URL
 	var title, text string
+	partial := false
 	if kind == "html" {
 		doc := ParseHTML(ctx, string(body), final)
 		title, text = doc.Title, doc.Markdown
+		needsJS, maybe := shellText(doc, text)
+		if needsJS {
+			return Page{}, fail(NeedsJavaScript)
+		}
 		if len([]rune(strings.TrimSpace(text))) < 80 {
-			if doc.Scripts > 0 {
-				return Page{}, fail(NeedsJavaScript)
-			}
 			return Page{}, fail(EmptyContent)
 		}
+		partial = maybe
 	} else {
 		text = strings.TrimSpace(string(body))
 	}
-	return capPage(Page{URL: final.String(), Title: title, Content: text, Truncated: cut}, maxChars), nil
+	page := Page{URL: final.String(), Title: title, Content: text, Truncated: cut}
+	if partial {
+		page.Note = MaybePartialNote
+	}
+	return capPage(page, maxChars), nil
 }
 
 func capPage(p Page, maxChars int) Page {
@@ -342,17 +349,24 @@ func (b BrightData) Fetch(ctx context.Context, rawURL string, maxChars int) (Pag
 	base, _ := url.Parse(rawURL)
 	text := string(data)
 	title := ""
+	partial := false
 	if kind, _ := readableType(resp.Header.Get("Content-Type")); kind == "text" {
 		text = strings.TrimSpace(text)
 	} else {
 		doc := ParseHTML(ctx, text, base)
 		title, text = doc.Title, doc.Markdown
+		needsJS, maybe := shellText(doc, text)
+		if needsJS {
+			return Page{}, fail(NeedsJavaScript)
+		}
 		if len([]rune(strings.TrimSpace(text))) < 80 {
-			if doc.Scripts > 0 {
-				return Page{}, fail(NeedsJavaScript)
-			}
 			return Page{}, fail(EmptyContent)
 		}
+		partial = maybe
 	}
-	return capPage(Page{URL: rawURL, Title: title, Content: text, Truncated: cut}, maxChars), nil
+	page := Page{URL: rawURL, Title: title, Content: text, Truncated: cut}
+	if partial {
+		page.Note = MaybePartialNote
+	}
+	return capPage(page, maxChars), nil
 }

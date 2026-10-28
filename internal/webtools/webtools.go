@@ -97,6 +97,24 @@ type Page struct {
 	Title     string `json:"title,omitempty"`
 	Truncated bool   `json:"truncated,omitempty"`
 	Content   string `json:"content"`
+	// Note tells the model the text may be incomplete; it decides whether to read the page another way.
+	Note string `json:"note,omitempty"`
+}
+
+// MaybePartialNote goes with plain-HTTP text from a page that loads content with scripts.
+const MaybePartialNote = "This page builds part of its content with scripts, so this text may be incomplete. If it lacks what you need, read the page another way, such as a browser."
+
+// shellText reports whether text from a plain fetch is too thin to trust: almost
+// nothing, or a script-built page whose readable part stays short.
+func shellText(doc Doc, text string) (needsJS, partial bool) {
+	n := len([]rune(strings.TrimSpace(text)))
+	switch {
+	case n < 80:
+		return doc.Scripts > 0, false
+	case doc.Shell && n < 1500:
+		return true, false
+	}
+	return false, doc.Scripts > 0 && n < 1500
 }
 
 type SearchProvider interface {

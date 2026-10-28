@@ -159,6 +159,14 @@ func TestBuiltinCodes(t *testing.T) {
 			w.Header().Set("Content-Type", "text/html")
 			w.Write([]byte(`<html><body><div id="root"></div><script src="/app.js"></script></body></html>`))
 		}, NeedsJavaScript},
+		"spa with chrome text": {func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/html")
+			w.Write([]byte(`<html><body><nav>Home Products Pricing Docs Blog Careers Contact Sign in Sign up Status Changelog Community</nav><div id="__next"></div><footer>Copyright Example Inc. All rights reserved. Privacy Terms Cookies</footer><script src="/app.js"></script></body></html>`))
+		}, NeedsJavaScript},
+		"noscript notice": {func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/html")
+			w.Write([]byte(`<html><body><noscript>You need to enable JavaScript to run this app.</noscript><header>Example docs portal with a long header line that easily passes eighty characters of text</header><script src="/app.js"></script></body></html>`))
+		}, NeedsJavaScript},
 	}
 	for name, c := range cases {
 		url := serve(t, c.h)
@@ -324,5 +332,28 @@ func TestCleanBaseURLKeepsSchemeAndHostOnly(t *testing.T) {
 		if _, err := CleanBaseURL(bad); err == nil {
 			t.Errorf("%q accepted", bad)
 		}
+	}
+}
+
+// Thin text from a script-built page reaches the model with a note, so the model
+// can judge it and read the page another way; a full article carries none.
+func TestBuiltinNotesTextThatMayBeIncomplete(t *testing.T) {
+	thin := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(`<html><body><main><h1>Docs</h1><p>` + strings.Repeat("Loading the reference for this section. ", 6) + `</p></main><script src="/app.js"></script></body></html>`))
+	})
+	p, err := Builtin{Transport: plain}.Fetch(context.Background(), thin, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Note != MaybePartialNote {
+		t.Errorf("thin script page note %q", p.Note)
+	}
+	full := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(article))
+	})
+	if p, err := (Builtin{Transport: plain}).Fetch(context.Background(), full, 0); err != nil || p.Note != "" {
+		t.Errorf("article note %q err %v", p.Note, err)
 	}
 }

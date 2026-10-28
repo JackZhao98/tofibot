@@ -14,6 +14,9 @@ type Doc struct {
 	// Scripts counts script elements with a source: a page with almost no text
 	// and scripts builds its content in the browser.
 	Scripts int
+	// Shell marks a page whose markup shows it is built by scripts: an empty
+	// app mount point or a noscript notice asking for JavaScript.
+	Shell bool
 }
 
 type node struct {
@@ -505,6 +508,13 @@ func ParseHTML(ctx context.Context, src string, base *url.URL) Doc {
 		}
 	}
 	scripts(root)
+	mounts := map[string]bool{"root": true, "app": true, "__next": true, "__nuxt": true, "svelte": true, "___gatsby": true}
+	doc.Shell = doc.Scripts > 0 && root.find(func(n *node) bool {
+		if n.tag == "noscript" {
+			return strings.Contains(strings.ToLower(n.plain(2000)), "javascript")
+		}
+		return n.tag == "div" && mounts[n.attrs["id"]] && len([]rune(strings.TrimSpace(n.plain(200)))) < 40
+	}) != nil
 	render := func(n *node, chrome bool) string {
 		r := &renderer{ctx: ctx, work: &work, base: base, chrome: chrome}
 		r.walk(n)
