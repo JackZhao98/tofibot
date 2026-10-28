@@ -6,6 +6,8 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -187,36 +189,75 @@ func TestBuiltinSizeCaps(t *testing.T) {
 	}
 }
 
-func under(t *testing.T, name string, limit time.Duration, fn func()) {
+// bestOf is the smallest of n samples of fn's cost: noise only ever adds cost, so the minimum is the cleanest sample.
+func bestOf(n int, fn func() float64) float64 {
+	best := -1.0
+	for i := 0; i < n; i++ {
+		if c := fn(); best < 0 || c < best {
+			best = c
+		}
+	}
+	return best
+}
+
+// Regression: 2 MiB inputs that were quadratic (raw-text close-tag search copied the rest of the page per tag; newline
+// handling rescanned the output per block). The check is the growth rate, never a wall-clock bound: the same page at 4x the
+// size must cost about 4x (linear), not about 16x (quadratic).
+//   - Bytes allocated are deterministic, so that ratio runs everywhere, CI included, and catches the copying paths.
+//   - Wall-clock time also catches rescanning, but GC and a busy shared runner move big and small runs apart, so the time ratio
+//     follows the repo-wide TOFI_SKIP_TIMING switch (docs/process.md 3.3) and runs on a quiet machine only.
+func assertLinear(t *testing.T, name string, page func(bytes int) string) {
 	t.Helper()
-	start := time.Now()
-	fn()
-	if d := time.Since(start); d > limit {
-		t.Errorf("%s took %v, limit %v", name, d, limit)
+	small, big := page(MaxBodyBytes/8), page(MaxBodyBytes/2)
+	allocated := func(src string) func() float64 {
+		return func() float64 {
+			var before, after runtime.MemStats
+			runtime.GC()
+			runtime.ReadMemStats(&before)
+			ParseHTML(context.Background(), src, nil)
+			runtime.ReadMemStats(&after)
+			return float64(after.TotalAlloc - before.TotalAlloc)
+		}
+	}
+	if as, ab := bestOf(3, allocated(small)), bestOf(3, allocated(big)); ab/as > 8 {
+		t.Errorf("%s: 4x the input allocated %.1fx the bytes (%.0f -> %.0f); linear is about 4x, quadratic about 16x", name, ab/as, as, ab)
+	}
+	if os.Getenv("TOFI_SKIP_TIMING") == "1" {
+		return
+	}
+	timed := func(src string) func() float64 {
+		return func() float64 {
+			start := time.Now()
+			ParseHTML(context.Background(), src, nil)
+			return float64(time.Since(start))
+		}
+	}
+	ts, tb := bestOf(5, timed(small)), bestOf(5, timed(big))
+	if floor := float64(5 * time.Millisecond); ts < floor {
+		ts = floor // below this the small run is timer noise, not a baseline
+	}
+	if tb/ts > 12 {
+		t.Errorf("%s: 4x the input took %.1fx the time (%v -> %v); linear is about 4x, quadratic about 16x", name, tb/ts, time.Duration(ts), time.Duration(tb))
 	}
 }
 
-// Regression: 2 MiB inputs that were quadratic (raw-text close-tag search copied the rest
-// of the page per tag; newline handling rescanned the output per block).
-// linearBound separates linear from quadratic work: these 2 MiB inputs take well under a second on a
-// laptop, but minutes with the old quadratic paths, so a shared CI runner's noise cannot hide a regression.
-const linearBound = 10 * time.Second
-
 func TestExtractorStaysLinearOnHostileInput(t *testing.T) {
-	scripts := strings.Repeat("<SCRIPT>x</SCRIPT>", MaxBodyBytes/18)
-	under(t, "script storm", linearBound, func() { ParseHTML(context.Background(), "<html><body>"+scripts, nil) })
-	blocks := strings.Repeat("<br><p>", MaxBodyBytes/7)
-	under(t, "br/p storm", linearBound, func() { ParseHTML(context.Background(), "<html><body>"+blocks, nil) })
-	nested := strings.Repeat("<div><a href=x>", MaxBodyBytes/15)
-	under(t, "nested anchors", linearBound, func() { ParseHTML(context.Background(), nested, nil) })
-	unclosed := strings.Repeat("<script>", MaxBodyBytes/8)
-	under(t, "unclosed scripts", linearBound, func() { ParseHTML(context.Background(), unclosed, nil) })
+	assertLinear(t, "script storm", func(n int) string { return "<html><body>" + strings.Repeat("<SCRIPT>x</SCRIPT>", n/18) })
+	assertLinear(t, "br/p storm", func(n int) string { return "<html><body>" + strings.Repeat("<br><p>", n/7) })
+	assertLinear(t, "nested anchors", func(n int) string { return strings.Repeat("<div><a href=x>", n/15) })
+	assertLinear(t, "unclosed scripts", func(n int) string { return strings.Repeat("<script>", n/8) })
 }
 
+// A cancelled context stops the walk: the page is not rendered. Asserted on the output, not on how fast it returned.
 func TestExtractorStopsOnCancel(t *testing.T) {
+	page := strings.Repeat("<p>word</p>", 40000)
+	full := ParseHTML(context.Background(), page, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	under(t, "cancelled", 2*time.Second, func() { ParseHTML(ctx, strings.Repeat("<p>word</p>", 400000), nil) })
+	cut := ParseHTML(ctx, page, nil)
+	if len(full.Markdown) < 100000 || len(cut.Markdown) > len(full.Markdown)/10 {
+		t.Fatalf("a cancelled parse must leave most of the page unrendered: cancelled %d bytes, full %d bytes", len(cut.Markdown), len(full.Markdown))
+	}
 }
 
 func TestIndexFold(t *testing.T) {

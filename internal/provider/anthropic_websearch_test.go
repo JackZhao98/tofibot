@@ -96,7 +96,7 @@ func TestAnthropicWebSearchRejectionRetriesOnceWithoutSearchAndIsRemembered(t *t
 		errorBody(400, `{"type":"error","error":{"type":"invalid_request_error","message":"The web_search tool is not enabled for this organization."}}`),
 		streamBody(evStart, evDelta("end_turn"), evStop),
 		streamBody(evStart, evDelta("end_turn"), evStop))
-	p.apiKey = "sk-websearch-refused-test"
+	p.apiKey = freshCredential("sk-websearch-refused")
 	req := &ChatRequest{Model: "claude-opus-5-5", WebSearch: &WebSearchSpec{MaxUses: 2}, Tools: []Tool{{Name: "x"}}, Messages: []Message{{Role: "user", Content: "q"}}}
 	if _, err := p.Chat(context.Background(), req); err != nil {
 		t.Fatalf("refusal was not absorbed: %v", err)

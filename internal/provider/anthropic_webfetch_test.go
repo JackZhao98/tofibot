@@ -2,7 +2,9 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -85,6 +87,12 @@ func TestAnthropicWebFetchErrorIsAResultNotAFailure(t *testing.T) {
 	}
 }
 
+var credentialSeq atomic.Int64
+
+// freshCredential is a key no earlier test (or earlier -count iteration) has seen: refusals are remembered per credential in
+// package state, so a fixed key makes the second iteration start from "already refused" and the refusal never happens.
+func freshCredential(prefix string) string { return fmt.Sprintf("%s-%d", prefix, credentialSeq.Add(1)) }
+
 func TestAnthropicRequestWithoutWebFetchDeclaresNoPageReader(t *testing.T) {
 	p, captured := anthropicServer(t, streamBody(evStart, evDelta("end_turn"), evStop))
 	if _, err := p.Chat(context.Background(), &ChatRequest{Model: "claude-sonnet-5-5", WebSearch: &WebSearchSpec{}, Messages: []Message{{Role: "user", Content: "q"}}}); err != nil {
@@ -102,7 +110,7 @@ func TestAnthropicWebFetchRejectionDropsOnlyFetchAndIsRemembered(t *testing.T) {
 		errorBody(400, `{"type":"error","error":{"type":"invalid_request_error","message":"The web_fetch tool is not enabled for this organization."}}`),
 		streamBody(evStart, evDelta("end_turn"), evStop),
 		streamBody(evStart, evDelta("end_turn"), evStop))
-	p.apiKey = "sk-webfetch-refused-test"
+	p.apiKey = freshCredential("sk-webfetch-refused")
 	req := &ChatRequest{Model: "claude-sonnet-5-5", WebSearch: &WebSearchSpec{MaxUses: 2}, WebFetch: &WebFetchSpec{MaxUses: 2}, Tools: []Tool{{Name: "x"}}, Messages: []Message{{Role: "user", Content: "q"}}}
 	if _, err := p.Chat(context.Background(), req); err != nil {
 		t.Fatalf("refusal was not absorbed: %v", err)
@@ -124,7 +132,7 @@ func TestAnthropicWebSearchRejectionKeepsFetch(t *testing.T) {
 	p, captured := anthropicServer(t,
 		errorBody(400, `{"type":"error","error":{"type":"invalid_request_error","message":"The web_search tool is not enabled for this organization."}}`),
 		streamBody(evStart, evDelta("end_turn"), evStop))
-	p.apiKey = "sk-search-only-refused-test"
+	p.apiKey = freshCredential("sk-search-only-refused")
 	req := &ChatRequest{Model: "claude-sonnet-5-5", WebSearch: &WebSearchSpec{}, WebFetch: &WebFetchSpec{}, Messages: []Message{{Role: "user", Content: "q"}}}
 	if _, err := p.Chat(context.Background(), req); err != nil {
 		t.Fatal(err)
