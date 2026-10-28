@@ -3,6 +3,7 @@
 import { QuestionCard } from "../../QuestionCard";
 import { ApprovalCard } from "../../ApprovalCard";
 import { StandingAllowances } from "../../StandingAllowances";
+import { PermissionsPage } from "../../settings/SettingsPages";
 import { MemberTask, TaskCard } from "../../TaskCard";
 import type { TaskCardModel } from "../../taskCards";
 import { BotAvatar } from "../../BotAvatar";
@@ -67,6 +68,8 @@ export const approvals: CatalogSection = {
     approval("verified", "With server-checked facts", { verified: [{ label: "Server", value: "calendar" }, { label: "Tool", value: "create_event" }], verifiedTitle: "Checked by Tofi", factsCaption: "Written by the Bot" }),
     approval("remember", "With \"Approve and remember\"", { onRemember: noop, rememberHint: "Later calls to the same address in this chat go ahead without asking." }),
     approval("always", "With \"Always allow\"", { onAlwaysAllow: noop, alwaysAllowHint: "Mochi may use calendar.create_event without asking, also when nobody is watching." }),
+    approval("standing-manage", "With \"Always allow\" and the Manage link to the tool's row in Connections", { onAlwaysAllow: noop, alwaysAllowHint: "Always allow lets Mochi use create_event on calendar without asking, also when it works on its own, until you revoke it in Settings.", manage: { label: "Manage create_event on calendar in Settings", onClick: noop } }),
+    approval("standing-decided", "Decided by a standing allowance, with Manage to Permissions", { resolution: { label: "Approved by a standing allowance", accepted: true }, manage: { label: "Manage allowances in Settings", onClick: noop } }),
     approval("busy", "Working", { busy: "accept" }),
     approval("error", "Failed", { error: "Synthetic: the answer was not saved" }),
     approval("payload-open", "Arguments open", {}, { drive: async step => { await step.click(".approval-payload summary"); } }),
@@ -128,11 +131,12 @@ const LISTING = {
 
 export const standing: CatalogSection = {
   id: "standing", number: "16", title: "\"Always allow\" (standing allowances)", context: ["settings-page-body"],
-  server: isolated({ "/api/standing-allowances": LISTING }),
+  server: isolated({ "/api/standing-allowances": LISTING, "/api/auto-review-settings": { mode: "auto", review_scope: "all_external_tools" } }),
   states: [
-    { id: "list", kind: "inline", label: "Settings list: active and voided grants, remembered approvals", render: () => <StandingAllowances /> },
-    { id: "empty", kind: "overlay", label: "Settings list, empty", height: 360, server: isolated({ "/api/standing-allowances": { allowances: [], remembered: [] } }), render: () => <StandingAllowances /> },
-    { id: "load-error", kind: "overlay", label: "Settings list, could not load", height: 360, server: (url, init) => url.pathname === "/api/standing-allowances" ? json({ error: { code: "unavailable", message: "Synthetic: the server is busy" } }, 503) : isolated()(url, init), render: () => <StandingAllowances /> },
+    { id: "permissions-page", kind: "inline", label: "Settings › Permissions: Reviewer, how tools ask, Always allowed, Remembered in chats", note: "the home of the reviewer mode and every allowance; Revoke on each row", render: () => <PermissionsPage openTab={() => {}} /> },
+    { id: "list", kind: "inline", label: "Permissions list: active and voided grants, remembered approvals", render: () => <StandingAllowances /> },
+    { id: "empty", kind: "overlay", label: "Permissions list, empty", height: 360, server: isolated({ "/api/standing-allowances": { allowances: [], remembered: [] } }), render: () => <StandingAllowances /> },
+    { id: "load-error", kind: "overlay", label: "Permissions list, could not load", height: 360, server: (url, init) => url.pathname === "/api/standing-allowances" ? json({ error: { code: "unavailable", message: "Synthetic: the server is busy" } }, 503) : isolated()(url, init), render: () => <StandingAllowances /> },
     card("offer", "Card offering \"Always allow\"", pendingApproval("dm_mochi", { question_id: "q_offer", question: "Create the calendar event?", approval: { action: "Create a calendar event", target: "calendar.create_event", impact: "Adds one event", standing: { server: "calendar", tool: "create_event" } } }), { context: ["catalog-column"] }),
     card("decided", "Card decided by \"Always allow\"", pendingApproval("dm_mochi", { question_id: "q_decided", ...answered(true, STANDING_ALLOWANCE_ACTOR), approval: { action: "Create a calendar event", target: "calendar.create_event", impact: "Adds one event", standing: { server: "calendar", tool: "create_event" } } }), { context: ["catalog-column"] }),
   ],

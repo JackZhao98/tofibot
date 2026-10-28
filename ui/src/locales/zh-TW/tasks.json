@@ -521,7 +521,10 @@
     "payload_label": "完整工具參數，純文字",
     "submitting": "提交中…",
     "remember": "核准並在本對話中記住",
-    "always_allow": "一律允許"
+    "always_allow": "一律允許",
+    "manage": "管理",
+    "manage_connection": "在設定中管理 {{server}} 的 {{tool}}",
+    "manage_allowances": "在設定中管理放行"
   },
   "remembered": {
     "title": "記住的核准",

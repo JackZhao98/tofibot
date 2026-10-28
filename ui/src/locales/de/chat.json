@@ -64,7 +64,6 @@
   },
   "botSettings": {
     "nav": "Bereiche der Bot-Einstellungen",
-    "skills_link": "Bibliothek unter Einstellungen › Skills verwalten",
     "back": "Alle Bereiche",
     "avatar_title": "Avatar",
     "avatar_hint": "So sieht diese Katze in der Liste und im Chat aus.",
@@ -82,15 +81,16 @@
       "identity": "Identität",
       "role": "Rolle",
       "model": "Modell",
-      "skills": "Skills",
       "secrets": "Geheimnisse",
-      "advanced": "Erweitert"
+      "advanced": "Erweitert",
+      "tools": "Werkzeuge"
     },
     "desc": {
       "identity": "Avatar, Name und Hauptassistent.",
       "role": "Wofür dieser Bot zuständig ist. Er liest das vor jeder Antwort.",
       "model": "Auf welchem Modell dieser Bot läuft und wie tief er nachdenkt.",
-      "advanced": "Systemprompt, Export und Löschen."
+      "advanced": "Systemprompt, Export und Löschen.",
+      "tools": "Was {{name}} nutzen kann. Verbindungen und Skills schaltest du selbst; der Rest folgt den Arbeitsbereich-Einstellungen."
     },
     "role_count_one": "{{count}} Zeichen",
     "role_count_other": "{{count}} Zeichen"

@@ -217,5 +217,57 @@
     "widget_empty": "Les fichiers produits par vos Bots dans ce chat apparaissent ici.",
     "widget_all": "Tous les artefacts",
     "widget_new": "Nouveau fichier : {{name}}"
+  },
+  "tools": {
+    "connections": {
+      "title": "Connexions",
+      "hint": "Désactivez une connexion pour que ce Bot ne l'utilise pas. Une nouvelle connexion est activée pour tous les Bots.",
+      "loading": "Chargement…",
+      "error": "Impossible de charger les connexions. Réessayez.",
+      "none": "Aucune connexion pour l'instant.",
+      "add": "Ajouter dans les réglages",
+      "switch": "Autoriser {{bot}} à utiliser {{connection}}",
+      "open": "Ouvrir {{connection}} dans les réglages",
+      "save_failed": "Enregistrement impossible. Réessayez.",
+      "allowed_one": "{{count}} toujours autorisé",
+      "allowed_many": "{{count}} toujours autorisés",
+      "allowed_other": "{{count}} toujours autorisés"
+    },
+    "skills": {
+      "manage": "Gérer la bibliothèque"
+    },
+    "web": {
+      "title": "Web",
+      "search": "Recherche",
+      "fetch": "Récupération",
+      "on": "Activé · {{chain}}",
+      "search_none": "Désactivé · aucune source configurée",
+      "configure": "Configurer les sources"
+    },
+    "computer": {
+      "title": "Ordinateur",
+      "shared": "Tous les Bots utilisent l'ordinateur de l'espace de travail.",
+      "none": "Pas encore d'ordinateur. Ajoutez-en un dans les réglages pour que les Bots puissent naviguer et exécuter du code.",
+      "open": "Ouvrir les réglages"
+    },
+    "builtin": {
+      "title": "Intégrés",
+      "summary": "Ce que chaque Bot sait faire",
+      "items": "Fichiers et pièces jointes · Images · Mémoire · Tâches et planifications · Demander à une personne · Administration de l'espace (à la demande)"
+    },
+    "permissions": {
+      "title": "Autorisations de ce Bot",
+      "manage": "Toutes les autorisations",
+      "empty": "Rien n'est autorisé sans demander. Choisissez « Toujours autoriser » sur une demande pour en ajouter une.",
+      "allowed": "Autorisé {{time}}",
+      "used_one": "utilisé {{count}} fois",
+      "used_many": "utilisé {{count}} fois",
+      "used_other": "utilisé {{count}} fois",
+      "remembered_one": "Mémorisé dans {{count}} conversation",
+      "remembered_many": "Mémorisé dans {{count}} conversations",
+      "remembered_other": "Mémorisé dans {{count}} conversations",
+      "remembered_none": "Mémorisé dans les conversations : rien",
+      "error": "Impossible de charger les autorisations. Réessayez."
+    }
   }
 }

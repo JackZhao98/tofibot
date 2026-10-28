@@ -29,7 +29,8 @@
     "custom_package_hint": "在本服务器安装固定版本的 npm 或 PyPI MCP 服务。",
     "preview_title": "Workspace 预览（企业）",
     "preview_toggle": "显示 Google Workspace 服务器",
-    "community_note": "社区连接器由第三方维护，其写入操作每次都会先询问你。"
+    "community_note": "社区连接器由第三方维护，其写入操作每次都会先询问你。",
+    "google_workspace_details": "Google Workspace 服务器 · OAuth · 开发者预览"
   },
   "callback": {
     "copied": "已复制",
@@ -203,7 +204,12 @@
     "preview_hint": "把 Cloud 项目加入 Google Workspace Developer Preview Program（developers.google.com/workspace/preview）；未加入时授权虽能成功，每次工具调用仍会被拒。",
     "agentic_hint": "勾选“Use this client for an AI-powered agent”（Google Auth Platform → Clients）。自 2026-11-11 起 Workspace MCP 拒绝未标记的客户端；2026-11-12 起该设置固定，未标记的客户端需新建替换。",
     "redirect_hint": "在 Google Auth Platform → Clients 的 Web application 中，将需要使用的地址逐条加入 Authorized redirect URIs（不是 JavaScript origins）。两种入口可共用这一组凭据。地址、端口、路径必须完全一致；HTTP 共享电脑的动态回调不适用此固定地址配置，建议改用 HTTPS 或客户端。",
-    "test_users": "配置测试用户"
+    "test_users": "配置测试用户",
+    "workspace": {
+      "title": "高级:Google Workspace MCP(开发者预览)",
+      "deadline": "从 2026-11-11 起,Workspace MCP 拒绝没有勾选“Use this client for an AI-powered agent”的 OAuth 客户端;从 2026-11-12 起已有客户端不能再改,只能新建。",
+      "deadline_past": "Workspace MCP 现在会拒绝没有勾选“Use this client for an AI-powered agent”的 OAuth 客户端,已有客户端也不能再改,只能新建。"
+    }
   },
   "held": {
     "discord": {
@@ -276,7 +282,11 @@
       "verified": "个人 Gmail 读取已验证。",
       "verify": "验证 Gmail 读取",
       "verifying": "正在验证…",
-      "waiting": "等待 Google 授权"
+      "waiting": "等待 Google 授权",
+      "scope_readonly_note": "Bot 可以读取邮件、日程和文件,不会发送或修改任何内容。",
+      "scope_read_send_note": "仅限 Gmail。Bot 想发送的每封邮件都要等你确认。",
+      "scope_readonly_title": "只读",
+      "scope_read_send_title": "读取和发送"
     }
   },
   "mcp": {
@@ -298,7 +308,9 @@
       "refresh": "刷新工具",
       "remove": "移除服务"
     },
-    "more_actions": "{{name}} 的更多操作"
+    "more_actions": "{{name}} 的更多操作",
+    "empty_body": "Bot 可以在你连接的服务里读取和操作。",
+    "browse_all": "浏览全部"
   },
   "oauth": {
     "help_body": "授权方式自动跟随入口，适用于 Google、Notion 和其他 OAuth 服务。手动配置的客户端需在服务后台登记下方完整回调地址；Notion 等支持自动注册的服务由 Tofi 处理。",
@@ -405,24 +417,23 @@
     "remove_confirm": "为所有 Bot 移除这个 Skill？",
     "removed": "Skill 已移除",
     "saved": "已保存",
-    "starters": "Tofi 工作技能",
     "support_note": "支持说明与参考文件；不自动运行附带脚本。",
     "builtin": {
       "tag": "内置"
-    }
+    },
+    "templates": "模板"
   },
   "status": {
     "authorizing": "正在打开授权…",
     "checked": "{{when}}已检查",
-    "checking": "正在读取工具…",
-    "failed": "连接失败",
-    "needs_auth": "需要授权",
+    "checking": "正在检查…",
+    "failed": "连不上",
+    "needs_auth": "需要登录",
     "removing": "处理中…",
-    "unverified": "尚未验证",
     "waiting": "等待授权",
     "connected": "已连接",
-    "not_connected": "未连接",
-    "api_disabled": "API 未启用"
+    "setup": "需要设置",
+    "paused": "已暂停"
   },
   "vm": {
     "cancel": "取消授权",
@@ -446,37 +457,42 @@
     "error": {
       "refresh_failed": "无法刷新工具列表。"
     },
-    "explain": "服务方标记为只读的工具直接执行，不经审核。其他工具每次调用都会审核：你明确要求的调用自动执行，其余的先问你。设为“总是问我”的工具每次都会问。",
+    "explain": "不问就跑：服务方或你标为只读的工具。拿不准时问：每次调用都会审核，你明确要求的直接执行，其余的先问你。每次都问：每次调用都由你决定。",
     "group": {
-      "read_only": "只读（服务方标记）",
-      "write": "每次审核",
-      "high_risk": "总是问我"
+      "read_only": "不问就跑",
+      "write": "拿不准时问",
+      "high_risk": "每次都问"
     },
     "refresh": "刷新工具",
     "refreshing": "正在刷新…",
-    "select_label": "{{name}} 的级别",
+    "select_label": "{{name}} 的权限",
     "source": {
       "owner": "你设置的",
       "provider": "服务方标记"
     },
     "tier": {
-      "auto": "自动（服务方）",
-      "read_only": "只读",
-      "write": "每次审核",
-      "high_risk": "总是问我"
+      "auto": "自动 · 跟随服务方标注",
+      "read_only": "不问就跑",
+      "write": "拿不准时问",
+      "high_risk": "每次都问"
     },
-    "title": "工具 · {{count}}"
+    "title": "工具 · {{count}}",
+    "raise_note": "改为“每次都问”会撤销它已有的放行。",
+    "allowance": {
+      "always": "始终放行",
+      "revoke": "撤销 {{bot}} 对 {{tool}} 的放行",
+      "stale": "放行已失效 · 会再次询问"
+    }
   },
   "connections": {
     "title": "连接",
     "add": "添加连接",
     "action": {
-      "authorize": "授权",
-      "enable_api": "启用 {{name}} API"
+      "authorize": "登录",
+      "enable_api": "启用 {{name}} API",
+      "resume": "恢复"
     },
     "menu": {
-      "details": "查看详情",
-      "hide_details": "收起详情",
       "sign_in_again": "重新登录"
     },
     "dialog": {
@@ -489,7 +505,7 @@
       }
     },
     "source": {
-      "gog": "社区 · gogcli · Gmail API",
+      "gog": "自带 · gogcli · Gmail API",
       "local": "社区 · {{name}}",
       "vendor": "官方 · {{host}}",
       "community": "社区 · {{host}}",
@@ -498,7 +514,6 @@
     },
     "details": {
       "account": "账号：{{email}}",
-      "services": "已授权服务：{{services}}",
       "project": "Google Cloud 项目：{{project}}",
       "community_review": "社区代码：其工具在你标为只读之前每次都要确认。"
     },
@@ -509,18 +524,53 @@
     "google": {
       "using_client": "使用已保存的 Google 客户端（项目 {{project}}），无需再次上传。",
       "replace_client": "更换客户端",
-      "project_found": "此客户端属于项目 {{project}}。"
+      "project_found": "此客户端属于项目 {{project}}。",
+      "tile_name": "Google",
+      "tile_description": "你自己的 Google 账号的 Gmail、日历和云端硬盘。"
     },
     "repo": {
       "label": "GitHub 源码：{{repo}}",
       "with_stars": "GitHub 源码：{{repo}}，{{count}} 个星标"
+    },
+    "open": "打开 {{name}}",
+    "row": {
+      "tools_other": "{{count}} 个工具"
+    },
+    "connecting": {
+      "lead": "正在添加 {{name}} 并打开它的登录页…",
+      "advanced": "高级设置"
     }
   },
   "capabilities": {
-    "title": "这能做什么",
-    "read": "可读取",
-    "write": "可写入",
-    "more": "另 {{count}} 个",
     "community_note": "社区代码：写入每次都先问，它自己标的只读不算数。在下方把某个工具标为只读，它才不再询问。"
+  },
+  "detail": {
+    "back": "返回连接",
+    "status": "状态",
+    "danger": "危险操作",
+    "advanced": {
+      "title": "高级",
+      "source": "来源",
+      "address": "地址",
+      "signin": "登录",
+      "loopback": "仅接受 127.0.0.1 回调",
+      "package": "软件包与版本",
+      "project": "Google Cloud 项目",
+      "repository": "代码仓库"
+    },
+    "pause": "暂停连接",
+    "resume": "恢复连接",
+    "paused_note": "已暂停。Bot 用不了这个连接,登录状态、工具设置和放行都保留。",
+    "bots": {
+      "title": "Bot",
+      "lead": "哪些 Bot 可以使用 {{name}}。",
+      "all": "所有 Bot",
+      "chosen": "指定 Bot",
+      "choose": "选择哪些 Bot 可以使用这个连接",
+      "none": "没有 Bot 能用这个连接。",
+      "new_note": "之后新建的 Bot 默认可以使用,除非你在它自己的页面里限制。",
+      "check": "{{bot}} 可以使用 {{name}}",
+      "loading": "正在加载 Bot…"
+    }
   }
 }

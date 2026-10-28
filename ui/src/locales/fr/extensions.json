@@ -29,7 +29,8 @@
     "custom_package_hint": "Installez sur ce serveur un serveur MCP npm ou PyPI à version figée.",
     "preview_title": "Aperçu Workspace (entreprise)",
     "preview_toggle": "Afficher les serveurs Google Workspace",
-    "community_note": "Les connecteurs communautaires sont maintenus par des tiers ; leurs actions d’écriture demandent toujours confirmation."
+    "community_note": "Les connecteurs communautaires sont maintenus par des tiers ; leurs actions d’écriture demandent toujours confirmation.",
+    "google_workspace_details": "Serveurs Google Workspace · OAuth · Developer Preview"
   },
   "callback": {
     "copied": "Copié",
@@ -203,7 +204,12 @@
     "preview_hint": "Inscrivez le projet Cloud au Google Workspace Developer Preview Program (developers.google.com/workspace/preview) ; sans cela, chaque appel d’outil est refusé alors que la connexion fonctionne.",
     "agentic_hint": "Cochez « Use this client for an AI-powered agent » (Google Auth Platform → Clients). Dès le 2026-11-11, Workspace MCP refuse les clients sans cette case ; dès le 2026-11-12 elle est définitive, un client non coché doit être remplacé.",
     "redirect_hint": "Dans Google Auth Platform → Clients, ouvrez votre application Web et ajoutez chaque URL utilisée dans Authorized redirect URIs (pas dans JavaScript origins). Les deux accès peuvent partager ces identifiants. Adresse, port et chemin doivent correspondre exactement. La redirection HTTP dynamique de l’ordinateur partagé ne fonctionne pas avec cette configuration fixe ; préférez HTTPS ou l’application.",
-    "test_users": "Configurer les utilisateurs test"
+    "test_users": "Configurer les utilisateurs test",
+    "workspace": {
+      "title": "Avancé : Google Workspace MCP (Developer Preview)",
+      "deadline": "À partir du 2026-11-11, Workspace MCP rejette les clients OAuth non marqués « Use this client for an AI-powered agent ». À partir du 2026-11-12, un client existant ne peut plus être modifié : créez-en un nouveau.",
+      "deadline_past": "Workspace MCP rejette désormais les clients OAuth non marqués « Use this client for an AI-powered agent », et un client existant ne peut plus être modifié : créez-en un nouveau."
+    }
   },
   "held": {
     "discord": {
@@ -276,7 +282,11 @@
       "verified": "Lecture du Gmail personnel vérifiée.",
       "verify": "Vérifier la lecture Gmail",
       "verifying": "Vérification…",
-      "waiting": "En attente de l’autorisation Google"
+      "waiting": "En attente de l’autorisation Google",
+      "scope_readonly_note": "Les Bots peuvent lire e-mails, événements et fichiers. Rien n'est envoyé ni modifié.",
+      "scope_read_send_note": "Gmail uniquement. Chaque e-mail qu'un Bot veut envoyer attend votre confirmation.",
+      "scope_readonly_title": "Lecture seule",
+      "scope_read_send_title": "Lire et envoyer"
     }
   },
   "mcp": {
@@ -298,7 +308,9 @@
       "refresh": "Actualiser les outils",
       "remove": "Supprimer le service"
     },
-    "more_actions": "Autres actions pour {{name}}"
+    "more_actions": "Autres actions pour {{name}}",
+    "empty_body": "Les Bots peuvent lire et agir dans les services que vous connectez.",
+    "browse_all": "Tout parcourir"
   },
   "oauth": {
     "help_body": "Le mode de connexion suit la façon dont vous avez ouvert Tofi et fonctionne pour Google, Notion et les autres services OAuth. Pour un client configuré manuellement, enregistrez l’URL de redirection complète ci-dessous dans la console du service ; les services à enregistrement automatique comme Notion sont gérés par Tofi.",
@@ -415,24 +427,23 @@
     "remove_confirm": "Supprimer ce Skill pour tous les Bots ?",
     "removed": "Skill supprimé",
     "saved": "Enregistré",
-    "starters": "Skills de travail Tofi",
     "support_note": "Instructions et fichiers de référence pris en charge ; les scripts fournis ne s’exécutent jamais automatiquement.",
     "builtin": {
       "tag": "Intégré"
-    }
+    },
+    "templates": "Modèles"
   },
   "status": {
     "authorizing": "Ouverture de l’autorisation…",
     "checked": "Vérifié {{when}}",
-    "checking": "Chargement des outils…",
-    "failed": "Échec de la connexion",
-    "needs_auth": "Autorisation requise",
+    "checking": "Vérification…",
+    "failed": "Connexion impossible",
+    "needs_auth": "Identification requise",
     "removing": "Traitement…",
-    "unverified": "Pas encore vérifié",
     "waiting": "En attente d’autorisation",
     "connected": "Connecté",
-    "not_connected": "Non connecté",
-    "api_disabled": "API non activée"
+    "setup": "Configuration requise",
+    "paused": "En pause"
   },
   "vm": {
     "cancel": "Annuler l’autorisation",
@@ -456,37 +467,42 @@
     "error": {
       "refresh_failed": "Impossible d'actualiser la liste des outils."
     },
-    "explain": "Les outils que le fournisseur marque en lecture seule s'exécutent sans contrôle. Les autres outils sont contrôlés à chaque appel : un appel que vous avez demandé s'exécute seul ; tout le reste vous demande d'abord. Les outils réglés sur « Toujours me demander » demandent toujours.",
+    "explain": "S’exécute sans demander : outils que le service ou vous marquez en lecture seule. Demande en cas de doute : chaque appel est examiné ; ce que vous avez demandé s’exécute, le reste vous demande d’abord. Demande toujours : vous décidez de chaque appel.",
     "group": {
-      "read_only": "Lecture seule (marqué par le fournisseur)",
-      "write": "Contrôlé à chaque appel",
-      "high_risk": "Toujours me demander"
+      "read_only": "S’exécute sans demander",
+      "write": "Demande en cas de doute",
+      "high_risk": "Demande toujours"
     },
     "refresh": "Actualiser les outils",
     "refreshing": "Actualisation…",
-    "select_label": "Niveau de {{name}}",
+    "select_label": "Autorisation pour {{name}}",
     "source": {
       "owner": "Défini par vous",
-      "provider": "Marqué par le fournisseur"
+      "provider": "Marqué par le service"
     },
     "tier": {
-      "auto": "Automatique (fournisseur)",
-      "read_only": "Lecture seule",
-      "write": "Contrôlé à chaque appel",
-      "high_risk": "Toujours me demander"
+      "auto": "Automatique · suit le repère du service",
+      "read_only": "S’exécute sans demander",
+      "write": "Demande en cas de doute",
+      "high_risk": "Demande toujours"
     },
-    "title": "Outils · {{count}}"
+    "title": "Outils · {{count}}",
+    "raise_note": "Passer à « Demande toujours » met fin à ses autorisations.",
+    "allowance": {
+      "always": "Toujours autorisé",
+      "revoke": "Révoquer l'autorisation de {{bot}} pour {{tool}}",
+      "stale": "Autorisation annulée · redemande"
+    }
   },
   "connections": {
     "title": "Connexions",
     "add": "Ajouter une connexion",
     "action": {
-      "authorize": "Autoriser",
-      "enable_api": "Activer l’API {{name}}"
+      "authorize": "Se connecter",
+      "enable_api": "Activer l’API {{name}}",
+      "resume": "Reprendre"
     },
     "menu": {
-      "details": "Voir les détails",
-      "hide_details": "Masquer les détails",
       "sign_in_again": "Se reconnecter"
     },
     "dialog": {
@@ -499,7 +515,7 @@
       }
     },
     "source": {
-      "gog": "Communauté · gogcli · API Gmail",
+      "gog": "Intégré · gogcli · API Gmail",
       "local": "Communauté · {{name}}",
       "vendor": "Officiel · {{host}}",
       "community": "Communauté · {{host}}",
@@ -508,7 +524,6 @@
     },
     "details": {
       "account": "Compte : {{email}}",
-      "services": "Services autorisés : {{services}}",
       "project": "Projet Google Cloud : {{project}}",
       "community_review": "Code communautaire : ses outils demandent une approbation tant que vous ne les marquez pas en lecture seule."
     },
@@ -519,18 +534,55 @@
     "google": {
       "using_client": "Le client Google enregistré est utilisé (projet {{project}}). Aucun nouvel envoi nécessaire.",
       "replace_client": "Remplacer le client",
-      "project_found": "Ce client appartient au projet {{project}}."
+      "project_found": "Ce client appartient au projet {{project}}.",
+      "tile_name": "Google",
+      "tile_description": "Gmail, Agenda et Drive de votre propre compte Google."
     },
     "repo": {
       "label": "Code source sur GitHub : {{repo}}",
       "with_stars": "Code source sur GitHub : {{repo}}, {{count}} étoiles"
+    },
+    "open": "Ouvrir {{name}}",
+    "row": {
+      "tools_one": "{{count}} outil",
+      "tools_many": "{{count}} outils",
+      "tools_other": "{{count}} outils"
+    },
+    "connecting": {
+      "lead": "Ajout de {{name}} et ouverture de sa page de connexion…",
+      "advanced": "Réglages avancés"
     }
   },
   "capabilities": {
-    "title": "Ce que cela peut faire",
-    "read": "Lecture",
-    "write": "Écriture",
-    "more": "+{{count}} autres",
     "community_note": "Code communautaire : les écritures demandent toujours confirmation, et ses propres marques de lecture seule sont ignorées. Marquez un outil en lecture seule ci-dessous pour qu'il s'exécute sans demander."
+  },
+  "detail": {
+    "back": "Retour aux connexions",
+    "status": "État",
+    "danger": "Zone de danger",
+    "advanced": {
+      "title": "Avancé",
+      "source": "Source",
+      "address": "Adresse",
+      "signin": "Connexion",
+      "loopback": "Redirection vers 127.0.0.1 uniquement",
+      "package": "Paquet et version",
+      "project": "Projet Google Cloud",
+      "repository": "Dépôt"
+    },
+    "pause": "Mettre la connexion en pause",
+    "resume": "Reprendre la connexion",
+    "paused_note": "En pause. Les Bots ne peuvent pas utiliser cette connexion. La connexion, les réglages des outils et les autorisations sont conservés.",
+    "bots": {
+      "title": "Bots",
+      "lead": "Quels Bots peuvent utiliser {{name}}.",
+      "all": "Tous les Bots",
+      "chosen": "Bots choisis",
+      "choose": "Choisissez les Bots qui peuvent utiliser cette connexion",
+      "none": "Aucun Bot ne peut utiliser cette connexion.",
+      "new_note": "Un Bot ajouté plus tard peut l'utiliser tant que vous ne la limitez pas sur sa page.",
+      "check": "{{bot}} peut utiliser {{name}}",
+      "loading": "Chargement des Bots…"
+    }
   }
 }

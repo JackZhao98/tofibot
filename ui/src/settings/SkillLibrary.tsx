@@ -139,7 +139,7 @@ export function SkillLibraryView(props: SkillLibraryViewProps) {
   const official = loose.filter(skill => skill.builtin);
   const installed = loose.filter(skill => !skill.builtin);
   const have = new Set(listing.skills.map(skill => skill.name));
-  const starters = skillCatalog.filter(item => !have.has(item.name));
+  const templates = skillCatalog.filter(item => !have.has(item.name));
   const empty = props.loaded && !props.error && installed.length === 0 && listing.bundles.length === 0;
   return <div className="extension-panel skill-library">
     {props.error && !props.form && props.pending === null && <Banner tone="error" title={props.error} />}
@@ -168,9 +168,9 @@ export function SkillLibraryView(props: SkillLibraryViewProps) {
       </fieldset>
     </form>}
     {props.loading && !props.loaded && <p className="field-note" role="status">{t("skills.loading")}</p>}
-    {!props.form && props.pending === null && props.loaded && starters.length > 0 && <section className="integration-section skill-starters">
-      <h3>{t("skills.starters")}</h3>
-      <div className="integration-grid">{starters.map(skill => <button className="integration-tile" disabled={props.busy} key={skill.name} onClick={() => props.onStarter(skill.name)}>
+    {!props.form && props.pending === null && props.loaded && templates.length > 0 && <section className="integration-section skill-templates">
+      <h3>{t("skills.templates")}</h3>
+      <div className="integration-grid">{templates.map(skill => <button className="integration-tile" disabled={props.busy} key={skill.name} onClick={() => props.onStarter(skill.name)}>
         <span className="service-mark"><TofiIcon name="skill" size={20} /></span><span><strong>{skill.title}</strong><small>{skill.description}</small></span><TofiIcon name="plus" size={16} />
       </button>)}</div>
     </section>}

@@ -211,5 +211,51 @@
     "widget_empty": "このチャットで Bot が作成したファイルがここに表示されます。",
     "widget_all": "すべての成果物",
     "widget_new": "新しいファイル: {{name}}"
+  },
+  "tools": {
+    "connections": {
+      "title": "接続",
+      "hint": "接続をオフにすると、この Bot はそれを使えません。新しい接続はすべての Bot でオンから始まります。",
+      "loading": "読み込み中…",
+      "error": "接続を読み込めませんでした。もう一度お試しください。",
+      "none": "接続はまだありません。",
+      "add": "設定で追加",
+      "switch": "{{bot}} に {{connection}} の使用を許可",
+      "open": "設定で {{connection}} を開く",
+      "save_failed": "保存できませんでした。もう一度お試しください。",
+      "allowed_other": "常に許可 {{count}} 件"
+    },
+    "skills": {
+      "manage": "ライブラリを管理"
+    },
+    "web": {
+      "title": "ウェブ",
+      "search": "検索",
+      "fetch": "取得",
+      "on": "オン · {{chain}}",
+      "search_none": "オフ · ソース未設定",
+      "configure": "ソースを設定"
+    },
+    "computer": {
+      "title": "コンピュータ",
+      "shared": "すべての Bot がワークスペースのコンピュータを共有します。",
+      "none": "コンピュータはまだありません。設定で追加すると、Bot がブラウズやコード実行をできます。",
+      "open": "設定を開く"
+    },
+    "builtin": {
+      "title": "組み込み",
+      "summary": "すべての Bot ができること",
+      "items": "ファイルと添付 · 画像 · メモリ · タスクとスケジュール · 人への確認 · ワークスペース管理(必要時)"
+    },
+    "permissions": {
+      "title": "この Bot の権限",
+      "manage": "すべての権限",
+      "empty": "確認なしで許可しているものはありません。承認カードで「常に許可」を選ぶと追加されます。",
+      "allowed": "許可日時 {{time}}",
+      "used_other": "{{count}} 回使用",
+      "remembered_other": "{{count}} 件のチャットで記憶",
+      "remembered_none": "チャットで記憶したもの: なし",
+      "error": "権限を読み込めませんでした。もう一度お試しください。"
+    }
   }
 }

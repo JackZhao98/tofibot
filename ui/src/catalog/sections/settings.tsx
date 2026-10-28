@@ -9,7 +9,9 @@ import { brandIcons } from "../../brandIcons";
 import { ServiceMark } from "../../ServiceMark";
 import { ConnectDialog, type DialogRequest } from "../../connections/ConnectDialog";
 import { ConnectionRowView, type RowMenuItem, type RowPrimary } from "../../connections/RowView";
-import { RepoLink } from "../../connections/repoStars";
+import { ConnectionDetailView, type ConnectionDetailViewProps } from "../../connections/ConnectionDetail";
+import { ConnectionsEmpty } from "../../connections/ConnectionsEmpty";
+import type { ToolTierList } from "../../connections/shared";
 import { ComputerOptions } from "../../ComputerOptions";
 import { PasteBackView } from "../../connections/PasteBackDialog";
 import type { ConnectionKind } from "../../connections/status";
@@ -28,13 +30,29 @@ const noop = () => {};
 const t = i18n.t.bind(i18n);
 const never = () => new Promise<void>(() => {});
 
-// Settings › Connections (components.md §17): one row per connection, setup in a dialog. Synthetic data only.
-const connectionMenu: RowMenuItem[] = [{ key: "details", label: "View details", onSelect: noop }, { key: "refresh", label: "Refresh tools", onSelect: noop }, { key: "remove", label: "Remove service", danger: true, onSelect: noop }];
-function connectionRow(id: string, label: string, props: { name: string; mark?: string; kind: ConnectionKind; state?: string; status: string; detail?: string; primary?: RowPrimary; error?: string; details?: boolean }): CatalogState {
+// Settings › Connections (components.md §17): one row per connection that opens its page, setup in a dialog. Synthetic data only.
+const connectionMenu: RowMenuItem[] = [{ key: "remove", label: "Remove service", danger: true, onSelect: noop }];
+function connectionRow(id: string, label: string, props: { name: string; mark?: string; kind: ConnectionKind; state?: string; status: string; source?: string; detail?: string; primary?: RowPrimary; error?: string }): CatalogState {
   return { id: `connection-${id}`, kind: "inline", label,
-    render: () => <div className="extension-panel mcp-settings"><div className="mcp-rows"><ConnectionRowView name={props.name} mark={props.mark} state={props.state ?? props.kind} kind={props.kind} statusText={props.status} detail={props.detail} primary={props.primary} error={props.error} menu={connectionMenu}>
-      {props.details && <div className="mcp-service-details"><p className="mcp-service-source">Official · mcp.notion.com</p><p className="mcp-service-source"><RepoLink repo="makenotion/notion-mcp-server" stars={4673} /></p></div>}
-    </ConnectionRowView></div></div> };
+    render: () => <div className="extension-panel mcp-settings"><div className="mcp-rows"><ConnectionRowView name={props.name} mark={props.mark} state={props.state ?? props.kind} kind={props.kind} statusText={props.status} source={props.source} detail={props.detail} primary={props.primary} error={props.error} onOpen={noop} /></div></div> };
+}
+/** The tool list a synthetic Notion has: the service marks four as read only; one the owner raised. */
+const NOTION_TOOLS: ToolTierList = { read_only: 3, write: 2, high_risk: 1, checked: true, tools: [
+  { name: "search_pages", description: "Search pages by text", tier: "read_only", source: "provider" },
+  { name: "get_page", description: "Read one page", tier: "read_only", source: "provider" },
+  { name: "list_databases", description: "List the databases you can see", tier: "read_only", source: "owner", override: "read_only" },
+  { name: "create_page", description: "Create a page", tier: "write", source: "default" },
+  { name: "update_page", description: "Edit a page", tier: "write", source: "default", changed: true },
+  { name: "delete_page", description: "Delete a page", tier: "high_risk", source: "owner", override: "high_risk" },
+] };
+const detailBase: ConnectionDetailViewProps = {
+  name: "Notion", mark: "Notion", source: "Official · mcp.notion.com", serverName: "notion", kind: "ready", statusText: "Connected", detail: "6 tools", checkedText: "Checked 2 minutes ago",
+  primary: null, menu: [{ key: "edit", label: "Edit settings", onSelect: noop }], busy: false, facts: [], tiers: NOTION_TOOLS, onTiers: noop, community: false,
+  advanced: { source: "Official · mcp.notion.com", repo: { name: "makenotion/notion-mcp-server", stars: 4673 }, address: "https://mcp.notion.com/mcp", transport: "streamable_http", scopes: ["read", "write"] },
+  danger: [{ key: "pause", label: "Pause connection", onSelect: noop }, { key: "disconnect", label: "Disconnect", onSelect: noop }, { key: "remove", label: "Remove service", remove: true, onSelect: noop }], confirm: null, bots: { state: "ready", all: true, saving: false, error: "", bots: [{ bot_id: "bot_mochi", bot_name: "Mochi", enabled: true }, { bot_id: "bot_taro", bot_name: "Taro", enabled: true }, { bot_id: "bot_miso", bot_name: "Miso", enabled: true }] }, onBotsAll: noop, onBotsChosen: noop, allowances: [], onRevoke: async () => {}, onDropAllowance: noop, onBack: noop, onRefresh: noop, refreshing: false,
+};
+function connectionDetail(id: string, label: string, props: Partial<ConnectionDetailViewProps>, extra: Partial<CatalogState> = {}): CatalogState {
+  return { id: `connection-detail-${id}`, kind: "inline", label, ...extra, render: () => <div className="extension-panel mcp-settings" data-view="detail"><div className="mcp-detail-pane"><ConnectionDetailView {...detailBase} {...props} /></div></div> };
 }
 const synthOptions = { vm_available: false, web_callback_origin: "https://tofi.example.test", desktop_redirect_uri: "" };
 const synthLocal: LocalState = { loaded: true, available: true, plugins: [{ id: "gog", state: "sleeping", tool_count: 3 }], google: { connected: false, email: "" } };
@@ -43,9 +61,9 @@ function Reopen({ children }: { children: (close: () => void) => ReactNode }) {
   const [open, setOpen] = useState(true);
   return open ? <>{children(() => setOpen(false))}</> : <button type="button" className="secondary-button catalog-reopen" onClick={() => setOpen(true)}>Add connection</button>;
 }
-function connectDialog(id: string, label: string, request: DialogRequest, google: GoogleOverview | null = null, extra: Partial<CatalogState> = {}): CatalogState {
+function connectDialog(id: string, label: string, request: DialogRequest, google: GoogleOverview | null = null, extra: Partial<CatalogState> = {}, onOneClick: () => Promise<void> = never): CatalogState {
   return { id: `connect-${id}`, kind: "overlay", label, probe: ".connect-dialog", keyboard: { close: "Escape", reopen: { focus: ".catalog-reopen", key: "Enter" } }, ...extra,
-    render: () => <Reopen>{close => <ConnectDialog request={request} servers={[]} local={synthLocal} google={google} options={synthOptions} route={mcpOAuthRoute("https:", false, false, synthOptions)} onSave={async () => {}} onLocalChanged={async () => {}} onClose={close} />}</Reopen> };
+    render: () => <Reopen>{close => <ConnectDialog request={request} servers={[]} local={synthLocal} google={google} options={synthOptions} route={mcpOAuthRoute("https:", false, false, synthOptions)} onSave={async () => {}} onOneClick={onOneClick} onLocalChanged={async () => {}} onClose={close} />}</Reopen> };
 }
 
 // Settings › Skills (the library) and a Bot's Skills section (decision 0058). Synthetic data only; no request is made.
@@ -183,26 +201,56 @@ export const settings: CatalogSection = {
         {brandIcons.map(icon => <li key={icon.key} style={{ display: "flex", alignItems: "center", gap: 10 }}><ServiceMark name={icon.label} id={icon.ids[0]} /><span style={{ fontSize: 13 }}>{icon.label}</span></li>)}
         <li style={{ display: "flex", alignItems: "center", gap: 10 }}><ServiceMark name="My own server" /><span style={{ fontSize: 13 }}>Custom service</span></li>
       </ul> },
-    connectionRow("ready", "Connection row, connected", { name: "Notion", kind: "ready", status: "Connected", details: false }),
-    connectionRow("details", "Connection row, details open (source and GitHub link)", { name: "Notion", kind: "ready", status: "Connected", details: true }),
-    connectionRow("needs-auth", "Connection row, needs authorization", { name: "Gmail (personal account)", mark: "Gmail", kind: "needs_auth", status: "Needs authorization", primary: { label: "Authorize", onClick: noop } }),
-    connectionRow("api-disabled", "Connection row, API not enabled", { name: "Google Gmail", kind: "api_disabled", state: "error", status: "API not enabled", primary: { label: "Enable Google Gmail API", href: "https://console.cloud.google.com/apis/library/gmail.googleapis.com?project=tofi-sample-123456" }, error: "The Google Gmail API isn’t enabled in your Google Cloud project. Enable it, then refresh." }),
-    connectionRow("error", "Connection row, failed with a named reason", { name: "acme_tracker", kind: "error", status: "Connection failed", primary: { label: "Retry", onClick: noop }, error: "Couldn’t load tools. Check the server URL and credentials, then try again." }),
-    connectionRow("checking", "Connection row, checking", { name: "Notion", kind: "checking", status: "Loading tools…" }),
-    connectionRow("waiting", "Connection row, waiting for authorization", { name: "Notion", kind: "waiting", status: "Waiting for authorization", primary: { label: "Continue authorization", href: "https://auth.example.test/", pending: true } }),
+    { id: "connections-list", kind: "inline", label: "Connections list: connected, needs sign-in, can't connect, paused, built in", note: "a row is the entry to the connection's page; the chevron says so, nothing expands inline",
+      render: () => <div className="extension-panel mcp-settings"><div className="mcp-rows">
+        <ConnectionRowView name="Gmail (personal account)" mark="Gmail" state="ready" kind="ready" statusText="Connected" detail="3 tools · you@example.test · Gmail, Google Calendar" source="Built in · gogcli · Gmail API" onOpen={noop} />
+        <ConnectionRowView name="Notion" state="ready" kind="ready" statusText="Connected" detail="6 tools" checkedText="Checked now" source="Official · mcp.notion.com" onOpen={noop} />
+        <ConnectionRowView name="GitHub (read-only)" state="auth" kind="needs_auth" statusText="Needs sign-in" source="Official · api.githubcopilot.com" primary={{ label: "Sign in", onClick: noop }} onOpen={noop} />
+        <ConnectionRowView name="Discord" state="ready" kind="paused" statusText="Paused" source="Community · @discord-mcp/cli 0.32.1" onOpen={noop} />
+        <ConnectionRowView name="acme_tracker" state="error" kind="error" statusText="Can’t connect" source="Custom · mcp.example.test" primary={{ label: "Retry", onClick: noop }} error="Couldn’t load tools. Check the server URL and credentials, then try again." onOpen={noop} />
+      </div></div> },
+    { id: "connections-empty", kind: "inline", label: "Connections, nothing connected yet", note: "the cat, one line, three tiles that start a connection, Browse all",
+      render: () => <div className="extension-panel mcp-settings"><ConnectionsEmpty onStart={noop} onBrowse={noop} /></div> },
+    connectionRow("ready", "Connection row, connected", { name: "Notion", kind: "ready", status: "Connected", detail: "6 tools", source: "Official · mcp.notion.com" }),
+    connectionRow("needs-auth", "Connection row, needs sign-in", { name: "Gmail (personal account)", mark: "Gmail", kind: "needs_auth", status: "Needs sign-in", source: "Built in · gogcli · Gmail API", primary: { label: "Sign in", onClick: noop } }),
+    connectionRow("api-disabled", "Connection row, setup needed (API not enabled)", { name: "Google Gmail", kind: "api_disabled", state: "error", status: "Setup needed", source: "Official · gmailmcp.googleapis.com", primary: { label: "Enable Google Gmail API", href: "https://console.cloud.google.com/apis/library/gmail.googleapis.com?project=tofi-sample-123456" }, error: "The Google Gmail API isn’t enabled in your Google Cloud project. Enable it, then refresh." }),
+    connectionRow("error", "Connection row, can't connect with a named reason", { name: "acme_tracker", kind: "error", status: "Can’t connect", source: "Custom · mcp.example.test", primary: { label: "Retry", onClick: noop }, error: "Couldn’t load tools. Check the server URL and credentials, then try again." }),
+    connectionRow("paused", "Connection row, paused", { name: "Discord", kind: "paused", status: "Paused", source: "Community · @discord-mcp/cli 0.32.1" }),
+    connectionRow("checking", "Connection row, checking", { name: "Notion", kind: "checking", status: "Checking…", source: "Official · mcp.notion.com" }),
+    connectionRow("waiting", "Connection row, waiting for sign-in", { name: "Notion", kind: "waiting", status: "Waiting for authorization", source: "Official · mcp.notion.com", primary: { label: "Continue authorization", href: "https://auth.example.test/", pending: true } }),
     { id: "connection-waiting-loopback", kind: "inline", label: "Connection row, waiting (loopback-only service): one quiet route line, breathing Continue button", note: "no illustration; the ring is opacity and scale only, static under reduced motion",
-      render: () => <div className="extension-panel mcp-settings"><div className="mcp-rows"><ConnectionRowView name="Robinhood" kind="waiting" state="waiting" statusText="Waiting for authorization" primary={{ label: "Continue authorization", href: "https://auth.example.test/", pending: true }} menu={connectionMenu}>
+      render: () => <div className="extension-panel mcp-settings"><div className="mcp-rows"><ConnectionRowView name="Robinhood" kind="waiting" state="waiting" statusText="Waiting for authorization" primary={{ label: "Continue authorization", href: "https://auth.example.test/", pending: true }} onOpen={noop}>
         <div className="mcp-login-note"><p role="status">{mcpOAuthRoute("https:", false, false, synthOptions, true).note}</p></div>
       </ConnectionRowView></div></div> },
-    { id: "connection-needs-auth-loopback", kind: "inline", label: "Connection row, needs authorization (loopback-only service): one quiet route line",
-      render: () => <div className="extension-panel mcp-settings"><div className="mcp-rows"><ConnectionRowView name="Robinhood" kind="needs_auth" state="auth" statusText="Needs authorization" primary={{ label: "Authorize", onClick: noop }} menu={connectionMenu}>
+    { id: "connection-needs-auth-loopback", kind: "inline", label: "Connection row, needs sign-in (loopback-only service): one quiet route line",
+      render: () => <div className="extension-panel mcp-settings"><div className="mcp-rows"><ConnectionRowView name="Robinhood" kind="needs_auth" state="auth" statusText="Needs sign-in" primary={{ label: "Sign in", onClick: noop }} onOpen={noop}>
         <div className="mcp-login-note"><p role="status">{mcpOAuthRoute("https:", false, false, synthOptions, true).note}</p></div>
       </ConnectionRowView></div></div> },
-    { id: "paste-back", kind: "inline", label: "Paste-back sign-in, address field", note: "the pasted text is never echoed; only a named reason shows",
-      render: () => <PasteBackView title="Robinhood" session={{ authorization_url: "https://auth.example.test/authorize", redirect_uri: "http://127.0.0.1:43821/oauth/callback" }} pasted="" busy={false} error="" onPasted={noop} onSubmit={noop} onCancel={noop} /> },
-    { id: "paste-back-error", kind: "inline", label: "Paste-back sign-in, address refused", render: () => <PasteBackView title="Robinhood" session={{ authorization_url: "https://auth.example.test/authorize", redirect_uri: "http://127.0.0.1:43821/oauth/callback" }} pasted="http://127.0.0.1:43821/oauth/callback?code=sample&state=wrong" busy={false} error={t("common:apiError.oauth_paste_invalid")} onPasted={noop} onSubmit={noop} onCancel={noop} /> },
-    { id: "paste-back-starting", kind: "inline", label: "Paste-back sign-in, preparing", render: () => <PasteBackView title="Robinhood" session={null} pasted="" busy={false} error="" onPasted={noop} onSubmit={noop} onCancel={noop} /> },
-    connectDialog("directory", "Add connection: directory", { view: "directory" }, null, { note: "Gmail (gogcli) first, official services, the Workspace preview grouping with its enrolment line, then Custom" }),
+    { id: "connection-plugin-menu", kind: "inline", label: "Connection row, a plugin the server has but Tofi does not use yet (menu instead of a page)", render: () => <div className="extension-panel mcp-settings"><div className="mcp-rows"><ConnectionRowView name="acme_pkg" state="idle" kind="needs_auth" statusText="Setup needed" primary={{ label: "Connect", onClick: noop }} menu={connectionMenu} /></div></div> },
+    connectionDetail("ready", "Connection page: connected, tools by permission", {}, { note: "Status, Tools (the owner's three words, marks), Advanced, Danger" }),
+    connectionDetail("permission-menu", "Connection page: a tool's permission menu open", {}, { note: "an overlay menu (Radix), never a native select; the current choice is marked", drive: async step => { await step.click('button[aria-label="Permission for create_page"]'); } }),
+    connectionDetail("advanced", "Connection page: Advanced open", {}, { drive: async step => { await step.click(".disclosure-toggle"); } }),
+    connectionDetail("needs-auth", "Connection page: needs sign-in", { name: "Gmail (personal account)", mark: "Gmail", serverName: "local_gog", source: "Built in · gogcli · Gmail API", kind: "needs_auth", statusText: "Needs sign-in", detail: undefined, checkedText: undefined, primary: { label: "Sign in", onClick: noop }, tiers: { tools: [], read_only: 0, write: 0, high_risk: 0 }, advanced: { source: "Built in · gogcli · Gmail API", repo: { name: "openclaw/gogcli", stars: 8520 }, project: "tofi-sample-123456" } }),
+    connectionDetail("error", "Connection page: can't connect, with the named reason and Google setup help", { name: "Google Gmail", mark: "Gmail", serverName: "google-gmail", source: "Official · gmailmcp.googleapis.com", kind: "api_disabled", statusText: "Setup needed", detail: undefined, checkedText: undefined,
+      primary: { label: "Enable Google Gmail API", href: "https://console.cloud.google.com/apis/library/gmail.googleapis.com?project=tofi-sample-123456" }, error: "The Google Gmail API isn’t enabled in your Google Cloud project. Enable it, then refresh.", tiers: { tools: [], read_only: 0, write: 0, high_risk: 0 },
+      help: <div className="mcp-service-setup"><p className="conn-lead">Enable the product API and its MCP service in the same Google Cloud project as the OAuth client.</p></div>, advanced: { source: "Official · gmailmcp.googleapis.com", address: "https://gmailmcp.googleapis.com/mcp/v1", transport: "streamable_http", previewNote: true } }),
+    connectionDetail("community", "Connection page: community package", { name: "acme_pkg", serverName: "local_acme_pkg", source: "Community · acme-mcp 1.0.0", community: true,
+      tiers: { read_only: 1, write: 2, high_risk: 0, tools: [{ name: "get_thing", description: "Marked by the owner", tier: "read_only", source: "owner", override: "read_only" }, { name: "list_things", description: "The package says read only; ignored", tier: "write", source: "default", read_only_hint: true }, { name: "send_thing", description: "Writes", tier: "write", source: "default" }] },
+      advanced: { source: "Community · acme-mcp 1.0.0", pkg: "acme-mcp 1.0.0", communityNote: true } }),
+    connectionDetail("paused", "Connection page: paused, Resume leads, allowances kept", { name: "Discord", mark: "Discord", serverName: "discord", source: "Community · @discord-mcp/cli 0.32.1", kind: "paused", statusText: "Paused", detail: undefined, checkedText: undefined, community: true,
+      note: "Paused. Bots can't use this connection. Its sign-in, tool settings and allowances are kept.", primary: { label: "Resume", onClick: noop },
+      danger: [{ key: "pause", label: "Resume connection", onSelect: noop }, { key: "remove", label: "Remove service", remove: true, onSelect: noop }] }),
+    connectionDetail("allowances", "Connection page: Always allowed chips under a tool (one active, one voided)", { allowances: [
+      { id: "al_1", bot_id: "bot_taro", bot_name: "Taro", server: "notion", tool: "create_page", state: "active", created_at: "2026-10-21T10:00:00Z", use_count: 5, last_used_at: "2026-10-26T14:02:00Z" },
+      { id: "al_2", bot_id: "bot_mochi", bot_name: "Mochi", server: "notion", tool: "create_page", state: "tool_changed", created_at: "2026-10-22T10:00:00Z", use_count: 0 },
+    ] }, { note: "each chip has its own Revoke; the chip fades out over --m-press, in over --m-quick" }),
+    connectionDetail("remove-confirm", "Connection page: confirming removal", { confirm: { text: "Remove Notion?", submit: "Remove", onCancel: noop, onConfirm: noop } }),
+    connectDialog("directory", "Add connection: directory", { view: "directory" }, null, { note: "Google as one tile first, then the official services, then Custom; the Workspace servers are not here any more" }),
+    connectDialog("google", "Add connection: the Google tile (Gmail, Calendar, Drive) with Advanced: Google Workspace MCP", { view: "google" }, null, { note: "services, optional Sign in as, Read only / Read and send as two cards, then the folded Workspace servers" }),
+    connectDialog("google-workspace", "Google step, Workspace MCP open: the dated warning, the enrolment line, six servers", { view: "google" }, null, { note: "the warning says what Google requires of the OAuth client; after 2026-11-11 it is stated as fact", drive: async step => { await step.click(".connect-workspace .disclosure-toggle"); await step.wait(500); } }),
+    connectDialog("one-click", "Add connection: one click for a service that registers its own OAuth client (Notion), saving", { view: "connecting", preset: integrationCatalog.find(item => item.id === "notion")! }, null, { keyboard: undefined, note: "no form: the dialog says it is adding the service and opening sign-in; it is locked (no Escape, no outside press) while the save runs" }),
+    connectDialog("one-click-failed", "Add connection: one click that failed, with the reason and the way to the form", { view: "connecting", preset: integrationCatalog.find(item => item.id === "notion")! }, null, { note: "Advanced settings opens the form; Cancel closes" }, () => Promise.reject(new Error("Synthetic: the server could not save this connection"))),
+    connectDialog("token", "Add connection: a token service (Linear) is one password field plus the steps", { view: "preset", preset: integrationCatalog.find(item => item.id === "linear")! }),
     connectDialog("gmail", "Add connection: Gmail via gogcli (first Google service)", { view: "gog" }),
     connectDialog("gmail-saved", "Gmail via gogcli with the workspace's Google client", { view: "gog" }, synthGoogle, { note: "no JSON to upload; the project's Enable Gmail API link" }),
     connectDialog("workspace", "Google Workspace MCP server with the saved client", { view: "preset", preset: integrationCatalog.find(item => item.id === "google-calendar")! }, synthGoogle),

@@ -45,9 +45,9 @@
         "name": "Skills",
         "description": "管理可重複使用的工作方法"
       },
-      "approvals": {
-        "name": "核准",
-        "description": "決定 Bot 的操作在執行前由誰把關。"
+      "permissions": {
+        "name": "權限",
+        "description": "什麼會先問你，你放行了什麼。"
       },
       "followups": {
         "name": "跟進事項（預覽）",
@@ -63,7 +63,7 @@
         "description_none": "為這台伺服器新增電腦的方式"
       },
       "keys": {
-        "name": "金鑰與機密",
+        "name": "電腦金鑰",
         "description": "直接設定電腦需要的環境變數和 SSH 金鑰"
       },
       "usage": {
@@ -682,12 +682,6 @@
     "activity_note": "在 Bot 的回覆下方顯示它執行的步驟。預設關閉，仍可從訊息的操作選單開啟。",
     "activity_save_failed": "儲存失敗，請重試。"
   },
-  "approvals": {
-    "heading": "審查員",
-    "draft_label": "審查員",
-    "soon_title": "更多控制即將推出",
-    "soon_body": "信任預設值和一律允許的規則將隨「連線」更新一起推出。"
-  },
   "advanced": {
     "server": "伺服器",
     "data": "資料",
@@ -1011,34 +1005,9 @@
     "saved": "已儲存",
     "loading": "載入中…",
     "managed": "由電腦服務管理",
-    "standing": {
-      "title": "常駐許可",
-      "description": "你允許某個 Bot 不經詢問就使用的工具。Bot 自行運作時（例如依排程執行）同樣適用。撤銷後，該 Bot 下次呼叫會再次詢問你。",
-      "empty": "目前沒有常駐許可。在核准卡片上選擇「一律允許」即可新增。",
-      "granted": "{{time}} 允許",
-      "last_used": "上次使用 {{time}}",
-      "never_used": "尚未使用",
-      "revoke": "撤銷",
-      "revoking": "撤銷中…",
-      "revoke_failed": "無法撤銷，請再試一次。",
-      "load_failed": "無法載入常駐許可。",
-      "server_changed": "伺服器已變更，將重新詢問。",
-      "tool_changed": "伺服器重新定義了該工具，將重新詢問。",
-      "tier_changed": "該工具的設定已變更，將重新詢問。",
-      "used_other": "已使用 {{count}} 次",
-      "remembered": {
-        "title": "在對話中記住的核准",
-        "description": "你在某個對話中選擇記住的核准，只在該對話內有效，到期自動結束。",
-        "empty": "沒有任何對話記住了核准。",
-        "target_identifier": "目標：{{target}}",
-        "target_exact": "僅限已核准的完整參數",
-        "ends": "{{time}} 結束",
-        "chat": "對話：{{name}}",
-        "unknown_chat": "某個對話"
-      }
-    },
     "days": "{{count}} 天",
-    "keep_all": "全部保留"
+    "keep_all": "全部保留",
+    "in_permissions": "在「權限」裡設定"
   },
   "webtools": {
     "title": "網頁搜尋與擷取",
@@ -1111,5 +1080,42 @@
     "limit_option": "每天 {{count}} 次",
     "limit_unlimited": "不限",
     "used_today": "最近 24 小時 {{count}} 次"
+  },
+  "permissionsPage": {
+    "heading": "審查員",
+    "draft_label": "審查員",
+    "standing": {
+      "title": "一律放行",
+      "description": "你允許某個 Bot 不經詢問就使用的工具。Bot 自行運作時（例如依排程執行）同樣適用。撤銷後，該 Bot 下次呼叫會再次詢問你。",
+      "empty": "目前沒有常駐許可。在核准卡片上選擇「一律允許」即可新增。",
+      "granted": "{{time}} 允許",
+      "last_used": "上次使用 {{time}}",
+      "never_used": "尚未使用",
+      "revoke": "撤銷",
+      "revoking": "撤銷中…",
+      "revoke_failed": "無法撤銷，請再試一次。",
+      "load_failed": "無法載入常駐許可。",
+      "server_changed": "伺服器已變更，將重新詢問。",
+      "tool_changed": "伺服器重新定義了該工具，將重新詢問。",
+      "tier_changed": "該工具的設定已變更，將重新詢問。",
+      "used_other": "已使用 {{count}} 次",
+      "remembered": {
+        "title": "在對話中記住的核准",
+        "description": "你在某個對話中選擇記住的核准，只在該對話內有效，到期自動結束。",
+        "empty": "沒有任何對話記住了核准。",
+        "target_identifier": "目標：{{target}}",
+        "target_exact": "僅限已核准的完整參數",
+        "ends": "{{time}} 結束",
+        "chat": "對話：{{name}}",
+        "unknown_chat": "某個對話"
+      }
+    },
+    "how": {
+      "title": "工具如何詢問",
+      "link": "在「連線」裡逐一設定",
+      "read": "服務方或你標為唯讀的工具。",
+      "write": "預設檔。每次呼叫都會審核：你明確要求的直接執行，其餘的先問你。",
+      "high": "每次呼叫都由你決定。沒人可問時，呼叫不會執行。"
+    }
   }
 }

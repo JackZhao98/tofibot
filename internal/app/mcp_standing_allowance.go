@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -522,6 +523,10 @@ func (s *Server) deleteMCPServer(name string) error {
 	if e := s.store.revokeStandingAllowancesForServer(name); e != nil {
 		return e
 	}
+	// A connection added later under the same name starts open, not with a stale choice.
+	if e := s.store.clearConnectionAccessForServer(name); e != nil {
+		return e
+	}
 	return err
 }
 
@@ -545,6 +550,11 @@ func (s *Server) routeStandingAllowances(w http.ResponseWriter, r *http.Request,
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, "storage", err.Error())
 			return true
+		}
+		// ?bot={id} narrows both lists to one Bot (the Bot's Tools page).
+		if botID := r.URL.Query().Get("bot"); botID != "" {
+			allowances = slices.DeleteFunc(allowances, func(a MCPStandingAllowance) bool { return a.BotID != botID })
+			remembered = slices.DeleteFunc(remembered, func(m settingsRememberedApproval) bool { return m.BotID != botID })
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"allowances": allowances, "remembered": remembered})
 	case len(parts) == 2 && r.Method == http.MethodDelete:

@@ -86,12 +86,12 @@ export async function createOverlayFixture({ engineName = "chromium", dist } = {
       const conv = p.split("/")[3] ?? "";
       if (p.endsWith("/messages")) return json({ messages: history(conv), drafts: [], has_more: false, event_cursor: 0 });
       if (p.endsWith("/runs")) return json({ runs: runsFor(conv) });
+      if (/^\/api\/extensions\/mcp\/[^/]+\/tools$/.test(p)) return json({ tools: [{ name: "create_issue", description: "Create an issue", tier: "write", source: "default" }, { name: "get_issue", description: "Read an issue", tier: "read_only", source: "provider" }], read_only: 1, write: 1, high_risk: 0 });
       if (p.endsWith("/tools")) return json({ activities: [], summaries: [], tool_count: 0, has_more: false });
       if (p.endsWith("/memories")) return json({ memories: [] });
       if (p.endsWith("/schedule-occurrences")) return json({ occurrences: [] });
       if (p.endsWith("/schedules")) return json({ schedules: [] });
       if (p === "/api/extensions/mcp") return json({ servers: [{ name: "acme_tracker", url: "https://mcp.example.test/tracker", headers: {}, status: { checked_at: iso(0), ok: true, tool_count: 4 } }, { name: "notes_search", url: "https://mcp.example.test/notes", headers: {}, status: { checked_at: iso(0), ok: true, tool_count: 2 } }] });
-      if (/^\/api\/extensions\/mcp\/[^/]+\/tools$/.test(p)) return json({ tools: [], read_only: 0, write: 0, high_risk: 0 });
       if (/^\/api\/extensions\/mcp\/[^/]+\/test$/.test(p)) return json({ ok: true, tool_count: 4 });
       if (p === "/api/extensions/oauth-options") return json({ vm_available: false, web_callback_origin: "https://tofi.example.test", desktop_redirect_uri: "" });
       if (p === "/api/extensions/local-mcp") return json({ available: false, reason: "synthetic" });

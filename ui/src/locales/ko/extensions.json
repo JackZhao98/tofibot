@@ -29,7 +29,8 @@
     "custom_package_hint": "버전을 고정한 npm 또는 PyPI MCP 서버를 이 서버에 설치합니다.",
     "preview_title": "Workspace 프리뷰(기업용)",
     "preview_toggle": "Google Workspace 서버 보기",
-    "community_note": "커뮤니티 커넥터는 제3자가 유지 관리하며, 쓰기 작업은 항상 먼저 확인을 요청합니다."
+    "community_note": "커뮤니티 커넥터는 제3자가 유지 관리하며, 쓰기 작업은 항상 먼저 확인을 요청합니다.",
+    "google_workspace_details": "Google Workspace 서버 · OAuth · 개발자 미리보기"
   },
   "callback": {
     "copied": "복사됨",
@@ -203,7 +204,12 @@
     "preview_hint": "Cloud 프로젝트를 Google Workspace Developer Preview Program(developers.google.com/workspace/preview)에 등록하세요. 등록하지 않으면 로그인은 되어도 모든 도구 호출이 거부됩니다.",
     "agentic_hint": "“Use this client for an AI-powered agent”를 선택하세요(Google Auth Platform → Clients). 2026-11-11부터 선택하지 않은 클라이언트는 Workspace MCP가 거부하고, 2026-11-12부터 설정이 고정되므로 새 클라이언트로 교체해야 합니다.",
     "redirect_hint": "Google Auth Platform → Clients의 웹 애플리케이션에서 사용할 URL을 하나씩 Authorized redirect URIs에 추가하세요(JavaScript origins 아님). 두 접속 경로가 이 자격 증명을 함께 쓸 수 있습니다. 주소, 포트, 경로가 정확히 일치해야 합니다. HTTP 공유 컴퓨터의 동적 리디렉션은 이 고정 설정에 맞지 않으므로 HTTPS나 앱 사용을 권장합니다.",
-    "test_users": "테스트 사용자 설정"
+    "test_users": "테스트 사용자 설정",
+    "workspace": {
+      "title": "고급: Google Workspace MCP(개발자 미리보기)",
+      "deadline": "2026-11-11부터 Workspace MCP는 “Use this client for an AI-powered agent”가 체크되지 않은 OAuth 클라이언트를 거부합니다. 2026-11-12부터는 기존 클라이언트를 바꿀 수 없으므로 새로 만드세요.",
+      "deadline_past": "Workspace MCP는 “Use this client for an AI-powered agent”가 체크되지 않은 OAuth 클라이언트를 거부하며, 기존 클라이언트는 바꿀 수 없으므로 새로 만드세요."
+    }
   },
   "held": {
     "discord": {
@@ -276,7 +282,11 @@
       "verified": "개인 Gmail 읽기가 확인되었습니다.",
       "verify": "Gmail 읽기 확인",
       "verifying": "확인 중…",
-      "waiting": "Google 승인 대기 중"
+      "waiting": "Google 승인 대기 중",
+      "scope_readonly_note": "Bot은 메일, 일정, 파일을 읽을 수 있습니다. 보내거나 바꾸지 않습니다.",
+      "scope_read_send_note": "Gmail만 해당. Bot이 보내려는 모든 메일은 사용자의 확인을 기다립니다.",
+      "scope_readonly_title": "읽기 전용",
+      "scope_read_send_title": "읽기 및 보내기"
     }
   },
   "mcp": {
@@ -298,7 +308,9 @@
       "refresh": "도구 새로고침",
       "remove": "서비스 삭제"
     },
-    "more_actions": "{{name}} 추가 작업"
+    "more_actions": "{{name}} 추가 작업",
+    "empty_body": "연결한 서비스에서 Bot이 읽고 작업할 수 있습니다.",
+    "browse_all": "모두 보기"
   },
   "oauth": {
     "help_body": "승인 방식은 접속 경로에 따라 자동으로 정해지며 Google, Notion 등 OAuth 서비스에 사용할 수 있습니다. 직접 설정한 클라이언트는 아래 전체 리디렉션 URL을 서비스 관리 화면에 등록해야 합니다. Notion처럼 자동 등록을 지원하는 서비스는 Tofi가 처리합니다.",
@@ -405,24 +417,23 @@
     "remove_confirm": "모든 Bot에서 이 Skill을 삭제할까요?",
     "removed": "Skill이 삭제되었습니다",
     "saved": "저장됨",
-    "starters": "Tofi 업무 Skill",
     "support_note": "설명과 참고 파일을 지원합니다. 함께 포함된 스크립트는 자동으로 실행되지 않습니다.",
     "builtin": {
       "tag": "기본 제공"
-    }
+    },
+    "templates": "템플릿"
   },
   "status": {
     "authorizing": "승인 화면을 여는 중…",
     "checked": "{{when}} 확인",
-    "checking": "도구를 불러오는 중…",
-    "failed": "연결 실패",
-    "needs_auth": "승인 필요",
+    "checking": "확인 중…",
+    "failed": "연결할 수 없음",
+    "needs_auth": "로그인 필요",
     "removing": "처리 중…",
-    "unverified": "아직 확인되지 않음",
     "waiting": "승인 대기 중",
     "connected": "연결됨",
-    "not_connected": "연결 안 됨",
-    "api_disabled": "API가 사용 설정되지 않음"
+    "setup": "설정 필요",
+    "paused": "일시중지됨"
   },
   "vm": {
     "cancel": "승인 취소",
@@ -446,37 +457,42 @@
     "error": {
       "refresh_failed": "도구 목록을 새로고침하지 못했습니다."
     },
-    "explain": "제공자가 읽기 전용으로 표시한 도구는 검토 없이 실행됩니다. 그 외 도구는 호출마다 검토하며, 직접 요청한 호출은 그대로 실행되고 그 밖의 호출은 먼저 물어봅니다. “항상 묻기”로 설정한 도구는 항상 물어봅니다.",
+    "explain": "묻지 않고 실행: 서비스나 내가 읽기 전용으로 표시한 도구. 불확실하면 묻기: 호출마다 검토하여 직접 요청한 호출은 실행하고 나머지는 먼저 묻습니다. 항상 묻기: 모든 호출을 내가 결정합니다.",
     "group": {
-      "read_only": "읽기 전용 (제공자 표시)",
-      "write": "호출마다 검토",
+      "read_only": "묻지 않고 실행",
+      "write": "불확실하면 묻기",
       "high_risk": "항상 묻기"
     },
     "refresh": "도구 새로고침",
     "refreshing": "새로고침 중…",
-    "select_label": "{{name}} 등급",
+    "select_label": "{{name}} 권한",
     "source": {
       "owner": "직접 설정",
-      "provider": "제공자 표시"
+      "provider": "서비스 표시"
     },
     "tier": {
-      "auto": "자동 (제공자)",
-      "read_only": "읽기 전용",
-      "write": "호출마다 검토",
+      "auto": "자동 · 서비스 표시에 따름",
+      "read_only": "묻지 않고 실행",
+      "write": "불확실하면 묻기",
       "high_risk": "항상 묻기"
     },
-    "title": "도구 · {{count}}"
+    "title": "도구 · {{count}}",
+    "raise_note": "‘항상 묻기’로 바꾸면 이 도구의 허용이 철회됩니다.",
+    "allowance": {
+      "always": "항상 허용",
+      "revoke": "{{bot}}의 {{tool}} 허용 취소",
+      "stale": "허용이 무효화됨 · 다시 묻습니다"
+    }
   },
   "connections": {
     "title": "연결",
     "add": "연결 추가",
     "action": {
-      "authorize": "승인",
-      "enable_api": "{{name}} API 사용 설정"
+      "authorize": "로그인",
+      "enable_api": "{{name}} API 사용 설정",
+      "resume": "다시 시작"
     },
     "menu": {
-      "details": "세부 정보 보기",
-      "hide_details": "세부 정보 숨기기",
       "sign_in_again": "다시 로그인"
     },
     "dialog": {
@@ -489,7 +505,7 @@
       }
     },
     "source": {
-      "gog": "커뮤니티 · gogcli · Gmail API",
+      "gog": "기본 제공 · gogcli · Gmail API",
       "local": "커뮤니티 · {{name}}",
       "vendor": "공식 · {{host}}",
       "community": "커뮤니티 · {{host}}",
@@ -498,7 +514,6 @@
     },
     "details": {
       "account": "계정: {{email}}",
-      "services": "승인된 서비스: {{services}}",
       "project": "Google Cloud 프로젝트: {{project}}",
       "community_review": "커뮤니티 코드: 읽기 전용으로 표시하기 전까지 도구는 매번 승인이 필요합니다."
     },
@@ -509,18 +524,53 @@
     "google": {
       "using_client": "저장된 Google 클라이언트(프로젝트 {{project}})를 사용합니다. 다시 업로드할 필요가 없습니다.",
       "replace_client": "클라이언트 교체",
-      "project_found": "이 클라이언트는 프로젝트 {{project}}에 속합니다."
+      "project_found": "이 클라이언트는 프로젝트 {{project}}에 속합니다.",
+      "tile_name": "Google",
+      "tile_description": "내 Google 계정의 Gmail, 캘린더, 드라이브."
     },
     "repo": {
       "label": "GitHub 소스: {{repo}}",
       "with_stars": "GitHub 소스: {{repo}}, 별 {{count}}개"
+    },
+    "open": "{{name}} 열기",
+    "row": {
+      "tools_other": "도구 {{count}}개"
+    },
+    "connecting": {
+      "lead": "{{name}}을(를) 추가하고 로그인 페이지를 여는 중…",
+      "advanced": "고급 설정"
     }
   },
   "capabilities": {
-    "title": "할 수 있는 일",
-    "read": "읽기",
-    "write": "쓰기",
-    "more": "외 {{count}}개",
     "community_note": "커뮤니티 코드입니다. 쓰기는 매번 확인하며, 도구 스스로 표시한 읽기 전용은 무시합니다. 아래에서 도구를 읽기 전용으로 지정하면 확인 없이 실행됩니다."
+  },
+  "detail": {
+    "back": "연결로 돌아가기",
+    "status": "상태",
+    "danger": "위험 구역",
+    "advanced": {
+      "title": "고급",
+      "source": "출처",
+      "address": "주소",
+      "signin": "로그인",
+      "loopback": "127.0.0.1 리디렉션만 허용",
+      "package": "패키지 및 버전",
+      "project": "Google Cloud 프로젝트",
+      "repository": "저장소"
+    },
+    "pause": "연결 일시중지",
+    "resume": "연결 다시 시작",
+    "paused_note": "일시중지됨. Bot이 이 연결을 사용할 수 없습니다. 로그인, 도구 설정, 허용은 그대로 유지됩니다.",
+    "bots": {
+      "title": "Bot",
+      "lead": "{{name}}을(를) 사용할 수 있는 Bot을 선택합니다.",
+      "all": "모든 Bot",
+      "chosen": "선택한 Bot",
+      "choose": "이 연결을 사용할 수 있는 Bot 선택",
+      "none": "이 연결을 사용할 수 있는 Bot이 없습니다.",
+      "new_note": "나중에 추가한 Bot은 해당 Bot 페이지에서 제한하기 전까지 사용할 수 있습니다.",
+      "check": "{{bot}}이(가) {{name}} 사용 가능",
+      "loading": "Bot 불러오는 중…"
+    }
   }
 }

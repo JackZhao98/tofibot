@@ -64,7 +64,6 @@
   },
   "botSettings": {
     "nav": "Bot 설정 섹션",
-    "skills_link": "설정 › Skills에서 라이브러리 관리",
     "back": "모든 섹션",
     "avatar_title": "아바타",
     "avatar_hint": "이 고양이가 목록과 채팅에서 보이는 모습입니다.",
@@ -82,15 +81,16 @@
       "identity": "정체성",
       "role": "역할",
       "model": "모델",
-      "skills": "Skills",
       "secrets": "시크릿",
-      "advanced": "고급"
+      "advanced": "고급",
+      "tools": "도구"
     },
     "desc": {
       "identity": "아바타, 이름, 기본 어시스턴트.",
       "role": "이 Bot이 맡는 일. 답장하기 전에 매번 읽습니다.",
       "model": "이 Bot이 쓰는 모델과 추론 깊이.",
-      "advanced": "시스템 프롬프트, 내보내기, 삭제."
+      "advanced": "시스템 프롬프트, 내보내기, 삭제.",
+      "tools": "{{name}}이(가) 사용할 수 있는 것. 연결과 스킬은 직접 켜고 끄며, 나머지는 워크스페이스 설정을 따릅니다."
     },
     "role_count_other": "{{count}}자"
   },

@@ -153,6 +153,28 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 			s.writeExtensionSaved(w, http.StatusOK)
 		}
 		return true
+	case strings.HasPrefix(p, "extensions/mcp/") && strings.HasSuffix(p, "/bots") && (r.Method == http.MethodGet || r.Method == http.MethodPut):
+		s.routeConnectionBots(w, r, strings.TrimSuffix(strings.TrimPrefix(p, "extensions/mcp/"), "/bots"))
+		return true
+	case strings.HasPrefix(p, "extensions/mcp/") && strings.HasSuffix(p, "/enabled") && r.Method == http.MethodPut:
+		name := strings.TrimSuffix(strings.TrimPrefix(p, "extensions/mcp/"), "/enabled")
+		var in struct {
+			Enabled *bool `json:"enabled"`
+		}
+		if e := decodeExtensionJSON(r, &in); e != nil || in.Enabled == nil {
+			writeErr(w, 400, "invalid_request", "enabled is required")
+			return true
+		}
+		if e := s.extensions.SetMCPEnabled(name, *in.Enabled); e != nil {
+			if errors.Is(e, os.ErrNotExist) {
+				writeErr(w, 404, "extensions", "MCP server not found")
+			} else {
+				writeErr(w, 500, "extensions", "extension configuration could not be written")
+			}
+			return true
+		}
+		s.writeExtensionSaved(w, http.StatusOK)
+		return true
 	case strings.HasPrefix(p, "extensions/mcp/") && r.Method == http.MethodPut:
 		name := strings.TrimPrefix(p, "extensions/mcp/")
 		var in struct {

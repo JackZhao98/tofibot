@@ -533,7 +533,10 @@
     "payload_label": "Arguments complets de l’outil, en texte brut",
     "submitting": "Envoi…",
     "remember": "Approuver et mémoriser dans cette discussion",
-    "always_allow": "Toujours autoriser"
+    "always_allow": "Toujours autoriser",
+    "manage": "Gérer",
+    "manage_connection": "Gérer {{tool}} sur {{server}} dans les réglages",
+    "manage_allowances": "Gérer les autorisations dans les réglages"
   },
   "remembered": {
     "title": "Approbations mémorisées",

@@ -29,7 +29,8 @@
     "custom_package_hint": "Install a pinned npm or PyPI MCP server on this server.",
     "preview_title": "Workspace preview (enterprise)",
     "preview_toggle": "Show Google Workspace servers",
-    "community_note": "Community connectors are maintained by third parties, and their write actions always ask first."
+    "community_note": "Community connectors are maintained by third parties, and their write actions always ask first.",
+    "google_workspace_details": "Google Workspace servers · OAuth · Developer Preview"
   },
   "callback": {
     "copied": "Copied",
@@ -203,7 +204,12 @@
     "preview_hint": "Enrol the Cloud project in the Google Workspace Developer Preview Program (developers.google.com/workspace/preview); without it every tool call is refused even though sign-in works.",
     "agentic_hint": "Check “Use this client for an AI-powered agent” (Google Auth Platform → Clients). From 2026-11-11 Workspace MCP rejects clients without it; from 2026-11-12 it is permanent, so an unmarked client must be replaced.",
     "redirect_hint": "In Google Auth Platform → Clients, open your Web application and add each URL you'll use under Authorized redirect URIs (not JavaScript origins). Both entry points can share these credentials. Address, port and path must match exactly. The shared computer's dynamic HTTP redirect can't use this fixed setup; use HTTPS or the app instead.",
-    "test_users": "Set up test users"
+    "test_users": "Set up test users",
+    "workspace": {
+      "title": "Advanced: Google Workspace MCP (Developer Preview)",
+      "deadline": "From 2026-11-11 Workspace MCP rejects OAuth clients that are not marked “Use this client for an AI-powered agent”. From 2026-11-12 an existing client cannot be changed: create a new one.",
+      "deadline_past": "Workspace MCP now rejects OAuth clients that are not marked “Use this client for an AI-powered agent”, and an existing client cannot be changed: create a new one."
+    }
   },
   "held": {
     "discord": {
@@ -276,7 +282,11 @@
       "verified": "Personal Gmail read access verified.",
       "verify": "Verify Gmail access",
       "verifying": "Verifying…",
-      "waiting": "Waiting for Google authorization"
+      "waiting": "Waiting for Google authorization",
+      "scope_readonly_note": "Bots can read mail, events and files. Nothing is sent or changed.",
+      "scope_read_send_note": "Gmail only. Every email a Bot wants to send waits for your confirmation.",
+      "scope_readonly_title": "Read only",
+      "scope_read_send_title": "Read and send"
     }
   },
   "mcp": {
@@ -298,7 +308,9 @@
       "refresh": "Refresh tools",
       "remove": "Remove service"
     },
-    "more_actions": "More actions for {{name}}"
+    "more_actions": "More actions for {{name}}",
+    "empty_body": "Bots can read and act in the services you connect.",
+    "browse_all": "Browse all"
   },
   "oauth": {
     "help_body": "The sign-in method follows how you opened Tofi and works for Google, Notion and other OAuth services. A client you configure yourself needs the full redirect URL below registered in the service's console; services with automatic registration, like Notion, are handled by Tofi.",
@@ -410,24 +422,23 @@
     "remove_confirm": "Remove this Skill for every Bot?",
     "removed": "Skill removed",
     "saved": "Saved",
-    "starters": "Tofi work Skills",
     "support_note": "Instructions and reference files are supported. Bundled scripts never run automatically.",
     "builtin": {
       "tag": "Built-in"
-    }
+    },
+    "templates": "Templates"
   },
   "status": {
     "authorizing": "Opening authorization…",
     "checked": "Checked {{when}}",
-    "checking": "Loading tools…",
-    "failed": "Connection failed",
-    "needs_auth": "Needs authorization",
+    "checking": "Checking…",
+    "failed": "Can’t connect",
+    "needs_auth": "Needs sign-in",
     "removing": "Working…",
-    "unverified": "Not verified yet",
     "waiting": "Waiting for authorization",
     "connected": "Connected",
-    "not_connected": "Not connected",
-    "api_disabled": "API not enabled"
+    "setup": "Setup needed",
+    "paused": "Paused"
   },
   "vm": {
     "cancel": "Cancel authorization",
@@ -451,37 +462,42 @@
     "error": {
       "refresh_failed": "Couldn't refresh the tool list."
     },
-    "explain": "Tools the provider marks read only run without review. Other tools are reviewed each time: a call you asked for runs on its own; anything else asks you first. Tools set to always ask you always do.",
+    "explain": "Runs without asking: tools the service marks read only, or you mark. Asks when unsure: each call is reviewed, so what you asked for runs and the rest asks you first. Always asks me: you decide every call.",
     "group": {
-      "read_only": "Read only (marked by provider)",
-      "write": "Reviewed each time",
-      "high_risk": "Always ask me"
+      "read_only": "Runs without asking",
+      "write": "Asks when unsure",
+      "high_risk": "Always asks me"
     },
     "refresh": "Refresh tools",
     "refreshing": "Refreshing…",
-    "select_label": "Tier for {{name}}",
+    "select_label": "Permission for {{name}}",
     "source": {
       "owner": "Set by you",
-      "provider": "Marked by provider"
+      "provider": "Marked by the service"
     },
     "tier": {
-      "auto": "Automatic (provider)",
-      "read_only": "Read only",
-      "write": "Reviewed each time",
-      "high_risk": "Always ask me"
+      "auto": "Automatic · follows the service’s mark",
+      "read_only": "Runs without asking",
+      "write": "Asks when unsure",
+      "high_risk": "Always asks me"
     },
-    "title": "Tools · {{count}}"
+    "title": "Tools · {{count}}",
+    "raise_note": "Changing to “Always asks me” ends its allowances.",
+    "allowance": {
+      "always": "Always allowed",
+      "revoke": "Revoke {{bot}}'s allowance for {{tool}}",
+      "stale": "Allowance voided · asks again"
+    }
   },
   "connections": {
     "title": "Connections",
     "add": "Add connection",
     "action": {
-      "authorize": "Authorize",
-      "enable_api": "Enable {{name}} API"
+      "authorize": "Sign in",
+      "enable_api": "Enable {{name}} API",
+      "resume": "Resume"
     },
     "menu": {
-      "details": "View details",
-      "hide_details": "Hide details",
       "sign_in_again": "Sign in again"
     },
     "dialog": {
@@ -494,7 +510,7 @@
       }
     },
     "source": {
-      "gog": "Community · gogcli · Gmail API",
+      "gog": "Built in · gogcli · Gmail API",
       "local": "Community · {{name}}",
       "vendor": "Official · {{host}}",
       "community": "Community · {{host}}",
@@ -503,7 +519,6 @@
     },
     "details": {
       "account": "Account: {{email}}",
-      "services": "Authorized services: {{services}}",
       "project": "Google Cloud project: {{project}}",
       "community_review": "Community code: its tools ask for approval until you mark them read-only."
     },
@@ -514,18 +529,54 @@
     "google": {
       "using_client": "Using your saved Google client (project {{project}}). No upload needed.",
       "replace_client": "Replace client",
-      "project_found": "This client belongs to project {{project}}."
+      "project_found": "This client belongs to project {{project}}.",
+      "tile_name": "Google",
+      "tile_description": "Gmail, Calendar and Drive for your own Google account."
     },
     "repo": {
       "label": "Source on GitHub: {{repo}}",
       "with_stars": "Source on GitHub: {{repo}}, {{count}} stars"
+    },
+    "open": "Open {{name}}",
+    "row": {
+      "tools_one": "{{count}} tool",
+      "tools_other": "{{count}} tools"
+    },
+    "connecting": {
+      "lead": "Adding {{name}} and opening its sign-in page…",
+      "advanced": "Advanced settings"
     }
   },
   "capabilities": {
-    "title": "What this can do",
-    "read": "Can read",
-    "write": "Can write",
-    "more": "+{{count}} more",
     "community_note": "Community code: writes ask every time, and its own read-only marks are ignored. Mark a tool read only below to let it run without asking."
+  },
+  "detail": {
+    "back": "Back to Connections",
+    "status": "Status",
+    "danger": "Danger zone",
+    "advanced": {
+      "title": "Advanced",
+      "source": "Source",
+      "address": "Address",
+      "signin": "Sign-in",
+      "loopback": "127.0.0.1 redirect only",
+      "package": "Package and version",
+      "project": "Google Cloud project",
+      "repository": "Repository"
+    },
+    "pause": "Pause connection",
+    "resume": "Resume connection",
+    "paused_note": "Paused. Bots can't use this connection. Its sign-in, tool settings and allowances are kept.",
+    "bots": {
+      "title": "Bots",
+      "lead": "Which Bots can use {{name}}.",
+      "all": "All Bots",
+      "chosen": "Chosen Bots",
+      "choose": "Choose which Bots can use this connection",
+      "none": "No Bot can use this connection.",
+      "new_note": "A Bot added later can use it until you limit it on that Bot's page.",
+      "check": "{{bot}} can use {{name}}",
+      "loading": "Loading Bots…"
+    }
   }
 }

@@ -85,9 +85,7 @@
 .workspace .settings-page-body .credential-list .ssh-public-key{display:block;width:calc(100% - 32px);margin:0 16px 14px}
 .computer-credentials .credential-form .primary-button{justify-self:end;width:auto}
 @media(max-width:700px){.workspace .settings-page-body .credential-list .credential-row{flex-wrap:wrap}.workspace .settings-page-body .credential-list .credential-copy{flex:1 1 100%;min-width:0}.workspace .settings-page-body .credential-list .credential-actions{flex:1 1 100%}}
-/* Connections: each service is a card, like Skills. */
-.workspace .settings-page-body .mcp-settings .mcp-service,.workspace .settings-page-body .mcp-settings .mcp-service:first-child{padding:14px 16px;margin:0 0 10px;border:1px solid var(--line-soft);border-radius:18px;background:var(--surface)}
-.workspace .settings-page-body .mcp-settings .mcp-service-error{margin-left:52px}
+/* Connections: each service is a filled row that opens its page (connections.css); no outline. */
 /* Providers: one card, rows divided by hairlines like every other card. */
 .workspace .settings-page-body .settings-card>.provider-card+.provider-card{border-top:1px solid var(--line-soft)}
 /* Notifications: title, then status, then note, stacked on the card inset. */

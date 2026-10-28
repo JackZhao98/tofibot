@@ -45,9 +45,9 @@
         "name": "Skills",
         "description": "Wiederverwendbare Arbeitsweisen verwalten"
       },
-      "approvals": {
-        "name": "Genehmigungen",
-        "description": "Wer die Aktionen eines Bots prüft, bevor sie laufen."
+      "permissions": {
+        "name": "Berechtigungen",
+        "description": "Was zuerst nachfragt und was du erlaubt hast."
       },
       "followups": {
         "name": "Nachfassungen (Vorschau)",
@@ -63,7 +63,7 @@
         "description_none": "Möglichkeiten, diesem Server einen Computer hinzuzufügen"
       },
       "keys": {
-        "name": "Schlüssel & Geheimnisse",
+        "name": "Computer-Schlüssel",
         "description": "Umgebungsvariablen und SSH-Schlüssel für den Computer"
       },
       "usage": {
@@ -691,12 +691,6 @@
     "activity_note": "Zeigt die Schritte eines Bots unter seinen Antworten. Standardmäßig aus; im Aktionsmenü einer Nachricht lassen sie sich trotzdem öffnen.",
     "activity_save_failed": "Speichern fehlgeschlagen. Versuche es erneut."
   },
-  "approvals": {
-    "heading": "Prüfer",
-    "draft_label": "Prüfer",
-    "soon_title": "Weitere Einstellungen folgen",
-    "soon_body": "Vertrauensstandards und immer erlaubte Regeln kommen mit dem Update für Verbindungen."
-  },
   "advanced": {
     "server": "Server",
     "data": "Daten",
@@ -1020,35 +1014,9 @@
     "saved": "Gespeichert",
     "loading": "Wird geladen …",
     "managed": "Vom Computerdienst verwaltet",
-    "standing": {
-      "title": "Dauerfreigaben",
-      "description": "Tools, die ein Bot ohne Rückfrage nutzen darf. Das gilt auch, wenn der Bot selbstständig arbeitet, zum Beispiel nach Zeitplan. Nach dem Widerruf fragt der nächste Aufruf dieses Bots wieder bei dir nach.",
-      "empty": "Noch keine Dauerfreigaben. Wähle auf einer Freigabekarte „Immer erlauben“, um eine anzulegen.",
-      "granted": "Erlaubt {{time}}",
-      "last_used": "Zuletzt genutzt {{time}}",
-      "never_used": "Noch nicht genutzt",
-      "revoke": "Widerrufen",
-      "revoking": "Wird widerrufen …",
-      "revoke_failed": "Widerruf fehlgeschlagen. Versuche es erneut.",
-      "load_failed": "Dauerfreigaben konnten nicht geladen werden.",
-      "server_changed": "Server geändert. Es wird wieder gefragt.",
-      "tool_changed": "Der Server hat das Tool neu definiert. Es wird wieder gefragt.",
-      "tier_changed": "Die Einstellung dieses Tools hat sich geändert. Es wird wieder gefragt.",
-      "used_other": "{{count}} Mal genutzt",
-      "remembered": {
-        "title": "In einem Chat gemerkt",
-        "description": "Freigaben, die du innerhalb einer Unterhaltung gemerkt hast. Sie gelten nur dort und enden von selbst.",
-        "empty": "In keinem Chat ist etwas gemerkt.",
-        "target_identifier": "Ziel: {{target}}",
-        "target_exact": "Genau die genehmigten Argumente",
-        "ends": "Endet {{time}}",
-        "chat": "Chat: {{name}}",
-        "unknown_chat": "Eine Unterhaltung"
-      },
-      "used_one": "{{count}} Mal genutzt"
-    },
     "days": "{{count}} Tage",
-    "keep_all": "Alles behalten"
+    "keep_all": "Alles behalten",
+    "in_permissions": "In „Berechtigungen“ festlegen"
   },
   "webtools": {
     "title": "Websuche und Abruf",
@@ -1121,5 +1089,43 @@
     "limit_option": "{{count}} pro Tag",
     "limit_unlimited": "Kein Limit",
     "used_today": "{{count}} in den letzten 24 Std."
+  },
+  "permissionsPage": {
+    "heading": "Prüfer",
+    "draft_label": "Prüfer",
+    "standing": {
+      "title": "Dauerfreigaben",
+      "description": "Tools, die ein Bot ohne Rückfrage nutzen darf. Das gilt auch, wenn der Bot selbstständig arbeitet, zum Beispiel nach Zeitplan. Nach dem Widerruf fragt der nächste Aufruf dieses Bots wieder bei dir nach.",
+      "empty": "Noch keine Dauerfreigaben. Wähle auf einer Freigabekarte „Immer erlauben“, um eine anzulegen.",
+      "granted": "Erlaubt {{time}}",
+      "last_used": "Zuletzt genutzt {{time}}",
+      "never_used": "Noch nicht genutzt",
+      "revoke": "Widerrufen",
+      "revoking": "Wird widerrufen …",
+      "revoke_failed": "Widerruf fehlgeschlagen. Versuche es erneut.",
+      "load_failed": "Dauerfreigaben konnten nicht geladen werden.",
+      "server_changed": "Server geändert. Es wird wieder gefragt.",
+      "tool_changed": "Der Server hat das Tool neu definiert. Es wird wieder gefragt.",
+      "tier_changed": "Die Einstellung dieses Tools hat sich geändert. Es wird wieder gefragt.",
+      "used_other": "{{count}} Mal genutzt",
+      "remembered": {
+        "title": "In einem Chat gemerkt",
+        "description": "Freigaben, die du innerhalb einer Unterhaltung gemerkt hast. Sie gelten nur dort und enden von selbst.",
+        "empty": "In keinem Chat ist etwas gemerkt.",
+        "target_identifier": "Ziel: {{target}}",
+        "target_exact": "Genau die genehmigten Argumente",
+        "ends": "Endet {{time}}",
+        "chat": "Chat: {{name}}",
+        "unknown_chat": "Eine Unterhaltung"
+      },
+      "used_one": "{{count}} Mal genutzt"
+    },
+    "how": {
+      "title": "So fragen Tools nach",
+      "link": "Pro Tool unter „Verbindungen“ festlegen",
+      "read": "Tools, die der Dienst oder du als nur lesend markierst.",
+      "write": "Standard. Jeder Aufruf wird geprüft: Was du verlangt hast, läuft, alles andere fragt dich zuerst.",
+      "high": "Du entscheidest jeden Aufruf. Ist niemand da, den man fragen kann, läuft der Aufruf nicht."
+    }
   }
 }

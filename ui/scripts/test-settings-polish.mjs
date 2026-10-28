@@ -43,7 +43,7 @@ const {default: react} = await import("@vitejs/plugin-react");
 
 // The single allowed set of design-system button classes (all defined in the shared CSS), plus containers whose
 // buttons are styled as a group (segmented control, tab strips, the settings rail).
-const ALLOWED_BUTTON_CLASSES = ["primary-button", "secondary-button", "text-button", "settings-ghost-button", "admin-danger-button", "purge-button", "close-button", "settings-banner-more", "mcp-button", "settings-mrow", "settings-back", "admin-row", "disclosure-toggle", "integration-tile", "integration-custom", "extension-back", "settings-dismiss", "danger-link", "onb-choice", "onb-quiet", "onb-skip", "onb-later", "onb-tile", "onb-service-main", "onb-primary", "update-banner-dismiss"];
+const ALLOWED_BUTTON_CLASSES = ["primary-button", "secondary-button", "text-button", "settings-ghost-button", "admin-danger-button", "purge-button", "close-button", "settings-banner-more", "mcp-button", "mcp-service-open", "mcp-detail-back", "mcp-tier-trigger", "mcp-empty-tile", "settings-mrow", "settings-back", "admin-row", "disclosure-toggle", "integration-tile", "integration-custom", "extension-back", "settings-dismiss", "danger-link", "onb-choice", "onb-quiet", "onb-skip", "onb-later", "onb-tile", "onb-service-main", "onb-primary", "update-banner-dismiss"];
 const ALLOWED_BUTTON_CONTAINERS = [".segmented", ".settings-tabs", ".settings-segment", ".credential-tabs", ".appearance-options", ".onb-seg", ".emoji-mart", ".usage-agents", ".usage-ranges"];
 
 const SIZES = {"1440": [1440, 900], "1180": [1180, 820], "1024": [1024, 768], "390": [390, 844]};
@@ -440,18 +440,18 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   };
   const scenarios = [];
   const tabScenario = (id, tab) => scenarios.push({id, tab, run: async () => {}});
-  for (const tab of ["general", "connections", "skills", "approvals", "followups", "models", "automation", "computer", "keys", "usage", "advanced", "admin"]) tabScenario(tab, tab);
+  for (const tab of ["general", "connections", "skills", "permissions", "followups", "models", "automation", "computer", "keys", "usage", "advanced", "admin"]) tabScenario(tab, tab);
   scenarios.push(
     // Sign-in in progress shows no illustration (the old TOFI / key diagram is gone); the only cue is the primary button.
     {id: "connections-signin", tab: "connections", run: async ({page}) => {
-      await click(page.locator('.mcp-service[aria-label="acme_docs"]').getByRole("button", {name: /^Authorize/}), "Connections: Authorize");
+      await click(page.locator('.mcp-service[aria-label="acme_docs"]').getByRole("button", {name: /^Sign in/}), "Connections: Sign in");
       await page.waitForTimeout(400);
       if (await page.locator(".web-oauth-link, .web-oauth-node, .web-oauth-provider").count()) throw new Error("the sign-in illustration is back");
     }},
-    // Gmail (gogcli) OAuth client JSON, in the connect dialog: the picker is a styled button; the native file input must stay hidden before and after choosing.
+    // Google (gogcli) OAuth client JSON, in the connect dialog: the picker is a styled button; the native file input must stay hidden before and after choosing.
     {id: "connections-google-json", tab: "connections", container: ".sheet", run: async ({page}) => {
       await click(page.getByRole("button", {name: "Add connection"}), "Connections: Add connection");
-      await click(page.locator('.connect-dialog [data-integration-id="local-gog"]'), "Connections: Gmail");
+      await click(page.locator('.connect-dialog [data-integration-id="google"]'), "Connections: Google");
       const field = page.locator(".connect-dialog .connect-field", {has: page.locator('input[type="file"]')});
       await field.waitFor({timeout: 6000});
       if (!/No file chosen/.test(await field.innerText())) throw new Error("Google OAuth JSON picker does not show the empty state");
@@ -462,12 +462,15 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     }},
     {id: "connections-add", tab: "connections", run: async ({page}) => { await click(page.getByRole("button", {name: /^Add/}), "Connections: Add"); await page.waitForTimeout(500); }},
     // Tool tiers disclosure: grouped list, markers, the per-tool selector; audited at every viewport.
-    {id: "connections-tools", tab: "connections", run: async ({page}) => { await click(page.locator('.mcp-service[aria-label="acme_tracker"] .mcp-menu-trigger'), "Connections: more actions"); await click(page.getByRole("menuitem", {name: "View details"}), "Connections: View details"); await page.locator(".mcp-tool-group").first().waitFor({timeout: 4000}).catch(() => warnings.push("step skipped: details did not open")); await page.waitForTimeout(400); }},
+    {id: "connections-tools", tab: "connections", run: async ({page}) => { await click(page.locator('.mcp-service[aria-label="acme_tracker"] .mcp-service-open'), "Connections: open the connection"); await page.locator(".mcp-tool-group").first().waitFor({timeout: 4000}).catch(() => warnings.push("step skipped: the connection page did not open")); await page.waitForTimeout(400); }},
+    // The permission menu of one tool, and the page's Advanced section, audited at every viewport.
+    {id: "connections-permission-menu", tab: "connections", run: async ({page}) => { await click(page.locator('.mcp-service[aria-label="acme_tracker"] .mcp-service-open'), "Connections: open the connection"); await click(page.locator(".mcp-tier-trigger").first(), "Connections: permission menu"); await page.getByRole("menu").waitFor({timeout: 4000}).catch(() => warnings.push("step skipped: permission menu did not open")); await page.waitForTimeout(300); }},
+    {id: "connections-advanced", tab: "connections", run: async ({page}) => { await click(page.locator('.mcp-service[aria-label="acme_tracker"] .mcp-service-open'), "Connections: open the connection"); await click(page.locator(".mcp-detail").getByRole("button", {name: "Advanced"}), "Connections: Advanced"); await page.waitForTimeout(500); }},
     // The connect dialog's directory, and the Workspace preview grouping opened inside it.
     {id: "connections-directory", tab: "connections", container: ".sheet", run: async ({page}) => { await click(page.getByRole("button", {name: "Add connection"}), "Connections: Add connection"); await page.locator(".connect-dialog").waitFor({timeout: 4000}); await click(page.getByRole("button", {name: /Google Workspace servers/}), "Connections: Workspace preview"); await page.waitForTimeout(500); }},
     {id: "skills-paste", tab: "skills", run: async ({page}) => { await click(page.getByRole("button", {name: /Paste SKILL\.md/}), "Skills: paste"); await page.waitForTimeout(500); }},
     {id: "skills-bundle-open", tab: "skills", run: async ({page}) => { await click(page.getByRole("button", {name: /Show 2 Skills/}), "Skills: show bundle members"); await page.getByRole("button", {name: /Versions \(2\)/}).click().catch(() => warnings.push("step skipped: versions disclosure")); await page.waitForTimeout(400); }},
-    {id: "approvals-modes", tab: "approvals", run: async ({page}) => { await page.locator("#auto-review-mode").selectOption({index: 1}).catch(() => warnings.push("step skipped: approvals mode select")); await page.waitForTimeout(300); }},
+    {id: "permissions-modes", tab: "permissions", run: async ({page}) => { await page.locator("#auto-review-mode").selectOption({index: 1}).catch(() => warnings.push("step skipped: approvals mode select")); await page.waitForTimeout(300); }},
     {id: "models-key-form", tab: "models", run: async ({page}) => { await page.locator(".provider-key-row input").first().fill("sk-proj-synthetic-0000000000").catch(() => warnings.push("step skipped: provider key input")); await page.waitForTimeout(400); }},
     {id: "keys-add-env", tab: "keys", run: async ({page}) => { await click(page.getByRole("button", {name: /Add environment variable|Add variable/}), "Keys: add env"); await page.waitForTimeout(500); }},
     {id: "keys-ssh", tab: "keys", run: async ({page}) => { await click(page.getByRole("tab").nth(1), "Keys: SSH tab"); await page.waitForTimeout(400); await click(page.getByRole("button", {name: /Show public|public key/i}), "Keys: show public key"); await click(page.getByRole("button", {name: /Add (SSH )?key/}), "Keys: add key"); await page.waitForTimeout(500); }},

@@ -527,7 +527,10 @@
     "payload_label": "Alle Tool-Argumente als Klartext",
     "submitting": "Wird gesendet…",
     "remember": "Genehmigen und in diesem Chat merken",
-    "always_allow": "Immer erlauben"
+    "always_allow": "Immer erlauben",
+    "manage": "Verwalten",
+    "manage_connection": "{{tool}} auf {{server}} in den Einstellungen verwalten",
+    "manage_allowances": "Freigaben in den Einstellungen verwalten"
   },
   "remembered": {
     "title": "Gemerkte Genehmigungen",

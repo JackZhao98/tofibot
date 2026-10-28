@@ -51,7 +51,7 @@ func (s *Server) extensionManagementTools(c Conversation, r Run) []Tool {
 		"note":            str("For skill_publish_version: one short line that says what changed."),
 		"test_connection": map[string]any{"type": "boolean", "description": "Must be true for mcp_test, only when the user requested connecting/testing. Other actions never test automatically."},
 	}
-	return []Tool{{Name: "manage_extensions", Description: "Manage MCP servers and Skills with Tofi's settings. MCP servers serve every Bot. Skills live in one library; each Bot has its own enabled set, which your prompt lists. skill_list shows it, or the library with scope library. skill_enable and skill_disable change your own set only, need no approval, and apply from the next run; a bundle name changes all its skills. skill_install adds a skill and enables it for you only; it never overwrites. skill_publish_version replaces a skill you installed with a version that every Bot with it enabled follows; only the installer can. Only the user can delete a skill. List first, then change. MCP update needs the complete URL; omitted lists, headers and OAuth keep their values. Allow/deny lists are global. Never expose credentials or run OAuth; use request_connection. Test connections only on request (test_connection=true). MCP changes, connection tests and skill publishing need a person to approve that exact change through request_approval; unattended runs cannot.", Parameters: objectSchema(properties, []string{"action"}), Identity: extensionRecoveryIdentity, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+	return []Tool{{Name: "manage_extensions", Description: "Manage MCP servers and Skills. MCP servers serve every Bot unless limited or paused. Skills live in one library; each Bot has its own enabled set, which your prompt lists. skill_list shows it, or the library with scope library. skill_enable and skill_disable change your own set only, need no approval, and apply from the next run; a bundle name changes all its skills. skill_install adds a skill and enables it for you only; it never overwrites. skill_publish_version replaces a skill you installed with a version that every Bot with it enabled follows; only the installer can. Only the user can delete a skill. List first, then change. MCP update needs the complete URL; omitted lists, headers and OAuth keep their values. Allow/deny lists are global. Never expose credentials or run OAuth; use request_connection. Test connections only on request (test_connection=true). MCP changes, connection tests and skill publishing need a person to approve that exact change through request_approval; unattended runs cannot.", Parameters: objectSchema(properties, []string{"action"}), Identity: extensionRecoveryIdentity, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		return s.executeExtensionManagement(ctx, c, r, raw)
 	}}}
 }
@@ -118,6 +118,10 @@ func (s *Server) applyExtensionChange(ctx context.Context, c Conversation, r Run
 	case "mcp_list":
 		var servers []extensions.MCPServerView
 		servers, err = s.extensions.ListMCP()
+		if err == nil {
+			// A connection the owner closed to this Bot is not listed to it.
+			servers, err = s.accessibleServerViews(ctx, r.BotID, servers)
+		}
 		if err == nil {
 			for i := range servers {
 				servers[i].URL = extensionPublicURL(servers[i].URL)

@@ -479,3 +479,74 @@ func writeFixtureJSON(w http.ResponseWriter, value any) {
 		panic(fmt.Sprintf("encode fixture: %v", err))
 	}
 }
+
+func TestMCPDisabledServerNotPrepared(t *testing.T) {
+	mcpServer := fixtureServer("fixture", "1")
+	mcpServer.AddTool(fixtureTool("ping"), func(context.Context, *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return fixtureText("pong"), nil
+	})
+	httpServer := fixtureHTTPServer(mcpServer)
+	defer httpServer.Close()
+	path := filepath.Join(t.TempDir(), "mcp.json")
+	m := NewManager(Config{MCPConfigPath: path})
+	if err := m.SaveMCP("notes", MCPServerConfig{URL: httpServer.URL}, false); err != nil {
+		t.Fatal(err)
+	}
+	count := func() int {
+		p, err := m.Prepare(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer p.Close()
+		return len(p.Tools)
+	}
+	if count() != 1 {
+		t.Fatal("running server exposes its tool")
+	}
+	before := metadataFingerprint("notes", MCPServerConfig{URL: httpServer.URL})
+	if err := m.SetMCPEnabled("notes", false); err != nil {
+		t.Fatal(err)
+	}
+	if count() != 0 {
+		t.Fatal("paused server is still prepared")
+	}
+	d, err := m.PrepareDiscoverableForBot(context.Background(), "bot")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(d.Instructions, `"notes"`) {
+		t.Fatalf("paused server named in discovery: %q", d.Instructions)
+	}
+	d.Close()
+	views, _ := m.ListMCP()
+	if len(views) != 1 || views[0].Enabled == nil || *views[0].Enabled {
+		t.Fatalf("list does not report the pause: %+v", views)
+	}
+	// An edit (or a Bot update) neither resumes nor changes the fingerprint.
+	if err := m.SaveMCP("notes", MCPServerConfig{URL: httpServer.URL}, true); err != nil {
+		t.Fatal(err)
+	}
+	if count() != 0 {
+		t.Fatal("an edit resumed the server")
+	}
+	cfg, _ := loadServers(path)
+	if got := metadataFingerprint("notes", cfg["notes"]); got != before {
+		t.Fatal("pausing changed the configuration fingerprint")
+	}
+	if m.MCPCallCurrent(MCPCallApproval{Server: "notes", ConfigVersion: before}) {
+		t.Fatal("an approved call still dispatches to a paused server")
+	}
+	if err := m.SetMCPEnabled("notes", true); err != nil {
+		t.Fatal(err)
+	}
+	if count() != 1 {
+		t.Fatal("resumed server is not prepared")
+	}
+	if d, err = m.PrepareDiscoverableForBot(context.Background(), "bot"); err != nil || !strings.Contains(d.Instructions, `"notes"`) {
+		t.Fatalf("resumed server missing from discovery (positive control): %v", err)
+	}
+	d.Close()
+	if err := m.SetMCPEnabled("missing", false); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("unknown server: %v", err)
+	}
+}

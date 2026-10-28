@@ -211,5 +211,51 @@
     "widget_empty": "Bot 在这个会话里产出的文件会出现在这里。",
     "widget_all": "全部作品",
     "widget_new": "新文件:{{name}}"
+  },
+  "tools": {
+    "connections": {
+      "title": "连接",
+      "hint": "关掉某个连接,这个 Bot 就用不了它。新连接默认对所有 Bot 开启。",
+      "loading": "加载中…",
+      "error": "连接加载失败,请重试。",
+      "none": "还没有连接。",
+      "add": "在设置里添加",
+      "switch": "让 {{bot}} 使用 {{connection}}",
+      "open": "在设置里打开 {{connection}}",
+      "save_failed": "保存失败,请重试。",
+      "allowed_other": "{{count}} 项始终放行"
+    },
+    "skills": {
+      "manage": "管理技能库"
+    },
+    "web": {
+      "title": "网页",
+      "search": "搜索",
+      "fetch": "读取页面",
+      "on": "开启 · {{chain}}",
+      "search_none": "关闭 · 没有配置来源",
+      "configure": "配置来源"
+    },
+    "computer": {
+      "title": "电脑",
+      "shared": "所有 Bot 共用工作区的电脑。",
+      "none": "还没有电脑。在设置里添加后,Bot 才能浏览网页和运行代码。",
+      "open": "打开设置"
+    },
+    "builtin": {
+      "title": "内置",
+      "summary": "每个 Bot 都会的",
+      "items": "文件和附件 · 图片 · 记忆 · 任务和日程 · 询问用户 · 工作区管理(按需)"
+    },
+    "permissions": {
+      "title": "这个 Bot 的权限",
+      "manage": "全部权限",
+      "empty": "没有任何东西不问就放行。在审批卡上选“始终允许”即可添加。",
+      "allowed": "放行于 {{time}}",
+      "used_other": "用过 {{count}} 次",
+      "remembered_other": "在 {{count}} 个对话中记住",
+      "remembered_none": "对话中记住的:无",
+      "error": "权限加载失败,请重试。"
+    }
   }
 }

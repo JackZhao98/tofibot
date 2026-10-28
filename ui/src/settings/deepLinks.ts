@@ -4,7 +4,23 @@ import type {SettingsTab} from "../SettingsShell";
 export const settingsDeepLinks: Record<string, SettingsTab> = {
   "tofi:open-tool-settings": "connections",
   "tofi:open-codex-settings": "models",
+  "tofi:open-connection": "connections",
+  "tofi:open-permissions": "permissions",
 };
+
+/**
+ * `tofi:open-connection` opens Settings on one connection's page and, with `tool`, scrolls to that tool's row and flashes it.
+ * The target waits here until the Connections page is mounted (it may not be yet), then `takeConnectionTarget` hands it over once.
+ */
+export const OPEN_CONNECTION_EVENT = "tofi:open-connection";
+export type ConnectionTarget = { server: string; tool?: string };
+let pendingTarget: ConnectionTarget | null = null;
+export const openConnectionDeepLink = (target: ConnectionTarget) => { pendingTarget = target; window.dispatchEvent(new CustomEvent(OPEN_CONNECTION_EVENT, { detail: target })); };
+export const takeConnectionTarget = (): ConnectionTarget | null => { const target = pendingTarget; pendingTarget = null; return target; };
+export const openPermissionsDeepLink = () => window.dispatchEvent(new Event("tofi:open-permissions"));
+
+/** Settings tab ids that were renamed: the old id still opens the page that replaced it. */
+export const legacySettingsTabs: Record<string, SettingsTab> = { approvals: "permissions" };
 
 /** Listens for every deep-link event and calls `open` with its tab. Returns the unsubscribe. */
 export function subscribeSettingsDeepLinks(open: (tab: SettingsTab) => void): () => void {

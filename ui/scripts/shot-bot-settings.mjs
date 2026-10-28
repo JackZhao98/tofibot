@@ -95,7 +95,7 @@ for (const theme of themes) {
     await page.locator(".chat-identity").click();
     await page.locator(".bot-settings").waitFor();
     await shot("bs-1-identity", 900);
-    for (const [index, id] of [[2, "role"], [3, "model"], [4, "skills"], [5, "secrets"], [6, "advanced"]]) {
+    for (const [index, id] of [[2, "role"], [3, "model"], [4, "tools"], [5, "secrets"], [6, "advanced"]]) {
       await page.locator(`.bs-nav-item[data-section="${id}"]`).click();
       await shot(`bs-${index}-${id}`, 600);
     }

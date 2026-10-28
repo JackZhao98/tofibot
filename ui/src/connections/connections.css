@@ -3,9 +3,6 @@
 .mcp-settings .mcp-service[data-kind=error] .mcp-service-status i,.mcp-settings .mcp-service[data-kind=api_disabled] .mcp-service-status i{background:var(--danger);opacity:1}
 .mcp-service-detail{margin-left:2px;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
 .mcp-service-detail::before{content:"\00b7";margin-right:6px}
-.mcp-tools-title{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:36px}
-.mcp-tools-title strong{font:600 12px/1.4 var(--display);color:var(--ink-soft)}
-.mcp-tools-title .text-button{min-height:36px;padding:0 4px;font-size:12px}
 
 /* The connect dialog reuses the sheet frame; the directory and forms inside it are plain lists, not cards. */
 .sheet.connect-dialog{width:min(560px,100%);gap:16px;padding:0}
@@ -49,12 +46,8 @@
   .connect-head{padding:14px 16px 8px}
   .connect-dialog>:is(.connect-directory,.connect-form,.connect-body){padding:0 16px 16px}
 }
-.mcp-service-details{display:grid;gap:8px;margin:10px 0 0 52px;max-width:65ch}
-.mcp-service-source{margin:0;font-size:12px;line-height:1.6;color:var(--muted);overflow-wrap:anywhere}
-.mcp-settings .mcp-service-details .mcp-service-tools{margin:4px 0 0}
 .connect-dialog .integration-preview .disclosure{margin:0}
 .connect-dialog .integration-preview .integration-catalog-note{margin:0 0 8px}
-@media(max-width:420px){.mcp-service-details{margin-left:0}}
 .repo-link{display:inline-flex;align-items:center;gap:6px;min-height:24px;color:var(--muted);font-size:12px;text-decoration:none;overflow-wrap:anywhere}
 .repo-link:hover{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
 .repo-link:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:3px;border-radius:var(--radius-sm)}
@@ -63,14 +56,18 @@
 :root[data-theme="dark"] .repo-mark-light{display:none}
 :root[data-theme="dark"] .repo-mark-dark{display:block}
 .repo-stars{white-space:nowrap}
-.connect-dialog .integration-item{border-bottom:1px solid var(--line-soft)}
-.connect-dialog .integration-item .integration-tile{border-bottom:0}
-.integration-repo{padding:0 4px 10px 54px}
+/* A directory row is one surface: the button fills it, the hover fill covers the repo line too, and
+   the + / Added sits at the right edge. Rows are separated by space, not rules. */
+.connect-dialog .integration-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:2px}
+.connect-dialog .integration-item{position:relative;border-radius:12px;transition:background var(--m-quick) var(--ease-out)}
+.connect-dialog .integration-item:has(.integration-tile:not(:disabled)):hover{background:color-mix(in srgb,var(--text) 5%,transparent)}
+.connect-dialog .integration-item .integration-tile,.connect-dialog .integration-item .integration-tile:hover:not(:disabled){width:100%;border:0;padding:12px;background:transparent}
+.integration-repo{padding:0 12px 12px 62px}
+.connect-dialog .integration-item .integration-repo{margin-top:-6px}
 .connect-dialog .integration-search input{width:100%;padding-left:40px;background:var(--sunk);border-color:transparent}
 .connect-dialog .integration-tile>span:nth-child(2){flex:1;min-width:0}
 .connect-dialog .integration-tile>svg:last-child,.connect-dialog .integration-tile>.integration-added{flex:none}
 .connect-env{display:grid;gap:8px;margin:0;padding:0;border:0;min-width:0}.connect-env legend{padding:0;margin-bottom:6px;font-size:13px}.connect-env-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:8px}.connect-env .secondary-button{justify-self:start}
-.mcp-service-source{overflow-wrap:anywhere}
 
 /* A connection waiting on the person: the status text is meta, the one primary button breathes (decision 0055 follow-up, D51). */
 .mcp-settings .mcp-service[data-kind=waiting] .mcp-service-status{font:var(--type-meta);font-size:12px}
@@ -84,3 +81,115 @@
 .paste-back .paste-back-steps input{font-family:var(--mono);font-size:12px}
 .paste-back .paste-back-note{margin:0;font:var(--type-meta);color:var(--muted)}
 .paste-back .paste-back-error{margin:0;font:var(--type-meta);color:var(--danger)}
+
+/* Connections list and detail page (docs/design/tools-and-connections.md sections 3.2, 3.3). Filled surfaces, no outlined
+   containers; transitions run on motion tokens and are instant under reduced motion. */
+.mcp-settings[data-nav=forward] .mcp-detail{animation:conn-push var(--m-panel-in) var(--ease-out) both}
+.mcp-settings[data-nav=back] .mcp-list-pane:not([hidden]){animation:conn-pop var(--m-panel-in) var(--ease-out) both}
+@keyframes conn-push{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
+@keyframes conn-pop{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.mcp-settings[data-nav] .mcp-detail,.mcp-settings[data-nav] .mcp-list-pane{animation:none!important}}
+.mcp-settings .mcp-service[data-kind=paused] .mcp-service-status i{background:var(--muted);opacity:.5}
+.mcp-empty{display:grid;justify-items:center;gap:12px;padding:8px 0 24px}
+.mcp-empty .extension-empty{padding:32px 12px 8px}
+.mcp-empty .extension-empty p{margin:6px 0 0;color:var(--muted);font-size:13px}
+.mcp-empty-tiles{display:flex;flex-wrap:wrap;justify-content:center;gap:10px}
+.mcp-empty-tile{display:flex;align-items:center;gap:10px;min-height:56px;padding:8px 18px 8px 8px;border:0;border-radius:16px;background:var(--surface-2);color:var(--ink);font:600 13px/1 var(--display);transition:background var(--m-quick) var(--ease-out)}
+.mcp-empty-tile:hover{background:var(--sunk)}
+.mcp-empty-browse{min-height:36px;color:var(--muted);font-size:12px}
+
+.mcp-detail{display:grid;gap:24px;align-content:start}
+.mcp-detail-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.mcp-detail-back{display:grid;place-items:center;flex:none;width:36px;height:36px;border:0;border-radius:50%;background:var(--surface-2);color:var(--ink);transition:background var(--m-quick) var(--ease-out)}
+.mcp-detail-back:hover{background:var(--sunk)}
+.mcp-detail-title{min-width:0;flex:1 1 160px}
+.mcp-detail-title h3{margin:0;font:600 18px/1.3 var(--display);overflow-wrap:anywhere}
+.mcp-detail-title p{margin:2px 0 0;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.mcp-detail-actions{display:flex;align-items:center;gap:8px;flex:none}
+.conn-section h4{margin:0 0 10px;font:600 15px/1.3 var(--display);color:var(--ink)}
+.conn-lead{margin:0 0 10px;max-width:65ch;font-size:12.5px;line-height:1.6;color:var(--muted);overflow-wrap:anywhere}
+.conn-card{display:grid;gap:8px;padding:14px 16px;border-radius:18px;background:var(--surface-2)}
+.conn-card .mcp-service-error{margin:0}
+.conn-card .conn-lead{margin:0}
+.conn-card .mcp-service-setup{margin:4px 0 0}
+.conn-status-line{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.conn-status .mcp-service-status{margin:0;font-size:13px;color:var(--ink)}
+.conn-status[data-kind=ready] .mcp-service-status i{background:var(--green);opacity:1}
+.conn-status[data-kind=needs_auth] .mcp-service-status i{background:var(--honey);opacity:1}
+.conn-status[data-kind=error] .mcp-service-status i,.conn-status[data-kind=api_disabled] .mcp-service-status i{background:var(--danger);opacity:1}
+.conn-status[data-kind=paused] .mcp-service-status i{background:var(--muted);opacity:.5}
+.conn-status[data-kind=checking] .mcp-service-status i,.conn-status[data-kind=waiting] .mcp-service-status i{animation:mcp-pulse 1.3s var(--ease-inout) infinite}
+.conn-section .mcp-tool-group{margin:0 0 10px;padding:12px 6px 6px;border-radius:18px;background:var(--surface-2)}
+.conn-section .mcp-tool-group h5{margin:0 0 4px 10px}
+.mcp-tool:hover{background:var(--sunk)}
+.mcp-tier-anchor{flex:none;position:relative}
+.mcp-tier-trigger{display:inline-flex;align-items:center;justify-content:space-between;gap:8px;min-height:34px;padding:0 12px;border:0;border-radius:var(--radius-pill);background:var(--surface);color:var(--ink);font:500 12.5px/1 var(--body);white-space:nowrap;transition:background var(--m-quick) var(--ease-out)}
+.mcp-tier-trigger:hover:not(:disabled){background:var(--sunk)}
+.mcp-tier-trigger:disabled{opacity:.5}
+.mcp-tier-trigger:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+.mcp-tier-trigger[data-tier=high_risk]{color:var(--danger-text)}
+.mcp-tier-menu button{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.mcp-tier-menu button[aria-current=true]{font-weight:600;color:var(--ink)}
+.mcp-menu-note{margin:6px 11px 4px;max-width:30ch;font-size:12px;line-height:1.5;color:var(--muted)}
+.conn-facts{display:grid;gap:10px;margin:0}
+.conn-facts>div{display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr);gap:12px;font-size:12.5px;line-height:1.5}
+.conn-facts dt{color:var(--muted)}
+.conn-facts dd{margin:0;overflow-wrap:anywhere}
+.conn-facts code{font:12px/1.5 var(--mono)}
+.conn-danger-actions{display:flex;flex-wrap:wrap;gap:8px}
+.conn-danger .mcp-confirm{margin:0}
+@media(max-width:480px){
+  .mcp-service-row{flex-wrap:wrap}
+  .mcp-service-open{flex:1 1 100%;padding-bottom:4px}
+  .mcp-service-actions{flex:1 1 100%;justify-content:flex-end;padding:0 16px 12px}
+  .mcp-service-error,.mcp-login-note,.mcp-confirm{margin-left:16px}
+  .conn-facts>div{grid-template-columns:1fr;gap:2px}
+  .mcp-detail-actions{flex:1 1 100%;justify-content:flex-end}
+}
+.permissions-how .permissions-how-row{display:grid;gap:2px;padding:12px 16px}
+.permissions-how .permissions-how-row strong{font:600 13.5px/1.4 var(--display)}
+.permissions-how .permissions-how-row p{margin:0;font-size:12.5px;line-height:1.5;color:var(--muted)}
+
+/* Always-allowed chips under a tool (step 3). In: fade and rise over --m-quick; out: a shorter fade (--m-press). Reduced motion: none. */
+.mcp-allowances{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 0;padding:0;list-style:none}
+.mcp-allowance{display:inline-flex;align-items:center;gap:6px;min-height:26px;padding:0 4px 0 6px;border-radius:var(--radius-pill);background:color-mix(in srgb,var(--green) 13%,transparent);color:var(--ink);font:var(--type-status);animation:conn-chip-in var(--m-quick) var(--ease-out) both}
+.mcp-allowance[data-state]:not([data-state=active]){background:color-mix(in srgb,var(--honey) 18%,transparent)}
+.mcp-allowance[data-leaving]{animation:conn-chip-out var(--m-press) var(--ease-in) both;pointer-events:none}
+.mcp-allowance button{display:grid;place-items:center;width:20px;height:20px;border:0;border-radius:50%;background:transparent;color:var(--ink-soft);transition:background var(--m-quick) var(--ease-out)}
+.mcp-allowance button:hover:not(:disabled){background:color-mix(in srgb,var(--text) 10%,transparent);color:var(--ink)}
+.mcp-allowance button:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:1px}
+@keyframes conn-chip-in{from{opacity:0;transform:translateY(3px) scale(.96)}}
+@keyframes conn-chip-out{to{opacity:0;transform:scale(.96)}}
+/* Arriving from an approval card: the tool's row takes a tint that fades out over --m-flight. */
+.mcp-tool[data-flash]{animation:conn-tool-flash var(--m-flight) var(--ease-out) both}
+@keyframes conn-tool-flash{from{background:color-mix(in srgb,var(--lagoon) 28%,transparent)}to{background:transparent}}
+@media(prefers-reduced-motion:reduce){.mcp-allowance,.mcp-allowance[data-leaving]{animation:none}.mcp-tool[data-flash]{animation:none;background:color-mix(in srgb,var(--lagoon) 22%,transparent)}}
+
+/* Which Bots can use this connection (step 4). The checked list folds open and closed: in over --m-panel-in, out over --m-panel-out. */
+.conn-section[data-section=bots] .segmented{margin:0 0 10px}
+.conn-bots-fold{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows var(--m-panel-out) var(--ease-in),opacity var(--m-panel-out) var(--ease-in)}
+.conn-bots-fold[data-open]{grid-template-rows:1fr;opacity:1;transition-duration:var(--m-panel-in),var(--m-base);transition-timing-function:var(--ease-out)}
+.conn-bots-fold>div{min-height:0;overflow:hidden}
+.conn-bots{display:grid;gap:2px;margin:0 0 8px;padding:6px;list-style:none;border-radius:18px;background:var(--surface-2)}
+.conn-bots label{display:flex;align-items:center;gap:10px;min-height:44px;padding:4px 10px;border-radius:12px;transition:background var(--m-quick) var(--ease-out)}
+.conn-bots label:hover{background:var(--sunk)}
+.conn-bots .avatar,.conn-bots .tofi-avatar{flex:none;width:28px;height:28px}
+.conn-bots span{min-width:0;overflow-wrap:anywhere;font:500 13.5px/1.4 var(--body)}
+@media(prefers-reduced-motion:reduce){.conn-bots-fold{transition:none}}
+
+/* Gmail access as two cards, and the Workspace servers folded inside the Google step (step 5). The picked card takes a filled ring
+   (a box-shadow transition over --m-quick); reduced motion drops it. */
+.connect-scope{border:0;padding:0;min-width:0}.connect-scope legend{padding:0;margin-bottom:6px}
+.connect-scope-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.connect-scope-card{position:relative;display:grid;gap:3px;align-content:start;padding:12px 14px;border-radius:14px;background:var(--surface-2);box-shadow:inset 0 0 0 var(--edge) transparent;transition:box-shadow var(--m-quick) var(--ease-out),background var(--m-quick) var(--ease-out)}
+.connect-scope-card:hover{background:var(--sunk)}
+.connect-scope-card[data-checked]{background:var(--surface);box-shadow:inset 0 0 0 var(--edge) var(--ink)}
+.connect-scope-card input{position:absolute;opacity:0;pointer-events:none}
+.connect-scope-card:has(input:focus-visible){outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+.connect-scope-card strong{font:600 13px/1.35 var(--body);color:var(--ink)}
+.connect-scope-card small{font:12px/1.5 var(--body);color:var(--muted)}
+@media(max-width:480px){.connect-scope-cards{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.connect-scope-card{transition:none}}
+.connect-workspace{margin-top:16px}
+.connect-workspace .settings-banner{margin:0 0 10px}
+.connect-workspace .integration-grid{margin-top:8px}

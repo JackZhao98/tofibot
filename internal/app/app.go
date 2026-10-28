@@ -815,6 +815,9 @@ CREATE INDEX IF NOT EXISTS events_delta ON events(conversation_id,id) WHERE type
 	if err := migrateSkillLibrary(s.db); err != nil {
 		return err
 	}
+	if err := migrateConnectionAccess(s.db); err != nil {
+		return err
+	}
 	if err := migrateToolActivity(s.db); err != nil {
 		return err
 	}
@@ -2858,7 +2861,7 @@ func NewServer(c Config) (*Server, error) {
 	} else if switched > 0 {
 		log.Printf("[model-settings] %d Bot(s) now follow the global model", switched)
 	}
-	server.extensions = extensions.NewManager(extensions.Config{MCPConfigPath: c.MCPConfigPath, SkillsDir: c.SkillsDir, ExpandToolQuery: server.expandToolSearchQuery, HTTPTransport: server.localMCPTransport, ServerUsable: server.mcpServerUsable, SkillAccess: st.skillEnabledFilter, ServerIdentityChanged: server.markStandingServerChanged})
+	server.extensions = extensions.NewManager(extensions.Config{MCPConfigPath: c.MCPConfigPath, SkillsDir: c.SkillsDir, ExpandToolQuery: server.expandToolSearchQuery, HTTPTransport: server.localMCPTransport, ServerUsable: server.mcpServerUsable, SkillAccess: st.skillEnabledFilter, ConnectionAccess: st.connectionAccessFilter, ServerIdentityChanged: server.markStandingServerChanged})
 	if err := server.migrateSkillLibraryData(); err != nil {
 		st.Close()
 		return nil, fmt.Errorf("skill library migration: %w", err)
@@ -3028,7 +3031,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if s.routeDesktopStream(w, r, p) {
 		return
 	}
-	if s.handleBotSecrets(w, r) || s.handleBotSkills(w, r) || s.handleSecrets(w, r) || s.handleSSHKeys(w, r) || s.routeComputerResources(w, r, p) {
+	if s.handleBotSecrets(w, r) || s.handleBotSkills(w, r) || s.handleBotConnections(w, r) || s.handleSecrets(w, r) || s.handleSSHKeys(w, r) || s.routeComputerResources(w, r, p) {
 		return
 	}
 	if s.routeComputers(w, r, p) {

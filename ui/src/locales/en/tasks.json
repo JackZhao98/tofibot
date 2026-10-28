@@ -527,7 +527,10 @@
     "payload_label": "Full tool arguments, plain text",
     "submitting": "Submitting…",
     "remember": "Approve and remember in this chat",
-    "always_allow": "Always allow"
+    "always_allow": "Always allow",
+    "manage": "Manage",
+    "manage_connection": "Manage {{tool}} on {{server}} in Settings",
+    "manage_allowances": "Manage allowances in Settings"
   },
   "remembered": {
     "title": "Remembered approvals",

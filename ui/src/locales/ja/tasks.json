@@ -521,7 +521,10 @@
     "payload_label": "ツール引数の全文（プレーンテキスト）",
     "submitting": "送信中…",
     "remember": "承認してこのチャットで記憶する",
-    "always_allow": "常に許可"
+    "always_allow": "常に許可",
+    "manage": "管理",
+    "manage_connection": "設定で {{server}} の {{tool}} を管理",
+    "manage_allowances": "設定で許可を管理"
   },
   "remembered": {
     "title": "記憶した承認",

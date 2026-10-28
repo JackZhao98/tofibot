@@ -214,5 +214,54 @@
     "widget_empty": "Dateien, die deine Bots in diesem Chat erzeugen, erscheinen hier.",
     "widget_all": "Alle Artefakte",
     "widget_new": "Neue Datei: {{name}}"
+  },
+  "tools": {
+    "connections": {
+      "title": "Verbindungen",
+      "hint": "Schalte eine Verbindung aus, damit dieser Bot sie nicht nutzt. Neue Verbindungen sind für alle Bots zunächst an.",
+      "loading": "Wird geladen…",
+      "error": "Verbindungen konnten nicht geladen werden. Versuche es erneut.",
+      "none": "Noch keine Verbindungen.",
+      "add": "In den Einstellungen hinzufügen",
+      "switch": "{{bot}} darf {{connection}} nutzen",
+      "open": "{{connection}} in den Einstellungen öffnen",
+      "save_failed": "Speichern fehlgeschlagen. Versuche es erneut.",
+      "allowed_one": "{{count}} immer erlaubt",
+      "allowed_other": "{{count}} immer erlaubt"
+    },
+    "skills": {
+      "manage": "Bibliothek verwalten"
+    },
+    "web": {
+      "title": "Web",
+      "search": "Suche",
+      "fetch": "Abruf",
+      "on": "An · {{chain}}",
+      "search_none": "Aus · keine Quelle eingerichtet",
+      "configure": "Quellen einrichten"
+    },
+    "computer": {
+      "title": "Computer",
+      "shared": "Alle Bots nutzen den Computer des Arbeitsbereichs.",
+      "none": "Noch kein Computer. Füge in den Einstellungen einen hinzu, damit Bots surfen und Code ausführen können.",
+      "open": "Einstellungen öffnen"
+    },
+    "builtin": {
+      "title": "Integriert",
+      "summary": "Was jeder Bot kann",
+      "items": "Dateien und Anhänge · Bilder · Gedächtnis · Aufgaben und Zeitpläne · Menschen fragen · Arbeitsbereich verwalten (bei Bedarf)"
+    },
+    "permissions": {
+      "title": "Berechtigungen für diesen Bot",
+      "manage": "Alle Berechtigungen",
+      "empty": "Nichts ist ohne Nachfrage erlaubt. Wähle bei einer Freigabe „Immer erlauben“, um eine hinzuzufügen.",
+      "allowed": "Erlaubt {{time}}",
+      "used_one": "{{count}} Mal genutzt",
+      "used_other": "{{count}} Mal genutzt",
+      "remembered_one": "In {{count}} Chat gemerkt",
+      "remembered_other": "In {{count}} Chats gemerkt",
+      "remembered_none": "In Chats gemerkt: nichts",
+      "error": "Berechtigungen konnten nicht geladen werden. Versuche es erneut."
+    }
   }
 }

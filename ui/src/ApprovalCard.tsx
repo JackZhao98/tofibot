@@ -26,6 +26,8 @@ export interface ApprovalCardProps {
   /** "Always allow": offered only for a write-tier call a standing allowance could later decide. */
   onAlwaysAllow?: () => void;
   alwaysAllowHint?: string;
+  /** "Manage ›": the link from this card to where the allowance lives (the tool's row in Connections, or Permissions once an allowance decided). */
+  manage?: { label: string; onClick: () => void };
   resolution?: ApprovalResolution;
   busy?: "accept" | "decline" | "cancel" | "remember" | "always";
   disabled?: boolean;
@@ -35,7 +37,7 @@ export interface ApprovalCardProps {
 }
 
 /** Shared visual card. Only the caller's confirmed result can resolve it. */
-export function ApprovalCard({ title, avatar, time, exactTime, facts = [], verified = [], verifiedTitle, factsCaption, payload, acceptLabel: acceptText, declineLabel: declineText, onAnswer, onRemember, rememberHint, onAlwaysAllow, alwaysAllowHint, resolution, busy, disabled, error, note, secondaryAction }: ApprovalCardProps) {
+export function ApprovalCard({ title, avatar, time, exactTime, facts = [], verified = [], verifiedTitle, factsCaption, payload, acceptLabel: acceptText, declineLabel: declineText, onAnswer, onRemember, rememberHint, onAlwaysAllow, alwaysAllowHint, manage, resolution, busy, disabled, error, note, secondaryAction }: ApprovalCardProps) {
   const { t } = useTranslation("tasks");
   const acceptLabel = acceptText ?? t("approval.accept");
   const declineLabel = declineText ?? t("approval.decline");
@@ -65,13 +67,14 @@ export function ApprovalCard({ title, avatar, time, exactTime, facts = [], verif
           <button type="button" className="approval-remember-button" disabled={disabled || Boolean(busy) || !pending} onClick={onRemember}>{busy === "remember" ? t("approval.submitting") : t("approval.remember")}</button>
           {rememberHint && <span className="approval-remember-hint">{rememberHint}</span>}
         </div>}
-        {onAlwaysAllow && alwaysAllowHint && <p className="approval-remember-hint approval-always-hint">{alwaysAllowHint}</p>}
+        {onAlwaysAllow && alwaysAllowHint && <p className="approval-remember-hint approval-always-hint">{alwaysAllowHint} {manage && <button type="button" className="text-button approval-manage" aria-label={manage.label} onClick={manage.onClick}>{t("approval.manage")}<TofiIcon name="chevron-right" size={12} aria-hidden="true" /></button>}</p>}
         {note && <p className="approval-note">{note}</p>}
       </div>
     </div>
     {resolution && <div className="approval-result">
       <TofiIcon name={resolution.accepted ? "check" : "close"} size={16} aria-hidden="true" />
       <span>{resolution.label}</span>{resolution.answer && <strong>{resolution.answer}</strong>}
+      {manage && !onAlwaysAllow && <button type="button" className="text-button approval-manage" aria-label={manage.label} onClick={manage.onClick}>{t("approval.manage")}<TofiIcon name="chevron-right" size={12} aria-hidden="true" /></button>}
     </div>}
     {error && <p className="approval-error" role="alert">{error}</p>}
   </section>;

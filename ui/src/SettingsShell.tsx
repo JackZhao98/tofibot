@@ -6,12 +6,13 @@ import {SettingsActivityContext} from "./settingsActivity";
 import {SettingsDraftContext, type SettingsDraft} from "./settingsDraft";
 import {SettingsHeaderSlotContext} from "./settings/headerSlot";
 import {useConnectionAttention} from "./settings/useConnectionAttention";
+import {legacySettingsTabs} from "./settings/deepLinks";
 import {providerForModel, providerLabels} from "./modelCatalog";
 import {useLanguage, useTranslation} from "./i18n";
 import {ConfirmDialog} from "./overlays/ModalDialog";
 import {useHasComputer} from "./computerCapability";
 
-export type SettingsTab="general"|"connections"|"skills"|"approvals"|"followups"|"models"|"automation"|"computer"|"keys"|"usage"|"advanced"|"admin";
+export type SettingsTab="general"|"connections"|"skills"|"permissions"|"followups"|"models"|"automation"|"computer"|"keys"|"usage"|"advanced"|"admin";
 export type SettingsView="home"|"page";
 /** `seq` changes on every open request, so a deep link to the tab already selected still lands on its page on mobile. */
 export type SettingsEntry={seq:number;view:SettingsView};
@@ -24,7 +25,7 @@ const group=(id:GroupId,items:Page[]):Group=>({id,label:`shell.group.${id}`,item
 const adminPage=page("admin","group");
 const groups:Group[]=[
  group("you",[page("general","sliders")]),
- group("bots",[page("connections","plug"),page("skills","skill"),page("approvals","shield-check"),page("followups","bell"),page("models","sparkles"),page("automation","workflow")]),
+ group("bots",[page("connections","plug"),page("skills","skill"),page("permissions","shield-check"),page("followups","bell"),page("models","sparkles"),page("automation","workflow")]),
  group("workspace",[page("computer","monitor"),page("keys","key"),page("usage","progress")]),
  group("system",[page("advanced","settings")])
 ];
@@ -51,8 +52,10 @@ function useMobileHints(enabled:boolean,hasComputer:boolean){
  },[enabled,hasComputer]);
  return hints;
 }
-export function SettingsShell({tab,onTab,onClose,renderPage,entry,refreshToken=0}:{tab:SettingsTab;onTab:(tab:SettingsTab)=>void;onClose:()=>void;renderPage:(tab:SettingsTab)=>ReactNode;entry?:SettingsEntry;refreshToken?:number}){
+export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,refreshToken=0}:{tab:SettingsTab;onTab:(tab:SettingsTab)=>void;onClose:()=>void;renderPage:(tab:SettingsTab)=>ReactNode;entry?:SettingsEntry;refreshToken?:number}){
  const {t}=useTranslation("settings");
+ // An old tab id (a saved link, an event from before the rename) lands on the page that replaced it.
+ const tab=(legacySettingsTabs[requestedTab as string]??requestedTab) as SettingsTab;
  const {language}=useLanguage();
  const session=useOwnerSession();
  const identity=useAccountIdentity();
@@ -68,6 +71,7 @@ export function SettingsShell({tab,onTab,onClose,renderPage,entry,refreshToken=0
  const entrySeq=useRef(entry?.seq);
  useEffect(()=>{if(entry&&entry.seq!==entrySeq.current){entrySeq.current=entry.seq;setMobileView(entry.view)}},[entry]);
  const hints=useMobileHints(narrow&&mobileView==="home",hasComputer);
+ useEffect(()=>{if(tab!==requestedTab)onTab(tab)},[tab,requestedTab,onTab]);
  useEffect(()=>{if(tab==="admin"&&!isAdmin)onTab("general")},[tab,isAdmin,onTab]);
  useEffect(()=>{if(tab==="keys"&&!hasComputer)onTab("computer")},[tab,hasComputer,onTab]);
  const [visited,setVisited]=useState<SettingsTab[]>([tab]);

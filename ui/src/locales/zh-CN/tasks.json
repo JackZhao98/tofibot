@@ -521,7 +521,10 @@
     "payload_label": "完整工具参数，纯文本",
     "submitting": "提交中…",
     "remember": "批准并在本对话中记住",
-    "always_allow": "始终允许"
+    "always_allow": "始终允许",
+    "manage": "管理",
+    "manage_connection": "在设置里管理 {{server}} 的 {{tool}}",
+    "manage_allowances": "在设置里管理放行"
   },
   "remembered": {
     "title": "记住的批准",

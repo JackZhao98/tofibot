@@ -88,6 +88,7 @@
     "test:primary-followups": "node scripts/test-primary-followups.mjs",
     "test:approval-facts": "node scripts/test-approval-facts.mjs",
     "test:bot-skills": "node scripts/test-bot-skills.mjs",
+    "test:bot-tools": "node scripts/test-bot-tools.mjs",
     "test:standing-allowance": "node scripts/test-standing-allowance-card.mjs",
     "test:handover-cards": "node scripts/test-handover-cards.mjs",
     "test:question-poll": "node scripts/test-question-poll.mjs"
