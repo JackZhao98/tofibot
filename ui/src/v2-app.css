@@ -474,7 +474,8 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
 .workspace .message-hover-actions button:hover { color:var(--ink); }
 .workspace .message-hover-actions button:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:-2px; color:var(--ink); }
 @media (hover:hover) {
-  .workspace .message-actions-row { min-height:28px; margin-bottom:4px; }
+  /* Pulled 4px up toward the bubble; the bottom margin grows by the same 4px, so the gap between messages is unchanged. */
+  .workspace .message-actions-row { min-height:28px; margin-top:-4px; margin-bottom:8px; }
   .workspace .message-block:has(>.message-actions-row) .message-hover-host .message { margin-bottom:0; }
   .workspace .message-block:has(>.message-actions-row) .message-reactions { margin:4px 0 0; }
   .workspace .message-block:has(>.message-actions-row) .message[data-speaker-change="true"] { margin-top:14px; }
