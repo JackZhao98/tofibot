@@ -89,12 +89,21 @@ func attachmentFileName(name string) string {
 
 // writeGogAttachments puts each file in its own folder under a private
 // temporary directory, so the real name survives and duplicates cannot collide.
-func writeGogAttachments(attachments []GogAttachment) (dir string, paths []string, err error) {
+func writeGogAttachments(spec Spec, attachments []GogAttachment) (dir string, paths []string, err error) {
 	if len(attachments) == 0 {
 		return "", nil, nil
 	}
-	dir, err = os.MkdirTemp("", "tofi-mail-")
+	base := ""
+	if spec.Tmp != "" {
+		base = spec.Tmp
+	}
+	dir, err = os.MkdirTemp(base, "tofi-mail-")
 	if err != nil {
+		return "", nil, err
+	}
+	// The gogcli child runs as the account's uid and must be able to read them.
+	if err = chownTo(spec.Cred, dir); err != nil {
+		_ = os.RemoveAll(dir)
 		return "", nil, err
 	}
 	var total int64
@@ -108,7 +117,12 @@ func writeGogAttachments(attachments []GogAttachment) (dir string, paths []strin
 		sub := filepath.Join(dir, strconv.Itoa(i))
 		path := filepath.Join(sub, attachmentFileName(a.Name))
 		if e = os.Mkdir(sub, 0700); e == nil {
-			e = os.WriteFile(path, data, 0600)
+			e = chownTo(spec.Cred, sub)
+		}
+		if e == nil {
+			if e = os.WriteFile(path, data, 0600); e == nil {
+				e = chownTo(spec.Cred, path)
+			}
 		}
 		if e != nil {
 			_ = os.RemoveAll(dir)
@@ -137,7 +151,7 @@ func (r *Runner) GogSend(ctx context.Context, id string, input GogSendRequest) (
 	if err != nil || account.Email == "" || account.Scope != "read-send" {
 		return nil, errors.New("Gmail send authorization is required")
 	}
-	dir, files, err := writeGogAttachments(input.Attachments)
+	dir, files, err := writeGogAttachments(spec, input.Attachments)
 	if err != nil {
 		return nil, err
 	}

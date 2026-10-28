@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/JackZhao98/tofibot/internal/googleapi"
@@ -234,7 +235,7 @@ func validateGogStart(input GogStartRequest) error {
 }
 
 func gogEnv(spec Spec) ([]string, error) {
-	env := []string{"PATH=/usr/local/bin:/usr/bin:/bin", "LANG=C.UTF-8", "TMPDIR=/tmp"}
+	env := []string{"PATH=/usr/local/bin:/usr/bin:/bin", "LANG=C.UTF-8", "TMPDIR=" + spec.tmpDir()}
 	for key, value := range spec.Env {
 		env = append(env, key+"="+value)
 	}
@@ -295,6 +296,9 @@ func runGog(ctx context.Context, spec Spec, input []byte, args ...string) ([]byt
 	cmd := exec.CommandContext(ctx, spec.Command, args...)
 	cmd.Dir = spec.WorkDir
 	cmd.Env = env
+	if spec.Cred != nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{Credential: spec.Cred}
+	}
 	if input != nil {
 		cmd.Stdin = bytes.NewReader(input)
 	}

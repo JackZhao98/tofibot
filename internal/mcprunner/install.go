@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -76,7 +77,17 @@ func LoadRecords(path string) ([]Spec, error) {
 	return specs, nil
 }
 
+// gogBinary is the bundled gogcli; tests point it at a fixture.
+var gogBinary = "/usr/local/bin/gog"
+
 func (r *Runner) Install(ctx context.Context, input InstallRequest) error {
+	return r.install(ctx, input, nil)
+}
+
+// install is Install with an optional step that fills the new plugin directory
+// before the plugin is recorded. A failure there removes the directory and
+// leaves the manifest untouched.
+func (r *Runner) install(ctx context.Context, input InstallRequest, fill func(target string) error) error {
 	if !validID(input.ID) || len(input.Args) > 32 {
 		return errors.New("invalid plugin ID or arguments")
 	}
@@ -136,13 +147,17 @@ func (r *Runner) Install(ctx context.Context, input InstallRequest) error {
 	if err := os.MkdirAll(filepath.Join(target, "home"), 0700); err != nil {
 		return err
 	}
+	// Installers run as the account's uid and write into this directory.
+	if err := chownTree(r.opts.Cred, target); err != nil {
+		return err
+	}
 	installCtx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 	defer cancel()
 	var command string
 	args := append([]string(nil), input.Args...)
 	switch input.Kind {
 	case "npm":
-		if err := runInstaller(installCtx, "npm", "install", "--prefix", stage, "--ignore-scripts", "--no-audit", "--no-fund", "--", input.Package+"@"+input.Version); err != nil {
+		if err := r.runInstaller(installCtx, "npm", "install", "--prefix", stage, "--ignore-scripts", "--no-audit", "--no-fund", "--", input.Package+"@"+input.Version); err != nil {
 			return err
 		}
 		if input.Integrity != "" {
@@ -152,15 +167,15 @@ func (r *Runner) Install(ctx context.Context, input InstallRequest) error {
 		}
 		command = filepath.Join(stage, "node_modules", ".bin", input.Binary)
 	case "pypi":
-		if err := runInstaller(installCtx, "python3", "-m", "venv", stage); err != nil {
+		if err := r.runInstaller(installCtx, "python3", "-m", "venv", stage); err != nil {
 			return err
 		}
-		if err := runInstaller(installCtx, filepath.Join(stage, "bin", "python"), "-m", "pip", "install", "--disable-pip-version-check", "--no-input", input.Package+"=="+input.Version); err != nil {
+		if err := r.runInstaller(installCtx, filepath.Join(stage, "bin", "python"), "-m", "pip", "install", "--disable-pip-version-check", "--no-input", input.Package+"=="+input.Version); err != nil {
 			return err
 		}
 		command = filepath.Join(stage, "bin", input.Binary)
 	case "builtin_gog":
-		command = "/usr/local/bin/gog"
+		command = gogBinary
 		if len(args) == 0 {
 			args = []string{"mcp", "--allow-tool", "gmail"}
 		}
@@ -178,7 +193,7 @@ func (r *Runner) Install(ctx context.Context, input InstallRequest) error {
 	if _, err := os.Stat(command); err != nil {
 		return fmt.Errorf("installed executable missing: %w", err)
 	}
-	spec := Spec{ID: input.ID, Kind: input.Kind, Command: command, Args: args, WorkDir: target, Env: map[string]string{"HOME": filepath.Join(target, "home")}}
+	spec := r.stamp(Spec{ID: input.ID, Kind: input.Kind, Command: command, Args: args, WorkDir: target, Env: map[string]string{"HOME": filepath.Join(target, "home")}})
 	if input.Kind != "builtin_gog" {
 		// Provenance for the connection details; operator-visible, never a secret.
 		spec.Package, spec.Version = input.Package, input.Version
@@ -198,7 +213,15 @@ func (r *Runner) Install(ctx context.Context, input InstallRequest) error {
 		}
 		spec.SecretEnv["GOG_KEYRING_PASSWORD"] = filepath.Join(target, "keyring-password")
 	}
-	manifest := filepath.Join(dir, "manifest.json")
+	if fill != nil {
+		if err := fill(target); err != nil {
+			return err
+		}
+	}
+	if err := chownTree(r.opts.Cred, target); err != nil {
+		return err
+	}
+	manifest := r.manifestPath(dir)
 	old, err := os.ReadFile(manifest)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
@@ -266,9 +289,16 @@ func installSecretEnv(target string, values map[string]string) (map[string]strin
 	return paths, nil
 }
 
-func runInstaller(ctx context.Context, command string, args ...string) error {
+func (r *Runner) runInstaller(ctx context.Context, command string, args ...string) error {
 	cmd := exec.CommandContext(ctx, command, args...)
-	cmd.Env = []string{"PATH=/usr/local/bin:/usr/bin:/bin", "HOME=/tmp", "PIP_NO_INPUT=1", "npm_config_update_notifier=false"}
+	tmp := r.opts.Tmp
+	if tmp == "" {
+		tmp = "/tmp"
+	}
+	cmd.Env = []string{"PATH=/usr/local/bin:/usr/bin:/bin", "HOME=" + tmp, "TMPDIR=" + tmp, "PIP_NO_INPUT=1", "npm_config_update_notifier=false"}
+	if r.opts.Cred != nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{Credential: r.opts.Cred}
+	}
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("package installation failed: %w: %.400s", err, output)
@@ -324,7 +354,7 @@ func (r *Runner) Remove(id string) error {
 	p.stop = nil
 	p.mu.Unlock()
 	shutdown(cli, stop, group)
-	manifest := filepath.Join(dir, "manifest.json")
+	manifest := r.manifestPath(dir)
 	data, err := os.ReadFile(manifest)
 	if err != nil {
 		return err
@@ -378,4 +408,17 @@ func writeAtomic0600(path string, data []byte) error {
 		return err
 	}
 	return os.Rename(f.Name(), path)
+}
+
+// InstalledRecord is one entry of a Runner manifest: the request that was
+// approved and the spec it produced.
+type InstalledRecord = installedRecord
+
+// ParseRecords reads a manifest.json written by any Runner.
+func ParseRecords(data []byte) ([]InstalledRecord, error) {
+	var records []installedRecord
+	if err := json.Unmarshal(data, &records); err != nil {
+		return nil, err
+	}
+	return records, nil
 }

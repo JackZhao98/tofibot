@@ -45,6 +45,11 @@ type Spec struct {
 	// the connection's provenance. They never affect how the child runs.
 	Package string `json:"package,omitempty"`
 	Version string `json:"version,omitempty"`
+	// Cred and Tmp are set by the Runner that owns the spec, never read from a
+	// manifest. In the multi-account Runner every child of one account runs as
+	// that account's own uid with a private temporary directory.
+	Cred *syscall.Credential `json:"-"`
+	Tmp  string              `json:"-"`
 }
 
 type Status struct {
@@ -69,6 +74,39 @@ type Runner struct {
 	done        chan struct{}
 	// removeDrain bounds how long Remove waits for in-flight leases to finish.
 	removeDrain time.Duration
+	opts        Options
+}
+
+// Options places a Runner inside one account of the multi-account Runner. The
+// zero value is the original single-tenant Runner.
+type Options struct {
+	// Cred is the uid/gid every child process and installer runs as.
+	Cred *syscall.Credential
+	// Tmp replaces /tmp for children; it must be private to the account.
+	Tmp string
+	// ManifestDir holds manifest.json outside the area the children can write.
+	ManifestDir string
+}
+
+// manifestPath is where the installed-plugin record lives.
+func (r *Runner) manifestPath(stateDir string) string {
+	if r.opts.ManifestDir != "" {
+		return filepath.Join(r.opts.ManifestDir, "manifest.json")
+	}
+	return filepath.Join(stateDir, "manifest.json")
+}
+
+// stamp attaches the Runner's process identity to a spec.
+func (r *Runner) stamp(spec Spec) Spec {
+	spec.Cred, spec.Tmp = r.opts.Cred, r.opts.Tmp
+	return spec
+}
+
+func (s Spec) tmpDir() string {
+	if s.Tmp != "" {
+		return s.Tmp
+	}
+	return "/tmp"
 }
 
 type plugin struct {
@@ -92,12 +130,17 @@ type plugin struct {
 }
 
 func New(specs []Spec, idleTimeout time.Duration) (*Runner, error) {
+	return NewWithOptions(specs, idleTimeout, Options{})
+}
+
+func NewWithOptions(specs []Spec, idleTimeout time.Duration, opts Options) (*Runner, error) {
 	if idleTimeout <= 0 {
 		idleTimeout = defaultIdleTimeout
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	r := &Runner{plugins: make(map[string]*plugin, len(specs)), idleTimeout: idleTimeout, ctx: ctx, cancel: cancel, done: make(chan struct{}), removeDrain: defaultRemoveDrain}
+	r := &Runner{plugins: make(map[string]*plugin, len(specs)), idleTimeout: idleTimeout, ctx: ctx, cancel: cancel, done: make(chan struct{}), removeDrain: defaultRemoveDrain, opts: opts}
 	for _, spec := range specs {
+		spec = r.stamp(spec)
 		if !validID(spec.ID) || !filepath.IsAbs(spec.Command) || !filepath.IsAbs(spec.WorkDir) {
 			cancel()
 			return nil, fmt.Errorf("invalid runner plugin %q", spec.ID)
@@ -403,7 +446,7 @@ func start(startCtx, life context.Context, spec Spec) (*mcp.ClientSession, conte
 	spec.Args = gogMCPArgs(spec) // the personal Google plugin offers the tools of the services the account authorised
 	processCmd := exec.CommandContext(procCtx, spec.Command, spec.Args...)
 	processCmd.Dir = spec.WorkDir
-	processCmd.Env = []string{"PATH=/usr/local/bin:/usr/bin:/bin", "LANG=C.UTF-8", "TMPDIR=/tmp"}
+	processCmd.Env = []string{"PATH=/usr/local/bin:/usr/bin:/bin", "LANG=C.UTF-8", "TMPDIR=" + spec.tmpDir()}
 	for key, value := range spec.Env {
 		processCmd.Env = append(processCmd.Env, key+"="+value)
 	}
@@ -422,7 +465,7 @@ func start(startCtx, life context.Context, spec Spec) (*mcp.ClientSession, conte
 		}
 		processCmd.Env = append(processCmd.Env, key+"="+strings.TrimSpace(string(value)))
 	}
-	processCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	processCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Credential: spec.Cred}
 	var tr mcp.Transport = &latestOnlyTransport{Transport: &mcp.CommandTransport{Command: processCmd}}
 	leafProtocol := ProtocolVersion
 	var clientOptions *mcp.ClientOptions

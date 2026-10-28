@@ -25,6 +25,15 @@ func (r *Runner) Handler(token string) http.Handler {
 			_ = json.NewEncoder(w).Encode(map[string]any{"plugins": r.Statuses()})
 			return
 		}
+		if req.URL.Path == "/v1/import" && req.Method == http.MethodPost {
+			var input ImportRequest
+			if err := decodeJSONLimit(req, &input, ImportBodyLimit); err != nil {
+				http.Error(w, "invalid import request", http.StatusBadRequest)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"results": r.Import(req.Context(), input)})
+			return
+		}
 		if req.URL.Path == "/v1/plugins" && req.Method == http.MethodPost {
 			var input InstallRequest
 			if err := decodeJSON(req, &input); err != nil {
