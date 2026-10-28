@@ -265,7 +265,7 @@ jobs:
           [[ $(uname -m) == "$ARCH" ]] || { echo "::error::runner is $(uname -m), expected $ARCH"; exit 1; }
           sudo mkdir -p /run/lock "$BUILD_ROOT"
           sudo TOFI_ACCOUNT_RELEASE=1 bash deploy/microvm/build-images.sh "$BUILD_ROOT/$TAG"
-          [[ $(sudo python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("arch"))' "$BUILD_ROOT/$TAG/account-release.json") == "$ARCH" ]] \
+          [[ $(sudo python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("arch", "x86_64"))' "$BUILD_ROOT/$TAG/account-release.json") == "$ARCH" ]] \
             || { echo "::error::account-release.json arch is not $ARCH"; exit 1; }
           sudo python3 deploy/microvm/account_release_check.py \
             --release-dir "$BUILD_ROOT/$TAG" \

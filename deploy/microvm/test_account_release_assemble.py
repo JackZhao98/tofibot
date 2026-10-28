@@ -2,6 +2,7 @@ import hashlib
 import importlib.util
 from pathlib import Path
 import tempfile
+import json
 import unittest
 from unittest import mock
 
@@ -93,6 +94,16 @@ class AccountReleaseAssembleTests(unittest.TestCase):
             assembler.checker._sha256(self.destination / "account-release.json"),
             result["manifest_sha256"],
         )
+
+    def test_x86_64_release_stays_readable_by_older_hosts(self):
+        # Hosts up to v0.2.1-rc.2 check account-release.json against this exact key set and refuse
+        # anything else, so an x86_64 release must not grow new keys (rc.4 could not update rc.2).
+        legacy_keys = {"schema", "protocol", "files_sha256", "guest_binary_sha256",
+                       "capabilities", "features", "operator_metadata"}
+        with mock.patch.object(assembler.checker, "_check_elf_arch"):
+            assembler.assemble_release(self.source, self.destination, guest_binary=self.guest, arch="x86_64")
+        written = json.loads((self.destination / "account-release.json").read_text())
+        self.assertLessEqual(set(written), legacy_keys)
 
     def test_refuses_existing_destinations_and_guest_provenance_mismatch(self):
         self.destination.mkdir()

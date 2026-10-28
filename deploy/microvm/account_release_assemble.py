@@ -102,8 +102,11 @@ def assemble_release(source_dir, release_dir, *, guest_binary=None, arch=None):
             "operator_metadata": {},
         }
         if arch is not None:
-            manifest["arch"] = arch
             checker._check_elf_arch(staging / "bin" / "firecracker", arch)
+            # x86_64 is the meaning of an absent field, and hosts before v0.2.1-rc.3 refuse
+            # any key they do not know, so only a non-x86_64 release names its arch.
+            if arch != "x86_64":
+                manifest["arch"] = arch
         manifest_bytes = (json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n").encode()
         manifest_path = staging / "account-release.json"
         with manifest_path.open("xb") as output:
