@@ -20,6 +20,7 @@ import os
 from pathlib import Path
 import platform
 import re
+import secrets
 import shutil
 import socket
 import sqlite3
@@ -2902,30 +2903,52 @@ def remove_update_request_units():
 def take_update_request():
     """Read and delete request.json. Returns bytes, or None when there is no request.
 
-    Never follows a symlink, never reads a non-regular file, never reads more than
-    the cap. The file is removed whatever it holds, so a bad request cannot loop the path unit.
+    The App (uid 10001) owns the request directory, so everything inside it is hostile:
+    every step works on a descriptor of that directory and never follows a link. A
+    regular file is read (capped) and unlinked; anything else is refused and renamed
+    aside without recursing into it, so a bad request cannot loop the path unit and
+    root never walks, chmods or deletes a tree the App built.
     """
-    path = P.update_request_dir / 'request.json'
+    directory = os.open(str(P.update_request_dir), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
-        fd = os.open(str(path), os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-    except FileNotFoundError:
-        return None
-    except OSError:
-        remove_tree(path)
-        raise RequestRefused('request_invalid', 'request.json could not be opened as a plain file')
-    try:
-        info = os.fstat(fd)
-        if not stat.S_ISREG(info.st_mode):
-            raise RequestRefused('request_invalid', 'request.json is not a regular file')
-        if info.st_size > UPDATE_REQUEST_MAX_BYTES:
-            raise RequestRefused('request_too_large', 'request.json is larger than %d bytes' % UPDATE_REQUEST_MAX_BYTES)
-        data = os.read(fd, UPDATE_REQUEST_MAX_BYTES + 1)
-        if len(data) > UPDATE_REQUEST_MAX_BYTES:
-            raise RequestRefused('request_too_large', 'request.json is larger than %d bytes' % UPDATE_REQUEST_MAX_BYTES)
-        return data
+        try:
+            fd = os.open('request.json', os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
+        except FileNotFoundError:
+            return None
+        except OSError:
+            discard_update_request(directory)
+            raise RequestRefused('request_invalid', 'request.json could not be opened as a plain file')
+        try:
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode):
+                raise RequestRefused('request_invalid', 'request.json is not a regular file')
+            if info.st_size > UPDATE_REQUEST_MAX_BYTES:
+                raise RequestRefused('request_too_large', 'request.json is larger than %d bytes' % UPDATE_REQUEST_MAX_BYTES)
+            data = os.read(fd, UPDATE_REQUEST_MAX_BYTES + 1)
+            if len(data) > UPDATE_REQUEST_MAX_BYTES:
+                raise RequestRefused('request_too_large', 'request.json is larger than %d bytes' % UPDATE_REQUEST_MAX_BYTES)
+            return data
+        finally:
+            os.close(fd)
+            discard_update_request(directory)
     finally:
-        os.close(fd)
-        remove_tree(path)
+        os.close(directory)
+
+
+def discard_update_request(directory):
+    """Remove request.json relative to the directory descriptor; never follows or recurses."""
+    try:
+        os.unlink('request.json', dir_fd=directory)
+        return
+    except FileNotFoundError:
+        return
+    except (IsADirectoryError, PermissionError):
+        pass
+    aside = '.rejected-%d-%s' % (int(time.time()), secrets.token_hex(4))
+    try:
+        os.rename('request.json', aside, src_dir_fd=directory, dst_dir_fd=directory)
+    except FileNotFoundError:
+        pass
 
 
 def parse_update_request(data, now=None):

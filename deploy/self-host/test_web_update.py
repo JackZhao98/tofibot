@@ -5,6 +5,7 @@ run on a real host (systemd path unit, App container mount).
 """
 import json
 import os
+import stat
 from pathlib import Path
 import sys
 import time
@@ -107,6 +108,26 @@ class RequestValidationTests(WebUpdateCase):
         (self.P.update_request_dir / 'request.json').mkdir()
         with self.assertRaises(tofi_host.RequestRefused):
             tofi_host.take_update_request()
+
+    def test_directory_request_is_set_aside_not_walked(self):
+        # The App owns the request directory; root must not chmod or delete a tree it built.
+        tofi_host.prepare_update_directories()
+        outside = self.root / 'outside'
+        outside.mkdir()
+        os.chmod(outside, 0o751)
+        planted = self.P.update_request_dir / 'request.json'
+        planted.mkdir()
+        os.symlink(outside, planted / 'link')
+        (planted / 'inner').mkdir()
+        os.chmod(planted / 'inner', 0o500)
+        with self.assertRaises(tofi_host.RequestRefused):
+            tofi_host.take_update_request()
+        self.assertFalse(planted.exists())
+        self.assertEqual(stat.S_IMODE(os.stat(outside).st_mode), 0o751)
+        aside = [p for p in self.P.update_request_dir.iterdir() if p.name.startswith('.rejected-')]
+        self.assertEqual(len(aside), 1)
+        self.assertEqual(stat.S_IMODE(os.stat(aside[0] / 'inner').st_mode), 0o500)
+        self.assertIsNone(tofi_host.take_update_request())
 
     def test_schema_is_exact(self):
         for bad in (request(extra='x'), {k: v for k, v in request().items() if k != 'nonce'},
