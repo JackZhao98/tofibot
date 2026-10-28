@@ -39,6 +39,7 @@
     "preview": "vite preview",
     "test:auto-review": "node scripts/test-auto-review.mjs",
     "test:computer-window": "node scripts/test-computer-window.mjs",
+    "test:ipad-computer": "node scripts/test-ipad-computer.mjs",
     "test:desktop-connect": "node scripts/test-desktop-connect.mjs",
     "test:model-catalog": "node scripts/test-model-catalog.mjs",
     "test:model-catalog-refresh": "node scripts/test-model-catalog-refresh.mjs",

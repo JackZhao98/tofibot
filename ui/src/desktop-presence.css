@@ -34,6 +34,8 @@
 .desktop-floating-shell .computer-screen-wrap{position:relative}
 /* The real desktop content uses the Lab's CRT reveal; the bezel and controls stay put. */
 html:not([data-desktop]) .desktop-live-screen .remote-desktop-surface{transform-origin:50% 50%;animation:web-desktop-boot 980ms linear both}
+/* The host moves between the widget column and the workspace (FloatingDesktop): a moved node would replay the boot. */
+.desktop-host[data-moved] .desktop-live-screen .remote-desktop-surface{animation:none}
 @keyframes web-desktop-boot{
   0%{transform:scale(0,.006);filter:brightness(3);animation-timing-function:var(--ease-settle)}
   30%{transform:scale(1,.006);filter:brightness(3)}

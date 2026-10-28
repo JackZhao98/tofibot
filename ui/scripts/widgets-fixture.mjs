@@ -49,8 +49,8 @@ export function newState() {
   return state;
 }
 
-export async function openWorkspace(browser, origin, state, { width = 1440, height = 900, theme = "light", group = false, reducedMotion = false, initScript } = {}) {
-  const context = await browser.newContext({ viewport: { width, height }, colorScheme: theme, reducedMotion: reducedMotion ? "reduce" : "no-preference" });
+export async function openWorkspace(browser, origin, state, { width = 1440, height = 900, theme = "light", group = false, reducedMotion = false, initScript, touch = false } = {}) {
+  const context = await browser.newContext({ viewport: { width, height }, colorScheme: theme, reducedMotion: reducedMotion ? "reduce" : "no-preference", ...(touch ? { hasTouch: true } : {}) });
   if (initScript) await context.addInitScript(initScript);
   const page = await context.newPage();
   const errors = [];

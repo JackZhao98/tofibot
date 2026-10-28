@@ -1,4 +1,5 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "./i18n";
 import { MOTION, EASE } from "./motion";
 import "./desktop-shell.css";
@@ -40,6 +41,30 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
 }) {
   const { t } = useTranslation("computer");
   const shellRef = useRef<HTMLDivElement>(null);
+  // The shell lives in a host element of its own, which this component moves with plain DOM calls (React never sees the move). Docked, the host sits
+  // in the widget's slot; while the window is big it is a direct child of `.workspace`, the same place the narrow-screen window has always had. A fixed
+  // dialog left inside the widget column sits under a scroll container, a clip-path / translate animation, `overflow: clip` and a drag `filter`, and
+  // in WebKit on iPad that painted nothing while the shell's scrim still took every tap. Moving the host keeps the same nodes (the live video is
+  // not remounted); `data-moved` tells the CRT boot animation not to replay.
+  const [host] = useState(() => { const element = document.createElement("div"); element.className = "desktop-host"; element.style.display = "contents"; return element; });
+  const slotRef = useRef<HTMLDivElement | null>(null);
+  const attachSlot = useCallback((slot: HTMLDivElement | null) => {
+    slotRef.current = slot;
+    if (slot) slot.appendChild(host); else host.remove();
+  }, [host]);
+  useLayoutEffect(() => {
+    const slot = slotRef.current;
+    if (!slot) return;
+    const workspace = docked && expanded ? slot.closest<HTMLElement>(".workspace") : null;
+    const target = workspace ?? slot;
+    if (host.parentNode === target) return;
+    if (workspace) {
+      // The widget keeps its place in the column while the big window is up.
+      slot.style.minHeight = `${Math.ceil(slot.getBoundingClientRect().height)}px`;
+      host.dataset.moved = "";
+    } else slot.style.minHeight = "";
+    target.appendChild(host);
+  }, [docked, expanded, host]);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -151,10 +176,11 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
     for (const item of detail.querySelectorAll<HTMLElement>(folded ? ".desktop-chin-text, .desktop-driver-switch" : ".desktop-chin")) item.animate([{ opacity: 0 }, { opacity: 1 }], { ...timing, delay: MOTION.base * 0.4, fill: "backwards" });
   }, [folded]);
 
-  return <div ref={shellRef} className={`desktop-floating-shell${expanded ? " is-expanded" : ""}${folded && docked && !expanded ? " is-folded" : ""}${small ? " is-small" : ""}${expanded && sheet ? " is-sheet" : ""}${docked ? " is-docked" : ""}`} style={small && !docked ? anchor : undefined}
+  const shell = <div ref={shellRef} className={`desktop-floating-shell${expanded ? " is-expanded" : ""}${folded && docked && !expanded ? " is-folded" : ""}${small ? " is-small" : ""}${expanded && sheet ? " is-sheet" : ""}${docked ? " is-docked" : ""}`} style={small && !docked ? anchor : undefined}
     role={expanded ? "dialog" : "group"} aria-modal={expanded || undefined} aria-label={t("desktop.title")} tabIndex={expanded ? -1 : undefined}>
     <div id={contentId} className="desktop-presence-content">
       <div className="desktop-presence-canvas">{children}</div>
     </div>
   </div>;
+  return <><div ref={attachSlot} className="desktop-host-slot" style={docked ? undefined : { display: "contents" }} />{createPortal(shell, host)}</>;
 }

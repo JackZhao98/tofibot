@@ -53,6 +53,9 @@ export async function startUi() {
 
 export async function launch() {
   const module = process.env.PLAYWRIGHT_MODULE || "/Users/jackzhao/Developer/sentiosurge/tofibot-web/node_modules/playwright/index.mjs";
-  const { chromium } = await import(pathToFileURL(module));
+  const playwright = await import(pathToFileURL(module));
+  // SURFACES_ENGINE=webkit runs the browser checks in WebKit (TOFI_TEST_WEBKIT: a WebKit executable, when the Playwright build does not match the installed one).
+  if (process.env.SURFACES_ENGINE === "webkit") return playwright.webkit.launch({ headless: true, ...(process.env.TOFI_TEST_WEBKIT ? { executablePath: process.env.TOFI_TEST_WEBKIT } : {}) });
+  const { chromium } = playwright;
   return chromium.launch({ headless: true, ...(process.env.TOFI_TEST_CHROME ? { executablePath: process.env.TOFI_TEST_CHROME } : {}) });
 }
