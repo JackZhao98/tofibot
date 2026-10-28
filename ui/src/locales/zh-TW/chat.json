@@ -40,6 +40,10 @@
     "unavailable": "檔案暫時無法使用，請重試。",
     "unsupported": "暫不支援預覽",
     "unsupported_hint": "這類檔案只能下載檢視。",
+    "upload_failed": "{{name}} 未能上傳",
+    "upload_failed_short": "未上傳",
+    "uploading": "正在上傳 {{name}}",
+    "uploading_short": "上傳中…",
     "viewer": "檔案預覽",
     "viewer_back": "返回 {{name}}",
     "viewer_close": "關閉預覽",
@@ -581,7 +585,16 @@
     "read_by": "{{names}} 已讀",
     "failed": "未傳送",
     "retry": "重試",
-    "retry_label": "重新傳送這則訊息"
+    "retry_label": "重新傳送這則訊息",
+    "retrying": "網路已恢復，正在重新傳送…",
+    "hint_offline": "目前離線。",
+    "hint_network": "連線已中斷。",
+    "hint_server": "伺服器暫時無法使用。",
+    "will_retry": "恢復連線後會自動重試一次。",
+    "edit": "編輯",
+    "edit_label": "在輸入框中編輯這則訊息",
+    "delete": "刪除",
+    "delete_label": "刪除這則未傳送的訊息"
   },
   "related": {
     "bot_conversation": "Bot 對話",

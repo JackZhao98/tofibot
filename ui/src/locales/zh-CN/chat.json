@@ -40,6 +40,10 @@
     "unavailable": "文件暂时不可用，请重试。",
     "unsupported": "暂不支持预览",
     "unsupported_hint": "这类文件只能下载查看。",
+    "upload_failed": "{{name}} 未能上传",
+    "upload_failed_short": "未上传",
+    "uploading": "正在上传 {{name}}",
+    "uploading_short": "上传中…",
     "viewer": "文件预览",
     "viewer_back": "返回 {{name}}",
     "viewer_close": "关闭预览",
@@ -581,7 +585,16 @@
     "read_by": "{{names}} 已读",
     "failed": "未发送",
     "retry": "重试",
-    "retry_label": "重新发送这条消息"
+    "retry_label": "重新发送这条消息",
+    "retrying": "网络已恢复，正在重新发送…",
+    "hint_offline": "当前离线。",
+    "hint_network": "连接已断开。",
+    "hint_server": "服务器暂时不可用。",
+    "will_retry": "恢复连接后会自动重试一次。",
+    "edit": "编辑",
+    "edit_label": "在输入框中编辑这条消息",
+    "delete": "删除",
+    "delete_label": "删除这条未发送的消息"
   },
   "related": {
     "bot_conversation": "Bot conversation",

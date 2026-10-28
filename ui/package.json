@@ -69,6 +69,7 @@
     "test:chat-switch": "node scripts/test-chat-switch.mjs",
     "test:resilience": "node scripts/test-resilience.mjs",
     "test:send-receipts": "node scripts/test-send-receipts.mjs",
+    "test:composer-resilience": "node scripts/test-composer-resilience.mjs",
     "test:chat-safari": "node scripts/test-chat-safari.mjs",
     "test:chat-bubbles": "node scripts/test-chat-bubbles.mjs",
     "test:chat-motion": "node scripts/test-chat-motion.mjs",

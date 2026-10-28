@@ -10,7 +10,7 @@ const tick = "M3 8.6l3.1 3.1L13 4.8";
 const tickPair = ["M0.6 8.8l2.9 2.9L9 5.4", "M5.6 8.8l2.9 2.9L14.2 5.4"];
 
 function Mark({ state }: { state: Receipt["state"] }) {
-  if (state === "sending") return <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><circle cx="8" cy="8" r="5.6" fill="none" stroke="currentColor" strokeWidth="1.4" /><path d="M8 4.8V8l2.2 1.4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+  if (state === "sending" || state === "retrying") return <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><circle cx="8" cy="8" r="5.6" fill="none" stroke="currentColor" strokeWidth="1.4" /><path d="M8 4.8V8l2.2 1.4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>;
   return <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">{(state === "read" ? tickPair : [tick]).map(d => <path key={d} d={d} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />)}</svg>;
 }
 
@@ -19,11 +19,22 @@ function Mark({ state }: { state: Receipt["state"] }) {
  * as a mark at its end next to the time (SendReceiptMark), and own no row of their own. The two states that must be seen without
  * asking stay on the bubble: sending (the bubble is dimmed, the words are for assistive tech) and failed (the retry line).
  */
-export function SendReceipt({ receipt, onRetry }: { receipt: Receipt; names?: string[]; group?: boolean; onRetry?: () => void }) {
+export function SendReceipt({ receipt, onRetry, onEdit, onDelete }: { receipt: Receipt; names?: string[]; group?: boolean; onRetry?: () => void; onEdit?: () => void; onDelete?: () => void }) {
   const { t } = useTranslation("chat");
   if (receipt.state === "failed") {
-    return <div className="send-receipt" data-state="failed"><button type="button" className="send-receipt-retry" title={receipt.error} aria-label={`${t("receipt.failed")}. ${t("receipt.retry_label")}`} onClick={onRetry}>{t("receipt.failed")} · {t("receipt.retry")}</button></div>;
+    // Network and server trouble say so, and promise one automatic try when the connection is back (only while that is true).
+    const hint = receipt.reason === "offline" ? t("receipt.hint_offline") : receipt.reason === "network" ? t("receipt.hint_network") : receipt.reason === "server" ? t("receipt.hint_server") : "";
+    const promise = hint && !receipt.auto && onRetry ? ` ${t("receipt.will_retry")}` : "";
+    return <div className="send-receipt is-failed" data-state="failed" data-reason={receipt.reason}>
+      {onRetry && <button type="button" className="send-receipt-retry" title={receipt.error} aria-label={`${t("receipt.failed")}. ${t("receipt.retry_label")}`} onClick={onRetry}>{t("receipt.failed")} · {t("receipt.retry")}</button>}
+      {!onRetry && <span className="send-receipt-text" title={receipt.error}>{t("receipt.failed")}</span>}
+      {onEdit && <button type="button" className="send-receipt-action send-receipt-edit" aria-label={t("receipt.edit_label")} onClick={onEdit}>{t("receipt.edit")}</button>}
+      {onDelete && <button type="button" className="send-receipt-action send-receipt-delete" aria-label={t("receipt.delete_label")} onClick={onDelete}>{t("receipt.delete")}</button>}
+      {hint && <span className="send-receipt-hint" role="status">{hint}{promise}</span>}
+    </div>;
   }
+  // Retrying is on show, not hidden: the person sees that the app is sending again by itself.
+  if (receipt.state === "retrying") return <div className="send-receipt is-retrying" data-state="retrying" role="status"><Mark state="sending" /><span>{t("receipt.retrying")}</span></div>;
   if (receipt.state === "sending") return <span className="sr-only send-receipt-status" data-state="sending" role="status">{t("receipt.sending")}</span>;
   return null;
 }

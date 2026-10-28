@@ -40,6 +40,10 @@
     "unavailable": "파일을 사용할 수 없습니다. 다시 시도하세요.",
     "unsupported": "미리보기를 지원하지 않습니다",
     "unsupported_hint": "이 형식은 다운로드만 가능합니다.",
+    "upload_failed": "{{name}}을(를) 업로드하지 못했습니다",
+    "upload_failed_short": "업로드 안 됨",
+    "uploading": "{{name}} 업로드 중",
+    "uploading_short": "업로드 중…",
     "viewer": "파일 미리보기",
     "viewer_back": "{{name}}(으)로 돌아가기",
     "viewer_close": "미리보기 닫기",
@@ -581,7 +585,16 @@
     "read_by": "읽음: {{names}}",
     "failed": "전송 안 됨",
     "retry": "다시 보내기",
-    "retry_label": "이 메시지 다시 보내기"
+    "retry_label": "이 메시지 다시 보내기",
+    "retrying": "연결이 돌아왔습니다. 다시 보내는 중…",
+    "hint_offline": "오프라인입니다.",
+    "hint_network": "연결이 끊겼습니다.",
+    "hint_server": "서버에 연결할 수 없습니다.",
+    "will_retry": "연결이 돌아오면 다시 시도합니다.",
+    "edit": "수정",
+    "edit_label": "이 메시지를 입력창에서 수정",
+    "delete": "삭제",
+    "delete_label": "전송되지 않은 이 메시지 삭제"
   },
   "related": {
     "bot_conversation": "Bot 대화",

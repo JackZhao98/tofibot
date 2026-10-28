@@ -40,6 +40,10 @@
     "unavailable": "ファイルを利用できません。もう一度お試しください。",
     "unsupported": "プレビューできません",
     "unsupported_hint": "この形式はダウンロードのみ対応しています。",
+    "upload_failed": "{{name}} をアップロードできませんでした",
+    "upload_failed_short": "未アップロード",
+    "uploading": "{{name}} をアップロード中",
+    "uploading_short": "アップロード中…",
     "viewer": "ファイルプレビュー",
     "viewer_back": "{{name}} に戻る",
     "viewer_close": "プレビューを閉じる",
@@ -581,7 +585,16 @@
     "read_by": "既読：{{names}}",
     "failed": "未送信",
     "retry": "再送",
-    "retry_label": "このメッセージを再送します"
+    "retry_label": "このメッセージを再送します",
+    "retrying": "接続が戻りました。再送しています…",
+    "hint_offline": "オフラインです。",
+    "hint_network": "接続が切れました。",
+    "hint_server": "サーバーに接続できません。",
+    "will_retry": "接続が戻ったら自動で再送します。",
+    "edit": "編集",
+    "edit_label": "このメッセージを入力欄で編集",
+    "delete": "削除",
+    "delete_label": "この未送信メッセージを削除"
   },
   "related": {
     "bot_conversation": "Bot 同士の会話",

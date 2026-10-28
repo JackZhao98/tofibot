@@ -6,12 +6,21 @@ import { CopyFeedbackIcon } from "./CopyFeedbackIcon";
 import { useTranslation } from "./i18n";
 import { FileTile } from "./FileTile";
 import { attachmentUrl, dedupeAttachments, fileKind, fileSize, isPreviewable, openFilePreview, rememberAttachments, targetOf } from "./filePreviewModel";
-import { galleryColumns, imageSize, rememberImageSize, singleBox, thumbnailUrl } from "./attachmentImages";
+import { galleryColumns, hasPreview, imageSize, rememberImageSize, singleBox, thumbnailUrl } from "./attachmentImages";
 import "./message-attachment.css";
 import { MOTION, EASE } from "./motion";
 
 const isImage = (a: Attachment) => a.mime.startsWith("image/") && a.mime !== "image/svg+xml";
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/** Optimistic send: how far the file has gone up. A real progressbar for assistive tech; the bar is a transform, never a layout change. */
+function UploadProgress({ pending, name, ring = false }: { pending: NonNullable<Attachment["pending"]>; name: string; ring?: boolean }) {
+  const { t } = useTranslation("chat");
+  const percent = Math.round(pending.progress * 100);
+  return <span className={`upload-progress${ring ? " is-overlay" : ""}${pending.failed ? " is-failed" : ""}`} role="progressbar" aria-label={t(pending.failed ? "attachment.upload_failed" : "attachment.uploading", { name })} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pending.failed ? undefined : percent}>
+    <span className="upload-progress-bar" style={{ transform: `scaleX(${pending.failed ? 1 : Math.max(.04, pending.progress)})` }} />
+  </span>;
+}
 
 /** One non-image file: the type tile, name, size and Download (or Save/Reveal in the desktop app). Opens the preview. */
 function FileCard({ attachment }: { attachment: Attachment }) {
@@ -22,6 +31,13 @@ function FileCard({ attachment }: { attachment: Attachment }) {
   const [nativeError, setNativeError] = useState("");
   const url = attachmentUrl(attachment.id);
   const kind = fileKind(attachment.name, attachment.mime);
+  if (attachment.pending) return <div className="delivered-attachment is-file is-pending">
+    <div className="attachment-file-row">
+      <FileTile name={attachment.name} kind={kind} />
+      <div className="attachment-file-open"><b className="attachment-name">{attachment.name}</b><small>{[fileSize(attachment.size), t(attachment.pending.failed ? "attachment.upload_failed_short" : "attachment.uploading_short")].join(" · ")}</small></div>
+    </div>
+    <UploadProgress pending={attachment.pending} name={attachment.name} />
+  </div>;
   async function nativeAction(action: "save" | "reveal") {
     if (busy || !window.tofiDesktop) return;
     setBusy(true); setNativeError("");
@@ -127,7 +143,11 @@ function ImageGallery({ images }: { images: Attachment[] }) {
   const columns = galleryColumns(images.length);
   const tile = (a: Attachment, index: number) => {
     if (failed.has(a.id)) return <button type="button" key={a.id} className="attachment-thumb is-failed" onClick={() => setFailed(current => { const next = new Set(current); next.delete(a.id); return next; })} aria-label={t("attachment.preview_failed")}><FileTile name={a.name} kind="image" size={32} /></button>;
-    return <button type="button" key={a.id} ref={node => { tiles.current[index] = node; }} className="attachment-thumb" onClick={() => setZoom(index)} aria-label={t("attachment.zoom_image", { name: a.name })}>
+    if (a.pending) return <div key={a.clientKey ?? a.id} className="attachment-thumb is-pending" role="img" aria-label={a.name}>
+      {hasPreview(a.id) ? <img src={thumbnailUrl(a.id)} alt="" width={box?.width ?? 160} height={box?.height ?? 160} decoding="async" draggable={false} /> : <FileTile name={a.name} kind="image" size={32} />}
+      <UploadProgress pending={a.pending} name={a.name} ring />
+    </div>;
+    return <button type="button" key={a.clientKey ?? a.id} ref={node => { tiles.current[index] = node; }} className="attachment-thumb" onClick={() => setZoom(index)} aria-label={t("attachment.zoom_image", { name: a.name })}>
       <img src={thumbnailUrl(a.id)} alt={a.name} width={box?.width ?? 160} height={box?.height ?? 160} loading="lazy" decoding="async" draggable={false}
         onLoad={event => { const img = event.currentTarget; if (!imageSize(a.id)) rememberImageSize(a.id, img.naturalWidth, img.naturalHeight); }}
         onError={() => setFailed(current => new Set(current).add(a.id))} />
@@ -147,6 +167,6 @@ export function AttachmentList({ attachments }: { attachments?: Attachment[] }) 
   const images = list.filter(isImage);
   return <>
     {images.length > 0 && <ImageGallery key="images" images={images} />}
-    {list.filter(a => !isImage(a)).map(a => <FileCard attachment={a} key={a.id} />)}
+    {list.filter(a => !isImage(a)).map(a => <FileCard attachment={a} key={a.clientKey ?? a.id} />)}
   </>;
 }

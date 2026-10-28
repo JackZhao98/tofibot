@@ -40,6 +40,10 @@
     "unavailable": "File unavailable. Try again.",
     "unsupported": "Preview not available",
     "unsupported_hint": "This file type can only be downloaded.",
+    "upload_failed": "{{name}} was not uploaded",
+    "upload_failed_short": "Not uploaded",
+    "uploading": "Uploading {{name}}",
+    "uploading_short": "Uploading…",
     "viewer": "File preview",
     "viewer_back": "Back to {{name}}",
     "viewer_close": "Close preview",
@@ -596,7 +600,16 @@
     "read_by": "Read by {{names}}",
     "failed": "Not sent",
     "retry": "Retry",
-    "retry_label": "Retry sending this message"
+    "retry_label": "Retry sending this message",
+    "retrying": "Connection is back. Sending again…",
+    "hint_offline": "You're offline.",
+    "hint_network": "Connection lost.",
+    "hint_server": "Server unavailable.",
+    "will_retry": "Will try again when you're back.",
+    "edit": "Edit",
+    "edit_label": "Edit this message in the composer",
+    "delete": "Delete",
+    "delete_label": "Delete this unsent message"
   },
   "related": {
     "bot_conversation": "Bot conversation",

@@ -54,7 +54,33 @@ export async function rememberSentImage(id: string, file: Blob): Promise<void> {
   if (local.size >= LOCAL_KEEP && first !== undefined) { URL.revokeObjectURL(local.get(first)!); local.delete(first); }
   local.set(id, URL.createObjectURL(file));
 }
-export const thumbnailUrl = (id: string) => local.get(id) ?? attachmentUrl(id);
+/** Optimistic send: a picture still on its way up shows from the file itself (object URL) under a temporary id. */
+const previews = new Map<string, string>();
+export async function registerPreview(tempId: string, file: Blob): Promise<void> {
+  if (!file.type.startsWith("image/") || file.type === "image/svg+xml" || previews.has(tempId)) return;
+  previews.set(tempId, URL.createObjectURL(file));
+  // The size is read before the bubble is drawn (capped at 120 ms) so the box is right the first time and the swap moves nothing.
+  const sized = createImageBitmap(file).then(bitmap => { sizes.set(tempId, [bitmap.width, bitmap.height]); bitmap.close(); }, () => {});
+  await Promise.race([sized, new Promise<void>(resolve => setTimeout(resolve, 120))]);
+}
+/** The upload finished: the same object URL now stands for the server id, so the thumbnail does not reload or flicker. */
+export function adoptPreview(tempId: string, id: string, file: Blob) {
+  const url = previews.get(tempId);
+  previews.delete(tempId);
+  sizes.delete(tempId);
+  if (!url) { void rememberSentImage(id, file); return; }
+  const first = local.keys().next().value;
+  if (local.size >= LOCAL_KEEP && first !== undefined) { URL.revokeObjectURL(local.get(first)!); local.delete(first); }
+  local.set(id, url);
+  void createImageBitmap(file).then(bitmap => { rememberImageSize(id, bitmap.width, bitmap.height); bitmap.close(); }, () => {});
+}
+export function dropPreview(tempId: string) {
+  const url = previews.get(tempId);
+  if (url) { URL.revokeObjectURL(url); previews.delete(tempId); }
+  sizes.delete(tempId);
+}
+export const hasPreview = (id: string) => previews.has(id);
+export const thumbnailUrl = (id: string) => previews.get(id) ?? local.get(id) ?? attachmentUrl(id);
 
 /** The box a single image takes: fitted into max x maxHeight, never below `min` on the short side. Unknown size: 4:3. */
 export function singleBox(id: string, max = 320, maxHeight = 360, min = 96): { width: number; height: number; known: boolean } {

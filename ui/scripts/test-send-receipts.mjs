@@ -340,16 +340,21 @@ for (const view of ["desktop", "phone"]) {
     assert.equal(await page.locator(".composer textarea").inputValue(), "");
     const box = await retry.boundingBox();
     assert.ok(box && box.x >= 0 && box.x + box.width <= VIEWS[view].width, "the affordance fits the width");
-    // Reconnecting never sends on its own.
-    mock.failSends = false;
+    // Reconnecting sends it again once by itself (composer resilience: the line says "Sending again"); if that fails too it stays for the person.
+    await page.evaluate(() => window.dispatchEvent(new Event("online")));
+    const until = Date.now() + 4000;
+    while (outgoing < 2 && Date.now() < until) await sleep(40);
+    assert.equal(outgoing, 2, "one automatic try when the connection came back");
+    await block(page, text).locator('.send-receipt[data-state="failed"]').waitFor({ timeout: 4000 });
     await page.evaluate(() => window.dispatchEvent(new Event("online")));
     await sleep(1200);
-    assert.equal(outgoing, 1, "no silent resend");
+    assert.equal(outgoing, 2, "no second automatic try");
     assert.equal(await stateOf(page, text), "failed");
+    mock.failSends = false;
     await shot(page, `failed-${view}`);
     await retry.click();
     await waitState(page, text, "delivered");
-    assert.equal(outgoing, 2, "one deliberate retry");
+    assert.equal(outgoing, 3, "one deliberate retry");
     assert.equal(new Set(mock.posts.map(post => post.cmid)).size, 1, "every attempt carried the same client_message_id");
     assert.equal(await block(page, text).count(), 1);
     assert.equal(mock.store.dm_a.filter(m => m.content === text).length, 1, "stored once");

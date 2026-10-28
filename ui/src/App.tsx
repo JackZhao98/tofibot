@@ -77,7 +77,6 @@ import { LoadingCat } from "./motion-lab/lib/LoadingCat";
 import { flipList } from "./motion-lab/lib/flip";
 import { flySentMessage } from "./sendFlight";
 import { FileTile } from "./FileTile";
-import { rememberSentImage } from "./attachmentImages";
 import { DeliveryNote, SendReceipt, SendReceiptMark } from "./SendReceipt";
 import { applyInbox } from "./messageDelivery";
 import { receiptFor, runsByTrigger } from "./sendReceipts";
@@ -95,6 +94,8 @@ import { useProxyChallenge } from "./ProxyChallengeSlot";
 import { shouldShowReplyQuote } from "./replyQuote";
 import { buildRetryFamilies, indexMessages, isTerminalRun, retryFamilyAnchor } from "./runFamily";
 import { composerClientMessageId, composerDraftMatchesMessage, composerMessageContent, composerMessageSignature, type ComposerReply } from "./composerDraft";
+import { failReason, outboxStorageKey, readOutbox, reconcileOutbox, retryable, writeOutbox, type FailReason, type OutboxAttachment, type OutboxEntry } from "./outbox";
+import { adoptPreview, dropPreview, registerPreview } from "./attachmentImages";
 import { useDictation } from "./useDictation";
 import { useSmoothStreamText } from "./useSmoothStreamText";
 import { observeVisualViewport, visualViewportMetrics } from "./visualViewport";
@@ -185,19 +186,23 @@ type ComposerDraft = {
   reply?: ComposerReply;
   pending?: { signature: string; id: string };
 };
+/** One outgoing message with everything a (re)send needs. `attachments[].file` is present until the upload finished or the page reloaded. */
+type SendPayload = { conversationId: string; content: string; plain: string; reply?: ComposerReply; attachments: ComposerAttachment[]; createdAt: string; inFlight: boolean; auto: boolean };
 type StoredComposerDraft = Omit<ComposerDraft, "attachments"> & { attachments: Omit<ComposerAttachment, "file">[] };
 type ComposerDrafts = Record<string, ComposerDraft>;
 
 const emptyComposerDraft = (): ComposerDraft => ({ content: "", attachments: [] });
 
-function composerDraftStorageKey(instanceId: string) {
-  return `tofi:composer-drafts:${window.location.origin}:${instanceId}`;
+/** Per server instance and per owner: a shared browser never shows one person's unsent text to the next. */
+function composerDraftStorageKey(instanceId: string, ownerId?: string) {
+  return `tofi:composer-drafts:${window.location.origin}:${instanceId}${ownerId ? `:${ownerId}` : ""}`;
 }
 
 function readComposerDrafts(key: string): ComposerDrafts {
   try {
     const nativeDrafts = isDesktop ? desktopState().drafts : undefined;
-    const raw = nativeDrafts ? JSON.stringify(nativeDrafts) : sessionStorage.getItem(key);
+    // Drafts live in localStorage (they outlive the tab); sessionStorage is read once for drafts saved by an earlier version.
+    const raw = nativeDrafts ? JSON.stringify(nativeDrafts) : localStorage.getItem(key) ?? sessionStorage.getItem(key);
     if (!raw) return {};
     const parsed = JSON.parse(raw) as Record<string, StoredComposerDraft>;
     if (!parsed || typeof parsed !== "object") return {};
@@ -215,7 +220,10 @@ function readComposerDrafts(key: string): ComposerDrafts {
 function writeComposerDrafts(key: string, drafts: ComposerDrafts) {
   try {
     const stored: Record<string, StoredComposerDraft> = Object.fromEntries(Object.entries(drafts).map(([id, draft]) => [id, { content: draft.content, reply: draft.reply, pending: draft.pending, attachments: draft.attachments.map(({ file: _file, ...attachment }) => attachment) }]));
-    sessionStorage.setItem(key, JSON.stringify(stored));
+    // Empty drafts are not stored at all; with none left the key goes (and the old per-tab copy, so it cannot come back).
+    const kept = Object.fromEntries(Object.entries(stored).filter(([, draft]) => draft.content || draft.attachments.length || draft.reply));
+    if (Object.keys(kept).length) localStorage.setItem(key, JSON.stringify(kept)); else localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
     updateDesktopState({ drafts: stored });
   } catch {
     // The in-memory draft remains authoritative when storage is unavailable.
@@ -529,8 +537,12 @@ function Workspace() {
   const [teamBoardOpen, setTeamBoardOpen] = useState(false);
   useEffect(() => { setTeamBoardOpen(false); }, [activeId]);
   const arrivalIDs = useRef(new Set<string>());
-  /** What each unacknowledged outgoing message needs to be sent again: its text and uploaded attachment ids. In memory only. */
-  const sendPayloads = useRef(new Map<string, { conversationId: string; content: string; attachmentIds: string[] }>());
+  /** What each unacknowledged outgoing message needs to go out again, files included (in memory; the outbox keeps the rest on disk). */
+  const sendPayloads = useRef(new Map<string, SendPayload>());
+  /** Every message the server has not confirmed, mirrored to localStorage so a failed one survives a reload (outbox.ts). */
+  const outbox = useRef<OutboxEntry[]>([]);
+  const outboxKey = useRef<string | null>(null);
+  const [outboxVersion, setOutboxVersion] = useState(0);
   const reactionTokens = useRef(new Map<string, number>());
   /** Ids that appeared as a streaming draft: their text was already read in place, so the saved message must not replay an arrival. */
   const streamedIDs = useRef(new Set<string>());
@@ -539,6 +551,8 @@ function Workspace() {
   const messageListRef = useRef<HTMLDivElement | null>(null);
   // Group chats: avatar and name open a sender group once; later units from the same Bot only indent.
   const [messageRecords, setMessages] = useState<Message[]>([]);
+  const messageRecordsRef = useRef(messageRecords);
+  messageRecordsRef.current = messageRecords;
   const [drafts, setDraftsState] = useState<Record<string, StreamDraft>>({});
   // The conversation whose whole loaded page is drawn. A switch draws the newest blocks first and the rest right after.
   const [fullTimelineFor, setFullTimelineFor] = useState<string | null>(null);
@@ -834,8 +848,11 @@ function Workspace() {
     const timeout = window.setTimeout(() => controller.abort(), 6_000);
     api.serverInfo(controller.signal).then((info) => {
       if (!alive || !info.instance_id) return;
-      const key = composerDraftStorageKey(info.instance_id);
+      const key = composerDraftStorageKey(info.instance_id, accountId);
       composerStorageKey.current = key;
+      outboxKey.current = outboxStorageKey(window.location.origin, info.instance_id, accountId);
+      outbox.current = readOutbox(outboxKey.current);
+      setOutboxVersion(version => version + 1);
       const stored = readComposerDrafts(key);
       setComposerDrafts((current) => {
         const merged = { ...stored, ...current };
@@ -1582,6 +1599,11 @@ function Workspace() {
   }, []);
 
   const upsertMessage = useCallback((next: Message) => {
+    // The server holds it (it arrived over the stream): nothing is left to resend, even if the POST answer was lost.
+    if (next.role === "user" && next.client_message_id && !sendPayloads.current.get(next.client_message_id)?.inFlight) {
+      sendPayloads.current.delete(next.client_message_id);
+      if (outbox.current.some(entry => entry.clientMessageId === next.client_message_id)) { outbox.current = outbox.current.filter(entry => entry.clientMessageId !== next.client_message_id); if (outboxKey.current) writeOutbox(outboxKey.current, outbox.current); }
+    }
     setMessages((current) => {
       // A person's own message arriving over the stream before the POST answers takes the place of its optimistic copy.
       const byId = new Map(current.filter((item) => !(item.local && next.client_message_id && item.client_message_id === next.client_message_id)).map((item) => [item.id, item]));
@@ -1982,14 +2004,45 @@ function Workspace() {
     if (cached) snapshotCache.current.set(conversationId, { ...cached, messages: changeMessages ? changeMessages(cached.messages) : cached.messages, runs: changeRuns ? changeRuns(cached.runs) : cached.runs });
   }
 
-  /** Sends (or re-sends) one stored outgoing message. The same client_message_id on every attempt makes a retry safe. */
-  async function deliver(clientMessageId: string) {
+  const saveOutbox = () => { if (outboxKey.current) writeOutbox(outboxKey.current, outbox.current); };
+  const outboxPut = (entry: OutboxEntry) => { outbox.current = [...outbox.current.filter(item => item.clientMessageId !== entry.clientMessageId), entry]; saveOutbox(); };
+  const outboxPatch = (id: string, patch: Partial<OutboxEntry>) => { outbox.current = outbox.current.map(item => item.clientMessageId === id ? { ...item, ...patch } : item); saveOutbox(); };
+  const outboxDrop = (id: string) => { if (!outbox.current.some(item => item.clientMessageId === id)) return; outbox.current = outbox.current.filter(item => item.clientMessageId !== id); saveOutbox(); };
+  const setLocalState = (conversationId: string, clientMessageId: string, local: NonNullable<Message["local"]>, patchAttachment?: (a: Attachment) => Attachment) =>
+    patchConversation(conversationId, list => list.map(item => item.local && item.client_message_id === clientMessageId ? { ...item, local, ...(patchAttachment && item.attachments ? { attachments: item.attachments.map(patchAttachment) } : {}) } : item));
+
+  /**
+   * Sends (or re-sends) one outgoing message: uploads the files that are not up yet (progress on their tiles), then posts the
+   * message. The same client_message_id on every attempt makes a retry safe: the server stores it once and replays its answer.
+   */
+  async function deliver(clientMessageId: string, auto = false): Promise<void> {
     const payload = sendPayloads.current.get(clientMessageId);
-    if (!payload) return;
+    if (!payload || payload.inFlight) return;
+    payload.inFlight = true;
+    payload.auto = payload.auto || auto;
     const { conversationId } = payload;
     try {
-      const result = await api.sendMessage(conversationId, { content: payload.content, client_message_id: clientMessageId, attachment_ids: payload.attachmentIds });
+      for (const attachment of payload.attachments) {
+        if (attachment.id) continue;
+        const file = attachment.file;
+        if (!file) throw new Error(i18n.t("chat:composer.reselect_file", { name: attachment.name }));
+        const temp = `local:${attachment.key}`;
+        let shown = 0, shownAt = 0;
+        const uploaded = await api.uploadAttachment(conversationId, file, fraction => {
+          // At most ~12 repaints a second, and only for a visible step: progress is a hint, not a stream of renders.
+          const now = performance.now();
+          if (fraction < 1 && (fraction - shown < .03 || now - shownAt < 80)) return;
+          shown = fraction; shownAt = now;
+          patchConversation(conversationId, list => list.map(item => item.local && item.client_message_id === clientMessageId && item.attachments ? { ...item, attachments: item.attachments.map(a => a.clientKey === attachment.key && a.pending ? { ...a, pending: { progress: fraction } } : a) } : item));
+        });
+        attachment.id = uploaded.id;
+        adoptPreview(temp, uploaded.id, file);
+        outboxPatch(clientMessageId, { attachments: payload.attachments.map(({ file: _file, ...rest }) => rest) });
+        patchConversation(conversationId, list => list.map(item => item.local && item.client_message_id === clientMessageId && item.attachments ? { ...item, attachments: item.attachments.map(a => a.clientKey === attachment.key ? { ...uploaded, clientKey: attachment.key } : a) } : item));
+      }
+      const result = await api.sendMessage(conversationId, { content: payload.content, client_message_id: clientMessageId, attachment_ids: payload.attachments.flatMap(a => a.id ? [a.id] : []) });
       sendPayloads.current.delete(clientMessageId);
+      outboxDrop(clientMessageId);
       // This response is known human ingress, even if its run event has not arrived yet.
       const sentAt = Date.parse(result.message.created_at);
       if (Number.isFinite(sentAt)) setLastUserActivity(current => ({ ...current, [conversationId]: Math.max(current[conversationId] ?? 0, sentAt) }));
@@ -2000,30 +2053,114 @@ function Workspace() {
       updateConversationPreview(result.message);
       if (activeIdRef.current === conversationId) setError("");
     } catch (cause) {
-      const reason = errorText(cause);
-      patchConversation(conversationId, list => list.map(item => item.local && item.client_message_id === clientMessageId ? { ...item, local: { state: "failed", error: reason } } : item));
+      const reason: FailReason = failReason(cause, navigator.onLine);
+      const text = errorText(cause);
+      outboxPatch(clientMessageId, { error: text, reason, attachments: payload.attachments.map(({ file: _file, ...rest }) => rest) });
+      setLocalState(conversationId, clientMessageId, { state: "failed", error: text, reason, auto: payload.auto || !retryable(reason) }, a => a.pending ? { ...a, pending: { progress: 0, failed: true } } : a);
+    } finally {
+      payload.inFlight = false;
     }
   }
 
-  /** Tapping "Not sent": the same message goes out again under the same id, with nothing retyped. */
-  function retrySend(clientMessageId: string) {
-    const payload = sendPayloads.current.get(clientMessageId);
-    if (!payload) return;
-    patchConversation(payload.conversationId, list => list.map(item => item.local && item.client_message_id === clientMessageId ? { ...item, local: { state: "sending" } } : item));
-    void deliver(clientMessageId);
+  /** The payload of a message restored after a reload: usable only if every file is already on the server. */
+  function restorePayload(clientMessageId: string): SendPayload | undefined {
+    const entry = outbox.current.find(item => item.clientMessageId === clientMessageId);
+    if (!entry || entry.attachments.some(a => !a.id)) return undefined;
+    const payload: SendPayload = { conversationId: entry.conversationId, content: entry.content, plain: entry.plain, reply: entry.reply, attachments: entry.attachments.map(a => ({ ...a })), createdAt: entry.createdAt, inFlight: false, auto: true };
+    sendPayloads.current.set(clientMessageId, payload);
+    return payload;
   }
+  const canRetrySend = (clientMessageId: string) => sendPayloads.current.has(clientMessageId) || Boolean(outbox.current.find(item => item.clientMessageId === clientMessageId) && !outbox.current.find(item => item.clientMessageId === clientMessageId)!.attachments.some(a => !a.id));
+
+  /** Retry on the bubble: the same message goes out again under the same id, with nothing retyped. */
+  function retrySend(clientMessageId: string, auto = false) {
+    const payload = sendPayloads.current.get(clientMessageId) ?? restorePayload(clientMessageId);
+    if (!payload || payload.inFlight) return Promise.resolve();
+    setLocalState(payload.conversationId, clientMessageId, { state: auto ? "retrying" : "sending", auto: payload.auto || auto }, a => a.pending ? { ...a, pending: { progress: 0 } } : a);
+    return deliver(clientMessageId, auto);
+  }
+
+  /** Delete on a failed bubble: the message goes away for good, here and in the outbox. */
+  function deleteUnsent(clientMessageId: string) {
+    const payload = sendPayloads.current.get(clientMessageId);
+    const entry = outbox.current.find(item => item.clientMessageId === clientMessageId);
+    const conversationId = payload?.conversationId ?? entry?.conversationId;
+    if (!conversationId || payload?.inFlight) return;
+    for (const attachment of payload?.attachments ?? entry?.attachments ?? []) dropPreview(`local:${attachment.key}`);
+    sendPayloads.current.delete(clientMessageId);
+    outboxDrop(clientMessageId);
+    patchConversation(conversationId, list => list.filter(item => !(item.local && item.client_message_id === clientMessageId)));
+  }
+
+  /** Edit on a failed bubble: the text, reply and files go back to the composer (ahead of what is typed there) and the bubble goes. */
+  function editUnsent(clientMessageId: string) {
+    const payload = sendPayloads.current.get(clientMessageId);
+    const entry = outbox.current.find(item => item.clientMessageId === clientMessageId);
+    const source = payload ?? (entry && { conversationId: entry.conversationId, plain: entry.plain, reply: entry.reply, attachments: entry.attachments as ComposerAttachment[], inFlight: false });
+    if (!source || source.inFlight) return;
+    const { conversationId } = source;
+    updateComposerDraft(conversationId, current => ({
+      ...current,
+      content: current.content.trim() ? `${source.plain}\n${current.content}` : source.plain,
+      reply: current.reply ?? source.reply,
+      attachments: [...source.attachments, ...current.attachments.filter(a => !source.attachments.some(b => b.key === a.key))].slice(0, 8).map(a => ({ ...a })),
+      pending: undefined,
+    }));
+    for (const attachment of source.attachments) dropPreview(`local:${attachment.key}`);
+    sendPayloads.current.delete(clientMessageId);
+    outboxDrop(clientMessageId);
+    patchConversation(conversationId, list => list.filter(item => !(item.local && item.client_message_id === clientMessageId)));
+    requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus());
+  }
+
+  /**
+   * The connection is back (browser online event, or the live stream reconnected): each message that failed for a reason that
+   * can pass (offline, network, 5xx) is sent again once, in the order it was written, and says so on its bubble ("Sending again").
+   * A refusal (4xx) and a message restored after a reload are never sent by themselves.
+   */
+  const autoRetry = useRef<() => void>(() => {});
+  autoRetry.current = () => {
+    const failed = outbox.current
+      .filter(entry => entry.reason && retryable(entry.reason) && sendPayloads.current.get(entry.clientMessageId)?.auto === false)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    if (!failed.length) return;
+    void (async () => { for (const entry of failed) await retrySend(entry.clientMessageId, true); })();
+  };
+  useEffect(() => {
+    const online = () => autoRetry.current();
+    window.addEventListener("online", online);
+    return () => window.removeEventListener("online", online);
+  }, []);
+  const wasConnected = useRef(true);
+  useEffect(() => {
+    if (streamConnected && !wasConnected.current) autoRetry.current();
+    wasConnected.current = streamConnected;
+  }, [streamConnected]);
+  // Messages that were still unsent when the page closed come back as failed bubbles, once their conversation is on screen.
+  useEffect(() => {
+    if (!outboxKey.current || !activeId || loadedId !== activeId || !outbox.current.length) return;
+    const present = new Set(messageRecordsRef.current.filter(item => item.local).map(item => item.client_message_id ?? ""));
+    const { add, keep, done } = reconcileOutbox(outbox.current, activeId, messageRecordsRef.current, present);
+    if (done.length) { outbox.current = keep; saveOutbox(); }
+    if (add.length) setMessages(current => [...current, ...add.filter(item => !current.some(row => row.client_message_id === item.client_message_id))]);
+  }, [activeId, loadedId, outboxVersion]);
 
   /**
    * The bubble and the cleared composer land in one commit, then the request goes out in the background. The returned
    * promise settles as soon as the message is on screen: the person may type the next one while this one is in flight.
+   * Files are on the bubble at once (local preview, progress) and upload in the background; the composer does not wait.
    */
-  async function send(content: string, clientMessageId: string, attachmentIds: string[] = [], draftSignature = "", flightOrigin?: DOMRect, attachments: Attachment[] = []): Promise<boolean> {
-    if (!active || (!content.trim() && !attachmentIds.length)) return false;
+  async function send(content: string, clientMessageId: string, files: ComposerAttachment[] = [], draftSignature = "", flightOrigin?: DOMRect, plain = content, reply?: ComposerReply): Promise<boolean> {
+    if (!active || (!content.trim() && !files.length)) return false;
     const conversationId = active.id;
     const text = content.trim();
-    sendPayloads.current.set(clientMessageId, { conversationId, content: text, attachmentIds });
-    const key = `cm:${clientMessageId}`;
     const stamp = new Date().toISOString();
+    const attachments = files.map(file => ({ ...file }));
+    sendPayloads.current.set(clientMessageId, { conversationId, content: text, plain, reply, attachments, createdAt: stamp, inFlight: false, auto: false });
+    outboxPut({ clientMessageId, conversationId, content: text, plain, reply, attachments: attachments.map(({ file: _file, ...rest }) => rest), createdAt: stamp });
+    await Promise.all(attachments.map(file => file.file && !file.id ? registerPreview(`local:${file.key}`, file.file) : undefined));
+    const shown: Attachment[] = attachments.map(file => ({ id: file.id ?? `local:${file.key}`, conversation_id: conversationId, name: file.name, mime: file.type, size: file.size, created_at: stamp, clientKey: file.key, ...(file.id ? {} : { pending: { progress: 0 } }) }));
+    const key = `cm:${clientMessageId}`;
     // Clear only the exact source draft that was sent.
     const clearDraft = () => { if (draftSignature) setComposerDrafts((current) => {
       const source = current[conversationId];
@@ -2035,7 +2172,7 @@ function Workspace() {
     const addLocal = (list: Message[]) => {
       if (list.some(item => item.client_message_id === clientMessageId)) return list.map(item => item.local && item.client_message_id === clientMessageId ? { ...item, local: { state: "sending" as const } } : item);
       const seq = list.reduce((max, item) => item.local ? max : Math.max(max, item.seq), 0) + 1;
-      return [...list, { id: `local:${clientMessageId}`, conversation_id: conversationId, seq, role: "user" as const, content: text, created_at: stamp, client_message_id: clientMessageId, attachments: attachments.length ? attachments : undefined, local: { state: "sending" as const } }];
+      return [...list, { id: `local:${clientMessageId}`, conversation_id: conversationId, seq, role: "user" as const, content: text, created_at: stamp, client_message_id: clientMessageId, attachments: shown.length ? shown : undefined, local: { state: "sending" as const } }];
     };
     arrivalIDs.current.add(key);
     const apply = () => { clearDraft(); patchConversation(conversationId, addLocal); };
@@ -2476,7 +2613,9 @@ function Workspace() {
       updateComposerDraft(active.id, current => ({ ...current, reply: { id: message.id, name: message.role === "user" ? t("message.you") : message.sender_bot_name ?? (message.sender_bot_id ? botById.get(message.sender_bot_id)?.name : undefined) ?? "Bot", excerpt: previewText(readReplyMarker(message.content).body) || t("message.attachment") } }));
       document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus();
     },
-    retrySend: clientMessageId => retrySend(clientMessageId),
+    retrySend: clientMessageId => void retrySend(clientMessageId),
+    editUnsent: clientMessageId => editUnsent(clientMessageId),
+    deleteUnsent: clientMessageId => deleteUnsent(clientMessageId),
     retryRun: runId => retryRun(runId),
     loadDetails: (runId, offset) => loadToolDetails(runId, offset),
     retrySummary: runId => retryToolSummary(runId),
@@ -2502,7 +2641,7 @@ function Workspace() {
   };
   const rowHandlers = useMemo<RowHandlers>(() => {
     const call = <K extends keyof RowHandlers>(key: K) => ((...args: unknown[]) => (rowApi.current[key] as (...a: unknown[]) => unknown)(...args)) as unknown as RowHandlers[K];
-    return { openMenu: call("openMenu"), closeMenu: call("closeMenu"), hostPointerDown: call("hostPointerDown"), hostClick: call("hostClick"), react: call("react"), toggleActivity: call("toggleActivity"), reply: call("reply"), retrySend: call("retrySend"), retryRun: call("retryRun"), loadDetails: call("loadDetails"), retrySummary: call("retrySummary"), navigate: call("navigate"), openRelated: call("openRelated"), draftReply: call("draftReply"), mention: call("mention"), setReaction: call("setReaction") };
+    return { openMenu: call("openMenu"), closeMenu: call("closeMenu"), hostPointerDown: call("hostPointerDown"), hostClick: call("hostClick"), react: call("react"), toggleActivity: call("toggleActivity"), reply: call("reply"), retrySend: call("retrySend"), editUnsent: call("editUnsent"), deleteUnsent: call("deleteUnsent"), retryRun: call("retryRun"), loadDetails: call("loadDetails"), retrySummary: call("retrySummary"), navigate: call("navigate"), openRelated: call("openRelated"), draftReply: call("draftReply"), mention: call("mention"), setReaction: call("setReaction") };
   }, []);
   // Sender marks change the gaps between rows after the scroll position was set: the position is taken again once they are in.
   useLayoutEffect(() => { markSenderGroups(messageListRef.current); viewport.reposition(); }, [viewport.reposition, conversationItems, timelineFrom, taskOwners, toolTimeline, pendingRuns, drafts, loadingMessages, active?.id, active?.kind, active?.archived, teamBoardOpen, viewport.unreadSeq, error, historyError, hasMore, runs, toolSummaryAnchors, toolSummaryErrorAnchors, toolSummaryLoadingAnchors, toolDetailState, toolSummaryState, loadedToolActivities, terminalToolSummaries, questions.items, mailDrafts.items, activityView, bots, conversations, messageRecords]);
@@ -2700,7 +2839,7 @@ function Workspace() {
                         noticeTargetAvailable: !message.notice || conversations.some(item => item.id === message.notice?.target_conversation_id),
                         allowOpenDM: active.kind === "group" || message.kind === "forward_result",
                         canDraftReply: !active.archived && !isDesktop && message.card?.type === "mail", canMention: !active.archived,
-                        receipt: receiptState ?? undefined, receiptNames, canRetryReceipt: Boolean(message.client_message_id),
+                        receipt: receiptState ?? undefined, receiptNames, canRetryReceipt: Boolean(message.local && message.client_message_id && canRetrySend(message.client_message_id)),
                         hasBar, copyText, activityRunId, activityToggle: Boolean(activityRunId && !showActivity), activityOpen: activityRunId ? revealedRuns.has(activityRunId) : false, canReply: !active.archived,
                         botNames, menuPosition: reactionMenu?.messageId === message.id ? reactionMenu : null,
                         ownerNodes: ownersHere.length ? ownersHere.map(renderTaskOwner) : undefined,
@@ -2863,7 +3002,7 @@ export function MessageBubble({ receipt, message, replyTarget, replyTargetName, 
   const hasAttachments = Boolean(message.attachments?.length);
   const mediaOnly = isUser && hasAttachments && !body.trim();
   const userAttachments = isUser && hasAttachments ? <div className="message-attachments"><AttachmentList attachments={message.attachments} /></div> : null;
-  return <article data-sender={grouped ? message.sender_bot_id : undefined} data-from={isUser ? "user" : message.sender_bot_id || "bot"} data-at={message.created_at} className={`message ${isUser ? "message-user" : "message-bot"}${message.local?.state === "sending" ? " is-sending" : ""}${mediaOnly ? " is-media-only" : ""}${grouped ? " is-group" : !isUser ? " is-dm" : ""} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}><div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}><div className={`message-meta ${hideMeta ? "compact" : ""}`}>{scheduled && <span>{t("message.scheduled")}</span>}{showIdentity && !isUser && (!compact || showAvatar) && <strong>{label}</strong>}</div>{(toolsRunning || !isDesktop) && toolRow}{replyTarget && <button type="button" className="message-reply-quote" aria-label={t("message.jump_to_reply", { name: replyTargetName ?? t("message.original") })} onClick={() => jumpToMessage(document.querySelector<HTMLElement>(`[data-message-id="${replyTarget.id}"]`))}><span className="message-reply-author">{t("message.reply_to", { name: replyTargetName ?? t("message.original") })}</span><span className="message-reply-excerpt">{previewText(readReplyMarker(replyTarget.content).body) || t("message.attachment")}</span></button>}{userAttachments}{!mediaOnly && <div className="message-content" ref={answerRef}>{showAvatar && !isUser && <div className="sender-avatar">{sender ? <BotIdentityCard bot={sender} onMention={onMention ? () => onMention(sender) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(sender.dm_conversation_id) : undefined}><Avatar label={label} id={sender.id} mini /></BotIdentityCard> : <Avatar label={label} id={message.sender_bot_id ?? "bot"} mini />}</div>}{<SmoothStreamMarkdown content={body} mention={inlineMention} active={draft !== undefined && !isDesktop} streaming={draft !== undefined} />}{!isUser && <AttachmentList attachments={message.attachments} />}{draft !== undefined && isDesktop && <span className="typing-cursor" />}</div>}{receipt}{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
+  return <article data-sender={grouped ? message.sender_bot_id : undefined} data-from={isUser ? "user" : message.sender_bot_id || "bot"} data-at={message.created_at} className={`message ${isUser ? "message-user" : "message-bot"}${message.local?.state === "sending" || message.local?.state === "retrying" ? " is-sending" : ""}${mediaOnly ? " is-media-only" : ""}${grouped ? " is-group" : !isUser ? " is-dm" : ""} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}><div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}><div className={`message-meta ${hideMeta ? "compact" : ""}`}>{scheduled && <span>{t("message.scheduled")}</span>}{showIdentity && !isUser && (!compact || showAvatar) && <strong>{label}</strong>}</div>{(toolsRunning || !isDesktop) && toolRow}{replyTarget && <button type="button" className="message-reply-quote" aria-label={t("message.jump_to_reply", { name: replyTargetName ?? t("message.original") })} onClick={() => jumpToMessage(document.querySelector<HTMLElement>(`[data-message-id="${replyTarget.id}"]`))}><span className="message-reply-author">{t("message.reply_to", { name: replyTargetName ?? t("message.original") })}</span><span className="message-reply-excerpt">{previewText(readReplyMarker(replyTarget.content).body) || t("message.attachment")}</span></button>}{userAttachments}{!mediaOnly && <div className="message-content" ref={answerRef}>{showAvatar && !isUser && <div className="sender-avatar">{sender ? <BotIdentityCard bot={sender} onMention={onMention ? () => onMention(sender) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(sender.dm_conversation_id) : undefined}><Avatar label={label} id={sender.id} mini /></BotIdentityCard> : <Avatar label={label} id={message.sender_bot_id ?? "bot"} mini />}</div>}{<SmoothStreamMarkdown content={body} mention={inlineMention} active={draft !== undefined && !isDesktop} streaming={draft !== undefined} />}{!isUser && <AttachmentList attachments={message.attachments} />}{draft !== undefined && isDesktop && <span className="typing-cursor" />}</div>}{receipt}{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
 }
 
 /** Everything one timeline row draws, derived by the workspace. Plain data only: the row is skipped when none of it changed. */
@@ -2896,6 +3035,8 @@ interface RowHandlers {
   toggleActivity: (runId: string) => void;
   reply: (message: Message) => void;
   retrySend: (clientMessageId: string) => void;
+  editUnsent: (clientMessageId: string) => void;
+  deleteUnsent: (clientMessageId: string) => void;
   retryRun: (runId: string) => Promise<void>;
   loadDetails: (runId: string, offset: number) => Promise<void>;
   retrySummary: (runId: string) => void;
@@ -2916,7 +3057,7 @@ const MessageRow = memo(function MessageRow({ model: m, h, stream }: { model: Ro
   const message = useMemo(() => m.isStub && live !== undefined ? { ...m.message, content: live } : m.message, [m.message, m.isStub, live]);
   const draft = m.drafting ? live ?? "" : undefined;
   const tools = m.processTools ? <ToolActivityList activities={m.processTools} progress={m.processProgress} summaries={m.processSummaries} summaryErrors={m.processSummaryErrors} summaryLoading={m.processSummaryLoading} details={m.toolLists!.details} onLoadDetails={h.loadDetails} onRetrySummary={h.retrySummary} botById={m.toolLists!.botById} activeRunIds={m.toolLists!.activeRunIds} /> : undefined;
-  const receipt = m.receipt && (m.receipt.state === "failed" || m.receipt.state === "sending") ? <SendReceipt receipt={m.receipt} group={m.isGroup} names={m.receiptNames ?? []} onRetry={m.canRetryReceipt ? () => h.retrySend(message.client_message_id!) : undefined} /> : message.delivery ? <DeliveryNote state={message.delivery} /> : undefined;
+  const receipt = m.receipt && (m.receipt.state === "failed" || m.receipt.state === "sending" || m.receipt.state === "retrying") ? <SendReceipt receipt={m.receipt} group={m.isGroup} names={m.receiptNames ?? []} onRetry={m.canRetryReceipt ? () => h.retrySend(message.client_message_id!) : undefined} onEdit={() => h.editUnsent(message.client_message_id!)} onDelete={() => h.deleteUnsent(message.client_message_id!)} /> : message.delivery ? <DeliveryNote state={message.delivery} /> : undefined;
   const mark = m.receipt && (m.receipt.state === "delivered" || m.receipt.state === "read") ? { state: m.receipt.state, names: m.receiptNames ?? [], group: m.isGroup } : undefined;
   const actions = m.hasBar ? <MessageActionsSlot id={message.id}><MessageHoverActions message={message} timezone={m.timezone} copyText={m.copyText} mark={mark}
       onReact={anchor => h.react(message.id, anchor)}
@@ -3326,11 +3467,10 @@ function ComposerChipTile({ attachment }: { attachment: { name: string; type: st
   return <span className="composer-attachment-type" aria-hidden="true"><FileTile name={attachment.name} kind={kind} thumb={thumb} size={28} /></span>;
 }
 
-function Composer({ workStatus, activeRun, allRuns, stepRunIds, latestReplyId, onRunsStopped, onStopError, avatarMention, conversation, bots, draft, onDraftChange: updateDraftFor, onSend, onSendStart, onSent, modelConfigured, onConnectModel, draftReady, readOnly = false }: { workStatus: React.ReactNode; activeRun?: Run; /** Every run still working in this conversation (several Bots can work in a group). */ allRuns: Run[]; stepRunIds: string[]; latestReplyId?: string; onRunsStopped: (runs: Run[]) => void; onStopError: (message: string) => void; avatarMention: { name: string; conversationId: string; nonce: number } | null; conversation: Conversation; bots: Bot[]; draft: ComposerDraft; onDraftChange: (conversationId: string, update: (draft: ComposerDraft) => ComposerDraft) => void; onSend: (content: string, clientMessageId: string, attachmentIds?: string[], draftSignature?: string, flightOrigin?: DOMRect, attachments?: Attachment[]) => Promise<boolean>; onSendStart?: () => void; onSent: () => void; modelConfigured: boolean; onConnectModel: () => void; draftReady: boolean; readOnly?: boolean }) {
+function Composer({ workStatus, activeRun, allRuns, stepRunIds, latestReplyId, onRunsStopped, onStopError, avatarMention, conversation, bots, draft, onDraftChange: updateDraftFor, onSend, onSendStart, onSent, modelConfigured, onConnectModel, draftReady, readOnly = false }: { workStatus: React.ReactNode; activeRun?: Run; /** Every run still working in this conversation (several Bots can work in a group). */ allRuns: Run[]; stepRunIds: string[]; latestReplyId?: string; onRunsStopped: (runs: Run[]) => void; onStopError: (message: string) => void; avatarMention: { name: string; conversationId: string; nonce: number } | null; conversation: Conversation; bots: Bot[]; draft: ComposerDraft; onDraftChange: (conversationId: string, update: (draft: ComposerDraft) => ComposerDraft) => void; onSend: (content: string, clientMessageId: string, files?: ComposerAttachment[], draftSignature?: string, flightOrigin?: DOMRect, plain?: string, reply?: ComposerReply) => Promise<boolean>; onSendStart?: () => void; onSent: () => void; modelConfigured: boolean; onConnectModel: () => void; draftReady: boolean; readOnly?: boolean }) {
   const { t } = useTranslation("chat");
   const [sending, setSending] = useState(false);
   const [fileError, setFileError] = useState("");
-  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const dropOrigin = useRef<{ x: number; y: number; name: string } | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -3530,37 +3670,17 @@ function Composer({ workStatus, activeRun, allRuns, stepRunIds, latestReplyId, o
     const draftContent = composerMessageContent(content, reply);
     const signature = composerMessageSignature(content, attachments, reply);
     const clientMessageId = composerClientMessageId(signature, draft.pending, messageId);
+    // A file restored after a reload has lost its bytes: say which one to pick again, before anything leaves.
+    const lost = attachments.find((attachment) => !attachment.id && !attachment.file);
+    if (lost) { setFileError(t("composer.reselect_file", { name: lost.name })); return; }
     flushContent();
     // The list is at the newest message before anything else happens; the bubble then arrives into view.
     onSendStart?.();
     onDraftChange((current) => ({ ...current, pending: { signature, id: clientMessageId } }));
     setSending(true);
-    const attachmentIds: string[] = [];
-    const sentAttachments: Attachment[] = [];
-    try {
-      for (const attachment of attachments) {
-        if (!isCurrent()) return;
-        let id = attachment.id;
-        let uploaded: Attachment | undefined;
-        if (!id) {
-          if (!attachment.file) throw new Error(t("composer.reselect_file", { name: attachment.name }));
-          setUploadingKey(attachment.key);
-          uploaded = await api.uploadAttachment(conversationId, attachment.file);
-          id = uploaded.id;
-          if (isCurrent()) setUploadingKey(null);
-          onDraftChange((current) => ({ ...current, attachments: current.attachments.map((item) => item.key === attachment.key ? { ...item, id } : item) }));
-        }
-        if (attachment.file) await rememberSentImage(id, attachment.file);
-        attachmentIds.push(id);
-        sentAttachments.push(uploaded ?? { id, conversation_id: conversationId, name: attachment.name, mime: attachment.type, size: attachment.size, created_at: new Date().toISOString() });
-      }
-    } catch (cause) {
-      if (isCurrent()) { setFileError(errorText(cause)); setSending(false); setUploadingKey(null); }
-      return;
-    }
-    if (!isCurrent()) return;
     const flightOrigin = !isDesktop ? textareaRef.current?.getBoundingClientRect() : undefined;
-    const sent = await onSend(draftContent, clientMessageId, attachmentIds, signature, flightOrigin, sentAttachments);
+    // The message is on screen and the composer is empty when this settles; files go up from the bubble, not from here.
+    const sent = await onSend(draftContent, clientMessageId, attachments, signature, flightOrigin, content.trim(), reply);
     if (!isCurrent()) return;
     // Workspace owns acknowledgement cleanup for the exact sent draft, even
     // across conversation switches. A newer edit/reply must survive this callback.
@@ -3679,7 +3799,7 @@ function Composer({ workStatus, activeRun, allRuns, stepRunIds, latestReplyId, o
     pane.addEventListener("dragover", over); pane.addEventListener("dragleave", leave); pane.addEventListener("drop", drop);
     return () => { pane.removeEventListener("dragover", over); pane.removeEventListener("dragleave", leave); pane.removeEventListener("drop", drop); };
   });
-  return <form className={`composer${dragging ? " is-dragging" : ""}${!modelConfigured ? " is-no-model" : ""}${!content.trim() && !attachments.length && !sending ? " is-send-empty" : ""}`} onSubmit={(event) => void submit(event)}>{readOnly ? <div className="composer-tools"><span className="config-warning">{t("composer.archived")}</span></div> : !draftReady ? <DelayedFeedback><div className="composer-tools"><span className="config-warning">{t("composer.restoring_draft")}</span></div></DelayedFeedback> : !modelConfigured && <ModelBanner botId={conversation.kind === "dm" ? conversation.bot_id || conversation.bot_ids[0] : undefined} name={conversation.name} onConnect={onConnectModel} />}{dictation.permissionNeeded && <Suspense fallback={null}><PermissionCoach permissions={["microphone"]} force onDismiss={dictation.clearPermission} /></Suspense>}{!isDesktop && dictation.starting && <div className="dictation-status is-starting" role="status">{t("composer.mic_connecting")}</div>}{dictation.error && !dictation.permissionNeeded && <div className="dictation-status" role="status">{dictation.error}</div>}<input ref={imageRef} type="file" accept="image/*" hidden multiple onChange={(event) => { addFiles(event.target.files); event.currentTarget.value = ""; }} /><input ref={fileRef} type="file" hidden multiple onChange={(event) => { addFiles(event.target.files); event.currentTarget.value = ""; }} />{workStatus}<div className="composer-row">{!isDesktop && <WebFileDropOverlay key={`drop-${conversation.id}`} inputRef={textareaRef} enabled={canCompose && !sending && !dictation.listening && !dictation.busy} onDrop={(files, origin) => { dropOrigin.current = { ...origin, name:files[0].name }; addFiles(files); }} />}{!isDesktop && uploadingKey && <span className="web-upload-ring" aria-hidden="true" />}{!isDesktop && !readOnly && conversation.kind === "dm" && (conversation.bot_id || conversation.bot_ids[0]) && <ComposerPerch key={conversation.id} botId={conversation.bot_id || conversation.bot_ids[0]} sending={sending} working={activeRun?.status === "running"} latestReplyId={latestReplyId} />}{!(dictation.listening || dictation.busy) && <div className="composer-add-wrap" ref={addMenuRef}><button ref={addMenuTriggerRef} type="button" className="secondary-button" aria-label={t("composer.add_attachment")} aria-expanded={addMenuOpen} aria-haspopup="menu" disabled={sending || !canCompose} onClick={() => setAddMenuOpen((open) => !open)} onKeyDown={arrowOpens(setAddMenuOpen)}><Icon name="plus" size={22} /></button>{addMenuOpen && <OverlayMenu open onOpenChange={setAddMenuOpen} className="composer-add-menu" label={t("composer.add_attachment")} trigger={addMenuTriggerRef} anchor={addMenuRef} side="top" sideOffset={12}><button type="button" onClick={() => { setAddMenuOpen(false); imageRef.current?.click(); }}><Icon className="composer-add-icon" name="image" size={20} />{t("composer.image")}<kbd>⌘⇧I</kbd></button><button type="button" onClick={() => { setAddMenuOpen(false); fileRef.current?.click(); }}><Icon className="composer-add-icon" name="file" size={20} />{t("composer.file")}<kbd>⌘⇧F</kbd></button><button type="button" onClick={() => void captureScreen()}><span className="composer-add-icon"><ComposerGlyph name="screenshot" size={20} /></span>{t("composer.screenshot")}</button><p>{t("composer.drop_hint")}</p></OverlayMenu>}</div>}<div ref={mentionWrapRef} className={`composer-input-wrap${mentionParts ? " has-mentions" : ""}`}>{reply && !readOnly && <div className="composer-reply" role="status"><Icon name="reply" size={15} /><span className="composer-reply-copy"><strong>{t("composer.replying_to", { name: reply.name })}</strong><span>{reply.excerpt}</span></span><button type="button" aria-label={t("composer.cancel_reply")} data-hint={t("composer.cancel_reply")} onClick={() => { onDraftChange(current => ({ ...current, reply: undefined })); textareaRef.current?.focus(); }}><Icon name="close" size={14} /></button></div>}{attachments.length > 0 && <div className="composer-attachments">{attachments.map((attachment) => <span key={attachment.key} className="composer-attachment-pill" data-name={attachment.name}><ComposerChipTile attachment={attachment} /><span className="composer-attachment-name">{attachment.name}</span>{uploadingKey === attachment.key && ` · ${t("composer.uploading")}`}{!attachment.file && !attachment.id && ` · ${t("composer.reselect")}`}<button type="button" aria-label={t("composer.remove_attachment", { name: attachment.name })} disabled={sending || !canCompose || dictation.listening || dictation.busy} onClick={() => onDraftChange((current) => ({ ...current, attachments: current.attachments.filter((item) => item.key !== attachment.key) }))}><Icon name="close" size={18} /></button></span>)}</div>}{mentionParts && <div className="composer-rich-text" aria-hidden="true"><div style={{ transform:`translateY(-${composerScrollTop}px)` }}>{mentionParts}</div></div>}<textarea ref={textareaRef} aria-label={t("composer.input_label", { name: conversation.name })} value={content} onPaste={event => { const files = Array.from(event.clipboardData.items).filter(item => item.kind === "file").map(item => item.getAsFile()).filter((file): file is File => file !== null); if (files.length) { event.preventDefault(); addFiles(files); } }} onKeyDown={handleKeyDown} onScroll={(event) => setComposerScrollTop(event.currentTarget.scrollTop)} onBlur={() => flushContent()} onChange={(event) => updateContent(event.target.value, event.target.selectionStart)} placeholder={dictation.listening ? t("composer.placeholder_recording") : dictation.busy ? t("composer.placeholder_transcribing") : readOnly ? t("composer.placeholder_archived") : !draftReady ? t("composer.placeholder", { name: conversation.name }) : canCompose ? t("composer.placeholder", { name: conversation.name }) : t("composer.placeholder_no_model")} disabled={!canCompose || sending || dictation.listening || dictation.busy} rows={1} />{mentionQuery !== null && mentionMatches.length > 0 && createPortal(<div ref={mentionMenuRef} className="mention-menu" role="listbox" aria-label={isDesktop ? undefined : t("composer.mention_label", { name: conversation.name })} style={mentionAnchor ? { left:mentionAnchor.left, bottom:mentionAnchor.bottom } : undefined}>{!isDesktop && <div className="mention-menu-heading" role="presentation">{t("composer.mention_heading", { name: conversation.name })}</div>}{!isDesktop && mentionPill && <span className="web-mention-pill" aria-hidden="true" style={{ top:mentionPill.top, height:mentionPill.height }} />}{mentionMatches.map((bot, index) => <button type="button" role="option" aria-selected={index === mentionIndex} className={index === mentionIndex ? "selected" : ""} key={bot.id} onMouseEnter={() => setMentionIndex(index)} onMouseDown={(event) => { event.preventDefault(); chooseMention(bot); }}><BotAvatar id={bot.id} mini /><span className="mention-name">{mentionQuery && bot.name.toLocaleLowerCase().startsWith(mentionQuery.toLocaleLowerCase()) ? <><mark>{bot.name.slice(0, mentionQuery.length)}</mark>{bot.name.slice(mentionQuery.length)}</> : bot.name}</span></button>)}{!isDesktop && <div className="mention-menu-hint" role="presentation">{t("composer.mention_hint")}</div>}</div>, layerRoot())}</div>{dictation.listening || dictation.busy ? <DictationControls elapsed={dictation.elapsed} levels={dictation.levels} busy={dictation.busy} onCancel={dictation.cancel} onConfirm={dictation.confirm} /> : <>{dictation.supported && <button type="button" className={`dictation-button${!isDesktop && dictation.starting ? " is-starting" : ""}`} aria-label={!isDesktop && dictation.starting ? t("composer.cancel_mic") : t("composer.dictate")} title={!isDesktop && dictation.starting ? t("composer.cancel_mic") : dictation.notice || t("composer.dictate")} disabled={!dictation.starting && (sending || !canCompose)} onClick={!isDesktop && dictation.starting ? dictation.cancel : dictation.start}><ComposerGlyph name="mic" size={20} /></button>}{activeRun && !readOnly && !content.trim() && !attachments.length && <><button ref={stopTriggerRef} type="button" className="composer-stop" aria-label={t("composer.stop_label", { name: bots.find(bot => bot.id === activeRun.bot_id)?.name ?? "Bot" })} aria-haspopup="menu" aria-expanded={stopMenuOpen} disabled={!canCompose} onClick={() => { if (panelLoaded("stopMenu")) setStopMenuOpen(open => !open); else { preloadPanel("stopMenu"); void stopWorkingRuns(); } }} onKeyDown={arrowOpens(setStopMenuOpen)}><Icon name="stop" size={16} variant="filled" />{t("composer.stop")}</button>{stopMenuOpen && <Suspense fallback={null}><ComposerStopMenu runs={working()} stepRunIds={stepRunIds} bots={bots} trigger={stopTriggerRef} onClose={() => setStopMenuOpen(false)} onStopped={onRunsStopped} onError={onStopError} /></Suspense>}</>}{(Boolean(content.trim()) || attachments.length > 0 || sending) && <button className="send-button" aria-label={t("composer.send")} disabled={(!content.trim() && !attachments.length) || !canCompose || sending || dictation.listening || dictation.busy}>{sending ? "…" : <Icon name="arrow-up" size={26} variant="filled" />}</button>}</>}</div>{fileError && <div className="error-text" role="alert">{fileError}</div>}</form>;
+  return <form className={`composer${dragging ? " is-dragging" : ""}${!modelConfigured ? " is-no-model" : ""}${!content.trim() && !attachments.length && !sending ? " is-send-empty" : ""}`} onSubmit={(event) => void submit(event)}>{readOnly ? <div className="composer-tools"><span className="config-warning">{t("composer.archived")}</span></div> : !draftReady ? <DelayedFeedback><div className="composer-tools"><span className="config-warning">{t("composer.restoring_draft")}</span></div></DelayedFeedback> : !modelConfigured && <ModelBanner botId={conversation.kind === "dm" ? conversation.bot_id || conversation.bot_ids[0] : undefined} name={conversation.name} onConnect={onConnectModel} />}{dictation.permissionNeeded && <Suspense fallback={null}><PermissionCoach permissions={["microphone"]} force onDismiss={dictation.clearPermission} /></Suspense>}{!isDesktop && dictation.starting && <div className="dictation-status is-starting" role="status">{t("composer.mic_connecting")}</div>}{dictation.error && !dictation.permissionNeeded && <div className="dictation-status" role="status">{dictation.error}</div>}<input ref={imageRef} type="file" accept="image/*" hidden multiple onChange={(event) => { addFiles(event.target.files); event.currentTarget.value = ""; }} /><input ref={fileRef} type="file" hidden multiple onChange={(event) => { addFiles(event.target.files); event.currentTarget.value = ""; }} />{workStatus}<div className="composer-row">{!isDesktop && <WebFileDropOverlay key={`drop-${conversation.id}`} inputRef={textareaRef} enabled={canCompose && !sending && !dictation.listening && !dictation.busy} onDrop={(files, origin) => { dropOrigin.current = { ...origin, name:files[0].name }; addFiles(files); }} />}{!isDesktop && !readOnly && conversation.kind === "dm" && (conversation.bot_id || conversation.bot_ids[0]) && <ComposerPerch key={conversation.id} botId={conversation.bot_id || conversation.bot_ids[0]} sending={sending} working={activeRun?.status === "running"} latestReplyId={latestReplyId} />}{!(dictation.listening || dictation.busy) && <div className="composer-add-wrap" ref={addMenuRef}><button ref={addMenuTriggerRef} type="button" className="secondary-button" aria-label={t("composer.add_attachment")} aria-expanded={addMenuOpen} aria-haspopup="menu" disabled={sending || !canCompose} onClick={() => setAddMenuOpen((open) => !open)} onKeyDown={arrowOpens(setAddMenuOpen)}><Icon name="plus" size={22} /></button>{addMenuOpen && <OverlayMenu open onOpenChange={setAddMenuOpen} className="composer-add-menu" label={t("composer.add_attachment")} trigger={addMenuTriggerRef} anchor={addMenuRef} side="top" sideOffset={12}><button type="button" onClick={() => { setAddMenuOpen(false); imageRef.current?.click(); }}><Icon className="composer-add-icon" name="image" size={20} />{t("composer.image")}<kbd>⌘⇧I</kbd></button><button type="button" onClick={() => { setAddMenuOpen(false); fileRef.current?.click(); }}><Icon className="composer-add-icon" name="file" size={20} />{t("composer.file")}<kbd>⌘⇧F</kbd></button><button type="button" onClick={() => void captureScreen()}><span className="composer-add-icon"><ComposerGlyph name="screenshot" size={20} /></span>{t("composer.screenshot")}</button><p>{t("composer.drop_hint")}</p></OverlayMenu>}</div>}<div ref={mentionWrapRef} className={`composer-input-wrap${mentionParts ? " has-mentions" : ""}`}>{reply && !readOnly && <div className="composer-reply" role="status"><Icon name="reply" size={15} /><span className="composer-reply-copy"><strong>{t("composer.replying_to", { name: reply.name })}</strong><span>{reply.excerpt}</span></span><button type="button" aria-label={t("composer.cancel_reply")} data-hint={t("composer.cancel_reply")} onClick={() => { onDraftChange(current => ({ ...current, reply: undefined })); textareaRef.current?.focus(); }}><Icon name="close" size={14} /></button></div>}{attachments.length > 0 && <div className="composer-attachments">{attachments.map((attachment) => <span key={attachment.key} className="composer-attachment-pill" data-name={attachment.name}><ComposerChipTile attachment={attachment} /><span className="composer-attachment-name">{attachment.name}</span>{!attachment.file && !attachment.id && ` · ${t("composer.reselect")}`}<button type="button" aria-label={t("composer.remove_attachment", { name: attachment.name })} disabled={sending || !canCompose || dictation.listening || dictation.busy} onClick={() => onDraftChange((current) => ({ ...current, attachments: current.attachments.filter((item) => item.key !== attachment.key) }))}><Icon name="close" size={18} /></button></span>)}</div>}{mentionParts && <div className="composer-rich-text" aria-hidden="true"><div style={{ transform:`translateY(-${composerScrollTop}px)` }}>{mentionParts}</div></div>}<textarea ref={textareaRef} aria-label={t("composer.input_label", { name: conversation.name })} value={content} onPaste={event => { const files = Array.from(event.clipboardData.items).filter(item => item.kind === "file").map(item => item.getAsFile()).filter((file): file is File => file !== null); if (files.length) { event.preventDefault(); addFiles(files); } }} onKeyDown={handleKeyDown} onScroll={(event) => setComposerScrollTop(event.currentTarget.scrollTop)} onBlur={() => flushContent()} onChange={(event) => updateContent(event.target.value, event.target.selectionStart)} placeholder={dictation.listening ? t("composer.placeholder_recording") : dictation.busy ? t("composer.placeholder_transcribing") : readOnly ? t("composer.placeholder_archived") : !draftReady ? t("composer.placeholder", { name: conversation.name }) : canCompose ? t("composer.placeholder", { name: conversation.name }) : t("composer.placeholder_no_model")} disabled={!canCompose || sending || dictation.listening || dictation.busy} rows={1} />{mentionQuery !== null && mentionMatches.length > 0 && createPortal(<div ref={mentionMenuRef} className="mention-menu" role="listbox" aria-label={isDesktop ? undefined : t("composer.mention_label", { name: conversation.name })} style={mentionAnchor ? { left:mentionAnchor.left, bottom:mentionAnchor.bottom } : undefined}>{!isDesktop && <div className="mention-menu-heading" role="presentation">{t("composer.mention_heading", { name: conversation.name })}</div>}{!isDesktop && mentionPill && <span className="web-mention-pill" aria-hidden="true" style={{ top:mentionPill.top, height:mentionPill.height }} />}{mentionMatches.map((bot, index) => <button type="button" role="option" aria-selected={index === mentionIndex} className={index === mentionIndex ? "selected" : ""} key={bot.id} onMouseEnter={() => setMentionIndex(index)} onMouseDown={(event) => { event.preventDefault(); chooseMention(bot); }}><BotAvatar id={bot.id} mini /><span className="mention-name">{mentionQuery && bot.name.toLocaleLowerCase().startsWith(mentionQuery.toLocaleLowerCase()) ? <><mark>{bot.name.slice(0, mentionQuery.length)}</mark>{bot.name.slice(mentionQuery.length)}</> : bot.name}</span></button>)}{!isDesktop && <div className="mention-menu-hint" role="presentation">{t("composer.mention_hint")}</div>}</div>, layerRoot())}</div>{dictation.listening || dictation.busy ? <DictationControls elapsed={dictation.elapsed} levels={dictation.levels} busy={dictation.busy} onCancel={dictation.cancel} onConfirm={dictation.confirm} /> : <>{dictation.supported && <button type="button" className={`dictation-button${!isDesktop && dictation.starting ? " is-starting" : ""}`} aria-label={!isDesktop && dictation.starting ? t("composer.cancel_mic") : t("composer.dictate")} title={!isDesktop && dictation.starting ? t("composer.cancel_mic") : dictation.notice || t("composer.dictate")} disabled={!dictation.starting && (sending || !canCompose)} onClick={!isDesktop && dictation.starting ? dictation.cancel : dictation.start}><ComposerGlyph name="mic" size={20} /></button>}{activeRun && !readOnly && !content.trim() && !attachments.length && <><button ref={stopTriggerRef} type="button" className="composer-stop" aria-label={t("composer.stop_label", { name: bots.find(bot => bot.id === activeRun.bot_id)?.name ?? "Bot" })} aria-haspopup="menu" aria-expanded={stopMenuOpen} disabled={!canCompose} onClick={() => { if (panelLoaded("stopMenu")) setStopMenuOpen(open => !open); else { preloadPanel("stopMenu"); void stopWorkingRuns(); } }} onKeyDown={arrowOpens(setStopMenuOpen)}><Icon name="stop" size={16} variant="filled" />{t("composer.stop")}</button>{stopMenuOpen && <Suspense fallback={null}><ComposerStopMenu runs={working()} stepRunIds={stepRunIds} bots={bots} trigger={stopTriggerRef} onClose={() => setStopMenuOpen(false)} onStopped={onRunsStopped} onError={onStopError} /></Suspense>}</>}{(Boolean(content.trim()) || attachments.length > 0 || sending) && <button className="send-button" aria-label={t("composer.send")} disabled={(!content.trim() && !attachments.length) || !canCompose || sending || dictation.listening || dictation.busy}>{sending ? "…" : <Icon name="arrow-up" size={26} variant="filled" />}</button>}</>}</div>{fileError && <div className="error-text" role="alert">{fileError}</div>}</form>;
 }
 
 export default App;

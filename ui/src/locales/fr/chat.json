@@ -40,6 +40,10 @@
     "unavailable": "Fichier indisponible. Réessayez.",
     "unsupported": "Aperçu indisponible",
     "unsupported_hint": "Ce type de fichier ne peut être que téléchargé.",
+    "upload_failed": "{{name}} n’a pas été téléversé",
+    "upload_failed_short": "Non téléversé",
+    "uploading": "Téléversement de {{name}}",
+    "uploading_short": "Téléversement…",
     "viewer": "Aperçu du fichier",
     "viewer_back": "Retour à {{name}}",
     "viewer_close": "Fermer l'aperçu",
@@ -611,7 +615,16 @@
     "read_by": "Lu par {{names}}",
     "failed": "Non envoyé",
     "retry": "Réessayer",
-    "retry_label": "Réessayer d’envoyer ce message"
+    "retry_label": "Réessayer d’envoyer ce message",
+    "retrying": "Connexion rétablie. Nouvel envoi…",
+    "hint_offline": "Vous êtes hors ligne.",
+    "hint_network": "Connexion perdue.",
+    "hint_server": "Serveur indisponible.",
+    "will_retry": "Nouvelle tentative dès le retour de la connexion.",
+    "edit": "Modifier",
+    "edit_label": "Modifier ce message dans la zone de saisie",
+    "delete": "Supprimer",
+    "delete_label": "Supprimer ce message non envoyé"
   },
   "related": {
     "bot_conversation": "Conversation entre Bots",

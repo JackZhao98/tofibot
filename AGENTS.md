@@ -280,6 +280,24 @@ components on synthetic data in iframes at 1280/390 px, light/dark, 7 languages.
 fails if it reaches `dist/`, if product code imports it, or if a frame leaks a request. A component or state added to `docs/design/components.md` gets a
 state in `ui/src/catalog/sections/` (or a listed gap).
 
+# Composer resilience (optimistic send, outbox, drafts)
+
+A sent message is on screen at once and never vanishes. Benchmark: iMessage (red "Not Delivered", tap to retry), WhatsApp (resend when the
+connection returns), Claude.ai and ChatGPT (the prompt stays, Retry on the failed turn); we follow all three: failed bubble with Retry, Edit and
+Delete, one automatic try when the connection is back, the text never lost. `ui/src/outbox.ts` is the outbox: every message the server has not
+confirmed is mirrored to localStorage (`tofi:outbox:<origin>:<instance>:<owner>`, same scoping as the drafts). `App.tsx` `send` puts the bubble
+(local copy, `message.local`) and the outbox entry in one commit; `deliver` uploads files not yet up (XHR with progress, `api.uploadAttachment`
+with a listener), then posts with the same `client_message_id` on every attempt (the server stores it once and replays its answer: no duplicates).
+`message.local.state` is `sending | retrying | failed`; `reason` is `offline | network | server | rejected`. The connection coming back (browser `online`
+event or the live stream reconnecting) retries each failed message once, in order, labelled "Sending again" (`autoRetry`); a refusal (4xx), a second
+failure and a message restored after a reload are never sent by themselves. After a reload the outbox entry comes back as a failed bubble when its
+conversation loads (`reconcileOutbox`; an entry the server already holds is dropped). A file not yet uploaded cannot survive a reload (a File is not
+storable): Retry is withheld, Edit puts the text in the composer and the file is asked for again (the draft's existing reselect flow). Pictures show
+from the device (`attachmentImages.ts` `registerPreview`/`adoptPreview`: one object URL from the local tile to the server's copy) with a progress bar
+(`Attachment.pending`); where the server stores files is not touched. Composer drafts moved from sessionStorage to localStorage (read once from
+sessionStorage for older drafts), per conversation, per owner. Tests: `test:composer-resilience` (offline -> failed -> reconnect -> sent once,
+reload, Delete/Edit, drafts, upload progress), `test:send-receipts`, catalog states `receipts/pending|offline|retrying|failed`.
+
 # Web UI layers
 
 One layer scale, in `ui/src/design-tokens.css` (`--z-base` 0, `--z-raised` 1, `--z-edge-blur` 10 (unused since the bottom blur was removed), `--z-chrome` 20, `--z-pill` 30,

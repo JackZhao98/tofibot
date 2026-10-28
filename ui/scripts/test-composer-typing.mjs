@@ -110,7 +110,7 @@ async function show(page, name, minBlocks) {
   await page.waitForTimeout(500);
 }
 const STORAGE_KEY = `tofi:composer-drafts:${origin}:${INSTANCE}`;
-const stored = (page, id) => page.evaluate(([key, id]) => { try { return JSON.parse(sessionStorage.getItem(key) ?? "{}")[id]?.content ?? null; } catch { return null; } }, [STORAGE_KEY, id]);
+const stored = (page, id) => page.evaluate(([key, id]) => { try { return JSON.parse(localStorage.getItem(key) ?? "{}")[id]?.content ?? null; } catch { return null; } }, [STORAGE_KEY, id]);
 
 const results = [];
 const failures = [];

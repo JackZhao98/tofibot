@@ -120,7 +120,31 @@ export const api = {
   },
   sendMessage: (id: string, input: { content: string; client_message_id: string; attachment_ids?: string[] }) => request<{ message: Message; run?: Run | null; runs?: Run[]; queued?: { bot_id: string; run_id: string; inbox_id: string }[] }>(`/api/conversations/${encodeURIComponent(id)}/messages`, json(input)),
   setMessageReaction: (conversationId: string, messageId: string, emoji: string, present: boolean) => request<{ conversation_id: string; message_id: string; reactions: NonNullable<Message["reactions"]> }>(`/api/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}/reactions`, { method: "PUT", body: JSON.stringify({ emoji, present }) }),
-  uploadAttachment: async (id: string, file: File) => { const body = new FormData(); body.append("file", file); return request<Attachment>(`/api/conversations/${encodeURIComponent(id)}/attachments`, { method: "POST", body }); },
+  uploadAttachment: async (id: string, file: File, onProgress?: (fraction: number) => void) => {
+    const body = new FormData(); body.append("file", file);
+    const path = `/api/conversations/${encodeURIComponent(id)}/attachments`;
+    // fetch reports no upload progress: with a listener the same request goes out through XHR (same path, body and credentials).
+    if (!onProgress) return request<Attachment>(path, { method: "POST", body });
+    return new Promise<Attachment>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", path);
+      xhr.withCredentials = true;
+      xhr.upload.onprogress = event => { if (event.lengthComputable && event.total > 0) onProgress(Math.min(1, event.loaded / event.total)); };
+      // A dropped connection is the same TypeError fetch would throw, so callers tell "offline" from a refusal one way.
+      xhr.onerror = xhr.ontimeout = () => reject(new TypeError("Network request failed"));
+      xhr.onload = () => {
+        let parsed: unknown = null;
+        try { parsed = JSON.parse(xhr.responseText); } catch { /* an empty or non-JSON body */ }
+        if (xhr.status >= 200 && xhr.status < 300) { onProgress(1); resolve(parsed as Attachment); return; }
+        // A proxy challenge has its own recovery in request(); hand the upload to it once (it reports no progress).
+        if (xhr.status === 403 || xhr.status === 503) { request<Attachment>(path, { method: "POST", body }).then(resolve, reject); return; }
+        if (xhr.status === 401) window.dispatchEvent(new Event("tofi:unauthorized"));
+        const error = (parsed as { error?: { message?: string; code?: string } & Record<string, unknown> } | null)?.error;
+        reject(new ApiError(xhr.status, codeText(error?.code) ?? error?.message ?? i18n.t("common:apiError.request_failed", { status: xhr.status }), error?.code, error));
+      };
+      xhr.send(body);
+    });
+  },
   // The newest page of runs plus every active one; `before` (an ISO time) asks for the page of runs created earlier, to go with an older page of messages.
   runs: (id: string, before?: string) => request<{ runs: Run[] | null; has_more?: boolean }>(`/api/conversations/${encodeURIComponent(id)}/runs${before ? `?before=${encodeURIComponent(before)}` : ""}`).then((result) => ({ runs: result.runs ?? [], has_more: Boolean(result.has_more) })),
   cancelRun: (id: string) => request<Run>(`/api/runs/${encodeURIComponent(id)}/cancel`, { method: "POST" }),
