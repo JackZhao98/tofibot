@@ -535,7 +535,7 @@ class RenderTests(HostCase):
     def test_apply_host_config_files_and_commands(self):
         env = self.installed()
         self.assertEqual(json.loads(self.P.worker_json.read_text())['release_dir'], '/var/lib/tofi/guest/' + OLD)
-        self.assertEqual(self.P.tmpfiles.read_text().splitlines()[-1], 'd /run/tofi 0750 0 10001 -')
+        self.assertIn('d /run/tofi 0750 0 10001 -', self.P.tmpfiles.read_text().splitlines())
         self.assertEqual(oct(self.P.env_file.stat().st_mode & 0o777), '0o600')
         tofi_host.apply_host_config(self.P.current, env)
         parsed = [c[:2] for c in self.commands]

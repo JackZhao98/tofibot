@@ -88,6 +88,10 @@
     "oauth_loopback_required": "该服务只接受 127.0.0.1 回调，请使用粘贴回填登录。",
     "skill_exists": "技能库里已有同名的 Skill 或套装。",
     "skill_in_bundle": "这个 Skill 属于某个套装，请移除整个套装。",
-    "skill_unchanged": "这些文件与当前版本相同。"
+    "skill_unchanged": "这些文件与当前版本相同。",
+    "update_not_available": "该版本已不再提供。请刷新后重试。",
+    "update_in_progress": "已有更新正在进行。",
+    "update_channel_disabled": "候选版本已关闭。",
+    "host_update_unavailable": "这台服务器暂时还不能从页面更新。请在服务器上运行 sudo tofi update。"
   }
 }

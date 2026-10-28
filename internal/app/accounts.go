@@ -611,12 +611,12 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 403, "unavailable", "account management surface not available")
 		return
 	}
-	if r.URL.Path == "/api/system/update" {
+	if r.URL.Path == "/api/system/update" || strings.HasPrefix(r.URL.Path, "/api/system/update/") {
 		if a.Role != "admin" {
 			writeErr(w, 403, "forbidden", "admin required")
 			return
 		}
-		serveSystemUpdate(w, r)
+		g.root.serveSystemUpdate(w, r, strings.TrimPrefix(strings.TrimPrefix(r.URL.Path, "/api/system/update"), "/"))
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/api/computer/resources") && r.Method != http.MethodGet {

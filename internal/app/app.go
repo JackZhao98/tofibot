@@ -3091,8 +3091,8 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 			"auth":             s.ownerAuthInfo(),
 			"tenancy":          map[string]string{"mode": "single"},
 		})
-	case p == "system/update":
-		serveSystemUpdate(w, r)
+	case p == "system/update" || strings.HasPrefix(p, "system/update/"):
+		s.serveSystemUpdate(w, r, strings.TrimPrefix(strings.TrimPrefix(p, "system/update"), "/"))
 	case p == "config":
 		writeJSON(w, 200, map[string]any{"model_configured": s.modelConfigured(), "default_model": s.effectiveDefaultModel(r.Context()), "background_model": s.backgroundModel(backgroundTriage), "provider": s.activeProvider(), "computer": s.computerCapabilities()})
 	case p == "computer/capabilities":

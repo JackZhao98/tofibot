@@ -709,7 +709,8 @@
       "available": "Tofi {{version}} is available. Run <code>sudo tofi update</code> on the server.",
       "automatic": "Tofi {{version}} is available and will install automatically overnight.",
       "whats_new": "What's new",
-      "dismiss": "Dismiss update notice"
+      "dismiss": "Dismiss update notice",
+      "available_short": "Tofi {{version}} is available."
     },
     "card": {
       "current": "Installed version",
@@ -724,7 +725,69 @@
       "auto_on": "On",
       "auto_off": "Off",
       "install_hint": "Run <code>sudo tofi update</code> on the server to install it.",
-      "auto_hint": "Turn it on or off from the server: <on>sudo tofi config auto-update on</on> or <off>sudo tofi config auto-update off</off>"
+      "auto_hint": "Turn it on or off from the server: <on>sudo tofi config auto-update on</on> or <off>sudo tofi config auto-update off</off>",
+      "update": "Update from this page",
+      "update_hint": "The server backs up first, waits for running Bots, and rolls back if the new version fails.",
+      "update_none": "No update to install."
+    },
+    "action": {
+      "update": "Update to {{version}}",
+      "try_rc": "Try {{version}}"
+    },
+    "dialog": {
+      "title": "Update to {{version}}?",
+      "title_rc": "Try {{version}}?",
+      "body": "Tofi backs up your data, installs {{version}} and restarts. Bots that are running finish first, and this page reconnects by itself.",
+      "body_rc": "This is a release candidate, a test build ahead of the stable release. Tofi backs up your data, installs {{version}} and restarts. Bots that are running finish first, and this page reconnects by itself.",
+      "channel_rc": "Release candidate",
+      "channel_stable": "Stable",
+      "notes": "Release notes",
+      "confirm": "Update now",
+      "cancel": "Cancel",
+      "failed": "Couldn't send the request. Try again."
+    },
+    "progress": {
+      "label": "Update progress",
+      "queued": "Waiting for the server to pick up the request…",
+      "waiting_for_runs": "Waiting for running Bots to finish…",
+      "downloading": "Downloading {{version}}…",
+      "verifying": "Verifying the download…",
+      "switching": "Switching to {{version}}…",
+      "restarting": "Restarting…",
+      "done": "Updated to {{version}}",
+      "reload": "Reload"
+    },
+    "failed": {
+      "title": "The update to {{version}} didn't finish.",
+      "rolled_back": "Rolled back to {{version}}.",
+      "unchanged": "Nothing was changed.",
+      "code": "Code {{code}}",
+      "dismiss": "Dismiss"
+    },
+    "error": {
+      "request_invalid": "The server rejected the request.",
+      "request_too_large": "The server rejected the request.",
+      "request_stale": "The request expired before the server read it. Try again.",
+      "channel_mismatch": "That version isn't on the chosen channel.",
+      "not_newer": "The server already runs that version or a newer one.",
+      "rejected_before": "This version failed on this server before. Update from the command line when you're ready.",
+      "not_latest_stable": "A newer release came out. Reload this page and try again.",
+      "version_unpublished": "That release isn't published, or GitHub can't be reached.",
+      "release_check_failed": "Couldn't reach GitHub to check the release.",
+      "runs_still_active": "Bots were still running after an hour. Try again later.",
+      "host_busy": "Another operation is running on the server. Try again shortly.",
+      "schema_change_blocked": "This release changes the data schema. Run sudo tofi update on the server.",
+      "insufficient_disk": "Not enough free disk space for the pre-update backup.",
+      "update_rejected": "The new version failed its health check.",
+      "rollback_failed": "The update failed and the rollback needs attention. Run sudo tofi status on the server.",
+      "update_failed": "The update failed. Run sudo tofi status on the server for details.",
+      "generic": "The update didn't finish."
+    },
+    "rc": {
+      "label": "Receive release candidates",
+      "hint": "Also offer the newest release candidate next to the stable release. Candidates are test builds. Nothing is installed until you press Update.",
+      "latest": "Latest release candidate",
+      "save_failed": "Couldn't save. Try again."
     }
   },
   "disclosure": {

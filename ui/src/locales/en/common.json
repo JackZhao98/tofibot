@@ -88,6 +88,10 @@
     "oauth_loopback_required": "This service accepts only a 127.0.0.1 redirect. Sign in with the paste-back step.",
     "skill_exists": "A Skill or bundle with that name is already in the library.",
     "skill_in_bundle": "This Skill belongs to a bundle. Remove the bundle instead.",
-    "skill_unchanged": "Those files are the same as the current version."
+    "skill_unchanged": "Those files are the same as the current version.",
+    "update_not_available": "That version isn't on offer any more. Reload and try again.",
+    "update_in_progress": "An update is already in progress.",
+    "update_channel_disabled": "Release candidates are turned off.",
+    "host_update_unavailable": "This server can't update from the page yet. Run sudo tofi update on the server."
   }
 }

@@ -88,6 +88,10 @@
     "oauth_loopback_required": "이 서비스는 127.0.0.1 리디렉션만 허용합니다. 붙여넣기 로그인을 사용하세요.",
     "skill_exists": "같은 이름의 Skill 또는 번들이 이미 라이브러리에 있습니다.",
     "skill_in_bundle": "이 Skill은 번들에 속해 있습니다. 번들을 통째로 삭제하세요.",
-    "skill_unchanged": "현재 버전과 파일이 같습니다."
+    "skill_unchanged": "현재 버전과 파일이 같습니다.",
+    "update_not_available": "그 버전은 더 이상 제공되지 않습니다. 새로 고치고 다시 시도하세요.",
+    "update_in_progress": "업데이트가 이미 진행 중입니다.",
+    "update_channel_disabled": "릴리스 후보가 꺼져 있습니다.",
+    "host_update_unavailable": "이 서버는 아직 페이지에서 업데이트할 수 없습니다. 서버에서 sudo tofi update를 실행하세요."
   }
 }

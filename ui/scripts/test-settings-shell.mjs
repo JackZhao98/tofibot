@@ -100,6 +100,25 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   const lib = {weeklyVersion: 2, added: [], removed: new Set()};
   const resetLib = () => { libWrites.length = 0; lib.weeklyVersion = 2; lib.added = []; lib.removed = new Set(); };
   const updateState = {latest: "v0.1.0"};
+  // The host side of "Update" (decision D69): what the server would report while an update runs. `mode` picks the ending.
+  const updateFlow = {posted: [], reads: 0, mode: "done", rc: false, rcWrites: []};
+  const resetUpdateFlow = (mode = "done") => { updateFlow.posted.length = 0; updateFlow.reads = -1; updateFlow.mode = mode; updateFlow.rcWrites.length = 0; };
+  const hostStatus = (state, extra = {}) => ({state, version: updateState.latest, from: "v0.1.0", channel: updateFlow.posted.length && JSON.parse(updateFlow.posted[0]).channel || "stable", progress: null, updated_at: new Date().toISOString(), ...extra});
+  const updateAnswer = query => {
+    const base = {current: "v0.1.0", latest: updateState.latest, update_available: updateState.latest !== "v0.1.0", notes_url: `https://github.com/example/tofibot/releases/tag/${updateState.latest}`, checked_at: "2026-10-09T09:30:00Z", auto_update: query.get("auto") === "patch" ? "patch" : "off"};
+    if (query.get("host") !== "1") return base;
+    Object.assign(base, {host_update: true, channel_rc_enabled: updateFlow.rc, latest_rc: updateFlow.rc ? "v0.2.0-rc.1" : "", latest_rc_notes_url: updateFlow.rc ? "https://github.com/example/tofibot/releases/tag/v0.2.0-rc.1" : "", request: null, status: null});
+    if (updateFlow.reads < 0) return base;
+    const n = updateFlow.reads++;
+    if (n === 0) return {...base, request: {version: updateState.latest, channel: "stable", requested_at: new Date().toISOString()}};
+    if (n === 1) return {...base, status: hostStatus("waiting_for_runs", {progress: 10})};
+    if (n === 2) return {...base, status: hostStatus("downloading", {progress: 30})};
+    if (n === 3) return {...base, status: hostStatus("switching", {progress: 80})};
+    if (updateFlow.mode === "fail") return {...base, status: hostStatus("failed", {code: "runs_still_active", finished_at: new Date().toISOString()})};
+    if (updateFlow.mode === "rollback") return {...base, status: hostStatus("rolled_back", {code: "update_rejected", rolled_back_to: "v0.1.0", finished_at: new Date().toISOString()})};
+    if (n < 6) return {__abort: true};
+    return {...base, current: updateState.latest, update_available: false, status: hostStatus("done", {progress: 100, finished_at: new Date().toISOString()})};
+  };
   const INSTANCE = "0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d";
   const providers = [
     {id: "codex", label: "Codex", kind: "oauth", configured: true, status: "connected"},
@@ -121,7 +140,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     {name: "delete_issue", description: "Delete an issue permanently", tier: "high_risk", source: "owner", override: "high_risk", destructive_hint: true},
     {name: "post_comment", description: "Post a comment visible to the whole team", tier: "high_risk", source: "owner", override: "high_risk", changed: true},
   ], read_only: 2, write: 2, high_risk: 2} : {tools: [], read_only: 0, write: 0, high_risk: 0};
-  const stub = (url, method, query) => {
+  const stub = (url, method, query, postData = "") => {
     const path = url.pathname;
     if (/^\/api\/extensions\/mcp\/[^/]+\/tools$/.test(path) && method === "GET") return toolTiers(path.split("/")[4]);
     if (/^\/api\/extensions\/mcp\/[^/]+\/tools\/refresh$/.test(path) && method === "POST") return {...toolTiers(path.split("/")[4]), checked: true};
@@ -129,8 +148,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/server-info") return {service: "tofi", protocol_version: 1, instance_id: INSTANCE, auth: {mode: "owner"}};
     if (path === "/api/system/update") {
       if (query.get("role") === "user") return undefined;
-      return {current: "v0.1.0", latest: updateState.latest, update_available: updateState.latest !== "v0.1.0", notes_url: `https://github.com/example/tofibot/releases/tag/${updateState.latest}`, checked_at: "2026-10-09T09:30:00Z", auto_update: query.get("auto") === "patch" ? "patch" : "off"};
+      return updateAnswer(query);
     }
+    if (path === "/api/system/update/request" && method === "POST") { updateFlow.posted.push(postData); updateFlow.reads = 0; return {request: {version: updateState.latest, channel: "stable"}}; }
+    if (path === "/api/system/update/settings" && method === "PUT") { const payload = JSON.parse(postData); updateFlow.rc = payload.channel_rc; updateFlow.rcWrites.push(postData); return updateAnswer(new URLSearchParams("host=1")); }
     if (path === "/api/auth/session") return query.get("role") === "user"
       ? {enabled: true, setup_required: false, authenticated: true, password_transport_allowed: true, multi_account: true, owner: {id: "acct_user", username: "Sam Example", email: "sam@example.test", role: "user"}}
       : query.get("admin") === "0"
@@ -295,7 +316,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
         await route.fulfill({status: answer.status, contentType: "application/json", body: JSON.stringify(answer.body)});
         return;
       }
-      const body = stub(url, method, new URLSearchParams(page.url().split("?")[1] ?? ""));
+      const body = stub(url, method, new URLSearchParams(page.url().split("?")[1] ?? ""), request.postData() ?? "");
+      if (body && body.__abort) { await route.abort(); return; }
       if (body === undefined) { unexpected.push(`${method} ${url.pathname}`); await route.fulfill({status: 404, contentType: "application/json", body: JSON.stringify({error: {message: "not stubbed", code: "not_found"}})}); return; }
       if (method === "PUT" && /^\/api\/extensions\/mcp\/[^/]+\/tools\/[^/]+$/.test(url.pathname)) tierWrites.push(`${method} ${url.pathname} ${request.postData()}`);
       else if (method !== "GET" && !/\/(test|verify)$/.test(url.pathname)) writes.push(`${method} ${url.pathname}`);
@@ -1086,6 +1108,105 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await narrow.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "no horizontal scroll at 390px");
     await narrow.close();
 
+
+    // ---- 10b. Update from the page: confirm, progress through the restart, the ending, the release candidate row.
+    {
+      const banner = '[data-update-banner]';
+      updateState.latest = "v0.1.1";
+      resetUpdateFlow("done");
+      const flow = await open({admin: "1", host: "1"});
+      await flow.page.locator(banner).waitFor({timeout: 15000});
+      assert.match((await flow.page.locator(banner).innerText()).replace(/\s+/g, " "), /Tofi v0\.1\.1 is available\./);
+      assert.doesNotMatch(await flow.page.locator(banner).innerText(), /sudo tofi update/, "the button replaces the command");
+      const button = flow.page.getByRole("button", {name: "Update to v0.1.1"});
+      assert.equal(await flow.page.locator("[data-update-dialog]").count(), 0, "no dialog before the press");
+      await button.click();
+      const dialog = flow.page.locator('[data-update-dialog="stable"]');
+      await dialog.waitFor();
+      assert.match(await dialog.innerText(), /Update to v0\.1\.1\?/);
+      assert.match(await dialog.innerText(), /Bots that are running finish first/);
+      assert.equal(await dialog.locator("a").getAttribute("href"), "https://github.com/example/tofibot/releases/tag/v0.1.1");
+      assert.equal(await dialog.getByText("Release candidate").count(), 0, "a stable release carries no candidate badge");
+      await flow.page.keyboard.press("Escape");
+      await dialog.waitFor({state: "detached"});
+      assert.equal(updateFlow.posted.length, 0, "cancelling sends nothing");
+      await button.click();
+      await dialog.getByRole("button", {name: "Update now"}).click();
+      await flow.page.locator("[data-update-running]").waitFor();
+      assert.deepEqual(updateFlow.posted.map(value => JSON.parse(value)), [{version: "v0.1.1", channel: "stable"}]);
+      const seen = new Set();
+      const done = flow.page.locator('[data-update-state="done"]');
+      for (let i = 0; i < 80 && !(await done.count()); i++) {
+        const state = await flow.page.locator("[data-update-running] [data-update-state]").first().getAttribute("data-update-state").catch(() => null);
+        if (state) seen.add(state);
+        await flow.page.waitForTimeout(250);
+      }
+      assert.ok(await done.count(), `the page reaches the done state (saw ${[...seen]})`);
+      for (const state of ["waiting_for_runs", "downloading", "switching", "restarting"]) assert.ok(seen.has(state), `the progress shows ${state} (saw ${[...seen]})`);
+      assert.match((await done.innerText()).replace(/\s+/g, " "), /Updated to v0\.1\.1 Reload/);
+      assert.equal(await flow.page.getByRole("button", {name: "Dismiss update notice"}).count(), 0, "a finished update has no dismiss button; Reload is the way on");
+      await flow.close();
+
+      // A refusal shows its code, what it means and that nothing changed; a rejected candidate shows the rollback.
+      for (const [mode, expect] of [["fail", [/Bots were still running after an hour/, /Nothing was changed\./, /Code runs_still_active/]], ["rollback", [/The new version failed its health check/, /Rolled back to v0\.1\.0\./, /Code update_rejected/]]]) {
+        resetUpdateFlow(mode);
+        const failed = await open({admin: "1", host: "1"});
+        await failed.page.getByRole("button", {name: "Update to v0.1.1"}).click();
+        await failed.page.locator('[data-update-dialog]').getByRole("button", {name: "Update now"}).click();
+        const text = failed.page.locator('[data-update-state="failed"]');
+        await text.waitFor({timeout: 30000});
+        const copy = (await text.innerText()).replace(/\s+/g, " ");
+        for (const pattern of expect) assert.match(copy, pattern, mode);
+        await failed.page.getByRole("button", {name: "Dismiss"}).click();
+        assert.equal(await failed.page.locator('[data-update-state="failed"]').count(), 0, "dismissed");
+        await failed.close();
+      }
+
+      // Release candidates: the switch is in the Version card; with it on, the candidate has its own button and badge.
+      resetUpdateFlow("done");
+      updateFlow.rc = false;
+      const rc = await open({admin: "1", host: "1", tab: "advanced"});
+      await rc.page.locator(".version-card").waitFor({timeout: 15000});
+      assert.equal(await rc.page.getByRole("button", {name: /^Try v/}).count(), 0, "no candidate offered while the setting is off");
+      const toggle = rc.page.getByRole("switch", {name: "Receive release candidates"});
+      assert.equal(await toggle.isChecked(), false, "off by default");
+      await toggle.click();
+      await rc.page.getByRole("button", {name: "Try v0.2.0-rc.1"}).waitFor();
+      assert.deepEqual(updateFlow.rcWrites, ['{"channel_rc":true}']);
+      assert.match((await rc.page.locator(".version-card").innerText()).replace(/\s+/g, " "), /Latest release candidate v0\.2\.0-rc\.1/);
+      await rc.page.getByRole("button", {name: "Try v0.2.0-rc.1"}).click();
+      const rcDialog = rc.page.locator('[data-update-dialog="rc"]');
+      await rcDialog.waitFor();
+      assert.match(await rcDialog.innerText(), /Release candidate/);
+      assert.match(await rcDialog.innerText(), /a test build ahead of the stable release/);
+      await rcDialog.getByRole("button", {name: "Cancel"}).click();
+      await rcDialog.waitFor({state: "detached"});
+      assert.equal(await rc.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+      await rc.close();
+      updateFlow.rc = false;
+      resetUpdateFlow("done");
+
+      // 390 px: the progress and the dialog fit.
+      const narrowFlow = await open({admin: "1", host: "1", tab: "advanced"}, {width: 390, height: 844});
+      await narrowFlow.page.locator(".settings-mhome [data-tab=\"advanced\"]").click().catch(() => {});
+      await narrowFlow.page.locator(".version-card").waitFor({timeout: 15000});
+      assert.equal(await narrowFlow.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "no horizontal scroll with the Update row at 390px");
+      await narrowFlow.page.locator(".version-card").getByRole("button", {name: "Update to v0.1.1"}).click();
+      const narrowDialog = narrowFlow.page.locator('[data-update-dialog="stable"]');
+      await narrowDialog.waitFor();
+      assert.equal(await narrowFlow.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "no horizontal scroll with the dialog open at 390px");
+      const box = await narrowDialog.boundingBox();
+      assert.ok(box && box.x >= 0 && box.x + box.width <= 390, "the dialog fits the phone width");
+      await narrowFlow.close();
+
+      // Dark theme, ja.
+      const ja = await open({admin: "1", host: "1", lang: "ja"}, {theme: "dark"});
+      await ja.page.getByRole("button", {name: "v0.1.1 に更新"}).waitFor({timeout: 15000});
+      await ja.close();
+      updateState.latest = "v0.1.1";
+      console.log("PASS update from the page: confirm dialog, progress through the restart, refusal and rollback endings, release-candidate switch and button, 390px, dark, ja");
+    }
+
     // Translations render (Japanese banner and card).
     const ja = await open({admin: "1", lang: "ja", tab: "advanced", auto: "off"});
     await ja.page.locator(banner).waitFor({timeout: 15000});
@@ -1120,7 +1241,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   }
 
   assert.deepEqual(unexpected, [], `unexpected requests or page errors: ${unexpected.join("; ")}`);
-  assert.deepEqual(writes, [], `no writes expected: ${writes.join("; ")}`);
+  // The update flow's own writes were asserted in section 10b (bodies, count, channel).
+  const unexpectedWrites = writes.filter(line => !/^(POST \/api\/system\/update\/request|PUT \/api\/system\/update\/settings)$/.test(line));
+  assert.deepEqual(unexpectedWrites, [], `no writes expected: ${unexpectedWrites.join("; ")}`);
   console.log("PASS no unstubbed /api request, no write, no page error");
 } finally {
   await browser?.close();

@@ -709,7 +709,8 @@
       "available": "Tofi {{version}} ist verfügbar. Führe auf dem Server <code>sudo tofi update</code> aus.",
       "automatic": "Tofi {{version}} ist verfügbar und wird über Nacht automatisch installiert.",
       "whats_new": "Was ist neu",
-      "dismiss": "Update-Hinweis schließen"
+      "dismiss": "Update-Hinweis schließen",
+      "available_short": "Tofi {{version}} ist verfügbar."
     },
     "card": {
       "current": "Installierte Version",
@@ -724,7 +725,69 @@
       "auto_on": "An",
       "auto_off": "Aus",
       "install_hint": "Führe auf dem Server <code>sudo tofi update</code> aus, um es zu installieren.",
-      "auto_hint": "Ändere das auf dem Server: <on>sudo tofi config auto-update on</on> oder <off>sudo tofi config auto-update off</off>"
+      "auto_hint": "Ändere das auf dem Server: <on>sudo tofi config auto-update on</on> oder <off>sudo tofi config auto-update off</off>",
+      "update": "Über diese Seite aktualisieren",
+      "update_hint": "Der Server sichert zuerst, wartet auf laufende Bots und setzt zurück, wenn die neue Version scheitert.",
+      "update_none": "Kein Update zu installieren."
+    },
+    "action": {
+      "update": "Auf {{version}} aktualisieren",
+      "try_rc": "{{version}} ausprobieren"
+    },
+    "dialog": {
+      "title": "Auf {{version}} aktualisieren?",
+      "title_rc": "{{version}} ausprobieren?",
+      "body": "Tofi sichert deine Daten, installiert {{version}} und startet neu. Laufende Bots werden zuerst fertig, und diese Seite verbindet sich von selbst wieder.",
+      "body_rc": "Das ist ein Release Candidate, ein Testbuild vor der stabilen Version. Tofi sichert deine Daten, installiert {{version}} und startet neu. Laufende Bots werden zuerst fertig, und diese Seite verbindet sich von selbst wieder.",
+      "channel_rc": "Release Candidate",
+      "channel_stable": "Stabil",
+      "notes": "Versionshinweise",
+      "confirm": "Jetzt aktualisieren",
+      "cancel": "Abbrechen",
+      "failed": "Die Anfrage konnte nicht gesendet werden. Versuche es erneut."
+    },
+    "progress": {
+      "label": "Update-Fortschritt",
+      "queued": "Warte, bis der Server die Anfrage aufnimmt…",
+      "waiting_for_runs": "Warte, bis laufende Bots fertig sind…",
+      "downloading": "{{version}} wird geladen…",
+      "verifying": "Download wird geprüft…",
+      "switching": "Wechsel auf {{version}}…",
+      "restarting": "Neustart…",
+      "done": "Auf {{version}} aktualisiert",
+      "reload": "Neu laden"
+    },
+    "failed": {
+      "title": "Das Update auf {{version}} wurde nicht abgeschlossen.",
+      "rolled_back": "Auf {{version}} zurückgesetzt.",
+      "unchanged": "Es wurde nichts geändert.",
+      "code": "Code {{code}}",
+      "dismiss": "Schließen"
+    },
+    "error": {
+      "request_invalid": "Der Server hat die Anfrage abgelehnt.",
+      "request_too_large": "Der Server hat die Anfrage abgelehnt.",
+      "request_stale": "Die Anfrage ist abgelaufen, bevor der Server sie las. Versuche es erneut.",
+      "channel_mismatch": "Diese Version gehört nicht zum gewählten Kanal.",
+      "not_newer": "Der Server läuft bereits mit dieser oder einer neueren Version.",
+      "rejected_before": "Diese Version ist auf diesem Server schon einmal fehlgeschlagen. Aktualisiere über die Kommandozeile, wenn du bereit bist.",
+      "not_latest_stable": "Es gibt eine neuere Version. Lade diese Seite neu und versuche es erneut.",
+      "version_unpublished": "Diese Version ist nicht veröffentlicht, oder GitHub ist nicht erreichbar.",
+      "release_check_failed": "GitHub war nicht erreichbar, um die Version zu prüfen.",
+      "runs_still_active": "Nach einer Stunde liefen noch Bots. Versuche es später erneut.",
+      "host_busy": "Auf dem Server läuft gerade ein anderer Vorgang. Versuche es gleich erneut.",
+      "schema_change_blocked": "Diese Version ändert das Datenschema. Führe auf dem Server sudo tofi update aus.",
+      "insufficient_disk": "Nicht genug freier Speicherplatz für die Sicherung vor dem Update.",
+      "update_rejected": "Die neue Version hat die Integritätsprüfung nicht bestanden.",
+      "rollback_failed": "Das Update ist fehlgeschlagen und das Zurücksetzen braucht Aufmerksamkeit. Führe auf dem Server sudo tofi status aus.",
+      "update_failed": "Das Update ist fehlgeschlagen. Details zeigt sudo tofi status auf dem Server.",
+      "generic": "Das Update wurde nicht abgeschlossen."
+    },
+    "rc": {
+      "label": "Release Candidates erhalten",
+      "hint": "Bietet neben der stabilen Version auch den neuesten Release Candidate an. Kandidaten sind Testbuilds. Es wird nichts installiert, bis du auf Aktualisieren klickst.",
+      "latest": "Neuester Release Candidate",
+      "save_failed": "Speichern fehlgeschlagen. Versuche es erneut."
     }
   },
   "disclosure": {

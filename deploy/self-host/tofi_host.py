@@ -11,6 +11,7 @@ update or uninstall can be resumed by running `tofi install` again. Account
 data under /var/lib/tofi is never deleted except by `tofi uninstall --purge`.
 """
 import argparse
+import calendar
 from contextlib import contextmanager
 import fcntl
 import hashlib
@@ -148,6 +149,15 @@ COMPUTER_BACKENDS = {'none': None, 'kvm': None, 'gvisor': 'not supported yet (co
 AUTO_UPDATE_SERVICE = 'tofi-auto-update.service'
 AUTO_UPDATE_TIMER = 'tofi-auto-update.timer'
 AUTO_UPDATE_MODES = ('patch', 'off')
+# The web page asks for an update by dropping request.json; a root path unit runs
+# `tofi update --from-request`. D69 (docs/decisions/0069-web-update-request.md).
+UPDATE_REQUEST_SERVICE = 'tofi-update-request.service'
+UPDATE_REQUEST_PATH = 'tofi-update-request.path'
+UPDATE_REQUEST_MAX_BYTES = 4096
+UPDATE_REQUEST_MAX_AGE = 3600
+UPDATE_REQUEST_WAIT_MINUTES = 60
+UPDATE_NONCES_KEEP = 50
+UPDATE_CHANNELS = ('stable', 'rc')
 # Pre-update backups kept on disk; older ones are pruned after a good update.
 BACKUP_KEEP = 3
 BACKUP_FREE_FACTOR = 2
@@ -213,6 +223,12 @@ class Paths:
         self.update_history = self.var / 'update-history.jsonl'
         self.auto_service = root / 'etc/systemd/system' / AUTO_UPDATE_SERVICE
         self.auto_timer = root / 'etc/systemd/system' / AUTO_UPDATE_TIMER
+        self.update_request_service = root / 'etc/systemd/system' / UPDATE_REQUEST_SERVICE
+        self.update_request_path = root / 'etc/systemd/system' / UPDATE_REQUEST_PATH
+        # The only host directory the App may write (request.json), and the one it may only read (status.json).
+        self.update_request_dir = self.var / 'update-request'
+        self.update_status_dir = self.var / 'update-status'
+        self.update_nonces = self.var / 'update-nonces.json'
         self.opt = root / 'opt/tofi'
         self.releases = self.opt / 'releases'
         self.current = self.opt / 'current'
@@ -1203,6 +1219,8 @@ def apply_host_config(bundle, env):
     run(['systemd-tmpfiles', '--create', str(P.tmpfiles)])
     write_file(P.unit, (bundle / 'tofi.service').read_text(), 0o644)
     write_auto_update_units()
+    prepare_update_directories()
+    write_update_units()
     run(['systemctl', 'daemon-reload'], check=False)
     return config
 
@@ -1662,6 +1680,7 @@ def wait_for_idle(action, wait_minutes=0, force=False):
         return count
     attempts = max(0, int(wait_minutes)) * 60 // RUN_POLL_SECONDS
     if attempts:
+        report_phase('waiting_for_runs')
         say('%s %s active; waiting up to %s for them to finish before %s.'
             % (busy_phrase(count, waits), 'is' if count == 1 else 'are', plural(int(wait_minutes), 'minute'), action))
     for _ in range(attempts):
@@ -2749,6 +2768,317 @@ def auto_update():
 
 
 # --------------------------------------------------------------------------
+# Update requested from the web page (decision D69)
+#
+# Trust model: the App container (uid 10001, no capabilities) may write one small
+# file, request.json, into a directory nothing else lives in, and read status.json
+# from a read-only mount. The root side below treats the file as hostile input: a
+# strict schema, a size cap, an age cap, a nonce seen once, and then the same
+# checks `tofi update` already makes. The request never names a URL, tag source or
+# flag: it can only ask for a published release of this repository that is newer
+# than the installed one, and the host re-fetches the manifest from GitHub itself.
+
+UPDATE_REQUEST_KEYS = {'version', 'channel', 'requested_at', 'nonce'}
+NONCE_RE = re.compile(r'[0-9a-f]{32}')
+REQUEST_TIME_RE = re.compile(r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ')
+# Progress shown for each state; only the download/verify/switch steps are steps we can observe.
+UPDATE_PROGRESS = {'queued': 5, 'waiting_for_runs': 10, 'downloading': 30, 'verifying': 60, 'switching': 80,
+                   'done': 100, 'failed': None, 'rolled_back': None}
+
+UPDATE_REQUEST_SERVICE_TEXT = """[Unit]
+Description=TOFI update requested from the web page
+After=network-online.target docker.service tofi.service
+Wants=network-online.target
+ConditionPathExists=/etc/tofi/install-state.json
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/tofi update --from-request
+TimeoutStartSec=3h
+"""
+
+UPDATE_REQUEST_PATH_TEXT = """[Unit]
+Description=Watch for a TOFI update request from the web page
+
+[Path]
+PathExists=/var/lib/tofi/update-request/request.json
+Unit=tofi-update-request.service
+
+[Install]
+WantedBy=paths.target
+"""
+
+
+class RequestRefused(HostError):
+    """A web update request that is refused; `code` is the stable code the page shows."""
+
+    def __init__(self, code, detail=''):
+        super().__init__(detail or code)
+        self.code = code
+
+
+_update_status = {}
+_phase_hook = None
+
+
+def report_phase(name):
+    """Tell the web page which step an update is in (no-op outside a web request)."""
+    if _phase_hook is not None:
+        _phase_hook(name)
+
+
+def write_update_status(state, **fields):
+    """Atomically replace status.json (mode 0644, root-owned; the App mounts it read-only)."""
+    _update_status.update(fields)
+    _update_status['schema'] = 1
+    _update_status['state'] = state
+    _update_status['progress'] = UPDATE_PROGRESS.get(state, _update_status.get('progress'))
+    _update_status['updated_at'] = iso_now()
+    if state in ('done', 'failed', 'rolled_back'):
+        _update_status['finished_at'] = _update_status['updated_at']
+    try:
+        P.update_status_dir.mkdir(parents=True, exist_ok=True)
+        write_json(P.update_status_dir / 'status.json', _update_status, 0o644)
+    except OSError as error:
+        warn('Could not write the update status (%s).' % error)
+
+
+def write_update_units():
+    """True when a unit file changed."""
+    changed = False
+    for path, text in ((P.update_request_service, UPDATE_REQUEST_SERVICE_TEXT),
+                       (P.update_request_path, UPDATE_REQUEST_PATH_TEXT)):
+        try:
+            same = path.read_text() == text
+        except OSError:
+            same = False
+        if not same:
+            write_file(path, text, 0o644)
+            changed = True
+    return changed
+
+
+def prepare_update_directories():
+    for path, mode, owner in ((P.update_request_dir, 0o750, APP_UID), (P.update_status_dir, 0o755, 0)):
+        path.mkdir(parents=True, exist_ok=True)
+        os.chmod(path, mode)
+        os.chown(path, owner, owner)
+
+
+def ensure_update_request_channel():
+    """Install or refresh the request directories, the two units and the capability marker.
+
+    Idempotent. The App reports `host_update_unavailable` until host.json exists, so
+    an install that predates this feature shows no button until a command of this
+    version has run once (`tofi start` at boot, `tofi update`, `tofi config ...`).
+    """
+    require_root()
+    prepare_update_directories()
+    changed = write_update_units()
+    if changed:
+        run(['systemctl', 'daemon-reload'], check=False)
+    run(['systemctl', 'enable', '--now', UPDATE_REQUEST_PATH], check=False)
+    write_json(P.update_status_dir / 'host.json', {'schema': 1, 'update_request': 1,
+                                                    'path_unit': UPDATE_REQUEST_PATH}, 0o644)
+
+
+def ensure_update_request_channel_quietly():
+    """Called by commands that must not fail because of this convenience."""
+    try:
+        if load_state() is not None:
+            ensure_update_request_channel()
+    except (HostError, OSError, subprocess.SubprocessError) as error:
+        warn('Could not set up web updates (%s).' % error)
+
+
+def remove_update_request_units():
+    run(['systemctl', 'disable', '--now', UPDATE_REQUEST_PATH], check=False)
+    for path in (P.update_request_path, P.update_request_service):
+        if path.is_symlink() or path.exists():
+            path.unlink()
+    (P.update_status_dir / 'host.json').unlink(missing_ok=True)
+
+
+def take_update_request():
+    """Read and delete request.json. Returns bytes, or None when there is no request.
+
+    Never follows a symlink, never reads a non-regular file, never reads more than
+    the cap. The file is removed whatever it holds, so a bad request cannot loop the path unit.
+    """
+    path = P.update_request_dir / 'request.json'
+    try:
+        fd = os.open(str(path), os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except FileNotFoundError:
+        return None
+    except OSError:
+        remove_tree(path)
+        raise RequestRefused('request_invalid', 'request.json could not be opened as a plain file')
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode):
+            raise RequestRefused('request_invalid', 'request.json is not a regular file')
+        if info.st_size > UPDATE_REQUEST_MAX_BYTES:
+            raise RequestRefused('request_too_large', 'request.json is larger than %d bytes' % UPDATE_REQUEST_MAX_BYTES)
+        data = os.read(fd, UPDATE_REQUEST_MAX_BYTES + 1)
+        if len(data) > UPDATE_REQUEST_MAX_BYTES:
+            raise RequestRefused('request_too_large', 'request.json is larger than %d bytes' % UPDATE_REQUEST_MAX_BYTES)
+        return data
+    finally:
+        os.close(fd)
+        remove_tree(path)
+
+
+def parse_update_request(data, now=None):
+    """Strictly validate request bytes; returns the request dict or raises RequestRefused."""
+    now = time.time() if now is None else now
+    try:
+        request = json.loads(data.decode('utf-8'))
+    except (UnicodeDecodeError, ValueError):
+        raise RequestRefused('request_invalid', 'request.json is not valid JSON')
+    if not isinstance(request, dict) or set(request) != UPDATE_REQUEST_KEYS:
+        raise RequestRefused('request_invalid', 'request.json must hold exactly version, channel, requested_at, nonce')
+    if not all(isinstance(request[key], str) for key in UPDATE_REQUEST_KEYS):
+        raise RequestRefused('request_invalid', 'every request field is a string')
+    version, channel = request['version'], request['channel']
+    if not VERSION_RE.fullmatch(version):
+        raise RequestRefused('request_invalid', 'the version is not a release tag')
+    if channel not in UPDATE_CHANNELS:
+        raise RequestRefused('request_invalid', 'unknown channel')
+    if not NONCE_RE.fullmatch(request['nonce']) or not REQUEST_TIME_RE.fullmatch(request['requested_at']):
+        raise RequestRefused('request_invalid', 'malformed nonce or time')
+    if ('-rc.' in version) != (channel == 'rc'):
+        raise RequestRefused('channel_mismatch', 'the version is not on the requested channel')
+    try:
+        stamp = calendar.timegm(time.strptime(request['requested_at'], '%Y-%m-%dT%H:%M:%SZ'))
+    except ValueError:
+        raise RequestRefused('request_invalid', 'malformed time')
+    if stamp > now + 300 or now - stamp > UPDATE_REQUEST_MAX_AGE:
+        raise RequestRefused('request_stale', 'the request is older than an hour or from the future')
+    return request
+
+
+def seen_update_nonce(nonce):
+    """True when this nonce was handled before; otherwise record it."""
+    try:
+        seen = json.loads(P.update_nonces.read_text())
+        if not isinstance(seen, list):
+            seen = []
+    except (OSError, ValueError):
+        seen = []
+    if nonce in seen:
+        return True
+    write_json(P.update_nonces, (seen + [nonce])[-UPDATE_NONCES_KEEP:])
+    return False
+
+
+def update_failure_code(error):
+    text = str(error)
+    if text.startswith('update rejected'):
+        return 'update_rejected', True
+    if 'rollback failed' in text:
+        return 'rollback_failed', False
+    if text.startswith('restore failed'):
+        return 'update_rejected', True
+    if text.startswith('Update refused: data schema'):
+        return 'schema_change_blocked', False
+    if text.startswith('Not enough free disk space'):
+        return 'insufficient_disk', False
+    return 'update_failed', False
+
+
+def update_from_request():
+    """`tofi update --from-request`, run by tofi-update-request.path as root.
+
+    Returns {'result': none|refused|duplicate|done|failed}. Writes status.json at
+    each step. The download, digest check, backup, switch and rollback are
+    upgrade(): this function only decides whether the request may reach it.
+    """
+    global _phase_hook
+    require_root()
+    _update_status.clear()
+    try:
+        data = take_update_request()
+        if data is None:
+            say('tofi update --from-request: no request.')
+            return {'result': 'none'}
+        request = parse_update_request(data)
+    except RequestRefused as error:
+        write_update_status('failed', code=error.code, detail=str(error)[:300], progress=None)
+        say('tofi update --from-request: refused (%s).' % error.code)
+        record_update_history({'trigger': 'web', 'result': 'refused', 'reason': error.code})
+        return {'result': 'refused', 'code': error.code}
+    version, channel, nonce = request['version'], request['channel'], request['nonce']
+    if seen_update_nonce(nonce):
+        say('tofi update --from-request: duplicate request ignored.')
+        return {'result': 'duplicate'}
+    state = load_state()
+    installed = read_env().get('TOFI_VERSION') if state is not None else None
+    _update_status.update({'version': version, 'from': installed, 'channel': channel, 'nonce': nonce,
+                           'requested_at': request['requested_at'], 'started_at': iso_now(), 'code': None,
+                           'detail': None, 'rolled_back_to': None, 'finished_at': None})
+
+    def refuse(code, detail=''):
+        write_update_status('failed', code=code, detail=detail[:300])
+        say('tofi update --from-request: refused %s (%s).' % (version, code))
+        record_update_history({'trigger': 'web', 'result': 'refused', 'from': installed, 'to': version, 'reason': code})
+        return {'result': 'refused', 'code': code}
+
+    if state is None or state['phase'] != 'installed':
+        return refuse('host_busy', 'TOFI is not in phase installed')
+    if not is_newer(version, installed):
+        return refuse('not_newer', '%s is not newer than %s' % (version, installed))
+    if (state.get('last_update_failure') or {}).get('version') == version:
+        return refuse('rejected_before', '%s was rejected earlier on this host' % version)
+    write_update_status('queued')
+    try:
+        if channel == 'stable':
+            try:
+                manifest = fetch_manifest()
+            except HostError as error:
+                return refuse('release_check_failed', str(error))
+            if manifest['version'] != version:
+                return refuse('not_latest_stable', 'the latest stable release is %s' % manifest['version'])
+        else:
+            try:
+                manifest = fetch_manifest(version)
+            except HostError as error:
+                return refuse('version_unpublished', str(error))
+            if manifest['version'] != version:
+                return refuse('version_unpublished', 'the release manifest names %s' % manifest['version'])
+    except BaseException as error:  # never leave the page showing "queued"
+        write_update_status('failed', code='update_failed', detail=str(error)[:300])
+        raise
+
+    def hook(name):
+        write_update_status(name)
+
+    _phase_hook = hook
+    try:
+        upgrade(manifest=manifest, wait=UPDATE_REQUEST_WAIT_MINUTES, trigger='web')
+    except ActiveRunsError as error:
+        write_update_status('failed', code='runs_still_active', detail=str(error)[:300])
+        say('tofi update --from-request: %s not installed, Bot runs still active.' % version)
+        return {'result': 'failed', 'code': 'runs_still_active'}
+    except LockBusy as error:
+        write_update_status('failed', code='host_busy', detail=str(error)[:300])
+        return {'result': 'failed', 'code': 'host_busy'}
+    except HostError as error:
+        code, rolled_back = update_failure_code(error)
+        write_update_status('rolled_back' if rolled_back else 'failed', code=code, detail=str(error)[:300],
+                            rolled_back_to=installed if rolled_back else None)
+        say('tofi update --from-request: %s failed (%s).' % (version, code))
+        return {'result': 'failed', 'code': code}
+    except BaseException as error:
+        write_update_status('failed', code='update_failed', detail=str(error)[:300])
+        raise
+    finally:
+        _phase_hook = None
+    write_update_status('done', code=None, detail=None)
+    say('tofi update --from-request: updated %s -> %s.' % (installed, version))
+    return {'result': 'done', 'version': version}
+
+
+# --------------------------------------------------------------------------
 # Lifecycle
 
 
@@ -2800,6 +3130,7 @@ def systemd_start():
             sync_auto_update_timer(read_env())
         except (OSError, HostError):
             pass
+        ensure_update_request_channel_quietly()
 
 
 def fresh_install(manifest, options):
@@ -3032,6 +3363,7 @@ def _upgrade(info, version, manifest_path, allow_schema_change, manifest, wait, 
         if confirm is not None:
             confirm(previous['env']['TOFI_VERSION'], manifest)
         wait_for_idle('the update', wait, force)
+        report_phase('downloading')
         candidate = dict(previous['env'])
         computer = has_computer(candidate)
         candidate.update({
@@ -3045,6 +3377,7 @@ def _upgrade(info, version, manifest_path, allow_schema_change, manifest, wait, 
                               'TOFI_GUEST_VERSION': manifest['guest']['version']})
         # Everything that can be checked happens before anything is stopped.
         pull_images(candidate, None)
+        report_phase('verifying')
         current_schema = image_label(previous['env']['TOFI_APP_IMAGE'], DATA_SCHEMA_LABEL)
         new_schema = image_label(candidate['TOFI_APP_IMAGE'], DATA_SCHEMA_LABEL)
         if new_schema != manifest['data_schema']:
@@ -3064,6 +3397,7 @@ def _upgrade(info, version, manifest_path, allow_schema_change, manifest, wait, 
         # The backup must fit, and no run may have started during the downloads.
         check_backup_space('the update')
         wait_for_idle('the update', 0, force)
+        report_phase('switching')
         state['transaction'] = {'kind': 'upgrade', 'step': 'stop-old', 'previous': previous,
                                 'candidate_version': manifest['version'], 'backup': None, 'data_changed': False}
         state['phase'] = 'upgrading'
@@ -3411,6 +3745,7 @@ def finish_uninstall(state):
         transition(state, 'uninstalling', 'stop-services')
         run(['systemctl', 'disable', 'tofi.service'], check=False)
         remove_auto_update_units()
+        remove_update_request_units()
         stopped(tolerate_unclean=True)
         transition(state, 'uninstalling', 'remove-services')
         if compose_file().exists():
@@ -3500,6 +3835,7 @@ def purge_everything(state, confirm):
     images = installation_images(state)
     run(['systemctl', 'disable', 'tofi.service'], check=False)
     remove_auto_update_units()
+    remove_update_request_units()
     if P.apparmor_profile.exists():
         run(['apparmor_parser', '-R', str(P.apparmor_profile)], check=False)
     for path in (P.unit, P.tmpfiles, P.apparmor_profile, P.bin_link):
@@ -4600,6 +4936,8 @@ def parse_args(argv):
     update_parser.add_argument('--auto', action='store_true',
                                help='what the daily timer runs: install a fix release if TOFI_AUTO_UPDATE=patch')
     add_guard_flags(update_parser)
+    update_parser.add_argument('--from-request', dest='from_request', action='store_true',
+                               help='what tofi-update-request.path runs: handle an update requested from the web page')
     update_parser.add_argument('--version')
     update_parser.add_argument('--manifest', help='use a local manifest instead of GitHub Releases')
     update_parser.add_argument('--allow-schema-change', action='store_true')
@@ -4773,6 +5111,8 @@ def main(argv=None):
             install(args.manifest, install_options(args))
             return 0
         if args.command == 'status':
+            if os.geteuid() == 0:
+                ensure_update_request_channel_quietly()
             result = status(details=True)
             if args.json:
                 print(json.dumps(result, indent=2))
@@ -4815,6 +5155,7 @@ def main(argv=None):
             return 0
         if args.command == 'start':
             start()
+            ensure_update_request_channel_quietly()
             return 0
         if args.command == 'stop':
             stop(*guard_options(args, interactive_default=True))
@@ -4851,12 +5192,20 @@ def main(argv=None):
                 configure_trusted_proxies(args.proxies, args.clear)
             else:
                 configure_auto_update(args.mode)
+            ensure_update_request_channel_quietly()
             return 0
         if args.command == 'update':
+            if args.from_request:
+                if args.check or args.version or args.manifest or args.json or args.auto:
+                    raise HostError('--from-request cannot be combined with other update options.')
+                ensure_update_request_channel_quietly()
+                return 1 if update_from_request()['result'] == 'failed' else 0
             if args.auto:
                 if args.check or args.version or args.manifest or args.json:
                     raise HostError('--auto cannot be combined with --check, --version, --manifest or --json.')
-                return 1 if auto_update()['result'] == 'failed' else 0
+                result = auto_update()
+                ensure_update_request_channel_quietly()
+                return 1 if result['result'] == 'failed' else 0
             if args.check:
                 report = check_update(args.version, args.manifest)
                 sys.stdout.write(json.dumps(report, indent=2) + '\n' if args.json else render_update_check(report))
@@ -4866,6 +5215,7 @@ def main(argv=None):
             wait, force = guard_options(args, interactive_default=not args.yes)
             upgrade(args.version, args.manifest, args.allow_schema_change, wait=wait, force=force,
                     confirm=None if args.yes or not sys.stdin.isatty() else confirm_update)
+            ensure_update_request_channel_quietly()
             return 0
         if args.command == 'uninstall':
             uninstall(args.purge, args.confirm_hostname)

@@ -88,6 +88,10 @@
     "oauth_loopback_required": "このサービスは 127.0.0.1 へのリダイレクトのみ受け付けます。貼り付けによるサインインを使ってください。",
     "skill_exists": "同じ名前の Skill またはバンドルがライブラリにすでにあります。",
     "skill_in_bundle": "この Skill はバンドルに含まれています。バンドルごと削除してください。",
-    "skill_unchanged": "現在のバージョンとファイルが同じです。"
+    "skill_unchanged": "現在のバージョンとファイルが同じです。",
+    "update_not_available": "そのバージョンはもう提供されていません。再読み込みして、もう一度お試しください。",
+    "update_in_progress": "更新はすでに進行中です。",
+    "update_channel_disabled": "リリース候補版はオフです。",
+    "host_update_unavailable": "このサーバーはまだページから更新できません。サーバーで sudo tofi update を実行してください。"
   }
 }

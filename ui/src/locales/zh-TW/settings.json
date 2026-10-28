@@ -700,7 +700,8 @@
       "available": "Tofi {{version}} 已發布。請在伺服器上執行 <code>sudo tofi update</code>。",
       "automatic": "Tofi {{version}} 已發布，將於夜間自動安裝。",
       "whats_new": "更新內容",
-      "dismiss": "關閉更新通知"
+      "dismiss": "關閉更新通知",
+      "available_short": "Tofi {{version}} 已發布。"
     },
     "card": {
       "current": "目前版本",
@@ -715,7 +716,69 @@
       "auto_on": "開啟",
       "auto_off": "關閉",
       "install_hint": "在伺服器上執行 <code>sudo tofi update</code> 即可安裝。",
-      "auto_hint": "請在伺服器上開關：<on>sudo tofi config auto-update on</on> 或 <off>sudo tofi config auto-update off</off>"
+      "auto_hint": "請在伺服器上開關：<on>sudo tofi config auto-update on</on> 或 <off>sudo tofi config auto-update off</off>",
+      "update": "從此頁面更新",
+      "update_hint": "伺服器會先備份，等待執行中的 Bot，新版本失敗時自動回復。",
+      "update_none": "沒有可安裝的更新。"
+    },
+    "action": {
+      "update": "更新到 {{version}}",
+      "try_rc": "試用 {{version}}"
+    },
+    "dialog": {
+      "title": "更新到 {{version}}？",
+      "title_rc": "試用 {{version}}？",
+      "body": "Tofi 會先備份資料，再安裝 {{version}} 並重新啟動。執行中的 Bot 會先完成，本頁面會自動重新連線。",
+      "body_rc": "這是候選版本，是早於穩定版的測試建置。Tofi 會先備份資料，再安裝 {{version}} 並重新啟動。執行中的 Bot 會先完成，本頁面會自動重新連線。",
+      "channel_rc": "候選版本",
+      "channel_stable": "穩定版",
+      "notes": "版本說明",
+      "confirm": "立即更新",
+      "cancel": "取消",
+      "failed": "無法送出要求，請重試。"
+    },
+    "progress": {
+      "label": "更新進度",
+      "queued": "等待伺服器接收要求…",
+      "waiting_for_runs": "等待執行中的 Bot 完成…",
+      "downloading": "正在下載 {{version}}…",
+      "verifying": "正在驗證下載內容…",
+      "switching": "正在切換到 {{version}}…",
+      "restarting": "正在重新啟動…",
+      "done": "已更新到 {{version}}",
+      "reload": "重新整理"
+    },
+    "failed": {
+      "title": "更新到 {{version}} 沒有完成。",
+      "rolled_back": "已回復到 {{version}}。",
+      "unchanged": "沒有做任何變更。",
+      "code": "代碼 {{code}}",
+      "dismiss": "關閉"
+    },
+    "error": {
+      "request_invalid": "伺服器拒絕了該要求。",
+      "request_too_large": "伺服器拒絕了該要求。",
+      "request_stale": "要求在伺服器讀取前已過期，請重試。",
+      "channel_mismatch": "該版本不屬於所選通道。",
+      "not_newer": "伺服器已在執行該版本或更新的版本。",
+      "rejected_before": "該版本先前在這台伺服器上失敗過。準備好後請透過命令列更新。",
+      "not_latest_stable": "已有更新的版本發布。請重新整理本頁面後重試。",
+      "version_unpublished": "該版本尚未發布，或無法連線 GitHub。",
+      "release_check_failed": "無法連線 GitHub 檢查版本。",
+      "runs_still_active": "一小時後仍有 Bot 在執行，請稍後重試。",
+      "host_busy": "伺服器上正在執行其他操作，請稍後重試。",
+      "schema_change_blocked": "該版本會變更資料結構。請在伺服器上執行 sudo tofi update。",
+      "insufficient_disk": "磁碟可用空間不足，無法在更新前備份。",
+      "update_rejected": "新版本未通過健康檢查。",
+      "rollback_failed": "更新失敗，且回復需要處理。請在伺服器上執行 sudo tofi status。",
+      "update_failed": "更新失敗。詳情請在伺服器上執行 sudo tofi status。",
+      "generic": "更新沒有完成。"
+    },
+    "rc": {
+      "label": "接收候選版本",
+      "hint": "除穩定版外，也提供最新的候選版本。候選版本是測試建置。在你按下更新之前不會安裝任何內容。",
+      "latest": "最新候選版本",
+      "save_failed": "儲存失敗，請重試。"
     }
   },
   "disclosure": {

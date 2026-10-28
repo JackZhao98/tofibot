@@ -398,6 +398,25 @@ Every update is built so that nothing is lost when it fails.
 - **Release notes.** `manifest.json` carries an optional `notes_url`
   (`https://github.com/<repo>/releases/tag/<version>`), printed by
   `tofi update --check`.
+- **Update from the web page.** An admin can press **Update to vX** in Settings > Advanced > Version.
+  The App (uid 10001) only writes `/var/lib/tofi/update-request/request.json`
+  (mounted at `/update/request`, the one writable path); the `tofi-update-request.path`
+  unit starts `tofi-update-request.service` (root), which runs `tofi update --from-request`.
+  The request is validated as untrusted input: exact keys `version, channel, requested_at,
+  nonce`, a release-tag version, at most 4096 bytes and one hour old, each nonce once, no
+  downgrade, `stable` must be exactly `releases/latest`, `rc` must be a published `-rc.N`
+  release, a version rejected here before is refused, and a data-schema change is never
+  allowed from the page. The rest is `tofi update`: it waits up to 60 minutes for Bot runs
+  (then gives up without changing anything), backs up, verifies, rolls back. Progress and
+  result are `/var/lib/tofi/update-status/status.json` (read-only in the App); history lines
+  have `"trigger": "web"`; logs: `journalctl -u tofi-update-request`. The page switch
+  **Receive release candidates** (off by default) only decides what the page offers: the
+  host does not read it. If you never want an rc installed, leave it off and update by
+  hand. The units are installed by `tofi install` and refreshed by `tofi start`,
+  `tofi update`, `tofi config` and a root `tofi status`; `tofi uninstall` removes them. A host
+  installed before this feature gets them the first time one of those runs with this version
+  of `tofi` (so right after the first update, run `sudo tofi status` once); until then
+  the page shows no button.
 - **Acceptance.** `deploy/self-host/upgrade_acceptance.py --from vX --to vY
   --broken-manifest M` (as root on a disposable VM) installs X, creates
   synthetic data, updates to Y, forces a failing update and exercises

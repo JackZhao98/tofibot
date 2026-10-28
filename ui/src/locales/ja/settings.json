@@ -700,7 +700,8 @@
       "available": "Tofi {{version}} が公開されました。サーバーで <code>sudo tofi update</code> を実行してください。",
       "automatic": "Tofi {{version}} が公開されました。夜間に自動でインストールされます。",
       "whats_new": "新機能を見る",
-      "dismiss": "更新のお知らせを閉じる"
+      "dismiss": "更新のお知らせを閉じる",
+      "available_short": "Tofi {{version}} が公開されました。"
     },
     "card": {
       "current": "現在のバージョン",
@@ -715,7 +716,69 @@
       "auto_on": "オン",
       "auto_off": "オフ",
       "install_hint": "サーバーで <code>sudo tofi update</code> を実行するとインストールできます。",
-      "auto_hint": "サーバーで切り替えます：<on>sudo tofi config auto-update on</on> または <off>sudo tofi config auto-update off</off>"
+      "auto_hint": "サーバーで切り替えます：<on>sudo tofi config auto-update on</on> または <off>sudo tofi config auto-update off</off>",
+      "update": "このページから更新",
+      "update_hint": "サーバーが先にバックアップを取り、実行中の Bot を待ち、新しいバージョンが失敗したらロールバックします。",
+      "update_none": "インストールできる更新はありません。"
+    },
+    "action": {
+      "update": "{{version}} に更新",
+      "try_rc": "{{version}} を試す"
+    },
+    "dialog": {
+      "title": "{{version}} に更新しますか？",
+      "title_rc": "{{version}} を試しますか？",
+      "body": "Tofi はデータをバックアップしてから {{version}} をインストールし、再起動します。実行中の Bot は先に完了し、このページは自動で再接続します。",
+      "body_rc": "これはリリース候補版で、安定版に先立つテストビルドです。Tofi はデータをバックアップしてから {{version}} をインストールし、再起動します。実行中の Bot は先に完了し、このページは自動で再接続します。",
+      "channel_rc": "リリース候補版",
+      "channel_stable": "安定版",
+      "notes": "リリースノート",
+      "confirm": "今すぐ更新",
+      "cancel": "キャンセル",
+      "failed": "リクエストを送信できませんでした。もう一度お試しください。"
+    },
+    "progress": {
+      "label": "更新の進行状況",
+      "queued": "サーバーがリクエストを受け取るのを待っています…",
+      "waiting_for_runs": "実行中の Bot の完了を待っています…",
+      "downloading": "{{version}} をダウンロード中…",
+      "verifying": "ダウンロードを検証中…",
+      "switching": "{{version}} に切り替え中…",
+      "restarting": "再起動中…",
+      "done": "{{version}} に更新しました",
+      "reload": "再読み込み"
+    },
+    "failed": {
+      "title": "{{version}} への更新は完了しませんでした。",
+      "rolled_back": "{{version}} にロールバックしました。",
+      "unchanged": "変更はありません。",
+      "code": "コード {{code}}",
+      "dismiss": "閉じる"
+    },
+    "error": {
+      "request_invalid": "サーバーがリクエストを拒否しました。",
+      "request_too_large": "サーバーがリクエストを拒否しました。",
+      "request_stale": "サーバーが読み取る前にリクエストの有効期限が切れました。もう一度お試しください。",
+      "channel_mismatch": "そのバージョンは選択したチャンネルのものではありません。",
+      "not_newer": "サーバーはすでにそのバージョンかそれ以降を実行しています。",
+      "rejected_before": "このバージョンは以前このサーバーで失敗しました。準備ができたらコマンドラインから更新してください。",
+      "not_latest_stable": "より新しいリリースが公開されました。ページを再読み込みして、もう一度お試しください。",
+      "version_unpublished": "そのリリースは公開されていないか、GitHub に接続できません。",
+      "release_check_failed": "GitHub に接続してリリースを確認できませんでした。",
+      "runs_still_active": "1 時間経っても Bot が実行中でした。後でもう一度お試しください。",
+      "host_busy": "サーバーで別の処理が実行中です。しばらくしてからもう一度お試しください。",
+      "schema_change_blocked": "このリリースはデータスキーマを変更します。サーバーで sudo tofi update を実行してください。",
+      "insufficient_disk": "更新前のバックアップに必要なディスク空き容量が足りません。",
+      "update_rejected": "新しいバージョンがヘルスチェックに失敗しました。",
+      "rollback_failed": "更新に失敗し、ロールバックの確認が必要です。サーバーで sudo tofi status を実行してください。",
+      "update_failed": "更新に失敗しました。詳細はサーバーで sudo tofi status を実行してください。",
+      "generic": "更新は完了しませんでした。"
+    },
+    "rc": {
+      "label": "リリース候補版を受け取る",
+      "hint": "安定版に加えて、最新のリリース候補版も案内します。候補版はテストビルドです。更新を押すまで何もインストールされません。",
+      "latest": "最新のリリース候補版",
+      "save_failed": "保存できませんでした。もう一度お試しください。"
     }
   },
   "disclosure": {

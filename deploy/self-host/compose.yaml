@@ -91,6 +91,9 @@ services:
       TOFI_TRUSTED_PROXIES: ${TOFI_TRUSTED_PROXIES:-}
       # patch|off: shown by the web page; the host timer does the updating (tofi config auto-update).
       TOFI_AUTO_UPDATE: ${TOFI_AUTO_UPDATE:-off}
+      # Where the page leaves an update request and reads its progress (see deploy/self-host/tofi_host.py).
+      TOFI_UPDATE_REQUEST_DIR: /update/request
+      TOFI_UPDATE_STATUS_DIR: /update/status
       TOFI_MULTI_ACCOUNT: "1"
       TOFI_ACCOUNT_MAINTENANCE: "0"
       # kvm | none. Empty (an env file from before computers were optional) lets the App decide
@@ -114,6 +117,14 @@ services:
       - <<: *bind
         source: /run/tofi
         target: /run/tofi
+        read_only: true
+      # The page asks for an update by writing request.json here; the host (root) validates it.
+      - <<: *bind
+        source: /var/lib/tofi/update-request
+        target: /update/request
+      - <<: *bind
+        source: /var/lib/tofi/update-status
+        target: /update/status
         read_only: true
       - <<: *bind
         source: /etc/tofi/tls

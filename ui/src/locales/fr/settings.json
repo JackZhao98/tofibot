@@ -718,7 +718,8 @@
       "available": "Tofi {{version}} est disponible. Exécutez <code>sudo tofi update</code> sur le serveur.",
       "automatic": "Tofi {{version}} est disponible et s'installera automatiquement cette nuit.",
       "whats_new": "Nouveautés",
-      "dismiss": "Fermer l'avis de mise à jour"
+      "dismiss": "Fermer l'avis de mise à jour",
+      "available_short": "Tofi {{version}} est disponible."
     },
     "card": {
       "current": "Version installée",
@@ -733,7 +734,69 @@
       "auto_on": "Activé",
       "auto_off": "Désactivé",
       "install_hint": "Exécutez <code>sudo tofi update</code> sur le serveur pour l'installer.",
-      "auto_hint": "À modifier sur le serveur : <on>sudo tofi config auto-update on</on> ou <off>sudo tofi config auto-update off</off>"
+      "auto_hint": "À modifier sur le serveur : <on>sudo tofi config auto-update on</on> ou <off>sudo tofi config auto-update off</off>",
+      "update": "Mettre à jour depuis cette page",
+      "update_hint": "Le serveur sauvegarde d'abord, attend les Bots en cours et revient en arrière si la nouvelle version échoue.",
+      "update_none": "Aucune mise à jour à installer."
+    },
+    "action": {
+      "update": "Passer à {{version}}",
+      "try_rc": "Essayer {{version}}"
+    },
+    "dialog": {
+      "title": "Passer à {{version}} ?",
+      "title_rc": "Essayer {{version}} ?",
+      "body": "Tofi sauvegarde vos données, installe {{version}} et redémarre. Les Bots en cours se terminent d'abord, et cette page se reconnecte toute seule.",
+      "body_rc": "Il s'agit d'une version candidate, un build de test avant la version stable. Tofi sauvegarde vos données, installe {{version}} et redémarre. Les Bots en cours se terminent d'abord, et cette page se reconnecte toute seule.",
+      "channel_rc": "Version candidate",
+      "channel_stable": "Stable",
+      "notes": "Notes de version",
+      "confirm": "Mettre à jour maintenant",
+      "cancel": "Annuler",
+      "failed": "Impossible d'envoyer la demande. Réessayez."
+    },
+    "progress": {
+      "label": "Progression de la mise à jour",
+      "queued": "En attente de prise en charge par le serveur…",
+      "waiting_for_runs": "En attente de la fin des Bots en cours…",
+      "downloading": "Téléchargement de {{version}}…",
+      "verifying": "Vérification du téléchargement…",
+      "switching": "Passage à {{version}}…",
+      "restarting": "Redémarrage…",
+      "done": "Mis à jour vers {{version}}",
+      "reload": "Recharger"
+    },
+    "failed": {
+      "title": "La mise à jour vers {{version}} n'a pas abouti.",
+      "rolled_back": "Retour à {{version}}.",
+      "unchanged": "Rien n'a été modifié.",
+      "code": "Code {{code}}",
+      "dismiss": "Fermer"
+    },
+    "error": {
+      "request_invalid": "Le serveur a rejeté la demande.",
+      "request_too_large": "Le serveur a rejeté la demande.",
+      "request_stale": "La demande a expiré avant que le serveur la lise. Réessayez.",
+      "channel_mismatch": "Cette version n'appartient pas au canal choisi.",
+      "not_newer": "Le serveur exécute déjà cette version ou une plus récente.",
+      "rejected_before": "Cette version a déjà échoué sur ce serveur. Mettez à jour en ligne de commande le moment venu.",
+      "not_latest_stable": "Une version plus récente est sortie. Rechargez cette page et réessayez.",
+      "version_unpublished": "Cette version n'est pas publiée, ou GitHub est injoignable.",
+      "release_check_failed": "Impossible de joindre GitHub pour vérifier la version.",
+      "runs_still_active": "Des Bots tournaient encore au bout d'une heure. Réessayez plus tard.",
+      "host_busy": "Une autre opération est en cours sur le serveur. Réessayez dans un instant.",
+      "schema_change_blocked": "Cette version modifie le schéma des données. Exécutez sudo tofi update sur le serveur.",
+      "insufficient_disk": "Pas assez d'espace disque pour la sauvegarde avant mise à jour.",
+      "update_rejected": "La nouvelle version a échoué à son contrôle de santé.",
+      "rollback_failed": "La mise à jour a échoué et le retour arrière demande votre attention. Exécutez sudo tofi status sur le serveur.",
+      "update_failed": "La mise à jour a échoué. Exécutez sudo tofi status sur le serveur pour les détails.",
+      "generic": "La mise à jour n'a pas abouti."
+    },
+    "rc": {
+      "label": "Recevoir les versions candidates",
+      "hint": "Propose aussi la dernière version candidate à côté de la version stable. Ce sont des builds de test. Rien n'est installé tant que vous n'appuyez pas sur Mettre à jour.",
+      "latest": "Dernière version candidate",
+      "save_failed": "Échec de l'enregistrement. Réessayez."
     }
   },
   "disclosure": {

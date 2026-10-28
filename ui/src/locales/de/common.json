@@ -88,6 +88,10 @@
     "oauth_loopback_required": "Dieser Dienst akzeptiert nur eine Weiterleitung an 127.0.0.1. Melden Sie sich per Einfügen an.",
     "skill_exists": "Ein Skill oder Bundle mit diesem Namen ist bereits in der Bibliothek.",
     "skill_in_bundle": "Dieser Skill gehört zu einem Bundle. Entferne stattdessen das Bundle.",
-    "skill_unchanged": "Diese Dateien entsprechen der aktuellen Version."
+    "skill_unchanged": "Diese Dateien entsprechen der aktuellen Version.",
+    "update_not_available": "Diese Version wird nicht mehr angeboten. Lade neu und versuche es erneut.",
+    "update_in_progress": "Ein Update läuft bereits.",
+    "update_channel_disabled": "Release Candidates sind ausgeschaltet.",
+    "host_update_unavailable": "Dieser Server kann noch nicht über die Seite aktualisieren. Führe auf dem Server sudo tofi update aus."
   }
 }

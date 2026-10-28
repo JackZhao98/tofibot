@@ -74,6 +74,12 @@ doctor | setup-secret | regenerate-cert | uninstall`. `tofi update` keeps your d
 version automatically if the new one does not come up. `tofi uninstall` keeps all
 data; `tofi uninstall --purge` deletes it. Details: `deploy/self-host/README.md`.
 
+Prefer the web page? An admin can update from **Settings > Advanced > Version** (or the banner at the top): press **Update to vX**, confirm, and the
+server updates itself the same way `sudo tofi update` does: it waits for running Bots, backs up first, checks the release and rolls back if the new version
+fails. The page shows the steps and reconnects when the App restarts. Turn on **Receive release candidates** in the same card to be offered test builds too
+(nothing installs until you press Update). On a server installed before this feature, the button appears after the first `sudo tofi update` to this version
+plus one `sudo tofi status` (or the next reboot); until then the page keeps telling you to run the command.
+
 ```sh
 sudo tofi status                    # versions (installed / latest), services, every account computer
 sudo tofi update --check            # what an update would change; exit 0 up to date, 10 available

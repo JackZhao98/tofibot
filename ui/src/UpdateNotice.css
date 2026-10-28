@@ -12,3 +12,22 @@
 .version-card .version-muted{color:var(--muted)}
 .version-card .settings-row-copy code{padding:1px 6px;border-radius:6px;background:var(--sunk);font:12px var(--mono);overflow-wrap:anywhere}
 @media(max-width:700px){.version-card .version-value{justify-content:flex-start}}
+.update-btn{flex:none;min-height:32px;padding:5px 12px;border-radius:9px;font-size:13px}
+.update-banner .update-progress{flex:1}
+.update-progress{display:inline-flex;align-items:center;flex-wrap:wrap;gap:10px;min-width:0;color:var(--ink);font:13px/1.45 var(--body)}
+.update-progress>svg{flex:none;color:var(--lagoon-text)}
+.update-progress.is-failed>svg{color:var(--danger)}
+.update-progress-copy{display:grid;gap:2px;min-width:0;overflow-wrap:anywhere}
+.update-progress-meta{display:flex;flex-wrap:wrap;gap:8px;color:var(--muted);font-size:12px}
+.update-progress-meta code{padding:1px 6px;border-radius:6px;background:var(--sunk);font:12px var(--mono)}
+.update-progress-bar{display:block;flex:0 1 160px;width:160px;height:6px;border-radius:3px;background:var(--sunk);overflow:hidden}
+.update-progress-bar>i{display:block;height:100%;border-radius:3px;background:var(--lagoon-text);transition:width var(--m-base) var(--ease-out)}
+@media(prefers-reduced-motion:reduce){.update-progress-bar>i{transition:none}}
+.update-dialog-channel{display:flex;align-items:center;gap:10px;margin-bottom:16px;color:var(--text-soft);font-size:14px}
+.update-dialog-channel code{font:13px var(--mono);color:var(--ink)}
+.update-dialog-badge{padding:2px 9px;border:1px solid var(--line-soft);border-radius:999px;font-size:12px;font-weight:600;color:var(--ink)}
+.update-dialog-badge.is-rc{border-color:var(--lagoon-text);color:var(--lagoon-text)}
+.update-dialog .delete-dialog-note a{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.update-dialog-error{color:var(--danger)}
+.version-card .update-progress{justify-content:flex-end}
+@media(max-width:700px){.version-card .update-progress{justify-content:flex-start}.update-progress-bar{flex-basis:100%;width:auto}}

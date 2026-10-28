@@ -700,7 +700,8 @@
       "available": "Tofi {{version}}이(가) 출시되었습니다. 서버에서 <code>sudo tofi update</code>를 실행하세요.",
       "automatic": "Tofi {{version}}이(가) 출시되었으며 밤사이 자동으로 설치됩니다.",
       "whats_new": "새로운 기능",
-      "dismiss": "업데이트 알림 닫기"
+      "dismiss": "업데이트 알림 닫기",
+      "available_short": "Tofi {{version}}이(가) 출시되었습니다."
     },
     "card": {
       "current": "설치된 버전",
@@ -715,7 +716,69 @@
       "auto_on": "켜짐",
       "auto_off": "꺼짐",
       "install_hint": "서버에서 <code>sudo tofi update</code>를 실행하면 설치됩니다.",
-      "auto_hint": "서버에서 켜고 끌 수 있습니다: <on>sudo tofi config auto-update on</on> 또는 <off>sudo tofi config auto-update off</off>"
+      "auto_hint": "서버에서 켜고 끌 수 있습니다: <on>sudo tofi config auto-update on</on> 또는 <off>sudo tofi config auto-update off</off>",
+      "update": "이 페이지에서 업데이트",
+      "update_hint": "서버가 먼저 백업하고, 실행 중인 Bot을 기다리며, 새 버전이 실패하면 롤백합니다.",
+      "update_none": "설치할 업데이트가 없습니다."
+    },
+    "action": {
+      "update": "{{version}}(으)로 업데이트",
+      "try_rc": "{{version}} 사용해 보기"
+    },
+    "dialog": {
+      "title": "{{version}}(으)로 업데이트할까요?",
+      "title_rc": "{{version}}을(를) 사용해 볼까요?",
+      "body": "Tofi가 데이터를 백업한 뒤 {{version}}을(를) 설치하고 다시 시작합니다. 실행 중인 Bot이 먼저 끝나며, 이 페이지는 자동으로 다시 연결됩니다.",
+      "body_rc": "릴리스 후보는 안정 버전에 앞선 테스트 빌드입니다. Tofi가 데이터를 백업한 뒤 {{version}}을(를) 설치하고 다시 시작합니다. 실행 중인 Bot이 먼저 끝나며, 이 페이지는 자동으로 다시 연결됩니다.",
+      "channel_rc": "릴리스 후보",
+      "channel_stable": "안정",
+      "notes": "릴리스 노트",
+      "confirm": "지금 업데이트",
+      "cancel": "취소",
+      "failed": "요청을 보내지 못했습니다. 다시 시도하세요."
+    },
+    "progress": {
+      "label": "업데이트 진행 상황",
+      "queued": "서버가 요청을 받기를 기다리는 중…",
+      "waiting_for_runs": "실행 중인 Bot이 끝나기를 기다리는 중…",
+      "downloading": "{{version}} 다운로드 중…",
+      "verifying": "다운로드 확인 중…",
+      "switching": "{{version}}(으)로 전환 중…",
+      "restarting": "다시 시작하는 중…",
+      "done": "{{version}}(으)로 업데이트했습니다",
+      "reload": "새로 고침"
+    },
+    "failed": {
+      "title": "{{version}}(으)로의 업데이트가 끝나지 않았습니다.",
+      "rolled_back": "{{version}}(으)로 롤백했습니다.",
+      "unchanged": "변경된 것이 없습니다.",
+      "code": "코드 {{code}}",
+      "dismiss": "닫기"
+    },
+    "error": {
+      "request_invalid": "서버가 요청을 거부했습니다.",
+      "request_too_large": "서버가 요청을 거부했습니다.",
+      "request_stale": "서버가 읽기 전에 요청이 만료되었습니다. 다시 시도하세요.",
+      "channel_mismatch": "그 버전은 선택한 채널에 속하지 않습니다.",
+      "not_newer": "서버가 이미 그 버전이나 더 새로운 버전을 실행 중입니다.",
+      "rejected_before": "이 버전은 이 서버에서 이전에 실패했습니다. 준비되면 명령줄에서 업데이트하세요.",
+      "not_latest_stable": "더 새로운 릴리스가 나왔습니다. 이 페이지를 새로 고치고 다시 시도하세요.",
+      "version_unpublished": "그 릴리스가 공개되지 않았거나 GitHub에 연결할 수 없습니다.",
+      "release_check_failed": "GitHub에 연결해 릴리스를 확인하지 못했습니다.",
+      "runs_still_active": "한 시간이 지나도 Bot이 실행 중이었습니다. 나중에 다시 시도하세요.",
+      "host_busy": "서버에서 다른 작업이 실행 중입니다. 잠시 후 다시 시도하세요.",
+      "schema_change_blocked": "이 릴리스는 데이터 스키마를 변경합니다. 서버에서 sudo tofi update를 실행하세요.",
+      "insufficient_disk": "업데이트 전 백업에 필요한 디스크 여유 공간이 부족합니다.",
+      "update_rejected": "새 버전이 상태 점검을 통과하지 못했습니다.",
+      "rollback_failed": "업데이트가 실패했고 롤백 확인이 필요합니다. 서버에서 sudo tofi status를 실행하세요.",
+      "update_failed": "업데이트에 실패했습니다. 자세한 내용은 서버에서 sudo tofi status를 실행하세요.",
+      "generic": "업데이트가 끝나지 않았습니다."
+    },
+    "rc": {
+      "label": "릴리스 후보 받기",
+      "hint": "안정 버전 옆에 최신 릴리스 후보도 보여 줍니다. 후보는 테스트 빌드입니다. 업데이트를 누르기 전에는 아무것도 설치되지 않습니다.",
+      "latest": "최신 릴리스 후보",
+      "save_failed": "저장하지 못했습니다. 다시 시도하세요."
     }
   },
   "disclosure": {

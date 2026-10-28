@@ -39,8 +39,25 @@ decides it, in single and multi-account mode alike; `none` needs no Worker socke
 it, exposed as `GET /api/computer/capabilities` and `computer` in `GET /api/config` (`{backend, available, capabilities}`, `computer_capabilities.go`). Model-facing text
 must not claim a computer when there is none: use the capability-driven variants (`taskCompletionGuidanceFor`, `onboardingSystemPromptFor`, `onboardingWelcomeFor`,
 `scheduledFallbackGuidance`, `noComputerStatus`) and never add a computer sentence to an always-on prompt. The Web app reads `config.computer` through
-`ui/src/computerCapability.ts` (`useHasComputer`) and hides every computer surface; Settings > Computer then lists how to add one. The web app never installs on the host.
+`ui/src/computerCapability.ts` (`useHasComputer`) and hides every computer surface; Settings > Computer then lists how to add one. The web app never installs on the host (the one thing it may ask for is an update, which only the root host service performs: next section).
 Design and record: docs/design/computer-optional.md (P0, P1 done).
+
+# Update from the web page
+
+The Version card (Settings > Advanced) and the banner have an **Update to vX** button for admins (decision D69, `docs/decisions/0069-web-update-request.md`). The web app only
+REQUESTS: `POST /api/system/update/request {version, channel}` (`internal/app/update_request.go`) checks that the version is the cached latest stable (or the newest rc when the
+root-server setting `update_channel_rc` is on, `PUT /api/system/update/settings`), then writes `request.json` atomically (temp file + hard link, so only one can be pending) into
+`TOFI_UPDATE_REQUEST_DIR` (`/update/request` in the container = `/var/lib/tofi/update-request`, the only App-writable host directory, uid 10001). `tofi-update-request.path`
+(PathExists) starts `tofi-update-request.service` as root, which runs `tofi update --from-request` (`update_from_request` in `deploy/self-host/tofi_host.py`): it reads the file as hostile
+input (O_NOFOLLOW, regular file, 4096 bytes, exact keys `version, channel, requested_at, nonce`, release-tag regex, age <= 1 h, nonce seen once), refuses downgrades, an rc tag on `stable`
+and the reverse, a stable version other than `releases/latest`, an unpublished release (manifest not fetchable), a version rejected here before and any schema change, then calls the same
+`upgrade()` as `tofi update` (wait up to 60 min for Bot runs, backup, digest/sha256 checks, rollback; trigger `web` in `update-history.jsonl`). It writes `status.json` atomically into
+`/var/lib/tofi/update-status` (mounted read-only at `/update/status`): `state` queued|waiting_for_runs|downloading|verifying|switching|done|failed|rolled_back, `code`, `progress`, `rolled_back_to`.
+The server forwards only whitelisted, validated fields (never `detail`, never the nonce); the UI (`ui/src/UpdateNotice.tsx`, `UpdateDialog.tsx`, lazy) polls every 2 s while active and rides out the
+App restarting ("Restarting...", then "Updated to vX / Reload"). The rc switch is a UI-only preference: the host does not read it (a compromised App can ask for a newer published rc, never anything else).
+`host.json` in the status directory is the capability marker: until a command of this host version has run once (`tofi start`, `update`, `config`, root `status`, or an install) installs the units
+(`ensure_update_request_channel`), the page keeps the old "run sudo tofi update" hint (`host_update_unavailable`). Change the request/status schema, the two units, `tofi.conf` directories and
+`compose.yaml` mounts together, with the UI, the stable codes (`update.error.*`, `apiError.update_*` in 7 locales) and `test_web_update.py`. Uninstall removes the units.
 
 # Web UI motion
 

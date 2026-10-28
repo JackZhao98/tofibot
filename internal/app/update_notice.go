@@ -25,6 +25,9 @@ const (
 	updateRefreshAfter       = 6 * time.Hour
 	updateRetryAfter         = 10 * time.Minute
 	updateFetchTimeout       = 15 * time.Second
+	// The newest release candidate is found in the releases list; only asked for when the owner turned the channel on.
+	defaultUpdateReleasesURL = "https://api.github.com/repos/JackZhao98/tofibot/releases?per_page=30"
+	updateReleasesLimit      = 4 << 20
 	updateManifestLimit      = 1 << 20
 )
 
@@ -95,6 +98,13 @@ type updateChecker struct {
 	nextTry    time.Time
 	refreshing bool
 	done       chan struct{} // closed after each refresh; tests only
+
+	releasesURL  string
+	latestRC     string
+	rcNotesURL   string
+	rcNextTry    time.Time
+	rcRefreshing bool
+	doneRC       chan struct{} // closed after each release-candidate refresh; tests only
 }
 
 func newUpdateChecker(url, current string) *updateChecker {
@@ -102,7 +112,7 @@ func newUpdateChecker(url, current string) *updateChecker {
 		url = defaultUpdateManifestURL
 	}
 	// The default transport honors HTTPS_PROXY / NO_PROXY.
-	return &updateChecker{url: url, current: current, client: &http.Client{Timeout: updateFetchTimeout}, now: time.Now}
+	return &updateChecker{url: url, current: current, client: &http.Client{Timeout: updateFetchTimeout}, now: time.Now, releasesURL: defaultUpdateReleasesURL}
 }
 
 func (c *updateChecker) snapshot() updateNotice {
@@ -118,6 +128,89 @@ func (c *updateChecker) snapshot() updateNotice {
 		go c.refresh()
 	}
 	return n
+}
+
+// rcSnapshot answers the newest release candidate that is newer than both the
+// running version and the latest stable release, or "" when there is none or the
+// channel is off. Like snapshot it reads the cache and starts at most one
+// background refresh; nothing is fetched while the channel is off.
+func (c *updateChecker) rcSnapshot(enabled bool) (version, notes string) {
+	if !enabled {
+		return "", ""
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if !c.now().Before(c.rcNextTry) && !c.rcRefreshing {
+		c.rcRefreshing = true
+		go c.refreshRC()
+	}
+	if c.latestRC == "" || !releaseIsNewer(c.latestRC, c.current) || (c.latest != "" && !releaseIsNewer(c.latestRC, c.latest)) {
+		return "", ""
+	}
+	return c.latestRC, c.rcNotesURL
+}
+
+func (c *updateChecker) refreshRC() {
+	ctx, cancel := context.WithTimeout(context.Background(), updateFetchTimeout)
+	defer cancel()
+	tag, notes, err := c.fetchRC(ctx)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.rcRefreshing = false
+	if err != nil {
+		c.rcNextTry = c.now().Add(updateRetryAfter)
+	} else {
+		c.latestRC, c.rcNotesURL = tag, notes
+		c.rcNextTry = c.now().Add(updateRefreshAfter)
+	}
+	if c.doneRC != nil {
+		close(c.doneRC)
+		c.doneRC = nil
+	}
+}
+
+// fetchRC reads the releases list and returns the highest published (not draft)
+// release candidate. A stable tag marked prerelease is ignored: only
+// vX.Y.Z-rc.N is a candidate, the same rule the host applies.
+func (c *updateChecker) fetchRC(ctx context.Context) (string, string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.releasesURL, nil)
+	if err != nil {
+		return "", "", err
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	res, err := c.client.Do(req)
+	if err != nil {
+		return "", "", err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return "", "", io.ErrUnexpectedEOF
+	}
+	var list []struct {
+		Tag        string `json:"tag_name"`
+		Draft      bool   `json:"draft"`
+		Prerelease bool   `json:"prerelease"`
+		URL        string `json:"html_url"`
+	}
+	if err := json.NewDecoder(io.LimitReader(res.Body, updateReleasesLimit)).Decode(&list); err != nil {
+		return "", "", err
+	}
+	best, notes := "", ""
+	for _, rel := range list {
+		if rel.Draft || !rel.Prerelease || !strings.Contains(rel.Tag, "-rc.") {
+			continue
+		}
+		if _, ok := releaseVersionKey(rel.Tag); !ok {
+			continue
+		}
+		if best == "" || releaseIsNewer(rel.Tag, best) {
+			best, notes = rel.Tag, rel.URL
+		}
+	}
+	if !strings.HasPrefix(notes, "https://") {
+		notes = ""
+	}
+	return best, notes, nil
 }
 
 func (c *updateChecker) refresh() {
@@ -187,17 +280,9 @@ func sharedUpdates() *updateChecker {
 	defer sharedUpdateMu.Unlock()
 	if sharedUpdateChecker == nil {
 		sharedUpdateChecker = newUpdateChecker(os.Getenv("TOFI_UPDATE_MANIFEST_URL"), Version)
+		if u := os.Getenv("TOFI_UPDATE_RELEASES_URL"); u != "" {
+			sharedUpdateChecker.releasesURL = u
+		}
 	}
 	return sharedUpdateChecker
-}
-
-// serveSystemUpdate answers GET /api/system/update. Callers enforce admin.
-func serveSystemUpdate(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.Header().Set("Allow", http.MethodGet)
-		writeErr(w, http.StatusMethodNotAllowed, "method_not_allowed", "use GET")
-		return
-	}
-	w.Header().Set("Cache-Control", "no-store")
-	writeJSON(w, http.StatusOK, sharedUpdates().snapshot())
 }

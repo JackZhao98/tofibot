@@ -165,13 +165,24 @@ export type AppOptions = {
   tasks?: boolean;
   /** Two bubble runs of three at the end of Mochi's chat: the person's, then Mochi's (corners merge, 3px apart). */
   runs?: boolean | "tools";
-  /** The server reports a newer release (the admin banner). */
-  update?: boolean;
+  /** The server reports a newer release (the admin banner, with its Update button). "running": the host is downloading it; "failed" / "rolled-back": the host's last answer; "rc": a release candidate is on offer too. */
+  update?: boolean | "running" | "failed" | "rolled-back" | "rc";
   /** What GET /api/conversations/{id}/usage answers for the Usage widget: the whole picture, no tool split (older runs), no context snapshot, or a 404 (a server release without the route). */
   usage?: "full" | "split-unavailable" | "no-snapshot" | "old-server";
 };
 
 const SCREEN = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800"><rect width="1280" height="800" fill="#d9e6ee"/><rect width="1280" height="36" fill="#33495a"/><rect x="120" y="140" width="560" height="360" rx="14" fill="#fff"/><text x="160" y="200" font-size="34" font-family="sans-serif" fill="#33495a">Synthetic screen</text></svg>')}`;
+
+/** GET /api/system/update (internal/app/update_request.go): the release check plus what the host reports about an update in flight. */
+function updateAnswer(update: AppOptions["update"]) {
+  const now = new Date().toISOString();
+  const status = update === "running" ? { state: "downloading", version: "v0.1.5", from: "v0.1.4", channel: "stable", progress: 30, updated_at: now }
+    : update === "failed" ? { state: "failed", version: "v0.1.5", from: "v0.1.4", channel: "stable", progress: null, code: "runs_still_active", updated_at: now, finished_at: now }
+    : update === "rolled-back" ? { state: "rolled_back", version: "v0.1.5", from: "v0.1.4", channel: "stable", progress: null, code: "update_rejected", rolled_back_to: "v0.1.4", updated_at: now, finished_at: now }
+    : null;
+  return { current: "v0.1.4", latest: update ? "v0.1.5" : "v0.1.4", update_available: Boolean(update), notes_url: "", checked_at: at(0), auto_update: "off",
+    host_update: Boolean(update), channel_rc_enabled: update === "rc", latest_rc: update === "rc" ? "v0.2.0-rc.1" : "", latest_rc_notes_url: "", request: null, status };
+}
 
 /** The server the real App talks to inside a catalog frame. */
 export function workspace(options: AppOptions): Synthetic {
@@ -245,7 +256,7 @@ export function workspace(options: AppOptions): Synthetic {
     if (p === "/api/computers/firecracker/info") return json({ kind: "firecracker", state: options.computer === "starting" || options.computer === "hibernated" || options.computer === "resuming" ? options.computer : "ready", phase: options.computer === "starting" ? "booting" : undefined, desktop_starting: options.computer === "desktop-starting" || undefined });
     if (p === "/api/computers/firecracker/actions") return json({ ok: true, result: String(init?.body ?? "").includes("desktop.control.acquire") ? { control_id: "ctl_catalog" } : { image_url: SCREEN } });
     if (p === "/api/computer/desktop-ownership") return json({ owner: options.driver === "bot" ? { kind: "bot", bot_id: "bot_mochi", run_id: "run_driver", conversation_id: "dm_mochi" } : null, waiting: [] });
-    if (p === "/api/system/update") return json({ current: "v0.1.4", latest: options.update ? "v0.1.5" : "v0.1.4", update_available: Boolean(options.update), notes_url: "", checked_at: at(0), auto_update: "off" });
+    if (p === "/api/system/update") return json(updateAnswer(options.update));
     return json({});
   };
 }
