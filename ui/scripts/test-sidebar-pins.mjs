@@ -357,7 +357,7 @@ await check("the pinned area is the drop frame: below the search bar, around eve
       const topmost = [];
       const points = [[frame.left + frame.width / 2, frame.top + 6], [frame.left + 6, frame.top + frame.height / 2], [frame.right - 20, frame.bottom - 20], ...tiles.map(t => [t.left + t.width / 2, t.top + t.height / 2])];
       for (const [x, y] of points) { const hitEl = document.elementFromPoint(x, y); if (!hitEl || !frameEl.contains(hitEl)) topmost.push(`${hitEl?.className || hitEl?.tagName} at ${Math.round(x)},${Math.round(y)}`); }
-      const search = box(document.querySelector(".search-box"));
+      const search = box(document.querySelector(".sidebar-top"));
       const scroller = document.querySelector(".contact-section");
       const ghost = document.querySelector(".is-dnd-dragging");
       const hint = box(document.querySelector(".pin-frame-hint"));
@@ -365,7 +365,7 @@ await check("the pinned area is the drop frame: below the search bar, around eve
     });
     const what = `${pins} pins, scrolled ${where}`;
     assert.equal(probe.scrollTop, 0, `${what}: lifting a row takes the list to the top, where the whole frame is`);
-    assert.ok(probe.frame.top >= probe.search.bottom - 0.5, `${what}: the frame top ${probe.frame.top} is at or below the search bar bottom ${probe.search.bottom}`);
+    assert.ok(probe.frame.top >= probe.search.bottom - 0.5, `${what}: the frame top ${probe.frame.top} is at or below the sidebar header bottom ${probe.search.bottom}`);
     assert.equal(probe.tiles.length, pins, `${what}: every pinned tile is drawn`);
     for (const [i, t] of probe.tiles.entries()) assert.ok(t.left >= probe.frame.left - 0.5 && t.right <= probe.frame.right + 0.5 && t.top >= probe.frame.top - 0.5 && t.bottom <= probe.frame.bottom + 0.5, `${what}: tile ${i} is inside the frame ${JSON.stringify(t)} vs ${JSON.stringify(probe.frame)}`);
     assert.ok(probe.hint.top >= probe.frame.top - 0.5 && probe.hint.bottom <= probe.frame.bottom + 0.5, `${what}: the hint is inside the frame`);
@@ -665,17 +665,6 @@ for (const _ of engine === "chromium" ? [0] : []) await check("touch: a long pre
   await page.locator(".pin-tile").first().tap();
   await page.waitForFunction(() => document.querySelector(".chat-name-pill h1")?.textContent === "Cat 05", null, { timeout: 5000 });
   await until(async () => (await page.locator(".contact-pane.open").count()) === 0, "the list to slide away");
-  await context.close();
-});
-
-await check("search turns reordering off, and clearing it turns it back on", async () => {
-  const { page, context } = await open();
-  await page.locator(".search-box input").fill("Cat 0");
-  await sleep(200);
-  assert.equal(await page.locator(".conversation-row[data-dnd-id]").count(), 0, "filtered rows are not draggable");
-  await page.locator(".search-box input").fill("");
-  await sleep(200);
-  assert.ok(await page.locator(".conversation-row[data-dnd-id]").count() > 0);
   await context.close();
 });
 

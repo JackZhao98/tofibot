@@ -34,7 +34,7 @@ import { useMailDrafts } from "./mailDrafts";
 import { buildQuestionTimeline, compareQuestionTime } from "./questionTimeline";
 import { useDebugMode } from "./debugMode";
 import type { SettingsEntry, SettingsTab, SettingsView } from "./SettingsShell";
-import { AfterPaint, CoverShell, CoverView, SidebarShell, SidebarView, WidgetColumn, WidgetView, GreetingSetup, UpdateBanner, PermissionCoach, BotDesktopPanel, DeleteConversationDialog, ReassignPrimaryDialog, RememberedApprovalsSheet, DesktopSkeleton, TeamBoard, ViewOnlyChat, Onboarding, QuestionCard, RunContextView, TaskCard, ComposerStopMenu, FloatingDesktop, panelLoaded, preloadPanel, usePanelLoaded, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle, WebToolSteps, whenPanelLoaded } from "./lazyPanels";
+import { AfterPaint, CoverShell, CoverView, SidebarShell, SidebarView, WidgetColumn, WidgetView, GreetingSetup, UpdateBanner, PermissionCoach, BotDesktopPanel, DeleteConversationDialog, ReassignPrimaryDialog, SearchPalette, RememberedApprovalsSheet, DesktopSkeleton, TeamBoard, ViewOnlyChat, Onboarding, QuestionCard, RunContextView, TaskCard, ComposerStopMenu, FloatingDesktop, panelLoaded, preloadPanel, usePanelLoaded, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle, WebToolSteps, whenPanelLoaded } from "./lazyPanels";
 import { subscribeSettingsDeepLinks, subscribeSidebarDeepLinks } from "./settings/deepLinks";
 import { BotIdentityCard } from "./BotIdentityCard";
 import { arrowOpens, OverlayMenu, OverlaySlot, SlotView } from "./overlays/OverlayHost";
@@ -367,10 +367,31 @@ function jumpToMessage(target: HTMLElement | null | undefined) {
   target.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "center" });
   target.focus({ preventScroll: true });
   const block = target.closest<HTMLElement>(".message-block") ?? target;
-  block.classList.remove("is-jump-target");
+  // A data attribute, not a class: the block's className is rewritten by React whenever its arrival flags change, which wiped the flash.
+  block.removeAttribute("data-jump-target");
   void block.offsetWidth;
-  block.classList.add("is-jump-target");
-  window.setTimeout(() => block.classList.remove("is-jump-target"), 1700);
+  block.setAttribute("data-jump-target", "");
+  window.setTimeout(() => block.removeAttribute("data-jump-target"), 1700);
+}
+
+/** Holds a jump to message `id` for its first moments. Just after a conversation opens the list can remount its rows (the
+ * flash then sits on a node that is gone) and the scroll hook can still land on the newest message (a phone, once the
+ * list pane has slid away). Within the settle window the flash goes back on the node that stayed, and the message is
+ * scrolled to again if it fell out of view; afterwards the person's own scrolling is left alone. */
+function keepJump(id: string, root: () => HTMLElement | null) {
+  const start = Date.now();
+  const tick = () => {
+    const list = root();
+    const node = list?.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(id)}"]`);
+    if (list && node) {
+      const elapsed = Date.now() - start;
+      const pane = list.closest<HTMLElement>(".message-scroll") ?? list, a = node.getBoundingClientRect(), b = pane.getBoundingClientRect();
+      if (elapsed < 900 && (a.bottom <= b.top || a.top >= b.bottom)) node.scrollIntoView({ behavior: "instant", block: "center" });
+      if (!node.hasAttribute("data-jump-target") && elapsed < 1500) { node.setAttribute("data-jump-target", ""); window.setTimeout(() => node.removeAttribute("data-jump-target"), 1700); }
+    }
+    if (Date.now() - start < 1500) window.setTimeout(tick, 100);
+  };
+  window.setTimeout(tick, 100);
 }
 
 /** Live rows in the conversation time the whole run, not just its first tool. */
@@ -731,7 +752,7 @@ function Workspace() {
   }, [historyVersion]);
   // The phone push and panel openings are the frames that matter most; the cats' idle breathing waits them out.
   useEffect(() => { holdAvatarLife(320); }, [mobileList, anyOpen]);
-  const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [activityNow, setActivityNow] = useState(() => Date.now());
   const [lastUserActivity, setLastUserActivity] = useState<Record<string, number>>({});
   const [lastBotWorkActivity, setLastBotWorkActivity] = useState<Record<string, number>>({});
@@ -857,11 +878,23 @@ function Workspace() {
     if (command === "settings") { setSettingsEntry(current => ({ seq: current.seq + 1, view: "home" })); setSurfaces(state => state.cover === "settings" ? closeAll(state) : openCover(state, "settings")); }
     else if (command === "toggle-sidebar") setSidebarCollapsed(value => !value);
     else if (command === "new-conversation") { setCreateMenuOpen(true); setSidebarCollapsed(false); closeCoverPanel(); }
-    else if (command === "search") {
-      setSidebarCollapsed(false); closeCoverPanel();
-      requestAnimationFrame(() => document.querySelector<HTMLInputElement>('.search-box input')?.focus());
-    } else if (command === "focus-composer") document.querySelector<HTMLTextAreaElement>('.composer textarea')?.focus();
+    else if (command === "search") setSearchOpen(true);
+    else if (command === "focus-composer") document.querySelector<HTMLTextAreaElement>('.composer textarea')?.focus();
   }), []);
+
+  // Cmd/Ctrl+K opens the search palette; the palette handles the same key itself to close.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || !(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey || event.key.toLowerCase() !== "k") return;
+      const focus = document.activeElement;
+      if (focus instanceof Element && focus.closest(".terminal-panel,.remote-desktop-surface,.remote-desktop.in-control,.xterm")) return;
+      if (document.querySelector("[data-tofi-modal]")) return;
+      event.preventDefault();
+      setSearchOpen(true);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const applyConfig = useCallback((nextConfig: Config) => {
     const previous = configRef.current;
@@ -1320,14 +1353,8 @@ function Workspace() {
     if (window.dispatchEvent(new Event("tofi-settings-close", { cancelable: true }))) closeCoverPanel();
   } });
   const computerStateLabel = !computerOn ? t("header.computer_off") : activeDesktopOwner ? t("header.computer_driving", { name: botById.get(activeDesktopOwner.bot_id)?.name ?? "Bot" }) : t("header.computer_on");
-  const query = search.trim().toLowerCase();
   const sortedConversations = useMemo(() => [...pinnedOf(conversations), ...listOrder(conversations)], [conversations]);
-  const filteredConversations = sortedConversations.filter((conversation) => {
-    if (conversation.archived) return false;
-    if (!query) return true;
-    const names = conversation.kind === "dm" ? [conversation.name, botByConversationId.get(conversation.id)?.instructions ?? ""] : [conversation.name, ...conversation.bot_ids.map((id) => botById.get(id)?.name ?? "")];
-    return names.some((name) => name.toLowerCase().includes(query));
-  });
+  const filteredConversations = sortedConversations.filter((conversation) => !conversation.archived);
   const visibleSidebarConversations = filteredConversations.filter((conversation) => !conversation.archived);
   const pinnedConversations = visibleSidebarConversations.filter((conversation) => conversation.pinned);
   const customSidebarSections = Object.entries(sidebarLayout.sections).reduce<Record<string, Conversation[]>>((groups, [id, name]) => {
@@ -1337,8 +1364,8 @@ function Workspace() {
   }, {});
   const sectionedConversationIds = new Set(Object.values(customSidebarSections).flat().map((conversation) => conversation.id));
   const defaultSidebarConversations = visibleSidebarConversations.filter((conversation) => !conversation.pinned && !sectionedConversationIds.has(conversation.id));
-  // Drag, drop and Alt+Arrow move work on the plain list and the pinned tiles; a search shows a subset, so it cannot be reordered.
-  const sidebarDndEnabled = !query && !sidebarCollapsed;
+  // Drag, drop and Alt+Arrow move work on the plain list and the pinned tiles.
+  const sidebarDndEnabled = !sidebarCollapsed;
   // Spoken status for moves. Written straight to the live region: a lift must not re-render the whole workspace.
   const sidebarLiveRef = useRef<HTMLDivElement | null>(null);
   const setSidebarAnnouncement = (text: string) => { if (sidebarLiveRef.current) sidebarLiveRef.current.textContent = text; };
@@ -1546,6 +1573,8 @@ function Workspace() {
     const target = [...(messageListRef.current?.querySelectorAll<HTMLElement>(selector) ?? [])].find(node => node.dataset[key] === taskFocus.id);
     if (target) {
       jumpToMessage(target);
+      // Hold it through the first moments of the conversation opening (see keepJump).
+      if (taskFocus.kind === "message") keepJump(taskFocus.id, () => messageListRef.current);
       if (taskFocus.kind === "run") (target.querySelector<HTMLElement>("h3") ?? target).focus({ preventScroll:true });
       setTaskFocus(null);
     } else if (taskFocus.kind === "run" && (!runById.has(taskFocus.id) || !runDrawsHere(taskFocus.id))) {
@@ -2118,7 +2147,6 @@ function Workspace() {
       };
       setBots((current) => [bot, ...current.filter((item) => item.id !== bot.id)]);
       setConversations((current) => [conversation, ...current.filter((item) => item.id !== conversation.id)]);
-      setSearch("");
       selectConversation(bot.dm_conversation_id, conversation);
       setMobileList(false);
       closeCoverPanel();
@@ -2592,15 +2620,14 @@ function Workspace() {
       {computerInfo && ((computerInfo.state !== "ready" && computerInfo.state !== "hibernated" && computerInfo.state !== "hibernating") || computerHealthAlert(computerInfo.health)) && !computerShown && <div className="stream-status workspace-status computer-preparing" role="status"><strong>{computerInfo.health?.state === "unresponsive" ? t("computer.health_unresponsive") : computerInfo.health?.state === "restarting" ? t("computer.health_restarting") : computerInfo.state === "starting" ? t("computer.starting") : computerInfo.state === "resuming" ? t("computer.resuming") : computerInfo.state === "error" ? t("computer.failed") : computerInfo.state === "stopped" ? t("computer.stopped") : t("computer.unavailable")}</strong><span>{(computerInfo.state === "starting" || computerInfo.state === "resuming") && computerInfo.phase ? ` · ${computerPhaseKeys[computerInfo.phase] ? t(computerPhaseKeys[computerInfo.phase]) : computerInfo.phase}` : ""}{computerInfo.error ? ` · ${computerInfo.error}` : ""}</span>{(computerInfo.state === "error" || computerInfo.state === "stopped" || computerInfo.health?.state === "unresponsive") && <button className="secondary-button" onClick={() => void api.computerRetry().then(() => api.computerInfo()).then(setComputerInfo).catch(cause => setError(errorText(cause)))}>{t("common:action.retry")}</button>}</div>}
       <div className="native-titlebar" aria-hidden="true" /><ActionHints /><div className={`workspace-grid${sidebarCollapsed ? " sidebar-collapsed" : ""}${contextPanelOpen ? " context-open" : ""}${columnMode && surfaces.sidebar ? " sidebar-open" : ""}${columnMode && sidebarExpandedShown ? " sidebar-expanded" : ""}${cover ? " cover-open" : ""}`}>
         <aside className={`contact-pane ${mobileList ? "open" : ""}`} inert={modalPanelOpen || desktopExpanded || undefined}>
-          <div className="sidebar-top">{sidebarCollapsed ? <button className="sidebar-logo-expand" type="button" aria-label={t("sidebar.expand")} data-hint={t("sidebar.expand")} onClick={() => setSidebarCollapsed(false)}><span className="sidebar-logo-art"><BrandLogo variant="calico" /></span><span className="sidebar-logo-arrow" aria-hidden="true"><Icon name="sidebar" size={20} /></span></button> : <BrandLogo variant="calico" />}<div className="sidebar-actions">{!sidebarCollapsed && <button className="top-icon-button sidebar-toggle" aria-label={t("sidebar.collapse")} data-hint={t("sidebar.collapse")} onClick={() => setSidebarCollapsed(true)}><Icon name="sidebar" size={20} /></button>}<div className="create-menu-anchor" ref={createMenuRef}><button ref={createMenuTriggerRef} className="icon-button" onClick={() => setCreateMenuOpen((open) => !open)} onKeyDown={arrowOpens(setCreateMenuOpen)} data-hint={t("create.menu")} aria-label={t("create.menu")} aria-haspopup="menu" aria-expanded={createMenuOpen} aria-controls={createMenuOpen ? "create-menu" : undefined}><Icon name="plus" size={18} animated /></button><input ref={botImportRef} type="file" hidden accept=".json,.tofi-bot,application/json" onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void importBotPackage(file); }} />{showCreateMenu && <OverlayMenu open={createMenuOpen} onOpenChange={setCreateMenuOpen} id="create-menu" className="create-menu" label={t("create.menu")} trigger={createMenuTriggerRef} anchor={createMenuRef} {...(sidebarCollapsed && matchMedia("(min-width:768px)").matches ? { side: "right", sideOffset: 12 } : { align: "end", sideOffset: 8 })}><button disabled={newBotBusy} onClick={() => { createMenuTriggerRef.current?.focus(); void createNewBot(); }}><Icon name="bot-add" size={18} /><span>{newBotBusy ? t("create.creating") : t("create.new_bot")}</span></button><button onClick={() => { createMenuTriggerRef.current?.focus(); setCreateMenuOpen(false); openCoverPanel("new-group"); }}><Icon name="group-add" size={18} /><span>{t("create.new_group")}</span></button><button disabled={botImportBusy} onClick={() => { setCreateMenuOpen(false); botImportRef.current?.click(); }}><Icon name="upload" size={18} /><span>{botImportBusy ? t("create.importing") : t("create.import_bot")}</span></button>{(newBotError || botImportError) && <p className="error-text" role="alert">{newBotError || botImportError}</p>}</OverlayMenu>}</div></div></div>
-          <label className="search-box"><Icon name="search" size={16} /><input aria-label={t("sidebar.search_label")} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("sidebar.search_placeholder")} /></label>
+          <div className="sidebar-top">{sidebarCollapsed ? <button className="sidebar-logo-expand" type="button" aria-label={t("sidebar.expand")} data-hint={t("sidebar.expand")} onClick={() => setSidebarCollapsed(false)}><span className="sidebar-logo-art"><BrandLogo variant="calico" /></span><span className="sidebar-logo-arrow" aria-hidden="true"><Icon name="sidebar" size={20} /></span></button> : <BrandLogo variant="calico" />}<div className="sidebar-actions">{!sidebarCollapsed && <button className="top-icon-button sidebar-toggle" aria-label={t("sidebar.collapse")} data-hint={t("sidebar.collapse")} onClick={() => setSidebarCollapsed(true)}><Icon name="sidebar" size={20} /></button>}<button className="icon-button search-trigger" type="button" aria-label={t("search.open")} aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K" data-hint={t("search.open")} onClick={() => setSearchOpen(true)}><Icon name="search" size={18} /></button><div className="create-menu-anchor" ref={createMenuRef}><button ref={createMenuTriggerRef} className="icon-button" onClick={() => setCreateMenuOpen((open) => !open)} onKeyDown={arrowOpens(setCreateMenuOpen)} data-hint={t("create.menu")} aria-label={t("create.menu")} aria-haspopup="menu" aria-expanded={createMenuOpen} aria-controls={createMenuOpen ? "create-menu" : undefined}><Icon name="plus" size={18} animated /></button><input ref={botImportRef} type="file" hidden accept=".json,.tofi-bot,application/json" onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void importBotPackage(file); }} />{showCreateMenu && <OverlayMenu open={createMenuOpen} onOpenChange={setCreateMenuOpen} id="create-menu" className="create-menu" label={t("create.menu")} trigger={createMenuTriggerRef} anchor={createMenuRef} {...(sidebarCollapsed && matchMedia("(min-width:768px)").matches ? { side: "right", sideOffset: 12 } : { align: "end", sideOffset: 8 })}><button disabled={newBotBusy} onClick={() => { createMenuTriggerRef.current?.focus(); void createNewBot(); }}><Icon name="bot-add" size={18} /><span>{newBotBusy ? t("create.creating") : t("create.new_bot")}</span></button><button onClick={() => { createMenuTriggerRef.current?.focus(); setCreateMenuOpen(false); openCoverPanel("new-group"); }}><Icon name="group-add" size={18} /><span>{t("create.new_group")}</span></button><button disabled={botImportBusy} onClick={() => { setCreateMenuOpen(false); botImportRef.current?.click(); }}><Icon name="upload" size={18} /><span>{botImportBusy ? t("create.importing") : t("create.import_bot")}</span></button>{(newBotError || botImportError) && <p className="error-text" role="alert">{newBotError || botImportError}</p>}</OverlayMenu>}</div></div></div>
           <div className="contact-section" ref={sidebarListRef}>
             <PinDropZone label={t("sidebar.drop_to_pin")} hint={t("sidebar.drop_to_pin_hint")}>{pinnedConversations.length > 0 ? <PinDock label={t("sidebar.pinned")}>{pinnedConversations.map(pinTile)}</PinDock> : null}</PinDropZone>
             {Object.entries(customSidebarSections).map(([name, items]) => <section className="sidebar-custom-section" key={name}><div className="section-label"><span>{name}</span></div>{items.map(item => conversationRow(item))}</section>)}
             <div className="section-label"><span>{t("sidebar.messages")}</span></div>{defaultSidebarConversations.map(item => conversationRow(item, sidebarDndEnabled))}
             <div className="sr-only" role="status" aria-live="polite" ref={sidebarLiveRef} />
-            {onboardingState !== "sheet" && !visibleSidebarConversations.length && !query && !bots.length && !conversations.length && <FirstRunHero side onCreate={() => void createNewBot()} busy={newBotBusy} error={newBotError} />}
-            {onboardingState !== "sheet" && !visibleSidebarConversations.length && <EmptyState name="sidebar" className={`empty-copy is-compact${!query && !bots.length && !conversations.length ? " first-run-hide-mobile" : ""}`} look={CATS.mochi} pose={query ? "curious" : "asleep"}><p>{query ? t("sidebar.no_match") : t("sidebar.empty")}</p>{!query && <button className="primary-button sidebar-empty-create" disabled={newBotBusy} onClick={() => void createNewBot()}>{newBotBusy ? t("create.creating") : t("create.create_bot")}</button>}</EmptyState>}
+            {onboardingState !== "sheet" && !visibleSidebarConversations.length && !bots.length && !conversations.length && <FirstRunHero side onCreate={() => void createNewBot()} busy={newBotBusy} error={newBotError} />}
+            {onboardingState !== "sheet" && !visibleSidebarConversations.length && <EmptyState name="sidebar" className={`empty-copy is-compact${!bots.length && !conversations.length ? " first-run-hide-mobile" : ""}`} look={CATS.mochi} pose="asleep"><p>{t("sidebar.empty")}</p><button className="primary-button sidebar-empty-create" disabled={newBotBusy} onClick={() => void createNewBot()}>{newBotBusy ? t("create.creating") : t("create.create_bot")}</button></EmptyState>}
           </div>
           <div className="sidebar-footer">{onboardingState === "chip" && <FinishSetupChip step={chipStep(modelReady)} onClick={() => setOnboardingForced(chipStep(modelReady))} />}<SidebarAccount connected={linkConnected} onSettings={() => { setPortabilityBotID(""); setPortabilityFile(undefined); openSettings("general", "home"); }} onUsage={() => { setUsageBotId(""); openSettings("usage"); }} onConnection={() => openSettings("models")} onArchive={() => openSidebarId("archive")} onArtifacts={() => { setArtifactsMode("artifacts"); openCoverPanel("artifacts"); }} /></div>
         </aside>
@@ -2752,6 +2779,7 @@ function Workspace() {
         {cover === "approvals" && active && <Suspense fallback={null}><RememberedApprovalsSheet conversationId={active.id} onClose={closeCoverPanel} /></Suspense>}
       </div>
       {!columnMode && desktopNode()}
+      {searchOpen && <Suspense fallback={null}><SearchPalette conversations={conversations} onClose={() => setSearchOpen(false)} onOpenConversation={openFromPanel} onOpenMessage={surfaceCtx.openMessage} actions={{ newBot: () => void createNewBot(), newGroup: () => openCoverPanel("new-group"), settings: () => openSettings("general", "home") }} /></Suspense>}
       {deleteTarget && <Suspense fallback={null}><DeleteConversationDialog target={deleteTarget} bots={bots} onDelete={deleteConversation} onClose={() => setDeleteTarget(null)} returnFocus={dialogOpener.current} /></Suspense>}
       {hidePrimaryTarget && <Suspense fallback={null}><ReassignPrimaryDialog bot={hidePrimaryTarget} bots={bots} onConfirm={async (successorId) => { await api.setBotArchived(hidePrimaryTarget.id, true, successorId); setSidebarContextMenu(null); await refreshIndex(); }} onClose={() => setHidePrimaryTarget(null)} returnFocus={dialogOpener.current} /></Suspense>}
       {viewOnlyChat && !columnMode && <Suspense fallback={null}><ViewOnlyChat target={viewOnlyChat} bots={bots} returnFocus={viewOnlyChatTriggerRef.current} onClose={() => setViewOnlyChat(null)} /></Suspense>}

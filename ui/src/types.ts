@@ -511,3 +511,8 @@ export interface WebToolsView {
   limits?: { search: number; fetch: number };
   test?: { id: string; ok: boolean; code: string };
 }
+
+/** GET /api/search. Offsets are UTF-16 units into the string they belong to (`name` or `snippet`). */
+export interface SearchChatHit { id: string; kind: ConversationKind; name: string; bot_id?: string; updated_at: string; match_start: number; match_len: number }
+export interface SearchMessageHit { id: string; conversation_id: string; conversation_name: string; conversation_kind: ConversationKind; seq: number; role: string; sender_bot_id?: string; created_at: string; snippet: string; match_start: number; match_len: number }
+export interface SearchResults { query: string; chats: SearchChatHit[]; messages: SearchMessageHit[] }
