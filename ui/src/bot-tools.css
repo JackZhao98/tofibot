@@ -1,0 +1,45 @@
+/* Bot settings > Tools (BotTools.tsx, docs/design/tools-and-connections.md section 3.4). Loads with the lazy chunk `botSettings`.
+   Filled surfaces, no outlined rows. Motion tokens only: a list fades in over --m-quick; a revoked row folds away over --m-panel-out
+   (leaving is shorter than entering); an off connection dims over --m-quick. Reduced motion: no animation, no transition. */
+.bot-tools { display:grid; gap:26px; min-width:0; }
+.bt-group { display:grid; gap:10px; min-width:0; }
+.bt-group-head { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; }
+.bt-group-head h3 { margin:0; color:var(--ink); font:600 15px/1.3 var(--display); }
+.bt-group-head p { margin:3px 0 0; max-width:62ch; color:var(--muted); font:12.5px/1.55 var(--body); }
+.bt-link { display:inline-flex; align-items:center; gap:2px; flex:none; min-height:32px; padding:0 4px; border:0; border-radius:var(--radius-sm); background:transparent; color:var(--ink-soft); font:600 12.5px/1 var(--body); transition:color var(--m-quick) var(--ease-out); }
+.bt-link:hover { color:var(--ink); }
+.bt-link > svg { transition:transform var(--m-quick) var(--ease-out); }
+.bt-link:hover > svg { transform:translateX(2px); }
+.bt-link:focus-visible, .bt-open:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
+.bt-list { display:grid; gap:6px; margin:0; padding:0; list-style:none; animation:bt-in var(--m-quick) var(--ease-out) both; }
+.bt-row { display:flex; align-items:center; gap:12px; min-width:0; padding:12px 14px; border-radius:14px; background:var(--surface-2); transition:background-color var(--m-quick) var(--ease-out); }
+.bt-row-copy { display:grid; flex:1; gap:2px; min-width:0; }
+.bt-row-copy strong { overflow-wrap:anywhere; color:var(--ink); font:600 14px/1.4 var(--body); }
+.bt-row-copy small { color:var(--muted); font:12.5px/1.5 var(--body); overflow-wrap:anywhere; }
+.bt-row-copy code { font:600 13px/1.4 var(--mono); }
+.bt-server { color:var(--muted); font:500 12.5px/1.4 var(--body); }
+.bt-warning { color:var(--danger-text) !important; }
+.bt-conn .bt-row-copy, .bt-conn .service-mark { transition:opacity var(--m-quick) var(--ease-out); }
+.bt-conn[data-off] .bt-row-copy, .bt-conn[data-off] .service-mark { opacity:.55; }
+.bt-conn:hover { background:var(--sunk); }
+.bt-open { display:grid; place-items:center; flex:none; width:32px; height:32px; border:0; border-radius:50%; background:transparent; color:var(--muted); transition:background-color var(--m-quick) var(--ease-out), color var(--m-quick) var(--ease-out); }
+.bt-open:hover { background:color-mix(in srgb,var(--text) 8%,transparent); color:var(--ink); }
+.bt-empty { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border-radius:14px; background:var(--surface-2); }
+.bt-empty p, .bt-line { margin:0; color:var(--ink-soft); font:13px/1.55 var(--body); }
+.bt-facts { display:grid; gap:6px; margin:0; padding:12px 14px; border-radius:14px; background:var(--surface-2); }
+.bt-facts > div { display:grid; grid-template-columns:minmax(0,90px) minmax(0,1fr); gap:12px; font:13px/1.55 var(--body); }
+.bt-facts dt { color:var(--muted); }
+.bt-facts dd { margin:0; overflow-wrap:anywhere; color:var(--ink); }
+.bt-group[data-group="computer"] .bt-line, .bt-group[data-group="permissions"] > .bt-line { padding:12px 14px; border-radius:14px; background:var(--surface-2); }
+.bt-group[data-group="permissions"] > .bt-remembered { background:transparent; padding:0 4px; color:var(--muted); }
+.bt-group[data-group="builtin"] .disclosure { margin:0; padding:2px 14px; border-radius:14px; background:var(--surface-2); }
+.bt-group[data-group="builtin"] .bot-inspector { margin-top:12px; padding-top:12px; }
+.bt-allow-avatar { display:grid; flex:none; width:32px; height:32px; }
+.bt-allow-avatar > .avatar, .bt-allow-avatar > .avatar > .tofi-avatar { display:block; width:100%; height:100%; }
+/* A revoked allowance folds away: the row's height goes to zero while it fades. */
+.bt-allow { display:grid; grid-template-rows:1fr; opacity:1; transition:grid-template-rows var(--m-panel-out) var(--ease-in), opacity var(--m-panel-out) var(--ease-in); }
+.bt-allow[data-leaving] { grid-template-rows:0fr; opacity:0; pointer-events:none; }
+.bt-collapse { min-height:0; overflow:hidden; }
+@keyframes bt-in { from { opacity:0; transform:translateY(4px); } }
+@media (max-width:560px) { .bt-group-head { align-items:flex-start; flex-direction:column; gap:4px; } .bt-facts > div { grid-template-columns:1fr; gap:2px; } .bt-row { padding:12px; } }
+@media (prefers-reduced-motion:reduce) { .bt-list { animation:none; } .bt-row, .bt-conn .bt-row-copy, .bt-conn .service-mark, .bt-allow, .bt-link, .bt-link > svg, .bt-open { transition:none; } }

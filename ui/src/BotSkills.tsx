@@ -44,10 +44,12 @@ function BundleCheckRow({ bundle, members, busy, onToggle, onToggleBundle, defau
   </li>;
 }
 
-export type BotSkillsViewProps = { botId: string; listing: BotSkillListing; loading: boolean; busy: boolean; error: string; onToggle: (name: string, next: boolean) => void; onToggleBundle: (id: string, next: boolean) => void; openBundles?: string[] };
+export type BotSkillsViewProps = { botId: string; listing: BotSkillListing; loading: boolean; busy: boolean; error: string; onToggle: (name: string, next: boolean) => void; onToggleBundle: (id: string, next: boolean) => void; openBundles?: string[];
+  /** Inside Bot settings > Tools the group supplies the heading; only the hint stays. */
+  bare?: boolean };
 
 /** One Bot's enabled set: the whole library as checkboxes, bundles expandable (decision 0058). Presentational. */
-export function BotSkillsView({ botId, listing, loading, busy, error, onToggle, onToggleBundle, openBundles }: BotSkillsViewProps) {
+export function BotSkillsView({ botId, listing, loading, busy, error, onToggle, onToggleBundle, openBundles, bare }: BotSkillsViewProps) {
   const { t } = useTranslation("bots");
   const bundled = new Set(listing.bundles.flatMap(bundle => bundle.skills));
   const loose = listing.skills.filter(skill => !bundled.has(skill.name));
@@ -55,7 +57,7 @@ export function BotSkillsView({ botId, listing, loading, busy, error, onToggle, 
   const official = loose.filter(skill => skill.builtin);
   const libraryEmpty = !loading && !error && own.length === 0 && listing.bundles.length === 0;
   return <section className="bot-skills" aria-labelledby={`bot-skills-${botId}`}>
-    <div className="bot-v2-subtitle"><h2 id={`bot-skills-${botId}`}>{t("skills.title")}</h2><p>{t("skills.hint")}</p></div>
+    {bare ? <p className="field-note" id={`bot-skills-${botId}`}>{t("skills.hint")}</p> : <div className="bot-v2-subtitle"><h2 id={`bot-skills-${botId}`}>{t("skills.title")}</h2><p>{t("skills.hint")}</p></div>}
     {loading ? <p className="field-note" role="status">{t("skills.loading")}</p> : <>
       {libraryEmpty && <p className="field-note">{t("skills.empty")}</p>}
       {(own.length > 0 || listing.bundles.length > 0) && <ul className="bot-skill-list">
@@ -69,7 +71,7 @@ export function BotSkillsView({ botId, listing, loading, busy, error, onToggle, 
 }
 
 /** The Skills section of a Bot's settings. Turning a box on or off is the owner's choice for this Bot only. */
-export function BotSkills({ botId, refreshToken = 0 }: { botId: string; refreshToken?: number }) {
+export function BotSkills({ botId, refreshToken = 0, bare }: { botId: string; refreshToken?: number; bare?: boolean }) {
   const { t } = useTranslation("bots");
   const [listing, setListing] = useState<BotSkillListing>({ skills: [], bundles: [] });
   const [loading, setLoading] = useState(true);
@@ -97,7 +99,7 @@ export function BotSkills({ botId, refreshToken = 0 }: { botId: string; refreshT
     catch { if (alive.current) setError(t("skills.error.save")); }
     finally { if (alive.current) setBusy(false); }
   }
-  return <BotSkillsView botId={botId} listing={listing} loading={loading} busy={busy} error={error}
+  return <BotSkillsView botId={botId} listing={listing} loading={loading} busy={busy} error={error} bare={bare}
     onToggle={(name, next) => void put(`${path}/${encodeURIComponent(name)}`, next)}
     onToggleBundle={(id, next) => void put(`/api/bots/${encodeURIComponent(botId)}/skill-bundles/${encodeURIComponent(id)}`, next)} />;
 }

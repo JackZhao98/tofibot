@@ -4,7 +4,7 @@ import { BotAvatar } from "./BotAvatar";
 import { BotAvatarPicker } from "./BotAvatarPicker";
 import { BotInspector } from "./BotInspector";
 import { BotSecrets } from "./BotSecrets";
-import { BotSkills } from "./BotSkills";
+import { BotTools } from "./BotTools";
 import { buildBotPackage, downloadBotPackage } from "./botPackage";
 import { getBotAvatarConfig, saveBotAvatarConfig } from "./avatarStore";
 import { DirtyBar, LeaveConfirm } from "./CoverForm";
@@ -24,14 +24,14 @@ import "./bot-settings.css";
 
 /**
  * Bot settings, the cover (docs/design/widgets-and-sidebar.md section 5): one page with a section list on the left (a list that
- * pushes the page on phones). Identity, Role and Model are one form with one dirty bar; Skills and Secrets save on their own.
+ * pushes the page on phones). Identity, Role and Model are one form with one dirty bar; Tools and Secrets save on their own.
  * Lazy chunk `botSettings`.
  */
 const SECTIONS: readonly { id: SectionId; icon: TofiIconName }[] = [
   { id: "identity", icon: "id-card" }, { id: "role", icon: "edit" }, { id: "model", icon: "sliders" },
-  { id: "skills", icon: "skill" }, { id: "secrets", icon: "key" }, { id: "advanced", icon: "settings" },
+  { id: "tools", icon: "plug" }, { id: "secrets", icon: "key" }, { id: "advanced", icon: "settings" },
 ];
-type SectionId = "identity" | "role" | "model" | "skills" | "secrets" | "advanced";
+type SectionId = "identity" | "role" | "model" | "tools" | "secrets" | "advanced";
 type Draft = { name: string; instructions: string; model: string; effort: string };
 const FADE_MS = 140;
 const narrowQuery = "(max-width: 899px)";
@@ -133,6 +133,8 @@ export function BotSettingsPanel({ bot, refreshToken = 0, onUpdate, onMakePrimar
     // Focus follows the view, not the section.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, narrow]);
+  /** A link out of the cover: it closes first (asking about unsaved changes), then `go` runs. */
+  const leaveTo = (go: () => void) => { afterLeave.current = go; requestCoverClose(go); };
   const open = (id: SectionId) => {
     setSection(id);
     setVisited(current => current.includes(id) ? current : [...current, id]);
@@ -179,9 +181,7 @@ export function BotSettingsPanel({ bot, refreshToken = 0, onUpdate, onMakePrimar
       <ModelFields disabled={busy} model={draft.model} effort={draft.effort} onChange={(model, effort) => setDraft(current => ({ ...current, model, effort }))} />
       <p className="bs-model-line">{modelLine}{bot.effective_reasoning_effort && follows ? ` · ${bot.effective_reasoning_effort}` : ""}</p>
     </div>,
-    skills: <div className="bs-stack"><BotSkills botId={bot.id} refreshToken={refreshToken} />
-      <button type="button" className="bs-link" onClick={() => { const go = () => onOpenSettings("skills"); afterLeave.current = go; requestCoverClose(go); }}>{t("botSettings.skills_link")}<Icon name="chevron-right" size={14} /></button>
-    </div>,
+    tools: <BotTools bot={bot} refreshToken={refreshToken} leaveTo={leaveTo} onOpenSettings={onOpenSettings} />,
     secrets: <div className="bs-stack"><BotSecrets botId={bot.id} /></div>,
     advanced: <div className="bs-stack">
       <BotInspector botId={bot.id} />
@@ -192,7 +192,7 @@ export function BotSettingsPanel({ bot, refreshToken = 0, onUpdate, onMakePrimar
   };
 
   const title = (id: SectionId) => t(`botSettings.section.${id}`);
-  const describe = (id: SectionId) => id === "identity" || id === "role" || id === "model" || id === "advanced" ? t(`botSettings.desc.${id}`) : "";
+  const describe = (id: SectionId) => id === "tools" ? t("botSettings.desc.tools", { name: bot.name }) : id === "identity" || id === "role" || id === "model" || id === "advanced" ? t(`botSettings.desc.${id}`) : "";
   return <div className="bot-settings" data-view={view} data-narrow={narrow || undefined}>
     <nav className="bs-nav" aria-label={t("botSettings.nav")} inert={narrow && view === "page" || undefined}>
       <div className="bs-who">

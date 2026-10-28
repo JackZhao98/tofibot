@@ -124,6 +124,11 @@ type Config struct {
 	// the Bot's set turns them off. Nil permits every skill; a returned error
 	// makes the run drop every skill (fail closed).
 	SkillAccess func(ctx context.Context, botID string, names []string) (map[string]bool, error)
+	// ConnectionAccess reports which of the named servers the Bot may use: every
+	// connection is open to every Bot until the owner limits it. Nil permits
+	// every server; a returned error makes the run drop every server (fail
+	// closed), the way SkillAccess does for skills.
+	ConnectionAccess func(ctx context.Context, botID string, names []string) (map[string]bool, error)
 	// ServerIdentityChanged is called after a configuration write that changed
 	// a server's fingerprint or credential target, or removed it. It runs under
 	// the configuration fence and must not call back into the Manager.
@@ -389,6 +394,8 @@ func (m *Manager) prepareMode(ctx context.Context, botID string, scoped, discove
 			}
 		}
 	}
+	servers, accessDiags := m.filterServersForBot(ctx, botID, servers)
+	p.Diagnostics = append(p.Diagnostics, accessDiags...)
 	if err != nil {
 		p.Diagnostics = append(p.Diagnostics, Diagnostic{Message: publicDiagnostic(err)})
 	} else {
@@ -496,6 +503,29 @@ func (m *Manager) prepareMode(ctx context.Context, botID string, scoped, discove
 		}
 	}
 	return p, nil
+}
+
+// filterServersForBot drops the servers the owner closed to this Bot, before
+// anything is listed, searched, described to the model or dialled. When the
+// lookup fails every server is dropped: unknown must never be treated as open.
+func (m *Manager) filterServersForBot(ctx context.Context, botID string, servers map[string]MCPServerConfig) (map[string]MCPServerConfig, []Diagnostic) {
+	if m.cfg.ConnectionAccess == nil || len(servers) == 0 {
+		return servers, nil
+	}
+	names := make([]string, 0, len(servers))
+	for name := range servers {
+		names = append(names, name)
+	}
+	allowed, err := m.cfg.ConnectionAccess(ctx, botID, names)
+	if err != nil {
+		return map[string]MCPServerConfig{}, []Diagnostic{{Message: "MCP connection access could not be read; connections are withheld"}}
+	}
+	for _, name := range names {
+		if !allowed[name] {
+			delete(servers, name)
+		}
+	}
+	return servers, nil
 }
 
 // filterSkillsForBot drops skills that are not enabled for the Bot. When the access lookup

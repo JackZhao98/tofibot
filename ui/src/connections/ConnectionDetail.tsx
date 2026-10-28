@@ -7,6 +7,8 @@ import { TofiIcon } from "../icons";
 import { ServiceMark } from "../ServiceMark";
 import { useTranslation } from "../i18n";
 import { arrowOpens, OverlayMenu } from "../overlays/OverlayHost";
+import { Segmented } from "../settings/components";
+import type { ConnectionBots } from "./bots";
 import { MoreMenu, PrimaryButton, type RowMenuItem, type RowPrimary } from "./RowView";
 import { RepoLink } from "./repoStars";
 import { message, normalizeTiers, TIERS, transportLabels, toolsEndpoint, type MCPTransport, type ToolTier, type ToolTierList, type ToolTierView } from "./shared";
@@ -31,6 +33,8 @@ export type ConnectionDetailViewProps = {
   /** A tool to scroll to and flash once the list is in (the approval card's "Manage" link). */
   focusTool?: string;
   /** The "Always allowed" rows for this connection and how to revoke one; `onDropAllowance` removes a chip after its exit. */
+  /** Which Bots may use this connection (step 4). */
+  bots: ConnectionBots; onBotsAll: () => void; onBotsChosen: (ids: string[]) => void;
   allowances: StandingAllowance[]; onRevoke: (item: StandingAllowance) => Promise<void>; onDropAllowance: (id: string) => void;
   danger: DetailDanger; confirm: DetailConfirm | null;
   onBack: () => void; onRefresh: () => void; refreshing: boolean;
@@ -126,6 +130,35 @@ function ToolsSection({ serverName, tiers, onTiers, busy, community, refreshing,
   </section>;
 }
 
+/** "Which Bots can use this connection": All Bots (the default) or a checked list; the list folds open and closed. */
+function BotsSection({ name, bots, onAll, onChosen }: { name: string; bots: ConnectionBots; onAll: () => void; onChosen: (ids: string[]) => void }) {
+  const { t } = useTranslation("extensions");
+  const [chosenView, setChosenView] = useState(false);
+  const mode = bots.all && !chosenView ? "all" : "chosen";
+  const allowed = bots.bots.filter(bot => bot.enabled).map(bot => bot.bot_id);
+  const toggle = (id: string, next: boolean) => onChosen(next ? [...allowed, id] : allowed.filter(entry => entry !== id));
+  return <section className="conn-section" data-section="bots" aria-labelledby="conn-bots-title" aria-busy={bots.saving}>
+    <h4 id="conn-bots-title">{t("detail.bots.title")}</h4>
+    <p className="conn-lead">{t("detail.bots.lead", { name })}</p>
+    {bots.state === "loading" && <p className="conn-lead" role="status">{t("detail.bots.loading")}</p>}
+    {bots.error && <p className="mcp-service-error" role="alert">{bots.error}</p>}
+    {bots.state !== "loading" && bots.bots.length > 0 && <>
+      <Segmented label={t("detail.bots.choose")} value={mode} disabled={bots.saving}
+        options={[{ value: "all", label: t("detail.bots.all") }, { value: "chosen", label: t("detail.bots.chosen") }]}
+        onChange={value => { if (value === "all") { setChosenView(false); onAll(); } else setChosenView(true); }} />
+      <div className="conn-bots-fold" data-open={mode === "chosen" ? "true" : undefined} inert={mode !== "chosen" || undefined}>
+        <div>
+          <ul className="conn-bots" aria-label={t("detail.bots.choose")}>{bots.bots.map(bot => <li key={bot.bot_id} data-bot-id={bot.bot_id}>
+            <label><input type="checkbox" aria-label={t("detail.bots.check", { bot: bot.bot_name, name })} checked={bot.enabled} disabled={bots.saving} onChange={event => toggle(bot.bot_id, event.target.checked)} /><BotAvatar id={bot.bot_id} mini /><span>{bot.bot_name}</span></label>
+          </li>)}</ul>
+          {allowed.length === 0 && <p className="conn-lead">{t("detail.bots.none")}</p>}
+          <p className="conn-lead">{t("detail.bots.new_note")}</p>
+        </div>
+      </div>
+    </>}
+  </section>;
+}
+
 function AdvancedSection({ facts }: { facts: AdvancedFacts }) {
   const { t } = useTranslation("extensions");
   const rows: [string, ReactNode][] = [];
@@ -182,6 +215,7 @@ export function ConnectionDetailView(props: ConnectionDetailViewProps) {
       </div>
     </section>
     <ToolsSection serverName={props.serverName} tiers={props.tiers} onTiers={props.onTiers} busy={props.busy} community={props.community} refreshing={props.refreshing} loadError={props.toolsError} focusTool={props.focusTool} allowances={props.allowances} onRevoke={props.onRevoke} onDrop={props.onDropAllowance} />
+    <BotsSection name={props.name} bots={props.bots} onAll={props.onBotsAll} onChosen={props.onBotsChosen} />
     <AdvancedSection facts={props.advanced} />
     <section className="conn-section conn-danger" data-section="danger" aria-labelledby="conn-danger-title">
       <h4 id="conn-danger-title">{t("detail.danger")}</h4>

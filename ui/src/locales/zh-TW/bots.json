@@ -211,5 +211,51 @@
     "widget_empty": "Bot 在此對話中產出的檔案會顯示在這裡。",
     "widget_all": "全部作品",
     "widget_new": "新檔案:{{name}}"
+  },
+  "tools": {
+    "connections": {
+      "title": "連線",
+      "hint": "關掉某個連線,這個 Bot 就用不了它。新連線預設對所有 Bot 開啟。",
+      "loading": "載入中…",
+      "error": "連線載入失敗,請重試。",
+      "none": "還沒有連線。",
+      "add": "在設定中新增",
+      "switch": "讓 {{bot}} 使用 {{connection}}",
+      "open": "在設定中開啟 {{connection}}",
+      "save_failed": "儲存失敗,請重試。",
+      "allowed_other": "{{count}} 項一律放行"
+    },
+    "skills": {
+      "manage": "管理技能庫"
+    },
+    "web": {
+      "title": "網頁",
+      "search": "搜尋",
+      "fetch": "讀取頁面",
+      "on": "開啟 · {{chain}}",
+      "search_none": "關閉 · 尚未設定來源",
+      "configure": "設定來源"
+    },
+    "computer": {
+      "title": "電腦",
+      "shared": "所有 Bot 共用工作區的電腦。",
+      "none": "還沒有電腦。在設定中新增後,Bot 才能瀏覽網頁和執行程式碼。",
+      "open": "開啟設定"
+    },
+    "builtin": {
+      "title": "內建",
+      "summary": "每個 Bot 都會的",
+      "items": "檔案和附件 · 圖片 · 記憶 · 任務和排程 · 詢問使用者 · 工作區管理(按需)"
+    },
+    "permissions": {
+      "title": "這個 Bot 的權限",
+      "manage": "全部權限",
+      "empty": "沒有任何東西不問就放行。在審批卡上選「一律允許」即可新增。",
+      "allowed": "放行於 {{time}}",
+      "used_other": "用過 {{count}} 次",
+      "remembered_other": "在 {{count}} 個對話中記住",
+      "remembered_none": "對話中記住的:無",
+      "error": "權限載入失敗,請重試。"
+    }
   }
 }

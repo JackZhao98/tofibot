@@ -111,6 +111,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/extensions/local-mcp/gog/oauth/start") return {authorization_url: "https://accounts.google.com/o/oauth2/v2/auth?state=sample"};
     if (path === "/api/extensions/repo-stars") return q.get("nostars") ? {stars: {}} : {stars: {"openclaw/gogcli": 8520, "upstash/context7": 63467, "github/github-mcp-server": 33839, "makenotion/notion-mcp-server": 4673, "MicrosoftDocs/mcp": 1951}};
     if (path === "/api/extensions/google") return q.get("gclient") ? {client: {configured: true, project_id: "tofi-sample-123456", project_number: "622599621014"}, apis: []} : {client: {configured: false}, apis: []};
+    if (/^\/api\/extensions\/mcp\/[^/]+\/bots$/.test(path) && method === "GET") { const limited = q.get("limited") === "1"; return {all: !limited, bots: [{bot_id: "bot_research", bot_name: "Research Bot", enabled: true}, {bot_id: "bot_ops", bot_name: "Ops Bot", enabled: !limited}]}; }
+    if (/^\/api\/extensions\/mcp\/[^/]+\/bots$/.test(path) && method === "PUT") return {ok: true};
     if (path === "/api/auto-review-settings") return {mode: "auto", review_scope: "all_external_tools"};
     if (path === "/api/standing-allowances" && q.get("allow") === "chips") return {allowances: [
       {id: "al-3", bot_id: "bot_research", bot_name: "Research Bot", server: "notion", tool: "tool_2", state: "active", created_at: "2026-10-21T16:00:00Z", use_count: 5, last_used_at: "2026-10-26T14:30:00Z"},
@@ -213,6 +215,13 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
         await chips.page.waitForTimeout(500);
         await shot(chips.page, "detail-allowance-chips", width, theme);
         await chips.close();
+        const botsView = await open({limited: "1"}, {width, height, theme});
+        await openDetail(botsView.page, "Notion");
+        await botsView.page.locator(".conn-bots-fold[data-open]").waitFor();
+        await botsView.page.locator('[data-section="bots"]').scrollIntoViewIfNeeded();
+        await botsView.page.waitForTimeout(500);
+        await shot(botsView.page, "detail-bots-chosen", width, theme);
+        await botsView.close();
         const link = await open({pending: "notion:tool_5"}, {width, height, theme});
         await link.page.waitForFunction(() => document.querySelector('.mcp-tool[data-tool="tool_5"]')?.hasAttribute("data-flash"), null, {timeout: 5000});
         await link.page.waitForTimeout(120);
@@ -405,7 +414,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       let detail = await openDetail(page, "Gmail (personal account)");
       assert.equal(await page.locator(".mcp-list-pane").evaluate(el => el.hidden), true, "the list gives way to the page");
       assert.match(await detail.locator(".mcp-detail-title p").innerText(), /Built in · gogcli · Gmail API/, "Gmail says it runs via gogcli and is built in");
-      assert.deepEqual(await detail.locator("section[data-section]").evaluateAll(list => list.map(item => item.getAttribute("data-section"))), ["status", "tools", "advanced", "danger"], "four sections, in order");
+      assert.deepEqual(await detail.locator("section[data-section]").evaluateAll(list => list.map(item => item.getAttribute("data-section"))), ["status", "tools", "bots", "advanced", "danger"], "five sections, in order");
       await detail.locator(".mcp-tool-group").first().waitFor();
       await page.getByRole("button", {name: "Back to Connections"}).click();
       await page.locator(".mcp-list-pane:not([hidden])").waitFor();
@@ -738,6 +747,37 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       assert.equal(await gone.page.locator(".mcp-list-pane").evaluate(el => el.hidden), false, "an unknown connection leaves the list showing");
       await gone.close();
       console.log("PASS deep link: opens the connection and flashes the tool, early or while open; an unknown connection is ignored");
+    }
+
+
+    // ---- 6g. Which Bots can use a connection: All Bots by default; Chosen Bots is a checked list; each change is one PUT.
+    {
+      const {page, close, posts} = await open();
+      const detail = await openDetail(page, "Notion");
+      const bots = detail.locator('[data-section="bots"]');
+      await bots.locator(".segmented").waitFor();
+      assert.equal(await bots.getByRole("radio", {name: "All Bots"}).getAttribute("aria-checked"), "true", "a connection nobody limited is open to all Bots");
+      assert.equal(await bots.locator(".conn-bots-fold").getAttribute("inert"), "", "the list is folded away");
+      await bots.getByRole("radio", {name: "Chosen Bots"}).click();
+      await page.waitForTimeout(400);
+      assert.equal(await bots.locator(".conn-bots-fold").getAttribute("data-open"), "true", "Chosen Bots unfolds the list");
+      assert.equal(await bots.locator('input[type="checkbox"]:checked').count(), 2, "every Bot starts checked");
+      await bots.getByRole("checkbox", {name: "Ops Bot can use Notion"}).uncheck();
+      await page.waitForTimeout(200);
+      const chosen = posts.find(post => /\/mcp\/notion\/bots$/.test(post.path));
+      assert.deepEqual(chosen && JSON.parse(chosen.body), {bot_ids: ["bot_research"]}, "unchecking a Bot saves exactly the Bots still allowed");
+      await bots.getByRole("radio", {name: "All Bots"}).click();
+      await page.waitForTimeout(200);
+      assert.deepEqual(JSON.parse(posts.filter(post => /\/mcp\/notion\/bots$/.test(post.path)).at(-1).body), {all: true}, "All Bots clears every limit with one PUT");
+      await close();
+      const limited = await open({limited: "1"});
+      const d2 = await openDetail(limited.page, "Notion");
+      const b2 = d2.locator('[data-section="bots"]');
+      await b2.locator(".segmented").waitFor();
+      assert.equal(await b2.getByRole("radio", {name: "Chosen Bots"}).getAttribute("aria-checked"), "true", "a limited connection opens on Chosen Bots");
+      assert.equal(await b2.getByRole("checkbox", {name: "Ops Bot can use Notion"}).isChecked(), false);
+      await limited.close();
+      console.log("PASS bots: All Bots by default, Chosen Bots unfolds a checked list, one PUT per change, a limited connection opens on Chosen Bots");
     }
 
     // ---- 8. Phone width: no horizontal overflow, 44 px targets for the controls that matter.

@@ -544,6 +544,17 @@
     },
     "pause": "暂停连接",
     "resume": "恢复连接",
-    "paused_note": "已暂停。Bot 用不了这个连接,登录状态、工具设置和放行都保留。"
+    "paused_note": "已暂停。Bot 用不了这个连接,登录状态、工具设置和放行都保留。",
+    "bots": {
+      "title": "Bot",
+      "lead": "哪些 Bot 可以使用 {{name}}。",
+      "all": "所有 Bot",
+      "chosen": "指定 Bot",
+      "choose": "选择哪些 Bot 可以使用这个连接",
+      "none": "没有 Bot 能用这个连接。",
+      "new_note": "之后新建的 Bot 默认可以使用,除非你在它自己的页面里限制。",
+      "check": "{{bot}} 可以使用 {{name}}",
+      "loading": "正在加载 Bot…"
+    }
   }
 }

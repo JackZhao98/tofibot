@@ -164,3 +164,15 @@
 .mcp-tool[data-flash]{animation:conn-tool-flash var(--m-flight) var(--ease-out) both}
 @keyframes conn-tool-flash{from{background:color-mix(in srgb,var(--lagoon) 28%,transparent)}to{background:transparent}}
 @media(prefers-reduced-motion:reduce){.mcp-allowance,.mcp-allowance[data-leaving]{animation:none}.mcp-tool[data-flash]{animation:none;background:color-mix(in srgb,var(--lagoon) 22%,transparent)}}
+
+/* Which Bots can use this connection (step 4). The checked list folds open and closed: in over --m-panel-in, out over --m-panel-out. */
+.conn-section[data-section=bots] .segmented{margin:0 0 10px}
+.conn-bots-fold{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows var(--m-panel-out) var(--ease-in),opacity var(--m-panel-out) var(--ease-in)}
+.conn-bots-fold[data-open]{grid-template-rows:1fr;opacity:1;transition-duration:var(--m-panel-in),var(--m-base);transition-timing-function:var(--ease-out)}
+.conn-bots-fold>div{min-height:0;overflow:hidden}
+.conn-bots{display:grid;gap:2px;margin:0 0 8px;padding:6px;list-style:none;border-radius:18px;background:var(--surface-2)}
+.conn-bots label{display:flex;align-items:center;gap:10px;min-height:44px;padding:4px 10px;border-radius:12px;transition:background var(--m-quick) var(--ease-out)}
+.conn-bots label:hover{background:var(--sunk)}
+.conn-bots .avatar,.conn-bots .tofi-avatar{flex:none;width:28px;height:28px}
+.conn-bots span{min-width:0;overflow-wrap:anywhere;font:500 13.5px/1.4 var(--body)}
+@media(prefers-reduced-motion:reduce){.conn-bots-fold{transition:none}}

@@ -36,3 +36,17 @@ export function primaryAction(kind: ConnectionKind, hasContinueLink: boolean, ca
   if (kind === "waiting") return cancellable ? "cancel" : hasContinueLink ? "continue" : "none";
   return "none";
 }
+
+/**
+ * A connection's status from what the server stored, without probing: for pages that list connections but do not own their
+ * checks (a Bot's Tools page). `null` when nothing is known yet, which such a page shows as no status at all.
+ */
+export function storedKind(server: { enabled?: boolean; oauth?: { connected?: boolean }; status?: { ok: boolean; error_class?: "auth" | "failed"; error_code?: string } }): ConnectionKind | null {
+  if (server.enabled === false) return "paused";
+  if (server.oauth && !server.oauth.connected) return "needs_auth";
+  const status = server.status;
+  if (!status) return null;
+  if (status.ok) return "ready";
+  if (status.error_code === "api_disabled") return "api_disabled";
+  return status.error_class === "auth" ? "needs_auth" : "error";
+}

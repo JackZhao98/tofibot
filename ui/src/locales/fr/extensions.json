@@ -556,6 +556,17 @@
     },
     "pause": "Mettre la connexion en pause",
     "resume": "Reprendre la connexion",
-    "paused_note": "En pause. Les Bots ne peuvent pas utiliser cette connexion. La connexion, les réglages des outils et les autorisations sont conservés."
+    "paused_note": "En pause. Les Bots ne peuvent pas utiliser cette connexion. La connexion, les réglages des outils et les autorisations sont conservés.",
+    "bots": {
+      "title": "Bots",
+      "lead": "Quels Bots peuvent utiliser {{name}}.",
+      "all": "Tous les Bots",
+      "chosen": "Bots choisis",
+      "choose": "Choisissez les Bots qui peuvent utiliser cette connexion",
+      "none": "Aucun Bot ne peut utiliser cette connexion.",
+      "new_note": "Un Bot ajouté plus tard peut l'utiliser tant que vous ne la limitez pas sur sa page.",
+      "check": "{{bot}} peut utiliser {{name}}",
+      "loading": "Chargement des Bots…"
+    }
   }
 }

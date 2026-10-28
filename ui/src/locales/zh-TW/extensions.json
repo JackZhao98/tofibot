@@ -544,6 +544,17 @@
     },
     "pause": "暫停連線",
     "resume": "恢復連線",
-    "paused_note": "已暫停。Bot 用不了這個連線,登入狀態、工具設定和放行都保留。"
+    "paused_note": "已暫停。Bot 用不了這個連線,登入狀態、工具設定和放行都保留。",
+    "bots": {
+      "title": "Bot",
+      "lead": "哪些 Bot 可以使用 {{name}}。",
+      "all": "所有 Bot",
+      "chosen": "指定 Bot",
+      "choose": "選擇哪些 Bot 可以使用這個連線",
+      "none": "沒有 Bot 能用這個連線。",
+      "new_note": "之後新增的 Bot 預設可以使用,除非你在它自己的頁面中限制。",
+      "check": "{{bot}} 可以使用 {{name}}",
+      "loading": "正在載入 Bot…"
+    }
   }
 }

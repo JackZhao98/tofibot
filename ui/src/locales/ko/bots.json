@@ -211,5 +211,51 @@
     "widget_empty": "이 채팅에서 Bot이 만든 파일이 여기에 표시됩니다.",
     "widget_all": "모든 산출물",
     "widget_new": "새 파일: {{name}}"
+  },
+  "tools": {
+    "connections": {
+      "title": "연결",
+      "hint": "연결을 끄면 이 Bot은 사용할 수 없습니다. 새 연결은 모든 Bot에 켜진 상태로 시작합니다.",
+      "loading": "불러오는 중…",
+      "error": "연결을 불러오지 못했습니다. 다시 시도하세요.",
+      "none": "아직 연결이 없습니다.",
+      "add": "설정에서 추가",
+      "switch": "{{bot}}이(가) {{connection}} 사용 허용",
+      "open": "설정에서 {{connection}} 열기",
+      "save_failed": "저장하지 못했습니다. 다시 시도하세요.",
+      "allowed_other": "항상 허용 {{count}}개"
+    },
+    "skills": {
+      "manage": "라이브러리 관리"
+    },
+    "web": {
+      "title": "웹",
+      "search": "검색",
+      "fetch": "가져오기",
+      "on": "켜짐 · {{chain}}",
+      "search_none": "꺼짐 · 구성된 소스 없음",
+      "configure": "소스 구성"
+    },
+    "computer": {
+      "title": "컴퓨터",
+      "shared": "모든 Bot이 워크스페이스 컴퓨터를 함께 사용합니다.",
+      "none": "아직 컴퓨터가 없습니다. 설정에서 추가하면 Bot이 웹을 탐색하고 코드를 실행할 수 있습니다.",
+      "open": "설정 열기"
+    },
+    "builtin": {
+      "title": "내장",
+      "summary": "모든 Bot이 할 수 있는 일",
+      "items": "파일 및 첨부 · 이미지 · 메모리 · 작업 및 일정 · 사람에게 묻기 · 워크스페이스 관리(필요 시)"
+    },
+    "permissions": {
+      "title": "이 Bot의 권한",
+      "manage": "모든 권한",
+      "empty": "묻지 않고 허용된 항목이 없습니다. 승인 카드에서 “항상 허용”을 선택하면 추가됩니다.",
+      "allowed": "허용 {{time}}",
+      "used_other": "{{count}}회 사용",
+      "remembered_other": "{{count}}개 채팅에서 기억됨",
+      "remembered_none": "채팅에서 기억된 항목: 없음",
+      "error": "권한을 불러오지 못했습니다. 다시 시도하세요."
+    }
   }
 }

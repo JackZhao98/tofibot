@@ -550,6 +550,17 @@
     },
     "pause": "Pause connection",
     "resume": "Resume connection",
-    "paused_note": "Paused. Bots can't use this connection. Its sign-in, tool settings and allowances are kept."
+    "paused_note": "Paused. Bots can't use this connection. Its sign-in, tool settings and allowances are kept.",
+    "bots": {
+      "title": "Bots",
+      "lead": "Which Bots can use {{name}}.",
+      "all": "All Bots",
+      "chosen": "Chosen Bots",
+      "choose": "Choose which Bots can use this connection",
+      "none": "No Bot can use this connection.",
+      "new_note": "A Bot added later can use it until you limit it on that Bot's page.",
+      "check": "{{bot}} can use {{name}}",
+      "loading": "Loading Bots…"
+    }
   }
 }

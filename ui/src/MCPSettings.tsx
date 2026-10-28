@@ -20,6 +20,8 @@ import { PasteBackDialog } from "./connections/PasteBackDialog";
 import { useLocalPlugins, type LocalState, type Plugin } from "./connections/localPlugins";
 import { CONNECTIONS_CHANGED } from "./settings/useConnectionAttention";
 import { useConnectionAllowances } from "./connections/allowances";
+import { useConnectionBots } from "./connections/bots";
+import { displayName, presetFor } from "./connections/names";
 import { OPEN_CONNECTION_EVENT, takeConnectionTarget } from "./settings/deepLinks";
 import { connectionKind, primaryAction, type Phase } from "./connections/status";
 import { GOOGLE_SERVICE_NAME, googleServiceForAPI, googleServicesLabel, isConsoleURL, useGoogleOverview, type GoogleOverview } from "./connections/google";
@@ -33,14 +35,6 @@ const ConnectionDetailView = lazy(() => import("./connections/ConnectionDetail")
 
 /** A refused removal says why (a task is using the plugin) and the row stays. */
 const removeError = (e: unknown) => e instanceof ApiError && e.code === "plugin_busy" ? i18n.t("common:apiError.plugin_busy") : message(e);
-const presetFor = (server: MCP) => integrationCatalog.find(item => item.url === server.url);
-/** The name a person sees: a catalog name, "Gmail" for the personal Gmail plugin, else what they called it. Never `local_gog`. */
-function displayName(server: MCP, preset: IntegrationPreset | undefined) {
-  if (preset) return preset.name;
-  const plugin = localPluginId(server.name);
-  return plugin === "gog" ? i18n.t("extensions:connections.local.gog.name") : plugin || server.name;
-}
-
 /** The open-source repository behind a connection, when it has one. */
 const repoFor = (server: MCP, preset: IntegrationPreset | undefined) => preset?.repo ?? LOCAL_PLUGIN_REPOS[localPluginId(server.name)] ?? "";
 
@@ -193,6 +187,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
   const paused = server.enabled === false;
   const [pausing, setPausing] = useState(false);
   const allowances = useConnectionAllowances(server.name, selected);
+  const connectionBots = useConnectionBots(server.name, selected);
   const busy = pausing || vmSession !== null || pasteOpen || (route.mode === "desktop" && phase === "waiting") || ["checking", "authorizing", "removing"].includes(phase);
   useEffect(() => { alive.current = true; return () => { alive.current = false; operation.current++; abort.current?.abort(); if (nativePending.current) void window.tofiDesktop?.cancelMCPAuthorization?.(server.name).catch(() => {}); }; }, [server.name]);
   const check = useCallback(async () => {
@@ -401,7 +396,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
       {loginNote && <div className="mcp-login-note"><p role="status">{loginNote}</p></div>}
     </ConnectionRowView>
     {selected && detailSlot && createPortal(<Suspense fallback={null}><ConnectionDetailView name={display} mark={isGog ? "Gmail" : display} source={source} serverName={server.name} kind={kind} statusText={statusText} detail={detail} checkedText={checked}
-      error={rowError} note={paused ? t("detail.paused_note") : loginNote || undefined} focusTool={focusTool} allowances={allowances.allowances} onRevoke={allowances.revoke} onDropAllowance={allowances.drop} primary={primary} menu={menu} busy={busy} facts={facts} tiers={tiers} onTiers={setTiers} community={server.provenance?.origin === "community"} toolsError={toolsError} advanced={advanced} help={help}
+      error={rowError} note={paused ? t("detail.paused_note") : loginNote || undefined} focusTool={focusTool} bots={connectionBots.value} onBotsAll={() => void connectionBots.setAll()} onBotsChosen={ids => void connectionBots.setChosen(ids)} allowances={allowances.allowances} onRevoke={allowances.revoke} onDropAllowance={allowances.drop} primary={primary} menu={menu} busy={busy} facts={facts} tiers={tiers} onTiers={setTiers} community={server.provenance?.origin === "community"} toolsError={toolsError} advanced={advanced} help={help}
       danger={danger} confirm={confirm ? { text: confirmText, submit: confirm === "remove" ? t("mcp.confirm.remove_submit") : t("mcp.confirm.disconnect_submit"), onCancel: () => setConfirm(null), onConfirm: () => void confirmAction() } : null}
       onBack={leave} onRefresh={() => void refreshTools()} refreshing={refreshing} /></Suspense>, detailSlot)}
     {dialogSlot && createPortal(<>

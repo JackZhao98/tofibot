@@ -60,7 +60,6 @@
   },
   "botSettings": {
     "nav": "Bot 設定分區",
-    "skills_link": "在「設定 › Skills」中管理技能庫",
     "back": "全部分區",
     "avatar_title": "頭像",
     "avatar_hint": "這隻貓在清單和聊天裡的樣子。",
@@ -78,15 +77,16 @@
       "identity": "身分",
       "role": "職能",
       "model": "模型",
-      "skills": "Skills",
       "secrets": "金鑰",
-      "advanced": "進階"
+      "advanced": "進階",
+      "tools": "工具"
     },
     "desc": {
       "identity": "頭像、名稱和主要助理。",
       "role": "這個 Bot 負責什麼。它在每次回覆前都會讀到這裡。",
       "model": "這個 Bot 用哪個模型，思考多深。",
-      "advanced": "系統提示詞、匯出和刪除。"
+      "advanced": "系統提示詞、匯出和刪除。",
+      "tools": "{{name}} 能用什麼。連線和技能由你開關,其餘跟隨工作區設定。"
     },
     "role_count_other": "{{count}} 個字元"
   },

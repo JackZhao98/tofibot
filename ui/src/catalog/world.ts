@@ -159,6 +159,8 @@ export type AppOptions = {
   approval?: boolean;
   /** "none": the server has no computer backend (no header button, no Computer widget, Settings explains the options). */
   computer?: "ready" | "starting" | "hibernated" | "resuming" | "desktop-starting" | "none";
+  /** "none": no connections are set up (Bot settings > Tools shows the empty line and the link to Settings). */
+  connections?: "none";
   /** Mochi holds the desktop in her own chat (the Computer widget opens by itself and the bezel carries her colour). */
   driver?: "bot";
   /** The group has two tasks: Miso's release note (claimed, 2/3) and Nori's venue (assigned). The cards and the member list show them. */
@@ -238,6 +240,11 @@ export function workspace(options: AppOptions): Synthetic {
     }
     if (p.startsWith("/api/attachments/")) return new Response("# Week 42 summary\n\nSign-ups are up **8%** on last week.\n\n- Review at 15:00\n- Retention is flat\n", { status: 200, headers: { "Content-Type": "text/markdown" } });
     if (p === "/api/model-settings") return json({ model: "synthetic-model", reasoning_effort: "medium" });
+    // Bot settings > Tools: the connections, this Bot's access to each, the web chains and its allowances.
+    if (p === "/api/extensions/mcp" && method === "GET") return json({ servers: options.connections === "none" ? [] : CONNECTIONS });
+    if (/^\/api\/bots\/[^/]+\/connections$/.test(p)) return json({ connections: options.connections === "none" ? [] : CONNECTIONS.map(item => ({ server: item.name, enabled: item.name !== "github" })) });
+    if (p === "/api/web-tools") return json(WEB_TOOLS);
+    if (p === "/api/standing-allowances") return json({ allowances: options.connections === "none" ? [] : [{ id: "al_1", bot_id: "bot_mochi", bot_name: "Mochi", server: "notion", tool: "create_page", state: "active", created_at: at(-4000), use_count: 5, last_used_at: at(-30) }], remembered: [] });
     const botRead = /^\/api\/bots\/[^/]+\/(skills|secrets|debug-preview)$/.exec(p);
     if (botRead) return json(botRead[1] === "skills" ? BOT_SKILLS : botRead[1] === "secrets" ? BOT_SECRETS : { system_prompt: "You are Mochi.\nYou keep the launch calendar and chase owners for updates.", tools: [] });
     if (p.endsWith("/task-impact")) return json({ given_tasks: 0, held_tasks: 0, open_waits: 0 });
@@ -270,6 +277,19 @@ function usageFor(id: string, mode: NonNullable<AppOptions["usage"]>) {
       : { available: true, tool_tokens: 742_000, conversation_tokens: 468_000, review_tokens: 21_000, tool_model_calls: 24, conversation_model_calls: 15, tool_calls: 52, basis: "calls" },
   };
 }
+
+/** What Bot settings > Tools reads: a ready connection, one that needs sign-in and one that is paused (synthetic). */
+const CONNECTIONS = [
+  { name: "notion", url: "https://mcp.notion.com/mcp", transport: "streamable_http", oauth: { client_id: "", connected: true }, status: { checked_at: "2026-10-26T12:00:00Z", ok: true, tool_count: 12 } },
+  { name: "github", url: "https://api.githubcopilot.com/mcp/", transport: "streamable_http", status: { checked_at: "2026-10-26T12:00:00Z", ok: true, tool_count: 9 } },
+  { name: "linear", url: "https://mcp.linear.app/mcp", transport: "streamable_http", oauth: { client_id: "", connected: false } },
+  { name: "acme_tracker", url: "https://mcp.example.test/tracker", transport: "streamable_http", enabled: false, status: { checked_at: "2026-10-26T12:00:00Z", ok: true, tool_count: 4 } },
+];
+const WEB_TOOLS = {
+  enabled: true, computer: true, search_offered: true,
+  search: [{ id: "native", label: "Claude native", kind: "native", paid: false, fixed: true, enabled: true, status: "always", testable: false }, { id: "tavily", label: "Tavily", kind: "api", paid: true, fixed: false, enabled: true, status: "ready", testable: true }, { id: "brave", label: "Brave", kind: "api", paid: true, fixed: false, enabled: false, status: "off", testable: true }],
+  fetch: [{ id: "builtin", label: "Built-in", kind: "builtin", paid: false, fixed: true, enabled: true, status: "always", testable: false }, { id: "firecrawl", label: "Firecrawl", kind: "api", paid: true, fixed: false, enabled: true, status: "ready", testable: true }],
+};
 
 /** What Bot settings reads for the Skills and Secrets sections. */
 const BOT_SKILLS = { skills: [

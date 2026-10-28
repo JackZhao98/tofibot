@@ -153,6 +153,9 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 			s.writeExtensionSaved(w, http.StatusOK)
 		}
 		return true
+	case strings.HasPrefix(p, "extensions/mcp/") && strings.HasSuffix(p, "/bots") && (r.Method == http.MethodGet || r.Method == http.MethodPut):
+		s.routeConnectionBots(w, r, strings.TrimSuffix(strings.TrimPrefix(p, "extensions/mcp/"), "/bots"))
+		return true
 	case strings.HasPrefix(p, "extensions/mcp/") && strings.HasSuffix(p, "/enabled") && r.Method == http.MethodPut:
 		name := strings.TrimSuffix(strings.TrimPrefix(p, "extensions/mcp/"), "/enabled")
 		var in struct {

@@ -60,7 +60,6 @@
   },
   "botSettings": {
     "nav": "Bot 設定のセクション",
-    "skills_link": "「設定 › Skills」でライブラリを管理",
     "back": "すべてのセクション",
     "avatar_title": "アバター",
     "avatar_hint": "この猫がリストやチャットでどう見えるか。",
@@ -78,15 +77,16 @@
       "identity": "アイデンティティ",
       "role": "役割",
       "model": "モデル",
-      "skills": "Skills",
       "secrets": "シークレット",
-      "advanced": "詳細"
+      "advanced": "詳細",
+      "tools": "ツール"
     },
     "desc": {
       "identity": "アバター、名前、メインアシスタント。",
       "role": "この Bot の担当範囲。返信のたびに読み込まれます。",
       "model": "この Bot が使うモデルと推論の深さ。",
-      "advanced": "システムプロンプト、書き出し、削除。"
+      "advanced": "システムプロンプト、書き出し、削除。",
+      "tools": "{{name}} が使えるもの。接続とスキルは自分で切り替えられ、それ以外はワークスペース設定に従います。"
     },
     "role_count_other": "{{count}} 文字"
   },

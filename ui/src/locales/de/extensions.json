@@ -550,6 +550,17 @@
     },
     "pause": "Verbindung pausieren",
     "resume": "Verbindung fortsetzen",
-    "paused_note": "Pausiert. Bots können diese Verbindung nicht nutzen. Anmeldung, Werkzeugeinstellungen und Freigaben bleiben erhalten."
+    "paused_note": "Pausiert. Bots können diese Verbindung nicht nutzen. Anmeldung, Werkzeugeinstellungen und Freigaben bleiben erhalten.",
+    "bots": {
+      "title": "Bots",
+      "lead": "Welche Bots {{name}} nutzen dürfen.",
+      "all": "Alle Bots",
+      "chosen": "Ausgewählte Bots",
+      "choose": "Wähle, welche Bots diese Verbindung nutzen dürfen",
+      "none": "Kein Bot kann diese Verbindung nutzen.",
+      "new_note": "Ein später hinzugefügter Bot kann sie nutzen, bis du sie auf der Seite dieses Bots einschränkst.",
+      "check": "{{bot}} darf {{name}} nutzen",
+      "loading": "Bots werden geladen…"
+    }
   }
 }

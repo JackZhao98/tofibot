@@ -60,7 +60,6 @@
   },
   "botSettings": {
     "nav": "Bot settings sections",
-    "skills_link": "Manage the Skill library in Settings › Skills",
     "back": "All sections",
     "avatar_title": "Avatar",
     "avatar_hint": "How this cat looks in the list and in chat.",
@@ -78,15 +77,16 @@
       "identity": "Identity",
       "role": "Role",
       "model": "Model",
-      "skills": "Skills",
       "secrets": "Secrets",
-      "advanced": "Advanced"
+      "advanced": "Advanced",
+      "tools": "Tools"
     },
     "desc": {
       "identity": "Avatar, name and Primary Assistant.",
       "role": "What this Bot is responsible for. It reads this before every reply.",
       "model": "Which model this Bot runs on and how much it thinks.",
-      "advanced": "System prompt, export and delete."
+      "advanced": "System prompt, export and delete.",
+      "tools": "What {{name}} can use. Connections and Skills are yours to switch; the rest follows workspace settings."
     },
     "role_count_one": "{{count}} character",
     "role_count_other": "{{count}} characters"
