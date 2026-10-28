@@ -23,6 +23,7 @@ const loaders = {
   viewOnly: () => import("./ViewOnlyChat"),
   remembered: () => import("./RememberedApprovals"),
   deleteDialog: () => import("./DeleteConversationDialog"),
+  searchPalette: () => import("./SearchPalette"),
   reassignPrimary: () => import("./ReassignPrimaryDialog"),
   permissionCoach: () => import("./PermissionCoach"),
   updateBanner: () => import("./UpdateNotice"),
@@ -90,6 +91,7 @@ export const UsageWidget = chunk("usageWidget", module => module.UsageWidget);
 export const ViewOnlyChat = chunk("viewOnly", module => module.ViewOnlyChat);
 export const RememberedApprovalsSheet = chunk("remembered", module => module.RememberedApprovalsSheet);
 export const DeleteConversationDialog = chunk("deleteDialog", module => module.DeleteConversationDialog);
+export const SearchPalette = chunk("searchPalette", module => module.SearchPalette);
 export const ReassignPrimaryDialog = chunk("reassignPrimary", module => module.ReassignPrimaryDialog);
 export const WidgetColumn = chunk("contextCard", module => module.WidgetColumn);
 export const SidebarShell = chunk("sidebarShell", module => module.SidebarShell);
@@ -142,6 +144,7 @@ const entryPoints: Array<[selector: string, chunk: PanelChunk]> = [
   [".header-more", "surfaceViews"],
   [".header-more", "usageWidget"],
   [".conversation-row", "botSettings"],
+  [".search-trigger", "searchPalette"],
   [".chat-identity", "contextCard"],
   [".chat-identity", "coverShell"],
   [".header-actions", "sidebarShell"],
@@ -159,7 +162,7 @@ const entryPoints: Array<[selector: string, chunk: PanelChunk]> = [
 const WARM_START_MS = 500;
 const WARM_STEP_MS = 200;
 export function warmPanelsWhenIdle(): () => void {
-  const order: PanelChunk[] = ["settings", "taskActivity", "toolSteps", "desktop", "contextCard", "sidebarShell", "coverShell", "surfaceViews", "botSettings", "artifacts", "usageWidget", "work", "memory", "team", "archive", "viewOnly", "remembered", "deleteDialog", "reassignPrimary", "permissionCoach", "updateBanner", "questionCard", "stopMenu"];
+  const order: PanelChunk[] = ["settings", "taskActivity", "toolSteps", "desktop", "contextCard", "sidebarShell", "coverShell", "surfaceViews", "botSettings", "artifacts", "usageWidget", "work", "memory", "team", "archive", "viewOnly", "remembered", "deleteDialog", "reassignPrimary", "permissionCoach", "updateBanner", "questionCard", "stopMenu", "searchPalette"];
   let timer = window.setTimeout(function step() {
     const next = order.shift();
     if (!next) return;
@@ -173,7 +176,11 @@ export function warmPanelsWhenIdle(): () => void {
   };
   document.addEventListener("pointerover", near, { passive: true });
   document.addEventListener("focusin", near);
+  // Cmd/Ctrl is down a beat before K: start the search palette's chunk then, so it is there when the key lands.
+  const modifier = (event: KeyboardEvent) => { if (event.key === "Control" || event.key === "Meta") preloadPanel("searchPalette"); };
+  document.addEventListener("keydown", modifier, { passive: true });
   return () => {
+    document.removeEventListener("keydown", modifier);
     window.clearTimeout(timer);
     document.removeEventListener("pointerover", near);
     document.removeEventListener("focusin", near);

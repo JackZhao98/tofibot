@@ -1,4 +1,4 @@
-import type { TaskImpact, FollowupAccount, FollowupBotSettings, FollowupOverview, FollowupVerdict, AgentUsageTotal, Attachment, Bot, ComputerHealth, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, ModelCatalog, ModelProviderStatus, Run, RunContextSnapshot, RunHealth, Schedule, ScheduleKind, SchedulePatchInput, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WebToolsView, WorkspaceEventEnvelope, WorkItem, Weekday } from "./types";
+import type { SearchResults, TaskImpact, FollowupAccount, FollowupBotSettings, FollowupOverview, FollowupVerdict, AgentUsageTotal, Attachment, Bot, ComputerHealth, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, ModelCatalog, ModelProviderStatus, Run, RunContextSnapshot, RunHealth, Schedule, ScheduleKind, SchedulePatchInput, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WebToolsView, WorkspaceEventEnvelope, WorkItem, Weekday } from "./types";
 import { i18n } from "./i18n";
 import { codeText } from "./i18n/codeText";
 import { invalidateModelCatalog } from "./modelCatalogStore";
@@ -44,6 +44,7 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
 const json = (body: unknown): RequestInit => ({ method: "POST", body: JSON.stringify(body) });
 
 export const api = {
+  search: (q: string, kind: "all" | "chats" | "messages", limit: number, signal?: AbortSignal) => request<SearchResults>(`/api/search?q=${encodeURIComponent(q)}&kind=${kind}&limit=${limit}`, { signal }),
   serverInfo: (signal?: AbortSignal) => request<{ service: string; protocol_version: number; instance_id: string }>("/api/server-info", { signal }),
   config: () => request<Config>("/api/config"),
   usage: () => request<{ contexts: ContextUsage[]; agents: AgentUsageTotal[]; periods: Record<"24h" | "7d" | "30d", UsagePeriod[]>; review_periods?: Record<"24h" | "7d" | "30d", UsagePeriod[]>; calls: UsageCall[]; price_source: string; price_as_of: string; note: string }>("/api/usage"),

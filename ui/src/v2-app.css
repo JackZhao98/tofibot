@@ -178,7 +178,7 @@ html:not([data-desktop]) .workspace .new-arrival .message-user .message-content 
 .workspace .message-block:focus-visible .message-content { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:4px; }
 /* Clicking a message never frames it. Jumps to a message (sidebar result, reply
    quote) flash the target once via .is-jump-target; keyboard focus keeps the ring. */
-.workspace .message-block.is-jump-target .message-content { outline:2px solid var(--lagoon); outline-offset:4px; animation:v2-focus-flash 1.6s var(--ease-out) forwards; }
+.workspace .message-block:is(.is-jump-target,[data-jump-target]) .message-content { outline:2px solid var(--lagoon); outline-offset:4px; animation:v2-focus-flash 1.6s var(--ease-out) forwards; }
 @keyframes v2-focus-flash { 0%,45% { outline-color:var(--lagoon); } 100% { outline-color:transparent; } }
 /* One arrival vocabulary on web: a Bot message that appears whole fades in over 200 ms. Opacity only: a transform on the newest message
    widens the scroll extent while it plays, and the pane that follows the bottom would move with it. A message that was streamed in
