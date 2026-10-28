@@ -43,6 +43,13 @@ func newTestHub(t *testing.T, mutate func(*HubConfig)) (*Hub, string) {
 	}
 	if cfg.IsolateUIDs && os.Geteuid() == 0 {
 		shareTestBinary(t)
+		// t.TempDir makes root-only 0700 directories; production roots are
+		// traversable, so open the test paths the account uids must cross.
+		traversableForAccounts(t, root)
+		traversableForAccounts(t, filepath.Dir(gogBinary))
+		if err := os.Chmod(gogBinary, 0755); err != nil {
+			t.Fatal(err)
+		}
 	}
 	hub, err := NewHub(cfg)
 	if err != nil {
@@ -516,4 +523,20 @@ func shareTestBinary(t *testing.T) {
 	old := launcherExecutable
 	launcherExecutable = func() (string, error) { return path, nil }
 	t.Cleanup(func() { launcherExecutable = old; os.RemoveAll(dir) })
+}
+
+// traversableForAccounts gives every directory from dir up to (not including)
+// the system temp directory the search bit for others, as a production root has.
+func traversableForAccounts(t *testing.T, dir string) {
+	t.Helper()
+	stop := filepath.Clean(os.TempDir())
+	for d := filepath.Clean(dir); d != stop && d != filepath.Dir(d); d = filepath.Dir(d) {
+		info, err := os.Stat(d)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(d, info.Mode().Perm()|0o011); err != nil {
+			t.Fatal(err)
+		}
+	}
 }
