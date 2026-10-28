@@ -21,6 +21,11 @@ import (
 )
 
 func (s *Server) localRunnerConfig() (string, string, error) {
+	// The Runner container, once it serves this account, is the only Runner:
+	// the account's namespace and token, never the guest origin.
+	if s.containerRunnerActive() {
+		return s.containerRunnerConfig()
+	}
 	if s.isolatedWorkspace && s.microVM != nil {
 		return computer.RunnerOrigin, "", nil
 	}
@@ -71,6 +76,13 @@ func (s *Server) runnerRequestContext(ctx context.Context, method, path string, 
 	if err != nil {
 		return nil, 0, err
 	}
+	return s.runnerRequestTo(ctx, base, token, method, path, body)
+}
+
+// runnerRequestTo sends one request to an explicit Runner. The migration uses
+// it to talk to the container before the account is switched to it.
+func (s *Server) runnerRequestTo(ctx context.Context, base, token, method, path string, body any) ([]byte, int, error) {
+	var err error
 	var reader io.Reader
 	if body != nil {
 		data, e := json.Marshal(body)

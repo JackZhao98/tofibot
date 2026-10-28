@@ -205,6 +205,12 @@ type Config struct {
 	AccountMaintenance        bool
 	// Tenant Runner endpoints must be explicitly provisioned; no global fallback.
 	LocalRunnerURL, LocalRunnerTokenFile string
+	// LocalRunnerTokenFunc yields this account's bearer token on the Runner
+	// container; LocalRunnerURL is then the account's namespace on it.
+	LocalRunnerTokenFunc func() (string, error)
+	// RunnerGatewayURL and RunnerMasterKeyFile (gateway only) locate the Runner
+	// container and the key its per-account tokens are derived from.
+	RunnerGatewayURL, RunnerMasterKeyFile string
 	// Control-plane stores must not recover or execute workspace jobs.
 	AccountDBMaxBytes   int64
 	AccountControlPlane bool
@@ -233,6 +239,8 @@ type Server struct {
 	shadowReviewClosed                   bool
 	isolatedWorkspace                    bool
 	localRunnerURL, localRunnerTokenFile string
+	localRunnerTokenFn                   func() (string, error)
+	runnerMigration                      localRunnerMigration
 	ownerAuth                            *ownerAuth
 	secretVault                          *secretVault
 	instance                             instanceIdentity
@@ -2802,6 +2810,7 @@ func NewServer(c Config) (*Server, error) {
 	if microVM != nil {
 		server.computerWatchdog = newComputerWatchdog(microVM)
 	}
+	server.initLocalRunner(c)
 	if (c.Provider == providerOpenAI || c.Provider == providerAnthropic) && !c.IsolatedWorkspace {
 		if key := strings.TrimSpace(c.ProviderAPIKey); key != "" {
 			server.envProviderKeys[c.Provider] = key
@@ -2873,6 +2882,7 @@ func NewServer(c Config) (*Server, error) {
 	server.startSummaryWorkers()
 	server.startTerminalCleanup()
 	server.computerWatchdog.start()
+	server.startLocalRunnerMigration()
 	server.startStuckRunSweeper()
 	server.startWaitSweeper()
 	server.startCommandMonitor()
@@ -2897,6 +2907,7 @@ func NewServer(c Config) (*Server, error) {
 	return server, nil
 }
 func (s *Server) Close() error {
+	s.stopLocalRunnerMigration()
 	s.stopShadowMCPReviews()
 	s.ownerAuth.close()
 	s.closeVMOAuth()

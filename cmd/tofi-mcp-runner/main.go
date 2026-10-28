@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -54,7 +55,7 @@ func main() {
 
 // serveAccounts runs the multi-account Runner: one process, one namespace,
 // token and uid per account. It must run as root with the capabilities listed
-// in docs/decisions/D80-runner-container.md; it refuses to run accounts
+// in docs/decisions/0069-runner-container.md; it refuses to run accounts
 // as one shared uid unless that is asked for by name (development only).
 func serveAccounts() error {
 	root := os.Getenv("TOFI_MCP_RUNNER_ROOT")
@@ -72,6 +73,19 @@ func serveAccounts() error {
 	key, err := loadSecret(keyPath, 32)
 	if err != nil {
 		return err
+	}
+	// The gateway derives account tokens from the same key, so it must be able to read it.
+	if raw := os.Getenv("TOFI_MCP_RUNNER_AUTH_UID"); raw != "" {
+		uid, err := strconv.Atoi(raw)
+		if err != nil || uid <= 0 {
+			return errors.New("TOFI_MCP_RUNNER_AUTH_UID must be a positive uid")
+		}
+		if err := os.Chown(keyPath, uid, -1); err != nil {
+			return err
+		}
+		if err := os.Chmod(keyPath, 0400); err != nil {
+			return err
+		}
 	}
 	hub, err := mcprunner.NewHub(mcprunner.HubConfig{Root: root, Master: []byte(key), IsolateUIDs: isolate})
 	if err != nil {

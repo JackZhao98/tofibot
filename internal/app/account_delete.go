@@ -235,6 +235,9 @@ func (g *AccountGateway) deleteStep(ctx context.Context, step string, a Account)
 	case "computer":
 		return g.deleteComputer(ctx, a.ID)
 	case "data":
+		if err := g.deleteRunnerState(ctx, a.ID); err != nil {
+			return err
+		}
 		return removeAccountDataDir(g.config.DataDir, a.ID)
 	case "sessions":
 		_, err := g.root.store.db.ExecContext(ctx, `DELETE FROM account_sessions WHERE account_id=?`, a.ID)

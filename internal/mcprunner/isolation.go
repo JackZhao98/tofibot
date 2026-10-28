@@ -17,7 +17,7 @@ import (
 )
 
 // Per-account isolation primitives for the multi-account Runner. See
-// docs/decisions/D80-runner-container.md for the threat model.
+// docs/decisions/0069-runner-container.md for the threat model.
 
 // AccountPathPrefix is the URL prefix of one account's namespace. Everything an
 // account can reach lives below /a/<account id>/.

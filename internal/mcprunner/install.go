@@ -422,3 +422,12 @@ func ParseRecords(data []byte) ([]InstalledRecord, error) {
 	}
 	return records, nil
 }
+
+// UseGogBinary replaces the path of the bundled gogcli and returns a function
+// that restores it. It exists for tests of code that installs the gog plugin
+// on a machine without gogcli.
+func UseGogBinary(path string) (restore func()) {
+	old := gogBinary
+	gogBinary = path
+	return func() { gogBinary = old }
+}
