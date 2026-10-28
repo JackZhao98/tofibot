@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
@@ -27,10 +28,16 @@ type Hub struct {
 	cfg HubConfig
 	reg *uidRegistry
 
+	// mu guards only the maps and counters below and is never held across file
+	// or process work. Work on one account holds that account's lock (locks).
 	mu       sync.Mutex
 	closed   bool
 	tenants  map[string]*tenant
+	locks    map[string]*sync.Mutex
+	opening  int
 	internal string
+	stop     chan struct{}
+	stopped  sync.WaitGroup
 }
 
 // HubConfig configures a Hub. Root is a directory the Hub owns; Master is the
@@ -48,6 +55,11 @@ type HubConfig struct {
 	// UIDBase is the first uid handed out (default 20000).
 	UIDBase     int
 	MaxAccounts int
+	// AccountIdleTimeout closes an account that has had no request and no running
+	// plugin for this long, so MaxAccounts counts accounts in use rather than
+	// accounts ever seen (default 30 minutes). Its state stays; the next request
+	// opens it again.
+	AccountIdleTimeout time.Duration
 }
 
 type tenant struct {
@@ -56,6 +68,10 @@ type tenant struct {
 	handler http.Handler
 	token   string // internal; the per-request header is replaced with it
 	dir     string // <root>/accounts/<id>
+	uid     int    // 0 without isolation
+
+	inflight atomic.Int64
+	lastUsed atomic.Int64 // unix nanoseconds
 }
 
 // NewHub validates the configuration and prepares the root directory.
@@ -68,6 +84,9 @@ func NewHub(cfg HubConfig) (*Hub, error) {
 	}
 	if cfg.IdleTimeout <= 0 {
 		cfg.IdleTimeout = 10 * time.Minute
+	}
+	if cfg.AccountIdleTimeout <= 0 {
+		cfg.AccountIdleTimeout = 30 * time.Minute
 	}
 	if cfg.UIDBase <= 0 {
 		cfg.UIDBase = 20000
@@ -97,7 +116,91 @@ func NewHub(cfg HubConfig) (*Hub, error) {
 	if _, err := rand.Read(secret); err != nil {
 		return nil, err
 	}
-	return &Hub{cfg: cfg, reg: reg, tenants: map[string]*tenant{}, internal: hex.EncodeToString(secret)}, nil
+	h := &Hub{cfg: cfg, reg: reg, tenants: map[string]*tenant{}, locks: map[string]*sync.Mutex{}, internal: hex.EncodeToString(secret), stop: make(chan struct{})}
+	h.stopped.Add(1)
+	go h.evictLoop()
+	return h, nil
+}
+
+// evictLoop closes idle accounts.
+func (h *Hub) evictLoop() {
+	defer h.stopped.Done()
+	interval := h.cfg.AccountIdleTimeout / 4
+	if interval > time.Minute {
+		interval = time.Minute
+	}
+	if interval < 10*time.Millisecond {
+		interval = 10 * time.Millisecond
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-h.stop:
+			return
+		case <-ticker.C:
+			h.evictIdle(time.Now())
+		}
+	}
+}
+
+// evictIdle closes every account that has been idle since before now minus the
+// idle timeout: no request in flight, none for the whole period, and no plugin
+// process running. An account being opened or purged is skipped this round.
+func (h *Hub) evictIdle(now time.Time) int {
+	h.mu.Lock()
+	ids := make([]string, 0, len(h.tenants))
+	for id := range h.tenants {
+		ids = append(ids, id)
+	}
+	h.mu.Unlock()
+	evicted := 0
+	for _, id := range ids {
+		lock := h.lockFor(id)
+		if !lock.TryLock() {
+			continue
+		}
+		h.mu.Lock()
+		t := h.tenants[id]
+		idle := t != nil && t.inflight.Load() == 0 && now.Sub(time.Unix(0, t.lastUsed.Load())) >= h.cfg.AccountIdleTimeout
+		h.mu.Unlock()
+		if idle {
+			for _, st := range t.runner.Statuses() {
+				if st.State != "sleeping" {
+					idle = false
+					break
+				}
+			}
+		}
+		if idle {
+			h.mu.Lock()
+			delete(h.tenants, id)
+			h.mu.Unlock()
+			h.closeTenant(t)
+			evicted++
+		}
+		lock.Unlock()
+	}
+	return evicted
+}
+
+// closeTenant stops the account's Runner and every process left under its uid.
+func (h *Hub) closeTenant(t *tenant) {
+	t.runner.Close()
+	if t.uid > 0 {
+		killAllOf(t.uid)
+	}
+}
+
+func (h *Hub) lockFor(id string) *sync.Mutex {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	l := h.locks[id]
+	if l == nil {
+		l = &sync.Mutex{}
+		h.locks[id] = l
+	}
+	return l
 }
 
 // ServeHTTP routes /a/<id>/<path> to account <id>. The credential is checked
@@ -128,12 +231,17 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"deleted": true})
 		return
 	}
-	t, err := h.tenant(id)
+	t, release, err := h.acquire(id)
+	if errors.Is(err, ErrAccountPurged) {
+		http.Error(w, "account was deleted", http.StatusGone)
+		return
+	}
 	if err != nil {
 		log.Printf("hub: account %s unavailable: %v", id, err)
 		http.Error(w, "account Runner unavailable", http.StatusServiceUnavailable)
 		return
 	}
+	defer release()
 	clone := req.Clone(req.Context())
 	clone.URL.Path, clone.URL.RawPath = "/"+rest, ""
 	clone.Header = req.Header.Clone()
@@ -165,28 +273,78 @@ func (h *Hub) authorized(req *http.Request, id string) bool {
 	return subtle.ConstantTimeCompare([]byte(got), []byte(want)) == 1
 }
 
+// ErrAccountPurged is returned for an account that was deleted. Its id is never
+// served again.
+var ErrAccountPurged = errors.New("account was deleted")
+
 // tenant returns the account's Runner, creating its state on first use.
 func (h *Hub) tenant(id string) (*tenant, error) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if h.closed {
-		return nil, errors.New("hub closed")
-	}
-	if t := h.tenants[id]; t != nil {
-		return t, nil
-	}
-	if len(h.tenants) >= h.cfg.MaxAccounts {
-		return nil, errors.New("too many accounts")
-	}
-	t, err := h.openLocked(id)
+	t, release, err := h.acquire(id)
 	if err != nil {
 		return nil, err
 	}
-	h.tenants[id] = t
+	release()
 	return t, nil
 }
 
+// acquire returns the account's Runner and marks a request in flight, so the
+// account is not evicted under it. Only this account's lock is held while its
+// state is opened; other accounts are not delayed by the file and process work.
+func (h *Hub) acquire(id string) (*tenant, func(), error) {
+	lock := h.lockFor(id)
+	lock.Lock()
+	defer lock.Unlock()
+	h.mu.Lock()
+	if h.closed {
+		h.mu.Unlock()
+		return nil, nil, errors.New("hub closed")
+	}
+	if t := h.tenants[id]; t != nil {
+		t.inflight.Add(1)
+		h.mu.Unlock()
+		return t, h.releaser(t), nil
+	}
+	if h.reg.isPurged(id) {
+		h.mu.Unlock()
+		return nil, nil, ErrAccountPurged
+	}
+	if len(h.tenants)+h.opening >= h.cfg.MaxAccounts {
+		h.mu.Unlock()
+		return nil, nil, errors.New("too many accounts")
+	}
+	h.opening++
+	h.mu.Unlock()
+	t, err := h.openLocked(id)
+	h.mu.Lock()
+	h.opening--
+	if err == nil && h.closed {
+		err = errors.New("hub closed")
+	}
+	if err != nil {
+		h.mu.Unlock()
+		if t != nil {
+			h.closeTenant(t)
+		}
+		return nil, nil, err
+	}
+	h.tenants[id] = t
+	t.inflight.Add(1)
+	h.mu.Unlock()
+	return t, h.releaser(t), nil
+}
+
+func (h *Hub) releaser(t *tenant) func() {
+	return func() {
+		t.lastUsed.Store(time.Now().UnixNano())
+		t.inflight.Add(-1)
+	}
+}
+
 func (h *Hub) accountDir(id string) string { return filepath.Join(h.cfg.Root, "accounts", id) }
+
+// openAccountHook runs at the start of every account open. Tests use it to hold
+// one account's open while others are served.
+var openAccountHook func(id string)
 
 // Layout of one account:
 //
@@ -202,6 +360,9 @@ func (h *Hub) accountDir(id string) string { return filepath.Join(h.cfg.Root, "a
 // (confined.go). state/ and plugins/ belong to root so the account cannot swap
 // either for a link into another account's tree.
 func (h *Hub) openLocked(id string) (*tenant, error) {
+	if openAccountHook != nil {
+		openAccountHook(id)
+	}
 	dir := h.accountDir(id)
 	state, tmp := filepath.Join(dir, "state"), filepath.Join(dir, "tmp")
 	var cred *syscall.Credential
@@ -242,7 +403,12 @@ func (h *Hub) openLocked(id string) (*tenant, error) {
 		return nil, err
 	}
 	token := hex.EncodeToString(secret)
-	return &tenant{id: id, runner: runner, handler: runner.Handler(token), token: token, dir: dir}, nil
+	t := &tenant{id: id, runner: runner, handler: runner.Handler(token), token: token, dir: dir}
+	if cred != nil {
+		t.uid = int(cred.Uid)
+	}
+	t.lastUsed.Store(time.Now().UnixNano())
+	return t, nil
 }
 
 // prepareAccountDir creates the account's directories with the owners described
@@ -319,16 +485,27 @@ func mkdirPlain(path string, mode os.FileMode) error {
 }
 
 // Purge stops the account's processes and removes all of its state. The uid
-// stays reserved.
+// stays reserved and the id is tombstoned: a deleted account is never recreated,
+// so a late request with a still-valid token cannot bring it back.
 func (h *Hub) Purge(id string) error {
 	if !ValidAccountID(id) {
 		return errors.New("invalid account")
 	}
+	lock := h.lockFor(id)
+	lock.Lock()
+	defer lock.Unlock()
+	// The tombstone goes first: whatever fails below, the id cannot be served again.
+	if err := h.reg.markPurged(id); err != nil {
+		return err
+	}
 	h.mu.Lock()
-	defer h.mu.Unlock()
-	if t := h.tenants[id]; t != nil {
-		t.runner.Close()
-		delete(h.tenants, id)
+	t := h.tenants[id]
+	delete(h.tenants, id)
+	h.mu.Unlock()
+	if t != nil {
+		h.closeTenant(t)
+	} else if uid, ok := h.reg.uidOfAccount(id); ok && h.cfg.IsolateUIDs {
+		killAllOf(uid)
 	}
 	dir := h.accountDir(id)
 	if info, err := os.Lstat(dir); err == nil && !info.IsDir() {
@@ -340,10 +517,17 @@ func (h *Hub) Purge(id string) error {
 // Close stops every account's processes.
 func (h *Hub) Close() {
 	h.mu.Lock()
-	defer h.mu.Unlock()
+	if h.closed {
+		h.mu.Unlock()
+		return
+	}
 	h.closed = true
-	for id, t := range h.tenants {
-		t.runner.Close()
-		delete(h.tenants, id)
+	tenants := h.tenants
+	h.tenants = map[string]*tenant{}
+	h.mu.Unlock()
+	close(h.stop)
+	h.stopped.Wait()
+	for _, t := range tenants {
+		h.closeTenant(t)
 	}
 }

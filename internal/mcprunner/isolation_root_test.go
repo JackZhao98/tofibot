@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 // This test needs the real thing: Linux, root (or CAP_SETUID/SETGID/CHOWN/DAC_OVERRIDE/FOWNER).
@@ -174,5 +175,41 @@ func TestRootLostRegistryNeverReusesAUID(t *testing.T) {
 	got, _ := hub2.reg.uid(third)
 	if got == uids[accountA] || got == uids[accountB] {
 		t.Fatalf("uid %d was reused", got)
+	}
+}
+
+// After a purge nothing of the account may still run: a plugin that daemonised
+// and left its process group is found by uid and killed.
+func TestRootPurgeKillsEveryProcessOfTheAccountUID(t *testing.T) {
+	if runtime.GOOS != "linux" || os.Geteuid() != 0 {
+		t.Skip("needs Linux and root")
+	}
+	hub, _ := newTestHub(t, func(c *HubConfig) { c.IsolateUIDs = true })
+	if w := call(hub, http.MethodPost, "/a/"+accountA+"/v1/plugins", tokenOf(accountA), map[string]any{"id": "gog", "kind": "builtin_gog"}); w.Code != http.StatusCreated {
+		t.Fatalf("install: %d", w.Code)
+	}
+	tenant, err := hub.tenant(accountA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec, _ := tenant.runner.gogSpec("gog")
+	spec.Command = "/bin/sh"
+	// A daemon in its own session, as a plugin could start one.
+	if _, err := runGog(context.Background(), spec, nil, "-c", "setsid sleep 300 >/dev/null 2>&1 </dev/null &"); err != nil {
+		t.Fatal(err)
+	}
+	uid, _ := hub.reg.uid(accountA)
+	deadline := time.Now().Add(3 * time.Second)
+	for len(processesOf(uid)) == 0 && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	if len(processesOf(uid)) == 0 {
+		t.Fatal("the daemon did not start")
+	}
+	if err := hub.Purge(accountA); err != nil {
+		t.Fatal(err)
+	}
+	if left := processesOf(uid); len(left) != 0 {
+		t.Fatalf("processes of the purged account survive: %v", left)
 	}
 }

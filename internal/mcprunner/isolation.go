@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 )
 
 // Per-account isolation primitives for the multi-account Runner. See
@@ -64,12 +65,14 @@ type uidRegistry struct {
 	limit    int
 	next     int
 	ids      map[string]int
+	purged   map[string]int64 // tombstones: account id -> unix time of the purge
 	refused  map[string]string
 }
 
 type uidFile struct {
-	Next int            `json:"next"`
-	IDs  map[string]int `json:"ids"`
+	Next   int              `json:"next"`
+	IDs    map[string]int   `json:"ids"`
+	Purged map[string]int64 `json:"purged,omitempty"`
 }
 
 // ownerOf reports the uid that owns a path (without following a link). Tests
@@ -121,7 +124,7 @@ func scanOwners(accounts string) map[string]int {
 // accounts exist is treated as lost: every account on disk is refused and new
 // uids start above anything a directory already carries.
 func loadUIDRegistry(path string, base int, isolate bool) (*uidRegistry, error) {
-	r := &uidRegistry{path: path, accounts: filepath.Join(filepath.Dir(path), "accounts"), base: base, limit: MaxUID, next: base, ids: map[string]int{}, refused: map[string]string{}}
+	r := &uidRegistry{path: path, accounts: filepath.Join(filepath.Dir(path), "accounts"), base: base, limit: MaxUID, next: base, ids: map[string]int{}, purged: map[string]int64{}, refused: map[string]string{}}
 	lost := ""
 	data, err := os.ReadFile(path)
 	switch {
@@ -139,6 +142,11 @@ func loadUIDRegistry(path string, base int, isolate bool) (*uidRegistry, error) 
 			r.next, r.ids = f.Next, f.IDs
 			if r.ids == nil {
 				r.ids = map[string]int{}
+			}
+			for id, at := range f.Purged {
+				if ValidAccountID(id) {
+					r.purged[id] = at
+				}
 			}
 			if r.next < base {
 				r.next = base
@@ -231,16 +239,56 @@ func (r *uidRegistry) uid(id string) (int, error) {
 	if uid >= r.limit {
 		return 0, errors.New("no uid left for another account")
 	}
-	data, err := json.Marshal(uidFile{Next: uid + 1, IDs: withEntry(r.ids, id, uid)})
-	if err != nil {
+	ids, next := withEntry(r.ids, id, uid), uid+1
+	if err := r.persistLocked(ids, next, r.purged); err != nil {
 		return 0, err
 	}
-	if err := writeAtomic0600(r.path, data); err != nil {
-		return 0, err
-	}
-	r.ids[id] = uid
-	r.next = uid + 1
+	r.ids, r.next = ids, next
 	return uid, nil
+}
+
+func (r *uidRegistry) persistLocked(ids map[string]int, next int, purged map[string]int64) error {
+	data, err := json.Marshal(uidFile{Next: next, IDs: ids, Purged: purged})
+	if err != nil {
+		return err
+	}
+	return writeAtomic0600(r.path, data)
+}
+
+// isPurged reports whether the account was deleted. A purged id is never
+// served again; its uid stays reserved.
+func (r *uidRegistry) isPurged(id string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	_, ok := r.purged[id]
+	return ok
+}
+
+// markPurged records the tombstone durably before the account's state is removed.
+func (r *uidRegistry) markPurged(id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.purged[id]; ok {
+		return nil
+	}
+	purged := make(map[string]int64, len(r.purged)+1)
+	for k, v := range r.purged {
+		purged[k] = v
+	}
+	purged[id] = time.Now().Unix()
+	if err := r.persistLocked(r.ids, r.next, purged); err != nil {
+		return err
+	}
+	r.purged = purged
+	return nil
+}
+
+// uidOfAccount returns the registered uid without allocating one.
+func (r *uidRegistry) uidOfAccount(id string) (int, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	uid, ok := r.ids[id]
+	return uid, ok
 }
 
 func withEntry(m map[string]int, id string, uid int) map[string]int {
