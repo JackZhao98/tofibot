@@ -36,6 +36,15 @@ JOBS="go-gofmt go-build go-vet go-test ui-typecheck ui-i18n ui-motion-tokens ui-
 if [ "$mode" = list ]; then echo "$JOBS" | tr ' ' '\n'; exit 0; fi
 
 export PLAYWRIGHT_MODULE="${PLAYWRIGHT_MODULE:-/Users/jackzhao/Developer/sentiosurge/tofibot-web/node_modules/playwright/index.mjs}"
+if [ ! -f "$PLAYWRIGHT_MODULE" ]; then
+  for cand in /Users/jackzhao/.claude/skills/gstack/node_modules/playwright/index.mjs "$repo/ui/node_modules/playwright/index.mjs"; do
+    [ -f "$cand" ] && { PLAYWRIGHT_MODULE="$cand"; export PLAYWRIGHT_MODULE; break; }
+  done
+fi
+if [ ! -f "$PLAYWRIGHT_MODULE" ]; then
+  echo "ci-local: no Playwright at $PLAYWRIGHT_MODULE; the browser jobs (ui-overlays, ui-shell-budget, ui-catalog, ...) will fail." >&2
+  echo "          Set PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs (for example ~/.claude/skills/gstack/node_modules/playwright/index.mjs)." >&2
+fi
 logdir="$(mktemp -d "${TMPDIR:-/tmp}/ci-local.XXXXXX")"
 
 # ---- what changed (committed since base, staged, unstaged, untracked)

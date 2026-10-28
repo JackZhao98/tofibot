@@ -272,22 +272,36 @@ if (only.includes("phone")) {
   assert.equal(back.frames.filter(frame => frame.chat.x > 0.5 && frame.chat.x < viewport - 0.5).length, 0, "reduced motion goes back without sliding");
   await context.close();
 }
-if (engineName === "chromium") await attempt("phone push x4", async () => {
+if (engineName === "chromium") {
+  // Frames over 25 ms are wall-clock, so on a loaded machine they come from the machine as much as from our code. What the code controls is
+  // whether the push itself costs frames: each push is measured against an idle window of the same length, at the same throttle, in the same
+  // run (the idle count is what the machine alone costs right now), and the verdict is the median over PUSHES pushes, so one scheduler stall
+  // cannot decide it. A real regression (the push dropping frames every time) still fails: the median push stays above idle + 1.
+  const PUSHES = 5;
   const { page, context } = await open({ width: 390, height: 844, touch: true, path: "/", cpu: 4 });
   await page.waitForTimeout(800);
+  const mocha = () => page.locator(".conversation-row").filter({ hasText: "Mocha Cat" }).first();
   // The conversation is opened once first, so the measured push is the motion and not the first load of a history.
-  await page.locator(".conversation-row").filter({ hasText: "Mocha Cat" }).first().tap();
-  await page.waitForTimeout(900);
+  await mocha().tap();
+  await page.locator(".chat-pane .composer, .chat-pane").first().waitFor();
+  await page.waitForFunction(() => document.querySelector(".chat-pane") && document.querySelector(".chat-pane").getBoundingClientRect().x === 0);
   await page.locator(".back-button").tap();
-  await page.waitForTimeout(900);
-  const into = await sampleSwap(page, () => page.locator(".conversation-row").filter({ hasText: "Mocha Cat" }).first().tap(), 520);
-  checkCoverage(into, "list to chat at 4x", 390);
-  const gaps = into.frames.slice(1).map((frame, i) => frame.t - into.frames[i].t);
-  const slow = gaps.filter(gap => gap > 25).length;
-  console.log(`phone push at 4x CPU: frames over 25 ms: ${slow}`);
-  assert.ok(slow <= 1, `at most one frame over 25 ms during the push at 4x, got ${slow}`);
+  await page.waitForFunction(() => document.querySelector(".chat-pane").getBoundingClientRect().x >= window.innerWidth - 0.5);
+  const slowOf = swap => swap.frames.slice(1).filter((frame, i) => frame.t - swap.frames[i].t > 25).length;
+  const pushed = [], idle = [];
+  for (let i = 0; i < PUSHES; i++) {
+    idle.push(slowOf(await sampleSwap(page, async () => {}, 520)));
+    const into = await sampleSwap(page, () => mocha().tap(), 520);
+    checkCoverage(into, "list to chat at 4x", 390);
+    pushed.push(slowOf(into));
+    await page.locator(".back-button").tap();
+    await page.waitForFunction(() => document.querySelector(".chat-pane").getBoundingClientRect().x >= window.innerWidth - 0.5);
+  }
+  const slow = median(pushed), floor = median(idle);
+  console.log(`phone push at 4x CPU: frames over 25 ms per push ${pushed.join(", ")} (median ${slow}); idle windows ${idle.join(", ")} (median ${floor})`);
+  assert.ok(slow <= floor + 1, `the push drops at most one frame over 25 ms beyond what an idle page drops at 4x: median ${slow} over ${pushed.join(", ")}, idle median ${floor}`);
   await context.close();
-});
+}
 }
 
 await browser.close();

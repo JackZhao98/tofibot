@@ -9,15 +9,15 @@
 // Run: PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:switch-budget
 // SWITCH_BUDGET_ENGINE=webkit runs the 1x budget in WebKit (it has no CPU throttle or long-task metric).
 import assert from "node:assert/strict";
-// TOFI_SKIP_TIMING=1: leave out the p95 / long-task bounds (they read a clock; a loaded machine fails them). The correctness asserts
-// in measure() (no page errors, 20 switches, every conversation painted at the bottom, widgets restored) stay on.
-const skipTiming = process.env.TOFI_SKIP_TIMING === "1";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { build, preview } from "vite";
 import react from "@vitejs/plugin-react";
+// TOFI_SKIP_TIMING=1: leave out the p95 / long-task bounds (they read a clock; a loaded machine fails them). The correctness asserts
+// in measure() (no page errors, 20 switches, every conversation painted at the bottom, widgets restored) stay on.
+const skipTiming = process.env.TOFI_SKIP_TIMING === "1";
 
 const pw = await import(process.env.PLAYWRIGHT_MODULE || "playwright");
 const webkit = process.env.SWITCH_BUDGET_ENGINE === "webkit";
