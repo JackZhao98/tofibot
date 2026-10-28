@@ -763,6 +763,8 @@
       "not_newer": "服务器已在运行该版本或更新的版本。",
       "rejected_before": "该版本此前在这台服务器上失败过。准备好后请通过命令行更新。",
       "not_latest_stable": "已有更新的版本发布。请刷新本页面后重试。",
+      "request_cooldown": "更新请求每 10 分钟只能提交一次，请稍后重试。",
+      "rc_superseded": "正式版已不低于这个候选版本，请改为更新到正式版。",
       "version_unpublished": "该版本尚未发布，或无法连接 GitHub。",
       "release_check_failed": "无法连接 GitHub 检查版本。",
       "runs_still_active": "一小时后仍有 Bot 在运行，请稍后重试。",

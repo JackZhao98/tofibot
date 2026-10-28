@@ -38,6 +38,7 @@ class WebUpdateCase(base.LifecycleBase):
         self.fetch = mock.patch.object(tofi_host, 'fetch_manifest', side_effect=self.fake_fetch).start()
         self.published = {'v0.1.1': base.manifest('v0.1.1', '2'), RC: base.manifest(RC, '3')}
         self.latest = 'v0.1.1'
+        mock.patch.object(tofi_host, 'UPDATE_REQUEST_COOLDOWN', 0).start()  # tests below turn it on
         self.states = []
         real = tofi_host.write_update_status
 
@@ -180,6 +181,59 @@ class RequestValidationTests(WebUpdateCase):
         self.drop(request())
         self.refused('rejected_before')
 
+    def test_every_rolled_back_version_stays_rejected(self):
+        state = tofi_host.load_state()
+        tofi_host.remember_rejected(state, 'v0.1.1')
+        tofi_host.remember_rejected(state, 'v0.1.2')
+        tofi_host.save_state(state)
+        self.published['v0.1.2'] = base.manifest('v0.1.2', '4')
+        self.latest = 'v0.1.2'
+        self.drop(request(version='v0.1.2'))
+        self.refused('rejected_before')
+        self.drop(request(version='v0.1.1', nonce='b' * 32))
+        self.refused('rejected_before')
+
+    def test_failed_update_lands_on_the_list_and_old_field_is_read(self):
+        self.start_services.side_effect = [tofi_host.HostError('candidate unhealthy'), None, None]
+        self.drop(request())
+        self.assertEqual(self.run_request()['code'], 'update_rejected')
+        state = tofi_host.load_state()
+        self.assertEqual(state['rejected_versions'], ['v0.1.1'])
+        self.assertEqual(tofi_host.rejected_versions({'last_update_failure': {'version': 'v0.1.7'},
+                                                      'rejected_versions': ['v0.1.1']}), ['v0.1.1', 'v0.1.7'])
+
+    def test_rejected_list_keeps_the_last_twenty(self):
+        state = {}
+        for number in range(30):
+            tofi_host.remember_rejected(state, 'v0.1.%d' % number)
+        self.assertEqual(len(state['rejected_versions']), 20)
+        self.assertEqual(state['rejected_versions'][-1], 'v0.1.29')
+
+    def test_ascii_digits_only(self):
+        arabic = '\u0661'  # ARABIC-INDIC DIGIT ONE
+        self.drop(request(version='v0.1.%s' % arabic))
+        self.refused('request_invalid')
+        self.drop(request(requested_at=stamp().replace('2', '\u0662'), nonce='b' * 32))
+        self.refused('request_invalid')
+        self.assertIsNone(tofi_host.version_key('v0.1.%s' % arabic))
+        self.assertIsNone(tofi_host.version_parts('v0.1.%s' % arabic))
+        with self.assertRaises(tofi_host.HostError):
+            tofi_host.validate_manifest(dict(base.manifest('v0.1.%s' % arabic, '2')))
+
+    def test_rc_must_be_newer_than_the_latest_stable(self):
+        self.published['v0.3.0'] = base.manifest('v0.3.0', '5')
+        self.latest = 'v0.3.0'
+        self.drop(request(version=RC, channel='rc'))
+        self.refused('rc_superseded')
+        self.published['v0.3.0-rc.2'] = base.manifest('v0.3.0-rc.2', '6')
+        self.drop(request(version='v0.3.0-rc.2', channel='rc', nonce='b' * 32))
+        self.refused('rc_superseded')
+
+    def test_rc_check_needs_the_stable_manifest(self):
+        del self.published['v0.1.1']
+        self.drop(request(version=RC, channel='rc'))
+        self.refused('release_check_failed')
+
     def test_duplicate_nonce_is_ignored_without_touching_status(self):
         self.drop(request())
         self.assertEqual(self.run_request()['result'], 'done')
@@ -196,6 +250,50 @@ class RequestValidationTests(WebUpdateCase):
         self.run_request()
         entry = self.history()[-1]
         self.assertEqual((entry['trigger'], entry['result'], entry['reason']), ('web', 'refused', 'not_newer'))
+
+
+class CooldownTests(WebUpdateCase):
+    def setUp(self):
+        super().setUp()
+        mock.patch.object(tofi_host, 'UPDATE_REQUEST_COOLDOWN', 600).start()
+
+    def test_second_request_within_ten_minutes_is_refused_whatever_the_first_outcome(self):
+        self.drop(request(version=OLD))  # refused: not_newer
+        self.assertEqual(self.run_request(), {'result': 'refused', 'code': 'not_newer'})
+        self.drop(request(nonce='b' * 32))
+        self.assertEqual(self.run_request(), {'result': 'refused', 'code': 'request_cooldown'})
+        self.assertEqual(self.status()['code'], 'request_cooldown')
+        self.assertEqual(tofi_host.read_env()['TOFI_VERSION'], OLD)
+        self.assertEqual(self.history()[-1]['reason'], 'request_cooldown')
+
+    def test_failures_count_too(self):
+        self.free.return_value = 10 * 1024 * 1024
+        self.drop(request())
+        self.assertEqual(self.run_request()['code'], 'insufficient_disk')
+        self.free.return_value = 50 * tofi_host.GIB
+        self.drop(request(nonce='b' * 32))
+        self.assertEqual(self.run_request()['code'], 'request_cooldown')
+
+    def test_cooldown_ends_and_a_refused_request_does_not_extend_it(self):
+        self.drop(request())
+        self.assertEqual(self.run_request()['result'], 'done')
+        recorded = json.loads(self.P.update_last_attempt.read_text())['at']
+        self.published['v0.1.2'] = base.manifest('v0.1.2', '4')
+        self.latest = 'v0.1.2'
+        self.drop(request(version='v0.1.2', nonce='b' * 32))
+        self.assertEqual(self.run_request()['code'], 'request_cooldown')
+        self.assertEqual(json.loads(self.P.update_last_attempt.read_text())['at'], recorded)
+        self.P.update_last_attempt.write_text(json.dumps({'at': time.time() - 601}))
+        self.drop(request(version='v0.1.2', nonce='c' * 32))
+        self.assertEqual(self.run_request()['result'], 'done')
+
+    def test_a_duplicate_does_not_start_a_cooldown(self):
+        self.drop(request(version=OLD))
+        self.run_request()
+        self.P.update_last_attempt.unlink()
+        self.drop(request(version=OLD))
+        self.assertEqual(self.run_request(), {'result': 'duplicate'})
+        self.assertFalse(self.P.update_last_attempt.exists())
 
 
 class RequestFlowTests(WebUpdateCase):
@@ -218,7 +316,7 @@ class RequestFlowTests(WebUpdateCase):
         self.drop(request(version=RC, channel='rc'))
         self.assertEqual(self.run_request()['result'], 'done')
         self.assertEqual(tofi_host.read_env()['TOFI_VERSION'], RC)
-        self.fetch.assert_called_once_with(RC)
+        self.assertEqual(self.fetch.call_args_list, [mock.call(RC), mock.call()])
 
     def test_waits_for_runs_then_updates(self):
         counts = iter([2, 1, 0, 0, 0])
@@ -274,6 +372,14 @@ class RequestFlowTests(WebUpdateCase):
             self.drop(request())
             self.assertEqual(self.run_request(), {'result': 'failed', 'code': 'host_busy'})
 
+    def test_history_keeps_the_last_500_lines(self):
+        for number in range(520):
+            tofi_host.record_update_history({'trigger': 'web', 'result': 'refused', 'n': number})
+        lines = self.history()
+        self.assertEqual(len(lines), 500)
+        self.assertEqual((lines[0]['n'], lines[-1]['n']), (20, 519))
+        self.assertEqual(stat.S_IMODE(self.P.update_history.stat().st_mode), 0o600)
+
     def test_command_line_flag(self):
         self.drop(request())
         self.assertEqual(tofi_host.main(['update', '--from-request']), 0)
@@ -313,6 +419,36 @@ class UnitTests(WebUpdateCase):
         self.assertIn(['systemctl', 'enable', '--now', 'tofi-update-request.path'], self.commands)
         marker = json.loads((self.P.update_status_dir / 'host.json').read_text())
         self.assertEqual(marker['update_request'], 1)
+
+    def test_service_is_rate_limited_and_ensure_resets_failed_units(self):
+        service = self.P.update_request_service.read_text()
+        self.assertIn('StartLimitIntervalSec=60', service.split('[Service]')[0])
+        self.assertIn('StartLimitBurst=3', service.split('[Service]')[0])
+        self.commands.clear()
+        tofi_host.ensure_update_request_channel()
+        reset = ['systemctl', 'reset-failed', 'tofi-update-request.path', 'tofi-update-request.service']
+        enable = ['systemctl', 'enable', '--now', 'tofi-update-request.path']
+        self.assertLess(self.commands.index(reset), self.commands.index(enable))
+
+    def test_quiet_ensure_only_acts_on_an_installed_host(self):
+        self.P.update_request_path.unlink()
+        state = tofi_host.load_state()
+        state['phase'] = 'upgrading'
+        tofi_host.save_state(state)
+        tofi_host.ensure_update_request_channel_quietly()
+        self.assertFalse(self.P.update_request_path.exists())
+        state['phase'] = 'installed'
+        tofi_host.save_state(state)
+        tofi_host.ensure_update_request_channel_quietly()
+        self.assertTrue(self.P.update_request_path.exists())
+
+    def test_removing_units_reloads_systemd(self):
+        tofi_host.ensure_update_request_channel()
+        self.commands.clear()
+        tofi_host.remove_update_request_units()
+        self.assertFalse(self.P.update_request_path.exists())
+        self.assertLess(self.commands.index(['systemctl', 'disable', '--now', 'tofi-update-request.path']),
+                        self.commands.index(['systemctl', 'daemon-reload']))
 
     def test_ensure_repairs_a_missing_or_changed_unit_and_reloads_only_then(self):
         tofi_host.ensure_update_request_channel()

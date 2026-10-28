@@ -772,6 +772,8 @@
       "not_newer": "Der Server läuft bereits mit dieser oder einer neueren Version.",
       "rejected_before": "Diese Version ist auf diesem Server schon einmal fehlgeschlagen. Aktualisiere über die Kommandozeile, wenn du bereit bist.",
       "not_latest_stable": "Es gibt eine neuere Version. Lade diese Seite neu und versuche es erneut.",
+      "request_cooldown": "Update-Anfragen sind auf eine alle 10 Minuten begrenzt. Versuche es gleich noch einmal.",
+      "rc_superseded": "Es gibt bereits ein stabiles Release, das gleich oder neuer als dieser Release Candidate ist. Aktualisiere stattdessen auf das stabile Release.",
       "version_unpublished": "Diese Version ist nicht veröffentlicht, oder GitHub ist nicht erreichbar.",
       "release_check_failed": "GitHub war nicht erreichbar, um die Version zu prüfen.",
       "runs_still_active": "Nach einer Stunde liefen noch Bots. Versuche es später erneut.",

@@ -142,7 +142,7 @@ function safeNotes(url: string): string {
   return url.startsWith("https://") ? url : "";
 }
 
-const NOTHING_CHANGED = new Set(["request_invalid", "request_too_large", "request_stale", "channel_mismatch", "not_newer", "rejected_before", "not_latest_stable", "version_unpublished", "release_check_failed", "runs_still_active", "host_busy", "schema_change_blocked", "insufficient_disk"]);
+const NOTHING_CHANGED = new Set(["request_invalid", "request_too_large", "request_stale", "channel_mismatch", "not_newer", "rejected_before", "not_latest_stable", "request_cooldown", "rc_superseded", "version_unpublished", "release_check_failed", "runs_still_active", "host_busy", "schema_change_blocked", "insufficient_disk"]);
 const knownCodes = new Set([...NOTHING_CHANGED, "update_rejected", "rollback_failed", "update_failed"]);
 
 /** Step text, a progress bar while it runs, the reload button when it is over, the code and the rollback when it failed. */

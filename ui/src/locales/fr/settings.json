@@ -781,6 +781,8 @@
       "not_newer": "Le serveur exécute déjà cette version ou une plus récente.",
       "rejected_before": "Cette version a déjà échoué sur ce serveur. Mettez à jour en ligne de commande le moment venu.",
       "not_latest_stable": "Une version plus récente est sortie. Rechargez cette page et réessayez.",
+      "request_cooldown": "Les demandes de mise à jour sont limitées à une toutes les 10 minutes. Réessayez dans un instant.",
+      "rc_superseded": "Une version stable égale ou plus récente que cette préversion existe. Mettez plutôt à jour vers la version stable.",
       "version_unpublished": "Cette version n'est pas publiée, ou GitHub est injoignable.",
       "release_check_failed": "Impossible de joindre GitHub pour vérifier la version.",
       "runs_still_active": "Des Bots tournaient encore au bout d'une heure. Réessayez plus tard.",

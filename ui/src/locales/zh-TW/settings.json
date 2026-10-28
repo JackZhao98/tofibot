@@ -763,6 +763,8 @@
       "not_newer": "伺服器已在執行該版本或更新的版本。",
       "rejected_before": "該版本先前在這台伺服器上失敗過。準備好後請透過命令列更新。",
       "not_latest_stable": "已有更新的版本發布。請重新整理本頁面後重試。",
+      "request_cooldown": "更新請求每 10 分鐘只能提交一次，請稍後重試。",
+      "rc_superseded": "正式版已不低於這個候選版本，請改為更新到正式版。",
       "version_unpublished": "該版本尚未發布，或無法連線 GitHub。",
       "release_check_failed": "無法連線 GitHub 檢查版本。",
       "runs_still_active": "一小時後仍有 Bot 在執行，請稍後重試。",

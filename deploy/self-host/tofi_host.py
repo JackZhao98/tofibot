@@ -158,6 +158,9 @@ UPDATE_REQUEST_MAX_BYTES = 4096
 UPDATE_REQUEST_MAX_AGE = 3600
 UPDATE_REQUEST_WAIT_MINUTES = 60
 UPDATE_NONCES_KEEP = 50
+UPDATE_REQUEST_COOLDOWN = 600  # seconds between web attempts, whatever the last one's outcome
+UPDATE_REJECTED_KEEP = 20
+UPDATE_HISTORY_KEEP = 500
 UPDATE_CHANNELS = ('stable', 'rc')
 # Pre-update backups kept on disk; older ones are pruned after a good update.
 BACKUP_KEEP = 3
@@ -230,6 +233,7 @@ class Paths:
         self.update_request_dir = self.var / 'update-request'
         self.update_status_dir = self.var / 'update-status'
         self.update_nonces = self.var / 'update-nonces.json'
+        self.update_last_attempt = self.var / 'update-last-attempt.json'
         self.opt = root / 'opt/tofi'
         self.releases = self.opt / 'releases'
         self.current = self.opt / 'current'
@@ -389,6 +393,20 @@ def save_state(state):
     write_json(P.state_file, state)
 
 
+def rejected_versions(state):
+    """Versions that were rolled back on this host: the kept list plus the older single field."""
+    found = [v for v in (state.get('rejected_versions') or []) if isinstance(v, str)]
+    old = (state.get('last_update_failure') or {}).get('version')
+    if isinstance(old, str) and old not in found:
+        found.append(old)
+    return found
+
+
+def remember_rejected(state, version):
+    found = [v for v in rejected_versions(state) if v != version] + [version]
+    state['rejected_versions'] = found[-UPDATE_REJECTED_KEEP:]
+
+
 def new_state(version):
     return {'schema': 1, 'phase': 'prepared', 'version': version,
             'transaction': {'kind': 'install', 'step': 'prepared'}, 'last_error': None}
@@ -467,7 +485,7 @@ def write_env(values):
 # Release manifest
 
 SHA_RE = re.compile(r'^[0-9a-f]{64}$')
-VERSION_RE = re.compile(r'^v\d+\.\d+\.\d+(-rc\.\d+)?$')
+VERSION_RE = re.compile(r'^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$')
 DOMAIN_RE = re.compile(r'^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$')
 EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
 
@@ -2549,12 +2567,15 @@ def record_update_history(entry):
         descriptor = os.open(str(P.update_history), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
         with os.fdopen(descriptor, 'a') as stream:
             stream.write(json.dumps(entry, sort_keys=True) + '\n')
+        lines = P.update_history.read_text().splitlines()
+        if len(lines) > UPDATE_HISTORY_KEEP:
+            write_file(P.update_history, '\n'.join(lines[-UPDATE_HISTORY_KEEP:]) + '\n', 0o600)
     except OSError as error:
         warn('Could not append to %s (%s).' % (P.update_history, error))
 
 
 def version_parts(version):
-    match = re.match(r'^v(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$', str(version or ''))
+    match = re.match(r'^v([0-9]+)\.([0-9]+)\.([0-9]+)(?:-rc\.([0-9]+))?$', str(version or ''))
     if not match:
         return None
     major, minor, patch, rc = match.groups()
@@ -2750,8 +2771,7 @@ def auto_update():
     if not auto_update_allowed(installed, candidate):
         return done('not-eligible', '%s is available but is not a fix release for %s; update by hand with '
                     '`sudo tofi update` when ready.' % (candidate, installed), to=candidate)
-    rejected = (state.get('last_update_failure') or {}).get('version')
-    if rejected == candidate:
+    if candidate in rejected_versions(state):
         return done('skipped', '%s was rejected earlier on this host; not retrying.' % candidate,
                     to=candidate, reason='rejected-before')
     try:
@@ -2781,7 +2801,8 @@ def auto_update():
 
 UPDATE_REQUEST_KEYS = {'version', 'channel', 'requested_at', 'nonce'}
 NONCE_RE = re.compile(r'[0-9a-f]{32}')
-REQUEST_TIME_RE = re.compile(r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ')
+# [0-9], not \d: str patterns match Arabic-Indic and other Unicode digits, which int() then accepts.
+REQUEST_TIME_RE = re.compile(r'[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z')
 # Progress shown for each state; only the download/verify/switch steps are steps we can observe.
 UPDATE_PROGRESS = {'queued': 5, 'waiting_for_runs': 10, 'downloading': 30, 'verifying': 60, 'switching': 80,
                    'done': 100, 'failed': None, 'rolled_back': None}
@@ -2791,6 +2812,11 @@ Description=TOFI update requested from the web page
 After=network-online.target docker.service tofi.service
 Wants=network-online.target
 ConditionPathExists=/etc/tofi/install-state.json
+# Deliberate: at most 3 runs a minute. A request file the App keeps recreating must not
+# make systemd loop the update service; past the limit the path unit fails and stays
+# failed until `tofi start`/`update`/`config` runs ensure_update_request_channel (reset-failed).
+StartLimitIntervalSec=60
+StartLimitBurst=3
 
 [Service]
 Type=oneshot
@@ -2878,6 +2904,8 @@ def ensure_update_request_channel():
     changed = write_update_units()
     if changed:
         run(['systemctl', 'daemon-reload'], check=False)
+    # A path unit that hit the start limit stays failed; clear it so re-running this repairs it.
+    run(['systemctl', 'reset-failed', UPDATE_REQUEST_PATH, UPDATE_REQUEST_SERVICE], check=False)
     run(['systemctl', 'enable', '--now', UPDATE_REQUEST_PATH], check=False)
     write_json(P.update_status_dir / 'host.json', {'schema': 1, 'update_request': 1,
                                                     'path_unit': UPDATE_REQUEST_PATH}, 0o644)
@@ -2886,7 +2914,9 @@ def ensure_update_request_channel():
 def ensure_update_request_channel_quietly():
     """Called by commands that must not fail because of this convenience."""
     try:
-        if load_state() is not None:
+        state = load_state()
+        # Only a finished install: mid-install/upgrade/restore the units and directories are not ours to touch.
+        if state is not None and state.get('phase') == 'installed':
             ensure_update_request_channel()
     except (HostError, OSError, subprocess.SubprocessError) as error:
         warn('Could not set up web updates (%s).' % error)
@@ -2897,6 +2927,7 @@ def remove_update_request_units():
     for path in (P.update_request_path, P.update_request_service):
         if path.is_symlink() or path.exists():
             path.unlink()
+    run(['systemctl', 'daemon-reload'], check=False)
     (P.update_status_dir / 'host.json').unlink(missing_ok=True)
 
 
@@ -2944,6 +2975,8 @@ def discard_update_request(directory):
         return
     except (IsADirectoryError, PermissionError):
         pass
+    # The renamed-aside entries (.rejected-*) stay in the App-owned request directory:
+    # root never recurses into or deletes them (D69), however many pile up.
     aside = '.rejected-%d-%s' % (int(time.time()), secrets.token_hex(4))
     try:
         os.rename('request.json', aside, src_dir_fd=directory, dst_dir_fd=directory)
@@ -2994,6 +3027,18 @@ def seen_update_nonce(nonce):
     return False
 
 
+def web_request_cooldown_left():
+    """Seconds until a web update request may be tried again; 0 when it may."""
+    try:
+        last = float(json.loads(P.update_last_attempt.read_text()).get('at'))
+    except (OSError, ValueError, TypeError, AttributeError):
+        return 0
+    elapsed = time.time() - last
+    if elapsed < 0:  # clock moved back: do not lock the page out for longer than the cooldown
+        return 0
+    return max(0, UPDATE_REQUEST_COOLDOWN - elapsed)
+
+
 def update_failure_code(error):
     text = str(error)
     if text.startswith('update rejected'):
@@ -3034,6 +3079,14 @@ def update_from_request():
     if seen_update_nonce(nonce):
         say('tofi update --from-request: duplicate request ignored.')
         return {'result': 'duplicate'}
+    cooldown_left = web_request_cooldown_left()
+    if cooldown_left <= 0:
+        # Recorded before anything can refuse or fail, so every outcome counts; a request
+        # refused for the cooldown does not move it (a flood cannot extend it).
+        try:
+            write_json(P.update_last_attempt, {'at': time.time()})
+        except OSError as error:
+            warn('Could not record the web update attempt (%s).' % error)
     state = load_state()
     installed = read_env().get('TOFI_VERSION') if state is not None else None
     _update_status.update({'version': version, 'from': installed, 'channel': channel, 'nonce': nonce,
@@ -3046,11 +3099,14 @@ def update_from_request():
         record_update_history({'trigger': 'web', 'result': 'refused', 'from': installed, 'to': version, 'reason': code})
         return {'result': 'refused', 'code': code}
 
+    if cooldown_left > 0:
+        return refuse('request_cooldown', 'the last web update attempt was less than %d minutes ago'
+                      % (UPDATE_REQUEST_COOLDOWN // 60))
     if state is None or state['phase'] != 'installed':
         return refuse('host_busy', 'TOFI is not in phase installed')
     if not is_newer(version, installed):
         return refuse('not_newer', '%s is not newer than %s' % (version, installed))
-    if (state.get('last_update_failure') or {}).get('version') == version:
+    if version in rejected_versions(state):
         return refuse('rejected_before', '%s was rejected earlier on this host' % version)
     write_update_status('queued')
     try:
@@ -3068,6 +3124,15 @@ def update_from_request():
                 return refuse('version_unpublished', str(error))
             if manifest['version'] != version:
                 return refuse('version_unpublished', 'the release manifest names %s' % manifest['version'])
+            # An rc is only offered ahead of the stable line: once a stable release at or past it
+            # exists, installing the rc would be a step back from where `stable` already is.
+            try:
+                latest_stable = fetch_manifest()
+            except HostError as error:
+                return refuse('release_check_failed', str(error))
+            if not is_newer(version, latest_stable['version']):
+                return refuse('rc_superseded', '%s is not newer than the latest stable release %s'
+                              % (version, latest_stable['version']))
     except BaseException as error:  # never leave the page showing "queued"
         write_update_status('failed', code='update_failed', detail=str(error)[:300])
         raise
@@ -3476,6 +3541,7 @@ def reject_candidate(state, error, version, guest_version, previous, message):
     # and drop the rejected candidate's bundle and Guest release.
     state['last_update_failure'] = {'version': version, 'message': str(error)[:500],
                                     'at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
+    remember_rejected(state, version)
     save_state(state)
     discard_candidate(version, guest_version, previous)
     raise HostError('%s (%s)' % (message, error)) from error
@@ -4110,7 +4176,7 @@ def iso_now():
 
 def version_key(version):
     """Sort key for vMAJOR.MINOR.PATCH[-rc.N]; a final release sorts after its rcs."""
-    match = re.match(r'^v(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$', str(version or ''))
+    match = re.match(r'^v([0-9]+)\.([0-9]+)\.([0-9]+)(?:-rc\.([0-9]+))?$', str(version or ''))
     if not match:
         return None
     major, minor, patch, rc = match.groups()
