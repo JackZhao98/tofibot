@@ -458,7 +458,10 @@ func start(startCtx, life context.Context, spec Spec) (*mcp.ClientSession, conte
 	}
 	procCtx, stop := context.WithCancel(life)
 	spec.Args = gogMCPArgs(spec) // the personal Google plugin offers the tools of the services the account authorised
-	processCmd := exec.CommandContext(procCtx, spec.Command, spec.Args...)
+	// The child starts inside its own directory and is named relative to it, so
+	// /proc/<pid>/cmdline (readable by every uid in the container) does not carry
+	// the account's id.
+	processCmd := exec.CommandContext(procCtx, launchCommand(spec), spec.Args...)
 	processCmd.Dir = spec.WorkDir
 	processCmd.Env = []string{"PATH=/usr/local/bin:/usr/bin:/bin", "LANG=C.UTF-8", "TMPDIR=" + spec.tmpDir()}
 	for key, value := range spec.Env {
@@ -537,6 +540,17 @@ func start(startCtx, life context.Context, spec Spec) (*mcp.ClientSession, conte
 		pid = processCmd.Process.Pid
 	}
 	return cli, stop, pid, tools, nil
+}
+
+// launchCommand is the command as given to exec: relative to the work directory
+// when the executable lives below it, absolute (a bundled binary) otherwise.
+func launchCommand(spec Spec) string {
+	if spec.Command != spec.WorkDir && within(spec.WorkDir, spec.Command) {
+		if rel, err := filepath.Rel(filepath.Clean(spec.WorkDir), filepath.Clean(spec.Command)); err == nil {
+			return "." + string(filepath.Separator) + rel
+		}
+	}
+	return spec.Command
 }
 
 func shutdown(cli *mcp.ClientSession, stop context.CancelFunc, processGroup int) {
