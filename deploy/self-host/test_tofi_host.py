@@ -2682,5 +2682,197 @@ class TuiTests(unittest.TestCase):
         self.assertTrue(header[4].endswith('installer'))
 
 
+class FakeIptables:
+    """Just enough of iptables to prove the Runner rules are idempotent and removable."""
+
+    def __init__(self):
+        self.chains = {'INPUT': [], 'DOCKER-USER': ['-j RETURN']}
+        self.calls = []
+
+    def __call__(self, args):
+        args = list(args[3:])  # drop: iptables -w 5
+        self.calls.append(args)
+        op, chain, rest = args[0], args[1], args[2:]
+        done = lambda code=0, out='': subprocess.CompletedProcess(args, code, out, '')
+        if op == '-N':
+            if chain in self.chains:
+                return done(1)
+            self.chains[chain] = []
+            return done()
+        if chain not in self.chains:
+            return done(1)
+        rules = self.chains[chain]
+        if op == '-S':
+            return done(0, '-N %s\n' % chain + ''.join('-A %s %s\n' % (chain, rule) for rule in rules))
+        if op == '-F':
+            rules.clear()
+            return done()
+        if op == '-X':
+            del self.chains[chain]
+            return done()
+        if op == '-A':
+            rules.append(' '.join(rest))
+            return done()
+        if op == '-I':
+            rules.insert(int(rest[0]) - 1, ' '.join(rest[1:]))
+            return done()
+        if op == '-C':
+            return done(0 if ' '.join(rest) in rules else 1)
+        if op == '-D':
+            if ' '.join(rest) in rules:
+                rules.remove(' '.join(rest))
+                return done()
+            return done(1)
+        raise AssertionError('unexpected iptables call %r' % args)
+
+
+class RunnerEgressFilterTests(HostCase):
+    NETWORKS = [{'IPAM': {'Config': [{'Subnet': '172.18.0.0/16'}]}},
+                {'IPAM': {'Config': [{'Subnet': '172.19.0.0/16'}]}},
+                {'IPAM': {'Config': [{'Subnet': tofi_host.RUNNER_EGRESS_SUBNET}]}}]
+
+    def setUp(self):
+        super().setUp()
+        self.iptables = FakeIptables()
+        which = mock.patch.object(tofi_host.shutil, 'which', side_effect=lambda name: '/sbin/' + name)
+        which.start()
+        self.addCleanup(which.stop)
+        self.warnings = []
+        warn = mock.patch.object(tofi_host, 'warn', side_effect=self.warnings.append)
+        warn.start()
+        self.addCleanup(warn.stop)
+
+    def fake_run(self, args, check=True, timeout=300, **kwargs):
+        self.commands.append(list(args))
+        if args[0] == 'iptables':
+            return self.iptables(args)
+        if args[:3] == ['docker', 'network', 'ls']:
+            return completed('net1\nnet2\nnet3\n')
+        if args[:3] == ['docker', 'network', 'inspect']:
+            return completed(json.dumps(self.NETWORKS))
+        return completed()
+
+    def test_blocks_host_private_ranges_and_compose_subnets_then_returns_for_the_internet(self):
+        self.assertTrue(tofi_host.ensure_runner_egress_filter())
+        rules = self.iptables.chains[tofi_host.RUNNER_EGRESS_CHAIN]
+        for destination in ('10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '169.254.0.0/16', '172.18.0.0/16', '172.19.0.0/16'):
+            self.assertIn('-d %s -j DROP' % destination, rules)
+        self.assertNotIn('-d %s -j DROP' % tofi_host.RUNNER_EGRESS_SUBNET, rules)  # not its own network
+        self.assertEqual(rules[-1], '-j RETURN')
+        # forwarded traffic goes through the chain, traffic to the host itself is dropped
+        self.assertEqual(self.iptables.chains['DOCKER-USER'][0], '-s %s -j %s' % (tofi_host.RUNNER_EGRESS_SUBNET, tofi_host.RUNNER_EGRESS_CHAIN))
+        self.assertEqual(self.iptables.chains['INPUT'][0], '-s %s -j DROP' % tofi_host.RUNNER_EGRESS_SUBNET)
+        self.assertEqual(self.warnings, [])
+
+    def test_applying_twice_changes_nothing(self):
+        tofi_host.ensure_runner_egress_filter()
+        snapshot = {k: list(v) for k, v in self.iptables.chains.items()}
+        self.iptables.calls.clear()
+        self.assertTrue(tofi_host.ensure_runner_egress_filter())
+        self.assertEqual(self.iptables.chains, snapshot)
+        self.assertFalse([c for c in self.iptables.calls if c[0] in ('-F', '-A', '-I', '-N')], self.iptables.calls)
+
+    def test_a_changed_chain_is_repaired(self):
+        tofi_host.ensure_runner_egress_filter()
+        self.iptables.chains[tofi_host.RUNNER_EGRESS_CHAIN].insert(0, '-d 8.8.8.8 -j ACCEPT')
+        self.iptables.chains['DOCKER-USER'].remove('-s %s -j %s' % (tofi_host.RUNNER_EGRESS_SUBNET, tofi_host.RUNNER_EGRESS_CHAIN))
+        self.assertTrue(tofi_host.ensure_runner_egress_filter())
+        self.assertNotIn('-d 8.8.8.8 -j ACCEPT', self.iptables.chains[tofi_host.RUNNER_EGRESS_CHAIN])
+        self.assertEqual(self.iptables.chains['DOCKER-USER'][0], '-s %s -j %s' % (tofi_host.RUNNER_EGRESS_SUBNET, tofi_host.RUNNER_EGRESS_CHAIN))
+
+    def test_uninstall_removes_every_rule_and_is_repeatable(self):
+        tofi_host.ensure_runner_egress_filter()
+        tofi_host.remove_runner_egress_filter()
+        self.assertEqual(self.iptables.chains, {'INPUT': [], 'DOCKER-USER': ['-j RETURN']})
+        tofi_host.remove_runner_egress_filter()
+        self.assertEqual(self.iptables.chains, {'INPUT': [], 'DOCKER-USER': ['-j RETURN']})
+
+    def test_a_host_without_iptables_gets_a_warning_and_nothing_breaks(self):
+        with mock.patch.object(tofi_host.shutil, 'which', return_value=None):
+            self.assertFalse(tofi_host.ensure_runner_egress_filter())
+            tofi_host.remove_runner_egress_filter()
+        self.assertEqual(len(self.warnings), 1)
+        self.assertIn('neither iptables nor nft', self.warnings[0])
+        self.assertFalse([c for c in self.commands if c[0] == 'iptables'])
+        self.warnings.clear()
+        with mock.patch.object(tofi_host.shutil, 'which', side_effect=lambda name: '/sbin/nft' if name == 'nft' else None):
+            self.assertFalse(tofi_host.ensure_runner_egress_filter())
+        self.assertIn('nft is present but iptables is not', self.warnings[0])
+
+    def test_docker_without_a_user_chain_gets_a_warning(self):
+        del self.iptables.chains['DOCKER-USER']
+        self.assertFalse(tofi_host.ensure_runner_egress_filter())
+        self.assertIn('DOCKER-USER', self.warnings[0])
+        self.assertNotIn(tofi_host.RUNNER_EGRESS_CHAIN, self.iptables.chains)
+
+    def test_start_services_fences_the_runner_before_it_can_run_and_only_when_there_is_one(self):
+        env = {'TOFI_COMPUTER_BACKEND': 'none', 'TOFI_RUNNER_IMAGE': 'ghcr.io/jackzhao98/tofi-mcp-runner@sha256:' + '4' * 64}
+        with mock.patch.object(tofi_host, 'health'), mock.patch.object(tofi_host, 'read_env', return_value=env):
+            REAL_START_SERVICES(env)
+        first_firewall = next(i for i, c in enumerate(self.commands) if c[0] == 'iptables')
+        first_up = next(i for i, c in enumerate(self.commands) if 'up' in c)
+        self.assertLess(first_firewall, first_up)
+        self.commands.clear()
+        env.pop('TOFI_RUNNER_IMAGE')
+        with mock.patch.object(tofi_host, 'health'), mock.patch.object(tofi_host, 'read_env', return_value=env):
+            REAL_START_SERVICES(env)
+        self.assertFalse([c for c in self.commands if c[0] == 'iptables'])
+
+
+class RunnerDowngradeGuardTests(LifecycleBase):
+    def mark_container_runner(self, name='11111111-1111-4111-8111-111111111111', state='container'):
+        path = self.P.data / 'accounts' / name / 'local-runner.json'
+        self.write(path, json.dumps({'state': state, 'at': 1}))
+
+    def test_an_older_release_is_refused_when_an_account_uses_the_runner_container(self):
+        self.installed()
+        self.mark_container_runner()
+        with self.assertRaises(tofi_host.HostError) as caught:
+            tofi_host.upgrade(manifest_path=str(self.write_manifest(manifest())))
+        message = str(caught.exception)
+        self.assertIn('--allow-runner-downgrade', message)
+        self.assertIn('Runner container', message)
+        self.assertIn('diverging', message)
+        self.assertEqual(tofi_host.read_env()['TOFI_VERSION'], OLD)
+        self.stopped.assert_not_called()
+        self.pull.assert_not_called()
+
+    def test_the_unattended_paths_cannot_accept_it(self):
+        self.installed()
+        self.mark_container_runner()
+        with self.assertRaises(tofi_host.HostError):
+            tofi_host.upgrade(manifest=manifest(), trigger='auto')
+        self.assertNotIn('allow_runner_downgrade', tofi_host.auto_update.__code__.co_varnames)
+        self.assertEqual(tofi_host.read_env()['TOFI_VERSION'], OLD)
+
+    def test_the_command_line_flag_accepts_it(self):
+        self.installed()
+        self.mark_container_runner()
+        args = tofi_host.parse_args(['update', '--allow-runner-downgrade', '--yes'])
+        self.assertTrue(args.allow_runner_downgrade)
+        result = tofi_host.upgrade(manifest_path=str(self.write_manifest(manifest())), allow_runner_downgrade=True)
+        self.assertTrue(result['upgraded'])
+        self.assertEqual(tofi_host.read_env()['TOFI_VERSION'], NEW)
+        self.assertNotIn('TOFI_RUNNER_IMAGE', tofi_host.read_env())
+
+    def test_nothing_changes_for_installs_that_never_used_the_container(self):
+        self.installed()
+        self.mark_container_runner(state='')
+        self.assertTrue(tofi_host.upgrade(manifest_path=str(self.write_manifest(manifest())))['upgraded'])
+
+    def test_a_release_that_carries_the_runner_is_never_refused(self):
+        self.installed()
+        self.mark_container_runner()
+        carrying = manifest()
+        carrying['images']['runner'] = tofi_host.OPTIONAL_IMAGE_REPOS['runner'] + '@sha256:' + '4' * 64
+        self.assertTrue(tofi_host.upgrade(manifest_path=str(self.write_manifest(carrying)))['upgraded'])
+        self.assertEqual(tofi_host.read_env()['TOFI_RUNNER_IMAGE'], carrying['images']['runner'])
+
+    def test_the_owner_workspace_record_counts_too(self):
+        self.installed()
+        self.write(self.P.data / 'local-runner.json', json.dumps({'state': 'container'}))
+        self.assertEqual(tofi_host.container_runner_accounts(), ['owner'])
+
+
 if __name__ == '__main__':
     unittest.main()

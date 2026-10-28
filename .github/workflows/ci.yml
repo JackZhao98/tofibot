@@ -149,5 +149,18 @@ jobs:
           docker compose -f deploy/self-host/compose.yaml \
             --env-file deploy/self-host/testdata/tofi-none.env config --services | sort | tr '\n' ' ' \
             | grep -qx 'app '
+      - name: Runner profile renders with its fenced networks
+        run: |
+          export TOFI_RUNNER_IMAGE=ghcr.io/jackzhao98/tofi-mcp-runner@sha256:4444444444444444444444444444444444444444444444444444444444444444
+          for env in tofi tofi-direct tofi-none; do
+            docker compose -f deploy/self-host/compose.yaml \
+              --env-file deploy/self-host/testdata/$env.env --profile runner config --quiet
+          done
+          # The App-to-Runner link is internal, the Runner has its own egress bridge, and no shared IPC.
+          docker compose -f deploy/self-host/compose.yaml --env-file deploy/self-host/testdata/tofi-none.env \
+            --profile runner config > /tmp/runner-compose.yaml
+          grep -q 'internal: true' /tmp/runner-compose.yaml
+          grep -q 'subnet: 172.30.77.0/24' /tmp/runner-compose.yaml
+          grep -q 'ipc: none' /tmp/runner-compose.yaml
       - name: Dev compose renders
         run: docker compose -f compose.yaml config --quiet
