@@ -70,12 +70,15 @@ if (!process.env.PLAYWRIGHT_MODULE) { fail("PLAYWRIGHT_MODULE is not set: the br
 const { chromium } = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href);
 const { createServer } = await import("vite");
 const { default: react } = await import("@vitejs/plugin-react");
-const server = await createServer({ configFile: false, mode: "development", root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0 }, logLevel: "error" });
+const server = await createServer({ configFile: false, mode: "development", root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0 }, logLevel: process.env.CATALOG_VITE_LOG ?? "error" });
 await server.listen();
 const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
 const browser = await chromium.launch({ headless: true, ...(process.env.CHROME_EXECUTABLE ? { executablePath: process.env.CHROME_EXECUTABLE } : {}) });
 const shots = process.env.CATALOG_SHOTS;
 if (shots) mkdirSync(shots, { recursive: true });
+// Deadlines for conditions that become true by themselves (a frame is ready, an overlay is closed): they only bound a hang, so
+// they are far above any plausible machine. A check passes the moment its condition holds; a slow runner never fails one.
+const LOAD_MS = 120_000, WAIT_MS = 15_000;
 const WIDTHS = { desktop: { width: 1280, height: 800 }, phone: { width: 390, height: 760 } };
 const networkApi = [];
 
@@ -90,9 +93,9 @@ try {
   const shellErrors = [];
   shell.on("pageerror", error => shellErrors.push(error.message));
   await shell.goto(`${origin}/catalog.html`);
-  await shell.waitForFunction(() => Array.isArray(window.__catalog), null, { timeout: 30000 });
+  await shell.waitForFunction(() => Array.isArray(window.__catalog), null, { timeout: LOAD_MS });
   const index = await shell.evaluate(() => window.__catalog);
-  await shell.locator("iframe[data-catalog-frame]").first().waitFor({ timeout: 30000 });
+  await shell.locator("iframe[data-catalog-frame]").first().waitFor({ timeout: LOAD_MS });
   if (shellErrors.length) fail(`shell: ${shellErrors.join("; ")}`); else pass(`shell lists ${index.length} sections and renders frames`);
   await shell.close();
 
@@ -136,7 +139,7 @@ try {
     if (state) query.set("state", state.id);
     try {
       await page.goto(`${origin}/catalog.html?${query}`);
-      await page.waitForFunction(() => document.documentElement.dataset.catalogReady === "1", null, { timeout: 30000 });
+      await page.waitForFunction(() => document.documentElement.dataset.catalogReady === "1", null, { timeout: LOAD_MS });
       const error = await page.evaluate(() => document.documentElement.dataset.catalogError ?? "");
       if (error) fail(`${name}: ${error}`);
       const screenshot = () => page.screenshot({ path: join(shots, `${section.number.padStart(2, "0")}-${section.id}-${state?.id ?? "inline"}-${theme}-${WIDTHS[width].width}.png`), fullPage: !state });
@@ -145,7 +148,7 @@ try {
         // Let entrance animations settle before asking what is on top.
         await page.waitForTimeout(450);
         // Late chunk: judge the window only once the chunk's content has replaced the skeleton, i.e. its stylesheet has landed.
-        if (lateChunk) await page.waitForFunction(() => document.querySelector(".desktop-floating-shell .computer-detail"), null, { timeout: 15000 });
+        if (lateChunk) await page.waitForFunction(() => document.querySelector(".desktop-floating-shell .computer-detail"), null, { timeout: LOAD_MS });
         // Hit testing follows paint order only for elements that take the pointer. Hints, drop overlays and the like are
         // pointer-events:none by design, so for the check every element takes it: the hit is then whatever paints on top.
         const probe = () => page.evaluate(selector => {
@@ -163,7 +166,7 @@ try {
           } finally { style.remove(); }
         }, state.probe);
         let top = await probe();
-        for (let attempt = 0; attempt < 8 && !(top.found && top.inside); attempt += 1) { await page.waitForTimeout(250); top = await probe(); }
+        for (let attempt = 0; attempt < 60 && !(top.found && top.inside); attempt += 1) { await page.waitForTimeout(250); top = await probe(); }
         if (!top.found) fail(`${name}: no visible ${state.probe}`);
         else if (!top.inside) fail(`${name}: ${top.target} is covered at its centre by ${top.hit}`);
         else checkedProbes += 1;
@@ -173,14 +176,14 @@ try {
           // Keys go where the product put focus; only when nothing has it does the check focus into the overlay.
           await page.evaluate(selector => { const target = document.querySelector(selector); if (target && (!document.activeElement || document.activeElement === document.body)) (target.querySelector("button, [href], input, select, textarea, [tabindex]") ?? target).focus?.(); }, state.probe);
           await page.keyboard.press(state.keyboard.close);
-          const closed = await page.waitForFunction(selector => ![...document.querySelectorAll(selector)].some(element => element.getClientRects().length && getComputedStyle(element).visibility !== "hidden"), state.probe, { timeout: 2000 }).then(() => true, () => false);
+          const closed = await page.waitForFunction(selector => ![...document.querySelectorAll(selector)].some(element => element.getClientRects().length && getComputedStyle(element).visibility !== "hidden"), state.probe, { timeout: WAIT_MS }).then(() => true, () => false);
           if (!closed) fail(`${name}: ${state.keyboard.close} did not close ${state.probe} (focus: ${await page.evaluate(() => { const element = document.activeElement; return element ? `${element.tagName.toLowerCase()}.${String(element.className).split(" ").join(".")}` : "none"; })}; open dialogs: ${await page.evaluate(() => [...document.querySelectorAll("dialog[open], [aria-modal=true]")].map(element => element.className).join(", ") || "none")})`);
           else if (state.keyboard.reopen) {
             const { focus, key, shift } = state.keyboard.reopen;
             await page.waitForTimeout(250);
             await page.locator(focus).first().focus();
             await page.keyboard.press(shift ? `Shift+${key}` : key);
-            const reopened = await page.waitForFunction(selector => [...document.querySelectorAll(selector)].some(element => element.getClientRects().length), state.probe, { timeout: 3000 }).then(() => true, () => false);
+            const reopened = await page.waitForFunction(selector => [...document.querySelectorAll(selector)].some(element => element.getClientRects().length), state.probe, { timeout: WAIT_MS }).then(() => true, () => false);
             if (!reopened) fail(`${name}: ${shift ? "Shift+" : ""}${key} on ${focus} did not reopen ${state.probe}`); else checkedKeys += 1;
           } else checkedKeys += 1;
         }
@@ -197,7 +200,7 @@ try {
   // A frame in another language: the catalog shows the product's own catalogs.
   const zh = await context.newPage();
   await zh.goto(`${origin}/catalog.html?frame=settings&theme=light&lng=zh-CN`);
-  await zh.waitForFunction(() => document.documentElement.dataset.catalogReady === "1", null, { timeout: 30000 });
+  await zh.waitForFunction(() => document.documentElement.dataset.catalogReady === "1", null, { timeout: LOAD_MS });
   if (await zh.evaluate(() => document.documentElement.lang) !== "zh-CN") fail("a frame with lng=zh-CN did not switch the product language"); else pass("frames render in the chosen language");
   await zh.close();
 
@@ -206,7 +209,7 @@ try {
     const waiting = await context.newPage();
     await waiting.emulateMedia({ reducedMotion: reduced ? "reduce" : "no-preference" });
     await waiting.goto(`${origin}/catalog.html?frame=settings&theme=light&lng=en&state=connection-waiting-loopback`);
-    await waiting.waitForFunction(() => document.documentElement.dataset.catalogReady === "1", null, { timeout: 30000 });
+    await waiting.waitForFunction(() => document.documentElement.dataset.catalogReady === "1", null, { timeout: LOAD_MS });
     const cue = await waiting.evaluate(() => {
       const button = document.querySelector('.mcp-service[data-kind="waiting"] [data-pending]');
       const after = button ? getComputedStyle(button, "::after") : null;

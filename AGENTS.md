@@ -12,6 +12,10 @@ TOFI 是自托管的 AI Bot 工作台（Go 后端 `internal/`，React 19 网页�
 规则：**每次合并、发版或 owner 拍板，都在同一个提交里更新对应文档**（决定 D27；哪种事件改哪份文件见 `docs/process.md`
 第 10 节）。Every merge, release or owner decision updates the matching docs in the same commit. 本文件仍是总入口，下面各节是代码约定。
 
+**Before pushing to main, merging a branch or tagging, run `scripts/ci-local.sh` (or `make ci-local`; `--all` runs every `ci.yml` job) and push only on exit code 0.**
+Every failed workflow run emails the owner. The script runs what `ci.yml` runs, with the same environment (`TOFI_SKIP_TIMING=1`, `SHELL_BUDGET_ONLY=struct`;
+`PLAYWRIGHT_MODULE` defaults to tofibot-web's Playwright). Rules and how to write tests that do not flake: `docs/process.md` 3.6.
+
 # Core source boundaries
 
 This repository owns Server, Web UI, contracts and Docker/Worker source. Keep the

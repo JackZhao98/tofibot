@@ -1,11 +1,15 @@
 // Real DOM events for reaching a state inside a catalog frame: the product's own handlers do the work.
 export type Drive = ReturnType<typeof driver>;
 
+/** How long a step waits for something that appears by itself (a lazy chunk the dev server has to transform first). The step goes on
+ * the moment it is there, so this only bounds a hang; a slow or busy machine must never be what fails it. */
+const PATIENCE_MS = 60_000;
+
 export function driver(root: HTMLElement) {
   const wait = (ms: number) => new Promise<void>(resolve => window.setTimeout(resolve, ms));
   const frames = (count = 2) => new Promise<void>(resolve => { const step = (left: number) => left ? requestAnimationFrame(() => step(left - 1)) : resolve(); step(count); });
-  async function find(selector: string, timeout = 5000): Promise<HTMLElement> {
-    const until = performance.now() + timeout;
+  async function find(selector: string, timeout = PATIENCE_MS): Promise<HTMLElement> {
+    const until = performance.now() + Math.max(timeout, PATIENCE_MS); // a caller's smaller number is a guess about speed
     for (;;) {
       // A rendered element inside this state, or outside every state (an overlay portals out of it); never one in a
       // neighbouring inline state, and never one that is not laid out (display:none, a folded sender avatar).
@@ -17,8 +21,8 @@ export function driver(root: HTMLElement) {
     }
   }
   /** Waits until nothing matches (a loading state has finished). */
-  async function gone(selector: string, timeout = 8000) {
-    const until = performance.now() + timeout;
+  async function gone(selector: string, timeout = PATIENCE_MS) {
+    const until = performance.now() + Math.max(timeout, PATIENCE_MS); // a caller's smaller number is a guess about speed
     while (document.querySelector(selector)) {
       if (performance.now() > until) throw new Error(`catalog: ${selector} is still there`);
       await wait(50);

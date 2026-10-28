@@ -259,6 +259,9 @@ const barGeometry = (page, id) => page.evaluate(id => {
 const intersects = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0.5 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0.5;
 const heights = page => page.evaluate(() => [...document.querySelectorAll(".message-block")].map(el => el.getBoundingClientRect().height));
 const latencies = [], firstSeen = [];
+// TOFI_SKIP_TIMING=1 (CI, and any loaded machine): leave out the assertions that read a clock; the bar's animation name and
+// duration (structure) are asserted either way. Run the clock checks on a quiet machine (docs/process.md 3.3).
+const skipTiming = process.env.TOFI_SKIP_TIMING === "1";
 
 for (const [layout, inGroup, ids] of [["DM", false, ["m1", "m2", "m3", "m4", "m5"]], ["group", true, ["g1", "g2", "g3", "g4", "g5", "g6", "g7"]]]) {
   await check(`${layout}: the bar sits below its own bubble, clear of every other message, with no layout shift`, async () => {
@@ -275,7 +278,9 @@ for (const [layout, inGroup, ids] of [["DM", false, ["m1", "m2", "m3", "m4", "m5
       await page.waitForFunction(() => window.__vis != null, null, { timeout: 3000 });
       const [latency, first] = await page.evaluate(() => [window.__vis, window.__first]);
       latencies.push(latency); firstSeen.push(first);
-      assert.ok(latency <= 130, `${layout} ${id}: bar took ${Math.round(latency)} ms to become fully opaque (80 ms fade, no delay)`);
+      if (!skipTiming) assert.ok(latency <= 130, `${layout} ${id}: bar took ${Math.round(latency)} ms to become fully opaque (80 ms fade, no delay)`);
+      const fade = await page.evaluate(() => { const bar = document.querySelector(".message-hover-actions"); const style = getComputedStyle(bar); return { name: style.animationName, duration: style.animationDuration, delay: style.animationDelay }; });
+      assert.deepEqual(fade, { name: "message-bar-in", duration: "0.08s", delay: "0s" }, `${layout} ${id}: the bar fades in over --m-instant (80 ms) with no delay`);
       const after = await heights(page);
       assert.deepEqual(after, before, `${layout} ${id}: hovering changed a message height`);
       const g = await barGeometry(page, id);
@@ -357,6 +362,7 @@ await check("hover-to-visible latency is reported", async () => {
   const first = [...firstSeen].sort((x, y) => x - y);
   const p95 = first[Math.min(first.length - 1, Math.floor(first.length * 0.95))];
   console.log(`  bar first paint: median ${first[Math.floor(first.length / 2)].toFixed(1)} ms, p95 ${p95.toFixed(1)} ms; fully opaque p95 ${sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))].toFixed(1)} ms`);
+  if (skipTiming) return console.log("  skipped (timing check, CI mode): first-paint p95 and fade-in clock bounds");
   assert.ok(p95 <= 34, `the bar took ${p95.toFixed(1)} ms (p95) to start showing`);
   assert.ok(sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))] >= 60, "the bar fades in over its 80 ms instead of popping");
 });
