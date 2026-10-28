@@ -44,7 +44,12 @@
     "viewer_back": "Back to {{name}}",
     "viewer_close": "Close preview",
     "zoom": "Enlarge {{name}}",
-    "zoom_image": "Enlarge image {{name}}"
+    "zoom_image": "Enlarge image {{name}}",
+    "problem": {
+      "file_on_detached_computer": "This file is only on the computer, and the computer is detached. Attach it again to open the file.",
+      "file_missing_on_computer": "This file is no longer on the computer and was never copied to the server, so it can't be recovered.",
+      "open_computer": "Open computer settings"
+    }
   },
   "botPanel": {
     "change_style": "Change style",

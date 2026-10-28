@@ -386,5 +386,49 @@
       "name": "E2B cloud sandbox",
       "what": "Rent a computer from E2B with your own key."
     }
+  },
+  "contents": {
+    "title": "What is on this computer",
+    "description": "These live on the computer, not on the server. If the computer is wiped or replaced, they are lost.",
+    "badge": "On the computer",
+    "browser": {
+      "name": "Browser sign-ins",
+      "what": "Websites the Bot is signed in to. A wipe signs the Bot out of every one."
+    },
+    "tools": {
+      "name": "Installed tools",
+      "what": "Programs the Bot installed here. After a wipe the Bot installs them again when it needs them."
+    },
+    "files": {
+      "name": "Work files",
+      "what": "Files the Bot made here and did not send or save to Files. Files it sent are kept on the server.",
+      "pending_one": "{{count}} file is still being copied to the server.",
+      "pending_other": "{{count}} files are still being copied to the server."
+    },
+    "config": {
+      "name": "Environment and keys",
+      "what": "Variables and SSH keys for this computer. They are deleted with it.",
+      "saved_one": "{{count}} saved",
+      "saved_other": "{{count}} saved",
+      "none": "None saved",
+      "manage": "Manage"
+    },
+    "load_failed": "Couldn't read the list. Try again.",
+    "retry": "Try again"
+  },
+  "loss": {
+    "title": "Lost with the computer's disk",
+    "browser": "Browser sign-ins: the Bot is signed out of every website.",
+    "tools": "Installed tools: the Bot installs them again when it needs them.",
+    "files": "Work files that were not sent or saved to Files.",
+    "env_one": "{{count}} environment variable: {{names}}",
+    "env_other": "{{count}} environment variables: {{names}}",
+    "keys_one": "{{count}} SSH key: {{names}}",
+    "keys_other": "{{count}} SSH keys: {{names}}",
+    "no_config": "No environment variables or SSH keys are saved in Settings.",
+    "pending_one": "{{count}} file exists only on the computer and has not been copied to the server.",
+    "pending_other": "{{count}} files exist only on the computer and have not been copied to the server.",
+    "loading": "Reading what is on the computer…",
+    "load_failed": "Couldn't read the saved variables, keys and files waiting to be copied. They are deleted too."
   }
 }

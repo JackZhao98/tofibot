@@ -51,6 +51,7 @@ __pycache__/
 # Settings redesign screenshots and test fixtures
 /artifacts/
 /ui/.settings-shell-*/
+/ui/.no-computer-*/
 /ui/.overlays-fixture-*/
 /ui/.primary-followups-*/
 /ui/.dialogs-*/

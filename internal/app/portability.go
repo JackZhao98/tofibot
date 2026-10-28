@@ -618,11 +618,7 @@ func (s *Store) previewPortable(ctx context.Context, b portableBundle) (portable
 		p.EstimatedBytes -= len(asset.Data) * 3
 	}
 	if len(b.Attachments) > 0 {
-		p.Warnings = append(p.Warnings, "Attachment bytes can contain private information. Files stay on the destination account guest disk; its quota applies.")
-		if s.portableBlobBackend() == nil {
-			p.CanApply = false
-			p.Warnings = append(p.Warnings, "Account file storage is unavailable. Deselect attachments to import the other data, or enable file storage and preview again.")
-		}
+		p.Warnings = append(p.Warnings, "Attachment bytes can contain private information. Files are stored on the server with this account's other files.")
 	}
 	if len(b.VaultEnvironment) > 0 {
 		if !s.portabilitySecrets.available() || portableRecoveryCapacity(ctx, tx, b) != nil {

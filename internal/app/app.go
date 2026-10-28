@@ -2857,10 +2857,12 @@ func NewServer(c Config) (*Server, error) {
 	if microVM != nil {
 		st.guestBlobs = microVM
 		st.cleanupDeletedAttachments()
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
-		_ = st.recoverPortableAssets(cleanupCtx) // Failed cleanup stays journaled for the next import.
-		cleanupCancel()
 	}
+	// Imported attachments are staged in the server file store, so a half-done
+	// import is cleaned with or without a computer.
+	cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	_ = st.recoverPortableAssets(cleanupCtx) // Failed cleanup stays journaled for the next import.
+	cleanupCancel()
 	if c.AccountControlPlane || c.AccountMaintenance {
 		return server, nil
 	}
@@ -3104,6 +3106,8 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSON(w, 200, s.computerCapabilities())
+	case p == "computer/contents":
+		s.handleComputerContents(w, r)
 	case p == "auth/codex" || p == "auth/codex/connect" || p == "auth/codex/verify" || strings.HasPrefix(p, "auth/codex/connect/"):
 		s.codexAuth(w, r, strings.TrimPrefix(p, "auth/codex"))
 	case strings.HasPrefix(p, "bots/") && strings.HasSuffix(p, "/debug-preview"):

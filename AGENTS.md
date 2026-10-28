@@ -41,6 +41,7 @@ must not claim a computer when there is none: use the capability-driven variants
 `scheduledFallbackGuidance`, `noComputerStatus`) and never add a computer sentence to an always-on prompt. The Web app reads `config.computer` through
 `ui/src/computerCapability.ts` (`useHasComputer`) and hides every computer surface; Settings > Computer then lists how to add one. The web app never installs on the host.
 Design and record: docs/design/computer-optional.md (P0, P1 done).
+Computer configuration (computer-decoupling S2): the Keys page, `ComputerContents` ("What is on this computer": browser sign-ins, installed tools, work files, environment and keys, in words that say they are lost with the computer) and the wipe list `ComputerLossList` (names and counts from `GET /api/computer/contents`, `internal/app/computer_contents.go`) exist only while `useHasComputer()`; with no computer the web app makes no `/api/computer/*` request (`test:no-computer` holds it). `[run context]` adds `freshComputerStatus` while nothing is saved in Settings for the computer. `tofi computer remove --purge` prints the same class C list (`computer_loss_lines` in `tofi_host.py`).
 
 # Web UI motion
 
@@ -351,7 +352,7 @@ a cache. The old guest-only form `disk_name = "vm:<uuid>"` is read-only legacy: 
 read, and `file_store_copier.go` every 10 minutes, 50 rows per pass, at most one wake of a sleeping computer per hour). Order of one copy: read the
 guest object, check its length, write a temp file and fsync, hash the file and compare, rename, then repoint the row and journal the guest object
 in one transaction. The guest object is deleted later by `cleanupDeletedAttachments`, which re-checks the server file against the row's sha256.
-A `vm:` file that cannot be reached answers HTTP 409 `file_on_detached_computer`. `tofi computer remove --purge` refuses while any `vm:` row
+A `vm:` file that cannot be reached answers HTTP 409 `file_on_detached_computer` (404 `file_missing_on_computer` when the computer answers and lacks it); the web app shows one sentence for either in the file card and the viewer (`AttachmentNotice`, `attachmentDownload.ts`). The portability import writes its attachment bytes straight to this store (`portability_staging.go`, origin `import`), so it needs no computer. `tofi computer remove --purge` refuses while any `vm:` row
 exists unless `--discard-unsaved-files`. Outbox: `/workspace/home/outbox` is copied by `outbox_sync.go` at the end of a run that used the computer
 (20 MiB per file, 200 MiB and 8 files per reply, symlinks refused by the guest, nothing deleted on the computer). Design:
 `docs/design/computer-decoupling.md`.

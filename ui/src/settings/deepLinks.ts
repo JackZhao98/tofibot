@@ -1,9 +1,13 @@
 import type {SettingsTab} from "../SettingsShell";
 
+/** Opens Settings > Computer (a file whose bytes are on a detached computer points here). */
+export const OPEN_COMPUTER_SETTINGS_EVENT = "tofi:open-computer-settings";
+
 /** Window events other surfaces dispatch to open Settings on a tab (chat cards, the model picker). */
 export const settingsDeepLinks: Record<string, SettingsTab> = {
   "tofi:open-tool-settings": "connections",
   "tofi:open-codex-settings": "models",
+  [OPEN_COMPUTER_SETTINGS_EVENT]: "computer",
 };
 
 /** Listens for every deep-link event and calls `open` with its tab. Returns the unsubscribe. */

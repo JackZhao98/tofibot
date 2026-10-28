@@ -4,6 +4,7 @@ import {AutomationSettings} from "../AutomationSettings";
 import {DebugSettings} from "../BotInspector";
 import {ComputerCredentials} from "../ComputerCredentials";
 import {ComputerPanel} from "../ComputerPanel";
+import {ComputerContents} from "../ComputerContents";
 import {ComputerOptions} from "../ComputerOptions";
 import {useHasComputer} from "../computerCapability";
 import {ComputerResources} from "../ComputerResources";
@@ -56,8 +57,8 @@ export function SettingsPages(props:SettingsPagesProps){
   case "followups": return <FollowupsSettings/>;
   case "models": return <ModelsPage {...props}/>;
   case "automation": return <AutomationSettings/>;
-  case "computer": return <ComputerPage/>;
-  case "keys": return <ComputerCredentials bots={activeBots}/>;
+  case "computer": return <ComputerPage openTab={props.openTab}/>;
+  case "keys": return <KeysPage bots={activeBots}/>;
   case "usage": return <div className="settings-stack"><RunHealthCard/><UsagePanel preferredBotId={props.usageBotId} timezone={props.timezone}/></div>;
   case "advanced": return <AdvancedPage {...props} bots={bots} activeBots={activeBots}/>;
   case "admin": return <Suspense fallback={null}><AdminAccounts/></Suspense>;
@@ -65,9 +66,20 @@ export function SettingsPages(props:SettingsPagesProps){
  }
 }
 
-/** With no computer backend the page explains the options; otherwise it is the computer's own settings. */
-function ComputerPage(){
- return useHasComputer()?<><ComputerResources/><ComputerPanel/></>:<ComputerOptions/>;
+/**
+ * Environment variables and SSH keys are the computer's configuration: without a computer the page renders nothing
+ * (the shell sends the person to Computer), so a saved link to it makes no /api/computer/credentials request.
+ */
+function KeysPage({bots}:{bots:Bot[]}){
+ return useHasComputer()?<ComputerCredentials bots={bots}/>:null;
+}
+
+/**
+ * With no computer backend the page explains the options; otherwise it is the computer's own settings, including what
+ * lives only on it. That list (and the Keys page it links to) is the computer's configuration, so it exists only here.
+ */
+function ComputerPage({openTab}:{openTab:(tab:SettingsTab)=>void}){
+ return useHasComputer()?<><ComputerResources/><ComputerPanel/><ComputerContents openTab={openTab}/></>:<ComputerOptions/>;
 }
 
 function GeneralPage({appearance,slots,openTab,bots,onBotsChanged}:SettingsPagesProps){

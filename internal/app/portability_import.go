@@ -130,7 +130,7 @@ func (s *Store) applyPortableSQL(ctx context.Context, b portableBundle, previewI
 		if err = tx.QueryRowContext(ctx, `SELECT sha256,size FROM portability_asset_staging WHERE import_id=? AND target_id=?`, previewID, id(x.ID)).Scan(&digest, &size); err != nil || digest != x.SHA256 || size != x.Size {
 			return result, false, errPortableStorage
 		}
-		if _, err = tx.ExecContext(ctx, `INSERT INTO attachments(id,conversation_id,name,mime,size,disk_name,created_at) VALUES(?,?,?,?,?,?,?)`, id(x.ID), id(x.ConversationID), x.Name, x.MIME, x.Size, guestAttachmentPrefix+id(x.ID), x.CreatedAt); err != nil {
+		if _, err = tx.ExecContext(ctx, `INSERT INTO attachments(id,conversation_id,name,mime,size,disk_name,created_at,sha256,origin) VALUES(?,?,?,?,?,?,?,?,?)`, id(x.ID), id(x.ConversationID), x.Name, x.MIME, x.Size, portableServerDisk(id(x.ID)), x.CreatedAt, x.SHA256, attachmentOriginImport); err != nil {
 			return result, false, err
 		}
 		if err = provenance("attachment", x.ID, x.Origin); err != nil {

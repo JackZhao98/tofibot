@@ -386,5 +386,49 @@
       "name": "E2B-Cloud-Sandbox",
       "what": "Miete mit deinem eigenen Schlüssel einen Computer bei E2B."
     }
+  },
+  "contents": {
+    "title": "Was sich auf diesem Computer befindet",
+    "description": "Das liegt auf dem Computer, nicht auf dem Server. Wird der Computer zurückgesetzt oder ersetzt, geht es verloren.",
+    "badge": "Auf dem Computer",
+    "browser": {
+      "name": "Browser-Anmeldungen",
+      "what": "Websites, bei denen der Bot angemeldet ist. Ein Zurücksetzen meldet den Bot überall ab."
+    },
+    "tools": {
+      "name": "Installierte Tools",
+      "what": "Programme, die der Bot hier installiert hat. Nach einem Zurücksetzen installiert er sie bei Bedarf neu."
+    },
+    "files": {
+      "name": "Arbeitsdateien",
+      "what": "Dateien, die der Bot hier erstellt, aber weder gesendet noch unter Dateien gespeichert hat. Gesendete Dateien bleiben auf dem Server.",
+      "pending_one": "{{count}} Datei wird noch auf den Server kopiert.",
+      "pending_other": "{{count}} Dateien werden noch auf den Server kopiert."
+    },
+    "config": {
+      "name": "Umgebung und Schlüssel",
+      "what": "Variablen und SSH-Schlüssel dieses Computers. Sie werden mit ihm gelöscht.",
+      "saved_one": "{{count}} gespeichert",
+      "saved_other": "{{count}} gespeichert",
+      "none": "Nichts gespeichert",
+      "manage": "Verwalten"
+    },
+    "load_failed": "Die Liste konnte nicht gelesen werden. Versuche es erneut.",
+    "retry": "Erneut versuchen"
+  },
+  "loss": {
+    "title": "Geht mit der Festplatte des Computers verloren",
+    "browser": "Browser-Anmeldungen: Der Bot ist bei allen Websites abgemeldet.",
+    "tools": "Installierte Tools: Der Bot installiert sie bei Bedarf neu.",
+    "files": "Arbeitsdateien, die weder gesendet noch unter Dateien gespeichert wurden.",
+    "env_one": "{{count}} Umgebungsvariable: {{names}}",
+    "env_other": "{{count}} Umgebungsvariablen: {{names}}",
+    "keys_one": "{{count}} SSH-Schlüssel: {{names}}",
+    "keys_other": "{{count}} SSH-Schlüssel: {{names}}",
+    "no_config": "In den Einstellungen sind keine Umgebungsvariablen oder SSH-Schlüssel gespeichert.",
+    "pending_one": "{{count}} Datei liegt nur auf dem Computer und ist noch nicht auf den Server kopiert.",
+    "pending_other": "{{count}} Dateien liegen nur auf dem Computer und sind noch nicht auf den Server kopiert.",
+    "loading": "Inhalt des Computers wird gelesen …",
+    "load_failed": "Gespeicherte Variablen, Schlüssel und noch zu kopierende Dateien konnten nicht gelesen werden. Sie werden ebenfalls gelöscht."
   }
 }

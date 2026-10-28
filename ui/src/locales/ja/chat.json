@@ -44,7 +44,12 @@
     "viewer_back": "{{name}} に戻る",
     "viewer_close": "プレビューを閉じる",
     "zoom": "{{name}} を拡大",
-    "zoom_image": "画像 {{name}} を拡大"
+    "zoom_image": "画像 {{name}} を拡大",
+    "problem": {
+      "file_on_detached_computer": "このファイルは、切り離されたコンピュータにしかありません。コンピュータを接続し直すと開けます。",
+      "file_missing_on_computer": "このファイルはコンピュータからなくなり、サーバーにもコピーされていないため、復元できません。",
+      "open_computer": "コンピュータの設定を開く"
+    }
   },
   "botPanel": {
     "change_style": "スタイルを変更",

@@ -44,7 +44,12 @@
     "viewer_back": "Zurück zu {{name}}",
     "viewer_close": "Vorschau schließen",
     "zoom": "{{name}} vergrößern",
-    "zoom_image": "Bild {{name}} vergrößern"
+    "zoom_image": "Bild {{name}} vergrößern",
+    "problem": {
+      "file_on_detached_computer": "Diese Datei liegt nur auf dem getrennten Computer. Verbinde den Computer wieder, um sie zu öffnen.",
+      "file_missing_on_computer": "Diese Datei ist nicht mehr auf dem Computer und wurde nie auf den Server kopiert. Sie lässt sich nicht wiederherstellen.",
+      "open_computer": "Computer-Einstellungen öffnen"
+    }
   },
   "botPanel": {
     "change_style": "Stil ändern",

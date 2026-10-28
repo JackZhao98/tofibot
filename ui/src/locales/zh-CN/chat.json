@@ -44,7 +44,12 @@
     "viewer_back": "返回 {{name}}",
     "viewer_close": "关闭预览",
     "zoom": "放大 {{name}}",
-    "zoom_image": "放大图片 {{name}}"
+    "zoom_image": "放大图片 {{name}}",
+    "problem": {
+      "file_on_detached_computer": "这个文件只存放在已分离的电脑上。重新连接电脑后即可打开。",
+      "file_missing_on_computer": "这个文件已不在电脑上，也没有复制到服务器，无法恢复。",
+      "open_computer": "打开电脑设置"
+    }
   },
   "botPanel": {
     "change_style": "更换样式",

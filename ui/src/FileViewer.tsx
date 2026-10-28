@@ -4,9 +4,10 @@ import { TofiIcon } from "./icons";
 import { useTranslation } from "./i18n";
 import { MessageMarkdown, ViewerLinkContext } from "./MessageMarkdown";
 import {
-  attachmentUrl, closeFilePreview, extensionOf, fileKind, fileSize, isPreviewable, parseDelimited, popFilePreview,
-  readTextHead, useFilePreviewStack, type FileKind, type PreviewTarget,
+  attachmentFailure, attachmentUrl, AttachmentUnavailable, closeFilePreview, extensionOf, fileKind, fileSize, isPreviewable,
+  parseDelimited, popFilePreview, probeAttachment, readTextHead, useFilePreviewStack, type AttachmentProblem, type FileKind, type PreviewTarget,
 } from "./filePreviewModel";
+import { AttachmentNotice } from "./AttachmentNotice";
 import { FileTile } from "./FileTile";
 import "./file-preview.css";
 
@@ -15,6 +16,7 @@ export { FileTile };
 type Body =
   | { state: "loading" }
   | { state: "error" }
+  | { state: "unavailable"; problem: AttachmentProblem }
   | { state: "text"; text: string; truncated: boolean }
   | { state: "csv"; rows: string[][]; truncated: boolean }
   | { state: "none" };
@@ -45,7 +47,7 @@ function Viewer({ target, canBack, previous }: { target: PreviewTarget; canBack:
       if (!current.mime && !current.size) {
         // A link to a file the chat has not rendered: learn its name, type and size from the response.
         const probe = await fetch(url, { credentials: "same-origin", signal: abort.signal });
-        if (!probe.ok) throw new Error(String(probe.status));
+        if (!probe.ok) throw await attachmentFailure(probe);
         const name = /filename="?([^";]+)"?/i.exec(probe.headers.get("Content-Disposition") ?? "")?.[1] ?? current.name;
         current = { ...current, name, mime: probe.headers.get("Content-Type") ?? "application/octet-stream", size: Number(probe.headers.get("Content-Length")) || 0 };
         void probe.body?.cancel();
@@ -53,7 +55,14 @@ function Viewer({ target, canBack, previous }: { target: PreviewTarget; canBack:
         setMeta(current);
       }
       const k = fileKind(current.name, current.mime);
-      if (k === "pdf" || k === "image" || !isPreviewable(k)) { setBody({ state: "none" }); return; }
+      if (k === "pdf" || k === "image" || !isPreviewable(k)) {
+        // The browser draws images and PDFs itself and hides why a request failed: read one byte to learn it.
+        const unavailable = (cause: unknown) => { if (!abort.signal.aborted && cause instanceof AttachmentUnavailable) setBody({ state: "unavailable", problem: cause.problem }); };
+        if (k === "pdf") { try { await probeAttachment(url, abort.signal); } catch (cause) { unavailable(cause); return; } }
+        else void probeAttachment(url, abort.signal).catch(unavailable);
+        if (!abort.signal.aborted) setBody({ state: "none" });
+        return;
+      }
       const { text, truncated } = await readTextHead(url, undefined, abort.signal);
       if (abort.signal.aborted) return;
       if (k === "csv" || k === "tsv") {
@@ -64,7 +73,10 @@ function Viewer({ target, canBack, previous }: { target: PreviewTarget; canBack:
         try { pretty = JSON.stringify(JSON.parse(text), null, 2); } catch { /* invalid JSON is shown as written */ }
         setBody({ state: "text", text: pretty, truncated: false });
       } else setBody({ state: "text", text, truncated });
-    })().catch(cause => { if (!abort.signal.aborted && !(cause instanceof DOMException)) setBody({ state: "error" }); });
+    })().catch(cause => {
+      if (abort.signal.aborted || cause instanceof DOMException) return;
+      setBody(cause instanceof AttachmentUnavailable ? { state: "unavailable", problem: cause.problem } : { state: "error" });
+    });
     return () => abort.abort();
   }, [meta.id, attempt, url]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -82,6 +94,7 @@ function Viewer({ target, canBack, previous }: { target: PreviewTarget; canBack:
   let content;
   if (body.state === "loading") content = <p className="fp-status" role="status">{t("attachment.loading")}</p>;
   else if (body.state === "error") content = <div className="fp-status" role="alert"><p>{t("attachment.load_failed")}</p><button type="button" className="fp-action" onClick={() => { setBody({ state: "loading" }); setAttempt(n => n + 1); }}>{t("attachment.retry")}</button></div>;
+  else if (body.state === "unavailable") content = <div className="fp-status"><AttachmentNotice problem={body.problem} onNavigate={closeFilePreview} /></div>;
   else if (kind === "pdf") content = <iframe className="fp-frame" src={`${url}?inline=1`} title={meta.name} />;
   else if (kind === "image") content = <div className="fp-image"><img src={url} alt={meta.name} /></div>;
   else if (body.state === "none") content = <div className="fp-unsupported"><TofiIcon name="file" size={28} /><strong>{t("attachment.unsupported")}</strong><p>{t("attachment.unsupported_hint")}</p>{download}</div>;
@@ -101,7 +114,7 @@ function Viewer({ target, canBack, previous }: { target: PreviewTarget; canBack:
       {canBack && <button type="button" className="fp-icon" onClick={popFilePreview} aria-label={t("attachment.viewer_back", { name: previous?.name ?? "" })}><TofiIcon name="arrow-left" size={18} /></button>}
       <FileTile name={meta.name} kind={kind} />
       <div className="fp-title"><h2 id="fp-title">{meta.name}</h2><small>{meta.size ? fileSize(meta.size) : ""}</small></div>
-      {download}
+      {body.state !== "unavailable" && download}
       <button type="button" className="fp-icon" onClick={closeFilePreview} aria-label={t("attachment.viewer_close")}><TofiIcon name="close" size={18} /></button>
     </header>
     <div className="fp-body" ref={ref} tabIndex={-1}>{content}</div>
