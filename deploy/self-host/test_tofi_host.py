@@ -792,6 +792,7 @@ class LifecycleBase(HostCase):
         self.fetch_guest = mock.patch.object(tofi_host, 'fetch_guest', side_effect=lambda g, m: self.make_guest(g['version'])).start()
         self.install_bundle = mock.patch.object(tofi_host, 'install_bundle', side_effect=lambda m: self.make_bundle(m['version'])).start()
         self.active_runs = mock.patch.object(tofi_host, 'active_runs', return_value=0).start()
+        self.guest_copies = mock.patch.object(tofi_host, 'pending_guest_copies', return_value=(0, [])).start()
         self.addCleanup(mock.patch.stopall)
 
     def write_manifest(self, value):
@@ -2408,6 +2409,46 @@ class ComputerAddRemoveTests(NoComputerCase):
             tofi_host.computer_remove()
         self.assertEqual(tofi_host.read_env()['TOFI_COMPUTER_BACKEND'], 'kvm')
 
+    def test_purge_refuses_while_files_exist_only_on_the_computer(self):
+        self.installed()
+        (self.P.worker / 'state' / 'acct').mkdir(parents=True)
+        (self.P.worker / 'state' / 'acct' / 'workspace.ext4').write_bytes(b'disk')
+        self.guest_copies.return_value = (3, [])
+        with self.assertRaisesRegex(tofi_host.HostError, r'3 files exist only on the computer.*Nothing was changed'):
+            tofi_host.computer_remove(purge=True, yes=True)
+        self.assertEqual(tofi_host.read_env()['TOFI_COMPUTER_BACKEND'], 'kvm', 'a refusal changes nothing')
+        self.assertEqual((self.P.worker / 'state' / 'acct' / 'workspace.ext4').read_bytes(), b'disk')
+        self.start_services.assert_not_called()
+        # The explicit flag is the only way through.
+        with mock.patch('sys.stderr', new_callable=io.StringIO) as err:
+            result = tofi_host.computer_remove(purge=True, yes=True, discard_unsaved_files=True)
+        self.assertTrue(result['purged'])
+        self.assertFalse(self.P.worker.exists())
+        self.assertIn('Discarding 3 files', err.getvalue())
+
+    def test_purge_refuses_when_the_pending_count_is_unknown(self):
+        self.installed()
+        self.guest_copies.return_value = (0, ['/var/lib/tofi/accounts/x/tofi.db'])
+        with self.assertRaisesRegex(tofi_host.HostError, r'Cannot tell whether files exist only on the computer'):
+            tofi_host.computer_remove(purge=True, yes=True)
+        self.assertTrue(self.P.worker_json.exists())
+
+    def test_remove_without_purge_warns_with_the_count_and_keeps_the_disk(self):
+        self.installed()
+        (self.P.worker / 'state' / 'acct').mkdir(parents=True)
+        (self.P.worker / 'state' / 'acct' / 'workspace.ext4').write_bytes(b'disk')
+        self.guest_copies.return_value = (1, [])
+        with mock.patch('sys.stderr', new_callable=io.StringIO) as err:
+            result = tofi_host.computer_remove()
+        self.assertEqual(result, {'removed': True, 'computer': 'none', 'purged': False})
+        self.assertIn('1 file exists only on this computer', err.getvalue())
+        self.assertEqual((self.P.worker / 'state' / 'acct' / 'workspace.ext4').read_bytes(), b'disk')
+
+    def test_cli_wiring_of_discard_unsaved_files(self):
+        args = tofi_host.parse_args(['computer', 'remove', '--purge', '--discard-unsaved-files'])
+        self.assertTrue(args.discard_unsaved_files)
+        self.assertFalse(tofi_host.parse_args(['computer', 'remove']).discard_unsaved_files)
+
     def test_cli_wiring(self):
         self.installed_none()
         code, out = self.main('computer', 'add', 'kvm')
@@ -2420,6 +2461,41 @@ class ComputerAddRemoveTests(NoComputerCase):
             tofi_host.parse_args(['computer', 'add', 'e2b'])
         args = tofi_host.parse_args(['computer', 'remove', '--purge', '--yes', '--force'])
         self.assertEqual((args.computer_command, args.purge, args.yes, args.force), ('remove', True, True, True))
+
+
+class GuestCopyCountTests(HostCase):
+    def database(self, account, rows):
+        import sqlite3 as sqlite
+        folder = self.P.data / 'accounts' / account
+        folder.mkdir(parents=True)
+        connection = sqlite.connect(str(folder / 'tofi.db'))
+        connection.execute('CREATE TABLE attachments(id TEXT, disk_name TEXT)')
+        connection.executemany('INSERT INTO attachments VALUES(?,?)', rows)
+        connection.commit()
+        connection.close()
+        return folder / 'tofi.db'
+
+    def test_counts_only_rows_still_on_the_computer_across_accounts(self):
+        self.database('a1', [('1', 'vm:aaa'), ('2', '2.upload'), ('3', 'vm:bbb')])
+        self.database('a2', [('4', '4.upload')])
+        self.database('a3', [('5', 'vm:ccc')])
+        self.assertEqual(tofi_host.pending_guest_copies(), (3, []))
+
+    def test_an_unreadable_database_is_reported_never_counted_as_zero(self):
+        self.database('a1', [('1', 'vm:aaa')])
+        folder = self.P.data / 'accounts' / 'bad'
+        folder.mkdir()
+        (folder / 'tofi.db').write_bytes(b'not a database at all' * 50)
+        total, unreadable = tofi_host.pending_guest_copies()
+        self.assertEqual(total, 1)
+        self.assertEqual(unreadable, [str(folder / 'tofi.db')])
+
+    def test_a_database_without_the_table_counts_zero(self):
+        import sqlite3 as sqlite
+        folder = self.P.data / 'accounts' / 'old'
+        folder.mkdir(parents=True)
+        sqlite.connect(str(folder / 'tofi.db')).close()
+        self.assertEqual(tofi_host.pending_guest_copies(), (0, []))
 
 
 class ProgressTests(unittest.TestCase):

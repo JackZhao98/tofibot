@@ -1608,6 +1608,36 @@ def run_health(days=RUN_HEALTH_DAYS, now=None):
     return {'days': days, 'by_status': by_status, 'tool_timeouts': timeouts}
 
 
+def count_guest_copies(database):
+    """Files of one App database that exist only on the computer: rows whose
+    bytes have not been copied to the server file store yet (`vm:` rows)."""
+    uri = 'file:%s?mode=ro' % urllib.parse.quote(str(database))
+    connection = sqlite3.connect(uri, uri=True, timeout=5)
+    try:
+        row = connection.execute("SELECT COUNT(*) FROM attachments WHERE disk_name LIKE 'vm:%'").fetchone()
+    except sqlite3.OperationalError as error:
+        if str(error).startswith('no such table'):
+            return 0  # an App older than the attachments table has none
+        raise
+    finally:
+        connection.close()
+    return int(row[0])
+
+
+def pending_guest_copies():
+    """(files, unreadable): the files that live only on a computer, summed over
+    every App database (read-only), and the databases that could not be read.
+    An unreadable database is never counted as 0; the caller must treat the
+    answer as unknown."""
+    total, unreadable = 0, []
+    for database in run_databases():
+        try:
+            total += count_guest_copies(database)
+        except (sqlite3.Error, OSError, ValueError, TypeError):
+            unreadable.append(str(database))
+    return total, unreadable
+
+
 def plural(count, noun):
     return '%d %s%s' % (count, noun, '' if count == 1 else 's')
 
@@ -4369,11 +4399,13 @@ def computer_add(backend='kvm', wait=0, force=False):
     return {'added': True, 'computer': 'kvm'}
 
 
-def computer_remove(purge=False, yes=False, wait=0, force=False):
+def computer_remove(purge=False, yes=False, wait=0, force=False, discard_unsaved_files=False):
     """`tofi computer remove`: stop the Worker, set backend none, restart the App.
 
     The computers' disks, state and the Guest release stay on disk (so
-    `tofi computer add kvm` brings them back) unless `purge`."""
+    `tofi computer add kvm` brings them back) unless `purge`. A purge refuses
+    while a file exists only on a computer (not yet copied to the server file
+    store), unless `discard_unsaved_files`."""
     require_root()
     with lifecycle_lock():
         state = load_state()
@@ -4386,6 +4418,23 @@ def computer_remove(purge=False, yes=False, wait=0, force=False):
         if not has_computer(env) and not (purge and leftovers):
             say('This server has no computer (backend none); nothing to do.')
             return {'removed': False, 'computer': 'none'}
+        unsaved, unreadable = pending_guest_copies()
+        if purge and (unsaved or unreadable) and not discard_unsaved_files:
+            if unreadable:
+                raise HostError(
+                    'Cannot tell whether files exist only on the computer: %s could not be read. Nothing was changed. '
+                    'Fix that, or add --discard-unsaved-files to delete the disks anyway.' % ', '.join(unreadable))
+            raise HostError(
+                '%s only on the computer (not yet copied to the server). Purge would delete %s. Nothing was '
+                'changed. Keep the computer running so the copy can finish, or add --discard-unsaved-files to delete '
+                '%s anyway.' % (plural(unsaved, 'file') + (' exists' if unsaved == 1 else ' exist'),
+                                'it' if unsaved == 1 else 'them', 'it' if unsaved == 1 else 'them'))
+        if unsaved and not purge:
+            warn('%s only on this computer and stays on its disk. %s cannot be opened until the computer is '
+                 'attached again (`sudo tofi computer add kvm`).'
+                 % (plural(unsaved, 'file') + (' exists' if unsaved == 1 else ' exist'), 'It' if unsaved == 1 else 'They'))
+        if purge and discard_unsaved_files and unsaved:
+            warn('Discarding %s that exist only on the computer.' % plural(unsaved, 'file'))
         if purge and not yes:
             if not sys.stdin.isatty():
                 raise HostError('--purge deletes every computer disk and its state; add --yes to confirm.')
@@ -4619,6 +4668,8 @@ def parse_args(argv):
     remove_parser.add_argument('--purge', action='store_true',
                                help='also delete the computers\' disks, their state and the Guest release')
     remove_parser.add_argument('--yes', '-y', action='store_true', help='do not ask for confirmation (needed with --purge)')
+    remove_parser.add_argument('--discard-unsaved-files', action='store_true',
+                               help='with --purge: delete the disks even though some files exist only on a computer')
     add_guard_flags(remove_parser)
     computers_parser = sub.add_parser('computers', help='list account computers and their Guest release')
     computers_parser.add_argument('--json', action='store_true', help='machine-readable output')
@@ -4788,7 +4839,7 @@ def main(argv=None):
             if args.computer_command == 'add':
                 computer_add(args.backend, *guard)
             else:
-                computer_remove(args.purge, args.yes, *guard)
+                computer_remove(args.purge, args.yes, *guard, discard_unsaved_files=args.discard_unsaved_files)
             return 0
         if args.command == 'computers':
             require_root()
