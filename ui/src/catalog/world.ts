@@ -1,7 +1,7 @@
 // Synthetic data for the component catalog. Every name, message and id here is made up; nothing comes from a real
 // account. `workspace()` is the whole server as the real App sees it; the isolated sections reuse the same records.
 import { json, type Synthetic } from "./sandbox";
-import type { Bot, Conversation, Message, Run, StreamDraft } from "../types";
+import type { Bot, Conversation, Message, Run, StreamDraft, ToolActivity } from "../types";
 import type { Question } from "../questionTimeline";
 import type { MailDraft } from "../MailDraftCard";
 
@@ -80,7 +80,22 @@ function dmMessages(options: AppOptions): Message[] {
     user(c, base + 7, "Also, can you book the small room?", 60), user(c, base + 8, "For 15:00 on Thursday.", 60.4), user(c, base + 9, "Eight people, with a screen.", 60.8),
     reply(c, base + 10, "bot_mochi", "Checking the calendar.", 62), reply(c, base + 11, "bot_mochi", "The small room is free.", 62.3), reply(c, base + 12, "bot_mochi", "Booked it for 15:00 Thursday, eight seats, screen included.", 62.6),
   );
+  if (options.timeline) list.push(
+    user(c, base + 7, "Also check the projector.", 42),
+    { id: "m_sched_ticket", conversation_id: c, seq: 0, role: "user", kind: "scheduled_task", content: "Send me the weekly sign-up numbers", created_at: at(43.5), run_id: "run_sched_q" },
+  );
   return list.map((message, index) => ({ ...message, seq: index + 1 }));
+}
+
+/** The calls of the long run: five before the second message, four between it and the ticket, three after. */
+function timelineTools(options: AppOptions): ToolActivity[] {
+  const call = (n: number, minutes: number, name = "computer_action", args = '{"action":"browser.navigate"}'): ToolActivity => ({ conversation_id: "dm_mochi", bot_id: "bot_mochi", run_id: "run_live", call_id: `tl_${String(n).padStart(4, "0")}`, name, arguments: args, result: "Synthetic result", status: "completed", truncated: false, started_at: at(minutes), updated_at: at(minutes + 0.05) });
+  if (options.timeline === "many") return Array.from({ length: 400 }, (_, n) => call(n, 40.1 + n * 0.008, n % 7 === 6 ? "search_history" : "computer_action", n % 7 === 6 ? '{"query":"launch"}' : '{"action":"browser.navigate"}'));
+  return [
+    call(1, 40.2, "search_history", '{"query":"projector"}'), call(2, 40.4), call(3, 40.6), call(4, 40.8), call(5, 41.0),
+    call(6, 42.2), call(7, 42.4), call(8, 42.6), call(9, 42.8, "search_history", '{"query":"room"}'),
+    call(10, 44.0), call(11, 44.2), { ...call(12, 44.4), status: "running", result: "", updated_at: at(44.4) },
+  ];
 }
 
 function groupMessages(options: AppOptions): Message[] {
@@ -119,7 +134,9 @@ function runsFor(conversationId: string, messages: Message[], options: AppOption
     run(conversationId, "bot_miso", "run_grp_launch_9", "m_grp_launch_7", "running", 41),
   ];
   if (conversationId !== "dm_mochi") return [];
-  const lastUser = messages[messages.length - 1];
+  const lastUser0 = messages.filter(message => message.role === "user" && message.kind !== "scheduled_task");
+  const lastUser = lastUser0[lastUser0.length - 1];
+  if (options.timeline) return [run(conversationId, "bot_mochi", "run_live", (messages.find(message => message.content.startsWith("Great, last thing")) ?? lastUser).id, "running", 40.1), run(conversationId, "bot_mochi", "run_sched_q", "m_sched_ticket", "queued", 43.5, { kind: "schedule" })];
   if (options.runs === "tools") return [run(conversationId, "bot_mochi", "run_dm_mochi_11", "m_dm_mochi_11", "done", 62), run(conversationId, "bot_mochi", "run_live", lastUser.id, "done", 40)];
   return [run(conversationId, "bot_mochi", "run_live", lastUser.id, options.running ? "running" : options.queued ? "queued" : "done", 40)];
 }
@@ -167,6 +184,8 @@ export type AppOptions = {
   tasks?: boolean;
   /** Two bubble runs of three at the end of Mochi's chat: the person's, then Mochi's (corners merge, 3px apart). */
   runs?: boolean | "tools";
+  /** One long run (Mochi, working) interleaved with the rest of the chat: its calls, the person's second message, a schedule ticket with a queued run, more calls. "many": the same with hundreds of calls. */
+  timeline?: boolean | "many";
   /** The server reports a newer release (the admin banner, with its Update button). "running": the host is downloading it; "failed" / "rolled-back": the host's last answer; "rc": a release candidate is on offer too. */
   update?: boolean | "running" | "failed" | "rolled-back" | "rc";
   /** What GET /api/conversations/{id}/usage answers for the Usage widget: the whole picture, no tool split (older runs), no context snapshot, or a 404 (a server release without the route). */
@@ -204,7 +223,7 @@ export function workspace(options: AppOptions): Synthetic {
     const p = url.pathname;
     const method = init?.method ?? "GET";
     if (p === "/api/server-info") return json({ service: "tofi", protocol_version: 1, instance_id: "00000000-0000-4000-8000-00000000ca7a", auth: { mode: "none" } });
-    if (p === "/api/preferences") return json({ timezone: "UTC", timezone_configured: true, language: localStorage.getItem("tofi.language") ?? "en", show_activity: options.runs === "tools" });
+    if (p === "/api/preferences") return json({ timezone: "UTC", timezone_configured: true, language: localStorage.getItem("tofi.language") ?? "en", show_activity: options.runs === "tools" || Boolean(options.timeline) });
     if (options.challenge && conversationReads > 1) return new Promise<Response>(() => {});
     // A refresh after the first load fails across the board, as when the server goes away (one failing read alone is
     // cleared again by the next successful one).
@@ -254,7 +273,7 @@ export function workspace(options: AppOptions): Synthetic {
       if (what === "messages") return json({ messages: list, drafts: options.running && id === "dm_mochi" ? [liveDraft()] : [], has_more: false, event_cursor: 0 });
       if (what === "runs") return json({ runs: runsFor(id, list, options), has_more: false });
       if (what === "memories") return json({ memories: [] });
-      if (what === "tools") return json({ activities: [], summaries: options.runs === "tools" && id === "dm_mochi" ? [{ run_id: "run_dm_mochi_11", bot_id: "bot_mochi", tool_count: 2, completed_count: 2, failed_count: 0, interrupted_count: 0, pending_count: 0, started_at: at(62), updated_at: at(62.2) }] : [], tool_count: 0, has_more: false });
+      if (what === "tools") return json({ activities: options.timeline && id === "dm_mochi" ? timelineTools(options) : [], summaries: options.runs === "tools" && id === "dm_mochi" ? [{ run_id: "run_dm_mochi_11", bot_id: "bot_mochi", tool_count: 2, completed_count: 2, failed_count: 0, interrupted_count: 0, pending_count: 0, started_at: at(62), updated_at: at(62.2) }] : [], tool_count: 0, has_more: false });
       if (what === "schedules" || what === "schedule-occurrences" || what === "work-items" || what === "remembered-approvals") return json({ schedules: [], occurrences: [], work_items: [], grants: [] });
       if (what === "task-cards") return json({ tasks: options.tasks && id === "grp_launch" ? TASKS : [] });
       if (what === "read") return json({ read_seq: 99 });

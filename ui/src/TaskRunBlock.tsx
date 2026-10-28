@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 import { flushSync } from "react-dom";
 import { TofiIcon } from "./icons";
 import { LiveMark } from "./LiveMark";
-import { toolDisplayState, formatStepSeconds, orderToolActivities } from "./toolTimeline";
+import { toolDisplayState, formatStepSeconds, orderToolActivities, toolActivityKey } from "./toolTimeline";
 import { TaskIssueCard } from "./TaskIssueCard";
 import { canAnswerQuestion, presentTaskIssue, taskPhaseLabel, taskPhaseVisible, type TaskOwner } from "./taskIssuePresentation";
 import { useTranslation, type Language } from "./i18n";
@@ -15,8 +15,15 @@ import { TaskActivityBody, panelLoaded, usePanelLoaded, whenPanelLoaded } from "
 import "./task-issue-card.css";
 import { MOTION, EASE } from "./motion";
 
+/**
+ * One stretch of a run's calls in the conversation (see splitActivitySegments). A run cut by other items is drawn as several
+ * blocks, one per segment, in time order: every block shows its own calls, the first (`index` 0) also the run's earlier attempts
+ * and recorded answers, and only the last (`primary`) the live line, the issue card, pending decisions and drafts: the card
+ * stays last while it waits. Without `segment` the block is the whole run, as before.
+ */
+export type TaskSegment = { tools: ToolActivity[]; index: number; count: number; primary: boolean; /** Progress notes created from this time (inclusive) up to `until` (exclusive) are kept in this segment. */ from?: string; until?: string };
 export type TaskDetailState = { loaded: number; toolCount: number; hasMore: boolean; loading: boolean; error?: string };
-export type TaskRunBlockProps = { senderHead?: React.ReactNode; owner: TaskOwner; tools: ToolActivity[]; questions: Question[]; drafts: MailDraft[]; messages: Message[]; summaries: ToolActivityRunSummary[]; details?: Record<string, TaskDetailState>; connected?: boolean; /** Sends a failed run again (the server accepts it for busy or dropped service). */ onRetryRun?: (runId: string) => void | Promise<void>; /** Pins one language (tests, fixtures); the active UI language otherwise. */ locale?: Language; botName?: string; showName?: boolean; onFeedback?: (text:string) => void; onOpenTools: () => void; onRefresh: () => Promise<void>; onLoadDetails?: (runId: string, offset: number) => Promise<void>; liveStatus?: string; /** The run's reply is already on screen (a streaming draft with text, or its final message): the live line steps aside in that same frame instead of leaving later. */ replying?: boolean; /** Chat default: no Activity row. Cards (approvals, issues) and a live status line still show. */ hideActivity?: boolean; /** The run's Activity was asked for (message action); shows it although hidden. */ revealed?: boolean; renderMessage?: (message: Message) => ReactNode; renderQuestion: (question: Question) => ReactNode; renderDraft: (draft: MailDraft) => ReactNode };
+export type TaskRunBlockProps = { senderHead?: React.ReactNode; owner: TaskOwner; tools: ToolActivity[]; questions: Question[]; drafts: MailDraft[]; messages: Message[]; summaries: ToolActivityRunSummary[]; details?: Record<string, TaskDetailState>; connected?: boolean; /** Sends a failed run again (the server accepts it for busy or dropped service). */ onRetryRun?: (runId: string) => void | Promise<void>; /** Pins one language (tests, fixtures); the active UI language otherwise. */ locale?: Language; botName?: string; showName?: boolean; onFeedback?: (text:string) => void; /** The stretch of the run this block draws; absent: the whole run. */ segment?: TaskSegment; onOpenTools: () => void; onRefresh: () => Promise<void>; onLoadDetails?: (runId: string, offset: number) => Promise<void>; liveStatus?: string; /** The run's reply is already on screen (a streaming draft with text, or its final message): the live line steps aside in that same frame instead of leaving later. */ replying?: boolean; /** Chat default: no Activity row. Cards (approvals, issues) and a live status line still show. */ hideActivity?: boolean; /** The run's Activity was asked for (message action); shows it although hidden. */ revealed?: boolean; renderMessage?: (message: Message) => ReactNode; renderQuestion: (question: Question) => ReactNode; renderDraft: (draft: MailDraft) => ReactNode };
 
 const drawers = new WeakMap<HTMLElement, Animation[]>();
 const drawerBody = (details: HTMLDetailsElement) => details.querySelector<HTMLElement>(":scope > :not(summary)");
@@ -95,24 +102,28 @@ export function ActivityDisclosure({ children, locale, detail, count, duration, 
 export const problemStates = ["failed", "not_executed", "interrupted"];
 
 /** One durable owner replaces progress in place; actual final answers stay in chat. */
-type BlockScopeInput = Pick<TaskRunBlockProps, "owner" | "tools" | "questions" | "drafts" | "messages" | "summaries" | "details" | "connected" | "locale">;
+type BlockScopeInput = Pick<TaskRunBlockProps, "owner" | "tools" | "questions" | "drafts" | "messages" | "summaries" | "details" | "connected" | "locale" | "segment">;
 
 /** Everything the block shows is derived here, so the timeline can ask whether a block draws anything without rendering it. */
-function scopeTaskBlock({ owner, tools, questions, drafts, messages, summaries, details = {}, connected = true, locale }: BlockScopeInput) {
+function scopeTaskBlock({ owner, tools, questions, drafts, messages, summaries, details = {}, connected = true, locale, segment }: BlockScopeInput) {
   const run = owner.family.latest;
   const ids = new Set(owner.family.attempts.map(attempt => attempt.id));
   const matches = (item: { run_id: string; conversation_id: string; bot_id: string }) => ids.has(item.run_id) && item.conversation_id === run.conversation_id && item.bot_id === run.bot_id;
   tools = orderToolActivities(tools.filter(matches));
   questions = questions.filter(matches); drafts = drafts.filter(matches);
-  const currentTools = tools.filter(tool => tool.run_id === run.id);
+  const segmentKeys = segment ? new Set(segment.tools.map(toolActivityKey)) : undefined;
+  const shownTools = segmentKeys ? tools.filter(tool => segmentKeys.has(toolActivityKey(tool))) : tools;
+  const currentTools = (segmentKeys ? shownTools : tools).filter(tool => tool.run_id === run.id);
   const currentQuestions = questions.filter(question => question.run_id === run.id);
   const currentDrafts = drafts.filter(draft => draft.run_id === run.id);
   const summary = summaries.find(item => item.run_id === run.id);
   const hasFinal = messages.some(message => message.run_id === run.id && message.conversation_id === run.conversation_id && message.role === "assistant" && !["notice", "progress", "segment"].includes(message.kind ?? "") && Boolean(message.content || message.attachments?.length));
   const input = { run, tools: currentTools, questions: currentQuestions, drafts: currentDrafts, summary, recordsComplete: details[run.id]?.hasMore === false, connected, replied: hasFinal, locale };
-  const issue = presentTaskIssue({...input, family:owner.family, tools, questions, drafts});
-  const decisions = currentQuestions.filter(question => canAnswerQuestion(question));
-  return { run, ids, tools, questions, drafts, currentTools, currentQuestions, currentDrafts, input, issue, decisions };
+  // Only the last stretch of a run carries its cards: an earlier one is history, the card belongs to what is happening now.
+  const primary = !segment || segment.primary;
+  const issue = primary ? presentTaskIssue({...input, family:owner.family, tools, questions, drafts}) : undefined;
+  const decisions = primary ? currentQuestions.filter(question => canAnswerQuestion(question)) : [];
+  return { run, ids, tools, shownTools, questions, drafts, currentTools, currentQuestions, currentDrafts: primary ? currentDrafts : [], input, issue, decisions };
 }
 
 /**
@@ -121,15 +132,17 @@ function scopeTaskBlock({ owner, tools, questions, drafts, messages, summaries, 
  */
 export function taskBlockVisible(props: BlockScopeInput & { hideActivity?: boolean; revealed?: boolean }): boolean {
   if (!props.hideActivity || props.revealed) return true;
+  if (props.segment && !props.segment.primary) return false;
   const { run, issue, decisions, currentDrafts } = scopeTaskBlock(props);
   return !isTerminalRun(run) || Boolean(issue) || taskPhaseVisible(run) || decisions.length > 0 || currentDrafts.some(draft => draft.status !== "unknown");
 }
 
-export function TaskRunBlock({ owner, tools, questions, drafts, messages, summaries, details = {}, connected = true, locale, botName, showName, senderHead, onFeedback, onOpenTools, onRefresh, onRetryRun, onLoadDetails, liveStatus, replying = false, hideActivity = false, revealed: revealedByMenu = false, renderMessage, renderQuestion, renderDraft }: TaskRunBlockProps) {
+export function TaskRunBlock({ owner, segment, tools, questions, drafts, messages, summaries, details = {}, connected = true, locale, botName, showName, senderHead, onFeedback, onOpenTools, onRefresh, onRetryRun, onLoadDetails, liveStatus, replying = false, hideActivity = false, revealed: revealedByMenu = false, renderMessage, renderQuestion, renderDraft }: TaskRunBlockProps) {
   const disclosure = useRef<HTMLDetailsElement>(null);
   const block = useRef<HTMLElement>(null);
   const needsFocus = useRef(false);
-  const { run, ids, tools: scopedTools, questions: scopedQuestions, drafts: scopedDrafts, currentTools, currentQuestions, currentDrafts, input, issue, decisions } = scopeTaskBlock({ owner, tools, questions, drafts, messages, summaries, details, connected, locale });
+  const { run, ids, tools: scopedTools, shownTools, questions: scopedQuestions, drafts: scopedDrafts, currentTools, currentQuestions, currentDrafts, input, issue, decisions } = scopeTaskBlock({ owner, tools, questions, drafts, messages, summaries, details, connected, locale, segment });
+  const primary = !segment || segment.primary, firstPart = !segment || segment.index === 0;
   tools = scopedTools; questions = scopedQuestions; drafts = scopedDrafts;
   const { t } = useTranslation("tasks", { lng: locale });
   const decisionKey = decisions.map(question => question.question_id).join(":");
@@ -140,18 +153,20 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
   }, [decisionKey, issue?.kind]);
   // Approval proposals are bookkeeping: the step itself shows whether the call
   // ran. Only answers a person gave to a real question stay as records.
-  const recordedQuestions = questions.filter(question => question.question_type !== "approval" && !decisions.some(item => item.question_id === question.question_id));
+  const recordedQuestions = !firstPart ? [] : questions.filter(question => question.question_type !== "approval" && !decisions.some(item => item.question_id === question.question_id));
   // A card decided by a remembered approval ("Approve and remember in this chat") stays visible as a record: nobody was asked.
-  const rememberedDecisions = questions.filter(question => question.question_type === "approval" && (question.answered_by === REMEMBERED_APPROVAL_ACTOR || question.answered_by === STANDING_ALLOWANCE_ACTOR) && !decisions.some(item => item.question_id === question.question_id));
-  const notes = messages.filter(message => ids.has(message.run_id ?? "") && message.conversation_id === run.conversation_id && message.role === "assistant" && message.kind === "progress");
+  const rememberedDecisions = !firstPart ? [] : questions.filter(question => question.question_type === "approval" && (question.answered_by === REMEMBERED_APPROVAL_ACTOR || question.answered_by === STANDING_ALLOWANCE_ACTOR) && !decisions.some(item => item.question_id === question.question_id));
+  const inWindow = (message: Message) => !segment || (!segment.from || Date.parse(message.created_at) >= Date.parse(segment.from)) && (!segment.until || Date.parse(message.created_at) < Date.parse(segment.until));
+  const notes = messages.filter(message => ids.has(message.run_id ?? "") && message.conversation_id === run.conversation_id && message.role === "assistant" && message.kind === "progress" && inWindow(message));
   function loadInitial() {
     for (const attempt of owner.family.attempts) {
       const detail = details[attempt.id];
       if (!detail && onLoadDetails) void onLoadDetails(attempt.id, 0);
     }
   }
-  const toolTotal = owner.family.attempts.reduce<number | undefined>((sum, attempt) => { const count = summaries.find(item => item.run_id === attempt.id)?.tool_count ?? details[attempt.id]?.toolCount; return count === undefined || sum === undefined ? undefined : sum + count; }, 0);
-  const runSeconds = run.status !== "running" && run.status !== "queued" ? (Date.parse(run.updated_at) - Date.parse(run.created_at)) / 1000 : NaN;
+  const segmentSeconds = segment && segment.tools.every(tool => tool.status !== "running" && tool.status !== "queued") ? (Math.max(...segment.tools.map(tool => Date.parse(tool.updated_at))) - Math.min(...segment.tools.map(tool => Date.parse(tool.started_at)))) / 1000 : NaN;
+  const toolTotal = segment ? segment.tools.length : owner.family.attempts.reduce<number | undefined>((sum, attempt) => { const count = summaries.find(item => item.run_id === attempt.id)?.tool_count ?? details[attempt.id]?.toolCount; return count === undefined || sum === undefined ? undefined : sum + count; }, 0);
+  const runSeconds = segment ? segmentSeconds : run.status !== "running" && run.status !== "queued" ? (Date.parse(run.updated_at) - Date.parse(run.created_at)) / 1000 : NaN;
   const runSecondsOk = Number.isFinite(runSeconds) && runSeconds >= 0 && Boolean(toolTotal);
   const activityIssues = currentTools.filter(tool => problemStates.includes(toolDisplayState(tool))).length;
   const activityDetail = [toolTotal ? t("activity.tool_count", { count: toolTotal }) : "", Number.isFinite(runSeconds) && runSeconds >= 0 && toolTotal ? formatStepSeconds(runSeconds) : ""].filter(Boolean).join(" · ") || undefined;
@@ -159,13 +174,16 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
   const bodyReady = usePanelLoaded("taskActivity");
   // While the Bot works the steps are open and the running step's clock ticks;
   // when the run ends they fold into the summary line (Motion Lab ToolSteps).
-  const live = !isTerminalRun(run);
+  const runLive = !isTerminalRun(run);
+  const live = runLive && primary;
   const [now, setNow] = useState(() => Date.now());
+  // An earlier stretch of a live run only ticks while one of its own calls is still running.
+  const ticking = runLive && (primary || currentTools.some(tool => tool.status === "running"));
   useEffect(() => {
-    if (!live) return;
+    if (!ticking) return;
     const ticker = window.setInterval(() => setNow(Date.now()), currentTools.some(tool => tool.status === "running") ? 100 : 1000);
     return () => window.clearInterval(ticker);
-  }, [live, currentTools]);
+  }, [ticking, currentTools]);
   const liveSeconds = Math.max(0, Math.floor((now - Date.parse(run.created_at)) / 1000));
   const liveFull = liveStatus || t("activity.thinking");
   const liveLine = live && !(replying && hideActivity && !revealedByMenu) ? { label: `${liveFull} · ${formatStepSeconds(liveSeconds)}`, full: liveFull } : undefined;
@@ -176,8 +194,11 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
   // The step may arrive with a later activity page; reveal it once it renders.
   useEffect(() => {
     if (!pendingStep) return;
-    const step = block.current?.querySelector<HTMLLIElement>(`li[data-step="${CSS.escape(pendingStep)}"]`);
+    // The step may sit in an earlier stretch of the run, drawn as another block under the same owner.
+    const step = block.current?.parentElement?.querySelector<HTMLLIElement>(`section[data-task-owner="${CSS.escape(owner.key)}"] li[data-step="${CSS.escape(pendingStep)}"]`) ?? block.current?.querySelector<HTMLLIElement>(`li[data-step="${CSS.escape(pendingStep)}"]`);
     if (!step) return;
+    const holder = step.closest("details.task-activity");
+    if (holder instanceof HTMLDetailsElement && !holder.open) holder.open = true;
     const record = step.querySelector("details");
     if (record) record.open = true;
     step.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
@@ -207,13 +228,13 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
   // so it is not a sender unit: the live line names the Bot itself instead of a second avatar and caption.
   const head = senderHead && (showActivity || issue) ? senderHead : undefined;
   const namedLive = Boolean(senderHead && !head && botName);
-  return <section ref={block} className={`task-run-block${senderHead ? " in-group" : ""}`} data-sender={head ? run.bot_id : undefined} data-at={head ? run.created_at : undefined} data-task-owner={owner.key} data-run-id={run.id} data-latest-run-id={run.id} tabIndex={-1} aria-label={t("activity.records_label")}>
+  return <section ref={block} className={`task-run-block${senderHead ? " in-group" : ""}`} data-sender={head ? run.bot_id : undefined} data-at={head ? run.created_at : undefined} data-task-owner={owner.key} data-run-id={run.id} data-latest-run-id={run.id} data-segment={segment ? segment.index : undefined} tabIndex={-1} aria-label={t("activity.records_label")}>
     {senderHead ? head : showName && botName && <p className="task-run-identity">{botName}</p>}
     {issue ? <TaskIssueCard issue={issue} locale={locale} onRetry={onRetryRun ? () => onRetryRun(run.id) : undefined} onFeedback={onFeedback} onOpenStep={openStep} onAction={issue.action === "open_tools" ? onOpenTools : issue.action === "open_codex" ? () => { window.dispatchEvent(new Event("tofi:open-codex-settings")); } : issue.action === "refresh_status" ? onRefresh : viewActivity} /> : taskPhaseVisible(run) && <p className="task-run-phase">{taskPhaseLabel(input)}</p>}
     {/* A separate valid proposal survives another call's failure/unknown effect. */}
     {!showActivity && liveLine && <p className="task-run-live-line"><button type="button" className="process-line" aria-expanded="false" onClick={viewActivity}><LiveMark />{namedLive && <span className="task-activity-name">{botName}</span>}<span className="process-line-text task-activity-live" role="status">{liveLine.label}</span><TofiIcon className="process-line-chevron" name="chevron-right" size={14} aria-hidden="true" /></button></p>}
     {showActivity && <ActivityDisclosure locale={locale} detail={activityDetail} count={toolTotal || undefined} duration={runSecondsOk ? formatStepSeconds(runSeconds) : undefined} issues={activityIssues} live={liveLine} disclosureRef={disclosure} onOpen={loadInitial}>
-      <TaskActivityBody owner={owner} tools={tools} drafts={drafts} messages={messages} summaries={summaries} details={details} live={live} now={now} locale={locale} recordedQuestions={recordedQuestions} rememberedDecisions={rememberedDecisions} notes={notes} onOpenTools={onOpenTools} onLoadDetails={onLoadDetails} renderMessage={renderMessage} renderQuestion={renderQuestion} renderDraft={renderDraft} />
+      <TaskActivityBody owner={owner} tools={shownTools} head={firstPart} tail={primary} allTools={tools} drafts={drafts} messages={messages} summaries={summaries} details={details} live={runLive} now={now} locale={locale} recordedQuestions={recordedQuestions} rememberedDecisions={rememberedDecisions} notes={notes} onOpenTools={onOpenTools} onLoadDetails={onLoadDetails} renderMessage={renderMessage} renderQuestion={renderQuestion} renderDraft={renderDraft} />
     </ActivityDisclosure>}
     {/* The card the person must answer is the newest, bottom-most item of the turn: the process line and the activity list sit above it. */}
     {currentDrafts.filter(draft => draft.status !== "unknown").map(renderDraft)}

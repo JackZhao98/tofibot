@@ -167,6 +167,59 @@ try {
   assert(taskBlockVisible(hideInput("done", { questions: [pendingApproval] })) === true, "a pending approval card is never hidden with Activity");
   const answeredApproval = { ...pendingApproval, status: "answered", answer: true };
   assert(taskBlockVisible(hideInput("done", { questions: [answeredApproval] })) === false, "an answered approval is bookkeeping inside Activity");
+
+  // One linear timeline: whatever is drawn between two calls of a run closes the stretch above it.
+  {
+    const { placeOwners } = await ui.load("/src/activityPlacements.ts");
+    const { buildTaskOwners } = await ui.load("/src/taskIssuePresentation.ts");
+    const { splitActivitySegments } = await ui.load("/src/toolTimeline.ts");
+    const t = n => `2026-10-28T10:00:${String(n).padStart(2, "0")}Z`;
+    const msg = (id, seq, at, role = "user", extra = {}) => ({ id, seq, created_at: at, conversation_id: "c", role, content: id, ...extra });
+    const call = (id, at, name = "computer_action", run_id = "r1") => ({ ...base, call_id: id, run_id, name, arguments: "{}", started_at: t(at), updated_at: t(at + 1) });
+    const r1 = { id: "r1", conversation_id: "c", bot_id: "b", status: "running", created_at: t(1), updated_at: t(30), trigger_message_id: "u1" };
+    const owners = buildTaskOwners([r1], [msg("u1", 1, t(0))], [], []);
+    const ownerAnchor = o => o.anchor && `${o.anchor.kind}:${o.anchor.id}`;
+    const placed = (messages, tools, notes = [], runs = [r1]) => placeOwners({ owners: buildTaskOwners(runs, messages, [], []), tools, messages, notes, anchorTime: anchor => messages.find(m => m.id === anchor.id)?.created_at });
+    const ids = placement => placement.segment.tools.map(tool => tool.call_id).join(",");
+
+    const quiet = placed([msg("u1", 1, t(0))], [call("a", 2), call("b", 4), call("c", 6)]);
+    assert(quiet.length === 1 && !quiet[0].segment && ownerAnchor(quiet[0].owner) === "message:u1", "an uninterrupted run stays one block, with no segment");
+
+    const split = placed([msg("u1", 1, t(0)), msg("u2", 2, t(5))], [call("a", 2), call("b", 4), call("c", 6), call("d", 8)]);
+    assert(split.length === 2 && split.every(p => p.segment), "a user message between two calls splits the run into two segments");
+    assert(ids(split[0]) === "a,b" && ids(split[1]) === "c,d", "segments keep the calls in time order on each side of the message");
+    assert(split[0].anchor?.id === "u1" && split[1].anchor?.id === "u2", "the first stretch stays at the trigger, the next sits under the message that closed it");
+    assert(split[0].segment.index === 0 && split[0].segment.primary === false && split[1].segment.primary === true && split[1].segment.count === 2, "only the latest segment is primary (live line, cards)");
+    assert(split[0].key !== split[1].key, "segments have distinct keys");
+
+    const many = placed([msg("u1", 1, t(0)), msg("u2", 2, t(5)), msg("u3", 3, t(9)), msg("notice", 4, t(13), "assistant", { kind: "notice" })], [call("a", 2), call("b", 4), call("c", 6), call("d", 8), call("e", 10), call("f", 14)]);
+    assert(many.map(ids).join("|") === "a,b|c,d|e|f", "each interruption starts the next stretch");
+    assert(many.map(p => p.anchor.id).join(",") === "u1,u2,u3,notice", "stretches sit under their own closing message, in order");
+
+    const sayNote = placed([msg("u1", 1, t(0))], [call("a", 2), call("b", 6)], [msg("n1", 2, t(4), "assistant", { kind: "progress", run_id: "r1" })]);
+    assert(sayNote.length === 2 && sayNote[1].anchor?.id === "u1" && sayNote[1].segment.from === t(6) && sayNote[0].segment.until === t(6), "the Bot's own progress note closes the stretch and stays inside the one it ends");
+
+    const other = placed([msg("u1", 1, t(0)), msg("ticket", 2, t(3), "assistant", { kind: "scheduled_task", run_id: "r2" })], [call("a", 2), call("b", 5)], [], [r1, { ...r1, id: "r2", created_at: t(3), trigger_message_id: "ticket" }]);
+    assert(other.filter(p => p.owner.key.endsWith(":r1")).length === 2 && other.some(p => p.anchor?.id === "ticket" && p.segment), "another run's ticket splits this run too");
+
+    const beforeHead = splitActivitySegments([call("a", 2), call("b", 4)], [{ at: t(0), anchor: "u1" }, { at: t(1), anchor: "u0" }], t(0));
+    assert(beforeHead.length === 1 && beforeHead[0].anchor === "u0", "a message between the trigger and the first call puts the calls under it, with no empty leading segment");
+    const headOnly = splitActivitySegments([call("a", 2), call("b", 4)], [{ at: t(0), anchor: "u1" }], t(0));
+    assert(headOnly.length === 1 && headOnly[0].anchor === undefined, "the trigger itself is not a boundary for its own run");
+    assert(splitActivitySegments([], [{ at: t(0), anchor: "u" }], t(0)).length === 0, "no calls, no segments");
+
+    // Long runs: hundreds of calls cut by dozens of messages in one pass, nowhere near a frame.
+    const at = n => new Date(Date.parse("2026-10-28T10:00:00Z") + n * 1000).toISOString();
+    const long = Array.from({ length: 600 }, (_, i) => ({ ...call(`l${String(i).padStart(4, "0")}`, 0), started_at: at(2 + i), updated_at: at(3 + i) }));
+    const longMessages = [msg("u1", 1, t(0)), ...Array.from({ length: 40 }, (_, i) => msg(`m${i}`, 2 + i, at(15 + i * 15)))];
+    const startedAt = performance.now();
+    let longPlaced;
+    for (let run = 0; run < 20; run += 1) longPlaced = placed(longMessages, long);
+    const perCall = (performance.now() - startedAt) / 20;
+    assert(longPlaced.length > 30 && longPlaced.reduce((n, p) => n + p.segment.tools.length, 0) === 600, "a 600-call run is cut into segments without losing or repeating a call");
+    assert(perCall < 25, `placing a 600-call run must stay cheap (took ${perCall.toFixed(1)} ms)`);
+    console.log(`  placement of a 600-call run in ${longPlaced.length} segments: ${perCall.toFixed(2)} ms`);
+  }
   console.log("tool timeline checks: PASS (Activity hiding, run ownership, cancelled history, pagination, overlapping requests, live activity, deduplication, precise ordering)");
 } finally {
   await ui.close();

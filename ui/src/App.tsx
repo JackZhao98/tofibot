@@ -7,6 +7,7 @@ import { markSenderGroups } from "./senderGroups";
 import { sameData } from "./sameData";
 import { buildTaskOwners, presentTaskIssue, taskPhaseLabel, type TaskOwner } from "./taskIssuePresentation";
 import { i18n, useTranslation } from "./i18n";
+import { placeOwners, type OwnerPlacement } from "./activityPlacements";
 import { mergeMessageTimeline, precedingBlockBotIds, previousRenderedIndex } from "./messageTimeline";
 import { textareaCaretRect } from "./textareaCaret";
 import { DelayedFeedback } from "./DelayedFeedback";
@@ -82,7 +83,7 @@ import { DeliveryNote, SendReceipt, SendReceiptMark, preloadSendFailure } from "
 import { applyInbox } from "./messageDelivery";
 import { receiptFor, runsByTrigger } from "./sendReceipts";
 import { activeBotRuns, botRecentlyActive, latestBotWorkTime, latestHumanMessageTime } from "./botActivity";
-import { reconcileToolActivity, activeToolForRun, buildToolRunAnchors, buildToolSummaryAnchors, buildToolTimeline, compareToolActivities, elapsedToolSeconds,  orderToolActivities, toolActionLabel, toolArgumentPreview, toolAttemptIssues, toolSourceLabel } from "./toolTimeline";
+import { reconcileToolActivity, activeToolForRun, buildToolRunAnchors, buildToolSummaryAnchors, buildToolTimeline, compareActivityTime, compareToolActivities, elapsedToolSeconds,  orderToolActivities, toolActionLabel, toolArgumentPreview, toolAttemptIssues, toolSourceLabel } from "./toolTimeline";
 import { foldCompletedProgress, isMidRunKind } from "./runProgress";
 import { mergeRunUpdates } from "./runMerge";
 import { draftDeltaApplies } from "./draftDelta";
@@ -1470,6 +1471,18 @@ function Workspace() {
   const summaryErrorRunIDs = useMemo(() => new Set(Object.entries(toolSummaryState).filter(([, state]) => Boolean(state.error)).map(([runID]) => runID)), [toolSummaryState]);
   const aggregateToolRunIDs = useMemo(() => new Set([...summaryRunIDs, ...summaryLoadingRunIDs, ...summaryErrorRunIDs]), [summaryRunIDs, summaryLoadingRunIDs, summaryErrorRunIDs]);
   const timelineToolActivities = useMemo(() => loadedToolActivities.filter(activity => !aggregateToolRunIDs.has(activity.run_id) && !supersededRunIDs.has(activity.run_id) && !ownedRunIDs.has(activity.run_id) && keepActivityRun(activity.run_id)), [loadedToolActivities, aggregateToolRunIDs, supersededRunIDs, ownedRunIDs, keepActivityRun]);
+  // Each task owner is drawn in stretches, in time order with everything else in the conversation (see activityPlacements.ts).
+  // The inputs are keyed by what the cut depends on (who is drawn, when, which notes), not by the messages' text: a streamed chunk
+  // rewrites a message's content many times a second and must not redo the cut.
+  const boundaryMessages = conversationItems.flatMap(item => item.kind === "message" ? [item.message] : []);
+  const boundaryKey = boundaryMessages.map(message => `${message.id}@${message.created_at}`).join("|");
+  const noteMessages = messageRecords.filter(message => message.kind === "progress" && message.role === "assistant");
+  const noteKey = noteMessages.map(message => `${message.id}@${message.created_at}:${message.run_id}`).join("|");
+  const ownerPlacements = useMemo<OwnerPlacement[]>(() => {
+    const timeOf = (anchor: NonNullable<(typeof taskOwners)[number]["anchor"]>) => anchor.kind === "message" ? messageById.get(anchor.id)?.created_at : anchor.kind === "question" ? questions.items.find(item => item.question_id === anchor.id)?.created_at : mailDrafts.items.find(item => item.draft_id === anchor.id)?.created_at;
+    return placeOwners({ owners: taskOwners, tools: loadedToolActivities, messages: boundaryMessages, notes: noteMessages, anchorTime: timeOf });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskOwners, loadedToolActivities, boundaryKey, noteKey, questions.items, mailDrafts.items]);
   const toolTimeline = useMemo(() => {
     const visibleIds = new Set(messages.map(message => message.id));
     return buildToolTimeline(messageRecords.filter(message => visibleIds.has(message.id)), timelineToolActivities, runs);
@@ -2377,14 +2390,20 @@ function Workspace() {
   // A block with nothing to show (Activity hidden, no card raised) draws nothing, so it must not count as a name label above a message.
   const ownerDraws = (owner: TaskOwner) => taskBlockVisible({ owner, tools: loadedToolActivities, questions: questions.items, drafts: mailDrafts.items, messages: messageRecords, summaries: terminalToolSummaries, details: toolDetailState, connected: linkConnected, hideActivity: !showActivity, revealed: ownerRevealed(owner) });
   // Computed once per render, not once per message: per-message scans made every render cubic in loaded history.
-  const ownerAnchors = taskOwners.filter(ownerDraws).map(owner => ({ anchor: owner.anchor, botId: owner.family.latest.bot_id }));
+  const placementDraws = (placement: OwnerPlacement) => placement.segment ? taskBlockVisible({ owner: placement.owner, segment: placement.segment, tools: loadedToolActivities, questions: questions.items, drafts: mailDrafts.items, messages: messageRecords, summaries: terminalToolSummaries, details: toolDetailState, connected: linkConnected, hideActivity: !showActivity, revealed: ownerRevealed(placement.owner) }) : ownerDraws(placement.owner);
+  const ownerAnchors = ownerPlacements.filter(placementDraws).map(placement => ({ anchor: placement.anchor, botId: placement.owner.family.latest.bot_id }));
+  // Blocks that share an anchor go in time order (the sort is stable: owners keep their order among themselves).
+  const placementIndex = new Map<string, OwnerPlacement[]>();
+  for (const placement of ownerPlacements) { const at = placement.anchor ? `${placement.anchor.kind}:${placement.anchor.id}` : ""; const list = placementIndex.get(at); if (list) list.push(placement); else placementIndex.set(at, [placement]); }
+  for (const list of placementIndex.values()) if (list.length > 1) list.sort((a, b) => compareActivityTime(a.at, b.at));
+  const placementsAt = (kind: "message" | "question" | "draft" | undefined, id?: string) => placementIndex.get(kind ? `${kind}:${id}` : "") ?? [];
   const messageRecordIDs = new Set(messageRecords.map(record => record.id));
   // Runs whose reply is on screen: the live status line gives way to it in the same frame.
   const replyingRunIDs = new Set([...Object.values(drafts).filter(draft => draft.status === "active" && draft.content.trim()).map(draft => draft.run_id), ...messageRecords.filter(record => record.role === "assistant" && record.run_id && !record.kind).map(record => record.run_id as string)]);
   const ownedAttemptKeys = new Set(taskOwners.flatMap(owner => owner.family.attempts.map(run => `${run.id}|${run.bot_id}|${run.conversation_id}`)));
   const ownedBy = (item: { run_id: string; bot_id: string; conversation_id: string }) => ownedAttemptKeys.has(`${item.run_id}|${item.bot_id}|${item.conversation_id}`);
-  function renderTaskOwner(owner: TaskOwner) {
-    return <TaskRunBlock key={owner.key} replying={replyingRunIDs.has(owner.family.latest.id)} hideActivity={!showActivity} revealed={ownerRevealed(owner)} owner={owner} senderHead={active?.kind === "group" ? <SenderHead id={owner.family.latest.bot_id} name={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} /> : undefined} liveStatus={runLiveStatus(owner.family.latest)} onRetryRun={retryRun} tools={loadedToolActivities} questions={questions.items} drafts={mailDrafts.items} messages={messageRecords} summaries={terminalToolSummaries} details={toolDetailState} connected={linkConnected} botName={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} showName={active?.kind === "group"}
+  function renderPlacement({ owner, key, segment }: OwnerPlacement) {
+    return <TaskRunBlock key={key} segment={segment} replying={replyingRunIDs.has(owner.family.latest.id)} hideActivity={!showActivity} revealed={ownerRevealed(owner)} owner={owner} senderHead={active?.kind === "group" ? <SenderHead id={owner.family.latest.bot_id} name={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} /> : undefined} liveStatus={runLiveStatus(owner.family.latest)} onRetryRun={retryRun} tools={loadedToolActivities} questions={questions.items} drafts={mailDrafts.items} messages={messageRecords} summaries={terminalToolSummaries} details={toolDetailState} connected={linkConnected} botName={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} showName={active?.kind === "group"}
       onOpenTools={() => openSettings("connections")}
       onFeedback={text => window.dispatchEvent(new CustomEvent("tofi:task-feedback", {detail:{conversationId:owner.family.latest.conversation_id,text}}))}
       onRefresh={refreshTaskStatus} onLoadDetails={loadToolDetails}
@@ -2665,13 +2684,13 @@ function Workspace() {
                       const previousTime = previousItem?.kind === "message" ? previousItem.message.created_at : previousItem?.kind === "question" ? previousItem.question.created_at : previousItem?.draft.created_at;
                       if (item.kind === "mail_draft") {
                         const draft = item.draft;
-                        if (ownedBy(draft)) return taskOwners.filter(owner => owner.anchor?.kind === "draft" && owner.anchor.id === draft.draft_id).map(renderTaskOwner);
+                        if (ownedBy(draft)) return placementsAt("draft", draft.draft_id).map(renderPlacement);
                         const divider = !previousTime || dateInTimezone(previousTime, timezone) !== dateInTimezone(draft.created_at, timezone) || +new Date(draft.created_at) - +new Date(previousTime) >= 10 * 60_000;
                         return <div className="message-block" key={`mail-draft-${draft.draft_id}`}>{divider && <div className="date-divider"><span>{formatDateDivider(draft.created_at, timezone)}</span></div>}<Suspense fallback={null}><MailDraftCard draft={draft} bot={botById.get(draft.bot_id)} group={active.kind === "group"} archived={active.archived} onChanged={async () => { await mailDrafts.refresh(); await refreshConversations(); }} /></Suspense></div>;
                       }
                       if (item.kind === "question") {
                         const question = item.question;
-                        if (ownedBy(question)) return taskOwners.filter(owner => owner.anchor?.kind === "question" && owner.anchor.id === question.question_id).map(renderTaskOwner);
+                        if (ownedBy(question)) return placementsAt("question", question.question_id).map(renderPlacement);
                         const divider = !previousTime || dateInTimezone(previousTime, timezone) !== dateInTimezone(question.created_at, timezone) || +new Date(question.created_at) - +new Date(previousTime) >= 10 * 60_000;
                         return <div className="message-block" key={`question-${question.question_id}`}>{divider && <div className="date-divider"><span>{formatDateDivider(question.created_at, timezone)}</span></div>}<Suspense fallback={null}><QuestionCard item={question} bot={botById.get(question.bot_id)} group={active.kind === "group"} archived={active.archived} onChanged={async (resolved) => { await questions.refresh(resolved); await refreshConversations(); }} /></Suspense></div>;
                       }
@@ -2726,7 +2745,7 @@ function Workspace() {
                       const isStub = !messageRecordIDs.has(message.id);
                       const hasProcessTools = Boolean(processTools.length || processProgress.length || processSummaries.length || Object.keys(processSummaryErrors).length || Object.keys(processSummaryLoading).length);
                       const hasAfterTools = Boolean(afterTools.length || afterSummaries.length || Object.keys(afterSummaryErrors).length || Object.keys(afterSummaryLoading).length);
-                      const ownersHere = taskOwners.filter(owner => owner.anchor?.kind === "message" && owner.anchor.id === message.id);
+                      const ownersHere = placementsAt("message", message.id);
                       const model: RowModel = {
                         message, isLast: index === conversationItems.length - 1, arrival: arrivalIDs.current.has(blockKey(message)), streamed: streamedIDs.current.has(message.id),
                         dividerLabel: showDivider ? formatDateDivider(message.created_at, timezone) : undefined, unread, timezone, canReact, isGroup: active.kind === "group", archived: Boolean(active.archived),
@@ -2747,14 +2766,14 @@ function Workspace() {
                         receipt: receiptState ?? undefined, receiptNames, canRetryReceipt: Boolean(message.local && message.client_message_id && canRetrySend(message.client_message_id)),
                         hasBar, copyText, activityRunId, activityToggle: Boolean(activityRunId && !showActivity), activityOpen: activityRunId ? revealedRuns.has(activityRunId) : false, canReply: !active.archived,
                         botNames, menuPosition: reactionMenu?.messageId === message.id ? reactionMenu : null,
-                        ownerNodes: ownersHere.length ? ownersHere.map(renderTaskOwner) : undefined,
+                        ownerNodes: ownersHere.length ? ownersHere.map(renderPlacement) : undefined, ownsNext: ownersHere.some(placementDraws),
                         taskCards: taskView?.byMessage.get(message.id),
                       };
                       return <MessageRow key={blockKey(message)} model={model} h={rowHandlers} stream={draftStream} />;
                     })}
                   {greeting.stage === "typing" && activeBot && <CompactLiveLine key={`greeting-${greeting.shown}`} label={`${t("live.thinking")}…`} botId={activeBot.id} botName={activeBot.name} at={activeBot.created_at} showName={false} ariaLabel={t("live.status_label", { name: activeBot.name })} />}
                   <ToolActivityList activities={toolTimeline.fallback} summaries={terminalToolSummaries.filter(summary => toolTimeline.fallback.some(activity => activity.run_id === summary.run_id))} details={toolDetailState} onLoadDetails={loadToolDetails} botById={botById} activeRunIds={activeRunIds} group={active.kind === "group"} />
-                  {taskOwners.filter(owner => !owner.anchor).map(renderTaskOwner)}
+                  {placementsAt(undefined).map(renderPlacement)}
                   {!isDesktop && pendingRuns.filter(run => !ownedRunIDs.has(run.id)).map(run => <LiveRunStatus key={run.id} run={run} botName={run.kind === "triage" ? "Tofi" : botById.get(run.bot_id)?.name ?? "Bot"} showName={active.kind === "group"} />)}
                   {error && !proxyChallenged && <div className="error-banner system-notice" role="alert">{error}</div>}
                 </div></ActivityViewContext.Provider></RunStartContext.Provider></ExpiryFinishingContext.Provider>
@@ -2927,6 +2946,8 @@ interface RowModel {
   hasBar: boolean; copyText?: string; activityRunId?: string; activityToggle: boolean; activityOpen: boolean; canReply: boolean;
   botNames: Map<string, string>; menuPosition: { messageId: string; x: number; y: number; h?: number } | null;
   ownerNodes?: React.ReactNode[];
+  /** A task block that draws something follows this message directly: its action bar floats instead of reserving a row, so the block sits at the normal item gap. */
+  ownsNext?: boolean;
   /** Task cards under this message: plain models whose identity holds until the task changes. */
   taskCards?: TaskCardModel[];
 }
@@ -2969,7 +2990,7 @@ const MessageRow = memo(function MessageRow({ model: m, h, stream }: { model: Ro
       onReact={anchor => h.react(message.id, anchor)}
       onActivity={m.activityToggle && m.activityRunId ? () => h.toggleActivity(m.activityRunId!) : undefined} activityOpen={m.activityOpen}
       onReply={m.canReply ? () => h.reply(message) : undefined} /></MessageActionsSlot> : undefined;
-  return <div className={`message-block${m.arrival ? ` new-arrival${m.streamed ? " was-streamed" : ""}` : ""}`} data-message-seq={message.seq} data-message-id={message.id} data-flip={blockKey(message)} tabIndex={m.isLast ? 0 : -1} onContextMenu={m.canReact && isDesktop && message.role !== "user" ? event => { event.preventDefault(); h.openMenu(message.id, event.clientX, event.clientY); } : undefined}>
+  return <div className={`message-block${m.arrival ? ` new-arrival${m.streamed ? " was-streamed" : ""}` : ""}`} data-message-seq={message.seq} data-message-id={message.id} data-owns-next={m.ownsNext ? "" : undefined} data-flip={blockKey(message)} tabIndex={m.isLast ? 0 : -1} onContextMenu={m.canReact && isDesktop && message.role !== "user" ? event => { event.preventDefault(); h.openMenu(message.id, event.clientX, event.clientY); } : undefined}>
     {m.dividerLabel !== undefined && <div className="date-divider"><span>{m.dividerLabel}</span></div>}
     {m.unread && <div className="unread-divider" aria-label={t("history.unread_below")}><span>{t("history.unread")}</span></div>}
     <div className={`message-hover-host${message.role === "user" ? " is-user" : ""}`} data-host-id={message.id} onPointerDownCapture={!isDesktop && m.canReact ? h.hostPointerDown : undefined} onClick={!isDesktop && m.canReact ? event => h.hostClick(event, message.id) : undefined}>

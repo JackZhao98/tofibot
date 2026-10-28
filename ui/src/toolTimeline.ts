@@ -73,6 +73,9 @@ function preciseTime(value: string): PreciseTime | null {
   return Number.isFinite(milliseconds) ? { milliseconds, nanoseconds: 0 } : null;
 }
 
+/** Orders two ISO timestamps to the nanosecond; an unreadable one sorts last. */
+export function compareActivityTime(a: string, b: string) { return compareTime(preciseTime(a), preciseTime(b)); }
+
 function compareTime(a: PreciseTime | null, b: PreciseTime | null) {
   if (a === null && b === null) return 0;
   if (a === null) return 1;
@@ -98,7 +101,10 @@ export function reconcileToolActivity(previous: ToolActivity | undefined, next: 
 
 /** Keep tool order tied to the immutable queued timestamp, not completion time. */
 export function orderToolActivities(activities: ToolActivity[]) {
-  return [...activities].sort(compareToolActivities);
+  // Parse each timestamp once, not once per comparison: a run of hundreds of calls re-sorts on every tool event.
+  const keyed = activities.map(activity => ({ activity, at: preciseTime(activity.started_at) }));
+  keyed.sort((a, b) => compareTime(a.at, b.at) || a.activity.call_id.localeCompare(b.activity.call_id));
+  return keyed.map(item => item.activity);
 }
 
 export function compareToolActivities(a: ToolActivity, b: ToolActivity) {
@@ -334,4 +340,37 @@ export function buildToolTimeline(messages: Message[], activities: ToolActivity[
 
 export function toolActivityKey(activity: Pick<ToolActivity, "run_id" | "call_id">) {
   return `${activity.run_id}\u0000${activity.call_id}`;
+}
+
+/** Something drawn in the conversation that closes the activity segment above it. `anchor` is the rendered message a later segment sits under; a boundary that draws nothing of its own (a progress note kept inside Activity) has none, and the segment follows the last anchor before it. */
+export interface ActivityBoundary { at: string; anchor?: string }
+/** Consecutive tool calls with nothing else between them. `anchor` is the message the segment is drawn under; undefined is the run's own place (the head segment). */
+export interface ActivitySegment { tools: ToolActivity[]; anchor?: string }
+
+/**
+ * Cuts a run's tool calls (ordered by start) into the stretches the conversation shows them in. Whenever a boundary (a person's
+ * message, another run's ticket or notice, the Bot's own say or progress message) falls between two calls, the second starts a new
+ * segment after it. Calls with no boundary between them and `headAt` (the time of the item the run's block is anchored to; none:
+ * the first call) stay in the head segment. Boundaries must be ordered by time. One pass over both lists: O(calls + boundaries).
+ */
+export function splitActivitySegments(tools: ToolActivity[], boundaries: ActivityBoundary[], headAt?: string): ActivitySegment[] {
+  if (!tools.length) return [];
+  const times = boundaries.map(boundary => preciseTime(boundary.at));
+  const lastBefore = (at: PreciseTime | null, from: number) => { let index = from; while (index + 1 < times.length && compareTime(times[index + 1], at) <= 0) index += 1; return index; };
+  const starts = tools.map(tool => preciseTime(tool.started_at));
+  const headKey = headAt ? lastBefore(preciseTime(headAt), -1) : lastBefore(starts[0], -1);
+  const segments: ActivitySegment[] = [];
+  let key = -1, anchorAt = -1, segmentKey = -2;
+  for (const [index, tool] of tools.entries()) {
+    key = lastBefore(starts[index], key);
+    const inHead = key <= headKey;
+    if (!segments.length || (inHead ? -1 : key) !== segmentKey) {
+      segmentKey = inHead ? -1 : key;
+      let anchor: string | undefined;
+      if (!inHead) { for (anchorAt = key; anchorAt >= 0 && !boundaries[anchorAt].anchor; anchorAt -= 1); anchor = anchorAt >= 0 ? boundaries[anchorAt].anchor : undefined; }
+      segments.push({ tools: [], anchor });
+    }
+    segments[segments.length - 1].tools.push(tool);
+  }
+  return segments;
 }

@@ -10,6 +10,7 @@ import { bot, pendingApproval } from "../world";
 import { buildTaskOwners } from "../../taskIssuePresentation";
 import type { Message, Run, RunContextSnapshot, ToolActivity, ToolActivityRunSummary } from "../../types";
 import type { CatalogState } from "../types";
+import type { AppOptions } from "../world";
 
 const ago = (seconds: number) => new Date(Date.now() - seconds * 1000).toISOString();
 const CONVERSATION = "dm_mochi";
@@ -102,6 +103,8 @@ const CONTEXT_CUT: RunContextSnapshot = {
 const contextBody = (state: RunContextState) => <div className="run-context-catalog"><RunContextBody state={state} timezone="UTC" /></div>;
 const openPart = (index: number): CatalogState["drive"] => async step => { await step.click(`.run-context-parts > .run-context-part:nth-child(${index}) > summary`); await step.wait(200); };
 
+const TIMELINE: AppOptions = { path: "/b/bot_mochi", timeline: true };
+const openSegments: CatalogState["drive"] = async step => { await step.find(".task-run-block", 4000); await step.wait(600); for (const summary of [...step.root.querySelectorAll<HTMLElement>("details.task-activity > summary")]) { await step.click(summary); await step.wait(120); } await step.wait(400); };
 const expand = (selector: string): CatalogState["drive"] => async step => { await step.click(selector); await step.wait(400); };
 const LONG = "Working out which of the available tools fits best for the launch review notes and the venue";
 const ctx = { kind: "inline" as const, context: ["catalog-column"] };
@@ -117,6 +120,9 @@ export const processStates: CatalogState[] = [
   { id: "process-complete", label: "Process line, finished", note: "no mark; chevron, tool glyph, count, time (\"3 · 46s\"); the words are the accessible name", ...ctx, render: () => block("run_p6", "done", { live: false, hideActivity: false }) },
   { id: "process-complete-open", label: "Process line, finished, opened", ...ctx, render: () => block("run_p7", "done", { live: false, hideActivity: false }), drive: expand("details.task-activity > summary") },
   { id: "process-complete-rich-open", label: "Activity, finished, opened, with a failed call", note: "compact rows: status icon, no timeline rail, time only from 1 s; the failed row stays red with its words; runs of the same call fold into one row with a count", ...ctx, render: () => block("run_p8", "done", { live: false, hideActivity: false, rich: true }), drive: expand("details.task-activity > summary") },
+  { id: "activity-group-open", label: "Activity, a folded row opened", note: "the count is a small muted pill, the chevron its own slot after it, the time stays right-aligned with every other row's; the whole row is the target", ...ctx, render: () => block("run_p10", "done", { live: false, hideActivity: false, rich: true }), drive: async step => { await step.click("details.task-activity > summary"); await step.wait(400); await step.click(".task-step-group > details > summary"); await step.wait(400); } },
+  { id: "activity-segmented", kind: "app", label: "Activity, one run in stretches", note: "the run's calls are cut wherever something else is drawn: a second message, a schedule ticket with its queued run. Each stretch is its own row with its own count; the clock and the live line sit on the last one only", app: TIMELINE, widths: ["desktop", "phone"], probe: ".task-run-block[data-segment]", drive: openSegments },
+  { id: "activity-segmented-many", kind: "app", label: "Activity, a run of 400 calls", note: "folded rows by tool, counts as pills; the page stays light", app: { ...TIMELINE, timeline: "many" }, widths: ["desktop"], drive: openSegments },
   { id: "process-live-rich-open", label: "Activity, live, opened, with a failed call", ...ctx, render: () => block("run_p9", "running", { live: true, liveStatus: "Sending a message", hideActivity: false, rich: true }), drive: expand("details.task-activity > summary") },
   { id: "process-web-complete-rich-open", label: "Web tool row, finished, opened, with a failed call", ...ctx, render: () => web("run_w6", false, true), drive: expand(".web-tool-toggle") },
   { id: "process-web-live-rich-open", label: "Web tool row, live, opened, with a failed call", ...ctx, render: () => web("run_w7", true, true), drive: expand(".web-tool-toggle") },

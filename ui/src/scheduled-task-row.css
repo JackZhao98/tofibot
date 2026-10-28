@@ -4,6 +4,8 @@ html:not([data-desktop]) .workspace .scheduled-run {
   max-width:var(--chat-max);
   margin:6px auto 16px;
 }
+/* A task block directly under the ticket ("Waiting to start", an Activity stretch) sits at the normal item gap, not the ticket's own 16px. */
+html:not([data-desktop]) .workspace .message-block[data-owns-next] .scheduled-run { margin-bottom:var(--space-3); }
 .scheduled-task-label > strong { display:block; overflow:hidden; text-overflow:ellipsis; font-weight:500; }
 .scheduled-task-label > small { display:block; overflow:hidden; text-overflow:ellipsis; color:var(--text-soft); font-size:11px; }
 /* Blank ticket while the occurrence read is in flight: same box, no text, no icons, no hit targets. */

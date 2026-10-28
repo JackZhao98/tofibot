@@ -203,10 +203,11 @@ function check(label, m, kind) {
         if (first && gap < 18) failures.push(`${tag}: gap ${gap.toFixed(1)}px after another speaker (want >= 18)`);
         // After a message, a hover-capable pointer's bar row sits in the gap: 28px row plus a small margin, tight but never narrower than the bar.
         // On touch the bar opens in the flow, so the gap stays tight. A gap after an Activity row has no bar in it.
+        // An Activity stretch directly under a message takes the item gap (its bar floats, no reserved row): one step, never more than 14px.
         // Inside a bubble run (consecutive plain bubbles, nothing between) the reserved bar row is gone and the gap is 3px: convention change.
         if (u.joined) { if (gap < 2 || gap > 4.5) failures.push(`${tag}: gap ${gap.toFixed(1)}px inside a bubble run (want ~3)`); if (u.radii[0] !== 6) failures.push(`${tag}: run bubble top-left radius ${u.radii[0]} (want 6)`); }
-        else if (!first && m.hover && prev.type === "message" && (gap > 36 || gap < 27.5)) failures.push(`${tag}: gap ${gap.toFixed(1)}px inside one sender's group after a message (want 28-36)`);
-        if (!first && (!m.hover || prev.type !== "message") && gap > 14) failures.push(`${tag}: gap ${gap.toFixed(1)}px inside one sender's group (want <= 14)`);
+        else if (!first && m.hover && prev.type === "message" && u.type !== "activity" && (gap > 36 || gap < 27.5)) failures.push(`${tag}: gap ${gap.toFixed(1)}px inside one sender's group after a message (want 28-36)`);
+        if (!first && (!m.hover || prev.type !== "message" || u.type === "activity") && gap > 14) failures.push(`${tag}: gap ${gap.toFixed(1)}px inside one sender's group (want <= 14)`);
       }
     }
     // One column: every Bot unit starts at the same x.

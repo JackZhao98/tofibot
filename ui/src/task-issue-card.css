@@ -83,14 +83,15 @@
 .task-tool-records .tool-status.is-done{color:var(--text-process)}
 .task-tool-records .tool-status.is-problem{color:var(--status-error-text)}
 .task-step-time-quiet{flex:0 0 auto;margin-inline-start:auto;color:var(--text-process);font:var(--type-meta);font-variant-numeric:tabular-nums;white-space:nowrap}
-.task-step-count{color:var(--text-process);font-variant-numeric:tabular-nums}
+/* Folded calls: the count is a small muted pill, the chevron its own slot after it, the time stays on the right with every other row's. */
+.task-step-count{flex:none;box-sizing:border-box;min-width:20px;padding:0 6px;border-radius:999px;background:color-mix(in srgb,var(--text-process) 14%,transparent);color:var(--text-process);font:var(--type-meta);font-variant-numeric:tabular-nums;line-height:18px;text-align:center}
 .task-step.is-problem>details>summary{border-radius:var(--radius-sm,8px);background:color-mix(in srgb,var(--status-error) 7%,transparent);padding-inline:var(--space-2);margin-inline:calc(-1 * var(--space-2))}
 .task-step-nested{list-style:none;margin:0;padding:0 0 0 var(--space-4)}
 .task-step-body{padding-inline-start:calc(14px + var(--space-2))}
 .task-step-group>details>.task-step-body{padding-inline-start:0}
 .task-tool-records summary:hover .task-step-title{color:var(--text)}
 @media(pointer:coarse){.task-tool-records summary{min-height:36px}}
-.task-step-chevron{flex:none;margin-inline-start:calc(-1 * var(--space-1));color:var(--text-process);transition:transform var(--m-base) var(--ease-out)}
+.task-step-chevron{flex:none;margin-inline-start:calc(var(--space-1) - var(--space-2) + var(--space-1));color:var(--text-process);transition:transform var(--m-base) var(--ease-out)}
 .task-step-group>details[open]:not([data-drawer=closing])>summary .task-step-chevron{transform:rotate(90deg)}
 .task-step-group>details[data-drawer=closing]>summary .task-step-chevron{transition-duration:var(--m-panel-out)}
 @media(prefers-reduced-motion:reduce){.task-step-chevron{transition:none}}

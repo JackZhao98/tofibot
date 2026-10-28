@@ -53,7 +53,7 @@ export function WebToolSteps({ entries, live, now, timezone }: { entries: WebToo
         const activity = entry.activity;
         if (entry.group) return <li className="web-tool-step web-tool-group is-completed" key={`group-${toolActivityKey(activity)}`}>
           <ToolStatusIcon state="completed" label={toolDisplayLabel(activity)} />
-          <details className="web-tool-step-detail"><summary onClick={toggleDisclosure}><span className="web-tool-step-label">{toolStepLabel(activity)}<span className="web-tool-count" aria-label={t("tools.call_count", { count: entry.group.length })}> ×{entry.group.length}</span><Icon className="web-tool-group-chevron" name="chevron-right" size={12} aria-hidden="true" /></span></summary>
+          <details className="web-tool-step-detail"><summary onClick={toggleDisclosure}><span className="web-tool-step-label">{toolStepLabel(activity)}<span className="web-tool-count" aria-label={t("tools.call_count", { count: entry.group.length })}>{entry.group.length}</span><Icon className="web-tool-group-chevron" name="chevron-right" size={12} aria-hidden="true" /></span></summary>
             <ol className="web-tool-group-steps">{entry.group.map(item => renderStep(item, false))}</ol></details>
           <span className="web-tool-step-meta">{(() => { const total = entry.group.reduce((sum, item) => sum + (webToolSeconds(item, now) ?? 0), 0); return total >= 1 ? formatStepSeconds(total) : ""; })()}</span>
         </li>;
