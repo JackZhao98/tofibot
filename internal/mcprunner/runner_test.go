@@ -157,7 +157,12 @@ func TestRunnerBridgesStdioToPrivateHTTPMCP(t *testing.T) {
 
 func TestPluginSecretsUsePrivateFiles(t *testing.T) {
 	dir := t.TempDir()
-	paths, err := installSecretEnv(dir, map[string]string{"API_TOKEN": "private-value"})
+	pr, err := os.OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pr.Close()
+	paths, err := installSecretEnv(pr, dir, map[string]string{"API_TOKEN": "private-value"})
 	if err != nil {
 		t.Fatal(err)
 	}

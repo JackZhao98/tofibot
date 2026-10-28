@@ -248,8 +248,9 @@ func TestWithinIsNotAPrefixMatch(t *testing.T) {
 func TestUIDsAreDistinctPersistentAndNeverReused(t *testing.T) {
 	var mu sync.Mutex
 	owner := map[string]int{}
-	old := lchown
-	lchown = func(path string, uid, gid int) error {
+	old := chownAt
+	chownAt = func(r *os.Root, name string, uid, gid int) error {
+		path := filepath.Join(r.Name(), name)
 		mu.Lock()
 		defer mu.Unlock()
 		if uid != gid {
@@ -258,16 +259,33 @@ func TestUIDsAreDistinctPersistentAndNeverReused(t *testing.T) {
 		owner[path] = uid
 		return nil
 	}
-	defer func() { lchown = old }()
+	defer func() { chownAt = old }()
+	// chown is faked, so the directories' real owner is the test user: read the owner the fake recorded.
+	oldOwner := ownerOf
+	ownerOf = func(path string) (int, bool) {
+		mu.Lock()
+		defer mu.Unlock()
+		uid, ok := owner[path]
+		return uid, ok
+	}
+	defer func() { ownerOf = oldOwner }()
 	hub, root := newTestHub(t, func(c *HubConfig) { c.IsolateUIDs = true })
 	for _, id := range []string{accountA, accountB} {
 		if w := call(hub, http.MethodGet, "/a/"+id+"/v1/plugins", tokenOf(id), nil); w.Code != 200 {
 			t.Fatalf("%s: %d", id, w.Code)
 		}
 	}
-	a, b := owner[filepath.Join(root, "accounts", accountA, "state")], owner[filepath.Join(root, "accounts", accountB, "state")]
+	a, b := owner[filepath.Join(root, "accounts", accountA, "tmp")], owner[filepath.Join(root, "accounts", accountB, "tmp")]
 	if a == 0 || b == 0 || a == b {
 		t.Fatalf("uids a=%d b=%d", a, b)
+	}
+	// state/ and state/plugins/ belong to root: the account may pass, never rename.
+	for _, id := range []string{accountA, accountB} {
+		for _, d := range []string{"state", filepath.Join("state", "plugins")} {
+			if uid, ok := owner[filepath.Join(root, "accounts", id, d)]; !ok || uid != 0 {
+				t.Fatalf("%s/%s owner = %d (set=%v), want root", id, d, uid, ok)
+			}
+		}
 	}
 	if owner[filepath.Join(root, "accounts", accountA, "tmp")] != a {
 		t.Fatal("tmp does not belong to the account uid")
@@ -297,7 +315,7 @@ func TestUIDsAreDistinctPersistentAndNeverReused(t *testing.T) {
 	if w := call(hub, http.MethodGet, "/a/"+third+"/v1/plugins", tokenOf(third), nil); w.Code != 200 {
 		t.Fatal(w.Code)
 	}
-	c := owner[filepath.Join(root, "accounts", third, "state")]
+	c := owner[filepath.Join(root, "accounts", third, "tmp")]
 	if c == a || c == b {
 		t.Fatalf("uid %d was reused", c)
 	}
@@ -314,9 +332,9 @@ func TestUIDsAreDistinctPersistentAndNeverReused(t *testing.T) {
 }
 
 func TestHubIsolationFailsClosedWhenOwnershipCannotBeSet(t *testing.T) {
-	old := lchown
-	lchown = func(string, int, int) error { return os.ErrPermission }
-	defer func() { lchown = old }()
+	old := chownAt
+	chownAt = func(*os.Root, string, int, int) error { return os.ErrPermission }
+	defer func() { chownAt = old }()
 	hub, _ := newTestHub(t, func(c *HubConfig) { c.IsolateUIDs = true })
 	if w := call(hub, http.MethodGet, "/a/"+accountA+"/v1/plugins", tokenOf(accountA), nil); w.Code != http.StatusServiceUnavailable {
 		t.Fatalf("served without isolation: %d", w.Code)
@@ -445,7 +463,12 @@ func TestImportWriteRefusesSymlinks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := writeImportFiles(target, files); err == nil {
+	tr, err := os.OpenRoot(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tr.Close()
+	if err := writeImportFiles(tr, files); err == nil {
 		t.Fatal("wrote through a symlinked directory")
 	}
 	if _, err := os.Stat(filepath.Join(outside, "stolen")); !os.IsNotExist(err) {
@@ -461,7 +484,7 @@ func TestImportWriteRefusesSymlinks(t *testing.T) {
 		t.Fatal(err)
 	}
 	files, _, _ = decodeImportFiles("builtin_gog", []ImportFile{importFile("home/link", "y")})
-	if err := writeImportFiles(target, files); err == nil {
+	if err := writeImportFiles(tr, files); err == nil {
 		t.Fatal("wrote over a symlink")
 	}
 }

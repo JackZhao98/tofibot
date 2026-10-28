@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -43,39 +43,28 @@ func AccountToken(master []byte, accountID string) string {
 // MinMasterKeyBytes is the shortest master key the Runner accepts.
 const MinMasterKeyBytes = 32
 
-var lchown = os.Lchown
-
-// chownTo gives one path to the account's uid. A nil credential (single-tenant
-// Runner, tests) leaves ownership alone.
-func chownTo(cred *syscall.Credential, path string) error {
-	if cred == nil {
-		return nil
-	}
-	return lchown(path, int(cred.Uid), int(cred.Gid))
-}
-
-// chownTree gives a directory and everything below it to the account's uid. It
-// never follows a symlink: the link itself changes owner.
-func chownTree(cred *syscall.Credential, root string) error {
-	if cred == nil {
-		return nil
-	}
-	return filepath.WalkDir(root, func(path string, _ fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		return chownTo(cred, path)
-	})
-}
+// MaxUID is the first uid the Runner never hands out. 65534 is "nobody", and a
+// Docker userns-remap or rootless daemon maps only 65536 uids (0..65535) into the
+// container, so an account uid above that range could not be set at all.
+const MaxUID = 65534
 
 // uidRegistry hands every account its own numeric uid and never reuses one, so a
 // deleted account's leftovers can never belong to a new account.
+//
+// The registry file is a cache of what the directories already say. The owner of
+// an account's tmp/ directory is authoritative: on start the registry has to
+// agree with it for every account that exists on disk, and an account where it
+// does not (a lost, restored-from-backup or edited uids.json) is refused rather
+// than repaired, because guessing would hand one account another's files.
 type uidRegistry struct {
-	mu   sync.Mutex
-	path string
-	base int
-	next int
-	ids  map[string]int
+	mu       sync.Mutex
+	path     string
+	accounts string // <root>/accounts, scanned for directory owners
+	base     int
+	limit    int
+	next     int
+	ids      map[string]int
+	refused  map[string]string
 }
 
 type uidFile struct {
@@ -83,47 +72,165 @@ type uidFile struct {
 	IDs  map[string]int `json:"ids"`
 }
 
-func loadUIDRegistry(path string, base int) (*uidRegistry, error) {
-	r := &uidRegistry{path: path, base: base, next: base, ids: map[string]int{}}
-	data, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return r, nil
-	}
+// ownerOf reports the uid that owns a path (without following a link). Tests
+// replace it where chown is faked.
+var ownerOf = func(path string) (uid int, ok bool) {
+	info, err := os.Lstat(path)
 	if err != nil {
-		return nil, err
+		return 0, false
 	}
-	var f uidFile
-	if err := json.Unmarshal(data, &f); err != nil {
-		return nil, fmt.Errorf("uid registry: %w", err)
+	st, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		return 0, false
 	}
-	seen := map[int]bool{}
-	for id, uid := range f.IDs {
-		if !ValidAccountID(id) || uid < base || uid >= f.Next || seen[uid] {
-			return nil, errors.New("uid registry is inconsistent")
+	return int(st.Uid), true
+}
+
+// accountOwner is the uid an account directory belongs to: the owner of its
+// tmp/ directory (always the account uid), or of state/ in a layout that gave
+// that to the account. Root-owned or absent means nothing was ever assigned.
+func accountOwner(dir string) (int, bool) {
+	for _, name := range []string{"tmp", "state"} {
+		if uid, ok := ownerOf(filepath.Join(dir, name)); ok && uid != 0 {
+			return uid, true
 		}
-		seen[uid] = true
 	}
-	r.next, r.ids = f.Next, f.IDs
-	if r.ids == nil {
-		r.ids = map[string]int{}
+	return 0, false
+}
+
+// scanOwners lists the uid of every account directory below accounts.
+func scanOwners(accounts string) map[string]int {
+	out := map[string]int{}
+	entries, err := os.ReadDir(accounts)
+	if err != nil {
+		return out
 	}
-	if r.next < base {
-		r.next = base
+	for _, e := range entries {
+		if !ValidAccountID(e.Name()) || !e.IsDir() {
+			continue
+		}
+		if uid, ok := accountOwner(filepath.Join(accounts, e.Name())); ok {
+			out[e.Name()] = uid
+		}
+	}
+	return out
+}
+
+// loadUIDRegistry reads the registry and reconciles it with the account
+// directories. A registry that is missing, unreadable or inconsistent while
+// accounts exist is treated as lost: every account on disk is refused and new
+// uids start above anything a directory already carries.
+func loadUIDRegistry(path string, base int, isolate bool) (*uidRegistry, error) {
+	r := &uidRegistry{path: path, accounts: filepath.Join(filepath.Dir(path), "accounts"), base: base, limit: MaxUID, next: base, ids: map[string]int{}, refused: map[string]string{}}
+	lost := ""
+	data, err := os.ReadFile(path)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		lost = "the uid registry is missing"
+	case err != nil:
+		return nil, err
+	default:
+		var f uidFile
+		if err := json.Unmarshal(data, &f); err != nil {
+			lost = "the uid registry cannot be parsed"
+		} else if !consistent(f, base) {
+			lost = "the uid registry is inconsistent"
+		} else {
+			r.next, r.ids = f.Next, f.IDs
+			if r.ids == nil {
+				r.ids = map[string]int{}
+			}
+			if r.next < base {
+				r.next = base
+			}
+		}
+		if lost != "" {
+			// Keep the evidence; the next allocation writes a fresh file.
+			_ = os.Rename(path, path+".unusable")
+		}
+	}
+	if !isolate {
+		return r, nil // directories keep the Runner's own uid: nothing to reconcile
+	}
+	owners := scanOwners(r.accounts)
+	byUID := map[int][]string{}
+	for id, uid := range owners {
+		byUID[uid] = append(byUID[uid], id)
+		if uid >= r.next {
+			r.next = uid + 1
+		}
+	}
+	for id, uid := range owners {
+		switch registered, ok := r.ids[id]; {
+		case len(byUID[uid]) > 1:
+			r.refuse(id, fmt.Sprintf("uid %d owns more than one account directory", uid))
+		case lost != "":
+			r.refuse(id, lost+", and the directory is owned by uid "+fmt.Sprint(uid))
+		case !ok:
+			r.refuse(id, fmt.Sprintf("the directory is owned by uid %d but the registry has no entry", uid))
+		case registered != uid:
+			r.refuse(id, fmt.Sprintf("the registry says uid %d but the directory is owned by uid %d", registered, uid))
+		}
 	}
 	return r, nil
 }
 
-// uid returns the account's uid, allocating and persisting one on first use.
+func consistent(f uidFile, base int) bool {
+	seen := map[int]bool{}
+	for id, uid := range f.IDs {
+		if !ValidAccountID(id) || uid < base || uid >= f.Next || seen[uid] {
+			return false
+		}
+		seen[uid] = true
+	}
+	return true
+}
+
+func (r *uidRegistry) refuse(id, reason string) {
+	r.refused[id] = reason
+	log.Printf("hub: SECURITY: account %s is refused: %s; restore uids.json from backup (nothing is repaired automatically)", id, reason)
+}
+
+// check is the cheap per-open agreement test: the registry entry, the directory
+// owner and the refusal list must all say the same.
+func (r *uidRegistry) check(id, dir string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if reason, bad := r.refused[id]; bad {
+		return errors.New("account refused: " + reason)
+	}
+	if uid, on := accountOwner(dir); on {
+		if registered, ok := r.ids[id]; !ok || registered != uid {
+			reason := fmt.Sprintf("directory owner uid %d disagrees with the registry (%v)", uid, r.ids[id])
+			r.refuse(id, reason)
+			return errors.New("account refused: " + reason)
+		}
+	}
+	return nil
+}
+
+// uid returns the account's uid, allocating and persisting one on first use. A
+// uid that already owns any directory below accounts/ is skipped.
 func (r *uidRegistry) uid(id string) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if reason, bad := r.refused[id]; bad {
+		return 0, errors.New("account refused: " + reason)
+	}
 	if uid, ok := r.ids[id]; ok {
 		return uid, nil
 	}
-	if r.next >= r.base+60000 {
-		return 0, errors.New("no uid left for another account")
+	taken := map[int]bool{}
+	for _, uid := range scanOwners(r.accounts) {
+		taken[uid] = true
 	}
 	uid := r.next
+	for taken[uid] {
+		uid++
+	}
+	if uid >= r.limit {
+		return 0, errors.New("no uid left for another account")
+	}
 	data, err := json.Marshal(uidFile{Next: uid + 1, IDs: withEntry(r.ids, id, uid)})
 	if err != nil {
 		return 0, err

@@ -80,3 +80,99 @@ func TestRealUIDSeparation(t *testing.T) {
 		t.Fatalf("uid registry mode: %v %v", info, err)
 	}
 }
+
+// Account A's own uid plants links to B's tree and tries to move the directories
+// the Runner walks. The moves must be refused by the kernel (root owns state/ and
+// plugins/), and the links must make every root-side operation fail.
+//
+//	docker run --rm -v $PWD:/src -w /src golang:1.25.11 go test ./internal/mcprunner -run Root -v
+func TestRootAccountCannotRedirectRootSideOperations(t *testing.T) {
+	if runtime.GOOS != "linux" || os.Geteuid() != 0 {
+		t.Skip("needs Linux and root")
+	}
+	hub, root := newTestHub(t, func(c *HubConfig) { c.IsolateUIDs = true })
+	for _, id := range []string{accountA, accountB} {
+		if w := call(hub, http.MethodPost, "/a/"+id+"/v1/plugins", tokenOf(id), map[string]any{"id": "gog", "kind": "builtin_gog"}); w.Code != http.StatusCreated {
+			t.Fatalf("install %s: %d %s", id, w.Code, w.Body.String())
+		}
+	}
+	tenantA, err := hub.tenant(accountA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec, err := tenantA.runner.gogSpec("gog")
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec.Command = "/bin/sh"
+	run := func(script string) error {
+		_, err := runGog(context.Background(), spec, nil, "-c", script)
+		return err
+	}
+	dirA, dirB := filepath.Join(root, "accounts", accountA), filepath.Join(root, "accounts", accountB)
+	// The account cannot rename or replace the directories above its plugin.
+	for _, script := range []string{
+		"mv " + filepath.Join(dirA, "state", "plugins") + " " + filepath.Join(dirA, "state", "plugins.x"),
+		"mv " + filepath.Join(dirA, "state") + " " + filepath.Join(dirA, "state.x"),
+		"ln -s " + filepath.Join(dirB, "state") + " " + filepath.Join(dirA, "state", "plugins", "other"),
+		"rm -rf " + filepath.Join(dirA, "state", "plugins", "gog") + " && ln -s " + filepath.Join(dirB, "state", "plugins", "gog") + " " + filepath.Join(dirA, "state", "plugins", "gog"),
+	} {
+		if err := run(script); err == nil {
+			t.Fatalf("the account's uid could run %q", script)
+		}
+	}
+	before := snapshotTree(t, dirB)
+	// It can replace what it owns: the files inside its own plugin directory.
+	own := filepath.Join(dirA, "state", "plugins", "gog")
+	if err := run("rm " + filepath.Join(own, "keyring-password") + " && ln -s " + filepath.Join(dirB, "state", "plugins", "gog", "keyring-password") + " " + filepath.Join(own, "keyring-password") +
+		" && ln -s " + filepath.Join(dirB, "manifest.json") + " " + filepath.Join(own, "gog-account.json")); err != nil {
+		t.Fatalf("the account could not plant its own links: %v", err)
+	}
+	if data, err := spec.readInPlugin(spec.SecretEnv["GOG_KEYRING_PASSWORD"]); err == nil {
+		t.Fatalf("root read the other account's secret through a link: %q", data)
+	}
+	if account, err := tenantA.runner.GogStatus("gog"); err == nil && account.Email != "" {
+		t.Fatalf("status followed a link: %+v", account)
+	}
+	if err := tenantA.runner.Remove("gog"); err != nil {
+		t.Fatalf("remove: %v", err) // links inside the plugin are deleted, never followed
+	}
+	sameSnapshot(t, before, snapshotTree(t, dirB), "root-side operations")
+}
+
+// A lost uids.json must not let a new account inherit the files of an old one.
+func TestRootLostRegistryNeverReusesAUID(t *testing.T) {
+	if runtime.GOOS != "linux" || os.Geteuid() != 0 {
+		t.Skip("needs Linux and root")
+	}
+	hub, root := newTestHub(t, func(c *HubConfig) { c.IsolateUIDs = true })
+	uids := map[string]int{}
+	for _, id := range []string{accountA, accountB} {
+		if w := call(hub, http.MethodGet, "/a/"+id+"/v1/plugins", tokenOf(id), nil); w.Code != 200 {
+			t.Fatal(w.Code)
+		}
+		uids[id], _ = hub.reg.uid(id)
+	}
+	hub.Close()
+	if err := os.Remove(filepath.Join(root, "uids.json")); err != nil {
+		t.Fatal(err)
+	}
+	hub2, err := NewHub(HubConfig{Root: root, Master: testMaster, IsolateUIDs: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer hub2.Close()
+	for _, id := range []string{accountA, accountB} {
+		if w := call(hub2, http.MethodGet, "/a/"+id+"/v1/plugins", tokenOf(id), nil); w.Code != http.StatusServiceUnavailable {
+			t.Fatalf("%s served with a lost registry: %d", id, w.Code)
+		}
+	}
+	third := "33333333-3333-4333-8333-333333333333"
+	if w := call(hub2, http.MethodGet, "/a/"+third+"/v1/plugins", tokenOf(third), nil); w.Code != 200 {
+		t.Fatal(w.Code)
+	}
+	got, _ := hub2.reg.uid(third)
+	if got == uids[accountA] || got == uids[accountB] {
+		t.Fatalf("uid %d was reused", got)
+	}
+}

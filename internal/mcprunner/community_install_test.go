@@ -193,13 +193,18 @@ func TestCommunityInstallIntegrityPin(t *testing.T) {
 }
 
 func TestVerifyInstalledIntegrityRequiresTheNamedPackageAtThePinnedVersion(t *testing.T) {
-	stage := t.TempDir()
+	stagePath := t.TempDir()
+	stage, err := os.OpenRoot(stagePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stage.Close()
 	write := func(content string) {
 		t.Helper()
-		if err := os.MkdirAll(filepath.Join(stage, "node_modules"), 0700); err != nil {
+		if err := os.MkdirAll(filepath.Join(stagePath, "node_modules"), 0700); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(stage, "node_modules", ".package-lock.json"), []byte(content), 0600); err != nil {
+		if err := os.WriteFile(filepath.Join(stagePath, "node_modules", ".package-lock.json"), []byte(content), 0600); err != nil {
 			t.Fatal(err)
 		}
 	}

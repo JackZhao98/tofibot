@@ -75,6 +75,9 @@ func NewHub(cfg HubConfig) (*Hub, error) {
 	if cfg.MaxAccounts <= 0 {
 		cfg.MaxAccounts = 256
 	}
+	if cfg.UIDBase+cfg.MaxAccounts > MaxUID {
+		return nil, fmt.Errorf("uid range %d..%d does not fit below %d (a userns-remapped or rootless daemon maps 65536 uids)", cfg.UIDBase, cfg.UIDBase+cfg.MaxAccounts, MaxUID)
+	}
 	if err := os.MkdirAll(filepath.Join(cfg.Root, "accounts"), 0711); err != nil {
 		return nil, err
 	}
@@ -86,7 +89,7 @@ func NewHub(cfg HubConfig) (*Hub, error) {
 			}
 		}
 	}
-	reg, err := loadUIDRegistry(filepath.Join(cfg.Root, "uids.json"), cfg.UIDBase)
+	reg, err := loadUIDRegistry(filepath.Join(cfg.Root, "uids.json"), cfg.UIDBase, cfg.IsolateUIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -187,34 +190,34 @@ func (h *Hub) accountDir(id string) string { return filepath.Join(h.cfg.Root, "a
 
 // Layout of one account:
 //
-//	<root>/accounts/<id>/            root-owned, 0711: others may pass, not list
-//	<root>/accounts/<id>/manifest.json   root-owned 0600: the plugins may not edit it
-//	<root>/accounts/<id>/state/      account uid, 0700: plugin code, data, tokens
-//	<root>/accounts/<id>/tmp/        account uid, 0700: TMPDIR of every child
+//	<root>/accounts/<id>/                 root-owned, 0711: others may pass, not list
+//	<root>/accounts/<id>/manifest.json    root-owned 0600: the plugins may not edit it
+//	<root>/accounts/<id>/state/           root-owned 0711: the account may pass, not change it
+//	<root>/accounts/<id>/state/plugins/   root-owned 0711: same
+//	<root>/accounts/<id>/state/plugins/<plugin>/   account uid, 0700: plugin code, data, tokens
+//	<root>/accounts/<id>/tmp/             account uid, 0700: TMPDIR of every child
+//
+// The Runner (root) creates, fills and deletes things only below plugins/<plugin>
+// and tmp/, and only through descriptor-relative, symlink-refusing access
+// (confined.go). state/ and plugins/ belong to root so the account cannot swap
+// either for a link into another account's tree.
 func (h *Hub) openLocked(id string) (*tenant, error) {
 	dir := h.accountDir(id)
 	state, tmp := filepath.Join(dir, "state"), filepath.Join(dir, "tmp")
 	var cred *syscall.Credential
 	if h.cfg.IsolateUIDs {
+		// The directory owner is authoritative; the registry must agree on every open.
+		if err := h.reg.check(id, dir); err != nil {
+			return nil, err
+		}
 		uid, err := h.reg.uid(id)
 		if err != nil {
 			return nil, err
 		}
 		cred = &syscall.Credential{Uid: uint32(uid), Gid: uint32(uid)}
 	}
-	for _, d := range []struct {
-		path string
-		mode os.FileMode
-		own  bool
-	}{{dir, 0711, false}, {state, 0700, true}, {filepath.Join(state, "plugins"), 0700, true}, {tmp, 0700, true}} {
-		if err := mkdirPlain(d.path, d.mode); err != nil {
-			return nil, err
-		}
-		if d.own {
-			if err := chownTo(cred, d.path); err != nil {
-				return nil, fmt.Errorf("account isolation: %w", err)
-			}
-		}
+	if err := prepareAccountDir(dir, cred); err != nil {
+		return nil, err
 	}
 	specs, err := LoadRecords(filepath.Join(dir, "manifest.json"))
 	if err != nil {
@@ -240,6 +243,63 @@ func (h *Hub) openLocked(id string) (*tenant, error) {
 	}
 	token := hex.EncodeToString(secret)
 	return &tenant{id: id, runner: runner, handler: runner.Handler(token), token: token, dir: dir}, nil
+}
+
+// prepareAccountDir creates the account's directories with the owners described
+// above. An existing state/ or plugins/ that an older layout gave to the account
+// is taken back; one that is not a real directory fails the account.
+func prepareAccountDir(dir string, cred *syscall.Credential) error {
+	if err := mkdirPlain(dir, 0711); err != nil {
+		return err
+	}
+	top, err := openDirRoot(dir)
+	if err != nil {
+		return err
+	}
+	defer top.Close()
+	stateMode := os.FileMode(0700)
+	if cred != nil {
+		stateMode = 0711
+	}
+	for _, name := range []string{"state", filepath.Join("state", "plugins")} {
+		if err := mkdirIn(top, name, stateMode); err != nil {
+			return err
+		}
+		if cred != nil {
+			// Root-owned: the account's uid may pass through, never change it.
+			if err := chownAt(top, name, 0, 0); err != nil {
+				return fmt.Errorf("account isolation: %w", err)
+			}
+			if err := top.Chmod(name, stateMode); err != nil {
+				return err
+			}
+		}
+	}
+	if err := mkdirIn(top, "tmp", 0700); err != nil {
+		return err
+	}
+	if err := chownIn(cred, top, "tmp"); err != nil {
+		return fmt.Errorf("account isolation: %w", err)
+	}
+	return nil
+}
+
+// mkdirIn creates name below r if it is missing and requires a real directory.
+func mkdirIn(r *os.Root, name string, mode os.FileMode) error {
+	info, err := r.Lstat(name)
+	if errors.Is(err, os.ErrNotExist) {
+		if err := r.Mkdir(name, mode); err != nil {
+			return err
+		}
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("%s is not a directory", name)
+	}
+	return nil
 }
 
 // mkdirPlain creates a directory that must be a real directory (never a symlink).

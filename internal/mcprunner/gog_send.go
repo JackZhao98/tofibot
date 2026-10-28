@@ -2,7 +2,9 @@ package mcprunner
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/mail"
@@ -89,48 +91,71 @@ func attachmentFileName(name string) string {
 
 // writeGogAttachments puts each file in its own folder under a private
 // temporary directory, so the real name survives and duplicates cannot collide.
+// The account owns its TMPDIR, so every step goes through a Root anchored there:
+// a link the account plants cannot redirect a root-side write.
 func writeGogAttachments(spec Spec, attachments []GogAttachment) (dir string, paths []string, err error) {
 	if len(attachments) == 0 {
 		return "", nil, nil
 	}
-	base := ""
-	if spec.Tmp != "" {
-		base = spec.Tmp
-	}
-	dir, err = os.MkdirTemp(base, "tofi-mail-")
+	base := spec.tmpDir()
+	tmp, err := openTmpRoot(spec)
 	if err != nil {
 		return "", nil, err
 	}
-	// The gogcli child runs as the account's uid and must be able to read them.
-	if err = chownTo(spec.Cred, dir); err != nil {
-		_ = os.RemoveAll(dir)
+	defer tmp.Close()
+	suffix := make([]byte, 8)
+	if _, err = rand.Read(suffix); err != nil {
 		return "", nil, err
+	}
+	name := "tofi-mail-" + hex.EncodeToString(suffix)
+	if err = tmp.Mkdir(name, 0700); err != nil {
+		return "", nil, err
+	}
+	fail := func(e error) (string, []string, error) {
+		_ = tmp.RemoveAll(name)
+		return "", nil, e
+	}
+	// The gogcli child runs as the account's uid and must be able to read them.
+	if err = chownIn(spec.Cred, tmp, name); err != nil {
+		return fail(err)
 	}
 	var total int64
 	for i, a := range attachments {
 		data, e := base64.StdEncoding.DecodeString(a.DataBase64)
 		total += int64(len(data))
 		if e != nil || total > maxGogAttachBytes {
-			_ = os.RemoveAll(dir)
-			return "", nil, errors.New("invalid attachment")
+			return fail(errors.New("invalid attachment"))
 		}
-		sub := filepath.Join(dir, strconv.Itoa(i))
-		path := filepath.Join(sub, attachmentFileName(a.Name))
-		if e = os.Mkdir(sub, 0700); e == nil {
-			e = chownTo(spec.Cred, sub)
+		sub := filepath.Join(name, strconv.Itoa(i))
+		rel := filepath.Join(sub, attachmentFileName(a.Name))
+		if e = tmp.Mkdir(sub, 0700); e == nil {
+			e = chownIn(spec.Cred, tmp, sub)
 		}
 		if e == nil {
-			if e = os.WriteFile(path, data, 0600); e == nil {
-				e = chownTo(spec.Cred, path)
+			if e = tmp.WriteFile(rel, data, 0600); e == nil {
+				e = chownIn(spec.Cred, tmp, rel)
 			}
 		}
 		if e != nil {
-			_ = os.RemoveAll(dir)
-			return "", nil, e
+			return fail(e)
 		}
-		paths = append(paths, path)
+		paths = append(paths, filepath.Join(base, rel))
 	}
-	return dir, paths, nil
+	return filepath.Join(base, name), paths, nil
+}
+
+// removeGogAttachments deletes a folder writeGogAttachments made, without
+// following anything the account put in it.
+func removeGogAttachments(spec Spec, dir string) {
+	base := spec.tmpDir()
+	tmp, err := openTmpRoot(spec)
+	if err != nil {
+		return
+	}
+	defer tmp.Close()
+	if rel, err := filepath.Rel(base, dir); err == nil && !strings.HasPrefix(rel, "..") && rel != "." {
+		_ = tmp.RemoveAll(rel)
+	}
 }
 
 func (r *Runner) GogSend(ctx context.Context, id string, input GogSendRequest) (json.RawMessage, error) {
@@ -156,7 +181,7 @@ func (r *Runner) GogSend(ctx context.Context, id string, input GogSendRequest) (
 		return nil, err
 	}
 	if dir != "" {
-		defer os.RemoveAll(dir)
+		defer removeGogAttachments(spec, dir)
 	}
 	timeout := gogSendTimeoutBase
 	if len(files) > 0 {
@@ -176,4 +201,13 @@ func (r *Runner) GogSend(ctx context.Context, id string, input GogSendRequest) (
 		return nil, errors.New("Gmail send returned an unrecognized result; check Sent mail before retrying")
 	}
 	return json.RawMessage(output), nil
+}
+
+// openTmpRoot opens the account's TMPDIR, which must be a real directory. Only
+// the single-tenant Runner's shared /tmp may be a link (it is not an account's).
+func openTmpRoot(spec Spec) (*os.Root, error) {
+	if spec.Tmp == "" {
+		return os.OpenRoot(spec.tmpDir())
+	}
+	return openDirRoot(spec.Tmp)
 }

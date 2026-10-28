@@ -50,6 +50,9 @@ type Spec struct {
 	// that account's own uid with a private temporary directory.
 	Cred *syscall.Credential `json:"-"`
 	Tmp  string              `json:"-"`
+	// open opens the plugin's directory through the Runner's anchored walk (see
+	// confined.go). Nil for a spec built by hand: the path is then opened directly.
+	open func() (*os.Root, error)
 }
 
 type Status struct {
@@ -99,6 +102,17 @@ func (r *Runner) manifestPath(stateDir string) string {
 // stamp attaches the Runner's process identity to a spec.
 func (r *Runner) stamp(spec Spec) Spec {
 	spec.Cred, spec.Tmp = r.opts.Cred, r.opts.Tmp
+	id := spec.ID
+	workDir := spec.WorkDir
+	spec.open = func() (*os.Root, error) {
+		root, err := r.pluginRoot(id)
+		if err != nil && r.opts.Cred == nil && r.opts.ManifestDir == "" {
+			// A single-tenant Runner has one uid and no account to guard against: the
+			// plugin directory may live wherever the operator's manifest says.
+			return openDirRoot(workDir)
+		}
+		return root, err
+	}
 	return spec
 }
 
@@ -452,13 +466,13 @@ func start(startCtx, life context.Context, spec Spec) (*mcp.ClientSession, conte
 	}
 	for key, path := range spec.SecretEnv {
 		if spec.Adapter != nil && key == "NOTION_TOKEN" {
-			info, err := os.Lstat(path)
+			info, err := spec.lstatInPlugin(path)
 			if err != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0600 {
 				stop()
 				return nil, nil, 0, nil, errors.New("Notion token file must be a private mode-0600 regular file")
 			}
 		}
-		value, err := os.ReadFile(path)
+		value, err := spec.readInPlugin(path)
 		if err != nil {
 			stop()
 			return nil, nil, 0, nil, err

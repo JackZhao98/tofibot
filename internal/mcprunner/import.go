@@ -102,15 +102,14 @@ func (r *Runner) Import(ctx context.Context, in ImportRequest) []ImportResult {
 		}
 		r.mu.RLock()
 		existing := r.plugins[p.Request.ID]
-		dir := r.stateDir
 		r.mu.RUnlock()
 		if existing != nil {
 			res.State = ImportPresent
-			res.Identical, res.Files = compareImportFiles(filepath.Join(dir, "plugins", p.Request.ID), files)
+			res.Identical, res.Files = r.compareImportFiles(p.Request.ID, files)
 			results = append(results, res)
 			continue
 		}
-		err = r.install(ctx, p.Request, func(target string) error { return writeImportFiles(target, files) })
+		err = r.install(ctx, p.Request, func(pr *os.Root) error { return writeImportFiles(pr, files) })
 		if err != nil {
 			res.State, res.Error = ImportFailed, err.Error()
 		} else {
@@ -156,24 +155,22 @@ func decodeImportFiles(kind string, files []ImportFile) ([]decodedImportFile, in
 	return out, total, nil
 }
 
-// writeImportFiles writes the files below target, then reads each one back and
-// compares the digest. A symlink anywhere on the way fails the import.
-func writeImportFiles(target string, files []decodedImportFile) error {
+// writeImportFiles writes the files below the plugin directory, then reads each
+// one back and compares the digest. A symlink anywhere on the way fails the
+// import: the root confines every step, and a link at the final name is refused.
+func writeImportFiles(pr *os.Root, files []decodedImportFile) error {
 	for _, f := range files {
-		full := filepath.Join(target, filepath.FromSlash(f.path))
-		if !within(target, full) {
-			return fmt.Errorf("file %q escapes the plugin directory", f.path)
-		}
-		if err := mkdirNoSymlink(target, filepath.Dir(full)); err != nil {
+		rel := filepath.FromSlash(f.path)
+		if err := mkdirNoSymlink(pr, filepath.Dir(rel)); err != nil {
 			return err
 		}
-		if info, err := os.Lstat(full); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		if info, err := pr.Lstat(rel); err == nil && info.Mode()&os.ModeSymlink != 0 {
 			return fmt.Errorf("file %q is a symlink", f.path)
 		}
-		if err := writeAtomic0600(full, f.data); err != nil {
+		if err := writeAtomicIn(pr, rel, f.data); err != nil {
 			return err
 		}
-		back, err := os.ReadFile(full)
+		back, err := pr.ReadFile(rel)
 		if err != nil {
 			return err
 		}
@@ -185,23 +182,19 @@ func writeImportFiles(target string, files []decodedImportFile) error {
 	return nil
 }
 
-// mkdirNoSymlink creates dir (inside root) one element at a time and refuses to
-// pass through anything that is not a plain directory.
-func mkdirNoSymlink(root, dir string) error {
-	rel, err := filepath.Rel(root, dir)
-	if err != nil || strings.HasPrefix(rel, "..") {
-		return errors.New("directory escapes the plugin directory")
-	}
-	cur := root
-	if rel == "." {
+// mkdirNoSymlink creates dir (relative to the plugin root) one element at a time
+// and refuses to pass through anything that is not a plain directory.
+func mkdirNoSymlink(pr *os.Root, dir string) error {
+	if dir == "." {
 		return nil
 	}
-	for _, part := range strings.Split(rel, string(filepath.Separator)) {
+	cur := ""
+	for _, part := range strings.Split(dir, string(filepath.Separator)) {
 		cur = filepath.Join(cur, part)
-		info, err := os.Lstat(cur)
+		info, err := pr.Lstat(cur)
 		switch {
 		case errors.Is(err, os.ErrNotExist):
-			if err := os.Mkdir(cur, 0700); err != nil {
+			if err := pr.Mkdir(cur, 0700); err != nil {
 				return err
 			}
 		case err != nil:
@@ -213,10 +206,15 @@ func mkdirNoSymlink(root, dir string) error {
 	return nil
 }
 
-func compareImportFiles(target string, files []decodedImportFile) (identical bool, compared int) {
+func (r *Runner) compareImportFiles(id string, files []decodedImportFile) (identical bool, compared int) {
+	pr, err := r.pluginRoot(id)
+	if err != nil {
+		return false, len(files)
+	}
+	defer pr.Close()
 	identical = true
 	for _, f := range files {
-		data, err := os.ReadFile(filepath.Join(target, filepath.FromSlash(f.path)))
+		data, err := pr.ReadFile(filepath.FromSlash(f.path))
 		compared++
 		if err != nil {
 			identical = false
