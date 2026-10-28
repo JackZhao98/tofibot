@@ -123,6 +123,7 @@ class Terminal:
         pid, fd = pty.fork()
         if pid == 0:  # child: the pty is the controlling terminal
             try:
+                signal.signal(signal.SIGINT, signal.SIG_DFL)  # a parent started with `&` or nohup ignores SIGINT, and exec keeps that: ^C would do nothing
                 fcntl.ioctl(0, termios.TIOCSWINSZ, struct.pack('HHHH', rows, cols, 0, 0))
                 os.execve('/bin/bash', ['bash', '-c', 'cat "$0" | bash -s -- "$@"', str(INSTALL_SH)] + list(argv),
                           env)
