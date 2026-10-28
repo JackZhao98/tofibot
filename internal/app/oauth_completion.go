@@ -43,7 +43,7 @@ type oauthCompletionPage struct {
 }
 
 // Provider artwork is served from this build (the page's CSP is img-src 'self'). The marks are the vendors' own,
-// vendored under ui/public/brand/services with provenance in docs/integrations/icons/manifest.json. The page only
+// vendored under ui/public/brand/services with provenance in assets/brand-icons/manifest.json. The page only
 // ever renders a logo from this list; anything else becomes the neutral generic pictogram.
 const (
 	oauthLogoGeneric  = "/oauth/provider-generic.svg"

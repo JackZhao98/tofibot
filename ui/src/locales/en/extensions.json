@@ -214,7 +214,7 @@
   "held": {
     "discord": {
       "description": "Community-maintained Discord Bot connection.",
-      "reason": "Not a curated connector. You can install a community Discord server yourself under Add connection › Custom › Local package; guide in docs/integrations/discord-add-it-yourself.md."
+      "reason": "Not a curated connector. You can install a community Discord server yourself under Add connection › Custom › Local package; guide in integrations/discord/discord-add-it-yourself.md."
     },
     "notion_token": {
       "description": "Legacy local MCP server, no longer maintained.",

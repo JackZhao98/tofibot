@@ -214,7 +214,7 @@
   "held": {
     "discord": {
       "description": "社群維護的 Discord Bot 連線。",
-      "reason": "不屬於官方精選連線。可在「新增連線 › 自訂 › 本機套件」中自行安裝社群版 Discord 服務；步驟見 docs/integrations/discord-add-it-yourself.md。"
+      "reason": "不屬於官方精選連線。可在「新增連線 › 自訂 › 本機套件」中自行安裝社群版 Discord 服務；步驟見 integrations/discord/discord-add-it-yourself.md。"
     },
     "notion_token": {
       "description": "已停止維護的舊版本機 MCP 服務。",

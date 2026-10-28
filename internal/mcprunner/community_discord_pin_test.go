@@ -13,7 +13,7 @@ import (
 
 // The Discord example of the user-install path: a pinned community package,
 // the minimal tool surface and the invite permissions all live in
-// docs/integrations/community/discord.json. These checks keep that file, the
+// integrations/discord/discord.json. These checks keep that file, the
 // qualification record, the owner's guide and the tool snapshot of the pinned
 // version telling the same story, and keep moderation and destructive tools out
 // of what the guide tells a person to expose.
@@ -49,7 +49,7 @@ type discordPin struct {
 	} `json:"invite"`
 }
 
-const communityDocs = "../../docs/integrations/community/"
+const communityDocs = "../../integrations/discord/"
 
 func loadDiscordPin(t *testing.T) discordPin {
 	t.Helper()
@@ -98,7 +98,7 @@ func TestDiscordPinIsExactAndRecordedWhereAPersonReadsIt(t *testing.T) {
 		t.Fatalf("integrity, source commit and tag must be exact: %+v %+v", pin.Package, pin.Source)
 	}
 	for _, name := range []string{"discord-package-qualification.md", "discord-add-it-yourself.md"} {
-		raw, err := os.ReadFile("../../docs/integrations/" + name)
+		raw, err := os.ReadFile("../../integrations/discord/" + name)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -173,7 +173,7 @@ func TestDiscordInvitePermissionsAreLeastPrivilegeAndAddUp(t *testing.T) {
 	if total != pin.Invite.ReadWrite || readOnly != pin.Invite.ReadOnly || readOnly == total {
 		t.Fatalf("integers do not add up: read-only %d (computed %d), read-write %d (computed %d)", pin.Invite.ReadOnly, readOnly, pin.Invite.ReadWrite, total)
 	}
-	raw, err := os.ReadFile("../../docs/integrations/discord-add-it-yourself.md")
+	raw, err := os.ReadFile("../../integrations/discord/discord-add-it-yourself.md")
 	if err != nil {
 		t.Fatal(err)
 	}

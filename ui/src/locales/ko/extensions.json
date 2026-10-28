@@ -214,7 +214,7 @@
   "held": {
     "discord": {
       "description": "커뮤니티가 관리하는 Discord Bot 연결입니다.",
-      "reason": "공식으로 선별된 커넥터가 아닙니다. '연결 추가 › 사용자 지정 › 로컬 패키지'에서 커뮤니티 Discord 서버를 직접 설치할 수 있습니다. 안내는 docs/integrations/discord-add-it-yourself.md를 참고하세요."
+      "reason": "공식으로 선별된 커넥터가 아닙니다. '연결 추가 › 사용자 지정 › 로컬 패키지'에서 커뮤니티 Discord 서버를 직접 설치할 수 있습니다. 안내는 integrations/discord/discord-add-it-yourself.md를 참고하세요."
     },
     "notion_token": {
       "description": "유지 관리가 중단된 이전 로컬 MCP 서버입니다.",

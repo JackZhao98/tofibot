@@ -4,8 +4,8 @@
 
 TOFI is a self-hosted AI bot workspace. It has a Go server and a React web app.
 Bots keep their identity, conversations, scheduled work and tool connections in
-a persistent workspace. Current release: **v0.2.1**
-([release notes](docs/releases.md), [product status](docs/product/status.md)).
+a persistent workspace. Current release: **v0.2.1** (see
+[GitHub Releases](https://github.com/JackZhao98/tofibot/releases)).
 
 - Direct and group conversations, streaming replies, attachments and generated files.
 - Persistent queues, scheduled work, cancellation and retry handling.
@@ -111,11 +111,8 @@ go build ./cmd/tofi ./cmd/tofi-guest
 
 ## Documentation
 
-- [docs/README.md](docs/README.md): index of all documents.
-- [docs/product/status.md](docs/product/status.md): what works today and the release gates.
-- [docs/releases.md](docs/releases.md): what each version changed.
+- [GitHub Releases](https://github.com/JackZhao98/tofibot/releases): what each version changed.
 - [deploy/self-host/README.md](deploy/self-host/README.md): installer and `tofi` host tool.
-- [docs/decisions/](docs/decisions/README.md) and [docs/design/](docs/design/README.md): decisions and design.
 - [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
 
 ## Project boundary

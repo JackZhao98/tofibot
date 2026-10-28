@@ -8,7 +8,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { openUiModules, uiRoot } from "./ui-modules.mjs";
 
 const repo = path.dirname(uiRoot);
-const iconsDir = path.join(repo, "docs/integrations/icons");
+const iconsDir = path.join(repo, "assets/brand-icons");
 const manifest = JSON.parse(fs.readFileSync(path.join(iconsDir, "manifest.json"), "utf8"));
 const sha = file => crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
 const publicFile = url => path.join(uiRoot, "public", url);

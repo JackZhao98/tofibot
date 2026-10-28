@@ -1,7 +1,7 @@
 /**
  * The one brand registry: which real vendor mark each directory service wears.
  * Assets are vendored under public/brand/services (audited copies and provenance live in
- * docs/integrations/icons/manifest.json); nothing is hotlinked. Marks are shown unmodified on a neutral tile
+ * assets/brand-icons/manifest.json); nothing is hotlinked. Marks are shown unmodified on a neutral tile
  * (light in both themes, so black marks such as Notion and GitHub keep contrast; `tile: "dark"` only where the
  * vendor's own color has no contrast on white).
  */

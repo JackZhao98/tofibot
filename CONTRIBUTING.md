@@ -3,11 +3,9 @@
 Thank you for helping. This page tells you how to set up, test and submit a change.
 
 Read [AGENTS.md](AGENTS.md) first. It is the entry point for code conventions.
-[docs/conventions.md](docs/conventions.md) has the Go and TypeScript rules.
 
-Note: many internal documents (`docs/`) are written in Chinese. The code,
-commit messages, UI strings in `en` and the files in this top-level folder are in
-English. Ask in your pull request if you need a translation of a document.
+The code, commit messages, UI strings in `en` and the files in this top-level
+folder are in English.
 
 ## Licenses
 
@@ -99,23 +97,13 @@ you push. It is not on `main` yet. Until it is, run the commands in the table.
 - Do not push to `main` directly. Open a pull request.
 - Do not tag releases. Maintainers do that.
 
-## Decisions and design documents
+## Larger changes
 
-TOFI keeps its reasons in the repository.
-
-- [docs/decisions/](docs/decisions/README.md): one file for each product or process decision, numbered `NNNN-title.md`. Each file says what was decided, when, why, and which code it affects. Add a new file with the next number for a decision that changes behavior or process. The index table in the README lists them.
-- [docs/design/](docs/design/README.md): design tokens, components, principles and larger design proposals. Read it before you change the UI. [docs/design/new-page.md](docs/design/new-page.md) shows how to add a page, panel or component.
-- [docs/process.md](docs/process.md): how testing, previews, releases and security review work. Section 10 says which file to update for which kind of change.
-
-The rule: a change that alters behavior updates the matching document in the same
-commit. This includes `docs/product/status.md` and `docs/releases.md` for
-release-level changes.
-
-For a large change, open an issue first and describe the design. Write a
-design document in `docs/design/` if the maintainers agree.
+For a large change, open an issue first and describe the design. Wait for the
+maintainers to agree before you start.
 
 ## Security
 
 Do not report a vulnerability in a public issue. Follow [SECURITY.md](SECURITY.md).
 Changes to the host tool, the Worker, authentication, OAuth, credentials or
-network guards get a security review before release (see `docs/process.md`).
+network guards get a security review before release.

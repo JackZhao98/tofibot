@@ -252,7 +252,7 @@ Community connections (decision 0047): TOFI curates official connectors only; a 
 `attachLocalMCP` writes `provenance` (origin `community`, kind, package, version) from the Runner's status only; it is part of the configuration fingerprint, so a
 different package or version voids standing allowances. For a community server the provider's `readOnlyHint` is shown but not obeyed (`communityServer` in
 `resolveMCPToolTier`): its tools are reviewed as writes until the owner marks them read-only. Installed Skills with scripts are copied to the Bot's computer on
-`read_skill` like built-in ones, so prefer MCP for anything holding a credential. Pins and recipes live in `docs/integrations/community/`.
+`read_skill` like built-in ones, so prefer MCP for anything holding a credential. Pins and recipes live in `integrations/`.
 Session cookies are Secure when `TOFI_PUBLIC_ORIGIN` is https; Caddy sends HSTS. Known open: `computer_shell` shares a uid and loopback with the
 shared Chrome DevTools port.
 

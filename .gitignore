@@ -59,3 +59,6 @@ __pycache__/
 # Eval outputs hold model replies
 /eval/results/
 .gstack/
+
+# Internal design, decision and tracking docs: kept locally, not published.
+/docs/
