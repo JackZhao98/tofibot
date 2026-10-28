@@ -1,5 +1,6 @@
 // Conversation surfaces. They exist only inside the workspace, so every state is the real App on the synthetic server
 // (world.ts), driven to the state with real events.
+import { whenPanelLoaded } from "../../lazyPanels";
 import type { Drive } from "../drive";
 import type { CatalogSection } from "../types";
 import type { AppOptions } from "../world";
@@ -90,7 +91,7 @@ export const composer: CatalogSection = {
     { id: "text", kind: "app", label: "With text", app: DM, drive: async step => { await step.type(".composer textarea", "Book the small room for Thursday at 15:00, please."); } },
     { id: "running", kind: "app", label: "Bot working", note: "the stop button", app: { ...DM, running: true } },
     { id: "stop-menu", kind: "app", label: "Stop menu", note: "Stop current step / Stop all; focus returns to the Stop button", app: { ...DM, running: true }, probe: ".composer-stop-menu", keyboard: { close: "Escape" },
-      drive: async step => { await step.hover(".composer-stop"); await step.wait(600); await step.click(".composer-stop"); await step.find(".composer-stop-menu"); } },
+      drive: async step => { await step.hover(".composer-stop"); await whenPanelLoaded("stopMenu"); await step.click(".composer-stop"); await step.find(".composer-stop-menu"); } },
     { id: "queued-send", kind: "app", label: "Sent while the Bot works", note: "the composer stays open; the message waits: \"Queued, read at next step\"", app: { ...DM, running: true, send: "queued" },
       drive: async step => { await send(step, "Also check the projector."); await step.find(".send-receipt-note"); } },
     { id: "no-model", kind: "app", label: "No model connected", note: "the banner above the composer links to Settings", app: { ...DM, modelConfigured: false } },

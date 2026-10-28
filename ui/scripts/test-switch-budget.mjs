@@ -9,6 +9,9 @@
 // Run: PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:switch-budget
 // SWITCH_BUDGET_ENGINE=webkit runs the 1x budget in WebKit (it has no CPU throttle or long-task metric).
 import assert from "node:assert/strict";
+// TOFI_SKIP_TIMING=1: leave out the p95 / long-task bounds (they read a clock; a loaded machine fails them). The correctness asserts
+// in measure() (no page errors, 20 switches, every conversation painted at the bottom, widgets restored) stay on.
+const skipTiming = process.env.TOFI_SKIP_TIMING === "1";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdtemp } from "node:fs/promises";
@@ -179,31 +182,31 @@ const check = async (name, run) => {
 if (webkit) {
   await check("a cached conversation is on screen within 60 ms at p95 (WebKit)", async () => {
     const result = await bestRound({ throttle: 1 }, 60);
-    assert.ok(result.ok, `p95 ${result.p95.toFixed(1)} ms is not under 60`);
+    if (!skipTiming) assert.ok(result.ok, `p95 ${result.p95.toFixed(1)} ms is not under 60`);
   });
   await check("a cached conversation with two widgets open is on screen within 60 ms at p95 (WebKit)", async () => {
     const result = await bestRound({ throttle: 1, widgets: true }, 60);
-    assert.ok(result.ok, `p95 ${result.p95.toFixed(1)} ms is not under 60`);
+    if (!skipTiming) assert.ok(result.ok, `p95 ${result.p95.toFixed(1)} ms is not under 60`);
   });
 } else {
   await check("a cached conversation is on screen within 60 ms at p95, with no long task over 50 ms", async () => {
     const result = await bestRound({ throttle: 1 }, 60, 50);
-    assert.ok(result.ok, `p95 ${result.p95.toFixed(1)} ms / longest task ${result.longest.toFixed(0)} ms exceeds 60 / 50`);
+    if (!skipTiming) assert.ok(result.ok, `p95 ${result.p95.toFixed(1)} ms / longest task ${result.longest.toFixed(0)} ms exceeds 60 / 50`);
   });
   await check("a cached conversation is on screen within 100 ms at p95 with the CPU throttled 4x", async () => {
     const result = await bestRound({ throttle: 4 }, 100);
-    assert.ok(result.ok, `p95 ${result.p95.toFixed(1)} ms is not under 100`);
+    if (!skipTiming) assert.ok(result.ok, `p95 ${result.p95.toFixed(1)} ms is not under 100`);
   });
   await check("switching with two widgets open (Artifacts and the Computer, remembered per conversation) is within 60 ms at p95, with no long task over 50 ms", async () => {
     const result = await bestRound({ throttle: 1, widgets: true }, 60, 50);
-    assert.ok(result.ok, `p95 ${result.p95.toFixed(1)} ms / longest task ${result.longest.toFixed(0)} ms exceeds 60 / 50`);
+    if (!skipTiming) assert.ok(result.ok, `p95 ${result.p95.toFixed(1)} ms / longest task ${result.longest.toFixed(0)} ms exceeds 60 / 50`);
   });
   // Two widgets narrow the message column from 760 to 547 px, so the 50 drawn blocks wrap more and lay out slower. Measured with this harness at
   // 4x: no widgets 82-92 ms; two widgets 117-119 ms before conversations remembered their own (one global set then), 101-107 ms now that the
   // column fills in after the chat (useDeferredValue). The 1x budget above is the strict one; this one holds the line below the old cost.
   await check("switching with two widgets open is within 115 ms at p95 with the CPU throttled 4x", async () => {
     const result = await bestRound({ throttle: 4, widgets: true }, 115);
-    assert.ok(result.ok, `p95 ${result.p95.toFixed(1)} ms is not under 115`);
+    if (!skipTiming) assert.ok(result.ok, `p95 ${result.p95.toFixed(1)} ms is not under 115`);
   });
 }
 

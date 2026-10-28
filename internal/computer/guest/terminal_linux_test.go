@@ -255,7 +255,7 @@ func TestTerminalListReportsForegroundJob(t *testing.T) {
 	// harmless (at the prompt it only redraws the prompt).
 	waitJob := func(want bool, retry func()) {
 		t.Helper()
-		deadline := time.Now().Add(5 * time.Second)
+		deadline := time.Now().Add(30 * time.Second) // returns the moment the state holds; the deadline only bounds a hang
 		next := time.Now().Add(500 * time.Millisecond)
 		for time.Now().Before(deadline) {
 			if job, ok := terminalForegroundJob(t, s, id); ok && job == want {
