@@ -19,7 +19,7 @@ export const COMPLETE_LANGUAGES = ["en", "zh-CN", "zh-TW", "ja", "ko", "de", "fr
  * namespace file is never edited by two batches at once. Adding a namespace
  * means adding it here, to i18next.d.ts and to every locale directory.
  */
-export const NAMESPACES = ["common", "auth", "chat", "tasks", "schedules", "work", "settings", "extensions", "computer", "bots", "mail"] as const;
+export const NAMESPACES = ["common", "auth", "chat", "tasks", "schedules", "work", "settings", "extensions", "computer", "bots", "mail", "storage"] as const;
 export type Namespace = (typeof NAMESPACES)[number];
 export const DEFAULT_NAMESPACE: Namespace = "common";
 

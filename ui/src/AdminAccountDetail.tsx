@@ -5,12 +5,15 @@ import {formatNumber} from "./i18n/format";
 import {useTranslation} from "./i18n";
 import {TofiIcon} from "./icons";
 import {useHasComputer} from "./computerCapability";
+import {AdminStorageLimit} from "./AdminStorage";
+import type {AdminStorageAccount} from "./storageApi";
 import {Banner, DangerZone, Segmented, SettingsCard, SettingsRow, SettingsSection} from "./settings/components";
 
 type Props = {
   account: AdminAccount;
   accounts: AdminAccount[];
   disk?: DiskInfo;
+  storage?: AdminStorageAccount;
   capacity: Capacity | null;
   selfId: string;
   busy: boolean;
@@ -20,7 +23,7 @@ type Props = {
 };
 
 /** One account: Role, Computer, Sign-in and the Danger zone. Destructive actions the server forbids are explained, not offered. */
-export function AccountDetail({account, accounts, disk, capacity, selfId, busy, run, onBack, onDelete}: Props) {
+export function AccountDetail({account, accounts, disk, storage, capacity, selfId, busy, run, onBack, onDelete}: Props) {
   const {t} = useTranslation("settings");
   const hasComputer = useHasComputer();
   const isSelf = account.id === selfId;
@@ -73,6 +76,8 @@ export function AccountDetail({account, accounts, disk, capacity, selfId, busy, 
             onChange={role => { if (role !== account.role) void run(async () => { await adminApi.patch(account.id, {role}); }); }}/>}/>
       </SettingsCard>
     </SettingsSection>
+
+    <AdminStorageLimit accountId={account.id} entry={storage} busy={busy || deleting} run={run}/>
 
     {hasComputer && <SettingsSection title={t("admin.detail.computer.title")}>
       <SettingsCard>

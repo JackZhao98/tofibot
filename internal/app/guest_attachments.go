@@ -208,10 +208,11 @@ func syncDir(dir string) {
 	}
 }
 
-// pendingGuestCopies counts rows still waiting for their copy.
+// pendingGuestCopies counts rows still waiting for their copy. The range form
+// (not LIKE) lets the unique index on disk_name answer without a table scan.
 func (s *Store) pendingGuestCopies() (int, error) {
 	var n int
-	err := s.db.QueryRow(`SELECT COUNT(*) FROM attachments WHERE disk_name LIKE 'vm:%'`).Scan(&n)
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM attachments WHERE disk_name>='vm:' AND disk_name<'vm;'`).Scan(&n)
 	return n, err
 }
 

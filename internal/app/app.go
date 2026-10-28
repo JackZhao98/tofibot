@@ -210,6 +210,12 @@ type Config struct {
 	AccountControlPlane bool
 	AccountRuntime      bool
 	ComputerEnsure      func(context.Context) error
+	// Storage accounting (S3). All optional: nil limit = unlimited, zero floor
+	// = 2 GiB of host free space, nil hooks = no gateway.
+	StorageLimit     func() *int64
+	HostMinFreeBytes int64
+	StorageSnapshot  func(StorageReport)
+	ComputerUsage    func(context.Context) *ComputerUsage
 }
 type Server struct {
 	dispositions                         sync.Map // run id -> groupChoice recorded by the respond tool
@@ -318,6 +324,10 @@ type Server struct {
 	tasks taskRuntime
 	// Legacy `vm:` file copier (file_store_copier.go).
 	fileStore fileStoreRuntime
+	// Storage accounting (S3): periodic reconcile and gateway hooks.
+	storageJob      fileStoreRuntime
+	storageSnapshot func(StorageReport)
+	computerUsage   func(context.Context) *ComputerUsage
 }
 
 // Store is a single SQLite writer. WAL plus one connection keeps sequence and
@@ -328,6 +338,8 @@ type Store struct {
 	portabilityMu      sync.Mutex
 	portabilitySecrets *portableSecretCodec
 	db                 *sql.DB
+	// storage is the quota and host-space policy for new files (S3).
+	storage            storageGate
 	scheduleSchemaOnce sync.Once
 	scheduleSchemaErr  error
 	// onReturnQueued wakes the queue of a return run created inside a
@@ -2794,6 +2806,8 @@ func NewServer(c Config) (*Server, error) {
 		savedSettings.ReasoningEffort = "medium"
 	}
 	server := &Server{accountID: c.AccountID, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}, providerEndpoints: map[string]string{}, envProviderKeys: map[string]string{}, envProviderErrors: map[string]string{}, providerCatalogs: map[string]providerCatalog{}}
+	st.storage = storageGate{limit: c.StorageLimit, minFree: c.HostMinFreeBytes}
+	server.storageSnapshot, server.computerUsage = c.StorageSnapshot, c.ComputerUsage
 	st.onReturnQueued = func(r Run) {
 		if conv, ce := st.GetConversation(r.ConversationID); ce == nil {
 			server.enqueue(conv, r)
@@ -2877,6 +2891,7 @@ func NewServer(c Config) (*Server, error) {
 	server.startWaitSweeper()
 	server.startCommandMonitor()
 	server.startFileStoreCopier()
+	server.startStorageReconciler()
 	for _, id := range workerIDs {
 		server.startConversationWorker(id)
 	}
@@ -2893,6 +2908,7 @@ func NewServer(c Config) (*Server, error) {
 		server.stopCommandMonitor()
 		server.stopWaitSweeper()
 		server.stopFileStoreCopier()
+		server.stopStorageReconciler()
 		st.Close()
 		return nil, e
 	}
@@ -2915,6 +2931,7 @@ func (s *Server) Close() error {
 	s.stopCommandMonitor()
 	s.stopWaitSweeper()
 	s.stopFileStoreCopier()
+	s.stopStorageReconciler()
 	return s.store.Close()
 }
 func (s *Server) Listen() string { return s.listen }
@@ -3019,7 +3036,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if s.routeDesktopStream(w, r, p) {
 		return
 	}
-	if s.handleBotSecrets(w, r) || s.handleBotSkills(w, r) || s.handleSecrets(w, r) || s.handleSSHKeys(w, r) || s.routeComputerResources(w, r, p) {
+	if s.handleBotSecrets(w, r) || s.handleBotSkills(w, r) || s.handleSecrets(w, r) || s.handleSSHKeys(w, r) || s.routeComputerResources(w, r, p) || s.routeStorage(w, r, p) {
 		return
 	}
 	if s.routeComputers(w, r, p) {

@@ -88,6 +88,8 @@
     "oauth_loopback_required": "Dieser Dienst akzeptiert nur eine Weiterleitung an 127.0.0.1. Melden Sie sich per Einfügen an.",
     "skill_exists": "Ein Skill oder Bundle mit diesem Namen ist bereits in der Bibliothek.",
     "skill_in_bundle": "Dieser Skill gehört zu einem Bundle. Entferne stattdessen das Bundle.",
-    "skill_unchanged": "Diese Dateien entsprechen der aktuellen Version."
+    "skill_unchanged": "Diese Dateien entsprechen der aktuellen Version.",
+    "storage_quota_exceeded": "Das Speicherlimit dieses Kontos ist erreicht. Lösche Dateien oder wende dich an die Administration.",
+    "storage_host_full": "Der Serverdatenträger ist fast voll, deshalb werden keine neuen Dateien angenommen. Informiere die Betreiberin oder den Betreiber dieses Servers."
   }
 }

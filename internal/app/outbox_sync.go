@@ -185,6 +185,13 @@ func (s *Server) stageOutbox(ctx context.Context, r Run, c Conversation) outboxR
 				res.Deferred++
 				break
 			}
+			if code := storageErrorCode(err); code != "" {
+				// Full account or full host: the rest stays in the outbox, and
+				// one line says why instead of one per file.
+				log.Printf("[outbox] run %s: %s, files stay on the computer", r.ID, code)
+				res.Deferred++
+				break
+			}
 			log.Printf("[outbox] run %s: a file was not copied and stays on the computer: %v", r.ID, err)
 			res.Refused++
 			continue

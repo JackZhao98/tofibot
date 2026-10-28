@@ -88,6 +88,8 @@
     "oauth_loopback_required": "此服務只接受 127.0.0.1 回呼，請使用貼上回填登入。",
     "skill_exists": "技能庫裡已有同名的 Skill 或套裝。",
     "skill_in_bundle": "這個 Skill 屬於某個套裝，請移除整個套裝。",
-    "skill_unchanged": "這些檔案與目前版本相同。"
+    "skill_unchanged": "這些檔案與目前版本相同。",
+    "storage_quota_exceeded": "此帳戶的儲存空間已達上限。請刪除檔案，或聯絡管理員。",
+    "storage_host_full": "伺服器磁碟幾乎已滿，暫不接收新檔案。請通知此伺服器的維運人員。"
   }
 }

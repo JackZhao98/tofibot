@@ -190,3 +190,31 @@ func TestGuestExportRefusesSymlinksWhenAsked(t *testing.T) {
 		t.Fatalf("publish path changed: %v", err)
 	}
 }
+
+// A full account stops the outbox sync with one deferral; the files stay on the
+// computer, and a publish_file import returns the stable code.
+func TestQuotaStopsOutboxSyncAndPublish(t *testing.T) {
+	s, _, conv, run := outboxFixture(t)
+	s.store.storage.minFree = -1
+	zero := int64(0)
+	s.store.storage.limit = func() *int64 { return &zero }
+	for _, name := range []string{"a.txt", "b.txt"} {
+		if err := os.WriteFile(filepath.Join(guestOutboxDir, name), []byte("data "+name), 0o660); err != nil {
+			t.Fatal(err)
+		}
+	}
+	markComputerUse(t, s, conv, run)
+	got := s.stageOutbox(context.Background(), run, conv)
+	if got.Staged != 0 || got.Deferred != 1 || got.Refused != 0 {
+		t.Fatalf("full account sync: %+v", got)
+	}
+	_, _, err := s.importGuestFile(context.Background(), run, conv, guestFileImport{Path: filepath.Join(guestOutboxDir, "a.txt"), Opts: attachmentOpts{Origin: attachmentOriginPublished, BotID: run.BotID}})
+	if storageErrorCode(err) != StorageQuotaExceededCode {
+		t.Fatalf("publish on a full account: %v", err)
+	}
+	// Room again: the same files go through.
+	s.store.storage.limit = nil
+	if got = s.stageOutbox(context.Background(), run, conv); got.Staged != 2 {
+		t.Fatalf("after raising the limit: %+v", got)
+	}
+}

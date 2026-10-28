@@ -88,6 +88,8 @@
     "oauth_loopback_required": "Ce service n’accepte qu’une redirection vers 127.0.0.1. Connectez-vous par collage de l’adresse.",
     "skill_exists": "Un Skill ou un lot de ce nom est déjà dans la bibliothèque.",
     "skill_in_bundle": "Ce Skill fait partie d’un lot. Supprimez plutôt le lot.",
-    "skill_unchanged": "Ces fichiers sont identiques à la version actuelle."
+    "skill_unchanged": "Ces fichiers sont identiques à la version actuelle.",
+    "storage_quota_exceeded": "La limite de stockage de ce compte est atteinte. Supprimez des fichiers ou contactez l'administrateur.",
+    "storage_host_full": "Le disque du serveur est presque plein : aucun nouveau fichier n'est accepté. Prévenez l'opérateur de ce serveur."
   }
 }

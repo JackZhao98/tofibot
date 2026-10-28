@@ -88,6 +88,8 @@
     "oauth_loopback_required": "이 서비스는 127.0.0.1 리디렉션만 허용합니다. 붙여넣기 로그인을 사용하세요.",
     "skill_exists": "같은 이름의 Skill 또는 번들이 이미 라이브러리에 있습니다.",
     "skill_in_bundle": "이 Skill은 번들에 속해 있습니다. 번들을 통째로 삭제하세요.",
-    "skill_unchanged": "현재 버전과 파일이 같습니다."
+    "skill_unchanged": "현재 버전과 파일이 같습니다.",
+    "storage_quota_exceeded": "이 계정의 저장 한도에 도달했습니다. 파일을 삭제하거나 관리자에게 문의하세요.",
+    "storage_host_full": "서버 디스크가 거의 가득 차 새 파일을 받을 수 없습니다. 이 서버의 운영자에게 알려 주세요."
   }
 }

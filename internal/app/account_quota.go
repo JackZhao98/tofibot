@@ -36,28 +36,65 @@ func (g *AccountGateway) adminQuota(w http.ResponseWriter, r *http.Request, a Ac
 		return true
 	}
 	var in struct {
-		QuotaGiB int `json:"quota_gib"`
+		QuotaGiB *int `json:"quota_gib"`
+		// ServerBytesLimit: absent = unchanged, null = unlimited, number = limit.
+		ServerBytesLimit json.RawMessage `json:"server_bytes_limit"`
 	}
-	if decodeStrict(r, 4096, &in) != nil || in.QuotaGiB < 8 || in.QuotaGiB > 1024 {
+	if decodeStrict(r, 4096, &in) != nil || (in.QuotaGiB == nil && len(in.ServerBytesLimit) == 0) {
+		writeErr(w, 400, "invalid_request", "provide quota_gib, server_bytes_limit, or both")
+		return true
+	}
+	if in.QuotaGiB != nil && (*in.QuotaGiB < 8 || *in.QuotaGiB > 1024) {
 		writeErr(w, 400, "invalid_request", "quota must be an integer from 8 to 1024 GiB")
 		return true
 	}
-	computerID := g.computerIdentity(Account{ID: id, Legacy: legacy})
-	data, err := g.computerControl(r.Context(), map[string]any{"op": "quota", "account_id": computerID, "quota_gib": in.QuotaGiB})
-	if err != nil {
-		writeErr(w, 409, "quota_not_applied", "quota could not be verified; shrinking requires an offline workflow, growth requires capacity and confirmed computer cleanup")
-		return true
+	var newLimit *int64
+	limitSet := len(in.ServerBytesLimit) > 0
+	if limitSet && string(in.ServerBytesLimit) != "null" {
+		var n int64
+		if json.Unmarshal(in.ServerBytesLimit, &n) != nil || n < 0 || n > 1<<60 {
+			writeErr(w, 400, "invalid_request", "server_bytes_limit must be null (unlimited) or a byte count of 0 or more")
+			return true
+		}
+		newLimit = &n
 	}
 	var out struct {
-		AccountID   string `json:"account_id"`
-		QuotaBytes  int64  `json:"quota_bytes"`
-		Applied     bool   `json:"applied"`
-		Provisioned bool   `json:"provisioned"`
+		AccountID        string `json:"account_id"`
+		QuotaBytes       int64  `json:"quota_bytes,omitempty"`
+		Applied          bool   `json:"applied,omitempty"`
+		Provisioned      bool   `json:"provisioned,omitempty"`
+		ServerBytesLimit *int64 `json:"server_bytes_limit"`
 	}
-	if json.Unmarshal(data, &out) != nil || out.AccountID != computerID || out.QuotaBytes != int64(in.QuotaGiB)<<30 || !out.Applied {
-		writeErr(w, 503, "quota_unverified", "computer quota result unavailable; refresh capacity before retrying")
-		return true
+	if in.QuotaGiB != nil {
+		computerID := g.computerIdentity(Account{ID: id, Legacy: legacy})
+		data, err := g.computerControl(r.Context(), map[string]any{"op": "quota", "account_id": computerID, "quota_gib": *in.QuotaGiB})
+		if err != nil {
+			writeErr(w, 409, "quota_not_applied", "quota could not be verified; shrinking requires an offline workflow, growth requires capacity and confirmed computer cleanup")
+			return true
+		}
+		var broker struct {
+			AccountID   string `json:"account_id"`
+			QuotaBytes  int64  `json:"quota_bytes"`
+			Applied     bool   `json:"applied"`
+			Provisioned bool   `json:"provisioned"`
+		}
+		if json.Unmarshal(data, &broker) != nil || broker.AccountID != computerID || broker.QuotaBytes != int64(*in.QuotaGiB)<<30 || !broker.Applied {
+			writeErr(w, 503, "quota_unverified", "computer quota result unavailable; refresh capacity before retrying")
+			return true
+		}
+		out.QuotaBytes, out.Applied, out.Provisioned = broker.QuotaBytes, broker.Applied, broker.Provisioned
 	}
+	if limitSet {
+		var v any
+		if newLimit != nil {
+			v = *newLimit
+		}
+		if _, err = g.root.store.db.ExecContext(r.Context(), `INSERT INTO account_storage_quota(account_id,server_bytes_limit) VALUES(?,?) ON CONFLICT(account_id) DO UPDATE SET server_bytes_limit=excluded.server_bytes_limit`, id, v); err != nil {
+			writeErr(w, 500, "storage", "cannot save the storage limit")
+			return true
+		}
+	}
+	out.ServerBytesLimit = g.storageLimitFor(id)
 	out.AccountID = id
 	writeJSON(w, 200, out)
 	return true

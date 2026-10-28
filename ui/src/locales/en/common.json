@@ -88,6 +88,8 @@
     "oauth_loopback_required": "This service accepts only a 127.0.0.1 redirect. Sign in with the paste-back step.",
     "skill_exists": "A Skill or bundle with that name is already in the library.",
     "skill_in_bundle": "This Skill belongs to a bundle. Remove the bundle instead.",
-    "skill_unchanged": "Those files are the same as the current version."
+    "skill_unchanged": "Those files are the same as the current version.",
+    "storage_quota_exceeded": "This account's storage limit is reached. Delete files or ask the administrator.",
+    "storage_host_full": "The server disk is almost full, so no new files are accepted. Tell the operator of this server."
   }
 }

@@ -70,7 +70,7 @@ func migrateAttachments(db *sql.DB) error {
 			return err
 		}
 	}
-	return nil
+	return migrateStorageCounters(db)
 }
 
 // Where an attachment came from. Stored in attachments.origin.
@@ -151,6 +151,16 @@ func (s *Store) addAttachmentOpts(ctx context.Context, conv, name, declaredMIME 
 	if err != nil {
 		return Attachment{}, err
 	}
+	// Quota and host free space (S3). A cap below the file limit turns an
+	// overflow into storage_quota_exceeded instead of "exceeds N MB".
+	room, err := s.storageAdmit(root)
+	if err != nil {
+		return Attachment{}, err
+	}
+	quotaCapped := room > 0 && room < limit
+	if quotaCapped {
+		limit = room
+	}
 	id := uuid.NewString()
 	disk := id + ".upload"
 	tmp := filepath.Join(root, "."+disk+".tmp")
@@ -168,6 +178,9 @@ func (s *Store) addAttachmentOpts(ctx context.Context, conv, name, declaredMIME 
 	if copyErr != nil || closeErr != nil || written > limit {
 		_ = os.Remove(tmp)
 		if written > limit {
+			if quotaCapped {
+				return Attachment{}, newQuotaError()
+			}
 			return Attachment{}, fmt.Errorf("attachment exceeds %d MB", limit>>20)
 		}
 		if copyErr != nil {
@@ -372,6 +385,12 @@ func (s *Server) routeAttachments(w http.ResponseWriter, r *http.Request, p stri
 		defer file.Close()
 		a, err := s.store.addAttachment(r.Context(), conv, filename, typ, file)
 		if err != nil {
+			if code := storageErrorCode(err); code != "" {
+				var se *storageError
+				errors.As(err, &se)
+				writeErr(w, http.StatusInsufficientStorage, code, se.Text)
+				return true
+			}
 			writeErr(w, 400, "invalid_attachment", err.Error())
 			return true
 		}
