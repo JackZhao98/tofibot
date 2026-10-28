@@ -230,7 +230,7 @@ card returns to a person; unattended: it is closed and the call refused `mcp_nee
 writes `mcp_standing_allowance_uses` (null `call_id` when the runtime gave none) inside the claim transaction, and links the tool activity
 (`ToolActivity.allowed_by`). Archiving/deleting the Bot or the server (`deleteMCPServer`: use it, not `extensions.DeleteMCP`) revokes the grants
 (`revoked_by` `bot_archived` | `bot_deleted` | `server_removed`) and keeps the rows and uses.
-Local MCP Runner (decision 0069): in multi-account self-host it is the `runner` container (profile `runner`), not a process in the guest. Each account has a namespace
+Local MCP Runner (decision 0071): in multi-account self-host it is the `runner` container (profile `runner`), not a process in the guest. Each account has a namespace
 `/a/<account id>`, a token derived from the master key (`mcprunner.AccountToken`), a uid and private directories; `localRunnerConfig` uses it when the account has no computer or its
 guest Runner state has been copied and verified (`local_runner_container.go`, state file `local-runner.json`). Never route a request to another account's namespace, never give a
 workspace the master key, and keep `internal/mcprunner/hub_test.go` cross-account refusals passing. The guest Runner code stays only as the source of that copy.

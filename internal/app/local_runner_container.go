@@ -26,7 +26,7 @@ import (
 )
 
 // The local MCP Runner runs in its own container, outside every computer, with
-// one namespace per account (docs/decisions/0069-runner-container.md). This file
+// one namespace per account (docs/decisions/0071-runner-container.md). This file
 // is the account side of it: which Runner an account talks to, and the one-time
 // copy of the state an older release kept inside the guest.
 

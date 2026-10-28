@@ -55,7 +55,7 @@ func main() {
 
 // serveAccounts runs the multi-account Runner: one process, one namespace,
 // token and uid per account. It must run as root with the capabilities listed
-// in docs/decisions/0069-runner-container.md; it refuses to run accounts
+// in docs/decisions/0071-runner-container.md; it refuses to run accounts
 // as one shared uid unless that is asked for by name (development only).
 func serveAccounts() error {
 	root := os.Getenv("TOFI_MCP_RUNNER_ROOT")

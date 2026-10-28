@@ -61,7 +61,7 @@ services:
   # all accounts, each in its own namespace (URL prefix /a/<account id>, token, directory, uid).
   # Only started when tofi.env names a Runner image (the host tool then adds --profile runner).
   # root with five capabilities is the minimum to give each account its own uid; the container sees
-  # only <data>/runner, never the App's database, vault or attachments. See D69.
+  # only <data>/runner, never the App's database, vault or attachments. See D71.
   runner:
     profiles: [runner]
     image: ${TOFI_RUNNER_IMAGE:-}

@@ -562,7 +562,7 @@ whose manifest pins `images.runner` set it, with `TOFI_RUNNER_URL` and
 `TOFI_COMPUTER_BACKEND=none`, serves each account in its own namespace and uid,
 and keeps its state under `/var/lib/tofi/data/runner` (inside the data backup).
 Without a Runner image, local connections still run inside the account computer
-as before. See `docs/decisions/0069-runner-container.md`.
+as before. See `docs/decisions/0071-runner-container.md`.
 
 Budgets: the Worker gets `max(1, nproc-1)` vCPUs and
 `max(1536, MemTotal-2048)` MiB for account computers (1 vCPU / 1 GiB each), with
