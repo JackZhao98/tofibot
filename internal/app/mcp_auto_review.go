@@ -20,8 +20,8 @@ import (
 )
 
 const autoReviewActor = "auto-review"
-const autoReviewPolicyVersion = "mcp-all-external-v6"
-const autoReviewProvenance = "host-mcp-review-binding-v6"
+const autoReviewPolicyVersion = "mcp-all-external-v7"
+const autoReviewProvenance = "host-mcp-review-binding-v7"
 const autoReviewTimeout = 30 * time.Second
 const autoReviewValidity = 2 * time.Minute
 
@@ -119,6 +119,7 @@ func (e *mcpReviewParseError) Error() string { return "invalid reviewer response
 
 // Memories and summaries are deliberately absent: they are untrusted, change
 // independently of authorization and only add size and digest volatility.
+// The reviewer gets bounded memories beside this context (mcpReviewHostEvidence).
 type mcpReviewContext struct {
 	Intent             string                  `json:"user_intent"`
 	IntentMessageID    string                  `json:"user_intent_message_id"`
@@ -538,7 +539,7 @@ func (s *Server) requestMCPReview(ctx context.Context, r Run, call extensions.MC
 			return mcpReviewResult{}, f
 		}
 	}
-	raw, err := mcpReviewInput(call, x, digest)
+	raw, err := mcpReviewInput(call, x, digest, s.mcpReviewHostEvidence(r, x))
 	if err != nil {
 		f := &mcpReviewFailure{mcpReviewFailureInputInvalid, "encoding"}
 		logMCPReviewFailure(r, call, model, 0, 0, f)

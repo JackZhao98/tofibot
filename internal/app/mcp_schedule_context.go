@@ -52,10 +52,13 @@ type mcpScheduleConversation struct {
 // A compact, host-verified view of the occurrence's immutable authorization
 // snapshot. The complete snapshot stays bound through SnapshotDigest.
 type mcpScheduleOccurrenceEvidence struct {
-	ScheduleID          string                        `json:"schedule_id"`
-	RootRunID           string                        `json:"root_run_id"`
-	TriggerMessageID    string                        `json:"trigger_message_id"`
-	ScheduledForUTC     string                        `json:"scheduled_for_utc"`
+	ScheduleID       string `json:"schedule_id"`
+	RootRunID        string `json:"root_run_id"`
+	TriggerMessageID string `json:"trigger_message_id"`
+	ScheduledForUTC  string `json:"scheduled_for_utc"`
+	// The planned instant on the schedule's own wall clock. Dates and weekdays
+	// the occurrence writes or checks are read here, never from the UTC date.
+	ScheduledForLocal   *scheduleLocalMoment          `json:"scheduled_for_local,omitempty"`
 	Revision            int64                         `json:"revision"`
 	ExecutionSpec       scheduleExecutionSpec         `json:"execution_spec"`
 	ExecutionSpecDigest string                        `json:"execution_spec_digest"`
@@ -292,6 +295,9 @@ func (s *Server) readMCPScheduleChain(db reviewQuerier, account string, requeste
 	}
 	snapshot := record.Snapshot
 	occurrence := mcpScheduleOccurrenceEvidence{ScheduleID: snapshot.ScheduleID, RootRunID: snapshot.RootRunID, TriggerMessageID: snapshot.TriggerMessageID, ScheduledForUTC: snapshot.ScheduledForUTC, Revision: snapshot.Revision, ExecutionSpec: snapshot.ExecutionSpec, ExecutionSpecDigest: snapshot.ExecutionSpecDigest}
+	if m, ok := localMoment(snapshot.ScheduledForUTC, snapshot.ExecutionSpec.Timezone); ok {
+		occurrence.ScheduledForLocal = &m
+	}
 	occurrence.ExecutionSpec.Content, occurrence.ContentTruncated = mcpTruncate(occurrence.ExecutionSpec.Content, mcpEvidenceIntentRunes)
 	lineage := &mcpScheduleLineage{AccountID: account, TargetRunID: requested.ID, SnapshotDigest: record.SnapshotDigest, Occurrence: occurrence}
 	if err := verifyMCPScheduleSources(db, record, lineage, &x); err != nil {
