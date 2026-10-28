@@ -29,7 +29,8 @@
     "custom_package_hint": "Installez sur ce serveur un serveur MCP npm ou PyPI à version figée.",
     "preview_title": "Aperçu Workspace (entreprise)",
     "preview_toggle": "Afficher les serveurs Google Workspace",
-    "community_note": "Les connecteurs communautaires sont maintenus par des tiers ; leurs actions d’écriture demandent toujours confirmation."
+    "community_note": "Les connecteurs communautaires sont maintenus par des tiers ; leurs actions d’écriture demandent toujours confirmation.",
+    "google_workspace_details": "Serveurs Google Workspace · OAuth · Developer Preview"
   },
   "callback": {
     "copied": "Copié",
@@ -203,7 +204,12 @@
     "preview_hint": "Inscrivez le projet Cloud au Google Workspace Developer Preview Program (developers.google.com/workspace/preview) ; sans cela, chaque appel d’outil est refusé alors que la connexion fonctionne.",
     "agentic_hint": "Cochez « Use this client for an AI-powered agent » (Google Auth Platform → Clients). Dès le 2026-11-11, Workspace MCP refuse les clients sans cette case ; dès le 2026-11-12 elle est définitive, un client non coché doit être remplacé.",
     "redirect_hint": "Dans Google Auth Platform → Clients, ouvrez votre application Web et ajoutez chaque URL utilisée dans Authorized redirect URIs (pas dans JavaScript origins). Les deux accès peuvent partager ces identifiants. Adresse, port et chemin doivent correspondre exactement. La redirection HTTP dynamique de l’ordinateur partagé ne fonctionne pas avec cette configuration fixe ; préférez HTTPS ou l’application.",
-    "test_users": "Configurer les utilisateurs test"
+    "test_users": "Configurer les utilisateurs test",
+    "workspace": {
+      "title": "Avancé : Google Workspace MCP (Developer Preview)",
+      "deadline": "À partir du 2026-11-11, Workspace MCP rejette les clients OAuth non marqués « Use this client for an AI-powered agent ». À partir du 2026-11-12, un client existant ne peut plus être modifié : créez-en un nouveau.",
+      "deadline_past": "Workspace MCP rejette désormais les clients OAuth non marqués « Use this client for an AI-powered agent », et un client existant ne peut plus être modifié : créez-en un nouveau."
+    }
   },
   "held": {
     "discord": {
@@ -276,7 +282,11 @@
       "verified": "Lecture du Gmail personnel vérifiée.",
       "verify": "Vérifier la lecture Gmail",
       "verifying": "Vérification…",
-      "waiting": "En attente de l’autorisation Google"
+      "waiting": "En attente de l’autorisation Google",
+      "scope_readonly_note": "Les Bots peuvent lire e-mails, événements et fichiers. Rien n'est envoyé ni modifié.",
+      "scope_read_send_note": "Gmail uniquement. Chaque e-mail qu'un Bot veut envoyer attend votre confirmation.",
+      "scope_readonly_title": "Lecture seule",
+      "scope_read_send_title": "Lire et envoyer"
     }
   },
   "mcp": {
@@ -524,7 +534,9 @@
     "google": {
       "using_client": "Le client Google enregistré est utilisé (projet {{project}}). Aucun nouvel envoi nécessaire.",
       "replace_client": "Remplacer le client",
-      "project_found": "Ce client appartient au projet {{project}}."
+      "project_found": "Ce client appartient au projet {{project}}.",
+      "tile_name": "Google",
+      "tile_description": "Gmail, Agenda et Drive de votre propre compte Google."
     },
     "repo": {
       "label": "Code source sur GitHub : {{repo}}",
@@ -535,6 +547,10 @@
       "tools_one": "{{count}} outil",
       "tools_many": "{{count}} outils",
       "tools_other": "{{count}} outils"
+    },
+    "connecting": {
+      "lead": "Ajout de {{name}} et ouverture de sa page de connexion…",
+      "advanced": "Réglages avancés"
     }
   },
   "capabilities": {

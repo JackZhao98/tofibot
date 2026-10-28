@@ -29,7 +29,8 @@
     "custom_package_hint": "Installieren Sie einen MCP-Server aus npm oder PyPI mit fester Version auf diesem Server.",
     "preview_title": "Workspace-Vorschau (Unternehmen)",
     "preview_toggle": "Google-Workspace-Server anzeigen",
-    "community_note": "Community-Connectors werden von Dritten gepflegt; ihre Schreibaktionen fragen immer zuerst nach."
+    "community_note": "Community-Connectors werden von Dritten gepflegt; ihre Schreibaktionen fragen immer zuerst nach.",
+    "google_workspace_details": "Google-Workspace-Server · OAuth · Developer Preview"
   },
   "callback": {
     "copied": "Kopiert",
@@ -203,7 +204,12 @@
     "preview_hint": "Melden Sie das Cloud-Projekt im Google Workspace Developer Preview Program an (developers.google.com/workspace/preview); ohne Anmeldung wird jeder Tool-Aufruf abgelehnt, obwohl die Anmeldung klappt.",
     "agentic_hint": "Aktivieren Sie „Use this client for an AI-powered agent“ (Google Auth Platform → Clients). Ab 2026-11-11 lehnt Workspace MCP Clients ohne diese Markierung ab; ab 2026-11-12 ist sie dauerhaft, ein unmarkierter Client muss ersetzt werden.",
     "redirect_hint": "Fügen Sie unter Google Auth Platform → Clients in Ihrer Webanwendung jede benötigte URL einzeln bei Authorized redirect URIs hinzu (nicht bei JavaScript origins). Beide Zugänge können diese Zugangsdaten teilen. Adresse, Port und Pfad müssen exakt übereinstimmen. Die dynamische HTTP-Weiterleitung des geteilten Computers passt nicht zu dieser festen Einrichtung; nutzen Sie besser HTTPS oder die App.",
-    "test_users": "Testnutzer einrichten"
+    "test_users": "Testnutzer einrichten",
+    "workspace": {
+      "title": "Erweitert: Google Workspace MCP (Developer Preview)",
+      "deadline": "Ab 2026-11-11 lehnt Workspace MCP OAuth-Clients ohne „Use this client for an AI-powered agent“ ab. Ab 2026-11-12 lässt sich ein bestehender Client nicht mehr ändern: Erstelle einen neuen.",
+      "deadline_past": "Workspace MCP lehnt OAuth-Clients ohne „Use this client for an AI-powered agent“ ab, und ein bestehender Client lässt sich nicht ändern: Erstelle einen neuen."
+    }
   },
   "held": {
     "discord": {
@@ -276,7 +282,11 @@
       "verified": "Lesezugriff auf persönliches Gmail bestätigt.",
       "verify": "Gmail-Lesezugriff prüfen",
       "verifying": "Wird geprüft…",
-      "waiting": "Warten auf Google-Autorisierung"
+      "waiting": "Warten auf Google-Autorisierung",
+      "scope_readonly_note": "Bots können Mails, Termine und Dateien lesen. Nichts wird gesendet oder geändert.",
+      "scope_read_send_note": "Nur Gmail. Jede Mail, die ein Bot senden will, wartet auf deine Bestätigung.",
+      "scope_readonly_title": "Nur lesen",
+      "scope_read_send_title": "Lesen und senden"
     }
   },
   "mcp": {
@@ -519,7 +529,9 @@
     "google": {
       "using_client": "Gespeicherter Google-Client wird verwendet (Projekt {{project}}). Kein erneuter Upload nötig.",
       "replace_client": "Client ersetzen",
-      "project_found": "Dieser Client gehört zum Projekt {{project}}."
+      "project_found": "Dieser Client gehört zum Projekt {{project}}.",
+      "tile_name": "Google",
+      "tile_description": "Gmail, Kalender und Drive deines eigenen Google-Kontos."
     },
     "repo": {
       "label": "Quellcode auf GitHub: {{repo}}",
@@ -529,6 +541,10 @@
     "row": {
       "tools_one": "{{count}} Tool",
       "tools_other": "{{count}} Tools"
+    },
+    "connecting": {
+      "lead": "{{name}} wird hinzugefügt und die Anmeldeseite geöffnet…",
+      "advanced": "Erweiterte Einstellungen"
     }
   },
   "capabilities": {

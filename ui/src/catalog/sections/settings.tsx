@@ -61,9 +61,9 @@ function Reopen({ children }: { children: (close: () => void) => ReactNode }) {
   const [open, setOpen] = useState(true);
   return open ? <>{children(() => setOpen(false))}</> : <button type="button" className="secondary-button catalog-reopen" onClick={() => setOpen(true)}>Add connection</button>;
 }
-function connectDialog(id: string, label: string, request: DialogRequest, google: GoogleOverview | null = null, extra: Partial<CatalogState> = {}): CatalogState {
+function connectDialog(id: string, label: string, request: DialogRequest, google: GoogleOverview | null = null, extra: Partial<CatalogState> = {}, onOneClick: () => Promise<void> = never): CatalogState {
   return { id: `connect-${id}`, kind: "overlay", label, probe: ".connect-dialog", keyboard: { close: "Escape", reopen: { focus: ".catalog-reopen", key: "Enter" } }, ...extra,
-    render: () => <Reopen>{close => <ConnectDialog request={request} servers={[]} local={synthLocal} google={google} options={synthOptions} route={mcpOAuthRoute("https:", false, false, synthOptions)} onSave={async () => {}} onLocalChanged={async () => {}} onClose={close} />}</Reopen> };
+    render: () => <Reopen>{close => <ConnectDialog request={request} servers={[]} local={synthLocal} google={google} options={synthOptions} route={mcpOAuthRoute("https:", false, false, synthOptions)} onSave={async () => {}} onOneClick={onOneClick} onLocalChanged={async () => {}} onClose={close} />}</Reopen> };
 }
 
 // Settings › Skills (the library) and a Bot's Skills section (decision 0058). Synthetic data only; no request is made.
@@ -245,7 +245,12 @@ export const settings: CatalogSection = {
       { id: "al_2", bot_id: "bot_mochi", bot_name: "Mochi", server: "notion", tool: "create_page", state: "tool_changed", created_at: "2026-10-22T10:00:00Z", use_count: 0 },
     ] }, { note: "each chip has its own Revoke; the chip fades out over --m-press, in over --m-quick" }),
     connectionDetail("remove-confirm", "Connection page: confirming removal", { confirm: { text: "Remove Notion?", submit: "Remove", onCancel: noop, onConfirm: noop } }),
-    connectDialog("directory", "Add connection: directory", { view: "directory" }, null, { note: "Gmail (gogcli) first, official services, the Workspace preview grouping with its enrolment line, then Custom" }),
+    connectDialog("directory", "Add connection: directory", { view: "directory" }, null, { note: "Google as one tile first, then the official services, then Custom; the Workspace servers are not here any more" }),
+    connectDialog("google", "Add connection: the Google tile (Gmail, Calendar, Drive) with Advanced: Google Workspace MCP", { view: "google" }, null, { note: "services, optional Sign in as, Read only / Read and send as two cards, then the folded Workspace servers" }),
+    connectDialog("google-workspace", "Google step, Workspace MCP open: the dated warning, the enrolment line, six servers", { view: "google" }, null, { note: "the warning says what Google requires of the OAuth client; after 2026-11-11 it is stated as fact", drive: async step => { await step.click(".connect-workspace .disclosure-toggle"); await step.wait(500); } }),
+    connectDialog("one-click", "Add connection: one click for a service that registers its own OAuth client (Notion), saving", { view: "connecting", preset: integrationCatalog.find(item => item.id === "notion")! }, null, { keyboard: undefined, note: "no form: the dialog says it is adding the service and opening sign-in; it is locked (no Escape, no outside press) while the save runs" }),
+    connectDialog("one-click-failed", "Add connection: one click that failed, with the reason and the way to the form", { view: "connecting", preset: integrationCatalog.find(item => item.id === "notion")! }, null, { note: "Advanced settings opens the form; Cancel closes" }, () => Promise.reject(new Error("Synthetic: the server could not save this connection"))),
+    connectDialog("token", "Add connection: a token service (Linear) is one password field plus the steps", { view: "preset", preset: integrationCatalog.find(item => item.id === "linear")! }),
     connectDialog("gmail", "Add connection: Gmail via gogcli (first Google service)", { view: "gog" }),
     connectDialog("gmail-saved", "Gmail via gogcli with the workspace's Google client", { view: "gog" }, synthGoogle, { note: "no JSON to upload; the project's Enable Gmail API link" }),
     connectDialog("workspace", "Google Workspace MCP server with the saved client", { view: "preset", preset: integrationCatalog.find(item => item.id === "google-calendar")! }, synthGoogle),

@@ -29,7 +29,8 @@
     "custom_package_hint": "バージョンを固定した npm / PyPI の MCP サーバーをこのサーバーにインストールします。",
     "preview_title": "Workspace プレビュー（企業向け）",
     "preview_toggle": "Google Workspace サーバーを表示",
-    "community_note": "コミュニティ コネクタは第三者が保守しており、書き込み操作は毎回先に確認します。"
+    "community_note": "コミュニティ コネクタは第三者が保守しており、書き込み操作は毎回先に確認します。",
+    "google_workspace_details": "Google Workspace サーバー · OAuth · デベロッパー プレビュー"
   },
   "callback": {
     "copied": "コピーしました",
@@ -203,7 +204,12 @@
     "preview_hint": "Cloud プロジェクトを Google Workspace Developer Preview Program（developers.google.com/workspace/preview）に登録します。未登録だと、サインインできてもツール呼び出しはすべて拒否されます。",
     "agentic_hint": "「Use this client for an AI-powered agent」にチェックします（Google Auth Platform → Clients）。2026-11-11 以降、未設定のクライアントは Workspace MCP に拒否されます。2026-11-12 以降は設定が固定されるため、未設定のクライアントは作り直しが必要です。",
     "redirect_hint": "Google Auth Platform → Clients のウェブアプリケーションで、使用する URL を 1 つずつ Authorized redirect URIs（JavaScript origins ではありません）に追加します。2 つの入口で同じ認証情報を共有できます。アドレス、ポート、パスは完全に一致させてください。HTTP の共有コンピュータで使う動的リダイレクトはこの固定設定に対応しないため、HTTPS かアプリの利用をおすすめします。",
-    "test_users": "テストユーザーを設定"
+    "test_users": "テストユーザーを設定",
+    "workspace": {
+      "title": "詳細設定: Google Workspace MCP(デベロッパー プレビュー)",
+      "deadline": "2026-11-11 以降、Workspace MCP は「Use this client for an AI-powered agent」にチェックのない OAuth クライアントを拒否します。2026-11-12 以降は既存のクライアントを変更できないため、新しく作成してください。",
+      "deadline_past": "Workspace MCP は「Use this client for an AI-powered agent」にチェックのない OAuth クライアントを拒否します。既存のクライアントは変更できないため、新しく作成してください。"
+    }
   },
   "held": {
     "discord": {
@@ -276,7 +282,11 @@
       "verified": "個人の Gmail の読み取りを確認しました。",
       "verify": "Gmail の読み取りを確認",
       "verifying": "確認中…",
-      "waiting": "Google の認可を待っています"
+      "waiting": "Google の認可を待っています",
+      "scope_readonly_note": "Bot はメール、予定、ファイルを読み取れます。送信や変更はしません。",
+      "scope_read_send_note": "Gmail のみ。Bot が送信しようとするメールは、すべてあなたの確認を待ちます。",
+      "scope_readonly_title": "読み取り専用",
+      "scope_read_send_title": "読み取りと送信"
     }
   },
   "mcp": {
@@ -514,7 +524,9 @@
     "google": {
       "using_client": "保存済みの Google クライアント（プロジェクト {{project}}）を使用します。再アップロードは不要です。",
       "replace_client": "クライアントを置き換える",
-      "project_found": "このクライアントはプロジェクト {{project}} のものです。"
+      "project_found": "このクライアントはプロジェクト {{project}} のものです。",
+      "tile_name": "Google",
+      "tile_description": "自分の Google アカウントの Gmail、カレンダー、ドライブ。"
     },
     "repo": {
       "label": "GitHub のソース：{{repo}}",
@@ -523,6 +535,10 @@
     "open": "{{name}} を開く",
     "row": {
       "tools_other": "{{count}} 個のツール"
+    },
+    "connecting": {
+      "lead": "{{name}} を追加し、サインインページを開いています…",
+      "advanced": "詳細設定"
     }
   },
   "capabilities": {

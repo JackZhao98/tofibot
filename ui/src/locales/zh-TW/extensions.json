@@ -29,7 +29,8 @@
     "custom_package_hint": "在本伺服器安裝固定版本的 npm 或 PyPI MCP 服務。",
     "preview_title": "Workspace 預覽（企業）",
     "preview_toggle": "顯示 Google Workspace 伺服器",
-    "community_note": "社群連線器由第三方維護，其寫入操作每次都會先詢問你。"
+    "community_note": "社群連線器由第三方維護，其寫入操作每次都會先詢問你。",
+    "google_workspace_details": "Google Workspace 伺服器 · OAuth · 開發人員預覽"
   },
   "callback": {
     "copied": "已複製",
@@ -203,7 +204,12 @@
     "preview_hint": "將 Cloud 專案加入 Google Workspace Developer Preview Program（developers.google.com/workspace/preview）；未加入時授權雖可成功，每次工具呼叫仍會被拒。",
     "agentic_hint": "勾選「Use this client for an AI-powered agent」（Google Auth Platform → Clients）。自 2026-11-11 起 Workspace MCP 拒絕未標記的用戶端；2026-11-12 起該設定固定，未標記的用戶端需新建替換。",
     "redirect_hint": "在 Google Auth Platform → Clients 的 Web application 中，將需要使用的網址逐一加入 Authorized redirect URIs（不是 JavaScript origins）。兩種入口可共用這組憑證。網址、連接埠、路徑必須完全一致；HTTP 共用電腦的動態重新導向不適用此固定網址設定，建議改用 HTTPS 或用戶端。",
-    "test_users": "設定測試使用者"
+    "test_users": "設定測試使用者",
+    "workspace": {
+      "title": "進階:Google Workspace MCP(開發人員預覽)",
+      "deadline": "從 2026-11-11 起,Workspace MCP 會拒絕未勾選「Use this client for an AI-powered agent」的 OAuth 用戶端;從 2026-11-12 起既有用戶端無法再修改,只能新建。",
+      "deadline_past": "Workspace MCP 現在會拒絕未勾選「Use this client for an AI-powered agent」的 OAuth 用戶端,既有用戶端也無法再修改,只能新建。"
+    }
   },
   "held": {
     "discord": {
@@ -276,7 +282,11 @@
       "verified": "個人 Gmail 讀取已驗證。",
       "verify": "驗證 Gmail 讀取",
       "verifying": "正在驗證…",
-      "waiting": "等待 Google 授權"
+      "waiting": "等待 Google 授權",
+      "scope_readonly_note": "Bot 可以讀取郵件、行程和檔案,不會傳送或修改任何內容。",
+      "scope_read_send_note": "僅限 Gmail。Bot 想傳送的每封郵件都要等你確認。",
+      "scope_readonly_title": "唯讀",
+      "scope_read_send_title": "讀取和傳送"
     }
   },
   "mcp": {
@@ -514,7 +524,9 @@
     "google": {
       "using_client": "使用已儲存的 Google 用戶端（專案 {{project}}），無需再次上傳。",
       "replace_client": "更換用戶端",
-      "project_found": "此用戶端屬於專案 {{project}}。"
+      "project_found": "此用戶端屬於專案 {{project}}。",
+      "tile_name": "Google",
+      "tile_description": "你自己的 Google 帳號的 Gmail、日曆和雲端硬碟。"
     },
     "repo": {
       "label": "GitHub 原始碼：{{repo}}",
@@ -523,6 +535,10 @@
     "open": "開啟 {{name}}",
     "row": {
       "tools_other": "{{count}} 個工具"
+    },
+    "connecting": {
+      "lead": "正在新增 {{name}} 並開啟它的登入頁…",
+      "advanced": "進階設定"
     }
   },
   "capabilities": {

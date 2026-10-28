@@ -176,3 +176,20 @@
 .conn-bots .avatar,.conn-bots .tofi-avatar{flex:none;width:28px;height:28px}
 .conn-bots span{min-width:0;overflow-wrap:anywhere;font:500 13.5px/1.4 var(--body)}
 @media(prefers-reduced-motion:reduce){.conn-bots-fold{transition:none}}
+
+/* Gmail access as two cards, and the Workspace servers folded inside the Google step (step 5). The picked card takes a filled ring
+   (a box-shadow transition over --m-quick); reduced motion drops it. */
+.connect-scope{border:0;padding:0;min-width:0}.connect-scope legend{padding:0;margin-bottom:6px}
+.connect-scope-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.connect-scope-card{position:relative;display:grid;gap:3px;align-content:start;padding:12px 14px;border-radius:14px;background:var(--surface-2);box-shadow:inset 0 0 0 var(--edge) transparent;transition:box-shadow var(--m-quick) var(--ease-out),background var(--m-quick) var(--ease-out)}
+.connect-scope-card:hover{background:var(--sunk)}
+.connect-scope-card[data-checked]{background:var(--surface);box-shadow:inset 0 0 0 var(--edge) var(--ink)}
+.connect-scope-card input{position:absolute;opacity:0;pointer-events:none}
+.connect-scope-card:has(input:focus-visible){outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+.connect-scope-card strong{font:600 13px/1.35 var(--body);color:var(--ink)}
+.connect-scope-card small{font:12px/1.5 var(--body);color:var(--muted)}
+@media(max-width:480px){.connect-scope-cards{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.connect-scope-card{transition:none}}
+.connect-workspace{margin-top:16px}
+.connect-workspace .settings-banner{margin:0 0 10px}
+.connect-workspace .integration-grid{margin-top:8px}

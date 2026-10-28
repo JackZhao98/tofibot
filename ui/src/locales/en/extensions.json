@@ -29,7 +29,8 @@
     "custom_package_hint": "Install a pinned npm or PyPI MCP server on this server.",
     "preview_title": "Workspace preview (enterprise)",
     "preview_toggle": "Show Google Workspace servers",
-    "community_note": "Community connectors are maintained by third parties, and their write actions always ask first."
+    "community_note": "Community connectors are maintained by third parties, and their write actions always ask first.",
+    "google_workspace_details": "Google Workspace servers · OAuth · Developer Preview"
   },
   "callback": {
     "copied": "Copied",
@@ -203,7 +204,12 @@
     "preview_hint": "Enrol the Cloud project in the Google Workspace Developer Preview Program (developers.google.com/workspace/preview); without it every tool call is refused even though sign-in works.",
     "agentic_hint": "Check “Use this client for an AI-powered agent” (Google Auth Platform → Clients). From 2026-11-11 Workspace MCP rejects clients without it; from 2026-11-12 it is permanent, so an unmarked client must be replaced.",
     "redirect_hint": "In Google Auth Platform → Clients, open your Web application and add each URL you'll use under Authorized redirect URIs (not JavaScript origins). Both entry points can share these credentials. Address, port and path must match exactly. The shared computer's dynamic HTTP redirect can't use this fixed setup; use HTTPS or the app instead.",
-    "test_users": "Set up test users"
+    "test_users": "Set up test users",
+    "workspace": {
+      "title": "Advanced: Google Workspace MCP (Developer Preview)",
+      "deadline": "From 2026-11-11 Workspace MCP rejects OAuth clients that are not marked “Use this client for an AI-powered agent”. From 2026-11-12 an existing client cannot be changed: create a new one.",
+      "deadline_past": "Workspace MCP now rejects OAuth clients that are not marked “Use this client for an AI-powered agent”, and an existing client cannot be changed: create a new one."
+    }
   },
   "held": {
     "discord": {
@@ -276,7 +282,11 @@
       "verified": "Personal Gmail read access verified.",
       "verify": "Verify Gmail access",
       "verifying": "Verifying…",
-      "waiting": "Waiting for Google authorization"
+      "waiting": "Waiting for Google authorization",
+      "scope_readonly_note": "Bots can read mail, events and files. Nothing is sent or changed.",
+      "scope_read_send_note": "Gmail only. Every email a Bot wants to send waits for your confirmation.",
+      "scope_readonly_title": "Read only",
+      "scope_read_send_title": "Read and send"
     }
   },
   "mcp": {
@@ -519,7 +529,9 @@
     "google": {
       "using_client": "Using your saved Google client (project {{project}}). No upload needed.",
       "replace_client": "Replace client",
-      "project_found": "This client belongs to project {{project}}."
+      "project_found": "This client belongs to project {{project}}.",
+      "tile_name": "Google",
+      "tile_description": "Gmail, Calendar and Drive for your own Google account."
     },
     "repo": {
       "label": "Source on GitHub: {{repo}}",
@@ -529,6 +541,10 @@
     "row": {
       "tools_one": "{{count}} tool",
       "tools_other": "{{count}} tools"
+    },
+    "connecting": {
+      "lead": "Adding {{name}} and opening its sign-in page…",
+      "advanced": "Advanced settings"
     }
   },
   "capabilities": {

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { request } from "../api";
 import { Banner, FilePicker } from "../settings/components";
 import { Trans, useTranslation } from "../i18n";
@@ -13,8 +13,10 @@ type Scope = "readonly" | "read-send";
  * Personal Gmail, Calendar and Drive through a Google account the person authorises: install the plugin if it is missing, register the
  * OAuth client, then sign in on Google's page. Copy keys stay under `local.google.*` and `local.gog.*`.
  */
-export function GogSetup({ local, google, callbackOrigin, onChanged, onDone, onCancel }: {
+export function GogSetup({ local, google, callbackOrigin, onChanged, onDone, onCancel, extra }: {
   local: LocalState; google: GoogleOverview | null; callbackOrigin?: string; onChanged: () => Promise<void>; onDone: () => void; onCancel: () => void;
+  /** Shown under the setup (the Google step puts "Advanced: Google Workspace MCP" here). */
+  extra?: ReactNode;
 }) {
   const { t } = useTranslation("extensions");
   const callbackURL = `${callbackOrigin ?? window.location.origin}/api/extensions/local-mcp/gog/oauth/callback`;
@@ -85,6 +87,7 @@ export function GogSetup({ local, google, callbackOrigin, onChanged, onDone, onC
     <p className="connect-lead">{t("local.gog.intro")}</p>
     {error && <Banner tone="error" title={error} />}
     <div className="sheet-actions"><button type="button" className="secondary-button" onClick={onCancel}>{t("action.cancel")}</button><button type="button" className="primary-button" disabled={Boolean(busy)} onClick={() => void install()}>{busy === "install" ? t("local.gog.installing") : t("local.gog.install")}</button></div>
+    {extra}
   </div>;
 
   if (waiting) return <div className="connect-body" role="status">
@@ -114,11 +117,21 @@ export function GogSetup({ local, google, callbackOrigin, onChanged, onDone, onC
           <p className="field-note">{t("local.google.services_note")}</p>
         </fieldset>
         <label className="connect-field">{t("local.google.email")}<input type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@gmail.com" /></label>
-        {hasGmail && <label className="connect-field">{t("local.google.scope")}<select value={scope} onChange={event => setScope(event.target.value as Scope)}><option value="readonly">{t("local.google.scope_readonly")}</option><option value="read-send">{t("local.google.scope_read_send")}</option></select></label>}
+        {hasGmail && <fieldset className="connect-field connect-scope">
+          <legend>{t("local.google.scope")}</legend>
+          <div className="connect-scope-cards" role="radiogroup" aria-label={t("local.google.scope")}>
+            {(["readonly", "read-send"] as const).map(value => <label key={value} className="connect-scope-card" data-checked={scope === value || undefined}>
+              <input type="radio" name="gog-scope" value={value} checked={scope === value} onChange={() => setScope(value)} />
+              <strong>{t(value === "readonly" ? "local.google.scope_readonly_title" : "local.google.scope_read_send_title")}</strong>
+              <small>{t(value === "readonly" ? "local.google.scope_readonly_note" : "local.google.scope_read_send_note")}</small>
+            </label>)}
+          </div>
+        </fieldset>}
       </li>
     </ol>
     {!oauthReady && <p className="field-note">{t("local.google.needs_https")}</p>}
     {error && <Banner tone="error" title={error} />}
     <div className="sheet-actions"><button type="button" className="secondary-button" onClick={onCancel}>{t("action.cancel")}</button><button type="button" className="primary-button" disabled={Boolean(busy) || !email || (!savedClient && !credentials) || !oauthReady} onClick={() => void authorize()}>{busy === "oauth" ? t("local.google.preparing") : t("local.google.connect")}</button></div>
+    {extra}
   </div>;
 }

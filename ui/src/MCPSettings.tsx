@@ -21,6 +21,7 @@ import { useLocalPlugins, type LocalState, type Plugin } from "./connections/loc
 import { CONNECTIONS_CHANGED } from "./settings/useConnectionAttention";
 import { useConnectionAllowances } from "./connections/allowances";
 import { useConnectionBots } from "./connections/bots";
+import { isOneClick, openSignInTab, presetDefaults } from "./connections/oneClick";
 import { displayName, presetFor } from "./connections/names";
 import { OPEN_CONNECTION_EVENT, takeConnectionTarget } from "./settings/deepLinks";
 import { connectionKind, primaryAction, type Phase } from "./connections/status";
@@ -97,9 +98,19 @@ export function MCPSettings({ refreshToken = 0, bots = [] }: { refreshToken?: nu
   const total = servers.length + orphans.length;
   const stars = useRepoStars(servers.map(server => repoFor(server, presetFor(server))));
   const empty = loaded && !listError && total === 0;
+  // One click: save the preset's defaults and go straight to its sign-in (the row takes it from here, with the tab opened in the click).
+  const [signIn, setSignIn] = useState<{ name: string; popup: Window | null } | null>(null);
+  async function oneClick(value: MCP, popup: Window | null) {
+    await request("/api/extensions/mcp", { method: "POST", body: JSON.stringify(value) });
+    setServers(items => [...items.filter(item => item.name !== value.name), value]);
+    setSignIn({ name: value.name, popup });
+    closeDialog(); await refresh();
+  }
   const startTile = (id: EmptyTileId) => {
     const preset = integrationCatalog.find(item => item.id === id);
-    openDialog(id === "google" ? (local.available ? { view: "gog" } : { view: "directory" }) : preset ? { view: "preset", preset } : { view: "directory" });
+    if (id === "google") { openDialog({ view: "google" }); return; }
+    if (preset && isOneClick(preset, servers, route)) { openDialog({ view: "connecting", preset, popup: openSignInTab(preset.id, preset.oauthRedirect === "loopback" ? mcpOAuthRoute(window.location.protocol, isDesktop, Boolean(window.tofiDesktop?.authorizeMCP), options, true) : route) }); return; }
+    openDialog(preset ? { view: "preset", preset } : { view: "directory" });
   };
   const [focusTool, setFocusTool] = useState<string | undefined>();
   const open = (name: string, tool?: string) => { setNav("forward"); setFocusTool(tool); setSelected(name); };
@@ -121,7 +132,7 @@ export function MCPSettings({ refreshToken = 0, bots = [] }: { refreshToken?: nu
       {empty && <ConnectionsEmpty onStart={startTile} onBrowse={() => openDialog({ view: "directory" })} />}
       <div className="mcp-rows">
         {servers.map(server => <MCPRow key={server.name} route={route} options={options} botId={bots.find(bot => !bot.archived)?.id} server={server} local={local} google={google} stars={stars} checkRequest={checks[server.name] ?? 0} refresh={refresh} refreshLocal={refreshLocal}
-          selected={selected === server.name} focusTool={selected === server.name ? focusTool : undefined} detailSlot={detailSlot} dialogSlot={dialogSlot} onOpen={() => open(server.name)} onBack={close}
+          signIn={signIn?.name === server.name ? signIn : null} onSignInStarted={() => setSignIn(null)} selected={selected === server.name} focusTool={selected === server.name ? focusTool : undefined} detailSlot={detailSlot} dialogSlot={dialogSlot} onOpen={() => open(server.name)} onBack={close}
           onEdit={() => openDialog({ view: "edit", server, preset: presetFor(server) })} onAuthorizeLocal={() => openDialog({ view: "gog" })}
           onRemoved={() => { setServers(items => items.filter(item => item.name !== server.name)); setSelected(null); setNav("back"); void refreshAll(); }} />)}
         {orphans.map(plugin => <PluginRow key={plugin.id} plugin={plugin} onChanged={refreshAll} />)}
@@ -129,7 +140,7 @@ export function MCPSettings({ refreshToken = 0, bots = [] }: { refreshToken?: nu
     </div>
     <div className="mcp-detail-pane" ref={setDetailSlot} hidden={selected === null} />
     <div ref={setDialogSlot} />
-    {dialog && <ConnectDialog request={dialog} servers={servers} local={local} google={google} options={options} route={route} onSave={save} onLocalChanged={refreshAll} onClose={closeDialog} />}
+    {dialog && <ConnectDialog request={dialog} servers={servers} local={local} google={google} options={options} route={route} onSave={save} onOneClick={oneClick} onLocalChanged={refreshAll} onClose={closeDialog} />}
   </div>;
 }
 
@@ -148,9 +159,10 @@ function PluginRow({ plugin, onChanged }: { plugin: Plugin; onChanged: () => Pro
   </ConnectionRowView>;
 }
 
-function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved, onAuthorizeLocal, route: pageRoute, options, botId, local, google, stars, selected, focusTool, detailSlot, dialogSlot, onOpen, onBack }: {
+function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved, onAuthorizeLocal, route: pageRoute, options, botId, local, google, stars, selected, focusTool, signIn, onSignInStarted, detailSlot, dialogSlot, onOpen, onBack }: {
   stars: Record<string, number>; route: OAuthRoute; options: OAuthOptions | null; botId?: string; server: MCP; local: LocalState; google: GoogleOverview | null; checkRequest: number; refresh: () => Promise<void>; refreshLocal: () => Promise<void>;
   onEdit: () => void; onRemoved: () => void; onAuthorizeLocal: () => void;
+  signIn: { popup: Window | null } | null; onSignInStarted: () => void;
   selected: boolean; focusTool?: string; detailSlot: HTMLElement | null; dialogSlot: HTMLElement | null; onOpen: () => void; onBack: () => void;
 }) {
   const { t } = useTranslation(["extensions", "common"]);
@@ -264,11 +276,12 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
     window.addEventListener("focus", back);
     return () => window.removeEventListener("focus", back);
   }, [apiIssue, check]);
-  async function authorize() {
+  async function authorize(preopened: Window | null = null) {
     const id = ++operation.current; abort.current?.abort(); const controller = new AbortController(); abort.current = controller;
     setError(""); setAuthURL(""); setPhase("authorizing");
-    if (route.mode === "blocked") { setPhase("auth"); setError(route.note); return; }
+    if (route.mode === "blocked") { preopened?.close(); setPhase("auth"); setError(route.note); return; }
     if (route.mode === "desktop") {
+      preopened?.close();
       nativePending.current = true; setPhase("waiting");
       try {
         await window.tofiDesktop!.authorizeMCP!(server.name);
@@ -278,6 +291,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
       return;
     }
     if (route.mode === "vm") {
+      preopened?.close();
       try {
         if (!botId) throw new Error(t("error.needs_bot"));
         const result = await request<VMOAuthSession>(endpoint(server.name) + "/oauth/vm/start", { ...post({ bot_id: botId }), signal: controller.signal });
@@ -288,13 +302,13 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
     }
     if (route.mode === "paste") {
       // The sign-in tab opens inside the click (a later window.open is blocked); the dialog points it at the provider.
-      const tab = window.open(endpoint(server.name) + "/oauth/pending", "_blank"); if (tab) tab.opener = null;
+      const tab = preopened ?? window.open(endpoint(server.name) + "/oauth/pending", "_blank"); if (tab) tab.opener = null;
       setPastePopup(tab); setPasteOpen(true); setPhase("waiting"); return;
     }
     // Open during the user gesture; asynchronous window.open is blocked by many browsers.
     let popup: Window | null = null;
     try {
-      popup = window.open(endpoint(server.name) + "/oauth/pending", "_blank"); authorizationPopup.current = popup; if (popup) popup.opener = null;
+      popup = preopened ?? window.open(endpoint(server.name) + "/oauth/pending", "_blank"); authorizationPopup.current = popup; if (popup) popup.opener = null;
       const result = await request<{ authorization_url: string }>(endpoint(server.name) + "/oauth/start", { ...post({}), signal: controller.signal });
       if (!alive.current || id !== operation.current) { popup?.close(); return; }
       const url = new URL(result.authorization_url); if (!["https:", "http:"].includes(url.protocol)) throw new Error(t("error.invalid_auth_url"));
@@ -305,6 +319,8 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
       popup?.close(); if (alive.current && id === operation.current) { setPhase("auth"); setError(message(e)); }
     }
   }
+  // A one-click connection: the dialog saved it and handed over the tab opened in the click; sign in right away.
+  useEffect(() => { if (signIn) { onSignInStarted(); void authorize(signIn.popup); } }, [signIn]); // eslint-disable-line react-hooks/exhaustive-deps
   async function verifyGoogle() {
     const id = ++operation.current; setPhase("checking"); setError("");
     try { await request("/api/extensions/local-mcp/gog/oauth/check", post({})); if (alive.current && operation.current === id) await check(); }

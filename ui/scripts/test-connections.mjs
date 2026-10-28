@@ -70,8 +70,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   // Gmail MCP, a custom server), none of its data.
   const ENABLE = "https://console.cloud.google.com/apis/library/gmail.googleapis.com?project=tofi-sample-123456";
   const tools = n => ({tools: Array.from({length: n}, (_, i) => ({name: `tool_${i + 1}`, description: `Synthetic tool ${i + 1}`, tier: i % 3 === 0 ? "read_only" : "write", source: i % 3 === 0 ? "provider" : "default"})), read_only: Math.ceil(n / 3), write: n - Math.ceil(n / 3), high_risk: 0, checked: true});
+  const savedServers = [];
   const stub = (url, method, q, postData = "") => {
     const path = url.pathname;
+    // One-click connections: the POST is remembered so the next list shows the saved server (state lives in this test only).
+    if (path === "/api/extensions/mcp" && method === "POST" && q.get("onecl")) { savedServers.push(JSON.parse(postData || "{}")); return {ok: true, next_run: true}; }
+    if (path === "/api/extensions/mcp" && method === "GET" && q.get("onecl") && savedServers.length) return {servers: savedServers.map(item => ({...item, oauth: {...item.oauth, connected: false}}))};
     if (path === "/api/server-info") return {service: "tofi", protocol_version: 1, instance_id: "0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d", auth: {mode: "owner"}};
     if (path === "/api/auth/session") return {enabled: true, setup_required: false, authenticated: true, password_transport_allowed: true, multi_account: false, owner: {id: "acct_sample", username: "Ada Sample", email: "ada@example.test", role: "owner"}};
     if (path === "/api/bots") return {bots: [{id: "bot_research", name: "Research Bot", archived: false}]};
@@ -134,6 +138,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       if (url.origin !== origin) { await route.abort(); return; }
       if (!url.pathname.startsWith("/api/")) { await route.continue(); return; }
       if (method !== "GET" && !/\/test$/.test(url.pathname)) { writes.push(`${method} ${url.pathname}`); posts.push({path: url.pathname, body: request.postData() ?? ""}); }
+      // A save that takes a while holds the one-click dialog on screen for the screenshot pass.
+      if (method === "POST" && url.pathname === "/api/extensions/mcp" && new URLSearchParams(page.url().split("?")[1] ?? "").get("slowsave")) await new Promise(resolve => setTimeout(resolve, 8000));
       const body = stub(url, method, new URLSearchParams(page.url().split("?")[1] ?? ""), request.postData() ?? "");
       await route.fulfill({status: body?.__status ?? 200, contentType: "application/json", body: JSON.stringify(body ?? {})});
     });
@@ -227,6 +233,14 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
         await link.page.waitForTimeout(120);
         await shot(link.page, "detail-deeplink-flash", width, theme);
         await link.close();
+        savedServers.length = 0;
+        const one = await open({empty: "1", fresh: "1", vm: "1", onecl: "1", slowsave: "1"}, {width, height, theme});
+        await one.page.locator(".mcp-empty").waitFor();
+        await one.page.locator('.mcp-empty-tile', {hasText: "Notion"}).click();
+        await one.page.locator(".connect-dialog").waitFor();
+        await one.page.waitForTimeout(600);
+        await shot(one.page, "one-click-connecting", width, theme);
+        await one.close();
         const empty = await open({empty: "1", fresh: "1"}, {width, height, theme});
         await empty.page.locator(".mcp-empty").waitFor();
         await empty.page.waitForTimeout(900);
@@ -248,9 +262,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
         await fresh.page.locator(".connect-dialog").waitFor();
         await fresh.page.waitForTimeout(700);
         await shot(fresh.page, "directory", width, theme);
-        await fresh.page.locator('[data-integration-id="local-gog"]').click();
+        await fresh.page.locator('[data-integration-id="google"]').click();
         await fresh.page.getByRole("button", {name: "Install gogcli"}).waitFor();
-        await shot(fresh.page, "gmail-install", width, theme);
+        await shot(fresh.page, "google-install", width, theme);
+        await fresh.page.locator(".connect-workspace .disclosure-toggle").click();
+        await fresh.page.waitForTimeout(600);
+        await shot(fresh.page, "google-workspace-open", width, theme);
         await fresh.close();
         const saved = await open({gclient: "1"}, {width, height, theme});
         await row(saved.page, "Gmail (personal account)").getByRole("button", {name: "Sign in"}).click();
@@ -336,7 +353,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await box("Google Drive").check();
       assert.equal(await dialog.getByRole("link", {name: "Enable Google Drive API"}).getAttribute("href"), "https://console.cloud.google.com/apis/library/drive.googleapis.com?project=tofi-sample-123456");
       await box("Gmail").uncheck();
-      assert.equal(await dialog.locator("select").count(), 0, "the Gmail access choice goes away with Gmail");
+      assert.equal(await dialog.locator('input[type="radio"]').count(), 0, "the Gmail access choice goes away with Gmail");
       assert.equal(await box("Gmail").isChecked(), false);
       await box("Gmail").check();
       assert.equal(await dialog.getByRole("button", {name: "Authorize with Google"}).isDisabled(), true, "authorization stays gated on the configured HTTPS address (this fixture is http)");
@@ -353,7 +370,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       const dialog = page.locator('[role="dialog"].connect-dialog');
       await dialog.waitFor();
       assert.equal(await dialog.getAttribute("aria-modal"), "true");
-      for (const sel of ['input[type="email"]', 'select']) assert.equal(await dialog.locator(sel).count(), 1, `the Gmail setup has ${sel}`);
+      assert.equal(await dialog.locator('input[type="email"]').count(), 1, "the Gmail setup asks for the account");
+      assert.equal(await dialog.locator('input[type="radio"]').count(), 2, "Gmail access is two cards: read only and read and send");
+      assert.equal(await dialog.locator('input[type="radio"]:checked').getAttribute("value"), "readonly", "read only is the default");
+      assert.equal(await dialog.locator("select").count(), 0, "no native select");
       assert.match(await dialog.innerText(), /redirect|Authorized redirect/i, "the redirect URI guidance is in the dialog");
       assert.match(await dialog.locator("code").first().innerText(), /\/api\/extensions\/local-mcp\/gog\/oauth\/callback$/, "the redirect URI is shown");
       await page.keyboard.press("Escape");
@@ -373,26 +393,32 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await dialog.waitFor();
       assert.equal(await page.locator('.mcp-settings .integration-tile').count(), 0, "the directory is not on the page");
       const ids = await dialog.locator("[data-integration-id]").evaluateAll(list => list.map(item => item.getAttribute("data-integration-id")));
-      assert.equal(ids[0], "local-gog", "Gmail (gogcli) leads the directory");
+      assert.equal(ids[0], "google", "Google is one tile and leads the directory");
       assert.ok(ids.includes("notion") || ids.includes("github") || ids.length > 3, "the directory lists services");
       assert.ok(ids.includes("custom-url") && ids.includes("custom-package"), "the Custom path offers a URL and a local package");
-      const preview = dialog.locator('[data-integration-id="google-gmail"]');
-      assert.equal(await preview.isVisible(), false, "official Workspace servers are collapsed under the preview grouping");
-      assert.match(await dialog.innerText(), /Workspace Developer Preview Program/, "the grouping states the enrolment requirement");
-      await dialog.getByRole("button", {name: /Google Workspace servers/}).click();
-      await preview.waitFor({state: "visible"});
-      await dialog.getByRole("button", {name: /Google Workspace servers/}).click();
-      await dialog.locator('[data-integration-id="local-gog"]').click();
+      assert.equal(ids.filter(id => id.startsWith("google-")).length, 0, "the six Workspace servers are not in the directory any more");
+      assert.doesNotMatch(await dialog.innerText(), /Workspace Developer Preview Program/, "the enrolment line lives inside the Google step");
+      await dialog.locator('[data-integration-id="google"]').click();
       await dialog.getByRole("button", {name: "Install gogcli"}).waitFor();
-      assert.match(await dialog.locator("h3").first().innerText(), /Gmail \(personal account\)/, "Gmail goes straight to the gogcli setup");
-      assert.equal(await dialog.locator('[data-integration-id="google-gmail"], form').count(), 0, "not the Workspace MCP form");
+      assert.match(await dialog.locator("h3").first().innerText(), /^Google$/, "the Google tile opens the Google step");
+      const workspace = dialog.locator(".connect-workspace");
+      assert.equal(await workspace.locator(".disclosure-region").getAttribute("aria-hidden"), "true", "Advanced: Google Workspace MCP is folded");
+      await workspace.getByRole("button", {name: /Advanced: Google Workspace MCP/}).click();
+      await dialog.locator('[data-integration-id="google-gmail"]').waitFor({state: "visible"});
+      assert.match(await workspace.innerText(), /Workspace Developer Preview Program/, "the folded section states the enrolment requirement");
+      assert.match(await workspace.locator(".settings-banner.is-warn").innerText(), /2026-11-11/, "a dated warning says what Google requires of the OAuth client");
+      assert.equal(await dialog.locator("form").count(), 0, "not a form yet: the Google step is the gogcli setup");
+      await dialog.locator('[data-integration-id="google-docs"]').click();
+      await dialog.locator("form").waitFor();
+      await dialog.getByRole("button", {name: "Back"}).click();
+      await dialog.getByRole("button", {name: "Install gogcli"}).waitFor();
       await dialog.getByRole("button", {name: "Back"}).click();
       await dialog.locator('[data-integration-id="custom-url"]').click();
       await dialog.locator('input[type="url"]').waitFor();
       await page.keyboard.press("Escape");
       await dialog.waitFor({state: "detached"});
       await close();
-      console.log("PASS directory: opens in a dialog, Gmail leads and goes to the gogcli setup, Workspace preview servers grouped with the enrolment line, Custom paths");
+      console.log("PASS directory: opens in a dialog, Google is one tile that opens the gogcli setup, the Workspace servers sit folded inside it with the enrolment line and the dated warning, Back returns through the Google step, Custom paths");
     }
 
     // ---- 5. No local plugin service: the directory offers no local connectors.
@@ -401,9 +427,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await page.getByRole("button", {name: "Add connection"}).click();
       const dialog = page.locator('[role="dialog"].connect-dialog');
       await dialog.waitFor();
-      assert.equal(await dialog.locator('[data-integration-id="local-gog"], [data-integration-id="custom-package"]').count(), 0);
+      assert.equal(await dialog.locator('[data-integration-id="custom-package"]').count(), 0, "no local package path");
+      await dialog.locator('[data-integration-id="google"]').click();
+      assert.equal(await dialog.getByRole("button", {name: "Install gogcli"}).count(), 0, "no gogcli without a local plugin service");
+      await dialog.locator('[data-integration-id="google-gmail"]').waitFor({state: "visible"});
       await close();
-      console.log("PASS directory: without a local plugin service there are no local connectors");
+      console.log("PASS directory: without a local plugin service the Google step offers the Workspace servers only, and there is no local package");
     }
 
     // ---- 6. A connection's page: where it comes from, its tools by permission, nothing inline on the list.
@@ -561,8 +590,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await page.getByRole("button", {name: "Add connection"}).click();
       const dialog = page.locator('[role="dialog"].connect-dialog');
       await dialog.waitFor();
-      await dialog.locator('[data-integration-id="google-calendar"]').waitFor({state: "attached"});
-      await dialog.getByRole("button", {name: /Google Workspace servers/}).click();
+      await dialog.locator('[data-integration-id="google"]').click();
+      await dialog.getByRole("button", {name: /Advanced: Google Workspace MCP/}).click();
       await dialog.locator('[data-integration-id="google-calendar"]').click();
       await dialog.locator("form").waitFor();
       assert.match(await dialog.innerText(), /Using your saved Google client \(project tofi-sample-123456\)/);
@@ -605,12 +634,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await page.getByRole("button", {name: "Add connection"}).click();
       const dialog = page.locator('[role="dialog"].connect-dialog');
       await dialog.waitFor();
-      const gogRepo = dialog.locator('[data-integration-id="local-gog"] + .integration-repo .repo-link');
+      const gogRepo = dialog.locator('[data-integration-id="google"] + .integration-repo .repo-link');
       await gogRepo.waitFor();
       assert.equal(await gogRepo.getAttribute("href"), "https://github.com/openclaw/gogcli");
       assert.equal(await gogRepo.getAttribute("target"), "_blank");
       assert.match(await gogRepo.getAttribute("rel"), /noopener/);
-      await dialog.locator('[data-integration-id="local-gog"] + .integration-repo .repo-stars').waitFor();
+      await dialog.locator('[data-integration-id="google"] + .integration-repo .repo-stars').waitFor();
       assert.match(await gogRepo.innerText(), /★ 8\.5k/);
       assert.match(await dialog.locator('[data-integration-id="github"] + .integration-repo').innerText(), /github\/github-mcp-server\s*★ 33\.8k/);
       assert.match(await dialog.locator('[data-integration-id="notion"] + .integration-repo').innerText(), /makenotion\/notion-mcp-server\s*★ 4\.7k/);
@@ -619,7 +648,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       const none = await open({fresh: "1", nostars: "1"});
       await none.page.getByRole("button", {name: "Add connection"}).click();
       const noneDialog = none.page.locator('[role="dialog"].connect-dialog');
-      await noneDialog.locator('[data-integration-id="local-gog"] + .integration-repo .repo-link').waitFor();
+      await noneDialog.locator('[data-integration-id="google"] + .integration-repo .repo-link').waitFor();
       await none.page.waitForTimeout(300);
       assert.equal(await noneDialog.locator(".repo-stars").count(), 0, "no cached count: the link shows without a number");
       assert.doesNotMatch(await noneDialog.innerText(), /★/);
@@ -778,6 +807,54 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       assert.equal(await b2.getByRole("checkbox", {name: "Ops Bot can use Notion"}).isChecked(), false);
       await limited.close();
       console.log("PASS bots: All Bots by default, Chosen Bots unfolds a checked list, one PUT per change, a limited connection opens on Chosen Bots");
+    }
+
+
+    // ---- 7f. One click: a service that registers its own OAuth client is saved with its defaults and goes straight to sign-in.
+    {
+      savedServers.length = 0;
+      const {page, close, posts} = await open({empty: "1", fresh: "1", vm: "1", onecl: "1"});
+      await page.locator(".mcp-empty").waitFor();
+      await page.locator('.mcp-empty-tile', {hasText: "Notion"}).click();
+      await page.locator('.mcp-service[aria-label="Notion"]').waitFor({timeout: 8000});
+      await page.locator(".connect-dialog").waitFor({state: "detached", timeout: 8000});
+      const saved = posts.find(post => post.path === "/api/extensions/mcp");
+      assert.ok(saved, "the tile saved the connection itself, no form");
+      const body = JSON.parse(saved.body);
+      assert.equal(body.name, "notion");
+      assert.equal(body.url, "https://mcp.notion.com/mcp");
+      assert.equal(body.oauth.client_id, "", "no client to type: the service registers its own");
+      assert.ok(posts.some(post => /\/mcp\/notion\/oauth\/vm\/start$/.test(post.path)), "sign-in started right after the save, by the route this page can take");
+      await page.getByText(/The computer is busy/).waitFor({timeout: 5000});
+      await close();
+      // A loopback-only service: the sign-in tab opens inside the click, then the paste-back dialog.
+      savedServers.length = 0;
+      const second = await open({fresh: "1", onecl: "1"});
+      const popups = [];
+      second.page.on("popup", popup => popups.push(popup.url()));
+      await second.page.getByRole("button", {name: "Add connection"}).click();
+      const dialog = second.page.locator('[role="dialog"].connect-dialog');
+      await dialog.waitFor();
+      await dialog.locator('[data-integration-id="robinhood"]').click();
+      await second.page.locator(".paste-back").waitFor({timeout: 8000});
+      assert.equal(popups.length, 1, "one sign-in tab, opened by the click");
+      assert.match(popups[0], /\/api\/extensions\/mcp\/robinhood\/oauth\/pending$/, "the tab starts on the pending page");
+      assert.ok(second.posts.some(post => post.path === "/api/extensions/mcp"), "saved first");
+      await second.close();
+      // A token service keeps its one-field form (no one click without a token); a blocked route keeps the form too.
+      const token = await open({empty: "1", fresh: "1"});
+      await token.page.locator(".mcp-empty").waitFor();
+      await token.page.getByRole("button", {name: "Add connection"}).click();
+      const d3 = token.page.locator('[role="dialog"].connect-dialog');
+      await d3.locator('[data-integration-id="linear"]').click();
+      await d3.locator('input[type="password"]').waitFor();
+      assert.equal(await d3.locator('input[type="password"]').count(), 1, "a token service asks for one password field");
+      await d3.getByRole("button", {name: "Back"}).click();
+      await d3.locator('[data-integration-id="notion"]').click();
+      await d3.locator("form").waitFor();
+      assert.deepEqual(token.posts.filter(post => post.path === "/api/extensions/mcp"), [], "no connection was saved: this page cannot sign in, so the form explains why");
+      await token.close();
+      console.log("PASS one click: Notion saves its defaults and starts sign-in, Robinhood opens its tab in the click then the paste-back dialog; token and blocked-route services keep the form");
     }
 
     // ---- 8. Phone width: no horizontal overflow, 44 px targets for the controls that matter.

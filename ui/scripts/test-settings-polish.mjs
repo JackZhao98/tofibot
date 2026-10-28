@@ -448,10 +448,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await page.waitForTimeout(400);
       if (await page.locator(".web-oauth-link, .web-oauth-node, .web-oauth-provider").count()) throw new Error("the sign-in illustration is back");
     }},
-    // Gmail (gogcli) OAuth client JSON, in the connect dialog: the picker is a styled button; the native file input must stay hidden before and after choosing.
+    // Google (gogcli) OAuth client JSON, in the connect dialog: the picker is a styled button; the native file input must stay hidden before and after choosing.
     {id: "connections-google-json", tab: "connections", container: ".sheet", run: async ({page}) => {
       await click(page.getByRole("button", {name: "Add connection"}), "Connections: Add connection");
-      await click(page.locator('.connect-dialog [data-integration-id="local-gog"]'), "Connections: Gmail");
+      await click(page.locator('.connect-dialog [data-integration-id="google"]'), "Connections: Google");
       const field = page.locator(".connect-dialog .connect-field", {has: page.locator('input[type="file"]')});
       await field.waitFor({timeout: 6000});
       if (!/No file chosen/.test(await field.innerText())) throw new Error("Google OAuth JSON picker does not show the empty state");
