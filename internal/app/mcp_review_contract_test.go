@@ -232,3 +232,18 @@ func TestAutoReviewPromptScopesReviewAwayFromContentProvenance(t *testing.T) {
 		}
 	}
 }
+
+// The reviewer stops only severe, hard-to-undo effects the user did not ask for;
+// method and presentation differences on the same target stay allowed.
+func TestAutoReviewPromptStopsOnlySevereExcess(t *testing.T) {
+	for _, want := range []string{
+		"exceeds the request only through a severe, hard-to-undo effect",
+		"sending or publishing data to people or places the user did not name",
+		"deleting or overwriting user data that cannot be restored",
+		"the operation used to reach the same intent on the same target is within the request",
+	} {
+		if !strings.Contains(mcpAutoReviewPrompt, want) {
+			t.Errorf("reviewer prompt lost %q", want)
+		}
+	}
+}
