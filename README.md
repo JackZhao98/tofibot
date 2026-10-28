@@ -2,103 +2,100 @@
 
 <p align="center">Persistent bots, conversations and connected tools — on your own server.</p>
 
-Tofi is a self-hosted Go server with a React Web client. Bots keep their identity,
-conversations, scheduled work and tool connections in a persistent workspace.
+TOFI is a self-hosted AI bot workspace. It has a Go server and a React web app.
+Bots keep their identity, conversations, scheduled work and tool connections in
+a persistent workspace. Current release: **v0.2.1**
+([release notes](docs/releases.md), [product status](docs/product/status.md)).
 
 - Direct and group conversations, streaming replies, attachments and generated files.
 - Persistent queues, scheduled work, cancellation and retry handling.
 - Bot configuration, memory and collaboration across conversations.
 - MCP and Skills management, credentials and supported OAuth connections.
+- Server-side web search and web fetch, with an ordered chain of providers.
 - Invite-only accounts, Admin management and per-account data isolation.
-- A guarded single-node Worker for independent account cloud computers and disk quotas.
+- Optional: one Firecracker virtual computer for each account.
 
-## Install on your own server
+## Install
 
-You need a dedicated Linux x86_64 or aarch64 server or VM: Ubuntu 22.04/24.04 or
-Debian 12/13. The one-line install works **with or without KVM**:
-
-- **Server and web app only** (any host, 2 GiB RAM and 10 GiB free disk, 4 GiB and
-  20 GiB recommended): the installer starts the server and the web app and no
-  computer. This is what you get on a host without `/dev/kvm`.
-- **With a computer** (host with `/dev/kvm`, TUN, cgroup v2 and AppArmor, at least
-  2 vCPUs, 4 GiB RAM and 30 GiB free disk; 8 GiB and 40 GiB recommended): every
-  account also gets its own Firecracker computer. Nested virtualization must be
-  enabled on cloud VMs.
+Use a dedicated Linux server or VM. TOFI supports x86_64 and aarch64.
+TOFI supports Ubuntu 22.04/24.04 and Debian 12/13.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh | sudo bash
 ```
 
-In a terminal the installer first shows what it found on the machine (OS, CPU,
-RAM, disk, Docker, KVM, ports, existing install, addresses). On a host with KVM it
-then asks `Install a computer now?` (default yes; `--yes` means yes). A host
-without KVM is not refused: the installer says why there is no computer and
-installs the server and web app only. It also asks how you will open TOFI (by IP with self-signed
-HTTPS, a domain with automatic HTTPS, or this machine only). It also asks for
-the port, and the default for each question is marked. A summary follows,
-together with `Proceed? [Y/n]`, and nothing is changed before you confirm.
-Ctrl-C or `n` leaves the machine untouched. For automation, add `--yes` (or set
-`CI`), and answer with flags or `TOFI_*` variables; the full table is in
-`deploy/self-host/README.md`. Then the script installs Docker if needed,
-downloads a release whose images and files are pinned by digest and checksum,
-and starts TOFI. It prints
-the addresses and a one-time **setup key**; enter the key on the first page to
-create the Admin account, then open Settings -> Model provider.
+The installer shows what it found on the machine. It asks how you want to open
+TOFI. It changes nothing until you confirm. Then it prints the web addresses and
+a one-time setup key. Open the address and enter the key. This creates the
+Admin account. Then open Settings > Model provider.
 
-By default TOFI serves HTTPS with a self-signed certificate on every interface,
-so you open it straight from your browser at `https://<server-ip>:8321` (like
-Proxmox on `:8006`). The browser warns about the certificate the first time:
-compare the SHA-256 fingerprint the installer printed, then continue. On a cloud
-server, allow TCP 8321 in its firewall or security group. Other choices:
+By default TOFI serves HTTPS with a self-signed certificate on port 8321.
+Compare the SHA-256 fingerprint that the installer prints with the one in your
+browser. On a cloud server, allow TCP 8321 in the firewall.
 
-```sh
-# Public HTTPS with a trusted certificate (ports 80/443, DNS pointing here)
-curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh | sudo bash -s -- --domain tofi.example.com --email you@example.com
-# This server only (127.0.0.1, still HTTPS); reach it with ssh -L 8321:127.0.0.1:8321
-curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh | sudo bash -s -- --local-only
-# No questions (scripts, cloud-init): flags and defaults only
-curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh | sudo bash -s -- --yes --port 8321
-# Server and web app only, even on a host that has KVM
-curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh | sudo bash -s -- --computer none
-```
+### Requirements
 
-Add or remove the computer later, any time, without reinstalling (your data stays):
+| | Without a computer (server and web app) | With a computer (needs KVM) |
+|---|---|---|
+| Host | Any supported host | Host with `/dev/kvm`, TUN, cgroup v2 and AppArmor |
+| CPU | 2 vCPUs recommended | At least 2 vCPUs |
+| RAM | 2 GiB minimum, 4 GiB recommended | 4 GiB minimum, 8 GiB recommended |
+| Free disk | 10 GiB minimum, 20 GiB recommended | 30 GiB minimum, 40 GiB recommended |
+
+On a cloud VM, turn on nested virtualization to use a computer. A host without
+KVM is not refused. The installer installs the server and web app only. You can
+add a computer later without a reinstall:
 
 ```sh
-sudo tofi computer add kvm          # needs a host with /dev/kvm; downloads the computer image, starts it, restarts the App
-sudo tofi computer remove           # back to server and web only; computer disks are kept (--purge deletes them)
+sudo tofi computer add kvm      # needs /dev/kvm
+sudo tofi computer remove       # computer disks are kept (--purge deletes them)
 ```
 
-Afterwards use `sudo tofi status | start | stop | update | computer | computers | logs |
-doctor | setup-secret | regenerate-cert | uninstall`. `tofi update` keeps your data and restores the previous
-version automatically if the new one does not come up. `tofi uninstall` keeps all
-data; `tofi uninstall --purge` deletes it. Details: `deploy/self-host/README.md`.
+### Install options
 
 ```sh
-sudo tofi status                    # versions (installed / latest), services, every account computer
-sudo tofi update --check            # what an update would change; exit 0 up to date, 10 available
-sudo tofi update                    # apply it (rolls back by itself if the new version fails)
-sudo tofi computers                 # each computer: state, Guest release, pending upgrade, memory, last wake
-sudo tofi computers upgrade --all   # move idle computers off an older Guest; busy ones are deferred
+# Public HTTPS with a trusted certificate (ports 80/443, DNS points here)
+... | sudo bash -s -- --domain tofi.example.com --email you@example.com
+# This server only (127.0.0.1); reach it with ssh -L 8321:127.0.0.1:8321
+... | sudo bash -s -- --local-only
+# No questions (scripts, cloud-init)
+... | sudo bash -s -- --yes --port 8321
+# Server and web app only, even on a host with KVM
+... | sudo bash -s -- --computer none
 ```
+
+Replace `...` with the `curl` command above. The full list of flags and
+`TOFI_*` variables is in [deploy/self-host/README.md](deploy/self-host/README.md).
+
+## Update, back up, restore
+
+```sh
+sudo tofi status               # installed and latest version, services, computers
+sudo tofi update --check       # what an update would change (exit 10 = update available)
+sudo tofi update               # back up, update, and roll back if the new version fails
+sudo tofi backup               # data, settings and computer disks, then verify
+sudo tofi backups              # list backups
+sudo tofi restore <id>         # restore a verified backup
+sudo tofi doctor               # check the install
+```
+
+`tofi update` makes a backup first. It restores the previous version if the new
+version does not start. `tofi uninstall` keeps all data. `tofi uninstall --purge`
+deletes it. Details: [deploy/self-host/README.md](deploy/self-host/README.md).
 
 ## Build and run from source
 
-Requirements: Docker with Compose. This development configuration builds from
-this checkout:
+Install Docker with Compose. Then run:
 
 ```sh
 docker compose up -d --build
 ```
 
-Open `http://127.0.0.1:8321`. This basic Compose configuration runs the App and
-shared MCP Runner. It does **not** provision the isolated account Worker or the
-per-account computers; use the server install above for that. Keep persistent
-volumes; removing them deletes their data. Configure authentication and a trusted
-ingress before exposing a service beyond loopback.
+Open `http://127.0.0.1:8321`. This development setup runs the App and the shared
+MCP Runner. It does not set up account computers. Do not expose it beyond
+loopback without authentication and a trusted ingress.
 
-For local development, install Go matching `go.mod` and Node matching the Web
-build dependencies:
+To work on the code, see [CONTRIBUTING.md](CONTRIBUTING.md). The short version:
 
 ```sh
 npm --prefix ui ci
@@ -106,41 +103,30 @@ npm --prefix ui run build
 go build ./cmd/tofi ./cmd/tofi-guest
 ```
 
-## Account cloud computers
+## Documentation
 
-The optional account runtime uses a Linux host with KVM, tun, cgroup v2, AppArmor
-and Docker Compose; a server installed without a computer runs without it, and
-`sudo tofi computer add kvm` adds it later. Its confined Worker owns guest lifecycle, resource admission
-and per-account disks; attachments and generated files share the cloud-disk
-quota. Chat database storage has a separate safety bound. The server install
-(`install.sh`, `deploy/self-host/`) sets this up; portable account environment
-export/import between hosts is not part of it.
+- [docs/README.md](docs/README.md): index of all documents.
+- [docs/product/status.md](docs/product/status.md): what works today and the release gates.
+- [docs/releases.md](docs/releases.md): what each version changed.
+- [deploy/self-host/README.md](deploy/self-host/README.md): installer and `tofi` host tool.
+- [docs/decisions/](docs/decisions/README.md) and [docs/design/](docs/design/README.md): decisions and design.
+- [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
 
 ## Project boundary
 
-This repository contains Server, Web UI, API contracts and Docker/Worker source.
-The Electron/macOS client is maintained separately and is not included. The Web
-build can produce a versioned UI artifact for that client with
-`scripts/export-desktop-ui.cjs`; the consumer verifies the artifact contract and
-file checksums without compiling another copy of Web source.
-
-Private deployment packets, operational acceptance data, historical design
-exports, runtime volumes and credentials are excluded from this source tree.
-No deployment or live service upgrade occurs when this source is published.
+This repository holds the Server, Web UI, API contracts and Docker/Worker
+source. The Electron/macOS client is a separate project and is not included.
+The web build can produce a versioned UI artifact for that client with
+`scripts/export-desktop-ui.cjs`. Private deployment data, runtime volumes and
+credentials are not in this repository.
 
 ## Licensing
 
-TOFI is split into two licenses:
-
 - **Server, installer and everything outside `ui/`**: [Apache-2.0](LICENSE).
-- **Web app (`ui/`)**: [PolyForm Shield 1.0.0](ui/LICENSE). Source is visible
-  and you may use and modify it to run TOFI, but not to build a competing
-  product.
+- **Web app (`ui/`)**: [PolyForm Shield 1.0.0](ui/LICENSE). You can read, use and
+  change the source to run TOFI. You cannot use it to build a competing product.
 
-Third-party Web dependency notices are in `ui/THIRD_PARTY_NOTICES.md` and
-`ui/public/licenses`. The header uses the project's original four-cat artwork
-and Fredoka lettering; the font notice is in `assets/OFL-Fredoka.txt`.
-
-The Web app also self-hosts Fredoka and JetBrains Mono. Both fonts stay under
-the SIL Open Font License 1.1 (not PolyForm Shield); their license texts,
-sources and checksums are in `ui/THIRD_PARTY_NOTICES.md` and `ui/public/licenses`.
+Third-party notices are in `ui/THIRD_PARTY_NOTICES.md` and `ui/public/licenses`.
+The header uses the project's own four-cat artwork and Fredoka lettering (font
+notice: `assets/OFL-Fredoka.txt`). Fredoka and JetBrains Mono stay under the SIL
+Open Font License 1.1.
