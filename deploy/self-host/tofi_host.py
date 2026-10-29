@@ -1723,7 +1723,9 @@ def runner_ready(env, attempts=RUNNER_READY_SECONDS):
         state = runner_container_state()
         if state == 'healthy' or state == 'running':
             return True
-        if state in ('exited', 'dead', 'unhealthy'):
+        # Docker can report a starting container as unhealthy for a moment (slow hosts, a check that ran before the
+        # listener): keep waiting. Only a container that stopped is final.
+        if state in ('exited', 'dead'):
             break
         time.sleep(1)
     raise HostError('The Runner container did not become healthy (it is %s); see `tofi logs runner`. '
@@ -1736,7 +1738,7 @@ def start_worker(env, first_install=False):
     worker_ready(first_install=first_install)
 
 
-def start_services(env, first_install=False, state=None):
+def start_services(env, first_install=False, state=None, runner_required=True):
     if env.get('TOFI_RUNNER_IMAGE'):
         require_runner_fence(env)  # before the Runner can run, and again after every reboot
     if has_computer(env):
@@ -1748,7 +1750,13 @@ def start_services(env, first_install=False, state=None):
         services.append('runner')  # its profile alone does not start it: `up` names the services it starts
     compose('up', '-d', '--no-build', '--pull', 'never', *services, env=env)
     health(env)
-    runner_ready(env)
+    try:
+        runner_ready(env)
+    except HostError as error:
+        if runner_required:
+            raise
+        # A rollback must bring the App back even when the Runner does not come up; say so instead of failing it.
+        say('WARNING: %s' % error)
 
 
 # --------------------------------------------------------------------------
@@ -4116,7 +4124,7 @@ def rollback(state):
         if previous.get('bundle'):
             switch_current(previous['bundle'])
         transition(state, 'rolling-back', 'start-previous')
-        start_services(env)
+        start_services(env, runner_required=False)
         complete(state, version=env['TOFI_VERSION'])
     except BaseException as error:
         failed(state, 'rollback-failed', error)

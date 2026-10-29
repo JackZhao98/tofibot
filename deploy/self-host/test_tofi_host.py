@@ -3135,6 +3135,26 @@ class RunnerEgressFilterTests(HostCase):
     def test_iptables_is_a_required_host_tool(self):
         self.assertIn('iptables', tofi_host.REQUIRED_TOOLS)
 
+    def test_runner_ready_waits_through_a_transient_unhealthy_state(self):
+        env = {'TOFI_RUNNER_IMAGE': 'ghcr.io/jackzhao98/tofi-mcp-runner@sha256:' + '4' * 64}
+        states = iter(['starting', 'unhealthy', 'unhealthy', 'healthy'])
+        with mock.patch.object(tofi_host, 'runner_container_state', side_effect=lambda: next(states)), \
+                mock.patch.object(tofi_host.time, 'sleep'):
+            self.assertTrue(tofi_host.runner_ready(env, attempts=10))
+        with mock.patch.object(tofi_host, 'runner_container_state', return_value='exited'), \
+                mock.patch.object(tofi_host.time, 'sleep'):
+            with self.assertRaises(tofi_host.HostError):
+                tofi_host.runner_ready(env, attempts=10)
+
+    def test_a_rollback_start_does_not_fail_on_the_runner(self):
+        env = {'TOFI_COMPUTER_BACKEND': 'none', 'TOFI_RUNNER_IMAGE': 'ghcr.io/jackzhao98/tofi-mcp-runner@sha256:' + '4' * 64}
+        broken = mock.Mock(side_effect=tofi_host.HostError('runner down'))
+        with mock.patch.object(tofi_host, 'health'), mock.patch.object(tofi_host, 'runner_ready', broken), \
+                mock.patch.object(tofi_host, 'read_env', return_value=env):
+            REAL_START_SERVICES(env, runner_required=False)
+            with self.assertRaises(tofi_host.HostError):
+                REAL_START_SERVICES(env)
+
     def test_start_services_fences_the_runner_before_it_can_run_and_only_when_there_is_one(self):
         env = {'TOFI_COMPUTER_BACKEND': 'none', 'TOFI_RUNNER_IMAGE': 'ghcr.io/jackzhao98/tofi-mcp-runner@sha256:' + '4' * 64}
         with mock.patch.object(tofi_host, 'health'), mock.patch.object(tofi_host, 'runner_ready'), \
