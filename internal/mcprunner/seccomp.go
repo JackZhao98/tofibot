@@ -45,7 +45,13 @@ type seccompPolicy struct {
 	// Clone is the clone(2) number; a call that asks for any namespace in
 	// CloneNamespaceMask fails with EPERM. Threads and processes are unaffected.
 	Clone uint32
+	// DenyX32 refuses any call whose number has bit 0x40000000 set. On x86_64 the
+	// x32 ABI reports the same audit arch as the 64-bit one but numbers its calls
+	// with that bit, so a list of 64-bit numbers does not match them.
+	DenyX32 bool
 }
+
+const x32SyscallBit = 0x40000000
 
 // CLONE_NEWNS|NEWCGROUP|NEWUTS|NEWIPC|NEWUSER|NEWPID|NEWNET
 const cloneNamespaceMask = 0x00020000 | 0x02000000 | 0x04000000 | 0x08000000 | 0x10000000 | 0x20000000 | 0x40000000
@@ -76,6 +82,14 @@ func (p seccompPolicy) build() []bpfIns {
 	emit(bpfIns{Code: bpfRET | bpfK, K: seccompRetErrno | errnoEPERM})
 	labels["ok-arch"] = len(prog)
 	emit(bpfIns{Code: bpfLD | bpfW | bpfABS, K: seccompDataNr})
+	if p.DenyX32 {
+		emit(bpfIns{Code: bpfALU | bpfAND | bpfK, K: x32SyscallBit})
+		refs = append(refs, ref{at: len(prog), label: "not-x32"})
+		emit(bpfIns{Code: bpfJMP | bpfJEQ | bpfK, K: 0})
+		emit(bpfIns{Code: bpfRET | bpfK, K: seccompRetErrno | errnoEPERM})
+		labels["not-x32"] = len(prog)
+		emit(bpfIns{Code: bpfLD | bpfW | bpfABS, K: seccompDataNr})
+	}
 	for _, nr := range p.Denied {
 		jump(nr, "eperm")
 	}

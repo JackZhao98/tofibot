@@ -6,6 +6,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -311,5 +312,101 @@ func TestSandboxAvailablePartIsNeverReportedUnavailable(t *testing.T) {
 	}
 	if err := unavailable(SandboxRequired, "part", errors.New("missing")); err == nil {
 		t.Fatal("a required part that failed must be an error")
+	}
+}
+
+func TestSeccompProgramRefusesTheX32ABI(t *testing.T) {
+	const arch, unshare, read = 0xC000003E, 272, 0
+	eperm := uint32(seccompRetErrno | errnoEPERM)
+	with := seccompPolicy{Arch: arch, Denied: []uint32{unshare}, DenyX32: true}.build()
+	without := seccompPolicy{Arch: arch, Denied: []uint32{unshare}}.build()
+	for name, nr := range map[string]uint32{"x32 unshare": unshare | x32SyscallBit, "x32 read": read | x32SyscallBit} {
+		if got := runBPF(without, arch, nr, 0); got != seccompRetAllow {
+			t.Fatalf("%s: the unfixed filter was expected to let it through, got %#x", name, got)
+		}
+		if got := runBPF(with, arch, nr, 0); got != eperm {
+			t.Errorf("%s: got %#x, want EPERM", name, got)
+		}
+	}
+	if got := runBPF(with, arch, read, 0); got != seccompRetAllow {
+		t.Errorf("plain read: %#x", got)
+	}
+	if got := runBPF(with, arch, unshare, 0); got != eperm {
+		t.Errorf("plain unshare: %#x", got)
+	}
+}
+
+// fakeProc builds a /proc look-alike: <pid>/fd/<n> links to the given files.
+func fakeProc(t *testing.T, pid int, targets ...string) {
+	t.Helper()
+	root := t.TempDir()
+	fdDir := filepath.Join(root, strconv.Itoa(pid), "fd")
+	if err := os.MkdirAll(fdDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for i, target := range targets {
+		if err := os.Symlink(target, filepath.Join(fdDir, strconv.Itoa(i+3))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	old := procDir
+	procDir = root
+	t.Cleanup(func() { procDir = old })
+}
+
+func TestDeletedButOpenFilesCountTowardTheQuota(t *testing.T) {
+	dir := t.TempDir()
+	hold := t.TempDir()
+	// What /proc shows for an unlinked file: a link whose text ends in " (deleted)".
+	ghost := filepath.Join(hold, "ghost (deleted)")
+	writeBytes(t, ghost, 512<<10)
+	live := filepath.Join(hold, "live")
+	writeBytes(t, live, 512<<10)
+	fakeProc(t, 4242, ghost, ghost, live)
+	if n := deletedOpenBytes([]int{4242}); n < 512<<10 || n >= 1024<<10 {
+		t.Fatalf("held bytes %d: want the ghost once and not the live file", n)
+	}
+	meter := newQuotaMeter(dir, 256<<10)
+	meter.held = func() int64 { return deletedOpenBytes([]int{4242}) }
+	if _, err := meter.measure(); err != nil {
+		t.Fatal(err)
+	}
+	if err := meter.admit(); err != ErrOverQuota {
+		t.Fatalf("an account holding a deleted 512 KiB file was admitted: %v", err)
+	}
+}
+
+func TestHostFreeSpaceFloorKillsTheLargestAccountAndRefusesStarts(t *testing.T) {
+	hub, _ := newTestHub(t, func(c *HubConfig) { c.MinFreeBytes = 1 << 30 })
+	oldFree, oldKill := freeBytes, killPID
+	defer func() { freeBytes, killPID = oldFree, oldKill }()
+	var killed []int
+	killPID = func(pid int) error { killed = append(killed, pid); return nil }
+	freeBytes = func(string) (uint64, error) { return 1 << 20, nil }
+
+	small, big := t.TempDir(), t.TempDir()
+	writeBytes(t, filepath.Join(small, "f"), 8<<10)
+	writeBytes(t, filepath.Join(big, "f"), 512<<10)
+	tenants := []*tenant{
+		{id: "small", dir: small, quota: newQuotaMeter(small, 1<<30)},
+		{id: "big", dir: big, quota: newQuotaMeter(big, 1<<30)},
+	}
+	if got := hub.enforceHostFloor(tenants); got != "big" {
+		t.Fatalf("stopped %q, want the largest account", got)
+	}
+	if err := hub.admitHost(); !errors.Is(err, ErrLowDisk) {
+		t.Fatalf("a start below the floor was admitted: %v", err)
+	}
+	// An unreadable disk refuses starts but kills nobody.
+	freeBytes = func(string) (uint64, error) { return 0, errors.New("statfs") }
+	if got := hub.enforceHostFloor(tenants); got != "" {
+		t.Fatalf("killed %q on a failed reading", got)
+	}
+	if err := hub.admitHost(); err == nil {
+		t.Fatal("a failed free-space reading admitted a start")
+	}
+	freeBytes = func(string) (uint64, error) { return 2 << 30, nil }
+	if hub.enforceHostFloor(tenants) != "" || hub.admitHost() != nil {
+		t.Fatal("above the floor nothing should happen")
 	}
 }

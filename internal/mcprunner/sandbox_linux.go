@@ -155,8 +155,9 @@ func hardeningPolicy() seccompPolicy {
 			unix.SYS_IO_URING_SETUP, unix.SYS_IO_URING_ENTER, unix.SYS_IO_URING_REGISTER,
 			unix.SYS_KEXEC_LOAD, unix.SYS_INIT_MODULE, unix.SYS_FINIT_MODULE, unix.SYS_DELETE_MODULE, unix.SYS_REBOOT, unix.SYS_SWAPON, unix.SYS_SWAPOFF,
 		},
-		NoSys: []uint32{unix.SYS_CLONE3},
-		Clone: unix.SYS_CLONE,
+		NoSys:   []uint32{unix.SYS_CLONE3},
+		Clone:   unix.SYS_CLONE,
+		DenyX32: seccompDenyX32,
 	}
 }
 
@@ -618,32 +619,11 @@ func startDNSForwarder(ns, upstream string) (stop func(), err error) {
 		return nil, err
 	}
 	var wg sync.WaitGroup
+	limit := newDNSLimiter(maxDNSInFlight)
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		buf := make([]byte, 4096)
-		for {
-			size, from, rerr := udp.ReadFrom(buf)
-			if rerr != nil {
-				return
-			}
-			query := append([]byte(nil), buf[:size]...)
-			go func() {
-				conn, derr := net.DialTimeout("udp", upstream, 3*time.Second)
-				if derr != nil {
-					return
-				}
-				defer conn.Close()
-				_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
-				if _, werr := conn.Write(query); werr != nil {
-					return
-				}
-				answer := make([]byte, 4096)
-				if got, rerr := conn.Read(answer); rerr == nil {
-					_, _ = udp.WriteTo(answer[:got], from)
-				}
-			}()
-		}
+		serveDNSUDP(udp, upstream, limit)
 	}()
 	go func() {
 		defer wg.Done()
@@ -652,7 +632,14 @@ func startDNSForwarder(ns, upstream string) (stop func(), err error) {
 			if aerr != nil {
 				return
 			}
-			go forwardDNSOverTCP(conn, upstream)
+			if !limit.acquire() {
+				conn.Close()
+				continue
+			}
+			go func() {
+				defer limit.release()
+				forwardDNSOverTCP(conn, upstream)
+			}()
 		}
 	}()
 	return func() { udp.Close(); tcp.Close(); wg.Wait() }, nil

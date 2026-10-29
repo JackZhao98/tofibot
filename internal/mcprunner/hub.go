@@ -456,8 +456,11 @@ func (h *Hub) openLocked(id string) (*tenant, error) {
 		quota = newQuotaMeter(dir, h.cfg.Sandbox.DiskBytes)
 	}
 	opts := Options{Cred: cred, Tmp: tmp, ManifestDir: dir, Limits: h.cfg.Limits, MinFreeBytes: h.cfg.MinFreeBytes, Sandbox: sandbox}
-	if quota != nil {
-		opts.Admit = quota.admit
+	opts.Admit = func() error {
+		if err := h.admitHost(); err != nil {
+			return err
+		}
+		return quota.admit() // a nil meter admits
 	}
 	runner, err := NewWithOptions(specs, h.cfg.IdleTimeout, opts)
 	if err != nil {
@@ -479,6 +482,9 @@ func (h *Hub) openLocked(id string) (*tenant, error) {
 	t := &tenant{id: id, runner: runner, handler: runner.Handler(token), token: token, dir: dir, sandbox: sandbox, quota: quota}
 	if cred != nil {
 		t.uid = int(cred.Uid)
+	}
+	if quota != nil {
+		quota.held = func() int64 { return deletedOpenBytes(t.accountPIDs()) }
 	}
 	t.lastUsed.Store(time.Now().UnixNano())
 	return t, nil

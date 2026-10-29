@@ -4,7 +4,11 @@ import (
 	"errors"
 	"log"
 	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -19,6 +23,11 @@ import (
 //     its quota loses the contents of its tmp/ first; if it is still over, its
 //     processes are killed and nothing of it starts or installs until it is
 //     under the quota again (removing a plugin is always possible);
+//   - files that were unlinked but are still open count as well: each sweep adds
+//     the size of every "(deleted)" file in /proc/<pid>/fd of the account's
+//     processes (killing the processes is what frees them);
+//   - below the host free-space floor (MinFreeBytes) the sweep kills the processes
+//     of the account that uses the most, and starts and installs are refused;
 //   - one file cannot grow past RLIMIT_FSIZE (limits.go), and an install is
 //     refused when the whole filesystem is nearly full (MinFreeBytes).
 //
@@ -37,6 +46,9 @@ type quotaMeter struct {
 	usage int64
 	at    time.Time
 	over  bool
+	// held adds the bytes of files the account's processes hold open after
+	// unlinking them; they are in no directory, so a tree walk cannot see them.
+	held func() int64
 }
 
 // quotaFreshness is how old a measurement may be before an install or start
@@ -55,6 +67,9 @@ func (m *quotaMeter) measure() (int64, error) {
 	usage, err := treeBytes(m.dir)
 	if err != nil {
 		return 0, err
+	}
+	if m.held != nil {
+		usage += m.held()
 	}
 	m.mu.Lock()
 	m.usage, m.at, m.over = usage, time.Now(), usage >= m.limit
@@ -95,6 +110,7 @@ func (h *Hub) sweepQuota() []string {
 	}
 	h.mu.Unlock()
 	var over []string
+	h.enforceHostFloor(tenants)
 	for _, t := range tenants {
 		if t.quota == nil {
 			continue
@@ -162,4 +178,126 @@ func (h *Hub) quotaLoop() {
 			h.sweepQuota()
 		}
 	}
+}
+
+// accountPIDs lists the processes of the account: those of its uid and those in
+// its cgroup.
+func (t *tenant) accountPIDs() []int {
+	seen := map[int]bool{}
+	var pids []int
+	add := func(pid int) {
+		if pid > 1 && !seen[pid] {
+			seen[pid] = true
+			pids = append(pids, pid)
+		}
+	}
+	if t.uid > 0 {
+		for _, pid := range processesOf(t.uid) {
+			add(pid)
+		}
+	}
+	if t.sandbox != nil && t.sandbox.cgroupProcs != "" {
+		if b, err := os.ReadFile(t.sandbox.cgroupProcs); err == nil {
+			for _, f := range strings.Fields(string(b)) {
+				if pid, err := strconv.Atoi(f); err == nil {
+					add(pid)
+				}
+			}
+		}
+	}
+	return pids
+}
+
+// deletedOpenBytes sums the allocated bytes of the files that the given
+// processes hold open although no directory entry names them any more, each
+// inode once. A file that is still linked is in the tree walk already.
+func deletedOpenBytes(pids []int) int64 {
+	var total int64
+	seen := map[[2]uint64]bool{}
+	for _, pid := range pids {
+		fdDir := filepath.Join(procDir, strconv.Itoa(pid), "fd")
+		entries, err := os.ReadDir(fdDir)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			link := filepath.Join(fdDir, e.Name())
+			target, err := os.Readlink(link)
+			if err != nil || !strings.HasSuffix(target, " (deleted)") {
+				continue
+			}
+			info, err := os.Stat(link) // through the descriptor: the inode itself
+			if err != nil || !info.Mode().IsRegular() {
+				continue
+			}
+			st, ok := info.Sys().(*syscall.Stat_t)
+			if !ok {
+				total += info.Size()
+				continue
+			}
+			key := [2]uint64{uint64(st.Dev), uint64(st.Ino)}
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			total += int64(st.Blocks) * 512
+		}
+	}
+	return total
+}
+
+// hostLow reports whether the data filesystem is below the free-space floor. A
+// failed reading counts as low: an unknown disk is not a reason to admit work.
+func (h *Hub) hostLow() bool {
+	return checkFreeSpace(h.cfg.Root, h.cfg.MinFreeBytes) != nil
+}
+
+// admitHost is part of every account's Options.Admit.
+func (h *Hub) admitHost() error {
+	if err := checkFreeSpace(h.cfg.Root, h.cfg.MinFreeBytes); err != nil {
+		if errors.Is(err, ErrLowDisk) {
+			return err
+		}
+		return ErrLowDisk
+	}
+	return nil
+}
+
+// enforceHostFloor stops the processes of the account that uses the most when
+// the data filesystem is below the floor. It returns the id it stopped.
+func (h *Hub) enforceHostFloor(tenants []*tenant) string {
+	if h.cfg.MinFreeBytes == 0 {
+		return ""
+	}
+	free, err := freeBytes(h.cfg.Root)
+	if err != nil || free >= h.cfg.MinFreeBytes {
+		return "" // an unreadable disk refuses starts (admitHost) but kills nobody
+	}
+	var worst *tenant
+	var worstUsage int64 = -1
+	for _, t := range tenants {
+		if t.quota == nil {
+			continue
+		}
+		t.quota.mu.Lock()
+		u := t.quota.usage
+		t.quota.mu.Unlock()
+		if fresh, err := t.quota.measure(); err == nil {
+			u = fresh
+		}
+		if u > worstUsage {
+			worst, worstUsage = t, u
+		}
+	}
+	if worst == nil {
+		return ""
+	}
+	log.Printf("hub: only %d bytes are free on the data filesystem (floor %d): stopping the processes of account %s, the largest at %d bytes", free, h.cfg.MinFreeBytes, worst.id, worstUsage)
+	if worst.uid > 0 {
+		killAllOf(worst.uid)
+	}
+	if worst.sandbox != nil {
+		worst.sandbox.killAll()
+	}
+	return worst.id
 }
