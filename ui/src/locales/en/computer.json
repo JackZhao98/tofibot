@@ -276,7 +276,10 @@
       "title": "Changes",
       "restart": "Takes effect after the computer restarts.",
       "none": "No changes yet. Move a slider to adjust."
-    }
+    },
+    "admin_sets": "Your admin sets the size of this computer.",
+    "admin_sets_admin": "Your admin sets the size of this computer. Open the account in the Admin console to change it.",
+    "open_admin": "Open Admin console"
   },
   "credentials": {
     "error": {

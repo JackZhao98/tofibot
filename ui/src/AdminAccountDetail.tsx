@@ -1,12 +1,11 @@
 import {useEffect, useState} from "react";
 import {AccountBadges, AdminSheet, SecretField} from "./AdminSheets";
-import {DISK_SIZES, GIB, LEGACY_OWNER_ID, adminApi, generatePassword, initialOf, type AdminAccount, type Capacity, type DiskInfo} from "./adminApi";
-import {formatNumber} from "./i18n/format";
+import {LEGACY_OWNER_ID, adminApi, generatePassword, initialOf, type AdminAccount, type Capacity, type DiskInfo} from "./adminApi";
+import {ResourceSheet, validAllocation, type Allocation, type Resources} from "./ResourceSheet";
 import {useTranslation} from "./i18n";
 import {TofiIcon} from "./icons";
 import {useHasComputer} from "./computerCapability";
 import {Banner, DangerZone, Segmented, SettingsCard, SettingsRow, SettingsSection} from "./settings/components";
-import { Select } from "./Select";
 
 type Props = {
   account: AdminAccount;
@@ -20,6 +19,33 @@ type Props = {
   onDelete: () => void;
 };
 
+/** The admin sets an account's computer size here: CPU, memory and disk in one sheet with one Save. Disk only grows. */
+function ComputerSize({account, disabled, run}: {account: AdminAccount; disabled: boolean; run: Props["run"]}) {
+  const {t} = useTranslation("computer");
+  const [data, setData] = useState<Resources | null>(null);
+  const [desired, setDesired] = useState<Allocation | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    let active = true;
+    setData(null); setDesired(null); setFailed(false); setSaved(false);
+    adminApi.resources(account.id).then(next => { if (active) { setData(next); setDesired(next.desired); } }).catch(() => { if (active) setFailed(true); });
+    return () => { active = false; };
+  }, [account.id]);
+  if (failed) return <p className="settings-card-note" role="alert">{t("resources.error.read")}</p>;
+  if (!data || !desired) return <p className="settings-card-note" role="status">{t("resources.loading")}</p>;
+  const dirty = desired.vcpus !== data.desired.vcpus || desired.memory_mib !== data.desired.memory_mib || desired.disk_gib !== data.desired.disk_gib;
+  const reset = () => { setDesired(data.desired); setSaved(false); };
+  const save = () => {
+    if (!validAllocation(desired, data)) return;
+    void run(async () => { const next = await adminApi.setResources(account.id, desired); setData(next); setDesired(next.desired); setSaved(true); });
+  };
+  return <div className="admin-computer-size">
+    <ResourceSheet data={data} desired={desired} dirty={dirty} busy={disabled} onChange={value => { setDesired(value); setSaved(false); }} onSave={save} onCancel={reset}/>
+    {saved && !dirty && <p className="settings-card-note" role="status">{t(data.pending ? "resources.status.saved_pending" : "resources.status.saved")}</p>}
+  </div>;
+}
+
 /** One account: Role, Computer, Sign-in and the Danger zone. Destructive actions the server forbids are explained, not offered. */
 export function AccountDetail({account, accounts, disk, capacity, selfId, busy, run, onBack, onDelete}: Props) {
   const {t} = useTranslation("settings");
@@ -31,14 +57,7 @@ export function AccountDetail({account, accounts, disk, capacity, selfId, busy, 
   const deleting = Boolean(account.deleting);
   const roleLocked = isSelf || lastAdmin || deleting;
   const roleWhy = deleting ? t("admin.detail.role.deleting") : isSelf ? t("admin.detail.role.self") : lastAdmin ? t("admin.detail.role.last") : t("admin.detail.role.help");
-  const currentGiB = disk ? Math.round(disk.quota_bytes / GIB) : 0;
-  const freeGiB = capacity ? Math.max(0, Math.floor(capacity.admission_remaining_bytes / GIB)) : 0;
-  const [size, setSize] = useState(currentGiB);
-  useEffect(() => setSize(currentGiB), [currentGiB, account.id]);
-  const sizes = Array.from(new Set<number>([...DISK_SIZES.filter(value => value >= currentGiB), currentGiB])).filter(value => value > 0).sort((a, b) => a - b);
   const [reset, setReset] = useState<"confirm" | {password: string} | null>(null);
-  const [diskDone, setDiskDone] = useState(false);
-  useEffect(() => setDiskDone(false), [account.id]);
   const stateLabel = disk ? t(`admin.computer.${disk.state === "ready" || disk.state === "disabled" ? disk.state : "reserved"}`) : t("admin.computer.none");
 
   async function resetPassword() {
@@ -78,15 +97,7 @@ export function AccountDetail({account, accounts, disk, capacity, selfId, busy, 
     {hasComputer && <SettingsSection title={t("admin.detail.computer.title")}>
       <SettingsCard>
         <SettingsRow label={t("admin.detail.computer.state")} control={<span className="admin-value">{stateLabel}</span>}/>
-        {disk ? <>
-          <SettingsRow label={t("admin.detail.computer.disk")} labelFor="admin-disk-size" description={t("admin.detail.computer.disk_help")}
-            control={<Select id="admin-disk-size" value={String(size)} disabled={busy || deleting} onValueChange={value => { setSize(Number(value)); setDiskDone(false); }}>
-              {sizes.map(value => <option key={value} value={value} disabled={value - currentGiB > freeGiB}>{t("admin.detail.computer.option", {size: formatNumber(value)})}{value === currentGiB ? ` · ${t("admin.detail.computer.current")}` : value - currentGiB > freeGiB ? ` · ${t("admin.detail.computer.no_room")}` : ""}</option>)}
-            </Select>}/>
-          <SettingsRow label={t("admin.detail.computer.save_label")} description={disk.pending_quota ? t("admin.detail.computer.disk_pending") : diskDone ? t("admin.detail.computer.saved") : t("admin.detail.computer.disk_note")}
-            control={<button type="button" className="secondary-button" disabled={busy || deleting || size === currentGiB}
-              onClick={() => void run(async () => { await adminApi.quota(account.id, size); setDiskDone(true); })}>{t("admin.detail.computer.save", {size: formatNumber(size)})}</button>}/>
-        </> : <p className="settings-card-note">{t("admin.detail.computer.none")}</p>}
+        {disk ? <ComputerSize account={account} disabled={busy || deleting} run={run}/>         : <p className="settings-card-note">{t("admin.detail.computer.none")}</p>}
       </SettingsCard>
     </SettingsSection>}
 

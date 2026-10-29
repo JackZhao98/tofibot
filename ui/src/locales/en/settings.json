@@ -523,7 +523,10 @@
       "invalid_account": "The username or email is invalid or already taken.",
       "forbidden": "Only an Admin can do that.",
       "export_in_use": "That export is still tied to an account whose deletion hasn't finished.",
-      "passphrase_unavailable": "The passphrase isn't available."
+      "passphrase_unavailable": "The passphrase isn't available.",
+      "invalid_resources": "Couldn't save the computer size. Check the values and try again.",
+      "resource_configuration_failed": "The computer size couldn't be applied. Try again.",
+      "computer_unavailable": "The computer isn't reachable right now. Try again shortly."
     },
     "intro_no_computer": "Create accounts, choose who is an Admin and manage their sign-in. Members change their initial password at first sign-in."
   },

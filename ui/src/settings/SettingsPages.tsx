@@ -62,7 +62,7 @@ export function SettingsPages(props:SettingsPagesProps){
   case "tools": return <div className="settings-stack"><WebToolsSettings/></div>;
   case "devices": return <ComputerPanel part="devices"/>;
   case "automation": return <AutomationSettings onOpenPermissions={()=>props.openTab("permissions")}/>;
-  case "computer": return <ComputerPage/>;
+  case "computer": return <ComputerPage openTab={props.openTab}/>;
   case "keys": return <ComputerCredentials bots={activeBots}/>;
   case "usage": return <div className="settings-stack"><RunHealthCard/><UsagePanel preferredBotId={props.usageBotId} timezone={props.timezone}/></div>;
   case "advanced": return <AdvancedPage {...props} bots={bots} activeBots={activeBots}/>;
@@ -72,8 +72,8 @@ export function SettingsPages(props:SettingsPagesProps){
 }
 
 /** With no computer backend the page explains the options; otherwise it is the computer's own settings. */
-function ComputerPage(){
- return useHasComputer()?<><ComputerResources/><ComputerPanel part="environment"/></>:<ComputerOptions/>;
+function ComputerPage({openTab}:{openTab:(tab:SettingsTab)=>void}){
+ return useHasComputer()?<><ComputerResources onOpenAdmin={()=>openTab("admin")}/><ComputerPanel part="environment"/></>:<ComputerOptions/>;
 }
 
 function GeneralPage({appearance,slots,bots,onBotsChanged}:SettingsPagesProps){

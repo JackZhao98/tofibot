@@ -541,7 +541,7 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer cleanup()
-	if g.adminQuota(w, r, a) {
+	if g.adminQuota(w, r, a) || g.adminResources(w, r, a) {
 		return
 	}
 	if g.manageAccount(w, r, a) {
@@ -619,8 +619,10 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 		g.root.serveSystemUpdate(w, r, strings.TrimPrefix(strings.TrimPrefix(r.URL.Path, "/api/system/update"), "/"))
 		return
 	}
-	if strings.HasPrefix(r.URL.Path, "/api/computer/resources") && r.Method != http.MethodGet {
-		writeErr(w, 403, "quota_management_required", "computer allocation requires central capacity management")
+	// The size of a computer is set by an admin (/api/admin/accounts/{id}/resources). A member may read it
+	// and restart to apply what the admin saved, but never write vCPUs, memory or disk.
+	if strings.HasPrefix(r.URL.Path, "/api/computer/resources") && r.Method != http.MethodGet && !(r.Method == http.MethodPost && r.URL.Path == "/api/computer/resources/apply") {
+		writeErr(w, 403, "quota_management_required", "computer size is set by an admin")
 		return
 	}
 	workspace, err := g.workspace(a)

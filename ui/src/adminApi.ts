@@ -1,5 +1,6 @@
 import {ApiError, request} from "./api";
 import {i18n} from "./i18n";
+import type {Allocation, Resources} from "./ResourceSheet";
 
 export type AdminAccount = {
   id: string;
@@ -54,13 +55,15 @@ export const adminApi = {
   create: (body: {username: string; email: string; password: string}) => request<AdminAccount>("/api/admin/accounts", {method: "POST", body: JSON.stringify(body)}),
   patch: (id: string, body: object) => request<AdminAccount>(`/api/admin/accounts/${encodeURIComponent(id)}`, {method: "PATCH", body: JSON.stringify(body)}),
   quota: (id: string, gib: number) => request<{quota_bytes: number}>(`/api/admin/accounts/${encodeURIComponent(id)}/quota`, {method: "PATCH", body: JSON.stringify({quota_gib: gib})}),
+  resources: (id: string) => request<Resources>(`/api/admin/accounts/${encodeURIComponent(id)}/resources`),
+  setResources: (id: string, body: Allocation) => request<Resources>(`/api/admin/accounts/${encodeURIComponent(id)}/resources`, {method: "PUT", body: JSON.stringify(body)}),
   remove: (id: string, confirm: string) => request<{id: string; deleted: boolean; export?: DeletedExport}>(`/api/admin/accounts/${encodeURIComponent(id)}`, {method: "DELETE", body: JSON.stringify({confirm_username: confirm})}),
   passphrase: (id: string) => request<{passphrase: string}>(`/api/admin/deleted-exports/${encodeURIComponent(id)}/passphrase`),
   acknowledge: (id: string) => request<unknown>(`/api/admin/deleted-exports/${encodeURIComponent(id)}/ack`, {method: "POST"}),
   removeExport: (id: string) => request<unknown>(`/api/admin/deleted-exports/${encodeURIComponent(id)}`, {method: "DELETE"}),
 };
 
-const errorCodes = ["self_lockout", "last_admin", "account_deleting", "account_not_deactivated", "legacy_account_not_deletable", "confirmation_mismatch", "delete_in_progress", "account_delete_failed", "account_change_rejected", "quota_not_applied", "quota_unverified", "computer_transition_pending", "weak_password", "password_contains_identity", "common_password", "invalid_account", "forbidden", "export_in_use", "passphrase_unavailable"] as const;
+const errorCodes = ["self_lockout", "last_admin", "account_deleting", "account_not_deactivated", "legacy_account_not_deletable", "confirmation_mismatch", "delete_in_progress", "account_delete_failed", "account_change_rejected", "quota_not_applied", "invalid_resources", "resource_configuration_failed", "computer_unavailable", "quota_unverified", "computer_transition_pending", "weak_password", "password_contains_identity", "common_password", "invalid_account", "forbidden", "export_in_use", "passphrase_unavailable"] as const;
 
 /** Words for a failed admin call, from the server's stable code. Resolved at call time, never stored. */
 export function adminError(cause: unknown): string {

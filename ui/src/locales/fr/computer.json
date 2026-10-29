@@ -278,7 +278,10 @@
       "title": "Modifications",
       "restart": "Prend effet après le redémarrage de l'ordinateur.",
       "none": "Aucune modification pour l'instant. Déplacez un curseur pour ajuster."
-    }
+    },
+    "admin_sets": "Votre administrateur définit la taille de cet ordinateur.",
+    "admin_sets_admin": "Votre administrateur définit la taille de cet ordinateur. Ouvrez le compte dans la console d'administration pour la modifier.",
+    "open_admin": "Ouvrir la console d'administration"
   },
   "credentials": {
     "error": {
