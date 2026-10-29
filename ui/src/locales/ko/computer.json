@@ -438,5 +438,53 @@
     "pending_other": "파일 {{count}}개는 컴퓨터에만 있으며 아직 서버로 복사되지 않았습니다.",
     "loading": "컴퓨터의 내용을 읽는 중…",
     "load_failed": "저장된 변수, 키, 복사 대기 파일 수를 읽지 못했습니다. 이 항목들도 함께 삭제됩니다."
+  },
+  "attach": {
+    "label": "상태",
+    "loading": "컴퓨터 할당을 읽는 중…",
+    "state": {
+      "attached_running": "연결됨, 실행 중",
+      "attached_stopped": "연결됨, 중지됨",
+      "detached": "분리됨",
+      "lost": "연결됨, 응답 없음",
+      "detaching": "분리 중",
+      "none": "컴퓨터 없음"
+    },
+    "action": {
+      "attach": "연결",
+      "detach": "분리…"
+    },
+    "help": {
+      "attached": "분리하면 다시 시작하지 않고 이 Bot에서 컴퓨터가 제거됩니다.",
+      "detached": "컴퓨터를 연결하기 전까지 Bot은 컴퓨터 없이 작동합니다. 연결에는 다시 시작이 필요 없습니다.",
+      "none": "이 서버에는 컴퓨터 백엔드가 없습니다."
+    },
+    "progress": {
+      "attaching": "컴퓨터를 연결하는 중…",
+      "draining": "드레인 중: 실행 중인 컴퓨터 도구가 현재 단계를 마치기를 기다리는 중…",
+      "syncing": "동기화 중: 컴퓨터의 파일을 서버로 복사하는 중…"
+    },
+    "done": {
+      "attach": "컴퓨터를 연결했습니다.",
+      "detach": "컴퓨터를 분리했습니다.",
+      "copied": "서버로 복사한 파일: {{count}}.",
+      "interrupted": "일찍 종료된 도구 호출: {{count}}.",
+      "left": "컴퓨터에 남은 파일: {{count}}."
+    },
+    "error": {
+      "read": "컴퓨터 할당을 읽을 수 없습니다.",
+      "generic": "변경하지 못했습니다. 다시 시도하세요.",
+      "computer_backend_unavailable": "이 서버에는 컴퓨터 백엔드가 설정되어 있지 않습니다.",
+      "computer_attach_failed": "컴퓨터를 연결하지 못했습니다.",
+      "computer_detach_failed": "컴퓨터를 분리하지 못했습니다.",
+      "forbidden": "관리자만 컴퓨터를 연결하거나 분리할 수 있습니다.",
+      "unavailable": "관리자만 컴퓨터를 연결하거나 분리할 수 있습니다."
+    },
+    "confirm": {
+      "title": "컴퓨터를 분리할까요?",
+      "impact": "실행 중인 컴퓨터 도구는 현재 단계 후에 중지됩니다. 컴퓨터의 파일은 먼저 서버로 복사됩니다. Bot은 컴퓨터 없이 계속 작동하며 나중에 다시 연결할 수 있습니다.",
+      "cancel": "취소",
+      "action": "분리"
+    }
   }
 }

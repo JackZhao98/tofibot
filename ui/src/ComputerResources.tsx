@@ -7,6 +7,7 @@ import {useTranslation} from "./i18n";
 import "./computer-resources.css";
 import {ResourceSheet,validAllocation,type Allocation,type Resources} from "./ResourceSheet";
 import {useOwnerSession} from "./OwnerSession";
+import {ComputerAttach} from "./ComputerAttach";
 import {ConfirmDialog} from "./overlays/ModalDialog";
 
 const resourceError=(cause:unknown,fallback:string)=>cause instanceof Error?cause.message:fallback;
@@ -127,6 +128,7 @@ export function ComputerResources({onOpenAdmin}:{onOpenAdmin?:()=>void}){
    {debug&&(canEdit||isAdmin)&&<p className="field-note">{t("resources.host",{cpus:data.host.cpus,memory:Math.round(data.host.memory_total_mib/1024),disk:Math.floor(data.host.disk_available_gib)})}</p>}
    {data.pending&&<div className="settings-notice resource-pending"><span>{t("resources.pending",{cpus:data.desired.vcpus,memory:data.desired.memory_mib/1024,disk:data.desired.disk_gib})}</span>{!restarting&&<button ref={restartButton} type="button" className="secondary-button" disabled={busy||editing} onClick={()=>setConfirming(true)}>{t("resources.restart_apply")}</button>}</div>}
   </>}
+  {canEdit&&<ComputerAttach base="/api/admin/computer" running={data?.state==="ready"} disabled={busy||restarting}/>}
   {canEdit&&editing&&data&&desired&&<ResourceSheet data={data} desired={desired} dirty={dirty} busy={busy||restarting} onChange={setDesired} onSave={()=>void save()} onCancel={()=>{setDesired(data.desired);editingRef.current=false;setEditing(false);setActionError("")}}/>}
   {restarting&&<p className="settings-feedback" role="status">{t("resources.restarting")}</p>}
   {!restarting&&status&&<p className="settings-feedback" role="status">{status}</p>}
