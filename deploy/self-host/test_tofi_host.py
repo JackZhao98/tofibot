@@ -2115,7 +2115,7 @@ class NoComputerRenderTests(NoComputerCase):
         self.assertNotIn('/dev/kvm', runner)
         # The minimum that gives every account its own uid, and nothing else.
         self.assertIn('cap_drop: [ALL]', runner)
-        self.assertIn('cap_add: [SETUID, SETGID, CHOWN, DAC_OVERRIDE, FOWNER, SYS_ADMIN, NET_ADMIN]', runner)
+        self.assertIn('cap_add: [SETUID, SETGID, CHOWN, DAC_OVERRIDE, FOWNER, SYS_ADMIN, NET_ADMIN, NET_BIND_SERVICE]', runner)
         # Per-account network namespaces need forwarding; the Runner refuses to start without them.
         self.assertIn('net.ipv4.ip_forward: "1"', runner)
         self.assertIn('TOFI_MCP_RUNNER_NETNS: required', runner)

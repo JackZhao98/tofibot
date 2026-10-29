@@ -103,7 +103,8 @@ services:
     #                   and remounting the container's own cgroup view read-write
     #   NET_ADMIN       creates the veth pair, addresses, routes and the iptables rules of the
     #                   account networks (this container's namespace only)
-    cap_add: [SETUID, SETGID, CHOWN, DAC_OVERRIDE, FOWNER, SYS_ADMIN, NET_ADMIN]
+    #   NET_BIND_SERVICE binds the per-account DNS forwarder to port 53 inside each account network
+    cap_add: [SETUID, SETGID, CHOWN, DAC_OVERRIDE, FOWNER, SYS_ADMIN, NET_ADMIN, NET_BIND_SERVICE]
     # Forwarding between the account veths and the egress interface; the rules that confine it are
     # written by the Runner at start.
     sysctls:
