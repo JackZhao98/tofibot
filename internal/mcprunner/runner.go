@@ -52,6 +52,8 @@ type Spec struct {
 	Tmp  string              `json:"-"`
 	// Limits is set by the Runner that owns the spec, like Cred.
 	Limits Limits `json:"-"`
+	// Sandbox is the account's network, cgroup and privilege sandbox (nil without one).
+	Sandbox *accountSandbox `json:"-"`
 	// open opens the plugin's directory through the Runner's anchored walk (see
 	// confined.go). Nil for a spec built by hand: the path is then opened directly.
 	open func() (*os.Root, error)
@@ -95,6 +97,12 @@ type Options struct {
 	Limits Limits
 	// MinFreeBytes refuses installs and imports when the data filesystem has less free.
 	MinFreeBytes uint64
+	// Sandbox places every child in the account's namespace and cgroup and drops
+	// every privilege before it runs (see sandbox.go). Needs Cred.
+	Sandbox *accountSandbox
+	// Admit is asked before an install and before a plugin starts; an error
+	// (ErrOverQuota) refuses it. Nil admits everything.
+	Admit func() error
 }
 
 // manifestPath is where the installed-plugin record lives.
@@ -107,7 +115,7 @@ func (r *Runner) manifestPath(stateDir string) string {
 
 // stamp attaches the Runner's process identity to a spec.
 func (r *Runner) stamp(spec Spec) Spec {
-	spec.Cred, spec.Tmp, spec.Limits = r.opts.Cred, r.opts.Tmp, r.opts.Limits
+	spec.Cred, spec.Tmp, spec.Limits, spec.Sandbox = r.opts.Cred, r.opts.Tmp, r.opts.Limits, r.opts.Sandbox
 	id := spec.ID
 	workDir := spec.WorkDir
 	spec.open = func() (*os.Root, error) {
@@ -423,7 +431,14 @@ func (r *Runner) acquire(ctx context.Context, p *plugin) (*mcp.ClientSession, fu
 		go func() {
 			startCtx, cancel := context.WithTimeout(r.ctx, startupTimeout)
 			defer cancel()
-			cli, stop, pgid, tools, err := start(startCtx, r.ctx, p.spec)
+			var cli *mcp.ClientSession
+			var stop context.CancelFunc
+			var pgid int
+			var tools []mcp.Tool
+			err := r.admit()
+			if err == nil {
+				cli, stop, pgid, tools, err = start(startCtx, r.ctx, p.spec)
+			}
 			p.mu.Lock()
 			p.startErr = err
 			if err == nil && r.ctx.Err() == nil {
@@ -458,6 +473,14 @@ func (r *Runner) acquire(ctx context.Context, p *plugin) (*mcp.ClientSession, fu
 	}
 }
 
+// admit asks the account whether it may run more code (disk quota).
+func (r *Runner) admit() error {
+	if r.opts.Admit == nil {
+		return nil
+	}
+	return r.opts.Admit()
+}
+
 func start(startCtx, life context.Context, spec Spec) (*mcp.ClientSession, context.CancelFunc, int, []mcp.Tool, error) {
 	if err := validateAdapter(spec); err != nil {
 		return nil, nil, 0, nil, err
@@ -467,7 +490,7 @@ func start(startCtx, life context.Context, spec Spec) (*mcp.ClientSession, conte
 	// The child starts inside its own directory and is named relative to it, so
 	// /proc/<pid>/cmdline (readable by every uid in the container) does not carry
 	// the account's id.
-	command, args := spec.Limits.launch(launchCommand(spec), spec.Args)
+	command, args, cred := confine(spec.Cred, spec.Limits, spec.Sandbox, launchCommand(spec), spec.Args)
 	processCmd := exec.CommandContext(procCtx, command, args...)
 	processCmd.Dir = spec.WorkDir
 	processCmd.Env = []string{"PATH=/usr/local/bin:/usr/bin:/bin", "LANG=C.UTF-8", "TMPDIR=" + spec.tmpDir()}
@@ -489,7 +512,7 @@ func start(startCtx, life context.Context, spec Spec) (*mcp.ClientSession, conte
 		}
 		processCmd.Env = append(processCmd.Env, key+"="+strings.TrimSpace(string(value)))
 	}
-	processCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Credential: spec.Cred}
+	processCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Credential: cred}
 	var tr mcp.Transport = &latestOnlyTransport{Transport: &mcp.CommandTransport{Command: processCmd}}
 	leafProtocol := ProtocolVersion
 	var clientOptions *mcp.ClientOptions

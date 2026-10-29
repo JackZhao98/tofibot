@@ -60,6 +60,10 @@ func (l Limits) launch(command string, args []string) (string, []string) {
 // launcher it sets the limits, replaces itself with the real command and never
 // returns; otherwise it returns false at once.
 func RunLauncher(argv []string) bool {
+	if len(argv) >= 5 && argv[1] == sandboxArg {
+		runSandboxLauncher(argv) // never returns
+		return true
+	}
 	if len(argv) < 7 || argv[1] != launcherArg || argv[5] != "--" {
 		return false
 	}
@@ -72,17 +76,9 @@ func RunLauncher(argv []string) bool {
 		}
 		values[i] = v
 	}
-	for _, l := range []struct {
-		resource int
-		value    uint64
-	}{{unix.RLIMIT_NPROC, values[0]}, {unix.RLIMIT_NOFILE, values[1]}, {unix.RLIMIT_FSIZE, values[2]}} {
-		if l.value == 0 {
-			continue
-		}
-		if err := unix.Setrlimit(l.resource, &unix.Rlimit{Cur: l.value, Max: l.value}); err != nil {
-			fmt.Fprintln(os.Stderr, "launcher: cannot set resource limit:", err)
-			os.Exit(125)
-		}
+	if err := applyLimits(Limits{Nproc: values[0], Nofile: values[1], Fsize: values[2]}); err != nil {
+		fmt.Fprintln(os.Stderr, "launcher: cannot set resource limit:", err)
+		os.Exit(125)
 	}
 	path, err := exec.LookPath(argv[6])
 	if err != nil {
@@ -93,6 +89,22 @@ func RunLauncher(argv []string) bool {
 	fmt.Fprintln(os.Stderr, "launcher:", err)
 	os.Exit(126)
 	return true
+}
+
+// applyLimits sets the non-zero limits on the calling process (soft = hard).
+func applyLimits(l Limits) error {
+	for _, r := range []struct {
+		resource int
+		value    uint64
+	}{{unix.RLIMIT_NPROC, l.Nproc}, {unix.RLIMIT_NOFILE, l.Nofile}, {unix.RLIMIT_FSIZE, l.Fsize}} {
+		if r.value == 0 {
+			continue
+		}
+		if err := unix.Setrlimit(r.resource, &unix.Rlimit{Cur: r.value, Max: r.value}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // checkFreeSpace refuses an installation when fewer than min bytes are free on

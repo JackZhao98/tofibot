@@ -141,6 +141,9 @@ func (r *Runner) install(ctx context.Context, input InstallRequest, fill func(pl
 	if err := checkFreeSpace(dir, r.opts.MinFreeBytes); err != nil {
 		return err
 	}
+	if err := r.admit(); err != nil {
+		return err
+	}
 	target := filepath.Join(dir, "plugins", input.ID)
 	plugins, err := r.pluginsRoot()
 	if err != nil {
@@ -315,7 +318,7 @@ func installSecretEnv(pr *os.Root, target string, values map[string]string) (map
 }
 
 func (r *Runner) runInstaller(ctx context.Context, dir, command string, args ...string) error {
-	command, args = r.opts.Limits.launch(command, args)
+	command, args, cred := confine(r.opts.Cred, r.opts.Limits, r.opts.Sandbox, command, args)
 	cmd := exec.CommandContext(ctx, command, args...)
 	cmd.Dir = dir
 	tmp := r.opts.Tmp
@@ -323,8 +326,8 @@ func (r *Runner) runInstaller(ctx context.Context, dir, command string, args ...
 		tmp = "/tmp"
 	}
 	cmd.Env = []string{"PATH=/usr/local/bin:/usr/bin:/bin", "HOME=" + tmp, "TMPDIR=" + tmp, "PIP_NO_INPUT=1", "npm_config_update_notifier=false"}
-	if r.opts.Cred != nil {
-		cmd.SysProcAttr = &syscall.SysProcAttr{Credential: r.opts.Cred}
+	if cred != nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{Credential: cred}
 	}
 	output, err := cmd.CombinedOutput()
 	if err != nil {

@@ -27,6 +27,7 @@ import (
 type Hub struct {
 	cfg HubConfig
 	reg *uidRegistry
+	sbx *sandboxHost // nil without a sandbox
 
 	// mu guards only the maps and counters below and is never held across file
 	// or process work. Work on one account holds that account's lock (locks).
@@ -67,6 +68,9 @@ type HubConfig struct {
 	// MinFreeBytes refuses installs and imports while the data filesystem has less
 	// than this free (default 1 GiB; MinFreeDisabled turns the guard off).
 	MinFreeBytes uint64
+	// Sandbox is the per-account network namespace, cgroup and disk quota (see
+	// sandbox.go). It applies only with IsolateUIDs. The zero value is off.
+	Sandbox SandboxConfig
 }
 
 // MinFreeDisabled is a MinFreeBytes value that turns the disk guard off.
@@ -79,6 +83,9 @@ type tenant struct {
 	token   string // internal; the per-request header is replaced with it
 	dir     string // <root>/accounts/<id>
 	uid     int    // 0 without isolation
+
+	sandbox *accountSandbox
+	quota   *quotaMeter
 
 	inflight atomic.Int64
 	lastUsed atomic.Int64 // unix nanoseconds
@@ -107,6 +114,7 @@ func NewHub(cfg HubConfig) (*Hub, error) {
 	case MinFreeDisabled:
 		cfg.MinFreeBytes = 0
 	}
+	cfg.Sandbox = cfg.Sandbox.withDefaults()
 	if cfg.UIDBase <= 0 {
 		cfg.UIDBase = 20000
 	}
@@ -136,8 +144,17 @@ func NewHub(cfg HubConfig) (*Hub, error) {
 		return nil, err
 	}
 	h := &Hub{cfg: cfg, reg: reg, tenants: map[string]*tenant{}, locks: map[string]*sync.Mutex{}, internal: hex.EncodeToString(secret), stop: make(chan struct{})}
+	if cfg.IsolateUIDs && cfg.Sandbox.enabled() {
+		if h.sbx, err = newSandboxHost(cfg.Sandbox); err != nil {
+			return nil, err
+		}
+	}
 	h.stopped.Add(1)
 	go h.evictLoop()
+	if cfg.IsolateUIDs && cfg.Sandbox.DiskBytes > 0 {
+		h.stopped.Add(1)
+		go h.quotaLoop()
+	}
 	return h, nil
 }
 
@@ -209,6 +226,7 @@ func (h *Hub) closeTenant(t *tenant) {
 	if t.uid > 0 {
 		killAllOf(t.uid)
 	}
+	t.sandbox.Close()
 }
 
 func (h *Hub) lockFor(id string) *sync.Mutex {
@@ -427,21 +445,38 @@ func (h *Hub) openLocked(id string) (*tenant, error) {
 			return nil, err
 		}
 	}
-	runner, err := NewWithOptions(specs, h.cfg.IdleTimeout, Options{Cred: cred, Tmp: tmp, ManifestDir: dir, Limits: h.cfg.Limits, MinFreeBytes: h.cfg.MinFreeBytes})
+	var sandbox *accountSandbox
+	if h.sbx != nil && cred != nil {
+		if sandbox, err = h.sbx.openAccount(int(cred.Uid), int(cred.Gid)); err != nil {
+			return nil, fmt.Errorf("account sandbox: %w", err)
+		}
+	}
+	var quota *quotaMeter
+	if cred != nil {
+		quota = newQuotaMeter(dir, h.cfg.Sandbox.DiskBytes)
+	}
+	opts := Options{Cred: cred, Tmp: tmp, ManifestDir: dir, Limits: h.cfg.Limits, MinFreeBytes: h.cfg.MinFreeBytes, Sandbox: sandbox}
+	if quota != nil {
+		opts.Admit = quota.admit
+	}
+	runner, err := NewWithOptions(specs, h.cfg.IdleTimeout, opts)
 	if err != nil {
+		sandbox.Close()
 		return nil, err
 	}
 	if err := runner.SetStateDir(state); err != nil {
 		runner.Close()
+		sandbox.Close()
 		return nil, err
 	}
 	secret := make([]byte, 32)
 	if _, err := rand.Read(secret); err != nil {
 		runner.Close()
+		sandbox.Close()
 		return nil, err
 	}
 	token := hex.EncodeToString(secret)
-	t := &tenant{id: id, runner: runner, handler: runner.Handler(token), token: token, dir: dir}
+	t := &tenant{id: id, runner: runner, handler: runner.Handler(token), token: token, dir: dir, sandbox: sandbox, quota: quota}
 	if cred != nil {
 		t.uid = int(cred.Uid)
 	}

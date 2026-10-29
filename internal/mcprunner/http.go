@@ -41,7 +41,7 @@ func (r *Runner) Handler(token string) http.Handler {
 				return
 			}
 			if err := r.Install(req.Context(), input); err != nil {
-				if errors.Is(err, ErrLowDisk) {
+				if errors.Is(err, ErrLowDisk) || errors.Is(err, ErrOverQuota) {
 					http.Error(w, err.Error(), http.StatusInsufficientStorage)
 					return
 				}

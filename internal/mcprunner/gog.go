@@ -292,12 +292,12 @@ func runGog(ctx context.Context, spec Spec, input []byte, args ...string) ([]byt
 	if err != nil {
 		return nil, err
 	}
-	command, launchArgs := spec.Limits.launch(spec.Command, args)
+	command, launchArgs, cred := confine(spec.Cred, spec.Limits, spec.Sandbox, spec.Command, args)
 	cmd := exec.CommandContext(ctx, command, launchArgs...)
 	cmd.Dir = spec.WorkDir
 	cmd.Env = env
-	if spec.Cred != nil {
-		cmd.SysProcAttr = &syscall.SysProcAttr{Credential: spec.Cred}
+	if cred != nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{Credential: cred}
 	}
 	if input != nil {
 		cmd.Stdin = bytes.NewReader(input)

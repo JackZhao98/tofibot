@@ -596,6 +596,27 @@ equivalent rules yourself for 172.30.77.0/24. If 172.30.77.0/24 is in use on
 your network, change it in `compose.yaml` and `RUNNER_EGRESS_SUBNET` in
 `tofi_host.py`.
 
+Accounts are fenced from each other inside the Runner as well. Each account's
+plugins run in their own network namespace (private loopback, listeners and
+abstract unix sockets; a veth pair to the Runner, forwarded to the egress
+interface only and masqueraded, so the rules above hold for every plugin; names
+resolve through a forwarder on 127.0.0.11 in the namespace), in their own cgroup
+(memory 384 MiB, 128 processes by default) and under a disk quota (2 GiB, checked
+before an install or start and every 20 seconds; over quota the account's tmp is
+cleared, then its processes are stopped). Set `TOFI_RUNNER_ACCOUNT_MEMORY_MB`,
+`TOFI_RUNNER_ACCOUNT_PIDS` and `TOFI_RUNNER_ACCOUNT_DISK_MB` in `tofi.env` to
+change them (disk 0 turns the quota off). The container holds `SETUID SETGID CHOWN
+DAC_OVERRIDE FOWNER SYS_ADMIN NET_ADMIN`; the reasons are in `compose.yaml`. A
+plugin process keeps none of them: the launcher joins the namespace and cgroup,
+then clears every capability, sets `no_new_privs`, becomes the account uid and
+adds a seccomp filter (no `unshare`, `setns`, `mount`, namespace `clone`, `bpf`,
+`io_uring`, keyring calls). The Runner refuses to start without network
+namespaces (`TOFI_MCP_RUNNER_NETNS=required`) or without a seccomp profile on its
+own container. Cgroups need a writable cgroup v2 view; where the host forbids the
+remount (an AppArmor profile that denies `mount`) the Runner logs a `SECURITY`
+line and runs without the memory and pids limits (`TOFI_RUNNER_CGROUPS=required`
+makes that fatal instead).
+
 Once an account keeps its local connections in the Runner container, `tofi update`
 refuses a release that predates it (the connections would fall back to an older
 copy on the account's computer). `sudo tofi update --version <older>

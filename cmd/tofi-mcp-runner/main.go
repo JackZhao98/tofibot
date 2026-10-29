@@ -103,6 +103,11 @@ func serveAccounts() error {
 			cfg.MinFreeBytes = mcprunner.MinFreeDisabled
 		}
 	}
+	if isolate {
+		if cfg.Sandbox, err = sandboxFromEnv(); err != nil {
+			return err
+		}
+	}
 	hub, err := mcprunner.NewHub(cfg)
 	if err != nil {
 		return err
@@ -114,6 +119,43 @@ func serveAccounts() error {
 	}
 	log.Printf("MCP runner (accounts, uid isolation=%v) listening on %s", isolate, addr)
 	return newServer(addr, hub).ListenAndServe()
+}
+
+// sandboxFromEnv reads the per-account sandbox settings. Network namespaces are
+// required by default (the isolation claim between accounts depends on them);
+// cgroups are used when the host allows and logged loudly when not.
+func sandboxFromEnv() (mcprunner.SandboxConfig, error) {
+	var cfg mcprunner.SandboxConfig
+	var err error
+	if cfg.Network, err = mcprunner.ParseSandboxMode(os.Getenv("TOFI_MCP_RUNNER_NETNS"), mcprunner.SandboxRequired); err != nil {
+		return cfg, errors.New("TOFI_MCP_RUNNER_NETNS: " + err.Error())
+	}
+	if cfg.Cgroups, err = mcprunner.ParseSandboxMode(os.Getenv("TOFI_MCP_RUNNER_CGROUPS"), mcprunner.SandboxAuto); err != nil {
+		return cfg, errors.New("TOFI_MCP_RUNNER_CGROUPS: " + err.Error())
+	}
+	number := func(name string, scale uint64, def uint64) (uint64, error) {
+		raw := os.Getenv(name)
+		if raw == "" {
+			return def, nil
+		}
+		n, err := strconv.ParseUint(raw, 10, 32)
+		if err != nil {
+			return 0, errors.New(name + " must be a whole number")
+		}
+		return n * scale, nil
+	}
+	if cfg.MemoryBytes, err = number("TOFI_MCP_RUNNER_ACCOUNT_MEMORY_MB", 1<<20, mcprunner.DefaultAccountMemory); err != nil {
+		return cfg, err
+	}
+	if cfg.Pids, err = number("TOFI_MCP_RUNNER_ACCOUNT_PIDS", 1, mcprunner.DefaultAccountPids); err != nil {
+		return cfg, err
+	}
+	if cfg.DiskBytes, err = number("TOFI_MCP_RUNNER_ACCOUNT_DISK_MB", 1<<20, mcprunner.DefaultAccountDisk); err != nil {
+		return cfg, err // 0 turns the quota off
+	}
+	cfg.RequireSeccomp = os.Getenv("TOFI_MCP_RUNNER_REQUIRE_SECCOMP") == "1"
+	cfg.EgressInterface = os.Getenv("TOFI_MCP_RUNNER_EGRESS_INTERFACE")
+	return cfg, nil
 }
 
 // newServer bounds how long a client may hold a connection without finishing a
