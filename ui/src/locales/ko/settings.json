@@ -518,7 +518,10 @@
       "invalid_account": "사용자 이름이나 이메일이 올바르지 않거나 이미 사용 중입니다.",
       "forbidden": "Admin만 할 수 있는 작업입니다.",
       "export_in_use": "이 내보내기는 아직 삭제가 끝나지 않은 계정에 연결되어 있습니다.",
-      "passphrase_unavailable": "암호문을 사용할 수 없습니다."
+      "passphrase_unavailable": "암호문을 사용할 수 없습니다.",
+      "invalid_resources": "컴퓨터 크기를 저장하지 못했습니다. 값을 확인하고 다시 시도하세요.",
+      "resource_configuration_failed": "컴퓨터 크기를 적용하지 못했습니다. 다시 시도하세요.",
+      "computer_unavailable": "지금은 컴퓨터에 연결할 수 없습니다. 잠시 후 다시 시도하세요."
     },
     "intro_no_computer": "계정을 만들고, 누가 Admin인지 정하고, 로그인을 관리해요. 멤버는 처음 로그인할 때 초기 비밀번호를 바꿔요."
   },

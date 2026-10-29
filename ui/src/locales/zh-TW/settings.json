@@ -518,7 +518,10 @@
       "invalid_account": "使用者名稱或電子郵件無效，或已被使用。",
       "forbidden": "只有 Admin 才能執行此操作。",
       "export_in_use": "該備份所屬帳號的刪除尚未完成。",
-      "passphrase_unavailable": "密語無法使用。"
+      "passphrase_unavailable": "密語無法使用。",
+      "invalid_resources": "無法儲存電腦大小。請檢查數值後重試。",
+      "resource_configuration_failed": "無法套用電腦大小。請重試。",
+      "computer_unavailable": "暫時無法連線到這台電腦。請稍後重試。"
     },
     "intro_no_computer": "建立帳號、指定誰是 Admin，並管理他們的登入。成員首次登入時需要更換初始密碼。"
   },

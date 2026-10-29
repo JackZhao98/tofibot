@@ -216,7 +216,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   };
   // ---- Admin console stub: the real response shapes, mutable so flows can be driven end to end.
   const GIB = 2 ** 30;
-  const adminState = {};
+  const adminState = {sizes: {}};
   const adminWrites = [];
   function resetAdmin() {
     adminState.accounts = [
@@ -231,6 +231,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       {id: "exp_new", username: "Joy Example", email: "", created_at: Math.floor(Date.parse("2026-10-08T10:00:00Z") / 1000), expires_at: Math.floor(Date.parse("2026-11-07T10:00:00Z") / 1000), size: 820_000, link_path: "/exports/" + "B".repeat(43), passphrase_pending: true},
       {id: "exp_lost", username: "Rae Example", email: "", created_at: Math.floor(Date.parse("2026-10-01T10:00:00Z") / 1000), expires_at: Math.floor(Date.parse("2026-10-31T10:00:00Z") / 1000), size: 500_000, link_path: "", link_unavailable: true, passphrase_pending: true, passphrase_unavailable: true},
     ];
+    adminState.sizes = {};
     adminState.failDelete = 0;
     adminState.lastDeleted = null;
     adminWrites.length = 0;
@@ -259,6 +260,19 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       if (match[2] === "passphrase") return item.passphrase_pending ? json(200, {passphrase: "ABCD-EFGH-IJKL-MNOP-QRST-UVWX-YZ23-4567"}) : json(409, {error: {code: "passphrase_unavailable", message: "gone"}});
       if (match[2] === "ack") { item.passphrase_pending = false; return json(200, {id: item.id, passphrase_pending: false}); }
       if (method === "DELETE") { adminState.exports = adminState.exports.filter(x => x !== item); return json(200, {id: item.id, deleted: true}); }
+    }
+    match = /^\/api\/admin\/accounts\/([^/]+)\/resources$/.exec(path);
+    if (match) {
+      const size = adminState.sizes[match[1]] ??= {vcpus: 2, memory_mib: 4096, disk_gib: adminState.disks[match[1]]?.[0] ?? 8};
+      if (method === "PUT") {
+        const input = bodyOf();
+        if (input.disk_gib < size.current_disk) return json(400, {error: {code: "invalid_resources", message: "disk can only grow"}});
+        size.desired = input;
+      }
+      const desired = size.desired ?? {vcpus: size.vcpus, memory_mib: size.memory_mib, disk_gib: size.disk_gib};
+      if (method === "PUT") adminState.disks[match[1]][0] = desired.disk_gib;
+      const current = {vcpus: size.vcpus, memory_mib: size.memory_mib, disk_gib: size.disk_gib};
+      return json(200, {current, desired, pending: desired.vcpus !== current.vcpus || desired.memory_mib !== current.memory_mib, state: "ready", host: {cpus: 8, memory_total_mib: 16384, memory_available_mib: 9000, disk_available_gib: 120}, limits: {max_vcpus: 8, max_memory_mib: 12288, max_disk_gib: current.disk_gib + 120}});
     }
     match = /^\/api\/admin\/accounts\/([^/]+)\/quota$/.exec(path);
     if (match) {
@@ -731,27 +745,28 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const deleteButton = detail.getByRole("button", {name: "Delete account…"});
     assert.equal(await deleteButton.isDisabled(), true, "Delete is disabled until the account is deactivated");
     assert.match(await text(detail), /Deactivate the account first\. Only a deactivated account can be deleted\./);
-    // Disk: only sizes of at least the current one; sizes that do not fit the free capacity are disabled and say why.
-    const select = detail.getByLabel("Disk quota");
-    await select.click();
-    const diskItems = select.page().locator(".ui-select-content .ui-select-item");
-    assert.deepEqual(await diskItems.evaluateAll(items => items.map(item => item.dataset.value)), ["8", "16", "32", "64", "128", "256", "512", "1024"]);
-    assert.deepEqual(await select.page().locator(".ui-select-content .ui-select-item[data-disabled]").evaluateAll(items => items.map(item => item.dataset.value)), ["256", "512", "1024"], "120 GiB free: growing by more than that is disabled");
-    assert.match(await text(diskItems.nth(0)), /8 GiB · current/);
-    await select.page().keyboard.press("Escape");
-    await select.page().locator(".ui-select-content").waitFor({ state: "detached" });
-    assert.match(await text(detail), /Changing the quota stops the computer/);
-    const save = detail.getByRole("button", {name: /^Save .* GiB and stop computer$/});
-    assert.equal(await save.isDisabled(), true, "nothing to save yet");
-    await select.click();
-    await select.page().locator('.ui-select-item[data-value="32"]').click();
-    await select.page().locator(".ui-select-content").waitFor({ state: "detached" });
-    assert.equal((await save.textContent()).trim(), "Save 32 GiB and stop computer", "the button names the consequence");
+    // Computer size: the admin sets CPU, memory and disk in one sizeSheet with one Save; disk only grows.
+    const sizeSheet = detail.locator(".resource-sheet");
+    await sizeSheet.waitFor();
+    assert.equal(await detail.getByLabel("Disk quota").count(), 0, "the old disk-only menu is gone");
+    const saveSize = sizeSheet.getByRole("button", {name: "Save changes"});
+    assert.equal(await saveSize.isDisabled(), true, "nothing to save yet");
+    assert.match(await text(sizeSheet), /No changes yet/);
+    assert.equal(await sizeSheet.getByRole("button", {name: "Decrease Disk (GB)"}).isDisabled(), true, "disk cannot shrink below the current size");
+    assert.match(await text(sizeSheet), /120 GB free on host/, "host capacity is shown to the admin");
+    await sizeSheet.getByRole("button", {name: "Increase CPU cores"}).click();
+    await sizeSheet.getByRole("button", {name: "Increase CPU cores"}).click();
+    await sizeSheet.getByRole("button", {name: "Increase Memory (GB)"}).click();
+    await sizeSheet.getByRole("button", {name: "Increase Disk (GB)"}).click();
+    const summary = await text(sizeSheet.locator(".resource-summary"));
+    assert.match(summary, /CPU 2 → 4 cores/);
+    assert.match(summary, /Memory 4 → 4\.5 GB/);
+    assert.match(summary, /Allocated disk 8 → 9 GB/);
+    assert.match(summary, /Takes effect after the computer restarts\./, "the restart notice");
     adminWrites.length = 0;
-    await save.click();
-    await detail.getByText("Saved. The computer was stopped and will restart on demand.").waitFor();
-    assert.deepEqual(adminWrites, ['PATCH /api/admin/accounts/acct_two/quota {"quota_gib":32}']);
-    assert.equal(await select.getAttribute("data-value"), "32");
+    await saveSize.click();
+    await detail.getByText("Configuration saved. It applies after a restart.").waitFor();
+    assert.deepEqual(adminWrites, ['PUT /api/admin/accounts/acct_two/resources {"vcpus":4,"memory_mib":4608,"disk_gib":9}']);
     // Role change.
     adminWrites.length = 0;
     await segmented.getByRole("radio", {name: "Admin"}).click();
@@ -1100,7 +1115,28 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await member.page.locator('.settings-page-body[data-page="advanced"]').getByText("Danger zone", {exact: false}).first().waitFor();
     assert.equal(await member.page.locator(".version-card").count(), 0, "Version card hidden for a non-admin");
     assert.equal(requested.filter(line => line.endsWith("/api/system/update")).length, before, "non-admin made no /api/system/update request");
+    // The size of the computer is the admin's to set: a member sees CPU, memory and disk, with no way to change them and no host limits.
+    await member.page.locator('.settings-tabs [data-tab="computer"]').click();
+    const memberComputer = member.page.locator('.settings-page-body[data-page="computer"]');
+    await memberComputer.locator(".resource-grid").waitFor({timeout: 15000});
+    assert.deepEqual((await memberComputer.locator(".resource-grid > div").allInnerTexts()).map(item => item.replace(/\s+/g, " ").trim().toUpperCase()), ["CPU 2 CORES", "MEMORY 4 GB", "ALLOCATED DISK 20 GB"]);
+    assert.match(await memberComputer.innerText(), /Your admin sets the size of this computer\./);
+    assert.equal(await memberComputer.getByRole("button", {name: "Adjust"}).count(), 0, "no Adjust button for a member");
+    assert.equal(await memberComputer.locator(".resource-sheet").count(), 0, "no edit sheet for a member");
+    assert.equal(await memberComputer.getByRole("button", {name: "Open Admin console"}).count(), 0, "a member has no console link");
     await member.close();
+
+    // An admin of a multi-account server is pointed to the Admin console; the single-account owner sets the size here.
+    const consoleAdmin = await open({admin: "1", tab: "computer"});
+    const adminComputer = consoleAdmin.page.locator('.settings-page-body[data-page="computer"]');
+    await adminComputer.getByRole("button", {name: "Open Admin console"}).waitFor({timeout: 15000});
+    assert.equal(await adminComputer.getByRole("button", {name: "Adjust"}).count(), 0, "no Adjust for a multi-account admin");
+    await consoleAdmin.close();
+    const soloOwner = await open({admin: "0", tab: "computer"});
+    const ownerComputer = soloOwner.page.locator('.settings-page-body[data-page="computer"]');
+    await ownerComputer.getByRole("button", {name: "Adjust"}).click();
+    await ownerComputer.locator(".resource-sheet").waitFor();
+    await soloOwner.close();
 
     // Up to date: no banner; the Version card says so.
     updateState.latest = "v0.1.0";

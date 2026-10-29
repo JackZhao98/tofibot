@@ -518,7 +518,10 @@
       "invalid_account": "ユーザー名またはメールアドレスが無効か、すでに使われています。",
       "forbidden": "この操作は Admin だけができます。",
       "export_in_use": "このエクスポートは、削除が完了していないアカウントに紐づいています。",
-      "passphrase_unavailable": "パスフレーズは利用できません。"
+      "passphrase_unavailable": "パスフレーズは利用できません。",
+      "invalid_resources": "コンピューターのサイズを保存できませんでした。値を確認してもう一度お試しください。",
+      "resource_configuration_failed": "コンピューターのサイズを適用できませんでした。もう一度お試しください。",
+      "computer_unavailable": "コンピューターに今は接続できません。しばらくしてからもう一度お試しください。"
     },
     "intro_no_computer": "アカウントの作成、Admin の指定、サインインの管理ができます。メンバーは初回サインイン時に初期パスワードを変更します。"
   },

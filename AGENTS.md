@@ -46,6 +46,13 @@ must not claim a computer when there is none: use the capability-driven variants
 `ui/src/computerCapability.ts` (`useHasComputer`) and hides every computer surface; Settings > Computer then lists how to add one. The web app never installs on the host (the one thing it may ask for is an update, which only the root host service performs: next section).
 Design and record: docs/design/computer-optional.md (P0, P1 done).
 
+# Computer size is set by the admin
+
+Multi-account: only an admin sets an account's vCPUs, memory and disk, in Admin console > account (`AdminAccountDetail.tsx` `ComputerSize`, shared `ResourceSheet.tsx`), through
+`GET|PUT /api/admin/accounts/{id}/resources` (`account_resources.go`; disk grows only, bounded by host free space, applied through the broker `quota` op `applyQuota`). A member's
+`PUT /api/computer/resources` returns 403 `quota_management_required`; a member may read it and `POST /api/computer/resources/apply` (restart to apply what the admin saved).
+Settings > Computer shows a read-only summary to members and a link to the console to admins; the single-account owner (the admin) still adjusts it there.
+
 # Update from the web page
 
 The Version card (Settings > Maintenance) and the banner have an **Update to vX** button for admins (decision D69, `docs/decisions/0069-web-update-request.md`). The web app only

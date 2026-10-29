@@ -276,7 +276,10 @@
       "title": "Änderungen",
       "restart": "Gilt nach dem Neustart des Computers.",
       "none": "Noch keine Änderungen. Verschiebe einen Regler, um anzupassen."
-    }
+    },
+    "admin_sets": "Die Größe dieses Computers legt dein Admin fest.",
+    "admin_sets_admin": "Die Größe dieses Computers legt dein Admin fest. Öffne das Konto in der Admin-Konsole, um sie zu ändern.",
+    "open_admin": "Admin-Konsole öffnen"
   },
   "credentials": {
     "error": {

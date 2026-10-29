@@ -528,7 +528,10 @@
       "invalid_account": "Le nom d’utilisateur ou l’e-mail est invalide ou déjà utilisé.",
       "forbidden": "Seul un Admin peut faire cela.",
       "export_in_use": "Cet export est encore lié à un compte dont la suppression n’est pas terminée.",
-      "passphrase_unavailable": "La phrase secrète n’est pas disponible."
+      "passphrase_unavailable": "La phrase secrète n’est pas disponible.",
+      "invalid_resources": "Impossible d'enregistrer la taille de l'ordinateur. Vérifiez les valeurs et réessayez.",
+      "resource_configuration_failed": "La taille de l'ordinateur n'a pas pu être appliquée. Réessayez.",
+      "computer_unavailable": "L'ordinateur est injoignable pour le moment. Réessayez dans un instant."
     },
     "intro_no_computer": "Crée des comptes, choisis qui est Admin et gère leur connexion. Les membres changent leur mot de passe initial à la première connexion."
   },

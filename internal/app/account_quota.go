@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -42,23 +43,32 @@ func (g *AccountGateway) adminQuota(w http.ResponseWriter, r *http.Request, a Ac
 		writeErr(w, 400, "invalid_request", "quota must be an integer from 8 to 1024 GiB")
 		return true
 	}
-	computerID := g.computerIdentity(Account{ID: id, Legacy: legacy})
-	data, err := g.computerControl(r.Context(), map[string]any{"op": "quota", "account_id": computerID, "quota_gib": in.QuotaGiB})
-	if err != nil {
-		writeErr(w, 409, "quota_not_applied", "quota could not be verified; shrinking requires an offline workflow, growth requires capacity and confirmed computer cleanup")
-		return true
-	}
-	var out struct {
-		AccountID   string `json:"account_id"`
-		QuotaBytes  int64  `json:"quota_bytes"`
-		Applied     bool   `json:"applied"`
-		Provisioned bool   `json:"provisioned"`
-	}
-	if json.Unmarshal(data, &out) != nil || out.AccountID != computerID || out.QuotaBytes != int64(in.QuotaGiB)<<30 || !out.Applied {
-		writeErr(w, 503, "quota_unverified", "computer quota result unavailable; refresh capacity before retrying")
+	out, status, code, msg := g.applyQuota(r.Context(), id, legacy, in.QuotaGiB)
+	if code != "" {
+		writeErr(w, status, code, msg)
 		return true
 	}
 	out.AccountID = id
 	writeJSON(w, 200, out)
 	return true
+}
+
+type quotaResult struct {
+	AccountID   string `json:"account_id"`
+	QuotaBytes  int64  `json:"quota_bytes"`
+	Applied     bool   `json:"applied"`
+	Provisioned bool   `json:"provisioned"`
+}
+
+// applyQuota asks the broker for a new disk size and verifies the answer. A non-empty code is the error to return.
+func (g *AccountGateway) applyQuota(ctx context.Context, id string, legacy bool, gib int) (out quotaResult, status int, code, msg string) {
+	computerID := g.computerIdentity(Account{ID: id, Legacy: legacy})
+	data, err := g.computerControl(ctx, map[string]any{"op": "quota", "account_id": computerID, "quota_gib": gib})
+	if err != nil {
+		return out, 409, "quota_not_applied", "quota could not be verified; shrinking requires an offline workflow, growth requires capacity and confirmed computer cleanup"
+	}
+	if json.Unmarshal(data, &out) != nil || out.AccountID != computerID || out.QuotaBytes != int64(gib)<<30 || !out.Applied {
+		return out, 503, "quota_unverified", "computer quota result unavailable; refresh capacity before retrying"
+	}
+	return out, 0, "", ""
 }

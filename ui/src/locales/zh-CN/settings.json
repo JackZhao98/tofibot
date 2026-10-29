@@ -518,7 +518,10 @@
       "invalid_account": "用户名或邮箱无效，或已被占用。",
       "forbidden": "只有 Admin 才能执行此操作。",
       "export_in_use": "该备份所属账号的删除尚未完成。",
-      "passphrase_unavailable": "口令不可用。"
+      "passphrase_unavailable": "口令不可用。",
+      "invalid_resources": "无法保存电脑大小。请检查数值后重试。",
+      "resource_configuration_failed": "无法应用电脑大小。请重试。",
+      "computer_unavailable": "暂时无法连接这台电脑。请稍后重试。"
     },
     "intro_no_computer": "创建账号、指定谁是 Admin，并管理他们的登录。成员首次登录时需要更换初始密码。"
   },
