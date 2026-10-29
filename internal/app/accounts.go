@@ -45,6 +45,8 @@ type AccountGateway struct {
 	runtimeFactory      func(Config) (*Server, error)
 	legacyComputerPhase string
 	deleteRunning       map[string]bool
+	runnerKey           runnerMasterKey
+	runnerEpochs        runnerEpochCache
 	// deleteHook lets tests fail a deletion step; nil in production.
 	deleteHook func(step string) error
 	downloads  downloadLimiter
@@ -369,6 +371,7 @@ func (g *AccountGateway) workspace(a Account) (*Server, error) {
 			return err
 		}
 	}
+	g.configureAccountRunner(&c, a.ID)
 	c.AccountID = a.ID
 	g.wireStorage(&c, a)
 	createRuntime := g.runtimeFactory

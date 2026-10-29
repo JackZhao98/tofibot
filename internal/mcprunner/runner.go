@@ -45,6 +45,16 @@ type Spec struct {
 	// the connection's provenance. They never affect how the child runs.
 	Package string `json:"package,omitempty"`
 	Version string `json:"version,omitempty"`
+	// Cred and Tmp are set by the Runner that owns the spec, never read from a
+	// manifest. In the multi-account Runner every child of one account runs as
+	// that account's own uid with a private temporary directory.
+	Cred *syscall.Credential `json:"-"`
+	Tmp  string              `json:"-"`
+	// Limits is set by the Runner that owns the spec, like Cred.
+	Limits Limits `json:"-"`
+	// open opens the plugin's directory through the Runner's anchored walk (see
+	// confined.go). Nil for a spec built by hand: the path is then opened directly.
+	open func() (*os.Root, error)
 }
 
 type Status struct {
@@ -69,6 +79,54 @@ type Runner struct {
 	done        chan struct{}
 	// removeDrain bounds how long Remove waits for in-flight leases to finish.
 	removeDrain time.Duration
+	opts        Options
+}
+
+// Options places a Runner inside one account of the multi-account Runner. The
+// zero value is the original single-tenant Runner.
+type Options struct {
+	// Cred is the uid/gid every child process and installer runs as.
+	Cred *syscall.Credential
+	// Tmp replaces /tmp for children; it must be private to the account.
+	Tmp string
+	// ManifestDir holds manifest.json outside the area the children can write.
+	ManifestDir string
+	// Limits caps every child (processes of the uid, open files, file size).
+	Limits Limits
+	// MinFreeBytes refuses installs and imports when the data filesystem has less free.
+	MinFreeBytes uint64
+}
+
+// manifestPath is where the installed-plugin record lives.
+func (r *Runner) manifestPath(stateDir string) string {
+	if r.opts.ManifestDir != "" {
+		return filepath.Join(r.opts.ManifestDir, "manifest.json")
+	}
+	return filepath.Join(stateDir, "manifest.json")
+}
+
+// stamp attaches the Runner's process identity to a spec.
+func (r *Runner) stamp(spec Spec) Spec {
+	spec.Cred, spec.Tmp, spec.Limits = r.opts.Cred, r.opts.Tmp, r.opts.Limits
+	id := spec.ID
+	workDir := spec.WorkDir
+	spec.open = func() (*os.Root, error) {
+		root, err := r.pluginRoot(id)
+		if err != nil && r.opts.Cred == nil && r.opts.ManifestDir == "" {
+			// A single-tenant Runner has one uid and no account to guard against: the
+			// plugin directory may live wherever the operator's manifest says.
+			return openDirRoot(workDir)
+		}
+		return root, err
+	}
+	return spec
+}
+
+func (s Spec) tmpDir() string {
+	if s.Tmp != "" {
+		return s.Tmp
+	}
+	return "/tmp"
 }
 
 type plugin struct {
@@ -92,12 +150,17 @@ type plugin struct {
 }
 
 func New(specs []Spec, idleTimeout time.Duration) (*Runner, error) {
+	return NewWithOptions(specs, idleTimeout, Options{})
+}
+
+func NewWithOptions(specs []Spec, idleTimeout time.Duration, opts Options) (*Runner, error) {
 	if idleTimeout <= 0 {
 		idleTimeout = defaultIdleTimeout
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	r := &Runner{plugins: make(map[string]*plugin, len(specs)), idleTimeout: idleTimeout, ctx: ctx, cancel: cancel, done: make(chan struct{}), removeDrain: defaultRemoveDrain}
+	r := &Runner{plugins: make(map[string]*plugin, len(specs)), idleTimeout: idleTimeout, ctx: ctx, cancel: cancel, done: make(chan struct{}), removeDrain: defaultRemoveDrain, opts: opts}
 	for _, spec := range specs {
+		spec = r.stamp(spec)
 		if !validID(spec.ID) || !filepath.IsAbs(spec.Command) || !filepath.IsAbs(spec.WorkDir) {
 			cancel()
 			return nil, fmt.Errorf("invalid runner plugin %q", spec.ID)
@@ -401,28 +464,32 @@ func start(startCtx, life context.Context, spec Spec) (*mcp.ClientSession, conte
 	}
 	procCtx, stop := context.WithCancel(life)
 	spec.Args = gogMCPArgs(spec) // the personal Google plugin offers the tools of the services the account authorised
-	processCmd := exec.CommandContext(procCtx, spec.Command, spec.Args...)
+	// The child starts inside its own directory and is named relative to it, so
+	// /proc/<pid>/cmdline (readable by every uid in the container) does not carry
+	// the account's id.
+	command, args := spec.Limits.launch(launchCommand(spec), spec.Args)
+	processCmd := exec.CommandContext(procCtx, command, args...)
 	processCmd.Dir = spec.WorkDir
-	processCmd.Env = []string{"PATH=/usr/local/bin:/usr/bin:/bin", "LANG=C.UTF-8", "TMPDIR=/tmp"}
+	processCmd.Env = []string{"PATH=/usr/local/bin:/usr/bin:/bin", "LANG=C.UTF-8", "TMPDIR=" + spec.tmpDir()}
 	for key, value := range spec.Env {
 		processCmd.Env = append(processCmd.Env, key+"="+value)
 	}
 	for key, path := range spec.SecretEnv {
 		if spec.Adapter != nil && key == "NOTION_TOKEN" {
-			info, err := os.Lstat(path)
+			info, err := spec.lstatInPlugin(path)
 			if err != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0600 {
 				stop()
 				return nil, nil, 0, nil, errors.New("Notion token file must be a private mode-0600 regular file")
 			}
 		}
-		value, err := os.ReadFile(path)
+		value, err := spec.readInPlugin(path)
 		if err != nil {
 			stop()
 			return nil, nil, 0, nil, err
 		}
 		processCmd.Env = append(processCmd.Env, key+"="+strings.TrimSpace(string(value)))
 	}
-	processCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	processCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Credential: spec.Cred}
 	var tr mcp.Transport = &latestOnlyTransport{Transport: &mcp.CommandTransport{Command: processCmd}}
 	leafProtocol := ProtocolVersion
 	var clientOptions *mcp.ClientOptions
@@ -480,6 +547,17 @@ func start(startCtx, life context.Context, spec Spec) (*mcp.ClientSession, conte
 		pid = processCmd.Process.Pid
 	}
 	return cli, stop, pid, tools, nil
+}
+
+// launchCommand is the command as given to exec: relative to the work directory
+// when the executable lives below it, absolute (a bundled binary) otherwise.
+func launchCommand(spec Spec) string {
+	if spec.Command != spec.WorkDir && within(spec.WorkDir, spec.Command) {
+		if rel, err := filepath.Rel(filepath.Clean(spec.WorkDir), filepath.Clean(spec.Command)); err == nil {
+			return "." + string(filepath.Separator) + rel
+		}
+	}
+	return spec.Command
 }
 
 func shutdown(cli *mcp.ClientSession, stop context.CancelFunc, processGroup int) {

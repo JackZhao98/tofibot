@@ -100,3 +100,33 @@ func TestSingleAccountBackendNoneIgnoresComputerSocket(t *testing.T) {
 		t.Fatalf("capabilities %d %s", w.Code, w.Body.String())
 	}
 }
+
+func TestRunnerContainerConfigurationIsAllOrNothingAndNeedsNoComputer(t *testing.T) {
+	base := map[string]string{"TOFI_MULTI_ACCOUNT": "1", "TOFI_COMPUTER_BACKEND": "none"}
+	with := func(extra map[string]string) func(string) string {
+		return func(k string) string {
+			if v, ok := extra[k]; ok {
+				return v
+			}
+			return base[k]
+		}
+	}
+	for name, extra := range map[string]map[string]string{
+		"url only":     {"TOFI_RUNNER_URL": "http://runner:8390"},
+		"key only":     {"TOFI_RUNNER_MASTER_KEY_FILE": "/app/data/runner/master.key"},
+		"relative key": {"TOFI_RUNNER_URL": "http://runner:8390", "TOFI_RUNNER_MASTER_KEY_FILE": "master.key"},
+	} {
+		cfg := app.Config{DataDir: t.TempDir(), Environment: "acceptance", OwnerAuth: true}
+		if s, err := newConfiguredServer(cfg, with(extra)); err == nil {
+			s.Close()
+			t.Fatalf("%s: started with a half-configured Runner", name)
+		}
+	}
+	// With the computer backend none, a complete configuration starts.
+	cfg := app.Config{DataDir: t.TempDir(), Environment: "acceptance", OwnerAuth: true}
+	s, err := newConfiguredServer(cfg, with(map[string]string{"TOFI_RUNNER_URL": "http://runner:8390", "TOFI_RUNNER_MASTER_KEY_FILE": "/app/data/runner/master.key"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+}

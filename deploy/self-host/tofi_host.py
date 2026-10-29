@@ -66,6 +66,8 @@ IMAGE_REPOS = {
     'worker': 'ghcr.io/jackzhao98/tofi-worker',
     'caddy': 'docker.io/library/caddy',
 }
+# The local MCP Runner image is pinned by manifests that carry it; older manifests do not.
+OPTIONAL_IMAGE_REPOS = {'runner': 'ghcr.io/jackzhao98/tofi-mcp-runner'}
 APP_ENTRYPOINT = ['/app/tofi']
 WORKER_ENTRYPOINT = ['python3', '/opt/tofi-worker/worker_entrypoint.py',
                      '--config', '/etc/tofi-worker/config.json']
@@ -119,6 +121,17 @@ COMPUTER_TOOLS = ['apparmor_parser', 'debugfs', 'e2fsck', 'zstd']
 COMPUTER_APT_PACKAGES = ['zstd', 'e2fsprogs', 'apparmor', 'apparmor-utils']
 # compose.yaml starts the Worker only under this profile.
 COMPUTER_PROFILE = 'computer-kvm'
+# compose.yaml starts the local MCP Runner only under this profile (tofi.env names its image).
+RUNNER_PROFILE = 'runner'
+RUNNER_ENV_KEYS = ('TOFI_RUNNER_IMAGE', 'TOFI_RUNNER_URL', 'TOFI_RUNNER_MASTER_KEY_FILE')
+# The Runner's own bridge (outbound only, filtered below) and the internal App-to-Runner link.
+# The egress subnet is fixed in compose.yaml so the firewall rules can name it; the link network's
+# subnet is read from Docker (compose_network_subnets).
+RUNNER_EGRESS_SUBNET = '172.30.77.0/24'
+RUNNER_EGRESS_CHAIN = 'TOFI-RUNNER-EGRESS'
+# Where the Runner container may not connect: private ranges (other hosts, other containers, the
+# hypervisor's metadata and management addresses), link-local (cloud metadata), carrier-grade NAT.
+RUNNER_BLOCKED_RANGES = ('10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '169.254.0.0/16', '100.64.0.0/10')
 
 PHASES = {'prepared', 'installing', 'install-failed', 'installed',
           'upgrading', 'upgrade-failed', 'rolling-back', 'rollback-failed',
@@ -506,9 +519,9 @@ def validate_manifest(manifest, allow_loopback_app=False):
     if not isinstance(version, str) or not VERSION_RE.match(version):
         raise HostError('The release manifest version %r is not vMAJOR.MINOR.PATCH[-rc.N].' % version)
     images = manifest.get('images')
-    if not isinstance(images, dict) or set(images) != set(IMAGE_REPOS):
-        raise HostError('The release manifest must pin exactly the app, worker and caddy images.')
-    for role, repo in IMAGE_REPOS.items():
+    if not isinstance(images, dict) or set(images) - set(OPTIONAL_IMAGE_REPOS) != set(IMAGE_REPOS):
+        raise HostError('The release manifest must pin exactly the app, worker and caddy images (and optionally the runner).')
+    for role, repo in {**IMAGE_REPOS, **{k: v for k, v in OPTIONAL_IMAGE_REPOS.items() if k in images}}.items():
         reference = images[role]
         name, _, digest = str(reference).partition('@sha256:')
         loopback_app = allow_loopback_app and role == 'app' and name.startswith(LOOPBACK_REGISTRIES)
@@ -1133,7 +1146,19 @@ def render_env(manifest, options, budgets):
         'TOFI_AUTO_UPDATE': options.get('auto_update') if options.get('auto_update') in AUTO_UPDATE_MODES else 'off',
     }
     values.update(computer_env(computer, manifest, budgets))
+    values.update(runner_env(manifest))
     return values
+
+
+def runner_env(manifest):
+    """The tofi.env keys of the local MCP Runner container; none when the
+    release does not carry its image (the App then keeps local connections on
+    the computer, as before)."""
+    image = (manifest.get('images') or {}).get('runner')
+    if not image:
+        return {}
+    return {'TOFI_RUNNER_IMAGE': image, 'TOFI_RUNNER_URL': 'http://runner:8390',
+            'TOFI_RUNNER_MASTER_KEY_FILE': '/app/data/runner/master.key'}
 
 
 # What the App needs to reach the Worker (the same values compose.yaml falls
@@ -1325,6 +1350,8 @@ def pull_images(env, data_schema):
         roles.append(('worker', env['TOFI_WORKER_IMAGE']))
     if env.get('TOFI_DOMAIN'):
         roles.append(('caddy', env['TOFI_CADDY_IMAGE']))
+    if env.get('TOFI_RUNNER_IMAGE'):
+        roles.append(('runner', env['TOFI_RUNNER_IMAGE']))
     for role, reference in roles:
         try:
             run(['docker', 'pull', '--quiet', reference], timeout=1800)
@@ -1403,9 +1430,102 @@ def compose_command(env, extra_profiles=()):
         profiles.append('tls')
     if has_computer(env):
         profiles.append(COMPUTER_PROFILE)
+    if env.get('TOFI_RUNNER_IMAGE'):
+        profiles.append(RUNNER_PROFILE)
     for profile in dict.fromkeys(profiles):
         command += ['--profile', profile]
     return command
+
+
+def compose_network_subnets():
+    """The subnets of this project's Docker networks other than the Runner's own
+    egress bridge. They are blocked as well, whatever range Docker picked."""
+    subnets = []
+    try:
+        ids = run(['docker', 'network', 'ls', '-q', '--filter',
+                   'label=com.docker.compose.project=' + PROJECT], check=False).stdout.split()
+        if not ids:
+            return subnets
+        for network in json.loads(run(['docker', 'network', 'inspect'] + ids, check=False).stdout or '[]'):
+            for config in ((network.get('IPAM') or {}).get('Config') or []):
+                subnet = config.get('Subnet')
+                if isinstance(subnet, str) and subnet != RUNNER_EGRESS_SUBNET and subnet not in subnets:
+                    subnets.append(subnet)
+    except (OSError, ValueError, subprocess.SubprocessError, AttributeError):
+        pass
+    return subnets
+
+
+def runner_egress_rules():
+    """The rules of RUNNER_EGRESS_CHAIN, in order: drop what the Runner must not
+    reach, return for everything else (the internet)."""
+    blocked = list(RUNNER_BLOCKED_RANGES)
+    for subnet in compose_network_subnets():
+        if subnet not in blocked:
+            blocked.append(subnet)
+    return [['-d', destination, '-j', 'DROP'] for destination in blocked] + [['-j', 'RETURN']]
+
+
+def _iptables(*args):
+    return run(['iptables', '-w', '5'] + list(args), check=False)
+
+
+def ensure_runner_egress_filter():
+    """Keep the Runner container off the host and the private networks.
+
+    Docker filters nothing between a container and the rest of the machine's
+    networks, so the Runner (which runs code a person installed) would otherwise
+    reach the host's services, the LAN and the cloud metadata address. Traffic
+    leaving the Runner's bridge is checked in DOCKER-USER (forwarded) and INPUT
+    (to the host itself). The rules are idempotent and are applied before the
+    Runner starts. A host without iptables, or one where Docker keeps no
+    DOCKER-USER chain, gets a warning: the Runner still starts, unfiltered.
+    Returns True when the filter is in place."""
+    if shutil.which('iptables') is None:
+        reason = 'nft is present but iptables is not' if shutil.which('nft') else 'neither iptables nor nft is installed'
+        warn('The Runner container could not be fenced off from the host and the LAN (%s). '
+             'Install iptables, or block %s -> private ranges yourself; see deploy/self-host/README.md.'
+             % (reason, RUNNER_EGRESS_SUBNET))
+        return False
+    if _iptables('-S', 'DOCKER-USER').returncode != 0:
+        warn('Docker has no DOCKER-USER chain here (iptables disabled in Docker, or the nftables backend), '
+             'so the Runner container is not fenced off from the host and the LAN. See deploy/self-host/README.md.')
+        return False
+    wanted = runner_egress_rules()
+    current = _iptables('-S', RUNNER_EGRESS_CHAIN)
+    expected = ['-A %s %s' % (RUNNER_EGRESS_CHAIN, ' '.join(rule)) for rule in wanted]
+    present = [line for line in current.stdout.splitlines() if line.startswith('-A ')] if current.returncode == 0 else None
+    if present != expected:
+        if current.returncode != 0:
+            _iptables('-N', RUNNER_EGRESS_CHAIN)
+        _iptables('-F', RUNNER_EGRESS_CHAIN)
+        for rule in wanted:
+            if _iptables('-A', RUNNER_EGRESS_CHAIN, *rule).returncode != 0:
+                warn('Could not write the Runner firewall rules; the Runner container is not fenced off.')
+                return False
+    for chain, position_rule in (('DOCKER-USER', ['-s', RUNNER_EGRESS_SUBNET, '-j', RUNNER_EGRESS_CHAIN]),
+                                 ('INPUT', ['-s', RUNNER_EGRESS_SUBNET, '-j', 'DROP'])):
+        if _iptables('-C', chain, *position_rule).returncode != 0:
+            if _iptables('-I', chain, '1', *position_rule).returncode != 0:
+                warn('Could not hook the Runner firewall rules into %s.' % chain)
+                return False
+    return True
+
+
+def remove_runner_egress_filter():
+    """Take the Runner's rules out again (uninstall). Nothing happens, quietly,
+    on a host that never had them."""
+    if shutil.which('iptables') is None:
+        return
+    for chain, rule in (('DOCKER-USER', ['-s', RUNNER_EGRESS_SUBNET, '-j', RUNNER_EGRESS_CHAIN]),
+                        ('INPUT', ['-s', RUNNER_EGRESS_SUBNET, '-j', 'DROP'])):
+        for _ in range(8):  # more than one only if something added a duplicate
+            if _iptables('-C', chain, *rule).returncode != 0:
+                break
+            _iptables('-D', chain, *rule)
+    if _iptables('-S', RUNNER_EGRESS_CHAIN).returncode == 0:
+        _iptables('-F', RUNNER_EGRESS_CHAIN)
+        _iptables('-X', RUNNER_EGRESS_CHAIN)
 
 
 def project_containers():
@@ -1547,6 +1667,8 @@ def app_docker_health():
 
 
 def start_services(env, first_install=False, state=None):
+    if env.get('TOFI_RUNNER_IMAGE'):
+        ensure_runner_egress_filter()  # before the Runner can run, and again after every reboot
     if has_computer(env):
         compose('up', '-d', '--no-build', '--pull', 'never', '--remove-orphans', 'worker', env=env)
         worker_ready(first_install=first_install)
@@ -3498,8 +3620,41 @@ def snapshot():
     }
 
 
+def container_runner_accounts():
+    """Accounts whose local connections already live in the Runner container
+    (their local-runner.json says state=container), as data-directory names."""
+    found = []
+    for path in [P.data / 'local-runner.json'] + sorted(P.data.glob('accounts/*/local-runner.json')):
+        try:
+            if json.loads(path.read_text()).get('state') == 'container':
+                found.append(path.parent.name if path.parent != P.data else 'owner')
+        except (OSError, ValueError, AttributeError):
+            continue
+    return found
+
+
+def check_runner_downgrade(manifest, allow):
+    """Refuse a release that predates the Runner container once an account uses it.
+
+    Such a release does not know the container: it would run those local
+    connections on the account's computer again, from the copy made before the
+    switch, and a later update would find two diverging copies. Only the
+    command line can accept that (`--allow-runner-downgrade`); the unattended
+    paths (auto and web update) never pass it."""
+    if (manifest.get('images') or {}).get('runner') or allow:
+        return
+    accounts = container_runner_accounts()
+    if accounts:
+        raise HostError(
+            'Update refused: %s predates the Runner container, and %d account(s) already keep their local connections '
+            '(Gmail, community packages) there. That release would run them from the older copy on the account\'s '
+            'computer, without anything changed since the switch, and they would not work on an install without a '
+            'computer; a later update would find two diverging copies (both are kept and flagged). '
+            'Back up /var/lib/tofi, then re-run with --allow-runner-downgrade.' % (manifest['version'], len(accounts)))
+
+
 def upgrade(version=None, manifest_path=None, allow_schema_change=False, manifest=None,
-            wait=0, force=False, trigger='manual', confirm=None):
+            wait=0, force=False, trigger='manual', confirm=None, allow_runner_downgrade=False):
     """Update to a release: back up, switch, start; on failure restore and roll back.
 
     `wait` minutes are given to active Bot runs to finish (then refuse unless
@@ -3508,7 +3663,8 @@ def upgrade(version=None, manifest_path=None, allow_schema_change=False, manifes
     """
     info = {}
     try:
-        result = _upgrade(info, version, manifest_path, allow_schema_change, manifest, wait, force, confirm)
+        result = _upgrade(info, version, manifest_path, allow_schema_change, manifest, wait, force, confirm,
+                          allow_runner_downgrade)
     except LockBusy:
         raise
     except ActiveRunsError:
@@ -3527,7 +3683,8 @@ def upgrade(version=None, manifest_path=None, allow_schema_change=False, manifes
     return result
 
 
-def _upgrade(info, version, manifest_path, allow_schema_change, manifest, wait, force, confirm):
+def _upgrade(info, version, manifest_path, allow_schema_change, manifest, wait, force, confirm,
+             allow_runner_downgrade=False):
     with lifecycle_lock():
         state = load_state()
         if state is None or state['phase'] != 'installed':
@@ -3539,6 +3696,7 @@ def _upgrade(info, version, manifest_path, allow_schema_change, manifest, wait, 
         if manifest['version'] == previous['env']['TOFI_VERSION']:
             say('TOFI %s is already installed.' % manifest['version'])
             return {'upgraded': False, 'version': manifest['version']}
+        check_runner_downgrade(manifest, allow_runner_downgrade)
         if confirm is not None:
             confirm(previous['env']['TOFI_VERSION'], manifest)
         wait_for_idle('the update', wait, force)
@@ -3550,6 +3708,9 @@ def _upgrade(info, version, manifest_path, allow_schema_change, manifest, wait, 
             'TOFI_APP_IMAGE': manifest['images']['app'],
             'TOFI_CADDY_IMAGE': manifest['images']['caddy'],
         })
+        for key in RUNNER_ENV_KEYS:
+            candidate.pop(key, None)  # a release without the Runner leaves no Runner settings behind
+        candidate.update(runner_env(manifest))
         if computer:
             # An install without a computer keeps no Worker image or Guest pin: nothing to pull or fetch.
             candidate.update({'TOFI_WORKER_IMAGE': manifest['images']['worker'],
@@ -3930,6 +4091,7 @@ def finish_uninstall(state):
         transition(state, 'uninstalling', 'remove-services')
         if compose_file().exists():
             compose('rm', '-f', '-s')
+        remove_runner_egress_filter()
         complete(state, 'stopped-retained')
     except BaseException as error:
         failed(state, 'uninstall-failed', error)
@@ -3939,7 +4101,7 @@ def finish_uninstall(state):
     return {'uninstalled': True, 'data_retained': True}
 
 
-IMAGE_ENV_KEYS = ('TOFI_APP_IMAGE', 'TOFI_WORKER_IMAGE', 'TOFI_CADDY_IMAGE')
+IMAGE_ENV_KEYS = ('TOFI_APP_IMAGE', 'TOFI_WORKER_IMAGE', 'TOFI_CADDY_IMAGE', 'TOFI_RUNNER_IMAGE')
 
 
 def installation_images(state):
@@ -3968,13 +4130,13 @@ def installation_images(state):
         manifests = sorted(P.releases.glob('*/manifest.json'))
     except OSError:
         manifests = []
-    allowed = tuple(repository + '@' for repository in IMAGE_REPOS.values())
+    allowed = tuple(repository + '@' for repository in (*IMAGE_REPOS.values(), *OPTIONAL_IMAGE_REPOS.values()))
     for path in manifests:
         try:
             images = json.loads(path.read_text()).get('images') or {}
         except (OSError, ValueError, AttributeError):
             continue
-        for role in IMAGE_REPOS:
+        for role in (*IMAGE_REPOS, *OPTIONAL_IMAGE_REPOS):
             reference = images.get(role) if isinstance(images, dict) else None
             if isinstance(reference, str) and reference.startswith(allowed):
                 add(reference)
@@ -4012,6 +4174,7 @@ def purge_everything(state, confirm):
         stopped(tolerate_unclean=True)
     if compose_file().exists() and P.env_file.exists():
         compose('down', '--remove-orphans')
+    remove_runner_egress_filter()
     images = installation_images(state)
     run(['systemctl', 'disable', 'tofi.service'], check=False)
     remove_auto_update_units()
@@ -5145,6 +5308,8 @@ def parse_args(argv):
     update_parser.add_argument('--version')
     update_parser.add_argument('--manifest', help='use a local manifest instead of GitHub Releases')
     update_parser.add_argument('--allow-schema-change', action='store_true')
+    update_parser.add_argument('--allow-runner-downgrade', action='store_true',
+                               help='accept a release older than the Runner container although accounts already use it')
     update_parser.add_argument('--check', action='store_true',
                                help='report what would change and exit 0 (up to date), 10 (update available) '
                                     'or 1 (error); changes nothing')
@@ -5420,7 +5585,8 @@ def main(argv=None):
                 raise HostError('--json is only used with --check.')
             wait, force = guard_options(args, interactive_default=not args.yes)
             upgrade(args.version, args.manifest, args.allow_schema_change, wait=wait, force=force,
-                    confirm=None if args.yes or not sys.stdin.isatty() else confirm_update)
+                    confirm=None if args.yes or not sys.stdin.isatty() else confirm_update,
+                    allow_runner_downgrade=args.allow_runner_downgrade)
             ensure_update_request_channel_quietly()
             return 0
         if args.command == 'uninstall':

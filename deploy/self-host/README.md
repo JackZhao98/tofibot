@@ -574,8 +574,32 @@ is public and `tofi status` can still check health. In that mode Caddy reaches
 the App over the Docker bridge, which is why `TOFI_OWNER_ALLOW_LAN_HTTP=1` stays
 for it; the default HTTPS mode sets it to `0`. The App healthcheck picks `https`
 or `http` from `TOFI_TLS_CERT_FILE` (busybox `wget` with Alpine's `ssl_client`).
-The shared `mcp-runner` is not part of this stack; account computers run MCP
-inside their Guest.
+The local MCP Runner (Gmail, community packages) is the `runner` service under
+profile `runner`, started when `tofi.env` names `TOFI_RUNNER_IMAGE` (releases
+whose manifest pins `images.runner` set it, with `TOFI_RUNNER_URL` and
+`TOFI_RUNNER_MASTER_KEY_FILE`). It runs outside every computer, so it works with
+`TOFI_COMPUTER_BACKEND=none`, serves each account in its own namespace and uid,
+and keeps its state under `/var/lib/tofi/data/runner` (inside the data backup).
+Without a Runner image, local connections still run inside the account computer
+as before. See `docs/decisions/0071-runner-container.md`.
+
+The Runner runs code a person installed, so it is fenced: it has no shared memory
+(`ipc: none`), it reaches the App over the internal network `runner_link`, and it
+goes out only through its own bridge `runner_egress` (172.30.77.0/24). `tofi`
+adds firewall rules (iptables chain `TOFI-RUNNER-EGRESS`, hooked into
+`DOCKER-USER` and `INPUT`) so that bridge cannot reach the host, private
+networks (10/8, 172.16/12, 192.168/16, 100.64/10), 169.254.0.0/16 or the other
+Docker networks of this install; they are rewritten on every start and removed by
+`tofi uninstall`. Without `iptables` (or with Docker's nftables backend, which
+has no `DOCKER-USER` chain) `tofi` warns and the Runner starts unfenced: add
+equivalent rules yourself for 172.30.77.0/24. If 172.30.77.0/24 is in use on
+your network, change it in `compose.yaml` and `RUNNER_EGRESS_SUBNET` in
+`tofi_host.py`.
+
+Once an account keeps its local connections in the Runner container, `tofi update`
+refuses a release that predates it (the connections would fall back to an older
+copy on the account's computer). `sudo tofi update --version <older>
+--allow-runner-downgrade` overrides that on purpose; automatic updates never do.
 
 Budgets: the Worker gets `max(1, nproc-1)` vCPUs and
 `max(1536, MemTotal-2048)` MiB for account computers (1 vCPU / 1 GiB each), with
@@ -608,7 +632,7 @@ current step and the last error. An update stores the previous `tofi.env`,
 
 `.github/workflows/release.yml` runs on a `v*` tag (or manually with a tag):
 tests, with clean native builds of `ghcr.io/jackzhao98/tofi`,
-`tofi-worker` (and `tofi-mcp-runner` for development) with
+`tofi-worker` and `tofi-mcp-runner` with
 `TOFI_SOURCE_COMMIT` on `ubuntu-24.04` (amd64) and `ubuntu-24.04-arm` (arm64)
 runners at the same time (by digest, no tag); once `test` passes, one manifest
 list per image is tagged and pinned. The Guest release

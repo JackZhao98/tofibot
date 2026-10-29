@@ -116,6 +116,7 @@ def main(argv=None):
     parser.add_argument('--app-image', required=True)
     parser.add_argument('--worker-image', required=True)
     parser.add_argument('--caddy-image', required=True)
+    parser.add_argument('--runner-image', help='local MCP Runner image (ghcr.io/jackzhao98/tofi-mcp-runner@sha256:...); omit for a release without it')
     parser.add_argument('--guest-archive', required=True)
     parser.add_argument('--guest-release-json', required=True)
     parser.add_argument('--guest-aarch64-archive')
@@ -126,6 +127,8 @@ def main(argv=None):
     parser.add_argument('--out', required=True)
     args = parser.parse_args(argv)
     images = {'app': args.app_image, 'worker': args.worker_image, 'caddy': args.caddy_image}
+    if args.runner_image:
+        images['runner'] = args.runner_image
     extra = {}
     if bool(args.guest_aarch64_archive) != bool(args.guest_aarch64_release_json):
         print('make_manifest: pass --guest-aarch64-archive and --guest-aarch64-release-json together',

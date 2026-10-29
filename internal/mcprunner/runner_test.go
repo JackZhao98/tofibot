@@ -29,6 +29,10 @@ func TestRunnerHelperProcess(t *testing.T) {
 	}
 	_, _ = f.WriteString("start\n")
 	_ = f.Close()
+	if path := os.Getenv("TOFI_MCP_RUNNER_ARGV"); path != "" {
+		cwd, _ := os.Getwd()
+		_ = os.WriteFile(path, []byte(strings.Join(os.Args, "\n")+"\n"+cwd), 0600)
+	}
 	s := mcp.NewServer(&mcp.Implementation{Name: "runner-fixture", Version: "1"}, &mcp.ServerOptions{SupportedProtocolVersions: []string{ProtocolVersion}})
 	mcp.AddTool(s, &mcp.Tool{Name: "echo"}, func(_ context.Context, _ *mcp.CallToolRequest, args struct {
 		Message string `json:"message"`
@@ -157,7 +161,12 @@ func TestRunnerBridgesStdioToPrivateHTTPMCP(t *testing.T) {
 
 func TestPluginSecretsUsePrivateFiles(t *testing.T) {
 	dir := t.TempDir()
-	paths, err := installSecretEnv(dir, map[string]string{"API_TOKEN": "private-value"})
+	pr, err := os.OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pr.Close()
+	paths, err := installSecretEnv(pr, dir, map[string]string{"API_TOKEN": "private-value"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -298,5 +307,44 @@ func TestRunnerHTTPOnlySupportsLatestStatelessProtocol(t *testing.T) {
 				t.Fatalf("legacy request was accepted: %d %s", w.Code, w.Body.String())
 			}
 		})
+	}
+}
+
+func TestPluginIsLaunchedFromItsDirectoryWithARelativeCommand(t *testing.T) {
+	work := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(work, "node_modules", ".bin"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(work, "node_modules", ".bin", "helper")
+	if err := os.Symlink(os.Args[0], bin); err != nil {
+		t.Fatal(err)
+	}
+	argvFile := filepath.Join(t.TempDir(), "argv")
+	r, err := New([]Spec{{ID: "fixture", Command: bin, Args: []string{"-test.run=TestRunnerHelperProcess"}, WorkDir: work, Env: map[string]string{"TOFI_MCP_RUNNER_HELPER": "1", "TOFI_MCP_RUNNER_STARTS": filepath.Join(t.TempDir(), "starts"), "TOFI_MCP_RUNNER_ARGV": argvFile}}}, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	if _, err := r.Tools(context.Background(), "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(argvFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(string(data), "\n")
+	if lines[0] != "./node_modules/.bin/helper" {
+		t.Fatalf("argv[0] = %q, want a path relative to the work directory", lines[0])
+	}
+	for _, arg := range lines[:len(lines)-1] {
+		if strings.Contains(arg, work) {
+			t.Fatalf("command line names the plugin directory: %q", arg)
+		}
+	}
+	if got, _ := filepath.EvalSymlinks(lines[len(lines)-1]); got != func() string { p, _ := filepath.EvalSymlinks(work); return p }() {
+		t.Fatalf("cwd = %q, want %q", lines[len(lines)-1], work)
+	}
+	if got := launchCommand(Spec{Command: "/usr/local/bin/gog", WorkDir: work}); got != "/usr/local/bin/gog" {
+		t.Fatalf("bundled binary is launched as %q", got)
 	}
 }
