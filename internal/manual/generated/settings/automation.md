@@ -24,8 +24,9 @@ Open this page: [Behavior](/settings/automation)
 | Group routing model | `automation.group_triage_model` | a configured model ID, or default |  | confirm | `/settings/automation#models` |
 | Own replies kept in full | `automation.own_replies_verbatim` | whole number 1 to 20 | 3 | direct | `/settings/automation#history` |
 | Automatic retries | `automation.provider_retries` | whole number 0 to 10 | 8 | direct | `/settings/automation#reliability` |
-| Remembered approvals last | `automation.remembered_approval_hours` | whole number 1 to 720 | 24 hours | direct | `/settings/automation#checks` |
+| Remembered approvals last | `automation.remembered_approval_hours` | whole number 1 to 720 | 24 hours | confirm | `/settings/automation#checks` |
 | Check scheduled runs before they finish | `automation.schedule_receipt_review` | on or off | true | direct | `/settings/automation#schedules` |
+| Settings changes per run | `automation.settings_change_limit` | read only | 8 | forbidden: the person changes it on the page | `/settings/automation#checks` |
 | Structured replies | `automation.structured_output` | on or off | true | direct | `/settings/automation#replies` |
 | Finished tasks kept for | `automation.task_retention_days` | whole number 0 to 3650 | 30 days | direct | `/settings/automation#history` |
 | Stall report after | `automation.task_stall_rounds` | whole number 1 to 20 | 3 | direct | `/settings/automation#checks` |
@@ -63,6 +64,8 @@ Open this page: [Behavior](/settings/automation)
 **Remembered approvals last.** When you choose Remember on an approval, the same call is allowed in that chat for this long.
 
 **Check scheduled runs before they finish.** A scheduled run that ends without a completion record gets one chance to finish the job before it is marked done.
+
+**Settings changes per run.** The most settings changes a Bot may make by itself in one run. Past it, the Bot lists the rest for you to make. Only you change this number.
 
 **Structured replies.** Only a Bot's finished replies appear in the chat; what it writes while working stays in the activity view. Turn off to post everything as before.
 

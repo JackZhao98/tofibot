@@ -100,6 +100,8 @@ input,textarea,select{width:100%;margin-top:7px;resize:vertical}
 .message-notice{display:flex;justify-content:center;margin:10px auto}
 .message-notice button{padding:3px 7px;color:inherit;border:0;border-radius:6px;background:transparent;font-size:inherit}
 .message-notice button:hover{color:var(--text);background:var(--surface-hover)}
+.message-notice .settings-change-state{color:var(--text-soft)}
+.message-notice [data-settings-change] button{text-decoration:underline;text-underline-offset:2px}
 .message-meta{gap:7px;min-height:23px;margin:0 0 5px}
 .message-meta:empty{display:none}
 .message-meta.compact{min-height:0;height:0;margin:0 0 2px;overflow:hidden}

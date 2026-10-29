@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { conversationPath, readConversationRoute, resolveConversationRoute } from "./conversationRoute";
 import { desktopState } from "./desktop";
-import { openDeepLink } from "./settings/deepLinks";
+import { linkRuntime } from "./settings/deepLinks";
 import type { Bot, Conversation } from "./types";
 
 export function useConversationNavigation(bots: Bot[], conversations: Conversation[], ready: boolean) {
@@ -34,12 +34,12 @@ export function useConversationNavigation(bots: Bot[], conversations: Conversati
   // matching cover opens and the address goes back to the conversation, because covers stay out of the address. A Bot or group that
   // is not in the signed-in account's index opens nothing and the route reads as unavailable.
   useEffect(() => {
-    const link = route.kind === "unavailable" ? undefined : route.settings;
-    if (!ready || !link || (route.kind !== "home" && !active)) return;
+    const address = route.kind === "unavailable" ? undefined : route.settings;
+    if (!ready || !address || (route.kind !== "home" && !active)) return;
     const path = (active && conversationPath(active, index.current.bots)) || "/";
     window.history.replaceState(window.history.state, "", path);
     setRoute(readConversationRoute(path));
-    openDeepLink(link);
+    void linkRuntime().then(module => module.openAddress(address));
   }, [route, ready, active]);
 
   useEffect(() => {

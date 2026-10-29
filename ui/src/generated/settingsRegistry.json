@@ -107,6 +107,7 @@
         "version",
         "server",
         "data",
+        "changes",
         "debug",
         "danger"
       ]
@@ -630,7 +631,7 @@
       "min": 1,
       "max": 720,
       "risk": {
-        "self": "direct"
+        "self": "confirm"
       },
       "link": "/settings/automation#checks",
       "manual": "settings/automation",
@@ -777,6 +778,20 @@
       "audit": true
     },
     {
+      "key": "automation.settings_change_limit",
+      "scope": "account",
+      "kind": "readonly",
+      "min": 1,
+      "max": 50,
+      "risk": {
+        "self": "forbidden"
+      },
+      "link": "/settings/automation#checks",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.settings_change_limit.name",
+      "audit": true
+    },
+    {
       "key": "models.default_model",
       "scope": "account",
       "kind": "model",
@@ -864,18 +879,6 @@
       "link": "/settings/connections/{name}#tools",
       "manual": "connections/tool-permissions",
       "label_key": "extensions:tools.tier.write",
-      "audit": true
-    },
-    {
-      "key": "web_tools.order",
-      "scope": "account",
-      "kind": "string",
-      "risk": {
-        "self": "direct"
-      },
-      "link": "/settings/tools#web",
-      "manual": "settings/tools",
-      "label_key": "settings:webtools.title",
       "audit": true
     },
     {

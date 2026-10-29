@@ -35,8 +35,8 @@ import {SettingsPages} from '../src/settings/SettingsPages';
 import {CodexPanel} from '../src/settings/AppSlots';
 import {MessageMarkdown} from '../src/MessageMarkdown';
 import {readConversationRoute} from '../src/conversationRoute';
-import {setPendingSection,subscribeDeepLink,subscribeSettingsDeepLinks} from '../src/settings/deepLinks';
-const bots=[{id:'bot_research',name:'Research Bot',is_primary:true,archived:false,model:'default',reasoning_effort:'default'}];
+import {getLinkDeps,linkRuntime,provideLinkDeps,subscribeSettingsDeepLinks} from '../src/settings/deepLinks';
+const bots=[{id:'bot_research',name:'Research Bot',dm_conversation_id:'dm_research',is_primary:true,archived:false,model:'default',reasoning_effort:'default'}];
 const content=[
  '[Language](/settings/general#region)',
  '[Defaults](/settings/models#defaults)',
@@ -54,10 +54,14 @@ function Fixture(){
  const seen=useRef<any[]>([]);
  const openSettings=(next:SettingsTab)=>{setTab(next);setEntry(current=>({seq:current.seq+1,view:'page'}));setOpen(true)};
  useEffect(()=>subscribeSettingsDeepLinks(next=>openSettings(next)),[]);
- useEffect(()=>subscribeDeepLink(link=>{
-  seen.current.push(link);(window as any).__links=seen.current;
-  if(link.kind==='settings'){setPendingSection(link.section?{scope:'settings',page:link.tab,section:link.section}:null);openSettings(link.tab)}
- }),[]);
+ useEffect(()=>{
+  const log=(entry:any)=>{seen.current.push(entry);(window as any).__links=seen.current};
+  const onConnection=(event:Event)=>log({connection:(event as CustomEvent).detail});
+  window.addEventListener('tofi:open-connection',onConnection);
+  const off=provideLinkDeps(()=>({bots:bots as any,conversations:[{id:'dm_research',kind:'dm',bot_id:'bot_research'} as any],openSettings:next=>openSettings(next),selectConversation:id=>log({select:id}),setMobileList:()=>{},openCover:id=>log({cover:id})}));
+  return()=>{off();window.removeEventListener('tofi:open-connection',onConnection)};
+ },[]);
+ useEffect(()=>{(window as any).__openLink=(link:any)=>linkRuntime().then(module=>module.openSettingsLink(link,getLinkDeps()!))},[]);
  useEffect(()=>{(window as any).__route=(path:string)=>readConversationRoute(...(()=>{const u=new URL(path,location.origin);return [u.pathname,u.hash,u.search] as [string,string,string]})())},[]);
  return <div className="workspace"><div style={{padding:16,maxWidth:480}}><MessageMarkdown content={content}/></div>{open&&<div className="workspace-grid"><aside className="detail-pane visible" role="dialog" aria-modal="true"><SettingsShell tab={tab} onTab={setTab} onClose={()=>setOpen(false)} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots as any} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" onPortabilityFileConsumed={()=>{}} appearance={appearance} extensionRefresh={0} openTab={next=>openSettings(next)} slots={{codex:<CodexPanel refreshToken={0} onConfigured={()=>{}}/>,providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/></aside></div>}</div>;
 }
@@ -80,7 +84,7 @@ void i18nReady.then(()=>setLanguage('en')).then(()=>createRoot(document.getEleme
     await route.fulfill(json(404, {error: {code: "not_found", message: "not stubbed"}}));
   });
   await page.goto(`${origin}/${basename(fixture)}/index.html`);
-  await page.locator('a[data-settings-link="settings"]').first().waitFor();
+  await page.getByRole("link", {name: "Language"}).waitFor();
 
   // A link in a message opens its tab, finds the section and frames it.
   await page.getByRole("link", {name: "Defaults"}).click();
@@ -120,25 +124,32 @@ void i18nReady.then(()=>setLanguage('en')).then(()=>createRoot(document.getEleme
   }));
   assert.equal(prevented, false, "a Ctrl-click is left to the browser");
   assert.equal(await page.getByRole("link", {name: "Elsewhere"}).getAttribute("target"), "_blank", "another origin opens as an ordinary link");
-  assert.equal(await page.getByRole("link", {name: "Elsewhere"}).getAttribute("data-settings-link"), null);
   console.log("PASS modified click and other origins are not intercepted");
 
   // Links that name a Bot or a connection are handed to the app, which resolves them against its own index.
   await page.getByRole("link", {name: "Bot model"}).click();
   await page.getByRole("link", {name: "Acme"}).click();
+  await page.waitForFunction(() => (window.__links ?? []).length >= 3);
   const links = await page.evaluate(() => window.__links);
-  assert.deepEqual(links.filter(link => link.kind !== "settings"), [
-    {kind: "bot-settings", botId: "bot_research", section: "model"},
-    {kind: "connection", name: "acme_tracker", tool: "create_issue"},
+  assert.deepEqual(links, [
+    {select: "dm_research"},
+    {cover: "bot-settings"},
+    {connection: {server: "acme_tracker", tool: "create_issue"}},
   ]);
-  console.log("PASS bot-settings and connection links reach the app as typed links");
+  console.log("PASS bot-settings and connection links open the cover of a Bot in the index and the connection page");
+  // A Bot that is not in the account's index opens nothing.
+  await page.evaluate(() => { window.__links.length = 0; });
+  await page.evaluate(() => window.__openLink({kind: "bot-settings", botId: "someone_elses_bot", section: "model"}));
+  await page.waitForTimeout(400);
+  assert.deepEqual(await page.evaluate(() => window.__links), [], "an unknown Bot opens nothing");
+  console.log("PASS an id outside the index opens nothing");
 
   // The route reader the app uses at start: the address is read once, covers stay out of the address afterwards.
   const routes = await page.evaluate(() => ["/settings/models#defaults", "/b/bot_research/settings#model", "/g/team/settings#members", "/settings/nowhere", "/b//settings"].map(path => window.__route(path)));
-  assert.deepEqual(routes[0], {kind: "home", settings: {kind: "settings", tab: "models", section: "defaults"}});
-  assert.deepEqual(routes[1], {kind: "bot", id: "bot_research", settings: {kind: "bot-settings", botId: "bot_research", section: "model"}});
-  assert.deepEqual(routes[2], {kind: "group", id: "team", settings: {kind: "group-settings", groupId: "team", section: "members"}});
-  assert.deepEqual(routes[3], {kind: "unavailable"});
+  assert.deepEqual(routes[0], {kind: "home", settings: "/settings/models#defaults"});
+  assert.deepEqual(routes[1], {kind: "bot", id: "bot_research", settings: "/b/bot_research/settings#model"});
+  assert.deepEqual(routes[2], {kind: "group", id: "team", settings: "/g/team/settings#members"});
+  assert.equal(routes[3].kind, "home", "an unknown settings page is read as an address and resolves to nothing");
   assert.deepEqual(routes[4], {kind: "unavailable"});
   console.log("PASS addresses are read as settings routes");
 } finally {

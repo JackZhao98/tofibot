@@ -1,7 +1,7 @@
 import type {SettingsTab} from "../SettingsShell";
 import {ARCHIVE_ENABLED} from "../featureFlags";
-import {LEGACY_SETTINGS_TABS} from "./sections";
 import type {SettingsLink} from "../settingsRoute";
+import type {OpenLinkDeps} from "./linkRuntime";
 
 /** Window events other surfaces dispatch to open Settings on a tab (chat cards, the model picker). */
 export const settingsDeepLinks: Record<string, SettingsTab> = {
@@ -23,7 +23,7 @@ export const takeConnectionTarget = (): ConnectionTarget | null => { const targe
 export const openPermissionsDeepLink = () => window.dispatchEvent(new Event("tofi:open-permissions"));
 
 /** Settings tab ids that were renamed: the old id still opens the page that replaced it. */
-export const legacySettingsTabs: Record<string, SettingsTab> = LEGACY_SETTINGS_TABS;
+export const legacySettingsTabs: Record<string, SettingsTab> = { approvals: "permissions" };
 
 /** Listens for every deep-link event and calls `open` with its tab. Returns the unsubscribe. */
 export function subscribeSettingsDeepLinks(open: (tab: SettingsTab) => void): () => void {
@@ -36,30 +36,14 @@ export function subscribeSettingsDeepLinks(open: (tab: SettingsTab) => void): ()
 }
 
 /**
- * `tofi:open-link` opens a link into the app's settings (a Markdown link in a message, an approval card's Manage link, an address
- * typed or reloaded). The app listens once and opens the right cover; the section to scroll to waits here until the page that owns
- * it is mounted, then `takeSettingsSection` hands it over once (the `takeConnectionTarget` pattern).
+ * Opening a link into the app's settings (a Markdown link in a message, an approval card's Manage link, a typed or reloaded address).
+ * The app provides what opening needs once; the opener itself (`linkRuntime.ts`) is a lazy chunk, loaded on the first link.
  */
-export const OPEN_LINK_EVENT = "tofi:open-link";
-export type SectionScope = "settings" | "bot-settings" | "group-settings";
-export type PendingSection = { scope: SectionScope; page: string; section: string };
-let pendingSection: PendingSection | null = null;
-export const setPendingSection = (target: PendingSection | null) => { pendingSection = target; };
-/** Returns the pending section for this scope (and page, when given) once; a section meant for another page stays. */
-export const takeSettingsSection = (scope: SectionScope, page?: string): string | null => {
-  if (!pendingSection || pendingSection.scope !== scope || (page !== undefined && pendingSection.page !== page)) return null;
-  const { section } = pendingSection;
-  pendingSection = null;
-  return section;
-};
-export const openDeepLink = (link: SettingsLink) => window.dispatchEvent(new CustomEvent(OPEN_LINK_EVENT, { detail: link }));
-
-/** Listens for `tofi:open-link`. Returns the unsubscribe. */
-export function subscribeDeepLink(open: (link: SettingsLink) => void): () => void {
-  const handler = (event: Event) => { const link = (event as CustomEvent<SettingsLink | undefined>).detail; if (link && typeof link === "object" && "kind" in link) open(link); };
-  window.addEventListener(OPEN_LINK_EVENT, handler);
-  return () => window.removeEventListener(OPEN_LINK_EVENT, handler);
-}
+let linkDeps: (() => OpenLinkDeps | null) | null = null;
+export const provideLinkDeps = (get: () => OpenLinkDeps | null) => { linkDeps = get; return () => { linkDeps = null; }; };
+export const getLinkDeps = () => linkDeps?.() ?? null;
+/** The opener is a lazy chunk, loaded on the first link. */
+export const linkRuntime = () => import("./linkRuntime");
 
 /**
  * `tofi:open-sidebar` opens one sidebar view in the workspace (Tasks, Memory, Terminal or Archive), the way the `?side=` address does.

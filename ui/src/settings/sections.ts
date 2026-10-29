@@ -17,7 +17,7 @@ export const SETTINGS_SECTIONS = {
   devices: ["devices"],
   keys: ["keys"],
   usage: ["health", "usage"],
-  advanced: ["version", "server", "data", "debug", "danger"],
+  advanced: ["version", "server", "data", "changes", "debug", "danger"],
   admin: ["accounts"],
 } as const;
 

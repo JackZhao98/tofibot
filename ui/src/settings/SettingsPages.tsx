@@ -17,7 +17,7 @@ import {PrimaryAssistantSetting} from "../PrimaryAssistantSetting";
 import {AppearancePicker} from "../InteractionSystem";
 import {LanguageSetting} from "../LanguageSetting";
 import {ModelDefaults} from "../ModelSettings";
-import {OwnerAccount} from "../OwnerSession";
+import {OwnerAccount} from "../OwnerAccount";
 import {PortabilitySettings} from "../PortabilitySettings";
 import {ModelProviders} from "../ProviderSettings";
 import {WebToolsSettings} from "../WebToolsSettings";
@@ -31,6 +31,7 @@ import type {Bot, Conversation} from "../types";
 import type {ThemePreference} from "../InteractionSystem";
 import {Banner, DangerZone, SectionAnchor, SettingsCard, SettingsSection} from "./components";
 import {RunHealthCard} from "./RunHealthCard";
+import {SettingsChanges} from "./SettingsChanges";
 import {StandingAllowances} from "../StandingAllowances";
 
 /** Pieces that live in App.tsx and are handed in, so this folder never imports App. */
@@ -124,6 +125,7 @@ function AdvancedPage({portabilityBotID,portabilityFile,onPortabilityFileConsume
   {admin&&<SettingsSection id="version" title={t("advanced.version")}><VersionCard/></SettingsSection>}
   <SettingsSection id="server" title={t("advanced.server")}><SettingsCard><ConnectionInfo/></SettingsCard></SettingsSection>
   <SettingsSection id="data" title={t("advanced.data")}><PortabilitySettings bots={bots} initialFile={portabilityFile} initialBotID={portabilityBotID} onInitialFileConsumed={onPortabilityFileConsumed}/></SettingsSection>
+  <SettingsSection id="changes" title={t("changes.title")} description={t("changes.description")}><SettingsChanges/></SettingsSection>
   <SettingsSection id="debug" title={t("advanced.debug")}><SettingsCard><DebugSettings bots={activeBots} conversation={conversation}/></SettingsCard></SettingsSection>
   <SectionAnchor id="danger"><DangerZone title={t("advanced.danger")}><WorkspacePurgeSettings/></DangerZone></SectionAnchor>
  </div>;

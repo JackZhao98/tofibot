@@ -1001,6 +1001,10 @@
       "widget_computer_auto": {
         "name": "Bot 使用時開啟共用電腦",
         "what": "Bot 在你正在看的聊天裡取得共用電腦時,它的小工具會在訊息旁開啟。它會一直開著,在 Bot 放手 30 秒後摺成一條窄欄。關閉後維持收起,直到你自己開啟。"
+      },
+      "settings_change_limit": {
+        "name": "每次執行的設定變更上限",
+        "what": "Bot 在一次執行中可自行變更的設定數量上限。超過後，Bot 會把其餘變更列給你。只有你能修改這個數字。"
       }
     },
     "option": {
@@ -1147,5 +1151,19 @@
     "label": "此帳號的核准模式",
     "auto": "自動",
     "ask": "修改前先問"
+  },
+  "changes": {
+    "title": "Bot 所做的變更",
+    "description": "Bot 自行變更過的設定。只要此後沒有再被改動，「還原」就會把舊值放回去。",
+    "loading": "正在載入變更…",
+    "load_failed": "無法載入變更。",
+    "none": "還沒有 Bot 變更過設定。",
+    "revert": "還原",
+    "reverting": "正在還原…",
+    "reverted": "已還原",
+    "not_revertable": "無法在此還原",
+    "revert_failed": "無法還原，請再試一次。",
+    "stale": "此變更之後該設定又被改動過。",
+    "empty_value": "空"
   }
 }

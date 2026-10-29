@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -21,7 +22,8 @@ type settingsEnv struct {
 // newSettingsEnv builds a workspace with one Bot and a running run that a person's message started (an attended run).
 func newSettingsEnv(t *testing.T) *settingsEnv {
 	t.Helper()
-	s, err := NewServer(Config{DataDir: t.TempDir(), DefaultModel: "model"})
+	root := t.TempDir()
+	s, err := NewServer(Config{DataDir: root, DefaultModel: "model", MCPConfigPath: filepath.Join(root, "mcp.json"), SkillsDir: filepath.Join(root, "skills")})
 	if err != nil {
 		t.Fatal(err)
 	}

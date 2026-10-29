@@ -128,6 +128,14 @@ type HandoffNotice struct {
 	// TerminalID and ExitCode belong to a "command_exit" notice.
 	TerminalID string `json:"terminal_id,omitempty"`
 	ExitCode   *int   `json:"exit_code,omitempty"`
+	// A "settings_change" notice: what a Bot changed (a catalog key for the name, bounded old and new text), with its Undo.
+	ChangeID   string `json:"change_id,omitempty"`
+	SettingKey string `json:"setting_key,omitempty"`
+	LabelKey   string `json:"label_key,omitempty"`
+	OldValue   string `json:"old_value,omitempty"`
+	NewValue   string `json:"new_value,omitempty"`
+	Revertable bool   `json:"revertable,omitempty"`
+	Reverted   bool   `json:"reverted,omitempty"`
 }
 type Run struct {
 	ID                   string `json:"id"`
@@ -792,6 +800,9 @@ CREATE INDEX IF NOT EXISTS events_delta ON events(conversation_id,id) WHERE type
 		return err
 	}
 	if err := migrateStandingAllowances(s.db); err != nil {
+		return err
+	}
+	if err := migrateSettingsChanges(s.db); err != nil {
 		return err
 	}
 	if err := migrateModelSettings(s.db); err != nil {
@@ -3081,7 +3092,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if s.routeDeletion(w, r, p) {
 		return
 	}
-	if s.routeAttachments(w, r, p) || s.routeArtifacts(w, r, p) || s.routeInbox(w, r, p) || s.routeSidebarOrder(w, r, p) || s.routeSchedules(w, r, p) || s.routeWorkItems(w, r, p) || s.routeTaskImpact(w, r, p) || s.routeCommandWaits(w, r, p) || s.routeToolActivities(w, r, p) || s.routeConversationUsage(w, r, p) || s.routeSearch(w, r, p) || s.routeRunContext(w, r, p) {
+	if s.routeAttachments(w, r, p) || s.routeArtifacts(w, r, p) || s.routeInbox(w, r, p) || s.routeSidebarOrder(w, r, p) || s.routeSettingsChanges(w, r, p) || s.routeSchedules(w, r, p) || s.routeWorkItems(w, r, p) || s.routeTaskImpact(w, r, p) || s.routeCommandWaits(w, r, p) || s.routeToolActivities(w, r, p) || s.routeConversationUsage(w, r, p) || s.routeSearch(w, r, p) || s.routeRunContext(w, r, p) {
 		return
 	}
 	if s.routeRememberedApprovals(w, r, p) || s.routeStandingAllowances(w, r, p) || s.routeQuestions(w, r, p) {

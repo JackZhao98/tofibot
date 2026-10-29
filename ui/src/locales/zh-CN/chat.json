@@ -407,7 +407,13 @@
     "scheduled": "定时任务",
     "system": "系统提示",
     "tool": "工具",
-    "you": "你"
+    "you": "你",
+    "settings_change": "{{label}}：{{old}} → {{new}}",
+    "settings_change_empty": "空",
+    "settings_change_undo": "撤销",
+    "settings_change_undone": "已撤销",
+    "settings_change_undo_failed": "无法撤销",
+    "settings_change_stale": "此后又被更改过"
   },
   "notifications": {
     "description": "离开当前聊天时，提醒你有新的回复。",

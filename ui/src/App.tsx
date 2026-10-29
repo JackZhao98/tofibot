@@ -36,8 +36,8 @@ import { buildQuestionTimeline, compareQuestionTime } from "./questionTimeline";
 import { useDebugMode } from "./debugMode";
 import type { SettingsEntry, SettingsTab, SettingsView } from "./SettingsShell";
 import { AfterPaint, CoverShell, CoverView, SidebarShell, SidebarView, WidgetColumn, WidgetView, GreetingSetup, UpdateBanner, PermissionCoach, BotDesktopPanel, DeleteConversationDialog, ReassignPrimaryDialog, SearchPalette, RememberedApprovalsSheet, DesktopSkeleton, TeamBoard, ViewOnlyChat, Onboarding, QuestionCard, RunContextView, TaskCard, ComposerStopMenu, FloatingDesktop, panelLoaded, preloadPanel, usePanelLoaded, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle, WebToolSteps, whenPanelLoaded } from "./lazyPanels";
-import { openConnectionDeepLink, setPendingSection, subscribeDeepLink, subscribeSettingsDeepLinks, subscribeSidebarDeepLinks } from "./settings/deepLinks";
-import type { SettingsLink } from "./settingsRoute";
+import { provideLinkDeps, subscribeSettingsDeepLinks, subscribeSidebarDeepLinks } from "./settings/deepLinks";
+import type { OpenLinkDeps } from "./settings/linkRuntime";
 import { BotIdentityCard } from "./BotIdentityCard";
 import { arrowOpens, OverlayMenu, OverlaySlot, SlotView } from "./overlays/OverlayHost";
 import { ActionHints, ConfirmAction, useAppearance, useSurfacePresence } from "./InteractionSystem";
@@ -112,6 +112,7 @@ import { closeAll, closeCover, closeSidebar, closeWidget, emptySurfaces, enterCo
 import { useSurfaceEscape } from "./useSurfaceEscape";
 import type { SurfaceCtx } from "./SurfaceViews";
 
+const SettingsChangeNotice = lazy(() => import("./SettingsChangeNotice"));
 const MailDraftCard = lazy(() => import("./MailDraftCard").then(module => ({ default: module.MailDraftCard })));
 
 /** The sidebar a `?side=` address names opens with the page; widgets and covers never come from the address. */
@@ -1625,36 +1626,9 @@ function Workspace() {
   }, []);
   // A link into the settings (a message link, a card's Manage link, a typed address): open the cover it names. The link only says
   // where to look; an id that is not in this account's index opens nothing.
-  const openLink = useRef<(link: SettingsLink) => void>(() => {});
-  openLink.current = link => {
-    switch (link.kind) {
-      case "settings":
-        setPendingSection(link.section ? { scope: "settings", page: link.tab, section: link.section } : null);
-        openSettings(link.tab);
-        break;
-      case "connection":
-        openConnectionDeepLink({ server: link.name, tool: link.tool });
-        break;
-      case "bot-settings": {
-        const bot = bots.find(item => item.id === link.botId);
-        if (!bot || !conversations.some(item => item.id === bot.dm_conversation_id)) return;
-        setPendingSection({ scope: "bot-settings", page: "", section: link.section });
-        selectConversation(bot.dm_conversation_id);
-        setMobileList(false);
-        openCoverPanel("bot-settings");
-        break;
-      }
-      case "group-settings": {
-        if (!conversations.some(item => item.id === link.groupId && item.kind === "group" && item.user_visible !== false)) return;
-        setPendingSection({ scope: "group-settings", page: "", section: link.section });
-        selectConversation(link.groupId);
-        setMobileList(false);
-        openCoverPanel("group-settings");
-        break;
-      }
-    }
-  };
-  useEffect(() => subscribeDeepLink(link => openLink.current(link)), []);
+  const openLink = useRef<OpenLinkDeps | null>(null);
+  openLink.current = { bots, conversations, openSettings, selectConversation, setMobileList, openCover: openCoverPanel };
+  useEffect(() => provideLinkDeps(() => openLink.current), []);
 
   const updateConversationPreview = useCallback((next: Message) => {
     setConversations((current) => current.map((conversation) => {
@@ -2919,6 +2893,10 @@ export function MessageBubble({ receipt, message, replyTarget, replyTargetName, 
     // Posted by the server when a run continues from a checkpoint; the text is localized here.
     const resumeKey = message.notice.reason === "restart" ? "message.resume_restart" : "message.resume_continuing";
     return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div><span>{t(resumeKey)}</span></div></article>;
+  }
+  if (message.kind === "notice" && message.notice?.type === "settings_change") {
+    // A setting a Bot changed by itself: the line and its Undo are worded in a lazy chunk, in the UI's language.
+    return <Suspense fallback={null}><SettingsChangeNotice notice={message.notice} fallback={message.content} title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`} /></Suspense>;
   }
   if (message.kind === "notice" && message.notice?.type === "command_exit") {
     // Posted by the server when a command a Bot waited on has ended; the text is localized here.

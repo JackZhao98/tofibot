@@ -64,12 +64,15 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
     assert.equal(readSettingsHref(href, origin), null, String(href));
   }
 
-  // The conversation route carries the settings link and keeps the old results for every other address.
-  assert.deepEqual(readConversationRoute("/settings/models", "#defaults"), { kind: "home", settings: { kind: "settings", tab: "models", section: "defaults" } });
-  assert.deepEqual(readConversationRoute("/b/bot-one/settings", "#model"), { kind: "bot", id: "bot-one", settings: { kind: "bot-settings", botId: "bot-one", section: "model" } });
-  assert.deepEqual(readConversationRoute("/g/group-one/settings", "#members"), { kind: "group", id: "group-one", settings: { kind: "group-settings", groupId: "group-one", section: "members" } });
+  // The conversation route carries the address of a settings link (the lazy reader above resolves it) and keeps the old results for every other address.
+  assert.deepEqual(readConversationRoute("/settings/models", "#defaults"), { kind: "home", settings: "/settings/models#defaults" });
+  assert.deepEqual(readConversationRoute("/b/bot-one/settings", "#model"), { kind: "bot", id: "bot-one", settings: "/b/bot-one/settings#model" });
+  assert.deepEqual(readConversationRoute("/g/group-one/settings", "#members"), { kind: "group", id: "group-one", settings: "/g/group-one/settings#members" });
   assert.deepEqual(readConversationRoute("/"), { kind: "home" });
   assert.deepEqual(readConversationRoute("/b/bot-one"), { kind: "bot", id: "bot-one" });
-  assert.equal(readConversationRoute("/settings/nowhere").kind, "unavailable");
+  assert.equal(readConversationRoute("/b//settings").kind, "unavailable");
+  assert.equal(readConversationRoute("/b/%00/settings").kind, "unavailable");
+  assert.equal(readConversationRoute("/settingsX").kind, "unavailable");
+  assert.equal(readSettingsLink("/settings/nowhere"), null, "an unknown page opens nothing");
   console.log("PASS settings route reader");
 }

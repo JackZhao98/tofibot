@@ -50,6 +50,7 @@
   "settings:automation.item.provider_retries.name": "Nouvelles tentatives automatiques",
   "settings:automation.item.remembered_approval_hours.name": "Durée des approbations mémorisées",
   "settings:automation.item.schedule_receipt_review.name": "Vérifier les exécutions planifiées avant la fin",
+  "settings:automation.item.settings_change_limit.name": "Modifications de réglages par exécution",
   "settings:automation.item.structured_output.name": "Réponses structurées",
   "settings:automation.item.task_retention_days.name": "Durée de conservation des tâches terminées",
   "settings:automation.item.task_stall_rounds.name": "Signalement d'un blocage après",

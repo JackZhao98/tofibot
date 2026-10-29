@@ -7,7 +7,7 @@ import { errorText } from "./errorText";
 import { useTranslation } from "./i18n";
 import { TofiIcon as Icon } from "./icons";
 import { PrimaryBadge } from "./PrimaryAssistant";
-import { takeSettingsSection } from "./settings/deepLinks";
+import { takeSettingsSection } from "./settings/pendingSection";
 import { jumpWhenReady } from "./settings/sectionJump";
 import type { Bot, Conversation, TaskImpact } from "./types";
 import "./group-settings.css";

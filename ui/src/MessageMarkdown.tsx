@@ -4,13 +4,15 @@ import Markdown, { defaultUrlTransform, type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkCjkFriendly from "remark-cjk-friendly/parseOnly";
 import { useTranslation } from "./i18n";
-import { openDeepLink } from "./settings/deepLinks";
-import { readSettingsHref } from "./settingsRoute";
+import { linkRuntime } from "./settings/deepLinks";
 import { attachmentIdFromHref, attachmentUrl, openAttachmentById, relativeLinkName, resolveAttachmentByName } from "./filePreviewModel";
 
 // Inside the file viewer, document links push onto the viewer stack (Back returns).
 export const ViewerLinkContext = createContext(false);
 const urlTransform = (url: string) => /^attachment:/i.test(url) ? url : defaultUrlTransform(url);
+
+/** Cheap and synchronous: a relative path or an address on this origin that could be a settings page (the lazy route reader decides). */
+const isSettingsHref = (href = "") => /^\/(settings([/#?]|$)|[bg]\/[^/?#]+\/settings)/.test(href.replace(window.location.origin, ""));
 
 function MarkdownLink({ href, children }: { href?: string; children?: ReactNode }) {
   const inViewer = useContext(ViewerLinkContext);
@@ -26,12 +28,12 @@ function MarkdownLink({ href, children }: { href?: string; children?: ReactNode 
     }}>{children}</a>;
   }
   if (byName) return <span className="unresolved-link" title={href}>{children}</span>;
-  // A link into the app's own settings opens the page in place; a modified click keeps the browser's behavior.
-  const settings = readSettingsHref(href, window.location.origin);
-  if (settings) return <a href={href} data-settings-link={settings.kind} onClick={event => {
+  // A link into the app's own settings opens the page in place; a modified click keeps the browser's behavior. The route reader is a lazy
+  // chunk: the click decides there whether the address is a settings page, and falls back to a new tab when it is not.
+  if (isSettingsHref(href)) return <a href={href} onClick={event => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
-    openDeepLink(settings);
+    void linkRuntime().then(module => module.openHref(href!));
   }}>{children}</a>;
   return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
 }

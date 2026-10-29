@@ -1001,6 +1001,10 @@
       "widget_computer_auto": {
         "name": "Bot 使用时打开共享电脑",
         "what": "Bot 在你正在看的聊天里拿到共享电脑时,它的小组件会在消息旁打开。它会一直开着,在 Bot 放手 30 秒后折成一条窄栏。关闭后保持收起,直到你自己打开。"
+      },
+      "settings_change_limit": {
+        "name": "每次运行的设置更改上限",
+        "what": "Bot 在一次运行中可自行更改的设置数量上限。超过后，Bot 会把其余更改列给你。只有你能修改这个数字。"
       }
     },
     "option": {
@@ -1147,5 +1151,19 @@
     "label": "当前账号的审批模式",
     "auto": "自动",
     "ask": "修改前先问"
+  },
+  "changes": {
+    "title": "Bot 所做的更改",
+    "description": "Bot 自行更改过的设置。只要此后没有再被改动，“还原”就会把旧值放回去。",
+    "loading": "正在加载更改…",
+    "load_failed": "无法加载更改。",
+    "none": "还没有 Bot 更改过设置。",
+    "revert": "还原",
+    "reverting": "正在还原…",
+    "reverted": "已还原",
+    "not_revertable": "无法在此还原",
+    "revert_failed": "无法还原，请重试。",
+    "stale": "此更改之后该设置又被改动过。",
+    "empty_value": "空"
   }
 }

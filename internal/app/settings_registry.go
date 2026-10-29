@@ -141,7 +141,7 @@ var settingsTabPages = []settingsPage{
 	{"devices", "settings:shell.page.devices.name", []string{"devices"}},
 	{"keys", "settings:shell.page.keys.name", []string{"keys"}},
 	{"usage", "settings:shell.page.usage.name", []string{"health", "usage"}},
-	{"advanced", "settings:shell.page.advanced.name", []string{"version", "server", "data", "debug", "danger"}},
+	{"advanced", "settings:shell.page.advanced.name", []string{"version", "server", "data", "changes", "debug", "danger"}},
 	{"admin", "settings:shell.page.admin.name", []string{"accounts"}},
 }
 
@@ -330,7 +330,6 @@ func buildSettingsRegistry() []SettingDef {
 	d.Effect = "A tool of this connection is allowed to run with less asking. Its new setting is {new}."
 	add(d)
 
-	add(entry("web_tools.order", ScopeAccount, KindString, riskDirect, "/settings/tools#web", "settings/tools", "settings:webtools.title"))
 	add(entry("web_tools.keys", ScopeAccount, KindNone, riskForbidden, "/settings/tools#web", "settings/tools", "settings:webtools.title"))
 
 	for _, f := range []struct{ key, link, page, label string }{
@@ -362,6 +361,9 @@ func sortedKeys(m map[string]bool) []string {
 }
 
 func automationSettingKind(item automationItem) SettingKind {
+	if automationRisk(item).Self == RiskForbidden {
+		return KindReadOnly
+	}
 	switch item.Kind {
 	case autoKindBool:
 		return KindBool
@@ -377,7 +379,11 @@ func automationSettingKind(item automationItem) SettingKind {
 
 // automationRisk: model items cost money; everything else is a reversible switch or number.
 func automationRisk(item automationItem) RiskSpec {
-	if item.Kind == autoKindModel {
+	// The cap on the tool itself and the window that remembered approvals last are the person's: the first would let a Bot lift its own limit, the second makes approvals reach further.
+	if item.Key == autoSettingsChangeLimit {
+		return riskForbidden
+	}
+	if item.Key == autoRememberedApprovalHrs || item.Kind == autoKindModel {
 		return riskConfirm
 	}
 	if item.Kind == autoKindReadOnly {

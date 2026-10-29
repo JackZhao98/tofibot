@@ -16,7 +16,7 @@ import { followsGlobal } from "./modelCatalog";
 import { ModelFields } from "./ModelSettings";
 import { OverlayPopover } from "./overlays/OverlayHost";
 import { PrimaryBadge } from "./PrimaryAssistant";
-import { takeSettingsSection } from "./settings/deepLinks";
+import { takeSettingsSection } from "./settings/pendingSection";
 import { jumpWhenReady } from "./settings/sectionJump";
 import type { BotSkillListing } from "./skillLibrary";
 import { usePreviousWhileFading } from "./surfacePresence";

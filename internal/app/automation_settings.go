@@ -50,6 +50,8 @@ const (
 	// The web workspace reads the two widget switches (docs/design/widgets-and-sidebar.md); the server stores them and nothing else.
 	autoWidgetArtifacts = "widget_artifacts_auto"
 	autoWidgetComputer  = "widget_computer_auto"
+	// autoSettingsChangeLimit caps the direct settings changes one run may make through the settings tool. Only a person changes it.
+	autoSettingsChangeLimit = "settings_change_limit"
 
 	// defaultConversationModel is what conversations, scheduled runs and tool
 	// use run on until the owner picks another model.
@@ -113,6 +115,7 @@ var automationItems = []automationItem{
 	{Key: autoTaskTreeIdleLimit, Group: "reliability", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskTreeIdleLimit), Min: 10, Max: 500},
 	{Key: autoWidgetArtifacts, Group: "widgets", Kind: autoKindBool, Default: "true"},
 	{Key: autoWidgetComputer, Group: "widgets", Kind: autoKindBool, Default: "true"},
+	{Key: autoSettingsChangeLimit, Group: "checks", Kind: autoKindInt, Default: strconv.Itoa(defaultSettingsChange), Min: 1, Max: 50},
 }
 
 func automationItemFor(key string) (automationItem, bool) {

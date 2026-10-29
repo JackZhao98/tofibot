@@ -1,23 +1,18 @@
-import { readSettingsLink, type SettingsLink } from "./settingsRoute";
 import type { Bot, Conversation } from "./types";
 
-/** `settings` is set when the address is a link into the app's settings (`/settings/models#defaults`, `/b/<id>/settings#model`): the cover opens once and the address goes back to the conversation. */
-export type ConversationRoute = { kind: "home"; settings?: SettingsLink } | { kind: "bot" | "group"; id: string; settings?: SettingsLink } | { kind: "unavailable" };
+/** `settings` is the address of a link into the settings (`/settings/models#defaults`, `/b/<id>/settings#model`). The lazy link runtime resolves it: the cover opens once and the address goes back to the conversation. */
+export type ConversationRoute = { kind: "home"; settings?: string } | { kind: "bot" | "group"; id: string; settings?: string } | { kind: "unavailable" };
 
 export function readConversationRoute(pathname: string, hash = "", search = ""): ConversationRoute {
   if (pathname === "/" || pathname === "/index.html") return { kind: "home" };
-  const settings = readSettingsLink(pathname, hash, search);
-  if (settings) {
-    if (settings.kind === "bot-settings") return { kind: "bot", id: settings.botId, settings };
-    if (settings.kind === "group-settings") return { kind: "group", id: settings.groupId, settings };
-    return { kind: "home", settings };
-  }
-  const match = /^\/(b|g)\/([^/]+)\/?$/.exec(pathname);
+  if (/^\/settings(\/|$)/.test(pathname)) return { kind: "home", settings: pathname + search + hash };
+  const scoped = /^\/(b|g)\/([^/]+)\/settings\/?$/.exec(pathname);
+  const match = scoped ?? /^\/(b|g)\/([^/]+)\/?$/.exec(pathname);
   if (!match) return { kind: "unavailable" };
   try {
     const id = decodeURIComponent(match[2]);
     if (!id || id.length > 200 || /[\x00-\x20/\\]/.test(id)) return { kind: "unavailable" };
-    return { kind: match[1] === "b" ? "bot" : "group", id };
+    return { kind: match[1] === "b" ? "bot" : "group", id, ...(scoped ? { settings: pathname + search + hash } : {}) };
   } catch {
     return { kind: "unavailable" };
   }

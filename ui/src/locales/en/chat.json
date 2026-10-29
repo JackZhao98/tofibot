@@ -418,7 +418,13 @@
     "scheduled": "Scheduled task",
     "system": "System notice",
     "tool": "Tool",
-    "you": "You"
+    "you": "You",
+    "settings_change": "{{label}}: {{old}} → {{new}}",
+    "settings_change_empty": "empty",
+    "settings_change_undo": "Undo",
+    "settings_change_undone": "Undone",
+    "settings_change_undo_failed": "Couldn't undo",
+    "settings_change_stale": "Changed again since"
   },
   "notifications": {
     "description": "Get notified about new replies when you're away from the chat.",
