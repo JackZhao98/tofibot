@@ -189,7 +189,7 @@ func TestMCPContextDiagnosticDataBranches(t *testing.T) {
 			diagnosticExec(t, f, `INSERT INTO portability_provenance VALUES('message',?,'{}')`, f.r.TriggerMessageID)
 		}, -1, 0, false},
 		{"current attachment", mcpContextNonText, func(t *testing.T, f *autoReviewFixture) {
-			diagnosticExec(t, f, `INSERT INTO attachments VALUES('synthetic',?,'synthetic','text/plain',0,'synthetic',?)`, f.c.ID, now())
+			diagnosticExec(t, f, `INSERT INTO attachments(id,conversation_id,name,mime,size,disk_name,created_at) VALUES('synthetic',?,'synthetic','text/plain',0,'synthetic',?)`, f.c.ID, now())
 			if err := f.s.store.BindAttachments(f.c.ID, f.r.TriggerMessageID, []string{"synthetic"}); err != nil {
 				t.Fatal(err)
 			}

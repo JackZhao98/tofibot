@@ -7,7 +7,9 @@ package app
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"image"
@@ -49,8 +51,43 @@ func migrateAttachments(db *sql.DB) error {
 	 FOREIGN KEY(attachment_id) REFERENCES attachments(id) ON DELETE CASCADE,
 	 FOREIGN KEY(message_id) REFERENCES messages(id) ON DELETE CASCADE);
 	CREATE INDEX IF NOT EXISTS attachment_messages_message ON attachment_messages(message_id);
-	CREATE INDEX IF NOT EXISTS attachments_conversation_created ON attachments(conversation_id,created_at);`)
-	return err
+	CREATE INDEX IF NOT EXISTS attachments_conversation_created ON attachments(conversation_id,created_at);
+	CREATE TABLE IF NOT EXISTS outbox_synced(
+	 path TEXT NOT NULL, size INTEGER NOT NULL, mtime_ns INTEGER NOT NULL, sha256 TEXT NOT NULL,
+	 attachment_id TEXT NOT NULL, synced_at TEXT NOT NULL,
+	 PRIMARY KEY(path,size,mtime_ns));`)
+	if err != nil {
+		return err
+	}
+	// Additive columns (computer-decoupling S1). Old servers ignore them; a row
+	// that predates them reads as an upload with an unknown digest.
+	for _, col := range []struct{ name, ddl string }{
+		{"sha256", `ALTER TABLE attachments ADD COLUMN sha256 TEXT`},
+		{"origin", `ALTER TABLE attachments ADD COLUMN origin TEXT NOT NULL DEFAULT 'upload'`},
+		{"bot_id", `ALTER TABLE attachments ADD COLUMN bot_id TEXT`},
+	} {
+		if err = ensureColumn(db, "attachments", col.name, col.ddl); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Where an attachment came from. Stored in attachments.origin.
+const (
+	attachmentOriginUpload    = "upload"
+	attachmentOriginPublished = "published"
+	attachmentOriginGenerated = "generated"
+	attachmentOriginOutbox    = "outbox"
+	attachmentOriginMirror    = "mirror"
+)
+
+// attachmentOpts carries what the server records beside the bytes.
+type attachmentOpts struct {
+	Origin string
+	BotID  string
+	// MaxBytes lowers the per-file cap; zero means maxAttachmentSize.
+	MaxBytes int64
 }
 
 func (s *Store) attachmentRoot() (string, error) {
@@ -82,8 +119,20 @@ func (s *Store) AddAttachment(conv, name, declaredMIME string, src io.Reader) (A
 	return s.addAttachment(ctx, conv, name, declaredMIME, src)
 }
 func (s *Store) addAttachment(ctx context.Context, conv, name, declaredMIME string, src io.Reader) (Attachment, error) {
-	if s.requireGuestAttachments {
-		return s.addGuestAttachment(ctx, conv, name, declaredMIME, src)
+	return s.addAttachmentOpts(ctx, conv, name, declaredMIME, src, attachmentOpts{})
+}
+
+// addAttachmentOpts is the one writer of class A file bytes: the account's
+// attachments directory, in every mode. The bytes are fsynced before the
+// rename and the row is inserted last, so a crash leaves at worst an unreferenced
+// file, never a row without bytes.
+func (s *Store) addAttachmentOpts(ctx context.Context, conv, name, declaredMIME string, src io.Reader, opts attachmentOpts) (Attachment, error) {
+	if opts.Origin == "" {
+		opts.Origin = attachmentOriginUpload
+	}
+	limit := maxAttachmentSize
+	if opts.MaxBytes > 0 && opts.MaxBytes < limit {
+		limit = opts.MaxBytes
 	}
 	if src == nil {
 		return Attachment{}, errors.New("attachment content is required")
@@ -110,12 +159,16 @@ func (s *Store) addAttachment(ctx context.Context, conv, name, declaredMIME stri
 	if err != nil {
 		return Attachment{}, err
 	}
-	written, copyErr := io.Copy(f, io.LimitReader(src, maxAttachmentSize+1))
+	hash := sha256.New()
+	written, copyErr := io.Copy(io.MultiWriter(f, hash), io.LimitReader(src, limit+1))
+	if copyErr == nil {
+		copyErr = f.Sync()
+	}
 	closeErr := f.Close()
-	if copyErr != nil || closeErr != nil || written > maxAttachmentSize {
+	if copyErr != nil || closeErr != nil || written > limit {
 		_ = os.Remove(tmp)
-		if written > maxAttachmentSize {
-			return Attachment{}, fmt.Errorf("attachment exceeds %d MB", maxAttachmentSize>>20)
+		if written > limit {
+			return Attachment{}, fmt.Errorf("attachment exceeds %d MB", limit>>20)
 		}
 		if copyErr != nil {
 			return Attachment{}, copyErr
@@ -146,7 +199,7 @@ func (s *Store) addAttachment(ctx context.Context, conv, name, declaredMIME stri
 		declaredMIME = "application/octet-stream"
 	}
 	a := Attachment{ID: id, ConversationID: conv, Name: name, MIME: declaredMIME, Size: written, CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)}
-	_, err = s.db.Exec(`INSERT INTO attachments(id,conversation_id,name,mime,size,disk_name,created_at) VALUES(?,?,?,?,?,?,?)`, a.ID, a.ConversationID, a.Name, a.MIME, a.Size, disk, a.CreatedAt)
+	_, err = s.db.ExecContext(ctx, `INSERT INTO attachments(id,conversation_id,name,mime,size,disk_name,created_at,sha256,origin,bot_id) VALUES(?,?,?,?,?,?,?,?,?,?)`, a.ID, a.ConversationID, a.Name, a.MIME, a.Size, disk, a.CreatedAt, hex.EncodeToString(hash.Sum(nil)), opts.Origin, nullString(opts.BotID))
 	if err != nil {
 		_ = os.Remove(final)
 		return Attachment{}, err
@@ -337,7 +390,14 @@ func (s *Server) routeAttachments(w http.ResponseWriter, r *http.Request, p stri
 	}
 	f, err := s.store.openAttachment(r.Context(), path)
 	if err != nil {
-		writeErr(w, 404, "not_found", "attachment not found")
+		switch {
+		case errors.Is(err, errFileOnDetachedComputer):
+			writeErr(w, 409, "file_on_detached_computer", "This file is on the detached computer. Attach it to recover.")
+		case errors.Is(err, errFileGoneFromComputer):
+			writeErr(w, 404, "file_missing_on_computer", "This file is no longer on the computer and was not copied to the server.")
+		default:
+			writeErr(w, 404, "not_found", "attachment not found")
+		}
 		return true
 	}
 	defer f.Close()

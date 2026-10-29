@@ -19,7 +19,7 @@ func seedHistoricalMCPAttachments(t *testing.T, f *autoReviewFixture, intent str
 	diagnosticExec(t, f, `UPDATE messages SET content=? WHERE id=?`, "Older task: keep the attached files private; do not send their contents to anyone.", old)
 	for i := 1; i <= 2; i++ {
 		id := fmt.Sprintf("synthetic-old-file-%d", i)
-		diagnosticExec(t, f, `INSERT INTO attachments VALUES(?,?,'synthetic-unread-file','application/octet-stream',17,?,?)`, id, f.c.ID, id, now())
+		diagnosticExec(t, f, `INSERT INTO attachments(id,conversation_id,name,mime,size,disk_name,created_at) VALUES(?,?,'synthetic-unread-file','application/octet-stream',17,?,?)`, id, f.c.ID, id, now())
 		if err := f.s.store.BindAttachments(f.c.ID, old, []string{id}); err != nil {
 			t.Fatal(err)
 		}
@@ -212,7 +212,7 @@ func TestMCPHistoricalAttachmentClaimsBindCompleteMetadata(t *testing.T) {
 			case "deletion":
 				diagnosticExec(t, f, `DELETE FROM attachments WHERE id='synthetic-old-file-1'`)
 			case "new historical file":
-				diagnosticExec(t, f, `INSERT INTO attachments VALUES('synthetic-added',?,'synthetic','text/plain',1,'synthetic-added',?)`, f.c.ID, now())
+				diagnosticExec(t, f, `INSERT INTO attachments(id,conversation_id,name,mime,size,disk_name,created_at) VALUES('synthetic-added',?,'synthetic','text/plain',1,'synthetic-added',?)`, f.c.ID, now())
 				if err := f.s.store.BindAttachments(f.c.ID, old, []string{"synthetic-added"}); err != nil {
 					t.Fatal(err)
 				}
@@ -264,7 +264,7 @@ func TestMCPAttachmentManifestQueryAndLimitFailures(t *testing.T) {
 	// Many earlier uploads are a bounded manifest with an explicit omission
 	// flag, never a reason the current text request cannot be reviewed.
 	diagnosticExec(t, f, `WITH RECURSIVE n(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM n WHERE i<201)
-INSERT INTO attachments SELECT printf('synthetic-limit-%03d',i),?,'synthetic','text/plain',1,printf('synthetic-limit-%03d',i),? FROM n`, f.c.ID, "2000-01-01T00:00:00Z")
+INSERT INTO attachments(id,conversation_id,name,mime,size,disk_name,created_at) SELECT printf('synthetic-limit-%03d',i),?,'synthetic','text/plain',1,printf('synthetic-limit-%03d',i),? FROM n`, f.c.ID, "2000-01-01T00:00:00Z")
 	diagnosticExec(t, f, `INSERT INTO attachment_messages SELECT id,? FROM attachments WHERE id LIKE 'synthetic-limit-%'`, old)
 	x, digest, err := readMCPReviewContext(f.s.store.db, f.c, f.r)
 	if err != nil || digest == "" || x.AttachmentBoundary == nil || len(x.AttachmentBoundary.Omissions) == 0 || len(x.AttachmentBoundary.Omissions) > mcpEvidenceAttachments || !x.AttachmentBoundary.OlderOmitted || f.p.calls.Load() != 0 || f.effects.Load() != 0 {
@@ -285,7 +285,7 @@ func TestMCPAttachmentBoundAfterTriggerStaysOutsideWindow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	diagnosticExec(t, f, `INSERT INTO attachments VALUES('synthetic-later-file',?,'synthetic','text/plain',1,'synthetic-later-file',?)`, f.c.ID, now())
+	diagnosticExec(t, f, `INSERT INTO attachments(id,conversation_id,name,mime,size,disk_name,created_at) VALUES('synthetic-later-file',?,'synthetic','text/plain',1,'synthetic-later-file',?)`, f.c.ID, now())
 	if err = f.s.store.BindAttachments(f.c.ID, m.ID, []string{"synthetic-later-file", "synthetic-old-file-1"}); err != nil {
 		t.Fatal(err)
 	}

@@ -88,6 +88,10 @@ type exportArgs struct {
 	Offset  int64  `json:"offset"`
 	Limit   int    `json:"limit"`
 	Version string `json:"version"`
+	// NoSymlinks refuses a path with a symbolic link in any component, and a
+	// last component that is not a regular file. The outbox sync sets it: the
+	// server must never follow a link a Bot planted to read another file.
+	NoSymlinks bool `json:"no_symlinks,omitempty"`
 }
 
 func (s *Service) dispatchAction(ctx context.Context, req ActionRequest) (any, error) {
@@ -304,6 +308,11 @@ func (s *Service) exportFileChunk(ctx context.Context, botID string, args export
 	if err != nil || !within(s.root, p) {
 		return nil, rejected(errPathEscapes)
 	}
+	if args.NoSymlinks {
+		if err := refuseSymlinks(s.root, rel); err != nil {
+			return nil, err
+		}
+	}
 	root, err := os.OpenRoot(s.root)
 	if err != nil {
 		return nil, err
@@ -351,6 +360,26 @@ func (s *Service) exportFileChunk(ctx context.Context, botID string, args export
 	next := args.Offset + int64(n)
 	return map[string]any{"data_base64": base64.StdEncoding.EncodeToString(buf[:n]), "next_offset": next,
 		"size": before.Size(), "eof": next == before.Size(), "version": version, "name": filepath.Base(p)}, nil
+}
+
+// refuseSymlinks walks rel below root with Lstat and rejects a symbolic link
+// in any component. The caller has already confined rel to root.
+func refuseSymlinks(root, rel string) error {
+	current := root
+	for _, part := range strings.Split(filepath.ToSlash(rel), "/") {
+		if part == "" || part == "." {
+			continue
+		}
+		current = filepath.Join(current, part)
+		info, err := os.Lstat(current)
+		if err != nil {
+			return exportPathError(rel, err)
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return rejectedf("%s is a symbolic link; it was not exported", rel)
+		}
+	}
+	return nil
 }
 
 // exportPathError turns the failures that prove nothing was exported into
@@ -631,9 +660,23 @@ func (s *Service) listFiles(ctx context.Context, botID, name string) ([]map[stri
 		if e != nil {
 			return nil, e
 		}
-		out = append(out, map[string]any{"name": entry.Name(), "path": filepath.Join(name, entry.Name()), "directory": entry.IsDir(), "size": info.Size()})
+		out = append(out, map[string]any{"name": entry.Name(), "path": filepath.Join(name, entry.Name()), "directory": entry.IsDir(), "size": info.Size(), "mtime_ns": info.ModTime().UnixNano(), "type": entryType(entry.Type())})
 	}
 	return out, nil
+}
+
+// entryType names a directory entry without following links: file, dir,
+// symlink or other.
+func entryType(mode os.FileMode) string {
+	switch {
+	case mode&os.ModeSymlink != 0:
+		return "symlink"
+	case mode.IsDir():
+		return "dir"
+	case mode.IsRegular():
+		return "file"
+	}
+	return "other"
 }
 
 func (s *Service) readFile(ctx context.Context, botID string, args fileArgs) (map[string]any, error) {

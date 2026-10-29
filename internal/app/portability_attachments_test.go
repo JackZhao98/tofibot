@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"github.com/JackZhao98/tofibot/internal/computer"
 	"github.com/google/uuid"
 	"net/http/httptest"
 	"os"
@@ -52,7 +53,7 @@ func (f *portableFixtureBlobs) GetBlob(_ context.Context, id string) ([]byte, er
 	if data, ok := f.data[id]; ok {
 		return append([]byte(nil), data...), nil
 	}
-	return nil, errors.New("missing fixture")
+	return nil, computer.ErrBlobNotFound
 }
 func (f *portableFixtureBlobs) DeleteBlob(ctx context.Context, id string) error {
 	return f.DeleteStagedBlob(ctx, id, "")
@@ -71,11 +72,10 @@ func portableAssetFixture(t *testing.T) (*Store, portableBundle, *portableFixtur
 	t.Helper()
 	s, b := portableFixture(t)
 	backend := newPortableFixtureBlobs()
-	s.requireGuestAttachments = true
 	s.guestBlobs = backend
 	message := b.Messages[0]
 	for i := 0; i < 2; i++ {
-		a, err := s.AddAttachment(message.ConversationID, "synthetic-"+string(rune('a'+i))+".txt", "text/plain", strings.NewReader("Synthetic bytes 中文 "+string(rune('a'+i))))
+		a, err := s.addLegacyGuestAttachment(message.ConversationID, "synthetic-"+string(rune('a'+i))+".txt", "text/plain", strings.NewReader("Synthetic bytes 中文 "+string(rune('a'+i))))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -87,6 +87,9 @@ func portableAssetFixture(t *testing.T) (*Store, portableBundle, *portableFixtur
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Exporting copied the rows into the server store; the tests below model a
+	// store whose files still live only on the computer.
+	revertToLegacyRows(t, s)
 	return s, b, backend
 }
 func assertNoPortableRows(t *testing.T, s *Store) {
@@ -116,7 +119,6 @@ func TestPortableAttachmentBytesReferencesProvenanceAndDuplicate(t *testing.T) {
 	}
 	defer s.Close()
 	files := newPortableFixtureBlobs()
-	s.requireGuestAttachments = true
 	s.guestBlobs = files
 	p, err := s.previewPortable(context.Background(), b)
 	if err != nil || !p.CanApply || p.Counts["attachments"] != 2 || p.Counts["attachment_bindings"] != 2 || p.AttachmentBytes == 0 {
@@ -160,9 +162,6 @@ func TestPortableAttachmentBytesReferencesProvenanceAndDuplicate(t *testing.T) {
 		if err = s.db.QueryRow(`SELECT COUNT(*) FROM attachment_messages WHERE attachment_id=? AND message_id=?`, result.IDMap[binding.AttachmentID], result.IDMap[binding.MessageID]).Scan(&n); err != nil || n != 1 {
 			t.Fatal("attachment binding lost")
 		}
-	}
-	if _, err = os.Stat(filepath.Join(dir, "attachments")); !os.IsNotExist(err) {
-		t.Fatal("host fallback created")
 	}
 	exported, err := s.exportPortable(context.Background(), "destination", portableSelection{}, "account")
 	if err != nil || len(exported.Attachments) != 2 || exported.Attachments[0].Origin.InstanceID != "synthetic-source-instance" {
@@ -410,7 +409,7 @@ func TestPortableAttachmentForwardedStandaloneScope(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a, err := s.AddAttachment(group.ID, "synthetic-forwarded.txt", "text/plain", strings.NewReader("synthetic forwarded only"))
+	a, err := s.addLegacyGuestAttachment(group.ID, "synthetic-forwarded.txt", "text/plain", strings.NewReader("synthetic forwarded only"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -433,6 +432,7 @@ func TestPortableAttachmentForwardedStandaloneScope(t *testing.T) {
 			t.Fatal("owner group history leaked")
 		}
 	}
+	revertToLegacyRows(t, s)
 	files.DeleteBlob(context.Background(), a.ID)
 	account, err := s.exportPortable(context.Background(), "source", portableSelection{}, "account")
 	if err != nil {

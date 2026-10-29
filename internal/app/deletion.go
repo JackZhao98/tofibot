@@ -227,6 +227,12 @@ func (s *Store) cleanupDeletedAttachments() {
 		if e = s.db.QueryRow(`SELECT COUNT(*) FROM attachments WHERE disk_name=?`, disk).Scan(&owned); e != nil || owned != 0 {
 			continue
 		}
+		// A journaled guest object whose attachment still exists was copied to
+		// the server store, not deleted. It goes only after the server file is
+		// proven by its recorded sha256.
+		if !s.verifiedServerCopy(id) {
+			continue
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		e = s.guestBlobs.DeleteBlob(ctx, id)
 		cancel()

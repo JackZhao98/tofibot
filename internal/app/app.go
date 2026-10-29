@@ -316,19 +316,20 @@ type Server struct {
 
 	// Tasks and waits: the sweeper loop and the inbox flush lock (wait_sweeper.go).
 	tasks taskRuntime
+	// Legacy `vm:` file copier (file_store_copier.go).
+	fileStore fileStoreRuntime
 }
 
 // Store is a single SQLite writer. WAL plus one connection keeps sequence and
 // idempotency transactions deterministic across HTTP handlers and workers.
 type Store struct {
-	// Multi-account files must use guest storage; host staging is not a quota.
-	requireGuestAttachments bool
-	guestBlobs              guestBlobStorage
-	portabilityMu           sync.Mutex
-	portabilitySecrets      *portableSecretCodec
-	db                      *sql.DB
-	scheduleSchemaOnce      sync.Once
-	scheduleSchemaErr       error
+	// guestBlobs reads and deletes legacy `vm:` attachments only (S1).
+	guestBlobs         guestBlobStorage
+	portabilityMu      sync.Mutex
+	portabilitySecrets *portableSecretCodec
+	db                 *sql.DB
+	scheduleSchemaOnce sync.Once
+	scheduleSchemaErr  error
 	// onReturnQueued wakes the queue of a return run created inside a
 	// failure transaction, after that transaction commits.
 	onReturnQueued func(Run)
@@ -2749,7 +2750,6 @@ func NewServer(c Config) (*Server, error) {
 	if e != nil {
 		return nil, e
 	}
-	st.requireGuestAttachments = c.IsolatedWorkspace || c.AccountRuntime
 	// Runs started before the first live catalog fetch still get the windows
 	// the last stored Codex catalog reported.
 	if models, err := st.cachedModels(); err == nil {
@@ -2877,7 +2877,7 @@ func NewServer(c Config) (*Server, error) {
 	if _, err := server.reconcileSkillLibrary(); err != nil {
 		log.Printf("[skills] reconcile failed: %v", err)
 	}
-	if st.requireGuestAttachments && microVM != nil {
+	if microVM != nil {
 		st.guestBlobs = microVM
 		st.cleanupDeletedAttachments()
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -2899,6 +2899,7 @@ func NewServer(c Config) (*Server, error) {
 	server.startStuckRunSweeper()
 	server.startWaitSweeper()
 	server.startCommandMonitor()
+	server.startFileStoreCopier()
 	for _, id := range workerIDs {
 		server.startConversationWorker(id)
 	}
@@ -2914,6 +2915,7 @@ func NewServer(c Config) (*Server, error) {
 		server.stopStuckRunSweeper()
 		server.stopCommandMonitor()
 		server.stopWaitSweeper()
+		server.stopFileStoreCopier()
 		st.Close()
 		return nil, e
 	}
@@ -2935,6 +2937,7 @@ func (s *Server) Close() error {
 	s.stopStuckRunSweeper()
 	s.stopCommandMonitor()
 	s.stopWaitSweeper()
+	s.stopFileStoreCopier()
 	return s.store.Close()
 }
 func (s *Server) Listen() string { return s.listen }
@@ -4419,6 +4422,7 @@ func (s *Server) execute(c Conversation, r Run) {
 				log.Printf("[run] publish budget-turn notes %s: %v", r.ID, err)
 			}
 		}
+		s.stageOutbox(ctx, r, c)
 		if _, _, err := s.store.finishRunBudgetOpts(r.ID, c.ID, r.BotID, answer, res.BudgetReason, finishOpts{structured: structured}); err != nil {
 			s.failRun(c, r, err)
 		}
@@ -4598,6 +4602,12 @@ func (s *Server) execute(c Conversation, r Run) {
 				s.store.noteFinalOrigin(r.ID, heuristicLeadingMention)
 				s.enqueue(c, child)
 			}
+		}
+	}
+	if !quietDone {
+		// Files the Bot saved in the outbox ride with this reply (S1).
+		if got := s.stageOutbox(ctx, r, c); got.Staged > 0 {
+			log.Printf("[outbox] run %s: %d file(s) copied to the server and attached to the reply", r.ID, got.Staged)
 		}
 	}
 	var promotedBeat *Message
