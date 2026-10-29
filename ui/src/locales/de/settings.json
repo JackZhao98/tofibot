@@ -205,7 +205,6 @@
     "key_note": "Schlüssel werden verschlüsselt gespeichert und nie vollständig angezeigt.",
     "remove": "Entfernen",
     "remove_question": "{{provider}}-API-Schlüssel entfernen?",
-    "saved_key_label": "Gespeicherter {{provider}}-API-Schlüssel, maskiert",
     "replace_key": "Schlüssel ersetzen",
     "switch": "Wechseln",
     "switch_to_key": "Stattdessen API-Schlüssel nutzen",

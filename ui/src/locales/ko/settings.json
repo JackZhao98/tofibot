@@ -204,7 +204,6 @@
     "key_note": "키는 암호화되어 저장되며 전체가 표시되지 않습니다.",
     "remove": "삭제",
     "remove_question": "{{provider}} API 키를 삭제할까요?",
-    "saved_key_label": "저장된 {{provider}} API 키(일부만 표시)",
     "replace_key": "키 교체",
     "switch": "전환",
     "switch_to_key": "API 키로 전환",

@@ -204,7 +204,6 @@
     "key_note": "キーは暗号化して保存され、全体が表示されることはありません。",
     "remove": "削除",
     "remove_question": "{{provider}} の APIキーを削除しますか？",
-    "saved_key_label": "保存済みの {{provider}} APIキー（一部のみ表示）",
     "replace_key": "キーを置き換え",
     "switch": "切り替える",
     "switch_to_key": "APIキーに切り替える",

@@ -204,7 +204,6 @@
     "key_note": "金鑰加密儲存，永遠不會完整顯示。",
     "remove": "移除",
     "remove_question": "要移除 {{provider}} API 金鑰嗎？",
-    "saved_key_label": "已儲存的 {{provider}} API 金鑰（已遮蓋）",
     "replace_key": "替換金鑰",
     "switch": "切換",
     "switch_to_key": "改用 API 金鑰",

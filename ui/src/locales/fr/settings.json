@@ -206,7 +206,6 @@
     "key_note": "Les clés sont stockées chiffrées et jamais affichées en entier.",
     "remove": "Supprimer",
     "remove_question": "Supprimer la clé API {{provider}} ?",
-    "saved_key_label": "Clé API {{provider}} enregistrée, masquée",
     "replace_key": "Remplacer la clé",
     "switch": "Changer",
     "switch_to_key": "Utiliser une clé API à la place",

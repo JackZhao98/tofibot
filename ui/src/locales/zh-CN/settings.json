@@ -204,7 +204,6 @@
     "key_note": "密钥加密存储，永远不会完整显示。",
     "remove": "移除",
     "remove_question": "移除 {{provider}} API key？",
-    "saved_key_label": "已保存的 {{provider}} API key（已遮盖）",
     "replace_key": "替换密钥",
     "switch": "切换",
     "switch_to_key": "改用 API key",

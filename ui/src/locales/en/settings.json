@@ -205,7 +205,6 @@
     "key_note": "Keys are stored encrypted and never shown in full.",
     "remove": "Remove",
     "remove_question": "Remove the {{provider}} API key?",
-    "saved_key_label": "Saved {{provider}} API key, masked",
     "replace_key": "Replace key",
     "switch": "Switch",
     "switch_to_key": "Use an API key instead",
