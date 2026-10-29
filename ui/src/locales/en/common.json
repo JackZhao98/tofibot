@@ -92,6 +92,8 @@
     "update_not_available": "That version isn't on offer any more. Reload and try again.",
     "update_in_progress": "An update is already in progress.",
     "update_channel_disabled": "Release candidates are turned off.",
-    "host_update_unavailable": "This server can't update from the page yet. Run sudo tofi update on the server."
+    "host_update_unavailable": "This server can't update from the page yet. Run sudo tofi update on the server.",
+    "storage_quota_exceeded": "This account's storage limit is reached. Delete files or ask the administrator.",
+    "storage_host_full": "The server disk is almost full, so no new files are accepted. Tell the operator of this server."
   }
 }

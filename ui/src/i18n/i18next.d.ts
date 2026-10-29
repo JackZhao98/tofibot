@@ -10,11 +10,12 @@ import type extensions from "../locales/en/extensions.json";
 import type computer from "../locales/en/computer.json";
 import type bots from "../locales/en/bots.json";
 import type mail from "../locales/en/mail.json";
+import type storage from "../locales/en/storage.json";
 
 // English catalogs are the key schema: a key missing from en is a type error.
 declare module "i18next" {
   interface CustomTypeOptions {
     defaultNS: "common";
-    resources: { common: typeof common; auth: typeof auth; chat: typeof chat; tasks: typeof tasks; schedules: typeof schedules; work: typeof work; settings: typeof settings; extensions: typeof extensions; computer: typeof computer; bots: typeof bots; mail: typeof mail };
+    resources: { common: typeof common; auth: typeof auth; chat: typeof chat; tasks: typeof tasks; schedules: typeof schedules; work: typeof work; settings: typeof settings; extensions: typeof extensions; computer: typeof computer; bots: typeof bots; mail: typeof mail; storage: typeof storage };
   }
 }

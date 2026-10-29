@@ -92,6 +92,8 @@
     "update_not_available": "그 버전은 더 이상 제공되지 않습니다. 새로 고치고 다시 시도하세요.",
     "update_in_progress": "업데이트가 이미 진행 중입니다.",
     "update_channel_disabled": "릴리스 후보가 꺼져 있습니다.",
-    "host_update_unavailable": "이 서버는 아직 페이지에서 업데이트할 수 없습니다. 서버에서 sudo tofi update를 실행하세요."
+    "host_update_unavailable": "이 서버는 아직 페이지에서 업데이트할 수 없습니다. 서버에서 sudo tofi update를 실행하세요.",
+    "storage_quota_exceeded": "이 계정의 저장 한도에 도달했습니다. 파일을 삭제하거나 관리자에게 문의하세요.",
+    "storage_host_full": "서버 디스크가 거의 가득 차 새 파일을 받을 수 없습니다. 이 서버의 운영자에게 알려 주세요."
   }
 }

@@ -44,6 +44,8 @@ export type SettingsPagesProps={
 };
 /** Only admins of a multi-account install reach this page, so its code (accounts list, detail, delete flows) loads on demand. */
 const AdminAccounts=lazy(()=>import("../AdminAccounts").then(module=>({default:module.AdminAccounts})));
+/** The storage card loads on demand; it is not part of the first paint of Settings. */
+const StorageUsage=lazy(()=>import("../StorageUsage").then(module=>({default:module.StorageUsage})));
 const unreachable=(value:never):never=>{throw new Error(`unhandled settings page: ${String(value)}`)};
 
 /** One explicit case per tab; `never` makes a missing case a compile error. */
@@ -87,6 +89,7 @@ function GeneralPage({appearance,slots,openTab,bots,onBotsChanged}:SettingsPages
  const {t}=useTranslation("settings");
  return <div className="settings-stack">
   <OwnerAccount/>
+  <Suspense fallback={null}><StorageUsage/></Suspense>
   <AppearancePicker value={appearance.preference} onChange={appearance.choose}/>
   <PrimaryAssistantSetting bots={bots} onChanged={onBotsChanged}/>
   <SettingsSection title={t("general.region")}><SettingsCard className="settings-region"><LanguageSetting/><TimezoneSetting/></SettingsCard></SettingsSection>

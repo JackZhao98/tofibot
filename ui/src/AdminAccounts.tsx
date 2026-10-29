@@ -10,11 +10,14 @@ import {TofiIcon} from "./icons";
 import {useOwnerSession} from "./OwnerSession";
 import {useHasComputer} from "./computerCapability";
 import {Banner, SettingsCard, SettingsSection} from "./settings/components";
+import {AdminHostDisk} from "./AdminStorage";
+import {formatBytes, storageApi, type AdminStorage} from "./storageApi";
 
 const gib = (bytes: number) => formatNumber(Math.round((bytes / GIB) * 10) / 10);
 
 export function AdminAccounts() {
   const {t} = useTranslation("settings");
+  const {t: ts} = useTranslation("storage");
   const hasComputer = useHasComputer();
   const session = useOwnerSession();
   const allowed = Boolean(session?.multi_account && session.owner?.role === "admin");
@@ -22,6 +25,7 @@ export function AdminAccounts() {
   const [accounts, setAccounts] = useState<AdminAccount[] | null>(null);
   const [capacity, setCapacity] = useState<Capacity | null>(null);
   const [capacityError, setCapacityError] = useState(false);
+  const [storage, setStorage] = useState<AdminStorage | null>(null);
   const [exportsList, setExportsList] = useState<DeletedExport[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -39,7 +43,8 @@ export function AdminAccounts() {
   }, []);
   const refresh = useCallback(async () => {
     const list = await refreshAccounts();
-    const [capacityResult, exportsResult] = await Promise.allSettled([hasComputer ? adminApi.capacity() : Promise.reject(new Error("no computer")), adminApi.exports()]);
+    const [capacityResult, exportsResult, storageResult] = await Promise.allSettled([hasComputer ? adminApi.capacity() : Promise.reject(new Error("no computer")), adminApi.exports(), storageApi.admin()]);
+    if (storageResult.status === "fulfilled") setStorage(storageResult.value);
     if (capacityResult.status === "fulfilled") { setCapacity(capacityResult.value); setCapacityError(false); } else { setCapacity(null); setCapacityError(hasComputer); }
     if (exportsResult.status === "fulfilled") setExportsList(exportsResult.value);
     return list;
@@ -61,6 +66,7 @@ export function AdminAccounts() {
   if (!allowed) return null;
   const detailAccount = selected ? accounts?.find(item => item.id === selected) : undefined;
   const diskOf = (id: string) => capacity?.accounts.find(item => item.account_id === id);
+  const storageOf = (id: string) => storage?.accounts.find(item => item.account_id === id);
   const total = capacity?.total_bytes ?? capacity?.available_bytes ?? 0;
   const allocated = capacity?.promised_bytes ?? capacity?.allocated_bytes ?? 0;
   const free = Math.max(0, capacity?.admission_remaining_bytes ?? 0);
@@ -84,7 +90,7 @@ export function AdminAccounts() {
   if (detailAccount) {
     return <section className="admin-accounts" aria-busy={busy}>
       {error && <p role="alert" className="admin-error">{error}</p>}
-      <AccountDetail account={detailAccount} accounts={accounts ?? []} disk={diskOf(detailAccount.id)} capacity={capacity} selfId={selfId} busy={busy} run={run}
+      <AccountDetail account={detailAccount} accounts={accounts ?? []} disk={diskOf(detailAccount.id)} storage={storageOf(detailAccount.id)} capacity={capacity} selfId={selfId} busy={busy} run={run}
         onBack={() => { setSelected(null); setError(""); }}
         onDelete={() => setDeleting({account: detailAccount, diskBytes: diskOf(detailAccount.id)?.quota_bytes ?? 0, retry: Boolean(detailAccount.deleting)})}/>
       {sheets}
@@ -106,13 +112,17 @@ export function AdminAccounts() {
       </SettingsCard> : capacityError ? <Banner tone="warn" title={t("admin.capacity_unavailable")}/> : null}
     </SettingsSection>}
 
+    <AdminHostDisk host={storage?.host}/>
+
     <SettingsSection title={t("admin.accounts.title")} hint={accounts ? formatNumber(accounts.length) : undefined}>
       <div className="admin-list-actions"><button type="button" className="primary-button" onClick={() => setAdding(true)} disabled={busy}><TofiIcon name="user-add" size={16} aria-hidden="true"/>{t("admin.add")}</button></div>
       <SettingsCard className="admin-list">
+        <div className="admin-row-head" aria-hidden="true"><span/><span/><span/><span className="admin-row-usage"><span>{ts("admin.server")}</span>{hasComputer && <span>{ts("admin.computer")}</span>}</span><span/></div>
         {accounts?.length === 0 && <p className="settings-card-note">{t("admin.accounts.empty")}</p>}
         {accounts?.map(account => {
           const disk = diskOf(account.id);
           const computer = disk ? `${t(`admin.computer.${disk.state === "ready" || disk.state === "disabled" ? disk.state : "reserved"}`)} · ${t("admin.detail.computer.option", {size: formatNumber(Math.round(disk.quota_bytes / GIB))})}` : t("admin.computer.none");
+          const usage = storageOf(account.id);
           return <button type="button" key={account.id} className="admin-row" data-account={account.id} onClick={() => setSelected(account.id)} aria-label={t("admin.open", {name: account.username})}>
             <span className="admin-avatar" aria-hidden="true">{initialOf(account.username)}</span>
             <span className="admin-row-main">
@@ -120,7 +130,10 @@ export function AdminAccounts() {
               <span className="admin-row-email">{account.email.endsWith("@account.invalid") ? t("admin.no_email") : account.email}</span>
             </span>
             <AccountBadges account={account}/>
-            {hasComputer && <span className="admin-row-computer">{computer}</span>}
+            <span className="admin-row-usage">
+              <span className={`admin-row-storage${usage?.over_limit ? " is-over" : ""}`} data-column="server">{usage && usage.source !== "none" ? `${formatBytes(usage.server_bytes)}${usage.limit_bytes == null ? "" : ` / ${formatBytes(usage.limit_bytes)}`}` : "—"}</span>
+              {hasComputer && <span className="admin-row-computer" data-column="computer">{computer}</span>}
+            </span>
             <TofiIcon name="chevron-right" size={18} aria-hidden="true"/>
           </button>;
         })}

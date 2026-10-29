@@ -92,6 +92,8 @@
     "update_not_available": "Cette version n'est plus proposée. Rechargez et réessayez.",
     "update_in_progress": "Une mise à jour est déjà en cours.",
     "update_channel_disabled": "Les versions candidates sont désactivées.",
-    "host_update_unavailable": "Ce serveur ne peut pas encore se mettre à jour depuis la page. Exécutez sudo tofi update sur le serveur."
+    "host_update_unavailable": "Ce serveur ne peut pas encore se mettre à jour depuis la page. Exécutez sudo tofi update sur le serveur.",
+    "storage_quota_exceeded": "La limite de stockage de ce compte est atteinte. Supprimez des fichiers ou contactez l'administrateur.",
+    "storage_host_full": "Le disque du serveur est presque plein : aucun nouveau fichier n'est accepté. Prévenez l'opérateur de ce serveur."
   }
 }

@@ -49,6 +49,10 @@ type AccountGateway struct {
 	deleteHook func(step string) error
 	downloads  downloadLimiter
 	sweepStop  chan struct{}
+	// Storage accounting (S3): cached host disk figures per computer.
+	storageMu   sync.Mutex
+	diskCache   map[string]accountDiskCapacity
+	diskCacheAt time.Time
 }
 
 func NewAccountGateway(c Config) (*AccountGateway, error) {
@@ -90,6 +94,10 @@ func NewAccountGateway(c Config) (*AccountGateway, error) {
  INSERT OR IGNORE INTO account_sessions(token_hash,account_id,expires_at) SELECT token_hash,'legacy-owner',expires_at FROM owner_sessions WHERE EXISTS(SELECT 1 FROM accounts WHERE id='legacy-owner') AND (SELECT legacy_sessions_imported FROM account_migration WHERE id=1)=0;
  UPDATE account_migration SET legacy_sessions_imported=1 WHERE id=1;`)
 	if err != nil {
+		root.Close()
+		return nil, err
+	}
+	if _, err = tx.Exec(accountStorageDDL); err != nil {
 		root.Close()
 		return nil, err
 	}
@@ -362,6 +370,7 @@ func (g *AccountGateway) workspace(a Account) (*Server, error) {
 		}
 	}
 	c.AccountID = a.ID
+	g.wireStorage(&c, a)
 	createRuntime := g.runtimeFactory
 	if createRuntime == nil {
 		createRuntime = NewServer
@@ -542,6 +551,9 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 	}
 	defer cleanup()
 	if g.adminQuota(w, r, a) {
+		return
+	}
+	if g.adminStorage(w, r, a) {
 		return
 	}
 	if g.manageAccount(w, r, a) {
