@@ -275,6 +275,7 @@
       "key": "bot.avatar",
       "scope": "bot",
       "kind": "string",
+      "max_runes": 512,
       "risk": {
         "self": "direct",
         "other": "confirm"

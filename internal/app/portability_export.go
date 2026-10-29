@@ -66,6 +66,26 @@ func (s *Store) exportPortable(ctx context.Context, instance string, selection p
 		}
 		return portableOrigin{InstanceID: instance, RecordID: id}
 	}
+	// The looks first: one connection, so the Bot rows are read after this cursor is closed.
+	looks := map[string]string{}
+	lookRows, err := tx.QueryContext(ctx, `SELECT id,avatar FROM bots WHERE avatar<>''`)
+	if err != nil {
+		return b, err
+	}
+	for lookRows.Next() {
+		var id, look string
+		if err = lookRows.Scan(&id, &look); err != nil {
+			break
+		}
+		looks[id] = look
+	}
+	if err == nil {
+		err = lookRows.Err()
+	}
+	lookRows.Close()
+	if err != nil {
+		return b, err
+	}
 	rows, err = tx.QueryContext(ctx, `SELECT id,name,instructions,model,reasoning_effort,dm_conversation_id,created_at,archived FROM bots ORDER BY created_at,id`)
 	if err != nil {
 		return b, err
@@ -76,7 +96,11 @@ func (s *Store) exportPortable(ctx context.Context, instance string, selection p
 			err = e
 			break
 		}
-		b.Bots = append(b.Bots, portableBot{Bot: x, Origin: origin("bot", x.ID)})
+		pb := portableBot{Bot: x, Origin: origin("bot", x.ID)}
+		if look := looks[x.ID]; look != "" {
+			pb.Avatar = json.RawMessage(look)
+		}
+		b.Bots = append(b.Bots, pb)
 	}
 	if err == nil {
 		err = rows.Err()

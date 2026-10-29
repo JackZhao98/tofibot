@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "shapes": ["curl", "loaf", "tall", "rice", "bean", "puddle", "stand"],
+  "patterns": {
+    "solid": ["ivory", "iris", "caramel", "ocean", "moss", "berry", "slate", "honey", "lagoon", "inkred", "inkviolet"],
+    "calico": ["calico"],
+    "cowblaze": ["cow"],
+    "cowpatch": ["cow"],
+    "tabby": ["tabby"],
+    "stripes": ["ivory", "iris", "caramel", "ocean", "moss", "berry", "slate", "honey", "lagoon", "inkred", "inkviolet"],
+    "beans": ["ivory", "iris", "caramel", "ocean", "moss", "berry", "slate", "honey", "lagoon", "inkred", "inkviolet"],
+    "halfmask": ["ivory", "iris", "caramel", "ocean", "moss", "berry", "slate", "honey", "lagoon", "inkred", "inkviolet"],
+    "mask": ["ivory", "iris", "caramel", "ocean", "moss", "berry", "slate", "honey", "lagoon", "inkred", "inkviolet"],
+    "tipped": ["coffee", "pointblue", "pointlilac", "pointcinnamon", "pointcharcoal", "pointrose"],
+    "tortie": ["ivory", "iris", "caramel", "ocean", "moss", "berry", "slate", "honey", "lagoon", "inkred", "inkviolet"],
+    "cloud": ["ivory", "iris", "caramel", "ocean", "moss", "berry", "slate", "honey", "lagoon", "inkred", "inkviolet"],
+    "split": ["ivory", "iris", "caramel", "ocean", "moss", "berry", "slate", "honey", "lagoon", "inkred", "inkviolet"],
+    "saddle": ["ivory", "iris", "caramel", "ocean", "moss", "berry", "slate", "honey", "lagoon", "inkred", "inkviolet"]
+  }
+}

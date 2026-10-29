@@ -98,6 +98,17 @@ func init() {
 		return nil
 	})
 
+	bindSettingWrite("bot.avatar", func(ctx context.Context, sr settingRun, t Target, v any) error {
+		look, err := normalizeAvatar(v.(string))
+		if err != nil {
+			return err
+		}
+		return sr.s.store.SetBotAvatar(t.BotID, look)
+	})
+	bindSettingWrite("account.appearance", func(ctx context.Context, sr settingRun, _ Target, v any) error {
+		return sr.s.store.putUserAppearance(v.(string))
+	})
+
 	bindSettingWrite("conversation.name", func(ctx context.Context, sr settingRun, t Target, v any) error {
 		c, err := sr.s.store.GetConversation(t.ConversationID)
 		if err != nil {

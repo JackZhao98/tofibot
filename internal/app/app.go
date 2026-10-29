@@ -58,6 +58,9 @@ type Bot struct {
 	// with now; Model/ReasoningEffort stay raw ("default" follows global).
 	EffectiveModel           string `json:"effective_model,omitempty"`
 	EffectiveReasoningEffort string `json:"effective_reasoning_effort,omitempty"`
+	// Avatar is the Bot's look (shape, pattern, palette) as stored on the server; absent until a person or a Bot chose one.
+	// Read from the bots table at API time (withEffectiveModels), never by scanBot.
+	Avatar BotAvatar `json:"avatar,omitempty"`
 }
 type Conversation struct {
 	UnreadCount       int                    `json:"unread_count"`
@@ -803,6 +806,9 @@ CREATE INDEX IF NOT EXISTS events_delta ON events(conversation_id,id) WHERE type
 		return err
 	}
 	if err := migrateSettingsChanges(s.db); err != nil {
+		return err
+	}
+	if err := migrateBotAvatar(s.db); err != nil {
 		return err
 	}
 	if err := migrateModelSettings(s.db); err != nil {
@@ -3322,6 +3328,8 @@ func (s *Server) bots(w http.ResponseWriter, r *http.Request) {
 			ReasoningEffort *string `json:"reasoning_effort"`
 			Archived        *bool   `json:"archived"`
 			NewPrimaryID    string  `json:"new_primary_id"`
+			// Avatar is the Bot's look as a JSON object; null clears it.
+			Avatar json.RawMessage `json:"avatar"`
 		}
 		if decode(r, &x) != nil {
 			writeErr(w, 400, "invalid_request", "invalid request")
@@ -3372,10 +3380,25 @@ func (s *Server) bots(w http.ResponseWriter, r *http.Request) {
 				x.ReasoningEffort = &effort
 			}
 		}
+		var avatar *string
+		if len(x.Avatar) > 0 {
+			look, e := normalizeAvatar(string(x.Avatar))
+			if e != nil {
+				writeErr(w, http.StatusBadRequest, "invalid_avatar", e.Error())
+				return
+			}
+			avatar = &look
+		}
 		b, e := s.store.UpdateBot(id, x.Name, x.Instructions, x.Model, x.ReasoningEffort)
 		if e != nil {
 			writeErr(w, 404, "not_found", "bot not found")
 			return
+		}
+		if avatar != nil {
+			if e := s.store.SetBotAvatar(id, *avatar); e != nil {
+				writeErr(w, 500, "storage", "avatar not saved")
+				return
+			}
 		}
 		writeJSON(w, 200, s.withEffectiveModel(r.Context(), b))
 		return

@@ -1629,6 +1629,8 @@ function Workspace() {
   const openLink = useRef<OpenLinkDeps | null>(null);
   openLink.current = { bots, conversations, openSettings, selectConversation, setMobileList, openCover: openCoverPanel };
   useEffect(() => provideLinkDeps(() => openLink.current), []);
+  useEffect(() => { void import("./appearanceSync").then(sync => sync.startThemeSync(request)); }, []);
+  useEffect(() => { if (bots.length) void import("./avatarSync").then(sync => sync.hydrateBotAvatars(request, bots)); }, [bots]);
 
   const updateConversationPreview = useCallback((next: Message) => {
     setConversations((current) => current.map((conversation) => {

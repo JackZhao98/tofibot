@@ -12,5 +12,5 @@ Open this page: [{{ui:chat:header.bot_settings}} › {{ui:chat:botSettings.secti
 | Name | Key | Values | Default | Change class | Where |
 |---|---|---|---|---|---|
 | {{ui:chat:botSettings.archived_title}} | `bot.archived` | on or off |  | confirm | `/b/{bot}/settings#identity` |
-| {{ui:chat:botSettings.avatar_title}} | `bot.avatar` | text |  | own Bot: direct; another Bot: confirm | `/b/{bot}/settings#identity` |
+| {{ui:chat:botSettings.avatar_title}} | `bot.avatar` | text, at most 512 characters |  | own Bot: direct; another Bot: confirm | `/b/{bot}/settings#identity` |
 | {{ui:chat:botPanel.name}} | `bot.name` | text, at most 200 characters |  | own Bot: direct; another Bot: confirm | `/b/{bot}/settings#identity` |

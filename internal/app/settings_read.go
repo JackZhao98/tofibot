@@ -78,6 +78,24 @@ func init() {
 	bindSettingRead("bot.archived", botRead(func(_ context.Context, _ settingRun, b Bot) SettingValue {
 		return SettingValue{Value: b.Archived, Default: false}
 	}))
+	bindSettingRead("bot.avatar", func(ctx context.Context, sr settingRun, t Target) (SettingValue, error) {
+		look, err := sr.s.store.botAvatar(t.BotID)
+		if err != nil {
+			return SettingValue{}, err
+		}
+		v := SettingValue{Value: look, Note: avatarHelp()}
+		if look == "" {
+			v.Note = "no look is stored: the app shows one derived from the Bot's id. " + v.Note
+		}
+		return v, nil
+	})
+	bindSettingRead("account.appearance", func(ctx context.Context, sr settingRun, _ Target) (SettingValue, error) {
+		p, err := sr.s.store.userPreferences()
+		if err != nil {
+			return SettingValue{}, err
+		}
+		return SettingValue{Value: firstNonEmpty(p.Appearance, "system"), Default: "system", Options: []string{"system", "light", "dark"}}, nil
+	})
 	bindSettingRead("bot.skills", func(ctx context.Context, sr settingRun, t Target) (SettingValue, error) {
 		views, _, err := sr.s.botSkillStates(t.BotID)
 		if err != nil {

@@ -55,6 +55,8 @@ export interface Bot {
   is_primary?: boolean;
   /** First-run setup chat unfinished (server-derived); the greeting plays once while this holds. */
   onboarding_pending?: boolean;
+  /** The Bot's look as stored on the server (shape, pattern, palette); absent until one was chosen. */
+  avatar?: { schemaVersion?: number; shape?: string; pattern?: string; palette?: string } | null;
 }
 
 export type FollowupMode = "off" | "shadow" | "on";

@@ -142,6 +142,14 @@ func parseSettingValue(d SettingDef, raw json.RawMessage) (any, error) {
 		if d.MaxRunes > 0 && len([]rune(s)) > d.MaxRunes {
 			return nil, settingsInvalid("value is too long: at most %d characters.", d.MaxRunes)
 		}
+		if d.Key == "bot.avatar" {
+			// The canonical form, so the audit row and the next read hold the same text.
+			look, err := normalizeAvatar(s)
+			if err != nil {
+				return nil, settingsInvalid("%s", err.Error())
+			}
+			return look, nil
+		}
 	}
 	return s, nil
 }

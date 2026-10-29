@@ -110,7 +110,7 @@ func TestSettingsRegistryEntries(t *testing.T) {
 		if d.Kind == KindInt && d.Max <= d.Min {
 			t.Errorf("%s: an int needs bounds", d.Key)
 		}
-		if d.Kind == KindString && d.Scope != ScopeAccount && d.MaxRunes == 0 && d.Key != "bot.avatar" {
+		if d.Kind == KindString && d.Scope != ScopeAccount && d.MaxRunes == 0 {
 			t.Errorf("%s: a string needs a bound", d.Key)
 		}
 		if d.Risk.Self == "" && d.Kind != KindCollection {

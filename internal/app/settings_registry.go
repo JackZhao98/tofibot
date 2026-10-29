@@ -227,6 +227,7 @@ func buildSettingsRegistry() []SettingDef {
 	d.MaxRunes = maxSystemRunes
 	add(d)
 	d = bot("bot.avatar", KindString, riskOwn, "identity", "identity", "chat:botSettings.avatar_title")
+	d.MaxRunes = 512
 	add(d)
 	d = bot("bot.model", KindModel, riskConfirm, "model", "model", "settings:model.label")
 	add(d)
