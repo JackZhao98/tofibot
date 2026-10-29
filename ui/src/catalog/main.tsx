@@ -14,6 +14,7 @@ import "../v2-foundations.css";
 import "../v2-app.css";
 import "../sender-groups.css";
 import "../settings/settings-components.css";
+import "../settings/section-jump.css";
 import "../settings/settings-polish.css";
 import "../web-tool-steps.css";
 import "../web-mention.css";

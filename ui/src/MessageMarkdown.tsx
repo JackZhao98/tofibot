@@ -4,6 +4,8 @@ import Markdown, { defaultUrlTransform, type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkCjkFriendly from "remark-cjk-friendly/parseOnly";
 import { useTranslation } from "./i18n";
+import { openDeepLink } from "./settings/deepLinks";
+import { readSettingsHref } from "./settingsRoute";
 import { attachmentIdFromHref, attachmentUrl, openAttachmentById, relativeLinkName, resolveAttachmentByName } from "./filePreviewModel";
 
 // Inside the file viewer, document links push onto the viewer stack (Back returns).
@@ -24,6 +26,13 @@ function MarkdownLink({ href, children }: { href?: string; children?: ReactNode 
     }}>{children}</a>;
   }
   if (byName) return <span className="unresolved-link" title={href}>{children}</span>;
+  // A link into the app's own settings opens the page in place; a modified click keeps the browser's behavior.
+  const settings = readSettingsHref(href, window.location.origin);
+  if (settings) return <a href={href} data-settings-link={settings.kind} onClick={event => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    openDeepLink(settings);
+  }}>{children}</a>;
   return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
 }
 

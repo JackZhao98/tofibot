@@ -1,16 +1,14 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
+import { bundleModules } from "./lib/bundle.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const output = await mkdtemp(join(tmpdir(), "tofi-conversation-route-"));
 try {
-  await promisify(execFile)(join(root, "node_modules/.bin/tsc"), ["src/conversationRoute.ts", "--ignoreConfig", "--target", "ES2022", "--module", "ES2022", "--moduleResolution", "Bundler", "--outDir", output, "--skipLibCheck", "--pretty", "false"], { cwd: root });
-  const { readConversationRoute, resolveConversationRoute, conversationPath, readSideParam, withSideParam, SIDE_PARAMS } = await import(pathToFileURL(join(output, "conversationRoute.js")));
+  const { readConversationRoute, resolveConversationRoute, conversationPath, readSideParam, withSideParam, SIDE_PARAMS } = await bundleModules(root, ["src/conversationRoute.ts"]);
   const bot = { id: "bot-one", dm_conversation_id: "dm-one" };
   const dm = { id: "dm-one", kind: "dm", bot_id: bot.id };
   const group = { id: "group-one", kind: "group" };

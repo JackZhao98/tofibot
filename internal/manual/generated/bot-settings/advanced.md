@@ -11,5 +11,4 @@ Open this page: [Bot settings › Advanced](/b/{bot}/settings#advanced)
 
 | Name | Key | Values | Default | Change class | Where |
 |---|---|---|---|---|---|
-| Archived | `bot.archived` | on or off |  | confirm | `/b/{bot}/settings#advanced` |
 | Delete Bot | `bot.delete` | action |  | confirm | `/b/{bot}/settings#advanced` |

@@ -172,6 +172,7 @@ export const settings: CatalogSection = {
         <SettingsRow label="Row without a control" description="Read-only information." />
       </SettingsCard>
     </SettingsSection> },
+    { id: "settings-section-jump", kind: "inline", label: "Section reached by a link", note: "a link such as /settings/general#region scrolls here and frames the section once (data-jump-target, cleared after 1.7 s)", render: () => <div data-section="region" data-jump-target=""><SettingsSection title={t("settings:general.region")}><SettingsCard><SettingsRow label={t("settings:language.label")} description="A synthetic description under the label." control={<StatusBadge state="ok" />} /></SettingsCard></SettingsSection></div> },
     { id: "badges", kind: "inline", label: "Status badges", render: () => <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
       {(["ok", "need", "bad", "asleep", "testing"] as BadgeState[]).map(state => <StatusBadge key={state} state={state} />)}</div> },
     { id: "banners", kind: "inline", label: "Banners", note: "error announces itself (role=alert); the others are silent", render: () => <div style={{ display: "grid", gap: 10 }}>

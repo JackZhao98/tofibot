@@ -29,7 +29,7 @@ import {WorkspacePurgeSettings} from "../WorkspacePurgeSettings";
 import {useTranslation} from "../i18n";
 import type {Bot, Conversation} from "../types";
 import type {ThemePreference} from "../InteractionSystem";
-import {Banner, DangerZone, SettingsCard, SettingsSection} from "./components";
+import {Banner, DangerZone, SectionAnchor, SettingsCard, SettingsSection} from "./components";
 import {RunHealthCard} from "./RunHealthCard";
 import {StandingAllowances} from "../StandingAllowances";
 
@@ -53,37 +53,37 @@ export function SettingsPages(props:SettingsPagesProps){
  const activeBots=bots.filter(bot=>!bot.archived);
  switch(page){
   case "general": return <GeneralPage {...props}/>;
-  case "connections": return <ExtensionPanel bots={bots} kind="mcp" refreshToken={props.extensionRefresh}/>;
-  case "skills": return <ExtensionPanel bots={bots} kind="skills" refreshToken={props.extensionRefresh}/>;
+  case "connections": return <SectionAnchor id="list"><ExtensionPanel bots={bots} kind="mcp" refreshToken={props.extensionRefresh}/></SectionAnchor>;
+  case "skills": return <SectionAnchor id="library"><ExtensionPanel bots={bots} kind="skills" refreshToken={props.extensionRefresh}/></SectionAnchor>;
   case "permissions": return <PermissionsPage/>;
   case "allowances": return <AllowancesPage openTab={props.openTab}/>;
   case "followups": return <FollowupsSettings/>;
   case "models": return <ModelsPage {...props}/>;
-  case "tools": return <div className="settings-stack"><WebToolsSettings/></div>;
-  case "devices": return <ComputerPanel part="devices"/>;
+  case "tools": return <div className="settings-stack"><SectionAnchor id="web"><WebToolsSettings/></SectionAnchor></div>;
+  case "devices": return <SectionAnchor id="devices"><ComputerPanel part="devices"/></SectionAnchor>;
   case "automation": return <AutomationSettings onOpenPermissions={()=>props.openTab("permissions")}/>;
   case "computer": return <ComputerPage/>;
-  case "keys": return <ComputerCredentials bots={activeBots}/>;
-  case "usage": return <div className="settings-stack"><RunHealthCard/><UsagePanel preferredBotId={props.usageBotId} timezone={props.timezone}/></div>;
+  case "keys": return <SectionAnchor id="keys"><ComputerCredentials bots={activeBots}/></SectionAnchor>;
+  case "usage": return <div className="settings-stack"><SectionAnchor id="health"><RunHealthCard/></SectionAnchor><SectionAnchor id="usage"><UsagePanel preferredBotId={props.usageBotId} timezone={props.timezone}/></SectionAnchor></div>;
   case "advanced": return <AdvancedPage {...props} bots={bots} activeBots={activeBots}/>;
-  case "admin": return <Suspense fallback={null}><AdminAccounts/></Suspense>;
+  case "admin": return <Suspense fallback={null}><SectionAnchor id="accounts"><AdminAccounts/></SectionAnchor></Suspense>;
   default: return unreachable(page);
  }
 }
 
 /** With no computer backend the page explains the options; otherwise it is the computer's own settings. */
 function ComputerPage(){
- return useHasComputer()?<><ComputerResources/><ComputerPanel part="environment"/></>:<ComputerOptions/>;
+ return useHasComputer()?<><SectionAnchor id="resources"><ComputerResources/></SectionAnchor><SectionAnchor id="environment"><ComputerPanel part="environment"/></SectionAnchor></>:<ComputerOptions/>;
 }
 
 function GeneralPage({appearance,slots,bots,onBotsChanged}:SettingsPagesProps){
  const {t}=useTranslation("settings");
  return <div className="settings-stack">
-  <OwnerAccount/>
-  <AppearancePicker value={appearance.preference} onChange={appearance.choose}/>
-  <PrimaryAssistantSetting bots={bots} onChanged={onBotsChanged}/>
-  <SettingsSection title={t("general.region")}><SettingsCard className="settings-region"><LanguageSetting/><TimezoneSetting/></SettingsCard></SettingsSection>
-  <SettingsSection title={t("general.chat")}><ChatsSettings/></SettingsSection>
+  <SectionAnchor id="account"><OwnerAccount/></SectionAnchor>
+  <SectionAnchor id="appearance"><AppearancePicker value={appearance.preference} onChange={appearance.choose}/></SectionAnchor>
+  <SectionAnchor id="primary"><PrimaryAssistantSetting bots={bots} onChanged={onBotsChanged}/></SectionAnchor>
+  <SettingsSection id="region" title={t("general.region")}><SettingsCard className="settings-region"><LanguageSetting/><TimezoneSetting/></SettingsCard></SettingsSection>
+  <SettingsSection id="chats" title={t("general.chat")}><ChatsSettings/></SettingsSection>
   {slots.legacyArchive}
  </div>;
 }
@@ -92,16 +92,16 @@ function ModelsPage({slots}:SettingsPagesProps){
  const {t}=useTranslation("settings");
  return <div className="settings-two">
   <div className="settings-stack">
-   <ModelProviders refreshToken={slots.providersRefresh} onConfigured={slots.onProvidersConfigured} codex={slots.codex}/>
-   <ModelDefaults/>
+   <SectionAnchor id="providers"><ModelProviders refreshToken={slots.providersRefresh} onConfigured={slots.onProvidersConfigured} codex={slots.codex}/></SectionAnchor>
+   <SectionAnchor id="defaults"><ModelDefaults/></SectionAnchor>
   </div>
-  <div className="settings-stack"><SettingsSection title={t("dictation.title")}><DictationSettings/></SettingsSection></div>
+  <div className="settings-stack"><SettingsSection id="dictation" title={t("dictation.title")}><DictationSettings/></SettingsSection></div>
  </div>;
 }
 
 /** Permissions: one control, the approval mode for this account. Everything else lives under Advanced > Tool rules. */
 export function PermissionsPage(){
- return <div className="settings-stack permissions-page"><ApprovalModeSetting/></div>;
+ return <div className="settings-stack permissions-page"><SectionAnchor id="mode"><ApprovalModeSetting/></SectionAnchor></div>;
 }
 
 /** Advanced > Tool rules: who reviews calls in detail, how each kind of tool asks, and every allowance you have given (revocable here). */
@@ -109,8 +109,8 @@ export function AllowancesPage({openTab}:{openTab:(tab:SettingsTab)=>void}){
  const {t}=useTranslation(["settings","extensions"]);
  const rows=[["read_only","read"],["write","write"],["high_risk","high"]] as const;
  return <div className="settings-stack permissions-page">
-  <AutoReviewSettings/>
-  <SettingsSection title={t("permissionsPage.how.title")} hint={<button type="button" className="text-button" onClick={()=>openTab("connections")}>{t("permissionsPage.how.link")}</button>}>
+  <SectionAnchor id="reviewer"><AutoReviewSettings/></SectionAnchor>
+  <SettingsSection id="how" title={t("permissionsPage.how.title")} hint={<button type="button" className="text-button" onClick={()=>openTab("connections")}>{t("permissionsPage.how.link")}</button>}>
    <SettingsCard className="permissions-how">{rows.map(([tier,key])=><div key={tier} className="permissions-how-row" data-tier={tier}><strong>{t(`extensions:tools.tier.${tier}`)}</strong><p>{t(`permissionsPage.how.${key}`)}</p></div>)}</SettingsCard>
   </SettingsSection>
   <StandingAllowances/>
@@ -121,10 +121,10 @@ function AdvancedPage({portabilityBotID,portabilityFile,onPortabilityFileConsume
  const {t}=useTranslation("settings");
  const admin=useIsUpdateAdmin();
  return <div className="settings-stack">
-  {admin&&<SettingsSection title={t("advanced.version")}><VersionCard/></SettingsSection>}
-  <SettingsSection title={t("advanced.server")}><SettingsCard><ConnectionInfo/></SettingsCard></SettingsSection>
-  <SettingsSection title={t("advanced.data")}><PortabilitySettings bots={bots} initialFile={portabilityFile} initialBotID={portabilityBotID} onInitialFileConsumed={onPortabilityFileConsumed}/></SettingsSection>
-  <SettingsSection title={t("advanced.debug")}><SettingsCard><DebugSettings bots={activeBots} conversation={conversation}/></SettingsCard></SettingsSection>
-  <DangerZone title={t("advanced.danger")}><WorkspacePurgeSettings/></DangerZone>
+  {admin&&<SettingsSection id="version" title={t("advanced.version")}><VersionCard/></SettingsSection>}
+  <SettingsSection id="server" title={t("advanced.server")}><SettingsCard><ConnectionInfo/></SettingsCard></SettingsSection>
+  <SettingsSection id="data" title={t("advanced.data")}><PortabilitySettings bots={bots} initialFile={portabilityFile} initialBotID={portabilityBotID} onInitialFileConsumed={onPortabilityFileConsumed}/></SettingsSection>
+  <SettingsSection id="debug" title={t("advanced.debug")}><SettingsCard><DebugSettings bots={activeBots} conversation={conversation}/></SettingsCard></SettingsSection>
+  <SectionAnchor id="danger"><DangerZone title={t("advanced.danger")}><WorkspacePurgeSettings/></DangerZone></SectionAnchor>
  </div>;
 }

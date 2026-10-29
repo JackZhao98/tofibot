@@ -16,6 +16,8 @@ import { followsGlobal } from "./modelCatalog";
 import { ModelFields } from "./ModelSettings";
 import { OverlayPopover } from "./overlays/OverlayHost";
 import { PrimaryBadge } from "./PrimaryAssistant";
+import { takeSettingsSection } from "./settings/deepLinks";
+import { jumpWhenReady } from "./settings/sectionJump";
 import type { BotSkillListing } from "./skillLibrary";
 import { usePreviousWhileFading } from "./surfacePresence";
 import type { SettingsTab } from "./SettingsShell";
@@ -140,6 +142,16 @@ export function BotSettingsPanel({ bot, refreshToken = 0, onUpdate, onMakePrimar
     setVisited(current => current.includes(id) ? current : [...current, id]);
     setView("page");
   };
+
+  // A link to one section (`/b/<id>/settings#model`) opens the cover on it.
+  useEffect(() => {
+    const target = takeSettingsSection("bot-settings");
+    if (!target || !SECTIONS.some(item => item.id === target)) return;
+    open(target as SectionId);
+    return jumpWhenReady(() => document.querySelector(".bot-settings .bs-sections"), target);
+    // Once, on mount: the section is taken from the pending link.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Avatar style: the picker opens in place, on the avatar's own button. It saves on every pick (the avatar is stored on this device).
   const [avatar, setAvatar] = useState(() => getBotAvatarConfig(bot.id));

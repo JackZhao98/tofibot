@@ -248,7 +248,7 @@ func buildSettingsRegistry() []SettingDef {
 	d = bot("bot.connections", KindBotList, riskConfirm, "tools", "tools", "settings:shell.page.connections.name")
 	d.Effect = "The list of connections this Bot may use changes."
 	add(d)
-	d = bot("bot.archived", KindBool, riskConfirm, "advanced", "advanced", "chat:botSettings.archived_title")
+	d = bot("bot.archived", KindBool, riskConfirm, "identity", "identity", "chat:botSettings.archived_title")
 	d.Effect = "The Bot is archived or restored. Archived Bots leave the list; chats and memory are kept."
 	add(d)
 	d = bot("bot.delete", KindAction, riskConfirm, "advanced", "advanced", "chat:header.delete_bot")

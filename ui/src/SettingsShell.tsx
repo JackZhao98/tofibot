@@ -6,13 +6,17 @@ import {SettingsActivityContext} from "./settingsActivity";
 import {SettingsDraftContext, type SettingsDraft} from "./settingsDraft";
 import {SettingsHeaderSlotContext} from "./settings/headerSlot";
 import {useConnectionAttention} from "./settings/useConnectionAttention";
-import {legacySettingsTabs} from "./settings/deepLinks";
+import {legacySettingsTabs,takeSettingsSection} from "./settings/deepLinks";
+import {jumpWhenReady} from "./settings/sectionJump";
+import {SETTINGS_SECTIONS} from "./settings/sections";
 import {providerForModel, providerLabels} from "./modelCatalog";
 import {useLanguage, useTranslation} from "./i18n";
 import {ConfirmDialog} from "./overlays/ModalDialog";
 import {useHasComputer} from "./computerCapability";
 
 export type SettingsTab="general"|"connections"|"skills"|"permissions"|"allowances"|"followups"|"models"|"tools"|"automation"|"computer"|"devices"|"keys"|"usage"|"advanced"|"admin";
+// Compile-time check: every tab has its section list in settings/sections.ts (the ids a link can scroll to).
+export const SETTINGS_TAB_SECTIONS:Record<SettingsTab,readonly string[]>=SETTINGS_SECTIONS;
 export type SettingsView="home"|"page";
 /** `seq` changes on every open request, so a deep link to the tab already selected still lands on its page on mobile. */
 export type SettingsEntry={seq:number;view:SettingsView};
@@ -138,6 +142,15 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
  useEffect(()=>{if(!indicator)return;const id=requestAnimationFrame(()=>setSlide(true));return()=>cancelAnimationFrame(id)},[indicator===null]);
  useEffect(()=>{const element=list.current;if(!element||typeof ResizeObserver==="undefined")return;const observer=new ResizeObserver(measure);observer.observe(element);return()=>observer.disconnect()},[measure]);
 
+ // A link that names a section (`/settings/models#defaults`): scroll to it once its page is mounted and flash it.
+ const jump=useRef<string|null>(null);
+ useEffect(()=>{
+  const section=takeSettingsSection("settings",tab);
+  if(section)jump.current=section;
+  const target=jump.current;
+  if(!target)return;
+  return jumpWhenReady(()=>document.querySelector(`.settings-content [data-page="${tab}"]`),target,()=>{if(jump.current===target)jump.current=null});
+ },[entry?.seq,tab]);
  const [slot,setSlot]=useState<HTMLElement|null>(null);
  const hint=(id:SettingsTab):string=>{
   if(id==="models")return hints.model??"";

@@ -5,13 +5,18 @@ import {Disclosure} from "../InteractionSystem";
 import "./settings-components.css";
 
 /** Section: a 16px display heading, an optional count or hint, an optional description. */
-export function SettingsSection({title, hint, description, children, className = ""}: {title?: ReactNode; hint?: ReactNode; description?: ReactNode; children: ReactNode; className?: string}) {
+export function SettingsSection({title, hint, description, children, className = "", id: sectionId}: {title?: ReactNode; hint?: ReactNode; description?: ReactNode; children: ReactNode; className?: string; /** A stable id a link can scroll to (`data-section`; the ids are listed in settings/sections.ts). */ id?: string}) {
   const id = useId();
-  return <section className={`settings-sec ${className}`.trim()} aria-labelledby={title ? id : undefined}>
+  return <section className={`settings-sec ${className}`.trim()} data-section={sectionId} aria-labelledby={title ? id : undefined}>
     {(title || hint) && <div className="settings-sec-head">{title && <h4 id={id}>{title}</h4>}{hint && <span className="settings-sec-hint">{hint}</span>}</div>}
     {description && <p className="settings-sec-desc">{description}</p>}
     {children}
   </section>;
+}
+
+/** Gives a block that is not a SettingsSection a stable id a link can scroll to. */
+export function SectionAnchor({id, children}: {id: string; children: ReactNode}) {
+  return <div className="settings-anchor" data-section={id}>{children}</div>;
 }
 
 /** Card: 1px soft border, 18px radius; direct children are separated by 1px lines. */

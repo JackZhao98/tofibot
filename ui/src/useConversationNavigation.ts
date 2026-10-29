@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { conversationPath, readConversationRoute, resolveConversationRoute } from "./conversationRoute";
 import { desktopState } from "./desktop";
+import { openDeepLink } from "./settings/deepLinks";
 import type { Bot, Conversation } from "./types";
 
 export function useConversationNavigation(bots: Bot[], conversations: Conversation[], ready: boolean) {
-  const [route, setRoute] = useState(() => readConversationRoute(window.location.pathname));
+  const [route, setRoute] = useState(() => readConversationRoute(window.location.pathname, window.location.hash, window.location.search));
   const [historyVersion, setHistoryVersion] = useState(0);
   const nativeFallback = useRef(desktopState().activeConversation);
   const index = useRef({ bots, conversations });
@@ -24,14 +25,26 @@ export function useConversationNavigation(bots: Bot[], conversations: Conversati
   // Canonicalize the initial default selection without adding a history entry.
   // Explicit targets are never replaced by refreshes or native saved selection.
   useEffect(() => {
-    if (route.kind !== "home" || !active) return;
+    if (route.kind !== "home" || route.settings || !active) return;
     const path = conversationPath(active, bots);
     if (path) writePath(path, true);
   }, [route, active, bots, writePath]);
 
+  // An address that is a link into the settings (`/settings/models#defaults`, `/b/<id>/settings#model`): once the index is loaded the
+  // matching cover opens and the address goes back to the conversation, because covers stay out of the address. A Bot or group that
+  // is not in the signed-in account's index opens nothing and the route reads as unavailable.
+  useEffect(() => {
+    const link = route.kind === "unavailable" ? undefined : route.settings;
+    if (!ready || !link || (route.kind !== "home" && !active)) return;
+    const path = (active && conversationPath(active, index.current.bots)) || "/";
+    window.history.replaceState(window.history.state, "", path);
+    setRoute(readConversationRoute(path));
+    openDeepLink(link);
+  }, [route, ready, active]);
+
   useEffect(() => {
     const navigated = () => {
-      setRoute(readConversationRoute(window.location.pathname));
+      setRoute(readConversationRoute(window.location.pathname, window.location.hash, window.location.search));
       setHistoryVersion(version => version + 1);
     };
     window.addEventListener("popstate", navigated);

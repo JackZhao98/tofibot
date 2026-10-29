@@ -76,7 +76,7 @@ export function StandingAllowances() {
   const when = (value: string) => new Intl.DateTimeFormat(intlLocale(), { timeZone: timezone, dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
   const uses = (count: number) => count > 0 ? ` · ${t("permissionsPage.standing.used", { count })}` : "";
   return <>
-    <SettingsSection title={t("permissionsPage.standing.title")} description={t("permissionsPage.standing.description")}>
+    <SettingsSection id="standing" title={t("permissionsPage.standing.title")} description={t("permissionsPage.standing.description")}>
       <SettingsCard>
         {listing === null && !error && <p className="muted standing-loading" aria-live="polite">{t("action.loading_settings")}</p>}
         {listing !== null && listing.allowances.length === 0 && <p className="muted standing-empty">{t("permissionsPage.standing.empty")}</p>}
@@ -94,7 +94,7 @@ export function StandingAllowances() {
         {error && <p role="alert" className="error-text standing-error">{error}</p>}
       </SettingsCard>
     </SettingsSection>
-    <SettingsSection title={t("permissionsPage.standing.remembered.title")} description={t("permissionsPage.standing.remembered.description")}>
+    <SettingsSection id="remembered" title={t("permissionsPage.standing.remembered.title")} description={t("permissionsPage.standing.remembered.description")}>
       <SettingsCard>
         {listing !== null && listing.remembered.length === 0 && <p className="muted standing-empty">{t("permissionsPage.standing.remembered.empty")}</p>}
         {listing !== null && listing.remembered.length > 0 && <ul className="standing-list" aria-label={t("permissionsPage.standing.remembered.title")}>

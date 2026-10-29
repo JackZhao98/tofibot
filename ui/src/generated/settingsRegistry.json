@@ -343,8 +343,8 @@
       "risk": {
         "self": "confirm"
       },
-      "link": "/b/{bot}/settings#advanced",
-      "manual": "bot-settings/advanced",
+      "link": "/b/{bot}/settings#identity",
+      "manual": "bot-settings/identity",
       "label_key": "chat:botSettings.archived_title",
       "audit": true
     },
