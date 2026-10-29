@@ -3116,7 +3116,7 @@ class RunnerEgressFilterTests(HostCase):
 
     def test_start_fails_when_the_runner_container_does_not_come_up(self):
         for containers, shown in ((self.runner_container('exited'), 'exited'), (self.runner_container('running', 'unhealthy'), 'unhealthy'),
-                                  (self.runner_container('created', 'starting'), 'starting'),
+                                  (self.runner_container('created', 'starting'), 'created'),
                                   ([self.runner_container('running')[0]], 'missing')):
             with self.subTest(shown=shown), mock.patch.object(tofi_host, 'health'), \
                     mock.patch.object(tofi_host, 'project_containers', return_value=containers):
@@ -3134,6 +3134,12 @@ class RunnerEgressFilterTests(HostCase):
 
     def test_iptables_is_a_required_host_tool(self):
         self.assertIn('iptables', tofi_host.REQUIRED_TOOLS)
+
+    def test_a_stopped_runner_reports_stopped_not_its_old_health(self):
+        stopped_runner = [{'Labels': {'com.docker.compose.service': 'runner'}, 'State': {'Status': 'exited', 'Health': {'Status': 'unhealthy'}}}]
+        with mock.patch.object(tofi_host, 'project_containers', return_value=stopped_runner), \
+                mock.patch.object(tofi_host, 'service_of', return_value='runner'):
+            self.assertEqual(tofi_host.runner_container_state(), 'exited')
 
     def test_runner_ready_waits_through_a_transient_unhealthy_state(self):
         env = {'TOFI_RUNNER_IMAGE': 'ghcr.io/jackzhao98/tofi-mcp-runner@sha256:' + '4' * 64}

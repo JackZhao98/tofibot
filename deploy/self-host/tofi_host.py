@@ -1703,10 +1703,11 @@ def runner_container_state():
         for container in project_containers():
             if service_of(container) == 'runner':
                 state = container.get('State') or {}
-                health = (state.get('Health') or {}).get('Status')
-                if health:
-                    return health
-                return state.get('Status') or 'unknown'
+                status = state.get('Status') or 'unknown'
+                # A stopped container keeps the health of its last run; only a running one has a current health.
+                if status != 'running':
+                    return status
+                return (state.get('Health') or {}).get('Status') or status
     except (subprocess.SubprocessError, ValueError, OSError):
         return 'docker unavailable'
     return 'missing'
