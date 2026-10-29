@@ -1,5 +1,8 @@
 {{GLOBAL}}{{DOMAIN}} {
 	encode zstd gzip
 	header Strict-Transport-Security "max-age=31536000"
+	# The host's own door to the App (tofi computer add|remove) is reached on the loopback port, never through here.
+	@host path /api/host/*
+	respond @host 404
 	reverse_proxy app:8321
 }

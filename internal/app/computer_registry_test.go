@@ -30,6 +30,7 @@ type fakeComputer struct {
 	seen     time.Time
 	calls    atomic.Int32
 	inFlight atomic.Int32
+	order    []string // BotID of every call, in the order the computer received them
 }
 
 func newFakeComputer(id string) *fakeComputer {
@@ -46,6 +47,9 @@ func (f *fakeComputer) Action(ctx context.Context, a computer.Action) (computer.
 }
 func (f *fakeComputer) ActionWithin(ctx context.Context, a computer.Action, _ time.Duration) (computer.ActionResult, error) {
 	f.calls.Add(1)
+	f.mu.Lock()
+	f.order = append(f.order, a.BotID)
+	f.mu.Unlock()
 	if f.blockOn[a.Name] {
 		f.inFlight.Add(1)
 		defer f.inFlight.Add(-1)
@@ -180,23 +184,30 @@ func TestPersonalComputerLimit(t *testing.T) {
 	}
 }
 
-// One lock per computer: a second Bot waits on the computer the first one holds,
-// and uses a different computer at the same time.
+// One lock per computer: a second Bot waits on the computer the first one is
+// operating, and uses a different computer at the same time. The lock is a lease
+// per call: it frees when the call ends, not when the run does.
 func TestOneLockPerComputer(t *testing.T) {
 	s := newRegistryServer(t)
 	a, b := newFakeComputer("mac-a"), newFakeComputer("mac-b")
+	a.blockOn["shell.exec"] = true
 	for _, c := range []*fakeComputer{a, b} {
 		if err := s.RegisterComputer(c, c.id, ""); err != nil {
 			t.Fatal(err)
 		}
 	}
 	run1, run2 := Run{ID: "run-1", BotID: "bot-1"}, Run{ID: "run-2", BotID: "bot-2"}
-	if _, err := s.computerActionOn(context.Background(), run1, "mac-a", "shell.exec", shellArgs()); err != nil {
-		t.Fatal(err)
+	first := make(chan error, 1)
+	go func() {
+		_, err := s.computerActionOn(context.Background(), run1, "mac-a", "shell.exec", shellArgs())
+		first <- err
+	}()
+	for a.inFlight.Load() == 0 {
+		time.Sleep(2 * time.Millisecond)
 	}
-	// Another Bot, same computer: refused while the first run holds it.
+	// Another Bot, same computer: refused while the first Bot's call is running.
 	short, cancel := context.WithTimeout(context.Background(), 80*time.Millisecond)
-	_, err := s.computerActionOn(short, run2, "mac-a", "shell.exec", shellArgs())
+	_, err := s.computerActionOn(short, run2, "mac-a", "files.list", shellArgs())
 	cancel()
 	if toolCode(err) != codeComputerBusy {
 		t.Fatalf("second Bot on the same computer: %v", err)
@@ -204,17 +215,162 @@ func TestOneLockPerComputer(t *testing.T) {
 	if a.calls.Load() != 1 {
 		t.Fatalf("the refused call reached the computer: %d", a.calls.Load())
 	}
-	// Another Bot, another computer: runs at once, while bot-1 still holds A.
+	// Another Bot, another computer: runs at once, while bot-1 is still on A.
 	if out, err := s.computerActionOn(context.Background(), run2, "mac-b", "shell.exec", shellArgs()); err != nil || !strings.Contains(out, "mac-b") {
 		t.Fatalf("second Bot on another computer: %q %v", out, err)
 	}
-	// The first run ends: the lock frees and the other Bot gets in.
-	s.releaseComputerHolds(run1.ID)
-	if _, err := s.computerActionOn(context.Background(), run2, "mac-a", "shell.exec", shellArgs()); err != nil {
-		t.Fatalf("after the holder's run ended: %v", err)
+	// The first call ends. The run goes on, but the computer is free for the other Bot.
+	close(a.release)
+	if err := <-first; err != nil {
+		t.Fatal(err)
+	}
+	if slot := s.slotFor("mac-a"); slot.holder() != "" {
+		t.Fatalf("the lock outlived the call: held by %s", slot.holder())
+	}
+	if _, err := s.computerActionOn(context.Background(), run2, "mac-a", "files.list", shellArgs()); err != nil {
+		t.Fatalf("after the holder's call ended: %v", err)
 	}
 	if _, err := s.computerActionOn(context.Background(), run1, "no-such", "shell.exec", shellArgs()); toolCode(err) != codeComputerUnknown {
 		t.Fatalf("unknown computer: %v", err)
+	}
+}
+
+func queued(slot *computerSlot) int {
+	slot.mu.Lock()
+	defer slot.mu.Unlock()
+	return len(slot.waiters)
+}
+
+// Bots alternate: a Bot that finishes a call and calls again queues behind the
+// ones already waiting, in arrival order, and never holds the computer between calls.
+func TestComputerLeaseIsFairAcrossBots(t *testing.T) {
+	s := newRegistryServer(t)
+	mac := newFakeComputer("mac-a")
+	mac.blockOn["shell.exec"] = true
+	if err := s.RegisterComputer(mac, "Mac", ""); err != nil {
+		t.Fatal(err)
+	}
+	slot := s.slotFor("mac-a")
+	runs := []Run{{ID: "run-1", BotID: "bot-1"}, {ID: "run-2", BotID: "bot-2"}, {ID: "run-3", BotID: "bot-3"}}
+	var wg sync.WaitGroup
+	call := func(r Run, action string) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if _, err := s.computerActionOn(context.Background(), r, "mac-a", action, shellArgs()); err != nil {
+				t.Errorf("%s %s: %v", r.BotID, action, err)
+			}
+		}()
+	}
+	call(runs[0], "shell.exec") // holds the computer, blocked in the call
+	for mac.inFlight.Load() == 0 {
+		time.Sleep(2 * time.Millisecond)
+	}
+	call(runs[1], "files.list")
+	for queued(slot) != 1 {
+		time.Sleep(2 * time.Millisecond)
+	}
+	call(runs[2], "files.list")
+	for queued(slot) != 2 {
+		time.Sleep(2 * time.Millisecond)
+	}
+	close(mac.release) // bot-1's call ends
+	wg.Wait()
+	// bot-1 asks again straight away, after the other two have had their turn.
+	if _, err := s.computerActionOn(context.Background(), runs[0], "mac-a", "files.list", shellArgs()); err != nil {
+		t.Fatal(err)
+	}
+	mac.mu.Lock()
+	order := strings.Join(mac.order, ",")
+	mac.mu.Unlock()
+	if order != "bot-1,bot-2,bot-3,bot-1" {
+		t.Fatalf("calls reached the computer in order %s", order)
+	}
+	if slot.holder() != "" || queued(slot) != 0 {
+		t.Fatalf("lock leaked: holder=%q queued=%d", slot.holder(), queued(slot))
+	}
+}
+
+// A Bot that gives up waiting leaves the queue and the lock still passes on.
+func TestComputerLeaseSkipsAWaiterThatGaveUp(t *testing.T) {
+	s := newRegistryServer(t)
+	mac := newFakeComputer("mac-a")
+	mac.blockOn["shell.exec"] = true
+	if err := s.RegisterComputer(mac, "Mac", ""); err != nil {
+		t.Fatal(err)
+	}
+	slot := s.slotFor("mac-a")
+	done := make(chan error, 1)
+	go func() {
+		_, err := s.computerActionOn(context.Background(), Run{ID: "run-1", BotID: "bot-1"}, "mac-a", "shell.exec", shellArgs())
+		done <- err
+	}()
+	for mac.inFlight.Load() == 0 {
+		time.Sleep(2 * time.Millisecond)
+	}
+	quitter, cancel := context.WithCancel(context.Background())
+	gone := make(chan error, 1)
+	go func() {
+		_, err := s.computerActionOn(quitter, Run{ID: "run-2", BotID: "bot-2"}, "mac-a", "files.list", shellArgs())
+		gone <- err
+	}()
+	for queued(slot) != 1 {
+		time.Sleep(2 * time.Millisecond)
+	}
+	late := make(chan error, 1)
+	go func() {
+		_, err := s.computerActionOn(context.Background(), Run{ID: "run-3", BotID: "bot-3"}, "mac-a", "files.list", shellArgs())
+		late <- err
+	}()
+	for queued(slot) != 2 {
+		time.Sleep(2 * time.Millisecond)
+	}
+	cancel()
+	if err := <-gone; toolCode(err) != codeComputerBusy {
+		t.Fatalf("the Bot that gave up: %v", err)
+	}
+	close(mac.release)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-late; err != nil {
+		t.Fatalf("the next Bot in line was not served: %v", err)
+	}
+	if slot.holder() != "" || queued(slot) != 0 {
+		t.Fatalf("lock leaked: holder=%q queued=%d", slot.holder(), queued(slot))
+	}
+}
+
+// Parallel calls of one run share the lease; it frees when the last one ends.
+func TestComputerLeaseIsSharedByParallelCallsOfOneRun(t *testing.T) {
+	s := newRegistryServer(t)
+	mac := newFakeComputer("mac-a")
+	mac.blockOn["shell.exec"] = true
+	if err := s.RegisterComputer(mac, "Mac", ""); err != nil {
+		t.Fatal(err)
+	}
+	slot := s.slotFor("mac-a")
+	run := Run{ID: "run-1", BotID: "bot-1"}
+	var wg sync.WaitGroup
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if _, err := s.computerActionOn(context.Background(), run, "mac-a", "shell.exec", shellArgs()); err != nil {
+				t.Error(err)
+			}
+		}()
+	}
+	for mac.inFlight.Load() != 2 {
+		time.Sleep(2 * time.Millisecond)
+	}
+	if slot.holder() != "bot-1" {
+		t.Fatalf("holder %q", slot.holder())
+	}
+	close(mac.release)
+	wg.Wait()
+	if slot.holder() != "" {
+		t.Fatalf("lock held after both calls ended: %q", slot.holder())
 	}
 }
 
@@ -527,5 +683,50 @@ func TestRunRecordsComputerForMetering(t *testing.T) {
 	s.store.db.QueryRow(`SELECT COUNT(*) FROM run_computers WHERE run_id=?`, run.ID).Scan(&n)
 	if n != 1 {
 		t.Fatalf("two calls on one computer made %d rows", n)
+	}
+}
+
+// A Bot queued for a computer that is then lost is refused at once, not left waiting.
+func TestQueuedBotIsRefusedWhenTheComputerIsLost(t *testing.T) {
+	s := newRegistryServer(t)
+	old := computerLostAfter
+	computerLostAfter = time.Minute
+	t.Cleanup(func() { computerLostAfter = old })
+	mac := newFakeComputer("mac-a")
+	mac.blockOn["shell.exec"] = true
+	if err := s.RegisterComputer(mac, "Mac", ""); err != nil {
+		t.Fatal(err)
+	}
+	slot := s.slotFor("mac-a")
+	holder := make(chan error, 1)
+	go func() {
+		_, err := s.computerActionOn(context.Background(), Run{ID: "run-1", BotID: "bot-1"}, "mac-a", "shell.exec", shellArgs())
+		holder <- err
+	}()
+	for mac.inFlight.Load() == 0 {
+		time.Sleep(2 * time.Millisecond)
+	}
+	waiter := make(chan error, 1)
+	go func() {
+		_, err := s.computerActionOn(context.Background(), Run{ID: "run-2", BotID: "bot-2"}, "mac-a", "files.list", shellArgs())
+		waiter <- err
+	}()
+	for queued(slot) != 1 {
+		time.Sleep(2 * time.Millisecond)
+	}
+	mac.setSeen(time.Now().Add(-2 * time.Minute))
+	s.sweepComputerHeartbeats(time.Now())
+	for name, ch := range map[string]chan error{"holder": holder, "waiter": waiter} {
+		select {
+		case err := <-ch:
+			if toolCode(err) != codeComputerOffline {
+				t.Fatalf("%s ended with %v", name, err)
+			}
+		case <-time.After(3 * time.Second):
+			t.Fatalf("%s hung after the computer was lost", name)
+		}
+	}
+	if slot.holder() != "" || queued(slot) != 0 {
+		t.Fatalf("lock leaked: holder=%q queued=%d", slot.holder(), queued(slot))
 	}
 }

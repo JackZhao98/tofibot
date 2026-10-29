@@ -31,6 +31,7 @@ import sys
 import tarfile
 import tempfile
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -1666,12 +1667,17 @@ def app_docker_health():
     return None
 
 
+def start_worker(env, first_install=False):
+    """Bring the Worker up and wait for its broker; nothing else is touched."""
+    compose('up', '-d', '--no-build', '--pull', 'never', '--remove-orphans', 'worker', env=env)
+    worker_ready(first_install=first_install)
+
+
 def start_services(env, first_install=False, state=None):
     if env.get('TOFI_RUNNER_IMAGE'):
         ensure_runner_egress_filter()  # before the Runner can run, and again after every reboot
     if has_computer(env):
-        compose('up', '-d', '--no-build', '--pull', 'never', '--remove-orphans', 'worker', env=env)
-        worker_ready(first_install=first_install)
+        start_worker(env, first_install=first_install)
     if state is not None and state.get('transaction') and state['transaction']['kind'] == 'install':
         transition(state, 'installing', 'start-app')
     services = ['app', 'caddy'] if env.get('TOFI_DOMAIN') else ['app']
@@ -4940,6 +4946,112 @@ def prune_guests(keep):
 
 
 # --------------------------------------------------------------------------
+# Talking to the running App (hot attach and detach, computer-decoupling S6)
+#
+# `tofi computer add|remove` ask the App to attach or detach every account's
+# computer instead of restarting it. The App answers /api/host/computer/* only to
+# the token in HOST_CONTROL_TOKEN_NAME inside its data directory, on its loopback
+# port; the Caddyfile does not proxy that path. A server that cannot do it (an
+# older release has no such route, the App was started without the Worker's
+# sockets, the call fails) makes the caller fall back to restarting the App.
+
+HOST_CONTROL_TOKEN_NAME = 'host-control.token'
+HOST_CONTROL_ROUTE = '/api/host/computer/'
+
+
+class HostControlUnavailable(Exception):
+    """The running App cannot do this without a restart (or did not answer)."""
+
+    def __init__(self, reason, status=None):
+        super().__init__(reason)
+        self.status = status
+
+
+def ensure_host_control_token():
+    """The bearer token for the App's host routes; created (0600, App uid) on first use."""
+    path = P.data / HOST_CONTROL_TOKEN_NAME
+    try:
+        token = path.read_text().strip()
+        if len(token) >= 32:
+            return token
+    except FileNotFoundError:
+        pass
+    token = secrets.token_hex(32)
+    temporary = path.with_name(path.name + '.tmp')
+    temporary.unlink(missing_ok=True)
+    fd = os.open(str(temporary), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, 'w') as stream:
+        stream.write(token + '\n')
+    if os.geteuid() == 0:
+        os.chown(str(temporary), APP_UID, APP_UID)
+    os.replace(str(temporary), str(path))
+    return token
+
+
+def host_control(env, operation, body=None, timeout=60):
+    """Call the App's /api/host/computer/<operation>; return the JSON answer on HTTP 200.
+    Anything else raises HostControlUnavailable (with the HTTP status when there was one)."""
+    try:
+        token = ensure_host_control_token()
+    except OSError as error:
+        raise HostControlUnavailable('the host token could not be written (%s)' % error)
+    scheme = app_scheme(env)
+    url = '%s://127.0.0.1:%s%s%s' % (scheme, env.get('TOFI_HTTP_PORT') or DEFAULT_PORT, HOST_CONTROL_ROUTE, operation)
+    handlers = [urllib.request.ProxyHandler({})]
+    if scheme == 'https':
+        # Loopback call to our own self-signed certificate: no verification, the bearer token is the credential.
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        handlers.append(urllib.request.HTTPSHandler(context=context))
+    opener = urllib.request.build_opener(*handlers)
+    data = json.dumps(body).encode() if body is not None else None
+    request = urllib.request.Request(url, data=data, method='GET' if operation == 'state' else 'POST',
+                                     headers={'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'})
+    try:
+        with opener.open(request, timeout=timeout) as response:
+            status, raw = response.status, response.read(1 << 16)
+    except urllib.error.HTTPError as error:
+        status, raw = error.code, error.read(1 << 16)
+    except (OSError, ValueError) as error:
+        raise HostControlUnavailable('the App did not answer (%s)' % error)
+    try:
+        answer = json.loads(raw or b'{}')
+    except ValueError:
+        answer = {}
+    if status != 200:
+        raise HostControlUnavailable('the App answered %d %s' % (status, str(answer.get('code') or answer.get('error') or '')[:60]), status)
+    return answer
+
+
+def attach_computers_hot(env, quiet=False):
+    """Attach every account's computer in the running App. True when it did, False when the App must be restarted."""
+    try:
+        answer = host_control(env, 'attach', timeout=600)
+    except HostControlUnavailable as error:
+        if not quiet:
+            say('The running App cannot take the computer without a restart (%s); restarting it.' % error)
+        return False
+    if not quiet:
+        say('The running App attached the computer (%s attached, %s already attached); no restart.'
+            % (answer.get('attached', 0), answer.get('already_attached', 0)))
+    return True
+
+
+def detach_computers_hot(env, wait_seconds=60):
+    """Detach every account's computer in the running App. True when it did, False when the App must be restarted."""
+    try:
+        answer = host_control(env, 'detach', {'wait_seconds': int(wait_seconds)}, timeout=int(wait_seconds) + 180)
+    except HostControlUnavailable as error:
+        say('The running App cannot drop the computer without a restart (%s); restarting it.' % error)
+        return False
+    say('The running App detached the computer (%s account%s, %s file%s saved from the outbox); no restart.'
+        % (answer.get('detached', 0), '' if answer.get('detached', 0) == 1 else 's',
+           answer.get('outbox_synced', 0), '' if answer.get('outbox_synced', 0) == 1 else 's'))
+    return True
+
+
+# --------------------------------------------------------------------------
 # Adding and removing the computer (`tofi computer add kvm` / `remove`)
 
 
@@ -4998,8 +5110,10 @@ def computer_add(backend='kvm', wait=0, force=False):
 
     Idempotent. Checks the host, fetches the Guest release of the installed
     version, writes worker.json and the AppArmor profile, switches tofi.env to
-    backend kvm, starts the Worker and restarts the App. A failure puts
-    tofi.env back and restarts the App as it was."""
+    backend kvm, starts the Worker and has the App attach the computers (a restart
+    only for an App that cannot do it live: an older release, or one started
+    without the Worker's sockets). A failure puts tofi.env back and restarts the
+    App as it was."""
     if backend != 'kvm':
         raise HostError('Only kvm (Firecracker) computers exist today: tofi computer add kvm.')
     require_root()
@@ -5034,8 +5148,13 @@ def computer_add(backend='kvm', wait=0, force=False):
         apply_computer_files(bundle, computer_config(candidate))
         write_env(candidate)
         try:
-            # The Worker first, then the App: it restarts with the broker sockets in its environment.
-            start_services(candidate, first_install=True)
+            # The Worker first. A running App that already carries the Worker's sockets attaches the
+            # computer without a restart; any other App is restarted with the sockets in its environment.
+            start_worker(candidate, first_install=True)
+            if not attach_computers_hot(candidate):
+                start_services(candidate, first_install=True)
+                # Accounts whose computer an earlier hot remove detached stay detached across a restart.
+                attach_computers_hot(candidate, quiet=True)
         except BaseException as error:
             write_env(env)
             try:
@@ -5049,7 +5168,8 @@ def computer_add(backend='kvm', wait=0, force=False):
 
 
 def computer_remove(purge=False, yes=False, wait=0, force=False, discard_unsaved_files=False):
-    """`tofi computer remove`: stop the Worker, set backend none, restart the App.
+    """`tofi computer remove`: detach the computers in the running App, stop the Worker, set backend none.
+    An App that cannot detach live (an older release) is restarted instead.
 
     The computers' disks, state and the Guest release stay on disk (so
     `tofi computer add kvm` brings them back) unless `purge`. A purge refuses
@@ -5096,16 +5216,24 @@ def computer_remove(purge=False, yes=False, wait=0, force=False, discard_unsaved
                 raise HostError('Cancelled; nothing was changed.')
         if has_computer(env):
             wait_for_idle('removing the computer', wait, force)
-            stop_worker(env)
+            # The App detaches first (it drains calls and saves the outbox while the computers still
+            # answer); then the Worker stops. An App that cannot do that live is restarted without computers.
+            live = detach_computers_hot(env)
             candidate = dict(env)
             candidate.update(computer_env('none'))
-            write_env(candidate)
             try:
-                start_services(candidate)
+                stop_worker(env)
+                write_env(candidate)
+                if not live:
+                    start_services(candidate)
             except BaseException as error:
                 write_env(env)
                 try:
-                    start_services(env)
+                    if live:
+                        start_worker(env)
+                        attach_computers_hot(env, quiet=True)
+                    else:
+                        start_services(env)
                 except (HostError, OSError, subprocess.SubprocessError) as restore_error:
                     warn('Could not restart TOFI as it was (%s); run `sudo tofi start`.' % restore_error)
                 raise HostError('Removing the computer failed (%s); tofi.env is back as it was.' % error) from error

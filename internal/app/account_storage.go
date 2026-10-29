@@ -51,7 +51,7 @@ type snapshotDetail struct {
 // that day) and drops rows older than 90 days.
 func (g *AccountGateway) recordStorageSnapshot(a Account, rep StorageReport) {
 	var comp *ComputerUsage
-	if g.config.AccountProvisionerSocket != "" {
+	if g.provisioner() != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		comp = g.computerUsageFor(ctx, a)
 		cancel()
@@ -83,7 +83,7 @@ func (g *AccountGateway) recordStorageSnapshot(a Account, rep StorageReport) {
 
 // computerDisks returns the host's per-computer disk figures, cached for 60 s.
 func (g *AccountGateway) computerDisks(ctx context.Context) map[string]accountDiskCapacity {
-	if g.config.AccountProvisionerSocket == "" {
+	if g.provisioner() == "" {
 		return nil
 	}
 	g.storageMu.Lock()

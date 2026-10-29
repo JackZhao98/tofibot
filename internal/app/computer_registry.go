@@ -6,8 +6,9 @@ package app
 // types hold several personal computers once the client exists.
 //
 // Rules, each enforced here and proved in computer_attach_test.go:
-//   - one lock per computer: a computer is operated by one Bot at a time, and
-//     two computers are operated by different Bots at the same time;
+//   - one lock per computer: a computer is operated by one Bot at a time (the
+//     lock is a lease per tool call, handed to waiting Bots in arrival order),
+//     and two computers are operated by different Bots at the same time;
 //   - attach and detach need no restart; a run keeps working across both;
 //   - a detach first stops new calls, waits for the running ones (with a
 //     timeout), copies the outbox to the server, and only then cancels what is
@@ -69,7 +70,8 @@ type computerSlot struct {
 	owner   string // Bot holding the operator lock ("" = free)
 	ownerBy string // run that took it
 	depth   int
-	changed chan struct{} // closed and replaced on every change of state, active or owner
+	waiters []*computerWaiter // Bots queued for the lock, in arrival order
+	changed chan struct{}     // closed and replaced on every change of state, active or owner
 }
 
 func newComputerSlot(p computer.Provider, rowKind, region string) *computerSlot {
@@ -144,33 +146,109 @@ func (c *computerSlot) lostOrDetachedError() error {
 	return tooloutcome.New(tooloutcome.Permanent, code, "unknown", msg, "explain_blocker").Err()
 }
 
-// acquire takes the operator lock for a Bot. The same Bot may take it again
-// (reentrant per run); another Bot waits until the holder's run ends, the call
-// context ends, or the computer goes away. This is "one lock per computer".
+// computerWaiter is a Bot queued for the operator lock.
+type computerWaiter struct {
+	botID, runID string
+	ch           chan struct{} // closed when the waiter is granted the lock or the queue is cleared
+	granted      bool
+}
+
+// acquire takes the operator lock for one call of a Bot. The lock is a lease
+// per tool call (like the VM's desktop lease): the caller releases it when the
+// call ends, so Bots alternate on a busy computer instead of the first one
+// keeping it until its run is over. Waiters are served in arrival order and the
+// lock is handed straight to the next one, so a Bot that calls again at once
+// queues behind them. The same run may take it again while it holds it (parallel
+// calls of one run); another Bot waits until the call context ends or the
+// computer goes away. This is "one lock per computer".
 func (c *computerSlot) acquire(ctx context.Context, botID, runID string) (func(), error) {
+	var w *computerWaiter
+	granted := func() (func(), error) { return func() { c.release(botID, runID) }, nil }
 	for {
 		c.mu.Lock()
 		if c.state != slotAttached {
 			state := c.state
+			held := w != nil && w.granted
+			c.dequeueLocked(w)
 			c.mu.Unlock()
+			if held { // the lock was handed over as the computer went away
+				c.release(botID, runID)
+			}
 			return nil, slotRefusal(state)
 		}
-		if c.owner == "" || (c.owner == botID && c.ownerBy == runID) {
-			c.owner, c.ownerBy = botID, runID
+		if w != nil && w.granted {
+			c.mu.Unlock()
+			return granted()
+		}
+		if c.owner == botID && c.ownerBy == runID {
+			c.dequeueLocked(w)
 			c.depth++
 			c.notifyLocked()
 			c.mu.Unlock()
-			return func() { c.release(botID, runID) }, nil
+			return granted()
 		}
-		wait := c.changed
+		if c.owner == "" && (len(c.waiters) == 0 || (w != nil && c.waiters[0] == w)) {
+			c.dequeueLocked(w)
+			c.owner, c.ownerBy, c.depth = botID, runID, 1
+			c.notifyLocked()
+			c.mu.Unlock()
+			return granted()
+		}
+		if w == nil {
+			w = &computerWaiter{botID: botID, runID: runID, ch: make(chan struct{})}
+			c.waiters = append(c.waiters, w)
+		}
+		slotDone := c.ctx.Done()
 		c.mu.Unlock()
 		select {
 		case <-ctx.Done():
+			c.mu.Lock()
+			if w.granted { // the lock arrived as the wait ended: pass it on
+				c.mu.Unlock()
+				c.release(botID, runID)
+			} else {
+				c.dequeueLocked(w)
+				c.mu.Unlock()
+			}
 			return nil, tooloutcome.New(tooloutcome.Transient, codeComputerBusy, "not_executed", "Another Bot is using this computer. Try again later or continue without it.", "retry").Err()
-		case <-c.ctx.Done():
-		case <-wait:
+		case <-w.ch:
+			c.mu.Lock()
+			if !w.granted { // the queue was cleared (detach or loss): look at the state again
+				w = nil
+			}
+			c.mu.Unlock()
+		case <-slotDone:
+			c.mu.Lock()
+			c.dequeueLocked(w)
+			w = nil
+			c.mu.Unlock()
 		}
 	}
+}
+
+// dequeueLocked removes a waiter that has not been granted. Caller holds mu.
+func (c *computerSlot) dequeueLocked(w *computerWaiter) {
+	if w == nil || w.granted {
+		return
+	}
+	for i, q := range c.waiters {
+		if q == w {
+			c.waiters = append(c.waiters[:i], c.waiters[i+1:]...)
+			return
+		}
+	}
+}
+
+// grantNextLocked hands a free lock to the first waiter. Caller holds mu.
+func (c *computerSlot) grantNextLocked() {
+	if c.owner != "" || len(c.waiters) == 0 {
+		return
+	}
+	w := c.waiters[0]
+	c.waiters = c.waiters[1:]
+	w.granted = true
+	c.owner, c.ownerBy, c.depth = w.botID, w.runID, 1
+	close(w.ch)
 }
 
 func (c *computerSlot) release(botID, runID string) {
@@ -180,6 +258,7 @@ func (c *computerSlot) release(botID, runID string) {
 		c.depth--
 		if c.depth == 0 {
 			c.owner, c.ownerBy = "", ""
+			c.grantNextLocked()
 		}
 		c.notifyLocked()
 	}
@@ -191,6 +270,7 @@ func (c *computerSlot) releaseRun(runID string) {
 	defer c.mu.Unlock()
 	if c.ownerBy == runID && c.owner != "" {
 		c.owner, c.ownerBy, c.depth = "", "", 0
+		c.grantNextLocked()
 		c.notifyLocked()
 	}
 }
@@ -200,6 +280,10 @@ func (c *computerSlot) releaseRun(runID string) {
 func (c *computerSlot) forceFree() {
 	c.mu.Lock()
 	c.owner, c.ownerBy, c.depth = "", "", 0
+	for _, w := range c.waiters { // they look at the state again and are refused
+		close(w.ch)
+	}
+	c.waiters = nil
 	c.cancel()
 	c.notifyLocked()
 	c.mu.Unlock()
@@ -332,7 +416,7 @@ func (s *Server) computerActionOn(ctx context.Context, r Run, id, name string, a
 	if err != nil {
 		return "", err
 	}
-	_ = releaseLock // held until the run ends: releaseComputerHolds(runID)
+	defer releaseLock() // a lease per call: the next Bot in line gets the computer when this call ends
 	callCtx, done, err := slot.begin(ctx, false)
 	if err != nil {
 		return "", err

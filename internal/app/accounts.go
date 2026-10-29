@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -44,9 +45,12 @@ type AccountGateway struct {
 	closed              bool
 	runtimeFactory      func(Config) (*Server, error)
 	legacyComputerPhase string
-	deleteRunning       map[string]bool
-	runnerKey           runnerMasterKey
-	runnerEpochs        runnerEpochCache
+	// computerOff is set by the host while it has detached the computers: no
+	// reservation, ensure or reclaim goes to the Worker, and new workspaces start detached.
+	computerOff   atomic.Bool
+	deleteRunning map[string]bool
+	runnerKey     runnerMasterKey
+	runnerEpochs  runnerEpochCache
 	// deleteHook lets tests fail a deletion step; nil in production.
 	deleteHook func(step string) error
 	downloads  downloadLimiter
@@ -359,6 +363,7 @@ func (g *AccountGateway) workspace(a Account) (*Server, error) {
 			return nil, errors.New("absolute account socket root required")
 		}
 		c.ComputerSocket = filepath.Join(g.config.AccountComputerSocketRoot, g.computerIdentity(a), "control.sock")
+		c.ComputerStartDetached = g.computerOff.Load()
 		c.ComputerEnsure = func(ctx context.Context) error {
 			if g.config.AccountMaintenance {
 				return errors.New("account computer startup is fenced during maintenance")
@@ -396,6 +401,9 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 	}
 	if !strings.HasPrefix(r.URL.Path, "/api/") {
 		g.root.handle(w, r)
+		return
+	}
+	if strings.HasPrefix(r.URL.Path, hostControlRoute) && g.serveHost(w, r) {
 		return
 	}
 	if g.config.AccountMaintenance && r.Method != http.MethodGet && r.Method != http.MethodHead && r.URL.Path != "/api/auth/login" && r.URL.Path != "/api/auth/logout" {

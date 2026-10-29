@@ -203,6 +203,12 @@ type Config struct {
 	AccountComputerDiskGiB    int
 	AccountLegacyComputerUUID string
 	AccountMaintenance        bool
+	// HostControlTokenFile is the file whose content authorizes the host's
+	// /api/host/computer/* calls (host_control.go). Empty or absent: no such route.
+	HostControlTokenFile string
+	// ComputerStartDetached keeps the computer client factory but does not attach
+	// at start (the host has detached the computers).
+	ComputerStartDetached bool
 	// Tenant Runner endpoints must be explicitly provisioned; no global fallback.
 	LocalRunnerURL, LocalRunnerTokenFile string
 	// LocalRunnerTokenFunc yields this account's bearer token on the Runner
@@ -2842,7 +2848,7 @@ func NewServer(c Config) (*Server, error) {
 			}
 			return client, nil
 		}
-		if !st.vmDetachedByAdmin() {
+		if !st.vmDetachedByAdmin() && !c.ComputerStartDetached {
 			if microVM, e = computerFactory(); e != nil {
 				st.Close()
 				return nil, e

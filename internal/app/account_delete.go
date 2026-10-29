@@ -257,7 +257,7 @@ func (g *AccountGateway) deleteStep(ctx context.Context, step string, a Account)
 }
 
 func (g *AccountGateway) deleteComputer(ctx context.Context, id string) error {
-	if g.config.AccountProvisionerSocket == "" {
+	if g.provisioner() == "" {
 		return nil // no Worker: this deployment has no computer to reclaim
 	}
 	// A deactivation whose broker call failed (503 computer_transition_pending)

@@ -199,6 +199,9 @@ services:
       # inside the App only ever receives a function that yields its own token, never the key.
       TOFI_RUNNER_URL: ${TOFI_RUNNER_URL:-}
       TOFI_RUNNER_MASTER_KEY_FILE: ${TOFI_RUNNER_MASTER_KEY_FILE:-}
+      # `tofi computer add|remove` attach and detach the computers in the running App with this
+      # token (created by tofi on first use; the route answers 404 until the file exists).
+      TOFI_HOST_CONTROL_TOKEN_FILE: /app/data/host-control.token
     # Direct mode publishes HTTPS on TOFI_BIND (0.0.0.0 by default, 127.0.0.1
     # with --local-only). With --domain the installer sets TOFI_BIND=127.0.0.1,
     # so only Caddy is reachable from outside; the loopback port serves health checks.

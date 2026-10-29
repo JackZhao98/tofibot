@@ -88,6 +88,7 @@ func newConfiguredServer(config app.Config, getenv func(string) string) (applica
 		return nil, fmt.Errorf("TOFI_ACCOUNT_MAINTENANCE must be 0 or 1")
 	}
 	config.AccountMaintenance = maintenance == "1"
+	config.HostControlTokenFile = getenv("TOFI_HOST_CONTROL_TOKEN_FILE")
 	if value := getenv("TOFI_ACCOUNT_DB_MAX_BYTES"); value != "" {
 		limit, err := strconv.ParseInt(value, 10, 64)
 		if err != nil || limit <= 0 {

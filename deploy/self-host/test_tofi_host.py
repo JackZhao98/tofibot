@@ -11,6 +11,8 @@ import os
 import re
 from pathlib import Path
 import shutil
+import socket
+import stat
 import subprocess
 import sys
 import tempfile
@@ -2306,6 +2308,10 @@ class ComputerAddRemoveTests(NoComputerCase):
         super().setUp()
         self.kvm_host()
         self.preflight = mock.patch.object(tofi_host, 'computer_add_preflight', return_value=[]).start()
+        # By default the running App cannot attach or detach live, so the restart path runs (as for an older release).
+        self.start_worker = mock.patch.object(tofi_host, 'start_worker').start()
+        self.host_control = mock.patch.object(tofi_host, 'host_control',
+                                              side_effect=tofi_host.HostControlUnavailable('older release', 404)).start()
         self.running = []
         mock.patch.object(tofi_host, 'project_containers', side_effect=lambda: list(self.running)).start()
 
@@ -2337,6 +2343,39 @@ class ComputerAddRemoveTests(NoComputerCase):
         self.assertEqual(self.phase(), 'installed')
         self.assertEqual((self.P.data / 'tofi.db').read_bytes(), DATA)
         self.assertIn('Computer added', sys.stdout.getvalue())
+
+    def test_add_attaches_live_when_the_running_app_can(self):
+        self.installed_none()
+        self.host_control.side_effect = None
+        self.host_control.return_value = {'attached': 2, 'already_attached': 0, 'failed': []}
+        result = tofi_host.computer_add('kvm')
+        self.assertEqual(result, {'added': True, 'computer': 'kvm'})
+        self.start_worker.assert_called_once()
+        self.assertTrue(self.start_worker.call_args.kwargs['first_install'])
+        self.host_control.assert_called_once()
+        self.assertEqual(self.host_control.call_args.args[1], 'attach')
+        self.start_services.assert_not_called()   # the App was not restarted
+        self.assertEqual(tofi_host.read_env()['TOFI_COMPUTER_BACKEND'], 'kvm')
+        self.assertIn('no restart', sys.stdout.getvalue())
+
+    def test_add_restarts_an_app_started_without_the_workers_sockets_then_attaches(self):
+        self.installed_none()
+        self.host_control.side_effect = [tofi_host.HostControlUnavailable('the App answered 409', 409),
+                                         {'attached': 0, 'already_attached': 2}]
+        self.assertTrue(tofi_host.computer_add('kvm')['added'])
+        self.start_services.assert_called_once()
+        self.assertEqual([c.args[1] for c in self.host_control.call_args_list], ['attach', 'attach'])
+        self.assertIn('restarting it', sys.stdout.getvalue())
+
+    def test_add_failure_after_the_live_attach_started_puts_tofi_env_back(self):
+        env = self.installed_none()
+        self.host_control.side_effect = None
+        self.host_control.return_value = {'attached': 1}
+        self.start_worker.side_effect = tofi_host.HostError('worker not ready')
+        with self.assertRaisesRegex(tofi_host.HostError, 'Adding the computer failed'):
+            tofi_host.computer_add('kvm')
+        self.assertEqual(tofi_host.read_env()['TOFI_COMPUTER_BACKEND'], 'none')
+        self.host_control.assert_not_called()
 
     def test_add_is_idempotent(self):
         self.installed_none()
@@ -2436,6 +2475,35 @@ class ComputerAddRemoveTests(NoComputerCase):
         self.fetch_guest.reset_mock()
         self.assertTrue(tofi_host.computer_add('kvm')['added'])
         self.assertEqual((self.P.worker / 'state' / 'acct' / 'workspace.ext4').read_bytes(), b'disk')
+
+    def test_remove_detaches_live_before_the_worker_stops_and_does_not_restart_the_app(self):
+        self.installed()
+        order = []
+
+        def detach(env, operation, body=None, timeout=60):
+            order.append(('host', operation, body, len(self.compose_calls())))
+            return {'detached': 2, 'interrupted': 0, 'outbox_synced': 1, 'failed': 0}
+        self.host_control.side_effect = detach
+        result = tofi_host.computer_remove()
+        self.assertEqual(result, {'removed': True, 'computer': 'none', 'purged': False})
+        self.assertEqual(order[0][:3], ('host', 'detach', {'wait_seconds': 60}))
+        stop_at = next(i for i, c in enumerate(self.compose_calls()) if c[-2:] == ['stop', 'worker'])
+        self.assertLessEqual(order[0][3], stop_at, 'the App detaches before the Worker stops')
+        self.start_services.assert_not_called()
+        self.assertEqual(tofi_host.read_env()['TOFI_COMPUTER_BACKEND'], 'none')
+        self.assertIn('no restart', sys.stdout.getvalue())
+
+    def test_remove_failure_after_a_live_detach_attaches_again_and_restores_tofi_env(self):
+        self.installed()
+        self.host_control.side_effect = None
+        self.host_control.return_value = {'detached': 1, 'outbox_synced': 0}
+        with mock.patch.object(tofi_host, 'stop_worker', side_effect=tofi_host.HostError('docker is stuck')):
+            with self.assertRaisesRegex(tofi_host.HostError, 'Removing the computer failed'):
+                tofi_host.computer_remove()
+        self.assertEqual(tofi_host.read_env()['TOFI_COMPUTER_BACKEND'], 'kvm')
+        self.start_worker.assert_called_once()
+        self.assertEqual([c.args[1] for c in self.host_control.call_args_list], ['detach', 'attach'])
+        self.start_services.assert_not_called()
 
     def test_remove_purge_deletes_the_computer_state(self):
         self.installed()
@@ -2993,6 +3061,90 @@ class RunnerDowngradeGuardTests(LifecycleBase):
         self.installed()
         self.write(self.P.data / 'local-runner.json', json.dumps({'state': 'container'}))
         self.assertEqual(tofi_host.container_runner_accounts(), ['owner'])
+
+
+
+class HostControlClientTests(NoComputerCase):
+    """The host's call to the running App, against a real loopback server."""
+
+    def serve(self, status=200, body=None):
+        import http.server
+        import threading
+        seen = []
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_any(handler):
+                length = int(handler.headers.get('Content-Length') or 0)
+                seen.append((handler.command, handler.path, handler.headers.get('Authorization'),
+                             handler.rfile.read(length) if length else b''))
+                data = json.dumps(body if body is not None else {'attached': 1}).encode()
+                handler.send_response(status)
+                handler.send_header('Content-Type', 'application/json')
+                handler.send_header('Content-Length', str(len(data)))
+                handler.end_headers()
+                handler.wfile.write(data)
+            do_GET = do_POST = do_any
+
+            def log_message(handler, *args):
+                pass
+        server = http.server.HTTPServer(('127.0.0.1', 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        return server.server_address[1], seen
+
+    def test_the_token_is_created_once_private_and_reused(self):
+        self.installed_none()
+        token = tofi_host.ensure_host_control_token()
+        path = self.P.data / tofi_host.HOST_CONTROL_TOKEN_NAME
+        self.assertGreaterEqual(len(token), 32)
+        self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+        self.assertEqual(tofi_host.ensure_host_control_token(), token)
+        self.assertEqual(path.read_text().strip(), token)
+
+    def test_a_call_carries_the_token_and_returns_the_answer(self):
+        env = self.installed_none()
+        port, seen = self.serve(body={'attached': 3})
+        env = dict(env, TOFI_HTTP_PORT=str(port), TOFI_TLS_CERT_FILE='')
+        answer = tofi_host.host_control(env, 'attach')
+        self.assertEqual(answer, {'attached': 3})
+        method, path, authorization, _ = seen[0]
+        self.assertEqual((method, path), ('POST', '/api/host/computer/attach'))
+        self.assertEqual(authorization, 'Bearer ' + tofi_host.ensure_host_control_token())
+        tofi_host.host_control(env, 'detach', {'wait_seconds': 5})
+        self.assertEqual(json.loads(seen[1][3]), {'wait_seconds': 5})
+        tofi_host.host_control(env, 'state')
+        self.assertEqual(seen[2][0], 'GET')
+
+    def test_anything_but_200_means_the_app_must_be_restarted(self):
+        env = self.installed_none()
+        for status, body in ((404, {'error': 'not found'}), (401, {'code': 'unauthorized'}),
+                             (409, {'code': 'computer_backend_unavailable'}), (502, {'failed': ['a']})):
+            port, _ = self.serve(status, body)
+            with self.assertRaises(tofi_host.HostControlUnavailable) as caught:
+                tofi_host.host_control(dict(env, TOFI_HTTP_PORT=str(port), TOFI_TLS_CERT_FILE=''), 'attach')
+            self.assertEqual(caught.exception.status, status)
+
+    def test_an_app_that_does_not_answer_is_not_an_error_for_the_caller(self):
+        env = self.installed_none()
+        sock = socket.socket()
+        sock.bind(('127.0.0.1', 0))
+        port = sock.getsockname()[1]
+        sock.close()   # nothing listens here now
+        env = dict(env, TOFI_HTTP_PORT=str(port), TOFI_TLS_CERT_FILE='')
+        self.assertFalse(tofi_host.attach_computers_hot(env, quiet=True))
+        self.assertFalse(tofi_host.detach_computers_hot(env, 1))
+
+    def test_the_caddyfile_never_proxies_the_host_route(self):
+        text = tofi_host.render_caddyfile(Path(__file__).parent, 'tofi.example.com', '')
+        self.assertIn('@host path /api/host/*', text)
+        self.assertLess(text.index('respond @host 404'), text.index('reverse_proxy'))
+
+    def test_compose_gives_the_app_the_token_file(self):
+        text = (HERE / 'compose.yaml').read_text()
+        app = text.split('  app:')[1].split('  caddy:')[0]
+        self.assertIn('TOFI_HOST_CONTROL_TOKEN_FILE: /app/data/host-control.token', app)
 
 
 if __name__ == '__main__':
