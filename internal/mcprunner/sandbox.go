@@ -113,6 +113,9 @@ func (c SandboxConfig) enabled() bool {
 
 // unavailable applies a mode to a failure: required stops, auto logs, off ignores.
 func unavailable(mode SandboxMode, what string, err error) error {
+	if err == nil {
+		return nil
+	}
 	switch mode {
 	case SandboxRequired:
 		return fmt.Errorf("sandbox: %s is required but unavailable: %w", what, err)

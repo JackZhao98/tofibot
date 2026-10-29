@@ -209,7 +209,7 @@ func newSandboxHub(t *testing.T, cfg SandboxConfig) (*Hub, string) {
 }
 
 func helper(ctx context.Context, spec Spec, args ...string) (string, error) {
-	all := append([]string{"-test.run=^TestSandboxHelperProcess$", "--sandbox-helper"}, args...)
+	all := append([]string{"-test.run=^TestSandboxHelperProcess$", "--", "--sandbox-helper"}, args...)
 	out, err := runGog(ctx, spec, nil, all...)
 	return strings.TrimSpace(string(out)), err
 }

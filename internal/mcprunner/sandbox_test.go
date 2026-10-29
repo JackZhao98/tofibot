@@ -2,6 +2,7 @@ package mcprunner
 
 import (
 	"encoding/json"
+	"errors"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -298,5 +299,17 @@ func TestRunnerRefusesInstallAndStartWhenAdmitSaysNo(t *testing.T) {
 	defer r.Close()
 	if err := r.admit(); err != ErrOverQuota {
 		t.Fatalf("admit: %v", err)
+	}
+}
+
+// A part that came up must not be reported as unavailable, in any mode.
+func TestSandboxAvailablePartIsNeverReportedUnavailable(t *testing.T) {
+	for _, mode := range []SandboxMode{SandboxRequired, SandboxAuto, SandboxOff} {
+		if err := unavailable(mode, "part", nil); err != nil {
+			t.Fatalf("mode %v: %v", mode, err)
+		}
+	}
+	if err := unavailable(SandboxRequired, "part", errors.New("missing")); err == nil {
+		t.Fatal("a required part that failed must be an error")
 	}
 }
