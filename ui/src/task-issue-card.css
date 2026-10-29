@@ -95,3 +95,6 @@
 .task-step-group>details[open]:not([data-drawer=closing])>summary .task-step-chevron{transform:rotate(90deg)}
 .task-step-group>details[data-drawer=closing]>summary .task-step-chevron{transition-duration:var(--m-panel-out)}
 @media(prefers-reduced-motion:reduce){.task-step-chevron{transition:none}}
+/* A failure whose retry already started folds to one quiet line; the live run below is the focus. */
+.task-issue-retried{display:flex;align-items:center;gap:var(--space-2);margin:0;padding:var(--space-2) var(--space-3);border:1px solid var(--border-soft);border-radius:var(--radius-md);background:var(--surface-sunk);color:var(--text-secondary);font:var(--type-meta)}
+.task-issue-retried:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}

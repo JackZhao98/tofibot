@@ -25,6 +25,10 @@
       "retry": "重試"
     },
     "working": "處理中…",
+    "retrying": "正在重試…",
+    "retried": "已重試，新的執行在下方。",
+    "retry_failed": "重試沒有開始，請再試一次。",
+    "retry_failed_reason": "重試沒有開始：{{error}}",
     "copied": "已複製診斷資訊。",
     "copy_failed": "無法複製，請選取下方診斷資訊後手動複製。",
     "status_unavailable": "部分狀態暫時無法更新。已確認的紀錄會保留。",

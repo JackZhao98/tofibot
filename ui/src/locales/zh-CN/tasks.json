@@ -25,6 +25,10 @@
       "retry": "重试"
     },
     "working": "处理中…",
+    "retrying": "正在重试…",
+    "retried": "已重试，新的运行在下方。",
+    "retry_failed": "重试没有开始，请再试一次。",
+    "retry_failed_reason": "重试没有开始：{{error}}",
     "copied": "已复制诊断信息。",
     "copy_failed": "未能复制，请选择下方诊断信息后手动复制。",
     "status_unavailable": "部分状态暂时无法更新。已确认的记录保留。",

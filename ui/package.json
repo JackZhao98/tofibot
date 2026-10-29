@@ -60,6 +60,7 @@
     "test:composer-typing": "node scripts/test-composer-typing.mjs",
     "test:sidebar-pins": "node scripts/test-sidebar-pins.mjs",
     "test:timeline-rows": "node scripts/test-timeline-rows.mjs",
+    "test:retry-feedback": "node scripts/test-retry-feedback.mjs",
     "test:task-cards": "node scripts/test-task-cards.mjs",
     "test:surfaces": "node scripts/test-surfaces.mjs",
     "test:widgets-auto": "node scripts/test-widgets-auto.mjs",
