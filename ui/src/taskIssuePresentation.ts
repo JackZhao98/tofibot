@@ -230,9 +230,10 @@ export function presentTaskIssue({ run, family, tools = [], questions = [], draf
   if (kind === "expired") facts.push(phase === "finishing" ? t("fact.finishing_results_kept") : t("fact.stopped_results_kept"));
   if (tools.some(tool => toolExecutionState(tool) === "completed")) facts.push(t("fact.completed_steps_kept"));
   if (replied && kind === "unknown_failure") facts.push(t("fact.reply_below"));
-  // With a recorded step count, the loaded steps decide; without one, the page flag does.
+  // Records are complete when any one source proves it: a recorded zero, every page of the run's steps read, or
+  // as many loaded steps as the recorded count. A summary alone never overrules a finished read of the pages.
   const loadedCount = tools.filter(tool => tool.run_id === run.id).length;
-  const complete = noToolSteps || (summary ? loadedCount >= summary.tool_count : recordsComplete);
+  const complete = noToolSteps || recordsComplete || (summary !== undefined && loadedCount >= summary.tool_count);
   const secondary = causes.filter(cause => cause !== kind && cause !== "unknown_failure").map(cause => cause === "provider_busy" ? t("secondary.then_provider_busy") : t(`issue.title.${cause}`));
   if (!complete) secondary.push(t("secondary.records_incomplete"));
   evidence.push({ source: "run", id: run.id, status: run.status, code: overloaded ? "server_is_overloaded" : run.failure?.code, model: run.model, updatedAt: run.updated_at });

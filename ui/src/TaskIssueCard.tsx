@@ -11,6 +11,7 @@ export function TaskIssueCard({ issue, locale, onAction, onRetry, onFeedback, on
   const diagnostics = useRef<HTMLPreElement>(null);
   const inFlight = useRef(false);
   const [busy, setBusy] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [feedback, setFeedback] = useState("");
   const { t } = useTranslation("tasks", { lng: locale });
   const diagnosticText = taskDiagnostics(issue);
@@ -18,7 +19,7 @@ export function TaskIssueCard({ issue, locale, onAction, onRetry, onFeedback, on
   function report(text: string) { setFeedback(text); onFeedback?.(text); }
   async function act(retry = false) {
     if (inFlight.current) return;
-    inFlight.current = true; setBusy(true); setFeedback("");
+    inFlight.current = true; setBusy(true); setRetrying(retry); setFeedback("");
     try {
       if (retry) await onRetry?.();
       else
@@ -33,9 +34,10 @@ export function TaskIssueCard({ issue, locale, onAction, onRetry, onFeedback, on
           diagnostics.current?.focus();
         }
       } else await onAction?.();
-    } catch {
-      report(t("issue.status_unavailable"));
-    } finally { inFlight.current = false; setBusy(false); }
+    } catch (cause) {
+      // A refused retry names its reason beside the button that asked; the button comes back.
+      report(retry ? (cause instanceof Error && cause.message ? t("issue.retry_failed_reason", { error: cause.message }) : t("issue.retry_failed")) : t("issue.status_unavailable"));
+    } finally { inFlight.current = false; setBusy(false); setRetrying(false); }
   }
   return <section className="task-issue-card" data-issue-kind={issue.kind} data-issue-phase={issue.phase} aria-labelledby={heading} aria-busy={busy}>
     <div className="task-issue-heading"><TofiIcon name={issue.kind === "tool_setup" ? "plug" : "alert"} size={20} aria-hidden="true" /><h3 id={heading} tabIndex={-1}>{issue.title}</h3></div>
@@ -45,7 +47,7 @@ export function TaskIssueCard({ issue, locale, onAction, onRetry, onFeedback, on
       return <p className="task-issue-fact" key={index}>{link && onOpenStep && fact.startsWith(link.label) ? <><button type="button" className="task-fact-link" onClick={() => onOpenStep(link.runId, link.callId)}>{link.label}</button>{fact.slice(link.label.length)}</> : fact}</p>;
     })}
     {issue.secondary.map((cause, index) => <p className="task-issue-context" key={index}>{cause}</p>)}
-    <div className="task-issue-actions">{issue.retryable && onRetry && <button type="button" className="primary-button" disabled={busy} data-issue-retry="true" onClick={() => void act(true)}>{busy ? t("issue.working") : t("issue.action.retry")}</button>}<button type="button" className="secondary-button" disabled={busy} onClick={() => void act()}>{issue.action === "copy_diagnostics" && <TofiIcon name="copy" size={16} aria-hidden="true" />}{busy ? t("issue.working") : issue.actionLabel}</button></div>
+    <div className="task-issue-actions">{issue.retryable && onRetry && <button type="button" className="primary-button" disabled={busy} data-issue-retry="true" onClick={() => void act(true)}>{retrying ? t("issue.retrying") : t("issue.action.retry")}</button>}<button type="button" className="secondary-button" disabled={busy} onClick={() => void act()}>{issue.action === "copy_diagnostics" && <TofiIcon name="copy" size={16} aria-hidden="true" />}{busy && !retrying ? t("issue.working") : issue.actionLabel}</button></div>
     <details className="task-issue-technical" ref={details}><summary>{t("step.technical_details")}</summary><pre ref={diagnostics} tabIndex={0} aria-label={t("issue.diagnostics")}>{taskDiagnostics(issue)}</pre></details>
     {feedback && <p className="task-issue-feedback">{feedback}</p>}
   </section>;

@@ -25,6 +25,10 @@
       "retry": "Réessayer"
     },
     "working": "En cours…",
+    "retrying": "Nouvelle tentative…",
+    "retried": "Relancée. La nouvelle exécution est en dessous.",
+    "retry_failed": "La nouvelle tentative n’a pas démarré. Réessayez.",
+    "retry_failed_reason": "La nouvelle tentative n’a pas démarré : {{error}}",
     "copied": "Diagnostic copié.",
     "copy_failed": "La copie a échoué. Sélectionnez le diagnostic ci-dessous et copiez-le manuellement.",
     "status_unavailable": "Certaines mises à jour d’état sont indisponibles. Les enregistrements confirmés sont conservés.",

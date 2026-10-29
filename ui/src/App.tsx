@@ -2403,7 +2403,7 @@ function Workspace() {
   const ownedAttemptKeys = new Set(taskOwners.flatMap(owner => owner.family.attempts.map(run => `${run.id}|${run.bot_id}|${run.conversation_id}`)));
   const ownedBy = (item: { run_id: string; bot_id: string; conversation_id: string }) => ownedAttemptKeys.has(`${item.run_id}|${item.bot_id}|${item.conversation_id}`);
   function renderPlacement({ owner, key, segment }: OwnerPlacement) {
-    return <TaskRunBlock key={key} segment={segment} replying={replyingRunIDs.has(owner.family.latest.id)} hideActivity={!showActivity} revealed={ownerRevealed(owner)} owner={owner} senderHead={active?.kind === "group" ? <SenderHead id={owner.family.latest.bot_id} name={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} /> : undefined} liveStatus={runLiveStatus(owner.family.latest)} onRetryRun={retryRun} tools={loadedToolActivities} questions={questions.items} drafts={mailDrafts.items} messages={messageRecords} summaries={terminalToolSummaries} details={toolDetailState} connected={linkConnected} botName={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} showName={active?.kind === "group"}
+    return <TaskRunBlock key={key} segment={segment} replying={replyingRunIDs.has(owner.family.latest.id)} hideActivity={!showActivity} revealed={ownerRevealed(owner)} owner={owner} senderHead={active?.kind === "group" ? <SenderHead id={owner.family.latest.bot_id} name={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} /> : undefined} liveStatus={runLiveStatus(owner.family.latest)} onRetryRun={startRetry} retriedBy={retryChildByParent.get(owner.family.latest.id)} tools={loadedToolActivities} questions={questions.items} drafts={mailDrafts.items} messages={messageRecords} summaries={terminalToolSummaries} details={toolDetailState} connected={linkConnected} botName={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} showName={active?.kind === "group"}
       onOpenTools={() => openSettings("connections")}
       onFeedback={text => window.dispatchEvent(new CustomEvent("tofi:task-feedback", {detail:{conversationId:owner.family.latest.conversation_id,text}}))}
       onRefresh={refreshTaskStatus} onLoadDetails={loadToolDetails}
@@ -2482,13 +2482,17 @@ function Workspace() {
     await refreshIndex();
   }
 
-  async function retryRun(id: string): Promise<void> {
-    try {
-      const run = await api.retryRun(id);
-      setRuns((current) => mergeRunUpdates(current, [run]));
-      setError("");
-    } catch (cause) { setError(errorText(cause)); }
+  /** Starts the retry and resolves once the server returned the new run; rejects so the asking card can show the reason beside its own button. */
+  async function startRetry(id: string): Promise<void> {
+    const run = await api.retryRun(id);
+    setRuns((current) => mergeRunUpdates(current, [run]));
+    setError("");
   }
+  async function retryRun(id: string): Promise<void> {
+    try { await startRetry(id); } catch (cause) { setError(errorText(cause)); }
+  }
+  // A failed run that has a retry child is superseded: its card folds to a one-line note.
+  const retryChildByParent = useMemo(() => { const map = new Map<string, Run>(); for (const run of runs) if (run.parent_run_id) map.set(run.parent_run_id, run); return map; }, [runs]);
 
   // Sender grouping reads and writes the list's DOM: run it when what the list shows changes, not on every render.
   // A visit that lands on the newest messages draws only those first (about a screen); the earlier blocks of the loaded
