@@ -24,7 +24,7 @@ try {
  const incident=scenario("incident"), issue=view(incident), html=markup(incident);
  // The blocked step is red on the step itself; only the run-level overload raises a card.
  assert.equal(issue.kind,"provider_busy");assert(!issue.facts.join(" ").includes("本次工具调用未执行"));assert(!issue.secondary.join(" ").includes("执行前检查"));
- assert(html.includes('task-step is-not_executed is-problem'));assert(html.includes("task-step-problem"));assert(html.includes("执行前检查缺少必要信息"));assert(html.includes("复制诊断信息"));
+ assert(html.includes('task-step is-not_executed is-problem'));assert(html.includes("task-step-problem"));assert(html.includes("执行前检查缺少必要信息"));assert(!html.includes("复制诊断信息"));
  assert.equal((html.match(/class="task-issue-card"/g)||[]).length,1);assert(!html.includes("data-valid-proposal"));assert(!html.includes('role="status"'));
  const diagnostic=p.taskDiagnostics(issue);for(const secret of ["PRIVATE_SECRET","PRIVATE_BODY","PRIVATE_REASONING","synthetic@example.invalid"]) assert(!diagnostic.includes(secret));assert(diagnostic.includes("intent_provenance_unverified"));assert(diagnostic.includes("server_is_overloaded"));assert(diagnostic.includes("not_executed"));
  console.log("PASS 1: blocked step marked on the step, run-level overload card, diagnostic allowlist");
@@ -124,11 +124,19 @@ try {
  assert.equal(view({...scenario("busy"),run:{...run,status:"done"},tools:[approvedStep]}),undefined);
  assert.equal(toolDisplayLabel(approvedStep),"已批准");assert(!markup({...scenario("busy"),run:{...run,status:"done"},tools:[approvedStep]}).includes("task-issue-card"));
  console.log("PASS 2e: approval_recorded is not an uncertain effect");
+ // 2f. A final answer sent back by the answer review is the check working: a quiet step, no problem card, no copy action.
+ const reviewedTool={...tool,name:"say",arguments:'{"purpose":"answer"}',status:"failed",outcome:{version:1,status:"transient_failure",code:"answer_review",execution_certainty:"not_executed",message:"Read your draft against the tool results."}};
+ const reviewedMarkup=markup({...scenario("busy"),run:{...run,status:"done"},tools:[reviewedTool]});
+ assert.equal(view({...scenario("busy"),run:{...run,status:"done"},tools:[reviewedTool]}),undefined);
+ assert(reviewedMarkup.includes("task-step is-reviewed"),"reviewed state class");assert(!reviewedMarkup.includes("is-problem"),"not a problem step");assert(!reviewedMarkup.includes("task-step-problem"));
+ assert(reviewedMarkup.includes("已修订"));assert(!reviewedMarkup.includes("未执行"));assert(!reviewedMarkup.includes("暂时失败"));assert(!reviewedMarkup.includes("复制诊断信息"));assert(!reviewedMarkup.includes("技术详情"));
+ assert.equal(toolDisplayLabel(reviewedTool,"en"),"Revised after check");
+ console.log("PASS 2f: answer review is a quiet revised step");
  console.log("PASS 2d: readiness codes in words, certainty spellings, setup action keyed by code");
  // 3. Setup and context have different bounded actions; neither has controls.
  // Setup and context gaps live on the blocked step: setup offers tool settings there, context offers diagnostics.
  const setupHTML=markup(scenario("setup"));assert.equal(view(scenario("setup")),undefined);assert(setupHTML.includes("打开工具设置"));assert(!setupHTML.includes("data-valid-proposal"));assert(!setupHTML.includes("task-issue-card"));
- assert(html.includes("复制诊断信息"));assert(!html.includes("打开工具设置"));
+ assert(!html.includes("复制诊断信息"),"a step offers no diagnostics copy");assert(!html.includes("打开工具设置"));
  assert.equal(p.canAnswerQuestion(incident.questions[0]),false);assert.equal(p.canAnswerQuestion(scenario("setup").questions[0]),false);
  console.log("PASS 3: setup and context gaps act from the step, no technical-gap approval");
  // 4. Only a current manual proposal is actionable; observations never succeed.
@@ -191,7 +199,7 @@ try {
  assert(historyMarkup.includes("synthetic-result.txt"),"previous attachment-bearing outputs reach the existing message renderer");
  console.log("PASS 7: stable owner, no success card, connection versus run, terminal no revival, bot/schedule isolation");
  // 8. Both languages, neutral section, native details and untouched protected components.
- const english=markup(incident,"en");assert(english.includes("Pre-execution check is missing information"));assert(english.includes("Model service is temporarily busy"));assert(english.includes("Copy diagnostics"));assert(html.includes("技术详情"));assert(!html.includes('<details class="task-activity" open'));
+ const english=markup(incident,"en");assert(english.includes("Pre-execution check is missing information"));assert(english.includes("Model service is temporarily busy"));assert(!english.includes("Copy diagnostics"));assert(html.includes("技术详情"));assert(!html.includes('<details class="task-activity" open'));
  const css=await readFile(join(ui,"src/task-issue-card.css"),"utf8");for(const rule of ["min-height:44px","max-width:var(--chat-max)","prefers-reduced-motion","overflow-wrap:anywhere","max-width:560px"])assert(css.includes(rule));
  // The desktop and memory panels are localized; they must carry no hardcoded CJK copy (comments aside).
  for(const file of ["src/BotDesktopPanel.tsx","src/MemoryPanel.tsx"]) {const code=(await readFile(join(ui,file),"utf8")).replace(/\/\*[\s\S]*?\*\//g,"").replace(/\/\/.*$/gm,"");assert(!/[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}\p{sc=Hangul}]/u.test(code),`${file} has hardcoded CJK text`);}

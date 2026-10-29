@@ -346,7 +346,7 @@ func (s *Store) ToolActivitySummaries(conversationID string, runIDs []string) ([
 		placeholders = append(placeholders, "?")
 		args = append(args, id)
 	}
-	rows, err := s.db.Query(`SELECT run_id,MIN(bot_id),COUNT(*),COALESCE(SUM(status='completed'),0),COALESCE(SUM(status='failed' AND COALESCE(json_extract(NULLIF(outcome_json,''),'$.status'),'')<>'approval_expired' AND COALESCE(json_extract(NULLIF(outcome_json,''),'$.code'),'')<>'batch_skipped'),0),COALESCE(SUM(status='interrupted'),0),COALESCE(SUM(status IN ('queued','running')),0),COALESCE(MIN(started_at),''),COALESCE(MAX(updated_at),''),COALESCE(SUM(json_extract(NULLIF(outcome_json,''),'$.status')='approval_expired'),0),COALESCE(SUM(json_extract(NULLIF(outcome_json,''),'$.code')='batch_skipped'),0)
+	rows, err := s.db.Query(`SELECT run_id,MIN(bot_id),COUNT(*),COALESCE(SUM(status='completed'),0),COALESCE(SUM(status='failed' AND COALESCE(json_extract(NULLIF(outcome_json,''),'$.status'),'')<>'approval_expired' AND COALESCE(json_extract(NULLIF(outcome_json,''),'$.code'),'')<>'batch_skipped' AND COALESCE(json_extract(NULLIF(outcome_json,''),'$.code'),'')<>'answer_review'),0),COALESCE(SUM(status='interrupted'),0),COALESCE(SUM(status IN ('queued','running')),0),COALESCE(MIN(started_at),''),COALESCE(MAX(updated_at),''),COALESCE(SUM(json_extract(NULLIF(outcome_json,''),'$.status')='approval_expired'),0),COALESCE(SUM(json_extract(NULLIF(outcome_json,''),'$.code')='batch_skipped'),0)
 FROM tool_activities WHERE conversation_id=? AND run_id IN (`+strings.Join(placeholders, ",")+`) GROUP BY run_id`, args...)
 	if err != nil {
 		return nil, err

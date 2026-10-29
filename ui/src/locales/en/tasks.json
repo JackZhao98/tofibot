@@ -172,9 +172,8 @@
     "interrupted": "Interrupted",
     "failed": "The tool call failed",
     "copied": "Diagnostics copied.",
-    "copy_failed": "Copy failed; select the technical details manually.",
-    "copy_diagnostics": "Copy diagnostics",
     "open_tool_settings": "Open tool settings",
+    "reviewed_title": "Checked the reply against the sources · revised",
     "technical_details": "Technical details",
     "group_count_one": "{{count}} call",
     "group_count_other": "{{count}} calls",
@@ -191,6 +190,7 @@
       "interrupted": "Interrupted",
       "expired": "Expired",
       "not_executed": "Not executed",
+      "reviewed": "Revised after check",
       "approved": "Approved",
       "unknown": "Result needs checking",
       "unconfirmed": "Status unconfirmed"

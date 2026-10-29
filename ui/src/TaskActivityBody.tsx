@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import "./approval-card.css";
 import { TofiIcon } from "./icons";
 import { MessageMarkdown } from "./MessageMarkdown";
@@ -23,7 +23,6 @@ import { problemStates, toggleDisclosure, type TaskDetailState } from "./TaskRun
 const stepDiagnostics = (tool: ToolActivity) => JSON.stringify({ tool: tool.name, run_id: tool.run_id, call_id: tool.call_id, status: tool.status, outcome_status: tool.outcome?.status, code: tool.outcome?.code, certainty: tool.outcome?.execution_certainty, started_at: tool.started_at, updated_at: tool.updated_at }, null, 2);
 
 function ToolStepRecord({ tool, locale, now, onOpenTools }: { tool: ToolActivity; locale?: Language; now?: number; onOpenTools?: () => void }) {
-  const [copied, setCopied] = useState("");
   const { t } = useTranslation("tasks", { lng: locale });
   const state = toolDisplayState(tool), preview = toolStepDetail(tool);
   const live = tool.status === "running" && now !== undefined ? Math.max(0, (now - Date.parse(tool.started_at)) / 1000) : undefined;
@@ -32,16 +31,11 @@ function ToolStepRecord({ tool, locale, now, onOpenTools }: { tool: ToolActivity
   const problem = problemStates.includes(state);
   // A problem step explains itself in words first; codes stay in technical details.
   const reason = tool.outcome?.code || tool.outcome?.status ? taskOutcomeText(tool.outcome, locale) : state === "interrupted" ? t("step.interrupted") : t("step.failed");
-  async function copyDiagnostics() {
-    try { await navigator.clipboard.writeText(stepDiagnostics(tool)); setCopied(t("step.copied")); }
-    catch { setCopied(t("step.copy_failed")); }
-  }
   return <li className={`task-step is-${state}${problem ? " is-problem" : ""}`} data-step={`${tool.run_id}:${tool.call_id}`}>
-    <details onToggle={event => { if (event.currentTarget.open) requestFullToolResult(tool); }}><summary onClick={toggleDisclosure}><ToolStatusIcon state={state} label={toolDisplayLabel(tool, locale)} /><span className="task-step-title">{toolStepTitle(tool)}{preview && <span className="task-step-argument"> · {preview}</span>}{problem && state === "not_executed" && tool.outcome?.code && <span className="task-step-argument task-step-reason"> · {reason}</span>}</span>{problem ? <span className="task-step-state">{toolDisplayLabel(tool, locale)}{seconds !== undefined && seconds >= 1 && <time> · {formatStepSeconds(seconds)}</time>}</span> : seconds !== undefined && seconds >= 1 && <time className="task-step-time-quiet">{formatStepSeconds(seconds)}</time>}</summary>
+    <details onToggle={event => { if (event.currentTarget.open) requestFullToolResult(tool); }}><summary onClick={toggleDisclosure}><ToolStatusIcon state={state} label={toolDisplayLabel(tool, locale)} /><span className="task-step-title">{state === "reviewed" ? t("step.reviewed_title") : toolStepTitle(tool)}{state !== "reviewed" && preview && <span className="task-step-argument"> · {preview}</span>}{problem && state === "not_executed" && tool.outcome?.code && <span className="task-step-argument task-step-reason"> · {reason}</span>}</span>{problem ? <span className="task-step-state">{toolDisplayLabel(tool, locale)}{seconds !== undefined && seconds >= 1 && <time> · {formatStepSeconds(seconds)}</time>}</span> : seconds !== undefined && seconds >= 1 && <time className="task-step-time-quiet">{formatStepSeconds(seconds)}</time>}</summary>
       <div className="task-step-body">{problem && <div className="task-step-problem" role="group" aria-label={t("step.problem")}>
         <p><strong>{reason}</strong>{tool.outcome?.execution_certainty && <> · {taskCertaintyText(tool.outcome.execution_certainty, locale)}</>}</p>
-        <div className="task-step-actions"><button type="button" className="secondary-button" onClick={() => void copyDiagnostics()}><TofiIcon name="copy" size={15} aria-hidden="true" />{t("step.copy_diagnostics")}</button>{tool.outcome?.code === "mcp_review_setup_missing" && onOpenTools && <button type="button" className="secondary-button" onClick={onOpenTools}>{t("step.open_tool_settings")}</button>}</div>
-        {copied && <p className="task-step-feedback" role="status">{copied}</p>}
+        {tool.outcome?.code === "mcp_review_setup_missing" && onOpenTools && <div className="task-step-actions"><button type="button" className="secondary-button" onClick={onOpenTools}>{t("step.open_tool_settings")}</button></div>}
         <details className="task-step-technical"><summary>{t("step.technical_details")}</summary>{tool.outcome?.message && <p>{tool.outcome.message}</p>}<pre tabIndex={0}>{stepDiagnostics(tool)}</pre></details>
       </div>}
       <div className="tool-activity-details">{Number.isFinite(started) && <span className="task-step-time">{t("step.started", { time: formatClock(started, { seconds: true, language: locale }) })}</span>}<span>{t("step.arguments")}</span><pre tabIndex={0}>{tool.arguments || t("step.none")}</pre>{!problem && tool.outcome?.message && <p className="tool-outcome">{tool.outcome.message}</p>}<span>{t("step.result")}</span><pre tabIndex={0}>{tool.result || t("step.no_result")}</pre></div></div></details>
