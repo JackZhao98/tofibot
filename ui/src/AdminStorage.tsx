@@ -2,6 +2,7 @@ import {useEffect, useState} from "react";
 import {useTranslation} from "./i18n";
 import {Banner, SettingsCard, SettingsRow, SettingsSection} from "./settings/components";
 import {GIB} from "./adminApi";
+import { Select } from "./Select";
 import {formatBytes, storageApi, type AdminStorageAccount} from "./storageApi";
 
 /** Limits offered in the menu, in GiB. The account's current limit is added when it is not one of these. */
@@ -20,10 +21,10 @@ export function AdminStorageLimit({accountId, entry, busy, run}: {accountId: str
     <SettingsCard>
       {entry && <SettingsRow label={t("admin.usage")} control={<span className="admin-value">{entry.limit_bytes == null ? formatBytes(entry.server_bytes) : t("used_of", {used: formatBytes(entry.server_bytes), limit: formatBytes(entry.limit_bytes)})}</span>}/>}
       <SettingsRow label={t("admin.limit_label")} labelFor="admin-storage-limit" description={saved ? t("admin.limit_saved") : t("admin.limit_help")}
-        control={<select id="admin-storage-limit" value={value} disabled={busy} onChange={event => { setValue(event.target.value); setSaved(false); }}>
+        control={<Select id="admin-storage-limit" value={value} disabled={busy} onValueChange={next => { setValue(next); setSaved(false); }}>
           <option value={UNLIMITED}>{t("admin.limit_unlimited")}</option>
           {steps.map(step => <option key={step} value={step}>{t("admin.limit_option", {size: step})}</option>)}
-        </select>}/>
+        </Select>}/>
       <SettingsRow label={t("admin.limit_save")}
         control={<button type="button" className="secondary-button" disabled={busy || value === current}
           onClick={() => void run(async () => { await storageApi.setLimit(accountId, value === UNLIMITED ? null : Math.round(Number(value) * GIB)); setSaved(true); })}>{t("admin.limit_save")}</button>}/>

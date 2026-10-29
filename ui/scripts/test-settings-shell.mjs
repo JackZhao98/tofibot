@@ -175,10 +175,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       : query.get("admin") === "0"
       ? {enabled: true, setup_required: false, authenticated: true, password_transport_allowed: true, multi_account: false, owner: {id: "acct_sample", username: "Ada Sample", email: "ada@example.test", role: "owner"}}
       : {enabled: true, setup_required: false, authenticated: true, password_transport_allowed: true, multi_account: true, owner: {id: "acct_sample", username: "Ada Sample", email: "ada@example.test", role: "admin"}};
+    if (path === "/api/settings-changes") return {changes: []};
     if (path === "/api/storage") return query.get("storage") === "full" ? storageSample(10 * GIB_ALL, 10 * GIB_ALL) : storageSample(1.5 * GIB_ALL, query.get("storage") === "unlimited" ? null : 10 * GIB_ALL);
     if (path === "/api/bots") return {bots: [{id: "bot_research", name: "Research Bot", archived: false}, {id: "bot_inbox", name: "Inbox Bot", archived: false}, {id: "bot_notes", name: "Notes Bot", archived: false}, {id: "bot_old", name: "Retired Bot", archived: true}]};
     if (path === "/api/preferences") return {timezone: "America/Los_Angeles", timezone_configured: true};
     if (path === "/api/standing-allowances") return {allowances: [], remembered: []};
+    if (path === "/api/settings-changes") return {changes: []};
     if (/^\/api\/extensions\/mcp\/[^/]+\/bots$/.test(path)) return {all: true, bots: []};
     if (path === "/api/automation-settings") return {items: [{key: "web_search", group: "replies", kind: "bool", default: true, value: true, source: "default"}, {key: "conversation_model", group: "models", kind: "model", default: "codex-gpt-6-sol", value: "codex-gpt-6-sol", source: "default"}]};
     if (path === "/api/followups") return {account: {max_nudges_per_day: 3, quiet_start: "22:00", quiet_end: "08:00", weekend_min_importance: 80, digest_weekday: "mon", digest_time: "09:00", daily_budget_usd: 0.5}, primary_bot_id: "bot_research", delivery_available: false, budget_paused: false, model_configured: true, day: "2026-10-13",
@@ -792,19 +794,23 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     // Server storage limit: shows usage, saves a number of GiB, and "No limit" sends null.
     {
       const limit = detail.getByLabel("Storage limit");
-      assert.equal(await limit.inputValue(), "10");
+      assert.equal(await limit.getAttribute("data-value"), "10");
       assert.match(await text(detail), /9\.5 GiB of 10 GiB/);
       assert.equal(await detail.getByRole("button", {name: "Save limit"}).isDisabled(), true, "nothing to save yet");
       adminWrites.length = 0;
-      await limit.selectOption("25");
+      await limit.click();
+      await page.locator('.ui-select-item[data-value="25"]').click();
+      await page.locator(".ui-select-content").waitFor({ state: "detached" });
       await detail.getByRole("button", {name: "Save limit"}).click();
       await detail.getByText("Saved.").first().waitFor();
       assert.deepEqual(adminWrites, ['PATCH /api/admin/accounts/acct_two/quota {"server_bytes_limit":26843545600}']);
-      await page.waitForFunction(() => { const select = document.querySelector("#admin-storage-limit"); return select && !select.disabled && select.value === "25"; });
+      await page.waitForFunction(() => { const select = document.querySelector("#admin-storage-limit"); return select && !select.disabled && select.dataset.value === "25"; });
       adminWrites.length = 0;
-      await limit.selectOption("unlimited");
+      await limit.click();
+      await page.locator('.ui-select-item[data-value="unlimited"]').click();
+      await page.locator(".ui-select-content").waitFor({ state: "detached" });
       await detail.getByRole("button", {name: "Save limit"}).click();
-      await page.waitForFunction(() => document.querySelector("#admin-storage-limit")?.value === "unlimited");
+      await page.waitForFunction(() => document.querySelector("#admin-storage-limit")?.dataset.value === "unlimited");
       assert.deepEqual(adminWrites, ['PATCH /api/admin/accounts/acct_two/quota {"server_bytes_limit":null}']);
     }
     const deleteButton = detail.getByRole("button", {name: "Delete account…"});

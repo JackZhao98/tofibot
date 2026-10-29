@@ -1,0 +1,4 @@
+/* A link that names a section scrolls to it and frames it once (settings/sectionJump.ts sets and clears the attribute). */
+[data-section][data-jump-target] { outline: 2px solid var(--lagoon); outline-offset: 6px; border-radius: 14px; animation: section-jump-flash 1.6s var(--ease-out) forwards; }
+@keyframes section-jump-flash { 0%, 45% { outline-color: var(--lagoon); } 100% { outline-color: transparent; } }
+@media (prefers-reduced-motion: reduce) { [data-section][data-jump-target] { animation: none; } }

@@ -43,6 +43,21 @@ try {
   const open = render(question({ kind: "mcp_create", name: "x", source: "https://x.example.com/mcp", transport: "streamable_http" }));
   assert.ok(open.includes("Every tool the server offers"), "no allowlist is stated as every tool");
 
+  // A settings change: built by the server from the payload, worded here in the person's language, with the page to open.
+  const setting = { kind: "setting_change", name: "permissions.approval_mode", change_id: "#0123456789ab", setting: { key: "permissions.approval_mode", label_key: "settings:approval.label", scope: "account", old: "ask", new: "auto", effect_code: "approval_mode_auto", effect: "English fallback", link: "/settings/permissions#mode", loosens: true } };
+  const settingHtml = render({ ...question(setting), approval: { ...question(setting).approval, target: "setting permissions.approval_mode #0123456789ab" } });
+  for (const text of ["Change a setting", "Approval mode for this account", "ask", "auto", "The reviewer decides most tool calls without asking you", "Looser limit", "Open this page"]) {
+    assert.ok(settingHtml.includes(text), `settings facts show ${text}`);
+  }
+  assert.ok(!settingHtml.includes("English fallback"), "a known effect code is worded from the catalog");
+  assert.ok(settingHtml.indexOf("approval-verified") < settingHtml.indexOf("A tiny harmless helper"), "server facts come before the Bot's wording");
+  assert.ok(!settingHtml.includes("setting permissions.approval_mode #0123456789ab"), "the opaque token is not the target shown");
+  assert.ok(!settingHtml.includes("approval-always") && !settingHtml.includes("approval-remember"), "a settings card offers no Always allow and no Remember");
+  const unknownEffect = render(question({ ...setting, setting: { ...setting.setting, effect_code: "from_a_newer_server", effect: "English fallback" } }));
+  assert.ok(unknownEffect.includes("English fallback"), "an effect code this build does not know shows the server's sentence");
+  const targeted = render(question({ kind: "setting_change", name: "bot.name", setting: { key: "bot.name", label_key: "chat:botPanel.name", scope: "bot", target_name: "Mochi", old: "Mochi", new: "Mochi Two", effect_code: "bot_identity", effect: "" , link: "/b/x/settings#identity" } }));
+  assert.ok(targeted.includes("Mochi Two") && targeted.includes("Applies to") && !targeted.includes("Looser limit"), "a Bot's setting names the Bot and says nothing about a looser limit");
+
   const plain = render(question(undefined));
   assert.ok(!plain.includes("approval-verified"), "cards without facts are unchanged");
   assert.ok(plain.includes("extension skill_install helper #a1b2c3d4e5f6"), "cards without facts still show the target");
@@ -53,5 +68,7 @@ try {
   await ui.setLanguage("zh-CN");
   const zh = render(question(skill));
   assert.ok(zh.includes("安装技能") && zh.includes("Tofi 核对的事实"), "the section is translated");
+  const zhSetting = render(question(setting));
+  assert.ok(zhSetting.includes("更改设置") && zhSetting.includes("审核器会替你决定大多数工具调用") && zhSetting.includes("打开此页面"), "the settings facts are translated");
   console.log("PASS extension approval card shows server-built facts above Bot wording");
 } finally { await ui.close(); }

@@ -412,7 +412,13 @@
     "scheduled": "예약 작업",
     "system": "시스템 알림",
     "tool": "도구",
-    "you": "나"
+    "you": "나",
+    "settings_change": "{{label}}: {{old}} → {{new}}",
+    "settings_change_empty": "비어 있음",
+    "settings_change_undo": "되돌리기",
+    "settings_change_undone": "되돌렸습니다",
+    "settings_change_undo_failed": "되돌리지 못했습니다",
+    "settings_change_stale": "이후 다시 변경되었습니다"
   },
   "notifications": {
     "description": "채팅을 벗어나 있을 때 새 답장을 알려 드립니다.",

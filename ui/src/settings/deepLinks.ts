@@ -1,5 +1,7 @@
 import type {SettingsTab} from "../SettingsShell";
 import {ARCHIVE_ENABLED} from "../featureFlags";
+import type {SettingsLink} from "../settingsRoute";
+import type {OpenLinkDeps} from "./linkRuntime";
 
 /** Opens Settings > Computer (a file whose bytes are on a detached computer points here). */
 export const OPEN_COMPUTER_SETTINGS_EVENT = "tofi:open-computer-settings";
@@ -36,6 +38,16 @@ export function subscribeSettingsDeepLinks(open: (tab: SettingsTab) => void): ()
   });
   return () => handlers.forEach(([name, handler]) => window.removeEventListener(name, handler));
 }
+
+/**
+ * Opening a link into the app's settings (a Markdown link in a message, an approval card's Manage link, a typed or reloaded address).
+ * The app provides what opening needs once; the opener itself (`linkRuntime.ts`) is a lazy chunk, loaded on the first link.
+ */
+let linkDeps: (() => OpenLinkDeps | null) | null = null;
+export const provideLinkDeps = (get: () => OpenLinkDeps | null) => { linkDeps = get; return () => { linkDeps = null; }; };
+export const getLinkDeps = () => linkDeps?.() ?? null;
+/** The opener is a lazy chunk, loaded on the first link. */
+export const linkRuntime = () => import("./linkRuntime");
 
 /**
  * `tofi:open-sidebar` opens one sidebar view in the workspace (Tasks, Memory, Terminal or Archive), the way the `?side=` address does.

@@ -35,7 +35,8 @@ import { buildQuestionTimeline, compareQuestionTime } from "./questionTimeline";
 import { useDebugMode } from "./debugMode";
 import type { SettingsEntry, SettingsTab, SettingsView } from "./SettingsShell";
 import { AfterPaint, CoverShell, CoverView, SidebarShell, SidebarView, WidgetColumn, WidgetView, GreetingSetup, UpdateBanner, PermissionCoach, BotDesktopPanel, DeleteConversationDialog, ReassignPrimaryDialog, SearchPalette, RememberedApprovalsSheet, DesktopSkeleton, TeamBoard, ViewOnlyChat, Onboarding, QuestionCard, RunContextView, TaskCard, ComposerStopMenu, FloatingDesktop, panelLoaded, preloadPanel, usePanelLoaded, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle, WebToolSteps, whenPanelLoaded } from "./lazyPanels";
-import { subscribeSettingsDeepLinks, subscribeSidebarDeepLinks } from "./settings/deepLinks";
+import { provideLinkDeps, subscribeSettingsDeepLinks, subscribeSidebarDeepLinks } from "./settings/deepLinks";
+import type { OpenLinkDeps } from "./settings/linkRuntime";
 import { BotIdentityCard } from "./BotIdentityCard";
 import { arrowOpens, OverlayMenu, OverlaySlot, SlotView } from "./overlays/OverlayHost";
 import { ActionHints, ConfirmAction, useAppearance, useSurfacePresence } from "./InteractionSystem";
@@ -71,7 +72,6 @@ import { BotAvatar, type AvatarMotion } from "./BotAvatar";
 import { holdAvatarLife } from "./lib/tofi-avatar/index.js";
 import { CatStage, type CatHandle } from "./CatStage";
 import { CATS, EmptyCat, EmptyState } from "./EmptyCat";
-import { FirstRunHero } from "./FirstRunHero";
 import { FinishSetupChip, ModelBanner } from "./OnboardingChrome";
 import { useGreetingPlayback } from "./onboardingGreeting";
 import { chipStep, onboardingMode, parseOnboardingState, resumeStep, type OnboardingState, type OnboardingStep } from "./onboardingFlow";
@@ -112,6 +112,9 @@ import type { SurfaceCtx } from "./SurfaceViews";
 
 // The page-wide file drop target loads right after first paint; it is not needed to draw the shell.
 const WebFileDropOverlay = lazy(() => import("./WebFileDropOverlay").then(module => ({ default: module.WebFileDropOverlay })));
+// Shown only before the first Bot exists.
+const FirstRunHero = lazy(() => import("./FirstRunHero").then(module => ({ default: module.FirstRunHero })));
+const SettingsChangeNotice = lazy(() => import("./SettingsChangeNotice"));
 const MailDraftCard = lazy(() => import("./MailDraftCard").then(module => ({ default: module.MailDraftCard })));
 
 /** The sidebar a `?side=` address names opens with the page; widgets and covers never come from the address. */
@@ -1623,6 +1626,13 @@ function Workspace() {
   useEffect(() => {
     return subscribeSettingsDeepLinks(tab => openSettings(tab));
   }, []);
+  // A link into the settings (a message link, a card's Manage link, a typed address): open the cover it names. The link only says
+  // where to look; an id that is not in this account's index opens nothing.
+  const openLink = useRef<OpenLinkDeps | null>(null);
+  openLink.current = { bots, conversations, openSettings, selectConversation, setMobileList, openCover: openCoverPanel };
+  useEffect(() => provideLinkDeps(() => openLink.current), []);
+  useEffect(() => { void import("./appearanceSync").then(sync => sync.startThemeSync(request)); }, []);
+  useEffect(() => { if (bots.length) void import("./avatarSync").then(sync => sync.hydrateBotAvatars(request, bots)); }, [bots]);
 
   const updateConversationPreview = useCallback((next: Message) => {
     setConversations((current) => current.map((conversation) => {
@@ -2657,7 +2667,7 @@ function Workspace() {
             {Object.entries(customSidebarSections).map(([name, items]) => <section className="sidebar-custom-section" key={name}><div className="section-label"><span>{name}</span></div>{items.map(item => conversationRow(item))}</section>)}
             <div className="section-label"><span>{t("sidebar.messages")}</span></div>{defaultSidebarConversations.map(item => conversationRow(item, sidebarDndEnabled))}
             <div className="sr-only" role="status" aria-live="polite" ref={sidebarLiveRef} />
-            {onboardingState !== "sheet" && !visibleSidebarConversations.length && !bots.length && !conversations.length && <FirstRunHero side onCreate={() => void createNewBot()} busy={newBotBusy} error={newBotError} />}
+            {onboardingState !== "sheet" && !visibleSidebarConversations.length && !bots.length && !conversations.length && <Suspense fallback={null}><FirstRunHero side onCreate={() => void createNewBot()} busy={newBotBusy} error={newBotError} /></Suspense>}
             {onboardingState !== "sheet" && !visibleSidebarConversations.length && <EmptyState name="sidebar" className={`empty-copy is-compact${!bots.length && !conversations.length ? " first-run-hide-mobile" : ""}`} look={CATS.mochi} pose="asleep"><p>{t("sidebar.empty")}</p><button className="primary-button sidebar-empty-create" disabled={newBotBusy} onClick={() => void createNewBot()}>{newBotBusy ? t("create.creating") : t("create.create_bot")}</button></EmptyState>}
           </div>
           <div className="sidebar-footer">{onboardingState === "chip" && <FinishSetupChip step={chipStep(modelReady)} onClick={() => setOnboardingForced(chipStep(modelReady))} />}<SidebarAccount connected={linkConnected} onSettings={() => { setPortabilityBotID(""); setPortabilityFile(undefined); openSettings("general", "home"); }} onUsage={() => { setUsageBotId(""); openSettings("usage"); }} onConnection={() => openSettings("models")} onArtifacts={() => { setArtifactsMode("artifacts"); openCoverPanel("artifacts"); }} /></div>
@@ -2677,7 +2687,7 @@ function Workspace() {
         </OverlayMenu>}</SlotView>
 
         <main className={`chat-pane ${!mobileList ? "mobile-chat" : ""}`} inert={modalPanelOpen || desktopExpanded || undefined}>
-          {!active ? routeUnavailable ? <div className="conversation-empty" role="alert"><EmptyCat look={CATS.nori} pose="curious" size={72} name="route-unavailable" /><h2>{t("route.unavailable_title")}</h2><p>{t("route.unavailable_body")}</p><button className="secondary-button" onClick={() => setMobileList(true)}>{t("route.back_to_list")}</button></div> : onboardingState === "sheet" ? null : <FirstRunHero onCreate={() => void createNewBot()} busy={newBotBusy} error={newBotError} /> : <>
+          {!active ? routeUnavailable ? <div className="conversation-empty" role="alert"><EmptyCat look={CATS.nori} pose="curious" size={72} name="route-unavailable" /><h2>{t("route.unavailable_title")}</h2><p>{t("route.unavailable_body")}</p><button className="secondary-button" onClick={() => setMobileList(true)}>{t("route.back_to_list")}</button></div> : onboardingState === "sheet" ? null : <Suspense fallback={null}><FirstRunHero onCreate={() => void createNewBot()} busy={newBotBusy} error={newBotError} /></Suspense> : <>
             <div className="chat-header" ref={chatHeaderRef}><div className="chat-title"><button className="back-button" onClick={() => setMobileList(true)} aria-label={t("route.back_to_list")}><Icon name="arrow-left" size={19} /></button><button className="chat-identity" onClick={() => active.kind === "group" ? (columnMode ? toggleWidgetId("members") : openCoverPanel("group-settings")) : openCoverPanel("bot-settings")} aria-label={t("header.open_members")}><span className="member-avatar-stack">{(active.kind === "group" ? active.bot_ids : [active.bot_id ?? active.id]).slice(0, 4).map((id) => <Avatar key={id} label={botById.get(id)?.name ?? active.name} id={id} mini motion={conversationMotion(active, id)} />)}</span><span className="chat-name-pill"><h1>{active.name}</h1>{active.kind === "group" && <small>{t("header.member_count", { count: active.bot_ids.length })}</small>}</span></button></div><div className="header-actions">{active.kind === "group" && <button className="computer-button" data-hint={t("header.team_board")} aria-label={teamBoardOpen ? t("header.back_to_chat") : t("header.open_team_board")} aria-pressed={teamBoardOpen} onClick={() => { setSurfaces(closeAll); setTeamBoardOpen(value => !value); }}><Icon name="layout-grid" size={18} variant={teamBoardOpen ? "filled" : "outline"} /></button>}{active.kind === "dm" && computerButton}<button className="computer-button" data-hint={t("header.open_artifacts")} aria-label={t("header.open_artifacts")} aria-pressed={artifactsOn} onClick={() => { setTeamBoardOpen(false); if (columnMode) toggleWidgetId("artifacts"); else { setArtifactsMode("artifacts-group"); openCoverPanel("artifacts"); } }}><Icon name="folder" size={18} variant={artifactsOn ? "filled" : "outline"} /></button>{active.kind === "group" && computerButton}{active.kind === "dm" && <button className="computer-button" data-hint={t("header.tasks")} aria-label={t("header.tasks")} aria-pressed={sidebarId === "tasks"} onClick={() => toggleSidebarId("tasks")}><Icon name="checklist" size={18} variant={sidebarId === "tasks" ? "filled" : "outline"} /></button>}<div className="header-more"><button ref={headerMenuTriggerRef} className="ghost-button" data-hint={t("header.more")} aria-label={t("header.more")} aria-haspopup="menu" aria-expanded={headerMenuOpen} aria-controls={headerMenuOpen ? "conversation-more-menu" : undefined} onClick={() => setHeaderMenuOpen((open) => !open)} onKeyDown={arrowOpens(setHeaderMenuOpen)}><Icon name="more" size={17} /></button>{showHeaderMenu && <OverlayMenu open={headerMenuOpen} onOpenChange={setHeaderMenuOpen} id="conversation-more-menu" className="more-menu" label={t("header.more")} trigger={headerMenuTriggerRef} anchor={chatHeaderRef} align="end" sideOffset={8} alignOffset={14}>{desktopBot && <button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); openSidebarId("terminal"); }}>{t("header.terminal")}</button>}<button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); openSidebarId("memory"); }}>{active.kind === "group" ? t("header.group_memory") : t("header.bot_memory")}</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); if (columnMode) openWidgetId("usage"); else { setUsageBotId(active.kind === "dm" ? active.bot_id ?? "" : ""); setSettingsTab("usage"); openCoverPanel("settings"); } }}>{t("header.usage")}</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); openCoverPanel("approvals"); }}>{t("header.remembered_approvals")}</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); void copyConversationLink(active); }}>{t("header.copy_link")}</button>{active.kind === "dm" ? <button onClick={() => { headerMenuTriggerRef.current?.focus(); openCoverPanel("bot-settings"); setHeaderMenuOpen(false); }}>{t("header.bot_settings")}</button> : <button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); openCoverPanel("group-settings"); }}>{t("header.group_settings")}</button>}<button className="delete-menu-action" onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); confirmDelete(active); }}>{active.kind === "dm" ? t("header.delete_bot") : t("header.delete_group")}</button></OverlayMenu>}</div></div></div>
             <RunStatusAnnouncement key={`run-status-${active.id}`} conversationId={active.id} runs={runs} botById={botById} ready={loadedId === active.id && !loadingMessages} taskAnnouncements={taskAnnouncements} />
             {teamBoardOpen && active.kind === "group" ? <Suspense fallback={null}><TeamBoard key={`team-board-${active.id}`} conversation={active} bots={bots} timezone={timezone} onClose={() => setTeamBoardOpen(false)} onOpenWork={() => { setTeamBoardOpen(false); openSidebarId("tasks"); }} /></Suspense> : <>
@@ -2887,6 +2897,10 @@ export function MessageBubble({ receipt, message, replyTarget, replyTargetName, 
     // Posted by the server when a run continues from a checkpoint; the text is localized here.
     const resumeKey = message.notice.reason === "restart" ? "message.resume_restart" : "message.resume_continuing";
     return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div><span>{t(resumeKey)}</span></div></article>;
+  }
+  if (message.kind === "notice" && message.notice?.type === "settings_change") {
+    // A setting a Bot changed by itself: the line and its Undo are worded in a lazy chunk, in the UI's language.
+    return <Suspense fallback={null}><SettingsChangeNotice notice={message.notice} fallback={message.content} title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`} /></Suspense>;
   }
   if (message.kind === "notice" && message.notice?.type === "command_exit") {
     // Posted by the server when a command a Bot waited on has ended; the text is localized here.

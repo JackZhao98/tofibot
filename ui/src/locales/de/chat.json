@@ -423,7 +423,13 @@
     "scheduled": "Geplante Aufgabe",
     "system": "Systemhinweis",
     "tool": "Tool",
-    "you": "Du"
+    "you": "Du",
+    "settings_change": "{{label}}: {{old}} → {{new}}",
+    "settings_change_empty": "leer",
+    "settings_change_undo": "Rückgängig",
+    "settings_change_undone": "Rückgängig gemacht",
+    "settings_change_undo_failed": "Konnte nicht rückgängig gemacht werden",
+    "settings_change_stale": "Seitdem erneut geändert"
   },
   "notifications": {
     "description": "Werde über neue Antworten benachrichtigt, wenn du nicht im Chat bist.",

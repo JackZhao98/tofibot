@@ -173,7 +173,7 @@ export function AutomationSettings({onOpenPermissions}: {onOpenPermissions?: () 
     {groupOrder.map(group => {
       const rows = items.filter(item => item.group === group && (hasComputer || (item.group !== "computer" && item.key !== "widget_computer_auto")));
       if (!rows.length) return null;
-      return <SettingsSection key={group} title={t(`automation.group.${group}.title`)} description={t(`automation.group.${group}.description`)}>
+      return <SettingsSection key={group} id={group} title={t(`automation.group.${group}.title`)} description={t(`automation.group.${group}.description`)}>
         <SettingsCard>{rows.map(item => <AutomationRow key={item.key} item={item} catalog={catalog} busy={busy === item.key} saved={saved === item.key} error={errors[item.key] ?? ""} onChange={change} onOpenPermissions={onOpenPermissions}/>)}</SettingsCard>
       </SettingsSection>;
     })}

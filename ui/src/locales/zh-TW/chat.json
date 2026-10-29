@@ -412,7 +412,13 @@
     "scheduled": "排程任務",
     "system": "系統提示",
     "tool": "工具",
-    "you": "你"
+    "you": "你",
+    "settings_change": "{{label}}：{{old}} → {{new}}",
+    "settings_change_empty": "空",
+    "settings_change_undo": "復原",
+    "settings_change_undone": "已復原",
+    "settings_change_undo_failed": "無法復原",
+    "settings_change_stale": "此後又被變更過"
   },
   "notifications": {
     "description": "離開目前的聊天時，提醒你有新的回覆。",

@@ -17,7 +17,7 @@ const OwnerSetup = lazy(() => import("./OwnerSetup").then(module => ({ default: 
 const PasswordChecklist = lazy(() => import("./OwnerSetup").then(module => ({ default: module.PasswordChecklist })));
 
 export function useOwnerSession(){return useContext(SessionContext).session}
-const SessionContext = createContext<{ session: OwnerSession | null; logout: () => Promise<void> }>({ session: null, logout: async () => {} });
+export const SessionContext = createContext<{ session: OwnerSession | null; logout: () => Promise<void> }>({ session: null, logout: async () => {} });
 const anonymous: OwnerSession = { enabled: false, setup_required: false, authenticated: false, password_transport_allowed: false };
 
 export function OwnerSessionGate({ children }: { children: ReactNode }) {
@@ -144,18 +144,6 @@ export function useAccountIdentity() {
   const email = owner && !owner.email.endsWith("@account.invalid") ? owner.email : "";
   const role = owner?.role ? (owner.role === "admin" ? t("shell.account.role.admin") : t("shell.account.role.member")) : "";
   return { name, initial: Array.from(name)[0]?.toUpperCase() ?? "T", detail: [email, role].filter(Boolean).join(" · "), signedIn: Boolean(owner) };
-}
-
-export function OwnerAccount() {
-  const { session, logout } = useContext(SessionContext);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const { t } = useTranslation("auth");
-  const identity = useAccountIdentity();
-  if (!session?.enabled || !session.owner) return null;
-  return <section className="owner-account"><span className="owner-account-avatar" aria-hidden="true">{identity.initial}</span><div><strong>{identity.name}</strong>{identity.detail && <span>{identity.detail}</span>}</div><button className="settings-ghost-button" disabled={busy} onClick={() => {
-    setBusy(true); setError(""); void logout().catch(cause => setError(cause.message)).finally(() => setBusy(false));
-  }}><TofiIcon name="logout" size={16} />{busy ? t("account.signing_out") : t("account.sign_out")}</button>{error && <p className="owner-error" role="alert">{error}</p>}</section>;
 }
 
 /** The compact identity dock shares the authenticated session with Settings. */

@@ -434,7 +434,13 @@
     "scheduled": "Tâche planifiée",
     "system": "Avis système",
     "tool": "Outil",
-    "you": "Vous"
+    "you": "Vous",
+    "settings_change": "{{label}} : {{old}} → {{new}}",
+    "settings_change_empty": "vide",
+    "settings_change_undo": "Annuler",
+    "settings_change_undone": "Annulé",
+    "settings_change_undo_failed": "Impossible d'annuler",
+    "settings_change_stale": "Modifié à nouveau depuis"
   },
   "notifications": {
     "description": "Soyez averti des nouvelles réponses quand vous n’êtes pas dans la conversation.",

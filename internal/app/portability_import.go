@@ -75,7 +75,8 @@ func (s *Store) applyPortableSQL(ctx context.Context, b portableBundle, previewI
 		return e
 	}
 	for _, x := range b.Bots {
-		if _, err = tx.ExecContext(ctx, `INSERT INTO bots(id,name,instructions,model,reasoning_effort,dm_conversation_id,created_at,archived) VALUES(?,?,?,?,?,?,?,?)`, id(x.ID), x.Name, x.Instructions, x.Model, x.ReasoningEffort, id(x.DMConversationID), x.CreatedAt, x.Archived); err != nil {
+		look, _ := normalizeAvatar(string(x.Avatar)) // a look the picker cannot draw is dropped, not an error
+		if _, err = tx.ExecContext(ctx, `INSERT INTO bots(id,name,instructions,model,reasoning_effort,dm_conversation_id,created_at,archived,avatar) VALUES(?,?,?,?,?,?,?,?,?)`, id(x.ID), x.Name, x.Instructions, x.Model, x.ReasoningEffort, id(x.DMConversationID), x.CreatedAt, x.Archived, look); err != nil {
 			return result, false, err
 		}
 		if err = provenance("bot", x.ID, x.Origin); err != nil {

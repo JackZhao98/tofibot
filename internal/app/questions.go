@@ -106,6 +106,8 @@ type ApprovalFacts struct {
 	OAuthScopes    []string            `json:"oauth_scopes,omitempty"`
 	OAuthMetadata  string              `json:"oauth_metadata,omitempty"`
 	Skill          *ApprovalSkillFacts `json:"skill,omitempty"`
+	// Setting describes a change made with the settings tool (Kind setting_change).
+	Setting *ApprovalSettingFacts `json:"setting,omitempty"`
 }
 
 type ApprovalSkillFacts struct {
@@ -480,10 +482,14 @@ func (s *Server) approvalTool(c Conversation, r Run) Tool {
 		if err != nil {
 			return "", err
 		}
-		// A card that names an extension change carries the server's own
+		// A card that names an extension or settings change carries the server's own
 		// description of that change; without one there is nothing true to show.
-		if facts, isExtension := s.extensionFactsForTarget(r, in.Approval.Target); isExtension {
+		if facts, isGate := s.gateFactsForTarget(r, in.Approval.Target); isGate {
 			if facts == nil {
+				if strings.HasPrefix(approvalLabel(in.Approval.Target), settingTokenPrefix) {
+					return "", tooloutcome.New(tooloutcome.NeedInformation, "setting_change_unknown", "not_executed",
+						"This approval target does not name a settings change the server has seen in this run. Call settings with action set first, then ask with the exact target it returns.", "repair_arguments").Err()
+				}
 				return "", tooloutcome.New(tooloutcome.NeedInformation, "extension_change_unknown", "not_executed",
 					"This approval target does not name a change the server has seen in this run. Call manage_extensions first, then ask with the exact target it returns.", "repair_arguments").Err()
 			}

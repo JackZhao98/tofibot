@@ -1013,6 +1013,10 @@
       "widget_computer_auto": {
         "name": "Open the shared computer when a Bot uses it",
         "what": "When a Bot takes the shared computer in the chat you are viewing, its widget opens beside the messages. It stays open and folds into a strip 30 seconds after the Bot lets go. Off keeps it closed until you open it."
+      },
+      "settings_change_limit": {
+        "name": "Settings changes per run",
+        "what": "The most settings changes a Bot may make by itself in one run. Past it, the Bot lists the rest for you to make. Only you change this number."
       }
     },
     "option": {
@@ -1160,5 +1164,19 @@
     "label": "Approval mode for this account",
     "auto": "Auto",
     "ask": "Ask before edits"
+  },
+  "changes": {
+    "title": "Changes by Bots",
+    "description": "Settings a Bot changed by itself. Revert puts the old value back while nothing has changed it since.",
+    "loading": "Loading changes…",
+    "load_failed": "Couldn't load the changes.",
+    "none": "No Bot has changed a setting yet.",
+    "revert": "Revert",
+    "reverting": "Reverting…",
+    "reverted": "Reverted",
+    "not_revertable": "Can't be reverted here",
+    "revert_failed": "Couldn't revert. Try again.",
+    "stale": "The setting changed again after this change.",
+    "empty_value": "empty"
   }
 }

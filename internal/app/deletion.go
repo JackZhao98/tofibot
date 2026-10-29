@@ -362,20 +362,26 @@ func (s *Server) workspaceDeletionTools(c Conversation, r Run) []Tool {
 			if strings.TrimSpace(id) == "" {
 				return "", errors.New("the target ID is required")
 			}
-			actor, err := s.store.GetRun(r.ID)
-			if err != nil {
+			// A deletion cannot be undone: it is the settings change bot.delete or conversation.delete, applied only after the person
+			// approves a card for exactly this target, and never in a run nobody attends.
+			sr := settingRun{s: s, c: c, r: r}
+			key, target := "conversation.delete", Target{ConversationID: strings.TrimSpace(id)}
+			if bot {
+				key, target = "bot.delete", Target{BotID: strings.TrimSpace(id)}
+			}
+			if _, err := sr.aliasSet(ctx, key, target, nil); err != nil {
 				return "", err
 			}
-			result, err := s.store.deleteWorkspaceTarget(id, bot, &actor)
-			if err != nil {
-				return "", err
+			result := DeleteResult{Deleted: true, ConversationID: target.ConversationID}
+			if bot {
+				result.BotID = target.BotID
 			}
 			data, err := json.Marshal(result)
 			return string(data), err
 		}}
 	}
 	return []Tool{
-		makeTool("workspace_delete_bot", "bot_id", "Permanently delete a Bot only when the user explicitly requests its deletion. Use workspace_list to identify its exact ID. Removes its private conversation and records, memberships, owned goals/tasks, and schedules. Preserves its messages and sender identity in surviving groups and preserves shared computer files and browser profiles. Busy work blocks deletion; never claim deletion before this succeeds.", true),
-		makeTool("workspace_delete_group", "group_id", "Permanently delete a group only when the user explicitly requests its deletion. Use workspace_list to identify its exact ID. Removes this group's history, memories, files, goals/tasks, and schedules while retaining its member Bots and their private conversations. Busy work blocks deletion; never claim deletion before this succeeds.", false),
+		makeTool("workspace_delete_bot", "bot_id", "Permanently delete a Bot only when the user explicitly requests its deletion. Use workspace_list to identify its exact ID. Removes its private conversation and records, memberships, owned goals/tasks, and schedules. Preserves its messages and sender identity in surviving groups and preserves shared computer files and browser profiles. Busy work blocks deletion; never claim deletion before this succeeds. The settings tool makes the same changes. A change to another Bot, a model, group members or a deletion is applied only after the person approves a card: when the call refuses with need_approval, ask with request_approval using the target it returns, then repeat the same call. Runs that no person attends change nothing.", true),
+		makeTool("workspace_delete_group", "group_id", "Permanently delete a group only when the user explicitly requests its deletion. Use workspace_list to identify its exact ID. Removes this group's history, memories, files, goals/tasks, and schedules while retaining its member Bots and their private conversations. Busy work blocks deletion; never claim deletion before this succeeds. The settings tool makes the same changes. A change to another Bot, a model, group members or a deletion is applied only after the person approves a card: when the call refuses with need_approval, ask with request_approval using the target it returns, then repeat the same call. Runs that no person attends change nothing.", false),
 	}
 }

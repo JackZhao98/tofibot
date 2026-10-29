@@ -1,5 +1,7 @@
 import type { TFunction } from "i18next";
 import type { ReactNode } from "react";
+import { i18n } from "./i18n";
+import { linkRuntime } from "./settings/deepLinks";
 import type { ApprovalFacts } from "./questionTimeline";
 
 type Translate = TFunction<"tasks">;
@@ -7,6 +9,7 @@ type Row = { label: string; value: ReactNode };
 
 /** Rows for the server-verified section of an approval card. Values are plain text, never markup. */
 export function approvalFactRows(facts: ApprovalFacts, t: Translate): Row[] {
+  if (facts.setting) return settingFactRows(facts.setting, t);
   const rows: Row[] = [
     { label: t("record.facts.kind"), value: t(`record.facts.kinds.${facts.kind}`) },
     { label: t("record.facts.name"), value: <code>{facts.name}</code> },
@@ -38,5 +41,25 @@ export function approvalFactRows(facts: ApprovalFacts, t: Translate): Row[] {
     }
   }
   if (facts.change_id) rows.push({ label: t("record.facts.change_id"), value: <code>{facts.change_id}</code> });
+  return rows;
+}
+
+/** A settings change: what, for whom, from what to what, the effect in the person's language, and the page where it lives. */
+function settingFactRows(setting: NonNullable<ApprovalFacts["setting"]>, t: Translate): Row[] {
+  const catalog = i18n.t as (key: string) => string;
+  const label = i18n.exists(setting.label_key) ? catalog(setting.label_key) : setting.key;
+  const effectKey = `record.facts.effects.${setting.effect_code}`;
+  const value = (text: string) => text || t("record.facts.setting_empty");
+  const rows: Row[] = [
+    { label: t("record.facts.kind"), value: t("record.facts.kinds.setting_change") },
+    { label: t("record.facts.setting_label"), value: label },
+  ];
+  if (setting.target_name) rows.push({ label: t("record.facts.setting_target"), value: setting.target_name });
+  if (setting.old !== "" || setting.new !== "") {
+    rows.push({ label: t("record.facts.setting_from"), value: value(setting.old) }, { label: t("record.facts.setting_to"), value: <strong>{value(setting.new)}</strong> });
+  }
+  rows.push({ label: t("record.facts.setting_effect"), value: i18n.exists(`tasks:${effectKey}`) ? t(effectKey as never) : setting.effect });
+  if (setting.loosens) rows.push({ label: t("record.facts.setting_loosens"), value: <span className="approval-warn">{t("record.facts.setting_loosens_value")}</span> });
+  rows.push({ label: t("record.facts.setting_page"), value: <button type="button" className="text-button" onClick={() => void linkRuntime().then(module => module.openHref(setting.link))}>{t("record.facts.setting_open")}</button> });
   return rows;
 }

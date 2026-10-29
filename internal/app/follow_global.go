@@ -85,12 +85,15 @@ func (s *Server) withEffectiveModels(ctx context.Context, bots ...Bot) []Bot {
 		primary, _ = s.store.PrimaryBotID()
 	}
 	pending := map[string]bool{}
+	avatars := map[string]string{}
 	if s != nil && s.store != nil {
 		pending = s.store.pendingOnboardingBots()
+		avatars, _ = s.store.botAvatars()
 	}
 	for i, b := range bots {
 		b.IsPrimary = primary != "" && b.ID == primary
 		b.OnboardingPending = pending[b.ID]
+		b.Avatar = BotAvatar(avatars[b.ID])
 		b.EffectiveModel, b.EffectiveReasoningEffort = s.resolveBotModel(ctx, "", b)
 		out[i] = b
 	}

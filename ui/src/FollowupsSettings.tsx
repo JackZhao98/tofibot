@@ -59,7 +59,7 @@ export function FollowupsSettings() {
     {data.budget_paused && <Banner tone="warn" title={t("followups.paused_title")}>{t("followups.paused_body", { limit: money(data.account.daily_budget_usd) })}</Banner>}
     {error && <p className="error-text" role="alert">{error}</p>}
 
-    <SettingsSection title={t("followups.bots_title")} description={t("followups.bots_description")}>
+    <SettingsSection id="bots" title={t("followups.bots_title")} description={t("followups.bots_description")}>
       <SettingsCard>
         {data.bots.length === 0 && <p className="settings-card-note">{t("followups.no_bots")}</p>}
         {data.bots.map(bot => <SettingsRow key={bot.bot_id} labelFor={`followup-mode-${bot.bot_id}`}
@@ -72,15 +72,15 @@ export function FollowupsSettings() {
       </SettingsCard>
     </SettingsSection>
 
-    <SettingsSection title={t("followups.nudges_title")} hint={nudges.length ? formatNumber(nudges.length) : undefined} description={t("followups.nudges_description")}>
+    <SettingsSection id="nudges" title={t("followups.nudges_title")} hint={nudges.length ? formatNumber(nudges.length) : undefined} description={t("followups.nudges_description")}>
       {renderLoops(nudges, previewing.length > 0)}
     </SettingsSection>
-    <SettingsSection title={t("followups.digest_title")} hint={digest.length ? formatNumber(digest.length) : undefined} description={t("followups.digest_description")}>
+    <SettingsSection id="digest" title={t("followups.digest_title")} hint={digest.length ? formatNumber(digest.length) : undefined} description={t("followups.digest_description")}>
       {renderLoops(digest, previewing.length > 0)}
     </SettingsSection>
     {closed.length > 0 && <SettingsSection title={t("followups.closed_title")}>{renderLoops(closed, true)}</SettingsSection>}
 
-    <SettingsSection title={t("followups.today_title")}>
+    <SettingsSection id="today" title={t("followups.today_title")}>
       <SettingsCard>
         <SettingsRow inline label={t("followups.stat.scans")} control={<span className="followup-stat">{formatNumber(stats.sweeps)}</span>} />
         <SettingsRow inline label={t("followups.stat.found")} control={<span className="followup-stat">{formatNumber(stats.loops_created)}</span>} />
@@ -90,7 +90,7 @@ export function FollowupsSettings() {
       </SettingsCard>
     </SettingsSection>
 
-    <SettingsSection title={t("followups.limits_title")} description={t("followups.limits_description")}>
+    <SettingsSection id="limits" title={t("followups.limits_title")} description={t("followups.limits_description")}>
       <SettingsCard>
         <SettingsRow labelFor="followup-cap" label={t("followups.limit.cap")} description={t("followups.limit.cap_hint")}
           control={<Select id="followup-cap" value={String(data.account.max_nudges_per_day)} disabled={Boolean(busy)} onValueChange={value => void act("cap", () => api.setFollowupAccount({ max_nudges_per_day: Number(value) }))}>

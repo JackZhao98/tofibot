@@ -124,9 +124,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: bash -n
-        run: bash -n install.sh deploy/self-host/bin/tofi scripts/release/make_bundle.sh scripts/check-gofmt.sh
+        run: bash -n install.sh deploy/self-host/bin/tofi scripts/release/make_bundle.sh scripts/check-gofmt.sh scripts/check-release-notes.sh
       - name: shellcheck
-        run: shellcheck install.sh deploy/self-host/bin/tofi scripts/release/make_bundle.sh scripts/check-gofmt.sh
+        run: shellcheck install.sh deploy/self-host/bin/tofi scripts/release/make_bundle.sh scripts/check-gofmt.sh scripts/check-release-notes.sh
+      - name: Release notes are well formed
+        run: scripts/check-release-notes.sh --all
 
   runner-root:
     # The Runner's uid isolation, link-refusal, limit and purge tests need root on Linux and

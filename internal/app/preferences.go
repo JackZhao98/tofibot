@@ -35,7 +35,13 @@ type userPreferences struct {
 	// default; the browser still needs its own permission.
 	NotifyChats bool `json:"notify_chats"`
 	NotifyTasks bool `json:"notify_tasks"`
+	// Appearance is the theme: system, light or dark. Empty means nobody chose yet, which reads as system; a browser that still holds
+	// a choice made before the server kept it hands it up once.
+	Appearance string `json:"appearance"`
 }
+
+// appearances are the themes a person can choose.
+var appearances = map[string]bool{"system": true, "light": true, "dark": true}
 
 // uiLanguages are the Web UI catalogs (ui/src/i18n/languages.ts).
 var uiLanguages = map[string]bool{"en": true, "zh-CN": true, "zh-TW": true, "ja": true, "ko": true, "de": true, "fr": true}
@@ -66,6 +72,9 @@ updated_at TEXT NOT NULL
 			return err
 		}
 	}
+	if err = ensureColumn(db, "user_preferences", "appearance", `ALTER TABLE user_preferences ADD COLUMN appearance TEXT NOT NULL DEFAULT ''`); err != nil {
+		return err
+	}
 	if err = migratePrimaryBot(db); err != nil {
 		return err
 	}
@@ -74,7 +83,7 @@ updated_at TEXT NOT NULL
 
 func (s *Store) userPreferences() (userPreferences, error) {
 	var prefs userPreferences
-	err := s.db.QueryRow(`SELECT timezone,language,show_activity<>0,structured_output<>0,notify_chats<>0,notify_tasks<>0 FROM user_preferences WHERE id=1`).Scan(&prefs.Timezone, &prefs.Language, &prefs.ShowActivity, &prefs.StructuredOutput, &prefs.NotifyChats, &prefs.NotifyTasks)
+	err := s.db.QueryRow(`SELECT timezone,language,show_activity<>0,structured_output<>0,notify_chats<>0,notify_tasks<>0,appearance FROM user_preferences WHERE id=1`).Scan(&prefs.Timezone, &prefs.Language, &prefs.ShowActivity, &prefs.StructuredOutput, &prefs.NotifyChats, &prefs.NotifyTasks, &prefs.Appearance)
 	if err == sql.ErrNoRows {
 		err = nil
 		prefs.StructuredOutput = true
@@ -96,6 +105,26 @@ func (s *Store) putUserLanguage(language string) error {
 	defer tx.Rollback()
 	if _, err = tx.Exec(`INSERT INTO user_preferences(id,timezone,language,updated_at) VALUES(1,'',?,?)
 ON CONFLICT(id) DO UPDATE SET language=excluded.language,updated_at=excluded.updated_at`, language, now()); err != nil {
+		return err
+	}
+	if err = insertWorkspaceEventTx(tx, workspaceScopeConfig, now()); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// putUserAppearance stores the theme; "" returns to unchosen.
+func (s *Store) putUserAppearance(theme string) error {
+	if theme != "" && !appearances[theme] {
+		return errors.New("appearance must be system, light or dark")
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err = tx.Exec(`INSERT INTO user_preferences(id,timezone,appearance,updated_at) VALUES(1,'',?,?)
+ON CONFLICT(id) DO UPDATE SET appearance=excluded.appearance,updated_at=excluded.updated_at`, theme, now()); err != nil {
 		return err
 	}
 	if err = insertWorkspaceEventTx(tx, workspaceScopeConfig, now()); err != nil {
@@ -250,9 +279,10 @@ func (s *Server) preferences(w http.ResponseWriter, r *http.Request) {
 			Language       *string `json:"language"`
 			ShowActivity   *bool   `json:"show_activity"`
 			// StructuredOutput switches the say protocol for new runs.
-			StructuredOutput *bool `json:"structured_output"`
-			NotifyChats      *bool `json:"notify_chats"`
-			NotifyTasks      *bool `json:"notify_tasks"`
+			StructuredOutput *bool   `json:"structured_output"`
+			NotifyChats      *bool   `json:"notify_chats"`
+			NotifyTasks      *bool   `json:"notify_tasks"`
+			Appearance       *string `json:"appearance"`
 		}
 		dec := json.NewDecoder(io.LimitReader(r.Body, 16*1024))
 		dec.DisallowUnknownFields()
@@ -260,8 +290,8 @@ func (s *Server) preferences(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusBadRequest, "invalid_request", "expected one preferences object")
 			return
 		}
-		if body.Timezone == nil && body.Language == nil && body.ShowActivity == nil && body.StructuredOutput == nil && body.NotifyChats == nil && body.NotifyTasks == nil {
-			writeErr(w, http.StatusBadRequest, "invalid_request", "expected timezone, language, show_activity, structured_output, notify_chats or notify_tasks")
+		if body.Timezone == nil && body.Language == nil && body.ShowActivity == nil && body.StructuredOutput == nil && body.NotifyChats == nil && body.NotifyTasks == nil && body.Appearance == nil {
+			writeErr(w, http.StatusBadRequest, "invalid_request", "expected timezone, language, show_activity, structured_output, notify_chats, notify_tasks or appearance")
 			return
 		}
 		if body.Language != nil {
@@ -287,6 +317,17 @@ func (s *Server) preferences(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+		if body.Appearance != nil {
+			theme := strings.TrimSpace(*body.Appearance)
+			if theme != "" && !appearances[theme] {
+				writeErr(w, http.StatusBadRequest, "invalid_appearance", "appearance must be system, light or dark")
+				return
+			}
+			if err := s.store.putUserAppearance(theme); err != nil {
+				writeErr(w, http.StatusInternalServerError, "preferences_unavailable", "preferences unavailable")
+				return
+			}
+		}
 		if body.StructuredOutput != nil {
 			if err := s.store.putUserStructuredOutput(*body.StructuredOutput); err != nil {
 				writeErr(w, http.StatusInternalServerError, "preferences_unavailable", "preferences unavailable")
@@ -298,7 +339,7 @@ func (s *Server) preferences(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusInternalServerError, "preferences_unavailable", "preferences unavailable")
 			return
 		}
-		response := map[string]any{"timezone": prefs.Timezone, "timezone_configured": prefs.TimezoneConfigured, "language": prefs.Language, "show_activity": prefs.ShowActivity, "structured_output": prefs.StructuredOutput, "notify_chats": prefs.NotifyChats, "notify_tasks": prefs.NotifyTasks}
+		response := map[string]any{"timezone": prefs.Timezone, "timezone_configured": prefs.TimezoneConfigured, "language": prefs.Language, "show_activity": prefs.ShowActivity, "structured_output": prefs.StructuredOutput, "notify_chats": prefs.NotifyChats, "notify_tasks": prefs.NotifyTasks, "appearance": prefs.Appearance}
 		if body.Timezone != nil {
 			zone, err := s.store.putUserTimezone(strings.TrimSpace(*body.Timezone), body.InitializeOnly)
 			if err != nil {

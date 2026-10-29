@@ -8,11 +8,17 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
 func workspaceTestTool(t *testing.T, s *Server, r Run, name string) Tool {
 	t.Helper()
-	for _, tool := range s.workspaceTools(Conversation{}, r) {
+	conv, err := s.store.GetConversation(r.ConversationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tool := range s.workspaceTools(conv, r) {
 		if tool.Name == name {
 			return tool
 		}
@@ -23,15 +29,56 @@ func workspaceTestTool(t *testing.T, s *Server, r Run, name string) Tool {
 
 func workspaceTestRun(t *testing.T, s *Server, bot Bot) Run {
 	t.Helper()
-	r, err := s.store.AddRun(bot.DMConversationID, bot.ID, "")
+	// A run a person's message started: the settings rules let it change things (an unattended run changes nothing).
+	_, r, _, err := s.store.AddUserRun(bot.DMConversationID, bot.ID, "manage the workspace", "workspace-"+newID())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if ok, err := s.store.SetRunStatus(r.ID, "running", ""); err != nil || !ok {
 		t.Fatalf("activate run: ok=%v err=%v", ok, err)
 	}
-	r.Status = "running"
+	r, err = s.store.GetRun(r.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	return r
+}
+
+// workspaceApproved runs a workspace tool the way a Bot does when a change needs the person's card: the refusal names a token, the
+// person approves exactly it, and the same call is repeated. It stops at the first result that is not a request for approval.
+func workspaceApproved(t *testing.T, s *Server, r Run, tool Tool, input string) (string, error) {
+	t.Helper()
+	for i := 0; i < 6; i++ {
+		out, err := tool.Execute(context.Background(), []byte(input))
+		o, ok := tooloutcome.FromError(err)
+		if !ok || o.Code != "settings_change_needs_approval" {
+			return out, err
+		}
+		start := strings.Index(o.Message, `"`)
+		end := strings.Index(o.Message[start+1:], `"`)
+		q, e := s.store.CreateQuestion(r.ConversationID, r, askQuestionInput{Question: "Approve?", Type: "approval", Approval: &ApprovalDetails{Action: "Change", Target: o.Message[start+1 : start+1+end], Impact: "As described"}})
+		if e != nil {
+			t.Fatal(e)
+		}
+		if _, _, e = s.store.AnswerQuestion(q.ID, "user", true); e != nil {
+			t.Fatal(e)
+		}
+	}
+	t.Fatal("the change kept asking for approval")
+	return "", nil
+}
+
+func workspaceApprovedJSON(t *testing.T, s *Server, r Run, tool Tool, input string) map[string]any {
+	t.Helper()
+	out, err := workspaceApproved(t, s, r, tool, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result map[string]any
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("tool output %q: %v", out, err)
+	}
+	return result
 }
 
 func workspaceJSON(t *testing.T, tool Tool, input string) map[string]any {
@@ -47,7 +94,7 @@ func workspaceJSON(t *testing.T, tool Tool, input string) map[string]any {
 	return result
 }
 
-func TestWorkspaceToolsManageBotsGroupsAndDeleteDirectly(t *testing.T) {
+func TestWorkspaceToolsManageBotsGroupsAndDeleteThroughTheSettingsGate(t *testing.T) {
 	s, err := NewServer(Config{DataDir: t.TempDir(), DefaultModel: "model"})
 	if err != nil {
 		t.Fatal(err)
@@ -86,7 +133,7 @@ func TestWorkspaceToolsManageBotsGroupsAndDeleteDirectly(t *testing.T) {
 		t.Fatalf("groups=%v", initial["groups"])
 	}
 
-	updatedBot := workspaceJSON(t, workspaceTestTool(t, s, r, "workspace_update_bot"), `{"bot_id":"`+a.ID+`","name":" Alpha renamed ","instructions":"new instructions","model":"default"}`)
+	updatedBot := workspaceApprovedJSON(t, s, r, workspaceTestTool(t, s, r, "workspace_update_bot"), `{"bot_id":"`+a.ID+`","name":" Alpha renamed ","instructions":"new instructions","model":"default"}`)
 	if updatedBot["name"] != "Alpha renamed" || updatedBot["instructions"] != "new instructions" || updatedBot["model"] != followGlobalModel || updatedBot["reasoning_effort"] != followGlobalModel || updatedBot["effective_model"] != "model" {
 		t.Fatalf("updated bot=%v", updatedBot)
 	}
@@ -104,7 +151,7 @@ func TestWorkspaceToolsManageBotsGroupsAndDeleteDirectly(t *testing.T) {
 	memberIDs := []string{b.ID, c.ID}
 	sort.Strings(memberIDs)
 	groupTool := workspaceTestTool(t, s, r, "workspace_update_group")
-	updatedGroup := workspaceJSON(t, groupTool, `{"group_id":"`+g.ID+`","name":"review renamed","bot_ids":["`+b.ID+`","`+c.ID+`"],"expected_name":"review","expected_bot_ids":["`+a.ID+`","`+b.ID+`"]}`)
+	updatedGroup := workspaceApprovedJSON(t, s, r, groupTool, `{"group_id":"`+g.ID+`","name":"review renamed","bot_ids":["`+b.ID+`","`+c.ID+`"],"expected_name":"review","expected_bot_ids":["`+a.ID+`","`+b.ID+`"]}`)
 	if updatedGroup["name"] != "review renamed" {
 		t.Fatalf("updated group=%v", updatedGroup)
 	}
@@ -119,14 +166,14 @@ func TestWorkspaceToolsManageBotsGroupsAndDeleteDirectly(t *testing.T) {
 		t.Fatalf("stale name err=%v", err)
 	}
 
-	deletedGroup := workspaceJSON(t, workspaceTestTool(t, s, r, "workspace_delete_group"), `{"group_id":"`+g.ID+`"}`)
+	deletedGroup := workspaceApprovedJSON(t, s, r, workspaceTestTool(t, s, r, "workspace_delete_group"), `{"group_id":"`+g.ID+`"}`)
 	if deletedGroup["deleted"] != true {
 		t.Fatalf("delete result=%v", deletedGroup)
 	}
 	if _, err = s.store.GetConversation(g.ID); err == nil {
 		t.Fatal("deleted group retained")
 	}
-	deletedBot := workspaceJSON(t, workspaceTestTool(t, s, r, "workspace_delete_bot"), `{"bot_id":"`+c.ID+`"}`)
+	deletedBot := workspaceApprovedJSON(t, s, r, workspaceTestTool(t, s, r, "workspace_delete_bot"), `{"bot_id":"`+c.ID+`"}`)
 	if deletedBot["deleted"] != true {
 		t.Fatalf("delete result=%v", deletedBot)
 	}
@@ -168,8 +215,8 @@ func TestWorkspaceToolsRequireActiveRunAndStoreBusyGuards(t *testing.T) {
 		t.Fatal(err)
 	}
 	busy := workspaceTestTool(t, s, caller, "workspace_update_group")
-	_, err = busy.Execute(context.Background(), []byte(`{"group_id":"`+g.ID+`","bot_ids":["`+a.ID+`","`+c.ID+`"]}`))
-	if !errors.Is(err, ErrGroupBusy) {
+	_, err = workspaceApproved(t, s, caller, busy, `{"group_id":"`+g.ID+`","bot_ids":["`+a.ID+`","`+c.ID+`"]}`)
+	if o, ok := tooloutcome.FromError(err); !ok || o.Code != "settings_target_busy" {
 		t.Fatalf("busy membership update err=%v", err)
 	}
 	if _, err := s.store.SetRunStatus(caller.ID, "completed", ""); err != nil {

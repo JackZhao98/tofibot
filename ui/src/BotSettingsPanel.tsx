@@ -7,6 +7,7 @@ import { BotSecrets } from "./BotSecrets";
 import { BotTools } from "./BotTools";
 import { buildBotPackage, downloadBotPackage } from "./botPackage";
 import { getBotAvatarConfig, saveBotAvatarConfig } from "./avatarStore";
+import { pushBotAvatar } from "./avatarSync";
 import { DirtyBar, LeaveConfirm } from "./CoverForm";
 import { coverContainer, requestCoverClose, useCover, useCoverGuard } from "./coverGuard";
 import { errorText } from "./errorText";
@@ -16,6 +17,8 @@ import { followsGlobal } from "./modelCatalog";
 import { ModelFields } from "./ModelSettings";
 import { OverlayPopover } from "./overlays/OverlayHost";
 import { PrimaryBadge } from "./PrimaryAssistant";
+import { takeSettingsSection } from "./settings/pendingSection";
+import { jumpWhenReady } from "./settings/sectionJump";
 import type { BotSkillListing } from "./skillLibrary";
 import { usePreviousWhileFading } from "./surfacePresence";
 import type { SettingsTab } from "./SettingsShell";
@@ -141,6 +144,16 @@ export function BotSettingsPanel({ bot, refreshToken = 0, onUpdate, onMakePrimar
     setView("page");
   };
 
+  // A link to one section (`/b/<id>/settings#model`) opens the cover on it.
+  useEffect(() => {
+    const target = takeSettingsSection("bot-settings");
+    if (!target || !SECTIONS.some(item => item.id === target)) return;
+    open(target as SectionId);
+    return jumpWhenReady(() => document.querySelector(".bot-settings .bs-sections"), target);
+    // Once, on mount: the section is taken from the pending link.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Avatar style: the picker opens in place, on the avatar's own button. It saves on every pick (the avatar is stored on this device).
   const [avatar, setAvatar] = useState(() => getBotAvatarConfig(bot.id));
   const [styleOpen, setStyleOpen] = useState(false);
@@ -226,7 +239,7 @@ export function BotSettingsPanel({ bot, refreshToken = 0, onUpdate, onMakePrimar
       <DirtyBar open={dirty} busy={busy} error={error} canSave={canSave} onDiscard={discard} onSave={() => void save()} />
     </div>
     <OverlayPopover open={styleOpen} onOpenChange={setStyleOpen} className="bot-style-pop" anchor={styleButton} container={coverContainer()} side="bottom" align="start" sideOffset={8} aria-label={t("botPanel.style")}>
-      <BotAvatarPicker botId={bot.id} config={avatar} onChange={next => setAvatar(saveBotAvatarConfig(bot.id, next))} />
+      <BotAvatarPicker botId={bot.id} config={avatar} onChange={next => { const saved = saveBotAvatarConfig(bot.id, next); pushBotAvatar(request, bot.id, saved); setAvatar(saved); }} />
     </OverlayPopover>
     {asking && <LeaveConfirm busy={busy} onKeep={() => { afterLeave.current = null; setAsking(false); }} onLeave={() => { const go = afterLeave.current ?? cover.close; afterLeave.current = null; setAsking(false); go(); }} />}
   </div>;

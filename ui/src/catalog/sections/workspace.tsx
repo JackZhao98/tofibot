@@ -1,5 +1,6 @@
 // The workspace frame: sidebar rows and pins, notices, the boot screen, the computer window, the phone push and the
 // smaller patterns. Mostly the real App; the cards that take props are rendered on their own.
+import SettingsChangeNotice from "../../SettingsChangeNotice";
 import { ScheduledTaskRow } from "../../ScheduledTaskRow";
 import type { ScheduleOccurrence } from "../../scheduleOccurrences";
 import { MailDraftCard } from "../../MailDraftCard";
@@ -96,6 +97,14 @@ export const notices: CatalogSection = {
     { id: "update-failed", kind: "app", label: "Update did not finish (banner)", note: "code and what changed; Dismiss hides it", app: { ...DM, update: "failed" }, drive: async step => { await step.find("[data-update-state=failed]", 8000); } },
     { id: "update-rolled-back", kind: "app", label: "Update rolled back (banner)", app: { ...DM, update: "rolled-back" }, drive: async step => { await step.find("[data-update-state=failed]", 8000); } },
     { id: "no-model", kind: "app", label: "\"Connect a model\" above the composer", app: { ...DM, modelConfigured: false } },
+    ...(["idle", "undone", "long"] as const).map(variant => ({ id: `notice-settings-change${variant === "idle" ? "" : `-${variant}`}`, kind: "inline" as const,
+      label: variant === "idle" ? "A setting a Bot changed, with Undo" : variant === "undone" ? "The same line after Undo" : "A long value is clipped to one line",
+      note: "system notice posted by the settings tool for a direct change; Undo calls the revert route and the line says Undone",
+      render: () => <SettingsChangeNotice fallback="Timezone: America/Los_Angeles → Asia/Shanghai" notice={{
+        type: "settings_change", from_bot_id: "bot_mochi", to_bot_id: "bot_mochi", target_conversation_id: "dm_mochi", target_run_id: "", change_id: "chg_sample",
+        setting_key: "account.timezone", label_key: "settings:timezone.label",
+        old_value: variant === "long" ? "A long line of earlier instructions that keeps going so that the notice has to clip it before it wraps onto a second line of the chat" : "America/Los_Angeles",
+        new_value: "Asia/Shanghai", revertable: true, reverted: variant === "undone" }} /> })),
   ],
   gaps: ["Settings banners: section 17.", "Panel error bar and the in-chat system notice: need a failing panel load or a failed run."],
 };

@@ -412,7 +412,13 @@
     "scheduled": "定期タスク",
     "system": "システム通知",
     "tool": "ツール",
-    "you": "あなた"
+    "you": "あなた",
+    "settings_change": "{{label}}：{{old}} → {{new}}",
+    "settings_change_empty": "空",
+    "settings_change_undo": "元に戻す",
+    "settings_change_undone": "元に戻しました",
+    "settings_change_undo_failed": "元に戻せませんでした",
+    "settings_change_stale": "その後に再び変更されています"
   },
   "notifications": {
     "description": "チャットを離れているときに新しい返信を通知します。",

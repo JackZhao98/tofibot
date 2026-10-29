@@ -252,11 +252,11 @@ func TestWorkspaceUpdateBotFollowGlobal(t *testing.T) {
 	r := workspaceTestRun(t, s, a)
 	update := workspaceTestTool(t, s, r, "workspace_update_bot")
 	// A pinned model with effort "default" uses the model default.
-	got := workspaceJSON(t, update, `{"bot_id":"`+a.ID+`","reasoning_effort":"default"}`)
+	got := workspaceApprovedJSON(t, s, r, update, `{"bot_id":"`+a.ID+`","reasoning_effort":"default"}`)
 	if got["model"] != "model" || got["reasoning_effort"] != followGlobalModel {
 		t.Fatalf("pinned+default=%v", got)
 	}
-	got = workspaceJSON(t, update, `{"bot_id":"`+a.ID+`","model":"inherit"}`)
+	got = workspaceApprovedJSON(t, s, r, update, `{"bot_id":"`+a.ID+`","model":"inherit"}`)
 	if got["model"] != followGlobalModel || got["reasoning_effort"] != followGlobalModel || got["effective_model"] != "model" {
 		t.Fatalf("follow=%v", got)
 	}

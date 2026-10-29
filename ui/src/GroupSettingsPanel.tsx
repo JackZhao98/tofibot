@@ -7,6 +7,8 @@ import { errorText } from "./errorText";
 import { useTranslation } from "./i18n";
 import { TofiIcon as Icon } from "./icons";
 import { PrimaryBadge } from "./PrimaryAssistant";
+import { takeSettingsSection } from "./settings/pendingSection";
+import { jumpWhenReady } from "./settings/sectionJump";
 import type { Bot, Conversation, TaskImpact } from "./types";
 import "./group-settings.css";
 
@@ -145,16 +147,22 @@ export function GroupSettingsPanel({ conversation, bots, onSaved, onReload, onOp
     }
   }
 
+  // A link to one section (`/g/<id>/settings#members`) scrolls to it and flashes it.
+  useEffect(() => {
+    const target = takeSettingsSection("group-settings");
+    return target ? jumpWhenReady(() => document.querySelector(".group-settings"), target) : undefined;
+  }, []);
+
   const discard = () => { setName(baselineName.current); setSelectedIds(baselineIds.current); setError(""); setConflict(false); };
   const busy = saving || reloading;
   const candidates = bots.filter(bot => !bot.archived || baselineIds.current.includes(bot.id) || selectedIds.includes(bot.id));
   return <div className="group-settings" aria-busy={busy}>
     <div className="gs-scroll">
       <div className="gs-column">
-        <label className="gs-field"><span>{t("members.name")}</span>
+        <label className="gs-field" data-section="general"><span>{t("members.name")}</span>
           <input aria-label={t("members.name")} value={name} maxLength={200} disabled={busy} onChange={event => setName(event.target.value)} />
         </label>
-        <section className="gs-block" aria-label={t("members.members")}>
+        <section className="gs-block" data-section="members" aria-label={t("members.members")}>
           <div className="gs-block-head"><h3>{t("members.members")}</h3><span className="gs-count">{selectedIds.length}/8</span></div>
           <div className="gs-members" role="group" aria-label={t("members.pick")}>
             {candidates.map(bot => <label key={bot.id} className="gs-member" data-selected={selectedIds.includes(bot.id) || undefined}>

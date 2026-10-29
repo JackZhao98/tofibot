@@ -1022,6 +1022,10 @@
       "widget_computer_auto": {
         "name": "Ouvrir l'ordinateur partagé quand un Bot l'utilise",
         "what": "Quand un Bot prend l'ordinateur partagé dans la conversation que vous regardez, son widget s'ouvre à côté des messages. Il reste ouvert et se replie en bandeau 30 secondes après que le Bot l'a lâché. Désactivé, il reste fermé jusqu'à ce que vous l'ouvriez."
+      },
+      "settings_change_limit": {
+        "name": "Modifications de réglages par exécution",
+        "what": "Le nombre maximal de réglages qu'un Bot peut modifier de lui-même en une exécution. Il liste le reste pour vous. Vous seul pouvez changer ce nombre."
       }
     },
     "option": {
@@ -1170,5 +1174,19 @@
     "label": "Mode d’approbation de ce compte",
     "auto": "Auto",
     "ask": "Demander avant de modifier"
+  },
+  "changes": {
+    "title": "Modifications par les Bots",
+    "description": "Les réglages qu'un Bot a modifiés lui-même. Rétablir remet l'ancienne valeur tant que rien ne l'a modifiée depuis.",
+    "loading": "Chargement des modifications…",
+    "load_failed": "Impossible de charger les modifications.",
+    "none": "Aucun Bot n'a encore modifié de réglage.",
+    "revert": "Rétablir",
+    "reverting": "Rétablissement…",
+    "reverted": "Rétabli",
+    "not_revertable": "Ne peut pas être rétabli ici",
+    "revert_failed": "Impossible de rétablir. Réessayez.",
+    "stale": "Le réglage a de nouveau changé après cette modification.",
+    "empty_value": "vide"
   }
 }

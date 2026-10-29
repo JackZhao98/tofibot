@@ -55,6 +55,8 @@ export interface Bot {
   is_primary?: boolean;
   /** First-run setup chat unfinished (server-derived); the greeting plays once while this holds. */
   onboarding_pending?: boolean;
+  /** The Bot's look as stored on the server (shape, pattern, palette); absent until one was chosen. */
+  avatar?: { schemaVersion?: number; shape?: string; pattern?: string; palette?: string } | null;
 }
 
 export type FollowupMode = "off" | "shadow" | "on";
@@ -172,6 +174,14 @@ export interface Message {
     /** A "command_exit" notice: the terminal and, when the process ended, its exit code. */
     terminal_id?: string;
     exit_code?: number;
+    /** A "settings_change" notice: the change to undo, the setting's catalog key and the bounded old and new text. */
+    change_id?: string;
+    setting_key?: string;
+    label_key?: string;
+    old_value?: string;
+    new_value?: string;
+    revertable?: boolean;
+    reverted?: boolean;
   };
   content: string;
   reactions?: Reaction[];
@@ -516,3 +526,20 @@ export interface WebToolsView {
 export interface SearchChatHit { id: string; kind: ConversationKind; name: string; bot_id?: string; updated_at: string; match_start: number; match_len: number }
 export interface SearchMessageHit { id: string; conversation_id: string; conversation_name: string; conversation_kind: ConversationKind; seq: number; role: string; sender_bot_id?: string; created_at: string; snippet: string; match_start: number; match_len: number }
 export interface SearchResults { query: string; chats: SearchChatHit[]; messages: SearchMessageHit[] }
+
+/** One line of Settings > Maintenance > Changes by Bots: a setting a Bot changed through the settings tool. */
+export interface SettingsChangeRow {
+  id: string;
+  at: string;
+  actor_kind: "bot" | "user" | "revert";
+  bot_id?: string;
+  bot_name?: string;
+  key: string;
+  label_key?: string;
+  target_name?: string;
+  old_value: string;
+  new_value: string;
+  risk: string;
+  revertable: boolean;
+  reverted_by?: string;
+}
