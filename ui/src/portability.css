@@ -57,3 +57,4 @@
 @keyframes portability-progress{from{transform:translateX(-100%)}to{transform:translateX(250%)}}
 @media(prefers-reduced-motion:reduce){.portability-progress>span{animation:none;width:100%;opacity:.5}}
 @media(max-width:700px){.portability-groups{margin:0 12px}.portability-actions .primary-button{flex:1;min-height:44px}.portability-group-count{max-width:40%}}
+.portability-more-body .disclosure{margin:0}.portability-more-body .disclosure-inner p{margin:0 0 8px}

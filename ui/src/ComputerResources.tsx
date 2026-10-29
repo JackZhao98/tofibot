@@ -47,7 +47,7 @@ function ResourceField({id,label,unit,current,value,min,max,step,hint,disabled,f
    <input id={id} type="range" aria-labelledby={id+"-label"} min={min} max={max} step={step} value={value} disabled={disabled||max<=min} style={{"--fill":pct+"%"} as CSSProperties} onChange={event=>onChange(clamp(Number(event.target.value)))}/>
    <button type="button" className="resource-step" aria-label={t("resources.increase",{field:label})} disabled={disabled||value>=max} onClick={()=>onChange(clamp(value+step))}>+</button>
   </div>
-  <div className="resource-field-foot"><span>{format(min)} {unit}</span><span className="resource-field-hint">{hint}</span><span>{format(max)} {unit}</span></div>
+  <div className="resource-field-foot"><span>{format(min)}</span><span className="resource-field-hint">{hint}</span><span>{format(max)}</span></div>
  </div>;
 }
 
