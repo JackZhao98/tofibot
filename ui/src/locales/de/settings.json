@@ -1176,7 +1176,16 @@
   "approval": {
     "label": "Freigabemodus für dieses Konto",
     "auto": "Automatisch",
-    "ask": "Vor Änderungen fragen"
+    "ask": "Vor Änderungen fragen",
+    "bot": "Pro Bot",
+    "bots_title": "Bots",
+    "bots_description": "Der eigene Freigabemodus jedes Bots.",
+    "bots_locked": "Vom Kontomodus oben vorgegeben. Wähle „Pro Bot“, um einen Bot einzeln zu ändern.",
+    "no_bots": "Noch keine Bots.",
+    "bot_label": "Freigabemodus für {{name}}",
+    "reviewer_title": "Modell für automatische Prüfung",
+    "reviewer_label": "Prüfmodell",
+    "reviewer_description": "Prüft Tool-Aufrufe für Bots im Modus „Auto“. Es ist auch das Hintergrundmodell, das leichte Aufgaben wie das Routing übernimmt."
   },
   "changes": {
     "title": "Änderungen durch Bots",

@@ -87,7 +87,7 @@ func (s *Server) claimMCPApproval(ctx context.Context, c Conversation, r Run, ca
 		}
 		return nil, errAutoReviewInvalidated
 	}
-	settings, settingsErr := readAutoReviewSettings(tx)
+	settings, settingsErr := readAutoReviewSettingsForBot(tx, r.BotID)
 	if settingsErr != nil {
 		return nil, settingsErr
 	}

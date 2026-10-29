@@ -1176,7 +1176,16 @@
   "approval": {
     "label": "Approval mode for this account",
     "auto": "Auto",
-    "ask": "Ask before edits"
+    "ask": "Ask before edits",
+    "bot": "Per Bot",
+    "bots_title": "Bots",
+    "bots_description": "Each Bot's own approval mode.",
+    "bots_locked": "Set by the account mode above. Choose Per Bot to change one Bot on its own.",
+    "no_bots": "No Bots yet.",
+    "bot_label": "Approval mode for {{name}}",
+    "reviewer_title": "Auto review model",
+    "reviewer_label": "Reviewer model",
+    "reviewer_description": "Reviews tool calls for Bots in Auto. This is also the background model, which runs light work such as routing."
   },
   "changes": {
     "title": "Changes by Bots",

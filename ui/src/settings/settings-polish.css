@@ -94,3 +94,11 @@
 .workspace .settings-page-body .notification-setting>.notification-status{order:2;flex:none;max-width:100%;color:var(--ink-soft);font:13px/1.5 var(--body);text-align:left}
 .workspace .settings-page-body .notification-setting .field-note{order:3;margin:0}
 .workspace .settings-page-body .notification-setting>.secondary-button{order:4;margin-top:6px}
+
+/* Permissions: one row per Bot, avatar and name left, its own mode right. */
+.approval-bots{display:grid}
+.approval-bot-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;padding:10px 16px}
+.approval-bot-who{display:flex;align-items:center;gap:10px;min-width:0}
+.approval-bot-who strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 14px/1.4 var(--body)}
+.approval-bot-who .avatar{flex:none}
+.approval-bot-row .segmented{flex:none}

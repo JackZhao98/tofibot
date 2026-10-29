@@ -57,6 +57,8 @@ export interface Bot {
   onboarding_pending?: boolean;
   /** The Bot's look as stored on the server (shape, pattern, palette); absent until one was chosen. */
   avatar?: { schemaVersion?: number; shape?: string; pattern?: string; palette?: string } | null;
+  /** How this Bot's tool calls are decided now: the reviewer ("auto") or a person ("ask"). A Bot with none of its own shows the account's. */
+  approval_mode?: "auto" | "ask";
 }
 
 export type FollowupMode = "off" | "shadow" | "on";
@@ -437,10 +439,10 @@ export interface Config {
   computer?: ComputerCapability;
   /** True when any model provider (Codex, OpenAI or Claude) is configured. */
   model_configured: boolean;
-  default_model: string;
-  /** First configured provider; kept for compatibility. */
   /** True when a transcription credential exists (ChatGPT sign-in, OpenAI key or a server key); the composer mic follows it. */
   dictation_configured?: boolean;
+  default_model: string;
+  /** First configured provider; kept for compatibility. */
   provider: string;
 }
 
@@ -456,10 +458,10 @@ export interface ModelProviderStatus {
   status?: "connected" | "needs_reconnect" | "disconnected";
   /** API-key providers only, e.g. "…abcd". */
   key_hint?: string;
-  /** RFC3339, or "" when never verified. */
-  verified_at?: string;
   /** First four characters of a long key; shown before the dots, never more. */
   key_prefix?: string;
+  /** RFC3339, or "" when never verified. */
+  verified_at?: string;
   error?: string;
 }
 

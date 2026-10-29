@@ -1186,7 +1186,16 @@
   "approval": {
     "label": "Mode d’approbation de ce compte",
     "auto": "Auto",
-    "ask": "Demander avant de modifier"
+    "ask": "Demander avant de modifier",
+    "bot": "Par Bot",
+    "bots_title": "Bots",
+    "bots_description": "Le mode d'approbation propre à chaque Bot.",
+    "bots_locked": "Défini par le mode du compte ci-dessus. Choisissez « Par Bot » pour modifier un Bot seul.",
+    "no_bots": "Aucun Bot pour le moment.",
+    "bot_label": "Mode d'approbation de {{name}}",
+    "reviewer_title": "Modèle de revue automatique",
+    "reviewer_label": "Modèle de relecture",
+    "reviewer_description": "Relit les appels d'outils des Bots en mode Auto. C'est aussi le modèle d'arrière-plan, qui prend en charge les tâches légères comme le routage."
   },
   "changes": {
     "title": "Modifications par les Bots",

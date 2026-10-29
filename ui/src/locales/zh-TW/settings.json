@@ -1166,7 +1166,16 @@
   "approval": {
     "label": "此帳號的核准模式",
     "auto": "自動",
-    "ask": "修改前先問"
+    "ask": "修改前先問",
+    "bot": "依 Bot",
+    "bots_title": "Bot",
+    "bots_description": "每個 Bot 各自的審批模式。",
+    "bots_locked": "由上方的帳號模式統一設定。要單獨修改某個 Bot，請選擇「依 Bot」。",
+    "no_bots": "還沒有 Bot。",
+    "bot_label": "{{name}} 的審批模式",
+    "reviewer_title": "自動覆核模型",
+    "reviewer_label": "覆核模型",
+    "reviewer_description": "負責覆核「自動」模式 Bot 的工具呼叫。它同時是背景模型，也承擔分流等輕量工作。"
   },
   "changes": {
     "title": "Bot 所做的變更",

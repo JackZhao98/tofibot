@@ -1166,7 +1166,16 @@
   "approval": {
     "label": "当前账号的审批模式",
     "auto": "自动",
-    "ask": "修改前先问"
+    "ask": "修改前先问",
+    "bot": "按 Bot",
+    "bots_title": "Bot",
+    "bots_description": "每个 Bot 各自的审批模式。",
+    "bots_locked": "由上方的账号模式统一设定。要单独修改某个 Bot，请选择“按 Bot”。",
+    "no_bots": "还没有 Bot。",
+    "bot_label": "{{name}} 的审批模式",
+    "reviewer_title": "自动复核模型",
+    "reviewer_label": "复核模型",
+    "reviewer_description": "负责复核“自动”模式 Bot 的工具调用。它同时是后台模型，也承担分流等轻量工作。"
   },
   "changes": {
     "title": "Bot 所做的更改",

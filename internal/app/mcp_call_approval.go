@@ -61,7 +61,7 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 	if call.Server == "" || call.Tool == "" || call.ConfigVersion == "" {
 		return mcpReviewBlocked("setup_required", "The exact external tool configuration is incomplete. Approval cannot repair this setup gap.")
 	}
-	settings, err := s.store.getAutoReviewSettings()
+	settings, err := readAutoReviewSettingsForBot(s.store.db, r.BotID)
 	if err != nil {
 		return err
 	}

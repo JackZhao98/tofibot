@@ -1166,7 +1166,16 @@
   "approval": {
     "label": "このアカウントの承認モード",
     "auto": "自動",
-    "ask": "変更前に確認"
+    "ask": "変更前に確認",
+    "bot": "Bot ごと",
+    "bots_title": "Bot",
+    "bots_description": "各 Bot 自身の承認モードです。",
+    "bots_locked": "上のアカウントのモードで設定されています。1 つの Bot だけ変えるには「Bot ごと」を選びます。",
+    "no_bots": "まだ Bot がありません。",
+    "bot_label": "{{name}} の承認モード",
+    "reviewer_title": "自動レビューのモデル",
+    "reviewer_label": "レビュー担当モデル",
+    "reviewer_description": "「自動」の Bot のツール呼び出しをレビューします。振り分けなどの軽い作業を担当するバックグラウンドモデルと同じ設定です。"
   },
   "changes": {
     "title": "Bot による変更",

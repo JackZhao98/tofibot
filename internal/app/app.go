@@ -61,6 +61,10 @@ type Bot struct {
 	// Avatar is the Bot's look (shape, pattern, palette) as stored on the server; absent until a person or a Bot chose one.
 	// Read from the bots table at API time (withEffectiveModels), never by scanBot.
 	Avatar BotAvatar `json:"avatar,omitempty"`
+	// ApprovalMode is how this Bot's tool calls are decided now: "auto" (the
+	// reviewer decides) or "ask" (a person decides). A Bot with none of its own
+	// shows the account's mode. Read at API time (withEffectiveModels).
+	ApprovalMode string `json:"approval_mode,omitempty"`
 }
 type Conversation struct {
 	UnreadCount       int                    `json:"unread_count"`
@@ -856,6 +860,9 @@ CREATE INDEX IF NOT EXISTS events_delta ON events(conversation_id,id) WHERE type
 		return err
 	}
 	if err := migrateAutoReview(s.db); err != nil {
+		return err
+	}
+	if err := migrateBotApprovalMode(s.db); err != nil {
 		return err
 	}
 	if err := migrateRememberedApprovals(s.db); err != nil {
@@ -3429,6 +3436,8 @@ func (s *Server) bots(w http.ResponseWriter, r *http.Request) {
 			NewPrimaryID    string  `json:"new_primary_id"`
 			// Avatar is the Bot's look as a JSON object; null clears it.
 			Avatar json.RawMessage `json:"avatar"`
+			// ApprovalMode is "auto" or "ask": how this Bot's tool calls are decided.
+			ApprovalMode *string `json:"approval_mode"`
 		}
 		if decode(r, &x) != nil {
 			writeErr(w, 400, "invalid_request", "invalid request")
@@ -3478,6 +3487,27 @@ func (s *Server) bots(w http.ResponseWriter, r *http.Request) {
 				effort := followGlobalModel
 				x.ReasoningEffort = &effort
 			}
+		}
+		if x.ApprovalMode != nil {
+			if x.Name != nil || x.Instructions != nil || x.Model != nil || x.ReasoningEffort != nil || len(x.Avatar) > 0 {
+				writeErr(w, http.StatusBadRequest, "invalid_request", "approval_mode must be updated separately")
+				return
+			}
+			if *x.ApprovalMode != "auto" && *x.ApprovalMode != "ask" {
+				writeErr(w, http.StatusBadRequest, "invalid_request", "approval_mode must be auto or ask")
+				return
+			}
+			if _, e := s.store.GetBot(id); e != nil {
+				writeErr(w, http.StatusNotFound, "not_found", "bot not found")
+				return
+			}
+			if e := s.store.SetBotApprovalMode(id, *x.ApprovalMode); e != nil {
+				writeErr(w, 500, "storage", "approval mode not saved")
+				return
+			}
+			b, _ := s.store.GetBot(id)
+			writeJSON(w, 200, s.withEffectiveModel(r.Context(), b))
+			return
 		}
 		var avatar *string
 		if len(x.Avatar) > 0 {

@@ -94,6 +94,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   browser = await chromium.launch({executablePath: process.env.TOFI_TEST_CHROME || undefined});
 
   const requested = [], unexpected = [], writes = [], tierWrites = [];
+  // Permissions page state the stub serves and records: each Bot's own mode, the account mode, the reviewer (background) model.
+  const perm = {modes: {bot_research: "auto", bot_inbox: "ask", bot_notes: "ask", bot_old: "ask"}, account: "shadow", reviewer: "", writes: []};
+  const resetPerm = () => { Object.assign(perm.modes, {bot_research: "auto", bot_inbox: "ask", bot_notes: "ask", bot_old: "ask"}); perm.account = "shadow"; perm.reviewer = ""; perm.writes.length = 0; };
+  const automationItems = () => [{key: "web_search", group: "replies", kind: "bool", default: true, value: true, source: "default"}, {key: "conversation_model", group: "models", kind: "model", default: "codex-gpt-6-sol", value: "codex-gpt-6-sol", source: "default"}, {key: "background_model", group: "models", kind: "model", default: "gpt-6-luna", value: perm.reviewer, source: perm.reviewer ? "stored" : "default"}];
   // The skill library the stub serves (decision 0058): owner-installed, Bot-installed with versions, a bundle, an official skill.
   const libWrites = [];
   const libState = () => ({
@@ -180,12 +184,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       : {enabled: true, setup_required: false, authenticated: true, password_transport_allowed: true, multi_account: true, owner: {id: "acct_sample", username: "Ada Sample", email: "ada@example.test", role: "admin"}};
     if (path === "/api/settings-changes") return {changes: []};
     if (path === "/api/storage") return query.get("storage") === "full" ? storageSample(10 * GIB_ALL, 10 * GIB_ALL) : storageSample(1.5 * GIB_ALL, query.get("storage") === "unlimited" ? null : 10 * GIB_ALL);
-    if (path === "/api/bots") return {bots: [{id: "bot_research", name: "Research Bot", archived: false}, {id: "bot_inbox", name: "Inbox Bot", archived: false}, {id: "bot_notes", name: "Notes Bot", archived: false}, {id: "bot_old", name: "Retired Bot", archived: true}]};
+    if (path === "/api/bots") return {bots: [{id: "bot_research", name: "Research Bot", archived: false}, {id: "bot_inbox", name: "Inbox Bot", archived: false}, {id: "bot_notes", name: "Notes Bot", archived: false}, {id: "bot_old", name: "Retired Bot", archived: true}].map(bot => ({...bot, approval_mode: perm.modes[bot.id]}))};
     if (path === "/api/preferences") return {timezone: "America/Los_Angeles", timezone_configured: true};
     if (path === "/api/standing-allowances") return {allowances: [], remembered: []};
     if (path === "/api/settings-changes") return {changes: []};
     if (/^\/api\/extensions\/mcp\/[^/]+\/bots$/.test(path)) return {all: true, bots: []};
-    if (path === "/api/automation-settings") return {items: [{key: "web_search", group: "replies", kind: "bool", default: true, value: true, source: "default"}, {key: "conversation_model", group: "models", kind: "model", default: "codex-gpt-6-sol", value: "codex-gpt-6-sol", source: "default"}]};
+    if (path === "/api/automation-settings") return {items: automationItems()};
     if (path === "/api/followups") return {account: {max_nudges_per_day: 3, quiet_start: "22:00", quiet_end: "08:00", weekend_min_importance: 80, digest_weekday: "mon", digest_time: "09:00", daily_budget_usd: 0.5}, primary_bot_id: "bot_research", delivery_available: false, budget_paused: false, model_configured: true, day: "2026-10-13",
       bots: [{bot_id: "bot_research", name: "Research Bot", is_primary: true, mode: "shadow", source_chat: true, source_email: true, last_sweep_at: "2026-10-13T16:30:00Z"}, {bot_id: "bot_inbox", name: "Inbox Bot", is_primary: false, mode: "off", source_chat: true, source_email: true}, {bot_id: "bot_notes", name: "Notes Bot", is_primary: false, mode: "shadow", source_chat: true, source_email: true}],
       stats: {sweeps: 4, loops_created: 3, rejected_invalid: 1, rejected_band: 2, merged: 1, spent_usd: 0.012, would_nudge: 2, would_digest: 1, useful: 3, annoying: 1, handled: 1},
@@ -206,7 +210,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/extensions/google") return {client: {configured: false}, apis: []};
     if (path === "/api/extensions/repo-stars") return {stars: {}};
     if (path === "/api/extensions/skills") return libState();
-    if (path === "/api/auto-review-settings") return {mode: "shadow", revision: 1, review_scope: "all_external_tools"};
+    if (path === "/api/auto-review-settings") return {mode: perm.account, revision: 1, review_scope: "all_external_tools"};
     if (path === "/api/providers") return {providers: query.get("prov") === "none" ? providers.map(item => item.id === "codex" ? {...item, configured: false, status: "disconnected"} : item.id === "openai" ? {...item, configured: false, key_hint: "", verified_at: ""} : item) : query.get("prov") === "key" ? providers.map(item => item.id === "codex" ? {...item, configured: false, status: "disconnected"} : item.id === "openai" ? {...item, key_prefix: "sk-p"} : item) : providers};
     if (path === "/api/web-tools") return {enabled: true, computer: false, search_offered: true, search: [{id: "native", label: "Model web search", kind: "native", paid: false, fixed: true, enabled: true, status: "always", testable: false}], fetch: [{id: "builtin", label: "Built-in fetch", kind: "builtin", paid: false, fixed: true, enabled: true, status: "always", testable: true}]};
     if (path === "/api/auth/codex") return {connected: !["none", "key"].includes(query.get("prov")), expires_at: Date.parse("2026-11-01T00:00:00Z")};
@@ -388,6 +392,18 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
         await route.fulfill({status: answer.status, contentType: "application/json", body: JSON.stringify(answer.body)});
         return;
       }
+      // Permissions writes: one Bot's own mode, the account mode, the reviewer model.
+      const reply = async (status, value) => route.fulfill({status, contentType: "application/json", body: JSON.stringify(value)});
+      if (/^\/api\/bots\/[^/]+$/.test(url.pathname) && method === "PATCH" && JSON.parse(request.postData() ?? "{}").approval_mode) {
+        const id = url.pathname.split("/")[3], mode = JSON.parse(request.postData()).approval_mode;
+        perm.modes[id] = mode; perm.writes.push(`PATCH ${url.pathname} ${request.postData()}`);
+        await reply(200, {id, name: id, approval_mode: mode}); return;
+      }
+      if (url.pathname === "/api/auto-review-settings" && method === "PUT") { perm.account = JSON.parse(request.postData()).mode; perm.writes.push(`PUT ${url.pathname} ${request.postData()}`); await reply(200, {mode: perm.account, revision: 2}); return; }
+      if (url.pathname === "/api/automation-settings" && method === "PUT") {
+        const {values} = JSON.parse(request.postData()); if ("background_model" in values) perm.reviewer = values.background_model ?? "";
+        perm.writes.push(`PUT ${url.pathname} ${request.postData()}`); await reply(200, {items: automationItems()}); return;
+      }
       const body = stub(url, method, new URLSearchParams(page.url().split("?")[1] ?? ""), request.postData() ?? "");
       if (body && body.__abort) { await route.abort(); return; }
       if (body === undefined) { unexpected.push(`${method} ${url.pathname}`); await route.fulfill({status: 404, contentType: "application/json", body: JSON.stringify({error: {message: "not stubbed", code: "not_found"}})}); return; }
@@ -560,6 +576,63 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await card.locator("input").count(), 0);
     await keyed.close();
     console.log("PASS ai models: Dictation hidden without OpenAI, one OpenAI card with two equal choices, masked key with Replace and Remove on demand");
+  }
+
+  // ---- 3d. Permissions: the account mode is a bulk control over every Bot; Per Bot unlocks the list; the reviewer model is a picker.
+  {
+    resetPerm();
+    const {page, close} = await open({tab: "permissions"});
+    const body = page.locator('.settings-page-body[data-page="permissions"]');
+    const top = body.getByRole("radiogroup", {name: "Approval mode for this account"});
+    await top.getByRole("radio", {name: "Per Bot"}).waitFor();
+    assert.equal(await top.getByRole("radio", {name: "Per Bot"}).getAttribute("aria-checked"), "true", "Bots differ, so the top reads Per Bot");
+    const rows = body.locator(".approval-bot-row");
+    assert.deepEqual(await rows.locator("strong").allInnerTexts(), ["Research Bot", "Inbox Bot", "Notes Bot"], "every active Bot, no archived one");
+    const segmentFor = name => body.getByRole("radiogroup", {name: `Approval mode for ${name}`});
+    assert.equal(await segmentFor("Research Bot").getByRole("radio", {name: "Auto"}).getAttribute("aria-checked"), "true");
+    assert.equal(await segmentFor("Inbox Bot").getByRole("radio", {name: "Ask before edits"}).getAttribute("aria-checked"), "true");
+    // Per Bot: one Bot changes on its own.
+    await segmentFor("Inbox Bot").getByRole("radio", {name: "Auto"}).click();
+    await page.waitForFunction(() => document.querySelector('[aria-label="Approval mode for Inbox Bot"] [aria-checked="true"]')?.textContent === "Auto");
+    assert.deepEqual(perm.writes, ['PATCH /api/bots/bot_inbox {"approval_mode":"auto"}']);
+    assert.equal(await top.getByRole("radio", {name: "Per Bot"}).getAttribute("aria-checked"), "true");
+    // Ask before edits writes every Bot that is not already there, then locks the list.
+    perm.writes.length = 0;
+    await top.getByRole("radio", {name: "Ask before edits"}).click();
+    await page.waitForFunction(() => document.querySelector('[aria-label="Approval mode for this account"] [aria-checked="true"]')?.textContent === "Ask before edits");
+    assert.deepEqual(perm.writes, ['PATCH /api/bots/bot_research {"approval_mode":"ask"}', 'PATCH /api/bots/bot_inbox {"approval_mode":"ask"}'], "each Bot's own setting is written; the Observe account mode stays");
+    assert.deepEqual(Object.values({r: perm.modes.bot_research, i: perm.modes.bot_inbox, n: perm.modes.bot_notes}), ["ask", "ask", "ask"]);
+    assert.equal(await segmentFor("Research Bot").getByRole("radio", {name: "Auto"}).isDisabled(), true, "the per-Bot list is locked");
+    // Per Bot unlocks without writing anything, and nothing remembers the earlier mix.
+    perm.writes.length = 0;
+    await top.getByRole("radio", {name: "Per Bot"}).click();
+    await page.waitForFunction(() => !document.querySelector('[aria-label="Approval mode for Research Bot"] [role="radio"]').disabled);
+    assert.deepEqual(perm.writes, [], "choosing Per Bot writes nothing");
+    assert.equal(await segmentFor("Research Bot").getByRole("radio", {name: "Ask before edits"}).getAttribute("aria-checked"), "true", "no cached previous values: every Bot is still Ask");
+    // Auto writes every Bot and the account mode, and locks again.
+    await top.getByRole("radio", {name: "Auto"}).click();
+    await page.waitForFunction(() => document.querySelector('[aria-label="Approval mode for this account"] [aria-checked="true"]')?.textContent === "Auto");
+    assert.deepEqual(perm.writes, ['PATCH /api/bots/bot_research {"approval_mode":"auto"}', 'PATCH /api/bots/bot_inbox {"approval_mode":"auto"}', 'PATCH /api/bots/bot_notes {"approval_mode":"auto"}', 'PUT /api/auto-review-settings {"mode":"auto"}']);
+    assert.equal(await segmentFor("Notes Bot").getByRole("radio", {name: "Ask before edits"}).isDisabled(), true);
+    // The page reads the server again: all Auto reads Auto.
+    await page.locator('.settings-tabs [data-tab="general"]').click();
+    await page.locator('.settings-tabs [data-tab="permissions"]').click();
+    assert.equal(await top.getByRole("radio", {name: "Auto"}).getAttribute("aria-checked"), "true");
+    // Reviewer model: the background model, picked from the catalog; Automatic names what it falls back to.
+    const reviewer = body.locator("#approval-reviewer-model");
+    assert.match(await reviewer.innerText(), /Automatic/);
+    perm.writes.length = 0;
+    await pickSelect(body.locator(".settings-row-v2", {hasText: "Reviewer model"}), "claude-opus-5-5");
+    await body.getByText("Saved").waitFor();
+    assert.deepEqual(perm.writes, ['PUT /api/automation-settings {"values":{"background_model":"claude-opus-5-5"}}']);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+    await close();
+    const phone = await open({tab: "permissions", view: "page"}, {width: 390, height: 844});
+    await phone.page.locator(".approval-bot-row").first().waitFor();
+    assert.equal(await phone.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "no horizontal scroll at 390px");
+    await phone.close();
+    resetPerm();
+    console.log("PASS permissions: bulk Auto / Ask before edits write every Bot and lock the list, Per Bot unlocks it without caching, own mode per Bot, reviewer model picker, 390px");
   }
 
   // ---- 4. Mobile: no select, home list -> Models page -> back -> home.

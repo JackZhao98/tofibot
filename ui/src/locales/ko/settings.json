@@ -1166,7 +1166,16 @@
   "approval": {
     "label": "이 계정의 승인 모드",
     "auto": "자동",
-    "ask": "변경 전에 확인"
+    "ask": "변경 전에 확인",
+    "bot": "Bot별",
+    "bots_title": "Bot",
+    "bots_description": "각 Bot의 개별 승인 모드입니다.",
+    "bots_locked": "위의 계정 모드로 설정되어 있습니다. Bot 하나만 바꾸려면 \"Bot별\"을 선택하세요.",
+    "no_bots": "아직 Bot이 없습니다.",
+    "bot_label": "{{name}}의 승인 모드",
+    "reviewer_title": "자동 검토 모델",
+    "reviewer_label": "검토 모델",
+    "reviewer_description": "자동 모드 Bot의 도구 호출을 검토합니다. 라우팅 같은 가벼운 작업을 맡는 백그라운드 모델과 같은 설정입니다."
   },
   "changes": {
     "title": "Bot이 바꾼 설정",

@@ -80,7 +80,7 @@ func (s *Server) finishShadowMCPReview(c Conversation, r Run, call extensions.MC
 	if err != nil {
 		return err
 	}
-	settings, err := readAutoReviewSettings(tx)
+	settings, err := readAutoReviewSettingsForBot(tx, r.BotID)
 	if err != nil {
 		return err
 	}
