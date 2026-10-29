@@ -1,0 +1,990 @@
+{
+  "version": 1,
+  "tabs": [
+    {
+      "id": "general",
+      "sections": [
+        "account",
+        "appearance",
+        "primary",
+        "region",
+        "chats"
+      ]
+    },
+    {
+      "id": "connections",
+      "sections": [
+        "list"
+      ]
+    },
+    {
+      "id": "skills",
+      "sections": [
+        "library"
+      ]
+    },
+    {
+      "id": "permissions",
+      "sections": [
+        "mode"
+      ]
+    },
+    {
+      "id": "allowances",
+      "sections": [
+        "reviewer",
+        "how",
+        "standing",
+        "remembered"
+      ]
+    },
+    {
+      "id": "followups",
+      "sections": [
+        "bots",
+        "nudges",
+        "digest",
+        "today",
+        "limits"
+      ]
+    },
+    {
+      "id": "models",
+      "sections": [
+        "providers",
+        "defaults",
+        "dictation"
+      ]
+    },
+    {
+      "id": "tools",
+      "sections": [
+        "web"
+      ]
+    },
+    {
+      "id": "automation",
+      "sections": [
+        "models",
+        "replies",
+        "history",
+        "checks",
+        "reliability",
+        "schedules",
+        "computer",
+        "widgets"
+      ]
+    },
+    {
+      "id": "computer",
+      "sections": [
+        "resources",
+        "environment"
+      ]
+    },
+    {
+      "id": "devices",
+      "sections": [
+        "devices"
+      ]
+    },
+    {
+      "id": "keys",
+      "sections": [
+        "keys"
+      ]
+    },
+    {
+      "id": "usage",
+      "sections": [
+        "health",
+        "usage"
+      ]
+    },
+    {
+      "id": "advanced",
+      "sections": [
+        "version",
+        "server",
+        "data",
+        "debug",
+        "danger"
+      ]
+    },
+    {
+      "id": "admin",
+      "sections": [
+        "accounts"
+      ]
+    }
+  ],
+  "bot_sections": [
+    "identity",
+    "role",
+    "model",
+    "tools",
+    "secrets",
+    "advanced"
+  ],
+  "group_sections": [
+    "general",
+    "members"
+  ],
+  "connection_sections": [
+    "status",
+    "tools",
+    "advanced",
+    "danger"
+  ],
+  "sidebar_views": [
+    "tasks",
+    "memory",
+    "terminal",
+    "archive"
+  ],
+  "settings": [
+    {
+      "key": "account.timezone",
+      "scope": "account",
+      "kind": "timezone",
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/general#region",
+      "manual": "settings/general",
+      "label_key": "settings:timezone.label",
+      "audit": true
+    },
+    {
+      "key": "account.language",
+      "scope": "account",
+      "kind": "language",
+      "options": [
+        "",
+        "de",
+        "en",
+        "fr",
+        "ja",
+        "ko",
+        "zh-CN",
+        "zh-TW"
+      ],
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/general#region",
+      "manual": "settings/general",
+      "label_key": "settings:language.label",
+      "audit": true
+    },
+    {
+      "key": "account.appearance",
+      "scope": "account",
+      "kind": "enum",
+      "options": [
+        "system",
+        "light",
+        "dark"
+      ],
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/general#appearance",
+      "manual": "settings/general",
+      "label_key": "settings:appearance.label",
+      "audit": true
+    },
+    {
+      "key": "account.show_activity",
+      "scope": "account",
+      "kind": "bool",
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/general#chats",
+      "manual": "settings/general",
+      "label_key": "settings:general.activity_title",
+      "audit": true
+    },
+    {
+      "key": "account.notify_chats",
+      "scope": "account",
+      "kind": "bool",
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/general#chats",
+      "manual": "settings/general",
+      "label_key": "settings:chats.chat_notifications",
+      "audit": true
+    },
+    {
+      "key": "account.notify_tasks",
+      "scope": "account",
+      "kind": "bool",
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/general#chats",
+      "manual": "settings/general",
+      "label_key": "settings:chats.task_notifications",
+      "audit": true
+    },
+    {
+      "key": "account.primary_bot",
+      "scope": "account",
+      "kind": "string",
+      "risk": {
+        "self": "confirm"
+      },
+      "link": "/settings/general#primary",
+      "manual": "settings/general",
+      "label_key": "settings:primary.label",
+      "audit": true
+    },
+    {
+      "key": "bot.name",
+      "scope": "bot",
+      "kind": "string",
+      "max_runes": 200,
+      "risk": {
+        "self": "direct",
+        "other": "confirm"
+      },
+      "link": "/b/{bot}/settings#identity",
+      "manual": "bot-settings/identity",
+      "label_key": "chat:botPanel.name",
+      "audit": true
+    },
+    {
+      "key": "bot.instructions",
+      "scope": "bot",
+      "kind": "string",
+      "max_runes": 16000,
+      "risk": {
+        "self": "direct",
+        "other": "confirm"
+      },
+      "link": "/b/{bot}/settings#role",
+      "manual": "bot-settings/role",
+      "label_key": "chat:botPanel.instructions",
+      "audit": true
+    },
+    {
+      "key": "bot.avatar",
+      "scope": "bot",
+      "kind": "string",
+      "risk": {
+        "self": "direct",
+        "other": "confirm"
+      },
+      "link": "/b/{bot}/settings#identity",
+      "manual": "bot-settings/identity",
+      "label_key": "chat:botSettings.avatar_title",
+      "audit": true
+    },
+    {
+      "key": "bot.model",
+      "scope": "bot",
+      "kind": "model",
+      "risk": {
+        "self": "confirm"
+      },
+      "link": "/b/{bot}/settings#model",
+      "manual": "bot-settings/model",
+      "label_key": "settings:model.label",
+      "audit": true
+    },
+    {
+      "key": "bot.reasoning_effort",
+      "scope": "bot",
+      "kind": "effort",
+      "risk": {
+        "self": "confirm"
+      },
+      "link": "/b/{bot}/settings#model",
+      "manual": "bot-settings/model",
+      "label_key": "settings:model.effort_label",
+      "audit": true
+    },
+    {
+      "key": "bot.skills",
+      "scope": "bot",
+      "kind": "bot_list",
+      "risk": {
+        "self": "direct",
+        "other": "confirm"
+      },
+      "link": "/b/{bot}/settings#tools",
+      "manual": "bot-settings/tools",
+      "label_key": "settings:shell.page.skills.name",
+      "tools": [
+        "skill_enable",
+        "skill_disable"
+      ],
+      "audit": true
+    },
+    {
+      "key": "bot.connections",
+      "scope": "bot",
+      "kind": "bot_list",
+      "risk": {
+        "self": "confirm"
+      },
+      "link": "/b/{bot}/settings#tools",
+      "manual": "bot-settings/tools",
+      "label_key": "settings:shell.page.connections.name",
+      "audit": true
+    },
+    {
+      "key": "bot.archived",
+      "scope": "bot",
+      "kind": "bool",
+      "risk": {
+        "self": "confirm"
+      },
+      "link": "/b/{bot}/settings#advanced",
+      "manual": "bot-settings/advanced",
+      "label_key": "chat:botSettings.archived_title",
+      "audit": true
+    },
+    {
+      "key": "bot.delete",
+      "scope": "bot",
+      "kind": "action",
+      "risk": {
+        "self": "confirm"
+      },
+      "link": "/b/{bot}/settings#advanced",
+      "manual": "bot-settings/advanced",
+      "label_key": "chat:header.delete_bot",
+      "audit": true
+    },
+    {
+      "key": "bot.memory",
+      "scope": "bot",
+      "kind": "collection",
+      "risk": {
+        "self": ""
+      },
+      "link": "/b/{bot}?side=memory",
+      "manual": "memory",
+      "label_key": "work:memory.title",
+      "tools": [
+        "list_memory",
+        "save_memory",
+        "update_memory",
+        "delete_memory"
+      ],
+      "audit": false
+    },
+    {
+      "key": "bot.schedules",
+      "scope": "bot",
+      "kind": "collection",
+      "risk": {
+        "self": ""
+      },
+      "link": "/b/{bot}?side=tasks",
+      "manual": "schedules",
+      "label_key": "chat:header.tasks",
+      "tools": [
+        "list_schedules",
+        "create_schedule",
+        "update_schedule",
+        "pause_schedule",
+        "resume_schedule",
+        "delete_schedule"
+      ],
+      "audit": false
+    },
+    {
+      "key": "bot.secrets",
+      "scope": "bot",
+      "kind": "none",
+      "risk": {
+        "self": "forbidden"
+      },
+      "link": "/b/{bot}/settings#secrets",
+      "manual": "bot-settings/secrets",
+      "label_key": "chat:botSettings.section.secrets",
+      "audit": true
+    },
+    {
+      "key": "conversation.name",
+      "scope": "conversation",
+      "kind": "string",
+      "max_runes": 200,
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/g/{group}/settings#general",
+      "manual": "group-settings/general",
+      "label_key": "chat:members.name",
+      "audit": true
+    },
+    {
+      "key": "conversation.pinned",
+      "scope": "conversation",
+      "kind": "bool",
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/",
+      "manual": "sidebar",
+      "label_key": "chat:sidebar.pinned",
+      "audit": true
+    },
+    {
+      "key": "conversation.members",
+      "scope": "conversation",
+      "kind": "bot_list",
+      "risk": {
+        "self": "confirm"
+      },
+      "link": "/g/{group}/settings#members",
+      "manual": "group-settings/members",
+      "label_key": "chat:members.members",
+      "audit": true
+    },
+    {
+      "key": "conversation.archived",
+      "scope": "conversation",
+      "kind": "bool",
+      "risk": {
+        "self": "confirm"
+      },
+      "link": "/g/{group}/settings#general",
+      "manual": "group-settings/general",
+      "label_key": "chat:botSettings.archived_title",
+      "audit": true
+    },
+    {
+      "key": "conversation.delete",
+      "scope": "conversation",
+      "kind": "action",
+      "risk": {
+        "self": "confirm"
+      },
+      "link": "/g/{group}/settings#general",
+      "manual": "group-settings/general",
+      "label_key": "chat:header.delete_group",
+      "audit": true
+    },
+    {
+      "key": "permissions.approval_mode",
+      "scope": "account",
+      "kind": "enum",
+      "options": [
+        "ask",
+        "auto"
+      ],
+      "risk": {
+        "self": "confirm"
+      },
+      "link": "/settings/permissions#mode",
+      "manual": "settings/permissions",
+      "label_key": "settings:approval.label",
+      "audit": true
+    },
+    {
+      "key": "permissions.standing_allowances",
+      "scope": "account",
+      "kind": "collection",
+      "risk": {
+        "self": "confirm"
+      },
+      "link": "/settings/allowances#standing",
+      "manual": "settings/allowances",
+      "label_key": "settings:permissionsPage.standing.title",
+      "audit": false
+    },
+    {
+      "key": "automation.conversation_model",
+      "scope": "account",
+      "kind": "model",
+      "risk": {
+        "self": "confirm"
+      },
+      "link": "/settings/automation#models",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.conversation_model.name",
+      "audit": true
+    },
+    {
+      "key": "automation.background_model",
+      "scope": "account",
+      "kind": "model",
+      "risk": {
+        "self": "confirm"
+      },
+      "link": "/settings/automation#models",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.background_model.name",
+      "audit": true
+    },
+    {
+      "key": "automation.structured_output",
+      "scope": "account",
+      "kind": "bool",
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#replies",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.structured_output.name",
+      "audit": true
+    },
+    {
+      "key": "automation.force_say_haiku_dm",
+      "scope": "account",
+      "kind": "bool",
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#replies",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.force_say_haiku_dm.name",
+      "audit": true
+    },
+    {
+      "key": "automation.web_search",
+      "scope": "account",
+      "kind": "bool",
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#replies",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.web_search.name",
+      "audit": true
+    },
+    {
+      "key": "automation.group_exchange_gists",
+      "scope": "account",
+      "kind": "bool",
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#history",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.group_exchange_gists.name",
+      "audit": true
+    },
+    {
+      "key": "automation.own_replies_verbatim",
+      "scope": "account",
+      "kind": "int",
+      "min": 1,
+      "max": 20,
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#history",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.own_replies_verbatim.name",
+      "audit": true
+    },
+    {
+      "key": "automation.task_retention_days",
+      "scope": "account",
+      "kind": "int",
+      "max": 3650,
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#history",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.task_retention_days.name",
+      "audit": true
+    },
+    {
+      "key": "automation.completion_review",
+      "scope": "account",
+      "kind": "bool",
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#checks",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.completion_review.name",
+      "audit": true
+    },
+    {
+      "key": "automation.answer_gate",
+      "scope": "account",
+      "kind": "int",
+      "max": 5,
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#checks",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.answer_gate.name",
+      "audit": true
+    },
+    {
+      "key": "automation.remembered_approval_hours",
+      "scope": "account",
+      "kind": "int",
+      "min": 1,
+      "max": 720,
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#checks",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.remembered_approval_hours.name",
+      "audit": true
+    },
+    {
+      "key": "automation.provider_retries",
+      "scope": "account",
+      "kind": "int",
+      "max": 10,
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#reliability",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.provider_retries.name",
+      "audit": true
+    },
+    {
+      "key": "automation.schedule_receipt_review",
+      "scope": "account",
+      "kind": "bool",
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#schedules",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.schedule_receipt_review.name",
+      "audit": true
+    },
+    {
+      "key": "automation.desktop_idle_seconds",
+      "scope": "account",
+      "kind": "readonly",
+      "risk": {
+        "self": "forbidden"
+      },
+      "link": "/settings/automation#computer",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.desktop_idle_seconds.name",
+      "audit": true
+    },
+    {
+      "key": "automation.group_triage",
+      "scope": "account",
+      "kind": "bool",
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#replies",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.group_triage.name",
+      "audit": true
+    },
+    {
+      "key": "automation.group_triage_model",
+      "scope": "account",
+      "kind": "model",
+      "risk": {
+        "self": "confirm"
+      },
+      "link": "/settings/automation#models",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.group_triage_model.name",
+      "audit": true
+    },
+    {
+      "key": "automation.group_followup_to_working",
+      "scope": "account",
+      "kind": "bool",
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#replies",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.group_followup_to_working.name",
+      "audit": true
+    },
+    {
+      "key": "automation.command_check_minutes",
+      "scope": "account",
+      "kind": "int",
+      "min": 5,
+      "max": 1440,
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#computer",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.command_check_minutes.name",
+      "audit": true
+    },
+    {
+      "key": "automation.task_stall_rounds",
+      "scope": "account",
+      "kind": "int",
+      "min": 1,
+      "max": 20,
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#checks",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.task_stall_rounds.name",
+      "audit": true
+    },
+    {
+      "key": "automation.task_tree_idle_message_limit",
+      "scope": "account",
+      "kind": "int",
+      "min": 10,
+      "max": 500,
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#reliability",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.task_tree_idle_message_limit.name",
+      "audit": true
+    },
+    {
+      "key": "automation.widget_artifacts_auto",
+      "scope": "account",
+      "kind": "bool",
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#widgets",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.widget_artifacts_auto.name",
+      "audit": true
+    },
+    {
+      "key": "automation.widget_computer_auto",
+      "scope": "account",
+      "kind": "bool",
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#widgets",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.widget_computer_auto.name",
+      "audit": true
+    },
+    {
+      "key": "models.default_model",
+      "scope": "account",
+      "kind": "model",
+      "risk": {
+        "self": "confirm"
+      },
+      "link": "/settings/models#defaults",
+      "manual": "settings/models",
+      "label_key": "settings:model.global_title",
+      "audit": true
+    },
+    {
+      "key": "models.default_effort",
+      "scope": "account",
+      "kind": "effort",
+      "risk": {
+        "self": "confirm"
+      },
+      "link": "/settings/models#defaults",
+      "manual": "settings/models",
+      "label_key": "settings:model.effort_label",
+      "audit": true
+    },
+    {
+      "key": "models.providers",
+      "scope": "account",
+      "kind": "none",
+      "risk": {
+        "self": "forbidden"
+      },
+      "link": "/settings/models#providers",
+      "manual": "settings/models",
+      "label_key": "settings:providers.title",
+      "audit": true
+    },
+    {
+      "key": "connection.connect",
+      "scope": "connection",
+      "kind": "action",
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/connections/{name}",
+      "manual": "connections/connect",
+      "label_key": "extensions:mcp.connect",
+      "audit": true
+    },
+    {
+      "key": "connection.enabled",
+      "scope": "connection",
+      "kind": "bool",
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/connections/{name}",
+      "manual": "connections/pause",
+      "label_key": "extensions:connections.action.resume",
+      "audit": true
+    },
+    {
+      "key": "connection.disconnect",
+      "scope": "connection",
+      "kind": "action",
+      "risk": {
+        "self": "confirm"
+      },
+      "link": "/settings/connections/{name}#danger",
+      "manual": "connections/disconnect",
+      "label_key": "extensions:mcp.menu.disconnect",
+      "audit": true
+    },
+    {
+      "key": "connection.tool_tier",
+      "scope": "connection",
+      "kind": "enum",
+      "options": [
+        "read_only",
+        "write",
+        "high_risk"
+      ],
+      "risk": {
+        "self": "direct",
+        "loosen": "confirm"
+      },
+      "link": "/settings/connections/{name}#tools",
+      "manual": "connections/tool-permissions",
+      "label_key": "extensions:tools.tier.write",
+      "audit": true
+    },
+    {
+      "key": "web_tools.order",
+      "scope": "account",
+      "kind": "string",
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/tools#web",
+      "manual": "settings/tools",
+      "label_key": "settings:webtools.title",
+      "audit": true
+    },
+    {
+      "key": "web_tools.keys",
+      "scope": "account",
+      "kind": "none",
+      "risk": {
+        "self": "forbidden"
+      },
+      "link": "/settings/tools#web",
+      "manual": "settings/tools",
+      "label_key": "settings:webtools.title",
+      "audit": true
+    },
+    {
+      "key": "system.version",
+      "scope": "system",
+      "kind": "none",
+      "risk": {
+        "self": "forbidden"
+      },
+      "link": "/settings/advanced#version",
+      "manual": "settings/advanced",
+      "label_key": "settings:advanced.version",
+      "audit": true
+    },
+    {
+      "key": "system.update",
+      "scope": "system",
+      "kind": "none",
+      "risk": {
+        "self": "forbidden"
+      },
+      "link": "/settings/advanced#version",
+      "manual": "settings/advanced",
+      "label_key": "settings:advanced.version",
+      "audit": true
+    },
+    {
+      "key": "system.data",
+      "scope": "system",
+      "kind": "none",
+      "risk": {
+        "self": "forbidden"
+      },
+      "link": "/settings/advanced#data",
+      "manual": "settings/advanced",
+      "label_key": "settings:advanced.data",
+      "audit": true
+    },
+    {
+      "key": "system.purge",
+      "scope": "system",
+      "kind": "none",
+      "risk": {
+        "self": "forbidden"
+      },
+      "link": "/settings/advanced#danger",
+      "manual": "settings/advanced",
+      "label_key": "settings:advanced.danger",
+      "audit": true
+    },
+    {
+      "key": "system.accounts",
+      "scope": "system",
+      "kind": "none",
+      "risk": {
+        "self": "forbidden"
+      },
+      "link": "/settings/admin#accounts",
+      "manual": "settings/admin",
+      "label_key": "settings:shell.page.admin.name",
+      "audit": true
+    },
+    {
+      "key": "system.computer_resources",
+      "scope": "system",
+      "kind": "none",
+      "risk": {
+        "self": "forbidden"
+      },
+      "link": "/settings/computer#resources",
+      "manual": "settings/computer",
+      "label_key": "settings:shell.page.computer.name",
+      "audit": true
+    },
+    {
+      "key": "keys.secrets",
+      "scope": "system",
+      "kind": "none",
+      "risk": {
+        "self": "forbidden"
+      },
+      "link": "/settings/keys#keys",
+      "manual": "settings/keys",
+      "label_key": "settings:shell.page.keys.name",
+      "audit": true
+    },
+    {
+      "key": "account.sign_out",
+      "scope": "account",
+      "kind": "none",
+      "risk": {
+        "self": "forbidden"
+      },
+      "link": "/settings/general#account",
+      "manual": "settings/general",
+      "label_key": "settings:shell.page.general.name",
+      "audit": true
+    }
+  ]
+}
