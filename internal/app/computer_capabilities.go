@@ -33,13 +33,15 @@ type ComputerCapabilities struct {
 	Backend      string   `json:"backend"`
 	Available    bool     `json:"available"`
 	Capabilities []string `json:"capabilities"`
+	// PersonalComputers is true only while the pairing routes are on (TOFI_PERSONAL_COMPUTERS=1).
+	PersonalComputers bool `json:"personal_computers,omitempty"`
 }
 
 func (s *Server) computerCapabilities() ComputerCapabilities {
 	if s.computer() == nil {
-		return ComputerCapabilities{Backend: ComputerBackendNone, Capabilities: []string{}}
+		return ComputerCapabilities{Backend: ComputerBackendNone, Capabilities: []string{}, PersonalComputers: s.personalComputers}
 	}
-	return ComputerCapabilities{Backend: ComputerBackendKVM, Available: true, Capabilities: append([]string(nil), kvmCapabilities...)}
+	return ComputerCapabilities{Backend: ComputerBackendKVM, Available: true, Capabilities: append([]string(nil), kvmCapabilities...), PersonalComputers: s.personalComputers}
 }
 
 // hasComputerCapability is the one question prompts and tools ask instead of

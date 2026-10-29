@@ -44,8 +44,34 @@ func pairedComputer(t *testing.T, s *Server, caps ...string) (string, string) {
 	return id, token
 }
 
+func TestComputerPairingRoutesAreOffUnlessTheFlagIsSet(t *testing.T) {
+	s := computerTestServer(t)
+	for _, tc := range []struct{ method, path string }{
+		{http.MethodPost, "computers/pairings"},
+		{http.MethodGet, "computers/pairings/11111111-1111-4111-8111-111111111111"},
+		{http.MethodPost, "computers/pair"},
+	} {
+		w := httptest.NewRecorder()
+		if !s.routeComputers(w, httptest.NewRequest(tc.method, "/api/"+tc.path, nil), tc.path) || w.Code != 404 {
+			t.Fatalf("%s %s without the flag: %d %s", tc.method, tc.path, w.Code, w.Body.String())
+		}
+	}
+	if caps := s.computerCapabilities(); caps.PersonalComputers {
+		t.Fatal("capabilities advertise personal computers without the flag")
+	}
+	s.personalComputers = true
+	w := httptest.NewRecorder()
+	if !s.routeComputers(w, httptest.NewRequest(http.MethodPost, "/api/computers/pairings", nil), "computers/pairings") || w.Code != 201 {
+		t.Fatalf("with the flag: %d %s", w.Code, w.Body.String())
+	}
+	if !s.computerCapabilities().PersonalComputers {
+		t.Fatal("capabilities hide personal computers with the flag")
+	}
+}
+
 func TestComputerPairingStatusTracksOnlyItsConsumedCode(t *testing.T) {
 	s := computerTestServer(t)
+	s.personalComputers = true
 	pairingID, code, _, err := s.store.createComputerPairingWithID()
 	if err != nil {
 		t.Fatal(err)

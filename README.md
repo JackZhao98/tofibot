@@ -4,8 +4,8 @@
 
 TOFI is a self-hosted AI bot workspace. It has a Go server and a React web app.
 Bots keep their identity, conversations, scheduled work and tool connections in
-a persistent workspace. Current release: **v0.2.1** (see
-[GitHub Releases](https://github.com/JackZhao98/tofibot/releases)).
+a persistent workspace. The current release and what each version changed are
+on [GitHub Releases](https://github.com/JackZhao98/tofibot/releases).
 
 - Direct and group conversations, streaming replies, attachments and generated files.
 - Persistent queues, scheduled work, cancellation and retry handling.
@@ -13,7 +13,10 @@ a persistent workspace. Current release: **v0.2.1** (see
 - MCP and Skills management, credentials and supported OAuth connections.
 - Server-side web search and web fetch, with an ordered chain of providers.
 - Invite-only accounts, Admin management and per-account data isolation.
-- Optional: one Firecracker virtual computer for each account.
+- Optional: one Firecracker virtual computer for each account. Bots work without it.
+- Local connections (for example Gmail through gog) run in a separate tool runner
+  container, with or without a computer. An admin can attach or detach a computer
+  while TOFI runs; the connections keep working.
 
 ## Install
 
@@ -43,8 +46,10 @@ browser. On a cloud server, allow TCP 8321 in the firewall.
 | Free disk | 10 GiB minimum, 20 GiB recommended | 30 GiB minimum, 40 GiB recommended |
 
 On a cloud VM, turn on nested virtualization to use a computer. A host without
-KVM is not refused. The installer installs the server and web app only. You can
-add a computer later without a reinstall:
+KVM is not refused. The installer installs the server and web app only. Bots,
+conversations and local connections all work without a computer. You can add a
+computer later without a reinstall (the tool runner container and `iptables` are
+part of every install):
 
 ```sh
 sudo tofi computer add kvm      # needs /dev/kvm
@@ -76,8 +81,8 @@ fails. The page shows the steps and reconnects when the App restarts. Turn on **
 plus one `sudo tofi status` (or the next reboot); until then the page keeps telling you to run the command.
 
 ```sh
-sudo tofi status               # installed and latest version, services, computers
-sudo tofi update --check       # what an update would change (exit 10 = update available)
+sudo tofi status               # installed and latest version, services, tool runner, computers
+sudo tofi update --check       # what an update would change, incl. the tool runner (exit 10 = update available)
 sudo tofi update               # back up, update, and roll back if the new version fails
 sudo tofi backup               # data, settings and computer disks, then verify
 sudo tofi backups              # list backups
@@ -86,7 +91,7 @@ sudo tofi doctor               # check the install
 ```
 
 `tofi update` makes a backup first. It restores the previous version if the new
-version does not start. `tofi uninstall` keeps all data. `tofi uninstall --purge`
+version, or its tool runner container, does not start. `tofi uninstall` keeps all data. `tofi uninstall --purge`
 deletes it. Details: [deploy/self-host/README.md](deploy/self-host/README.md).
 
 ## Build and run from source

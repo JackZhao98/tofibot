@@ -22,7 +22,8 @@ const {default: react} = await import("@vitejs/plugin-react");
 const LANGS = ["en", "zh-CN", "zh-TW", "ja", "ko", "de", "fr"];
 // The rail with the Advanced group folded; the folded group holds ADV_TABS ("advanced" is the System page, labelled Maintenance).
 const TABS = ["general", "connections", "skills", "permissions", "models", "tools", "automation", "computer", "keys", "usage", "advanced"];
-const ADV_TABS = ["allowances", "followups", "devices"];
+// "devices" (Other devices) is behind TOFI_PERSONAL_COMPUTERS: the rail lists it only when `computer.personal_computers` is true.
+const ADV_TABS = ["allowances", "followups"];
 const ICONS = {general: "sliders", connections: "plug", skills: "skill", permissions: "shield-check", allowances: "checklist", followups: "bell", devices: "laptop", models: "sparkles", tools: "globe", automation: "workflow", computer: "monitor", keys: "key", usage: "progress", advanced: "settings", admin: "group"};
 const NAMES = {general: "General", connections: "Connections", skills: "Skills", permissions: "Permissions", allowances: "Tool rules", followups: "Follow-ups", devices: "Other devices", models: "Models", tools: "Search & fetch", automation: "Behavior", computer: "Computer", keys: "Computer keys", usage: "Usage", advanced: "Maintenance", admin: "Admin console"};
 
@@ -32,7 +33,7 @@ for (const lang of LANGS) catalogs[lang] = JSON.parse(await readFile(join(ui, "s
 for (const lang of LANGS) {
   const shell = catalogs[lang].shell;
   assert.deepEqual(Object.keys(shell.group).sort(), ["bots", "more", "system", "workspace", "you"], `${lang}: shell.group keys`);
-  assert.deepEqual(Object.keys(shell.page).sort(), [...TABS, ...ADV_TABS, "admin"].sort(), `${lang}: shell.page keys (no stale tab ids)`);
+  assert.deepEqual(Object.keys(shell.page).sort(), [...TABS, ...ADV_TABS, "devices", "admin"].sort(), `${lang}: shell.page keys (no stale tab ids)`);
   let sameAsEnglish = 0;
   for (const [id, page] of Object.entries(shell.page)) {
     assert.ok(page.name && page.description, `${lang}: ${id} needs a name and a description`);
@@ -71,7 +72,9 @@ import {SettingsPages} from '../src/settings/SettingsPages';
 import {subscribeSettingsDeepLinks} from '../src/settings/deepLinks';
 import {CodexPanel} from '../src/settings/AppSlots';
 import {UpdateBanner} from '../src/UpdateNotice';
+import {setComputerCapability} from '../src/computerCapability';
 const query=new URLSearchParams(location.search);
+if(query.get('personal'))setComputerCapability({backend:'kvm',available:true,capabilities:[],personal_computers:true});
 const bots=[{id:'bot_research',name:'Research Bot',is_primary:true,archived:false,model:'default',reasoning_effort:'default'},{id:'bot_inbox',name:'Inbox Bot',archived:false,model:'gpt-6-luna',reasoning_effort:'medium'},{id:'bot_notes',name:'Notes Bot',archived:false,model:'default',reasoning_effort:'default'},{id:'bot_old',name:'Retired Bot',archived:true,model:'default',reasoning_effort:'default'}] as any;
 function Fixture(){
  const appearance=useAppearance();
@@ -439,10 +442,15 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await fold.getAttribute("aria-expanded"), "true");
     assert.deepEqual(await railTabs(page), [...TABS, ...ADV_TABS], "the folded group lists its pages when opened");
     assert.equal((await page.locator('.settings-tabs [data-tab="followups"] .settings-nav-tag').textContent()).trim(), "Beta");
-    assert.equal((await page.locator('.settings-tabs [data-tab="devices"] .settings-nav-tag').textContent()).trim(), "In development");
+    assert.equal(await page.locator('.settings-tabs [data-tab="devices"]').count(), 0, "Other devices is hidden unless personal computers are on");
     await fold.click();
     assert.deepEqual(await railTabs(page), TABS, "folding hides them again");
     await close();
+    const personal = await open({admin: "0", personal: "1"});
+    await personal.page.locator(".settings-tabs .settings-nav-fold").click();
+    assert.deepEqual(await railTabs(personal.page), [...TABS, ...ADV_TABS, "devices"], "personal computers on: Other devices is listed");
+    assert.equal((await personal.page.locator('.settings-tabs [data-tab="devices"] .settings-nav-tag').textContent()).trim(), "In development");
+    await personal.close();
     const admin = await open({admin: "1"});
     assert.deepEqual(await railTabs(admin.page), [...TABS, "admin"], "admin tab appears for a multi-account admin");
     const adminIcon = await admin.page.locator('.settings-tabs [data-tab="admin"] svg').getAttribute("data-tofi-icon");

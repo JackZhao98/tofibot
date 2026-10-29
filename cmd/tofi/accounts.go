@@ -55,6 +55,7 @@ func newConfiguredServer(config app.Config, getenv func(string) string) (applica
 		}
 		config.MaxPersonalComputers = limit
 	}
+	config.PersonalComputers = getenv("TOFI_PERSONAL_COMPUTERS") == "1"
 	if backend == app.ComputerBackendNone {
 		config.ComputerSocket = ""
 	}

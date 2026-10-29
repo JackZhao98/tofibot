@@ -373,7 +373,7 @@ class InstallScriptTests(InstallBase):
         self.assertLess(out.index('This machine'), out.index('Ready to install'))
         self.assertIn('Computers none: server and web app only', out)
         self.assertEqual(self.handoff_computer(), 'none')
-        self.assertEqual(self.apt_installed(), ['ca-certificates', 'curl', 'tar', 'python3', 'openssl', 'iproute2'])
+        self.assertEqual(self.apt_installed(), ['ca-certificates', 'curl', 'tar', 'python3', 'openssl', 'iproute2', 'iptables'])
         self.assertFalse(self.docker_security_checked(), 'cgroup v2 / AppArmor in Docker only matter for a computer')
         self.assertEqual(os.readlink(self.root / 'opt/tofi/current'), 'releases/' + VERSION)
 
@@ -419,7 +419,7 @@ class InstallScriptTests(InstallBase):
         result = self.run_script('--yes')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.handoff_computer(), 'kvm')
-        self.assertEqual(self.apt_installed(), ['ca-certificates', 'curl', 'tar', 'python3', 'openssl', 'iproute2',
+        self.assertEqual(self.apt_installed(), ['ca-certificates', 'curl', 'tar', 'python3', 'openssl', 'iproute2', 'iptables',
                                                 'zstd', 'e2fsprogs', 'apparmor', 'apparmor-utils'])
         self.assertTrue(self.docker_security_checked())
         self.assertIn('Computers KVM (Firecracker)', ' '.join(result.stdout.split()))

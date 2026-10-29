@@ -9,14 +9,18 @@ Docker. The computer is optional (`TOFI_COMPUTER_BACKEND=none|kvm`):
   container, no Guest download, no AppArmor or seccomp profile. `sudo tofi computer add kvm`
   adds the computer later on a host that has KVM; `sudo tofi computer remove` takes it away
   again and keeps its disks (`--purge` deletes them).
+- **Either way** the local MCP Runner container serves local connections (Gmail through
+  gog, community packages) for every account, so they work with or without a computer
+  and keep working when an admin attaches or detaches one. It needs `iptables` on the host
+  (see the Runner notes under "Files"); a start or update that cannot start it fails.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh | sudo bash
 ```
 
-Status: release candidate. Unit tests cover the failure paths; clean-host KVM
-acceptance (docs/agent-plan/one-command-install.md, "End-to-end acceptance") is
-the gate before `v0.1.0`.
+Releases and their notes: https://github.com/JackZhao98/tofibot/releases. Unit tests
+cover the failure paths; the clean-host acceptance steps are in
+docs/agent-plan/one-command-install.md ("End-to-end acceptance").
 
 ## Requirements
 
@@ -269,7 +273,7 @@ challenge the notice appears about every half hour. TOFI sets no
    card, then the questions (in a terminal) and Proceed. Steps 1-4 change
    nothing on the host; they only read (plus, for a fresh install, the latest
    release manifest from GitHub and one public-IP lookup).
-5. `apt-get install ca-certificates curl tar python3 openssl iproute2`, and with a
+5. `apt-get install ca-certificates curl tar python3 openssl iproute2 iptables`, and with a
    computer also `zstd e2fsprogs apparmor apparmor-utils`.
 6. Docker Engine + Compose plugin from Docker's apt repository when missing
    (falls back to get.docker.com for brand-new distributions); with a computer,
@@ -311,13 +315,13 @@ Later accounts are created by the Admin. Then open Settings -> Model provider.
 
 | Command | Effect |
 |---|---|
-| `tofi status [--json]` | Installed and latest version, App/Worker images, Guest release, services, health, URLs, certificate fingerprint and one row per account computer (in a terminal the install summary first) |
+| `tofi status [--json]` | Installed and latest version, App/Worker images, Guest release, services, the Runner (healthy or not), health, URLs, certificate fingerprint and one row per account computer (in a terminal the install summary first) |
 | `tofi computer add kvm [--wait MINUTES] [--force]` | Give a server without a computer one: checks KVM, TUN, cgroup v2, AppArmor, Docker, 2 vCPUs, 4 GiB RAM and 16 GiB free (installing `zstd e2fsprogs apparmor apparmor-utils` if missing), pulls the Worker image, fetches the Guest of the installed version, writes `worker.json`, seccomp and AppArmor, sets `TOFI_COMPUTER_BACKEND=kvm`, starts the Worker and has the running App attach every account's computer through its host route (`/api/host/computer/attach`, token `data/host-control.token`, served only to the host (loopback or the container gateway; other sources get 404), never proxied by Caddy; no restart). An App that cannot do that live (an older release, or one started without the Worker's sockets, e.g. the first `add` on a server installed without a computer) is restarted as before (after active Bot runs finish, like `stop`). Idempotent; a failure puts `tofi.env` back and the App as it was. Nothing changes if the host cannot run KVM |
 | `tofi computer remove [--purge] [--yes] [--wait MINUTES] [--force]` | The running App detaches every account's computer first (drains calls, saves the outbox files), then the Worker stops (computers hibernate) and `TOFI_COMPUTER_BACKEND=none` is set; an App that cannot detach live is restarted instead. Computer disks, state and the Guest release stay under `/var/lib/tofi` so `computer add kvm` brings them back; `--purge` (needs `--yes` or a typed confirmation) deletes them and the AppArmor profile |
 | `tofi computers [--json]` | The account computer rows alone: state, Guest release, pending upgrade, memory, last wake |
 | `tofi computers upgrade --all \| --account <id> [--force]` | Move computers on an older Guest release to the installed one (idle ones now, busy ones deferred unless `--force`), then remove Guest releases no computer uses |
 | `tofi start` / `tofi stop [--wait MINUTES] [--force]` | Start (Worker first, readiness, App) / stop cleanly; never removes data. `stop` waits for active Bot runs like `update` does (the systemd unit passes `--force` so shutdown is never refused) |
-| `tofi update --check [--version X] [--json]` | Report what an update would change (versions, image digests, Guest, data schema, effect on computers) without touching anything; exit 0 up to date, 10 update available, 1 error |
+| `tofi update --check [--version X] [--json]` | Report what an update would change (versions, image digests, Guest, data schema, effect on computers; a line when the update adds the Runner container) without touching anything; exit 0 up to date, 10 update available, 1 error |
 | `tofi update [--version X] [--yes] [--wait MINUTES] [--force] [--allow-schema-change]` | Pull and check the new images and Guest before stopping anything; refuse a different `io.tofi.data-schema` unless allowed; take a backup, then switch; on failure restore the backup, the previous images, Guest pin and host files ("update rejected; previous version restored"). Asks for confirmation on a terminal unless `--yes`; `--check` also prints the release notes link. With backend `none` there is no Worker image or Guest to pull, fetch, prune or report, and the manifest's `guest`/`arches` entries are ignored |
 | `tofi update --auto` | What the daily timer runs: nothing unless `TOFI_AUTO_UPDATE=patch`; installs only a newer patch of the installed major.minor, never an rc, never when a Bot run is active (skipped, not waited for) |
 | `tofi config auto-update on\|off` | Switch automatic fix releases and the systemd timer |
@@ -330,9 +334,9 @@ Later accounts are created by the Admin. Then open Settings -> Model provider.
 | `tofi uninstall --purge` | After you type the hostname: remove containers, TOFI's images, profile, unit and every TOFI directory including all data. Images removed are only those named by this installation (current `tofi.env`, a pending rollback, every release manifest under `/opt/tofi`), without force, so an image another container uses is kept; each removed or kept image is printed. Nothing is pruned |
 | `tofi setup-secret` | Print the pending setup key |
 | `tofi regenerate-cert` | Replace the self-signed certificate (new names/IPs, new fingerprint) and restart the App |
-| `tofi logs [app\|worker\|caddy]` | Follow container logs |
+| `tofi logs [app\|worker\|caddy\|runner]` | Follow container logs |
 | `tofi doctor` | The installer's "This machine" card, then check KVM, computer backend, cgroup, profile, `/run/tofi`, Worker config, Guest release, images, disk, health. With backend `none` the KVM, cgroup, profile, Worker, Guest and memory checks are not run (a host without KVM is healthy) |
-| `tofi security audit [--json] [--online]` | Read-only report of where this install deviates from safe defaults: HTTPS and certificate type, listening interfaces and public addresses, plain-HTTP sign-in, pending Admin setup key, login limiter and trusted proxies, modes and owners of `/etc/tofi`, the data dir, vault files, the TLS key and backups, credential-looking names in `tofi.env` (names only, never values), plaintext model keys, installed vs latest release (stored check; `--online` fetches), Guest vs hibernated computers, newest backup age. PASS/WARN/FAIL with one fix line each; exit 0 (no FAIL), 2 (a FAIL), 1 (could not run). Changes nothing |
+| `tofi security audit [--json] [--online]` | Read-only report of where this install deviates from safe defaults: HTTPS and certificate type, listening interfaces and public addresses, plain-HTTP sign-in, pending Admin setup key, login limiter and trusted proxies, modes and owners of `/etc/tofi`, the data dir, vault files, the TLS key and backups, credential-looking names in `tofi.env` (names only, never values), plaintext model keys, installed vs latest release (stored check; `--online` fetches), Guest vs hibernated computers, the Runner's network fence (`runner.fence`), newest backup age. PASS/WARN/FAIL with one fix line each; exit 0 (no FAIL), 2 (a FAIL), 1 (could not run). Changes nothing |
 | `tofi version` | Host tool, installed release and images |
 
 `security audit` takes no lock and writes nothing.
@@ -398,7 +402,7 @@ Every update is built so that nothing is lost when it fails.
 - **Release notes.** `manifest.json` carries an optional `notes_url`
   (`https://github.com/<repo>/releases/tag/<version>`), printed by
   `tofi update --check`.
-- **Update from the web page.** An admin can press **Update to vX** in Settings > Advanced > Version.
+- **Update from the web page.** An admin can press **Update to vX** in Settings > Maintenance > Version.
   The App (uid 10001) only writes `/var/lib/tofi/update-request/request.json`
   (mounted at `/update/request`, the one writable path); the `tofi-update-request.path`
   unit starts `tofi-update-request.service` (root), which runs `tofi update --from-request`.
@@ -591,8 +595,11 @@ adds firewall rules (iptables chain `TOFI-RUNNER-EGRESS`, hooked into
 networks (10/8, 172.16/12, 192.168/16, 100.64/10), 169.254.0.0/16 or the other
 Docker networks of this install; they are rewritten on every start and removed by
 `tofi uninstall`. Without `iptables` (or with Docker's nftables backend, which
-has no `DOCKER-USER` chain) `tofi` warns and the Runner starts unfenced: add
-equivalent rules yourself for 172.30.77.0/24. If 172.30.77.0/24 is in use on
+has no `DOCKER-USER` chain) `tofi start` and `tofi update` refuse to start the
+Runner and say why; an update that cannot fence it rolls back. If you added
+equivalent rules for 172.30.77.0/24 yourself, set `TOFI_RUNNER_UNFENCED=1` in
+`tofi.env` to start the Runner anyway. `tofi security audit` reports
+`runner.fence` (FAIL when the rules are missing). If 172.30.77.0/24 is in use on
 your network, change it in `compose.yaml` and `RUNNER_EGRESS_SUBNET` in
 `tofi_host.py`.
 

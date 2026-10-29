@@ -401,6 +401,7 @@ func TestOwnerIndependentRouteExactness(t *testing.T) {
 
 func TestOwnerDeviceAuthenticationStillWorks(t *testing.T) {
 	s, _ := ownerTestServer(t)
+	s.personalComputers = true
 	code, _, err := s.store.createComputerPairing()
 	if err != nil {
 		t.Fatal(err)

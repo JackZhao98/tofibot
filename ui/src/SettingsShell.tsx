@@ -13,7 +13,7 @@ import {SETTINGS_SECTIONS} from "./settings/sections";
 import {providerForModel, providerLabels} from "./modelCatalog";
 import {useLanguage, useTranslation} from "./i18n";
 import {ConfirmDialog} from "./overlays/ModalDialog";
-import {useHasComputer} from "./computerCapability";
+import {useComputerCapability,useHasComputer} from "./computerCapability";
 
 export type SettingsTab="general"|"connections"|"skills"|"permissions"|"allowances"|"followups"|"models"|"tools"|"automation"|"computer"|"devices"|"keys"|"usage"|"advanced"|"admin";
 // Compile-time check: every tab has its section list in settings/sections.ts (the ids a link can scroll to).
@@ -71,8 +71,9 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
  const identity=useAccountIdentity();
  const isAdmin=Boolean(session?.multi_account&&session.owner?.role==="admin");
  const hasComputer=useHasComputer();
+ const personal=useComputerCapability()?.personal_computers===true;
  // Without a computer the Keys page (environment variables and SSH keys, used only inside it) is hidden; Computer stays and explains the options.
- const visibleGroups:Group[]=useMemo(()=>groups.map(item=>item.id==="system"&&isAdmin?{...item,items:[...item.items,adminPage]}:{...item,items:hasComputer?item.items:item.items.filter(page=>page.id!=="keys"&&page.id!=="devices")}),[isAdmin,hasComputer]);
+ const visibleGroups:Group[]=useMemo(()=>groups.map(item=>item.id==="system"&&isAdmin?{...item,items:[...item.items,adminPage]}:{...item,items:item.items.filter(page=>(hasComputer||page.id!=="keys")&&(page.id!=="devices"||hasComputer&&personal))}),[isAdmin,hasComputer,personal]);
  const allItems=visibleGroups.flatMap(item=>item.items);
  const attention=useConnectionAttention(refreshToken);
  const counts:Partial<Record<SettingsTab,{value:number;tone:"honey"|"iris"}>>={...(attention>0?{connections:{value:attention,tone:"honey"}}:{})};
@@ -83,7 +84,7 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
  const hints=useMobileHints(narrow&&mobileView==="home",hasComputer);
  useEffect(()=>{if(tab!==requestedTab)onTab(tab)},[tab,requestedTab,onTab]);
  useEffect(()=>{if(tab==="admin"&&!isAdmin)onTab("general")},[tab,isAdmin,onTab]);
- useEffect(()=>{if((tab==="keys"||tab==="devices")&&!hasComputer)onTab("computer")},[tab,hasComputer,onTab]);
+ useEffect(()=>{if((tab==="keys"&&!hasComputer)||(tab==="devices"&&!(hasComputer&&personal)))onTab("computer")},[tab,hasComputer,personal,onTab]);
  // The Advanced group is folded until opened; a selected page inside it keeps it open.
  const [advancedOpen,setAdvancedOpen]=useState(false);
  const inAdvanced=visibleGroups.some(item=>item.id==="more"&&item.items.some(page=>page.id===tab));

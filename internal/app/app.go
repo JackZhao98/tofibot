@@ -235,6 +235,9 @@ type Config struct {
 	ComputerEnsure      func(context.Context) error
 	// MaxPersonalComputers is how many personal computers an account may connect (0 = DefaultMaxPersonalComputers).
 	MaxPersonalComputers int
+	// PersonalComputers turns on the pairing routes and the "Other devices" page
+	// (env TOFI_PERSONAL_COMPUTERS=1). Off by default: no client exists yet.
+	PersonalComputers bool
 	// Storage accounting (S3). All optional: nil limit = unlimited, zero floor
 	// = 2 GiB of host free space, nil hooks = no gateway.
 	StorageLimit     func() *int64
@@ -243,6 +246,8 @@ type Config struct {
 	ComputerUsage    func(context.Context) *ComputerUsage
 }
 type Server struct {
+	// personalComputers is Config.PersonalComputers: the pairing routes answer only when it is set.
+	personalComputers                    bool
 	dispositions                         sync.Map // run id -> groupChoice recorded by the respond tool
 	groupGates                           sync.Map // run id -> *groupGate (create_group needs list_groups first)
 	sayRuns                              sync.Map // run id -> *sayRunState of a structured run in flight
@@ -2904,6 +2909,7 @@ func NewServer(c Config) (*Server, error) {
 		savedSettings.ReasoningEffort = "medium"
 	}
 	server := &Server{accountID: c.AccountID, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerFactory: computerFactory, computerSlots: map[string]*computerSlot{}, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}, providerEndpoints: map[string]string{}, envProviderKeys: map[string]string{}, envProviderErrors: map[string]string{}, providerCatalogs: map[string]providerCatalog{}}
+	server.personalComputers = c.PersonalComputers
 	st.storage = storageGate{limit: c.StorageLimit, minFree: c.HostMinFreeBytes}
 	server.storageSnapshot, server.computerUsage = c.StorageSnapshot, c.ComputerUsage
 	st.onReturnQueued = func(r Run) {

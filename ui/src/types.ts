@@ -428,6 +428,8 @@ export interface ComputerCapability {
   available: boolean;
   /** shell, files, browser, desktop, desktop_stream, terminal, hibernate, mcp_runner, oauth_bridge, secret_sink, resources. */
   capabilities: string[];
+  /** True only while the server runs with TOFI_PERSONAL_COMPUTERS=1: the "Other devices" page and its pairing routes. */
+  personal_computers?: boolean;
 }
 
 export interface Config {

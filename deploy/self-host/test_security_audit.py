@@ -113,7 +113,7 @@ class CleanInstallTests(AuditCase):
         self.assertEqual(self.report['exit_code'], 0)
         self.assertEqual(set(found), {'exposure.tls', 'exposure.listen', 'exposure.lan_http', 'auth.admin', 'auth.rate_limit',
                                       'files.host', 'files.tls', 'files.data', 'files.backups', 'secrets.env',
-                                      'secrets.model_keys', 'versions.tofi', 'versions.computers', 'backups.recent'})
+                                      'secrets.model_keys', 'versions.tofi', 'versions.computers', 'runner.fence', 'backups.recent'})
         self.assertIn('self-signed', found['exposure.tls']['detail'])
         code, out = self.run_main('security', 'audit')
         self.assertEqual(code, 0)
@@ -389,6 +389,37 @@ class VersionTests(AuditCase):
         import shutil
         shutil.rmtree(self.P.guest / OLD)
         self.assertEqual(self.level('versions.computers'), 'FAIL')
+
+
+class RunnerFenceTests(AuditCase):
+    IMAGE = 'ghcr.io/jackzhao98/tofi-mcp-runner@sha256:' + '4' * 64
+
+    def test_no_runner_means_nothing_to_fence(self):
+        self.assertEqual(self.level('runner.fence'), 'PASS')
+
+    def test_a_runner_without_iptables_fails_with_a_fix(self):
+        self.set_env(TOFI_RUNNER_IMAGE=self.IMAGE)
+        with mock.patch.object(tofi_host.shutil, 'which', return_value=None):
+            finding = self.audit()['runner.fence']
+        self.assertEqual(finding['level'], 'FAIL')
+        self.assertIn('iptables', finding['detail'])
+        self.assertIn('apt-get install iptables', finding['fix'])
+        self.assertEqual(self.report['exit_code'], 2)
+
+    def test_a_runner_with_its_rules_missing_fails_and_unfenced_override_warns(self):
+        self.set_env(TOFI_RUNNER_IMAGE=self.IMAGE)
+        broken = subprocess.CompletedProcess([], 1, '', '')
+        with mock.patch.object(tofi_host.shutil, 'which', return_value='/sbin/iptables'), \
+                mock.patch.object(tofi_host, '_iptables', return_value=broken):
+            self.assertEqual(self.level('runner.fence'), 'FAIL')
+            self.set_env(TOFI_RUNNER_UNFENCED='1')
+            self.assertEqual(self.level('runner.fence'), 'FAIL')  # no DOCKER-USER chain at all
+
+    def test_a_fenced_runner_passes(self):
+        self.set_env(TOFI_RUNNER_IMAGE=self.IMAGE)
+        with mock.patch.object(tofi_host.shutil, 'which', return_value='/sbin/iptables'), \
+                mock.patch.object(tofi_host, '_iptables', return_value=subprocess.CompletedProcess([], 0, '', '')):
+            self.assertEqual(self.level('runner.fence'), 'PASS')
 
 
 class BackupTests(AuditCase):

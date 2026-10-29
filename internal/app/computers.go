@@ -796,6 +796,12 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 		writeJSON(w, 200, map[string]any{"computers": items})
 		return true
 	}
+	// The pairing routes belong to the personal computer client, which does not
+	// exist yet: they answer 404 unless TOFI_PERSONAL_COMPUTERS=1.
+	if !s.personalComputers && (rel == "/pair" || rel == "/pairings" || strings.HasPrefix(rel, "/pairings/")) {
+		writeErr(w, http.StatusNotFound, "not_found", "not found")
+		return true
+	}
 	if rel == "/pairings" && r.Method == http.MethodPost {
 		pairingID, code, expires, err := s.store.createComputerPairingWithID()
 		if err != nil {
