@@ -142,8 +142,8 @@ func (s *Server) routeAdmin(w http.ResponseWriter, r *http.Request, path string)
 		s.vmOAuthMu.Unlock()
 	}()
 
-	if s.microVM != nil {
-		if _, err := s.microVM.Purge(r.Context()); err != nil {
+	if s.computer() != nil {
+		if _, err := s.computer().Purge(r.Context()); err != nil {
 			writeErr(w, http.StatusBadGateway, "computer_purge_failed", err.Error())
 			return true
 		}

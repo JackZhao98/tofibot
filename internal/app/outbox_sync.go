@@ -143,7 +143,7 @@ func (s *Store) attachmentDigest(id string) string {
 // an error the run must act on.
 func (s *Server) stageOutbox(ctx context.Context, r Run, c Conversation) outboxResult {
 	var res outboxResult
-	if s.microVM == nil || s.store == nil || !s.store.runUsedComputer(r.ID) {
+	if s.computer() == nil || s.store == nil || !s.store.runUsedComputer(r.ID) {
 		return res
 	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)

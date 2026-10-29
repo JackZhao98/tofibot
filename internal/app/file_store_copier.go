@@ -26,7 +26,7 @@ type fileStoreRuntime struct {
 }
 
 func (s *Server) startFileStoreCopier() {
-	if s.microVM == nil || s.store == nil {
+	if s.computer() == nil || s.store == nil {
 		return
 	}
 	rt := &s.fileStore
@@ -76,8 +76,8 @@ func (s *Server) copyLegacyFiles(ctx context.Context) {
 	if err != nil || pending == 0 {
 		return
 	}
-	if s.microVM != nil {
-		info, ierr := s.microVM.Info(ctx)
+	if s.computer() != nil {
+		info, ierr := s.computer().Info(ctx)
 		if ierr != nil {
 			return // the computer does not answer; rows stay `vm:`
 		}

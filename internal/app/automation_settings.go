@@ -478,7 +478,7 @@ func (s *Server) automationView(ctx context.Context, item automationItem) automa
 	case autoDesktopIdle:
 		v.ReadOnly = true
 		v.Value, v.Default = nil, nil
-		if s.microVM != nil {
+		if s.computer() != nil {
 			if info, err, _ := s.cachedMicroVMInfo(ctx); err == nil && info.DesktopIdleSeconds != nil {
 				v.Value = *info.DesktopIdleSeconds
 			}

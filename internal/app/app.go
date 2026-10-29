@@ -216,6 +216,8 @@ type Config struct {
 	AccountControlPlane bool
 	AccountRuntime      bool
 	ComputerEnsure      func(context.Context) error
+	// MaxPersonalComputers is how many personal computers an account may connect (0 = DefaultMaxPersonalComputers).
+	MaxPersonalComputers int
 	// Storage accounting (S3). All optional: nil limit = unlimited, zero floor
 	// = 2 GiB of host free space, nil hooks = no gateway.
 	StorageLimit     func() *int64
@@ -289,44 +291,52 @@ type Server struct {
 	followups                            *followupWorker
 	extensions                           *extensions.Manager
 	skillLibMu                           sync.Mutex
-	microVM                              *computer.Client
-	microVMInfoCache                     microVMInfoCache
-	computerWatchdog                     *computerWatchdog
-	stuckRunCancel                       context.CancelFunc
-	stuckRunDone                         chan struct{}
-	computerLeaseMu                      sync.Mutex
-	computerLeases                       map[string]*sync.Mutex
-	generatedOnComputer                  sync.Map // run id -> *generatedImages
-	computerOwnerMu                      sync.Mutex
-	computerOwners                       map[string]string
-	desktopQueueLeft                     map[string]time.Time
-	vmOAuthMu                            sync.Mutex
-	vmOAuth                              map[string]*vmOAuthSession
-	vmOAuthClosing                       bool
-	vmOAuthWG                            sync.WaitGroup
-	desktopWaiters                       []*desktopWaiter
-	desktopObserved                      map[string]bool
-	desktopPointer                       *desktopPointer
-	desktopChanged                       chan struct{}
-	terminalOwners                       map[string]string
-	terminalCleanupWake                  chan struct{}
-	terminalCleanupDone                  chan struct{}
-	terminalCleanupCancel                context.CancelFunc
-	computerControls                     map[string]*computerControl
-	guestTimezoneMu                      sync.Mutex
-	guestTimezoneCached                  string
-	guestTimezoneSynced                  bool
-	toolSnapshotMu                       sync.RWMutex
-	toolSnapshots                        map[toolSnapshotKey]toolSnapshot
-	purgeMu                              sync.Mutex
-	purging                              bool
-	summaryMu                            sync.Mutex
-	summaryCtx                           context.Context
-	summaryCancel                        context.CancelFunc
-	summaryStopping                      bool
-	summaryJobs                          map[string]struct{}
-	summaryNext                          map[string]time.Time
-	summaryWG                            sync.WaitGroup
+	// microVM is the account's VM (kind vm), nil when none. Read it through
+	// computer(); AttachVM and DetachVM change it under computerMu.
+	microVM         computer.Provider
+	computerMu      sync.RWMutex
+	computerSlots   map[string]*computerSlot
+	computerFactory func() (computer.Provider, error)
+	// computerBeatCancel stops the heartbeat sweep of personal computers.
+	computerBeatCancel    context.CancelFunc
+	computerBeatDone      chan struct{}
+	microVMInfoCache      microVMInfoCache
+	computerWatchdog      *computerWatchdog
+	stuckRunCancel        context.CancelFunc
+	stuckRunDone          chan struct{}
+	computerLeaseMu       sync.Mutex
+	computerLeases        map[string]*sync.Mutex
+	generatedOnComputer   sync.Map // run id -> *generatedImages
+	computerOwnerMu       sync.Mutex
+	computerOwners        map[string]string
+	desktopQueueLeft      map[string]time.Time
+	vmOAuthMu             sync.Mutex
+	vmOAuth               map[string]*vmOAuthSession
+	vmOAuthClosing        bool
+	vmOAuthWG             sync.WaitGroup
+	desktopWaiters        []*desktopWaiter
+	desktopObserved       map[string]bool
+	desktopPointer        *desktopPointer
+	desktopChanged        chan struct{}
+	terminalOwners        map[string]string
+	terminalCleanupWake   chan struct{}
+	terminalCleanupDone   chan struct{}
+	terminalCleanupCancel context.CancelFunc
+	computerControls      map[string]*computerControl
+	guestTimezoneMu       sync.Mutex
+	guestTimezoneCached   string
+	guestTimezoneSynced   bool
+	toolSnapshotMu        sync.RWMutex
+	toolSnapshots         map[toolSnapshotKey]toolSnapshot
+	purgeMu               sync.Mutex
+	purging               bool
+	summaryMu             sync.Mutex
+	summaryCtx            context.Context
+	summaryCancel         context.CancelFunc
+	summaryStopping       bool
+	summaryJobs           map[string]struct{}
+	summaryNext           map[string]time.Time
+	summaryWG             sync.WaitGroup
 
 	// Tasks and waits: the sweeper loop and the inbox flush lock (wait_sweeper.go).
 	tasks taskRuntime
@@ -342,10 +352,14 @@ type Server struct {
 // idempotency transactions deterministic across HTTP handlers and workers.
 type Store struct {
 	// guestBlobs reads and deletes legacy `vm:` attachments only (S1).
-	guestBlobs         guestBlobStorage
-	portabilityMu      sync.Mutex
-	portabilitySecrets *portableSecretCodec
-	db                 *sql.DB
+	guestBlobs guestBlobStorage
+	// guestBlobsMu guards guestBlobs, which a hot attach and detach change.
+	guestBlobsMu sync.RWMutex
+	// maxPersonalComputers caps personal computers (0 = DefaultMaxPersonalComputers).
+	maxPersonalComputers int
+	portabilityMu        sync.Mutex
+	portabilitySecrets   *portableSecretCodec
+	db                   *sql.DB
 	// storage is the quota and host-space policy for new files (S3).
 	storage            storageGate
 	scheduleSchemaOnce sync.Once
@@ -2813,12 +2827,26 @@ func NewServer(c Config) (*Server, error) {
 	if c.TranscriptionURL == "" {
 		c.TranscriptionURL = defaultTranscriptionURL
 	}
-	var microVM *computer.Client
+	st.maxPersonalComputers = c.MaxPersonalComputers
+	// The factory builds the VM provider from the configured control socket. It
+	// is what a hot attach calls; start-up uses it too unless an administrator
+	// detached the computer earlier (the stored row says so).
+	var computerFactory func() (computer.Provider, error)
+	var microVM computer.Provider
 	if strings.TrimSpace(c.ComputerSocket) != "" {
-		microVM, e = computer.New(computer.Config{Socket: c.ComputerSocket, Ensure: c.ComputerEnsure})
-		if e != nil {
-			st.Close()
-			return nil, fmt.Errorf("computer control socket: %w", e)
+		socket, ensure := c.ComputerSocket, c.ComputerEnsure
+		computerFactory = func() (computer.Provider, error) {
+			client, err := computer.New(computer.Config{Socket: socket, Ensure: ensure})
+			if err != nil {
+				return nil, fmt.Errorf("computer control socket: %w", err)
+			}
+			return client, nil
+		}
+		if !st.vmDetachedByAdmin() {
+			if microVM, e = computerFactory(); e != nil {
+				st.Close()
+				return nil, e
+			}
 		}
 	}
 	var codex *codexauth.Manager
@@ -2836,7 +2864,7 @@ func NewServer(c Config) (*Server, error) {
 	if savedSettings.ReasoningEffort == "" {
 		savedSettings.ReasoningEffort = "medium"
 	}
-	server := &Server{accountID: c.AccountID, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}, providerEndpoints: map[string]string{}, envProviderKeys: map[string]string{}, envProviderErrors: map[string]string{}, providerCatalogs: map[string]providerCatalog{}}
+	server := &Server{accountID: c.AccountID, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerFactory: computerFactory, computerSlots: map[string]*computerSlot{}, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}, providerEndpoints: map[string]string{}, envProviderKeys: map[string]string{}, envProviderErrors: map[string]string{}, providerCatalogs: map[string]providerCatalog{}}
 	st.storage = storageGate{limit: c.StorageLimit, minFree: c.HostMinFreeBytes}
 	server.storageSnapshot, server.computerUsage = c.StorageSnapshot, c.ComputerUsage
 	st.onReturnQueued = func(r Run) {
@@ -2844,8 +2872,8 @@ func NewServer(c Config) (*Server, error) {
 			server.enqueue(conv, r)
 		}
 	}
-	if microVM != nil {
-		server.computerWatchdog = newComputerWatchdog(microVM)
+	if client, ok := microVM.(*computer.Client); ok {
+		server.computerWatchdog = newComputerWatchdog(client)
 	}
 	server.initLocalRunner(c)
 	if (c.Provider == providerOpenAI || c.Provider == providerAnthropic) && !c.IsolatedWorkspace {
@@ -2901,8 +2929,13 @@ func NewServer(c Config) (*Server, error) {
 		log.Printf("[skills] reconcile failed: %v", err)
 	}
 	if microVM != nil {
-		st.guestBlobs = microVM
-		st.cleanupDeletedAttachments()
+		if blobs, ok := microVM.(guestBlobStorage); ok {
+			st.setLegacyBlobs(blobs)
+			st.cleanupDeletedAttachments()
+		}
+		if err := st.upsertVMComputer(microVM.ID(), "Bot workspace", "linux", "", kvmCapabilities, 1, computerRowAttached); err != nil {
+			log.Printf("[computer] could not record the computer row: %v", err)
+		}
 	}
 	// Imported attachments are staged in the server file store, so a half-done
 	// import is cleaned with or without a computer.
@@ -2921,6 +2954,7 @@ func NewServer(c Config) (*Server, error) {
 	server.startSummaryWorkers()
 	server.startTerminalCleanup()
 	server.computerWatchdog.start()
+	server.startComputerHeartbeat()
 	server.startLocalRunnerMigration()
 	server.startStuckRunSweeper()
 	server.startWaitSweeper()
@@ -2938,6 +2972,7 @@ func NewServer(c Config) (*Server, error) {
 		server.stopConversationWorkers()
 		server.stopSummaryWorkers()
 		server.stopTerminalCleanup()
+		server.stopComputerHeartbeat()
 		server.computerWatchdog.stop()
 		server.stopStuckRunSweeper()
 		server.stopCommandMonitor()
@@ -2962,6 +2997,7 @@ func (s *Server) Close() error {
 	s.stopConversationWorkers()
 	s.stopSummaryWorkers()
 	s.stopTerminalCleanup()
+	s.stopComputerHeartbeat()
 	s.computerWatchdog.stop()
 	s.stopStuckRunSweeper()
 	s.stopCommandMonitor()
@@ -3072,7 +3108,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if s.routeDesktopStream(w, r, p) {
 		return
 	}
-	if s.handleBotSecrets(w, r) || s.handleBotSkills(w, r) || s.handleBotConnections(w, r) || s.handleSecrets(w, r) || s.handleSSHKeys(w, r) || s.routeComputerResources(w, r, p) || s.routeStorage(w, r, p) {
+	if s.handleBotSecrets(w, r) || s.handleBotSkills(w, r) || s.handleBotConnections(w, r) || s.handleSecrets(w, r) || s.handleSSHKeys(w, r) || s.routeComputerResources(w, r, p) || s.routeComputerAttach(w, r, p) || s.routeStorage(w, r, p) {
 		return
 	}
 	if s.routeComputers(w, r, p) {
@@ -3317,7 +3353,7 @@ func (s *Server) bots(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if x.Onboarding {
-			b, duplicate, e := s.store.createOnboardingBot(x.ClientCreationID, x.Model, x.ReasoningEffort, s.onboardingLocale(x.Locale), s.microVM != nil, false)
+			b, duplicate, e := s.store.createOnboardingBot(x.ClientCreationID, x.Model, x.ReasoningEffort, s.onboardingLocale(x.Locale), s.computer() != nil, false)
 			if e != nil {
 				writeErr(w, 400, "invalid_request", e.Error())
 				return
@@ -3768,6 +3804,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		cancel()
 		stopComputerHold()
 		s.releaseComputerOwner(r.BotID, r.ID)
+		s.releaseComputerHolds(r.ID)
 		preserveWait := s.store.preservesInputWait(r.ID)
 		if !preserveWait {
 			_ = s.store.InterruptToolActivities(r.ID)
@@ -4963,7 +5000,7 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 			return "scheduled result accepted for this run; now provide the same result as the final answer in the current conversation, preserving its delivery rules", nil
 		}})
 	}
-	base = append(base, workflowGuideToolFor(s.microVM != nil))
+	base = append(base, workflowGuideToolFor(s.computer() != nil))
 	base = append(base, s.runAuditTools(c, r)...)
 	base = append(base, s.groupChatTools(c, r)...)
 	base = append(base, s.groupRespondTools(c, r)...)
@@ -4978,7 +5015,7 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 	base = append(base, s.attachmentTools(c, r)...)
 	base = append(base, s.imageGenerationTools(c, r)...)
 	base = append(base, s.publishAttachmentTools(c, r)...)
-	if s.store.hasPairedComputer() {
+	if s.store.hasPairedComputer() || s.hasOtherComputers() {
 		base = append(base, s.computerTools(r)...)
 	}
 	base = append(base, s.webTools(r)...)

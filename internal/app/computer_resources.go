@@ -10,8 +10,13 @@ func (s *Server) routeComputerResources(w http.ResponseWriter, r *http.Request, 
 	if path != "computer/resources" && path != "computer/resources/apply" {
 		return false
 	}
-	if s.microVM == nil {
+	if s.computer() == nil {
 		writeErr(w, 404, "not_configured", "computer VM is not configured")
+		return true
+	}
+	resources, ok := s.computer().(computer.Resourcer)
+	if !ok {
+		writeErr(w, 404, "not_supported", "this computer has no adjustable resources")
 		return true
 	}
 	if path == "computer/resources/apply" {
@@ -39,7 +44,7 @@ func (s *Server) routeComputerResources(w http.ResponseWriter, r *http.Request, 
 			writeErr(w, 409, "computer_busy", "A Bot task is still running. Stop it and try again.")
 			return true
 		}
-		out, err := s.microVM.ApplyResources(r.Context())
+		out, err := resources.ApplyResources(r.Context())
 		if err != nil {
 			writeErr(w, 409, "restart_unavailable", "The computer cannot restart right now. Try again shortly: "+err.Error())
 		} else {
@@ -50,7 +55,7 @@ func (s *Server) routeComputerResources(w http.ResponseWriter, r *http.Request, 
 
 	switch r.Method {
 	case http.MethodGet:
-		out, err := s.microVM.Resources(r.Context())
+		out, err := resources.Resources(r.Context())
 		if err != nil {
 			writeErr(w, 503, "computer_unavailable", err.Error())
 		} else {
@@ -66,7 +71,7 @@ func (s *Server) routeComputerResources(w http.ResponseWriter, r *http.Request, 
 			writeErr(w, 400, "invalid_resources", "invalid computer resource allocation")
 			return true
 		}
-		out, err := s.microVM.ConfigureResources(r.Context(), value)
+		out, err := resources.ConfigureResources(r.Context(), value)
 		if err != nil {
 			writeErr(w, 400, "resource_configuration_failed", err.Error())
 		} else {

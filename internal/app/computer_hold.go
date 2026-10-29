@@ -11,12 +11,12 @@ import (
 // Expiring guest holds prevent idle collection between model tool calls. They
 // never start a desktop and expire after control-plane failure.
 func (s *Server) renewComputerHold(ctx context.Context, r Run) error {
-	if s.microVM == nil {
+	if s.computer() == nil {
 		return nil
 	}
 	callCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	_, err := s.microVM.Action(callCtx, computer.Action{BotID: r.BotID, RunID: r.ID, Name: "desktop.hold", Source: "model", Args: json.RawMessage(`{"ttl_sec":90}`)})
+	_, err := s.computer().Action(callCtx, computer.Action{BotID: r.BotID, RunID: r.ID, Name: "desktop.hold", Source: "model", Args: json.RawMessage(`{"ttl_sec":90}`)})
 	return err
 }
 
@@ -27,7 +27,7 @@ func (s *Server) ownsComputer(r Run) bool {
 }
 
 func (s *Server) maintainComputerHold(parent context.Context, r Run) func() {
-	if s.microVM == nil {
+	if s.computer() == nil {
 		return func() {}
 	}
 	ctx, cancel := context.WithCancel(parent)
@@ -66,6 +66,6 @@ func (s *Server) maintainComputerHold(parent context.Context, r Run) func() {
 		if s.store != nil && s.store.holdsPendingTakeover(r.ID) {
 			args = json.RawMessage(`{}`)
 		}
-		_, _ = s.microVM.Action(releaseCtx, computer.Action{BotID: r.BotID, RunID: r.ID, Name: "desktop.release", Source: "model", Args: args})
+		_, _ = s.computer().Action(releaseCtx, computer.Action{BotID: r.BotID, RunID: r.ID, Name: "desktop.release", Source: "model", Args: args})
 	}
 }

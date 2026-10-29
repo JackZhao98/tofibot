@@ -46,7 +46,7 @@ const freshComputerStatus = "No environment variables or SSH keys have been adde
 // saved for it, and nothing once the person added any. It makes no call to the
 // computer, so a sleeping computer is not woken for a prompt line.
 func (s *Server) freshComputerNote() string {
-	if s.microVM == nil || s.secretVault == nil {
+	if s.computer() == nil || s.secretVault == nil {
 		return ""
 	}
 	if env, keys := s.computerConfiguration(); len(env)+len(keys) > 0 {
@@ -64,7 +64,7 @@ func (s *Server) handleComputerContents(w http.ResponseWriter, r *http.Request) 
 		writeErr(w, 405, "method_not_allowed", "use GET")
 		return
 	}
-	if s.microVM == nil {
+	if s.computer() == nil {
 		writeErr(w, 404, "not_configured", "computer VM is not configured")
 		return
 	}

@@ -112,7 +112,7 @@ func (s *Server) attachmentTools(c Conversation, r Run) []Tool {
 	var mu sync.Mutex
 	views := 0
 	description := "Read an attachment of this conversation by its attachment_id. Text comes back as text (use offset to continue a long one), an image is shown to you, and any other file (PDF, Office document, archive) is placed on your computer and its computer_path returned, to open there with your tools."
-	if s.microVM == nil {
+	if s.computer() == nil {
 		description = "Read an attachment of this conversation by its attachment_id. Text comes back as text (use offset to continue a long one) and an image is shown to you; any other file type (PDF, Office document, archive) cannot be opened here."
 	}
 	return []Tool{{Name: "read_attachment", Description: description, Parameters: objectSchema(map[string]any{
@@ -159,7 +159,7 @@ func (s *Server) attachmentTools(c Conversation, r Run) []Tool {
 				return "", viewFileError("at most %d images can be viewed per run", viewsPerRunMax)
 			}
 			if a.Size > viewSourceBytesMax {
-				if s.microVM == nil {
+				if s.computer() == nil {
 					return "", viewFileError("%s is %d bytes, too large to view", a.Name, a.Size)
 				}
 				return "", viewFileError("%s is %d bytes, too large to view; read it on the computer and view a smaller copy", a.Name, a.Size)
@@ -182,7 +182,7 @@ func (s *Server) attachmentTools(c Conversation, r Run) []Tool {
 			}
 			return out, nil
 		}
-		if s.microVM == nil {
+		if s.computer() == nil {
 			return "", fmt.Errorf("%s is a %s file; without a computer only text and images can be read", a.Name, a.MIME)
 		}
 		if a.Size > guestImportMaxFile {

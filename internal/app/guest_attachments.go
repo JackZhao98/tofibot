@@ -106,10 +106,10 @@ func (s *Store) copyGuestAttachment(ctx context.Context, id string) error {
 	if disk != guestAttachmentPrefix+id {
 		return nil // already local, copied by someone else
 	}
-	if s.guestBlobs == nil {
+	if s.legacyBlobs() == nil {
 		return errFileOnDetachedComputer
 	}
-	data, err := s.guestBlobs.GetBlob(ctx, id)
+	data, err := s.legacyBlobs().GetBlob(ctx, id)
 	if err != nil {
 		if errors.Is(err, computer.ErrBlobNotFound) {
 			return fmt.Errorf("%w: %v", errFileGoneFromComputer, err)
@@ -293,10 +293,10 @@ func (s *Store) removeAttachmentFile(ctx context.Context, path string) error {
 		if err != nil {
 			return err
 		}
-		if s.guestBlobs == nil {
+		if s.legacyBlobs() == nil {
 			return errors.New("guest attachment storage unavailable")
 		}
-		return s.guestBlobs.DeleteBlob(ctx, id)
+		return s.legacyBlobs().DeleteBlob(ctx, id)
 	}
 	return os.Remove(path)
 }

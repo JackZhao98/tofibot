@@ -185,7 +185,7 @@ func (s *Server) onboardingFirstBot(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusConflict, "model_required", "connect a model first")
 		return
 	}
-	b, duplicate, err := s.store.createOnboardingBot(body.ClientCreationID, followGlobalModel, followGlobalModel, s.onboardingLocale(body.Locale), s.microVM != nil, true)
+	b, duplicate, err := s.store.createOnboardingBot(body.ClientCreationID, followGlobalModel, followGlobalModel, s.onboardingLocale(body.Locale), s.computer() != nil, true)
 	if errors.Is(err, errBotsExist) && existing() {
 		return
 	}

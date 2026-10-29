@@ -107,7 +107,7 @@ func (s *Server) resolveComputerRecovery(ctx context.Context, r Run, computerID,
 	if !i.ResolutionRequired {
 		return i, nil
 	}
-	if s.microVM == nil {
+	if s.computer() == nil {
 		return i, tooloutcome.New(tooloutcome.Permanent, "computer_unavailable", "not_executed", "Computer VM is not configured.", "explain_blocker").Err()
 	}
 	var in struct {
@@ -119,7 +119,7 @@ func (s *Server) resolveComputerRecovery(ctx context.Context, r Run, computerID,
 	raw, _ := json.Marshal(in)
 	lookupCtx, cancelLookup := context.WithTimeout(ctx, 5*time.Second)
 	defer cancelLookup()
-	result, err := s.microVM.Action(lookupCtx, computer.Action{BotID: r.BotID, RunID: r.ID, Name: "files.identity", Args: raw, Source: "model"})
+	result, err := s.computer().Action(lookupCtx, computer.Action{BotID: r.BotID, RunID: r.ID, Name: "files.identity", Args: raw, Source: "model"})
 	if err != nil {
 		if ctx.Err() != nil {
 			return i, ctx.Err()

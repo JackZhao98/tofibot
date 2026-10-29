@@ -220,7 +220,7 @@ func (s *Store) cleanupDeletedAttachments() {
 			continue
 		}
 		id, e := guestAttachmentID(disk)
-		if e != nil || s.guestBlobs == nil {
+		if e != nil || s.legacyBlobs() == nil {
 			continue
 		}
 		var owned int
@@ -234,7 +234,7 @@ func (s *Store) cleanupDeletedAttachments() {
 			continue
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		e = s.guestBlobs.DeleteBlob(ctx, id)
+		e = s.legacyBlobs().DeleteBlob(ctx, id)
 		cancel()
 		if e == nil {
 			s.db.Exec(`DELETE FROM deleted_attachment_files WHERE disk_name=?`, disk)

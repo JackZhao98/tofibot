@@ -121,7 +121,7 @@ func (s *Server) containerRunnerConfigured() bool {
 // With a computer, the guest Runner stays in use until its state has been
 // copied out and verified.
 func (s *Server) containerRunnerActive() bool {
-	return s.containerRunnerConfigured() && (s.microVM == nil || s.runnerMigration.switched.Load())
+	return s.containerRunnerConfigured() && (s.computer() == nil || s.runnerMigration.switched.Load())
 }
 
 // containerRunnerConfig returns the base URL (already inside the account's
@@ -160,7 +160,7 @@ type guestRunnerFiles interface {
 
 var errGuestMissing = errors.New("not found on the computer")
 
-type computerGuestFiles struct{ client *computer.Client }
+type computerGuestFiles struct{ client computer.Provider }
 
 func (g computerGuestFiles) action(ctx context.Context, name string, args any) (json.RawMessage, error) {
 	raw, _ := json.Marshal(args)
@@ -232,7 +232,7 @@ func (s *Server) guestRunnerFiles() guestRunnerFiles {
 	if s.runnerMigration.guest != nil {
 		return s.runnerMigration.guest
 	}
-	return computerGuestFiles{client: s.microVM}
+	return computerGuestFiles{client: s.computer()}
 }
 
 // ---- the snapshot -----------------------------------------------------------
@@ -650,7 +650,7 @@ func (s *Server) runnerMigrationDue(ctx context.Context) bool {
 
 func (s *Server) startLocalRunnerMigration() {
 	m := &s.runnerMigration
-	if !s.containerRunnerConfigured() || s.microVM == nil && m.guest == nil {
+	if !s.containerRunnerConfigured() || s.computer() == nil && m.guest == nil {
 		return
 	}
 	ctx, cancel := context.WithCancel(context.Background())

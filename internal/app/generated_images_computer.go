@@ -69,7 +69,7 @@ func (s *Store) guestOutputCandidates(conv string) ([]guestInputCandidate, error
 // noteGeneratedImage records a generated image for the computer and returns its
 // path there; empty when the Bot has no computer or the path cannot be fixed.
 func (s *Server) noteGeneratedImage(ctx context.Context, c Conversation, r Run, a Attachment) string {
-	if s.microVM == nil || s.store == nil || r.ID == "" {
+	if s.computer() == nil || s.store == nil || r.ID == "" {
 		return ""
 	}
 	g := s.generatedImagesOf(r.ID)

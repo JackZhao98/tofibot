@@ -30,7 +30,7 @@ type portableBlobStorage interface {
 }
 
 func (s *Store) portableBlobBackend() portableBlobStorage {
-	backend, _ := s.guestBlobs.(portableBlobStorage)
+	backend, _ := s.legacyBlobs().(portableBlobStorage)
 	return backend
 }
 

@@ -26,7 +26,7 @@ func (s *Server) localRunnerConfig() (string, string, error) {
 	if s.containerRunnerActive() {
 		return s.containerRunnerConfig()
 	}
-	if s.isolatedWorkspace && s.microVM != nil {
+	if s.isolatedWorkspace && s.computer() != nil {
 		return computer.RunnerOrigin, "", nil
 	}
 	base := strings.TrimRight(s.localRunnerURL, "/")
@@ -61,10 +61,14 @@ func (s *Server) localMCPTransport(endpoint string) (http.RoundTripper, error) {
 	if u.Host != "account-computer" {
 		return nil, nil
 	}
-	if !s.isolatedWorkspace || s.microVM == nil {
+	if !s.isolatedWorkspace || s.computer() == nil {
 		return nil, errors.New("account Runner transport unavailable")
 	}
-	return s.microVM.RunnerTransport(), nil
+	host, ok := s.computer().(computer.RunnerHost)
+	if !ok {
+		return nil, errors.New("account Runner transport unavailable")
+	}
+	return host.RunnerTransport(), nil
 }
 
 func (s *Server) runnerRequest(r *http.Request, method, path string, body any) ([]byte, int, error) {

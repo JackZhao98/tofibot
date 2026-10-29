@@ -46,7 +46,7 @@ func (s *Server) wakeTerminalCleanup() {
 }
 
 func (s *Server) startTerminalCleanup() {
-	if s.microVM == nil {
+	if s.computer() == nil {
 		return
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -83,7 +83,7 @@ func (s *Server) stopTerminalCleanup() {
 }
 
 func (s *Server) reconcileTerminalCleanup(ctx context.Context) {
-	if s.microVM == nil || ctx.Err() != nil {
+	if s.computer() == nil || ctx.Err() != nil {
 		return
 	}
 	// Completed runs retain terminal tabs, matching the existing product contract.
@@ -92,7 +92,7 @@ func (s *Server) reconcileTerminalCleanup(ctx context.Context) {
 		LEFT JOIN runs r ON r.id=j.run_id
 		WHERE j.computer_socket=? AND (r.id IS NULL OR r.status IN ('cancelled','failed','interrupted'))
 		AND NOT EXISTS (SELECT 1 FROM waits w WHERE w.bot_id=j.bot_id AND w.kind='command_exit' AND w.status='pending')
-		ORDER BY j.created_at LIMIT 32`, s.microVM.Socket())
+		ORDER BY j.created_at LIMIT 32`, computerSocket(s.computer()))
 	if err != nil {
 		return
 	}
@@ -120,10 +120,10 @@ func (s *Server) reconcileTerminalCleanup(ctx context.Context) {
 			continue // Let in-flight model actions unwind before cleanup.
 		}
 		callCtx, cancel := context.WithTimeout(ctx, 4*time.Second)
-		_, err := s.microVM.Action(callCtx, computer.Action{BotID: r.BotID, RunID: r.ID, Source: "model", Name: "terminal.cancel_run", Args: json.RawMessage(`{}`)})
+		_, err := s.computer().Action(callCtx, computer.Action{BotID: r.BotID, RunID: r.ID, Source: "model", Name: "terminal.cancel_run", Args: json.RawMessage(`{}`)})
 		cancel()
 		if err == nil {
-			_, _ = s.store.db.ExecContext(ctx, `DELETE FROM run_terminal_cleanup WHERE run_id=? AND computer_socket=?`, r.ID, s.microVM.Socket())
+			_, _ = s.store.db.ExecContext(ctx, `DELETE FROM run_terminal_cleanup WHERE run_id=? AND computer_socket=?`, r.ID, computerSocket(s.computer()))
 		}
 	}
 }

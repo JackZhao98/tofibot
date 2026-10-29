@@ -204,7 +204,7 @@ func (s *Store) cleanupRunTreeAttachments(root string) {
 }
 
 func (s *Server) publishAttachmentTools(c Conversation, r Run) []Tool {
-	if s.microVM == nil {
+	if s.computer() == nil {
 		return nil
 	}
 	return []Tool{{Name: "publish_file", Description: "Publish a regular file from the shared Linux VM as a persistent attachment in this conversation. Everything published rides with the reply and the person sees it, so publish only what they asked to receive; drafts, checks and other working files stay on the computer. Images are previewable; other files are downloadable after the VM stops. A regular file saved in /workspace/home/outbox is published for you with the reply when the run ends, so use that folder for a deliverable you do not publish yourself. The result lists source_path and everything attached to the reply so far, and carries a url that opens the file for the signed-in person; when the person asks for the file or its link, give them that url, as a markdown link, instead of saying a link is unavailable. When the file is made from an image you generated, set replaces_attachment_id to that image so the reply carries the finished file instead of the raw one.", Parameters: objectSchema(map[string]any{

@@ -80,7 +80,7 @@ func (s *Server) imageReference(ctx context.Context, c Conversation, r Run, ref 
 	ref = strings.TrimSpace(ref)
 	var data []byte
 	if strings.HasPrefix(ref, "/") {
-		if s.microVM == nil {
+		if s.computer() == nil {
 			return "", fmt.Errorf("%s is a computer path, but this Bot has no computer", ref)
 		}
 		var err error

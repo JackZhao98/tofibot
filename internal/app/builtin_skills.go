@@ -77,7 +77,7 @@ func (s *Server) pushGuestBytes(ctx context.Context, r Run, dst string, data []b
 // installed skill that is only SKILL.md and Bots without a computer are
 // untouched. A skill's files are inert until the Bot chooses to run them.
 func (s *Server) withBuiltinSkillStaging(r Run, tools []Tool) []Tool {
-	if s.microVM == nil {
+	if s.computer() == nil {
 		return s.withNoComputerSkillNote(tools)
 	}
 	var mu sync.Mutex

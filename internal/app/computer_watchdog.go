@@ -326,12 +326,12 @@ func (w *computerWatchdog) admission() error {
 	return nil
 }
 
-func (s *Server) computerAdmission() error { return s.computerWatchdog.admission() }
+func (s *Server) computerAdmission() error { return s.watchdog().admission() }
 
 // computerActionTimeoutError converts an unanswered guest action into the
 // runtime's typed timeout and asks the watchdog to probe the guest.
 func (s *Server) computerActionTimeoutError(ctx context.Context, name string, limit time.Duration) error {
-	s.computerWatchdog.suspect()
+	s.watchdog().suspect()
 	observation := isReadOnlyMicroVMAction(name) || name == "terminal.list" || name == "terminal.read"
 	if identity, ok := tooloutcome.ExecutionIdentity(ctx); ok {
 		observation = identity.Risk == tooloutcome.Observation
