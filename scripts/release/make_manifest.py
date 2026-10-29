@@ -71,6 +71,9 @@ def guest_entry(arch, guest_version, archive, release_json):
     }
 
 
+OPTIONAL_ROLES = ('runner',)
+
+
 def build_manifest(version, images, guest_archive, guest_release_json, bundle, data_schema=DATA_SCHEMA,
                    guest_version=None, notes_url=None, extra_guests=None):
     """extra_guests: {arch: (archive, account-release.json)} for architectures
@@ -81,10 +84,13 @@ def build_manifest(version, images, guest_archive, guest_release_json, bundle, d
     x86 = guest_entry('x86_64', guest_version, guest_archive, guest_release_json)
     if bundle.name != 'tofi-host-%s.tar.gz' % version:
         raise ValueError('host bundle must be named tofi-host-%s.tar.gz' % version)
+    optional = {role: ref for role, ref in images.items() if role in OPTIONAL_ROLES}
     manifest = {
         'schema': 1,
         'version': version,
-        'images': dict(images),
+        # `images` stays exactly app/worker/caddy: host tools before v0.6.0 refuse any other key, and they must
+        # still be able to update to this release. Newer optional images go in `optional_images`.
+        'images': {role: ref for role, ref in images.items() if role not in OPTIONAL_ROLES},
         'guest': x86,
         'bundle': {
             'url': download + bundle.name,
@@ -107,6 +113,8 @@ def build_manifest(version, images, guest_archive, guest_release_json, bundle, d
         tofi_host.validate_manifest(manifest)
     except tofi_host.HostError as error:
         raise ValueError(str(error)) from error
+    if optional:
+        manifest['optional_images'] = optional
     return manifest
 
 

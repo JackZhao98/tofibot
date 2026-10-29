@@ -53,6 +53,12 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(manifest['min_host']['disk_gib'], 30)
         self.assertEqual(manifest['notes_url'], 'https://github.com/JackZhao98/tofibot/releases/tag/%s' % VERSION)
 
+    def test_runner_goes_to_optional_images_so_older_host_tools_still_update(self):
+        runner = 'ghcr.io/jackzhao98/tofi-mcp-runner@sha256:' + '7' * 64
+        manifest = make_manifest.build_manifest(VERSION, dict(IMAGES, runner=runner), self.guest, self.release_json, self.bundle)
+        self.assertEqual(set(manifest['images']), {'app', 'worker', 'caddy'})
+        self.assertEqual(manifest['optional_images'], {'runner': runner})
+
     def test_notes_url_override_and_host_validation_treats_it_as_optional(self):
         manifest = make_manifest.build_manifest(VERSION, IMAGES, self.guest, self.release_json, self.bundle,
                                                 notes_url='https://example.com/notes')

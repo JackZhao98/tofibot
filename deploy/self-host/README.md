@@ -576,7 +576,7 @@ for it; the default HTTPS mode sets it to `0`. The App healthcheck picks `https`
 or `http` from `TOFI_TLS_CERT_FILE` (busybox `wget` with Alpine's `ssl_client`).
 The local MCP Runner (Gmail, community packages) is the `runner` service under
 profile `runner`, started when `tofi.env` names `TOFI_RUNNER_IMAGE` (releases
-whose manifest pins `images.runner` set it, with `TOFI_RUNNER_URL` and
+whose manifest pins the runner (`optional_images.runner`, or `images.runner` in v0.6.0 release candidates before rc.5) set it, with `TOFI_RUNNER_URL` and
 `TOFI_RUNNER_MASTER_KEY_FILE`). It runs outside every computer, so it works with
 `TOFI_COMPUTER_BACKEND=none`, serves each account in its own namespace and uid,
 and keeps its state under `/var/lib/tofi/data/runner` (inside the data backup).

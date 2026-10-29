@@ -2147,6 +2147,20 @@ class NoComputerRenderTests(NoComputerCase):
         self.assertEqual(profiles({'TOFI_COMPUTER_BACKEND': 'kvm', 'TOFI_RUNNER_IMAGE': image, 'TOFI_DOMAIN': 'a.example.com'}),
                          ['tls', 'computer-kvm', 'runner'])
 
+    def test_runner_pinned_in_optional_images_is_read_and_checked(self):
+        pinned = manifest()
+        pinned['optional_images'] = {'runner': tofi_host.OPTIONAL_IMAGE_REPOS['runner'] + '@sha256:' + '6' * 64}
+        tofi_host.validate_manifest(pinned)
+        self.assertEqual(tofi_host.runner_env(pinned)['TOFI_RUNNER_IMAGE'], pinned['optional_images']['runner'])
+        wrong = manifest()
+        wrong['optional_images'] = {'runner': 'ghcr.io/someone/else@sha256:' + '6' * 64}
+        with self.assertRaises(tofi_host.HostError):
+            tofi_host.validate_manifest(wrong)
+        extra = manifest()
+        extra['optional_images'] = {'app': extra['images']['app']}
+        with self.assertRaises(tofi_host.HostError):
+            tofi_host.validate_manifest(extra)
+
     def test_manifest_may_pin_the_runner_image_and_only_in_its_own_repository(self):
         plain = manifest()
         self.assertEqual(tofi_host.runner_env(plain), {})

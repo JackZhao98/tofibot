@@ -512,6 +512,11 @@ ACCEPTANCE_LOCAL_APP_ENV = 'TOFI_ACCEPTANCE_LOCAL_APP_IMAGE'
 LOOPBACK_REGISTRIES = ('localhost:', '127.0.0.1:')
 
 
+def manifest_image(manifest, role):
+    """An image a release pins: in `images`, or for newer optional roles in `optional_images`."""
+    return (manifest.get('images') or {}).get(role) or (manifest.get('optional_images') or {}).get(role)
+
+
 def validate_manifest(manifest, allow_loopback_app=False):
     """Check the shape of a release manifest.json and return it."""
     if not isinstance(manifest, dict) or manifest.get('schema') != 1:
@@ -520,10 +525,14 @@ def validate_manifest(manifest, allow_loopback_app=False):
     if not isinstance(version, str) or not VERSION_RE.match(version):
         raise HostError('The release manifest version %r is not vMAJOR.MINOR.PATCH[-rc.N].' % version)
     images = manifest.get('images')
+    optional = manifest.get('optional_images', {})
     if not isinstance(images, dict) or set(images) - set(OPTIONAL_IMAGE_REPOS) != set(IMAGE_REPOS):
         raise HostError('The release manifest must pin exactly the app, worker and caddy images (and optionally the runner).')
-    for role, repo in {**IMAGE_REPOS, **{k: v for k, v in OPTIONAL_IMAGE_REPOS.items() if k in images}}.items():
-        reference = images[role]
+    if not isinstance(optional, dict) or set(optional) - set(OPTIONAL_IMAGE_REPOS) or set(optional) & set(images):
+        raise HostError('The release manifest optional_images may pin only the runner image, once.')
+    every = {**images, **optional}
+    for role, repo in {**IMAGE_REPOS, **{k: v for k, v in OPTIONAL_IMAGE_REPOS.items() if k in every}}.items():
+        reference = every[role]
         name, _, digest = str(reference).partition('@sha256:')
         loopback_app = allow_loopback_app and role == 'app' and name.startswith(LOOPBACK_REGISTRIES)
         if (name != repo and not loopback_app) or not SHA_RE.match(digest):
@@ -1155,7 +1164,7 @@ def runner_env(manifest):
     """The tofi.env keys of the local MCP Runner container; none when the
     release does not carry its image (the App then keeps local connections on
     the computer, as before)."""
-    image = (manifest.get('images') or {}).get('runner')
+    image = manifest_image(manifest, 'runner')
     if not image:
         return {}
     return {'TOFI_RUNNER_IMAGE': image, 'TOFI_RUNNER_URL': 'http://runner:8390',
@@ -3647,7 +3656,7 @@ def check_runner_downgrade(manifest, allow):
     switch, and a later update would find two diverging copies. Only the
     command line can accept that (`--allow-runner-downgrade`); the unattended
     paths (auto and web update) never pass it."""
-    if (manifest.get('images') or {}).get('runner') or allow:
+    if manifest_image(manifest, 'runner') or allow:
         return
     accounts = container_runner_accounts()
     if accounts:
