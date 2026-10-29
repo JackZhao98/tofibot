@@ -676,7 +676,16 @@
     "environment_help": "默认关闭，请逐条勾选要包含的记录。",
     "import_environment_help": "默认关闭，请逐条勾选要恢复为未启用副本的记录。",
     "recovery_help": "未启用的副本，可重新导出或删除。",
-    "environment_label": "环境凭据"
+    "environment_label": "环境凭据",
+    "group": {
+      "bots": "Bot",
+      "data": "数据"
+    },
+    "count": "已选 {{selected}} / {{total}}",
+    "more_options": "更多选项",
+    "select_all": "全选{{group}}",
+    "password_help": "导出文件将用此密码加密，至少 12 个字符。",
+    "exporting": "正在导出…"
   },
   "status": {
     "ok": "已连接",

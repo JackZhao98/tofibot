@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { TofiIcon } from "./icons";
 import { request } from "./api";
 import type { Bot } from "./types";
 import { getBotAvatarConfig, saveBotAvatarConfig } from "./avatarStore";
@@ -7,6 +8,7 @@ import { decryptPortable, encryptPortable, isEncryptedPortable, MAX_PORTABLE_FIL
 import { ENVIRONMENT_CATEGORY, portabilityLabel as label, exportDefaultCategories, importDefaultCategories, checkPortableInput } from "./portabilitySelection";
 import "./portability.css";
 import { Banner, FilePicker, SettingsDetails, SettingsRow } from "./settings/components";
+import { Disclosure } from "./InteractionSystem";
 import { useUserTimezone } from "./UserTimezone";
 import { i18n, useTranslation } from "./i18n";
 
@@ -22,6 +24,25 @@ function download(source: string, name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 function message(error: unknown) { return error instanceof Error ? error.message : i18n.t("settings:action.failed"); }
+
+/** One collapsible group: a group checkbox (all, some, none) and a count in the header, its items folded away until opened. */
+function AccordionGroup({ id, title, count, summary, checked, mixed, onToggleAll, children }: { id: string; title: string; count?: string; summary?: string; checked?: boolean; mixed?: boolean; onToggleAll: () => void; children: ReactNode }) {
+  const { t } = useTranslation("settings");
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (box.current) box.current.indeterminate = Boolean(mixed); }, [mixed, checked]);
+  return <div className={`portability-group${open ? " is-open" : ""}`}>
+    <div className="portability-group-head">
+      {checked !== undefined && <input ref={box} type="checkbox" className="portability-group-check" checked={checked} aria-label={t("portability.select_all", { group: title })} onChange={onToggleAll}/>}
+      <button type="button" className="portability-group-trigger" aria-expanded={open} aria-controls={`${id}-panel`} id={`${id}-trigger`} onClick={() => setOpen(value => !value)}>
+        <span className="portability-group-title">{title}</span>
+        {(count || summary) && <span className="portability-group-count">{count ?? summary}</span>}
+        <TofiIcon name="chevron-right" size={16} aria-hidden="true"/>
+      </button>
+    </div>
+    <div className="portability-group-panel" id={`${id}-panel`} role="region" aria-labelledby={`${id}-trigger`} hidden={!open}>{children}</div>
+  </div>;
+}
 
 export function PortabilitySettings({ bots, initialFile, initialBotID = "", onInitialFileConsumed }: { bots: Bot[]; initialFile?: File; initialBotID?: string; onInitialFileConsumed?: () => void }) {
   const { t } = useTranslation("settings");
@@ -45,6 +66,7 @@ export function PortabilitySettings({ bots, initialFile, initialBotID = "", onIn
   const [importBotIDs, setImportBotIDs] = useState<string[]>([]);
   const [preview, setPreview] = useState<Preview>();
   const [busy, setBusy] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
 
@@ -92,7 +114,7 @@ export function PortabilitySettings({ bots, initialFile, initialBotID = "", onIn
   }
 
   async function exportBundle() {
-    if (busy) return; setBusy(true); setError(""); setDone("");
+    if (busy) return; setBusy(true); setExporting(true); setError(""); setDone("");
     try {
       if (exportPassword !== confirmPassword) throw new Error(t("portability.error.password_mismatch"));
       if (exportPassword.length < 12) throw new Error(t("portability.error.password_short"));
@@ -102,7 +124,7 @@ export function PortabilitySettings({ bots, initialFile, initialBotID = "", onIn
       const filename = `tofi-${kind}-${new Date().toISOString().replace(/[:.]/g, "-")}.tofi.json`;
       download(encrypted, filename);
       setExportPassword(""); setConfirmPassword(""); setDone(exported.counts?.missing_attachments ? t("portability.exported_missing", { filename, count: exported.counts.missing_attachments }) : t("portability.exported", { filename }));
-    } catch (cause) { setError(message(cause)); } finally { setBusy(false); }
+    } catch (cause) { setError(message(cause)); } finally { setBusy(false); setExporting(false); }
   }
   async function decrypt() {
     setBusy(true); setError("");
@@ -129,25 +151,48 @@ export function PortabilitySettings({ bots, initialFile, initialBotID = "", onIn
   const encryptedFile = fileSource && isEncryptedPortable(fileSource);
   const choice = (key: string, input: ReactNode, text: ReactNode) => <label className="check-row" key={key}>{input}<span>{text}</span></label>;
   const exportDisabled = (!botIDs.length && (exportBots.length > 0 || !included.includes(ENVIRONMENT_CATEGORY))) || (included.includes(ENVIRONMENT_CATEGORY) && !exportEnvironmentIDs.length) || exportPassword.length < 12 || exportPassword !== confirmPassword;
+  const visibleCategories: string[] = categories.filter(c => kind === "account" || (c !== "settings" && c !== ENVIRONMENT_CATEGORY));
+  const dataCategories: string[] = visibleCategories.filter(c => c !== "settings" && c !== ENVIRONMENT_CATEGORY);
+  const moreCategories = visibleCategories.filter(c => c === "settings" || c === ENVIRONMENT_CATEGORY);
+  const dataSelected = dataCategories.filter(c => included.includes(c)).length;
+  const dataAll = dataSelected === dataCategories.length, dataMixed = dataSelected > 0 && !dataAll;
+  const botsAll = exportBots.length > 0 && botIDs.length === exportBots.length, botsMixed = botIDs.length > 0 && !botsAll;
   // One "Details" per card, at its bottom-left: the full explanations behind the short help text.
   const detailsRow = (notes: string[]) => <div className="portability-details"><SettingsDetails>{notes.map(note => <p key={note}>{note}</p>)}</SettingsDetails></div>;
   return <section className="portability-section" aria-label={t("portability.title")}>
     <p className="portability-summary">{t("portability.summary")}</p>
-    <fieldset className="settings-card portability-card" disabled={busy}>
+    <fieldset className="settings-card portability-card portability-export" disabled={busy} aria-busy={exporting}>
       <div className="portability-head"><h5>{t("portability.export")}</h5></div>
       <SettingsRow label={t("portability.scope")} labelFor="portability-scope" control={<select id="portability-scope" value={kind} onChange={event => { const next = event.target.value as "account" | "bot"; setKind(next); if (next === "bot") { setBotIDs(exportBots[0] ? [exportBots[0].id] : []); setIncluded(c => c.filter(x => x !== "settings" && x !== ENVIRONMENT_CATEGORY)); } }}><option value="account">{t("portability.scope_account")}</option><option value="bot">{t("portability.scope_bot")}</option></select>}/>
-      <div className="portability-block">
-        <div className="portability-choices">{exportBots.map(bot => choice(bot.id, <input type={kind === "bot" ? "radio" : "checkbox"} name="export-bots" checked={botIDs.includes(bot.id)} onChange={() => setBotIDs(kind === "bot" ? [bot.id] : toggle(botIDs, bot.id))}/>, bot.archived ? t("portability.bot_archived", { name: bot.name }) : bot.name))}</div>
+      <div className="portability-groups">
+        <AccordionGroup id="export-bots" title={t("portability.group.bots")} count={kind === "bot" ? undefined : t("portability.count", { selected: botIDs.length, total: exportBots.length })} summary={kind === "bot" ? exportBots.find(bot => botIDs.includes(bot.id))?.name : undefined}
+          checked={kind === "account" ? botsAll : undefined} mixed={botsMixed} onToggleAll={() => setBotIDs(botsAll ? [] : exportBots.map(bot => bot.id))}>
+          <div className="portability-choices">{exportBots.map(bot => choice(bot.id, <input type={kind === "bot" ? "radio" : "checkbox"} name="export-bots" checked={botIDs.includes(bot.id)} onChange={() => setBotIDs(kind === "bot" ? [bot.id] : toggle(botIDs, bot.id))}/>, bot.archived ? t("portability.bot_archived", { name: bot.name }) : bot.name))}</div>
+        </AccordionGroup>
+        <AccordionGroup id="export-data" title={t("portability.group.data")} count={t("portability.count", { selected: dataSelected, total: dataCategories.length })}
+          checked={dataAll} mixed={dataMixed} onToggleAll={() => setIncluded(current => dataAll ? current.filter(c => !dataCategories.includes(c) || c === "bot_config") : Array.from(new Set([...current, ...dataCategories])))}>
+          <div className="portability-choices">{dataCategories.map(c => choice(c, <input type="checkbox" checked={included.includes(c)} disabled={c === "bot_config"} onChange={() => setIncluded(toggle(included, c))}/>, label(c)))}</div>
+        </AccordionGroup>
       </div>
-      <div className="portability-block">
-        <div className="portability-choices">{categories.filter(c => kind === "account" || c !== "settings" && c !== ENVIRONMENT_CATEGORY).map(c => choice(c, <input type="checkbox" checked={included.includes(c)} disabled={c === "bot_config"} onChange={() => setIncluded(toggle(included, c))}/>, label(c)))}</div>
-      </div>
+      <div className="portability-block portability-more">
+        <Disclosure title={t("portability.more_options")}>
+          <div className="portability-more-body">
+            {moreCategories.length > 0 && <div className="portability-choices">{moreCategories.map(c => choice(c, <input type="checkbox" checked={included.includes(c)} onChange={() => setIncluded(toggle(included, c))}/>, label(c)))}</div>}
       {kind === "account" && <SettingsRow label={t("portability.environment_label")} description={t("portability.environment_help")} control={<button type="button" className="secondary-button" onClick={() => void loadEnvironment()}>{t("portability.environment_load")}</button>}/>}
       {kind === "account" && included.includes(ENVIRONMENT_CATEGORY) && environmentRecords.length > 0 && <div className="portability-block"><div className="portability-choices">{environmentRecords.map(x => choice(`${x.source_category}:${x.id}`, <input type="checkbox" checked={exportEnvironmentIDs.includes(x.id)} onChange={() => setExportEnvironmentIDs(toggle(exportEnvironmentIDs, x.id))} />, `${x.name || x.target} · ${x.target} · ${x.source_category === "active_vault" ? t("portability.source_active") : t("portability.source_inactive")}`))}</div></div>}
+            <SettingsDetails>{[t("portability.description"), t("portability.scope_note"), t("portability.security_note"), ...(kind === "account" ? [t("portability.environment_note")] : [t("portability.bot_note")]), t("portability.dependency_note")].map(note => <p key={note} className="portability-help">{note}</p>)}</SettingsDetails>
+          </div>
+        </Disclosure>
+      </div>
+      <div className="portability-block portability-password">
+        <p className="portability-help">{t("portability.password_help")}</p>
+      </div>
       <SettingsRow label={t("portability.password")} labelFor="portability-password" control={<input id="portability-password" type="password" autoComplete="new-password" value={exportPassword} onChange={e => setExportPassword(e.target.value)} />}/>
       <SettingsRow label={t("portability.password_confirm")} labelFor="portability-password-confirm" control={<input id="portability-password-confirm" type="password" autoComplete="new-password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />}/>
-      <div className="portability-actions"><button type="button" className="primary-button" disabled={exportDisabled} onClick={() => void exportBundle()}>{t("portability.download")}</button></div>
-      {detailsRow([t("portability.description"), t("portability.scope_note"), t("portability.security_note"), ...(kind === "account" ? [t("portability.environment_note")] : [t("portability.bot_note")]), t("portability.dependency_note")])}
+      <div className="portability-actions">
+        {exporting && <span className="portability-progress" role="progressbar" aria-label={t("portability.exporting")}><span/></span>}
+        <button type="button" className="primary-button" disabled={exportDisabled} onClick={() => void exportBundle()}>{exporting ? t("portability.exporting") : t("portability.download")}</button>
+      </div>
     </fieldset>
     <fieldset className="settings-card portability-card" disabled={busy}>
       <div className="portability-head"><h5>{t("portability.import")}</h5></div>

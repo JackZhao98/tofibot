@@ -264,7 +264,19 @@
     "retry_restart": "Neustart wiederholen",
     "reading": "Wird geladen…",
     "retry": "Erneut versuchen",
-    "loading": "Ressourcen werden geladen…"
+    "loading": "Ressourcen werden geladen…",
+    "decrease": "{{field}} verringern",
+    "increase": "{{field}} erhöhen",
+    "host_cpus": "Host hat {{cpus}} Kerne",
+    "host_memory": "{{value}} GB auf dem Host frei",
+    "host_disk": "{{value}} GB auf dem Host frei",
+    "save": "Änderungen speichern",
+    "saving": "Wird gespeichert…",
+    "summary": {
+      "title": "Änderungen",
+      "restart": "Gilt nach dem Neustart des Computers.",
+      "none": "Noch keine Änderungen. Verschiebe einen Regler, um anzupassen."
+    }
   },
   "credentials": {
     "error": {

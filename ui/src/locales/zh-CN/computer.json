@@ -262,7 +262,19 @@
     "retry_restart": "重试重启",
     "reading": "读取中…",
     "retry": "重试",
-    "loading": "正在读取资源…"
+    "loading": "正在读取资源…",
+    "decrease": "减少{{field}}",
+    "increase": "增加{{field}}",
+    "host_cpus": "主机共有 {{cpus}} 核",
+    "host_memory": "主机可用 {{value}} GB",
+    "host_disk": "主机可用 {{value}} GB",
+    "save": "保存更改",
+    "saving": "正在保存…",
+    "summary": {
+      "title": "变更内容",
+      "restart": "电脑重启后生效。",
+      "none": "尚无更改。拖动滑块即可调整。"
+    }
   },
   "credentials": {
     "error": {

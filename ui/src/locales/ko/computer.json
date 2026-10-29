@@ -262,7 +262,19 @@
     "retry_restart": "다시 시작 재시도",
     "reading": "불러오는 중…",
     "retry": "다시 시도",
-    "loading": "리소스를 불러오는 중…"
+    "loading": "리소스를 불러오는 중…",
+    "decrease": "{{field}} 줄이기",
+    "increase": "{{field}} 늘리기",
+    "host_cpus": "호스트 코어 {{cpus}}개",
+    "host_memory": "호스트 여유 {{value}} GB",
+    "host_disk": "호스트 여유 {{value}} GB",
+    "save": "변경 사항 저장",
+    "saving": "저장 중…",
+    "summary": {
+      "title": "변경 내용",
+      "restart": "컴퓨터를 다시 시작하면 적용됩니다.",
+      "none": "아직 변경 사항이 없습니다. 슬라이더를 움직여 조정하세요."
+    }
   },
   "credentials": {
     "error": {
