@@ -276,3 +276,24 @@ func TestValidateSpecWithinCleansBeforeComparing(t *testing.T) {
 		}
 	}
 }
+
+// A zombie of the account is already dead: it is not listed, so a purge does not wait on it or report it as surviving.
+func TestProcessesOfSkipsZombies(t *testing.T) {
+	dir := t.TempDir()
+	for pid, state := range map[int]string{200: "S (sleeping)", 201: "Z (zombie)"} {
+		p := filepath.Join(dir, strconv.Itoa(pid))
+		if err := os.MkdirAll(p, 0700); err != nil {
+			t.Fatal(err)
+		}
+		status := "Name:\tsleep\nState:\t" + state + "\nUid:\t20001\t20001\t20001\t20001\n"
+		if err := os.WriteFile(filepath.Join(p, "status"), []byte(status), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	old := procDir
+	procDir = dir
+	defer func() { procDir = old }()
+	if got := processesOf(20001); len(got) != 1 || got[0] != 200 {
+		t.Fatalf("processesOf = %v, want [200]", got)
+	}
+}

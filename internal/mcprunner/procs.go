@@ -46,6 +46,10 @@ func hasUID(statusFile string, uid int) bool {
 	defer f.Close()
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
+		// A zombie has already exited: it runs nothing and holds no resources, it only waits for its parent to reap it.
+		if state, ok := strings.CutPrefix(scanner.Text(), "State:"); ok && strings.HasPrefix(strings.TrimSpace(state), "Z") {
+			return false
+		}
 		rest, ok := strings.CutPrefix(scanner.Text(), "Uid:")
 		if !ok {
 			continue
