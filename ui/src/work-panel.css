@@ -283,3 +283,10 @@
 .workspace .work-facts-checklist li[data-status="blocked"] .work-check-mark { color: var(--danger-text); }
 .workspace .work-panel :is(.state-input_required, .work-input_required .work-state) { border-color: color-mix(in srgb, var(--iris-text) 42%, var(--line-soft)); color: var(--iris-text); }
 .workspace .work-panel :is(.state-failed, .work-failed .work-state) { border-color: color-mix(in srgb, var(--danger) 42%, var(--line-soft)); color: var(--danger-text); }
+.workspace .work-icon-actions { gap: 2px; }
+.workspace .work-icon-actions .confirm-action { align-items: center; }
+.workspace .work-icon-button { display: grid; place-items: center; flex: none; width: 28px; height: 28px; min-height: 0; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--ink-soft); }
+.workspace .work-icon-button:not(:disabled):hover { background: var(--surface-2); color: var(--ink); }
+.workspace .work-icon-button.is-danger:not(:disabled):hover { background: color-mix(in srgb, var(--danger) 10%, transparent); color: var(--danger-text); }
+.workspace .work-icon-button:disabled { cursor: not-allowed; opacity: .5; }
+@media (pointer: coarse) { .workspace .work-icon-button { width: 44px; height: 44px; } }

@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { api, ApiError } from "./api";
 import { contentEditPatch } from "./contentEditPatch";
 import { useTranslation } from "./i18n";
+import { ScheduleIconButton } from "./ScheduleActions";
 import { ScheduleTimingFields, timingDraftOf, timingEditPatch, type TimingDraft } from "./ScheduleTimingFields";
 import type { MemoryInput, Schedule } from "./types";
 
-export function ScheduleEditor({ schedule, disabled, onSave }: { schedule: Schedule; disabled: boolean; onSave: (action: () => Promise<unknown>) => Promise<void> }) {
+export function ScheduleEditor({ schedule, disabled, onSave, actions }: { schedule: Schedule; disabled: boolean; /** The other icon controls of the card, drawn after Edit in one row. */ actions?: ReactNode; onSave: (action: () => Promise<unknown>) => Promise<void> }) {
   const { t } = useTranslation("schedules");
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(schedule.title || "");
@@ -17,12 +18,12 @@ export function ScheduleEditor({ schedule, disabled, onSave }: { schedule: Sched
   const [error, setError] = useState("");
   // A one-time schedule that has been claimed or has finished cannot move; the server refuses it too.
   const timingLocked = schedule.status === "completed" || (schedule.kind === "once" && !!schedule.last_run_id);
-  if (!editing) return <button type="button" disabled={disabled} onClick={() => {
+  if (!editing) return <div className="work-actions work-icon-actions"><ScheduleIconButton icon="edit" label={t("editor.edit")} disabled={disabled} onClick={() => {
     const opened = timingDraftOf(schedule);
     setBaseline({ title: schedule.title || "", description: schedule.description || "", content: schedule.content });
     setTitle(schedule.title || ""); setDescription(schedule.description || ""); setContent(schedule.content);
     setTiming(opened); setTimingBaseline(opened); setError(""); setEditing(true);
-  }}>{t("editor.edit")}</button>;
+  }} />{actions}</div>;
   const timezone = timing.zone || schedule.timezone;
   return <form className="work-create schedule-edit" onSubmit={event => {
     event.preventDefault(); setError("");

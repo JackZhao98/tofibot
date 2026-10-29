@@ -68,6 +68,7 @@
     "test:timeline-rows": "node scripts/test-timeline-rows.mjs",
     "test:retry-feedback": "node scripts/test-retry-feedback.mjs",
     "test:task-cards": "node scripts/test-task-cards.mjs",
+    "test:schedule-actions": "node scripts/test-schedule-actions.mjs",
     "test:surfaces": "node scripts/test-surfaces.mjs",
     "test:widgets-auto": "node scripts/test-widgets-auto.mjs",
     "test:surfaces-browser": "node scripts/test-surfaces-browser.mjs",
