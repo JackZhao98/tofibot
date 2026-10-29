@@ -5582,7 +5582,7 @@ def parse_args(argv):
     sub.add_parser('setup-secret')
     sub.add_parser('regenerate-cert', help='replace the self-signed HTTPS certificate and restart the App')
     logs_parser = sub.add_parser('logs')
-    logs_parser.add_argument('service', nargs='?', choices=['app', 'worker', 'caddy'])
+    logs_parser.add_argument('service', nargs='?', choices=['app', 'worker', 'caddy', 'runner'])
     sub.add_parser('doctor')
     security_parser = sub.add_parser('security', help='security checks')
     security_sub = security_parser.add_subparsers(dest='security_command', required=True)
