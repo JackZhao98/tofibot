@@ -3,15 +3,15 @@ import { CATS, EmptyCat } from "./EmptyCat";
 import { BrandLogo } from "./BrandLogo";
 import { BootScreen } from "./BootScreen";
 import { useAppearance } from "./InteractionSystem";
-import { arrowOpens, OverlayMenu, OverlaySubmenu } from "./overlays/OverlayHost";
+import { arrowOpens } from "./overlays/OverlayHost";
 import { TofiIcon } from "./icons";
 import { hydrateDesktopState, isDesktop, flushDesktopState } from "./desktop";
-import { i18n, matchLanguage, useLanguage, useTranslation, type LanguagePreference } from "./i18n";
-import { languageChoices, selectedLanguageChoice } from "./languageChoices";
-import { chooseLanguage } from "./saveLanguage";
+import { i18n, useTranslation } from "./i18n";
 import { authRequest, type OwnerSession } from "./ownerAuthApi";
 import { AuthLanguageSwitch } from "./AuthLanguageSwitch";
 
+// The account menu body loads on first open.
+const AccountMenu = lazy(() => import("./AccountMenu").then(module => ({ default: module.AccountMenu })));
 // First-run setup and the password checklist are only ever drawn on the gate: keep them out of the entry bundle.
 const OwnerSetup = lazy(() => import("./OwnerSetup").then(module => ({ default: module.OwnerSetup })));
 const PasswordChecklist = lazy(() => import("./OwnerSetup").then(module => ({ default: module.PasswordChecklist })));
@@ -159,20 +159,9 @@ export function OwnerAccount() {
 }
 
 /** The compact identity dock shares the authenticated session with Settings. */
-/** Project links in the account menu. They open in a new tab; discussions are off on the repository, so feedback goes to issues. */
-const REPO_URL = "https://github.com/JackZhao98/tofibot";
-const projectLinks = [
-  ["report_issue", "/issues/new", "alert"],
-  ["send_feedback", "/issues/new?title=Feedback%3A%20", "chat"],
-  ["report_security", "/security/advisories/new", "shield-check"],
-  ["github", "", "link"],
-] as const;
 
 export function SidebarAccount({ onSettings, onUsage, onConnection, onArtifacts, connected = true }: { onSettings: () => void; onUsage: () => void; onConnection: () => void; onArtifacts: () => void; connected?: boolean }) {
   const { session, logout } = useContext(SessionContext);
-  const appearance = useAppearance();
-  const { preference: language } = useLanguage();
-  const browserLanguage = matchLanguage(typeof navigator === "undefined" ? [] : navigator.languages ?? [navigator.language]) ?? "en";
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -182,28 +171,12 @@ export function SidebarAccount({ onSettings, onUsage, onConnection, onArtifacts,
   const name = session?.owner?.username ?? "Tofi";
   const host = isDesktop ? t("account.desktop_client") : connected ? window.location.host : t("account.offline_reconnecting");
   const initial = Array.from(name)[0]?.toUpperCase() ?? "T";
-  const pickLanguage = (next: LanguagePreference) => { setError(""); void chooseLanguage(next, t("settings:language.save_failed")).then(setError); };
-  const navigate = (action: () => void) => { setOpen(false); action(); };
   return <div className={`sidebar-account${!connected && !isDesktop ? " is-offline" : ""}`} ref={menu}>
     <button ref={trigger} className="sidebar-account-identity" aria-label={t("account.menu_label", { name, status: connected ? t("account.live_ok") : t("account.live_lost") })} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(value => !value)} onKeyDown={arrowOpens(setOpen)} data-hint={t("account.settings_hint", { name })}>
       <span className="sidebar-account-monogram" aria-hidden="true">{initial}<i key={String(connected)} /></span>
       <span className="sidebar-account-copy"><strong>{name}</strong><small>{host}</small></span>
     </button>
     <button className="sidebar-account-settings" aria-label={t("common:nav.settings")} data-hint={t("common:nav.settings")} onClick={onSettings}><TofiIcon name="settings" size={20}/></button>
-    {open && <OverlayMenu open onOpenChange={setOpen} className="sidebar-account-menu" label={name} trigger={trigger} anchor={menu} sideOffset={10} {...(menu.current?.closest(".sidebar-collapsed") ? { side: "right", align: "end" } : { side: "top" })}>
-      <div className="sidebar-account-menu-heading"><strong>{name}</strong><small>{host}</small></div>
-      <button onClick={() => navigate(onSettings)}><TofiIcon name="settings" size={16}/>{t("common:nav.settings")}</button>
-      <button onClick={() => navigate(onUsage)}><TofiIcon name="activity" size={16}/>{t("common:nav.usage")}</button>
-      <div className="sidebar-account-themes" role="group" aria-label={t("common:theme.label")}>{(["system","light","dark"] as const).map(theme => <button key={theme} role="menuitemradio" aria-checked={appearance.preference === theme} data-keep-open="" onClick={() => appearance.choose(theme)}>{t(`common:theme.${theme}`)}</button>)}</div>
-      <OverlaySubmenu label={t("common:language.label")} icon={<TofiIcon name="globe" size={16}/>} className="sidebar-account-menu sidebar-account-submenu">
-        {languageChoices(browserLanguage).map(choice => <button key={choice.value} role="menuitemradio" lang={choice.lang} aria-checked={selectedLanguageChoice(language, browserLanguage) === choice.value} data-keep-open="" onClick={() => pickLanguage(choice.value)}>{choice.label}{choice.tag && <span className="menu-default-tag">{t("settings:language.default")}</span>}</button>)}
-      </OverlaySubmenu>
-      <button onClick={() => navigate(onConnection)}><TofiIcon name="server" size={16}/>{t("common:nav.connection")}</button>
-      <button onClick={() => navigate(onArtifacts)}><TofiIcon name="folder" size={16}/>{t("common:nav.artifacts")}</button>
-      <div className="sidebar-account-menu-rule"/>
-      {projectLinks.map(([key, path, icon]) => <button key={key} className="sidebar-account-link" onClick={() => { setOpen(false); window.open(REPO_URL + path, "_blank", "noopener,noreferrer"); }}><TofiIcon name={icon} size={16}/><span>{t(`auth:account.${key}`)}</span><TofiIcon name="external-link" size={14} aria-hidden="true"/></button>)}
-      {session?.enabled && <><div className="sidebar-account-menu-rule"/><button className="sidebar-account-logout" disabled={busy} onClick={() => { setBusy(true); setError(""); void logout().catch(cause => setError(cause instanceof Error ? cause.message : t("account.sign_out_failed"))).finally(() => setBusy(false)); }}>{busy ? t("account.signing_out") : t("account.sign_out")}</button></>}
-      {error && <p className="error-text" role="alert">{error}</p>}
-    </OverlayMenu>}
+    {open && <Suspense fallback={null}><AccountMenu setOpen={setOpen} name={name} host={host} trigger={trigger} menu={menu} session={session} logout={logout} onSettings={onSettings} onUsage={onUsage} onConnection={onConnection} onArtifacts={onArtifacts}/></Suspense>}
   </div>;
 }
