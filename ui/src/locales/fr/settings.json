@@ -678,7 +678,16 @@
     "environment_help": "Désactivé par défaut. Cochez chaque entrée à inclure.",
     "import_environment_help": "Désactivé par défaut. Cochez chaque entrée à restaurer en copie inactive.",
     "recovery_help": "Copies inactives que vous pouvez réexporter ou supprimer.",
-    "environment_label": "Identifiants d'environnement"
+    "environment_label": "Identifiants d'environnement",
+    "group": {
+      "bots": "Bots",
+      "data": "Données"
+    },
+    "count": "{{selected}} sur {{total}}",
+    "more_options": "Plus d'options",
+    "select_all": "Tout sélectionner dans {{group}}",
+    "password_help": "Le fichier d'export est chiffré avec ce mot de passe. 12 caractères minimum.",
+    "exporting": "Export en cours…"
   },
   "status": {
     "ok": "Connecté",

@@ -660,7 +660,16 @@
     "environment_help": "既定ではオフです。含めるレコードを個別にチェックしてください。",
     "import_environment_help": "既定ではオフです。無効なコピーとして復元するレコードを個別にチェックしてください。",
     "recovery_help": "無効なコピーです。再エクスポートまたは削除できます。",
-    "environment_label": "環境の認証情報"
+    "environment_label": "環境の認証情報",
+    "group": {
+      "bots": "Bot",
+      "data": "データ"
+    },
+    "count": "{{selected}} / {{total}} 選択",
+    "more_options": "その他のオプション",
+    "select_all": "{{group}}をすべて選択",
+    "password_help": "エクスポートファイルはこのパスワードで暗号化されます。12 文字以上にしてください。",
+    "exporting": "エクスポート中…"
   },
   "status": {
     "ok": "接続済み",

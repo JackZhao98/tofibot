@@ -266,7 +266,19 @@
     "retry_restart": "Relancer le redémarrage",
     "reading": "Chargement…",
     "retry": "Réessayer",
-    "loading": "Chargement des ressources…"
+    "loading": "Chargement des ressources…",
+    "decrease": "Diminuer {{field}}",
+    "increase": "Augmenter {{field}}",
+    "host_cpus": "L'hôte a {{cpus}} cœurs",
+    "host_memory": "{{value}} Go libres sur l'hôte",
+    "host_disk": "{{value}} Go libres sur l'hôte",
+    "save": "Enregistrer les modifications",
+    "saving": "Enregistrement…",
+    "summary": {
+      "title": "Modifications",
+      "restart": "Prend effet après le redémarrage de l'ordinateur.",
+      "none": "Aucune modification pour l'instant. Déplacez un curseur pour ajuster."
+    }
   },
   "credentials": {
     "error": {

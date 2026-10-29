@@ -660,7 +660,16 @@
     "environment_help": "預設關閉，請逐筆勾選要包含的記錄。",
     "import_environment_help": "預設關閉，請逐筆勾選要還原為未啟用副本的記錄。",
     "recovery_help": "未啟用的副本，可重新匯出或刪除。",
-    "environment_label": "環境憑證"
+    "environment_label": "環境憑證",
+    "group": {
+      "bots": "Bot",
+      "data": "資料"
+    },
+    "count": "已選 {{selected}} / {{total}}",
+    "more_options": "更多選項",
+    "select_all": "全選{{group}}",
+    "password_help": "匯出檔案將以此密碼加密，至少 12 個字元。",
+    "exporting": "正在匯出…"
   },
   "status": {
     "ok": "已連線",

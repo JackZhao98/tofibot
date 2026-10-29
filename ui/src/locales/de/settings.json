@@ -669,7 +669,16 @@
     "environment_help": "Standardmäßig aus. Jeden gewünschten Eintrag einzeln anhaken.",
     "import_environment_help": "Standardmäßig aus. Jeden Eintrag einzeln anhaken, der als inaktive Kopie wiederhergestellt werden soll.",
     "recovery_help": "Inaktive Kopien, die du erneut exportieren oder löschen kannst.",
-    "environment_label": "Umgebungs-Zugangsdaten"
+    "environment_label": "Umgebungs-Zugangsdaten",
+    "group": {
+      "bots": "Bots",
+      "data": "Daten"
+    },
+    "count": "{{selected}} von {{total}}",
+    "more_options": "Weitere Optionen",
+    "select_all": "Alles in {{group}} auswählen",
+    "password_help": "Die Exportdatei wird mit diesem Passwort verschlüsselt. Mindestens 12 Zeichen.",
+    "exporting": "Wird exportiert…"
   },
   "status": {
     "ok": "Verbunden",

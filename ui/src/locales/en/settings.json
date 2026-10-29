@@ -669,7 +669,16 @@
     "environment_help": "Off by default. Check each record you want to include.",
     "import_environment_help": "Off by default. Check each record to restore as an inactive copy.",
     "recovery_help": "Inactive copies you can re-export or delete.",
-    "environment_label": "Environment credentials"
+    "environment_label": "Environment credentials",
+    "group": {
+      "bots": "Bots",
+      "data": "Data"
+    },
+    "count": "{{selected}} of {{total}}",
+    "more_options": "More options",
+    "select_all": "Select all in {{group}}",
+    "password_help": "The export file is encrypted with this password. Use at least 12 characters.",
+    "exporting": "Exporting…"
   },
   "status": {
     "ok": "Connected",
