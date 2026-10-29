@@ -551,6 +551,8 @@ func (s *Server) AttachVM(ctx context.Context) error {
 	if s.computerFactory == nil {
 		return errComputerBackend
 	}
+	// The container keeps serving local connections after the attach.
+	s.recordContainerRunnerNoComputer()
 	s.computerMu.Lock()
 	if s.microVM != nil {
 		s.computerMu.Unlock()
@@ -568,6 +570,9 @@ func (s *Server) AttachVM(ctx context.Context) error {
 	s.computerSlots[p.ID()] = newComputerSlot(p, computer.RowKindVM, "")
 	s.computerMu.Unlock()
 	s.afterVMAttached(p)
+	// A kept disk may hold an old guest Runner: check it against the container.
+	s.stopLocalRunnerMigration()
+	s.startLocalRunnerMigration()
 	return nil
 }
 

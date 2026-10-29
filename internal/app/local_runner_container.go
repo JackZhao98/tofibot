@@ -648,9 +648,34 @@ func (s *Server) runnerMigrationDue(ctx context.Context) bool {
 	return err == nil && info.State == "ready"
 }
 
+// recordContainerRunnerNoComputer writes state=container for an account that
+// the container serves and that has no computer yet. Without it a later hot
+// attach would send the account's local connections to the empty guest Runner.
+// An account whose saved connections still point at a guest Runner is left to
+// the migration, which copies that state first.
+func (s *Server) recordContainerRunnerNoComputer() {
+	m := &s.runnerMigration
+	if !s.containerRunnerConfigured() || s.computer() != nil || m.switched.Load() || s.referencesGuestRunner() {
+		return
+	}
+	m.mu.Lock()
+	m.state = localRunnerState{State: "container", At: time.Now().Unix(), Attached: true}
+	err := m.persistLocked()
+	m.mu.Unlock()
+	if err != nil {
+		log.Printf("[runner] could not record the Runner state: %v", err)
+		return
+	}
+	m.switched.Store(true)
+}
+
 func (s *Server) startLocalRunnerMigration() {
 	m := &s.runnerMigration
-	if !s.containerRunnerConfigured() || s.computer() == nil && m.guest == nil {
+	if !s.containerRunnerConfigured() {
+		return
+	}
+	if s.computer() == nil && m.guest == nil {
+		s.recordContainerRunnerNoComputer()
 		return
 	}
 	ctx, cancel := context.WithCancel(context.Background())
