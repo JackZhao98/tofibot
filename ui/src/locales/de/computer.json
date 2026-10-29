@@ -259,7 +259,7 @@
       "memory": "Arbeitsspeicher (GB)",
       "disk": "Speicher (GB)"
     },
-    "field_note": "Speicher lässt sich nur vergrößern, nicht verkleinern. Änderungen gelten nach einem Neustart des Computers; Schließen des Desktops reicht nicht.",
+    "field_note": "Speicher lässt sich nur vergrößern, nicht verkleinern.",
     "restarting": "Neustart und Anwenden der Konfiguration…",
     "retry_restart": "Neustart wiederholen",
     "reading": "Wird geladen…",

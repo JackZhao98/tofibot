@@ -22,7 +22,7 @@ import {PortabilitySettings} from "../PortabilitySettings";
 import {ModelProviders} from "../ProviderSettings";
 import {WebToolsSettings} from "../WebToolsSettings";
 import type {SettingsTab} from "../SettingsShell";
-import {TimezoneSetting} from "../UserTimezone";
+import {TimezoneSetting} from "../TimezoneSettings";
 import {UsagePanel} from "../UsagePanel";
 import {VersionCard,useIsUpdateAdmin} from "../UpdateNotice";
 import {WorkspacePurgeSettings} from "../WorkspacePurgeSettings";

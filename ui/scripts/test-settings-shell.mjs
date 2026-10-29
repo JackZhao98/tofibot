@@ -7,6 +7,12 @@ import {mkdtemp, mkdir, readFile, rm, writeFile} from "node:fs/promises";
 import {basename, dirname, join} from "node:path";
 import {fileURLToPath, pathToFileURL} from "node:url";
 
+/** Opens our Select under `scope` and picks the option with this value. */
+async function pickSelect(scope, value) {
+  await scope.locator(".ui-select-trigger").first().click();
+  await scope.page().locator(`.ui-select-item[data-value="${value}"]`).click();
+  await scope.page().locator(".ui-select-content").waitFor({ state: "detached" });
+}
 const ui = dirname(dirname(fileURLToPath(import.meta.url)));
 if (!process.env.PLAYWRIGHT_MODULE) { console.log("SKIP: PLAYWRIGHT_MODULE is not set"); process.exit(0); }
 const {chromium} = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE));
@@ -408,9 +414,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await page.locator('.settings-page-body[data-page="connections"] .mcp-service').first().waitFor();
     // A dirty Timezone draft blocks switching away behind the leave dialog.
     await page.locator('.settings-tabs [data-tab="general"]').click();
-    const zone = page.locator('.settings-page-body[data-page="general"] .timezone-setting select').last();
-    await zone.waitFor();
-    await zone.selectOption("Europe/Berlin");
+    const zone = page.locator('.settings-page-body[data-page="general"] .timezone-setting').last();
+    await zone.locator(".ui-select-trigger").waitFor();
+    await pickSelect(zone, "Europe/Berlin");
     await page.locator(".settings-save-bar").waitFor();
     await page.locator('.settings-tabs [data-tab="models"]').click();
     await page.locator(".settings-leave-dialog").waitFor();
@@ -727,19 +733,25 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.match(await text(detail), /Deactivate the account first\. Only a deactivated account can be deleted\./);
     // Disk: only sizes of at least the current one; sizes that do not fit the free capacity are disabled and say why.
     const select = detail.getByLabel("Disk quota");
-    assert.deepEqual(await select.locator("option").evaluateAll(options => options.map(option => option.value)), ["8", "16", "32", "64", "128", "256", "512", "1024"]);
-    assert.deepEqual(await select.locator("option:disabled").evaluateAll(options => options.map(option => option.value)), ["256", "512", "1024"], "120 GiB free: growing by more than that is disabled");
-    assert.match(await text(select.locator("option").nth(0)), /8 GiB · current/);
+    await select.click();
+    const diskItems = select.page().locator(".ui-select-content .ui-select-item");
+    assert.deepEqual(await diskItems.evaluateAll(items => items.map(item => item.dataset.value)), ["8", "16", "32", "64", "128", "256", "512", "1024"]);
+    assert.deepEqual(await select.page().locator(".ui-select-content .ui-select-item[data-disabled]").evaluateAll(items => items.map(item => item.dataset.value)), ["256", "512", "1024"], "120 GiB free: growing by more than that is disabled");
+    assert.match(await text(diskItems.nth(0)), /8 GiB · current/);
+    await select.page().keyboard.press("Escape");
+    await select.page().locator(".ui-select-content").waitFor({ state: "detached" });
     assert.match(await text(detail), /Changing the quota stops the computer/);
     const save = detail.getByRole("button", {name: /^Save .* GiB and stop computer$/});
     assert.equal(await save.isDisabled(), true, "nothing to save yet");
-    await select.selectOption("32");
+    await select.click();
+    await select.page().locator('.ui-select-item[data-value="32"]').click();
+    await select.page().locator(".ui-select-content").waitFor({ state: "detached" });
     assert.equal((await save.textContent()).trim(), "Save 32 GiB and stop computer", "the button names the consequence");
     adminWrites.length = 0;
     await save.click();
     await detail.getByText("Saved. The computer was stopped and will restart on demand.").waitFor();
     assert.deepEqual(adminWrites, ['PATCH /api/admin/accounts/acct_two/quota {"quota_gib":32}']);
-    assert.equal(await select.inputValue(), "32");
+    assert.equal(await select.getAttribute("data-value"), "32");
     // Role change.
     adminWrites.length = 0;
     await segmented.getByRole("radio", {name: "Admin"}).click();

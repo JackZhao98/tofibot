@@ -6,6 +6,7 @@ import {useTranslation} from "./i18n";
 import {TofiIcon} from "./icons";
 import {useHasComputer} from "./computerCapability";
 import {Banner, DangerZone, Segmented, SettingsCard, SettingsRow, SettingsSection} from "./settings/components";
+import { Select } from "./Select";
 
 type Props = {
   account: AdminAccount;
@@ -79,9 +80,9 @@ export function AccountDetail({account, accounts, disk, capacity, selfId, busy, 
         <SettingsRow label={t("admin.detail.computer.state")} control={<span className="admin-value">{stateLabel}</span>}/>
         {disk ? <>
           <SettingsRow label={t("admin.detail.computer.disk")} labelFor="admin-disk-size" description={t("admin.detail.computer.disk_help")}
-            control={<select id="admin-disk-size" value={size} disabled={busy || deleting} onChange={event => { setSize(Number(event.target.value)); setDiskDone(false); }}>
+            control={<Select id="admin-disk-size" value={String(size)} disabled={busy || deleting} onValueChange={value => { setSize(Number(value)); setDiskDone(false); }}>
               {sizes.map(value => <option key={value} value={value} disabled={value - currentGiB > freeGiB}>{t("admin.detail.computer.option", {size: formatNumber(value)})}{value === currentGiB ? ` · ${t("admin.detail.computer.current")}` : value - currentGiB > freeGiB ? ` · ${t("admin.detail.computer.no_room")}` : ""}</option>)}
-            </select>}/>
+            </Select>}/>
           <SettingsRow label={t("admin.detail.computer.save_label")} description={disk.pending_quota ? t("admin.detail.computer.disk_pending") : diskDone ? t("admin.detail.computer.saved") : t("admin.detail.computer.disk_note")}
             control={<button type="button" className="secondary-button" disabled={busy || deleting || size === currentGiB}
               onClick={() => void run(async () => { await adminApi.quota(account.id, size); setDiskDone(true); })}>{t("admin.detail.computer.save", {size: formatNumber(size)})}</button>}/>

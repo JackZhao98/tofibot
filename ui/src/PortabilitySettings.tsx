@@ -11,6 +11,7 @@ import { Banner, FilePicker, SettingsDetails, SettingsRow } from "./settings/com
 import { Disclosure } from "./InteractionSystem";
 import { useUserTimezone } from "./UserTimezone";
 import { i18n, useTranslation } from "./i18n";
+import { Select } from "./Select";
 
 const categories = ["bot_config", "chats", "memories", "schedules", "attachments", "settings", "vault_environment"] as const;
 type PortableBot = { id: string; name: string; avatar?: AvatarConfig };
@@ -163,7 +164,7 @@ export function PortabilitySettings({ bots, initialFile, initialBotID = "", onIn
     <p className="portability-summary">{t("portability.summary")}</p>
     <fieldset className="settings-card portability-card portability-export" disabled={busy} aria-busy={exporting}>
       <div className="portability-head"><h5>{t("portability.export")}</h5></div>
-      <SettingsRow label={t("portability.scope")} labelFor="portability-scope" control={<select id="portability-scope" value={kind} onChange={event => { const next = event.target.value as "account" | "bot"; setKind(next); if (next === "bot") { setBotIDs(exportBots[0] ? [exportBots[0].id] : []); setIncluded(c => c.filter(x => x !== "settings" && x !== ENVIRONMENT_CATEGORY)); } }}><option value="account">{t("portability.scope_account")}</option><option value="bot">{t("portability.scope_bot")}</option></select>}/>
+      <SettingsRow label={t("portability.scope")} labelFor="portability-scope" control={<Select id="portability-scope" value={kind} onValueChange={value => { const next = value as "account" | "bot"; setKind(next); if (next === "bot") { setBotIDs(exportBots[0] ? [exportBots[0].id] : []); setIncluded(c => c.filter(x => x !== "settings" && x !== ENVIRONMENT_CATEGORY)); } }}><option value="account">{t("portability.scope_account")}</option><option value="bot">{t("portability.scope_bot")}</option></Select>}/>
       <div className="portability-groups">
         <AccordionGroup id="export-bots" title={t("portability.group.bots")} count={kind === "bot" ? undefined : t("portability.count", { selected: botIDs.length, total: exportBots.length })} summary={kind === "bot" ? exportBots.find(bot => botIDs.includes(bot.id))?.name : undefined}
           checked={kind === "account" ? botsAll : undefined} mixed={botsMixed} onToggleAll={() => setBotIDs(botsAll ? [] : exportBots.map(bot => bot.id))}>

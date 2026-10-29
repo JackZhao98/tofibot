@@ -3,6 +3,7 @@ import { request } from "../api";
 import { Banner } from "../settings/components";
 import { useTranslation } from "../i18n";
 import { message } from "./shared";
+import { Select } from "../Select";
 
 type PackageKind = "npm" | "pypi";
 type EnvRow = { key: string; value: string };
@@ -38,7 +39,7 @@ export function PackageForm({ onInstalled, onCancel }: { onInstalled: () => Prom
   return <div className="connect-body">
     <p className="connect-lead">{t("local.custom.intro")}</p>
     <fieldset className="form-fields connect-form" disabled={busy}>
-      <label>{t("local.custom.runtime")}<select value={kind} onChange={event => setKind(event.target.value as PackageKind)}><option value="npm">Node / npm</option><option value="pypi">Python / PyPI</option></select></label>
+      <label>{t("local.custom.runtime")}<Select value={kind} onValueChange={value => setKind(value as PackageKind)}><option value="npm">Node / npm</option><option value="pypi">Python / PyPI</option></Select></label>
       <label>{t("local.custom.plugin_id")}<input value={id} onChange={event => setID(event.target.value)} placeholder="my-plugin" /></label>
       <label>{t("local.custom.package")}<input value={packageName} onChange={event => setPackageName(event.target.value)} /></label>
       <label>{t("local.custom.version")}<input value={version} onChange={event => setVersion(event.target.value)} placeholder="1.2.3" /></label>

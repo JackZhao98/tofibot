@@ -201,7 +201,7 @@ export function SidebarAccount({ onSettings, onUsage, onConnection, onArtifacts,
       <button onClick={() => navigate(onConnection)}><TofiIcon name="server" size={16}/>{t("common:nav.connection")}</button>
       <button onClick={() => navigate(onArtifacts)}><TofiIcon name="folder" size={16}/>{t("common:nav.artifacts")}</button>
       <div className="sidebar-account-menu-rule"/>
-      {projectLinks.map(([key, path, icon]) => <a key={key} role="menuitem" className="sidebar-account-link" href={REPO_URL + path} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}><TofiIcon name={icon} size={16}/><span>{t(`auth:account.${key}`)}</span><TofiIcon name="external-link" size={14} aria-hidden="true"/></a>)}
+      {projectLinks.map(([key, path, icon]) => <button key={key} className="sidebar-account-link" onClick={() => { setOpen(false); window.open(REPO_URL + path, "_blank", "noopener,noreferrer"); }}><TofiIcon name={icon} size={16}/><span>{t(`auth:account.${key}`)}</span><TofiIcon name="external-link" size={14} aria-hidden="true"/></button>)}
       {session?.enabled && <><div className="sidebar-account-menu-rule"/><button className="sidebar-account-logout" disabled={busy} onClick={() => { setBusy(true); setError(""); void logout().catch(cause => setError(cause instanceof Error ? cause.message : t("account.sign_out_failed"))).finally(() => setBusy(false)); }}>{busy ? t("account.signing_out") : t("account.sign_out")}</button></>}
       {error && <p className="error-text" role="alert">{error}</p>}
     </OverlayMenu>}

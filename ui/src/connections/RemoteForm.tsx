@@ -8,6 +8,7 @@ import { mcpTokenHeaders } from "../mcpTokenHeaders";
 import { useTranslation } from "../i18n";
 import { endpoint, message, transportLabels, words, type MCP, type MCPTransport } from "./shared";
 import type { GoogleOverview } from "./google";
+import { Select } from "../Select";
 
 /** Google Cloud links for one Google connector. Shown while connecting, and after a failure; never on a healthy row. */
 export function GoogleSetupLinks({ preset, docs = false }: { preset: IntegrationPreset; docs?: boolean }) {
@@ -91,7 +92,7 @@ export function RemoteForm({ initial, preset, options, route, busy, onSave, onCa
       <Disclosure title={t("form.advanced")}>
         {preset && <label>{t("form.name")}<input required maxLength={64} disabled={Boolean(initial)} value={name} onChange={e => setName(e.target.value)} placeholder="my-service" /></label>}
         {preset && <label>{t("form.url")}<input required type="url" value={url} onChange={e => { setURL(e.target.value); setToken(""); }} /></label>}
-        <label>{t("form.transport")}<select value={transport} disabled={busy} onChange={e => setTransport(e.target.value as MCPTransport)}><option value="streamable_http">{transportLabels.streamable_http}</option><option value="sse">{transportLabels.sse}</option></select></label>
+        <label>{t("form.transport")}<Select value={transport} disabled={busy} onValueChange={value => setTransport(value as MCPTransport)}><option value="streamable_http">{transportLabels.streamable_http}</option><option value="sse">{transportLabels.sse}</option></Select></label>
         <label>{t("form.headers")}<textarea rows={3} value={headers} onChange={e => setHeaders(e.target.value)} spellCheck={false} /></label>{initial && <p className="field-note">{t("form.headers_note")}</p>}
         {oauth && <><label>{t("form.scopes")}<input value={scopes} onChange={e => setScopes(e.target.value)} placeholder={t("form.comma_separated")} /></label><label>{t("form.metadata_url")}<input type="url" value={metadata} onChange={e => setMetadata(e.target.value)} /></label></>}
         <label>{t("form.allowlist")}<input value={allow} onChange={e => setAllow(e.target.value)} placeholder={t("form.allowlist_hint")} /></label><label>{t("form.denylist")}<input value={deny} onChange={e => setDeny(e.target.value)} placeholder={t("form.comma_separated")} /></label>

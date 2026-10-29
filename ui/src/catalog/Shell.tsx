@@ -5,6 +5,7 @@ import { LANGUAGES, LANGUAGE_ENDONYMS, type Language } from "../i18n/languages";
 import { SECTIONS } from "./sections/index";
 import { WIDTHS, type CatalogSection, type CatalogState, type Width } from "./types";
 import type { Theme } from "./sandbox";
+import { Select } from "../Select";
 
 type View = { section: string; themes: Theme[]; widths: Width[]; language: Language };
 const THEME_CHOICES: Record<string, Theme[]> = { light: ["light"], dark: ["dark"], both: ["light", "dark"] };
@@ -100,8 +101,8 @@ export function Shell() {
       <div className="catalog-toolbar">
         <Segmented label="Theme" value={themeKey} options={[["light", "Light"], ["dark", "Dark"], ["both", "Both"]]} onChange={key => update({ themes: THEME_CHOICES[key] })} />
         <Segmented label="Width" value={widthKey} options={[["desktop", "1280"], ["phone", "390"], ["both", "Both"]]} onChange={key => update({ widths: WIDTH_CHOICES[key] })} />
-        <label className="catalog-switch"><span>Language</span><select value={view.language} onChange={event => update({ language: event.target.value as Language })}>
-          {LANGUAGES.map(language => <option key={language} value={language}>{LANGUAGE_ENDONYMS[language]}</option>)}</select></label>
+        <label className="catalog-switch"><span>Language</span><Select value={view.language} onValueChange={value => update({ language: value as Language })}>
+          {LANGUAGES.map(language => <option key={language} value={language}>{LANGUAGE_ENDONYMS[language]}</option>)}</Select></label>
       </div>
       <p className="catalog-muted catalog-howto">Every frame is the production component with its own CSS, on synthetic data; nothing here talks to a server. Frames are live: hover, click and type in them.
         Reduced motion: DevTools › Rendering › Emulate CSS prefers-reduced-motion. Touch-only states: DevTools device mode. Source of truth: docs/design/components.md §{section.number}.</p>

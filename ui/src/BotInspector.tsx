@@ -4,6 +4,7 @@ import {useDebugMode,setDebugMode} from "./debugMode";
 import type {Bot,Conversation} from "./types";
 import {useTranslation} from "./i18n";
 import {formatDateTime} from "./i18n/format";
+import { Select } from "./Select";
 type ToolDefinition={name:string;description:string;parameters:Record<string,unknown>};
 type Preview={system_prompt:string;tools:ToolDefinition[];last_run_tools?:ToolDefinition[];last_run_at?:string};
 export function BotInspector({botId,conversationId,tools=false}:{botId:string;conversationId?:string;tools?:boolean}){
@@ -17,5 +18,5 @@ export function BotInspector({botId,conversationId,tools=false}:{botId:string;co
 export function DebugSettings({bots,conversation}:{bots:Bot[];conversation?:Conversation}){
  const {t}=useTranslation("bots");
  const debug=useDebugMode();const [chosen,setChosen]=useState("");const botId=bots.some(b=>b.id===chosen)?chosen:bots[0]?.id??"";
- return <section className="settings-section"><label className="debug-toggle"><span>{t("debug.mode")}<small>{t("debug.mode_hint")}</small></span><input type="checkbox" role="switch" checked={debug} onChange={e=>setDebugMode(e.target.checked)}/></label>{debug&&<><label>Bot<select value={botId} onChange={e=>setChosen(e.target.value)}>{bots.map(bot=><option key={bot.id} value={bot.id}>{bot.name}</option>)}</select></label>{botId?<BotInspector key={botId} botId={botId} conversationId={conversation&&(conversation.bot_id===botId||conversation.bot_ids.includes(botId))?conversation.id:undefined} tools/>:<p className="muted">{t("debug.no_bots")}</p>}</>}</section>
+ return <section className="settings-section"><label className="debug-toggle"><span>{t("debug.mode")}<small>{t("debug.mode_hint")}</small></span><input type="checkbox" role="switch" checked={debug} onChange={e=>setDebugMode(e.target.checked)}/></label>{debug&&<><label>Bot<Select value={botId} onValueChange={value =>setChosen(value)}>{bots.map(bot=><option key={bot.id} value={bot.id}>{bot.name}</option>)}</Select></label>{botId?<BotInspector key={botId} botId={botId} conversationId={conversation&&(conversation.bot_id===botId||conversation.bot_ids.includes(botId))?conversation.id:undefined} tools/>:<p className="muted">{t("debug.no_bots")}</p>}</>}</section>
 }

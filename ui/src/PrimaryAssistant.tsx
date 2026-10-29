@@ -2,6 +2,7 @@ import { useId } from "react";
 import { useTranslation } from "./i18n";
 import type { Bot } from "./types";
 import "./primary-assistant.css";
+import { Select } from "./Select";
 
 /** Small "Primary" tag for the account's Primary Assistant (sidebar, Bot panel, pickers). */
 export function PrimaryBadge() {
@@ -27,9 +28,9 @@ export function PrimarySuccessorSelect({ bots, value, onChange, disabled }: { bo
   const id = useId();
   return <div className="primary-successor">
     <label htmlFor={id}>{t("primary.successor_label")}</label>
-    <select id={id} value={value} disabled={disabled} onChange={event => onChange(event.target.value)}>
+    <Select id={id} value={value} disabled={disabled} onValueChange={value => onChange(value)}>
       <option value="">{t("primary.successor_placeholder")}</option>
       {bots.map(bot => <option key={bot.id} value={bot.id}>{bot.name}</option>)}
-    </select>
+    </Select>
   </div>;
 }

@@ -11,6 +11,12 @@ import {mkdir, mkdtemp, readFile, rm, writeFile} from "node:fs/promises";
 import {basename, dirname, join} from "node:path";
 import {fileURLToPath, pathToFileURL} from "node:url";
 
+/** Opens our Select under `scope` and picks the option with this value. */
+async function pickSelect(scope, value) {
+  await scope.locator(".ui-select-trigger").first().click();
+  await scope.page().locator(`.ui-select-item[data-value="${value}"]`).click();
+  await scope.page().locator(".ui-select-content").waitFor({ state: "detached" });
+}
 const ui = dirname(dirname(fileURLToPath(import.meta.url)));
 if (!process.env.PLAYWRIGHT_MODULE) { console.log("SKIP: PLAYWRIGHT_MODULE is not set"); process.exit(0); }
 const {chromium} = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE));
@@ -159,18 +165,18 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await t.page.locator(".settings-sec h4").count(), 8, "eight calm groups; the allowance tables live on the Permissions page");
     assert.equal(await t.page.locator(".standing-item, .standing-list").count(), 0, "no allowance table on this page");
     assert.match(await row(t.page, "conversation_model").innerText(), /Claude Sonnet 5\.5/, "conversation model default and value are named");
-    assert.equal(await row(t.page, "conversation_model").locator("select").inputValue(), "claude-sonnet-5-5");
+    assert.equal(await row(t.page, "conversation_model").locator(".ui-select-trigger").getAttribute("data-value"), "claude-sonnet-5-5");
     assert.match(await row(t.page, "background_model").innerText(), /Automatic · Claude Haiku 5\.5/, "background model says what automatic means");
     assert.equal(await row(t.page, "web_search").getByRole("switch").isChecked(), true, "on-by-default switches start on");
     // The reviewer mode has one control, on the Permissions page; this row shows the value (D15) and links there.
-    assert.equal(await row(t.page, "mcp_auto_review").locator("select, input, [role=switch]").count(), 0, "no second control for the reviewer mode");
+    assert.equal(await row(t.page, "mcp_auto_review").locator(".ui-select-trigger, input, [role=switch]").count(), 0, "no second control for the reviewer mode");
     assert.match(await row(t.page, "mcp_auto_review").innerText(), /Off/);
     await row(t.page, "mcp_auto_review").getByRole("button", {name: "Set in Permissions"}).click();
     assert.equal(await t.page.evaluate(() => window.__openTab), "permissions", "the link opens the Permissions page");
-    assert.equal(await row(t.page, "provider_retries").locator("select").inputValue(), "5");
-    assert.equal(await row(t.page, "remembered_approval_hours").locator("select").inputValue(), "24");
+    assert.equal(await row(t.page, "provider_retries").locator(".ui-select-trigger").getAttribute("data-value"), "5");
+    assert.equal(await row(t.page, "remembered_approval_hours").locator(".ui-select-trigger").getAttribute("data-value"), "24");
     assert.match(await row(t.page, "desktop_idle_seconds").innerText(), /5 min/, "the computer service's idle timeout is shown");
-    assert.equal(await row(t.page, "desktop_idle_seconds").locator("select, input").count(), 0, "a value owned elsewhere has no control");
+    assert.equal(await row(t.page, "desktop_idle_seconds").locator(".ui-select-trigger, input").count(), 0, "a value owned elsewhere has no control");
     assert.equal(await t.page.locator(".auto-chip").count(), 0, "nothing is marked changed at the defaults");
     assert.deepEqual(t.errors, [], `page errors: ${t.errors}`);
     if (shots) await t.page.locator(".settings-page-body").screenshot({path: join(shots, "automation-light.png")});
@@ -197,17 +203,17 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const touched = await t.page.evaluate(() => [...new Set(window.__mutations)]);
     assert.deepEqual(touched, ["web_search"], `a change must touch only its own row, touched: ${touched}`);
     assert.ok(elapsed < 1500, `toggle round trip took ${elapsed}ms`);
-    await row(t.page, "provider_retries").locator("select").selectOption("2");
+    await pickSelect(row(t.page, "provider_retries"), "2");
     await t.page.waitForFunction(() => document.querySelector('.auto-row[data-key="provider_retries"] .auto-chip'));
-    await row(t.page, "background_model").locator("select").selectOption("claude-opus-5-5");
+    await pickSelect(row(t.page, "background_model"), "claude-opus-5-5");
     await t.page.waitForFunction(() => document.querySelector('.auto-row[data-key="background_model"] .auto-chip'));
     assert.equal(requests.length, 3);
     assert.deepEqual(state.stored, {web_search: false, provider_retries: 2, background_model: "claude-opus-5-5"});
     await t.page.reload();
     await t.page.locator(".auto-row").first().waitFor();
     assert.equal(await row(t.page, "web_search").getByRole("switch").isChecked(), false, "persisted across a reload");
-    assert.equal(await row(t.page, "provider_retries").locator("select").inputValue(), "2");
-    assert.equal(await row(t.page, "background_model").locator("select").inputValue(), "claude-opus-5-5");
+    assert.equal(await row(t.page, "provider_retries").locator(".ui-select-trigger").getAttribute("data-value"), "2");
+    assert.equal(await row(t.page, "background_model").locator(".ui-select-trigger").getAttribute("data-value"), "claude-opus-5-5");
     // Reset returns to the default and drops the marker.
     requests.length = 0;
     await row(t.page, "web_search").getByRole("button", {name: "Reset to default"}).click();
@@ -228,8 +234,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.match(await locked.innerText(), /Set by server environment/);
     assert.equal(await locked.getByRole("switch").isDisabled(), true);
     assert.equal(await locked.getByRole("switch").isChecked(), false, "shows the value in force");
-    assert.equal(await row(t.page, "provider_retries").locator("select").isDisabled(), true);
-    assert.equal(await row(t.page, "provider_retries").locator("select").inputValue(), "1");
+    assert.equal(await row(t.page, "provider_retries").locator(".ui-select-trigger").isDisabled(), true);
+    assert.equal(await row(t.page, "provider_retries").locator(".ui-select-trigger").getAttribute("data-value"), "1");
     assert.equal(await locked.getByRole("button", {name: "Reset to default"}).count(), 0, "no reset for a locked item");
     assert.equal(await row(t.page, "completion_review").getByRole("switch").isDisabled(), false, "other items stay editable");
     if (shots) 
@@ -271,7 +277,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await items.count(), 4);
     assert.match(await t.page.locator(".settings-page-body").innerText(), /also applies when the Bot works on its own, for example on a schedule/, "Settings says the allowance applies when the Bot works on its own");
     assert.deepEqual(await t.page.locator(".permissions-how-row strong").allInnerTexts(), ["Runs without asking", "Asks when unsure", "Always asks me"], "the three words, in order");
-    assert.equal(await t.page.locator("#auto-review-mode").inputValue(), "off", "the reviewer mode has its one control here");
+    assert.equal(await t.page.locator("#auto-review-mode").getAttribute("data-value"), "off", "the reviewer mode has its one control here");
     assert.equal(await t.page.locator(".permissions-page .settings-banner").count(), 0, "no 'more controls are on the way' banner");
     assert.match(await t.page.locator(".permissions-page").innerText(), /Always allowed/);
     assert.match(await t.page.locator(".permissions-page").innerText(), /Remembered in chats/);

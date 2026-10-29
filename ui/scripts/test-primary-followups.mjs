@@ -2,6 +2,7 @@
 // Mounts the real components in a Vite fixture with every /api/* call stubbed (synthetic data) and drives them with
 // Playwright: the Settings selector, the delete / hide dialogs that force a successor, the sidebar badge, and the
 // preview page with its review buttons. Needs PLAYWRIGHT_MODULE.
+import {selectValue, selectLabels, pickSelect} from "./lib/select.mjs";
 import assert from "node:assert/strict";
 import {mkdtemp, readFile, rm, writeFile} from "node:fs/promises";
 import {basename, dirname, join} from "node:path";
@@ -133,11 +134,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const {page, errors, close} = await open({scene: "selector"});
     const select = page.locator("#primary-assistant");
     await select.waitFor({timeout: 15000});
-    assert.equal(await select.inputValue(), "bot_research", "selector shows the current Primary");
-    assert.deepEqual(await select.locator("option").allInnerTexts(), ["Research Bot", "Inbox Bot", "Notes Bot"], "archived Bots are not offered");
+    assert.equal(await selectValue(select), "bot_research", "selector shows the current Primary");
+    assert.deepEqual(await selectLabels(select), ["Research Bot", "Inbox Bot", "Notes Bot"], "archived Bots are not offered");
     assert.ok(await page.getByText("Primary Assistant", {exact: true}).first().isVisible(), "section title");
-    await select.selectOption("bot_inbox");
-    await page.waitForFunction(() => document.querySelector("#primary-assistant")?.value === "bot_inbox");
+    await pickSelect(select, "bot_inbox");
+    await page.waitForFunction(() => document.querySelector("#primary-assistant")?.dataset.value === "bot_inbox");
     assert.equal(state.primary, "bot_inbox", "the choice reached the server");
     assert.deepEqual(requests, ['PUT /api/primary-assistant {"bot_id":"bot_inbox"}'], "one write, no other");
     assert.deepEqual(errors, [], `page errors: ${errors}`);
@@ -151,13 +152,13 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     let t = await open({scene: "delete", primary: "1"});
     const submit = t.page.locator(".delete-dialog-submit");
     await submit.waitFor({timeout: 15000});
-    const successor = t.page.locator(".primary-successor select");
+    const successor = t.page.locator(".primary-successor .ui-select-trigger");
     assert.ok(await successor.isVisible(), "the Primary's delete dialog asks for a successor");
     assert.equal(await submit.isDisabled(), true, "delete stays disabled until a successor is chosen");
-    assert.deepEqual(await successor.locator("option").allInnerTexts(), ["Choose a Bot", "Inbox Bot", "Notes Bot"], "successors are the other active Bots, never the Bot itself or an archived one");
+    assert.deepEqual(await selectLabels(successor), ["Choose a Bot", "Inbox Bot", "Notes Bot"], "successors are the other active Bots, never the Bot itself or an archived one");
     await submit.click({force: true}).catch(() => {});
     assert.equal(await t.page.evaluate(() => window.__deleted), undefined, "a disabled delete does nothing");
-    await successor.selectOption("bot_notes");
+    await pickSelect(successor, "bot_notes");
     assert.equal(await submit.isDisabled(), false);
     await submit.click();
     await t.page.waitForFunction(() => window.__closed === true);
@@ -180,8 +181,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await t.close();
 
     t = await open({scene: "delete", primary: "1", stale: "1"});
-    await t.page.locator(".primary-successor select").waitFor();
-    await t.page.locator(".primary-successor select").selectOption("bot_inbox");
+    await t.page.locator(".primary-successor .ui-select-trigger").waitFor();
+    await pickSelect(t.page.locator(".primary-successor .ui-select-trigger"), "bot_inbox");
     await t.page.locator(".delete-dialog-submit").click();
     await t.page.getByRole("alert").waitFor();
     assert.match(await t.page.getByRole("alert").innerText(), /Choose a new Primary Assistant first/, "a stale client sees the reassign message from the server code");
@@ -196,7 +197,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const confirm = t.page.locator(".delete-dialog-actions .primary-button");
     await confirm.waitFor({timeout: 15000});
     assert.equal(await confirm.isDisabled(), true);
-    await t.page.locator(".primary-successor select").selectOption("bot_inbox");
+    await pickSelect(t.page.locator(".primary-successor .ui-select-trigger"), "bot_inbox");
     await confirm.click();
     await t.page.waitForFunction(() => window.__closed === true);
     assert.deepEqual(await t.page.evaluate(() => window.__hidden), {successor: "bot_inbox"});
@@ -240,13 +241,13 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.match(body, /3 a day/, "daily cap shown as the account limit");
     assert.match(body, /22:00–08:00/);
     assert.doesNotMatch(body, /Delivering|Turn on reminders/, "no way to switch delivery on in this phase");
-    const modeOptions = await t.page.locator("#followup-mode-bot_research option").allInnerTexts();
+    const modeOptions = await selectLabels(t.page.locator("#followup-mode-bot_research"));
     assert.deepEqual(modeOptions, ["Off", "Preview"], "only off and preview are offered");
-    assert.equal(await t.page.locator("#followup-mode-bot_notes").inputValue(), "shadow");
+    assert.equal(await selectValue(t.page.locator("#followup-mode-bot_notes")), "shadow");
     // Primary tag on the Primary's row.
     assert.equal(await t.page.locator(".followup-bot-name .primary-badge").count(), 1);
-    await t.page.locator("#followup-mode-bot_research").selectOption("shadow");
-    await t.page.waitForFunction(() => document.querySelector("#followup-mode-bot_research")?.value === "shadow");
+    await pickSelect(t.page.locator("#followup-mode-bot_research"), "shadow");
+    await t.page.waitForFunction(() => document.querySelector("#followup-mode-bot_research")?.dataset.value === "shadow");
     assert.equal(state.modes.bot_research, "shadow");
     // Review buttons.
     const first = t.page.locator(".followup-item", {hasText: "Pest control to call about the roof bees"});

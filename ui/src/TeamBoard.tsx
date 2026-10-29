@@ -10,6 +10,7 @@ import type { Bot, Conversation, WorkItem, WorkStatus } from "./types";
 import "./team-board.css";
 import { intlLocale } from "./i18n/format";
 import { i18n, useTranslation } from "./i18n";
+import { Select } from "./Select";
 
 const columns = ["todo", "in_progress", "blocked", "review", "input_required", "done", "failed"] as const satisfies readonly WorkStatus[];
 /** Statuses a person may set; input_required and failed are set by the Bots and the system. */
@@ -134,7 +135,7 @@ function TeamBoardView({ conversation, bots, onClose, onOpenWork, timezone = bro
         <span>{t("board.members")}</span>
         <button type="button" className={!member ? "is-active" : ""} aria-pressed={!member} onClick={() => setMember("")}>{t("board.all")}</button>
         {availableBots.map(bot => <button type="button" key={bot.id} className={`team-board-member${member === bot.id ? " is-active" : ""}`} aria-label={t("board.filter_member", { name: bot.name })} aria-pressed={member === bot.id} title={bot.name} onClick={() => setMember(member === bot.id ? "" : bot.id)}><BotAvatar id={bot.id} mini /></button>)}
-        <label className="team-board-goal-filter">{t("board.goal")} <select aria-label={t("board.goal_filter")} value={goal} onChange={event => setGoal(event.target.value)}><option value="">{t("board.all_goals")}</option>{goals.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
+        <label className="team-board-goal-filter">{t("board.goal")} <Select aria-label={t("board.goal_filter")} value={goal} onValueChange={value => setGoal(value)}><option value="">{t("board.all_goals")}</option>{goals.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</Select></label>
         <span className="team-board-total">{t("board.card_count", { count: visible.length })}</span>
       </div>
       {error && <div className="team-board-error" role="alert">{error}<button type="button" onClick={() => void reload()}>{t("board.retry")}</button></div>}
@@ -158,7 +159,7 @@ function TeamBoardView({ conversation, bots, onClose, onOpenWork, timezone = bro
       </div></div>}
       {creating && !conversation.archived && <form className="team-board-create" onSubmit={event => void create(event)}>
         <h3>{t("board.create_title")}</h3><label>{t("board.title_label")}<input autoFocus value={newTitle} maxLength={240} onChange={event => setNewTitle(event.target.value)} placeholder={t("board.title_placeholder")} /></label>
-        <label>{t("board.assignee")}<select value={newAssignee} onChange={event => setNewAssignee(event.target.value)}>{availableBots.map(bot => <option key={bot.id} value={bot.id}>{bot.name}</option>)}</select></label>
+        <label>{t("board.assignee")}<Select value={newAssignee} onValueChange={value => setNewAssignee(value)}>{availableBots.map(bot => <option key={bot.id} value={bot.id}>{bot.name}</option>)}</Select></label>
         <div><button type="button" onClick={() => setCreating(false)}>{t("board.cancel")}</button><button type="submit" disabled={pending || !newTitle.trim() || !newAssignee}>{pending ? t("board.creating") : t("board.create")}</button></div>
       </form>}
       {selected && <aside className="team-board-detail" aria-label={t("board.detail")}>
@@ -168,8 +169,8 @@ function TeamBoardView({ conversation, bots, onClose, onOpenWork, timezone = bro
         <WorkTaskFacts item={selected} timezone={timezone} />
         {selected.parent_goal_id && <p>{t("board.linked_goal_detail", { title: goalById.get(selected.parent_goal_id)?.title ?? t("board.linked_goal") })}</p>}
         <WorkExecution key={selected.id} item={selected} readOnly={!!selectedReadOnly} pending={pending} mutate={mutate} onExecuted={accept} />
-        <label>{t("board.status")}<select value={selected.status} disabled={pending || selectedReadOnly || workExecutionActive(selected)} onChange={event => void update(selected, { status: event.target.value as WorkStatus })}>{columns.filter(status => (settable as readonly WorkStatus[]).includes(status) || status === selected.status).map(status => <option key={status} value={status}>{t(`board.column.${status}`)}</option>)}</select></label>
-        <label>{t("board.assignee")}<select value={selected.bot_id} disabled={pending || selectedReadOnly || workExecutionActive(selected)} onChange={event => void update(selected, { bot_id: event.target.value })}>{availableBots.map(bot => <option key={bot.id} value={bot.id}>{bot.name}</option>)}</select></label>
+        <label>{t("board.status")}<Select value={selected.status} disabled={pending || selectedReadOnly || workExecutionActive(selected)} onValueChange={value => void update(selected, { status: value as WorkStatus })}>{columns.filter(status => (settable as readonly WorkStatus[]).includes(status) || status === selected.status).map(status => <option key={status} value={status}>{t(`board.column.${status}`)}</option>)}</Select></label>
+        <label>{t("board.assignee")}<Select value={selected.bot_id} disabled={pending || selectedReadOnly || workExecutionActive(selected)} onValueChange={value => void update(selected, { bot_id: value })}>{availableBots.map(bot => <option key={bot.id} value={bot.id}>{bot.name}</option>)}</Select></label>
         <button type="button" className="team-board-detail-work" onClick={onOpenWork}>{t("board.open_work")}</button>
       </aside>}
     </div>

@@ -163,7 +163,7 @@ export function ComputerResources(){
  const dirty=Boolean(editing&&data&&desired&&(desired.vcpus!==data.desired.vcpus||desired.memory_mib!==data.desired.memory_mib||desired.disk_gib!==data.desired.disk_gib));
  useSettingsDraft({label:t("resources.draft_label"),dirty,busy,save,discard:()=>{if(data)setDesired(data.desired);editingRef.current=false;setEditing(false);setActionError("")}});
  return <section className="settings-section">
-  <div className="settings-row"><h3>{t("resources.title")}</h3>{data&&<button type="button" className="secondary-button" disabled={busy||restarting} onClick={()=>{const next=!editing;editingRef.current=next;setDesired(data.desired);setEditing(next);setActionError("")}}>{editing?t("resources.cancel"):t("resources.adjust")}</button>}</div>
+  <div className="settings-row"><h3>{t("resources.title")}</h3>{data&&!editing&&<button type="button" className="secondary-button" disabled={busy||restarting} onClick={()=>{const next=!editing;editingRef.current=next;setDesired(data.desired);setEditing(next);setActionError("")}}>{editing?t("resources.cancel"):t("resources.adjust")}</button>}</div>
   {data&&<>
    <div className="resource-grid"><div><span>CPU</span><strong>{data.current.vcpus}<small> {t("resources.unit.cores")}</small></strong></div><div><span>{t("resources.memory")}</span><strong>{Number((data.current.memory_mib/1024).toFixed(1))}<small> GB</small></strong></div><div><span>{t("resources.disk_allocated")}</span><strong>{data.current.disk_gib}<small> GB</small></strong></div></div>
    {debug&&<p className="field-note">{t("resources.host",{cpus:data.host.cpus,memory:Math.round(data.host.memory_total_mib/1024),disk:Math.floor(data.host.disk_available_gib)})}</p>}

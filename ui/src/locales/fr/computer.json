@@ -261,7 +261,7 @@
       "memory": "Mémoire (Go)",
       "disk": "Disque (Go)"
     },
-    "field_note": "Le disque peut seulement être agrandi, jamais réduit. Les changements s'appliquent après le redémarrage de l'ordinateur ; fermer le bureau ne suffit pas.",
+    "field_note": "Le disque peut seulement être agrandi, jamais réduit.",
     "restarting": "Redémarrage et application de la configuration…",
     "retry_restart": "Relancer le redémarrage",
     "reading": "Chargement…",

@@ -1,6 +1,7 @@
 import {useState} from "react";
 import {useTranslation} from "./i18n";
-import {ShowActivitySetting, useUserTimezone} from "./UserTimezone";
+import {useUserTimezone} from "./UserTimezone";
+import {ShowActivitySetting} from "./TimezoneSettings";
 import {SettingsCard} from "./settings/components";
 
 type Kind = "chats" | "tasks";

@@ -259,7 +259,7 @@
       "memory": "Memory (GB)",
       "disk": "Disk (GB)"
     },
-    "field_note": "Disk can only grow, never shrink. Changes apply after the computer restarts; closing the desktop doesn't apply them.",
+    "field_note": "Disk can only grow, never shrink.",
     "restarting": "Restarting and applying the configuration…",
     "retry_restart": "Retry restart",
     "reading": "Loading…",
