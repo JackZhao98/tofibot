@@ -759,7 +759,12 @@
       "auto_hint": "Turn it on or off from the server: <on>sudo tofi config auto-update on</on> or <off>sudo tofi config auto-update off</off>",
       "update": "Update from this page",
       "update_hint": "The server backs up first, waits for running Bots, and rolls back if the new version fails.",
-      "update_none": "No update to install."
+      "update_none": "No update to install.",
+      "check": "Check for updates",
+      "checking": "Checking…",
+      "check_current": "You're up to date.",
+      "check_available": "{{version}} is available.",
+      "check_failed": "Couldn't check for updates. Try again."
     },
     "action": {
       "update": "Update to {{version}}",

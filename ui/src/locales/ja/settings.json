@@ -750,7 +750,12 @@
       "auto_hint": "サーバーで切り替えます：<on>sudo tofi config auto-update on</on> または <off>sudo tofi config auto-update off</off>",
       "update": "このページから更新",
       "update_hint": "サーバーが先にバックアップを取り、実行中の Bot を待ち、新しいバージョンが失敗したらロールバックします。",
-      "update_none": "インストールできる更新はありません。"
+      "update_none": "インストールできる更新はありません。",
+      "check": "アップデートを確認",
+      "checking": "確認中…",
+      "check_current": "最新の状態です。",
+      "check_available": "{{version}} が利用できます。",
+      "check_failed": "アップデートを確認できませんでした。もう一度お試しください。"
     },
     "action": {
       "update": "{{version}} に更新",

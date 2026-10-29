@@ -25,6 +25,7 @@ const (
 	updateRefreshAfter       = 6 * time.Hour
 	updateRetryAfter         = 10 * time.Minute
 	updateFetchTimeout       = 15 * time.Second
+	updateForceGap           = 3 * time.Second
 	// The newest release candidate is found in the releases list; only asked for when the owner turned the channel on.
 	defaultUpdateReleasesURL = "https://api.github.com/repos/JackZhao98/tofibot/releases?per_page=30"
 	updateReleasesLimit      = 4 << 20
@@ -97,6 +98,7 @@ type updateChecker struct {
 	checkedAt  time.Time
 	nextTry    time.Time
 	refreshing bool
+	forcedAt   time.Time     // the last "check now"; repeats within updateForceGap answer from the cache
 	done       chan struct{} // closed after each refresh; tests only
 
 	releasesURL  string
@@ -211,6 +213,38 @@ func (c *updateChecker) fetchRC(ctx context.Context) (string, string, error) {
 		notes = ""
 	}
 	return best, notes, nil
+}
+
+// checkNow reads the manifest at once (and the release-candidate list when that channel is on), for the
+// Check for updates button; the cached values and their next scheduled read move with it. A second press
+// within updateForceGap is answered from the cache. The error is a failed read; the cache keeps what it had.
+func (c *updateChecker) checkNow(ctx context.Context, rc bool) error {
+	c.mu.Lock()
+	if c.now().Sub(c.forcedAt) < updateForceGap {
+		c.mu.Unlock()
+		return nil
+	}
+	c.forcedAt = c.now()
+	c.mu.Unlock()
+	ctx, cancel := context.WithTimeout(ctx, updateFetchTimeout)
+	defer cancel()
+	latest, notes, err := c.fetch(ctx)
+	if err != nil {
+		return err
+	}
+	c.mu.Lock()
+	c.latest, c.notesURL, c.checkedAt = latest, notes, c.now()
+	c.nextTry = c.now().Add(updateRefreshAfter)
+	c.mu.Unlock()
+	if rc {
+		if tag, rcNotes, e := c.fetchRC(ctx); e == nil {
+			c.mu.Lock()
+			c.latestRC, c.rcNotesURL = tag, rcNotes
+			c.rcNextTry = c.now().Add(updateRefreshAfter)
+			c.mu.Unlock()
+		}
+	}
+	return nil
 }
 
 func (c *updateChecker) refresh() {

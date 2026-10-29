@@ -768,7 +768,12 @@
       "auto_hint": "À modifier sur le serveur : <on>sudo tofi config auto-update on</on> ou <off>sudo tofi config auto-update off</off>",
       "update": "Mettre à jour depuis cette page",
       "update_hint": "Le serveur sauvegarde d'abord, attend les Bots en cours et revient en arrière si la nouvelle version échoue.",
-      "update_none": "Aucune mise à jour à installer."
+      "update_none": "Aucune mise à jour à installer.",
+      "check": "Rechercher des mises à jour",
+      "checking": "Vérification…",
+      "check_current": "Vous êtes à jour.",
+      "check_available": "{{version}} est disponible.",
+      "check_failed": "Impossible de rechercher des mises à jour. Réessayez."
     },
     "action": {
       "update": "Passer à {{version}}",

@@ -750,7 +750,12 @@
       "auto_hint": "请在服务器上开关：<on>sudo tofi config auto-update on</on> 或 <off>sudo tofi config auto-update off</off>",
       "update": "从此页面更新",
       "update_hint": "服务器会先备份，等待正在运行的 Bot，新版本失败时自动回滚。",
-      "update_none": "没有可安装的更新。"
+      "update_none": "没有可安装的更新。",
+      "check": "检查更新",
+      "checking": "正在检查…",
+      "check_current": "已是最新版本。",
+      "check_available": "有新版本 {{version}} 可用。",
+      "check_failed": "无法检查更新，请重试。"
     },
     "action": {
       "update": "更新到 {{version}}",

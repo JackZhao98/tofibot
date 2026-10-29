@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -237,4 +238,54 @@ func TestSystemUpdateRouteAccountsAdminOnly(t *testing.T) {
 	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &n) != nil || !n.UpdateAvailable || n.Current != "v0.1.0" {
 		t.Fatalf("admin %d %s", w.Code, w.Body.String())
 	}
+}
+
+// "Check for updates" reads the manifest at once, answers with the fresh snapshot, keeps the cache when the
+// read fails (502 update_check_failed), and a second press inside the gap is answered from the cache.
+func TestSystemUpdateCheckNow(t *testing.T) {
+	srv := newManifestServer("v0.1.1")
+	defer srv.Close()
+	c := newUpdateChecker(srv.URL, "v0.1.0")
+	now := time.Now()
+	c.now = func() time.Time { return now }
+	useUpdateChecker(t, c)
+	s, err := NewServer(Config{DataDir: t.TempDir(), Environment: "acceptance"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	post := func(method string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		s.Handler().ServeHTTP(w, httptest.NewRequest(method, "/api/system/update/check", nil))
+		return w
+	}
+	if w := post("GET"); w.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("GET %d", w.Code)
+	}
+	settle(t, c)
+	srv.set("v0.1.2")
+	var n updateNotice
+	w := post("POST")
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &n) != nil || n.Latest != "v0.1.2" || n.CheckedAt == "" {
+		t.Fatalf("check %d %s", w.Code, w.Body.String())
+	}
+	hits := srv.hits.Load()
+	srv.set("v0.1.3")
+	if w = post("POST"); w.Code != 200 || srv.hits.Load() != hits {
+		t.Fatalf("a second press inside the gap must not refetch: %d hits %d->%d", w.Code, hits, srv.hits.Load())
+	}
+	now = now.Add(updateForceGap + time.Second)
+	srv.status.Store(500)
+	if w = post("POST"); w.Code != http.StatusBadGateway || !strings.Contains(w.Body.String(), "update_check_failed") {
+		t.Fatalf("failed read: %d %s", w.Code, w.Body.String())
+	}
+	if w = get2(s, "/api/system/update"); !strings.Contains(w.Body.String(), `"latest":"v0.1.2"`) {
+		t.Fatalf("a failed check dropped the cache: %s", w.Body.String())
+	}
+}
+
+func get2(s *Server, path string) *httptest.ResponseRecorder {
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, httptest.NewRequest("GET", path, nil))
+	return w
 }

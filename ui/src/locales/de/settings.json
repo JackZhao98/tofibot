@@ -759,7 +759,12 @@
       "auto_hint": "Ändere das auf dem Server: <on>sudo tofi config auto-update on</on> oder <off>sudo tofi config auto-update off</off>",
       "update": "Über diese Seite aktualisieren",
       "update_hint": "Der Server sichert zuerst, wartet auf laufende Bots und setzt zurück, wenn die neue Version scheitert.",
-      "update_none": "Kein Update zu installieren."
+      "update_none": "Kein Update zu installieren.",
+      "check": "Nach Updates suchen",
+      "checking": "Prüfe …",
+      "check_current": "Du bist auf dem neuesten Stand.",
+      "check_available": "{{version}} ist verfügbar.",
+      "check_failed": "Die Update-Suche ist fehlgeschlagen. Versuche es erneut."
     },
     "action": {
       "update": "Auf {{version}} aktualisieren",

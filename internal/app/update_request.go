@@ -201,6 +201,20 @@ func (s *Server) serveSystemUpdate(w http.ResponseWriter, r *http.Request, rest 
 		}
 		w.Header().Set("Cache-Control", "no-store")
 		writeJSON(w, http.StatusOK, s.updateSnapshot(sharedUpdates()))
+	case "check":
+		// "Check for updates": read the release manifest now instead of waiting for the cached read to age out.
+		if r.Method != http.MethodPost {
+			w.Header().Set("Allow", http.MethodPost)
+			writeErr(w, http.StatusMethodNotAllowed, "method_not_allowed", "use POST")
+			return
+		}
+		c := sharedUpdates()
+		if err := c.checkNow(r.Context(), s.updateChannelRC()); err != nil {
+			writeErr(w, http.StatusBadGateway, "update_check_failed", "the update server could not be reached")
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		writeJSON(w, http.StatusOK, s.updateSnapshot(c))
 	case "request":
 		if r.Method != http.MethodPost {
 			w.Header().Set("Allow", http.MethodPost)

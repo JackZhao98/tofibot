@@ -94,6 +94,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   browser = await chromium.launch({executablePath: process.env.TOFI_TEST_CHROME || undefined});
 
   const requested = [], unexpected = [], writes = [], tierWrites = [];
+  // "Check for updates" on the Version card: the calls it made, and whether the update server answers.
+  const check = {calls: [], fail: false};
   // Permissions page state the stub serves and records: each Bot's own mode, the account mode, the reviewer (background) model.
   const perm = {modes: {bot_research: "auto", bot_inbox: "ask", bot_notes: "ask", bot_old: "ask"}, account: "shadow", reviewer: "", writes: []};
   const resetPerm = () => { Object.assign(perm.modes, {bot_research: "auto", bot_inbox: "ask", bot_notes: "ask", bot_old: "ask"}); perm.account = "shadow"; perm.reviewer = ""; perm.writes.length = 0; };
@@ -403,6 +405,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       if (url.pathname === "/api/automation-settings" && method === "PUT") {
         const {values} = JSON.parse(request.postData()); if ("background_model" in values) perm.reviewer = values.background_model ?? "";
         perm.writes.push(`PUT ${url.pathname} ${request.postData()}`); await reply(200, {items: automationItems()}); return;
+      }
+      if (url.pathname === "/api/system/update/check" && method === "POST") {
+        check.calls.push(method);
+        if (check.fail) { await route.fulfill({status: 502, contentType: "application/json", body: JSON.stringify({error: {code: "update_check_failed", message: "the update server could not be reached"}})}); return; }
+        await route.fulfill({contentType: "application/json", body: JSON.stringify({...updateAnswer(new URLSearchParams()), latest: "v0.1.1", update_available: true, checked_at: "2026-10-29T12:00:00Z"})}); return;
       }
       const body = stub(url, method, new URLSearchParams(page.url().split("?")[1] ?? ""), request.postData() ?? "");
       if (body && body.__abort) { await route.abort(); return; }
@@ -1422,6 +1429,19 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.match(card, /Latest release v0\.1\.0/);
     assert.match(card, /Last checked Oct 9, 2026/);
     assert.match(card, /Automatic fix releases .*sudo tofi config auto-update on or sudo tofi config auto-update off Off/);
+    // Check for updates: the server reads the manifest now; the card refreshes and says what it found, or why not.
+    check.calls.length = 0; check.fail = false;
+    const checkButton = current.page.locator(".version-card").getByRole("button", {name: "Check for updates"});
+    await checkButton.click();
+    await current.page.locator(".version-card").getByText("v0.1.1 is available.").waitFor();
+    const checked = (await current.page.locator(".version-card").innerText()).replace(/\s+/g, " ");
+    assert.match(checked, /Latest release .*v0\.1\.1 Release notes/, "the card shows the fresh answer");
+    assert.match(checked, /Last checked .*Oct 29, 2026/, "and the new check time");
+    assert.deepEqual(check.calls, ["POST"]);
+    check.fail = true;
+    await checkButton.click();
+    await current.page.locator(".version-card").getByRole("alert").getByText("Couldn't reach the update server. Try again later.").waitFor();
+    check.fail = false;
     await current.close();
 
     // Update available + auto on: card shows the install hint and the state.
