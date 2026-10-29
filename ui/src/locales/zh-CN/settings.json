@@ -1,10 +1,10 @@
 {
   "language": {
     "title": "语言",
-    "note": "界面文字使用的语言。选择“自动”时跟随浏览器。",
     "label": "界面语言",
     "auto": "自动（{{language}}）",
-    "save_failed": "语言已在此设备上切换，但未能保存到账户。请稍后重试。"
+    "save_failed": "语言已在此设备上切换，但未能保存到账户。请稍后重试。",
+    "default": "默认"
   },
   "timezone": {
     "label": "时区",
@@ -30,7 +30,8 @@
       "you": "你",
       "bots": "Bot 可用",
       "workspace": "工作空间",
-      "system": "系统"
+      "system": "系统",
+      "more": "高级"
     },
     "page": {
       "general": {
@@ -47,15 +48,15 @@
       },
       "permissions": {
         "name": "权限",
-        "description": "什么会先问你，你放行了什么。"
+        "description": "决定 Bot 何时先问你"
       },
       "followups": {
-        "name": "跟进事项（预览）",
+        "name": "跟进事项",
         "description": "查看 Bot 会提醒你什么"
       },
       "models": {
         "name": "模型",
-        "description": "Bot 的大脑从哪来，默认用哪一个。"
+        "description": "模型服务商与默认模型。"
       },
       "computer": {
         "name": "电脑",
@@ -71,16 +72,28 @@
         "description": "查看 Agent 的模型消耗与上下文压缩进度"
       },
       "advanced": {
-        "name": "高级",
-        "description": "服务器信息、数据迁移、调试与从头开始。"
+        "name": "维护",
+        "description": "版本、服务器、数据、调试与从头开始。"
       },
       "admin": {
         "name": "Admin 控制台",
         "description": "邀请、管理和停用账号"
       },
       "automation": {
-        "name": "自动行为",
+        "name": "行为",
         "description": "查看并调整 Tofi 代你自动做的事"
+      },
+      "allowances": {
+        "name": "工具规则",
+        "description": "审核方式、工具如何询问、你放行了什么"
+      },
+      "tools": {
+        "name": "搜索与抓取",
+        "description": "Bot 搜索和读取网页的来源"
+      },
+      "devices": {
+        "name": "其他设备",
+        "description": "连接装有 Tofi 应用的 Mac"
       }
     },
     "category": "设置分类",
@@ -111,12 +124,16 @@
         "waiting": "等待中",
         "none": "未添加"
       }
+    },
+    "tag": {
+      "beta": "测试版",
+      "dev": "开发中"
     }
   },
   "appearance": {
-    "title": "外观",
-    "label": "外观主题",
-    "system": "跟随系统",
+    "title": "主题",
+    "label": "主题",
+    "system": "系统",
     "light": "浅色",
     "dark": "深色"
   },
@@ -160,7 +177,6 @@
   },
   "providers": {
     "title": "模型提供方",
-    "description": "连接任意一个即可使用。已连接提供方的模型都会出现在 Bot 和全局模型的模型列表里。",
     "load_failed": "暂时无法读取模型提供方状态。",
     "openai_description": "用 OpenAI API key 调用 GPT 与 o 系列模型，按 API 用量计费。",
     "anthropic_description": "用 Anthropic API key 调用 Claude 模型，按 API 用量计费。",
@@ -462,7 +478,7 @@
       "once": "仅显示一次，继续之后 Tofi 不会保留。",
       "expires": "有效期至 {{date}}。",
       "message_label": "待发送的消息",
-      "message": "你的 TOFI 账号已关闭。下载你的 Bot：{{link}}（口令另行发送），有效期至 {{date}}。在 Tofi 中导入：设置 → 高级 → 数据迁移，然后输入口令。",
+      "message": "你的 TOFI 账号已关闭。下载你的 Bot：{{link}}（口令另行发送），有效期至 {{date}}。在 Tofi 中导入：设置 → 维护 → 数据迁移，然后输入口令。",
       "message_note": "请通过另一条消息或另一个渠道发送口令。",
       "copy_message": "复制消息",
       "done": "我已保存口令"
@@ -674,12 +690,8 @@
   },
   "general": {
     "region": "语言与地区",
-    "moved_title": "在找导出、服务器信息或从头开始？",
-    "moved_body": "它们已移到“高级”。",
-    "open_advanced": "打开“高级”",
     "chat": "对话",
-    "activity_title": "在对话里显示工作过程",
-    "activity_note": "在 Bot 的回复下方显示它执行的步骤。默认关闭，仍可从消息的操作菜单里打开。",
+    "activity_title": "在对话中显示活动",
     "activity_save_failed": "保存失败，请重试。"
   },
   "advanced": {
@@ -1016,7 +1028,7 @@
     "save_failed": "保存失败。",
     "remove_failed": "删除失败。",
     "master_off_title": "网页查询已关闭",
-    "master_off_body": "在“自动行为”里打开网页搜索，Bot 才能搜索和读取网页。",
+    "master_off_body": "在“行为”里打开网页搜索，Bot 才能搜索和读取网页。",
     "no_search_title": "还没有可用的搜索来源",
     "no_search_body": "Bot 暂时不能搜索网页。请在下方添加密钥或地址。按地址读取网页仍然可用。",
     "search_title": "搜索",
@@ -1117,5 +1129,14 @@
       "write": "默认档。每次调用都会审核：你明确要求的直接执行，其余的先问你。",
       "high": "每次调用都由你决定。没人可问时，调用不会执行。"
     }
+  },
+  "chats": {
+    "task_notifications": "任务结果通知",
+    "chat_notifications": "对话通知"
+  },
+  "approval": {
+    "label": "当前账号的审批模式",
+    "auto": "自动",
+    "ask": "修改前先问"
   }
 }

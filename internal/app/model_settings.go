@@ -67,7 +67,8 @@ func (s *Server) modelDefaults() (string, string) {
 	for _, name := range []string{providerOpenAI, providerAnthropic} {
 		if s.usableProviderKey(name) {
 			if models := s.cachedProviderCatalog(name); len(models) > 0 {
-				return models[0].ID, models[0].DefaultReasoning
+				pick := preferredProviderModel(name, models)
+				return pick.ID, pick.DefaultReasoning
 			}
 		}
 	}
@@ -75,6 +76,20 @@ func (s *Server) modelDefaults() (string, string) {
 		return s.codexConversationDefault(), effort
 	}
 	return model, effort
+}
+
+// preferredProviderModel is the model a workspace gets when it has none of its
+// own and one provider is usable. A Claude key defaults to Haiku 5.5
+// (anthropicBackgroundModel); otherwise the provider's first catalog entry.
+func preferredProviderModel(name string, models []ModelOption) ModelOption {
+	if name == providerAnthropic {
+		for _, m := range models {
+			if m.ID == anthropicBackgroundModel || strings.HasPrefix(m.ID, anthropicBackgroundModel+"-") {
+				return m
+			}
+		}
+	}
+	return models[0]
 }
 
 // codexConversationDefault is the newest Sol model in the live Codex catalog,

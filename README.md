@@ -69,7 +69,7 @@ Replace `...` with the `curl` command above. The full list of flags and
 
 ## Update, back up, restore
 
-Prefer the web page? An admin can update from **Settings > Advanced > Version** (or the banner at the top): press **Update to vX**, confirm, and the
+Prefer the web page? An admin can update from **Settings > Maintenance > Version** (or the banner at the top): press **Update to vX**, confirm, and the
 server updates itself the same way `sudo tofi update` does: it waits for running Bots, backs up first, checks the release and rolls back if the new version
 fails. The page shows the steps and reconnects when the App restarts. Turn on **Receive release candidates** in the same card to be offered test builds too
 (nothing installs until you press Update). On a server installed before this feature, the button appears after the first `sudo tofi update` to this version

@@ -1,4 +1,5 @@
 import type {SettingsTab} from "../SettingsShell";
+import {ARCHIVE_ENABLED} from "../featureFlags";
 
 /** Window events other surfaces dispatch to open Settings on a tab (chat cards, the model picker). */
 export const settingsDeepLinks: Record<string, SettingsTab> = {
@@ -45,7 +46,7 @@ export const openSidebarDeepLink = (id: SidebarDeepLink) => window.dispatchEvent
 export function subscribeSidebarDeepLinks(open: (id: SidebarDeepLink) => void): () => void {
   const handler = (event: Event) => {
     const id = (event as CustomEvent<{ id?: string }>).detail?.id;
-    if (id === "tasks" || id === "memory" || id === "terminal" || id === "archive") open(id);
+    if (id === "tasks" || id === "memory" || id === "terminal" || (id === "archive" && ARCHIVE_ENABLED)) open(id);
   };
   window.addEventListener(OPEN_SIDEBAR_EVENT, handler);
   return () => window.removeEventListener(OPEN_SIDEBAR_EVENT, handler);

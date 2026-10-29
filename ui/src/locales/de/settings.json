@@ -1,10 +1,10 @@
 {
   "language": {
     "title": "Sprache",
-    "note": "Die Sprache der Tofi-Oberfläche. „Automatisch“ folgt deinem Browser.",
     "label": "Sprache der Oberfläche",
     "auto": "Automatisch ({{language}})",
-    "save_failed": "Die Sprache wurde auf diesem Gerät geändert, konnte aber nicht im Konto gespeichert werden. Versuch es später erneut."
+    "save_failed": "Die Sprache wurde auf diesem Gerät geändert, konnte aber nicht im Konto gespeichert werden. Versuch es später erneut.",
+    "default": "Standard"
   },
   "timezone": {
     "label": "Zeitzone",
@@ -30,7 +30,8 @@
       "you": "Du",
       "bots": "Bots nutzen",
       "workspace": "Workspace",
-      "system": "System"
+      "system": "System",
+      "more": "Erweitert"
     },
     "page": {
       "general": {
@@ -47,15 +48,15 @@
       },
       "permissions": {
         "name": "Berechtigungen",
-        "description": "Was zuerst nachfragt und was du erlaubt hast."
+        "description": "Wann Bots zuerst nachfragen"
       },
       "followups": {
-        "name": "Nachfassungen (Vorschau)",
+        "name": "Nachfassungen",
         "description": "Sieh, woran Bots dich erinnern würden"
       },
       "models": {
         "name": "Modelle",
-        "description": "Woher Bots ihr Modell bekommen und welches sie standardmäßig nutzen."
+        "description": "Anbieter und Standardmodell."
       },
       "computer": {
         "name": "Computer",
@@ -71,16 +72,28 @@
         "description": "Modellnutzung und Kontextkomprimierung pro Agent"
       },
       "advanced": {
-        "name": "Erweitert",
-        "description": "Serverdetails, Datentransfer, Debugging und Neu beginnen."
+        "name": "Wartung",
+        "description": "Version, Server, Daten, Debugging und Neu beginnen."
       },
       "admin": {
         "name": "Admin-Konsole",
         "description": "Konten einladen, verwalten und deaktivieren"
       },
       "automation": {
-        "name": "Automatische Abläufe",
+        "name": "Verhalten",
         "description": "Ansehen und anpassen, was Tofi selbstständig tut"
+      },
+      "allowances": {
+        "name": "Werkzeugregeln",
+        "description": "Prüfer, Nachfragen der Werkzeuge und deine Freigaben"
+      },
+      "tools": {
+        "name": "Suche & Abruf",
+        "description": "Wo Bots im Web suchen und lesen"
+      },
+      "devices": {
+        "name": "Weitere Geräte",
+        "description": "Einen Mac mit der Tofi-App verbinden"
       }
     },
     "category": "Einstellungsbereich",
@@ -111,12 +124,16 @@
         "waiting": "Wartet",
         "none": "Keiner"
       }
+    },
+    "tag": {
+      "beta": "Beta",
+      "dev": "In Entwicklung"
     }
   },
   "appearance": {
-    "title": "Darstellung",
-    "label": "Farbschema",
-    "system": "Wie System",
+    "title": "Design",
+    "label": "Design",
+    "system": "System",
     "light": "Hell",
     "dark": "Dunkel"
   },
@@ -161,7 +178,6 @@
   },
   "providers": {
     "title": "Modellanbieter",
-    "description": "Ein verbundener Anbieter reicht. Modelle verbundener Anbieter erscheinen in den Modelllisten für Bots und das globale Modell.",
     "load_failed": "Der Status der Modellanbieter konnte nicht geladen werden.",
     "openai_description": "Nutzt einen OpenAI-API-Schlüssel für GPT- und o-Modelle, abgerechnet nach API-Nutzung.",
     "anthropic_description": "Nutzt einen Anthropic-API-Schlüssel für Claude-Modelle, abgerechnet nach API-Nutzung.",
@@ -467,7 +483,7 @@
       "once": "Wird nur einmal angezeigt. Tofi speichert sie danach nicht.",
       "expires": "Verfügbar bis {{date}}.",
       "message_label": "Nachricht zum Versenden",
-      "message": "Dein TOFI-Konto wurde geschlossen. Lade deine Bots herunter: {{link}} (Passphrase folgt separat), verfügbar bis {{date}}. Importiere sie in Tofi: Einstellungen → Erweitert → Datenübertragung, dann die Passphrase eingeben.",
+      "message": "Dein TOFI-Konto wurde geschlossen. Lade deine Bots herunter: {{link}} (Passphrase folgt separat), verfügbar bis {{date}}. Importiere sie in Tofi: Einstellungen → Wartung → Datenübertragung, dann die Passphrase eingeben.",
       "message_note": "Sende die Passphrase in einer anderen Nachricht oder über einen anderen Kanal.",
       "copy_message": "Nachricht kopieren",
       "done": "Ich habe die Passphrase gespeichert"
@@ -683,12 +699,8 @@
   },
   "general": {
     "region": "Sprache und Region",
-    "moved_title": "Suchst du Export, Serverinfos oder Neu beginnen?",
-    "moved_body": "Sie sind jetzt unter Erweitert.",
-    "open_advanced": "Erweitert öffnen",
-    "chat": "Chat",
-    "activity_title": "Aktivität im Chat anzeigen",
-    "activity_note": "Zeigt die Schritte eines Bots unter seinen Antworten. Standardmäßig aus; im Aktionsmenü einer Nachricht lassen sie sich trotzdem öffnen.",
+    "chat": "Chats",
+    "activity_title": "Aktivität in Chats anzeigen",
     "activity_save_failed": "Speichern fehlgeschlagen. Versuche es erneut."
   },
   "advanced": {
@@ -1025,7 +1037,7 @@
     "save_failed": "Die Änderung konnte nicht gespeichert werden.",
     "remove_failed": "Entfernen fehlgeschlagen.",
     "master_off_title": "Webabfragen sind aus",
-    "master_off_body": "Schalten Sie unter „Automatisches Verhalten“ die Websuche ein, damit Bots suchen und Seiten lesen können.",
+    "master_off_body": "Schalte unter „Verhalten“ die Websuche ein, damit Bots suchen und Seiten lesen können.",
     "no_search_title": "Keine Suchquelle eingerichtet",
     "no_search_body": "Bots können das Web noch nicht durchsuchen. Fügen Sie unten einen Schlüssel oder eine Adresse hinzu. Das Lesen einer Seite per Adresse funktioniert weiterhin.",
     "search_title": "Suche",
@@ -1127,5 +1139,14 @@
       "write": "Standard. Jeder Aufruf wird geprüft: Was du verlangt hast, läuft, alles andere fragt dich zuerst.",
       "high": "Du entscheidest jeden Aufruf. Ist niemand da, den man fragen kann, läuft der Aufruf nicht."
     }
+  },
+  "chats": {
+    "task_notifications": "Benachrichtigungen zu Aufgabenergebnissen",
+    "chat_notifications": "Chat-Benachrichtigungen"
+  },
+  "approval": {
+    "label": "Freigabemodus für dieses Konto",
+    "auto": "Automatisch",
+    "ask": "Vor Änderungen fragen"
   }
 }

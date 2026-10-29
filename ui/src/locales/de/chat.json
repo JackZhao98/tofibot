@@ -74,7 +74,7 @@
     "archived_body": "In deiner Liste ausgeblendet. Chats und Erinnerungen bleiben erhalten.",
     "model_pinned": "Festgelegt auf {{model}}",
     "share_hint": "Rolle, Modell und Skill-Namen in einer Datei. Ohne Chats, Erinnerungen und Geheimnisse.",
-    "data_hint": "Chats, Erinnerungen und Dateien. Öffnet Einstellungen › Erweitert.",
+    "data_hint": "Chats, Erinnerungen und Dateien. Öffnet Einstellungen › Wartung.",
     "export_action": "Exportieren",
     "delete_hint": "Entfernt diesen Bot und seinen Chat. Das lässt sich nicht rückgängig machen.",
     "section": {

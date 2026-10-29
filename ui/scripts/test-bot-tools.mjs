@@ -164,7 +164,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await page.getByRole("button", {name: "Manage library"}).click();
     await page.getByRole("button", {name: "Configure sources"}).click();
     await page.getByRole("button", {name: "All permissions"}).click();
-    assert.deepEqual((await page.evaluate(() => window.left)).filter(item => item.tab).map(item => item.tab), ["skills", "models", "permissions"], "each link opens its Settings page");
+    assert.deepEqual((await page.evaluate(() => window.left)).filter(item => item.tab).map(item => item.tab), ["skills", "tools", "permissions"], "each link opens its Settings page");
     await close();
     console.log("PASS switch: one PUT per change, a failed save reverts, links leave the cover and open the right page");
   }

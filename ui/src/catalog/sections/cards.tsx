@@ -3,7 +3,7 @@
 import { QuestionCard } from "../../QuestionCard";
 import { ApprovalCard } from "../../ApprovalCard";
 import { StandingAllowances } from "../../StandingAllowances";
-import { PermissionsPage } from "../../settings/SettingsPages";
+import { AllowancesPage } from "../../settings/SettingsPages";
 import { MemberTask, TaskCard } from "../../TaskCard";
 import type { TaskCardModel } from "../../taskCards";
 import { BotAvatar } from "../../BotAvatar";
@@ -135,7 +135,7 @@ export const standing: CatalogSection = {
   id: "standing", number: "16", title: "\"Always allow\" (standing allowances)", context: ["settings-page-body"],
   server: isolated({ "/api/standing-allowances": LISTING, "/api/auto-review-settings": { mode: "auto", review_scope: "all_external_tools" } }),
   states: [
-    { id: "permissions-page", kind: "inline", label: "Settings › Permissions: Reviewer, how tools ask, Always allowed, Remembered in chats", note: "the home of the reviewer mode and every allowance; Revoke on each row", render: () => <PermissionsPage openTab={() => {}} /> },
+    { id: "permissions-page", kind: "inline", label: "Settings › Advanced › Tool rules: Reviewer, how tools ask, Always allowed, Remembered in chats", note: "the home of the reviewer mode and every allowance; Revoke on each row", render: () => <AllowancesPage openTab={() => {}} /> },
     { id: "list", kind: "inline", label: "Permissions list: active and voided grants, remembered approvals", render: () => <StandingAllowances /> },
     { id: "empty", kind: "overlay", label: "Permissions list, empty", height: 360, server: isolated({ "/api/standing-allowances": { allowances: [], remembered: [] } }), render: () => <StandingAllowances /> },
     { id: "load-error", kind: "overlay", label: "Permissions list, could not load", height: 360, server: (url, init) => url.pathname === "/api/standing-allowances" ? json({ error: { code: "unavailable", message: "Synthetic: the server is busy" } }, 503) : isolated()(url, init), render: () => <StandingAllowances /> },

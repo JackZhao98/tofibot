@@ -74,7 +74,7 @@
     "archived_body": "Masqué de votre liste. Ses discussions et sa mémoire sont conservées.",
     "model_pinned": "Fixé sur {{model}}",
     "share_hint": "Rôle, modèle et noms des Skills dans un seul fichier. Sans discussions, mémoire ni secrets.",
-    "data_hint": "Discussions, mémoire et fichiers. Ouvre Réglages › Avancé.",
+    "data_hint": "Discussions, mémoire et fichiers. Ouvre Réglages › Maintenance.",
     "export_action": "Exporter",
     "delete_hint": "Supprime ce Bot et sa discussion. Cette action est irréversible.",
     "section": {
