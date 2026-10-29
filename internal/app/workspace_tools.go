@@ -82,7 +82,7 @@ func (s *Server) workspaceTools(c Conversation, r Run) []Tool {
 			encoded, err := json.Marshal(result)
 			return string(encoded), err
 		}),
-		tool("workspace_update_bot", "Update a Bot's name, durable instructions, or configured model. Omitted fields are preserved; use workspace_list first and do not invent model IDs. This changes metadata only and never deletes history or changes the canonical DM ID.", map[string]any{
+		tool("workspace_update_bot", "Update a Bot's name, durable instructions, or configured model. Omitted fields are preserved; use workspace_list first and do not invent model IDs. This changes metadata only and never deletes history or changes the canonical DM ID. The settings tool makes the same changes. A change to another Bot, a model, group members or a deletion is applied only after the person approves a card: when the call refuses with need_approval, ask with request_approval using the target it returns, then repeat the same call. Runs that no person attends change nothing.", map[string]any{
 			"bot_id":           map[string]any{"type": "string"},
 			"name":             map[string]any{"type": "string"},
 			"instructions":     map[string]any{"type": "string"},
@@ -162,20 +162,37 @@ func (s *Server) workspaceTools(c Conversation, r Run) []Tool {
 				effort := followGlobalModel
 				input.ReasoningEffort = &effort
 			}
-			updated, err := s.store.UpdateBot(input.BotID, input.Name, input.Instructions, input.Model)
-			if err != nil {
-				return "", err
-			}
-			if input.ReasoningEffort != nil {
-				updated, err = s.store.UpdateBotReasoningEffort(input.BotID, strings.TrimSpace(*input.ReasoningEffort))
-				if err != nil {
+			// Each field is one settings change, so it meets the same rules as the settings tool: the Bot's own name and instructions are
+			// applied and recorded, another Bot's fields and every model change wait for the person's card, an unattended run changes nothing.
+			sr := settingRun{s: s, c: c, r: r}
+			if input.Name != nil {
+				if _, err := sr.aliasSet(ctx, "bot.name", Target{BotID: input.BotID}, *input.Name); err != nil {
 					return "", err
 				}
+			}
+			if input.Instructions != nil {
+				if _, err := sr.aliasSet(ctx, "bot.instructions", Target{BotID: input.BotID}, *input.Instructions); err != nil {
+					return "", err
+				}
+			}
+			if input.Model != nil {
+				if _, err := sr.aliasSet(ctx, "bot.model", Target{BotID: input.BotID}, *input.Model); err != nil {
+					return "", err
+				}
+			}
+			if input.ReasoningEffort != nil {
+				if _, err := sr.aliasSet(ctx, "bot.reasoning_effort", Target{BotID: input.BotID}, strings.TrimSpace(*input.ReasoningEffort)); err != nil {
+					return "", err
+				}
+			}
+			updated, err := s.store.GetBot(input.BotID)
+			if err != nil {
+				return "", err
 			}
 			encoded, err := json.Marshal(s.withEffectiveModel(ctx, updated))
 			return string(encoded), err
 		}),
-		tool("workspace_update_group", "Rename a discussion group or replace its members. Members must be 2-8 distinct existing active Bots; use expected_name and expected_bot_ids from workspace_list to avoid overwriting another client's change. A queued or running task makes membership changes fail with an actionable busy error. History and sender identities are preserved.", map[string]any{
+		tool("workspace_update_group", "Rename a discussion group or replace its members. Members must be 2-8 distinct existing active Bots; use expected_name and expected_bot_ids from workspace_list to avoid overwriting another client's change. A queued or running task makes membership changes fail with an actionable busy error. History and sender identities are preserved. The settings tool makes the same changes. A change to another Bot, a model, group members or a deletion is applied only after the person approves a card: when the call refuses with need_approval, ask with request_approval using the target it returns, then repeat the same call. Runs that no person attends change nothing.", map[string]any{
 			"group_id":         map[string]any{"type": "string"},
 			"name":             map[string]any{"type": "string"},
 			"bot_ids":          map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
@@ -219,7 +236,37 @@ func (s *Server) workspaceTools(c Conversation, r Run) []Tool {
 				value := strings.TrimSpace(*input.ExpectedName)
 				input.ExpectedName = &value
 			}
-			updated, err := s.store.UpdateGroup(input.GroupID, GroupUpdate{Name: input.Name, BotIDs: input.BotIDs, ExpectedName: input.ExpectedName, ExpectedBotIDs: input.ExpectedBotIDs})
+			current, err := s.store.GetConversation(input.GroupID)
+			if err != nil {
+				return "", mapSettingsWriteError(err)
+			}
+			// The expectations guard against another client's change. A field this call already put in place (the call is repeated
+			// after the person's card) is not held to them again.
+			renamed := input.Name != nil && *input.Name == current.Name
+			if input.ExpectedName != nil && !renamed && *input.ExpectedName != current.Name {
+				return "", ErrGroupNameConflict
+			}
+			if input.ExpectedBotIDs != nil {
+				expected, e := normalizeMaintainedMembers(*input.ExpectedBotIDs)
+				requested, e2 := normalizeMaintainedMembers(derefStrings(input.BotIDs))
+				membersDone := input.BotIDs != nil && e2 == nil && sameStringSet(current.BotIDs, requested)
+				if !membersDone && (e != nil || !sameStringSet(current.BotIDs, expected)) {
+					return "", ErrGroupMemberConflict
+				}
+			}
+			// The same rules as the settings tool: a rename is applied and recorded, a member change waits for the person's card.
+			sr := settingRun{s: s, c: c, r: r}
+			if input.Name != nil {
+				if _, err := sr.aliasSet(ctx, "conversation.name", Target{ConversationID: input.GroupID}, *input.Name); err != nil {
+					return "", err
+				}
+			}
+			if input.BotIDs != nil {
+				if _, err := sr.aliasSet(ctx, "conversation.members", Target{ConversationID: input.GroupID}, *input.BotIDs); err != nil {
+					return "", err
+				}
+			}
+			updated, err := s.store.GetConversation(input.GroupID)
 			if err != nil {
 				return "", err
 			}
@@ -286,4 +333,11 @@ func (s *Server) validateWorkspaceModel(ctx context.Context, model string) error
 		return errors.New("model is not configured; use workspace_list and choose one of configured_models")
 	}
 	return nil
+}
+
+func derefStrings(p *[]string) []string {
+	if p == nil {
+		return nil
+	}
+	return *p
 }

@@ -437,3 +437,17 @@ func (s *Server) revertSettingsChangeByPerson(ctx context.Context, id string) (S
 	change.RevertedBy = reverted.ID
 	return change, nil
 }
+
+// aliasSet makes one settings change for a tool that predates the settings tool (workspace_update_bot and the others). The value is
+// what the old tool received; the key decides the class.
+func (sr settingRun) aliasSet(ctx context.Context, key string, t Target, value any) (string, error) {
+	in := settingsToolInput{Key: key, BotID: t.BotID, ConversationID: t.ConversationID}
+	if value != nil {
+		raw, err := json.Marshal(value)
+		if err != nil {
+			return "", err
+		}
+		in.Value = raw
+	}
+	return sr.set(ctx, in)
+}

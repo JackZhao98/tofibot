@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -323,7 +324,7 @@ func TestDeletionRoutesToolsAndStaleCreation(t *testing.T) {
 	}
 	run := workspaceTestRun(t, server, a)
 	tool := workspaceTestTool(t, server, run, "workspace_delete_bot")
-	if _, err = tool.Execute(context.Background(), []byte(`{"bot_id":"`+a.ID+`"}`)); !errors.Is(err, ErrDeleteBusy) {
+	if _, err = workspaceApproved(t, server, run, tool, `{"bot_id":"`+a.ID+`"}`); !isSettingsBusy(err) {
 		t.Fatalf("self deletion=%v", err)
 	}
 	response := request("/api/bots/" + a.ID)
@@ -360,4 +361,9 @@ func TestDeletionRoutesToolsAndStaleCreation(t *testing.T) {
 	if _, err = s.GetBot(onboarding.ID); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("deleted bot exists: %v", err)
 	}
+}
+
+func isSettingsBusy(err error) bool {
+	o, ok := tooloutcome.FromError(err)
+	return ok && o.Code == "settings_target_busy"
 }
