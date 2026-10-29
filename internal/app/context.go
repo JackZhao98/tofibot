@@ -1106,6 +1106,9 @@ func (s *Server) runContextNote(ctx context.Context) string {
 	note := "[run context]\nCurrent time: " + localNow.Format("2006-01-02 15:04 MST Mon") + " (" + label + ")."
 	if status := s.microVMStatus(ctx); status != "" {
 		note += "\n" + status + "."
+		if fresh := s.freshComputerNote(); fresh != "" {
+			note += "\n" + fresh
+		}
 	} else if s.microVM == nil {
 		note += "\n" + noComputerStatus
 	}

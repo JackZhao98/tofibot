@@ -80,6 +80,7 @@ const (
 	attachmentOriginGenerated = "generated"
 	attachmentOriginOutbox    = "outbox"
 	attachmentOriginMirror    = "mirror"
+	attachmentOriginImport    = "import"
 )
 
 // attachmentOpts carries what the server records beside the bytes.

@@ -1,6 +1,8 @@
 package app
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -140,4 +142,129 @@ func TestComputerCapabilitiesEndpointAndConfig(t *testing.T) {
 		t.Fatal("hasComputerCapability")
 	}
 	s.microVM = nil
+}
+
+func attachMissingComputer(t *testing.T, s *Server) {
+	t.Helper()
+	dir, _ := os.MkdirTemp("", "tfc-")
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	client, err := computer.New(computer.Config{Socket: dir + "/missing.sock"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.microVM = client
+	t.Cleanup(func() { s.microVM = nil })
+}
+
+// A computer nothing was saved for says so in [run context]; once the person
+// adds an environment variable or an SSH key the line goes away, and a
+// workspace with no computer never gets it (it has the no-computer line).
+func TestFreshComputerRunContextSaysNoKeys(t *testing.T) {
+	s := noComputerServer(t, &captureEngine{})
+	if note := s.runContextNote(t.Context()); strings.Contains(note, freshComputerStatus) || !strings.Contains(note, noComputerStatus) {
+		t.Fatalf("no-computer context: %s", note)
+	}
+	attachMissingComputer(t, s)
+	note := s.runContextNote(t.Context())
+	if !strings.Contains(note, freshComputerStatus) || strings.Contains(note, noComputerStatus) {
+		t.Fatalf("fresh computer context does not say no keys are set: %s", note)
+	}
+	if !strings.Contains(strings.ToLower(freshComputerStatus), "ask the person") {
+		t.Fatal("the line must tell the Bot to ask")
+	}
+	for _, in := range []string{`{"name":"Token","kind":"env","target":"SYNTHETIC_TOKEN","value":"synthetic-value"}`} {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/api/computer/credentials", strings.NewReader(in))
+		r.Header.Set("Content-Type", "application/json")
+		s.Handler().ServeHTTP(w, r)
+		if w.Code != 201 {
+			t.Fatalf("add credential: %d %s", w.Code, w.Body)
+		}
+	}
+	if note = s.runContextNote(t.Context()); strings.Contains(note, freshComputerStatus) {
+		t.Fatalf("the line stayed after a variable was added: %s", note)
+	}
+}
+
+// /api/computer/contents names what was saved for the computer and counts the
+// files that still wait for their copy; it never returns a value. Without a
+// computer there is nothing to list.
+func TestComputerContentsListsNamesAndPendingCopies(t *testing.T) {
+	s := noComputerServer(t, &captureEngine{})
+	get := func() *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		s.Handler().ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/computer/contents", nil))
+		return w
+	}
+	if w := get(); w.Code != 404 || !strings.Contains(w.Body.String(), "not_configured") {
+		t.Fatalf("no computer: %d %s", w.Code, w.Body)
+	}
+	attachMissingComputer(t, s)
+	for _, in := range []string{
+		`{"name":"Token","kind":"env","target":"SYNTHETIC_TOKEN","value":"synthetic-secret-value"}`,
+		`{"name":"Deploy","kind":"ssh","target":"id_synthetic","value":"-----BEGIN OPENSSH PRIVATE KEY-----\nsynthetic\n-----END OPENSSH PRIVATE KEY-----"}`,
+	} {
+		w := httptest.NewRecorder()
+		s.Handler().ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/computer/credentials", strings.NewReader(in)))
+		if w.Code != 201 {
+			t.Fatalf("add credential: %d %s", w.Code, w.Body)
+		}
+	}
+	bot, err := s.store.CreateBot("Synthetic helper", "Answer briefly.", "model")
+	if err != nil {
+		t.Fatal(err)
+	}
+	conv := bot.DMConversationID
+	for i := 0; i < 2; i++ {
+		if _, err := s.store.db.Exec(`INSERT INTO attachments(id,conversation_id,name,mime,size,disk_name,created_at) VALUES(?,?,?,?,?,?,?)`, "att"+string(rune('a'+i)), conv, "f.txt", "text/plain", 1, "vm:att"+string(rune('a'+i)), now()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	w := get()
+	if w.Code != 200 {
+		t.Fatalf("contents: %d %s", w.Code, w.Body)
+	}
+	var out struct {
+		Environment []string `json:"environment"`
+		SSHKeys     []string `json:"ssh_keys"`
+		Pending     int      `json:"pending_file_copies"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Environment) != 1 || out.Environment[0] != "SYNTHETIC_TOKEN" || len(out.SSHKeys) != 1 || out.SSHKeys[0] != "id_synthetic" || out.Pending != 2 {
+		t.Fatalf("contents: %+v", out)
+	}
+	if strings.Contains(w.Body.String(), "synthetic-secret-value") || strings.Contains(w.Body.String(), "PRIVATE KEY") {
+		t.Fatal("a value leaked into the contents list")
+	}
+}
+
+// The portability import stores attachment bytes in the server file store, so a
+// workspace with no computer (backend none) imports them.
+func TestPortableImportWithBackendNone(t *testing.T) {
+	_, bundle, _ := portableAssetFixture(t)
+	s := noComputerServer(t, &captureEngine{})
+	if s.microVM != nil || s.store.guestBlobs != nil {
+		t.Fatal("expected a workspace without a computer")
+	}
+	p, err := s.store.previewPortable(t.Context(), bundle)
+	if err != nil || !p.CanApply {
+		t.Fatalf("preview: %+v %v", p, err)
+	}
+	result, err := s.store.applyPortable(t.Context(), bundle, p.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range bundle.Attachments {
+		got, path, err := s.store.Attachment(result.IDMap[a.ID])
+		if err != nil || got.Size != a.Size {
+			t.Fatalf("attachment %s: %+v %v", a.ID, got, err)
+		}
+		raw, err := os.ReadFile(path)
+		want, _ := base64.StdEncoding.DecodeString(a.Data)
+		if err != nil || !bytes.Equal(raw, want) {
+			t.Fatalf("imported bytes differ: %v", err)
+		}
+	}
 }

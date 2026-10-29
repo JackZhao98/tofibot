@@ -2433,6 +2433,47 @@ class ComputerAddRemoveTests(NoComputerCase):
             tofi_host.computer_remove(purge=True, yes=True)
         self.assertTrue(self.P.worker_json.exists())
 
+    def vault(self, folder, records):
+        (folder / 'secrets').mkdir(parents=True, exist_ok=True)
+        (folder / 'secrets' / 'vault.json').write_text(json.dumps(records))
+
+    def test_purge_prints_the_class_c_list_with_environment_and_key_names(self):
+        self.installed()
+        (self.P.worker / 'state' / 'acct').mkdir(parents=True)
+        self.vault(self.P.data, {
+            'a': {'id': 'a', 'kind': 'env', 'target': 'MY_API_KEY', 'name': 'API', 'ciphertext': 'c2VjcmV0LXZhbHVl'},
+            'b': {'id': 'b', 'kind': 'ssh', 'target': 'id_work', 'ciphertext': 'c2VjcmV0'},
+            'c': {'id': 'c', 'kind': 'model_provider', 'target': 'anthropic'},
+            'd': {'id': 'd', 'kind': 'env', 'target': 'RUN_SCOPED', 'run_id': 'run_1'},
+            'e': {'id': 'e', 'kind': 'bot_env', 'target': 'BOT_ONLY'},
+        })
+        self.vault(self.P.data / 'accounts' / 'acct2', {'f': {'id': 'f', 'kind': 'env', 'target': 'OTHER_TOKEN'}})
+        with mock.patch('sys.stdout', new_callable=io.StringIO) as out:
+            tofi_host.computer_remove(purge=True, yes=True)
+        text = out.getvalue()
+        self.assertIn('Browser sign-ins', text)
+        self.assertIn('Installed tools', text)
+        self.assertIn('Work files', text)
+        self.assertIn('2 environment variables (MY_API_KEY, OTHER_TOKEN)', text)
+        self.assertIn('1 SSH key (id_work)', text)
+        for hidden in ('anthropic', 'RUN_SCOPED', 'BOT_ONLY', 'c2VjcmV0'):
+            self.assertNotIn(hidden, text)
+
+    def test_purge_list_says_so_when_no_configuration_was_saved(self):
+        self.installed()
+        with mock.patch('sys.stdout', new_callable=io.StringIO) as out:
+            tofi_host.computer_remove(purge=True, yes=True)
+        self.assertIn('no environment variables or SSH keys were saved in Settings', out.getvalue())
+
+    def test_purge_list_says_so_when_a_vault_is_unreadable(self):
+        self.installed()
+        self.P.data.joinpath('secrets').mkdir(parents=True, exist_ok=True)
+        self.P.data.joinpath('secrets', 'vault.json').write_text('not json')
+        with mock.patch('sys.stdout', new_callable=io.StringIO) as out:
+            tofi_host.computer_remove(purge=True, yes=True)
+        self.assertIn('could not be read', out.getvalue())
+        self.assertNotIn('no environment variables', out.getvalue())
+
     def test_remove_without_purge_warns_with_the_count_and_keeps_the_disk(self):
         self.installed()
         (self.P.worker / 'state' / 'acct').mkdir(parents=True)

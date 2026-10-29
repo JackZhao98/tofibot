@@ -388,5 +388,54 @@
       "name": "Bac à sable cloud E2B",
       "what": "Loue un ordinateur chez E2B avec ta propre clé."
     }
+  },
+  "contents": {
+    "title": "Ce qui se trouve sur cet ordinateur",
+    "description": "Ces éléments sont sur l’ordinateur, pas sur le serveur. Si l’ordinateur est réinitialisé ou remplacé, ils sont perdus.",
+    "badge": "Sur l’ordinateur",
+    "browser": {
+      "name": "Connexions du navigateur",
+      "what": "Sites où le Bot est connecté. Une réinitialisation le déconnecte de tous."
+    },
+    "tools": {
+      "name": "Outils installés",
+      "what": "Programmes installés ici par le Bot. Après une réinitialisation, il les réinstalle quand il en a besoin."
+    },
+    "files": {
+      "name": "Fichiers de travail",
+      "what": "Fichiers créés ici par le Bot, ni envoyés ni enregistrés dans Fichiers. Les fichiers envoyés restent sur le serveur.",
+      "pending_one": "{{count}} fichier est encore en cours de copie vers le serveur.",
+      "pending_many": "{{count}} de fichiers sont encore en cours de copie vers le serveur.",
+      "pending_other": "{{count}} fichiers sont encore en cours de copie vers le serveur."
+    },
+    "config": {
+      "name": "Environnement et clés",
+      "what": "Variables et clés SSH de cet ordinateur. Elles sont supprimées avec lui.",
+      "saved_one": "{{count}} élément enregistré",
+      "saved_many": "{{count}} d’éléments enregistrés",
+      "saved_other": "{{count}} éléments enregistrés",
+      "none": "Rien d’enregistré",
+      "manage": "Gérer"
+    },
+    "load_failed": "Impossible de lire la liste. Réessayez.",
+    "retry": "Réessayer"
+  },
+  "loss": {
+    "title": "Perdu avec le disque de l’ordinateur",
+    "browser": "Connexions du navigateur : le Bot est déconnecté de tous les sites.",
+    "tools": "Outils installés : le Bot les réinstalle quand il en a besoin.",
+    "files": "Fichiers de travail ni envoyés ni enregistrés dans Fichiers.",
+    "env_one": "{{count}} variable d’environnement : {{names}}",
+    "env_many": "{{count}} de variables d’environnement : {{names}}",
+    "env_other": "{{count}} variables d’environnement : {{names}}",
+    "keys_one": "{{count}} clé SSH : {{names}}",
+    "keys_many": "{{count}} de clés SSH : {{names}}",
+    "keys_other": "{{count}} clés SSH : {{names}}",
+    "no_config": "Aucune variable d’environnement ni clé SSH n’est enregistrée dans les réglages.",
+    "pending_one": "{{count}} fichier n’existe que sur l’ordinateur et n’a pas encore été copié vers le serveur.",
+    "pending_many": "{{count}} de fichiers n’existent que sur l’ordinateur et n’ont pas encore été copiés vers le serveur.",
+    "pending_other": "{{count}} fichiers n’existent que sur l’ordinateur et n’ont pas encore été copiés vers le serveur.",
+    "loading": "Lecture du contenu de l’ordinateur…",
+    "load_failed": "Impossible de lire les variables, clés et fichiers en attente de copie enregistrés. Ils seront supprimés aussi."
   }
 }

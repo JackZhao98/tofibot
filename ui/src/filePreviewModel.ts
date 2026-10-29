@@ -130,9 +130,37 @@ export function useFilePreviewStack(): PreviewTarget[] {
 /** Cap for text previews: bigger files show their head and offer the download. */
 export const PREVIEW_TEXT_LIMIT = 2 * 1024 * 1024;
 
+/**
+ * Why a stored file cannot be read right now (computer-decoupling S1/S2): its bytes are still only on a computer
+ * that is detached (409), or the computer answered and no longer has them (404).
+ */
+export type AttachmentProblem = "file_on_detached_computer" | "file_missing_on_computer";
+export class AttachmentUnavailable extends Error {
+  constructor(readonly problem: AttachmentProblem) { super(problem); }
+}
+/** The problem a failed attachment response names, or null for any other failure. */
+export async function attachmentProblem(response: Response): Promise<AttachmentProblem | null> {
+  if (response.ok || (response.status !== 409 && response.status !== 404)) return null;
+  try {
+    const code = ((await response.clone().json()) as { error?: { code?: string } }).error?.code;
+    return code === "file_on_detached_computer" || code === "file_missing_on_computer" ? code : null;
+  } catch { return null; }
+}
+/** A failed response as an Error: `AttachmentUnavailable` when the server named a problem, else the status text. */
+export async function attachmentFailure(response: Response): Promise<Error> {
+  const problem = await attachmentProblem(response);
+  return problem ? new AttachmentUnavailable(problem) : new Error(String(response.status));
+}
+/** Reads one byte to learn whether a file can be opened (the viewer shows images and PDFs through the browser, which hides the status). */
+export async function probeAttachment(url: string, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(url, { credentials: "same-origin", headers: { Range: "bytes=0-0" }, signal });
+  if (!response.ok && response.status !== 416) throw await attachmentFailure(response); // 416: an empty file has no byte 0
+  void response.body?.cancel();
+}
+
 export async function readTextHead(url: string, limit = PREVIEW_TEXT_LIMIT, signal?: AbortSignal): Promise<{ text: string; truncated: boolean; name: string }> {
   const response = await fetch(url, { credentials: "same-origin", signal });
-  if (!response.ok) throw new Error(String(response.status));
+  if (!response.ok) throw await attachmentFailure(response);
   const disposition = response.headers.get("Content-Disposition") ?? "";
   const name = /filename="?([^";]+)"?/i.exec(disposition)?.[1] ?? "";
   const reader = response.body?.getReader();

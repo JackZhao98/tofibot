@@ -6,6 +6,8 @@ import { MailDraftCard } from "../../MailDraftCard";
 import { TaskIssueCard } from "../../TaskIssueCard";
 import { presentTaskIssue } from "../../taskIssuePresentation";
 import { FileTile } from "../../FileTile";
+import { AttachmentNotice } from "../../AttachmentNotice";
+import { useState } from "react";
 import { fileKind } from "../../filePreviewModel";
 import { CATS, EmptyCat, EmptyState } from "../../EmptyCat";
 import GroupAvatar from "../../GroupAvatar";
@@ -157,6 +159,11 @@ const scheduledState = (status: Run["status"], label: string, error?: string, id
 };
 const failedRun: Run = { id: "run_failed", conversation_id: "dm_mochi", bot_id: "bot_mochi", status: "failed", created_at: at(-20), updated_at: at(-19), failure: { code: "model_quota_exhausted", source: "runtime", message: "Synthetic: quota" } };
 
+function NoticeToggle() {
+  const [problem, setProblem] = useState<"file_on_detached_computer" | null>("file_on_detached_computer");
+  return <div className="delivered-attachment is-file"><div className="attachment-file-row"><button type="button" className="secondary-button" onClick={() => setProblem(current => current ? null : "file_on_detached_computer")}>{problem ? "Hide notice" : "Show notice"}</button></div><AttachmentNotice problem={problem} /></div>;
+}
+
 export const other: CatalogSection = {
   id: "other", number: "23", title: "Other patterns",
   states: [
@@ -165,6 +172,9 @@ export const other: CatalogSection = {
     { id: "file-tiles", kind: "inline", label: "File type tiles, every family (40 px, 30 px, 56 px)", context: ["catalog-column"],
       render: () => <div style={{ display: "grid", gap: 14 }}>{[40, 30, 56].map(size => <div key={size} style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "end" }}>
         {([["report.pdf", ""], ["photo.png", "image/png"], ["model.xlsx", ""], ["data.csv", ""], ["brief.docx", ""], ["notes.txt", ""], ["README.md", ""], ["deck.pptx", ""], ["tool.py", ""], ["config.json", ""], ["bundle.zip", ""], ["take.mp3", ""], ["clip.mp4", ""], ["blob.bin", ""]] as const).map(([name, mime]) => <FileTile key={name} name={name} kind={fileKind(name, mime)} size={size} />)}</div>)}</div> },
+    { id: "attachment-detached", kind: "inline", label: "File on a detached computer", note: "the file card and the viewer say it in one sentence, with a link to the computer settings", context: ["catalog-column"], render: () => <div className="delivered-attachment is-file"><AttachmentNotice problem="file_on_detached_computer" /></div> },
+    { id: "attachment-missing", kind: "inline", label: "File gone from the computer, never copied", context: ["catalog-column"], render: () => <div className="delivered-attachment is-file"><AttachmentNotice problem="file_missing_on_computer" /></div> },
+    { id: "attachment-notice-motion", kind: "inline", label: "File problem notice, opening and closing", note: "grows in over --m-panel-in, folds away over --m-panel-out; instant under reduced motion", context: ["catalog-column"], render: () => <NoticeToggle /> },
     scheduledState("queued", "Scheduled task, queued"),
     scheduledState("running", "Scheduled task, running"),
     scheduledState("done", "Scheduled task, done"),

@@ -4,7 +4,8 @@ import type { Attachment } from "./types";
 import { TofiIcon } from "./icons";
 import { useTranslation } from "./i18n";
 import { FileTile } from "./FileTile";
-import { attachmentUrl, dedupeAttachments, fileKind, fileSize, isPreviewable, openFilePreview, rememberAttachments, targetOf } from "./filePreviewModel";
+import { AttachmentNotice } from "./AttachmentNotice";
+import { attachmentUrl, dedupeAttachments, type AttachmentProblem, fileKind, fileSize, isPreviewable, openFilePreview, rememberAttachments, targetOf } from "./filePreviewModel";
 import { galleryColumns, hasPreview, imageSize, rememberImageSize, singleBox, thumbnailUrl } from "./attachmentImages";
 import "./message-attachment.css";
 
@@ -29,6 +30,7 @@ function FileCard({ attachment }: { attachment: Attachment }) {
   const [nativeFile, setNativeFile] = useState<NativeFile | null>(null);
   const [busy, setBusy] = useState(false);
   const [nativeError, setNativeError] = useState("");
+  const [problem, setProblem] = useState<AttachmentProblem | null>(null);
   const url = attachmentUrl(attachment.id);
   const kind = fileKind(attachment.name, attachment.mime);
   if (attachment.pending) return <div className="delivered-attachment is-file is-pending">
@@ -60,8 +62,13 @@ function FileCard({ attachment }: { attachment: Attachment }) {
             <button type="button" className="attachment-download" disabled={busy} onClick={() => void nativeAction("save")} aria-label={t("attachment.save", { name: attachment.name })}><TofiIcon name="download" size={16} /></button>
             {nativeFile && <button type="button" onClick={() => void nativeAction("reveal")} draggable onDragStart={event => { event.preventDefault(); window.tofiDesktop?.dragAttachment(nativeFile.handle); }} title={t("attachment.reveal_hint")}>{t("attachment.reveal")}</button>}
           </div>
-        : <a className="attachment-download" href={url} download={attachment.name} aria-label={t("attachment.download", { name: attachment.name })}><TofiIcon name="download" size={16} /></a>}
+        : <a className="attachment-download" href={url} download={attachment.name} onClick={event => {
+            // Fetch first, so a file that is only on a detached computer says so instead of saving an error page.
+            event.preventDefault();
+            void import("./attachmentDownload").then(module => module.downloadAttachment(url, attachment.name)).then(setProblem);
+          }} aria-label={t("attachment.download", { name: attachment.name })}><TofiIcon name="download" size={16} /></a>}
     </div>
+    <AttachmentNotice problem={problem} />
     {nativeError && <div className="attachment-recovery" role="alert"><span>{nativeError}</span><button onClick={() => void nativeAction("save")}>{t("common:action.retry")}</button></div>}
   </div>;
 }

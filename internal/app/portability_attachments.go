@@ -1,7 +1,7 @@
 package app
 
 // Version 2 adds bounded inline bytes, never paths, URLs, archives or executable
-// resources. Guest storage is the sole import destination, including fixtures.
+// resources. The server file store is the import destination; no computer is needed.
 import (
 	"bytes"
 	"context"

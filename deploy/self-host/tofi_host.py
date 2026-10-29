@@ -1675,6 +1675,67 @@ def pending_guest_copies():
     return total, unreadable
 
 
+def vault_files():
+    """Every secret vault: the root one and one per account (multi-account)."""
+    found = [P.data / 'secrets' / 'vault.json']
+    accounts = P.data / 'accounts'
+    try:
+        entries = sorted(accounts.iterdir()) if accounts.is_dir() and not accounts.is_symlink() else []
+    except OSError:
+        entries = []
+    found += [entry / 'secrets' / 'vault.json' for entry in entries if entry.is_dir() and not entry.is_symlink()]
+    return [path for path in found if path.is_file()]
+
+
+def computer_configuration():
+    """(env_names, key_names, unreadable): the environment variables and SSH
+    keys saved in Settings for the computer, by name. Only the record metadata
+    is read (id, kind, target); a value stays sealed and is never decrypted.
+    An unreadable vault is reported, never counted as empty."""
+    env_names, key_names, unreadable = [], [], []
+    for path in vault_files():
+        try:
+            records = json.loads(path.read_text())
+            if not isinstance(records, dict):
+                raise ValueError('not an object')
+        except (OSError, ValueError):
+            unreadable.append(str(path))
+            continue
+        for record in records.values():
+            if not isinstance(record, dict) or record.get('run_id'):
+                continue
+            name = re.sub(r'[^A-Za-z0-9_.-]', '?', str(record.get('target') or record.get('name') or ''))[:80]
+            if record.get('kind') == 'env' and name:
+                env_names.append(name)
+            elif record.get('kind') == 'ssh' and name:
+                key_names.append(name)
+    return sorted(set(env_names)), sorted(set(key_names)), unreadable
+
+
+def computer_loss_lines(env_names, key_names, unreadable=(), unsaved=0):
+    """What a wipe takes with it, one line each (docs/design/computer-decoupling.md
+    section 7.5): the class C list printed by `tofi computer remove --purge`."""
+    def names(items):
+        shown = ', '.join(items[:10]) + (' and %d more' % (len(items) - 10) if len(items) > 10 else '')
+        return ' (%s)' % shown if items else ''
+    if unreadable:
+        config = 'Configuration: could not be read (%s), so it may include environment variables and SSH keys.' % ', '.join(unreadable)
+    elif env_names or key_names:
+        config = 'Configuration: %s%s and %s%s are deleted with the disk.' % (
+            plural(len(env_names), 'environment variable'), names(env_names), plural(len(key_names), 'SSH key'), names(key_names))
+    else:
+        config = 'Configuration: no environment variables or SSH keys were saved in Settings. Tool sign-ins the Bot made on the computer (git, gh, cloud CLIs) are deleted too.'
+    lines = [
+        'Browser sign-ins: the Bot is signed out of every website; nothing is exported.',
+        'Installed tools: the Bot installs them again when it needs them.',
+        'Work files: files the Bot made on the computer and did not send or save to Files are deleted.',
+        config,
+    ]
+    if unsaved:
+        lines.append('Files not yet copied to the server: %s.' % plural(unsaved, 'file'))
+    return lines
+
+
 def plural(count, noun):
     return '%d %s%s' % (count, noun, '' if count == 1 else 's')
 
@@ -4860,6 +4921,11 @@ def computer_remove(purge=False, yes=False, wait=0, force=False, discard_unsaved
                  % (plural(unsaved, 'file') + (' exists' if unsaved == 1 else ' exist'), 'It' if unsaved == 1 else 'They'))
         if purge and discard_unsaved_files and unsaved:
             warn('Discarding %s that exist only on the computer.' % plural(unsaved, 'file'))
+        if purge:
+            env_names, key_names, unreadable_vaults = computer_configuration()
+            say('Purging deletes everything that lives only on the computer:')
+            for line in computer_loss_lines(env_names, key_names, unreadable_vaults, unsaved if discard_unsaved_files else 0):
+                say('  - ' + line)
         if purge and not yes:
             if not sys.stdin.isatty():
                 raise HostError('--purge deletes every computer disk and its state; add --yes to confirm.')
