@@ -125,7 +125,7 @@ GO='\.go$|^go\.(mod|sum)$|^internal/|^cmd/'
 UI='^ui/'
 UISRC='^ui/(src|scripts|public|index\.html|package(-lock)?\.json|vite[^/]*\.ts|tsconfig[^/]*\.json)'
 PY='^(deploy/microvm|deploy/self-host|scripts/release|internal/extensions/builtin_skills)/|^install\.sh$'
-SH='^(install\.sh|deploy/self-host/bin/|scripts/release/make_bundle\.sh|scripts/check-gofmt\.sh)'
+SH='^(install\.sh|deploy/self-host/bin/|scripts/release/make_bundle\.sh|scripts/check-gofmt\.sh|scripts/check-release-notes\.sh|release-notes/)'
 CO='^(compose\.yaml|deploy/self-host/)'
 
 # Fast static checks run in --changed mode whatever changed ("always").
@@ -146,7 +146,7 @@ job ui-overlays  always guards test:overlays
 job ui-shell-budget always guards test:shell-budget
 job ui-catalog   "$UISRC" npm_ui test:catalog
 job python       "$PY"  bash -c "python3 -m unittest discover -s deploy/microvm -p 'test_*.py' && python3 -m unittest discover -s deploy/self-host -p 'test_*.py' && python3 -m unittest discover -s scripts/release -p 'test_*.py' && python3 -m unittest discover -s internal/extensions/builtin_skills/tests -p 'test_*.py'"
-job shell        "$SH"  bash -c "bash -n install.sh deploy/self-host/bin/tofi scripts/release/make_bundle.sh scripts/check-gofmt.sh && shellcheck install.sh deploy/self-host/bin/tofi scripts/release/make_bundle.sh scripts/check-gofmt.sh"
+job shell        "$SH"  bash -c "bash -n install.sh deploy/self-host/bin/tofi scripts/release/make_bundle.sh scripts/check-gofmt.sh scripts/check-release-notes.sh && shellcheck install.sh deploy/self-host/bin/tofi scripts/release/make_bundle.sh scripts/check-gofmt.sh scripts/check-release-notes.sh && scripts/check-release-notes.sh --all"
 job compose      "$CO"  bash -c "
   docker compose -f deploy/self-host/compose.yaml --env-file deploy/self-host/testdata/tofi.env --profile tls config --quiet &&
   docker compose -f deploy/self-host/compose.yaml --env-file deploy/self-host/testdata/tofi-direct.env config --quiet &&

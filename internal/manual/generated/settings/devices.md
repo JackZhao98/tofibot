@@ -1,12 +1,12 @@
 ---
 id: settings/devices
-title: Other devices
-summary: Connect a Mac that has the Tofi app
+title: {{ui:settings:shell.page.devices.name}}
+summary: {{ui:settings:shell.page.devices.description}}
 link: /settings/devices
 kind: reference
 ---
-# Other devices
+# {{ui:settings:shell.page.devices.name}}
 
-Open this page: [Other devices](/settings/devices)
+Open this page: [{{ui:settings:shell.page.devices.name}}](/settings/devices)
 
 The settings tool has no key on this page. A person changes it on the page.

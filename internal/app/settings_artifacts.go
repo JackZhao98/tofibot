@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -126,7 +127,17 @@ func SettingsRegistryArtifacts(repoRoot string) (map[string][]byte, error) {
 	for id, body := range manualReferencePages(en) {
 		out[manualGeneratedDir+"/"+id+".md"] = []byte(body)
 	}
-	// The words the screen shows, in every language: the manual and the settings tool put them in their answers.
+	// The release notes of every version ride in the binary as manual pages (whats-new/<version>).
+	notes, err := whatsNewPages(repoRoot)
+	if err != nil {
+		return nil, err
+	}
+	for id, body := range notes {
+		out[manualGeneratedDir+"/"+id+".md"] = []byte(body)
+	}
+	// The words the screen shows, in every language: the manual and the settings tool put them in their answers. The hand-written guides
+	// name theirs with {{ui:key}}, which this reads so a guide needs no second edit.
+	guideKeys := guideUITerms(repoRoot)
 	for _, lang := range append([]string{"en"}, sortedKeys(uiLanguagesWithoutEnglish())...) {
 		cat := en
 		if lang != "en" {
@@ -135,7 +146,7 @@ func SettingsRegistryArtifacts(repoRoot string) (map[string][]byte, error) {
 			}
 		}
 		terms := map[string]string{}
-		for _, key := range uiTermKeys() {
+		for _, key := range uiTermKeys(en, guideKeys) {
 			if v, ok := cat[key]; ok && v != "" {
 				terms[key] = v
 			} else if v, ok := en[key]; ok {
@@ -162,15 +173,29 @@ func uiLanguagesWithoutEnglish() map[string]bool {
 }
 
 // uiTermKeys are the catalog keys whose text the manual and the settings tool quote: every registry label, every page and section name.
-func uiTermKeys() []string {
+func uiTermKeys(en localeCatalog, extra []string) []string {
 	set := map[string]bool{"settings:shell.title": true, "chat:header.bot_settings": true, "chat:header.group_settings": true}
 	for _, d := range settingsRegistry {
 		set[d.LabelKey] = true
+		if d.DescKey != "" {
+			set[d.DescKey] = true
+		}
 	}
 	for _, list := range [][]settingsPage{settingsTabPages, botSettingsPages, groupSettingsPages} {
 		for _, p := range list {
 			set[p.NameKey] = true
 		}
+	}
+	for _, p := range settingsTabPages {
+		set["settings:shell.page."+p.ID+".description"] = true
+	}
+	for _, p := range botSettingsPages {
+		if text, ok := en["chat:botSettings.desc."+p.ID]; ok && !strings.Contains(text, "{{") {
+			set["chat:botSettings.desc."+p.ID] = true
+		}
+	}
+	for _, key := range extra {
+		set[key] = true
 	}
 	for _, g := range []string{"models", "replies", "history", "checks", "reliability", "schedules", "computer", "widgets"} {
 		set["settings:automation.group."+g+".title"] = true
@@ -234,15 +259,19 @@ func manualReferencePages(en localeCatalog) map[string]string {
 	}
 	for _, p := range settingsTabPages {
 		id := "settings/" + p.ID
-		pages[id] = referencePage(en, id, en.name(p.NameKey), en["settings:shell.page."+p.ID+".description"], "/settings/"+p.ID, byPage[id])
+		pages[id] = referencePage(id, uiTerm(p.NameKey), uiTerm("settings:shell.page."+p.ID+".description"), "/settings/"+p.ID, byPage[id])
 	}
 	for _, p := range botSettingsPages {
 		id := "bot-settings/" + p.ID
-		pages[id] = referencePage(en, id, "Bot settings › "+en.name(p.NameKey), en["chat:botSettings.desc."+p.ID], "/b/{bot}/settings#"+p.ID, byPage[id])
+		summary := ""
+		if text, ok := en["chat:botSettings.desc."+p.ID]; ok && !strings.Contains(text, "{{") {
+			summary = uiTerm("chat:botSettings.desc." + p.ID)
+		}
+		pages[id] = referencePage(id, uiTerm("chat:header.bot_settings")+" › "+uiTerm(p.NameKey), summary, "/b/{bot}/settings#"+p.ID, byPage[id])
 	}
 	for _, p := range groupSettingsPages {
 		id := "group-settings/" + p.ID
-		pages[id] = referencePage(en, id, "Group settings › "+en.name(p.NameKey), "", "/g/{group}/settings#"+p.ID, byPage[id])
+		pages[id] = referencePage(id, uiTerm("chat:header.group_settings")+" › "+uiTerm(p.NameKey), "", "/g/{group}/settings#"+p.ID, byPage[id])
 	}
 	return pages
 }
@@ -254,7 +283,11 @@ func (c localeCatalog) name(key string) string {
 	return key
 }
 
-func referencePage(en localeCatalog, id, title, summary, link string, defs []SettingDef) string {
+// uiTerm is a placeholder for a word the screen shows. The manual replaces it with the person's language when a page is read, so the
+// Bot says the names the person sees.
+func uiTerm(key string) string { return "{{ui:" + key + "}}" }
+
+func referencePage(id, title, summary, link string, defs []SettingDef) string {
 	if summary == "" {
 		summary = "Settings on this page."
 	}
@@ -275,13 +308,11 @@ func referencePage(en localeCatalog, id, title, summary, link string, defs []Set
 				def += " " + item.Unit
 			}
 		}
-		fmt.Fprintf(&b, "| %s | `%s` | %s | %s | %s | `%s` |\n", escapeCell(en.name(d.LabelKey)), d.Key, escapeCell(valueSummary(d)), escapeCell(def), riskSummary(d), d.Link)
+		fmt.Fprintf(&b, "| %s | `%s` | %s | %s | %s | `%s` |\n", uiTerm(d.LabelKey), d.Key, escapeCell(valueSummary(d)), escapeCell(def), riskSummary(d), d.Link)
 	}
 	for _, d := range defs {
 		if d.DescKey != "" {
-			if text := en[d.DescKey]; text != "" {
-				fmt.Fprintf(&b, "\n**%s.** %s\n", en.name(d.LabelKey), text)
-			}
+			fmt.Fprintf(&b, "\n**%s.** %s\n", uiTerm(d.LabelKey), uiTerm(d.DescKey))
 		}
 	}
 	return b.String()
@@ -336,4 +367,58 @@ func riskSummary(d SettingDef) string {
 		return fmt.Sprintf("%s; looser: %s", d.Risk.Self, d.Risk.Loosen)
 	}
 	return string(d.Risk.Self)
+}
+
+var uiTermPattern = regexp.MustCompile(`\{\{ui:([a-z]+:[A-Za-z0-9_.]+)\}\}`)
+
+// guideUITerms lists the catalog keys the hand-written manual pages use.
+func guideUITerms(repoRoot string) []string {
+	seen := map[string]bool{}
+	_ = filepath.Walk(filepath.Join(repoRoot, "internal", "manual", "pages"), func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".md") {
+			return nil
+		}
+		raw, _ := os.ReadFile(path)
+		for _, m := range uiTermPattern.FindAllStringSubmatch(string(raw), -1) {
+			seen[m[1]] = true
+		}
+		return nil
+	})
+	out := make([]string, 0, len(seen))
+	for k := range seen {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// whatsNewPages turns release-notes/<version>.md into manual pages: front matter for the index, the notes as the body.
+func whatsNewPages(repoRoot string) (map[string]string, error) {
+	files, err := filepath.Glob(filepath.Join(repoRoot, "release-notes", "*.md"))
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]string{}
+	for _, f := range files {
+		raw, err := os.ReadFile(f)
+		if err != nil {
+			return nil, err
+		}
+		version := strings.TrimSuffix(filepath.Base(f), ".md")
+		text := strings.ReplaceAll(string(raw), "\r\n", "\n")
+		date, body := "", text
+		if strings.HasPrefix(text, "---\n") {
+			if end := strings.Index(text[4:], "\n---\n"); end >= 0 {
+				for _, line := range strings.Split(text[4:4+end], "\n") {
+					if v, ok := strings.CutPrefix(line, "date:"); ok {
+						date = strings.TrimSpace(v)
+					}
+				}
+				body = text[4+end+5:]
+			}
+		}
+		id := "whats-new/" + version
+		out[id] = fmt.Sprintf("---\nid: %s\ntitle: What's new in %s\nsummary: Changes in %s, released %s.\nlink: /settings/advanced#version\nkind: whats-new\nsince: %s\n---\n%s", id, version, version, date, version, strings.TrimLeft(body, "\n"))
+	}
+	return out, nil
 }

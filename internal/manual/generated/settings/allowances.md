@@ -1,14 +1,14 @@
 ---
 id: settings/allowances
-title: Tool rules
-summary: Reviewer, how tools ask, and what you’ve allowed
+title: {{ui:settings:shell.page.allowances.name}}
+summary: {{ui:settings:shell.page.allowances.description}}
 link: /settings/allowances
 kind: reference
 ---
-# Tool rules
+# {{ui:settings:shell.page.allowances.name}}
 
-Open this page: [Tool rules](/settings/allowances)
+Open this page: [{{ui:settings:shell.page.allowances.name}}](/settings/allowances)
 
 | Name | Key | Values | Default | Change class | Where |
 |---|---|---|---|---|---|
-| Always allowed | `permissions.standing_allowances` | managed with tools:  |  | confirm | `/settings/allowances#standing` |
+| {{ui:settings:permissionsPage.standing.title}} | `permissions.standing_allowances` | managed with tools:  |  | confirm | `/settings/allowances#standing` |

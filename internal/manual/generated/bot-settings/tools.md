@@ -1,15 +1,15 @@
 ---
 id: bot-settings/tools
-title: Bot settings › Tools
-summary: What {{name}} can use. Connections and Skills are yours to switch; the rest follows workspace settings.
+title: {{ui:chat:header.bot_settings}} › {{ui:chat:botSettings.section.tools}}
+summary: Settings on this page.
 link: /b/{bot}/settings#tools
 kind: reference
 ---
-# Bot settings › Tools
+# {{ui:chat:header.bot_settings}} › {{ui:chat:botSettings.section.tools}}
 
-Open this page: [Bot settings › Tools](/b/{bot}/settings#tools)
+Open this page: [{{ui:chat:header.bot_settings}} › {{ui:chat:botSettings.section.tools}}](/b/{bot}/settings#tools)
 
 | Name | Key | Values | Default | Change class | Where |
 |---|---|---|---|---|---|
-| Connections | `bot.connections` | a list of names or IDs |  | confirm | `/b/{bot}/settings#tools` |
-| Skills | `bot.skills` | a list of names or IDs |  | own Bot: direct; another Bot: confirm | `/b/{bot}/settings#tools` |
+| {{ui:settings:shell.page.connections.name}} | `bot.connections` | a list of names or IDs |  | confirm | `/b/{bot}/settings#tools` |
+| {{ui:settings:shell.page.skills.name}} | `bot.skills` | a list of names or IDs |  | own Bot: direct; another Bot: confirm | `/b/{bot}/settings#tools` |

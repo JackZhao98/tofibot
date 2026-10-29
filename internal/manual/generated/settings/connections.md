@@ -1,12 +1,12 @@
 ---
 id: settings/connections
-title: Connections
-summary: Connect outside services to extend what Bots can do
+title: {{ui:settings:shell.page.connections.name}}
+summary: {{ui:settings:shell.page.connections.description}}
 link: /settings/connections
 kind: reference
 ---
-# Connections
+# {{ui:settings:shell.page.connections.name}}
 
-Open this page: [Connections](/settings/connections)
+Open this page: [{{ui:settings:shell.page.connections.name}}](/settings/connections)
 
 The settings tool has no key on this page. A person changes it on the page.

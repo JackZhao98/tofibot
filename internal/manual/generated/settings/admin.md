@@ -1,14 +1,14 @@
 ---
 id: settings/admin
-title: Admin console
-summary: Invite, manage and deactivate accounts
+title: {{ui:settings:shell.page.admin.name}}
+summary: {{ui:settings:shell.page.admin.description}}
 link: /settings/admin
 kind: reference
 ---
-# Admin console
+# {{ui:settings:shell.page.admin.name}}
 
-Open this page: [Admin console](/settings/admin)
+Open this page: [{{ui:settings:shell.page.admin.name}}](/settings/admin)
 
 | Name | Key | Values | Default | Change class | Where |
 |---|---|---|---|---|---|
-| Admin console | `system.accounts` | not available to the tool |  | forbidden: the person changes it on the page | `/settings/admin#accounts` |
+| {{ui:settings:shell.page.admin.name}} | `system.accounts` | not available to the tool |  | forbidden: the person changes it on the page | `/settings/admin#accounts` |

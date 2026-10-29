@@ -1,14 +1,14 @@
 ---
 id: settings/computer
-title: Computer
-summary: Shared Linux computer, storage and runtime resources
+title: {{ui:settings:shell.page.computer.name}}
+summary: {{ui:settings:shell.page.computer.description}}
 link: /settings/computer
 kind: reference
 ---
-# Computer
+# {{ui:settings:shell.page.computer.name}}
 
-Open this page: [Computer](/settings/computer)
+Open this page: [{{ui:settings:shell.page.computer.name}}](/settings/computer)
 
 | Name | Key | Values | Default | Change class | Where |
 |---|---|---|---|---|---|
-| Computer | `system.computer_resources` | not available to the tool |  | forbidden: the person changes it on the page | `/settings/computer#resources` |
+| {{ui:settings:shell.page.computer.name}} | `system.computer_resources` | not available to the tool |  | forbidden: the person changes it on the page | `/settings/computer#resources` |

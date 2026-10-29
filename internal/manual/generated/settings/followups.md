@@ -1,12 +1,12 @@
 ---
 id: settings/followups
-title: Follow-ups
-summary: See what Bots would remind you about
+title: {{ui:settings:shell.page.followups.name}}
+summary: {{ui:settings:shell.page.followups.description}}
 link: /settings/followups
 kind: reference
 ---
-# Follow-ups
+# {{ui:settings:shell.page.followups.name}}
 
-Open this page: [Follow-ups](/settings/followups)
+Open this page: [{{ui:settings:shell.page.followups.name}}](/settings/followups)
 
 The settings tool has no key on this page. A person changes it on the page.

@@ -1,14 +1,14 @@
 ---
 id: bot-settings/secrets
-title: Bot settings › Secrets
+title: {{ui:chat:header.bot_settings}} › {{ui:chat:botSettings.section.secrets}}
 summary: Settings on this page.
 link: /b/{bot}/settings#secrets
 kind: reference
 ---
-# Bot settings › Secrets
+# {{ui:chat:header.bot_settings}} › {{ui:chat:botSettings.section.secrets}}
 
-Open this page: [Bot settings › Secrets](/b/{bot}/settings#secrets)
+Open this page: [{{ui:chat:header.bot_settings}} › {{ui:chat:botSettings.section.secrets}}](/b/{bot}/settings#secrets)
 
 | Name | Key | Values | Default | Change class | Where |
 |---|---|---|---|---|---|
-| Secrets | `bot.secrets` | not available to the tool |  | forbidden: the person changes it on the page | `/b/{bot}/settings#secrets` |
+| {{ui:chat:botSettings.section.secrets}} | `bot.secrets` | not available to the tool |  | forbidden: the person changes it on the page | `/b/{bot}/settings#secrets` |

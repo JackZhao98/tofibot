@@ -38,6 +38,9 @@ jobs:
       tag: ${{ steps.tag.outputs.tag }}
       prerelease: ${{ steps.tag.outputs.prerelease }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
       - id: tag
         run: |
           if [[ ! $TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]; then
@@ -50,6 +53,9 @@ jobs:
           else
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
+      # A release tag without its release notes (release-notes/<tag>.md) fails here, before anything is built or published.
+      - name: Release notes exist for this tag
+        run: scripts/check-release-notes.sh "$TAG"
 
   test:
     needs: version

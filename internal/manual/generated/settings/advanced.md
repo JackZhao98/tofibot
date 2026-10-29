@@ -1,17 +1,17 @@
 ---
 id: settings/advanced
-title: Maintenance
-summary: Version, server, data, debugging and Start over.
+title: {{ui:settings:shell.page.advanced.name}}
+summary: {{ui:settings:shell.page.advanced.description}}
 link: /settings/advanced
 kind: reference
 ---
-# Maintenance
+# {{ui:settings:shell.page.advanced.name}}
 
-Open this page: [Maintenance](/settings/advanced)
+Open this page: [{{ui:settings:shell.page.advanced.name}}](/settings/advanced)
 
 | Name | Key | Values | Default | Change class | Where |
 |---|---|---|---|---|---|
-| Data | `system.data` | not available to the tool |  | forbidden: the person changes it on the page | `/settings/advanced#data` |
-| Danger zone | `system.purge` | not available to the tool |  | forbidden: the person changes it on the page | `/settings/advanced#danger` |
-| Version | `system.update` | not available to the tool |  | forbidden: the person changes it on the page | `/settings/advanced#version` |
-| Version | `system.version` | not available to the tool |  | forbidden: the person changes it on the page | `/settings/advanced#version` |
+| {{ui:settings:advanced.data}} | `system.data` | not available to the tool |  | forbidden: the person changes it on the page | `/settings/advanced#data` |
+| {{ui:settings:advanced.danger}} | `system.purge` | not available to the tool |  | forbidden: the person changes it on the page | `/settings/advanced#danger` |
+| {{ui:settings:advanced.version}} | `system.update` | not available to the tool |  | forbidden: the person changes it on the page | `/settings/advanced#version` |
+| {{ui:settings:advanced.version}} | `system.version` | not available to the tool |  | forbidden: the person changes it on the page | `/settings/advanced#version` |

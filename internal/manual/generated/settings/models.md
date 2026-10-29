@@ -1,16 +1,16 @@
 ---
 id: settings/models
-title: Models
-summary: Providers and the default model.
+title: {{ui:settings:shell.page.models.name}}
+summary: {{ui:settings:shell.page.models.description}}
 link: /settings/models
 kind: reference
 ---
-# Models
+# {{ui:settings:shell.page.models.name}}
 
-Open this page: [Models](/settings/models)
+Open this page: [{{ui:settings:shell.page.models.name}}](/settings/models)
 
 | Name | Key | Values | Default | Change class | Where |
 |---|---|---|---|---|---|
-| Reasoning effort | `models.default_effort` | a reasoning effort the model supports, or default |  | confirm | `/settings/models#defaults` |
-| Defaults for new Bots | `models.default_model` | a configured model ID, or default |  | confirm | `/settings/models#defaults` |
-| Model providers | `models.providers` | not available to the tool |  | forbidden: the person changes it on the page | `/settings/models#providers` |
+| {{ui:settings:model.effort_label}} | `models.default_effort` | a reasoning effort the model supports, or default |  | confirm | `/settings/models#defaults` |
+| {{ui:settings:model.global_title}} | `models.default_model` | a configured model ID, or default |  | confirm | `/settings/models#defaults` |
+| {{ui:settings:providers.title}} | `models.providers` | not available to the tool |  | forbidden: the person changes it on the page | `/settings/models#providers` |
