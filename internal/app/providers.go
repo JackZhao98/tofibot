@@ -91,6 +91,17 @@ func keyHint(key string) string {
 	return "…" + key[len(key)-4:]
 }
 
+// keyPrefix is the first four characters of a long key, shown with keyHint as
+// "sk-a ... 2gAA". A short key shows no prefix, so the two ends never cover a
+// meaningful part of it.
+func keyPrefix(key string) string {
+	key = strings.TrimSpace(key)
+	if len(key) < 24 {
+		return ""
+	}
+	return key[:4]
+}
+
 // providerUnconfiguredError carries the run_failure marker and the provider.
 func providerUnconfiguredError(name string) error {
 	return fmt.Errorf("model provider is not configured: %s", name)
@@ -631,7 +642,7 @@ func (s *Server) noteProviderKeyRejected(name string, status int) {
 }
 
 // ProviderStatus is the public shape of one model provider. Keys never leave
-// the server; only the last four characters are shown.
+// the server; only the first four (long keys) and last four characters are shown.
 type ProviderStatus struct {
 	ID         string `json:"id"`
 	Label      string `json:"label"`
@@ -639,6 +650,7 @@ type ProviderStatus struct {
 	Configured bool   `json:"configured"`
 	Status     string `json:"status,omitempty"`
 	KeyHint    string `json:"key_hint,omitempty"`
+	KeyPrefix  string `json:"key_prefix,omitempty"`
 	VerifiedAt string `json:"verified_at"`
 	Error      string `json:"error"`
 	Source     string `json:"source,omitempty"`
@@ -661,6 +673,7 @@ func (s *Server) providerStatus(name string) ProviderStatus {
 	out := ProviderStatus{ID: name, Label: providerLabel(name), Kind: "api_key"}
 	if state, ok := s.providerKey(name); ok {
 		out.Configured, out.KeyHint, out.VerifiedAt, out.Error = true, state.Hint, state.VerifiedAt, state.Error
+		out.KeyPrefix = keyPrefix(strings.SplitN(state.Key, "\x00", 2)[0])
 		if state.Env {
 			out.Source = "environment"
 		}

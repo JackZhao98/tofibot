@@ -19,7 +19,7 @@ const bots = ["a", "b"].map((k, i) => ({ id: `bot_${k}`, name: ["Ledger Cat", "S
 const convs = ["a", "b"].map((k, i) => ({ id: `dm_${k}`, kind: "dm", name: bots[i].name, bot_id: `bot_${k}`, bot_ids: [`bot_${k}`], updated_at: iso(0), read_seq: 1, user_visible: true }));
 const msg = (conv, seq, role, content, extra = {}) => ({ id: `${conv}_m${seq}`, conversation_id: conv, seq, role, content, created_at: iso(seq * 30), ...extra });
 const seed = () => ({ store: { dm_a: [msg("dm_a", 1, "assistant", "hello from a")], dm_b: [msg("dm_b", 1, "assistant", "hello from b")] }, runs: [] });
-const mock = { sse: new Set(), eventId: 100, posts: [], uploads: [], files: new Map(), sent: new Map(), n: 0, failSends: false, uploadDelayMs: 0, ...seed() };
+const mock = { dictation: false, sse: new Set(), eventId: 100, posts: [], uploads: [], files: new Map(), sent: new Map(), n: 0, failSends: false, uploadDelayMs: 0, ...seed() };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const raw = req => new Promise(done => { const c = []; req.on("data", d => c.push(d)); req.on("end", () => done(Buffer.concat(c))); });
 
@@ -40,7 +40,7 @@ function install(middlewares) {
     const conv = path.split("/")[3] ?? "";
     if (path === "/api/server-info") return json({ service: "tofi", protocol_version: 1, instance_id: INSTANCE, auth: { mode: "none" } });
     if (path === "/api/preferences") return json({ timezone: "UTC", timezone_configured: true, show_activity: false });
-    if (path === "/api/config") return json({ model_configured: true, default_model: "synthetic-model", provider: "synthetic" });
+    if (path === "/api/config") return json({ model_configured: true, dictation_configured: mock.dictation, default_model: "synthetic-model", provider: "synthetic" });
     if (path === "/api/bots") return json({ bots });
     if (path === "/api/conversations") return json({ conversations: convs });
     if (path.endsWith("/attachments") && req.method === "POST") {
@@ -334,6 +334,21 @@ await check("a file whose upload fails keeps the message: Retry uploads again, o
   await waitFor(() => delivered(page, "with notes"), 6000, "delivered");
   assert.equal(stored("with notes"), 1);
   assert.equal(mock.uploads.length, 1, "uploaded once (the failed attempt never reached the server)");
+  await context.close();
+});
+
+// Dictation needs OpenAI (ChatGPT sign-in or API key): with neither connected the composer has no mic.
+await check("the composer mic appears only once an OpenAI transcription method is connected", async () => {
+  mock.dictation = false;
+  const { page, context } = await open();
+  await page.locator(".composer textarea").waitFor();
+  await sleep(400);
+  assert.equal(await page.locator(".dictation-button").count(), 0, "no mic without an OpenAI method");
+  mock.dictation = true;
+  await page.reload();
+  await openConversation(page, "Ledger Cat");
+  await page.locator(".dictation-button").waitFor({ timeout: 5000 });
+  mock.dictation = false;
   await context.close();
 });
 

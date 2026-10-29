@@ -32,7 +32,7 @@ import {OwnerSessionGate} from '../src/OwnerSession';
 import {useAppearance} from '../src/InteractionSystem';
 import {SettingsShell,type SettingsEntry,type SettingsTab} from '../src/SettingsShell';
 import {SettingsPages} from '../src/settings/SettingsPages';
-import {CodexPanel} from '../src/settings/AppSlots';
+
 import {MessageMarkdown} from '../src/MessageMarkdown';
 import {readConversationRoute} from '../src/conversationRoute';
 import {getLinkDeps,linkRuntime,provideLinkDeps,subscribeSettingsDeepLinks} from '../src/settings/deepLinks';
@@ -63,7 +63,7 @@ function Fixture(){
  },[]);
  useEffect(()=>{(window as any).__openLink=(link:any)=>linkRuntime().then(module=>module.openSettingsLink(link,getLinkDeps()!))},[]);
  useEffect(()=>{(window as any).__route=(path:string)=>readConversationRoute(...(()=>{const u=new URL(path,location.origin);return [u.pathname,u.hash,u.search] as [string,string,string]})())},[]);
- return <div className="workspace"><div style={{padding:16,maxWidth:480}}><MessageMarkdown content={content}/></div>{open&&<div className="workspace-grid"><aside className="detail-pane visible" role="dialog" aria-modal="true"><SettingsShell tab={tab} onTab={setTab} onClose={()=>setOpen(false)} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots as any} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" onPortabilityFileConsumed={()=>{}} appearance={appearance} extensionRefresh={0} openTab={next=>openSettings(next)} slots={{codex:<CodexPanel refreshToken={0} onConfigured={()=>{}}/>,providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/></aside></div>}</div>;
+ return <div className="workspace"><div style={{padding:16,maxWidth:480}}><MessageMarkdown content={content}/></div>{open&&<div className="workspace-grid"><aside className="detail-pane visible" role="dialog" aria-modal="true"><SettingsShell tab={tab} onTab={setTab} onClose={()=>setOpen(false)} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots as any} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" onPortabilityFileConsumed={()=>{}} appearance={appearance} extensionRefresh={0} openTab={next=>openSettings(next)} slots={{codexRefresh:0,onCodexConfigured:()=>{},providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/></aside></div>}</div>;
 }
 void i18nReady.then(()=>setLanguage('en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><OwnerSessionGate><Fixture/></OwnerSessionGate></TimezoneProvider>));
 `);

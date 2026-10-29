@@ -47,7 +47,7 @@ import {OwnerSessionGate} from '../src/OwnerSession';
 import {useAppearance} from '../src/InteractionSystem';
 import {SettingsShell,type SettingsEntry,type SettingsTab} from '../src/SettingsShell';
 import {SettingsPages} from '../src/settings/SettingsPages';
-import {CodexPanel} from '../src/settings/AppSlots';
+
 import {openConnectionDeepLink} from '../src/settings/deepLinks';
 const query=new URLSearchParams(location.search);
 (window as any).openConnectionDeepLink=openConnectionDeepLink;
@@ -57,7 +57,7 @@ function Fixture(){
  const appearance=useAppearance();
  const [tab,setTab]=useState<SettingsTab>((query.get('tab') as any)||'connections');
  const [entry]=useState<SettingsEntry>({seq:1,view:'page'});
- return <div className="workspace"><div className="workspace-grid"><aside className="detail-pane visible" role="dialog" aria-modal="true"><SettingsShell tab={tab} onTab={setTab} onClose={()=>{}} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" onPortabilityFileConsumed={()=>{}} appearance={appearance} extensionRefresh={0} openTab={next=>setTab(next)} slots={{codex:<CodexPanel refreshToken={0} onConfigured={()=>{}}/>,providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/></aside></div></div>;
+ return <div className="workspace"><div className="workspace-grid"><aside className="detail-pane visible" role="dialog" aria-modal="true"><SettingsShell tab={tab} onTab={setTab} onClose={()=>{}} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" onPortabilityFileConsumed={()=>{}} appearance={appearance} extensionRefresh={0} openTab={next=>setTab(next)} slots={{codexRefresh:0,onCodexConfigured:()=>{},providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/></aside></div></div>;
 }
 void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><OwnerSessionGate><Fixture/></OwnerSessionGate></TimezoneProvider>));
 `);

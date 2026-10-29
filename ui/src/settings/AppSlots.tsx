@@ -1,10 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, request } from "../api";
 import { errorText } from "../errorText";
-import { intlLocale } from "../i18n/format";
 import { useTranslation } from "../i18n";
-import { TofiIcon as Icon } from "../icons";
-import { StatusBadge } from "./components";
 
 const AUTO_REVIEW_DEFAULTED = "tofi:auto-review-defaulted";
 /**
@@ -20,7 +17,10 @@ async function defaultAutoReview() {
   } catch { /* keep the current mode */ }
 }
 
-export function CodexPanel({ refreshToken, onConfigured }: { refreshToken: number; onConfigured: () => void }) {
+export type CodexConnection = ReturnType<typeof useCodexConnection>;
+
+/** The ChatGPT (Codex) sign-in: its status, the provider check, the device-code flow and the disconnect. The OpenAI card draws it. */
+export function useCodexConnection(refreshToken: number, onConfigured: () => void) {
   const { t } = useTranslation("chat");
   const [connected, setConnected] = useState<boolean | null>(null);
   const [expiresAt, setExpiresAt] = useState<number | undefined>();
@@ -67,6 +67,7 @@ export function CodexPanel({ refreshToken, onConfigured }: { refreshToken: numbe
     } catch (cause) { setError(errorText(cause)); }
     finally { setWorking(false); }
   }
-  async function disconnect() { ++statusRequest.current; setWorking(true); setError(""); try { await api.codexDisconnect(); setConnected(false); setExpiresAt(undefined); onConfigured(); } catch (cause) { setError(errorText(cause)); } finally { setWorking(false); } }
-  return <article className="detail-content provider-card" aria-labelledby="codex-provider-title" aria-busy={working}><div className="provider-card-head"><div><h3 id="codex-provider-title">Codex</h3><p>{t("codex.description")}</p></div><span className="provider-card-marks"><StatusBadge state={connected === true ? (needsReconnect ? "bad" : "ok") : connected === false ? "need" : "testing"} /><span className="settings-tag">{t("codex.tag")}</span></span></div><div className={`codex-status ${connected === true ? "connected" : connected === false ? "missing" : "unknown"}`} role="status"><span className="status-dot" />{connected === true ? check === "checking" ? t("codex.verifying") : check === "ok" ? t("codex.connected_verified") : check === "unverified" ? t("codex.connected_unverified") : t("codex.connected") : connected === false ? needsReconnect ? t("codex.needs_reconnect") : t("codex.not_connected") : working ? t("codex.reading_status") : t("codex.status_unknown")}</div>{expiresAt && connected && check !== "unverified" && <p className="field-note">{t("codex.expires", { date: new Date(expiresAt).toLocaleString(intlLocale()) })}</p>}{connected && check === "unverified" && <p className="field-note">{t("codex.unverified_note")} <button className="text-button" onClick={() => setStatusRefresh(value => value + 1)} disabled={working}>{t("codex.reverify")}</button></p>}{session ? <div className="verification-card"><p>{t("codex.enter_code")}</p><code>{session.code}</code><a href={session.url} target="_blank" rel="noreferrer">{t("codex.open_verification")} <Icon name="external-link" size={16} style={{ verticalAlign: "middle" }} /></a></div> : connected === true ? <button className="secondary-button" onClick={() => void disconnect()} disabled={working}>{t("codex.disconnect")}</button> : connected === null ? <button className="secondary-button" onClick={() => setStatusRefresh(value => value + 1)} disabled={working}>{working ? t("codex.reading") : t("codex.retry_status")}</button> : <button className="primary-button" onClick={() => void connect()} disabled={working}>{working ? t("codex.connecting") : needsReconnect ? t("codex.reconnect") : t("codex.connect")}</button>}{error && <p className="error-text">{error}</p>}</article>;
+  /** True once the sign-in is gone; a failure is reported in `error`. */
+  async function disconnect() { ++statusRequest.current; setWorking(true); setError(""); try { await api.codexDisconnect(); setConnected(false); setNeedsReconnect(false); setExpiresAt(undefined); onConfigured(); return true; } catch (cause) { setError(errorText(cause)); return false; } finally { setWorking(false); } }
+  return { connected, expiresAt, session, working, needsReconnect, check, error, connect, disconnect, refresh: () => setStatusRefresh(value => value + 1) };
 }

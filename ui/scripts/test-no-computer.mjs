@@ -36,7 +36,7 @@ import {useAppearance} from '../src/InteractionSystem';
 import {SettingsShell,type SettingsEntry,type SettingsTab} from '../src/SettingsShell';
 import {SettingsPages} from '../src/settings/SettingsPages';
 import {subscribeSettingsDeepLinks,OPEN_COMPUTER_SETTINGS_EVENT} from '../src/settings/deepLinks';
-import {CodexPanel} from '../src/settings/AppSlots';
+
 import {setComputerCapability} from '../src/computerCapability';
 import {AttachmentList} from '../src/MessageAttachment';
 import {FilePreviewHost} from '../src/FileViewer';
@@ -55,7 +55,7 @@ function Settings(){
  const [entry,setEntry]=useState<SettingsEntry>({seq:0,view:(query.get('view') as any)||'home'});
  const openSettings=(next:SettingsTab,view:'home'|'page'='page')=>{setTab(next);setEntry(current=>({seq:current.seq+1,view}))};
  useEffect(()=>subscribeSettingsDeepLinks(next=>openSettings(next)),[]);
- return <div className="workspace"><div className="workspace-grid"><aside className="detail-pane visible" role="dialog" aria-modal="true"><SettingsShell tab={tab} onTab={setTab} onClose={()=>{}} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" onPortabilityFileConsumed={()=>{}} appearance={appearance} extensionRefresh={0} openTab={next=>openSettings(next)} slots={{codex:<CodexPanel refreshToken={0} onConfigured={()=>{}}/>,providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/></aside></div></div>;
+ return <div className="workspace"><div className="workspace-grid"><aside className="detail-pane visible" role="dialog" aria-modal="true"><SettingsShell tab={tab} onTab={setTab} onClose={()=>{}} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" onPortabilityFileConsumed={()=>{}} appearance={appearance} extensionRefresh={0} openTab={next=>openSettings(next)} slots={{codexRefresh:0,onCodexConfigured:()=>{},providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/></aside></div></div>;
 }
 function Files(){
  useEffect(()=>{const mark=()=>{(window as any).__computerSettings=((window as any).__computerSettings||0)+1};window.addEventListener(OPEN_COMPUTER_SETTINGS_EVENT,mark);return()=>window.removeEventListener(OPEN_COMPUTER_SETTINGS_EVENT,mark)},[]);

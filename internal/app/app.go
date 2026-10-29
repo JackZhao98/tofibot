@@ -3231,7 +3231,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	case p == "system/update" || strings.HasPrefix(p, "system/update/"):
 		s.serveSystemUpdate(w, r, strings.TrimPrefix(strings.TrimPrefix(p, "system/update"), "/"))
 	case p == "config":
-		writeJSON(w, 200, map[string]any{"model_configured": s.modelConfigured(), "default_model": s.effectiveDefaultModel(r.Context()), "background_model": s.backgroundModel(backgroundTriage), "provider": s.activeProvider(), "computer": s.computerCapabilities()})
+		writeJSON(w, 200, map[string]any{"model_configured": s.modelConfigured(), "default_model": s.effectiveDefaultModel(r.Context()), "background_model": s.backgroundModel(backgroundTriage), "provider": s.activeProvider(), "computer": s.computerCapabilities(), "dictation_configured": s.dictationAuthSource() != ""})
 	case p == "computer/capabilities":
 		if r.Method != http.MethodGet {
 			writeErr(w, 405, "method_not_allowed", "use GET")

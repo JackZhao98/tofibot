@@ -439,6 +439,8 @@ export interface Config {
   model_configured: boolean;
   default_model: string;
   /** First configured provider; kept for compatibility. */
+  /** True when a transcription credential exists (ChatGPT sign-in, OpenAI key or a server key); the composer mic follows it. */
+  dictation_configured?: boolean;
   provider: string;
 }
 
@@ -456,6 +458,8 @@ export interface ModelProviderStatus {
   key_hint?: string;
   /** RFC3339, or "" when never verified. */
   verified_at?: string;
+  /** First four characters of a long key; shown before the dots, never more. */
+  key_prefix?: string;
   error?: string;
 }
 

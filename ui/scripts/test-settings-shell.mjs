@@ -70,7 +70,7 @@ import {useAppearance} from '../src/InteractionSystem';
 import {SettingsShell,type SettingsEntry,type SettingsTab,type SettingsView} from '../src/SettingsShell';
 import {SettingsPages} from '../src/settings/SettingsPages';
 import {subscribeSettingsDeepLinks} from '../src/settings/deepLinks';
-import {CodexPanel} from '../src/settings/AppSlots';
+
 import {UpdateBanner} from '../src/UpdateNotice';
 import {setComputerCapability} from '../src/computerCapability';
 const query=new URLSearchParams(location.search);
@@ -84,7 +84,7 @@ function Fixture(){
  const openSettings=(next:SettingsTab,view:SettingsView='page')=>{setTab(next);setEntry(current=>({seq:current.seq+1,view}))};
  useEffect(()=>subscribeSettingsDeepLinks(next=>openSettings(next)),[]);
  useEffect(()=>{(window as any).__closed=closed},[closed]);
- return <div className="workspace"><UpdateBanner/><div className="workspace-grid"><aside className="detail-pane visible" role="dialog" aria-modal="true">{!closed&&<SettingsShell tab={tab} onTab={setTab} onClose={()=>setClosed(true)} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" onPortabilityFileConsumed={()=>{}} appearance={appearance} extensionRefresh={0} openTab={next=>openSettings(next)} slots={{codex:<CodexPanel refreshToken={0} onConfigured={()=>{}}/>,providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/>}</aside></div></div>;
+ return <div className="workspace"><UpdateBanner/><div className="workspace-grid"><aside className="detail-pane visible" role="dialog" aria-modal="true">{!closed&&<SettingsShell tab={tab} onTab={setTab} onClose={()=>setClosed(true)} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" onPortabilityFileConsumed={()=>{}} appearance={appearance} extensionRefresh={0} openTab={next=>openSettings(next)} slots={{codexRefresh:0,onCodexConfigured:()=>{},providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/>}</aside></div></div>;
 }
 void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><OwnerSessionGate><Fixture/></OwnerSessionGate></TimezoneProvider>));
 `);
@@ -207,12 +207,13 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/extensions/repo-stars") return {stars: {}};
     if (path === "/api/extensions/skills") return libState();
     if (path === "/api/auto-review-settings") return {mode: "shadow", revision: 1, review_scope: "all_external_tools"};
-    if (path === "/api/providers") return {providers};
+    if (path === "/api/providers") return {providers: query.get("prov") === "none" ? providers.map(item => item.id === "codex" ? {...item, configured: false, status: "disconnected"} : item.id === "openai" ? {...item, configured: false, key_hint: "", verified_at: ""} : item) : query.get("prov") === "key" ? providers.map(item => item.id === "codex" ? {...item, configured: false, status: "disconnected"} : item.id === "openai" ? {...item, key_prefix: "sk-p"} : item) : providers};
     if (path === "/api/web-tools") return {enabled: true, computer: false, search_offered: true, search: [{id: "native", label: "Model web search", kind: "native", paid: false, fixed: true, enabled: true, status: "always", testable: false}], fetch: [{id: "builtin", label: "Built-in fetch", kind: "builtin", paid: false, fixed: true, enabled: true, status: "always", testable: true}]};
-    if (path === "/api/auth/codex") return {connected: true, expires_at: Date.parse("2026-11-01T00:00:00Z")};
-    if (path === "/api/auth/codex/verify") return {connected: true, expires_at: Date.parse("2026-11-01T00:00:00Z"), check: "ok"};
+    if (path === "/api/auth/codex") return {connected: !["none", "key"].includes(query.get("prov")), expires_at: Date.parse("2026-11-01T00:00:00Z")};
+    if (path === "/api/auth/codex/verify") return {connected: !["none", "key"].includes(query.get("prov")), expires_at: Date.parse("2026-11-01T00:00:00Z"), check: "ok"};
     if (path === "/api/models") return {models, source: "live", warning: ""};
     if (path === "/api/model-settings") return {model: "codex-gpt-6-sol", reasoning_effort: "medium"};
+    if (path === "/api/dictation-settings" && query.get("dict") === "none") return {model: "gpt-4o-mini-transcribe", configured: false, auth_source: "", models: [{id: "gpt-4o-mini-transcribe", name: "GPT-4o mini Transcribe"}]};
     if (path === "/api/dictation-settings") return query.get("dict") === "unknown"
       ? {model: "mystery-model", configured: true, auth_source: "api_key", models: [{id: "mystery-model", name: "Mystery Transcribe"}]}
       : {model: "gpt-4o-mini-transcribe", configured: true, auth_source: "api_key", models: [{id: "gpt-4o-mini-transcribe", name: "GPT-4o mini Transcribe"}, {id: "gpt-4o-transcribe", name: "GPT-4o Transcribe"}]};
@@ -524,6 +525,41 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await body.locator(".dictation-settings .settings-card-note").count(), 0, "unknown dictation model shows no hint text");
     await close();
     console.log("PASS dictation: an unknown model id shows no hint or price");
+  }
+
+  // ---- 3c. Dictation needs OpenAI: with no OpenAI method connected the section is gone and the page is one column.
+  {
+    const {page, close} = await open({tab: "models", dict: "none", prov: "none"});
+    const body = page.locator('.settings-page-body[data-page="models"]');
+    await body.getByText("Defaults for new Bots").first().waitFor();
+    await page.waitForTimeout(400);
+    assert.equal(await body.getByText("Dictation", {exact: true}).count(), 0, "no Dictation section without an OpenAI method");
+    assert.equal(await body.locator(".settings-two").count(), 0, "one column when Dictation is not offered");
+    // Nothing is set up on OpenAI: the card offers both ways, side by side and the same size, and no Codex card.
+    const openai = body.locator("article.provider-card").filter({has: page.getByRole("heading", {name: "OpenAI", exact: true})});
+    await openai.locator(".provider-choice").first().waitFor();
+    assert.equal(await body.getByRole("heading", {name: "Codex", exact: true}).count(), 0, "Codex has no card of its own");
+    assert.deepEqual(await openai.locator(".provider-choice strong").allInnerTexts(), ["Sign in with your ChatGPT account", "Use an API key"]);
+    const [a, b] = await openai.locator(".provider-choice").evaluateAll(nodes => nodes.map(node => { const r = node.getBoundingClientRect(); return {w: Math.round(r.width), h: Math.round(r.height), y: Math.round(r.y)}; }));
+    assert.ok(Math.abs(a.w - b.w) <= 1 && Math.abs(a.h - b.h) <= 1 && a.y === b.y, `equal choices side by side ${JSON.stringify([a, b])}`);
+    assert.equal(await openai.locator("input").count(), 0, "no key input until a method is chosen");
+    await openai.getByRole("button", {name: /Use an API key/}).click();
+    await openai.getByLabel("OpenAI API key").waitFor();
+    await close();
+    // An API key alone: the key is masked (prefix and last four) with its verified time, no input, no Replace heading.
+    const keyed = await open({tab: "models", prov: "key"});
+    const card = keyed.page.locator("article.provider-card").filter({has: keyed.page.getByRole("heading", {name: "OpenAI", exact: true})});
+    await card.getByText("sk-p••••••••9fa2").waitFor();
+    assert.match(await card.innerText(), /Verified/);
+    assert.equal(await card.locator("input").count(), 0, "no replace input while a key is set");
+    assert.equal(await card.getByText(/Replace OpenAI API key/).count(), 0);
+    assert.equal(await card.locator(".provider-choice").count(), 0, "the other method is not offered beside a set-up one");
+    await card.getByRole("button", {name: "Replace key"}).click();
+    await card.getByLabel("OpenAI API key").waitFor();
+    await card.getByRole("button", {name: "Cancel"}).click();
+    assert.equal(await card.locator("input").count(), 0);
+    await keyed.close();
+    console.log("PASS ai models: Dictation hidden without OpenAI, one OpenAI card with two equal choices, masked key with Replace and Remove on demand");
   }
 
   // ---- 4. Mobile: no select, home list -> Models page -> back -> home.
