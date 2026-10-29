@@ -280,8 +280,10 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// 8304: the reaction principle (+83 measured: 8223 -> 8306, phase 5a, decision 0060) and the
 				// "Enabled Skills" directory header listing only enabled skills (-2 measured, decision 0058).
 				// 8624: plus the what-can-you-do principle in the voice guidance (+320 measured).
-				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 8624 {
-					t.Errorf("ordinary DM provider system exceeds 8624 runes")
+				// 8682: plus the one-line pointer to the product manual in the capability prompt (+58 measured: 8624 -> 8682; the
+				// manual body loads only on a call, so the pointer is the whole cost).
+				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 8682 {
+					t.Errorf("ordinary DM provider system exceeds 8682 runes")
 				}
 				// 7000: the lookup line's works-newer-than-the-model clause (~45) lands in
 				// every prompt, the longest of which sat 23 under 6950.
@@ -301,8 +303,9 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// 9120: plus the B2 go-ahead lines (core, group delegation, latest message, plan-as-result)
 				// less the computer "use tools only when ready" line (+124 measured on the scheduled descendant: 8991 -> 9115).
 				// 9203: plus the same reaction principle (+83 measured on the scheduled descendant: 9115 -> 9198).
-				if fixed > 9203 {
-					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 9203)", fixed)
+				// 9258: plus the one-line pointer to the product manual (+59 measured on the scheduled descendant: 9199 -> 9258).
+				if fixed > 9258 {
+					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 9258)", fixed)
 				}
 				if !strings.Contains(system, bot.Instructions) {
 					t.Fatal("user instructions changed")
@@ -348,8 +351,9 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 					// 8060: plus the same B2 go-ahead sentence as the ordinary DM cap (+34 measured).
 					// 8143: plus the same reaction principle (+83 measured).
 					// 8463: plus the what-can-you-do principle in the voice guidance (+320 measured).
-					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 8463 {
-						t.Errorf("structured DM provider system exceeds 8463 runes")
+					// 8521: plus the manual pointer, as above (+58 measured).
+					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 8521 {
+						t.Errorf("structured DM provider system exceeds 8521 runes")
 					}
 					if tc.kind == runKindGroupChat && !strings.Contains(system, "say(answer)") {
 						t.Error("structured group prompt does not name say(answer)")

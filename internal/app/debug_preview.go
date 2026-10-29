@@ -72,7 +72,7 @@ func (s *Server) toolSnapshot(botID, conversationID string) (toolSnapshot, bool)
 
 const runtimeDurablePrompt = "\nsave_memory skips duplicates; correct facts with update_memory. Keep session/compaction details private."
 
-const runtimeCapabilityPrompt = "\nFor requested settings changes, first inspect workspace_capabilities, which also loads the on-demand tools it lists when they are named there, and current state; preserve omitted fields and respect busy-target conflicts. The product manual is one call away through manual; use it before you answer a question about TOFI itself."
+const runtimeCapabilityPrompt = "\nFor requested settings changes, first inspect workspace_capabilities, which also loads the on-demand tools it lists when they are named there, and current state; preserve omitted fields and respect busy-target conflicts. Use manual before you answer a question about TOFI itself."
 
 // botDebugPreview returns the same static prompt and core tool registry used
 // by a normal run, while deliberately avoiding tool execution and MCP
