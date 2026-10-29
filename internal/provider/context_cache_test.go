@@ -10,7 +10,7 @@ func TestContextWindowPrecedenceCatalogTableFallback(t *testing.T) {
 	SetCatalogContextWindows(nil)
 
 	// No catalog row, no table row: the heuristic, and it is not "known".
-	if got, known := GetContextWindow("codex-gpt-5.6-terra"), ContextWindowKnown("codex-gpt-5.6-terra"); got != 128000 || known {
+	if got, known := GetContextWindow("codex-gpt-5.6-terra"), ContextWindowKnown("codex-gpt-5.6-terra"); got != 500000 || known {
 		t.Fatalf("fallback = %d known=%v", got, known)
 	}
 	// A table row is known.
@@ -25,12 +25,12 @@ func TestContextWindowPrecedenceCatalogTableFallback(t *testing.T) {
 	if got := GetContextWindow("codex-gpt-5.5"); got != 258400 {
 		t.Fatalf("catalog over table = %d", got)
 	}
-	if ContextWindowKnown("codex-bad") || ContextWindowKnown("codex-neg") || GetContextWindow("codex-bad") != 128000 {
+	if ContextWindowKnown("codex-bad") || ContextWindowKnown("codex-neg") || GetContextWindow("codex-bad") != 500000 {
 		t.Fatal("non-positive catalog windows must be ignored")
 	}
 	// A model that left the catalog stops using the stale value.
 	SetCatalogContextWindows(map[string]int{"codex-other": 300000})
-	if got := GetContextWindow("codex-gpt-5.6-terra"); got != 128000 {
+	if got := GetContextWindow("codex-gpt-5.6-terra"); got != 500000 {
 		t.Fatalf("stale catalog window kept: %d", got)
 	}
 }

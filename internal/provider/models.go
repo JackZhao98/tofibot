@@ -231,7 +231,9 @@ func GetContextWindow(model string) int {
 	case strings.Contains(m, "deepseek"):
 		return 64000
 	default:
-		return 128000
+		// Current GPT/Codex models all have at least 500k and their catalog does not report a window.
+		// An overflow still recovers through compaction (IsContextOverflow in retry.go).
+		return 500000
 	}
 }
 
