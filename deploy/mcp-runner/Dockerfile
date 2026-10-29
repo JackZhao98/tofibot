@@ -12,7 +12,7 @@ FROM mirror.gcr.io/library/golang:1.26.8-bookworm@sha256:a688600ca24f8a4d3ca77f9
 RUN CGO_ENABLED=0 GOBIN=/out go install github.com/openclaw/gogcli/cmd/gog@v0.40.0
 
 FROM mirror.gcr.io/library/node:22-bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates python3 python3-venv python3-pip \
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates python3 python3-venv python3-pip iproute2 iptables util-linux \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd -g 10001 runner && useradd -u 10001 -g 10001 -M -s /usr/sbin/nologin runner \
     && mkdir -p /runner/state /runner/auth \

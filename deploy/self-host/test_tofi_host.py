@@ -11,6 +11,8 @@ import os
 import re
 from pathlib import Path
 import shutil
+import socket
+import stat
 import subprocess
 import sys
 import tempfile
@@ -792,6 +794,7 @@ class LifecycleBase(HostCase):
         self.fetch_guest = mock.patch.object(tofi_host, 'fetch_guest', side_effect=lambda g, m: self.make_guest(g['version'])).start()
         self.install_bundle = mock.patch.object(tofi_host, 'install_bundle', side_effect=lambda m: self.make_bundle(m['version'])).start()
         self.active_runs = mock.patch.object(tofi_host, 'active_runs', return_value=0).start()
+        self.guest_copies = mock.patch.object(tofi_host, 'pending_guest_copies', return_value=(0, [])).start()
         self.addCleanup(mock.patch.stopall)
 
     def write_manifest(self, value):
@@ -2101,6 +2104,71 @@ class NoComputerRenderTests(NoComputerCase):
         worker = text.split('  worker:')[1].split('  app:')[0]
         self.assertNotIn(':?', worker, 'computer variables must be optional for a server without a computer')
 
+    def test_runner_container_is_its_own_service_under_its_own_profile(self):
+        text = (HERE / 'compose.yaml').read_text()
+        self.assertIn('profiles: [runner]', text)
+        runner = text.split('  runner:')[1].split('  app:')[0]
+        # Independent of the computer: no worker dependency, no computer variable, no required variable.
+        self.assertNotIn('TOFI_COMPUTER', runner)
+        self.assertNotIn('worker', runner)
+        self.assertNotIn(':?', runner)
+        self.assertNotIn('/dev/kvm', runner)
+        # The minimum that gives every account its own uid, and nothing else.
+        self.assertIn('cap_drop: [ALL]', runner)
+        self.assertIn('cap_add: [SETUID, SETGID, CHOWN, DAC_OVERRIDE, FOWNER, SYS_ADMIN, NET_ADMIN]', runner)
+        # Per-account network namespaces need forwarding; the Runner refuses to start without them.
+        self.assertIn('net.ipv4.ip_forward: "1"', runner)
+        self.assertIn('TOFI_MCP_RUNNER_NETNS: required', runner)
+        self.assertIn('TOFI_MCP_RUNNER_REQUIRE_SECCOMP: "1"', runner)
+        self.assertIn('no-new-privileges:true', runner)
+        self.assertIn('read_only: true', runner)
+        self.assertNotIn('ports:', runner)  # never published
+        # It sees only its own directory below the data dir, never the App's data.
+        self.assertIn('source: /var/lib/tofi/data/runner', runner)
+        self.assertEqual(runner.count('source:'), 1)
+        self.assertNotIn('target: /app/data', runner)
+        self.assertNotIn('/run/tofi', runner)
+        # /tmp is closed to the account uids; children use their own TMPDIR.
+        self.assertIn('/tmp:rw,nosuid,nodev,noexec,mode=0700', runner)
+        self.assertIn('TOFI_MCP_RUNNER_MODE: accounts', runner)
+        # The App learns where it is from tofi.env, and may have neither.
+        app = text.split('  app:')[1].split('  caddy:')[0]
+        self.assertIn('TOFI_RUNNER_URL: ${TOFI_RUNNER_URL:-}', app)
+        self.assertNotIn('depends_on', app)
+
+    def test_runner_profile_follows_the_runner_image_not_the_computer(self):
+        def profiles(env):
+            command = tofi_host.compose_command(env)
+            return [command[i + 1] for i, word in enumerate(command) if word == '--profile']
+
+        self.assertNotIn('runner', profiles({'TOFI_COMPUTER_BACKEND': 'none'}))
+        image = tofi_host.IMAGE_REPOS['app'].replace('/tofi', '/tofi-mcp-runner') + '@sha256:' + '4' * 64
+        self.assertEqual(profiles({'TOFI_COMPUTER_BACKEND': 'none', 'TOFI_RUNNER_IMAGE': image}), ['runner'])
+        self.assertEqual(profiles({'TOFI_COMPUTER_BACKEND': 'kvm', 'TOFI_RUNNER_IMAGE': image, 'TOFI_DOMAIN': 'a.example.com'}),
+                         ['tls', 'computer-kvm', 'runner'])
+
+    def test_manifest_may_pin_the_runner_image_and_only_in_its_own_repository(self):
+        plain = manifest()
+        self.assertEqual(tofi_host.runner_env(plain), {})
+        pinned = manifest()
+        pinned['images']['runner'] = tofi_host.OPTIONAL_IMAGE_REPOS['runner'] + '@sha256:' + '5' * 64
+        tofi_host.validate_manifest(plain)
+        tofi_host.validate_manifest(pinned)
+        env = tofi_host.runner_env(pinned)
+        self.assertEqual(env['TOFI_RUNNER_IMAGE'], pinned['images']['runner'])
+        self.assertEqual(env['TOFI_RUNNER_URL'], 'http://runner:8390')
+        self.assertTrue(env['TOFI_RUNNER_MASTER_KEY_FILE'].startswith('/app/data/runner/'))
+        for bad in (tofi_host.IMAGE_REPOS['app'] + '@sha256:' + '5' * 64, 'docker.io/evil/runner@sha256:' + '5' * 64,
+                    tofi_host.OPTIONAL_IMAGE_REPOS['runner'] + ':latest'):
+            broken = manifest()
+            broken['images']['runner'] = bad
+            with self.assertRaises(tofi_host.HostError):
+                tofi_host.validate_manifest(broken)
+        extra = manifest()
+        extra['images']['other'] = image('app', '1')
+        with self.assertRaises(tofi_host.HostError):
+            tofi_host.validate_manifest(extra)
+
     def test_install_options_follow_the_host(self):
         args = lambda *extra: tofi_host.parse_args(['install', '--manifest', 'm.json', *extra])  # noqa: E731
         # No cgroup v2 / AppArmor under the test root: this host cannot run computers.
@@ -2293,6 +2361,10 @@ class ComputerAddRemoveTests(NoComputerCase):
         super().setUp()
         self.kvm_host()
         self.preflight = mock.patch.object(tofi_host, 'computer_add_preflight', return_value=[]).start()
+        # By default the running App cannot attach or detach live, so the restart path runs (as for an older release).
+        self.start_worker = mock.patch.object(tofi_host, 'start_worker').start()
+        self.host_control = mock.patch.object(tofi_host, 'host_control',
+                                              side_effect=tofi_host.HostControlUnavailable('older release', 404)).start()
         self.running = []
         mock.patch.object(tofi_host, 'project_containers', side_effect=lambda: list(self.running)).start()
 
@@ -2324,6 +2396,39 @@ class ComputerAddRemoveTests(NoComputerCase):
         self.assertEqual(self.phase(), 'installed')
         self.assertEqual((self.P.data / 'tofi.db').read_bytes(), DATA)
         self.assertIn('Computer added', sys.stdout.getvalue())
+
+    def test_add_attaches_live_when_the_running_app_can(self):
+        self.installed_none()
+        self.host_control.side_effect = None
+        self.host_control.return_value = {'attached': 2, 'already_attached': 0, 'failed': []}
+        result = tofi_host.computer_add('kvm')
+        self.assertEqual(result, {'added': True, 'computer': 'kvm'})
+        self.start_worker.assert_called_once()
+        self.assertTrue(self.start_worker.call_args.kwargs['first_install'])
+        self.host_control.assert_called_once()
+        self.assertEqual(self.host_control.call_args.args[1], 'attach')
+        self.start_services.assert_not_called()   # the App was not restarted
+        self.assertEqual(tofi_host.read_env()['TOFI_COMPUTER_BACKEND'], 'kvm')
+        self.assertIn('no restart', sys.stdout.getvalue())
+
+    def test_add_restarts_an_app_started_without_the_workers_sockets_then_attaches(self):
+        self.installed_none()
+        self.host_control.side_effect = [tofi_host.HostControlUnavailable('the App answered 409', 409),
+                                         {'attached': 0, 'already_attached': 2}]
+        self.assertTrue(tofi_host.computer_add('kvm')['added'])
+        self.start_services.assert_called_once()
+        self.assertEqual([c.args[1] for c in self.host_control.call_args_list], ['attach', 'attach'])
+        self.assertIn('restarting it', sys.stdout.getvalue())
+
+    def test_add_failure_after_the_live_attach_started_puts_tofi_env_back(self):
+        env = self.installed_none()
+        self.host_control.side_effect = None
+        self.host_control.return_value = {'attached': 1}
+        self.start_worker.side_effect = tofi_host.HostError('worker not ready')
+        with self.assertRaisesRegex(tofi_host.HostError, 'Adding the computer failed'):
+            tofi_host.computer_add('kvm')
+        self.assertEqual(tofi_host.read_env()['TOFI_COMPUTER_BACKEND'], 'none')
+        self.host_control.assert_not_called()
 
     def test_add_is_idempotent(self):
         self.installed_none()
@@ -2424,6 +2529,35 @@ class ComputerAddRemoveTests(NoComputerCase):
         self.assertTrue(tofi_host.computer_add('kvm')['added'])
         self.assertEqual((self.P.worker / 'state' / 'acct' / 'workspace.ext4').read_bytes(), b'disk')
 
+    def test_remove_detaches_live_before_the_worker_stops_and_does_not_restart_the_app(self):
+        self.installed()
+        order = []
+
+        def detach(env, operation, body=None, timeout=60):
+            order.append(('host', operation, body, len(self.compose_calls())))
+            return {'detached': 2, 'interrupted': 0, 'outbox_synced': 1, 'failed': 0}
+        self.host_control.side_effect = detach
+        result = tofi_host.computer_remove()
+        self.assertEqual(result, {'removed': True, 'computer': 'none', 'purged': False})
+        self.assertEqual(order[0][:3], ('host', 'detach', {'wait_seconds': 60}))
+        stop_at = next(i for i, c in enumerate(self.compose_calls()) if c[-2:] == ['stop', 'worker'])
+        self.assertLessEqual(order[0][3], stop_at, 'the App detaches before the Worker stops')
+        self.start_services.assert_not_called()
+        self.assertEqual(tofi_host.read_env()['TOFI_COMPUTER_BACKEND'], 'none')
+        self.assertIn('no restart', sys.stdout.getvalue())
+
+    def test_remove_failure_after_a_live_detach_attaches_again_and_restores_tofi_env(self):
+        self.installed()
+        self.host_control.side_effect = None
+        self.host_control.return_value = {'detached': 1, 'outbox_synced': 0}
+        with mock.patch.object(tofi_host, 'stop_worker', side_effect=tofi_host.HostError('docker is stuck')):
+            with self.assertRaisesRegex(tofi_host.HostError, 'Removing the computer failed'):
+                tofi_host.computer_remove()
+        self.assertEqual(tofi_host.read_env()['TOFI_COMPUTER_BACKEND'], 'kvm')
+        self.start_worker.assert_called_once()
+        self.assertEqual([c.args[1] for c in self.host_control.call_args_list], ['detach', 'attach'])
+        self.start_services.assert_not_called()
+
     def test_remove_purge_deletes_the_computer_state(self):
         self.installed()
         (self.P.worker / 'state' / 'acct').mkdir(parents=True)
@@ -2461,6 +2595,87 @@ class ComputerAddRemoveTests(NoComputerCase):
             tofi_host.computer_remove()
         self.assertEqual(tofi_host.read_env()['TOFI_COMPUTER_BACKEND'], 'kvm')
 
+    def test_purge_refuses_while_files_exist_only_on_the_computer(self):
+        self.installed()
+        (self.P.worker / 'state' / 'acct').mkdir(parents=True)
+        (self.P.worker / 'state' / 'acct' / 'workspace.ext4').write_bytes(b'disk')
+        self.guest_copies.return_value = (3, [])
+        with self.assertRaisesRegex(tofi_host.HostError, r'3 files exist only on the computer.*Nothing was changed'):
+            tofi_host.computer_remove(purge=True, yes=True)
+        self.assertEqual(tofi_host.read_env()['TOFI_COMPUTER_BACKEND'], 'kvm', 'a refusal changes nothing')
+        self.assertEqual((self.P.worker / 'state' / 'acct' / 'workspace.ext4').read_bytes(), b'disk')
+        self.start_services.assert_not_called()
+        # The explicit flag is the only way through.
+        with mock.patch('sys.stderr', new_callable=io.StringIO) as err:
+            result = tofi_host.computer_remove(purge=True, yes=True, discard_unsaved_files=True)
+        self.assertTrue(result['purged'])
+        self.assertFalse(self.P.worker.exists())
+        self.assertIn('Discarding 3 files', err.getvalue())
+
+    def test_purge_refuses_when_the_pending_count_is_unknown(self):
+        self.installed()
+        self.guest_copies.return_value = (0, ['/var/lib/tofi/accounts/x/tofi.db'])
+        with self.assertRaisesRegex(tofi_host.HostError, r'Cannot tell whether files exist only on the computer'):
+            tofi_host.computer_remove(purge=True, yes=True)
+        self.assertTrue(self.P.worker_json.exists())
+
+    def vault(self, folder, records):
+        (folder / 'secrets').mkdir(parents=True, exist_ok=True)
+        (folder / 'secrets' / 'vault.json').write_text(json.dumps(records))
+
+    def test_purge_prints_the_class_c_list_with_environment_and_key_names(self):
+        self.installed()
+        (self.P.worker / 'state' / 'acct').mkdir(parents=True)
+        self.vault(self.P.data, {
+            'a': {'id': 'a', 'kind': 'env', 'target': 'MY_API_KEY', 'name': 'API', 'ciphertext': 'c2VjcmV0LXZhbHVl'},
+            'b': {'id': 'b', 'kind': 'ssh', 'target': 'id_work', 'ciphertext': 'c2VjcmV0'},
+            'c': {'id': 'c', 'kind': 'model_provider', 'target': 'anthropic'},
+            'd': {'id': 'd', 'kind': 'env', 'target': 'RUN_SCOPED', 'run_id': 'run_1'},
+            'e': {'id': 'e', 'kind': 'bot_env', 'target': 'BOT_ONLY'},
+        })
+        self.vault(self.P.data / 'accounts' / 'acct2', {'f': {'id': 'f', 'kind': 'env', 'target': 'OTHER_TOKEN'}})
+        with mock.patch('sys.stdout', new_callable=io.StringIO) as out:
+            tofi_host.computer_remove(purge=True, yes=True)
+        text = out.getvalue()
+        self.assertIn('Browser sign-ins', text)
+        self.assertIn('Installed tools', text)
+        self.assertIn('Work files', text)
+        self.assertIn('2 environment variables (MY_API_KEY, OTHER_TOKEN)', text)
+        self.assertIn('1 SSH key (id_work)', text)
+        for hidden in ('anthropic', 'RUN_SCOPED', 'BOT_ONLY', 'c2VjcmV0'):
+            self.assertNotIn(hidden, text)
+
+    def test_purge_list_says_so_when_no_configuration_was_saved(self):
+        self.installed()
+        with mock.patch('sys.stdout', new_callable=io.StringIO) as out:
+            tofi_host.computer_remove(purge=True, yes=True)
+        self.assertIn('no environment variables or SSH keys were saved in Settings', out.getvalue())
+
+    def test_purge_list_says_so_when_a_vault_is_unreadable(self):
+        self.installed()
+        self.P.data.joinpath('secrets').mkdir(parents=True, exist_ok=True)
+        self.P.data.joinpath('secrets', 'vault.json').write_text('not json')
+        with mock.patch('sys.stdout', new_callable=io.StringIO) as out:
+            tofi_host.computer_remove(purge=True, yes=True)
+        self.assertIn('could not be read', out.getvalue())
+        self.assertNotIn('no environment variables', out.getvalue())
+
+    def test_remove_without_purge_warns_with_the_count_and_keeps_the_disk(self):
+        self.installed()
+        (self.P.worker / 'state' / 'acct').mkdir(parents=True)
+        (self.P.worker / 'state' / 'acct' / 'workspace.ext4').write_bytes(b'disk')
+        self.guest_copies.return_value = (1, [])
+        with mock.patch('sys.stderr', new_callable=io.StringIO) as err:
+            result = tofi_host.computer_remove()
+        self.assertEqual(result, {'removed': True, 'computer': 'none', 'purged': False})
+        self.assertIn('1 file exists only on this computer', err.getvalue())
+        self.assertEqual((self.P.worker / 'state' / 'acct' / 'workspace.ext4').read_bytes(), b'disk')
+
+    def test_cli_wiring_of_discard_unsaved_files(self):
+        args = tofi_host.parse_args(['computer', 'remove', '--purge', '--discard-unsaved-files'])
+        self.assertTrue(args.discard_unsaved_files)
+        self.assertFalse(tofi_host.parse_args(['computer', 'remove']).discard_unsaved_files)
+
     def test_cli_wiring(self):
         self.installed_none()
         code, out = self.main('computer', 'add', 'kvm')
@@ -2473,6 +2688,41 @@ class ComputerAddRemoveTests(NoComputerCase):
             tofi_host.parse_args(['computer', 'add', 'e2b'])
         args = tofi_host.parse_args(['computer', 'remove', '--purge', '--yes', '--force'])
         self.assertEqual((args.computer_command, args.purge, args.yes, args.force), ('remove', True, True, True))
+
+
+class GuestCopyCountTests(HostCase):
+    def database(self, account, rows):
+        import sqlite3 as sqlite
+        folder = self.P.data / 'accounts' / account
+        folder.mkdir(parents=True)
+        connection = sqlite.connect(str(folder / 'tofi.db'))
+        connection.execute('CREATE TABLE attachments(id TEXT, disk_name TEXT)')
+        connection.executemany('INSERT INTO attachments VALUES(?,?)', rows)
+        connection.commit()
+        connection.close()
+        return folder / 'tofi.db'
+
+    def test_counts_only_rows_still_on_the_computer_across_accounts(self):
+        self.database('a1', [('1', 'vm:aaa'), ('2', '2.upload'), ('3', 'vm:bbb')])
+        self.database('a2', [('4', '4.upload')])
+        self.database('a3', [('5', 'vm:ccc')])
+        self.assertEqual(tofi_host.pending_guest_copies(), (3, []))
+
+    def test_an_unreadable_database_is_reported_never_counted_as_zero(self):
+        self.database('a1', [('1', 'vm:aaa')])
+        folder = self.P.data / 'accounts' / 'bad'
+        folder.mkdir()
+        (folder / 'tofi.db').write_bytes(b'not a database at all' * 50)
+        total, unreadable = tofi_host.pending_guest_copies()
+        self.assertEqual(total, 1)
+        self.assertEqual(unreadable, [str(folder / 'tofi.db')])
+
+    def test_a_database_without_the_table_counts_zero(self):
+        import sqlite3 as sqlite
+        folder = self.P.data / 'accounts' / 'old'
+        folder.mkdir(parents=True)
+        sqlite.connect(str(folder / 'tofi.db')).close()
+        self.assertEqual(tofi_host.pending_guest_copies(), (0, []))
 
 
 class ProgressTests(unittest.TestCase):
@@ -2672,6 +2922,282 @@ class TuiTests(unittest.TestCase):
         header = tofi_tui.render_art(tofi_tui.Paint(None), note='installer')
         self.assertEqual(header[:4], [line.rstrip() for line in tofi_host.BANNER_ART[:4]])
         self.assertTrue(header[4].endswith('installer'))
+
+
+class FakeIptables:
+    """Just enough of iptables to prove the Runner rules are idempotent and removable."""
+
+    def __init__(self):
+        self.chains = {'INPUT': [], 'DOCKER-USER': ['-j RETURN']}
+        self.calls = []
+
+    def __call__(self, args):
+        args = list(args[3:])  # drop: iptables -w 5
+        self.calls.append(args)
+        op, chain, rest = args[0], args[1], args[2:]
+        done = lambda code=0, out='': subprocess.CompletedProcess(args, code, out, '')
+        if op == '-N':
+            if chain in self.chains:
+                return done(1)
+            self.chains[chain] = []
+            return done()
+        if chain not in self.chains:
+            return done(1)
+        rules = self.chains[chain]
+        if op == '-S':
+            return done(0, '-N %s\n' % chain + ''.join('-A %s %s\n' % (chain, rule) for rule in rules))
+        if op == '-F':
+            rules.clear()
+            return done()
+        if op == '-X':
+            del self.chains[chain]
+            return done()
+        if op == '-A':
+            rules.append(' '.join(rest))
+            return done()
+        if op == '-I':
+            rules.insert(int(rest[0]) - 1, ' '.join(rest[1:]))
+            return done()
+        if op == '-C':
+            return done(0 if ' '.join(rest) in rules else 1)
+        if op == '-D':
+            if ' '.join(rest) in rules:
+                rules.remove(' '.join(rest))
+                return done()
+            return done(1)
+        raise AssertionError('unexpected iptables call %r' % args)
+
+
+class RunnerEgressFilterTests(HostCase):
+    NETWORKS = [{'IPAM': {'Config': [{'Subnet': '172.18.0.0/16'}]}},
+                {'IPAM': {'Config': [{'Subnet': '172.19.0.0/16'}]}},
+                {'IPAM': {'Config': [{'Subnet': tofi_host.RUNNER_EGRESS_SUBNET}]}}]
+
+    def setUp(self):
+        super().setUp()
+        self.iptables = FakeIptables()
+        which = mock.patch.object(tofi_host.shutil, 'which', side_effect=lambda name: '/sbin/' + name)
+        which.start()
+        self.addCleanup(which.stop)
+        self.warnings = []
+        warn = mock.patch.object(tofi_host, 'warn', side_effect=self.warnings.append)
+        warn.start()
+        self.addCleanup(warn.stop)
+
+    def fake_run(self, args, check=True, timeout=300, **kwargs):
+        self.commands.append(list(args))
+        if args[0] == 'iptables':
+            return self.iptables(args)
+        if args[:3] == ['docker', 'network', 'ls']:
+            return completed('net1\nnet2\nnet3\n')
+        if args[:3] == ['docker', 'network', 'inspect']:
+            return completed(json.dumps(self.NETWORKS))
+        return completed()
+
+    def test_blocks_host_private_ranges_and_compose_subnets_then_returns_for_the_internet(self):
+        self.assertTrue(tofi_host.ensure_runner_egress_filter())
+        rules = self.iptables.chains[tofi_host.RUNNER_EGRESS_CHAIN]
+        for destination in ('10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '169.254.0.0/16', '172.18.0.0/16', '172.19.0.0/16'):
+            self.assertIn('-d %s -j DROP' % destination, rules)
+        self.assertNotIn('-d %s -j DROP' % tofi_host.RUNNER_EGRESS_SUBNET, rules)  # not its own network
+        self.assertEqual(rules[-1], '-j RETURN')
+        # forwarded traffic goes through the chain, traffic to the host itself is dropped
+        self.assertEqual(self.iptables.chains['DOCKER-USER'][0], '-s %s -j %s' % (tofi_host.RUNNER_EGRESS_SUBNET, tofi_host.RUNNER_EGRESS_CHAIN))
+        self.assertEqual(self.iptables.chains['INPUT'][0], '-s %s -j DROP' % tofi_host.RUNNER_EGRESS_SUBNET)
+        self.assertEqual(self.warnings, [])
+
+    def test_applying_twice_changes_nothing(self):
+        tofi_host.ensure_runner_egress_filter()
+        snapshot = {k: list(v) for k, v in self.iptables.chains.items()}
+        self.iptables.calls.clear()
+        self.assertTrue(tofi_host.ensure_runner_egress_filter())
+        self.assertEqual(self.iptables.chains, snapshot)
+        self.assertFalse([c for c in self.iptables.calls if c[0] in ('-F', '-A', '-I', '-N')], self.iptables.calls)
+
+    def test_a_changed_chain_is_repaired(self):
+        tofi_host.ensure_runner_egress_filter()
+        self.iptables.chains[tofi_host.RUNNER_EGRESS_CHAIN].insert(0, '-d 8.8.8.8 -j ACCEPT')
+        self.iptables.chains['DOCKER-USER'].remove('-s %s -j %s' % (tofi_host.RUNNER_EGRESS_SUBNET, tofi_host.RUNNER_EGRESS_CHAIN))
+        self.assertTrue(tofi_host.ensure_runner_egress_filter())
+        self.assertNotIn('-d 8.8.8.8 -j ACCEPT', self.iptables.chains[tofi_host.RUNNER_EGRESS_CHAIN])
+        self.assertEqual(self.iptables.chains['DOCKER-USER'][0], '-s %s -j %s' % (tofi_host.RUNNER_EGRESS_SUBNET, tofi_host.RUNNER_EGRESS_CHAIN))
+
+    def test_uninstall_removes_every_rule_and_is_repeatable(self):
+        tofi_host.ensure_runner_egress_filter()
+        tofi_host.remove_runner_egress_filter()
+        self.assertEqual(self.iptables.chains, {'INPUT': [], 'DOCKER-USER': ['-j RETURN']})
+        tofi_host.remove_runner_egress_filter()
+        self.assertEqual(self.iptables.chains, {'INPUT': [], 'DOCKER-USER': ['-j RETURN']})
+
+    def test_a_host_without_iptables_gets_a_warning_and_nothing_breaks(self):
+        with mock.patch.object(tofi_host.shutil, 'which', return_value=None):
+            self.assertFalse(tofi_host.ensure_runner_egress_filter())
+            tofi_host.remove_runner_egress_filter()
+        self.assertEqual(len(self.warnings), 1)
+        self.assertIn('neither iptables nor nft', self.warnings[0])
+        self.assertFalse([c for c in self.commands if c[0] == 'iptables'])
+        self.warnings.clear()
+        with mock.patch.object(tofi_host.shutil, 'which', side_effect=lambda name: '/sbin/nft' if name == 'nft' else None):
+            self.assertFalse(tofi_host.ensure_runner_egress_filter())
+        self.assertIn('nft is present but iptables is not', self.warnings[0])
+
+    def test_docker_without_a_user_chain_gets_a_warning(self):
+        del self.iptables.chains['DOCKER-USER']
+        self.assertFalse(tofi_host.ensure_runner_egress_filter())
+        self.assertIn('DOCKER-USER', self.warnings[0])
+        self.assertNotIn(tofi_host.RUNNER_EGRESS_CHAIN, self.iptables.chains)
+
+    def test_start_services_fences_the_runner_before_it_can_run_and_only_when_there_is_one(self):
+        env = {'TOFI_COMPUTER_BACKEND': 'none', 'TOFI_RUNNER_IMAGE': 'ghcr.io/jackzhao98/tofi-mcp-runner@sha256:' + '4' * 64}
+        with mock.patch.object(tofi_host, 'health'), mock.patch.object(tofi_host, 'read_env', return_value=env):
+            REAL_START_SERVICES(env)
+        first_firewall = next(i for i, c in enumerate(self.commands) if c[0] == 'iptables')
+        first_up = next(i for i, c in enumerate(self.commands) if 'up' in c)
+        self.assertLess(first_firewall, first_up)
+        self.commands.clear()
+        env.pop('TOFI_RUNNER_IMAGE')
+        with mock.patch.object(tofi_host, 'health'), mock.patch.object(tofi_host, 'read_env', return_value=env):
+            REAL_START_SERVICES(env)
+        self.assertFalse([c for c in self.commands if c[0] == 'iptables'])
+
+
+class RunnerDowngradeGuardTests(LifecycleBase):
+    def mark_container_runner(self, name='11111111-1111-4111-8111-111111111111', state='container'):
+        path = self.P.data / 'accounts' / name / 'local-runner.json'
+        self.write(path, json.dumps({'state': state, 'at': 1}))
+
+    def test_an_older_release_is_refused_when_an_account_uses_the_runner_container(self):
+        self.installed()
+        self.mark_container_runner()
+        with self.assertRaises(tofi_host.HostError) as caught:
+            tofi_host.upgrade(manifest_path=str(self.write_manifest(manifest())))
+        message = str(caught.exception)
+        self.assertIn('--allow-runner-downgrade', message)
+        self.assertIn('Runner container', message)
+        self.assertIn('diverging', message)
+        self.assertEqual(tofi_host.read_env()['TOFI_VERSION'], OLD)
+        self.stopped.assert_not_called()
+        self.pull.assert_not_called()
+
+    def test_the_unattended_paths_cannot_accept_it(self):
+        self.installed()
+        self.mark_container_runner()
+        with self.assertRaises(tofi_host.HostError):
+            tofi_host.upgrade(manifest=manifest(), trigger='auto')
+        self.assertNotIn('allow_runner_downgrade', tofi_host.auto_update.__code__.co_varnames)
+        self.assertEqual(tofi_host.read_env()['TOFI_VERSION'], OLD)
+
+    def test_the_command_line_flag_accepts_it(self):
+        self.installed()
+        self.mark_container_runner()
+        args = tofi_host.parse_args(['update', '--allow-runner-downgrade', '--yes'])
+        self.assertTrue(args.allow_runner_downgrade)
+        result = tofi_host.upgrade(manifest_path=str(self.write_manifest(manifest())), allow_runner_downgrade=True)
+        self.assertTrue(result['upgraded'])
+        self.assertEqual(tofi_host.read_env()['TOFI_VERSION'], NEW)
+        self.assertNotIn('TOFI_RUNNER_IMAGE', tofi_host.read_env())
+
+    def test_nothing_changes_for_installs_that_never_used_the_container(self):
+        self.installed()
+        self.mark_container_runner(state='')
+        self.assertTrue(tofi_host.upgrade(manifest_path=str(self.write_manifest(manifest())))['upgraded'])
+
+    def test_a_release_that_carries_the_runner_is_never_refused(self):
+        self.installed()
+        self.mark_container_runner()
+        carrying = manifest()
+        carrying['images']['runner'] = tofi_host.OPTIONAL_IMAGE_REPOS['runner'] + '@sha256:' + '4' * 64
+        self.assertTrue(tofi_host.upgrade(manifest_path=str(self.write_manifest(carrying)))['upgraded'])
+        self.assertEqual(tofi_host.read_env()['TOFI_RUNNER_IMAGE'], carrying['images']['runner'])
+
+    def test_the_owner_workspace_record_counts_too(self):
+        self.installed()
+        self.write(self.P.data / 'local-runner.json', json.dumps({'state': 'container'}))
+        self.assertEqual(tofi_host.container_runner_accounts(), ['owner'])
+
+
+
+class HostControlClientTests(NoComputerCase):
+    """The host's call to the running App, against a real loopback server."""
+
+    def serve(self, status=200, body=None):
+        import http.server
+        import threading
+        seen = []
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_any(handler):
+                length = int(handler.headers.get('Content-Length') or 0)
+                seen.append((handler.command, handler.path, handler.headers.get('Authorization'),
+                             handler.rfile.read(length) if length else b''))
+                data = json.dumps(body if body is not None else {'attached': 1}).encode()
+                handler.send_response(status)
+                handler.send_header('Content-Type', 'application/json')
+                handler.send_header('Content-Length', str(len(data)))
+                handler.end_headers()
+                handler.wfile.write(data)
+            do_GET = do_POST = do_any
+
+            def log_message(handler, *args):
+                pass
+        server = http.server.HTTPServer(('127.0.0.1', 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        return server.server_address[1], seen
+
+    def test_the_token_is_created_once_private_and_reused(self):
+        self.installed_none()
+        token = tofi_host.ensure_host_control_token()
+        path = self.P.data / tofi_host.HOST_CONTROL_TOKEN_NAME
+        self.assertGreaterEqual(len(token), 32)
+        self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+        self.assertEqual(tofi_host.ensure_host_control_token(), token)
+        self.assertEqual(path.read_text().strip(), token)
+
+    def test_a_call_carries_the_token_and_returns_the_answer(self):
+        env = self.installed_none()
+        port, seen = self.serve(body={'attached': 3})
+        env = dict(env, TOFI_HTTP_PORT=str(port), TOFI_TLS_CERT_FILE='')
+        answer = tofi_host.host_control(env, 'attach')
+        self.assertEqual(answer, {'attached': 3})
+        method, path, authorization, _ = seen[0]
+        self.assertEqual((method, path), ('POST', '/api/host/computer/attach'))
+        self.assertEqual(authorization, 'Bearer ' + tofi_host.ensure_host_control_token())
+        tofi_host.host_control(env, 'detach', {'wait_seconds': 5})
+        self.assertEqual(json.loads(seen[1][3]), {'wait_seconds': 5})
+        tofi_host.host_control(env, 'state')
+        self.assertEqual(seen[2][0], 'GET')
+
+    def test_anything_but_200_means_the_app_must_be_restarted(self):
+        env = self.installed_none()
+        for status, body in ((404, {'error': 'not found'}), (401, {'code': 'unauthorized'}),
+                             (409, {'code': 'computer_backend_unavailable'}), (502, {'failed': ['a']})):
+            port, _ = self.serve(status, body)
+            with self.assertRaises(tofi_host.HostControlUnavailable) as caught:
+                tofi_host.host_control(dict(env, TOFI_HTTP_PORT=str(port), TOFI_TLS_CERT_FILE=''), 'attach')
+            self.assertEqual(caught.exception.status, status)
+
+    def test_an_app_that_does_not_answer_is_not_an_error_for_the_caller(self):
+        env = self.installed_none()
+        sock = socket.socket()
+        sock.bind(('127.0.0.1', 0))
+        port = sock.getsockname()[1]
+        sock.close()   # nothing listens here now
+        env = dict(env, TOFI_HTTP_PORT=str(port), TOFI_TLS_CERT_FILE='')
+        self.assertFalse(tofi_host.attach_computers_hot(env, quiet=True))
+        self.assertFalse(tofi_host.detach_computers_hot(env, 1))
+
+    def test_the_caddyfile_never_proxies_the_host_route(self):
+        text = tofi_host.render_caddyfile(Path(__file__).parent, 'tofi.example.com', '')
+        self.assertIn('@host path /api/host/*', text)
+        self.assertLess(text.index('respond @host 404'), text.index('reverse_proxy'))
+
+    def test_compose_gives_the_app_the_token_file(self):
+        text = (HERE / 'compose.yaml').read_text()
+        app = text.split('  app:')[1].split('  caddy:')[0]
+        self.assertIn('TOFI_HOST_CONTROL_TOKEN_FILE: /app/data/host-control.token', app)
 
 
 if __name__ == '__main__':

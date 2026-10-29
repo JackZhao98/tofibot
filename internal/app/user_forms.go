@@ -159,7 +159,7 @@ func (s *Server) secretInputTool(c Conversation, r Run) Tool {
 		if json.Unmarshal(raw, &arg) != nil || len(arg.Label) > 120 || len(arg.Purpose) > 500 || strings.TrimSpace(arg.Label) == "" || strings.TrimSpace(arg.Purpose) == "" {
 			return "", errors.New("label and purpose are required")
 		}
-		if s.secretVault == nil || s.microVM == nil {
+		if s.secretVault == nil || s.computer() == nil {
 			return "", errors.New("private input requires secret storage and a shared computer; do not fall back to plain text")
 		}
 		in, err := normalizeQuestionInput(askQuestionInput{
@@ -211,7 +211,7 @@ func (s *Server) userFormTool(c Conversation, r Run) Tool {
 			return "", err
 		}
 		for _, f := range in.Fields {
-			if f.Type == "password" && (s.secretVault == nil || s.microVM == nil) {
+			if f.Type == "password" && (s.secretVault == nil || s.computer() == nil) {
 				return "", errors.New("private browser form input requires secret storage and a shared computer; do not fall back to plain text")
 			}
 		}
@@ -460,7 +460,7 @@ func (s *Server) applyFormSecret(ctx context.Context, run Run, rec secretRecord,
 	args, _ := json.Marshal(map[string]string{"origin": rec.Target, "text": value})
 	// Internal-only action: do not add it to the model/public computer-action
 	// allowlist. This path already owns the shared lease and approved vault ref.
-	if _, err := s.microVM.Action(ctx, computer.Action{BotID: run.BotID, RunID: run.ID, Source: "model", Name: "browser.type_private", Args: args}); err != nil {
+	if _, err := s.computer().Action(ctx, computer.Action{BotID: run.BotID, RunID: run.ID, Source: "model", Name: "browser.type_private", Args: args}); err != nil {
 		// Do not forward guest/CDP diagnostics: they may contain private input.
 		// Older guests fail closed; never fall back to unguarded desktop paste.
 		return "", errors.New("private input rejected: inspect the page and focus the visible password field on the approved website before retrying; the shared computer must support protected form input")

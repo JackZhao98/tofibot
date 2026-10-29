@@ -135,7 +135,7 @@ func (s *Server) takeoverTool(c Conversation, r Run) Tool {
 		if json.Unmarshal(raw, &arg) != nil {
 			return "", ErrQuestionInvalidAnswer
 		}
-		if s.microVM == nil {
+		if s.computer() == nil {
 			return "", tooloutcome.New(tooloutcome.Permanent, "no_shared_computer", "not_executed", "There is no shared computer to hand over; explain the blocker in your reply.", "explain_blocker").Err()
 		}
 		if arg.ExpiresInSeconds < 0 || arg.ExpiresInSeconds > int(maxTakeoverWait/time.Second) {

@@ -50,7 +50,7 @@ func (s *Server) closeVMOAuth() {
 // Reserve the same scheduler resource as ordinary graphical runs. Human input
 // for this Bot may coexist with this reservation; no Bot run may bypass it.
 func (s *Server) startVMOAuth(requestCtx context.Context, botID, name string) (_ *vmOAuthSession, resultErr error) {
-	if s.microVM == nil {
+	if s.computer() == nil {
 		return nil, errors.New("shared computer is not configured")
 	}
 	bot, err := s.store.GetBot(botID)
@@ -111,7 +111,7 @@ func (s *Server) startVMOAuth(requestCtx context.Context, botID, name string) (_
 	if !s.claimComputerOwner("oauth:"+botID, v.owner()) {
 		return nil, errOAuthComputerBusy
 	}
-	guest, err := s.microVM.OAuthStart(ctx)
+	guest, err := s.oauthBridge().OAuthStart(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +125,7 @@ func (s *Server) startVMOAuth(requestCtx context.Context, botID, name string) (_
 	if err != nil || u.Query().Get("state") == "" {
 		return nil, errors.New("invalid authorization response")
 	}
-	if _, err = s.microVM.OAuthArm(ctx, v.guestID, u.Query().Get("state")); err != nil {
+	if _, err = s.oauthBridge().OAuthArm(ctx, v.guestID, u.Query().Get("state")); err != nil {
 		return nil, err
 	}
 	if err = s.oauthGuestAction(ctx, v, "desktop.hold", map[string]any{"ttl_sec": 120}); err != nil {
@@ -152,7 +152,7 @@ func (s *Server) oauthGuestAction(ctx context.Context, v *vmOAuthSession, action
 	}
 	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	result, err := s.microVM.Action(callCtx, computer.Action{BotID: v.botID, RunID: v.owner(), Source: "human", Name: action, Args: raw})
+	result, err := s.computer().Action(callCtx, computer.Action{BotID: v.botID, RunID: v.owner(), Source: "human", Name: action, Args: raw})
 	if err == nil && !result.OK {
 		return errors.New("shared computer action failed")
 	}
@@ -195,7 +195,7 @@ func (s *Server) pollVMOAuth(ctx context.Context, v *vmOAuthSession) {
 				lease.Unlock()
 			}
 		case <-ticker.C:
-			result, err := s.microVM.OAuthPoll(ctx, v.guestID)
+			result, err := s.oauthBridge().OAuthPoll(ctx, v.guestID)
 			if ctx.Err() != nil {
 				continue
 			}
@@ -240,7 +240,7 @@ func (s *Server) finishVMOAuth(v *vmOAuthSession, status, code string) {
 	}
 	if v.guestID != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
-		_, _ = s.microVM.OAuthCancel(ctx, v.guestID)
+		_, _ = s.oauthBridge().OAuthCancel(ctx, v.guestID)
 		cancel()
 	}
 	// Close admission while any in-flight acquisition finishes. Do not hold
@@ -271,7 +271,7 @@ func (s *Server) finishVMOAuth(v *vmOAuthSession, status, code string) {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			args, _ := json.Marshal(map[string]string{"action": "close", "target_id": v.targetID})
 			// Viewer source prevents cleanup from restarting a stopped desktop.
-			_, _ = s.microVM.Action(ctx, computer.Action{BotID: v.botID, RunID: v.owner(), Source: "viewer", Name: "browser.action", Args: args})
+			_, _ = s.computer().Action(ctx, computer.Action{BotID: v.botID, RunID: v.owner(), Source: "viewer", Name: "browser.action", Args: args})
 			cancel()
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
@@ -289,7 +289,7 @@ func (s *Server) finishVMOAuth(v *vmOAuthSession, status, code string) {
 
 func (s *Server) routeVMOAuth(w http.ResponseWriter, r *http.Request, p string) bool {
 	if p == "extensions/oauth-options" && r.Method == http.MethodGet {
-		writeJSON(w, 200, map[string]any{"vm_available": s.microVM != nil, "web_callback_origin": s.webOAuthOrigin(r), "desktop_redirect_uri": desktopOAuthRedirect})
+		writeJSON(w, 200, map[string]any{"vm_available": s.computer() != nil, "web_callback_origin": s.webOAuthOrigin(r), "desktop_redirect_uri": desktopOAuthRedirect})
 		return true
 	}
 	parts := strings.Split(p, "/")
@@ -360,7 +360,7 @@ func (s *Server) oauthInputHold(ctx context.Context, botID string, release bool)
 	}
 	callCtx, cancel := context.WithTimeout(ctx, 6*time.Second)
 	defer cancel()
-	result, err := s.microVM.Action(callCtx, computer.Action{BotID: botID, RunID: owner, Source: "human", Name: action, Args: args})
+	result, err := s.computer().Action(callCtx, computer.Action{BotID: botID, RunID: owner, Source: "human", Name: action, Args: args})
 	if err == nil && !result.OK {
 		return errors.New("authorization desktop hold transfer failed")
 	}

@@ -36,7 +36,7 @@ func (s *Server) imageGenerationTool(c Conversation, r Run, generate func(contex
 	var mu sync.Mutex
 	var shown int
 	referencesDescription := "Optional images to draw on, in order: attachment IDs, or absolute paths of PNG, JPEG, GIF or WebP files on your computer."
-	if s.microVM == nil {
+	if s.computer() == nil {
 		referencesDescription = "Optional images to draw on, in order: attachment IDs."
 	}
 	return Tool{Name: "generate_image", Description: "Generate an image with the connected Codex image service: a new one, or an edit. references are images to draw on: attachments of this conversation (including images made earlier) or image files on your computer by absolute path. Without edit, a new image is made, guided by the references, which stay where they are. With edit, the first reference is changed; if you made it in this run, the edit replaces it in the final reply. You see the result; check it as the reader will. Generated images stay attached; do not publish them again. With a computer, the image is also at computer_path for further work such as typesetting; publish the finished file with publish_file and replaces_attachment_id set to the generated image. Use only for requested image work. May take minutes and uses the image allowance. Identical requests in one run reuse the result. Never claim success on an error.", Parameters: objectSchema(map[string]any{

@@ -1,0 +1,16 @@
+/* Why a stored file will not open (AttachmentNotice). It grows in over --m-panel-in and folds away over --m-panel-out. */
+.attachment-notice-wrap { display: grid; grid-template-rows: 1fr; animation: attachment-notice-in var(--m-panel-in) var(--ease-out) both; }
+.attachment-notice-wrap[data-open="false"] { grid-template-rows: 0fr; opacity: 0; animation: attachment-notice-out var(--m-panel-out) var(--ease-in) both; }
+.attachment-notice-body { min-height: 0; overflow: hidden; }
+.attachment-notice { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px 8px; padding: 2px 12px 10px; color: var(--muted); font: var(--type-meta); text-align: left; }
+.attachment-notice > svg { flex: none; margin-top: 2px; }
+.attachment-notice p { flex: 1 1 200px; margin: 0; }
+.attachment-notice .text-button { padding: 0; border: 0; background: transparent; color: var(--ink); font: inherit; }
+.attachment-notice .text-button:hover { text-decoration: underline; text-underline-offset: 3px; }
+.fp-status .attachment-notice { flex-direction: column; align-items: center; max-width: 360px; padding: 0; gap: 10px; text-align: center; }
+.fp-status .attachment-notice > svg { margin-top: 0; }
+.fp-status .attachment-notice p { flex: none; }
+.fp-status .attachment-notice .text-button { padding: 6px 12px; border: 1px solid var(--line); border-radius: var(--radius-md); }
+@keyframes attachment-notice-in { from { grid-template-rows: 0fr; opacity: 0; } }
+@keyframes attachment-notice-out { from { grid-template-rows: 1fr; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .attachment-notice-wrap, .attachment-notice-wrap[data-open="false"] { animation: none; } }

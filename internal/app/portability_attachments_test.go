@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"github.com/JackZhao98/tofibot/internal/computer"
 	"github.com/google/uuid"
 	"net/http/httptest"
 	"os"
@@ -52,7 +53,7 @@ func (f *portableFixtureBlobs) GetBlob(_ context.Context, id string) ([]byte, er
 	if data, ok := f.data[id]; ok {
 		return append([]byte(nil), data...), nil
 	}
-	return nil, errors.New("missing fixture")
+	return nil, computer.ErrBlobNotFound
 }
 func (f *portableFixtureBlobs) DeleteBlob(ctx context.Context, id string) error {
 	return f.DeleteStagedBlob(ctx, id, "")
@@ -71,11 +72,10 @@ func portableAssetFixture(t *testing.T) (*Store, portableBundle, *portableFixtur
 	t.Helper()
 	s, b := portableFixture(t)
 	backend := newPortableFixtureBlobs()
-	s.requireGuestAttachments = true
 	s.guestBlobs = backend
 	message := b.Messages[0]
 	for i := 0; i < 2; i++ {
-		a, err := s.AddAttachment(message.ConversationID, "synthetic-"+string(rune('a'+i))+".txt", "text/plain", strings.NewReader("Synthetic bytes 中文 "+string(rune('a'+i))))
+		a, err := s.addLegacyGuestAttachment(message.ConversationID, "synthetic-"+string(rune('a'+i))+".txt", "text/plain", strings.NewReader("Synthetic bytes 中文 "+string(rune('a'+i))))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -87,7 +87,28 @@ func portableAssetFixture(t *testing.T) (*Store, portableBundle, *portableFixtur
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Exporting copied the rows into the server store; the tests below model a
+	// store whose files still live only on the computer.
+	revertToLegacyRows(t, s)
 	return s, b, backend
+}
+
+// serverFiles lists the imported/uploaded files in the server file store.
+func serverFiles(t *testing.T, s *Store) []string {
+	t.Helper()
+	root, err := s.attachmentRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, e := range entries {
+		names = append(names, e.Name())
+	}
+	return names
 }
 func assertNoPortableRows(t *testing.T, s *Store) {
 	t.Helper()
@@ -115,15 +136,14 @@ func TestPortableAttachmentBytesReferencesProvenanceAndDuplicate(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
-	files := newPortableFixtureBlobs()
-	s.requireGuestAttachments = true
-	s.guestBlobs = files
+	// No computer: the import must not need one.
+	s.guestBlobs = nil
 	p, err := s.previewPortable(context.Background(), b)
 	if err != nil || !p.CanApply || p.Counts["attachments"] != 2 || p.Counts["attachment_bindings"] != 2 || p.AttachmentBytes == 0 {
 		t.Fatalf("preview: %+v %v", p, err)
 	}
 	assertNoPortableRows(t, s)
-	if files.puts != 0 {
+	if len(serverFiles(t, s)) != 0 {
 		t.Fatal("preview wrote files")
 	}
 	results := make([]portableResult, 2)
@@ -134,13 +154,13 @@ func TestPortableAttachmentBytesReferencesProvenanceAndDuplicate(t *testing.T) {
 		go func(i int) { defer wg.Done(); results[i], errs[i] = s.applyPortable(context.Background(), b, p.ID) }(i)
 	}
 	wg.Wait()
-	if errs[0] != nil || errs[1] != nil || !reflect.DeepEqual(results[0], results[1]) || files.puts != 2 || files.aliases() != 2 {
+	if errs[0] != nil || errs[1] != nil || !reflect.DeepEqual(results[0], results[1]) || len(serverFiles(t, s)) != 2 {
 		t.Fatalf("retry changed result or bytes: %v %v", errs[0], errs[1])
 	}
 	result := results[0]
 	for _, a := range b.Attachments {
 		got, path, err := s.Attachment(result.IDMap[a.ID])
-		if err != nil || path != "vm:"+result.IDMap[a.ID] || got.ConversationID != result.IDMap[a.ConversationID] || got.Name != a.Name || result.IDMap[a.ID] == a.ID {
+		if err != nil || filepath.Base(path) != result.IDMap[a.ID]+".upload" || got.ConversationID != result.IDMap[a.ConversationID] || got.Name != a.Name || result.IDMap[a.ID] == a.ID {
 			t.Fatalf("metadata/ref remap: %+v %q %v", got, path, err)
 		}
 		reader, err := s.openAttachment(context.Background(), path)
@@ -161,8 +181,11 @@ func TestPortableAttachmentBytesReferencesProvenanceAndDuplicate(t *testing.T) {
 			t.Fatal("attachment binding lost")
 		}
 	}
-	if _, err = os.Stat(filepath.Join(dir, "attachments")); !os.IsNotExist(err) {
-		t.Fatal("host fallback created")
+	for _, a := range b.Attachments {
+		var origin, digest string
+		if err = s.db.QueryRow(`SELECT origin,COALESCE(sha256,'') FROM attachments WHERE id=?`, result.IDMap[a.ID]).Scan(&origin, &digest); err != nil || origin != attachmentOriginImport || digest != a.SHA256 {
+			t.Fatalf("imported row is not a server file with its digest: %q %q %v", origin, digest, err)
+		}
 	}
 	exported, err := s.exportPortable(context.Background(), "destination", portableSelection{}, "account")
 	if err != nil || len(exported.Attachments) != 2 || exported.Attachments[0].Origin.InstanceID != "synthetic-source-instance" {
@@ -183,12 +206,10 @@ func TestPortableAttachmentBytesReferencesProvenanceAndDuplicate(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
-	s.guestBlobs = files
 	retry, err := s.applyPortable(context.Background(), b, p.ID)
-	if err != nil || !reflect.DeepEqual(retry, result) || files.puts != 2 {
+	if err != nil || !reflect.DeepEqual(retry, result) || len(serverFiles(t, s)) != 2 {
 		t.Fatal("restart duplicated assets")
 	}
-	s.guestBlobs = nil
 	retry, err = s.applyPortable(context.Background(), b, p.ID)
 	if err != nil || !reflect.DeepEqual(retry, result) {
 		t.Fatal("receipt depended on available storage")
@@ -196,25 +217,29 @@ func TestPortableAttachmentBytesReferencesProvenanceAndDuplicate(t *testing.T) {
 }
 func TestPortableAttachmentFailuresRollbackAndRestartRecovery(t *testing.T) {
 	_, b, _ := portableAssetFixture(t)
-	for _, fault := range []string{"quota", "lost_ack", "sqlite", "crash_after_stage"} {
+	for _, fault := range []string{"unwritable_store", "sqlite", "crash_after_stage"} {
 		t.Run(fault, func(t *testing.T) {
 			dir := t.TempDir()
 			s, err := OpenStore(dir)
 			if err != nil {
 				t.Fatal(err)
 			}
-			files := newPortableFixtureBlobs()
-			s.guestBlobs = files
 			p, err := s.previewPortable(context.Background(), b)
 			if err != nil {
 				t.Fatal(err)
 			}
+			root, err := s.attachmentRoot()
+			if err != nil {
+				t.Fatal(err)
+			}
 			switch fault {
-			case "quota":
-				files.quota = 1
-			case "lost_ack":
-				files.failPutAt = 2
-				files.failDelete = true
+			case "unwritable_store":
+				if err = os.Chmod(root, 0500); err != nil {
+					t.Fatal(err)
+				}
+				if os.Geteuid() == 0 {
+					t.Skip("root ignores directory permissions")
+				}
 			case "sqlite":
 				_, err = s.db.Exec(`CREATE TRIGGER portable_fixture_failure BEFORE INSERT ON workspace_events BEGIN SELECT RAISE(ABORT,'synthetic failure'); END`)
 				if err != nil {
@@ -224,40 +249,42 @@ func TestPortableAttachmentFailuresRollbackAndRestartRecovery(t *testing.T) {
 				if _, err = s.preparePortableAssets(context.Background(), b, p.ID); err != nil {
 					t.Fatal(err)
 				}
+				if len(serverFiles(t, s)) != 2 {
+					t.Fatal("staging wrote no files")
+				}
 			}
 			if fault != "crash_after_stage" {
 				if _, err = s.applyPortable(context.Background(), b, p.ID); err == nil {
 					t.Fatal("fault was ignored")
 				}
-			}
-			assertNoPortableRows(t, s)
-			if fault == "quota" || fault == "sqlite" {
-				if files.aliases() != 0 {
-					t.Fatal("rollback leaked aliases")
+				if got := serverFiles(t, s); len(got) != 0 {
+					t.Fatalf("rollback leaked files: %v", got)
 				}
 			}
+			assertNoPortableRows(t, s)
 			var status string
 			s.db.QueryRow(`SELECT status FROM portability_imports WHERE id=?`, p.ID).Scan(&status)
 			if status != "preview" {
 				t.Fatal("partial receipt published")
 			}
 			s.Close()
-			files.failDelete = false
-			files.failPutAt = 0
-			files.quota = 0
+			if fault == "unwritable_store" {
+				if err = os.Chmod(root, 0700); err != nil {
+					t.Fatal(err)
+				}
+			}
 			s, err = OpenStore(dir)
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer s.Close()
-			s.guestBlobs = files
 			if fault == "sqlite" {
 				s.db.Exec(`DROP TRIGGER portable_fixture_failure`)
 			}
 			assertNoPortableRows(t, s)
 			first, err := s.applyPortable(context.Background(), b, p.ID)
-			if err != nil || files.aliases() != 2 {
-				t.Fatalf("restart recovery: %v aliases=%d", err, files.aliases())
+			if err != nil || len(serverFiles(t, s)) != 2 {
+				t.Fatalf("restart recovery: %v files=%v", err, serverFiles(t, s))
 			}
 			var pending int
 			s.db.QueryRow(`SELECT COUNT(*) FROM portability_asset_staging`).Scan(&pending)
@@ -283,21 +310,16 @@ func TestPortableAttachmentMissingAndUnsafeFilesRemainHonest(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer dest.Close()
+	// A destination with no computer takes the files all the same.
 	p, err := dest.previewPortable(context.Background(), b)
-	if err != nil || p.CanApply || !strings.Contains(strings.Join(p.Warnings, " "), "synthetic-") {
-		t.Fatal("storage/missing preview incomplete")
-	}
-	if _, err = dest.applyPortable(context.Background(), b, p.ID); err == nil {
-		t.Fatal("missing backend accepted")
-	}
-	assertNoPortableRows(t, dest)
-	dest.guestBlobs = newPortableFixtureBlobs()
-	p, err = dest.previewPortable(context.Background(), b)
-	if err != nil {
-		t.Fatal(err)
+	if err != nil || !p.CanApply || !strings.Contains(strings.Join(p.Warnings, " "), "synthetic-") {
+		t.Fatal("missing-file warning not shown on preview")
 	}
 	if _, err = dest.applyPortable(context.Background(), b, p.ID); err != nil {
 		t.Fatal(err)
+	}
+	if len(serverFiles(t, dest)) != 1 {
+		t.Fatal("the one present file was not stored on the server")
 	}
 	again, err := dest.exportPortable(context.Background(), "destination", portableSelection{}, "account")
 	if err != nil || again.AttachmentCount != 1 || again.MissingAttachments[0].Origin.RecordID != b.MissingAttachments[0].Origin.RecordID {
@@ -410,7 +432,7 @@ func TestPortableAttachmentForwardedStandaloneScope(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a, err := s.AddAttachment(group.ID, "synthetic-forwarded.txt", "text/plain", strings.NewReader("synthetic forwarded only"))
+	a, err := s.addLegacyGuestAttachment(group.ID, "synthetic-forwarded.txt", "text/plain", strings.NewReader("synthetic forwarded only"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -433,6 +455,7 @@ func TestPortableAttachmentForwardedStandaloneScope(t *testing.T) {
 			t.Fatal("owner group history leaked")
 		}
 	}
+	revertToLegacyRows(t, s)
 	files.DeleteBlob(context.Background(), a.ID)
 	account, err := s.exportPortable(context.Background(), "source", portableSelection{}, "account")
 	if err != nil {
@@ -509,76 +532,34 @@ func TestPortableAttachmentHTTPAccountIsolation(t *testing.T) {
 	}
 }
 
-type portableGateBlobs struct {
-	*portableFixtureBlobs
-	started chan struct{}
-	release chan struct{}
-	once    sync.Once
-	cleanup bool
-}
-
-func (f *portableGateBlobs) PutBlob(ctx context.Context, id string, data []byte) error {
-	if !f.cleanup {
-		f.once.Do(func() { close(f.started) })
-		<-f.release
-	}
-	return f.portableFixtureBlobs.PutBlob(ctx, id, data)
-}
-func (f *portableGateBlobs) DeleteStagedBlob(ctx context.Context, id, digest string) error {
-	if f.cleanup {
-		f.once.Do(func() { close(f.started) })
-		<-f.release
-	}
-	return f.portableFixtureBlobs.DeleteStagedBlob(ctx, id, digest)
-}
-func TestPortableAttachmentGuestIODoesNotHoldRuntimeSettingsLock(t *testing.T) {
+func TestPortableAttachmentRollbackDoesNotHoldRuntimeSettingsLock(t *testing.T) {
 	_, b, _ := portableAssetFixture(t)
-	for _, cleanup := range []bool{false, true} {
-		t.Run(map[bool]string{false: "stage", true: "rollback"}[cleanup], func(t *testing.T) {
-			s, err := OpenStore(t.TempDir())
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer s.Close()
-			f := &portableGateBlobs{portableFixtureBlobs: newPortableFixtureBlobs(), started: make(chan struct{}), release: make(chan struct{}), cleanup: cleanup}
-			s.guestBlobs = f
-			if cleanup {
-				s.db.Exec(`CREATE TRIGGER portable_fixture_failure BEFORE INSERT ON workspace_events BEGIN SELECT RAISE(ABORT,'synthetic failure'); END`)
-			}
-			p, err := s.previewPortable(context.Background(), b)
-			if err != nil {
-				t.Fatal(err)
-			}
-			server := &Server{store: s}
-			done := make(chan error, 1)
-			go func() { _, err := server.applyPortableDefaults(context.Background(), b, p.ID); done <- err }()
-			select {
-			case <-f.started:
-			case <-time.After(2 * time.Second):
-				close(f.release)
-				t.Fatal("storage did not block")
-			}
-			unlocked := make(chan struct{})
-			go func() { server.mu.Lock(); server.mu.Unlock(); close(unlocked) }()
-			select {
-			case <-unlocked:
-			case <-time.After(time.Second):
-				close(f.release)
-				<-done
-				t.Fatal("guest I/O held runtime mutex")
-			}
-			close(f.release)
-			err = <-done
-			if cleanup && err == nil {
-				t.Fatal("SQL failure ignored")
-			}
-		})
+	s, err := OpenStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	s.db.Exec(`CREATE TRIGGER portable_fixture_failure BEFORE INSERT ON workspace_events BEGIN SELECT RAISE(ABORT,'synthetic failure'); END`)
+	p, err := s.previewPortable(context.Background(), b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := &Server{store: s}
+	if _, err = server.applyPortableDefaults(context.Background(), b, p.ID); err == nil {
+		t.Fatal("SQL failure ignored")
+	}
+	unlocked := make(chan struct{})
+	go func() { server.mu.Lock(); server.mu.Unlock(); close(unlocked) }()
+	select {
+	case <-unlocked:
+	case <-time.After(time.Second):
+		t.Fatal("import left the runtime mutex held")
+	}
+	if got := serverFiles(t, s); len(got) != 0 {
+		t.Fatalf("rollback leaked files: %v", got)
 	}
 }
 
 func (f *portableFixtureBlobs) PutStagedBlob(ctx context.Context, id string, data []byte) error {
-	return f.PutBlob(ctx, id, data)
-}
-func (f *portableGateBlobs) PutStagedBlob(ctx context.Context, id string, data []byte) error {
 	return f.PutBlob(ctx, id, data)
 }

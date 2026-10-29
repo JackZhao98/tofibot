@@ -439,10 +439,10 @@ func (s *Server) questionTools(c Conversation, r Run) []Tool {
 	}}, s.userFormTool(c, r), s.approvalTool(c, r)}
 	// Same availability as use_secret_input, which is the only consumer of the
 	// reference this returns.
-	if s.secretVault != nil && s.microVM != nil {
+	if s.secretVault != nil && s.computer() != nil {
 		tools = append(tools, s.secretInputTool(c, r))
 	}
-	if s.microVM != nil {
+	if s.computer() != nil {
 		tools = append(tools, s.takeoverTool(c, r))
 	}
 	if s.extensions != nil {

@@ -1,12 +1,16 @@
 import type {SettingsTab} from "../SettingsShell";
 import {ARCHIVE_ENABLED} from "../featureFlags";
 
+/** Opens Settings > Computer (a file whose bytes are on a detached computer points here). */
+export const OPEN_COMPUTER_SETTINGS_EVENT = "tofi:open-computer-settings";
+
 /** Window events other surfaces dispatch to open Settings on a tab (chat cards, the model picker). */
 export const settingsDeepLinks: Record<string, SettingsTab> = {
   "tofi:open-tool-settings": "connections",
   "tofi:open-codex-settings": "models",
   "tofi:open-connection": "connections",
   "tofi:open-permissions": "permissions",
+  [OPEN_COMPUTER_SETTINGS_EVENT]: "computer",
 };
 
 /**

@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestAccountFilesCannotFallbackToUnboundedHostAttachments(t *testing.T) {
+func TestAccountFilesLiveInTheServerStoreWithOrWithoutAComputer(t *testing.T) {
 	for _, cfg := range []Config{{IsolatedWorkspace: true}, {AccountRuntime: true}} {
 		cfg.DataDir = t.TempDir()
 		s, err := NewServer(cfg)
@@ -19,13 +19,14 @@ func TestAccountFilesCannotFallbackToUnboundedHostAttachments(t *testing.T) {
 			s.Close()
 			t.Fatal(err)
 		}
-		if _, err := s.store.AddAttachment(bot.DMConversationID, "synthetic.txt", "text/plain", strings.NewReader("synthetic")); err == nil {
+		a, err := s.store.AddAttachment(bot.DMConversationID, "synthetic.txt", "text/plain", strings.NewReader("synthetic"))
+		if err != nil {
 			s.Close()
-			t.Fatal("account files bypassed cloud quota")
+			t.Fatalf("account upload with no computer: %v", err)
 		}
-		if _, err := os.Stat(filepath.Join(cfg.DataDir, "attachments")); !os.IsNotExist(err) {
+		if _, err := os.Stat(filepath.Join(cfg.DataDir, "attachments", a.ID+".upload")); err != nil {
 			s.Close()
-			t.Fatal("account upload staged on host")
+			t.Fatalf("account upload not in the server store: %v", err)
 		}
 		s.Close()
 	}

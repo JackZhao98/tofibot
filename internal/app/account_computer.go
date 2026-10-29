@@ -14,7 +14,7 @@ import (
 )
 
 func (g *AccountGateway) computerRequest(ctx context.Context, op, id string) (string, error) {
-	if g.config.AccountProvisionerSocket == "" {
+	if g.provisioner() == "" {
 		return "", nil
 	}
 	if !filepath.IsAbs(g.config.AccountComputerSocketRoot) {

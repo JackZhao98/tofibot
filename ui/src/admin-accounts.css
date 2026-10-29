@@ -21,6 +21,8 @@
 .admin-row+.admin-row{border-top:1px solid var(--line-soft)}
 .admin-row:hover{background:var(--surface-2)}
 .admin-row:active{background:color-mix(in srgb,var(--surface-2) 70%,var(--line-soft))}
+.admin-row-head{display:grid;grid-template-columns:40px minmax(0,1.4fr) 216px minmax(0,1fr) 18px;gap:14px;padding:8px 16px;color:var(--muted);font:600 12px/1.4 var(--mono);pointer-events:none;background:transparent}
+.admin-row-head .admin-row-usage>span{color:var(--muted);font:600 12px/1.4 var(--mono)}
 .admin-row:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:-2px}
 .admin-row>svg{justify-self:end;color:var(--muted);transition:transform var(--m-quick) var(--ease-out),color var(--m-quick) var(--ease-out)}
 .admin-row:hover>svg{color:var(--ink-soft);transform:translateX(2px)}
@@ -35,6 +37,9 @@
 .admin-row-computer{overflow:hidden;color:var(--ink-soft);font:12.5px/1.4 var(--body);text-overflow:ellipsis;white-space:nowrap}
 .admin-empty{padding:28px 16px;text-align:center}
 .admin-badges{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}
+.admin-row-usage{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:4px 14px;min-width:0}
+.admin-row-storage{color:var(--ink-soft);font:12.5px/1.4 var(--body);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.admin-row-storage.is-over{color:var(--danger-text);font-weight:600}
 .admin-role{display:inline-flex;align-items:center;padding:3px 9px;border:1px solid var(--line-soft);border-radius:999px;background:var(--surface-2);color:var(--ink-soft);font:600 12px/1.4 var(--mono);white-space:nowrap}
 
 /* Detail */
@@ -88,13 +93,14 @@
   .admin-capacity dd{font-size:18px}
   .admin-list-actions{margin:0 0 12px}
   .admin-list-actions .primary-button{width:100%;justify-content:center;min-height:44px}
-  .admin-row{grid-template-columns:40px minmax(0,1fr) 18px;grid-template-areas:"avatar main chev" "avatar badges chev" "avatar computer chev";gap:6px 12px;padding:14px 16px;min-height:64px}
+  .admin-row{grid-template-columns:40px minmax(0,1fr) 18px;grid-template-areas:"avatar main chev" "avatar badges chev" "avatar usage chev";gap:6px 12px;padding:14px 16px;min-height:64px}
   .admin-row .admin-avatar{grid-area:avatar;align-self:start}
   .admin-row .admin-row-main{grid-area:main}
   .admin-row .admin-badges{grid-area:badges}
-  .admin-row .admin-row-computer{grid-area:computer}
+  .admin-row .admin-row-usage{grid-area:usage}
   .admin-row>svg{grid-area:chev;align-self:center}
   .admin-row .admin-badges{justify-self:start}
+  .admin-row-head{display:none}
   .admin-detail{animation:admin-push var(--m-base) var(--ease-settle)}
   .admin-detail-head{align-items:flex-start}
   .admin-export-actions>*{flex:1 1 auto}

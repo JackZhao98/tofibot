@@ -27,6 +27,8 @@ const oauthSessionTimeout = 10 * time.Second
 const purgeTimeout = 180 * time.Second
 
 type Config struct {
+	// ID is the route segment of this computer. Empty means DefaultID.
+	ID     string
 	Socket string
 	Client *http.Client
 	Ensure func(context.Context) error
@@ -127,6 +129,7 @@ type OAuthSessionRequest struct {
 }
 
 type Client struct {
+	id     string
 	socket string
 	http   *http.Client
 	ensure func(context.Context) error
@@ -144,7 +147,7 @@ func New(cfg Config) (*Client, error) {
 	if client == nil {
 		client = NewUnixHTTPClient(socket, 150*time.Second)
 	}
-	return &Client{socket: socket, http: client, ensure: cfg.Ensure}, nil
+	return &Client{id: strings.TrimSpace(cfg.ID), socket: socket, http: client, ensure: cfg.Ensure}, nil
 }
 
 func (c *Client) Socket() string { return c.socket }

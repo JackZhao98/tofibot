@@ -203,13 +203,33 @@ type Config struct {
 	AccountComputerDiskGiB    int
 	AccountLegacyComputerUUID string
 	AccountMaintenance        bool
+	// HostControlTokenFile is the file whose content authorizes the host's
+	// /api/host/computer/* calls (host_control.go). Empty or absent: no such route.
+	HostControlTokenFile string
+	// ComputerStartDetached keeps the computer client factory but does not attach
+	// at start (the host has detached the computers).
+	ComputerStartDetached bool
 	// Tenant Runner endpoints must be explicitly provisioned; no global fallback.
 	LocalRunnerURL, LocalRunnerTokenFile string
+	// LocalRunnerTokenFunc yields this account's bearer token on the Runner
+	// container; LocalRunnerURL is then the account's namespace on it.
+	LocalRunnerTokenFunc func() (string, error)
+	// RunnerGatewayURL and RunnerMasterKeyFile (gateway only) locate the Runner
+	// container and the key its per-account tokens are derived from.
+	RunnerGatewayURL, RunnerMasterKeyFile string
 	// Control-plane stores must not recover or execute workspace jobs.
 	AccountDBMaxBytes   int64
 	AccountControlPlane bool
 	AccountRuntime      bool
 	ComputerEnsure      func(context.Context) error
+	// MaxPersonalComputers is how many personal computers an account may connect (0 = DefaultMaxPersonalComputers).
+	MaxPersonalComputers int
+	// Storage accounting (S3). All optional: nil limit = unlimited, zero floor
+	// = 2 GiB of host free space, nil hooks = no gateway.
+	StorageLimit     func() *int64
+	HostMinFreeBytes int64
+	StorageSnapshot  func(StorageReport)
+	ComputerUsage    func(context.Context) *ComputerUsage
 }
 type Server struct {
 	dispositions                         sync.Map // run id -> groupChoice recorded by the respond tool
@@ -233,6 +253,8 @@ type Server struct {
 	shadowReviewClosed                   bool
 	isolatedWorkspace                    bool
 	localRunnerURL, localRunnerTokenFile string
+	localRunnerTokenFn                   func() (string, error)
+	runnerMigration                      localRunnerMigration
 	ownerAuth                            *ownerAuth
 	secretVault                          *secretVault
 	instance                             instanceIdentity
@@ -275,60 +297,82 @@ type Server struct {
 	followups                            *followupWorker
 	extensions                           *extensions.Manager
 	skillLibMu                           sync.Mutex
-	microVM                              *computer.Client
-	microVMInfoCache                     microVMInfoCache
-	computerWatchdog                     *computerWatchdog
-	stuckRunCancel                       context.CancelFunc
-	stuckRunDone                         chan struct{}
-	computerLeaseMu                      sync.Mutex
-	computerLeases                       map[string]*sync.Mutex
-	generatedOnComputer                  sync.Map // run id -> *generatedImages
-	computerOwnerMu                      sync.Mutex
-	computerOwners                       map[string]string
-	desktopQueueLeft                     map[string]time.Time
-	vmOAuthMu                            sync.Mutex
-	vmOAuth                              map[string]*vmOAuthSession
-	vmOAuthClosing                       bool
-	vmOAuthWG                            sync.WaitGroup
-	desktopWaiters                       []*desktopWaiter
-	desktopObserved                      map[string]bool
-	desktopPointer                       *desktopPointer
-	desktopChanged                       chan struct{}
-	terminalOwners                       map[string]string
-	terminalCleanupWake                  chan struct{}
-	terminalCleanupDone                  chan struct{}
-	terminalCleanupCancel                context.CancelFunc
-	computerControls                     map[string]*computerControl
-	guestTimezoneMu                      sync.Mutex
-	guestTimezoneCached                  string
-	guestTimezoneSynced                  bool
-	toolSnapshotMu                       sync.RWMutex
-	toolSnapshots                        map[toolSnapshotKey]toolSnapshot
-	purgeMu                              sync.Mutex
-	purging                              bool
-	summaryMu                            sync.Mutex
-	summaryCtx                           context.Context
-	summaryCancel                        context.CancelFunc
-	summaryStopping                      bool
-	summaryJobs                          map[string]struct{}
-	summaryNext                          map[string]time.Time
-	summaryWG                            sync.WaitGroup
+	// microVM is the account's VM (kind vm), nil when none. Read it through
+	// computer(); AttachVM and DetachVM change it under computerMu.
+	microVM         computer.Provider
+	computerMu      sync.RWMutex
+	computerSlots   map[string]*computerSlot
+	computerFactory func() (computer.Provider, error)
+	// computerBeatCancel stops the heartbeat sweep of personal computers.
+	computerBeatCancel    context.CancelFunc
+	computerBeatDone      chan struct{}
+	microVMInfoCache      microVMInfoCache
+	computerWatchdog      *computerWatchdog
+	stuckRunCancel        context.CancelFunc
+	stuckRunDone          chan struct{}
+	computerLeaseMu       sync.Mutex
+	computerLeases        map[string]*sync.Mutex
+	generatedOnComputer   sync.Map // run id -> *generatedImages
+	computerOwnerMu       sync.Mutex
+	computerOwners        map[string]string
+	desktopQueueLeft      map[string]time.Time
+	vmOAuthMu             sync.Mutex
+	vmOAuth               map[string]*vmOAuthSession
+	vmOAuthClosing        bool
+	vmOAuthWG             sync.WaitGroup
+	desktopWaiters        []*desktopWaiter
+	desktopObserved       map[string]bool
+	desktopPointer        *desktopPointer
+	desktopChanged        chan struct{}
+	terminalOwners        map[string]string
+	terminalCleanupWake   chan struct{}
+	terminalCleanupDone   chan struct{}
+	terminalCleanupCancel context.CancelFunc
+	computerControls      map[string]*computerControl
+	guestTimezoneMu       sync.Mutex
+	guestTimezoneCached   string
+	guestTimezoneSynced   bool
+	toolSnapshotMu        sync.RWMutex
+	toolSnapshots         map[toolSnapshotKey]toolSnapshot
+	purgeMu               sync.Mutex
+	purging               bool
+	summaryMu             sync.Mutex
+	summaryCtx            context.Context
+	summaryCancel         context.CancelFunc
+	summaryStopping       bool
+	summaryJobs           map[string]struct{}
+	summaryNext           map[string]time.Time
+	summaryWG             sync.WaitGroup
 
 	// Tasks and waits: the sweeper loop and the inbox flush lock (wait_sweeper.go).
 	tasks taskRuntime
+	// Legacy `vm:` file copier (file_store_copier.go).
+	fileStore fileStoreRuntime
+	// Storage accounting (S3): periodic reconcile and gateway hooks.
+	storageJob      fileStoreRuntime
+	storageSnapshot func(StorageReport)
+	computerUsage   func(context.Context) *ComputerUsage
 }
 
 // Store is a single SQLite writer. WAL plus one connection keeps sequence and
 // idempotency transactions deterministic across HTTP handlers and workers.
 type Store struct {
-	// Multi-account files must use guest storage; host staging is not a quota.
-	requireGuestAttachments bool
-	guestBlobs              guestBlobStorage
-	portabilityMu           sync.Mutex
-	portabilitySecrets      *portableSecretCodec
-	db                      *sql.DB
-	scheduleSchemaOnce      sync.Once
-	scheduleSchemaErr       error
+	// guestBlobs reads and deletes legacy `vm:` attachments only (S1).
+	guestBlobs guestBlobStorage
+	// guestBlobsMu guards guestBlobs, which a hot attach and detach change.
+	guestBlobsMu sync.RWMutex
+	// maxPersonalComputers caps personal computers (0 = DefaultMaxPersonalComputers).
+	maxPersonalComputers int
+	portabilityMu        sync.Mutex
+	portabilitySecrets   *portableSecretCodec
+	db                   *sql.DB
+	// storage is the quota and host-space policy for new files (S3).
+	storage storageGate
+	// storageReserved is the bytes promised to uploads in flight (storageAdmit).
+	storageReserved    int64
+	storageReserveMu   sync.Mutex
+	scheduleSchemaOnce sync.Once
+	scheduleSchemaErr  error
 	// onReturnQueued wakes the queue of a return run created inside a
 	// failure transaction, after that transaction commits.
 	onReturnQueued func(Run)
@@ -2762,7 +2806,6 @@ func NewServer(c Config) (*Server, error) {
 	if e != nil {
 		return nil, e
 	}
-	st.requireGuestAttachments = c.IsolatedWorkspace || c.AccountRuntime
 	// Runs started before the first live catalog fetch still get the windows
 	// the last stored Codex catalog reported.
 	if models, err := st.cachedModels(); err == nil {
@@ -2806,12 +2849,26 @@ func NewServer(c Config) (*Server, error) {
 	if c.TranscriptionURL == "" {
 		c.TranscriptionURL = defaultTranscriptionURL
 	}
-	var microVM *computer.Client
+	st.maxPersonalComputers = c.MaxPersonalComputers
+	// The factory builds the VM provider from the configured control socket. It
+	// is what a hot attach calls; start-up uses it too unless an administrator
+	// detached the computer earlier (the stored row says so).
+	var computerFactory func() (computer.Provider, error)
+	var microVM computer.Provider
 	if strings.TrimSpace(c.ComputerSocket) != "" {
-		microVM, e = computer.New(computer.Config{Socket: c.ComputerSocket, Ensure: c.ComputerEnsure})
-		if e != nil {
-			st.Close()
-			return nil, fmt.Errorf("computer control socket: %w", e)
+		socket, ensure := c.ComputerSocket, c.ComputerEnsure
+		computerFactory = func() (computer.Provider, error) {
+			client, err := computer.New(computer.Config{Socket: socket, Ensure: ensure})
+			if err != nil {
+				return nil, fmt.Errorf("computer control socket: %w", err)
+			}
+			return client, nil
+		}
+		if !st.vmDetachedByAdmin() && !c.ComputerStartDetached {
+			if microVM, e = computerFactory(); e != nil {
+				st.Close()
+				return nil, e
+			}
 		}
 	}
 	var codex *codexauth.Manager
@@ -2829,15 +2886,18 @@ func NewServer(c Config) (*Server, error) {
 	if savedSettings.ReasoningEffort == "" {
 		savedSettings.ReasoningEffort = "medium"
 	}
-	server := &Server{accountID: c.AccountID, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}, providerEndpoints: map[string]string{}, envProviderKeys: map[string]string{}, envProviderErrors: map[string]string{}, providerCatalogs: map[string]providerCatalog{}}
+	server := &Server{accountID: c.AccountID, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerFactory: computerFactory, computerSlots: map[string]*computerSlot{}, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}, providerEndpoints: map[string]string{}, envProviderKeys: map[string]string{}, envProviderErrors: map[string]string{}, providerCatalogs: map[string]providerCatalog{}}
+	st.storage = storageGate{limit: c.StorageLimit, minFree: c.HostMinFreeBytes}
+	server.storageSnapshot, server.computerUsage = c.StorageSnapshot, c.ComputerUsage
 	st.onReturnQueued = func(r Run) {
 		if conv, ce := st.GetConversation(r.ConversationID); ce == nil {
 			server.enqueue(conv, r)
 		}
 	}
-	if microVM != nil {
-		server.computerWatchdog = newComputerWatchdog(microVM)
+	if client, ok := microVM.(*computer.Client); ok {
+		server.computerWatchdog = newComputerWatchdog(client)
 	}
+	server.initLocalRunner(c)
 	if (c.Provider == providerOpenAI || c.Provider == providerAnthropic) && !c.IsolatedWorkspace {
 		if key := strings.TrimSpace(c.ProviderAPIKey); key != "" {
 			server.envProviderKeys[c.Provider] = key
@@ -2890,13 +2950,20 @@ func NewServer(c Config) (*Server, error) {
 	if _, err := server.reconcileSkillLibrary(); err != nil {
 		log.Printf("[skills] reconcile failed: %v", err)
 	}
-	if st.requireGuestAttachments && microVM != nil {
-		st.guestBlobs = microVM
-		st.cleanupDeletedAttachments()
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
-		_ = st.recoverPortableAssets(cleanupCtx) // Failed cleanup stays journaled for the next import.
-		cleanupCancel()
+	if microVM != nil {
+		if blobs, ok := microVM.(guestBlobStorage); ok {
+			st.setLegacyBlobs(blobs)
+			st.cleanupDeletedAttachments()
+		}
+		if err := st.upsertVMComputer(microVM.ID(), "Bot workspace", "linux", "", kvmCapabilities, 1, computerRowAttached); err != nil {
+			log.Printf("[computer] could not record the computer row: %v", err)
+		}
 	}
+	// Imported attachments are staged in the server file store, so a half-done
+	// import is cleaned with or without a computer.
+	cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	_ = st.recoverPortableAssets(cleanupCtx) // Failed cleanup stays journaled for the next import.
+	cleanupCancel()
 	if c.AccountControlPlane || c.AccountMaintenance {
 		return server, nil
 	}
@@ -2909,9 +2976,13 @@ func NewServer(c Config) (*Server, error) {
 	server.startSummaryWorkers()
 	server.startTerminalCleanup()
 	server.computerWatchdog.start()
+	server.startComputerHeartbeat()
+	server.startLocalRunnerMigration()
 	server.startStuckRunSweeper()
 	server.startWaitSweeper()
 	server.startCommandMonitor()
+	server.startFileStoreCopier()
+	server.startStorageReconciler()
 	for _, id := range workerIDs {
 		server.startConversationWorker(id)
 	}
@@ -2923,16 +2994,20 @@ func NewServer(c Config) (*Server, error) {
 		server.stopConversationWorkers()
 		server.stopSummaryWorkers()
 		server.stopTerminalCleanup()
+		server.stopComputerHeartbeat()
 		server.computerWatchdog.stop()
 		server.stopStuckRunSweeper()
 		server.stopCommandMonitor()
 		server.stopWaitSweeper()
+		server.stopFileStoreCopier()
+		server.stopStorageReconciler()
 		st.Close()
 		return nil, e
 	}
 	return server, nil
 }
 func (s *Server) Close() error {
+	s.stopLocalRunnerMigration()
 	s.stopShadowMCPReviews()
 	s.ownerAuth.close()
 	s.closeVMOAuth()
@@ -2944,10 +3019,13 @@ func (s *Server) Close() error {
 	s.stopConversationWorkers()
 	s.stopSummaryWorkers()
 	s.stopTerminalCleanup()
+	s.stopComputerHeartbeat()
 	s.computerWatchdog.stop()
 	s.stopStuckRunSweeper()
 	s.stopCommandMonitor()
 	s.stopWaitSweeper()
+	s.stopFileStoreCopier()
+	s.stopStorageReconciler()
 	return s.store.Close()
 }
 func (s *Server) Listen() string { return s.listen }
@@ -3052,7 +3130,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if s.routeDesktopStream(w, r, p) {
 		return
 	}
-	if s.handleBotSecrets(w, r) || s.handleBotSkills(w, r) || s.handleBotConnections(w, r) || s.handleSecrets(w, r) || s.handleSSHKeys(w, r) || s.routeComputerResources(w, r, p) {
+	if s.handleBotSecrets(w, r) || s.handleBotSkills(w, r) || s.handleBotConnections(w, r) || s.handleSecrets(w, r) || s.handleSSHKeys(w, r) || s.routeComputerResources(w, r, p) || s.routeComputerAttach(w, r, p) || s.routeStorage(w, r, p) {
 		return
 	}
 	if s.routeComputers(w, r, p) {
@@ -3137,6 +3215,8 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSON(w, 200, s.computerCapabilities())
+	case p == "computer/contents":
+		s.handleComputerContents(w, r)
 	case p == "auth/codex" || p == "auth/codex/connect" || p == "auth/codex/verify" || strings.HasPrefix(p, "auth/codex/connect/"):
 		s.codexAuth(w, r, strings.TrimPrefix(p, "auth/codex"))
 	case strings.HasPrefix(p, "bots/") && strings.HasSuffix(p, "/debug-preview"):
@@ -3295,7 +3375,7 @@ func (s *Server) bots(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if x.Onboarding {
-			b, duplicate, e := s.store.createOnboardingBot(x.ClientCreationID, x.Model, x.ReasoningEffort, s.onboardingLocale(x.Locale), s.microVM != nil, false)
+			b, duplicate, e := s.store.createOnboardingBot(x.ClientCreationID, x.Model, x.ReasoningEffort, s.onboardingLocale(x.Locale), s.computer() != nil, false)
 			if e != nil {
 				writeErr(w, 400, "invalid_request", e.Error())
 				return
@@ -3746,6 +3826,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		cancel()
 		stopComputerHold()
 		s.releaseComputerOwner(r.BotID, r.ID)
+		s.releaseComputerHolds(r.ID)
 		preserveWait := s.store.preservesInputWait(r.ID)
 		if !preserveWait {
 			_ = s.store.InterruptToolActivities(r.ID)
@@ -4432,6 +4513,7 @@ func (s *Server) execute(c Conversation, r Run) {
 				log.Printf("[run] publish budget-turn notes %s: %v", r.ID, err)
 			}
 		}
+		s.stageOutbox(ctx, r, c)
 		if _, _, err := s.store.finishRunBudgetOpts(r.ID, c.ID, r.BotID, answer, res.BudgetReason, finishOpts{structured: structured}); err != nil {
 			s.failRun(c, r, err)
 		}
@@ -4611,6 +4693,12 @@ func (s *Server) execute(c Conversation, r Run) {
 				s.store.noteFinalOrigin(r.ID, heuristicLeadingMention)
 				s.enqueue(c, child)
 			}
+		}
+	}
+	if !quietDone {
+		// Files the Bot saved in the outbox ride with this reply (S1).
+		if got := s.stageOutbox(ctx, r, c); got.Staged > 0 {
+			log.Printf("[outbox] run %s: %d file(s) copied to the server and attached to the reply", r.ID, got.Staged)
 		}
 	}
 	var promotedBeat *Message
@@ -4934,7 +5022,7 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 			return "scheduled result accepted for this run; now provide the same result as the final answer in the current conversation, preserving its delivery rules", nil
 		}})
 	}
-	base = append(base, workflowGuideToolFor(s.microVM != nil))
+	base = append(base, workflowGuideToolFor(s.computer() != nil))
 	base = append(base, s.runAuditTools(c, r)...)
 	base = append(base, s.groupChatTools(c, r)...)
 	base = append(base, s.groupRespondTools(c, r)...)
@@ -4949,7 +5037,7 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 	base = append(base, s.attachmentTools(c, r)...)
 	base = append(base, s.imageGenerationTools(c, r)...)
 	base = append(base, s.publishAttachmentTools(c, r)...)
-	if s.store.hasPairedComputer() {
+	if s.store.hasPairedComputer() || s.hasOtherComputers() {
 		base = append(base, s.computerTools(r)...)
 	}
 	base = append(base, s.webTools(r)...)

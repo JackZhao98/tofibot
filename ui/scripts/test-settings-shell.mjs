@@ -148,7 +148,17 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     {name: "delete_issue", description: "Delete an issue permanently", tier: "high_risk", source: "owner", override: "high_risk", destructive_hint: true},
     {name: "post_comment", description: "Post a comment visible to the whole team", tier: "high_risk", source: "owner", override: "high_risk", changed: true},
   ], read_only: 2, write: 2, high_risk: 2} : {tools: [], read_only: 0, write: 0, high_risk: 0};
-  const stub = (url, method, query, postData = "") => {
+  const GIB_ALL = 2 ** 30;
+  // Version 1 of GET /api/storage with neutral sample numbers.
+  const storageSample = (used, limit) => ({
+    version: 1, measured_at: "2026-10-27T10:00:00Z", server_bytes: used, files_bytes: used - 0.2 * GIB_ALL, database_bytes: 0.2 * GIB_ALL, physical_files_bytes: used - 0.2 * GIB_ALL, pending_copy_count: 2,
+    classes: [{class: "uploads", bytes: 0.6 * GIB_ALL, objects: 12, billable: true}, {class: "published", bytes: used - 0.8 * GIB_ALL, objects: 4, billable: true}, {class: "generated", bytes: 0, objects: 0, billable: true}, {class: "outbox", bytes: 0, objects: 0, billable: true}, {class: "mirror", bytes: 0, objects: 0, billable: true}, {class: "conversations", bytes: 0.1 * GIB_ALL, objects: 300, billable: false}, {class: "db", bytes: 0.2 * GIB_ALL, objects: 0, billable: true}],
+    breakdown_measured_at: "2026-10-27T09:30:00Z", limit_bytes: limit, remaining_bytes: limit === null ? null : Math.max(0, limit - used), over_limit: limit !== null && used >= limit,
+    computer: {logical_bytes: 3 * GIB_ALL, allocated_bytes: 4 * GIB_ALL, quota_bytes: 16 * GIB_ALL},
+    by_bot: [{id: "bot_research", name: "Research Bot", bytes: 0.9 * GIB_ALL, objects: 8}, {id: "", name: "", bytes: 0.4 * GIB_ALL, objects: 8}],
+    by_conversation: [{id: "conv_1", name: "Weekly summary", bytes: 1.1 * GIB_ALL, objects: 10}, {id: "conv_2", name: "", bytes: 0.2 * GIB_ALL, objects: 2}],
+  });
+    const stub = (url, method, query, postData = "") => {
     const path = url.pathname;
     if (/^\/api\/extensions\/mcp\/[^/]+\/tools$/.test(path) && method === "GET") return toolTiers(path.split("/")[4]);
     if (/^\/api\/extensions\/mcp\/[^/]+\/tools\/refresh$/.test(path) && method === "POST") return {...toolTiers(path.split("/")[4]), checked: true};
@@ -165,6 +175,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       : query.get("admin") === "0"
       ? {enabled: true, setup_required: false, authenticated: true, password_transport_allowed: true, multi_account: false, owner: {id: "acct_sample", username: "Ada Sample", email: "ada@example.test", role: "owner"}}
       : {enabled: true, setup_required: false, authenticated: true, password_transport_allowed: true, multi_account: true, owner: {id: "acct_sample", username: "Ada Sample", email: "ada@example.test", role: "admin"}};
+    if (path === "/api/storage") return query.get("storage") === "full" ? storageSample(10 * GIB_ALL, 10 * GIB_ALL) : storageSample(1.5 * GIB_ALL, query.get("storage") === "unlimited" ? null : 10 * GIB_ALL);
     if (path === "/api/bots") return {bots: [{id: "bot_research", name: "Research Bot", archived: false}, {id: "bot_inbox", name: "Inbox Bot", archived: false}, {id: "bot_notes", name: "Notes Bot", archived: false}, {id: "bot_old", name: "Retired Bot", archived: true}]};
     if (path === "/api/preferences") return {timezone: "America/Los_Angeles", timezone_configured: true};
     if (path === "/api/standing-allowances") return {allowances: [], remembered: []};
@@ -205,6 +216,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/computer/resources") return {current: {vcpus: 2, memory_mib: 4096, disk_gib: 20}, desired: {vcpus: 2, memory_mib: 4096, disk_gib: 20}, pending: false, state: "ready", host: {cpus: 8, memory_total_mib: 16384, memory_available_mib: 9000, disk_available_gib: 120}, limits: {max_vcpus: 6, max_memory_mib: 12288, max_disk_gib: 100}};
     if (path === "/api/computer/credentials") return {credentials: [{id: "cred_1", name: "WEB_API_TOKEN", kind: "env", target: "WEB_API_TOKEN", created_at: day(3)}, {id: "cred_2", name: "DEPLOY_REGION", kind: "env", target: "DEPLOY_REGION", created_at: day(5)}]};
     if (path === "/api/computer/ssh-keys") return {keys: []};
+    if (path === "/api/computer/contents") return {environment: ["WEB_API_TOKEN", "DEPLOY_REGION"], ssh_keys: [], pending_file_copies: 0};
     if (path === "/api/usage/runs") return {days: 7, since: day(7), runs: 48, by_status: {done: 41, failed: 4, cancelled: 2, running: 1}, failures: [{code: "model_auth_invalid", count: 3}, {code: "connection_interrupted", count: 1}], tool_calls: 212, tool_timeouts: 2, model_calls: 96};
     if (path === "/api/usage") return {contexts: [{run_id: "run_1", conversation_id: "conv_1", conversation_name: "Weekly summary", bot_id: "bot_research", bot_name: "Research Bot", run_status: "completed", model: "codex-gpt-6-sol", window_tokens: 200000, window_known: true, compact_at: 160000, estimated_input: 52000, last_input: 48000, total_input: 310000, total_output: 42000, compact_count: 1, updated_at: day(0)}],
       agents: [{bot_id: "bot_research", bot_name: "Research Bot", input_tokens: 310000, output_tokens: 42000, runs: 14, compactions: 1}, {bot_id: "bot_inbox", bot_name: "Inbox Bot", input_tokens: 120000, output_tokens: 18000, runs: 6, compactions: 0}],
@@ -232,6 +244,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       {id: "exp_lost", username: "Rae Example", email: "", created_at: Math.floor(Date.parse("2026-10-01T10:00:00Z") / 1000), expires_at: Math.floor(Date.parse("2026-10-31T10:00:00Z") / 1000), size: 500_000, link_path: "", link_unavailable: true, passphrase_pending: true, passphrase_unavailable: true},
     ];
     adminState.sizes = {};
+    adminState.limits = {acct_two: 10 * GIB};
     adminState.failDelete = 0;
     adminState.lastDeleted = null;
     adminWrites.length = 0;
@@ -251,6 +264,14 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/admin/capacity") {
       const accounts = adminState.accounts.filter(a => adminState.disks[a.id]).map(a => ({account_id: a.id, quota_bytes: adminState.disks[a.id][0] * GIB, logical_bytes: adminState.disks[a.id][0] * GIB, state: adminState.disks[a.id][1], pending_quota: false}));
       return json(200, {total_bytes: 500 * GIB, available_bytes: 300 * GIB, allocated_bytes: 100 * GIB, promised_bytes: accounts.reduce((sum, a) => sum + a.quota_bytes, 0), admission_remaining_bytes: 120 * GIB, warning: false, accounts});
+    }
+    if (path === "/api/admin/storage") {
+      const used = {acct_sample: 1.5 * GIB, acct_two: 9.5 * GIB, acct_three: 0, acct_four: 0};
+      const accounts = adminState.accounts.map(a => {
+        const limit = adminState.limits[a.id] ?? null, server = used[a.id] ?? 0;
+        return {account_id: a.id, source: "live", measured_at: "2026-10-27T10:00:00Z", server_bytes: server, files_bytes: server, database_bytes: 0, physical_files_bytes: server, pending_copy_count: 0, limit_bytes: limit, over_limit: limit !== null && server >= limit, classes: [], computer: null};
+      });
+      return json(200, {version: 1, host: {free_bytes: 80 * GIB, total_bytes: 500 * GIB, min_free_bytes: 2 * GIB, low: false}, totals: {accounts: accounts.length, server_bytes: 0, physical_files_bytes: 0, computer_logical_bytes: 0, computer_allocated_bytes: 0, pending_copy_count: 0}, accounts});
     }
     if (path === "/api/admin/deleted-exports" && method === "GET") return json(200, adminState.exports.map(({passphrase, ...rest}) => rest));
     let match = /^\/api\/admin\/deleted-exports\/([^/]+)(?:\/(passphrase|ack))?$/.exec(path);
@@ -276,8 +297,13 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     }
     match = /^\/api\/admin\/accounts\/([^/]+)\/quota$/.exec(path);
     if (match) {
-      adminState.disks[match[1]][0] = bodyOf().quota_gib;
-      return json(200, {quota_bytes: bodyOf().quota_gib * GIB, applied: true});
+      const input = bodyOf();
+      if ("server_bytes_limit" in input) {
+        adminState.limits[match[1]] = input.server_bytes_limit;
+        return json(200, {account_id: match[1], server_bytes_limit: input.server_bytes_limit});
+      }
+      adminState.disks[match[1]][0] = input.quota_gib;
+      return json(200, {quota_bytes: input.quota_gib * GIB, applied: true});
     }
     match = /^\/api\/admin\/accounts\/([^/]+)$/.exec(path);
     if (match) {
@@ -370,6 +396,22 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal((await page.locator('.settings-tabs [data-tab="connections"] .settings-count').textContent()).trim(), "1");
     assert.equal(await page.locator('.settings-tabs [data-tab="permissions"] .settings-count').count(), 0, "permissions badge stays hidden in Phase 1");
     await page.waitForTimeout(600);
+    // The storage card (S3): one bar, class legend, computer line, breakdown; version 1 of GET /api/storage.
+    {
+      const card = page.locator(".storage-card");
+      await card.waitFor();
+      const words = (await card.innerText()).replace(/\s+/g, " ");
+      assert.match(words, /Server storage.*1\.5 GiB of 10 GiB/);
+      assert.match(words, /Uploads.*Published by Bots.*Database/);
+      assert.ok(!/Conversations/.test(words.split("Breakdown")[0]), "message text is part of the database and is not listed twice");
+      assert.match(words, /Computer disk.*3 GiB used of 16 GiB/);
+      assert.match(words, /2 files are still being copied from the computer to the server\./);
+      const bar = card.getByRole("progressbar", {name: "Server storage"});
+      assert.equal(await bar.getAttribute("aria-valuenow"), "15");
+      assert.equal(await card.locator(".storage-bar.is-full").count(), 0);
+      await card.locator("summary").click();
+      assert.match((await card.innerText()).replace(/\s+/g, " "), /By Bot.*Research Bot.*You.*By conversation.*Weekly summary.*Untitled conversation/);
+    }
     for (const forbidden of ["/api/extensions/local-mcp", "/api/computers", "/api/computer/"]) assert.ok(!requested.some(line => line.includes(forbidden)), `opening Settings on General made no ${forbidden} request`);
     // The Advanced group is folded until opened; opening lists Tool rules, Follow-ups (Beta) and Other devices (In development).
     const fold = page.locator(".settings-tabs .settings-nav-fold");
@@ -716,6 +758,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await body.getByRole("button", {name: "Add account"}).count(), 1, "Add account is a primary action on the list");
     const row = id => body.locator(`.admin-row[data-account="${id}"]`);
     assert.match(await text(row("acct_sample")), /A.*Ada Sample.*You.*Admin.*Active.*Ready · 16 GiB/);
+    // Server and Computer columns (S3): used / limit, red when the account reached its limit; a host disk line above the list.
+    assert.match(await text(body.locator(".admin-row-head")), /Server\s*Computer/);
+    assert.match(await text(row("acct_sample").locator(".admin-row-storage")), /^1\.5 GiB$/, "no limit set: used only");
+    assert.match(await text(row("acct_two").locator(".admin-row-storage")), /^9\.5 GiB \/ 10 GiB$/);
+    assert.match(await text(body), /80 GiB free of 500 GiB/);
     assert.match(await text(row("acct_two")), /Sam Example.*Member.*Active.*Ready · 8 GiB/);
     assert.match(await text(row("acct_three")), /Lee Example.*Member.*Deactivated.*Stopped · 8 GiB/);
     assert.match(await text(row("acct_four")), /Max Example.*No email set.*Deletion stopped/);
@@ -742,6 +789,24 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const segmented = detail.getByRole("radiogroup", {name: "Role"});
     assert.equal(await segmented.getByRole("radio", {name: "Member"}).getAttribute("aria-checked"), "true");
     assert.equal(await segmented.getByRole("radio", {name: "Admin"}).isDisabled(), false, "another member's role can be changed");
+    // Server storage limit: shows usage, saves a number of GiB, and "No limit" sends null.
+    {
+      const limit = detail.getByLabel("Storage limit");
+      assert.equal(await limit.inputValue(), "10");
+      assert.match(await text(detail), /9\.5 GiB of 10 GiB/);
+      assert.equal(await detail.getByRole("button", {name: "Save limit"}).isDisabled(), true, "nothing to save yet");
+      adminWrites.length = 0;
+      await limit.selectOption("25");
+      await detail.getByRole("button", {name: "Save limit"}).click();
+      await detail.getByText("Saved.").first().waitFor();
+      assert.deepEqual(adminWrites, ['PATCH /api/admin/accounts/acct_two/quota {"server_bytes_limit":26843545600}']);
+      await page.waitForFunction(() => { const select = document.querySelector("#admin-storage-limit"); return select && !select.disabled && select.value === "25"; });
+      adminWrites.length = 0;
+      await limit.selectOption("unlimited");
+      await detail.getByRole("button", {name: "Save limit"}).click();
+      await page.waitForFunction(() => document.querySelector("#admin-storage-limit")?.value === "unlimited");
+      assert.deepEqual(adminWrites, ['PATCH /api/admin/accounts/acct_two/quota {"server_bytes_limit":null}']);
+    }
     const deleteButton = detail.getByRole("button", {name: "Delete account…"});
     assert.equal(await deleteButton.isDisabled(), true, "Delete is disabled until the account is deactivated");
     assert.match(await text(detail), /Deactivate the account first\. Only a deactivated account can be deleted\./);
@@ -937,6 +1002,36 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await view.close();
     }
     console.log("PASS admin console: list with capacity, roles, statuses and exports; detail with role, disk, password, deactivate; own-account guards; delete sheet, stop and retry, result sheet and acknowledgement; mobile push; 7 locales");
+  }
+
+  // ---- 7d. Storage card states (S3): full, unlimited, translated, phone width.
+  {
+    const full = await open({storage: "full"});
+    const fullCard = full.page.locator(".storage-card");
+    await fullCard.waitFor();
+    assert.match((await fullCard.innerText()).replace(/\s+/g, " "), /10 GiB of 10 GiB.*Storage is full\. Delete files or ask the administrator\./);
+    assert.equal(await fullCard.locator(".storage-bar.is-full").count(), 1, "the bar shows the full state");
+    await full.close();
+    const open_ = await open({storage: "unlimited"});
+    const card = open_.page.locator(".storage-card");
+    await card.waitFor();
+    assert.match((await card.innerText()).replace(/\s+/g, " "), /1\.5 GiB used\s*No limit/);
+    assert.equal(await card.getByRole("progressbar").getAttribute("aria-valuenow"), null, "no limit: no percentage");
+    assert.ok(!/Storage is full/.test(await card.innerText()));
+    await open_.close();
+    for (const lang of LANGS.filter(item => item !== "en")) {
+      const view = await open({lang});
+      await view.page.locator(".storage-card").waitFor();
+      const heading = (await view.page.locator(".storage-card").locator("xpath=ancestor::section[1]").locator("h4").textContent()).trim();
+      assert.ok(heading && heading !== "Storage", `${lang}: the storage heading is translated (got ${heading})`);
+      await view.close();
+    }
+    const phone = await open({}, {width: 390, height: 844});
+    await phone.page.locator('.settings-mhome [data-tab="general"]').click();
+    await phone.page.locator(".storage-card").waitFor();
+    assert.equal(await phone.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "no horizontal scroll at 390px");
+    await phone.close();
+    console.log("PASS storage: bar, legend, computer line and breakdown; full and unlimited states; 7 locales; 390px");
   }
 
 

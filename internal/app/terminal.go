@@ -48,7 +48,7 @@ func (s *Server) handleTerminalAction(w http.ResponseWriter, r *http.Request, bo
 			args = map[string]any{"terminal_id": in.TerminalID, "cursor": in.Cursor, "max_bytes": in.MaxBytes}
 		}
 		b, _ := json.Marshal(args)
-		result, err := s.microVM.Action(r.Context(), computer.Action{BotID: botID, RunID: "viewer-" + uuid.NewString(), Name: action, Args: b, Source: "viewer"})
+		result, err := s.computer().Action(r.Context(), computer.Action{BotID: botID, RunID: "viewer-" + uuid.NewString(), Name: action, Args: b, Source: "viewer"})
 		if err != nil {
 			writeErr(w, 502, "terminal_unavailable", err.Error())
 			return

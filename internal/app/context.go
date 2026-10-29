@@ -278,7 +278,7 @@ const scheduledBrowserFallbackGuidance = "\nIf an installed capability or Skill 
 const scheduledNoComputerFallbackGuidance = "\nIf an installed capability or Skill is unavailable, empty, stale or failed, try another source before giving up; if none works, report that concrete blocker instead of claiming the scheduled result was delivered."
 
 func (s *Server) scheduledFallbackGuidance() string {
-	if s.microVM == nil {
+	if s.computer() == nil {
 		return scheduledNoComputerFallbackGuidance
 	}
 	return scheduledBrowserFallbackGuidance
@@ -973,13 +973,13 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		pm = append(pm, note)
 	}
 	zoneGuidance := "User timezone is not configured; the run context shows UTC time. Ask for a timezone if needed and never infer it from the server or guest."
-	if s.microVM == nil {
+	if s.computer() == nil {
 		zoneGuidance = "User timezone is not configured; the run context shows UTC time. Ask for a timezone if needed and never infer it from the server."
 	}
 	if zone, err := s.store.userTimezone(); err == nil && zone != "" {
 		zoneGuidance = "User timezone: " + zone
 	}
-	system := authoredInstructionGuidance + conversationWorkGuidance + contextReuseGuidance + memoryAndRecallGuidance + taskCompletionGuidanceFor(s.microVM != nil) + segmentedReplyGuidance + reactionAndEmojiGuidance + fmt.Sprintf("You are Bot %s (id=%s). Speak in your Bot instructions' persona and voice in every reply. Sender labels identify other participants: never impersonate them. Delegate with tools.\n%s\nPromise future work only after scheduling; no self-renewing loops.\n", bot.Name, bot.ID, zoneGuidance)
+	system := authoredInstructionGuidance + conversationWorkGuidance + contextReuseGuidance + memoryAndRecallGuidance + taskCompletionGuidanceFor(s.computer() != nil) + segmentedReplyGuidance + reactionAndEmojiGuidance + fmt.Sprintf("You are Bot %s (id=%s). Speak in your Bot instructions' persona and voice in every reply. Sender labels identify other participants: never impersonate them. Delegate with tools.\n%s\nPromise future work only after scheduling; no self-renewing loops.\n", bot.Name, bot.ID, zoneGuidance)
 	if c.Kind == "group" && c.UserVisible && r.Kind != runKindTriage {
 		if r.structured {
 			system += "\n" + groupDispositionGuidanceStructured
@@ -997,7 +997,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	if s.botProfileRunEligible(c, r) {
 		pending, err := s.store.onboardingPending(bot.ID)
 		if err == nil && pending {
-			system += onboardingSystemPromptFor(s.microVM != nil)
+			system += onboardingSystemPromptFor(s.computer() != nil)
 		} else if err == nil {
 			system += "\nUse set_bot_profile only when the user explicitly asks to change your name/role/instructions. Preserve omitted fields; never change model or permissions."
 		}
@@ -1106,8 +1106,14 @@ func (s *Server) runContextNote(ctx context.Context) string {
 	note := "[run context]\nCurrent time: " + localNow.Format("2006-01-02 15:04 MST Mon") + " (" + label + ")."
 	if status := s.microVMStatus(ctx); status != "" {
 		note += "\n" + status + "."
-	} else if s.microVM == nil {
+		if fresh := s.freshComputerNote(); fresh != "" {
+			note += "\n" + fresh
+		}
+	} else if s.computer() == nil && !s.hasOtherComputers() {
 		note += "\n" + noComputerStatus
+	}
+	if line := s.computersRunContext(ctx); line != "" {
+		note += "\n" + line
 	}
 	return note + "\n[/run context]"
 }

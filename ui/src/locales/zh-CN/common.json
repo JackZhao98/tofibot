@@ -92,6 +92,8 @@
     "update_not_available": "该版本已不再提供。请刷新后重试。",
     "update_in_progress": "已有更新正在进行。",
     "update_channel_disabled": "候选版本已关闭。",
-    "host_update_unavailable": "这台服务器暂时还不能从页面更新。请在服务器上运行 sudo tofi update。"
+    "host_update_unavailable": "这台服务器暂时还不能从页面更新。请在服务器上运行 sudo tofi update。",
+    "storage_quota_exceeded": "此账户的存储已达上限。请删除文件，或联系管理员。",
+    "storage_host_full": "服务器磁盘几乎已满，暂不接收新文件。请通知此服务器的运维人员。"
   }
 }

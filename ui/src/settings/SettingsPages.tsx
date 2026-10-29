@@ -6,6 +6,7 @@ import {AutomationSettings} from "../AutomationSettings";
 import {DebugSettings} from "../BotInspector";
 import {ComputerCredentials} from "../ComputerCredentials";
 import {ComputerPanel} from "../ComputerPanel";
+import {ComputerContents} from "../ComputerContents";
 import {ComputerOptions} from "../ComputerOptions";
 import {useHasComputer} from "../computerCapability";
 import {ComputerResources} from "../ComputerResources";
@@ -45,6 +46,8 @@ export type SettingsPagesProps={
 };
 /** Only admins of a multi-account install reach this page, so its code (accounts list, detail, delete flows) loads on demand. */
 const AdminAccounts=lazy(()=>import("../AdminAccounts").then(module=>({default:module.AdminAccounts})));
+/** The storage card loads on demand; it is not part of the first paint of Settings. */
+const StorageUsage=lazy(()=>import("../StorageUsage").then(module=>({default:module.StorageUsage})));
 const unreachable=(value:never):never=>{throw new Error(`unhandled settings page: ${String(value)}`)};
 
 /** One explicit case per tab; `never` makes a missing case a compile error. */
@@ -63,7 +66,7 @@ export function SettingsPages(props:SettingsPagesProps){
   case "devices": return <ComputerPanel part="devices"/>;
   case "automation": return <AutomationSettings onOpenPermissions={()=>props.openTab("permissions")}/>;
   case "computer": return <ComputerPage openTab={props.openTab}/>;
-  case "keys": return <ComputerCredentials bots={activeBots}/>;
+  case "keys": return <KeysPage bots={activeBots}/>;
   case "usage": return <div className="settings-stack"><RunHealthCard/><UsagePanel preferredBotId={props.usageBotId} timezone={props.timezone}/></div>;
   case "advanced": return <AdvancedPage {...props} bots={bots} activeBots={activeBots}/>;
   case "admin": return <Suspense fallback={null}><AdminAccounts/></Suspense>;
@@ -71,15 +74,27 @@ export function SettingsPages(props:SettingsPagesProps){
  }
 }
 
-/** With no computer backend the page explains the options; otherwise it is the computer's own settings. */
+/**
+ * Environment variables and SSH keys are the computer's configuration: without a computer the page renders nothing
+ * (the shell sends the person to Computer), so a saved link to it makes no /api/computer/credentials request.
+ */
+function KeysPage({bots}:{bots:Bot[]}){
+ return useHasComputer()?<ComputerCredentials bots={bots}/>:null;
+}
+
+/**
+ * With no computer backend the page explains the options; otherwise it is the computer's own settings, including what
+ * lives only on it. That list (and the Keys page it links to) is the computer's configuration, so it exists only here.
+ */
 function ComputerPage({openTab}:{openTab:(tab:SettingsTab)=>void}){
- return useHasComputer()?<><ComputerResources onOpenAdmin={()=>openTab("admin")}/><ComputerPanel part="environment"/></>:<ComputerOptions/>;
+ return useHasComputer()?<><ComputerResources onOpenAdmin={()=>openTab("admin")}/><ComputerPanel part="environment"/><ComputerContents openTab={openTab}/></>:<ComputerOptions/>;
 }
 
 function GeneralPage({appearance,slots,bots,onBotsChanged}:SettingsPagesProps){
  const {t}=useTranslation("settings");
  return <div className="settings-stack">
   <OwnerAccount/>
+  <Suspense fallback={null}><StorageUsage/></Suspense>
   <AppearancePicker value={appearance.preference} onChange={appearance.choose}/>
   <PrimaryAssistantSetting bots={bots} onChanged={onBotsChanged}/>
   <SettingsSection title={t("general.region")}><SettingsCard className="settings-region"><LanguageSetting/><TimezoneSetting/></SettingsCard></SettingsSection>

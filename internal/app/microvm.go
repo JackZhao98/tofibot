@@ -15,7 +15,10 @@ import (
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
-const microVMComputerID = "firecracker"
+// microVMComputerID is the id of the Firecracker computer in the guest
+// protocol (recovery identities, legacy routes). Routes resolve the id through
+// the provider (isVMRoute), so this value is a default, not an assumption.
+const microVMComputerID = computer.DefaultID
 
 var microVMActions = map[string]bool{
 	"shell.exec": true,
@@ -27,13 +30,13 @@ var microVMActions = map[string]bool{
 	"terminal.write": true, "terminal.resize": true, "terminal.close": true,
 }
 
-func (s *Server) microVMConfigured() bool { return s.microVM != nil }
+func (s *Server) microVMConfigured() bool { return s.computer() != nil }
 
 func (s *Server) microVMInfo(ctx context.Context) (computer.Info, error) {
-	if s.microVM == nil {
+	if s.computer() == nil {
 		return computer.Info{}, errors.New("computer VM is not configured")
 	}
-	return s.microVM.Info(ctx)
+	return s.computer().Info(ctx)
 }
 
 const (
@@ -53,7 +56,7 @@ type microVMInfoCache struct {
 }
 
 func (s *Server) cachedMicroVMInfo(ctx context.Context) (computer.Info, error, bool) {
-	if s.microVM == nil {
+	if s.computer() == nil {
 		return computer.Info{}, errors.New("computer VM is not configured"), true
 	}
 	c := &s.microVMInfoCache
@@ -91,7 +94,7 @@ func (s *Server) cachedMicroVMInfo(ctx context.Context) (computer.Info, error, b
 func (s *Server) refreshMicroVMInfo(done chan struct{}) {
 	ctx, cancel := context.WithTimeout(context.Background(), microVMInfoTimeout)
 	defer cancel()
-	info, err := s.microVM.Info(ctx)
+	info, err := s.computer().Info(ctx)
 	c := &s.microVMInfoCache
 	c.mu.Lock()
 	c.info, c.err, c.at, c.pending = info, err, time.Now(), nil
@@ -102,7 +105,7 @@ func (s *Server) refreshMicroVMInfo(done chan struct{}) {
 // microVMStatus is volatile, so it belongs in the trailing run context rather
 // than the cache-stable system text.
 func (s *Server) microVMStatus(ctx context.Context) string {
-	if s.microVM == nil {
+	if s.computer() == nil {
 		return ""
 	}
 	info, err, known := s.cachedMicroVMInfo(ctx)
@@ -124,7 +127,7 @@ func (s *Server) microVMStatus(ctx context.Context) string {
 	if err != nil {
 		status += "; status unavailable: " + err.Error()
 	}
-	if health := s.computerWatchdog.view(); health != nil && (health.State == computerRestarting || health.State == computerUnresponsive) {
+	if health := s.watchdog().view(); health != nil && (health.State == computerRestarting || health.State == computerUnresponsive) {
 		status += "; health " + health.State
 	}
 	if strings.TrimSpace(info.Error) != "" {
@@ -139,7 +142,7 @@ func (s *Server) microVMStatus(ctx context.Context) string {
 // between Bots while /workspace/shared and other Bot directories remain
 // intentionally addressable for collaboration.
 func (s *Server) microVMEnvironmentPrompt(ctx context.Context, botID string) string {
-	if s.microVM == nil {
+	if s.computer() == nil {
 		return ""
 	}
 	info, _, _ := s.cachedMicroVMInfo(ctx)
@@ -171,13 +174,23 @@ func (s *Server) listComputers(ctx context.Context) ([]Computer, error) {
 	if err != nil {
 		return nil, err
 	}
-	if s.microVM == nil {
+	for i := range items {
+		if slot := s.slotFor(items[i].ID); slot != nil {
+			items[i].Online = slot.currentState() == slotAttached
+			items[i].Region = slot.region
+		}
+	}
+	vm := s.computer()
+	if vm == nil {
 		return items, nil
 	}
 	info, infoErr := s.microVMInfo(ctx)
-	item := Computer{ID: microVMComputerID, Name: "Bot workspace", Platform: "linux", Kind: "firecracker", Capabilities: []string{"shell.exec", "files.list", "files.read", "files.write", "desktop.start", "desktop.stop", "desktop.capture", "desktop.click", "desktop.type", "desktop.key", "desktop.scroll", "browser.navigate", "browser.snapshot", "browser.action", "terminal.open", "terminal.list", "terminal.read", "terminal.write", "terminal.resize", "terminal.close"}}
+	item := Computer{ID: vm.ID(), Name: "Bot workspace", Platform: "linux", Kind: computer.RowKindVM, Status: computerRowAttached, Capabilities: []string{"shell.exec", "files.list", "files.read", "files.write", "desktop.start", "desktop.stop", "desktop.capture", "desktop.click", "desktop.type", "desktop.key", "desktop.scroll", "browser.navigate", "browser.snapshot", "browser.action", "terminal.open", "terminal.list", "terminal.read", "terminal.write", "terminal.resize", "terminal.close"}}
+	if slot := s.slotFor(vm.ID()); slot != nil && slot.currentState() == slotLost {
+		item.Status = computerRowLost
+	}
 	if infoErr == nil {
-		item.Online = computer.Available(info.State)
+		item.Online = computer.Available(info.State) && item.Status == computerRowAttached
 		if info.WorkspaceRoot != "" {
 			item.Name = "Bot workspace · " + info.WorkspaceRoot
 		}
@@ -189,7 +202,7 @@ func (s *Server) listComputers(ctx context.Context) ([]Computer, error) {
 }
 
 func (s *Server) microVMAction(ctx context.Context, r Run, name string, args json.RawMessage) (string, error) {
-	if s.microVM == nil {
+	if s.computer() == nil {
 		return "", tooloutcome.New(tooloutcome.Permanent, "computer_unavailable", "not_executed", "computer VM is not configured", "explain_blocker").Err()
 	}
 	if !microVMActions[name] {
@@ -204,7 +217,7 @@ func (s *Server) microVMAction(ctx context.Context, r Run, name string, args jso
 			return "", tooloutcome.New(tooloutcome.Denied, "terminal_busy", "not_executed", "terminal_busy: user controls this Bot's terminal", "explain_blocker").Err()
 		}
 		if name == "terminal.open" || name == "terminal.write" {
-			if err := s.store.registerRunTerminals(ctx, r, s.microVM.Socket()); err != nil {
+			if err := s.store.registerRunTerminals(ctx, r, computerSocket(s.computer())); err != nil {
 				return "", err
 			}
 		}
@@ -264,9 +277,21 @@ func (s *Server) microVMActionOnLease(ctx context.Context, r Run, name string, a
 }
 
 func (s *Server) microVMActionFromSource(ctx context.Context, r Run, name string, args json.RawMessage, source string) (string, error) {
-	if s.microVM == nil {
+	vm := s.computer()
+	if vm == nil {
 		return "", errors.New("computer VM is not configured")
 	}
+	// Every call is counted against its computer: a detach waits for the count
+	// to reach zero, and ends the calls still running after its timeout.
+	slot := s.slotFor(vm.ID())
+	if slot == nil {
+		return "", slotRefusal(slotDraining)
+	}
+	callCtx, endCall, gateErr := slot.begin(ctx, ctx.Value(detachSyncKey{}) != nil)
+	if gateErr != nil {
+		return "", gateErr
+	}
+	defer endCall()
 	s.prepareGuestTimezoneForAction(ctx, name)
 	if !microVMActions[name] {
 		return "", fmt.Errorf("unsupported computer action %q", name)
@@ -290,8 +315,13 @@ func (s *Server) microVMActionFromSource(ctx context.Context, r Run, name string
 		action.WriteIdentity = &identity
 	}
 	limit := computerDispatchTimeoutFor(name, args)
-	result, err := s.microVM.ActionWithin(ctx, action, limit)
+	started := time.Now()
+	result, err := vm.ActionWithin(callCtx, action, limit)
+	s.store.recordRunComputer(r.ID, slot.id, slot.region, time.Since(started))
 	if err != nil {
+		if slot.endedByComputer(ctx) {
+			return "", slot.lostOrDetachedError()
+		}
 		var deadline *computer.ActionDeadlineError
 		if errors.As(err, &deadline) {
 			return "", s.computerActionTimeoutError(ctx, name, deadline.Limit)
@@ -353,7 +383,16 @@ func (s *Server) botHasActiveRun(botID string) bool {
 	return active > 0
 }
 
-func (s *Server) computerLease(botID string) *sync.Mutex { return s.resourceLease("shared-desktop") }
+// computerLease is the shared-desktop lease of the VM. It is keyed by the
+// computer, so a second computer has a lease of its own and two computers are
+// never serialized behind each other.
+func (s *Server) computerLease(botID string) *sync.Mutex {
+	id := computer.DefaultID
+	if vm := s.computer(); vm != nil {
+		id = vm.ID()
+	}
+	return s.resourceLease("desktop:" + id)
+}
 func (s *Server) resourceLease(botID string) *sync.Mutex {
 	s.computerLeaseMu.Lock()
 	defer s.computerLeaseMu.Unlock()
@@ -375,7 +414,7 @@ func (s *Server) resourceLease(botID string) *sync.Mutex {
 var effectParam = map[string]any{"type": "string", "enum": actionEffects, "description": "For click/type/key: what this does outside reading. none = read, open, navigate, select, search; otherwise submit, purchase, send, delete, publish, account (sign-up, permissions, settings) or other_external. Actions with an effect may need the user's confirmation."}
 
 func (s *Server) microVMTools(r Run) []Tool {
-	if s.microVM == nil {
+	if s.computer() == nil {
 		return nil
 	}
 	inputs := &guestInputSync{}

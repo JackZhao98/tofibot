@@ -15,7 +15,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JackZhao98/tofibot/internal/computer"
 	"github.com/JackZhao98/tofibot/internal/computer/guest"
 )
 
@@ -99,11 +98,11 @@ func TestAccountGuestFileUploadDownloadGeneratedAndReferences(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, path, err := s.store.Attachment(a.ID)
-	if err != nil || path != guestAttachmentPrefix+a.ID {
-		t.Fatalf("guest metadata %q %v", path, err)
+	if err != nil || strings.HasPrefix(path, guestAttachmentPrefix) || filepath.Base(path) != a.ID+".upload" {
+		t.Fatalf("server file metadata %q %v", path, err)
 	}
-	if _, err = os.Stat(filepath.Join(dataDirs[0], "attachments", a.ID+".upload")); err == nil {
-		t.Fatal("host fallback")
+	if got, err := os.ReadFile(filepath.Join(dataDirs[0], "attachments", a.ID+".upload")); err != nil || string(got) != "file on own guest disk" {
+		t.Fatalf("server copy %q %v", got, err)
 	}
 	if text, _, err := s.store.ReadAttachmentText(a.ID, bot.DMConversationID); err != nil || text != "file on own guest disk" {
 		t.Fatalf("model read %q %v", text, err)
@@ -141,16 +140,16 @@ func TestAccountGuestFileUploadDownloadGeneratedAndReferences(t *testing.T) {
 	if err != nil || reused.ID != first.ID {
 		t.Fatal("generated retry duplicated reference")
 	}
-	client, _ := computer.New(computer.Config{Socket: servers[0].microVM.Socket()})
-	if _, err = client.GetBlob(context.Background(), duplicate.ID); err == nil {
-		t.Fatal("duplicate alias leaked quota")
+	// Nothing is written to the computer's blob store any more; the duplicate
+	// from the retry is gone from the server store and the live one stays.
+	if _, err = os.Stat(filepath.Join(dataDirs[0], "attachments", duplicate.ID+".upload")); !os.IsNotExist(err) {
+		t.Fatal("duplicate file leaked server storage")
 	}
-	if _, err = client.GetBlob(context.Background(), first.ID); err != nil {
-		t.Fatal("live generated object deleted")
+	if _, err = os.Stat(filepath.Join(dataDirs[0], "attachments", first.ID+".upload")); err != nil {
+		t.Fatal("live generated file deleted")
 	}
-	objects, _ := os.ReadDir(filepath.Join(roots[0], "shared/.tofi/blobs/objects"))
-	if len(objects) != 2 {
-		t.Fatalf("physical objects %d", len(objects))
+	if objects, _ := os.ReadDir(filepath.Join(roots[0], "shared/.tofi/blobs/objects")); len(objects) != 0 {
+		t.Fatalf("guest blob store written: %d objects", len(objects))
 	}
 	if err = s.store.deleteUnboundAttachment(a.ID); err != nil {
 		t.Fatal(err)
@@ -158,8 +157,7 @@ func TestAccountGuestFileUploadDownloadGeneratedAndReferences(t *testing.T) {
 	if w := download(0, a.ID); w.Code != 404 {
 		t.Fatal("deleted metadata readable")
 	}
-	objects, _ = os.ReadDir(filepath.Join(roots[0], "shared/.tofi/blobs/objects"))
-	if len(objects) != 1 {
-		t.Fatal("unbound object not reclaimed")
+	if _, err = os.Stat(filepath.Join(dataDirs[0], "attachments", a.ID+".upload")); !os.IsNotExist(err) {
+		t.Fatal("unbound file not reclaimed")
 	}
 }

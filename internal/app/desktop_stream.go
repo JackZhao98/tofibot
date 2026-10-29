@@ -26,8 +26,13 @@ func (s *Server) routeDesktopStream(w http.ResponseWriter, r *http.Request, p st
 		writeErr(w, 404, "not_found", "Bot not found")
 		return true
 	}
-	if s.microVM == nil {
+	if s.computer() == nil {
 		writeErr(w, 404, "not_configured", "computer VM is not configured")
+		return true
+	}
+	streamer, ok := s.computer().(computer.Streamer)
+	if !ok {
+		writeErr(w, 404, "not_supported", "this computer has no desktop video")
 		return true
 	}
 	cursor := r.URL.Query().Get("cursor")
@@ -35,7 +40,7 @@ func (s *Server) routeDesktopStream(w http.ResponseWriter, r *http.Request, p st
 		writeErr(w, http.StatusBadRequest, "invalid_cursor", "unsupported cursor policy")
 		return true
 	}
-	response, err := s.microVM.DesktopStreamWithCursor(r.Context(), parts[1], cursor)
+	response, err := streamer.DesktopStreamWithCursor(r.Context(), parts[1], cursor)
 	if err != nil {
 		log.Printf("[desktop-stream] unavailable bot=%s error=%v", parts[1], err)
 		writeErr(w, 502, "desktop_stream_unavailable", "desktop video is unavailable")

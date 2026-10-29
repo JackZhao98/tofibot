@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -44,11 +45,20 @@ type AccountGateway struct {
 	closed              bool
 	runtimeFactory      func(Config) (*Server, error)
 	legacyComputerPhase string
-	deleteRunning       map[string]bool
+	// computerOff is set by the host while it has detached the computers: no
+	// reservation, ensure or reclaim goes to the Worker, and new workspaces start detached.
+	computerOff   atomic.Bool
+	deleteRunning map[string]bool
+	runnerKey     runnerMasterKey
+	runnerEpochs  runnerEpochCache
 	// deleteHook lets tests fail a deletion step; nil in production.
 	deleteHook func(step string) error
 	downloads  downloadLimiter
 	sweepStop  chan struct{}
+	// Storage accounting (S3): cached host disk figures per computer.
+	storageMu   sync.Mutex
+	diskCache   map[string]accountDiskCapacity
+	diskCacheAt time.Time
 }
 
 func NewAccountGateway(c Config) (*AccountGateway, error) {
@@ -90,6 +100,10 @@ func NewAccountGateway(c Config) (*AccountGateway, error) {
  INSERT OR IGNORE INTO account_sessions(token_hash,account_id,expires_at) SELECT token_hash,'legacy-owner',expires_at FROM owner_sessions WHERE EXISTS(SELECT 1 FROM accounts WHERE id='legacy-owner') AND (SELECT legacy_sessions_imported FROM account_migration WHERE id=1)=0;
  UPDATE account_migration SET legacy_sessions_imported=1 WHERE id=1;`)
 	if err != nil {
+		root.Close()
+		return nil, err
+	}
+	if _, err = tx.Exec(accountStorageDDL); err != nil {
 		root.Close()
 		return nil, err
 	}
@@ -329,7 +343,7 @@ func (g *AccountGateway) workspace(a Account) (*Server, error) {
 	}
 	// New runtimes start without owner credentials, engine, inherited MCP paths,
 	// transcription key or the legacy personal computer. Provisioning is pending.
-	c := Config{AccountDBMaxBytes: g.config.AccountDBMaxBytes, DataDir: filepath.Join(g.config.DataDir, "accounts", a.ID), UIDir: g.config.UIDir, Listen: g.root.listen, PublicOrigin: g.root.publicOrigin, Provider: "openai_codex", IsolatedWorkspace: true, Environment: g.root.instance.Environment, OwnerAllowLoopbackHTTP: g.config.OwnerAllowLoopbackHTTP}
+	c := Config{MaxPersonalComputers: g.config.MaxPersonalComputers, AccountDBMaxBytes: g.config.AccountDBMaxBytes, DataDir: filepath.Join(g.config.DataDir, "accounts", a.ID), UIDir: g.config.UIDir, Listen: g.root.listen, PublicOrigin: g.root.publicOrigin, Provider: "openai_codex", IsolatedWorkspace: true, Environment: g.root.instance.Environment, OwnerAllowLoopbackHTTP: g.config.OwnerAllowLoopbackHTTP}
 	if a.Legacy {
 		c = g.config
 		c.AccountRuntime = true
@@ -349,6 +363,7 @@ func (g *AccountGateway) workspace(a Account) (*Server, error) {
 			return nil, errors.New("absolute account socket root required")
 		}
 		c.ComputerSocket = filepath.Join(g.config.AccountComputerSocketRoot, g.computerIdentity(a), "control.sock")
+		c.ComputerStartDetached = g.computerOff.Load()
 		c.ComputerEnsure = func(ctx context.Context) error {
 			if g.config.AccountMaintenance {
 				return errors.New("account computer startup is fenced during maintenance")
@@ -361,7 +376,9 @@ func (g *AccountGateway) workspace(a Account) (*Server, error) {
 			return err
 		}
 	}
+	g.configureAccountRunner(&c, a.ID)
 	c.AccountID = a.ID
+	g.wireStorage(&c, a)
 	createRuntime := g.runtimeFactory
 	if createRuntime == nil {
 		createRuntime = NewServer
@@ -384,6 +401,9 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 	}
 	if !strings.HasPrefix(r.URL.Path, "/api/") {
 		g.root.handle(w, r)
+		return
+	}
+	if strings.HasPrefix(r.URL.Path, hostControlRoute) && g.serveHost(w, r) {
 		return
 	}
 	if g.config.AccountMaintenance && r.Method != http.MethodGet && r.Method != http.MethodHead && r.URL.Path != "/api/auth/login" && r.URL.Path != "/api/auth/logout" {
@@ -542,6 +562,12 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 	}
 	defer cleanup()
 	if g.adminQuota(w, r, a) || g.adminResources(w, r, a) {
+		return
+	}
+	if g.adminStorage(w, r, a) {
+		return
+	}
+	if g.adminComputer(w, r, a) {
 		return
 	}
 	if g.manageAccount(w, r, a) {

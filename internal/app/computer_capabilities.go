@@ -36,14 +36,14 @@ type ComputerCapabilities struct {
 }
 
 func (s *Server) computerCapabilities() ComputerCapabilities {
-	if s.microVM == nil {
+	if s.computer() == nil {
 		return ComputerCapabilities{Backend: ComputerBackendNone, Capabilities: []string{}}
 	}
 	return ComputerCapabilities{Backend: ComputerBackendKVM, Available: true, Capabilities: append([]string(nil), kvmCapabilities...)}
 }
 
 // hasComputerCapability is the one question prompts and tools ask instead of
-// testing s.microVM directly, so a later backend only adds a case here.
+// testing s.computer() directly, so a later backend only adds a case here.
 func (s *Server) hasComputerCapability(name string) bool {
 	for _, c := range s.computerCapabilities().Capabilities {
 		if c == name {

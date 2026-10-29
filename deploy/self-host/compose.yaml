@@ -56,6 +56,93 @@ services:
         target: /var/lib/tofi/guest/${TOFI_GUEST_VERSION:-}
         read_only: true
 
+  # The local MCP Runner (Gmail, community packages). It runs outside every computer, so local
+  # connections survive a computer wipe and exist with TOFI_COMPUTER_BACKEND=none. One process serves
+  # all accounts, each in its own namespace (URL prefix /a/<account id>, token, directory, uid).
+  # Only started when tofi.env names a Runner image (the host tool then adds --profile runner).
+  # root with five capabilities is the minimum to give each account its own uid; the container sees
+  # only <data>/runner, never the App's database, vault or attachments. See D71.
+  #
+  # Every account's plugins run in their own network namespace: their loopback, TCP/UDP listeners
+  # and abstract unix sockets exist only there, so a community plugin that listens is invisible to
+  # every other account. The way out is a veth pair into this container, forwarded to the egress
+  # interface only (never to another account, runner_link or the Runner's own port), then
+  # masqueraded: the host sees the Runner's address, so the TOFI-RUNNER-EGRESS policy below holds
+  # for every plugin. Names resolve through a forwarder on 127.0.0.11 inside each namespace.
+  # Each account also gets its own cgroup (memory and pids limits) and a disk quota (see the
+  # TOFI_MCP_RUNNER_ACCOUNT_* variables), its own TMPDIR and HOME below /runner, and no shared
+  # writable path: /tmp is closed to account uids and /dev/shm does not exist.
+  #
+  # Networks: the App reaches the Runner over runner_link, which is internal (no route out). The
+  # Runner leaves only through runner_egress, a bridge with a fixed subnet that `tofi` fences with
+  # DOCKER-USER/INPUT rules (host, RFC1918, link-local and the compose subnets are dropped), see
+  # tofi_host.py ensure_runner_egress_filter.
+  #
+  # Uids: accounts get uids from 20000 up, below 65534, so the range also fits a Docker daemon with
+  # userns-remap or rootless mode (those map only 65536 uids). In those modes root in the container
+  # is an unprivileged host uid: SETUID/SETGID/CHOWN still work inside the namespace.
+  runner:
+    profiles: [runner]
+    image: ${TOFI_RUNNER_IMAGE:-}
+    pull_policy: never
+    user: "0:0"
+    restart: unless-stopped
+    init: true
+    read_only: true
+    cpus: 1
+    mem_limit: 1g
+    pids_limit: 1024
+    cap_drop: [ALL]
+    # Why each one (the plugin processes themselves keep none: the launcher clears all of them, sets
+    # no_new_privs and installs a seccomp filter before the plugin's first instruction):
+    #   SETUID, SETGID  the launcher becomes the account's uid/gid (and clears supplementary groups)
+    #   CHOWN           hands a plugin's directory to the account uid after the Runner creates it
+    #   DAC_OVERRIDE    reads and writes below the 0700 account directories as root
+    #   FOWNER          chmod/utime on files the account uid owns
+    #   SYS_ADMIN       setns(2) into the account's namespace, joining its cgroup, unshare(IPC),
+    #                   and remounting the container's own cgroup view read-write
+    #   NET_ADMIN       creates the veth pair, addresses, routes and the iptables rules of the
+    #                   account networks (this container's namespace only)
+    cap_add: [SETUID, SETGID, CHOWN, DAC_OVERRIDE, FOWNER, SYS_ADMIN, NET_ADMIN]
+    # Forwarding between the account veths and the egress interface; the rules that confine it are
+    # written by the Runner at start.
+    sysctls:
+      net.ipv4.ip_forward: "1"
+    # No System V / POSIX shared memory: /dev/shm is not mounted, so account uids cannot pass data
+    # or interfere through it. (Private /dev/shm tmpfs would also do; none is not needed by any plugin.)
+    ipc: none
+    networks: [runner_link, runner_egress]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      # Closed to every account uid: children use their own TMPDIR below /runner.
+      - /tmp:rw,nosuid,nodev,noexec,mode=0700,size=64m
+    environment:
+      TOFI_MCP_RUNNER_MODE: accounts
+      TOFI_MCP_RUNNER_ROOT: /runner
+      TOFI_MCP_RUNNER_MASTER_KEY_FILE: /runner/master.key
+      TOFI_MCP_RUNNER_AUTH_UID: "10001"
+      TOFI_MCP_RUNNER_NETNS: required
+      TOFI_MCP_RUNNER_CGROUPS: ${TOFI_RUNNER_CGROUPS:-auto}
+      TOFI_MCP_RUNNER_REQUIRE_SECCOMP: "1"
+      TOFI_MCP_RUNNER_ACCOUNT_MEMORY_MB: ${TOFI_RUNNER_ACCOUNT_MEMORY_MB:-384}
+      TOFI_MCP_RUNNER_ACCOUNT_PIDS: ${TOFI_RUNNER_ACCOUNT_PIDS:-128}
+      TOFI_MCP_RUNNER_ACCOUNT_DISK_MB: ${TOFI_RUNNER_ACCOUNT_DISK_MB:-2048}
+      TOFI_MCP_RUNNER_LISTEN: 0.0.0.0:8390
+    volumes:
+      - type: bind
+        source: /var/lib/tofi/data/runner
+        target: /runner
+        bind:
+          create_host_path: true
+          propagation: rprivate
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:8390/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
   app:
     image: ${TOFI_APP_IMAGE:?set in /etc/tofi/tofi.env}
     pull_policy: never
@@ -105,9 +192,20 @@ services:
       TOFI_ACCOUNT_COMPUTER_SOCKET_ROOT: ${TOFI_ACCOUNT_COMPUTER_SOCKET_ROOT-/run/tofi/accounts}
       TOFI_ACCOUNT_COMPUTER_DISK_GIB: ${TOFI_ACCOUNT_COMPUTER_DISK_GIB-8}
       TOFI_ACCOUNT_DB_MAX_BYTES: "1073741824"
+      # The local MCP Runner container (profile runner). Both empty: no Runner, local connections
+      # need a computer. The key file lives in the Runner's directory, which the App also sees.
+      # By design the App holds the Runner's master key (the file is in the directory the App also
+      # sees): the account gateway derives every account's bearer token from it. An account runtime
+      # inside the App only ever receives a function that yields its own token, never the key.
+      TOFI_RUNNER_URL: ${TOFI_RUNNER_URL:-}
+      TOFI_RUNNER_MASTER_KEY_FILE: ${TOFI_RUNNER_MASTER_KEY_FILE:-}
+      # `tofi computer add|remove` attach and detach the computers in the running App with this
+      # token (created by tofi on first use; the route answers 404 until the file exists).
+      TOFI_HOST_CONTROL_TOKEN_FILE: /app/data/host-control.token
     # Direct mode publishes HTTPS on TOFI_BIND (0.0.0.0 by default, 127.0.0.1
     # with --local-only). With --domain the installer sets TOFI_BIND=127.0.0.1,
     # so only Caddy is reachable from outside; the loopback port serves health checks.
+    networks: [default, runner_link]
     ports:
       - "${TOFI_BIND:-127.0.0.1}:${TOFI_HTTP_PORT:-8321}:8321"
     volumes:
@@ -168,3 +266,16 @@ services:
         target: /config
     depends_on:
       - app
+
+networks:
+  # App <-> Runner only. internal: no route to the outside, no way for the Runner to use it as an exit.
+  # Its subnet is Docker's choice; tofi_host.py reads it and blocks it for the Runner's egress as well.
+  runner_link:
+    internal: true
+  # The Runner's only way out. Its subnet is fixed because tofi_host.py writes firewall rules for it
+  # (RUNNER_EGRESS_SUBNET there): no traffic to the host, RFC1918, 169.254/16 or the other compose
+  # networks. Only created when the runner profile is on.
+  runner_egress:
+    ipam:
+      config:
+        - subnet: 172.30.77.0/24

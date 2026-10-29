@@ -13,7 +13,7 @@ func (s *Server) routePortability(w http.ResponseWriter, r *http.Request, p stri
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	if p == "portability/capabilities" && r.Method == http.MethodGet {
-		writeJSON(w, 200, map[string]any{"format": "tofi.bundle", "version": 3, "default_categories": portableDefaultCategories, "vault_environment_max_count": portableMaxEnvironmentRecords, "vault_environment_max_bytes": portableMaxEnvironmentBytes, "categories": portableCategories, "excluded": portableExcluded, "max_bytes": portableMaxBytes, "archives_supported": false, "attachment_max_bytes": portableMaxAttachmentBytes, "attachment_total_bytes": portableMaxAttachmentTotal, "attachment_max_count": portableMaxAttachments, "attachment_storage_ready": s.store.portableBlobBackend() != nil})
+		writeJSON(w, 200, map[string]any{"format": "tofi.bundle", "version": 3, "default_categories": portableDefaultCategories, "vault_environment_max_count": portableMaxEnvironmentRecords, "vault_environment_max_bytes": portableMaxEnvironmentBytes, "categories": portableCategories, "excluded": portableExcluded, "max_bytes": portableMaxBytes, "archives_supported": false, "attachment_max_bytes": portableMaxAttachmentBytes, "attachment_total_bytes": portableMaxAttachmentTotal, "attachment_max_count": portableMaxAttachments, "attachment_storage_ready": true})
 		return true
 	}
 	if p == "portability/environment" && r.Method == http.MethodGet {

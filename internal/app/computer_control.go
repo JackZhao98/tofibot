@@ -55,7 +55,7 @@ func (s *Server) controlGuest(ctx context.Context, c *computerControl, action st
 	if err != nil {
 		return nil, err
 	}
-	result, err := s.microVM.Action(callCtx, computer.Action{BotID: c.botID, RunID: "human-control:" + c.id, Source: "human", Name: action, Args: raw})
+	result, err := s.computer().Action(callCtx, computer.Action{BotID: c.botID, RunID: "human-control:" + c.id, Source: "human", Name: action, Args: raw})
 	return result.Result, err
 }
 
@@ -326,7 +326,7 @@ func (s *Server) transferDesktopToHuman(ctx context.Context, c *computerControl,
 	if bot == "" {
 		return errControllerChanged
 	}
-	if _, err := s.microVM.Action(ctx, computer.Action{BotID: bot, RunID: expected, Source: "model", Name: "desktop.release", Args: json.RawMessage(`{}`)}); err != nil {
+	if _, err := s.computer().Action(ctx, computer.Action{BotID: bot, RunID: expected, Source: "model", Name: "desktop.release", Args: json.RawMessage(`{}`)}); err != nil {
 		return err
 	}
 	s.computerOwnerMu.Lock()

@@ -164,7 +164,7 @@ func TestHumanComputerActionKeepsWatchdogRestartingCode(t *testing.T) {
 	defer s.Close()
 	fake := &inputControlTransport{}
 	s.microVM, _ = computer.New(computer.Config{Socket: "/test.sock", Client: &http.Client{Transport: fake}})
-	s.computerWatchdog = newComputerWatchdog(s.microVM)
+	s.computerWatchdog = newComputerWatchdog(s.microVM.(*computer.Client))
 	s.computerWatchdog.state = computerRestarting
 	s.computerWatchdog.restartingSince = time.Now()
 	bot, err := s.store.CreateBot("restarting", "", "model")

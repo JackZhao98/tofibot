@@ -312,8 +312,8 @@ Later accounts are created by the Admin. Then open Settings -> Model provider.
 | Command | Effect |
 |---|---|
 | `tofi status [--json]` | Installed and latest version, App/Worker images, Guest release, services, health, URLs, certificate fingerprint and one row per account computer (in a terminal the install summary first) |
-| `tofi computer add kvm [--wait MINUTES] [--force]` | Give a server without a computer one: checks KVM, TUN, cgroup v2, AppArmor, Docker, 2 vCPUs, 4 GiB RAM and 16 GiB free (installing `zstd e2fsprogs apparmor apparmor-utils` if missing), pulls the Worker image, fetches the Guest of the installed version, writes `worker.json`, seccomp and AppArmor, sets `TOFI_COMPUTER_BACKEND=kvm`, starts the Worker and restarts the App (after active Bot runs finish, like `stop`). Idempotent; a failure puts `tofi.env` back and the App as it was. Nothing changes if the host cannot run KVM |
-| `tofi computer remove [--purge] [--yes] [--wait MINUTES] [--force]` | Stop the Worker (computers hibernate), set `TOFI_COMPUTER_BACKEND=none`, restart the App. Computer disks, state and the Guest release stay under `/var/lib/tofi` so `computer add kvm` brings them back; `--purge` (needs `--yes` or a typed confirmation) deletes them and the AppArmor profile |
+| `tofi computer add kvm [--wait MINUTES] [--force]` | Give a server without a computer one: checks KVM, TUN, cgroup v2, AppArmor, Docker, 2 vCPUs, 4 GiB RAM and 16 GiB free (installing `zstd e2fsprogs apparmor apparmor-utils` if missing), pulls the Worker image, fetches the Guest of the installed version, writes `worker.json`, seccomp and AppArmor, sets `TOFI_COMPUTER_BACKEND=kvm`, starts the Worker and has the running App attach every account's computer through its host route (`/api/host/computer/attach`, token `data/host-control.token`, served only to the host (loopback or the container gateway; other sources get 404), never proxied by Caddy; no restart). An App that cannot do that live (an older release, or one started without the Worker's sockets, e.g. the first `add` on a server installed without a computer) is restarted as before (after active Bot runs finish, like `stop`). Idempotent; a failure puts `tofi.env` back and the App as it was. Nothing changes if the host cannot run KVM |
+| `tofi computer remove [--purge] [--yes] [--wait MINUTES] [--force]` | The running App detaches every account's computer first (drains calls, saves the outbox files), then the Worker stops (computers hibernate) and `TOFI_COMPUTER_BACKEND=none` is set; an App that cannot detach live is restarted instead. Computer disks, state and the Guest release stay under `/var/lib/tofi` so `computer add kvm` brings them back; `--purge` (needs `--yes` or a typed confirmation) deletes them and the AppArmor profile |
 | `tofi computers [--json]` | The account computer rows alone: state, Guest release, pending upgrade, memory, last wake |
 | `tofi computers upgrade --all \| --account <id> [--force]` | Move computers on an older Guest release to the installed one (idle ones now, busy ones deferred unless `--force`), then remove Guest releases no computer uses |
 | `tofi start` / `tofi stop [--wait MINUTES] [--force]` | Start (Worker first, readiness, App) / stop cleanly; never removes data. `stop` waits for active Bot runs like `update` does (the systemd unit passes `--force` so shutdown is never refused) |
@@ -574,8 +574,53 @@ is public and `tofi status` can still check health. In that mode Caddy reaches
 the App over the Docker bridge, which is why `TOFI_OWNER_ALLOW_LAN_HTTP=1` stays
 for it; the default HTTPS mode sets it to `0`. The App healthcheck picks `https`
 or `http` from `TOFI_TLS_CERT_FILE` (busybox `wget` with Alpine's `ssl_client`).
-The shared `mcp-runner` is not part of this stack; account computers run MCP
-inside their Guest.
+The local MCP Runner (Gmail, community packages) is the `runner` service under
+profile `runner`, started when `tofi.env` names `TOFI_RUNNER_IMAGE` (releases
+whose manifest pins `images.runner` set it, with `TOFI_RUNNER_URL` and
+`TOFI_RUNNER_MASTER_KEY_FILE`). It runs outside every computer, so it works with
+`TOFI_COMPUTER_BACKEND=none`, serves each account in its own namespace and uid,
+and keeps its state under `/var/lib/tofi/data/runner` (inside the data backup).
+Without a Runner image, local connections still run inside the account computer
+as before. See `docs/decisions/0071-runner-container.md`.
+
+The Runner runs code a person installed, so it is fenced: it has no shared memory
+(`ipc: none`), it reaches the App over the internal network `runner_link`, and it
+goes out only through its own bridge `runner_egress` (172.30.77.0/24). `tofi`
+adds firewall rules (iptables chain `TOFI-RUNNER-EGRESS`, hooked into
+`DOCKER-USER` and `INPUT`) so that bridge cannot reach the host, private
+networks (10/8, 172.16/12, 192.168/16, 100.64/10), 169.254.0.0/16 or the other
+Docker networks of this install; they are rewritten on every start and removed by
+`tofi uninstall`. Without `iptables` (or with Docker's nftables backend, which
+has no `DOCKER-USER` chain) `tofi` warns and the Runner starts unfenced: add
+equivalent rules yourself for 172.30.77.0/24. If 172.30.77.0/24 is in use on
+your network, change it in `compose.yaml` and `RUNNER_EGRESS_SUBNET` in
+`tofi_host.py`.
+
+Accounts are fenced from each other inside the Runner as well. Each account's
+plugins run in their own network namespace (private loopback, listeners and
+abstract unix sockets; a veth pair to the Runner, forwarded to the egress
+interface only and masqueraded, so the rules above hold for every plugin; names
+resolve through a forwarder on 127.0.0.11 in the namespace), in their own cgroup
+(memory 384 MiB, 128 processes by default) and under a disk quota (2 GiB, checked
+before an install or start and every 20 seconds; over quota the account's tmp is
+cleared, then its processes are stopped). Set `TOFI_RUNNER_ACCOUNT_MEMORY_MB`,
+`TOFI_RUNNER_ACCOUNT_PIDS` and `TOFI_RUNNER_ACCOUNT_DISK_MB` in `tofi.env` to
+change them (disk 0 turns the quota off). The container holds `SETUID SETGID CHOWN
+DAC_OVERRIDE FOWNER SYS_ADMIN NET_ADMIN`; the reasons are in `compose.yaml`. A
+plugin process keeps none of them: the launcher joins the namespace and cgroup,
+then clears every capability, sets `no_new_privs`, becomes the account uid and
+adds a seccomp filter (no `unshare`, `setns`, `mount`, namespace `clone`, `bpf`,
+`io_uring`, keyring calls). The Runner refuses to start without network
+namespaces (`TOFI_MCP_RUNNER_NETNS=required`) or without a seccomp profile on its
+own container. Cgroups need a writable cgroup v2 view; where the host forbids the
+remount (an AppArmor profile that denies `mount`) the Runner logs a `SECURITY`
+line and runs without the memory and pids limits (`TOFI_RUNNER_CGROUPS=required`
+makes that fatal instead).
+
+Once an account keeps its local connections in the Runner container, `tofi update`
+refuses a release that predates it (the connections would fall back to an older
+copy on the account's computer). `sudo tofi update --version <older>
+--allow-runner-downgrade` overrides that on purpose; automatic updates never do.
 
 Budgets: the Worker gets `max(1, nproc-1)` vCPUs and
 `max(1536, MemTotal-2048)` MiB for account computers (1 vCPU / 1 GiB each), with
@@ -608,7 +653,7 @@ current step and the last error. An update stores the previous `tofi.env`,
 
 `.github/workflows/release.yml` runs on a `v*` tag (or manually with a tag):
 tests, with clean native builds of `ghcr.io/jackzhao98/tofi`,
-`tofi-worker` (and `tofi-mcp-runner` for development) with
+`tofi-worker` and `tofi-mcp-runner` with
 `TOFI_SOURCE_COMMIT` on `ubuntu-24.04` (amd64) and `ubuntu-24.04-arm` (arm64)
 runners at the same time (by digest, no tag); once `test` passes, one manifest
 list per image is tagged and pinned. The Guest release

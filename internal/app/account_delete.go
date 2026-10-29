@@ -235,12 +235,21 @@ func (g *AccountGateway) deleteStep(ctx context.Context, step string, a Account)
 	case "computer":
 		return g.deleteComputer(ctx, a.ID)
 	case "data":
+		if err := g.deleteRunnerState(ctx, a.ID); err != nil {
+			return err
+		}
 		return removeAccountDataDir(g.config.DataDir, a.ID)
 	case "sessions":
 		_, err := g.root.store.db.ExecContext(ctx, `DELETE FROM account_sessions WHERE account_id=?`, a.ID)
 		return err
 	case "record":
 		// Guard again at the final step: only a disabled, deleting, non-legacy row goes.
+		// Usage history and limit go with the account.
+		for _, q := range []string{`DELETE FROM account_storage WHERE account_id=?`, `DELETE FROM account_storage_quota WHERE account_id=?`} {
+			if _, err := g.root.store.db.ExecContext(ctx, q, a.ID); err != nil {
+				return err
+			}
+		}
 		_, err := g.root.store.db.ExecContext(ctx, `DELETE FROM accounts WHERE id=? AND deleting=1 AND disabled=1 AND legacy=0`, a.ID)
 		return err
 	}
@@ -248,7 +257,7 @@ func (g *AccountGateway) deleteStep(ctx context.Context, step string, a Account)
 }
 
 func (g *AccountGateway) deleteComputer(ctx context.Context, id string) error {
-	if g.config.AccountProvisionerSocket == "" {
+	if g.provisioner() == "" {
 		return nil // no Worker: this deployment has no computer to reclaim
 	}
 	// A deactivation whose broker call failed (503 computer_transition_pending)

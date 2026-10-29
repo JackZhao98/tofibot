@@ -130,9 +130,13 @@ export function useFilePreviewStack(): PreviewTarget[] {
 /** Cap for text previews: bigger files show their head and offer the download. */
 export const PREVIEW_TEXT_LIMIT = 2 * 1024 * 1024;
 
+/** Why a stored file cannot be read right now; the helpers live in attachmentProblem.ts so the first paint does not carry them. */
+export type AttachmentProblem = "file_on_detached_computer" | "file_missing_on_computer";
+
+
 export async function readTextHead(url: string, limit = PREVIEW_TEXT_LIMIT, signal?: AbortSignal): Promise<{ text: string; truncated: boolean; name: string }> {
   const response = await fetch(url, { credentials: "same-origin", signal });
-  if (!response.ok) throw new Error(String(response.status));
+  if (!response.ok) throw await (await import("./attachmentProblem")).attachmentFailure(response);
   const disposition = response.headers.get("Content-Disposition") ?? "";
   const name = /filename="?([^";]+)"?/i.exec(disposition)?.[1] ?? "";
   const reader = response.body?.getReader();

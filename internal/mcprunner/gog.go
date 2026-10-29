@@ -9,8 +9,8 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/JackZhao98/tofibot/internal/googleapi"
@@ -150,7 +150,7 @@ func gogMCPArgs(spec Spec) []string {
 		return spec.Args
 	}
 	var account gogAccount
-	if data, err := os.ReadFile(filepath.Join(spec.WorkDir, "gog-account.json")); err == nil {
+	if data, err := spec.readInPlugin("gog-account.json"); err == nil {
 		_ = json.Unmarshal(data, &account)
 	}
 	return []string{"mcp", "--allow-tool", gogToolSelectors(account.Services)}
@@ -234,12 +234,12 @@ func validateGogStart(input GogStartRequest) error {
 }
 
 func gogEnv(spec Spec) ([]string, error) {
-	env := []string{"PATH=/usr/local/bin:/usr/bin:/bin", "LANG=C.UTF-8", "TMPDIR=/tmp"}
+	env := []string{"PATH=/usr/local/bin:/usr/bin:/bin", "LANG=C.UTF-8", "TMPDIR=" + spec.tmpDir()}
 	for key, value := range spec.Env {
 		env = append(env, key+"="+value)
 	}
 	for key, path := range spec.SecretEnv {
-		data, err := os.ReadFile(path)
+		data, err := spec.readInPlugin(path)
 		if err != nil {
 			return nil, err
 		}
@@ -292,9 +292,13 @@ func runGog(ctx context.Context, spec Spec, input []byte, args ...string) ([]byt
 	if err != nil {
 		return nil, err
 	}
-	cmd := exec.CommandContext(ctx, spec.Command, args...)
+	command, launchArgs, cred := confine(spec.Cred, spec.Limits, spec.Sandbox, spec.Command, args)
+	cmd := exec.CommandContext(ctx, command, launchArgs...)
 	cmd.Dir = spec.WorkDir
 	cmd.Env = env
+	if cred != nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{Credential: cred}
+	}
 	if input != nil {
 		cmd.Stdin = bytes.NewReader(input)
 	}
@@ -372,7 +376,7 @@ func (r *Runner) GogStart(ctx context.Context, id string, input GogStartRequest)
 	if err != nil {
 		return GogStartResult{}, err
 	}
-	if err := writeAtomic0600(filepath.Join(spec.WorkDir, "gog-oauth-session.json"), data); err != nil {
+	if err := spec.writeInPlugin("gog-oauth-session.json", data); err != nil {
 		return GogStartResult{}, err
 	}
 	return GogStartResult{AuthorizationURL: result.AuthURL}, nil
@@ -389,7 +393,7 @@ func (r *Runner) GogFinish(ctx context.Context, id string, input GogFinishReques
 	if err != nil {
 		return err
 	}
-	data, err := os.ReadFile(filepath.Join(spec.WorkDir, "gog-oauth-session.json"))
+	data, err := spec.readInPlugin("gog-oauth-session.json")
 	if err != nil {
 		return errors.New("Google authorization session missing")
 	}
@@ -416,10 +420,10 @@ func (r *Runner) GogFinish(ctx context.Context, id string, input GogFinishReques
 		return errors.New("Google authorization could not be completed")
 	}
 	account, _ := json.Marshal(gogAccount{Email: session.Email, Scope: session.Scope, Services: services, ConnectedAt: time.Now()})
-	if err := writeAtomic0600(filepath.Join(spec.WorkDir, "gog-account.json"), account); err != nil {
+	if err := spec.writeInPlugin("gog-account.json", account); err != nil {
 		return err
 	}
-	_ = os.Remove(filepath.Join(spec.WorkDir, "gog-oauth-session.json"))
+	_ = spec.removeInPlugin("gog-oauth-session.json")
 	// The MCP child was started with the tools of the services granted then; the next call starts it with these.
 	p.recycle()
 	return nil
@@ -430,7 +434,7 @@ func (r *Runner) GogStatus(id string) (gogAccount, error) {
 	if err != nil {
 		return gogAccount{}, err
 	}
-	data, err := os.ReadFile(filepath.Join(spec.WorkDir, "gog-account.json"))
+	data, err := spec.readInPlugin("gog-account.json")
 	if errors.Is(err, os.ErrNotExist) {
 		return gogAccount{}, nil
 	}
@@ -508,7 +512,7 @@ func (r *Runner) GogDisconnect(ctx context.Context, id string) error {
 	if _, err := runGog(ctx, spec, nil, "--no-input", "auth", "remove", account.Email); err != nil {
 		return errors.New("could not remove stored Google token")
 	}
-	err = os.Remove(filepath.Join(spec.WorkDir, "gog-account.json"))
+	err = spec.removeInPlugin("gog-account.json")
 	p.recycle()
 	return err
 }

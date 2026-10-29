@@ -48,6 +48,13 @@ func newConfiguredServer(config app.Config, getenv func(string) string) (applica
 		return nil, err
 	}
 	config.ComputerBackend = backend
+	if value := getenv("TOFI_MAX_PERSONAL_COMPUTERS"); value != "" {
+		limit, err := strconv.Atoi(value)
+		if err != nil || limit < 0 || limit > 64 {
+			return nil, fmt.Errorf("TOFI_MAX_PERSONAL_COMPUTERS must be 0..64")
+		}
+		config.MaxPersonalComputers = limit
+	}
 	if backend == app.ComputerBackendNone {
 		config.ComputerSocket = ""
 	}
@@ -70,11 +77,18 @@ func newConfiguredServer(config app.Config, getenv func(string) string) (applica
 		config.AccountComputerDiskGiB = quota
 		config.AccountLegacyComputerUUID = getenv("TOFI_ACCOUNT_LEGACY_COMPUTER_UUID")
 	}
+	// The Runner container is independent of the computer: it is configured with either backend.
+	config.RunnerGatewayURL = getenv("TOFI_RUNNER_URL")
+	config.RunnerMasterKeyFile = getenv("TOFI_RUNNER_MASTER_KEY_FILE")
+	if (config.RunnerGatewayURL == "") != (config.RunnerMasterKeyFile == "") || (config.RunnerGatewayURL != "" && !filepath.IsAbs(config.RunnerMasterKeyFile)) {
+		return nil, fmt.Errorf("TOFI_RUNNER_URL and an absolute TOFI_RUNNER_MASTER_KEY_FILE must be set together")
+	}
 	maintenance := getenv("TOFI_ACCOUNT_MAINTENANCE")
 	if maintenance != "" && maintenance != "0" && maintenance != "1" {
 		return nil, fmt.Errorf("TOFI_ACCOUNT_MAINTENANCE must be 0 or 1")
 	}
 	config.AccountMaintenance = maintenance == "1"
+	config.HostControlTokenFile = getenv("TOFI_HOST_CONTROL_TOKEN_FILE")
 	if value := getenv("TOFI_ACCOUNT_DB_MAX_BYTES"); value != "" {
 		limit, err := strconv.ParseInt(value, 10, 64)
 		if err != nil || limit <= 0 {

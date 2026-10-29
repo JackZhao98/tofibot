@@ -53,6 +53,21 @@ Multi-account: only an admin sets an account's vCPUs, memory and disk, in Admin 
 `PUT /api/computer/resources` returns 403 `quota_management_required`; a member may read it and `POST /api/computer/resources/apply` (restart to apply what the admin saved).
 Settings > Computer shows a read-only summary to members and a link to the console to admins; the single-account owner (the admin) still adjusts it there.
 
+# Computers are providers and rows (computer-decoupling S5, S6)
+
+`computer.Provider` (`internal/computer/provider.go`) is what the server holds; `*computer.Client` (Firecracker) is the only implementation. Optional interfaces (`Streamer`, `Resourcer`, `OAuthBridge`,
+`RunnerHost`, `LegacyBlobs`, `Socketed`, `Healther`, `Heartbeater`) are type-asserted behind a capability. `s.computer()` is the account's VM or nil (`s.microVM` is its storage; write it only through
+`AttachVM`/`DetachVM`, or directly in tests); `/api/computers/{id}/` resolves `{id}` through `Provider.ID()` (`isVMRoute`). Computers are rows in `computers` (`computer_rows.go`: id, name, kind `vm|personal`,
+platform, region, labels, protocol_version, status `attached|lost|detached`, last_seen; one row is the VM, up to `Config.MaxPersonalComputers` (default 6, env `TOFI_MAX_PERSONAL_COMPUTERS`) are the person's own).
+Each computer has a runtime slot (`computer_registry.go`) with its own operator lock (only one Bot at a time; a lease per tool call, released when the call ends and handed to the next Bot in line in arrival order; `releaseComputerHolds` is the end-of-run safety net), a call counter and a context. The VM keeps its
+shared-desktop lease, keyed by the computer id. Bots reach other computers with `list_computers` and `computer_action{computer_id}` (registered only when a personal computer exists); the convenience tools act on the VM.
+Hot attach/detach needs no restart: the administrator calls `POST /api/admin/accounts/{id}/computer/{attach|detach|state}` (gateway) or `/api/admin/computer/*` (single account; never served inside a gateway workspace).
+`DetachVM` stops new calls (state draining), waits for running ones up to `wait_seconds`, copies the outbox to the server (`syncOutboxForDetach`), cancels what is left (those calls end with the tool error
+`computer_detached`, effect unknown) and stores status `detached`, which a restart keeps until an attach. A computer with a `Heartbeater` that is silent for `computerLostAfter` is marked lost: its lock is freed and calls fail
+with `computer_offline`. The administrator's answers contain the VM and the server only (`adminVMSummary`); never put a personal computer, its name or its count into an admin response or log. A run's computer use is recorded in `run_computers`
+(run_id, computer_id, nullable region and compute_ms; a table of its own because three more columns on `runs` move the planner off `runs_active`; no UI yet). Tests: `computer_registry_test.go`, `computer_attach_test.go`, `computer_gate_test.go` (the release gate), `computer_upgrade_test.go` (data written by main).
+Computer configuration (computer-decoupling S2): the Keys page, `ComputerContents` ("What is on this computer": browser sign-ins, installed tools, work files, environment and keys, in words that say they are lost with the computer) and the wipe list `ComputerLossList` (names and counts from `GET /api/computer/contents`, `internal/app/computer_contents.go`) exist only while `useHasComputer()`; with no computer the web app makes no `/api/computer/*` request (`test:no-computer` holds it). `[run context]` adds `freshComputerStatus` while nothing is saved in Settings for the computer. `tofi computer remove --purge` prints the same class C list (`computer_loss_lines` in `tofi_host.py`). `tofi computer add|remove` call the App's host route (`/api/host/computer/{state|attach|detach}`, `host_control.go`; bearer token in `data/host-control.token`; served only to a loopback or container-gateway peer, any other source gets 404; Caddy answers 404) so the App is not restarted; 404/401/409/no answer falls back to the restart (`HostControlUnavailable`). While the host has the computers off, the gateway's `provisioner()` is empty (no reserve/ensure/reclaim) and new workspaces start with `ComputerStartDetached`.
+
 # Update from the web page
 
 The Version card (Settings > Maintenance) and the banner have an **Update to vX** button for admins (decision D69, `docs/decisions/0069-web-update-request.md`). The web app only
@@ -272,6 +287,11 @@ card returns to a person; unattended: it is closed and the call refused `mcp_nee
 writes `mcp_standing_allowance_uses` (null `call_id` when the runtime gave none) inside the claim transaction, and links the tool activity
 (`ToolActivity.allowed_by`). Archiving/deleting the Bot or the server (`deleteMCPServer`: use it, not `extensions.DeleteMCP`) revokes the grants
 (`revoked_by` `bot_archived` | `bot_deleted` | `server_removed`) and keeps the rows and uses.
+Local MCP Runner (decision 0071): in multi-account self-host it is the `runner` container (profile `runner`), not a process in the guest. Each account has a namespace
+`/a/<account id>`, a token derived from the master key (`mcprunner.AccountToken`), a uid and private directories; `localRunnerConfig` uses it when the account has no computer or its
+guest Runner state has been copied and verified (`local_runner_container.go`, state file `local-runner.json`). Never route a request to another account's namespace, never give a
+workspace the master key, and keep `internal/mcprunner/hub_test.go` cross-account refusals passing. Root-side file work inside an account (below `plugins/<id>` or `tmp/`, which the account's uid owns) must go through `os.Root` (`confined.go`), never `os.ReadFile`/`os.RemoveAll`/path `chown` on a path the account can swap; the directory owner, not `uids.json`, is the authority for an account's uid. The guest Runner code stays only as the source of that copy.
+Runner sandbox (`sandbox.go`, `sandbox_linux.go`, `seccomp.go`, `diskquota.go`): every child of an account starts through `confine()`, which makes the Runner binary a root launcher that joins the account's cgroup (memory+pids) and network namespace (`unshare --net` holder, veth to the container, forward to the egress interface only, DNS forwarder on 127.0.0.11 inside the namespace), unshares IPC, then drops every capability, sets no_new_privs, becomes the uid and installs a seccomp filter before exec. Never start a plugin or installer with `Credential` directly when a sandbox is configured, and never add a capability to the `runner` service without writing why in `compose.yaml`. Disk is a measured quota per account (`Options.Admit`).
 Community connections (decision 0047): TOFI curates official connectors only; a community MCP is installed by the person under Settings > Connections > Add connection > Custom > Local package
 (npm or PyPI, pinned version, optional npm `sha512-` digest verified after install). Its secrets are 0600 files in the Runner, never in a response, status or manifest.
 `attachLocalMCP` writes `provenance` (origin `community`, kind, package, version) from the Runner's status only; it is part of the configuration fingerprint, so a
@@ -401,6 +421,20 @@ Web only, 1100 px and wider; the design is `docs/design/widgets-and-sidebar.md` 
 - **Escape** is `useSurfaceEscape.ts`, one press closes one thing: native top-layer `<dialog>` > Radix layers (they `preventDefault`) > big computer back to compact > cover (Settings through `tofi-settings-close`, the others are Radix dialogs that ask first when dirty) > sidebar > widgets bottom-up in the person's order (default Usage, Artifacts, Members, Computer; the computer last). Do not add another Escape handler for a surface.
 - Every surface animates in and out with the motion tokens (leaving shorter than entering, reduced motion instant, no empty frame: `useLeaving` and `useSurfacePresence` in `surfacePresence.ts`). Below 1100 px the drawer/sheet stays (a 400 px drawer with a scrim; the computer is the floating window; Members and Artifacts open as covers); Electron is unchanged.
 - Keep all of it out of the entry bundle except `surfaces.ts`, `surfacePresence.ts`, `useSurfaceEscape.ts` and the header (`test:shell-budget`). A new surface needs a title in 7 locales and a catalog state. Tests: `test:surfaces`, `test:surfaces-browser` (memory, `?side=`, Escape order, Usage widget, reordering), `test:widgets-auto`, `test:switch-budget` (includes two widgets open), `test:conversation-route`, `test:settings-shell`, `test:bot-skills`, `test:computer-window`. `scripts/shot-surfaces.mjs` (`SECTIONS=r2`) and `scripts/shot-bot-settings.mjs` take screenshots and enter/exit frame strips by pausing every animation and setting `currentTime`, so a loaded machine cannot drop frames.
+
+# Server file store (computer-decoupling S1)
+
+Every file a client shows or downloads (uploads, `publish_file`, generated images, outbox files) is written by `Store.addAttachmentOpts`
+(`internal/app/attachments.go`) to `<account data dir>/attachments/<uuid>.upload`, in every mode, with or without a computer. The row records
+`sha256`, `origin` (`upload|published|generated|outbox|mirror`) and `bot_id` (additive columns). The guest copy under `/workspace/home/uploads` is
+a cache. The old guest-only form `disk_name = "vm:<uuid>"` is read-only legacy: `guest_attachments.go` copies such rows to the server (lazily on
+read, and `file_store_copier.go` every 10 minutes, 50 rows per pass, at most one wake of a sleeping computer per hour). Order of one copy: read the
+guest object, check its length, write a temp file and fsync, hash the file and compare, rename, then repoint the row and journal the guest object
+in one transaction. The guest object is deleted later by `cleanupDeletedAttachments`, which re-checks the server file against the row's sha256.
+A `vm:` file that cannot be reached answers HTTP 409 `file_on_detached_computer` (404 `file_missing_on_computer` when the computer answers and lacks it); the web app shows one sentence for either in the file card and the viewer (`AttachmentNotice`, `attachmentDownload.ts`). The portability import writes its attachment bytes straight to this store (`portability_staging.go`, origin `import`), so it needs no computer. `tofi computer remove --purge` refuses while any `vm:` row
+exists unless `--discard-unsaved-files`. Outbox: `/workspace/home/outbox` is copied by `outbox_sync.go` at the end of a run that used the computer
+(20 MiB per file, 200 MiB and 8 files per reply, symlinks refused by the guest, nothing deleted on the computer). Design:
+`docs/design/computer-decoupling.md`.
 
 # Chat uploads on the Bot's computer
 

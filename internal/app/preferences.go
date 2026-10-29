@@ -306,7 +306,7 @@ func (s *Server) preferences(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			guestSync := "not_configured"
-			if s.microVM != nil {
+			if s.computer() != nil {
 				guestSync = "synced"
 				if syncErr := s.syncGuestTimezone(context.Background(), true); syncErr != nil {
 					guestSync = "pending"
@@ -325,7 +325,7 @@ func (s *Server) preferences(w http.ResponseWriter, r *http.Request) {
 const preferenceSyncBotID = "00000000-0000-0000-0000-000000000000"
 
 func (s *Server) syncGuestTimezone(parent context.Context, force bool) error {
-	if s == nil || s.store == nil || s.microVM == nil {
+	if s == nil || s.store == nil || s.computer() == nil {
 		return errors.New("guest timezone sync unavailable")
 	}
 	s.guestTimezoneMu.Lock()
@@ -343,7 +343,7 @@ func (s *Server) syncGuestTimezone(parent context.Context, force bool) error {
 	if err != nil {
 		return err
 	}
-	result, err := s.microVM.Action(ctx, computer.Action{BotID: preferenceSyncBotID, RunID: "timezone-sync", Source: "human", Name: "timezone.set", Args: raw})
+	result, err := s.computer().Action(ctx, computer.Action{BotID: preferenceSyncBotID, RunID: "timezone-sync", Source: "human", Name: "timezone.set", Args: raw})
 	if err != nil {
 		return err
 	}
@@ -358,7 +358,7 @@ func (s *Server) syncGuestTimezone(parent context.Context, force bool) error {
 // prepareGuestTimezoneForAction retries a pending preference sync only when a
 // new process/session is about to start. Existing processes keep their own TZ.
 func (s *Server) prepareGuestTimezoneForAction(ctx context.Context, action string) {
-	if s == nil || s.store == nil || s.microVM == nil || (action != "shell.exec" && action != "terminal.open" && action != "desktop.start") {
+	if s == nil || s.store == nil || s.computer() == nil || (action != "shell.exec" && action != "terminal.open" && action != "desktop.start") {
 		return
 	}
 	_ = s.syncGuestTimezone(ctx, action == "desktop.start")

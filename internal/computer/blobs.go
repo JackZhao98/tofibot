@@ -16,6 +16,11 @@ import (
 
 const MaxBlobBytes int64 = 20 << 20
 
+// ErrBlobNotFound means the computer answered and has no such blob: the object
+// is gone from the guest disk. It differs from an unreachable computer, where
+// the object may still exist.
+var ErrBlobNotFound = errors.New("guest blob not found")
+
 func (c *Client) blob(ctx context.Context, method, id string, data []byte) ([]byte, error) {
 	return c.blobWithDigest(ctx, method, id, data, "", false)
 }
@@ -56,6 +61,9 @@ func (c *Client) blobWithDigest(ctx context.Context, method, id string, data []b
 		return nil, err
 	}
 	defer response.Body.Close()
+	if response.StatusCode == http.StatusNotFound && method == "GET" {
+		return nil, ErrBlobNotFound
+	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return nil, fmt.Errorf("guest blob storage returned %d", response.StatusCode)
 	}

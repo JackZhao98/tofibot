@@ -13,6 +13,8 @@ import { ConnectionDetailView, type ConnectionDetailViewProps } from "../../conn
 import { ConnectionsEmpty } from "../../connections/ConnectionsEmpty";
 import type { ToolTierList } from "../../connections/shared";
 import { ComputerOptions } from "../../ComputerOptions";
+import { ComputerContentsView } from "../../ComputerContents";
+import { ComputerLossView } from "../../ComputerLoss";
 import { PasteBackView } from "../../connections/PasteBackDialog";
 import type { ConnectionKind } from "../../connections/status";
 import type { GoogleOverview } from "../../connections/google";
@@ -152,6 +154,14 @@ export const settings: CatalogSection = {
       { drive: step => step.click('.web-row[data-id="tavily"] button[aria-expanded]').then(() => undefined) }),
     webState("master-off", "web search switched off in Automatic behavior", webView([webTavily({ status: "ready", key_hint: "…9a2f" }), webBrave(), webSearx()], [webFirecrawl(), webBright()], { enabled: false })),
     { id: "computer-none", kind: "inline", label: "Computer page on a server with no computer", note: "what works without one, and the ways to add a computer", render: () => <ComputerOptions /> },
+    { id: "computer-contents", kind: "inline", label: "Computer page: what is on this computer", note: "four rows; Environment and keys links to Keys; the list reads names and counts only", render: () => <ComputerContentsView data={{ environment: ["WEB_API_TOKEN", "DEPLOY_REGION"], ssh_keys: ["id_work"], pending_file_copies: 0 }} failed={false} retry={noop} openTab={noop} /> },
+    { id: "computer-contents-pending", kind: "inline", label: "Computer page: nothing saved, files still copying", note: "the Work files row says how many files still wait for their copy", render: () => <ComputerContentsView data={{ environment: [], ssh_keys: [], pending_file_copies: 2 }} failed={false} retry={noop} openTab={noop} /> },
+    { id: "computer-contents-loading", kind: "inline", label: "Computer page: what is on this computer, reading", render: () => <ComputerContentsView data={null} failed={false} retry={noop} openTab={noop} /> },
+    { id: "computer-contents-failed", kind: "inline", label: "Computer page: what is on this computer, could not be read", render: () => <ComputerContentsView data={null} failed={true} retry={noop} openTab={noop} /> },
+    { id: "computer-loss", kind: "inline", label: "Wipe list: names and counts", note: "shown above the typed confirmation in Settings › Advanced › Start over; rows rise in one after another", render: () => <ComputerLossView data={{ environment: ["WEB_API_TOKEN", "DEPLOY_REGION"], ssh_keys: ["id_work"], pending_file_copies: 2 }} failed={false} retry={noop} /> },
+    { id: "computer-loss-empty", kind: "inline", label: "Wipe list: nothing saved in Settings", render: () => <ComputerLossView data={{ environment: [], ssh_keys: [], pending_file_copies: 0 }} failed={false} retry={noop} /> },
+    { id: "computer-loss-loading", kind: "inline", label: "Wipe list: reading", render: () => <ComputerLossView data={null} failed={false} retry={noop} /> },
+    { id: "computer-loss-failed", kind: "inline", label: "Wipe list: could not be read", render: () => <ComputerLossView data={null} failed={true} retry={noop} /> },
     libraryState("library", "Skills library: owner, Bot-installed, bundle, official", {}),
     libraryState("library-open", "Skills library: bundle expanded", () => ({ openBundles: ["office-kit"], notice: t("extensions:skills.library.added_notice") })),
     libraryState("library-pending", "Skills library: choose Bots for a new Skill", { pending: "Weekly report" }),

@@ -349,7 +349,7 @@ func (s *Server) applySecret(ctx context.Context, r Run, action, target, value, 
 	return string(encoded), nil
 }
 func (s *Server) secretTools(r Run) []Tool {
-	if s.secretVault == nil || s.microVM == nil {
+	if s.secretVault == nil || s.computer() == nil {
 		return nil
 	}
 	return []Tool{

@@ -51,6 +51,9 @@ type Computer struct {
 	Online       bool     `json:"online"`
 	Capabilities []string `json:"capabilities"`
 	LastSeen     string   `json:"last_seen,omitempty"`
+	Region       string   `json:"region,omitempty"`
+	// Status is the stored attachment state: attached, lost or detached.
+	Status string `json:"status,omitempty"`
 }
 
 type ComputerJob struct {
@@ -83,8 +86,8 @@ CREATE TABLE IF NOT EXISTS computer_pairings(
 );
 CREATE INDEX IF NOT EXISTS computer_pairings_created ON computer_pairings(created_at);
 CREATE TABLE IF NOT EXISTS computers(
- id TEXT PRIMARY KEY, name TEXT NOT NULL, platform TEXT NOT NULL CHECK(platform='darwin'),
- kind TEXT NOT NULL DEFAULT 'mac' CHECK(kind='mac'), token_hash BLOB NOT NULL,
+ id TEXT PRIMARY KEY, name TEXT NOT NULL, platform TEXT NOT NULL,
+ kind TEXT NOT NULL DEFAULT 'personal', token_hash BLOB NOT NULL,
  capabilities TEXT NOT NULL, last_seen TEXT NOT NULL, created_at TEXT NOT NULL, revoked_at TEXT
 );
 CREATE TABLE IF NOT EXISTS computer_jobs(
@@ -105,8 +108,10 @@ CREATE INDEX IF NOT EXISTS computer_jobs_run ON computer_jobs(run_id,status);
 	if err = ensureColumn(db, "computer_pairings", "device_id", `ALTER TABLE computer_pairings ADD COLUMN device_id TEXT`); err != nil {
 		return err
 	}
-	_, err = db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS computer_pairings_id ON computer_pairings(pairing_id) WHERE pairing_id IS NOT NULL`)
-	return err
+	if _, err = db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS computer_pairings_id ON computer_pairings(pairing_id) WHERE pairing_id IS NOT NULL`); err != nil {
+		return err
+	}
+	return migrateComputerRows(db)
 }
 
 // recoverComputerJobs is called after OpenStore has changed uncertain running
@@ -230,8 +235,8 @@ func normalizeCapabilities(in []string) ([]string, error) {
 
 func (s *Store) pairComputer(code, name, platform string, capabilities []string) (string, string, error) {
 	name = strings.TrimSpace(name)
-	if name == "" || len(name) > 120 || platform != "darwin" {
-		return "", "", errors.New("valid name and platform darwin are required")
+	if name == "" || len(name) > 120 || (platform != "darwin" && platform != "linux" && platform != "windows") {
+		return "", "", errors.New("valid name and a platform of darwin, linux or windows are required")
 	}
 	caps, err := normalizeCapabilities(capabilities)
 	if err != nil {
@@ -253,6 +258,17 @@ func (s *Store) pairComputer(code, name, platform string, capabilities []string)
 		return "", "", err
 	}
 	defer tx.Rollback()
+	limit := s.maxPersonalComputers
+	if limit <= 0 {
+		limit = DefaultMaxPersonalComputers
+	}
+	var have int
+	if err = tx.QueryRow(`SELECT COUNT(*) FROM computers WHERE kind='personal' AND revoked_at IS NULL`).Scan(&have); err != nil {
+		return "", "", err
+	}
+	if have >= limit {
+		return "", "", errTooManyComputers
+	}
 	res, err := tx.Exec(`UPDATE computer_pairings SET used_at=?,device_id=? WHERE code_hash=? AND used_at IS NULL AND expires_at>?`, t, id, secretHash(code), t)
 	if err != nil {
 		return "", "", err
@@ -261,7 +277,7 @@ func (s *Store) pairComputer(code, name, platform string, capabilities []string)
 		return "", "", errors.New("invalid or expired pairing code")
 	}
 	capJSON, _ := json.Marshal(caps)
-	if _, err = tx.Exec(`INSERT INTO computers(id,name,platform,kind,token_hash,capabilities,last_seen,created_at) VALUES(?,?,?,?,?,?,?,?)`, id, name, platform, "mac", secretHash(token), string(capJSON), t, t); err != nil {
+	if _, err = tx.Exec(`INSERT INTO computers(id,name,platform,kind,token_hash,capabilities,last_seen,created_at) VALUES(?,?,?,?,?,?,?,?)`, id, name, platform, computer.RowKindPersonal, secretHash(token), string(capJSON), t, t); err != nil {
 		return "", "", err
 	}
 	return id, token, tx.Commit()
@@ -269,7 +285,7 @@ func (s *Store) pairComputer(code, name, platform string, capabilities []string)
 
 func (s *Store) listComputers(instanceID string) ([]Computer, error) {
 	out := []Computer{{ID: "host:" + instanceID, Name: "Service host", Platform: runtime.GOOS, Kind: "host", Online: true, Capabilities: []string{"host.info"}}}
-	rows, err := s.db.Query(`SELECT id,name,platform,capabilities,last_seen FROM computers WHERE revoked_at IS NULL ORDER BY created_at,id`)
+	rows, err := s.db.Query(`SELECT id,name,platform,kind,region,status,capabilities,last_seen FROM computers WHERE kind<>'vm' AND revoked_at IS NULL ORDER BY created_at,id`)
 	if err != nil {
 		return nil, err
 	}
@@ -278,13 +294,16 @@ func (s *Store) listComputers(instanceID string) ([]Computer, error) {
 	for rows.Next() {
 		var c Computer
 		var raw string
-		if err = rows.Scan(&c.ID, &c.Name, &c.Platform, &raw, &c.LastSeen); err != nil {
+		var region sql.NullString
+		if err = rows.Scan(&c.ID, &c.Name, &c.Platform, &c.Kind, &region, &c.Status, &raw, &c.LastSeen); err != nil {
 			return nil, err
 		}
-		c.Kind = "mac"
+		if region.Valid {
+			c.Region = region.String
+		}
 		_ = json.Unmarshal([]byte(raw), &c.Capabilities)
 		last, parseErr := time.Parse(time.RFC3339Nano, c.LastSeen)
-		c.Online = parseErr == nil && last.After(cutoff)
+		c.Online = parseErr == nil && last.After(cutoff) && c.Status == computerRowAttached
 		out = append(out, c)
 	}
 	return out, rows.Err()
@@ -324,7 +343,7 @@ func (s *Store) revokeComputer(id string) (bool, error) {
 	}
 	defer tx.Rollback()
 	t := now()
-	res, err := tx.Exec(`UPDATE computers SET revoked_at=? WHERE id=? AND revoked_at IS NULL`, t, id)
+	res, err := tx.Exec(`UPDATE computers SET revoked_at=? WHERE id=? AND kind<>'vm' AND revoked_at IS NULL`, t, id)
 	if err != nil {
 		return false, err
 	}
@@ -824,8 +843,8 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 		return true
 	}
 	parts := strings.Split(strings.TrimPrefix(rel, "/"), "/")
-	if len(parts) == 2 && parts[0] == microVMComputerID && parts[1] == "info" && r.Method == http.MethodGet {
-		if s.microVM == nil {
+	if len(parts) == 2 && s.isVMRoute(parts[0]) && parts[1] == "info" && r.Method == http.MethodGet {
+		if s.computer() == nil {
 			writeErr(w, http.StatusNotFound, "not_configured", "computer VM is not configured")
 			return true
 		}
@@ -839,11 +858,11 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 			Health *ComputerHealth `json:"health,omitempty"`
 			// DesktopStarting is true while a desktop.start is in flight on a running computer.
 			DesktopStarting bool `json:"desktop_starting,omitempty"`
-		}{info, s.computerWatchdog.view(), s.desktopStarting.Load() > 0})
+		}{info, s.watchdog().view(), s.desktopStarting.Load() > 0})
 		return true
 	}
-	if len(parts) == 2 && parts[0] == microVMComputerID && parts[1] == "wake" && r.Method == http.MethodPost {
-		if s.microVM == nil {
+	if len(parts) == 2 && s.isVMRoute(parts[0]) && parts[1] == "wake" && r.Method == http.MethodPost {
+		if s.computer() == nil {
 			writeErr(w, http.StatusNotFound, "not_configured", "computer VM is not configured")
 			return true
 		}
@@ -861,7 +880,7 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 			writeJSON(w, http.StatusOK, map[string]any{"accepted": false, "state": info.State})
 			return true
 		}
-		if err := s.microVM.Retry(r.Context()); err != nil {
+		if err := s.computer().Retry(r.Context()); err != nil {
 			// Lost a race with another wake: the computer is no longer hibernated.
 			if now, infoErr := s.microVMInfo(r.Context()); infoErr == nil && now.State != computer.StateHibernated {
 				writeJSON(w, http.StatusOK, map[string]any{"accepted": false, "state": now.State})
@@ -873,14 +892,14 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 		writeJSON(w, http.StatusAccepted, map[string]any{"accepted": true, "state": computer.StateResuming})
 		return true
 	}
-	if len(parts) == 2 && parts[0] == microVMComputerID && parts[1] == "retry" && r.Method == http.MethodPost {
-		if s.microVM == nil {
+	if len(parts) == 2 && s.isVMRoute(parts[0]) && parts[1] == "retry" && r.Method == http.MethodPost {
+		if s.computer() == nil {
 			writeErr(w, http.StatusNotFound, "not_configured", "computer VM is not configured")
 			return true
 		}
 		// A computer the watchdog gave up on is running but unresponsive; the
 		// person's Retry restarts it and resets the automatic restart cap.
-		if handled, err := s.computerWatchdog.manualRecover(r.Context()); handled {
+		if handled, err := s.watchdog().manualRecover(r.Context()); handled {
 			if err != nil {
 				writeErr(w, http.StatusBadGateway, "computer_retry_failed", err.Error())
 			} else {
@@ -888,7 +907,7 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 			}
 			return true
 		}
-		if err := s.microVM.Retry(r.Context()); err != nil {
+		if err := s.computer().Retry(r.Context()); err != nil {
 			writeErr(w, http.StatusBadGateway, "computer_retry_failed", err.Error())
 		} else {
 			writeJSON(w, http.StatusAccepted, map[string]any{"accepted": true})
@@ -991,8 +1010,8 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 			writeErr(w, 400, "invalid_request", "invalid action")
 			return true
 		}
-		if parts[0] == microVMComputerID {
-			if s.microVM == nil {
+		if s.isVMRoute(parts[0]) {
+			if s.computer() == nil {
 				writeErr(w, http.StatusNotFound, "not_configured", "computer VM is not configured")
 				return true
 			}
@@ -1150,12 +1169,12 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 // service host and VM are reachable only through their dedicated tools.
 func (s *Store) hasPairedComputer() bool {
 	var ok bool
-	_ = s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM computers WHERE revoked_at IS NULL)`).Scan(&ok)
+	_ = s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM computers WHERE kind='personal' AND revoked_at IS NULL)`).Scan(&ok)
 	return ok
 }
 
 func (s *Server) computerTools(r Run) []Tool {
-	list := Tool{Name: "list_computers", Description: "List the service host and paired Mac computers with current online status and explicitly granted capabilities. Reuse prior conversation facts for explanatory answers; call this when current availability or grants matter for an operation, not automatically on every turn.", Parameters: objectSchema(map[string]any{}, nil), Execute: func(ctx context.Context, _ json.RawMessage) (string, error) {
+	list := Tool{Name: "list_computers", Description: "List the service host and the Bot's computers (the Bot workspace VM, which is the default, and any computer the person connected) with kind, current online status and explicitly granted capabilities. Reuse prior conversation facts for explanatory answers; call this when current availability or grants matter for an operation, not automatically on every turn.", Parameters: objectSchema(map[string]any{}, nil), Execute: func(ctx context.Context, _ json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
@@ -1166,7 +1185,7 @@ func (s *Server) computerTools(r Run) []Tool {
 		b, _ := json.Marshal(map[string]any{"computers": items})
 		return string(b), nil
 	}}
-	action := Tool{Name: "computer_action", Timeout: computerToolTimeout, Description: "Run one explicitly granted action on a paired computer or on the Bot's fixed Firecracker computer. Use only capabilities currently advertised by that computer; an action name does not grant access or enable an unavailable runtime. Callers cannot override local grants or execution policy. When a paired Mac advertises sandbox.exec, pass only args.command: it runs for at most 30 seconds in the locally authorized directory and directly changes its files, with no automatic rollback. It does not grant network, SSH keys, Keychain or arbitrary host toolchains. A stopped managed process group does not prove every detached descendant stopped. Inspect exitCode, stderr and cancellation before claiming success; do not retry uncertain writes automatically. Use host.info on the service host only to read its OS and architecture.", Parameters: objectSchema(map[string]any{"computer_id": map[string]any{"type": "string"}, "action": map[string]any{"type": "string"}, "args": map[string]any{"type": "object"}}, []string{"computer_id", "action", "args"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
+	action := Tool{Name: "computer_action", Timeout: computerToolTimeout, Description: "Run one explicitly granted action on a computer from list_computers; pick the one the person named, otherwise the Bot workspace. A computer is used by one Bot at a time; a busy or detached computer answers with an error, and work that does not need it goes on. Use only capabilities currently advertised by that computer; an action name does not grant access or enable an unavailable runtime. Callers cannot override local grants or execution policy. When a paired Mac advertises sandbox.exec, pass only args.command: it runs for at most 30 seconds in the locally authorized directory and directly changes its files, with no automatic rollback. It does not grant network, SSH keys, Keychain or arbitrary host toolchains. A stopped managed process group does not prove every detached descendant stopped. Inspect exitCode, stderr and cancellation before claiming success; do not retry uncertain writes automatically. Use host.info on the service host only to read its OS and architecture.", Parameters: objectSchema(map[string]any{"computer_id": map[string]any{"type": "string"}, "action": map[string]any{"type": "string"}, "args": map[string]any{"type": "object"}}, []string{"computer_id", "action", "args"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
 		var in struct {
 			ComputerID string          `json:"computer_id"`
 			Action     string          `json:"action"`
@@ -1207,8 +1226,8 @@ func (s *Server) computerTools(r Run) []Tool {
 			}
 			return fmt.Sprintf(`{"os":%q,"arch":%q}`, runtime.GOOS, runtime.GOARCH), nil
 		}
-		if v.ComputerID == microVMComputerID {
-			return s.microVMAction(ctx, r, v.Action, v.Args)
+		if slot := s.slotFor(v.ComputerID); slot != nil {
+			return s.computerActionOn(ctx, r, v.ComputerID, v.Action, v.Args)
 		}
 		j, err := s.store.queueComputerJob(r, v.ComputerID, v.Action, v.Args)
 		if err != nil {

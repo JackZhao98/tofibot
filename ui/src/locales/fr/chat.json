@@ -48,7 +48,12 @@
     "viewer_back": "Retour à {{name}}",
     "viewer_close": "Fermer l'aperçu",
     "zoom": "Agrandir {{name}}",
-    "zoom_image": "Agrandir l’image {{name}}"
+    "zoom_image": "Agrandir l’image {{name}}",
+    "problem": {
+      "file_on_detached_computer": "Ce fichier n’existe que sur l’ordinateur détaché. Rattachez l’ordinateur pour l’ouvrir.",
+      "file_missing_on_computer": "Ce fichier n’est plus sur l’ordinateur et n’a jamais été copié vers le serveur. Il ne peut pas être récupéré.",
+      "open_computer": "Ouvrir les réglages de l’ordinateur"
+    }
   },
   "botPanel": {
     "change_style": "Changer de style",

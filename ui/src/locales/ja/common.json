@@ -92,6 +92,8 @@
     "update_not_available": "そのバージョンはもう提供されていません。再読み込みして、もう一度お試しください。",
     "update_in_progress": "更新はすでに進行中です。",
     "update_channel_disabled": "リリース候補版はオフです。",
-    "host_update_unavailable": "このサーバーはまだページから更新できません。サーバーで sudo tofi update を実行してください。"
+    "host_update_unavailable": "このサーバーはまだページから更新できません。サーバーで sudo tofi update を実行してください。",
+    "storage_quota_exceeded": "このアカウントのストレージが上限に達しました。ファイルを削除するか、管理者に連絡してください。",
+    "storage_host_full": "サーバーのディスクがほぼ満杯のため、新しいファイルを受け付けられません。このサーバーの運用担当者に伝えてください。"
   }
 }

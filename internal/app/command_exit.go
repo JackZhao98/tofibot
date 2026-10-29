@@ -90,7 +90,7 @@ type guestTerminal struct {
 }
 
 func (s *Server) guestAction(ctx context.Context, botID, name string, args any) (json.RawMessage, error) {
-	if s.microVM == nil {
+	if s.computer() == nil {
 		return nil, errors.New("computer VM is not configured")
 	}
 	// A restarting computer fails fast; the poll tries again at its next tick.
@@ -98,7 +98,7 @@ func (s *Server) guestAction(ctx context.Context, botID, name string, args any) 
 		return nil, err
 	}
 	b, _ := json.Marshal(args)
-	res, err := s.microVM.Action(ctx, computer.Action{BotID: botID, RunID: "viewer-" + uuid.NewString(), Name: name, Args: b, Source: "viewer"})
+	res, err := s.computer().Action(ctx, computer.Action{BotID: botID, RunID: "viewer-" + uuid.NewString(), Name: name, Args: b, Source: "viewer"})
 	if err != nil {
 		return nil, err
 	}
@@ -348,7 +348,7 @@ func (s *Store) pendingCommandWaits(limit int) ([]commandWatch, error) {
 // pollCommandExits is one pass of the monitor. A Bot with no pending command
 // wait costs nothing: its computer is not asked.
 func (s *Server) pollCommandExits(ctx context.Context) {
-	if s.store == nil || s.microVM == nil {
+	if s.store == nil || s.computer() == nil {
 		return
 	}
 	watches, err := s.store.pendingCommandWaits(maxCommandPollWaits)
@@ -634,7 +634,7 @@ func (s *Store) pruneCommandWaits() {
 
 // startCommandMonitor runs the poll every 5 seconds.
 func (s *Server) startCommandMonitor() {
-	if s.store == nil || s.microVM == nil || s.tasks.commandCancel != nil {
+	if s.store == nil || s.computer() == nil || s.tasks.commandCancel != nil {
 		return
 	}
 	interval := s.tasks.commandEvery

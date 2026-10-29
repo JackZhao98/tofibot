@@ -184,8 +184,8 @@ func (s *Server) yieldComputerOwner(r Run) error {
 	if !s.ownsComputer(r) {
 		return nil
 	}
-	if s.microVM != nil {
-		if _, err := s.microVM.Action(ctx, computer.Action{BotID: r.BotID, RunID: r.ID, Name: "desktop.release", Source: "model", Args: json.RawMessage(`{}`)}); err != nil {
+	if s.computer() != nil {
+		if _, err := s.computer().Action(ctx, computer.Action{BotID: r.BotID, RunID: r.ID, Name: "desktop.release", Source: "model", Args: json.RawMessage(`{}`)}); err != nil {
 			return err
 		}
 	}

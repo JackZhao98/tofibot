@@ -31,6 +31,7 @@ import sys
 import tarfile
 import tempfile
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -66,6 +67,8 @@ IMAGE_REPOS = {
     'worker': 'ghcr.io/jackzhao98/tofi-worker',
     'caddy': 'docker.io/library/caddy',
 }
+# The local MCP Runner image is pinned by manifests that carry it; older manifests do not.
+OPTIONAL_IMAGE_REPOS = {'runner': 'ghcr.io/jackzhao98/tofi-mcp-runner'}
 APP_ENTRYPOINT = ['/app/tofi']
 WORKER_ENTRYPOINT = ['python3', '/opt/tofi-worker/worker_entrypoint.py',
                      '--config', '/etc/tofi-worker/config.json']
@@ -119,6 +122,17 @@ COMPUTER_TOOLS = ['apparmor_parser', 'debugfs', 'e2fsck', 'zstd']
 COMPUTER_APT_PACKAGES = ['zstd', 'e2fsprogs', 'apparmor', 'apparmor-utils']
 # compose.yaml starts the Worker only under this profile.
 COMPUTER_PROFILE = 'computer-kvm'
+# compose.yaml starts the local MCP Runner only under this profile (tofi.env names its image).
+RUNNER_PROFILE = 'runner'
+RUNNER_ENV_KEYS = ('TOFI_RUNNER_IMAGE', 'TOFI_RUNNER_URL', 'TOFI_RUNNER_MASTER_KEY_FILE')
+# The Runner's own bridge (outbound only, filtered below) and the internal App-to-Runner link.
+# The egress subnet is fixed in compose.yaml so the firewall rules can name it; the link network's
+# subnet is read from Docker (compose_network_subnets).
+RUNNER_EGRESS_SUBNET = '172.30.77.0/24'
+RUNNER_EGRESS_CHAIN = 'TOFI-RUNNER-EGRESS'
+# Where the Runner container may not connect: private ranges (other hosts, other containers, the
+# hypervisor's metadata and management addresses), link-local (cloud metadata), carrier-grade NAT.
+RUNNER_BLOCKED_RANGES = ('10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '169.254.0.0/16', '100.64.0.0/10')
 
 PHASES = {'prepared', 'installing', 'install-failed', 'installed',
           'upgrading', 'upgrade-failed', 'rolling-back', 'rollback-failed',
@@ -506,9 +520,9 @@ def validate_manifest(manifest, allow_loopback_app=False):
     if not isinstance(version, str) or not VERSION_RE.match(version):
         raise HostError('The release manifest version %r is not vMAJOR.MINOR.PATCH[-rc.N].' % version)
     images = manifest.get('images')
-    if not isinstance(images, dict) or set(images) != set(IMAGE_REPOS):
-        raise HostError('The release manifest must pin exactly the app, worker and caddy images.')
-    for role, repo in IMAGE_REPOS.items():
+    if not isinstance(images, dict) or set(images) - set(OPTIONAL_IMAGE_REPOS) != set(IMAGE_REPOS):
+        raise HostError('The release manifest must pin exactly the app, worker and caddy images (and optionally the runner).')
+    for role, repo in {**IMAGE_REPOS, **{k: v for k, v in OPTIONAL_IMAGE_REPOS.items() if k in images}}.items():
         reference = images[role]
         name, _, digest = str(reference).partition('@sha256:')
         loopback_app = allow_loopback_app and role == 'app' and name.startswith(LOOPBACK_REGISTRIES)
@@ -1133,7 +1147,19 @@ def render_env(manifest, options, budgets):
         'TOFI_AUTO_UPDATE': options.get('auto_update') if options.get('auto_update') in AUTO_UPDATE_MODES else 'off',
     }
     values.update(computer_env(computer, manifest, budgets))
+    values.update(runner_env(manifest))
     return values
+
+
+def runner_env(manifest):
+    """The tofi.env keys of the local MCP Runner container; none when the
+    release does not carry its image (the App then keeps local connections on
+    the computer, as before)."""
+    image = (manifest.get('images') or {}).get('runner')
+    if not image:
+        return {}
+    return {'TOFI_RUNNER_IMAGE': image, 'TOFI_RUNNER_URL': 'http://runner:8390',
+            'TOFI_RUNNER_MASTER_KEY_FILE': '/app/data/runner/master.key'}
 
 
 # What the App needs to reach the Worker (the same values compose.yaml falls
@@ -1325,6 +1351,8 @@ def pull_images(env, data_schema):
         roles.append(('worker', env['TOFI_WORKER_IMAGE']))
     if env.get('TOFI_DOMAIN'):
         roles.append(('caddy', env['TOFI_CADDY_IMAGE']))
+    if env.get('TOFI_RUNNER_IMAGE'):
+        roles.append(('runner', env['TOFI_RUNNER_IMAGE']))
     for role, reference in roles:
         try:
             run(['docker', 'pull', '--quiet', reference], timeout=1800)
@@ -1403,9 +1431,102 @@ def compose_command(env, extra_profiles=()):
         profiles.append('tls')
     if has_computer(env):
         profiles.append(COMPUTER_PROFILE)
+    if env.get('TOFI_RUNNER_IMAGE'):
+        profiles.append(RUNNER_PROFILE)
     for profile in dict.fromkeys(profiles):
         command += ['--profile', profile]
     return command
+
+
+def compose_network_subnets():
+    """The subnets of this project's Docker networks other than the Runner's own
+    egress bridge. They are blocked as well, whatever range Docker picked."""
+    subnets = []
+    try:
+        ids = run(['docker', 'network', 'ls', '-q', '--filter',
+                   'label=com.docker.compose.project=' + PROJECT], check=False).stdout.split()
+        if not ids:
+            return subnets
+        for network in json.loads(run(['docker', 'network', 'inspect'] + ids, check=False).stdout or '[]'):
+            for config in ((network.get('IPAM') or {}).get('Config') or []):
+                subnet = config.get('Subnet')
+                if isinstance(subnet, str) and subnet != RUNNER_EGRESS_SUBNET and subnet not in subnets:
+                    subnets.append(subnet)
+    except (OSError, ValueError, subprocess.SubprocessError, AttributeError):
+        pass
+    return subnets
+
+
+def runner_egress_rules():
+    """The rules of RUNNER_EGRESS_CHAIN, in order: drop what the Runner must not
+    reach, return for everything else (the internet)."""
+    blocked = list(RUNNER_BLOCKED_RANGES)
+    for subnet in compose_network_subnets():
+        if subnet not in blocked:
+            blocked.append(subnet)
+    return [['-d', destination, '-j', 'DROP'] for destination in blocked] + [['-j', 'RETURN']]
+
+
+def _iptables(*args):
+    return run(['iptables', '-w', '5'] + list(args), check=False)
+
+
+def ensure_runner_egress_filter():
+    """Keep the Runner container off the host and the private networks.
+
+    Docker filters nothing between a container and the rest of the machine's
+    networks, so the Runner (which runs code a person installed) would otherwise
+    reach the host's services, the LAN and the cloud metadata address. Traffic
+    leaving the Runner's bridge is checked in DOCKER-USER (forwarded) and INPUT
+    (to the host itself). The rules are idempotent and are applied before the
+    Runner starts. A host without iptables, or one where Docker keeps no
+    DOCKER-USER chain, gets a warning: the Runner still starts, unfiltered.
+    Returns True when the filter is in place."""
+    if shutil.which('iptables') is None:
+        reason = 'nft is present but iptables is not' if shutil.which('nft') else 'neither iptables nor nft is installed'
+        warn('The Runner container could not be fenced off from the host and the LAN (%s). '
+             'Install iptables, or block %s -> private ranges yourself; see deploy/self-host/README.md.'
+             % (reason, RUNNER_EGRESS_SUBNET))
+        return False
+    if _iptables('-S', 'DOCKER-USER').returncode != 0:
+        warn('Docker has no DOCKER-USER chain here (iptables disabled in Docker, or the nftables backend), '
+             'so the Runner container is not fenced off from the host and the LAN. See deploy/self-host/README.md.')
+        return False
+    wanted = runner_egress_rules()
+    current = _iptables('-S', RUNNER_EGRESS_CHAIN)
+    expected = ['-A %s %s' % (RUNNER_EGRESS_CHAIN, ' '.join(rule)) for rule in wanted]
+    present = [line for line in current.stdout.splitlines() if line.startswith('-A ')] if current.returncode == 0 else None
+    if present != expected:
+        if current.returncode != 0:
+            _iptables('-N', RUNNER_EGRESS_CHAIN)
+        _iptables('-F', RUNNER_EGRESS_CHAIN)
+        for rule in wanted:
+            if _iptables('-A', RUNNER_EGRESS_CHAIN, *rule).returncode != 0:
+                warn('Could not write the Runner firewall rules; the Runner container is not fenced off.')
+                return False
+    for chain, position_rule in (('DOCKER-USER', ['-s', RUNNER_EGRESS_SUBNET, '-j', RUNNER_EGRESS_CHAIN]),
+                                 ('INPUT', ['-s', RUNNER_EGRESS_SUBNET, '-j', 'DROP'])):
+        if _iptables('-C', chain, *position_rule).returncode != 0:
+            if _iptables('-I', chain, '1', *position_rule).returncode != 0:
+                warn('Could not hook the Runner firewall rules into %s.' % chain)
+                return False
+    return True
+
+
+def remove_runner_egress_filter():
+    """Take the Runner's rules out again (uninstall). Nothing happens, quietly,
+    on a host that never had them."""
+    if shutil.which('iptables') is None:
+        return
+    for chain, rule in (('DOCKER-USER', ['-s', RUNNER_EGRESS_SUBNET, '-j', RUNNER_EGRESS_CHAIN]),
+                        ('INPUT', ['-s', RUNNER_EGRESS_SUBNET, '-j', 'DROP'])):
+        for _ in range(8):  # more than one only if something added a duplicate
+            if _iptables('-C', chain, *rule).returncode != 0:
+                break
+            _iptables('-D', chain, *rule)
+    if _iptables('-S', RUNNER_EGRESS_CHAIN).returncode == 0:
+        _iptables('-F', RUNNER_EGRESS_CHAIN)
+        _iptables('-X', RUNNER_EGRESS_CHAIN)
 
 
 def project_containers():
@@ -1546,10 +1667,17 @@ def app_docker_health():
     return None
 
 
+def start_worker(env, first_install=False):
+    """Bring the Worker up and wait for its broker; nothing else is touched."""
+    compose('up', '-d', '--no-build', '--pull', 'never', '--remove-orphans', 'worker', env=env)
+    worker_ready(first_install=first_install)
+
+
 def start_services(env, first_install=False, state=None):
+    if env.get('TOFI_RUNNER_IMAGE'):
+        ensure_runner_egress_filter()  # before the Runner can run, and again after every reboot
     if has_computer(env):
-        compose('up', '-d', '--no-build', '--pull', 'never', '--remove-orphans', 'worker', env=env)
-        worker_ready(first_install=first_install)
+        start_worker(env, first_install=first_install)
     if state is not None and state.get('transaction') and state['transaction']['kind'] == 'install':
         transition(state, 'installing', 'start-app')
     services = ['app', 'caddy'] if env.get('TOFI_DOMAIN') else ['app']
@@ -1643,6 +1771,97 @@ def run_health(days=RUN_HEALTH_DAYS, now=None):
     if not seen:
         return None
     return {'days': days, 'by_status': by_status, 'tool_timeouts': timeouts}
+
+
+def count_guest_copies(database):
+    """Files of one App database that exist only on the computer: rows whose
+    bytes have not been copied to the server file store yet (`vm:` rows)."""
+    uri = 'file:%s?mode=ro' % urllib.parse.quote(str(database))
+    connection = sqlite3.connect(uri, uri=True, timeout=5)
+    try:
+        row = connection.execute("SELECT COUNT(*) FROM attachments WHERE disk_name LIKE 'vm:%'").fetchone()
+    except sqlite3.OperationalError as error:
+        if str(error).startswith('no such table'):
+            return 0  # an App older than the attachments table has none
+        raise
+    finally:
+        connection.close()
+    return int(row[0])
+
+
+def pending_guest_copies():
+    """(files, unreadable): the files that live only on a computer, summed over
+    every App database (read-only), and the databases that could not be read.
+    An unreadable database is never counted as 0; the caller must treat the
+    answer as unknown."""
+    total, unreadable = 0, []
+    for database in run_databases():
+        try:
+            total += count_guest_copies(database)
+        except (sqlite3.Error, OSError, ValueError, TypeError):
+            unreadable.append(str(database))
+    return total, unreadable
+
+
+def vault_files():
+    """Every secret vault: the root one and one per account (multi-account)."""
+    found = [P.data / 'secrets' / 'vault.json']
+    accounts = P.data / 'accounts'
+    try:
+        entries = sorted(accounts.iterdir()) if accounts.is_dir() and not accounts.is_symlink() else []
+    except OSError:
+        entries = []
+    found += [entry / 'secrets' / 'vault.json' for entry in entries if entry.is_dir() and not entry.is_symlink()]
+    return [path for path in found if path.is_file()]
+
+
+def computer_configuration():
+    """(env_names, key_names, unreadable): the environment variables and SSH
+    keys saved in Settings for the computer, by name. Only the record metadata
+    is read (id, kind, target); a value stays sealed and is never decrypted.
+    An unreadable vault is reported, never counted as empty."""
+    env_names, key_names, unreadable = [], [], []
+    for path in vault_files():
+        try:
+            records = json.loads(path.read_text())
+            if not isinstance(records, dict):
+                raise ValueError('not an object')
+        except (OSError, ValueError):
+            unreadable.append(str(path))
+            continue
+        for record in records.values():
+            if not isinstance(record, dict) or record.get('run_id'):
+                continue
+            name = re.sub(r'[^A-Za-z0-9_.-]', '?', str(record.get('target') or record.get('name') or ''))[:80]
+            if record.get('kind') == 'env' and name:
+                env_names.append(name)
+            elif record.get('kind') == 'ssh' and name:
+                key_names.append(name)
+    return sorted(set(env_names)), sorted(set(key_names)), unreadable
+
+
+def computer_loss_lines(env_names, key_names, unreadable=(), unsaved=0):
+    """What a wipe takes with it, one line each (docs/design/computer-decoupling.md
+    section 7.5): the class C list printed by `tofi computer remove --purge`."""
+    def names(items):
+        shown = ', '.join(items[:10]) + (' and %d more' % (len(items) - 10) if len(items) > 10 else '')
+        return ' (%s)' % shown if items else ''
+    if unreadable:
+        config = 'Configuration: could not be read (%s), so it may include environment variables and SSH keys.' % ', '.join(unreadable)
+    elif env_names or key_names:
+        config = 'Configuration: %s%s and %s%s are deleted with the disk.' % (
+            plural(len(env_names), 'environment variable'), names(env_names), plural(len(key_names), 'SSH key'), names(key_names))
+    else:
+        config = 'Configuration: no environment variables or SSH keys were saved in Settings. Tool sign-ins the Bot made on the computer (git, gh, cloud CLIs) are deleted too.'
+    lines = [
+        'Browser sign-ins: the Bot is signed out of every website; nothing is exported.',
+        'Installed tools: the Bot installs them again when it needs them.',
+        'Work files: files the Bot made on the computer and did not send or save to Files are deleted.',
+        config,
+    ]
+    if unsaved:
+        lines.append('Files not yet copied to the server: %s.' % plural(unsaved, 'file'))
+    return lines
 
 
 def plural(count, noun):
@@ -3407,8 +3626,41 @@ def snapshot():
     }
 
 
+def container_runner_accounts():
+    """Accounts whose local connections already live in the Runner container
+    (their local-runner.json says state=container), as data-directory names."""
+    found = []
+    for path in [P.data / 'local-runner.json'] + sorted(P.data.glob('accounts/*/local-runner.json')):
+        try:
+            if json.loads(path.read_text()).get('state') == 'container':
+                found.append(path.parent.name if path.parent != P.data else 'owner')
+        except (OSError, ValueError, AttributeError):
+            continue
+    return found
+
+
+def check_runner_downgrade(manifest, allow):
+    """Refuse a release that predates the Runner container once an account uses it.
+
+    Such a release does not know the container: it would run those local
+    connections on the account's computer again, from the copy made before the
+    switch, and a later update would find two diverging copies. Only the
+    command line can accept that (`--allow-runner-downgrade`); the unattended
+    paths (auto and web update) never pass it."""
+    if (manifest.get('images') or {}).get('runner') or allow:
+        return
+    accounts = container_runner_accounts()
+    if accounts:
+        raise HostError(
+            'Update refused: %s predates the Runner container, and %d account(s) already keep their local connections '
+            '(Gmail, community packages) there. That release would run them from the older copy on the account\'s '
+            'computer, without anything changed since the switch, and they would not work on an install without a '
+            'computer; a later update would find two diverging copies (both are kept and flagged). '
+            'Back up /var/lib/tofi, then re-run with --allow-runner-downgrade.' % (manifest['version'], len(accounts)))
+
+
 def upgrade(version=None, manifest_path=None, allow_schema_change=False, manifest=None,
-            wait=0, force=False, trigger='manual', confirm=None):
+            wait=0, force=False, trigger='manual', confirm=None, allow_runner_downgrade=False):
     """Update to a release: back up, switch, start; on failure restore and roll back.
 
     `wait` minutes are given to active Bot runs to finish (then refuse unless
@@ -3417,7 +3669,8 @@ def upgrade(version=None, manifest_path=None, allow_schema_change=False, manifes
     """
     info = {}
     try:
-        result = _upgrade(info, version, manifest_path, allow_schema_change, manifest, wait, force, confirm)
+        result = _upgrade(info, version, manifest_path, allow_schema_change, manifest, wait, force, confirm,
+                          allow_runner_downgrade)
     except LockBusy:
         raise
     except ActiveRunsError:
@@ -3436,7 +3689,8 @@ def upgrade(version=None, manifest_path=None, allow_schema_change=False, manifes
     return result
 
 
-def _upgrade(info, version, manifest_path, allow_schema_change, manifest, wait, force, confirm):
+def _upgrade(info, version, manifest_path, allow_schema_change, manifest, wait, force, confirm,
+             allow_runner_downgrade=False):
     with lifecycle_lock():
         state = load_state()
         if state is None or state['phase'] != 'installed':
@@ -3448,6 +3702,7 @@ def _upgrade(info, version, manifest_path, allow_schema_change, manifest, wait, 
         if manifest['version'] == previous['env']['TOFI_VERSION']:
             say('TOFI %s is already installed.' % manifest['version'])
             return {'upgraded': False, 'version': manifest['version']}
+        check_runner_downgrade(manifest, allow_runner_downgrade)
         if confirm is not None:
             confirm(previous['env']['TOFI_VERSION'], manifest)
         wait_for_idle('the update', wait, force)
@@ -3459,6 +3714,9 @@ def _upgrade(info, version, manifest_path, allow_schema_change, manifest, wait, 
             'TOFI_APP_IMAGE': manifest['images']['app'],
             'TOFI_CADDY_IMAGE': manifest['images']['caddy'],
         })
+        for key in RUNNER_ENV_KEYS:
+            candidate.pop(key, None)  # a release without the Runner leaves no Runner settings behind
+        candidate.update(runner_env(manifest))
         if computer:
             # An install without a computer keeps no Worker image or Guest pin: nothing to pull or fetch.
             candidate.update({'TOFI_WORKER_IMAGE': manifest['images']['worker'],
@@ -3840,6 +4098,7 @@ def finish_uninstall(state):
         transition(state, 'uninstalling', 'remove-services')
         if compose_file().exists():
             compose('rm', '-f', '-s')
+        remove_runner_egress_filter()
         complete(state, 'stopped-retained')
     except BaseException as error:
         failed(state, 'uninstall-failed', error)
@@ -3849,7 +4108,7 @@ def finish_uninstall(state):
     return {'uninstalled': True, 'data_retained': True}
 
 
-IMAGE_ENV_KEYS = ('TOFI_APP_IMAGE', 'TOFI_WORKER_IMAGE', 'TOFI_CADDY_IMAGE')
+IMAGE_ENV_KEYS = ('TOFI_APP_IMAGE', 'TOFI_WORKER_IMAGE', 'TOFI_CADDY_IMAGE', 'TOFI_RUNNER_IMAGE')
 
 
 def installation_images(state):
@@ -3878,13 +4137,13 @@ def installation_images(state):
         manifests = sorted(P.releases.glob('*/manifest.json'))
     except OSError:
         manifests = []
-    allowed = tuple(repository + '@' for repository in IMAGE_REPOS.values())
+    allowed = tuple(repository + '@' for repository in (*IMAGE_REPOS.values(), *OPTIONAL_IMAGE_REPOS.values()))
     for path in manifests:
         try:
             images = json.loads(path.read_text()).get('images') or {}
         except (OSError, ValueError, AttributeError):
             continue
-        for role in IMAGE_REPOS:
+        for role in (*IMAGE_REPOS, *OPTIONAL_IMAGE_REPOS):
             reference = images.get(role) if isinstance(images, dict) else None
             if isinstance(reference, str) and reference.startswith(allowed):
                 add(reference)
@@ -3922,6 +4181,7 @@ def purge_everything(state, confirm):
         stopped(tolerate_unclean=True)
     if compose_file().exists() and P.env_file.exists():
         compose('down', '--remove-orphans')
+    remove_runner_egress_filter()
     images = installation_images(state)
     run(['systemctl', 'disable', 'tofi.service'], check=False)
     remove_auto_update_units()
@@ -4687,6 +4947,112 @@ def prune_guests(keep):
 
 
 # --------------------------------------------------------------------------
+# Talking to the running App (hot attach and detach, computer-decoupling S6)
+#
+# `tofi computer add|remove` ask the App to attach or detach every account's
+# computer instead of restarting it. The App answers /api/host/computer/* only to
+# the token in HOST_CONTROL_TOKEN_NAME inside its data directory, on its loopback
+# port; the Caddyfile does not proxy that path. A server that cannot do it (an
+# older release has no such route, the App was started without the Worker's
+# sockets, the call fails) makes the caller fall back to restarting the App.
+
+HOST_CONTROL_TOKEN_NAME = 'host-control.token'
+HOST_CONTROL_ROUTE = '/api/host/computer/'
+
+
+class HostControlUnavailable(Exception):
+    """The running App cannot do this without a restart (or did not answer)."""
+
+    def __init__(self, reason, status=None):
+        super().__init__(reason)
+        self.status = status
+
+
+def ensure_host_control_token():
+    """The bearer token for the App's host routes; created (0600, App uid) on first use."""
+    path = P.data / HOST_CONTROL_TOKEN_NAME
+    try:
+        token = path.read_text().strip()
+        if len(token) >= 32:
+            return token
+    except FileNotFoundError:
+        pass
+    token = secrets.token_hex(32)
+    temporary = path.with_name(path.name + '.tmp')
+    temporary.unlink(missing_ok=True)
+    fd = os.open(str(temporary), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, 'w') as stream:
+        stream.write(token + '\n')
+    if os.geteuid() == 0:
+        os.chown(str(temporary), APP_UID, APP_UID)
+    os.replace(str(temporary), str(path))
+    return token
+
+
+def host_control(env, operation, body=None, timeout=60):
+    """Call the App's /api/host/computer/<operation>; return the JSON answer on HTTP 200.
+    Anything else raises HostControlUnavailable (with the HTTP status when there was one)."""
+    try:
+        token = ensure_host_control_token()
+    except OSError as error:
+        raise HostControlUnavailable('the host token could not be written (%s)' % error)
+    scheme = app_scheme(env)
+    url = '%s://127.0.0.1:%s%s%s' % (scheme, env.get('TOFI_HTTP_PORT') or DEFAULT_PORT, HOST_CONTROL_ROUTE, operation)
+    handlers = [urllib.request.ProxyHandler({})]
+    if scheme == 'https':
+        # Loopback call to our own self-signed certificate: no verification, the bearer token is the credential.
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        handlers.append(urllib.request.HTTPSHandler(context=context))
+    opener = urllib.request.build_opener(*handlers)
+    data = json.dumps(body).encode() if body is not None else None
+    request = urllib.request.Request(url, data=data, method='GET' if operation == 'state' else 'POST',
+                                     headers={'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'})
+    try:
+        with opener.open(request, timeout=timeout) as response:
+            status, raw = response.status, response.read(1 << 16)
+    except urllib.error.HTTPError as error:
+        status, raw = error.code, error.read(1 << 16)
+    except (OSError, ValueError) as error:
+        raise HostControlUnavailable('the App did not answer (%s)' % error)
+    try:
+        answer = json.loads(raw or b'{}')
+    except ValueError:
+        answer = {}
+    if status != 200:
+        raise HostControlUnavailable('the App answered %d %s' % (status, str(answer.get('code') or answer.get('error') or '')[:60]), status)
+    return answer
+
+
+def attach_computers_hot(env, quiet=False):
+    """Attach every account's computer in the running App. True when it did, False when the App must be restarted."""
+    try:
+        answer = host_control(env, 'attach', timeout=600)
+    except HostControlUnavailable as error:
+        if not quiet:
+            say('The running App cannot take the computer without a restart (%s); restarting it.' % error)
+        return False
+    if not quiet:
+        say('The running App attached the computer (%s attached, %s already attached); no restart.'
+            % (answer.get('attached', 0), answer.get('already_attached', 0)))
+    return True
+
+
+def detach_computers_hot(env, wait_seconds=60):
+    """Detach every account's computer in the running App. True when it did, False when the App must be restarted."""
+    try:
+        answer = host_control(env, 'detach', {'wait_seconds': int(wait_seconds)}, timeout=int(wait_seconds) + 180)
+    except HostControlUnavailable as error:
+        say('The running App cannot drop the computer without a restart (%s); restarting it.' % error)
+        return False
+    say('The running App detached the computer (%s account%s, %s file%s saved from the outbox); no restart.'
+        % (answer.get('detached', 0), '' if answer.get('detached', 0) == 1 else 's',
+           answer.get('outbox_synced', 0), '' if answer.get('outbox_synced', 0) == 1 else 's'))
+    return True
+
+
+# --------------------------------------------------------------------------
 # Adding and removing the computer (`tofi computer add kvm` / `remove`)
 
 
@@ -4745,8 +5111,10 @@ def computer_add(backend='kvm', wait=0, force=False):
 
     Idempotent. Checks the host, fetches the Guest release of the installed
     version, writes worker.json and the AppArmor profile, switches tofi.env to
-    backend kvm, starts the Worker and restarts the App. A failure puts
-    tofi.env back and restarts the App as it was."""
+    backend kvm, starts the Worker and has the App attach the computers (a restart
+    only for an App that cannot do it live: an older release, or one started
+    without the Worker's sockets). A failure puts tofi.env back and restarts the
+    App as it was."""
     if backend != 'kvm':
         raise HostError('Only kvm (Firecracker) computers exist today: tofi computer add kvm.')
     require_root()
@@ -4781,8 +5149,13 @@ def computer_add(backend='kvm', wait=0, force=False):
         apply_computer_files(bundle, computer_config(candidate))
         write_env(candidate)
         try:
-            # The Worker first, then the App: it restarts with the broker sockets in its environment.
-            start_services(candidate, first_install=True)
+            # The Worker first. A running App that already carries the Worker's sockets attaches the
+            # computer without a restart; any other App is restarted with the sockets in its environment.
+            start_worker(candidate, first_install=True)
+            if not attach_computers_hot(candidate):
+                start_services(candidate, first_install=True)
+                # Accounts whose computer an earlier hot remove detached stay detached across a restart.
+                attach_computers_hot(candidate, quiet=True)
         except BaseException as error:
             write_env(env)
             try:
@@ -4795,11 +5168,14 @@ def computer_add(backend='kvm', wait=0, force=False):
     return {'added': True, 'computer': 'kvm'}
 
 
-def computer_remove(purge=False, yes=False, wait=0, force=False):
-    """`tofi computer remove`: stop the Worker, set backend none, restart the App.
+def computer_remove(purge=False, yes=False, wait=0, force=False, discard_unsaved_files=False):
+    """`tofi computer remove`: detach the computers in the running App, stop the Worker, set backend none.
+    An App that cannot detach live (an older release) is restarted instead.
 
     The computers' disks, state and the Guest release stay on disk (so
-    `tofi computer add kvm` brings them back) unless `purge`."""
+    `tofi computer add kvm` brings them back) unless `purge`. A purge refuses
+    while a file exists only on a computer (not yet copied to the server file
+    store), unless `discard_unsaved_files`."""
     require_root()
     with lifecycle_lock():
         state = load_state()
@@ -4812,6 +5188,28 @@ def computer_remove(purge=False, yes=False, wait=0, force=False):
         if not has_computer(env) and not (purge and leftovers):
             say('This server has no computer (backend none); nothing to do.')
             return {'removed': False, 'computer': 'none'}
+        unsaved, unreadable = pending_guest_copies()
+        if purge and (unsaved or unreadable) and not discard_unsaved_files:
+            if unreadable:
+                raise HostError(
+                    'Cannot tell whether files exist only on the computer: %s could not be read. Nothing was changed. '
+                    'Fix that, or add --discard-unsaved-files to delete the disks anyway.' % ', '.join(unreadable))
+            raise HostError(
+                '%s only on the computer (not yet copied to the server). Purge would delete %s. Nothing was '
+                'changed. Keep the computer running so the copy can finish, or add --discard-unsaved-files to delete '
+                '%s anyway.' % (plural(unsaved, 'file') + (' exists' if unsaved == 1 else ' exist'),
+                                'it' if unsaved == 1 else 'them', 'it' if unsaved == 1 else 'them'))
+        if unsaved and not purge:
+            warn('%s only on this computer and stays on its disk. %s cannot be opened until the computer is '
+                 'attached again (`sudo tofi computer add kvm`).'
+                 % (plural(unsaved, 'file') + (' exists' if unsaved == 1 else ' exist'), 'It' if unsaved == 1 else 'They'))
+        if purge and discard_unsaved_files and unsaved:
+            warn('Discarding %s that exist only on the computer.' % plural(unsaved, 'file'))
+        if purge:
+            env_names, key_names, unreadable_vaults = computer_configuration()
+            say('Purging deletes everything that lives only on the computer:')
+            for line in computer_loss_lines(env_names, key_names, unreadable_vaults, unsaved if discard_unsaved_files else 0):
+                say('  - ' + line)
         if purge and not yes:
             if not sys.stdin.isatty():
                 raise HostError('--purge deletes every computer disk and its state; add --yes to confirm.')
@@ -4819,16 +5217,24 @@ def computer_remove(purge=False, yes=False, wait=0, force=False):
                 raise HostError('Cancelled; nothing was changed.')
         if has_computer(env):
             wait_for_idle('removing the computer', wait, force)
-            stop_worker(env)
+            # The App detaches first (it drains calls and saves the outbox while the computers still
+            # answer); then the Worker stops. An App that cannot do that live is restarted without computers.
+            live = detach_computers_hot(env)
             candidate = dict(env)
             candidate.update(computer_env('none'))
-            write_env(candidate)
             try:
-                start_services(candidate)
+                stop_worker(env)
+                write_env(candidate)
+                if not live:
+                    start_services(candidate)
             except BaseException as error:
                 write_env(env)
                 try:
-                    start_services(env)
+                    if live:
+                        start_worker(env)
+                        attach_computers_hot(env, quiet=True)
+                    else:
+                        start_services(env)
                 except (HostError, OSError, subprocess.SubprocessError) as restore_error:
                     warn('Could not restart TOFI as it was (%s); run `sudo tofi start`.' % restore_error)
                 raise HostError('Removing the computer failed (%s); tofi.env is back as it was.' % error) from error
@@ -5031,6 +5437,8 @@ def parse_args(argv):
     update_parser.add_argument('--version')
     update_parser.add_argument('--manifest', help='use a local manifest instead of GitHub Releases')
     update_parser.add_argument('--allow-schema-change', action='store_true')
+    update_parser.add_argument('--allow-runner-downgrade', action='store_true',
+                               help='accept a release older than the Runner container although accounts already use it')
     update_parser.add_argument('--check', action='store_true',
                                help='report what would change and exit 0 (up to date), 10 (update available) '
                                     'or 1 (error); changes nothing')
@@ -5047,6 +5455,8 @@ def parse_args(argv):
     remove_parser.add_argument('--purge', action='store_true',
                                help='also delete the computers\' disks, their state and the Guest release')
     remove_parser.add_argument('--yes', '-y', action='store_true', help='do not ask for confirmation (needed with --purge)')
+    remove_parser.add_argument('--discard-unsaved-files', action='store_true',
+                               help='with --purge: delete the disks even though some files exist only on a computer')
     add_guard_flags(remove_parser)
     computers_parser = sub.add_parser('computers', help='list account computers and their Guest release')
     computers_parser.add_argument('--json', action='store_true', help='machine-readable output')
@@ -5218,7 +5628,7 @@ def main(argv=None):
             if args.computer_command == 'add':
                 computer_add(args.backend, *guard)
             else:
-                computer_remove(args.purge, args.yes, *guard)
+                computer_remove(args.purge, args.yes, *guard, discard_unsaved_files=args.discard_unsaved_files)
             return 0
         if args.command == 'computers':
             require_root()
@@ -5304,7 +5714,8 @@ def main(argv=None):
                 raise HostError('--json is only used with --check.')
             wait, force = guard_options(args, interactive_default=not args.yes)
             upgrade(args.version, args.manifest, args.allow_schema_change, wait=wait, force=force,
-                    confirm=None if args.yes or not sys.stdin.isatty() else confirm_update)
+                    confirm=None if args.yes or not sys.stdin.isatty() else confirm_update,
+                    allow_runner_downgrade=args.allow_runner_downgrade)
             ensure_update_request_channel_quietly()
             return 0
         if args.command == 'uninstall':

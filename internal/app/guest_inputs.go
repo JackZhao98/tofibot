@@ -127,7 +127,7 @@ func guestInputPaths(conv string, list []guestInputCandidate) map[string]string 
 
 // guestInputPathsFor is nil when the Bot has no computer or nothing was sent.
 func (s *Server) guestInputPathsFor(c Conversation, trigger string) map[string]string {
-	if s.microVM == nil || s.store == nil {
+	if s.computer() == nil || s.store == nil {
 		return nil
 	}
 	list, err := s.store.guestInputCandidates(c.ID, trigger)

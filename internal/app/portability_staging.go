@@ -8,11 +8,21 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/google/uuid"
+	"os"
+	"path/filepath"
 	"time"
 )
 
-// The fixed account guest implements digest-aware cleanup so a crash between
-// content-object creation and alias linking can also reclaim the orphan object.
+// Imported attachment bytes go straight into the server file store (S2 of
+// docs/design/computer-decoupling.md): an import needs no computer. The staging
+// journal holds only generated IDs, hashes and lengths, never file bytes, and it
+// is durable BEFORE any file is written. The published attachment rows and the
+// journal deletion commit in one SQLite transaction, so a crash leaves at worst
+// an unreferenced file that recovery removes.
+//
+// A journal row written by a build that staged on the computer's blob store is
+// cleaned the same way; when a computer is attached its staged object is removed
+// too.
 type portableBlobStorage interface {
 	guestBlobStorage
 	PutStagedBlob(context.Context, string, []byte) error
@@ -20,13 +30,60 @@ type portableBlobStorage interface {
 }
 
 func (s *Store) portableBlobBackend() portableBlobStorage {
-	backend, _ := s.guestBlobs.(portableBlobStorage)
+	backend, _ := s.legacyBlobs().(portableBlobStorage)
 	return backend
 }
 
-// Journals hold only generated IDs, hashes and lengths, never file bytes. They
-// are durable BEFORE any guest write; published metadata and journal deletion
-// commit in one SQLite transaction. A single workspace Store owns these jobs.
+func portableServerDisk(id string) string { return id + ".upload" }
+
+// writePortableAttachmentFile stores one imported file as <root>/<id>.upload.
+// The bytes are fsynced before the rename; the hash is read back from disk.
+func (s *Store) writePortableAttachmentFile(id string, data []byte, digest string) error {
+	root, err := s.attachmentRoot()
+	if err != nil {
+		return err
+	}
+	disk := portableServerDisk(id)
+	tmp := filepath.Join(root, "."+disk+".tmp")
+	final := filepath.Join(root, disk)
+	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(data)
+	if err == nil {
+		err = f.Sync()
+	}
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err = os.Rename(tmp, final); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	syncDir(root)
+	got, err := hashFile(final)
+	if err != nil || got != digest {
+		_ = os.Remove(final)
+		return errPortableStorage
+	}
+	return nil
+}
+
+func (s *Store) removePortableAttachmentFile(id string) {
+	root, err := s.attachmentRoot()
+	if err != nil {
+		return
+	}
+	disk := portableServerDisk(id)
+	_ = os.Remove(filepath.Join(root, disk))
+	_ = os.Remove(filepath.Join(root, "."+disk+".tmp"))
+}
+
 func (s *Store) recoverPortableAssets(ctx context.Context) error {
 	rows, err := s.db.QueryContext(ctx, `SELECT import_id,target_id,sha256,size FROM portability_asset_staging ORDER BY import_id,target_id LIMIT ?`, portableMaxAttachments*32+1)
 	if err != nil {
@@ -54,21 +111,24 @@ func (s *Store) recoverPortableAssets(ctx context.Context) error {
 	if len(staged) == 0 {
 		return nil
 	}
-	backend := s.portableBlobBackend()
-	if backend == nil || len(staged) > portableMaxAttachments*32 {
+	if len(staged) > portableMaxAttachments*32 {
 		return errPortableStorage
 	}
+	backend := s.portableBlobBackend()
 	for _, x := range staged {
 		hash, err := hex.DecodeString(x.digest)
 		if !portableID(x.id) || len(hash) != 32 || err != nil || hex.EncodeToString(hash) != x.digest || x.size < 0 || x.size > portableMaxAttachmentBytes {
 			return errPortableStorage
 		}
 		var owned int
-		if err = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM attachments WHERE id=? OR disk_name=?`, x.id, guestAttachmentPrefix+x.id).Scan(&owned); err != nil || owned != 0 {
+		if err = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM attachments WHERE id=? OR disk_name=? OR disk_name=?`, x.id, guestAttachmentPrefix+x.id, portableServerDisk(x.id)).Scan(&owned); err != nil || owned != 0 {
 			return errPortableStorage
 		}
-		if err = backend.DeleteStagedBlob(ctx, x.id, x.digest); err != nil {
-			return errPortableStorage
+		s.removePortableAttachmentFile(x.id)
+		if backend != nil {
+			if err = backend.DeleteStagedBlob(ctx, x.id, x.digest); err != nil {
+				return errPortableStorage
+			}
 		}
 		if _, err = s.db.ExecContext(ctx, `DELETE FROM portability_asset_staging WHERE import_id=? AND target_id=?`, x.importID, x.id); err != nil {
 			return err
@@ -112,10 +172,6 @@ func (s *Store) preparePortableAssets(ctx context.Context, b portableBundle, pre
 	if _, replayed, err := s.portablePreviewState(ctx, tx, b, previewID); err != nil || replayed {
 		return targets, err
 	}
-	backend := s.portableBlobBackend()
-	if backend == nil {
-		return targets, errPortableStorage
-	}
 	for _, x := range b.Attachments {
 		target := uuid.NewString()
 		targets[x.ID] = target
@@ -131,12 +187,7 @@ func (s *Store) preparePortableAssets(ctx context.Context, b portableBundle, pre
 		if err != nil {
 			return targets, err
 		}
-		if err = backend.PutStagedBlob(ctx, targets[x.ID], data); err != nil {
-			return targets, errPortableStorage
-		}
-		got, err := backend.GetBlob(ctx, targets[x.ID])
-		// Verify through the same bounded account transport before publication.
-		if err != nil || int64(len(got)) != x.Size || portableBytesHash(got) != x.SHA256 {
+		if err = s.writePortableAttachmentFile(targets[x.ID], data, x.SHA256); err != nil {
 			return targets, errPortableStorage
 		}
 	}
@@ -155,7 +206,7 @@ func (s *Store) applyPortableWithStateGuard(ctx context.Context, b portableBundl
 	defer cancel()
 	// A credential-only recovery is independent of Guest availability. Older
 	// asset journals remain durable for startup or the next attachment import.
-	if s.portableBlobBackend() != nil && (len(b.VaultEnvironment) == 0 || len(b.Attachments) > 0) {
+	if len(b.VaultEnvironment) == 0 || len(b.Attachments) > 0 {
 		if err = s.recoverPortableAssets(ctx); err != nil {
 			return
 		}
