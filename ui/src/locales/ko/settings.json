@@ -55,7 +55,7 @@
         "description": "Bot이 알려 줄 내용 보기"
       },
       "models": {
-        "name": "모델",
+        "name": "AI 모델",
         "description": "제공업체와 기본 모델."
       },
       "computer": {

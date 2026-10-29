@@ -116,7 +116,7 @@
   "settings:shell.page.keys.description": "Umgebungsvariablen und SSH-Schlüssel für den Computer",
   "settings:shell.page.keys.name": "Computer-Schlüssel",
   "settings:shell.page.models.description": "Anbieter und Standardmodell.",
-  "settings:shell.page.models.name": "Modelle",
+  "settings:shell.page.models.name": "KI-Modelle",
   "settings:shell.page.permissions.description": "Wann Bots zuerst nachfragen",
   "settings:shell.page.permissions.name": "Berechtigungen",
   "settings:shell.page.skills.description": "Wiederverwendbare Arbeitsweisen verwalten",

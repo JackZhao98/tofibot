@@ -55,7 +55,7 @@
         "description": "See what Bots would remind you about"
       },
       "models": {
-        "name": "Models",
+        "name": "AI Models",
         "description": "Providers and the default model."
       },
       "computer": {

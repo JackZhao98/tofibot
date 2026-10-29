@@ -25,7 +25,7 @@ const TABS = ["general", "connections", "skills", "permissions", "models", "tool
 // "devices" (Other devices) is behind TOFI_PERSONAL_COMPUTERS: the rail lists it only when `computer.personal_computers` is true.
 const ADV_TABS = ["allowances", "followups"];
 const ICONS = {general: "sliders", connections: "plug", skills: "skill", permissions: "shield-check", allowances: "checklist", followups: "bell", devices: "laptop", models: "sparkles", tools: "globe", automation: "workflow", computer: "monitor", keys: "key", usage: "progress", advanced: "settings", admin: "group"};
-const NAMES = {general: "General", connections: "Connections", skills: "Skills", permissions: "Permissions", allowances: "Tool rules", followups: "Follow-ups", devices: "Other devices", models: "Models", tools: "Search & fetch", automation: "Behavior", computer: "Computer", keys: "Computer keys", usage: "Usage", advanced: "Maintenance", admin: "Admin console"};
+const NAMES = {general: "General", connections: "Connections", skills: "Skills", permissions: "Permissions", allowances: "Tool rules", followups: "Follow-ups", devices: "Other devices", models: "AI Models", tools: "Search & fetch", automation: "Behavior", computer: "Computer", keys: "Computer keys", usage: "Usage", advanced: "Maintenance", admin: "Admin console"};
 
 // ---- Catalog checks (every locale): groups, page names and descriptions are real translations.
 const catalogs = {};
@@ -543,7 +543,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await page.locator('.settings-mhome [data-tab="models"]').click();
     await settle(page);
     assert.equal(await page.locator(".settings-shell").getAttribute("data-view"), "page");
-    assert.equal((await page.locator(".settings-content .settings-page-title h2").textContent()).trim(), "Models");
+    assert.equal((await page.locator(".settings-content .settings-page-title h2").textContent()).trim(), "AI Models");
     assert.equal(await page.locator(".settings-content").evaluate(element => Math.round(element.getBoundingClientRect().x)), 0, "the page has pushed in");
     assert.equal(await page.locator('.settings-page-body[data-page="models"]').isVisible(), true);
     await page.locator(".settings-back").click();

@@ -116,7 +116,7 @@
   "settings:shell.page.keys.description": "直接設定電腦需要的環境變數和 SSH 金鑰",
   "settings:shell.page.keys.name": "電腦金鑰",
   "settings:shell.page.models.description": "模型服務商與預設模型。",
-  "settings:shell.page.models.name": "模型",
+  "settings:shell.page.models.name": "AI 模型",
   "settings:shell.page.permissions.description": "決定 Bot 何時先問你",
   "settings:shell.page.permissions.name": "權限",
   "settings:shell.page.skills.description": "管理可重複使用的工作方法",

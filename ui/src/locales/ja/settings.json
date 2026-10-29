@@ -55,7 +55,7 @@
         "description": "Bot がリマインドする内容を確認"
       },
       "models": {
-        "name": "モデル",
+        "name": "AI モデル",
         "description": "プロバイダーと既定のモデル。"
       },
       "computer": {

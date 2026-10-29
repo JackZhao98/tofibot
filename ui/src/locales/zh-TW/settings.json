@@ -55,7 +55,7 @@
         "description": "查看 Bot 會提醒你什麼"
       },
       "models": {
-        "name": "模型",
+        "name": "AI 模型",
         "description": "模型服務商與預設模型。"
       },
       "computer": {

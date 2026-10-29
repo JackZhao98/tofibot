@@ -55,7 +55,7 @@
         "description": "Voir ce dont les Bots vous rappelleraient"
       },
       "models": {
-        "name": "Modèles",
+        "name": "Modèles d'IA",
         "description": "Fournisseurs et modèle par défaut."
       },
       "computer": {

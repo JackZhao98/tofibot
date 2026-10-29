@@ -55,7 +55,7 @@
         "description": "Sieh, woran Bots dich erinnern würden"
       },
       "models": {
-        "name": "Modelle",
+        "name": "KI-Modelle",
         "description": "Anbieter und Standardmodell."
       },
       "computer": {

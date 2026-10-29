@@ -116,7 +116,7 @@
   "settings:shell.page.keys.description": "Variables d’environnement et clés SSH de l’ordinateur",
   "settings:shell.page.keys.name": "Clés de l’ordinateur",
   "settings:shell.page.models.description": "Fournisseurs et modèle par défaut.",
-  "settings:shell.page.models.name": "Modèles",
+  "settings:shell.page.models.name": "Modèles d'IA",
   "settings:shell.page.permissions.description": "Quand les Bots demandent d’abord",
   "settings:shell.page.permissions.name": "Autorisations",
   "settings:shell.page.skills.description": "Gérer des méthodes de travail réutilisables",
