@@ -45,6 +45,20 @@ must not claim a computer when there is none: use the capability-driven variants
 `scheduledFallbackGuidance`, `noComputerStatus`) and never add a computer sentence to an always-on prompt. The Web app reads `config.computer` through
 `ui/src/computerCapability.ts` (`useHasComputer`) and hides every computer surface; Settings > Computer then lists how to add one. The web app never installs on the host (the one thing it may ask for is an update, which only the root host service performs: next section).
 Design and record: docs/design/computer-optional.md (P0, P1 done).
+
+# Computers are providers and rows (computer-decoupling S5, S6)
+
+`computer.Provider` (`internal/computer/provider.go`) is what the server holds; `*computer.Client` (Firecracker) is the only implementation. Optional interfaces (`Streamer`, `Resourcer`, `OAuthBridge`,
+`RunnerHost`, `LegacyBlobs`, `Socketed`, `Healther`, `Heartbeater`) are type-asserted behind a capability. `s.computer()` is the account's VM or nil (`s.microVM` is its storage; write it only through
+`AttachVM`/`DetachVM`, or directly in tests); `/api/computers/{id}/` resolves `{id}` through `Provider.ID()` (`isVMRoute`). Computers are rows in `computers` (`computer_rows.go`: id, name, kind `vm|personal`,
+platform, region, labels, protocol_version, status `attached|lost|detached`, last_seen; one row is the VM, up to `Config.MaxPersonalComputers` (default 6, env `TOFI_MAX_PERSONAL_COMPUTERS`) are the person's own).
+Each computer has a runtime slot (`computer_registry.go`) with its own operator lock (only one Bot at a time; held until the run ends, `releaseComputerHolds`), a call counter and a context. The VM keeps its
+shared-desktop lease, keyed by the computer id. Bots reach other computers with `list_computers` and `computer_action{computer_id}` (registered only when a personal computer exists); the convenience tools act on the VM.
+Hot attach/detach needs no restart: the administrator calls `POST /api/admin/accounts/{id}/computer/{attach|detach|state}` (gateway) or `/api/admin/computer/*` (single account; never served inside a gateway workspace).
+`DetachVM` stops new calls (state draining), waits for running ones up to `wait_seconds`, copies the outbox to the server (`syncOutboxForDetach`), cancels what is left (those calls end with the tool error
+`computer_detached`, effect unknown) and stores status `detached`, which a restart keeps until an attach. A computer with a `Heartbeater` that is silent for `computerLostAfter` is marked lost: its lock is freed and calls fail
+with `computer_offline`. The administrator's answers contain the VM and the server only (`adminVMSummary`); never put a personal computer, its name or its count into an admin response or log. A run records `runs.computer_id`,
+`region`, `compute_ms` (nullable, no UI yet). Tests: `computer_registry_test.go`, `computer_attach_test.go`, `computer_gate_test.go` (the release gate), `computer_upgrade_test.go` (data written by main).
 Computer configuration (computer-decoupling S2): the Keys page, `ComputerContents` ("What is on this computer": browser sign-ins, installed tools, work files, environment and keys, in words that say they are lost with the computer) and the wipe list `ComputerLossList` (names and counts from `GET /api/computer/contents`, `internal/app/computer_contents.go`) exist only while `useHasComputer()`; with no computer the web app makes no `/api/computer/*` request (`test:no-computer` holds it). `[run context]` adds `freshComputerStatus` while nothing is saved in Settings for the computer. `tofi computer remove --purge` prints the same class C list (`computer_loss_lines` in `tofi_host.py`).
 
 # Update from the web page
