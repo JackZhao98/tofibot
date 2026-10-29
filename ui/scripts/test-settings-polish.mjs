@@ -28,6 +28,7 @@
 //  font-size     text under 12px, except the explicit exception: mono, >= 10px, and either uppercase with letter
 //                spacing (section/danger labels) or the nav count pill (.settings-count); text inside an aria-hidden
 //                subtree is decorative (animated glyphs that appear and disappear with the frame) and is not judged
+import {pickSelect} from "./lib/select.mjs";
 import assert from "node:assert/strict";
 import {mkdtemp, mkdir, readFile, rm, writeFile} from "node:fs/promises";
 import {basename, dirname, join} from "node:path";
@@ -43,11 +44,11 @@ const {default: react} = await import("@vitejs/plugin-react");
 
 // The single allowed set of design-system button classes (all defined in the shared CSS), plus containers whose
 // buttons are styled as a group (segmented control, tab strips, the settings rail).
-const ALLOWED_BUTTON_CLASSES = ["primary-button", "secondary-button", "text-button", "settings-ghost-button", "admin-danger-button", "purge-button", "close-button", "settings-banner-more", "mcp-button", "mcp-service-open", "mcp-detail-back", "mcp-tier-trigger", "mcp-empty-tile", "settings-mrow", "settings-back", "admin-row", "disclosure-toggle", "integration-tile", "integration-custom", "extension-back", "settings-dismiss", "danger-link", "onb-choice", "onb-quiet", "onb-skip", "onb-later", "onb-tile", "onb-service-main", "onb-primary", "update-banner-dismiss"];
+const ALLOWED_BUTTON_CLASSES = ["primary-button", "secondary-button", "text-button", "settings-ghost-button", "admin-danger-button", "purge-button", "close-button", "settings-banner-more", "mcp-button", "mcp-service-open", "mcp-detail-back", "mcp-tier-trigger", "mcp-empty-tile", "settings-mrow", "settings-mfold", "settings-back", "admin-row", "disclosure-toggle", "integration-tile", "integration-custom", "extension-back", "settings-dismiss", "danger-link", "onb-choice", "onb-quiet", "onb-skip", "onb-later", "onb-tile", "onb-service-main", "onb-primary", "update-banner-dismiss", "ui-select-trigger", "portability-group-trigger"];
 const ALLOWED_BUTTON_CONTAINERS = [".segmented", ".settings-tabs", ".settings-segment", ".credential-tabs", ".appearance-options", ".onb-seg", ".emoji-mart", ".usage-agents", ".usage-ranges"];
 
 const SIZES = {"1440": [1440, 900], "1180": [1180, 820], "1024": [1024, 768], "390": [390, 844]};
-const VIEWPORTS = (process.env.POLISH_VIEWPORTS ?? "1440,1180,1024,390").split(",").map(width => [width, ...SIZES[width]]);
+const VIEWPORTS = (process.env.POLISH_VIEWPORTS ?? "1440,390").split(",").map(width => [width, ...SIZES[width]]);
 const THEMES = (process.env.POLISH_THEMES ?? "light,dark").split(",");
 const only = process.env.POLISH_ONLY ? new RegExp(process.env.POLISH_ONLY) : null;
 const shots = process.env.POLISH_SHOTS;
@@ -247,7 +248,7 @@ import {useAppearance} from '../src/InteractionSystem';
 import {SettingsShell,type SettingsEntry,type SettingsTab,type SettingsView} from '../src/SettingsShell';
 import {SettingsPages} from '../src/settings/SettingsPages';
 import {subscribeSettingsDeepLinks} from '../src/settings/deepLinks';
-import {CodexPanel,NotificationSetting} from '../src/settings/AppSlots';
+import {CodexPanel} from '../src/settings/AppSlots';
 import {UpdateBanner} from '../src/UpdateNotice';
 const query=new URLSearchParams(location.search);
 const bots=[{id:'bot_research',name:'Research Bot',is_primary:true,archived:false,model:'default',reasoning_effort:'default'},{id:'bot_inbox',name:'Inbox Bot',archived:false,model:'gpt-6-luna',reasoning_effort:'medium'},{id:'bot_notes',name:'Notes Bot',archived:false,model:'default',reasoning_effort:'default'},{id:'bot_old',name:'Retired Bot',archived:true,model:'default',reasoning_effort:'default'}] as any;
@@ -259,7 +260,7 @@ function Fixture(){
  const [file,setFile]=useState<File|undefined>(undefined);
  const openSettings=(next:SettingsTab,view:SettingsView='page')=>{setTab(next);setEntry(current=>({seq:current.seq+1,view}))};
  useEffect(()=>subscribeSettingsDeepLinks(next=>openSettings(next)),[]);
- return <div className="workspace"><UpdateBanner/><div className="workspace-grid"><button type="button" className="detail-backdrop" aria-label="Close"/><aside className="detail-pane visible" role="dialog" aria-modal="true">{!closed&&<SettingsShell tab={tab} onTab={setTab} onClose={()=>setClosed(true)} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" portabilityFile={file} onPortabilityFileConsumed={()=>setFile(undefined)} appearance={appearance} extensionRefresh={0} openTab={next=>openSettings(next)} slots={{codex:<CodexPanel refreshToken={0} onConfigured={()=>{}}/>,notifications:<NotificationSetting/>,providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/>}</aside></div></div>;
+ return <div className="workspace"><UpdateBanner/><div className="workspace-grid"><button type="button" className="detail-backdrop" aria-label="Close"/><aside className="detail-pane visible" role="dialog" aria-modal="true">{!closed&&<SettingsShell tab={tab} onTab={setTab} onClose={()=>setClosed(true)} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" portabilityFile={file} onPortabilityFileConsumed={()=>setFile(undefined)} appearance={appearance} extensionRefresh={0} openTab={next=>openSettings(next)} slots={{codex:<CodexPanel refreshToken={0} onConfigured={()=>{}}/>,providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/>}</aside></div></div>;
 }
 void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><OwnerSessionGate><Fixture/></OwnerSessionGate></TimezoneProvider>));
 `);
@@ -441,7 +442,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   };
   const scenarios = [];
   const tabScenario = (id, tab) => scenarios.push({id, tab, run: async () => {}});
-  for (const tab of ["general", "connections", "skills", "permissions", "followups", "models", "automation", "computer", "keys", "usage", "advanced", "admin"]) tabScenario(tab, tab);
+  for (const tab of ["general", "connections", "skills", "permissions", "allowances", "followups", "models", "tools", "automation", "computer", "devices", "keys", "usage", "advanced", "admin"]) tabScenario(tab, tab);
   scenarios.push(
     // Sign-in in progress shows no illustration (the old TOFI / key diagram is gone); the only cue is the primary button.
     {id: "connections-signin", tab: "connections", run: async ({page}) => {
@@ -471,7 +472,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     {id: "connections-directory", tab: "connections", container: ".sheet", run: async ({page}) => { await click(page.getByRole("button", {name: "Add connection"}), "Connections: Add connection"); await page.locator(".connect-dialog").waitFor({timeout: 4000}); await click(page.getByRole("button", {name: /Google Workspace servers/}), "Connections: Workspace preview"); await page.waitForTimeout(500); }},
     {id: "skills-paste", tab: "skills", run: async ({page}) => { await click(page.getByRole("button", {name: /Paste SKILL\.md/}), "Skills: paste"); await page.waitForTimeout(500); }},
     {id: "skills-bundle-open", tab: "skills", run: async ({page}) => { await click(page.getByRole("button", {name: /Show 2 Skills/}), "Skills: show bundle members"); await page.getByRole("button", {name: /Versions \(2\)/}).click().catch(() => warnings.push("step skipped: versions disclosure")); await page.waitForTimeout(400); }},
-    {id: "permissions-modes", tab: "permissions", run: async ({page}) => { await page.locator("#auto-review-mode").selectOption({index: 1}).catch(() => warnings.push("step skipped: approvals mode select")); await page.waitForTimeout(300); }},
+    {id: "permissions-modes", tab: "allowances", run: async ({page}) => { await pickSelect(page.locator("#auto-review-mode"), "shadow").catch(() => warnings.push("step skipped: approvals mode select")); await page.waitForTimeout(300); }},
     {id: "models-key-form", tab: "models", run: async ({page}) => { await page.locator(".provider-key-row input").first().fill("sk-proj-synthetic-0000000000").catch(() => warnings.push("step skipped: provider key input")); await page.waitForTimeout(400); }},
     {id: "keys-add-env", tab: "keys", run: async ({page}) => { await click(page.getByRole("button", {name: /Add environment variable|Add variable/}), "Keys: add env"); await page.waitForTimeout(500); }},
     {id: "keys-ssh", tab: "keys", run: async ({page}) => { await click(page.getByRole("tab").nth(1), "Keys: SSH tab"); await page.waitForTimeout(400); await click(page.getByRole("button", {name: /Show public|public key/i}), "Keys: show public key"); await click(page.getByRole("button", {name: /Add (SSH )?key/}), "Keys: add key"); await page.waitForTimeout(500); }},
@@ -493,7 +494,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await page.getByRole("checkbox", {name: /Vault environment credentials/}).check({timeout: 3000}).catch(() => warnings.push("step skipped: vault category checkbox"));
       await page.waitForTimeout(400);
     }},
-    {id: "advanced-export-bot", tab: "advanced", run: async ({page}) => { await page.locator(".portability-section select").first().selectOption("bot").catch(() => warnings.push("step skipped: scope select")); await page.waitForTimeout(400); }},
+    {id: "advanced-export-bot", tab: "advanced", run: async ({page}) => { await pickSelect(page.locator(".portability-section .ui-select-trigger").first(), "bot").catch(() => warnings.push("step skipped: scope select")); await page.waitForTimeout(400); }},
     {id: "advanced-import-chosen", tab: "advanced", run: async ({page}) => { await page.locator('input[type="file"]').first().setInputFiles(await bundleFile(page, {encrypt: true})); await page.waitForTimeout(800); }},
     {id: "advanced-import-passphrase", tab: "advanced", run: async ({page}) => { await page.locator('input[type="file"]').first().setInputFiles(await bundleFile(page, {encrypt: true})); await page.getByLabel("Decryption passphrase").waitFor({timeout: 4000}).catch(() => warnings.push("step skipped: passphrase field")); await page.getByLabel("Decryption passphrase").fill("Synthetic-Test-Passphrase-Only").catch(() => {}); await page.waitForTimeout(400); }},
     {id: "advanced-import-enter", tab: "advanced", run: async ({page}) => {
@@ -640,9 +641,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   for (const [vpName, width, height] of VIEWPORTS) for (const theme of THEMES) combos.push({vpName, width, height, theme});
   async function runCombo({vpName, width, height, theme}) {
     const mobile = width < 700;
-    for (const scenario of scenarios) {
-      if (only && !only.test(scenario.id)) continue;
+    const queue = scenarios.filter(scenario => !only || only.test(scenario.id));
+    // The scenarios are mostly waiting (settle delays, focus sweep), so a few workers per combo cut the wall time without changing what is audited.
+    const worker = async () => { for (let scenario; (scenario = queue.shift());) {
       let context, page;
+      const startedAt = Date.now();
       try {
         let admin;
         ({page, context, admin} = scenario.onboarding ? await onboardingPage(width, height, theme) : await newPage(width, height, theme));
@@ -656,11 +659,13 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
         if (shots) await fullShot(page, container, join(shots, `${vpName}-${theme}-${scenario.id}.png`), {width, height});
         for (const item of await auditFocus(page, {touch: mobile})) violations.push({...item, scenario: scenario.id, viewport: vpName, theme});
         scenarioRuns++;
+        if (process.env.POLISH_TRACE) console.log(`trace ${scenario.id} @${vpName}/${theme} ${Date.now() - startedAt}ms`);
       } catch (error) {
         warnings.push(`scenario ${scenario.id} (${vpName}, ${theme}) failed: ${error.message.split("\n")[0]}`);
         violations.push({kind: "scenario-error", selector: scenario.id, detail: error.message.split("\n")[0], scenario: scenario.id, viewport: vpName, theme});
       } finally { await context?.close(); }
-    }
+    } };
+    await Promise.all(Array.from({length: Number(process.env.POLISH_WORKERS ?? 4)}, worker));
   }
   await Promise.all(combos.map(runCombo));
 

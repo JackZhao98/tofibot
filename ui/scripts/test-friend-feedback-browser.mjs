@@ -1,5 +1,6 @@
 // Real production App and components, with synthetic HTTP responses only.
 // Every request is restricted to this disposable loopback preview server.
+import {pickSelect} from "./lib/select.mjs";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
@@ -249,7 +250,7 @@ try {
     await page.getByRole("button", { name: "关闭记忆", exact: true }).click();
     await menu("Bot 设置");
     await page.locator('.bs-nav-item[data-section="model"]').click();
-    await page.locator(".model-fields select").first().selectOption("fixture-b");
+    await pickSelect(page.locator(".model-fields .ui-select-trigger").first(), "fixture-b");
     assert.match(await page.locator(".model-fields").innerText(), /保留已保存的记忆和聊天记录/);
     const saved = page.waitForResponse(response => response.request().method() === "PATCH" && new URL(response.url()).pathname === `/api/bots/${botID}`);
     await page.locator(".cover-dirty-save").click();

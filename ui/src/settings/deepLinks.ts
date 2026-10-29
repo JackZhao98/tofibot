@@ -1,4 +1,5 @@
 import type {SettingsTab} from "../SettingsShell";
+import {ARCHIVE_ENABLED} from "../featureFlags";
 
 /** Opens Settings > Computer (a file whose bytes are on a detached computer points here). */
 export const OPEN_COMPUTER_SETTINGS_EVENT = "tofi:open-computer-settings";
@@ -49,7 +50,7 @@ export const openSidebarDeepLink = (id: SidebarDeepLink) => window.dispatchEvent
 export function subscribeSidebarDeepLinks(open: (id: SidebarDeepLink) => void): () => void {
   const handler = (event: Event) => {
     const id = (event as CustomEvent<{ id?: string }>).detail?.id;
-    if (id === "tasks" || id === "memory" || id === "terminal" || id === "archive") open(id);
+    if (id === "tasks" || id === "memory" || id === "terminal" || (id === "archive" && ARCHIVE_ENABLED)) open(id);
   };
   window.addEventListener(OPEN_SIDEBAR_EVENT, handler);
   return () => window.removeEventListener(OPEN_SIDEBAR_EVENT, handler);

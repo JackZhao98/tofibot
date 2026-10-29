@@ -25,6 +25,10 @@
       "retry": "Erneut versuchen"
     },
     "working": "Wird bearbeitet…",
+    "retrying": "Wiederholung läuft…",
+    "retried": "Wiederholt. Der neue Lauf steht unten.",
+    "retry_failed": "Die Wiederholung wurde nicht gestartet. Versuchen Sie es erneut.",
+    "retry_failed_reason": "Die Wiederholung wurde nicht gestartet: {{error}}",
     "copied": "Diagnose kopiert.",
     "copy_failed": "Kopieren fehlgeschlagen. Markiere die Diagnose unten und kopiere sie manuell.",
     "status_unavailable": "Einige Statusmeldungen sind nicht verfügbar. Bestätigte Einträge bleiben erhalten.",

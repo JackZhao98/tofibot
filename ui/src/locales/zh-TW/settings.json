@@ -1,10 +1,10 @@
 {
   "language": {
     "title": "語言",
-    "note": "介面文字使用的語言。選擇「自動」時會跟隨瀏覽器。",
     "label": "介面語言",
     "auto": "自動（{{language}}）",
-    "save_failed": "語言已在這台裝置上切換，但未能儲存到帳號。請稍後再試。"
+    "save_failed": "語言已在這台裝置上切換，但未能儲存到帳號。請稍後再試。",
+    "default": "預設"
   },
   "timezone": {
     "label": "時區",
@@ -30,7 +30,8 @@
       "you": "你",
       "bots": "Bot 可用",
       "workspace": "工作區",
-      "system": "系統"
+      "system": "系統",
+      "more": "進階"
     },
     "page": {
       "general": {
@@ -47,15 +48,15 @@
       },
       "permissions": {
         "name": "權限",
-        "description": "什麼會先問你，你放行了什麼。"
+        "description": "決定 Bot 何時先問你"
       },
       "followups": {
-        "name": "跟進事項（預覽）",
+        "name": "跟進事項",
         "description": "查看 Bot 會提醒你什麼"
       },
       "models": {
         "name": "模型",
-        "description": "Bot 的大腦從哪來，預設用哪一個。"
+        "description": "模型服務商與預設模型。"
       },
       "computer": {
         "name": "電腦",
@@ -71,16 +72,28 @@
         "description": "查看 Agent 的模型用量與脈絡壓縮進度"
       },
       "advanced": {
-        "name": "進階",
-        "description": "伺服器資訊、資料搬移、除錯與從頭開始。"
+        "name": "維護",
+        "description": "版本、伺服器、資料、除錯與從頭開始。"
       },
       "admin": {
         "name": "Admin 主控台",
         "description": "邀請、管理和停用帳號"
       },
       "automation": {
-        "name": "自動行為",
+        "name": "行為",
         "description": "查看並調整 Tofi 代你自動做的事"
+      },
+      "allowances": {
+        "name": "工具規則",
+        "description": "審核方式、工具如何詢問、你放行了什麼"
+      },
+      "tools": {
+        "name": "搜尋與擷取",
+        "description": "Bot 搜尋與讀取網頁的來源"
+      },
+      "devices": {
+        "name": "其他裝置",
+        "description": "連接裝有 Tofi 應用程式的 Mac"
       }
     },
     "category": "設定分類",
@@ -111,12 +124,16 @@
         "waiting": "等待中",
         "none": "未新增"
       }
+    },
+    "tag": {
+      "beta": "測試版",
+      "dev": "開發中"
     }
   },
   "appearance": {
-    "title": "外觀",
-    "label": "外觀主題",
-    "system": "跟隨系統",
+    "title": "主題",
+    "label": "主題",
+    "system": "系統",
     "light": "淺色",
     "dark": "深色"
   },
@@ -160,7 +177,6 @@
   },
   "providers": {
     "title": "模型供應商",
-    "description": "連接任一家即可使用。已連接供應商的模型都會出現在 Bot 和全域模型的模型清單中。",
     "load_failed": "暫時無法讀取模型供應商狀態。",
     "openai_description": "使用 OpenAI API 金鑰呼叫 GPT 與 o 系列模型，依 API 用量計費。",
     "anthropic_description": "使用 Anthropic API 金鑰呼叫 Claude 模型，依 API 用量計費。",
@@ -462,7 +478,7 @@
       "once": "只顯示一次，繼續之後 Tofi 不會保留。",
       "expires": "有效期限至 {{date}}。",
       "message_label": "要傳送的訊息",
-      "message": "你的 TOFI 帳號已關閉。下載你的 Bot：{{link}}（密語另行傳送），有效期限至 {{date}}。在 Tofi 中匯入：設定 → 進階 → 資料搬移，然後輸入密語。",
+      "message": "你的 TOFI 帳號已關閉。下載你的 Bot：{{link}}（密語另行傳送），有效期限至 {{date}}。在 Tofi 中匯入：設定 → 維護 → 資料搬移，然後輸入密語。",
       "message_note": "請以另一則訊息或另一個管道傳送密語。",
       "copy_message": "複製訊息",
       "done": "我已儲存密語"
@@ -660,7 +676,16 @@
     "environment_help": "預設關閉，請逐筆勾選要包含的記錄。",
     "import_environment_help": "預設關閉，請逐筆勾選要還原為未啟用副本的記錄。",
     "recovery_help": "未啟用的副本，可重新匯出或刪除。",
-    "environment_label": "環境憑證"
+    "environment_label": "環境憑證",
+    "group": {
+      "bots": "Bot",
+      "data": "資料"
+    },
+    "count": "已選 {{selected}} / {{total}}",
+    "more_options": "更多選項",
+    "select_all": "全選{{group}}",
+    "password_help": "匯出檔案將以此密碼加密，至少 12 個字元。",
+    "exporting": "正在匯出…"
   },
   "status": {
     "ok": "已連線",
@@ -674,12 +699,8 @@
   },
   "general": {
     "region": "語言與地區",
-    "moved_title": "在找匯出、伺服器資訊或從頭開始？",
-    "moved_body": "它們已移到「進階」。",
-    "open_advanced": "開啟「進階」",
     "chat": "對話",
-    "activity_title": "在對話裡顯示工作過程",
-    "activity_note": "在 Bot 的回覆下方顯示它執行的步驟。預設關閉，仍可從訊息的操作選單開啟。",
+    "activity_title": "在對話中顯示活動",
     "activity_save_failed": "儲存失敗，請重試。"
   },
   "advanced": {
@@ -1016,7 +1037,7 @@
     "save_failed": "儲存失敗。",
     "remove_failed": "移除失敗。",
     "master_off_title": "網頁查詢已關閉",
-    "master_off_body": "在「自動行為」中開啟網頁搜尋，Bot 才能搜尋與讀取網頁。",
+    "master_off_body": "在「行為」中開啟網頁搜尋，Bot 才能搜尋與讀取網頁。",
     "no_search_title": "尚未設定搜尋來源",
     "no_search_body": "Bot 目前無法搜尋網頁。請在下方新增金鑰或位址。依位址讀取網頁仍可使用。",
     "search_title": "搜尋",
@@ -1117,5 +1138,14 @@
       "write": "預設檔。每次呼叫都會審核：你明確要求的直接執行，其餘的先問你。",
       "high": "每次呼叫都由你決定。沒人可問時，呼叫不會執行。"
     }
+  },
+  "chats": {
+    "task_notifications": "任務結果通知",
+    "chat_notifications": "對話通知"
+  },
+  "approval": {
+    "label": "此帳號的核准模式",
+    "auto": "自動",
+    "ask": "修改前先問"
   }
 }

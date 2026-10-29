@@ -79,7 +79,7 @@
     "archived_body": "Hidden from your list. Its chats and memory are kept.",
     "model_pinned": "Pinned to {{model}}",
     "share_hint": "Role, model and Skill names in one file. No chats, memory or secrets.",
-    "data_hint": "Chats, memory and files. Opens Settings › Advanced.",
+    "data_hint": "Chats, memory and files. Opens Settings › Maintenance.",
     "export_action": "Export",
     "delete_hint": "Removes this Bot and its chat. This can't be undone.",
     "section": {

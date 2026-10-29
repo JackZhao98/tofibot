@@ -8,6 +8,7 @@
 //
 //   PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:web-tools
 //   WEB_TOOLS_SHOTS=<dir>  also saves a screenshot there
+import {pickSelect} from "./lib/select.mjs";
 import assert from "node:assert/strict";
 import {mkdir, mkdtemp, readFile, rm, writeFile} from "node:fs/promises";
 import {basename, dirname, join} from "node:path";
@@ -304,11 +305,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.match(await row(t.page, "search", "tavily").innerText(), /Daily limit reached/);
     assert.match(await row(t.page, "search", "tavily").innerText(), /300 in the last 24 h/);
     assert.equal(await row(t.page, "search", "tavily").getAttribute("data-status"), "limit");
-    await t.page.locator("#web-limit-search").selectOption("1000");
+    await pickSelect(t.page.locator("#web-limit-search"), "1000");
     await t.page.waitForFunction(() => document.querySelector('.web-row[data-id="tavily"]')?.dataset.status === "ready");
     assert.equal(requests.at(-1), 'PUT /api/web-tools/limits {"search":1000}');
-    await t.page.locator("#web-limit-fetch").selectOption("-1");
-    await t.page.waitForFunction(() => document.querySelector("#web-limit-fetch").value === "-1");
+    await pickSelect(t.page.locator("#web-limit-fetch"), "-1");
+    await t.page.waitForFunction(() => document.querySelector("#web-limit-fetch").dataset.value === "-1");
     assert.equal(requests.at(-1), 'PUT /api/web-tools/limits {"fetch":-1}');
     await t.close();
     console.log("PASS the daily limit is adjustable and shown on the source");

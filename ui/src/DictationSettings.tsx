@@ -3,6 +3,7 @@ import {api} from "./api";
 import {useSettingsDraft} from "./settingsDraft";
 import {useTranslation} from "./i18n";
 import {SettingsCard,SettingsRow} from "./settings/components";
+import { Select } from "./Select";
 
 type DictationModel={id:string;name:string};
 type DictationSettingsValue={model:string;configured:boolean;auth_source:"api_key"|"codex"|"";models:DictationModel[]};
@@ -21,5 +22,5 @@ export function DictationSettings(){
  };
  const known=selected&&Object.hasOwn(copies,selected.id)?copies[selected.id]:undefined;
  const hint=known?.hint??"";const price=known&&value?.auth_source==="api_key"?known.price:"";
- return <section className="settings-section dictation-settings">{value?<form aria-busy={busy} onSubmit={event=>{event.preventDefault();void save()}}><SettingsCard><SettingsRow labelFor="dictation-model" label={t("dictation.model_label")} description={t("dictation.description")} control={<select id="dictation-model" value={choice} onChange={event=>{setChoice(event.target.value);setStatus("")}} disabled={busy}>{value.models.map(model=><option key={model.id} value={model.id}>{model.name}</option>)}</select>}/>{(hint||price)&&<p className="settings-card-note">{hint}{hint&&price&&" · "}{price&&t("dictation.api_price",{cost:price})}</p>}{value.auth_source==="codex"&&<p className="settings-card-note">{t("dictation.codex_account")}</p>}{!value.configured&&<p className="settings-card-note">{t("dictation.not_configured")}</p>}</SettingsCard><div className="settings-form-footer"><span className="settings-feedback" role="status">{status}</span></div></form>:!error&&<p className="muted">{t("dictation.loading")}</p>}{error&&<p className="error-text" role="alert">{error}</p>}</section>
+ return <section className="settings-section dictation-settings">{value?<form aria-busy={busy} onSubmit={event=>{event.preventDefault();void save()}}><SettingsCard><SettingsRow labelFor="dictation-model" label={t("dictation.model_label")} description={t("dictation.description")} control={<Select id="dictation-model" value={choice} onValueChange={value =>{setChoice(value);setStatus("")}} disabled={busy}>{value.models.map(model=><option key={model.id} value={model.id}>{model.name}</option>)}</Select>}/>{(hint||price)&&<p className="settings-card-note">{hint}{hint&&price&&" · "}{price&&t("dictation.api_price",{cost:price})}</p>}{value.auth_source==="codex"&&<p className="settings-card-note">{t("dictation.codex_account")}</p>}{!value.configured&&<p className="settings-card-note">{t("dictation.not_configured")}</p>}</SettingsCard><div className="settings-form-footer"><span className="settings-feedback" role="status">{status}</span></div></form>:!error&&<p className="muted">{t("dictation.loading")}</p>}{error&&<p className="error-text" role="alert">{error}</p>}</section>
 }

@@ -1,3 +1,4 @@
+import {pickSelect} from "./lib/select.mjs";
 import assert from "node:assert/strict";
 import {mkdtemp, readFile, rm, writeFile} from "node:fs/promises";
 import {dirname, join, basename} from "node:path";
@@ -98,7 +99,7 @@ void i18nReady.then(()=>setLanguage('zh-CN')).then(()=>createRoot(document.getEl
         await settings.getByText("审查范围：所有外部工具。",{exact:false}).waitFor({timeout:10000});
         assert.equal(await settings.getByRole("combobox").inputValue(),"off");
         for (const [mode, text] of [["shadow","不新增等待或执行权限"],["auto","高风险、需要确认的提案仍须由你批准"],["off","不请求审查"]]) {
-          await settings.getByRole("combobox").selectOption(mode);
+          await pickSelect(settings.getByRole("combobox"), mode);
           await settings.getByText(text,{exact:false}).waitFor();
         }
         const card=page.locator('[data-question-id="synthetic-question"]');

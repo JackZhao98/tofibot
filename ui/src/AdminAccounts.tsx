@@ -118,7 +118,7 @@ export function AdminAccounts() {
       <div className="admin-list-actions"><button type="button" className="primary-button" onClick={() => setAdding(true)} disabled={busy}><TofiIcon name="user-add" size={16} aria-hidden="true"/>{t("admin.add")}</button></div>
       <SettingsCard className="admin-list">
         <div className="admin-row-head" aria-hidden="true"><span/><span/><span/><span className="admin-row-usage"><span>{ts("admin.server")}</span>{hasComputer && <span>{ts("admin.computer")}</span>}</span><span/></div>
-        {accounts?.length === 0 && <p className="settings-card-note">{t("admin.accounts.empty")}</p>}
+        {accounts?.length === 0 && <p className="settings-card-note admin-empty">{t("admin.accounts.empty")}</p>}
         {accounts?.map(account => {
           const disk = diskOf(account.id);
           const computer = disk ? `${t(`admin.computer.${disk.state === "ready" || disk.state === "disabled" ? disk.state : "reserved"}`)} · ${t("admin.detail.computer.option", {size: formatNumber(Math.round(disk.quota_bytes / GIB))})}` : t("admin.computer.none");
@@ -126,8 +126,8 @@ export function AdminAccounts() {
           return <button type="button" key={account.id} className="admin-row" data-account={account.id} onClick={() => setSelected(account.id)} aria-label={t("admin.open", {name: account.username})}>
             <span className="admin-avatar" aria-hidden="true">{initialOf(account.username)}</span>
             <span className="admin-row-main">
-              <strong>{account.username}{account.id === selfId && <small>{t("admin.you")}</small>}</strong>
-              <span className="admin-row-email">{account.email.endsWith("@account.invalid") ? t("admin.no_email") : account.email}</span>
+              <strong><span className="admin-name" title={account.username}>{account.username}</span>{account.id === selfId && <small>{t("admin.you")}</small>}</strong>
+              <span className="admin-row-email" title={account.email.endsWith("@account.invalid") ? undefined : account.email}>{account.email.endsWith("@account.invalid") ? t("admin.no_email") : account.email}</span>
             </span>
             <AccountBadges account={account}/>
             <span className="admin-row-usage">

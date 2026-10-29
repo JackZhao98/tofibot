@@ -145,7 +145,7 @@ func TestCodexCatalogCarriesContextWindow(t *testing.T) {
 	if provider.GetContextWindow("codex-gpt-5.6-terra") != 272000 || !provider.ContextWindowKnown("codex-gpt-5.6-terra") {
 		t.Fatal("catalog window not used")
 	}
-	if provider.ContextWindowKnown("codex-gpt-5.6-luna") || provider.GetContextWindow("codex-gpt-5.6-luna") != 128000 {
+	if provider.ContextWindowKnown("codex-gpt-5.6-luna") || provider.GetContextWindow("codex-gpt-5.6-luna") != 500000 {
 		t.Fatal("model without a reported window must keep the estimated fallback")
 	}
 	// A snapshot with no windows must not wipe the set above.

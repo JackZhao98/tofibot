@@ -55,6 +55,6 @@
 .pin-tile-badge[data-status="failed"] { color:var(--danger-text); }
 .pin-tile-badge[data-status="attention"]::before { content:"?"; }
 .pin-tile-badge[data-status="failed"]::before { content:"!"; }
-.pin-tile-badge[data-status="working"] { width:11px; height:11px; border-radius:50%; background:var(--blue); box-shadow:0 0 0 2px var(--sunk); animation:v2-breathe 2.4s var(--ease-inout) infinite; }
+.pin-tile-badge[data-status="working"] { top:9px; right:9px; width:10px; height:10px; border-radius:50%; background:var(--blue); animation:v2-breathe 2.4s var(--ease-inout) infinite; }
 @media (prefers-reduced-motion:reduce) { .pin-tile-badge[data-status="working"] { animation:none; } }
 @media (forced-colors:active) { .pin-tile.active { outline:2px solid Highlight; } }

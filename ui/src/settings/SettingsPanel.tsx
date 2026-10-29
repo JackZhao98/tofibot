@@ -1,6 +1,7 @@
 import {SettingsShell,type SettingsEntry,type SettingsTab} from "../SettingsShell";
 import {useTranslation} from "../i18n";
-import {CodexPanel,NotificationSetting} from "./AppSlots";
+import {ARCHIVE_ENABLED} from "../featureFlags";
+import {CodexPanel} from "./AppSlots";
 import {SettingsPages,type SettingsPagesProps} from "./SettingsPages";
 
 /** The whole Settings surface behind one lazy boundary (see lazyPanels.tsx): shell, rail and every page. */
@@ -14,9 +15,8 @@ export function SettingsPanel({tab,onTab,onClose,entry,refreshToken,codexRefresh
  const {providersRefresh,onProvidersConfigured,...rest}=pages;
  const slots:SettingsPagesProps["slots"]={
   codex:<CodexPanel refreshToken={codexRefresh} onConfigured={onCodexConfigured}/>,
-  notifications:<NotificationSetting/>,
   providersRefresh,onProvidersConfigured,
-  legacyArchive:legacyArchive?<div className="legacy-archive-entry"><span>{t("detail.legacy_archive")}</span><button className="text-button" onClick={onOpenArchive}>{t("detail.manage")}</button></div>:null
+  legacyArchive:legacyArchive&&ARCHIVE_ENABLED?<div className="legacy-archive-entry"><span>{t("detail.legacy_archive")}</span><button className="text-button" onClick={onOpenArchive}>{t("detail.manage")}</button></div>:null
  };
  return <SettingsShell tab={tab} onTab={onTab} onClose={onClose} entry={entry} refreshToken={refreshToken} renderPage={page=><SettingsPages {...rest} slots={slots} page={page}/>}/>;
 }

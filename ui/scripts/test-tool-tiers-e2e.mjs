@@ -147,12 +147,12 @@ async function openConnections(page) {
   await page.getByRole('button', {name: 'Connections'}).first().click();
   await page.getByText(/^Connected|Not connected|Needs/).first().waitFor({timeout: 15000}).catch(() => {});
   await page.getByText('notion', {exact: true}).first().waitFor({timeout: 15000});
+  // The permission list lives on the connection's own page.
+  await page.locator('.mcp-service[aria-label="notion"] .mcp-service-open').click();
+  await page.locator('.mcp-detail').waitFor({timeout: 15000});
 }
 async function openToolsDisclosure(page) {
-  const toggle = page.getByRole('button', {name: /^Tools · \d+$/});
-  await toggle.waitFor({timeout: 15000});
-  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
-  await page.locator('.mcp-tools').waitFor();
+  await page.locator('.mcp-detail [data-section="tools"] .mcp-tool').first().waitFor({timeout: 15000});
   await sleep(500);
 }
 async function toolGroups(page) {
@@ -161,7 +161,7 @@ async function toolGroups(page) {
     tools: [...g.querySelectorAll('li.mcp-tool')].map(li => ({
       name: li.querySelector('code')?.textContent ?? '',
       marks: [...li.querySelectorAll('.mcp-tier-mark')].map(m => m.textContent.trim()),
-      select: li.querySelector('select')?.value,
+      select: li.querySelector('.mcp-tier-trigger')?.dataset.tier,
     })),
   }])));
 }
@@ -170,8 +170,8 @@ const names = group => (group?.tools ?? []).map(t => t.name).sort();
 // What a person would call a layout defect on the card, measured not eyeballed.
 async function layoutReport(page) {
   return page.evaluate(() => {
-    const dialog = document.querySelector('.mcp-service')?.closest('[role="dialog"]') ?? document.body;
-    const card = document.querySelector('.mcp-service') ?? dialog;
+    const dialog = document.querySelector('.mcp-detail, .mcp-service')?.closest('[role="dialog"]') ?? document.body;
+    const card = document.querySelector('.mcp-detail, .mcp-service') ?? dialog;
     const canvas = document.createElement('canvas').getContext('2d');
     const issues = [];
     if (document.documentElement.scrollWidth > innerWidth + 1) issues.push(`page scrolls horizontally ${document.documentElement.scrollWidth}>${innerWidth}`);
@@ -181,23 +181,22 @@ async function layoutReport(page) {
       if (cs.display === 'none' || cs.visibility === 'hidden') continue;
       const r = el.getBoundingClientRect();
       if (!r.width || !r.height) continue;
-      const clipped = !['visible'].includes(cs.overflowX) && el.scrollWidth > el.clientWidth + 1 && el.tagName !== 'SELECT';
+      const clipped = !['visible'].includes(cs.overflowX) && el.scrollWidth > el.clientWidth + 1;
       if (clipped) issues.push(`clipped ${el.tagName}.${el.className} ${el.scrollWidth}>${el.clientWidth}`);
       if (r.right > cardRect.right + 1 || r.left < cardRect.left - 1) {
         if (el.closest('.disclosure-region') || !el.closest('.disclosure')) issues.push(`outside card ${el.tagName}.${el.className} ${Math.round(r.left)}..${Math.round(r.right)} vs ${Math.round(cardRect.left)}..${Math.round(cardRect.right)}`);
       }
     }
-    // A closed select's label must clear the chevron drawn at its right edge
-    // (background-position calc(100% - Npx) + the 5px glyph).
-    for (const sel of card.querySelectorAll('select')) {
-      const cs = getComputedStyle(sel);
-      canvas.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
-      const text = sel.options[sel.selectedIndex]?.text ?? '';
-      const textRight = parseFloat(cs.paddingLeft) + canvas.measureText(text).width;
-      const arrowFrom = /calc\(100% - ([\d.]+)px\)/.exec(cs.backgroundPosition);
-      const arrowLeft = sel.clientWidth - (arrowFrom ? parseFloat(arrowFrom[1]) : 0) - 5;
-      if (textRight > sel.clientWidth - parseFloat(cs.paddingRight) + 1 || arrowFrom && textRight > arrowLeft - 2) {
-        issues.push(`select label "${text}" runs under its chevron: text ends at ${textRight.toFixed(0)}px, chevron starts at ${arrowLeft.toFixed(0)}px (select ${sel.clientWidth}px wide, computed padding ${cs.padding}, font ${cs.fontSize})`);
+    // A closed select's label must fit its field without an ellipsis or running under the chevron.
+    for (const trigger of card.querySelectorAll('.ui-select-trigger, .mcp-tier-trigger')) {
+      const value = trigger.querySelector('.ui-select-value, :scope > span');
+      if (!value) continue;
+      const text = value.textContent ?? '';
+      const chevron = trigger.querySelector('svg, .ui-select-chevron');
+      const textRight = value.getBoundingClientRect().left + value.scrollWidth;
+      const limit = chevron ? chevron.getBoundingClientRect().left : trigger.getBoundingClientRect().right;
+      if (value.scrollWidth > value.clientWidth + 1 || textRight > limit + 1) {
+        issues.push(`select label "${text}" is clipped or runs under its chevron: text ends at ${textRight.toFixed(0)}px, limit ${limit.toFixed(0)}px (field ${trigger.clientWidth}px wide)`);
       }
     }
     return [...new Set(issues)];
@@ -219,30 +218,28 @@ async function scenarioConnections(page, fx) {
   const t0 = Date.now();
   await openBot(page, fx, await fx.bot('Notion Settings'));
   await openConnections(page);
-  // The read-only summary arrives with the tier list a beat after the count; wait for it, then judge.
-  await page.locator('.mcp-service').first().getByText(/read only/).first().waitFor({timeout: 10000}).catch(() => {});
-  const status = await page.locator('.mcp-service').first().innerText();
-  const m = /Connected\s*·\s*(\d+) tools?\s*·\s*(\d+) read only/.exec(status);
-  check('card shows "N tools · M read only" without a refresh', !!m && m[2] === '4', status.split('\n').slice(0, 4).join(' | '));
   await openToolsDisclosure(page);
-  const disclosureCount = Number(/(\d+)\s*$/.exec((await page.getByRole('button', {name: /^Tools · \d+$/}).textContent()).trim())?.[1]);
-  check('status count and Tools disclosure count agree', m && Number(m[1]) === disclosureCount, `status says ${m?.[1]}, disclosure says ${disclosureCount} (the duplicate listing is counted once in the list and twice in the status)`, 'BUG-2');
+  const total = await page.locator('.mcp-detail .mcp-tool').count();
+  const readOnly = await page.locator('.mcp-detail .mcp-tool-group[data-tier="read_only"] .mcp-tool').count();
+  check('the page lists the tools and counts the provider-marked read-only ones without a refresh', total > 0 && readOnly === 4, `${total} tools, ${readOnly} read only`);
+  const disclosureCount = Number(/(\d+)\s*$/.exec((await page.locator('#conn-tools-title').textContent()).trim())?.[1]);
+  check('Tools heading count and the listed tools agree', total === disclosureCount, `heading says ${disclosureCount}, list has ${total} (the duplicate listing is counted once in the list)`, 'BUG-2');
   const groups = await toolGroups(page);
-  check('group labels are Read only (marked by provider) / Reviewed each time', groups.read_only?.label === 'Read only (marked by provider)' && groups.write?.label === 'Reviewed each time' && !groups.high_risk, JSON.stringify(Object.keys(groups)));
+  check('group labels are Runs without asking / Asks when unsure', groups.read_only?.label === 'Runs without asking' && groups.write?.label === 'Asks when unsure' && !groups.high_risk, JSON.stringify(Object.keys(groups)));
   check('read-only group = the four provider-annotated tools', JSON.stringify(names(groups.read_only)) === JSON.stringify(['notion-fetch', 'notion-get-users', 'notion-query-database', 'notion-search']), names(groups.read_only).join());
   check('write group = update-page, create-page, the duplicate-listed tool, the unannotated "read only" description', JSON.stringify(names(groups.write)) === JSON.stringify(['notion-create-page', 'notion-describe-schema', 'notion-get-comments', 'notion-update-page']), names(groups.write).join());
   const dup = groups.write?.tools.find(t => t.name === 'notion-get-comments');
   check('duplicate-listed tool is NOT read only and says "Listed more than once"', dup && dup.marks.includes('Listed more than once'), JSON.stringify(dup));
   const desc = groups.write?.tools.find(t => t.name === 'notion-describe-schema');
-  check('unannotated tool described "read only" is NOT read only and is not marked by provider', desc && !desc.marks.includes('Marked by provider'), JSON.stringify(desc));
-  const roMarks = groups.read_only?.tools.every(t => t.marks.includes('Marked by provider'));
-  check('every read-only tool carries "Marked by provider"', roMarks, JSON.stringify(groups.read_only?.tools.map(t => t.marks)));
+  check('unannotated tool described "read only" is NOT read only and is not marked by provider', desc && !desc.marks.includes('Marked by the service'), JSON.stringify(desc));
+  const roMarks = groups.read_only?.tools.every(t => t.marks.includes('Marked by the service'));
+  check('every read-only tool carries "Marked by the service"', roMarks, JSON.stringify(groups.read_only?.tools.map(t => t.marks)));
   await sleep(700);
   const motion = await motionReport(page);
   check('no animation or spinner at rest on the card', motion.running.length === 0 && motion.spinners.length === 0, JSON.stringify(motion));
   const layout = await layoutReport(page);
   check('no text overflow / clipping on the card', layout.length === 0, layout.join(' ; '), 'BUG-3');
-  await page.locator('.mcp-service').first().scrollIntoViewIfNeeded();
+  await page.locator('.mcp-detail').first().scrollIntoViewIfNeeded();
   await shot(page, 's1-connections-tools');
   // Refresh
   const before = await mark(fx);
@@ -390,11 +387,12 @@ async function scenarioAlwaysAsk(page, fx) {
   await openConnections(page);
   await openToolsDisclosure(page);
   const before = await mark(fx);
-  await page.getByLabel('Tier for notion-update-page').selectOption('high_risk');
+  await page.getByRole('button', {name: 'Permission for notion-update-page'}).click();
+  await page.getByRole('menu', {name: 'Permission for notion-update-page'}).locator('button[data-value="high_risk"]').click();
   await waitFor(async () => (await names((await toolGroups(page)).high_risk)).includes('notion-update-page'), 'update-page in Always ask me group');
   let groups = await toolGroups(page);
   const ask = groups.high_risk?.tools.find(t => t.name === 'notion-update-page');
-  check('changing update-page to "Always ask me" regroups it and says "Set by you"', groups.high_risk?.label === 'Always ask me' && ask?.select === 'high_risk' && ask.marks.includes('Set by you'), JSON.stringify(ask));
+  check('changing update-page to "Always ask me" regroups it and says "Set by you"', groups.high_risk?.label === 'Always asks me' && ask?.select === 'high_risk' && ask.marks.includes('Set by you'), JSON.stringify(ask));
   check('the change asked no model', (await since(fx, before)).model === 0, '');
   await shot(page, 's1b-always-ask-set');
   await page.reload();
@@ -475,7 +473,7 @@ async function scenarioMigration(page, fx) {
   const opened = await since(fx, m);
   check('opening Connections re-lists the server (the card checks it on mount; no model asked)', opened.lists >= 1 && opened.model === 0, `lists=${opened.lists} model=${opened.model}`);
   let groups = await toolGroups(page);
-  check('UI after that tools/list: the four provider-marked tools are Read only, the other four stay Reviewed each time', JSON.stringify(names(groups.read_only)) === JSON.stringify(['notion-fetch', 'notion-get-users', 'notion-query-database', 'notion-search']) && names(groups.write).length === 4 && groups.read_only.tools.every(t => t.marks.includes('Marked by provider')), JSON.stringify(Object.fromEntries(Object.entries(groups).map(([k, v]) => [k, names(v)]))));
+  check('UI after that tools/list: the four provider-marked tools are Read only, the other four stay Reviewed each time', JSON.stringify(names(groups.read_only)) === JSON.stringify(['notion-fetch', 'notion-get-users', 'notion-query-database', 'notion-search']) && names(groups.write).length === 4 && groups.read_only.tools.every(t => t.marks.includes('Marked by the service')), JSON.stringify(Object.fromEntries(Object.entries(groups).map(([k, v]) => [k, names(v)]))));
   const layout = await layoutReport(page);
   check('UI: no overflow on the migrated card', layout.length === 0, layout.join(' ; '), 'BUG-3');
   await shot(page, 's7-after-open');

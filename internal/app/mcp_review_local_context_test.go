@@ -35,7 +35,7 @@ func TestLocalMomentAcrossUTCMidnight(t *testing.T) {
 }
 
 func TestReviewerPolicyVersionAndText(t *testing.T) {
-	if autoReviewPolicyVersion != "mcp-all-external-v7" || autoReviewProvenance != "host-mcp-review-binding-v7" {
+	if autoReviewPolicyVersion != "mcp-all-external-v8" || autoReviewProvenance != "host-mcp-review-binding-v8" {
 		t.Fatalf("policy identity not bumped: %s %s", autoReviewPolicyVersion, autoReviewProvenance)
 	}
 	for _, want := range []string{

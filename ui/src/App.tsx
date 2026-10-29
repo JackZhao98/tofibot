@@ -41,6 +41,7 @@ import { BotIdentityCard } from "./BotIdentityCard";
 import { arrowOpens, OverlayMenu, OverlaySlot, SlotView } from "./overlays/OverlayHost";
 import { ActionHints, ConfirmAction, useAppearance, useSurfacePresence } from "./InteractionSystem";
 import { useConversationScroll } from "./useConversationScroll";
+import { sidebarAvailable } from "./featureFlags";
 import { conversationPath, readConversationRoute, readSideParam, withSideParam } from "./conversationRoute";
 import { useConversationNavigation } from "./useConversationNavigation";
 import { useDesktopPresence } from "./desktopPresence";
@@ -116,7 +117,8 @@ const MailDraftCard = lazy(() => import("./MailDraftCard").then(module => ({ def
 /** Where the person's widget order is kept: this browser, this account (a per-viewer preference, the same in every conversation). */
 const widgetOrderKey = (accountId?: string) => `tofi:widget-order:${accountId ?? "local"}`;
 const initialSurfaces = (accountId?: string): Surfaces => {
-  const side = readSideParam(window.location.search);
+  const rawSide = readSideParam(window.location.search);
+  const side = sidebarAvailable(rawSide) ? rawSide : null;
   let order: WidgetId[] = [...WIDGET_ORDER];
   try { order = normalizeWidgetOrder(JSON.parse(localStorage.getItem(widgetOrderKey(accountId)) ?? "null")); } catch { /* storage unavailable or damaged: the default order */ }
   return { ...emptySurfaces(), order, ...(side ? { sidebar: { id: side, expanded: false } } : {}) };
@@ -493,7 +495,10 @@ function App() {
 
 function Workspace() {
   const { t } = useTranslation(["chat", "common"]);
-  const {timezone, showActivity} = useUserTimezone();
+  const {timezone, showActivity, notifyChats, notifyTasks} = useUserTimezone();
+  // The poll below reads the two notification switches through refs, so a change never restarts it.
+  const notifyRef = useRef({ chats: notifyChats, tasks: notifyTasks });
+  notifyRef.current = { chats: notifyChats, tasks: notifyTasks };
   const [revealedRuns, setRevealedRuns] = useState<ReadonlySet<string>>(() => new Set());
   const revealRun = useCallback((runId: string) => { focusToggleOfRun = runId; setRevealedRuns(current => current.has(runId) ? current : new Set(current).add(runId)); }, []);
   const activityView = useMemo(() => ({ show: showActivity, revealed: revealedRuns, reveal: revealRun }), [showActivity, revealedRuns, revealRun]);
@@ -633,10 +638,10 @@ function Workspace() {
   const closeSidebarPanel = useCallback(() => setSurfaces(state => closeSidebar(state)), []);
   const closeCoverPanel = useCallback(() => setSurfaces(state => closeCover(state)), []);
   const openCoverPanel = useCallback((id: CoverId) => openSurface(state => openCover(state, id)), [openSurface]);
-  const openSidebarId = useCallback((id: SidebarId) => openSurface(state => openSidebar(state, id)), [openSurface]);
+  const openSidebarId = useCallback((id: SidebarId) => openSurface(state => sidebarAvailable(id) ? openSidebar(state, id) : state), [openSurface]);
   const openWidgetId = useCallback((id: WidgetId) => openSurface(state => openWidget(state, id)), [openSurface]);
   const toggleWidgetId = useCallback((id: WidgetId) => { if (surfacesRef.current.widgets.includes(id)) widgetNotes.current.noteClose(id); openSurface(state => toggleWidget(state, id)); }, [openSurface]);
-  const toggleSidebarId = useCallback((id: SidebarId) => openSurface(state => toggleSidebar(state, id)), [openSurface]);
+  const toggleSidebarId = useCallback((id: SidebarId) => openSurface(state => sidebarAvailable(id) ? toggleSidebar(state, id) : state), [openSurface]);
   const sidebarId = surfaces.sidebar?.id ?? null;
   const cover = surfaces.cover;
   // The widget column fills in right after the conversation itself: on a switch the chat paints first and the incoming widgets (a
@@ -745,7 +750,8 @@ function Workspace() {
     if (!historyVersion) return;
     // Back and forward change the conversation (its widgets come back from memory) and the address names the sidebar.
     setMobileList(false); setViewOnlyChat(null); setTaskFocus(null);
-    const side = readSideParam(window.location.search);
+    const rawSide = readSideParam(window.location.search);
+    const side = sidebarAvailable(rawSide) ? rawSide : null;
     setSurfaces(state => {
       const next = closeCover(state);
       return (next.sidebar?.id ?? null) === side ? next : side ? { ...next, sidebar: { id: side, expanded: next.sidebar?.expanded ?? false } } : closeSidebar(next);
@@ -1004,7 +1010,8 @@ function Workspace() {
         notificationSeen.current[c.id] = message?.seq ?? previous;
         if (indexInitialized.current && message && message.seq > previous && message.role === "assistant" && !message.internal &&
             (document.visibilityState !== "visible" || c.id !== activeIdRef.current) &&
-            "Notification" in window && Notification.permission === "granted") {
+            "Notification" in window && Notification.permission === "granted" &&
+            (message.kind === "bot_result" || message.kind === "forward_result" ? notifyRef.current.tasks : notifyRef.current.chats)) {
           const notice = new Notification(c.name, {body: previewText(message.content), tag: `tofi-${c.id}`});
           notice.onclick = () => { window.focus(); selectConversation(c.id); setMobileList(false); notice.close(); };
         }
@@ -2403,7 +2410,7 @@ function Workspace() {
   const ownedAttemptKeys = new Set(taskOwners.flatMap(owner => owner.family.attempts.map(run => `${run.id}|${run.bot_id}|${run.conversation_id}`)));
   const ownedBy = (item: { run_id: string; bot_id: string; conversation_id: string }) => ownedAttemptKeys.has(`${item.run_id}|${item.bot_id}|${item.conversation_id}`);
   function renderPlacement({ owner, key, segment }: OwnerPlacement) {
-    return <TaskRunBlock key={key} segment={segment} replying={replyingRunIDs.has(owner.family.latest.id)} hideActivity={!showActivity} revealed={ownerRevealed(owner)} owner={owner} senderHead={active?.kind === "group" ? <SenderHead id={owner.family.latest.bot_id} name={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} /> : undefined} liveStatus={runLiveStatus(owner.family.latest)} onRetryRun={retryRun} tools={loadedToolActivities} questions={questions.items} drafts={mailDrafts.items} messages={messageRecords} summaries={terminalToolSummaries} details={toolDetailState} connected={linkConnected} botName={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} showName={active?.kind === "group"}
+    return <TaskRunBlock key={key} segment={segment} replying={replyingRunIDs.has(owner.family.latest.id)} hideActivity={!showActivity} revealed={ownerRevealed(owner)} owner={owner} senderHead={active?.kind === "group" ? <SenderHead id={owner.family.latest.bot_id} name={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} /> : undefined} liveStatus={runLiveStatus(owner.family.latest)} onRetryRun={startRetry} retriedBy={retryChildByParent.get(owner.family.latest.id)} tools={loadedToolActivities} questions={questions.items} drafts={mailDrafts.items} messages={messageRecords} summaries={terminalToolSummaries} details={toolDetailState} connected={linkConnected} botName={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} showName={active?.kind === "group"}
       onOpenTools={() => openSettings("connections")}
       onFeedback={text => window.dispatchEvent(new CustomEvent("tofi:task-feedback", {detail:{conversationId:owner.family.latest.conversation_id,text}}))}
       onRefresh={refreshTaskStatus} onLoadDetails={loadToolDetails}
@@ -2482,13 +2489,17 @@ function Workspace() {
     await refreshIndex();
   }
 
-  async function retryRun(id: string): Promise<void> {
-    try {
-      const run = await api.retryRun(id);
-      setRuns((current) => mergeRunUpdates(current, [run]));
-      setError("");
-    } catch (cause) { setError(errorText(cause)); }
+  /** Starts the retry and resolves once the server returned the new run; rejects so the asking card can show the reason beside its own button. */
+  async function startRetry(id: string): Promise<void> {
+    const run = await api.retryRun(id);
+    setRuns((current) => mergeRunUpdates(current, [run]));
+    setError("");
   }
+  async function retryRun(id: string): Promise<void> {
+    try { await startRetry(id); } catch (cause) { setError(errorText(cause)); }
+  }
+  // A failed run that has a retry child is superseded: its card folds to a one-line note.
+  const retryChildByParent = useMemo(() => { const map = new Map<string, Run>(); for (const run of runs) if (run.parent_run_id) map.set(run.parent_run_id, run); return map; }, [runs]);
 
   // Sender grouping reads and writes the list's DOM: run it when what the list shows changes, not on every render.
   // A visit that lands on the newest messages draws only those first (about a screen); the earlier blocks of the loaded
@@ -2648,7 +2659,7 @@ function Workspace() {
             {onboardingState !== "sheet" && !visibleSidebarConversations.length && !bots.length && !conversations.length && <FirstRunHero side onCreate={() => void createNewBot()} busy={newBotBusy} error={newBotError} />}
             {onboardingState !== "sheet" && !visibleSidebarConversations.length && <EmptyState name="sidebar" className={`empty-copy is-compact${!bots.length && !conversations.length ? " first-run-hide-mobile" : ""}`} look={CATS.mochi} pose="asleep"><p>{t("sidebar.empty")}</p><button className="primary-button sidebar-empty-create" disabled={newBotBusy} onClick={() => void createNewBot()}>{newBotBusy ? t("create.creating") : t("create.create_bot")}</button></EmptyState>}
           </div>
-          <div className="sidebar-footer">{onboardingState === "chip" && <FinishSetupChip step={chipStep(modelReady)} onClick={() => setOnboardingForced(chipStep(modelReady))} />}<SidebarAccount connected={linkConnected} onSettings={() => { setPortabilityBotID(""); setPortabilityFile(undefined); openSettings("general", "home"); }} onUsage={() => { setUsageBotId(""); openSettings("usage"); }} onConnection={() => openSettings("models")} onArchive={() => openSidebarId("archive")} onArtifacts={() => { setArtifactsMode("artifacts"); openCoverPanel("artifacts"); }} /></div>
+          <div className="sidebar-footer">{onboardingState === "chip" && <FinishSetupChip step={chipStep(modelReady)} onClick={() => setOnboardingForced(chipStep(modelReady))} />}<SidebarAccount connected={linkConnected} onSettings={() => { setPortabilityBotID(""); setPortabilityFile(undefined); openSettings("general", "home"); }} onUsage={() => { setUsageBotId(""); openSettings("usage"); }} onConnection={() => openSettings("models")} onArtifacts={() => { setArtifactsMode("artifacts"); openCoverPanel("artifacts"); }} /></div>
         </aside>
         {onboardingState === "sheet" && onboarding && <Suspense fallback={null}><Onboarding initialStep={onboardingForced ?? resumeStep(onboarding, modelReady)} modelConfigured={modelReady} bot={bots.find((item) => !item.archived)} onProgress={saveOnboarding} onModelChanged={refreshConfig} onBot={adoptOnboardingBot} onSkip={() => { saveOnboarding({ skipped: true }); setOnboardingForced(null); }} onFinish={finishOnboarding} /></Suspense>}
         <SlotView slot={sidebarMenuSlot}>{menu => <OverlayMenu open onOpenChange={open => { if (!open) setSidebarContextMenu(null); }} className="sidebar-context-menu" label={menu.conversation.name} point={menu} key={`${menu.conversation.id}:${menu.x}:${menu.y}`}>

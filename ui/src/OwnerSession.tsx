@@ -3,14 +3,15 @@ import { CATS, EmptyCat } from "./EmptyCat";
 import { BrandLogo } from "./BrandLogo";
 import { BootScreen } from "./BootScreen";
 import { useAppearance } from "./InteractionSystem";
-import { arrowOpens, OverlayMenu, OverlaySubmenu } from "./overlays/OverlayHost";
+import { arrowOpens } from "./overlays/OverlayHost";
 import { TofiIcon } from "./icons";
 import { hydrateDesktopState, isDesktop, flushDesktopState } from "./desktop";
-import { i18n, LANGUAGES, LANGUAGE_ENDONYMS, useLanguage, useTranslation, type LanguagePreference } from "./i18n";
-import { chooseLanguage } from "./saveLanguage";
+import { i18n, useTranslation } from "./i18n";
 import { authRequest, type OwnerSession } from "./ownerAuthApi";
 import { AuthLanguageSwitch } from "./AuthLanguageSwitch";
 
+// The account menu body loads on first open.
+const AccountMenu = lazy(() => import("./AccountMenu").then(module => ({ default: module.AccountMenu })));
 // First-run setup and the password checklist are only ever drawn on the gate: keep them out of the entry bundle.
 const OwnerSetup = lazy(() => import("./OwnerSetup").then(module => ({ default: module.OwnerSetup })));
 const PasswordChecklist = lazy(() => import("./OwnerSetup").then(module => ({ default: module.PasswordChecklist })));
@@ -158,10 +159,9 @@ export function OwnerAccount() {
 }
 
 /** The compact identity dock shares the authenticated session with Settings. */
-export function SidebarAccount({ onSettings, onUsage, onConnection, onArchive, onArtifacts, connected = true }: { onSettings: () => void; onUsage: () => void; onConnection: () => void; onArchive: () => void; onArtifacts: () => void; connected?: boolean }) {
+
+export function SidebarAccount({ onSettings, onUsage, onConnection, onArtifacts, connected = true }: { onSettings: () => void; onUsage: () => void; onConnection: () => void; onArtifacts: () => void; connected?: boolean }) {
   const { session, logout } = useContext(SessionContext);
-  const appearance = useAppearance();
-  const { preference: language } = useLanguage();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -171,28 +171,12 @@ export function SidebarAccount({ onSettings, onUsage, onConnection, onArchive, o
   const name = session?.owner?.username ?? "Tofi";
   const host = isDesktop ? t("account.desktop_client") : connected ? window.location.host : t("account.offline_reconnecting");
   const initial = Array.from(name)[0]?.toUpperCase() ?? "T";
-  const pickLanguage = (next: LanguagePreference) => { setError(""); void chooseLanguage(next, t("settings:language.save_failed")).then(setError); };
-  const navigate = (action: () => void) => { setOpen(false); action(); };
   return <div className={`sidebar-account${!connected && !isDesktop ? " is-offline" : ""}`} ref={menu}>
     <button ref={trigger} className="sidebar-account-identity" aria-label={t("account.menu_label", { name, status: connected ? t("account.live_ok") : t("account.live_lost") })} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(value => !value)} onKeyDown={arrowOpens(setOpen)} data-hint={t("account.settings_hint", { name })}>
       <span className="sidebar-account-monogram" aria-hidden="true">{initial}<i key={String(connected)} /></span>
       <span className="sidebar-account-copy"><strong>{name}</strong><small>{host}</small></span>
     </button>
     <button className="sidebar-account-settings" aria-label={t("common:nav.settings")} data-hint={t("common:nav.settings")} onClick={onSettings}><TofiIcon name="settings" size={20}/></button>
-    {open && <OverlayMenu open onOpenChange={setOpen} className="sidebar-account-menu" label={name} trigger={trigger} anchor={menu} sideOffset={10} {...(menu.current?.closest(".sidebar-collapsed") ? { side: "right", align: "end" } : { side: "top" })}>
-      <div className="sidebar-account-menu-heading"><strong>{name}</strong><small>{host}</small></div>
-      <button onClick={() => navigate(onSettings)}><TofiIcon name="settings" size={16}/>{t("common:nav.settings")}</button>
-      <button onClick={() => navigate(onUsage)}><TofiIcon name="activity" size={16}/>{t("common:nav.usage")}</button>
-      <div className="sidebar-account-themes" role="group" aria-label={t("common:theme.label")}>{(["system","light","dark"] as const).map(theme => <button key={theme} role="menuitemradio" aria-checked={appearance.preference === theme} data-keep-open="" onClick={() => appearance.choose(theme)}>{t(`common:theme.${theme}`)}</button>)}</div>
-      <OverlaySubmenu label={t("common:language.label")} icon={<TofiIcon name="globe" size={16}/>} className="sidebar-account-menu sidebar-account-submenu">
-        <button role="menuitemradio" aria-checked={language === "auto"} data-keep-open="" onClick={() => pickLanguage("auto")}>{t("common:language.auto")}</button>
-        {LANGUAGES.map(code => <button key={code} role="menuitemradio" lang={code} aria-checked={language === code} data-keep-open="" onClick={() => pickLanguage(code)}>{LANGUAGE_ENDONYMS[code]}</button>)}
-      </OverlaySubmenu>
-      <button onClick={() => navigate(onConnection)}><TofiIcon name="server" size={16}/>{t("common:nav.connection")}</button>
-      <button onClick={() => navigate(onArtifacts)}><TofiIcon name="folder" size={16}/>{t("common:nav.artifacts")}</button>
-      <button onClick={() => navigate(onArchive)}><TofiIcon name="archive" size={16}/>{t("common:nav.archived")}</button>
-      {session?.enabled && <><div className="sidebar-account-menu-rule"/><button className="sidebar-account-logout" disabled={busy} onClick={() => { setBusy(true); setError(""); void logout().catch(cause => setError(cause instanceof Error ? cause.message : t("account.sign_out_failed"))).finally(() => setBusy(false)); }}>{busy ? t("account.signing_out") : t("account.sign_out")}</button></>}
-      {error && <p className="error-text" role="alert">{error}</p>}
-    </OverlayMenu>}
+    {open && <Suspense fallback={null}><AccountMenu setOpen={setOpen} name={name} host={host} trigger={trigger} menu={menu} session={session} logout={logout} onSettings={onSettings} onUsage={onUsage} onConnection={onConnection} onArtifacts={onArtifacts}/></Suspense>}
   </div>;
 }

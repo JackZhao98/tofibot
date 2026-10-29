@@ -27,6 +27,7 @@ import type { LibraryListing, BotSkillListing } from "../../skillLibrary";
 import { WebToolsSettings } from "../../WebToolsSettings";
 import type { WebSourceEntry, WebToolsView } from "../../types";
 import type { CatalogSection, CatalogState } from "../types";
+import { Select } from "../../Select";
 
 const noop = () => {};
 const t = i18n.t.bind(i18n);
@@ -109,6 +110,14 @@ function Theme() {
   const [value, setValue] = useState<"system" | "light" | "dark">("system");
   return <AppearancePicker value={value} onChange={setValue} />;
 }
+function PickOne({ disabled = false, empty = false }: { disabled?: boolean; empty?: boolean }) {
+  const [value, setValue] = useState(empty ? "" : "balanced");
+  return <Select aria-label="Reasoning effort" value={value} onValueChange={setValue} disabled={disabled} placeholder="Choose one" options={[
+    { value: "fast", label: "Fast", description: "Short answers, lowest cost" },
+    { value: "balanced", label: "Balanced", description: "The default for most work", tag: "Default" },
+    { value: "deep", label: "Deep", description: "Longer reasoning for hard problems" },
+    { value: "max", label: "Maximum", disabled: true }]} />;
+}
 function Choice({ disabled = false }: { disabled?: boolean }) {
   const [value, setValue] = useState<"system" | "light" | "dark">("light");
   return <Segmented label={t("settings:appearance.label")} value={value} disabled={disabled} onChange={setValue}
@@ -183,6 +192,7 @@ export const settings: CatalogSection = {
     { id: "banner-details", kind: "inline", label: "Banner, details open", drive: step => step.click(".settings-banner-more").then(() => undefined),
       render: () => <Banner tone="error" title="Couldn't reach the provider" details={"HTTP 503 from synthetic.example.test\nretry-after: 30"}>Check the key, then try again.</Banner> },
     { id: "segmented", kind: "inline", label: "Segmented", render: () => <Choice /> },
+    { id: "select", kind: "inline", label: "Select: closed, placeholder, disabled", note: "Radix Select behind src/Select.tsx; the open list is a layer in #tofi-layers", render: () => <div style={{ display: "grid", gap: 10 }}><PickOne /><PickOne empty /><PickOne disabled /></div> },
     { id: "segmented-focus", kind: "inline", label: "Segmented, keyboard focus", force: [{ selector: ".segmented button:nth-child(2)", state: "focus" }], render: () => <Choice /> },
     { id: "segmented-hover", kind: "inline", label: "Segmented, hover", force: [{ selector: ".segmented button:nth-child(3)", state: "hover" }], render: () => <Choice /> },
     { id: "segmented-disabled", kind: "inline", label: "Segmented, disabled", render: () => <Choice disabled /> },

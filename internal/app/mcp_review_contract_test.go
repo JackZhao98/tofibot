@@ -247,3 +247,16 @@ func TestAutoReviewPromptStopsOnlySevereExcess(t *testing.T) {
 		}
 	}
 }
+
+// A schedule the user made to maintain a page is consent for each occurrence to rewrite that page.
+func TestAutoReviewPromptTreatsScheduleAsStandingRequest(t *testing.T) {
+	for _, want := range []string{
+		"is the user's standing request for every occurrence",
+		"including rewriting or replacing its existing content",
+		"needs_human for scheduled work stays for effects on other targets",
+	} {
+		if !strings.Contains(mcpAutoReviewPrompt, want) {
+			t.Errorf("reviewer prompt lost %q", want)
+		}
+	}
+}

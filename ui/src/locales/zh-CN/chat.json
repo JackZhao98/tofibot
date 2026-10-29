@@ -79,7 +79,7 @@
     "archived_body": "已从列表中隐藏，聊天和记忆都保留着。",
     "model_pinned": "固定使用 {{model}}",
     "share_hint": "职能、模型和 Skill 名称，合成一个文件。不含聊天、记忆和密钥。",
-    "data_hint": "聊天、记忆和文件。会打开设置 › 高级。",
+    "data_hint": "聊天、记忆和文件。会打开设置 › 维护。",
     "export_action": "导出",
     "delete_hint": "删除这个 Bot 和它的聊天，无法撤销。",
     "section": {

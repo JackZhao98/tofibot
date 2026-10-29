@@ -259,12 +259,24 @@
       "memory": "Arbeitsspeicher (GB)",
       "disk": "Speicher (GB)"
     },
-    "field_note": "Speicher lässt sich nur vergrößern, nicht verkleinern. Änderungen gelten nach einem Neustart des Computers; Schließen des Desktops reicht nicht.",
+    "field_note": "Speicher lässt sich nur vergrößern, nicht verkleinern.",
     "restarting": "Neustart und Anwenden der Konfiguration…",
     "retry_restart": "Neustart wiederholen",
     "reading": "Wird geladen…",
     "retry": "Erneut versuchen",
-    "loading": "Ressourcen werden geladen…"
+    "loading": "Ressourcen werden geladen…",
+    "decrease": "{{field}} verringern",
+    "increase": "{{field}} erhöhen",
+    "host_cpus": "Host hat {{cpus}} Kerne",
+    "host_memory": "{{value}} GB auf dem Host frei",
+    "host_disk": "{{value}} GB auf dem Host frei",
+    "save": "Änderungen speichern",
+    "saving": "Wird gespeichert…",
+    "summary": {
+      "title": "Änderungen",
+      "restart": "Gilt nach dem Neustart des Computers.",
+      "none": "Noch keine Änderungen. Verschiebe einen Regler, um anzupassen."
+    }
   },
   "credentials": {
     "error": {

@@ -419,7 +419,8 @@ async function L4({fx, page}) {
   await toggle.waitFor({timeout: 15000});
   if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
   await page.locator('.mcp-tools').waitFor();
-  await page.getByLabel('Tier for notion-update-page').selectOption('high_risk');
+  await page.getByRole('button', {name: 'Permission for notion-update-page'}).click();
+  await page.getByRole('menu', {name: 'Permission for notion-update-page'}).locator('button[data-value="high_risk"]').click();
   await waitFor(async () => (await fx.call('GET', '/api/extensions/mcp/notion/tools')).json.tools.find(t => t.name === 'notion-update-page')?.tier === 'high_risk', 'override stored');
   await shot(page, 'L4-always-ask-set');
   await page.getByRole('button', {name: 'Close settings'}).first().click();

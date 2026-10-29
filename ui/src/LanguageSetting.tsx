@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { chooseLanguage } from "./saveLanguage";
-import { LANGUAGES, LANGUAGE_ENDONYMS, isLanguagePreference, matchLanguage, useLanguage, useTranslation, type LanguagePreference } from "./i18n";
+import { isLanguagePreference, matchLanguage, useLanguage, useTranslation, type LanguagePreference } from "./i18n";
+import { languageChoices, selectedLanguageChoice } from "./languageChoices";
 import "./timezone-settings.css";
+import { Select } from "./Select";
 
 /**
  * Settings › General. A choice applies at once (like appearance), then saves to
@@ -19,12 +21,10 @@ export function LanguageSetting() {
     setBusy(false);
   }
   return <section className="timezone-setting language-setting">
-    <div><h3>{t("language.title")}{language !== "en" && <span lang="en"> · Language</span>}</h3><p className="field-note">{t("language.note")}</p></div>
+    <div><h3>{t("language.title")}{language !== "en" && <span lang="en"> · Language</span>}</h3></div>
     <label className="timezone-select">{t("language.label")}
-      <select value={preference} disabled={busy} onChange={event => { if (isLanguagePreference(event.target.value)) void choose(event.target.value); }}>
-        <option value="auto">{t("language.auto", { language: LANGUAGE_ENDONYMS[browser] })}</option>
-        {LANGUAGES.map(code => <option key={code} value={code} lang={code}>{LANGUAGE_ENDONYMS[code]}</option>)}
-      </select>
+      <Select value={selectedLanguageChoice(preference, browser)} disabled={busy} onValueChange={value => { if (isLanguagePreference(value)) void choose(value); }}
+        options={languageChoices(browser).map(choice => ({ value: choice.value, label: choice.label, tag: choice.tag ? t("language.default") : undefined }))} />
     </label>
     {error && <p className="timezone-error" role="alert">{error}</p>}
   </section>;

@@ -259,12 +259,24 @@
       "memory": "Memory (GB)",
       "disk": "Disk (GB)"
     },
-    "field_note": "Disk can only grow, never shrink. Changes apply after the computer restarts; closing the desktop doesn't apply them.",
+    "field_note": "Disk can only grow, never shrink.",
     "restarting": "Restarting and applying the configuration…",
     "retry_restart": "Retry restart",
     "reading": "Loading…",
     "retry": "Retry",
-    "loading": "Loading resources…"
+    "loading": "Loading resources…",
+    "decrease": "Decrease {{field}}",
+    "increase": "Increase {{field}}",
+    "host_cpus": "Host has {{cpus}} cores",
+    "host_memory": "{{value}} GB free on host",
+    "host_disk": "{{value}} GB free on host",
+    "save": "Save changes",
+    "saving": "Saving…",
+    "summary": {
+      "title": "Changes",
+      "restart": "Takes effect after the computer restarts.",
+      "none": "No changes yet. Move a slider to adjust."
+    }
   },
   "credentials": {
     "error": {

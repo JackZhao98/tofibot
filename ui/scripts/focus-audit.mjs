@@ -9,6 +9,8 @@
 export function focusRingProbe() {
   const el = document.activeElement;
   if (!el || el === document.body || el === document.documentElement) return {none: true};
+  // Radix parks invisible tab sentinels at the page edges while one of its layers (Select, menu, dialog) is open or still leaving.
+  if (el.hasAttribute("data-radix-focus-guard")) return {none: true};
   const name = node => node.tagName.toLowerCase() + (node.id ? "#" + node.id : "") + [...node.classList].slice(0, 2).map(c => "." + c).join("");
   const outlineOf = node => {
     const s = getComputedStyle(node);
@@ -26,7 +28,7 @@ export function focusRingProbe() {
   for (let node = el.parentElement, depth = 0; node && node !== document.body && depth < 4; node = node.parentElement, depth++) if (node.matches(":focus-within")) related.push(node);
   const label = el.closest("label, .sheet-radio, .sheet-check, .check-row"); if (label) related.push(label);
   const hits = related.map(node => ({node: name(node), ring: outlineOf(node) || shadowOf(node)})).filter(item => item.ring);
-  return {none: false, field, focused: name(el), ring: hits[0] ?? null};
+  return {none: false, field, focused: name(el), html: el.outerHTML.slice(0, 160), ring: hits[0] ?? null};
 }
 
 /** Runs inside the page. Centers of up to `limit` visible interactive targets, spread across the page. */
@@ -88,7 +90,7 @@ export async function auditFocus(page, {touch = false, limit = 14, scope = ""} =
       const probe = await page.evaluate(focusRingProbe);
       if (probe.none) continue;
       tabbed++;
-      if (!probe.ring && !probe.field) found.push({kind: "focus-ring-missing", selector: probe.focused, detail: tag("Tab focused an element that draws no ring")});
+      if (!probe.ring && !probe.field) found.push({kind: "focus-ring-missing", selector: probe.focused, detail: tag("Tab focused an element that draws no ring" + (process.env.FOCUS_DEBUG ? " " + probe.html : ""))});
     }
     if (!tabbed) {
       const state = await page.evaluate(() => ({ active: document.activeElement?.tagName, focusable: [...document.querySelectorAll("button, a[href], input, select, textarea, summary, [tabindex]:not([tabindex='-1'])")].filter(el => !el.disabled && el.getClientRects().length).length, dialogs: document.querySelectorAll("dialog[open]").length, hasFocus: document.hasFocus() }));

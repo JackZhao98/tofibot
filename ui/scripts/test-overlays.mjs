@@ -21,7 +21,7 @@
 // OVERLAYS_ONLY=<substring> runs matching checks only.
 import assert from "node:assert/strict";
 import zlib from "node:zlib";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -56,7 +56,9 @@ await check("bundle: entry within budget, Radix only in the lazy RadixOverlays c
   assert.ok(!eager.some(file => file.includes("/RadixOverlays-")), "RadixOverlays is not an entry file");
   for (const marker of ["data-radix-menu-content", "data-radix-popper-content-wrapper", "DismissableLayer"]) assert.ok(!entryText.includes(marker), `no Radix code (${marker}) in the entry`);
   const chunk = readFileSync(join(fx.outDir, lazy[0]), "utf8");
-  assert.ok(chunk.includes("data-radix-menu-content") && chunk.includes("data-radix-popper-content-wrapper"), "Radix menu and popper live in RadixOverlays");
+  // The popper (positioning) is shared with the lazy Select chunk, so Rollup may hoist it into a common non-entry chunk.
+  const lazyText = [chunk, ...readdirSync(join(fx.outDir, "assets")).filter(name => name.endsWith(".js") && !eager.includes(`assets/${name}`)).map(name => readFileSync(join(fx.outDir, "assets", name), "utf8"))].join("\n");
+  assert.ok(chunk.includes("data-radix-menu-content") && lazyText.includes("data-radix-popper-content-wrapper"), "Radix menu lives in RadixOverlays, the popper in a lazy chunk");
   console.log(`  RadixOverlays chunk: ${zlib.gzipSync(Buffer.from(chunk), { level: 9 }).length} bytes gzip`);
 });
 

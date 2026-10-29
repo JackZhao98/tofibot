@@ -3,6 +3,7 @@
 // Synthetic data only; the app's /api is answered in the browser by a small stateful stub.
 // Run: PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:onboarding
 // Screenshots (1440x900 and 390x844, light and dark) go to artifacts/onboarding/ (gitignored).
+import {pickSelect, selectItems} from "./lib/select.mjs";
 import { auditFocus, focusRingProbe } from "./focus-audit.mjs";
 import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
@@ -428,12 +429,12 @@ try {
     const thinking = page.locator(".onb-advanced .onb-seg");
     await thinking.waitFor();
     assert.deepEqual((await thinking.locator("button").allInnerTexts()).map(text => text.trim()), ["Low", "Medium", "High"], "efforts come from the model, not a fixed Light/Normal/Deep");
-    await page.locator("#model-default-select").selectOption("synthetic-b");
+    await pickSelect(page.locator("#model-default-select"), "synthetic-b");
     await page.locator("#model-effort-select").waitFor();
     assert.equal(await page.locator(".onb-advanced .onb-seg").count(), 0, "five efforts fall back to a select");
-    assert.equal(await page.locator("#model-effort-select option:not([value=''])").count(), 5);
+    assert.equal((await selectItems(page.locator("#model-effort-select"))).filter(item => item.value !== "").length, 5);
     assert.deepEqual(state.modelSettings, { model: "synthetic-b", reasoning_effort: "medium" }, "the choice is saved");
-    await page.locator("#model-default-select").selectOption("synthetic-c");
+    await pickSelect(page.locator("#model-default-select"), "synthetic-c");
     await page.waitForFunction(() => !document.querySelector("#model-effort-select") && !document.querySelector(".onb-advanced .onb-seg"));
     assert.equal(await page.locator(".onb-chips").innerText().then(text => /Thinking/.test(text)), false, "a model without efforts shows no thinking chip");
     await context.close();

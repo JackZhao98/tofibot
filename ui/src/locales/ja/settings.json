@@ -1,10 +1,10 @@
 {
   "language": {
     "title": "言語",
-    "note": "Tofi の表示言語です。「自動」ではブラウザの設定に合わせます。",
     "label": "表示言語",
     "auto": "自動（{{language}}）",
-    "save_failed": "このデバイスでは言語を切り替えましたが、アカウントに保存できませんでした。しばらくしてからもう一度お試しください。"
+    "save_failed": "このデバイスでは言語を切り替えましたが、アカウントに保存できませんでした。しばらくしてからもう一度お試しください。",
+    "default": "デフォルト"
   },
   "timezone": {
     "label": "タイムゾーン",
@@ -30,7 +30,8 @@
       "you": "あなた",
       "bots": "Bot が使うもの",
       "workspace": "ワークスペース",
-      "system": "システム"
+      "system": "システム",
+      "more": "詳細設定"
     },
     "page": {
       "general": {
@@ -47,15 +48,15 @@
       },
       "permissions": {
         "name": "権限",
-        "description": "先に確認する操作と、許可済みの操作。"
+        "description": "Bot が先に確認するタイミング"
       },
       "followups": {
-        "name": "フォローアップ（プレビュー）",
+        "name": "フォローアップ",
         "description": "Bot がリマインドする内容を確認"
       },
       "models": {
         "name": "モデル",
-        "description": "Bot の頭脳の提供元と、既定で使うモデル。"
+        "description": "プロバイダーと既定のモデル。"
       },
       "computer": {
         "name": "コンピュータ",
@@ -71,16 +72,28 @@
         "description": "Agent ごとのモデル使用量とコンテキスト圧縮の状況"
       },
       "advanced": {
-        "name": "詳細設定",
-        "description": "サーバー情報、データ移行、デバッグ、最初からやり直す。"
+        "name": "メンテナンス",
+        "description": "バージョン、サーバー、データ、デバッグ、最初からやり直す。"
       },
       "admin": {
         "name": "Admin コンソール",
         "description": "アカウントの招待・管理・無効化"
       },
       "automation": {
-        "name": "自動の動作",
+        "name": "動作",
         "description": "Tofi が自動で行うことを確認・調整"
+      },
+      "allowances": {
+        "name": "ツールのルール",
+        "description": "レビュー方法、ツールの確認方法、許可済みの内容"
+      },
+      "tools": {
+        "name": "検索と取得",
+        "description": "Bot がウェブを検索・読み取る先"
+      },
+      "devices": {
+        "name": "その他のデバイス",
+        "description": "Tofi アプリのある Mac を接続"
       }
     },
     "category": "設定カテゴリ",
@@ -111,12 +124,16 @@
         "waiting": "待機中",
         "none": "未追加"
       }
+    },
+    "tag": {
+      "beta": "ベータ",
+      "dev": "開発中"
     }
   },
   "appearance": {
-    "title": "外観",
-    "label": "外観テーマ",
-    "system": "システムに合わせる",
+    "title": "テーマ",
+    "label": "テーマ",
+    "system": "システム",
     "light": "ライト",
     "dark": "ダーク"
   },
@@ -160,7 +177,6 @@
   },
   "providers": {
     "title": "モデルプロバイダ",
-    "description": "どれか 1 つに接続すれば使えます。接続したプロバイダのモデルは、Bot とグローバルモデルのモデル一覧に表示されます。",
     "load_failed": "モデルプロバイダの状態を読み込めませんでした。",
     "openai_description": "OpenAI の APIキーで GPT と o シリーズのモデルを使います。API の使用量に応じて課金されます。",
     "anthropic_description": "Anthropic の APIキーで Claude のモデルを使います。API の使用量に応じて課金されます。",
@@ -462,7 +478,7 @@
       "once": "表示されるのは 1 回だけです。続行すると Tofi には残りません。",
       "expires": "{{date}} まで有効です。",
       "message_label": "送信するメッセージ",
-      "message": "TOFI のアカウントを閉鎖しました。Bot のダウンロード: {{link}}（パスフレーズは別途お送りします）。{{date}} まで利用できます。Tofi での取り込み方法: 設定 → 詳細設定 → データ移行を開き、パスフレーズを入力してください。",
+      "message": "TOFI のアカウントを閉鎖しました。Bot のダウンロード: {{link}}（パスフレーズは別途お送りします）。{{date}} まで利用できます。Tofi での取り込み方法: 設定 → メンテナンス → データ移行を開き、パスフレーズを入力してください。",
       "message_note": "パスフレーズは別のメッセージまたは別の経路で送ってください。",
       "copy_message": "メッセージをコピー",
       "done": "パスフレーズを保存しました"
@@ -660,7 +676,16 @@
     "environment_help": "既定ではオフです。含めるレコードを個別にチェックしてください。",
     "import_environment_help": "既定ではオフです。無効なコピーとして復元するレコードを個別にチェックしてください。",
     "recovery_help": "無効なコピーです。再エクスポートまたは削除できます。",
-    "environment_label": "環境の認証情報"
+    "environment_label": "環境の認証情報",
+    "group": {
+      "bots": "Bot",
+      "data": "データ"
+    },
+    "count": "{{selected}} / {{total}} 選択",
+    "more_options": "その他のオプション",
+    "select_all": "{{group}}をすべて選択",
+    "password_help": "エクスポートファイルはこのパスワードで暗号化されます。12 文字以上にしてください。",
+    "exporting": "エクスポート中…"
   },
   "status": {
     "ok": "接続済み",
@@ -674,12 +699,8 @@
   },
   "general": {
     "region": "言語と地域",
-    "moved_title": "エクスポート、サーバー情報、最初からやり直す機能をお探しですか？",
-    "moved_body": "これらは「詳細設定」に移動しました。",
-    "open_advanced": "「詳細設定」を開く",
     "chat": "チャット",
     "activity_title": "チャットにアクティビティを表示",
-    "activity_note": "Bot が実行した手順を返信の下に表示します。初期設定ではオフで、メッセージの操作メニューから開けます。",
     "activity_save_failed": "保存できませんでした。もう一度お試しください。"
   },
   "advanced": {
@@ -1016,7 +1037,7 @@
     "save_failed": "変更を保存できませんでした。",
     "remove_failed": "削除できませんでした。",
     "master_off_title": "Web 参照はオフです",
-    "master_off_body": "「自動動作」で Web 検索をオンにすると、Bot が検索やページ閲覧を行えます。",
+    "master_off_body": "「動作」で Web 検索をオンにすると、Bot が検索やページ閲覧を行えます。",
     "no_search_title": "検索ソースが未設定です",
     "no_search_body": "Bot はまだ Web を検索できません。下でキーまたはアドレスを追加してください。アドレス指定のページ取得は利用できます。",
     "search_title": "検索",
@@ -1117,5 +1138,14 @@
       "write": "既定の設定です。呼び出しごとに審査し、依頼した操作は実行、それ以外は先に確認します。",
       "high": "呼び出しのたびにあなたが決めます。確認できる人がいないときは実行されません。"
     }
+  },
+  "chats": {
+    "task_notifications": "タスク結果の通知",
+    "chat_notifications": "チャットの通知"
+  },
+  "approval": {
+    "label": "このアカウントの承認モード",
+    "auto": "自動",
+    "ask": "変更前に確認"
   }
 }

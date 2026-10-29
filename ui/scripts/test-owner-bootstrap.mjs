@@ -1,3 +1,4 @@
+import {selectValue, pickSelect} from "./lib/select.mjs";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -204,20 +205,20 @@ try {
   const state = { authenticated: false, verifyRequests: [], setupRequests: [] };
   const page = await openFixture(context, true, state);
   await page.locator('input[name="bootstrap_secret"]').waitFor();
-  const picker = page.locator(".auth-language select");
-  assert.equal(await picker.inputValue(), "auto");
+  const picker = page.locator(".auth-language .ui-select-trigger");
+  assert.equal(await selectValue(picker), "auto");
   for (const language of ["zh-CN", "de", "fr", "ja"]) {
-    await picker.selectOption(language);
+    await pickSelect(picker, language);
     const c = catalog(language);
     await page.locator("form .primary-button").filter({ hasText: c.setup.continue }).waitFor();
     assert.equal(await page.locator("html").getAttribute("lang"), language);
     assert.ok((await page.locator(".owner-card h1").innerText()).includes(c.gate.title.welcome_new));
   }
-  await picker.selectOption("zh-CN");
+  await pickSelect(picker, "zh-CN");
   await page.locator('input[name="bootstrap_secret"]').fill(secret);
   await page.locator("form .primary-button").click();
   await page.locator('input[name="username"]').waitFor();
-  await picker.selectOption("de");
+  await pickSelect(picker, "de");
   const de = catalog("de");
   await page.locator(".pw-rules li").first().filter({ hasText: de.setup.rule.length }).waitFor();
   await page.locator('input[name="password"]').fill("Zq7");

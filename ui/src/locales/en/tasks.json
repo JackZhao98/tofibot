@@ -25,6 +25,10 @@
       "retry": "Retry"
     },
     "working": "Working…",
+    "retrying": "Retrying…",
+    "retried": "Retried. The new run is below.",
+    "retry_failed": "The retry did not start. Try again.",
+    "retry_failed_reason": "The retry did not start: {{error}}",
     "copied": "Diagnostics copied.",
     "copy_failed": "Copy failed. Select the diagnostics below and copy them manually.",
     "status_unavailable": "Some status updates are unavailable. Confirmed records are retained.",

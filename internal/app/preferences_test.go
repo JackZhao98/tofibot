@@ -159,3 +159,27 @@ func TestPreferencesShowActivityDefaultsOffAndPersists(t *testing.T) {
 		t.Fatalf("show_activity off: %s", body)
 	}
 }
+
+func TestPreferencesNotifySwitchesDefaultOnAndPersist(t *testing.T) {
+	s, err := NewServer(Config{DataDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	call := func(method, body string) string {
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, httptest.NewRequest(method, "/api/preferences", strings.NewReader(body)))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s %s status=%d body=%s", method, body, rec.Code, rec.Body.String())
+		}
+		return rec.Body.String()
+	}
+	if body := call(http.MethodGet, ""); !strings.Contains(body, `"notify_chats":true`) || !strings.Contains(body, `"notify_tasks":true`) {
+		t.Fatalf("notifications must default on: %s", body)
+	}
+	call(http.MethodPut, `{"notify_tasks":false}`)
+	call(http.MethodPut, `{"timezone":"UTC"}`)
+	if body := call(http.MethodGet, ""); !strings.Contains(body, `"notify_chats":true`) || !strings.Contains(body, `"notify_tasks":false`) {
+		t.Fatalf("notify_tasks off must persist and leave chats alone: %s", body)
+	}
+}

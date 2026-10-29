@@ -257,12 +257,24 @@
       "memory": "メモリ（GB）",
       "disk": "ディスク（GB）"
     },
-    "field_note": "ディスクは拡張のみで縮小はできません。保存後、コンピューターを再起動すると適用されます。デスクトップを閉じても適用されません。",
+    "field_note": "ディスクは拡張のみで縮小はできません。",
     "restarting": "再起動して構成を適用しています…",
     "retry_restart": "再起動を再試行",
     "reading": "読み込み中…",
     "retry": "再試行",
-    "loading": "リソースを読み込み中…"
+    "loading": "リソースを読み込み中…",
+    "decrease": "{{field}}を減らす",
+    "increase": "{{field}}を増やす",
+    "host_cpus": "ホストは {{cpus}} コア",
+    "host_memory": "ホストの空き {{value}} GB",
+    "host_disk": "ホストの空き {{value}} GB",
+    "save": "変更を保存",
+    "saving": "保存中…",
+    "summary": {
+      "title": "変更内容",
+      "restart": "コンピュータの再起動後に反映されます。",
+      "none": "変更はまだありません。スライダーを動かして調整します。"
+    }
   },
   "credentials": {
     "error": {

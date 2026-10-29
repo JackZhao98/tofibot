@@ -20,8 +20,8 @@ import (
 )
 
 const autoReviewActor = "auto-review"
-const autoReviewPolicyVersion = "mcp-all-external-v7"
-const autoReviewProvenance = "host-mcp-review-binding-v7"
+const autoReviewPolicyVersion = "mcp-all-external-v8"
+const autoReviewProvenance = "host-mcp-review-binding-v8"
 const autoReviewTimeout = 30 * time.Second
 const autoReviewValidity = 2 * time.Minute
 

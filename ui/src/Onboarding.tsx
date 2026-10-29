@@ -13,6 +13,7 @@ import type { Bot } from "./types";
 import { loadModelCatalog, useModelCatalog } from "./useModelCatalog";
 import "./onboarding.css";
 import { ModalDialog } from "./overlays/ModalDialog";
+import { Select } from "./Select";
 
 type Meta = { connected: boolean; queue: ServicesStatus };
 
@@ -296,20 +297,20 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
               <div className="onb-adv-rows">
                 <div className="onb-adv-row">
                   <div><label htmlFor="model-default-select">{t("onboarding.adv_model")}</label><p>{t("onboarding.adv_model_hint")}</p></div>
-                  <select id="model-default-select" value={defaults.model} onChange={event => { const next = catalog.models.find(item => item.id === event.target.value); void saveDefaults(event.target.value, effortForModel(next, defaults.reasoning_effort)); }}>
+                  <Select id="model-default-select" value={defaults.model} onValueChange={value => { const next = catalog.models.find(item => item.id === value); void saveDefaults(value, effortForModel(next, defaults.reasoning_effort)); }}>
                     {!selectedModel && <option value={defaults.model}>{defaults.model}</option>}
                     {groupModels(catalog.models).map(group => <optgroup key={group.provider} label={group.label}>{group.models.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</optgroup>)}
-                  </select>
+                  </Select>
                 </div>
                 {efforts.length > 0 && (
                   <div className="onb-adv-row">
                     <div><label htmlFor="model-effort-select">{t("onboarding.adv_thinking")}</label><p>{t("onboarding.adv_thinking_hint")}</p></div>
                     {efforts.length <= 4
                       ? <OnbSegmented label={t("onboarding.adv_thinking")} value={defaults.reasoning_effort} options={efforts.map(value => ({ value, label: shortEffortLabel(value, labels) }))} onChange={value => void saveDefaults(defaults.model, value)} />
-                      : <select id="model-effort-select" value={efforts.includes(defaults.reasoning_effort) ? defaults.reasoning_effort : ""} onChange={event => void saveDefaults(defaults.model, event.target.value)}>
+                      : <Select id="model-effort-select" value={efforts.includes(defaults.reasoning_effort) ? defaults.reasoning_effort : ""} onValueChange={value => void saveDefaults(defaults.model, value)}>
                         {!efforts.includes(defaults.reasoning_effort) && <option value="">{t("settings:model.model_default")}</option>}
                         {efforts.map(value => <option key={value} value={value}>{labels[value] ?? value}</option>)}
-                      </select>}
+                      </Select>}
                   </div>
                 )}
               </div>

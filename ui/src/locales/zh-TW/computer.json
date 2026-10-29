@@ -257,12 +257,24 @@
       "memory": "記憶體（GB）",
       "disk": "磁碟（GB）"
     },
-    "field_note": "磁碟只能擴充、不能縮小。儲存後需重新啟動電腦才會套用，關閉桌面不會套用設定。",
+    "field_note": "磁碟只能擴充、不能縮小。",
     "restarting": "正在重新啟動並套用設定…",
     "retry_restart": "重試重新啟動",
     "reading": "讀取中…",
     "retry": "重試",
-    "loading": "正在讀取資源…"
+    "loading": "正在讀取資源…",
+    "decrease": "減少{{field}}",
+    "increase": "增加{{field}}",
+    "host_cpus": "主機共有 {{cpus}} 核",
+    "host_memory": "主機可用 {{value}} GB",
+    "host_disk": "主機可用 {{value}} GB",
+    "save": "儲存變更",
+    "saving": "正在儲存…",
+    "summary": {
+      "title": "變更內容",
+      "restart": "電腦重新啟動後生效。",
+      "none": "尚無變更。拖曳滑桿即可調整。"
+    }
   },
   "credentials": {
     "error": {

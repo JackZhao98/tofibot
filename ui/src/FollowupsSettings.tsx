@@ -8,6 +8,7 @@ import { Banner, SettingsCard, SettingsRow, SettingsSection } from "./settings/c
 import { useUserTimezone } from "./UserTimezone";
 import type { FollowupLoop, FollowupMode, FollowupOverview, FollowupVerdict } from "./types";
 import "./followups.css";
+import { Select } from "./Select";
 
 const kindKeys = { awaiting_other: "followups.kind.waiting", owner_promise: "followups.kind.owner_promise", owner_reminder: "followups.kind.owner_reminder" } as const;
 const verdictKeys = { useful: "followups.verdict.useful", annoying: "followups.verdict.annoying", handled: "followups.verdict.handled" } as const;
@@ -64,10 +65,10 @@ export function FollowupsSettings() {
         {data.bots.map(bot => <SettingsRow key={bot.bot_id} labelFor={`followup-mode-${bot.bot_id}`}
           label={<span className="followup-bot-name"><span className="followup-bot-label">{bot.name}</span>{bot.is_primary && <PrimaryBadge />}</span>}
           description={bot.mode === "off" ? t("followups.bot_off") : bot.last_sweep_at ? t("followups.last_scan", { when: formatRelativeTime(bot.last_sweep_at) }) : t("followups.not_scanned")}
-          control={<select id={`followup-mode-${bot.bot_id}`} value={bot.mode} disabled={Boolean(busy)} onChange={event => void act(`bot-${bot.bot_id}`, () => api.setFollowupBot(bot.bot_id, { mode: event.target.value as FollowupMode }))}>
+          control={<Select id={`followup-mode-${bot.bot_id}`} value={bot.mode} disabled={Boolean(busy)} onValueChange={value => void act(`bot-${bot.bot_id}`, () => api.setFollowupBot(bot.bot_id, { mode: value as FollowupMode }))}>
             <option value="off">{t("followups.mode.off")}</option>
             <option value="shadow">{t("followups.mode.shadow")}</option>
-          </select>} />)}
+          </Select>} />)}
       </SettingsCard>
     </SettingsSection>
 
@@ -92,13 +93,13 @@ export function FollowupsSettings() {
     <SettingsSection title={t("followups.limits_title")} description={t("followups.limits_description")}>
       <SettingsCard>
         <SettingsRow labelFor="followup-cap" label={t("followups.limit.cap")} description={t("followups.limit.cap_hint")}
-          control={<select id="followup-cap" value={data.account.max_nudges_per_day} disabled={Boolean(busy)} onChange={event => void act("cap", () => api.setFollowupAccount({ max_nudges_per_day: Number(event.target.value) }))}>
+          control={<Select id="followup-cap" value={String(data.account.max_nudges_per_day)} disabled={Boolean(busy)} onValueChange={value => void act("cap", () => api.setFollowupAccount({ max_nudges_per_day: Number(value) }))}>
             {(capChoices.includes(data.account.max_nudges_per_day) ? capChoices : [...capChoices, data.account.max_nudges_per_day].sort()).map(n => <option key={n} value={n}>{t("followups.limit.per_day", { n })}</option>)}
-          </select>} />
+          </Select>} />
         <SettingsRow labelFor="followup-budget" label={t("followups.limit.budget")} description={t("followups.limit.budget_hint")}
-          control={<select id="followup-budget" value={data.account.daily_budget_usd} disabled={Boolean(busy)} onChange={event => void act("budget", () => api.setFollowupAccount({ daily_budget_usd: Number(event.target.value) }))}>
+          control={<Select id="followup-budget" value={String(data.account.daily_budget_usd)} disabled={Boolean(busy)} onValueChange={value => void act("budget", () => api.setFollowupAccount({ daily_budget_usd: Number(value) }))}>
             {(budgetChoices.includes(data.account.daily_budget_usd) ? budgetChoices : [...budgetChoices, data.account.daily_budget_usd].sort((a, b) => a - b)).map(n => <option key={n} value={n}>{money(n)}</option>)}
-          </select>} />
+          </Select>} />
         <SettingsRow inline label={t("followups.limit.quiet")} description={t("followups.limit.quiet_hint")} control={<span className="followup-stat">{data.account.quiet_start}–{data.account.quiet_end}</span>} />
       </SettingsCard>
     </SettingsSection>

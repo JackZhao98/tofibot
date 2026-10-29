@@ -19,9 +19,9 @@ func TestGPT6CodexMetadata(t *testing.T) {
 	}
 }
 
-func TestUnknownCodexModelUsesConservativeContextFallback(t *testing.T) {
-	if got := GetContextWindow("codex-gpt-5.6-luna"); got != 128000 {
-		t.Fatalf("GetContextWindow() = %d, want conservative fallback", got)
+func TestUnknownCodexModelUses500kContextFallback(t *testing.T) {
+	if got := GetContextWindow("codex-gpt-5.6-luna"); got != 500000 {
+		t.Fatalf("GetContextWindow() = %d, want the 500k fallback", got)
 	}
 }
 
