@@ -154,10 +154,11 @@ func (s *Store) addAttachmentOpts(ctx context.Context, conv, name, declaredMIME 
 	}
 	// Quota and host free space (S3). A cap below the file limit turns an
 	// overflow into storage_quota_exceeded instead of "exceeds N MB".
-	room, err := s.storageAdmit(root)
+	room, release, err := s.storageAdmit(root, limit)
 	if err != nil {
 		return Attachment{}, err
 	}
+	defer release()
 	quotaCapped := room > 0 && room < limit
 	if quotaCapped {
 		limit = room

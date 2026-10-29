@@ -35,6 +35,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -473,29 +474,54 @@ func (s *Store) measureBreakdown(ctx context.Context) (StorageDetail, error) {
 
 // --- enforcement -------------------------------------------------------
 
-// storageAdmit decides whether a new file may be written. It returns the number
-// of bytes the file may take when a limit caps it (0 = no extra cap).
-func (s *Store) storageAdmit(root string) (int64, error) {
-	if free, _, err := s.storage.probe(root); err == nil {
-		if floor := s.storage.floor(); floor > 0 && free < uint64(floor) {
-			return 0, newHostFullError()
+// storageAdmit decides whether a new file may be written and reserves room for
+// it. want is the most the file can take. It returns the number of bytes the
+// file may take when a limit caps it (0 = no extra cap) and a release function
+// the caller must run once the row is stored (or the write failed): until then
+// the reserved bytes count as used, so concurrent uploads cannot each see the
+// same free room and overshoot the limit together.
+func (s *Store) storageAdmit(root string, want int64) (int64, func(), error) {
+	noop := func() {}
+	if floor := s.storage.floor(); floor > 0 {
+		free, _, err := s.storage.probe(root)
+		if err != nil {
+			// An unreadable disk is not a reason to admit a file.
+			return 0, noop, &storageError{StorageHostFullCode, "The server disk space cannot be read, so no new files are accepted. Tell the operator of this server."}
+		}
+		if free < uint64(floor) {
+			return 0, noop, newHostFullError()
 		}
 	}
 	if s.storage.limit == nil {
-		return 0, nil
+		return 0, noop, nil
 	}
 	limit := s.storage.limit()
 	if limit == nil {
-		return 0, nil
+		return 0, noop, nil
 	}
+	s.storageReserveMu.Lock()
+	defer s.storageReserveMu.Unlock()
 	used, err := s.serverBytes()
 	if err != nil {
-		return 0, err
+		return 0, noop, err
 	}
-	if remaining := *limit - used; remaining > 0 {
-		return remaining, nil
+	remaining := *limit - used - s.storageReserved
+	if remaining <= 0 {
+		return 0, noop, newQuotaError()
 	}
-	return 0, newQuotaError()
+	take := remaining
+	if want > 0 && want < take {
+		take = want
+	}
+	s.storageReserved += take
+	var once sync.Once
+	return take, func() {
+		once.Do(func() {
+			s.storageReserveMu.Lock()
+			s.storageReserved -= take
+			s.storageReserveMu.Unlock()
+		})
+	}, nil
 }
 
 // --- background job ----------------------------------------------------

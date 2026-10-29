@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -295,9 +296,59 @@ func TestHostFreeSpaceGuard(t *testing.T) {
 	}
 	free = 3 << 30
 	addOrigin(t, s, conv.ID, "a.txt", attachmentOriginUpload, "x")
-	// A probe that fails does not block files.
+	// A probe that fails refuses the file: an unreadable disk is not admitted.
 	s.storage.diskSpace = func(string) (uint64, uint64, error) { return 0, 0, errors.New("no statfs") }
-	addOrigin(t, s, conv.ID, "b.txt", attachmentOriginUpload, "x")
+	_, err = s.addAttachmentOpts(context.Background(), conv.ID, "b.txt", "text/plain", strings.NewReader("x"), attachmentOpts{})
+	if storageErrorCode(err) != StorageHostFullCode {
+		t.Fatalf("failed probe: %v", err)
+	}
+	// With the floor off the probe is not consulted.
+	s.storage.minFree = -1
+	addOrigin(t, s, conv.ID, "c.txt", attachmentOriginUpload, "x")
+}
+
+// Uploads that start together must not all be admitted against the same free room.
+func TestConcurrentUploadsCannotOvershootTheQuota(t *testing.T) {
+	s, conv, _ := storageStore(t)
+	used, err := s.serverBytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	room := used + 1000
+	baseFiles, _ := counter(t, s, "uploads")
+	s.storage.limit = func() *int64 { return &room }
+	const workers, size = 16, 400
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	results := make([]error, workers)
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			_, results[i] = s.addAttachmentOpts(context.Background(), conv.ID, "c.txt", "text/plain", strings.NewReader(strings.Repeat("a", size)), attachmentOpts{})
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+	ok := 0
+	for _, e := range results {
+		if e == nil {
+			ok++
+		} else if storageErrorCode(e) != StorageQuotaExceededCode {
+			t.Fatalf("unexpected error: %v", e)
+		}
+	}
+	// The database grows by whole pages, so judge the file bytes.
+	if got, _ := counter(t, s, "uploads"); got-baseFiles > 1000 {
+		t.Fatalf("%d uploads of %d bytes added %d file bytes to a room of 1000", ok, size, got-baseFiles)
+	}
+	if ok == 0 {
+		t.Fatal("no upload fit")
+	}
+	if s.storageReserved != 0 {
+		t.Fatalf("reservation leaked: %d", s.storageReserved)
+	}
 }
 
 func TestStorageAPIShape(t *testing.T) {

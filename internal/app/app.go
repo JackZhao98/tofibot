@@ -367,7 +367,10 @@ type Store struct {
 	portabilitySecrets   *portableSecretCodec
 	db                   *sql.DB
 	// storage is the quota and host-space policy for new files (S3).
-	storage            storageGate
+	storage storageGate
+	// storageReserved is the bytes promised to uploads in flight (storageAdmit).
+	storageReserved    int64
+	storageReserveMu   sync.Mutex
 	scheduleSchemaOnce sync.Once
 	scheduleSchemaErr  error
 	// onReturnQueued wakes the queue of a return run created inside a

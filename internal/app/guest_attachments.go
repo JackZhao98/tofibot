@@ -99,7 +99,8 @@ func (s *Store) copyGuestAttachment(ctx context.Context, id string) error {
 	defer unlock()
 	var disk string
 	var size int64
-	err := s.db.QueryRowContext(ctx, `SELECT disk_name,size FROM attachments WHERE id=?`, id).Scan(&disk, &size)
+	var recorded sql.NullString
+	err := s.db.QueryRowContext(ctx, `SELECT disk_name,size,sha256 FROM attachments WHERE id=?`, id).Scan(&disk, &size, &recorded)
 	if err != nil {
 		return err
 	}
@@ -121,6 +122,13 @@ func (s *Store) copyGuestAttachment(ctx context.Context, id string) error {
 	}
 	sum := sha256.Sum256(data)
 	digest := hex.EncodeToString(sum[:])
+	// A row that recorded a hash must still match it. A legacy row has none: its
+	// bytes are only as good as the computer's word, so the server copy is an
+	// unverified mirror and the guest object stays the authoritative one.
+	verified := recorded.Valid && recorded.String != ""
+	if verified && recorded.String != digest {
+		return fmt.Errorf("attachment not migrated: the computer's copy does not match the recorded sha256")
+	}
 	root, err := s.attachmentRoot()
 	if err != nil {
 		return err
@@ -149,12 +157,16 @@ func (s *Store) copyGuestAttachment(ctx context.Context, id string) error {
 		return err
 	}
 	defer tx.Rollback()
-	res, err := tx.ExecContext(ctx, `UPDATE attachments SET disk_name=?,sha256=? WHERE id=? AND disk_name=?`, local, digest, id, guestAttachmentPrefix+id)
+	update, args := `UPDATE attachments SET disk_name=?,sha256=? WHERE id=? AND disk_name=?`, []any{local, digest, id, guestAttachmentPrefix + id}
+	if !verified {
+		update, args = `UPDATE attachments SET disk_name=?,sha256=?,origin=? WHERE id=? AND disk_name=?`, []any{local, digest, attachmentOriginMirror, id, guestAttachmentPrefix + id}
+	}
+	res, err := tx.ExecContext(ctx, update, args...)
 	if err != nil {
 		return err
 	}
 	n, _ := res.RowsAffected()
-	if n == 1 {
+	if n == 1 && verified {
 		if _, err = tx.ExecContext(ctx, `INSERT OR IGNORE INTO deleted_attachment_files(disk_name) VALUES(?)`, guestAttachmentPrefix+id); err != nil {
 			return err
 		}

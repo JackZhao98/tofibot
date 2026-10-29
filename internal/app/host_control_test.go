@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -16,6 +17,11 @@ const hostToken = "0123456789abcdef0123456789abcdef0123456789abcdef"
 
 func hostCall(g *AccountGateway, method, path, body string, header map[string]string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
+	req.RemoteAddr = "127.0.0.1:41000" // the host's own call
+	if from := header["X-Test-Remote"]; from != "" {
+		req.RemoteAddr = from
+		delete(header, "X-Test-Remote")
+	}
 	for k, v := range header {
 		req.Header.Set(k, v)
 	}
@@ -165,4 +171,33 @@ func TestHostControlIsNotServedThroughTheCookieSurface(t *testing.T) {
 		}
 	}
 	_ = http.StatusOK
+}
+
+// Only the host reaches the route: a LAN machine on a TOFI_BIND=0.0.0.0 port
+// holding the token still gets 404, the host's gateway and loopback are served.
+func TestHostControlRefusesNonHostSources(t *testing.T) {
+	g := accountFixture(t)
+	tokenFile := filepath.Join(t.TempDir(), "host-control.token")
+	if err := os.WriteFile(tokenFile, []byte(hostToken+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	g.config.HostControlTokenFile = tokenFile
+	old := hostGateways
+	hostGateways = func() []net.IP { return []net.IP{net.ParseIP("172.18.0.1")} }
+	defer func() { hostGateways = old }()
+	for from, want := range map[string]int{
+		"127.0.0.1:5000":    200,
+		"[::1]:5000":        200,
+		"172.18.0.1:5000":   200,
+		"192.168.1.50:5000": 404,
+		"10.0.0.7:5000":     404,
+		"172.18.0.9:5000":   404,
+		"203.0.113.5:5000":  404,
+	} {
+		h := bearer()
+		h["X-Test-Remote"] = from
+		if w := hostCall(g, http.MethodGet, "/api/host/computer/state", "", h); w.Code != want {
+			t.Errorf("from %s: %d, want %d (%s)", from, w.Code, want, w.Body.String())
+		}
+	}
 }

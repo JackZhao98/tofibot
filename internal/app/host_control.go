@@ -10,15 +10,23 @@ package app
 // route does not exist (404), so an install that never ran the new `tofi` has no
 // such door. A request that came through a proxy (any forwarding header) is
 // refused even with the right token, and the Caddyfile does not proxy the path
-// at all: the host reaches it on the App's loopback port. The token grants what
+// at all: the host reaches it on the App's loopback port. The App runs in a
+// container with that port published, so the peer address it sees for the host's
+// own call is its loopback or its network's gateway (the Docker bridge address);
+// a request from any other address, such as a LAN machine reaching a
+// TOFI_BIND=0.0.0.0 port, gets 404 before the token is looked at. The token grants what
 // the administrator's per-account endpoints grant, for all accounts, and nothing
 // else.
 
 import (
+	"bufio"
 	"context"
 	"crypto/subtle"
+	"encoding/binary"
 	"errors"
+	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -33,6 +41,60 @@ const hostControlRoute = "/api/host/computer/"
 
 // forwardingHeaders mark a request that came through a proxy.
 var forwardingHeaders = []string{"X-Forwarded-For", "X-Forwarded-Host", "X-Forwarded-Proto", "X-Real-Ip", "Forwarded", "Via"}
+
+// hostGateways lists the container's default gateways (the address a connection
+// from the host's own loopback arrives from, through a published port). Tests
+// replace it.
+var hostGateways = func() []net.IP {
+	f, err := os.Open("/proc/net/route")
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+	var out []net.IP
+	sc := bufio.NewScanner(f)
+	sc.Scan() // header
+	for sc.Scan() {
+		fields := strings.Fields(sc.Text())
+		if len(fields) < 3 || fields[1] != "00000000" {
+			continue
+		}
+		var raw uint32
+		if _, err := fmt.Sscanf(fields[2], "%x", &raw); err != nil {
+			continue
+		}
+		ip := make(net.IP, 4)
+		binary.LittleEndian.PutUint32(ip, raw)
+		out = append(out, ip)
+	}
+	return out
+}
+
+// hostSourceAllowed reports that the peer is the host itself: loopback or the
+// container's gateway. The peer address is the TCP source, which a client cannot
+// choose; forwarding headers are checked separately.
+func hostSourceAllowed(r *http.Request) bool {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return false
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	if v4 := ip.To4(); v4 != nil {
+		ip = v4
+	}
+	if ip.IsLoopback() {
+		return true
+	}
+	for _, gw := range hostGateways() {
+		if gw.Equal(ip) {
+			return true
+		}
+	}
+	return false
+}
 
 // hostAuthorized checks the bearer token against the token file. A missing or
 // short file never authorizes.
@@ -93,6 +155,10 @@ func (g *AccountGateway) serveHost(w http.ResponseWriter, r *http.Request) bool 
 	}
 	if !hostControlPresent(g.config.HostControlTokenFile) {
 		return false // the door does not exist on a server whose host never made the token
+	}
+	if !hostSourceAllowed(r) {
+		writeErr(w, 404, "not_found", "not found") // not the host: the door does not exist from here
+		return true
 	}
 	if !hostAuthorized(r, g.config.HostControlTokenFile) {
 		writeErr(w, 401, "unauthorized", "host token required")

@@ -63,7 +63,19 @@ func (l *legacyBlobs) has(id string) bool {
 }
 
 // legacyRow makes a row exactly as the old guest-only store did.
+// legacyRow is a vm: row that recorded its sha256.
 func legacyRow(t *testing.T, s *Store, conv string, blobs *legacyBlobs, name string, data []byte) Attachment {
+	t.Helper()
+	a := legacyRowUnhashed(t, s, conv, blobs, name, data)
+	sum := sha256.Sum256(data)
+	if _, err := s.db.Exec(`UPDATE attachments SET sha256=? WHERE id=?`, hex.EncodeToString(sum[:]), a.ID); err != nil {
+		t.Fatal(err)
+	}
+	return a
+}
+
+// legacyRowUnhashed is a vm: row from before sha256 was recorded.
+func legacyRowUnhashed(t *testing.T, s *Store, conv string, blobs *legacyBlobs, name string, data []byte) Attachment {
 	t.Helper()
 	id := uuid.NewString()
 	blobs.data[id] = append([]byte(nil), data...)
@@ -429,5 +441,35 @@ func revertToLegacyRows(t *testing.T, s *Store) {
 		}
 		_, _ = s.db.Exec(`DELETE FROM deleted_attachment_files WHERE disk_name=?`, guestAttachmentPrefix+r.id)
 		_ = os.Remove(filepath.Join(root, r.disk))
+	}
+}
+
+func TestVMRowWithoutHashIsAnUnverifiedMirrorAndKeepsTheGuestCopy(t *testing.T) {
+	s, conv, blobs, _ := fileStoreFixture(t)
+	a := legacyRowUnhashed(t, s, conv.ID, blobs, "old.txt", []byte("no recorded hash"))
+	if err := s.copyGuestAttachment(context.Background(), a.ID); err != nil {
+		t.Fatal(err)
+	}
+	var origin string
+	if err := s.db.QueryRow(`SELECT origin FROM attachments WHERE id=?`, a.ID).Scan(&origin); err != nil || origin != attachmentOriginMirror {
+		t.Fatalf("origin=%q %v", origin, err)
+	}
+	s.cleanupDeletedAttachments()
+	if !blobs.has(a.ID) {
+		t.Fatal("the computer's copy was deleted although the server copy was never verified against a recorded hash")
+	}
+}
+
+func TestVMRowWithAWrongRecordedHashIsNotMigrated(t *testing.T) {
+	s, conv, blobs, _ := fileStoreFixture(t)
+	a := legacyRow(t, s, conv.ID, blobs, "swapped.txt", []byte("original bytes"))
+	blobs.data[a.ID] = []byte("tampered bytes") // same length
+	err := s.copyGuestAttachment(context.Background(), a.ID)
+	if err == nil || !strings.Contains(err.Error(), "not migrated") {
+		t.Fatalf("err=%v", err)
+	}
+	var disk string
+	if s.db.QueryRow(`SELECT disk_name FROM attachments WHERE id=?`, a.ID).Scan(&disk); disk != guestAttachmentPrefix+a.ID {
+		t.Fatalf("row repointed: %q", disk)
 	}
 }
