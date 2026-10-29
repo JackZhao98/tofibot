@@ -438,5 +438,53 @@
     "pending_other": "有 {{count}} 個檔案只在電腦上，尚未複製到伺服器。",
     "loading": "正在讀取電腦上的內容…",
     "load_failed": "無法讀取已儲存的變數、金鑰和待複製檔案數，它們同樣會被刪除。"
+  },
+  "attach": {
+    "label": "狀態",
+    "loading": "正在讀取電腦分配…",
+    "state": {
+      "attached_running": "已接入,執行中",
+      "attached_stopped": "已接入,已停止",
+      "detached": "已分離",
+      "lost": "已接入,無回應",
+      "detaching": "正在分離",
+      "none": "沒有電腦"
+    },
+    "action": {
+      "attach": "接入",
+      "detach": "分離…"
+    },
+    "help": {
+      "attached": "分離後,Bot 不再使用這台電腦,無需重新啟動。",
+      "detached": "在接入電腦之前,Bot 沒有電腦也能運作。接入無需重新啟動。",
+      "none": "此伺服器未設定電腦後端。"
+    },
+    "progress": {
+      "attaching": "正在接入電腦…",
+      "draining": "排空中:等待執行中的電腦工具完成目前步驟…",
+      "syncing": "同步中:正在把電腦上的檔案複製到伺服器…"
+    },
+    "done": {
+      "attach": "電腦已接入。",
+      "detach": "電腦已分離。",
+      "copied": "已複製到伺服器的檔案:{{count}}。",
+      "interrupted": "提前結束的工具呼叫:{{count}}。",
+      "left": "仍留在電腦上的檔案:{{count}}。"
+    },
+    "error": {
+      "read": "無法讀取電腦分配。",
+      "generic": "無法完成變更,請重試。",
+      "computer_backend_unavailable": "此伺服器未設定電腦後端。",
+      "computer_attach_failed": "無法接入電腦。",
+      "computer_detach_failed": "無法分離電腦。",
+      "forbidden": "只有管理員可以接入或分離電腦。",
+      "unavailable": "只有管理員可以接入或分離電腦。"
+    },
+    "confirm": {
+      "title": "分離這台電腦?",
+      "impact": "執行中的電腦工具會在目前步驟結束後停止。電腦上的檔案會先複製到伺服器。Bot 在沒有電腦的情況下繼續運作,之後可以再次接入。",
+      "cancel": "取消",
+      "action": "分離"
+    }
   }
 }

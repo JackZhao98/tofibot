@@ -5,6 +5,7 @@ import {ResourceSheet, validAllocation, type Allocation, type Resources} from ".
 import {useTranslation} from "./i18n";
 import {TofiIcon} from "./icons";
 import {useHasComputer} from "./computerCapability";
+import {ComputerAttach} from "./ComputerAttach";
 import {AdminStorageLimit} from "./AdminStorage";
 import type {AdminStorageAccount} from "./storageApi";
 import {Banner, DangerZone, Segmented, SettingsCard, SettingsRow, SettingsSection} from "./settings/components";
@@ -101,6 +102,7 @@ export function AccountDetail({account, accounts, disk, storage, capacity, selfI
 
     {hasComputer && <SettingsSection title={t("admin.detail.computer.title")}>
       <SettingsCard>
+        <ComputerAttach base={`/api/admin/accounts/${encodeURIComponent(account.id)}/computer`} running={disk?.state === "ready"} disabled={busy || deleting}/>
         <SettingsRow label={t("admin.detail.computer.state")} control={<span className="admin-value">{stateLabel}</span>}/>
         {disk ? <ComputerSize account={account} disabled={busy || deleting} run={run}/>         : <p className="settings-card-note">{t("admin.detail.computer.none")}</p>}
       </SettingsCard>

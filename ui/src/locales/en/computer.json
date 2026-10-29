@@ -445,5 +445,53 @@
     "pending_other": "{{count}} files exist only on the computer and have not been copied to the server.",
     "loading": "Reading what is on the computer…",
     "load_failed": "Couldn't read the saved variables, keys and files waiting to be copied. They are deleted too."
+  },
+  "attach": {
+    "label": "Status",
+    "loading": "Reading the computer assignment…",
+    "state": {
+      "attached_running": "Attached, running",
+      "attached_stopped": "Attached, stopped",
+      "detached": "Detached",
+      "lost": "Attached, not responding",
+      "detaching": "Detaching",
+      "none": "No computer"
+    },
+    "action": {
+      "attach": "Attach",
+      "detach": "Detach…"
+    },
+    "help": {
+      "attached": "Detach removes the computer from this Bot without a restart.",
+      "detached": "The Bot works without a computer until one is attached. Attach needs no restart.",
+      "none": "This server has no computer backend."
+    },
+    "progress": {
+      "attaching": "Attaching the computer…",
+      "draining": "Draining: waiting for running computer tools to finish their step…",
+      "syncing": "Syncing: copying files from the computer to the server…"
+    },
+    "done": {
+      "attach": "Computer attached.",
+      "detach": "Computer detached.",
+      "copied": "Files copied to the server: {{count}}.",
+      "interrupted": "Tool calls ended early: {{count}}.",
+      "left": "Files left on the computer: {{count}}."
+    },
+    "error": {
+      "read": "The computer assignment could not be read.",
+      "generic": "The change could not be made. Try again.",
+      "computer_backend_unavailable": "This server has no computer backend configured.",
+      "computer_attach_failed": "The computer could not be attached.",
+      "computer_detach_failed": "The computer could not be detached.",
+      "forbidden": "Only an administrator can attach or detach a computer.",
+      "unavailable": "Only an administrator can attach or detach a computer."
+    },
+    "confirm": {
+      "title": "Detach the computer?",
+      "impact": "Running computer tools stop after the current step. Files on the computer are copied to the server first. The Bot keeps working without a computer, and you can attach it again later.",
+      "cancel": "Cancel",
+      "action": "Detach"
+    }
   }
 }

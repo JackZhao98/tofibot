@@ -445,5 +445,53 @@
     "pending_other": "{{count}} Dateien liegen nur auf dem Computer und sind noch nicht auf den Server kopiert.",
     "loading": "Inhalt des Computers wird gelesen …",
     "load_failed": "Gespeicherte Variablen, Schlüssel und noch zu kopierende Dateien konnten nicht gelesen werden. Sie werden ebenfalls gelöscht."
+  },
+  "attach": {
+    "label": "Status",
+    "loading": "Computerzuordnung wird gelesen…",
+    "state": {
+      "attached_running": "Angebunden, läuft",
+      "attached_stopped": "Angebunden, gestoppt",
+      "detached": "Getrennt",
+      "lost": "Angebunden, reagiert nicht",
+      "detaching": "Wird getrennt",
+      "none": "Kein Computer"
+    },
+    "action": {
+      "attach": "Anbinden",
+      "detach": "Trennen…"
+    },
+    "help": {
+      "attached": "Beim Trennen wird der Computer ohne Neustart von diesem Bot entfernt.",
+      "detached": "Der Bot arbeitet ohne Computer, bis einer angebunden wird. Das Anbinden braucht keinen Neustart.",
+      "none": "Dieser Server hat kein Computer-Backend."
+    },
+    "progress": {
+      "attaching": "Computer wird angebunden…",
+      "draining": "Auslaufen: Laufende Computer-Tools beenden ihren aktuellen Schritt…",
+      "syncing": "Abgleich: Dateien vom Computer werden auf den Server kopiert…"
+    },
+    "done": {
+      "attach": "Computer angebunden.",
+      "detach": "Computer getrennt.",
+      "copied": "Auf den Server kopierte Dateien: {{count}}.",
+      "interrupted": "Vorzeitig beendete Tool-Aufrufe: {{count}}.",
+      "left": "Auf dem Computer verbliebene Dateien: {{count}}."
+    },
+    "error": {
+      "read": "Die Computerzuordnung konnte nicht gelesen werden.",
+      "generic": "Die Änderung war nicht möglich. Versuche es erneut.",
+      "computer_backend_unavailable": "Auf diesem Server ist kein Computer-Backend eingerichtet.",
+      "computer_attach_failed": "Der Computer konnte nicht angebunden werden.",
+      "computer_detach_failed": "Der Computer konnte nicht getrennt werden.",
+      "forbidden": "Nur ein Administrator kann einen Computer anbinden oder trennen.",
+      "unavailable": "Nur ein Administrator kann einen Computer anbinden oder trennen."
+    },
+    "confirm": {
+      "title": "Computer trennen?",
+      "impact": "Laufende Computer-Tools stoppen nach dem aktuellen Schritt. Dateien auf dem Computer werden zuerst auf den Server kopiert. Der Bot arbeitet ohne Computer weiter, und du kannst ihn später wieder anbinden.",
+      "cancel": "Abbrechen",
+      "action": "Trennen"
+    }
   }
 }

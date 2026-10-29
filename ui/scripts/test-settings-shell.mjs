@@ -248,6 +248,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     adminState.sizes = {};
     adminState.limits = {acct_two: 10 * GIB};
     adminState.failDelete = 0;
+    adminState.vm = {};
+    adminState.failAttach = 0;
     adminState.lastDeleted = null;
     adminWrites.length = 0;
   }
@@ -283,6 +285,21 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       if (match[2] === "passphrase") return item.passphrase_pending ? json(200, {passphrase: "ABCD-EFGH-IJKL-MNOP-QRST-UVWX-YZ23-4567"}) : json(409, {error: {code: "passphrase_unavailable", message: "gone"}});
       if (match[2] === "ack") { item.passphrase_pending = false; return json(200, {id: item.id, passphrase_pending: false}); }
       if (method === "DELETE") { adminState.exports = adminState.exports.filter(x => x !== item); return json(200, {id: item.id, deleted: true}); }
+    }
+    // Hot attach / detach of the VM computer: gateway per account, or the single-account route (key "solo").
+    match = /^\/api\/admin\/(?:accounts\/([^/]+)\/)?computer\/(state|attach|detach)$/.exec(path);
+    if (match) {
+      const key = match[1] ?? "solo", op = match[2];
+      const vm = adminState.vm[key] ??= {status: "attached"};
+      const summary = () => ({attached: vm.status === "attached", id: vm.status === "attached" ? "vm_" + key : undefined, kind: "vm", status: vm.status, backend_available: true});
+      if (op === "state") return json(200, summary());
+      if (op === "attach") {
+        if (adminState.failAttach > 0) { adminState.failAttach--; return json(502, {error: {code: "computer_attach_failed", message: "the computer could not be attached"}}); }
+        vm.status = "attached";
+        return json(200, summary());
+      }
+      vm.status = "detached";
+      return json(200, {computer: summary(), detach: {computer_id: "vm_" + key, drained: true, interrupted: 1, outbox: {synced: 3, deferred: 0, refused: 0}}});
     }
     match = /^\/api\/admin\/accounts\/([^/]+)\/resources$/.exec(path);
     if (match) {
@@ -838,6 +855,34 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await saveSize.click();
     await detail.getByText("Configuration saved. It applies after a restart.").waitFor();
     assert.deepEqual(adminWrites, ['PUT /api/admin/accounts/acct_two/resources {"vcpus":4,"memory_mib":4608,"disk_gib":9}']);
+    // Computer: detach asks first, then attaches again; a failed attach shows inline.
+    const attachCard = detail.getByTestId("computer-attach");
+    await attachCard.getByText("Attached, running").waitFor();
+    adminWrites.length = 0;
+    await attachCard.getByRole("button", {name: "Detach…"}).click();
+    const detachDialog = page.getByRole("alertdialog");
+    await detachDialog.waitFor();
+    const detachText = await text(detachDialog);
+    assert.match(detachText, /stop after the current step/);
+    assert.match(detachText, /copied to the server first/);
+    assert.match(detachText, /keeps working without a computer/);
+    await detachDialog.getByRole("button", {name: "Cancel"}).click();
+    await detachDialog.waitFor({state: "detached"});
+    assert.deepEqual(adminWrites, [], "cancelling the confirmation sends nothing");
+    await attachCard.getByRole("button", {name: "Detach…"}).click();
+    await detachDialog.getByRole("button", {name: "Detach", exact: true}).click();
+    await attachCard.getByText("Computer detached. Files copied to the server: 3. Tool calls ended early: 1.").waitFor();
+    assert.deepEqual(adminWrites, ['POST /api/admin/accounts/acct_two/computer/detach {"wait_seconds":60}']);
+    assert.equal(await attachCard.getByTestId("computer-attach-state").textContent(), "Detached");
+    adminState.failAttach = 1;
+    adminWrites.length = 0;
+    await attachCard.getByRole("button", {name: "Attach"}).click();
+    await attachCard.getByText("The computer could not be attached.").waitFor();
+    assert.equal(await attachCard.getByTestId("computer-attach-state").textContent(), "Detached", "a failed attach leaves the state");
+    await attachCard.getByRole("button", {name: "Attach"}).click();
+    await attachCard.getByText("Computer attached.").waitFor();
+    assert.deepEqual(adminWrites, ["POST /api/admin/accounts/acct_two/computer/attach", "POST /api/admin/accounts/acct_two/computer/attach"]);
+    assert.equal(await attachCard.getByTestId("computer-attach-state").textContent(), "Attached, running");
     // Role change.
     adminWrites.length = 0;
     await segmented.getByRole("radio", {name: "Admin"}).click();
@@ -1235,6 +1280,16 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await consoleAdmin.close();
     const soloOwner = await open({admin: "0", tab: "computer"});
     const ownerComputer = soloOwner.page.locator('.settings-page-body[data-page="computer"]');
+    // The single-account owner has the same card, on the /api/admin/computer route.
+    const soloCard = ownerComputer.getByTestId("computer-attach");
+    await soloCard.getByText("Attached, running").waitFor({timeout: 15000});
+    adminWrites.length = 0;
+    await soloCard.getByRole("button", {name: "Detach…"}).click();
+    await soloOwner.page.getByRole("alertdialog").getByRole("button", {name: "Detach", exact: true}).click();
+    await soloCard.getByText(/Computer detached\./).waitFor();
+    assert.deepEqual(adminWrites, ['POST /api/admin/computer/detach {"wait_seconds":60}']);
+    await soloCard.getByRole("button", {name: "Attach"}).click();
+    await soloCard.getByText("Computer attached.").waitFor();
     await ownerComputer.getByRole("button", {name: "Adjust"}).click();
     await ownerComputer.locator(".resource-sheet").waitFor();
     await soloOwner.close();

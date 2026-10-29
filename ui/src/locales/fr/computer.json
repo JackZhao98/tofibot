@@ -452,5 +452,53 @@
     "pending_other": "{{count}} fichiers n’existent que sur l’ordinateur et n’ont pas encore été copiés vers le serveur.",
     "loading": "Lecture du contenu de l’ordinateur…",
     "load_failed": "Impossible de lire les variables, clés et fichiers en attente de copie enregistrés. Ils seront supprimés aussi."
+  },
+  "attach": {
+    "label": "État",
+    "loading": "Lecture de l'affectation de l'ordinateur…",
+    "state": {
+      "attached_running": "Rattaché, en marche",
+      "attached_stopped": "Rattaché, arrêté",
+      "detached": "Détaché",
+      "lost": "Rattaché, ne répond pas",
+      "detaching": "Détachement en cours",
+      "none": "Aucun ordinateur"
+    },
+    "action": {
+      "attach": "Rattacher",
+      "detach": "Détacher…"
+    },
+    "help": {
+      "attached": "Détacher retire l'ordinateur de ce Bot sans redémarrage.",
+      "detached": "Le Bot travaille sans ordinateur jusqu'à ce qu'un soit rattaché. Le rattachement ne demande aucun redémarrage.",
+      "none": "Ce serveur n'a pas de backend d'ordinateur."
+    },
+    "progress": {
+      "attaching": "Rattachement de l'ordinateur…",
+      "draining": "Vidage : les outils de l'ordinateur en cours terminent leur étape…",
+      "syncing": "Synchronisation : copie des fichiers de l'ordinateur vers le serveur…"
+    },
+    "done": {
+      "attach": "Ordinateur rattaché.",
+      "detach": "Ordinateur détaché.",
+      "copied": "Fichiers copiés sur le serveur : {{count}}.",
+      "interrupted": "Appels d'outils terminés plus tôt : {{count}}.",
+      "left": "Fichiers restés sur l'ordinateur : {{count}}."
+    },
+    "error": {
+      "read": "L'affectation de l'ordinateur n'a pas pu être lue.",
+      "generic": "La modification n'a pas pu être faite. Réessayez.",
+      "computer_backend_unavailable": "Aucun backend d'ordinateur n'est configuré sur ce serveur.",
+      "computer_attach_failed": "L'ordinateur n'a pas pu être rattaché.",
+      "computer_detach_failed": "L'ordinateur n'a pas pu être détaché.",
+      "forbidden": "Seul un administrateur peut rattacher ou détacher un ordinateur.",
+      "unavailable": "Seul un administrateur peut rattacher ou détacher un ordinateur."
+    },
+    "confirm": {
+      "title": "Détacher l'ordinateur ?",
+      "impact": "Les outils de l'ordinateur en cours s'arrêtent après l'étape en cours. Les fichiers de l'ordinateur sont d'abord copiés sur le serveur. Le Bot continue de travailler sans ordinateur, et vous pouvez le rattacher plus tard.",
+      "cancel": "Annuler",
+      "action": "Détacher"
+    }
   }
 }
