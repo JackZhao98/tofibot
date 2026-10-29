@@ -356,12 +356,18 @@ func openStoreWithLimit(dir string, recoverWork bool, maxBytes int64) (*Store, e
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("sqlite", filepath.Join(dir, "tofi.db")+sqliteBusyDSN)
+	dbPath := filepath.Join(dir, "tofi.db")
+	db, err := sql.Open("sqlite", dbPath+sqliteBusyDSN)
 	if err != nil {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
+	// Refuse a newer or garbled database before anything can write to it.
+	if err = checkSchemaVersion(db, dbPath); err != nil {
+		db.Close()
+		return nil, err
+	}
 	if maxBytes != 0 {
 		if err := applyAccountDBLimit(db, maxBytes); err != nil {
 			db.Close()
@@ -370,6 +376,10 @@ func openStoreWithLimit(dir string, recoverWork bool, maxBytes int64) (*Store, e
 	}
 	s := &Store{db: db}
 	if err = s.migrate(); err != nil {
+		db.Close()
+		return nil, err
+	}
+	if err = stampSchemaVersion(db, dbPath); err != nil {
 		db.Close()
 		return nil, err
 	}
@@ -2743,6 +2753,9 @@ func NewServer(c Config) (*Server, error) {
 	}
 	identity, e := initializeInstance(c.DataDir, c.Environment)
 	if e != nil {
+		return nil, e
+	}
+	if e = preflightAccountSchemas(c.DataDir); e != nil {
 		return nil, e
 	}
 	st, e := openStoreWithLimit(c.DataDir, !c.AccountControlPlane && !c.AccountMaintenance, c.AccountDBMaxBytes)

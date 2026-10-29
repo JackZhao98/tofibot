@@ -3782,7 +3782,8 @@ def rollback(state):
                 say('Restored data and settings from backup %s.' % backup_id)
             else:
                 warn('The candidate ran but no backup was taken (the update began with an older tofi); '
-                     'data stays as the candidate left it.')
+                     'data stays as the candidate left it. If the candidate migrated it, the previous version refuses to open it '
+                     '(schema_too_new); run `sudo tofi update` again or `sudo tofi restore <backup>`.')
         transition(state, 'rolling-back', 'restore-config')
         bundle = P.releases / previous['bundle'] if previous.get('bundle') else ASSETS
         apply_host_config(bundle, env)

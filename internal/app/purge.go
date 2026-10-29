@@ -29,6 +29,10 @@ func (s *Store) purgeWorkspaceData() error {
 			rows.Close()
 			return err
 		}
+		// tofi_schema is the file's own version record, not workspace data (schema_version.go).
+		if name == "tofi_schema" {
+			continue
+		}
 		if name == "workspace_owner" || strings.HasPrefix(name, "owner_") {
 			continue
 		}
