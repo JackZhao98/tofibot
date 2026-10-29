@@ -1,0 +1,2 @@
+Data directory written by origin/main at b6582a9b (before the decoupling work): tofi.db.gz (the database), attachments/ (one uploaded file), manifest.json (ids and the file hash).
+Regenerate by running a seeding test on that commit: NewServer, CreateBot, AddUserRun, AddAssistant, AddMemory, CreateSchedule, AddAttachment, one raw vm: attachment row, one pairComputer(darwin); then gzip tofi.db.
