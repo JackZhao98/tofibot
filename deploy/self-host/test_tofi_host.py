@@ -3143,6 +3143,9 @@ class RunnerEgressFilterTests(HostCase):
         first_firewall = next(i for i, c in enumerate(self.commands) if c[0] == 'iptables')
         first_up = next(i for i, c in enumerate(self.commands) if 'up' in c)
         self.assertLess(first_firewall, first_up)
+        # The runner profile alone does not start it: `up` must name the service.
+        ups = [c for c in self.commands if 'up' in c and 'worker' not in c]
+        self.assertTrue(ups and ups[-1][-1] == 'runner', ups)
         self.commands.clear()
         env.pop('TOFI_RUNNER_IMAGE')
         with mock.patch.object(tofi_host, 'health'), mock.patch.object(tofi_host, 'read_env', return_value=env):

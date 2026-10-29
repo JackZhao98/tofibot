@@ -1744,6 +1744,8 @@ def start_services(env, first_install=False, state=None):
     if state is not None and state.get('transaction') and state['transaction']['kind'] == 'install':
         transition(state, 'installing', 'start-app')
     services = ['app', 'caddy'] if env.get('TOFI_DOMAIN') else ['app']
+    if env.get('TOFI_RUNNER_IMAGE'):
+        services.append('runner')  # its profile alone does not start it: `up` names the services it starts
     compose('up', '-d', '--no-build', '--pull', 'never', *services, env=env)
     health(env)
     runner_ready(env)
