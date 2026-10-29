@@ -566,6 +566,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const [a, b] = await openai.locator(".provider-choice").evaluateAll(nodes => nodes.map(node => { const r = node.getBoundingClientRect(); return {w: Math.round(r.width), h: Math.round(r.height), y: Math.round(r.y)}; }));
     assert.ok(Math.abs(a.w - b.w) <= 1 && Math.abs(a.h - b.h) <= 1 && a.y === b.y, `equal choices side by side ${JSON.stringify([a, b])}`);
     assert.equal(await openai.locator("input").count(), 0, "no key input until a method is chosen");
+    if (shots) await body.screenshot({path: join(shots, "ai-models-chooser.png")});
     await openai.getByRole("button", {name: /Use an API key/}).click();
     await openai.getByLabel("OpenAI API key").waitFor();
     await close();
@@ -610,6 +611,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.deepEqual(perm.writes, ['PATCH /api/bots/bot_research {"approval_mode":"ask"}', 'PATCH /api/bots/bot_inbox {"approval_mode":"ask"}'], "each Bot's own setting is written; the Observe account mode stays");
     assert.deepEqual(Object.values({r: perm.modes.bot_research, i: perm.modes.bot_inbox, n: perm.modes.bot_notes}), ["ask", "ask", "ask"]);
     assert.equal(await segmentFor("Research Bot").getByRole("radio", {name: "Auto"}).isDisabled(), true, "the per-Bot list is locked");
+    if (shots) await body.screenshot({path: join(shots, "permissions-ask-locked.png")});
     // Per Bot unlocks without writing anything, and nothing remembers the earlier mix.
     perm.writes.length = 0;
     await top.getByRole("radio", {name: "Per Bot"}).click();
@@ -1438,6 +1440,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.match(checked, /Latest release .*v0\.1\.1 Release notes/, "the card shows the fresh answer");
     assert.match(checked, /Last checked .*Oct 29, 2026/, "and the new check time");
     assert.deepEqual(check.calls, ["POST"]);
+    if (shots) await current.page.locator(".version-card").screenshot({path: join(shots, "version-card-checked.png")});
     check.fail = true;
     await checkButton.click();
     await current.page.locator(".version-card").getByRole("alert").getByText("Couldn't reach the update server. Try again later.").waitFor();

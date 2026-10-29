@@ -74,7 +74,7 @@ export function ApprovalModeSetting() {
   const options = (["auto", "ask"] as const).map(value => ({value, label: t(`approval.${value}`)}));
   const topOptions: {value: Top; label: string}[] = [...options, {value: "bot", label: t("approval.bot")}];
 
-  return <>
+  return <div className="settings-stack">
     <SettingsCard>
       <SettingsRow label={t("approval.label")} control={bots === null ? <span className="muted">{t("action.loading_settings")}</span> : <Segmented label={t("approval.label")} value={top} disabled={busy} options={topOptions} onChange={chooseTop}/>}/>
     </SettingsCard>
@@ -88,7 +88,7 @@ export function ApprovalModeSetting() {
       </SettingsCard>
     </SettingsSection>}
     <ReviewerModel/>
-  </>;
+  </div>;
 }
 
 type BackgroundItem = {key: string; value: string | null; default: string | null; locked?: boolean};
