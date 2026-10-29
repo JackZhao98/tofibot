@@ -186,7 +186,7 @@ func (g *AccountGateway) hostState() adminStorageHost {
 		floor = defaultHostMinFreeBytes
 	}
 	h := adminStorageHost{MinFreeBytes: floor}
-	if free, total, err := hostDiskSpace(g.config.DataDir); err == nil {
+	if free, total, err := probeHostDisk(g.config.DataDir); err == nil {
 		f, t := int64(free), int64(total)
 		h.FreeBytes, h.TotalBytes = &f, &t
 		h.Low = floor > 0 && f < floor

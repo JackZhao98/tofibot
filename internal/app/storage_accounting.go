@@ -103,6 +103,9 @@ type storageGate struct {
 	diskSpace func(path string) (free, total uint64, err error)
 }
 
+// probeHostDisk measures the data volume; tests replace it so they do not depend on the free space of the machine running them.
+var probeHostDisk = hostDiskSpace
+
 func (g storageGate) floor() int64 {
 	if g.minFree == 0 {
 		return defaultHostMinFreeBytes
@@ -114,7 +117,7 @@ func (g storageGate) probe(path string) (uint64, uint64, error) {
 	if g.diskSpace != nil {
 		return g.diskSpace(path)
 	}
-	return hostDiskSpace(path)
+	return probeHostDisk(path)
 }
 
 func migrateStorageCounters(db *sql.DB) error {
