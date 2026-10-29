@@ -86,6 +86,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/extensions/mcp") return {servers: []};
     if (path === "/api/command-waits") return {count: 0, bots: []};
     if (path === "/api/settings-changes") return {changes: []};
+    if (path === "/api/admin/computer/state") return {state: "none"};
     if (path === "/api/storage") return {version: 1, measured_at: "2026-10-27T10:00:00Z", server_bytes: 1048576, files_bytes: 524288, database_bytes: 524288, physical_files_bytes: 524288, pending_copy_count: 0, classes: [], breakdown_measured_at: null, limit_bytes: null, remaining_bytes: null, over_limit: false, computer: null, by_bot: [], by_conversation: []};
     if (path === "/api/usage/runs") return {days: 7, since: "2026-10-20T00:00:00Z", runs: 0, by_status: {}, failures: []};
     if (path === "/api/usage") return {contexts: []};
