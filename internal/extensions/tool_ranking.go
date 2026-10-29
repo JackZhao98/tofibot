@@ -10,7 +10,20 @@ import (
 )
 
 func searchTerms(text string) []string {
-	return strings.FieldsFunc(strings.ToLower(text), func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsNumber(r) })
+	terms := strings.FieldsFunc(strings.ToLower(text), func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsNumber(r) })
+	for i, term := range terms {
+		// Fold a plural so "schedule" finds list_schedules.
+		if len(term) > 3 && strings.HasSuffix(term, "s") && !strings.HasSuffix(term, "ss") {
+			terms[i] = term[:len(term)-1]
+		}
+	}
+	return terms
+}
+
+// RankTools orders tools by lexical relevance to a query; tools that match no
+// query term are left out. Callers rank the built-in tool set with it.
+func RankTools(tools []runtime.Tool, query string) []runtime.Tool {
+	return rankToolMatches(tools, query)
 }
 
 // BM25 lexical ranking over the bounded server page. Unlike AND matching,
