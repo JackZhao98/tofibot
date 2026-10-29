@@ -89,11 +89,11 @@ func (s *Server) rememberExtensionFacts(r Run, token string, facts *ApprovalFact
 	s.extensionProposals.Store(r.ID+"\x00"+approvalLabel(token), facts)
 }
 
-// extensionFactsForTarget returns the facts for an approval target that names
-// an extension change, and whether the target is one at all.
-func (s *Server) extensionFactsForTarget(r Run, target string) (facts *ApprovalFacts, isExtension bool) {
+// gateFactsForTarget returns the facts for an approval target that names an extension change or a settings change, and whether the
+// target is one at all. A target the server did not issue in this run gets no facts.
+func (s *Server) gateFactsForTarget(r Run, target string) (facts *ApprovalFacts, isGate bool) {
 	label := approvalLabel(target)
-	if !strings.HasPrefix(label, "extension ") {
+	if !strings.HasPrefix(label, "extension ") && !strings.HasPrefix(label, settingTokenPrefix) {
 		return nil, false
 	}
 	if v, ok := s.extensionProposals.Load(r.ID + "\x00" + label); ok {

@@ -108,9 +108,6 @@ type SettingDef struct {
 	LabelKey string
 	// DescKey is the locale key of the one-line description, when the catalog has one.
 	DescKey string
-	// Effect is the fixed English sentence the confirmation card shows when this
-	// key is changed with a confirm-class change; "{new}" is replaced by the new value.
-	Effect string
 	// Tools are the existing tools that manage a collection.
 	Tools []string
 	// Audit is false only for collections, whose tools keep their own records.
@@ -218,7 +215,6 @@ func buildSettingsRegistry() []SettingDef {
 	d = acct("account.notify_tasks", KindBool, riskDirect, "chats", "settings:chats.task_notifications")
 	add(d)
 	d = acct("account.primary_bot", KindString, riskConfirm, "primary", "settings:primary.label")
-	d.Effect = "The Primary Assistant becomes {new}. It takes the general chores first."
 	add(d)
 
 	bot := func(key string, kind SettingKind, risk RiskSpec, section, page, label string) SettingDef {
@@ -226,33 +222,24 @@ func buildSettingsRegistry() []SettingDef {
 	}
 	d = bot("bot.name", KindString, riskOwn, "identity", "identity", "chat:botPanel.name")
 	d.MaxRunes = maxTeamNameRunes
-	d.Effect = "The Bot is renamed to {new}."
 	add(d)
 	d = bot("bot.instructions", KindString, riskOwn, "role", "role", "chat:botPanel.instructions")
 	d.MaxRunes = maxSystemRunes
-	d.Effect = "The Bot's durable instructions are replaced. It reads them before every reply."
 	add(d)
 	d = bot("bot.avatar", KindString, riskOwn, "identity", "identity", "chat:botSettings.avatar_title")
-	d.Effect = "The Bot's avatar changes."
 	add(d)
 	d = bot("bot.model", KindModel, riskConfirm, "model", "model", "settings:model.label")
-	d.Effect = "The Bot runs on {new} from its next message. Model choice changes cost and quality."
 	add(d)
 	d = bot("bot.reasoning_effort", KindEffort, riskConfirm, "model", "model", "settings:model.effort_label")
-	d.Effect = "The Bot reasons at effort {new} from its next message. Higher effort costs more."
 	add(d)
 	d = bot("bot.skills", KindBotList, riskOwn, "tools", "tools", "settings:shell.page.skills.name")
-	d.Effect = "The set of Skills this Bot may use changes."
 	d.Tools = []string{"skill_enable", "skill_disable"}
 	add(d)
 	d = bot("bot.connections", KindBotList, riskConfirm, "tools", "tools", "settings:shell.page.connections.name")
-	d.Effect = "The list of connections this Bot may use changes."
 	add(d)
 	d = bot("bot.archived", KindBool, riskConfirm, "identity", "identity", "chat:botSettings.archived_title")
-	d.Effect = "The Bot is archived or restored. Archived Bots leave the list; chats and memory are kept."
 	add(d)
 	d = bot("bot.delete", KindAction, riskConfirm, "advanced", "advanced", "chat:header.delete_bot")
-	d.Effect = "The Bot is deleted with its chat, memory, tasks and schedules. This cannot be undone."
 	d.Audit = true
 	add(d)
 	d = entry("bot.memory", ScopeBot, KindCollection, RiskSpec{}, "/b/{bot}?side=memory", "memory", "work:memory.title")
@@ -273,18 +260,14 @@ func buildSettingsRegistry() []SettingDef {
 	d = conv("conversation.pinned", KindBool, riskDirect, "/", "sidebar", "chat:sidebar.pinned")
 	add(d)
 	d = conv("conversation.members", KindBotList, riskConfirm, linkGroupSettings+"#members", "group-settings/members", "chat:members.members")
-	d.Effect = "The members of the group change. A member that leaves ends its open tasks in the group."
 	add(d)
 	d = conv("conversation.archived", KindBool, riskConfirm, linkGroupSettings+"#general", "group-settings/general", "chat:botSettings.archived_title")
-	d.Effect = "The group is archived or restored."
 	add(d)
 	d = conv("conversation.delete", KindAction, riskConfirm, linkGroupSettings+"#general", "group-settings/general", "chat:header.delete_group")
-	d.Effect = "The conversation is deleted with its history, memory, tasks and schedules. This cannot be undone."
 	add(d)
 
 	d = entry("permissions.approval_mode", ScopeAccount, KindEnum, riskConfirm, "/settings/permissions#mode", "settings/permissions", "settings:approval.label")
 	d.Options = []string{"ask", "auto"}
-	d.Effect = "Approval mode becomes {new}. In auto, the reviewer decides tool calls that would ask you; in ask, you decide them."
 	add(d)
 	d = entry("permissions.standing_allowances", ScopeAccount, KindCollection, riskConfirm, "/settings/allowances#standing", "settings/allowances", "settings:permissionsPage.standing.title")
 	d.Audit = false
@@ -298,16 +281,13 @@ func buildSettingsRegistry() []SettingDef {
 		d.DescKey = "settings:automation.item." + item.Key + ".what"
 		d.Options, d.Min, d.Max = item.Options, item.Min, item.Max
 		if d.Kind == KindModel {
-			d.Effect = "The model used for this kind of work becomes {new}. Model choice changes cost and quality."
 		}
 		add(d)
 	}
 
 	d = entry("models.default_model", ScopeAccount, KindModel, riskConfirm, "/settings/models#defaults", "settings/models", "settings:model.global_title")
-	d.Effect = "The default model becomes {new}. Bots that follow the default use it from their next message."
 	add(d)
 	d = entry("models.default_effort", ScopeAccount, KindEffort, riskConfirm, "/settings/models#defaults", "settings/models", "settings:model.effort_label")
-	d.Effect = "The default reasoning effort becomes {new}."
 	add(d)
 	add(entry("models.providers", ScopeAccount, KindNone, riskForbidden, "/settings/models#providers", "settings/models", "settings:providers.title"))
 
@@ -323,11 +303,9 @@ func buildSettingsRegistry() []SettingDef {
 	d = conn("connection.enabled", KindBool, riskDirect, "", "connections/pause", "extensions:connections.action.resume")
 	add(d)
 	d = conn("connection.disconnect", KindAction, riskConfirm, "danger", "connections/disconnect", "extensions:mcp.menu.disconnect")
-	d.Effect = "The connection is removed. Bots lose access and its standing allowances are revoked."
 	add(d)
 	d = conn("connection.tool_tier", KindEnum, RiskSpec{Self: RiskDirect, Loosen: RiskConfirm}, "tools", "connections/tool-permissions", "extensions:tools.tier.write")
 	d.Options = []string{"read_only", "write", "high_risk"}
-	d.Effect = "A tool of this connection is allowed to run with less asking. Its new setting is {new}."
 	add(d)
 
 	add(entry("web_tools.keys", ScopeAccount, KindNone, riskForbidden, "/settings/tools#web", "settings/tools", "settings:webtools.title"))

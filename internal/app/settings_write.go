@@ -310,6 +310,10 @@ func mapSettingsWriteError(err error) error {
 		return err
 	}
 	switch {
+	case errors.Is(err, ErrPrimaryReassignRequired):
+		return settingsDenied("settings_primary_reassign_required", "The Primary Assistant cannot be archived or deleted while other Bots exist. Nothing was changed. Ask the person to choose another Primary Assistant first.")
+	case errors.Is(err, ErrDeleteBusy), errors.Is(err, ErrArchiveBusy):
+		return tooloutcome.New(tooloutcome.Transient, "settings_target_busy", "not_executed", "The target has queued or running work. Nothing was changed; try again when it is idle.", "retry").Err()
 	case errors.Is(err, ErrGroupBusy):
 		return tooloutcome.New(tooloutcome.Transient, "settings_target_busy", "not_executed", "The conversation has queued or running work. Nothing was changed; try again when it is idle.", "retry").Err()
 	case errors.Is(err, sql.ErrNoRows):

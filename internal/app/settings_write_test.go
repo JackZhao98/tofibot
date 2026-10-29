@@ -277,7 +277,7 @@ func TestSettingsPerRunCapStopsTheNinthDirectChange(t *testing.T) {
 
 func ptr(s string) *string { return &s }
 
-func TestSettingsForbiddenAndConfirmClassKeysAreNotApplied(t *testing.T) {
+func TestSettingsForbiddenKeysAreRefusedAndConfirmKeysWaitForTheCard(t *testing.T) {
 	e := newSettingsEnv(t)
 	for _, key := range []string{"models.providers", "keys.secrets", "system.update", "system.purge", "bot.secrets", "account.sign_out"} {
 		_, o := e.call(`{"action":"set","key":"` + key + `","value":"x"}`)
@@ -285,16 +285,13 @@ func TestSettingsForbiddenAndConfirmClassKeysAreNotApplied(t *testing.T) {
 			t.Errorf("%s: %+v", key, o)
 		}
 	}
-	// Confirm-class keys have no writer in this slice: nothing changes.
+	// Confirm-class keys wait for the person's card: nothing changes before it.
 	for _, in := range []string{
 		`{"action":"set","key":"permissions.approval_mode","value":"auto"}`,
-		`{"action":"set","key":"bot.model","value":"model"}`,
+		`{"action":"set","key":"bot.model","value":"default"}`,
 		`{"action":"set","key":"bot.delete"}`,
 	} {
-		_, o := e.call(in)
-		if o == nil || o.Code != "settings_not_settable" {
-			t.Errorf("%s: %+v", in, o)
-		}
+		e.refused(in, "settings_change_needs_approval")
 	}
 	if mode, _ := e.s.store.getAutoReviewSettings(); mode.Mode != "off" {
 		t.Fatalf("approval mode moved to %s", mode.Mode)
