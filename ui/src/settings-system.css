@@ -158,7 +158,7 @@
 .settings-nav-tag{flex:none;padding:1px 7px;border:1px solid var(--line-soft);border-radius:999px;color:var(--muted);font:600 12px/1.4 var(--body);letter-spacing:0}
 .settings-mfold{display:flex;align-items:center;justify-content:space-between;width:100%;margin:0 0 8px;padding:0 4px;border:0;background:transparent;color:var(--muted);font:600 10px/1.3 var(--mono);letter-spacing:.14em;text-transform:uppercase}
 .settings-page-title h2 .settings-nav-tag{margin-left:8px;vertical-align:middle}
-/* Nav scrollbar: thin, always reserved, so a scrollbar appearing never squeezes the rows; labels stay on one line. */
+/* Nav scrollbar: thin, always reserved, so a scrollbar appearing never squeezes the rows; labels wrap only between words. */
 .workspace .settings-tabs{scrollbar-gutter:stable;scrollbar-width:thin;scrollbar-color:var(--line-soft) transparent;padding-right:6px}
-.workspace .settings-tabs .settings-nav-label{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.workspace .settings-tabs .settings-nav-tag{margin-left:auto;font-size:11px;padding:0 6px}
+.workspace .settings-tabs .settings-nav-label{flex:1 1 auto;min-width:0;overflow-wrap:normal;word-break:normal}
+.workspace .settings-tabs .settings-nav-tag{margin-left:auto;padding:0 6px}
