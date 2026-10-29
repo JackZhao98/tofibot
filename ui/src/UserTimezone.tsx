@@ -4,6 +4,7 @@ import {browserTimezone,timezoneChoices,validTimezone} from "./timezone";
 import "./timezone-settings.css";
 import {useSettingsDraft} from "./settingsDraft";
 import {i18n,syncServerLanguagePreference,useTranslation} from "./i18n";
+import { Select } from "./Select";
 type Preferences={timezone:string;timezone_configured:boolean;language?:string;show_activity?:boolean};
 type TimezoneState={timezone:string;ready:boolean;busy:boolean;error:string;refresh:()=>Promise<void>;save:(zone:string)=>Promise<boolean>;/** Chat shows finished runs' Activity rows. Off by default; stored on the account. */showActivity:boolean;saveShowActivity:(show:boolean)=>Promise<boolean>};
 const TimezoneContext=createContext<TimezoneState|null>(null);
@@ -66,7 +67,7 @@ export function ShowActivitySetting(){
 export function TimezoneSelect({value,onChange,disabled,label}:{value:string;onChange:(value:string)=>void;disabled?:boolean;label?:string}){
  const {t}=useTranslation("settings");
  const zones=useMemo(()=>timezoneChoices(value),[value]);
- return <label className="timezone-select">{label??t("timezone.label")}<select value={value} disabled={disabled} onChange={event=>onChange(event.target.value)}>{zones.map(zone=><option key={zone} value={zone}>{zone.replaceAll("_"," ")}</option>)}</select></label>;
+ return <label className="timezone-select">{label??t("timezone.label")}<Select value={value} disabled={disabled} onValueChange={value =>onChange(value)}>{zones.map(zone=><option key={zone} value={zone}>{zone.replaceAll("_"," ")}</option>)}</Select></label>;
 }
 export function TimezoneSetting(){
  const {t}=useTranslation(["settings","common"]);

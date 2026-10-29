@@ -1,0 +1,32 @@
+/* Select.tsx: the closed field matches text inputs (44 px / 12 px radius in settings), the open list matches the menus. */
+button.ui-select-trigger{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-width:0;min-height:44px;margin:0;padding:10px 13px;border:1px solid var(--line);border-radius:var(--radius-md);background:color-mix(in srgb,var(--surface) 70%,transparent);color:var(--ink);font:14px/1.3 var(--body);text-align:left;box-sizing:border-box;cursor:default;transition:border-color var(--m-quick) var(--ease-out)}
+button.ui-select-trigger[data-size="sm"]{width:auto;max-width:100%;min-height:34px;padding:6px 10px;border-radius:var(--radius-sm);font-size:12.5px}
+button.ui-select-trigger:not(:disabled):hover{border-color:var(--line-strong)}
+button.ui-select-trigger:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:1px}
+button.ui-select-trigger:disabled{background:var(--surface-soft);color:var(--muted);cursor:not-allowed;opacity:.8}
+button.ui-select-trigger[aria-invalid="true"]{border-color:var(--danger)}
+button.ui-select-trigger[data-state="open"]{border-color:var(--muted)}
+button.ui-select-trigger[data-placeholder]{color:var(--muted)}
+button.ui-select-trigger::after{flex:none;width:7px;height:7px;margin:-3px 2px 0 0;border:solid var(--ink-soft);border-width:0 1.5px 1.5px 0;transform:rotate(45deg);content:""}
+.ui-select-value{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ui-select-content{z-index:var(--z-menu);min-width:var(--radix-select-trigger-width);max-width:min(420px,calc(100vw - 16px));max-height:min(var(--radix-select-content-available-height),360px);overflow:hidden;border:1px solid var(--line-soft);border-radius:var(--radius-md);background:var(--surface);color:var(--ink);box-shadow:var(--float-shadow);transform-origin:var(--radix-select-content-transform-origin);animation:menu-enter var(--m-quick) var(--ease-out) both}
+.ui-select-content[data-state="closed"]{animation:menu-leave var(--m-quick) var(--ease-settle) both;pointer-events:none}
+.ui-select-viewport{padding:5px}
+.ui-select-group-label{padding:8px 10px 4px;color:var(--muted);font:var(--type-meta);letter-spacing:.02em}
+.ui-select-item{position:relative;display:flex;align-items:center;gap:8px;min-height:38px;padding:8px 30px 8px 10px;border-radius:var(--radius-sm);color:var(--ink-soft);font:14px/1.3 var(--body);outline:0;cursor:default;user-select:none;-webkit-user-select:none}
+.ui-select-item[data-highlighted]{background:var(--surface-2);color:var(--ink)}
+.ui-select-item[data-state="checked"]{color:var(--ink);font-weight:600}
+.ui-select-item[data-disabled]{color:var(--muted);opacity:.55;pointer-events:none}
+.ui-select-item-body{display:grid;min-width:0;flex:1;gap:2px}
+.ui-select-item-note{color:var(--muted);font:var(--type-meta);font-weight:400}
+.ui-select-item-tag{flex:none;padding:1px 6px;border-radius:5px;background:var(--surface-2);color:var(--muted);font-size:10.5px;letter-spacing:.03em}
+.ui-select-item-check{position:absolute;right:11px;top:50%;width:5px;height:10px;margin-top:-7px;border:solid currentColor;border-width:0 1.8px 1.8px 0;transform:rotate(45deg)}
+@media (pointer:coarse){.ui-select-item{min-height:44px}}
+@media (prefers-reduced-motion:reduce){.ui-select-content,.ui-select-content[data-state="closed"]{animation:none}}
+/* Per-surface fit: the same field, dressed like its neighbours. */
+.owner-gate .auth-language button.ui-select-trigger{width:auto;max-width:calc(100vw - 32px);min-height:40px;padding:0 14px;border:var(--edge) solid var(--line);border-radius:var(--radius-pill);background:var(--surface);font:600 13px/1 var(--display);box-shadow:var(--hard-sm)}
+.workspace :is(.work-create,.work-member-select,.work-panel) button.ui-select-trigger{min-height:38px;padding:8px 11px;border:1px solid var(--line-soft);border-radius:10px;background:var(--sunk);font:13px/1.4 var(--body)}
+.workspace .work-item-details button.ui-select-trigger{width:auto;max-width:70%;min-height:34px;padding:6px 9px;border-radius:9px;font-size:12px}
+.workspace .team-board-goal-filter button.ui-select-trigger{width:auto;min-width:160px}
+.onb-adv-row button.ui-select-trigger{flex:0 1 220px;width:auto;max-width:100%}
+.catalog-switch button.ui-select-trigger{width:auto;min-height:32px}

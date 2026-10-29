@@ -10,6 +10,7 @@ import type {WebSourceEntry, WebToolsView} from "./types";
 import "./extensions-system.css";
 import "./settings/automation.css";
 import "./web-tools-settings.css";
+import { Select } from "./Select";
 
 type Chain = "search" | "fetch";
 type Outcome = {ok: boolean; code: string};
@@ -72,10 +73,10 @@ export function WebToolsSettings({initial}: {initial?: WebToolsView}) {
    <div className="web-chain-head"><h5>{t("webtools.limits_title")}</h5><p>{t("webtools.limits_note")}</p></div>
    {(["search", "fetch"] as const).map(chain => <div className="web-limit-row" key={chain}>
     <label htmlFor={`web-limit-${chain}`}>{t(`webtools.limit_${chain}`)}</label>
-    <select id={`web-limit-${chain}`} value={String(view.limits![chain])} onChange={event => void run(() => api.setWebToolLimits({[chain]: Number(event.target.value)}))}>
+    <Select id={`web-limit-${chain}`} value={String(view.limits![chain])} onValueChange={value => void run(() => api.setWebToolLimits({[chain]: Number(value)}))}>
      {[...new Set([50, 100, 300, 1000, view.limits![chain]].filter(value => value !== -1))].sort((a, b) => a - b).map(value => <option key={value} value={value}>{t("webtools.limit_option", {count: value})}</option>)}
      <option value="-1">{t("webtools.limit_unlimited")}</option>
-    </select>
+    </Select>
    </div>)}
   </SettingsCard>}
   <p className="sr-only" role="status" aria-live="polite">{announce}</p>

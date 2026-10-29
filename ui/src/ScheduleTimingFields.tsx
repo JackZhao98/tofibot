@@ -4,6 +4,7 @@ import { weekdayName } from "./scheduleCadence";
 import { dateTimeFormat } from "./timezone";
 import { TimezoneSelect } from "./UserTimezone";
 import { WEEKDAYS, type Schedule, type ScheduleKind, type SchedulePatchInput, type Weekday } from "./types";
+import { Select } from "./Select";
 
 /** The repeat / time / weekday / interval / zone controls of a schedule, shared by the
  * create form (WorkPanel) and the schedule editor. `zone` is the person's override;
@@ -78,7 +79,7 @@ export function ScheduleTimingFields({ draft, timezone, onChange, disabled }: { 
   const { kind } = draft;
   const clock = kind === "daily" || kind === "weekly";
   return <>
-    <label>{t("create.repeat")}<select aria-label={t("create.repeat_aria")} value={kind} disabled={disabled} onChange={event => onChange({ kind: event.target.value as ScheduleKind })}><option value="once">{t("create.repeat_once")}</option><option value="daily">{t("create.repeat_daily")}</option><option value="weekly">{t("create.repeat_weekly")}</option><option value="interval">{t("create.repeat_interval")}</option></select></label>
+    <label>{t("create.repeat")}<Select aria-label={t("create.repeat_aria")} value={kind} disabled={disabled} onValueChange={value => onChange({ kind: value as ScheduleKind })}><option value="once">{t("create.repeat_once")}</option><option value="daily">{t("create.repeat_daily")}</option><option value="weekly">{t("create.repeat_weekly")}</option><option value="interval">{t("create.repeat_interval")}</option></Select></label>
     {kind === "weekly" && <fieldset className="work-weekdays" aria-label={t("create.weekdays")} disabled={disabled}><legend>{t("create.weekdays")}</legend>{WEEKDAYS.map(day => <button key={day} type="button" aria-pressed={draft.weekdays.includes(day)} onClick={() => onChange({ weekdays: draft.weekdays.includes(day) ? draft.weekdays.filter(value => value !== day) : [...draft.weekdays, day] })}>{weekdayName(day)}</button>)}</fieldset>}
     <label>{clock ? t("create.daily_time") : t("create.run_time")}{clock ? <input type="time" required disabled={disabled} value={draft.dailyTime} onChange={event => onChange({ dailyTime: event.target.value })} /> : <input type="datetime-local" required disabled={disabled} value={draft.runAt} onChange={event => onChange({ runAt: event.target.value })} />}</label>
     {kind === "interval" && <label>{t("create.interval_minutes")}<input type="number" min="1" max="525600" value={draft.interval} disabled={disabled} onChange={event => onChange({ interval: event.target.value })} required /></label>}

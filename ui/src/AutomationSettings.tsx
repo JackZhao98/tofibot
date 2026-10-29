@@ -8,6 +8,7 @@ import {useModelCatalog} from "./useModelCatalog";
 import {useTranslation} from "./i18n";
 import {SettingsCard, SettingsRow, SettingsSection} from "./settings/components";
 import "./settings/automation.css";
+import { Select } from "./Select";
 
 /** Every automatic behavior the server reports, in the order the page lists them. */
 export type AutomationKey =
@@ -83,7 +84,7 @@ function Control({item, catalog, busy, label, onChange, onOpenPermissions}: {ite
   }
   if (item.kind === "int") {
     const current = typeof item.value === "number" ? item.value : 0;
-    return <select id={id} value={String(current)} disabled={disabled} onChange={event => onChange(Number(event.target.value))}>{intChoices(item, current).map(choice => <option key={choice} value={choice}>{formatValue(item, choice, {t, catalog})}</option>)}</select>;
+    return <Select id={id} value={String(current)} disabled={disabled} onValueChange={value => onChange(Number(value))}>{intChoices(item, current).map(choice => <option key={choice} value={choice}>{formatValue(item, choice, {t, catalog})}</option>)}</Select>;
   }
   // Model: the catalog's groups, plus the value in force when the catalog lacks it. The background model also offers "Automatic".
   const models = catalog?.models ?? [];
@@ -92,11 +93,11 @@ function Control({item, catalog, busy, label, onChange, onOpenPermissions}: {ite
   const automatic = item.key === "background_model" || item.key === "group_triage_model";
   const known = models.some(option => option.id === current);
   const autoModel = String(item.default ?? "");
-  return <select id={id} value={current} disabled={disabled || (!catalog && !current && !automatic)} onChange={event => onChange(event.target.value)}>
+  return <Select id={id} value={current} disabled={disabled || (!catalog && !current && !automatic)} onValueChange={value => onChange(value)}>
     {automatic && <option value="">{t("automation.auto", {model: catalog ? modelName(models, autoModel) : autoModel})}</option>}
     {current && !known && <option value={current}>{current}</option>}
     {groups.map(group => <optgroup key={group.provider} label={group.label}>{group.models.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</optgroup>)}
-  </select>;
+  </Select>;
 }
 
 type RowProps = {onOpenPermissions?: () => void; item: AutomationItem; catalog: ModelCatalog | null; busy: boolean; saved: boolean; error: string; onChange: (key: AutomationKey, value: Value) => void};

@@ -9,6 +9,7 @@ import "./portability.css";
 import { Banner, FilePicker, SettingsDetails, SettingsRow } from "./settings/components";
 import { useUserTimezone } from "./UserTimezone";
 import { i18n, useTranslation } from "./i18n";
+import { Select } from "./Select";
 
 const categories = ["bot_config", "chats", "memories", "schedules", "attachments", "settings", "vault_environment"] as const;
 type PortableBot = { id: string; name: string; avatar?: AvatarConfig };
@@ -135,7 +136,7 @@ export function PortabilitySettings({ bots, initialFile, initialBotID = "", onIn
     <p className="portability-summary">{t("portability.summary")}</p>
     <fieldset className="settings-card portability-card" disabled={busy}>
       <div className="portability-head"><h5>{t("portability.export")}</h5></div>
-      <SettingsRow label={t("portability.scope")} labelFor="portability-scope" control={<select id="portability-scope" value={kind} onChange={event => { const next = event.target.value as "account" | "bot"; setKind(next); if (next === "bot") { setBotIDs(exportBots[0] ? [exportBots[0].id] : []); setIncluded(c => c.filter(x => x !== "settings" && x !== ENVIRONMENT_CATEGORY)); } }}><option value="account">{t("portability.scope_account")}</option><option value="bot">{t("portability.scope_bot")}</option></select>}/>
+      <SettingsRow label={t("portability.scope")} labelFor="portability-scope" control={<Select id="portability-scope" value={kind} onValueChange={value => { const next = value as "account" | "bot"; setKind(next); if (next === "bot") { setBotIDs(exportBots[0] ? [exportBots[0].id] : []); setIncluded(c => c.filter(x => x !== "settings" && x !== ENVIRONMENT_CATEGORY)); } }}><option value="account">{t("portability.scope_account")}</option><option value="bot">{t("portability.scope_bot")}</option></Select>}/>
       <div className="portability-block">
         <div className="portability-choices">{exportBots.map(bot => choice(bot.id, <input type={kind === "bot" ? "radio" : "checkbox"} name="export-bots" checked={botIDs.includes(bot.id)} onChange={() => setBotIDs(kind === "bot" ? [bot.id] : toggle(botIDs, bot.id))}/>, bot.archived ? t("portability.bot_archived", { name: bot.name }) : bot.name))}</div>
       </div>

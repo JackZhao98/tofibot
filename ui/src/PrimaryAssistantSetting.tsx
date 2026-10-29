@@ -4,6 +4,7 @@ import { useTranslation } from "./i18n";
 import { primaryBotOf } from "./PrimaryAssistant";
 import { SettingsCard, SettingsRow, SettingsSection } from "./settings/components";
 import type { Bot } from "./types";
+import { Select } from "./Select";
 
 /** Settings › General › Primary Assistant. A choice applies at once. */
 export function PrimaryAssistantSetting({ bots, onChanged }: { bots: Bot[]; onChanged?: () => void | Promise<void> }) {
@@ -26,10 +27,10 @@ export function PrimaryAssistantSetting({ bots, onChanged }: { bots: Bot[]; onCh
       {active.length === 0
         ? <SettingsRow label={t("primary.label")} description={t("primary.none")} />
         : <SettingsRow labelFor="primary-assistant" label={t("primary.label")} description={t("primary.hint")}
-            control={<select id="primary-assistant" value={current} disabled={busy} onChange={event => void choose(event.target.value)}>
+            control={<Select id="primary-assistant" value={current} disabled={busy} onValueChange={value => void choose(value)}>
               {!current && <option value="">{t("primary.choose")}</option>}
               {active.map(bot => <option key={bot.id} value={bot.id}>{bot.name}</option>)}
-            </select>} />}
+            </Select>} />}
     </SettingsCard>
     {error && <p className="error-text" role="alert">{error}</p>}
   </SettingsSection>;
