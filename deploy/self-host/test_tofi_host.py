@@ -918,6 +918,59 @@ class LifecycleTests(LifecycleBase):
         tofi_host.upgrade(manifest_path=str(self.write_manifest(manifest())))
         self.assertNotIn('last_update_failure', json.loads(self.P.state_file.read_text()))
 
+    def test_rollback_restores_the_pre_update_database_before_the_old_version_starts(self):
+        """The candidate migrates the database, then fails: the old binary must
+        never see the migrated file (its schema guard would refuse it)."""
+        self.installed()
+        database = self.P.data / 'tofi.db'
+        events = []
+        seen_by_previous = []
+
+        def start(env, **kwargs):
+            if env['TOFI_VERSION'] == NEW:
+                events.append('start-candidate')
+                database.write_bytes(b'migrated-by-candidate')
+                raise tofi_host.HostError('candidate unhealthy')
+            events.append('start-previous')
+            seen_by_previous.append(database.read_bytes())
+
+        self.start_services.side_effect = start
+        self.stopped.side_effect = lambda *a, **k: events.append('stop')
+        real_restore = tofi_host.restore_files
+
+        def restore(backup_id):
+            events.append('restore-data')
+            return real_restore(backup_id)
+
+        with mock.patch.object(tofi_host, 'restore_files', side_effect=restore):
+            with self.assertRaisesRegex(tofi_host.HostError, 'update rejected; previous version restored'):
+                tofi_host.upgrade(manifest_path=str(self.write_manifest(manifest())))
+        self.assertEqual(events, ['stop', 'start-candidate', 'stop', 'restore-data', 'start-previous'])
+        self.assertEqual(seen_by_previous, [DATA])
+        self.assertEqual(database.read_bytes(), DATA)
+
+    def test_resume_of_an_interrupted_update_restores_data_before_starting_the_old_version(self):
+        self.installed()
+        state = json.loads(self.P.state_file.read_text())
+        previous = tofi_host.snapshot()
+        backup = tofi_host.backup_data('pre-update', previous['env'], check_space=False)['id']
+        self.make_bundle(NEW)
+        self.make_guest(NEW)
+        candidate = dict(previous['env'], TOFI_VERSION=NEW, TOFI_GUEST_VERSION=NEW,
+                         TOFI_APP_IMAGE=image('app', '2'), TOFI_WORKER_IMAGE=image('worker', '2'))
+        tofi_host.apply_host_config(self.P.releases / NEW, candidate)
+        tofi_host.switch_current(NEW)
+        (self.P.data / 'tofi.db').write_bytes(b'migrated-by-candidate')
+        state['phase'] = 'upgrading'
+        state['transaction'] = {'kind': 'upgrade', 'step': 'start-candidate', 'previous': previous,
+                                'candidate_version': NEW, 'backup': backup, 'data_changed': True}
+        self.P.state_file.write_text(json.dumps(state))
+        seen = []
+        self.start_services.side_effect = lambda env, **k: seen.append((self.P.data / 'tofi.db').read_bytes())
+        tofi_host.install(None, {'port': 8321})
+        self.assertEqual(seen, [DATA])
+        self.assertEqual(self.phase(), 'installed')
+
     def test_schema_label_mismatch_refuses_before_stop(self):
         self.installed()
         env_bytes = self.P.env_file.read_bytes()
