@@ -76,7 +76,7 @@ export function ApprovalModeSetting() {
 
   return <>
     <SettingsCard>
-      <SettingsRow inline label={t("approval.label")} control={bots === null ? <span className="muted">{t("action.loading_settings")}</span> : <Segmented label={t("approval.label")} value={top} disabled={busy} options={topOptions} onChange={chooseTop}/>}/>
+      <SettingsRow label={t("approval.label")} control={bots === null ? <span className="muted">{t("action.loading_settings")}</span> : <Segmented label={t("approval.label")} value={top} disabled={busy} options={topOptions} onChange={chooseTop}/>}/>
     </SettingsCard>
     {error && <p className="error-text" role="alert">{error}{bots === null && <button type="button" className="text-button" onClick={() => setVersion(current => current + 1)}>{t("action.retry")}</button>}</p>}
     {bots !== null && <SettingsSection title={t("approval.bots_title")} description={locked ? t("approval.bots_locked") : t("approval.bots_description")}>
