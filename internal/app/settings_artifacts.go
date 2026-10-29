@@ -126,7 +126,61 @@ func SettingsRegistryArtifacts(repoRoot string) (map[string][]byte, error) {
 	for id, body := range manualReferencePages(en) {
 		out[manualGeneratedDir+"/"+id+".md"] = []byte(body)
 	}
+	// The words the screen shows, in every language: the manual and the settings tool put them in their answers.
+	for _, lang := range append([]string{"en"}, sortedKeys(uiLanguagesWithoutEnglish())...) {
+		cat := en
+		if lang != "en" {
+			if cat, err = loadLocaleCatalog(repoRoot, lang); err != nil {
+				return nil, err
+			}
+		}
+		terms := map[string]string{}
+		for _, key := range uiTermKeys() {
+			if v, ok := cat[key]; ok && v != "" {
+				terms[key] = v
+			} else if v, ok := en[key]; ok {
+				terms[key] = v
+			}
+		}
+		raw, err := json.MarshalIndent(terms, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+		out[manualGeneratedDir+"/terms/"+lang+".json"] = append(raw, '\n')
+	}
 	return out, nil
+}
+
+func uiLanguagesWithoutEnglish() map[string]bool {
+	out := map[string]bool{}
+	for l := range uiLanguages {
+		if l != "en" {
+			out[l] = true
+		}
+	}
+	return out
+}
+
+// uiTermKeys are the catalog keys whose text the manual and the settings tool quote: every registry label, every page and section name.
+func uiTermKeys() []string {
+	set := map[string]bool{"settings:shell.title": true, "chat:header.bot_settings": true, "chat:header.group_settings": true}
+	for _, d := range settingsRegistry {
+		set[d.LabelKey] = true
+	}
+	for _, list := range [][]settingsPage{settingsTabPages, botSettingsPages, groupSettingsPages} {
+		for _, p := range list {
+			set[p.NameKey] = true
+		}
+	}
+	for _, g := range []string{"models", "replies", "history", "checks", "reliability", "schedules", "computer", "widgets"} {
+		set["settings:automation.group."+g+".title"] = true
+	}
+	keys := make([]string, 0, len(set))
+	for k := range set {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // WriteSettingsRegistryArtifacts writes the generated files and removes stale

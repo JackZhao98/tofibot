@@ -4932,6 +4932,7 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 		base = append(base, s.mailDraftTools(c, r)...)
 	}
 	base = append(base, s.workspaceTools(c, r)...)
+	base = append(base, s.settingsTool(c, r))
 	base = append(base, s.extensionManagementTools(c, r)...)
 	base = append(base, s.attachmentTools(c, r)...)
 	base = append(base, s.imageGenerationTools(c, r)...)

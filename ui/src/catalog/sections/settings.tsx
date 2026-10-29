@@ -4,6 +4,7 @@ import { Banner, DangerZone, FilePicker, Segmented, SettingsCard, SettingsDetail
 import { AppearancePicker, ConfirmAction, Disclosure } from "../../InteractionSystem";
 import { i18n } from "../../i18n";
 import "../../extensions-system.css";
+import "../../settings/section-jump.css";
 import "../../connections/connections.css";
 import { brandIcons } from "../../brandIcons";
 import { ServiceMark } from "../../ServiceMark";
