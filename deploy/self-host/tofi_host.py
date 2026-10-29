@@ -1693,6 +1693,43 @@ def app_docker_health():
     return None
 
 
+RUNNER_READY_SECONDS = 90
+
+
+def runner_container_state():
+    """What Docker says about the Runner container: 'healthy', 'starting',
+    'unhealthy', 'exited', ... or 'missing' when the project has none."""
+    try:
+        for container in project_containers():
+            if service_of(container) == 'runner':
+                state = container.get('State') or {}
+                health = (state.get('Health') or {}).get('Status')
+                if health:
+                    return health
+                return state.get('Status') or 'unknown'
+    except (subprocess.SubprocessError, ValueError, OSError):
+        return 'docker unavailable'
+    return 'missing'
+
+
+def runner_ready(env, attempts=RUNNER_READY_SECONDS):
+    """Wait until the Runner container is healthy; do nothing when this install
+    has no Runner. A Runner that does not come up fails the start, so an update
+    is rolled back instead of reporting success with every local connection down."""
+    if not env.get('TOFI_RUNNER_IMAGE'):
+        return True
+    state = 'missing'
+    for _ in range(attempts):
+        state = runner_container_state()
+        if state == 'healthy' or state == 'running':
+            return True
+        if state in ('exited', 'dead', 'unhealthy'):
+            break
+        time.sleep(1)
+    raise HostError('The Runner container did not become healthy (it is %s); see `tofi logs runner`. '
+                    'Local connections such as Gmail need it.' % state)
+
+
 def start_worker(env, first_install=False):
     """Bring the Worker up and wait for its broker; nothing else is touched."""
     compose('up', '-d', '--no-build', '--pull', 'never', '--remove-orphans', 'worker', env=env)
@@ -1709,6 +1746,7 @@ def start_services(env, first_install=False, state=None):
     services = ['app', 'caddy'] if env.get('TOFI_DOMAIN') else ['app']
     compose('up', '-d', '--no-build', '--pull', 'never', *services, env=env)
     health(env)
+    runner_ready(env)
 
 
 # --------------------------------------------------------------------------
@@ -4277,6 +4315,7 @@ def status(details=False):
         env = None
     if env is not None:
         result['computer_backend'] = backend_of(env)
+        result['runner'] = runner_container_state() if env.get('TOFI_RUNNER_IMAGE') else 'none'
         result['auto_update'] = env.get('TOFI_AUTO_UPDATE') == 'patch'
         if details and result['auto_update']:
             result['next_check'] = auto_update_next_check()
@@ -4398,6 +4437,12 @@ def render_status(result, mode=None, verbose=False, access=None):
         row('Services', ' · '.join('%s %s' % item for item in sorted(services.items())) or 'none running')
     elif services:
         row('Services', services)
+    runner = result.get('runner')
+    if runner == 'none':
+        row('Runner', paint.dim('not installed · local connections run on the computer'))
+    elif runner:
+        row('Runner', paint.color('teal', 'healthy') if runner == 'healthy'
+            else paint.color('peach', '%s · sudo tofi logs runner' % runner))
     row_runs = run_health_summary(result.get('run_health'))
     if row_runs:
         row('Runs', row_runs)
@@ -4558,6 +4603,9 @@ def check_update(version=None, manifest_path=None):
     if has_computer(env):
         components += [('worker', env.get('TOFI_WORKER_IMAGE'), manifest['images']['worker']),
                        ('guest', env.get('TOFI_GUEST_VERSION'), manifest['guest']['version'])]
+    new_runner = manifest_image(manifest, 'runner')
+    if env.get('TOFI_RUNNER_IMAGE') or new_runner:
+        components.append(('runner', env.get('TOFI_RUNNER_IMAGE'), new_runner))
     if env.get('TOFI_DOMAIN'):
         components.append(('caddy', env.get('TOFI_CADDY_IMAGE'), manifest['images']['caddy']))
     try:
@@ -4578,6 +4626,8 @@ def check_update(version=None, manifest_path=None):
     if not schema['compatible'] and report['update_available']:
         report['apply'] += ' --allow-schema-change'
     report['computer_backend'] = backend_of(env)
+    report['adds_runner'] = bool(new_runner) and not env.get('TOFI_RUNNER_IMAGE')
+    report['runner'] = runner_container_state() if env.get('TOFI_RUNNER_IMAGE') else 'none'
     if not has_computer(env):
         report['computers'] = []
         return report
@@ -4597,10 +4647,10 @@ def render_update_check(report):
         lines.append('Notes        %s' % report['notes_url'])
     lines.append('')
     labels = {'version': 'Host bundle', 'app': 'App image', 'worker': 'Worker image',
-              'guest': 'Guest release', 'caddy': 'Caddy image'}
+              'guest': 'Guest release', 'runner': 'Runner image', 'caddy': 'Caddy image'}
     table = []
     for item in report['components']:
-        show = short_digest if item['name'] in ('app', 'worker', 'caddy') else str
+        show = short_digest if item['name'] in ('app', 'worker', 'runner', 'caddy') else str
         table.append([labels[item['name']], show(item['installed']), show(item['available']),
                       'changes' if item['changes'] else 'same'])
     schema = report['data_schema']
@@ -4608,8 +4658,13 @@ def render_update_check(report):
                None: 'installed schema unknown'}[schema['compatible']]
     table.append(['Data schema', schema['installed'] or '?', schema['available'], verdict])
     lines += format_table(['COMPONENT', 'INSTALLED', 'AVAILABLE', ''], table)
+    if report.get('runner') not in (None, 'none'):
+        lines += ['', 'Runner       %s now' % report['runner']]
     if report['update_available']:
         lines.append('')
+        if report.get('adds_runner'):
+            lines += ['Runner       adds the local MCP Runner container: Gmail and other local connections move into it',
+                      '             and need iptables on this host to fence it; if it does not start, the update rolls back']
         if report.get('computer_backend') == 'none':
             lines.append('Computer     none: nothing to restart or download for it')
         elif report.get('computers') is None:

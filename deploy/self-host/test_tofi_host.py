@@ -2315,6 +2315,35 @@ class NoComputerDiagnosticsTests(NoComputerCase):
         self.assertNotIn('Guest', text)
         self.assertIn('tofi computer add kvm', text.splitlines()[-1])
 
+    def test_status_shows_the_runner_line(self):
+        env = self.installed_none()
+        text = tofi_host.render_status({'phase': 'installed', 'version': OLD, 'healthy': True, 'runner': 'none'}, None)
+        self.assertIn('Runner       not installed', text)
+        env['TOFI_RUNNER_IMAGE'] = 'ghcr.io/jackzhao98/tofi-mcp-runner@sha256:' + '4' * 64
+        tofi_host.write_env(env)
+        for runner_state, shown in (('healthy', 'Runner       healthy'), ('exited', 'Runner       exited · sudo tofi logs runner')):
+            containers = [{'Config': {'Labels': {'com.docker.compose.service': 'runner'}}, 'State': {'Status': runner_state}}]
+            if runner_state == 'healthy':
+                containers[0]['State']['Health'] = {'Status': 'healthy'}
+            with mock.patch.object(tofi_host, 'health', return_value=True), \
+                    mock.patch.object(tofi_host, 'project_containers', return_value=containers):
+                result = tofi_host.status(details=True)
+            self.assertEqual(result['runner'], runner_state)
+            self.assertIn(shown, tofi_host.render_status(result, None))
+
+    def test_update_check_announces_that_the_update_adds_the_runner(self):
+        self.installed_none()
+        candidate = manifest(NEW, '2')
+        candidate['optional_images'] = {'runner': tofi_host.OPTIONAL_IMAGE_REPOS['runner'] + '@sha256:' + '6' * 64}
+        with mock.patch.object(tofi_host, 'fetch_manifest', return_value=candidate):
+            code, out = self.main('update', '--check')
+            self.assertIn('Runner image', out)
+            self.assertIn('adds the local MCP Runner container', out)
+            code, out = self.main('update', '--check', '--json')
+        report = json.loads(out)
+        self.assertTrue(report['adds_runner'])
+        self.assertIn('runner', [c['name'] for c in report['components']])
+
     def test_status_with_a_computer_is_unchanged(self):
         self.installed()
         with mock.patch.object(tofi_host, 'health', return_value=True), \
@@ -3071,16 +3100,45 @@ class RunnerEgressFilterTests(HostCase):
         self.assertIn('TOFI_RUNNER_UNFENCED=1', str(raised.exception))
         self.assertFalse([c for c in self.commands if 'up' in c], self.commands)
         env['TOFI_RUNNER_UNFENCED'] = '1'
-        with mock.patch.object(tofi_host, 'health'):
+        with mock.patch.object(tofi_host, 'health'), mock.patch.object(tofi_host, 'runner_ready'):
             REAL_START_SERVICES(env)
         self.assertTrue([c for c in self.commands if 'up' in c])
+
+    RUNNER_ENV = {'TOFI_COMPUTER_BACKEND': 'none', 'TOFI_RUNNER_IMAGE': 'ghcr.io/jackzhao98/tofi-mcp-runner@sha256:' + '4' * 64}
+
+    @staticmethod
+    def runner_container(status, health=None):
+        state = {'Status': status}
+        if health:
+            state['Health'] = {'Status': health}
+        return [{'Config': {'Labels': {'com.docker.compose.service': 'app'}}, 'State': {'Status': 'running', 'Health': {'Status': 'healthy'}}},
+                {'Config': {'Labels': {'com.docker.compose.service': 'runner'}}, 'State': state}]
+
+    def test_start_fails_when_the_runner_container_does_not_come_up(self):
+        for containers, shown in ((self.runner_container('exited'), 'exited'), (self.runner_container('running', 'unhealthy'), 'unhealthy'),
+                                  (self.runner_container('created', 'starting'), 'starting'),
+                                  ([self.runner_container('running')[0]], 'missing')):
+            with self.subTest(shown=shown), mock.patch.object(tofi_host, 'health'), \
+                    mock.patch.object(tofi_host, 'project_containers', return_value=containers):
+                with self.assertRaisesRegex(tofi_host.HostError, r'Runner container did not become healthy \(it is %s\)' % shown):
+                    REAL_START_SERVICES(dict(self.RUNNER_ENV))
+
+    def test_start_waits_for_a_healthy_runner_and_ignores_installs_without_one(self):
+        sequence = [self.runner_container('running', 'starting'), self.runner_container('running', 'healthy')]
+        with mock.patch.object(tofi_host, 'health'), mock.patch.object(tofi_host, 'project_containers', side_effect=sequence):
+            REAL_START_SERVICES(dict(self.RUNNER_ENV))
+        env = {'TOFI_COMPUTER_BACKEND': 'none'}
+        with mock.patch.object(tofi_host, 'health'), mock.patch.object(tofi_host, 'project_containers') as containers:
+            REAL_START_SERVICES(env)
+        containers.assert_not_called()
 
     def test_iptables_is_a_required_host_tool(self):
         self.assertIn('iptables', tofi_host.REQUIRED_TOOLS)
 
     def test_start_services_fences_the_runner_before_it_can_run_and_only_when_there_is_one(self):
         env = {'TOFI_COMPUTER_BACKEND': 'none', 'TOFI_RUNNER_IMAGE': 'ghcr.io/jackzhao98/tofi-mcp-runner@sha256:' + '4' * 64}
-        with mock.patch.object(tofi_host, 'health'), mock.patch.object(tofi_host, 'read_env', return_value=env):
+        with mock.patch.object(tofi_host, 'health'), mock.patch.object(tofi_host, 'runner_ready'), \
+                mock.patch.object(tofi_host, 'read_env', return_value=env):
             REAL_START_SERVICES(env)
         first_firewall = next(i for i, c in enumerate(self.commands) if c[0] == 'iptables')
         first_up = next(i for i, c in enumerate(self.commands) if 'up' in c)
