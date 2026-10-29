@@ -169,3 +169,24 @@ func (sr settingRun) deleteTarget(id string, bot bool) error {
 	sr.s.cancelInactiveRuns()
 	return nil
 }
+
+// connectResult answers connection.connect. Signing in needs the person, so the key changes nothing: it returns the status of the
+// connection, the page and what to do next. In a conversation a person can see, the Bot starts the sign-in with request_connection.
+func (sr settingRun) connectResult(d SettingDef, t Target, lang string) (string, error) {
+	status := "unknown"
+	if servers, err := sr.s.extensions.ListMCP(); err == nil {
+		for _, v := range servers {
+			if v.Name == t.Connection {
+				status = connectionStatusWord(v)
+			}
+		}
+	}
+	next := "Give the person the link: the sign-in is on the connection's page."
+	switch {
+	case status == "connected":
+		next = "The connection is signed in already. Nothing to do."
+	case sr.c.UserVisible:
+		next = "A person can see this conversation: call request_connection so the person signs in now. Give the link when they want to do it later."
+	}
+	return settingsOutput(map[string]any{"applied": false, "key": d.Key, "connection": t.Connection, "status": status, "next": next, "link": settingLinkPath(d, t), "link_label": settingLinkLabel(d, lang)})
+}

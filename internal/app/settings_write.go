@@ -232,6 +232,9 @@ func (sr settingRun) set(ctx context.Context, in settingsToolInput) (string, err
 	if d.Risk.Self == RiskForbidden {
 		return "", sr.forbiddenError(d, t, lang)
 	}
+	if d.Key == "connection.connect" {
+		return sr.connectResult(d, t, lang)
+	}
 	b := settingBindings[d.Key]
 	if b == nil || b.write == nil {
 		return "", settingsDenied("settings_not_settable", fmt.Sprintf("The tool does not change this key. The person changes it on its page: %s (%s)", settingLinkLabel(d, lang), settingLinkPath(d, t)))
