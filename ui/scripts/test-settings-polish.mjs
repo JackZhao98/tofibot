@@ -43,7 +43,7 @@ const {default: react} = await import("@vitejs/plugin-react");
 
 // The single allowed set of design-system button classes (all defined in the shared CSS), plus containers whose
 // buttons are styled as a group (segmented control, tab strips, the settings rail).
-const ALLOWED_BUTTON_CLASSES = ["primary-button", "secondary-button", "text-button", "settings-ghost-button", "admin-danger-button", "purge-button", "close-button", "settings-banner-more", "mcp-button", "mcp-service-open", "mcp-detail-back", "mcp-tier-trigger", "mcp-empty-tile", "settings-mrow", "settings-back", "admin-row", "disclosure-toggle", "integration-tile", "integration-custom", "extension-back", "settings-dismiss", "danger-link", "onb-choice", "onb-quiet", "onb-skip", "onb-later", "onb-tile", "onb-service-main", "onb-primary", "update-banner-dismiss"];
+const ALLOWED_BUTTON_CLASSES = ["primary-button", "secondary-button", "text-button", "settings-ghost-button", "admin-danger-button", "purge-button", "close-button", "settings-banner-more", "mcp-button", "mcp-service-open", "mcp-detail-back", "mcp-tier-trigger", "mcp-empty-tile", "settings-mrow", "settings-mfold", "settings-back", "admin-row", "disclosure-toggle", "integration-tile", "integration-custom", "extension-back", "settings-dismiss", "danger-link", "onb-choice", "onb-quiet", "onb-skip", "onb-later", "onb-tile", "onb-service-main", "onb-primary", "update-banner-dismiss"];
 const ALLOWED_BUTTON_CONTAINERS = [".segmented", ".settings-tabs", ".settings-segment", ".credential-tabs", ".appearance-options", ".onb-seg", ".emoji-mart", ".usage-agents", ".usage-ranges"];
 
 const SIZES = {"1440": [1440, 900], "1180": [1180, 820], "1024": [1024, 768], "390": [390, 844]};
@@ -247,7 +247,7 @@ import {useAppearance} from '../src/InteractionSystem';
 import {SettingsShell,type SettingsEntry,type SettingsTab,type SettingsView} from '../src/SettingsShell';
 import {SettingsPages} from '../src/settings/SettingsPages';
 import {subscribeSettingsDeepLinks} from '../src/settings/deepLinks';
-import {CodexPanel,NotificationSetting} from '../src/settings/AppSlots';
+import {CodexPanel} from '../src/settings/AppSlots';
 import {UpdateBanner} from '../src/UpdateNotice';
 const query=new URLSearchParams(location.search);
 const bots=[{id:'bot_research',name:'Research Bot',is_primary:true,archived:false,model:'default',reasoning_effort:'default'},{id:'bot_inbox',name:'Inbox Bot',archived:false,model:'gpt-6-luna',reasoning_effort:'medium'},{id:'bot_notes',name:'Notes Bot',archived:false,model:'default',reasoning_effort:'default'},{id:'bot_old',name:'Retired Bot',archived:true,model:'default',reasoning_effort:'default'}] as any;
@@ -259,7 +259,7 @@ function Fixture(){
  const [file,setFile]=useState<File|undefined>(undefined);
  const openSettings=(next:SettingsTab,view:SettingsView='page')=>{setTab(next);setEntry(current=>({seq:current.seq+1,view}))};
  useEffect(()=>subscribeSettingsDeepLinks(next=>openSettings(next)),[]);
- return <div className="workspace"><UpdateBanner/><div className="workspace-grid"><button type="button" className="detail-backdrop" aria-label="Close"/><aside className="detail-pane visible" role="dialog" aria-modal="true">{!closed&&<SettingsShell tab={tab} onTab={setTab} onClose={()=>setClosed(true)} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" portabilityFile={file} onPortabilityFileConsumed={()=>setFile(undefined)} appearance={appearance} extensionRefresh={0} openTab={next=>openSettings(next)} slots={{codex:<CodexPanel refreshToken={0} onConfigured={()=>{}}/>,notifications:<NotificationSetting/>,providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/>}</aside></div></div>;
+ return <div className="workspace"><UpdateBanner/><div className="workspace-grid"><button type="button" className="detail-backdrop" aria-label="Close"/><aside className="detail-pane visible" role="dialog" aria-modal="true">{!closed&&<SettingsShell tab={tab} onTab={setTab} onClose={()=>setClosed(true)} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" portabilityFile={file} onPortabilityFileConsumed={()=>setFile(undefined)} appearance={appearance} extensionRefresh={0} openTab={next=>openSettings(next)} slots={{codex:<CodexPanel refreshToken={0} onConfigured={()=>{}}/>,providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/>}</aside></div></div>;
 }
 void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><OwnerSessionGate><Fixture/></OwnerSessionGate></TimezoneProvider>));
 `);
@@ -440,7 +440,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   };
   const scenarios = [];
   const tabScenario = (id, tab) => scenarios.push({id, tab, run: async () => {}});
-  for (const tab of ["general", "connections", "skills", "permissions", "followups", "models", "automation", "computer", "keys", "usage", "advanced", "admin"]) tabScenario(tab, tab);
+  for (const tab of ["general", "connections", "skills", "permissions", "allowances", "followups", "models", "tools", "automation", "computer", "devices", "keys", "usage", "advanced", "admin"]) tabScenario(tab, tab);
   scenarios.push(
     // Sign-in in progress shows no illustration (the old TOFI / key diagram is gone); the only cue is the primary button.
     {id: "connections-signin", tab: "connections", run: async ({page}) => {
@@ -470,7 +470,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     {id: "connections-directory", tab: "connections", container: ".sheet", run: async ({page}) => { await click(page.getByRole("button", {name: "Add connection"}), "Connections: Add connection"); await page.locator(".connect-dialog").waitFor({timeout: 4000}); await click(page.getByRole("button", {name: /Google Workspace servers/}), "Connections: Workspace preview"); await page.waitForTimeout(500); }},
     {id: "skills-paste", tab: "skills", run: async ({page}) => { await click(page.getByRole("button", {name: /Paste SKILL\.md/}), "Skills: paste"); await page.waitForTimeout(500); }},
     {id: "skills-bundle-open", tab: "skills", run: async ({page}) => { await click(page.getByRole("button", {name: /Show 2 Skills/}), "Skills: show bundle members"); await page.getByRole("button", {name: /Versions \(2\)/}).click().catch(() => warnings.push("step skipped: versions disclosure")); await page.waitForTimeout(400); }},
-    {id: "permissions-modes", tab: "permissions", run: async ({page}) => { await page.locator("#auto-review-mode").selectOption({index: 1}).catch(() => warnings.push("step skipped: approvals mode select")); await page.waitForTimeout(300); }},
+    {id: "permissions-modes", tab: "allowances", run: async ({page}) => { await page.locator("#auto-review-mode").selectOption({index: 1}).catch(() => warnings.push("step skipped: approvals mode select")); await page.waitForTimeout(300); }},
     {id: "models-key-form", tab: "models", run: async ({page}) => { await page.locator(".provider-key-row input").first().fill("sk-proj-synthetic-0000000000").catch(() => warnings.push("step skipped: provider key input")); await page.waitForTimeout(400); }},
     {id: "keys-add-env", tab: "keys", run: async ({page}) => { await click(page.getByRole("button", {name: /Add environment variable|Add variable/}), "Keys: add env"); await page.waitForTimeout(500); }},
     {id: "keys-ssh", tab: "keys", run: async ({page}) => { await click(page.getByRole("tab").nth(1), "Keys: SSH tab"); await page.waitForTimeout(400); await click(page.getByRole("button", {name: /Show public|public key/i}), "Keys: show public key"); await click(page.getByRole("button", {name: /Add (SSH )?key/}), "Keys: add key"); await page.waitForTimeout(500); }},

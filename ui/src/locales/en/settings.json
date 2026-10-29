@@ -1,10 +1,10 @@
 {
   "language": {
     "title": "Language",
-    "note": "The language for Tofi's interface. Auto follows your browser.",
     "label": "Interface language",
     "auto": "Auto ({{language}})",
-    "save_failed": "Language changed on this device but couldn't be saved to your account. Try again later."
+    "save_failed": "Language changed on this device but couldn't be saved to your account. Try again later.",
+    "default": "Default"
   },
   "timezone": {
     "label": "Timezone",
@@ -30,7 +30,8 @@
       "you": "You",
       "bots": "Bots can use",
       "workspace": "Workspace",
-      "system": "System"
+      "system": "System",
+      "more": "Advanced"
     },
     "page": {
       "general": {
@@ -47,15 +48,15 @@
       },
       "permissions": {
         "name": "Permissions",
-        "description": "What asks you first, and what you’ve allowed."
+        "description": "Choose when Bots ask first"
       },
       "followups": {
-        "name": "Follow-ups (preview)",
+        "name": "Follow-ups",
         "description": "See what Bots would remind you about"
       },
       "models": {
         "name": "Models",
-        "description": "Where Bots get their brains, and which they use by default."
+        "description": "Providers and the default model."
       },
       "computer": {
         "name": "Computer",
@@ -71,16 +72,28 @@
         "description": "Model usage and context compaction for each agent"
       },
       "advanced": {
-        "name": "Advanced",
-        "description": "Server details, data transfer, debugging and Start over."
+        "name": "Maintenance",
+        "description": "Version, server, data, debugging and Start over."
       },
       "admin": {
         "name": "Admin console",
         "description": "Invite, manage and deactivate accounts"
       },
       "automation": {
-        "name": "Automatic behavior",
+        "name": "Behavior",
         "description": "See and adjust what Tofi does on its own"
+      },
+      "allowances": {
+        "name": "Tool rules",
+        "description": "Reviewer, how tools ask, and what you’ve allowed"
+      },
+      "tools": {
+        "name": "Search & fetch",
+        "description": "Where Bots search and read the web"
+      },
+      "devices": {
+        "name": "Other devices",
+        "description": "Connect a Mac that has the Tofi app"
       }
     },
     "category": "Settings category",
@@ -111,12 +124,16 @@
         "waiting": "Waiting",
         "none": "Not added"
       }
+    },
+    "tag": {
+      "beta": "Beta",
+      "dev": "In development"
     }
   },
   "appearance": {
-    "title": "Appearance",
-    "label": "Appearance theme",
-    "system": "Match system",
+    "title": "Theme",
+    "label": "Theme",
+    "system": "System",
     "light": "Light",
     "dark": "Dark"
   },
@@ -161,7 +178,6 @@
   },
   "providers": {
     "title": "Model providers",
-    "description": "Connect any one to get started. Models from connected providers appear in the model lists for Bots and the global model.",
     "load_failed": "Couldn't load model provider status.",
     "openai_description": "Use an OpenAI API key for GPT and o-series models, billed by API usage.",
     "anthropic_description": "Use an Anthropic API key for Claude models, billed by API usage.",
@@ -467,7 +483,7 @@
       "once": "Shown once. Tofi doesn't keep it after you continue.",
       "expires": "Available until {{date}}.",
       "message_label": "Message to send",
-      "message": "Your TOFI account was closed. Download your Bots: {{link}} (passphrase sent separately), available until {{date}}. Import it in Tofi: Settings → Advanced → Data transfer, then enter the passphrase.",
+      "message": "Your TOFI account was closed. Download your Bots: {{link}} (passphrase sent separately), available until {{date}}. Import it in Tofi: Settings → Maintenance → Data transfer, then enter the passphrase.",
       "message_note": "Send the passphrase in a different message or channel.",
       "copy_message": "Copy message",
       "done": "I've saved the passphrase"
@@ -683,12 +699,8 @@
   },
   "general": {
     "region": "Language and region",
-    "moved_title": "Looking for export, server info or Start over?",
-    "moved_body": "They moved to Advanced.",
-    "open_advanced": "Open Advanced",
-    "chat": "Chat",
+    "chat": "Chats",
     "activity_title": "Show activity in chats",
-    "activity_note": "Show the steps a Bot took under its replies. Off by default; you can still open them from a message's action menu.",
     "activity_save_failed": "Couldn't save. Try again."
   },
   "advanced": {
@@ -1025,7 +1037,7 @@
     "save_failed": "Couldn't save the change.",
     "remove_failed": "Couldn't remove it.",
     "master_off_title": "Web lookups are off",
-    "master_off_body": "Turn on Web search in Automatic behavior to let Bots search and read pages.",
+    "master_off_body": "Turn on Web search in Behavior to let Bots search and read pages.",
     "no_search_title": "No search source is set up",
     "no_search_body": "Bots can't search the web yet. Add a key or an address below. Reading a page by address still works.",
     "search_title": "Search",
@@ -1127,5 +1139,14 @@
       "write": "The default. Each call is reviewed: what you asked for runs, the rest asks you.",
       "high": "You decide every call. When no one is there to ask, the call does not run."
     }
+  },
+  "chats": {
+    "task_notifications": "Task result notifications",
+    "chat_notifications": "Chat notifications"
+  },
+  "approval": {
+    "label": "Approval mode for this account",
+    "auto": "Auto",
+    "ask": "Ask before edits"
   }
 }

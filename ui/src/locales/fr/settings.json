@@ -1,10 +1,10 @@
 {
   "language": {
     "title": "Langue",
-    "note": "La langue de l’interface de Tofi. « Automatique » suit votre navigateur.",
     "label": "Langue de l’interface",
     "auto": "Automatique ({{language}})",
-    "save_failed": "La langue a changé sur cet appareil, mais n’a pas pu être enregistrée dans votre compte. Réessayez plus tard."
+    "save_failed": "La langue a changé sur cet appareil, mais n’a pas pu être enregistrée dans votre compte. Réessayez plus tard.",
+    "default": "Par défaut"
   },
   "timezone": {
     "label": "Fuseau horaire",
@@ -30,7 +30,8 @@
       "you": "Vous",
       "bots": "Utilisé par les Bots",
       "workspace": "Espace de travail",
-      "system": "Système"
+      "system": "Système",
+      "more": "Avancé"
     },
     "page": {
       "general": {
@@ -47,15 +48,15 @@
       },
       "permissions": {
         "name": "Autorisations",
-        "description": "Ce qui vous demande d’abord et ce que vous avez autorisé."
+        "description": "Quand les Bots demandent d’abord"
       },
       "followups": {
-        "name": "Relances (aperçu)",
+        "name": "Relances",
         "description": "Voir ce dont les Bots vous rappelleraient"
       },
       "models": {
         "name": "Modèles",
-        "description": "D’où viennent les modèles des Bots et lequel est utilisé par défaut."
+        "description": "Fournisseurs et modèle par défaut."
       },
       "computer": {
         "name": "Ordinateur",
@@ -71,16 +72,28 @@
         "description": "Consommation des modèles et compression du contexte par agent"
       },
       "advanced": {
-        "name": "Avancé",
-        "description": "Infos serveur, transfert de données, débogage et réinitialisation."
+        "name": "Maintenance",
+        "description": "Version, serveur, données, débogage et réinitialisation."
       },
       "admin": {
         "name": "Console Admin",
         "description": "Inviter, gérer et désactiver des comptes"
       },
       "automation": {
-        "name": "Comportements automatiques",
+        "name": "Comportement",
         "description": "Voir et ajuster ce que Tofi fait tout seul"
+      },
+      "allowances": {
+        "name": "Règles des outils",
+        "description": "Relecteur, demandes des outils et autorisations"
+      },
+      "tools": {
+        "name": "Recherche et lecture",
+        "description": "Où les Bots cherchent et lisent le web"
+      },
+      "devices": {
+        "name": "Autres appareils",
+        "description": "Connecter un Mac avec l’app Tofi"
       }
     },
     "category": "Catégorie de réglages",
@@ -111,12 +124,16 @@
         "waiting": "En attente",
         "none": "Aucun"
       }
+    },
+    "tag": {
+      "beta": "Bêta",
+      "dev": "En développement"
     }
   },
   "appearance": {
-    "title": "Apparence",
-    "label": "Thème d’apparence",
-    "system": "Comme le système",
+    "title": "Thème",
+    "label": "Thème",
+    "system": "Système",
     "light": "Clair",
     "dark": "Sombre"
   },
@@ -162,7 +179,6 @@
   },
   "providers": {
     "title": "Fournisseurs de modèles",
-    "description": "Un seul suffit pour commencer. Les modèles des fournisseurs connectés apparaissent dans les listes de modèles des Bots et du modèle global.",
     "load_failed": "Impossible de charger l’état des fournisseurs de modèles.",
     "openai_description": "Utilise une clé API OpenAI pour les modèles GPT et de la série o, facturés à l’usage de l’API.",
     "anthropic_description": "Utilise une clé API Anthropic pour les modèles Claude, facturés à l’usage de l’API.",
@@ -472,7 +488,7 @@
       "once": "Affichée une seule fois. Tofi ne la conserve pas après cette étape.",
       "expires": "Disponible jusqu’au {{date}}.",
       "message_label": "Message à envoyer",
-      "message": "Votre compte TOFI a été fermé. Téléchargez vos Bots : {{link}} (phrase secrète envoyée séparément), disponible jusqu’au {{date}}. Importez-les dans Tofi : Réglages → Avancé → Transfert de données, puis saisissez la phrase secrète.",
+      "message": "Votre compte TOFI a été fermé. Téléchargez vos Bots : {{link}} (phrase secrète envoyée séparément), disponible jusqu’au {{date}}. Importez-les dans Tofi : Réglages → Maintenance → Transfert de données, puis saisissez la phrase secrète.",
       "message_note": "Envoyez la phrase secrète dans un autre message ou par un autre canal.",
       "copy_message": "Copier le message",
       "done": "J’ai enregistré la phrase secrète"
@@ -692,12 +708,8 @@
   },
   "general": {
     "region": "Langue et région",
-    "moved_title": "Vous cherchez l’export, les infos serveur ou Repartir de zéro ?",
-    "moved_body": "Ils se trouvent désormais dans Avancé.",
-    "open_advanced": "Ouvrir Avancé",
-    "chat": "Discussion",
+    "chat": "Discussions",
     "activity_title": "Afficher l’activité dans les discussions",
-    "activity_note": "Affiche les étapes d’un Bot sous ses réponses. Désactivé par défaut ; elles restent accessibles depuis le menu d’actions d’un message.",
     "activity_save_failed": "Échec de l’enregistrement. Réessayez."
   },
   "advanced": {
@@ -1034,7 +1046,7 @@
     "save_failed": "Impossible d'enregistrer la modification.",
     "remove_failed": "Impossible de supprimer.",
     "master_off_title": "Les recherches web sont désactivées",
-    "master_off_body": "Activez la recherche web dans « Comportement automatique » pour que les Bots puissent chercher et lire des pages.",
+    "master_off_body": "Activez la recherche web dans « Comportement » pour que les Bots puissent chercher et lire des pages.",
     "no_search_title": "Aucune source de recherche configurée",
     "no_search_body": "Les Bots ne peuvent pas encore chercher sur le web. Ajoutez une clé ou une adresse ci-dessous. La lecture d'une page par adresse reste disponible.",
     "search_title": "Recherche",
@@ -1137,5 +1149,14 @@
       "write": "Par défaut. Chaque appel est examiné : ce que vous avez demandé s’exécute, le reste vous demande d’abord.",
       "high": "Vous décidez de chaque appel. Sans personne à qui demander, l’appel ne s’exécute pas."
     }
+  },
+  "chats": {
+    "task_notifications": "Notifications de résultats de tâches",
+    "chat_notifications": "Notifications de discussion"
+  },
+  "approval": {
+    "label": "Mode d’approbation de ce compte",
+    "auto": "Auto",
+    "ask": "Demander avant de modifier"
   }
 }

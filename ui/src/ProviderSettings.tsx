@@ -28,12 +28,11 @@ export function ModelProviders({codex, refreshToken, onConfigured}: {codex: Reac
   return () => controller.abort();
  }, [refreshToken, version]);
  const update = (next: ModelProviderStatus) => setProviders(current => current ? current.some(item => item.id === next.id) ? current.map(item => item.id === next.id ? next : item) : [...current, next] : [next]);
- return <SettingsSection className="model-providers" title={t("providers.title")} description={t("providers.description")}>
+ return <SettingsSection className="model-providers" title={t("providers.title")}>
   {error && <p className="error-text" role="alert">{error} <button type="button" className="text-button" onClick={() => setVersion(value => value + 1)}>{t("action.retry")}</button></p>}
-  <SettingsCard className="provider-list">
-   {codex}
-   {keyProviders.map(item => <ApiKeyProviderCard key={item.id} {...item} status={providers?.find(provider => provider.id === item.id)} loading={!providers && !error} onChange={next => { if (next) update(next); else setVersion(value => value + 1); onConfigured(); }} />)}
-  </SettingsCard>
+  {/* One card per provider: its sign-in or key, status and removal never share a box with another service. */}
+  <SettingsCard className="provider-list provider-codex">{codex}</SettingsCard>
+  {keyProviders.map(item => <SettingsCard key={item.id} className={`provider-list provider-${item.id}`}><ApiKeyProviderCard {...item} status={providers?.find(provider => provider.id === item.id)} loading={!providers && !error} onChange={next => { if (next) update(next); else setVersion(value => value + 1); onConfigured(); }} /></SettingsCard>)}
  </SettingsSection>;
 }
 
@@ -76,7 +75,7 @@ function ApiKeyProviderCard({id, label, description, placeholder, status, loadin
  }
  const saveButton = <button type="submit" className="primary-button" disabled={verifying || !key.trim() || (id === "anthropic" && !workspace.trim())}>{verifying ? t("providers.verifying") : t("providers.save")}</button>;
  return <article className="detail-content provider-card" aria-labelledby={`${inputId}-title`} aria-busy={verifying || loading}>
-  <div className="provider-card-head"><div><h3 id={`${inputId}-title`}>{label}</h3><p>{t(description)}</p></div><span className="provider-card-marks"><StatusBadge state={loading ? "testing" : !configured ? "need" : failed ? "bad" : "ok"} /><span className="settings-tag">{t("providers.api_key_tag")}</span></span></div>
+  <div className="provider-card-head"><div><h3 id={`${inputId}-title`}>{label}</h3></div><span className="provider-card-marks"><StatusBadge state={loading ? "testing" : !configured ? "need" : failed ? "bad" : "ok"} /><span className="settings-tag">{t("providers.api_key_tag")}</span></span></div>
   <div className={`codex-status provider-status ${state}`} role="status"><span className="status-dot" />{statusText}</div>
   <form className="provider-key-form" onSubmit={event => void save(event)}>
    <label htmlFor={inputId}>{configured ? t("providers.replace_label", {provider: label}) : t("providers.key_label", {provider: label})}</label>

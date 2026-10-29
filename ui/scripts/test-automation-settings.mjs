@@ -33,10 +33,10 @@ try {
 import React from 'react';import {createRoot} from 'react-dom/client';
 import {i18nReady,setLanguage} from '../src/i18n';
 import {AutomationSettings} from '../src/AutomationSettings';
-import {PermissionsPage} from '../src/settings/SettingsPages';
+import {AllowancesPage} from '../src/settings/SettingsPages';
 import {TimezoneProvider} from '../src/UserTimezone';
 const query=new URLSearchParams(location.search);
-void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><div className="workspace"><div className="settings-page-body" data-page={query.get('page')||'automation'}>{query.get('page')==='permissions'?<PermissionsPage openTab={tab=>{(window as any).__openTab=tab}}/>:<AutomationSettings onOpenPermissions={()=>{(window as any).__openTab='permissions'}}/>}</div></div></TimezoneProvider>));
+void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><div className="workspace"><div className="settings-page-body" data-page={query.get('page')||'automation'}>{query.get('page')==='permissions'?<AllowancesPage openTab={tab=>{(window as any).__openTab=tab}}/>:<AutomationSettings onOpenPermissions={()=>{(window as any).__openTab='permissions'}}/>}</div></div></TimezoneProvider>));
 `);
   server = await createServer({configFile: false, root: ui, plugins: [react()], server: {host: "127.0.0.1", port: 0, hmr: false}, logLevel: "error"});
   await server.listen();

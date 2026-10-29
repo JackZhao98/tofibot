@@ -14,17 +14,19 @@ const {createServer} = await import("vite");
 const {default: react} = await import("@vitejs/plugin-react");
 
 const LANGS = ["en", "zh-CN", "zh-TW", "ja", "ko", "de", "fr"];
-const TABS = ["general", "connections", "skills", "permissions", "followups", "models", "automation", "computer", "keys", "usage", "advanced"];
-const ICONS = {general: "sliders", connections: "plug", skills: "skill", permissions: "shield-check", followups: "bell", models: "sparkles", automation: "workflow", computer: "monitor", keys: "key", usage: "progress", advanced: "settings", admin: "group"};
-const NAMES = {general: "General", connections: "Connections", skills: "Skills", permissions: "Permissions", followups: "Follow-ups (preview)", models: "Models", automation: "Automatic behavior", computer: "Computer", keys: "Computer keys", usage: "Usage", advanced: "Advanced", admin: "Admin console"};
+// The rail with the Advanced group folded; the folded group holds ADV_TABS ("advanced" is the System page, labelled Maintenance).
+const TABS = ["general", "connections", "skills", "permissions", "models", "tools", "automation", "computer", "keys", "usage", "advanced"];
+const ADV_TABS = ["allowances", "followups", "devices"];
+const ICONS = {general: "sliders", connections: "plug", skills: "skill", permissions: "shield-check", allowances: "checklist", followups: "bell", devices: "laptop", models: "sparkles", tools: "globe", automation: "workflow", computer: "monitor", keys: "key", usage: "progress", advanced: "settings", admin: "group"};
+const NAMES = {general: "General", connections: "Connections", skills: "Skills", permissions: "Permissions", allowances: "Tool rules", followups: "Follow-ups", devices: "Other devices", models: "Models", tools: "Search & fetch", automation: "Behavior", computer: "Computer", keys: "Computer keys", usage: "Usage", advanced: "Maintenance", admin: "Admin console"};
 
 // ---- Catalog checks (every locale): groups, page names and descriptions are real translations.
 const catalogs = {};
 for (const lang of LANGS) catalogs[lang] = JSON.parse(await readFile(join(ui, "src/locales", lang, "settings.json"), "utf8"));
 for (const lang of LANGS) {
   const shell = catalogs[lang].shell;
-  assert.deepEqual(Object.keys(shell.group).sort(), ["bots", "system", "workspace", "you"], `${lang}: shell.group keys`);
-  assert.deepEqual(Object.keys(shell.page).sort(), [...TABS, "admin"].sort(), `${lang}: shell.page keys (no stale tab ids)`);
+  assert.deepEqual(Object.keys(shell.group).sort(), ["bots", "more", "system", "workspace", "you"], `${lang}: shell.group keys`);
+  assert.deepEqual(Object.keys(shell.page).sort(), [...TABS, ...ADV_TABS, "admin"].sort(), `${lang}: shell.page keys (no stale tab ids)`);
   let sameAsEnglish = 0;
   for (const [id, page] of Object.entries(shell.page)) {
     assert.ok(page.name && page.description, `${lang}: ${id} needs a name and a description`);
@@ -40,7 +42,7 @@ for (const lang of LANGS) {
     if (lang !== "en") assert.notEqual(catalogs[lang].dictation.model[id].hint, catalogs.en.dictation.model[id].hint, `${lang}: dictation hint is an English copy`);
   }
 }
-console.log(`PASS catalogs: ${LANGS.length} locales have groups, 12 page names, descriptions of at most 70 characters, dictation copy`);
+console.log(`PASS catalogs: ${LANGS.length} locales have groups, 15 page names, descriptions of at most 70 characters, dictation copy`);
 
 const shots = process.env.SETTINGS_SHOTS;
 if (shots) await mkdir(shots, {recursive: true});
@@ -61,7 +63,7 @@ import {useAppearance} from '../src/InteractionSystem';
 import {SettingsShell,type SettingsEntry,type SettingsTab,type SettingsView} from '../src/SettingsShell';
 import {SettingsPages} from '../src/settings/SettingsPages';
 import {subscribeSettingsDeepLinks} from '../src/settings/deepLinks';
-import {CodexPanel,NotificationSetting} from '../src/settings/AppSlots';
+import {CodexPanel} from '../src/settings/AppSlots';
 import {UpdateBanner} from '../src/UpdateNotice';
 const query=new URLSearchParams(location.search);
 const bots=[{id:'bot_research',name:'Research Bot',is_primary:true,archived:false,model:'default',reasoning_effort:'default'},{id:'bot_inbox',name:'Inbox Bot',archived:false,model:'gpt-6-luna',reasoning_effort:'medium'},{id:'bot_notes',name:'Notes Bot',archived:false,model:'default',reasoning_effort:'default'},{id:'bot_old',name:'Retired Bot',archived:true,model:'default',reasoning_effort:'default'}] as any;
@@ -73,7 +75,7 @@ function Fixture(){
  const openSettings=(next:SettingsTab,view:SettingsView='page')=>{setTab(next);setEntry(current=>({seq:current.seq+1,view}))};
  useEffect(()=>subscribeSettingsDeepLinks(next=>openSettings(next)),[]);
  useEffect(()=>{(window as any).__closed=closed},[closed]);
- return <div className="workspace"><UpdateBanner/><div className="workspace-grid"><aside className="detail-pane visible" role="dialog" aria-modal="true">{!closed&&<SettingsShell tab={tab} onTab={setTab} onClose={()=>setClosed(true)} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" onPortabilityFileConsumed={()=>{}} appearance={appearance} extensionRefresh={0} openTab={next=>openSettings(next)} slots={{codex:<CodexPanel refreshToken={0} onConfigured={()=>{}}/>,notifications:<NotificationSetting/>,providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/>}</aside></div></div>;
+ return <div className="workspace"><UpdateBanner/><div className="workspace-grid"><aside className="detail-pane visible" role="dialog" aria-modal="true">{!closed&&<SettingsShell tab={tab} onTab={setTab} onClose={()=>setClosed(true)} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" onPortabilityFileConsumed={()=>{}} appearance={appearance} extensionRefresh={0} openTab={next=>openSettings(next)} slots={{codex:<CodexPanel refreshToken={0} onConfigured={()=>{}}/>,providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/>}</aside></div></div>;
 }
 void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><OwnerSessionGate><Fixture/></OwnerSessionGate></TimezoneProvider>));
 `);
@@ -331,7 +333,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await page.locator(".settings-shell").waitFor({timeout: 20000});
     return {page, close: () => context.close()};
   }
-  const railTabs = page => page.$$eval(".settings-tabs .settings-nav-group button", buttons => buttons.map(button => button.dataset.tab));
+  const railTabs = page => page.$$eval(".settings-tabs .settings-nav-group button[data-tab]", buttons => buttons.map(button => button.dataset.tab));
   const selectedTab = page => page.locator('.settings-tabs [aria-current="page"]').getAttribute("data-tab");
   const settle = page => page.waitForTimeout(450);
 
@@ -341,7 +343,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.deepEqual(await railTabs(page), TABS, "rail shows the ten tabs in order for a non-admin session");
     assert.deepEqual(await page.$$eval(".settings-tabs .settings-nav-group>p", items => items.map(item => item.textContent)), ["You", "Bots can use", "Workspace", "System"]);
     assert.equal(await page.locator("#settings-category").count(), 0, "no category select");
-    const icons = await page.$$eval(".settings-tabs .settings-nav-group button", buttons => buttons.map(button => button.querySelector("svg").dataset.tofiIcon));
+    const icons = await page.$$eval(".settings-tabs .settings-nav-group button[data-tab]", buttons => buttons.map(button => button.querySelector("svg").dataset.tofiIcon));
     assert.equal(new Set(icons).size, icons.length, "no two tabs share an icon");
     assert.deepEqual(icons, TABS.map(id => ICONS[id]), "icons match the contract");
     // The connections badge counts saved connections that need sign-in, from the saved list alone.
@@ -349,6 +351,16 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await page.locator('.settings-tabs [data-tab="permissions"] .settings-count').count(), 0, "permissions badge stays hidden in Phase 1");
     await page.waitForTimeout(600);
     for (const forbidden of ["/api/extensions/local-mcp", "/api/computers", "/api/computer/"]) assert.ok(!requested.some(line => line.includes(forbidden)), `opening Settings on General made no ${forbidden} request`);
+    // The Advanced group is folded until opened; opening lists Tool rules, Follow-ups (Beta) and Other devices (In development).
+    const fold = page.locator(".settings-tabs .settings-nav-fold");
+    assert.equal(await fold.getAttribute("aria-expanded"), "false", "Advanced starts folded");
+    await fold.click();
+    assert.equal(await fold.getAttribute("aria-expanded"), "true");
+    assert.deepEqual(await railTabs(page), [...TABS, ...ADV_TABS], "the folded group lists its pages when opened");
+    assert.equal((await page.locator('.settings-tabs [data-tab="followups"] .settings-nav-tag').textContent()).trim(), "Beta");
+    assert.equal((await page.locator('.settings-tabs [data-tab="devices"] .settings-nav-tag').textContent()).trim(), "In development");
+    await fold.click();
+    assert.deepEqual(await railTabs(page), TABS, "folding hides them again");
     await close();
     const admin = await open({admin: "1"});
     assert.deepEqual(await railTabs(admin.page), [...TABS, "admin"], "admin tab appears for a multi-account admin");
@@ -361,11 +373,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   // ---- 2. Each tab renders its heading and description; 3. deep links; 6. dirty draft.
   {
     const {page, close} = await open({admin: "1"});
-    const markers = {general: "Language and region", connections: "Add", skills: "research-assistant", permissions: "Reviewer", models: "Defaults for new Bots", computer: null, keys: null, usage: null, advanced: "Danger zone", admin: null};
-    for (const id of [...TABS, "admin"]) {
+    const markers = {general: "Language and region", connections: "Add", skills: "research-assistant", permissions: "Approval mode for this account", allowances: "Reviewer", followups: null, devices: "Other devices", models: "Defaults for new Bots", tools: "Search", computer: null, keys: null, usage: null, advanced: "Danger zone", admin: null};
+    for (const id of [...TABS, ...ADV_TABS, "admin"]) {
+      if (ADV_TABS.includes(id) && await page.locator(`.settings-tabs [data-tab="${id}"]`).count() === 0) await page.locator(".settings-tabs .settings-nav-fold").click();
       await page.locator(`.settings-tabs [data-tab="${id}"]`).click();
       await page.waitForFunction(tab => document.querySelector(`.settings-tabs [aria-current="page"]`)?.dataset.tab === tab, id);
-      const heading = (await page.locator(".settings-content .settings-page-title h2").textContent()).trim();
+      const heading = (await page.locator(".settings-content .settings-page-title h2").textContent()).replace(/(Beta|In development)$/, "").trim();
       const description = (await page.locator(".settings-content .settings-page-title p").textContent()).trim();
       assert.equal(heading, NAMES[id], `${id} heading`);
       assert.equal(description, catalogs.en.shell.page[id].description, `${id} description`);
@@ -805,7 +818,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await result.getByLabel("Passphrase").inputValue(), "ABCD-EFGH-IJKL-MNOP-QRST-UVWX-YZ23-4567");
     assert.equal(await result.getByRole("button", {name: "Copy", exact: true}).count(), 2, "link and passphrase each have Copy");
     const message = await result.getByLabel("Message to send").inputValue();
-    assert.match(message, /^Your TOFI account was closed\. Download your Bots: http.*\/exports\/C+ \(passphrase sent separately\), available until November 8, 2026\. Import it in Tofi: Settings → Advanced → Data transfer, then enter the passphrase\.$/);
+    assert.match(message, /^Your TOFI account was closed\. Download your Bots: http.*\/exports\/C+ \(passphrase sent separately\), available until November 8, 2026\. Import it in Tofi: Settings → Maintenance → Data transfer, then enter the passphrase\.$/);
     assert.ok(!message.includes("ABCD-EFGH"), "the message never carries the passphrase");
     await page.keyboard.press("Escape");
     assert.equal(await result.count(), 1);
@@ -933,7 +946,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       assert.notEqual(message, catalogs.en.admin.result.message, `${lang}: the message to send is translated`);
       assert.ok(message.includes(catalogs[lang].portability.title) && message.includes(catalogs[lang].shell.page.advanced.name), `${lang}: the message names Advanced and Data transfer as this locale shows them`);
     }
-    assert.ok(catalogs.en.admin.result.message.includes("Settings → Advanced → Data transfer, then enter the passphrase."));
+    assert.ok(catalogs.en.admin.result.message.includes("Settings → Maintenance → Data transfer, then enter the passphrase."));
     console.log("PASS export import: passphrase prompt, wrong passphrase, with/without dashes, damaged file, preview step follows, message names the path in 7 locales");
   }
 

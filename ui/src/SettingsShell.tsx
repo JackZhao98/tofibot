@@ -12,22 +12,27 @@ import {useLanguage, useTranslation} from "./i18n";
 import {ConfirmDialog} from "./overlays/ModalDialog";
 import {useHasComputer} from "./computerCapability";
 
-export type SettingsTab="general"|"connections"|"skills"|"permissions"|"followups"|"models"|"automation"|"computer"|"keys"|"usage"|"advanced"|"admin";
+export type SettingsTab="general"|"connections"|"skills"|"permissions"|"allowances"|"followups"|"models"|"tools"|"automation"|"computer"|"devices"|"keys"|"usage"|"advanced"|"admin";
 export type SettingsView="home"|"page";
 /** `seq` changes on every open request, so a deep link to the tab already selected still lands on its page on mobile. */
 export type SettingsEntry={seq:number;view:SettingsView};
 // Names and descriptions are catalog keys (settings:shell.*), translated at render.
-type Page={id:SettingsTab;icon:TofiIconName;name:`shell.page.${SettingsTab}.name`;description:`shell.page.${SettingsTab}.description`};
-type GroupId="you"|"bots"|"workspace"|"system";
+/** `beta` and `dev` show a small tag next to the name: a working preview, and a feature still being built. */
+export type PageTag="beta"|"dev";
+type Page={id:SettingsTab;icon:TofiIconName;tag?:PageTag;name:`shell.page.${SettingsTab}.name`;description:`shell.page.${SettingsTab}.description`};
+type GroupId="you"|"bots"|"workspace"|"system"|"more";
 type Group={id:GroupId;label:`shell.group.${GroupId}`;items:Page[]};
-const page=(id:SettingsTab,icon:TofiIconName):Page=>({id,icon,name:`shell.page.${id}.name`,description:`shell.page.${id}.description`});
+const page=(id:SettingsTab,icon:TofiIconName,tag?:PageTag):Page=>({id,icon,tag,name:`shell.page.${id}.name`,description:`shell.page.${id}.description`});
 const group=(id:GroupId,items:Page[]):Group=>({id,label:`shell.group.${id}`,items});
 const adminPage=page("admin","group");
+// The "advanced" tab id is the System page (version, server, data, debug, Start over); its label is "Maintenance" so it
+// does not clash with the collapsible "Advanced" group ("more"), which holds the long, rarely used and unfinished pages.
 const groups:Group[]=[
  group("you",[page("general","sliders")]),
- group("bots",[page("connections","plug"),page("skills","skill"),page("permissions","shield-check"),page("followups","bell"),page("models","sparkles"),page("automation","workflow")]),
+ group("bots",[page("connections","plug"),page("skills","skill"),page("permissions","shield-check"),page("models","sparkles"),page("tools","globe"),page("automation","workflow")]),
  group("workspace",[page("computer","monitor"),page("keys","key"),page("usage","progress")]),
- group("system",[page("advanced","settings")])
+ group("system",[page("advanced","settings")]),
+ group("more",[page("allowances","checklist"),page("followups","bell","beta"),page("devices","laptop","dev")])
 ];
 type Target=SettingsTab|"close"|"home";
 const narrowQuery="(max-width: 700px)";
@@ -62,7 +67,7 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
  const isAdmin=Boolean(session?.multi_account&&session.owner?.role==="admin");
  const hasComputer=useHasComputer();
  // Without a computer the Keys page (environment variables and SSH keys, used only inside it) is hidden; Computer stays and explains the options.
- const visibleGroups:Group[]=useMemo(()=>groups.map(item=>item.id==="system"&&isAdmin?{...item,items:[...item.items,adminPage]}:{...item,items:hasComputer?item.items:item.items.filter(page=>page.id!=="keys")}),[isAdmin,hasComputer]);
+ const visibleGroups:Group[]=useMemo(()=>groups.map(item=>item.id==="system"&&isAdmin?{...item,items:[...item.items,adminPage]}:{...item,items:hasComputer?item.items:item.items.filter(page=>page.id!=="keys"&&page.id!=="devices")}),[isAdmin,hasComputer]);
  const allItems=visibleGroups.flatMap(item=>item.items);
  const attention=useConnectionAttention(refreshToken);
  const counts:Partial<Record<SettingsTab,{value:number;tone:"honey"|"iris"}>>={...(attention>0?{connections:{value:attention,tone:"honey"}}:{})};
@@ -73,7 +78,11 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
  const hints=useMobileHints(narrow&&mobileView==="home",hasComputer);
  useEffect(()=>{if(tab!==requestedTab)onTab(tab)},[tab,requestedTab,onTab]);
  useEffect(()=>{if(tab==="admin"&&!isAdmin)onTab("general")},[tab,isAdmin,onTab]);
- useEffect(()=>{if(tab==="keys"&&!hasComputer)onTab("computer")},[tab,hasComputer,onTab]);
+ useEffect(()=>{if((tab==="keys"||tab==="devices")&&!hasComputer)onTab("computer")},[tab,hasComputer,onTab]);
+ // The Advanced group is folded until opened; a selected page inside it keeps it open.
+ const [advancedOpen,setAdvancedOpen]=useState(false);
+ const inAdvanced=visibleGroups.some(item=>item.id==="more"&&item.items.some(page=>page.id===tab));
+ useEffect(()=>{if(inAdvanced)setAdvancedOpen(true)},[inAdvanced]);
  const [visited,setVisited]=useState<SettingsTab[]>([tab]);
  const [drafts,setDrafts]=useState<Record<string,SettingsDraft>>({});
  const [pending,setPending]=useState<Target|null>(null);
@@ -122,10 +131,10 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
  const [slide,setSlide]=useState(false);
  const measure=useCallback(()=>{
   const button=list.current?.querySelector<HTMLElement>('[aria-current="page"]');
-  if(!button||!button.offsetHeight){return}
+  if(!button||!button.offsetHeight){setIndicator(null);return}
   setIndicator(current=>current&&current.y===button.offsetTop&&current.h===button.offsetHeight?current:{y:button.offsetTop,h:button.offsetHeight});
  },[]);
- useLayoutEffect(measure,[measure,tab,language,isAdmin,attention]);
+ useLayoutEffect(measure,[measure,tab,language,isAdmin,attention,advancedOpen]);
  useEffect(()=>{if(!indicator)return;const id=requestAnimationFrame(()=>setSlide(true));return()=>cancelAnimationFrame(id)},[indicator===null]);
  useEffect(()=>{const element=list.current;if(!element||typeof ResizeObserver==="undefined")return;const observer=new ResizeObserver(measure);observer.observe(element);return()=>observer.disconnect()},[measure]);
 
@@ -139,24 +148,37 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
  };
  const badge=(id:SettingsTab)=>{const count=counts[id];return count&&count.value>0?<span className={`settings-count is-${count.tone}`} aria-label={t("shell.attention",{count:count.value})}>{count.value}</span>:null};
  const accountBody=<><span className="settings-account-avatar" aria-hidden="true">{identity.initial}</span><span className="settings-account-copy"><strong>{identity.name}</strong>{identity.detail&&<small>{identity.detail}</small>}</span></>;
+ const pageTag=(item:Page)=>item.tag?<span className={`settings-nav-tag is-${item.tag}`}>{t(`shell.tag.${item.tag}`)}</span>:null;
  const mobileOpen=mobileView==="page";
  return <div className="settings-shell" data-view={mobileView}>
   <nav className="settings-tabs" aria-label={t("shell.category")}>
    <button type="button" className="settings-account-card" aria-current={tab==="general"?"true":undefined} onClick={()=>navigate("general")}>{accountBody}</button>
    <div className="settings-rail-list" ref={list}>
     <span className={`settings-rail-indicator${slide?" is-ready":""}`} aria-hidden="true" style={indicator?{transform:`translateY(${indicator.y}px)`,height:indicator.h}:{display:"none"}}/>
-    {visibleGroups.map(section=><div className="settings-nav-group" key={section.id}><p>{t(section.label)}</p>{section.items.map(item=><button key={item.id} data-tab={item.id} className={tab===item.id?"selected":""} aria-current={tab===item.id?"page":undefined} onClick={()=>navigate(item.id)}><TofiIcon name={item.icon} size={20} variant={tab===item.id?"filled":"outline"}/><span className="settings-nav-label">{t(item.name)}</span>{badge(item.id)}</button>)}</div>)}
+    {visibleGroups.map(section=>{
+     const folded=section.id==="more";const shown=!folded||advancedOpen;
+     return <div className="settings-nav-group" key={section.id} data-group={section.id}>
+      {folded?<button type="button" className="settings-nav-fold" aria-expanded={advancedOpen} aria-controls="settings-nav-more" onClick={()=>setAdvancedOpen(open=>!open)}><span>{t(section.label)}</span><TofiIcon name={advancedOpen?"chevron-down":"chevron-right"} size={14} aria-hidden="true"/></button>:<p>{t(section.label)}</p>}
+      {shown&&<div className="settings-nav-items" id={folded?"settings-nav-more":undefined}>{section.items.map(item=><button key={item.id} data-tab={item.id} className={tab===item.id?"selected":""} aria-current={tab===item.id?"page":undefined} onClick={()=>navigate(item.id)}><TofiIcon name={item.icon} size={20} variant={tab===item.id?"filled":"outline"}/><span className="settings-nav-label">{t(item.name)}</span>{pageTag(item)}{badge(item.id)}</button>)}</div>}
+     </div>;
+    })}
    </div>
   </nav>
   <div className="settings-mhome" inert={narrow&&mobileOpen}>
    <header className="settings-mbar"><span aria-hidden="true"/><h2>{t("shell.title")}</h2><button className="settings-dismiss" aria-label={t("shell.close")} onClick={()=>navigate("close")}><TofiIcon name="close" size={20}/></button></header>
    <div className="settings-mscroll">
     <button type="button" className="settings-mlist settings-mrow settings-maccount" data-tab="general" onClick={()=>navigate("general")}>{accountBody}<TofiIcon name="chevron-right" size={16} aria-hidden="true"/></button>
-    {visibleGroups.filter(section=>section.id!=="you").map(section=><section key={section.id} className="settings-mgroup"><p>{t(section.label)}</p><div className="settings-mlist">{section.items.map(item=><button type="button" className="settings-mrow" key={item.id} data-tab={item.id} onClick={()=>navigate(item.id)}><span className="settings-mtile" aria-hidden="true"><TofiIcon name={item.icon} size={18}/></span><span className="settings-mname">{t(item.name)}</span>{badge(item.id)}{hint(item.id)&&<span className="settings-mhint">{hint(item.id)}</span>}<TofiIcon name="chevron-right" size={16} aria-hidden="true"/></button>)}</div></section>)}
+    {visibleGroups.filter(section=>section.id!=="you").map(section=>{
+     const folded=section.id==="more";
+     return <section key={section.id} className="settings-mgroup" data-group={section.id}>
+      {folded?<button type="button" className="settings-mfold" aria-expanded={advancedOpen} onClick={()=>setAdvancedOpen(open=>!open)}><span>{t(section.label)}</span><TofiIcon name={advancedOpen?"chevron-down":"chevron-right"} size={14} aria-hidden="true"/></button>:<p>{t(section.label)}</p>}
+      {(!folded||advancedOpen)&&<div className="settings-mlist">{section.items.map(item=><button type="button" className="settings-mrow" key={item.id} data-tab={item.id} onClick={()=>navigate(item.id)}><span className="settings-mtile" aria-hidden="true"><TofiIcon name={item.icon} size={18}/></span><span className="settings-mname">{t(item.name)}</span>{pageTag(item)}{badge(item.id)}{hint(item.id)&&<span className="settings-mhint">{hint(item.id)}</span>}<TofiIcon name="chevron-right" size={16} aria-hidden="true"/></button>)}</div>}
+     </section>;
+    })}
    </div>
   </div>
   <div className="settings-content" inert={narrow&&!mobileOpen}>
-   <header className="settings-page-heading"><button type="button" className="settings-back" aria-label={t("shell.back")} onClick={()=>navigate("home")}><TofiIcon name="chevron-left" size={20}/></button><div className="settings-page-title"><h2>{t(selected.name)}</h2><p>{selected.id==="computer"&&!hasComputer?t("shell.page.computer.description_none"):t(selected.description)}</p></div><div className="settings-header-actions" ref={setSlot}/><button className="settings-dismiss" aria-label={t("shell.close")} onClick={()=>navigate("close")}><TofiIcon name="close" size={20}/></button></header>
+   <header className="settings-page-heading"><button type="button" className="settings-back" aria-label={t("shell.back")} onClick={()=>navigate("home")}><TofiIcon name="chevron-left" size={20}/></button><div className="settings-page-title"><h2>{t(selected.name)}{pageTag(selected)}</h2><p>{selected.id==="computer"&&!hasComputer?t("shell.page.computer.description_none"):t(selected.description)}</p></div><div className="settings-header-actions" ref={setSlot}/><button className="settings-dismiss" aria-label={t("shell.close")} onClick={()=>navigate("close")}><TofiIcon name="close" size={20}/></button></header>
    <SettingsHeaderSlotContext.Provider value={slot}>{pages.map(page=><div key={page} hidden={page!==tab} data-page={page} className="settings-page-body"><SettingsDraftContext.Provider value={providers[page]}><SettingsActivityContext.Provider value={page===tab}>{renderPage(page)}</SettingsActivityContext.Provider></SettingsDraftContext.Provider></div>)}</SettingsHeaderSlotContext.Provider>
    {activeDrafts.length>0&&<div className="settings-save-bar" role="status"><span>{t("shell.unsaved")}</span><button type="button" disabled={busy} onClick={()=>activeDrafts.forEach(draft=>draft.discard())}>{t("shell.discard")}</button><button type="button" className="primary-button" disabled={busy} onClick={()=>void saveActive()}>{saving?t("shell.saving"):t("shell.save")}</button></div>}
   </div>

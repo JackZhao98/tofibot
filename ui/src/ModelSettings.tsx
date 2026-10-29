@@ -2,6 +2,7 @@ import {useEffect, useState} from "react";
 import {request} from "./api";
 import {useSettingsDraft} from "./settingsDraft";
 import {FOLLOW_GLOBAL, effortForModel, effortForPinnedModel, followGlobalLabel, followsGlobal, groupModels, modelEfforts, shortEffortLabel} from "./modelCatalog";
+import {preferredDefaultModel} from "./defaultModel";
 import {useModelCatalog} from "./useModelCatalog";
 import type {Bot} from "./types";
 import {i18n, useTranslation} from "./i18n";
@@ -47,8 +48,14 @@ export function ModelDefaults({bots}:{bots?:Bot[]}={}){
  const [savedValue,setSavedValue]=useState<GlobalModel|null>(null);
  useEffect(()=>{const ac=new AbortController();setError("");request<GlobalModel>("/api/model-settings",{signal:ac.signal}).then(next=>{setValue(next);setSavedValue(next)}).catch(e=>{if(!ac.signal.aborted)setError(e.message)});return()=>ac.abort()},[version]);
  const dirty=Boolean(value&&savedValue&&(value.model!==savedValue.model||value.reasoning_effort!==savedValue.reasoning_effort));
- const followers=bots?.filter(bot=>!bot.archived&&followsGlobal(bot.model)).length;
+ // Nothing chosen yet and Claude is connected: the picker opens on Haiku 5.5 (an unsaved change until Save).
+ const {catalog:pickerCatalog}=useModelCatalog();
+ useEffect(()=>{
+  if(!value||value.model||!pickerCatalog)return;
+  const pick=preferredDefaultModel(pickerCatalog.models);
+  if(pick)setValue({model:pick.id,reasoning_effort:effortForModel(pick,"")});
+ },[value,pickerCatalog]);
  async function save(){if(busy)return false;if(!value?.model){setError(t("model.choose_first"));return false}setBusy(true);setStatus("");setError("");try{await request("/api/model-settings",{method:"PUT",body:JSON.stringify(value)});setSavedValue(value);setStatus(t("model.saved"));return true}catch(e){setError(e instanceof Error?e.message:t("action.save_failed"));return false}finally{setBusy(false)}}
  useSettingsDraft({label:t("model.global_title"),dirty,busy,save,discard:()=>{setValue(savedValue);setStatus("");setError("")}});
- return <SettingsSection title={t("model.global_title")} description={followers===undefined?t("model.global_description"):followers?t("model.global_description_followers",{count:followers}):t("model.global_description_no_followers")}>{value?<form aria-busy={busy} onSubmit={e=>{e.preventDefault();void save()}}><ModelFields layout="rows" disabled={busy} allowDefault={false} model={value.model} effort={value.reasoning_effort} onChange={(model,reasoning_effort)=>{setValue({model,reasoning_effort});setStatus("")}}/><div className="settings-form-footer"><span role="status">{status}</span></div></form>:!error&&<p className="muted">{t("action.loading_settings")}</p>}{error&&<p className="error-text" role="alert">{error}{!value&&<button type="button" className="text-button" onClick={()=>setVersion(current=>current+1)}>{t("action.retry")}</button>}</p>}</SettingsSection>
+ return <SettingsSection title={t("model.global_title")}>{value?<form aria-busy={busy} onSubmit={e=>{e.preventDefault();void save()}}><ModelFields layout="rows" disabled={busy} allowDefault={false} model={value.model} effort={value.reasoning_effort} onChange={(model,reasoning_effort)=>{setValue({model,reasoning_effort});setStatus("")}}/><div className="settings-form-footer"><span role="status">{status}</span></div></form>:!error&&<p className="muted">{t("action.loading_settings")}</p>}{error&&<p className="error-text" role="alert">{error}{!value&&<button type="button" className="text-button" onClick={()=>setVersion(current=>current+1)}>{t("action.retry")}</button>}</p>}</SettingsSection>
 }

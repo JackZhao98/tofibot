@@ -504,3 +504,9 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
 /* Reduced motion turns every transition into a ~0s one, and the default `transition-property: all` then defers each
    layout change (a speaker-change margin, say) by a frame. The message list changes layout as it renders; it must not. */
 @media (prefers-reduced-motion: reduce) { .workspace .message-list, .workspace .message-list * { transition: none !important; } }
+/* Account menu: project links open in a new tab and end with an external-link mark; the browser language carries a grey tag. */
+:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>a.sidebar-account-link { display:flex; align-items:center; gap:9px; width:100%; min-height:38px; padding:8px 10px; border-radius:9px; color:var(--ink-soft); font:14px/1.3 var(--body); text-decoration:none; }
+:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>a.sidebar-account-link>span { flex:1; }
+:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>a.sidebar-account-link>svg:last-child { color:var(--muted); }
+:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>a.sidebar-account-link:hover { color:var(--ink); background:var(--surface-2); }
+.menu-default-tag { margin-left:8px; color:var(--muted); font:12px/1.3 var(--body); }
