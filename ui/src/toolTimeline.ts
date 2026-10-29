@@ -40,6 +40,8 @@ export function toolAttemptIssues(items: Pick<ToolActivity, "status" | "outcome"
 }
 
 export function toolDisplayState(activity: Pick<ToolActivity,"status"|"outcome">): string {
+  // The answer review sends a draft back to the Bot; the Bot revises it. That is the check working, not a failure.
+  if (activity.outcome?.code === "answer_review") return "reviewed";
   if (toolExecutionState(activity) === "unknown") return "unknown";
   if (activity.status === "failed" && activity.outcome?.status === "approval_expired") return "expired";
   if (activity.status === "failed" && activity.outcome?.code === "batch_skipped" && activity.outcome.execution_certainty === "not_executed") return "skipped";
@@ -50,7 +52,7 @@ export function toolDisplayState(activity: Pick<ToolActivity,"status"|"outcome">
   return activity.status;
 }
 
-const displayStates = ["queued", "running", "completed", "failed", "interrupted", "expired", "not_executed", "approved", "unknown"] as const;
+const displayStates = ["queued", "running", "completed", "failed", "interrupted", "expired", "not_executed", "reviewed", "approved", "unknown"] as const;
 export function toolDisplayLabel(activity: Pick<ToolActivity,"status"|"outcome">, locale?: Language): string {
   const t = i18n.getFixedT(locale ?? null, "tasks");
   const state = toolDisplayState(activity) === "skipped" ? "not_executed" : toolDisplayState(activity);

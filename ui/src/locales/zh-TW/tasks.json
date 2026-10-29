@@ -171,9 +171,8 @@
     "interrupted": "執行中斷",
     "failed": "工具呼叫失敗",
     "copied": "已複製診斷資訊。",
-    "copy_failed": "無法複製，請在技術詳細資料中手動選取。",
-    "copy_diagnostics": "複製診斷資訊",
     "open_tool_settings": "開啟工具設定",
+    "reviewed_title": "對照來源核對回覆 · 已修訂",
     "technical_details": "技術詳細資料",
     "group_count_other": "{{count}} 次呼叫",
     "started": "開始於 {{time}}",
@@ -189,6 +188,7 @@
       "interrupted": "已中斷",
       "expired": "已過期",
       "not_executed": "未執行",
+      "reviewed": "核對後已修訂",
       "approved": "已核准",
       "unknown": "結果待核實",
       "unconfirmed": "狀態待確認"

@@ -173,9 +173,8 @@
     "interrupted": "Interrompu",
     "failed": "L’appel d’outil a échoué",
     "copied": "Diagnostic copié.",
-    "copy_failed": "La copie a échoué. Sélectionnez les détails techniques manuellement.",
-    "copy_diagnostics": "Copier le diagnostic",
     "open_tool_settings": "Ouvrir les réglages des outils",
+    "reviewed_title": "Réponse vérifiée par rapport aux sources · révisée",
     "technical_details": "Détails techniques",
     "group_count_one": "{{count}} appel",
     "group_count_many": "{{count}} appels",
@@ -193,6 +192,7 @@
       "interrupted": "Interrompu",
       "expired": "Expiré",
       "not_executed": "Non exécuté",
+      "reviewed": "Révisé après vérification",
       "approved": "Approuvé",
       "unknown": "Résultat à vérifier",
       "unconfirmed": "État non confirmé"

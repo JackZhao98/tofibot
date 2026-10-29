@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/JackZhao98/tofibot/internal/extensions"
 	"github.com/JackZhao98/tofibot/internal/runtime"
 )
 
@@ -53,6 +54,23 @@ func capabilitySummary(description string) string {
 	return description
 }
 
+// rankCapabilityNames returns the names of the built-in tools that best fit an
+// intent, best first.
+func rankCapabilityNames(registered []Tool, query string) []string {
+	candidates := make([]runtime.Tool, 0, len(registered))
+	for _, tool := range registered {
+		candidates = append(candidates, runtime.Tool{Name: tool.Name, Description: tool.Description})
+	}
+	var names []string
+	for _, tool := range extensions.RankTools(candidates, query) {
+		if len(names) == maxCapabilitySchemaNames {
+			break
+		}
+		names = append(names, tool.Name)
+	}
+	return names
+}
+
 // Describe the actual registered tool set, not the capabilities of a UI mockup.
 func capabilityTool(registered []Tool) Tool {
 	type entry struct {
@@ -71,15 +89,19 @@ func capabilityTool(registered []Tool) Tool {
 		entries = append(entries, entry{tool.Name, capabilitySummary(tool.Description), tool.Deferred})
 		byName[tool.Name] = tool
 	}
-	return Tool{Name: "workspace_capabilities", Description: "Inspect the tools actually available in this run (names and one-line summaries) before changing workspace settings; pass names (up to 5) for their full input schemas. Entries marked on_demand are not callable until named here; naming one loads it for the rest of the run. UI prototypes may show features that are not implemented. Never claim a setting was changed until the corresponding tool succeeds.", Parameters: objectSchema(map[string]any{"names": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "maxItems": maxCapabilitySchemaNames, "description": "Optional tool names whose full schemas to return"}}, nil), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+	return Tool{Name: "workspace_capabilities", Description: "Inspect the tools actually available in this run (names and one-line summaries) before changing workspace settings; pass query (what you need to do, in a few words) to find the built-in tools that fit and load them, or names (up to 5) for their full input schemas. Entries marked on_demand are not callable until named here; naming one loads it for the rest of the run. UI prototypes may show features that are not implemented. Never claim a setting was changed until the corresponding tool succeeds.", Parameters: objectSchema(map[string]any{"query": map[string]any{"type": "string", "maxLength": 256, "description": "Optional intent words; returns the best matching built-in tools with their schemas and loads on-demand ones"}, "names": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "maxItems": maxCapabilitySchemaNames, "description": "Optional tool names whose full schemas to return"}}, nil), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
 		var in struct {
 			Names []string `json:"names"`
+			Query string   `json:"query"`
 		}
 		if len(raw) > 0 && json.Unmarshal(raw, &in) != nil {
 			return "", errors.New("names must be an array of tool names")
+		}
+		if q := strings.TrimSpace(in.Query); q != "" && len(in.Names) == 0 {
+			in.Names = rankCapabilityNames(registered, q)
 		}
 		if len(in.Names) > maxCapabilitySchemaNames {
 			return "", errors.New("request at most 5 tool schemas at a time")

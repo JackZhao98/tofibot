@@ -171,9 +171,8 @@
     "interrupted": "中断",
     "failed": "ツールの呼び出しに失敗しました",
     "copied": "診断情報をコピーしました。",
-    "copy_failed": "コピーできませんでした。技術的な詳細を手動で選択してください。",
-    "copy_diagnostics": "診断情報をコピー",
     "open_tool_settings": "ツール設定を開く",
+    "reviewed_title": "回答を情報源と照合 · 修正済み",
     "technical_details": "技術的な詳細",
     "group_count_other": "{{count}} 件の呼び出し",
     "started": "{{time}}に開始",
@@ -189,6 +188,7 @@
       "interrupted": "中断",
       "expired": "期限切れ",
       "not_executed": "未実行",
+      "reviewed": "確認後に修正",
       "approved": "承認済み",
       "unknown": "結果の確認が必要",
       "unconfirmed": "状態未確認"

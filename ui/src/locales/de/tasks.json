@@ -172,9 +172,8 @@
     "interrupted": "Unterbrochen",
     "failed": "Der Tool-Aufruf ist fehlgeschlagen",
     "copied": "Diagnose kopiert.",
-    "copy_failed": "Kopieren fehlgeschlagen. Markiere die technischen Details manuell.",
-    "copy_diagnostics": "Diagnose kopieren",
     "open_tool_settings": "Tool-Einstellungen öffnen",
+    "reviewed_title": "Antwort mit den Quellen abgeglichen · überarbeitet",
     "technical_details": "Technische Details",
     "group_count_one": "{{count}} Aufruf",
     "group_count_other": "{{count}} Aufrufe",
@@ -191,6 +190,7 @@
       "interrupted": "Unterbrochen",
       "expired": "Abgelaufen",
       "not_executed": "Nicht ausgeführt",
+      "reviewed": "Nach Prüfung überarbeitet",
       "approved": "Genehmigt",
       "unknown": "Ergebnis prüfen",
       "unconfirmed": "Status unbestätigt"

@@ -171,9 +171,8 @@
     "interrupted": "执行中断",
     "failed": "工具调用失败",
     "copied": "已复制诊断信息。",
-    "copy_failed": "未能复制，请在技术详情里手动选择。",
-    "copy_diagnostics": "复制诊断信息",
     "open_tool_settings": "打开工具设置",
+    "reviewed_title": "对照来源核对回复 · 已修订",
     "technical_details": "技术详情",
     "group_count_other": "{{count}} 次调用",
     "started": "开始于 {{time}}",
@@ -189,6 +188,7 @@
       "interrupted": "已中断",
       "expired": "已过期",
       "not_executed": "未执行",
+      "reviewed": "核对后已修订",
       "approved": "已批准",
       "unknown": "结果待核实",
       "unconfirmed": "状态待确认"

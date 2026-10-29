@@ -1508,6 +1508,19 @@ func (s *Server) scheduleTools(c Conversation, r Run) []Tool {
 		}
 		return x, nil
 	}
+	// Stopping, resuming or removing acts on any schedule this Bot owns, so a
+	// request to stop a check made in another conversation can be carried out
+	// from here after list_schedules with scope self.
+	checkOwned := func(id string) (Schedule, error) {
+		x, err := s.store.GetSchedule(id)
+		if err != nil {
+			return Schedule{}, err
+		}
+		if x.ConversationID != c.ID && x.BotID != r.BotID {
+			return Schedule{}, errors.New("schedule belongs to another Bot")
+		}
+		return x, nil
+	}
 	return []Tool{
 		{Name: "create_schedule", Description: "Schedule future work by a member of this conversation. Use kind once for a single run, interval for repeating elapsed intervals, daily for a local wall-clock time every day, or weekly for a local wall-clock time on specific weekdays (for example every Sunday at 00:43, or Monday, Wednesday and Friday). For anything that repeats only on some weekdays, always use weekly; never create a daily schedule whose instructions check the weekday and do nothing on other days. Timezone defaults to the configured user timezone; if none is configured, provide the IANA timezone supported by the request or ask the user before guessing. The result carries next_at_local, the next run in the schedule's timezone with the zone name; a confirmation states when the work will run in that form, zone included, so the person never has to infer which clock it means. When the runs compare against saved state, the instructions name where that state is kept, and your confirmation to the person says so too.", Parameters: objectSchema(map[string]any{"bot_id": map[string]any{"type": "string", "description": "Active member to execute the work; defaults to you"}, "title": displayTitleSchema(), "description": displayDescriptionSchema(), "content": map[string]any{"type": "string", "description": "Complete execution instructions written in English. Preserve exact names, quoted user data and localized output requirements; keep title and description separate."}, "kind": map[string]any{"type": "string", "enum": []string{"once", "interval", "daily", "weekly"}}, "run_at": map[string]any{"type": "string", "description": "Required for once: RFC3339 timestamp with explicit UTC offset"}, "interval_seconds": map[string]any{"type": "integer", "description": "Required for interval: elapsed seconds between runs"}, "daily_time": map[string]any{"type": "string", "description": "Required for daily and weekly: HH:MM in the selected timezone"}, "weekdays": map[string]any{"type": "array", "items": map[string]any{"type": "string", "enum": weekdayNames}, "description": "Required for weekly: one or more weekdays (mon, tue, wed, thu, fri, sat, sun); the schedule runs at daily_time on each listed day"}, "timezone": map[string]any{"type": "string", "description": "IANA timezone; omit only when user timezone is configured"}}, []string{"title", "description", "content", "kind"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
@@ -1595,7 +1608,7 @@ func (s *Server) scheduleTools(c Conversation, r Run) []Tool {
 			}
 			return scheduleToolListJSON(v), nil
 		}},
-		{Name: "pause_schedule", Description: "pause a schedule in this conversation", Parameters: objectSchema(map[string]any{"schedule_id": map[string]any{"type": "string"}}, []string{"schedule_id"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+		{Name: "pause_schedule", Description: "Pause (stop for now) a schedule of this Bot. Find ids with list_schedules; use scope self for schedules made in other conversations.", Parameters: objectSchema(map[string]any{"schedule_id": map[string]any{"type": "string"}}, []string{"schedule_id"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
@@ -1605,7 +1618,7 @@ func (s *Server) scheduleTools(c Conversation, r Run) []Tool {
 			if err := json.Unmarshal(raw, &in); err != nil {
 				return "", err
 			}
-			if _, err := check(in.ScheduleID); err != nil {
+			if _, err := checkOwned(in.ScheduleID); err != nil {
 				return "", err
 			}
 			x, err := s.store.setScheduleStatusWithSource(in.ScheduleID, schedulePaused, s.scheduleChatSource(c, r))
@@ -1615,7 +1628,7 @@ func (s *Server) scheduleTools(c Conversation, r Run) []Tool {
 			b, _ := json.Marshal(x)
 			return string(b), nil
 		}},
-		{Name: "resume_schedule", Description: "resume a schedule in this conversation", Parameters: objectSchema(map[string]any{"schedule_id": map[string]any{"type": "string"}}, []string{"schedule_id"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+		{Name: "resume_schedule", Description: "Resume a paused schedule of this Bot.", Parameters: objectSchema(map[string]any{"schedule_id": map[string]any{"type": "string"}}, []string{"schedule_id"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
@@ -1625,7 +1638,7 @@ func (s *Server) scheduleTools(c Conversation, r Run) []Tool {
 			if err := json.Unmarshal(raw, &in); err != nil {
 				return "", err
 			}
-			if _, err := check(in.ScheduleID); err != nil {
+			if _, err := checkOwned(in.ScheduleID); err != nil {
 				return "", err
 			}
 			x, err := s.store.setScheduleStatusWithSource(in.ScheduleID, scheduleActive, s.scheduleChatSource(c, r))
@@ -1635,7 +1648,7 @@ func (s *Server) scheduleTools(c Conversation, r Run) []Tool {
 			b, _ := json.Marshal(x)
 			return string(b), nil
 		}},
-		{Name: "delete_schedule", Description: "delete a schedule in this conversation", Parameters: objectSchema(map[string]any{"schedule_id": map[string]any{"type": "string"}}, []string{"schedule_id"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+		{Name: "delete_schedule", Description: "Delete (cancel, remove permanently) a schedule of this Bot. Find ids with list_schedules; use scope self for schedules made in other conversations.", Parameters: objectSchema(map[string]any{"schedule_id": map[string]any{"type": "string"}}, []string{"schedule_id"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
@@ -1645,7 +1658,7 @@ func (s *Server) scheduleTools(c Conversation, r Run) []Tool {
 			if err := json.Unmarshal(raw, &in); err != nil {
 				return "", err
 			}
-			if _, err := check(in.ScheduleID); err != nil {
+			if _, err := checkOwned(in.ScheduleID); err != nil {
 				return "", err
 			}
 			return "deleted", s.store.deleteScheduleWithSource(in.ScheduleID, s.scheduleChatSource(c, r))
