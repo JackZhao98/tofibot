@@ -116,7 +116,7 @@ CERT_RENEW_SECONDS = 30 * 86400
 # Interfaces whose addresses are never how a person reaches this server.
 VIRTUAL_INTERFACE_PREFIXES = ('lo', 'docker', 'br-', 'veth', 'virbr', 'tap', 'fc', 'tun', 'cni', 'flannel')
 
-REQUIRED_TOOLS = ['docker', 'systemd-tmpfiles', 'systemctl', 'tar', 'openssl']
+REQUIRED_TOOLS = ['docker', 'systemd-tmpfiles', 'systemctl', 'tar', 'openssl', 'iptables']
 # Only the computer (Worker + Guest) needs these.
 COMPUTER_TOOLS = ['apparmor_parser', 'debugfs', 'e2fsck', 'zstd']
 COMPUTER_APT_PACKAGES = ['zstd', 'e2fsprogs', 'apparmor', 'apparmor-utils']
@@ -1489,7 +1489,8 @@ def ensure_runner_egress_filter():
     leaving the Runner's bridge is checked in DOCKER-USER (forwarded) and INPUT
     (to the host itself). The rules are idempotent and are applied before the
     Runner starts. A host without iptables, or one where Docker keeps no
-    DOCKER-USER chain, gets a warning: the Runner still starts, unfiltered.
+    DOCKER-USER chain, gets a warning and False; `require_runner_fence` turns
+    that into a refusal to start the Runner.
     Returns True when the filter is in place."""
     if shutil.which('iptables') is None:
         reason = 'nft is present but iptables is not' if shutil.which('nft') else 'neither iptables nor nft is installed'
@@ -1520,6 +1521,22 @@ def ensure_runner_egress_filter():
                 warn('Could not hook the Runner firewall rules into %s.' % chain)
                 return False
     return True
+
+
+def require_runner_fence(env):
+    """Apply the Runner's egress fence; refuse to go on when it cannot be applied.
+
+    The Runner runs code a person installed. Without the fence it reaches the
+    host's services, the LAN and the cloud metadata address. TOFI_RUNNER_UNFENCED=1
+    in tofi.env is the operator's explicit choice to run it anyway."""
+    if ensure_runner_egress_filter():
+        return True
+    if env.get('TOFI_RUNNER_UNFENCED') == '1':
+        warn('TOFI_RUNNER_UNFENCED=1: the Runner container starts without its network fence.')
+        return False
+    raise HostError('The Runner container was not started: its network fence could not be applied (see the warning above). '
+                    'Install iptables (apt-get install iptables) and make sure Docker keeps its DOCKER-USER chain, '
+                    'or set TOFI_RUNNER_UNFENCED=1 in %s to run it unfenced (not recommended).' % P.env_file)
 
 
 def remove_runner_egress_filter():
@@ -1684,7 +1701,7 @@ def start_worker(env, first_install=False):
 
 def start_services(env, first_install=False, state=None):
     if env.get('TOFI_RUNNER_IMAGE'):
-        ensure_runner_egress_filter()  # before the Runner can run, and again after every reboot
+        require_runner_fence(env)  # before the Runner can run, and again after every reboot
     if has_computer(env):
         start_worker(env, first_install=first_install)
     if state is not None and state.get('transaction') and state['transaction']['kind'] == 'install':
@@ -6121,6 +6138,30 @@ def audit_computers(env):
                          '(running computers: sudo tofi computers)' % (guest, server))
 
 
+def audit_runner_fence(env):
+    """Read-only: is the Runner's egress fence in place? Changes nothing."""
+    title = 'Runner network fence'
+    if not env.get('TOFI_RUNNER_IMAGE'):
+        return audit_finding(AUDIT_PASS, 'runner.fence', title, 'no Runner container is installed: nothing to fence')
+    fix = 'sudo apt-get install iptables && sudo tofi restart  # applies the rules again'
+    if shutil.which('iptables') is None:
+        return audit_finding(AUDIT_FAIL, 'runner.fence', title,
+                             'iptables is not installed, so the Runner container (it runs code a person installed) '
+                             'can reach the host, the LAN and the cloud metadata address', fix)
+    if _iptables('-S', 'DOCKER-USER').returncode != 0:
+        return audit_finding(AUDIT_FAIL, 'runner.fence', title,
+                             'Docker has no DOCKER-USER chain here (iptables disabled in Docker, or the nftables backend), '
+                             'so the Runner container is not fenced', 'enable Docker iptables handling, then: sudo tofi restart')
+    hooks = (('DOCKER-USER', ['-s', RUNNER_EGRESS_SUBNET, '-j', RUNNER_EGRESS_CHAIN]),
+             ('INPUT', ['-s', RUNNER_EGRESS_SUBNET, '-j', 'DROP']))
+    if _iptables('-S', RUNNER_EGRESS_CHAIN).returncode != 0 or any(_iptables('-C', chain, *rule).returncode != 0 for chain, rule in hooks):
+        return audit_finding(AUDIT_WARN if env.get('TOFI_RUNNER_UNFENCED') == '1' else AUDIT_FAIL, 'runner.fence', title,
+                             'the firewall rules of the Runner container are missing'
+                             + ('; TOFI_RUNNER_UNFENCED=1 allows it' if env.get('TOFI_RUNNER_UNFENCED') == '1' else ''), fix)
+    return audit_finding(AUDIT_PASS, 'runner.fence', title,
+                         'the Runner container (%s) is fenced off from the host and the private networks' % RUNNER_EGRESS_SUBNET)
+
+
 def audit_backup_age():
     title = 'Last backup'
     backups = list_backups()
@@ -6186,6 +6227,7 @@ def security_audit(online=False):
     collect('secrets.model_keys', lambda: audit_model_keys(env))
     collect('versions.tofi', lambda: audit_versions(env, online))
     collect('versions.computers', lambda: audit_computers(env))
+    collect('runner.fence', lambda: audit_runner_fence(env))
     collect('backups.recent', audit_backup_age)
     summary = {level.lower(): sum(1 for f in findings if f['level'] == level)
                for level in (AUDIT_PASS, AUDIT_WARN, AUDIT_FAIL)}

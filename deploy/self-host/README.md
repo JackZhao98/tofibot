@@ -591,8 +591,11 @@ adds firewall rules (iptables chain `TOFI-RUNNER-EGRESS`, hooked into
 networks (10/8, 172.16/12, 192.168/16, 100.64/10), 169.254.0.0/16 or the other
 Docker networks of this install; they are rewritten on every start and removed by
 `tofi uninstall`. Without `iptables` (or with Docker's nftables backend, which
-has no `DOCKER-USER` chain) `tofi` warns and the Runner starts unfenced: add
-equivalent rules yourself for 172.30.77.0/24. If 172.30.77.0/24 is in use on
+has no `DOCKER-USER` chain) `tofi start` and `tofi update` refuse to start the
+Runner and say why; an update that cannot fence it rolls back. If you added
+equivalent rules for 172.30.77.0/24 yourself, set `TOFI_RUNNER_UNFENCED=1` in
+`tofi.env` to start the Runner anyway. `tofi security audit` reports
+`runner.fence` (FAIL when the rules are missing). If 172.30.77.0/24 is in use on
 your network, change it in `compose.yaml` and `RUNNER_EGRESS_SUBNET` in
 `tofi_host.py`.
 

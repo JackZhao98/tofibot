@@ -32,7 +32,8 @@ MIN_MEMORY_NONE_MIB=1792   # "2 GiB"
 WARN_MEMORY_NONE_MIB=3584
 MIN_DISK_NONE_GIB=10
 WARN_DISK_NONE_GIB=20
-APT_PACKAGES=(ca-certificates curl tar python3 openssl iproute2)
+# iptables fences the Runner container off the host and the LAN.
+APT_PACKAGES=(ca-certificates curl tar python3 openssl iproute2 iptables)
 # Only a computer (KVM) needs these.
 APT_PACKAGES_COMPUTER=(zstd e2fsprogs apparmor apparmor-utils)
 

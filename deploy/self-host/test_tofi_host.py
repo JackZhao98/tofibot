@@ -3061,6 +3061,23 @@ class RunnerEgressFilterTests(HostCase):
         self.assertIn('DOCKER-USER', self.warnings[0])
         self.assertNotIn(tofi_host.RUNNER_EGRESS_CHAIN, self.iptables.chains)
 
+    def test_start_services_refuses_to_start_the_runner_when_it_cannot_be_fenced(self):
+        del self.iptables.chains['DOCKER-USER']
+        env = {'TOFI_COMPUTER_BACKEND': 'none', 'TOFI_RUNNER_IMAGE': 'ghcr.io/jackzhao98/tofi-mcp-runner@sha256:' + '4' * 64}
+        with mock.patch.object(tofi_host, 'health'):
+            with self.assertRaises(tofi_host.HostError) as raised:
+                REAL_START_SERVICES(env)
+        self.assertIn('fence', str(raised.exception))
+        self.assertIn('TOFI_RUNNER_UNFENCED=1', str(raised.exception))
+        self.assertFalse([c for c in self.commands if 'up' in c], self.commands)
+        env['TOFI_RUNNER_UNFENCED'] = '1'
+        with mock.patch.object(tofi_host, 'health'):
+            REAL_START_SERVICES(env)
+        self.assertTrue([c for c in self.commands if 'up' in c])
+
+    def test_iptables_is_a_required_host_tool(self):
+        self.assertIn('iptables', tofi_host.REQUIRED_TOOLS)
+
     def test_start_services_fences_the_runner_before_it_can_run_and_only_when_there_is_one(self):
         env = {'TOFI_COMPUTER_BACKEND': 'none', 'TOFI_RUNNER_IMAGE': 'ghcr.io/jackzhao98/tofi-mcp-runner@sha256:' + '4' * 64}
         with mock.patch.object(tofi_host, 'health'), mock.patch.object(tofi_host, 'read_env', return_value=env):
