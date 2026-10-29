@@ -193,10 +193,8 @@ func TestUpgradeOverTheTopKeepsEveryRow(t *testing.T) {
 			t.Fatalf("computers.%s: %v", col, err)
 		}
 	}
-	for _, col := range []string{"computer_id", "region", "compute_ms"} {
-		var v sql.NullString
-		if err = db.QueryRow(`SELECT `+col+` FROM runs WHERE id=?`, manifest["run_id"]).Scan(&v); err != nil || v.Valid {
-			t.Fatalf("runs.%s must exist and be NULL on an old run: %v %v", col, v, err)
-		}
+	var metered int
+	if err = db.QueryRow(`SELECT COUNT(*) FROM run_computers WHERE run_id=?`, manifest["run_id"]).Scan(&metered); err != nil || metered != 0 {
+		t.Fatalf("run_computers must exist and be empty for an old run: %d %v", metered, err)
 	}
 }

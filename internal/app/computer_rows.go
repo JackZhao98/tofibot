@@ -94,18 +94,14 @@ func migrateComputerRows(db *sql.DB) error {
 			return err
 		}
 	}
-	// Run records carry the computer a run used, for later metering. All three
-	// are nullable: a run that used no computer has none, and nothing reads them yet.
-	for _, col := range []struct{ name, ddl string }{
-		{"computer_id", `ALTER TABLE runs ADD COLUMN computer_id TEXT`},
-		{"region", `ALTER TABLE runs ADD COLUMN region TEXT`},
-		{"compute_ms", `ALTER TABLE runs ADD COLUMN compute_ms INTEGER`},
-	} {
-		if err := ensureColumn(db, "runs", col.name, col.ddl); err != nil {
-			return err
-		}
-	}
-	return nil
+	// What a run used, for later metering: one row per run and computer, all
+	// values besides the key nullable, nothing reads them yet. It is a table of
+	// its own, not columns of runs: three more columns on that table move the
+	// query planner off the runs_active partial index (TestBackendPerfPlansAvoidFullScans).
+	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS run_computers(
+ run_id TEXT NOT NULL, computer_id TEXT NOT NULL, region TEXT, compute_ms INTEGER,
+ PRIMARY KEY(run_id,computer_id), FOREIGN KEY(run_id) REFERENCES runs(id) ON DELETE CASCADE)`)
+	return err
 }
 
 func scanComputerRow(sc interface{ Scan(...any) error }) (ComputerRow, error) {
@@ -194,8 +190,8 @@ func (s *Store) countPersonalComputers() (int, error) {
 
 var errTooManyComputers = errors.New("personal computer limit reached")
 
-// recordRunComputer notes on the run record which computer a run used and for
-// how long. The columns are for future metering; nothing displays them.
+// recordRunComputer notes which computer a run used and for how long, in
+// run_computers. For future metering; nothing displays it.
 func (s *Store) recordRunComputer(runID, computerID, region string, elapsed time.Duration) {
 	if s == nil || s.db == nil || runID == "" || computerID == "" {
 		return
@@ -204,5 +200,6 @@ func (s *Store) recordRunComputer(runID, computerID, region string, elapsed time
 	if region != "" {
 		regionValue = region
 	}
-	_, _ = s.db.Exec(`UPDATE runs SET computer_id=?,region=COALESCE(?,region),compute_ms=COALESCE(compute_ms,0)+? WHERE id=?`, computerID, regionValue, elapsed.Milliseconds(), runID)
+	_, _ = s.db.Exec(`INSERT INTO run_computers(run_id,computer_id,region,compute_ms) SELECT id,?,?,? FROM runs WHERE id=?
+ ON CONFLICT(run_id,computer_id) DO UPDATE SET region=COALESCE(excluded.region,region),compute_ms=COALESCE(compute_ms,0)+excluded.compute_ms`, computerID, regionValue, elapsed.Milliseconds(), runID)
 }

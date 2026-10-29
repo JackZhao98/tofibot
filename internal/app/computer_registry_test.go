@@ -151,10 +151,8 @@ INSERT INTO computers(id,name,platform,kind,token_hash,capabilities,last_seen,cr
 	if _, err = db.Exec(`INSERT INTO computers(id,name,platform,kind,token_hash,capabilities,last_seen,created_at) VALUES('linux-box','Box','linux','vm',x'','[]','t','t')`); err != nil {
 		t.Fatalf("a linux vm row is refused: %v", err)
 	}
-	for _, col := range []string{"computer_id", "region", "compute_ms"} {
-		if err = db.QueryRow(`SELECT ` + col + ` FROM runs LIMIT 1`).Err(); err != nil {
-			t.Fatalf("runs.%s: %v", col, err)
-		}
+	if _, err = db.Exec(`SELECT run_id,computer_id,region,compute_ms FROM run_computers LIMIT 1`); err != nil {
+		t.Fatalf("run_computers: %v", err)
 	}
 }
 
@@ -500,7 +498,7 @@ func TestBotListsItsComputers(t *testing.T) {
 	}
 }
 
-// Run records gain the computer used and the time spent on it.
+// A run's computer use is recorded for later metering.
 func TestRunRecordsComputerForMetering(t *testing.T) {
 	s := newRegistryServer(t)
 	s.microVM = newFakeComputer("firecracker")
@@ -510,16 +508,24 @@ func TestRunRecordsComputerForMetering(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var id sql.NullString
-	var ms sql.NullInt64
-	if s.store.db.QueryRow(`SELECT computer_id,compute_ms FROM runs WHERE id=?`, run.ID).Scan(&id, &ms) != nil || id.Valid || ms.Valid {
-		t.Fatal("a run that used no computer already has metering values")
+	var n int
+	s.store.db.QueryRow(`SELECT COUNT(*) FROM run_computers WHERE run_id=?`, run.ID).Scan(&n)
+	if n != 0 {
+		t.Fatal("a run that used no computer already has metering rows")
 	}
-	if _, err = s.microVMAction(context.Background(), run, "shell.exec", shellArgs()); err != nil {
-		t.Fatal(err)
+	for i := 0; i < 2; i++ {
+		if _, err = s.microVMAction(context.Background(), run, "shell.exec", shellArgs()); err != nil {
+			t.Fatal(err)
+		}
 	}
+	var id string
 	var region sql.NullString
-	if s.store.db.QueryRow(`SELECT computer_id,region,compute_ms FROM runs WHERE id=?`, run.ID).Scan(&id, &region, &ms) != nil || id.String != "firecracker" || !ms.Valid || region.Valid {
-		t.Fatalf("metering: %+v %+v %+v", id, region, ms)
+	var ms sql.NullInt64
+	if s.store.db.QueryRow(`SELECT computer_id,region,compute_ms FROM run_computers WHERE run_id=?`, run.ID).Scan(&id, &region, &ms) != nil || id != "firecracker" || !ms.Valid || region.Valid {
+		t.Fatalf("metering: %q %+v %+v", id, region, ms)
+	}
+	s.store.db.QueryRow(`SELECT COUNT(*) FROM run_computers WHERE run_id=?`, run.ID).Scan(&n)
+	if n != 1 {
+		t.Fatalf("two calls on one computer made %d rows", n)
 	}
 }

@@ -11,7 +11,13 @@ package app
 //  3. detaching during a run ends the run's computer call with an ordinary tool
 //     error (computer_detached) instead of hanging, and the run finishes.
 //
-// Manual script for the same gate on a real host: docs in the pull request.
+// Manual script for the same gate on a real host (admin session, one account with a VM):
+//  1. Upload a file in a chat, ask the Bot to write a file to /workspace/home/outbox, note the Bot's memories and schedules.
+//  2. POST /api/admin/accounts/<id>/computer/detach {"wait_seconds":30}. Expect 200, status "detached", and the outbox file posted in the chat as a message with the file attached.
+//  3. In the same chat: say hello, ask for a memory and a reminder, ask it to read the uploaded file, download the file. All work; the Bot does not offer shell or browser.
+//  4. POST .../computer/attach. Expect status "attached"; ask the Bot to run `ls /workspace`; memories, schedule and files are as before.
+//  5. Start a long shell command (sleep 60) in a chat, then detach with wait_seconds 5. Expect the step to end with a detached-computer error within seconds and the Bot to answer anyway.
+//  6. Restart the App: the VM stays detached until step 4's call.
 
 import (
 	"bytes"
@@ -294,6 +300,11 @@ func TestReleaseGateBotWorksWithoutTheComputer(t *testing.T) {
 	_ = json.Unmarshal(rec.Body.Bytes(), &detach)
 	if !detach.Detach.Drained || detach.Detach.Outbox.Synced != 1 {
 		t.Fatalf("detach report: %s", rec.Body.String())
+	}
+	var shown int
+	s.store.db.QueryRow(`SELECT COUNT(*) FROM attachment_messages am JOIN attachments a ON a.id=am.attachment_id WHERE a.name='late.txt'`).Scan(&shown)
+	if shown != 1 {
+		t.Fatalf("the saved file is not shown in the chat: %d", shown)
 	}
 	var outboxID string
 	if err = s.store.db.QueryRow(`SELECT id FROM attachments WHERE origin='outbox' AND name='late.txt'`).Scan(&outboxID); err != nil {

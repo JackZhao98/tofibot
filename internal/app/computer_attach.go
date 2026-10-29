@@ -196,6 +196,7 @@ func (s *Server) syncOutboxForDetach(ctx context.Context, slot *computerSlot, re
 		return
 	}
 	var total int64
+	var saved []string
 	names := map[string]bool{}
 	for _, f := range files {
 		if s.store.outboxAlreadySynced(f.Path, f.Size, f.MTimeNS) {
@@ -229,7 +230,27 @@ func (s *Server) syncOutboxForDetach(ctx context.Context, slot *computerSlot, re
 			continue
 		}
 		s.store.recordOutboxSynced(f.Path, f.Size, f.MTimeNS, digest, a.ID)
+		saved = append(saved, a.ID)
 		total += f.Size
 		report.Outbox.Synced++
+	}
+	s.store.postDetachFiles(conv, saved)
+}
+
+// postDetachFiles shows the files saved at a detach in the chat they went to,
+// as one message from the Bot with the files attached, so the person sees them.
+func (s *Store) postDetachFiles(conv Conversation, ids []string) {
+	if len(ids) == 0 {
+		return
+	}
+	m, _, err := s.AddMessage(conv.ID, "assistant", conv.BotID, "", "These files were in the computer's outbox. They are saved here because the computer was detached.", "detach-outbox:"+uuid.NewString())
+	if err != nil {
+		log.Printf("[outbox] detach: the saved files could not be shown in the chat: %v", err)
+		return
+	}
+	for _, id := range ids {
+		if _, err = s.db.Exec(`INSERT OR IGNORE INTO attachment_messages(attachment_id,message_id) VALUES(?,?)`, id, m.ID); err != nil {
+			log.Printf("[outbox] detach: a saved file could not be attached to the message: %v", err)
+		}
 	}
 }
