@@ -1,5 +1,7 @@
 /* Shared settings components and the page-level restyle of the existing panels. Tokens only (design-tokens.css). */
 .workspace .settings-page-body .settings-stack{display:grid;gap:22px;align-content:start;min-width:0}
+/* A block a link can scroll to (SectionAnchor) is a plain grid item: it must not widen its track. */
+.settings-anchor{min-width:0}
 .workspace .settings-page-body .settings-two{display:grid;gap:22px 28px;align-items:start;min-width:0}
 @container (min-width:1000px){.workspace .settings-page-body .settings-two{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr)}}
 .workspace .settings-page-body .settings-two>*{min-width:0}

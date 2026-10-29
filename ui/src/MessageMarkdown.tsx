@@ -12,7 +12,7 @@ export const ViewerLinkContext = createContext(false);
 const urlTransform = (url: string) => /^attachment:/i.test(url) ? url : defaultUrlTransform(url);
 
 /** Cheap and synchronous: a relative path or an address on this origin that could be a settings page (the lazy route reader decides). */
-const isSettingsHref = (href = "") => /^\/(settings([/#?]|$)|[bg]\/[^/?#]+\/settings)/.test(href.replace(window.location.origin, ""));
+const isSettingsHref = (href = "") => /^\/(settings([/#?]|$)|[bg]\/[^/?#]+\/settings)/.test(href.replace(globalThis.location?.origin ?? "", ""));
 
 function MarkdownLink({ href, children }: { href?: string; children?: ReactNode }) {
   const inViewer = useContext(ViewerLinkContext);
