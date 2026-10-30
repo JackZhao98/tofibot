@@ -159,6 +159,26 @@ func (s *Store) claimRun(ctx context.Context, runID string) (runClaim, bool, err
 		return claim, false, err
 	}
 	claim.ResumeNotice = prior
+	// A task resumed by its own run may have been finished elsewhere while the run waited in the queue: that run does not start.
+	if prior == resumeNoticeTask {
+		var closed int
+		if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM work_items WHERE assignee_run_id=? AND status IN ('done','cancelled','failed')`, runID).Scan(&closed); err != nil {
+			return claim, false, err
+		}
+		if closed > 0 {
+			if _, err = tx.ExecContext(ctx, `UPDATE runs SET status='cancelled',error='task_already_finished',updated_at=? WHERE id=?`, now(), runID); err != nil {
+				return claim, false, err
+			}
+			cancelled, scanErr := scanRun(tx.QueryRowContext(ctx, `SELECT id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at FROM runs WHERE id=?`, runID))
+			if scanErr != nil {
+				return claim, false, scanErr
+			}
+			if err = insertEventTx(tx, cancelled.ConversationID, "run", cancelled, now()); err != nil {
+				return claim, false, err
+			}
+			return claim, false, tx.Commit()
+		}
+	}
 
 	var data, questionID, state string
 	err = tx.QueryRowContext(ctx, `SELECT checkpoint_json,question_id,state FROM run_input_waits WHERE run_id=?`, runID).Scan(&data, &questionID, &state)

@@ -2373,7 +2373,7 @@ func (s *Store) MarkRunSteered(id, msg string) (bool, error) {
 		if scanErr != nil {
 			return false, scanErr
 		}
-		_ = tx.QueryRow(`SELECT title FROM work_items WHERE source_run_id=? AND source<>'' LIMIT 1`, id).Scan(&run.PausedTaskTitle)
+		_ = tx.QueryRow(`SELECT title FROM work_items WHERE source_run_id=? AND source<>'' AND status NOT IN ('done','cancelled','failed') LIMIT 1`, id).Scan(&run.PausedTaskTitle)
 		data, _ := json.Marshal(run)
 		if _, err = tx.Exec(`INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, run.ConversationID, "run", string(data), now()); err != nil {
 			return false, err
