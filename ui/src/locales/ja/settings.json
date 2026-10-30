@@ -55,7 +55,7 @@
         "description": "Bot がリマインドする内容を確認"
       },
       "models": {
-        "name": "モデル",
+        "name": "AI モデル",
         "description": "プロバイダーと既定のモデル。"
       },
       "computer": {
@@ -178,7 +178,6 @@
   "providers": {
     "title": "モデルプロバイダ",
     "load_failed": "モデルプロバイダの状態を読み込めませんでした。",
-    "openai_description": "OpenAI の APIキーで GPT と o シリーズのモデルを使います。API の使用量に応じて課金されます。",
     "anthropic_description": "Anthropic の APIキーで Claude のモデルを使います。API の使用量に応じて課金されます。",
     "api_key_tag": "APIキー",
     "status_loading": "状態を読み込み中…",
@@ -198,14 +197,27 @@
     "remove_failed": "削除できませんでした。もう一度お試しください。",
     "removed": "{{provider}} の APIキーを削除しました。{{provider}} のモデルを使っている Bot は、接続済みの別のモデルに切り替える必要があります。",
     "key_label": "{{provider}} APIキー",
-    "replace_label": "{{provider}} APIキーを置き換える",
     "verifying": "検証中…",
     "save": "保存して検証",
     "workspace_label": "Workspace ID",
     "workspace_note": "Claude Console の Settings → Workspaces ページで、ID 列にある wrkspc_ で始まる値です。",
-    "key_note": "保存前に、このキーでモデル一覧を一度取得して検証します。キーは暗号化して保存され、再表示されません。",
+    "key_note": "キーは暗号化して保存され、全体が表示されることはありません。",
     "remove": "削除",
-    "remove_question": "{{provider}} の APIキーを削除しますか？"
+    "remove_question": "{{provider}} の APIキーを削除しますか？",
+    "replace_key": "キーを置き換え",
+    "switch": "切り替える",
+    "switch_to_key": "APIキーに切り替える",
+    "switch_to_key_question": "ChatGPT からサインアウトして APIキーを使いますか？",
+    "switch_to_chatgpt": "ChatGPT のサインインに切り替える",
+    "switch_to_chatgpt_question": "APIキーを削除して ChatGPT でサインインしますか？",
+    "disconnect_chatgpt_question": "ChatGPT からサインアウトしますか？",
+    "also_key": "APIキーも保存されています（{{key}}）。Bot は ChatGPT アカウントを使います。",
+    "method_chatgpt": "ChatGPT アカウント",
+    "choose_method": "OpenAI の使い方",
+    "chatgpt_title": "ChatGPT アカウントでサインイン",
+    "chatgpt_note": "ご利用プランの範囲で Codex モデルを使えます。",
+    "key_title": "APIキーを使う",
+    "key_note_choice": "GPT モデル。API の利用量に応じた課金です。"
   },
   "usage": {
     "label": "使用量",
@@ -737,7 +749,12 @@
       "auto_hint": "サーバーで切り替えます：<on>sudo tofi config auto-update on</on> または <off>sudo tofi config auto-update off</off>",
       "update": "このページから更新",
       "update_hint": "サーバーが先にバックアップを取り、実行中の Bot を待ち、新しいバージョンが失敗したらロールバックします。",
-      "update_none": "インストールできる更新はありません。"
+      "update_none": "インストールできる更新はありません。",
+      "check": "アップデートを確認",
+      "checking": "確認中…",
+      "check_current": "最新の状態です。",
+      "check_available": "{{version}} が利用できます。",
+      "check_failed": "アップデートを確認できませんでした。もう一度お試しください。"
     },
     "action": {
       "update": "{{version}} に更新",
@@ -1153,7 +1170,16 @@
   "approval": {
     "label": "このアカウントの承認モード",
     "auto": "自動",
-    "ask": "変更前に確認"
+    "ask": "変更前に確認",
+    "bot": "Bot ごと",
+    "bots_title": "Bot",
+    "bots_description": "各 Bot 自身の承認モードです。",
+    "bots_locked": "上のアカウントのモードで設定されています。1 つの Bot だけ変えるには「Bot ごと」を選びます。",
+    "no_bots": "まだ Bot がありません。",
+    "bot_label": "{{name}} の承認モード",
+    "reviewer_title": "自動レビューのモデル",
+    "reviewer_label": "レビュー担当モデル",
+    "reviewer_description": "「自動」の Bot のツール呼び出しをレビューします。振り分けなどの軽い作業を担当するバックグラウンドモデルと同じ設定です。"
   },
   "changes": {
     "title": "Bot による変更",

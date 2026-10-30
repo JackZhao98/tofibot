@@ -55,7 +55,7 @@
         "description": "查看 Bot 會提醒你什麼"
       },
       "models": {
-        "name": "模型",
+        "name": "AI 模型",
         "description": "模型服務商與預設模型。"
       },
       "computer": {
@@ -178,7 +178,6 @@
   "providers": {
     "title": "模型供應商",
     "load_failed": "暫時無法讀取模型供應商狀態。",
-    "openai_description": "使用 OpenAI API 金鑰呼叫 GPT 與 o 系列模型，依 API 用量計費。",
     "anthropic_description": "使用 Anthropic API 金鑰呼叫 Claude 模型，依 API 用量計費。",
     "api_key_tag": "API 金鑰",
     "status_loading": "正在讀取狀態…",
@@ -198,14 +197,27 @@
     "remove_failed": "移除失敗，請再試一次。",
     "removed": "已移除 {{provider}} API 金鑰。使用 {{provider}} 模型的 Bot 需要改用其他已連接的模型。",
     "key_label": "{{provider}} API 金鑰",
-    "replace_label": "更換 {{provider}} API 金鑰",
     "verifying": "驗證中…",
     "save": "儲存並驗證",
     "workspace_label": "Workspace ID",
     "workspace_note": "在 Claude Console 的 Settings → Workspaces 頁面，ID 欄中以 wrkspc_ 開頭的那串字元。",
-    "key_note": "儲存前會用這組金鑰讀取一次模型清單來驗證；金鑰會加密儲存，之後不會再顯示。",
+    "key_note": "金鑰加密儲存，永遠不會完整顯示。",
     "remove": "移除",
-    "remove_question": "要移除 {{provider}} API 金鑰嗎？"
+    "remove_question": "要移除 {{provider}} API 金鑰嗎？",
+    "replace_key": "替換金鑰",
+    "switch": "切換",
+    "switch_to_key": "改用 API 金鑰",
+    "switch_to_key_question": "登出 ChatGPT 並改用 API 金鑰？",
+    "switch_to_chatgpt": "改用 ChatGPT 登入",
+    "switch_to_chatgpt_question": "移除 API 金鑰並用 ChatGPT 登入？",
+    "disconnect_chatgpt_question": "登出 ChatGPT？",
+    "also_key": "還儲存著一個 API 金鑰（{{key}}）。Bot 使用 ChatGPT 帳號。",
+    "method_chatgpt": "ChatGPT 帳號",
+    "choose_method": "使用 OpenAI 的方式",
+    "chatgpt_title": "使用 ChatGPT 帳號登入",
+    "chatgpt_note": "在方案額度內使用 Codex 模型。",
+    "key_title": "使用 API 金鑰",
+    "key_note_choice": "GPT 模型，依 API 用量計費。"
   },
   "usage": {
     "label": "用量",
@@ -737,7 +749,12 @@
       "auto_hint": "請在伺服器上開關：<on>sudo tofi config auto-update on</on> 或 <off>sudo tofi config auto-update off</off>",
       "update": "從此頁面更新",
       "update_hint": "伺服器會先備份，等待執行中的 Bot，新版本失敗時自動回復。",
-      "update_none": "沒有可安裝的更新。"
+      "update_none": "沒有可安裝的更新。",
+      "check": "檢查更新",
+      "checking": "正在檢查…",
+      "check_current": "已是最新版本。",
+      "check_available": "有新版本 {{version}} 可用。",
+      "check_failed": "無法檢查更新，請重試。"
     },
     "action": {
       "update": "更新到 {{version}}",
@@ -1153,7 +1170,16 @@
   "approval": {
     "label": "此帳號的核准模式",
     "auto": "自動",
-    "ask": "修改前先問"
+    "ask": "修改前先問",
+    "bot": "依 Bot",
+    "bots_title": "Bot",
+    "bots_description": "每個 Bot 各自的審批模式。",
+    "bots_locked": "由上方的帳號模式統一設定。要單獨修改某個 Bot，請選擇「依 Bot」。",
+    "no_bots": "還沒有 Bot。",
+    "bot_label": "{{name}} 的審批模式",
+    "reviewer_title": "自動覆核模型",
+    "reviewer_label": "覆核模型",
+    "reviewer_description": "負責覆核「自動」模式 Bot 的工具呼叫。它同時是背景模型，也承擔分流等輕量工作。"
   },
   "changes": {
     "title": "Bot 所做的變更",

@@ -531,6 +531,31 @@ await check("announcements: lift, drop and pin are spoken", async () => {
   await context.close();
 });
 
+await check("a pressed tile shows the app's press feedback; reduced motion keeps the colour change but no movement", async () => {
+  for (const reduced of [false, true]) {
+    const { page, context } = await open({ reduced });
+    await rowFor(page, "Cat 02").click({ button: "right" });
+    await page.getByRole("menuitem", { name: "Pin", exact: true }).click();
+    const tile = tileFor(page, "Cat 02");
+    await tile.waitFor();
+    await page.mouse.move(0, 0);
+    await settled(page);
+    const at = await centre(tile);
+    const rest = await tile.evaluate(node => ({ transform: getComputedStyle(node).transform, background: getComputedStyle(node).backgroundColor }));
+    await page.mouse.move(at.x, at.y);
+    await page.mouse.down();
+    await sleep(250);
+    const down = await tile.evaluate(node => ({ transform: getComputedStyle(node).transform, background: getComputedStyle(node).backgroundColor, shadow: getComputedStyle(node).boxShadow }));
+    if (shots) await page.screenshot({ path: join(shots, reduced ? "dock-press-reduced.png" : "dock-press.png"), clip: { x: Math.max(0, at.x - 90), y: Math.max(0, at.y - 80), width: 180, height: 160 } });
+    await page.mouse.up();
+    assert.notEqual(down.background, rest.background, "the pressed tile changes its surface");
+    assert.equal(down.shadow, "none", "the press drops the shadow, as a row does");
+    if (reduced) assert.ok(down.transform === "none" || down.transform === rest.transform, `no movement under reduced motion (${down.transform})`);
+    else assert.notEqual(down.transform, rest.transform, `the tile moves when pressed (${down.transform})`);
+    await context.close();
+  }
+});
+
 await check("reduced motion: neighbours do not glide, but the row still follows the pointer", async () => {
   for (const reduced of [false, true]) {
     const { page, context } = await open({ reduced });

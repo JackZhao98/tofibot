@@ -116,7 +116,7 @@
   "settings:shell.page.keys.description": "コンピュータで使う環境変数と SSH キーを設定",
   "settings:shell.page.keys.name": "コンピュータのキー",
   "settings:shell.page.models.description": "プロバイダーと既定のモデル。",
-  "settings:shell.page.models.name": "モデル",
+  "settings:shell.page.models.name": "AI モデル",
   "settings:shell.page.permissions.description": "Bot が先に確認するタイミング",
   "settings:shell.page.permissions.name": "権限",
   "settings:shell.page.skills.description": "再利用できる作業手順を管理",

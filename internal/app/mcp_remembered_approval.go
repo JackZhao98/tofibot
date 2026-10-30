@@ -288,7 +288,7 @@ func (t mcpRememberTarget) offer() *MCPRememberOffer {
 // nothing about whether a grant exists. db is the caller's transaction when
 // it holds one: the store has a single connection.
 func (s *Server) rememberedApprovalUsable(db reviewQuerier, c Conversation, r Run, call extensions.MCPCallApproval) bool {
-	settings, err := readAutoReviewSettings(db)
+	settings, err := readAutoReviewSettingsForBot(db, r.BotID)
 	if err != nil || settings.Mode == "auto" {
 		return false
 	}

@@ -86,7 +86,9 @@ func (s *Server) withEffectiveModels(ctx context.Context, bots ...Bot) []Bot {
 	}
 	pending := map[string]bool{}
 	avatars := map[string]string{}
+	modes := map[string]string{}
 	if s != nil && s.store != nil {
+		modes, _ = s.store.botApprovalModes()
 		pending = s.store.pendingOnboardingBots()
 		avatars, _ = s.store.botAvatars()
 	}
@@ -94,6 +96,7 @@ func (s *Server) withEffectiveModels(ctx context.Context, bots ...Bot) []Bot {
 		b.IsPrimary = primary != "" && b.ID == primary
 		b.OnboardingPending = pending[b.ID]
 		b.Avatar = BotAvatar(avatars[b.ID])
+		b.ApprovalMode = modes[b.ID]
 		b.EffectiveModel, b.EffectiveReasoningEffort = s.resolveBotModel(ctx, "", b)
 		out[i] = b
 	}

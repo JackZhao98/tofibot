@@ -55,7 +55,7 @@
         "description": "Sieh, woran Bots dich erinnern würden"
       },
       "models": {
-        "name": "Modelle",
+        "name": "KI-Modelle",
         "description": "Anbieter und Standardmodell."
       },
       "computer": {
@@ -179,7 +179,6 @@
   "providers": {
     "title": "Modellanbieter",
     "load_failed": "Der Status der Modellanbieter konnte nicht geladen werden.",
-    "openai_description": "Nutzt einen OpenAI-API-Schlüssel für GPT- und o-Modelle, abgerechnet nach API-Nutzung.",
     "anthropic_description": "Nutzt einen Anthropic-API-Schlüssel für Claude-Modelle, abgerechnet nach API-Nutzung.",
     "api_key_tag": "API-Schlüssel",
     "status_loading": "Status wird geladen…",
@@ -199,14 +198,27 @@
     "remove_failed": "Entfernen fehlgeschlagen. Versuch es erneut.",
     "removed": "{{provider}}-API-Schlüssel entfernt. Bots, die {{provider}}-Modelle verwenden, brauchen ein anderes verbundenes Modell.",
     "key_label": "{{provider}}-API-Schlüssel",
-    "replace_label": "{{provider}}-API-Schlüssel ersetzen",
     "verifying": "Wird geprüft…",
     "save": "Speichern und prüfen",
     "workspace_label": "Workspace ID",
     "workspace_note": "In der Claude Console unter Settings → Workspaces: der Wert in der Spalte „ID“, der mit wrkspc_ beginnt.",
-    "key_note": "Vor dem Speichern prüft Tofi den Schlüssel, indem einmal die Modellliste abgerufen wird. Schlüssel werden verschlüsselt gespeichert und nicht mehr angezeigt.",
+    "key_note": "Schlüssel werden verschlüsselt gespeichert und nie vollständig angezeigt.",
     "remove": "Entfernen",
-    "remove_question": "{{provider}}-API-Schlüssel entfernen?"
+    "remove_question": "{{provider}}-API-Schlüssel entfernen?",
+    "replace_key": "Schlüssel ersetzen",
+    "switch": "Wechseln",
+    "switch_to_key": "Stattdessen API-Schlüssel nutzen",
+    "switch_to_key_question": "Von ChatGPT abmelden und einen API-Schlüssel nutzen?",
+    "switch_to_chatgpt": "Stattdessen mit ChatGPT anmelden",
+    "switch_to_chatgpt_question": "API-Schlüssel entfernen und mit ChatGPT anmelden?",
+    "disconnect_chatgpt_question": "Von ChatGPT abmelden?",
+    "also_key": "Ein API-Schlüssel ist ebenfalls gespeichert ({{key}}). Bots nutzen das ChatGPT-Konto.",
+    "method_chatgpt": "ChatGPT-Konto",
+    "choose_method": "So nutzt du OpenAI",
+    "chatgpt_title": "Mit deinem ChatGPT-Konto anmelden",
+    "chatgpt_note": "Codex-Modelle im Rahmen deines Tarifs.",
+    "key_title": "API-Schlüssel verwenden",
+    "key_note_choice": "GPT-Modelle, abgerechnet nach API-Nutzung."
   },
   "usage": {
     "label": "Nutzung",
@@ -746,7 +758,12 @@
       "auto_hint": "Ändere das auf dem Server: <on>sudo tofi config auto-update on</on> oder <off>sudo tofi config auto-update off</off>",
       "update": "Über diese Seite aktualisieren",
       "update_hint": "Der Server sichert zuerst, wartet auf laufende Bots und setzt zurück, wenn die neue Version scheitert.",
-      "update_none": "Kein Update zu installieren."
+      "update_none": "Kein Update zu installieren.",
+      "check": "Nach Updates suchen",
+      "checking": "Prüfe …",
+      "check_current": "Du bist auf dem neuesten Stand.",
+      "check_available": "{{version}} ist verfügbar.",
+      "check_failed": "Die Update-Suche ist fehlgeschlagen. Versuche es erneut."
     },
     "action": {
       "update": "Auf {{version}} aktualisieren",
@@ -1163,7 +1180,16 @@
   "approval": {
     "label": "Freigabemodus für dieses Konto",
     "auto": "Automatisch",
-    "ask": "Vor Änderungen fragen"
+    "ask": "Vor Änderungen fragen",
+    "bot": "Pro Bot",
+    "bots_title": "Bots",
+    "bots_description": "Der eigene Freigabemodus jedes Bots.",
+    "bots_locked": "Vom Kontomodus oben vorgegeben. Wähle „Pro Bot“, um einen Bot einzeln zu ändern.",
+    "no_bots": "Noch keine Bots.",
+    "bot_label": "Freigabemodus für {{name}}",
+    "reviewer_title": "Modell für automatische Prüfung",
+    "reviewer_label": "Prüfmodell",
+    "reviewer_description": "Prüft Tool-Aufrufe für Bots im Modus „Auto“. Es ist auch das Hintergrundmodell, das leichte Aufgaben wie das Routing übernimmt."
   },
   "changes": {
     "title": "Änderungen durch Bots",

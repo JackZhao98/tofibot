@@ -94,6 +94,7 @@
     "update_channel_disabled": "Release Candidates sind ausgeschaltet.",
     "host_update_unavailable": "Dieser Server kann noch nicht über die Seite aktualisieren. Führe auf dem Server sudo tofi update aus.",
     "storage_quota_exceeded": "Das Speicherlimit dieses Kontos ist erreicht. Lösche Dateien oder wende dich an die Administration.",
-    "storage_host_full": "Der Serverdatenträger ist fast voll, deshalb werden keine neuen Dateien angenommen. Informiere die Betreiberin oder den Betreiber dieses Servers."
+    "storage_host_full": "Der Serverdatenträger ist fast voll, deshalb werden keine neuen Dateien angenommen. Informiere die Betreiberin oder den Betreiber dieses Servers.",
+    "update_check_failed": "Der Update-Server ist nicht erreichbar. Versuche es später erneut."
   }
 }

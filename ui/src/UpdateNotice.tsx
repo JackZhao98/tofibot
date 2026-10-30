@@ -248,6 +248,8 @@ export function VersionCard() {
   const offers = useUpdateOffers(flow);
   const [rcBusy, setRcBusy] = useState(false);
   const [rcError, setRcError] = useState("");
+  const [checking, setChecking] = useState(false);
+  const [checkNote, setCheckNote] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   if (!admin) return null;
   const known = Boolean(info?.latest);
   const notes = info ? safeNotes(info.notes_url) : "";
@@ -259,6 +261,16 @@ export function VersionCard() {
     try { flow.setInfo(await request<SystemUpdate>("/api/system/update/settings", { method: "PUT", body: JSON.stringify({ channel_rc: next }) })); }
     catch (cause) { setRcError(cause instanceof ApiError ? cause.message : t("update.rc.save_failed")); }
     finally { setRcBusy(false); }
+  }
+  /** "Check for updates": the server reads the release manifest now; the card shows what it found, or why it could not. */
+  async function checkNow() {
+    setChecking(true); setCheckNote(null);
+    try {
+      const next = await request<SystemUpdate>("/api/system/update/check", { method: "POST" });
+      flow.setInfo(next);
+      setCheckNote({ tone: "ok", text: next.update_available ? t("update.card.check_available", { version: next.latest }) : t("update.card.check_current") });
+    } catch (cause) { setCheckNote({ tone: "error", text: cause instanceof ApiError ? cause.message : t("update.card.check_failed") }); }
+    finally { setChecking(false); }
   }
   return <SettingsCard className="version-card">
     <SettingsRow label={t("update.card.current")} control={<span className="version-value"><code>{info?.current ?? "-"}</code>{status}</span>} />
@@ -272,7 +284,8 @@ export function VersionCard() {
         : <span className="version-value">{offers.stable && <OfferButton offer={offers.stable} onOpen={offers.open} />}{offers.rc && <OfferButton offer={offers.rc} onOpen={offers.open} />}</span>} />}
     {fromPage && <SettingsRow label={t("update.rc.label")} labelFor="update-rc" description={rcError || t("update.rc.hint")}
       control={<label className="debug-toggle auto-switch"><input id="update-rc" type="checkbox" role="switch" aria-label={t("update.rc.label")} checked={info?.channel_rc_enabled === true} disabled={rcBusy} onChange={event => void setRc(event.target.checked)} /></label>} />}
-    <SettingsRow label={t("update.card.checked")} control={<span className="version-value">{info?.checked_at ? formatDateTime(info.checked_at, { dateStyle: "medium", timeStyle: "short", ...(timezone ? { timeZone: timezone } : {}) }) : <span className="version-muted">{t("update.card.never")}</span>}</span>} />
+    <SettingsRow label={t("update.card.checked")} description={checkNote ? <span className={checkNote.tone === "error" ? "error-text" : undefined} role={checkNote.tone === "error" ? "alert" : "status"}>{checkNote.text}</span> : undefined}
+      control={<span className="version-value">{info?.checked_at ? formatDateTime(info.checked_at, { dateStyle: "medium", timeStyle: "short", ...(timezone ? { timeZone: timezone } : {}) }) : <span className="version-muted">{t("update.card.never")}</span>}<button type="button" className="secondary-button" disabled={checking} aria-busy={checking} onClick={() => void checkNow()}>{checking ? t("update.card.checking") : t("update.card.check")}</button></span>} />
     <SettingsRow label={t("update.card.auto")} description={<Trans t={t} i18nKey="update.card.auto_hint" components={{ on: <code />, off: <code /> }} />}
       control={<span className="version-value" data-auto-update={info?.auto_update ?? "off"}>{info?.auto_update === "patch" ? t("update.card.auto_on") : t("update.card.auto_off")}</span>} />
     {offers.dialog}

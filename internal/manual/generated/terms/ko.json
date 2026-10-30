@@ -116,7 +116,7 @@
   "settings:shell.page.keys.description": "컴퓨터에 필요한 환경 변수와 SSH 키를 직접 설정",
   "settings:shell.page.keys.name": "컴퓨터 키",
   "settings:shell.page.models.description": "제공업체와 기본 모델.",
-  "settings:shell.page.models.name": "모델",
+  "settings:shell.page.models.name": "AI 모델",
   "settings:shell.page.permissions.description": "Bot이 먼저 물어볼 때를 정합니다",
   "settings:shell.page.permissions.name": "권한",
   "settings:shell.page.skills.description": "재사용할 수 있는 작업 방식 관리",

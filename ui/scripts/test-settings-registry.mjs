@@ -51,7 +51,7 @@ const source = async path => readFile(join(root, "src", path), "utf8");
   assert.ok(checked > 40, "most registry links are checked");
 
   // 4. Every section id is in the component that owns it.
-  const pages = (await Promise.all(["settings/SettingsPages.tsx", "StandingAllowances.tsx", "FollowupsSettings.tsx"].map(source))).join("\n");
+  const pages = (await Promise.all(["settings/SettingsPages.tsx", "StandingAllowances.tsx", "FollowupsSettings.tsx", "DictationSettings.tsx"].map(source))).join("\n");
   const ids = new Set([...pages.matchAll(/(?:<SectionAnchor|<SettingsSection)[^>]*?\bid="([a-z]+)"/g)].map(match => match[1]));
   const automation = await source("AutomationSettings.tsx");
   const groupOrder = /const groupOrder: AutomationGroup\[\] = \[([^\]]+)\]/.exec(automation)?.[1].match(/"([a-z]+)"/g)?.map(item => item.slice(1, -1));

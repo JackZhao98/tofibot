@@ -1,4 +1,4 @@
-import {lazy,Suspense,type ReactNode} from "react";
+import {lazy,Suspense,useState,type ReactNode} from "react";
 import {ApprovalModeSetting} from "../ApprovalModeSetting";
 import {AutoReviewSettings} from "../AutoReviewSettings";
 import {ChatsSettings} from "../ChatsSettings";
@@ -11,7 +11,7 @@ import {ComputerOptions} from "../ComputerOptions";
 import {useHasComputer} from "../computerCapability";
 import {ComputerResources} from "../ComputerResources";
 import {ConnectionInfo} from "../ConnectionInfo";
-import {DictationSettings} from "../DictationSettings";
+import {DictationSettings,useDictationStatus} from "../DictationSettings";
 import {ExtensionPanel} from "../ExtensionPanel";
 import {FollowupsSettings} from "../FollowupsSettings";
 import {PrimaryAssistantSetting} from "../PrimaryAssistantSetting";
@@ -36,7 +36,7 @@ import {SettingsChanges} from "./SettingsChanges";
 import {StandingAllowances} from "../StandingAllowances";
 
 /** Pieces that live in App.tsx and are handed in, so this folder never imports App. */
-export type SettingsSlots={codex:ReactNode;providersRefresh:number;onProvidersConfigured:()=>void;legacyArchive:ReactNode};
+export type SettingsSlots={codexRefresh:number;onCodexConfigured:()=>void;providersRefresh:number;onProvidersConfigured:()=>void;legacyArchive:ReactNode};
 export type SettingsPagesProps={
  page:SettingsTab;bots:Bot[];conversation?:Conversation;timezone:string;usageBotId:string;
  portabilityBotID:string;portabilityFile?:File;onPortabilityFileConsumed:()=>void;
@@ -105,13 +105,17 @@ function GeneralPage({appearance,slots,bots,onBotsChanged}:SettingsPagesProps){
 }
 
 function ModelsPage({slots}:SettingsPagesProps){
- const {t}=useTranslation("settings");
- return <div className="settings-two">
+ const [version,setVersion]=useState(0);
+ const dictation=useDictationStatus(version);
+ // A connected OpenAI method is what makes Dictation available, so the section follows the provider cards.
+ const changed=()=>setVersion(current=>current+1);
+ const showDictation=Boolean(dictation.value?.configured)||Boolean(dictation.error&&!dictation.value);
+ return <div className={showDictation?"settings-two":"settings-stack"}>
   <div className="settings-stack">
-   <SectionAnchor id="providers"><ModelProviders refreshToken={slots.providersRefresh} onConfigured={slots.onProvidersConfigured} codex={slots.codex}/></SectionAnchor>
+   <SectionAnchor id="providers"><ModelProviders refreshToken={slots.providersRefresh} codexRefresh={slots.codexRefresh} onConfigured={()=>{slots.onProvidersConfigured();changed()}} onCodexConfigured={()=>{slots.onCodexConfigured();changed()}}/></SectionAnchor>
    <SectionAnchor id="defaults"><ModelDefaults/></SectionAnchor>
   </div>
-  <div className="settings-stack"><SettingsSection id="dictation" title={t("dictation.title")}><DictationSettings/></SettingsSection></div>
+  {showDictation&&<div className="settings-stack"><DictationSettings value={dictation.value} error={dictation.error}/></div>}
  </div>;
 }
 

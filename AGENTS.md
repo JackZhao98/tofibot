@@ -86,6 +86,12 @@ App restarting ("Restarting...", then "Updated to vX / Reload"). The rc switch i
 (`ensure_update_request_channel`), the page keeps the old "run sudo tofi update" hint (`host_update_unavailable`). Change the request/status schema, the two units, `tofi.conf` directories and
 `compose.yaml` mounts together, with the UI, the stable codes (`update.error.*`, `apiError.update_*` in 7 locales) and `test_web_update.py`. Uninstall removes the units.
 
+The Version card also has **Check for updates**: `POST /api/system/update/check` (`checkNow` in `update_notice.go`) reads the release manifest at once (the cached read only ages out every 6 h), answers the fresh snapshot, answers repeats within 3 s from the cache, and fails as 502 `update_check_failed` without touching the cache.
+
+# Approval mode per Bot (Settings > Permissions)
+
+`bots.approval_mode` ('' follows the account, `auto`, `ask`; `PATCH /api/bots/{id} {approval_mode}`, `Store.SetBotApprovalMode`) is read on the run path by `readAutoReviewSettingsForBot` wherever the account mode was read (`auto` -> auto review, `ask` -> a person, an account-wide Observe stays observe-only); every change advances the review epoch and voids unclaimed automatic decisions (`invalidateUnclaimedAutoReviews`). `Bot.approval_mode` in the Bot list is the effective value. The page's top control is bulk: Auto and Ask before edits write every Bot (and the account mode, so a new Bot starts the same), Per Bot unlocks the list; nothing remembers an earlier mix. The reviewer model is the background model (`background_model` in Settings > Behavior). Dictation needs OpenAI: `dictation_configured` in `GET /api/config` gates the Dictation section and the composer mic. AI Models shows OpenAI as one card (ChatGPT sign-in or API key, `key_prefix` + `key_hint` masked), Claude as another.
+
 # Web UI motion
 
 One vocabulary, in `ui/src/design-tokens.css` and mirrored for Web Animations in `ui/src/motion.ts`: durations

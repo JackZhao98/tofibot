@@ -25,7 +25,7 @@ const TABS = ["general", "connections", "skills", "permissions", "models", "tool
 // "devices" (Other devices) is behind TOFI_PERSONAL_COMPUTERS: the rail lists it only when `computer.personal_computers` is true.
 const ADV_TABS = ["allowances", "followups"];
 const ICONS = {general: "sliders", connections: "plug", skills: "skill", permissions: "shield-check", allowances: "checklist", followups: "bell", devices: "laptop", models: "sparkles", tools: "globe", automation: "workflow", computer: "monitor", keys: "key", usage: "progress", advanced: "settings", admin: "group"};
-const NAMES = {general: "General", connections: "Connections", skills: "Skills", permissions: "Permissions", allowances: "Tool rules", followups: "Follow-ups", devices: "Other devices", models: "Models", tools: "Search & fetch", automation: "Behavior", computer: "Computer", keys: "Computer keys", usage: "Usage", advanced: "Maintenance", admin: "Admin console"};
+const NAMES = {general: "General", connections: "Connections", skills: "Skills", permissions: "Permissions", allowances: "Tool rules", followups: "Follow-ups", devices: "Other devices", models: "AI Models", tools: "Search & fetch", automation: "Behavior", computer: "Computer", keys: "Computer keys", usage: "Usage", advanced: "Maintenance", admin: "Admin console"};
 
 // ---- Catalog checks (every locale): groups, page names and descriptions are real translations.
 const catalogs = {};
@@ -70,7 +70,7 @@ import {useAppearance} from '../src/InteractionSystem';
 import {SettingsShell,type SettingsEntry,type SettingsTab,type SettingsView} from '../src/SettingsShell';
 import {SettingsPages} from '../src/settings/SettingsPages';
 import {subscribeSettingsDeepLinks} from '../src/settings/deepLinks';
-import {CodexPanel} from '../src/settings/AppSlots';
+
 import {UpdateBanner} from '../src/UpdateNotice';
 import {setComputerCapability} from '../src/computerCapability';
 const query=new URLSearchParams(location.search);
@@ -84,7 +84,7 @@ function Fixture(){
  const openSettings=(next:SettingsTab,view:SettingsView='page')=>{setTab(next);setEntry(current=>({seq:current.seq+1,view}))};
  useEffect(()=>subscribeSettingsDeepLinks(next=>openSettings(next)),[]);
  useEffect(()=>{(window as any).__closed=closed},[closed]);
- return <div className="workspace"><UpdateBanner/><div className="workspace-grid"><aside className="detail-pane visible" role="dialog" aria-modal="true">{!closed&&<SettingsShell tab={tab} onTab={setTab} onClose={()=>setClosed(true)} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" onPortabilityFileConsumed={()=>{}} appearance={appearance} extensionRefresh={0} openTab={next=>openSettings(next)} slots={{codex:<CodexPanel refreshToken={0} onConfigured={()=>{}}/>,providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/>}</aside></div></div>;
+ return <div className="workspace"><UpdateBanner/><div className="workspace-grid"><aside className="detail-pane visible" role="dialog" aria-modal="true">{!closed&&<SettingsShell tab={tab} onTab={setTab} onClose={()=>setClosed(true)} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" onPortabilityFileConsumed={()=>{}} appearance={appearance} extensionRefresh={0} openTab={next=>openSettings(next)} slots={{codexRefresh:0,onCodexConfigured:()=>{},providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/>}</aside></div></div>;
 }
 void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><OwnerSessionGate><Fixture/></OwnerSessionGate></TimezoneProvider>));
 `);
@@ -94,6 +94,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   browser = await chromium.launch({executablePath: process.env.TOFI_TEST_CHROME || undefined});
 
   const requested = [], unexpected = [], writes = [], tierWrites = [];
+  // "Check for updates" on the Version card: the calls it made, and whether the update server answers.
+  const check = {calls: [], fail: false};
+  // Permissions page state the stub serves and records: each Bot's own mode, the account mode, the reviewer (background) model.
+  const perm = {modes: {bot_research: "auto", bot_inbox: "ask", bot_notes: "ask", bot_old: "ask"}, account: "shadow", reviewer: "", writes: []};
+  const resetPerm = () => { Object.assign(perm.modes, {bot_research: "auto", bot_inbox: "ask", bot_notes: "ask", bot_old: "ask"}); perm.account = "shadow"; perm.reviewer = ""; perm.writes.length = 0; };
+  const automationItems = () => [{key: "web_search", group: "replies", kind: "bool", default: true, value: true, source: "default"}, {key: "conversation_model", group: "models", kind: "model", default: "codex-gpt-6-sol", value: "codex-gpt-6-sol", source: "default"}, {key: "background_model", group: "models", kind: "model", default: "gpt-6-luna", value: perm.reviewer, source: perm.reviewer ? "stored" : "default"}];
   // The skill library the stub serves (decision 0058): owner-installed, Bot-installed with versions, a bundle, an official skill.
   const libWrites = [];
   const libState = () => ({
@@ -180,12 +186,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       : {enabled: true, setup_required: false, authenticated: true, password_transport_allowed: true, multi_account: true, owner: {id: "acct_sample", username: "Ada Sample", email: "ada@example.test", role: "admin"}};
     if (path === "/api/settings-changes") return {changes: []};
     if (path === "/api/storage") return query.get("storage") === "full" ? storageSample(10 * GIB_ALL, 10 * GIB_ALL) : storageSample(1.5 * GIB_ALL, query.get("storage") === "unlimited" ? null : 10 * GIB_ALL);
-    if (path === "/api/bots") return {bots: [{id: "bot_research", name: "Research Bot", archived: false}, {id: "bot_inbox", name: "Inbox Bot", archived: false}, {id: "bot_notes", name: "Notes Bot", archived: false}, {id: "bot_old", name: "Retired Bot", archived: true}]};
+    if (path === "/api/bots") return {bots: [{id: "bot_research", name: "Research Bot", archived: false}, {id: "bot_inbox", name: "Inbox Bot", archived: false}, {id: "bot_notes", name: "Notes Bot", archived: false}, {id: "bot_old", name: "Retired Bot", archived: true}].map(bot => ({...bot, approval_mode: perm.modes[bot.id]}))};
     if (path === "/api/preferences") return {timezone: "America/Los_Angeles", timezone_configured: true};
     if (path === "/api/standing-allowances") return {allowances: [], remembered: []};
     if (path === "/api/settings-changes") return {changes: []};
     if (/^\/api\/extensions\/mcp\/[^/]+\/bots$/.test(path)) return {all: true, bots: []};
-    if (path === "/api/automation-settings") return {items: [{key: "web_search", group: "replies", kind: "bool", default: true, value: true, source: "default"}, {key: "conversation_model", group: "models", kind: "model", default: "codex-gpt-6-sol", value: "codex-gpt-6-sol", source: "default"}]};
+    if (path === "/api/automation-settings") return {items: automationItems()};
     if (path === "/api/followups") return {account: {max_nudges_per_day: 3, quiet_start: "22:00", quiet_end: "08:00", weekend_min_importance: 80, digest_weekday: "mon", digest_time: "09:00", daily_budget_usd: 0.5}, primary_bot_id: "bot_research", delivery_available: false, budget_paused: false, model_configured: true, day: "2026-10-13",
       bots: [{bot_id: "bot_research", name: "Research Bot", is_primary: true, mode: "shadow", source_chat: true, source_email: true, last_sweep_at: "2026-10-13T16:30:00Z"}, {bot_id: "bot_inbox", name: "Inbox Bot", is_primary: false, mode: "off", source_chat: true, source_email: true}, {bot_id: "bot_notes", name: "Notes Bot", is_primary: false, mode: "shadow", source_chat: true, source_email: true}],
       stats: {sweeps: 4, loops_created: 3, rejected_invalid: 1, rejected_band: 2, merged: 1, spent_usd: 0.012, would_nudge: 2, would_digest: 1, useful: 3, annoying: 1, handled: 1},
@@ -206,13 +212,14 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/extensions/google") return {client: {configured: false}, apis: []};
     if (path === "/api/extensions/repo-stars") return {stars: {}};
     if (path === "/api/extensions/skills") return libState();
-    if (path === "/api/auto-review-settings") return {mode: "shadow", revision: 1, review_scope: "all_external_tools"};
-    if (path === "/api/providers") return {providers};
+    if (path === "/api/auto-review-settings") return {mode: perm.account, revision: 1, review_scope: "all_external_tools"};
+    if (path === "/api/providers") return {providers: query.get("prov") === "none" ? providers.map(item => item.id === "codex" ? {...item, configured: false, status: "disconnected"} : item.id === "openai" ? {...item, configured: false, key_hint: "", verified_at: ""} : item) : query.get("prov") === "key" ? providers.map(item => item.id === "codex" ? {...item, configured: false, status: "disconnected"} : item.id === "openai" ? {...item, key_prefix: "sk-p"} : item) : providers};
     if (path === "/api/web-tools") return {enabled: true, computer: false, search_offered: true, search: [{id: "native", label: "Model web search", kind: "native", paid: false, fixed: true, enabled: true, status: "always", testable: false}], fetch: [{id: "builtin", label: "Built-in fetch", kind: "builtin", paid: false, fixed: true, enabled: true, status: "always", testable: true}]};
-    if (path === "/api/auth/codex") return {connected: true, expires_at: Date.parse("2026-11-01T00:00:00Z")};
-    if (path === "/api/auth/codex/verify") return {connected: true, expires_at: Date.parse("2026-11-01T00:00:00Z"), check: "ok"};
+    if (path === "/api/auth/codex") return {connected: !["none", "key"].includes(query.get("prov")), expires_at: Date.parse("2026-11-01T00:00:00Z")};
+    if (path === "/api/auth/codex/verify") return {connected: !["none", "key"].includes(query.get("prov")), expires_at: Date.parse("2026-11-01T00:00:00Z"), check: "ok"};
     if (path === "/api/models") return {models, source: "live", warning: ""};
     if (path === "/api/model-settings") return {model: "codex-gpt-6-sol", reasoning_effort: "medium"};
+    if (path === "/api/dictation-settings" && query.get("dict") === "none") return {model: "gpt-4o-mini-transcribe", configured: false, auth_source: "", models: [{id: "gpt-4o-mini-transcribe", name: "GPT-4o mini Transcribe"}]};
     if (path === "/api/dictation-settings") return query.get("dict") === "unknown"
       ? {model: "mystery-model", configured: true, auth_source: "api_key", models: [{id: "mystery-model", name: "Mystery Transcribe"}]}
       : {model: "gpt-4o-mini-transcribe", configured: true, auth_source: "api_key", models: [{id: "gpt-4o-mini-transcribe", name: "GPT-4o mini Transcribe"}, {id: "gpt-4o-transcribe", name: "GPT-4o Transcribe"}]};
@@ -387,6 +394,23 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
         await route.fulfill({status: answer.status, contentType: "application/json", body: JSON.stringify(answer.body)});
         return;
       }
+      // Permissions writes: one Bot's own mode, the account mode, the reviewer model.
+      const reply = async (status, value) => route.fulfill({status, contentType: "application/json", body: JSON.stringify(value)});
+      if (/^\/api\/bots\/[^/]+$/.test(url.pathname) && method === "PATCH" && JSON.parse(request.postData() ?? "{}").approval_mode) {
+        const id = url.pathname.split("/")[3], mode = JSON.parse(request.postData()).approval_mode;
+        perm.modes[id] = mode; perm.writes.push(`PATCH ${url.pathname} ${request.postData()}`);
+        await reply(200, {id, name: id, approval_mode: mode}); return;
+      }
+      if (url.pathname === "/api/auto-review-settings" && method === "PUT") { perm.account = JSON.parse(request.postData()).mode; perm.writes.push(`PUT ${url.pathname} ${request.postData()}`); await reply(200, {mode: perm.account, revision: 2}); return; }
+      if (url.pathname === "/api/automation-settings" && method === "PUT") {
+        const {values} = JSON.parse(request.postData()); if ("background_model" in values) perm.reviewer = values.background_model ?? "";
+        perm.writes.push(`PUT ${url.pathname} ${request.postData()}`); await reply(200, {items: automationItems()}); return;
+      }
+      if (url.pathname === "/api/system/update/check" && method === "POST") {
+        check.calls.push(method);
+        if (check.fail) { await route.fulfill({status: 502, contentType: "application/json", body: JSON.stringify({error: {code: "update_check_failed", message: "the update server could not be reached"}})}); return; }
+        await route.fulfill({contentType: "application/json", body: JSON.stringify({...updateAnswer(new URLSearchParams()), latest: "v0.1.1", update_available: true, checked_at: "2026-10-29T12:00:00Z"})}); return;
+      }
       const body = stub(url, method, new URLSearchParams(page.url().split("?")[1] ?? ""), request.postData() ?? "");
       if (body && body.__abort) { await route.abort(); return; }
       if (body === undefined) { unexpected.push(`${method} ${url.pathname}`); await route.fulfill({status: 404, contentType: "application/json", body: JSON.stringify({error: {message: "not stubbed", code: "not_found"}})}); return; }
@@ -526,6 +550,100 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     console.log("PASS dictation: an unknown model id shows no hint or price");
   }
 
+  // ---- 3c. Dictation needs OpenAI: with no OpenAI method connected the section is gone and the page is one column.
+  {
+    const {page, close} = await open({tab: "models", dict: "none", prov: "none"});
+    const body = page.locator('.settings-page-body[data-page="models"]');
+    await body.getByText("Defaults for new Bots").first().waitFor();
+    await page.waitForTimeout(400);
+    assert.equal(await body.getByText("Dictation", {exact: true}).count(), 0, "no Dictation section without an OpenAI method");
+    assert.equal(await body.locator(".settings-two").count(), 0, "one column when Dictation is not offered");
+    // Nothing is set up on OpenAI: the card offers both ways, side by side and the same size, and no Codex card.
+    const openai = body.locator("article.provider-card").filter({has: page.getByRole("heading", {name: "OpenAI", exact: true})});
+    await openai.locator(".provider-choice").first().waitFor();
+    assert.equal(await body.getByRole("heading", {name: "Codex", exact: true}).count(), 0, "Codex has no card of its own");
+    assert.deepEqual(await openai.locator(".provider-choice strong").allInnerTexts(), ["Sign in with your ChatGPT account", "Use an API key"]);
+    const [a, b] = await openai.locator(".provider-choice").evaluateAll(nodes => nodes.map(node => { const r = node.getBoundingClientRect(); return {w: Math.round(r.width), h: Math.round(r.height), y: Math.round(r.y)}; }));
+    assert.ok(Math.abs(a.w - b.w) <= 1 && Math.abs(a.h - b.h) <= 1 && a.y === b.y, `equal choices side by side ${JSON.stringify([a, b])}`);
+    assert.equal(await openai.locator("input").count(), 0, "no key input until a method is chosen");
+    if (shots) await body.screenshot({path: join(shots, "ai-models-chooser.png")});
+    await openai.getByRole("button", {name: /Use an API key/}).click();
+    await openai.getByLabel("OpenAI API key").waitFor();
+    await close();
+    // An API key alone: the key is masked (prefix and last four) with its verified time, no input, no Replace heading.
+    const keyed = await open({tab: "models", prov: "key"});
+    const card = keyed.page.locator("article.provider-card").filter({has: keyed.page.getByRole("heading", {name: "OpenAI", exact: true})});
+    await card.getByText("sk-p••••••••9fa2").waitFor();
+    assert.match(await card.innerText(), /Verified/);
+    assert.equal(await card.locator("input").count(), 0, "no replace input while a key is set");
+    assert.equal(await card.getByText(/Replace OpenAI API key/).count(), 0);
+    assert.equal(await card.locator(".provider-choice").count(), 0, "the other method is not offered beside a set-up one");
+    await card.getByRole("button", {name: "Replace key"}).click();
+    await card.getByLabel("OpenAI API key").waitFor();
+    await card.getByRole("button", {name: "Cancel"}).click();
+    assert.equal(await card.locator("input").count(), 0);
+    await keyed.close();
+    console.log("PASS ai models: Dictation hidden without OpenAI, one OpenAI card with two equal choices, masked key with Replace and Remove on demand");
+  }
+
+  // ---- 3d. Permissions: the account mode is a bulk control over every Bot; Per Bot unlocks the list; the reviewer model is a picker.
+  {
+    resetPerm();
+    const {page, close} = await open({tab: "permissions"});
+    const body = page.locator('.settings-page-body[data-page="permissions"]');
+    const top = body.getByRole("radiogroup", {name: "Approval mode for this account"});
+    await top.getByRole("radio", {name: "Per Bot"}).waitFor();
+    assert.equal(await top.getByRole("radio", {name: "Per Bot"}).getAttribute("aria-checked"), "true", "Bots differ, so the top reads Per Bot");
+    const rows = body.locator(".approval-bot-row");
+    assert.deepEqual(await rows.locator("strong").allInnerTexts(), ["Research Bot", "Inbox Bot", "Notes Bot"], "every active Bot, no archived one");
+    const segmentFor = name => body.getByRole("radiogroup", {name: `Approval mode for ${name}`});
+    assert.equal(await segmentFor("Research Bot").getByRole("radio", {name: "Auto"}).getAttribute("aria-checked"), "true");
+    assert.equal(await segmentFor("Inbox Bot").getByRole("radio", {name: "Ask before edits"}).getAttribute("aria-checked"), "true");
+    // Per Bot: one Bot changes on its own.
+    await segmentFor("Inbox Bot").getByRole("radio", {name: "Auto"}).click();
+    await page.waitForFunction(() => document.querySelector('[aria-label="Approval mode for Inbox Bot"] [aria-checked="true"]')?.textContent === "Auto");
+    assert.deepEqual(perm.writes, ['PATCH /api/bots/bot_inbox {"approval_mode":"auto"}']);
+    assert.equal(await top.getByRole("radio", {name: "Per Bot"}).getAttribute("aria-checked"), "true");
+    // Ask before edits writes every Bot that is not already there, then locks the list.
+    perm.writes.length = 0;
+    await top.getByRole("radio", {name: "Ask before edits"}).click();
+    await page.waitForFunction(() => document.querySelector('[aria-label="Approval mode for this account"] [aria-checked="true"]')?.textContent === "Ask before edits");
+    assert.deepEqual(perm.writes, ['PATCH /api/bots/bot_research {"approval_mode":"ask"}', 'PATCH /api/bots/bot_inbox {"approval_mode":"ask"}'], "each Bot's own setting is written; the Observe account mode stays");
+    assert.deepEqual(Object.values({r: perm.modes.bot_research, i: perm.modes.bot_inbox, n: perm.modes.bot_notes}), ["ask", "ask", "ask"]);
+    assert.equal(await segmentFor("Research Bot").getByRole("radio", {name: "Auto"}).isDisabled(), true, "the per-Bot list is locked");
+    if (shots) await body.screenshot({path: join(shots, "permissions-ask-locked.png")});
+    // Per Bot unlocks without writing anything, and nothing remembers the earlier mix.
+    perm.writes.length = 0;
+    await top.getByRole("radio", {name: "Per Bot"}).click();
+    await page.waitForFunction(() => !document.querySelector('[aria-label="Approval mode for Research Bot"] [role="radio"]').disabled);
+    assert.deepEqual(perm.writes, [], "choosing Per Bot writes nothing");
+    assert.equal(await segmentFor("Research Bot").getByRole("radio", {name: "Ask before edits"}).getAttribute("aria-checked"), "true", "no cached previous values: every Bot is still Ask");
+    // Auto writes every Bot and the account mode, and locks again.
+    await top.getByRole("radio", {name: "Auto"}).click();
+    await page.waitForFunction(() => document.querySelector('[aria-label="Approval mode for this account"] [aria-checked="true"]')?.textContent === "Auto");
+    assert.deepEqual(perm.writes, ['PATCH /api/bots/bot_research {"approval_mode":"auto"}', 'PATCH /api/bots/bot_inbox {"approval_mode":"auto"}', 'PATCH /api/bots/bot_notes {"approval_mode":"auto"}', 'PUT /api/auto-review-settings {"mode":"auto"}']);
+    assert.equal(await segmentFor("Notes Bot").getByRole("radio", {name: "Ask before edits"}).isDisabled(), true);
+    // The page reads the server again: all Auto reads Auto.
+    await page.locator('.settings-tabs [data-tab="general"]').click();
+    await page.locator('.settings-tabs [data-tab="permissions"]').click();
+    assert.equal(await top.getByRole("radio", {name: "Auto"}).getAttribute("aria-checked"), "true");
+    // Reviewer model: the background model, picked from the catalog; Automatic names what it falls back to.
+    const reviewer = body.locator("#approval-reviewer-model");
+    assert.match(await reviewer.innerText(), /Automatic/);
+    perm.writes.length = 0;
+    await pickSelect(body.locator(".settings-row-v2", {hasText: "Reviewer model"}), "claude-opus-5-5");
+    await body.getByText("Saved").waitFor();
+    assert.deepEqual(perm.writes, ['PUT /api/automation-settings {"values":{"background_model":"claude-opus-5-5"}}']);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+    await close();
+    const phone = await open({tab: "permissions", view: "page"}, {width: 390, height: 844});
+    await phone.page.locator(".approval-bot-row").first().waitFor();
+    assert.equal(await phone.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "no horizontal scroll at 390px");
+    await phone.close();
+    resetPerm();
+    console.log("PASS permissions: bulk Auto / Ask before edits write every Bot and lock the list, Per Bot unlocks it without caching, own mode per Bot, reviewer model picker, 390px");
+  }
+
   // ---- 4. Mobile: no select, home list -> Models page -> back -> home.
   {
     const {page, close} = await open({}, {width: 390, height: 844});
@@ -543,7 +661,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await page.locator('.settings-mhome [data-tab="models"]').click();
     await settle(page);
     assert.equal(await page.locator(".settings-shell").getAttribute("data-view"), "page");
-    assert.equal((await page.locator(".settings-content .settings-page-title h2").textContent()).trim(), "Models");
+    assert.equal((await page.locator(".settings-content .settings-page-title h2").textContent()).trim(), "AI Models");
     assert.equal(await page.locator(".settings-content").evaluate(element => Math.round(element.getBoundingClientRect().x)), 0, "the page has pushed in");
     assert.equal(await page.locator('.settings-page-body[data-page="models"]').isVisible(), true);
     await page.locator(".settings-back").click();
@@ -1313,6 +1431,20 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.match(card, /Latest release v0\.1\.0/);
     assert.match(card, /Last checked Oct 9, 2026/);
     assert.match(card, /Automatic fix releases .*sudo tofi config auto-update on or sudo tofi config auto-update off Off/);
+    // Check for updates: the server reads the manifest now; the card refreshes and says what it found, or why not.
+    check.calls.length = 0; check.fail = false;
+    const checkButton = current.page.locator(".version-card").getByRole("button", {name: "Check for updates"});
+    await checkButton.click();
+    await current.page.locator(".version-card").getByText("v0.1.1 is available.").waitFor();
+    const checked = (await current.page.locator(".version-card").innerText()).replace(/\s+/g, " ");
+    assert.match(checked, /Latest release .*v0\.1\.1 Release notes/, "the card shows the fresh answer");
+    assert.match(checked, /Last checked .*Oct 29, 2026/, "and the new check time");
+    assert.deepEqual(check.calls, ["POST"]);
+    if (shots) await current.page.locator(".version-card").screenshot({path: join(shots, "version-card-checked.png")});
+    check.fail = true;
+    await checkButton.click();
+    await current.page.locator(".version-card").getByRole("alert").getByText("Couldn't reach the update server. Try again later.").waitFor();
+    check.fail = false;
     await current.close();
 
     // Update available + auto on: card shows the install hint and the state.

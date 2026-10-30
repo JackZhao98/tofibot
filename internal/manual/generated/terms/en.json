@@ -116,7 +116,7 @@
   "settings:shell.page.keys.description": "Environment variables and SSH keys for the computer",
   "settings:shell.page.keys.name": "Computer keys",
   "settings:shell.page.models.description": "Providers and the default model.",
-  "settings:shell.page.models.name": "Models",
+  "settings:shell.page.models.name": "AI Models",
   "settings:shell.page.permissions.description": "Choose when Bots ask first",
   "settings:shell.page.permissions.name": "Permissions",
   "settings:shell.page.skills.description": "Manage reusable ways of working",

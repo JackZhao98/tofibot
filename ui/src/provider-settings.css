@@ -24,3 +24,32 @@
 @media(max-width:560px){.provider-key-row{flex-direction:column}.provider-key-row .primary-button{width:100%}.provider-card-foot{flex-direction:column}}
 @media(prefers-reduced-motion:reduce){.provider-card .codex-status{transition:none}}
 .provider-card>.field-note{margin:0 0 12px}
+
+/* Compact provider cards: a heading row, one status line, small actions. The key input appears only on demand. */
+.provider-card .provider-card-head{align-items:center;margin:0 0 10px}
+.provider-card-marks{display:inline-flex;align-items:center;gap:8px;flex:none}
+.provider-card-note{margin:0 0 12px;color:var(--muted);font-size:12.5px;line-height:1.55}
+.provider-key-line{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin:0;color:var(--ink);font:var(--type-meta);overflow-wrap:anywhere}
+.provider-key-line.is-muted{color:var(--muted)}
+.provider-key-line.is-failed{color:var(--danger-text)}
+.provider-key-mask{padding:0;background:transparent;color:var(--ink);font:600 13px/1.4 var(--mono);letter-spacing:.02em}
+.provider-key-meta{color:var(--muted);font-size:12.5px}
+.provider-actions{display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;margin-top:8px}
+.provider-actions .text-button,.provider-actions .danger-link{min-height:28px;padding:0;border:0;background:transparent;font:600 12.5px/1.4 var(--body)}
+.provider-actions .text-button{color:var(--ink-soft)}
+.provider-actions .text-button:hover:not(:disabled){color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.provider-also{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line-soft);color:var(--muted);font-size:12.5px}
+.provider-choices{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.provider-choice{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0;padding:14px;border:1px solid var(--line-soft);border-radius:var(--radius-md);background:var(--surface);color:var(--ink);text-align:left;transition:background-color var(--m-press) var(--ease-out),border-color var(--m-press) var(--ease-out),transform var(--m-press) var(--ease-out)}
+.provider-choice strong{font:600 14px/1.35 var(--display)}
+.provider-choice span{color:var(--muted);font-size:12.5px;line-height:1.5}
+.provider-choice:hover:not(:disabled){border-color:var(--line);background:var(--surface-2)}
+.provider-choice:active:not(:disabled){transform:scale(.98)}
+.provider-choice[aria-pressed="true"]{border-color:var(--ink);background:var(--surface-2)}
+.provider-choice:disabled{opacity:.6}
+.provider-choices+.provider-key-form{margin-top:12px}
+.provider-key-line+.provider-key-form,.provider-actions+.provider-key-form{margin-top:12px}
+.provider-key-form .provider-key-row+label{margin-top:12px}
+@media(max-width:560px){.provider-choices{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.provider-choice,.provider-choice:active:not(:disabled){transition:none;transform:none}}
+.model-providers .settings-card+.settings-card{margin-top:12px}

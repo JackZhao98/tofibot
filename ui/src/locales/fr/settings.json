@@ -55,7 +55,7 @@
         "description": "Voir ce dont les Bots vous rappelleraient"
       },
       "models": {
-        "name": "Modèles",
+        "name": "Modèles d'IA",
         "description": "Fournisseurs et modèle par défaut."
       },
       "computer": {
@@ -180,7 +180,6 @@
   "providers": {
     "title": "Fournisseurs de modèles",
     "load_failed": "Impossible de charger l’état des fournisseurs de modèles.",
-    "openai_description": "Utilise une clé API OpenAI pour les modèles GPT et de la série o, facturés à l’usage de l’API.",
     "anthropic_description": "Utilise une clé API Anthropic pour les modèles Claude, facturés à l’usage de l’API.",
     "api_key_tag": "Clé API",
     "status_loading": "Chargement de l’état…",
@@ -200,14 +199,27 @@
     "remove_failed": "Échec de la suppression. Réessayez.",
     "removed": "Clé API {{provider}} supprimée. Les Bots qui utilisent des modèles {{provider}} ont besoin d’un autre modèle connecté.",
     "key_label": "Clé API {{provider}}",
-    "replace_label": "Remplacer la clé API {{provider}}",
     "verifying": "Vérification…",
     "save": "Enregistrer et vérifier",
     "workspace_label": "Workspace ID",
     "workspace_note": "Dans la Claude Console, page Settings → Workspaces : la valeur de la colonne ID qui commence par wrkspc_.",
-    "key_note": "Avant l’enregistrement, Tofi vérifie la clé en récupérant une fois la liste des modèles. Les clés sont chiffrées et ne sont plus jamais affichées.",
+    "key_note": "Les clés sont stockées chiffrées et jamais affichées en entier.",
     "remove": "Supprimer",
-    "remove_question": "Supprimer la clé API {{provider}} ?"
+    "remove_question": "Supprimer la clé API {{provider}} ?",
+    "replace_key": "Remplacer la clé",
+    "switch": "Changer",
+    "switch_to_key": "Utiliser une clé API à la place",
+    "switch_to_key_question": "Se déconnecter de ChatGPT et utiliser une clé API ?",
+    "switch_to_chatgpt": "Se connecter avec ChatGPT à la place",
+    "switch_to_chatgpt_question": "Supprimer la clé API et se connecter avec ChatGPT ?",
+    "disconnect_chatgpt_question": "Se déconnecter de ChatGPT ?",
+    "also_key": "Une clé API est aussi enregistrée ({{key}}). Les Bots utilisent le compte ChatGPT.",
+    "method_chatgpt": "Compte ChatGPT",
+    "choose_method": "Comment utiliser OpenAI",
+    "chatgpt_title": "Se connecter avec votre compte ChatGPT",
+    "chatgpt_note": "Modèles Codex, dans les limites de votre forfait.",
+    "key_title": "Utiliser une clé API",
+    "key_note_choice": "Modèles GPT, facturés à l'usage de l'API."
   },
   "usage": {
     "label": "Utilisation",
@@ -755,7 +767,12 @@
       "auto_hint": "À modifier sur le serveur : <on>sudo tofi config auto-update on</on> ou <off>sudo tofi config auto-update off</off>",
       "update": "Mettre à jour depuis cette page",
       "update_hint": "Le serveur sauvegarde d'abord, attend les Bots en cours et revient en arrière si la nouvelle version échoue.",
-      "update_none": "Aucune mise à jour à installer."
+      "update_none": "Aucune mise à jour à installer.",
+      "check": "Rechercher des mises à jour",
+      "checking": "Vérification…",
+      "check_current": "Vous êtes à jour.",
+      "check_available": "{{version}} est disponible.",
+      "check_failed": "Impossible de rechercher des mises à jour. Réessayez."
     },
     "action": {
       "update": "Passer à {{version}}",
@@ -1173,7 +1190,16 @@
   "approval": {
     "label": "Mode d’approbation de ce compte",
     "auto": "Auto",
-    "ask": "Demander avant de modifier"
+    "ask": "Demander avant de modifier",
+    "bot": "Par Bot",
+    "bots_title": "Bots",
+    "bots_description": "Le mode d'approbation propre à chaque Bot.",
+    "bots_locked": "Défini par le mode du compte ci-dessus. Choisissez « Par Bot » pour modifier un Bot seul.",
+    "no_bots": "Aucun Bot pour le moment.",
+    "bot_label": "Mode d'approbation de {{name}}",
+    "reviewer_title": "Modèle de revue automatique",
+    "reviewer_label": "Modèle de relecture",
+    "reviewer_description": "Relit les appels d'outils des Bots en mode Auto. C'est aussi le modèle d'arrière-plan, qui prend en charge les tâches légères comme le routage."
   },
   "changes": {
     "title": "Modifications par les Bots",

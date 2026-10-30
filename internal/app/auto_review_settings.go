@@ -78,6 +78,100 @@ func readAutoReviewSettings(db reviewQuerier) (autoReviewSettings, error) {
 	}
 	return x, err
 }
+
+// readAutoReviewSettingsForBot is the mode a run of this Bot works under: the
+// account's mode, unless the Bot has its own ("auto" decides by review; "ask"
+// asks a person, keeping an account-wide Observe setting). The revision stays
+// the account's, which every per-Bot change also advances.
+func readAutoReviewSettingsForBot(db reviewQuerier, botID string) (autoReviewSettings, error) {
+	x, err := readAutoReviewSettings(db)
+	if err != nil || botID == "" {
+		return x, err
+	}
+	var own string
+	if e := db.QueryRow(`SELECT approval_mode FROM bots WHERE id=?`, botID).Scan(&own); e != nil {
+		return x, nil
+	}
+	switch own {
+	case "auto":
+		x.Mode = "auto"
+	case "ask":
+		if x.Mode != "shadow" {
+			x.Mode = "off"
+		}
+	}
+	return x, nil
+}
+
+func migrateBotApprovalMode(db *sql.DB) error {
+	return ensureColumn(db, "bots", "approval_mode", `ALTER TABLE bots ADD COLUMN approval_mode TEXT NOT NULL DEFAULT ''`)
+}
+
+// botApprovalModes returns the mode each Bot works under now ("auto" or "ask"),
+// resolving a Bot that has none of its own to the account's mode.
+func (s *Store) botApprovalModes() (map[string]string, error) {
+	account, err := s.getAutoReviewSettings()
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.db.Query(`SELECT id,approval_mode FROM bots`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]string{}
+	for rows.Next() {
+		var id, own string
+		if err := rows.Scan(&id, &own); err != nil {
+			return nil, err
+		}
+		if own == "" {
+			own = "ask"
+			if account.Mode == "auto" {
+				own = "auto"
+			}
+		}
+		out[id] = own
+	}
+	return out, rows.Err()
+}
+
+// SetBotApprovalMode stores one Bot's own mode ("auto" or "ask"). A change
+// advances the review epoch and voids unclaimed automatic decisions.
+func (s *Store) SetBotApprovalMode(id, mode string) error {
+	if mode != "auto" && mode != "ask" {
+		return errors.New("invalid approval mode")
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var current string
+	if err := tx.QueryRow(`SELECT approval_mode FROM bots WHERE id=?`, id).Scan(&current); err != nil {
+		return err
+	}
+	if current == mode {
+		return nil
+	}
+	if _, err := tx.Exec(seedAutoReviewSettings); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`UPDATE bots SET approval_mode=? WHERE id=?`, mode, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`UPDATE auto_review_settings SET revision=revision+1 WHERE id=1`); err != nil {
+		return err
+	}
+	if err := invalidateUnclaimedAutoReviews(tx); err != nil {
+		return err
+	}
+	if err := insertWorkspaceEventTx(tx, workspaceScopeBots, now()); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func (s *Store) getAutoReviewSettings() (autoReviewSettings, error) {
 	return readAutoReviewSettings(s.db)
 }
@@ -113,6 +207,17 @@ func (s *Store) putAutoReviewMode(mode string) error {
 			return err
 		}
 	}
+	if err = invalidateUnclaimedAutoReviews(tx); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// invalidateUnclaimedAutoReviews voids every automatic decision that has not
+// claimed execution yet. Any change to the approval mode of the account or of
+// one Bot calls it inside its transaction, so a decision made under the old
+// mode cannot authorize anything under the new one.
+func invalidateUnclaimedAutoReviews(tx *sql.Tx) error {
 	rows, err := tx.Query(`SELECT ` + prefixedQuestionColumns("q") + ` FROM questions q JOIN mcp_auto_reviews v ON v.question_id=q.id JOIN mcp_call_approvals a ON a.question_id=q.id WHERE a.claimed_at='' AND v.status IN ('approved','reviewing')`)
 	if err != nil {
 		return err
@@ -166,7 +271,7 @@ func (s *Store) putAutoReviewMode(mode string) error {
 	if err = insertWorkspaceEventTx(tx, workspaceScopeConfig, now()); err != nil {
 		return err
 	}
-	return tx.Commit()
+	return nil
 }
 
 func (s *Server) autoReviewSettings(w http.ResponseWriter, r *http.Request) {

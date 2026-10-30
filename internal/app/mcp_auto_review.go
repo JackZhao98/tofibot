@@ -582,7 +582,7 @@ func (s *Server) requestMCPReview(ctx context.Context, r Run, call extensions.MC
 // empty answer, under the same reservation, budget, input and digest. A
 // native human answer never substitutes for the v5 risk assessment.
 func (s *Server) reviewNewMCPProposal(ctx context.Context, c Conversation, r Run, call extensions.MCPCallApproval, q Question) error {
-	settings, err := s.store.getAutoReviewSettings()
+	settings, err := readAutoReviewSettingsForBot(s.store.db, r.BotID)
 	if err != nil {
 		return err
 	}
@@ -648,7 +648,7 @@ func (s *Server) reviewMCPProposal(ctx context.Context, c Conversation, r Run, c
 		diagnostic := mcpContextDiagnostic(contextErr)
 		return gap("context_required", "Necessary durable user authorization is missing or unverifiable: "+mcpContextFailureReason(diagnostic.Code)+".", diagnostic)
 	}
-	if latest, e := s.store.getAutoReviewSettings(); e != nil || latest != settings {
+	if latest, e := readAutoReviewSettingsForBot(s.store.db, r.BotID); e != nil || latest != settings {
 		return gap("invalidated", "AutoReview settings changed before this review could begin.")
 	}
 	snapshot, err := json.Marshal(x)
@@ -802,7 +802,7 @@ func (s *Server) finishMCPReview(ctx context.Context, c Conversation, r Run, cal
 	if err != nil {
 		return err
 	}
-	settings, err := readAutoReviewSettings(tx)
+	settings, err := readAutoReviewSettingsForBot(tx, r.BotID)
 	if err != nil {
 		return err
 	}

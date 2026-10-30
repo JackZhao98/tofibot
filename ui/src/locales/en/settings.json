@@ -55,7 +55,7 @@
         "description": "See what Bots would remind you about"
       },
       "models": {
-        "name": "Models",
+        "name": "AI Models",
         "description": "Providers and the default model."
       },
       "computer": {
@@ -179,7 +179,6 @@
   "providers": {
     "title": "Model providers",
     "load_failed": "Couldn't load model provider status.",
-    "openai_description": "Use an OpenAI API key for GPT and o-series models, billed by API usage.",
     "anthropic_description": "Use an Anthropic API key for Claude models, billed by API usage.",
     "api_key_tag": "API key",
     "status_loading": "Loading status…",
@@ -199,14 +198,27 @@
     "remove_failed": "Couldn't remove the key. Try again.",
     "removed": "Removed the {{provider}} API key. Bots using {{provider}} models need another connected model.",
     "key_label": "{{provider}} API key",
-    "replace_label": "Replace {{provider}} API key",
     "verifying": "Verifying…",
     "save": "Save and verify",
     "workspace_label": "Workspace ID",
     "workspace_note": "In Claude Console, go to Settings → Workspaces and copy the ID that starts with wrkspc_.",
-    "key_note": "Before saving, Tofi verifies the key by fetching the model list once. Keys are stored encrypted and never shown again.",
+    "key_note": "Keys are stored encrypted and never shown in full.",
     "remove": "Remove",
-    "remove_question": "Remove the {{provider}} API key?"
+    "remove_question": "Remove the {{provider}} API key?",
+    "replace_key": "Replace key",
+    "switch": "Switch",
+    "switch_to_key": "Use an API key instead",
+    "switch_to_key_question": "Sign out of ChatGPT and use an API key?",
+    "switch_to_chatgpt": "Sign in with ChatGPT instead",
+    "switch_to_chatgpt_question": "Remove the API key and sign in with ChatGPT?",
+    "disconnect_chatgpt_question": "Sign out of ChatGPT?",
+    "also_key": "An API key is also saved ({{key}}). Bots use the ChatGPT account.",
+    "method_chatgpt": "ChatGPT account",
+    "choose_method": "How to use OpenAI",
+    "chatgpt_title": "Sign in with your ChatGPT account",
+    "chatgpt_note": "Codex models, within your plan's limits.",
+    "key_title": "Use an API key",
+    "key_note_choice": "GPT models, billed by API usage."
   },
   "usage": {
     "label": "Usage",
@@ -746,7 +758,12 @@
       "auto_hint": "Turn it on or off from the server: <on>sudo tofi config auto-update on</on> or <off>sudo tofi config auto-update off</off>",
       "update": "Update from this page",
       "update_hint": "The server backs up first, waits for running Bots, and rolls back if the new version fails.",
-      "update_none": "No update to install."
+      "update_none": "No update to install.",
+      "check": "Check for updates",
+      "checking": "Checking…",
+      "check_current": "You're up to date.",
+      "check_available": "{{version}} is available.",
+      "check_failed": "Couldn't check for updates. Try again."
     },
     "action": {
       "update": "Update to {{version}}",
@@ -1163,7 +1180,16 @@
   "approval": {
     "label": "Approval mode for this account",
     "auto": "Auto",
-    "ask": "Ask before edits"
+    "ask": "Ask before edits",
+    "bot": "Per Bot",
+    "bots_title": "Bots",
+    "bots_description": "Each Bot's own approval mode.",
+    "bots_locked": "Set by the account mode above. Choose Per Bot to change one Bot on its own.",
+    "no_bots": "No Bots yet.",
+    "bot_label": "Approval mode for {{name}}",
+    "reviewer_title": "Auto review model",
+    "reviewer_label": "Reviewer model",
+    "reviewer_description": "Reviews tool calls for Bots in Auto. This is also the background model, which runs light work such as routing."
   },
   "changes": {
     "title": "Changes by Bots",
