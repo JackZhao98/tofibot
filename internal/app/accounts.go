@@ -4,12 +4,15 @@ package app
 // (including host provisioning and UI) passes acceptance. No public route can
 // select a filesystem path, workspace instance or computer socket.
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -427,6 +430,14 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, map[string]any{"service": "tofi", "protocol_version": 1, "instance_id": workspace.instance.ID, "environment": workspace.instance.Environment, "auth": map[string]string{"mode": "accounts"}})
 		return
 	}
+	if workspace, served := g.deviceWorkspace(r); served {
+		if workspace == nil {
+			writeErr(w, 401, "unauthorized", "invalid device token")
+			return
+		}
+		workspace.route(w, r)
+		return
+	}
 	a, ok := g.session(r)
 	if r.URL.Path == "/api/auth/session" && r.Method == http.MethodGet {
 		var consumed int
@@ -657,4 +668,44 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	workspace.route(w, r.WithContext(context.WithValue(r.Context(), portableAccountAuthKey{}, true)))
+}
+
+// deviceWorkspace routes the device routes of a personal computer (claim, poll,
+// result, heartbeat) to the workspace whose tag its code or token carries. Those
+// requests have no session by design: the one-time code or the device token is
+// the credential, and the workspace checks it. served is false for every other
+// request; a nil workspace with served true means the tag names no usable account.
+func (g *AccountGateway) deviceWorkspace(r *http.Request) (*Server, bool) {
+	if !strings.HasPrefix(r.URL.Path, "/api/computers/") || !ownerIndependentRoute(r) {
+		return nil, false
+	}
+	var secret string
+	if r.URL.Path == "/api/computers/pair" {
+		raw, err := io.ReadAll(io.LimitReader(r.Body, 32<<10+1))
+		if err != nil || len(raw) > 32<<10 {
+			return nil, true
+		}
+		r.Body = io.NopCloser(bytes.NewReader(raw))
+		var in struct {
+			Code string `json:"code"`
+		}
+		_ = json.Unmarshal(raw, &in)
+		secret = in.Code
+	} else {
+		secret = bearerToken(r)
+	}
+	tag := deviceTagOf(secret)
+	if tag == "" {
+		return nil, true
+	}
+	var a Account
+	err := g.root.store.db.QueryRow(`SELECT id,username,email,role,disabled,must_change_password,legacy FROM accounts WHERE id=? AND disabled=0`, tag).Scan(&a.ID, &a.Username, &a.Email, &a.Role, &a.Disabled, &a.MustChangePassword, &a.Legacy)
+	if err != nil {
+		return nil, true
+	}
+	workspace, err := g.workspace(a)
+	if err != nil {
+		return nil, true
+	}
+	return workspace, true
 }

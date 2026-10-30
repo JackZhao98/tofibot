@@ -399,7 +399,7 @@ func TestUncleanLossReleasesTheLock(t *testing.T) {
 	s.sweepComputerHeartbeats(time.Now())
 	select {
 	case err := <-result:
-		if toolCode(err) != codeComputerOffline {
+		if toolCode(err) != codeComputerLost {
 			t.Fatalf("in-flight call ended with %v", err)
 		}
 	case <-time.After(3 * time.Second):
@@ -719,7 +719,13 @@ func TestQueuedBotIsRefusedWhenTheComputerIsLost(t *testing.T) {
 	for name, ch := range map[string]chan error{"holder": holder, "waiter": waiter} {
 		select {
 		case err := <-ch:
-			if toolCode(err) != codeComputerOffline {
+			// The call in flight ends as computer_lost (effect unknown); the Bot
+			// that never started is refused as offline (nothing ran).
+			want := codeComputerOffline
+			if name == "holder" {
+				want = codeComputerLost
+			}
+			if toolCode(err) != want {
 				t.Fatalf("%s ended with %v", name, err)
 			}
 		case <-time.After(3 * time.Second):

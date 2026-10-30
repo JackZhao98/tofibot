@@ -388,9 +388,13 @@ type Store struct {
 	guestBlobsMu sync.RWMutex
 	// maxPersonalComputers caps personal computers (0 = DefaultMaxPersonalComputers).
 	maxPersonalComputers int
-	portabilityMu        sync.Mutex
-	portabilitySecrets   *portableSecretCodec
-	db                   *sql.DB
+	// deviceTag names the account in the claim codes and device tokens this store
+	// issues, so an account gateway can route a device request (which has no
+	// session) to the workspace that issued it. Empty on a single-account server.
+	deviceTag          string
+	portabilityMu      sync.Mutex
+	portabilitySecrets *portableSecretCodec
+	db                 *sql.DB
 	// storage is the quota and host-space policy for new files (S3).
 	storage storageGate
 	// storageReserved is the bytes promised to uploads in flight (storageAdmit).
@@ -2948,6 +2952,7 @@ func NewServer(c Config) (*Server, error) {
 		c.TranscriptionURL = defaultTranscriptionURL
 	}
 	st.maxPersonalComputers = c.MaxPersonalComputers
+	st.deviceTag = deviceTagFor(c.AccountID)
 	// The factory builds the VM provider from the configured control socket. It
 	// is what a hot attach calls; start-up uses it too unless an administrator
 	// detached the computer earlier (the stored row says so).
@@ -3075,6 +3080,7 @@ func NewServer(c Config) (*Server, error) {
 	server.startSummaryWorkers()
 	server.startTerminalCleanup()
 	server.computerWatchdog.start()
+	server.registerPersonalSlots()
 	server.startComputerHeartbeat()
 	server.startLocalRunnerMigration()
 	server.startStuckRunSweeper()

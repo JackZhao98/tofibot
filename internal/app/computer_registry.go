@@ -141,7 +141,7 @@ func (c *computerSlot) endedByComputer(ctx context.Context) bool {
 func (c *computerSlot) lostOrDetachedError() error {
 	code, msg := codeComputerDetached, "The computer was detached while this step ran. Whether the step finished on it is unknown; continue without it."
 	if c.currentState() == slotLost {
-		code, msg = codeComputerOffline, "The computer stopped answering while this step ran. Whether the step finished on it is unknown; continue without it."
+		code, msg = codeComputerLost, "The computer stopped answering while this step ran. Whether the step finished on it is unknown; continue without it."
 	}
 	return tooloutcome.New(tooloutcome.Permanent, code, "unknown", msg, "explain_blocker").Err()
 }
@@ -409,7 +409,11 @@ func (s *Server) computerActionOn(ctx context.Context, r Run, id, name string, a
 	if err != nil {
 		return "", err
 	}
-	if !microVMActions[name] {
+	if slot.rowKind == computer.RowKindPersonal {
+		if !personalActionAllowed(name) {
+			return "", tooloutcome.InvalidArguments(fmt.Sprintf("unsupported computer action %q", name))
+		}
+	} else if !microVMActions[name] {
 		return "", tooloutcome.InvalidArguments(fmt.Sprintf("unsupported computer action %q", name))
 	}
 	releaseLock, err := slot.acquire(ctx, r.BotID, r.ID)
@@ -722,6 +726,9 @@ func (s *Server) markComputerLost(id string) {
 	slot.forceFree()
 	if s.store != nil {
 		_ = s.store.setComputerStatus(id, computerRowLost)
+		if slot.rowKind == computer.RowKindPersonal {
+			s.store.cancelDeviceJobs(id, codeComputerLost)
+		}
 	}
 	if vm := s.computer(); vm != nil && vm.ID() == id {
 		s.clearDesktopOwners()
@@ -762,14 +769,20 @@ func (s *Server) sweepComputerHeartbeats(now time.Time) {
 		if seen.IsZero() {
 			continue
 		}
-		silent := now.Sub(seen) > computerLostAfter
+		limit := computerLostAfter
+		if l, ok := slot.provider.(interface{ LostAfter() time.Duration }); ok {
+			limit = l.LostAfter()
+		}
+		silent := now.Sub(seen) > limit
 		switch state := slot.currentState(); {
 		case silent && state == slotAttached:
 			s.markComputerLost(slot.id)
 		case !silent && state == slotLost:
 			s.markComputerAlive(slot.id)
 		case !silent && s.store != nil:
-			s.store.touchComputer(slot.id)
+			if _, own := slot.provider.(interface{ SelfStamped() }); !own {
+				s.store.touchComputer(slot.id)
+			}
 		}
 	}
 }

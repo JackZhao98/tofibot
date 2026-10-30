@@ -181,6 +181,7 @@ func (s *Server) listComputers(ctx context.Context) ([]Computer, error) {
 		if slot := s.slotFor(items[i].ID); slot != nil {
 			items[i].Online = slot.currentState() == slotAttached
 			items[i].Region = slot.region
+			items[i].InUse = slot.holder() != ""
 		}
 	}
 	vm := s.computer()
@@ -188,7 +189,7 @@ func (s *Server) listComputers(ctx context.Context) ([]Computer, error) {
 		return items, nil
 	}
 	info, infoErr := s.microVMInfo(ctx)
-	item := Computer{ID: vm.ID(), Name: "Bot workspace", Platform: "linux", Kind: computer.RowKindVM, Status: computerRowAttached, Capabilities: []string{"shell.exec", "files.list", "files.read", "files.write", "desktop.start", "desktop.stop", "desktop.capture", "desktop.click", "desktop.type", "desktop.key", "desktop.scroll", "browser.navigate", "browser.snapshot", "browser.action", "terminal.open", "terminal.list", "terminal.read", "terminal.write", "terminal.resize", "terminal.close"}}
+	item := Computer{ID: vm.ID(), Name: "Bot workspace", Platform: "linux", Kind: computer.RowKindVM, Status: computerRowAttached, Default: true, Capabilities: []string{"shell.exec", "files.list", "files.read", "files.write", "desktop.start", "desktop.stop", "desktop.capture", "desktop.click", "desktop.type", "desktop.key", "desktop.scroll", "browser.navigate", "browser.snapshot", "browser.action", "terminal.open", "terminal.list", "terminal.read", "terminal.write", "terminal.resize", "terminal.close"}}
 	if slot := s.slotFor(vm.ID()); slot != nil && slot.currentState() == slotLost {
 		item.Status = computerRowLost
 	}
