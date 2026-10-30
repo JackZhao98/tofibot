@@ -230,7 +230,7 @@ func TestCodexOnlyWorkspaceFallsBackToCodexModel(t *testing.T) {
 func TestAutomationSettingsInventoryAndDefaults(t *testing.T) {
 	s := providerServer(t, nil, nil)
 	body := autoGet(t, s)
-	want := []string{autoConversationModel, autoBackgroundModel, autoStructuredOutput, autoForceSayHaikuDM, autoWebSearch, autoGroupExchangeGists, autoOwnRepliesVerbatim, autoTaskRetentionDays, autoCompletionReview, autoAnswerGate, autoMCPReview, autoRememberedApprovalHrs, autoProviderRetries, autoScheduleReceiptReview, autoDesktopIdle, autoGroupTriage, autoGroupTriageModel, autoGroupFollowUp, autoCommandCheckMinutes, autoTaskStallRounds, autoTaskTreeIdleLimit, autoWidgetArtifacts, autoWidgetComputer, autoSettingsChangeLimit}
+	want := []string{autoConversationModel, autoBackgroundModel, autoStructuredOutput, autoForceSayHaikuDM, autoWebSearch, autoWebFetchLimit, autoGroupExchangeGists, autoOwnRepliesVerbatim, autoTaskRetentionDays, autoCompletionReview, autoAnswerGate, autoMCPReview, autoRememberedApprovalHrs, autoProviderRetries, autoScheduleReceiptReview, autoDesktopIdle, autoGroupTriage, autoGroupTriageModel, autoGroupFollowUp, autoCommandCheckMinutes, autoTaskStallRounds, autoTaskTreeIdleLimit, autoWidgetArtifacts, autoWidgetComputer, autoSettingsChangeLimit}
 	if len(body.Items) != len(want) {
 		t.Fatalf("%d items, want %d", len(body.Items), len(want))
 	}
