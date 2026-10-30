@@ -478,6 +478,8 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
   .workspace .message-actions-row { min-height:28px; margin-top:-4px; margin-bottom:8px; }
   .workspace .message-block:has(>.message-actions-row) .message-hover-host .message { margin-bottom:0; }
   .workspace .message-block:has(>.message-actions-row) .message-reactions { margin:4px 0 0; }
+  /* Reactions on your own message stay under it, on the right. */
+  .workspace .message-block:has(>.message-actions-row) .message-reactions.is-user { margin-left:auto; }
   .workspace .message-block:has(>.message-actions-row) .message[data-speaker-change="true"] { margin-top:14px; }
 }
 /* Touch (no hover): a tap on the bubble opens the bar under it, in the flow, so it never covers a neighbouring message. */
