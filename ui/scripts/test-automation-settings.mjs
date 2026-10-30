@@ -25,7 +25,7 @@ const {default: react} = await import("@vitejs/plugin-react");
 const shots = process.env.AUTOMATION_SHOTS;
 if (shots) await mkdir(shots, {recursive: true});
 
-const KEYS = ["conversation_model", "background_model", "structured_output", "force_say_haiku_dm", "web_search", "group_exchange_gists", "own_replies_verbatim", "completion_review", "answer_gate", "mcp_auto_review", "remembered_approval_hours", "provider_retries", "schedule_receipt_review", "desktop_idle_seconds", "widget_artifacts_auto", "widget_computer_auto"];
+const KEYS = ["conversation_model", "background_model", "structured_output", "force_say_haiku_dm", "web_search", "group_exchange_gists", "own_replies_verbatim", "completion_review", "answer_gate", "mcp_auto_review", "remembered_approval_hours", "provider_retries", "schedule_receipt_review", "desktop_idle_seconds", "browser_engine", "widget_artifacts_auto", "widget_computer_auto"];
 
 const fixture = await mkdtemp(join(ui, ".automation-settings-"));
 let server, browser;
@@ -64,6 +64,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     provider_retries: {group: "reliability", kind: "int", def: 5, min: 0, max: 10},
     schedule_receipt_review: {group: "schedules", kind: "bool", def: true},
     desktop_idle_seconds: {group: "computer", kind: "readonly"},
+    browser_engine: {group: "computer", kind: "enum", def: "classic", options: ["classic", "playwright"]},
     widget_artifacts_auto: {group: "widgets", kind: "bool", def: true},
     widget_computer_auto: {group: "widgets", kind: "bool", def: true},
   };
@@ -177,6 +178,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await row(t.page, "remembered_approval_hours").locator(".ui-select-trigger").getAttribute("data-value"), "24");
     assert.match(await row(t.page, "desktop_idle_seconds").innerText(), /5 min/, "the computer service's idle timeout is shown");
     assert.equal(await row(t.page, "desktop_idle_seconds").locator(".ui-select-trigger, input").count(), 0, "a value owned elsewhere has no control");
+    assert.equal(await row(t.page, "browser_engine").locator(".ui-select-trigger").getAttribute("data-value"), "classic", "the browser engine is a real choice, classic by default");
     assert.equal(await t.page.locator(".auto-chip").count(), 0, "nothing is marked changed at the defaults");
     assert.deepEqual(t.errors, [], `page errors: ${t.errors}`);
     if (shots) await t.page.locator(".settings-page-body").screenshot({path: join(shots, "automation-light.png")});

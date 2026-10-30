@@ -261,3 +261,23 @@ func TestBrowserEngineToolsAreObservationsOrEffects(t *testing.T) {
 		}
 	}
 }
+
+func TestBrowserEngineSettingIsWritableThroughTheSettingsAPI(t *testing.T) {
+	s := providerServer(t, nil, nil)
+	if code := autoPutCode(t, s, `{"browser_engine":"bogus"}`); code != 400 {
+		t.Fatalf("an unknown engine was accepted: %d", code)
+	}
+	if code := autoPutCode(t, s, `{"browser_engine":"playwright"}`); code != 200 {
+		t.Fatalf("PUT: %d", code)
+	}
+	item := autoGet(t, s).find(t, autoBrowserEngine)
+	if item.Value != "playwright" || item.Source != "stored" || item.Default != "classic" {
+		t.Fatalf("setting after PUT: %+v", item)
+	}
+	if !s.browserEnginePlaywright() {
+		t.Fatal("the stored value does not reach the tool registry")
+	}
+	if code := autoPutCode(t, s, `{"browser_engine":null}`); code != 200 || s.browserEnginePlaywright() {
+		t.Fatalf("reset to default failed: %d", code)
+	}
+}
