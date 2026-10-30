@@ -180,7 +180,7 @@ var oauthCompletionTemplate = template.Must(template.New("oauth-connection").Par
   <title>{{.Title}}</title>
   <script src="/oauth/connection.js"></script>
   <link rel="stylesheet" href="/oauth/connection.css">
-  <link rel="icon" href="/brand/tofi-logo-calico-awake.svg" type="image/svg+xml">
+  <link rel="icon" href="/brand/tofi-app-icon.svg?v=2" type="image/svg+xml">
 </head>
 <body class="oauth-connection" data-state="{{.State}}">
   <main class="oauth-completion" aria-labelledby="connection-heading">

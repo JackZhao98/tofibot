@@ -471,7 +471,6 @@
       "syncing": "Abgleich: Dateien vom Computer werden auf den Server kopiert…"
     },
     "done": {
-      "attach": "Computer angebunden.",
       "detach": "Computer getrennt.",
       "copied": "Auf den Server kopierte Dateien: {{count}}.",
       "interrupted": "Vorzeitig beendete Tool-Aufrufe: {{count}}.",
