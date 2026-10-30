@@ -15,3 +15,5 @@ summary.process-line::-webkit-details-marker{display:none}
 .live-mark::after{content:"";position:absolute;inset:0;box-sizing:border-box;border:1.5px solid transparent;border-top-color:var(--lagoon-text);border-right-color:var(--lagoon-text);border-radius:50%;transform:rotate(-45deg);animation:live-mark-turn 1.8s var(--ease-inout) infinite;will-change:transform}
 @keyframes live-mark-turn{to{transform:rotate(315deg)}}
 @media(prefers-reduced-motion:reduce){.live-mark::after{animation:none;will-change:auto}}
+/* The full status repeats under the live line only where that line gets cut off (phones); on wide screens it would be a duplicate. */
+@media (min-width:640px){.task-live-full{display:none}}
