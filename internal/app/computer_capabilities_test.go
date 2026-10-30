@@ -123,6 +123,9 @@ func TestComputerCapabilitiesEndpointAndConfig(t *testing.T) {
 		}
 	}
 	want(get("/api/computer/capabilities"))
+	if v := get("/api/computer/capabilities"); v["host_backend"] != "none" || v["attached"] != false {
+		t.Fatalf("no host backend: %v", v)
+	}
 	cfg := get("/api/config")
 	computerField, _ := cfg["computer"].(map[string]any)
 	want(computerField)
@@ -138,6 +141,21 @@ func TestComputerCapabilitiesEndpointAndConfig(t *testing.T) {
 	if got["backend"] != "kvm" || got["available"] != true {
 		t.Fatalf("kvm capabilities=%v", got)
 	}
+	if got["host_backend"] != "kvm" || got["attached"] != true {
+		t.Fatalf("attached: %v", got)
+	}
+	// Detached on a host that has a backend: no computer for this account, backend still there.
+	s.microVM = nil
+	s.computerFactory = func() (computer.Provider, error) { return client, nil }
+	det := get("/api/computer/capabilities")
+	if det["backend"] != "none" || det["available"] != false || det["attached"] != false || det["host_backend"] != "kvm" {
+		t.Fatalf("detached on a kvm host: %v", det)
+	}
+	if caps, _ := det["capabilities"].([]any); len(caps) != 0 || s.hasComputerCapability(CapShell) {
+		t.Fatalf("detached account keeps no computer capabilities: %v", det)
+	}
+	s.computerFactory = nil
+	s.microVM = client
 	if !s.hasComputerCapability(CapDesktop) || s.hasComputerCapability("nope") {
 		t.Fatal("hasComputerCapability")
 	}

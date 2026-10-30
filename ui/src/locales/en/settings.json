@@ -61,7 +61,8 @@
       "computer": {
         "name": "Computer",
         "description": "Shared Linux computer, storage and runtime resources",
-        "description_none": "Options for adding a computer to this server"
+        "description_none": "Options for adding a computer to this server",
+        "description_detached": "Attach a computer to this account"
       },
       "keys": {
         "name": "Computer keys",
@@ -396,7 +397,6 @@
       },
       "computer": {
         "title": "Computer",
-        "state": "State",
         "disk": "Disk quota",
         "disk_help": "Reserved disk for this account's computer. It can be raised, never lowered.",
         "disk_note": "Changing the quota stops the computer. It starts again the next time the account needs it.",

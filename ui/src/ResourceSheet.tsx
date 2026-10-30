@@ -30,7 +30,7 @@ function ResourceField({id,label,unit,current,value,min,max,step,hint,disabled,f
  </div>;
 }
 
-export function ResourceSheet({data,desired,dirty,busy,onChange,onSave,onCancel}:{data:Resources;desired:Allocation;dirty:boolean;busy:boolean;onChange:(a:Allocation)=>void;onSave:()=>void;onCancel:()=>void}) {
+export function ResourceSheet({data,desired,dirty,busy,onChange,onSave,onCancel,flush=false}:{flush?:boolean;data:Resources;desired:Allocation;dirty:boolean;busy:boolean;onChange:(a:Allocation)=>void;onSave:()=>void;onCancel:()=>void}) {
  const {t}=useTranslation("computer");
  const valid=validAllocation(desired,data);
  const set=(key:FieldKey)=>(n:number)=>onChange({...desired,[key]:n});
@@ -38,7 +38,7 @@ export function ResourceSheet({data,desired,dirty,busy,onChange,onSave,onCancel}
  if(desired.vcpus!==data.desired.vcpus)lines.push(`CPU ${data.desired.vcpus} → ${desired.vcpus} ${t("resources.unit.cores")}`);
  if(desired.memory_mib!==data.desired.memory_mib)lines.push(`${t("resources.memory")} ${gbText(data.desired.memory_mib)} → ${gbText(desired.memory_mib)} GB`);
  if(desired.disk_gib!==data.desired.disk_gib)lines.push(`${t("resources.disk_allocated")} ${data.desired.disk_gib} → ${desired.disk_gib} GB`);
- return <form aria-busy={busy} className="resource-sheet" onSubmit={event=>{event.preventDefault();if(valid&&dirty&&!busy)onSave()}}>
+ return <form aria-busy={busy} className={flush?"resource-sheet is-flush":"resource-sheet"} onSubmit={event=>{event.preventDefault();if(valid&&dirty&&!busy)onSave()}}>
   <fieldset className="resource-fields" disabled={busy}>
    <ResourceField id="resource-cpus" label={t("resources.field.cpus")} unit={t("resources.unit.cores")} current={data.desired.vcpus} value={desired.vcpus} min={1} max={data.limits.max_vcpus} step={1} format={String} disabled={busy} hint={t("resources.host_cpus",{cpus:data.host.cpus})} onChange={set("vcpus")}/>
    <ResourceField id="resource-memory" label={t("resources.field.memory")} unit="GB" current={data.desired.memory_mib} value={desired.memory_mib} min={512} max={Math.max(512,data.limits.max_memory_mib)} step={512} format={gbText} disabled={busy} hint={t("resources.host_memory",{value:gbText(data.host.memory_available_mib)})} onChange={set("memory_mib")}/>

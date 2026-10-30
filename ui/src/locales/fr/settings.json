@@ -61,7 +61,8 @@
       "computer": {
         "name": "Ordinateur",
         "description": "Ordinateur Linux partagé, stockage et ressources d’exécution",
-        "description_none": "Façons d'ajouter un ordinateur à ce serveur"
+        "description_none": "Façons d'ajouter un ordinateur à ce serveur",
+        "description_detached": "Rattacher un ordinateur à ce compte"
       },
       "keys": {
         "name": "Clés de l’ordinateur",
@@ -401,7 +402,6 @@
       },
       "computer": {
         "title": "Ordinateur",
-        "state": "État",
         "disk": "Quota de disque",
         "disk_help": "Disque réservé à l’ordinateur de ce compte. Il peut être augmenté, jamais réduit.",
         "disk_note": "Modifier le quota arrête l’ordinateur. Il redémarre la prochaine fois que le compte en a besoin.",

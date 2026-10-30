@@ -1,7 +1,8 @@
-import {useCallback, useEffect, useRef, useState} from "react";
+import {useCallback, useEffect, useRef, useState, type ReactNode} from "react";
 import {ApiError, request} from "./api";
 import {useTranslation} from "./i18n";
 import {ConfirmDialog} from "./overlays/ModalDialog";
+import {SettingsRow} from "./settings/components";
 import "./computer-resources.css";
 
 /** The administrator's view of a server's VM: `GET .../computer/state`, and the answer to attach. */
@@ -19,7 +20,7 @@ const knownErrors = ["computer_backend_unavailable", "computer_attach_failed", "
  * Hot attach and detach of an account's VM computer (admin only). `base` is `/api/admin/accounts/{id}/computer`
  * on a gateway and `/api/admin/computer` on a single-account server; `running` says whether an attached computer is on.
  */
-export function ComputerAttach({base, running, disabled}: {base: string; running?: boolean; disabled?: boolean}) {
+export function ComputerAttach({base, running, disabled, children}: {base: string; running?: boolean; disabled?: boolean; /** More rows of the same card (the size sliders). */ children?: ReactNode}) {
   const {t} = useTranslation("computer");
   const [summary, setSummary] = useState<Summary | null>(null);
   const [failed, setFailed] = useState(false);
@@ -38,8 +39,8 @@ export function ComputerAttach({base, running, disabled}: {base: string; running
   }, [base]);
   const words = useCallback((cause: unknown) => cause instanceof ApiError && cause.code && (knownErrors as readonly string[]).includes(cause.code) ? t(`attach.error.${cause.code}` as "attach.error.generic") : t("attach.error.generic"), [t]);
 
-  if (failed) return <p className="settings-card-note" role="alert">{t("attach.error.read")}</p>;
-  if (!summary) return <p className="settings-card-note" role="status">{t("attach.loading")}</p>;
+  if (failed) return <div className="settings-card computer-attach" data-testid="computer-attach"><p className="settings-card-note" role="alert">{t("attach.error.read")}</p></div>;
+  if (!summary) return <div className="settings-card computer-attach" data-testid="computer-attach"><p className="settings-card-note" role="status">{t("attach.loading")}</p></div>;
 
   const on = summary.status === "attached" || summary.status === "lost" || summary.status === "detaching";
   const stateKey = summary.status === "attached" ? (running ? "attached_running" : "attached_stopped")
@@ -73,18 +74,17 @@ export function ComputerAttach({base, running, disabled}: {base: string; running
     finally { window.clearTimeout(timer.current); if (alive.current) setPhase("idle"); }
   }
 
-  return <div className="admin-computer-attach" data-testid="computer-attach">
-    <div className="settings-row">
-      <div>
-        <strong>{t("attach.label")}</strong>
-        <p className="settings-card-note" data-testid="computer-attach-state">{t(`attach.state.${stateKey}` as "attach.state.none")}</p>
-      </div>
-      {stateKey !== "none" && <button type="button" className="primary-button" disabled={disabled || busy} onClick={() => (on ? setConfirming(true) : void attach())}>{on ? t("attach.action.detach") : t("attach.action.attach")}</button>}
-    </div>
-    <p className="settings-card-note">{t(`attach.help.${on ? "attached" : stateKey === "none" ? "none" : "detached"}` as "attach.help.none")}</p>
-    {phase !== "idle" && <p className="settings-feedback" role="status">{t(`attach.progress.${phase}` as "attach.progress.attaching")}</p>}
-    {phase === "idle" && result && <p className="settings-feedback" role="status">{result}</p>}
+  const tone = stateKey === "attached_running" ? "on" : stateKey === "lost" || stateKey === "detaching" ? "warn" : "off";
+  const action = stateKey === "none" ? null : on
+    ? <button type="button" className="secondary-button is-danger" disabled={disabled || busy} onClick={() => setConfirming(true)}>{t("attach.action.detach")}</button>
+    : <button type="button" className="secondary-button" disabled={disabled || busy} onClick={() => void attach()}>{t("attach.action.attach")}</button>;
+  return <div className="settings-card computer-attach" data-testid="computer-attach">
+    <SettingsRow inline label={<span className="computer-status" data-tone={tone} data-testid="computer-attach-state"><span className="computer-status-dot" aria-hidden="true"/>{t(`attach.state.${stateKey}` as "attach.state.none")}</span>}
+      description={t(`attach.help.${on ? "attached" : stateKey === "none" ? "none" : "detached"}` as "attach.help.none")} control={action}/>
+    {phase !== "idle" && <p className="settings-card-note" role="status">{t(`attach.progress.${phase}` as "attach.progress.attaching")}</p>}
+    {phase === "idle" && result && <p className="settings-card-note" role="status">{result}</p>}
     {error && <p className="settings-card-note" role="alert">{error}</p>}
+    {children}
     {confirming && <ConfirmDialog onClose={() => setConfirming(false)} overlayClassName="resource-restart-overlay"><div className="resource-restart-dialog" aria-labelledby="attach-detach-title" aria-describedby="attach-detach-impact">
       <h3 id="attach-detach-title">{t("attach.confirm.title")}</h3>
       <p id="attach-detach-impact">{t("attach.confirm.impact")}</p>

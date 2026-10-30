@@ -30,18 +30,30 @@ var kvmCapabilities = []string{CapShell, CapFiles, CapBrowser, CapDesktop, CapDe
 // computer. Available is "a computer is attached" (its live state, ready or
 // asleep, still comes from the computer info endpoint).
 type ComputerCapabilities struct {
-	Backend      string   `json:"backend"`
-	Available    bool     `json:"available"`
+	// Backend and Available describe this account's computer: "none" while none is
+	// attached, even when the host could attach one.
+	Backend   string `json:"backend"`
+	Available bool   `json:"available"`
+	// Attached repeats Available under the word the Admin console uses.
+	Attached bool `json:"attached"`
+	// HostBackend says whether this server can run a computer at all ("kvm" or
+	// "none"), whether or not this account's computer is attached. Attach and
+	// detach surfaces follow it; computer tools and settings follow Backend.
+	HostBackend  string   `json:"host_backend"`
 	Capabilities []string `json:"capabilities"`
 	// PersonalComputers is true only while the pairing routes are on (TOFI_PERSONAL_COMPUTERS=1).
 	PersonalComputers bool `json:"personal_computers,omitempty"`
 }
 
 func (s *Server) computerCapabilities() ComputerCapabilities {
-	if s.computer() == nil {
-		return ComputerCapabilities{Backend: ComputerBackendNone, Capabilities: []string{}, PersonalComputers: s.personalComputers}
+	host := ComputerBackendNone
+	if s.computerFactory != nil || s.computer() != nil {
+		host = ComputerBackendKVM
 	}
-	return ComputerCapabilities{Backend: ComputerBackendKVM, Available: true, Capabilities: append([]string(nil), kvmCapabilities...), PersonalComputers: s.personalComputers}
+	if s.computer() == nil {
+		return ComputerCapabilities{Backend: ComputerBackendNone, HostBackend: host, Capabilities: []string{}, PersonalComputers: s.personalComputers}
+	}
+	return ComputerCapabilities{Backend: ComputerBackendKVM, Available: true, Attached: true, HostBackend: host, Capabilities: append([]string(nil), kvmCapabilities...), PersonalComputers: s.personalComputers}
 }
 
 // hasComputerCapability is the one question prompts and tools ask instead of

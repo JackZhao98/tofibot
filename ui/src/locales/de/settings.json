@@ -61,7 +61,8 @@
       "computer": {
         "name": "Computer",
         "description": "Gemeinsamer Linux-Computer, Speicher und Laufzeitressourcen",
-        "description_none": "Möglichkeiten, diesem Server einen Computer hinzuzufügen"
+        "description_none": "Möglichkeiten, diesem Server einen Computer hinzuzufügen",
+        "description_detached": "Einen Computer an dieses Konto anbinden"
       },
       "keys": {
         "name": "Computer-Schlüssel",
@@ -396,7 +397,6 @@
       },
       "computer": {
         "title": "Computer",
-        "state": "Status",
         "disk": "Speicherkontingent",
         "disk_help": "Reservierter Speicher für den Computer dieses Kontos. Er kann nur vergrößert werden.",
         "disk_note": "Eine Änderung des Kontingents stoppt den Computer. Er startet wieder, sobald das Konto ihn braucht.",

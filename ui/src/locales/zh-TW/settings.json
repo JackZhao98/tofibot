@@ -61,7 +61,8 @@
       "computer": {
         "name": "電腦",
         "description": "共用的 Linux 電腦、儲存空間與執行資源",
-        "description_none": "為這台伺服器新增電腦的方式"
+        "description_none": "為這台伺服器新增電腦的方式",
+        "description_detached": "為此帳戶接入電腦"
       },
       "keys": {
         "name": "電腦金鑰",
@@ -391,7 +392,6 @@
       },
       "computer": {
         "title": "電腦",
-        "state": "狀態",
         "disk": "磁碟配額",
         "disk_help": "為此帳號的電腦預留的磁碟，只能調大，不能調小。",
         "disk_note": "變更配額會停止電腦，帳號下次需要時會重新啟動。",

@@ -74,6 +74,7 @@ import {subscribeSettingsDeepLinks} from '../src/settings/deepLinks';
 import {UpdateBanner} from '../src/UpdateNotice';
 import {setComputerCapability} from '../src/computerCapability';
 const query=new URLSearchParams(location.search);
+if(query.get('cap')==='detached')setComputerCapability({backend:'none',available:false,attached:false,host_backend:'kvm',capabilities:[]});
 if(query.get('personal'))setComputerCapability({backend:'kvm',available:true,capabilities:[],personal_computers:true});
 const bots=[{id:'bot_research',name:'Research Bot',is_primary:true,archived:false,model:'default',reasoning_effort:'default'},{id:'bot_inbox',name:'Inbox Bot',archived:false,model:'gpt-6-luna',reasoning_effort:'medium'},{id:'bot_notes',name:'Notes Bot',archived:false,model:'default',reasoning_effort:'default'},{id:'bot_old',name:'Retired Bot',archived:true,model:'default',reasoning_effort:'default'}] as any;
 function Fixture(){
@@ -983,7 +984,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.deepEqual(adminWrites, ['PUT /api/admin/accounts/acct_two/resources {"vcpus":4,"memory_mib":4608,"disk_gib":9}']);
     // Computer: detach asks first, then attaches again; a failed attach shows inline.
     const attachCard = detail.getByTestId("computer-attach");
-    await attachCard.getByText("Attached, running").waitFor();
+    await attachCard.getByText("Attached · Running").waitFor();
     adminWrites.length = 0;
     await attachCard.getByRole("button", {name: "Detach…"}).click();
     const detachDialog = page.getByRole("alertdialog");
@@ -1008,7 +1009,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await attachCard.getByRole("button", {name: "Attach"}).click();
     await attachCard.getByText("Computer attached.").waitFor();
     assert.deepEqual(adminWrites, ["POST /api/admin/accounts/acct_two/computer/attach", "POST /api/admin/accounts/acct_two/computer/attach"]);
-    assert.equal(await attachCard.getByTestId("computer-attach-state").textContent(), "Attached, running");
+    assert.equal(await attachCard.getByTestId("computer-attach-state").textContent(), "Attached · Running");
     // Role change.
     adminWrites.length = 0;
     await segmented.getByRole("radio", {name: "Admin"}).click();
@@ -1408,7 +1409,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const ownerComputer = soloOwner.page.locator('.settings-page-body[data-page="computer"]');
     // The single-account owner has the same card, on the /api/admin/computer route.
     const soloCard = ownerComputer.getByTestId("computer-attach");
-    await soloCard.getByText("Attached, running").waitFor({timeout: 15000});
+    await soloCard.getByText("Attached · Running").waitFor({timeout: 15000});
     adminWrites.length = 0;
     await soloCard.getByRole("button", {name: "Detach…"}).click();
     await soloOwner.page.getByRole("alertdialog").getByRole("button", {name: "Detach", exact: true}).click();
@@ -1419,6 +1420,46 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await ownerComputer.getByRole("button", {name: "Adjust"}).click();
     await ownerComputer.locator(".resource-sheet").waitFor();
     await soloOwner.close();
+
+    // The admin detached THEIR OWN computer: the host still has a backend, so the Computer section stays (host_backend), while computer tools and settings follow the account.
+    {
+      resetAdmin();
+      adminState.vm.acct_sample = {status: "detached"};
+      const view = await open({admin: "1", tab: "admin", cap: "detached"});
+      const adminBody = view.page.locator('.settings-page-body[data-page="admin"]');
+      await adminBody.locator(".admin-row").first().waitFor({timeout: 15000});
+      await adminBody.locator('.admin-row[data-account="acct_two"]').click();
+      const memberDetail = adminBody.locator('[data-testid="admin-detail"]');
+      await memberDetail.waitFor();
+      const memberCard = memberDetail.getByTestId("computer-attach");
+      await memberCard.getByText("Attached · Running").waitFor({timeout: 15000});
+      await memberCard.getByRole("button", {name: "Detach…"}).waitFor();
+      assert.equal(await memberDetail.getByText("Computer", {exact: true}).count(), 1, "the member's Computer section is still there");
+      assert.equal(await memberDetail.locator(".resource-sheet.is-flush").count(), 1, "the size sliders are rows of the same card");
+      assert.equal(await memberCard.locator(".resource-sheet").evaluate(node => getComputedStyle(node).borderTopWidth), "0px", "no card inside the card");
+      assert.equal(await memberCard.getByText("State", {exact: true}).count(), 0, "one status line, no State row");
+      await adminBody.getByRole("button", {name: "Accounts"}).click();
+      await adminBody.locator(".admin-row").first().waitFor();
+      await adminBody.locator('.admin-row[data-account="acct_sample"]').click();
+      const ownCard = memberDetail.getByTestId("computer-attach");
+      await ownCard.getByText("Detached", {exact: true}).waitFor({timeout: 15000});
+      await ownCard.getByRole("button", {name: "Attach"}).waitFor();
+      await view.close();
+
+      // Their own Settings > Computer page offers Attach and nothing that needs a computer.
+      const own = await open({admin: "1", tab: "computer", cap: "detached"});
+      const ownPage = own.page.locator('.settings-page-body[data-page="computer"]');
+      const attachCard = ownPage.getByTestId("computer-attach");
+      await attachCard.getByText("Detached", {exact: true}).waitFor({timeout: 15000});
+      assert.equal(await ownPage.getByText("This server has no computer").count(), 0, "not the no-computer view");
+      assert.equal(await ownPage.getByRole("button", {name: "Open Admin console"}).count(), 0);
+      adminWrites.length = 0;
+      await attachCard.getByRole("button", {name: "Attach"}).click();
+      await attachCard.getByText("Computer attached.").waitFor();
+      assert.deepEqual(adminWrites, ["POST /api/admin/accounts/acct_sample/computer/attach"]);
+      await own.close();
+      resetAdmin();
+    }
 
     // Up to date: no banner; the Version card says so.
     updateState.latest = "v0.1.0";
