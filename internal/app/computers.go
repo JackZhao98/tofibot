@@ -1175,11 +1175,22 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 			writeJSON(w, 201, j)
 			return true
 		}
-		j, err := s.store.queueComputerJob(Run{}, parts[0], v.Action, v.Args)
+		// The owner may name one of their Bots, as the model path does: the Mac
+		// decides per Bot whether to run the job. Without a Bot the Mac refuses it.
+		var attributed Run
+		if strings.TrimSpace(v.BotID) != "" {
+			if _, err := s.store.GetBot(v.BotID); err != nil {
+				writeErr(w, http.StatusNotFound, "bot_not_found", "bot not found")
+				return true
+			}
+			attributed.BotID = v.BotID
+		}
+		j, err := s.store.queueComputerJob(attributed, parts[0], v.Action, v.Args)
 		if err != nil {
 			writeErr(w, 400, "action_rejected", err.Error())
 			return true
 		}
+		s.store.wakeDevice(parts[0])
 		writeJSON(w, 201, j)
 		return true
 	}

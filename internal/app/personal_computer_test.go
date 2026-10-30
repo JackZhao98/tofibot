@@ -601,3 +601,25 @@ func TestGatewayRoutesDeviceRequestsByTag(t *testing.T) {
 		t.Fatalf("anonymous code issue: %d", w.Code)
 	}
 }
+
+// The owner's test endpoint can attribute a job to one of their Bots, which is
+// what the Mac's per-Bot consent keys on; a Bot that does not exist is refused.
+func TestOwnerActionCanNameABot(t *testing.T) {
+	s := computerTestServer(t)
+	mac := enrollMac(t, s, "Studio Mac", "files.list")
+	bot, err := s.store.CreateBot("Ada", "", "model")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := `{"action":"files.list","args":{},"bot_id":"` + bot.ID + `"}`
+	if w := mac.call("POST", "/api/computers/"+mac.id+"/actions", body, ""); w.Code != 201 {
+		t.Fatalf("queue: %d %s", w.Code, w.Body.String())
+	}
+	job := mac.poll(2)
+	if job == nil || job.BotID != bot.ID {
+		t.Fatalf("job: %+v", job)
+	}
+	if w := mac.call("POST", "/api/computers/"+mac.id+"/actions", `{"action":"files.list","args":{},"bot_id":"no-such-bot"}`, ""); w.Code != 404 {
+		t.Fatalf("unknown bot: %d", w.Code)
+	}
+}
