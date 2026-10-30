@@ -124,6 +124,9 @@ COMPUTER_APT_PACKAGES = ['zstd', 'e2fsprogs', 'apparmor', 'apparmor-utils']
 COMPUTER_PROFILE = 'computer-kvm'
 # compose.yaml starts the local MCP Runner only under this profile (tofi.env names its image).
 RUNNER_PROFILE = 'runner'
+# The Runner's AppArmor profile: docker-default plus the remount of its own cgroup view
+# (runner.apparmor.template). compose.yaml names it through TOFI_RUNNER_APPARMOR.
+RUNNER_APPARMOR = 'tofi-runner'
 RUNNER_ENV_KEYS = ('TOFI_RUNNER_IMAGE', 'TOFI_RUNNER_URL', 'TOFI_RUNNER_MASTER_KEY_FILE')
 # The Runner's own bridge (outbound only, filtered below) and the internal App-to-Runner link.
 # The egress subnet is fixed in compose.yaml so the firewall rules can name it; the link network's
@@ -227,6 +230,7 @@ class Paths:
         self.tls_key = self.tls / 'key.pem'
         self.state_file = self.etc / 'install-state.json'
         self.apparmor_profile = root / 'etc/apparmor.d/tofi-worker'
+        self.runner_apparmor_profile = root / 'etc/apparmor.d/tofi-runner'
         self.tmpfiles = root / 'etc/tmpfiles.d/tofi.conf'
         self.unit = root / 'etc/systemd/system/tofi.service'
         self.var = root / 'var/lib/tofi'
@@ -1279,17 +1283,79 @@ def apply_host_config(bundle, env):
     return config
 
 
-def load_apparmor(bundle):
-    """Check, write and load the Worker's AppArmor profile."""
-    profile = render_apparmor(bundle)
-    candidate = P.etc / '.worker.apparmor.candidate'
+def install_apparmor_profile(profile, target, candidate):
+    """Check `profile` with the parser, write it to `target` and load it (idempotent)."""
     write_file(candidate, profile, 0o644)
     try:
         run(['apparmor_parser', '-Q', '-T', str(candidate)])
     finally:
         candidate.unlink(missing_ok=True)
-    write_file(P.apparmor_profile, profile, 0o644)
-    run(['apparmor_parser', '-r', '-W', str(P.apparmor_profile)])
+    write_file(target, profile, 0o644)
+    run(['apparmor_parser', '-r', '-W', str(target)])
+
+
+def load_apparmor(bundle):
+    """Check, write and load the Worker's AppArmor profile."""
+    install_apparmor_profile(render_apparmor(bundle), P.apparmor_profile, P.etc / '.worker.apparmor.candidate')
+
+
+def apparmor_active():
+    """Does this kernel enforce AppArmor? Docker ignores a profile name when it does not."""
+    try:
+        return P.apparmor_enabled.read_text().strip() == 'Y'
+    except OSError:
+        return False
+
+
+def apparmor_profile_loaded(name):
+    try:
+        text = P.apparmor_profiles.read_text()
+    except OSError:
+        return False
+    return any(line.split(' (')[0] == name for line in text.splitlines())
+
+
+def load_runner_apparmor(bundle):
+    """Check, write and load the Runner's AppArmor profile (runner.apparmor.template, verbatim)."""
+    profile = (Path(bundle) / 'runner.apparmor.template').read_text()
+    install_apparmor_profile(profile, P.runner_apparmor_profile, P.etc / '.runner.apparmor.candidate')
+
+
+def prepare_runner_sandbox(env):
+    """Give the Runner container what per-account cgroups need, before it starts.
+
+    The Runner remounts its own (private) cgroup view read-write to create one
+    cgroup per account. Docker's default AppArmor profile forbids every mount, so
+    on a host with AppArmor this loads the tofi-runner profile and has compose use
+    it (TOFI_RUNNER_APPARMOR); without AppArmor Docker applies no profile and the
+    remount needs nothing. TOFI_RUNNER_CGROUPS defaults to `required`: a Runner
+    that cannot confine memory and processes per account does not start, and says
+    why. An operator's own TOFI_RUNNER_CGROUPS=auto|off in tofi.env stays.
+    A release bundle without the template (a rollback target) is left alone.
+    Returns True when tofi.env changed (it is written)."""
+    if not env.get('TOFI_RUNNER_IMAGE') or not (P.current / 'runner.apparmor.template').exists():
+        return False
+    before = dict(env)
+    explicit = env.get('TOFI_RUNNER_CGROUPS')
+    if apparmor_active():
+        if shutil.which('apparmor_parser') is None:
+            if explicit not in ('auto', 'off'):
+                raise HostError('The Runner needs its AppArmor profile (per-account memory and process limits) and '
+                                'apparmor_parser is missing. Install it with `apt-get install apparmor apparmor-utils`, '
+                                'then run `sudo tofi start`; or set TOFI_RUNNER_CGROUPS=auto in %s to run the Runner '
+                                'without those limits (not recommended).' % P.env_file)
+            warn('apparmor_parser is missing: the Runner starts without per-account cgroups (TOFI_RUNNER_CGROUPS=%s).' % explicit)
+            env.pop('TOFI_RUNNER_APPARMOR', None)
+        else:
+            load_runner_apparmor(P.current)
+            env['TOFI_RUNNER_APPARMOR'] = RUNNER_APPARMOR
+    else:
+        env.pop('TOFI_RUNNER_APPARMOR', None)
+    env.setdefault('TOFI_RUNNER_CGROUPS', 'required')
+    if env == before:
+        return False
+    write_env(env)
+    return True
 
 
 def prepare_directories(computer=True):
@@ -1742,6 +1808,7 @@ def start_worker(env, first_install=False):
 def start_services(env, first_install=False, state=None, runner_required=True):
     if env.get('TOFI_RUNNER_IMAGE'):
         require_runner_fence(env)  # before the Runner can run, and again after every reboot
+        prepare_runner_sandbox(env)  # its AppArmor profile is loaded before compose names it
     if has_computer(env):
         start_worker(env, first_install=first_install)
     if state is not None and state.get('transaction') and state['transaction']['kind'] == 'install':
@@ -2150,7 +2217,7 @@ def worker_meta_roots():
 
 def etc_excluded(relative):
     """Not part of an /etc/tofi backup: the live journal and half-written files."""
-    return relative == 'install-state.json' or relative.startswith(('.tofi-write-', '.worker.apparmor'))
+    return relative == 'install-state.json' or relative.startswith(('.tofi-write-', '.worker.apparmor', '.runner.apparmor'))
 
 
 @contextmanager
@@ -4261,9 +4328,10 @@ def purge_everything(state, confirm):
     run(['systemctl', 'disable', 'tofi.service'], check=False)
     remove_auto_update_units()
     remove_update_request_units()
-    if P.apparmor_profile.exists():
-        run(['apparmor_parser', '-R', str(P.apparmor_profile)], check=False)
-    for path in (P.unit, P.tmpfiles, P.apparmor_profile, P.bin_link):
+    for profile in (P.apparmor_profile, P.runner_apparmor_profile):
+        if profile.exists():
+            run(['apparmor_parser', '-R', str(profile)], check=False)
+    for path in (P.unit, P.tmpfiles, P.apparmor_profile, P.runner_apparmor_profile, P.bin_link):
         if path.is_symlink() or path.exists():
             path.unlink()
     run(['systemctl', 'daemon-reload'], check=False)
@@ -6228,6 +6296,44 @@ def audit_runner_fence(env):
                          'the Runner container (%s) is fenced off from the host and the private networks' % RUNNER_EGRESS_SUBNET)
 
 
+def audit_runner_sandbox(env):
+    """Read-only: can the Runner confine memory and processes per account? Changes nothing."""
+    title = 'Runner account limits'
+    check = 'runner.cgroups'
+    if not env.get('TOFI_RUNNER_IMAGE'):
+        return audit_finding(AUDIT_PASS, check, title, 'no Runner container is installed: nothing to limit')
+    fix = 'sudo tofi restart  # loads the tofi-runner AppArmor profile and starts the Runner with it'
+    mode = env.get('TOFI_RUNNER_CGROUPS', 'auto')
+    if mode != 'required':
+        return audit_finding(AUDIT_WARN, check, title,
+                             'TOFI_RUNNER_CGROUPS is %s: a Runner that cannot create account cgroups still starts, '
+                             'without per-account memory and process limits' % mode, fix)
+    if apparmor_active():
+        if env.get('TOFI_RUNNER_APPARMOR') != RUNNER_APPARMOR or not P.runner_apparmor_profile.exists():
+            return audit_finding(AUDIT_FAIL, check, title,
+                                 'the Runner is not set up with its %s AppArmor profile; with Docker\'s default profile '
+                                 'it cannot create account cgroups' % RUNNER_APPARMOR, fix)
+        if not apparmor_profile_loaded(RUNNER_APPARMOR):
+            return audit_finding(AUDIT_FAIL, check, title,
+                                 'the %s AppArmor profile is not loaded in the kernel' % RUNNER_APPARMOR, fix)
+    try:
+        runner = next((c for c in project_containers() if service_of(c) == 'runner'), None)
+    except (subprocess.SubprocessError, ValueError, OSError):
+        runner = None
+    if runner is not None and runner['State'].get('Running'):
+        wanted = RUNNER_APPARMOR if apparmor_active() else None
+        if (runner.get('HostConfig') or {}).get('CgroupnsMode') != 'private' \
+                or (wanted and runner.get('AppArmorProfile') != wanted):
+            return audit_finding(AUDIT_FAIL, check, title,
+                                 'the running Runner container does not use a private cgroup namespace%s'
+                                 % (' and the %s profile' % wanted if wanted else ''), fix)
+    detail = ('the Runner uses the %s AppArmor profile and a private cgroup namespace; each account gets its own '
+              'memory and process limits' % RUNNER_APPARMOR if apparmor_active() else
+              'AppArmor is not enabled on this host; the Runner uses a private cgroup namespace and each account '
+              'gets its own memory and process limits')
+    return audit_finding(AUDIT_PASS, check, title, detail)
+
+
 def audit_backup_age():
     title = 'Last backup'
     backups = list_backups()
@@ -6294,6 +6400,7 @@ def security_audit(online=False):
     collect('versions.tofi', lambda: audit_versions(env, online))
     collect('versions.computers', lambda: audit_computers(env))
     collect('runner.fence', lambda: audit_runner_fence(env))
+    collect('runner.cgroups', lambda: audit_runner_sandbox(env))
     collect('backups.recent', audit_backup_age)
     summary = {level.lower(): sum(1 for f in findings if f['level'] == level)
                for level in (AUDIT_PASS, AUDIT_WARN, AUDIT_FAIL)}

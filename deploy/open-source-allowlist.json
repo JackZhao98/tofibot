@@ -73,6 +73,7 @@
     "deploy/self-host/tofi.service",
     "deploy/self-host/tofi_host.py",
     "deploy/self-host/worker.apparmor.template",
+    "deploy/self-host/runner.apparmor.template",
     "deploy/self-host/worker.seccomp.json",
     "go.mod",
     "go.sum",

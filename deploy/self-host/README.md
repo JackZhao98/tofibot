@@ -554,6 +554,7 @@ the journal.
 /etc/tofi/tls/{cert,key}.pem   self-signed certificate (default mode; key 0640 root:10001)
 /etc/tofi/install-state.json   journal
 /etc/apparmor.d/tofi-worker
+/etc/apparmor.d/tofi-runner   Runner profile (only with the Runner container)
 /etc/tmpfiles.d/tofi.conf      d /run/tofi 0750 0 10001 -
 /etc/systemd/system/tofi.service
 /etc/systemd/system/tofi-auto-update.{service,timer}   automatic fix releases (timer enabled only when TOFI_AUTO_UPDATE=patch)
@@ -619,10 +620,17 @@ then clears every capability, sets `no_new_privs`, becomes the account uid and
 adds a seccomp filter (no `unshare`, `setns`, `mount`, namespace `clone`, `bpf`,
 `io_uring`, keyring calls). The Runner refuses to start without network
 namespaces (`TOFI_MCP_RUNNER_NETNS=required`) or without a seccomp profile on its
-own container. Cgroups need a writable cgroup v2 view; where the host forbids the
-remount (an AppArmor profile that denies `mount`) the Runner logs a `SECURITY`
-line and runs without the memory and pids limits (`TOFI_RUNNER_CGROUPS=required`
-makes that fatal instead).
+own container. Cgroups need a writable cgroup v2 view. Docker mounts it read-only and
+its default AppArmor profile denies the one mount that fixes that, so the Runner container
+runs with a private cgroup namespace (`cgroup: private`: it sees only its own subtree) and
+the `tofi-runner` AppArmor profile (`runner.apparmor.template`: docker-default plus a
+single rule, remount `/sys/fs/cgroup` read-write). `tofi start`, `restart` and `update`
+check and load the profile (`/etc/apparmor.d/tofi-runner`, `apparmor_parser`) before the
+Runner starts, and set `TOFI_RUNNER_APPARMOR=tofi-runner` and
+`TOFI_RUNNER_CGROUPS=required` in `tofi.env`. With `required` a Runner that cannot create
+account cgroups does not start and says why; `auto` (or an old `tofi.env`) logs a
+`SECURITY` line and runs without the memory and pids limits. A host without AppArmor
+needs no profile. `sudo tofi security audit` reports this as `runner.cgroups`.
 
 Once an account keeps its local connections in the Runner container, `tofi update`
 refuses a release that predates it (the connections would fall back to an older
