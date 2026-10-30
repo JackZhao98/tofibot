@@ -142,7 +142,7 @@ func (r *Runner) Handler(token string) http.Handler {
 					http.Error(w, "Google account status unavailable", 502)
 					return
 				}
-				_ = json.NewEncoder(w).Encode(map[string]any{"connected": result.Email != "", "email": result.Email, "scope": result.Scope, "services": authorisedServicesOf(result)})
+				_ = json.NewEncoder(w).Encode(map[string]any{"connected": result.Email != "", "email": result.Email, "scope": result.Scope, "services": authorisedServicesOf(result), "reauth_required": r.GogNeedsReauth(id)})
 			case parts[4] == "send" && req.Method == http.MethodPost:
 				var input GogSendRequest
 				// Up to 20 MB of attachments, base64 encoded, plus the message.
@@ -163,6 +163,12 @@ func (r *Runner) Handler(token string) http.Handler {
 						w.Header().Set("Content-Type", "application/json")
 						w.WriteHeader(http.StatusConflict)
 						_ = json.NewEncoder(w).Encode(map[string]any{"code": "api_disabled", "api": disabled.API, "project": disabled.Project})
+						return
+					}
+					if errors.Is(err, ErrGogReauth) {
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusConflict)
+						_ = json.NewEncoder(w).Encode(map[string]any{"code": "reauth_required"})
 						return
 					}
 					http.Error(w, err.Error(), 502)
@@ -219,6 +225,9 @@ func (r *Runner) Handler(token string) http.Handler {
 				}
 				return
 			}
+			if p.spec.Kind == "builtin_gog" {
+				result = r.gogGrantFailure(id, result)
+			}
 			_ = json.NewEncoder(w).Encode(result)
 		default:
 			http.NotFound(w, req)
@@ -267,6 +276,9 @@ func (r *Runner) mcpHandler(ctx context.Context, p *plugin) (http.Handler, error
 				}
 			}
 			result, err := r.callPlugin(ctx, p, &mcp.CallToolParams{Name: name, Arguments: arguments, InputResponses: request.Params.InputResponses, RequestState: request.Params.RequestState})
+			if err == nil && p.spec.Kind == "builtin_gog" {
+				result = r.gogGrantFailure(p.spec.ID, result)
+			}
 			if err != nil {
 				message := "Tool result unknown; the operation may have completed. Do not retry automatically."
 				if errors.Is(err, ErrIncompatibleProtocol) {
@@ -279,6 +291,23 @@ func (r *Runner) mcpHandler(ctx context.Context, p *plugin) (http.Handler, error
 	}
 	p.httpHandler = mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return mcpServer }, &mcp.StreamableHTTPOptions{Stateless: true})
 	return p.httpHandler, nil
+}
+
+// GogReauthMessage is what a Bot reads when Google rejected the stored grant. It names the state and the Settings page.
+const GogReauthMessage = "Google authorization expired or was revoked, so this Google tool cannot run. Tell the person to reconnect Google in Settings > Connections (/settings/connections/local_gog)."
+
+// gogGrantFailure turns a tool error caused by a rejected grant into the reconnect message and flags the account.
+func (r *Runner) gogGrantFailure(id string, result *mcp.CallToolResult) *mcp.CallToolResult {
+	if result == nil || !result.IsError {
+		return result
+	}
+	for _, c := range result.Content {
+		if text, ok := c.(*mcp.TextContent); ok && IsGogGrantFailure(text.Text) {
+			r.GogMarkReauth(id)
+			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: GogReauthMessage}}}
+		}
+	}
+	return result
 }
 
 func decodeJSON(req *http.Request, target any) error {

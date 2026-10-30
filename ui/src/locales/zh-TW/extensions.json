@@ -433,7 +433,9 @@
     "waiting": "等待授權",
     "connected": "已連線",
     "setup": "需要設定",
-    "paused": "已暫停"
+    "paused": "已暫停",
+    "not_connected": "未連線",
+    "reauth": "授權已失效"
   },
   "vm": {
     "cancel": "取消授權",
@@ -482,7 +484,8 @@
       "always": "一律放行",
       "revoke": "撤銷 {{bot}} 對 {{tool}} 的放行",
       "stale": "放行已失效 · 會再次詢問"
-    }
+    },
+    "unavailable": "連線 Google 之後才能使用這些工具。"
   },
   "connections": {
     "title": "連線",
@@ -490,7 +493,8 @@
     "action": {
       "authorize": "登入",
       "enable_api": "啟用 {{name}} API",
-      "resume": "恢復"
+      "resume": "恢復",
+      "reconnect": "重新連線"
     },
     "menu": {
       "sign_in_again": "重新登入"

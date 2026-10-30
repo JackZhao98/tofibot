@@ -108,12 +108,14 @@ export function GogSetup({ local, google, callbackOrigin, onChanged, onDone, onC
         {savedClient ? <p>{t("connections.google.using_client", { project })} <button type="button" className="text-button" onClick={() => setReplaceClient(true)}>{t("connections.google.replace_client")}</button></p> : <>
         <div className="connect-field"><span id={fileLabel}>{t("local.google.client_json")}</span><FilePicker accept=".json,application/json" labelledBy={fileLabel} label={t("local.google.choose_file")} fileName={credentialsName} dropHint={t("local.google.no_file")} disabled={Boolean(busy)} onFile={file => { setError(""); void file.text().then(text => { setCredentials(text); setCredentialsName(file.name); }).catch(caught => setError(message(caught))); }} /></div>
         {uploaded && <p>{t("connections.google.project_found", { project: uploaded.project || uploaded.clientId })}</p>}</>}
-        {project && services.map(service => <a key={service} className="connect-link" data-enable-api={service} href={googleEnableURL(GOOGLE_SERVICE_API[service], project)} target="_blank" rel="noopener noreferrer">{t("connections.action.enable_api", { name: GOOGLE_SERVICE_NAME[service] })}</a>)}
       </li>
       <li>
         <fieldset className="connect-field connect-services">
           <legend>{t("local.google.services")}</legend>
-          {GOG_SERVICES.map(service => <label key={service} className="connect-check"><input type="checkbox" checked={services.includes(service)} disabled={services.length === 1 && services.includes(service)} onChange={event => toggleService(service, event.target.checked)} /> {GOOGLE_SERVICE_NAME[service]}</label>)}
+          {GOG_SERVICES.map(service => <div key={service} className="connect-service" data-service={service}>
+            <label className="connect-check"><input type="checkbox" checked={services.includes(service)} disabled={services.length === 1 && services.includes(service)} onChange={event => toggleService(service, event.target.checked)} /> {GOOGLE_SERVICE_NAME[service]}</label>
+            {project && services.includes(service) && <a className="connect-link" data-enable-api={service} href={googleEnableURL(GOOGLE_SERVICE_API[service], project)} target="_blank" rel="noopener noreferrer">{t("connections.action.enable_api", { name: GOOGLE_SERVICE_NAME[service] })}</a>}
+          </div>)}
           <p className="field-note">{t("local.google.services_note")}</p>
         </fieldset>
         <label className="connect-field">{t("local.google.email")}<input type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@gmail.com" /></label>

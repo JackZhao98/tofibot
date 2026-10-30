@@ -438,7 +438,9 @@
     "waiting": "Warten auf Autorisierung",
     "connected": "Verbunden",
     "setup": "Einrichtung nötig",
-    "paused": "Pausiert"
+    "paused": "Pausiert",
+    "not_connected": "Nicht verbunden",
+    "reauth": "Autorisierung abgelaufen"
   },
   "vm": {
     "cancel": "Autorisierung abbrechen",
@@ -487,7 +489,8 @@
       "always": "Immer erlaubt",
       "revoke": "Freigabe von {{bot}} für {{tool}} widerrufen",
       "stale": "Freigabe ungültig · fragt erneut"
-    }
+    },
+    "unavailable": "Die Tools sind erst nach der Verbindung mit Google verfügbar."
   },
   "connections": {
     "title": "Verbindungen",
@@ -495,7 +498,8 @@
     "action": {
       "authorize": "Anmelden",
       "enable_api": "{{name}}-API aktivieren",
-      "resume": "Fortsetzen"
+      "resume": "Fortsetzen",
+      "reconnect": "Neu verbinden"
     },
     "menu": {
       "sign_in_again": "Erneut anmelden"

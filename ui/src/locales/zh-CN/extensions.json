@@ -433,7 +433,9 @@
     "waiting": "等待授权",
     "connected": "已连接",
     "setup": "需要设置",
-    "paused": "已暂停"
+    "paused": "已暂停",
+    "not_connected": "未连接",
+    "reauth": "授权已失效"
   },
   "vm": {
     "cancel": "取消授权",
@@ -482,7 +484,8 @@
       "always": "始终放行",
       "revoke": "撤销 {{bot}} 对 {{tool}} 的放行",
       "stale": "放行已失效 · 会再次询问"
-    }
+    },
+    "unavailable": "连接 Google 之后才能使用这些工具。"
   },
   "connections": {
     "title": "连接",
@@ -490,7 +493,8 @@
     "action": {
       "authorize": "登录",
       "enable_api": "启用 {{name}} API",
-      "resume": "恢复"
+      "resume": "恢复",
+      "reconnect": "重新连接"
     },
     "menu": {
       "sign_in_again": "重新登录"

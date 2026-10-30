@@ -443,7 +443,9 @@
     "waiting": "En attente d’autorisation",
     "connected": "Connecté",
     "setup": "Configuration requise",
-    "paused": "En pause"
+    "paused": "En pause",
+    "not_connected": "Non connecté",
+    "reauth": "Autorisation expirée"
   },
   "vm": {
     "cancel": "Annuler l’autorisation",
@@ -492,7 +494,8 @@
       "always": "Toujours autorisé",
       "revoke": "Révoquer l'autorisation de {{bot}} pour {{tool}}",
       "stale": "Autorisation annulée · redemande"
-    }
+    },
+    "unavailable": "Les outils ne sont disponibles qu’une fois Google connecté."
   },
   "connections": {
     "title": "Connexions",
@@ -500,7 +503,8 @@
     "action": {
       "authorize": "Se connecter",
       "enable_api": "Activer l’API {{name}}",
-      "resume": "Reprendre"
+      "resume": "Reprendre",
+      "reconnect": "Reconnecter"
     },
     "menu": {
       "sign_in_again": "Se reconnecter"

@@ -187,6 +187,11 @@ func (s *Server) routeLocalMCP(w http.ResponseWriter, r *http.Request, p string)
 			if s.writeGogAPIDisabled(w, data) {
 				return true
 			}
+			if gogReauthRequired(data) {
+				s.resetGogStatus()
+				writeErr(w, http.StatusConflict, "reauth_required", "Google authorization expired or was revoked")
+				return true
+			}
 		}
 		if status != http.StatusOK {
 			writeErr(w, 502, "runner", strings.TrimSpace(string(data)))
@@ -207,6 +212,7 @@ func (s *Server) routeLocalMCP(w http.ResponseWriter, r *http.Request, p string)
 			writeErr(w, 502, "runner", strings.TrimSpace(string(data)))
 			return true
 		}
+		s.resetGogStatus()
 		_, _ = s.store.WorkspaceEvent(workspaceScopeConfig)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
@@ -276,6 +282,7 @@ func (s *Server) routeLocalMCP(w http.ResponseWriter, r *http.Request, p string)
 			if _, checked, checkErr := s.runnerRequest(r, http.MethodPost, "/v1/plugins/gog/gog/check", map[string]any{}); checkErr == nil && checked == http.StatusOK {
 				page.MessageKey = "msg_gog_ok"
 			}
+			s.resetGogStatus()
 			_, _ = s.store.WorkspaceEvent(workspaceScopeConfig)
 			writeOAuthCompletion(w, 200, page)
 			return true
@@ -417,6 +424,20 @@ func (s *Server) attachLocalMCP(id string) error {
 // gog is installed with the runner but useless until a Google account is
 // connected; offering it then only costs the model a failing round trip.
 const gogStatusTTL = 30 * time.Second
+
+// resetGogStatus drops the cached account status so the next run sees a connect or disconnect at once.
+func (s *Server) resetGogStatus() {
+	s.gogStatus.mu.Lock()
+	s.gogStatus.checked = time.Time{}
+	s.gogStatus.mu.Unlock()
+}
+
+func gogReauthRequired(data []byte) bool {
+	var failure struct {
+		Code string `json:"code"`
+	}
+	return json.Unmarshal(data, &failure) == nil && failure.Code == "reauth_required"
+}
 
 type gogStatusCache struct {
 	mu        sync.Mutex

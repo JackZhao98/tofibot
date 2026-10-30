@@ -3,7 +3,7 @@ import { request } from "../api";
 
 /** The local plugin service's own facts (state, tool count). The page never shows them; it needs only which plugins exist. */
 export type Plugin = { id: string; state: "sleeping" | "starting" | "ready"; tool_count: number; kind?: string; package?: string; version?: string };
-export type GoogleStatus = { connected: boolean; email: string; scope?: "readonly" | "read-send"; /** Services the account authorised (gmail, calendar, drive). */ services?: string[] };
+export type GoogleStatus = { connected: boolean; email: string; scope?: "readonly" | "read-send"; /** Services the account authorised (gmail, calendar, drive). */ services?: string[]; /** Google rejected the stored grant (expired or revoked): sign in again. */ reauth_required?: boolean };
 export type LocalState = {
   loaded: boolean;
   /** False when the server has no local plugin service: the directory then offers no local connectors. */

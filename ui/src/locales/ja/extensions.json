@@ -433,7 +433,9 @@
     "waiting": "認可を待っています",
     "connected": "接続済み",
     "setup": "設定が必要",
-    "paused": "一時停止中"
+    "paused": "一時停止中",
+    "not_connected": "未接続",
+    "reauth": "認証の有効期限が切れました"
   },
   "vm": {
     "cancel": "認可をキャンセル",
@@ -482,7 +484,8 @@
       "always": "常に許可",
       "revoke": "{{bot}} の {{tool}} の許可を取り消す",
       "stale": "許可は無効 · 再度確認します"
-    }
+    },
+    "unavailable": "Google に接続するまでツールは使えません。"
   },
   "connections": {
     "title": "接続",
@@ -490,7 +493,8 @@
     "action": {
       "authorize": "サインイン",
       "enable_api": "{{name}} API を有効にする",
-      "resume": "再開"
+      "resume": "再開",
+      "reconnect": "再接続"
     },
     "menu": {
       "sign_in_again": "再度サインイン"

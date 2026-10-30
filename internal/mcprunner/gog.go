@@ -424,6 +424,7 @@ func (r *Runner) GogFinish(ctx context.Context, id string, input GogFinishReques
 		return err
 	}
 	_ = spec.removeInPlugin("gog-oauth-session.json")
+	_ = spec.removeInPlugin(gogReauthMarker)
 	// The MCP child was started with the tools of the services granted then; the next call starts it with these.
 	p.recycle()
 	return nil
@@ -483,6 +484,11 @@ func (r *Runner) GogCheck(ctx context.Context, id string) error {
 			if disabled := classifyGogFailure(err, googleapi.ServiceAPI[service]); disabled != nil {
 				return disabled
 			}
+			var failed *gogCommandError
+			if errors.As(err, &failed) && IsGogGrantFailure(failed.output) {
+				r.GogMarkReauth(id)
+				return ErrGogReauth
+			}
 			return errors.New(check.name + " read verification failed")
 		}
 	}
@@ -509,12 +515,54 @@ func (r *Runner) GogDisconnect(ctx context.Context, id string) error {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
-	if _, err := runGog(ctx, spec, nil, "--no-input", "auth", "remove", account.Email); err != nil {
-		return errors.New("could not remove stored Google token")
-	}
+	// A grant Google already revoked or expired can make the removal fail. The local account record goes regardless:
+	// leaving it would keep the connection half-connected with no way to leave it.
+	_, _ = runGog(ctx, spec, nil, "--no-input", "auth", "remove", account.Email)
 	err = spec.removeInPlugin("gog-account.json")
+	_ = spec.removeInPlugin(gogReauthMarker)
 	p.recycle()
-	return err
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
+}
+
+// ErrGogReauth is returned when Google rejected the stored grant and the person must authorise again.
+var ErrGogReauth = errors.New("Google authorization expired or was revoked")
+
+// gogReauthMarker records that Google rejected the stored grant (invalid_grant: expired or revoked). It lasts until the
+// account is authorised again or disconnected.
+const gogReauthMarker = "gog-reauth.json"
+
+// IsGogGrantFailure reports Google's rejection of the stored grant in a tool's error text.
+func IsGogGrantFailure(text string) bool {
+	lower := strings.ToLower(text)
+	return strings.Contains(lower, "invalid_grant") || strings.Contains(lower, "token has been expired or revoked")
+}
+
+// GogMarkReauth flags the connected account as needing authorisation again. Without an account there is nothing to flag.
+func (r *Runner) GogMarkReauth(id string) {
+	spec, err := r.gogSpec(id)
+	if err != nil {
+		return
+	}
+	if account, err := r.GogStatus(id); err != nil || account.Email == "" {
+		return
+	}
+	_ = spec.writeInPlugin(gogReauthMarker, []byte(`{"reauth":true}`))
+}
+
+// GogNeedsReauth reports the marker of a connected account.
+func (r *Runner) GogNeedsReauth(id string) bool {
+	spec, err := r.gogSpec(id)
+	if err != nil {
+		return false
+	}
+	if account, err := r.GogStatus(id); err != nil || account.Email == "" {
+		return false
+	}
+	_, err = spec.readInPlugin(gogReauthMarker)
+	return err == nil
 }
 
 // authorisedServicesOf is the services to report for a status: none without an account, otherwise the recorded ones

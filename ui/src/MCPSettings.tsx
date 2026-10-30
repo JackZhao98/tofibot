@@ -184,7 +184,6 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
   const [tiers, setTiers] = useState<ToolTierList | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [toolsError, setToolsError] = useState("");
-  const loadTiers = useCallback(async () => { try { const value = await request<ToolTierList>(toolsEndpoint(server.name)); if (alive.current) setTiers(normalizeTiers(value)); } catch { /* The row keeps its last tool list; the details view shows the empty state. */ } }, [server.name]);
   const alive = useRef(true); const operation = useRef(0); const abort = useRef<AbortController | null>(null);
   const previouslyConnected = useRef(server.oauth?.connected);
   const authorizationPopup = useRef<Window | null>(null);
@@ -196,6 +195,10 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
   const account = isGog ? local.google : null;
   // A local plugin answers tools without ever having been given a Google account: that is "needs authorization".
   const accountMissing = isGog && account !== null && !account.connected;
+  // Google rejected the stored grant (expired or revoked): the account line stays, the connection asks to sign in again.
+  const accountExpired = isGog && Boolean(account?.connected && account.reauth_required);
+  const noLiveAccount = accountMissing || accountExpired;
+  const loadTiers = useCallback(async () => { if (noLiveAccount) { setTiers(null); return; } try { const value = await request<ToolTierList>(toolsEndpoint(server.name)); if (alive.current) setTiers(normalizeTiers(value)); } catch { /* The row keeps its last tool list; the details view shows the empty state. */ } }, [server.name, noLiveAccount]);
   const paused = server.enabled === false;
   const [pausing, setPausing] = useState(false);
   const allowances = useConnectionAllowances(server.name, selected);
@@ -203,6 +206,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
   const busy = pausing || vmSession !== null || pasteOpen || (route.mode === "desktop" && phase === "waiting") || ["checking", "authorizing", "removing"].includes(phase);
   useEffect(() => { alive.current = true; return () => { alive.current = false; operation.current++; abort.current?.abort(); if (nativePending.current) void window.tofiDesktop?.cancelMCPAuthorization?.(server.name).catch(() => {}); }; }, [server.name]);
   const check = useCallback(async () => {
+    if (noLiveAccount) { setError(""); setPhase("auth"); return; }
     const id = ++operation.current; abort.current?.abort(); const controller = new AbortController(); abort.current = controller;
     setError(""); setPhase("checking");
     try {
@@ -219,14 +223,14 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
     // The server stored this check's outcome: the list (and the rail badge) read it back.
     if (alive.current && operation.current === id) void refresh();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [server.name, server.oauth?.connected]);
+  }, [server.name, server.oauth?.connected, noLiveAccount]);
   useEffect(() => { if (checkRequest > 0) void check(); }, [checkRequest, check]);
   useEffect(() => { void loadTiers(); }, [loadTiers]);
   useEffect(() => { if (phase === "ready") void loadTiers(); }, [phase, loadTiers]);
   // Only a queue in motion is polled; a settled list is read once per check.
   // Quiet re-verification on open: no phase change, no motion. One retry absorbs a transient blip; only a repeated failure changes the row.
   useEffect(() => {
-    if ((server.oauth && !server.oauth.connected) || checkRequest > 0 || server.enabled === false) return;
+    if ((server.oauth && !server.oauth.connected) || checkRequest > 0 || server.enabled === false || noLiveAccount) return;
     const base = operation.current; let live = true; const controller = new AbortController(); let timer = 0;
     const probe = async () => {
       try { return await request<TestResult>(endpoint(server.name) + "/test", { ...post({}), signal: controller.signal }); }
@@ -252,7 +256,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
     })();
     return () => { live = false; window.clearTimeout(timer); controller.abort(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [server.name, server.url]);
+  }, [server.name, server.url, noLiveAccount]);
   useEffect(() => { if (!vmSession && !previouslyConnected.current && server.oauth?.connected && checkRequest === 0) { setAuthURL(""); void check(); } else if (previouslyConnected.current && !server.oauth?.connected) { setPhase("auth"); } previouslyConnected.current = server.oauth?.connected; }, [server.oauth?.connected, checkRequest, check, vmSession]);
   useEffect(() => {
     if (phase !== "waiting" || vmSession || pasteOpen || isDesktop) return;
@@ -339,7 +343,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
       else await request(pluginId ? `/api/extensions/local-mcp/${encodeURIComponent(pluginId)}` : endpoint(server.name), { method: "DELETE" });
       if (!alive.current || id !== operation.current) return;
       if (confirm === "remove") onRemoved();
-      else { setAuthURL(""); setPhase(confirm === "disconnect" ? "auth" : "ready"); await refresh(); }
+      else { setAuthURL(""); setApiIssue(null); setCheckedAt(undefined); if (confirm === "disconnect_google") setTiers(null); setPhase(confirm === "disconnect" || confirm === "disconnect_google" ? "auth" : "ready"); await refresh(); }
       setConfirm(null);
     } catch (e) { if (alive.current && id === operation.current) { if (confirm === "remove") { setPhase("ready"); setConfirm(null); } else setPhase("error"); setError(confirm === "remove" ? removeError(e) : message(e)); } }
   }
@@ -358,20 +362,20 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
   const needsAuth = Boolean(server.oauth) && (!server.oauth?.connected || phase === "auth");
   const apiService = apiIssue ? googleServiceForAPI(apiIssue.api) : "";
   const apiName = apiService ? GOOGLE_SERVICE_NAME[apiService] : display;
-  const kind = connectionKind({ phase, needsAuth, error, accountMissing, apiDisabled: Boolean(apiIssue), paused });
-  const statusText = kind === "checking" ? t("status.checking") : kind === "ready" ? t("status.connected") : kind === "working" ? (phase === "authorizing" ? t("status.authorizing") : t("status.removing")) : kind === "waiting" ? t("status.waiting") : kind === "error" ? t("status.failed") : kind === "needs_auth" ? t("status.needs_auth") : kind === "paused" ? t("status.paused") : t("status.setup");
+  const kind = connectionKind({ phase, needsAuth, error, accountMissing, accountExpired, apiDisabled: Boolean(apiIssue), paused });
+  const statusText = kind === "checking" ? t("status.checking") : kind === "ready" ? t("status.connected") : kind === "working" ? (phase === "authorizing" ? t("status.authorizing") : t("status.removing")) : kind === "waiting" ? t("status.waiting") : kind === "error" ? t("status.failed") : kind === "needs_auth" ? (accountExpired ? t("status.reauth") : accountMissing ? t("status.not_connected") : t("status.needs_auth")) : kind === "paused" ? t("status.paused") : t("status.setup");
   const action = primaryAction(kind, Boolean(authURL), route.mode === "desktop");
-  const authorizeNow = () => { if (accountMissing && !needsAuth) onAuthorizeLocal(); else void authorize(); };
+  const authorizeNow = () => { if (noLiveAccount && !needsAuth) onAuthorizeLocal(); else void authorize(); };
   const primary: RowPrimary | null = action === "enable_api" && apiIssue ? { label: t("connections.action.enable_api", { name: apiName }), href: apiIssue.url }
     : action === "resume" ? { label: t("connections.action.resume"), disabled: busy, onClick: () => void setPaused(false) }
-    : action === "authorize" ? { label: t("connections.action.authorize"), disabled: busy || (route.mode === "blocked" && !accountMissing), onClick: authorizeNow }
-    : action === "retry" ? { label: t("common:action.retry"), disabled: busy, onClick: () => { if (needsAuth || accountMissing) authorizeNow(); else void check(); } }
+    : action === "authorize" ? { label: accountExpired ? t("connections.action.reconnect") : accountMissing ? t("mcp.connect") : t("connections.action.authorize"), disabled: busy || (route.mode === "blocked" && !noLiveAccount), onClick: authorizeNow }
+    : action === "retry" ? { label: t("common:action.retry"), disabled: busy, onClick: () => { if (needsAuth || noLiveAccount) authorizeNow(); else void check(); } }
     : action === "cancel" ? { label: t("mcp.cancel_auth"), pending: true, onClick: () => void window.tofiDesktop?.cancelMCPAuthorization?.(server.name).catch(e => setError(message(e))) }
     : action === "continue" ? { label: t("mcp.continue_auth"), href: authURL, pending: true } : null;
   const source = sourceLine(server, preset, pluginId);
   const repo = repoFor(server, preset);
   const toolCount = tiers?.tools.length ?? server.status?.tool_count;
-  const services = account?.connected ? googleServicesLabel(account.services) : "";
+  const services = account?.connected && !accountExpired ? googleServicesLabel(account.services) : "";
   const detail = kind === "ready" ? [toolCount ? t("connections.row.tools", { count: toolCount }) : "", account?.connected ? account.email : "", services].filter(Boolean).join(" · ") || undefined : undefined;
   const checked = kind === "ready" && checkedAt ? t("status.checked", { when: formatRelativeTime(checkedAt) }) : undefined;
   const rowError = kind === "api_disabled" ? t("connections.error.api_disabled", { name: apiName }) : error;
@@ -388,7 +392,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
   }
   const menu: RowMenuItem[] = [];
   if (!pluginId) menu.push({ key: "edit", label: t("mcp.menu.edit"), onSelect: onEdit });
-  if (isGog && account?.connected) menu.push({ key: "sign_in_again", label: t("connections.menu.sign_in_again"), onSelect: onAuthorizeLocal }, { key: "verify", label: t("local.google.verify"), onSelect: () => void verifyGoogle() });
+  if (isGog && account?.connected && !accountExpired) menu.push({ key: "sign_in_again", label: t("connections.menu.sign_in_again"), onSelect: onAuthorizeLocal }, { key: "verify", label: t("local.google.verify"), onSelect: () => void verifyGoogle() });
   const danger: DetailDanger = [{ key: "pause", label: paused ? t("detail.resume") : t("detail.pause"), onSelect: () => void setPaused(!paused) }];
   if (!pluginId && server.oauth?.connected) danger.push({ key: "disconnect", label: t("mcp.menu.disconnect"), onSelect: () => setConfirm("disconnect") });
   if (isGog && account?.connected) danger.push({ key: "disconnect_google", label: t("local.google.disconnect"), onSelect: () => setConfirm("disconnect_google") });
@@ -414,7 +418,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
     {selected && detailSlot && createPortal(<Suspense fallback={null}><ConnectionDetailView name={display} mark={isGog ? "Gmail" : display} source={source} serverName={server.name} kind={kind} statusText={statusText} detail={detail} checkedText={checked}
       error={rowError} note={paused ? t("detail.paused_note") : loginNote || undefined} focusTool={focusTool} bots={connectionBots.value} onBotsAll={() => void connectionBots.setAll()} onBotsChosen={ids => void connectionBots.setChosen(ids)} allowances={allowances.allowances} onRevoke={allowances.revoke} onDropAllowance={allowances.drop} primary={primary} menu={menu} busy={busy} facts={facts} tiers={tiers} onTiers={setTiers} community={server.provenance?.origin === "community"} toolsError={toolsError} advanced={advanced} help={help}
       danger={danger} confirm={confirm ? { text: confirmText, submit: confirm === "remove" ? t("mcp.confirm.remove_submit") : t("mcp.confirm.disconnect_submit"), onCancel: () => setConfirm(null), onConfirm: () => void confirmAction() } : null}
-      onBack={leave} onRefresh={() => void refreshTools()} refreshing={refreshing} /></Suspense>, detailSlot)}
+      onBack={leave} onRefresh={() => void refreshTools()} refreshing={refreshing} toolsUnavailable={noLiveAccount} /></Suspense>, detailSlot)}
     {dialogSlot && createPortal(<>
       {vmSession && <VMOAuthDialog session={vmSession} serverName={server.name} title={display} onFinish={(status, detail) => { setVMSession(null); if (status === "complete") { void refresh(); void check(); } else { setPhase("auth"); setError(detail || ""); } }} />}
       {pasteOpen && <PasteBackDialog serverName={server.name} title={display} popup={pastePopup} onFinish={(status, detail) => { setPasteOpen(false); setPastePopup(null); if (status === "complete") { void refresh(); void check(); } else { setPhase("auth"); setError(status === "cancelled" ? "" : detail || ""); } }} />}

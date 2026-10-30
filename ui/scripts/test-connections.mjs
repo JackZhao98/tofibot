@@ -96,6 +96,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       const name = path.split("/")[4];
       if (q.get("apidisabled") && name === "google-gmail") return {ok: false, tool_count: 0, diagnostics: [{message: "Google 返回 API 未启用。", code: "api_disabled", api: "gmail.googleapis.com", enable_url: ENABLE}]};
       if (q.get("fail") === name) return {ok: false, tool_count: 0, diagnostics: [{message: "Google 返回 API 未启用。请在 OAuth Client 所属的同一个项目中启用产品 API 和 MCP 服务，再刷新工具。", code: "api_disabled"}]};
+      // A Google account that is gone or expired is never probed; the probe would fail (502) and read as a broken connection.
+      if (name === "local_gog" && q.get("gog") !== "authorised") return {__status: 502, error: {code: "runner", message: "Request failed (502)"}};
       return {ok: true, tool_count: name === "notion" ? 65 : name === "google-gmail" ? 23 : 3};
     }
     let m = /^\/api\/extensions\/mcp\/([^/]+)\/tools$/.exec(path);
@@ -111,6 +113,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (/\/oauth\/paste\/start$/.test(path)) return {session_id: "sess_sample", authorization_url: "https://auth.example.test/authorize?state=sample", redirect_uri: "http://127.0.0.1:43821/oauth/callback"};
     if (/\/oauth\/paste\/complete$/.test(path)) return JSON.parse(postData || "{}").url?.includes("code=good") ? {ok: true} : {__status: 400, error: {code: "oauth_paste_invalid", message: "The pasted address is not the redirect this sign-in expects."}};
     if (path === "/api/extensions/local-mcp") return {available: q.get("runner") !== "off", plugins: q.get("fresh") ? [] : [{id: "gog", state: "sleeping", tool_count: 3}]};
+    if (path === "/api/extensions/local-mcp/gog/oauth/status" && q.get("gog") === "expired") return {connected: true, email: "you@example.test", scope: "readonly", services: ["gmail"], reauth_required: true};
     if (path === "/api/extensions/local-mcp/gog/oauth/status") return q.get("gog") === "authorised" ? {connected: true, email: "you@example.test", scope: "readonly", services: (q.get("services") || "gmail").split(",")} : {connected: false, email: "", services: []};
     if (path === "/api/extensions/local-mcp/gog/oauth/start") return {authorization_url: "https://accounts.google.com/o/oauth2/v2/auth?state=sample"};
     if (path === "/api/extensions/repo-stars") return q.get("nostars") ? {stars: {}} : {stars: {"openclaw/gogcli": 8520, "upstash/context7": 63467, "github/github-mcp-server": 33839, "makenotion/notion-mcp-server": 4673, "MicrosoftDocs/mcp": 1951}};
@@ -270,7 +273,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
         await shot(fresh.page, "google-workspace-open", width, theme);
         await fresh.close();
         const saved = await open({gclient: "1"}, {width, height, theme});
-        await row(saved.page, "Gmail (personal account)").getByRole("button", {name: "Sign in"}).click();
+        await row(saved.page, "Gmail (personal account)").getByRole("button", {name: "Connect"}).click();
         await saved.page.locator('.connect-dialog input[type="email"]').waitFor();
         await shot(saved.page, "gmail-setup", width, theme);
         await saved.close();
@@ -307,10 +310,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       assert.equal(await page.locator(".mcp-service-tools, .mcp-google-setup, .mcp-tools").count(), 0, "a resting page shows no tool lists and no setup help");
       const gog = row(page, "Gmail (personal account)");
       assert.equal(await gog.getAttribute("data-kind"), "needs_auth", "a plugin whose Google account was never authorised needs authorization");
-      assert.match((await gog.locator(".mcp-service-status").innerText()).trim(), /^Needs sign-in/);
+      assert.match((await gog.locator(".mcp-service-status").innerText()).trim(), /^Not connected/);
       assert.match(await gog.innerText(), /Built in · gogcli · Gmail API/, "the row says where it comes from; gogcli is built in, not community");
       assert.doesNotMatch(await gog.locator(".mcp-service-status").innerText(), /Connected/, "never 'Connected' without an account");
-      assert.equal(await gog.getByRole("button", {name: "Sign in"}).count(), 1, "the one primary action is Sign in");
+      assert.equal(await gog.getByRole("button", {name: "Connect"}).count(), 1, "the one primary action is Connect");
       assert.equal(await gog.locator(".mcp-menu-trigger").count(), 0, "a row has no menu: its page has the actions");
       for (const name of ["Notion", "Google Gmail"]) {
         assert.equal(await row(page, name).getAttribute("data-kind"), "ready");
@@ -365,7 +368,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     // ---- 3. Authorize opens a dialog; the page behind is inert; Escape closes it and focus returns.
     {
       const {page, close, writes} = await open();
-      const authorize = row(page, "Gmail (personal account)").getByRole("button", {name: "Sign in"});
+      const authorize = row(page, "Gmail (personal account)").getByRole("button", {name: "Connect"});
       await authorize.click();
       const dialog = page.locator('[role="dialog"].connect-dialog');
       await dialog.waitFor();
@@ -379,7 +382,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await page.keyboard.press("Escape");
       await dialog.waitFor({state: "detached"});
       await page.waitForTimeout(150);
-      assert.equal(await page.evaluate(() => document.activeElement?.textContent?.trim()), "Sign in", "focus returns to the control that opened the dialog");
+      assert.equal(await page.evaluate(() => document.activeElement?.textContent?.trim()), "Connect", "focus returns to the control that opened the dialog");
       assert.deepEqual(writes, [], "opening and closing setup writes nothing");
       await close();
       console.log("PASS dialog: Sign in opens the Gmail setup in a modal dialog, Escape closes it, focus returns, nothing written");
@@ -583,6 +586,58 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await close();
     }
     console.log("PASS api not enabled: the row says so and offers the Enable button for that API in that project");
+
+    // ---- 6b. Disconnected or expired Google: a clean state, never a probe error, never stale account facts.
+    {
+      const {page, close} = await open();
+      const gog = row(page, "Gmail (personal account)");
+      await gog.waitFor();
+      await page.waitForTimeout(600);
+      assert.equal(await gog.getAttribute("data-kind"), "needs_auth", "no account: needs authorization, not an error");
+      const detail = await openDetail(page, "Gmail (personal account)");
+      await page.waitForTimeout(600);
+      const status = detail.locator('section[data-section="status"]');
+      assert.match(await status.innerText(), /Not connected/);
+      assert.doesNotMatch(await status.innerText(), /502|Request failed|Can.t connect|Account:|Retry/, "no probe error, no stale account line, no Retry");
+      assert.equal(await status.getByRole("button", {name: "Connect"}).count(), 1, "the one primary action is Connect");
+      assert.equal(await detail.locator(".mcp-tool").count(), 0, "no tools are listed without an account");
+      assert.match(await detail.locator('section[data-section="tools"]').innerText(), /unavailable until Google is connected/);
+      assert.equal(await detail.getByRole("button", {name: "Refresh tools"}).isDisabled(), true);
+      assert.equal(await detail.locator('[data-section="danger"]').getByRole("button", {name: "Disconnect Google account"}).count(), 0, "nothing left to disconnect");
+      await close();
+      const expired = await open({gog: "expired"});
+      const gx = row(expired.page, "Gmail (personal account)");
+      await gx.waitFor();
+      await expired.page.waitForTimeout(600);
+      assert.equal(await gx.getAttribute("data-kind"), "needs_auth");
+      assert.match((await gx.locator(".mcp-service-status").innerText()).trim(), /^Authorization expired/);
+      assert.equal(await gx.getByRole("button", {name: "Reconnect"}).count(), 1, "an expired grant leads with Reconnect");
+      const expiredDetail = await openDetail(expired.page, "Gmail (personal account)");
+      assert.doesNotMatch(await expiredDetail.locator('section[data-section="status"]').innerText(), /Retry|Request failed/);
+      assert.equal(await expiredDetail.locator(".mcp-tool").count(), 0);
+      await expired.close();
+      console.log("PASS google state: disconnected reads Not connected with Connect, expired reads Authorization expired with Reconnect, no probe error, no stale account, no tools");
+    }
+
+    // ---- 6c. The connect form: each checked service shows its own Enable API link right after it; unchecked services show none.
+    {
+      const {page, close} = await open({gclient: "1", gog: "authorised", services: "gmail,calendar"});
+      await page.locator('.mcp-service[aria-label="Gmail (personal account)"][data-kind="ready"]').waitFor({timeout: 10000});
+      const detail = await openDetail(page, "Gmail (personal account)");
+      await detail.locator(".mcp-menu-trigger").click();
+      await page.getByRole("menuitem", {name: /Sign in again/}).click();
+      const dialog = page.locator('[role="dialog"].connect-dialog');
+      await dialog.waitFor();
+      assert.equal(await dialog.locator(".connect-service").count(), 3);
+      for (const [service, name, checked] of [["gmail", "Gmail", true], ["calendar", "Google Calendar", true], ["drive", "Google Drive", false]]) {
+        const item = dialog.locator(`.connect-service[data-service="${service}"]`);
+        assert.equal(await item.getByRole("checkbox", {name}).isChecked(), checked);
+        assert.equal(await item.getByRole("link", {name: `Enable ${name} API`}).count(), checked ? 1 : 0, `${name}: the link follows its checkbox only while checked`);
+      }
+      assert.equal(await dialog.locator(".connect-steps > li > a[data-enable-api]").count(), 0, "no concatenated link line under the client step");
+      await close();
+      console.log("PASS google form: Enable API links sit beside their own checked services");
+    }
 
     // ---- 7c. A second Google service does not ask for the client again.
     {

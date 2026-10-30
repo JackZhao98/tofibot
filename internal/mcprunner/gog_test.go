@@ -37,6 +37,11 @@ func TestFakeGogProcess(t *testing.T) {
 			os.Exit(2)
 		}
 		_, _ = fmt.Fprint(os.Stdout, `{"ok":true}`)
+	case strings.Contains(args, "gmail search") && os.Getenv("TOFI_FAKE_GOG_GRANT") == "1":
+		_, _ = fmt.Fprint(os.Stderr, "oauth2: cannot fetch token: invalid_grant: Token has been expired or revoked.")
+		os.Exit(1)
+	case strings.Contains(args, "auth remove") && os.Getenv("TOFI_FAKE_GOG_FAIL_REMOVE") == "1":
+		os.Exit(1)
 	case strings.Contains(args, "calendar events"):
 		_, _ = fmt.Fprint(os.Stdout, `{"events":[]}`)
 	case strings.Contains(args, "drive search"):
@@ -408,5 +413,72 @@ func TestGogSendAttachesFilesUnderTheirRealNames(t *testing.T) {
 	}
 	if strings.Contains(attachmentFileName("a/b\\c"), "/") || attachmentFileName("-rf") == "-rf" || attachmentFileName("..") == ".." {
 		t.Fatal("unsafe file name kept")
+	}
+}
+
+func newFakeGogRunner(t *testing.T, env map[string]string) *Runner {
+	t.Helper()
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "fake-gog")
+	script := fmt.Sprintf("#!/bin/sh\nexec '%s' -test.run=TestFakeGogProcess -- \"$@\"\n", strings.ReplaceAll(os.Args[0], "'", "'\\''"))
+	if err := os.WriteFile(bin, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	env["TOFI_FAKE_GOG"] = "1"
+	r, err := New([]Spec{{ID: "gog", Kind: "builtin_gog", Command: bin, WorkDir: dir, Env: env}}, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(r.Close)
+	redirect := "https://tofi.example/api/extensions/local-mcp/gog/oauth/callback"
+	credentials, _ := json.Marshal(map[string]any{"web": map[string]any{"client_id": "id", "client_secret": "secret", "redirect_uris": []string{redirect}}})
+	if _, err := r.GogStart(context.Background(), "gog", GogStartRequest{Email: "person@gmail.com", CredentialsJSON: credentials, RedirectURI: redirect}); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.GogFinish(context.Background(), "gog", GogFinishRequest{RedirectedURL: redirect + "?code=code&state=fixture-state"}); err != nil {
+		t.Fatal(err)
+	}
+	return r
+}
+
+// A grant Google already revoked can make `auth remove` fail; Disconnect still leaves a clean, disconnected account.
+func TestGogDisconnectSucceedsWhenTokenRemovalFails(t *testing.T) {
+	r := newFakeGogRunner(t, map[string]string{"TOFI_FAKE_GOG_FAIL_REMOVE": "1"})
+	r.GogMarkReauth("gog")
+	if !r.GogNeedsReauth("gog") {
+		t.Fatal("marker not set for a connected account")
+	}
+	if err := r.GogDisconnect(context.Background(), "gog"); err != nil {
+		t.Fatalf("disconnect failed: %v", err)
+	}
+	status, err := r.GogStatus("gog")
+	if err != nil || status.Email != "" {
+		t.Fatalf("status after disconnect=%+v err=%v", status, err)
+	}
+	if r.GogNeedsReauth("gog") {
+		t.Fatal("reauth marker survived disconnect")
+	}
+	if err := r.GogDisconnect(context.Background(), "gog"); err != nil {
+		t.Fatalf("second disconnect: %v", err)
+	}
+}
+
+// invalid_grant marks the account as needing authorisation; connecting again clears it.
+func TestGogInvalidGrantMarksReauth(t *testing.T) {
+	r := newFakeGogRunner(t, map[string]string{"TOFI_FAKE_GOG_GRANT": "1"})
+	if r.GogNeedsReauth("gog") {
+		t.Fatal("fresh account flagged")
+	}
+	if err := r.GogCheck(context.Background(), "gog"); !errors.Is(err, ErrGogReauth) {
+		t.Fatalf("check err=%v", err)
+	}
+	if !r.GogNeedsReauth("gog") {
+		t.Fatal("marker missing after invalid_grant")
+	}
+	if !IsGogGrantFailure("Error: invalid_grant: Token has been expired or revoked") || IsGogGrantFailure("quota exceeded") {
+		t.Fatal("grant failure classifier is wrong")
+	}
+	if !strings.Contains(GogReauthMessage, "/settings/connections/local_gog") {
+		t.Fatal("tool error lacks the deep link")
 	}
 }
