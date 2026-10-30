@@ -140,6 +140,7 @@
     "needs_answer": "À répondre",
     "turn_ended": "Ce tour est terminé",
     "stopped": "Ce flux de travail s’est arrêté",
+    "paused": "En pause : {{paused}}",
     "reviewing": "Vérification avant exécution",
     "using_tool": "Utilisation d’un outil",
     "preparing_tool": "Préparation d’un outil",

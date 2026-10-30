@@ -742,7 +742,9 @@ func scheduleFamilyOutcome(family []scheduleFamilyRun) (runID, status string) {
 	// ancestor as superseded only when a matching descendant exists.
 	superseded := make(map[string]bool)
 	for _, r := range family {
-		if r.status != "failed" && r.status != "interrupted" || r.trigger == "" {
+		// A run a person's message interrupted (cancelled) is repeated the same
+		// way: its resume run is a matching descendant.
+		if r.status != "failed" && r.status != "interrupted" && r.status != "cancelled" || r.trigger == "" {
 			continue
 		}
 		queue := append([]string(nil), children[r.id]...)

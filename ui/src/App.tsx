@@ -2895,8 +2895,8 @@ export function MessageBubble({ receipt, message, replyTarget, replyTargetName, 
   }
   if (message.kind === "notice" && message.notice?.type === "resume") {
     // Posted by the server when a run continues from a checkpoint; the text is localized here.
-    const resumeKey = message.notice.reason === "restart" ? "message.resume_restart" : "message.resume_continuing";
-    return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div><span>{t(resumeKey)}</span></div></article>;
+    const resumeKey = `message.resume_${message.notice.reason || "continuing"}` as "message.resume_task";
+    return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div><span>{t(resumeKey, message.notice)}</span></div></article>;
   }
   if (message.kind === "notice" && message.notice?.type === "settings_change") {
     // A setting a Bot changed by itself: the line and its Undo are worded in a lazy chunk, in the UI's language.

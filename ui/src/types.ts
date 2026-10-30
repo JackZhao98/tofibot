@@ -163,6 +163,8 @@ export interface Message {
     type: string;
     /** Why a "resume" notice was posted, e.g. "restart". */
     reason?: string;
+    /** The task a "resume" notice with reason "task" picks up again. */
+    task_title?: string;
     from_bot_id: string;
     to_bot_id: string;
     to_bot_ids?: string[];
@@ -312,6 +314,12 @@ export interface WorkItem {
   waiting_on?: WorkWait[];
   /** When the holder claimed the task (claim_task); absent until it does. */
   claimed_at?: string;
+  /** Task continuity: a paused task has interrupted_at set and waits for the Bot (auto_resume) or for the person. */
+  source?: "user_request" | "schedule_occurrence";
+  source_run_id?: string;
+  interrupted_at?: string;
+  resume_count?: number;
+  auto_resume?: boolean;
 }
 
 export type ToolActivityStatus = "queued" | "running" | "completed" | "failed" | "interrupted";
@@ -396,6 +404,8 @@ export interface Run {
   origin_conversation_id?: string;
   trigger_message_id?: string;
   queue_seq?: number;
+  /** The task this run left paused when a person's message took the Bot away from it. */
+  paused?: string;
   created_at: string;
   updated_at: string;
 }

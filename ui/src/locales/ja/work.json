@@ -191,6 +191,10 @@
   "card": {
     "label": "タスク: {{title}}",
     "claimed": "引き受け済み",
-    "assigned": "割り当て済み"
+    "assigned": "割り当て済み",
+    "paused": "一時停止中",
+    "resume": "再開",
+    "drop": "破棄",
+    "resumes_after": "現在の返信のあとに再開します"
   }
 }

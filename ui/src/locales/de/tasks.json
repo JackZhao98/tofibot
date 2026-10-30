@@ -140,6 +140,7 @@
     "needs_answer": "Antwort offen",
     "turn_ended": "Diese Runde ist beendet",
     "stopped": "Dieser Ablauf wurde gestoppt",
+    "paused": "Pausiert: {{paused}}",
     "reviewing": "Prüfung vor der Ausführung",
     "using_tool": "Nutzt ein Tool",
     "preparing_tool": "Bereitet ein Tool vor",

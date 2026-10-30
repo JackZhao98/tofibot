@@ -406,7 +406,7 @@ func (s *Store) AddResumeNotice(r Run, reason string) (Message, error) {
 	if err = tx.QueryRow(nextMessageSeqSQL, r.ConversationID, r.ConversationID, streamDraftActive).Scan(&seq); err != nil {
 		return Message{}, err
 	}
-	notice := &HandoffNotice{Type: "resume", Reason: reason, FromBotID: r.BotID, ToBotID: r.BotID, TargetConversationID: r.ConversationID, TargetRunID: r.ID}
+	notice := &HandoffNotice{Type: "resume", Reason: reason, TaskTitle: resumeTaskTitleTx(tx, r.ID, reason), FromBotID: r.BotID, ToBotID: r.BotID, TargetConversationID: r.ConversationID, TargetRunID: r.ID}
 	noticeData, _ := json.Marshal(notice)
 	m := Message{ID: newID(), ConversationID: r.ConversationID, Seq: seq, Role: "assistant", Kind: "notice", SenderBotID: r.BotID, RunID: r.ID, Content: resumeNoticeText(reason), Notice: notice, CreatedAt: t}
 	if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, m.ID, m.ConversationID, m.Seq, m.Role, m.Kind, m.SenderBotID, m.RunID, m.Content, string(noticeData), t); err != nil {
@@ -427,6 +427,19 @@ func resumeNoticeText(reason string) string {
 	switch strings.TrimSpace(reason) {
 	case "restart":
 		return "Service restarted. Resuming from the last checkpoint."
+	case resumeNoticeTask:
+		return "Resuming an unfinished task."
 	}
 	return "Resuming from the last checkpoint."
+}
+
+// resumeTaskTitleTx is the title of the task a resumed run carries on, for the
+// notice that says which task the Bot picks up again.
+func resumeTaskTitleTx(tx *sql.Tx, runID, reason string) string {
+	if reason != resumeNoticeTask {
+		return ""
+	}
+	var title string
+	_ = tx.QueryRow(`SELECT title FROM work_items WHERE assignee_run_id=? AND source<>'' ORDER BY updated_at DESC LIMIT 1`, runID).Scan(&title)
+	return title
 }

@@ -197,6 +197,10 @@
   "card": {
     "label": "Tâche : {{title}}",
     "claimed": "Prise en charge",
-    "assigned": "Assignée"
+    "assigned": "Assignée",
+    "paused": "En pause",
+    "resume": "Reprendre",
+    "drop": "Abandonner",
+    "resumes_after": "Reprise après la réponse en cours"
   }
 }

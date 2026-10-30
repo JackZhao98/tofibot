@@ -191,6 +191,10 @@
   "card": {
     "label": "작업: {{title}}",
     "claimed": "인수함",
-    "assigned": "배정됨"
+    "assigned": "배정됨",
+    "paused": "일시중지됨",
+    "resume": "재개",
+    "drop": "삭제",
+    "resumes_after": "현재 답변 후 이어서 진행합니다"
   }
 }

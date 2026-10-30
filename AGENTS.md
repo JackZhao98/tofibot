@@ -252,6 +252,25 @@ Two stop levels: `POST /api/runs/{id}/interrupt-step` cancels only the tool call
 when only the model is running) and the run goes on; `POST /api/runs/{id}/cancel` is Stop all (`CancelRunTree`, tasks and waits too). The composer is always enabled; its Stop button is in the entry (Stop all by itself when the menu chunk is not loaded) and opens the lazy two-item
 `ComposerStopMenu` (`ui/src/ComposerStopMenu.tsx`; the step item only for a running run with a tool call in flight); the queued/read note is `DeliveryNote`, applied from the `inbox` event by `applyInbox` (`ui/src/messageDelivery.ts`).
 
+# Task continuity
+
+A newer person message may still take a Bot away from running work (a scheduled run yields to it), but the work is not lost (`internal/app/task_continuity.go`). A run is evidence, a task is what was
+asked: the unfinished work is a `work_items` row of the Bot in that conversation, paused as `status='todo'` with `interrupted_at` set (columns added by `ensureColumn`: `source` `user_request|schedule_occurrence`,
+`source_run_id`, `schedule_id`, `interrupted_at`, `interrupt_reason`, `resume_count`, `resume_state`; a paused task is `hidden=0` and has no `assignee_run_id` until it resumes). Hooks, all inside the transaction that ends the run:
+`MarkRunSteered` calls `pauseForPersonSteerTx` (only when every run the old one yields to is a person-message run of the same Bot and not a continuation of the messages it left unread; a delegation, mention
+wake or reading-cap hand-over is not an interruption) and then `resumePausedTasksTx`; `finishRunOpts` and `SetRunStatus` (done, failed) call `resumePausedTasksTx` too. `resume_state` (<= 4 KB JSON: goal, the run's
+progress messages, the last 16 tool calls with bounded args and results, the person's unread message) is written by the harness, because a cancelled run has no turn left. `resumePausedTasksTx` starts the oldest
+paused task as a queued run when the Bot has no other queued or running run and no unread person message in the conversation (a person's message always goes first), at most `taskAutoResumeLimit` (2) times per task
+(`resume_count`; the person's Resume button, `POST /api/work-items/{id}/resume`, is not counted). The resume run is a child of the interrupted run with the same kind (a scheduled occurrence stays `schedule`, so
+`scheduleFamilyOutcome` and `completeOneTimeScheduleTx` treat the cancelled ancestor as superseded by its descendant), `resume_notice='task'` (the chat notice "Resuming: title", `HandoffNotice.task_title`) and, for a person's
+request, the newest person message as trigger so its history shows what came in between. It reads the `[unfinished task]` block (`taskResumeContext`, kind `unfinished_task`). Early stop: `finishRunOpts` calls `captureEarlyStopTx` after the task hooks; a person's request that ends with `say` outcome `pending` and no pending wait is paused
+(`interrupt_reason=early_stop`, then resumed like any paused task), one that ends `blocked` becomes a `blocked` task that waits for the person (no run). Every run of the Bot (not triage) reads the `[unfinished tasks]` list block
+(`unfinishedTasksContext`, <= 8 paused or blocked entries, kind `unfinished_tasks`): a person's "continue" refers to it, and `update_work_item(status=in_progress)` on a paused entry binds it to the running run
+(`bindPausedTask`) and returns its record, so it is not resumed a second time. A task of a schedule that has claimed a newer
+occurrence is cancelled (`result_summary=superseded_by_next_occurrence`); Stop all (`CancelRunTree`) cancels the Bot's paused tasks in that conversation. UI: `Run.paused` (title, set by `decoratePausedRuns` and the steered
+run event) makes the stopped line "Paused: title"; the paused `TaskCard` (lazy) has Resume and Drop (`PATCH` status `cancelled`). Entry JS has about 1 byte of budget headroom: keep further changes in lazy chunks.
+Tests: `task_continuity_test.go` (the owner's sequence), `task_continuity_limits_test.go`, `lane_schedule_concurrency_test.go` (a scheduled occurrence queues behind a running person's run).
+
 # Security gates
 
 `manage_extensions` changes (MCP create/update/delete/test, Skill `skill_publish_version`) execute only after a person's

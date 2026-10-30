@@ -1591,6 +1591,13 @@ func (s *Store) CancelRunTree(id string) error {
 	if err = cancelTaskWorkForRunsTx(tx, append(cancelled, id), lineageKey(tx, id)); err != nil {
 		return err
 	}
+	// Stop all: what the Bot had paused does not start again by itself.
+	var stoppedConv, stoppedBot string
+	if tx.QueryRow(`SELECT conversation_id,bot_id FROM runs WHERE id=?`, id).Scan(&stoppedConv, &stoppedBot) == nil {
+		if err = cancelPausedTasksTx(tx, stoppedConv, stoppedBot); err != nil {
+			return err
+		}
+	}
 	if err = tx.Commit(); err != nil {
 		return err
 	}

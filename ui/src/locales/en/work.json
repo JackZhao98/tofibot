@@ -194,6 +194,10 @@
   "card": {
     "label": "Task: {{title}}",
     "claimed": "Claimed",
-    "assigned": "Assigned"
+    "assigned": "Assigned",
+    "paused": "Paused",
+    "resume": "Resume",
+    "drop": "Drop",
+    "resumes_after": "Resumes after the current reply"
   }
 }

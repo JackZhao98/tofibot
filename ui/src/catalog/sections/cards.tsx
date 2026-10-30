@@ -93,7 +93,7 @@ const CHECKLIST: TaskCardModel["items"] = [
   { id: "c1", text: "Collect the venue quotes", status: "done" }, { id: "c2", text: "Compare price and distance", status: "done" }, { id: "c3", text: "Check the room is free on Thursday", status: "done" },
   { id: "c4", text: "Draft the booking mail", status: "open" }, { id: "c5", text: "Ask the board for a budget exception", status: "blocked", reason: "Waiting for the board" },
 ];
-const taskModel = (extra: Partial<TaskCardModel>): TaskCardModel => ({ id: "t_a", title: "Book the venue for the launch", holderId: "bot_miso", holderName: "Miso", status: "in_progress", done: 3, total: CHECKLIST.length, items: CHECKLIST, claimed: true, open: true, ...extra });
+const taskModel = (extra: Partial<TaskCardModel>): TaskCardModel => ({ id: "t_a", title: "Book the venue for the launch", holderId: "bot_miso", holderName: "Miso", status: "in_progress", done: 3, total: CHECKLIST.length, items: CHECKLIST, claimed: true, open: true, paused: false, autoResume: false, ...extra });
 const task = (id: string, label: string, model: TaskCardModel, note?: string, drive?: CatalogState["drive"]): CatalogState => ({ id, label, note, kind: "inline", render: () => <TaskCard card={model} />, drive });
 
 export const handover: CatalogSection = {
@@ -114,6 +114,8 @@ export const handover: CatalogSection = {
     task("task-card", "Task card, collapsed", taskModel({}), "holder, checklist progress and the status on one line"),
     task("task-card-open", "Task card, checklist open", taskModel({}), "the title and each item with its state", async step => { await step.click(".task-card .disclosure-toggle"); }),
     task("task-card-todo", "Task card, waiting to start", taskModel({ status: "todo", done: 0, total: 0, items: [], claimed: false })),
+    task("task-card-paused", "Task card, paused (the Bot resumes it)", taskModel({ status: "todo", done: 0, total: 0, items: [], claimed: false, paused: true, autoResume: true }), "Resume and Drop under the title; the note says it resumes after the current reply"),
+    task("task-card-paused-manual", "Task card, paused (waits for the person)", taskModel({ status: "todo", done: 0, total: 0, items: [], claimed: false, paused: true, autoResume: false }), "the automatic resumes are used up"),
     task("task-card-blocked", "Task card, blocked", taskModel({ status: "blocked", done: 2 })),
     task("task-card-done", "Task card, done", taskModel({ status: "done", done: 3, open: false, items: CHECKLIST.map(item => ({ ...item, status: "done" as const })) })),
     { id: "member-tasks", label: "Member list, tasks a member holds", note: "claimed first, then assigned; no chat line", kind: "inline", render: () => <ul className="member-tasks" style={{ listStyle: "none", padding: 0 }}>

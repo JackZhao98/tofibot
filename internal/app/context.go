@@ -556,6 +556,12 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		pm = append(pm, runtime.Message{Role: "user", Content: metadata})
 		used += len([]rune(metadata))
 	}
+	if r.Kind != runKindTriage {
+		if unfinished := s.store.unfinishedTasksContext(c.ID, bot.ID); unfinished != "" && used+len([]rune(unfinished)) <= maxHistoryRunes {
+			pm = append(pm, runtime.Message{Role: "user", Content: unfinished})
+			used += len([]rune(unfinished))
+		}
+	}
 	// What the Bot waits on, the task it holds and the events stored for it.
 	updates, updateIDs := s.store.taskUpdatesBlock(bot.ID, c.ID, r.ID)
 	for i, block := range []string{s.store.waitingOnContext(bot.ID), s.store.taskRecordContext(r.ID), updates} {
@@ -932,6 +938,10 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 			s.addAttachmentContext(c, *handoff, &hm, &imagesLeft, &imageBudget, guestPaths)
 		}
 		pm = append(pm, hm)
+	}
+	// A run that carries on a paused task reads its record last, beside the request.
+	if resume := s.store.taskResumeContext(r); resume != "" {
+		pm = append(pm, runtime.Message{Role: "user", Content: resume})
 	}
 	// Volatile facts trail the history, just before the final input, so the
 	// system text stays cache-stable and the current request stays last.
