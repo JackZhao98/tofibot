@@ -89,6 +89,7 @@ type Service struct {
 	fileWriteMu      sync.Mutex
 	workspaceAliasMu sync.Mutex
 	sharedInputMu    sync.Mutex
+	playwright       playwrightHost
 	activeInput      *inputSession
 	mu               sync.Mutex
 	shutdown         func(context.Context) error

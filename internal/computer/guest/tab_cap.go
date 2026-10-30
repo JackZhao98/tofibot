@@ -347,7 +347,7 @@ func (s *Service) startTabCapWatcher(d *desktop) {
 // carries tab cap notes.
 func tabCapAction(req ActionRequest) bool {
 	switch req.Action {
-	case "browser.navigate", "browser.snapshot", "browser.action", "browser.type_private":
+	case "browser.navigate", "browser.snapshot", "browser.action", "browser.type_private", "browser.mcp":
 		return true
 	case "shell.exec":
 		// browser.read and browser.click run as a bounded shell helper.

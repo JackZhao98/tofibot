@@ -43,6 +43,8 @@
   "settings:automation.item.answer_gate.what": "A reviewer reads each draft result of a scheduled run against a rubric before it is delivered, and a weak draft goes back to the Bot for another try. This is how many times a draft can be sent back; 0 turns the review off. Chat replies are never reviewed.",
   "settings:automation.item.background_model.name": "Background model",
   "settings:automation.item.background_model.what": "Handles light work behind the scenes: history summaries, routing, reviews and follow-up checks. Automatic means Haiku with Claude, and the conversation model elsewhere.",
+  "settings:automation.item.browser_engine.name": "Browser control",
+  "settings:automation.item.browser_engine.what": "How a Bot works in the computer's browser. Classic reads page text and clicks by visible text. Playwright reads an accessibility tree and acts on element refs, which is more exact on busy pages.",
   "settings:automation.item.command_check_minutes.name": "Command check interval",
   "settings:automation.item.command_check_minutes.what": "When a Bot waits for a command to end, a timed check wakes it after this long in case the end signal is lost. A timer the Bot sets itself replaces it.",
   "settings:automation.item.completion_review.name": "Completion review after tool work",

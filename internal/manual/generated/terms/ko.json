@@ -43,6 +43,8 @@
   "settings:automation.item.answer_gate.what": "예약 실행의 결과 초안은 전달되기 전에 검토자가 기준표에 따라 읽고, 부족하면 Bot에게 되돌려 다시 쓰게 합니다. 초안을 되돌릴 수 있는 최대 횟수이며 0이면 검토를 끕니다. 채팅 답장은 검토하지 않습니다.",
   "settings:automation.item.background_model.name": "백그라운드 모델",
   "settings:automation.item.background_model.what": "기록 요약, 분류, 검토, 후속 점검 같은 뒷단의 가벼운 작업을 맡습니다. ‘자동’은 Claude에서는 Haiku, 그 외에는 대화 모델을 씁니다.",
+  "settings:automation.item.browser_engine.name": "브라우저 제어",
+  "settings:automation.item.browser_engine.what": "Bot이 컴퓨터의 브라우저에서 작업하는 방식입니다. 클래식은 페이지 텍스트를 읽고 보이는 글자로 클릭합니다. Playwright는 접근성 트리를 읽고 요소 참조로 동작하므로 복잡한 페이지에서 더 정확합니다.",
   "settings:automation.item.command_check_minutes.name": "명령 확인 간격",
   "settings:automation.item.command_check_minutes.what": "Bot이 명령 종료를 기다릴 때 종료 신호가 사라져도 이 시간이 지나면 정기 확인으로 깨어납니다. Bot이 자체 타이머를 설정하면 그것을 씁니다.",
   "settings:automation.item.completion_review.name": "도구 사용 후 완료 검토",

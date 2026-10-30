@@ -1019,6 +1019,10 @@
         "name": "Prüfintervall für Befehle",
         "what": "Wartet ein Bot auf das Ende eines Befehls, weckt ihn nach dieser Zeit eine zeitgesteuerte Prüfung, falls das Endesignal verloren geht. Ein eigener Timer des Bots ersetzt sie."
       },
+      "browser_engine": {
+        "name": "Browsersteuerung",
+        "what": "Wie ein Bot im Browser des Computers arbeitet. Klassisch liest Seitentext und klickt auf sichtbaren Text. Playwright liest einen Barrierefreiheitsbaum und handelt über Element-Referenzen, was auf komplexen Seiten genauer ist."
+      },
       "task_stall_rounds": {
         "name": "Stillstandsmeldung nach",
         "what": "Beendet ein Bot, der eine Aufgabe hält, so viele Runden ohne Änderung an Checkliste oder Status der Aufgabe, wird der Bot an der Wurzel der Arbeit einmal informiert. Die Zählung beginnt neu, sobald sich die Aufgabe bewegt."
@@ -1045,6 +1049,10 @@
         "off": "Aus",
         "shadow": "Beobachten",
         "auto": "Automatisch"
+      },
+      "browser_engine": {
+        "classic": "Klassisch",
+        "playwright": "Playwright"
       }
     },
     "auto": "Automatisch · {{model}}",

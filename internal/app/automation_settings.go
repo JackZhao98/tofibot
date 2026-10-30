@@ -54,6 +54,8 @@ const (
 	autoSettingsChangeLimit = "settings_change_limit"
 	// autoWebFetchLimit caps the pages one run may read with the web page reader, whichever reader serves the run.
 	autoWebFetchLimit = "web_fetch_limit"
+	// autoBrowserEngine picks how the Bot drives the computer's browser: the built-in computer_browser tool or the Playwright MCP browser_ tools.
+	autoBrowserEngine = "browser_engine"
 	// defaultWebFetchLimit lets multi-page research finish; the cap stays so a loop cannot read pages without end.
 	defaultWebFetchLimit = 20
 
@@ -112,6 +114,7 @@ var automationItems = []automationItem{
 	{Key: autoProviderRetries, Group: "reliability", Kind: autoKindInt, Default: strconv.Itoa(defaultProviderRetries), Min: 0, Max: 10, Env: "TOFI_PROVIDER_RETRIES"},
 	{Key: autoScheduleReceiptReview, Group: "schedules", Kind: autoKindBool, Default: "true"},
 	{Key: autoDesktopIdle, Group: "computer", Kind: autoKindReadOnly, Unit: "seconds"},
+	{Key: autoBrowserEngine, Group: "computer", Kind: autoKindEnum, Default: browserEngineClassic, Env: "TOFI_BROWSER_ENGINE", Options: []string{browserEngineClassic, browserEnginePlaywright}},
 	{Key: autoGroupTriage, Group: "replies", Kind: autoKindBool, Default: "true"},
 	{Key: autoGroupTriageModel, Group: "models", Kind: autoKindModel},
 	{Key: autoGroupFollowUp, Group: "replies", Kind: autoKindBool, Default: "true"},
@@ -267,6 +270,12 @@ func autoEnv(item automationItem) (string, bool) {
 		}
 	case autoKindModel:
 		return raw, true
+	case autoKindEnum:
+		for _, option := range item.Options {
+			if strings.EqualFold(raw, option) {
+				return option, true
+			}
+		}
 	}
 	return "", false
 }

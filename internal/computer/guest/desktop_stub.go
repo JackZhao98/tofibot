@@ -33,6 +33,10 @@ func (s *Service) finishDesktop(_ string, d *desktop, err error) {
 	}
 }
 
+func (s *Service) browserMCP(context.Context, string, playwrightCallArgs) (any, error) {
+	return nil, errLinuxGuestOnly
+}
+func (s *Service) stopPlaywright() {}
 func (s *Service) browserNavigate(context.Context, string, string) (map[string]any, error) {
 	return nil, errLinuxGuestOnly
 }
@@ -51,3 +55,5 @@ func (s *Service) browserControl(context.Context, string, browserCommand) (any, 
 func (s *Service) desktopScroll(context.Context, string, string, int) (map[string]any, error) {
 	return nil, errLinuxGuestOnly
 }
+
+type playwrightHost struct{}

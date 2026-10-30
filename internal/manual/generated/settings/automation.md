@@ -13,6 +13,7 @@ Open this page: [{{ui:settings:shell.page.automation.name}}](/settings/automatio
 |---|---|---|---|---|---|
 | {{ui:settings:automation.item.answer_gate.name}} | `automation.answer_gate` | whole number 0 to 5 | 2 | direct | `/settings/automation#checks` |
 | {{ui:settings:automation.item.background_model.name}} | `automation.background_model` | a configured model ID, or default |  | confirm | `/settings/automation#models` |
+| {{ui:settings:automation.item.browser_engine.name}} | `automation.browser_engine` | classic, playwright | classic | direct | `/settings/automation#computer` |
 | {{ui:settings:automation.item.command_check_minutes.name}} | `automation.command_check_minutes` | whole number 5 to 1440 | 60 minutes | direct | `/settings/automation#computer` |
 | {{ui:settings:automation.item.completion_review.name}} | `automation.completion_review` | on or off | true | direct | `/settings/automation#checks` |
 | {{ui:settings:automation.item.conversation_model.name}} | `automation.conversation_model` | a configured model ID, or default | claude-sonnet-5-5 | confirm | `/settings/automation#models` |
@@ -39,6 +40,8 @@ Open this page: [{{ui:settings:shell.page.automation.name}}](/settings/automatio
 **{{ui:settings:automation.item.answer_gate.name}}.** {{ui:settings:automation.item.answer_gate.what}}
 
 **{{ui:settings:automation.item.background_model.name}}.** {{ui:settings:automation.item.background_model.what}}
+
+**{{ui:settings:automation.item.browser_engine.name}}.** {{ui:settings:automation.item.browser_engine.what}}
 
 **{{ui:settings:automation.item.command_check_minutes.name}}.** {{ui:settings:automation.item.command_check_minutes.what}}
 

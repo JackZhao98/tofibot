@@ -29,6 +29,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 FROM computer-base
 COPY --from=node-runtime /usr/local/ /usr/local/
 COPY --from=gogcli-build /out/gog /usr/local/bin/gog
+# Microsoft's Playwright MCP server, pinned by package-lock.json (decision
+# 2026-10-29). The guest starts it on the first browser_ tool call and attaches
+# it to the shared Chrome over DevTools (browser_engine=playwright). No browser
+# is downloaded: --ignore-scripts, and the image's own Chrome/Chromium is used.
+COPY playwright-mcp/package.json playwright-mcp/package-lock.json /usr/local/lib/tofi-playwright/
+RUN cd /usr/local/lib/tofi-playwright && npm ci --omit=dev --ignore-scripts --no-audit --no-fund \
+    && npm cache clean --force && chmod -R a+rX /usr/local/lib/tofi-playwright
 RUN apt-get update && apt-get install -y --no-install-recommends busybox dbus pcmanfm feh tint2 xterm xclip adwaita-icon-theme \
     && rm -rf /var/lib/apt/lists/* && dpkg-query -W > /etc/tofi-image-packages
 # English-only office, PDF, OCR and charting tooling from the distro (works

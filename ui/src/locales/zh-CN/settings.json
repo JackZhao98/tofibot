@@ -1010,6 +1010,10 @@
         "name": "命令回看间隔",
         "what": "Bot 等待命令结束时，若结束信号丢失，会在这个时间后被定时唤醒查看一次。Bot 自己设了定时则用它的。"
       },
+      "browser_engine": {
+        "name": "浏览器控制",
+        "what": "Bot 在电脑浏览器中的工作方式。经典方式读取页面文字并按可见文字点击。Playwright 读取无障碍树并按元素引用操作，在复杂页面上更准确。"
+      },
       "task_stall_rounds": {
         "name": "停滞上报轮数",
         "what": "接任务的 Bot 连续这么多轮既没有改清单也没有改状态，会向这件事的根 Bot 上报一次；任务有进展后重新计数。"
@@ -1036,6 +1040,10 @@
         "off": "关闭",
         "shadow": "观察",
         "auto": "自动"
+      },
+      "browser_engine": {
+        "classic": "经典",
+        "playwright": "Playwright"
       }
     },
     "auto": "自动 · {{model}}",

@@ -43,6 +43,8 @@
   "settings:automation.item.answer_gate.what": "排程任務的結果草稿在交付前，會由複核員依評分標準讀一遍，不合格的退回給 Bot 重寫。這裡是草稿最多被退回的次數，0 表示關閉複核。聊天回覆不會被複核。",
   "settings:automation.item.background_model.name": "背景模型",
   "settings:automation.item.background_model.what": "負責幕後的輕量工作：歷史摘要、分流、複核與追蹤檢查。選「自動」時，用 Claude 就走 Haiku，其他情況沿用對話模型。",
+  "settings:automation.item.browser_engine.name": "瀏覽器控制",
+  "settings:automation.item.browser_engine.what": "Bot 在電腦瀏覽器中的運作方式。經典方式讀取頁面文字並依可見文字點擊。Playwright 讀取無障礙樹並依元素參照操作，在複雜頁面上更準確。",
   "settings:automation.item.command_check_minutes.name": "指令回看間隔",
   "settings:automation.item.command_check_minutes.what": "Bot 等待指令結束時，若結束訊號遺失，會在這段時間後被定時喚醒查看一次。Bot 自己設了定時則以它為準。",
   "settings:automation.item.completion_review.name": "用過工具後的完成複核",

@@ -113,11 +113,44 @@ jobs:
         run: python3 -m unittest discover -s deploy/self-host -p 'test_*.py'
       - name: Release script tests
         run: python3 -m unittest discover -s scripts/release -p 'test_*.py'
+      - name: Browser engine benchmark tests
+        run: python3 -m unittest discover -s scripts/browser-bench -p 'test_*.py'
       - name: Built-in Skill script tests
         # Libraries the Bot computer image preinstalls; tests skip loudly without them.
         run: |
           python3 -m pip install --quiet openpyxl python-docx python-pptx==1.0.2 matplotlib reportlab pypdf pillow
           python3 -m unittest discover -s internal/extensions/builtin_skills/tests -p 'test_*.py'
+
+  # The computer image installs @playwright/mcp from deploy/microvm/playwright-mcp (pinned by lock file). This job installs
+  # it the way the image does and checks that every tool the guest relays still exists with the arguments it passes.
+  # The real-Chrome test drives the pinned server against a headless Chrome of the runner; it is advisory
+  # (continue-on-error) because the runner's Chrome is not the image's Chromium, and it was proven on the image only.
+  playwright-mcp:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Install the pinned package like the image
+        run: npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+        working-directory: deploy/microvm/playwright-mcp
+      - name: Relayed tools still exist
+        run: node check-tools.mjs
+        working-directory: deploy/microvm/playwright-mcp
+      - name: Guest relay tests (fake server)
+        run: |
+          sudo mkdir -p /usr/local/lib/tofi-playwright
+          go test ./internal/computer/guest -run 'Playwright' -count=1
+      - name: Guest relay against a real Chrome (advisory)
+        continue-on-error: true
+        run: |
+          sudo mkdir -p /usr/local/lib/tofi-playwright
+          sudo cp -r deploy/microvm/playwright-mcp/node_modules deploy/microvm/playwright-mcp/package.json /usr/local/lib/tofi-playwright/
+          TOFI_PLAYWRIGHT_E2E=1 go test ./internal/computer/guest -run 'PlaywrightRealChrome' -count=1 -v
 
   shell:
     runs-on: ubuntu-24.04

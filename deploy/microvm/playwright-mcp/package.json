@@ -1,0 +1,9 @@
+{
+  "name": "tofi-playwright-mcp",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pinned Playwright MCP server for the computer image (browser_engine=playwright).",
+  "dependencies": {
+    "@playwright/mcp": "0.0.83"
+  }
+}
