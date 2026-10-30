@@ -4,7 +4,7 @@ import {LEGACY_OWNER_ID, adminApi, generatePassword, initialOf, type AdminAccoun
 import {ResourceSheet, validAllocation, type Allocation, type Resources} from "./ResourceSheet";
 import {useTranslation} from "./i18n";
 import {TofiIcon} from "./icons";
-import {useHasComputer} from "./computerCapability";
+import {useHostHasComputer} from "./computerCapability";
 import {ComputerAttach} from "./ComputerAttach";
 import {AdminStorageLimit} from "./AdminStorage";
 import type {AdminStorageAccount} from "./storageApi";
@@ -45,7 +45,7 @@ function ComputerSize({account, disabled, run}: {account: AdminAccount; disabled
     void run(async () => { const next = await adminApi.setResources(account.id, desired); setData(next); setDesired(next.desired); setSaved(true); });
   };
   return <div className="admin-computer-size">
-    <ResourceSheet data={data} desired={desired} dirty={dirty} busy={disabled} onChange={value => { setDesired(value); setSaved(false); }} onSave={save} onCancel={reset}/>
+    <ResourceSheet flush data={data} desired={desired} dirty={dirty} busy={disabled} onChange={value => { setDesired(value); setSaved(false); }} onSave={save} onCancel={reset}/>
     {saved && !dirty && <p className="settings-card-note" role="status">{t(data.pending ? "resources.status.saved_pending" : "resources.status.saved")}</p>}
   </div>;
 }
@@ -53,7 +53,7 @@ function ComputerSize({account, disabled, run}: {account: AdminAccount; disabled
 /** One account: Role, Computer, Sign-in and the Danger zone. Destructive actions the server forbids are explained, not offered. */
 export function AccountDetail({account, accounts, disk, storage, capacity, selfId, busy, run, onBack, onDelete}: Props) {
   const {t} = useTranslation("settings");
-  const hasComputer = useHasComputer();
+  const hasComputer = useHostHasComputer();
   const isSelf = account.id === selfId;
   const isLegacy = account.id === LEGACY_OWNER_ID;
   const activeAdmins = accounts.filter(item => item.role === "admin" && !item.disabled && !item.deleting);
@@ -62,7 +62,6 @@ export function AccountDetail({account, accounts, disk, storage, capacity, selfI
   const roleLocked = isSelf || lastAdmin || deleting;
   const roleWhy = deleting ? t("admin.detail.role.deleting") : isSelf ? t("admin.detail.role.self") : lastAdmin ? t("admin.detail.role.last") : t("admin.detail.role.help");
   const [reset, setReset] = useState<"confirm" | {password: string} | null>(null);
-  const stateLabel = disk ? t(`admin.computer.${disk.state === "ready" || disk.state === "disabled" ? disk.state : "reserved"}`) : t("admin.computer.none");
 
   async function resetPassword() {
     const password = generatePassword();
@@ -101,11 +100,9 @@ export function AccountDetail({account, accounts, disk, storage, capacity, selfI
     <AdminStorageLimit accountId={account.id} entry={storage} busy={busy || deleting} run={run}/>
 
     {hasComputer && <SettingsSection title={t("admin.detail.computer.title")}>
-      <SettingsCard>
-        <ComputerAttach base={`/api/admin/accounts/${encodeURIComponent(account.id)}/computer`} running={disk?.state === "ready"} disabled={busy || deleting}/>
-        <SettingsRow label={t("admin.detail.computer.state")} control={<span className="admin-value">{stateLabel}</span>}/>
-        {disk ? <ComputerSize account={account} disabled={busy || deleting} run={run}/>         : <p className="settings-card-note">{t("admin.detail.computer.none")}</p>}
-      </SettingsCard>
+      <ComputerAttach base={`/api/admin/accounts/${encodeURIComponent(account.id)}/computer`} running={disk?.state === "ready"} disabled={busy || deleting}>
+        {disk ? <ComputerSize account={account} disabled={busy || deleting} run={run}/> : <p className="settings-card-note">{t("admin.detail.computer.none")}</p>}
+      </ComputerAttach>
     </SettingsSection>}
 
     <SettingsSection title={t("admin.detail.signin.title")}>

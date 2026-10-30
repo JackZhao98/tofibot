@@ -23,3 +23,17 @@
 .resource-restart-dialog{position:fixed;inset:0;width:min(420px,calc(100vw - 40px));height:fit-content;max-width:none;max-height:calc(100% - 6px - 2em);margin:auto;overflow:auto;padding:22px;border:2px solid var(--line);border-radius:var(--radius-xl);color:var(--ink);background:var(--surface);box-shadow:var(--hard);animation:menu-enter var(--m-base) var(--ease-out) both}.resource-restart-overlay{position:fixed;inset:0;z-index:var(--z-dialog);background:color-mix(in srgb,var(--bg) 58%,transparent);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}.resource-restart-dialog h3{margin:0 0 10px;color:var(--ink);font:600 15px/1.4 var(--body)}.resource-restart-dialog button.primary-button{min-height:40px;padding:9px 16px;border-radius:11px;font-size:13px}.resource-restart-dialog p{margin:0;color:var(--ink-soft);font:var(--type-body)}.resource-restart-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:20px}
 @media(max-width:700px){.resource-grid{gap:8px}.resource-grid>div{padding:11px}.resource-grid strong{font-size:22px}.resource-field{padding:14px}.resource-field-foot{grid-template-columns:1fr auto;gap:4px 12px;padding:0}.resource-field-hint{grid-column:1/-1;grid-row:2;text-align:left}.resource-sheet-actions{padding:12px 14px}.resource-sheet-actions>button{flex:1;min-height:44px}.resource-step{width:40px;height:40px}.resource-field-control{grid-template-columns:40px minmax(0,1fr) 40px}}
 @media(prefers-reduced-motion:reduce){.resource-restart-dialog{animation:none}}
+/* Computer card (ComputerAttach): one status row, then the size rows of the same card. */
+.computer-status{display:inline-flex;align-items:center;gap:8px}
+.computer-status-dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.computer-status[data-tone=on] .computer-status-dot{background:var(--success)}
+.computer-status[data-tone=warn] .computer-status-dot{background:var(--orange)}
+.computer-status[data-tone=off] .computer-status-dot{background:transparent;box-shadow:inset 0 0 0 1.5px var(--muted)}
+.workspace .settings-page-body .secondary-button.is-danger,.secondary-button.is-danger{color:var(--danger-text);border-color:color-mix(in srgb,var(--danger-text) 45%,var(--line-soft))}
+.secondary-button.is-danger:not(:disabled):hover{background:color-mix(in srgb,var(--danger-text) 8%,transparent)}
+.resource-sheet.is-flush{margin:0;border:0;border-radius:0;background:transparent}
+.resource-sheet.is-flush .resource-field{padding:14px 16px}
+.resource-sheet.is-flush .resource-summary{padding:12px 16px}
+.resource-sheet.is-flush .resource-sheet-actions{padding:12px 16px}
+.admin-computer-size{min-width:0}
+@media(max-width:700px){.resource-sheet.is-flush .resource-field{padding:14px 16px}.resource-sheet.is-flush .resource-sheet-actions{padding:12px 16px}}

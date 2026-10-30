@@ -454,11 +454,10 @@
     "load_failed": "Impossible de lire les variables, clés et fichiers en attente de copie enregistrés. Ils seront supprimés aussi."
   },
   "attach": {
-    "label": "État",
     "loading": "Lecture de l'affectation de l'ordinateur…",
     "state": {
-      "attached_running": "Rattaché, en marche",
-      "attached_stopped": "Rattaché, arrêté",
+      "attached_running": "Rattaché · En marche",
+      "attached_stopped": "Rattaché · Arrêté",
       "detached": "Détaché",
       "lost": "Rattaché, ne répond pas",
       "detaching": "Détachement en cours",
@@ -469,8 +468,8 @@
       "detach": "Détacher…"
     },
     "help": {
-      "attached": "Détacher retire l'ordinateur de ce Bot sans redémarrage.",
-      "detached": "Le Bot travaille sans ordinateur jusqu'à ce qu'un soit rattaché. Le rattachement ne demande aucun redémarrage.",
+      "attached": "Détacher conserve les fichiers de ce compte. Les Bots continuent à travailler sans ordinateur.",
+      "detached": "Les Bots travaillent sans ordinateur jusqu'à ce qu'un soit rattaché. Le rattachement ne demande aucun redémarrage.",
       "none": "Ce serveur n'a pas de backend d'ordinateur."
     },
     "progress": {

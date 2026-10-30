@@ -447,11 +447,10 @@
     "load_failed": "Gespeicherte Variablen, Schlüssel und noch zu kopierende Dateien konnten nicht gelesen werden. Sie werden ebenfalls gelöscht."
   },
   "attach": {
-    "label": "Status",
     "loading": "Computerzuordnung wird gelesen…",
     "state": {
-      "attached_running": "Angebunden, läuft",
-      "attached_stopped": "Angebunden, gestoppt",
+      "attached_running": "Angebunden · Läuft",
+      "attached_stopped": "Angebunden · Gestoppt",
       "detached": "Getrennt",
       "lost": "Angebunden, reagiert nicht",
       "detaching": "Wird getrennt",
@@ -462,8 +461,8 @@
       "detach": "Trennen…"
     },
     "help": {
-      "attached": "Beim Trennen wird der Computer ohne Neustart von diesem Bot entfernt.",
-      "detached": "Der Bot arbeitet ohne Computer, bis einer angebunden wird. Das Anbinden braucht keinen Neustart.",
+      "attached": "Beim Trennen bleiben die Dateien dieses Kontos erhalten. Die Bots arbeiten ohne Computer weiter.",
+      "detached": "Die Bots arbeiten ohne Computer, bis einer angebunden wird. Das Anbinden braucht keinen Neustart.",
       "none": "Dieser Server hat kein Computer-Backend."
     },
     "progress": {

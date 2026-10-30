@@ -8,7 +8,7 @@ import {formatDateTime, formatNumber} from "./i18n/format";
 import {useTranslation} from "./i18n";
 import {TofiIcon} from "./icons";
 import {useOwnerSession} from "./OwnerSession";
-import {useHasComputer} from "./computerCapability";
+import {useHostHasComputer} from "./computerCapability";
 import {Banner, SettingsCard, SettingsSection} from "./settings/components";
 import {AdminHostDisk} from "./AdminStorage";
 import {formatBytes, storageApi, type AdminStorage} from "./storageApi";
@@ -18,7 +18,7 @@ const gib = (bytes: number) => formatNumber(Math.round((bytes / GIB) * 10) / 10)
 export function AdminAccounts() {
   const {t} = useTranslation("settings");
   const {t: ts} = useTranslation("storage");
-  const hasComputer = useHasComputer();
+  const hasComputer = useHostHasComputer();
   const session = useOwnerSession();
   const allowed = Boolean(session?.multi_account && session.owner?.role === "admin");
   const selfId = session?.owner?.id ?? "";

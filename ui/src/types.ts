@@ -438,6 +438,10 @@ export interface ComputerCapability {
   backend: "none" | "kvm";
   /** A computer is attached (its live state still comes from the computer info endpoint). */
   available: boolean;
+  /** This account's computer is attached (same as `available`). Absent on an older server. */
+  attached?: boolean;
+  /** Whether this server can run a computer at all, attached or not. Attach and detach surfaces follow it; computer tools follow `backend`. Absent on an older server: use `backend`. */
+  host_backend?: "none" | "kvm";
   /** shell, files, browser, desktop, desktop_stream, terminal, hibernate, mcp_runner, oauth_bridge, secret_sink, resources. */
   capabilities: string[];
   /** True only while the server runs with TOFI_PERSONAL_COMPUTERS=1: the "Other devices" page and its pairing routes. */

@@ -61,7 +61,8 @@
       "computer": {
         "name": "电脑",
         "description": "共享 Linux 电脑、存储与运行资源",
-        "description_none": "为这台服务器添加电脑的方式"
+        "description_none": "为这台服务器添加电脑的方式",
+        "description_detached": "为此账户接入电脑"
       },
       "keys": {
         "name": "电脑密钥",
@@ -391,7 +392,6 @@
       },
       "computer": {
         "title": "电脑",
-        "state": "状态",
         "disk": "磁盘配额",
         "disk_help": "为该账号的电脑预留的磁盘，只能调大，不能调小。",
         "disk_note": "更改配额会停止电脑，账号下次需要时会重新启动。",

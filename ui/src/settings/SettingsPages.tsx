@@ -8,7 +8,9 @@ import {ComputerCredentials} from "../ComputerCredentials";
 import {ComputerPanel} from "../ComputerPanel";
 import {ComputerContents} from "../ComputerContents";
 import {ComputerOptions} from "../ComputerOptions";
-import {useHasComputer} from "../computerCapability";
+import {useHasComputer,useHostHasComputer} from "../computerCapability";
+import {ComputerAttach} from "../ComputerAttach";
+import {useOwnerSession} from "../OwnerSession";
 import {ComputerResources} from "../ComputerResources";
 import {ConnectionInfo} from "../ConnectionInfo";
 import {DictationSettings,useDictationStatus} from "../DictationSettings";
@@ -88,7 +90,20 @@ function KeysPage({bots}:{bots:Bot[]}){
  * lives only on it. That list (and the Keys page it links to) is the computer's configuration, so it exists only here.
  */
 function ComputerPage({openTab}:{openTab:(tab:SettingsTab)=>void}){
- return useHasComputer()?<><SectionAnchor id="resources"><ComputerResources onOpenAdmin={()=>openTab("admin")}/></SectionAnchor><SectionAnchor id="environment"><ComputerPanel part="environment"/></SectionAnchor><ComputerContents openTab={openTab}/></>:<ComputerOptions/>;
+ const has=useHasComputer();
+ const host=useHostHasComputer();
+ const session=useOwnerSession();
+ if(has)return <><SectionAnchor id="resources"><ComputerResources onOpenAdmin={()=>openTab("admin")}/></SectionAnchor><SectionAnchor id="environment"><ComputerPanel part="environment"/></SectionAnchor><ComputerContents openTab={openTab}/></>;
+ // This account's computer is detached but the host can run one: the administrator attaches it here. Tools and computer settings stay hidden until then.
+ const isAdmin=Boolean(session?.multi_account&&session.owner?.role==="admin");
+ const selfId=session?.owner?.id;
+ if(host&&(!session?.multi_account||isAdmin))return <DetachedComputer base={session?.multi_account&&selfId?`/api/admin/accounts/${encodeURIComponent(selfId)}/computer`:"/api/admin/computer"}/>;
+ return <ComputerOptions/>;
+}
+
+function DetachedComputer({base}:{base:string}){
+ const {t}=useTranslation("settings");
+ return <SettingsSection id="resources" title={t("admin.detail.computer.title")}><ComputerAttach base={base}/></SettingsSection>;
 }
 
 function GeneralPage({appearance,slots,bots,onBotsChanged}:SettingsPagesProps){

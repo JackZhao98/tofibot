@@ -447,13 +447,12 @@
     "load_failed": "Couldn't read the saved variables, keys and files waiting to be copied. They are deleted too."
   },
   "attach": {
-    "label": "Status",
     "loading": "Reading the computer assignment…",
     "state": {
-      "attached_running": "Attached, running",
-      "attached_stopped": "Attached, stopped",
+      "attached_running": "Attached · Running",
+      "attached_stopped": "Attached · Stopped",
       "detached": "Detached",
-      "lost": "Attached, not responding",
+      "lost": "Attached · Not responding",
       "detaching": "Detaching",
       "none": "No computer"
     },
@@ -462,8 +461,8 @@
       "detach": "Detach…"
     },
     "help": {
-      "attached": "Detach removes the computer from this Bot without a restart.",
-      "detached": "The Bot works without a computer until one is attached. Attach needs no restart.",
+      "attached": "Detaching keeps this account's files. The Bots keep working without a computer.",
+      "detached": "The Bots work without a computer until one is attached. Attach needs no restart.",
       "none": "This server has no computer backend."
     },
     "progress": {

@@ -440,11 +440,10 @@
     "load_failed": "无法读取已保存的变量、密钥和待复制文件数，它们同样会被删除。"
   },
   "attach": {
-    "label": "状态",
     "loading": "正在读取电脑分配…",
     "state": {
-      "attached_running": "已接入,运行中",
-      "attached_stopped": "已接入,已停止",
+      "attached_running": "已接入 · 运行中",
+      "attached_stopped": "已接入 · 已停止",
       "detached": "已分离",
       "lost": "已接入,无响应",
       "detaching": "正在分离",
@@ -455,7 +454,7 @@
       "detach": "分离…"
     },
     "help": {
-      "attached": "分离后,Bot 不再使用这台电脑,无需重启。",
+      "attached": "分离后会保留此账户的文件,Bot 无电脑也能继续工作。",
       "detached": "在接入电脑之前,Bot 无电脑也能工作。接入无需重启。",
       "none": "此服务器未配置电脑后端。"
     },

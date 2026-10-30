@@ -31,4 +31,13 @@ export function useHasComputer(): boolean {
   return useComputerCapability()?.backend !== "none";
 }
 
+/**
+ * True when this server can run a computer, even if this account's is detached. The Attach and Detach surfaces and the
+ * Admin console's Computer section follow this; tools and computer-only settings follow useHasComputer.
+ */
+export function useHostHasComputer(): boolean {
+  const cap = useComputerCapability();
+  return (cap?.host_backend ?? cap?.backend) !== "none";
+}
+
 export const computerHostCommand = "sudo tofi computer add kvm";
