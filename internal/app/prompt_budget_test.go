@@ -282,8 +282,10 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// 8624: plus the what-can-you-do principle in the voice guidance (+320 measured).
 				// 8682: plus the one-line pointer to the product manual in the capability prompt (+58 measured: 8624 -> 8682; the
 				// manual body loads only on a call, so the pointer is the whole cost).
-				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 8682 {
-					t.Errorf("ordinary DM provider system exceeds 8682 runes")
+				// 8950: plus the connected-tools-first order of means in the MCP discovery policy, replacing "the browser is a
+				// fine default" (+268 measured: 8682 -> 8950).
+				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 8950 {
+					t.Errorf("ordinary DM provider system exceeds 8950 runes")
 				}
 				// 7000: the lookup line's works-newer-than-the-model clause (~45) lands in
 				// every prompt, the longest of which sat 23 under 6950.
@@ -304,8 +306,9 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// less the computer "use tools only when ready" line (+124 measured on the scheduled descendant: 8991 -> 9115).
 				// 9203: plus the same reaction principle (+83 measured on the scheduled descendant: 9115 -> 9198).
 				// 9258: plus the one-line pointer to the product manual (+59 measured on the scheduled descendant: 9199 -> 9258).
-				if fixed > 9258 {
-					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 9258)", fixed)
+				// 9526: plus the same order-of-means policy (+268 measured on the scheduled descendant: 9258 -> 9526).
+				if fixed > 9526 {
+					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 9526)", fixed)
 				}
 				if !strings.Contains(system, bot.Instructions) {
 					t.Fatal("user instructions changed")
@@ -352,8 +355,9 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 					// 8143: plus the same reaction principle (+83 measured).
 					// 8463: plus the what-can-you-do principle in the voice guidance (+320 measured).
 					// 8521: plus the manual pointer, as above (+58 measured).
-					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 8521 {
-						t.Errorf("structured DM provider system exceeds 8521 runes")
+					// 8789: plus the order-of-means policy, as above (+268 measured).
+					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 8789 {
+						t.Errorf("structured DM provider system exceeds 8789 runes")
 					}
 					if tc.kind == runKindGroupChat && !strings.Contains(system, "say(answer)") {
 						t.Error("structured group prompt does not name say(answer)")
