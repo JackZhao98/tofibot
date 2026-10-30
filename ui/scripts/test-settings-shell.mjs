@@ -261,6 +261,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     adminState.failDelete = 0;
     adminState.vm = {};
     adminState.failAttach = 0;
+    adminState.failResources = 0;
     adminState.lastDeleted = null;
     adminWrites.length = 0;
   }
@@ -314,6 +315,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     }
     match = /^\/api\/admin\/accounts\/([^/]+)\/resources$/.exec(path);
     if (match) {
+      if (method === "GET" && adminState.failResources > 0) { adminState.failResources--; return json(503, {error: {code: "unavailable", message: "the computer is not ready"}}); }
       const size = adminState.sizes[match[1]] ??= {vcpus: 2, memory_mib: 4096, disk_gib: adminState.disks[match[1]]?.[0] ?? 8};
       if (method === "PUT") {
         const input = bodyOf();
@@ -1006,9 +1008,15 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await attachCard.getByRole("button", {name: "Attach"}).click();
     await attachCard.getByText("The computer could not be attached.").waitFor();
     assert.equal(await attachCard.getByTestId("computer-attach-state").textContent(), "Detached", "a failed attach leaves the state");
+    // The computer's socket is not ready right after attach: the first resources read answers 503, then 200.
+    adminState.failResources = 1;
     await attachCard.getByRole("button", {name: "Attach"}).click();
-    await attachCard.getByText("Computer attached.").waitFor();
-    assert.deepEqual(adminWrites, ["POST /api/admin/accounts/acct_two/computer/attach", "POST /api/admin/accounts/acct_two/computer/attach"]);
+    await attachCard.getByText("Attached · Running").waitFor();
+    assert.equal(await attachCard.getByText("Computer attached.").count(), 0, "no redundant attached row");
+    assert.equal(await attachCard.getByText("Couldn't load the computer's resources. Try again.").count(), 0, "the failed read is not shown as an error");
+    await attachCard.locator(".resource-sheet").waitFor({timeout: 10000});
+    assert.equal(adminState.failResources, 0, "the first resources read failed and was retried");
+    assert.deepEqual(adminWrites.filter(w => w.startsWith("POST")), ["POST /api/admin/accounts/acct_two/computer/attach", "POST /api/admin/accounts/acct_two/computer/attach"]);
     assert.equal(await attachCard.getByTestId("computer-attach-state").textContent(), "Attached · Running");
     // Role change.
     adminWrites.length = 0;
@@ -1416,7 +1424,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await soloCard.getByText(/Computer detached\./).waitFor();
     assert.deepEqual(adminWrites, ['POST /api/admin/computer/detach {"wait_seconds":60}']);
     await soloCard.getByRole("button", {name: "Attach"}).click();
-    await soloCard.getByText("Computer attached.").waitFor();
+    await soloCard.getByText("Attached · Running").waitFor();
     await ownerComputer.getByRole("button", {name: "Adjust"}).click();
     await ownerComputer.locator(".resource-sheet").waitFor();
     await soloOwner.close();
@@ -1455,7 +1463,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       assert.equal(await ownPage.getByRole("button", {name: "Open Admin console"}).count(), 0);
       adminWrites.length = 0;
       await attachCard.getByRole("button", {name: "Attach"}).click();
-      await attachCard.getByText("Computer attached.").waitFor();
+      await attachCard.getByTestId("computer-attach-state").getByText(/^Attached/).waitFor();
       assert.deepEqual(adminWrites, ["POST /api/admin/accounts/acct_sample/computer/attach"]);
       await own.close();
       resetAdmin();

@@ -1,6 +1,7 @@
 import {useCallback, useEffect, useRef, useState, type ReactNode} from "react";
 import {ApiError, request} from "./api";
 import {useTranslation} from "./i18n";
+import {markAttached} from "./resourceSettle";
 import {ConfirmDialog} from "./overlays/ModalDialog";
 import {SettingsRow} from "./settings/components";
 import "./computer-resources.css";
@@ -20,7 +21,7 @@ const knownErrors = ["computer_backend_unavailable", "computer_attach_failed", "
  * Hot attach and detach of an account's VM computer (admin only). `base` is `/api/admin/accounts/{id}/computer`
  * on a gateway and `/api/admin/computer` on a single-account server; `running` says whether an attached computer is on.
  */
-export function ComputerAttach({base, running, disabled, children}: {base: string; running?: boolean; disabled?: boolean; /** More rows of the same card (the size sliders). */ children?: ReactNode}) {
+export function ComputerAttach({base, running, disabled, onAttached, children}: {base: string; running?: boolean; disabled?: boolean; /** Called after an attach succeeds, so the page can reload what the new computer reports. */ onAttached?: () => void; /** More rows of the same card (the size sliders). */ children?: ReactNode}) {
   const {t} = useTranslation("computer");
   const [summary, setSummary] = useState<Summary | null>(null);
   const [failed, setFailed] = useState(false);
@@ -50,7 +51,7 @@ export function ComputerAttach({base, running, disabled, children}: {base: strin
 
   async function attach() {
     setError(""); setResult(""); setPhase("attaching");
-    try { const next = await request<Summary>(`${base}/attach`, {method: "POST"}); if (!alive.current) return; setSummary(next); setResult(t("attach.done.attach")); }
+    try { const next = await request<Summary>(`${base}/attach`, {method: "POST"}); if (!alive.current) return; setSummary(next); markAttached(); onAttached?.(); }
     catch (cause) { if (alive.current) setError(words(cause)); }
     finally { if (alive.current) setPhase("idle"); }
   }

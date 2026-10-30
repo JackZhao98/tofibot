@@ -9,6 +9,7 @@ import {ResourceSheet,validAllocation,type Allocation,type Resources} from "./Re
 import {useOwnerSession} from "./OwnerSession";
 import {ComputerAttach} from "./ComputerAttach";
 import {ConfirmDialog} from "./overlays/ModalDialog";
+import {SETTLE_MS,attachedUntil} from "./resourceSettle";
 
 const resourceError=(cause:unknown,fallback:string)=>cause instanceof Error?cause.message:fallback;
 
@@ -44,6 +45,9 @@ export function ComputerResources({onOpenAdmin}:{onOpenAdmin?:()=>void}){
  const [confirming,setConfirming]=useState(false);
  const [reading,setReading]=useState(false);
  const [readError,setReadError]=useState("");
+ // Set right after an attach: the computer's control socket may not be ready, so failed reads stay quiet until this time passes.
+ const settleUntil=useRef(0);
+ const [settling,setSettling]=useState(false);
  const [actionError,setActionError]=useState("");
  const [status,setStatus]=useState("");
  const alive=useRef(false);
@@ -63,7 +67,7 @@ export function ComputerResources({onOpenAdmin}:{onOpenAdmin?:()=>void}){
   try {
    const next=await request<Resources>("/api/computer/resources",{signal:controller.signal});
    if(!alive.current||controller.signal.aborted||version!==readVersion.current)return;
-   setData(next);setReadError("");
+   setData(next);setReadError("");settleUntil.current=0;setSettling(false);
    if(!editingRef.current)setDesired(next.desired);
    if(next.pending)setStatus("");
    if(applyingRef.current&&(next.error||next.state==="error")){
@@ -72,7 +76,10 @@ export function ComputerResources({onOpenAdmin}:{onOpenAdmin?:()=>void}){
     applyingRef.current=false;setApplying(false);setActionError("");setStatus(t("resources.status.applied"));
    }
   }catch(cause){
-   if(alive.current&&!controller.signal.aborted&&version===readVersion.current)setReadError(resourceError(cause,t("resources.error.read")));
+   if(alive.current&&!controller.signal.aborted&&version===readVersion.current){
+    if(Date.now()<Math.max(settleUntil.current,attachedUntil()))setSettling(true);
+    else{settleUntil.current=0;setSettling(false);setReadError(resourceError(cause,t("resources.error.read")))}
+   }
   }finally{if(alive.current&&version===readVersion.current)setReading(false)}
  // eslint-disable-next-line react-hooks/exhaustive-deps -- t only words messages; the poll keeps one identity.
  },[]);
@@ -81,13 +88,14 @@ export function ComputerResources({onOpenAdmin}:{onOpenAdmin?:()=>void}){
  useEffect(()=>{
   if(!active)return;
   let stopped=false;let timer:ReturnType<typeof setTimeout>;
-  async function poll(){await refresh();if(!stopped)timer=setTimeout(poll,applyingRef.current?1500:3000)}
+  async function poll(){await refresh();if(!stopped)timer=setTimeout(poll,applyingRef.current||Date.now()<Math.max(settleUntil.current,attachedUntil())?1500:3000)}
   void poll();
   const focused=()=>{if(!document.hidden)void refresh()};
   window.addEventListener("focus",focused);document.addEventListener("visibilitychange",focused);
   return()=>{stopped=true;readVersion.current++;readController.current?.abort();clearTimeout(timer);window.removeEventListener("focus",focused);document.removeEventListener("visibilitychange",focused)};
  },[refresh,active]);
 
+ function attached(){settleUntil.current=Date.now()+SETTLE_MS;setSettling(true);setReadError("");void refresh()}
  function beginMutation(){mutating.current=true;readVersion.current++;readController.current?.abort();setReading(false);setBusy(true);setActionError("");setStatus("")}
  async function save(){
   if(mutating.current||applyingRef.current||!desired||!data)return false;
@@ -128,13 +136,13 @@ export function ComputerResources({onOpenAdmin}:{onOpenAdmin?:()=>void}){
    {debug&&(canEdit||isAdmin)&&<p className="field-note">{t("resources.host",{cpus:data.host.cpus,memory:Math.round(data.host.memory_total_mib/1024),disk:Math.floor(data.host.disk_available_gib)})}</p>}
    {data.pending&&<div className="settings-notice resource-pending"><span>{t("resources.pending",{cpus:data.desired.vcpus,memory:data.desired.memory_mib/1024,disk:data.desired.disk_gib})}</span>{!restarting&&<button ref={restartButton} type="button" className="secondary-button" disabled={busy||editing} onClick={()=>setConfirming(true)}>{t("resources.restart_apply")}</button>}</div>}
   </>}
-  {canEdit&&<ComputerAttach base="/api/admin/computer" running={data?.state==="ready"} disabled={busy||restarting}/>}
+  {canEdit&&<ComputerAttach base="/api/admin/computer" onAttached={attached} running={data?.state==="ready"} disabled={busy||restarting}/>}
   {canEdit&&editing&&data&&desired&&<ResourceSheet data={data} desired={desired} dirty={dirty} busy={busy||restarting} onChange={setDesired} onSave={()=>void save()} onCancel={()=>{setDesired(data.desired);editingRef.current=false;setEditing(false);setActionError("")}}/>}
   {restarting&&<p className="settings-feedback" role="status">{t("resources.restarting")}</p>}
   {!restarting&&status&&<p className="settings-feedback" role="status">{status}</p>}
   {failure&&<div className="resource-read-error" role="alert"><span>{failure}</span>{data?.state==="error"&&!data.pending&&!restarting&&<button ref={restartButton} type="button" className="secondary-button" disabled={busy||editing} onClick={()=>setConfirming(true)}>{t("resources.retry_restart")}</button>}</div>}
-  {readError&&<div className="resource-read-error" role="alert"><span>{readError}</span><button type="button" className="text-button" disabled={reading||busy} onClick={()=>void refresh()}>{reading?t("resources.reading"):t("resources.retry")}</button></div>}
-  {!data&&!readError&&<p className="field-note" role="status">{t("resources.loading")}</p>}
+  {readError&&!settling&&<div className="resource-read-error" role="alert"><span>{readError}</span><button type="button" className="text-button" disabled={reading||busy} onClick={()=>void refresh()}>{reading?t("resources.reading"):t("resources.retry")}</button></div>}
+  {!data&&(settling||!readError)&&<p className="field-note" role="status">{t("resources.loading")}</p>}
   {confirming&&<RestartConfirmation onCancel={()=>setConfirming(false)} onConfirm={()=>void apply()}/>}
  </section>;
 }

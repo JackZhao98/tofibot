@@ -471,7 +471,6 @@
       "syncing": "Syncing: copying files from the computer to the server…"
     },
     "done": {
-      "attach": "Computer attached.",
       "detach": "Computer detached.",
       "copied": "Files copied to the server: {{count}}.",
       "interrupted": "Tool calls ended early: {{count}}.",

@@ -464,7 +464,6 @@
       "syncing": "同步中:正在把電腦上的檔案複製到伺服器…"
     },
     "done": {
-      "attach": "電腦已接入。",
       "detach": "電腦已分離。",
       "copied": "已複製到伺服器的檔案:{{count}}。",
       "interrupted": "提前結束的工具呼叫:{{count}}。",

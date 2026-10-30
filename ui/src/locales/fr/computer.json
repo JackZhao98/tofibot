@@ -478,7 +478,6 @@
       "syncing": "Synchronisation : copie des fichiers de l'ordinateur vers le serveur…"
     },
     "done": {
-      "attach": "Ordinateur rattaché.",
       "detach": "Ordinateur détaché.",
       "copied": "Fichiers copiés sur le serveur : {{count}}.",
       "interrupted": "Appels d'outils terminés plus tôt : {{count}}.",

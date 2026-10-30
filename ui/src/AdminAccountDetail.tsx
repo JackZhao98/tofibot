@@ -1,4 +1,4 @@
-import {useEffect, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import {AccountBadges, AdminSheet, SecretField} from "./AdminSheets";
 import {LEGACY_OWNER_ID, adminApi, generatePassword, initialOf, type AdminAccount, type Capacity, type DiskInfo} from "./adminApi";
 import {ResourceSheet, validAllocation, type Allocation, type Resources} from "./ResourceSheet";
@@ -6,6 +6,7 @@ import {useTranslation} from "./i18n";
 import {TofiIcon} from "./icons";
 import {useHostHasComputer} from "./computerCapability";
 import {ComputerAttach} from "./ComputerAttach";
+import {SETTLE_MS, settleDelay} from "./resourceSettle";
 import {AdminStorageLimit} from "./AdminStorage";
 import type {AdminStorageAccount} from "./storageApi";
 import {Banner, DangerZone, Segmented, SettingsCard, SettingsRow, SettingsSection} from "./settings/components";
@@ -24,19 +25,37 @@ type Props = {
 };
 
 /** The admin sets an account's computer size here: CPU, memory and disk in one sheet with one Save. Disk only grows. */
-function ComputerSize({account, disabled, run}: {account: AdminAccount; disabled: boolean; run: Props["run"]}) {
+function ComputerSize({account, disabled, run, attachedTick}: {account: AdminAccount; disabled: boolean; run: Props["run"]; attachedTick: number}) {
   const {t} = useTranslation("computer");
   const [data, setData] = useState<Resources | null>(null);
   const [desired, setDesired] = useState<Allocation | null>(null);
   const [failed, setFailed] = useState(false);
   const [saved, setSaved] = useState(false);
+  // `settle` is set right after an attach: the computer's control socket may not be ready, so a failed read retries quietly.
+  const [load, setLoad] = useState({n: 0, settle: false});
+  const lastTick = useRef(attachedTick);
+  useEffect(() => {
+    if (attachedTick !== lastTick.current) { lastTick.current = attachedTick; setLoad(current => ({n: current.n + 1, settle: true})); }
+  }, [attachedTick]);
   useEffect(() => {
     let active = true;
+    const until = Date.now() + (load.settle ? SETTLE_MS : 0);
     setData(null); setDesired(null); setFailed(false); setSaved(false);
-    adminApi.resources(account.id).then(next => { if (active) { setData(next); setDesired(next.desired); } }).catch(() => { if (active) setFailed(true); });
+    (async () => {
+      for (let attempt = 0; ; attempt++) {
+        try { const next = await adminApi.resources(account.id); if (active) { setData(next); setDesired(next.desired); } return; }
+        catch {
+          const wait = settleDelay(attempt);
+          if (!active) return;
+          if (Date.now() + wait > until) { setFailed(true); return; }
+          await new Promise(resolve => window.setTimeout(resolve, wait));
+          if (!active) return;
+        }
+      }
+    })();
     return () => { active = false; };
-  }, [account.id]);
-  if (failed) return <p className="settings-card-note" role="alert">{t("resources.error.read")}</p>;
+  }, [account.id, load]);
+  if (failed) return <div className="resource-read-error" role="alert"><span>{t("resources.error.read")}</span><button type="button" className="text-button" onClick={() => setLoad(current => ({n: current.n + 1, settle: false}))}>{t("resources.retry")}</button></div>;
   if (!data || !desired) return <p className="settings-card-note" role="status">{t("resources.loading")}</p>;
   const dirty = desired.vcpus !== data.desired.vcpus || desired.memory_mib !== data.desired.memory_mib || desired.disk_gib !== data.desired.disk_gib;
   const reset = () => { setDesired(data.desired); setSaved(false); };
@@ -54,6 +73,7 @@ function ComputerSize({account, disabled, run}: {account: AdminAccount; disabled
 export function AccountDetail({account, accounts, disk, storage, capacity, selfId, busy, run, onBack, onDelete}: Props) {
   const {t} = useTranslation("settings");
   const hasComputer = useHostHasComputer();
+  const [attachedTick, setAttachedTick] = useState(0);
   const isSelf = account.id === selfId;
   const isLegacy = account.id === LEGACY_OWNER_ID;
   const activeAdmins = accounts.filter(item => item.role === "admin" && !item.disabled && !item.deleting);
@@ -100,8 +120,8 @@ export function AccountDetail({account, accounts, disk, storage, capacity, selfI
     <AdminStorageLimit accountId={account.id} entry={storage} busy={busy || deleting} run={run}/>
 
     {hasComputer && <SettingsSection title={t("admin.detail.computer.title")}>
-      <ComputerAttach base={`/api/admin/accounts/${encodeURIComponent(account.id)}/computer`} running={disk?.state === "ready"} disabled={busy || deleting}>
-        {disk ? <ComputerSize account={account} disabled={busy || deleting} run={run}/> : <p className="settings-card-note">{t("admin.detail.computer.none")}</p>}
+      <ComputerAttach base={`/api/admin/accounts/${encodeURIComponent(account.id)}/computer`} running={disk?.state === "ready"} disabled={busy || deleting} onAttached={() => setAttachedTick(n => n + 1)}>
+        {disk ? <ComputerSize account={account} disabled={busy || deleting} run={run} attachedTick={attachedTick}/> : <p className="settings-card-note">{t("admin.detail.computer.none")}</p>}
       </ComputerAttach>
     </SettingsSection>}
 
