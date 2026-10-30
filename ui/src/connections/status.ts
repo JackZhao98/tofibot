@@ -7,10 +7,12 @@
 export type Phase = "idle" | "checking" | "ready" | "auth" | "authorizing" | "waiting" | "error" | "removing";
 export type ConnectionKind = "ready" | "needs_auth" | "api_disabled" | "error" | "paused" | "checking" | "waiting" | "working";
 
-export function connectionKind(input: { phase: Phase; needsAuth: boolean; error: string; accountMissing?: boolean; apiDisabled?: boolean; paused?: boolean }): ConnectionKind {
-  const { phase, needsAuth, error, accountMissing, apiDisabled, paused } = input;
+export function connectionKind(input: { phase: Phase; needsAuth: boolean; error: string; accountMissing?: boolean; accountExpired?: boolean; apiDisabled?: boolean; paused?: boolean }): ConnectionKind {
+  const { phase, needsAuth, error, accountMissing, accountExpired, apiDisabled, paused } = input;
   // A paused connection keeps its configuration and is not probed or used; nothing else about it is news.
   if (paused) return "paused";
+  // A Google account that is gone or whose grant Google rejected is not news the probe can improve: sign in again.
+  if ((accountMissing || accountExpired) && phase !== "authorizing" && phase !== "removing" && phase !== "waiting") return "needs_auth";
   if (phase === "checking" || phase === "idle") return "checking";
   // Tools answered, but the person's account was never authorised: that is not "connected".
   if (phase === "ready") return accountMissing ? "needs_auth" : apiDisabled ? "api_disabled" : "ready";

@@ -433,7 +433,9 @@
     "waiting": "승인 대기 중",
     "connected": "연결됨",
     "setup": "설정 필요",
-    "paused": "일시중지됨"
+    "paused": "일시중지됨",
+    "not_connected": "연결되지 않음",
+    "reauth": "인증이 만료되었습니다"
   },
   "vm": {
     "cancel": "승인 취소",
@@ -482,7 +484,8 @@
       "always": "항상 허용",
       "revoke": "{{bot}}의 {{tool}} 허용 취소",
       "stale": "허용이 무효화됨 · 다시 묻습니다"
-    }
+    },
+    "unavailable": "Google을 연결하기 전에는 도구를 사용할 수 없습니다."
   },
   "connections": {
     "title": "연결",
@@ -490,7 +493,8 @@
     "action": {
       "authorize": "로그인",
       "enable_api": "{{name}} API 사용 설정",
-      "resume": "다시 시작"
+      "resume": "다시 시작",
+      "reconnect": "다시 연결"
     },
     "menu": {
       "sign_in_again": "다시 로그인"

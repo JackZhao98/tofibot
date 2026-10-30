@@ -38,6 +38,8 @@ export type ConnectionDetailViewProps = {
   allowances: StandingAllowance[]; onRevoke: (item: StandingAllowance) => Promise<void>; onDropAllowance: (id: string) => void;
   danger: DetailDanger; confirm: DetailConfirm | null;
   onBack: () => void; onRefresh: () => void; refreshing: boolean;
+  /** The connection has no live account, so its tools cannot run: the list is replaced by a one-line note. */
+  toolsUnavailable?: boolean;
 };
 
 /** The permission of one tool: Radix menu through the overlay host, not a native select. */
@@ -197,7 +199,7 @@ export function ConnectionDetailView(props: ConnectionDetailViewProps) {
       <ServiceMark name={props.mark} />
       <div className="mcp-detail-title"><h3>{props.name}</h3><p>{props.source}</p></div>
       <div className="mcp-detail-actions">
-        <button type="button" className="mcp-button" disabled={props.busy || props.refreshing} onClick={props.onRefresh}>{props.refreshing ? t("tools.refreshing") : t("tools.refresh")}</button>
+        <button type="button" className="mcp-button" disabled={props.busy || props.refreshing || props.toolsUnavailable} onClick={props.onRefresh}>{props.refreshing ? t("tools.refreshing") : t("tools.refresh")}</button>
         {props.menu.length > 0 && <MoreMenu name={props.name} menu={props.menu} busy={props.busy} />}
       </div>
     </header>
@@ -214,7 +216,9 @@ export function ConnectionDetailView(props: ConnectionDetailViewProps) {
         {props.help}
       </div>
     </section>
-    <ToolsSection serverName={props.serverName} tiers={props.tiers} onTiers={props.onTiers} busy={props.busy} community={props.community} refreshing={props.refreshing} loadError={props.toolsError} focusTool={props.focusTool} allowances={props.allowances} onRevoke={props.onRevoke} onDrop={props.onDropAllowance} />
+    {props.toolsUnavailable
+      ? <section className="conn-section" data-section="tools" aria-labelledby="conn-tools-title"><h4 id="conn-tools-title">{t("tools.title", { count: 0 })}</h4><p className="conn-lead">{t("tools.unavailable")}</p></section>
+      : <ToolsSection serverName={props.serverName} tiers={props.tiers} onTiers={props.onTiers} busy={props.busy} community={props.community} refreshing={props.refreshing} loadError={props.toolsError} focusTool={props.focusTool} allowances={props.allowances} onRevoke={props.onRevoke} onDrop={props.onDropAllowance} />}
     <BotsSection name={props.name} bots={props.bots} onAll={props.onBotsAll} onChosen={props.onBotsChosen} />
     <AdvancedSection facts={props.advanced} />
     <section className="conn-section conn-danger" data-section="danger" aria-labelledby="conn-danger-title">

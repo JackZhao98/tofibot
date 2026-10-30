@@ -438,7 +438,9 @@
     "waiting": "Waiting for authorization",
     "connected": "Connected",
     "setup": "Setup needed",
-    "paused": "Paused"
+    "paused": "Paused",
+    "not_connected": "Not connected",
+    "reauth": "Authorization expired"
   },
   "vm": {
     "cancel": "Cancel authorization",
@@ -487,7 +489,8 @@
       "always": "Always allowed",
       "revoke": "Revoke {{bot}}'s allowance for {{tool}}",
       "stale": "Allowance voided · asks again"
-    }
+    },
+    "unavailable": "Tools are unavailable until Google is connected."
   },
   "connections": {
     "title": "Connections",
@@ -495,7 +498,8 @@
     "action": {
       "authorize": "Sign in",
       "enable_api": "Enable {{name}} API",
-      "resume": "Resume"
+      "resume": "Resume",
+      "reconnect": "Reconnect"
     },
     "menu": {
       "sign_in_again": "Sign in again"
