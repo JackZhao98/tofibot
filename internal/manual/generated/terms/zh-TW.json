@@ -79,6 +79,8 @@
   "settings:automation.item.task_stall_rounds.what": "接任務的 Bot 連續這麼多輪既沒有改清單也沒有改狀態，會向這件事的根 Bot 回報一次；任務有進展後重新計數。",
   "settings:automation.item.task_tree_idle_message_limit.name": "每棵任務樹無進展訊息上限",
   "settings:automation.item.task_tree_idle_message_limit.what": "同一件事裡各 Bot 之間在沒有進展的情況下最多傳遞的訊息條數。進展指清單項結束、任務完成或結果提交，會讓計數歸零。到上限後在出現進展前不再互相派活，是否以及如何告訴你由根 Bot 自己決定。",
+  "settings:automation.item.web_fetch_limit.name": "每次執行讀取的網頁數",
+  "settings:automation.item.web_fetch_limit.what": "Bot 在一次執行中最多可讀取的網頁數。達到上限後，Bot 只依據已讀的網頁繼續。需要跨多個網頁研究時可調高。",
   "settings:automation.item.web_search.name": "網路搜尋",
   "settings:automation.item.web_search.what": "當問題可能比自身知識更新時，Claude 模型會先自行上網搜尋，並打開所依據的網頁讀完，再回答。",
   "settings:automation.item.widget_artifacts_auto.name": "Bot 產生檔案時開啟作品",

@@ -79,6 +79,8 @@
   "settings:automation.item.task_stall_rounds.what": "接任务的 Bot 连续这么多轮既没有改清单也没有改状态，会向这件事的根 Bot 上报一次；任务有进展后重新计数。",
   "settings:automation.item.task_tree_idle_message_limit.name": "每棵任务树无进展消息上限",
   "settings:automation.item.task_tree_idle_message_limit.what": "同一件事里各 Bot 之间在没有进展的情况下最多传递的消息条数。进展指清单项结束、任务完成或结果提交，会让计数归零。到上限后在出现进展前不再互相派活，是否以及如何告诉你由根 Bot 自己决定。",
+  "settings:automation.item.web_fetch_limit.name": "每次运行读取的网页数",
+  "settings:automation.item.web_fetch_limit.what": "Bot 在一次运行中最多可读取的网页数。达到上限后，Bot 只依据已读的网页继续。需要跨多个网页研究时可调高。",
   "settings:automation.item.web_search.name": "联网搜索",
   "settings:automation.item.web_search.what": "当问题可能比自身知识更新时，Claude 模型会先自行上网搜索，并打开所依据的网页读完，再回答。",
   "settings:automation.item.widget_artifacts_auto.name": "Bot 生成文件时打开作品",

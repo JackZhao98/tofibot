@@ -79,6 +79,8 @@
   "settings:automation.item.task_stall_rounds.what": "Beendet ein Bot, der eine Aufgabe hält, so viele Runden ohne Änderung an Checkliste oder Status der Aufgabe, wird der Bot an der Wurzel der Arbeit einmal informiert. Die Zählung beginnt neu, sobald sich die Aufgabe bewegt.",
   "settings:automation.item.task_tree_idle_message_limit.name": "Leerlauf-Nachrichten pro Aufgabenbaum",
   "settings:automation.item.task_tree_idle_message_limit.what": "Wie viele Nachrichten die Bots einer Arbeit untereinander ohne Fortschritt austauschen dürfen. Fortschritt ist ein abgeschlossener Checklistenpunkt, eine erledigte Aufgabe oder ein abgegebenes Ergebnis; er setzt den Zähler zurück. Am Limit geben sie einander keine Arbeit mehr weiter, bis Fortschritt eintritt, und der Wurzel-Bot entscheidet, was er Ihnen sagt.",
+  "settings:automation.item.web_fetch_limit.name": "Gelesene Seiten pro Lauf",
+  "settings:automation.item.web_fetch_limit.what": "Die meisten Webseiten, die ein Bot in einem Lauf lesen darf. Danach arbeitet der Bot mit den Seiten, die er hat. Für Recherche über viele Seiten den Wert erhöhen.",
   "settings:automation.item.web_search.name": "Websuche",
   "settings:automation.item.web_search.what": "Claude-Modelle suchen vor der Antwort selbst im Web und lesen die Seiten, auf die sie sich stützen, wenn eine Frage neuer sein könnte als ihr Wissen.",
   "settings:automation.item.widget_artifacts_auto.name": "Artefakte öffnen, wenn ein Bot eine Datei erstellt",

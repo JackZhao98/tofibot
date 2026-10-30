@@ -4524,7 +4524,8 @@ func (s *Server) execute(c Conversation, r Run) {
 				log.Printf("[usage] web search: %v", err)
 			}
 		},
-		WebFetchMaxUses: s.fetchUses(model, tools),
+		WebFetchMaxUses:  s.fetchUses(model, tools),
+		WebFetchRunLimit: s.webFetchRunLimit(),
 		OnWebFetchCounted: func(n int64) {
 			if err := s.store.recordWebFetchUsage(r.ID, n); err != nil {
 				log.Printf("[usage] web fetch: %v", err)

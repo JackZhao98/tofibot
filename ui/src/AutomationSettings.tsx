@@ -12,7 +12,7 @@ import { Select } from "./Select";
 
 /** Every automatic behavior the server reports, in the order the page lists them. */
 export type AutomationKey =
-  | "conversation_model" | "background_model" | "structured_output" | "force_say_haiku_dm" | "web_search"
+  | "conversation_model" | "background_model" | "structured_output" | "force_say_haiku_dm" | "web_search" | "web_fetch_limit"
   | "group_exchange_gists" | "own_replies_verbatim" | "completion_review" | "answer_gate" | "mcp_auto_review"
   | "remembered_approval_hours" | "provider_retries" | "schedule_receipt_review" | "desktop_idle_seconds"
   | "group_triage" | "group_triage_model" | "group_followup_to_working" | "task_retention_days" | "command_check_minutes" | "task_stall_rounds" | "task_tree_idle_message_limit"

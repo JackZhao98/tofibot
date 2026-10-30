@@ -79,6 +79,8 @@
   "settings:automation.item.task_stall_rounds.what": "작업을 맡은 봇이 이만큼 연속으로 체크리스트도 상태도 바꾸지 않고 라운드를 마치면, 그 일의 최상위 봇에게 한 번 알립니다. 작업이 진전되면 다시 셉니다.",
   "settings:automation.item.task_tree_idle_message_limit.name": "진척 없는 메시지 한도(작업 트리당)",
   "settings:automation.item.task_tree_idle_message_limit.what": "한 가지 일에서 봇끼리 진척 없이 주고받을 수 있는 메시지의 최대 수입니다. 진척은 체크리스트 항목의 종료, 작업 완료, 결과 제출이며 횟수를 처음으로 되돌립니다. 한도에 닿으면 진척이 생길 때까지 서로에게 일을 넘기지 않고, 사용자에게 무엇을 알릴지는 최상위 봇이 정합니다.",
+  "settings:automation.item.web_fetch_limit.name": "실행당 읽는 페이지 수",
+  "settings:automation.item.web_fetch_limit.what": "Bot이 한 번의 실행에서 읽을 수 있는 웹 페이지의 최대 수입니다. 한도에 닿으면 Bot은 이미 읽은 페이지로 작업을 이어 갑니다. 여러 페이지에 걸친 조사에는 값을 올리세요.",
   "settings:automation.item.web_search.name": "웹 검색",
   "settings:automation.item.web_search.what": "질문이 자신의 지식보다 최신일 수 있을 때, Claude 모델이 답하기 전에 직접 웹을 검색하고 근거로 삼는 페이지를 읽습니다.",
   "settings:automation.item.widget_artifacts_auto.name": "Bot이 파일을 만들면 산출물 열기",

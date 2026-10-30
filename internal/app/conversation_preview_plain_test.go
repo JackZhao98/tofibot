@@ -8,10 +8,10 @@ import (
 func TestConversationPreviewIsPlainText(t *testing.T) {
 	cases := map[string]string{
 		"Open [Connections](/settings/connections) to **sign in**, then `retry`.": "Open Connections to sign in, then retry.",
-		"## Done\n- _item_ one\n- two":                                           "Done - item one - two",
-		"See ![chart](http://x/y.png) and [docs](http://x":                       "See chart and docs",
-		"```go\nfmt.Println()\n```":                                              "go fmt.Println()",
-		"snake_case stays":                                                       "snake_case stays",
+		"## Done\n- _item_ one\n- two":                                            "Done - item one - two",
+		"See ![chart](http://x/y.png) and [docs](http://x":                        "See chart and docs",
+		"```go\nfmt.Println()\n```":                                               "go fmt.Println()",
+		"snake_case stays":                                                        "snake_case stays",
 	}
 	for in, want := range cases {
 		if got := plainPreview(in, 160); got != want {

@@ -79,6 +79,8 @@
   "settings:automation.item.task_stall_rounds.what": "When a Bot that holds a task finishes this many rounds with no change in the task's checklist or status, the Bot at the root of the work is told once. The count starts again when the task moves.",
   "settings:automation.item.task_tree_idle_message_limit.name": "Idle messages per task tree",
   "settings:automation.item.task_tree_idle_message_limit.what": "How many messages the Bots of one piece of work may pass between them without progress. Progress is a checklist item that ends, a task that closes done, or a result handed in, and it restarts the count. At the limit they stop handing work to each other until progress happens, and the root Bot decides what to tell you.",
+  "settings:automation.item.web_fetch_limit.name": "Pages read per run",
+  "settings:automation.item.web_fetch_limit.what": "The most web pages a Bot may read in one run. Past it, the Bot works from the pages it has. Raise it for research that spans many pages.",
   "settings:automation.item.web_search.name": "Web search",
   "settings:automation.item.web_search.what": "Claude models search the web on their own, and read the pages they rely on, before answering when a question may be newer than what they know.",
   "settings:automation.item.widget_artifacts_auto.name": "Open Artifacts when a Bot makes a file",

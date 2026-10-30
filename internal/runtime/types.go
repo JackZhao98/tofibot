@@ -140,7 +140,9 @@ type Request struct {
 	// server-side page reader (pages per model request capped at this). Each
 	// page is reported through OnToolEvent as a web_fetch call, and the counted
 	// number through OnWebFetchCounted.
-	WebFetchMaxUses   int
+	WebFetchMaxUses int
+	// WebFetchRunLimit, when positive, caps the pages the whole run reads with that reader.
+	WebFetchRunLimit  int
 	OnWebFetchCounted func(fetches int64)
 	OnCompact         func(originalTokens, compactedTokens int)
 	// OnThinking receives provider reasoning-summary deltas. They are never
