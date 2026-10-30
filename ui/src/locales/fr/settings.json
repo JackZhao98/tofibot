@@ -1028,6 +1028,10 @@
         "name": "Intervalle de vérification des commandes",
         "what": "Quand un Bot attend la fin d'une commande, une vérification minutée le réveille après ce délai au cas où le signal de fin serait perdu. Un minuteur défini par le Bot la remplace."
       },
+      "browser_engine": {
+        "name": "Contrôle du navigateur",
+        "what": "Manière dont un Bot travaille dans le navigateur de l'ordinateur. Classique lit le texte de la page et clique sur le texte visible. Playwright lit un arbre d'accessibilité et agit sur des références d'éléments, plus précis sur les pages chargées."
+      },
       "task_stall_rounds": {
         "name": "Signalement d'un blocage après",
         "what": "Lorsqu'un Bot qui détient une tâche termine autant de tours sans changer la liste de contrôle ni le statut de la tâche, le Bot à la racine du travail en est informé une fois. Le compte repart dès que la tâche avance."
@@ -1054,6 +1058,10 @@
         "off": "Désactivé",
         "shadow": "Observer",
         "auto": "Auto"
+      },
+      "browser_engine": {
+        "classic": "Classique",
+        "playwright": "Playwright"
       }
     },
     "auto": "Automatique · {{model}}",

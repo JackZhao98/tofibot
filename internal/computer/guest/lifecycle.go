@@ -24,7 +24,7 @@ func normalizedSource(source string) string {
 func desktopNeedsSession(action string) bool {
 	switch action {
 	case "desktop.capture", "desktop.click", "desktop.type", "desktop.key", "desktop.scroll",
-		"browser.navigate", "browser.snapshot", "browser.action", "browser.type_private":
+		"browser.navigate", "browser.snapshot", "browser.action", "browser.type_private", "browser.mcp":
 		return true
 	default:
 		return false
@@ -131,7 +131,7 @@ func needsSharedInputGate(action string) bool {
 	case "desktop.start", "desktop.stop", "desktop.hold", "desktop.release",
 		"desktop.click", "desktop.type", "desktop.key", "desktop.scroll",
 		"desktop.input", "desktop.clipboard.read", "desktop.clipboard.write",
-		"browser.navigate", "browser.action", "browser.type_private":
+		"browser.navigate", "browser.action", "browser.type_private", "browser.mcp":
 		return true
 	default:
 		return false
@@ -442,6 +442,7 @@ func (s *Service) stopDesktopInstance(ctx context.Context, d *desktop) error {
 			d.stopDone = make(chan struct{})
 		}
 		s.releaseInputForDesktop(d)
+		s.stopPlaywright()
 		d.stopErr = stopDesktopProcesses(ctx, d)
 		close(d.stopDone)
 	})

@@ -1010,6 +1010,10 @@
         "name": "指令回看間隔",
         "what": "Bot 等待指令結束時，若結束訊號遺失，會在這段時間後被定時喚醒查看一次。Bot 自己設了定時則以它為準。"
       },
+      "browser_engine": {
+        "name": "瀏覽器控制",
+        "what": "Bot 在電腦瀏覽器中的運作方式。經典方式讀取頁面文字並依可見文字點擊。Playwright 讀取無障礙樹並依元素參照操作，在複雜頁面上更準確。"
+      },
       "task_stall_rounds": {
         "name": "停滯回報輪數",
         "what": "接任務的 Bot 連續這麼多輪既沒有改清單也沒有改狀態，會向這件事的根 Bot 回報一次；任務有進展後重新計數。"
@@ -1036,6 +1040,10 @@
         "off": "關閉",
         "shadow": "觀察",
         "auto": "自動"
+      },
+      "browser_engine": {
+        "classic": "經典",
+        "playwright": "Playwright"
       }
     },
     "auto": "自動 · {{model}}",

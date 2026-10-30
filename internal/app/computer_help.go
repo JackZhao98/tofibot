@@ -16,7 +16,10 @@ const computerBrowserGuide = `For an authorized browser research fallback, first
 All Bots share one Chrome profile and graphical session. Use declared VM tools directly; list computers only for device/grant questions. Files, cookies and login state persist, but a desktop restart opens a fresh page rather than restoring tabs. Viewer disconnection only ends viewing. Active model runs hold desktop idle cleanup; viewer polling does not extend it.
 The latest user instruction determines the task; unfinished history is not permission to resume it. If the user refers to this page, corrects a search/site or may have moved Chrome, inspect browser.snapshot and do not infer the current page from history. If uncertain, say so. Foreground a tab before inspecting it. Read page content with browser.read; use browser.snapshot for layout and click coordinates, then verify the resulting page. Searches and site pages may be opened directly with browser.navigate. Stop the shared desktop only when the user intends it.` + computerResearchGuidance
 
-func computerHelpTool() Tool {
+func computerHelpTool() Tool { return computerHelpToolFor(false) }
+
+// computerHelpToolFor serves the browser topic of the engine in use.
+func computerHelpToolFor(playwright bool) Tool {
 	return Tool{
 		Name:        "computer_help",
 		Description: "Read VM procedures: installation before software changes; browser for optional detail on shared-desktop startup, tabs and visible search. Instructions only, no VM actions.",
@@ -30,6 +33,9 @@ func computerHelpTool() Tool {
 			}
 			switch in.Topic {
 			case "browser":
+				if playwright {
+					return computerBrowserGuidePlaywright, nil
+				}
 				return computerBrowserGuide, nil
 			case "installation":
 				return computerInstallationGuide, nil

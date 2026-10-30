@@ -16,7 +16,7 @@ export type AutomationKey =
   | "group_exchange_gists" | "own_replies_verbatim" | "completion_review" | "answer_gate" | "mcp_auto_review"
   | "remembered_approval_hours" | "provider_retries" | "schedule_receipt_review" | "desktop_idle_seconds"
   | "group_triage" | "group_triage_model" | "group_followup_to_working" | "task_retention_days" | "command_check_minutes" | "task_stall_rounds" | "task_tree_idle_message_limit"
-  | "widget_artifacts_auto" | "widget_computer_auto";
+  | "widget_artifacts_auto" | "widget_computer_auto" | "browser_engine";
 export type AutomationGroup = "models" | "replies" | "history" | "checks" | "reliability" | "schedules" | "computer" | "widgets";
 const groupOrder: AutomationGroup[] = ["models", "replies", "history", "checks", "reliability", "schedules", "computer", "widgets"];
 
@@ -52,6 +52,7 @@ function intChoices(item: AutomationItem, current: number): number[] {
 
 function formatValue(item: AutomationItem, value: Value, {t, catalog}: Names): string {
   if (item.kind === "bool") return value ? t("automation.on") : t("automation.off");
+  if (item.kind === "enum" && item.key === "browser_engine") return t(`automation.option.browser_engine.${String(value) as "classic" | "playwright"}`);
   if (item.kind === "enum") return t(`automation.option.mcp_auto_review.${String(value) as "off" | "shadow" | "auto"}`);
   if (item.kind === "model") {
     const id = String(value ?? "");
@@ -79,6 +80,9 @@ function Control({item, catalog, busy, label, onChange, onOpenPermissions}: {ite
     return <span className="auto-static">{formatValue(item, item.value, {t, catalog})}</span>;
   }
   // The reviewer mode lives in one place, Settings > Permissions; this row shows the value (D15) and links there.
+  if (item.kind === "enum" && item.key === "browser_engine") {
+    return <Select id={id} value={String(item.value ?? item.default ?? "")} disabled={disabled} onValueChange={value => onChange(value)}>{(item.options ?? []).map(choice => <option key={choice} value={choice}>{formatValue(item, choice, {t, catalog})}</option>)}</Select>;
+  }
   if (item.kind === "enum") {
     return <span className="auto-static auto-linked">{formatValue(item, item.value, {t, catalog})}{onOpenPermissions && <button type="button" className="text-button" onClick={onOpenPermissions}>{t("automation.in_permissions")}</button>}</span>;
   }
@@ -112,7 +116,7 @@ const AutomationRow = memo(function AutomationRow({item, catalog, busy, saved, e
     {item.kind === "readonly" && <span>{t("automation.managed")}</span>}
     {item.locked && <span className="auto-chip is-env" title={item.env}>{t("automation.env")}</span>}
     {changed && !item.locked && <span className="auto-chip">{t("automation.changed")}</span>}
-    {changed && !item.locked && item.kind !== "readonly" && item.kind !== "enum" && <button type="button" className="text-button auto-reset" disabled={busy} onClick={() => onChange(item.key, null)}>{t("automation.reset")}</button>}
+    {changed && !item.locked && item.kind !== "readonly" && (item.kind !== "enum" || item.key === "browser_engine") && <button type="button" className="text-button auto-reset" disabled={busy} onClick={() => onChange(item.key, null)}>{t("automation.reset")}</button>}
     {saved && <span role="status" className="auto-saved">{t("automation.saved")}</span>}
   </span>;
   return <div className="auto-row" data-key={item.key} data-source={item.source} aria-busy={busy || undefined}>

@@ -268,6 +268,12 @@ func (s *Service) dispatchAction(ctx context.Context, req ActionRequest) (any, e
 			return nil, err
 		}
 		return s.browserControl(ctx, req.BotID, browserCommand{Action: "navigate", URL: args.URL, TargetID: args.TargetID})
+	case "browser.mcp":
+		var args playwrightCallArgs
+		if err := decodeArgs(req.Args, &args); err != nil {
+			return nil, err
+		}
+		return s.browserMCP(ctx, req.BotID, args)
 	case "browser.snapshot":
 		var args struct {
 			TargetID string `json:"target_id"`

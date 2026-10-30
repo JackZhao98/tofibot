@@ -1019,6 +1019,10 @@
         "name": "Command check interval",
         "what": "When a Bot waits for a command to end, a timed check wakes it after this long in case the end signal is lost. A timer the Bot sets itself replaces it."
       },
+      "browser_engine": {
+        "name": "Browser control",
+        "what": "How a Bot works in the computer's browser. Classic reads page text and clicks by visible text. Playwright reads an accessibility tree and acts on element refs, which is more exact on busy pages."
+      },
       "task_stall_rounds": {
         "name": "Stall report after",
         "what": "When a Bot that holds a task finishes this many rounds with no change in the task's checklist or status, the Bot at the root of the work is told once. The count starts again when the task moves."
@@ -1045,6 +1049,10 @@
         "off": "Off",
         "shadow": "Observe",
         "auto": "Auto"
+      },
+      "browser_engine": {
+        "classic": "Classic",
+        "playwright": "Playwright"
       }
     },
     "auto": "Automatic · {{model}}",

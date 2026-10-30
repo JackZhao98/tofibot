@@ -691,6 +691,22 @@
       "audit": true
     },
     {
+      "key": "automation.browser_engine",
+      "scope": "account",
+      "kind": "enum",
+      "options": [
+        "classic",
+        "playwright"
+      ],
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#computer",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.browser_engine.name",
+      "audit": true
+    },
+    {
       "key": "automation.group_triage",
       "scope": "account",
       "kind": "bool",

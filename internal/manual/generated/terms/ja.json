@@ -43,6 +43,8 @@
   "settings:automation.item.answer_gate.what": "スケジュール実行の結果の下書きは、配信前にレビュアーが基準に照らして読み、不十分なら Bot に差し戻されます。差し戻しの最大回数を指定します。0 でレビューをオフにします。チャットの返信はレビューされません。",
   "settings:automation.item.background_model.name": "バックグラウンドモデル",
   "settings:automation.item.background_model.what": "履歴の要約、振り分け、レビュー、フォローアップ確認など、裏方の軽い作業を担当します。「自動」では Claude なら Haiku、それ以外は会話モデルを使います。",
+  "settings:automation.item.browser_engine.name": "ブラウザ操作",
+  "settings:automation.item.browser_engine.what": "Bot がコンピューターのブラウザで作業する方法です。クラシックはページのテキストを読み、見えている文字でクリックします。Playwright はアクセシビリティツリーを読み、要素の参照で操作するため、複雑なページでより正確です。",
   "settings:automation.item.command_check_minutes.name": "コマンド確認間隔",
   "settings:automation.item.command_check_minutes.what": "Bot がコマンドの終了を待つとき、終了の通知が失われても、この時間が経つと定期確認で起こされます。Bot が自分でタイマーを設定した場合はそちらを使います。",
   "settings:automation.item.completion_review.name": "ツール使用後の完了レビュー",

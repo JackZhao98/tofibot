@@ -205,7 +205,7 @@ const mcpDiscoveryToolsSQL = `('search_mcp_tools','list_mcp_servers','search_mcp
 // re-proposal without changing any authorization or effect fact.
 func mcpObservationOnlyActivity(a ToolActivity) bool {
 	switch a.Name {
-	case "search_mcp_tools", "list_mcp_servers", "search_mcp_catalog":
+	case "search_mcp_tools", "list_mcp_servers", "search_mcp_catalog", "browser_snapshot":
 		return true
 	case "computer_browser", "computer_desktop":
 		var in struct {
@@ -237,6 +237,11 @@ func mcpUncertainEffectActivity(a ToolActivity) bool {
 // call_mcp_tool step whose tool is currently read_only is an observation.
 func mcpUncertainEffectActivityWith(a ToolActivity, observation func(ToolActivity) bool) bool {
 	if mcpObservationOnlyActivity(a) {
+		return false
+	}
+	// The engine's reads, navigation, tab and view changes are observations;
+	// its clicks, typing, keys and uploads stay effects (like computer_browser).
+	if browserEngineObservation(a.Name) {
 		return false
 	}
 	if observation != nil && observation(a) {
