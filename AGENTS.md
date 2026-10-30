@@ -275,6 +275,7 @@ request, the newest person message as trigger so its history shows what came in 
 (`bindPausedTask`) and returns its record, so it is not resumed a second time. A task of a schedule that has claimed a newer
 occurrence is cancelled (`result_summary=superseded_by_next_occurrence`); Stop all (`CancelRunTree`) cancels the Bot's paused tasks in that conversation. UI: `Run.paused` (title, set by `decoratePausedRuns` and the steered
 run event) makes the stopped line "Paused: title"; the paused `TaskCard` (lazy) has Resume and Drop (`PATCH` status `cancelled`). Entry JS has about 1 byte of budget headroom: keep further changes in lazy chunks.
+Steering keeps the task: the boundary read says a message that arrives during work is added to the request and the final answer covers the original request too. `say` offers `covers_original` (column `run_say_answers.covers_original`, persons' runs only, so their say is no longer strict). A run that read a person message (`bot_inbox` drained) and ends `done` without `covers_original`, no pending wait, is paused by `steeredAnswerLeavesOriginalTx` in `finishRunOpts` (`interrupt_reason=steered`, uncapped) and resumed like any paused task. Test: `steering_keeps_task_test.go`.
 Tests: `task_continuity_test.go` (the owner's sequence), `task_continuity_limits_test.go`, `lane_schedule_concurrency_test.go` (a scheduled occurrence queues behind a running person's run).
 
 # Security gates

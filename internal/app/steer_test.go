@@ -65,7 +65,7 @@ func TestAMessageToAWorkingBotIsReadByTheSameRunAndCancelsNothing(t *testing.T) 
 	if first != "" || third != "" {
 		t.Fatalf("a boundary with nothing queued read %q / %q", first, third)
 	}
-	if !strings.Contains(second, "Please write it in English.") || !strings.Contains(second, "addition or a correction") || !strings.Contains(second, "do not start again") {
+	if !strings.Contains(second, "Please write it in English.") || !strings.Contains(second, "added to the request") || !strings.Contains(second, "do not start again") {
 		t.Fatalf("the boundary read: %q", second)
 	}
 	if queuedRun != old.ID {

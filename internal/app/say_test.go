@@ -248,8 +248,11 @@ func TestSayOffersWakeInGroupsAndSourcesInScheduledRuns(t *testing.T) {
 	if p := props(dm, run); p["wake"] != nil || p["sources"] != nil {
 		t.Fatalf("a DM says wake or sources: %v", p)
 	}
-	if !s.sayTool(dm, run).Strict {
-		t.Fatal("plain say must stay strict")
+	if p := props(dm, run); p["covers_original"] == nil {
+		t.Fatalf("a person's run cannot state that its answer covers the original request: %v", p)
+	}
+	if p := props(dm, func() Run { r := run; r.Kind = runKindSchedule; return r }()); p["covers_original"] != nil {
+		t.Fatalf("a scheduled run offers covers_original: %v", p)
 	}
 	if p := props(group, run); p["wake"] == nil || p["sources"] != nil {
 		t.Fatalf("group say: %v", p)

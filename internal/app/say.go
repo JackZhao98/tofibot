@@ -62,7 +62,12 @@ func migrateSay(db *sql.DB) error {
 	}
 	// quiet marks a scheduled answer recorded as the run's conclusion without
 	// a chat message (D52).
-	return ensureColumn(db, "run_say_answers", "quiet", `ALTER TABLE run_say_answers ADD COLUMN quiet INTEGER NOT NULL DEFAULT 0`)
+	if err := ensureColumn(db, "run_say_answers", "quiet", `ALTER TABLE run_say_answers ADD COLUMN quiet INTEGER NOT NULL DEFAULT 0`); err != nil {
+		return err
+	}
+	// covers_original: the answer states it also answers the request the run
+	// started with (task continuity, steering).
+	return ensureColumn(db, "run_say_answers", "covers_original", `ALTER TABLE run_say_answers ADD COLUMN covers_original INTEGER NOT NULL DEFAULT 0`)
 }
 
 type sayAnswerRecord struct {
@@ -81,6 +86,10 @@ type sayAnswerExtras struct {
 	Wake    []groupWakeEntry
 	Sources []string
 	Quiet   bool
+	// CoversOriginal is the answer's own statement that it also answers the
+	// request the run started with, when the run read a message from the person
+	// during its work.
+	CoversOriginal bool
 }
 
 // recordSayAnswer stores the run's one answer. The same provider call may
@@ -129,7 +138,7 @@ func (s *Store) recordSayAnswerWith(runID, callID, text string, extras sayAnswer
 		b, _ := json.Marshal(extras.Sources)
 		sourcesJSON = string(b)
 	}
-	if _, err = tx.Exec(`INSERT INTO run_say_answers(run_id,call_id,text,wake,sources,quiet,created_at) VALUES(?,?,?,?,?,?,?)`, runID, callID, text, wakeJSON, sourcesJSON, boolInt(extras.Quiet), now()); err != nil {
+	if _, err = tx.Exec(`INSERT INTO run_say_answers(run_id,call_id,text,wake,sources,quiet,covers_original,created_at) VALUES(?,?,?,?,?,?,?,?)`, runID, callID, text, wakeJSON, sourcesJSON, boolInt(extras.Quiet), boolInt(extras.CoversOriginal), now()); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -329,15 +338,16 @@ const (
 	sayOutcomeDelegated = "delegated"
 	sayOutcomePending   = "pending"
 
-	sayOutcomeDescription = "With purpose answer, what your answer leaves of the request: done (the work asked for is finished in this turn, or this reply is all that was asked), blocked (a concrete obstacle stops the work and the answer names it), delegated (other members carry the rest through wake or delegate), pending (the answer agrees to, plans or promises work that has not been carried out; it counts as honest only while you hold an open wait for that work). With note or message, pending."
+	sayOutcomeDescription = "With purpose answer, what your answer leaves of the request: done (the work asked for is finished in this turn, or this reply is all that was asked; when the person sent a message while you worked, the original request is part of the work asked, and a final answer covers it unless the person withdrew it), blocked (a concrete obstacle stops the work and the answer names it), delegated (other members carry the rest through wake or delegate), pending (the answer agrees to, plans or promises work that has not been carried out; it counts as honest only while you hold an open wait for that work). With note or message, pending."
 
 	// answerPendingWorkReminder is the private send-back for an answer that
 	// leaves agreed work undone. It states the principle only.
 	answerPendingWorkReminder = "Your answer leaves work you agreed to undone. An agreed plan or a go-ahead is the instruction to carry it out: do the work now in this turn with your tools, or start the members who own it through wake or delegate, then answer with the result. If a concrete obstacle stops you, answer with what it is and what you tried. Keep this check private; the person has not seen the draft."
 
-	sayWakeDescription    = "With purpose answer, group chats only: other members to start once your reply is posted, each with a concrete request, at most three. Omit it to start nobody; a plain @mention starts nobody. The group sees each request only as a handed-over line, so write it for the member."
-	sayTaskDescription    = "With purpose answer: the id of a task you hold. Delivering the answer submits it as that task's result."
-	saySourcesDescription = "With purpose answer, scheduled runs only: URLs or source names behind current or external information. Delivering the answer records this run as complete."
+	sayCoversOriginalDescription = "With purpose answer, in a run that read a message from the person while it worked: true states that this answer also answers the request the run started with, in full. Omit it, or send false, when the answer addresses only the later message; the original request then stays on your task list and a new run completes it."
+	sayWakeDescription           = "With purpose answer, group chats only: other members to start once your reply is posted, each with a concrete request, at most three. Omit it to start nobody; a plain @mention starts nobody. The group sees each request only as a handed-over line, so write it for the member."
+	sayTaskDescription           = "With purpose answer: the id of a task you hold. Delivering the answer submits it as that task's result."
+	saySourcesDescription        = "With purpose answer, scheduled runs only: URLs or source names behind current or external information. Delivering the answer records this run as complete."
 	// sayQuietDescription states the principle only: it names the condition on
 	// the task's own instruction and carries no task wording.
 	sayQuietDescription = "With purpose answer, scheduled runs only: true completes the run quietly. Your text is recorded as the run's conclusion, kept for the task's record and for later turns, and no chat message is posted. Use it only when the task's own instruction makes reporting conditional and the condition is not met; otherwise omit it and the answer posts to the chat."
@@ -356,6 +366,10 @@ func sayToolSchemaFor(c Conversation, r Run) (map[string]any, bool) {
 			"bot_id":  map[string]any{"type": "string"},
 			"request": map[string]any{"type": "string", "description": visibleDelegationText},
 		}, []string{"bot_id", "request"})}
+		strict = false
+	}
+	if !saySendsSources(r) {
+		props["covers_original"] = map[string]any{"type": "boolean", "description": sayCoversOriginalDescription}
 		strict = false
 	}
 	if saySendsSources(r) {
@@ -431,6 +445,8 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			Sources []string         `json:"sources"`
 			Quiet   bool             `json:"quiet"`
 			TaskID  string           `json:"task_id"`
+
+			CoversOriginal bool `json:"covers_original"`
 		}
 		if json.Unmarshal(raw, &in) != nil {
 			return "", errors.New("invalid say arguments")
@@ -498,7 +514,7 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			if in.Quiet && !saySendsSources(r) {
 				return fail(tooloutcome.New(tooloutcome.Validation, "quiet_not_available", "not_executed", "quiet is only available in scheduled runs; deliver the answer without it.", "repair_arguments").Err())
 			}
-			extras := sayAnswerExtras{Wake: in.Wake, Quiet: in.Quiet}
+			extras := sayAnswerExtras{Wake: in.Wake, Quiet: in.Quiet, CoversOriginal: in.CoversOriginal}
 			if len(in.Sources) > 0 {
 				if !saySendsSources(r) {
 					return fail(errors.New("sources are only available in scheduled runs"))

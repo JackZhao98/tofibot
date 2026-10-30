@@ -169,7 +169,7 @@ func TestInputContinuationAMessageSupersedesTheCardAndIsReadOnResume(t *testing.
 	if err != nil || len(rows) != 1 || rows[0].Anchor != m.ID {
 		t.Fatalf("drain: %+v %v", rows, err)
 	}
-	if text := s.renderInjection(rows); !strings.Contains(text, "New instruction") || !strings.Contains(text, "addition or a correction") {
+	if text := s.renderInjection(rows); !strings.Contains(text, "New instruction") || !strings.Contains(text, "added to the request") {
 		t.Fatalf("rendered turn: %q", text)
 	}
 	if rows, _ := s.drainInboxForRun(r, maxInjectionsPerRun); len(rows) != 0 {

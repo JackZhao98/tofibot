@@ -599,3 +599,36 @@ func (s *Store) decoratePausedRuns(runs []Run) {
 		rows.Close()
 	}
 }
+
+// steeredAnswerLeavesOriginalTx is the safety net for a run that read a message
+// from the person while it worked: its final answer reports done, but does not
+// state that it covers the request the run started with. The harness does not
+// judge the text; the answer's own flag (say covers_original) is the statement.
+// A run that holds a pending wait is woken by it later and is left alone.
+func steeredAnswerLeavesOriginalTx(tx *sql.Tx, runID, outcome string) (bool, error) {
+	if outcome != "" && outcome != sayOutcomeDone {
+		return false, nil
+	}
+	var kind string
+	if err := tx.QueryRow(`SELECT COALESCE(kind,'') FROM runs WHERE id=?`, runID).Scan(&kind); err != nil {
+		return false, err
+	}
+	if kind != "" && kind != runKindGroupChat {
+		return false, nil
+	}
+	var covers, quiet int
+	if err := tx.QueryRow(`SELECT covers_original,quiet FROM run_say_answers WHERE run_id=?`, runID).Scan(&covers, &quiet); err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
+		return false, err
+	}
+	if covers != 0 || quiet != 0 {
+		return false, nil
+	}
+	var read, waits int
+	if err := tx.QueryRow(`SELECT (SELECT COUNT(*) FROM bot_inbox WHERE kind='user_message' AND consumed_by_run=? AND drained=1),(SELECT COUNT(*) FROM waits WHERE run_id=? AND status='pending')`, runID, runID).Scan(&read, &waits); err != nil {
+		return false, err
+	}
+	return read > 0 && waits == 0, nil
+}
