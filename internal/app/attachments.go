@@ -105,8 +105,14 @@ func (s *Store) attachmentRoot() (string, error) {
 			return "", errors.New("attachment directory is not a real directory")
 		}
 	} else if os.IsNotExist(err) {
+		// Two uploads can create it at the same moment: the loser sees EEXIST and checks what the winner made.
 		if err := os.Mkdir(root, 0700); err != nil {
-			return "", err
+			if !errors.Is(err, os.ErrExist) {
+				return "", err
+			}
+			if info, err := os.Lstat(root); err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+				return "", errors.New("attachment directory is not a real directory")
+			}
 		}
 	} else {
 		return "", err
