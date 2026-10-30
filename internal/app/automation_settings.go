@@ -52,6 +52,10 @@ const (
 	autoWidgetComputer  = "widget_computer_auto"
 	// autoSettingsChangeLimit caps the direct settings changes one run may make through the settings tool. Only a person changes it.
 	autoSettingsChangeLimit = "settings_change_limit"
+	// autoWebFetchLimit caps the pages one run may read with the web page reader, whichever reader serves the run.
+	autoWebFetchLimit = "web_fetch_limit"
+	// defaultWebFetchLimit lets multi-page research finish; the cap stays so a loop cannot read pages without end.
+	defaultWebFetchLimit = 20
 
 	// defaultConversationModel is what conversations, scheduled runs and tool
 	// use run on until the owner picks another model.
@@ -97,6 +101,7 @@ var automationItems = []automationItem{
 	{Key: autoStructuredOutput, Group: "replies", Kind: autoKindBool, Default: "true"},
 	{Key: autoForceSayHaikuDM, Group: "replies", Kind: autoKindBool, Default: "true", Env: "TOFI_FORCE_SAY"},
 	{Key: autoWebSearch, Group: "replies", Kind: autoKindBool, Default: "true", Env: "TOFI_WEB_SEARCH"},
+	{Key: autoWebFetchLimit, Group: "replies", Kind: autoKindInt, Default: strconv.Itoa(defaultWebFetchLimit), Min: 1, Max: 100},
 	{Key: autoGroupExchangeGists, Group: "history", Kind: autoKindBool, Default: "true"},
 	{Key: autoOwnRepliesVerbatim, Group: "history", Kind: autoKindInt, Default: strconv.Itoa(ownVerbatimReplies), Min: 1, Max: 20},
 	{Key: autoTaskRetentionDays, Group: "history", Kind: autoKindInt, Default: taskRetentionDefault(), Min: 0, Max: 3650, Unit: "days"},
@@ -322,6 +327,9 @@ func (s *Server) fetchUses(model string, tools []Tool) int {
 	}
 	return webFetchMaxUses(model, tools)
 }
+
+// webFetchRunLimit is the pages one run may read with the page reader.
+func (s *Server) webFetchRunLimit() int { return s.autoInt(autoWebFetchLimit) }
 
 // automaticModelItem names the model items that may be left on "automatic"
 // (an empty stored value) instead of holding a concrete model.

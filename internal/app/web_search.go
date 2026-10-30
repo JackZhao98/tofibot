@@ -20,7 +20,8 @@ const webSearchMaxUsesPerRequest = 3
 // the run's evidence as a web_fetch call with its address, and is counted in
 // usage_calls (kind web_fetch; the provider charges no fee, the page text is
 // billed as ordinary input on the request that read it).
-const webFetchMaxUsesPerRequest = 3
+// One request may read at most this many pages; the run's own limit (the web_fetch_limit setting) bounds all its requests.
+const webFetchMaxUsesPerRequest = 5
 
 // Runs whose model has no server-side search get the server-run tools instead
 // (web_tools.go, decision 0068): same names, ordered provider chains, results

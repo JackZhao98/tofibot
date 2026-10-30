@@ -79,6 +79,8 @@
   "settings:automation.item.task_stall_rounds.what": "Lorsqu'un Bot qui détient une tâche termine autant de tours sans changer la liste de contrôle ni le statut de la tâche, le Bot à la racine du travail en est informé une fois. Le compte repart dès que la tâche avance.",
   "settings:automation.item.task_tree_idle_message_limit.name": "Messages sans progrès par arbre de tâches",
   "settings:automation.item.task_tree_idle_message_limit.what": "Le nombre de messages que les Bots d'un même travail peuvent échanger sans progrès. Un progrès est un point de liste qui se termine, une tâche close comme faite ou un résultat remis ; il remet le compte à zéro. À la limite, ils cessent de se passer du travail jusqu'à un progrès, et le Bot racine décide de ce qu'il vous dit.",
+  "settings:automation.item.web_fetch_limit.name": "Pages lues par exécution",
+  "settings:automation.item.web_fetch_limit.what": "Le plus grand nombre de pages web qu'un Bot peut lire en une exécution. Au-delà, le Bot travaille avec les pages déjà lues. Augmentez-le pour une recherche qui couvre beaucoup de pages.",
   "settings:automation.item.web_search.name": "Recherche web",
   "settings:automation.item.web_search.what": "Les modèles Claude cherchent eux-mêmes sur le web et lisent les pages sur lesquelles ils s'appuient avant de répondre quand une question peut être plus récente que leurs connaissances.",
   "settings:automation.item.widget_artifacts_auto.name": "Ouvrir les artefacts quand un Bot crée un fichier",

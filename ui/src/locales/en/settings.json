@@ -959,6 +959,10 @@
         "name": "Web search",
         "what": "Claude models search the web on their own, and read the pages they rely on, before answering when a question may be newer than what they know."
       },
+      "web_fetch_limit": {
+        "name": "Pages read per run",
+        "what": "The most web pages a Bot may read in one run. Past it, the Bot works from the pages it has. Raise it for research that spans many pages."
+      },
       "group_exchange_gists": {
         "name": "Finished group exchanges, summarized",
         "what": "In group chats, exchanges that wrapped up without a Bot are folded into a short gist for it."

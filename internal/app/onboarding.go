@@ -303,6 +303,32 @@ func onboardingProfileTool(s *Server, c Conversation, r Run) (Tool, bool) {
 				}
 				x.Instructions = &value
 			}
+			// After setup a profile change is a settings change like any other: recorded, with the notice and its Undo in the chat.
+			if pending, e := s.store.onboardingPending(r.BotID); e != nil {
+				return "", e
+			} else if !pending {
+				before, _ := s.store.GetBot(r.BotID)
+				sr := settingRun{s: s, c: c, r: r}
+				if x.Name != nil {
+					if _, e := sr.aliasSet(ctx, "bot.name", Target{BotID: r.BotID}, *x.Name); e != nil {
+						return "", e
+					}
+				}
+				if x.Instructions != nil {
+					if _, e := sr.aliasSet(ctx, "bot.instructions", Target{BotID: r.BotID}, *x.Instructions); e != nil {
+						return "", e
+					}
+				}
+				bot, e := s.store.GetBot(r.BotID)
+				if e != nil {
+					return "", e
+				}
+				if bot.Name != before.Name || bot.Instructions != before.Instructions {
+					_, _ = s.store.Event(c.ID, "bot", map[string]any{"conversation_id": c.ID, "bot": bot})
+				}
+				encoded, e := json.Marshal(bot)
+				return string(encoded), e
+			}
 			updated, err := s.store.setBotProfile(ctx, r, c, x.Name, x.Instructions)
 			if err != nil {
 				var missing *profileMissingError

@@ -1194,7 +1194,7 @@ func (s *Store) GetConversation(id string) (Conversation, error) {
 func (s *Store) ListConversations(includeArchived ...bool) ([]Conversation, error) {
 	query := `SELECT c.id,c.kind,c.name,c.bot_id,c.updated_at,c.archived,c.user_visible,c.pin_order,c.sort_order,
 		(SELECT MAX(user_msg.created_at) FROM messages user_msg WHERE user_msg.conversation_id=c.id AND user_msg.role='user' AND user_msg.run_id IS NULL),
-		lm.id,lm.seq,lm.role,lm.kind,lm.sender_bot_id,substr(lm.content,1,160),lm.created_at,
+		lm.id,lm.seq,lm.role,lm.kind,lm.sender_bot_id,substr(lm.content,1,480),lm.created_at,
 		CASE WHEN lm.kind='user_message' THEN 0 WHEN lm.run_id IS NOT NULL AND EXISTS (SELECT 1 FROM runs preview_run WHERE preview_run.id=lm.run_id AND preview_run.origin_conversation_id<>lm.conversation_id) THEN 1 ELSE 0 END,
 		COALESCE(cr.read_seq,0), (SELECT COUNT(*) FROM (SELECT 1 FROM messages unread WHERE unread.conversation_id=c.id AND unread.seq>COALESCE(cr.read_seq,0) AND unread.role='assistant' AND unread.kind NOT IN ('notice','message_ref','bot_result','progress','internal') AND (unread.kind='user_message' OR NOT EXISTS (SELECT 1 FROM runs unread_run WHERE unread_run.id=unread.run_id AND unread_run.origin_conversation_id<>unread.conversation_id)) LIMIT 100))
         FROM conversations c
@@ -1234,7 +1234,13 @@ func (s *Store) ListConversations(includeArchived ...bool) ([]Conversation, erro
 		c.WorkingBotIDs = make([]string, 0)
 		c.LastUserMessageAt = lastUser.String
 		if msgID.Valid {
-			c.LastMessage = &MessagePreview{ID: msgID.String, Seq: msgSeq.Int64, Role: msgRole.String, Kind: msgKind.String, SenderBotID: msgSender.String, Content: msgContent.String, CreatedAt: msgCreated.String, Internal: msgInternal != 0}
+			content := msgContent.String
+			if msgKind.String == "message_ref" {
+				content = clipHead(content, previewRunes)
+			} else {
+				content = plainPreview(content, previewRunes)
+			}
+			c.LastMessage = &MessagePreview{ID: msgID.String, Seq: msgSeq.Int64, Role: msgRole.String, Kind: msgKind.String, SenderBotID: msgSender.String, Content: content, CreatedAt: msgCreated.String, Internal: msgInternal != 0}
 		}
 		out = append(out, c)
 	}
@@ -2373,7 +2379,7 @@ func (s *Store) MarkRunSteered(id, msg string) (bool, error) {
 		if scanErr != nil {
 			return false, scanErr
 		}
-		_ = tx.QueryRow(`SELECT title FROM work_items WHERE source_run_id=? AND source<>'' LIMIT 1`, id).Scan(&run.PausedTaskTitle)
+		_ = tx.QueryRow(`SELECT title FROM work_items WHERE source_run_id=? AND source<>'' AND status NOT IN ('done','cancelled','failed') LIMIT 1`, id).Scan(&run.PausedTaskTitle)
 		data, _ := json.Marshal(run)
 		if _, err = tx.Exec(`INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, run.ConversationID, "run", string(data), now()); err != nil {
 			return false, err
@@ -4518,7 +4524,8 @@ func (s *Server) execute(c Conversation, r Run) {
 				log.Printf("[usage] web search: %v", err)
 			}
 		},
-		WebFetchMaxUses: s.fetchUses(model, tools),
+		WebFetchMaxUses:  s.fetchUses(model, tools),
+		WebFetchRunLimit: s.webFetchRunLimit(),
 		OnWebFetchCounted: func(n int64) {
 			if err := s.store.recordWebFetchUsage(r.ID, n); err != nil {
 				log.Printf("[usage] web fetch: %v", err)

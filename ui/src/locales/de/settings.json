@@ -959,6 +959,10 @@
         "name": "Websuche",
         "what": "Claude-Modelle suchen vor der Antwort selbst im Web und lesen die Seiten, auf die sie sich stützen, wenn eine Frage neuer sein könnte als ihr Wissen."
       },
+      "web_fetch_limit": {
+        "name": "Gelesene Seiten pro Lauf",
+        "what": "Die meisten Webseiten, die ein Bot in einem Lauf lesen darf. Danach arbeitet der Bot mit den Seiten, die er hat. Für Recherche über viele Seiten den Wert erhöhen."
+      },
       "group_exchange_gists": {
         "name": "Abgeschlossene Gruppenwechsel zusammenfassen",
         "what": "In Gruppenchats werden Wortwechsel, die ohne einen Bot zu Ende gingen, für ihn zu einer kurzen Zusammenfassung gefaltet."

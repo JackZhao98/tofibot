@@ -562,6 +562,20 @@
       "audit": true
     },
     {
+      "key": "automation.web_fetch_limit",
+      "scope": "account",
+      "kind": "int",
+      "min": 1,
+      "max": 100,
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#replies",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.web_fetch_limit.name",
+      "audit": true
+    },
+    {
       "key": "automation.group_exchange_gists",
       "scope": "account",
       "kind": "bool",

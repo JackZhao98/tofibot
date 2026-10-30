@@ -79,6 +79,8 @@
   "settings:automation.item.task_stall_rounds.what": "タスクを持つボットがこの回数だけ連続して、チェックリストもステータスも変えずにラウンドを終えると、その作業の起点のボットに一度だけ知らせます。タスクが動くと数え直します。",
   "settings:automation.item.task_tree_idle_message_limit.name": "進捗のないメッセージ上限（タスクツリーごと）",
   "settings:automation.item.task_tree_idle_message_limit.what": "ひとつの作業のボット同士が、進捗なしに交わせるメッセージの最大数です。進捗とは、チェックリスト項目の完了、タスクの完了、結果の提出で、カウントは最初に戻ります。上限に達すると、進捗があるまで互いへの仕事の受け渡しを止め、あなたへの伝え方は起点のボットが判断します。",
+  "settings:automation.item.web_fetch_limit.name": "1 回の実行で読むページ数",
+  "settings:automation.item.web_fetch_limit.what": "Bot が 1 回の実行で読める Web ページの上限です。上限に達すると、Bot は読み終えたページだけで作業を続けます。多くのページにまたがる調査では引き上げてください。",
   "settings:automation.item.web_search.name": "Web 検索",
   "settings:automation.item.web_search.what": "質問が自分の知識より新しい可能性があるとき、Claude モデルは回答の前に自分で Web を検索し、根拠にするページを読みます。",
   "settings:automation.item.widget_artifacts_auto.name": "Bot がファイルを作ったら成果物を開く",

@@ -121,7 +121,8 @@ func scanSettingsChange(row interface{ Scan(...any) error }) (SettingsChange, er
 	var c SettingsChange
 	var revertable int
 	err := row.Scan(&c.ID, &c.At, &c.ActorKind, &c.BotID, &c.RunID, &c.ConversationID, &c.Key, &c.TargetBotID, &c.TargetConversationID, &c.TargetConnection, &c.TargetTool, &c.Old, &c.New, &c.Risk, &c.ApprovalQuestionID, &c.RevertedBy, &revertable, &c.NoticeMessageID)
-	c.Revertable = revertable != 0
+	// A change that was undone is not offered for undo again.
+	c.Revertable = revertable != 0 && c.RevertedBy == ""
 	return c, err
 }
 
@@ -213,6 +214,7 @@ func (s *Store) markSettingsNoticeReverted(c SettingsChange) {
 		return
 	}
 	notice.Reverted = true
+	notice.Revertable = false
 	updated, _ := json.Marshal(notice)
 	if _, err := s.db.Exec(`UPDATE messages SET notice_data=? WHERE id=?`, string(updated), c.NoticeMessageID); err != nil {
 		return

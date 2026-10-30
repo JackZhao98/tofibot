@@ -968,6 +968,10 @@
         "name": "Recherche web",
         "what": "Les modèles Claude cherchent eux-mêmes sur le web et lisent les pages sur lesquelles ils s'appuient avant de répondre quand une question peut être plus récente que leurs connaissances."
       },
+      "web_fetch_limit": {
+        "name": "Pages lues par exécution",
+        "what": "Le plus grand nombre de pages web qu'un Bot peut lire en une exécution. Au-delà, le Bot travaille avec les pages déjà lues. Augmentez-le pour une recherche qui couvre beaucoup de pages."
+      },
       "group_exchange_gists": {
         "name": "Échanges de groupe terminés, résumés",
         "what": "Dans les discussions de groupe, les échanges conclus sans un Bot sont repliés en un court résumé à son intention."

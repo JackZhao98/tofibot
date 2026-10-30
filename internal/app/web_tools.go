@@ -40,7 +40,8 @@ const (
 
 	// Per-run ceilings: paid sources bill by the call, so a loop cannot run up a bill.
 	webSearchesPerRun = 25
-	webFetchesPerRun  = 40
+	// webFetchLowLeft is how few pages must be left before a page result carries the number.
+	webFetchLowLeft = 3
 )
 
 // webProviderSpec is the fixed catalog of providers a chain can hold.
@@ -473,12 +474,22 @@ func (s *Server) webTools(r Run) []Tool {
 		if json.Unmarshal(raw, &in) != nil {
 			return "", errors.New("web_fetch: arguments must be a JSON object with a url")
 		}
-		if fetches.Add(1) > webFetchesPerRun {
+		limit := int32(s.webFetchRunLimit())
+		used := fetches.Add(1)
+		if used > limit {
 			return "", errors.New("web_fetch: this run has used its page limit; work from what you have")
 		}
 		page, err := webtools.Fetch(ctx, s.fetchChain(&r), in.URL, in.MaxChars)
 		if err != nil {
 			return "", webToolError("web_fetch", err)
+		}
+		// The remaining budget is mentioned only when it is nearly gone.
+		if left := limit - used; left <= webFetchLowLeft {
+			out, _ := json.Marshal(struct {
+				webtools.Page
+				PagesLeft int32 `json:"pages_left"`
+			}{page, left})
+			return string(out), nil
 		}
 		out, _ := json.Marshal(page)
 		return string(out), nil

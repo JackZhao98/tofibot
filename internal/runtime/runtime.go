@@ -545,7 +545,8 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 				req.OnWebSearchBilled(billed)
 			}
 		},
-		WebFetchMaxUses: req.WebFetchMaxUses,
+		WebFetchMaxUses:  req.WebFetchMaxUses,
+		WebFetchRunLimit: req.WebFetchRunLimit,
 		OnWebFetches: func(fetches []provider.WebFetch, counted int64) {
 			for _, wf := range fetches {
 				queued, finished := webFetchToolEvent(wf)

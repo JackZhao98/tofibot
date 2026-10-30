@@ -96,6 +96,25 @@ var (
 // into context; the text is billed as input on every later request of the run.
 const webFetchMaxContentTokens = 10000
 
+// webFetchLowLeft is how few pages must be left before the model is told the number.
+const webFetchLowLeft = 3
+
+// webFetchPlan is the page cap for the next request and the line that tells the model how many pages the run has left.
+// The line appears only when the budget is close to used up. A run limit of zero means the run has no limit of its own.
+func webFetchPlan(perRequest, runLimit int, used int64) (int, string) {
+	if runLimit <= 0 {
+		return perRequest, ""
+	}
+	left := int64(runLimit) - used
+	switch {
+	case left <= 0:
+		return 0, "The page reader is used up for this run; work from the pages already read."
+	case left <= webFetchLowLeft:
+		return min(perRequest, int(left)), fmt.Sprintf("Pages the page reader may still read in this run: %d.", left)
+	}
+	return min(perRequest, int(left)), ""
+}
+
 var bulkContentTools = map[string]bool{"computer_files": true, "computer_action": true, "tofi_write": true, "tofi_edit": true, "say": true}
 
 // MaxStepsWithProgressReports is the hard loop guard for tasks that report
@@ -229,10 +248,13 @@ type AgentConfig struct {
 	// reader (pages per model request capped at this); OnWebFetches receives
 	// what each response read and the counted number.
 	WebFetchMaxUses int
-	OnWebFetches    func(fetches []provider.WebFetch, counted int64)
-	OnCompact       func(originalTokens, compactedTokens int) // Successful in-run context compaction
-	Hooks           *Hooks                                    // Optional: pre/post hooks for tool calls, API calls, compaction
-	OnMessage       func(msg provider.Message)                // Optional: called immediately after each assistant/tool message is appended. Used for incremental chat session persistence so a browser refresh or hold doesn't lose in-progress turns. Internal synthetic user continuations are NOT emitted.
+	// WebFetchRunLimit, when positive, caps the pages the run reads in all: the reader is left out of the requests once the
+	// run has used it up, and the model is told how many pages are left only when few are.
+	WebFetchRunLimit int
+	OnWebFetches     func(fetches []provider.WebFetch, counted int64)
+	OnCompact        func(originalTokens, compactedTokens int) // Successful in-run context compaction
+	Hooks            *Hooks                                    // Optional: pre/post hooks for tool calls, API calls, compaction
+	OnMessage        func(msg provider.Message)                // Optional: called immediately after each assistant/tool message is appended. Used for incremental chat session persistence so a browser refresh or hold doesn't lose in-progress turns. Internal synthetic user continuations are NOT emitted.
 	// BeforeModelCall runs at the safe boundary immediately before a provider
 	// request. Callers may use it to observe durable steering input without
 	// interrupting an already-streaming response or an in-flight tool.
@@ -1130,6 +1152,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 	budgetCostBase := 0.0
 	stepLimit := maxSteps // steps allowed since the last refill; a refill keeps it inside the turn cap
 	budgetWrapUp := false
+	var webFetchesUsed int64
 	finalResponseRepaired := false
 	finalRepairPending := false
 	finalRepairReserved := false
@@ -1404,7 +1427,13 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			req.WebSearch = &provider.WebSearchSpec{MaxUses: cfg.WebSearchMaxUses}
 		}
 		if cfg.WebFetchMaxUses > 0 && !repairRequest && !finalRepairFinalRequest && !budgetWrapUp {
-			req.WebFetch = &provider.WebFetchSpec{MaxUses: cfg.WebFetchMaxUses, MaxContentTokens: webFetchMaxContentTokens}
+			uses, note := webFetchPlan(cfg.WebFetchMaxUses, cfg.WebFetchRunLimit, webFetchesUsed)
+			if uses > 0 {
+				req.WebFetch = &provider.WebFetchSpec{MaxUses: uses, MaxContentTokens: webFetchMaxContentTokens}
+			}
+			if note != "" {
+				req.System += "\n\n" + note
+			}
 		}
 		if cfg.ForceToolUse && !repairRequest && !finalRepairFinalRequest && !budgetWrapUp && len(requestTools) > 0 &&
 			!lastToolRoundFailed(messages) && !(cfg.EndOnEmptyFinal != nil && cfg.EndOnEmptyFinal()) {
@@ -1497,6 +1526,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				if cfg.OnWebSearches != nil && (len(resp.WebSearches) > 0 || resp.WebSearchRequests > 0) {
 					cfg.OnWebSearches(resp.WebSearches, resp.WebSearchRequests)
 				}
+				webFetchesUsed += resp.WebFetchRequests
 				if cfg.OnWebFetches != nil && (len(resp.WebFetches) > 0 || resp.WebFetchRequests > 0) {
 					cfg.OnWebFetches(resp.WebFetches, resp.WebFetchRequests)
 				}
@@ -1619,6 +1649,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		if cfg.OnWebSearches != nil && (len(resp.WebSearches) > 0 || resp.WebSearchRequests > 0) {
 			cfg.OnWebSearches(resp.WebSearches, resp.WebSearchRequests)
 		}
+		webFetchesUsed += resp.WebFetchRequests
 		if cfg.OnWebFetches != nil && (len(resp.WebFetches) > 0 || resp.WebFetchRequests > 0) {
 			cfg.OnWebFetches(resp.WebFetches, resp.WebFetchRequests)
 		}

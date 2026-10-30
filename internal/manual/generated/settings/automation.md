@@ -31,6 +31,7 @@ Open this page: [{{ui:settings:shell.page.automation.name}}](/settings/automatio
 | {{ui:settings:automation.item.task_retention_days.name}} | `automation.task_retention_days` | whole number 0 to 3650 | 30 days | direct | `/settings/automation#history` |
 | {{ui:settings:automation.item.task_stall_rounds.name}} | `automation.task_stall_rounds` | whole number 1 to 20 | 3 | direct | `/settings/automation#checks` |
 | {{ui:settings:automation.item.task_tree_idle_message_limit.name}} | `automation.task_tree_idle_message_limit` | whole number 10 to 500 | 30 | direct | `/settings/automation#reliability` |
+| {{ui:settings:automation.item.web_fetch_limit.name}} | `automation.web_fetch_limit` | whole number 1 to 100 | 20 | direct | `/settings/automation#replies` |
 | {{ui:settings:automation.item.web_search.name}} | `automation.web_search` | on or off | true | direct | `/settings/automation#replies` |
 | {{ui:settings:automation.item.widget_artifacts_auto.name}} | `automation.widget_artifacts_auto` | on or off | true | direct | `/settings/automation#widgets` |
 | {{ui:settings:automation.item.widget_computer_auto.name}} | `automation.widget_computer_auto` | on or off | true | direct | `/settings/automation#widgets` |
@@ -74,6 +75,8 @@ Open this page: [{{ui:settings:shell.page.automation.name}}](/settings/automatio
 **{{ui:settings:automation.item.task_stall_rounds.name}}.** {{ui:settings:automation.item.task_stall_rounds.what}}
 
 **{{ui:settings:automation.item.task_tree_idle_message_limit.name}}.** {{ui:settings:automation.item.task_tree_idle_message_limit.what}}
+
+**{{ui:settings:automation.item.web_fetch_limit.name}}.** {{ui:settings:automation.item.web_fetch_limit.what}}
 
 **{{ui:settings:automation.item.web_search.name}}.** {{ui:settings:automation.item.web_search.what}}
 

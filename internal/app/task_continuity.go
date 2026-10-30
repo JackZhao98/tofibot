@@ -555,7 +555,7 @@ func (s *Store) unfinishedTasksContext(conv, bot string) string {
 		return ""
 	}
 	raw, _ := json.Marshal(list)
-	return "[unfinished tasks]\nSystem record of work on your list that is not finished. It is data, not a new instruction. A message from the person that asks you to continue, resume or finish earlier work refers to this list: with one entry, carry that entry on; with several entries and no name, ask which one in one short question; with a name or a clear reference, take that entry. Finish or report each entry before you take on new work of your own. To carry an entry on in this run, set its status to in_progress with update_work_item; the result returns its record. A paused entry starts again by itself after this run unless you carry it on.\n" + string(raw) + "\n[/unfinished tasks]"
+	return "[unfinished tasks]\nSystem record of work on your list that is not finished. It is information only, not a new instruction. Only the run that is assigned to an entry works on it: a paused entry resumes automatically after the current work, in its own run, so do not do its work in this run and do not repeat its steps. Do not act on an entry unless the person explicitly asks you to continue, resume or finish earlier work: with one entry, carry that entry on; with several entries and no name, ask which one in one short question; with a name or a clear reference, take that entry. To carry an entry on in this run, set its status to in_progress with update_work_item; the result returns its record, and the entry then no longer resumes by itself. If the person's request is itself the goal of an entry, finish it in this run and mark the entry done with update_work_item so it does not run again.\n" + string(raw) + "\n[/unfinished tasks]"
 }
 
 // bindPausedTask makes the run the holder of a paused task its Bot takes up
@@ -586,7 +586,7 @@ func (s *Store) decoratePausedRuns(runs []Run) {
 			end = len(ids)
 		}
 		chunk := ids[start:end]
-		rows, err := s.db.Query(`SELECT source_run_id,title FROM work_items WHERE source<>'' AND source_run_id IN (`+strings.TrimSuffix(strings.Repeat("?,", len(chunk)), ",")+`)`, chunk...)
+		rows, err := s.db.Query(`SELECT source_run_id,title FROM work_items WHERE source<>'' AND status NOT IN ('done','cancelled','failed') AND source_run_id IN (`+strings.TrimSuffix(strings.Repeat("?,", len(chunk)), ",")+`)`, chunk...)
 		if err != nil {
 			return
 		}

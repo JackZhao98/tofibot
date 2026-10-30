@@ -479,9 +479,8 @@ function formatDay(value: string, timeZone: string) {
 }
 
 function previewText(value: string, max = 160) {
-  const normalized = readReplyMarker(value).body.replace(/\s+/g, " ").replace(/[*_`#>]/g, "").replace(/\s+/g, " ").trim();
-  const chars = Array.from(normalized);
-  return chars.length > max ? `${chars.slice(0, max - 1).join("")}…` : normalized;
+  const normalized = readReplyMarker(value).body.replace(/\[(.*?)]\([^)]*\)?|[*_`#>]/g, "$1").replace(/\s+/g, " ").trim();
+  return normalized.length > max ? `${normalized.slice(0, max - 1)}…` : normalized;
 }
 
 function formatDateDivider(value: string, timeZone: string) {
@@ -1637,7 +1636,7 @@ function Workspace() {
   const updateConversationPreview = useCallback((next: Message) => {
     setConversations((current) => current.map((conversation) => {
       if (conversation.id !== next.conversation_id || (conversation.last_message && next.seq < conversation.last_message.seq)) return conversation;
-      return { ...conversation, updated_at: next.created_at, ...(next.role === "user" && !next.run_id ? { last_user_message_at: next.created_at } : {}), last_message: { id: next.id, seq: next.seq, role: next.role, kind: next.kind, sender_bot_id: next.sender_bot_id, content: Array.from(next.content).slice(0, 160).join(""), created_at: next.created_at, internal: next.kind === "message_ref" } };
+      return { ...conversation, updated_at: next.created_at, ...(next.role === "user" && !next.run_id ? { last_user_message_at: next.created_at } : {}), last_message: { id: next.id, seq: next.seq, role: next.role, kind: next.kind, sender_bot_id: next.sender_bot_id, content: next.content.slice(0, 160), created_at: next.created_at, internal: next.kind === "message_ref" } };
     }));
   }, []);
 
