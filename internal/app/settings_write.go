@@ -435,6 +435,7 @@ func (s *Server) revertSettingsChangeByPerson(ctx context.Context, id string) (S
 	}
 	s.store.markSettingsNoticeReverted(change)
 	change.RevertedBy = reverted.ID
+	change.Revertable = false
 	return change, nil
 }
 
