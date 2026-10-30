@@ -279,18 +279,21 @@ func newCgroupTree() (*cgroupTree, error) {
 	if st.Type != unix.CGROUP2_SUPER_MAGIC {
 		return nil, errors.New("cgroup v2 is not mounted at " + cgroupMount)
 	}
-	base := cgroupMount
-	if own, err := ownCgroup(); err == nil && own != "/" {
-		base = filepath.Join(cgroupMount, own)
-	}
+	own, _ := ownCgroup()
+	base := cgroupBase(cgroupMount, own)
 	core := filepath.Join(base, "tofi-core")
 	err := os.Mkdir(core, 0o755)
 	if errors.Is(err, syscall.EROFS) {
-		// Docker mounts the cgroup tree read-only; with CAP_SYS_ADMIN the Runner can
-		// remount its own (namespaced) view read-write. A host policy that forbids
-		// mount (an AppArmor profile) makes this fail, and the error says so.
-		if merr := unix.Mount("", cgroupMount, "", unix.MS_REMOUNT|unix.MS_BIND, ""); merr != nil {
-			return nil, fmt.Errorf("the cgroup tree is read-only and cannot be remounted: %w", merr)
+		// Docker mounts the cgroup tree read-only. In a private cgroup namespace the
+		// Runner remounts its own view read-write (CAP_SYS_ADMIN, and a host policy
+		// that allows exactly this mount: the tofi-runner AppArmor profile). Docker's
+		// default profile forbids every mount, and the error says so.
+		if cerr := checkCgroupRemount(own); cerr != nil {
+			return nil, cerr
+		}
+		const keep = unix.MS_NOSUID | unix.MS_NODEV | unix.MS_NOEXEC
+		if merr := unix.Mount("", cgroupMount, "", unix.MS_REMOUNT|unix.MS_BIND|keep, ""); merr != nil {
+			return nil, cgroupRemountFailure(merr)
 		}
 		err = os.Mkdir(core, 0o755)
 	}

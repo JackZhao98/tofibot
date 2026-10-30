@@ -94,7 +94,7 @@ class HostCase(unittest.TestCase):
     def make_bundle(self, version):
         target = self.P.releases / version
         target.mkdir(parents=True, exist_ok=True)
-        for name in ('compose.yaml', 'Caddyfile.tmpl', 'worker.apparmor.template',
+        for name in ('compose.yaml', 'Caddyfile.tmpl', 'worker.apparmor.template', 'runner.apparmor.template',
                      'worker.seccomp.json', 'tofi.conf', 'tofi.service'):
             shutil.copy(HERE / name, target / name)
         return target
@@ -3177,6 +3177,128 @@ class RunnerEgressFilterTests(HostCase):
         with mock.patch.object(tofi_host, 'health'), mock.patch.object(tofi_host, 'read_env', return_value=env):
             REAL_START_SERVICES(env)
         self.assertFalse([c for c in self.commands if c[0] == 'iptables'])
+
+
+class RunnerSandboxTests(LifecycleBase):
+    """The Runner's AppArmor profile and cgroup settings (per-account memory and process limits)."""
+    IMAGE = 'ghcr.io/jackzhao98/tofi-mcp-runner@sha256:' + '4' * 64
+
+    def setUp(self):
+        super().setUp()
+        self.env = self.installed()
+        self.env['TOFI_RUNNER_IMAGE'] = self.IMAGE
+        tofi_host.write_env(self.env)
+        self.write(self.P.apparmor_enabled, 'Y\n')
+        which = mock.patch.object(tofi_host.shutil, 'which', side_effect=lambda name: '/sbin/' + name)
+        which.start()
+        self.addCleanup(which.stop)
+        self.commands.clear()
+
+    def template(self):
+        return (HERE / 'runner.apparmor.template').read_text()
+
+    def test_profile_is_docker_default_plus_one_cgroup_remount(self):
+        profile = self.template()
+        self.assertIn('profile tofi-runner ', profile)
+        rules = [line.strip() for line in profile.splitlines() if line.strip().startswith(('mount', 'pivot_root', 'deny mount'))]
+        self.assertEqual(rules, ['mount options=(remount,bind,rw,nosuid,nodev,noexec) -> /sys/fs/cgroup/,'])
+        # docker-default's other denials stay.
+        for denied in ('deny @{PROC}/sysrq-trigger rwklx,', 'deny @{PROC}/kcore rwklx,', 'deny /sys/kernel/security/** rwklx,'):
+            self.assertIn(denied, profile)
+
+    def test_prepare_installs_checks_loads_and_names_the_profile(self):
+        self.assertTrue(tofi_host.prepare_runner_sandbox(self.env))
+        self.assertEqual(self.P.runner_apparmor_profile.read_text(), self.template())
+        parsed = [c[:2] for c in self.commands]
+        self.assertLess(parsed.index(['apparmor_parser', '-Q']), parsed.index(['apparmor_parser', '-r']))
+        self.assertIn(['apparmor_parser', '-r', '-W', str(self.P.runner_apparmor_profile)], self.commands)
+        written = tofi_host.read_env()
+        self.assertEqual(written['TOFI_RUNNER_APPARMOR'], 'tofi-runner')
+        self.assertEqual(written['TOFI_RUNNER_CGROUPS'], 'required')
+        # Idempotent: the same state needs no new tofi.env, and loading again changes nothing.
+        self.assertFalse(tofi_host.prepare_runner_sandbox(self.env))
+        self.assertEqual(self.P.runner_apparmor_profile.read_text(), self.template())
+
+    def test_a_broken_profile_is_refused_before_it_replaces_the_old_one(self):
+        self.write(self.P.runner_apparmor_profile, 'old profile\n')
+
+        def run(args, check=True, timeout=300, **kwargs):
+            self.commands.append(list(args))
+            if args[:2] == ['apparmor_parser', '-Q']:
+                raise subprocess.CalledProcessError(1, args)
+            return completed()
+        with mock.patch.object(tofi_host, 'run', side_effect=run):
+            with self.assertRaises(subprocess.CalledProcessError):
+                tofi_host.prepare_runner_sandbox(self.env)
+        self.assertEqual(self.P.runner_apparmor_profile.read_text(), 'old profile\n')
+        self.assertNotIn('TOFI_RUNNER_APPARMOR', tofi_host.read_env())
+
+    def test_a_host_without_apparmor_gets_no_profile_but_still_requires_cgroups(self):
+        self.write(self.P.apparmor_enabled, 'N\n')
+        self.env['TOFI_RUNNER_APPARMOR'] = 'tofi-runner'  # left over from before AppArmor was switched off
+        self.assertTrue(tofi_host.prepare_runner_sandbox(self.env))
+        self.assertFalse([c for c in self.commands if c[0] == 'apparmor_parser'])
+        self.assertFalse(self.P.runner_apparmor_profile.exists())
+        written = tofi_host.read_env()
+        self.assertNotIn('TOFI_RUNNER_APPARMOR', written)
+        self.assertEqual(written['TOFI_RUNNER_CGROUPS'], 'required')
+
+    def test_apparmor_without_its_parser_refuses_and_names_the_fix(self):
+        with mock.patch.object(tofi_host.shutil, 'which', return_value=None):
+            with self.assertRaises(tofi_host.HostError) as raised:
+                tofi_host.prepare_runner_sandbox(self.env)
+        self.assertIn('apt-get install apparmor apparmor-utils', str(raised.exception))
+        self.assertIn('TOFI_RUNNER_CGROUPS=auto', str(raised.exception))
+        # The operator's explicit choice to run without limits is honoured, with a warning.
+        self.env['TOFI_RUNNER_CGROUPS'] = 'auto'
+        with mock.patch.object(tofi_host.shutil, 'which', return_value=None):
+            tofi_host.prepare_runner_sandbox(self.env)
+        self.assertEqual(self.env['TOFI_RUNNER_CGROUPS'], 'auto')
+        self.assertNotIn('TOFI_RUNNER_APPARMOR', self.env)
+
+    def test_an_operators_cgroup_mode_is_kept(self):
+        self.env['TOFI_RUNNER_CGROUPS'] = 'off'
+        tofi_host.prepare_runner_sandbox(self.env)
+        self.assertEqual(tofi_host.read_env()['TOFI_RUNNER_CGROUPS'], 'off')
+        self.assertEqual(tofi_host.read_env()['TOFI_RUNNER_APPARMOR'], 'tofi-runner')
+
+    def test_no_runner_and_old_bundles_are_left_alone(self):
+        plain = dict(self.env)
+        del plain['TOFI_RUNNER_IMAGE']
+        self.assertFalse(tofi_host.prepare_runner_sandbox(plain))
+        self.assertNotIn('TOFI_RUNNER_CGROUPS', plain)
+        (self.P.current / 'runner.apparmor.template').unlink()  # a rollback target from before the profile
+        self.assertFalse(tofi_host.prepare_runner_sandbox(self.env))
+        self.assertNotIn('TOFI_RUNNER_APPARMOR', self.env)
+        self.assertFalse([c for c in self.commands if c[0] == 'apparmor_parser'])
+
+    def test_start_services_loads_the_profile_before_compose_starts_the_runner(self):
+        self.env['TOFI_COMPUTER_BACKEND'] = 'none'
+        with mock.patch.object(tofi_host, 'health'), mock.patch.object(tofi_host, 'runner_ready'), \
+                mock.patch.object(tofi_host, 'ensure_runner_egress_filter', return_value=True):
+            REAL_START_SERVICES(self.env)
+        load = next(i for i, c in enumerate(self.commands) if c[:2] == ['apparmor_parser', '-r'])
+        up = next(i for i, c in enumerate(self.commands) if 'up' in c)
+        self.assertLess(load, up)
+
+    def test_uninstall_unloads_and_removes_the_profile(self):
+        tofi_host.prepare_runner_sandbox(self.env)
+        state = tofi_host.load_state()
+        tofi_host.complete(state, 'stopped-retained')
+        tofi_host.uninstall(purge=True, confirm=tofi_host.socket.gethostname())
+        self.assertFalse(self.P.runner_apparmor_profile.exists())
+        self.assertIn(['apparmor_parser', '-R', str(self.P.runner_apparmor_profile)], self.commands)
+
+    def test_compose_gives_the_runner_a_private_cgroup_namespace_and_a_named_profile(self):
+        text = (HERE / 'compose.yaml').read_text()
+        runner = text.split('  runner:')[1].split('  app:')[0]
+        self.assertIn('\n    cgroup: private\n', runner)
+        self.assertIn('- apparmor:${TOFI_RUNNER_APPARMOR:-docker-default}', runner)
+        # No tofi.env key from this tool (an older release's file): the Runner keeps Docker's default
+        # profile and the old, non-fatal cgroup mode, so an update by the old tool still starts.
+        self.assertIn('TOFI_MCP_RUNNER_CGROUPS: ${TOFI_RUNNER_CGROUPS:-auto}', runner)
+        self.assertNotIn('privileged', runner)
+        self.assertNotIn('apparmor:unconfined', runner)
 
 
 class RunnerDowngradeGuardTests(LifecycleBase):

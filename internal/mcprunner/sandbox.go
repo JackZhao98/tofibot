@@ -125,6 +125,36 @@ func unavailable(mode SandboxMode, what string, err error) error {
 	return nil
 }
 
+// cgroupBase is the directory the Runner delegates to its accounts: the root of
+// the cgroup view when the container has its own cgroup namespace (its own
+// cgroup is "/"), otherwise the container's cgroup inside the host-wide view.
+func cgroupBase(mount, own string) string {
+	if own == "" || own == "/" {
+		return mount
+	}
+	return filepath.Join(mount, own)
+}
+
+// checkCgroupRemount decides whether the Runner may make a read-only cgroup view
+// writable. Only a private cgroup namespace qualifies: there the view holds just
+// the container's own subtree. In the host's namespace the same remount would
+// open the whole host cgroup tree to a container that holds CAP_SYS_ADMIN.
+func checkCgroupRemount(own string) error {
+	if own == "" || own == "/" {
+		return nil
+	}
+	return fmt.Errorf("the container shares the host's cgroup namespace (its cgroup is %s) and the cgroup tree is read-only; "+
+		"start the Runner container with a private cgroup namespace (compose: `cgroup: private`, docker run: `--cgroupns private`)", own)
+}
+
+// cgroupRemountFailure explains a refused remount of the container's own cgroup
+// view and names the fix.
+func cgroupRemountFailure(cause error) error {
+	return fmt.Errorf("the cgroup tree is read-only and cannot be remounted: %w "+
+		"(Docker's default AppArmor profile forbids the remount: load the tofi-runner profile and start the Runner with it, "+
+		"which `sudo tofi restart` does on an installed host; without AppArmor the host policy, e.g. SELinux, must allow it)", cause)
+}
+
 // launchPlan is what the Runner hands the launcher as argv[2] (JSON). The
 // launcher runs as root, so it does the privileged setup, then drops to Uid/Gid
 // with no capability left and no way to gain one.

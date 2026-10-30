@@ -113,7 +113,7 @@ class CleanInstallTests(AuditCase):
         self.assertEqual(self.report['exit_code'], 0)
         self.assertEqual(set(found), {'exposure.tls', 'exposure.listen', 'exposure.lan_http', 'auth.admin', 'auth.rate_limit',
                                       'files.host', 'files.tls', 'files.data', 'files.backups', 'secrets.env',
-                                      'secrets.model_keys', 'versions.tofi', 'versions.computers', 'runner.fence', 'backups.recent'})
+                                      'secrets.model_keys', 'versions.tofi', 'versions.computers', 'runner.fence', 'runner.cgroups', 'backups.recent'})
         self.assertIn('self-signed', found['exposure.tls']['detail'])
         code, out = self.run_main('security', 'audit')
         self.assertEqual(code, 0)
@@ -420,6 +420,69 @@ class RunnerFenceTests(AuditCase):
         with mock.patch.object(tofi_host.shutil, 'which', return_value='/sbin/iptables'), \
                 mock.patch.object(tofi_host, '_iptables', return_value=subprocess.CompletedProcess([], 0, '', '')):
             self.assertEqual(self.level('runner.fence'), 'PASS')
+
+
+class RunnerCgroupTests(AuditCase):
+    IMAGE = 'ghcr.io/jackzhao98/tofi-mcp-runner@sha256:' + '4' * 64
+
+    def setUp(self):
+        super().setUp()
+        self.write_flag(self.P.apparmor_enabled, 'Y\n')
+
+    @staticmethod
+    def write_flag(path, text):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+
+    def container(self, profile='tofi-runner', mode='private'):
+        return [{'Config': {'Labels': {'com.docker.compose.service': 'runner'}}, 'State': {'Running': True},
+                 'AppArmorProfile': profile, 'HostConfig': {'CgroupnsMode': mode}}]
+
+    def good(self):
+        self.set_env(TOFI_RUNNER_IMAGE=self.IMAGE, TOFI_RUNNER_APPARMOR='tofi-runner', TOFI_RUNNER_CGROUPS='required')
+        self.write_flag(self.P.runner_apparmor_profile, 'profile tofi-runner {}\n')
+        self.write_flag(self.P.apparmor_profiles, 'docker-default (enforce)\ntofi-runner (enforce)\n')
+
+    def test_no_runner_means_nothing_to_limit(self):
+        self.assertEqual(self.level('runner.cgroups'), 'PASS')
+
+    def test_a_runner_set_up_with_its_profile_passes(self):
+        self.good()
+        with mock.patch.object(tofi_host, 'project_containers', return_value=self.container()):
+            found = self.audit()['runner.cgroups']
+        self.assertEqual(found['level'], 'PASS', found)
+        self.assertIn('tofi-runner', found['detail'])
+
+    def test_a_runner_on_a_host_without_apparmor_passes_without_a_profile(self):
+        self.set_env(TOFI_RUNNER_IMAGE=self.IMAGE, TOFI_RUNNER_CGROUPS='required')
+        self.write_flag(self.P.apparmor_enabled, 'N\n')
+        with mock.patch.object(tofi_host, 'project_containers', return_value=self.container(profile='')):
+            self.assertEqual(self.level('runner.cgroups'), 'PASS')
+
+    def test_an_old_install_without_the_profile_fails_with_the_fix(self):
+        self.set_env(TOFI_RUNNER_IMAGE=self.IMAGE, TOFI_RUNNER_CGROUPS='required')
+        found = self.audit()['runner.cgroups']
+        self.assertEqual(found['level'], 'FAIL')
+        self.assertIn('sudo tofi restart', found['fix'])
+        self.assertEqual(self.report['exit_code'], 2)
+
+    def test_an_unloaded_profile_fails(self):
+        self.good()
+        self.write_flag(self.P.apparmor_profiles, 'docker-default (enforce)\n')
+        self.assertEqual(self.level('runner.cgroups'), 'FAIL')
+
+    def test_a_lenient_cgroup_mode_warns(self):
+        self.good()
+        self.set_env(TOFI_RUNNER_CGROUPS='auto')
+        found = self.audit()['runner.cgroups']
+        self.assertEqual(found['level'], 'WARN')
+        self.assertIn('TOFI_RUNNER_CGROUPS is auto', found['detail'])
+
+    def test_a_running_container_without_the_profile_or_namespace_fails(self):
+        self.good()
+        for container in (self.container(profile='docker-default'), self.container(mode='host')):
+            with mock.patch.object(tofi_host, 'project_containers', return_value=container):
+                self.assertEqual(self.level('runner.cgroups'), 'FAIL')
 
 
 class BackupTests(AuditCase):

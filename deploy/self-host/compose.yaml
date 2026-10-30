@@ -112,9 +112,24 @@ services:
     # No System V / POSIX shared memory: /dev/shm is not mounted, so account uids cannot pass data
     # or interfere through it. (Private /dev/shm tmpfs would also do; none is not needed by any plugin.)
     ipc: none
+    # Per-account memory and process limits need a writable cgroup tree. Docker mounts it read-only,
+    # and its default AppArmor profile forbids the one mount that makes it writable. Two settings
+    # give the Runner exactly that and nothing more:
+    #   cgroup: private    the container sees only its own cgroup subtree (never the host's tree),
+    #                      so the remount cannot reach anything outside it; the Runner refuses to
+    #                      remount in the host's cgroup namespace
+    #   apparmor           tofi-runner = docker-default plus one rule: remount /sys/fs/cgroup rw.
+    #                      `tofi` writes /etc/apparmor.d/tofi-runner, loads it and sets
+    #                      TOFI_RUNNER_APPARMOR=tofi-runner and TOFI_RUNNER_CGROUPS=required in
+    #                      tofi.env. Without those keys (a tofi.env from an older release) the
+    #                      Runner keeps docker-default and TOFI_RUNNER_CGROUPS=auto: it starts
+    #                      without cgroups and says so at the SECURITY level. On a host without
+    #                      AppArmor, Docker ignores the profile name.
+    cgroup: private
     networks: [runner_link, runner_egress]
     security_opt:
       - no-new-privileges:true
+      - apparmor:${TOFI_RUNNER_APPARMOR:-docker-default}
     tmpfs:
       # Closed to every account uid: children use their own TMPDIR below /runner.
       - /tmp:rw,nosuid,nodev,noexec,mode=0700,size=64m
