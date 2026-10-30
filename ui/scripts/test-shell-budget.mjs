@@ -1,6 +1,6 @@
 // Shell budgets, measured in a production build in a real browser (synthetic data; /api is answered in the page):
 //  1. Panels are code-split: Settings, the Bot desktop, onboarding and the other on-demand panels are not in the entry chunks,
-//     and the entry JS (gzip) stays at or under 80% of the pre-split size (394,757 bytes before -> 315,806 budget).
+//     and the entry JS (gzip) stays at or under 330 KB (was 80% of the pre-split 394,757 bytes; raised 2026-10-30).
 //  2. Opening Settings shows its frame in the first frame or two: first visible frame <= 32 ms (<= 100 ms at 4x CPU, Chromium),
 //     with no frame over 50 ms in the next 200 ms. A cold chunk (slow network) still shows the frame at once, then the content.
 //  3. The phone list/chat change is an iOS-style push: the chat slides in from the right over the list while the list shifts left
@@ -27,7 +27,8 @@ const engine = pw[engineName];
 
 const only = (process.env.SHELL_BUDGET_ONLY || "struct,panel,phone").split(",");
 // 80% of the pre-split size.
-const EAGER_GZIP_BUDGET = Math.floor(394_757 * 0.8);
+// Owner decision 2026-10-30: 330 KB (gzip) until a slimming pass after v0.6.0 brings it back down.
+const EAGER_GZIP_BUDGET = 330 * 1024;
 const ownDist = !process.env.SHELL_BUDGET_DIST;
 const dist = process.env.SHELL_BUDGET_DIST || mkdtempSync(join(tmpdir(), "tofi-shell-budget-"));
 if (ownDist) await build({ configFile: false, root: ui, plugins: [react()], build: { outDir: dist, emptyOutDir: true }, logLevel: "error" });
@@ -44,7 +45,7 @@ for (const name of ["SettingsPanel", "BotDesktopPanel", "Onboarding", "BotSettin
   assert.ok(!eager.some(file => file.includes(`/${name}-`)), `${name} is not an entry-time chunk`);
 }
 console.log(`entry JS: ${eager.length} files, ${gzip} bytes gzip (budget ${EAGER_GZIP_BUDGET})`);
-assert.ok(gzip <= EAGER_GZIP_BUDGET, `entry JS must stay within its budget (80% of the pre-split size + 1.5 KB): ${gzip} > ${EAGER_GZIP_BUDGET}`);
+assert.ok(gzip <= EAGER_GZIP_BUDGET, `entry JS must stay within its 330 KB budget: ${gzip} > ${EAGER_GZIP_BUDGET}`);
 }
 
 // ---- browser harness ----
