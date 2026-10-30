@@ -54,6 +54,10 @@ type Computer struct {
 	Region       string   `json:"region,omitempty"`
 	// Status is the stored attachment state: attached, lost or detached.
 	Status string `json:"status,omitempty"`
+	// Default marks the computer a Bot uses when the person names none (the VM).
+	Default bool `json:"default,omitempty"`
+	// InUse is true while another Bot holds the computer's lock.
+	InUse bool `json:"in_use,omitempty"`
 }
 
 type ComputerJob struct {
@@ -161,6 +165,7 @@ func (s *Store) createComputerPairingWithID() (string, string, string, error) {
 	if err != nil {
 		return "", "", "", err
 	}
+	code = s.taggedSecret(code)
 	pairingID := uuid.NewString()
 	t := time.Now().UTC()
 	tx, err := s.db.Begin()
@@ -252,6 +257,7 @@ func (s *Store) pairComputer(code, name, platform string, capabilities []string)
 	if err != nil {
 		return "", "", err
 	}
+	token = s.taggedSecret(token)
 	id, t := uuid.NewString(), now()
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -845,6 +851,7 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 			writeErr(w, 400, "invalid_pairing", err.Error())
 			return true
 		}
+		s.ensurePersonalSlot(id)
 		writeJSON(w, 201, map[string]any{"id": id, "token": token})
 		return true
 	}
@@ -927,8 +934,24 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 		} else if !ok {
 			writeErr(w, 404, "not_found", "computer not found")
 		} else {
+			s.UnregisterComputer(parts[0])
 			writeJSON(w, 200, map[string]bool{"revoked": true})
 		}
+		return true
+	}
+	if len(parts) == 2 && parts[1] == "heartbeat" && r.Method == http.MethodPost {
+		raw, _ := io.ReadAll(io.LimitReader(r.Body, 4<<10))
+		hb, err := decodeHeartbeat(raw)
+		if err != nil {
+			writeErr(w, 400, "invalid_request", "invalid heartbeat")
+			return true
+		}
+		if err = s.store.heartbeatComputer(parts[0], bearerToken(r), hb.ProtocolVersion); err != nil {
+			s.writeDeviceAuthErr(w, parts[0], err)
+			return true
+		}
+		s.deviceSeen(parts[0])
+		writeJSON(w, 200, map[string]any{"ok": true})
 		return true
 	}
 	if len(parts) == 2 && parts[1] == "capabilities" && r.Method == http.MethodPatch {
@@ -952,16 +975,17 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 		return true
 	}
 	if len(parts) == 2 && parts[1] == "jobs" && r.Method == http.MethodGet {
-		job, err := s.store.claimComputerJob(parts[0], bearerToken(r))
+		job, err := s.waitForJob(r.Context(), parts[0], bearerToken(r), parseWait(r.URL.Query().Get("wait")))
 		if err != nil {
 			if err.Error() == "unauthorized" {
-				writeErr(w, 401, "unauthorized", "invalid device token")
+				s.writeDeviceAuthErr(w, parts[0], err)
 			} else {
 				writeErr(w, 500, "storage", err.Error())
 			}
 			return true
 		}
-		writeJSON(w, 200, map[string]any{"job": job})
+		s.deviceSeen(parts[0])
+		writeJSON(w, 200, map[string]any{"job": s.withBotName(job)})
 		return true
 	}
 	if len(parts) == 4 && parts[0] != "" && parts[1] == "jobs" && parts[2] != "" && parts[3] == "status" && r.Method == http.MethodGet {
@@ -1002,6 +1026,7 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 			writeErr(w, code, "job_rejected", err.Error())
 			return true
 		}
+		s.deviceSeen(parts[0])
 		writeJSON(w, 200, map[string]bool{"accepted": true})
 		return true
 	}
@@ -1150,11 +1175,22 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 			writeJSON(w, 201, j)
 			return true
 		}
-		j, err := s.store.queueComputerJob(Run{}, parts[0], v.Action, v.Args)
+		// The owner may name one of their Bots, as the model path does: the Mac
+		// decides per Bot whether to run the job. Without a Bot the Mac refuses it.
+		var attributed Run
+		if strings.TrimSpace(v.BotID) != "" {
+			if _, err := s.store.GetBot(v.BotID); err != nil {
+				writeErr(w, http.StatusNotFound, "bot_not_found", "bot not found")
+				return true
+			}
+			attributed.BotID = v.BotID
+		}
+		j, err := s.store.queueComputerJob(attributed, parts[0], v.Action, v.Args)
 		if err != nil {
 			writeErr(w, 400, "action_rejected", err.Error())
 			return true
 		}
+		s.store.wakeDevice(parts[0])
 		writeJSON(w, 201, j)
 		return true
 	}
@@ -1232,7 +1268,7 @@ func (s *Server) computerTools(r Run) []Tool {
 			}
 			return fmt.Sprintf(`{"os":%q,"arch":%q}`, runtime.GOOS, runtime.GOARCH), nil
 		}
-		if slot := s.slotFor(v.ComputerID); slot != nil {
+		if slot := s.ensurePersonalSlot(v.ComputerID); slot != nil {
 			return s.computerActionOn(ctx, r, v.ComputerID, v.Action, v.Args)
 		}
 		j, err := s.store.queueComputerJob(r, v.ComputerID, v.Action, v.Args)
