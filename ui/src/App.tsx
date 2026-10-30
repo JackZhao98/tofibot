@@ -479,7 +479,7 @@ function formatDay(value: string, timeZone: string) {
 }
 
 function previewText(value: string, max = 160) {
-  const normalized = readReplyMarker(value).body.replace(/\s+/g, " ").replace(/[*_`#>]/g, "").replace(/\s+/g, " ").trim();
+  const normalized = readReplyMarker(value).body.replace(/!?\[([^\]]*)\]\([^)]*(\)|$)/g, "$1").replace(/[*_`#>]/g, "").replace(/\s+/g, " ").trim();
   const chars = Array.from(normalized);
   return chars.length > max ? `${chars.slice(0, max - 1).join("")}…` : normalized;
 }
