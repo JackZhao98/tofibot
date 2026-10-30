@@ -24,8 +24,9 @@ const (
 	interruptSteered   = "steered"
 	interruptEarlyStop = "early_stop"
 
-	// taskAutoResumeLimit is how many times the Bot restarts one paused task
-	// without being asked. A person's Resume button is not counted.
+	// taskAutoResumeLimit caps only work the Bot itself stopped early: a Bot that keeps stopping the same task must not
+	// restart it forever. Work a person's message interrupted has no cap; it always resumes once the current work ends.
+	// Either way the task stays on the list, so the Bot always knows what it left unfinished.
 	taskAutoResumeLimit = 2
 
 	resumeNoticeTask = "task"
@@ -333,7 +334,7 @@ func resumePausedTasksTx(tx *sql.Tx, endedID string) (Run, bool, error) {
 	}
 	for {
 		var id, source string
-		err := tx.QueryRow(`SELECT id,source FROM work_items WHERE bot_id=? AND conversation_id=? AND status='todo' AND interrupted_at<>'' AND resume_count<? ORDER BY interrupted_at,id LIMIT 1`, bot, conv, taskAutoResumeLimit).Scan(&id, &source)
+		err := tx.QueryRow(`SELECT id,source FROM work_items WHERE bot_id=? AND conversation_id=? AND status='todo' AND interrupted_at<>'' AND (interrupt_reason=? OR resume_count<?) ORDER BY interrupted_at,id LIMIT 1`, bot, conv, interruptSteered, taskAutoResumeLimit).Scan(&id, &source)
 		if err == sql.ErrNoRows {
 			return Run{}, false, nil
 		}

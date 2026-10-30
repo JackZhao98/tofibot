@@ -6,12 +6,16 @@ import (
 )
 
 func pauseAndEnd(t *testing.T, s *Store, runID, status string) {
+	pauseAndEndFor(t, s, runID, status, interruptSteered)
+}
+
+func pauseAndEndFor(t *testing.T, s *Store, runID, status, reason string) {
 	t.Helper()
 	tx, err := s.db.Begin()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = pauseTaskForRunTx(tx, runID, interruptSteered); err != nil {
+	if _, err = pauseTaskForRunTx(tx, runID, reason); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = tx.Exec(`UPDATE runs SET status=? WHERE id=?`, status, runID); err != nil {
@@ -53,10 +57,10 @@ func continuityStore(t *testing.T) (*Store, Bot, Conversation, Run) {
 	return s, b, c, runs[0]
 }
 
-func TestAPausedTaskResumesAtMostTwiceByItself(t *testing.T) {
+func TestAnInterruptedTaskResumesEveryTime(t *testing.T) {
 	s, _, _, run := continuityStore(t)
 	cur := run
-	for i := 1; i <= taskAutoResumeLimit; i++ {
+	for i := 1; i <= taskAutoResumeLimit+3; i++ {
 		pauseAndEnd(t, s, cur.ID, "cancelled")
 		next, ok := resumeAfter(t, s, cur.ID)
 		if !ok || next.ParentRunID != cur.ID || next.Kind != run.Kind {
@@ -67,14 +71,30 @@ func TestAPausedTaskResumesAtMostTwiceByItself(t *testing.T) {
 		}
 		cur = next
 	}
-	pauseAndEnd(t, s, cur.ID, "cancelled")
+}
+
+// A Bot that keeps stopping the same task by itself stops restarting it, but the task stays on its list.
+func TestATaskTheBotKeepsStoppingResumesAtMostTwiceByItself(t *testing.T) {
+	s, _, _, run := continuityStore(t)
+	cur := run
+	for i := 1; i <= taskAutoResumeLimit; i++ {
+		pauseAndEndFor(t, s, cur.ID, "done", interruptEarlyStop)
+		next, ok := resumeAfter(t, s, cur.ID)
+		if !ok || next.ParentRunID != cur.ID {
+			t.Fatalf("resume %d: ok=%v run=%+v", i, ok, next)
+		}
+		if _, err := s.SetRunStatus(next.ID, "running", ""); err != nil {
+			t.Fatal(err)
+		}
+		cur = next
+	}
+	pauseAndEndFor(t, s, cur.ID, "done", interruptEarlyStop)
 	if r, ok := resumeAfter(t, s, cur.ID); ok {
 		t.Fatalf("a third automatic resume started: %+v", r)
 	}
 	var status, interrupted string
-	var count int
-	if err := s.db.QueryRow(`SELECT status,interrupted_at,resume_count FROM work_items WHERE source='user_request'`).Scan(&status, &interrupted, &count); err != nil || status != "todo" || interrupted == "" || count != taskAutoResumeLimit {
-		t.Fatalf("the task is not left paused: %s %q %d %v", status, interrupted, count, err)
+	if err := s.db.QueryRow(`SELECT status,interrupted_at FROM work_items WHERE source='user_request'`).Scan(&status, &interrupted); err != nil || status != "todo" || interrupted == "" {
+		t.Fatalf("the task is not left on the list: %s %q %v", status, interrupted, err)
 	}
 }
 
