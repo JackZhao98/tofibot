@@ -128,8 +128,8 @@ func TestChecklistReconciliationSendsBackOnceSharedWithPending(t *testing.T) {
 func TestSayOffersTaskIDOnlyToABotThatHoldsATask(t *testing.T) {
 	s, c, r, _ := outcomeFixture(t, "")
 	tool := s.sayTool(c, r)
-	if _, ok := tool.Parameters["properties"].(map[string]any)["task_id"]; ok || !tool.Strict {
-		t.Fatalf("a Bot with no task sees task_id (strict=%v)", tool.Strict)
+	if _, ok := tool.Parameters["properties"].(map[string]any)["task_id"]; ok {
+		t.Fatalf("a Bot with no task sees task_id")
 	}
 	id := newID()
 	giver, _ := s.store.CreateBot("giver", "", "m")

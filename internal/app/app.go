@@ -2595,10 +2595,25 @@ func (s *Store) finishRunOpts(id, conv, bot, content string, silent bool, failur
 	if failure == "" {
 		var sayOutcome string
 		_ = tx.QueryRow(`SELECT outcome FROM run_say_answers WHERE run_id=?`, id).Scan(&sayOutcome)
+		// A run that read a message from the person while it worked and whose
+		// answer does not state that it covers the original request leaves that
+		// request unfinished: it is paused for the Bot to carry on.
+		var leavesOriginal bool
+		if leavesOriginal, err = steeredAnswerLeavesOriginalTx(tx, id, sayOutcome); err != nil {
+			return Message{}, false, err
+		}
+		if leavesOriginal {
+			sayOutcome = sayOutcomePending
+		}
 		if err = taskRunFinishedTx(tx, done, m, sayOutcome); err != nil {
 			return Message{}, false, err
 		}
-		if err = captureEarlyStopTx(tx, id, sayOutcome); err != nil {
+		if leavesOriginal {
+			_, err = pauseTaskForRunTx(tx, id, interruptSteered)
+		} else {
+			err = captureEarlyStopTx(tx, id, sayOutcome)
+		}
+		if err != nil {
 			return Message{}, false, err
 		}
 	} else if err = taskRunEndedTx(tx, id, "failed"); err != nil {
