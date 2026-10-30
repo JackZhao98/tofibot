@@ -6166,9 +6166,10 @@ def audit_files(env):
 
 def audit_env_secrets(env):
     title = 'Secrets in tofi.env'
-    managed = set(ENV_KEYS)
+    managed = set(ENV_KEYS) | set(RUNNER_ENV_KEYS)
+    # A *_FILE variable names where a secret lives (a path), not the secret itself.
     names = sorted(name for name, value in env.items() if name not in managed and name not in MODEL_KEY_ENV_NAMES
-                   and value and SECRET_NAME_RE.search(name.upper()))
+                   and not name.upper().endswith('_FILE') and value and SECRET_NAME_RE.search(name.upper()))
     if not names:
         return audit_finding(AUDIT_PASS, 'secrets.env', title, 'no credential-looking variable in /etc/tofi/tofi.env')
     shown = ', '.join(re.sub(r'[^A-Za-z0-9_.-]', '?', name)[:60] for name in names[:10])

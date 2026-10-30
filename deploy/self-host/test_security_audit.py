@@ -316,6 +316,11 @@ class SecretTests(AuditCase):
         self.assertNotIn('EMPTY_SECRET', finding['detail'])
         self.assertNotIn(ENV_CANARY, json.dumps(self.report))
 
+
+    def test_runner_key_file_path_is_not_a_secret(self):
+        env = {'TOFI_RUNNER_MASTER_KEY_FILE': '/app/data/runner/master.key', 'TOFI_RUNNER_IMAGE': 'x'}
+        finding = tofi_host.audit_env_secrets(env)
+        self.assertEqual(finding['level'], tofi_host.AUDIT_PASS, finding)
     def test_managed_tls_key_path_is_not_a_secret(self):
         self.assertIn('TOFI_TLS_KEY_FILE', tofi_host.read_env())
         self.assertEqual(self.level('secrets.env'), 'PASS')
