@@ -140,6 +140,7 @@
     "needs_answer": "回答待ち",
     "turn_ended": "このターンは終了しました",
     "stopped": "このワークフローは停止しました",
+    "paused": "一時停止中: {{paused}}",
     "reviewing": "実行前にチェック中",
     "using_tool": "ツールを使用中",
     "preparing_tool": "ツールを準備中",

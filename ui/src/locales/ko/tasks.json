@@ -140,6 +140,7 @@
     "needs_answer": "답변 대기",
     "turn_ended": "이번 턴 종료",
     "stopped": "이번 작업 중지됨",
+    "paused": "일시중지됨: {{paused}}",
     "reviewing": "실행 전 검사 중",
     "using_tool": "도구 사용 중",
     "preparing_tool": "도구 준비 중",

@@ -194,6 +194,10 @@
   "card": {
     "label": "Aufgabe: {{title}}",
     "claimed": "Übernommen",
-    "assigned": "Zugewiesen"
+    "assigned": "Zugewiesen",
+    "paused": "Pausiert",
+    "resume": "Fortsetzen",
+    "drop": "Verwerfen",
+    "resumes_after": "Wird nach der laufenden Antwort fortgesetzt"
   }
 }

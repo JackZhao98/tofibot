@@ -140,6 +140,7 @@
     "needs_answer": "待回答",
     "turn_ended": "本轮已结束",
     "stopped": "本次工作已停止",
+    "paused": "已暂停：{{paused}}",
     "reviewing": "执行前检查中",
     "using_tool": "正在使用工具",
     "preparing_tool": "正在准备工具",

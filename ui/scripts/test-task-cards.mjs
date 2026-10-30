@@ -44,6 +44,16 @@ try {
   assert.equal(anchors.get("m2")[0].id, "b", "otherwise the last message before the task");
   assert.equal([...anchors.values()].flat().some(card => card.id === "c"), false, "a task older than the loaded history draws nowhere");
 
+  // A paused task (a person's message took the Bot away from it) draws a card with its resume state, under the interrupted run's message.
+  const pausedTask = task("p", { status: "todo", interrupted_at: "2026-10-23T10:02:00Z", auto_resume: true, source: "schedule_occurrence", source_run_id: "r2", assignee_run_id: "" });
+  const paused = buildCardModels([pausedTask], names).get("p");
+  assert.deepEqual([paused.paused, paused.autoResume, paused.open], [true, true, true]);
+  assert.equal(buildCardModels([task("p", { status: "todo" })], names).get("p").paused, false, "a task that waits to start is not paused");
+  const pausedAnchor = anchorCards([pausedTask], new Map([["p", paused]]), messages, new Map([["r2", { id: "r2", trigger_message_id: "m2" }]]));
+  assert.equal(pausedAnchor.get("m2")[0].id, "p", "a paused task sits under the message of the run it was taken from");
+  const exhausted = buildCardModels([{ ...pausedTask, auto_resume: false, updated_at: "2026-10-23T10:03:00Z" }], names, new Map([["p", paused]])).get("p");
+  assert.notEqual(exhausted, paused, "a task whose automatic resumes ran out is a change");
+
   // The member list: open tasks per holder, claimed first, nothing for finished ones.
   const roster = rosterTasks(buildCardModels([
     task("a", { claimed_at: "x" }), task("b", { bot_id: "b2" }), task("c", { status: "todo" }), task("d", { status: "done", checklist: items(2) }),

@@ -260,7 +260,7 @@ export function taskPhaseLabel(input: TaskPresentationInput) {
   if (run.finishing_reason) return t("phase.finishing");
   if (questions.some(question => canAnswerQuestion(question) && question.question_type === "approval") || drafts.some(draft => draft.status === "pending")) return t("phase.needs_approval");
   if (questions.some(question => canAnswerQuestion(question) && question.question_type !== "approval")) return t("phase.needs_answer");
-  if (isTerminalRun(run)) return run.status === "done" ? t("phase.turn_ended") : t("phase.stopped");
+  if (isTerminalRun(run)) return run.status === "done" ? t("phase.turn_ended") : t(run.paused ? "phase.paused" : "phase.stopped", { paused: run.paused });
   if (questions.some(question => question.approval?.review?.status === "reviewing")) return t("phase.reviewing");
   if (tools.some(tool => tool.status === "running")) return t("phase.using_tool");
   if (tools.some(tool => tool.status === "queued")) return t("phase.preparing_tool");

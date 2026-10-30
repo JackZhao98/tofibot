@@ -119,7 +119,9 @@ type Message struct {
 type HandoffNotice struct {
 	Type string `json:"type"`
 	// Reason names why a "resume" notice was posted (for example "restart").
-	Reason               string   `json:"reason,omitempty"`
+	Reason string `json:"reason,omitempty"`
+	// TaskTitle names the task a "resume" notice with reason "task" picks up again.
+	TaskTitle            string   `json:"task_title,omitempty"`
 	FromBotID            string   `json:"from_bot_id"`
 	ToBotID              string   `json:"to_bot_id"`
 	ToBotIDs             []string `json:"to_bot_ids,omitempty"`
@@ -153,8 +155,11 @@ type Run struct {
 	TriggerMessageID     string `json:"trigger_message_id,omitempty"`
 	QueueSeq             int64  `json:"queue_seq,omitempty"`
 	FinalOrigin          string `json:"final_origin"`
-	CreatedAt            string `json:"created_at"`
-	UpdatedAt            string `json:"updated_at"`
+	// PausedTaskTitle names the task this run left paused when a person's message
+	// took the Bot away from it (task continuity); set when runs are read or sent.
+	PausedTaskTitle string `json:"paused,omitempty"`
+	CreatedAt       string `json:"created_at"`
+	UpdatedAt       string `json:"updated_at"`
 	// Resolved from durable occurrence ancestry for execution only. Keep Kind
 	// unchanged so delegated work retains its context and return routing.
 	scheduleTask *Message
@@ -2115,7 +2120,12 @@ func (s *Store) Runs(conv string) ([]Run, error) {
 		}
 		out = append(out, r)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	s.decoratePausedRuns(out)
+	return out, nil
 }
 
 const runPageColumns = `id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at,final_origin`
@@ -2198,6 +2208,7 @@ func (s *Store) RunsPage(conv string, limit int, beforeCreated, beforeID string)
 	if page == nil {
 		page = []Run{}
 	}
+	s.decoratePausedRuns(page)
 	return page, hasMore, nil
 }
 
@@ -2272,6 +2283,13 @@ func (s *Store) SetRunStatus(id, status, msg string) (bool, error) {
 			}
 		}
 	}
+	var resumeRun Run
+	var resumed bool
+	if n == 1 && (status == "failed" || status == "done") && !inboxContinued {
+		if resumeRun, resumed, e = resumePausedTasksTx(tx, id); e != nil {
+			return false, e
+		}
+	}
 	if n == 1 && status == "failed" {
 		if e = keepFailedRunFilesTx(tx, id, t); e != nil {
 			return false, e
@@ -2289,6 +2307,9 @@ func (s *Store) SetRunStatus(id, status, msg string) (bool, error) {
 	if inboxContinued && s.onReturnQueued != nil {
 		s.onReturnQueued(inboxRun)
 	}
+	if resumed && s.onReturnQueued != nil {
+		s.onReturnQueued(resumeRun)
+	}
 	if n == 1 && terminal {
 		s.cleanupRunAttachments(id)
 	}
@@ -2299,8 +2320,8 @@ func (s *Store) SetRunStatus(id, status, msg string) (bool, error) {
 // completed artifacts. A successor may still need to cite or bind those
 // artifacts, so ordinary cancellation cleanup would lose them.
 func (s *Store) MarkRunSteered(id, msg string) (bool, error) {
-	var inboxRun Run
-	var inboxContinued bool
+	var inboxRun, resumeRun Run
+	var inboxContinued, resumed bool
 	tx, err := s.db.Begin()
 	if err != nil {
 		return false, err
@@ -2326,15 +2347,26 @@ func (s *Store) MarkRunSteered(id, msg string) (bool, error) {
 			if _, err = tx.Exec(`UPDATE bot_inbox SET parent_run=? WHERE kind='user_message' AND parent_run=? AND consumed_at=''`, successor, id); err != nil {
 				return false, err
 			}
+			// The person's message took the Bot away from this work: it stays on
+			// the Bot's list as a paused task.
+			if err = pauseForPersonSteerTx(tx, id); err != nil {
+				return false, err
+			}
 		} else if err != sql.ErrNoRows {
 			return false, err
 		} else if inboxRun, inboxContinued, err = continueUnreadInboxTx(tx, id, "steered"); err != nil {
 			return false, err
 		}
+		if !inboxContinued {
+			if resumeRun, resumed, err = resumePausedTasksTx(tx, id); err != nil {
+				return false, err
+			}
+		}
 		run, scanErr := scanRun(tx.QueryRow(`SELECT id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at FROM runs WHERE id=?`, id))
 		if scanErr != nil {
 			return false, scanErr
 		}
+		_ = tx.QueryRow(`SELECT title FROM work_items WHERE source_run_id=? AND source<>'' LIMIT 1`, id).Scan(&run.PausedTaskTitle)
 		data, _ := json.Marshal(run)
 		if _, err = tx.Exec(`INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, run.ConversationID, "run", string(data), now()); err != nil {
 			return false, err
@@ -2345,6 +2377,9 @@ func (s *Store) MarkRunSteered(id, msg string) (bool, error) {
 	}
 	if inboxContinued && s.onReturnQueued != nil {
 		s.onReturnQueued(inboxRun)
+	}
+	if resumed && s.onReturnQueued != nil {
+		s.onReturnQueued(resumeRun)
 	}
 	return n == 1, nil
 }
@@ -2563,11 +2598,21 @@ func (s *Store) finishRunOpts(id, conv, bot, content string, silent bool, failur
 		if err = taskRunFinishedTx(tx, done, m, sayOutcome); err != nil {
 			return Message{}, false, err
 		}
+		if err = captureEarlyStopTx(tx, id, sayOutcome); err != nil {
+			return Message{}, false, err
+		}
 	} else if err = taskRunEndedTx(tx, id, "failed"); err != nil {
 		return Message{}, false, err
 	}
 	if inboxContinued {
 		if err = passTasksOnTx(tx, id, inboxRun); err != nil {
+			return Message{}, false, err
+		}
+	}
+	var resumeRun Run
+	var resumed bool
+	if !inboxContinued {
+		if resumeRun, resumed, err = resumePausedTasksTx(tx, id); err != nil {
 			return Message{}, false, err
 		}
 	}
@@ -2612,6 +2657,9 @@ func (s *Store) finishRunOpts(id, conv, bot, content string, silent bool, failur
 	if inboxContinued && s.onReturnQueued != nil {
 		s.onReturnQueued(inboxRun)
 	}
+	if resumed && s.onReturnQueued != nil {
+		s.onReturnQueued(resumeRun)
+	}
 	return m, true, nil
 }
 
@@ -2646,7 +2694,7 @@ func completeOneTimeScheduleTx(tx *sql.Tx, runID, updated string) error {
 		SELECT d.ancestor,child.id FROM descendants d JOIN runs child ON child.parent_run_id=d.id
 	)
 	SELECT COUNT(*) FROM runs r WHERE r.id IN family AND r.status<>'done'
-		AND NOT (r.status IN ('failed','interrupted') AND COALESCE(r.trigger_message_id,'')<>''
+		AND NOT (r.status IN ('failed','interrupted','cancelled') AND COALESCE(r.trigger_message_id,'')<>''
 			AND EXISTS (SELECT 1 FROM descendants d JOIN runs retry ON retry.id=d.id
 				WHERE d.ancestor=r.id AND retry.bot_id=r.bot_id AND retry.kind=r.kind
 				AND retry.trigger_message_id=r.trigger_message_id))`, rootRunID).Scan(&incomplete); err != nil {

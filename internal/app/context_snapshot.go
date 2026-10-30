@@ -77,6 +77,8 @@ var contextMarkerKinds = []struct{ prefix, kind string }{
 	{"[untrusted open work reference]", "open_work"},
 	{"[waiting on]", "waiting_on"},
 	{"[task record]", "task_record"},
+	{"[unfinished task]", "unfinished_task"},
+	{"[unfinished tasks]", "unfinished_task"},
 	{"[task updates]", "task_updates"},
 	{"[wait result]", "wait_result"},
 	{"[untrusted completed tool results from interrupted work]", "tool_carryover"},

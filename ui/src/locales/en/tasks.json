@@ -140,6 +140,7 @@
     "needs_answer": "To answer",
     "turn_ended": "This turn ended",
     "stopped": "This workflow stopped",
+    "paused": "Paused: {{paused}}",
     "reviewing": "Checking before execution",
     "using_tool": "Using a tool",
     "preparing_tool": "Preparing a tool",

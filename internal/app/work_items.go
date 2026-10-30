@@ -65,6 +65,16 @@ type WorkItem struct {
 	WaitingOn            []WaitView      `json:"waiting_on,omitempty"`
 	// ClaimedAt is when the holder claimed the task (claim_task); empty when it has not.
 	ClaimedAt string `json:"claimed_at,omitempty"`
+	// Task continuity: where the work came from, and whether it is paused
+	// (interrupted_at set) waiting for the Bot to start it again.
+	Source          string `json:"source,omitempty"`
+	SourceRunID     string `json:"source_run_id,omitempty"`
+	ScheduleID      string `json:"schedule_id,omitempty"`
+	InterruptedAt   string `json:"interrupted_at,omitempty"`
+	InterruptReason string `json:"interrupt_reason,omitempty"`
+	ResumeCount     int    `json:"resume_count,omitempty"`
+	// AutoResume says the Bot will start a paused task again by itself.
+	AutoResume bool `json:"auto_resume,omitempty"`
 }
 
 type WorkItemInput struct {
@@ -115,7 +125,14 @@ func workItemsDDL(name string) string {
  submit_run_id TEXT NOT NULL DEFAULT '',
  closed_at TEXT NOT NULL DEFAULT '',
  hidden INTEGER NOT NULL DEFAULT 0,
- merged_into TEXT NOT NULL DEFAULT ''
+ merged_into TEXT NOT NULL DEFAULT '',
+ source TEXT NOT NULL DEFAULT '',
+ source_run_id TEXT NOT NULL DEFAULT '',
+ schedule_id TEXT NOT NULL DEFAULT '',
+ interrupted_at TEXT NOT NULL DEFAULT '',
+ interrupt_reason TEXT NOT NULL DEFAULT '',
+ resume_count INTEGER NOT NULL DEFAULT 0,
+ resume_state TEXT NOT NULL DEFAULT ''
  )`
 }
 
@@ -155,6 +172,15 @@ func migrateWorkItems(db *sql.DB) error {
 		}
 		if err := ensureColumn(db, "work_items", "merged_into", `ALTER TABLE work_items ADD COLUMN merged_into TEXT NOT NULL DEFAULT ''`); err != nil {
 			return err
+		}
+		for _, column := range []string{"source", "source_run_id", "schedule_id", "interrupted_at", "interrupt_reason", "resume_count", "resume_state"} {
+			ddl := column + ` TEXT NOT NULL DEFAULT ''`
+			if column == "resume_count" {
+				ddl = column + ` INTEGER NOT NULL DEFAULT 0`
+			}
+			if err := ensureColumn(db, "work_items", column, `ALTER TABLE work_items ADD COLUMN `+ddl); err != nil {
+				return err
+			}
 		}
 		_, err = db.Exec(workItemsIndexesDDL)
 		return err
@@ -534,6 +560,26 @@ func (s *Server) routeWorkItems(w http.ResponseWriter, r *http.Request, path str
 	if s.routeTaskCards(w, r, parts) {
 		return true
 	}
+	if len(parts) == 3 && parts[0] == "work-items" && parts[2] == "resume" {
+		if r.Method != http.MethodPost {
+			writeErr(w, 405, "method", "method not allowed")
+			return true
+		}
+		run, err := s.store.ResumePausedTask(parts[1])
+		if errors.Is(err, sql.ErrNoRows) {
+			writeErr(w, 409, "task_not_paused", "the task is not paused")
+			return true
+		}
+		if err != nil {
+			s.writeWorkItemError(w, err)
+			return true
+		}
+		if conv, e := s.store.GetConversation(run.ConversationID); e == nil {
+			s.enqueue(conv, run)
+		}
+		writeJSON(w, 200, run)
+		return true
+	}
 	if len(parts) == 3 && parts[0] == "work-items" && parts[2] == "execute" {
 		s.startWorkItem(w, r, parts[1])
 		return true
@@ -692,7 +738,12 @@ func (s *Server) workItemBoardTools(c Conversation, r Run) []Tool {
 			if err := json.Unmarshal(data, &in); err != nil {
 				return "", err
 			}
+			// Taking up a paused task: this run now holds it, and the result carries its record.
+			bound := in.Status != nil && *in.Status == "in_progress" && s.store.bindPausedTask(in.WorkItemID, r.ID, c.ID, r.BotID)
 			item, err := s.store.updateWorkItem(in.WorkItemID, in.WorkItemPatch, c.ID, r.BotID)
+			if bound && err == nil {
+				return encode(map[string]any{"work_item": item, "task_record": s.store.taskRecordText(item.ID)}, nil)
+			}
 			return encode(item, err)
 		}},
 		{Name: "list_work_items", Description: "List durable goals and tasks. current_conversation shows this conversation's items; self shows only your assigned items across conversations, each retaining its origin conversation_id. history=false lists open work; history=true lists completed and cancelled work. Recorded items are commitments, not automatically executing runs.", Parameters: objectSchema(map[string]any{"scope": map[string]any{"type": "string", "enum": []string{"current_conversation", "self"}}, "history": map[string]any{"type": "boolean", "description": "False: only open work (use before creating a task); true: only completed or cancelled records, excluding open work"}}, []string{"scope", "history"}), Execute: func(ctx context.Context, data json.RawMessage) (string, error) {

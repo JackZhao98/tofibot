@@ -191,6 +191,10 @@
   "card": {
     "label": "任務:{{title}}",
     "claimed": "已認領",
-    "assigned": "已指派"
+    "assigned": "已指派",
+    "paused": "已暫停",
+    "resume": "繼續",
+    "drop": "放棄",
+    "resumes_after": "目前回覆結束後自動繼續"
   }
 }

@@ -138,7 +138,8 @@ func decorateTaskTx(q queryer, item *WorkItem) error {
 	}
 	item.Checklist = checklist
 	item.ClaimedAt = claimedAtTx(q, item.ID, item.BotID)
-	_ = q.QueryRow(`SELECT merged_into FROM work_items WHERE id=?`, item.ID).Scan(&item.MergedInto)
+	_ = q.QueryRow(`SELECT merged_into,source,source_run_id,schedule_id,interrupted_at,interrupt_reason,resume_count FROM work_items WHERE id=?`, item.ID).Scan(&item.MergedInto, &item.Source, &item.SourceRunID, &item.ScheduleID, &item.InterruptedAt, &item.InterruptReason, &item.ResumeCount)
+	item.AutoResume = item.InterruptedAt != "" && item.Status == "todo" && item.ResumeCount < taskAutoResumeLimit
 	if item.AssignerBotID != "" {
 		_ = q.QueryRow(`SELECT name FROM bots WHERE id=?`, item.AssignerBotID).Scan(&item.AssignerBotName)
 	}

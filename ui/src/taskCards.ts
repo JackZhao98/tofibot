@@ -16,6 +16,10 @@ export interface TaskCardModel {
   items: WorkChecklistItem[];
   claimed: boolean;
   open: boolean;
+  /** Left unfinished when a person's message took the Bot away; it waits to be resumed. */
+  paused: boolean;
+  /** The Bot starts a paused task again by itself. */
+  autoResume: boolean;
 }
 
 const OPEN: ReadonlySet<WorkStatus> = new Set(["todo", "in_progress", "blocked", "review", "input_required"]);
@@ -34,7 +38,7 @@ export function checklistProgress(items: readonly WorkChecklistItem[] | undefine
 }
 
 function sameModel(a: TaskCardModel, b: TaskCardModel): boolean {
-  if (a.title !== b.title || a.holderId !== b.holderId || a.holderName !== b.holderName || a.status !== b.status || a.claimed !== b.claimed || a.done !== b.done || a.total !== b.total || a.items.length !== b.items.length) return false;
+  if (a.title !== b.title || a.holderId !== b.holderId || a.holderName !== b.holderName || a.status !== b.status || a.claimed !== b.claimed || a.paused !== b.paused || a.autoResume !== b.autoResume || a.done !== b.done || a.total !== b.total || a.items.length !== b.items.length) return false;
   return a.items.every((item, index) => { const other = b.items[index]; return item.id === other.id && item.text === other.text && item.status === other.status && item.reason === other.reason; });
 }
 
@@ -50,6 +54,7 @@ export function buildCardModels(tasks: readonly WorkItem[], botName: (id: string
     const model: TaskCardModel = {
       id: task.id, title: task.title, holderId: task.bot_id, holderName: botName(task.bot_id) ?? task.bot_name ?? "", status: task.status,
       done, total, items: task.checklist ?? [], claimed: Boolean(task.claimed_at), open: isOpenTask(task.status),
+      paused: task.status === "todo" && Boolean(task.interrupted_at), autoResume: Boolean(task.auto_resume),
     };
     const old = previous?.get(task.id);
     out.set(task.id, old && sameModel(old, model) ? old : model);
@@ -68,7 +73,7 @@ export function anchorCards(tasks: readonly WorkItem[], cards: ReadonlyMap<strin
   for (const task of [...tasks].sort((a, b) => a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0)) {
     const card = cards.get(task.id);
     if (!card) continue;
-    const trigger = task.assignee_run_id ? runById.get(task.assignee_run_id)?.trigger_message_id : undefined;
+    const trigger = task.assignee_run_id || task.source_run_id ? runById.get(task.assignee_run_id || task.source_run_id!)?.trigger_message_id : undefined;
     let anchor = trigger ? byId.get(trigger) : undefined;
     if (!anchor) for (const message of messages) if (message.created_at <= task.created_at) anchor = message;
     if (!anchor) continue;
@@ -100,7 +105,7 @@ export function mergeTasks(current: readonly WorkItem[], incoming: readonly Work
       const old = list[index];
       // An older copy (a fetch that crossed a newer event) never replaces a newer one; an identical one changes nothing.
       if (old.updated_at > task.updated_at) continue;
-      if (old.updated_at === task.updated_at && old.status === task.status && old.bot_id === task.bot_id && old.claimed_at === task.claimed_at && JSON.stringify(old.checklist) === JSON.stringify(task.checklist)) continue;
+      if (old.updated_at === task.updated_at && old.status === task.status && old.bot_id === task.bot_id && old.claimed_at === task.claimed_at && old.interrupted_at === task.interrupted_at && JSON.stringify(old.checklist) === JSON.stringify(task.checklist)) continue;
     }
     next = next ?? [...current];
     if (index >= 0) next[index] = task; else next.push(task);

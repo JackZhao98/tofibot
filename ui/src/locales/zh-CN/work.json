@@ -191,6 +191,10 @@
   "card": {
     "label": "任务:{{title}}",
     "claimed": "已认领",
-    "assigned": "已分派"
+    "assigned": "已分派",
+    "paused": "已暂停",
+    "resume": "继续",
+    "drop": "放弃",
+    "resumes_after": "当前回复结束后自动继续"
   }
 }
