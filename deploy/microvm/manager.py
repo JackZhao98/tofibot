@@ -1990,14 +1990,26 @@ class Server(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
         return vm.hibernate(wait_for_idle=False, fallback_boot=False)
 
     def boot(self):
-        """Initial manager start: keep a valid snapshot hibernated (lazy)."""
-        if self.vm.hibernation_enabled() and self.vm.snapshot_problem() is None:
-            with self.vm.activity:
-                self.vm.state, self.vm.phase = "hibernated", "hibernated"
-                meta = self.vm.snapshot_dir / "meta.json"
-                self.vm.hibernated_at = json.loads(meta.read_text()).get("created_at", "")
-            return
-        # A rejected snapshot can never be restored: free its disk now.
+        """Initial manager start: a computer that was hibernated stays hibernated (lazy).
+
+        A snapshot that cannot be restored any more (another Guest release
+        after an update, a pending resource change) also stays hibernated: the
+        first use cold boots it (resume rejects the snapshot, then starts). So
+        an update does not boot every account's computer at once, and no
+        computer holds CPU and memory before it is used.
+        """
+        meta = self.vm.snapshot_dir / "meta.json"
+        if self.vm.hibernation_enabled() and not meta.is_symlink() and meta.is_file():
+            try:
+                created = json.loads(meta.read_text()).get("created_at", "")
+            except (OSError, ValueError, AttributeError):
+                created = None
+            if created is not None:
+                with self.vm.activity:
+                    self.vm.state, self.vm.phase = "hibernated", "hibernated"
+                    self.vm.hibernated_at = created
+                return
+        # No usable snapshot record: free any leftover and start now.
         self.vm.discard_snapshot()
         self.prepare()
 

@@ -398,14 +398,24 @@ class ServerTests(Fixture):
         self.assertEqual(self.vm.info()["hibernated_at"], "2026-10-08T00:00:00Z")
         server.prepare.assert_not_called()
 
-    def test_boot_discards_a_rejected_snapshot_and_cold_boots(self):
+    def test_boot_keeps_a_rejected_snapshot_hibernated_until_first_use(self):
+        # After an update the snapshot belongs to the old release. The computer
+        # stays hibernated (no VM, no CPU or memory) and the first use cold boots
+        # it: resume rejects the snapshot and starts (see the rejected-snapshot test).
         self.write_snapshot()
         (self.base / "image" / "rootfs.ext4").write_bytes(b"new rootfs")
         server = self.server()
         server.prepare = mock.Mock()
         server.boot()
+        server.prepare.assert_not_called()
+        self.assertEqual(self.vm.state, "hibernated")
+        self.assertIsNotNone(self.vm.snapshot_problem())
+
+    def test_boot_without_a_snapshot_starts_now(self):
+        server = self.server()
+        server.prepare = mock.Mock()
+        server.boot()
         server.prepare.assert_called_once()
-        self.assertFalse(self.vm.snapshot_dir.exists())
 
     def test_idle_monitor_hibernates_through_the_maintenance_lease(self):
         server = self.server()
