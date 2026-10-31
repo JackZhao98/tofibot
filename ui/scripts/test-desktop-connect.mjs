@@ -27,8 +27,13 @@ async function open({ state, capture, start }) {
     return json({ ok: true, result: {} });
   });
   await page.goto(origin + "/");
-  await page.locator(".computer-button").first().click();
-  await page.locator(".desktop-floating-shell").first().waitFor();
+  // A Bot that holds the desktop may open the window by itself (the "open the
+  // Bot computer when a Bot uses it" preference); a click then would close it.
+  const shell = page.locator(".desktop-floating-shell").first();
+  const toggle = page.locator("[data-computer-toggle]").first();
+  await toggle.waitFor();
+  if (!await shell.waitFor({ timeout: 2000 }).then(() => true, () => false) && await toggle.getAttribute("aria-pressed") !== "true") await toggle.click();
+  await shell.waitFor();
   return { context, page, errors, log };
 }
 const frame = page => page.locator("[data-desktop-frame].desktop-live-screen").first();

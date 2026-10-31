@@ -33,7 +33,7 @@ async function open({ width = 1440, height = 900, theme = "light", reducedMotion
   await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);
   // On a phone the conversation list comes first.
   if (width < 700) await page.locator(".conversation-row").first().click();
-  const button = page.locator(".computer-button").first();
+  const button = page.locator("[data-computer-toggle]").first();
   await button.waitFor();
   return { context, page, errors, button };
 }
@@ -175,7 +175,7 @@ try {
     await page.getByRole("button", { name: "Close Bot computer" }).click();
     await page.waitForFunction(() => !document.querySelector(".desktop-floating-shell"));
     await page.reload();
-    await page.locator(".computer-button").first().click();
+    await page.locator("[data-computer-toggle]").first().click();
     await shell(page, "is-small").waitFor();
     assert.deepEqual(errors, []);
     results.push("ready small/big/close/escape");
@@ -186,7 +186,7 @@ try {
   {
     const state = { info: info("ready"), capture: "image", requests: [] };
     const { context, page } = await open({ theme: "dark", state });
-    await page.locator(".computer-button").first().click();
+    await page.locator("[data-computer-toggle]").first().click();
     await shell(page, "is-small").waitFor();
     await page.locator("img.computer-screen, video").first().waitFor({ state: "attached", timeout: 10000 });
     await page.waitForTimeout(1100);
@@ -197,7 +197,7 @@ try {
     await shot(page, "big-ready-dark-1440");
     await context.close();
     const loading = await open({ theme: "dark", state: { info: info("starting"), capture: "pending" } });
-    await loading.page.locator(".computer-button").first().click();
+    await loading.page.locator("[data-computer-toggle]").first().click();
     await shell(loading.page, "is-small").waitFor();
     await loading.page.waitForTimeout(1200);
     await shot(loading.page, "small-loading-dark-1440");
