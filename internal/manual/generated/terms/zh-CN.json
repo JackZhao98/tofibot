@@ -51,6 +51,8 @@
   "settings:automation.item.completion_review.what": "Bot 用过工具后，回复前会对照实际结果再检查一次答案。",
   "settings:automation.item.conversation_model.name": "对话模型",
   "settings:automation.item.conversation_model.what": "负责聊天、群组协作、定时运行和所有用到工具的工作。Bot 自己指定的模型优先于它。",
+  "settings:automation.item.desktop_engine.name": "桌面控制",
+  "settings:automation.item.desktop_engine.what": "Bot 在浏览器以外的桌面应用中的工作方式。经典方式使用截图和按像素点击。无障碍方式增加读取应用元素树并按元素编号操作的工具，在文件管理器和设置对话框中更准确。截图工具仍然可用。",
   "settings:automation.item.desktop_idle_seconds.name": "桌面空闲休眠",
   "settings:automation.item.desktop_idle_seconds.what": "共享电脑闲置这么久后进入休眠，下次调用工具时自动唤醒。由电脑服务设定。",
   "settings:automation.item.force_say_haiku_dm.name": "Haiku 必须使用回复工具",

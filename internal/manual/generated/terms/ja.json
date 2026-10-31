@@ -51,6 +51,8 @@
   "settings:automation.item.completion_review.what": "ツールを使ったあと、Bot は返信する前に実際の結果と照らして回答を一度見直します。",
   "settings:automation.item.conversation_model.name": "会話モデル",
   "settings:automation.item.conversation_model.what": "チャット、グループ作業、スケジュール実行、ツールを使うあらゆる作業を担当します。Bot 個別のモデル設定が優先されます。",
+  "settings:automation.item.desktop_engine.name": "デスクトップ操作",
+  "settings:automation.item.desktop_engine.what": "Bot がブラウザ以外のデスクトップアプリで作業する方法です。クラシックはスクリーンショットとピクセル指定のクリックを使います。アクセシビリティはアプリの要素ツリーを読み、要素番号で操作するツールを追加し、ファイルマネージャーや設定ダイアログでより正確です。スクリーンショットのツールも引き続き使えます。",
   "settings:automation.item.desktop_idle_seconds.name": "デスクトップのアイドル休止",
   "settings:automation.item.desktop_idle_seconds.what": "共有コンピュータは、この時間使われないと休止し、次のツール呼び出しで復帰します。コンピュータサービス側の設定です。",
   "settings:automation.item.force_say_haiku_dm.name": "Haiku は返信ツールを必須に",

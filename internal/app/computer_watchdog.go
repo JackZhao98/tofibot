@@ -51,7 +51,7 @@ func computerDispatchTimeout(name string, args json.RawMessage) time.Duration {
 			in.TimeoutSec = 120
 		}
 		return max(computerActionTimeout, time.Duration(in.TimeoutSec)*time.Second+computerShellMargin)
-	case "desktop.start", "desktop.stop", "browser.mcp", "files.read", "files.write", "files.list", "files.export_chunk", "files.import_chunk":
+	case "desktop.start", "desktop.stop", "browser.mcp", "desktop.mcp", "files.read", "files.write", "files.list", "files.export_chunk", "files.import_chunk":
 		return computerLifecycleTimeout
 	}
 	return computerActionTimeout

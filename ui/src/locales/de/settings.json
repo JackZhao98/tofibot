@@ -1023,6 +1023,10 @@
         "name": "Browsersteuerung",
         "what": "Wie ein Bot im Browser des Computers arbeitet. Klassisch liest Seitentext und klickt auf sichtbaren Text. Playwright liest einen Barrierefreiheitsbaum und handelt über Element-Referenzen, was auf komplexen Seiten genauer ist."
       },
+      "desktop_engine": {
+        "name": "Desktopsteuerung",
+        "what": "Wie ein Bot in Desktop-Apps außerhalb des Browsers arbeitet. Klassisch nutzt Screenshots und Klicks auf Pixel. Barrierefreiheit fügt Werkzeuge hinzu, die den Elementbaum einer App lesen und über Elementnummern handeln, was in Dateimanagern und Einstellungsdialogen genauer ist. Das Screenshot-Werkzeug bleibt verfügbar."
+      },
       "task_stall_rounds": {
         "name": "Stillstandsmeldung nach",
         "what": "Beendet ein Bot, der eine Aufgabe hält, so viele Runden ohne Änderung an Checkliste oder Status der Aufgabe, wird der Bot an der Wurzel der Arbeit einmal informiert. Die Zählung beginnt neu, sobald sich die Aufgabe bewegt."
@@ -1053,6 +1057,10 @@
       "browser_engine": {
         "classic": "Klassisch",
         "playwright": "Playwright"
+      },
+      "desktop_engine": {
+        "classic": "Klassisch",
+        "a11y": "Barrierefreiheit"
       }
     },
     "auto": "Automatisch · {{model}}",

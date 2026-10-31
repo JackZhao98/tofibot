@@ -241,7 +241,7 @@ func mcpUncertainEffectActivityWith(a ToolActivity, observation func(ToolActivit
 	}
 	// The engine's reads, navigation, tab and view changes are observations;
 	// its clicks, typing, keys and uploads stay effects (like computer_browser).
-	if browserEngineObservation(a.Name) {
+	if browserEngineObservation(a.Name) || desktopEngineObservation(a.Name) {
 		return false
 	}
 	if observation != nil && observation(a) {

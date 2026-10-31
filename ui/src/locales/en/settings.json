@@ -1023,6 +1023,10 @@
         "name": "Browser control",
         "what": "How a Bot works in the computer's browser. Classic reads page text and clicks by visible text. Playwright reads an accessibility tree and acts on element refs, which is more exact on busy pages."
       },
+      "desktop_engine": {
+        "name": "Desktop control",
+        "what": "How a Bot works in desktop apps other than the browser. Classic uses screenshots and pixel clicks. Accessibility adds tools that read an app's element tree and act on element indexes, which is more exact in file managers and settings dialogs. The screenshot tool stays available."
+      },
       "task_stall_rounds": {
         "name": "Stall report after",
         "what": "When a Bot that holds a task finishes this many rounds with no change in the task's checklist or status, the Bot at the root of the work is told once. The count starts again when the task moves."
@@ -1053,6 +1057,10 @@
       "browser_engine": {
         "classic": "Classic",
         "playwright": "Playwright"
+      },
+      "desktop_engine": {
+        "classic": "Classic",
+        "a11y": "Accessibility"
       }
     },
     "auto": "Automatic · {{model}}",

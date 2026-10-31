@@ -38,7 +38,7 @@ var noCompletionReviewTools = append([]string{
 	// Browsing and pointing at the screen gather information; they are not the
 	// deliverable, and a research answer needs no extra review turn.
 	"computer_browser", "computer_desktop", "web_search", "web_fetch",
-}, browserEngineToolNames()...)
+}, append(browserEngineToolNames(), desktopEngineToolNames()...)...)
 
 // noCompletionReviewSQL is the constant SQL list of noCompletionReviewTools.
 var noCompletionReviewSQL = "'" + strings.Join(noCompletionReviewTools, "','") + "'"

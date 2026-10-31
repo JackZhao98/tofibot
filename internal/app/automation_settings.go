@@ -56,6 +56,8 @@ const (
 	autoWebFetchLimit = "web_fetch_limit"
 	// autoBrowserEngine picks how the Bot drives the computer's browser: the built-in computer_browser tool or the Playwright MCP browser_ tools.
 	autoBrowserEngine = "browser_engine"
+	// autoDesktopEngine picks how the Bot drives desktop apps other than the browser: the screenshot tool alone, or the desktop_ accessibility tools next to it.
+	autoDesktopEngine = "desktop_engine"
 	// defaultWebFetchLimit lets multi-page research finish; the cap stays so a loop cannot read pages without end.
 	defaultWebFetchLimit = 20
 
@@ -115,6 +117,7 @@ var automationItems = []automationItem{
 	{Key: autoScheduleReceiptReview, Group: "schedules", Kind: autoKindBool, Default: "true"},
 	{Key: autoDesktopIdle, Group: "computer", Kind: autoKindReadOnly, Unit: "seconds"},
 	{Key: autoBrowserEngine, Group: "computer", Kind: autoKindEnum, Default: browserEngineClassic, Env: "TOFI_BROWSER_ENGINE", Options: []string{browserEngineClassic, browserEnginePlaywright}},
+	{Key: autoDesktopEngine, Group: "computer", Kind: autoKindEnum, Default: desktopEngineClassic, Env: "TOFI_DESKTOP_ENGINE", Options: []string{desktopEngineClassic, desktopEngineA11y}},
 	{Key: autoGroupTriage, Group: "replies", Kind: autoKindBool, Default: "true"},
 	{Key: autoGroupTriageModel, Group: "models", Kind: autoKindModel},
 	{Key: autoGroupFollowUp, Group: "replies", Kind: autoKindBool, Default: "true"},

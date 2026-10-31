@@ -51,6 +51,8 @@
   "settings:automation.item.completion_review.what": "도구를 쓴 뒤, Bot은 답장하기 전에 실제 결과와 대조해 답을 한 번 더 점검합니다.",
   "settings:automation.item.conversation_model.name": "대화 모델",
   "settings:automation.item.conversation_model.what": "채팅, 그룹 작업, 예약 실행, 도구를 쓰는 모든 작업을 맡습니다. Bot에 직접 지정한 모델이 우선합니다.",
+  "settings:automation.item.desktop_engine.name": "데스크톱 제어",
+  "settings:automation.item.desktop_engine.what": "Bot이 브라우저 외의 데스크톱 앱에서 작업하는 방식입니다. 클래식은 스크린샷과 픽셀 클릭을 사용합니다. 접근성은 앱의 요소 트리를 읽고 요소 번호로 동작하는 도구를 추가하며, 파일 관리자와 설정 대화상자에서 더 정확합니다. 스크린샷 도구도 계속 사용할 수 있습니다.",
   "settings:automation.item.desktop_idle_seconds.name": "데스크톱 유휴 절전",
   "settings:automation.item.desktop_idle_seconds.what": "공유 컴퓨터는 이 시간 동안 쓰이지 않으면 절전하고, 다음 도구 호출 때 깨어납니다. 컴퓨터 서비스에서 설정합니다.",
   "settings:automation.item.force_say_haiku_dm.name": "Haiku는 답장 도구 필수",
