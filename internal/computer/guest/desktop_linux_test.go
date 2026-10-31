@@ -181,11 +181,16 @@ func TestPrepareDesktopConfigProvidesPanelAndAppLaunchers(t *testing.T) {
 		t.Fatal(err)
 	}
 	filesText := string(files)
+	if strings.Contains(filesText, "dbus-run-session") {
+		t.Fatalf("Files launcher starts its own bus: %s", filesText)
+	}
 	for _, want := range []string{
 		"export HOME='" + sharedHome + "'",
 		"export DISPLAY=':199'",
 		"export XDG_RUNTIME_DIR='" + runtimeDir + "'",
-		"dbus-run-session -- pcmanfm --no-desktop --new-win --profile='tofi-" + testBot + "'",
+		"export DBUS_SESSION_BUS_ADDRESS='unix:path=" + runtimeDir + "/bus'",
+		"export GTK_A11Y='atspi'",
+		"exec pcmanfm --no-desktop --new-win --profile='tofi-" + testBot + "'",
 		"--display=':199' '" + botDir + "'",
 	} {
 		if !strings.Contains(filesText, want) {

@@ -35,7 +35,7 @@ func (s *Service) startDesktop(ctx context.Context, botID string) (map[string]an
 		return nil, fmt.Errorf("create shared desktop workspace: %w", err)
 	}
 	var err error
-	for _, name := range []string{"Xvfb", "fluxbox", "tint2", browserBinary(), "feh", "pcmanfm", "dbus-run-session", "xterm", "setsid"} {
+	for _, name := range []string{"Xvfb", "fluxbox", "tint2", browserBinary(), "feh", "pcmanfm", "dbus-daemon", "xterm", "setsid"} {
 		if _, err := exec.LookPath(name); err != nil {
 			return nil, fmt.Errorf("desktop dependency %s is unavailable", name)
 		}
@@ -144,6 +144,14 @@ func (s *Service) startDesktop(ctx context.Context, botID string) (map[string]an
 	// temp area; Chrome's singleton/controller runtime remains disposable.
 	env := append(cleanEnv(s.root, botDir), "DISPLAY="+d.display)
 	env = replaceEnv(env, "TMPDIR", filepath.Join(botDir, "tmp"))
+	// One session bus for the whole desktop, with accessibility switched on for
+	// every graphical process started from here.
+	env = withDesktopA11yEnv(env, runtimeDir)
+	d.dbus, err = startSessionBus(startCtx, runtimeDir, env, d.log)
+	if err != nil {
+		s.abortDesktopStart(ctx, botID, d, err)
+		return nil, desktopStartError("start session bus", err, d.log)
+	}
 	d.xvfb, err = startDesktopProcess("Xvfb", []string{d.display, "-screen", "0", "1280x800x24", "-nolisten", "tcp", "-noreset"}, env, d.log)
 	if err != nil {
 		s.abortDesktopStart(ctx, botID, d, err)
@@ -716,7 +724,8 @@ func writeDesktopLaunchers(filesPath, chromePath, terminalPath, botDir, sharedHo
 		"  id=$(xdotool search --class pcmanfm 2>/dev/null | tail -n 1 || true)\n" +
 		"  if [ -n \"$id\" ]; then xdotool windowmap \"$id\" >/dev/null 2>&1 || true; xdotool windowactivate --sync \"$id\" >/dev/null 2>&1 || true; exit 0; fi\n" +
 		"fi\n" +
-		"exec dbus-run-session -- pcmanfm --no-desktop --new-win --profile=" + shellQuote(profileName) +
+		desktopA11yShellExports(runtimeDir) +
+		"exec pcmanfm --no-desktop --new-win --profile=" + shellQuote(profileName) +
 		" --role=" + shellQuote(roleName) + " --display=" + shellQuote(display) +
 		" " + shellQuote(botDir) + "\n"
 	if err := writeExecutable(filesPath, []byte(files)); err != nil {
@@ -753,6 +762,7 @@ func writeDesktopLaunchers(filesPath, chromePath, terminalPath, botDir, sharedHo
 		"export HOME=" + shellQuote(sharedHome) + "\n" +
 		"export DISPLAY=" + shellQuote(display) + "\n" +
 		"export PWD=" + shellQuote(botDir) + "\n" +
+		desktopA11yShellExports(runtimeDir) +
 		"cd " + shellQuote(botDir) + "\n" +
 		"pidfile=" + shellQuote(runtimeDir) + "/terminal-shell-$$.pid\n" +
 		"cleanup() { rm -f \"$pidfile\"; }\n" +
@@ -832,6 +842,13 @@ func stopDesktopProcesses(ctx context.Context, d *desktop) error {
 	if d.xvfb != nil && d.xvfb.Process != nil {
 		if err := stopProcess(d.xvfb); err != nil && first == nil {
 			first = fmt.Errorf("stop %s: %w", filepath.Base(d.xvfb.Path), err)
+		}
+	}
+	// The bus goes last: apps that outlive the window manager still talk to it
+	// while they shut down.
+	if d.dbus != nil && d.dbus.Process != nil {
+		if err := stopProcess(d.dbus); err != nil && first == nil {
+			first = fmt.Errorf("stop %s: %w", filepath.Base(d.dbus.Path), err)
 		}
 	}
 	// Close the small setsid-to-pidfile race and clean up any terminal which
