@@ -90,5 +90,54 @@
     "timing_locked": "Ein einmaliger Zeitplan, der schon gelaufen ist, lässt sich nicht neu terminieren.",
     "cancel": "Abbrechen",
     "save": "Speichern"
+  },
+  "dayone": {
+    "title": "Lass deinen Bot heute loslegen",
+    "lead": "Wähle eine Vorlage. Sie legt einen Zeitplan an, den du jederzeit ändern oder pausieren kannst.",
+    "dismiss": "Jetzt nicht",
+    "checking": "Gmail-Verbindung wird geprüft …",
+    "time": "Uhrzeit",
+    "zone_note": "Läuft in deiner Zeitzone, {{zone}}.",
+    "create": "Zeitplan anlegen",
+    "creating": "Wird angelegt …",
+    "failed": "Der Zeitplan konnte nicht angelegt werden. Versuche es erneut.",
+    "created": "Zeitplan angelegt",
+    "next_run": "nächster Lauf {{time}}",
+    "manage": "Aufgaben öffnen",
+    "add_another": "Noch einen hinzufügen",
+    "cadence_daily": "Täglich um {{time}}",
+    "cadence_hours_one": "Jede Stunde",
+    "cadence_hours_other": "Alle {{count}} Stunden",
+    "cadence_once": "Einmalig",
+    "briefing": {
+      "name": "Morgenbriefing",
+      "summary": "Eine tägliche Zusammenfassung der Nachrichten, die du wählst, in diesem Chat.",
+      "topics": "Themen",
+      "topics_placeholder": "KI, Klima, lokales Wetter",
+      "schedule_title": "Morgenbriefing",
+      "schedule_description": "Tägliche Nachrichtenübersicht: {{topics}}"
+    },
+    "inbox": {
+      "name": "Posteingangs-Übersicht",
+      "summary": "Eine tägliche Mail-Übersicht: was eine Antwort braucht und was wissenswert ist.",
+      "needs_gmail": "Die Posteingangs-Übersicht liest dein Gmail, verbinde also zuerst Google. Das dauert eine Minute, und du entscheidest, was erlaubt ist.",
+      "connect": "Google verbinden",
+      "focus": "Worauf besonders achten (optional)",
+      "focus_placeholder": "Ein Kunde, ein Projekt, ein Absender",
+      "time": "Uhrzeit der Übersicht",
+      "schedule_title": "Posteingangs-Übersicht",
+      "schedule_description": "Tägliche Zusammenfassung neuer Mails"
+    },
+    "watch": {
+      "name": "Webseite beobachten",
+      "summary": "Eine Seite nach Zeitplan prüfen und melden, was sich geändert hat.",
+      "url": "Adresse der Seite",
+      "every": "Prüfen",
+      "hourly": "Jede Stunde",
+      "six_hours": "Alle 6 Stunden",
+      "daily": "Einmal am Tag",
+      "schedule_title": "{{host}} beobachten",
+      "schedule_description": "Meldet Änderungen an {{url}}"
+    }
   }
 }

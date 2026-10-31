@@ -94,5 +94,55 @@
     "timing_locked": "Une planification ponctuelle déjà exécutée ne peut pas être reprogrammée.",
     "cancel": "Annuler",
     "save": "Enregistrer"
+  },
+  "dayone": {
+    "title": "Mettez votre Bot au travail dès aujourd'hui",
+    "lead": "Choisissez-en un. Il crée une planification que vous pouvez modifier ou mettre en pause à tout moment.",
+    "dismiss": "Pas maintenant",
+    "checking": "Vérification de la connexion Gmail…",
+    "time": "Heure",
+    "zone_note": "S'exécute dans votre fuseau horaire, {{zone}}.",
+    "create": "Créer la planification",
+    "creating": "Création…",
+    "failed": "Impossible de créer la planification. Réessayez.",
+    "created": "Planification créée",
+    "next_run": "prochaine exécution {{time}}",
+    "manage": "Ouvrir les tâches",
+    "add_another": "En ajouter une autre",
+    "cadence_daily": "Tous les jours à {{time}}",
+    "cadence_hours_one": "Toutes les heures",
+    "cadence_hours_many": "Toutes les {{count}} heures",
+    "cadence_hours_other": "Toutes les {{count}} heures",
+    "cadence_once": "Une fois",
+    "briefing": {
+      "name": "Briefing du matin",
+      "summary": "Un résumé quotidien des actualités de votre choix, publié dans cette conversation.",
+      "topics": "Sujets",
+      "topics_placeholder": "IA, climat, météo locale",
+      "schedule_title": "Briefing du matin",
+      "schedule_description": "Résumé quotidien de l'actualité : {{topics}}"
+    },
+    "inbox": {
+      "name": "Résumé de la boîte de réception",
+      "summary": "Un résumé quotidien des e-mails : ce qui demande une réponse et ce qui mérite d'être su.",
+      "needs_gmail": "Le résumé de la boîte de réception lit votre Gmail : connectez d'abord Google. Cela prend une minute et vous choisissez ce que vous autorisez.",
+      "connect": "Connecter Google",
+      "focus": "À surveiller en particulier (facultatif)",
+      "focus_placeholder": "Un client, un projet, un expéditeur",
+      "time": "Heure du résumé",
+      "schedule_title": "Résumé de la boîte de réception",
+      "schedule_description": "Résumé quotidien des nouveaux e-mails"
+    },
+    "watch": {
+      "name": "Surveiller une page web",
+      "summary": "Vérifier une page à intervalle régulier et signaler ce qui a changé.",
+      "url": "Adresse de la page",
+      "every": "Vérifier",
+      "hourly": "Toutes les heures",
+      "six_hours": "Toutes les 6 heures",
+      "daily": "Une fois par jour",
+      "schedule_title": "Surveiller {{host}}",
+      "schedule_description": "Signale les changements de {{url}}"
+    }
   }
 }

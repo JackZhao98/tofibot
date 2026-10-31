@@ -112,6 +112,7 @@ import type { SurfaceCtx } from "./SurfaceViews";
 // The page-wide file drop target loads right after first paint; it is not needed to draw the shell.
 const WebFileDropOverlay = lazy(() => import("./WebFileDropOverlay").then(module => ({ default: module.WebFileDropOverlay })));
 // Shown only before the first Bot exists.
+const DayOneTemplates = lazy(() => import("./DayOneTemplates"));
 const FirstRunHero = lazy(() => import("./FirstRunHero").then(module => ({ default: module.FirstRunHero })));
 const WorkspaceToast = lazy(() => import("./WorkspaceToast").then(module => ({ default: module.WorkspaceToast })));
 const SettingsChangeNotice = lazy(() => import("./SettingsChangeNotice"));
@@ -2793,6 +2794,7 @@ function Workspace() {
                       return <MessageRow key={blockKey(message)} model={model} h={rowHandlers} stream={draftStream} />;
                     })}
                   {greeting.stage === "typing" && activeBot && <CompactLiveLine key={`greeting-${greeting.shown}`} label={`${t("live.thinking")}…`} botId={activeBot.id} botName={activeBot.name} at={activeBot.created_at} showName={false} ariaLabel={t("live.status_label", { name: activeBot.name })} />}
+                  {active.kind === "dm" && !active.archived && activeBot && !activeBot.archived && loadedId === active.id && !loadingMessages && !snapshotError && greeting.stage === "done" && messages.every(message => message.role !== "user") && <Suspense fallback={null}><DayOneTemplates conversationId={active.id} botId={activeBot.id} onOpenTasks={() => openSidebarId("tasks")} /></Suspense>}
                   <ToolActivityList activities={toolTimeline.fallback} summaries={terminalToolSummaries.filter(summary => toolTimeline.fallback.some(activity => activity.run_id === summary.run_id))} details={toolDetailState} onLoadDetails={loadToolDetails} botById={botById} activeRunIds={activeRunIds} group={active.kind === "group"} />
                   {placementsAt(undefined).map(renderPlacement)}
                   {!isDesktop && pendingRuns.filter(run => !ownedRunIDs.has(run.id)).map(run => <LiveRunStatus key={run.id} run={run} botName={run.kind === "triage" ? "Tofi" : botById.get(run.bot_id)?.name ?? "Bot"} showName={active.kind === "group"} />)}

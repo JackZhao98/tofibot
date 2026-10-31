@@ -86,5 +86,53 @@
     "timing_locked": "已經執行過的單次排程無法重新安排時間。",
     "cancel": "取消",
     "save": "儲存"
+  },
+  "dayone": {
+    "title": "今天就讓 Bot 開工",
+    "lead": "選一個。它會建立一個排程，隨時可以修改或暫停。",
+    "dismiss": "暫不需要",
+    "checking": "正在檢查 Gmail 連線…",
+    "time": "每天的時間",
+    "zone_note": "依你的時區 {{zone}} 執行。",
+    "create": "建立排程",
+    "creating": "建立中…",
+    "failed": "無法建立排程，請再試一次。",
+    "created": "已建立排程",
+    "next_run": "下次執行 {{time}}",
+    "manage": "開啟任務",
+    "add_another": "再加一個",
+    "cadence_daily": "每天 {{time}}",
+    "cadence_hours_other": "每 {{count}} 小時",
+    "cadence_once": "一次",
+    "briefing": {
+      "name": "晨間簡報",
+      "summary": "每天彙整你關心的新聞，發到這個對話中。",
+      "topics": "主題",
+      "topics_placeholder": "AI、氣候、當地天氣",
+      "schedule_title": "晨間簡報",
+      "schedule_description": "每日新聞摘要：{{topics}}"
+    },
+    "inbox": {
+      "name": "收件匣摘要",
+      "summary": "每天一份郵件摘要：哪些需要回覆，哪些值得一看。",
+      "needs_gmail": "收件匣摘要需要讀取你的 Gmail，請先連接 Google。只需一分鐘，授權範圍由你決定。",
+      "connect": "連接 Google",
+      "focus": "需要特別留意的內容（選填）",
+      "focus_placeholder": "某個客戶、專案或寄件者",
+      "time": "摘要時間",
+      "schedule_title": "收件匣摘要",
+      "schedule_description": "每日新郵件摘要"
+    },
+    "watch": {
+      "name": "監看網頁",
+      "summary": "定時檢查一個網頁，並回報有什麼變化。",
+      "url": "網頁位址",
+      "every": "檢查頻率",
+      "hourly": "每小時",
+      "six_hours": "每 6 小時",
+      "daily": "每天一次",
+      "schedule_title": "監看 {{host}}",
+      "schedule_description": "回報 {{url}} 的變化"
+    }
   }
 }

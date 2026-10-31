@@ -86,5 +86,53 @@
     "timing_locked": "이미 실행된 일회성 일정은 시간을 다시 정할 수 없습니다.",
     "cancel": "취소",
     "save": "저장"
+  },
+  "dayone": {
+    "title": "오늘부터 Bot에게 일을 맡겨 보세요",
+    "lead": "하나를 고르면 언제든 수정하거나 일시 중지할 수 있는 일정이 만들어집니다.",
+    "dismiss": "나중에",
+    "checking": "Gmail 연결을 확인하는 중…",
+    "time": "매일 시각",
+    "zone_note": "내 시간대({{zone}})로 실행됩니다.",
+    "create": "일정 만들기",
+    "creating": "만드는 중…",
+    "failed": "일정을 만들지 못했습니다. 다시 시도하세요.",
+    "created": "일정을 만들었습니다",
+    "next_run": "다음 실행 {{time}}",
+    "manage": "작업 열기",
+    "add_another": "하나 더 추가",
+    "cadence_daily": "매일 {{time}}",
+    "cadence_hours_other": "{{count}}시간마다",
+    "cadence_once": "한 번",
+    "briefing": {
+      "name": "아침 브리핑",
+      "summary": "고른 뉴스를 매일 요약해 이 대화에 올려 줍니다.",
+      "topics": "주제",
+      "topics_placeholder": "AI, 기후, 지역 날씨",
+      "schedule_title": "아침 브리핑",
+      "schedule_description": "일일 뉴스 요약: {{topics}}"
+    },
+    "inbox": {
+      "name": "받은편지함 요약",
+      "summary": "매일 받는 메일 요약. 답장이 필요한 것과 알아 둘 만한 것을 정리합니다.",
+      "needs_gmail": "받은편지함 요약은 Gmail을 읽어야 하므로 먼저 Google을 연결하세요. 1분이면 되고 허용 범위는 직접 정합니다.",
+      "connect": "Google 연결",
+      "focus": "특히 살펴볼 내용(선택)",
+      "focus_placeholder": "고객, 프로젝트, 보낸 사람",
+      "time": "요약 시각",
+      "schedule_title": "받은편지함 요약",
+      "schedule_description": "새 메일의 일일 요약"
+    },
+    "watch": {
+      "name": "웹페이지 감시",
+      "summary": "페이지를 정해진 주기로 확인하고 바뀐 내용을 알려 줍니다.",
+      "url": "페이지 주소",
+      "every": "확인 주기",
+      "hourly": "1시간마다",
+      "six_hours": "6시간마다",
+      "daily": "하루에 한 번",
+      "schedule_title": "{{host}} 감시",
+      "schedule_description": "{{url}}의 변경 사항 보고"
+    }
   }
 }

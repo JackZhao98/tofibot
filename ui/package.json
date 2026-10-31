@@ -59,6 +59,7 @@
     "test:api-error-codes": "node scripts/test-api-error-codes.mjs",
     "test:proxy-challenge": "node scripts/test-proxy-challenge.mjs",
     "test:empty-states": "node scripts/test-empty-states.mjs",
+    "test:day-one-templates": "node scripts/test-day-one-templates.mjs",
     "test:file-preview": "node scripts/test-file-preview.mjs",
     "test:perf-structure": "node scripts/test-perf-structure.mjs",
     "test:avatar-frame-budget": "node scripts/test-avatar-frame-budget.mjs",

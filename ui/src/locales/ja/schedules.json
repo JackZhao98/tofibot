@@ -86,5 +86,53 @@
     "timing_locked": "すでに実行された単発のスケジュールは日時を変更できません。",
     "cancel": "キャンセル",
     "save": "保存"
+  },
+  "dayone": {
+    "title": "今日から Bot に仕事を任せましょう",
+    "lead": "ひとつ選ぶと、あとから編集や一時停止ができるスケジュールを作成します。",
+    "dismiss": "今はしない",
+    "checking": "Gmail の接続を確認しています…",
+    "time": "毎日の時刻",
+    "zone_note": "あなたのタイムゾーン（{{zone}}）で実行します。",
+    "create": "スケジュールを作成",
+    "creating": "作成中…",
+    "failed": "スケジュールを作成できませんでした。もう一度お試しください。",
+    "created": "スケジュールを作成しました",
+    "next_run": "次回 {{time}}",
+    "manage": "タスクを開く",
+    "add_another": "もうひとつ追加",
+    "cadence_daily": "毎日 {{time}}",
+    "cadence_hours_other": "{{count}} 時間ごと",
+    "cadence_once": "1 回",
+    "briefing": {
+      "name": "朝のブリーフィング",
+      "summary": "選んだニュースを毎日まとめて、このチャットに投稿します。",
+      "topics": "トピック",
+      "topics_placeholder": "AI、気候、地域の天気",
+      "schedule_title": "朝のブリーフィング",
+      "schedule_description": "毎日のニュース要約：{{topics}}"
+    },
+    "inbox": {
+      "name": "受信トレイダイジェスト",
+      "summary": "毎日のメール要約。返信が必要なものと、知っておく価値のあるものをまとめます。",
+      "needs_gmail": "受信トレイダイジェストは Gmail を読み取るため、先に Google を接続してください。1 分ほどで済み、許可する範囲は選べます。",
+      "connect": "Google を接続",
+      "focus": "特に注目すること（任意）",
+      "focus_placeholder": "取引先、プロジェクト、送信者など",
+      "time": "ダイジェストの時刻",
+      "schedule_title": "受信トレイダイジェスト",
+      "schedule_description": "新着メールの毎日の要約"
+    },
+    "watch": {
+      "name": "Web ページの監視",
+      "summary": "ページを定期的に確認し、変わった点を報告します。",
+      "url": "ページのアドレス",
+      "every": "確認の間隔",
+      "hourly": "1 時間ごと",
+      "six_hours": "6 時間ごと",
+      "daily": "1 日 1 回",
+      "schedule_title": "{{host}} を監視",
+      "schedule_description": "{{url}} の変更を報告"
+    }
   }
 }

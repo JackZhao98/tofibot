@@ -86,5 +86,53 @@
     "timing_locked": "已经执行过的单次日程无法重新安排时间。",
     "cancel": "取消",
     "save": "保存"
+  },
+  "dayone": {
+    "title": "今天就让 Bot 开工",
+    "lead": "选一个。它会创建一个定时任务，随时可以修改或暂停。",
+    "dismiss": "暂不需要",
+    "checking": "正在检查 Gmail 连接…",
+    "time": "每天的时间",
+    "zone_note": "按你的时区 {{zone}} 运行。",
+    "create": "创建定时任务",
+    "creating": "正在创建…",
+    "failed": "无法创建定时任务，请重试。",
+    "created": "已创建定时任务",
+    "next_run": "下次运行 {{time}}",
+    "manage": "打开任务",
+    "add_another": "再加一个",
+    "cadence_daily": "每天 {{time}}",
+    "cadence_hours_other": "每 {{count}} 小时",
+    "cadence_once": "一次",
+    "briefing": {
+      "name": "晨间简报",
+      "summary": "每天汇总你关心的新闻，发到这个对话里。",
+      "topics": "主题",
+      "topics_placeholder": "AI、气候、本地天气",
+      "schedule_title": "晨间简报",
+      "schedule_description": "每日新闻摘要：{{topics}}"
+    },
+    "inbox": {
+      "name": "收件箱摘要",
+      "summary": "每天一封邮件摘要：哪些需要回复，哪些值得一看。",
+      "needs_gmail": "收件箱摘要需要读取你的 Gmail，请先连接 Google。只需一分钟，授权范围由你决定。",
+      "connect": "连接 Google",
+      "focus": "需要特别留意的内容（可选）",
+      "focus_placeholder": "某个客户、项目或发件人",
+      "time": "摘要时间",
+      "schedule_title": "收件箱摘要",
+      "schedule_description": "每日新邮件摘要"
+    },
+    "watch": {
+      "name": "监视网页",
+      "summary": "定时检查一个网页，并报告有什么变化。",
+      "url": "网页地址",
+      "every": "检查频率",
+      "hourly": "每小时",
+      "six_hours": "每 6 小时",
+      "daily": "每天一次",
+      "schedule_title": "监视 {{host}}",
+      "schedule_description": "报告 {{url}} 的变化"
+    }
   }
 }

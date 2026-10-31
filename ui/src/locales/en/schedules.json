@@ -90,5 +90,54 @@
     "timing_locked": "A one-time schedule that has already run can't be rescheduled.",
     "cancel": "Cancel",
     "save": "Save"
+  },
+  "dayone": {
+    "title": "Put your Bot to work today",
+    "lead": "Pick one. It sets up a schedule you can edit or pause at any time.",
+    "dismiss": "Not now",
+    "checking": "Checking your Gmail connection…",
+    "time": "Time of day",
+    "zone_note": "Runs in your time zone, {{zone}}.",
+    "create": "Create schedule",
+    "creating": "Creating…",
+    "failed": "Couldn't create the schedule. Try again.",
+    "created": "Scheduled",
+    "next_run": "next run {{time}}",
+    "manage": "Open Tasks",
+    "add_another": "Add another",
+    "cadence_daily": "Every day at {{time}}",
+    "cadence_hours_one": "Every hour",
+    "cadence_hours_other": "Every {{count}} hours",
+    "cadence_once": "Once",
+    "briefing": {
+      "name": "Morning briefing",
+      "summary": "A daily summary of the news you choose, posted in this chat.",
+      "topics": "Topics",
+      "topics_placeholder": "AI, climate, local weather",
+      "schedule_title": "Morning briefing",
+      "schedule_description": "Daily news summary: {{topics}}"
+    },
+    "inbox": {
+      "name": "Inbox digest",
+      "summary": "A daily email digest: what needs a reply and what is worth knowing.",
+      "needs_gmail": "The inbox digest reads your Gmail, so connect Google first. It takes a minute and you choose what to allow.",
+      "connect": "Connect Google",
+      "focus": "Anything to watch for (optional)",
+      "focus_placeholder": "A client, a project, a sender",
+      "time": "Digest time",
+      "schedule_title": "Inbox digest",
+      "schedule_description": "Daily summary of new email"
+    },
+    "watch": {
+      "name": "Watch a web page",
+      "summary": "Check a page on a schedule and report what changed.",
+      "url": "Page address",
+      "every": "Check",
+      "hourly": "Every hour",
+      "six_hours": "Every 6 hours",
+      "daily": "Once a day",
+      "schedule_title": "Watch {{host}}",
+      "schedule_description": "Reports changes to {{url}}"
+    }
   }
 }
