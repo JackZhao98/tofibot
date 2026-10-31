@@ -37,7 +37,7 @@ This Code of Conduct applies within all community spaces, and also applies when 
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders responsible for enforcement at the maintainers through the private report page <https://github.com/JackZhao98/tofibot/security/advisories/new> (the same page that [SECURITY.md](SECURITY.md) uses). If this page is not available, open a public issue that says only "I need a private way to report a conduct problem". Do not put details in it. A maintainer will then start a private advisory with you. All complaints will be reviewed and investigated promptly and fairly.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders responsible for enforcement at jack@tofibot.com. All complaints will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the reporter of any incident.
 

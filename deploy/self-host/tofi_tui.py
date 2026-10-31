@@ -598,7 +598,7 @@ def installed_state(host):
 
 
 def installed_backend(host):
-    """kvm or none: the computer backend an existing install recorded (kvm when it records none)."""
+    """kvm or none: the Bot computer backend an existing install recorded (kvm when it records none)."""
     for line in (read_text(host.env_file) or '').splitlines():
         if line.startswith('TOFI_COMPUTER_BACKEND='):
             return line.split('=', 1)[1].strip() or 'kvm'
@@ -696,19 +696,19 @@ def kernel_problems(facts):
 
 
 def computer_problems(facts, fresh=True):
-    """Why this host cannot run a computer (KVM), as short sentences; empty when it can.
+    """Why this host cannot run a Bot computer (KVM), as short sentences; empty when it can.
 
     These are the checks that used to stop the installer. They now only decide
-    whether a computer is offered: without one the server and web app install anyway."""
+    whether a Bot computer is offered: without one the server and web app install anyway."""
     problems = kernel_problems(facts)
     if facts['cpus'] < MIN_CPUS:
-        problems.append('A computer needs at least %d vCPUs; this host has %d.' % (MIN_CPUS, facts['cpus']))
+        problems.append('A Bot computer needs at least %d vCPUs; this host has %d.' % (MIN_CPUS, facts['cpus']))
     memory = facts['memory_mib']
     if memory is not None and memory < MIN_MEMORY_MIB:
-        problems.append('A computer needs at least 4 GiB of RAM; this host has %d MiB.' % memory)
+        problems.append('A Bot computer needs at least 4 GiB of RAM; this host has %d MiB.' % memory)
     disk = facts['disk_gib']
     if fresh and disk is not None and disk < MIN_DISK_GIB:
-        problems.append('A computer needs at least %d GiB free under /var/lib; %d GiB is free.'
+        problems.append('A Bot computer needs at least %d GiB free under /var/lib; %d GiB is free.'
                         % (MIN_DISK_GIB, disk))
     return problems
 
@@ -716,7 +716,7 @@ def computer_problems(facts, fresh=True):
 def check_host(facts, environ=None, fresh=True, computer='kvm'):
     """(failures, warnings): the installer's hard stops and advisories, in step order.
 
-    `computer` is kvm or none. KVM, TUN, cgroup v2, AppArmor and the computer-sized
+    `computer` is kvm or none. KVM, TUN, cgroup v2, AppArmor and the Bot-computer-sized
     memory and disk minimums are hard stops only for kvm."""
     environ = os.environ if environ is None else environ
     host = facts['host']
@@ -750,10 +750,10 @@ def check_host(facts, environ=None, fresh=True, computer='kvm'):
             elif memory < WARN_MEMORY_MIB:
                 warnings.append('This host has %d MiB of RAM; 8 GiB or more is recommended.' % memory)
             if memory <= SMALL_HOST_MEMORY_MIB:
-                warnings.append('This is a small host (%d MiB of RAM): TOFI runs one computer at a time and sizes '
+                warnings.append('This is a small host (%d MiB of RAM): TOFI runs one Bot computer at a time and sizes '
                                 'it to fit (about 1.25 GiB), so add swap for headroom.' % memory)
             if facts['swap_mib'] == 0 and memory < SWAP_ADVISED_BELOW_MIB:
-                warnings.append('This host has %d MiB of RAM and no swap; a computer that runs out of memory can '
+                warnings.append('This host has %d MiB of RAM and no swap; a Bot computer that runs out of memory can '
                                 'freeze the whole host. Add swap (for example a 4 GiB swap file) or use 16 GiB of '
                                 'RAM or more.' % memory)
         else:
@@ -777,7 +777,7 @@ def check_host(facts, environ=None, fresh=True, computer='kvm'):
 def machine_rows(facts, fresh=True, ports=None, computer='kvm'):
     """Rows for the "This machine" card: (status, label, text).
 
-    `computer` is kvm or none: without a computer a missing /dev/kvm or kernel
+    `computer` is kvm or none: without a Bot computer a missing /dev/kvm or kernel
     feature is information, not a problem, and the size thresholds are lower."""
     kvm = computer == 'kvm'
     min_cpus = MIN_CPUS if kvm else 1
@@ -1467,13 +1467,13 @@ class Installer:
             self.ui.write()
 
     def computer_options(self):
-        return [Option('kvm', 'Yes, install a computer (KVM, Firecracker)',
+        return [Option('kvm', 'Yes, install a Bot computer (KVM, Firecracker)',
                        aliases=('yes', 'y', 'kvm', 'firecracker', 'kvm (firecracker)')),
                 Option('none', 'Not now — server and web app only',
                        aliases=('no', 'n', 'none', 'later', 'not now', 'skip'))]
 
     def resolve_computer(self, facts, fresh):
-        """(computer, problems): kvm or none for this run, and why this host cannot run a computer.
+        """(computer, problems): kvm or none for this run, and why this host cannot run a Bot computer.
 
         An existing install keeps its recorded backend. A flag decides a fresh one;
         otherwise a host that can run KVM computers gets kvm (asked about later) and any
@@ -1494,7 +1494,7 @@ class Installer:
         ui.header('installer')
         if not ui.fancy:
             for number, text in enumerate(['Checking platform', 'Checking operating system',
-                                           'Checking KVM, TUN, cgroup v2 and AppArmor (for a computer)',
+                                           'Checking KVM, TUN, cgroup v2 and AppArmor (for a Bot computer)',
                                            'Checking CPU, memory, disk and ports'], 1):
                 ui.write('[%d/%d] %s' % (number, TOTAL_STEPS, text))
         facts = detect(environ=self.environ, port=port)
@@ -1559,7 +1559,7 @@ class Installer:
 
         # a. Computer: offered where KVM works, explained where it does not. Never a reason to stop.
         requested = (self.value('computer') or '').lower()
-        question = 'Install a computer now?'
+        question = 'Install a Bot computer now?'
         options = self.computer_options()
         if requested in ('gvisor', 'container'):
             return self.fail(['--computer %s is %s; use none or kvm (Firecracker).' % (requested, NOT_YET)])
@@ -1573,12 +1573,12 @@ class Installer:
             if interactive:
                 self.set_by(question, options[0 if computer == 'kvm' else 1].label, self.source('computer'))
         elif self.computer_problems:
-            self.warnings(['No computer on this host, so TOFI installs the server and web app only. %s Add a '
-                           'computer later with "sudo tofi computer add kvm" once this host (or a new one) '
+            self.warnings(['No Bot computer on this host, so TOFI installs the server and web app only. %s Add a '
+                           'Bot computer later with "sudo tofi computer add kvm" once this host (or a new one) '
                            'supports KVM.' % ' '.join(self.computer_problems)])
         elif interactive:
             ui.title(question)
-            ui.para('A computer is a private virtual machine per account where Bots run commands and browse. '
+            ui.para('A Bot computer is a private virtual machine per account where Bots run commands and browse. '
                     'This host supports it (about 1.25 GiB of RAM each). Skip it to run the server and web '
                     'app only; "sudo tofi computer add kvm" adds one any time.')
             computer = self.ask.choose(question, options, 0).key
@@ -1768,14 +1768,14 @@ class Installer:
             ui.para('At the end of this install, TOFI would send one small report: the TOFI version, system id and '
                     'version, CPU type, whether KVM exists, ok or failed (with the name of the failing step) and '
                     'how long it took. No host name, address, email or key. Change it later with '
-                    'sudo tofi config telemetry on|off. Details: deploy/self-host/README.md.')
+                    'sudo tofi config telemetry on|off. Details: https://tofibot.com/privacy')
             telemetry = self.ask.confirm(question, False)
             ui.write()
 
         # e. Summary and confirmation.
         source_note = lambda key: ('  (set by %s)' % sources[key]) if key in sources else ''  # noqa: E731
         rows = [('ok', 'Release', '%s %s' % (version, version_note)),
-                ('ok', 'Computers', ('KVM (Firecracker), one per account' if self.computer == 'kvm' else
+                ('ok', 'Bot computer', ('KVM (Firecracker), one per account' if self.computer == 'kvm' else
                                      'none: server and web app only (sudo tofi computer add kvm adds one later)')
                  + source_note('computer'))]
         if mode == 'domain':

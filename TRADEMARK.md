@@ -40,6 +40,4 @@ Third-party names and logos that appear in TOFI belong to their owners. See
 
 ## Ask for permission
 
-To ask for permission or to report misuse, use the private report page that
-[SECURITY.md](SECURITY.md) describes, or open an issue that has no private
-information in it.
+To ask for permission or to report misuse, send an email to jack@tofibot.com.

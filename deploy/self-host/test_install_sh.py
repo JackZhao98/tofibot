@@ -363,7 +363,7 @@ class InstallScriptTests(InstallBase):
         self.host_file('proc/cpuinfo', 'processor : 0\nflags : fpu sse2 hypervisor\n')
         result = self.run_script('--yes', TOFI_DEV_KVM=str(self.root / 'dev/kvm'))
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('No computer on this host, so TOFI installs the server and web app only. KVM is not '
+        self.assertIn('No Bot computer on this host, so TOFI installs the server and web app only. KVM is not '
                       'available (/dev/kvm). Use bare metal or a VM with nested virtualization enabled.',
                       ' '.join(result.stderr.split()))
         self.assertIn('sudo tofi computer add kvm', result.stderr)
@@ -371,7 +371,7 @@ class InstallScriptTests(InstallBase):
         self.assertIn('This machine', out)
         self.assertIn('KVM no /dev/kvm — the CPU does not expose virtualization', out)
         self.assertLess(out.index('This machine'), out.index('Ready to install'))
-        self.assertIn('Computers none: server and web app only', out)
+        self.assertIn('Bot computer none: server and web app only', out)
         self.assertEqual(self.handoff_computer(), 'none')
         self.assertEqual(self.apt_installed(), ['ca-certificates', 'curl', 'tar', 'python3', 'openssl', 'iproute2', 'iptables'])
         self.assertFalse(self.docker_security_checked(), 'cgroup v2 / AppArmor in Docker only matter for a computer')
@@ -386,7 +386,7 @@ class InstallScriptTests(InstallBase):
                 extra = {'TOFI_DEV_TUN': str(self.root / 'dev/net/tun')} if name == 'tun' else {}
                 result = self.run_script('--yes', **extra)
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertIn('No computer on this host', result.stderr)
+                self.assertIn('No Bot computer on this host', result.stderr)
                 self.assertEqual(self.handoff_computer(), 'none')
                 self.host_file('sys/fs/cgroup/cgroup.controllers', 'cpu io memory pids\n')
                 self.host_file('sys/module/apparmor/parameters/enabled', 'Y\n')
@@ -405,12 +405,12 @@ class InstallScriptTests(InstallBase):
     def test_computer_none_on_a_kvm_host(self):
         result = self.run_script('--computer', 'none', '--yes')
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertNotIn('No computer on this host', result.stderr)
+        self.assertNotIn('No Bot computer on this host', result.stderr)
         self.assertEqual(self.handoff_computer(), 'none')
         self.assertNotIn('zstd', self.apt_installed())
         self.assertNotIn('apparmor', self.apt_installed())
         self.assertFalse(self.docker_security_checked())
-        self.assertIn('Computers none', ' '.join(result.stdout.split()))
+        self.assertIn('Bot computer none', ' '.join(result.stdout.split()))
         result = self.run_script(TOFI_COMPUTER='none', TOFI_YES='1')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.handoff_computer(), 'none', 'TOFI_COMPUTER answers like the flag')
@@ -422,21 +422,21 @@ class InstallScriptTests(InstallBase):
         self.assertEqual(self.apt_installed(), ['ca-certificates', 'curl', 'tar', 'python3', 'openssl', 'iproute2', 'iptables',
                                                 'zstd', 'e2fsprogs', 'apparmor', 'apparmor-utils'])
         self.assertTrue(self.docker_security_checked())
-        self.assertIn('Computers KVM (Firecracker)', ' '.join(result.stdout.split()))
+        self.assertIn('Bot computer KVM (Firecracker)', ' '.join(result.stdout.split()))
 
     def test_a_host_too_small_for_a_computer_gets_none(self):
         # 3 GiB: fine for the server, too little for a computer.
         self.host_file('proc/meminfo', 'MemTotal: 3000000 kB\n')
         result = self.run_script('--yes')
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('A computer needs at least 4 GiB of RAM; this host has 2929 MiB', result.stderr)
+        self.assertIn('A Bot computer needs at least 4 GiB of RAM; this host has 2929 MiB', result.stderr)
         self.assertEqual(self.handoff_computer(), 'none')
         # A 20 GiB disk: same.
         self.host_file('proc/meminfo', 'MemTotal: 8152000 kB\n')
         result = self.run_script('--yes', STUB_DF_AVAIL_KIB=str(20 * 1024 * 1024))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.handoff_computer(), 'none')
-        self.assertIn('A computer needs at least 30 GiB free under /var/lib; 20 GiB is free.', result.stderr)
+        self.assertIn('A Bot computer needs at least 30 GiB free under /var/lib; 20 GiB is free.', result.stderr)
 
     def test_existing_server_without_a_computer_is_reported_on_a_host_without_kvm(self):
         self.installed(status_tool=True, backend='none')
@@ -444,7 +444,7 @@ class InstallScriptTests(InstallBase):
         result = self.run_script(TOFI_DEV_KVM=str(self.root / 'dev/kvm'))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('TOFI v0.1.0 is already installed', result.stdout)
-        self.assertNotIn('No computer on this host', result.stderr)
+        self.assertNotIn('No Bot computer on this host', result.stderr)
         self.assert_no_side_effects(before)
         # And a re-run that resumes it keeps the backend and installs no computer packages.
         self.installed('install-failed', backend='none')
@@ -763,7 +763,7 @@ class InstallScriptTests(InstallBase):
         # Without KVM the python-less path also installs the server and web app only ...
         result = self.run_script('--yes', TOFI_INSTALLER_UI='plain', TOFI_DEV_KVM=str(self.root / 'dev/kvm'))
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('No computer on this host', result.stderr)
+        self.assertIn('No Bot computer on this host', result.stderr)
         self.assertEqual(self.handoff_computer(), 'none')
         self.assertNotIn('zstd', self.apt_installed())
         # ... unless a computer was asked for.
@@ -784,7 +784,7 @@ class InteractiveTests(InstallBase):
     def test_all_defaults_with_enter(self):
         before = self.host_tree()
         term = self.terminal(TOFI_PROMPT='plain')
-        term.expect('Install a computer now?').expect('Choose 1-2 or a name [1]:').line()
+        term.expect('Install a Bot computer now?').expect('Choose 1-2 or a name [1]:').line()
         no_proxy(term).expect('How will you open TOFI?').expect('[1]:').line()
         term.expect('Port for TOFI').expect('[8321]:').line()
         term.expect('Install fix releases automatically? (recommended)')
@@ -797,7 +797,7 @@ class InteractiveTests(InstallBase):
         self.assertEqual(term.finish(), 0, term.text)
         self.assertEqual(self.handoff()[3:], ['--auto-update'])
         self.assertEqual(self.handoff_computer(), 'kvm')
-        for shown in ('1) Yes, install a computer (KVM, Firecracker) (recommended)',
+        for shown in ('1) Yes, install a Bot computer (KVM, Firecracker) (recommended)',
                       '2) Not now — server and web app only',
                       '1) By IP over HTTPS (self-signed) https://192.168.1.20:8321 (recommended)',
                       '✓ Docker ready', '✓ Host tools v0.1.0 verified'):
@@ -959,7 +959,7 @@ class InteractiveTests(InstallBase):
     def test_flags_answer_questions(self):
         term = self.terminal('--domain', 'tofi.example.com', '--email', 'ops@example.com', '--port', '9000',
                              TOFI_PROMPT='plain', STUB_DNS='203.0.113.5')
-        term.expect('Install a computer now?').expect('[1]:').line()
+        term.expect('Install a Bot computer now?').expect('[1]:').line()
         term.expect('With a domain (automatic HTTPS)  (set by --domain)')
         term.expect('Turn on automatic fix releases? [Y/n]').line()
         term.expect('Send an anonymous install report? [y/N]').line()
@@ -971,7 +971,7 @@ class InteractiveTests(InstallBase):
         self.assertEqual(self.handoff()[3:], ['--domain', 'tofi.example.com', '--email', 'ops@example.com',
                                               '--port', '9000', '--auto-update'])
         term = self.terminal('--computer', 'kvm', '--local-only', TOFI_PROMPT='plain')
-        term.expect('Yes, install a computer (KVM, Firecracker)  (set by --computer)')
+        term.expect('Yes, install a Bot computer (KVM, Firecracker)  (set by --computer)')
         term.expect('This machine only (SSH tunnel)  (set by --local-only)')
         term.expect('Port for TOFI').line()
         term.expect('Turn on automatic fix releases? [Y/n]').line()
@@ -1029,23 +1029,23 @@ class InteractiveTests(InstallBase):
         term.expect('Ready to install')
         term.expect('Proceed? [Y/n]').line()
         self.assertEqual(term.finish(), 0, term.text)
-        self.assertShown(term, 'No computer on this host, so TOFI installs the server and web app only.')
+        self.assertShown(term, 'No Bot computer on this host, so TOFI installs the server and web app only.')
         self.assertShown(term, 'KVM is not available (/dev/kvm)')
         self.assertShown(term, 'sudo tofi computer add kvm')
         self.assertShown(term, 'none: server and web app only')
-        self.assertNotShown(term, 'Install a computer now?')
+        self.assertNotShown(term, 'Install a Bot computer now?')
         self.assertNotShown(term, 'not supported yet')
         self.assertEqual(self.handoff_computer(), 'none')
 
     def test_not_now_installs_the_server_and_web_only(self):
         term = self.terminal(TOFI_PROMPT='plain')
-        term.expect('Install a computer now?').expect('[1]:').line('later')
+        term.expect('Install a Bot computer now?').expect('[1]:').line('later')
         no_proxy(term).expect('[1]:').line()
         term.expect('Port for TOFI').line()
         term.expect('Turn on automatic fix releases? [Y/n]').line('n')
         term.expect('Send an anonymous install report? [y/N]').line()
         term.expect('Ready to install')
-        term.expect('Computers none: server and web app only')
+        term.expect('Bot computer none: server and web app only')
         term.expect('Proceed? [Y/n]').line()
         self.assertEqual(term.finish(), 0, term.text)
         self.assertEqual(self.handoff_computer(), 'none')
@@ -1053,7 +1053,7 @@ class InteractiveTests(InstallBase):
 
     def test_arrow_menu_offers_the_computer_on_a_kvm_host(self):
         term = self.terminal()
-        term.expect('Install a computer now?')
+        term.expect('Install a Bot computer now?')
         term.expect('Enter select').send('\x1b[B').send('\r')   # down to "Not now"
         no_proxy(term).expect('Enter select').send('\r')
         term.expect('Port for TOFI').line()
