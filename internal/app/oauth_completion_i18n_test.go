@@ -90,6 +90,8 @@ func TestOAuthPageLanguageFromRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Close before TempDir cleanup: the server's background work writes there.
+	t.Cleanup(func() { s.Close() })
 	call := func(accept string) string {
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest(http.MethodGet, "/api/extensions/local-mcp/gog/oauth/callback?code=c&state=s", nil)
