@@ -53,6 +53,24 @@ class SupervisorTests(unittest.TestCase):
         broker.supervisor=self.supervisor
         self.assertFalse(broker.manager_running(identity))
 
+    def test_exited_needs_a_gone_manager_and_an_empty_vm_cgroup(self):
+        identity=str(uuid.uuid4());proc=Mock(pid=505);proc.poll.return_value=None
+        self.launch.return_value=proc
+        self.assertTrue(self.supervisor.exited(identity))  # never started here
+        self.supervisor.ensure(identity,self.root/(identity+".json"))
+        self.assertFalse(self.supervisor.exited(identity))
+        proc.poll.return_value=0
+        self.assertTrue(self.supervisor.exited(identity))
+        leaf=self.root/"cgroups"/("ac-"+identity);leaf.mkdir(parents=True)
+        (leaf/"cgroup.events").write_text("populated 1\nfrozen 0\n")
+        self.assertFalse(self.supervisor.exited(identity))
+        (leaf/"cgroup.events").write_text("populated 0\nfrozen 0\n")
+        self.assertTrue(self.supervisor.exited(identity))
+        self.supervisor.quarantined.add(identity)
+        self.assertFalse(self.supervisor.exited(identity))
+        broker=object.__new__(worker.WorkerBroker);broker.supervisor=self.supervisor
+        self.assertFalse(broker.manager_exited(identity))
+
     def test_no_pid_reuse_kill_and_unresolved_cleanup_blocks_restart(self):
         identity=str(uuid.uuid4());proc=Mock(pid=303);proc.poll.return_value=None
         proc.wait.side_effect=[subprocess.TimeoutExpired("manager",60),0]

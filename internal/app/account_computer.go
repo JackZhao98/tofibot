@@ -69,6 +69,14 @@ func (g *AccountGateway) computerControl(ctx context.Context, body any) ([]byte,
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
+		// The Worker names its reason (for example, the computer budget is in use).
+		var reason struct {
+			Error string `json:"error"`
+		}
+		_ = json.NewDecoder(io.LimitReader(resp.Body, 4<<10)).Decode(&reason)
+		if reason.Error != "" {
+			return nil, fmt.Errorf("account computer control rejected (%d): %s", resp.StatusCode, reason.Error)
+		}
 		return nil, fmt.Errorf("account computer control rejected (%d)", resp.StatusCode)
 	}
 	const limit = 256 << 10

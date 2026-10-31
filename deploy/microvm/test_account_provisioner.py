@@ -168,6 +168,31 @@ class BrokerTests(unittest.TestCase):
             self.b.dispatch(dict(op="stop",account_id=ids[0]))
             other.runtime_admission(ids[2])
 
+    def test_hibernated_computer_claims_release_only_when_proven_exited(self):
+        ids = [str(uuid.uuid4()) for _ in range(3)]
+        original = Path.read_text
+        def read(path, *args, **kwargs):
+            if str(path) == "/proc/meminfo":
+                return "MemAvailable: 16777216 kB\n"
+            return original(path, *args, **kwargs)
+        exited = set()
+        with patch.object(Path, "read_text", read):
+            for identity in ids:
+                self.b.dispatch(dict(op="reserve",account_id=identity,quota_gib=8))
+            self.b.runtime_admission(ids[0])
+            self.b.runtime_admission(ids[1])
+            # The base broker cannot prove an exit, so the claims stay.
+            with self.assertRaises(broker.AdmissionError):
+                self.b.runtime_admission(ids[2])
+            self.b.manager_exited = lambda identity: identity in exited
+            with self.assertRaises(broker.AdmissionError):
+                self.b.runtime_admission(ids[2])
+            exited.add(ids[0])
+            self.b.runtime_admission(ids[2])
+            with self.b.ledger.connection() as db:
+                claims = {row[0] for row in db.execute("SELECT account_id FROM runtime_claims")}
+            self.assertEqual(claims, {ids[1], ids[2]})
+
     def test_memory_overcommit_raises_only_static_ceiling_and_keeps_live_gate(self):
         ids = [str(uuid.uuid4()) for _ in range(3)]
         available = {"kib": 16777216}

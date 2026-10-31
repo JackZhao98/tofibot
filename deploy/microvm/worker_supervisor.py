@@ -51,6 +51,18 @@ class ProcessSupervisor:
             proc = self.processes.get(identity)
             return bool(proc) and proc.poll() is None
 
+    def exited(self, identity):
+        """True when the account's manager is not running and its VM cgroup is empty."""
+        identity = account_id(identity)
+        with self.lock:
+            if identity in self.quarantined or self.running(identity):
+                return False
+            try:
+                self.assert_vm_stopped(identity)
+            except (AdmissionError, OSError):
+                return False
+            return True
+
     def assert_vm_stopped(self, identity):
         group = self.cgroups / ("ac-" + account_id(identity))
         if group.is_symlink():
@@ -194,6 +206,9 @@ class WorkerBroker(Broker):
 
     def manager_running(self, identity):
         return self.supervisor.running(identity)
+
+    def manager_exited(self, identity):
+        return self.supervisor.exited(identity)
 
     def remove_cgroup_leaf(self, identity):
         """rmdir tofi-vms/ac-<id> once the VM is stopped. A missing leaf is fine; a busy or

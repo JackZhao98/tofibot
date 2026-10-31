@@ -454,9 +454,31 @@ class Broker:
         values = overrides.get(identity, self.c)
         return values["vcpus"], values["memory_mib"]
 
+    def release_exited_claims(self, keep):
+        """Release the claims of computers whose manager exited by itself.
+
+        An idle computer hibernates: its manager exits and no VM runs, but no
+        stop request came, so its claim stays. manager_exited proves both (the
+        default proves nothing); on any doubt the claim stays. The process
+        record is kept, so the next start still checks the exit as before.
+        """
+        with self.ledger.connection() as db:
+            others = [row[0] for row in db.execute(
+                "SELECT account_id FROM runtime_claims WHERE account_id<>?", (keep,))]
+        for other in others:
+            if self.manager_exited(other):
+                with self.ledger.connection() as db:
+                    db.execute("DELETE FROM runtime_claims WHERE account_id=?", (other,))
+
+    def manager_exited(self, identity):
+        """True only when the manager is proven gone and its VM is stopped."""
+        return False
+
     def runtime_admission(self, identity):
         vcpus, memory_mib = self.runtime_resources(identity)
-        # Claims survive restart and release only after a successful service stop.
+        self.release_exited_claims(identity)
+        # Claims survive restart and release only after a successful service stop
+        # (an explicit stop, or release_exited_claims for a hibernated computer).
         # Conservative registration budgets do not assume CPU/RAM overcommit.
         with self.ledger.connection() as db:
             db.execute("BEGIN IMMEDIATE")
