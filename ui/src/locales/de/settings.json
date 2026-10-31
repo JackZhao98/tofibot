@@ -1065,6 +1065,7 @@
     },
     "auto": "Automatisch · {{model}}",
     "default_is": "Standard: {{value}}",
+    "default_changed": "Standard geändert: Neue Bots nutzen jetzt Playwright. Klassisch bleibt als Rückfall erhalten.",
     "changed": "Geändert",
     "env": "Vom Serverumfeld festgelegt",
     "reset": "Auf Standard zurücksetzen",

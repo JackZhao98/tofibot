@@ -59,7 +59,7 @@ func TestDesktopRelayRefusesToolsAndArgumentsOutsideTheAllowlist(t *testing.T) {
 
 func TestDesktopResultKeepsTextAndCountsImages(t *testing.T) {
 	raw := json.RawMessage(`{"isError":false,"content":[{"type":"text","text":"App=pcmanfm\n0 window"},{"type":"image","data":"AAAA","mimeType":"image/png"}]}`)
-	res, err := ocuResult("get_app_state", raw)
+	res, err := ocuResult("get_app_state", raw, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestDesktopResultKeepsTextAndCountsImages(t *testing.T) {
 		t.Fatalf("unexpected result: %v", res)
 	}
 	long := json.RawMessage(`{"content":[{"type":"text","text":"` + strings.Repeat("a", ocuResultCap+10) + `"}]}`)
-	res, _ = ocuResult("get_app_state", long)
+	res, _ = ocuResult("get_app_state", long, nil)
 	if res["truncated"] != true || !strings.Contains(res["text"].(string), "result cut") {
 		t.Fatal("a long tree must be cut with a note")
 	}

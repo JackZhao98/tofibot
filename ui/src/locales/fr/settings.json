@@ -1074,6 +1074,7 @@
     },
     "auto": "Automatique · {{model}}",
     "default_is": "Par défaut : {{value}}",
+    "default_changed": "Valeur par défaut modifiée : les nouveaux Bots utilisent désormais Playwright. Le mode classique reste le repli.",
     "changed": "Modifié",
     "env": "Défini par l’environnement du serveur",
     "reset": "Rétablir la valeur par défaut",

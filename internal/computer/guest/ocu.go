@@ -139,7 +139,10 @@ func checkOCUCall(in ocuCallArgs) (map[string]any, error) {
 // ocuResult is what the host receives: the server's text (the app's element
 // tree with indexes, or the action's read-back), whether the server called it
 // an error, and how many images were left out.
-func ocuResult(tool string, raw json.RawMessage) (map[string]any, error) {
+//
+// shape, when set, rewrites the text before the size cap (states added, a long
+// tree pruned); see ocu_tree.go.
+func ocuResult(tool string, raw json.RawMessage, shape func(string) string) (map[string]any, error) {
 	var res struct {
 		IsError bool `json:"isError"`
 		Content []struct {
@@ -164,6 +167,9 @@ func ocuResult(tool string, raw json.RawMessage) (map[string]any, error) {
 		}
 	}
 	out := text.String()
+	if shape != nil && tool != "list_apps" {
+		out = shape(out)
+	}
 	truncated := false
 	if len(out) > ocuResultCap {
 		out = strings.ToValidUTF8(out[:ocuResultCap], "") + "\n[result cut: the tree is longer than the limit; lower max_tree_depth or max_tree_nodes]"

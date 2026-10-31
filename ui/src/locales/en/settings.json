@@ -1065,6 +1065,7 @@
     },
     "auto": "Automatic · {{model}}",
     "default_is": "Default: {{value}}",
+    "default_changed": "Default changed: new Bots now use Playwright. Classic stays as the fallback.",
     "changed": "Changed",
     "env": "Set by server environment",
     "reset": "Reset to default",

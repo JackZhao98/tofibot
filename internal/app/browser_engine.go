@@ -5,20 +5,27 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"path"
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
-// Browser engine (decision 2026-10-29). "classic" is the hand-built
-// computer_browser tool. "playwright" replaces it with the browser_* tools
-// below, which relay Microsoft's @playwright/mcp (accessibility snapshot with
-// element refs) running on the computer and attached to its Chrome over
-// DevTools, so logins stay. Both engines use the same effect declaration and
-// the same guardAction review before a consequential action.
+// Browser engine (decision 2026-10-29, default changed 2026-10-30). "classic"
+// is the hand-built computer_browser tool. "playwright" (the default for a
+// workspace that never set the item) offers the browser_* tools below, which
+// relay Microsoft's @playwright/mcp (accessibility snapshot with element refs)
+// running on the computer and attached to its Chrome over DevTools, so logins
+// stay. Classic stays as the fallback: when the relay cannot start, DevTools
+// is unreachable or a snapshot has no refs, the call (and, for a start
+// failure, the next minutes of the session) goes to computer_browser. Both
+// engines use the same effect declaration and the same guardAction review
+// before a consequential action.
 const (
 	browserEngineClassic    = "classic"
 	browserEnginePlaywright = "playwright"
@@ -36,10 +43,10 @@ func computerBrowserEssentialsFor(playwright bool) string {
 	return computerBrowserEssentials
 }
 
-const computerBrowserEssentialsPlaywright = "Browser: read the page with browser_snapshot, which lists each element with a ref. Act with the browser_ tools by ref and give the element name. A ref is valid only until the page changes: take a new snapshot after each action that changes the page. Open sites and searches directly by URL with browser_navigate. Reuse the current tab; at most 2 tabs stay open. Use computer_desktop only for windows outside the browser."
+const computerBrowserEssentialsPlaywright = "Browser: read a page with browser_snapshot; each element has a ref. Act with browser_ tools by ref and element name. A ref is valid only until the page changes: snapshot again after a change. Open sites by URL with browser_navigate. At most 2 tabs. If the engine is unavailable, use computer_browser."
 
 const computerBrowserGuidePlaywright = `The browser is the shared Chrome. browser_snapshot returns the page as an accessibility tree; every interactive element has a ref. Pass the ref and a short element name to browser_click, browser_type, browser_select_option, browser_fill_form and browser_hover. A ref belongs to one snapshot: after the page changes, take a new snapshot before the next action. The result of an action usually includes the new snapshot.
-Declare effect on every action that changes something outside the page view. For a file chooser, click the element that opens it, then call browser_file_upload with paths inside /workspace; relative paths start in the Bot directory. Dialogs from the page wait for browser_handle_dialog.
+Declare effect on every action that changes something outside the page view. For a file chooser, click the element that opens it, then call browser_file_upload with paths inside /workspace; relative paths start in the Bot directory. Dialogs from the page wait for browser_handle_dialog. Open sites and searches directly by URL, reuse the current tab and keep at most 2 tabs open. Use computer_desktop only for windows outside the browser.
 All Bots share one Chrome profile and graphical session. Files, cookies and login state persist, but a desktop restart opens a fresh page. If the page is blocked by a person, ask for a takeover instead of repeating the action.
 ` + computerResearchGuidance
 
@@ -264,8 +271,9 @@ func (p *pwPage) get() (string, string) {
 
 // browserEngineTools builds the browser_ tools for one run. prepare runs before
 // each call (attachment sync, as for the other computer tools).
-func (s *Server) browserEngineTools(r Run, prepare func(context.Context)) []Tool {
+func (s *Server) browserEngineTools(r Run, prepare func(context.Context), classic Tool) []Tool {
 	page := &pwPage{}
+	var noted atomic.Bool
 	var tools []Tool
 	for _, sp := range browserEngineSpecs {
 		sp := sp
@@ -311,10 +319,23 @@ func (s *Server) browserEngineTools(r Run, prepare func(context.Context)) []Tool
 						return "", err
 					}
 				}
+				if reason, down := s.browserFallbackReason(r.BotID); down {
+					settle(nil)
+					return s.browserClassicFallback(ctx, sp, args, classic, reason, &noted)
+				}
 				out, err := s.browserEngineCall(ctx, r, sp.Engine, args)
 				settle(err)
 				if err != nil {
+					if browserEngineUnavailable(err) {
+						reason := browserEngineReason(err)
+						s.markBrowserFallback(r, reason)
+						return s.browserClassicFallback(ctx, sp, args, classic, reason, &noted)
+					}
 					return "", err
+				}
+				if browserSnapshotWithoutRefs(sp.Name, out) {
+					log.Printf("[browser] run %s: %s returned no refs; this call used the classic browser", r.ID, sp.Name)
+					return s.browserClassicFallback(ctx, sp, args, classic, "the page snapshot had no element refs", &noted)
 				}
 				page.learn(out)
 				if sp.Name == "browser_snapshot" || sp.Name == "browser_navigate" {
@@ -366,4 +387,111 @@ func browserEngineResult(out string) (string, error) {
 		return "Done.", nil
 	}
 	return res.Text, nil
+}
+
+// browserFallbackWindow is how long a Bot's browser_ tools go straight to the
+// classic browser after the engine proved unavailable, so each call does not
+// wait for the same failure.
+const browserFallbackWindow = 10 * time.Minute
+
+type browserFallbackMark struct {
+	at     time.Time
+	reason string
+}
+
+// browserEngineUnavailable reports a failure of the engine itself (relay
+// cannot start, image too old, Chrome DevTools unreachable), not of the page
+// or of the action.
+func browserEngineUnavailable(err error) bool {
+	if err == nil {
+		return false
+	}
+	if browserProcessGone(err) {
+		return true
+	}
+	msg := strings.ToLower(err.Error())
+	for _, part := range []string{
+		"needs a newer computer image", "browser engine is not installed", "browser engine needs node",
+		"browser engine did not start", "browser engine is not running", "browser engine stopped",
+		"browser engine did not answer", "browser debugging endpoint is unavailable",
+	} {
+		if strings.Contains(msg, part) {
+			return true
+		}
+	}
+	return false
+}
+
+// browserEngineReason is the short cause shown to the Bot.
+func browserEngineReason(err error) string {
+	msg := strings.TrimSpace(err.Error())
+	if i := strings.Index(msg, "\n"); i > 0 {
+		msg = msg[:i]
+	}
+	if len(msg) > 160 {
+		msg = strings.ToValidUTF8(msg[:160], "")
+	}
+	return msg
+}
+
+func (s *Server) markBrowserFallback(r Run, reason string) {
+	log.Printf("[browser] run %s: Playwright browser engine unavailable (%s); using the classic browser", r.ID, reason)
+	s.browserFallbackAt.Store(r.BotID, browserFallbackMark{at: time.Now(), reason: reason})
+}
+
+// browserFallbackReason says whether this Bot's engine failed within the window.
+func (s *Server) browserFallbackReason(botID string) (string, bool) {
+	v, ok := s.browserFallbackAt.Load(botID)
+	if !ok {
+		return "", false
+	}
+	m := v.(browserFallbackMark)
+	if time.Since(m.at) > browserFallbackWindow {
+		s.browserFallbackAt.Delete(botID)
+		return "", false
+	}
+	return m.reason, true
+}
+
+// browserSnapshotWithoutRefs: a page read that holds no element ref at all
+// cannot be acted on with the browser_ tools.
+func browserSnapshotWithoutRefs(tool, out string) bool {
+	if tool != "browser_snapshot" && tool != "browser_navigate" {
+		return false
+	}
+	return strings.TrimSpace(out) != "" && !strings.Contains(out, "[ref=")
+}
+
+// browserClassicFallback serves one browser_ call through computer_browser
+// when the engine is unavailable. Reading and opening a page have a classic
+// equal; every other call is refused unexecuted and points at computer_browser.
+func (s *Server) browserClassicFallback(ctx context.Context, sp pwSpec, args map[string]any, classic Tool, reason string, noted *atomic.Bool) (string, error) {
+	note := "Note: the Playwright browser engine is not usable (" + reason + "). Use computer_browser for the browser from now on: browser.read for page text, browser.click by visible text, browser.navigate for a URL."
+	if classic.Execute == nil {
+		return "", tooloutcome.InvalidArguments(note + " Nothing was done.")
+	}
+	run := func(in map[string]any) (string, error) {
+		raw, _ := json.Marshal(in)
+		return classic.Execute(ctx, raw)
+	}
+	var out string
+	var err error
+	switch sp.Name {
+	case "browser_navigate":
+		url, _ := args["url"].(string)
+		if _, err = run(map[string]any{"action": "browser.navigate", "url": url}); err == nil {
+			out, err = run(map[string]any{"action": "browser.read"})
+		}
+	case "browser_snapshot":
+		out, err = run(map[string]any{"action": "browser.read"})
+	default:
+		return "", tooloutcome.InvalidArguments(note + " " + sp.Name + " was not run. Nothing was done.")
+	}
+	if err != nil {
+		return "", err
+	}
+	if noted.CompareAndSwap(false, true) {
+		out = note + "\n" + out
+	}
+	return out, nil
 }

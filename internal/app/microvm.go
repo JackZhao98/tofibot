@@ -417,6 +417,9 @@ func (s *Server) resourceLease(botID string) *sync.Mutex {
 // effectParam is the model's own statement of a page action's effect.
 var effectParam = map[string]any{"type": "string", "enum": actionEffects, "description": "For click/type/key: what this does outside reading. none = read, open, navigate, select, search; otherwise submit, purchase, send, delete, publish, account (sign-up, permissions, settings) or other_external. Actions with an effect may need the user's confirmation."}
 
+// computerBrowserFallbackNote opens the description of computer_browser while the browser_ tools are offered.
+const computerBrowserFallbackNote = "Fallback only: use the browser_ tools. Use this tool when a browser_ tool says the browser engine is unavailable."
+
 func (s *Server) microVMTools(r Run) []Tool {
 	if s.computer() == nil {
 		return nil
@@ -742,15 +745,22 @@ func (s *Server) microVMTools(r Run) []Tool {
 		s.flushGeneratedImages(ctx, r)
 	}
 	playwright, a11y := s.browserEnginePlaywright(), s.desktopEngineA11y()
+	// Hybrid: with the accessibility engine the screenshot and coordinate tool stays
+	// next to the desktop_ tools; the element tree is the first choice and the
+	// coordinates are the fallback.
+	if a11y {
+		desktop.Description = computerDesktopHybridNote + " " + desktop.Description
+	}
 	tools := []Tool{shell, files, desktop}
 	if a11y {
 		tools = append(tools, s.desktopEngineTools(r, prepare)...)
 	}
 	if playwright {
-		tools = append(tools, s.browserEngineTools(r, prepare)...)
-	} else {
-		tools = append(tools, browser)
+		// The classic tool stays registered as the fallback the engine's tools point at.
+		tools = append(tools, s.browserEngineTools(r, prepare, browser)...)
+		browser.Description = computerBrowserFallbackNote + " " + browser.Description
 	}
+	tools = append(tools, browser)
 	return append(tools, computerHelpToolFor(playwright, a11y), s.terminalTool(r), s.sshKeyTool(r))
 }
 
