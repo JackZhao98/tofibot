@@ -23,6 +23,14 @@ on [GitHub Releases](https://github.com/JackZhao98/tofibot/releases).
 Use a dedicated Linux server or VM. TOFI supports x86_64 and aarch64.
 TOFI supports Ubuntu 22.04/24.04 and Debian 12/13.
 
+TOFI runs without a computer. The computer (a virtual desktop for each account,
+needs KVM) is an optional upgrade that you can add later.
+
+### Option A: one-command installer
+
+It installs Docker images, the `tofi` host tool, backups and updates.
+It also sets up a computer when the host has KVM.
+
 ```sh
 curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh | sudo bash
 ```
@@ -35,6 +43,14 @@ Admin account. Then open Settings > Model provider.
 By default TOFI serves HTTPS with a self-signed certificate on port 8321.
 Compare the SHA-256 fingerprint that the installer prints with the one in your
 browser. On a cloud server, allow TCP 8321 in the firewall.
+
+### Option B: Docker Compose (no computer)
+
+For a server without KVM, or if you want to manage Docker yourself. It uses the
+same pinned release images, with a data volume and HTTPS behind your own proxy or
+with Caddy. You make backups and updates yourself. The steps are in
+[deploy/compose/README.md](deploy/compose/README.md). To add a computer later,
+use the installer on a host with KVM, then `sudo tofi computer add kvm`.
 
 ### Requirements
 
@@ -114,8 +130,19 @@ npm --prefix ui run build
 go build ./cmd/tofi ./cmd/tofi-guest
 ```
 
+## Releases
+
+Stable releases come at most once a week. Release candidates (`-rc.N`) can come
+more often, and only reach you if you ask for them (`--version`, or **Receive
+release candidates** in Settings > Maintenance). Every version has notes in
+[release-notes/](release-notes/) and on
+[GitHub Releases](https://github.com/JackZhao98/tofibot/releases). What we plan
+next is in [ROADMAP.md](ROADMAP.md).
+
 ## Documentation
 
+- [release-notes/](release-notes/): the changelog, one file for each version.
+- [ROADMAP.md](ROADMAP.md): what comes next.
 - [GitHub Releases](https://github.com/JackZhao98/tofibot/releases): what each version changed.
 - [deploy/self-host/README.md](deploy/self-host/README.md): installer and `tofi` host tool.
 - [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
@@ -131,8 +158,19 @@ credentials are not in this repository.
 ## Licensing
 
 - **Server, installer and everything outside `ui/`**: [Apache-2.0](LICENSE).
-- **Web app (`ui/`)**: [PolyForm Shield 1.0.0](ui/LICENSE). You can read, use and
-  change the source to run TOFI. You cannot use it to build a competing product.
+- **Web app (`ui/`)**: [PolyForm Shield 1.0.0](ui/LICENSE).
+
+Why the web app has a different license: TOFI is free to run, but we do not want
+a company to take the web app and sell it as a competing product. Apache-2.0 would
+allow that. PolyForm Shield allows everything else. You can run TOFI, self-host
+it for yourself or your organization, read the source, fork it for your own use
+and change the web app. You can share copies and changes if you keep the license
+text and notices with them. You cannot use the web app to provide a product that
+competes with TOFI (or with other products of the licensor that use it), even a
+free one. The server is Apache-2.0 and has no such limit. The license texts are
+the source of truth: [LICENSE](LICENSE) and [ui/LICENSE](ui/LICENSE).
+
+<!-- Landing page line: "TOFI is free to self-host. The server is Apache-2.0. The web app is PolyForm Shield: use it, change it and run it for yourself, but do not sell a competing product built from it." -->
 
 Third-party notices are in `ui/THIRD_PARTY_NOTICES.md` and `ui/public/licenses`.
 The header uses the project's own four-cat artwork and Fredoka lettering (font

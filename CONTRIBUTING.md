@@ -15,6 +15,15 @@ folder are in English.
 By contributing, you agree that your change uses the license of the folder you
 change.
 
+## Releases
+
+- Stable releases come at most once a week. Release candidates (`-rc.N`) can
+  come more often.
+- The changelog is [release-notes/](release-notes/): one file for each version,
+  checked by `scripts/check-release-notes.sh`. Add a note for your change in the
+  same pull request when it changes what a user sees.
+- [ROADMAP.md](ROADMAP.md) lists the near-term work.
+
 ## Set up
 
 You need Go (the version in `go.mod`), Node 22, and Docker with Compose.

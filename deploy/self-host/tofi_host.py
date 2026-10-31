@@ -229,6 +229,7 @@ class Paths:
         self.tls_cert = self.tls / 'cert.pem'
         self.tls_key = self.tls / 'key.pem'
         self.state_file = self.etc / 'install-state.json'
+        self.telemetry = self.etc / 'telemetry'
         self.apparmor_profile = root / 'etc/apparmor.d/tofi-worker'
         self.runner_apparmor_profile = root / 'etc/apparmor.d/tofi-runner'
         self.tmpfiles = root / 'etc/tmpfiles.d/tofi.conf'
@@ -3035,6 +3036,31 @@ def configure_auto_update(mode):
     return {'auto_update': env['TOFI_AUTO_UPDATE']}
 
 
+def telemetry_enabled():
+    """True only when the person said yes (install.sh writes `on`). A missing file means off."""
+    try:
+        return P.telemetry.read_text().strip() == 'on'
+    except OSError:
+        return False
+
+
+def configure_telemetry(mode):
+    """`tofi config telemetry on|off|status`. Only the installer's one-time report reads this."""
+    if mode == 'status':
+        say('Anonymous install report: %s.' % ('on' if telemetry_enabled() else 'off'))
+        return {'telemetry': telemetry_enabled()}
+    if mode not in ('on', 'off'):
+        raise HostError('telemetry takes on, off or status.')
+    with lifecycle_lock():
+        write_file(P.telemetry, mode + '\n', 0o644)
+    if mode == 'on':
+        say('The anonymous install report is on for later installer runs. What it sends: deploy/self-host/README.md. '
+            'Turn off with: sudo tofi config telemetry off')
+    else:
+        say('The anonymous install report is off. TOFI sends nothing.')
+    return {'telemetry': mode == 'on'}
+
+
 def proxy_upstream(env):
     """(address, port) a reverse proxy on another machine should forward to."""
     port = env.get('TOFI_HTTP_PORT') or str(DEFAULT_PORT)
@@ -5650,6 +5676,8 @@ def parse_args(argv):
     config_sub = config_parser.add_subparsers(dest='config_command', required=True)
     auto_parser = config_sub.add_parser('auto-update', help='install fix releases automatically overnight')
     auto_parser.add_argument('mode', choices=['on', 'off'])
+    telemetry_parser = config_sub.add_parser('telemetry', help='the opt-in anonymous install report (off by default)')
+    telemetry_parser.add_argument('mode', choices=['on', 'off', 'status'])
     proxy_parser = config_sub.add_parser('trusted-proxies', help='set, show or clear the reverse proxies trusted '
                                          'for X-Forwarded-For')
     proxy_parser.add_argument('proxies', nargs='*', metavar='IP|CIDR',
@@ -5850,6 +5878,9 @@ def main(argv=None):
         if args.command == 'config':
             if args.config_command == 'trusted-proxies':
                 configure_trusted_proxies(args.proxies, args.clear)
+            elif args.config_command == 'telemetry':
+                configure_telemetry(args.mode)
+                return 0
             else:
                 configure_auto_update(args.mode)
             ensure_update_request_channel_quietly()

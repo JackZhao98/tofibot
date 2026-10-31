@@ -1,0 +1,12 @@
+{
+	email {$TOFI_EMAIL}
+}
+
+{$TOFI_DOMAIN} {
+	encode zstd gzip
+	header Strict-Transport-Security "max-age=31536000"
+	# The host tool's own door to the App is never served to the internet.
+	@host path /api/host/*
+	respond @host 404
+	reverse_proxy app:8321
+}

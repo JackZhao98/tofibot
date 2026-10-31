@@ -195,6 +195,14 @@ jobs:
           docker compose -f deploy/self-host/compose.yaml \
             --env-file deploy/self-host/testdata/tofi-none.env config --services | sort | tr '\n' ' ' \
             | grep -qx 'app '
+      - name: Docker Compose install (no computer) renders without pulling images
+        run: |
+          docker compose -f deploy/compose/compose.yaml \
+            --env-file deploy/compose/testdata/fixture.env config --quiet
+          docker compose -f deploy/compose/compose.yaml \
+            --env-file deploy/compose/testdata/fixture.env --profile tls config --quiet
+          docker compose -f deploy/compose/compose.yaml \
+            --env-file deploy/compose/testdata/fixture.env config --services | grep -qx app
       - name: Runner profile renders with its fenced networks
         run: |
           export TOFI_RUNNER_IMAGE=ghcr.io/jackzhao98/tofi-mcp-runner@sha256:4444444444444444444444444444444444444444444444444444444444444444
