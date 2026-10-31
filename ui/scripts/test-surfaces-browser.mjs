@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 // Widgets, sidebar and covers across conversations and the keyboard (docs/design/widgets-and-sidebar.md sections 2.2, 7), in a real browser
 // against synthetic data:
 //  - each conversation remembers its own widgets (open and folded) while another is on screen; a conversation with none opens empty;
@@ -14,6 +15,7 @@ import assert from "node:assert/strict";
 import { launch, startUi } from "./computer-window-fixture.mjs";
 import { BOT, DM, DM2, GROUP, botOwner, newState, openWorkspace, usageFor } from "./widgets-fixture.mjs";
 
+const ARCHIVE_ENABLED = /export const ARCHIVE_ENABLED = true/.test(readFileSync(new URL("../src/featureFlags.ts", import.meta.url), "utf8"));
 const { server, origin } = await startUi();
 const browser = await launch();
 const results = [];
@@ -111,11 +113,17 @@ try {
     assert.equal(await sidebarOpen(page), 0, "an unknown ?side= opens nothing");
     await page.goto(origin + "/b/bot-synthetic?side=archive");
     await page.locator(".chat-header").waitFor();
-    await poll(page, () => document.querySelector(".sidebar-pane"));
-    assert.equal(side(page), "archive");
-    await row(page, DM2.name).click();
-    await settled(page);
-    assert.equal(side(page), "archive", "Archive stays with the account, whatever the conversation");
+    if (ARCHIVE_ENABLED) {
+      await poll(page, () => document.querySelector(".sidebar-pane"));
+      assert.equal(side(page), "archive");
+      await row(page, DM2.name).click();
+      await settled(page);
+      assert.equal(side(page), "archive", "Archive stays with the account, whatever the conversation");
+    } else {
+      // The archive view is switched off (featureFlags.ts): its deep link opens nothing.
+      await page.waitForTimeout(600);
+      assert.equal(await sidebarOpen(page), 0, "?side=archive opens nothing while the archive view is off");
+    }
     assert.deepEqual(errors, []);
     results.push("sidebar: stays and re-scopes on a switch, lives in ?side=, reload and tofi:open-sidebar open it, unknown values are ignored");
     await context.close();
