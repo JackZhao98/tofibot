@@ -1056,6 +1056,7 @@
     },
     "auto": "自动 · {{model}}",
     "default_is": "默认：{{value}}",
+    "default_changed": "默认已更改：现在默认使用 Playwright，经典模式保留作后备。",
     "changed": "已更改",
     "env": "由服务器环境设定",
     "reset": "恢复默认",

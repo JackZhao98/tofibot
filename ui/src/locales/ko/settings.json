@@ -1056,6 +1056,7 @@
     },
     "auto": "자동 · {{model}}",
     "default_is": "기본값: {{value}}",
+    "default_changed": "기본값이 바뀌었습니다. 이제 Playwright를 사용하며, 기존 방식은 대체 수단으로 남습니다.",
     "changed": "변경됨",
     "env": "서버 환경에서 설정됨",
     "reset": "기본값으로 되돌리기",

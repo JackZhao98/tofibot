@@ -1056,6 +1056,7 @@
     },
     "auto": "自動 · {{model}}",
     "default_is": "初期値：{{value}}",
+    "default_changed": "初期値を変更しました。今後は Playwright を使います。従来方式はフォールバックとして残ります。",
     "changed": "変更済み",
     "env": "サーバー環境で設定",
     "reset": "初期値に戻す",

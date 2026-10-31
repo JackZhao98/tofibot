@@ -115,6 +115,7 @@ const AutomationRow = memo(function AutomationRow({item, catalog, busy, saved, e
   const meta = <span className="auto-meta" data-source={item.source}>
     {item.kind !== "readonly" && <span>{t("automation.default_is", {value: defaultText})}</span>}
     {item.kind === "readonly" && <span>{t("automation.managed")}</span>}
+    {item.key === "browser_engine" && item.source === "default" && <span className="auto-note" data-testid="default-changed">{t("automation.default_changed")}</span>}
     {item.locked && <span className="auto-chip is-env" title={item.env}>{t("automation.env")}</span>}
     {changed && !item.locked && <span className="auto-chip">{t("automation.changed")}</span>}
     {changed && !item.locked && item.kind !== "readonly" && (item.kind !== "enum" || item.key === "browser_engine" || item.key === "desktop_engine") && <button type="button" className="text-button auto-reset" disabled={busy} onClick={() => onChange(item.key, null)}>{t("automation.reset")}</button>}

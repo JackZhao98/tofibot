@@ -239,7 +239,7 @@ func TestAutomationSettingsInventoryAndDefaults(t *testing.T) {
 			t.Fatalf("item %d is %s, want %s", i, body.Items[i].Key, key)
 		}
 	}
-	defaults := map[string]any{autoConversationModel: "claude-sonnet-5-5", autoStructuredOutput: true, autoForceSayHaikuDM: true, autoWebSearch: true, autoGroupExchangeGists: true, autoGroupTriage: true, autoGroupFollowUp: true, autoWidgetArtifacts: true, autoWidgetComputer: true, autoOwnRepliesVerbatim: float64(3), autoTaskRetentionDays: float64(30), autoCommandCheckMinutes: float64(60), autoTaskStallRounds: float64(3), autoTaskTreeIdleLimit: float64(30), autoCompletionReview: true, autoAnswerGate: float64(2), autoMCPReview: "off", autoBrowserEngine: "classic", autoDesktopEngine: "classic", autoRememberedApprovalHrs: float64(24), autoProviderRetries: float64(8), autoScheduleReceiptReview: true}
+	defaults := map[string]any{autoConversationModel: "claude-sonnet-5-5", autoStructuredOutput: true, autoForceSayHaikuDM: true, autoWebSearch: true, autoGroupExchangeGists: true, autoGroupTriage: true, autoGroupFollowUp: true, autoWidgetArtifacts: true, autoWidgetComputer: true, autoOwnRepliesVerbatim: float64(3), autoTaskRetentionDays: float64(30), autoCommandCheckMinutes: float64(60), autoTaskStallRounds: float64(3), autoTaskTreeIdleLimit: float64(30), autoCompletionReview: true, autoAnswerGate: float64(2), autoMCPReview: "off", autoBrowserEngine: "playwright", autoDesktopEngine: "classic", autoRememberedApprovalHrs: float64(24), autoProviderRetries: float64(8), autoScheduleReceiptReview: true}
 	for key, def := range defaults {
 		item := body.find(t, key)
 		if item.Default != def || item.Value != def || item.Source != "default" {

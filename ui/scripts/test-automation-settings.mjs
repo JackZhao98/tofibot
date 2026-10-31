@@ -64,7 +64,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     provider_retries: {group: "reliability", kind: "int", def: 5, min: 0, max: 10},
     schedule_receipt_review: {group: "schedules", kind: "bool", def: true},
     desktop_idle_seconds: {group: "computer", kind: "readonly"},
-    browser_engine: {group: "computer", kind: "enum", def: "classic", options: ["classic", "playwright"]},
+    browser_engine: {group: "computer", kind: "enum", def: "playwright", options: ["classic", "playwright"]},
     desktop_engine: {group: "computer", kind: "enum", def: "classic", options: ["classic", "a11y"]},
     widget_artifacts_auto: {group: "widgets", kind: "bool", def: true},
     widget_computer_auto: {group: "widgets", kind: "bool", def: true},
@@ -179,7 +179,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await row(t.page, "remembered_approval_hours").locator(".ui-select-trigger").getAttribute("data-value"), "24");
     assert.match(await row(t.page, "desktop_idle_seconds").innerText(), /5 min/, "the computer service's idle timeout is shown");
     assert.equal(await row(t.page, "desktop_idle_seconds").locator(".ui-select-trigger, input").count(), 0, "a value owned elsewhere has no control");
-    assert.equal(await row(t.page, "browser_engine").locator(".ui-select-trigger").getAttribute("data-value"), "classic", "the browser engine is a real choice, classic by default");
+    assert.equal(await row(t.page, "browser_engine").locator(".ui-select-trigger").getAttribute("data-value"), "playwright", "the browser engine is a real choice, Playwright by default");
+    assert.match(await row(t.page, "browser_engine").locator("[data-testid=default-changed]").innerText(), /Default changed/, "the browser engine row says its default changed");
+    assert.equal(await row(t.page, "desktop_engine").locator("[data-testid=default-changed]").count(), 0, "only the browser engine row carries the note");
     assert.equal(await row(t.page, "desktop_engine").locator(".ui-select-trigger").getAttribute("data-value"), "classic", "the desktop engine is a real choice, classic by default");
     assert.equal(await t.page.locator(".auto-chip").count(), 0, "nothing is marked changed at the defaults");
     assert.deepEqual(t.errors, [], `page errors: ${t.errors}`);

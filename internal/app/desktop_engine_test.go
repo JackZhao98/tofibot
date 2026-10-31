@@ -58,8 +58,8 @@ func TestDesktopEngineSettingChoosesTheTools(t *testing.T) {
 		t.Fatal(err)
 	}
 	both := pwToolMap(s.microVMTools(run))
-	if _, ok := both["computer_browser"]; ok {
-		t.Fatal("the browser engine must still replace computer_browser")
+	if !strings.HasPrefix(both["computer_browser"].Description, computerBrowserFallbackNote) {
+		t.Fatal("with the browser engine on, computer_browser is only the fallback")
 	}
 	for _, name := range append(desktopEngineToolNames(), browserEngineToolNames()...) {
 		if _, ok := both[name]; !ok {

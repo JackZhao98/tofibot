@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"sync"
 	"testing"
@@ -21,6 +22,8 @@ type pwRecorder struct {
 	actions []computer.Action
 	reply   string
 	fail    error // returned for the engine actions when set
+	// shellReply, when set, answers shell.exec (the classic page read).
+	shellReply string
 }
 
 func (p *pwRecorder) Action(ctx context.Context, a computer.Action) (computer.ActionResult, error) {
@@ -37,8 +40,25 @@ func (p *pwRecorder) ActionWithin(_ context.Context, a computer.Action, _ time.D
 		}
 		return computer.ActionResult{OK: true, Result: json.RawMessage(p.reply)}, nil
 	}
+	if a.Name == "shell.exec" && p.shellReply != "" {
+		return computer.ActionResult{OK: true, Result: json.RawMessage(p.shellReply)}, nil
+	}
 	return computer.ActionResult{OK: true, Result: json.RawMessage(`{}`)}, nil
 }
+
+func (p *pwRecorder) count(name string) int {
+	p.rmu.Lock()
+	defer p.rmu.Unlock()
+	n := 0
+	for _, a := range p.actions {
+		if a.Name == name {
+			n++
+		}
+	}
+	return n
+}
+
+func (p *pwRecorder) hasAction(name string) bool { return p.count(name) > 0 }
 
 func (p *pwRecorder) last() computer.Action {
 	p.rmu.Lock()
@@ -70,43 +90,137 @@ func pwToolMap(tools []Tool) map[string]Tool {
 }
 
 func TestBrowserEngineSettingChoosesTheTools(t *testing.T) {
+	// Unset: the default is Playwright, with computer_browser kept as the fallback.
 	s, _, run := pwServer(t, "")
+	pw := pwToolMap(s.microVMTools(run))
+	for _, name := range append(browserEngineToolNames(), "computer_shell", "computer_files", "computer_desktop", "computer_help", "computer_browser") {
+		if _, ok := pw[name]; !ok {
+			t.Fatalf("playwright lacks %s", name)
+		}
+	}
+	if !strings.HasPrefix(pw["computer_browser"].Description, computerBrowserFallbackNote) {
+		t.Fatal("computer_browser must say it is the fallback while the browser_ tools are offered")
+	}
+	// An explicit choice of classic is kept.
+	v := browserEngineClassic
+	if err := s.saveAutomationValue(autoBrowserEngine, &v); err != nil {
+		t.Fatal(err)
+	}
 	classic := pwToolMap(s.microVMTools(run))
 	if _, ok := classic["computer_browser"]; !ok {
 		t.Fatal("classic must keep computer_browser")
+	}
+	if strings.HasPrefix(classic["computer_browser"].Description, computerBrowserFallbackNote) {
+		t.Fatal("classic computer_browser is the main tool, not a fallback")
 	}
 	for _, name := range browserEngineToolNames() {
 		if _, ok := classic[name]; ok {
 			t.Fatalf("classic registered %s", name)
 		}
 	}
-	v := browserEnginePlaywright
-	if err := s.saveAutomationValue(autoBrowserEngine, &v); err != nil {
-		t.Fatal(err)
+}
+
+// An account that never set the item follows the default; an account that chose
+// classic keeps it; resetting goes back to following the default.
+func TestBrowserEngineDefaultResolutionDistinguishesUnsetFromClassic(t *testing.T) {
+	s := providerServer(t, nil, nil)
+	if !s.browserEnginePlaywright() {
+		t.Fatal("an unset item must follow the default, Playwright")
 	}
-	pw := pwToolMap(s.microVMTools(run))
-	if _, ok := pw["computer_browser"]; ok {
-		t.Fatal("playwright must replace computer_browser")
+	if _, stored := s.autoStored(autoBrowserEngine); stored {
+		t.Fatal("reading must not store the default")
 	}
-	for _, name := range append(browserEngineToolNames(), "computer_shell", "computer_files", "computer_desktop", "computer_help") {
-		if _, ok := pw[name]; !ok {
-			t.Fatalf("playwright lacks %s", name)
-		}
+	if code := autoPutCode(t, s, `{"browser_engine":"classic"}`); code != 200 {
+		t.Fatalf("PUT classic: %d", code)
+	}
+	if v, stored := s.autoStored(autoBrowserEngine); !stored || v != browserEngineClassic {
+		t.Fatalf("classic was not stored as an explicit choice: %q %v", v, stored)
+	}
+	if s.browserEnginePlaywright() {
+		t.Fatal("an explicit classic must be kept")
+	}
+	item := autoGet(t, s).find(t, autoBrowserEngine)
+	if item.Value != "classic" || item.Source != "stored" || item.Default != "playwright" {
+		t.Fatalf("view of an explicit classic: %+v", item)
+	}
+	if code := autoPutCode(t, s, `{"browser_engine":null}`); code != 200 || !s.browserEnginePlaywright() {
+		t.Fatalf("reset must follow the default again: %d", code)
 	}
 }
 
-func TestBrowserEngineDefaultsToClassicAndEnvOverrides(t *testing.T) {
+func TestBrowserEngineDefaultsToPlaywrightAndEnvOverrides(t *testing.T) {
 	s := &Server{}
-	if s.browserEnginePlaywright() {
-		t.Fatal("default must be classic")
-	}
-	t.Setenv("TOFI_BROWSER_ENGINE", "playwright")
 	if !s.browserEnginePlaywright() {
+		t.Fatal("default must be playwright")
+	}
+	t.Setenv("TOFI_BROWSER_ENGINE", "classic")
+	if s.browserEnginePlaywright() {
 		t.Fatal("environment override ignored")
 	}
 	t.Setenv("TOFI_BROWSER_ENGINE", "bogus")
-	if s.browserEnginePlaywright() {
-		t.Fatal("an invalid environment value must fall back")
+	if !s.browserEnginePlaywright() {
+		t.Fatal("an invalid environment value must fall back to the default")
+	}
+}
+
+// When the relay cannot start (or DevTools is unreachable, or a snapshot has no
+// refs) the call goes through the classic browser and the Bot is told once.
+func TestBrowserEngineFallsBackToClassic(t *testing.T) {
+	s, rec, run := pwServer(t, "")
+	rec.shellReply = `{"stdout":"{\"title\":\"Shop\",\"url\":\"https://shop.example/\",\"text\":\"Cart\"}","exit_code":0}`
+	tools := pwToolMap(s.microVMTools(run))
+	ctx := context.Background()
+	rec.fail = errors.New("browser engine did not start: exit status 1")
+	out, err := tools["browser_snapshot"].Execute(ctx, json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatalf("the fallback must serve the read: %v", err)
+	}
+	if !strings.Contains(out, "Playwright browser engine is not usable") || !strings.Contains(out, "computer_browser") {
+		t.Fatalf("the Bot is not told: %q", out)
+	}
+	// The next call goes straight to classic, without the engine and without a second note.
+	before := rec.count("browser.mcp")
+	out, err = tools["browser_navigate"].Execute(ctx, json.RawMessage(`{"url":"https://shop.example/"}`))
+	if err != nil || strings.Contains(out, "not usable") {
+		t.Fatalf("second call: %q %v", out, err)
+	}
+	if rec.count("browser.mcp") != before || !rec.hasAction("browser.navigate") {
+		t.Fatal("the failed engine was tried again inside the fallback window")
+	}
+	// An action has no classic equal: refused, unexecuted, pointing at computer_browser.
+	_, err = tools["browser_click"].Execute(ctx, json.RawMessage(`{"ref":"e7","element":"Pay","effect":"none"}`))
+	if o, ok := tooloutcome.FromError(err); !ok || o.Certainty != "not_executed" || !strings.Contains(err.Error(), "computer_browser") {
+		t.Fatalf("click during fallback: %v", err)
+	}
+	// Another Bot is not affected, and the window ends.
+	if _, down := s.browserFallbackReason("someone-else"); down {
+		t.Fatal("the fallback leaked to another Bot")
+	}
+	s.browserFallbackAt.Store(run.BotID, browserFallbackMark{at: time.Now().Add(-2 * browserFallbackWindow), reason: "x"})
+	if _, down := s.browserFallbackReason(run.BotID); down {
+		t.Fatal("the fallback window did not end")
+	}
+}
+
+func TestBrowserEngineFallsBackWhenNoRefsComeBack(t *testing.T) {
+	s, rec, run := pwServer(t, "")
+	rec.shellReply = `{"stdout":"{\"title\":\"Shop\",\"url\":\"https://shop.example/\",\"text\":\"Cart\"}","exit_code":0}`
+	rec.reply = `{"tool":"x","text":"### Page\n- Page URL: https://x.example/\n### Snapshot\n- generic","is_error":false}`
+	tools := pwToolMap(s.microVMTools(run))
+	out, err := tools["browser_snapshot"].Execute(context.Background(), json.RawMessage(`{}`))
+	if err != nil || !strings.Contains(out, "no element refs") {
+		t.Fatalf("a snapshot without refs must fall back: %q %v", out, err)
+	}
+	if _, down := s.browserFallbackReason(run.BotID); down {
+		t.Fatal("a refless page must not switch the engine off for the session")
+	}
+	for _, err := range []error{errors.New("browser engine did not start"), errors.New("connection refused 127.0.0.1 /json"), tooloutcome.InvalidArguments("the browser engine needs a newer computer image")} {
+		if !browserEngineUnavailable(err) {
+			t.Errorf("%v is an engine failure", err)
+		}
+	}
+	if browserEngineUnavailable(errors.New("ref e9 not found in the current page snapshot")) {
+		t.Error("a stale ref is not an engine failure")
 	}
 }
 
@@ -275,13 +389,16 @@ func TestBrowserEngineSettingIsWritableThroughTheSettingsAPI(t *testing.T) {
 		t.Fatalf("PUT: %d", code)
 	}
 	item := autoGet(t, s).find(t, autoBrowserEngine)
-	if item.Value != "playwright" || item.Source != "stored" || item.Default != "classic" {
+	if item.Value != "playwright" || item.Source != "default" || item.Default != "playwright" {
 		t.Fatalf("setting after PUT: %+v", item)
 	}
-	if !s.browserEnginePlaywright() {
-		t.Fatal("the stored value does not reach the tool registry")
+	if code := autoPutCode(t, s, `{"browser_engine":"classic"}`); code != 200 {
+		t.Fatalf("PUT classic: %d", code)
 	}
-	if code := autoPutCode(t, s, `{"browser_engine":null}`); code != 200 || s.browserEnginePlaywright() {
+	if item := autoGet(t, s).find(t, autoBrowserEngine); item.Value != "classic" || item.Source != "stored" || s.browserEnginePlaywright() {
+		t.Fatalf("setting after PUT classic: %+v", item)
+	}
+	if code := autoPutCode(t, s, `{"browser_engine":null}`); code != 200 || !s.browserEnginePlaywright() {
 		t.Fatalf("reset to default failed: %d", code)
 	}
 }

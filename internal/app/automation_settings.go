@@ -116,7 +116,7 @@ var automationItems = []automationItem{
 	{Key: autoProviderRetries, Group: "reliability", Kind: autoKindInt, Default: strconv.Itoa(defaultProviderRetries), Min: 0, Max: 10, Env: "TOFI_PROVIDER_RETRIES"},
 	{Key: autoScheduleReceiptReview, Group: "schedules", Kind: autoKindBool, Default: "true"},
 	{Key: autoDesktopIdle, Group: "computer", Kind: autoKindReadOnly, Unit: "seconds"},
-	{Key: autoBrowserEngine, Group: "computer", Kind: autoKindEnum, Default: browserEngineClassic, Env: "TOFI_BROWSER_ENGINE", Options: []string{browserEngineClassic, browserEnginePlaywright}},
+	{Key: autoBrowserEngine, Group: "computer", Kind: autoKindEnum, Default: browserEnginePlaywright, Env: "TOFI_BROWSER_ENGINE", Options: []string{browserEngineClassic, browserEnginePlaywright}},
 	{Key: autoDesktopEngine, Group: "computer", Kind: autoKindEnum, Default: desktopEngineClassic, Env: "TOFI_DESKTOP_ENGINE", Options: []string{desktopEngineClassic, desktopEngineA11y}},
 	{Key: autoGroupTriage, Group: "replies", Kind: autoKindBool, Default: "true"},
 	{Key: autoGroupTriageModel, Group: "models", Kind: autoKindModel},

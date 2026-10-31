@@ -217,7 +217,7 @@ func TestOrdinaryResearchFallbackToolPaths(t *testing.T) {
 				}
 				// The browser recipe is inline in the VM environment text, so the
 				// script starts the desktop without a computer_help round trip.
-				if scenario != "unconfigured-vm" && !strings.Contains(system, computerBrowserEssentials) {
+				if scenario != "unconfigured-vm" && !strings.Contains(system, computerBrowserEssentialsPlaywright) {
 					t.Fatal("VM environment lost its inline browser recipe")
 				}
 				success := scenario != "unavailable-vm" && scenario != "startup-failure" && scenario != "unconfigured-vm"
