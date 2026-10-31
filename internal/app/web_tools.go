@@ -433,6 +433,27 @@ func (s *Server) webNativeWins(r Run) bool {
 	return runtime.ModelProvider(model) == providerAnthropic && s.searchUses(model, nil) > 0
 }
 
+// externalSearchFirst reports whether the run gets the external web_search
+// tool. A model with hosted search (OpenAI) takes it only for a search key or
+// SearXNG the owner set: the computer is slower, needs a free computer budget
+// and is not needed for a search, so it does not replace the hosted search.
+func (s *Server) externalSearchFirst(r Run) bool {
+	var ids []string
+	for _, p := range s.searchChain(&r) {
+		ids = append(ids, p.ID())
+	}
+	return externalSearchFor(hostedSearchProvider(s.runModel(r)), ids)
+}
+
+func externalSearchFor(hosted bool, chain []string) bool {
+	for _, id := range chain {
+		if !hosted || id != webComputerID {
+			return true
+		}
+	}
+	return false
+}
+
 // webFetchNativeWins reports whether the model also brings its own page
 // reader (Anthropic only; OpenAI has none, so its Bots keep the builtin one).
 func (s *Server) webFetchNativeWins(r Run) bool {
@@ -448,7 +469,7 @@ func (s *Server) webTools(r Run) []Tool {
 	}
 	var tools []Tool
 	var searches, fetches atomic.Int32
-	if !s.webNativeWins(r) && len(s.searchChain(&r)) > 0 {
+	if !s.webNativeWins(r) && s.externalSearchFirst(r) {
 		tools = append(tools, Tool{Name: "web_search", Description: webSearchDescription, Timeout: webToolTimeout, Parameters: objectSchema(map[string]any{
 			"query":       map[string]any{"type": "string", "description": "What to look up."},
 			"max_results": map[string]any{"type": "integer", "minimum": 1, "maximum": 10, "description": "How many results to return. Default 5."},

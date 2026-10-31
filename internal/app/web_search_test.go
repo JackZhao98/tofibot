@@ -162,3 +162,22 @@ func TestOpenAIWebSearchesAreCountedWithoutAFee(t *testing.T) {
 		t.Fatalf("rows=%d usd=%v, want 2 rows and no invented fee", rows, usd)
 	}
 }
+
+func TestHostedSearchIsNotReplacedByTheComputer(t *testing.T) {
+	for _, c := range []struct {
+		hosted bool
+		chain  []string
+		want   bool
+	}{
+		{false, nil, false},
+		{false, []string{webComputerID}, true},
+		{true, []string{webComputerID}, false},
+		{true, []string{"tavily", webComputerID}, true},
+		{true, []string{"searxng"}, true},
+		{true, nil, false},
+	} {
+		if got := externalSearchFor(c.hosted, c.chain); got != c.want {
+			t.Fatalf("hosted=%v chain=%v: got %v", c.hosted, c.chain, got)
+		}
+	}
+}
