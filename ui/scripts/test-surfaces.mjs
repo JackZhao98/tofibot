@@ -110,8 +110,8 @@ try {
   assert.deepEqual(walk(everything(), {}), ["cover:settings", "sidebar:memory", "widget:artifacts", "widget:members", "widget:computer"]);
   const afterBig = { bigComputer: true, afterBig: current => { afterBig.bigComputer = false; return current; } };
   assert.deepEqual(walk(everything(), afterBig), ["computer-big", "cover:settings", "sidebar:memory", "widget:artifacts", "widget:members", "widget:computer"], "big computer, cover, sidebar, then widgets bottom-up");
-  assert.deepEqual(escapeTarget(run(s => openSidebar(s, "tasks"), s => openWidget(s, "computer")), { bigBot computer: true }), { layer: "computer-big" });
-  assert.deepEqual(escapeTarget(run(s => openSidebar(s, "tasks")), { bigBot computer: true }), { layer: "sidebar", id: "tasks" }, "a big computer that is not an open widget is not a target");
+  assert.deepEqual(escapeTarget(run(s => openSidebar(s, "tasks"), s => openWidget(s, "computer")), { bigComputer: true }), { layer: "computer-big" });
+  assert.deepEqual(escapeTarget(run(s => openSidebar(s, "tasks")), { bigComputer: true }), { layer: "sidebar", id: "tasks" }, "a big computer that is not an open widget is not a target");
   assert.deepEqual(escapeTarget(run(s => openWidget(s, "members"), s => openWidget(s, "computer"))), { layer: "widget", id: "members" }, "the Bot computer is last");
   assert.equal(escapeTarget(idle), null);
 
