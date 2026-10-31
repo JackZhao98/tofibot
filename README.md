@@ -130,8 +130,19 @@ npm --prefix ui run build
 go build ./cmd/tofi ./cmd/tofi-guest
 ```
 
+## Releases
+
+Stable releases come at most once a week. Release candidates (`-rc.N`) can come
+more often, and only reach you if you ask for them (`--version`, or **Receive
+release candidates** in Settings > Maintenance). Every version has notes in
+[release-notes/](release-notes/) and on
+[GitHub Releases](https://github.com/JackZhao98/tofibot/releases). What we plan
+next is in [ROADMAP.md](ROADMAP.md).
+
 ## Documentation
 
+- [release-notes/](release-notes/): the changelog, one file for each version.
+- [ROADMAP.md](ROADMAP.md): what comes next.
 - [GitHub Releases](https://github.com/JackZhao98/tofibot/releases): what each version changed.
 - [deploy/self-host/README.md](deploy/self-host/README.md): installer and `tofi` host tool.
 - [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
