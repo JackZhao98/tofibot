@@ -55,6 +55,8 @@ self-host-config:
 	docker compose -f deploy/self-host/compose.yaml --env-file deploy/self-host/testdata/tofi-direct.env --profile computer-kvm config --quiet
 	docker compose -f deploy/self-host/compose.yaml --env-file deploy/self-host/testdata/tofi-none.env config --quiet
 	docker compose -f deploy/self-host/compose.yaml --env-file deploy/self-host/testdata/tofi-runner.env --profile runner config --quiet
+	docker compose -f deploy/compose/compose.yaml --env-file deploy/compose/testdata/fixture.env config --quiet
+	docker compose -f deploy/compose/compose.yaml --env-file deploy/compose/testdata/fixture.env --profile tls config --quiet
 
 # make release-bundle VERSION=v0.1.0-rc.1
 release-bundle:

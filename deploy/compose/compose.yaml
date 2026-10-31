@@ -1,0 +1,87 @@
+# TOFI on Docker Compose, for a server WITHOUT a computer (no KVM).
+# The App and web page only. Bots, conversations and local connections work.
+# Images are the pinned images of one release (see .env.example).
+# Read deploy/compose/README.md before you start it.
+name: tofi
+
+services:
+  app:
+    image: ${TOFI_APP_IMAGE:?set TOFI_APP_IMAGE in .env (see .env.example)}
+    pull_policy: missing
+    user: "10001:10001"
+    restart: unless-stopped
+    init: true
+    read_only: true
+    cpus: 0.5
+    mem_limit: 512m
+    pids_limit: 256
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    environment:
+      TOFI_LISTEN: 0.0.0.0:8321
+      TOFI_DATA_DIR: /app/data
+      TOFI_UI_DIR: /app/ui
+      TOFI_PUBLIC_ORIGIN: ${TOFI_PUBLIC_ORIGIN:-}
+      TOFI_OWNER_AUTH: "1"
+      TOFI_MULTI_ACCOUNT: "1"
+      TOFI_ACCOUNT_MAINTENANCE: "0"
+      # No computer. Add one later with the host tool (see README).
+      TOFI_COMPUTER_BACKEND: none
+      TOFI_ACCOUNT_PROVISIONER_SOCKET: ""
+      TOFI_ACCOUNT_COMPUTER_SOCKET_ROOT: ""
+      TOFI_ACCOUNT_COMPUTER_DISK_GIB: ""
+      TOFI_ACCOUNT_DB_MAX_BYTES: "1073741824"
+      # Plain HTTP reaches the App only from a private peer: Caddy or your own
+      # reverse proxy. Keep the port on 127.0.0.1 (TOFI_BIND).
+      TOFI_OWNER_ALLOW_LAN_HTTP: "1"
+      # Proxies whose X-Forwarded-For is believed for sign-in rate limits.
+      # Comma-separated IPs or CIDRs. Empty: the header is ignored.
+      TOFI_TRUSTED_PROXIES: ${TOFI_TRUSTED_PROXIES:-172.16.0.0/12,192.168.0.0/16}
+      # Updates are made by you (see README), not by the web page.
+      TOFI_AUTO_UPDATE: "off"
+    ports:
+      - "${TOFI_BIND:-127.0.0.1}:${TOFI_HTTP_PORT:-8321}:8321"
+    volumes:
+      - tofi-data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8321/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+
+  # Optional HTTPS with automatic certificates. Start with: --profile tls
+  # Needs TOFI_DOMAIN in .env, DNS that points to this server, and ports 80 and 443.
+  caddy:
+    profiles: [tls]
+    image: ${TOFI_CADDY_IMAGE:-docker.io/library/caddy:2}
+    pull_policy: missing
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    environment:
+      TOFI_DOMAIN: ${TOFI_DOMAIN:-}
+      TOFI_EMAIL: ${TOFI_EMAIL:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - app
+
+volumes:
+  tofi-data:
+  caddy-data:
+  caddy-config:

@@ -23,6 +23,14 @@ on [GitHub Releases](https://github.com/JackZhao98/tofibot/releases).
 Use a dedicated Linux server or VM. TOFI supports x86_64 and aarch64.
 TOFI supports Ubuntu 22.04/24.04 and Debian 12/13.
 
+TOFI runs without a computer. The computer (a virtual desktop for each account,
+needs KVM) is an optional upgrade that you can add later.
+
+### Option A: one-command installer
+
+It installs Docker images, the `tofi` host tool, backups and updates.
+It also sets up a computer when the host has KVM.
+
 ```sh
 curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh | sudo bash
 ```
@@ -35,6 +43,14 @@ Admin account. Then open Settings > Model provider.
 By default TOFI serves HTTPS with a self-signed certificate on port 8321.
 Compare the SHA-256 fingerprint that the installer prints with the one in your
 browser. On a cloud server, allow TCP 8321 in the firewall.
+
+### Option B: Docker Compose (no computer)
+
+For a server without KVM, or if you want to manage Docker yourself. It uses the
+same pinned release images, with a data volume and HTTPS behind your own proxy or
+with Caddy. You make backups and updates yourself. The steps are in
+[deploy/compose/README.md](deploy/compose/README.md). To add a computer later,
+use the installer on a host with KVM, then `sudo tofi computer add kvm`.
 
 ### Requirements
 
