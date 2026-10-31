@@ -34,6 +34,7 @@ var playwrightIdle = 10 * time.Minute
 // Chrome (new port) gets a new session.
 type playwrightSession struct {
 	key    string
+	label  string // names the engine in errors; empty means the browser engine
 	port   int
 	cmd    *exec.Cmd
 	stdin  io.WriteCloser
@@ -152,6 +153,20 @@ func startPlaywright(ctx context.Context, root, botDir string, port int) (*playw
 	env := append(cleanEnv(root, botDir), "PLAYWRIGHT_MCP_NO_TELEMETRY=1")
 	cmd.Env = env
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if err := os.MkdirAll(playwrightOutputDir(root), 0o700); err != nil {
+		return nil, err
+	}
+	sess, err := startStdioMCP(ctx, "browser engine", cmd)
+	if err != nil {
+		return nil, err
+	}
+	sess.port = port
+	return sess, nil
+}
+
+// startStdioMCP starts a prepared command as an MCP server on stdio and
+// completes the initialize handshake. label names the engine in errors.
+func startStdioMCP(ctx context.Context, label string, cmd *exec.Cmd) (*playwrightSession, error) {
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err
@@ -163,13 +178,10 @@ func startPlaywright(ctx context.Context, root, botDir string, port int) (*playw
 	logBuf := &limitedBuffer{limit: 16 * 1024, tail: true}
 	cmd.Stderr = logBuf
 	cmd.WaitDelay = 1500 * time.Millisecond
-	if err := os.MkdirAll(playwrightOutputDir(root), 0o700); err != nil {
-		return nil, err
-	}
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
-	sess := &playwrightSession{port: port, cmd: cmd, stdin: stdin, pending: map[int]chan json.RawMessage{}, dead: make(chan struct{}), log: logBuf}
+	sess := &playwrightSession{label: label, cmd: cmd, stdin: stdin, pending: map[int]chan json.RawMessage{}, dead: make(chan struct{}), log: logBuf}
 	go func() {
 		reader := bufio.NewReaderSize(stdout, 64*1024)
 		for {
@@ -192,7 +204,7 @@ func startPlaywright(ctx context.Context, root, botDir string, port int) (*playw
 		"clientInfo":      map[string]any{"name": "tofi-guest", "version": "1"},
 	}); err != nil {
 		sess.stop()
-		return nil, fmt.Errorf("browser engine did not start: %w%s", err, tailNote(logBuf))
+		return nil, fmt.Errorf("%s did not start: %w%s", label, err, tailNote(logBuf))
 	}
 	if err := sess.notify("notifications/initialized"); err != nil {
 		sess.stop()
@@ -249,6 +261,13 @@ func (p *playwrightSession) route(line []byte) {
 	}
 }
 
+func (p *playwrightSession) name() string {
+	if p.label == "" {
+		return "browser engine"
+	}
+	return p.label
+}
+
 func (p *playwrightSession) notify(method string) error {
 	b, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "method": method})
 	_, err := p.stdin.Write(append(b, '\n'))
@@ -273,7 +292,7 @@ func (p *playwrightSession) call(ctx context.Context, method string, params any)
 		p.pendMu.Unlock()
 	}()
 	if _, err := p.stdin.Write(append(b, '\n')); err != nil {
-		return nil, fmt.Errorf("browser engine is not running: %w", err)
+		return nil, fmt.Errorf("%s is not running: %w", p.name(), err)
 	}
 	timeout := time.NewTimer(playwrightCallTimeout)
 	defer timeout.Stop()
@@ -282,9 +301,9 @@ func (p *playwrightSession) call(ctx context.Context, method string, params any)
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case <-timeout.C:
-			return nil, errors.New("browser engine did not answer in time")
+			return nil, fmt.Errorf("%s did not answer in time", p.name())
 		case <-p.dead:
-			return nil, errors.New("browser engine stopped" + tailNote(p.log))
+			return nil, errors.New(p.name() + " stopped" + tailNote(p.log))
 		case line := <-reply:
 			var msg struct {
 				ID     *int            `json:"id"`
@@ -294,10 +313,10 @@ func (p *playwrightSession) call(ctx context.Context, method string, params any)
 				} `json:"error"`
 			}
 			if json.Unmarshal(line, &msg) != nil {
-				return nil, errors.New("browser engine sent an unreadable reply")
+				return nil, fmt.Errorf("%s sent an unreadable reply", p.name())
 			}
 			if msg.Error != nil {
-				return nil, fmt.Errorf("browser engine: %s", msg.Error.Message)
+				return nil, fmt.Errorf("%s: %s", p.name(), msg.Error.Message)
 			}
 			return msg.Result, nil
 		}

@@ -37,6 +37,7 @@ type desktop struct {
 	display            string
 	profile            string
 	remotePort         int
+	dbus               *exec.Cmd // the desktop's session bus
 	xvfb               *exec.Cmd
 	fluxbox            *exec.Cmd
 	panel              *exec.Cmd
@@ -268,6 +269,12 @@ func (s *Service) dispatchAction(ctx context.Context, req ActionRequest) (any, e
 			return nil, err
 		}
 		return s.browserControl(ctx, req.BotID, browserCommand{Action: "navigate", URL: args.URL, TargetID: args.TargetID})
+	case "desktop.mcp":
+		var args ocuCallArgs
+		if err := decodeArgs(req.Args, &args); err != nil {
+			return nil, err
+		}
+		return s.desktopMCP(ctx, req.BotID, args)
 	case "browser.mcp":
 		var args playwrightCallArgs
 		if err := decodeArgs(req.Args, &args); err != nil {

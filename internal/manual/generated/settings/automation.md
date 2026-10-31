@@ -17,6 +17,7 @@ Open this page: [{{ui:settings:shell.page.automation.name}}](/settings/automatio
 | {{ui:settings:automation.item.command_check_minutes.name}} | `automation.command_check_minutes` | whole number 5 to 1440 | 60 minutes | direct | `/settings/automation#computer` |
 | {{ui:settings:automation.item.completion_review.name}} | `automation.completion_review` | on or off | true | direct | `/settings/automation#checks` |
 | {{ui:settings:automation.item.conversation_model.name}} | `automation.conversation_model` | a configured model ID, or default | claude-sonnet-5-5 | confirm | `/settings/automation#models` |
+| {{ui:settings:automation.item.desktop_engine.name}} | `automation.desktop_engine` | classic, a11y | classic | direct | `/settings/automation#computer` |
 | {{ui:settings:automation.item.desktop_idle_seconds.name}} | `automation.desktop_idle_seconds` | read only |  | forbidden: the person changes it on the page | `/settings/automation#computer` |
 | {{ui:settings:automation.item.force_say_haiku_dm.name}} | `automation.force_say_haiku_dm` | on or off | true | direct | `/settings/automation#replies` |
 | {{ui:settings:automation.item.group_exchange_gists.name}} | `automation.group_exchange_gists` | on or off | true | direct | `/settings/automation#history` |
@@ -48,6 +49,8 @@ Open this page: [{{ui:settings:shell.page.automation.name}}](/settings/automatio
 **{{ui:settings:automation.item.completion_review.name}}.** {{ui:settings:automation.item.completion_review.what}}
 
 **{{ui:settings:automation.item.conversation_model.name}}.** {{ui:settings:automation.item.conversation_model.what}}
+
+**{{ui:settings:automation.item.desktop_engine.name}}.** {{ui:settings:automation.item.desktop_engine.what}}
 
 **{{ui:settings:automation.item.desktop_idle_seconds.name}}.** {{ui:settings:automation.item.desktop_idle_seconds.what}}
 

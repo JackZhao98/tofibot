@@ -707,6 +707,22 @@
       "audit": true
     },
     {
+      "key": "automation.desktop_engine",
+      "scope": "account",
+      "kind": "enum",
+      "options": [
+        "classic",
+        "a11y"
+      ],
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#computer",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.desktop_engine.name",
+      "audit": true
+    },
+    {
       "key": "automation.group_triage",
       "scope": "account",
       "kind": "bool",

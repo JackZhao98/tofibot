@@ -20,6 +20,7 @@ type pwRecorder struct {
 	rmu     sync.Mutex
 	actions []computer.Action
 	reply   string
+	fail    error // returned for the engine actions when set
 }
 
 func (p *pwRecorder) Action(ctx context.Context, a computer.Action) (computer.ActionResult, error) {
@@ -30,7 +31,10 @@ func (p *pwRecorder) ActionWithin(_ context.Context, a computer.Action, _ time.D
 	p.rmu.Lock()
 	p.actions = append(p.actions, a)
 	p.rmu.Unlock()
-	if a.Name == "browser.mcp" {
+	if a.Name == "browser.mcp" || a.Name == "desktop.mcp" {
+		if p.fail != nil {
+			return computer.ActionResult{}, p.fail
+		}
 		return computer.ActionResult{OK: true, Result: json.RawMessage(p.reply)}, nil
 	}
 	return computer.ActionResult{OK: true, Result: json.RawMessage(`{}`)}, nil

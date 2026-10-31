@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-"""Browser engine benchmark: the same real tasks, once per engine, against a running TOFI.
+"""Engine benchmark: the same real tasks, once per engine, against a running TOFI.
 
-For each engine (classic, playwright) and each task the script
-  1. sets the workspace setting browser_engine (and puts the old value back at the end),
+Browser tasks compare the browser engines (classic, playwright; setting browser_engine). Desktop tasks compare the
+desktop engines (classic, a11y; setting desktop_engine): open a folder in the file manager and report its files,
+change a setting in a GTK app's Preferences, read text from a desktop app window. Desktop tasks need the
+desktop_engine setting and a computer image with the accessibility engine; the browser engine stays as it is.
+
+For each engine and each task the script
+  1. sets the workspace setting of the task (and puts the old value back at the end),
   2. posts the task as a person's message into a conversation with a Bot that has a computer,
   3. waits for the run to end, then reads the run's tool calls and the Bot's reply over HTTP,
   4. decides success from what the fixture sites recorded (never from a model's opinion),
@@ -41,8 +46,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import fixtures  # noqa: E402
 
 ENGINES = ["classic", "playwright"]
+DESKTOP_ENGINES = ["classic", "a11y"]
+SETTINGS = {"browser_engine": ENGINES, "desktop_engine": DESKTOP_ENGINES}
 TERMINAL = {"done", "failed", "cancelled", "canceled", "interrupted", "error", "completed"}
-ACTIVE_BOT_TOOLS = re.compile(r"^(computer_(browser|desktop)|browser_[a-z_]+)$")
+ACTIVE_BOT_TOOLS = re.compile(r"^(computer_(browser|desktop)|browser_[a-z_]+|desktop_[a-z_]+)$")
 POLL = 2  # seconds between run checks; tests lower it
 PREFIX = "New task, unrelated to anything earlier in this chat. "
 
@@ -113,18 +120,18 @@ class Tofi:
 
 # ---------------------------------------------------------------- TOFI operations
 
-def get_engine(tofi):
+def get_engine(tofi, key="browser_engine"):
     for item in tofi.get("/api/automation-settings").get("items", []):
-        if item.get("key") == "browser_engine":
+        if item.get("key") == key:
             return item.get("value")
     return None
 
 
-def set_engine(tofi, engine):
-    tofi.put("/api/automation-settings", {"values": {"browser_engine": engine}})
-    got = get_engine(tofi)
+def set_engine(tofi, engine, key="browser_engine"):
+    tofi.put("/api/automation-settings", {"values": {key: engine}})
+    got = get_engine(tofi, key)
     if got != engine:
-        raise RuntimeError("browser_engine is %r after setting %r (is TOFI_BROWSER_ENGINE set on the server?)" % (got, engine))
+        raise RuntimeError("%s is %r after setting %r (is TOFI_%s set on the server?)" % (key, got, engine, key.upper()))
 
 
 def conversation_bot(tofi, conv):
@@ -221,6 +228,7 @@ def short(token):
 class Task:
     id = ""
     title = ""
+    setting = "browser_engine"  # the engine setting this task compares
 
     def prompt(self, ctx):
         raise NotImplementedError
@@ -295,22 +303,24 @@ class TableTask(Task):
 
 class FolderTask(Task):
     id = "desktop_folder"
-    title = "Open a folder in the desktop file manager"
+    title = "Open a folder in the desktop file manager and report its files"
+    setting = "desktop_engine"
 
     def setup(self, ctx):
         ctx["folder"] = "bench-%s" % short(ctx["token"])
         ctx["inner"] = "note-%s.txt" % short(ctx["token"])
+        ctx["second"] = "memo-%s.txt" % short(ctx["token"])
         path = "/workspace/shared/%s" % ctx["folder"]
-        shell(ctx["tofi"], ctx["bot"], "mkdir -p %s && echo hello > %s/%s" % (path, path, ctx["inner"]))
+        shell(ctx["tofi"], ctx["bot"], "mkdir -p %s && echo hello > %s/%s && echo world > %s/%s" % (path, path, ctx["inner"], path, ctx["second"]))
 
     def prompt(self, ctx):
-        return "On the computer's desktop (not in the browser), open the folder /workspace/shared/%s in the file manager window and tell me the name of the file you see inside it." % ctx["folder"]
+        return "On the computer's desktop (not in the browser), open the folder /workspace/shared/%s in the file manager window and tell me the names of the files you see inside it." % ctx["folder"]
 
     def check(self, ctx, state, reply):
         probe = ('for s in /tmp/.X11-unix/X*; do d=":${s##*X}"; DISPLAY=$d xdotool search --name %s 2>/dev/null; done | head -1' % ctx["folder"])
         found = shell(ctx["tofi"], ctx["bot"], probe).strip()
-        named = ctx["inner"] in reply
-        return bool(found) and named, "window %s, file name %s in reply" % ("open" if found else "not found", "present" if named else "absent")
+        named = [n for n in (ctx["inner"], ctx["second"]) if n in reply]
+        return bool(found) and len(named) == 2, "window %s, %d of 2 file names in reply" % ("open" if found else "not found", len(named))
 
     def cleanup(self, ctx):
         try:
@@ -319,7 +329,62 @@ class FolderTask(Task):
             pass
 
 
-TASKS = [FormTask(), DeepSettingTask(), UploadTask(), TableTask(), FolderTask()]
+LIBFM_CONF = "/workspace/home/.config/libfm/libfm.conf"
+
+
+class PreferenceTask(Task):
+    id = "desktop_setting"
+    title = "Change a setting in a GTK app's Preferences"
+    setting = "desktop_engine"
+
+    def reset(self, ctx):
+        shell(ctx["tofi"], ctx["bot"], "[ -f %s ] && sed -i 's/^single_click=.*/single_click=0/' %s; true" % (LIBFM_CONF, LIBFM_CONF))
+
+    def setup(self, ctx):
+        self.reset(ctx)
+
+    def prompt(self, ctx):
+        return "On the computer's desktop (not in the browser), open the file manager's Preferences, turn on the option \"Open files with a single left-click\" and close the Preferences window. Tell me when it is on."
+
+    def check(self, ctx, state, reply):
+        got = shell(ctx["tofi"], ctx["bot"], "grep -h '^single_click=' %s 2>/dev/null | tail -1" % LIBFM_CONF).strip()
+        return got == "single_click=1", "file manager saved %r" % (got or "nothing")
+
+    def cleanup(self, ctx):
+        try:
+            self.reset(ctx)
+        except RuntimeError:
+            pass
+
+
+class ReadTextTask(Task):
+    id = "desktop_read"
+    title = "Read text from a desktop app window"
+    setting = "desktop_engine"
+
+    def setup(self, ctx):
+        ctx["folder"] = "bench-%s" % short(ctx["token"])
+        ctx["file"] = "data-%s.bin" % short(ctx["token"])
+        ctx["size"] = 3000 + int(ctx["token"][:6], 16) % 6000
+        path = "/workspace/shared/%s" % ctx["folder"]
+        shell(ctx["tofi"], ctx["bot"], "mkdir -p %s && head -c %d /dev/zero | tr '\\0' x > %s/%s" % (path, ctx["size"], path, ctx["file"]))
+
+    def prompt(self, ctx):
+        return "On the computer's desktop (not in the browser), use the file manager to open the Properties of the file /workspace/shared/%s/%s and tell me the exact size in bytes that the Properties window shows." % (ctx["folder"], ctx["file"])
+
+    def check(self, ctx, state, reply):
+        text = reply.replace(",", "").replace("\u202f", "").replace("\u00a0", "")
+        ok = re.search(r"(?<!\d)%d(?!\d)" % ctx["size"], text) is not None
+        return ok, "expected %d bytes, %s in reply" % (ctx["size"], "found" if ok else "not found")
+
+    def cleanup(self, ctx):
+        try:
+            shell(ctx["tofi"], ctx["bot"], "for s in /tmp/.X11-unix/X*; do d=\":${s##*X}\"; for w in $(DISPLAY=$d xdotool search --name Properties 2>/dev/null); do DISPLAY=$d xdotool windowclose $w; done; done; rm -rf /workspace/shared/%s" % ctx["folder"])
+        except RuntimeError:
+            pass
+
+
+TASKS = [FormTask(), DeepSettingTask(), UploadTask(), TableTask(), FolderTask(), PreferenceTask(), ReadTextTask()]
 
 
 # ---------------------------------------------------------------- run
@@ -327,7 +392,7 @@ TASKS = [FormTask(), DeepSettingTask(), UploadTask(), TableTask(), FolderTask()]
 def run_trial(tofi, state, base, bots, convs, engine, task, index, timeout):
     conv = convs[index % len(convs)]
     ctx = {"tofi": tofi, "bot": bots[conv], "base": base, "token": uuid.uuid4().hex[:12], "engine": engine}
-    row = {"engine": engine, "task": task.id, "conversation": conv, "token": ctx["token"], "success": False, "detail": "", "steps": 0, "tool_calls": 0, "failed_calls": 0, "seconds": None, "timed_out": False, "tools": {}}
+    row = {"engine": engine, "setting": task.setting, "task": task.id, "conversation": conv, "token": ctx["token"], "success": False, "detail": "", "steps": 0, "tool_calls": 0, "failed_calls": 0, "seconds": None, "timed_out": False, "tools": {}}
     try:
         wait_idle(tofi, conv)
         task.setup(ctx)
@@ -358,21 +423,27 @@ def run_trial(tofi, state, base, bots, convs, engine, task, index, timeout):
     return row
 
 
+def engine_label(setting, engine):
+    return engine if setting == "browser_engine" else "desktop " + engine
+
+
 def summarize(rows):
     lines = ["| engine | task | success | steps | tool calls | failed calls | seconds |", "|---|---|---|---|---|---|---|"]
-    for engine in ENGINES:
+    groups = [(setting, engine) for setting, engines in SETTINGS.items() for engine in engines]
+    for setting, engine in groups:
+        label = engine_label(setting, engine)
         for task in TASKS:
-            sel = [r for r in rows if r["engine"] == engine and r["task"] == task.id]
+            sel = [r for r in rows if r["engine"] == engine and r.get("setting", "browser_engine") == setting and r["task"] == task.id]
             if not sel:
                 continue
             ok = sum(1 for r in sel if r["success"])
             avg = lambda key: ("%.1f" % (sum(r[key] or 0 for r in sel) / len(sel)))
-            lines.append("| %s | %s | %d/%d | %s | %s | %s | %s |" % (engine, task.id, ok, len(sel), avg("steps"), avg("tool_calls"), avg("failed_calls"), avg("seconds")))
-    for engine in ENGINES:
-        sel = [r for r in rows if r["engine"] == engine]
+            lines.append("| %s | %s | %d/%d | %s | %s | %s | %s |" % (label, task.id, ok, len(sel), avg("steps"), avg("tool_calls"), avg("failed_calls"), avg("seconds")))
+    for setting, engine in groups:
+        sel = [r for r in rows if r["engine"] == engine and r.get("setting", "browser_engine") == setting]
         if sel:
             ok = sum(1 for r in sel if r["success"])
-            lines.append("| %s | all | %d/%d | %.1f | %.1f | %.1f | %.1f |" % (engine, ok, len(sel), sum(r["steps"] for r in sel) / len(sel), sum(r["tool_calls"] for r in sel) / len(sel), sum(r["failed_calls"] for r in sel) / len(sel), sum(r["seconds"] or 0 for r in sel) / len(sel)))
+            lines.append("| %s | all | %d/%d | %.1f | %.1f | %.1f | %.1f |" % (engine_label(setting, engine), ok, len(sel), sum(r["steps"] for r in sel) / len(sel), sum(r["tool_calls"] for r in sel) / len(sel), sum(r["failed_calls"] for r in sel) / len(sel), sum(r["seconds"] or 0 for r in sel) / len(sel)))
     return "\n".join(lines)
 
 
@@ -392,7 +463,8 @@ def main(argv=None):
     ap.add_argument("--url", required=True, help="TOFI address, for example https://10.0.10.8:8321")
     ap.add_argument("--cookie-file", required=True)
     ap.add_argument("--conversation", action="append", required=True, help="conversation id with a Bot that has a computer; repeat to spread tasks")
-    ap.add_argument("--engines", default=",".join(ENGINES))
+    ap.add_argument("--engines", default=",".join(ENGINES), help="browser engines for the browser tasks")
+    ap.add_argument("--desktop-engines", default=",".join(DESKTOP_ENGINES), help="desktop engines for the desktop tasks")
     ap.add_argument("--tasks", default="", help="comma separated task ids (default all): " + ",".join(t.id for t in TASKS))
     ap.add_argument("--runs", type=int, default=1, help="trials per engine and task")
     ap.add_argument("--bind", default="0.0.0.0:8765", help="where the fixture sites listen")
@@ -401,7 +473,7 @@ def main(argv=None):
     ap.add_argument("--out", default="", help="output directory (default bench-out/<time>)")
     ap.add_argument("--insecure", action="store_true", help="do not verify the server certificate")
     ap.add_argument("--cafile", default="")
-    ap.add_argument("--keep-engine", action="store_true", help="leave browser_engine as the last trial set it")
+    ap.add_argument("--keep-engine", action="store_true", help="leave the engine settings as the last trial set them")
     ap.add_argument("--dry-run", action="store_true", help="check access, setting and fixtures, then stop")
     args = ap.parse_args(argv)
 
@@ -409,6 +481,11 @@ def main(argv=None):
     for e in engines:
         if e not in ENGINES:
             ap.error("unknown engine " + e)
+    desktop_engines = [e.strip() for e in args.desktop_engines.split(",") if e.strip()]
+    for e in desktop_engines:
+        if e not in DESKTOP_ENGINES:
+            ap.error("unknown desktop engine " + e)
+    chosen = {"browser_engine": engines, "desktop_engine": desktop_engines}
     wanted = {t.strip() for t in args.tasks.split(",") if t.strip()}
     tasks = [t for t in TASKS if not wanted or t.id in wanted]
     if not tasks:
@@ -421,33 +498,36 @@ def main(argv=None):
     out_dir = args.out or os.path.join("bench-out", datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
     os.makedirs(out_dir, exist_ok=True)
     rows = []
-    original = None
+    originals = {}
     try:
-        original = get_engine(tofi)
-        if original is None:
-            raise SystemExit("this TOFI has no browser_engine setting (needs the build with the Playwright engine)")
+        for setting in sorted({t.setting for t in tasks}):
+            originals[setting] = get_engine(tofi, setting)
+            if originals[setting] is None:
+                raise SystemExit("this TOFI has no %s setting (needs a build with that engine)" % setting)
         bots = {c: conversation_bot(tofi, c) for c in args.conversation}
-        print("TOFI %s, setting browser_engine=%s, fixtures at %s, output %s" % (args.url, original, base, out_dir), flush=True)
+        print("TOFI %s, settings %s, fixtures at %s, output %s" % (args.url, originals, base, out_dir), flush=True)
         if args.dry_run:
             return 0
         index = 0
         with open(os.path.join(out_dir, "trials.jsonl"), "w", encoding="utf-8") as sink:
-            for engine in engines:
-                set_engine(tofi, engine)
-                for _ in range(args.runs):
-                    for task in tasks:
-                        row = run_trial(tofi, state, base, bots, args.conversation, engine, task, index, args.timeout)
-                        index += 1
-                        rows.append(row)
-                        sink.write(json.dumps(row) + "\n")
-                        sink.flush()
-                        print("%-10s %-15s %s steps=%d calls=%d failed=%d %ss  %s" % (engine, task.id, "OK  " if row["success"] else "FAIL", row["steps"], row["tool_calls"], row["failed_calls"], row["seconds"], row["detail"]), flush=True)
+            for setting in originals:
+                for engine in chosen[setting]:
+                    set_engine(tofi, engine, setting)
+                    for _ in range(args.runs):
+                        for task in [t for t in tasks if t.setting == setting]:
+                            row = run_trial(tofi, state, base, bots, args.conversation, engine, task, index, args.timeout)
+                            index += 1
+                            rows.append(row)
+                            sink.write(json.dumps(row) + "\n")
+                            sink.flush()
+                            print("%-14s %-15s %s steps=%d calls=%d failed=%d %ss  %s" % (engine_label(setting, engine), task.id, "OK  " if row["success"] else "FAIL", row["steps"], row["tool_calls"], row["failed_calls"], row["seconds"], row["detail"]), flush=True)
     finally:
-        if original and not args.keep_engine:
-            try:
-                set_engine(tofi, original)
-            except Exception as err:
-                print("could not restore browser_engine=%s: %s" % (original, err), file=sys.stderr)
+        if not args.keep_engine:
+            for setting, original in originals.items():
+                try:
+                    set_engine(tofi, original, setting)
+                except Exception as err:
+                    print("could not restore %s=%s: %s" % (setting, original, err), file=sys.stderr)
         server.shutdown()
     table = summarize(rows)
     with open(os.path.join(out_dir, "summary.md"), "w", encoding="utf-8") as f:

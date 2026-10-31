@@ -51,6 +51,8 @@
   "settings:automation.item.completion_review.what": "Bot 用過工具後，回覆前會對照實際結果再檢查一次答案。",
   "settings:automation.item.conversation_model.name": "對話模型",
   "settings:automation.item.conversation_model.what": "負責聊天、群組協作、排程執行，以及所有用到工具的工作。Bot 自己指定的模型優先於它。",
+  "settings:automation.item.desktop_engine.name": "桌面控制",
+  "settings:automation.item.desktop_engine.what": "Bot 在瀏覽器以外的桌面應用程式中的運作方式。經典方式使用截圖與依像素點擊。無障礙方式增加讀取應用程式元素樹並依元素編號操作的工具，在檔案管理員與設定對話框中更準確。截圖工具仍然可用。",
   "settings:automation.item.desktop_idle_seconds.name": "桌面閒置休眠",
   "settings:automation.item.desktop_idle_seconds.what": "共用電腦閒置這麼久後進入休眠，下次呼叫工具時自動喚醒。由電腦服務設定。",
   "settings:automation.item.force_say_haiku_dm.name": "Haiku 必須使用回覆工具",

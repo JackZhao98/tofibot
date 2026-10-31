@@ -25,7 +25,7 @@ var microVMActions = map[string]bool{
 	"files.list": true, "files.read": true, "files.write": true, "files.export_chunk": true, "files.import_chunk": true,
 	"desktop.start": true, "desktop.stop": true, "desktop.capture": true,
 	"desktop.click": true, "desktop.type": true, "desktop.key": true, "desktop.scroll": true,
-	"browser.navigate": true, "browser.snapshot": true, "browser.action": true, "browser.mcp": true,
+	"browser.navigate": true, "browser.snapshot": true, "browser.action": true, "browser.mcp": true, "desktop.mcp": true,
 	"terminal.open": true, "terminal.list": true, "terminal.read": true,
 	"terminal.write": true, "terminal.resize": true, "terminal.close": true,
 }
@@ -160,7 +160,7 @@ func (s *Server) microVMEnvironmentPrompt(ctx context.Context, botID string) str
 	} else if info.DesktopIdleSeconds != nil {
 		idle = fmt.Sprintf(" Desktop idle timeout: %ds (0 disables).", *info.DesktopIdleSeconds)
 	}
-	return fmt.Sprintf("\nShared Linux VM, separate from the service host and Mac; never claim host/Mac access. cwd=%s/bots/%s, HOME=/workspace/home; /workspace/shared, files, tools, Chrome profile and display are shared. Browser: %s. System directories are read-only (no sudo); install software only in user space (skill: software). Office, PDF, OCR and charting tools are preinstalled for English; fetch other languages' data or fonts into user directories. Attached files are on this computer at the listed paths. %s Stop the shared desktop only on user intent. Private keys use Secret Input; return public keys only.", root, botID, browser, computerBrowserEssentialsFor(s.browserEnginePlaywright())) + idle
+	return fmt.Sprintf("\nShared Linux VM, separate from the service host and Mac; never claim host/Mac access. cwd=%s/bots/%s, HOME=/workspace/home; /workspace/shared, files, tools, Chrome profile and display are shared. Browser: %s. System directories are read-only (no sudo); install software only in user space (skill: software). Office, PDF, OCR and charting tools are preinstalled for English; fetch other languages' data or fonts into user directories. Attached files are on this computer at the listed paths. %s Stop the shared desktop only on user intent. Private keys use Secret Input; return public keys only.", root, botID, browser, computerBrowserEssentialsFor(s.browserEnginePlaywright())+computerDesktopEssentialsFor(s.desktopEngineA11y())) + idle
 }
 
 // computerBrowserEssentials is the always-present browser recipe; computer_help
@@ -737,15 +737,21 @@ func (s *Server) microVMTools(r Run) []Tool {
 		argsJSON, _ := json.Marshal(args)
 		return in.Action, argsJSON, nil
 	})
-	if s.browserEnginePlaywright() {
-		tools := []Tool{shell, files, desktop}
-		tools = append(tools, s.browserEngineTools(r, func(ctx context.Context) {
-			inputs.ensure(ctx, s, r)
-			s.flushGeneratedImages(ctx, r)
-		})...)
-		return append(tools, computerHelpToolFor(true), s.terminalTool(r), s.sshKeyTool(r))
+	prepare := func(ctx context.Context) {
+		inputs.ensure(ctx, s, r)
+		s.flushGeneratedImages(ctx, r)
 	}
-	return []Tool{shell, files, desktop, browser, computerHelpToolFor(false), s.terminalTool(r), s.sshKeyTool(r)}
+	playwright, a11y := s.browserEnginePlaywright(), s.desktopEngineA11y()
+	tools := []Tool{shell, files, desktop}
+	if a11y {
+		tools = append(tools, s.desktopEngineTools(r, prepare)...)
+	}
+	if playwright {
+		tools = append(tools, s.browserEngineTools(r, prepare)...)
+	} else {
+		tools = append(tools, browser)
+	}
+	return append(tools, computerHelpToolFor(playwright, a11y), s.terminalTool(r), s.sshKeyTool(r))
 }
 
 // browserProcessGone reports a browser call that failed because Chrome's

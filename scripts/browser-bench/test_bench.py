@@ -94,6 +94,10 @@ class FakeTofi:
 
     def __init__(self, fixture_base, fails=()):
         self.engine = "classic"
+        self.dengine = "classic"
+        self.pref_on = False
+        self.size = 0
+        self.second = ""
         self.fixture_base = fixture_base
         self.fails = set(fails)
         self.messages, self.runs, self.tools = [], {}, {}
@@ -125,7 +129,7 @@ class FakeTofi:
                 u = urllib.parse.urlparse(self.path)
                 q = urllib.parse.parse_qs(u.query)
                 if u.path == "/api/automation-settings":
-                    return self.reply({"items": [{"key": "browser_engine", "value": outer.engine}]})
+                    return self.reply({"items": [{"key": "browser_engine", "value": outer.engine}, {"key": "desktop_engine", "value": outer.dengine}]})
                 if u.path == "/api/conversations":
                     return self.reply({"conversations": [{"id": "c1", "bot_id": "bot1"}]})
                 if u.path.endswith("/runs"):
@@ -141,7 +145,9 @@ class FakeTofi:
 
             def do_PUT(self):
                 if self.path == "/api/automation-settings":
-                    outer.engine = self.body()["values"]["browser_engine"]
+                    values = self.body()["values"]
+                    outer.engine = values.get("browser_engine", outer.engine)
+                    outer.dengine = values.get("desktop_engine", outer.dengine)
                     return self.reply({"ok": True})
                 self.reply({}, 404)
 
@@ -152,7 +158,15 @@ class FakeTofi:
                     found = re.search(r"note-\w+\.txt", command)
                     if found:
                         outer.inner = found.group(0)
-                    out = "4242\n" if "xdotool" in command and outer.folder_open else ""
+                        outer.second = re.search(r"memo-\w+\.txt", command).group(0)
+                    size = re.search(r"head -c (\d+)", command)
+                    if size:
+                        outer.size = int(size.group(1))
+                    if "sed -i" in command:
+                        outer.pref_on = False
+                    out = "4242\n" if "xdotool search --name bench" in command and outer.folder_open else ""
+                    if "grep -h '^single_click='" in command and outer.pref_on:
+                        out = "single_click=1\n"
                     return self.reply({"result": {"stdout": out, "exit_code": 0}})
                 if self.path.endswith("/messages"):
                     return self.reply(outer.start(body), 202)
@@ -201,10 +215,16 @@ class FakeTofi:
         elif "/table?t=" in text and "read_table" not in self.fails:
             reply = "\n".join("%s: %d" % r for r in fixtures.TABLE_ROWS) + "\nTotal: %d" % sum(q for _, q in fixtures.TABLE_ROWS)
             tools = [("browser_snapshot", "completed")]
+        elif "Preferences" in text and "desktop_setting" not in self.fails:
+            self.pref_on = True
+            tools = [("desktop_get_app_state", "completed"), ("desktop_click", "completed"), ("desktop_click", "completed")] if self.dengine == "a11y" else [("computer_desktop", "completed")] * 6
+        elif "Properties" in text and "desktop_read" not in self.fails:
+            reply = "The window shows %s bytes" % format(self.size, ",")
+            tools = [("desktop_get_app_state", "completed")] * 2 if self.dengine == "a11y" else [("computer_desktop", "completed")] * 4
         elif "file manager" in text and "desktop_folder" not in self.fails:
             self.folder_open = True
-            reply = "I see " + self.inner
-            tools = [("computer_desktop", "completed")] * 3
+            reply = "I see %s and %s" % (self.inner, self.second)
+            tools = [("desktop_get_app_state", "completed")] * 2 if self.dengine == "a11y" else [("computer_desktop", "completed")] * 3
         time.sleep(0.05)
         with self.lock:
             self.tools[run["id"]] = [{"name": n, "status": s} for n, s in tools] + [{"name": "say", "status": "completed"}]
@@ -223,15 +243,16 @@ class SweepTests(unittest.TestCase):
         bots = {"c1": bench.conversation_bot(tofi, "c1")}
         base = "http://127.0.0.1:%d" % server.server_address[1]
         rows = []
-        for engine in bench.ENGINES:
-            bench.set_engine(tofi, engine)
-            for i, task in enumerate(bench.TASKS):
-                rows.append(bench.run_trial(tofi, state, base, bots, ["c1"], engine, task, i, 20))
+        for setting, engines in bench.SETTINGS.items():
+            for engine in engines:
+                bench.set_engine(tofi, engine, setting)
+                for i, task in enumerate([t for t in bench.TASKS if t.setting == setting]):
+                    rows.append(bench.run_trial(tofi, state, base, bots, ["c1"], engine, task, i, 20))
         return rows, fake
 
     def test_every_task_succeeds_for_a_bot_that_does_it(self):
         rows, fake = self.sweep()
-        self.assertEqual(len(rows), 10)
+        self.assertEqual(len(rows), 14)
         for r in rows:
             self.assertTrue(r["success"], r)
         self.assertEqual(fake.cookie_seen, {"tofi_owner_session=SECRET"})
@@ -239,20 +260,46 @@ class SweepTests(unittest.TestCase):
         self.assertEqual([r["steps"] for r in form], [4, 3])
         upload = next(r for r in rows if r["task"] == "file_upload" and r["engine"] == "playwright")
         self.assertEqual((upload["steps"], upload["tool_calls"], upload["failed_calls"], upload["seconds"]), (2, 4, 1, 7.0))
+        # The accessibility engine's desktop_ tools count as steps.
+        pref = {r["engine"]: r["steps"] for r in rows if r["task"] == "desktop_setting"}
+        self.assertEqual(pref, {"classic": 6, "a11y": 3})
 
     def test_an_undone_task_is_reported_as_failed(self):
-        rows, _ = self.sweep(fails=("file_upload", "read_table", "desktop_folder"))
-        by = {(r["engine"], r["task"]): r["success"] for r in rows}
-        self.assertTrue(by[("classic", "form_field")] and by[("playwright", "deep_setting")])
-        for task in ("file_upload", "read_table", "desktop_folder"):
-            self.assertFalse(by[("classic", task)])
-            self.assertFalse(by[("playwright", task)])
+        rows, _ = self.sweep(fails=("file_upload", "read_table", "desktop_folder", "desktop_setting", "desktop_read"))
+        by = {(r["setting"], r["engine"], r["task"]): r["success"] for r in rows}
+        self.assertTrue(by[("browser_engine", "classic", "form_field")] and by[("browser_engine", "playwright", "deep_setting")])
+        for task in ("file_upload", "read_table"):
+            self.assertFalse(by[("browser_engine", "classic", task)])
+            self.assertFalse(by[("browser_engine", "playwright", task)])
+        for task in ("desktop_folder", "desktop_setting", "desktop_read"):
+            self.assertFalse(by[("desktop_engine", "classic", task)])
+            self.assertFalse(by[("desktop_engine", "a11y", task)])
 
-    def test_summary_names_both_engines(self):
+    def test_summary_names_every_engine(self):
         rows, _ = self.sweep()
         table = bench.summarize(rows)
-        self.assertIn("| classic | all | 5/5 |", table)
-        self.assertIn("| playwright | all | 5/5 |", table)
+        self.assertIn("| classic | all | 4/4 |", table)
+        self.assertIn("| playwright | all | 4/4 |", table)
+        self.assertIn("| desktop classic | all | 3/3 |", table)
+        self.assertIn("| desktop a11y | all | 3/3 |", table)
+
+    def test_desktop_checks_read_the_file_manager_not_the_reply_alone(self):
+        server, state = fixtures.serve("127.0.0.1", 0)
+        self.addCleanup(server.shutdown)
+        fake = FakeTofi("http://127.0.0.1:1")
+        self.addCleanup(fake.stop)
+        tofi = bench.Tofi(fake.url, "x=y")
+        ctx = {"tofi": tofi, "bot": "bot1", "token": "abcdef123456", "base": ""}
+        read = bench.ReadTextTask()
+        read.setup(ctx)
+        self.assertEqual(ctx["size"], fake.size)
+        self.assertTrue(read.check(ctx, state, "It says %s bytes" % format(ctx["size"], ","))[0])
+        self.assertFalse(read.check(ctx, state, "It says %d bytes" % (ctx["size"] + 1))[0])
+        self.assertFalse(read.check(ctx, state, "12%d34" % ctx["size"])[0])
+        pref = bench.PreferenceTask()
+        self.assertFalse(pref.check(ctx, state, "It is on now.")[0], "a claim without the saved file is not success")
+        fake.pref_on = True
+        self.assertTrue(pref.check(ctx, state, "")[0])
 
     def test_engine_the_server_refuses_is_an_error(self):
         server, _ = fixtures.serve("127.0.0.1", 0)

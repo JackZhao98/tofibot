@@ -51,6 +51,8 @@
   "settings:automation.item.completion_review.what": "Nach der Nutzung von Werkzeugen gleicht ein Bot seine Antwort vor dem Senden einmal mit den tatsächlichen Ergebnissen ab.",
   "settings:automation.item.conversation_model.name": "Gesprächsmodell",
   "settings:automation.item.conversation_model.what": "Führt Chats, Gruppenarbeit, geplante Läufe und alles aus, was Werkzeuge nutzt. Die eigene Modelleinstellung eines Bots hat Vorrang.",
+  "settings:automation.item.desktop_engine.name": "Desktopsteuerung",
+  "settings:automation.item.desktop_engine.what": "Wie ein Bot in Desktop-Apps außerhalb des Browsers arbeitet. Klassisch nutzt Screenshots und Klicks auf Pixel. Barrierefreiheit fügt Werkzeuge hinzu, die den Elementbaum einer App lesen und über Elementnummern handeln, was in Dateimanagern und Einstellungsdialogen genauer ist. Das Screenshot-Werkzeug bleibt verfügbar.",
   "settings:automation.item.desktop_idle_seconds.name": "Ruhezustand bei Inaktivität",
   "settings:automation.item.desktop_idle_seconds.what": "Der gemeinsame Computer geht nach so langer Nichtnutzung in den Ruhezustand und wacht beim nächsten Werkzeugaufruf auf. Wird vom Computerdienst festgelegt.",
   "settings:automation.item.force_say_haiku_dm.name": "Antwortwerkzeug für Haiku erzwingen",

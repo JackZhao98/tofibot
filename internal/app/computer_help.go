@@ -16,14 +16,18 @@ const computerBrowserGuide = `For an authorized browser research fallback, first
 All Bots share one Chrome profile and graphical session. Use declared VM tools directly; list computers only for device/grant questions. Files, cookies and login state persist, but a desktop restart opens a fresh page rather than restoring tabs. Viewer disconnection only ends viewing. Active model runs hold desktop idle cleanup; viewer polling does not extend it.
 The latest user instruction determines the task; unfinished history is not permission to resume it. If the user refers to this page, corrects a search/site or may have moved Chrome, inspect browser.snapshot and do not infer the current page from history. If uncertain, say so. Foreground a tab before inspecting it. Read page content with browser.read; use browser.snapshot for layout and click coordinates, then verify the resulting page. Searches and site pages may be opened directly with browser.navigate. Stop the shared desktop only when the user intends it.` + computerResearchGuidance
 
-func computerHelpTool() Tool { return computerHelpToolFor(false) }
+func computerHelpTool() Tool { return computerHelpToolFor(false, false) }
 
 // computerHelpToolFor serves the browser topic of the engine in use.
-func computerHelpToolFor(playwright bool) Tool {
+func computerHelpToolFor(playwright, a11y bool) Tool {
+	topics := []string{"browser", "installation"}
+	if a11y {
+		topics = append(topics, "desktop")
+	}
 	return Tool{
 		Name:        "computer_help",
-		Description: "Read VM procedures: installation before software changes; browser for optional detail on shared-desktop startup, tabs and visible search. Instructions only, no VM actions.",
-		Parameters:  objectSchema(map[string]any{"topic": map[string]any{"type": "string", "enum": []string{"browser", "installation"}}}, []string{"topic"}),
+		Description: "Read VM procedures: installation before software changes; browser for optional detail on shared-desktop startup, tabs and visible search; desktop (when offered) for the desktop_ app tools. Instructions only, no VM actions.",
+		Parameters:  objectSchema(map[string]any{"topic": map[string]any{"type": "string", "enum": topics}}, []string{"topic"}),
 		Execute: func(_ context.Context, raw json.RawMessage) (string, error) {
 			var in struct {
 				Topic string `json:"topic"`
@@ -37,6 +41,11 @@ func computerHelpToolFor(playwright bool) Tool {
 					return computerBrowserGuidePlaywright, nil
 				}
 				return computerBrowserGuide, nil
+			case "desktop":
+				if a11y {
+					return computerDesktopGuideA11y, nil
+				}
+				return "", errors.New("unsupported computer help topic")
 			case "installation":
 				return computerInstallationGuide, nil
 			default:

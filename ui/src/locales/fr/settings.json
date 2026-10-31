@@ -1032,6 +1032,10 @@
         "name": "Contrôle du navigateur",
         "what": "Manière dont un Bot travaille dans le navigateur de l'ordinateur. Classique lit le texte de la page et clique sur le texte visible. Playwright lit un arbre d'accessibilité et agit sur des références d'éléments, plus précis sur les pages chargées."
       },
+      "desktop_engine": {
+        "name": "Contrôle du bureau",
+        "what": "Manière dont un Bot travaille dans les applications du bureau autres que le navigateur. Classique utilise des captures d'écran et des clics au pixel. Accessibilité ajoute des outils qui lisent l'arbre d'éléments d'une application et agissent sur des index d'éléments, plus précis dans les gestionnaires de fichiers et les boîtes de réglages. L'outil de capture reste disponible."
+      },
       "task_stall_rounds": {
         "name": "Signalement d'un blocage après",
         "what": "Lorsqu'un Bot qui détient une tâche termine autant de tours sans changer la liste de contrôle ni le statut de la tâche, le Bot à la racine du travail en est informé une fois. Le compte repart dès que la tâche avance."
@@ -1062,6 +1066,10 @@
       "browser_engine": {
         "classic": "Classique",
         "playwright": "Playwright"
+      },
+      "desktop_engine": {
+        "classic": "Classique",
+        "a11y": "Accessibilité"
       }
     },
     "auto": "Automatique · {{model}}",

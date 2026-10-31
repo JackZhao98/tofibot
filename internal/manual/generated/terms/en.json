@@ -51,6 +51,8 @@
   "settings:automation.item.completion_review.what": "After using tools, a Bot checks its answer against the actual results once before it replies.",
   "settings:automation.item.conversation_model.name": "Conversation model",
   "settings:automation.item.conversation_model.what": "Runs chats, group work, scheduled runs and anything that uses tools. A Bot's own model setting overrides it.",
+  "settings:automation.item.desktop_engine.name": "Desktop control",
+  "settings:automation.item.desktop_engine.what": "How a Bot works in desktop apps other than the browser. Classic uses screenshots and pixel clicks. Accessibility adds tools that read an app's element tree and act on element indexes, which is more exact in file managers and settings dialogs. The screenshot tool stays available.",
   "settings:automation.item.desktop_idle_seconds.name": "Desktop idle hibernation",
   "settings:automation.item.desktop_idle_seconds.what": "The shared computer hibernates after this long unused and wakes on the next tool call. Set by the computer service.",
   "settings:automation.item.force_say_haiku_dm.name": "Reply tool required for Haiku",

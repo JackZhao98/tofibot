@@ -51,6 +51,8 @@
   "settings:automation.item.completion_review.what": "Après avoir utilisé des outils, un Bot confronte une fois sa réponse aux résultats réels avant de l’envoyer.",
   "settings:automation.item.conversation_model.name": "Modèle de conversation",
   "settings:automation.item.conversation_model.what": "Gère les discussions, le travail en groupe, les exécutions planifiées et tout ce qui utilise des outils. Le modèle propre à un Bot reste prioritaire.",
+  "settings:automation.item.desktop_engine.name": "Contrôle du bureau",
+  "settings:automation.item.desktop_engine.what": "Manière dont un Bot travaille dans les applications du bureau autres que le navigateur. Classique utilise des captures d'écran et des clics au pixel. Accessibilité ajoute des outils qui lisent l'arbre d'éléments d'une application et agissent sur des index d'éléments, plus précis dans les gestionnaires de fichiers et les boîtes de réglages. L'outil de capture reste disponible.",
   "settings:automation.item.desktop_idle_seconds.name": "Veille du bureau en cas d’inactivité",
   "settings:automation.item.desktop_idle_seconds.what": "L’ordinateur partagé se met en veille après cette durée sans usage et se réveille au prochain appel d’outil. Réglé par le service de l’ordinateur.",
   "settings:automation.item.force_say_haiku_dm.name": "Outil de réponse imposé à Haiku",
