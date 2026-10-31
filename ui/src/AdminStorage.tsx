@@ -14,13 +14,18 @@ export function AdminStorageLimit({accountId, entry, busy, run}: {accountId: str
   const {t} = useTranslation("storage");
   const current = entry?.limit_bytes == null ? UNLIMITED : String(Math.round(entry.limit_bytes / GIB * 1000) / 1000);
   const [value, setValue] = useState(current);
-  const [saved, setSaved] = useState(false);
-  useEffect(() => { setValue(current); setSaved(false); }, [current, accountId]);
+  // `saved` holds the value just saved. The refetch after a save brings that
+  // same value back as `current`, so the confirmation stays; another account
+  // or a different stored value clears it.
+  const [saved, setSavedValue] = useState<string | null>(null);
+  const setSaved = (on: boolean) => setSavedValue(on ? value : null);
+  useEffect(() => { setSavedValue(null); }, [accountId]);
+  useEffect(() => { setValue(current); setSavedValue(prev => prev === current ? prev : null); }, [current]);
   const steps = Array.from(new Set<string>([...LIMIT_STEPS.map(String), ...(current === UNLIMITED ? [] : [current])])).sort((a, b) => Number(a) - Number(b));
   return <SettingsSection title={t("admin.limit_title")}>
     <SettingsCard>
       {entry && <SettingsRow label={t("admin.usage")} control={<span className="admin-value">{entry.limit_bytes == null ? formatBytes(entry.server_bytes) : t("used_of", {used: formatBytes(entry.server_bytes), limit: formatBytes(entry.limit_bytes)})}</span>}/>}
-      <SettingsRow label={t("admin.limit_label")} labelFor="admin-storage-limit" description={saved ? t("admin.limit_saved") : t("admin.limit_help")}
+      <SettingsRow label={t("admin.limit_label")} labelFor="admin-storage-limit" description={saved !== null ? t("admin.limit_saved") : t("admin.limit_help")}
         control={<Select id="admin-storage-limit" value={value} disabled={busy} onValueChange={next => { setValue(next); setSaved(false); }}>
           <option value={UNLIMITED}>{t("admin.limit_unlimited")}</option>
           {steps.map(step => <option key={step} value={step}>{t("admin.limit_option", {size: step})}</option>)}
