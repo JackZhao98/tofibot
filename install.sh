@@ -65,6 +65,11 @@ BEHIND_PROXY=
 PORT=
 COMPUTER=
 AUTO_UPDATE=
+# Anonymous install report: off unless asked for (see deploy/self-host/README.md).
+TELEMETRY=0
+TELEMETRY_DONE=0
+TELEMETRY_FLAG=0
+CURRENT_STEP=0
 ASSUME_YES=0
 EXISTING=0
 OS_ID=
@@ -133,6 +138,7 @@ spinner_stop() {
 }
 
 step() {
+  CURRENT_STEP=$1
   STEP_TEXT=$2
   STEP_DONE_TEXT=
   if (( FANCY == 1 )); then
@@ -179,12 +185,34 @@ step_ok() {
 }
 
 die() {
+  report_install failed
   if [[ -n $SPIN_PID ]]; then
     spinner_stop
     printf '  %s %s\n' "${C_DIM}✗${C_RESET}" "$STEP_TEXT"
   fi
   printf 'ERROR: %s\n' "$*" >&2
   exit 1
+}
+
+# Opt-in anonymous install report. Sends the version, system id and version, CPU type,
+# KVM yes/no, ok or failed (with the step name) and the duration. Never blocks or fails
+# the install: every error is ignored.
+report_install() {
+  local result=$1
+  (( TELEMETRY == 1 && TELEMETRY_DONE == 0 )) || return 0
+  # Failures before the first step are bad arguments, not an install.
+  if [[ $result == failed ]] && (( CURRENT_STEP == 0 )); then
+    return 0
+  fi
+  TELEMETRY_DONE=1
+  command -v python3 >/dev/null 2>&1 || return 0
+  local kvm=no arch
+  [[ -c $DEV_KVM ]] && kvm=yes
+  arch=$(uname -m 2>/dev/null || true)
+  python3 -I -c "$(tui_source)" telemetry-send --version "$VERSION" --os-id "$OS_ID" \
+    --os-version "$OS_VERSION" --arch "$arch" --kvm "$kvm" --result "$result" \
+    --step "$CURRENT_STEP" --duration "$SECONDS" >/dev/null 2>&1 || true
+  return 0
 }
 
 warn() {
@@ -242,6 +270,9 @@ advance (the variable in brackets does the same, e.g. sudo TOFI_PORT=9000 bash).
   --auto-update        install fix releases (same x.y, newer patch) automatically overnight
   --no-auto-update     update only when you run 'sudo tofi update' (--yes alone turns it on)
   --version vX.Y.Z     install this release (default: the latest stable release) [TOFI_VERSION]
+  --telemetry          send an anonymous install report when the install ends (version, system,
+                       CPU type, KVM yes/no, ok or failed, duration; nothing that identifies you).
+                       Off by default, also with --yes. --no-telemetry says no [TOFI_TELEMETRY=1]
   --yes, --non-interactive
                        ask nothing: use options and defaults [TOFI_YES=1; also CI=1 or no terminal]
 
@@ -266,6 +297,8 @@ parse_args() {
       # --lan used to mean plain HTTP on every interface; HTTPS on every
       # interface is now the default, so it is accepted as an alias of it.
       --lan) exposure_flag=1; shift ;;
+      --telemetry) TELEMETRY=1; TELEMETRY_FLAG=1; shift ;;
+      --no-telemetry) TELEMETRY=0; TELEMETRY_FLAG=1; shift ;;
       --yes|-y|--non-interactive) ASSUME_YES=1; shift ;;
       --help|-h) usage; exit 0 ;;
       *) die "Unknown option $1 (see --help)." ;;
@@ -276,6 +309,9 @@ parse_args() {
   [[ -n $VERSION ]] || VERSION=${TOFI_VERSION:-}
   [[ -n $PORT ]] || PORT=${TOFI_PORT:-}
   [[ -n $COMPUTER ]] || COMPUTER=${TOFI_COMPUTER:-}
+  if (( TELEMETRY_FLAG == 0 )) && [[ ${TOFI_TELEMETRY:-0} == 1 ]]; then
+    TELEMETRY=1
+  fi
   if (( exposure_flag == 0 )); then
     DOMAIN=${TOFI_DOMAIN:-}
     BEHIND_PROXY=${TOFI_BEHIND_PROXY:-}
@@ -356,6 +392,7 @@ run_tui() {
       EXISTING) EXISTING=$value ;;
       COMPUTER) COMPUTER=$value ;;
       AUTO_UPDATE) AUTO_UPDATE=$value ;;
+      TELEMETRY) TELEMETRY=$value ;;
     esac
   done < "$RESULT_FILE"
   rm -f "$RESULT_FILE"
@@ -763,7 +800,25 @@ hand_off() {
   [[ $ASSUME_YES == 1 ]] && args+=(--yes)
   STEP_DONE_TEXT="Host tools ready; 'tofi install' takes over"
   step_ok
-  exec "$BIN_DIR/tofi" "${args[@]}"
+  local rc=0
+  "$BIN_DIR/tofi" "${args[@]}" || rc=$?
+  if (( rc != 0 )); then
+    report_install failed
+    exit "$rc"
+  fi
+  record_telemetry_choice
+  report_install ok
+}
+
+record_telemetry_choice() {
+  # What `tofi config telemetry` shows and changes. Best effort, like the report.
+  local file=$ROOT/etc/tofi/telemetry
+  [[ -d ${file%/*} ]] || return 0
+  if (( TELEMETRY == 1 )); then
+    printf 'on\n' > "$file" 2>/dev/null || true
+  else
+    printf 'off\n' > "$file" 2>/dev/null || true
+  fi
 }
 
 cleanup() {
@@ -807,12 +862,22 @@ import sys
 import textwrap
 import threading
 import time
+import urllib.request
 
 RELEASES_URL = 'https://github.com/JackZhao98/tofibot/releases'
 RELEASES_API = 'https://api.github.com/repos/JackZhao98/tofibot/releases'
 PUBLIC_IP_URL = 'https://cloudflare.com/cdn-cgi/trace'
 INSTALL_COMMAND = 'curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh | sudo bash'
 DEFAULT_PORT = 8321
+# Opt-in anonymous install report. A placeholder until we host the endpoint; the
+# installer sends nothing unless the person said yes. TOFI_TELEMETRY_URL overrides it.
+TELEMETRY_URL = 'https://telemetry.tofibot.com/v1/install'
+TELEMETRY_TIMEOUT = 5
+# The fixed names of install.sh steps. A failing step is reported by one of these only.
+TELEMETRY_STEPS = {1: 'platform', 2: 'operating-system', 3: 'virtualization', 4: 'resources', 5: 'packages',
+                   6: 'docker', 7: 'manifest', 8: 'host-tools', 9: 'tofi-install'}
+TELEMETRY_FIELDS = ('schema', 'tofi_version', 'os_id', 'os_version', 'arch', 'kvm', 'result', 'failed_step',
+                    'duration_s')
 TOTAL_STEPS = 12
 MAX_WIDTH = 76      # the installer never draws wider than this
 NARROW = 60         # below this: no art, no frames, plain rows
@@ -2076,6 +2141,8 @@ def parse_installer_args(argv, environ):
     parser.add_argument('--lan', action='store_true')
     parser.add_argument('--auto-update', dest='auto_update', action='store_true', default=None)
     parser.add_argument('--no-auto-update', dest='auto_update', action='store_false')
+    parser.add_argument('--telemetry', dest='telemetry', action='store_true', default=None)
+    parser.add_argument('--no-telemetry', dest='telemetry', action='store_false')
     parser.add_argument('--yes', '-y', '--non-interactive', dest='yes', action='store_true')
     args = parser.parse_args(argv)
     # Flags win; environment variables stand in for missing flags; each remembers where it came from.
@@ -2099,6 +2166,10 @@ def parse_installer_args(argv, environ):
         chosen['lan'] = (True, '--lan')
     if args.auto_update is not None:
         chosen['auto_update'] = (args.auto_update, '--auto-update' if args.auto_update else '--no-auto-update')
+    if args.telemetry is not None:
+        chosen['telemetry'] = (args.telemetry, '--telemetry' if args.telemetry else '--no-telemetry')
+    elif environ.get('TOFI_TELEMETRY') in ('0', '1'):
+        chosen['telemetry'] = (environ['TOFI_TELEMETRY'] == '1', 'TOFI_TELEMETRY')
     yes = args.yes or environ.get('TOFI_YES') == '1' or environ.get('TOFI_NON_INTERACTIVE') == '1'
     return args.result, chosen, yes
 
@@ -2126,6 +2197,69 @@ def write_result(path, values):
     with open(path, 'w') as stream:
         for key, value in values.items():
             stream.write('%s=%s\n' % (key, value))
+
+
+def telemetry_token(value, pattern, fallback='unknown'):
+    """`value` when it is a short plain token, else `fallback`: free text never leaves this machine."""
+    value = str(value or '').strip()
+    return value if re.match(pattern, value) else fallback
+
+
+def telemetry_payload(version, os_id, os_version, arch, kvm, result, step=None, duration=0):
+    """The whole anonymous install report. Nothing else is ever added to it."""
+    failed = result != 'ok'
+    try:
+        seconds = max(0, min(int(float(duration)), 86400))
+    except (TypeError, ValueError):
+        seconds = 0
+    try:
+        step_number = int(step)
+    except (TypeError, ValueError):
+        step_number = 0
+    payload = {
+        'schema': 1,
+        'tofi_version': version if VERSION_RE.match(str(version or '')) else 'unknown',
+        'os_id': telemetry_token(os_id, r'^[a-z0-9][a-z0-9._-]{0,31}$'),
+        'os_version': telemetry_token(os_version, r'^[A-Za-z0-9][A-Za-z0-9._-]{0,15}$'),
+        'arch': telemetry_token(arch, r'^(x86_64|aarch64)$', 'other'),
+        'kvm': 'yes' if str(kvm).lower() in ('yes', 'true', '1') else 'no',
+        'result': 'failed' if failed else 'ok',
+        'duration_s': seconds,
+    }
+    if failed:
+        payload['failed_step'] = TELEMETRY_STEPS.get(step_number, 'unknown')
+    return payload
+
+
+def send_telemetry(payload, url=None, timeout=TELEMETRY_TIMEOUT):
+    """POST the report. Best effort: any failure is swallowed, the install never notices."""
+    try:
+        target = url or TELEMETRY_URL
+        if not target.startswith(('https://', 'http://')):
+            return False
+        body = json.dumps(payload, sort_keys=True).encode()
+        request = urllib.request.Request(target, data=body, method='POST', headers={
+            'Content-Type': 'application/json', 'User-Agent': 'tofi-installer'})
+        with urllib.request.urlopen(request, timeout=timeout):
+            pass
+        return True
+    except Exception:  # noqa: BLE001 - nothing here may affect the install
+        return False
+
+
+def telemetry_send_main(argv, environ=None):
+    environ = os.environ if environ is None else environ
+    parser = argparse.ArgumentParser(prog='tofi_tui.py telemetry-send', add_help=False)
+    for name in ('version', 'os-id', 'os-version', 'arch', 'kvm', 'result', 'step', 'duration'):
+        parser.add_argument('--' + name, default='')
+    try:
+        args = parser.parse_args(argv)
+        payload = telemetry_payload(args.version, args.os_id, args.os_version, args.arch, args.kvm,
+                                    args.result, args.step, args.duration or 0)
+        send_telemetry(payload, environ.get('TOFI_TELEMETRY_URL') or TELEMETRY_URL)
+    except BaseException:  # noqa: BLE001 - includes argparse's SystemExit
+        pass
+    return 0
 
 
 class Installer:
@@ -2452,6 +2586,24 @@ class Installer:
             # Without a terminal tofi itself applies the --yes default (yes with --yes, otherwise no).
             auto_update = None
 
+        # d3. Anonymous install report: opt in, default no (also without a terminal).
+        question = 'Send an anonymous install report?'
+        telemetry = False
+        if self.source('telemetry'):
+            telemetry = bool(self.value('telemetry'))
+            sources['telemetry'] = self.source('telemetry')
+            if interactive:
+                self.set_by(question, 'Yes' if telemetry else 'No', self.source('telemetry'))
+                ui.write()
+        elif interactive:
+            ui.title(question)
+            ui.para('At the end of this install, TOFI would send one small report: the TOFI version, system id and '
+                    'version, CPU type, whether KVM exists, ok or failed (with the name of the failing step) and '
+                    'how long it took. No host name, address, email or key. Change it later with '
+                    'sudo tofi config telemetry on|off. Details: deploy/self-host/README.md.')
+            telemetry = self.ask.confirm(question, False)
+            ui.write()
+
         # e. Summary and confirmation.
         source_note = lambda key: ('  (set by %s)' % sources[key]) if key in sources else ''  # noqa: E731
         rows = [('ok', 'Release', '%s %s' % (version, version_note)),
@@ -2477,6 +2629,8 @@ class Installer:
         if auto_update is not None:
             rows.append(('ok', 'Updates', ('automatic fix releases (patch only, backed up first)' if auto_update
                                            else 'manual: sudo tofi update') + source_note('auto_update')))
+        rows.append(('ok', 'Report', ('anonymous install report on' if telemetry else 'no install report')
+                     + source_note('telemetry')))
         rows.append(('info', 'Changes', 'apt packages, Docker if missing, /opt/tofi, /etc/tofi; data in '
                      '/var/lib/tofi'))
         ui.card('Ready to install', rows)
@@ -2491,7 +2645,8 @@ class Installer:
                   'BEHIND_PROXY': proxies, 'LOCAL_ONLY': '1' if mode == 'local' else '0', 'COMPUTER': self.computer,
                   'EXISTING': '0',
                   'PORT': str(port) if (self.source('port') or port != DEFAULT_PORT) else '',
-                  'AUTO_UPDATE': '' if auto_update is None else 'patch' if auto_update else 'off'}
+                  'AUTO_UPDATE': '' if auto_update is None else 'patch' if auto_update else 'off',
+                  'TELEMETRY': '1' if telemetry else '0'}
         write_result(self.result_path, result)
         return 0
 
@@ -2551,6 +2706,8 @@ def embed(install_sh):
 def main(argv):
     if argv[:1] == ['installer']:
         return installer_main(argv[1:])
+    if argv[:1] == ['telemetry-send']:
+        return telemetry_send_main(argv[1:])
     if argv[:1] == ['embed'] and len(argv) == 2:
         print('updated' if embed(argv[1]) else 'already current')
         return 0

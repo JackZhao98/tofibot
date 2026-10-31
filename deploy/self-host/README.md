@@ -158,6 +158,8 @@ every exposure variable. With `sudo`, pass variables after it:
 | `--port PORT` | `TOFI_PORT` | App port, 1024-65535 (default 8321) |
 | `--version vX.Y.Z[-rc.N]` | `TOFI_VERSION` | a specific release (default: latest stable) |
 | `--auto-update` / `--no-auto-update` | | install fix releases overnight / do not (default without a terminal: yes with `--yes`, otherwise no) |
+| `--telemetry` / `--no-telemetry` | `TOFI_TELEMETRY=1` | send / do not send the anonymous install report (see below; default: no, also with `--yes`) |
+| | `TOFI_TELEMETRY_URL` | send the report to this URL instead of the default (tests, a private collector) |
 | `--yes`, `--non-interactive` | `TOFI_YES=1`, `TOFI_NON_INTERACTIVE=1` | no questions |
 | `--lan` | | accepted for compatibility; the default |
 | | `CI` (any value) | no questions |
@@ -263,6 +265,41 @@ challenges cannot complete in a hidden frame, so with a rule-less interactive
 challenge the notice appears about every half hour. TOFI sets no
 `frame-ancestors` or `X-Frame-Options` on the app, so the frame needs no header change.
 
+## Anonymous install report (opt in)
+
+The installer asks once: "Send an anonymous install report?" The default is **no**.
+Without a terminal (`--yes`, `CI=1`) the answer is no unless you pass `--telemetry`
+or set `TOFI_TELEMETRY=1`. `--no-telemetry` always means no.
+
+If you say yes, the installer sends one HTTPS `POST` with JSON when the install ends.
+It sends exactly these fields:
+
+| Field | Value |
+|---|---|
+| `schema` | `1` |
+| `tofi_version` | The release, for example `v0.6.1` |
+| `os_id`, `os_version` | From `/etc/os-release`, for example `ubuntu`, `24.04` |
+| `arch` | `x86_64` or `aarch64` |
+| `kvm` | `yes` if `/dev/kvm` exists, else `no` |
+| `result` | `ok` or `failed` |
+| `failed_step` | Only when failed: one name from a fixed list (`platform`, `operating-system`, `virtualization`, `resources`, `packages`, `docker`, `manifest`, `host-tools`, `tofi-install`) |
+| `duration_s` | Seconds from start to end |
+
+It does not send host names, IP addresses, e-mail addresses, domains, keys, paths,
+error text or a persistent ID. Each value is checked against a short pattern; a value
+that does not match is sent as `unknown`. The sender's IP address is visible to the
+server that receives the request, as with any web request. The report is sent
+from the installer on your machine; you can read the code in `deploy/self-host/tofi_tui.py`
+(`telemetry_payload`).
+
+The default address is `https://telemetry.tofibot.com/v1/install`. That server may not
+exist yet. If a send fails or times out (5 seconds), the install goes on as if nothing
+happened. Set `TOFI_TELEMETRY_URL` to use another address.
+
+`sudo tofi config telemetry off` records "no" for later runs of the installer on
+this server. `sudo tofi config telemetry status` shows the choice. The running TOFI
+server and the host tool send no report.
+
 ## What install.sh does
 
 1. Root and `Linux x86_64` or `Linux aarch64`.
@@ -325,6 +362,7 @@ Later accounts are created by the Admin. Then open Settings -> Model provider.
 | `tofi update [--version X] [--yes] [--wait MINUTES] [--force] [--allow-schema-change]` | Pull and check the new images and Guest before stopping anything; refuse a different `io.tofi.data-schema` unless allowed; take a backup, then switch; on failure restore the backup, the previous images, Guest pin and host files ("update rejected; previous version restored"). Asks for confirmation on a terminal unless `--yes`; `--check` also prints the release notes link. With backend `none` there is no Worker image or Guest to pull, fetch, prune or report, and the manifest's `guest`/`arches` entries are ignored |
 | `tofi update --auto` | What the daily timer runs: nothing unless `TOFI_AUTO_UPDATE=patch`; installs only a newer patch of the installed major.minor, never an rc, never when a Bot run is active (skipped, not waited for) |
 | `tofi config auto-update on\|off` | Switch automatic fix releases and the systemd timer |
+| `tofi config telemetry on\|off\|status` | Show or change the choice for the anonymous install report (stored in `/etc/tofi/telemetry`). Nothing else in TOFI sends a report |
 | `tofi config trusted-proxies [IP\|CIDR ...] [--clear]` | Show, set or clear the reverse proxies trusted for `X-Forwarded-For`; printing the Caddy/Nginx snippets when set |
 | `tofi backup [--note TEXT] [--no-disks]` | Stop, back up data, settings and (by default) every computer's workspace disk, start again, then verify the new backup. Disks are zstd-compressed, copied only while TOFI is stopped; a space estimate is printed first and only the 2 newest backups keep their disks |
 | `tofi backup --verify [ID\|all]` | Check a backup without restoring it: files, sizes, sha256, archives readable, `tofi.env` usable, no unlisted files. Exit 1 on any problem |

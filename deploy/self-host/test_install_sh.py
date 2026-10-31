@@ -789,6 +789,7 @@ class InteractiveTests(InstallBase):
         term.expect('Port for TOFI').expect('[8321]:').line()
         term.expect('Install fix releases automatically? (recommended)')
         term.expect('Turn on automatic fix releases? [Y/n]').line()
+        term.expect('Send an anonymous install report? [y/N]').line()
         term.expect('Ready to install')
         self.assertEqual(self.host_tree(), before, 'nothing changes before Proceed')
         self.assertEqual(self.changing_calls(), [])
@@ -811,6 +812,7 @@ class InteractiveTests(InstallBase):
         term.send('\x1b[B').send('\x1b[B').send('\r')   # this machine only
         term.expect('Port for TOFI').line('9100')
         term.expect('Turn on automatic fix releases? [Y/n]').line()
+        term.expect('Send an anonymous install report? [y/N]').line()
         term.expect('Proceed? [Y/n]').line('YES')
         self.assertEqual(term.finish(), 0, term.text)
         self.assertEqual(self.handoff()[3:], ['--local-only', '--port', '9100', '--auto-update'])
@@ -822,6 +824,7 @@ class InteractiveTests(InstallBase):
         no_proxy(term).expect('How will you open TOFI?').expect('Enter select').send('LOCAL\r')
         term.expect('Port for TOFI').line()
         term.expect('Turn on automatic fix releases? [Y/n]').line()
+        term.expect('Send an anonymous install report? [y/N]').line()
         term.expect('Proceed? [Y/n]').line()
         self.assertEqual(term.finish(), 0, term.text)
         self.assertEqual(self.handoff()[3:], ['--local-only', '--auto-update'])
@@ -839,6 +842,7 @@ class InteractiveTests(InstallBase):
         term.expect("Email for Let's Encrypt").line('nope')
         term.expect("'nope' is not an email address").line('ops@example.com')
         term.expect('Turn on automatic fix releases? [Y/n]').line()
+        term.expect('Send an anonymous install report? [y/N]').line()
         term.expect('Ready to install').expect('Proceed? [Y/n]').line('y')
         self.assertEqual(term.finish(), 0, term.text)
         self.assertEqual(self.handoff()[3:], ['--domain', 'tofi.example.com', '--email', 'ops@example.com',
@@ -855,6 +859,7 @@ class InteractiveTests(InstallBase):
         term.expect('too broad').line('192.0.2.10, 198.51.100.0/24')
         term.expect('Port for TOFI').line()
         term.expect('Turn on automatic fix releases? [Y/n]').line()
+        term.expect('Send an anonymous install report? [y/N]').line()
         term.expect('Ready to install').expect('Proceed? [Y/n]').line()
         self.assertEqual(term.finish(), 0, term.text)
         self.assertEqual(self.handoff()[3:], ['--behind-proxy', '192.0.2.10,198.51.100.0/24', '--auto-update'])
@@ -872,6 +877,7 @@ class InteractiveTests(InstallBase):
         term.line('ip')
         term.expect('Port for TOFI').line()
         term.expect('Turn on automatic fix releases? [Y/n]').line()
+        term.expect('Send an anonymous install report? [y/N]').line()
         term.expect('Proceed? [Y/n]').line()
         self.assertEqual(term.finish(), 0, term.text)
         # The colour version renders the unsupported row dim (SGR 2).
@@ -889,6 +895,7 @@ class InteractiveTests(InstallBase):
         term.expect("'80' is not a port between 1024 and 65535.")
         term.line()
         term.expect('Turn on automatic fix releases? [Y/n]').line()
+        term.expect('Send an anonymous install report? [y/N]').line()
         term.expect('Proceed? [Y/n]').line()
         self.assertEqual(term.finish(), 0, term.text)
         self.assertEqual(self.handoff()[3:], ['--port', '8322', '--auto-update'])
@@ -908,9 +915,9 @@ class InteractiveTests(InstallBase):
     def test_ctrl_c_before_proceed_cancels_without_changes(self):
         before = self.host_tree()
         answered = [('Choose 1-2', '\r'), ('Tunnel...)? [y/N]', 'n\r'), ('Choose 1-3', '\r'),
-                    ('[8321]:', '\r'), ('Turn on automatic fix releases?', '\r')]
+                    ('[8321]:', '\r'), ('Turn on automatic fix releases?', '\r'), ('Send an anonymous install report?', '\r')]
         for prompt, count in (('Choose 1-2', 0), ('Tunnel...)? [y/N]', 1), ('Port for TOFI', 3),
-                              ('Turn on automatic', 4), ('Proceed?', 5)):
+                              ('Turn on automatic', 4), ('Send an anonymous', 5), ('Proceed?', 6)):
             with self.subTest(prompt=prompt):
                 term = self.terminal(TOFI_PROMPT='plain')
                 for earlier, key in answered[:count]:
@@ -933,6 +940,7 @@ class InteractiveTests(InstallBase):
         no_proxy(term).expect('[1]:').line()
         term.expect('[8321]:').line()
         term.expect('Turn on automatic fix releases? [Y/n]').line()
+        term.expect('Send an anonymous install report? [y/N]').line()
         term.expect('Proceed? [Y/n]').line('maybe')
         term.expect('Answer y or n (Enter means yes).').line(' N ')
         term.expect('Cancelled — nothing was changed.')
@@ -954,6 +962,7 @@ class InteractiveTests(InstallBase):
         term.expect('Install a computer now?').expect('[1]:').line()
         term.expect('With a domain (automatic HTTPS)  (set by --domain)')
         term.expect('Turn on automatic fix releases? [Y/n]').line()
+        term.expect('Send an anonymous install report? [y/N]').line()
         term.expect('Proceed? [Y/n]').line()
         self.assertEqual(term.finish(), 0, term.text)
         self.assertNotShown(term, 'Domain name')
@@ -966,6 +975,7 @@ class InteractiveTests(InstallBase):
         term.expect('This machine only (SSH tunnel)  (set by --local-only)')
         term.expect('Port for TOFI').line()
         term.expect('Turn on automatic fix releases? [Y/n]').line()
+        term.expect('Send an anonymous install report? [y/N]').line()
         term.expect('Proceed? [Y/n]').line()
         self.assertEqual(term.finish(), 0, term.text)
         self.assertEqual(self.handoff_computer(), 'kvm')
@@ -973,6 +983,7 @@ class InteractiveTests(InstallBase):
         term.expect('Not now — server and web app only  (set by --computer)')
         term.expect('Port for TOFI').line()
         term.expect('Turn on automatic fix releases? [Y/n]').line()
+        term.expect('Send an anonymous install report? [y/N]').line()
         term.expect('Proceed? [Y/n]').line()
         self.assertEqual(term.finish(), 0, term.text)
         self.assertEqual(self.handoff_computer(), 'none')
@@ -982,6 +993,7 @@ class InteractiveTests(InstallBase):
         term.expect('Port for TOFI').line()
         term.expect('Install fix releases automatically? (recommended)')
         term.expect('No  (set by --no-auto-update)')
+        term.expect('Send an anonymous install report? [y/N]').line()
         term.expect('Proceed? [Y/n]').line()
         self.assertEqual(term.finish(), 0, term.text)
         self.assertNotShown(term, 'Turn on automatic fix releases?')
@@ -991,6 +1003,7 @@ class InteractiveTests(InstallBase):
         term.expect('[1]:').line()
         term.expect('Port for TOFI').line()
         term.expect('Turn on automatic fix releases? [Y/n]').line('n')
+        term.expect('Send an anonymous install report? [y/N]').line()
         term.expect('Proceed? [Y/n]').line()
         self.assertEqual(term.finish(), 0, term.text)
         self.assertEqual(self.handoff()[3:], ['--local-only', '--no-auto-update'])
@@ -1012,6 +1025,7 @@ class InteractiveTests(InstallBase):
         no_proxy(term).expect('How will you open TOFI?').expect('[1]:').line()
         term.expect('Port for TOFI').line()
         term.expect('Turn on automatic fix releases? [Y/n]').line()
+        term.expect('Send an anonymous install report? [y/N]').line()
         term.expect('Ready to install')
         term.expect('Proceed? [Y/n]').line()
         self.assertEqual(term.finish(), 0, term.text)
@@ -1029,6 +1043,7 @@ class InteractiveTests(InstallBase):
         no_proxy(term).expect('[1]:').line()
         term.expect('Port for TOFI').line()
         term.expect('Turn on automatic fix releases? [Y/n]').line('n')
+        term.expect('Send an anonymous install report? [y/N]').line()
         term.expect('Ready to install')
         term.expect('Computers none: server and web app only')
         term.expect('Proceed? [Y/n]').line()
@@ -1043,6 +1058,7 @@ class InteractiveTests(InstallBase):
         no_proxy(term).expect('Enter select').send('\r')
         term.expect('Port for TOFI').line()
         term.expect('Turn on automatic fix releases? [Y/n]').line()
+        term.expect('Send an anonymous install report? [y/N]').line()
         term.expect('Proceed? [Y/n]').line()
         self.assertEqual(term.finish(), 0, term.text)
         self.assertEqual(self.handoff_computer(), 'none')
@@ -1065,6 +1081,7 @@ class InteractiveTests(InstallBase):
         term.expect('[8321]:').line()
         term.expect('[y/N]').line('y')
         term.expect('Turn on automatic fix releases? [Y/n]').line()
+        term.expect('Send an anonymous install report? [y/N]').line()
         term.expect('v0.1.0-rc.2 (prerelease, confirmed)')
         term.expect('Proceed? [Y/n]').line()
         self.assertEqual(term.finish(), 0, term.text)
