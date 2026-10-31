@@ -745,6 +745,12 @@ func (s *Server) microVMTools(r Run) []Tool {
 		s.flushGeneratedImages(ctx, r)
 	}
 	playwright, a11y := s.browserEnginePlaywright(), s.desktopEngineA11y()
+	// Hybrid: with the accessibility engine the screenshot and coordinate tool stays
+	// next to the desktop_ tools; the element tree is the first choice and the
+	// coordinates are the fallback.
+	if a11y {
+		desktop.Description = computerDesktopHybridNote + " " + desktop.Description
+	}
 	tools := []Tool{shell, files, desktop}
 	if a11y {
 		tools = append(tools, s.desktopEngineTools(r, prepare)...)

@@ -37,7 +37,10 @@ func computerDesktopEssentialsFor(a11y bool) string {
 	return ""
 }
 
-const computerDesktopEssentialsA11y = "Desktop apps: read an app with desktop_get_app_state, which lists its elements with a ref, and act with the desktop_ tools by ref and app. A ref is valid only until the app changes: read the state again after an action that changes it. Use computer_desktop for screenshots and positions."
+const computerDesktopEssentialsA11y = "Desktop apps: read an app with desktop_get_app_state, which lists its elements with a ref, and act with the desktop_ tools by ref and app. A ref is valid only until the app changes: read the state again after an action that changes it. The element tree is preferred; when an app has no tree or the element is missing, use computer_desktop screenshots and coordinate clicks."
+
+// computerDesktopHybridNote opens the description of computer_desktop while the desktop_ tools are offered.
+const computerDesktopHybridNote = "The desktop_ tools are preferred for apps that publish an element tree. Use the screenshot and coordinate actions here as the fallback, for apps without a tree or elements the tree lacks."
 
 const computerDesktopGuideA11y = `desktop_list_apps names the apps that publish an element tree on the shared desktop. desktop_get_app_state returns the tree of one app's window; every element has a ref. Pass the app name and the ref to desktop_click, desktop_set_value, desktop_scroll and desktop_secondary_action. Give a short element name for the review. A ref belongs to one reading of the app: after the app changes, read the state again before the next action. The result of an action usually includes the new state.
 desktop_set_value writes a settable element directly; desktop_type_text and desktop_press_key send keys to the app. Declare effect on every action that changes something outside the view.
@@ -70,7 +73,7 @@ var desktopEngineSpecs = []dsSpec{
 		Description: "List the apps on the shared desktop that publish an element tree.",
 		Props:       map[string]any{}},
 	{Name: "desktop_get_app_state", Engine: "get_app_state", Observation: true,
-		Description: "Read the key window of a running app as an element tree. Every element has a ref. Use the refs in the other desktop_ tools. A ref is valid only until the app changes. Call this before acting on an app.",
+		Description: "Read the key window of a running app as an element tree. Every element has a ref. Use the refs in the other desktop_ tools. A ref is valid only until the app changes. Call this before acting on an app. Preferred over screenshots and coordinates; use computer_desktop only when the app has no tree or the element is missing.",
 		Props: map[string]any{"app": dsApp,
 			"max_tree_nodes": map[string]any{"type": "integer", "minimum": 1, "maximum": 5000, "description": "Maximum number of elements to list."},
 			"max_tree_depth": map[string]any{"type": "integer", "minimum": 1, "maximum": 64, "description": "Maximum nesting depth of the tree."}},

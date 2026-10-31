@@ -276,3 +276,36 @@ func TestDesktopEngineSettingIsWritableThroughTheSettingsAPI(t *testing.T) {
 		t.Fatalf("reset to default failed: %d", code)
 	}
 }
+
+// Hybrid mode: the a11y engine adds to the classic screenshot and coordinate
+// tool; its text says the tree is preferred and the coordinates are the fallback.
+func TestDesktopEngineA11yIsHybridWithTheCoordinateTools(t *testing.T) {
+	s, _, run := dsServer(t, desktopEngineA11y)
+	tools := pwToolMap(s.microVMTools(run))
+	desk, ok := tools["computer_desktop"]
+	if !ok {
+		t.Fatal("a11y mode lost computer_desktop")
+	}
+	if !strings.HasPrefix(desk.Description, computerDesktopHybridNote) || !strings.Contains(desk.Description, "fallback") {
+		t.Fatalf("computer_desktop does not say it is the fallback: %.120s", desk.Description)
+	}
+	schema, _ := json.Marshal(desk.Parameters)
+	for _, action := range []string{"desktop.capture", "desktop.click", "desktop.type", "desktop.key", "desktop.scroll"} {
+		if !strings.Contains(string(schema), action) {
+			t.Errorf("computer_desktop lost %s", action)
+		}
+	}
+	for _, name := range desktopEngineToolNames() {
+		if _, ok := tools[name]; !ok {
+			t.Errorf("a11y mode lacks %s", name)
+		}
+	}
+	if !strings.Contains(tools["desktop_get_app_state"].Description, "Preferred") || !strings.Contains(computerDesktopEssentialsA11y, "coordinate") {
+		t.Fatal("the desktop_ text must say the tree is preferred and coordinates are the fallback")
+	}
+	// Classic mode keeps the plain description.
+	s2, _, run2 := dsServer(t, "")
+	if strings.Contains(pwToolMap(s2.microVMTools(run2))["computer_desktop"].Description, computerDesktopHybridNote) {
+		t.Fatal("classic mode must not carry the hybrid note")
+	}
+}
