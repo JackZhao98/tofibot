@@ -182,7 +182,10 @@ the source of truth: [LICENSE](LICENSE) and [ui/LICENSE](ui/LICENSE).
 
 <!-- Landing page line: "TOFI is free to self-host. The server is Apache-2.0. The web app is PolyForm Shield: use it, change it and run it for yourself, but do not sell a competing product built from it." -->
 
-Third-party notices are in `ui/THIRD_PARTY_NOTICES.md` and `ui/public/licenses`.
+Legal files: [NOTICE](NOTICE), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+(the third-party software TOFI ships, with licenses), [TRADEMARK.md](TRADEMARK.md)
+(use of the TOFI name and logo) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+Web app notices are also in `ui/THIRD_PARTY_NOTICES.md` and `ui/public/licenses`.
 The header uses the project's own four-cat artwork and Fredoka lettering (font
 notice: `assets/OFL-Fredoka.txt`). Fredoka and JetBrains Mono stay under the SIL
 Open Font License 1.1.

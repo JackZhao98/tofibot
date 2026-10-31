@@ -15,6 +15,14 @@ folder are in English.
 By contributing, you agree that your change uses the license of the folder you
 change.
 
+Also read:
+
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md): how we expect people to behave.
+- [NOTICE](NOTICE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md): when you
+  add or update a dependency, a font, an icon or a package in an image, update
+  `THIRD_PARTY_NOTICES.md` in the same pull request.
+- [TRADEMARK.md](TRADEMARK.md): the TOFI name and logo are not covered by the licenses.
+
 ## Releases
 
 - Stable releases come at most once a week. Release candidates (`-rc.N`) can
