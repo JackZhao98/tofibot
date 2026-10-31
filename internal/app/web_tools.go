@@ -421,26 +421,34 @@ func (s *Server) fetchChain(r *Run) []webtools.FetchProvider {
 	return out
 }
 
-// webNativeWins reports whether the run's model brings its own search and page
-// reader, in which case these tools stay out of the run.
+// webNativeWins reports whether the run's model always brings its own search,
+// in which case the external web_search tool stays out of the run. Anthropic
+// models do. An OpenAI model gets its hosted search only while no external
+// search provider is registered for the run: the owner's Tavily, Brave,
+// SearXNG or computer search keeps working, and a tool named web_search in the
+// run makes webSearchMaxUses withhold the hosted one, so the two are never
+// both offered.
 func (s *Server) webNativeWins(r Run) bool {
-	model := r.Model
-	if model == "" {
-		model = s.defaultModel
-	}
+	model := s.runModel(r)
 	return runtime.ModelProvider(model) == providerAnthropic && s.searchUses(model, nil) > 0
 }
 
+// webFetchNativeWins reports whether the model also brings its own page
+// reader (Anthropic only; OpenAI has none, so its Bots keep the builtin one).
+func (s *Server) webFetchNativeWins(r Run) bool {
+	return s.fetchUses(s.runModel(r), nil) > 0
+}
+
 // webTools registers web_search only when a search provider is usable and
-// web_fetch whenever the stored switch is on. A run whose model has native
-// search gets neither.
+// web_fetch whenever the stored switch is on. Each is left out when the run's
+// model has the native counterpart.
 func (s *Server) webTools(r Run) []Tool {
-	if !s.webSearchEnabled() || s.webNativeWins(r) {
+	if !s.webSearchEnabled() {
 		return nil
 	}
 	var tools []Tool
 	var searches, fetches atomic.Int32
-	if len(s.searchChain(&r)) > 0 {
+	if !s.webNativeWins(r) && len(s.searchChain(&r)) > 0 {
 		tools = append(tools, Tool{Name: "web_search", Description: webSearchDescription, Timeout: webToolTimeout, Parameters: objectSchema(map[string]any{
 			"query":       map[string]any{"type": "string", "description": "What to look up."},
 			"max_results": map[string]any{"type": "integer", "minimum": 1, "maximum": 10, "description": "How many results to return. Default 5."},
@@ -462,6 +470,9 @@ func (s *Server) webTools(r Run) []Tool {
 			out, _ := json.Marshal(res)
 			return string(out), nil
 		}})
+	}
+	if s.webFetchNativeWins(r) {
+		return tools
 	}
 	tools = append(tools, Tool{Name: "web_fetch", Description: webFetchDescription, Timeout: webToolTimeout, Parameters: objectSchema(map[string]any{
 		"url":       map[string]any{"type": "string", "description": "Public http or https address of the page."},
@@ -708,7 +719,7 @@ func (s *Server) webEntryFor(id, chain string, cfg webToolsConfig) webEntry {
 func (s *Server) webToolsView() map[string]any {
 	cfg := s.webConfig()
 	model := s.defaultModel
-	native := runtime.ModelProvider(model) == providerAnthropic && s.searchUses(model, nil) > 0
+	native := s.searchUses(model, nil) > 0
 	search := []webEntry{{ID: "native", Label: "Model web search", Kind: "native", Fixed: true, Enabled: true, Status: "always"}}
 	for _, id := range cfg.SearchOrder {
 		if id == webComputerID && !s.webComputerExists() {

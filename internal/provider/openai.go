@@ -84,6 +84,20 @@ func isToolCallError(err error) bool {
 // Chat sends a non-streaming request via the Responses API.
 // Falls back to Chat Completions if the Responses API fails with tool errors.
 func (o *openaiResponses) Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, error) {
+	if req.WebSearch != nil && o.webSearchRefused(req.Model) {
+		plain := *req
+		plain.WebSearch = nil
+		req = &plain
+	}
+	resp, err := o.chat(ctx, req)
+	if err != nil && req.WebSearch != nil && isOpenAIWebSearchRejection(err) {
+		plain := o.dropRefusedWebSearch(req, err)
+		return o.chat(ctx, plain)
+	}
+	return resp, err
+}
+
+func (o *openaiResponses) chat(ctx context.Context, req *ChatRequest) (*ChatResponse, error) {
 	payload := o.buildPayload(req, false)
 
 	body, err := o.doRequest(ctx, payload)
@@ -115,6 +129,29 @@ func (o *openaiResponses) Chat(ctx context.Context, req *ChatRequest) (*ChatResp
 // ChatStream sends a streaming request via the Responses API.
 // Falls back to Chat Completions if the Responses API fails with tool errors.
 func (o *openaiResponses) ChatStream(ctx context.Context, req *ChatRequest, onDelta func(StreamDelta)) (*ChatResponse, error) {
+	if req.WebSearch != nil && o.webSearchRefused(req.Model) {
+		plain := *req
+		plain.WebSearch = nil
+		req = &plain
+	}
+	if req.WebSearch == nil {
+		return o.chatStream(ctx, req, onDelta)
+	}
+	// Hosted search is optional: a backend that refuses the tool gets the
+	// request again without it, as long as nothing reached the caller yet.
+	sent := false
+	var watched func(StreamDelta)
+	if onDelta != nil {
+		watched = func(d StreamDelta) { sent = true; onDelta(d) }
+	}
+	resp, err := o.chatStream(ctx, req, watched)
+	if err != nil && !sent && isOpenAIWebSearchRejection(err) {
+		return o.chatStream(ctx, o.dropRefusedWebSearch(req, err), onDelta)
+	}
+	return resp, err
+}
+
+func (o *openaiResponses) chatStream(ctx context.Context, req *ChatRequest, onDelta func(StreamDelta)) (*ChatResponse, error) {
 	// A rejection can arrive in-stream; never replay a forwarded prefix.
 	forwarded := false
 	forward := func(delta StreamDelta) {
@@ -260,6 +297,8 @@ func (o *openaiResponses) buildPayload(req *ChatRequest, stream bool) map[string
 		payload["prompt_cache_key"] = key
 	}
 
+	var include []string
+
 	// Enable reasoning with summary ONLY for models that support it.
 	// gpt-4o / gpt-4-turbo etc. reject the include + reasoning fields with
 	// "Encrypted content is not supported with this model.". Reasoning is
@@ -273,7 +312,7 @@ func (o *openaiResponses) buildPayload(req *ChatRequest, stream bool) map[string
 			"effort":  effort,
 			"summary": "auto",
 		}
-		payload["include"] = []string{"reasoning.encrypted_content"}
+		include = append(include, "reasoning.encrypted_content")
 	}
 
 	// Convert messages to Responses API input format
@@ -285,7 +324,7 @@ func (o *openaiResponses) buildPayload(req *ChatRequest, stream bool) map[string
 	}
 
 	// Convert tools to Responses API format (flat, no function wrapper)
-	if len(req.Tools) > 0 {
+	if len(req.Tools) > 0 || req.WebSearch != nil {
 		var tools []map[string]interface{}
 		for _, t := range req.Tools {
 			tool := map[string]interface{}{
@@ -297,12 +336,21 @@ func (o *openaiResponses) buildPayload(req *ChatRequest, stream bool) map[string
 			}
 			tools = append(tools, tool)
 		}
+		if req.WebSearch != nil {
+			// OpenAI runs the search inside the model call; the tool takes no
+			// per-request cap. The sources list makes each search auditable.
+			tools = append(tools, map[string]interface{}{"type": openaiWebSearchType})
+			include = append(include, "web_search_call.action.sources")
+		}
 		payload["tools"] = tools
 		if req.ToolChoice == ToolChoiceNone {
 			payload["tool_choice"] = "none"
 		}
 	}
 
+	if len(include) > 0 {
+		payload["include"] = include
+	}
 	return payload
 }
 
@@ -508,8 +556,12 @@ func (o *openaiResponses) parseResponse(body string) (*ChatResponse, error) {
 	}
 
 	result.Usage = resp.Usage.usage()
+	var web responsesWebSearches
+	defer func() { web.finish(result) }()
 
 	for _, raw := range resp.Output {
+		web.item(raw)
+		web.messageItem(raw)
 		var item struct {
 			Type             string `json:"type"`
 			ID               string `json:"id"`
@@ -657,6 +709,7 @@ func (o *openaiResponses) parseStream(body io.Reader, onDelta func(StreamDelta))
 
 	var currentEvent string
 	completed := false
+	var web responsesWebSearches
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -773,6 +826,14 @@ func (o *openaiResponses) parseStream(body io.Reader, onDelta func(StreamDelta))
 				setFinal(c, *ev.Arguments)
 			}
 
+		case "response.output_text.annotation.added":
+			var ev struct {
+				Annotation json.RawMessage `json:"annotation"`
+			}
+			if json.Unmarshal([]byte(data), &ev) == nil {
+				web.annotation(ev.Annotation)
+			}
+
 		case "response.output_item.done":
 			// Check for reasoning item with summary — only use as fallback
 			// if we didn't already receive reasoning via streaming deltas.
@@ -781,6 +842,8 @@ func (o *openaiResponses) parseStream(body io.Reader, onDelta func(StreamDelta))
 				Item        json.RawMessage `json:"item"`
 			}
 			if json.Unmarshal([]byte(data), &ev) == nil {
+				web.item(ev.Item)
+				web.messageItem(ev.Item)
 				var fc struct {
 					Type      string  `json:"type"`
 					ID        string  `json:"id"`
@@ -887,6 +950,7 @@ func (o *openaiResponses) parseStream(body io.Reader, onDelta func(StreamDelta))
 
 	result.Content = contentBuf.String()
 	result.Reasoning = reasoningBuf.String()
+	web.finish(result)
 
 	// Assemble tool calls in output order; items seen without an
 	// output_index keep their arrival order after indexed ones.

@@ -495,6 +495,14 @@ func (s *Store) recordWebFetchUsage(runID string, n int64) error {
 // request ran: its own usage_calls row, and the cost in the bot's hourly
 // rollup (no request is added).
 func (s *Store) recordWebSearchUsage(runID string, n int64) error {
+	return s.recordWebSearchUsageAt(runID, n, webSearchUSD)
+}
+
+// recordWebSearchUsageAt books n searches at a per-search fee. A provider
+// whose search price is not in the price table (OpenAI) passes 0: the searches
+// are still one usage_calls row each, so they are counted, but no cost is
+// invented.
+func (s *Store) recordWebSearchUsageAt(runID string, n int64, perSearch float64) error {
 	if n <= 0 {
 		return nil
 	}
@@ -509,7 +517,16 @@ func (s *Store) recordWebSearchUsage(runID string, n int64) error {
 	if err = tx.QueryRow(`SELECT r.bot_id,u.model,COALESCE(m.content,'') FROM runs r JOIN run_usage u ON u.run_id=r.id LEFT JOIN messages m ON m.id=r.trigger_message_id WHERE r.id=?`, runID).Scan(&botID, &model, &prompt); err != nil {
 		return err
 	}
-	fee := float64(n) * webSearchUSD
+	fee := float64(n) * perSearch
+	if perSearch == 0 {
+		// No price: one fee-less row per search, so the count is what is stored.
+		for i := int64(0); i < n; i++ {
+			if _, err = tx.Exec(`INSERT INTO usage_calls(run_id,bot_id,model,input_tokens,output_tokens,equivalent_usd,price_known,trigger_content,occurred_at,kind) VALUES(?,?,?,0,0,0,1,?,?,?)`, runID, botID, model, prompt, stamp, usageKindSearch); err != nil {
+				return err
+			}
+		}
+		return tx.Commit()
+	}
 	if _, err = tx.Exec(`INSERT INTO usage_calls(run_id,bot_id,model,input_tokens,output_tokens,equivalent_usd,price_known,trigger_content,occurred_at,kind) VALUES(?,?,?,0,0,?,1,?,?,?)`, runID, botID, model, fee, prompt, stamp, usageKindSearch); err != nil {
 		return err
 	}

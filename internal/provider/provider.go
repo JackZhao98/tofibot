@@ -39,7 +39,7 @@ type ChatRequest struct {
 	// forbids calling them; ToolChoiceAny requires some tool call.
 	ToolChoice string
 	// WebSearch, when set, adds the provider's own server-side web search to
-	// the request (Anthropic only; other providers ignore it). The provider
+	// the request (Anthropic and OpenAI; other providers ignore it). The provider
 	// runs the searches inside the model call, so no tool result is returned
 	// to the caller: what was searched comes back on ChatResponse.WebSearches.
 	WebSearch *WebSearchSpec

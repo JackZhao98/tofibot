@@ -4527,7 +4527,11 @@ func (s *Server) execute(c Conversation, r Run) {
 		Continuation:     continuation,
 		WebSearchMaxUses: s.searchUses(model, tools),
 		OnWebSearchBilled: func(n int64) {
-			if err := s.store.recordWebSearchUsage(r.ID, n); err != nil {
+			perSearch := webSearchUSD
+			if runtime.ModelProvider(model) != providerAnthropic {
+				perSearch = 0 // OpenAI's search fee is not in the price table; count only
+			}
+			if err := s.store.recordWebSearchUsageAt(r.ID, n, perSearch); err != nil {
 				log.Printf("[usage] web search: %v", err)
 			}
 		},

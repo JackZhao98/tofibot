@@ -27,11 +27,27 @@ const webFetchMaxUsesPerRequest = 5
 // (web_tools.go, decision 0068): same names, ordered provider chains, results
 // that name their source. The model's own tools win whenever they are offered.
 
+// OpenAI models (API key and ChatGPT sign-in alike) get OpenAI's hosted
+// web_search tool the same way. It has no hosted page reader, so their
+// web_fetch stays the server-run builtin reader (web_tools.go). The hosted tool
+// takes no per-request cap and its fee is not in the price table, so those
+// searches are booked as a count with no fee.
+
+// hostedSearchProvider reports whether the model's provider runs web search
+// inside the model request.
+func hostedSearchProvider(model string) bool {
+	switch runtime.ModelProvider(model) {
+	case providerAnthropic, providerOpenAI, providerCodex:
+		return true
+	}
+	return false
+}
+
 // webSearchMaxUses is the per-request search cap for a run, 0 when the run has
-// no server-side search: the model is not an Anthropic one, the owner switched
+// no server-side search: the model's provider has none, the owner switched
 // it off (TOFI_WEB_SEARCH=off), or a tool of the same name already exists.
 func webSearchMaxUses(model string, tools []Tool) int {
-	if runtime.ModelProvider(model) != providerAnthropic {
+	if !hostedSearchProvider(model) {
 		return 0
 	}
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("TOFI_WEB_SEARCH"))) {
@@ -50,7 +66,7 @@ func webSearchMaxUses(model string, tools []Tool) int {
 // server-side page reader: whenever webSearchMaxUses is 0, and when a tool of
 // the same name already exists.
 func webFetchMaxUses(model string, tools []Tool) int {
-	if webSearchMaxUses(model, nil) == 0 {
+	if runtime.ModelProvider(model) != providerAnthropic || webSearchMaxUses(model, nil) == 0 {
 		return 0
 	}
 	for _, t := range tools {

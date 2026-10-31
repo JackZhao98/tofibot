@@ -130,7 +130,7 @@ type Request struct {
 	OnContextEstimate func(estimatedInput int)
 	OnUsage           func(provider.Usage)
 	// WebSearchMaxUses, when positive, gives the model the provider's own
-	// server-side web search (Anthropic models; searches per model request
+	// server-side web search (Anthropic and OpenAI models; searches per model request
 	// capped at this). Each search is reported through OnToolEvent as a
 	// web_search call whose result lists the sources, and the billed number
 	// of searches through OnWebSearchBilled.
