@@ -165,7 +165,8 @@
     "records_unavailable": "部分執行紀錄暫時無法更新。",
     "load": "讀取執行紀錄",
     "loading": "讀取中…",
-    "progress_report": "進度回報"
+    "progress_report": "進度回報",
+    "left_note": "留了一則備註"
   },
   "step": {
     "problem": "問題說明",

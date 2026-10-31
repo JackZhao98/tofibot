@@ -127,6 +127,7 @@ function quiet<K extends PanelChunk, P extends object>(name: K, pick: (module: L
   };
 }
 export const TaskActivityBody = quiet("taskActivity", module => module.TaskActivityBody);
+export const SilentNoteBody = quiet("taskActivity", module => module.SilentNoteBody);
 export const WebToolSteps = quiet("toolSteps", module => module.WebToolSteps);
 export const Onboarding = chunk("onboarding", module => module.Onboarding);
 

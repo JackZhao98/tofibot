@@ -27,6 +27,7 @@
     "test:message-delivery": "node scripts/test-message-delivery.mjs",
     "test:draft-delta": "node scripts/test-draft-delta.mjs",
     "test:run-progress": "node scripts/test-run-progress.mjs",
+    "test:silent-note": "node scripts/test-silent-note.mjs",
     "test:mcp-oauth": "node scripts/test-mcp-oauth.mjs",
     "test:brand-icons": "node scripts/test-brand-icons.mjs",
     "test:integration-catalog": "node scripts/test-integration-catalog.mjs",

@@ -12,7 +12,7 @@
 .task-issue-actions{display:flex;flex-wrap:wrap;gap:var(--space-3);margin-block-start:var(--space-3)}
 .task-issue-actions .secondary-button,.task-record-page .secondary-button{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);min-height:44px;font:var(--type-button);white-space:normal;line-height:1.4;max-width:100%}
 .task-issue-technical{margin-block-start:var(--space-2);font:var(--type-meta)}
-.task-issue-technical>summary,.task-activity>summary,.task-tool-records summary,.task-progress-record>summary{min-height:44px;align-content:center;color:var(--text-secondary);overflow-wrap:anywhere}
+.task-issue-technical>summary,.task-activity>summary,.task-tool-records summary,.task-progress-record>summary,.task-silent-note>summary{min-height:44px;align-content:center;color:var(--text-secondary);overflow-wrap:anywhere}
 .task-issue-technical pre,.task-activity pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto;padding:var(--space-3);border-radius:var(--radius-sm);background:var(--surface-sunk);color:var(--text-body);font:var(--type-code)}
 .task-issue-feedback{font:var(--type-meta);color:var(--text-secondary)}
 .task-activity{margin-block-start:var(--space-2)}
@@ -98,3 +98,5 @@
 /* A failure whose retry already started folds to one quiet line; the live run below is the focus. */
 .task-issue-retried{display:flex;align-items:center;gap:var(--space-2);margin:0;padding:var(--space-2) var(--space-3);border:1px solid var(--border-soft);border-radius:var(--radius-md);background:var(--surface-sunk);color:var(--text-secondary);font:var(--type-meta)}
 .task-issue-retried:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+.task-silent-note{margin:0 0 var(--space-2)}
+.task-silent-note-body{padding:0 0 var(--space-2);color:var(--text-secondary)}

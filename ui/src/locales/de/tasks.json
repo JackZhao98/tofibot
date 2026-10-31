@@ -166,7 +166,8 @@
     "records_unavailable": "Einige Ausführungseinträge sind nicht verfügbar.",
     "load": "Aktivität laden",
     "loading": "Wird geladen…",
-    "progress_report": "Fortschrittsbericht"
+    "progress_report": "Fortschrittsbericht",
+    "left_note": "Notiz hinterlassen"
   },
   "step": {
     "problem": "Problem",
