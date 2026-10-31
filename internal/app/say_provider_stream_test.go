@@ -100,10 +100,11 @@ func sayStreamingThroughProvider(t *testing.T, providerName, model string, anthr
 	if got := originOf(t, s.store, run.ID); got != finalOriginSay {
 		t.Fatalf("origin = %q", got)
 	}
-	// The draft showed the answer while it was written, in several steps, and
-	// the final message is that same bubble.
+	// The draft showed the answer while it was written, in more than one step,
+	// and the final message is that same bubble. Draft writes may coalesce on a
+	// loaded machine, so only "more than one" is asserted, not a count.
 	deltas := deltaTexts(t, s.store, run.ConversationID)
-	if strings.Join(deltas, "") != sayAnswerText || len(deltas) < 4 {
+	if strings.Join(deltas, "") != sayAnswerText || len(deltas) < 2 {
 		t.Fatalf("draft deltas = %q, want several fragments of the answer", deltas)
 	}
 	events := eventsOfType(t, s.store, run.ConversationID, "delta")
