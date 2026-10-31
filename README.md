@@ -147,8 +147,19 @@ credentials are not in this repository.
 ## Licensing
 
 - **Server, installer and everything outside `ui/`**: [Apache-2.0](LICENSE).
-- **Web app (`ui/`)**: [PolyForm Shield 1.0.0](ui/LICENSE). You can read, use and
-  change the source to run TOFI. You cannot use it to build a competing product.
+- **Web app (`ui/`)**: [PolyForm Shield 1.0.0](ui/LICENSE).
+
+Why the web app has a different license: TOFI is free to run, but we do not want
+a company to take the web app and sell it as a competing product. Apache-2.0 would
+allow that. PolyForm Shield allows everything else. You can run TOFI, self-host
+it for yourself or your organization, read the source, fork it for your own use
+and change the web app. You can share copies and changes if you keep the license
+text and notices with them. You cannot use the web app to provide a product that
+competes with TOFI (or with other products of the licensor that use it), even a
+free one. The server is Apache-2.0 and has no such limit. The license texts are
+the source of truth: [LICENSE](LICENSE) and [ui/LICENSE](ui/LICENSE).
+
+<!-- Landing page line: "TOFI is free to self-host. The server is Apache-2.0. The web app is PolyForm Shield: use it, change it and run it for yourself, but do not sell a competing product built from it." -->
 
 Third-party notices are in `ui/THIRD_PARTY_NOTICES.md` and `ui/public/licenses`.
 The header uses the project's own four-cat artwork and Fredoka lettering (font
