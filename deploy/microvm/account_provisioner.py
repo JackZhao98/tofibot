@@ -454,32 +454,44 @@ class Broker:
         values = overrides.get(identity, self.c)
         return values["vcpus"], values["memory_mib"]
 
-    def release_exited_claims(self, keep):
-        """Release the claims of computers whose manager exited by itself.
+    def release_idle_claims(self, keep):
+        """Give back the claims of other computers that run no VM now.
 
-        An idle computer hibernates: its manager exits and no VM runs, but no
-        stop request came, so its claim stays. manager_exited proves both (the
-        default proves nothing); on any doubt the claim stays. The process
-        record is kept, so the next start still checks the exit as before.
+        A claim stays until an explicit stop. An idle computer hibernates: no
+        VM runs, but its manager stays and keeps the claim. When a start does
+        not fit, release_idle may stop such a manager (its snapshot stays and
+        the next start of that account restores it through admission). The
+        default proves nothing and releases nothing. Returns True if any claim
+        was released.
         """
         with self.ledger.connection() as db:
             others = [row[0] for row in db.execute(
                 "SELECT account_id FROM runtime_claims WHERE account_id<>?", (keep,))]
+        released = False
         for other in others:
-            if self.manager_exited(other):
+            if self.release_idle(other):
                 with self.ledger.connection() as db:
                     db.execute("DELETE FROM runtime_claims WHERE account_id=?", (other,))
+                released = True
+        return released
 
-    def manager_exited(self, identity):
-        """True only when the manager is proven gone and its VM is stopped."""
+    def release_idle(self, identity):
+        """True only when the computer is proven to run no VM and has no manager left."""
         return False
 
     def runtime_admission(self, identity):
         vcpus, memory_mib = self.runtime_resources(identity)
-        self.release_exited_claims(identity)
         # Claims survive restart and release only after a successful service stop
-        # (an explicit stop, or release_exited_claims for a hibernated computer).
+        # (an explicit stop, or release_idle_claims for a hibernated computer).
         # Conservative registration budgets do not assume CPU/RAM overcommit.
+        def fits():
+            with self.ledger.connection() as db:
+                if db.execute("SELECT 1 FROM runtime_claims WHERE account_id=?", (identity,)).fetchone():
+                    return True
+                cpu, memory = db.execute("SELECT COALESCE(SUM(vcpus),0),COALESCE(SUM(memory_mib),0) FROM runtime_claims").fetchone()
+            return cpu + vcpus <= self.c["runtime_vcpu_budget"] and memory + memory_mib + 512 <= runtime_memory_claim_limit(self.c)
+        if not fits():
+            self.release_idle_claims(identity)
         with self.ledger.connection() as db:
             db.execute("BEGIN IMMEDIATE")
             if db.execute("SELECT 1 FROM runtime_claims WHERE account_id=?", (identity,)).fetchone():

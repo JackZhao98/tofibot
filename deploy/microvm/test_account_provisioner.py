@@ -168,7 +168,7 @@ class BrokerTests(unittest.TestCase):
             self.b.dispatch(dict(op="stop",account_id=ids[0]))
             other.runtime_admission(ids[2])
 
-    def test_hibernated_computer_claims_release_only_when_proven_exited(self):
+    def test_hibernated_computer_claims_release_only_when_proven_idle(self):
         ids = [str(uuid.uuid4()) for _ in range(3)]
         original = Path.read_text
         def read(path, *args, **kwargs):
@@ -184,7 +184,7 @@ class BrokerTests(unittest.TestCase):
             # The base broker cannot prove an exit, so the claims stay.
             with self.assertRaises(broker.AdmissionError):
                 self.b.runtime_admission(ids[2])
-            self.b.manager_exited = lambda identity: identity in exited
+            self.b.release_idle = lambda identity: identity in exited
             with self.assertRaises(broker.AdmissionError):
                 self.b.runtime_admission(ids[2])
             exited.add(ids[0])

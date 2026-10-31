@@ -1,7 +1,9 @@
 """Worker-local process supervision; no Docker socket, systemd or host PIDs."""
+import json
 import os
 from pathlib import Path
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -207,8 +209,40 @@ class WorkerBroker(Broker):
     def manager_running(self, identity):
         return self.supervisor.running(identity)
 
-    def manager_exited(self, identity):
-        return self.supervisor.exited(identity)
+    def release_idle(self, identity):
+        """A gone manager with an empty VM cgroup, or a hibernated one stopped now."""
+        if self.supervisor.exited(identity):
+            return True
+        if not self.supervisor.running(identity) or self.manager_state(identity) != "hibernated":
+            return False
+        try:
+            # A hibernated manager exits without a VM; its snapshot stays.
+            self.supervisor.stop(identity)
+        except (AdmissionError, OSError, subprocess.SubprocessError):
+            return False
+        return True
+
+    def manager_state(self, identity):
+        """The manager's own state from its control socket, or None."""
+        path = Path(self.c["socket_root"]) / account_id(identity) / "control.sock"
+        try:
+            with socket.socket(socket.AF_UNIX) as conn:
+                conn.settimeout(3)
+                conn.connect(str(path))
+                conn.sendall(b"GET /v1/info HTTP/1.0\r\nHost: tofi-computer\r\n\r\n")
+                data = b""
+                while len(data) < 65536:
+                    chunk = conn.recv(8192)
+                    if not chunk:
+                        break
+                    data += chunk
+            head, _, body = data.partition(b"\r\n\r\n")
+            if not head.startswith(b"HTTP/1.0 200") and not head.startswith(b"HTTP/1.1 200"):
+                return None
+            state = json.loads(body).get("state")
+            return state if isinstance(state, str) else None
+        except (OSError, ValueError, AttributeError):
+            return None
 
     def remove_cgroup_leaf(self, identity):
         """rmdir tofi-vms/ac-<id> once the VM is stopped. A missing leaf is fine; a busy or

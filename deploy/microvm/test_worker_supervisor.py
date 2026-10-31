@@ -68,8 +68,41 @@ class SupervisorTests(unittest.TestCase):
         self.assertTrue(self.supervisor.exited(identity))
         self.supervisor.quarantined.add(identity)
         self.assertFalse(self.supervisor.exited(identity))
+
+    def test_release_idle_stops_only_a_hibernated_manager(self):
+        identity=str(uuid.uuid4());proc=Mock(pid=606);proc.poll.return_value=None;proc.returncode=None
+        self.launch.return_value=proc
+        self.supervisor.ensure(identity,self.root/(identity+".json"))
         broker=object.__new__(worker.WorkerBroker);broker.supervisor=self.supervisor
-        self.assertFalse(broker.manager_exited(identity))
+        for state in ("ready","booting","hibernating",None):
+            broker.manager_state=lambda _id,state=state:state
+            with patch.object(worker.os,"killpg") as kill:
+                self.assertFalse(broker.release_idle(identity))
+                kill.assert_not_called()
+        broker.manager_state=lambda _id:"hibernated"
+        def exit_now(*_):
+            proc.poll.return_value=0;proc.returncode=0
+        with patch.object(worker.os,"killpg",side_effect=exit_now) as kill:
+            self.assertTrue(broker.release_idle(identity))
+            kill.assert_called_once_with(606,worker.signal.SIGTERM)
+        self.assertNotIn(identity,self.supervisor.processes)
+        # Gone manager and empty cgroup: released without a stop.
+        self.assertTrue(broker.release_idle(identity))
+
+    def test_manager_state_reads_the_control_socket(self):
+        import socket as socketlib, threading, json as jsonlib
+        identity=str(uuid.uuid4())
+        sockdir=self.root/"sockets"/identity;sockdir.mkdir(parents=True)
+        server=socketlib.socket(socketlib.AF_UNIX);server.bind(str(sockdir/"control.sock"));server.listen(1)
+        def serve():
+            conn,_=server.accept();conn.recv(4096)
+            body=jsonlib.dumps({"state":"hibernated"}).encode()
+            conn.sendall(b"HTTP/1.0 200 OK\r\nContent-Type: application/json\r\n\r\n"+body);conn.close()
+        threading.Thread(target=serve,daemon=True).start()
+        broker=object.__new__(worker.WorkerBroker);broker.c={"socket_root":str(self.root/"sockets")}
+        self.assertEqual(broker.manager_state(identity),"hibernated")
+        server.close()
+        self.assertIsNone(broker.manager_state(str(uuid.uuid4())))
 
     def test_no_pid_reuse_kill_and_unresolved_cleanup_blocks_restart(self):
         identity=str(uuid.uuid4());proc=Mock(pid=303);proc.poll.return_value=None
