@@ -250,6 +250,13 @@
       "endpoint_not_allowed": "This server isn't allowed to connect to that address. Local and private addresses work on a single-account install, or when the operator allows them.",
       "unreachable": "Couldn't reach the endpoint from this server. Check the address, or type the model IDs by hand.",
       "no_models": "The endpoint returned no model list. Type the model IDs by hand."
+    },
+    "cost": {
+      "plan": "Uses your ChatGPT plan's limits. There is no per-token charge.",
+      "api": "Billed per token by the provider. What your Bots have used shows on the Usage page.",
+      "endpoint": "Cost depends on the server: free on your own hardware, per token on a hosted one. The Usage page counts these requests but shows no price for them.",
+      "api_setup": "An API key is billed per token by the provider. What your Bots use shows on the Usage page in Settings.",
+      "open_usage": "Open Usage"
     }
   },
   "usage": {

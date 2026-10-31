@@ -250,6 +250,13 @@
       "endpoint_not_allowed": "Dieser Server darf sich nicht mit dieser Adresse verbinden. Lokale und private Adressen gehen bei einer Installation mit einem Konto oder wenn der Betreiber sie erlaubt.",
       "unreachable": "Der Endpunkt war von diesem Server aus nicht erreichbar. Prüfe die Adresse oder trage die Modell-IDs von Hand ein.",
       "no_models": "Der Endpunkt hat keine Modellliste geliefert. Trage die Modell-IDs von Hand ein."
+    },
+    "cost": {
+      "plan": "Nutzt die Limits deines ChatGPT-Tarifs. Es gibt keine Abrechnung pro Token.",
+      "api": "Der Anbieter rechnet pro Token ab. Was deine Bots verbraucht haben, steht auf der Seite Nutzung.",
+      "endpoint": "Die Kosten hängen vom Server ab: auf eigener Hardware nichts, bei einem gehosteten Server pro Token. Die Seite Nutzung zählt diese Anfragen, zeigt dafür aber keinen Preis.",
+      "api_setup": "Ein API-Schlüssel wird vom Anbieter pro Token abgerechnet. Was deine Bots verbrauchen, steht in den Einstellungen auf der Seite Nutzung.",
+      "open_usage": "Nutzung öffnen"
     }
   },
   "usage": {

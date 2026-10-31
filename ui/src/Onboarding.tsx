@@ -337,6 +337,7 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
             <small>{t("onboarding.key_body")}</small>
           </button>
         </div>
+        <p className="onb-small onb-cost" data-cost={choice === "chatgpt" ? "plan" : "api"}>{choice === "chatgpt" ? t("settings:providers.cost.plan") : t("settings:providers.cost.api_setup")}</p>
         {choice === "chatgpt" && (phase === "waiting" || (phase === "error" && !key)) && (
           <div className="onb-panel" aria-live="polite">
             {phase === "waiting" ? <>

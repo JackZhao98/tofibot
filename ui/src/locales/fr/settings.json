@@ -251,6 +251,13 @@
       "endpoint_not_allowed": "Ce serveur n'a pas le droit de se connecter à cette adresse. Les adresses locales et privées fonctionnent sur une installation à compte unique, ou quand l'exploitant les autorise.",
       "unreachable": "Ce serveur n'a pas pu joindre le point d'accès. Vérifiez l'adresse ou saisissez les identifiants de modèles à la main.",
       "no_models": "Le point d'accès n'a renvoyé aucune liste de modèles. Saisissez les identifiants à la main."
+    },
+    "cost": {
+      "plan": "Utilise les limites de votre forfait ChatGPT. Il n'y a pas de facturation au jeton.",
+      "api": "Le fournisseur facture au jeton. Ce que vos Bots ont consommé apparaît sur la page Utilisation.",
+      "endpoint": "Le coût dépend du serveur : gratuit sur votre propre matériel, au jeton sur un serveur hébergé. La page Utilisation compte ces requêtes mais n'affiche aucun prix.",
+      "api_setup": "Une clé API est facturée au jeton par le fournisseur. Ce que vos Bots consomment apparaît sur la page Utilisation, dans les réglages.",
+      "open_usage": "Ouvrir Utilisation"
     }
   },
   "usage": {

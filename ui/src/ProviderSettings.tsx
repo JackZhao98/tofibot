@@ -11,6 +11,7 @@ import { SettingsCard, SettingsSection, StatusBadge, type BadgeState } from "./s
 import { useCodexConnection, type CodexConnection } from "./settings/AppSlots";
 import { TofiIcon as Icon } from "./icons";
 import { CompatCard } from "./CompatProviderCard";
+import { ProviderCost } from "./ProviderCost";
 
 type KeyProvider = "openai" | "anthropic";
 const labels: Record<KeyProvider, string> = {openai: "OpenAI", anthropic: "Claude"};
@@ -157,6 +158,7 @@ function KeyCard({id, status, loading, onChange}: {id: KeyProvider; status?: Mod
    <p className="provider-card-note">{t("providers.anthropic_description")}</p>
    <KeyForm id={id} entry={entry}/>
   </>}
+  {!loading && <ProviderCost kind="api"/>}
   {notice && !entry.error && <p className="field-note" role="status">{notice}</p>}
  </article>;
 }
@@ -224,6 +226,7 @@ function OpenAICard({status, loading, codex, onChange}: {status?: ModelProviderS
  return <article className="detail-content provider-card" aria-labelledby={titleId} aria-busy={waiting || entry.verifying || codex.working}>
   <CardHead id={titleId} title={labels.openai} state={state} tag={tag}/>
   {body}
+  {!waiting && (codexOn || keyOn) && <ProviderCost kind={codexOn ? "plan" : "api"}/>}
   {notice && !entry.error && <p className="field-note" role="status">{notice}</p>}
   {codex.error && <p className="error-text" role="alert">{codex.error}</p>}
  </article>;

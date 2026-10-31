@@ -6,6 +6,7 @@ import type {CompatListedModel, ModelProviderStatus} from "./types";
 import {intlLocale, formatNumber} from "./i18n/format";
 import {useTranslation} from "./i18n";
 import {StatusBadge} from "./settings/components";
+import {ProviderCost} from "./ProviderCost";
 
 const SHOWN_MODELS = 12;
 
@@ -114,6 +115,7 @@ export function CompatCard({status, loading, onChange}: {status?: ModelProviderS
     <p className="field-note">{t("providers.compat.network_note")}</p>
    </form>}
   </>}
+  {!loading && <ProviderCost kind="endpoint"/>}
   {notice && !error && <p className="field-note" role="status">{notice}</p>}
  </article>;
 }
