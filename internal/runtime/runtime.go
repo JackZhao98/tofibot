@@ -266,6 +266,11 @@ func (p routedProvider) provider(ctx context.Context, model string) (provider.Pr
 			opts = append(opts, provider.WithBaseURL(base))
 		}
 	}
+	if p.config.Client != nil {
+		if c := p.config.Client(name); c != nil {
+			opts = append(opts, provider.WithHTTPClient(c))
+		}
+	}
 	if p.retry {
 		if p.config.Retries != nil {
 			n := p.config.Retries()

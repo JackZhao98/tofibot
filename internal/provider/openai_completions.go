@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 )
@@ -17,6 +18,15 @@ type openaiChatCompletions struct {
 	apiKey       string
 	baseURL      string
 	extraHeaders map[string]string
+	httpClient   *http.Client // nil: a plain client with the request timeout
+}
+
+// client returns the configured client, else a plain one with the timeout.
+func (o *openaiChatCompletions) client(timeout time.Duration) *http.Client {
+	if o.httpClient != nil {
+		return o.httpClient
+	}
+	return &http.Client{Timeout: timeout}
 }
 
 func newOpenAIChatCompletions(apiKey string, cfg *providerConfig) (Provider, error) {
@@ -25,7 +35,7 @@ func newOpenAIChatCompletions(apiKey string, cfg *providerConfig) (Provider, err
 		baseURL = cfg.BaseURL
 	}
 	// API key may be empty for local providers like Ollama
-	return &openaiChatCompletions{apiKey: apiKey, baseURL: baseURL, extraHeaders: cfg.ExtraHeaders}, nil
+	return &openaiChatCompletions{apiKey: apiKey, baseURL: baseURL, extraHeaders: cfg.ExtraHeaders, httpClient: cfg.HTTPClient}, nil
 }
 
 // Chat sends a non-streaming Chat Completions request.
@@ -59,8 +69,7 @@ func (o *openaiChatCompletions) ChatStream(ctx context.Context, req *ChatRequest
 		httpReq.Header.Set(k, v)
 	}
 
-	client := &http.Client{Timeout: 10 * time.Minute}
-	resp, err := client.Do(httpReq)
+	resp, err := o.client(10 * time.Minute).Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -188,8 +197,7 @@ func (o *openaiChatCompletions) doRequest(ctx context.Context, payload map[strin
 		httpReq.Header.Set(k, v)
 	}
 
-	client := &http.Client{Timeout: 5 * time.Minute}
-	resp, err := client.Do(httpReq)
+	resp, err := o.client(5 * time.Minute).Do(httpReq)
 	if err != nil {
 		return "", fmt.Errorf("request failed: %w", err)
 	}
@@ -238,9 +246,13 @@ func (o *openaiChatCompletions) parseResponse(body string) (*ChatResponse, error
 		result.Content = msg.Content
 		result.Reasoning = msg.ReasoningContent
 
-		for _, tc := range msg.ToolCalls {
+		for n, tc := range msg.ToolCalls {
+			id := tc.ID
+			if id == "" {
+				id = fmt.Sprintf("call_%d", n)
+			}
 			result.ToolCalls = append(result.ToolCalls, ToolCall{
-				ID:        tc.ID,
+				ID:        id,
 				Name:      tc.Function.Name,
 				Arguments: tc.Function.Arguments,
 			})
@@ -371,15 +383,25 @@ func (o *openaiChatCompletions) parseStream(body io.Reader, onDelta func(StreamD
 	result.Content = contentBuf.String()
 	result.Reasoning = reasoningBuf.String()
 
-	// Assemble tool calls
-	for i := 0; i < len(tcMap); i++ {
-		if acc, ok := tcMap[i]; ok {
-			result.ToolCalls = append(result.ToolCalls, ToolCall{
-				ID:        acc.ID,
-				Name:      acc.Name,
-				Arguments: acc.Args.String(),
-			})
+	// Assemble tool calls in index order. Local servers may start at another
+	// index or leave the call id empty; the loop needs a unique id to pair the
+	// result with the call.
+	indices := make([]int, 0, len(tcMap))
+	for i := range tcMap {
+		indices = append(indices, i)
+	}
+	sort.Ints(indices)
+	for n, i := range indices {
+		acc := tcMap[i]
+		id := acc.ID
+		if id == "" {
+			id = fmt.Sprintf("call_%d", n)
 		}
+		result.ToolCalls = append(result.ToolCalls, ToolCall{
+			ID:        id,
+			Name:      acc.Name,
+			Arguments: acc.Args.String(),
+		})
 	}
 
 	return result, nil

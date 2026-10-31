@@ -5,7 +5,7 @@ const ui=await openUiModules({language:"zh-CN"});
 try {
  const m=await ui.load("/src/modelCatalog.ts");
  // 1. Routing mirrors the server rule.
- for(const [id,provider] of [["codex-gpt-6-luna","codex"],["codex-auto-review","codex"],["claude-opus-5-5","anthropic"],["claude-haiku-4-5-20251001","anthropic"],["gpt-6-luna","openai"],["o4-mini","openai"],["","openai"]]) assert.equal(m.providerForModel(id),provider,id);
+ for(const [id,provider] of [["codex-gpt-6-luna","codex"],["codex-auto-review","codex"],["claude-opus-5-5","anthropic"],["claude-haiku-4-5-20251001","anthropic"],["gpt-6-luna","openai"],["o4-mini","openai"],["","openai"],["compat:llama3.1","compatible"],["COMPAT:qwen3:8b","compatible"]]) assert.equal(m.providerForModel(id),provider,id);
  console.log("PASS 1: provider routing by id");
  // 2. Grouping: Codex, OpenAI, Claude order regardless of input order; server order kept inside a group; duplicates dropped.
  const models=[

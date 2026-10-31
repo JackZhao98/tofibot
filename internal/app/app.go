@@ -304,6 +304,7 @@ type Server struct {
 	modelCatalogSource                   string
 	providerMu                           sync.Mutex
 	providerEndpoints                    map[string]string // Tests and operator gateways only.
+	compatClient                         *http.Client      // Guarded transport for the OpenAI-compatible endpoint; built on first use under providerMu.
 	repoStars                            repoStarCache
 	envProviderKeys                      map[string]string
 	envProviderErrors                    map[string]string

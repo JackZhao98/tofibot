@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
+	"net/http"
 	"strings"
 )
 
@@ -224,6 +225,13 @@ type providerConfig struct {
 	BaseURL      string            // Custom endpoint URL (for OpenAI-compatible providers)
 	RetryConfig  *RetryConfig      // Retry configuration (nil = no retry)
 	ExtraHeaders map[string]string // Additional HTTP headers (e.g., OpenRouter attribution)
+	HTTPClient   *http.Client      // Optional transport for the OpenAI-compatible providers
+}
+
+// WithHTTPClient sets the HTTP client an OpenAI-compatible provider sends
+// through, so the caller can enforce where requests may connect.
+func WithHTTPClient(c *http.Client) Option {
+	return func(cfg *providerConfig) { cfg.HTTPClient = c }
 }
 
 // WithBaseURL sets a custom base URL for the provider.
@@ -285,6 +293,8 @@ func New(providerName, apiKey string, opts ...Option) (Provider, error) {
 		p, err = newOpenAICodex(apiKey, cfg)
 	case "openai_completions", "openai_legacy":
 		p, err = newOpenAIChatCompletions(apiKey, cfg)
+	case ProviderOpenAICompat:
+		p, err = newOpenAICompat(apiKey, cfg)
 	case "anthropic", "claude":
 		p, err = newAnthropic(apiKey, cfg)
 	case "gemini":

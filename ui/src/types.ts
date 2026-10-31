@@ -460,13 +460,13 @@ export interface Config {
   provider: string;
 }
 
-export type ModelProviderID = "codex" | "openai" | "anthropic";
+export type ModelProviderID = "codex" | "openai" | "anthropic" | "compatible";
 
 /** One model provider as GET /api/providers reports it. Keys are never returned. */
 export interface ModelProviderStatus {
   id: ModelProviderID;
   label: string;
-  kind: "oauth" | "api_key";
+  kind: "oauth" | "api_key" | "endpoint";
   configured: boolean;
   /** Codex only. */
   status?: "connected" | "needs_reconnect" | "disconnected";
@@ -477,7 +477,14 @@ export interface ModelProviderStatus {
   /** RFC3339, or "" when never verified. */
   verified_at?: string;
   error?: string;
+  /** OpenAI-compatible endpoint only: its base URL and the model IDs typed by hand. */
+  base_url?: string;
+  models?: string[];
 }
+
+/** What the OpenAI-compatible card sends: the key stays empty to keep the saved one for the same address. */
+export interface CompatEndpointInput { base_url: string; key?: string; models?: string[] }
+export interface CompatListedModel { id: string; context_window?: number }
 
 export interface ModelOption {
   id: string;

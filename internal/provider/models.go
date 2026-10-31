@@ -109,6 +109,12 @@ const (
 	ProviderOpenAICodex = "openai_codex"
 	ProviderOpenAI      = "openai"
 	ProviderAnthropic   = "anthropic"
+	// ProviderOpenAICompat is the admin's own OpenAI-compatible endpoint
+	// (Ollama, LM Studio, vLLM, OpenRouter, ...), spoken to over Chat Completions.
+	ProviderOpenAICompat = "openai_compat"
+	// CompatModelPrefix marks a model ID served by that endpoint. The prefix is
+	// ours: it routes the model and is removed before the request leaves.
+	CompatModelPrefix = "compat:"
 )
 
 // ProviderForModel routes a persisted bot model ID to the provider that
@@ -117,6 +123,8 @@ const (
 func ProviderForModel(id string) string {
 	m := strings.ToLower(strings.TrimSpace(id))
 	switch {
+	case strings.HasPrefix(m, CompatModelPrefix):
+		return ProviderOpenAICompat
 	case strings.HasPrefix(m, "codex-"):
 		return ProviderOpenAICodex
 	case strings.HasPrefix(m, "claude"):
@@ -184,10 +192,31 @@ func SetCatalogContextWindows(windows map[string]int) {
 	catalogWindowsMu.Unlock()
 }
 
+// SetCompatContextWindows replaces the windows an OpenAI-compatible endpoint
+// reported for its models (keyed by the prefixed model ID). It is kept apart
+// from the Codex set so each catalog refresh replaces only its own entries.
+func SetCompatContextWindows(windows map[string]int) {
+	next := make(map[string]int, len(windows))
+	for id, w := range windows {
+		if w > 0 {
+			next[strings.ToLower(strings.TrimSpace(id))] = w
+		}
+	}
+	catalogWindowsMu.Lock()
+	compatWindows = next
+	catalogWindowsMu.Unlock()
+}
+
+var compatWindows = map[string]int{}
+
 func catalogWindow(model string) int {
 	catalogWindowsMu.RLock()
 	defer catalogWindowsMu.RUnlock()
-	return catalogWindows[strings.ToLower(strings.TrimSpace(model))]
+	key := strings.ToLower(strings.TrimSpace(model))
+	if w := catalogWindows[key]; w > 0 {
+		return w
+	}
+	return compatWindows[key]
 }
 
 // ContextWindowKnown reports whether GetContextWindow has real data for the

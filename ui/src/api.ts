@@ -1,4 +1,4 @@
-import type { SearchResults, TaskImpact, FollowupAccount, FollowupBotSettings, FollowupOverview, FollowupVerdict, AgentUsageTotal, Attachment, Bot, ComputerHealth, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, ModelCatalog, ModelProviderStatus, Run, RunContextSnapshot, RunHealth, Schedule, ScheduleKind, SchedulePatchInput, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WebToolsView, WorkspaceEventEnvelope, WorkItem, Weekday } from "./types";
+import type { CompatEndpointInput, CompatListedModel, SearchResults, TaskImpact, FollowupAccount, FollowupBotSettings, FollowupOverview, FollowupVerdict, AgentUsageTotal, Attachment, Bot, ComputerHealth, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, ModelCatalog, ModelProviderStatus, Run, RunContextSnapshot, RunHealth, Schedule, ScheduleKind, SchedulePatchInput, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WebToolsView, WorkspaceEventEnvelope, WorkItem, Weekday } from "./types";
 import { i18n } from "./i18n";
 import { codeText } from "./i18n/codeText";
 import { invalidateModelCatalog } from "./modelCatalogStore";
@@ -74,6 +74,9 @@ export const api = {
   listProviders: (signal?: AbortSignal) => request<{ providers: ModelProviderStatus[] | null }>("/api/providers", { signal }).then((result) => result.providers ?? []),
   setProviderKey: (id: "openai" | "anthropic", key: string, workspaceId?: string) => request<ModelProviderStatus>(`/api/providers/${encodeURIComponent(id)}/key`, { method: "PUT", body: JSON.stringify(workspaceId ? { key, workspace_id: workspaceId } : { key }) }).then((result) => { invalidateModelCatalog(); return result; }),
   deleteProviderKey: (id: "openai" | "anthropic") => request<unknown>(`/api/providers/${encodeURIComponent(id)}/key`, { method: "DELETE" }).then((result) => { invalidateModelCatalog(); return result; }),
+  setCompatEndpoint: (body: CompatEndpointInput) => request<ModelProviderStatus>("/api/providers/compatible/config", { method: "PUT", body: JSON.stringify(body) }).then((result) => { invalidateModelCatalog(); return result; }),
+  deleteCompatEndpoint: () => request<unknown>("/api/providers/compatible/config", { method: "DELETE" }).then((result) => { invalidateModelCatalog(); return result; }),
+  probeCompatModels: (body: CompatEndpointInput) => request<{ models: CompatListedModel[] | null }>("/api/providers/compatible/models", { method: "POST", body: JSON.stringify(body) }).then((result) => result.models ?? []),
   webTools: (signal?: AbortSignal) => request<WebToolsView>("/api/web-tools", { signal }),
   setWebToolOrder: (chain: "search" | "fetch", order: string[]) => request<WebToolsView>(`/api/web-tools/${chain}/order`, { method: "PUT", body: JSON.stringify({ order }) }),
   setWebToolEnabled: (chain: "search" | "fetch", id: string, enabled: boolean) => request<WebToolsView>(`/api/web-tools/${chain}/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ enabled }) }),

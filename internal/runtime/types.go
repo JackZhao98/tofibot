@@ -6,6 +6,7 @@ import (
 	"github.com/JackZhao98/tofibot/internal/agent"
 	"github.com/JackZhao98/tofibot/internal/provider"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
+	"net/http"
 	"time"
 )
 
@@ -244,6 +245,9 @@ type Config struct {
 	Resolve func(ctx context.Context, providerName string) (string, error)
 	// Endpoint optionally overrides a routed provider's base URL.
 	Endpoint func(providerName string) string
+	// Client optionally supplies the HTTP client a routed provider sends
+	// through (a nil result keeps the provider default).
+	Client func(providerName string) *http.Client
 	// Retries, when set, is read for every routed model request and sets how
 	// many times a transient provider error is retried (0 disables retries),
 	// so a settings change applies to the next request without a restart.

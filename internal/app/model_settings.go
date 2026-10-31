@@ -64,7 +64,7 @@ func (s *Server) modelDefaults() (string, string) {
 	// The saved default belongs to a provider this workspace no longer has
 	// (e.g. Codex default, only a Claude key): fall back to the first usable
 	// provider's catalog so new Bots work without a manual pick.
-	for _, name := range []string{providerOpenAI, providerAnthropic} {
+	for _, name := range []string{providerOpenAI, providerAnthropic, providerCompat} {
 		if s.usableProviderKey(name) {
 			if models := s.cachedProviderCatalog(name); len(models) > 0 {
 				pick := preferredProviderModel(name, models)

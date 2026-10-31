@@ -10,6 +10,7 @@ import { useTranslation } from "./i18n";
 import { SettingsCard, SettingsSection, StatusBadge, type BadgeState } from "./settings/components";
 import { useCodexConnection, type CodexConnection } from "./settings/AppSlots";
 import { TofiIcon as Icon } from "./icons";
+import { CompatCard } from "./CompatProviderCard";
 
 type KeyProvider = "openai" | "anthropic";
 const labels: Record<KeyProvider, string> = {openai: "OpenAI", anthropic: "Claude"};
@@ -36,6 +37,7 @@ export function ModelProviders({refreshToken, codexRefresh, onConfigured, onCode
   {/* One card per service: its sign-in or key, status and removal never share a box with another service. */}
   <SettingsCard className="provider-list provider-openai"><OpenAICard status={providers.list?.find(item => item.id === "openai")} loading={!providers.list && !providers.error} codex={codex} onChange={update}/></SettingsCard>
   <SettingsCard className="provider-list provider-anthropic"><KeyCard id="anthropic" status={providers.list?.find(item => item.id === "anthropic")} loading={!providers.list && !providers.error} onChange={update}/></SettingsCard>
+  <SettingsCard className="provider-list provider-compatible"><CompatCard status={providers.list?.find(item => item.id === "compatible")} loading={!providers.list && !providers.error} onChange={update}/></SettingsCard>
  </SettingsSection>;
 }
 

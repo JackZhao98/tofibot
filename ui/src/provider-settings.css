@@ -53,3 +53,19 @@
 @media(max-width:560px){.provider-choices{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.provider-choice,.provider-choice:active:not(:disabled){transition:none;transform:none}}
 .model-providers .settings-card+.settings-card{margin-top:12px}
+
+/* OpenAI-compatible endpoint: address, optional key, typed model IDs and the fetched list. */
+.compat-form{display:grid;gap:0}
+.compat-form>label{margin-top:12px}
+.compat-form>label:first-child{margin-top:0}
+.compat-form input,.compat-form textarea{width:100%;min-width:0;font-family:ui-monospace,monospace}
+.compat-form textarea{resize:vertical}
+.compat-form .field-note{margin:6px 0 0}
+.compat-form .provider-key-row{margin-top:14px;flex-wrap:wrap}
+.compat-form .provider-key-row .secondary-button{flex:none}
+.compat-listed{margin-top:10px;padding:10px 12px;border:1px solid var(--line-soft);border-radius:var(--radius-md);background:var(--surface)}
+.compat-listed .field-note{margin:0 0 6px}
+.compat-listed ul{display:grid;gap:4px;margin:0;padding:0;list-style:none;font-size:12.5px}
+.compat-listed li{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline;overflow-wrap:anywhere}
+.compat-listed li span,.compat-more{color:var(--muted)}
+.compat-summary{margin:4px 0 0;overflow-wrap:anywhere}

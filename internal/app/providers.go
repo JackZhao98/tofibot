@@ -25,6 +25,7 @@ const (
 	providerCodex     = "openai_codex"
 	providerOpenAI    = "openai"
 	providerAnthropic = "anthropic"
+	providerCompat    = provider.ProviderOpenAICompat
 
 	modelProviderKind        = "model_provider"
 	providerKeyVerifyTimeout = 15 * time.Second
@@ -37,7 +38,7 @@ const (
 )
 
 var (
-	apiKeyProviders          = []string{providerOpenAI, providerAnthropic}
+	apiKeyProviders          = []string{providerOpenAI, providerAnthropic, providerCompat}
 	defaultProviderEndpoints = map[string]string{providerOpenAI: "https://api.openai.com/v1", providerAnthropic: "https://api.anthropic.com"}
 	errProviderUnreachable   = errors.New("provider unreachable")
 	anthropicWorkspaceID     = regexp.MustCompile(`^wrkspc_[A-Za-z0-9]{8,64}$`)
@@ -48,7 +49,7 @@ var (
 // configured provider (Codex, OpenAI API, Anthropic API).
 func managedProviderName(name string) bool {
 	switch strings.ToLower(strings.TrimSpace(name)) {
-	case "", providerCodex, providerOpenAI, providerAnthropic, "claude":
+	case "", providerCodex, providerOpenAI, providerAnthropic, providerCompat, "claude":
 		return true
 	}
 	return false
@@ -63,8 +64,11 @@ func normalizeProviderName(name string) string {
 }
 
 func publicProviderID(name string) string {
-	if name == providerCodex {
+	switch name {
+	case providerCodex:
 		return "codex"
+	case providerCompat:
+		return "compatible"
 	}
 	return name
 }
@@ -77,6 +81,8 @@ func providerLabel(name string) string {
 		return "OpenAI"
 	case providerAnthropic:
 		return "Claude"
+	case providerCompat:
+		return "OpenAI-compatible"
 	}
 	return name
 }
@@ -143,7 +149,7 @@ func (s *Server) codexConnected() bool {
 }
 
 func (s *Server) anyProviderConfigured() bool {
-	return s.codexConnected() || s.usableProviderKey(providerOpenAI) || s.usableProviderKey(providerAnthropic)
+	return s.codexConnected() || s.usableProviderKey(providerOpenAI) || s.usableProviderKey(providerAnthropic) || s.usableProviderKey(providerCompat)
 }
 
 // activeProvider keeps the legacy single-provider field: the first configured.
@@ -175,11 +181,20 @@ func (s *Server) providerCredential(ctx context.Context, name string) (string, e
 			return state.Key, nil
 		}
 		return "", providerUnconfiguredError(name)
+	case providerCompat:
+		if state, ok := s.providerKey(name); ok {
+			return parseCompatKey(state.Key).Key, nil
+		}
+		return "", providerUnconfiguredError(name)
 	}
 	return "", fmt.Errorf("unknown provider: %s", name)
 }
 
 func (s *Server) providerEndpoint(name string) string {
+	if name == providerCompat {
+		cfg, _, _ := s.compatSettings()
+		return strings.TrimRight(cfg.BaseURL, "/")
+	}
 	s.providerMu.Lock()
 	defer s.providerMu.Unlock()
 	if u := s.providerEndpoints[name]; u != "" {
@@ -189,7 +204,7 @@ func (s *Server) providerEndpoint(name string) string {
 }
 
 func (s *Server) newRoutedEngine() runtime.Engine {
-	engine, _ := runtime.New(runtime.Config{Model: s.defaultModel, Resolve: s.providerCredential, Endpoint: s.providerEndpoint, MaxDuration: 10 * time.Minute, Retries: s.providerRetries})
+	engine, _ := runtime.New(runtime.Config{Model: s.defaultModel, Resolve: s.providerCredential, Endpoint: s.providerEndpoint, Client: s.providerHTTPClient, MaxDuration: 10 * time.Minute, Retries: s.providerRetries})
 	return engine
 }
 
@@ -203,6 +218,9 @@ func (s *Server) newModelProvider(ctx context.Context, model string) (provider.P
 	var opts []provider.Option
 	if base := s.providerEndpoint(name); base != "" {
 		opts = append(opts, provider.WithBaseURL(base))
+	}
+	if client := s.providerHTTPClient(name); client != nil {
+		opts = append(opts, provider.WithHTTPClient(client))
 	}
 	return provider.New(name, credential, opts...)
 }
@@ -254,6 +272,9 @@ func (s *Server) cachedProviderCatalog(name string) []ModelOption {
 		return append([]ModelOption(nil), entry.models...)
 	}
 	models, _ := s.store.cachedProviderModels(name)
+	if name == providerCompat {
+		s.publishCompatWindows(models)
+	}
 	return models
 }
 
@@ -310,6 +331,9 @@ func (s *Server) providerModels(ctx context.Context, name string) ([]ModelOption
 }
 
 func (s *Server) rememberProviderCatalog(name string, models []ModelOption) {
+	if name == providerCompat {
+		s.publishCompatWindows(models)
+	}
 	if err := s.store.cacheProviderModels(name, models); err != nil {
 		log.Printf("[providers] cache %s catalog: %v", name, err)
 	}
@@ -321,6 +345,9 @@ func (s *Server) rememberProviderCatalog(name string, models []ModelOption) {
 // fetchProviderModels lists models with the key; it doubles as key
 // verification. The status is the provider's HTTP status when it answered.
 func (s *Server) fetchProviderModels(ctx context.Context, name, key string) ([]ModelOption, int, error) {
+	if name == providerCompat {
+		return s.fetchCompatModels(ctx, parseCompatKey(key))
+	}
 	base := s.providerEndpoint(name)
 	ctx, cancel := context.WithTimeout(ctx, providerKeyVerifyTimeout)
 	defer cancel()
@@ -559,15 +586,21 @@ func (s *Store) forgetProviderModels(name string) error {
 
 // storeProviderKey seals a verified key; it never enters any other surface.
 func (s *Server) storeProviderKey(name, key string) (secretRecord, error) {
+	return s.storeProviderSecret(name, key, keyHint(strings.SplitN(key, "\x00", 2)[0]), providerLabel(name)+" API key")
+}
+
+// storeProviderSecret seals one provider's credential (or, for the compatible
+// endpoint, its whole settings) with a non-secret label for display.
+func (s *Server) storeProviderSecret(name, secret, label, displayName string) (secretRecord, error) {
 	v := s.secretVault
 	if v == nil {
 		return secretRecord{}, errors.New("secret storage unavailable")
 	}
 	id := providerVaultID(name)
 	at := now()
-	record := secretRecord{ID: id, Name: providerLabel(name) + " API key", Kind: modelProviderKind, Target: name, Label: keyHint(strings.SplitN(key, "\x00", 2)[0]), Status: "stored", CreatedAt: at, VerifiedAt: at}
+	record := secretRecord{ID: id, Name: displayName, Kind: modelProviderKind, Target: name, Label: label, Status: "stored", CreatedAt: at, VerifiedAt: at}
 	var err error
-	if record.Ciphertext, err = v.seal(id, key); err != nil {
+	if record.Ciphertext, err = v.seal(id, secret); err != nil {
 		return secretRecord{}, err
 	}
 	v.mu.Lock()
@@ -654,6 +687,10 @@ type ProviderStatus struct {
 	VerifiedAt string `json:"verified_at"`
 	Error      string `json:"error"`
 	Source     string `json:"source,omitempty"`
+	// The OpenAI-compatible endpoint's address and typed model IDs; its key
+	// is shown only as key_hint, like every other key.
+	BaseURL string   `json:"base_url,omitempty"`
+	Models  []string `json:"models,omitempty"`
 }
 
 func (s *Server) providerStatus(name string) ProviderStatus {
@@ -666,6 +703,16 @@ func (s *Server) providerStatus(name string) ProviderStatus {
 				out.Status, out.Configured = "connected", true
 			case status.NeedsReconnect:
 				out.Status = "needs_reconnect"
+			}
+		}
+		return out
+	}
+	if name == providerCompat {
+		out := ProviderStatus{ID: publicProviderID(name), Label: providerLabel(name), Kind: "endpoint"}
+		if cfg, state, ok := s.compatSettings(); ok {
+			out.Configured, out.BaseURL, out.Models, out.VerifiedAt, out.Error = true, cfg.BaseURL, cfg.Models, state.VerifiedAt, state.Error
+			if cfg.Key != "" {
+				out.KeyHint = keyHint(cfg.Key)
 			}
 		}
 		return out
@@ -699,6 +746,10 @@ func (s *Server) routeProviders(w http.ResponseWriter, r *http.Request, p string
 		return true
 	}
 	parts := strings.Split(strings.TrimPrefix(p, "providers/"), "/")
+	if len(parts) == 2 && parts[0] == publicProviderID(providerCompat) {
+		s.routeCompatProvider(w, r, parts[1])
+		return true
+	}
 	if len(parts) != 2 || parts[1] != "key" || (parts[0] != providerOpenAI && parts[0] != providerAnthropic) {
 		writeErr(w, http.StatusNotFound, "not_found", "not found")
 		return true

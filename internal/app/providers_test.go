@@ -236,7 +236,7 @@ func listProviders(t *testing.T, s *Server) map[string]ProviderStatus {
 		out[p.ID] = p
 		order = append(order, p.ID)
 	}
-	if strings.Join(order, ",") != "codex,openai,anthropic" {
+	if strings.Join(order, ",") != "codex,openai,anthropic,compatible" {
 		t.Fatalf("provider order=%v", order)
 	}
 	return out

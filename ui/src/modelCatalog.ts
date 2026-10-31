@@ -1,12 +1,13 @@
 import type { ModelOption, ModelProviderID } from "./types";
 import { i18n } from "./i18n";
 
-export const providerOrder: ModelProviderID[] = ["codex", "openai", "anthropic"];
-export const providerLabels: Record<ModelProviderID, string> = { codex: "Codex", openai: "OpenAI", anthropic: "Claude" };
+export const providerOrder: ModelProviderID[] = ["codex", "openai", "anthropic", "compatible"];
+export const providerLabels: Record<ModelProviderID, string> = { codex: "Codex", openai: "OpenAI", anthropic: "Claude", compatible: "OpenAI-compatible" };
 
-/** Mirrors the server routing rule: codex- → Codex, claude* → Anthropic, anything else → OpenAI. */
+/** Mirrors the server routing rule: compat: → the OpenAI-compatible endpoint, codex- → Codex, claude* → Anthropic, anything else → OpenAI. */
 export function providerForModel(id: string): ModelProviderID {
   const value = id.trim().toLowerCase();
+  if (value.startsWith("compat:")) return "compatible";
   if (value.startsWith("codex-")) return "codex";
   if (value.startsWith("claude")) return "anthropic";
   return "openai";
@@ -25,7 +26,7 @@ export function modelDisplayName(model: Pick<ModelOption, "id" | "name" | "provi
 
 export type ModelGroup = { provider: ModelProviderID; label: string; models: (ModelOption & { label: string })[] };
 
-/** Groups in Codex, OpenAI, Claude order; keeps the server's order inside each group and drops duplicate ids. */
+/** Groups in Codex, OpenAI, Claude, OpenAI-compatible order; keeps the server's order inside each group and drops duplicate ids. */
 export function groupModels(models: readonly ModelOption[]): ModelGroup[] {
   const seen = new Set<string>();
   const groups = new Map<ModelProviderID, ModelGroup>();
