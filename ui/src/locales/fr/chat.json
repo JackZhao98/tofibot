@@ -584,7 +584,14 @@
       "notion": "Une fenêtre de connexion s’ouvre. Choisis les pages à partager, puis reviens ici.",
       "robinhood": "Une fenêtre de connexion s’ouvre. Les Bots peuvent lire les cours et les positions, et ne négocient que dans ton compte Agentic.",
       "microsoft_learn": "Aucun compte nécessaire. Tes Bots pourront ainsi chercher dans la documentation Microsoft."
-    }
+    },
+    "server_title": "Ollama ou votre propre serveur",
+    "server_body": "Tout serveur avec une API de type OpenAI. Aucune clé cloud.",
+    "server_test": "Tester la connexion",
+    "server_pick": "Modèle de départ",
+    "server_connect": "Connecter",
+    "server_failed": "Impossible de joindre ce serveur. Vérifiez l'adresse et réessayez.",
+    "server_not_allowed": "Ce serveur n'a pas le droit de se connecter à une adresse locale ou privée. Sur une installation multi-comptes, l'administrateur doit l'autoriser en définissant TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1 dans l'environnement du serveur, puis redémarrer."
   },
   "primary": {
     "badge": "Principal",

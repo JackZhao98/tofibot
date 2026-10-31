@@ -18,6 +18,9 @@ services:
     cap_drop: [ALL]
     security_opt:
       - no-new-privileges:true
+    # Lets the App reach a model server on the Docker host (an Ollama) by name on Linux too.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
     environment:

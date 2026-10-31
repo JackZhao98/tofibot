@@ -247,11 +247,11 @@
       "invalid_base_url": "Gib eine Basis-URL an, die mit http:// oder https:// beginnt, ohne Zugangsdaten und ohne Query.",
       "invalid_models": "Eine Modell-ID darf keine Leerzeichen enthalten.",
       "invalid_key": "Der Endpunkt hat diesen API-Schlüssel abgelehnt. Er wurde nicht gespeichert.",
-      "endpoint_not_allowed": "Dieser Server darf sich nicht mit dieser Adresse verbinden. Lokale und private Adressen gehen bei einer Installation mit einem Konto oder wenn der Betreiber sie erlaubt.",
+      "endpoint_not_allowed": "Dieser Server darf sich nicht mit dieser Adresse verbinden. Lokale und private Adressen gehen bei einer Installation mit einem Konto; bei mehreren Konten muss der Administrator TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1 in der Server-Umgebung setzen und neu starten.",
       "unreachable": "Der Endpunkt war von diesem Server aus nicht erreichbar. Prüfe die Adresse oder trage die Modell-IDs von Hand ein.",
       "no_models": "Der Endpunkt hat keine Modellliste geliefert. Trage die Modell-IDs von Hand ein.",
       "presets": "Vorlage",
-      "ollama_note": "Ollama braucht keinen Schlüssel. Starte es mit OLLAMA_HOST=0.0.0.0, damit dieser Server es erreicht. Vom App-Container aus nimmst du unter Docker Desktop http://host.docker.internal:11434/v1, unter Linux die LAN-Adresse des Computers. Der Standardkontext von Ollama ist klein: Setze OLLAMA_CONTEXT_LENGTH=32768 (oder num_ctx in einem Modelfile), damit Bots ihre Anweisungen behalten."
+      "ollama_note": "Ollama braucht keinen Schlüssel. Starte es mit OLLAMA_HOST=0.0.0.0, damit dieser Server es erreicht. Vom App-Container aus nimmst du http://host.docker.internal:11434/v1 oder die LAN-Adresse des Computers. Der Standardkontext von Ollama ist klein: Setze OLLAMA_CONTEXT_LENGTH=32768 (oder num_ctx in einem Modelfile), damit Bots ihre Anweisungen behalten."
     },
     "cost": {
       "plan": "Nutzt die Limits deines ChatGPT-Tarifs. Es gibt keine Abrechnung pro Token.",

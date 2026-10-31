@@ -248,11 +248,11 @@
       "invalid_base_url": "Saisissez une URL de base qui commence par http:// ou https://, sans identifiants ni paramètres de requête.",
       "invalid_models": "Un identifiant de modèle ne peut pas contenir d'espaces.",
       "invalid_key": "Le point d'accès a refusé cette clé API. Elle n'a pas été enregistrée.",
-      "endpoint_not_allowed": "Ce serveur n'a pas le droit de se connecter à cette adresse. Les adresses locales et privées fonctionnent sur une installation à compte unique, ou quand l'exploitant les autorise.",
+      "endpoint_not_allowed": "Ce serveur n'a pas le droit de se connecter à cette adresse. Les adresses locales et privées fonctionnent sur une installation à compte unique ; avec plusieurs comptes, l'administrateur doit définir TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1 dans l'environnement du serveur, puis redémarrer.",
       "unreachable": "Ce serveur n'a pas pu joindre le point d'accès. Vérifiez l'adresse ou saisissez les identifiants de modèles à la main.",
       "no_models": "Le point d'accès n'a renvoyé aucune liste de modèles. Saisissez les identifiants à la main.",
       "presets": "Partir de",
-      "ollama_note": "Ollama n'a pas besoin de clé. Démarrez-le avec OLLAMA_HOST=0.0.0.0 pour que ce serveur puisse l'atteindre. Depuis le conteneur de l'App, utilisez http://host.docker.internal:11434/v1 sous Docker Desktop, ou l'adresse réseau local de l'ordinateur sous Linux. Le contexte par défaut d'Ollama est petit : définissez OLLAMA_CONTEXT_LENGTH=32768 (ou num_ctx dans un Modelfile) pour que les Bots gardent leurs instructions."
+      "ollama_note": "Ollama n'a pas besoin de clé. Démarrez-le avec OLLAMA_HOST=0.0.0.0 pour que ce serveur puisse l'atteindre. Depuis le conteneur de l'App, utilisez http://host.docker.internal:11434/v1 ou l'adresse réseau local de l'ordinateur. Le contexte par défaut d'Ollama est petit : définissez OLLAMA_CONTEXT_LENGTH=32768 (ou num_ctx dans un Modelfile) pour que les Bots gardent leurs instructions."
     },
     "cost": {
       "plan": "Utilise les limites de votre forfait ChatGPT. Il n'y a pas de facturation au jeton.",

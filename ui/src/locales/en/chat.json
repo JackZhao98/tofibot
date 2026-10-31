@@ -571,7 +571,14 @@
       "notion": "A sign-in window opens. Choose which pages to share, then come back here.",
       "robinhood": "A sign-in window opens. Bots can read quotes and positions, and trade only in your Agentic account.",
       "microsoft_learn": "No account needed. This lets your Bots search Microsoft docs."
-    }
+    },
+    "server_title": "Ollama or your own server",
+    "server_body": "Any server with an OpenAI-style API. No cloud key.",
+    "server_test": "Test connection",
+    "server_pick": "Model to start with",
+    "server_connect": "Connect",
+    "server_failed": "Couldn't connect to that server. Check the address and try again.",
+    "server_not_allowed": "This server may not connect to a local or private address. On a multi-account install the administrator must allow it by setting TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1 in the server environment, then restart."
   },
   "primary": {
     "badge": "Primary",

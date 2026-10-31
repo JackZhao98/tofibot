@@ -558,7 +558,14 @@
       "notion": "會開啟一個登入視窗。選擇要分享的頁面，然後回到這裡。",
       "robinhood": "會開啟一個登入視窗。Bot 可以讀取行情和持倉，只能在你的 Agentic 帳戶裡交易。",
       "microsoft_learn": "無需帳號。連接後你的 Bot 就能搜尋 Microsoft 文件。"
-    }
+    },
+    "server_title": "Ollama 或自己的伺服器",
+    "server_body": "任何相容 OpenAI API 的伺服器，不需雲端金鑰。",
+    "server_test": "測試連線",
+    "server_pick": "起始模型",
+    "server_connect": "連線",
+    "server_failed": "無法連線到該伺服器。請檢查位址後再試。",
+    "server_not_allowed": "此伺服器不允許連線到本機或內網位址。多帳號安裝需由管理員在伺服器環境中設定 TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1 並重新啟動後才可使用。"
   },
   "primary": {
     "badge": "主要助理",

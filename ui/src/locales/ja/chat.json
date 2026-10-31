@@ -558,7 +558,14 @@
       "notion": "サインイン用のウィンドウが開きます。共有するページを選んだら、ここに戻ってください。",
       "robinhood": "サインイン用のウィンドウが開きます。Bot は相場とポジションを読み取れ、取引は Agentic アカウントでのみ行えます。",
       "microsoft_learn": "アカウントは不要です。Bot が Microsoft のドキュメントを検索できるようになります。"
-    }
+    },
+    "server_title": "Ollama または自前のサーバー",
+    "server_body": "OpenAI 互換 API のサーバーなら何でも。クラウドのキーは不要です。",
+    "server_test": "接続をテスト",
+    "server_pick": "最初に使うモデル",
+    "server_connect": "接続",
+    "server_failed": "そのサーバーに接続できませんでした。アドレスを確認してもう一度お試しください。",
+    "server_not_allowed": "このサーバーはローカルやプライベートのアドレスに接続できません。マルチアカウント構成では、管理者がサーバー環境に TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1 を設定して再起動すると使えます。"
   },
   "primary": {
     "badge": "メイン",

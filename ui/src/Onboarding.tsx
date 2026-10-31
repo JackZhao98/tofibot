@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { api, ApiError, request } from "./api";
 import type { CatHandle } from "./CatStage";
 import { CATS, EmptyCat } from "./EmptyCat";
@@ -14,6 +14,8 @@ import { loadModelCatalog, useModelCatalog } from "./useModelCatalog";
 import "./onboarding.css";
 import { ModalDialog } from "./overlays/ModalDialog";
 import { Select } from "./Select";
+
+const OnboardingServer = lazy(() => import("./OnboardingServer"));
 
 type Meta = { connected: boolean; queue: ServicesStatus };
 
@@ -137,11 +139,12 @@ const keyHelp: Record<KeyProvider, { prefix: string; keys: string; billing: stri
 };
 const keyLabels: Record<KeyProvider, string> = { openai: "OpenAI", anthropic: "Anthropic" };
 type Phase = "idle" | "waiting" | "checking" | "error" | "connected";
-type Via = "chatgpt" | KeyProvider;
+type Via = "chatgpt" | "server" | KeyProvider;
 
 function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBack, onNext, onConnected }: OnboardingProps & { titleId: string; onBack: () => void; onNext: () => void; onConnected: (connected: boolean) => void }) {
   const { t } = useTranslation(["chat", "settings"]);
-  const [choice, setChoice] = useState<"chatgpt" | "key">("chatgpt");
+  const [choice, setChoice] = useState<"chatgpt" | "key" | "server">("chatgpt");
+  const [serverBusy, setServerBusy] = useState(false);
   const [phase, setPhase] = useState<Phase>(modelConfigured ? "connected" : "idle");
   const [via, setVia] = useState<Via | null>(null);
   const [session, setSession] = useState<{ url: string; code: string } | null>(null);
@@ -271,11 +274,11 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
   useCatAction(cat, "happy", 450, phase === "connected");
 
   const connected = phase === "connected";
-  const busy = phase === "waiting" || phase === "checking";
+  const busy = phase === "waiting" || phase === "checking" || serverBusy;
   const labels = effortLabels();
   const selectedModel = catalog?.models.find(item => item.id === defaults?.model);
   const efforts = modelEfforts(selectedModel);
-  const providerName = via === "chatgpt" ? "ChatGPT" : via ? keyLabels[via] : defaults?.model ? providerLabels[providerForModel(defaults.model)] : "";
+  const providerName = via === "chatgpt" ? "ChatGPT" : via === "server" ? providerLabels.compatible : via ? keyLabels[via] : defaults?.model ? providerLabels[providerForModel(defaults.model)] : "";
   const continueLabel = choice === "chatgpt" ? t("onboarding.model_continue_chatgpt") : t("onboarding.key_connect");
 
   let body: ReactNode;
@@ -336,8 +339,13 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
             <strong>{t("onboarding.key_title")}</strong>
             <small>{t("onboarding.key_body")}</small>
           </button>
+          <button type="button" role="radio" aria-checked={choice === "server"} className="onb-choice" data-choice="server" disabled={busy} onClick={() => { setChoice("server"); setError(null); }}>
+            <span className="onb-choice-icon"><TofiIcon name="globe" size={18} /></span>
+            <strong>{t("onboarding.server_title")}</strong>
+            <small>{t("onboarding.server_body")}</small>
+          </button>
         </div>
-        <p className="onb-small onb-cost" data-cost={choice === "chatgpt" ? "plan" : "api"}>{choice === "chatgpt" ? t("settings:providers.cost.plan") : t("settings:providers.cost.api_setup")}</p>
+        <p className="onb-small onb-cost" data-cost={choice === "chatgpt" ? "plan" : choice === "server" ? "endpoint" : "api"}>{choice === "chatgpt" ? t("settings:providers.cost.plan") : choice === "server" ? t("settings:providers.cost.endpoint") : t("settings:providers.cost.api_setup")}</p>
         {choice === "chatgpt" && (phase === "waiting" || (phase === "error" && !key)) && (
           <div className="onb-panel" aria-live="polite">
             {phase === "waiting" ? <>
@@ -355,6 +363,7 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
             </> : error && <p className="onb-error" role="alert"><TofiIcon name="error" size={15} /> {error.text}</p>}
           </div>
         )}
+        {choice === "server" && <Suspense fallback={<div className="onb-panel" aria-busy="true" />}><OnboardingServer formId="onb-server-form" onBusy={setServerBusy} onConnected={() => finishConnect("server")} /></Suspense>}
         {choice === "key" && (
           <div className="onb-panel onb-keyform">
             <OnbSegmented label={t("onboarding.key_provider")} value={provider} disabled={busy} options={[{ value: "openai", label: "OpenAI" }, { value: "anthropic", label: "Anthropic" }]} onChange={value => { setProvider(value); setError(null); setPhase("idle"); }} />
@@ -375,6 +384,7 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
   if (connected) foot = <><span /><button type="button" className="primary-button onb-primary" data-autofocus onClick={onNext}>{t("onboarding.next")} <TofiIcon name="arrow-right" size={16} /></button></>;
   else if (phase === "waiting" && choice === "chatgpt") foot = <><button type="button" className="onb-quiet" onClick={cancelChatGPT}>{t("onboarding.cancel")}</button><button type="button" className="primary-button onb-primary" disabled>{t("onboarding.waiting")}</button></>;
   else if (choice === "chatgpt") foot = <><span className="onb-lock"><TofiIcon name="lock" size={14} /> {t("onboarding.private_note")}</span><button type="button" className="primary-button onb-primary" data-autofocus onClick={() => void startChatGPT()}>{phase === "error" ? t("onboarding.sign_in_again") : continueLabel}</button></>;
+  else if (choice === "server") foot = <><button type="button" className="onb-quiet" disabled={busy} onClick={onBack}>{t("onboarding.back")}</button><button type="submit" form="onb-server-form" className="primary-button onb-primary" disabled={serverBusy}>{serverBusy ? t("onboarding.key_checking_short") : t("onboarding.server_connect")}</button></>;
   else if (choice === "key") foot = <><button type="button" className="onb-quiet" disabled={busy} onClick={onBack}>{t("onboarding.back")}</button><button type="submit" form="onb-key-form" className="primary-button onb-primary" disabled={busy || !key.trim() || provider === "anthropic" && !workspace.trim()}>{phase === "checking" ? t("onboarding.key_checking_short") : phase === "error" ? t("onboarding.key_try_again") : t("onboarding.key_connect")}</button></>;
   else foot = <><button type="button" className="onb-quiet" disabled={busy} onClick={onBack}>{t("onboarding.back")}</button><button type="button" className="primary-button onb-primary" disabled>{t("onboarding.next")}</button></>;
 

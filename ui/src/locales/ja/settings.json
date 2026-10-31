@@ -246,11 +246,11 @@
       "invalid_base_url": "http:// または https:// で始まるベース URL を入力してください。認証情報やクエリは付けられません。",
       "invalid_models": "モデル ID にスペースは使えません。",
       "invalid_key": "エンドポイントがこの API キーを受け付けませんでした。保存されていません。",
-      "endpoint_not_allowed": "このサーバーはそのアドレスに接続できません。ローカルやプライベートのアドレスは、単一アカウントのインストール、または運用者が許可した場合に使えます。",
+      "endpoint_not_allowed": "このサーバーはそのアドレスに接続できません。ローカルやプライベートのアドレスは単一アカウント構成で使えます。マルチアカウント構成では、管理者がサーバー環境に TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1 を設定して再起動してください。",
       "unreachable": "このサーバーからエンドポイントに接続できませんでした。アドレスを確認するか、モデル ID を手入力してください。",
       "no_models": "エンドポイントからモデル一覧が返りませんでした。モデル ID を手入力してください。",
       "presets": "入力例",
-      "ollama_note": "Ollama にキーは不要です。このサーバーから届くよう、OLLAMA_HOST=0.0.0.0 で起動してください。App コンテナからは、Docker Desktop なら http://host.docker.internal:11434/v1、Linux ならこのコンピューターの LAN アドレスを使います。Ollama の既定のコンテキストは小さいため、OLLAMA_CONTEXT_LENGTH=32768（または Modelfile の num_ctx）を設定して、Bot が指示を失わないようにしてください。"
+      "ollama_note": "Ollama にキーは不要です。このサーバーから届くよう、OLLAMA_HOST=0.0.0.0 で起動してください。App コンテナからは http://host.docker.internal:11434/v1 かこのコンピューターの LAN アドレスを使います。Ollama の既定のコンテキストは小さいため、OLLAMA_CONTEXT_LENGTH=32768（または Modelfile の num_ctx）を設定して、Bot が指示を失わないようにしてください。"
     },
     "cost": {
       "plan": "ChatGPT プランの上限内で使います。トークン単位の課金はありません。",

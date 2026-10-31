@@ -187,3 +187,9 @@
 @media (prefers-reduced-motion:reduce) {
   .onb-scrim, .onb-step, .onb-bubble, .onb-connected, .onb-waiting i, .onb-sheet, .onb-progress i::after { animation:none !important; transition:none !important; }
 }
+.onb-presets { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 10px; }
+.onb-server { display:grid; gap:8px; }
+.onb-server label { display:grid; gap:6px; font-size:13px; color:var(--ink-soft); }
+.onb-server input { width:100%; min-width:0; box-sizing:border-box; }
+.onb-server-test { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; }
+.onb-choices { grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); }

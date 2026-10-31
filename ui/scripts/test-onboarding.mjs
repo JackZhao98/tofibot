@@ -83,6 +83,12 @@ async function mockApi(page, state) {
     if (path === "/api/auth/codex/connect") { state.popups++; return json({ session_id: "sess_1", verification_url: "https://auth.example.test/device", user_code: CODE, expires_at: Date.now() + 120000, interval: 1 }); }
     if (path === "/api/auth/codex/connect/sess_1/poll") { if (state.codexConnected) { state.model = true; return json({ connected: true, pending: false }); } return json({ connected: false, pending: true }); }
     if (path === "/api/auth/codex") return json({ connected: state.codexConnected });
+    if (path === "/api/providers/compatible/models") {
+      if (state.serverBlocked) return json({ error: { code: "endpoint_not_allowed", message: "blocked" } }, 400);
+      state.calls.push(["probe", body()]);
+      return json({ models: [{ id: "qwen3:8b", context_window: 16384 }, { id: "llama3.1:latest" }] });
+    }
+    if (path === "/api/providers/compatible/config" && method === "PUT") { state.calls.push(["config", body()]); state.model = true; state.catalog = [{ id: "compat:qwen3:8b", name: "qwen3:8b", provider: "compatible", reasoning_efforts: [], default_reasoning: "" }]; return json({ id: "compatible", label: "OpenAI-compatible", kind: "endpoint", configured: true }); }
     if (path === "/api/providers" && method === "GET") return json({ providers: [] });
     if (path.startsWith("/api/providers/") && path.endsWith("/key")) {
       state.keyTries++;
@@ -488,6 +494,36 @@ try {
     await page.locator(".onb-connected").waitFor();
     await context.close();
     pass("Anthropic path: Workspace ID explained, single footer action, Enter submits");
+  }
+
+  // Ollama or any server of your own: preset address, test the connection, pick a model, connect; no cloud key.
+  {
+    const state = makeServer({ onboarding: { step: 2, completed: false, skipped: false } });
+    const { page, context } = await open(state);
+    await page.locator(".onb-choice[data-choice='server']").click();
+    await page.locator("#onb-server-form").waitFor();
+    assert.equal(await page.locator("#onb-server-form input[type=url]").inputValue(), "http://host.docker.internal:11434/v1", "the Ollama preset is filled in");
+    assert.match(await page.locator("[data-compat-note='ollama']").innerText(), /OLLAMA_HOST=0\.0\.0\.0/);
+    await page.getByRole("button", { name: "Test connection" }).click();
+    await page.getByText("Models found: 2").waitFor();
+    await page.locator(".onb-foot button[form=\"onb-server-form\"]").click();
+    await page.locator(".onb-connected").waitFor();
+    assert.deepEqual(state.calls.find(call => call[0] === "config")[1], { base_url: "http://host.docker.internal:11434/v1", models: [] }, "no key is sent when none is typed");
+    assert.deepEqual(state.modelSettings, { model: "compat:qwen3:8b", reasoning_effort: "" }, "the picked model becomes the default");
+    await context.close();
+    pass("own server: Ollama preset, test, pick a model, connect without a key");
+  }
+
+  // A private address on a multi-account install is refused by name, with the admin setting that allows it.
+  {
+    const state = makeServer({ onboarding: { step: 2, completed: false, skipped: false } });
+    state.serverBlocked = true;
+    const { page, context } = await open(state);
+    await page.locator(".onb-choice[data-choice='server']").click();
+    await page.getByRole("button", { name: "Test connection" }).click();
+    await page.getByRole("alert").filter({ hasText: "TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1" }).waitFor();
+    await context.close();
+    pass("own server: a blocked private address names TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS");
   }
 
   // The server failing to reach OpenAI is not the person cancelling.

@@ -558,7 +558,14 @@
       "notion": "로그인 창이 열립니다. 공유할 페이지를 고른 뒤 이곳으로 돌아오세요.",
       "robinhood": "로그인 창이 열립니다. Bot은 시세와 보유 종목을 읽을 수 있고, 거래는 Agentic 계좌에서만 할 수 있어요.",
       "microsoft_learn": "계정이 필요 없어요. 연결하면 Bot이 Microsoft 문서를 검색할 수 있어요."
-    }
+    },
+    "server_title": "Ollama 또는 내 서버",
+    "server_body": "OpenAI 방식 API를 지원하는 모든 서버. 클라우드 키는 필요 없습니다.",
+    "server_test": "연결 테스트",
+    "server_pick": "처음 사용할 모델",
+    "server_connect": "연결",
+    "server_failed": "해당 서버에 연결하지 못했습니다. 주소를 확인하고 다시 시도하세요.",
+    "server_not_allowed": "이 서버는 로컬 또는 사설 주소에 연결할 수 없습니다. 다중 계정 설치에서는 관리자가 서버 환경에 TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1을 설정하고 다시 시작해야 합니다."
   },
   "primary": {
     "badge": "기본",

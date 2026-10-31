@@ -558,7 +558,14 @@
       "notion": "会打开一个登录窗口。选择要共享的页面，然后回到这里。",
       "robinhood": "会打开一个登录窗口。Bot 可以读取行情和持仓，只能在你的 Agentic 账户里交易。",
       "microsoft_learn": "无需账号。连接后你的 Bot 就能搜索 Microsoft 文档。"
-    }
+    },
+    "server_title": "Ollama 或自己的服务器",
+    "server_body": "任何兼容 OpenAI API 的服务器，无需云端密钥。",
+    "server_test": "测试连接",
+    "server_pick": "起始模型",
+    "server_connect": "连接",
+    "server_failed": "无法连接该服务器。请检查地址后重试。",
+    "server_not_allowed": "本服务器不允许连接本地或内网地址。多账户安装需由管理员在服务器环境中设置 TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1 并重启后才可使用。"
   },
   "primary": {
     "badge": "主助理",
