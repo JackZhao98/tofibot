@@ -111,7 +111,7 @@ The build files are `deploy/microvm/Dockerfile`, `deploy/microvm/build-images.sh
 | `@playwright/mcp` (Playwright MCP server) | 0.0.83 | Apache-2.0 | https://github.com/microsoft/playwright-mcp |
 | `playwright` and `playwright-core` | 1.64.0-alpha-1790635538000 | Apache-2.0 | https://github.com/microsoft/playwright |
 | open-computer-use (iFurySt) | 1.1.2 | MIT | https://github.com/iFurySt/open-computer-use |
-| gogcli (`gog`) | v0.40.0 | see upstream | https://github.com/openclaw/gogcli |
+| gogcli (`gog`) | v0.40.0 | MIT | https://github.com/openclaw/gogcli |
 | python-pptx | 1.0.2 | MIT | https://github.com/scanny/python-pptx |
 | Python packages from the distribution: openpyxl, python-docx, matplotlib, pandas, reportlab, pypdf, Pillow, lxml, XlsxWriter, typing-extensions, python3-gi | distribution versions | Each package declares its own license | https://packages.ubuntu.com/ |
 | LibreOffice (core, Writer, Calc, Impress) | distribution version | MPL-2.0 | https://www.libreoffice.org/ |
