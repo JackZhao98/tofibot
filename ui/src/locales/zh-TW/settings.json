@@ -248,7 +248,9 @@
       "invalid_key": "端點拒絕了這個 API 金鑰，未儲存。",
       "endpoint_not_allowed": "此伺服器不允許連線到該位址。本機與內網位址僅在單帳號安裝或營運方允許時可用。",
       "unreachable": "此伺服器無法連線到該端點。請檢查位址，或手動填寫模型 ID。",
-      "no_models": "此端點沒有回傳模型清單，請手動填寫模型 ID。"
+      "no_models": "此端點沒有回傳模型清單，請手動填寫模型 ID。",
+      "presets": "快速填入",
+      "ollama_note": "Ollama 不需要金鑰。請以 OLLAMA_HOST=0.0.0.0 啟動，這樣此伺服器才連得到。在 App 容器內，Docker Desktop 使用 http://host.docker.internal:11434/v1，Linux 使用這台電腦的區域網路位址。Ollama 預設的上下文很小：設定 OLLAMA_CONTEXT_LENGTH=32768（或在 Modelfile 中設定 num_ctx），Bot 才不會遺失指令。"
     },
     "cost": {
       "plan": "使用你的 ChatGPT 方案額度，不另按 token 計費。",

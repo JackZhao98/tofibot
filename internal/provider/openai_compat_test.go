@@ -200,3 +200,37 @@ func TestCompatContextWindowFromServerThenFallback(t *testing.T) {
 		t.Fatal("a removed endpoint must stop contributing windows")
 	}
 }
+
+// Ollama sends whole tool calls, several in one chunk, all numbered index 0,
+// and ends the reply with finish_reason "stop" even when it called tools.
+func TestCompatOllamaStreamsParallelCallsOnOneIndex(t *testing.T) {
+	var auth []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auth = append(auth, r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "text/event-stream")
+		fmt.Fprint(w, `data: {"choices":[{"delta":{"role":"assistant","content":"","tool_calls":[`+
+			`{"id":"call_a1","index":0,"type":"function","function":{"name":"lookup","arguments":"{\"q\":\"tofu\"}"}},`+
+			`{"id":"call_b2","index":0,"type":"function","function":{"name":"lookup","arguments":"{\"q\":\"miso\"}"}}]},"finish_reason":null}]}`+"\n\n")
+		fmt.Fprint(w, `data: {"choices":[{"delta":{"role":"assistant","content":""},"finish_reason":"stop"}],"usage":{"prompt_tokens":30,"completion_tokens":12}}`+"\n\n")
+		fmt.Fprint(w, "data: [DONE]\n\n")
+	}))
+	defer srv.Close()
+	p, err := New(ProviderOpenAICompat, "", WithBaseURL(srv.URL+"/v1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var seen []ToolCallDelta
+	resp, err := p.ChatStream(context.Background(), &ChatRequest{Model: "compat:qwen3:8b", Messages: []Message{{Role: "user", Content: "compare"}}, Tools: compatTools()}, func(d StreamDelta) { seen = append(seen, d.ToolCalls...) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.ToolCalls) != 2 || resp.ToolCalls[0].ID != "call_a1" || resp.ToolCalls[0].Arguments != `{"q":"tofu"}` || resp.ToolCalls[1].ID != "call_b2" || resp.ToolCalls[1].Arguments != `{"q":"miso"}` {
+		t.Fatalf("tool calls = %+v", resp.ToolCalls)
+	}
+	if len(seen) != 2 || seen[0].Index != 0 || seen[1].Index != 1 {
+		t.Fatalf("stream deltas must number the calls apart: %+v", seen)
+	}
+	if resp.Usage.InputTokens != 30 || len(auth) != 1 || auth[0] != "" {
+		t.Fatalf("usage=%+v auth=%q", resp.Usage, auth)
+	}
+}

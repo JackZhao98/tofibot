@@ -9,6 +9,9 @@ import {StatusBadge} from "./settings/components";
 import {ProviderCost} from "./ProviderCost";
 
 const SHOWN_MODELS = 12;
+/** The address that reaches an Ollama running on the computer that hosts the App container (Docker Desktop). */
+const OLLAMA_URL = "http://host.docker.internal:11434/v1";
+const isOllama = (url: string) => /:11434(\/|$)/.test(url.trim());
 
 /** Comma, space or line separated model IDs, in the order typed, without repeats. */
 function parseModelIds(text: string) {
@@ -94,9 +97,13 @@ export function CompatCard({status, loading, onChange}: {status?: ModelProviderS
     </div>
    </>}
    {showForm && <form className="provider-key-form compat-form" onSubmit={event => void save(event)} aria-busy={Boolean(working)}>
+    <div className="compat-presets" role="group" aria-label={t("providers.compat.presets")}>
+     <button type="button" className="secondary-button" aria-pressed={isOllama(baseUrl)} disabled={Boolean(working)} onClick={() => { setBaseUrl(OLLAMA_URL); setListed(null); setError(""); }}>Ollama</button>
+    </div>
     <label htmlFor={urlId}>{t("providers.compat.url_label")}</label>
     <input id={urlId} name="compat-base-url" type="url" inputMode="url" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder="http://host:11434/v1" value={baseUrl} disabled={Boolean(working)} required autoFocus={configured} onChange={event => { setBaseUrl(event.target.value); setListed(null); setError(""); }}/>
     <p className="field-note">{t("providers.compat.url_note")}</p>
+    {isOllama(baseUrl) && <p className="field-note compat-ollama" data-compat-note="ollama">{t("providers.compat.ollama_note")}</p>}
     <label htmlFor={keyId}>{t("providers.compat.key_label")}</label>
     <input id={keyId} name="compat-api-key" type="password" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder={configured && status?.key_hint ? t("providers.compat.key_keep") : "sk-…"} value={key} disabled={Boolean(working)} onChange={event => { setKey(event.target.value); setError(""); }}/>
     <label htmlFor={modelsId}>{t("providers.compat.models_label")}</label>

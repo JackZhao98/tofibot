@@ -69,3 +69,6 @@
 .compat-listed li{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline;overflow-wrap:anywhere}
 .compat-listed li span,.compat-more{color:var(--muted)}
 .compat-summary{margin:4px 0 0;overflow-wrap:anywhere}
+.compat-presets{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.compat-presets .secondary-button[aria-pressed="true"]{border-color:var(--ink)}
+.compat-ollama{padding:8px 10px;border-left:2px solid var(--line);color:var(--text-soft)}

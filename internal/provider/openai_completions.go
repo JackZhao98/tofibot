@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"sort"
 	"strings"
 	"time"
 )
@@ -269,12 +268,18 @@ func (o *openaiChatCompletions) parseStream(body io.Reader, onDelta func(StreamD
 	var reasoningBuf strings.Builder
 
 	// Tool call accumulation
+	// A call is one slot, in arrival order. Servers number the calls of a
+	// reply by index; some (Ollama) number several complete calls of one chunk
+	// with the same index, so a new call id on an index that already holds a
+	// call with another id starts a new slot.
 	type tcAccum struct {
+		Slot int
 		ID   string
 		Name string
 		Args strings.Builder
 	}
-	tcMap := make(map[int]*tcAccum)
+	var slots []*tcAccum
+	current := make(map[int]*tcAccum)
 
 	scanner := bufio.NewScanner(body)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
@@ -337,10 +342,14 @@ func (o *openaiChatCompletions) parseStream(body io.Reader, onDelta func(StreamD
 
 			// Tool calls
 			for _, tc := range delta.ToolCalls {
-				acc, ok := tcMap[tc.Index]
-				if !ok {
-					acc = &tcAccum{}
-					tcMap[tc.Index] = acc
+				acc := current[tc.Index]
+				if acc != nil && tc.ID != "" && acc.ID != "" && tc.ID != acc.ID {
+					acc = nil
+				}
+				if acc == nil {
+					acc = &tcAccum{Slot: len(slots)}
+					slots = append(slots, acc)
+					current[tc.Index] = acc
 				}
 				if tc.ID != "" {
 					acc.ID = tc.ID
@@ -355,7 +364,7 @@ func (o *openaiChatCompletions) parseStream(body io.Reader, onDelta func(StreamD
 				if onDelta != nil {
 					onDelta(StreamDelta{
 						ToolCalls: []ToolCallDelta{{
-							Index:     tc.Index,
+							Index:     acc.Slot,
 							ID:        tc.ID,
 							Name:      tc.Function.Name,
 							Arguments: tc.Function.Arguments,
@@ -383,16 +392,9 @@ func (o *openaiChatCompletions) parseStream(body io.Reader, onDelta func(StreamD
 	result.Content = contentBuf.String()
 	result.Reasoning = reasoningBuf.String()
 
-	// Assemble tool calls in index order. Local servers may start at another
-	// index or leave the call id empty; the loop needs a unique id to pair the
-	// result with the call.
-	indices := make([]int, 0, len(tcMap))
-	for i := range tcMap {
-		indices = append(indices, i)
-	}
-	sort.Ints(indices)
-	for n, i := range indices {
-		acc := tcMap[i]
+	// Assemble the calls in arrival order. A server may leave the call id
+	// empty; the loop needs a unique id to pair the result with the call.
+	for n, acc := range slots {
 		id := acc.ID
 		if id == "" {
 			id = fmt.Sprintf("call_%d", n)

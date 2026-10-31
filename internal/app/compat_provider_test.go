@@ -274,3 +274,145 @@ func TestCompatAddrAllowed(t *testing.T) {
 		}
 	}
 }
+
+// fakeOllama answers like a local Ollama: no key, an OpenAI layer that may lack
+// a model list, the native tag list, version and show endpoints, and chat.
+type fakeOllama struct {
+	*httptest.Server
+	mu    sync.Mutex
+	auths []string
+	chats []string
+}
+
+func newFakeOllama(t *testing.T, openAIModels bool) *fakeOllama {
+	f := &fakeOllama{}
+	f.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		f.mu.Lock()
+		f.auths = append(f.auths, r.Header.Get("Authorization"))
+		f.mu.Unlock()
+		switch r.URL.Path {
+		case "/v1/models":
+			if !openAIModels {
+				http.NotFound(w, r)
+				return
+			}
+			_, _ = io.WriteString(w, `{"object":"list","data":[{"id":"llama3.1:latest","object":"model"},{"id":"qwen3:8b","object":"model"}]}`)
+		case "/api/tags":
+			_, _ = io.WriteString(w, `{"models":[{"name":"qwen3:8b","model":"qwen3:8b"},{"name":"llama3.1:latest","model":"llama3.1:latest"},{"name":"nomic-embed-text:latest"}]}`)
+		case "/api/version":
+			_, _ = io.WriteString(w, `{"version":"0.12.0"}`)
+		case "/api/show":
+			raw, _ := io.ReadAll(r.Body)
+			var body struct {
+				Model string `json:"model"`
+			}
+			_ = json.Unmarshal(raw, &body)
+			switch body.Model {
+			case "qwen3:8b":
+				_, _ = io.WriteString(w, `{"parameters":"num_ctx                        16384\nstop                           \"<|im_end|>\"","model_info":{"general.architecture":"qwen3","qwen3.context_length":40960}}`)
+			case "llama3.1:latest":
+				_, _ = io.WriteString(w, `{"parameters":"stop \"<|eot_id|>\"","model_info":{"general.architecture":"llama","llama.context_length":131072}}`)
+			default:
+				http.NotFound(w, r)
+			}
+		case "/v1/chat/completions":
+			raw, _ := io.ReadAll(r.Body)
+			var body struct {
+				Model  string `json:"model"`
+				Stream bool   `json:"stream"`
+			}
+			_ = json.Unmarshal(raw, &body)
+			f.mu.Lock()
+			f.chats = append(f.chats, body.Model)
+			f.mu.Unlock()
+			if body.Stream {
+				w.Header().Set("Content-Type", "text/event-stream")
+				_, _ = io.WriteString(w, `data: {"choices":[{"delta":{"role":"assistant","content":"Hello from Ollama."},"finish_reason":null}]}`+"\n\n")
+				_, _ = io.WriteString(w, `data: {"choices":[{"delta":{"role":"assistant","content":""},"finish_reason":"stop"}],"usage":{"prompt_tokens":9,"completion_tokens":4}}`+"\n\n")
+				_, _ = io.WriteString(w, "data: [DONE]\n\n")
+				return
+			}
+			_, _ = io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"Hello from Ollama."}}],"usage":{"prompt_tokens":9,"completion_tokens":4}}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(f.Close)
+	return f
+}
+
+func TestCompatOllamaWithoutKeyFallsBackToTagsAndReadsContext(t *testing.T) {
+	ollama := newFakeOllama(t, false)
+	s := providerServer(t, nil, nil)
+	t.Cleanup(func() { provider.SetCompatContextWindows(nil) })
+	// The address is Ollama's OpenAI layer; no key is entered.
+	if rec := putCompat(t, s, `{"base_url":"`+ollama.URL+`/v1"}`); rec.Code != http.StatusOK {
+		t.Fatalf("PUT status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	models, _, _ := s.loadModels(t.Context())
+	byID := map[string]ModelOption{}
+	for _, m := range models {
+		byID[m.ID] = m
+	}
+	if len(byID) != 2 || byID["compat:qwen3:8b"].ID == "" || byID["compat:llama3.1:latest"].ID == "" {
+		t.Fatalf("the tag list should give the two chat models and skip the embedding model: %+v", byID)
+	}
+	// num_ctx wins when the model is set to run with one, else the model's own length.
+	if byID["compat:qwen3:8b"].ContextWindow != 16384 || byID["compat:llama3.1:latest"].ContextWindow != 131072 {
+		t.Fatalf("windows = %d %d", byID["compat:qwen3:8b"].ContextWindow, byID["compat:llama3.1:latest"].ContextWindow)
+	}
+	if w := provider.GetContextWindow("compat:qwen3:8b"); w != 16384 || !provider.ContextWindowKnown("compat:qwen3:8b") {
+		t.Fatalf("window reached the provider package as %d", w)
+	}
+
+	run, messages := runBotThroughProvider(t, s, "compat:qwen3:8b", "Say hello.")
+	if run.Status != "done" {
+		t.Fatalf("run=%+v failure=%+v", run, run.failure())
+	}
+	if last := messages[len(messages)-1]; !strings.Contains(last.Content, "Hello from Ollama.") {
+		t.Fatalf("assistant=%+v", last)
+	}
+	ollama.mu.Lock()
+	defer ollama.mu.Unlock()
+	if len(ollama.chats) == 0 || ollama.chats[0] != "qwen3:8b" {
+		t.Fatalf("chat models = %v", ollama.chats)
+	}
+	for _, auth := range ollama.auths {
+		if auth != "" {
+			t.Fatalf("a key-less endpoint must receive no Authorization header, got %q", auth)
+		}
+	}
+}
+
+func TestCompatOllamaUsesItsOpenAIModelListWhenItHasOne(t *testing.T) {
+	ollama := newFakeOllama(t, true)
+	s := providerServer(t, nil, nil)
+	t.Cleanup(func() { provider.SetCompatContextWindows(nil) })
+	rec := providerRequest(t, s, http.MethodPost, "/api/providers/compatible/models", `{"base_url":"`+ollama.URL+`"}`)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"id":"qwen3:8b","context_window":16384`) || !strings.Contains(rec.Body.String(), `"id":"llama3.1:latest","context_window":131072`) {
+		t.Fatalf("probe status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestOllamaRootAndShowParsing(t *testing.T) {
+	for in, want := range map[string]string{
+		"http://host:11434/v1":         "http://host:11434",
+		"http://host:11434/v1/":        "http://host:11434",
+		"http://host:11434":            "http://host:11434",
+		"https://openrouter.ai/api/v1": "",
+		"http://host:8000/other":       "",
+	} {
+		if got := ollamaRoot(in); got != want {
+			t.Errorf("ollamaRoot(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if got := ollamaContextWindow([]byte(`{"parameters":"num_ctx 8192","model_info":{"llama.context_length":131072}}`)); got != 8192 {
+		t.Errorf("num_ctx = %d", got)
+	}
+	if got := ollamaContextWindow([]byte(`{"model_info":{"general.architecture":"gemma3","gemma3.context_length":131072}}`)); got != 131072 {
+		t.Errorf("context_length = %d", got)
+	}
+	if got := ollamaContextWindow([]byte(`{}`)); got != 0 {
+		t.Errorf("empty = %d", got)
+	}
+}

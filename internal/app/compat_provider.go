@@ -12,8 +12,11 @@ import (
 	"net/netip"
 	"net/url"
 	"os"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -231,6 +234,7 @@ func (s *Server) fetchCompatModels(ctx context.Context, cfg compatConfig) ([]Mod
 			out = append(out, compatOption(id, 0))
 		}
 	}
+	s.enrichOllamaWindows(ctx, cfg, out)
 	return out, http.StatusOK, nil
 }
 
@@ -238,15 +242,29 @@ func compatOption(id string, window int) ModelOption {
 	return ModelOption{ID: provider.CompatModelPrefix + id, Name: id, Provider: "compatible", ReasoningEfforts: []string{}, ContextWindow: max(window, 0)}
 }
 
-func (s *Server) listCompatModels(ctx context.Context, cfg compatConfig) ([]ModelOption, int, error) {
-	ctx, cancel := context.WithTimeout(ctx, providerKeyVerifyTimeout)
+// compatRequest sends one request to the endpoint through the guarded client.
+// A key, when there is one, goes as a bearer token; a key-less endpoint such as
+// a local Ollama gets no Authorization header at all.
+func (s *Server) compatRequest(ctx context.Context, cfg compatConfig, method, target string, payload any, timeout time.Duration) ([]byte, int, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(cfg.BaseURL, "/")+"/models", nil)
+	var reader io.Reader
+	if payload != nil {
+		raw, err := json.Marshal(payload)
+		if err != nil {
+			return nil, 0, err
+		}
+		reader = strings.NewReader(string(raw))
+	}
+	req, err := http.NewRequestWithContext(ctx, method, target, reader)
 	if err != nil {
 		return nil, 0, err
 	}
 	if cfg.Key != "" {
 		req.Header.Set("Authorization", "Bearer "+cfg.Key)
+	}
+	if payload != nil {
+		req.Header.Set("Content-Type", "application/json")
 	}
 	req.Header.Set("User-Agent", "tofi/1.0")
 	resp, err := s.providerHTTPClient(providerCompat).Do(req)
@@ -262,10 +280,161 @@ func (s *Server) listCompatModels(ctx context.Context, cfg compatConfig) ([]Mode
 		return nil, resp.StatusCode, errProviderUnreachable
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, resp.StatusCode, fmt.Errorf("model list returned HTTP %d: %s", resp.StatusCode, trimRunes(strings.TrimSpace(string(body)), 200))
+		return body, resp.StatusCode, fmt.Errorf("endpoint returned HTTP %d: %s", resp.StatusCode, trimRunes(strings.TrimSpace(string(body)), 200))
 	}
-	models, err := normalizeCompatModels(body)
-	return models, resp.StatusCode, err
+	return body, resp.StatusCode, nil
+}
+
+// listCompatModels reads GET {base}/models; when that fails for a reason other
+// than a refused key, it tries Ollama's own list (GET {root}/api/tags), which
+// every Ollama answers whatever its OpenAI layer does.
+func (s *Server) listCompatModels(ctx context.Context, cfg compatConfig) ([]ModelOption, int, error) {
+	body, status, err := s.compatRequest(ctx, cfg, http.MethodGet, strings.TrimRight(cfg.BaseURL, "/")+"/models", nil, providerKeyVerifyTimeout)
+	if err == nil {
+		models, e := normalizeCompatModels(body)
+		if e == nil && len(models) > 0 {
+			return models, status, nil
+		}
+		err = e
+		if err == nil {
+			err = errors.New("the endpoint listed no models")
+		}
+	}
+	if status == http.StatusUnauthorized || status == http.StatusForbidden || errors.Is(err, errCompatBlocked) {
+		return nil, status, err
+	}
+	if root := ollamaRoot(cfg.BaseURL); root != "" {
+		if body, _, e := s.compatRequest(ctx, cfg, http.MethodGet, root+"/api/tags", nil, providerKeyVerifyTimeout); e == nil {
+			if models := normalizeOllamaTags(body); len(models) > 0 {
+				return models, http.StatusOK, nil
+			}
+		}
+	}
+	return nil, status, err
+}
+
+// ollamaRoot is the address of Ollama's native API for a base URL that could be
+// its OpenAI layer ("http://host:11434/v1" gives "http://host:11434"); "" when
+// the path says it is something else.
+func ollamaRoot(baseURL string) string {
+	u, err := url.Parse(strings.TrimSpace(baseURL))
+	if err != nil || u.Host == "" {
+		return ""
+	}
+	path := strings.TrimRight(u.Path, "/")
+	if path != "" && path != "/v1" {
+		return ""
+	}
+	u.Path, u.RawQuery, u.Fragment = "", "", ""
+	return u.String()
+}
+
+// normalizeOllamaTags reads Ollama's GET /api/tags.
+func normalizeOllamaTags(body []byte) []ModelOption {
+	var raw struct {
+		Models []struct {
+			Name  string `json:"name"`
+			Model string `json:"model"`
+		} `json:"models"`
+	}
+	if json.Unmarshal(body, &raw) != nil {
+		return nil
+	}
+	out := []ModelOption{}
+	seen := map[string]bool{}
+	for _, m := range raw.Models {
+		id := strings.TrimSpace(m.Name)
+		if id == "" {
+			id = strings.TrimSpace(m.Model)
+		}
+		lower := strings.ToLower(id)
+		if id == "" || seen[id] || len(id) > compatMaxModelIDLen || strings.ContainsAny(id, " \t\r\n\x00") || strings.Contains(lower, "embed") || strings.Contains(lower, "rerank") {
+			continue
+		}
+		seen[id] = true
+		out = append(out, compatOption(id, 0))
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
+}
+
+const (
+	ollamaShowLimit       = 50
+	ollamaShowParallelism = 4
+)
+
+// enrichOllamaWindows fills the context window of models that have none from
+// Ollama's POST /api/show: the num_ctx the model is set to run with, else the
+// model's own context_length. It does nothing for a server that is not Ollama
+// (GET /api/version is how Ollama says so) and leaves a model alone when the
+// server already reported its window.
+func (s *Server) enrichOllamaWindows(ctx context.Context, cfg compatConfig, models []ModelOption) {
+	root := ollamaRoot(cfg.BaseURL)
+	if root == "" {
+		return
+	}
+	var todo []int
+	for i, m := range models {
+		if m.ContextWindow == 0 && len(todo) < ollamaShowLimit {
+			todo = append(todo, i)
+		}
+	}
+	if len(todo) == 0 {
+		return
+	}
+	body, _, err := s.compatRequest(ctx, cfg, http.MethodGet, root+"/api/version", nil, 4*time.Second)
+	var version struct {
+		Version string `json:"version"`
+	}
+	if err != nil || json.Unmarshal(body, &version) != nil || version.Version == "" {
+		return
+	}
+	var wg sync.WaitGroup
+	slots := make(chan struct{}, ollamaShowParallelism)
+	for _, i := range todo {
+		wg.Add(1)
+		slots <- struct{}{}
+		go func(i int) {
+			defer wg.Done()
+			defer func() { <-slots }()
+			name := strings.TrimPrefix(models[i].ID, provider.CompatModelPrefix)
+			show, _, err := s.compatRequest(ctx, cfg, http.MethodPost, root+"/api/show", map[string]string{"model": name}, 6*time.Second)
+			if err == nil {
+				models[i].ContextWindow = ollamaContextWindow(show)
+			}
+		}(i)
+	}
+	wg.Wait()
+}
+
+var ollamaNumCtx = regexp.MustCompile(`(?m)^\s*num_ctx\s+(\d+)\s*$`)
+
+// ollamaContextWindow reads an /api/show answer: the num_ctx parameter when the
+// model is set to run with one, else the "<architecture>.context_length" of
+// model_info. 0 when it says neither.
+func ollamaContextWindow(body []byte) int {
+	var raw struct {
+		Parameters string         `json:"parameters"`
+		ModelInfo  map[string]any `json:"model_info"`
+	}
+	if json.Unmarshal(body, &raw) != nil {
+		return 0
+	}
+	if m := ollamaNumCtx.FindStringSubmatch(raw.Parameters); m != nil {
+		if n, err := strconv.Atoi(m[1]); err == nil && n > 0 {
+			return n
+		}
+	}
+	window := 0
+	for key, value := range raw.ModelInfo {
+		if !strings.HasSuffix(key, ".context_length") {
+			continue
+		}
+		if f, ok := value.(float64); ok && f > 0 && int(f) > window {
+			window = int(f)
+		}
+	}
+	return window
 }
 
 // normalizeCompatModels reads a /v1/models answer. Servers report the context
@@ -408,6 +577,7 @@ func (s *Server) probeCompatModels(w http.ResponseWriter, r *http.Request) {
 		compatFailure(w, status, err)
 		return
 	}
+	s.enrichOllamaWindows(r.Context(), cfg, models)
 	type entry struct {
 		ID            string `json:"id"`
 		ContextWindow int    `json:"context_window,omitempty"`
