@@ -62,7 +62,7 @@ func (s *Service) desktopMCP(ctx context.Context, botID string, in ocuCallArgs) 
 				text, _ = annotateCheckStates(text, states)
 			}
 		}
-		return text
+		return pruneOCUTree(text, ocuTreeBudget)
 	})
 }
 
