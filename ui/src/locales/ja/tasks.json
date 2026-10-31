@@ -165,7 +165,8 @@
     "records_unavailable": "一部の実行記録を取得できません。",
     "load": "アクティビティを読み込む",
     "loading": "読み込み中…",
-    "progress_report": "進捗報告"
+    "progress_report": "進捗報告",
+    "left_note": "メモを残しました"
   },
   "step": {
     "problem": "問題",

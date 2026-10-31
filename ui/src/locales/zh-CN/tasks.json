@@ -165,7 +165,8 @@
     "records_unavailable": "部分执行记录暂时无法更新。",
     "load": "读取执行记录",
     "loading": "读取中…",
-    "progress_report": "进度汇报"
+    "progress_report": "进度汇报",
+    "left_note": "留了一条备注"
   },
   "step": {
     "problem": "问题说明",

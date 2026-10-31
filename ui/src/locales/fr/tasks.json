@@ -167,7 +167,8 @@
     "records_unavailable": "Une partie de l’historique d’exécution est indisponible.",
     "load": "Charger l’activité",
     "loading": "Chargement…",
-    "progress_report": "Point d’avancement"
+    "progress_report": "Point d’avancement",
+    "left_note": "A laissé une note"
   },
   "step": {
     "problem": "Problème",

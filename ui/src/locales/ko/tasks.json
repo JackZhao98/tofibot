@@ -165,7 +165,8 @@
     "records_unavailable": "일부 실행 기록을 사용할 수 없습니다.",
     "load": "활동 불러오기",
     "loading": "불러오는 중…",
-    "progress_report": "진행 보고"
+    "progress_report": "진행 보고",
+    "left_note": "메모를 남겼습니다"
   },
   "step": {
     "problem": "문제",

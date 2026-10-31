@@ -166,7 +166,8 @@
     "records_unavailable": "Some execution records are unavailable.",
     "load": "Load activity",
     "loading": "Loading…",
-    "progress_report": "Progress report"
+    "progress_report": "Progress report",
+    "left_note": "Left a note"
   },
   "step": {
     "problem": "Problem",

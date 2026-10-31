@@ -81,3 +81,8 @@ export function TaskActivityBody({ owner, head = true, tail = true, allTools, to
       })}
   </>;
 }
+
+/** The body of a silent run's note row: the notes it left, as ordinary Markdown. */
+export function SilentNoteBody({ notes }: { notes: { id: string; content: string }[] }) {
+  return <div className="task-silent-note-body">{notes.map(note => <MessageMarkdown key={note.id} content={note.content} />)}</div>;
+}
