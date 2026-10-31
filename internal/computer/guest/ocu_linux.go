@@ -55,7 +55,15 @@ func (s *Service) desktopMCP(ctx context.Context, botID string, in ocuCallArgs) 
 		s.dropOCU(sess)
 		return nil, err
 	}
-	return ocuResult(in.Tool, raw)
+	app, _ := args["app"].(string)
+	return ocuResult(in.Tool, raw, func(text string) string {
+		if app != "" && hasCheckable(text) {
+			if states, err := ocuCheckStates(ctx, s.root, d, app); err == nil {
+				text, _ = annotateCheckStates(text, states)
+			}
+		}
+		return text
+	})
 }
 
 func (s *Service) ocuFor(ctx context.Context, botID string, d *desktop) (*playwrightSession, error) {
