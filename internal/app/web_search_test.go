@@ -10,12 +10,20 @@ import (
 	"github.com/JackZhao98/tofibot/internal/runtime"
 )
 
-func TestWebSearchIsOfferedToAnthropicModelsOnly(t *testing.T) {
+func TestWebSearchIsOfferedToHostedSearchProviders(t *testing.T) {
 	if webSearchMaxUses("claude-sonnet-5-5", nil) <= 0 || webSearchMaxUses("claude-haiku-4-5", nil) <= 0 {
 		t.Fatal("an Anthropic model gets no server-side search")
 	}
-	if webSearchMaxUses("gpt-5.5", nil) != 0 {
-		t.Fatal("search offered to a model whose provider has no server-side search")
+	for _, m := range []string{"gpt-5.5", "codex-gpt-5.6-luna"} {
+		if webSearchMaxUses(m, nil) <= 0 {
+			t.Fatalf("%s gets no hosted search", m)
+		}
+		if webSearchMaxUses(m, []Tool{{Name: "web_search"}}) != 0 {
+			t.Fatalf("%s: hosted search declared beside a tool of the same name", m)
+		}
+		if webFetchMaxUses(m, nil) != 0 {
+			t.Fatalf("%s: OpenAI has no hosted page reader", m)
+		}
 	}
 	if webSearchMaxUses("claude-sonnet-5-5", []Tool{{Name: "web_search"}}) != 0 {
 		t.Fatal("search declared beside a tool of the same name")
@@ -88,5 +96,69 @@ func TestWebSearchEventsLandInTheRunsEvidence(t *testing.T) {
 	}
 	if name != "web_search" || status != "completed" || !strings.Contains(result, "https://example.com/t") {
 		t.Fatalf("%s %s %q", name, status, result)
+	}
+}
+
+func TestOpenAIRunWithoutKeysOrComputerSearchesNativelyAndKeepsFetch(t *testing.T) {
+	s := webServer(t)
+	for _, model := range []string{"gpt-5.5", "codex-gpt-5.6-luna"} {
+		run := Run{Model: model}
+		names := toolNames(s.webTools(run))
+		if names["web_search"] {
+			t.Fatalf("%s: external web_search registered with no provider", model)
+		}
+		if !names["web_fetch"] {
+			t.Fatalf("%s: the builtin page reader must stay: OpenAI has no hosted fetch", model)
+		}
+		tools := s.webTools(run)
+		if s.searchUses(model, tools) <= 0 {
+			t.Fatalf("%s: no hosted search without keys or a computer", model)
+		}
+		if s.fetchUses(model, tools) != 0 {
+			t.Fatalf("%s: hosted fetch requested for OpenAI", model)
+		}
+	}
+	// An owner-configured external provider keeps priority and is never doubled.
+	putWebKey(t, s, "tavily", testTavilyKey)
+	tools := s.webTools(Run{Model: "gpt-5.5"})
+	if !toolNames(tools)["web_search"] || s.searchUses("gpt-5.5", tools) != 0 {
+		t.Fatalf("search doubled: %v uses=%d", toolNames(tools), s.searchUses("gpt-5.5", tools))
+	}
+	// Anthropic still gets neither external tool.
+	if names := toolNames(s.webTools(Run{Model: "claude-sonnet-5-5"})); names["web_search"] || names["web_fetch"] {
+		t.Fatalf("anthropic: %v", names)
+	}
+}
+
+func TestOpenAIWebSearchesAreCountedWithoutAFee(t *testing.T) {
+	st, err := OpenStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	bot, err := st.CreateBot("OpenAI Search Bot", "", "gpt-5.5")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, runs, _, err := st.AddUserRuns(bot.DMConversationID, "what is it", "ws-openai", []runSpec{{BotID: bot.ID, Model: bot.Model}})
+	if err != nil || len(runs) != 1 {
+		t.Fatalf("runs=%v err=%v", runs, err)
+	}
+	if err = st.recordContextEstimate(runs[0].ID, bot.Model, 1000); err != nil {
+		t.Fatal(err)
+	}
+	if err = st.recordModelUsage(runs[0].ID, provider.Usage{InputTokens: 1000, OutputTokens: 100}); err != nil {
+		t.Fatal(err)
+	}
+	if err = st.recordWebSearchUsageAt(runs[0].ID, 2, 0); err != nil {
+		t.Fatal(err)
+	}
+	var rows int
+	var usd float64
+	if err = st.db.QueryRow(`SELECT COUNT(*),COALESCE(SUM(equivalent_usd),0) FROM usage_calls WHERE run_id=? AND kind=?`, runs[0].ID, usageKindSearch).Scan(&rows, &usd); err != nil {
+		t.Fatal(err)
+	}
+	if rows != 2 || usd != 0 {
+		t.Fatalf("rows=%d usd=%v, want 2 rows and no invented fee", rows, usd)
 	}
 }
