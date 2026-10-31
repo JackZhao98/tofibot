@@ -18,12 +18,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/JackZhao98/tofibot/internal/computer"
+	"github.com/JackZhao98/tofibot/internal/runtime"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
@@ -38,6 +40,10 @@ var personalPollEvery = 40 * time.Millisecond
 // codeComputerLost is the tool error of a call that was in flight when its
 // computer stopped answering. The effect on the computer is unknown.
 const codeComputerLost = "computer_lost"
+
+// codeComputerNoAnswer is the tool error of a call whose job the computer never
+// picked up before the time ran out: it did not run.
+const codeComputerNoAnswer = "computer_no_answer"
 
 // deviceTagFor is the account tag of a claim code or device token: the account
 // id when it is a plain identifier, otherwise none.
@@ -154,7 +160,17 @@ func (p *personalProvider) ActionWithin(ctx context.Context, a computer.Action, 
 			if waitCtx.Err() == context.DeadlineExceeded {
 				reason = "no answer in time"
 			}
-			p.s.store.cancelJob(job.ID, reason)
+			wasClaimed := p.s.store.cancelJob(job.ID, reason)
+			if waitCtx.Err() == context.DeadlineExceeded {
+				// The Mac took the job and may have run it: say so by name instead
+				// of a bare context error. A result that arrives later is refused
+				// (the job is cancelled) and logged.
+				if wasClaimed {
+					log.Printf("[computer] job %s (%s) on %s timed out after claim; a late result will be refused", job.ID, a.Name, p.id)
+					return computer.ActionResult{}, runtime.ToolTimeoutOutcome("Computer action "+a.Name, limit, false).Err()
+				}
+				return computer.ActionResult{}, tooloutcome.New(tooloutcome.Transient, codeComputerNoAnswer, "not_executed", "The computer did not pick up this step in time, so it was not run. Try again later or continue without it.", "explain_blocker").Err()
+			}
 			return computer.ActionResult{}, waitCtx.Err()
 		case <-ticker.C:
 			current, e := p.s.store.computerJob(job.ID, job.DeviceID)
@@ -232,8 +248,26 @@ func (s *Store) wakeDevice(id string) {
 	}
 }
 
-func (s *Store) cancelJob(id, reason string) {
-	_, _ = s.db.Exec(`UPDATE computer_jobs SET status='cancelled',error=?,completed_at=? WHERE id=? AND status IN ('pending','running')`, reason, now(), id)
+// cancelJob ends an open job and reports whether the computer had already
+// claimed it (so the step may have run).
+func (s *Store) cancelJob(id, reason string) (wasClaimed bool) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return true // cannot tell: assume it may have run
+	}
+	defer tx.Rollback()
+	var status string
+	if tx.QueryRow(`SELECT status FROM computer_jobs WHERE id=?`, id).Scan(&status) != nil {
+		return true
+	}
+	if status != "pending" && status != "running" {
+		return status == "completed" // already finished; nothing to cancel
+	}
+	if _, err = tx.Exec(`UPDATE computer_jobs SET status='cancelled',error=?,completed_at=? WHERE id=? AND status IN ('pending','running')`, reason, now(), id); err != nil {
+		return true
+	}
+	_ = tx.Commit()
+	return status == "running"
 }
 
 // cancelDeviceJobs ends every open job of a computer, as the Mac is gone.
