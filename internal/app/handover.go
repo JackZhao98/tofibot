@@ -91,7 +91,7 @@ func handoverResult(q Question) string {
 	switch {
 	case q.Type == questionTakeover && answer == takeoverDone:
 		out["status"], out["completed"] = "handed_back", true
-		out["message"] = "The person finished their part on the shared computer and returned control. Nothing they typed, copied or saw is shared with you. Reinspect the screen and continue from its actual state."
+		out["message"] = "The person finished their part on the Bot computer and returned control. Nothing they typed, copied or saw is shared with you. Reinspect the screen and continue from its actual state."
 	case q.Type == questionTakeover && answer == takeoverCannot:
 		out["status"], out["completed"] = "declined", false
 		out["message"] = "The person could not or chose not to do this step. Do not request the same handover again; report the blocker."
@@ -116,7 +116,7 @@ func handoverResult(q Question) string {
 }
 
 func (s *Server) takeoverTool(c Conversation, r Run) Tool {
-	return Tool{Name: "request_takeover", Description: "Hand the shared computer's screen to the person for one step that only they can perform or that must stay private from you, because the website requires their own identity, possession or presence. Say what is needed in question and name the website in site. The run suspends while they act; waiting does not use active time and survives a service restart. The result says only whether they finished (status handed_back), could not or would not (declined), or the request was cancelled or expired. You never see what they typed, copied or saw, so after the handover reinspect the page and continue from its actual state. Leave the browser on the page where their step begins. Do not use it for anything you can do yourself, and never ask for secrets in chat instead. The response window is at most 14 minutes because the shared computer is collected after longer inactivity.", Parameters: objectSchema(map[string]any{
+	return Tool{Name: "request_takeover", Description: "Hand the Bot computer's screen to the person for one step that only they can perform or that must stay private from you, because the website requires their own identity, possession or presence. Say what is needed in question and name the website in site. The run suspends while they act; waiting does not use active time and survives a service restart. The result says only whether they finished (status handed_back), could not or would not (declined), or the request was cancelled or expired. You never see what they typed, copied or saw, so after the handover reinspect the page and continue from its actual state. Leave the browser on the page where their step begins. Do not use it for anything you can do yourself, and never ask for secrets in chat instead. The response window is at most 14 minutes because the Bot computer is collected after longer inactivity.", Parameters: objectSchema(map[string]any{
 		"question":           map[string]any{"type": "string", "description": "What the person needs to do, in one or two plain sentences"},
 		"site":               map[string]any{"type": "string", "description": "The website where the step happens"},
 		"expires_in_seconds": map[string]any{"type": "integer", "minimum": 0, "maximum": int(maxTakeoverWait / time.Second), "description": "Response window in seconds; omitted or 0 means 10 minutes, at most 14 minutes."},
@@ -136,7 +136,7 @@ func (s *Server) takeoverTool(c Conversation, r Run) Tool {
 			return "", ErrQuestionInvalidAnswer
 		}
 		if s.computer() == nil {
-			return "", tooloutcome.New(tooloutcome.Permanent, "no_shared_computer", "not_executed", "There is no shared computer to hand over; explain the blocker in your reply.", "explain_blocker").Err()
+			return "", tooloutcome.New(tooloutcome.Permanent, "no_shared_computer", "not_executed", "There is no Bot computer to hand over; explain the blocker in your reply.", "explain_blocker").Err()
 		}
 		if arg.ExpiresInSeconds < 0 || arg.ExpiresInSeconds > int(maxTakeoverWait/time.Second) {
 			return "", errors.New("expires_in_seconds must be between 0 and 840")

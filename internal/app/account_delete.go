@@ -87,7 +87,7 @@ func (g *AccountGateway) beginAccountDelete(ctx context.Context, callerID, id, c
 		// Only canonical UUID accounts own a deletable computer and data root.
 		var legacy bool
 		if g.root.store.db.QueryRowContext(ctx, `SELECT legacy FROM accounts WHERE id=?`, id).Scan(&legacy) == nil && legacy {
-			return target, &accountDeleteError{409, "legacy_account_not_deletable", "the original owner account and its adopted computer cannot be deleted"}
+			return target, &accountDeleteError{409, "legacy_account_not_deletable", "the original owner account and its adopted Bot computer cannot be deleted"}
 		}
 		return target, &accountDeleteError{404, "not_found", "account not found"}
 	}
@@ -119,7 +119,7 @@ func (g *AccountGateway) beginAccountDelete(ctx context.Context, callerID, id, c
 	if target.Legacy {
 		// The adopted computer is an external disk with alias paths and an
 		// ownership proof; removing it is not supported.
-		return target, &accountDeleteError{409, "legacy_account_not_deletable", "the original owner account and its adopted computer cannot be deleted"}
+		return target, &accountDeleteError{409, "legacy_account_not_deletable", "the original owner account and its adopted Bot computer cannot be deleted"}
 	}
 	if !target.Disabled {
 		return target, &accountDeleteError{409, "account_not_deactivated", "deactivate the account before deleting it"}

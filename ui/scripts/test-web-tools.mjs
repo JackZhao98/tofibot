@@ -143,7 +143,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   {
     reset();
     const t = await open();
-    assert.deepEqual(await ids(t.page, "search"), ["native", "tavily", "brave", "searxng"], "search chain: the model's own search first, no computer row without a computer");
+    assert.deepEqual(await ids(t.page, "search"), ["native", "tavily", "brave", "searxng"], "search chain: the model's own search first, no Bot computer row without a Bot computer");
     assert.deepEqual(await ids(t.page, "fetch"), ["builtin", "firecrawl", "brightdata"]);
     for (const id of ["tavily", "brave", "firecrawl", "brightdata"]) {
       assert.equal(await row(t.page, id === "firecrawl" || id === "brightdata" ? "fetch" : "search", id).locator('[data-tag="paid"]').count(), 1, `${id} is marked paid`);
@@ -294,7 +294,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await row(t.page, "search", "tavily").getByRole("switch").click();
     await t.page.waitForFunction(() => document.querySelector('.web-row[data-chain="search"][data-id="tavily"]')?.dataset.status === "ready");
     await t.close();
-    console.log("PASS switches turn sources off and on; the computer row follows the computer");
+    console.log("PASS switches turn sources off and on; the Bot computer row follows the Bot computer");
   }
 
   // ---- 6b. Daily limit: the cap is adjustable; a paid source at its cap says so and shows its count.

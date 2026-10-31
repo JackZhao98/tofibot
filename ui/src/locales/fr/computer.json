@@ -6,14 +6,14 @@
       "resource_limit_count_other": "Ressources du bureau partagé indisponibles ({{count}} sessions actives). Réessayez plus tard.",
       "resource_limit": "Ressources du bureau partagé indisponibles. Réessayez plus tard.",
       "stopping": "Le bureau partagé est en cours d'arrêt. Réessayez dans un instant.",
-      "busy": "L'ordinateur exécute une autre action. Réessayez dans un instant.",
-      "not_configured": "L'ordinateur partagé n'est pas encore configuré. Terminez d'abord l'installation du serveur.",
-      "failed": "L'action sur l'ordinateur a échoué. Réessayez plus tard.",
+      "busy": "L'ordinateur Bot exécute une autre action. Réessayez dans un instant.",
+      "not_configured": "L'ordinateur Bot n'est pas encore configuré. Terminez d'abord l'installation du serveur.",
+      "failed": "L'action sur l'ordinateur Bot a échoué. Réessayez plus tard.",
       "capture_failed": "Impossible de capturer l'écran",
-      "action_failed": "Échec de l'action sur l'ordinateur",
+      "action_failed": "Échec de l'action sur l'ordinateur Bot",
       "switching": "Le bureau est en cours de bascule ou de préparation. Réessayez dans un instant.",
       "unreachable": "Le bureau est injoignable pour le moment. Réessayez plus tard.",
-      "connection_lost": "Connexion à l'ordinateur indisponible. Nouvelle tentative…"
+      "connection_lost": "Connexion à l'ordinateur Bot indisponible. Nouvelle tentative…"
     },
     "phase": {
       "checking": "Vérification de l'environnement",
@@ -25,11 +25,11 @@
       "ready": "Prêt"
     },
     "state": {
-      "starting": "Préparation de l'ordinateur partagé",
-      "ready": "Ordinateur prêt",
-      "error": "Échec de la préparation de l'ordinateur",
-      "stopped": "Ordinateur arrêté",
-      "other": "Ordinateur : {{state}}"
+      "starting": "Préparation de l'ordinateur Bot",
+      "ready": "Ordinateur Bot prêt",
+      "error": "Échec de la préparation de l'ordinateur Bot",
+      "stopped": "Ordinateur Bot arrêté",
+      "other": "Ordinateur Bot : {{state}}"
     },
     "other_bot": "Un autre Bot",
     "announce": {
@@ -39,16 +39,16 @@
       "fallback": "Bureau connecté, passage à la vue par captures",
       "recovering": "Bureau connecté, rétablissement de l'image"
     },
-    "shrink_aria": "Réduire l'ordinateur partagé",
-    "expand_aria": "Agrandir l'ordinateur partagé",
+    "shrink_aria": "Réduire l'ordinateur Bot",
+    "expand_aria": "Agrandir l'ordinateur Bot",
     "shrink": "Réduire",
     "expand": "Agrandir",
     "enlarge_hint": "Cliquer pour agrandir",
-    "hide_aria": "Masquer l'ordinateur partagé",
+    "hide_aria": "Masquer l'ordinateur Bot",
     "minimize": "Réduire dans la barre",
     "close": "Fermer",
-    "close_aria": "Fermer l'ordinateur partagé",
-    "title": "Ordinateur partagé",
+    "close_aria": "Fermer l'ordinateur Bot",
+    "title": "Ordinateur Bot",
     "status": {
       "failed": "Échec de la connexion",
       "connecting_preview": "Connexion de l'aperçu…",
@@ -56,9 +56,9 @@
       "booting": "Démarrage…",
       "you": "Vous avez le contrôle",
       "bot": "{{name}} est aux commandes",
-      "idle": "Ordinateur partagé inactif"
+      "idle": "Ordinateur Bot inactif"
     },
-    "power_hint": "Masquer l'écran (l'ordinateur reste allumé)",
+    "power_hint": "Masquer l'écran (l'ordinateur Bot reste allumé)",
     "control": {
       "release": "Rendre le contrôle",
       "take": "Prendre le contrôle",
@@ -67,11 +67,11 @@
     "phase_label": "Étape : {{phase}}",
     "state_synced": "État à jour",
     "retry_prepare": "Relancer la préparation",
-    "screen_alt": "Écran de l'ordinateur partagé",
+    "screen_alt": "Écran de l'ordinateur Bot",
     "launch": {
-      "failed_aria": "Impossible de se connecter à l'ordinateur",
-      "preview_aria": "Connexion à l'aperçu de l'ordinateur",
-      "starting_aria": "Démarrage de l'ordinateur",
+      "failed_aria": "Impossible de se connecter à l'ordinateur Bot",
+      "preview_aria": "Connexion à l'aperçu de l'ordinateur Bot",
+      "starting_aria": "Démarrage de l'ordinateur Bot",
       "failed": "Échec de la connexion. Rouvrez dans un instant."
     },
     "tools": {
@@ -87,11 +87,11 @@
     "video_aria": "Vidéo en direct du bureau du Bot",
     "pointer_click": "{{name}} · clic",
     "placeholder": {
-      "waking": "Réveil de l'ordinateur",
+      "waking": "Réveil de l'ordinateur Bot",
       "connecting": "Connexion à l'écran",
       "resuming": "Reprise depuis l'hibernation",
       "resuming_phase": "Réveil · {{phase}}",
-      "waking_computer": "Réveil de l’ordinateur…",
+      "waking_computer": "Réveil de l’ordinateur Bot…",
       "starting_desktop": "Démarrage du bureau…",
       "hibernated": "En veille · réveil en cours…",
       "hibernating": "Passage en hibernation…",
@@ -99,8 +99,8 @@
       "retry": "Réessayer"
     },
     "fold": "Replier",
-    "fold_aria": "Replier l'ordinateur partagé en bandeau",
-    "unfold_aria": "Afficher l'ordinateur partagé"
+    "fold_aria": "Replier l'ordinateur Bot en bandeau",
+    "unfold_aria": "Afficher l'ordinateur Bot"
   },
   "remote": {
     "error": {
@@ -132,9 +132,9 @@
       "open": "Clavier"
     },
     "release": "Libérer le contrôle",
-    "bot_waiting": "Un Bot demande l'ordinateur. Il prendra le relais 15 secondes après votre dernière action.",
+    "bot_waiting": "Un Bot demande l'ordinateur Bot. Il prendra le relais 15 secondes après votre dernière action.",
     "surface_aria": "Zone de contrôle du bureau distant",
-    "surface_preview_aria": "Aperçu de l'ordinateur partagé ; faites glisser pour déplacer",
+    "surface_preview_aria": "Aperçu de l'ordinateur Bot ; faites glisser pour déplacer",
     "keyboard_input_aria": "Saisie clavier du bureau distant",
     "copy": {
       "note": "Le navigateur n'a pas autorisé l'écriture dans le presse-papiers. Copiez le texte ci-dessous.",
@@ -193,20 +193,20 @@
   },
   "env": {
     "unavailable": "L'environnement d'exécution est indisponible.",
-    "start_failed": "L'ordinateur n'a pas démarré. Réessayez plus tard.",
+    "start_failed": "L'ordinateur Bot n'a pas démarré. Réessayez plus tard.",
     "title": "Environnement d'exécution",
     "description": "Linux, Google Chrome, le navigateur de fichiers et le terminal partagent le même environnement. Chaque Bot a son propre dossier de travail et peut accéder à ceux des autres.",
     "state": {
-      "ready": "Ordinateur partagé prêt",
-      "starting": "Préparation de l'ordinateur",
-      "stopped": "Ordinateur partagé arrêté",
-      "waiting": "En attente de l'ordinateur"
+      "ready": "Ordinateur Bot prêt",
+      "starting": "Préparation de l'ordinateur Bot",
+      "stopped": "Ordinateur Bot arrêté",
+      "waiting": "En attente de l'ordinateur Bot"
     },
     "workspace": "Dossier de travail {{path}}",
     "workspace_idle_one": "Dossier de travail {{path}} · le bureau se ferme après {{count}} minute d'inactivité",
     "workspace_idle_many": "Dossier de travail {{path}} · le bureau se ferme après {{count}} minutes d'inactivité",
     "workspace_idle_other": "Dossier de travail {{path}} · le bureau se ferme après {{count}} minutes d'inactivité",
-    "retry": "Préparer à nouveau l'ordinateur"
+    "retry": "Préparer à nouveau l'ordinateur Bot"
   },
   "mac": {
     "title": "Autorisations Mac",
@@ -233,19 +233,19 @@
     "cancel": "Annuler",
     "error": {
       "restart_incomplete": "Le redémarrage n'a pas abouti. Réessayez.",
-      "read": "Impossible de charger les ressources de l'ordinateur. Réessayez.",
+      "read": "Impossible de charger les ressources de l'ordinateur Bot. Réessayez.",
       "out_of_range": "Cette configuration dépasse les limites autorisées. Vérifiez-la et réessayez.",
       "save": "Échec de l'enregistrement. Réessayez.",
-      "busy": "L'ordinateur exécute une tâche ou applique une configuration. Arrêtez d'abord la tâche, puis réessayez.",
+      "busy": "L'ordinateur Bot exécute une tâche ou applique une configuration. Arrêtez d'abord la tâche, puis réessayez.",
       "restart_request": "La demande de redémarrage n'a pas abouti. Réessayez.",
-      "start_failed": "L'ordinateur n'a pas pu démarrer. Réessayez."
+      "start_failed": "L'ordinateur Bot n'a pas pu démarrer. Réessayez."
     },
     "status": {
       "applied": "Configuration appliquée.",
       "saved_pending": "Configuration enregistrée. Elle s'appliquera après un redémarrage.",
       "saved": "Configuration enregistrée."
     },
-    "draft_label": "Ressources de l'ordinateur",
+    "draft_label": "Ressources de l'ordinateur Bot",
     "title": "Ressources",
     "adjust": "Ajuster",
     "unit": {
@@ -276,26 +276,26 @@
     "saving": "Enregistrement…",
     "summary": {
       "title": "Modifications",
-      "restart": "Prend effet après le redémarrage de l'ordinateur.",
+      "restart": "Prend effet après le redémarrage de l'ordinateur Bot.",
       "none": "Aucune modification pour l'instant. Déplacez un curseur pour ajuster."
     },
-    "admin_sets": "Votre administrateur définit la taille de cet ordinateur.",
-    "admin_sets_admin": "Votre administrateur définit la taille de cet ordinateur. Ouvrez le compte dans la console d'administration pour la modifier.",
+    "admin_sets": "Votre administrateur définit la taille de cet ordinateur Bot.",
+    "admin_sets_admin": "Votre administrateur définit la taille de cet ordinateur Bot. Ouvrez le compte dans la console d'administration pour la modifier.",
     "open_admin": "Ouvrir la console d'administration"
   },
   "credentials": {
     "error": {
       "exists": "Un fichier porte déjà ce nom. Choisissez-en un autre.",
       "env_exists": "Une variable portant ce nom est déjà enregistrée. Supprimez-la d’abord dans la liste ou choisissez un autre nom.",
-      "busy": "L'ordinateur traite une tâche. Réessayez plus tard.",
+      "busy": "L'ordinateur Bot traite une tâche. Réessayez plus tard.",
       "private_key_invalid": "Clé privée non reconnue. Vérifiez le format du fichier.",
       "private_key_filename": "Utilisez un nom de fichier de clé privée, par exemple id_ed25519_work. N'utilisez pas .pub, config ni known_hosts.",
-      "ssh_dir": "Le dossier .ssh de l'ordinateur est indisponible. Vérifiez-le et réessayez.",
-      "openssh_missing": "Les outils OpenSSH ne sont pas installés sur l'ordinateur.",
+      "ssh_dir": "Le dossier .ssh de l'ordinateur Bot est indisponible. Vérifiez-le et réessayez.",
+      "openssh_missing": "Les outils OpenSSH ne sont pas installés sur l'ordinateur Bot.",
       "key_io": "Impossible de lire ou de configurer les clés. Réessayez plus tard.",
       "load": "Impossible de charger la configuration. Réessayez.",
       "switch_unsaved": "Enregistrez ou abandonnez votre saisie avant de changer de type.",
-      "no_bot": "Créez d'abord un Bot, puis configurez l'ordinateur partagé.",
+      "no_bot": "Créez d'abord un Bot, puis configurez l'ordinateur Bot.",
       "operation": "L'opération a échoué. Réessayez.",
       "required": "Remplissez les champs obligatoires et réessayez.",
       "name_format": "Le format du nom n'est pas valide. Vérifiez-le et réessayez.",
@@ -314,11 +314,11 @@
     },
     "status": {
       "saved_applied": "Enregistré et appliqué. Les nouvelles commandes et les nouveaux terminaux le prendront en compte.",
-      "saved_not_applied": "Enregistré, mais pas encore appliqué à l'ordinateur. Vous pouvez réessayer depuis la liste.",
+      "saved_not_applied": "Enregistré, mais pas encore appliqué à l'ordinateur Bot. Vous pouvez réessayer depuis la liste.",
       "generated": "Clé générée. Copiez la clé publique vers le service cible.",
       "imported": "Clé importée.",
-      "applied": "Appliqué à l'ordinateur partagé.",
-      "deleted": "Élément enregistré supprimé. La copie sur l'ordinateur est conservée."
+      "applied": "Appliqué à l'ordinateur Bot.",
+      "deleted": "Élément enregistré supprimé. La copie sur l'ordinateur Bot est conservée."
     },
     "tab": {
       "env": "Variables d'environnement",
@@ -328,12 +328,12 @@
       "ssh": "Clés SSH"
     },
     "tabs_aria": "Type d'identifiant",
-    "apply": "Appliquer à l'ordinateur",
+    "apply": "Appliquer à l'ordinateur Bot",
     "delete": "Supprimer",
-    "delete_question": "Supprimer cet élément enregistré ? La copie sur l'ordinateur est conservée.",
+    "delete_question": "Supprimer cet élément enregistré ? La copie sur l'ordinateur Bot est conservée.",
     "note": {
       "env": "Partagé par tous les Bots. S'applique aux commandes lancées ensuite.",
-      "ssh": "Clés présentes sur l'ordinateur partagé. La liste se synchronise automatiquement."
+      "ssh": "Clés présentes sur l'ordinateur Bot. La liste se synchronise automatiquement."
     },
     "cancel": "Annuler",
     "add_env": "Ajouter une variable",
@@ -354,8 +354,8 @@
       "env_name_hint": "Lettres majuscules, chiffres et tiret bas uniquement ; ne doit pas commencer par un chiffre. Les minuscules, espaces et traits d'union sont convertis pendant la saisie."
     },
     "choose_file": "Choisir un fichier",
-    "private_key_note": "Les clés privées ne sont jamais envoyées dans le chat. Les clés chiffrées doivent être déverrouillées sur l'ordinateur.",
-    "generate_note": "Génère une clé Ed25519 ; la clé privée reste sur l'ordinateur partagé. Les fichiers existants ne sont jamais écrasés.",
+    "private_key_note": "Les clés privées ne sont jamais envoyées dans le chat. Les clés chiffrées doivent être déverrouillées sur l'ordinateur Bot.",
+    "generate_note": "Génère une clé Ed25519 ; la clé privée reste sur l'ordinateur Bot. Les fichiers existants ne sont jamais écrasés.",
     "submit": {
       "working": "Traitement…",
       "save_apply": "Enregistrer et appliquer",
@@ -376,24 +376,27 @@
       "copy_public": "Copier la clé publique",
       "public_aria": "Clé publique {{name}}"
     },
-    "no_bot_note": "Créez un Bot pour lire les clés présentes sur l'ordinateur partagé.",
-    "empty_ssh": "Aucune clé SSH sur l'ordinateur",
+    "no_bot_note": "Créez un Bot pour lire les clés présentes sur l'ordinateur Bot.",
+    "empty_ssh": "Aucune clé SSH sur l'ordinateur Bot",
     "legacy_title": "Clés enregistrées",
-    "legacy_note": "Configuration enregistrée précédemment. Vous pouvez l'appliquer à l'ordinateur.",
-    "sync_pending": "L'ordinateur est occupé. La synchronisation se fera automatiquement.",
+    "legacy_note": "Configuration enregistrée précédemment. Vous pouvez l'appliquer à l'ordinateur Bot.",
+    "sync_pending": "L'ordinateur Bot est occupé. La synchronisation se fera automatiquement.",
     "truncated": "Trop de clés : seule une partie est affichée.",
     "retry": "Réessayer"
   },
+  "kind": {
+    "vm": "VM intégrée"
+  },
   "none": {
-    "title": "Ce serveur n'a pas d'ordinateur",
-    "body": "Les Bots fonctionnent sans : ils discutent, retiennent, suivent des planifications et utilisent les services connectés. Ce qui demande un vrai navigateur, un shell ou un bureau attend qu'un ordinateur soit ajouté.",
-    "options": "Ajouter un ordinateur",
+    "title": "Ce serveur n'a pas d'ordinateur Bot",
+    "body": "Les Bots fonctionnent sans : ils discutent, retiennent, suivent des planifications et utilisent les services connectés. Ce qui demande un vrai navigateur, un shell ou un bureau attend qu'un ordinateur Bot soit ajouté.",
+    "options": "Ajouter un ordinateur Bot",
     "soon": "Bientôt",
     "kvm": {
-      "name": "Sur ce serveur",
-      "what": "Faites tourner les ordinateurs des Bots sur le matériel de ce serveur. L'hôte doit avoir KVM et au moins 4 Gio de mémoire.",
+      "name": "VM intégrée",
+      "what": "Faites tourner les ordinateurs Bot sur le matériel de ce serveur. L'hôte doit avoir KVM et au moins 4 Gio de mémoire.",
       "run": "À exécuter sur l'hôte du serveur :",
-      "after": "Cette page se met à jour toute seule dès que l'ordinateur est rattaché."
+      "after": "Cette page se met à jour toute seule dès que l'ordinateur Bot est rattaché."
     },
     "own": {
       "name": "Ton propre ordinateur",
@@ -401,13 +404,13 @@
     },
     "e2b": {
       "name": "Bac à sable cloud E2B",
-      "what": "Loue un ordinateur chez E2B avec ta propre clé."
+      "what": "Loue un ordinateur Bot chez E2B avec ta propre clé."
     }
   },
   "contents": {
-    "title": "Ce qui se trouve sur cet ordinateur",
-    "description": "Ces éléments sont sur l’ordinateur, pas sur le serveur. Si l’ordinateur est réinitialisé ou remplacé, ils sont perdus.",
-    "badge": "Sur l’ordinateur",
+    "title": "Ce qui se trouve sur cet ordinateur Bot",
+    "description": "Ces éléments sont sur l’ordinateur Bot, pas sur le serveur. Si l’ordinateur Bot est réinitialisé ou remplacé, ils sont perdus.",
+    "badge": "Sur l’ordinateur Bot",
     "browser": {
       "name": "Connexions du navigateur",
       "what": "Sites où le Bot est connecté. Une réinitialisation le déconnecte de tous."
@@ -425,7 +428,7 @@
     },
     "config": {
       "name": "Environnement et clés",
-      "what": "Variables et clés SSH de cet ordinateur. Elles sont supprimées avec lui.",
+      "what": "Variables et clés SSH de cet ordinateur Bot. Elles sont supprimées avec lui.",
       "saved_one": "{{count}} élément enregistré",
       "saved_many": "{{count}} d’éléments enregistrés",
       "saved_other": "{{count}} éléments enregistrés",
@@ -436,7 +439,7 @@
     "retry": "Réessayer"
   },
   "loss": {
-    "title": "Perdu avec le disque de l’ordinateur",
+    "title": "Perdu avec le disque de l’ordinateur Bot",
     "browser": "Connexions du navigateur : le Bot est déconnecté de tous les sites.",
     "tools": "Outils installés : le Bot les réinstalle quand il en a besoin.",
     "files": "Fichiers de travail ni envoyés ni enregistrés dans Fichiers.",
@@ -447,54 +450,54 @@
     "keys_many": "{{count}} de clés SSH : {{names}}",
     "keys_other": "{{count}} clés SSH : {{names}}",
     "no_config": "Aucune variable d’environnement ni clé SSH n’est enregistrée dans les réglages.",
-    "pending_one": "{{count}} fichier n’existe que sur l’ordinateur et n’a pas encore été copié vers le serveur.",
-    "pending_many": "{{count}} de fichiers n’existent que sur l’ordinateur et n’ont pas encore été copiés vers le serveur.",
-    "pending_other": "{{count}} fichiers n’existent que sur l’ordinateur et n’ont pas encore été copiés vers le serveur.",
-    "loading": "Lecture du contenu de l’ordinateur…",
+    "pending_one": "{{count}} fichier n’existe que sur l’ordinateur Bot et n’a pas encore été copié vers le serveur.",
+    "pending_many": "{{count}} de fichiers n’existent que sur l’ordinateur Bot et n’ont pas encore été copiés vers le serveur.",
+    "pending_other": "{{count}} fichiers n’existent que sur l’ordinateur Bot et n’ont pas encore été copiés vers le serveur.",
+    "loading": "Lecture du contenu de l’ordinateur Bot…",
     "load_failed": "Impossible de lire les variables, clés et fichiers en attente de copie enregistrés. Ils seront supprimés aussi."
   },
   "attach": {
-    "loading": "Lecture de l'affectation de l'ordinateur…",
+    "loading": "Lecture de l'affectation de l'ordinateur Bot…",
     "state": {
       "attached_running": "Rattaché · En marche",
       "attached_stopped": "Rattaché · Arrêté",
       "detached": "Détaché",
       "lost": "Rattaché, ne répond pas",
       "detaching": "Détachement en cours",
-      "none": "Aucun ordinateur"
+      "none": "Aucun ordinateur Bot"
     },
     "action": {
       "attach": "Rattacher",
       "detach": "Détacher…"
     },
     "help": {
-      "attached": "Détacher conserve les fichiers de ce compte. Les Bots continuent à travailler sans ordinateur.",
-      "detached": "Les Bots travaillent sans ordinateur jusqu'à ce qu'un soit rattaché. Le rattachement ne demande aucun redémarrage.",
-      "none": "Ce serveur n'a pas de backend d'ordinateur."
+      "attached": "Détacher conserve les fichiers de ce compte. Les Bots continuent à travailler sans ordinateur Bot.",
+      "detached": "Les Bots travaillent sans ordinateur Bot jusqu'à ce qu'un soit rattaché. Le rattachement ne demande aucun redémarrage.",
+      "none": "Ce serveur n'a pas de backend d'ordinateur Bot."
     },
     "progress": {
-      "attaching": "Rattachement de l'ordinateur…",
-      "draining": "Vidage : les outils de l'ordinateur en cours terminent leur étape…",
-      "syncing": "Synchronisation : copie des fichiers de l'ordinateur vers le serveur…"
+      "attaching": "Rattachement de l'ordinateur Bot…",
+      "draining": "Vidage : les outils de l'ordinateur Bot en cours terminent leur étape…",
+      "syncing": "Synchronisation : copie des fichiers de l'ordinateur Bot vers le serveur…"
     },
     "done": {
-      "detach": "Ordinateur détaché.",
+      "detach": "Ordinateur Bot détaché.",
       "copied": "Fichiers copiés sur le serveur : {{count}}.",
       "interrupted": "Appels d'outils terminés plus tôt : {{count}}.",
-      "left": "Fichiers restés sur l'ordinateur : {{count}}."
+      "left": "Fichiers restés sur l'ordinateur Bot : {{count}}."
     },
     "error": {
-      "read": "L'affectation de l'ordinateur n'a pas pu être lue.",
+      "read": "L'affectation de l'ordinateur Bot n'a pas pu être lue.",
       "generic": "La modification n'a pas pu être faite. Réessayez.",
-      "computer_backend_unavailable": "Aucun backend d'ordinateur n'est configuré sur ce serveur.",
-      "computer_attach_failed": "L'ordinateur n'a pas pu être rattaché.",
-      "computer_detach_failed": "L'ordinateur n'a pas pu être détaché.",
-      "forbidden": "Seul un administrateur peut rattacher ou détacher un ordinateur.",
-      "unavailable": "Seul un administrateur peut rattacher ou détacher un ordinateur."
+      "computer_backend_unavailable": "Aucun backend d'ordinateur Bot n'est configuré sur ce serveur.",
+      "computer_attach_failed": "L'ordinateur Bot n'a pas pu être rattaché.",
+      "computer_detach_failed": "L'ordinateur Bot n'a pas pu être détaché.",
+      "forbidden": "Seul un administrateur peut rattacher ou détacher un ordinateur Bot.",
+      "unavailable": "Seul un administrateur peut rattacher ou détacher un ordinateur Bot."
     },
     "confirm": {
-      "title": "Détacher l'ordinateur ?",
-      "impact": "Les outils de l'ordinateur en cours s'arrêtent après l'étape en cours. Les fichiers de l'ordinateur sont d'abord copiés sur le serveur. Le Bot continue de travailler sans ordinateur, et vous pouvez le rattacher plus tard.",
+      "title": "Détacher l'ordinateur Bot ?",
+      "impact": "Les outils de l'ordinateur Bot en cours s'arrêtent après l'étape en cours. Les fichiers de l'ordinateur Bot sont d'abord copiés sur le serveur. Le Bot continue de travailler sans ordinateur Bot, et vous pouvez le rattacher plus tard.",
       "cancel": "Annuler",
       "action": "Détacher"
     }

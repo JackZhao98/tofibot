@@ -16,7 +16,7 @@ func (s *Server) routeComputerResources(w http.ResponseWriter, r *http.Request, 
 	}
 	resources, ok := s.computer().(computer.Resourcer)
 	if !ok {
-		writeErr(w, 404, "not_supported", "this computer has no adjustable resources")
+		writeErr(w, 404, "not_supported", "this Bot computer has no adjustable resources")
 		return true
 	}
 	if path == "computer/resources/apply" {
@@ -28,7 +28,7 @@ func (s *Server) routeComputerResources(w http.ResponseWriter, r *http.Request, 
 			Confirm bool `json:"confirm"`
 		}
 		if err := decodeStrict(r, 4096, &value); err != nil || !value.Confirm {
-			writeErr(w, 400, "confirmation_required", "Confirm restarting the shared computer; all desktops and terminals will disconnect.")
+			writeErr(w, 400, "confirmation_required", "Confirm restarting the Bot computer; all desktops and terminals will disconnect.")
 			return true
 		}
 		var active int
@@ -46,7 +46,7 @@ func (s *Server) routeComputerResources(w http.ResponseWriter, r *http.Request, 
 		}
 		out, err := resources.ApplyResources(r.Context())
 		if err != nil {
-			writeErr(w, 409, "restart_unavailable", "The computer cannot restart right now. Try again shortly: "+err.Error())
+			writeErr(w, 409, "restart_unavailable", "The Bot computer cannot restart right now. Try again shortly: "+err.Error())
 		} else {
 			writeJSON(w, 202, out)
 		}

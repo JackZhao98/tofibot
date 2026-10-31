@@ -37,3 +37,4 @@
 .resource-sheet.is-flush .resource-sheet-actions{padding:12px 16px}
 .admin-computer-size{min-width:0}
 @media(max-width:700px){.resource-sheet.is-flush .resource-field{padding:14px 16px}.resource-sheet.is-flush .resource-sheet-actions{padding:12px 16px}}
+.computer-kind{color:var(--muted);font-weight:400}

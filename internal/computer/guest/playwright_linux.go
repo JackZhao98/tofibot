@@ -137,7 +137,7 @@ func (s *Service) stopPlaywright() {
 func startPlaywright(ctx context.Context, root, botDir string, port int) (*playwrightSession, error) {
 	node, err := exec.LookPath("node")
 	if err != nil {
-		return nil, errors.New("browser engine needs node in the computer image")
+		return nil, errors.New("browser engine needs node in the Bot computer image")
 	}
 	cli := filepath.Join(playwrightMCPDir, "node_modules", "@playwright", "mcp", "cli.js")
 	cmd := exec.Command(node, cli,

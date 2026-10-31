@@ -15,7 +15,7 @@ description: Change code in a project, run it, and ship a verified archive.
 
 - Run the result the way the recipient will: unpack the archive in a fresh folder and run the documented command.
 - Every claim in the reply is true of the delivered files. A claim that something works rests on an exit code you saw, and the reply quotes the exact command and its real output. A command that cannot run on the computer is named, with the reason.
-- Publish only the final archive; scratch files and logs stay on the computer.
+- Publish only the final archive; scratch files and logs stay on the Bot computer.
 
 ## Tools
 

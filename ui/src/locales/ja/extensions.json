@@ -154,7 +154,7 @@
     "endpoint_changed_oauth": "サーバーの URL が変わりました。保存前に、新しい URL の OAuth 設定を入力し直してください。",
     "invalid_auth_url": "認可 URL が無効です",
     "metadata_changed_secret": "認可メタデータの URL が変わりました。保存前に、保存済みのクライアント シークレットを入力し直すか消去してください。",
-    "needs_bot": "共有コンピュータで認可するには、先に Bot を作成してください。",
+    "needs_bot": "Bot コンピューターで認可するには、先に Bot を作成してください。",
     "oauth_discovery_failed": "認可情報の取得またはクライアントの登録ができません。サーバーの URL を確認して、もう一度お試しください。",
     "oauth_start_failed": "認可を開始できません。サーバーの URL を確認して、もう一度お試しください。",
     "offline": "サーバーに接続できません。もう一度お試しください。",
@@ -203,7 +203,7 @@
     "project_hint": "Google Cloud で OAuth クライアントと同じプロジェクトを選びます。アプリがテストモードの間は、Audience で現在のアカウントをテストユーザーに追加してください。",
     "preview_hint": "Cloud プロジェクトを Google Workspace Developer Preview Program（developers.google.com/workspace/preview）に登録します。未登録だと、サインインできてもツール呼び出しはすべて拒否されます。",
     "agentic_hint": "「Use this client for an AI-powered agent」にチェックします（Google Auth Platform → Clients）。2026-11-11 以降、未設定のクライアントは Workspace MCP に拒否されます。2026-11-12 以降は設定が固定されるため、未設定のクライアントは作り直しが必要です。",
-    "redirect_hint": "Google Auth Platform → Clients のウェブアプリケーションで、使用する URL を 1 つずつ Authorized redirect URIs（JavaScript origins ではありません）に追加します。2 つの入口で同じ認証情報を共有できます。アドレス、ポート、パスは完全に一致させてください。HTTP の共有コンピュータで使う動的リダイレクトはこの固定設定に対応しないため、HTTPS かアプリの利用をおすすめします。",
+    "redirect_hint": "Google Auth Platform → Clients のウェブアプリケーションで、使用する URL を 1 つずつ Authorized redirect URIs（JavaScript origins ではありません）に追加します。2 つの入口で同じ認証情報を共有できます。アドレス、ポート、パスは完全に一致させてください。HTTP の Bot コンピューターで使う動的リダイレクトはこの固定設定に対応しないため、HTTPS かアプリの利用をおすすめします。",
     "test_users": "テストユーザーを設定",
     "workspace": {
       "title": "詳細設定: Google Workspace MCP(デベロッパー プレビュー)",
@@ -335,14 +335,14 @@
     "title": "{{title}} にサインイン"
   },
   "route": {
-    "desktop": "システムのブラウザでログインすると、完了後このアプリに自動で戻ります。共有コンピュータは使いません。",
-    "desktop_outdated": "このバージョンのアプリはローカル認可にまだ対応していません。アプリを更新してください。共有コンピュータに自動で切り替えることはありません。",
-    "http_blocked": "HTTP の直接接続では安全にリダイレクトを受け取れず、共有コンピュータも設定されていません。HTTPS か Tofi アプリを使ってください。",
+    "desktop": "システムのブラウザでログインすると、完了後このアプリに自動で戻ります。Bot コンピューターは使いません。",
+    "desktop_outdated": "このバージョンのアプリはローカル認可にまだ対応していません。アプリを更新してください。Bot コンピューターに自動で切り替えることはありません。",
+    "http_blocked": "HTTP の直接接続では安全にリダイレクトを受け取れず、Bot コンピューターも設定されていません。HTTPS か Tofi アプリを使ってください。",
     "loading": "認可設定を読み込み中…",
     "loopback_paste": "このサービスは 127.0.0.1 へのリダイレクトのみ受け付けます。お使いのブラウザでサインインし、リダイレクト先のアドレスをここに貼り付けてください。",
     "public_origin_missing": "サーバーに正しい TOFI_PUBLIC_ORIGIN（公開 HTTPS アドレス）を設定してから再試行してください。",
-    "vm": "現在 HTTP で直接接続しているため、この入口だけ共有コンピュータで認可します。サービスがローカルへのリダイレクトに対応している必要があります。HTTPS か Tofi アプリの利用をおすすめします。",
-    "web": "このデバイスのブラウザでログインし、Tofi の HTTPS サーバーにリダイレクトします。共有コンピュータは使いません。"
+    "vm": "現在 HTTP で直接接続しているため、この入口だけ Bot コンピューターで認可します。サービスがローカルへのリダイレクトに対応している必要があります。HTTPS か Tofi アプリの利用をおすすめします。",
+    "web": "このデバイスのブラウザでログインし、Tofi の HTTPS サーバーにリダイレクトします。Bot コンピューターは使いません。"
   },
   "skillCatalog": {
     "document_delivery": {
@@ -449,8 +449,8 @@
     },
     "footer": "完了すると自動で戻ります。ほかの Bot の画面操作は順番待ちです。",
     "reconnecting": "接続が一時的に切れました。再試行中…",
-    "screen_alt": "共有コンピュータ",
-    "subtitle": "共有コンピュータで認可を完了します"
+    "screen_alt": "Bot コンピューター",
+    "subtitle": "Bot コンピューターで認可を完了します"
   },
   "tools": {
     "changed": "変更あり",

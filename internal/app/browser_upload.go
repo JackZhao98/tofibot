@@ -52,7 +52,7 @@ def check_files(opts):
     out, total = [], 0
     for name in names:
         if not isinstance(name, str) or not name or "\0" in name or not name.startswith("/"):
-            raise UploadError("upload_bad_path", "file paths must be absolute paths on the computer")
+            raise UploadError("upload_bad_path", "file paths must be absolute paths on the Bot computer")
         # realpath resolves every symlink, so a link that leaves the workspace is refused.
         real = os.path.realpath(name)
         if not real.startswith(root + os.sep):
@@ -341,7 +341,7 @@ func (s *Server) stageUploadAttachments(ctx context.Context, r Run, ids []string
 			return nil, tooloutcome.InvalidArguments(fmt.Sprintf("browser.upload: attachment %s is larger than %d MB", id, browserUploadMaxFile>>20))
 		}
 		if _, err := s.pushGuestInput(ctx, r, c.Attachment, paths[c.ID]); err != nil {
-			return nil, fmt.Errorf("browser.upload: could not copy attachment %s to the computer: %w", id, err)
+			return nil, fmt.Errorf("browser.upload: could not copy attachment %s to the Bot computer: %w", id, err)
 		}
 		out = append(out, paths[c.ID])
 	}

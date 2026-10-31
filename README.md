@@ -11,9 +11,9 @@ on [GitHub Releases](https://github.com/JackZhao98/tofibot/releases).
 
 Recorded on a live TOFI install. Watch the [95-second demo](https://tofibot.com/media/tofi-demo.mp4).
 
-| Ask a Bot | A Bot uses its computer | Bots hand work to Bots |
+| Ask a Bot | A Bot uses its Bot computer | Bots hand work to Bots |
 |---|---|---|
-| <img src="https://tofibot.com/media/tofi-ask.gif" alt="A Bot answers a question with sources" width="100%"> | <img src="https://tofibot.com/media/tofi-computer.gif" alt="A Bot opens a web page in its computer browser" width="100%"> | <img src="https://tofibot.com/media/tofi-handoff.gif" alt="In a group, one Bot picks and the other writes a Markdown file" width="100%"> |
+| <img src="https://tofibot.com/media/tofi-ask.gif" alt="A Bot answers a question with sources" width="100%"> | <img src="https://tofibot.com/media/tofi-computer.gif" alt="A Bot opens a web page in its Bot computer browser" width="100%"> | <img src="https://tofibot.com/media/tofi-handoff.gif" alt="In a group, one Bot picks and the other writes a Markdown file" width="100%"> |
 
 - Direct and group conversations, streaming replies, attachments and generated files.
 - Persistent queues, scheduled work, cancellation and retry handling.
@@ -21,9 +21,10 @@ Recorded on a live TOFI install. Watch the [95-second demo](https://tofibot.com/
 - MCP and Skills management, credentials and supported OAuth connections.
 - Server-side web search and web fetch, with an ordered chain of providers.
 - Invite-only accounts, Admin management and per-account data isolation.
-- Optional: one Firecracker virtual computer for each account. Bots work without it.
+- Optional: one Bot computer for each account. Today its kind is the built-in virtual
+  machine (a Firecracker microVM on your server). Bots work without it.
 - Local connections (for example Gmail through gog) run in a separate tool runner
-  container, with or without a computer. An admin can attach or detach a computer
+  container, with or without a Bot computer. An admin can attach or detach a Bot computer
   while TOFI runs; the connections keep working.
 
 ## Install
@@ -31,13 +32,14 @@ Recorded on a live TOFI install. Watch the [95-second demo](https://tofibot.com/
 Use a dedicated Linux server or VM. TOFI supports x86_64 and aarch64.
 TOFI supports Ubuntu 22.04/24.04 and Debian 12/13.
 
-TOFI runs without a computer. The computer (a virtual desktop for each account,
-needs KVM) is an optional upgrade that you can add later.
+TOFI runs without a Bot computer. The Bot computer (a virtual desktop for each account,
+needs KVM) is an optional upgrade that you can add later. Its kind today is the
+built-in VM.
 
 ### Option A: one-command installer
 
 It installs Docker images, the `tofi` host tool, backups and updates.
-It also sets up a computer when the host has KVM.
+It also sets up a Bot computer when the host has KVM.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh | sudo bash
@@ -52,32 +54,32 @@ By default TOFI serves HTTPS with a self-signed certificate on port 8321.
 Compare the SHA-256 fingerprint that the installer prints with the one in your
 browser. On a cloud server, allow TCP 8321 in the firewall.
 
-### Option B: Docker Compose (no computer)
+### Option B: Docker Compose (no Bot computer)
 
 For a server without KVM, or if you want to manage Docker yourself. It uses the
 same pinned release images, with a data volume and HTTPS behind your own proxy or
 with Caddy. You make backups and updates yourself. The steps are in
-[deploy/compose/README.md](deploy/compose/README.md). To add a computer later,
+[deploy/compose/README.md](deploy/compose/README.md). To add a Bot computer later,
 use the installer on a host with KVM, then `sudo tofi computer add kvm`.
 
 ### Requirements
 
-| | Without a computer (server and web app) | With a computer (needs KVM) |
+| | Without a Bot computer (server and web app) | With a Bot computer (needs KVM) |
 |---|---|---|
 | Host | Any supported host | Host with `/dev/kvm`, TUN, cgroup v2 and AppArmor |
 | CPU | 2 vCPUs recommended | At least 2 vCPUs |
 | RAM | 2 GiB minimum, 4 GiB recommended | 4 GiB minimum, 8 GiB recommended |
 | Free disk | 10 GiB minimum, 20 GiB recommended | 30 GiB minimum, 40 GiB recommended |
 
-On a cloud VM, turn on nested virtualization to use a computer. A host without
+On a cloud VM, turn on nested virtualization to use a Bot computer. A host without
 KVM is not refused. The installer installs the server and web app only. Bots,
-conversations and local connections all work without a computer. You can add a
-computer later without a reinstall (the tool runner container and `iptables` are
+conversations and local connections all work without a Bot computer. You can add a
+Bot computer later without a reinstall (the tool runner container and `iptables` are
 part of every install):
 
 ```sh
 sudo tofi computer add kvm      # needs /dev/kvm
-sudo tofi computer remove       # computer disks are kept (--purge deletes them)
+sudo tofi computer remove       # Bot computer disks are kept (--purge deletes them)
 ```
 
 ### Install options
@@ -105,10 +107,10 @@ fails. The page shows the steps and reconnects when the App restarts. Turn on **
 plus one `sudo tofi status` (or the next reboot); until then the page keeps telling you to run the command.
 
 ```sh
-sudo tofi status               # installed and latest version, services, tool runner, computers
+sudo tofi status               # installed and latest version, services, tool runner, Bot computers
 sudo tofi update --check       # what an update would change, incl. the tool runner (exit 10 = update available)
 sudo tofi update               # back up, update, and roll back if the new version fails
-sudo tofi backup               # data, settings and computer disks, then verify
+sudo tofi backup               # data, settings and Bot computer disks, then verify
 sudo tofi backups              # list backups
 sudo tofi restore <id>         # restore a verified backup
 sudo tofi doctor               # check the install

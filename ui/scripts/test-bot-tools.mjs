@@ -136,7 +136,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await sw("acme_tracker").isChecked(), false);
     assert.equal(await conn(page, "github").getAttribute("data-off"), "true", "an off connection dims");
     assert.match(await page.locator('[data-group="web"] dl').innerText(), /Search\s+On · Claude native → Tavily\s+Fetch\s+On · Built-in → Firecrawl/, "the web chains in order, only the sources that are on");
-    assert.match(await page.locator('[data-group="computer"]').innerText(), /Every Bot uses the workspace computer/);
+    assert.match(await page.locator('[data-group="computer"]').innerText(), /Every Bot uses the Bot computer/);
     assert.equal(await page.locator('[data-group="builtin"] .disclosure-region').getAttribute("aria-hidden"), "true", "Built in is folded");
     assert.equal(await page.locator('.bot-skill-row').count(), 2, "Skills are the library checkboxes");
     assert.equal(await page.locator('[data-group="skills"] h2').count(), 0, "the group is the Skills heading; the Skills view adds none");
@@ -191,12 +191,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const {page, close} = await open({none: "1", computer: "none", nosearch: "1"});
     assert.match(await page.locator(".bt-empty").innerText(), /No connections yet\.\s+Add one in Settings/);
     assert.match(await page.locator('[data-group="web"] dl').innerText(), /Off · no source configured/);
-    assert.match(await page.locator('[data-group="computer"]').innerText(), /No computer yet/);
+    assert.match(await page.locator('[data-group="computer"]').innerText(), /No Bot computer yet/);
     assert.match(await page.locator('[data-group="permissions"]').innerText(), /Nothing is allowed without asking/);
     await page.getByRole("button", {name: "Add one in Settings"}).click();
     assert.deepEqual((await page.evaluate(() => window.left)).filter(item => item.tab), [{tab: "connections"}]);
     await close();
-    console.log("PASS empty: no connections, no search source, no computer, no allowances each say so and where to fix it");
+    console.log("PASS empty: no connections, no search source, no Bot computer, no allowances each say so and where to fix it");
   }
 
   // ---- 5. Phone width and every locale.

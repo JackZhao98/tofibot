@@ -35,10 +35,10 @@ try {
   assert(foldCompletedProgress([progress], [{ id: "r", status: "done" }]).visible.length === 1, "progress without a loaded final reply must remain visible");
   assert(foldCompletedProgress([progress, { ...finalReply, run_id: "other" }], [{ id: "r", status: "done" }]).visible.length === 2, "another run's reply must not fold this run");
   assert(toolActionLabel({ name: "computer_action", arguments: '{"action":"browser.navigate"}' }) === "正在浏览网页", "browser action must identify browsing");
-  assert(toolActionLabel({ name: "computer_action", arguments: '{"action":"desktop.click"}' }) === "正在操作电脑", "desktop action must identify computer use");
+  assert(toolActionLabel({ name: "computer_action", arguments: '{"action":"desktop.click"}' }) === "正在操作 Bot 电脑", "desktop action must identify computer use");
   assert(toolActionLabel({ name: "tofi_read", arguments: "{}" }) === "正在检查文档", "read tool must identify document work");
   assert(toolActionLabel({ name: "tofi_shell", arguments: "{}" }) === "正在运行命令", "shell action must identify command work");
-  assert(toolActionLabel({ name: "computer_action", arguments: "broken" }) === "正在操作电脑", "malformed action must not guess specifics");
+  assert(toolActionLabel({ name: "computer_action", arguments: "broken" }) === "正在操作 Bot 电脑", "malformed action must not guess specifics");
   assert(toolActionLabel({ name: "search_mcp_tools", arguments: "{}" }) === "正在查找可用工具", "tool discovery is not web browsing");
   assert(toolActionLabel({ name: "call_mcp_tool", arguments: '{"name":"mcp__web__search"}' }) === "正在浏览网页", "resolved connected web tool identifies browsing");
   assert(toolActionLabel({ name: "call_mcp_tool", arguments: '{"name":"mcp__crm__lookup"}' }) === "正在使用连接的工具", "an unrecognised remote tool is named by its role");

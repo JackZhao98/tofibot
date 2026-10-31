@@ -100,7 +100,7 @@ def page_height(chrome, profile, src, width, height, folder):
 def render_sheets(path, widths, height, max_sheets):
     chrome = find_chrome()
     if not chrome:
-        return [], "no Chrome or Chromium on this computer; only the frame page was written"
+        return [], "no Chrome or Chromium on this Bot computer; only the frame page was written"
     src = file_url(path)
     stem = os.path.splitext(os.path.abspath(path))[0]
     written, notes = [], []

@@ -59,14 +59,14 @@
         "description": "模型服务商与默认模型。"
       },
       "computer": {
-        "name": "电脑",
-        "description": "共享 Linux 电脑、存储与运行资源",
-        "description_none": "为这台服务器添加电脑的方式",
-        "description_detached": "为此账户接入电脑"
+        "name": "Bot 电脑",
+        "description": "Bot 电脑、存储与运行资源",
+        "description_none": "为这台服务器添加 Bot 电脑的方式",
+        "description_detached": "为此账户接入 Bot 电脑"
       },
       "keys": {
-        "name": "电脑密钥",
-        "description": "直接配置电脑需要的环境变量和 SSH 密钥"
+        "name": "Bot 电脑密钥",
+        "description": "直接配置 Bot 电脑需要的环境变量和 SSH 密钥"
       },
       "usage": {
         "name": "用量",
@@ -375,10 +375,10 @@
     "recheck": "重新检查"
   },
   "admin": {
-    "capacity_unavailable": "电脑容量暂时无法获取，请刷新后重试",
-    "intro": "创建账号、指定谁是 Admin，并设置每个账号的电脑磁盘大小。成员首次登录时需要更换初始密码。",
+    "capacity_unavailable": "Bot 电脑容量暂时无法获取，请刷新后重试",
+    "intro": "创建账号、指定谁是 Admin，并设置每个账号的 Bot 电脑磁盘大小。成员首次登录时需要更换初始密码。",
     "summary": {
-      "title": "电脑容量",
+      "title": "Bot 电脑容量",
       "total": "主机磁盘",
       "allocated": "已分配",
       "free": "可分配",
@@ -407,7 +407,7 @@
       "must_change": "等待首次登录"
     },
     "computer": {
-      "none": "没有电脑",
+      "none": "没有 Bot 电脑",
       "reserved": "未启动",
       "ready": "就绪",
       "disabled": "已停止"
@@ -431,18 +431,18 @@
         "deleting": "该账号正在删除。"
       },
       "computer": {
-        "title": "电脑",
+        "title": "Bot 电脑",
         "disk": "磁盘配额",
-        "disk_help": "为该账号的电脑预留的磁盘，只能调大，不能调小。",
-        "disk_note": "更改配额会停止电脑，账号下次需要时会重新启动。",
-        "disk_pending": "上一次调整尚未完成，预留容量仍被占用。电脑清理完成后，请再次保存相同的大小。",
-        "saved": "已保存。电脑已停止，需要时会自动重启。",
+        "disk_help": "为该账号的 Bot 电脑预留的磁盘，只能调大，不能调小。",
+        "disk_note": "更改配额会停止 Bot 电脑，账号下次需要时会重新启动。",
+        "disk_pending": "上一次调整尚未完成，预留容量仍被占用。Bot 电脑清理完成后，请再次保存相同的大小。",
+        "saved": "已保存。Bot 电脑已停止，需要时会自动重启。",
         "option": "{{size}} GiB",
         "current": "当前",
         "no_room": "可用空间不足",
         "save_label": "应用",
-        "save": "保存 {{size}} GiB 并停止电脑",
-        "none": "这个账号还没有分配电脑。"
+        "save": "保存 {{size}} GiB 并停止 Bot 电脑",
+        "none": "这个账号还没有分配 Bot 电脑。"
       },
       "signin": {
         "title": "登录",
@@ -464,7 +464,7 @@
       "danger": {
         "title": "危险区域",
         "deactivate_label": "停用账号",
-        "deactivate_help": "让账号退出登录并停止其电脑。Bot、对话、记忆和磁盘都会保留。",
+        "deactivate_help": "让账号退出登录并停止其 Bot 电脑。Bot、对话、记忆和磁盘都会保留。",
         "deactivate_action": "停用",
         "deactivate_self": "不能停用你当前登录的账号。",
         "deactivate_last": "这是最后一位正常的 Admin，不能停用。",
@@ -473,10 +473,10 @@
         "reactivate_deleting": "删除已经开始，无法撤销，请在上方重试。",
         "reactivate_action": "恢复",
         "delete_label": "删除账号",
-        "delete_help": "永久删除账号及其 Bot、对话、记忆、文件和电脑，并释放磁盘。",
+        "delete_help": "永久删除账号及其 Bot、对话、记忆、文件和 Bot 电脑，并释放磁盘。",
         "delete_action": "删除账号…",
         "delete_self": "不能删除你当前登录的账号。",
-        "delete_legacy": "原始所有者账号及其电脑不能删除。",
+        "delete_legacy": "原始所有者账号及其 Bot 电脑不能删除。",
         "delete_running": "正在删除。",
         "delete_need_deactivate": "请先停用该账号，只有已停用的账号才能删除。"
       }
@@ -488,10 +488,10 @@
       "item_chats": "所有对话",
       "item_memory": "所有记忆",
       "item_files": "文件和附件",
-      "item_computer": "电脑及其磁盘，将释放 {{size}} GiB",
-      "item_computer_none": "电脑（如果有）",
+      "item_computer": "Bot 电脑及其磁盘，将释放 {{size}} GiB",
+      "item_computer_none": "Bot 电脑（如果有）",
       "irreversible": "此操作无法撤销。",
-      "export_note": "删除任何内容之前，会先把 Bot、对话、记忆和定时任务加密备份并保存 30 天，不包含凭据和电脑文件。",
+      "export_note": "删除任何内容之前，会先把 Bot、对话、记忆和定时任务加密备份并保存 30 天，不包含凭据和 Bot 电脑文件。",
       "confirm_label": "输入 {{name}} 以确认",
       "confirm_action": "删除账号",
       "progress_title": "正在删除 {{name}}",
@@ -502,7 +502,7 @@
       "close": "关闭",
       "step": {
         "export": "保存加密备份",
-        "computer": "移除电脑并释放磁盘",
+        "computer": "移除 Bot 电脑并释放磁盘",
         "data": "移除 Bot、对话和文件",
         "sessions": "移除登录状态",
         "record": "移除账号"
@@ -515,8 +515,8 @@
       "error": {
         "generic": "出错了，后续内容没有被删除，请重试以继续。",
         "export_failed": "备份未能保存或验证，所以没有删除任何内容。",
-        "computer_unavailable": "电脑服务没有确认移除。",
-        "computer_unverified": "电脑服务有响应，但无法验证移除结果。",
+        "computer_unavailable": "Bot 电脑服务没有确认移除。",
+        "computer_unverified": "Bot 电脑服务有响应，但无法验证移除结果。",
         "data_failed": "无法删除该账号的数据文件夹。",
         "sessions_failed": "无法移除该账号的登录状态。",
         "record_failed": "无法移除账号记录。"
@@ -524,7 +524,7 @@
     },
     "result": {
       "title": "已删除 {{name}}",
-      "body": "账号及其电脑已移除，Bot 的加密备份已保存。请把链接和口令分开发送。",
+      "body": "账号及其 Bot 电脑已移除，Bot 的加密备份已保存。请把链接和口令分开发送。",
       "link": "下载链接",
       "passphrase": "口令",
       "once": "仅显示一次，继续之后 Tofi 不会保留。",
@@ -556,14 +556,14 @@
       "last_admin": "无法更改或移除最后一位正常的 Admin。",
       "account_deleting": "该账号正在删除。",
       "account_not_deactivated": "请先停用账号再删除。",
-      "legacy_account_not_deletable": "原始所有者账号及其电脑不能删除。",
+      "legacy_account_not_deletable": "原始所有者账号及其 Bot 电脑不能删除。",
       "confirmation_mismatch": "输入的用户名不匹配。",
       "delete_in_progress": "该账号已在删除中。",
       "account_delete_failed": "删除已中断，请重试以继续。",
       "account_change_rejected": "账号已变化或受保护，请刷新后重试。",
-      "quota_not_applied": "磁盘大小未生效。扩容需要有可用容量且电脑清理已完成；这里不支持缩小。",
+      "quota_not_applied": "磁盘大小未生效。扩容需要有可用容量且 Bot 电脑清理已完成；这里不支持缩小。",
       "quota_unverified": "无法验证新的磁盘大小，请刷新后再试。",
-      "computer_transition_pending": "账号更改已保存，但电脑这一步需要重试。",
+      "computer_transition_pending": "账号更改已保存，但 Bot 电脑这一步需要重试。",
       "weak_password": "请至少使用 12 个字符。",
       "password_contains_identity": "密码不能包含用户名或邮箱。",
       "common_password": "这个密码太常见了。",
@@ -571,9 +571,9 @@
       "forbidden": "只有 Admin 才能执行此操作。",
       "export_in_use": "该备份所属账号的删除尚未完成。",
       "passphrase_unavailable": "口令不可用。",
-      "invalid_resources": "无法保存电脑大小。请检查数值后重试。",
-      "resource_configuration_failed": "无法应用电脑大小。请重试。",
-      "computer_unavailable": "暂时无法连接这台电脑。请稍后重试。"
+      "invalid_resources": "无法保存 Bot 电脑大小。请检查数值后重试。",
+      "resource_configuration_failed": "无法应用 Bot 电脑大小。请重试。",
+      "computer_unavailable": "暂时无法连接这台 Bot 电脑。请稍后重试。"
     },
     "intro_no_computer": "创建账号、指定谁是 Admin，并管理他们的登录。成员首次登录时需要更换初始密码。"
   },
@@ -641,7 +641,7 @@
   "purge": {
     "failed": "重置失败，请稍后重试。",
     "title": "从头开始",
-    "description": "清空所有 Bot、对话、任务、附件、配对设备，以及共享 Linux 电脑的整个 /workspace。服务器安装、Codex 连接和其他服务配置会保留。",
+    "description": "清空所有 Bot、对话、任务、附件、配对设备，以及 Bot 电脑的整个 /workspace。服务器安装、Codex 连接和其他服务配置会保留。",
     "note": "执行前 VM 会自动保留一个可恢复 checkpoint；新创建的第一个账号会成为 admin。",
     "confirm_label": "输入 PURGE 确认",
     "purging": "正在清空…",
@@ -652,14 +652,14 @@
   "portability": {
     "title": "数据迁移",
     "description": "选择账号数据或单个 Bot，导入前检查内容并创建副本。账号包与 Bot 包使用相同格式，默认加密。",
-    "scope_note": "当前支持配置、聊天正文、记忆、定时任务、附件和时区／语言／模型设置。附件每个最多 4 MiB、合计最多 8 MiB；缺失或超限文件会明确列出。可另行明确选择持久保险库环境凭据；只恢复未启用的副本。SSH 私钥、登录、插件、技能、工作事项、邮件草稿、运行记录、虚拟电脑文件与整盘暂不支持。这是所选数据包，尚非完整账号备份。聊天或指令中粘贴的秘密仍会随正文导出。",
+    "scope_note": "当前支持配置、聊天正文、记忆、定时任务、附件和时区／语言／模型设置。附件每个最多 4 MiB、合计最多 8 MiB；缺失或超限文件会明确列出。可另行明确选择持久保险库环境凭据；只恢复未启用的副本。SSH 私钥、登录、插件、技能、工作事项、邮件草稿、运行记录、虚拟 Bot 电脑文件与整盘暂不支持。这是所选数据包，尚非完整账号备份。聊天或指令中粘贴的秘密仍会随正文导出。",
     "security_note": "导出口令只留在浏览器。持有数据包和口令的人可以读取内容。导入会将解密的数据包发送到目标服务器，选择决定写入哪些记录。服务器处理明文；账号管理者重设密码可导致账号接管，主机管理员也可读取运行数据。这不是对运营方保密的托管。保险库与数据库分别捕获快照。",
     "export": "导出",
     "scope": "范围",
     "scope_account": "账号数据",
     "scope_bot": "独立 Bot",
     "bot_archived": "{{name}}（已归档）",
-    "environment_note": "环境凭据默认不选；还须逐项勾选记录。最多 64 项，每项 64 KiB，合计 1 MiB。此范围不包括电脑中已安装的环境变量、SSH 或服务登录。",
+    "environment_note": "环境凭据默认不选；还须逐项勾选记录。最多 64 项，每项 64 KiB，合计 1 MiB。此范围不包括 Bot 电脑中已安装的环境变量、SSH 或服务登录。",
     "environment_load": "查看可迁移的环境凭据",
     "source_active": "保险库原记录",
     "source_inactive": "未启用恢复副本",
@@ -674,7 +674,7 @@
     "decrypt": "解密并查看",
     "source": "来源格式：{{format}} · 版本 {{version}}",
     "category_replaces": "{{label}}（勾选后替换现有设置）",
-    "import_environment_note": "环境凭据默认不选。选中类别后逐项勾选，只创建未启用的恢复副本，不覆盖同名目标，也不连接服务或安装到电脑。",
+    "import_environment_note": "环境凭据默认不选。选中类别后逐项勾选，只创建未启用的恢复副本，不覆盖同名目标，也不连接服务或安装到 Bot 电脑。",
     "preview_button": "预览导入",
     "preview_title": "导入预览",
     "attachment_space": "附件空间：约 {{size}} KiB，使用目标账号文件存储配额。",
@@ -695,7 +695,7 @@
     "bytes_other": "{{count}} 字节",
     "inactive": "未启用",
     "recovery_delete": "删除恢复副本",
-    "recovery_deleted": "已删除未启用的恢复副本；现有凭据和电脑环境保留。",
+    "recovery_deleted": "已删除未启用的恢复副本；现有凭据和 Bot 电脑环境保留。",
     "recovery_delete_failed": "无法删除恢复副本。",
     "exported": "加密数据包已下载：{{filename}}。请妥善保存口令；无法找回。",
     "exported_missing_other": "加密数据包已下载：{{filename}}。其中 {{count}} 个附件未包含，请在导入预览中查看原因。请妥善保存口令；无法找回。",
@@ -961,8 +961,8 @@
         "description": "定时运行结束前的最后把关。"
       },
       "computer": {
-        "title": "电脑",
-        "description": "共享电脑的自动休眠。"
+        "title": "Bot 电脑",
+        "description": "Bot 电脑的自动休眠。"
       },
       "widgets": {
         "title": "侧边小组件",
@@ -1028,7 +1028,7 @@
       },
       "desktop_idle_seconds": {
         "name": "桌面空闲休眠",
-        "what": "共享电脑闲置这么久后进入休眠，下次调用工具时自动唤醒。由电脑服务设定。"
+        "what": "Bot 电脑闲置这么久后进入休眠，下次调用工具时自动唤醒。由 Bot 电脑服务设定。"
       },
       "group_triage": {
         "name": "分派未点名的群消息",
@@ -1052,7 +1052,7 @@
       },
       "browser_engine": {
         "name": "浏览器控制",
-        "what": "Bot 在电脑浏览器中的工作方式。经典方式读取页面文字并按可见文字点击。Playwright 读取无障碍树并按元素引用操作，在复杂页面上更准确。"
+        "what": "Bot 在 Bot 电脑浏览器中的工作方式。经典方式读取页面文字并按可见文字点击。Playwright 读取无障碍树并按元素引用操作，在复杂页面上更准确。"
       },
       "desktop_engine": {
         "name": "桌面控制",
@@ -1071,8 +1071,8 @@
         "what": "Bot 在聊天里第一次交出文件时,作品小组件会在消息旁打开,之后的新文件只刷新它的列表。关闭后保持收起,直到你自己打开。"
       },
       "widget_computer_auto": {
-        "name": "Bot 使用时打开共享电脑",
-        "what": "Bot 在你正在看的聊天里拿到共享电脑时,它的小组件会在消息旁打开。它会一直开着,在 Bot 放手 30 秒后折成一条窄栏。关闭后保持收起,直到你自己打开。"
+        "name": "Bot 使用时打开 Bot 电脑",
+        "what": "Bot 在你正在看的聊天里拿到 Bot 电脑时,它的小组件会在消息旁打开。它会一直开着,在 Bot 放手 30 秒后折成一条窄栏。关闭后保持收起,直到你自己打开。"
       },
       "settings_change_limit": {
         "name": "每次运行的设置更改上限",
@@ -1110,7 +1110,7 @@
     "not_reported": "暂未获取",
     "saved": "已保存",
     "loading": "加载中…",
-    "managed": "由电脑服务管理",
+    "managed": "由 Bot 电脑服务管理",
     "days": "{{count}} 天",
     "keep_all": "全部保留",
     "in_permissions": "在“权限”里设置"
@@ -1132,7 +1132,7 @@
     "paid": "付费",
     "native_label": "模型自带搜索",
     "builtin_label": "内置抓取",
-    "computer_label": "Bot 的电脑",
+    "computer_label": "Bot 电脑",
     "about": {
       "native": "模型自带搜索时优先使用，无需密钥。",
       "builtin": "由本服务器读取网页并转成文本，无需密钥。",
@@ -1141,7 +1141,7 @@
       "searxng": "你自己的 SearXNG 实例，需要地址并开启 JSON 输出。",
       "firecrawl": "抓取会拦截普通请求的网页，需要 API 密钥。",
       "brightdata": "解锁防护严密的网站，需要 API 密钥和 Web Unlocker 区域。",
-      "computer": "其他来源都失败时，在 Bot 的电脑上用浏览器查。仅在有电脑时显示。"
+      "computer": "其他来源都失败时，在 Bot 电脑上用浏览器查。仅在有 Bot 电脑时显示。"
     },
     "status": {
       "ready": "就绪",

@@ -59,14 +59,14 @@
         "description": "Anbieter und Standardmodell."
       },
       "computer": {
-        "name": "Computer",
-        "description": "Gemeinsamer Linux-Computer, Speicher und Laufzeitressourcen",
-        "description_none": "Möglichkeiten, diesem Server einen Computer hinzuzufügen",
-        "description_detached": "Einen Computer an dieses Konto anbinden"
+        "name": "Bot-Computer",
+        "description": "Bot-Computer, Speicher und Laufzeitressourcen",
+        "description_none": "Möglichkeiten, diesem Server einen Bot-Computer hinzuzufügen",
+        "description_detached": "Einen Bot-Computer an dieses Konto anbinden"
       },
       "keys": {
-        "name": "Computer-Schlüssel",
-        "description": "Umgebungsvariablen und SSH-Schlüssel für den Computer"
+        "name": "Bot-Computer-Schlüssel",
+        "description": "Umgebungsvariablen und SSH-Schlüssel für den Bot-Computer"
       },
       "usage": {
         "name": "Nutzung",
@@ -380,10 +380,10 @@
     "recheck": "Erneut prüfen"
   },
   "admin": {
-    "capacity_unavailable": "Die Computerkapazität ist nicht verfügbar. Aktualisiere die Seite und versuche es erneut.",
-    "intro": "Lege Konten an, bestimme, wer Admin ist, und stelle ein, wie viel Computerspeicher jedes Konto bekommt. Mitglieder ändern ihr Startpasswort bei der ersten Anmeldung.",
+    "capacity_unavailable": "Die Bot-Computer-Kapazität ist nicht verfügbar. Aktualisiere die Seite und versuche es erneut.",
+    "intro": "Lege Konten an, bestimme, wer Admin ist, und stelle ein, wie viel Bot-Computer-Speicher jedes Konto bekommt. Mitglieder ändern ihr Startpasswort bei der ersten Anmeldung.",
     "summary": {
-      "title": "Computerkapazität",
+      "title": "Bot-Computer-Kapazität",
       "total": "Host-Speicher",
       "allocated": "Zugewiesen",
       "free": "Noch frei",
@@ -412,7 +412,7 @@
       "must_change": "Wartet auf erste Anmeldung"
     },
     "computer": {
-      "none": "Kein Computer",
+      "none": "Kein Bot-Computer",
       "reserved": "Nicht gestartet",
       "ready": "Bereit",
       "disabled": "Gestoppt"
@@ -436,18 +436,18 @@
         "deleting": "Dieses Konto wird gerade gelöscht."
       },
       "computer": {
-        "title": "Computer",
+        "title": "Bot-Computer",
         "disk": "Speicherkontingent",
-        "disk_help": "Reservierter Speicher für den Computer dieses Kontos. Er kann nur vergrößert werden.",
-        "disk_note": "Eine Änderung des Kontingents stoppt den Computer. Er startet wieder, sobald das Konto ihn braucht.",
-        "disk_pending": "Eine Größenänderung ist nicht abgeschlossen; die reservierte Kapazität bleibt belegt. Speichere dieselbe Größe erneut, sobald die Bereinigung des Computers fertig ist.",
-        "saved": "Gespeichert. Der Computer wurde gestoppt und startet bei Bedarf neu.",
+        "disk_help": "Reservierter Speicher für den Bot-Computer dieses Kontos. Er kann nur vergrößert werden.",
+        "disk_note": "Eine Änderung des Kontingents stoppt den Bot-Computer. Er startet wieder, sobald das Konto ihn braucht.",
+        "disk_pending": "Eine Größenänderung ist nicht abgeschlossen; die reservierte Kapazität bleibt belegt. Speichere dieselbe Größe erneut, sobald die Bereinigung des Bot-Computers fertig ist.",
+        "saved": "Gespeichert. Der Bot-Computer wurde gestoppt und startet bei Bedarf neu.",
         "option": "{{size}} GiB",
         "current": "aktuell",
         "no_room": "nicht genug freier Platz",
         "save_label": "Anwenden",
-        "save": "{{size}} GiB speichern und Computer stoppen",
-        "none": "Für dieses Konto wurde noch kein Computer eingerichtet."
+        "save": "{{size}} GiB speichern und Bot-Computer stoppen",
+        "none": "Für dieses Konto wurde noch kein Bot-Computer eingerichtet."
       },
       "signin": {
         "title": "Anmeldung",
@@ -469,7 +469,7 @@
       "danger": {
         "title": "Gefahrenbereich",
         "deactivate_label": "Konto deaktivieren",
-        "deactivate_help": "Meldet das Konto ab und stoppt seinen Computer. Bots, Unterhaltungen, Gedächtnis und Speicher bleiben erhalten.",
+        "deactivate_help": "Meldet das Konto ab und stoppt seinen Bot-Computer. Bots, Unterhaltungen, Gedächtnis und Speicher bleiben erhalten.",
         "deactivate_action": "Deaktivieren",
         "deactivate_self": "Du kannst das Konto, mit dem du angemeldet bist, nicht deaktivieren.",
         "deactivate_last": "Das ist der letzte aktive Admin und kann nicht deaktiviert werden.",
@@ -478,10 +478,10 @@
         "reactivate_deleting": "Das Löschen hat begonnen und lässt sich nicht rückgängig machen. Wiederhole es oben.",
         "reactivate_action": "Reaktivieren",
         "delete_label": "Konto löschen",
-        "delete_help": "Entfernt das Konto, seine Bots, Unterhaltungen, sein Gedächtnis, seine Dateien und den Computer dauerhaft und gibt den Speicher frei.",
+        "delete_help": "Entfernt das Konto, seine Bots, Unterhaltungen, sein Gedächtnis, seine Dateien und den Bot-Computer dauerhaft und gibt den Speicher frei.",
         "delete_action": "Konto löschen …",
         "delete_self": "Du kannst das Konto, mit dem du angemeldet bist, nicht löschen.",
-        "delete_legacy": "Das ursprüngliche Inhaberkonto und sein Computer können nicht gelöscht werden.",
+        "delete_legacy": "Das ursprüngliche Inhaberkonto und sein Bot-Computer können nicht gelöscht werden.",
         "delete_running": "Das Löschen läuft.",
         "delete_need_deactivate": "Deaktiviere das Konto zuerst. Nur deaktivierte Konten können gelöscht werden."
       }
@@ -493,10 +493,10 @@
       "item_chats": "Alle Unterhaltungen",
       "item_memory": "Das gesamte Gedächtnis",
       "item_files": "Dateien und Anhänge",
-      "item_computer": "Der Computer und sein Speicher – {{size}} GiB werden frei",
-      "item_computer_none": "Der Computer, falls vorhanden",
+      "item_computer": "Der Bot-Computer und sein Speicher – {{size}} GiB werden frei",
+      "item_computer_none": "Der Bot-Computer, falls vorhanden",
       "irreversible": "Das lässt sich nicht rückgängig machen.",
-      "export_note": "Bevor etwas entfernt wird, speichern wir 30 Tage lang eine verschlüsselte Kopie der Bots, Unterhaltungen, Erinnerungen und Zeitpläne. Zugangsdaten und Computerdateien sind nicht enthalten.",
+      "export_note": "Bevor etwas entfernt wird, speichern wir 30 Tage lang eine verschlüsselte Kopie der Bots, Unterhaltungen, Erinnerungen und Zeitpläne. Zugangsdaten und Bot-Computer-Dateien sind nicht enthalten.",
       "confirm_label": "Gib zur Bestätigung {{name}} ein",
       "confirm_action": "Konto löschen",
       "progress_title": "{{name}} wird gelöscht",
@@ -507,7 +507,7 @@
       "close": "Schließen",
       "step": {
         "export": "Verschlüsselten Export speichern",
-        "computer": "Computer entfernen und Speicher freigeben",
+        "computer": "Bot-Computer entfernen und Speicher freigeben",
         "data": "Bots, Unterhaltungen und Dateien entfernen",
         "sessions": "Anmeldungen entfernen",
         "record": "Konto entfernen"
@@ -520,8 +520,8 @@
       "error": {
         "generic": "Etwas ist fehlgeschlagen. Es wurde nichts weiter entfernt; wiederhole den Vorgang, um fortzufahren.",
         "export_failed": "Der Export konnte nicht gespeichert oder geprüft werden, deshalb wurde nichts gelöscht.",
-        "computer_unavailable": "Der Computerdienst hat das Entfernen nicht bestätigt.",
-        "computer_unverified": "Der Computerdienst hat geantwortet, das Entfernen ließ sich aber nicht prüfen.",
+        "computer_unavailable": "Der Bot-Computer-Dienst hat das Entfernen nicht bestätigt.",
+        "computer_unverified": "Der Bot-Computer-Dienst hat geantwortet, das Entfernen ließ sich aber nicht prüfen.",
         "data_failed": "Der Datenordner des Kontos konnte nicht entfernt werden.",
         "sessions_failed": "Die Anmeldungen des Kontos konnten nicht entfernt werden.",
         "record_failed": "Der Kontoeintrag konnte nicht entfernt werden."
@@ -529,7 +529,7 @@
     },
     "result": {
       "title": "{{name}} wurde gelöscht",
-      "body": "Das Konto und sein Computer sind entfernt. Eine verschlüsselte Kopie der Bots wurde gespeichert. Sende Link und Passphrase getrennt.",
+      "body": "Das Konto und sein Bot-Computer sind entfernt. Eine verschlüsselte Kopie der Bots wurde gespeichert. Sende Link und Passphrase getrennt.",
       "link": "Download-Link",
       "passphrase": "Passphrase",
       "once": "Wird nur einmal angezeigt. Tofi speichert sie danach nicht.",
@@ -561,14 +561,14 @@
       "last_admin": "Der letzte aktive Admin kann nicht geändert oder entfernt werden.",
       "account_deleting": "Dieses Konto wird gerade gelöscht.",
       "account_not_deactivated": "Deaktiviere das Konto, bevor du es löschst.",
-      "legacy_account_not_deletable": "Das ursprüngliche Inhaberkonto und sein Computer können nicht gelöscht werden.",
+      "legacy_account_not_deletable": "Das ursprüngliche Inhaberkonto und sein Bot-Computer können nicht gelöscht werden.",
       "confirmation_mismatch": "Der eingegebene Benutzername stimmt nicht überein.",
       "delete_in_progress": "Dieses Konto wird bereits gelöscht.",
       "account_delete_failed": "Das Löschen wurde angehalten. Wiederhole den Vorgang, um fortzufahren.",
       "account_change_rejected": "Das Konto wurde geändert oder ist geschützt. Aktualisiere die Seite und versuche es erneut.",
-      "quota_not_applied": "Die Speichergröße wurde nicht übernommen. Vergrößern braucht freie Kapazität und eine abgeschlossene Bereinigung des Computers; Verkleinern wird hier nicht unterstützt.",
+      "quota_not_applied": "Die Speichergröße wurde nicht übernommen. Vergrößern braucht freie Kapazität und eine abgeschlossene Bereinigung des Bot-Computers; Verkleinern wird hier nicht unterstützt.",
       "quota_unverified": "Die neue Speichergröße ließ sich nicht prüfen. Aktualisiere die Seite, bevor du es erneut versuchst.",
-      "computer_transition_pending": "Die Kontoänderung wurde gespeichert, der Computerschritt muss aber wiederholt werden.",
+      "computer_transition_pending": "Die Kontoänderung wurde gespeichert, der Bot-Computer-Schritt muss aber wiederholt werden.",
       "weak_password": "Verwende mindestens 12 Zeichen.",
       "password_contains_identity": "Das Passwort darf weder Benutzernamen noch E-Mail enthalten.",
       "common_password": "Dieses Passwort ist zu verbreitet.",
@@ -576,9 +576,9 @@
       "forbidden": "Das darf nur ein Admin.",
       "export_in_use": "Dieser Export gehört noch zu einem Konto, dessen Löschung nicht abgeschlossen ist.",
       "passphrase_unavailable": "Die Passphrase ist nicht verfügbar.",
-      "invalid_resources": "Die Computergröße konnte nicht gespeichert werden. Prüfe die Werte und versuche es erneut.",
-      "resource_configuration_failed": "Die Computergröße konnte nicht angewendet werden. Versuche es erneut.",
-      "computer_unavailable": "Der Computer ist gerade nicht erreichbar. Versuche es gleich noch einmal."
+      "invalid_resources": "Die Bot-Computer-Größe konnte nicht gespeichert werden. Prüfe die Werte und versuche es erneut.",
+      "resource_configuration_failed": "Die Bot-Computer-Größe konnte nicht angewendet werden. Versuche es erneut.",
+      "computer_unavailable": "Der Bot-Computer ist gerade nicht erreichbar. Versuche es gleich noch einmal."
     },
     "intro_no_computer": "Lege Konten an, bestimme, wer Admin ist, und verwalte die Anmeldung. Mitglieder ändern ihr Startpasswort bei der ersten Anmeldung."
   },
@@ -646,7 +646,7 @@
   "purge": {
     "failed": "Zurücksetzen fehlgeschlagen. Versuch es später erneut.",
     "title": "Neu beginnen",
-    "description": "Löscht alle Bots, Unterhaltungen, Aufgaben, Anhänge, gekoppelten Geräte und den gesamten /workspace des gemeinsamen Linux-Computers. Serverinstallation, Codex-Verbindung und andere Diensteinstellungen bleiben erhalten.",
+    "description": "Löscht alle Bots, Unterhaltungen, Aufgaben, Anhänge, gekoppelten Geräte und den gesamten /workspace des Bot-Computers. Serverinstallation, Codex-Verbindung und andere Diensteinstellungen bleiben erhalten.",
     "note": "Die VM legt vorher automatisch einen wiederherstellbaren checkpoint an. Das erste neu erstellte Konto wird admin.",
     "confirm_label": "Zur Bestätigung PURGE eingeben",
     "purging": "Wird gelöscht…",
@@ -657,14 +657,14 @@
   "portability": {
     "title": "Datenübertragung",
     "description": "Wähle Kontodaten oder einen einzelnen Bot. Importe werden vorher geprüft und als Kopien angelegt. Konto- und Bot-Pakete haben dasselbe Format und sind standardmäßig verschlüsselt.",
-    "scope_note": "Unterstützt werden derzeit Konfiguration, Chattexte, Erinnerungen, geplante Aufgaben, Anhänge sowie Zeitzonen-, Sprach- und Modelleinstellungen. Anhänge sind auf je 4 MiB und insgesamt 8 MiB begrenzt; fehlende oder zu große Dateien werden aufgelistet. Zusätzlich lassen sich Umgebungszugangsdaten aus dem dauerhaften Tresor ausdrücklich auswählen; sie werden nur als inaktive Kopien wiederhergestellt. Private SSH-Schlüssel, Anmeldungen, Plugins, Skills, Arbeitselemente, Mailentwürfe, Laufprotokolle, Dateien des virtuellen Computers und ganze Datenträger werden noch nicht unterstützt. Dies ist ein ausgewähltes Paket, kein vollständiges Kontobackup. In Chats oder Anweisungen eingefügte Geheimnisse werden mit dem Text exportiert.",
+    "scope_note": "Unterstützt werden derzeit Konfiguration, Chattexte, Erinnerungen, geplante Aufgaben, Anhänge sowie Zeitzonen-, Sprach- und Modelleinstellungen. Anhänge sind auf je 4 MiB und insgesamt 8 MiB begrenzt; fehlende oder zu große Dateien werden aufgelistet. Zusätzlich lassen sich Umgebungszugangsdaten aus dem dauerhaften Tresor ausdrücklich auswählen; sie werden nur als inaktive Kopien wiederhergestellt. Private SSH-Schlüssel, Anmeldungen, Plugins, Skills, Arbeitselemente, Mailentwürfe, Laufprotokolle, Dateien des virtuellen Bot-Computers und ganze Datenträger werden noch nicht unterstützt. Dies ist ein ausgewähltes Paket, kein vollständiges Kontobackup. In Chats oder Anweisungen eingefügte Geheimnisse werden mit dem Text exportiert.",
     "security_note": "Die Export-Passphrase bleibt in deinem Browser. Wer Paket und Passphrase hat, kann den Inhalt lesen. Beim Import wird das entschlüsselte Paket an den Zielserver gesendet; deine Auswahl bestimmt, welche Einträge geschrieben werden. Der Server verarbeitet Klartext: Wer als Kontoverwalter ein Passwort zurücksetzt, kann das Konto übernehmen, und die Host-Administration kann Laufdaten lesen. Das ist keine vor dem Betreiber geheime Verwahrung. Tresor und Datenbank werden getrennt als Snapshot gesichert.",
     "export": "Export",
     "scope": "Umfang",
     "scope_account": "Kontodaten",
     "scope_bot": "Einzelner Bot",
     "bot_archived": "{{name}} (archiviert)",
-    "environment_note": "Umgebungszugangsdaten sind standardmäßig nicht ausgewählt, und jeder Eintrag muss einzeln angehakt werden. Bis zu 64 Einträge, je 64 KiB, insgesamt 1 MiB. Nicht enthalten sind auf dem Computer installierte Umgebungsvariablen, SSH und Dienstanmeldungen.",
+    "environment_note": "Umgebungszugangsdaten sind standardmäßig nicht ausgewählt, und jeder Eintrag muss einzeln angehakt werden. Bis zu 64 Einträge, je 64 KiB, insgesamt 1 MiB. Nicht enthalten sind auf dem Bot-Computer installierte Umgebungsvariablen, SSH und Dienstanmeldungen.",
     "environment_load": "Übertragbare Umgebungszugangsdaten anzeigen",
     "source_active": "Originaleintrag im Tresor",
     "source_inactive": "Inaktive Wiederherstellungskopie",
@@ -679,7 +679,7 @@
     "decrypt": "Entschlüsseln und ansehen",
     "source": "Quellformat: {{format}} · Version {{version}}",
     "category_replaces": "{{label}} (ersetzt aktuelle Einstellungen, wenn ausgewählt)",
-    "import_environment_note": "Umgebungszugangsdaten sind standardmäßig nicht ausgewählt. Hake nach Auswahl der Kategorie jeden Eintrag einzeln an. Es werden nur inaktive Wiederherstellungskopien angelegt; nichts mit gleichem Ziel wird überschrieben, und es werden keine Dienste verbunden oder auf dem Computer installiert.",
+    "import_environment_note": "Umgebungszugangsdaten sind standardmäßig nicht ausgewählt. Hake nach Auswahl der Kategorie jeden Eintrag einzeln an. Es werden nur inaktive Wiederherstellungskopien angelegt; nichts mit gleichem Ziel wird überschrieben, und es werden keine Dienste verbunden oder auf dem Bot-Computer installiert.",
     "preview_button": "Import-Vorschau",
     "preview_title": "Import-Vorschau",
     "attachment_space": "Speicher für Anhänge: etwa {{size}} KiB, angerechnet auf das Dateikontingent des Zielkontos.",
@@ -702,7 +702,7 @@
     "bytes_other": "{{count}} Bytes",
     "inactive": "Inaktiv",
     "recovery_delete": "Wiederherstellungskopie löschen",
-    "recovery_deleted": "Inaktive Wiederherstellungskopie gelöscht. Vorhandene Zugangsdaten und die Computerumgebung bleiben erhalten.",
+    "recovery_deleted": "Inaktive Wiederherstellungskopie gelöscht. Vorhandene Zugangsdaten und die Bot-Computer-Umgebung bleiben erhalten.",
     "recovery_delete_failed": "Die Wiederherstellungskopie konnte nicht gelöscht werden.",
     "exported": "Verschlüsseltes Paket heruntergeladen: {{filename}}. Bewahre die Passphrase sicher auf; sie kann nicht wiederhergestellt werden.",
     "exported_missing_one": "Verschlüsseltes Paket heruntergeladen: {{filename}}. {{count}} Anhang ist nicht enthalten; den Grund siehst du in der Import-Vorschau. Bewahre die Passphrase sicher auf; sie kann nicht wiederhergestellt werden.",
@@ -970,8 +970,8 @@
         "description": "Der letzte Blick, bevor ein geplanter Lauf endet."
       },
       "computer": {
-        "title": "Computer",
-        "description": "Automatischer Ruhezustand des gemeinsamen Computers."
+        "title": "Bot-Computer",
+        "description": "Automatischer Ruhezustand des Bot-Computers."
       },
       "widgets": {
         "title": "Seitliche Widgets",
@@ -1037,7 +1037,7 @@
       },
       "desktop_idle_seconds": {
         "name": "Ruhezustand bei Inaktivität",
-        "what": "Der gemeinsame Computer geht nach so langer Nichtnutzung in den Ruhezustand und wacht beim nächsten Werkzeugaufruf auf. Wird vom Computerdienst festgelegt."
+        "what": "Der Bot-Computer geht nach so langer Nichtnutzung in den Ruhezustand und wacht beim nächsten Werkzeugaufruf auf. Wird vom Bot-Computer-Dienst festgelegt."
       },
       "group_triage": {
         "name": "Nicht adressierte Gruppennachrichten zuweisen",
@@ -1061,7 +1061,7 @@
       },
       "browser_engine": {
         "name": "Browsersteuerung",
-        "what": "Wie ein Bot im Browser des Computers arbeitet. Klassisch liest Seitentext und klickt auf sichtbaren Text. Playwright liest einen Barrierefreiheitsbaum und handelt über Element-Referenzen, was auf komplexen Seiten genauer ist."
+        "what": "Wie ein Bot im Browser des Bot-Computers arbeitet. Klassisch liest Seitentext und klickt auf sichtbaren Text. Playwright liest einen Barrierefreiheitsbaum und handelt über Element-Referenzen, was auf komplexen Seiten genauer ist."
       },
       "desktop_engine": {
         "name": "Desktopsteuerung",
@@ -1080,8 +1080,8 @@
         "what": "Sobald ein Bot in einem Chat zum ersten Mal eine Datei übergibt, öffnet sich das Artefakte-Widget neben den Nachrichten. Weitere Dateien aktualisieren die Liste. Aus lässt es geschlossen, bis du es öffnest."
       },
       "widget_computer_auto": {
-        "name": "Geteilten Computer öffnen, wenn ein Bot ihn nutzt",
-        "what": "Übernimmt ein Bot den geteilten Computer im Chat, den du gerade ansiehst, öffnet sich sein Widget neben den Nachrichten. Es bleibt offen und klappt 30 Sekunden nach dem Loslassen des Bots zu einem Streifen zusammen. Aus lässt es geschlossen, bis du es öffnest."
+        "name": "Bot-Computer öffnen, wenn ein Bot ihn nutzt",
+        "what": "Übernimmt ein Bot den Bot-Computer im Chat, den du gerade ansiehst, öffnet sich sein Widget neben den Nachrichten. Es bleibt offen und klappt 30 Sekunden nach dem Loslassen des Bots zu einem Streifen zusammen. Aus lässt es geschlossen, bis du es öffnest."
       },
       "settings_change_limit": {
         "name": "Einstellungsänderungen pro Lauf",
@@ -1119,7 +1119,7 @@
     "not_reported": "Nicht gemeldet",
     "saved": "Gespeichert",
     "loading": "Wird geladen …",
-    "managed": "Vom Computerdienst verwaltet",
+    "managed": "Vom Bot-Computer-Dienst verwaltet",
     "days": "{{count}} Tage",
     "keep_all": "Alles behalten",
     "in_permissions": "In „Berechtigungen“ festlegen"
@@ -1141,7 +1141,7 @@
     "paid": "Kostenpflichtig",
     "native_label": "Websuche des Modells",
     "builtin_label": "Eingebauter Abruf",
-    "computer_label": "Computer des Bots",
+    "computer_label": "Bot-Computer",
     "about": {
       "native": "Wird zuerst genutzt, wenn das Modell eine eigene Suche mitbringt. Kein Schlüssel nötig.",
       "builtin": "Dieser Server lädt die Seite und wandelt sie in Text um. Kein Schlüssel nötig.",
@@ -1150,7 +1150,7 @@
       "searxng": "Ihre eigene SearXNG-Instanz. Benötigt die Adresse und aktivierte JSON-Ausgabe.",
       "firecrawl": "Ruft Seiten ab, die einfache Anfragen blockieren. Benötigt einen API-Schlüssel.",
       "brightdata": "Öffnet stark geschützte Seiten. Benötigt API-Schlüssel und eine Web-Unlocker-Zone.",
-      "computer": "Recherchiert im Browser auf dem Computer des Bots, wenn die anderen Quellen ausfallen. Nur sichtbar, wenn es einen Computer gibt."
+      "computer": "Recherchiert im Browser auf dem Bot-Computer, wenn die anderen Quellen ausfallen. Nur sichtbar, wenn es einen Bot-Computer gibt."
     },
     "status": {
       "ready": "Bereit",

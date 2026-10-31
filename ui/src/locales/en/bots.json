@@ -241,9 +241,9 @@
       "configure": "Configure sources"
     },
     "computer": {
-      "title": "Computer",
-      "shared": "Every Bot uses the workspace computer.",
-      "none": "No computer yet. Add one in Settings so Bots can browse and run code.",
+      "title": "Bot computer",
+      "shared": "Every Bot uses the Bot computer.",
+      "none": "No Bot computer yet. Add one in Settings so Bots can browse and run code.",
       "open": "Open Settings"
     },
     "builtin": {

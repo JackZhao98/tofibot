@@ -154,7 +154,7 @@
     "endpoint_changed_oauth": "服務網址已變更，請為新網址重新填寫 OAuth 設定後再儲存。",
     "invalid_auth_url": "授權網址無效",
     "metadata_changed_secret": "授權中繼資料網址已變更，請重新輸入或清除已儲存的 Client Secret 後再儲存。",
-    "needs_bot": "請先建立一個 Bot，即可使用共用電腦授權。",
+    "needs_bot": "請先建立一個 Bot，即可使用 Bot 電腦授權。",
     "oauth_discovery_failed": "無法讀取授權資訊或註冊用戶端，請檢查服務網址後再試一次。",
     "oauth_start_failed": "暫時無法開始授權，請檢查服務網址後再試一次。",
     "offline": "無法連線至伺服器，請再試一次。",
@@ -203,7 +203,7 @@
     "project_hint": "在 Google Cloud 中選擇與 OAuth Client 相同的專案。應用程式處於測試模式時，請在 Audience 中將目前帳號新增為測試使用者。",
     "preview_hint": "將 Cloud 專案加入 Google Workspace Developer Preview Program（developers.google.com/workspace/preview）；未加入時授權雖可成功，每次工具呼叫仍會被拒。",
     "agentic_hint": "勾選「Use this client for an AI-powered agent」（Google Auth Platform → Clients）。自 2026-11-11 起 Workspace MCP 拒絕未標記的用戶端；2026-11-12 起該設定固定，未標記的用戶端需新建替換。",
-    "redirect_hint": "在 Google Auth Platform → Clients 的 Web application 中，將需要使用的網址逐一加入 Authorized redirect URIs（不是 JavaScript origins）。兩種入口可共用這組憑證。網址、連接埠、路徑必須完全一致；HTTP 共用電腦的動態重新導向不適用此固定網址設定，建議改用 HTTPS 或用戶端。",
+    "redirect_hint": "在 Google Auth Platform → Clients 的 Web application 中，將需要使用的網址逐一加入 Authorized redirect URIs（不是 JavaScript origins）。兩種入口可共用這組憑證。網址、連接埠、路徑必須完全一致；HTTP Bot 電腦的動態重新導向不適用此固定網址設定，建議改用 HTTPS 或用戶端。",
     "test_users": "設定測試使用者",
     "workspace": {
       "title": "進階:Google Workspace MCP(開發人員預覽)",
@@ -335,14 +335,14 @@
     "title": "登入 {{title}}"
   },
   "route": {
-    "desktop": "在系統瀏覽器登入，完成後自動返回此用戶端。不使用共用電腦。",
-    "desktop_outdated": "此用戶端版本尚不支援本機授權，請更新用戶端。不會自動改用共用電腦。",
-    "http_blocked": "HTTP 直連無法安全地重新導向，且未設定共用電腦。請改用 HTTPS 或 Tofi 用戶端。",
+    "desktop": "在系統瀏覽器登入，完成後自動返回此用戶端。不使用 Bot 電腦。",
+    "desktop_outdated": "此用戶端版本尚不支援本機授權，請更新用戶端。不會自動改用 Bot 電腦。",
+    "http_blocked": "HTTP 直連無法安全地重新導向，且未設定 Bot 電腦。請改用 HTTPS 或 Tofi 用戶端。",
     "loading": "正在讀取授權設定…",
     "loopback_paste": "此服務只接受 127.0.0.1 回呼。請在自己的瀏覽器中登入，再把跳轉後的網址貼回這裡。",
     "public_origin_missing": "請為伺服器設定正確的 TOFI_PUBLIC_ORIGIN（公開 HTTPS 網址）後再試一次。",
-    "vm": "目前透過 HTTP 直連，僅此入口使用共用電腦授權。服務需支援本機重新導向；建議改用 HTTPS 或 Tofi 用戶端。",
-    "web": "在目前裝置的瀏覽器登入，並重新導向回 Tofi 的 HTTPS 伺服器。不使用共用電腦。"
+    "vm": "目前透過 HTTP 直連，僅此入口使用 Bot 電腦授權。服務需支援本機重新導向；建議改用 HTTPS 或 Tofi 用戶端。",
+    "web": "在目前裝置的瀏覽器登入，並重新導向回 Tofi 的 HTTPS 伺服器。不使用 Bot 電腦。"
   },
   "skillCatalog": {
     "document_delivery": {
@@ -449,8 +449,8 @@
     },
     "footer": "完成後自動返回；其他 Bot 的畫面操作正在排隊。",
     "reconnecting": "連線暫時中斷，正在重試…",
-    "screen_alt": "共用電腦",
-    "subtitle": "在共用電腦中完成授權"
+    "screen_alt": "Bot 電腦",
+    "subtitle": "在 Bot 電腦中完成授權"
   },
   "tools": {
     "changed": "已變更",

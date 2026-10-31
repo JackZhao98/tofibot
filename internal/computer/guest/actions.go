@@ -1220,7 +1220,7 @@ func freePort() (int, error) {
 func validateURL(raw string) (*url.URL, error) {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
-		return nil, errors.New("browser URL must be an http or https URL; to view a file on this computer, serve its folder over http on localhost")
+		return nil, errors.New("browser URL must be an http or https URL; to view a file on this Bot computer, serve its folder over http on localhost")
 	}
 	return u, nil
 }

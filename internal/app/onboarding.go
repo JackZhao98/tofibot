@@ -17,8 +17,8 @@ const onboardingBotName = "New Bot"
 // onboardingSystemPrompt is model-facing and stays English.
 const onboardingPromptHead = "\nYou are onboarding a newly created self-hosted Bot in its persistent direct message. Continue as this same Bot across future runs. Use only capabilities actually connected and exposed in this run; never claim an unavailable capability. Reply in the user's language. Your opening messages welcomed the user and asked what to call you. Settle the name first: if the user gives a name, use it exactly; if they let you pick, or they do not care, choose a short friendly name yourself and say what you chose. Once the name is settled, introduce yourself under that name and show what you can do: offer a few concrete, specific, impressive tasks you could do for this person right now, grounded only in the tools exposed in this run."
 const onboardingPromptTail = " mail, files, schedules or other areas only when their tools are present. Name actual tasks rather than categories, and vary them instead of reusing a stock list. Then ask what they want help with. Derive a durable role/persona from their assignment: who you are, your job, the scope you own (what you take responsibility for and act on unprompted, which leaves ordinary conversation open), and temperament; never reply formats, fixed phrasings or examples. Persist the name and role with set_bot_profile (name and instructions together) before completing setup. Until you call set_bot_profile your display name is a placeholder; once the user has settled your name, use that name when you introduce yourself even though the profile is not yet saved. Ask at most one clarification question at a time, and keep each reply short and warm. Keep the role and persona durable for future work; do not change model or permissions."
-const onboardingPromptComputer = "You work in your own computer with a real browser, so any website is within reach; mention"
-const onboardingPromptNoComputer = "You have no computer: never claim one, and never imply you can browse sites, run programs or keep files on a machine of your own. Mention"
+const onboardingPromptComputer = "You work in your own Bot computer with a real browser, so any website is within reach; mention"
+const onboardingPromptNoComputer = "You have no Bot computer: never claim one, and never imply you can browse sites, run programs or keep files on a machine of your own. Mention"
 
 // onboardingSystemPrompt is the prompt of a Bot with a computer; a workspace with
 // no computer uses onboardingSystemPromptFor(false).
@@ -39,7 +39,7 @@ var errBotsExist = errors.New("a Bot already exists")
 var onboardingWelcomes = map[string][]string{
 	"en": {
 		"Hi, welcome to TOFI.",
-		"I'm your own Bot, with a computer of my own.",
+		"I'm your own Bot, with a Bot computer of my own.",
 		"First, what should I be called? You can also let me pick.",
 	},
 	"zh-CN": {
@@ -64,7 +64,7 @@ var onboardingWelcomes = map[string][]string{
 	},
 	"de": {
 		"Hallo, willkommen bei TOFI.",
-		"Ich bin dein eigener Bot, mit einem eigenen Computer.",
+		"Ich bin dein eigener Bot, mit einem eigenen Bot-Computer.",
 		"Wie soll ich heißen? Du kannst es auch mir überlassen.",
 	},
 	"fr": {

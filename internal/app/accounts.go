@@ -659,7 +659,7 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 	// The size of a computer is set by an admin (/api/admin/accounts/{id}/resources). A member may read it
 	// and restart to apply what the admin saved, but never write vCPUs, memory or disk.
 	if strings.HasPrefix(r.URL.Path, "/api/computer/resources") && r.Method != http.MethodGet && !(r.Method == http.MethodPost && r.URL.Path == "/api/computer/resources/apply") {
-		writeErr(w, 403, "quota_management_required", "computer size is set by an admin")
+		writeErr(w, 403, "quota_management_required", "Bot computer size is set by an admin")
 		return
 	}
 	workspace, err := g.workspace(a)

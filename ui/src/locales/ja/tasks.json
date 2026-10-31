@@ -87,8 +87,8 @@
     "ready": "ツールは使用可能です",
     "config_changed": "ツール設定が変更されました。もう一度承認してください",
     "tool_timeout": "時間内に応答がなく、停止しました",
-    "computer_restarting": "コンピューターを再起動中のため、このステップは実行されていません",
-    "computer_unresponsive": "コンピューターが応答しないため、このステップは実行されていません",
+    "computer_restarting": "Bot コンピューターを再起動中のため、このステップは実行されていません",
+    "computer_unresponsive": "Bot コンピューターが応答しないため、このステップは実行されていません",
     "tool_rejected": "実行前に拒否され、変更はありません",
     "restart_interrupted": "中断時に実行中でした。再実行しても安全です",
     "restart_interrupted_effect": "中断時に実行中でした。結果は未確認です",
@@ -400,18 +400,18 @@
       "search_tools": "使えるツールを検索中",
       "search_history": "会話履歴を確認中",
       "inspect_runs": "実行記録を確認中",
-      "computer_help": "コンピューターのガイドを読み込み中",
+      "computer_help": "Bot コンピューターのガイドを読み込み中",
       "send_message": "メッセージを送信中",
       "complete_schedule": "定期タスクを完了中",
       "connected_tool": "接続済みツールを使用中",
       "browse": "ウェブを閲覧中",
       "documents": "ドキュメントを確認中",
       "command": "コマンドを実行中",
-      "computer": "コンピューターを操作中",
+      "computer": "Bot コンピューターを操作中",
       "contact": "メンバーに連絡中",
       "call": "{{name}}を呼び出し中",
       "profile": "Bot のプロフィールを保存中",
-      "takeover": "コンピュータでの操作を待っています",
+      "takeover": "Bot コンピューターでの操作を待っています",
       "connection": "サービスの接続を待っています"
     },
     "title": {
@@ -422,18 +422,18 @@
       "search_tools": "使えるツールを検索",
       "search_history": "会話履歴を確認",
       "inspect_runs": "実行記録を確認",
-      "computer_help": "コンピューターのガイドを読む",
+      "computer_help": "Bot コンピューターのガイドを読む",
       "send_message": "メッセージを送信",
       "complete_schedule": "定期タスクを完了",
       "connected_tool": "接続済みツールを使用",
       "browse": "ウェブを閲覧",
       "documents": "ドキュメントを確認",
       "command": "コマンドを実行",
-      "computer": "コンピューターを操作",
+      "computer": "Bot コンピューターを操作",
       "contact": "メンバーに連絡",
       "call": "{{name}}を呼び出す",
       "profile": "Bot のプロフィールを保存",
-      "takeover": "コンピュータでの操作を待っています",
+      "takeover": "Bot コンピューターでの操作を待っています",
       "connection": "サービスの接続を待っています"
     },
     "step_action": {
@@ -458,7 +458,7 @@
       "firecrawl": "Firecrawl",
       "brightdata": "Bright Data",
       "builtin": "内蔵の取得",
-      "computer": "Bot のコンピュータ"
+      "computer": "Bot コンピューター"
     }
   },
   "review": {
@@ -613,15 +613,15 @@
     "state_changed": "このリクエストは更新されました。最新の状態を確認してから続けてください。",
     "takeover": {
       "take": "引き継ぐ",
-      "hint": "Bot の共有コンピュータを操作します。入力やコピーした内容はその画面にだけ残り、Bot には共有されません。",
+      "hint": "Bot コンピューターを操作します。入力やコピーした内容はその画面にだけ残り、Bot には共有されません。",
       "resolved_done": "Bot に戻しました",
       "resolved_cannot": "完了できませんでした"
     },
     "dialog": {
       "label": "{{site}} を引き継ぐ",
-      "subtitle": "共有コンピュータを操作中です",
+      "subtitle": "Bot コンピューターを操作中です",
       "close": "チャットに戻る",
-      "screen_alt": "共有コンピュータ",
+      "screen_alt": "Bot コンピューター",
       "footer": "操作中は Bot が待機します。終わったら「完了」を選んでください。"
     },
     "connection": {

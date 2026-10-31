@@ -1,16 +1,17 @@
 # Self-host install (Linux; KVM optional)
 
 One command installs TOFI on a dedicated Linux x86_64 or aarch64 (arm64) server, everything in
-Docker. The computer is optional (`TOFI_COMPUTER_BACKEND=none|kvm`):
+Docker. The Bot computer is optional (`TOFI_COMPUTER_BACKEND=none|kvm`). Its kind today is the
+built-in VM, a Firecracker microVM (`kvm`); a hosted E2B kind is planned, not available yet:
 
 - **With KVM** (the default on a host that has it): the same App + Worker + one Firecracker
-  computer per account as production.
+  Bot computer per account as production.
 - **Without** (any host, or `--computer none`): the App and the web page only. No Worker
   container, no Guest download, no AppArmor or seccomp profile. `sudo tofi computer add kvm`
-  adds the computer later on a host that has KVM; `sudo tofi computer remove` takes it away
+  adds the Bot computer later on a host that has KVM; `sudo tofi computer remove` takes it away
   again and keeps its disks (`--purge` deletes them).
 - **Either way** the local MCP Runner container serves local connections (Gmail through
-  gog, community packages) for every account, so they work with or without a computer
+  gog, community packages) for every account, so they work with or without a Bot computer
   and keep working when an admin attaches or detaches one. It needs `iptables` on the host
   (see the Runner notes under "Files"); a start or update that cannot start it fails.
 
@@ -26,28 +27,28 @@ docs/agent-plan/one-command-install.md ("End-to-end acceptance").
 
 | | Minimum | Recommended |
 |---|---|---|
-| CPU | Linux x86_64 or aarch64, 2 vCPUs, `/dev/kvm` (1 vCPU, no KVM without a computer) | 4 vCPUs |
-| Memory | 4 GiB (one small computer; see below). 2 GiB without a computer | 8 GiB (4 GiB without a computer) |
-| Disk free under `/var/lib` | 30 GiB (10 GiB without a computer) | 40 GiB (20 GiB) |
+| CPU | Linux x86_64 or aarch64, 2 vCPUs, `/dev/kvm` (1 vCPU, no KVM without a Bot computer) | 4 vCPUs |
+| Memory | 4 GiB (one small Bot computer; see below). 2 GiB without a Bot computer | 8 GiB (4 GiB without a Bot computer) |
+| Disk free under `/var/lib` | 30 GiB (10 GiB without a Bot computer) | 40 GiB (20 GiB) |
 | OS | Ubuntu 22.04/24.04, Debian 12/13 | |
 
-With a computer also required: `/dev/net/tun`, cgroup v2 and AppArmor enabled in the
+With a Bot computer also required: `/dev/net/tun`, cgroup v2 and AppArmor enabled in the
 kernel. The first account reserves an 8 GiB workspace disk plus 8 GiB internal space.
-Without a computer none of that is checked, and Docker needs neither cgroup v2 nor
+Without a Bot computer none of that is checked, and Docker needs neither cgroup v2 nor
 AppArmor. Other distributions can try `TOFI_ALLOW_UNSUPPORTED=1`.
 
-A host that cannot run computers is not refused: the installer lists the reasons
+A host that cannot run Bot computers is not refused: the installer lists the reasons
 (`No computer on this host, so TOFI installs the server and web app only. KVM is not
 available (/dev/kvm)...`) and installs without one. An explicit `--computer kvm` on such a
 host still stops, with the specific reason.
 
 aarch64 hosts (for example a NanoPi R5C, RK3568, Debian 13) get the same
 release: images are multi-arch manifest lists, and the installer and `tofi
-update` fetch the `tofi-guest-<tag>-aarch64.tar.zst` Guest. The computer's
+update` fetch the `tofi-guest-<tag>-aarch64.tar.zst` Guest. The Bot computer's
 browser is Chromium there (Google Chrome has no arm64 Linux build). On a host
 with 4.5 GiB of RAM or less the installer passes with an advisory: the memory
 budget is `MemTotal - 2048` MiB, so a "4 GiB" board (about 3.9 GiB visible)
-defaults each computer to 1280 MiB RAM and runs one at a time; add swap. Larger
+defaults each Bot computer to 1280 MiB RAM and runs one at a time; add swap. Larger
 hosts keep the 2048 MiB default.
 
 ## Interactive install
@@ -68,10 +69,10 @@ confirm:
    not root, too small) is reported after the whole card, with every reason,
    and exits 1. A missing `/dev/kvm`, TUN, cgroup v2 or AppArmor is shown as
    information, not a failure: it only decides the next question.
-2. **Install a computer now?** Asked only on a host that can run KVM computers:
+2. **Install a computer now?** (the installer's own wording) Asked only on a host that can run KVM computers:
    `Yes, install a computer (KVM, Firecracker)` (default; `--yes` means yes) or `Not now
    - server and web app only`. A host that cannot is not asked: the installer prints why
-   there is no computer and how to add one later. `--computer none|kvm` answers in
+   there is no Bot computer and how to add one later. `--computer none|kvm` answers in
    advance; `gvisor` and `container` exit "not supported yet". The choice is stored as
    `TOFI_COMPUTER_BACKEND=kvm|none` in `/etc/tofi/tofi.env` and handed to `tofi install
    --computer`.
@@ -150,7 +151,7 @@ every exposure variable. With `sudo`, pass variables after it:
 
 | Flag | Variable | Meaning |
 |---|---|---|
-| `--computer none\|kvm` | `TOFI_COMPUTER` | `none`: server and web app only; `kvm`: also a Firecracker computer per account (needs `/dev/kvm`). Default: `kvm` where the host supports it, else `none`. `gvisor`/`container` exit "not supported yet" |
+| `--computer none\|kvm` | `TOFI_COMPUTER` | `none`: server and web app only; `kvm`: also a Firecracker Bot computer per account (needs `/dev/kvm`). Default: `kvm` where the host supports it, else `none`. `gvisor`/`container` exit "not supported yet" |
 | `--domain NAME` | `TOFI_DOMAIN` | public HTTPS through Caddy (ports 80/443 free, DNS here); sets `TOFI_PUBLIC_ORIGIN` |
 | `--behind-proxy IP[,IP\|CIDR...]` | `TOFI_BEHIND_PROXY` | a proxy you already run sits in front: direct install, those addresses written to `TOFI_TRUSTED_PROXIES`, Caddy/Nginx snippets printed; excludes `--domain` and `--local-only` |
 | `--email ADDRESS` | `TOFI_EMAIL` | Let's Encrypt contact (with `--domain`) |
@@ -304,16 +305,16 @@ server and the host tool send no report.
 
 1. Root and `Linux x86_64` or `Linux aarch64`.
 2. Supported distribution from `/etc/os-release`.
-3. `/dev/kvm`, `/dev/net/tun`, cgroup v2, AppArmor: they decide the computer. Fatal only
+3. `/dev/kvm`, `/dev/net/tun`, cgroup v2, AppArmor: they decide the Bot computer. Fatal only
    with `--computer kvm`; otherwise a host lacking one installs with `--computer none`.
 4. CPU, memory, disk and free ports (8321 on any address), the "This machine"
    card, then the questions (in a terminal) and Proceed. Steps 1-4 change
    nothing on the host; they only read (plus, for a fresh install, the latest
    release manifest from GitHub and one public-IP lookup).
 5. `apt-get install ca-certificates curl tar python3 openssl iproute2 iptables`, and with a
-   computer also `zstd e2fsprogs apparmor apparmor-utils`.
+   Bot computer also `zstd e2fsprogs apparmor apparmor-utils`.
 6. Docker Engine + Compose plugin from Docker's apt repository when missing
-   (falls back to get.docker.com for brand-new distributions); with a computer,
+   (falls back to get.docker.com for brand-new distributions); with a Bot computer,
    verifies Docker uses cgroup v2 and AppArmor.
 7. Downloads `manifest.json` from GitHub Releases over HTTPS and validates it:
    images pinned as `name@sha256:...`, artifact URLs from this repository's
@@ -352,29 +353,29 @@ Later accounts are created by the Admin. Then open Settings -> Model provider.
 
 | Command | Effect |
 |---|---|
-| `tofi status [--json]` | Installed and latest version, App/Worker images, Guest release, services, the Runner (healthy or not), health, URLs, certificate fingerprint and one row per account computer (in a terminal the install summary first) |
-| `tofi computer add kvm [--wait MINUTES] [--force]` | Give a server without a computer one: checks KVM, TUN, cgroup v2, AppArmor, Docker, 2 vCPUs, 4 GiB RAM and 16 GiB free (installing `zstd e2fsprogs apparmor apparmor-utils` if missing), pulls the Worker image, fetches the Guest of the installed version, writes `worker.json`, seccomp and AppArmor, sets `TOFI_COMPUTER_BACKEND=kvm`, starts the Worker and has the running App attach every account's computer through its host route (`/api/host/computer/attach`, token `data/host-control.token`, served only to the host (loopback or the container gateway; other sources get 404), never proxied by Caddy; no restart). An App that cannot do that live (an older release, or one started without the Worker's sockets, e.g. the first `add` on a server installed without a computer) is restarted as before (after active Bot runs finish, like `stop`). Idempotent; a failure puts `tofi.env` back and the App as it was. Nothing changes if the host cannot run KVM |
-| `tofi computer remove [--purge] [--yes] [--wait MINUTES] [--force]` | The running App detaches every account's computer first (drains calls, saves the outbox files), then the Worker stops (computers hibernate) and `TOFI_COMPUTER_BACKEND=none` is set; an App that cannot detach live is restarted instead. Computer disks, state and the Guest release stay under `/var/lib/tofi` so `computer add kvm` brings them back; `--purge` (needs `--yes` or a typed confirmation) deletes them and the AppArmor profile |
-| `tofi computers [--json]` | The account computer rows alone: state, Guest release, pending upgrade, memory, last wake |
-| `tofi computers upgrade --all \| --account <id> [--force]` | Move computers on an older Guest release to the installed one (idle ones now, busy ones deferred unless `--force`), then remove Guest releases no computer uses |
+| `tofi status [--json]` | Installed and latest version, App/Worker images, Guest release, services, the Runner (healthy or not), health, URLs, certificate fingerprint and one row per Bot computer (in a terminal the install summary first) |
+| `tofi computer add kvm [--wait MINUTES] [--force]` | Give a server without a Bot computer one: checks KVM, TUN, cgroup v2, AppArmor, Docker, 2 vCPUs, 4 GiB RAM and 16 GiB free (installing `zstd e2fsprogs apparmor apparmor-utils` if missing), pulls the Worker image, fetches the Guest of the installed version, writes `worker.json`, seccomp and AppArmor, sets `TOFI_COMPUTER_BACKEND=kvm`, starts the Worker and has the running App attach every account's Bot computer through its host route (`/api/host/computer/attach`, token `data/host-control.token`, served only to the host (loopback or the container gateway; other sources get 404), never proxied by Caddy; no restart). An App that cannot do that live (an older release, or one started without the Worker's sockets, e.g. the first `add` on a server installed without a Bot computer) is restarted as before (after active Bot runs finish, like `stop`). Idempotent; a failure puts `tofi.env` back and the App as it was. Nothing changes if the host cannot run KVM |
+| `tofi computer remove [--purge] [--yes] [--wait MINUTES] [--force]` | The running App detaches every account's Bot computer first (drains calls, saves the outbox files), then the Worker stops (Bot computers hibernate) and `TOFI_COMPUTER_BACKEND=none` is set; an App that cannot detach live is restarted instead. Bot computer disks, state and the Guest release stay under `/var/lib/tofi` so `computer add kvm` brings them back; `--purge` (needs `--yes` or a typed confirmation) deletes them and the AppArmor profile |
+| `tofi computers [--json]` | The Bot computer rows alone: state, Guest release, pending upgrade, memory, last wake |
+| `tofi computers upgrade --all \| --account <id> [--force]` | Move Bot computers on an older Guest release to the installed one (idle ones now, busy ones deferred unless `--force`), then remove Guest releases no Bot computer uses |
 | `tofi start` / `tofi stop [--wait MINUTES] [--force]` | Start (Worker first, readiness, App) / stop cleanly; never removes data. `stop` waits for active Bot runs like `update` does (the systemd unit passes `--force` so shutdown is never refused) |
-| `tofi update --check [--version X] [--json]` | Report what an update would change (versions, image digests, Guest, data schema, effect on computers; a line when the update adds the Runner container) without touching anything; exit 0 up to date, 10 update available, 1 error |
+| `tofi update --check [--version X] [--json]` | Report what an update would change (versions, image digests, Guest, data schema, effect on Bot computers; a line when the update adds the Runner container) without touching anything; exit 0 up to date, 10 update available, 1 error |
 | `tofi update [--version X] [--yes] [--wait MINUTES] [--force] [--allow-schema-change]` | Pull and check the new images and Guest before stopping anything; refuse a different `io.tofi.data-schema` unless allowed; take a backup, then switch; on failure restore the backup, the previous images, Guest pin and host files ("update rejected; previous version restored"). Asks for confirmation on a terminal unless `--yes`; `--check` also prints the release notes link. With backend `none` there is no Worker image or Guest to pull, fetch, prune or report, and the manifest's `guest`/`arches` entries are ignored |
 | `tofi update --auto` | What the daily timer runs: nothing unless `TOFI_AUTO_UPDATE=patch`; installs only a newer patch of the installed major.minor, never an rc, never when a Bot run is active (skipped, not waited for) |
 | `tofi config auto-update on\|off` | Switch automatic fix releases and the systemd timer |
 | `tofi config telemetry on\|off\|status` | Show or change the choice for the anonymous install report (stored in `/etc/tofi/telemetry`). Nothing else in TOFI sends a report |
 | `tofi config trusted-proxies [IP\|CIDR ...] [--clear]` | Show, set or clear the reverse proxies trusted for `X-Forwarded-For`; printing the Caddy/Nginx snippets when set |
-| `tofi backup [--note TEXT] [--no-disks]` | Stop, back up data, settings and (by default) every computer's workspace disk, start again, then verify the new backup. Disks are zstd-compressed, copied only while TOFI is stopped; a space estimate is printed first and only the 2 newest backups keep their disks |
+| `tofi backup [--note TEXT] [--no-disks]` | Stop, back up data, settings and (by default) every Bot computer's workspace disk, start again, then verify the new backup. Disks are zstd-compressed, copied only while TOFI is stopped; a space estimate is printed first and only the 2 newest backups keep their disks |
 | `tofi backup --verify [ID\|all]` | Check a backup without restoring it: files, sizes, sha256, archives readable, `tofi.env` usable, no unlisted files. Exit 1 on any problem |
 | `tofi backups [--json]` | List backups: id, time, version, size, reason |
-| `tofi restore <id> [--yes] [--no-disks]` | Verify the backup's checksums, back up the current state (`pre-restore`), restore data and settings (and the computer disks, if the backup has them), and switch to that backup's version. Replaced disks stay beside the new ones as `workspace-before-restore-*.ext4` |
+| `tofi restore <id> [--yes] [--no-disks]` | Verify the backup's checksums, back up the current state (`pre-restore`), restore data and settings (and the Bot computer disks, if the backup has them), and switch to that backup's version. Replaced disks stay beside the new ones as `workspace-before-restore-*.ext4` |
 | `tofi uninstall` | Stop and remove containers; keep `/etc/tofi`, `/var/lib/tofi`, images, AppArmor profile; journal `stopped-retained` |
 | `tofi uninstall --purge` | After you type the hostname: remove containers, TOFI's images, profile, unit and every TOFI directory including all data. Images removed are only those named by this installation (current `tofi.env`, a pending rollback, every release manifest under `/opt/tofi`), without force, so an image another container uses is kept; each removed or kept image is printed. Nothing is pruned |
 | `tofi setup-secret` | Print the pending setup key |
 | `tofi regenerate-cert` | Replace the self-signed certificate (new names/IPs, new fingerprint) and restart the App |
 | `tofi logs [app\|worker\|caddy\|runner]` | Follow container logs |
-| `tofi doctor` | The installer's "This machine" card, then check KVM, computer backend, cgroup, profile, `/run/tofi`, Worker config, Guest release, images, disk, health. With backend `none` the KVM, cgroup, profile, Worker, Guest and memory checks are not run (a host without KVM is healthy) |
-| `tofi security audit [--json] [--online]` | Read-only report of where this install deviates from safe defaults: HTTPS and certificate type, listening interfaces and public addresses, plain-HTTP sign-in, pending Admin setup key, login limiter and trusted proxies, modes and owners of `/etc/tofi`, the data dir, vault files, the TLS key and backups, credential-looking names in `tofi.env` (names only, never values), plaintext model keys, installed vs latest release (stored check; `--online` fetches), Guest vs hibernated computers, the Runner's network fence (`runner.fence`), newest backup age. PASS/WARN/FAIL with one fix line each; exit 0 (no FAIL), 2 (a FAIL), 1 (could not run). Changes nothing |
+| `tofi doctor` | The installer's "This machine" card, then check KVM, Bot computer backend, cgroup, profile, `/run/tofi`, Worker config, Guest release, images, disk, health. With backend `none` the KVM, cgroup, profile, Worker, Guest and memory checks are not run (a host without KVM is healthy) |
+| `tofi security audit [--json] [--online]` | Read-only report of where this install deviates from safe defaults: HTTPS and certificate type, listening interfaces and public addresses, plain-HTTP sign-in, pending Admin setup key, login limiter and trusted proxies, modes and owners of `/etc/tofi`, the data dir, vault files, the TLS key and backups, credential-looking names in `tofi.env` (names only, never values), plaintext model keys, installed vs latest release (stored check; `--online` fetches), Guest vs hibernated Bot computers, the Runner's network fence (`runner.fence`), newest backup age. PASS/WARN/FAIL with one fix line each; exit 0 (no FAIL), 2 (a FAIL), 1 (could not run). Changes nothing |
 | `tofi version` | Host tool, installed release and images |
 
 `security audit` takes no lock and writes nothing.
@@ -395,7 +396,7 @@ Every update is built so that nothing is lost when it fails.
   `/var/lib/tofi/worker/{config,ledger,state}`; disk images, snapshots and any
   file over 64 MiB are skipped with a warning; a restore copies them over the
   live ones and deletes nothing), and `meta.json` with the version, images, Guest, time, reason, sizes
-  and a sha256 of each archive. Computer disks are never in the automatic
+  and a sha256 of each archive. Bot computer disks are never in the automatic
   backups; a manual `tofi backup` adds `disks/<account>.ext4.zst` (see `--no-disks`). The last 3 automatic backups (`pre-update`, `pre-restore`) are kept, pruned
   after a good update; `manual` backups (`tofi backup`) are never pruned: remove
   one with `sudo tofi backups --remove <ID>`.
@@ -473,7 +474,7 @@ $ sudo tofi backups
   Automatic backups (pre-update, pre-restore): the last 3 are kept. Manual ones stay until you remove them: sudo tofi backups --remove <ID>
 ```
 
-## Versions and account computers
+## Versions and Bot computers
 
 `tofi status` shows what is installed and what `tofi update` would install:
 
@@ -486,29 +487,29 @@ TOFI v0.1.0 · installed · healthy
   Guest        v0.1.0
   Services     app healthy · worker running
 
-Computers (4)
+Bot computers (4)
   ACCOUNT   STATE       GUEST   UPGRADE  MEMORY   LAST WAKE
   3f2a9c1e  running     v0.1.0  -        612 MiB  restore 2.1s
   9b77d0aa  hibernated  v0.0.9  pending  -        -
   c0ffee00  stopped     -       -        -        -
   e1e1e1e1  running     v0.1.0  -        612 MiB  cold boot 14.2s
 
-  1 computer is on an older Guest than v0.1.0; a hibernated one cold-boots on v0.1.0 at its next use.
+  1 Bot computer is on an older Guest than v0.1.0; a hibernated one cold-boots on v0.1.0 at its next use.
   Switch now: sudo tofi computers upgrade --all
 ```
 
 "Latest" is the newest published release (`releases/latest`, which never
 serves `-rc` prereleases), checked at most every 6 hours and cached in
 `/var/cache/tofi/latest-release.json`; offline it shows the last answer or
-"unknown" and never fails. A computer's state is `running`, `starting`,
+"unknown" and never fails. A Bot computer's state is `running`, `starting`,
 `restarting`, `hibernating`, `hibernated`, `stopped`, `unresponsive` (its
 guest stopped answering), `error` or `disabled`. GUEST is the release a running
-computer runs, or the one a hibernated computer's snapshot was taken with; a
-stopped computer has none (its next start uses the installed Guest). MEMORY is
+Bot computer runs, or the one a hibernated Bot computer's snapshot was taken with; a
+stopped Bot computer has none (its next start uses the installed Guest). MEMORY is
 the Firecracker process RSS. The rows come from the Worker broker (`computers`
-operation) and each computer's control socket (`/v1/info`, `/v1/resources`,
+operation) and each Bot computer's control socket (`/v1/info`, `/v1/resources`,
 `/v1/health`), asked as uid 10001 like the readiness probe; asking never starts
-or wakes a computer.
+or wakes a Bot computer.
 
 Before updating:
 
@@ -524,8 +525,8 @@ Available    v0.2.0  (update available)
   Guest release  v0.1.0                v0.2.0                changes
   Data schema    tofi-account-data-v1  tofi-account-data-v1  compatible
 
-Computers    4 total: 2 running, 1 hibernated
-  The update restarts the Worker: running computers are hibernated first.
+Bot computers 4 total: 2 running, 1 hibernated
+  The update restarts the Worker: running Bot computers are hibernated first.
   e1e1e1e1 is busy (run_lease): its current task is interrupted.
   The Guest changes to v0.2.0: each of them cold-boots on it at its next use (open pages are not kept; the workspace disk is).
 
@@ -538,19 +539,19 @@ $ echo $?
 scripts. Exit code 0 means up to date, 10 an update is available, anything else
 an error (for example no network).
 
-What an update does to the computers: every computer runs inside the Worker
+What an update does to the Bot computers: every Bot computer runs inside the Worker
 container, which only mounts the installed Guest release, so `tofi update`
-(which restarts the Worker) hibernates each running computer and nothing keeps
+(which restarts the Worker) hibernates each running Bot computer and nothing keeps
 running on the old Guest. A hibernation snapshot belongs to the release it was
 taken with (Firecracker, kernel and root filesystem); under a new Guest the
-computer cold-boots from its workspace disk at its next use instead of
+Bot computer cold-boots from its workspace disk at its next use instead of
 restoring, so open pages are lost but files are kept. Busy work (a Bot run, a
 viewer, a terminal job) is interrupted by the update; check with
 `tofi update --check` first.
 
 Guest releases stay on disk while anything needs them: the installed one, the
-previous one (for rollback) and every release a hibernated computer's snapshot
-was taken with (a rollback to it restores those computers with their pages).
+previous one (for rollback) and every release a hibernated Bot computer's snapshot
+was taken with (a rollback to it restores those Bot computers with their pages).
 `tofi computers upgrade` makes the switch explicit and frees that space:
 
 ```
@@ -565,16 +566,16 @@ $ sudo tofi computers upgrade --all
   Removed unused Guest releases: v0.0.9
 ```
 
-For each computer on an older Guest: a hibernated one has its old snapshot
+For each Bot computer on an older Guest: a hibernated one has its old snapshot
 discarded (the workspace disk stays); an idle running one is stopped; a busy
 one (Bot run lease, live viewer, human control, desktop operation, terminal job
 or output, or no answer) is reported `deferred` and left alone. Nothing is
-started: each computer boots the installed Guest when it is next used.
+started: each Bot computer boots the installed Guest when it is next used.
 `--account <id>` takes a full account id or an 8+ character prefix. `--force`
-also stops busy computers after you type `yes` on the terminal (without a
+also stops busy Bot computers after you type `yes` on the terminal (without a
 terminal, `--force` alone decides); their running tasks are interrupted.
 Afterwards Guest releases that are neither installed nor used by a remaining
-computer are removed. Exit code 0: every chosen computer is on the installed
+Bot computer are removed. Exit code 0: every chosen Bot computer is on the installed
 Guest; 2: some were deferred; 1: an error. The host stays in phase `installed`
 (services keep running); the outcome is recorded as `last_computers_upgrade` in
 the journal.
@@ -620,10 +621,10 @@ or `http` from `TOFI_TLS_CERT_FILE` (busybox `wget` with Alpine's `ssl_client`).
 The local MCP Runner (Gmail, community packages) is the `runner` service under
 profile `runner`, started when `tofi.env` names `TOFI_RUNNER_IMAGE` (releases
 whose manifest pins the runner (`optional_images.runner`, or `images.runner` in v0.6.0 release candidates before rc.5) set it, with `TOFI_RUNNER_URL` and
-`TOFI_RUNNER_MASTER_KEY_FILE`). It runs outside every computer, so it works with
+`TOFI_RUNNER_MASTER_KEY_FILE`). It runs outside every Bot computer, so it works with
 `TOFI_COMPUTER_BACKEND=none`, serves each account in its own namespace and uid,
 and keeps its state under `/var/lib/tofi/data/runner` (inside the data backup).
-Without a Runner image, local connections still run inside the account computer
+Without a Runner image, local connections still run inside the account's Bot computer
 as before. See `docs/decisions/0071-runner-container.md`.
 
 The Runner runs code a person installed, so it is fenced: it has no shared memory
@@ -672,19 +673,19 @@ needs no profile. `sudo tofi security audit` reports this as `runner.cgroups`.
 
 Once an account keeps its local connections in the Runner container, `tofi update`
 refuses a release that predates it (the connections would fall back to an older
-copy on the account's computer). `sudo tofi update --version <older>
+copy on the account's Bot computer). `sudo tofi update --version <older>
 --allow-runner-downgrade` overrides that on purpose; automatic updates never do.
 
 Budgets: the Worker gets `max(1, nproc-1)` vCPUs and
-`max(1536, MemTotal-2048)` MiB for account computers (1 vCPU / 1 GiB each), with
-1 GiB host memory headroom. Each computer has a virtio balloon with free page
+`max(1536, MemTotal-2048)` MiB for Bot computers (1 vCPU / 1 GiB each), with
+1 GiB host memory headroom. Each Bot computer has a virtio balloon with free page
 reporting: freed guest RAM goes back to the host, and once its desktop has
 idled out (Chrome stopped) the guest drops its page cache and compacts, so an
-idle computer holds roughly 0.3 GiB instead of its full allocation. Every start
+idle Bot computer holds roughly 0.3 GiB instead of its full allocation. Every start
 is still gated on the host's live `MemAvailable` plus headroom. The static
 claim ceiling does not overcommit; an operator can raise it with the optional
 `runtime_memory_overcommit_percent` (100-200) in `worker.json`, accepting that
-computers that all become busy again are not stopped by the Worker.
+Bot computers that all become busy again are not stopped by the Worker.
 
 ## Journal and recovery
 
@@ -744,8 +745,8 @@ then also checks that the session cookie is `Secure`.
 - Behind Caddy the App does not see TLS, so session cookies lack `Secure`
   (no `X-Forwarded-Proto` support yet).
 - A new Guest release on update must boot accounts created under the previous
-  one. The Worker regenerates each computer's manager config for the new release
+  one. The Worker regenerates each Bot computer's manager config for the new release
   on its next start (an older Worker refused with "existing generated artifact
   differs"); covered by unit tests and only by clean-host acceptance on KVM.
-- Not supported: container-only computers, macOS/Windows servers, adopting an
+- Not supported: container-only Bot computers, macOS/Windows servers, adopting an
   existing deployment, multi-node, unattended updates, backups beyond retained data.

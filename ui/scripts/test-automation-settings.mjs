@@ -177,7 +177,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await t.page.evaluate(() => window.__openTab), "permissions", "the link opens the Permissions page");
     assert.equal(await row(t.page, "provider_retries").locator(".ui-select-trigger").getAttribute("data-value"), "5");
     assert.equal(await row(t.page, "remembered_approval_hours").locator(".ui-select-trigger").getAttribute("data-value"), "24");
-    assert.match(await row(t.page, "desktop_idle_seconds").innerText(), /5 min/, "the computer service's idle timeout is shown");
+    assert.match(await row(t.page, "desktop_idle_seconds").innerText(), /5 min/, "the Bot computer service's idle timeout is shown");
     assert.equal(await row(t.page, "desktop_idle_seconds").locator(".ui-select-trigger, input").count(), 0, "a value owned elsewhere has no control");
     assert.equal(await row(t.page, "browser_engine").locator(".ui-select-trigger").getAttribute("data-value"), "playwright", "the browser engine is a real choice, Playwright by default");
     assert.match(await row(t.page, "browser_engine").locator("[data-testid=default-changed]").innerText(), /Default changed/, "the browser engine row says its default changed");

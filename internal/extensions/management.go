@@ -848,7 +848,7 @@ func OAuthPublicError(err error) string {
 		return "This service accepts only a 127.0.0.1 redirect. Sign in with the paste-back step."
 	}
 	if errors.Is(err, ErrOAuthLoopbackOnly) {
-		return "This connection signs in only through a 127.0.0.1 redirect. Use the shared computer or the paste-back step."
+		return "This connection signs in only through a 127.0.0.1 redirect. Use the Bot computer or the paste-back step."
 	}
 	msg := strings.ToLower(err.Error())
 	switch {

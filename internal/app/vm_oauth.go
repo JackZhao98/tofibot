@@ -18,7 +18,7 @@ import (
 const oauthOwnerPrefix = "human-oauth:"
 const vmOAuthLifetime = 10 * time.Minute
 
-var errOAuthComputerBusy = errors.New("shared computer is busy")
+var errOAuthComputerBusy = errors.New("Bot computer is busy")
 
 type vmOAuthSession struct {
 	id, botID, server, guestID, flowID string
@@ -51,7 +51,7 @@ func (s *Server) closeVMOAuth() {
 // for this Bot may coexist with this reservation; no Bot run may bypass it.
 func (s *Server) startVMOAuth(requestCtx context.Context, botID, name string) (_ *vmOAuthSession, resultErr error) {
 	if s.computer() == nil {
-		return nil, errors.New("shared computer is not configured")
+		return nil, errors.New("Bot computer is not configured")
 	}
 	bot, err := s.store.GetBot(botID)
 	if err != nil || bot.Archived {
@@ -154,7 +154,7 @@ func (s *Server) oauthGuestAction(ctx context.Context, v *vmOAuthSession, action
 	defer cancel()
 	result, err := s.computer().Action(callCtx, computer.Action{BotID: v.botID, RunID: v.owner(), Source: "human", Name: action, Args: raw})
 	if err == nil && !result.OK {
-		return errors.New("shared computer action failed")
+		return errors.New("Bot computer action failed")
 	}
 	if err == nil && action == "browser.action" {
 		var page struct {
@@ -308,7 +308,7 @@ func (s *Server) routeVMOAuth(w http.ResponseWriter, r *http.Request, p string) 
 		v, err := s.startVMOAuth(r.Context(), in.BotID, name)
 		if err != nil {
 			if errors.Is(err, errOAuthComputerBusy) {
-				writeErr(w, 409, "computer_busy", "The computer is busy with another operation. Try connecting again shortly.")
+				writeErr(w, 409, "computer_busy", "The Bot computer is busy with another operation. Try connecting again shortly.")
 			} else {
 				writeErr(w, 400, "oauth", extensions.OAuthPublicError(err))
 			}

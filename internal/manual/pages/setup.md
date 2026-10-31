@@ -17,6 +17,6 @@ Setup has four steps. Start at the first step that is not done.
 3. **Create or choose a Bot.** The first Bot is made for you. Its first chat sets its name and its role. A role is what the Bot is responsible for. The Bot reads the role before every reply.
 4. **Choose how tools ask.** Open [{{ui:settings:shell.page.permissions.name}}](/settings/permissions). Ask means a person decides tool calls that need a decision. Auto means the reviewer decides most of them. Start with Ask.
 
-A computer is optional. Without one, Bots work with chat, memory, schedules and connected services. The page [{{ui:settings:shell.page.computer.name}}](/settings/computer) says how to add one.
+A Bot computer is optional. Without one, Bots work with chat, memory, schedules and connected services. The page [{{ui:settings:shell.page.computer.name}}](/settings/computer) says how to add one.
 
 Each step shows its own state on its page. A Bot can read the current state with the settings tool (`status`) and say which step comes next.

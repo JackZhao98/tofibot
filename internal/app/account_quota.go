@@ -102,10 +102,10 @@ func (g *AccountGateway) applyQuota(ctx context.Context, id string, legacy bool,
 	computerID := g.computerIdentity(Account{ID: id, Legacy: legacy})
 	data, err := g.computerControl(ctx, map[string]any{"op": "quota", "account_id": computerID, "quota_gib": gib})
 	if err != nil {
-		return out, 409, "quota_not_applied", "quota could not be verified; shrinking requires an offline workflow, growth requires capacity and confirmed computer cleanup"
+		return out, 409, "quota_not_applied", "quota could not be verified; shrinking requires an offline workflow, growth requires capacity and confirmed Bot computer cleanup"
 	}
 	if json.Unmarshal(data, &out) != nil || out.AccountID != computerID || out.QuotaBytes != int64(gib)<<30 || !out.Applied {
-		return out, 503, "quota_unverified", "computer quota result unavailable; refresh capacity before retrying"
+		return out, 503, "quota_unverified", "Bot computer quota result unavailable; refresh capacity before retrying"
 	}
 	return out, 0, "", ""
 }

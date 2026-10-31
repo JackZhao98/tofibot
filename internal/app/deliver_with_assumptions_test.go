@@ -266,7 +266,7 @@ func TestCoAddressedResultNeverEndsInSilenceWhenTheFinalMemberFails(t *testing.T
 // wording, no contrasts, no keyword lists.
 func TestRouteAndConfirmationPrinciplesArePresentAndExampleFree(t *testing.T) {
 	for _, want := range []string{
-		"try the computer's other means before reporting a blocker or asking",
+		"try the Bot computer's other means before reporting a blocker or asking",
 		"the real signed-in browser",
 		"never accepting a purchase",
 		"another source",

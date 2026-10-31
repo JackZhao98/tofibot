@@ -200,7 +200,7 @@ type commandExitRequest struct {
 func (s *Server) registerCommandExit(ctx context.Context, req commandExitRequest) (map[string]any, error) {
 	terminals, err := s.guestTerminals(ctx, req.Run.BotID)
 	if err != nil {
-		return nil, waitRefusal("terminal_unavailable", "The terminals of the computer cannot be read now. Try again shortly.")
+		return nil, waitRefusal("terminal_unavailable", "The terminals of the Bot computer cannot be read now. Try again shortly.")
 	}
 	var term *guestTerminal
 	for i := range terminals {
@@ -564,7 +564,7 @@ func describeCommandWait(w Wait, note string) string {
 	case commandClosed:
 		head = fmt.Sprintf("the terminal %s was closed%s before the command ended. The exit code is unknown.", short, note)
 	default:
-		head = fmt.Sprintf("the command in terminal %s%s was interrupted by a restart of the computer: the terminal is gone. The last output seen is below. Decide whether to run the command again.", short, note)
+		head = fmt.Sprintf("the command in terminal %s%s was interrupted by a restart of the Bot computer: the terminal is gone. The last output seen is below. Decide whether to run the command again.", short, note)
 	}
 	if strings.TrimSpace(res.Tail) == "" {
 		return head + " There was no output."

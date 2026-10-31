@@ -414,7 +414,7 @@ func TestMicroVMStatusDoesNotBlockRunStart(t *testing.T) {
 	}
 	s := &Server{microVM: client}
 	started := time.Now()
-	if status := s.microVMStatus(context.Background()); status != "VM status unknown" {
+	if status := s.microVMStatus(context.Background()); status != "Bot computer status unknown" {
 		t.Fatalf("cold status=%q", status)
 	}
 	if elapsed := time.Since(started); elapsed > time.Second {
@@ -423,7 +423,7 @@ func TestMicroVMStatusDoesNotBlockRunStart(t *testing.T) {
 	close(release)
 	deadline := time.Now().Add(3 * time.Second)
 	for {
-		if status := s.microVMStatus(context.Background()); status == "VM status ready/ready" {
+		if status := s.microVMStatus(context.Background()); status == "Bot computer status ready/ready" {
 			break
 		}
 		if time.Now().After(deadline) {

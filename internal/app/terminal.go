@@ -103,7 +103,7 @@ func (s *Server) handleTerminalAction(w http.ResponseWriter, r *http.Request, bo
 		}
 		lease := s.terminalLease(botID)
 		if !lease.TryLock() {
-			writeErr(w, 409, "computer_busy", "The computer is busy. Try again shortly.")
+			writeErr(w, 409, "computer_busy", "The Bot computer is busy. Try again shortly.")
 			return
 		}
 		defer lease.Unlock()
@@ -113,7 +113,7 @@ func (s *Server) handleTerminalAction(w http.ResponseWriter, r *http.Request, bo
 		}
 		c := &computerControl{id: uuid.NewString(), botID: botID, terminal: true}
 		if !s.claimTerminalOwner(botID, "human-control:"+c.id) {
-			writeErr(w, 409, "computer_busy", "The computer is already controlled by another window or task.")
+			writeErr(w, 409, "computer_busy", "The Bot computer is already controlled by another window or task.")
 			return
 		}
 		c.mu.Lock()
@@ -192,7 +192,7 @@ func (s *Server) terminalTool(r Run) Tool {
 	return Tool{Name: "computer_terminal", Description: terminalToolDescription, Parameters: objectSchema(map[string]any{
 		"action":      map[string]any{"type": "string", "enum": []string{"open", "list", "read", "write", "resize", "close"}},
 		"terminal_id": map[string]any{"type": "string"}, "command": map[string]any{"type": "string"}, "data": map[string]any{"type": "string"}, "cursor": map[string]any{"type": "integer", "minimum": 0}, "cols": map[string]any{"type": "integer"}, "rows": map[string]any{"type": "integer"},
-		"notify_on_exit": map[string]any{"type": "boolean", "description": "With open (and a command) or write: register a wait on the end of the command. The result has the exit code and the last output. A restart of the computer interrupts the command and the result says so; decide whether to run it again. In a shell terminal the end is the return of the shell to its prompt, with no exit code. End your turn or talk with the person; read the output when the result arrives."},
+		"notify_on_exit": map[string]any{"type": "boolean", "description": "With open (and a command) or write: register a wait on the end of the command. The result has the exit code and the last output. A restart of the Bot computer interrupts the command and the result says so; decide whether to run it again. In a shell terminal the end is the return of the shell to its prompt, with no exit code. End your turn or talk with the person; read the output when the result arrives."},
 	}, []string{"action"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
 		var in map[string]json.RawMessage
 		_ = json.Unmarshal(raw, &in)
@@ -311,7 +311,7 @@ func normalizeTerminalCommands(value map[string]any) {
 	}
 }
 
-const terminalToolDescription = "Open and operate a persistent PTY terminal in this Bot's VM workspace. The human sees tabs and live output in Terminal. Use for interactive or long-running commands. open starts a shell when command is omitted; read returns incremental text and a next_cursor; write sends text and control characters. A terminal keeps running after your turn ends and through hibernation. A restart of the computer ends every terminal; working files persist. User control blocks model actions. Close finished terminals. " +
+const terminalToolDescription = "Open and operate a persistent PTY terminal in this Bot's workspace on the Bot computer. The human sees tabs and live output in Terminal. Use for interactive or long-running commands. open starts a shell when command is omitted; read returns incremental text and a next_cursor; write sends text and control characters. A terminal keeps running after your turn ends and through hibernation. A restart of the Bot computer ends every terminal; working files persist. User control blocks model actions. Close finished terminals. " +
 	"Run a long command in a terminal of its own with notify_on_exit: the system wakes you with the result when it ends, so do not poll: after the receipt, tell the person what they need and end your turn. A timed check is added to the wait; when the command ends first, end the check with cancel_wait."
 
 // attachCommandWait registers the wait that notify_on_exit asks for, after the

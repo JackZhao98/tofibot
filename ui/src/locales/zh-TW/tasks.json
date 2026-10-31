@@ -87,8 +87,8 @@
     "ready": "工具已就緒",
     "config_changed": "工具設定已變更，需要重新核准",
     "tool_timeout": "逾時未回應，已停止",
-    "computer_restarting": "電腦正在重新啟動，此步驟未執行",
-    "computer_unresponsive": "電腦沒有回應，此步驟未執行",
+    "computer_restarting": "Bot 電腦正在重新啟動，此步驟未執行",
+    "computer_unresponsive": "Bot 電腦沒有回應，此步驟未執行",
     "tool_rejected": "執行前被拒絕，未做任何變更",
     "restart_interrupted": "中斷時正在執行，可安全重做",
     "restart_interrupted_effect": "中斷時正在執行，結果待核實",
@@ -400,18 +400,18 @@
       "search_tools": "正在尋找可用工具",
       "search_history": "正在檢查對話紀錄",
       "inspect_runs": "正在檢查執行紀錄",
-      "computer_help": "正在查看電腦使用說明",
+      "computer_help": "正在查看 Bot 電腦使用說明",
       "send_message": "正在傳送訊息",
       "complete_schedule": "正在完成排程任務",
       "connected_tool": "正在使用已連結的工具",
       "browse": "正在瀏覽網頁",
       "documents": "正在檢查文件",
       "command": "正在執行指令",
-      "computer": "正在操作電腦",
+      "computer": "正在操作 Bot 電腦",
       "contact": "正在聯絡成員",
       "call": "正在呼叫 {{name}}",
       "profile": "正在儲存 Bot 資料",
-      "takeover": "等待你在電腦上操作",
+      "takeover": "等待你在 Bot 電腦上操作",
       "connection": "等待你連接服務"
     },
     "title": {
@@ -422,18 +422,18 @@
       "search_tools": "尋找可用工具",
       "search_history": "檢查對話紀錄",
       "inspect_runs": "檢查執行紀錄",
-      "computer_help": "查看電腦使用說明",
+      "computer_help": "查看 Bot 電腦使用說明",
       "send_message": "傳送訊息",
       "complete_schedule": "完成排程任務",
       "connected_tool": "使用已連結的工具",
       "browse": "瀏覽網頁",
       "documents": "檢查文件",
       "command": "執行指令",
-      "computer": "操作電腦",
+      "computer": "操作 Bot 電腦",
       "contact": "聯絡成員",
       "call": "呼叫 {{name}}",
       "profile": "儲存 Bot 資料",
-      "takeover": "等待你在電腦上操作",
+      "takeover": "等待你在 Bot 電腦上操作",
       "connection": "等待你連接服務"
     },
     "step_action": {
@@ -458,7 +458,7 @@
       "firecrawl": "Firecrawl",
       "brightdata": "Bright Data",
       "builtin": "內建擷取",
-      "computer": "Bot 的電腦"
+      "computer": "Bot 電腦"
     }
   },
   "review": {
@@ -613,15 +613,15 @@
     "state_changed": "這個請求已有變動，請先確認最新狀態再繼續。",
     "takeover": {
       "take": "接管",
-      "hint": "你將在 Bot 的共用電腦上操作。你輸入或複製的內容只會留在那個畫面上，不會分享給 Bot。",
+      "hint": "你將在 Bot 電腦上操作。你輸入或複製的內容只會留在那個畫面上，不會分享給 Bot。",
       "resolved_done": "已交還給 Bot",
       "resolved_cannot": "未能完成"
     },
     "dialog": {
       "label": "接管 {{site}}",
-      "subtitle": "你正在控制共用電腦",
+      "subtitle": "你正在控制 Bot 電腦",
       "close": "返回對話",
-      "screen_alt": "共用電腦",
+      "screen_alt": "Bot 電腦",
       "footer": "你操作期間 Bot 會等待。完成後請按「已完成」。"
     },
     "connection": {

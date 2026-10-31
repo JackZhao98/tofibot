@@ -154,7 +154,7 @@
     "endpoint_changed_oauth": "서버 URL이 바뀌었습니다. 저장하기 전에 새 URL의 OAuth 설정을 다시 입력하세요.",
     "invalid_auth_url": "승인 URL이 올바르지 않습니다",
     "metadata_changed_secret": "승인 메타데이터 URL이 바뀌었습니다. 저장하기 전에 저장된 클라이언트 보안 비밀번호를 다시 입력하거나 지우세요.",
-    "needs_bot": "공유 컴퓨터로 승인하려면 먼저 Bot을 만드세요.",
+    "needs_bot": "Bot 컴퓨터로 승인하려면 먼저 Bot을 만드세요.",
     "oauth_discovery_failed": "승인 정보를 읽거나 클라이언트를 등록할 수 없습니다. 서버 URL을 확인한 뒤 다시 시도하세요.",
     "oauth_start_failed": "승인을 시작할 수 없습니다. 서버 URL을 확인한 뒤 다시 시도하세요.",
     "offline": "서버에 연결할 수 없습니다. 다시 시도하세요.",
@@ -203,7 +203,7 @@
     "project_hint": "Google Cloud에서 OAuth 클라이언트와 같은 프로젝트를 선택하세요. 앱이 테스트 모드일 때는 Audience에서 현재 계정을 테스트 사용자로 추가하세요.",
     "preview_hint": "Cloud 프로젝트를 Google Workspace Developer Preview Program(developers.google.com/workspace/preview)에 등록하세요. 등록하지 않으면 로그인은 되어도 모든 도구 호출이 거부됩니다.",
     "agentic_hint": "“Use this client for an AI-powered agent”를 선택하세요(Google Auth Platform → Clients). 2026-11-11부터 선택하지 않은 클라이언트는 Workspace MCP가 거부하고, 2026-11-12부터 설정이 고정되므로 새 클라이언트로 교체해야 합니다.",
-    "redirect_hint": "Google Auth Platform → Clients의 웹 애플리케이션에서 사용할 URL을 하나씩 Authorized redirect URIs에 추가하세요(JavaScript origins 아님). 두 접속 경로가 이 자격 증명을 함께 쓸 수 있습니다. 주소, 포트, 경로가 정확히 일치해야 합니다. HTTP 공유 컴퓨터의 동적 리디렉션은 이 고정 설정에 맞지 않으므로 HTTPS나 앱 사용을 권장합니다.",
+    "redirect_hint": "Google Auth Platform → Clients의 웹 애플리케이션에서 사용할 URL을 하나씩 Authorized redirect URIs에 추가하세요(JavaScript origins 아님). 두 접속 경로가 이 자격 증명을 함께 쓸 수 있습니다. 주소, 포트, 경로가 정확히 일치해야 합니다. HTTP Bot 컴퓨터의 동적 리디렉션은 이 고정 설정에 맞지 않으므로 HTTPS나 앱 사용을 권장합니다.",
     "test_users": "테스트 사용자 설정",
     "workspace": {
       "title": "고급: Google Workspace MCP(개발자 미리보기)",
@@ -335,14 +335,14 @@
     "title": "{{title}} 로그인"
   },
   "route": {
-    "desktop": "시스템 브라우저에서 로그인하면 완료 후 이 앱으로 자동으로 돌아옵니다. 공유 컴퓨터는 사용하지 않습니다.",
-    "desktop_outdated": "이 앱 버전은 아직 로컬 승인을 지원하지 않습니다. 앱을 업데이트하세요. 공유 컴퓨터로 자동 전환되지 않습니다.",
-    "http_blocked": "HTTP 직접 연결로는 리디렉션을 안전하게 받을 수 없고, 공유 컴퓨터도 설정되어 있지 않습니다. HTTPS나 Tofi 앱을 사용하세요.",
+    "desktop": "시스템 브라우저에서 로그인하면 완료 후 이 앱으로 자동으로 돌아옵니다. Bot 컴퓨터는 사용하지 않습니다.",
+    "desktop_outdated": "이 앱 버전은 아직 로컬 승인을 지원하지 않습니다. 앱을 업데이트하세요. Bot 컴퓨터로 자동 전환되지 않습니다.",
+    "http_blocked": "HTTP 직접 연결로는 리디렉션을 안전하게 받을 수 없고, Bot 컴퓨터도 설정되어 있지 않습니다. HTTPS나 Tofi 앱을 사용하세요.",
     "loading": "승인 설정을 불러오는 중…",
     "loopback_paste": "이 서비스는 127.0.0.1 리디렉션만 허용합니다. 사용 중인 브라우저에서 로그인한 뒤 리디렉션된 주소를 여기에 붙여 넣으세요.",
     "public_origin_missing": "서버에 올바른 TOFI_PUBLIC_ORIGIN(공개 HTTPS 주소)을 설정한 뒤 다시 시도하세요.",
-    "vm": "현재 HTTP로 직접 연결되어 있어 이 경로에서만 공유 컴퓨터로 승인합니다. 서비스가 로컬 리디렉션을 지원해야 합니다. HTTPS나 Tofi 앱 사용을 권장합니다.",
-    "web": "이 기기의 브라우저에서 로그인하면 Tofi의 HTTPS 서버로 리디렉션됩니다. 공유 컴퓨터는 사용하지 않습니다."
+    "vm": "현재 HTTP로 직접 연결되어 있어 이 경로에서만 Bot 컴퓨터로 승인합니다. 서비스가 로컬 리디렉션을 지원해야 합니다. HTTPS나 Tofi 앱 사용을 권장합니다.",
+    "web": "이 기기의 브라우저에서 로그인하면 Tofi의 HTTPS 서버로 리디렉션됩니다. Bot 컴퓨터는 사용하지 않습니다."
   },
   "skillCatalog": {
     "document_delivery": {
@@ -449,8 +449,8 @@
     },
     "footer": "완료되면 자동으로 돌아갑니다. 다른 Bot의 화면 작업은 대기 중입니다.",
     "reconnecting": "연결이 잠시 끊겼습니다. 다시 시도하는 중…",
-    "screen_alt": "공유 컴퓨터",
-    "subtitle": "공유 컴퓨터에서 승인을 완료하세요"
+    "screen_alt": "Bot 컴퓨터",
+    "subtitle": "Bot 컴퓨터에서 승인을 완료하세요"
   },
   "tools": {
     "changed": "변경됨",

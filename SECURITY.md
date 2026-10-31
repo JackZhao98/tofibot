@@ -41,16 +41,16 @@ In scope:
   lets the App container, a Bot or a web user run commands or write files as
   root on the host is critical. So is a bug that lets an update, a backup or a
   restore touch files outside the TOFI directories.
-- **The Worker and account computers.** The Worker starts one Firecracker
-  computer for each account and gives each one its own disk. A bug that lets
-  one account's computer reach another account's data, the host, or the
-  Worker's control socket is in scope. So is an escape from the computer.
+- **The Worker and Bot computers.** The Worker starts one Firecracker
+  Bot computer for each account and gives each one its own disk. A bug that lets
+  one account's Bot computer reach another account's data, the host, or the
+  Worker's control socket is in scope. So is an escape from the Bot computer.
 - **Release artifacts:** images, checksums and the installer download path.
 
 Known limits, not security reports:
 
-- A Bot can run commands inside its own account's computer. That is by design.
-- Inside one computer, the shell tool and the shared browser's debugging port
+- A Bot can run commands inside its own account's Bot computer. That is by design.
+- Inside one Bot computer, the shell tool and the shared browser's debugging port
   share one user and the loopback address. They are not isolated from each
   other.
 - TOFI is meant for a dedicated host. We do not support running other services

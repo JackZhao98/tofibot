@@ -21,7 +21,7 @@ Do not broaden the request or replay an action with an uncertain outcome; inspec
 // and where the results live. Whether the work is complete is a separate
 // question, asked after it (D45).
 const replyMatchesRecordPrinciple = `A statement of extent or number holds for exactly what the results show: a check that reached part of a set is reported as reaching that part, a count names what was counted, and an action is reported as done only when its result confirms it. Correct each sentence the record does not support, or do the work that makes it true.
-Whatever the work leaves behind that the person will rely on (files, stored state, schedules, places on the computer), the answer says what exists and where it lives, using the locations the tool results gave. Only what the person asked to receive is published; working files stay on the computer.
+Whatever the work leaves behind that the person will rely on (files, stored state, schedules, Bot computer locations), the answer says what exists and where it lives, using the locations the tool results gave. Only what the person asked to receive is published; working files stay on the Bot computer.
 State that a later run reads or compares against is left behind for the person too: the answer names where it is kept and what it holds, whether it sits in a file, in a schedule's instructions or in memory, even when the person never asked to receive it.`
 
 // deliveredAsRecipientPrinciple asks for the check that D54 found missing: the

@@ -5,14 +5,14 @@
       "resource_limit_count_other": "Keine freien Ressourcen für den gemeinsamen Desktop ({{count}} aktive Sitzungen). Versuch es später noch einmal.",
       "resource_limit": "Keine freien Ressourcen für den gemeinsamen Desktop. Versuch es später noch einmal.",
       "stopping": "Der gemeinsame Desktop wird gerade beendet. Versuch es gleich noch einmal.",
-      "busy": "Der Computer führt gerade eine andere Aktion aus. Versuch es gleich noch einmal.",
-      "not_configured": "Der gemeinsame Computer ist noch nicht eingerichtet. Schließ zuerst die Serverinstallation ab.",
-      "failed": "Die Aktion auf dem Computer ist fehlgeschlagen. Versuch es später noch einmal.",
+      "busy": "Der Bot-Computer führt gerade eine andere Aktion aus. Versuch es gleich noch einmal.",
+      "not_configured": "Der Bot-Computer ist noch nicht eingerichtet. Schließ zuerst die Serverinstallation ab.",
+      "failed": "Die Aktion auf dem Bot-Computer ist fehlgeschlagen. Versuch es später noch einmal.",
       "capture_failed": "Bildschirmfoto fehlgeschlagen",
-      "action_failed": "Aktion auf dem Computer fehlgeschlagen",
+      "action_failed": "Aktion auf dem Bot-Computer fehlgeschlagen",
       "switching": "Der Desktop wird gerade umgeschaltet oder vorbereitet. Versuch es gleich noch einmal.",
       "unreachable": "Der Desktop ist gerade nicht erreichbar. Versuch es später noch einmal.",
-      "connection_lost": "Verbindung zum Computer unterbrochen. Neuer Versuch…"
+      "connection_lost": "Verbindung zum Bot-Computer unterbrochen. Neuer Versuch…"
     },
     "phase": {
       "checking": "Umgebung wird geprüft",
@@ -24,11 +24,11 @@
       "ready": "Bereit"
     },
     "state": {
-      "starting": "Gemeinsamer Computer wird vorbereitet",
-      "ready": "Computer bereit",
-      "error": "Computer konnte nicht vorbereitet werden",
-      "stopped": "Computer gestoppt",
-      "other": "Computer: {{state}}"
+      "starting": "Bot-Computer wird vorbereitet",
+      "ready": "Bot-Computer bereit",
+      "error": "Bot-Computer konnte nicht vorbereitet werden",
+      "stopped": "Bot-Computer gestoppt",
+      "other": "Bot-Computer: {{state}}"
     },
     "other_bot": "Ein anderer Bot",
     "announce": {
@@ -38,16 +38,16 @@
       "fallback": "Desktop verbunden, auf Screenshot-Ansicht umgeschaltet",
       "recovering": "Desktop verbunden, Bild wird wiederhergestellt"
     },
-    "shrink_aria": "Gemeinsamen Computer verkleinern",
-    "expand_aria": "Gemeinsamen Computer vergrößern",
+    "shrink_aria": "Bot-Computer verkleinern",
+    "expand_aria": "Bot-Computer vergrößern",
     "shrink": "Verkleinern",
     "expand": "Vergrößern",
     "enlarge_hint": "Zum Vergrößern klicken",
-    "hide_aria": "Gemeinsamen Computer ausblenden",
+    "hide_aria": "Bot-Computer ausblenden",
     "minimize": "Minimieren",
     "close": "Schließen",
-    "close_aria": "Gemeinsamen Computer schließen",
-    "title": "Gemeinsamer Computer",
+    "close_aria": "Bot-Computer schließen",
+    "title": "Bot-Computer",
     "status": {
       "failed": "Verbindung fehlgeschlagen",
       "connecting_preview": "Vorschau wird verbunden…",
@@ -55,9 +55,9 @@
       "booting": "Wird gestartet…",
       "you": "Du steuerst",
       "bot": "{{name}} arbeitet",
-      "idle": "Gemeinsamer Computer frei"
+      "idle": "Bot-Computer frei"
     },
-    "power_hint": "Bildschirm ausblenden (Computer läuft weiter)",
+    "power_hint": "Bildschirm ausblenden (Bot-Computer läuft weiter)",
     "control": {
       "release": "Steuerung zurückgeben",
       "take": "Steuerung übernehmen",
@@ -66,11 +66,11 @@
     "phase_label": "Phase: {{phase}}",
     "state_synced": "Status aktuell",
     "retry_prepare": "Vorbereitung wiederholen",
-    "screen_alt": "Bildschirm des gemeinsamen Computers",
+    "screen_alt": "Bildschirm des Bot-Computers",
     "launch": {
-      "failed_aria": "Verbindung zum Computer fehlgeschlagen",
-      "preview_aria": "Computervorschau wird verbunden",
-      "starting_aria": "Computer wird gestartet",
+      "failed_aria": "Verbindung zum Bot-Computer fehlgeschlagen",
+      "preview_aria": "Bot-Computer-Vorschau wird verbunden",
+      "starting_aria": "Bot-Computer wird gestartet",
       "failed": "Verbindung fehlgeschlagen. Öffne es gleich noch einmal."
     },
     "tools": {
@@ -86,11 +86,11 @@
     "video_aria": "Live-Video vom Desktop des Bots",
     "pointer_click": "{{name}} · Klick",
     "placeholder": {
-      "waking": "Computer wird geweckt",
+      "waking": "Bot-Computer wird geweckt",
       "connecting": "Verbindung zum Bildschirm wird hergestellt",
       "resuming": "Wird aus dem Ruhezustand geholt",
       "resuming_phase": "Wird geweckt · {{phase}}",
-      "waking_computer": "Computer wird geweckt …",
+      "waking_computer": "Bot-Computer wird geweckt …",
       "starting_desktop": "Desktop wird gestartet …",
       "hibernated": "Im Ruhezustand · wird geweckt…",
       "hibernating": "Wechselt in den Ruhezustand…",
@@ -98,8 +98,8 @@
       "retry": "Erneut versuchen"
     },
     "fold": "Einklappen",
-    "fold_aria": "Geteilten Computer zu einem Streifen einklappen",
-    "unfold_aria": "Geteilten Computer anzeigen"
+    "fold_aria": "Bot-Computer zu einem Streifen einklappen",
+    "unfold_aria": "Bot-Computer anzeigen"
   },
   "remote": {
     "error": {
@@ -131,9 +131,9 @@
       "open": "Tastatur"
     },
     "release": "Steuerung freigeben",
-    "bot_waiting": "Ein Bot möchte den Computer nutzen. Er übernimmt 15 Sekunden, nachdem du aufhörst.",
+    "bot_waiting": "Ein Bot möchte den Bot-Computer nutzen. Er übernimmt 15 Sekunden, nachdem du aufhörst.",
     "surface_aria": "Bedienbereich des Remote-Desktops",
-    "surface_preview_aria": "Vorschau des gemeinsamen Computers; zum Verschieben ziehen",
+    "surface_preview_aria": "Vorschau des Bot-Computers; zum Verschieben ziehen",
     "keyboard_input_aria": "Tastatureingabe für den Remote-Desktop",
     "copy": {
       "note": "Der Browser hat das Schreiben in die Zwischenablage nicht erlaubt. Kopier den Text unten.",
@@ -192,19 +192,19 @@
   },
   "env": {
     "unavailable": "Die Laufzeitumgebung ist nicht verfügbar.",
-    "start_failed": "Der Computer ist nicht gestartet. Versuch es später noch einmal.",
+    "start_failed": "Der Bot-Computer ist nicht gestartet. Versuch es später noch einmal.",
     "title": "Laufzeitumgebung",
     "description": "Linux, Google Chrome, Dateibrowser und Terminal teilen sich eine Umgebung. Jeder Bot hat einen eigenen Arbeitsordner und kann auf die der anderen zugreifen.",
     "state": {
-      "ready": "Gemeinsamer Computer bereit",
-      "starting": "Computer wird vorbereitet",
-      "stopped": "Gemeinsamer Computer gestoppt",
-      "waiting": "Warten auf den Computer"
+      "ready": "Bot-Computer bereit",
+      "starting": "Bot-Computer wird vorbereitet",
+      "stopped": "Bot-Computer gestoppt",
+      "waiting": "Warten auf den Bot-Computer"
     },
     "workspace": "Arbeitsverzeichnis {{path}}",
     "workspace_idle_one": "Arbeitsverzeichnis {{path}} · Desktop schließt nach {{count}} Minute Inaktivität",
     "workspace_idle_other": "Arbeitsverzeichnis {{path}} · Desktop schließt nach {{count}} Minuten Inaktivität",
-    "retry": "Computer neu vorbereiten"
+    "retry": "Bot-Computer neu vorbereiten"
   },
   "mac": {
     "title": "Mac-Berechtigungen",
@@ -231,19 +231,19 @@
     "cancel": "Abbrechen",
     "error": {
       "restart_incomplete": "Der Neustart wurde nicht abgeschlossen. Versuch es noch einmal.",
-      "read": "Die Ressourcen des Computers konnten nicht geladen werden. Versuch es noch einmal.",
+      "read": "Die Ressourcen des Bot-Computers konnten nicht geladen werden. Versuch es noch einmal.",
       "out_of_range": "Diese Konfiguration liegt außerhalb des zulässigen Bereichs. Prüf sie und versuch es noch einmal.",
       "save": "Speichern fehlgeschlagen. Versuch es noch einmal.",
-      "busy": "Der Computer führt eine Aufgabe aus oder wendet eine Konfiguration an. Stoppe zuerst die Aufgabe und versuch es dann noch einmal.",
+      "busy": "Der Bot-Computer führt eine Aufgabe aus oder wendet eine Konfiguration an. Stoppe zuerst die Aufgabe und versuch es dann noch einmal.",
       "restart_request": "Die Neustart-Anfrage ist nicht durchgegangen. Versuch es noch einmal.",
-      "start_failed": "Der Computer konnte nicht gestartet werden. Versuch es noch einmal."
+      "start_failed": "Der Bot-Computer konnte nicht gestartet werden. Versuch es noch einmal."
     },
     "status": {
       "applied": "Konfiguration angewendet.",
       "saved_pending": "Konfiguration gespeichert. Sie gilt nach einem Neustart.",
       "saved": "Konfiguration gespeichert."
     },
-    "draft_label": "Computerressourcen",
+    "draft_label": "Bot-Computer-Ressourcen",
     "title": "Ressourcen",
     "adjust": "Anpassen",
     "unit": {
@@ -274,26 +274,26 @@
     "saving": "Wird gespeichert…",
     "summary": {
       "title": "Änderungen",
-      "restart": "Gilt nach dem Neustart des Computers.",
+      "restart": "Gilt nach dem Neustart des Bot-Computers.",
       "none": "Noch keine Änderungen. Verschiebe einen Regler, um anzupassen."
     },
-    "admin_sets": "Die Größe dieses Computers legt dein Admin fest.",
-    "admin_sets_admin": "Die Größe dieses Computers legt dein Admin fest. Öffne das Konto in der Admin-Konsole, um sie zu ändern.",
+    "admin_sets": "Die Größe dieses Bot-Computers legt dein Admin fest.",
+    "admin_sets_admin": "Die Größe dieses Bot-Computers legt dein Admin fest. Öffne das Konto in der Admin-Konsole, um sie zu ändern.",
     "open_admin": "Admin-Konsole öffnen"
   },
   "credentials": {
     "error": {
       "exists": "Eine Datei mit diesem Namen gibt es schon. Wähl einen anderen Namen.",
       "env_exists": "Eine Variable mit diesem Namen ist schon gespeichert. Lösch sie zuerst in der Liste oder wähl einen anderen Namen.",
-      "busy": "Der Computer bearbeitet gerade eine Aufgabe. Versuch es später noch einmal.",
+      "busy": "Der Bot-Computer bearbeitet gerade eine Aufgabe. Versuch es später noch einmal.",
       "private_key_invalid": "Der private Schlüssel wurde nicht erkannt. Prüf das Dateiformat.",
       "private_key_filename": "Verwende einen Dateinamen für den privaten Schlüssel, z. B. id_ed25519_work – nicht .pub, config oder known_hosts.",
-      "ssh_dir": "Der .ssh-Ordner auf dem Computer ist nicht verfügbar. Prüf ihn und versuch es noch einmal.",
-      "openssh_missing": "Auf dem Computer sind keine OpenSSH-Tools installiert.",
+      "ssh_dir": "Der .ssh-Ordner auf dem Bot-Computer ist nicht verfügbar. Prüf ihn und versuch es noch einmal.",
+      "openssh_missing": "Auf dem Bot-Computer sind keine OpenSSH-Tools installiert.",
       "key_io": "Schlüssel konnten nicht gelesen oder eingerichtet werden. Versuch es später noch einmal.",
       "load": "Konfiguration konnte nicht geladen werden. Versuch es noch einmal.",
       "switch_unsaved": "Speichere oder verwirf deine Eingabe, bevor du den Typ wechselst.",
-      "no_bot": "Erstelle zuerst einen Bot und richte dann den gemeinsamen Computer ein.",
+      "no_bot": "Erstelle zuerst einen Bot und richte dann den Bot-Computer ein.",
       "operation": "Aktion fehlgeschlagen. Versuch es noch einmal.",
       "required": "Füll die Pflichtfelder aus und versuch es noch einmal.",
       "name_format": "Das Namensformat ist ungültig. Prüf es und versuch es noch einmal.",
@@ -312,11 +312,11 @@
     },
     "status": {
       "saved_applied": "Gespeichert und angewendet. Neue Befehle und Terminals übernehmen es.",
-      "saved_not_applied": "Gespeichert, aber noch nicht auf den Computer angewendet. Du kannst es in der Liste erneut versuchen.",
+      "saved_not_applied": "Gespeichert, aber noch nicht auf den Bot-Computer angewendet. Du kannst es in der Liste erneut versuchen.",
       "generated": "Schlüssel erstellt. Kopier den öffentlichen Schlüssel zum Zieldienst.",
       "imported": "Schlüssel importiert.",
-      "applied": "Auf den gemeinsamen Computer angewendet.",
-      "deleted": "Gespeicherter Eintrag gelöscht. Die Kopie auf dem Computer bleibt."
+      "applied": "Auf den Bot-Computer angewendet.",
+      "deleted": "Gespeicherter Eintrag gelöscht. Die Kopie auf dem Bot-Computer bleibt."
     },
     "tab": {
       "env": "Umgebungsvariablen",
@@ -326,12 +326,12 @@
       "ssh": "SSH-Schlüssel"
     },
     "tabs_aria": "Art der Zugangsdaten",
-    "apply": "Auf Computer anwenden",
+    "apply": "Auf Bot-Computer anwenden",
     "delete": "Löschen",
-    "delete_question": "Gespeicherten Eintrag löschen? Die Kopie auf dem Computer bleibt.",
+    "delete_question": "Gespeicherten Eintrag löschen? Die Kopie auf dem Bot-Computer bleibt.",
     "note": {
       "env": "Gilt für alle Bots und neu gestartete Befehle.",
-      "ssh": "Schlüssel auf dem gemeinsamen Computer. Die Liste wird automatisch synchronisiert."
+      "ssh": "Schlüssel auf dem Bot-Computer. Die Liste wird automatisch synchronisiert."
     },
     "cancel": "Abbrechen",
     "add_env": "Variable hinzufügen",
@@ -352,8 +352,8 @@
       "env_name_hint": "Nur Großbuchstaben, Ziffern und Unterstrich; darf nicht mit einer Ziffer beginnen. Kleinbuchstaben, Leerzeichen und Bindestriche werden beim Tippen umgewandelt."
     },
     "choose_file": "Datei auswählen",
-    "private_key_note": "Private Schlüssel landen nie im Chat. Verschlüsselte Schlüssel müssen auf dem Computer entsperrt werden.",
-    "generate_note": "Erstellt einen Ed25519-Schlüssel; der private Schlüssel bleibt auf dem gemeinsamen Computer. Vorhandene Dateien werden nicht überschrieben.",
+    "private_key_note": "Private Schlüssel landen nie im Chat. Verschlüsselte Schlüssel müssen auf dem Bot-Computer entsperrt werden.",
+    "generate_note": "Erstellt einen Ed25519-Schlüssel; der private Schlüssel bleibt auf dem Bot-Computer. Vorhandene Dateien werden nicht überschrieben.",
     "submit": {
       "working": "Wird verarbeitet…",
       "save_apply": "Speichern und anwenden",
@@ -374,24 +374,27 @@
       "copy_public": "Öffentlichen Schlüssel kopieren",
       "public_aria": "Öffentlicher Schlüssel {{name}}"
     },
-    "no_bot_note": "Erstelle einen Bot, um die Schlüssel auf dem gemeinsamen Computer zu lesen.",
-    "empty_ssh": "Keine SSH-Schlüssel auf dem Computer",
+    "no_bot_note": "Erstelle einen Bot, um die Schlüssel auf dem Bot-Computer zu lesen.",
+    "empty_ssh": "Keine SSH-Schlüssel auf dem Bot-Computer",
     "legacy_title": "Gespeicherte Schlüssel",
-    "legacy_note": "Früher gespeicherte Konfiguration. Du kannst sie auf den Computer anwenden.",
-    "sync_pending": "Der Computer ist beschäftigt. Er synchronisiert gleich automatisch.",
+    "legacy_note": "Früher gespeicherte Konfiguration. Du kannst sie auf den Bot-Computer anwenden.",
+    "sync_pending": "Der Bot-Computer ist beschäftigt. Er synchronisiert gleich automatisch.",
     "truncated": "Viele Schlüssel – es wird nur ein Teil angezeigt.",
     "retry": "Erneut versuchen"
   },
+  "kind": {
+    "vm": "Integrierte VM"
+  },
   "none": {
-    "title": "Dieser Server hat keinen Computer",
-    "body": "Bots arbeiten auch ohne: Sie chatten, merken sich Dinge, führen Zeitpläne aus und nutzen verbundene Dienste. Arbeit, die einen echten Browser, eine Shell oder einen Desktop braucht, wartet, bis ein Computer hinzugefügt wird.",
-    "options": "Computer hinzufügen",
+    "title": "Dieser Server hat keinen Bot-Computer",
+    "body": "Bots arbeiten auch ohne: Sie chatten, merken sich Dinge, führen Zeitpläne aus und nutzen verbundene Dienste. Arbeit, die einen echten Browser, eine Shell oder einen Desktop braucht, wartet, bis ein Bot-Computer hinzugefügt wird.",
+    "options": "Bot-Computer hinzufügen",
     "soon": "Kommt später",
     "kvm": {
-      "name": "Auf diesem Server",
+      "name": "Integrierte VM",
       "what": "Bot-Computer laufen auf der Hardware dieses Servers. Der Host braucht KVM und mindestens 4 GiB Arbeitsspeicher.",
       "run": "Auf dem Server-Host ausführen:",
-      "after": "Diese Seite aktualisiert sich selbst, sobald der Computer angebunden ist."
+      "after": "Diese Seite aktualisiert sich selbst, sobald der Bot-Computer angebunden ist."
     },
     "own": {
       "name": "Dein eigener Computer",
@@ -399,13 +402,13 @@
     },
     "e2b": {
       "name": "E2B-Cloud-Sandbox",
-      "what": "Miete mit deinem eigenen Schlüssel einen Computer bei E2B."
+      "what": "Miete mit deinem eigenen Schlüssel einen Bot-Computer bei E2B."
     }
   },
   "contents": {
-    "title": "Was sich auf diesem Computer befindet",
-    "description": "Das liegt auf dem Computer, nicht auf dem Server. Wird der Computer zurückgesetzt oder ersetzt, geht es verloren.",
-    "badge": "Auf dem Computer",
+    "title": "Was sich auf diesem Bot-Computer befindet",
+    "description": "Das liegt auf dem Bot-Computer, nicht auf dem Server. Wird der Bot-Computer zurückgesetzt oder ersetzt, geht es verloren.",
+    "badge": "Auf dem Bot-Computer",
     "browser": {
       "name": "Browser-Anmeldungen",
       "what": "Websites, bei denen der Bot angemeldet ist. Ein Zurücksetzen meldet den Bot überall ab."
@@ -422,7 +425,7 @@
     },
     "config": {
       "name": "Umgebung und Schlüssel",
-      "what": "Variablen und SSH-Schlüssel dieses Computers. Sie werden mit ihm gelöscht.",
+      "what": "Variablen und SSH-Schlüssel dieses Bot-Computers. Sie werden mit ihm gelöscht.",
       "saved_one": "{{count}} gespeichert",
       "saved_other": "{{count}} gespeichert",
       "none": "Nichts gespeichert",
@@ -432,7 +435,7 @@
     "retry": "Erneut versuchen"
   },
   "loss": {
-    "title": "Geht mit der Festplatte des Computers verloren",
+    "title": "Geht mit der Festplatte des Bot-Computers verloren",
     "browser": "Browser-Anmeldungen: Der Bot ist bei allen Websites abgemeldet.",
     "tools": "Installierte Tools: Der Bot installiert sie bei Bedarf neu.",
     "files": "Arbeitsdateien, die weder gesendet noch unter Dateien gespeichert wurden.",
@@ -441,53 +444,53 @@
     "keys_one": "{{count}} SSH-Schlüssel: {{names}}",
     "keys_other": "{{count}} SSH-Schlüssel: {{names}}",
     "no_config": "In den Einstellungen sind keine Umgebungsvariablen oder SSH-Schlüssel gespeichert.",
-    "pending_one": "{{count}} Datei liegt nur auf dem Computer und ist noch nicht auf den Server kopiert.",
-    "pending_other": "{{count}} Dateien liegen nur auf dem Computer und sind noch nicht auf den Server kopiert.",
-    "loading": "Inhalt des Computers wird gelesen …",
+    "pending_one": "{{count}} Datei liegt nur auf dem Bot-Computer und ist noch nicht auf den Server kopiert.",
+    "pending_other": "{{count}} Dateien liegen nur auf dem Bot-Computer und sind noch nicht auf den Server kopiert.",
+    "loading": "Inhalt des Bot-Computers wird gelesen …",
     "load_failed": "Gespeicherte Variablen, Schlüssel und noch zu kopierende Dateien konnten nicht gelesen werden. Sie werden ebenfalls gelöscht."
   },
   "attach": {
-    "loading": "Computerzuordnung wird gelesen…",
+    "loading": "Bot-Computer-Zuordnung wird gelesen…",
     "state": {
       "attached_running": "Angebunden · Läuft",
       "attached_stopped": "Angebunden · Gestoppt",
       "detached": "Getrennt",
       "lost": "Angebunden, reagiert nicht",
       "detaching": "Wird getrennt",
-      "none": "Kein Computer"
+      "none": "Kein Bot-Computer"
     },
     "action": {
       "attach": "Anbinden",
       "detach": "Trennen…"
     },
     "help": {
-      "attached": "Beim Trennen bleiben die Dateien dieses Kontos erhalten. Die Bots arbeiten ohne Computer weiter.",
-      "detached": "Die Bots arbeiten ohne Computer, bis einer angebunden wird. Das Anbinden braucht keinen Neustart.",
-      "none": "Dieser Server hat kein Computer-Backend."
+      "attached": "Beim Trennen bleiben die Dateien dieses Kontos erhalten. Die Bots arbeiten ohne Bot-Computer weiter.",
+      "detached": "Die Bots arbeiten ohne Bot-Computer, bis einer angebunden wird. Das Anbinden braucht keinen Neustart.",
+      "none": "Dieser Server hat kein Bot-Computer-Backend."
     },
     "progress": {
-      "attaching": "Computer wird angebunden…",
-      "draining": "Auslaufen: Laufende Computer-Tools beenden ihren aktuellen Schritt…",
-      "syncing": "Abgleich: Dateien vom Computer werden auf den Server kopiert…"
+      "attaching": "Bot-Computer wird angebunden…",
+      "draining": "Auslaufen: Laufende Bot-Computer-Tools beenden ihren aktuellen Schritt…",
+      "syncing": "Abgleich: Dateien vom Bot-Computer werden auf den Server kopiert…"
     },
     "done": {
-      "detach": "Computer getrennt.",
+      "detach": "Bot-Computer getrennt.",
       "copied": "Auf den Server kopierte Dateien: {{count}}.",
       "interrupted": "Vorzeitig beendete Tool-Aufrufe: {{count}}.",
-      "left": "Auf dem Computer verbliebene Dateien: {{count}}."
+      "left": "Auf dem Bot-Computer verbliebene Dateien: {{count}}."
     },
     "error": {
-      "read": "Die Computerzuordnung konnte nicht gelesen werden.",
+      "read": "Die Bot-Computer-Zuordnung konnte nicht gelesen werden.",
       "generic": "Die Änderung war nicht möglich. Versuche es erneut.",
-      "computer_backend_unavailable": "Auf diesem Server ist kein Computer-Backend eingerichtet.",
-      "computer_attach_failed": "Der Computer konnte nicht angebunden werden.",
-      "computer_detach_failed": "Der Computer konnte nicht getrennt werden.",
-      "forbidden": "Nur ein Administrator kann einen Computer anbinden oder trennen.",
-      "unavailable": "Nur ein Administrator kann einen Computer anbinden oder trennen."
+      "computer_backend_unavailable": "Auf diesem Server ist kein Bot-Computer-Backend eingerichtet.",
+      "computer_attach_failed": "Der Bot-Computer konnte nicht angebunden werden.",
+      "computer_detach_failed": "Der Bot-Computer konnte nicht getrennt werden.",
+      "forbidden": "Nur ein Administrator kann einen Bot-Computer anbinden oder trennen.",
+      "unavailable": "Nur ein Administrator kann einen Bot-Computer anbinden oder trennen."
     },
     "confirm": {
-      "title": "Computer trennen?",
-      "impact": "Laufende Computer-Tools stoppen nach dem aktuellen Schritt. Dateien auf dem Computer werden zuerst auf den Server kopiert. Der Bot arbeitet ohne Computer weiter, und du kannst ihn später wieder anbinden.",
+      "title": "Bot-Computer trennen?",
+      "impact": "Laufende Bot-Computer-Tools stoppen nach dem aktuellen Schritt. Dateien auf dem Bot-Computer werden zuerst auf den Server kopiert. Der Bot arbeitet ohne Bot-Computer weiter, und du kannst ihn später wieder anbinden.",
       "cancel": "Abbrechen",
       "action": "Trennen"
     }

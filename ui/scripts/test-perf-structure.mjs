@@ -19,7 +19,7 @@ assert.equal(deps[1].trim(), "", "connectEvents must have empty deps and read ha
 
 const presence = /useDesktopPresence\(([^;]*)\);/.exec(app);
 assert.ok(presence, "App calls useDesktopPresence");
-assert.ok(/computerInfo|desktopReady/.test(presence[1]), "desktop ownership polling is gated on the computer being in play");
+assert.ok(/computerInfo|desktopReady/.test(presence[1]), "desktop ownership polling is gated on the Bot computer being in play");
 
 const poll = app.slice(app.indexOf("const refreshComputer = async"), app.indexOf("const refreshComputer = async") + 900);
 assert.ok(poll.includes("document.hidden"), "computer info polling skips hidden tabs");

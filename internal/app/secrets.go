@@ -250,7 +250,7 @@ func (s *Server) handleSecrets(w http.ResponseWriter, r *http.Request) bool {
 		if err != nil {
 			fail(500, "Could not remove credential")
 		} else {
-			writeJSON(w, 200, map[string]any{"ok": true, "note": "Vault entry removed; an installed VM copy is not removed."})
+			writeJSON(w, 200, map[string]any{"ok": true, "note": "Vault entry removed; an installed Bot computer copy is not removed."})
 		}
 		return true
 	}
@@ -333,7 +333,7 @@ func (s *Server) applySecret(ctx context.Context, r Run, action, target, value, 
 	raw, _ := json.Marshal(args)
 	out, err := s.microVMAction(ctx, r, name, raw)
 	if err != nil {
-		return "", errors.New("Secret operation failed; the computer may be unavailable or controlled by another session")
+		return "", errors.New("Secret operation failed; the Bot computer may be unavailable or controlled by another session")
 	}
 	var result struct {
 		ExitCode *int `json:"exit_code"`
@@ -353,7 +353,7 @@ func (s *Server) secretTools(r Run) []Tool {
 		return nil
 	}
 	return []Tool{
-		{Name: "use_secret_input", Description: "Use a private input reference from this run without seeing its value. A reference from ask_user_form is bound to its website: browser_type does not locate or focus a field, so first inspect the current screenshot and click the intended password field, then call this tool; only a visible, focused HTML password input on the approved HTTPS origin accepts it and wrong focus is rejected. If the site uses a plain text secret field, ask the human to enter it directly; never move the value into ordinary tool arguments. A reference from request_secret_input has no website binding and is never typed into a page; for a website login request the password with ask_user_form instead. For such a reference shell_exec exports the value as the target environment variable for command and ALL output is withheld; env installs a shared environment variable; ssh installs a private key with the target filename without overwriting. Shared VM files can be read by Bots with shell permissions, so only install when the user requested it.", Parameters: objectSchema(map[string]any{"secret_ref": map[string]any{"type": "string"}, "action": map[string]any{"type": "string", "enum": []string{"browser_type", "shell_exec", "env", "ssh"}}, "target": map[string]any{"type": "string"}, "command": map[string]any{"type": "string"}}, []string{"secret_ref", "action"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
+		{Name: "use_secret_input", Description: "Use a private input reference from this run without seeing its value. A reference from ask_user_form is bound to its website: browser_type does not locate or focus a field, so first inspect the current screenshot and click the intended password field, then call this tool; only a visible, focused HTML password input on the approved HTTPS origin accepts it and wrong focus is rejected. If the site uses a plain text secret field, ask the human to enter it directly; never move the value into ordinary tool arguments. A reference from request_secret_input has no website binding and is never typed into a page; for a website login request the password with ask_user_form instead. For such a reference shell_exec exports the value as the target environment variable for command and ALL output is withheld; env installs a shared environment variable; ssh installs a private key with the target filename without overwriting. Its files can be read by Bots with shell permissions, so only install when the user requested it.", Parameters: objectSchema(map[string]any{"secret_ref": map[string]any{"type": "string"}, "action": map[string]any{"type": "string", "enum": []string{"browser_type", "shell_exec", "env", "ssh"}}, "target": map[string]any{"type": "string"}, "command": map[string]any{"type": "string"}}, []string{"secret_ref", "action"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
 			var in struct {
 				Action string `json:"action"`
 			}

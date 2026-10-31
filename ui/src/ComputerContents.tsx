@@ -7,7 +7,7 @@ import type {SettingsTab} from "./SettingsShell";
 import "./computer-contents.css";
 
 /**
- * Settings > Computer, "What is on this computer" (docs/design/computer-decoupling.md section 7.5). The Bot's own data
+ * Settings > Computer, "What is on this Bot computer" (docs/design/computer-decoupling.md section 7.5). The Bot's own data
  * (chats, memory, files it sent, connections) lives on the server; these four things live only on the computer and are
  * lost with it. Mounted by the Computer page only while a computer is attached.
  */

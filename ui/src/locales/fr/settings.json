@@ -59,14 +59,14 @@
         "description": "Fournisseurs et modèle par défaut."
       },
       "computer": {
-        "name": "Ordinateur",
-        "description": "Ordinateur Linux partagé, stockage et ressources d’exécution",
-        "description_none": "Façons d'ajouter un ordinateur à ce serveur",
-        "description_detached": "Rattacher un ordinateur à ce compte"
+        "name": "Ordinateur Bot",
+        "description": "Ordinateur Bot Linux, stockage et ressources d’exécution",
+        "description_none": "Façons d'ajouter un ordinateur Bot à ce serveur",
+        "description_detached": "Rattacher un ordinateur Bot à ce compte"
       },
       "keys": {
-        "name": "Clés de l’ordinateur",
-        "description": "Variables d’environnement et clés SSH de l’ordinateur"
+        "name": "Clés de l’ordinateur Bot",
+        "description": "Variables d’environnement et clés SSH de l’ordinateur Bot"
       },
       "usage": {
         "name": "Utilisation",
@@ -385,10 +385,10 @@
     "recheck": "Vérifier à nouveau"
   },
   "admin": {
-    "capacity_unavailable": "La capacité de l’ordinateur n’est pas disponible. Actualisez puis réessayez.",
-    "intro": "Créez des comptes, choisissez qui est Admin et réglez l’espace disque de l’ordinateur de chaque compte. Les membres changent leur mot de passe initial à la première connexion.",
+    "capacity_unavailable": "La capacité de l’ordinateur Bot n’est pas disponible. Actualisez puis réessayez.",
+    "intro": "Créez des comptes, choisissez qui est Admin et réglez l’espace disque de l’ordinateur Bot de chaque compte. Les membres changent leur mot de passe initial à la première connexion.",
     "summary": {
-      "title": "Capacité des ordinateurs",
+      "title": "Capacité des ordinateurs Bot",
       "total": "Disque de l’hôte",
       "allocated": "Alloué",
       "free": "Libre à attribuer",
@@ -417,7 +417,7 @@
       "must_change": "Première connexion en attente"
     },
     "computer": {
-      "none": "Aucun ordinateur",
+      "none": "Aucun ordinateur Bot",
       "reserved": "Non démarré",
       "ready": "Prêt",
       "disabled": "Arrêté"
@@ -441,18 +441,18 @@
         "deleting": "Ce compte est en cours de suppression."
       },
       "computer": {
-        "title": "Ordinateur",
+        "title": "Ordinateur Bot",
         "disk": "Quota de disque",
-        "disk_help": "Disque réservé à l’ordinateur de ce compte. Il peut être augmenté, jamais réduit.",
-        "disk_note": "Modifier le quota arrête l’ordinateur. Il redémarre la prochaine fois que le compte en a besoin.",
-        "disk_pending": "Un redimensionnement n’est pas terminé ; la capacité réservée est conservée. Enregistrez de nouveau la même taille une fois le nettoyage de l’ordinateur terminé.",
-        "saved": "Enregistré. L’ordinateur a été arrêté et redémarrera à la demande.",
+        "disk_help": "Disque réservé à l’ordinateur Bot de ce compte. Il peut être augmenté, jamais réduit.",
+        "disk_note": "Modifier le quota arrête l’ordinateur Bot. Il redémarre la prochaine fois que le compte en a besoin.",
+        "disk_pending": "Un redimensionnement n’est pas terminé ; la capacité réservée est conservée. Enregistrez de nouveau la même taille une fois le nettoyage de l’ordinateur Bot terminé.",
+        "saved": "Enregistré. L’ordinateur Bot a été arrêté et redémarrera à la demande.",
         "option": "{{size}} Gio",
         "current": "actuel",
         "no_room": "espace libre insuffisant",
         "save_label": "Appliquer",
-        "save": "Enregistrer {{size}} Gio et arrêter l’ordinateur",
-        "none": "Aucun ordinateur n’a encore été provisionné pour ce compte."
+        "save": "Enregistrer {{size}} Gio et arrêter l’ordinateur Bot",
+        "none": "Aucun ordinateur Bot n’a encore été provisionné pour ce compte."
       },
       "signin": {
         "title": "Connexion",
@@ -474,7 +474,7 @@
       "danger": {
         "title": "Zone dangereuse",
         "deactivate_label": "Désactiver le compte",
-        "deactivate_help": "Déconnecte le compte et arrête son ordinateur. Les Bots, conversations, la mémoire et le disque sont conservés.",
+        "deactivate_help": "Déconnecte le compte et arrête son ordinateur Bot. Les Bots, conversations, la mémoire et le disque sont conservés.",
         "deactivate_action": "Désactiver",
         "deactivate_self": "Vous ne pouvez pas désactiver le compte avec lequel vous êtes connecté.",
         "deactivate_last": "C’est le dernier Admin actif, il ne peut pas être désactivé.",
@@ -483,10 +483,10 @@
         "reactivate_deleting": "La suppression a commencé et ne peut pas être annulée. Relancez-la ci-dessus.",
         "reactivate_action": "Réactiver",
         "delete_label": "Supprimer le compte",
-        "delete_help": "Supprime définitivement le compte, ses Bots, conversations, sa mémoire, ses fichiers et son ordinateur, et libère le disque.",
+        "delete_help": "Supprime définitivement le compte, ses Bots, conversations, sa mémoire, ses fichiers et son ordinateur Bot, et libère le disque.",
         "delete_action": "Supprimer le compte…",
         "delete_self": "Vous ne pouvez pas supprimer le compte avec lequel vous êtes connecté.",
-        "delete_legacy": "Le compte du propriétaire d’origine et son ordinateur ne peuvent pas être supprimés.",
+        "delete_legacy": "Le compte du propriétaire d’origine et son ordinateur Bot ne peuvent pas être supprimés.",
         "delete_running": "Suppression en cours.",
         "delete_need_deactivate": "Désactivez d’abord le compte. Seul un compte désactivé peut être supprimé."
       }
@@ -498,10 +498,10 @@
       "item_chats": "Toutes les conversations",
       "item_memory": "Toute la mémoire",
       "item_files": "Fichiers et pièces jointes",
-      "item_computer": "L’ordinateur et son disque — {{size}} Gio seront libérés",
-      "item_computer_none": "L’ordinateur, s’il existe",
+      "item_computer": "L’ordinateur Bot et son disque — {{size}} Gio seront libérés",
+      "item_computer_none": "L’ordinateur Bot, s’il existe",
       "irreversible": "Cette action est irréversible.",
-      "export_note": "Avant toute suppression, une copie chiffrée des Bots, conversations, mémoires et planifications est conservée 30 jours. Les identifiants et les fichiers de l’ordinateur n’y figurent pas.",
+      "export_note": "Avant toute suppression, une copie chiffrée des Bots, conversations, mémoires et planifications est conservée 30 jours. Les identifiants et les fichiers de l’ordinateur Bot n’y figurent pas.",
       "confirm_label": "Saisissez {{name}} pour confirmer",
       "confirm_action": "Supprimer le compte",
       "progress_title": "Suppression de {{name}}",
@@ -512,7 +512,7 @@
       "close": "Fermer",
       "step": {
         "export": "Enregistrement d’un export chiffré",
-        "computer": "Suppression de l’ordinateur et libération du disque",
+        "computer": "Suppression de l’ordinateur Bot et libération du disque",
         "data": "Suppression des Bots, conversations et fichiers",
         "sessions": "Suppression des connexions",
         "record": "Suppression du compte"
@@ -525,8 +525,8 @@
       "error": {
         "generic": "Une étape a échoué. Rien d’autre n’a été supprimé ; réessayez pour continuer.",
         "export_failed": "L’export n’a pas pu être enregistré ou vérifié, rien n’a donc été supprimé.",
-        "computer_unavailable": "Le service d’ordinateur n’a pas confirmé la suppression.",
-        "computer_unverified": "Le service d’ordinateur a répondu, mais la suppression n’a pas pu être vérifiée.",
+        "computer_unavailable": "Le service d’ordinateur Bot n’a pas confirmé la suppression.",
+        "computer_unverified": "Le service d’ordinateur Bot a répondu, mais la suppression n’a pas pu être vérifiée.",
         "data_failed": "Le dossier de données du compte n’a pas pu être supprimé.",
         "sessions_failed": "Les connexions du compte n’ont pas pu être supprimées.",
         "record_failed": "L’enregistrement du compte n’a pas pu être supprimé."
@@ -534,7 +534,7 @@
     },
     "result": {
       "title": "{{name}} a été supprimé",
-      "body": "Le compte et son ordinateur ont disparu. Une copie chiffrée des Bots a été enregistrée. Envoyez le lien et la phrase secrète séparément.",
+      "body": "Le compte et son ordinateur Bot ont disparu. Une copie chiffrée des Bots a été enregistrée. Envoyez le lien et la phrase secrète séparément.",
       "link": "Lien de téléchargement",
       "passphrase": "Phrase secrète",
       "once": "Affichée une seule fois. Tofi ne la conserve pas après cette étape.",
@@ -566,14 +566,14 @@
       "last_admin": "Le dernier Admin actif ne peut être ni modifié ni supprimé.",
       "account_deleting": "Ce compte est en cours de suppression.",
       "account_not_deactivated": "Désactivez le compte avant de le supprimer.",
-      "legacy_account_not_deletable": "Le compte du propriétaire d’origine et son ordinateur ne peuvent pas être supprimés.",
+      "legacy_account_not_deletable": "Le compte du propriétaire d’origine et son ordinateur Bot ne peuvent pas être supprimés.",
       "confirmation_mismatch": "Le nom d’utilisateur saisi ne correspond pas.",
       "delete_in_progress": "Ce compte est déjà en cours de suppression.",
       "account_delete_failed": "La suppression s’est arrêtée. Réessayez pour continuer.",
       "account_change_rejected": "Le compte a changé ou est protégé. Actualisez puis réessayez.",
-      "quota_not_applied": "La taille du disque n’a pas été appliquée. Agrandir demande de la capacité libre et un nettoyage terminé de l’ordinateur ; la réduction n’est pas prise en charge ici.",
+      "quota_not_applied": "La taille du disque n’a pas été appliquée. Agrandir demande de la capacité libre et un nettoyage terminé de l’ordinateur Bot ; la réduction n’est pas prise en charge ici.",
       "quota_unverified": "La nouvelle taille du disque n’a pas pu être vérifiée. Actualisez avant de réessayer.",
-      "computer_transition_pending": "La modification du compte est enregistrée, mais l’étape de l’ordinateur doit être relancée.",
+      "computer_transition_pending": "La modification du compte est enregistrée, mais l’étape de l’ordinateur Bot doit être relancée.",
       "weak_password": "Utilisez au moins 12 caractères.",
       "password_contains_identity": "Le mot de passe ne peut pas contenir le nom d’utilisateur ni l’e-mail.",
       "common_password": "Ce mot de passe est trop courant.",
@@ -581,9 +581,9 @@
       "forbidden": "Seul un Admin peut faire cela.",
       "export_in_use": "Cet export est encore lié à un compte dont la suppression n’est pas terminée.",
       "passphrase_unavailable": "La phrase secrète n’est pas disponible.",
-      "invalid_resources": "Impossible d'enregistrer la taille de l'ordinateur. Vérifiez les valeurs et réessayez.",
-      "resource_configuration_failed": "La taille de l'ordinateur n'a pas pu être appliquée. Réessayez.",
-      "computer_unavailable": "L'ordinateur est injoignable pour le moment. Réessayez dans un instant."
+      "invalid_resources": "Impossible d'enregistrer la taille de l'ordinateur Bot. Vérifiez les valeurs et réessayez.",
+      "resource_configuration_failed": "La taille de l'ordinateur Bot n'a pas pu être appliquée. Réessayez.",
+      "computer_unavailable": "L'ordinateur Bot est injoignable pour le moment. Réessayez dans un instant."
     },
     "intro_no_computer": "Crée des comptes, choisis qui est Admin et gère leur connexion. Les membres changent leur mot de passe initial à la première connexion."
   },
@@ -651,7 +651,7 @@
   "purge": {
     "failed": "Échec de la réinitialisation. Réessayez plus tard.",
     "title": "Repartir de zéro",
-    "description": "Supprime tous les Bots, conversations, tâches, pièces jointes, appareils associés et l’intégralité du /workspace de l’ordinateur Linux partagé. L’installation du serveur, la connexion Codex et les autres réglages de service sont conservés.",
+    "description": "Supprime tous les Bots, conversations, tâches, pièces jointes, appareils associés et l’intégralité du /workspace de l’ordinateur Bot Linux partagé. L’installation du serveur, la connexion Codex et les autres réglages de service sont conservés.",
     "note": "La VM conserve d’abord automatiquement un checkpoint restaurable. Le premier compte créé ensuite devient admin.",
     "confirm_label": "Saisissez PURGE pour confirmer",
     "purging": "Suppression…",
@@ -662,14 +662,14 @@
   "portability": {
     "title": "Transfert de données",
     "description": "Choisissez les données du compte ou un seul Bot. Les imports sont vérifiés au préalable et créent des copies. Les paquets de compte et de Bot partagent le même format et sont chiffrés par défaut.",
-    "scope_note": "Sont pris en charge : la configuration, le texte des discussions, les souvenirs, les tâches planifiées, les pièces jointes et les réglages de fuseau horaire, de langue et de modèle. Les pièces jointes sont limitées à 4 Mio chacune et 8 Mio au total ; les fichiers manquants ou trop volumineux sont listés. Vous pouvez aussi choisir explicitement les identifiants d’environnement du coffre persistant ; seules des copies inactives sont restaurées. Les clés privées SSH, les connexions, les plugins, les Skills, les éléments de travail, les brouillons d’e-mail, l’historique d’exécution, les fichiers de l’ordinateur virtuel et les disques entiers ne sont pas encore pris en charge. Il s’agit d’un paquet sélectionné, pas d’une sauvegarde complète du compte. Les secrets collés dans des discussions ou des instructions sont exportés avec le texte.",
+    "scope_note": "Sont pris en charge : la configuration, le texte des discussions, les souvenirs, les tâches planifiées, les pièces jointes et les réglages de fuseau horaire, de langue et de modèle. Les pièces jointes sont limitées à 4 Mio chacune et 8 Mio au total ; les fichiers manquants ou trop volumineux sont listés. Vous pouvez aussi choisir explicitement les identifiants d’environnement du coffre persistant ; seules des copies inactives sont restaurées. Les clés privées SSH, les connexions, les plugins, les Skills, les éléments de travail, les brouillons d’e-mail, l’historique d’exécution, les fichiers de l’ordinateur Bot virtuel et les disques entiers ne sont pas encore pris en charge. Il s’agit d’un paquet sélectionné, pas d’une sauvegarde complète du compte. Les secrets collés dans des discussions ou des instructions sont exportés avec le texte.",
     "security_note": "La phrase secrète d’export reste dans votre navigateur. Toute personne disposant du paquet et de la phrase secrète peut le lire. L’import envoie le paquet déchiffré au serveur cible, et votre sélection détermine les enregistrements écrits. Le serveur traite le texte en clair : un gestionnaire de compte qui réinitialise un mot de passe peut prendre le contrôle du compte, et l’administrateur de l’hôte peut lire les données d’exécution. Ce n’est pas un stockage tenu secret vis-à-vis de l’opérateur. Le coffre et la base de données font l’objet d’instantanés séparés.",
     "export": "Export",
     "scope": "Portée",
     "scope_account": "Données du compte",
     "scope_bot": "Bot seul",
     "bot_archived": "{{name}} (archivé)",
-    "environment_note": "Les identifiants d’environnement ne sont pas sélectionnés par défaut, et chaque enregistrement doit être coché un par un. Jusqu’à 64 enregistrements, 64 Kio chacun, 1 Mio au total. Les variables d’environnement installées sur l’ordinateur, SSH et les connexions aux services ne sont pas incluses.",
+    "environment_note": "Les identifiants d’environnement ne sont pas sélectionnés par défaut, et chaque enregistrement doit être coché un par un. Jusqu’à 64 enregistrements, 64 Kio chacun, 1 Mio au total. Les variables d’environnement installées sur l’ordinateur Bot, SSH et les connexions aux services ne sont pas incluses.",
     "environment_load": "Afficher les identifiants d’environnement transférables",
     "source_active": "Enregistrement d’origine du coffre",
     "source_inactive": "Copie de restauration inactive",
@@ -684,7 +684,7 @@
     "decrypt": "Déchiffrer et afficher",
     "source": "Format d’origine : {{format}} · version {{version}}",
     "category_replaces": "{{label}} (remplace les réglages actuels si coché)",
-    "import_environment_note": "Les identifiants d’environnement ne sont pas sélectionnés par défaut. Après avoir choisi la catégorie, cochez chaque enregistrement. Seules des copies de restauration inactives sont créées ; rien n’écrase une cible du même nom, et aucun service n’est connecté ni installé sur l’ordinateur.",
+    "import_environment_note": "Les identifiants d’environnement ne sont pas sélectionnés par défaut. Après avoir choisi la catégorie, cochez chaque enregistrement. Seules des copies de restauration inactives sont créées ; rien n’écrase une cible du même nom, et aucun service n’est connecté ni installé sur l’ordinateur Bot.",
     "preview_button": "Prévisualiser l’import",
     "preview_title": "Aperçu de l’import",
     "attachment_space": "Espace des pièces jointes : environ {{size}} Kio, décompté du quota de stockage de fichiers du compte cible.",
@@ -709,7 +709,7 @@
     "bytes_other": "{{count}} octets",
     "inactive": "Inactive",
     "recovery_delete": "Supprimer la copie de restauration",
-    "recovery_deleted": "Copie de restauration inactive supprimée. Les identifiants existants et l’environnement de l’ordinateur sont conservés.",
+    "recovery_deleted": "Copie de restauration inactive supprimée. Les identifiants existants et l’environnement de l’ordinateur Bot sont conservés.",
     "recovery_delete_failed": "Impossible de supprimer la copie de restauration.",
     "exported": "Paquet chiffré téléchargé : {{filename}}. Conservez la phrase secrète en lieu sûr ; elle est irrécupérable.",
     "exported_missing_one": "Paquet chiffré téléchargé : {{filename}}. {{count}} pièce jointe n’a pas été incluse ; consultez l’aperçu de l’import pour savoir pourquoi. Conservez la phrase secrète en lieu sûr ; elle est irrécupérable.",
@@ -979,8 +979,8 @@
         "description": "Le dernier coup d’œil avant la fin d’une exécution planifiée."
       },
       "computer": {
-        "title": "Ordinateur",
-        "description": "Mise en veille automatique de l’ordinateur partagé."
+        "title": "Ordinateur Bot",
+        "description": "Mise en veille automatique de l’ordinateur Bot."
       },
       "widgets": {
         "title": "Widgets latéraux",
@@ -1046,7 +1046,7 @@
       },
       "desktop_idle_seconds": {
         "name": "Veille du bureau en cas d’inactivité",
-        "what": "L’ordinateur partagé se met en veille après cette durée sans usage et se réveille au prochain appel d’outil. Réglé par le service de l’ordinateur."
+        "what": "L’ordinateur Bot se met en veille après cette durée sans usage et se réveille au prochain appel d’outil. Réglé par le service de l’ordinateur Bot."
       },
       "group_triage": {
         "name": "Aiguiller les messages de groupe sans destinataire",
@@ -1070,7 +1070,7 @@
       },
       "browser_engine": {
         "name": "Contrôle du navigateur",
-        "what": "Manière dont un Bot travaille dans le navigateur de l'ordinateur. Classique lit le texte de la page et clique sur le texte visible. Playwright lit un arbre d'accessibilité et agit sur des références d'éléments, plus précis sur les pages chargées."
+        "what": "Manière dont un Bot travaille dans le navigateur de l'ordinateur Bot. Classique lit le texte de la page et clique sur le texte visible. Playwright lit un arbre d'accessibilité et agit sur des références d'éléments, plus précis sur les pages chargées."
       },
       "desktop_engine": {
         "name": "Contrôle du bureau",
@@ -1089,8 +1089,8 @@
         "what": "La première fois qu'un Bot remet un fichier dans une conversation, le widget Artefacts s'ouvre à côté des messages. Les fichiers suivants actualisent sa liste. Désactivé, il reste fermé jusqu'à ce que vous l'ouvriez."
       },
       "widget_computer_auto": {
-        "name": "Ouvrir l'ordinateur partagé quand un Bot l'utilise",
-        "what": "Quand un Bot prend l'ordinateur partagé dans la conversation que vous regardez, son widget s'ouvre à côté des messages. Il reste ouvert et se replie en bandeau 30 secondes après que le Bot l'a lâché. Désactivé, il reste fermé jusqu'à ce que vous l'ouvriez."
+        "name": "Ouvrir l'ordinateur Bot quand un Bot l'utilise",
+        "what": "Quand un Bot prend l'ordinateur Bot dans la conversation que vous regardez, son widget s'ouvre à côté des messages. Il reste ouvert et se replie en bandeau 30 secondes après que le Bot l'a lâché. Désactivé, il reste fermé jusqu'à ce que vous l'ouvriez."
       },
       "settings_change_limit": {
         "name": "Modifications de réglages par exécution",
@@ -1128,7 +1128,7 @@
     "not_reported": "Non communiquée",
     "saved": "Enregistré",
     "loading": "Chargement…",
-    "managed": "Géré par le service de l’ordinateur",
+    "managed": "Géré par le service de l’ordinateur Bot",
     "days": "{{count}} j",
     "keep_all": "Tout conserver",
     "in_permissions": "À régler dans « Autorisations »"
@@ -1150,7 +1150,7 @@
     "paid": "Payant",
     "native_label": "Recherche web du modèle",
     "builtin_label": "Lecture intégrée",
-    "computer_label": "Ordinateur du Bot",
+    "computer_label": "Ordinateur Bot",
     "about": {
       "native": "Utilisée en premier quand le modèle dispose de sa propre recherche. Aucune clé requise.",
       "builtin": "Ce serveur lit la page et la convertit en texte. Aucune clé requise.",
@@ -1159,7 +1159,7 @@
       "searxng": "Votre propre instance SearXNG. Nécessite son adresse et la sortie JSON activée.",
       "firecrawl": "Récupère les pages qui bloquent les requêtes simples. Nécessite une clé d'API.",
       "brightdata": "Contourne les sites très protégés. Nécessite une clé d'API et une zone Web Unlocker.",
-      "computer": "Cherche dans le navigateur de l'ordinateur du Bot quand les autres sources échouent. Visible seulement s'il existe un ordinateur."
+      "computer": "Cherche dans le navigateur de l'ordinateur Bot quand les autres sources échouent. Visible seulement s'il existe un ordinateur Bot."
     },
     "status": {
       "ready": "Prêt",

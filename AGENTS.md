@@ -36,6 +36,10 @@ source-tree review. Retain third-party notices and verify release contents.
 Web UI text is localized: user-visible strings live in `ui/src/locales/<lang>/<namespace>.json`
 (rules in ui/src/locales/README.md); `npm --prefix ui run test:i18n` blocks new hardcoded text.
 
+# Naming: Bot computer
+
+People read "Bot computer" (owner, 10-31) for the computer a Bot uses; it is the umbrella term and can have kinds (backends). Today there is one kind: the built-in VM (Firecracker microVM on the TOFI host; label `computer:kind.vm`, "Built-in VM"). A hosted E2B kind is planned (ROADMAP only). The personal-computer pairing (Mac app, `TOFI_PERSONAL_COMPUTERS`, Settings > Other devices) is another thing and keeps its names. Code identifiers, tool names, JSON keys, API paths, env vars and CLI commands keep "computer". Model-facing text (`internal/app`, `internal/manual`) says "Bot computer" too; always-on prompts are size-tested (`prompt_budget_test.go`), so say it in few words.
+
 # Computer is optional
 
 A workspace may have no computer. `TOFI_COMPUTER_BACKEND=none|kvm` (unset: `kvm` when a computer socket is configured, else `none`; `cmd/tofi/accounts.go`)

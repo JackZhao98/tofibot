@@ -109,7 +109,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (m && method === "GET") return tools(m[1] === "notion" ? 6 : m[1] === "google-gmail" ? 6 : 3);
     if (/^\/api\/extensions\/mcp\/[^/]+\/tools\/[^/]+$/.test(path) && method === "PUT") return {tool: {name: path.split("/")[6]}, summary: tools(6)};
     // The computer dialog needs a live desktop the fixture does not have; a refused start still proves which route was taken.
-    if (/\/oauth\/vm\/start$/.test(path)) return {__status: 409, error: {code: "computer_busy", message: "The computer is busy."}};
+    if (/\/oauth\/vm\/start$/.test(path)) return {__status: 409, error: {code: "computer_busy", message: "The Bot computer is busy."}};
     if (/\/oauth\/paste\/start$/.test(path)) return {session_id: "sess_sample", authorization_url: "https://auth.example.test/authorize?state=sample", redirect_uri: "http://127.0.0.1:43821/oauth/callback"};
     if (/\/oauth\/paste\/complete$/.test(path)) return JSON.parse(postData || "{}").url?.includes("code=good") ? {ok: true} : {__status: 400, error: {code: "oauth_paste_invalid", message: "The pasted address is not the redirect this sign-in expects."}};
     if (path === "/api/extensions/local-mcp") return {available: q.get("runner") !== "off", plugins: q.get("fresh") ? [] : [{id: "gog", state: "sleeping", tool_count: 3}]};
@@ -732,7 +732,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await dialog.waitFor();
       await dialog.getByRole("link", {name: /Open Robinhood sign-in/}).waitFor();
       assert.ok(paste.posts.some(post => /\/robinhood\/oauth\/paste\/start$/.test(post.path)), "paste-back session started");
-      assert.ok(!paste.posts.some(post => /\/oauth\/(start|vm\/start)$/.test(post.path)), "neither the https popup nor the computer route was used");
+      assert.ok(!paste.posts.some(post => /\/oauth\/(start|vm\/start)$/.test(post.path)), "neither the https popup nor the Bot computer route was used");
       await popupOpened; // one sign-in tab, opened inside the click and pointed at the provider by the dialog
       assert.equal(await paste.page.locator(".web-oauth-link, .web-oauth-provider").count(), 0, "no pending illustration");
       const wrong = "http://127.0.0.1:43821/oauth/callback?code=wrong-code-value&state=x";
@@ -757,7 +757,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       const withComputer = await open({loopback: "1", vm: "1"});
       await row(withComputer.page, "Robinhood").getByRole("button", {name: "Sign in"}).click();
       await withComputer.page.locator(".paste-back").waitFor();
-      assert.ok(!withComputer.posts.some(post => /\/oauth\/(start|vm\/start)$/.test(post.path)), "neither the https popup nor the computer route");
+      assert.ok(!withComputer.posts.some(post => /\/oauth\/(start|vm\/start)$/.test(post.path)), "neither the https popup nor the Bot computer route");
       await withComputer.close();
       // Other providers are unchanged: no route line, no paste-back.
       const plain = await open();
@@ -880,7 +880,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       assert.equal(body.url, "https://mcp.notion.com/mcp");
       assert.equal(body.oauth.client_id, "", "no client to type: the service registers its own");
       assert.ok(posts.some(post => /\/mcp\/notion\/oauth\/vm\/start$/.test(post.path)), "sign-in started right after the save, by the route this page can take");
-      await page.getByText(/The computer is busy/).waitFor({timeout: 5000});
+      await page.getByText(/The Bot computer is busy/).waitFor({timeout: 5000});
       await close();
       // A loopback-only service: the sign-in tab opens inside the click, then the paste-back dialog.
       savedServers.length = 0;

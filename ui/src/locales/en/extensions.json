@@ -154,7 +154,7 @@
     "endpoint_changed_oauth": "The server URL changed. Fill in the OAuth settings for the new URL before saving.",
     "invalid_auth_url": "Invalid authorization URL",
     "metadata_changed_secret": "The authorization metadata URL changed. Re-enter or clear the saved Client Secret before saving.",
-    "needs_bot": "Create a Bot first to authorize on the shared computer.",
+    "needs_bot": "Create a Bot first to authorize on the Bot computer.",
     "oauth_discovery_failed": "Couldn't read authorization details or register a client. Check the server URL and try again.",
     "oauth_start_failed": "Couldn't start authorization. Check the server URL and try again.",
     "offline": "Can't reach the server. Try again.",
@@ -203,7 +203,7 @@
     "project_hint": "In Google Cloud, choose the same project as the OAuth client. While the app is in testing, add your account as a test user under Audience.",
     "preview_hint": "Enrol the Cloud project in the Google Workspace Developer Preview Program (developers.google.com/workspace/preview); without it every tool call is refused even though sign-in works.",
     "agentic_hint": "Check “Use this client for an AI-powered agent” (Google Auth Platform → Clients). From 2026-11-11 Workspace MCP rejects clients without it; from 2026-11-12 it is permanent, so an unmarked client must be replaced.",
-    "redirect_hint": "In Google Auth Platform → Clients, open your Web application and add each URL you'll use under Authorized redirect URIs (not JavaScript origins). Both entry points can share these credentials. Address, port and path must match exactly. The shared computer's dynamic HTTP redirect can't use this fixed setup; use HTTPS or the app instead.",
+    "redirect_hint": "In Google Auth Platform → Clients, open your Web application and add each URL you'll use under Authorized redirect URIs (not JavaScript origins). Both entry points can share these credentials. Address, port and path must match exactly. The Bot computer's dynamic HTTP redirect can't use this fixed setup; use HTTPS or the app instead.",
     "test_users": "Set up test users",
     "workspace": {
       "title": "Advanced: Google Workspace MCP (Developer Preview)",
@@ -335,14 +335,14 @@
     "title": "Sign in to {{title}}"
   },
   "route": {
-    "desktop": "Sign in with your system browser; you'll come back to this app when done. The shared computer isn't used.",
-    "desktop_outdated": "This app version can't authorize locally yet. Update the app. Tofi won't switch to the shared computer on its own.",
-    "http_blocked": "A plain HTTP connection can't receive the redirect safely, and no shared computer is set up. Use HTTPS or the Tofi app.",
+    "desktop": "Sign in with your system browser; you'll come back to this app when done. The Bot computer isn't used.",
+    "desktop_outdated": "This app version can't authorize locally yet. Update the app. Tofi won't switch to the Bot computer on its own.",
+    "http_blocked": "A plain HTTP connection can't receive the redirect safely, and no Bot computer is set up. Use HTTPS or the Tofi app.",
     "loading": "Loading sign-in settings…",
     "loopback_paste": "This service accepts only a 127.0.0.1 redirect. Sign in in your browser, then paste the address it redirects to back here.",
     "public_origin_missing": "Set TOFI_PUBLIC_ORIGIN (the public HTTPS address) on the server, then try again.",
-    "vm": "You're connected over plain HTTP, so only this entry point authorizes on the shared computer. The service must support a local redirect. HTTPS or the Tofi app is recommended.",
-    "web": "Sign in with this device's browser; the provider returns to Tofi's HTTPS server. The shared computer isn't used."
+    "vm": "You're connected over plain HTTP, so only this entry point authorizes on the Bot computer. The service must support a local redirect. HTTPS or the Tofi app is recommended.",
+    "web": "Sign in with this device's browser; the provider returns to Tofi's HTTPS server. The Bot computer isn't used."
   },
   "skillCatalog": {
     "document_delivery": {
@@ -454,8 +454,8 @@
     },
     "footer": "You'll return automatically when done. Other Bots' screen actions are queued.",
     "reconnecting": "Connection interrupted. Retrying…",
-    "screen_alt": "Shared computer",
-    "subtitle": "Finish authorizing on the shared computer"
+    "screen_alt": "Bot computer",
+    "subtitle": "Finish authorizing on the Bot computer"
   },
   "tools": {
     "changed": "Changed",

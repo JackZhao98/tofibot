@@ -1084,7 +1084,7 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 			}
 			readOnly := isReadOnlyMicroVMAction(v.Action)
 			if active > 0 && !readOnly && !isGraphicAction(v.Action) {
-				writeErr(w, http.StatusConflict, "computer_busy", "The Bot is working. The computer cannot be taken over right now.")
+				writeErr(w, http.StatusConflict, "computer_busy", "The Bot is working. The Bot computer cannot be taken over right now.")
 				return true
 			}
 			if v.RunID != "" {
@@ -1110,7 +1110,7 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 			if v.Action != "desktop.capture" {
 				if !lease.TryLock() {
 					log.Printf("[desktop] action denied bot=%s action=%s reason=computer-lease-busy", v.BotID, v.Action)
-					writeErr(w, http.StatusConflict, "computer_busy", "The computer is in use. Try again shortly.")
+					writeErr(w, http.StatusConflict, "computer_busy", "The Bot computer is in use. Try again shortly.")
 					return true
 				}
 				defer lease.Unlock()
@@ -1121,7 +1121,7 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 			if !readOnly && isGraphicAction(v.Action) {
 				if !s.claimComputerOwner(v.BotID, runID) {
 					log.Printf("[desktop] action denied bot=%s action=%s run=%s reason=owner-conflict", v.BotID, v.Action, runID)
-					writeErr(w, http.StatusConflict, "computer_busy", "The computer is in use by another Bot run.")
+					writeErr(w, http.StatusConflict, "computer_busy", "The Bot computer is in use by another Bot run.")
 					return true
 				}
 				defer s.releaseComputerOwner(v.BotID, runID)
@@ -1129,7 +1129,7 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 			// Recheck after taking the lease so a queued run cannot begin between
 			// the first check and this human action.
 			if activeNow := s.botHasActiveRun(v.BotID); activeNow && !readOnly && !isGraphicAction(v.Action) {
-				writeErr(w, http.StatusConflict, "computer_busy", "The Bot is working. The computer cannot be taken over right now.")
+				writeErr(w, http.StatusConflict, "computer_busy", "The Bot is working. The Bot computer cannot be taken over right now.")
 				return true
 			}
 			source := "human"
@@ -1219,7 +1219,7 @@ func (s *Store) hasPairedComputer() bool {
 }
 
 func (s *Server) computerTools(r Run) []Tool {
-	list := Tool{Name: "list_computers", Description: "List the service host and the Bot's computers (the Bot workspace VM, which is the default, and any computer the person connected) with kind, current online status and explicitly granted capabilities. Reuse prior conversation facts for explanatory answers; call this when current availability or grants matter for an operation, not automatically on every turn.", Parameters: objectSchema(map[string]any{}, nil), Execute: func(ctx context.Context, _ json.RawMessage) (string, error) {
+	list := Tool{Name: "list_computers", Description: "List the service host and the Bot computers (the Bot computer, which is the default, and any other computer the person connected) with kind, current online status and explicitly granted capabilities. Reuse prior conversation facts for explanatory answers; call this when current availability or grants matter for an operation, not automatically on every turn.", Parameters: objectSchema(map[string]any{}, nil), Execute: func(ctx context.Context, _ json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
@@ -1230,7 +1230,7 @@ func (s *Server) computerTools(r Run) []Tool {
 		b, _ := json.Marshal(map[string]any{"computers": items})
 		return string(b), nil
 	}}
-	action := Tool{Name: "computer_action", Timeout: computerToolTimeout, Description: "Run one explicitly granted action on a computer from list_computers; pick the one the person named, otherwise the Bot workspace. A computer is used by one Bot at a time; a busy or detached computer answers with an error, and work that does not need it goes on. Use only capabilities currently advertised by that computer; an action name does not grant access or enable an unavailable runtime. Callers cannot override local grants or execution policy. When a paired Mac advertises sandbox.exec, pass only args.command: it runs for at most 30 seconds in the locally authorized directory and directly changes its files, with no automatic rollback. It does not grant network, SSH keys, Keychain or arbitrary host toolchains. A stopped managed process group does not prove every detached descendant stopped. Inspect exitCode, stderr and cancellation before claiming success; do not retry uncertain writes automatically. Use host.info on the service host only to read its OS and architecture.", Parameters: objectSchema(map[string]any{"computer_id": map[string]any{"type": "string"}, "action": map[string]any{"type": "string"}, "args": map[string]any{"type": "object"}}, []string{"computer_id", "action", "args"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
+	action := Tool{Name: "computer_action", Timeout: computerToolTimeout, Description: "Run one explicitly granted action on a Bot computer from list_computers; pick the one the person named, otherwise the Bot workspace. A Bot computer is used by one Bot at a time; a busy or detached Bot computer answers with an error, and work that does not need it goes on. Use only capabilities currently advertised by that Bot computer; an action name does not grant access or enable an unavailable runtime. Callers cannot override local grants or execution policy. When a paired Mac advertises sandbox.exec, pass only args.command: it runs for at most 30 seconds in the locally authorized directory and directly changes its files, with no automatic rollback. It does not grant network, SSH keys, Keychain or arbitrary host toolchains. A stopped managed process group does not prove every detached descendant stopped. Inspect exitCode, stderr and cancellation before claiming success; do not retry uncertain writes automatically. Use host.info on the service host only to read its OS and architecture.", Parameters: objectSchema(map[string]any{"computer_id": map[string]any{"type": "string"}, "action": map[string]any{"type": "string"}, "args": map[string]any{"type": "object"}}, []string{"computer_id", "action", "args"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
 		var in struct {
 			ComputerID string          `json:"computer_id"`
 			Action     string          `json:"action"`

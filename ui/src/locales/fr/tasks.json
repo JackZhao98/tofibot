@@ -87,8 +87,8 @@
     "ready": "L’outil est prêt",
     "config_changed": "Les réglages de l’outil ont changé, approuvez à nouveau",
     "tool_timeout": "Pas de réponse à temps, arrêté",
-    "computer_restarting": "L’ordinateur redémarre ; cette étape n’a pas été exécutée",
-    "computer_unresponsive": "L’ordinateur ne répond pas ; cette étape n’a pas été exécutée",
+    "computer_restarting": "L’ordinateur Bot redémarre ; cette étape n’a pas été exécutée",
+    "computer_unresponsive": "L’ordinateur Bot ne répond pas ; cette étape n’a pas été exécutée",
     "tool_rejected": "Refusé avant exécution, rien n'a changé",
     "restart_interrupted": "En cours lors de l’interruption ; peut être relancé sans risque",
     "restart_interrupted_effect": "En cours lors de l’interruption ; effet non vérifié",
@@ -412,18 +412,18 @@
       "search_tools": "Recherche des outils disponibles",
       "search_history": "Consultation de l’historique de la conversation",
       "inspect_runs": "Consultation de l’historique des exécutions",
-      "computer_help": "Lecture du guide de l’ordinateur",
+      "computer_help": "Lecture du guide de l’ordinateur Bot",
       "send_message": "Envoi d’un message",
       "complete_schedule": "Finalisation de la tâche planifiée",
       "connected_tool": "Utilisation d’un outil connecté",
       "browse": "Navigation sur le web",
       "documents": "Consultation des documents",
       "command": "Exécution d’une commande",
-      "computer": "Utilisation de l’ordinateur",
+      "computer": "Utilisation de l’ordinateur Bot",
       "contact": "Contact d’un membre",
       "call": "Appel de {{name}}",
       "profile": "Enregistrement du profil du Bot",
-      "takeover": "En attente de vous sur l’ordinateur",
+      "takeover": "En attente de vous sur l’ordinateur Bot",
       "connection": "En attente de la connexion d’un service"
     },
     "title": {
@@ -434,18 +434,18 @@
       "search_tools": "Rechercher les outils disponibles",
       "search_history": "Consulter l’historique de la conversation",
       "inspect_runs": "Consulter l’historique des exécutions",
-      "computer_help": "Lire le guide de l’ordinateur",
+      "computer_help": "Lire le guide de l’ordinateur Bot",
       "send_message": "Envoyer un message",
       "complete_schedule": "Finaliser la tâche planifiée",
       "connected_tool": "Utiliser un outil connecté",
       "browse": "Naviguer sur le web",
       "documents": "Consulter les documents",
       "command": "Exécuter une commande",
-      "computer": "Utiliser l’ordinateur",
+      "computer": "Utiliser l’ordinateur Bot",
       "contact": "Contacter un membre",
       "call": "Appeler {{name}}",
       "profile": "Enregistrer le profil du Bot",
-      "takeover": "En attente de vous sur l’ordinateur",
+      "takeover": "En attente de vous sur l’ordinateur Bot",
       "connection": "En attente de la connexion d’un service"
     },
     "step_action": {
@@ -470,7 +470,7 @@
       "firecrawl": "Firecrawl",
       "brightdata": "Bright Data",
       "builtin": "lecture intégrée",
-      "computer": "ordinateur du Bot"
+      "computer": "ordinateur Bot"
     }
   },
   "review": {
@@ -627,15 +627,15 @@
     "state_changed": "Cette demande a changé. Vérifiez son état à jour avant de continuer.",
     "takeover": {
       "take": "Prendre la main",
-      "hint": "Vous travaillez sur l’ordinateur partagé du Bot. Ce que vous saisissez ou copiez reste sur cet écran et n’est jamais partagé avec le Bot.",
+      "hint": "Vous travaillez sur l’ordinateur Bot du Bot. Ce que vous saisissez ou copiez reste sur cet écran et n’est jamais partagé avec le Bot.",
       "resolved_done": "Rendu au Bot",
       "resolved_cannot": "Impossible à faire"
     },
     "dialog": {
       "label": "Prendre la main sur {{site}}",
-      "subtitle": "Vous contrôlez l’ordinateur partagé",
+      "subtitle": "Vous contrôlez l’ordinateur Bot",
       "close": "Retour au chat",
-      "screen_alt": "Ordinateur partagé",
+      "screen_alt": "Ordinateur Bot",
       "footer": "Le Bot attend pendant que vous travaillez. Choisissez Terminé quand vous avez fini."
     },
     "connection": {

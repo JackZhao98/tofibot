@@ -64,7 +64,7 @@ func TestSafetyAndGuideRoutingRemainInTheProductionPrompt(t *testing.T) {
 	for _, requirement := range []string{
 		"Complete the requested deliverable and fields",
 		"Never claim something was searched, verified or done without evidence",
-		"try the computer's other means before reporting a blocker or asking",
+		"try the Bot computer's other means before reporting a blocker or asking",
 		"read_workflow_guide",
 		"(skill: software)",
 		computerBrowserEssentialsPlaywright,

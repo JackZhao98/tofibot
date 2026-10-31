@@ -129,7 +129,7 @@ func checkPlaywrightUploads(root string, value any) ([]string, error) {
 	for _, item := range list {
 		name, _ := item.(string)
 		if name == "" || strings.ContainsRune(name, 0) || !filepath.IsAbs(name) {
-			return nil, rejectedf("file paths must be absolute paths on the computer")
+			return nil, rejectedf("file paths must be absolute paths on the Bot computer")
 		}
 		real, err := filepath.EvalSymlinks(name)
 		if err != nil {
@@ -264,7 +264,7 @@ func playwrightTidy(root, text string) string {
 	})
 }
 
-var errPlaywrightMissing = errors.New("browser engine is not installed in this computer image; use the classic browser engine or update the computer image")
+var errPlaywrightMissing = errors.New("browser engine is not installed in this Bot computer image; use the classic browser engine or update the Bot computer image")
 
 // playwrightEndpoint is the DevTools address of the shared Chrome.
 func playwrightEndpoint(port int) string {

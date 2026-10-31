@@ -419,9 +419,9 @@ func (s *Server) routeAttachments(w http.ResponseWriter, r *http.Request, p stri
 	if err != nil {
 		switch {
 		case errors.Is(err, errFileOnDetachedComputer):
-			writeErr(w, 409, "file_on_detached_computer", "This file is on the detached computer. Attach it to recover.")
+			writeErr(w, 409, "file_on_detached_computer", "This file is on the detached Bot computer. Attach it to recover.")
 		case errors.Is(err, errFileGoneFromComputer):
-			writeErr(w, 404, "file_missing_on_computer", "This file is no longer on the computer and was not copied to the server.")
+			writeErr(w, 404, "file_missing_on_computer", "This file is no longer on the Bot computer and was not copied to the server.")
 		default:
 			writeErr(w, 404, "not_found", "attachment not found")
 		}

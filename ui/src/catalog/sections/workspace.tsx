@@ -89,7 +89,7 @@ export const notices: CatalogSection = {
       drive: async step => { window.dispatchEvent(new Event("tofi:portability-imported")); await step.find(".workspace-toast", 8000); } },
     { id: "proxy-challenge", kind: "app", label: "Site protection needs a re-check (Cloudflare challenge)", note: "after silent renewal failed; Verify again reloads the page", app: { ...DM, challenge: true }, probe: ".proxy-challenge-toast",
       drive: async step => { await step.find(".workspace", 8000); window.dispatchEvent(new Event("tofi:portability-imported")); await step.wait(300); window.dispatchEvent(new CustomEvent("tofi:proxy-challenge", { detail: true })); await step.find(".proxy-challenge-toast", 8000); } },
-    { id: "computer-status", kind: "app", label: "Shared computer status strip", app: { ...DM, computer: "starting" }, drive: async step => { await step.find(".computer-preparing"); } },
+    { id: "computer-status", kind: "app", label: "Bot computer status strip", app: { ...DM, computer: "starting" }, drive: async step => { await step.find(".computer-preparing"); } },
     { id: "update", kind: "app", label: "New version banner", note: "admins only; dismissal is remembered per version", app: { ...DM, update: true }, drive: async step => { await step.find(".update-banner", 8000); } },
     { id: "update-confirm", kind: "app", label: "New version banner, confirming the update", note: "the Update button opens the confirm dialog; Escape closes it", app: { ...DM, update: true }, probe: "[data-update-dialog]", keyboard: { close: "Escape" },
       drive: async step => { await step.click("[data-update-action]"); await step.find("[data-update-dialog]", 8000); } },

@@ -63,12 +63,12 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		// A provider that accepts only 127.0.0.1 redirects never gets the public-origin callback,
 		// neither registered nor requested (the Manager refuses it too).
 		if s.extensions.OAuthLoopbackOnly(name) {
-			writeErr(w, 400, "oauth_loopback_only", "This connection signs in only through a 127.0.0.1 redirect. Use the shared computer or the paste-back step.")
+			writeErr(w, 400, "oauth_loopback_only", "This connection signs in only through a 127.0.0.1 redirect. Use the Bot computer or the paste-back step.")
 			return true
 		}
 		origin := s.webOAuthOrigin(r)
 		if origin == "" || (r.TLS == nil && r.Header.Get("Origin") != origin) || (r.Header.Get("Origin") != "" && r.Header.Get("Origin") != origin) {
-			writeErr(w, 400, "oauth_https_required", "Web authorization requires HTTPS. Over plain HTTP, authorize from the shared computer or use HTTPS or the Tofi client.")
+			writeErr(w, 400, "oauth_https_required", "Web authorization requires HTTPS. Over plain HTTP, authorize from the Bot computer or use HTTPS or the Tofi client.")
 			return true
 		}
 		redirect := origin + "/api/extensions/mcp/" + name + "/oauth/callback"

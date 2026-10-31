@@ -129,7 +129,7 @@ var browserEngineSpecs = []pwSpec{
 			"url":   map[string]any{"type": "string", "description": "Address to open in a new tab."}},
 		Required: []string{"action"}},
 	{Name: "browser_file_upload", Engine: "browser_file_upload", Review: "upload", MinEffect: "send",
-		Description: "Give files to the file chooser that the page opened. Click the element that opens the chooser first. Paths are on this computer inside /workspace; a relative path starts in the Bot directory. Browser profile and key folders are refused.",
+		Description: "Give files to the file chooser that the page opened. Click the element that opens the chooser first. Paths are on this Bot computer inside /workspace; a relative path starts in the Bot directory. Browser profile and key folders are refused.",
 		Props:       map[string]any{"paths": map[string]any{"type": "array", "minItems": 1, "maxItems": browserUploadMaxFiles, "items": map[string]any{"type": "string"}, "description": "Files to attach."}, "effect": effectParam},
 		Required:    []string{"paths"}},
 	{Name: "browser_handle_dialog", Engine: "browser_handle_dialog", Review: "dialog",
@@ -361,7 +361,7 @@ func (s *Server) browserEngineCall(ctx context.Context, r Run, tool string, args
 	}
 	if err != nil {
 		if strings.Contains(err.Error(), "unsupported action") {
-			return "", tooloutcome.InvalidArguments("the browser engine needs a newer computer image; this computer's guest does not support it yet. Nothing was done.")
+			return "", tooloutcome.InvalidArguments("the browser engine needs a newer Bot computer image; this Bot computer's guest does not support it yet. Nothing was done.")
 		}
 		return "", err
 	}
@@ -411,7 +411,7 @@ func browserEngineUnavailable(err error) bool {
 	}
 	msg := strings.ToLower(err.Error())
 	for _, part := range []string{
-		"needs a newer computer image", "browser engine is not installed", "browser engine needs node",
+		"needs a newer bot computer image", "needs a newer computer image", "browser engine is not installed", "browser engine needs node",
 		"browser engine did not start", "browser engine is not running", "browser engine stopped",
 		"browser engine did not answer", "browser debugging endpoint is unavailable",
 	} {
