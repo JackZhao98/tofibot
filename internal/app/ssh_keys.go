@@ -196,7 +196,7 @@ func (s *Server) computerSSHKeys(ctx context.Context, r Run, op sshKeyOperation)
 		output, err = s.microVMAction(ctx, r, "shell.exec", args)
 	}
 	if err != nil {
-		return sshKeyResult{}, errors.New("Computer unavailable or busy; try again after its current task")
+		return sshKeyResult{}, errors.New("Bot computer unavailable or busy; try again after its current task")
 	}
 	var shell struct {
 		Stdout    string `json:"stdout"`
@@ -204,14 +204,14 @@ func (s *Server) computerSSHKeys(ctx context.Context, r Run, op sshKeyOperation)
 		Truncated bool   `json:"truncated"`
 	}
 	if json.Unmarshal([]byte(output), &shell) != nil || shell.ExitCode == nil || *shell.ExitCode != 0 || shell.Truncated {
-		return sshKeyResult{}, errors.New("Could not read SSH keys from the computer")
+		return sshKeyResult{}, errors.New("Could not read SSH keys from the Bot computer")
 	}
 	var result sshKeyResult
 	if json.Unmarshal([]byte(shell.Stdout), &result) != nil {
 		return result, errors.New("Invalid SSH key response")
 	}
 	if result.Error != "" {
-		messages := map[string]string{"already_exists": "This key filename already exists; choose another name", "invalid_private_key": "The private key could not be parsed by OpenSSH", "invalid_public_key": "The public key is invalid", "public_key_mismatch": "The supplied public key does not match the key fingerprint", "ssh_unavailable": "OpenSSH tools are not installed on the computer", "unsafe_directory": "The SSH directory must be a regular directory"}
+		messages := map[string]string{"already_exists": "This key filename already exists; choose another name", "invalid_private_key": "The private key could not be parsed by OpenSSH", "invalid_public_key": "The public key is invalid", "public_key_mismatch": "The supplied public key does not match the key fingerprint", "ssh_unavailable": "OpenSSH tools are not installed on the Bot computer", "unsafe_directory": "The SSH directory must be a regular directory"}
 		if msg := messages[result.Error]; msg != "" {
 			return sshKeyResult{}, errors.New(msg)
 		}
@@ -275,7 +275,7 @@ func (s *Server) handleSSHKeys(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 func (s *Server) sshKeyTool(r Run) Tool {
-	return Tool{Name: "computer_ssh_keys", Description: "List or generate SSH keys in the shared computer HOME ~/.ssh. Settings discovers these same keys automatically. Returns public keys and fingerprints only, never private material. Generate creates a new unencrypted Ed25519 key without overwriting existing files; only do so when the user requests a key. For private-key import use request_secret_input then use_secret_input(action ssh,target filename), never ask for a private key in chat. A public key must still be added to GitHub or the intended remote service by the user or an explicitly authorized action.", Parameters: objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"list", "generate"}}, "name": map[string]any{"type": "string", "description": "Private key filename, for example id_ed25519_work"}}, []string{"action"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
+	return Tool{Name: "computer_ssh_keys", Description: "List or generate SSH keys in the Bot computer HOME ~/.ssh. Settings discovers these same keys automatically. Returns public keys and fingerprints only, never private material. Generate creates a new unencrypted Ed25519 key without overwriting existing files; only do so when the user requests a key. For private-key import use request_secret_input then use_secret_input(action ssh,target filename), never ask for a private key in chat. A public key must still be added to GitHub or the intended remote service by the user or an explicitly authorized action.", Parameters: objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"list", "generate"}}, "name": map[string]any{"type": "string", "description": "Private key filename, for example id_ed25519_work"}}, []string{"action"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
 		var in sshKeyOperation
 		_ = json.Unmarshal(raw, &in)
 		i := tooloutcome.OperationIdentity("computer/ssh_keys", in.Action, raw)

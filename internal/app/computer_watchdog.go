@@ -316,11 +316,11 @@ func (w *computerWatchdog) admission() error {
 	switch state {
 	case computerRestarting:
 		return tooloutcome.New(tooloutcome.Transient, "computer_restarting", "not_executed",
-			"The computer stopped responding and is restarting; this call was not executed. A restart usually takes one to two minutes. Continue with work that does not need the computer, or tell the user it is temporarily unavailable.",
+			"The Bot computer stopped responding and is restarting; this call was not executed. A restart usually takes one to two minutes. Continue with work that does not need the Bot computer, or tell the user it is temporarily unavailable.",
 			"explain_blocker").Err()
 	case computerUnresponsive:
 		return tooloutcome.New(tooloutcome.Permanent, "computer_unresponsive", "not_executed",
-			"The computer is not responding and automatic restarts did not help; this call was not executed. Tell the user the computer needs a manual retry from its status panel.",
+			"The Bot computer is not responding and automatic restarts did not help; this call was not executed. Tell the user the Bot computer needs a manual retry from its status panel.",
 			"explain_blocker").Err()
 	}
 	return nil

@@ -11,7 +11,7 @@ try {
   assert.equal(credentialMessage(server("This credential target already exists"), "x", "env"), words.env_exists, "a duplicate variable is not 'a file with this name'");
   assert.equal(credentialMessage(server("This credential target already exists"), "x", "ssh"), words.exists);
   assert.equal(credentialMessage(server("Wait for this Bot's active task to finish"), "x", "env"), words.busy, "a Bot with an active task is the busy wording");
-  const raw = "Secret operation failed; the computer may be unavailable or controlled by another session";
+  const raw = "Secret operation failed; the Bot computer may be unavailable or controlled by another session";
   assert.equal(credentialMessage(server(raw), "x", "env"), raw, "an unmapped server reason is shown as it came");
   assert.equal(credentialMessage("not an error", "fallback", "env"), "fallback");
   assert.equal(credentialMessage(server(""), "fallback", "env"), "fallback");

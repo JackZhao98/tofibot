@@ -108,7 +108,7 @@ func (s *Server) resolveComputerRecovery(ctx context.Context, r Run, computerID,
 		return i, nil
 	}
 	if s.computer() == nil {
-		return i, tooloutcome.New(tooloutcome.Permanent, "computer_unavailable", "not_executed", "Computer VM is not configured.", "explain_blocker").Err()
+		return i, tooloutcome.New(tooloutcome.Permanent, "computer_unavailable", "not_executed", "Bot computer is not configured.", "explain_blocker").Err()
 	}
 	var in struct {
 		Path string `json:"path"`

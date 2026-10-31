@@ -4,14 +4,14 @@
       "resource_limit_count_other": "共享桌面資源暫時無法使用（{{count}} 個使用中的工作階段），請稍後再試。",
       "resource_limit": "共享桌面資源暫時無法使用，請稍後再試。",
       "stopping": "共享桌面正在停止，請稍後再試。",
-      "busy": "電腦正在執行其他操作，請稍後再試。",
-      "not_configured": "共享電腦尚未設定，請先完成伺服器安裝。",
-      "failed": "電腦操作失敗，請稍後再試。",
-      "capture_failed": "電腦截圖失敗",
-      "action_failed": "電腦操作失敗",
+      "busy": "Bot 電腦正在執行其他操作，請稍後再試。",
+      "not_configured": "Bot 電腦尚未設定，請先完成伺服器安裝。",
+      "failed": "Bot 電腦操作失敗，請稍後再試。",
+      "capture_failed": "Bot 電腦截圖失敗",
+      "action_failed": "Bot 電腦操作失敗",
       "switching": "桌面正在切換或準備中，請稍後再試。",
       "unreachable": "暫時無法連線到桌面，請稍後再試。",
-      "connection_lost": "電腦連線暫時無法使用，正在重試…"
+      "connection_lost": "Bot 電腦連線暫時無法使用，正在重試…"
     },
     "phase": {
       "checking": "檢查環境",
@@ -23,11 +23,11 @@
       "ready": "就緒"
     },
     "state": {
-      "starting": "正在準備共享電腦",
-      "ready": "電腦已就緒",
-      "error": "電腦準備失敗",
-      "stopped": "電腦已停止",
-      "other": "電腦{{state}}"
+      "starting": "正在準備 Bot 電腦",
+      "ready": "Bot 電腦已就緒",
+      "error": "Bot 電腦準備失敗",
+      "stopped": "Bot 電腦已停止",
+      "other": "Bot 電腦{{state}}"
     },
     "other_bot": "其他 Bot",
     "announce": {
@@ -37,16 +37,16 @@
       "fallback": "桌面已連線，已切換為截圖檢視",
       "recovering": "桌面已連線，正在恢復畫面"
     },
-    "shrink_aria": "縮小共享電腦",
-    "expand_aria": "放大共享電腦",
+    "shrink_aria": "縮小 Bot 電腦",
+    "expand_aria": "放大 Bot 電腦",
     "shrink": "縮小",
     "expand": "放大",
     "enlarge_hint": "點擊放大",
-    "hide_aria": "隱藏共享電腦",
+    "hide_aria": "隱藏 Bot 電腦",
     "minimize": "最小化",
     "close": "關閉",
-    "close_aria": "關閉共用電腦",
-    "title": "共享電腦",
+    "close_aria": "關閉 Bot 電腦",
+    "title": "Bot 電腦",
     "status": {
       "failed": "連線失敗",
       "connecting_preview": "正在連線預覽…",
@@ -54,9 +54,9 @@
       "booting": "正在開機…",
       "you": "你正在控制",
       "bot": "{{name}} 正在操作",
-      "idle": "共享電腦閒置中"
+      "idle": "Bot 電腦閒置中"
     },
-    "power_hint": "收起螢幕（電腦會繼續執行）",
+    "power_hint": "收起螢幕（Bot 電腦會繼續執行）",
     "control": {
       "release": "交還控制",
       "take": "接管控制",
@@ -65,11 +65,11 @@
     "phase_label": "階段：{{phase}}",
     "state_synced": "狀態已同步",
     "retry_prepare": "重試準備",
-    "screen_alt": "共享電腦螢幕",
+    "screen_alt": "Bot 電腦螢幕",
     "launch": {
-      "failed_aria": "電腦連線失敗",
-      "preview_aria": "正在連線電腦預覽",
-      "starting_aria": "正在啟動電腦",
+      "failed_aria": "Bot 電腦連線失敗",
+      "preview_aria": "正在連線 Bot 電腦預覽",
+      "starting_aria": "正在啟動 Bot 電腦",
       "failed": "連線失敗，請稍後重新開啟"
     },
     "tools": {
@@ -85,11 +85,11 @@
     "video_aria": "Bot 目前桌面的即時影像",
     "pointer_click": "{{name}} · 點擊",
     "placeholder": {
-      "waking": "正在喚醒電腦",
+      "waking": "正在喚醒 Bot 電腦",
       "connecting": "正在連接螢幕",
       "resuming": "正在從休眠中恢復",
       "resuming_phase": "正在喚醒 · {{phase}}",
-      "waking_computer": "正在喚醒電腦…",
+      "waking_computer": "正在喚醒 Bot 電腦…",
       "starting_desktop": "正在啟動桌面…",
       "hibernated": "休眠中 · 正在喚醒…",
       "hibernating": "正在進入休眠…",
@@ -97,8 +97,8 @@
       "retry": "重試"
     },
     "fold": "摺疊",
-    "fold_aria": "把共用電腦摺成窄欄",
-    "unfold_aria": "顯示共用電腦"
+    "fold_aria": "把 Bot 電腦摺成窄欄",
+    "unfold_aria": "顯示 Bot 電腦"
   },
   "remote": {
     "error": {
@@ -130,9 +130,9 @@
       "open": "鍵盤"
     },
     "release": "釋放控制",
-    "bot_waiting": "Bot 要求使用電腦，將在你停止操作 15 秒後接手。",
+    "bot_waiting": "Bot 要求使用 Bot 電腦，將在你停止操作 15 秒後接手。",
     "surface_aria": "遠端桌面操作區域",
-    "surface_preview_aria": "共享電腦畫面預覽；拖曳可移動",
+    "surface_preview_aria": "Bot 電腦畫面預覽；拖曳可移動",
     "keyboard_input_aria": "遠端桌面鍵盤輸入",
     "copy": {
       "note": "瀏覽器未允許自動寫入本機剪貼簿，請複製以下文字。",
@@ -191,18 +191,18 @@
   },
   "env": {
     "unavailable": "執行環境暫時無法使用。",
-    "start_failed": "電腦未能啟動，請稍後再試。",
+    "start_failed": "Bot 電腦未能啟動，請稍後再試。",
     "title": "執行環境",
     "description": "Linux、Google Chrome、檔案瀏覽器和終端機使用同一套環境。每個 Bot 都有自己的工作資料夾，也可互相存取。",
     "state": {
-      "ready": "共享電腦已就緒",
-      "starting": "正在準備電腦",
-      "stopped": "共享電腦已停止",
-      "waiting": "等待電腦連線"
+      "ready": "Bot 電腦已就緒",
+      "starting": "正在準備 Bot 電腦",
+      "stopped": "Bot 電腦已停止",
+      "waiting": "等待 Bot 電腦連線"
     },
     "workspace": "工作目錄 {{path}}",
     "workspace_idle_other": "工作目錄 {{path}} · 桌面閒置 {{count}} 分鐘後自動關閉",
-    "retry": "重新準備電腦"
+    "retry": "重新準備 Bot 電腦"
   },
   "mac": {
     "title": "Mac 權限",
@@ -229,19 +229,19 @@
     "cancel": "取消",
     "error": {
       "restart_incomplete": "重新啟動未完成，請重試。",
-      "read": "暫時無法讀取電腦資源，請重試。",
+      "read": "暫時無法讀取 Bot 電腦資源，請重試。",
       "out_of_range": "資源設定超出允許範圍，請檢查後重試。",
       "save": "儲存失敗，請重試。",
-      "busy": "電腦正在執行任務或套用設定。請先停止任務，稍後再試。",
+      "busy": "Bot 電腦正在執行任務或套用設定。請先停止任務，稍後再試。",
       "restart_request": "重新啟動要求未完成，請重試。",
-      "start_failed": "電腦啟動失敗，請重試。"
+      "start_failed": "Bot 電腦啟動失敗，請重試。"
     },
     "status": {
       "applied": "設定已套用。",
       "saved_pending": "設定已儲存，重新啟動後套用。",
       "saved": "設定已儲存。"
     },
-    "draft_label": "電腦資源",
+    "draft_label": "Bot 電腦資源",
     "title": "資源",
     "adjust": "調整設定",
     "unit": {
@@ -272,26 +272,26 @@
     "saving": "正在儲存…",
     "summary": {
       "title": "變更內容",
-      "restart": "電腦重新啟動後生效。",
+      "restart": "Bot 電腦重新啟動後生效。",
       "none": "尚無變更。拖曳滑桿即可調整。"
     },
-    "admin_sets": "這台電腦的大小由管理員設定。",
-    "admin_sets_admin": "這台電腦的大小由管理員設定。如需變更,請在管理主控台開啟該帳號。",
+    "admin_sets": "這台 Bot 電腦的大小由管理員設定。",
+    "admin_sets_admin": "這台 Bot 電腦的大小由管理員設定。如需變更,請在管理主控台開啟該帳號。",
     "open_admin": "開啟管理主控台"
   },
   "credentials": {
     "error": {
       "exists": "此檔案名稱已存在，請換一個名稱。",
       "env_exists": "已儲存同名的環境變數。請先在清單中刪除它，或換一個名稱。",
-      "busy": "電腦正在處理任務，請稍後再試。",
+      "busy": "Bot 電腦正在處理任務，請稍後再試。",
       "private_key_invalid": "無法辨識私密金鑰，請檢查檔案格式。",
       "private_key_filename": "請使用私密金鑰檔名，例如 id_ed25519_work；不要使用 .pub、config 或 known_hosts。",
-      "ssh_dir": "電腦的 .ssh 目錄無法使用，請檢查目錄後重試。",
-      "openssh_missing": "電腦尚未安裝 OpenSSH 工具。",
+      "ssh_dir": "Bot 電腦的 .ssh 目錄無法使用，請檢查目錄後重試。",
+      "openssh_missing": "Bot 電腦尚未安裝 OpenSSH 工具。",
       "key_io": "無法讀取或設定金鑰，請稍後再試。",
       "load": "無法讀取設定，請重試。",
       "switch_unsaved": "請先儲存或捨棄目前的輸入，再切換類型。",
-      "no_bot": "請先建立一個 Bot，再設定共享電腦。",
+      "no_bot": "請先建立一個 Bot，再設定 Bot 電腦。",
       "operation": "操作失敗，請重試。",
       "required": "請填寫必填欄位後重試。",
       "name_format": "名稱格式不正確，請檢查後重試。",
@@ -310,11 +310,11 @@
     },
     "status": {
       "saved_applied": "已儲存並套用。新啟動的指令和終端機會讀取設定。",
-      "saved_not_applied": "已儲存，尚未套用到電腦。可在清單中重試套用。",
+      "saved_not_applied": "已儲存，尚未套用到 Bot 電腦。可在清單中重試套用。",
       "generated": "金鑰已產生。可將公開金鑰複製到目標服務。",
       "imported": "金鑰已匯入。",
-      "applied": "已套用到共享電腦。",
-      "deleted": "已刪除儲存項目，電腦中的副本會保留。"
+      "applied": "已套用到 Bot 電腦。",
+      "deleted": "已刪除儲存項目，Bot 電腦中的副本會保留。"
     },
     "tab": {
       "env": "環境變數",
@@ -324,12 +324,12 @@
       "ssh": "SSH 金鑰"
     },
     "tabs_aria": "憑證類型",
-    "apply": "套用到電腦",
+    "apply": "套用到 Bot 電腦",
     "delete": "刪除",
-    "delete_question": "要刪除儲存項目嗎？電腦中的副本會保留。",
+    "delete_question": "要刪除儲存項目嗎？Bot 電腦中的副本會保留。",
     "note": {
       "env": "所有 Bot 共用，新啟動的指令才會生效。",
-      "ssh": "共享電腦中的金鑰，清單會自動同步。"
+      "ssh": "Bot 電腦中的金鑰，清單會自動同步。"
     },
     "cancel": "取消",
     "add_env": "新增變數",
@@ -350,8 +350,8 @@
       "env_name_hint": "僅限大寫字母、數字和底線，不能以數字開頭。輸入時會自動把小寫字母轉為大寫，空格和連字號轉為底線。"
     },
     "choose_file": "選擇檔案",
-    "private_key_note": "私密金鑰不會傳到聊天中。加密的私密金鑰需在電腦中解鎖。",
-    "generate_note": "產生 Ed25519 金鑰，私密金鑰保留在共享電腦。不會覆寫既有檔案。",
+    "private_key_note": "私密金鑰不會傳到聊天中。加密的私密金鑰需在 Bot 電腦中解鎖。",
+    "generate_note": "產生 Ed25519 金鑰，私密金鑰保留在 Bot 電腦。不會覆寫既有檔案。",
     "submit": {
       "working": "處理中…",
       "save_apply": "儲存並套用",
@@ -372,24 +372,27 @@
       "copy_public": "複製公開金鑰",
       "public_aria": "{{name}} 公開金鑰"
     },
-    "no_bot_note": "建立一個 Bot 後，即可讀取共享電腦中的金鑰。",
-    "empty_ssh": "電腦中尚無 SSH 金鑰",
+    "no_bot_note": "建立一個 Bot 後，即可讀取 Bot 電腦中的金鑰。",
+    "empty_ssh": "Bot 電腦中尚無 SSH 金鑰",
     "legacy_title": "已儲存的金鑰",
-    "legacy_note": "先前儲存的設定，可套用到電腦。",
-    "sync_pending": "電腦暫時忙碌，稍後會自動同步。",
+    "legacy_note": "先前儲存的設定，可套用到 Bot 電腦。",
+    "sync_pending": "Bot 電腦暫時忙碌，稍後會自動同步。",
     "truncated": "金鑰較多，目前僅顯示部分結果。",
     "retry": "重試"
   },
+  "kind": {
+    "vm": "內建虛擬機"
+  },
   "none": {
-    "title": "這台伺服器還沒有電腦",
-    "body": "沒有電腦，Bot 照樣能聊天、記事、依排程執行任務、使用已連接的服務。需要真實瀏覽器、命令列或桌面的工作，要等新增電腦後才能做。",
-    "options": "新增電腦",
+    "title": "這台伺服器還沒有 Bot 電腦",
+    "body": "沒有 Bot 電腦，Bot 照樣能聊天、記事、依排程執行任務、使用已連接的服務。需要真實瀏覽器、命令列或桌面的工作，要等新增 Bot 電腦後才能做。",
+    "options": "新增 Bot 電腦",
     "soon": "即將推出",
     "kvm": {
-      "name": "裝在這台伺服器上",
-      "what": "在這台伺服器自己的硬體上執行 Bot 的電腦。主機需要支援 KVM，且至少有 4 GiB 記憶體。",
+      "name": "內建虛擬機",
+      "what": "在這台伺服器自己的硬體上執行 Bot 電腦。主機需要支援 KVM，且至少有 4 GiB 記憶體。",
       "run": "在伺服器主機上執行：",
-      "after": "電腦接入後，本頁會自動更新。"
+      "after": "Bot 電腦接入後，本頁會自動更新。"
     },
     "own": {
       "name": "你自己的電腦",
@@ -397,20 +400,20 @@
     },
     "e2b": {
       "name": "E2B 雲端沙盒",
-      "what": "用你自己的金鑰向 E2B 租用一台電腦。"
+      "what": "用你自己的金鑰向 E2B 租用一台 Bot 電腦。"
     }
   },
   "contents": {
-    "title": "這台電腦上有什麼",
-    "description": "這些內容存放在電腦上，而不是伺服器上。電腦被清空或更換後，它們會遺失。",
-    "badge": "保存在電腦上",
+    "title": "這台 Bot 電腦上有什麼",
+    "description": "這些內容存放在 Bot 電腦上，而不是伺服器上。Bot 電腦被清空或更換後，它們會遺失。",
+    "badge": "保存在 Bot 電腦上",
     "browser": {
       "name": "瀏覽器登入狀態",
-      "what": "Bot 已登入的網站。清空電腦後，Bot 會登出所有網站。"
+      "what": "Bot 已登入的網站。清空 Bot 電腦後，Bot 會登出所有網站。"
     },
     "tools": {
       "name": "已安裝的工具",
-      "what": "Bot 在這台電腦上安裝的程式。清空後，Bot 會在需要時重新安裝。"
+      "what": "Bot 在這台 Bot 電腦上安裝的程式。清空後，Bot 會在需要時重新安裝。"
     },
     "files": {
       "name": "工作檔案",
@@ -419,7 +422,7 @@
     },
     "config": {
       "name": "環境變數與金鑰",
-      "what": "這台電腦的環境變數和 SSH 金鑰，會隨電腦一起刪除。",
+      "what": "這台 Bot 電腦的環境變數和 SSH 金鑰，會隨 Bot 電腦一起刪除。",
       "saved_other": "已儲存 {{count}} 項",
       "none": "尚未儲存",
       "manage": "管理"
@@ -428,59 +431,59 @@
     "retry": "重試"
   },
   "loss": {
-    "title": "隨電腦磁碟一起遺失",
+    "title": "隨 Bot 電腦磁碟一起遺失",
     "browser": "瀏覽器登入狀態：Bot 會登出所有網站。",
     "tools": "已安裝的工具：Bot 會在需要時重新安裝。",
     "files": "未傳送、也未儲存到「檔案」的工作檔案。",
     "env_other": "{{count}} 個環境變數：{{names}}",
     "keys_other": "{{count}} 個 SSH 金鑰：{{names}}",
     "no_config": "「設定」中沒有儲存環境變數或 SSH 金鑰。",
-    "pending_other": "有 {{count}} 個檔案只在電腦上，尚未複製到伺服器。",
-    "loading": "正在讀取電腦上的內容…",
+    "pending_other": "有 {{count}} 個檔案只在 Bot 電腦上，尚未複製到伺服器。",
+    "loading": "正在讀取 Bot 電腦上的內容…",
     "load_failed": "無法讀取已儲存的變數、金鑰和待複製檔案數，它們同樣會被刪除。"
   },
   "attach": {
-    "loading": "正在讀取電腦分配…",
+    "loading": "正在讀取 Bot 電腦分配…",
     "state": {
       "attached_running": "已接入 · 執行中",
       "attached_stopped": "已接入 · 已停止",
       "detached": "已分離",
       "lost": "已接入,無回應",
       "detaching": "正在分離",
-      "none": "沒有電腦"
+      "none": "沒有 Bot 電腦"
     },
     "action": {
       "attach": "接入",
       "detach": "分離…"
     },
     "help": {
-      "attached": "分離後會保留此帳戶的檔案,Bot 沒有電腦也能繼續運作。",
-      "detached": "在接入電腦之前,Bot 沒有電腦也能運作。接入無需重新啟動。",
-      "none": "此伺服器未設定電腦後端。"
+      "attached": "分離後會保留此帳戶的檔案,Bot 沒有 Bot 電腦也能繼續運作。",
+      "detached": "在接入 Bot 電腦之前,Bot 沒有 Bot 電腦也能運作。接入無需重新啟動。",
+      "none": "此伺服器未設定 Bot 電腦後端。"
     },
     "progress": {
-      "attaching": "正在接入電腦…",
-      "draining": "排空中:等待執行中的電腦工具完成目前步驟…",
-      "syncing": "同步中:正在把電腦上的檔案複製到伺服器…"
+      "attaching": "正在接入 Bot 電腦…",
+      "draining": "排空中:等待執行中的 Bot 電腦工具完成目前步驟…",
+      "syncing": "同步中:正在把 Bot 電腦上的檔案複製到伺服器…"
     },
     "done": {
-      "detach": "電腦已分離。",
+      "detach": "Bot 電腦已分離。",
       "copied": "已複製到伺服器的檔案:{{count}}。",
       "interrupted": "提前結束的工具呼叫:{{count}}。",
-      "left": "仍留在電腦上的檔案:{{count}}。"
+      "left": "仍留在 Bot 電腦上的檔案:{{count}}。"
     },
     "error": {
-      "read": "無法讀取電腦分配。",
+      "read": "無法讀取 Bot 電腦分配。",
       "generic": "無法完成變更,請重試。",
-      "computer_backend_unavailable": "此伺服器未設定電腦後端。",
-      "computer_attach_failed": "無法接入電腦。",
-      "computer_detach_failed": "無法分離電腦。",
-      "forbidden": "只有管理員可以接入或分離電腦。",
-      "unavailable": "只有管理員可以接入或分離電腦。"
+      "computer_backend_unavailable": "此伺服器未設定 Bot 電腦後端。",
+      "computer_attach_failed": "無法接入 Bot 電腦。",
+      "computer_detach_failed": "無法分離 Bot 電腦。",
+      "forbidden": "只有管理員可以接入或分離 Bot 電腦。",
+      "unavailable": "只有管理員可以接入或分離 Bot 電腦。"
     },
     "confirm": {
-      "title": "分離這台電腦?",
-      "impact": "執行中的電腦工具會在目前步驟結束後停止。電腦上的檔案會先複製到伺服器。Bot 在沒有電腦的情況下繼續運作,之後可以再次接入。",
+      "title": "分離這台 Bot 電腦?",
+      "impact": "執行中的 Bot 電腦工具會在目前步驟結束後停止。Bot 電腦上的檔案會先複製到伺服器。Bot 在沒有 Bot 電腦的情況下繼續運作,之後可以再次接入。",
       "cancel": "取消",
       "action": "分離"
     }

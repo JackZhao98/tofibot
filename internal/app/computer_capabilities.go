@@ -27,7 +27,7 @@ const (
 var kvmCapabilities = []string{CapShell, CapFiles, CapBrowser, CapDesktop, CapDesktopStream, CapTerminal, CapHibernate, CapMCPRunner, CapOAuthBridge, CapSecretSink, CapResources}
 
 // ComputerCapabilities is what a client may assume about this workspace's
-// computer. Available is "a computer is attached" (its live state, ready or
+// computer. Available is "a Bot computer is attached" (its live state, ready or
 // asleep, still comes from the computer info endpoint).
 type ComputerCapabilities struct {
 	// Backend and Available describe this account's computer: "none" while none is

@@ -219,7 +219,7 @@ func safeCapabilityName(name string) bool {
 
 const taskCompletionHead = "Complete the requested deliverable and fields; continue authorized work until satisfied or concretely blocked. A go-ahead or an agreed plan is the instruction to do that work now, with your tools. When a route fails or is refused,"
 const taskCompletionTail = " and consent or subscription dialogs (never accepting a purchase), another source, your own earlier outputs and artifacts; a blocker report names the routes tried. Do not broaden scope. Never claim something was searched, verified or done without evidence. Keep checks internal: give the answer itself, not an account of how you got it. When information is missing but the work can proceed, proceed on sensible assumptions, state them in a line, and deliver; never close on questions your stated assumptions already settle. Ask once, and only when the gap blocks the work. A direct instruction is the confirmation that action needs, whatever your role notes list; confirm only consequential actions not asked for. Say that work is done only after doing it this turn. Asked to write or draft something, deliver the finished text in the chat with every part such a piece has; sending is only ever the person's step.\n"
-const taskCompletionComputerMeans = "try the computer's other means before reporting a blocker or asking: the real signed-in browser, dismissing overlays"
+const taskCompletionComputerMeans = "try the Bot computer's other means before reporting a blocker or asking: the real signed-in browser, dismissing overlays"
 const taskCompletionNoComputerMeans = "try other means before reporting a blocker or asking: dismissing overlays"
 
 // taskCompletionGuidance is the guidance of a Bot with a computer. A Bot
@@ -273,7 +273,7 @@ const reactionAndEmojiGuidance = "Use a reaction, not a short message, to confir
 const scheduledResultGuidance = "\nSchedule status: use [schedule states], not old messages.\nOnce you have the assigned result and its sources, call complete_scheduled_task with both (source names/URLs), then give the same concise result as your final answer. If blocked after fallback, explain why without calling complete_scheduled_task."
 const scheduledResultGuidanceStructured = "\nSchedule status: use [schedule states], not old messages.\nOnce you have the assigned result and its sources, deliver the concise result with say(answer), listing the sources; that answer is also this run's completion record and posts to the chat. When the task's own instruction makes reporting conditional and the condition is not met, deliver your conclusion with say(answer) and quiet true: it is recorded as the run's result and nothing is posted. If blocked after fallback, explain why as plain final text without say(answer), which would record success."
 
-const scheduledBrowserFallbackGuidance = "\nIf an installed capability or Skill is unavailable, empty, stale or failed, use the browser before giving up: a scheduled computer_browser call starts its shared desktop and Chrome if needed; inspect with browser.snapshot, then search and verify with visible desktop click/type/scroll. If the computer is unavailable or browser startup fails, report that concrete blocker instead of claiming the scheduled result was delivered."
+const scheduledBrowserFallbackGuidance = "\nIf an installed capability or Skill is unavailable, empty, stale or failed, use the browser before giving up: a scheduled computer_browser call starts its shared desktop and Chrome if needed; inspect with browser.snapshot, then search and verify with visible desktop click/type/scroll. If the Bot computer is unavailable or browser startup fails, report that concrete blocker instead of claiming the scheduled result was delivered."
 
 const scheduledNoComputerFallbackGuidance = "\nIf an installed capability or Skill is unavailable, empty, stale or failed, try another source before giving up; if none works, report that concrete blocker instead of claiming the scheduled result was delivered."
 
@@ -1130,7 +1130,7 @@ func (s *Server) runContextNote(ctx context.Context) string {
 
 // noComputerStatus is the run-context fact of a workspace with no computer
 // backend: the Bot must never claim one.
-const noComputerStatus = "No computer is attached to this Bot. Shell commands, a real browser or desktop, installed programs, and files produced on a computer are unavailable; never claim or imply a computer, and say plainly when a request needs one."
+const noComputerStatus = "No Bot computer is attached to this Bot. Shell commands, a real browser or desktop, installed programs, and files produced on one are unavailable; never claim or imply one, and say plainly when a request needs one."
 
 func cleanBotOutput(content string, bot Bot) string {
 	prefix := "[sender " + bot.Name + " id=" + bot.ID + "]"

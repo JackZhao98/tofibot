@@ -25,7 +25,7 @@ func TestEveryFinalReviewHoldsTheReplyToTheRecordAndNamesWhereResultsLive(t *tes
 			"a check that reached part of a set is reported as reaching that part",
 			"a count names what was counted",
 			"says what exists and where it lives, using the locations the tool results gave",
-			"working files stay on the computer",
+			"working files stay on the Bot computer",
 			"State that a later run reads or compares against is left behind for the person too",
 			"names where it is kept and what it holds",
 		} {
@@ -76,7 +76,7 @@ func TestPublishFileResultNamesTheSourceAndEverythingAttachedToTheReply(t *testi
 		}
 	}
 	tool := s.publishAttachmentTools(conv, run)[0]
-	if !strings.Contains(tool.Description, "working files stay on the computer") {
+	if !strings.Contains(tool.Description, "working files stay on the Bot computer") {
 		t.Errorf("publish_file description lost the deliverables-only principle: %s", tool.Description)
 	}
 	var last struct {

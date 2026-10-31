@@ -32,7 +32,7 @@ func (s *Server) routeDesktopStream(w http.ResponseWriter, r *http.Request, p st
 	}
 	streamer, ok := s.computer().(computer.Streamer)
 	if !ok {
-		writeErr(w, 404, "not_supported", "this computer has no desktop video")
+		writeErr(w, 404, "not_supported", "this Bot computer has no desktop video")
 		return true
 	}
 	cursor := r.URL.Query().Get("cursor")

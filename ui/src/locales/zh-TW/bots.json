@@ -237,9 +237,9 @@
       "configure": "設定來源"
     },
     "computer": {
-      "title": "電腦",
-      "shared": "所有 Bot 共用工作區的電腦。",
-      "none": "還沒有電腦。在設定中新增後,Bot 才能瀏覽網頁和執行程式碼。",
+      "title": "Bot 電腦",
+      "shared": "所有 Bot 共用 Bot 電腦。",
+      "none": "還沒有 Bot 電腦。在設定中新增後,Bot 才能瀏覽網頁和執行程式碼。",
       "open": "開啟設定"
     },
     "builtin": {

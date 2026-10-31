@@ -320,9 +320,9 @@ try {
       const at = iso(1000);
       const world = {
         ...emptyWorld(),
-        messages: [{ id: "u5", role: "user", content: "Save a key on the computer for a script later.", created_at: at }],
+        messages: [{ id: "u5", role: "user", content: "Save a key on the Bot computer for a script later.", created_at: at }],
         runs: [{ id: "run_ask", bot_id: "bot_b", conversation_id: "grp_1", status: "waiting", trigger_message_id: "u5", created_at: new Date(Date.now() - 50_000).toISOString(), updated_at: new Date().toISOString() }],
-        questions: [{ question_id: "q_text", conversation_id: "grp_1", bot_id: "bot_b", run_id: "run_ask", type: "question", question_type: "text", status: "pending", created_at: at, updated_at: at, question: "Sure. Two things first: which service is the key for, and what environment variable name should the script use, for example SYNTHETIC_API_KEY? Do not paste the key in the group; once the name is settled I will open a private input for you. Note the computer is shared, so other Bots with shell access can read it." }],
+        questions: [{ question_id: "q_text", conversation_id: "grp_1", bot_id: "bot_b", run_id: "run_ask", type: "question", question_type: "text", status: "pending", created_at: at, updated_at: at, question: "Sure. Two things first: which service is the key for, and what environment variable name should the script use, for example SYNTHETIC_API_KEY? Do not paste the key in the group; once the name is settled I will open a private input for you. Note the Bot computer is shared, so other Bots with shell access can read it." }],
       };
       const { page, context, errors } = await open("/g/grp_1", { width, height: 820, theme: "light", world, fakeEvents: true });
       try {

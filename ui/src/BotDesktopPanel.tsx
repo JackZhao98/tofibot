@@ -37,7 +37,7 @@ export function computerErrorText(error: unknown) {
   if (code === "computer_busy" || /computer is busy|desktop is busy|bot is working|bot \u6b63\u5728\u5de5\u4f5c/.test(raw)) {
     return i18n.t("computer:desktop.error.busy");
   }
-  if (code === "not_configured" || /computer vm is not configured|shared computer is not configured/.test(raw)) return i18n.t("computer:desktop.error.not_configured");
+  if (code === "not_configured" || /computer vm is not configured|(shared|bot) computer is not configured/.test(raw)) return i18n.t("computer:desktop.error.not_configured");
   return message || i18n.t("computer:desktop.error.failed");
 }
 

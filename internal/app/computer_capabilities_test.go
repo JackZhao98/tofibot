@@ -76,7 +76,7 @@ func TestNoComputerPromptsNeverClaimAComputer(t *testing.T) {
 	if taskCompletionGuidanceFor(true) != taskCompletionGuidance || !strings.Contains(taskCompletionGuidance, "signed-in browser") {
 		t.Fatal("computer guidance changed")
 	}
-	if !strings.Contains(onboardingSystemPromptFor(true), "your own computer") {
+	if !strings.Contains(onboardingSystemPromptFor(true), "your own Bot computer") {
 		t.Fatal("computer onboarding prompt lost its computer line")
 	}
 	for lang, with := range onboardingWelcomes {

@@ -87,8 +87,8 @@
     "ready": "Das Tool ist bereit",
     "config_changed": "Tool-Einstellungen geändert, bitte erneut freigeben",
     "tool_timeout": "Keine Antwort rechtzeitig, abgebrochen",
-    "computer_restarting": "Der Computer startet neu; dieser Schritt wurde nicht ausgeführt",
-    "computer_unresponsive": "Der Computer reagiert nicht; dieser Schritt wurde nicht ausgeführt",
+    "computer_restarting": "Der Bot-Computer startet neu; dieser Schritt wurde nicht ausgeführt",
+    "computer_unresponsive": "Der Bot-Computer reagiert nicht; dieser Schritt wurde nicht ausgeführt",
     "tool_rejected": "Vor der Ausführung abgelehnt, nichts geändert",
     "restart_interrupted": "Lief bei der Unterbrechung; kann gefahrlos wiederholt werden",
     "restart_interrupted_effect": "Lief bei der Unterbrechung; Wirkung nicht geprüft",
@@ -406,18 +406,18 @@
       "search_tools": "Sucht verfügbare Tools",
       "search_history": "Durchsucht den Gesprächsverlauf",
       "inspect_runs": "Prüft Laufprotokolle",
-      "computer_help": "Liest die Computer-Anleitung",
+      "computer_help": "Liest die Bot-Computer-Anleitung",
       "send_message": "Sendet eine Nachricht",
       "complete_schedule": "Schließt die geplante Aufgabe ab",
       "connected_tool": "Nutzt ein verbundenes Tool",
       "browse": "Surft im Web",
       "documents": "Prüft Dokumente",
       "command": "Führt einen Befehl aus",
-      "computer": "Bedient den Computer",
+      "computer": "Bedient den Bot-Computer",
       "contact": "Kontaktiert ein Mitglied",
       "call": "Ruft {{name}} auf",
       "profile": "Speichert das Bot-Profil",
-      "takeover": "Wartet auf dich am Computer",
+      "takeover": "Wartet auf dich am Bot-Computer",
       "connection": "Wartet darauf, dass du einen Dienst verbindest"
     },
     "title": {
@@ -428,18 +428,18 @@
       "search_tools": "Verfügbare Tools suchen",
       "search_history": "Gesprächsverlauf durchsuchen",
       "inspect_runs": "Laufprotokolle prüfen",
-      "computer_help": "Computer-Anleitung lesen",
+      "computer_help": "Bot-Computer-Anleitung lesen",
       "send_message": "Nachricht senden",
       "complete_schedule": "Geplante Aufgabe abschließen",
       "connected_tool": "Verbundenes Tool nutzen",
       "browse": "Im Web surfen",
       "documents": "Dokumente prüfen",
       "command": "Befehl ausführen",
-      "computer": "Computer bedienen",
+      "computer": "Bot-Computer bedienen",
       "contact": "Mitglied kontaktieren",
       "call": "{{name}} aufrufen",
       "profile": "Bot-Profil speichern",
-      "takeover": "Wartet auf dich am Computer",
+      "takeover": "Wartet auf dich am Bot-Computer",
       "connection": "Wartet darauf, dass du einen Dienst verbindest"
     },
     "step_action": {
@@ -464,7 +464,7 @@
       "firecrawl": "Firecrawl",
       "brightdata": "Bright Data",
       "builtin": "eingebauter Abruf",
-      "computer": "Computer des Bots"
+      "computer": "Bot-Computer"
     }
   },
   "review": {
@@ -620,15 +620,15 @@
     "state_changed": "Diese Anfrage hat sich geändert. Prüfe den aktuellen Status, bevor du weitermachst.",
     "takeover": {
       "take": "Übernehmen",
-      "hint": "Du arbeitest am geteilten Computer des Bots. Was du eingibst oder kopierst, bleibt auf diesem Bildschirm und wird nie mit dem Bot geteilt.",
+      "hint": "Du arbeitest am geteilten Bot-Computer. Was du eingibst oder kopierst, bleibt auf diesem Bildschirm und wird nie mit dem Bot geteilt.",
       "resolved_done": "An den Bot zurückgegeben",
       "resolved_cannot": "Nicht möglich"
     },
     "dialog": {
       "label": "{{site}} übernehmen",
-      "subtitle": "Du steuerst den geteilten Computer",
+      "subtitle": "Du steuerst den Bot-Computer",
       "close": "Zurück zum Chat",
-      "screen_alt": "Geteilter Computer",
+      "screen_alt": "Bot-Computer",
       "footer": "Der Bot wartet, solange du arbeitest. Wähle „Erledigt“, wenn du fertig bist."
     },
     "connection": {

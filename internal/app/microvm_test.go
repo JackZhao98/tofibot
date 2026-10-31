@@ -466,7 +466,7 @@ func TestMicroVMToolsUseGuestActionContract(t *testing.T) {
 		}
 	}
 	// Volatile status trails the history instead of the cache-stable system text.
-	if status := s.microVMStatus(context.Background()); status != "VM status ready/ready" || strings.Contains(prompt, "ready/ready") {
+	if status := s.microVMStatus(context.Background()); status != "Bot computer status ready/ready" || strings.Contains(prompt, "ready/ready") {
 		t.Fatalf("VM status=%q prompt=%s", status, prompt)
 	}
 	tools := s.microVMTools(run)

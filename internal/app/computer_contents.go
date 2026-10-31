@@ -40,7 +40,7 @@ func (s *Server) computerConfiguration() (env, keys []string) {
 
 // freshComputerStatus is the run-context fact of a computer nothing was saved
 // for: the Bot asks instead of assuming a key or variable exists.
-const freshComputerStatus = "No environment variables or SSH keys have been added in Settings for this computer. If a task needs a key, token or login, ask the person for it; never assume one is set."
+const freshComputerStatus = "No environment variables or SSH keys have been added in Settings for this Bot computer. If a task needs a key, token or login, ask the person for it; never assume one is set."
 
 // freshComputerNote returns freshComputerStatus while the computer has nothing
 // saved for it, and nothing once the person added any. It makes no call to the
@@ -56,7 +56,7 @@ func (s *Server) freshComputerNote() string {
 }
 
 // handleComputerContents serves GET /api/computer/contents: the names and counts
-// the "What is on this computer" rows and the wipe and swap confirmations list.
+// the "What is on this Bot computer" rows and the wipe and swap confirmations list.
 // Without a computer there is nothing to list (404 not_configured, the same code
 // the other computer routes use), and the Web app never asks.
 func (s *Server) handleComputerContents(w http.ResponseWriter, r *http.Request) {

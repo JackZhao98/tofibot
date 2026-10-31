@@ -44,13 +44,13 @@ func (g *AccountGateway) adminResources(w http.ResponseWriter, r *http.Request, 
 		return true
 	}
 	if g.config.AccountProvisionerSocket == "" || !filepath.IsAbs(g.config.AccountComputerSocketRoot) {
-		writeErr(w, 404, "not_configured", "computer VM is not configured")
+		writeErr(w, 404, "not_configured", "Bot computer is not configured")
 		return true
 	}
 	computerID := g.computerIdentity(Account{ID: id, Legacy: legacy})
 	client, err := computer.New(computer.Config{Socket: filepath.Join(g.config.AccountComputerSocketRoot, computerID, "control.sock")})
 	if err != nil {
-		writeErr(w, 503, "computer_unavailable", "computer unavailable")
+		writeErr(w, 503, "computer_unavailable", "Bot computer unavailable")
 		return true
 	}
 	current, err := client.Resources(r.Context())

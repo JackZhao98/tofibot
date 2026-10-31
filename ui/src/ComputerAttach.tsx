@@ -80,7 +80,7 @@ export function ComputerAttach({base, running, disabled, onAttached, children}: 
     ? <button type="button" className="secondary-button is-danger" disabled={disabled || busy} onClick={() => setConfirming(true)}>{t("attach.action.detach")}</button>
     : <button type="button" className="secondary-button" disabled={disabled || busy} onClick={() => void attach()}>{t("attach.action.attach")}</button>;
   return <div className="settings-card computer-attach" data-testid="computer-attach">
-    <SettingsRow inline label={<span className="computer-status" data-tone={tone} data-testid="computer-attach-state"><span className="computer-status-dot" aria-hidden="true"/>{t(`attach.state.${stateKey}` as "attach.state.none")}</span>}
+    <SettingsRow inline label={<span className="computer-status" data-tone={tone} data-testid="computer-attach-state"><span className="computer-status-dot" aria-hidden="true"/>{t(`attach.state.${stateKey}` as "attach.state.none")}{on && <small className="computer-kind"> · {t("kind.vm")}</small>}</span>}
       description={t(`attach.help.${on ? "attached" : stateKey === "none" ? "none" : "detached"}` as "attach.help.none")} control={action}/>
     {phase !== "idle" && <p className="settings-card-note" role="status">{t(`attach.progress.${phase}` as "attach.progress.attaching")}</p>}
     {phase === "idle" && result && <p className="settings-card-note" role="status">{result}</p>}

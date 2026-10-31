@@ -25,7 +25,7 @@ const TABS = ["general", "connections", "skills", "permissions", "models", "tool
 // "devices" (Other devices) is behind TOFI_PERSONAL_COMPUTERS: the rail lists it only when `computer.personal_computers` is true.
 const ADV_TABS = ["allowances", "followups"];
 const ICONS = {general: "sliders", connections: "plug", skills: "skill", permissions: "shield-check", allowances: "checklist", followups: "bell", devices: "laptop", models: "sparkles", tools: "globe", automation: "workflow", computer: "monitor", keys: "key", usage: "progress", advanced: "settings", admin: "group"};
-const NAMES = {general: "General", connections: "Connections", skills: "Skills", permissions: "Permissions", allowances: "Tool rules", followups: "Follow-ups", devices: "Other devices", models: "AI Models", tools: "Search & fetch", automation: "Behavior", computer: "Computer", keys: "Computer keys", usage: "Usage", advanced: "Maintenance", admin: "Admin console"};
+const NAMES = {general: "General", connections: "Connections", skills: "Skills", permissions: "Permissions", allowances: "Tool rules", followups: "Follow-ups", devices: "Other devices", models: "AI Models", tools: "Search & fetch", automation: "Behavior", computer: "Bot computer", keys: "Bot computer keys", usage: "Usage", advanced: "Maintenance", admin: "Admin console"};
 
 // ---- Catalog checks (every locale): groups, page names and descriptions are real translations.
 const catalogs = {};
@@ -306,7 +306,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       const summary = () => ({attached: vm.status === "attached", id: vm.status === "attached" ? "vm_" + key : undefined, kind: "vm", status: vm.status, backend_available: true});
       if (op === "state") return json(200, summary());
       if (op === "attach") {
-        if (adminState.failAttach > 0) { adminState.failAttach--; return json(502, {error: {code: "computer_attach_failed", message: "the computer could not be attached"}}); }
+        if (adminState.failAttach > 0) { adminState.failAttach--; return json(502, {error: {code: "computer_attach_failed", message: "the Bot computer could not be attached"}}); }
         vm.status = "attached";
         return json(200, summary());
       }
@@ -315,7 +315,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     }
     match = /^\/api\/admin\/accounts\/([^/]+)\/resources$/.exec(path);
     if (match) {
-      if (method === "GET" && adminState.failResources > 0) { adminState.failResources--; return json(503, {error: {code: "unavailable", message: "the computer is not ready"}}); }
+      if (method === "GET" && adminState.failResources > 0) { adminState.failResources--; return json(503, {error: {code: "unavailable", message: "the Bot computer is not ready"}}); }
       const size = adminState.sizes[match[1]] ??= {vcpus: 2, memory_mib: 4096, disk_gib: adminState.disks[match[1]]?.[0] ?? 8};
       if (method === "PUT") {
         const input = bodyOf();
@@ -453,8 +453,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       assert.match(words, /Server storage.*1\.5 GiB of 10 GiB/);
       assert.match(words, /Uploads.*Published by Bots.*Database/);
       assert.ok(!/Conversations/.test(words.split("Breakdown")[0]), "message text is part of the database and is not listed twice");
-      assert.match(words, /Computer disk.*3 GiB used of 16 GiB/);
-      assert.match(words, /2 files are still being copied from the computer to the server\./);
+      assert.match(words, /Bot computer disk.*3 GiB used of 16 GiB/);
+      assert.match(words, /2 files are still being copied from the Bot computer to the server\./);
       const bar = card.getByRole("progressbar", {name: "Server storage"});
       assert.equal(await bar.getAttribute("aria-valuenow"), "15");
       assert.equal(await card.locator(".storage-bar.is-full").count(), 0);
@@ -658,7 +658,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const hints = await page.$$eval(".settings-mhome .settings-mrow", rows => Object.fromEntries(rows.map(row => [row.dataset.tab, row.querySelector(".settings-mhint")?.textContent ?? ""])));
     assert.equal(hints.models, "Codex", "Models hint is the provider of the global model");
     assert.equal(hints.keys, "2", "Keys hint is the number of variables");
-    assert.ok(hints.computer.length > 0, "Computer hint is the computer state");
+    assert.ok(hints.computer.length > 0, "Computer hint is the Bot computer state");
     assert.equal(hints.usage, "", "Usage has no hint in Phase 1");
     assert.deepEqual(await page.$$eval(".settings-mhome .settings-mgroup>p", items => items.map(item => item.textContent)), ["Bots can use", "Workspace", "System"]);
     await page.locator('.settings-mhome [data-tab="models"]').click();
@@ -716,11 +716,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       assert.ok(item.lines <= 2, `${item.text}: ${item.lines} lines`);
       assert.equal(item.inside, true, `${item.text}: inside its rail item`);
     }
-    for (const text of ["Verbindungen", "Berechtigungen", "Computer-Schlüssel"]) assert.ok(report.some(item => item.text === text), `German rail shows ${text}`);
+    for (const text of ["Verbindungen", "Berechtigungen", "Bot-Computer-Schlüssel"]) assert.ok(report.some(item => item.text === text), `German rail shows ${text}`);
     const rail = await page.locator(".settings-tabs").evaluate(element => element.getBoundingClientRect().width);
     assert.equal(Math.round(rail), 248, "rail is 248px wide");
     await close();
-    console.log("PASS german: Verbindungen, Berechtigungen and Computer-Schlüssel fit the 248px rail in at most two lines, no clipping");
+    console.log("PASS german: Verbindungen, Berechtigungen and Bot-Computer-Schlüssel fit the 248px rail in at most two lines, no clipping");
   }
 
   // ---- 7b. Skill library (decision 0058): installer and version on each row, bundles expand, rollback, remove, one-click add.
@@ -907,7 +907,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const row = id => body.locator(`.admin-row[data-account="${id}"]`);
     assert.match(await text(row("acct_sample")), /A.*Ada Sample.*You.*Admin.*Active.*Ready · 16 GiB/);
     // Server and Computer columns (S3): used / limit, red when the account reached its limit; a host disk line above the list.
-    assert.match(await text(body.locator(".admin-row-head")), /Server\s*Computer/);
+    assert.match(await text(body.locator(".admin-row-head")), /Server\s*Bot computer/);
     assert.match(await text(row("acct_sample").locator(".admin-row-storage")), /^1\.5 GiB$/, "no limit set: used only");
     assert.match(await text(row("acct_two").locator(".admin-row-storage")), /^9\.5 GiB \/ 10 GiB$/);
     assert.match(await text(body), /80 GiB free of 500 GiB/);
@@ -933,7 +933,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const detail = body.locator('[data-testid="admin-detail"]');
     await detail.waitFor();
     assert.equal(await body.locator(".admin-row").count(), 0, "the list is replaced by the detail");
-    for (const title of ["Role", "Computer", "Sign-in", "Danger zone"]) assert.ok(await detail.getByText(title, {exact: true}).first().isVisible(), `section ${title}`);
+    for (const title of ["Role", "Bot computer", "Sign-in", "Danger zone"]) assert.ok(await detail.getByText(title, {exact: true}).first().isVisible(), `section ${title}`);
     const segmented = detail.getByRole("radiogroup", {name: "Role"});
     assert.equal(await segmented.getByRole("radio", {name: "Member"}).getAttribute("aria-checked"), "true");
     assert.equal(await segmented.getByRole("radio", {name: "Admin"}).isDisabled(), false, "another member's role can be changed");
@@ -979,7 +979,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.match(summary, /CPU 2 → 4 cores/);
     assert.match(summary, /Memory 4 → 4\.5 GB/);
     assert.match(summary, /Allocated disk 8 → 9 GB/);
-    assert.match(summary, /Takes effect after the computer restarts\./, "the restart notice");
+    assert.match(summary, /Takes effect after the Bot computer restarts\./, "the restart notice");
     adminWrites.length = 0;
     await saveSize.click();
     await detail.getByText("Configuration saved. It applies after a restart.").waitFor();
@@ -994,30 +994,30 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const detachText = await text(detachDialog);
     assert.match(detachText, /stop after the current step/);
     assert.match(detachText, /copied to the server first/);
-    assert.match(detachText, /keeps working without a computer/);
+    assert.match(detachText, /keeps working without a Bot computer/);
     await detachDialog.getByRole("button", {name: "Cancel"}).click();
     await detachDialog.waitFor({state: "detached"});
     assert.deepEqual(adminWrites, [], "cancelling the confirmation sends nothing");
     await attachCard.getByRole("button", {name: "Detach…"}).click();
     await detachDialog.getByRole("button", {name: "Detach", exact: true}).click();
-    await attachCard.getByText("Computer detached. Files copied to the server: 3. Tool calls ended early: 1.").waitFor();
+    await attachCard.getByText("Bot computer detached. Files copied to the server: 3. Tool calls ended early: 1.").waitFor();
     assert.deepEqual(adminWrites, ['POST /api/admin/accounts/acct_two/computer/detach {"wait_seconds":60}']);
     assert.equal(await attachCard.getByTestId("computer-attach-state").textContent(), "Detached");
     adminState.failAttach = 1;
     adminWrites.length = 0;
     await attachCard.getByRole("button", {name: "Attach"}).click();
-    await attachCard.getByText("The computer could not be attached.").waitFor();
+    await attachCard.getByText("The Bot computer could not be attached.").waitFor();
     assert.equal(await attachCard.getByTestId("computer-attach-state").textContent(), "Detached", "a failed attach leaves the state");
     // The computer's socket is not ready right after attach: the first resources read answers 503, then 200.
     adminState.failResources = 1;
     await attachCard.getByRole("button", {name: "Attach"}).click();
     await attachCard.getByText("Attached · Running").waitFor();
-    assert.equal(await attachCard.getByText("Computer attached.").count(), 0, "no redundant attached row");
-    assert.equal(await attachCard.getByText("Couldn't load the computer's resources. Try again.").count(), 0, "the failed read is not shown as an error");
+    assert.equal(await attachCard.getByText("Bot computer attached.").count(), 0, "no redundant attached row");
+    assert.equal(await attachCard.getByText("Couldn't load the Bot computer's resources. Try again.").count(), 0, "the failed read is not shown as an error");
     await attachCard.locator(".resource-sheet").waitFor({timeout: 10000});
     assert.equal(adminState.failResources, 0, "the first resources read failed and was retried");
     assert.deepEqual(adminWrites.filter(w => w.startsWith("POST")), ["POST /api/admin/accounts/acct_two/computer/attach", "POST /api/admin/accounts/acct_two/computer/attach"]);
-    assert.equal(await attachCard.getByTestId("computer-attach-state").textContent(), "Attached · Running");
+    assert.equal(await attachCard.getByTestId("computer-attach-state").textContent(), "Attached · Running · Built-in VM");
     // Role change.
     adminWrites.length = 0;
     await segmented.getByRole("radio", {name: "Admin"}).click();
@@ -1072,7 +1072,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await page.getByRole("dialog", {name: "Delete Lee Example?"}).waitFor();
     const sheet = page.locator(".admin-delete-sheet");
     const sheetText = await text(sheet);
-    for (const line of ["All Bots and their settings", "All conversations", "All memory", "Files and attachments", "The computer and its disk — 8 GiB will be freed", "This can't be undone.", "encrypted copy", "30 days"]) assert.ok(sheetText.includes(line), `delete sheet says: ${line}`);
+    for (const line of ["All Bots and their settings", "All conversations", "All memory", "Files and attachments", "The Bot computer and its disk — 8 GiB will be freed", "This can't be undone.", "encrypted copy", "30 days"]) assert.ok(sheetText.includes(line), `delete sheet says: ${line}`);
     const confirm = sheet.getByRole("button", {name: "Delete account", exact: true});
     assert.equal(await confirm.isDisabled(), true);
     const field = sheet.getByLabel("Type Lee Example to confirm");
@@ -1083,8 +1083,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     // First attempt stops part-way: the account stays Deleting, the sheet shows where and offers Retry.
     adminState.failDelete = 1;
     await confirm.click();
-    await sheet.getByText("Deletion stopped at: Removing the computer and freeing its disk").waitFor();
-    assert.match(await text(sheet), /The computer service didn't confirm the removal\./);
+    await sheet.getByText("Deletion stopped at: Removing the Bot computer and freeing its disk").waitFor();
+    assert.match(await text(sheet), /The Bot computer service didn't confirm the removal\./);
     assert.deepEqual(adminWrites, ['DELETE /api/admin/accounts/acct_three {"confirm_username":"Lee Example"}']);
     const retry = sheet.getByRole("button", {name: "Retry deletion"});
     assert.equal(await retry.isEnabled(), true);
@@ -1111,7 +1111,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await row("acct_four").click();
     await detail.waitFor();
     const banner = detail.locator(".settings-banner");
-    assert.match(await text(banner), /Deletion stopped at: Removing the computer and freeing its disk.*The computer service didn't confirm the removal\./);
+    assert.match(await text(banner), /Deletion stopped at: Removing the Bot computer and freeing its disk.*The Bot computer service didn't confirm the removal\./);
     assert.equal(await detail.getByRole("button", {name: "Reactivate"}).isDisabled(), true, "a deleting account cannot be reactivated");
     adminWrites.length = 0;
     await banner.getByRole("button", {name: "Retry deletion"}).click();
@@ -1401,7 +1401,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const memberComputer = member.page.locator('.settings-page-body[data-page="computer"]');
     await memberComputer.locator(".resource-grid").waitFor({timeout: 15000});
     assert.deepEqual((await memberComputer.locator(".resource-grid > div").allInnerTexts()).map(item => item.replace(/\s+/g, " ").trim().toUpperCase()), ["CPU 2 CORES", "MEMORY 4 GB", "ALLOCATED DISK 20 GB"]);
-    assert.match(await memberComputer.innerText(), /Your admin sets the size of this computer\./);
+    assert.match(await memberComputer.innerText(), /Your admin sets the size of this Bot computer\./);
     assert.equal(await memberComputer.getByRole("button", {name: "Adjust"}).count(), 0, "no Adjust button for a member");
     assert.equal(await memberComputer.locator(".resource-sheet").count(), 0, "no edit sheet for a member");
     assert.equal(await memberComputer.getByRole("button", {name: "Open Admin console"}).count(), 0, "a member has no console link");
@@ -1421,7 +1421,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     adminWrites.length = 0;
     await soloCard.getByRole("button", {name: "Detach…"}).click();
     await soloOwner.page.getByRole("alertdialog").getByRole("button", {name: "Detach", exact: true}).click();
-    await soloCard.getByText(/Computer detached\./).waitFor();
+    await soloCard.getByText(/Bot computer detached\./).waitFor();
     assert.deepEqual(adminWrites, ['POST /api/admin/computer/detach {"wait_seconds":60}']);
     await soloCard.getByRole("button", {name: "Attach"}).click();
     await soloCard.getByText("Attached · Running").waitFor();
@@ -1442,7 +1442,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       const memberCard = memberDetail.getByTestId("computer-attach");
       await memberCard.getByText("Attached · Running").waitFor({timeout: 15000});
       await memberCard.getByRole("button", {name: "Detach…"}).waitFor();
-      assert.equal(await memberDetail.getByText("Computer", {exact: true}).count(), 1, "the member's Computer section is still there");
+      assert.equal(await memberDetail.getByText("Bot computer", {exact: true}).count(), 1, "the member's Computer section is still there");
       assert.equal(await memberDetail.locator(".resource-sheet.is-flush").count(), 1, "the size sliders are rows of the same card");
       assert.equal(await memberCard.locator(".resource-sheet").evaluate(node => getComputedStyle(node).borderTopWidth), "0px", "no card inside the card");
       assert.equal(await memberCard.getByText("State", {exact: true}).count(), 0, "one status line, no State row");
@@ -1459,7 +1459,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       const ownPage = own.page.locator('.settings-page-body[data-page="computer"]');
       const attachCard = ownPage.getByTestId("computer-attach");
       await attachCard.getByText("Detached", {exact: true}).waitFor({timeout: 15000});
-      assert.equal(await ownPage.getByText("This server has no computer").count(), 0, "not the no-computer view");
+      assert.equal(await ownPage.getByText("This server has no Bot computer").count(), 0, "not the no-computer view");
       assert.equal(await ownPage.getByRole("button", {name: "Open Admin console"}).count(), 0);
       adminWrites.length = 0;
       await attachCard.getByRole("button", {name: "Attach"}).click();

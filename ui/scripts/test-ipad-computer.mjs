@@ -27,7 +27,7 @@ try {
     await settled(page);
     await page.locator("[data-desktop-frame] video, [data-desktop-frame] img, [data-desktop-frame] canvas").first().evaluate(node => { window.__screenNode = node; }).catch(() => {});
     assert.equal((await hit(300, 300)).chat, true, `${label}: compact, the chat takes taps`);
-    if (how === "button") await page.getByRole("button", { name: "Enlarge shared computer" }).tap();
+    if (how === "button") await page.getByRole("button", { name: "Enlarge Bot computer" }).tap();
     else await page.locator('[data-card="computer"] .desktop-enlarge').first().tap();
     await page.locator(".desktop-floating-shell.is-expanded").waitFor({ timeout: 4000 });
     await settled(page);
@@ -44,17 +44,17 @@ try {
     assert.equal((await hit(big.vw - 8, 8)).inside, true, `${label}: the scrim takes taps outside the window`);
     if (await page.evaluate(() => Boolean(window.__screenNode))) assert.equal(await page.evaluate(() => window.__screenNode.isConnected), true, `${label}: the live screen element survived the enlarge`);
     // Shrink by tap: back to the compact widget, nothing blocking.
-    await page.getByRole("button", { name: "Shrink shared computer" }).tap();
+    await page.getByRole("button", { name: "Shrink Bot computer" }).tap();
     await page.waitForFunction(() => !document.querySelector(".desktop-floating-shell.is-expanded"), null, { timeout: 4000 });
     await settled(page);
-    assert.equal(await page.locator(".widget-column .desktop-floating-shell.is-docked.is-small").count(), 1, `${label}: shrinking returns the computer to its widget`);
+    assert.equal(await page.locator(".widget-column .desktop-floating-shell.is-docked.is-small").count(), 1, `${label}: shrinking returns the Bot computer to its widget`);
     assert.equal((await hit(300, 300)).chat, true, `${label}: after shrinking, the chat takes taps`);
     if (await page.evaluate(() => Boolean(window.__screenNode))) assert.equal(await page.evaluate(() => window.__screenNode.isConnected), true, `${label}: the live screen element survived the shrink`);
     // Enlarge again and close from the big window: the widget goes, nothing is left over the chat.
-    await page.getByRole("button", { name: "Enlarge shared computer" }).tap();
+    await page.getByRole("button", { name: "Enlarge Bot computer" }).tap();
     await page.locator(".desktop-floating-shell.is-expanded").waitFor({ timeout: 4000 });
     await settled(page);
-    await page.getByRole("button", { name: "Close shared computer" }).first().tap();
+    await page.getByRole("button", { name: "Close Bot computer" }).first().tap();
     await page.waitForFunction(() => !document.querySelector(".desktop-floating-shell, .desktop-host"), null, { timeout: 4000 });
     await settled(page);
     assert.equal((await hit(300, 300)).chat, true, `${label}: after closing, the chat takes taps`);

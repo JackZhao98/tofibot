@@ -156,10 +156,10 @@ try {
       assert.equal(computerErrorText(new Error("computer control returned 500 Internal Server Error: desktop resource limit reached (2 active sessions)")), "共享桌面资源暂不可用（2 个活动会话），请稍后重试。");
       assert.equal(computerErrorText(new Error("desktop is stopping; retry shortly")), "共享桌面正在停止，请稍后再试。");
       const busyError = Object.assign(new Error("computer is busy"), { status: 409, code: "computer_busy" });
-      assert.equal(computerErrorText(busyError), "电脑正在执行其他操作，请稍后再试。");
+      assert.equal(computerErrorText(busyError), "Bot 电脑正在执行其他操作，请稍后再试。");
       assert.equal(computerErrorText(Object.assign(new Error("not found"), { status: 404, code: "bot_not_found" })), "not found");
       assert.equal(computerErrorText(Object.assign(new Error("run is no longer active"), { status: 409, code: "stale_run" })), "run is no longer active");
-      assert.equal(computerErrorText(Object.assign(new Error("computer VM is not configured"), { status: 404, code: "not_configured" })), "共享电脑尚未配置，请先完成服务器安装。");
+      assert.equal(computerErrorText(Object.assign(new Error("computer VM is not configured"), { status: 404, code: "not_configured" })), "Bot 电脑尚未配置，请先完成服务器安装。");
       assert.equal(computerErrorText(new Error("computer control returned 500: diagnostic details")), "computer control returned 500: diagnostic details");
       const oldOperation = {};
       const currentOperation = {};

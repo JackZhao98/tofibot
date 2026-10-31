@@ -138,7 +138,7 @@ const privateInputFieldID = "secret"
 // name as a thin front for the form rendezvous: the same durable question,
 // suspension, restart and expiry rules, and the same vault write on answer.
 func (s *Server) secretInputTool(c Conversation, r Run) Tool {
-	return Tool{Name: "request_secret_input", Description: "Ask the human for one secret (a key, token or password) through a private input card, then continue. The value never enters chat, history or your tool result; the result is {secret:{secret_ref,value_hidden:true}}, an opaque reference usable only by use_secret_input in this run, for its computer actions (shell_exec, env, ssh); it is never typed into a page, so ask for a website password with ask_user_form instead. State the intended use accurately in purpose. Never ask for secrets in chat or in plain questions. Cancellation or expiry never permits inventing a value. The person may choose on the card to keep the secret for this Bot; you cannot choose that. A kept secret is listed by name in your context and used by naming it in computer_shell secrets. The response window, restart and cleared-reference rules are on expires_in_seconds.", Parameters: objectSchema(map[string]any{
+	return Tool{Name: "request_secret_input", Description: "Ask the human for one secret (a key, token or password) through a private input card, then continue. The value never enters chat, history or your tool result; the result is {secret:{secret_ref,value_hidden:true}}, an opaque reference usable only by use_secret_input in this run, for its Bot computer actions (shell_exec, env, ssh); it is never typed into a page, so ask for a website password with ask_user_form instead. State the intended use accurately in purpose. Never ask for secrets in chat or in plain questions. Cancellation or expiry never permits inventing a value. The person may choose on the card to keep the secret for this Bot; you cannot choose that. A kept secret is listed by name in your context and used by naming it in computer_shell secrets. The response window, restart and cleared-reference rules are on expires_in_seconds.", Parameters: objectSchema(map[string]any{
 		"label":              map[string]any{"type": "string", "description": "Short name of the secret, shown on the field"},
 		"purpose":            map[string]any{"type": "string", "description": "Why it is needed and exactly how it will be used"},
 		"suggested_name":     map[string]any{"type": "string", "description": "Environment variable name to offer if the person keeps the secret"},
@@ -160,7 +160,7 @@ func (s *Server) secretInputTool(c Conversation, r Run) Tool {
 			return "", errors.New("label and purpose are required")
 		}
 		if s.secretVault == nil || s.computer() == nil {
-			return "", errors.New("private input requires secret storage and a shared computer; do not fall back to plain text")
+			return "", errors.New("private input requires secret storage and a Bot computer; do not fall back to plain text")
 		}
 		in, err := normalizeQuestionInput(askQuestionInput{
 			Question: strings.TrimSpace(arg.Purpose), Type: questionForm, PrivateInput: true, ExpiresInSeconds: arg.ExpiresInSeconds,
@@ -183,7 +183,7 @@ func (s *Server) secretInputTool(c Conversation, r Run) Tool {
 }
 
 func (s *Server) userFormTool(c Conversation, r Run) Tool {
-	return Tool{Name: "ask_user_form", Description: "Collect missing webpage form values from the human in one card, then continue. Inspect the actual page first; include its source_url and real field labels; never invent fields or collect unnecessary data. Plain answers are conversation data. Password values are never returned: each becomes {secret_ref,value_hidden:true}, usable only via use_secret_input(action=browser_type) in this run on the same HTTPS origin. Never request passwords, API keys or verification codes in plain fields or chat. After submission, re-inspect the page, focus each real field, type plain answers with computer tools and password references with use_secret_input; inspect before and after actions. Submitted values are not approval for purchases, legal agreements, security changes or other consequential submissions. Cancellation/expiry never permits inventing answers. The response window, restart and cleared-reference rules are on expires_in_seconds.", Parameters: objectSchema(map[string]any{
+	return Tool{Name: "ask_user_form", Description: "Collect missing webpage form values from the human in one card, then continue. Inspect the actual page first; include its source_url and real field labels; never invent fields or collect unnecessary data. Plain answers are conversation data. Password values are never returned: each becomes {secret_ref,value_hidden:true}, usable only via use_secret_input(action=browser_type) in this run on the same HTTPS origin. Never request passwords, API keys or verification codes in plain fields or chat. After submission, re-inspect the page, focus each real field, type plain answers with Bot computer tools and password references with use_secret_input; inspect before and after actions. Submitted values are not approval for purchases, legal agreements, security changes or other consequential submissions. Cancellation/expiry never permits inventing answers. The response window, restart and cleared-reference rules are on expires_in_seconds.", Parameters: objectSchema(map[string]any{
 		"question":           map[string]any{"type": "string", "description": "Explain why these values are needed"},
 		"source_url":         map[string]any{"type": "string", "description": "Actual current webpage URL. Password destinations must be HTTPS."},
 		"expires_in_seconds": questionExpirySchema(),
@@ -212,7 +212,7 @@ func (s *Server) userFormTool(c Conversation, r Run) Tool {
 		}
 		for _, f := range in.Fields {
 			if f.Type == "password" && (s.secretVault == nil || s.computer() == nil) {
-				return "", errors.New("private browser form input requires secret storage and a shared computer; do not fall back to plain text")
+				return "", errors.New("private browser form input requires secret storage and a Bot computer; do not fall back to plain text")
 			}
 		}
 		q, err := s.CreateQuestion(c.ID, r, in)
@@ -428,7 +428,7 @@ func (s *Server) applyFormSecret(ctx context.Context, run Run, rec secretRecord,
 	}
 	if err := s.renewComputerHold(ctx, run); err != nil {
 		s.releaseComputerOwner(run.BotID, run.ID)
-		return "", tooloutcome.InvalidArguments("computer control is unavailable; inspect the page again before filling")
+		return "", tooloutcome.InvalidArguments("Bot computer control is unavailable; inspect the page again before filling")
 	}
 	if !s.desktopObservedFor(run) {
 		return "", tooloutcome.InvalidArguments("needs_observation: inspect the current page and focus the intended private field before using the reference")
@@ -463,7 +463,7 @@ func (s *Server) applyFormSecret(ctx context.Context, run Run, rec secretRecord,
 	if _, err := s.computer().Action(ctx, computer.Action{BotID: run.BotID, RunID: run.ID, Source: "model", Name: "browser.type_private", Args: args}); err != nil {
 		// Do not forward guest/CDP diagnostics: they may contain private input.
 		// Older guests fail closed; never fall back to unguarded desktop paste.
-		return "", errors.New("private input rejected: inspect the page and focus the visible password field on the approved website before retrying; the shared computer must support protected form input")
+		return "", errors.New("private input rejected: inspect the page and focus the visible password field on the approved website before retrying; the Bot computer must support protected form input")
 	}
 	return `{"ok":true}`, nil
 }

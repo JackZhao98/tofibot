@@ -3613,7 +3613,7 @@ def fresh_install(manifest, options):
     try:
         options = dict(options, computer=options.get('computer') or 'kvm')
         computer = options['computer'] == 'kvm'
-        progress.begin(10, 'Preparing host configuration, images and the computer release' if computer
+        progress.begin(10, 'Preparing host configuration, images and the Bot computer release' if computer
                        else 'Preparing host configuration and images')
         for message in preflight(options):
             warn(message)
@@ -3679,7 +3679,7 @@ def render_banner(info, mode=None, width=80):
     port = info.get('port') or str(DEFAULT_PORT)
 
     def row(label, value):
-        return '  ' + (paint.dim(label.ljust(12)) if label else ' ' * 12) + value
+        return '  ' + (paint.dim(label.ljust(12) + (' ' if len(label) >= 12 else '')) if label else ' ' * 12) + value
 
     if width < BANNER_MIN_WIDTH:
         lines = ['tofi v%s · %s' % (version, TAGLINE)]
@@ -3700,7 +3700,7 @@ def render_banner(info, mode=None, width=80):
     else:
         lines.append(row('Sign in', 'with your existing admin account'))
     if info.get('computer') == 'none':
-        lines.append(row('Computer', 'none · add one later: ' + paint.bold('sudo tofi computer add kvm')))
+        lines.append(row('Bot computer', 'none · add one later: ' + paint.bold('sudo tofi computer add kvm')))
     lines.append('')
     if info.get('domain'):
         lines.append('  Allow TCP 80 and 443.')
@@ -4514,7 +4514,7 @@ def render_status(result, mode=None, verbose=False, access=None):
     lines = [paint.bold(header), '']
 
     def row(label, value):
-        lines.append('  ' + (paint.dim(label.ljust(13)) if label else ' ' * 13) + value)
+        lines.append('  ' + (paint.dim(label.ljust(13) + (' ' if len(label) >= 13 else '')) if label else ' ' * 13) + value)
 
     urls = result.get('urls') or []
     for index, url in enumerate(urls):
@@ -4544,7 +4544,7 @@ def render_status(result, mode=None, verbose=False, access=None):
         row('Services', services)
     runner = result.get('runner')
     if runner == 'none':
-        row('Runner', paint.dim('not installed · local connections run on the computer'))
+        row('Runner', paint.dim('not installed · local connections run on the Bot computer'))
     elif runner:
         row('Runner', paint.color('teal', 'healthy') if runner == 'healthy'
             else paint.color('peach', '%s · sudo tofi logs runner' % runner))
@@ -4578,19 +4578,19 @@ def render_status(result, mode=None, verbose=False, access=None):
             '(sudo tofi backups)' % target)
     computers = result.get('computers')
     if no_computer:
-        row('Computer', 'none · server and web only · ' + paint.bold('sudo tofi computer add kvm') + ' adds one')
+        row('Bot computer', 'none · server and web only · ' + paint.bold('sudo tofi computer add kvm') + ' adds one')
     elif 'computers_error' in result:
-        row('Computers', 'unknown (%s)' % result['computers_error'])
+        row('Bot computers', 'unknown (%s)' % result['computers_error'])
     elif computers is not None:
         if not computers:
-            row('Computers', 'none yet')
+            row('Bot computers', 'none yet')
         else:
             counts = {}
             for item in computers:
                 counts[item['state']] = counts.get(item['state'], 0) + 1
             order = [s for s in ('running', 'hibernated') if s in counts] + sorted(
                 s for s in counts if s not in ('running', 'hibernated'))
-            row('Computers', ' · '.join(['%d' % len(computers)] + ['%d %s' % (counts[s], s) for s in order]))
+            row('Bot computers', ' · '.join(['%d' % len(computers)] + ['%d %s' % (counts[s], s) for s in order]))
             lines.append('')
             lines += render_computers(computers, versions.get('guest'))
     lines += ['', '  ' + paint.dim('tofi update · tofi logs · %s · tofi doctor'
@@ -4771,9 +4771,9 @@ def render_update_check(report):
             lines += ['Runner       adds the local MCP Runner container: Gmail and other local connections move into it',
                       '             and need iptables on this host to fence it; if it does not start, the update rolls back']
         if report.get('computer_backend') == 'none':
-            lines.append('Computer     none: nothing to restart or download for it')
+            lines.append('Bot computer none: nothing to restart or download for it')
         elif report.get('computers') is None:
-            lines.append('Computers    unknown (%s)' % report.get('computers_error', 'Worker not reachable'))
+            lines.append('Bot computers unknown (%s)' % report.get('computers_error', 'Worker not reachable'))
         else:
             lines += update_impact_lines(report['computers'], report['components'])
         lines += ['', 'Apply with: ' + report['apply']]
@@ -4785,9 +4785,9 @@ def update_impact_lines(computers, components):
     guest = next((c for c in components if c['name'] == 'guest'), None)
     running = [c for c in computers if c['running']]
     hibernated = [c for c in computers if c['state'] == 'hibernated']
-    lines = ['Computers    %d total: %d running, %d hibernated' % (len(computers), len(running), len(hibernated))]
+    lines = ['Bot computers %d total: %d running, %d hibernated' % (len(computers), len(running), len(hibernated))]
     if running:
-        lines.append('  The update restarts the Worker: running computers are hibernated first.')
+        lines.append('  The update restarts the Worker: running Bot computers are hibernated first.')
     for row in running:
         if row['busy'] != []:
             lines.append('  %s is busy (%s): its current task is interrupted.'
@@ -4982,7 +4982,7 @@ def format_table(headers, rows):
 
 def render_computers(rows, installed_guest):
     if not rows:
-        return ['  No account computers yet.']
+        return ['  No Bot computers yet.']
     table = [[row['short'], row['state'], row['release'] or '-', 'pending' if row['upgrade_pending'] else '-',
               '%d MiB' % row['memory_rss_mib'] if row['memory_rss_mib'] is not None else '-',
               describe_wake(row['last_wake'])] for row in rows]
@@ -4990,7 +4990,7 @@ def render_computers(rows, installed_guest):
     pending = [row for row in rows if row['upgrade_pending']]
     if pending:
         lines.append('')
-        lines.append('  %d computer%s an older Guest than %s; a hibernated one cold-boots on %s at its next use.'
+        lines.append('  %d Bot computer%s an older Guest than %s; a hibernated one cold-boots on %s at its next use.'
                      % (len(pending), ' is on' if len(pending) == 1 else 's are on', installed_guest, installed_guest))
         lines.append('  Switch now: sudo tofi computers upgrade --all')
     return lines
@@ -5003,9 +5003,9 @@ def select_computers(rows, account=None):
     if not matches and len(account) >= 8:
         matches = [row for row in rows if row['account_id'].startswith(account)]
     if not matches:
-        raise HostError('No computer matches %r; `sudo tofi computers` lists them.' % account)
+        raise HostError('No Bot computer matches %r; `sudo tofi computers` lists them.' % account)
     if len(matches) > 1:
-        raise HostError('%r matches several computers; give more of the id.' % account)
+        raise HostError('%r matches several Bot computers; give more of the id.' % account)
     return matches
 
 
@@ -5014,7 +5014,7 @@ def confirm_force(busy, confirm=None):
     if confirm is None:
         try:
             with open('/dev/tty') as tty:
-                print('%d busy computer%s will be restarted and running tasks interrupted: %s'
+                print('%d busy Bot computer%s will be restarted and running tasks interrupted: %s'
                       % (len(busy), '' if len(busy) == 1 else 's',
                          ', '.join('%s (%s)' % (row['short'], ', '.join(row['busy'] or ['state unknown']))
                                    for row in busy)))
@@ -5037,11 +5037,11 @@ def upgrade_computers(account=None, all_computers=False, force=False, confirm=No
     keep running) and the outcome is journalled as last_computers_upgrade.
     """
     if bool(account) == bool(all_computers):
-        raise HostError('Choose the computers: --all, or --account <id>.')
+        raise HostError('Choose the Bot computers: --all, or --account <id>.')
     with lifecycle_lock():
         state = load_state()
         if state is None or state['phase'] != 'installed':
-            raise HostError('Computers can be upgraded only in phase installed; '
+            raise HostError('Bot computers can be upgraded only in phase installed; '
                             'run `sudo tofi install` to resume first.')
         installed = read_env()['TOFI_GUEST_VERSION']
         targets = select_computers(computers_report(installed, busy=True), account)
@@ -5078,7 +5078,7 @@ def upgrade_computers(account=None, all_computers=False, force=False, confirm=No
 
 def render_upgrade(report):
     if not report['results']:
-        return '  No account computers yet.\n'
+        return '  No Bot computers yet.\n'
     table = [[r['short'], r['state'], r['from'] or '-', r['to'], r['result'], r['note']] for r in report['results']]
     lines = format_table(['ACCOUNT', 'STATE', 'FROM', 'TO', 'RESULT', 'NOTE'], table)
     counts = {}
@@ -5217,10 +5217,10 @@ def attach_computers_hot(env, quiet=False):
         answer = host_control(env, 'attach', timeout=600)
     except HostControlUnavailable as error:
         if not quiet:
-            say('The running App cannot take the computer without a restart (%s); restarting it.' % error)
+            say('The running App cannot take the Bot computer without a restart (%s); restarting it.' % error)
         return False
     if not quiet:
-        say('The running App attached the computer (%s attached, %s already attached); no restart.'
+        say('The running App attached the Bot computer (%s attached, %s already attached); no restart.'
             % (answer.get('attached', 0), answer.get('already_attached', 0)))
     return True
 
@@ -5230,9 +5230,9 @@ def detach_computers_hot(env, wait_seconds=60):
     try:
         answer = host_control(env, 'detach', {'wait_seconds': int(wait_seconds)}, timeout=int(wait_seconds) + 180)
     except HostControlUnavailable as error:
-        say('The running App cannot drop the computer without a restart (%s); restarting it.' % error)
+        say('The running App cannot drop the Bot computer without a restart (%s); restarting it.' % error)
         return False
-    say('The running App detached the computer (%s account%s, %s file%s saved from the outbox); no restart.'
+    say('The running App detached the Bot computer (%s account%s, %s file%s saved from the outbox); no restart.'
         % (answer.get('detached', 0), '' if answer.get('detached', 0) == 1 else 's',
            answer.get('outbox_synced', 0), '' if answer.get('outbox_synced', 0) == 1 else 's'))
     return True
@@ -5248,9 +5248,9 @@ def ensure_computer_tools():
     if not missing:
         return
     if not shutil.which('apt-get'):
-        raise HostError('A computer needs %s on this host; install %s and retry.'
+        raise HostError('A Bot computer needs %s on this host; install %s and retry.'
                         % (', '.join(missing), ' '.join(COMPUTER_APT_PACKAGES)))
-    say('Installing host tools for the computer (%s).' % ' '.join(COMPUTER_APT_PACKAGES))
+    say('Installing host tools for the Bot computer (%s).' % ' '.join(COMPUTER_APT_PACKAGES))
     run(['env', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', '-qq', '-o', 'DPkg::Lock::Timeout=300', 'install', '-y',
          '--no-install-recommends'] + COMPUTER_APT_PACKAGES, timeout=1800)
     still = [tool for tool in COMPUTER_TOOLS if not shutil.which(tool)]
@@ -5263,7 +5263,7 @@ def computer_add_preflight():
     Raises before anything changes; returns warnings."""
     problems = computer_host_problems()
     if problems:
-        raise HostError('This host cannot run a computer, and nothing was changed. %s' % ' '.join(problems))
+        raise HostError('This host cannot run a Bot computer, and nothing was changed. %s' % ' '.join(problems))
     ensure_computer_tools()
     try:
         info = json.loads(run(['docker', 'info', '--format', '{{json .}}']).stdout)
@@ -5275,13 +5275,13 @@ def computer_add_preflight():
         raise HostError('Docker must run with AppArmor enabled (security options: %s).' % info.get('SecurityOptions'))
     cpus = os.cpu_count() or 0
     if cpus < MIN_CPUS:
-        raise HostError('A computer needs at least %d vCPUs; this host has %d.' % (MIN_CPUS, cpus))
+        raise HostError('A Bot computer needs at least %d vCPUs; this host has %d.' % (MIN_CPUS, cpus))
     memory = meminfo_mib()['MemTotal']
     if memory < MIN_MEMORY_MIB:
-        raise HostError('A computer needs at least 4 GiB of RAM; this host has %d MiB.' % memory)
+        raise HostError('A Bot computer needs at least 4 GiB of RAM; this host has %d MiB.' % memory)
     free = free_disk_bytes()
     if free < FIRST_ACCOUNT_BYTES:
-        raise HostError('The first computer needs 16 GiB free under /var/lib (8 GiB workspace + 8 GiB internal); '
+        raise HostError('The first Bot computer needs 16 GiB free under /var/lib (8 GiB workspace + 8 GiB internal); '
                         '%.1f GiB is free.' % (free / GIB))
     return computer_memory_warnings(memory)
 
@@ -5302,7 +5302,7 @@ def computer_add(backend='kvm', wait=0, force=False):
     without the Worker's sockets). A failure puts tofi.env back and restarts the
     App as it was."""
     if backend != 'kvm':
-        raise HostError('Only kvm (Firecracker) computers exist today: tofi computer add kvm.')
+        raise HostError('Only the built-in VM (kvm, Firecracker) exists today: tofi computer add kvm.')
     require_root()
     with lifecycle_lock():
         state = load_state()
@@ -5317,9 +5317,9 @@ def computer_add(backend='kvm', wait=0, force=False):
             except (subprocess.SubprocessError, ValueError, OSError):
                 running = False
             if running:
-                say('This server already has a computer (KVM); nothing to do. See `sudo tofi computers`.')
+                say('This server already has a Bot computer (KVM); nothing to do. See `sudo tofi computers`.')
                 return {'added': False, 'computer': 'kvm'}
-            say('The computer is set up but its Worker is not running; finishing the setup.')
+            say('The Bot computer is set up but its Worker is not running; finishing the setup.')
         for message in computer_add_preflight():
             warn(message)
         manifest = restore_manifest(env['TOFI_VERSION'])
@@ -5327,7 +5327,7 @@ def computer_add(backend='kvm', wait=0, force=False):
         candidate = dict(env)
         candidate.update(computer_env('kvm', manifest, runtime_budgets()))
         format_env(candidate)
-        wait_for_idle('adding the computer', wait, force)
+        wait_for_idle('adding the Bot computer', wait, force)
         say('Adding a KVM computer to TOFI %s.' % env['TOFI_VERSION'])
         prepare_computer_directories()
         pull_images(candidate, manifest['data_schema'])
@@ -5349,8 +5349,8 @@ def computer_add(backend='kvm', wait=0, force=False):
                 start_services(env)
             except (HostError, OSError, subprocess.SubprocessError) as restore_error:
                 warn('Could not restart TOFI as it was (%s); run `sudo tofi start`.' % restore_error)
-            raise HostError('Adding the computer failed (%s); tofi.env is back to server and web only.' % error) from error
-    say('Computer added (KVM, Firecracker). Each account gets one; open the web app to use it.')
+            raise HostError('Adding the Bot computer failed (%s); tofi.env is back to server and web only.' % error) from error
+    say('Bot computer added (built-in VM: KVM, Firecracker). Each account gets one; open the web app to use it.')
     return {'added': True, 'computer': 'kvm'}
 
 
@@ -5372,37 +5372,37 @@ def computer_remove(purge=False, yes=False, wait=0, force=False, discard_unsaved
         env = read_env()
         leftovers = [path for path in (P.worker_state, P.guest) if path.is_dir() and any(path.iterdir())]
         if not has_computer(env) and not (purge and leftovers):
-            say('This server has no computer (backend none); nothing to do.')
+            say('This server has no Bot computer (backend none); nothing to do.')
             return {'removed': False, 'computer': 'none'}
         unsaved, unreadable = pending_guest_copies()
         if purge and (unsaved or unreadable) and not discard_unsaved_files:
             if unreadable:
                 raise HostError(
-                    'Cannot tell whether files exist only on the computer: %s could not be read. Nothing was changed. '
+                    'Cannot tell whether files exist only on the Bot computer: %s could not be read. Nothing was changed. '
                     'Fix that, or add --discard-unsaved-files to delete the disks anyway.' % ', '.join(unreadable))
             raise HostError(
-                '%s only on the computer (not yet copied to the server). Purge would delete %s. Nothing was '
-                'changed. Keep the computer running so the copy can finish, or add --discard-unsaved-files to delete '
+                '%s only on the Bot computer (not yet copied to the server). Purge would delete %s. Nothing was '
+                'changed. Keep the Bot computer running so the copy can finish, or add --discard-unsaved-files to delete '
                 '%s anyway.' % (plural(unsaved, 'file') + (' exists' if unsaved == 1 else ' exist'),
                                 'it' if unsaved == 1 else 'them', 'it' if unsaved == 1 else 'them'))
         if unsaved and not purge:
-            warn('%s only on this computer and stays on its disk. %s cannot be opened until the computer is '
+            warn('%s only on this Bot computer and stays on its disk. %s cannot be opened until the Bot computer is '
                  'attached again (`sudo tofi computer add kvm`).'
                  % (plural(unsaved, 'file') + (' exists' if unsaved == 1 else ' exist'), 'It' if unsaved == 1 else 'They'))
         if purge and discard_unsaved_files and unsaved:
-            warn('Discarding %s that exist only on the computer.' % plural(unsaved, 'file'))
+            warn('Discarding %s that exist only on the Bot computer.' % plural(unsaved, 'file'))
         if purge:
             env_names, key_names, unreadable_vaults = computer_configuration()
-            say('Purging deletes everything that lives only on the computer:')
+            say('Purging deletes everything that lives only on the Bot computer:')
             for line in computer_loss_lines(env_names, key_names, unreadable_vaults, unsaved if discard_unsaved_files else 0):
                 say('  - ' + line)
         if purge and not yes:
             if not sys.stdin.isatty():
-                raise HostError('--purge deletes every computer disk and its state; add --yes to confirm.')
-            if not ask_yes('Delete all computer disks, their state and the Guest release? This cannot be undone.'):
+                raise HostError('--purge deletes every Bot computer disk and its state; add --yes to confirm.')
+            if not ask_yes('Delete all Bot computer disks, their state and the Guest release? This cannot be undone.'):
                 raise HostError('Cancelled; nothing was changed.')
         if has_computer(env):
-            wait_for_idle('removing the computer', wait, force)
+            wait_for_idle('removing the Bot computer', wait, force)
             # The App detaches first (it drains calls and saves the outbox while the computers still
             # answer); then the Worker stops. An App that cannot do that live is restarted without computers.
             live = detach_computers_hot(env)
@@ -5423,7 +5423,7 @@ def computer_remove(purge=False, yes=False, wait=0, force=False, discard_unsaved
                         start_services(env)
                 except (HostError, OSError, subprocess.SubprocessError) as restore_error:
                     warn('Could not restart TOFI as it was (%s); run `sudo tofi start`.' % restore_error)
-                raise HostError('Removing the computer failed (%s); tofi.env is back as it was.' % error) from error
+                raise HostError('Removing the Bot computer failed (%s); tofi.env is back as it was.' % error) from error
         if purge:
             if P.apparmor_profile.exists():
                 run(['apparmor_parser', '-R', str(P.apparmor_profile)], check=False)
@@ -5431,9 +5431,9 @@ def computer_remove(purge=False, yes=False, wait=0, force=False, discard_unsaved
                 path.unlink(missing_ok=True)
             for path in (P.worker, P.guest):
                 remove_tree(path)
-            say('Computer removed; its disks, state and Guest release were deleted.')
+            say('Bot computer removed; its disks, state and Guest release were deleted.')
         else:
-            say('Computer removed. Computer disks and state are kept under /var/lib/tofi/worker; '
+            say('Bot computer removed. Bot computer disks and state are kept under /var/lib/tofi/worker; '
                 '`sudo tofi computer add kvm` brings them back, `sudo tofi computer remove --purge` deletes them.')
     return {'removed': True, 'computer': 'none', 'purged': bool(purge)}
 
@@ -5519,7 +5519,7 @@ def doctor():
     except (OSError, HostError):
         computer = True
     host_card()
-    check('Computer backend', computer_backend)
+    check('Bot computer backend', computer_backend)
     # Without a computer nothing here needs KVM, cgroup v2 or AppArmor: a host
     # that lacks them is a healthy server-and-web install, not an error.
     if computer:
@@ -5591,7 +5591,7 @@ def parse_args(argv):
     install_parser.add_argument('--lan', action='store_true', help=argparse.SUPPRESS)
     install_parser.add_argument('--port', type=int)
     install_parser.add_argument('--computer', default=None,
-                                help='none: server and web app only; kvm: also run account computers '
+                                help='none: server and web app only; kvm: also run Bot computers '
                                      '(Firecracker, needs /dev/kvm). Default: kvm when this host supports it, '
                                      'otherwise none. Add one later with `tofi computer add kvm`')
     install_parser.add_argument('--yes', action='store_true')
@@ -5600,7 +5600,7 @@ def parse_args(argv):
                       help='install fix releases (same major.minor, newer patch) automatically overnight')
     auto.add_argument('--no-auto-update', dest='auto_update', action='store_false',
                       help='update only when you run `tofi update` (the default without --yes)')
-    status_parser = sub.add_parser('status', help='versions, services, health and account computers')
+    status_parser = sub.add_parser('status', help='versions, services, health and Bot computers')
     status_parser.add_argument('--json', action='store_true', help='machine-readable output')
     status_parser.add_argument('--verbose', '-v', action='store_true',
                                help='also image digests, the full certificate fingerprint and the update check')
@@ -5629,36 +5629,36 @@ def parse_args(argv):
                                help='report what would change and exit 0 (up to date), 10 (update available) '
                                     'or 1 (error); changes nothing')
     update_parser.add_argument('--json', action='store_true', help='with --check: machine-readable output')
-    computer_parser = sub.add_parser('computer', help='add or remove this server\'s computer')
+    computer_parser = sub.add_parser('computer', help='add or remove this server\'s Bot computer')
     computer_sub = computer_parser.add_subparsers(dest='computer_command', required=True)
     add_parser = computer_sub.add_parser(
-        'add', help='install a computer (KVM, Firecracker) on a server that has none: checks the host, '
+        'add', help='install a Bot computer (KVM, Firecracker) on a server that has none: checks the host, '
                     'downloads the Guest, starts the Worker and restarts the App')
     add_parser.add_argument('backend', choices=['kvm'])
     add_guard_flags(add_parser)
     remove_parser = computer_sub.add_parser(
-        'remove', help='stop the Worker and go back to server and web only; computers\' disks are kept')
+        'remove', help='stop the Worker and go back to server and web only; Bot computers\' disks are kept')
     remove_parser.add_argument('--purge', action='store_true',
-                               help='also delete the computers\' disks, their state and the Guest release')
+                               help='also delete the Bot computers\' disks, their state and the Guest release')
     remove_parser.add_argument('--yes', '-y', action='store_true', help='do not ask for confirmation (needed with --purge)')
     remove_parser.add_argument('--discard-unsaved-files', action='store_true',
-                               help='with --purge: delete the disks even though some files exist only on a computer')
+                               help='with --purge: delete the disks even though some files exist only on a Bot computer')
     add_guard_flags(remove_parser)
-    computers_parser = sub.add_parser('computers', help='list account computers and their Guest release')
+    computers_parser = sub.add_parser('computers', help='list Bot computers and their Guest release')
     computers_parser.add_argument('--json', action='store_true', help='machine-readable output')
     computers_sub = computers_parser.add_subparsers(dest='computers_command')
     upgrade_parser = computers_sub.add_parser(
-        'upgrade', help='move computers on an older Guest release to the installed one')
+        'upgrade', help='move Bot computers on an older Guest release to the installed one')
     which = upgrade_parser.add_mutually_exclusive_group(required=True)
-    which.add_argument('--all', action='store_true', help='every computer on an older Guest')
-    which.add_argument('--account', help='one computer: its account id or an 8+ character prefix')
+    which.add_argument('--all', action='store_true', help='every Bot computer on an older Guest')
+    which.add_argument('--account', help='one Bot computer: its account id or an 8+ character prefix')
     upgrade_parser.add_argument('--force', action='store_true',
-                                help='also restart busy computers (asks first on a terminal; tasks are interrupted)')
+                                help='also restart busy Bot computers (asks first on a terminal; tasks are interrupted)')
     upgrade_parser.add_argument('--json', action='store_true', help='machine-readable output')
     backup_parser = sub.add_parser('backup', help='stop, back up data and settings, start again')
     backup_parser.add_argument('--note', help='a short label stored with the backup')
     backup_parser.add_argument('--no-disks', action='store_true',
-                               help='leave the computers\' workspace disks out (they can be large; compressed, and only the last 2 backups keep them)')
+                               help='leave the Bot computers\' workspace disks out (they can be large; compressed, and only the last 2 backups keep them)')
     backup_parser.add_argument('--verify', nargs='?', const='latest', metavar='ID',
                                help='check a backup (newest, an ID, or "all") without restoring it: files, '
                                     'checksums, readability; changes nothing and stops nothing')
@@ -5784,8 +5784,8 @@ def confirm_restore(item, meta):
     say('All current data and settings are replaced; the current state is backed up first (pre-restore).')
     if meta.get('disks'):
         say('It carries %s: they replace the current ones, which are kept beside them (workspace-before-restore-*.ext4); '
-            'open pages of those computers are lost. --no-disks leaves the disks as they are.'
-            % plural(len(meta['disks']), 'computer disk'))
+            'open pages of those Bot computers are lost. --no-disks leaves the disks as they are.'
+            % plural(len(meta['disks']), 'Bot computer disk'))
     if not ask_yes('Restore it?'):
         raise HostError('Restore cancelled; nothing was changed.')
 
@@ -5824,7 +5824,7 @@ def main(argv=None):
                 if getattr(args, 'json', False):
                     print(json.dumps({'computer': 'none', 'computers': []}, indent=2))
                 else:
-                    say('This server has no computer (backend none). Add one with: sudo tofi computer add kvm')
+                    say('This server has no Bot computer (backend none). Add one with: sudo tofi computer add kvm')
                 return 0
             if args.computers_command == 'upgrade':
                 report = upgrade_computers(args.account, args.all, args.force)
@@ -6284,11 +6284,11 @@ def audit_versions(env, online=False):
 
 
 def audit_computers(env):
-    title = 'Computer images (Guest)'
+    title = 'Bot computer images (Guest)'
     guest, server = env.get('TOFI_GUEST_VERSION'), env.get('TOFI_VERSION')
     if not has_computer(env):
         return audit_finding(AUDIT_PASS, 'versions.computers', title,
-                             'no computer is installed (TOFI_COMPUTER_BACKEND=none): no Guest to keep current')
+                             'no Bot computer is installed (TOFI_COMPUTER_BACKEND=none): no Guest to keep current')
     if not guest or not (P.guest / guest / 'account-release.json').is_file():
         return audit_finding(AUDIT_FAIL, 'versions.computers', title,
                              'the pinned Guest release %s is not on disk under %s' % (guest, P.guest),
@@ -6296,12 +6296,12 @@ def audit_computers(env):
     older = sorted(version for version in guest_references() if version != guest)
     if older:
         return audit_finding(AUDIT_WARN, 'versions.computers', title,
-                             'Guest %s is installed (server %s) but hibernated computers hold snapshots from %s'
+                             'Guest %s is installed (server %s) but hibernated Bot computers hold snapshots from %s'
                              % (guest, server, ', '.join(older)),
                              'sudo tofi computers upgrade --all')
     return audit_finding(AUDIT_PASS, 'versions.computers', title,
-                         'Guest %s installed with server %s; no hibernated computer is on an older Guest '
-                         '(running computers: sudo tofi computers)' % (guest, server))
+                         'Guest %s installed with server %s; no hibernated Bot computer is on an older Guest '
+                         '(running Bot computers: sudo tofi computers)' % (guest, server))
 
 
 def audit_runner_fence(env):

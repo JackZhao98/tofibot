@@ -241,9 +241,9 @@
       "configure": "Quellen einrichten"
     },
     "computer": {
-      "title": "Computer",
-      "shared": "Alle Bots nutzen den Computer des Arbeitsbereichs.",
-      "none": "Noch kein Computer. Füge in den Einstellungen einen hinzu, damit Bots surfen und Code ausführen können.",
+      "title": "Bot-Computer",
+      "shared": "Alle Bots nutzen den Bot-Computer des Arbeitsbereichs.",
+      "none": "Noch kein Bot-Computer. Füge in den Einstellungen einen hinzu, damit Bots surfen und Code ausführen können.",
       "open": "Einstellungen öffnen"
     },
     "builtin": {

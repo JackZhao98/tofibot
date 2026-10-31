@@ -258,7 +258,7 @@ func (s *Server) desktopEngineCall(ctx context.Context, r Run, tool string, args
 	out, err := s.microVMAction(ctx, r, "desktop.mcp", payload)
 	if err != nil {
 		if strings.Contains(err.Error(), "unsupported action") {
-			return "", tooloutcome.InvalidArguments("the desktop engine needs a newer computer image; this computer's guest does not support it yet. Nothing was done.")
+			return "", tooloutcome.InvalidArguments("the desktop engine needs a newer Bot computer image; this Bot computer's guest does not support it yet. Nothing was done.")
 		}
 		return "", err
 	}

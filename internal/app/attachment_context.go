@@ -111,7 +111,7 @@ func (s *Store) attachmentAvailableInConversation(id, conv string) (bool, error)
 func (s *Server) attachmentTools(c Conversation, r Run) []Tool {
 	var mu sync.Mutex
 	views := 0
-	description := "Read an attachment of this conversation by its attachment_id. Text comes back as text (use offset to continue a long one), an image is shown to you, and any other file (PDF, Office document, archive) is placed on your computer and its computer_path returned, to open there with your tools."
+	description := "Read an attachment of this conversation by its attachment_id. Text comes back as text (use offset to continue a long one), an image is shown to you, and any other file (PDF, Office document, archive) is placed on your Bot computer and its computer_path returned, to open there with your tools."
 	if s.computer() == nil {
 		description = "Read an attachment of this conversation by its attachment_id. Text comes back as text (use offset to continue a long one) and an image is shown to you; any other file type (PDF, Office document, archive) cannot be opened here."
 	}
@@ -162,7 +162,7 @@ func (s *Server) attachmentTools(c Conversation, r Run) []Tool {
 				if s.computer() == nil {
 					return "", viewFileError("%s is %d bytes, too large to view", a.Name, a.Size)
 				}
-				return "", viewFileError("%s is %d bytes, too large to view; read it on the computer and view a smaller copy", a.Name, a.Size)
+				return "", viewFileError("%s is %d bytes, too large to view; read it on the Bot computer and view a smaller copy", a.Name, a.Size)
 			}
 			data, err := s.store.attachmentHead(ctx, path, viewSourceBytesMax)
 			if err != nil {
@@ -183,10 +183,10 @@ func (s *Server) attachmentTools(c Conversation, r Run) []Tool {
 			return out, nil
 		}
 		if s.computer() == nil {
-			return "", fmt.Errorf("%s is a %s file; without a computer only text and images can be read", a.Name, a.MIME)
+			return "", fmt.Errorf("%s is a %s file; without a Bot computer only text and images can be read", a.Name, a.MIME)
 		}
 		if a.Size > guestImportMaxFile {
-			return "", fmt.Errorf("%s is %d bytes; files over %d bytes cannot be placed on the computer", a.Name, a.Size, guestImportMaxFile)
+			return "", fmt.Errorf("%s is %d bytes; files over %d bytes cannot be placed on the Bot computer", a.Name, a.Size, guestImportMaxFile)
 		}
 		dst := guestUploadsRoot + "/" + c.ID + "/attachments/" + guestInputName(a.ID[:8]+"-"+a.Name)
 		if _, err := s.pushGuestInput(ctx, r, a, dst); err != nil {
@@ -253,7 +253,7 @@ func (s *Server) addAttachmentContext(c Conversation, m Message, pm *runtime.Mes
 	for _, a := range attachments {
 		fmt.Fprintf(&note, "\nAttachment: %s (attachment_id=%s, type=%s, bytes=%d).", a.Name, a.ID, a.MIME, a.Size)
 		if p := guestPaths[a.ID]; p != "" {
-			fmt.Fprintf(&note, " On the computer at %s.", p)
+			fmt.Fprintf(&note, " On the Bot computer at %s.", p)
 		}
 		if strings.HasPrefix(a.MIME, "image/") && *imagesLeft > 0 && a.Size <= *imageBudget {
 			image, e := s.store.attachmentImage(a.ID, c.ID)

@@ -291,7 +291,7 @@ func (g *AccountGateway) manageAccount(w http.ResponseWriter, r *http.Request, a
 		runtime.Close()
 	}
 	if computerErr != nil {
-		writeErr(w, 503, "computer_transition_pending", "account state saved; computer transition requires retry")
+		writeErr(w, 503, "computer_transition_pending", "account state saved; Bot computer transition requires retry")
 		return true
 	}
 	writeJSON(w, 200, target)

@@ -4,14 +4,14 @@
       "resource_limit_count_other": "共享桌面资源暂不可用（{{count}} 个活动会话），请稍后重试。",
       "resource_limit": "共享桌面资源暂不可用，请稍后重试。",
       "stopping": "共享桌面正在停止，请稍后再试。",
-      "busy": "电脑正在执行其他操作，请稍后再试。",
-      "not_configured": "共享电脑尚未配置，请先完成服务器安装。",
-      "failed": "电脑操作失败，请稍后重试。",
-      "capture_failed": "电脑截图失败",
-      "action_failed": "电脑操作失败",
+      "busy": "Bot 电脑正在执行其他操作，请稍后再试。",
+      "not_configured": "Bot 电脑尚未配置，请先完成服务器安装。",
+      "failed": "Bot 电脑操作失败，请稍后重试。",
+      "capture_failed": "Bot 电脑截图失败",
+      "action_failed": "Bot 电脑操作失败",
       "switching": "桌面正在切换或准备中，请稍后重试。",
       "unreachable": "桌面暂时连接不上，请稍后重试。",
-      "connection_lost": "电脑连接暂时不可用，正在重试…"
+      "connection_lost": "Bot 电脑连接暂时不可用，正在重试…"
     },
     "phase": {
       "checking": "检查环境",
@@ -23,11 +23,11 @@
       "ready": "就绪"
     },
     "state": {
-      "starting": "正在准备共享电脑",
-      "ready": "电脑已就绪",
-      "error": "电脑准备失败",
-      "stopped": "电脑已停止",
-      "other": "电脑{{state}}"
+      "starting": "正在准备 Bot 电脑",
+      "ready": "Bot 电脑已就绪",
+      "error": "Bot 电脑准备失败",
+      "stopped": "Bot 电脑已停止",
+      "other": "Bot 电脑{{state}}"
     },
     "other_bot": "其他 Bot",
     "announce": {
@@ -37,16 +37,16 @@
       "fallback": "桌面已连接，已切换为截图查看",
       "recovering": "桌面已连接，正在恢复画面"
     },
-    "shrink_aria": "缩小共享电脑",
-    "expand_aria": "放大共享电脑",
+    "shrink_aria": "缩小 Bot 电脑",
+    "expand_aria": "放大 Bot 电脑",
     "shrink": "缩小",
     "expand": "放大",
     "enlarge_hint": "点击放大",
-    "hide_aria": "隐藏共享电脑",
+    "hide_aria": "隐藏 Bot 电脑",
     "minimize": "最小化",
     "close": "关闭",
-    "close_aria": "关闭共享电脑",
-    "title": "共享电脑",
+    "close_aria": "关闭 Bot 电脑",
+    "title": "Bot 电脑",
     "status": {
       "failed": "连接失败",
       "connecting_preview": "正在连接预览…",
@@ -54,9 +54,9 @@
       "booting": "正在开机…",
       "you": "你在控制",
       "bot": "{{name}} 在操作",
-      "idle": "共享电脑空闲"
+      "idle": "Bot 电脑空闲"
     },
-    "power_hint": "收起屏幕（电脑继续运行）",
+    "power_hint": "收起屏幕（Bot 电脑继续运行）",
     "control": {
       "release": "交还控制",
       "take": "接管控制",
@@ -65,11 +65,11 @@
     "phase_label": "阶段：{{phase}}",
     "state_synced": "状态已同步",
     "retry_prepare": "重试准备",
-    "screen_alt": "共享电脑屏幕",
+    "screen_alt": "Bot 电脑屏幕",
     "launch": {
-      "failed_aria": "电脑连接失败",
-      "preview_aria": "正在连接电脑预览",
-      "starting_aria": "正在启动电脑",
+      "failed_aria": "Bot 电脑连接失败",
+      "preview_aria": "正在连接 Bot 电脑预览",
+      "starting_aria": "正在启动 Bot 电脑",
       "failed": "连接失败，请稍后重新打开"
     },
     "tools": {
@@ -85,11 +85,11 @@
     "video_aria": "Bot 当前桌面实时视频",
     "pointer_click": "{{name}} · 点击",
     "placeholder": {
-      "waking": "正在唤醒电脑",
+      "waking": "正在唤醒 Bot 电脑",
       "connecting": "正在连接屏幕",
       "resuming": "正在从休眠中恢复",
       "resuming_phase": "正在唤醒 · {{phase}}",
-      "waking_computer": "正在唤醒电脑…",
+      "waking_computer": "正在唤醒 Bot 电脑…",
       "starting_desktop": "正在启动桌面…",
       "hibernated": "休眠中 · 正在唤醒…",
       "hibernating": "正在进入休眠…",
@@ -97,8 +97,8 @@
       "retry": "重试"
     },
     "fold": "折叠",
-    "fold_aria": "把共享电脑折成窄栏",
-    "unfold_aria": "显示共享电脑"
+    "fold_aria": "把 Bot 电脑折成窄栏",
+    "unfold_aria": "显示 Bot 电脑"
   },
   "remote": {
     "error": {
@@ -130,9 +130,9 @@
       "open": "键盘"
     },
     "release": "释放控制",
-    "bot_waiting": "Bot 请求使用电脑，将在你停止操作 15 秒后接手。",
+    "bot_waiting": "Bot 请求使用 Bot 电脑，将在你停止操作 15 秒后接手。",
     "surface_aria": "远程桌面操作区域",
-    "surface_preview_aria": "共享电脑画面预览；拖动可移动",
+    "surface_preview_aria": "Bot 电脑画面预览；拖动可移动",
     "keyboard_input_aria": "远程桌面键盘输入",
     "copy": {
       "note": "浏览器未允许自动写入本机剪贴板，请复制以下文字。",
@@ -191,18 +191,18 @@
   },
   "env": {
     "unavailable": "运行环境暂不可用。",
-    "start_failed": "电脑未能启动，请稍后重试。",
+    "start_failed": "Bot 电脑未能启动，请稍后重试。",
     "title": "运行环境",
     "description": "Linux、Google Chrome、文件浏览器和终端使用同一套环境。每个 Bot 有自己的工作文件夹，也可互相访问。",
     "state": {
-      "ready": "共享电脑已就绪",
-      "starting": "正在准备电脑",
-      "stopped": "共享电脑已停止",
-      "waiting": "等待电脑连接"
+      "ready": "Bot 电脑已就绪",
+      "starting": "正在准备 Bot 电脑",
+      "stopped": "Bot 电脑已停止",
+      "waiting": "等待 Bot 电脑连接"
     },
     "workspace": "工作目录 {{path}}",
     "workspace_idle_other": "工作目录 {{path}} · 桌面闲置 {{count}} 分钟后自动关闭",
-    "retry": "重新准备电脑"
+    "retry": "重新准备 Bot 电脑"
   },
   "mac": {
     "title": "Mac 权限",
@@ -229,19 +229,19 @@
     "cancel": "取消",
     "error": {
       "restart_incomplete": "重启未完成，请重试。",
-      "read": "暂时无法读取电脑资源，请重试。",
+      "read": "暂时无法读取 Bot 电脑资源，请重试。",
       "out_of_range": "资源配置超出允许范围，请检查后重试。",
       "save": "保存失败，请重试。",
-      "busy": "电脑正在执行任务或应用配置。请先停止任务，稍后重试。",
+      "busy": "Bot 电脑正在执行任务或应用配置。请先停止任务，稍后重试。",
       "restart_request": "重启请求未完成，请重试。",
-      "start_failed": "电脑启动失败，请重试。"
+      "start_failed": "Bot 电脑启动失败，请重试。"
     },
     "status": {
       "applied": "配置已应用。",
       "saved_pending": "配置已保存，重启后应用。",
       "saved": "配置已保存。"
     },
-    "draft_label": "电脑资源",
+    "draft_label": "Bot 电脑资源",
     "title": "资源",
     "adjust": "调整配置",
     "unit": {
@@ -272,26 +272,26 @@
     "saving": "正在保存…",
     "summary": {
       "title": "变更内容",
-      "restart": "电脑重启后生效。",
+      "restart": "Bot 电脑重启后生效。",
       "none": "尚无更改。拖动滑块即可调整。"
     },
-    "admin_sets": "这台电脑的大小由管理员设定。",
-    "admin_sets_admin": "这台电脑的大小由管理员设定。如需更改,请在管理控制台打开该账户。",
+    "admin_sets": "这台 Bot 电脑的大小由管理员设定。",
+    "admin_sets_admin": "这台 Bot 电脑的大小由管理员设定。如需更改,请在管理控制台打开该账户。",
     "open_admin": "打开管理控制台"
   },
   "credentials": {
     "error": {
       "exists": "此文件名已存在，请换一个名称。",
       "env_exists": "已保存同名的环境变量。请先在列表中删除它，或换一个名称。",
-      "busy": "电脑正在处理任务，请稍后重试。",
+      "busy": "Bot 电脑正在处理任务，请稍后重试。",
       "private_key_invalid": "无法识别私钥，请检查文件格式。",
       "private_key_filename": "请使用私钥文件名，例如 id_ed25519_work；不要使用 .pub、config 或 known_hosts。",
-      "ssh_dir": "电脑的 .ssh 目录不可用，请检查目录后重试。",
-      "openssh_missing": "电脑尚未安装 OpenSSH 工具。",
+      "ssh_dir": "Bot 电脑的 .ssh 目录不可用，请检查目录后重试。",
+      "openssh_missing": "Bot 电脑尚未安装 OpenSSH 工具。",
       "key_io": "无法读取或配置密钥，请稍后重试。",
       "load": "无法读取配置，请重试。",
       "switch_unsaved": "请先保存或放弃当前输入，再切换类型。",
-      "no_bot": "请先创建一个 Bot，再配置共享电脑。",
+      "no_bot": "请先创建一个 Bot，再配置 Bot 电脑。",
       "operation": "操作失败，请重试。",
       "required": "请填写必填项后重试。",
       "name_format": "名称格式不正确，请检查后重试。",
@@ -310,11 +310,11 @@
     },
     "status": {
       "saved_applied": "已保存并应用。新启动的命令和终端会读取配置。",
-      "saved_not_applied": "已保存，尚未应用到电脑。可在列表中重试应用。",
+      "saved_not_applied": "已保存，尚未应用到 Bot 电脑。可在列表中重试应用。",
       "generated": "密钥已生成。可复制公钥到目标服务。",
       "imported": "密钥已导入。",
-      "applied": "已应用到共享电脑。",
-      "deleted": "已删除保存项，电脑中的副本保留。"
+      "applied": "已应用到 Bot 电脑。",
+      "deleted": "已删除保存项，Bot 电脑中的副本保留。"
     },
     "tab": {
       "env": "环境变量",
@@ -324,12 +324,12 @@
       "ssh": "SSH 密钥"
     },
     "tabs_aria": "凭据类型",
-    "apply": "应用到电脑",
+    "apply": "应用到 Bot 电脑",
     "delete": "删除",
-    "delete_question": "删除保存项？电脑中的副本会保留。",
+    "delete_question": "删除保存项？Bot 电脑中的副本会保留。",
     "note": {
       "env": "所有 Bot 共用，新启动的命令生效。",
-      "ssh": "共享电脑中的密钥，自动同步列表。"
+      "ssh": "Bot 电脑中的密钥，自动同步列表。"
     },
     "cancel": "取消",
     "add_env": "添加变量",
@@ -350,8 +350,8 @@
       "env_name_hint": "仅限大写字母、数字和下划线，不能以数字开头。输入时会自动把小写字母转为大写，空格和连字符转为下划线。"
     },
     "choose_file": "选择文件",
-    "private_key_note": "私钥不会发到聊天。加密私钥需在电脑中解锁。",
-    "generate_note": "生成 Ed25519 密钥，私钥保留在共享电脑。不会覆盖已有文件。",
+    "private_key_note": "私钥不会发到聊天。加密私钥需在 Bot 电脑中解锁。",
+    "generate_note": "生成 Ed25519 密钥，私钥保留在 Bot 电脑。不会覆盖已有文件。",
     "submit": {
       "working": "处理中…",
       "save_apply": "保存并应用",
@@ -372,24 +372,27 @@
       "copy_public": "复制公钥",
       "public_aria": "{{name}} 公钥"
     },
-    "no_bot_note": "创建一个 Bot 后，可读取共享电脑中的密钥。",
-    "empty_ssh": "电脑中暂无 SSH Key",
+    "no_bot_note": "创建一个 Bot 后，可读取 Bot 电脑中的密钥。",
+    "empty_ssh": "Bot 电脑中暂无 SSH Key",
     "legacy_title": "已保存的密钥",
-    "legacy_note": "以前保存的配置，可应用到电脑。",
-    "sync_pending": "电脑暂忙，稍后自动同步。",
+    "legacy_note": "以前保存的配置，可应用到 Bot 电脑。",
+    "sync_pending": "Bot 电脑暂忙，稍后自动同步。",
     "truncated": "密钥较多，当前仅显示部分结果。",
     "retry": "重试"
   },
+  "kind": {
+    "vm": "内置虚拟机"
+  },
   "none": {
-    "title": "这台服务器还没有电脑",
-    "body": "没有电脑，Bot 照样能聊天、记事、按计划执行任务、使用已连接的服务。需要真实浏览器、命令行或桌面的工作，要等添加电脑后才能做。",
-    "options": "添加电脑",
+    "title": "这台服务器还没有 Bot 电脑",
+    "body": "没有 Bot 电脑，Bot 照样能聊天、记事、按计划执行任务、使用已连接的服务。需要真实浏览器、命令行或桌面的工作，要等添加 Bot 电脑后才能做。",
+    "options": "添加 Bot 电脑",
     "soon": "即将推出",
     "kvm": {
-      "name": "装在这台服务器上",
-      "what": "在这台服务器自己的硬件上运行 Bot 的电脑。主机需要支持 KVM，且至少有 4 GiB 内存。",
+      "name": "内置虚拟机",
+      "what": "在这台服务器自己的硬件上运行 Bot 电脑。主机需要支持 KVM，且至少有 4 GiB 内存。",
       "run": "在服务器主机上运行：",
-      "after": "电脑接入后，本页会自动更新。"
+      "after": "Bot 电脑接入后，本页会自动更新。"
     },
     "own": {
       "name": "你自己的电脑",
@@ -397,20 +400,20 @@
     },
     "e2b": {
       "name": "E2B 云沙盒",
-      "what": "用你自己的密钥向 E2B 租用一台电脑。"
+      "what": "用你自己的密钥向 E2B 租用一台 Bot 电脑。"
     }
   },
   "contents": {
-    "title": "这台电脑上有什么",
-    "description": "这些内容存放在电脑上，而不是服务器上。电脑被清空或更换后，它们会丢失。",
-    "badge": "保存在电脑上",
+    "title": "这台 Bot 电脑上有什么",
+    "description": "这些内容存放在 Bot 电脑上，而不是服务器上。Bot 电脑被清空或更换后，它们会丢失。",
+    "badge": "保存在 Bot 电脑上",
     "browser": {
       "name": "浏览器登录状态",
-      "what": "Bot 已登录的网站。清空电脑后，Bot 会退出所有网站。"
+      "what": "Bot 已登录的网站。清空 Bot 电脑后，Bot 会退出所有网站。"
     },
     "tools": {
       "name": "已安装的工具",
-      "what": "Bot 在这台电脑上安装的程序。清空后，Bot 会在需要时重新安装。"
+      "what": "Bot 在这台 Bot 电脑上安装的程序。清空后，Bot 会在需要时重新安装。"
     },
     "files": {
       "name": "工作文件",
@@ -419,7 +422,7 @@
     },
     "config": {
       "name": "环境变量与密钥",
-      "what": "这台电脑的环境变量和 SSH 密钥，会随电脑一起删除。",
+      "what": "这台 Bot 电脑的环境变量和 SSH 密钥，会随 Bot 电脑一起删除。",
       "saved_other": "已保存 {{count}} 项",
       "none": "尚未保存",
       "manage": "管理"
@@ -428,59 +431,59 @@
     "retry": "重试"
   },
   "loss": {
-    "title": "随电脑磁盘一起丢失",
+    "title": "随 Bot 电脑磁盘一起丢失",
     "browser": "浏览器登录状态：Bot 会退出所有网站。",
     "tools": "已安装的工具：Bot 会在需要时重新安装。",
     "files": "未发送、也未保存到「文件」的工作文件。",
     "env_other": "{{count}} 个环境变量：{{names}}",
     "keys_other": "{{count}} 个 SSH 密钥：{{names}}",
     "no_config": "「设置」中没有保存环境变量或 SSH 密钥。",
-    "pending_other": "有 {{count}} 个文件只在电脑上，尚未复制到服务器。",
-    "loading": "正在读取电脑上的内容…",
+    "pending_other": "有 {{count}} 个文件只在 Bot 电脑上，尚未复制到服务器。",
+    "loading": "正在读取 Bot 电脑上的内容…",
     "load_failed": "无法读取已保存的变量、密钥和待复制文件数，它们同样会被删除。"
   },
   "attach": {
-    "loading": "正在读取电脑分配…",
+    "loading": "正在读取 Bot 电脑分配…",
     "state": {
       "attached_running": "已接入 · 运行中",
       "attached_stopped": "已接入 · 已停止",
       "detached": "已分离",
       "lost": "已接入,无响应",
       "detaching": "正在分离",
-      "none": "没有电脑"
+      "none": "没有 Bot 电脑"
     },
     "action": {
       "attach": "接入",
       "detach": "分离…"
     },
     "help": {
-      "attached": "分离后会保留此账户的文件,Bot 无电脑也能继续工作。",
-      "detached": "在接入电脑之前,Bot 无电脑也能工作。接入无需重启。",
-      "none": "此服务器未配置电脑后端。"
+      "attached": "分离后会保留此账户的文件,Bot 无 Bot 电脑也能继续工作。",
+      "detached": "在接入 Bot 电脑之前,Bot 无 Bot 电脑也能工作。接入无需重启。",
+      "none": "此服务器未配置 Bot 电脑后端。"
     },
     "progress": {
-      "attaching": "正在接入电脑…",
-      "draining": "排空中:等待正在运行的电脑工具完成当前步骤…",
-      "syncing": "同步中:正在把电脑上的文件复制到服务器…"
+      "attaching": "正在接入 Bot 电脑…",
+      "draining": "排空中:等待正在运行的 Bot 电脑工具完成当前步骤…",
+      "syncing": "同步中:正在把 Bot 电脑上的文件复制到服务器…"
     },
     "done": {
-      "detach": "电脑已分离。",
+      "detach": "Bot 电脑已分离。",
       "copied": "已复制到服务器的文件:{{count}}。",
       "interrupted": "提前结束的工具调用:{{count}}。",
-      "left": "仍留在电脑上的文件:{{count}}。"
+      "left": "仍留在 Bot 电脑上的文件:{{count}}。"
     },
     "error": {
-      "read": "无法读取电脑分配。",
+      "read": "无法读取 Bot 电脑分配。",
       "generic": "无法完成更改,请重试。",
-      "computer_backend_unavailable": "此服务器未配置电脑后端。",
-      "computer_attach_failed": "无法接入电脑。",
-      "computer_detach_failed": "无法分离电脑。",
-      "forbidden": "只有管理员可以接入或分离电脑。",
-      "unavailable": "只有管理员可以接入或分离电脑。"
+      "computer_backend_unavailable": "此服务器未配置 Bot 电脑后端。",
+      "computer_attach_failed": "无法接入 Bot 电脑。",
+      "computer_detach_failed": "无法分离 Bot 电脑。",
+      "forbidden": "只有管理员可以接入或分离 Bot 电脑。",
+      "unavailable": "只有管理员可以接入或分离 Bot 电脑。"
     },
     "confirm": {
-      "title": "分离这台电脑?",
-      "impact": "正在运行的电脑工具会在当前步骤结束后停止。电脑上的文件会先复制到服务器。Bot 在没有电脑的情况下继续工作,以后可以再次接入。",
+      "title": "分离这台 Bot 电脑?",
+      "impact": "正在运行的 Bot 电脑工具会在当前步骤结束后停止。Bot 电脑上的文件会先复制到服务器。Bot 在没有 Bot 电脑的情况下继续工作,以后可以再次接入。",
       "cancel": "取消",
       "action": "分离"
     }

@@ -167,7 +167,7 @@ func TestGuestInputsReachTheComputerOnFirstToolUseOnly(t *testing.T) {
 	left, budget := 3, int64(8<<20)
 	s.addAttachmentContext(conv, m, &pm, &left, &budget, paths)
 	for _, a := range made {
-		if !strings.Contains(pm.Content, "attachment_id="+a.ID) || !strings.Contains(pm.Content, "On the computer at "+paths[a.ID]) {
+		if !strings.Contains(pm.Content, "attachment_id="+a.ID) || !strings.Contains(pm.Content, "On the Bot computer at "+paths[a.ID]) {
 			t.Fatalf("prompt lacks the path of %s: %s", a.Name, pm.Content)
 		}
 	}
@@ -282,7 +282,7 @@ func TestGuestInputsFollowConversationMembership(t *testing.T) {
 
 func TestComputerPromptStatesTheInputsPrinciple(t *testing.T) {
 	prompt := syntheticComputerPrompt(t, "bot")
-	if !strings.Contains(prompt, "Attached files are on this computer at the listed paths") {
+	if !strings.Contains(prompt, "Attached files are on this Bot computer at the listed paths") {
 		t.Fatalf("prompt=%s", prompt)
 	}
 }

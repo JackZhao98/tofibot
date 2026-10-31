@@ -252,7 +252,7 @@ func TestDesktopEngineGuestWithoutTheActionIsNamed(t *testing.T) {
 	rec.fail = errUnsupportedDesktopMCP
 	tools := pwToolMap(s.microVMTools(run))
 	_, err := tools["desktop_list_apps"].Execute(context.Background(), json.RawMessage(`{}`))
-	if err == nil || !strings.Contains(err.Error(), "newer computer image") {
+	if err == nil || !strings.Contains(err.Error(), "newer Bot computer image") {
 		t.Fatalf("an old guest must be named: %v", err)
 	}
 }

@@ -146,7 +146,7 @@ try {
     await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
     // The big computer window steps back to compact before anything else.
     await page.locator("[data-desktop-frame]").hover();
-    await page.getByRole("button", { name: "Enlarge shared computer" }).click();
+    await page.getByRole("button", { name: "Enlarge Bot computer" }).click();
     await page.locator(".desktop-floating-shell.is-expanded").waitFor();
     await escape(page);
     assert.equal(await page.locator(".desktop-floating-shell.is-expanded").count(), 0, "big computer -> compact");
@@ -170,7 +170,7 @@ try {
     await escape(page);
     assert.deepEqual(await cards(page), ["computer"], "then Members");
     await escape(page);
-    assert.deepEqual(await cards(page), [], "the computer last");
+    assert.deepEqual(await cards(page), [], "the Bot computer last");
     await escape(page);
     assert.deepEqual(errors, []);
     results.push("escape: menu, big computer, cover, sidebar, Artifacts, Members, Computer - one per press");
@@ -282,11 +282,11 @@ try {
     await page.getByRole("button", { name: /^Collapse Artifacts/ }).click();
     await page.getByRole("button", { name: /^Expand Artifacts/ }).click();
     // The computer has no header and no handle: Alt+Down on its screen button moves it, and the screen does not enlarge.
-    assert.equal(await page.locator('[data-card="computer"] .widget-grip').count(), 0, "the computer has no separate grip any more");
+    assert.equal(await page.locator('[data-card="computer"] .widget-grip').count(), 0, "the Bot computer has no separate grip any more");
     await page.locator('[data-card="computer"] .desktop-enlarge').focus();
     await page.keyboard.press("Alt+ArrowDown");
     await settled(page);
-    assert.deepEqual(await visual(page), ["usage", "computer", "artifacts"], "the computer moves by keyboard too");
+    assert.deepEqual(await visual(page), ["usage", "computer", "artifacts"], "the Bot computer moves by keyboard too");
     assert.equal(await page.locator(".desktop-floating-shell.is-expanded").count(), 0, "moving it does not enlarge it");
     // Press and move on the screen drags it (no handle); a plain press is still the click that enlarges.
     {
@@ -428,7 +428,7 @@ try {
       assert.equal(await page.locator('[data-card="usage"].is-collapsed').count(), 0, "a drag does not fold it");
     }
     assert.deepEqual(errors, []);
-    results.push("reorder: grip arrows, Alt+Up/Down, End, the computer's screen (Alt+arrows, press-and-move, hold-then-move, plain press enlarges), header and title drag with live reflow, Escape restores, order kept across conversations and reloads");
+    results.push("reorder: grip arrows, Alt+Up/Down, End, the Bot computer's screen (Alt+arrows, press-and-move, hold-then-move, plain press enlarges), header and title drag with live reflow, Escape restores, order kept across conversations and reloads");
     await context.close();
   }
 

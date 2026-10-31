@@ -81,7 +81,7 @@ func (s *Server) imageReference(ctx context.Context, c Conversation, r Run, ref 
 	var data []byte
 	if strings.HasPrefix(ref, "/") {
 		if s.computer() == nil {
-			return "", fmt.Errorf("%s is a computer path, but this Bot has no computer", ref)
+			return "", fmt.Errorf("%s is a Bot computer path, but this Bot has no computer attached", ref)
 		}
 		var err error
 		if data, err = s.readComputerFile(ctx, r, ref, imageReferenceSourceMax); err != nil {
@@ -90,7 +90,7 @@ func (s *Server) imageReference(ctx context.Context, c Conversation, r Run, ref 
 	} else {
 		_, path, err := s.store.Attachment(ref)
 		if err != nil {
-			return "", fmt.Errorf("reference %s is neither an attachment nor an absolute computer path", ref)
+			return "", fmt.Errorf("reference %s is neither an attachment nor an absolute Bot computer path", ref)
 		}
 		if ok, e := s.store.attachmentAvailableInConversation(ref, c.ID); e != nil || !ok {
 			return "", errors.New("attachment belongs to another conversation")

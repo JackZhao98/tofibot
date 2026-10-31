@@ -59,14 +59,14 @@
         "description": "Providers and the default model."
       },
       "computer": {
-        "name": "Computer",
-        "description": "Shared Linux computer, storage and runtime resources",
-        "description_none": "Options for adding a computer to this server",
-        "description_detached": "Attach a computer to this account"
+        "name": "Bot computer",
+        "description": "Bot computer, storage and runtime resources",
+        "description_none": "Options for adding a Bot computer to this server",
+        "description_detached": "Attach a Bot computer to this account"
       },
       "keys": {
-        "name": "Computer keys",
-        "description": "Environment variables and SSH keys for the computer"
+        "name": "Bot computer keys",
+        "description": "Environment variables and SSH keys for the Bot computer"
       },
       "usage": {
         "name": "Usage",
@@ -380,10 +380,10 @@
     "recheck": "Check again"
   },
   "admin": {
-    "capacity_unavailable": "Computer capacity isn't available. Refresh and try again.",
-    "intro": "Create accounts, choose who is an Admin and set how much computer disk each account gets. Members change their initial password at first sign-in.",
+    "capacity_unavailable": "Bot computer capacity isn't available. Refresh and try again.",
+    "intro": "Create accounts, choose who is an Admin and set how much Bot computer disk each account gets. Members change their initial password at first sign-in.",
     "summary": {
-      "title": "Computer capacity",
+      "title": "Bot computer capacity",
       "total": "Host disk",
       "allocated": "Allocated",
       "free": "Free to assign",
@@ -412,7 +412,7 @@
       "must_change": "Awaiting first sign-in"
     },
     "computer": {
-      "none": "No computer",
+      "none": "No Bot computer",
       "reserved": "Not started",
       "ready": "Ready",
       "disabled": "Stopped"
@@ -436,18 +436,18 @@
         "deleting": "This account is being deleted."
       },
       "computer": {
-        "title": "Computer",
+        "title": "Bot computer",
         "disk": "Disk quota",
-        "disk_help": "Reserved disk for this account's computer. It can be raised, never lowered.",
-        "disk_note": "Changing the quota stops the computer. It starts again the next time the account needs it.",
-        "disk_pending": "A resize hasn't finished; the reserved capacity is held. Save the same size again once the computer cleanup is done.",
-        "saved": "Saved. The computer was stopped and will restart on demand.",
+        "disk_help": "Reserved disk for this account's Bot computer. It can be raised, never lowered.",
+        "disk_note": "Changing the quota stops the Bot computer. It starts again the next time the account needs it.",
+        "disk_pending": "A resize hasn't finished; the reserved capacity is held. Save the same size again once the Bot computer cleanup is done.",
+        "saved": "Saved. The Bot computer was stopped and will restart on demand.",
         "option": "{{size}} GiB",
         "current": "current",
         "no_room": "not enough free space",
         "save_label": "Apply",
-        "save": "Save {{size}} GiB and stop computer",
-        "none": "No computer has been provisioned for this account yet."
+        "save": "Save {{size}} GiB and stop Bot computer",
+        "none": "No Bot computer has been provisioned for this account yet."
       },
       "signin": {
         "title": "Sign-in",
@@ -469,7 +469,7 @@
       "danger": {
         "title": "Danger zone",
         "deactivate_label": "Deactivate account",
-        "deactivate_help": "Signs the account out and stops its computer. Bots, conversations, memory and the disk are kept.",
+        "deactivate_help": "Signs the account out and stops its Bot computer. Bots, conversations, memory and the disk are kept.",
         "deactivate_action": "Deactivate",
         "deactivate_self": "You can't deactivate the account you are signed in with.",
         "deactivate_last": "This is the last active Admin, so it can't be deactivated.",
@@ -478,10 +478,10 @@
         "reactivate_deleting": "Deletion has started and can't be reversed. Retry it above.",
         "reactivate_action": "Reactivate",
         "delete_label": "Delete account",
-        "delete_help": "Permanently removes the account, its Bots, conversations, memory, files and computer, and frees the disk.",
+        "delete_help": "Permanently removes the account, its Bots, conversations, memory, files and Bot computer, and frees the disk.",
         "delete_action": "Delete account…",
         "delete_self": "You can't delete the account you are signed in with.",
-        "delete_legacy": "The original owner account and its computer can't be deleted.",
+        "delete_legacy": "The original owner account and its Bot computer can't be deleted.",
         "delete_running": "Deletion is in progress.",
         "delete_need_deactivate": "Deactivate the account first. Only a deactivated account can be deleted."
       }
@@ -493,10 +493,10 @@
       "item_chats": "All conversations",
       "item_memory": "All memory",
       "item_files": "Files and attachments",
-      "item_computer": "The computer and its disk — {{size}} GiB will be freed",
-      "item_computer_none": "The computer, if one exists",
+      "item_computer": "The Bot computer and its disk — {{size}} GiB will be freed",
+      "item_computer_none": "The Bot computer, if one exists",
       "irreversible": "This can't be undone.",
-      "export_note": "Before anything is removed, an encrypted copy of the Bots, conversations, memory and schedules is saved for 30 days. Credentials and computer files are not included.",
+      "export_note": "Before anything is removed, an encrypted copy of the Bots, conversations, memory and schedules is saved for 30 days. Credentials and Bot computer files are not included.",
       "confirm_label": "Type {{name}} to confirm",
       "confirm_action": "Delete account",
       "progress_title": "Deleting {{name}}",
@@ -507,7 +507,7 @@
       "close": "Close",
       "step": {
         "export": "Saving an encrypted export",
-        "computer": "Removing the computer and freeing its disk",
+        "computer": "Removing the Bot computer and freeing its disk",
         "data": "Removing Bots, conversations and files",
         "sessions": "Removing sign-ins",
         "record": "Removing the account"
@@ -520,8 +520,8 @@
       "error": {
         "generic": "Something failed. Nothing further was removed; retry to continue.",
         "export_failed": "The export couldn't be saved or verified, so nothing was deleted.",
-        "computer_unavailable": "The computer service didn't confirm the removal.",
-        "computer_unverified": "The computer service answered, but the removal couldn't be verified.",
+        "computer_unavailable": "The Bot computer service didn't confirm the removal.",
+        "computer_unverified": "The Bot computer service answered, but the removal couldn't be verified.",
         "data_failed": "The account's data folder couldn't be removed.",
         "sessions_failed": "The account's sign-ins couldn't be removed.",
         "record_failed": "The account record couldn't be removed."
@@ -529,7 +529,7 @@
     },
     "result": {
       "title": "{{name}} was deleted",
-      "body": "The account and its computer are gone. An encrypted copy of the Bots was saved. Send the link and the passphrase separately.",
+      "body": "The account and its Bot computer are gone. An encrypted copy of the Bots was saved. Send the link and the passphrase separately.",
       "link": "Download link",
       "passphrase": "Passphrase",
       "once": "Shown once. Tofi doesn't keep it after you continue.",
@@ -561,14 +561,14 @@
       "last_admin": "The last active Admin can't be changed or removed.",
       "account_deleting": "This account is being deleted.",
       "account_not_deactivated": "Deactivate the account before deleting it.",
-      "legacy_account_not_deletable": "The original owner account and its computer can't be deleted.",
+      "legacy_account_not_deletable": "The original owner account and its Bot computer can't be deleted.",
       "confirmation_mismatch": "The username you typed doesn't match.",
       "delete_in_progress": "This account is already being deleted.",
       "account_delete_failed": "Deletion stopped. Retry to continue.",
       "account_change_rejected": "The account changed or is protected. Refresh and try again.",
-      "quota_not_applied": "The disk size wasn't applied. Growing needs free capacity and a finished computer cleanup; shrinking isn't supported here.",
+      "quota_not_applied": "The disk size wasn't applied. Growing needs free capacity and a finished Bot computer cleanup; shrinking isn't supported here.",
       "quota_unverified": "The new disk size couldn't be verified. Refresh before trying again.",
-      "computer_transition_pending": "The account change was saved, but the computer step needs a retry.",
+      "computer_transition_pending": "The account change was saved, but the Bot computer step needs a retry.",
       "weak_password": "Use at least 12 characters.",
       "password_contains_identity": "The password can't contain the username or email.",
       "common_password": "That password is too common.",
@@ -576,9 +576,9 @@
       "forbidden": "Only an Admin can do that.",
       "export_in_use": "That export is still tied to an account whose deletion hasn't finished.",
       "passphrase_unavailable": "The passphrase isn't available.",
-      "invalid_resources": "Couldn't save the computer size. Check the values and try again.",
-      "resource_configuration_failed": "The computer size couldn't be applied. Try again.",
-      "computer_unavailable": "The computer isn't reachable right now. Try again shortly."
+      "invalid_resources": "Couldn't save the Bot computer size. Check the values and try again.",
+      "resource_configuration_failed": "The Bot computer size couldn't be applied. Try again.",
+      "computer_unavailable": "The Bot computer isn't reachable right now. Try again shortly."
     },
     "intro_no_computer": "Create accounts, choose who is an Admin and manage their sign-in. Members change their initial password at first sign-in."
   },
@@ -646,7 +646,7 @@
   "purge": {
     "failed": "Reset failed. Try again later.",
     "title": "Start over",
-    "description": "Deletes all Bots, conversations, tasks, attachments, paired devices and the shared Linux computer's entire /workspace. The server install, Codex connection and other service settings are kept.",
+    "description": "Deletes all Bots, conversations, tasks, attachments, paired devices and the Bot computer's entire /workspace. The server install, Codex connection and other service settings are kept.",
     "note": "The VM keeps a restorable checkpoint first. The first new account becomes the admin.",
     "confirm_label": "Type PURGE to confirm",
     "purging": "Deleting…",
@@ -657,14 +657,14 @@
   "portability": {
     "title": "Data transfer",
     "description": "Pick account data or a single Bot. Imports are checked first and create copies. Account and Bot bundles share one format and are encrypted by default.",
-    "scope_note": "Supported now: configuration, chat text, memories, scheduled tasks, attachments, and timezone/language/model settings. Attachments are limited to 4 MiB each and 8 MiB in total; missing or oversized files are listed. You can also choose persistent vault environment credentials explicitly; only inactive copies are restored. SSH private keys, sign-ins, plugins, skills, work items, mail drafts, run history, virtual computer files and whole disks aren't supported yet. This is a selected bundle, not a full account backup. Secrets pasted into chats or instructions are still exported with the text.",
+    "scope_note": "Supported now: configuration, chat text, memories, scheduled tasks, attachments, and timezone/language/model settings. Attachments are limited to 4 MiB each and 8 MiB in total; missing or oversized files are listed. You can also choose persistent vault environment credentials explicitly; only inactive copies are restored. SSH private keys, sign-ins, plugins, skills, work items, mail drafts, run history, virtual Bot computer files and whole disks aren't supported yet. This is a selected bundle, not a full account backup. Secrets pasted into chats or instructions are still exported with the text.",
     "security_note": "The export passphrase stays in your browser. Anyone with the bundle and the passphrase can read it. Importing sends the decrypted bundle to the target server, and your selection decides which records are written. The server handles plain text: an account manager who resets a password can take over the account, and the host administrator can read run data. This isn't storage kept secret from the operator. The vault and the database are snapshotted separately.",
     "export": "Export",
     "scope": "Scope",
     "scope_account": "Account data",
     "scope_bot": "Single Bot",
     "bot_archived": "{{name}} (archived)",
-    "environment_note": "Environment credentials are off by default, and each record must be checked individually. Up to 64 records, 64 KiB each, 1 MiB in total. This doesn't include environment variables installed on the computer, SSH, or service sign-ins.",
+    "environment_note": "Environment credentials are off by default, and each record must be checked individually. Up to 64 records, 64 KiB each, 1 MiB in total. This doesn't include environment variables installed on the Bot computer, SSH, or service sign-ins.",
     "environment_load": "Show transferable environment credentials",
     "source_active": "Original vault record",
     "source_inactive": "Inactive recovery copy",
@@ -679,7 +679,7 @@
     "decrypt": "Decrypt and view",
     "source": "Source format: {{format}} · version {{version}}",
     "category_replaces": "{{label}} (replaces current settings when checked)",
-    "import_environment_note": "Environment credentials are off by default. After selecting the category, check each record. Only inactive recovery copies are created; nothing with the same target is overwritten, and no service is connected or installed on the computer.",
+    "import_environment_note": "Environment credentials are off by default. After selecting the category, check each record. Only inactive recovery copies are created; nothing with the same target is overwritten, and no service is connected or installed on the Bot computer.",
     "preview_button": "Preview import",
     "preview_title": "Import preview",
     "attachment_space": "Attachment space: about {{size}} KiB, counted against the target account's file storage quota.",
@@ -702,7 +702,7 @@
     "bytes_other": "{{count}} bytes",
     "inactive": "Inactive",
     "recovery_delete": "Delete recovery copy",
-    "recovery_deleted": "Deleted the inactive recovery copy. Existing credentials and the computer environment are kept.",
+    "recovery_deleted": "Deleted the inactive recovery copy. Existing credentials and the Bot computer environment are kept.",
     "recovery_delete_failed": "Couldn't delete the recovery copy.",
     "exported": "Encrypted bundle downloaded: {{filename}}. Keep the passphrase safe; it can't be recovered.",
     "exported_missing_one": "Encrypted bundle downloaded: {{filename}}. {{count}} attachment wasn't included; see the import preview for why. Keep the passphrase safe; it can't be recovered.",
@@ -970,8 +970,8 @@
         "description": "The last look before a scheduled run finishes."
       },
       "computer": {
-        "title": "Computer",
-        "description": "Automatic sleep for the shared computer."
+        "title": "Bot computer",
+        "description": "Automatic sleep for the Bot computer."
       },
       "widgets": {
         "title": "Side widgets",
@@ -1037,7 +1037,7 @@
       },
       "desktop_idle_seconds": {
         "name": "Desktop idle hibernation",
-        "what": "The shared computer hibernates after this long unused and wakes on the next tool call. Set by the computer service."
+        "what": "The Bot computer hibernates after this long unused and wakes on the next tool call. Set by the Bot computer service."
       },
       "group_triage": {
         "name": "Route unaddressed group messages",
@@ -1061,7 +1061,7 @@
       },
       "browser_engine": {
         "name": "Browser control",
-        "what": "How a Bot works in the computer's browser. Classic reads page text and clicks by visible text. Playwright reads an accessibility tree and acts on element refs, which is more exact on busy pages."
+        "what": "How a Bot works in the Bot computer's browser. Classic reads page text and clicks by visible text. Playwright reads an accessibility tree and acts on element refs, which is more exact on busy pages."
       },
       "desktop_engine": {
         "name": "Desktop control",
@@ -1080,8 +1080,8 @@
         "what": "The first time a Bot hands over a file in a chat, the Artifacts widget opens beside the messages. Later files refresh its list. Off keeps it closed until you open it."
       },
       "widget_computer_auto": {
-        "name": "Open the shared computer when a Bot uses it",
-        "what": "When a Bot takes the shared computer in the chat you are viewing, its widget opens beside the messages. It stays open and folds into a strip 30 seconds after the Bot lets go. Off keeps it closed until you open it."
+        "name": "Open the Bot computer when a Bot uses it",
+        "what": "When a Bot takes the Bot computer in the chat you are viewing, its widget opens beside the messages. It stays open and folds into a strip 30 seconds after the Bot lets go. Off keeps it closed until you open it."
       },
       "settings_change_limit": {
         "name": "Settings changes per run",
@@ -1119,7 +1119,7 @@
     "not_reported": "Not reported",
     "saved": "Saved",
     "loading": "Loading…",
-    "managed": "Managed by the computer service",
+    "managed": "Managed by the Bot computer service",
     "days": "{{count}} d",
     "keep_all": "Keep everything",
     "in_permissions": "Set in Permissions"
@@ -1150,7 +1150,7 @@
       "searxng": "Your own SearXNG instance. Needs its address and JSON output enabled.",
       "firecrawl": "Scrapes pages that block plain requests. Needs an API key.",
       "brightdata": "Unlocks heavily protected sites. Needs an API key and a Web Unlocker zone.",
-      "computer": "Browses on the Bot's computer when the other sources fail. Shown only when a computer exists."
+      "computer": "Browses on the Bot computer when the other sources fail. Shown only when a Bot computer exists."
     },
     "status": {
       "ready": "Ready",

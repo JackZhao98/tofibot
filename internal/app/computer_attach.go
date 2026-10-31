@@ -81,9 +81,9 @@ func (s *Server) serveComputerAttach(w http.ResponseWriter, r *http.Request, op 
 		case errors.Is(err, errComputerAttached):
 			writeJSON(w, 200, s.adminVMSummary())
 		case IsComputerBackendUnavailable(err):
-			writeErr(w, 409, "computer_backend_unavailable", "this server has no computer backend configured")
+			writeErr(w, 409, "computer_backend_unavailable", "this server has no Bot computer backend configured")
 		default:
-			writeErr(w, 502, "computer_attach_failed", "the computer could not be attached")
+			writeErr(w, 502, "computer_attach_failed", "the Bot computer could not be attached")
 		}
 	case "detach":
 		if r.Method != http.MethodPost {
@@ -107,7 +107,7 @@ func (s *Server) serveComputerAttach(w http.ResponseWriter, r *http.Request, op 
 			return
 		}
 		if err != nil {
-			writeErr(w, 500, "computer_detach_failed", "the computer could not be detached")
+			writeErr(w, 500, "computer_detach_failed", "the Bot computer could not be detached")
 			return
 		}
 		writeJSON(w, 200, map[string]any{"computer": s.adminVMSummary(), "detach": report})
@@ -125,7 +125,7 @@ func (s *Server) routeComputerAttach(w http.ResponseWriter, r *http.Request, pat
 	}
 	if s.accountID != "" {
 		// A gateway workspace: only the gateway's admin endpoint may do this.
-		writeErr(w, 403, "unavailable", "computer assignment is an administrator action")
+		writeErr(w, 403, "unavailable", "Bot computer assignment is an administrator action")
 		return true
 	}
 	s.serveComputerAttach(w, r, op)
@@ -243,7 +243,7 @@ func (s *Store) postDetachFiles(conv Conversation, ids []string) {
 	if len(ids) == 0 {
 		return
 	}
-	m, _, err := s.AddMessage(conv.ID, "assistant", conv.BotID, "", "These files were in the computer's outbox. They are saved here because the computer was detached.", "detach-outbox:"+uuid.NewString())
+	m, _, err := s.AddMessage(conv.ID, "assistant", conv.BotID, "", "These files were in the Bot computer's outbox. They are saved here because the Bot computer was detached.", "detach-outbox:"+uuid.NewString())
 	if err != nil {
 		log.Printf("[outbox] detach: the saved files could not be shown in the chat: %v", err)
 		return

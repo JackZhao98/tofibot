@@ -15,7 +15,7 @@ description: Read, build and check XLSX workbooks with real numbers and formulas
 
 - Open the saved file the way the recipient will: formulas calculated, no error cells, the sheets and rows the reply describes, the totals the reply quotes.
 - Every claim in the reply is true of the delivered file. Figures in the reply are read from the saved file, and the reply lists any discrepancy found in the sources and anything left out.
-- Publish only the final workbook; scratch files stay on the computer.
+- Publish only the final workbook; scratch files stay on the Bot computer.
 
 ## Tools
 

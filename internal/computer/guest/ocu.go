@@ -56,7 +56,7 @@ var ocuRequired = map[string][]string{
 // ocuBinary is replaced only by tests.
 var ocuBinary = ocuBinaryDefault
 
-var errOCUMissing = errors.New("desktop accessibility engine is not installed in this computer image; use the classic desktop engine or update the computer image")
+var errOCUMissing = errors.New("desktop accessibility engine is not installed in this Bot computer image; use the classic desktop engine or update the Bot computer image")
 
 type ocuCallArgs struct {
 	Tool      string          `json:"tool"`

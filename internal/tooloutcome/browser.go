@@ -60,10 +60,10 @@ func ClassifyNavigation(errorText, host string) Outcome {
 		what = "The browser rejected the TLS certificate that answered for " + host + " (" + name + "). This is a property of the connection to that host, so loading it again will fail the same way; do not retry it and do not ask to bypass the check. Get the information from another site or source, or explain the blocker."
 	case strings.HasPrefix(name, "ERR_DNS_") || name == "ERR_NAME_NOT_RESOLVED" || name == "ERR_NAME_RESOLUTION_FAILED":
 		code, next = BrowserDNSError, "try_another_source"
-		what = "The host name " + host + " did not resolve from this computer (" + name + "). Check the spelling of the address; if it is right, the name is unreachable from here, so use another source or explain the blocker."
+		what = "The host name " + host + " did not resolve from this Bot computer (" + name + "). Check the spelling of the address; if it is right, the name is unreachable from here, so use another source or explain the blocker."
 	case name == "ERR_CONNECTION_REFUSED":
 		code, next = BrowserConnectionRefused, "try_another_source"
-		what = host + " refused the connection (" + name + "). Nothing is listening at that address and port, or it blocks this computer. Try another source or explain the blocker."
+		what = host + " refused the connection (" + name + "). Nothing is listening at that address and port, or it blocks this Bot computer. Try another source or explain the blocker."
 	case name == "ERR_UNSAFE_PORT" || name == "ERR_UNSAFE_REDIRECT":
 		code, next = BrowserUnsafePort, "repair_arguments"
 		what = "Chrome refuses to load " + host + " on that port (" + name + "). Use the site's standard http or https address without a custom port, or another source."

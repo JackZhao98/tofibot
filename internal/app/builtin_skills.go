@@ -125,14 +125,14 @@ func (s *Server) withBuiltinSkillStaging(r Run, tools []Tool) []Tool {
 						return "", ctx.Err()
 					}
 					log.Printf("skill %s: copy to the computer failed: %v", in.Name, serr)
-					return "The scripts of this skill could not be copied to the computer just now; read_skill_file shows their text, and reading the skill again retries the copy.\n\n" + body, nil
+					return "The scripts of this skill could not be copied to the Bot computer just now; read_skill_file shows their text, and reading the skill again retries the copy.\n\n" + body, nil
 				}
 				staged[in.Name] = dir
 			}
 			if !builtin {
-				return "This skill's files are on the computer in " + dir + ".\n\n" + body, nil
+				return "This skill's files are on the Bot computer in " + dir + ".\n\n" + body, nil
 			}
-			return "This skill's files are on the computer in " + dir + " (scripts under " + dir + "/scripts, run with python3).\n\n" + body, nil
+			return "This skill's files are on the Bot computer in " + dir + " (scripts under " + dir + "/scripts, run with python3).\n\n" + body, nil
 		}
 	}
 	return out
@@ -140,7 +140,7 @@ func (s *Server) withBuiltinSkillStaging(r Run, tools []Tool) []Tool {
 
 // noComputerSkillNote leads the text of a skill whose scripts need a computer
 // when the workspace has none.
-const noComputerSkillNote = "This Bot has no computer, so this skill's scripts, rendering and verification steps cannot run. Do only what needs no computer, deliver the result as text in the chat, and say plainly which steps could not be done.\n\n"
+const noComputerSkillNote = "This Bot has no computer attached, so this skill's scripts, rendering and verification steps cannot run. Do only what needs no Bot computer, deliver the result as text in the chat, and say plainly which steps could not be done.\n\n"
 
 // withNoComputerSkillNote makes read_skill state that a skill with files
 // beyond SKILL.md cannot run its scripts here.

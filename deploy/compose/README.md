@@ -1,9 +1,9 @@
-# TOFI on Docker Compose (no computer)
+# TOFI on Docker Compose (no Bot computer)
 
 Use this when your server has no KVM, or when you want to manage Docker yourself.
 It runs the same pinned release images as the one-command installer.
 It runs the server and the web app. Bots, conversations and local connections
-work. The computer (a virtual desktop for each account) is an optional upgrade.
+work. The Bot computer (a virtual desktop for each account) is an optional upgrade.
 
 This folder does not install the host tool `tofi`. It does not make backups or
 updates for you. If you want those, use the installer (see the main README).
@@ -71,9 +71,9 @@ docker compose up -d
 To roll back, put the old digests back in `.env` and run `up -d` again. If the
 new version changed the data format, restore the backup too.
 
-## Add the computer later
+## Add the Bot computer later
 
-A computer needs a host with `/dev/kvm`. The host tool `tofi` adds it
+A Bot computer needs a host with `/dev/kvm`. The host tool `tofi` adds it
 (`sudo tofi computer add kvm`). The one-command installer sets up that tool, the
 Worker and the AppArmor profile. It manages the whole stack (`/etc/tofi`,
 `/var/lib/tofi`) and does not adopt a Compose volume.

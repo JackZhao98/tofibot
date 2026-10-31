@@ -106,7 +106,7 @@ func (s *Server) handleComputerControl(w http.ResponseWriter, r *http.Request, b
 		}
 		if !locked {
 			log.Printf("[desktop-control] acquire denied bot=%s reason=computer-lease-busy", botID)
-			writeErr(w, 409, "computer_busy", "The computer is busy with another operation.")
+			writeErr(w, 409, "computer_busy", "The Bot computer is busy with another operation.")
 			return
 		}
 		defer lease.Unlock()
@@ -123,7 +123,7 @@ func (s *Server) handleComputerControl(w http.ResponseWriter, r *http.Request, b
 		}
 		if !s.claimComputerOwner(botID, "human-control:"+c.id) {
 			log.Printf("[desktop-control] acquire denied bot=%s reason=owner-conflict", botID)
-			writeErr(w, 409, "computer_busy", "The computer is in use.")
+			writeErr(w, 409, "computer_busy", "The Bot computer is in use.")
 			return
 		}
 		c.mu.Lock()

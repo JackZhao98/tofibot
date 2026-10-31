@@ -1,5 +1,5 @@
 // Computer-decoupling S2 (docs/design/computer-decoupling.md section 13): the computer's configuration shows in Settings
-// only while a computer is attached, "What is on this computer" and the wipe list say what is lost, and a file whose
+// only while a computer is attached, "What is on this Bot computer" and the wipe list say what is lost, and a file whose
 // bytes are on a detached computer says so. Mounts the real SettingsShell + SettingsPages and the real attachment card
 // and viewer in a Vite fixture with every /api/* call stubbed (synthetic data only). Needs PLAYWRIGHT_MODULE.
 //   NO_COMPUTER_SHOTS=<dir>  also saves screenshots at 1440x900 and 390x844.
@@ -131,26 +131,26 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   {
     requested.length = 0;
     const {page, close} = await open({computer: "none", tab: "general", view: "page"});
-    assert.ok(!(await railTabs(page)).includes("keys"), "Keys is hidden without a computer");
+    assert.ok(!(await railTabs(page)).includes("keys"), "Keys is hidden without a Bot computer");
     await goTab(page, "computer");
     await page.getByText(en.none.title).waitFor();
-    assert.equal(await page.getByText(en.contents.title).count(), 0, "no 'What is on this computer' without a computer");
+    assert.equal(await page.getByText(en.contents.title).count(), 0, "no 'What is on this Bot computer' without a Bot computer");
     await goTab(page, "advanced");
     await page.getByText("PURGE").first().waitFor();
-    assert.equal(await page.locator(".computer-loss").count(), 0, "no wipe list without a computer");
+    assert.equal(await page.locator(".computer-loss").count(), 0, "no wipe list without a Bot computer");
     await page.waitForTimeout(700);
-    assert.deepEqual(apiOfComputer(), [], `no /api/computer request without a computer: ${apiOfComputer().join(", ")}`);
+    assert.deepEqual(apiOfComputer(), [], `no /api/computer request without a Bot computer: ${apiOfComputer().join(", ")}`);
     if (shots) { await goTab(page, "computer"); await page.waitForTimeout(500); await page.screenshot({path: join(shots, "no-computer-1440.png")}); }
     await close();
     // A saved link to the Keys page lands on Computer, still without a request.
     const deep = await open({computer: "none", tab: "keys", view: "page"});
     await deep.page.waitForFunction(() => document.querySelector(`.settings-tabs [aria-current="page"]`)?.dataset.tab === "computer");
     await deep.page.waitForTimeout(500);
-    assert.deepEqual(apiOfComputer(), [], "a saved Keys link makes no /api/computer request without a computer");
+    assert.deepEqual(apiOfComputer(), [], "a saved Keys link makes no /api/computer request without a Bot computer");
     await deep.close();
     const phone = await open({computer: "none", tab: "computer", view: "page"}, {width: 390, height: 844});
     await phone.page.getByText(en.none.title).waitFor();
-    assert.deepEqual(apiOfComputer(), [], "phone width: no /api/computer request without a computer");
+    assert.deepEqual(apiOfComputer(), [], "phone width: no /api/computer request without a Bot computer");
     if (shots) await phone.page.screenshot({path: join(shots, "no-computer-390.png")});
     assert.equal(await phone.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "no horizontal scroll at 390px");
     await phone.close();
@@ -161,17 +161,17 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   {
     requested.length = 0;
     const {page, close} = await open({computer: "kvm", tab: "computer", view: "page"});
-    assert.ok((await railTabs(page)).includes("keys"), "Keys is shown with a computer");
+    assert.ok((await railTabs(page)).includes("keys"), "Keys is shown with a Bot computer");
     await page.getByText(en.contents.title).waitFor();
     const section = page.locator(".computer-contents");
     for (const label of [en.contents.browser.name, en.contents.tools.name, en.contents.files.name, en.contents.config.name]) await section.getByText(label, {exact: true}).waitFor();
     const text = (await section.innerText()).replace(/\s+/g, " ");
-    assert.match(text, /lost/i, "the section says these are lost when the computer is wiped");
+    assert.match(text, /lost/i, "the section says these are lost when the Bot computer is wiped");
     assert.match(text, /signs the Bot out of every one/, "browser sign-ins: what a wipe does");
     assert.match(text, /installs them again when it needs them/, "installed tools: what a wipe does");
     assert.match(text, /2 files are still being copied to the server/, "work files: pending copies");
     assert.match(text, /3 saved/, "environment and keys: count");
-    assert.equal(await section.locator(".computer-kept").count(), 3, "three rows say they stay on the computer");
+    assert.equal(await section.locator(".computer-kept").count(), 3, "three rows say they stay on the Bot computer");
     assert.ok(requested.includes("GET /api/computer/contents"), "the list is read from /api/computer/contents");
     await section.getByRole("button", {name: en.contents.config.manage}).click();
     await page.waitForFunction(() => document.querySelector(`.settings-tabs [aria-current="page"]`)?.dataset.tab === "keys");
@@ -186,7 +186,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.match(lossText, /Work files/);
     assert.match(lossText, /2 environment variables: WEB_API_TOKEN, DEPLOY_REGION/);
     assert.match(lossText, /1 SSH key: id_work/);
-    assert.match(lossText, /2 files exist only on the computer and have not been copied to the server/);
+    assert.match(lossText, /2 files exist only on the Bot computer and have not been copied to the server/);
     // Entry animation uses the tokens (--m-base = 220 ms); reduced motion has none.
     const duration = await loss.evaluate(node => getComputedStyle(node).animationDuration);
     assert.equal(duration, "0.22s", "the wipe list rises in over --m-base");
@@ -251,7 +251,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (shots) { await page.waitForTimeout(500); await page.screenshot({path: join(shots, "file-viewer-detached-1440.png")}); }
     await viewer.getByRole("button", {name: chat.attachment.problem.open_computer}).click();
     await page.waitForFunction(() => !document.querySelector("dialog.file-preview")?.open);
-    assert.equal(await page.evaluate(() => window.__computerSettings), 1, "the link asks the app to open the computer settings once");
+    assert.equal(await page.evaluate(() => window.__computerSettings), 1, "the link asks the app to open the Bot computer settings once");
     // A PDF is drawn by the browser, which hides the status: the viewer reads one byte first.
     await card("chart.pdf").getByRole("button", {name: /Preview chart\.pdf/}).click();
     await viewer.locator(".fp-body .attachment-notice").getByText(detachedText).waitFor();
@@ -274,7 +274,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await localized.page.locator(".attachment-notice").getByText(words.attachment.problem.file_on_detached_computer).waitFor();
       await localized.close();
     }
-    console.log("PASS files: detached and missing say so in the card and the viewer (text and PDF), the link opens the computer settings, good files download, 390px, 7 languages");
+    console.log("PASS files: detached and missing say so in the card and the viewer (text and PDF), the link opens the Bot computer settings, good files download, 390px, 7 languages");
   }
 
   assert.deepEqual(unexpected, [], `unexpected requests or page errors: ${unexpected.join("; ")}`);

@@ -58,7 +58,7 @@ try {
   // 3. Guest still restoring (info says ready, control plane answers 503 computer_restarting for ~5s).
   {
     const t0 = Date.now();
-    const { context, page } = await open({ state: { info: info("ready"), requests: [] }, capture: (l, json) => Date.now() - t0 < 5000 ? json({ error: { code: "computer_restarting", message: "The computer is restarting" } }, 503) : image(l, json) });
+    const { context, page } = await open({ state: { info: info("ready"), requests: [] }, capture: (l, json) => Date.now() - t0 < 5000 ? json({ error: { code: "computer_restarting", message: "The Bot computer is restarting" } }, 503) : image(l, json) });
     await page.waitForTimeout(3500);
     assert.equal(await page.getByText(UNREACHABLE).count(), 0, "a restoring guest is waiting, not unreachable");
     await frame(page).waitFor({ state: "attached", timeout: 15000 });
@@ -79,7 +79,7 @@ try {
     const { context, page } = await open({ state, capture: async (l, json) => { if (l.captures === 1) { state.info = info("resuming"); await new Promise(resolve => setTimeout(resolve, 2500)); state.info = info("ready"); return json({ error: { code: "computer_restarting", message: "restarting" } }, 503); } return image(l, json); } });
     await frame(page).waitFor({ state: "attached", timeout: 15000 });
     assert.equal(await page.getByText(UNREACHABLE).count(), 0);
-    results.push("reconnects after the computer flaps");
+    results.push("reconnects after the Bot computer flaps");
     await context.close();
   }
   // 6. Passive viewer (a Bot run holds the computer, no desktop): a named state, not an endless "connecting".

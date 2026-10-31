@@ -83,11 +83,11 @@ try {
     const { context, page, errors } = await openWorkspace(browser, origin, state);
     state.ownership = botOwner("run-other", DM2);
     await page.waitForTimeout(2200);
-    assert.deepEqual(await cards(page), [], "a Bot using the computer for another conversation does not open it here");
+    assert.deepEqual(await cards(page), [], "a Bot using the Bot computer for another conversation does not open it here");
     state.ownership = botOwner("run-1");
     await poll(page, () => document.querySelector('.widget-column [data-card="computer"]'));
     await live(page);
-    assert.equal(await page.locator('[data-card="computer"] .context-card-header').count(), 0, "the computer is the bare monitor: no header row");
+    assert.equal(await page.locator('[data-card="computer"] .context-card-header').count(), 0, "the Bot computer is the bare monitor: no header row");
     assert.equal(await page.locator('[data-card="computer"] .desktop-chin').count(), 1);
     assert.equal(await page.evaluate(() => document.activeElement?.closest("[data-card]") === null), true, "no focus taken");
     if (shots) await page.screenshot({ path: `${shots}/computer-auto-bot-1440.png` });
@@ -141,7 +141,7 @@ try {
     const { context, page } = await openWorkspace(browser, origin, state);
     state.ownership = botOwner();
     await page.waitForTimeout(3000);
-    assert.deepEqual(await cards(page), [], "Automatic behavior off: the computer stays closed");
+    assert.deepEqual(await cards(page), [], "Automatic behavior off: the Bot computer stays closed");
     await context.close();
     results.push("computer: the setting turns it off");
   }
@@ -157,7 +157,7 @@ try {
     await poll(page, () => document.querySelector('.widget-column [data-card="computer"]'));
     await poll(page, () => document.querySelector('[data-card="artifacts"].is-collapsed'), null, 6000);
     assert.deepEqual(await cards(page), ["computer", "members", "artifacts"]);
-    assert.equal(await page.locator('[data-card="computer"]').evaluate(node => node.classList.contains("is-collapsed")), false, "the computer never folds for space");
+    assert.equal(await page.locator('[data-card="computer"]').evaluate(node => node.classList.contains("is-collapsed")), false, "the Bot computer never folds for space");
     if (shots) await page.screenshot({ path: `${shots}/space-rule-700.png` });
     // The person unfolds Artifacts: it is not folded again in this conversation.
     await page.getByRole("button", { name: /^Expand Artifacts/ }).click();

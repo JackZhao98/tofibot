@@ -14,4 +14,4 @@ Open this page: [Where to look](/settings/connections)
 **Usual cause.** The page was opened over plain HTTP.
 
 **Steps.**
-1. Open TOFI over HTTPS, or sign in from the shared computer or the desktop app.
+1. Open TOFI over HTTPS, or sign in from the Bot computer or the desktop app.

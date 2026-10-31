@@ -245,9 +245,9 @@
       "configure": "Configurer les sources"
     },
     "computer": {
-      "title": "Ordinateur",
-      "shared": "Tous les Bots utilisent l'ordinateur de l'espace de travail.",
-      "none": "Pas encore d'ordinateur. Ajoutez-en un dans les réglages pour que les Bots puissent naviguer et exécuter du code.",
+      "title": "Ordinateur Bot",
+      "shared": "Tous les Bots utilisent l'ordinateur Bot de l'espace de travail.",
+      "none": "Pas encore d'ordinateur Bot. Ajoutez-en un dans les réglages pour que les Bots puissent naviguer et exécuter du code.",
       "open": "Ouvrir les réglages"
     },
     "builtin": {

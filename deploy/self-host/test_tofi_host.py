@@ -1245,13 +1245,13 @@ class StatusTests(ComputerCase):
         self.assertIn('tofi %s · healthy\n' % OLD, out)
         self.assertIn('  Version      %s · %s available · sudo tofi update\n' % (OLD, NEW), out)
         self.assertNotIn('ghcr.io', out)
-        self.assertIn('  Computers    4 · 1 running · 1 hibernated · 1 stopped · 1 unresponsive\n', out)
+        self.assertIn('  Bot computers 4 · 1 running · 1 hibernated · 1 stopped · 1 unresponsive\n', out)
         self.assertIn('  ACCOUNT   STATE         GUEST   UPGRADE  MEMORY   LAST WAKE\n', out)
         self.assertIn('  3f2a9c1e  running       v0.1.0  -        612 MiB  restore 2.1s\n', out)
         self.assertIn('  9b77d0aa  hibernated    v0.0.9  pending  -        -\n', out)
         self.assertIn('  c0ffee00  stopped       -       -        -        -\n', out)
         self.assertIn('  d00dfeed  unresponsive  v0.1.0  -        612 MiB  -\n', out)
-        self.assertIn('1 computer is on an older Guest than v0.1.0', out)
+        self.assertIn('1 Bot computer is on an older Guest than v0.1.0', out)
         self.assertIn('Switch now: sudo tofi computers upgrade --all', out)
         self.assertIn('  Open         ', out)
         self.assertNotIn('\033', out)
@@ -1267,7 +1267,7 @@ class StatusTests(ComputerCase):
         self.assertIn('NOT healthy', out)
         self.assertIn("  Version      %s · couldn't check for updates\n" % OLD, out)
         self.assertNotIn('Cannot download', out)
-        self.assertIn('Computers    unknown (The Worker is not running', out)
+        self.assertIn('Bot computers unknown (The Worker is not running', out)
 
     def test_latest_release_is_cached_and_kept_offline(self):
         first = tofi_host.latest_release()
@@ -1374,7 +1374,7 @@ class UpdateCheckTests(ComputerCase):
             ['Worker', 'image', 'sha256:111111111111', 'sha256:222222222222', 'changes'],
             ['Guest', 'release', OLD, NEW, 'changes'],
             ['Data', 'schema', 'tofi-account-data-v1', 'tofi-account-data-v1', 'compatible']])
-        self.assertIn('Computers    5 total: 3 running, 1 hibernated', out)
+        self.assertIn('Bot computers 5 total: 3 running, 1 hibernated', out)
         self.assertIn('e1e1e1e1 is busy (run_lease): its current task is interrupted.', out)
         self.assertIn('The Guest changes to %s' % NEW, out)
         self.assertIn('Apply with: sudo tofi update\n', out)
@@ -1417,7 +1417,7 @@ class UpdateCheckTests(ComputerCase):
         tofi_host.worker_pid.side_effect = tofi_host.HostError('The Worker is not running.')
         code, out = self.main('update', '--check')
         self.assertEqual(code, 10)
-        self.assertIn('Computers    unknown (The Worker is not running.)', out)
+        self.assertIn('Bot computers unknown (The Worker is not running.)', out)
 
 
 class ComputersUpgradeTests(ComputerCase):
@@ -1432,7 +1432,7 @@ class ComputersUpgradeTests(ComputerCase):
         self.assertEqual([row['state'] for row in json.loads(out)['computers']],
                          ['running', 'hibernated', 'stopped', 'unresponsive'])
         self.worker.rows = []
-        self.assertIn('No account computers yet.', self.main('computers')[1])
+        self.assertIn('No Bot computers yet.', self.main('computers')[1])
 
     def test_idle_and_hibernated_computers_switch_and_busy_ones_are_deferred(self):
         self.installed()
@@ -1474,11 +1474,11 @@ class ComputersUpgradeTests(ComputerCase):
         self.worker.computer('hibernated', running=False, snapshot=OLDER)
         code, out = self.main('computers', 'upgrade', '--account', '9b77d0aa')
         self.assertEqual((code, self.worker.upgrades), (0, [ACCOUNTS['hibernated']]))
-        for account, message in (('9b77', 'No computer matches'), ('nope-0000', 'No computer matches')):
+        for account, message in (('9b77', 'No Bot computer matches'), ('nope-0000', 'No Bot computer matches')):
             with self.assertRaisesRegex(tofi_host.HostError, message):
                 tofi_host.upgrade_computers(account=account)
         self.worker.rows.append(dict(self.worker.rows[0], account_id='3f2a9c1e-ffff-4000-8000-00000000000f'))
-        with self.assertRaisesRegex(tofi_host.HostError, 'several computers'):
+        with self.assertRaisesRegex(tofi_host.HostError, 'several Bot computers'):
             tofi_host.upgrade_computers(account='3f2a9c1e')
 
     def test_needs_a_selection_an_installed_phase_and_the_lock(self):
@@ -1741,7 +1741,7 @@ class RenderStatusTests(unittest.TestCase):
         self.assertIn('  Admin        not created yet · sudo tofi setup-secret\n', text)
         self.assertIn('  Version      v0.1.0-rc.12 · no stable release yet\n', text)
         self.assertIn('  Services     app healthy · worker running\n', text)
-        self.assertIn('  Computers    none yet\n', text)
+        self.assertIn('  Bot computers none yet\n', text)
         self.assertTrue(text.endswith('\n  tofi update · tofi logs · tofi computers · tofi doctor\n'))
         for noise in ('App ', 'Worker', 'Guest', 'ghcr.io', 'github.com', 'HTTP Error', STATUS_FP):
             self.assertNotIn(noise, text)
@@ -1808,13 +1808,13 @@ class RenderStatusTests(unittest.TestCase):
                  'memory_rss_mib': None, 'last_wake': None}]
         with mock.patch.object(tofi_host, 'describe_wake', return_value='-'):
             text = self.render(status_result(computers=rows))
-        self.assertIn('  Computers    2 · 1 running · 1 hibernated\n', text)
+        self.assertIn('  Bot computers 2 · 1 running · 1 hibernated\n', text)
         self.assertIn('  ACCOUNT   STATE', text)
         self.assertIn('  aaaaaaaa  running', text)
 
     def test_computers_error(self):
         text = self.render(status_result(computers_error='The Worker is not running'))
-        self.assertIn('  Computers    unknown (The Worker is not running)\n', text)
+        self.assertIn('  Bot computers unknown (The Worker is not running)\n', text)
 
     def test_not_healthy_and_phase(self):
         text = self.render(status_result(phase='failed', healthy=False,
@@ -2007,14 +2007,14 @@ class ComputerBackendTests(HostCase):
         out = sys.stdout.getvalue()
         self.assertLess(out.index('This machine'), out.index('KVM device'))
         self.assertIn('TOFI     installed v0.1.0', out)
-        self.assertRegex(out, r'ok +Computer backend +kvm \(Firecracker\)')
+        self.assertRegex(out, r'ok +Bot computer backend +kvm \(Firecracker\)')
         env = tofi_host.read_env()
         env['TOFI_COMPUTER_BACKEND'] = 'gvisor'
         tofi_host.write_env(env)
         sys.stdout.truncate(0)
         sys.stdout.seek(0)
         self.assertFalse(tofi_host.doctor())
-        self.assertRegex(sys.stdout.getvalue(), r'FAIL +Computer backend +gvisor is not supported yet')
+        self.assertRegex(sys.stdout.getvalue(), r'FAIL +Bot computer backend +gvisor is not supported yet')
 
 
 class NoComputerCase(ComputerCase):
@@ -2218,7 +2218,7 @@ class NoComputerLifecycleTests(NoComputerCase):
         self.assertFalse(self.P.worker.exists())
         self.assertEqual(tofi_host.read_env()['TOFI_WORKER_IMAGE'], '')
         out = sys.stdout.getvalue()
-        self.assertIn('Computer    none · add one later: sudo tofi computer add kvm', out)
+        self.assertIn('Bot computer none · add one later: sudo tofi computer add kvm', out)
 
     def test_pull_images_skips_the_worker_without_a_computer(self):
         calls = []
@@ -2255,7 +2255,7 @@ class NoComputerLifecycleTests(NoComputerCase):
         self.assertNotIn('Worker image', out)
         self.assertNotIn('Guest release', out)
         self.assertIn('App image', out)
-        self.assertIn('Computer     none', out)
+        self.assertIn('Bot computer none', out)
         self.calls.assert_not_called()
         code, out = self.main('update', '--check', '--json')
         report = json.loads(out)
@@ -2295,7 +2295,7 @@ class NoComputerLifecycleTests(NoComputerCase):
         self.assertEqual(tofi_host.account_disks(), [])
         finding = tofi_host.audit_computers(tofi_host.read_env())
         self.assertEqual(finding['level'], tofi_host.AUDIT_PASS)
-        self.assertIn('no computer is installed', finding['detail'])
+        self.assertIn('no Bot computer is installed', finding['detail'])
 
 
 class NoComputerDiagnosticsTests(NoComputerCase):
@@ -2309,8 +2309,8 @@ class NoComputerDiagnosticsTests(NoComputerCase):
         self.assertNotIn('computers_error', result)
         self.calls.assert_not_called()
         text = tofi_host.render_status(result, None, verbose=True)
-        self.assertIn('Computer     none · server and web only · sudo tofi computer add kvm adds one', text)
-        self.assertNotIn('Computers', text)
+        self.assertIn('Bot computer none · server and web only · sudo tofi computer add kvm adds one', text)
+        self.assertNotIn('Bot computers', text)
         self.assertNotIn('Worker', text)
         self.assertNotIn('Guest', text)
         self.assertIn('tofi computer add kvm', text.splitlines()[-1])
@@ -2350,8 +2350,8 @@ class NoComputerDiagnosticsTests(NoComputerCase):
                 mock.patch.object(tofi_host, 'project_containers', return_value=[]):
             result = tofi_host.status(details=True)
         text = tofi_host.render_status(result, None)
-        self.assertIn('Computers', text)
-        self.assertNotIn('Computer     none', text)
+        self.assertIn('Bot computers', text)
+        self.assertNotIn('Bot computer none', text)
 
     def test_doctor_does_not_flag_missing_kvm_when_the_backend_is_none(self):
         self.installed_none()
@@ -2362,12 +2362,12 @@ class NoComputerDiagnosticsTests(NoComputerCase):
             self.addCleanup(patcher.stop)
         tofi_host.doctor()
         out = sys.stdout.getvalue()
-        self.assertRegex(out, r'ok +Computer backend +none \(server and web only')
+        self.assertRegex(out, r'ok +Bot computer backend +none \(server and web only')
         for absent in ('KVM device', 'cgroup v2', 'AppArmor profile', 'Worker config', 'Guest release', 'Memory'):
             self.assertNotIn(absent, out.split('This machine', 1)[1].split('\n\n', 1)[-1])
         self.assertNotRegex(out, r'FAIL +(KVM|AppArmor|Worker|Guest)')
         self.assertRegex(out, r'ok +Images')
-        self.assertIn('KVM', out.split('This machine', 1)[1].split('Computer backend')[0], 'the card still shows it')
+        self.assertIn('KVM', out.split('This machine', 1)[1].split('Bot computer backend')[0], 'the card still shows it')
 
     def test_doctor_with_a_computer_still_fails_without_kvm(self):
         self.installed()
@@ -2383,7 +2383,7 @@ class NoComputerDiagnosticsTests(NoComputerCase):
         self.installed_none()
         code, out = self.main('computers')
         self.assertEqual(code, 0)
-        self.assertIn('no computer', out)
+        self.assertIn('no Bot computer', out)
         self.assertIn('sudo tofi computer add kvm', out)
         code, out = self.main('computers', '--json')
         self.assertEqual(json.loads(out), {'computer': 'none', 'computers': []})
@@ -2438,7 +2438,7 @@ class ComputerAddRemoveTests(NoComputerCase):
         self.assertTrue(self.start_services.call_args.kwargs['first_install'])
         self.assertEqual(self.phase(), 'installed')
         self.assertEqual((self.P.data / 'tofi.db').read_bytes(), DATA)
-        self.assertIn('Computer added', sys.stdout.getvalue())
+        self.assertIn('Bot computer added', sys.stdout.getvalue())
 
     def test_add_attaches_live_when_the_running_app_can(self):
         self.installed_none()
@@ -2468,7 +2468,7 @@ class ComputerAddRemoveTests(NoComputerCase):
         self.host_control.side_effect = None
         self.host_control.return_value = {'attached': 1}
         self.start_worker.side_effect = tofi_host.HostError('worker not ready')
-        with self.assertRaisesRegex(tofi_host.HostError, 'Adding the computer failed'):
+        with self.assertRaisesRegex(tofi_host.HostError, 'Adding the Bot computer failed'):
             tofi_host.computer_add('kvm')
         self.assertEqual(tofi_host.read_env()['TOFI_COMPUTER_BACKEND'], 'none')
         self.host_control.assert_not_called()
@@ -2484,7 +2484,7 @@ class ComputerAddRemoveTests(NoComputerCase):
         self.fetch_guest.assert_not_called()
         self.start_services.assert_not_called()
         self.assertEqual(self.P.env_file.read_bytes(), before)
-        self.assertIn('already has a computer', sys.stdout.getvalue())
+        self.assertIn('already has a Bot computer', sys.stdout.getvalue())
 
     def test_add_finishes_a_computer_whose_worker_is_not_running(self):
         self.installed()   # backend kvm already, Worker container absent
@@ -2499,7 +2499,7 @@ class ComputerAddRemoveTests(NoComputerCase):
         self.P.dev_kvm = self.root / 'dev/kvm'
         before = self.P.env_file.read_bytes()
         with mock.patch.object(tofi_host, 'require_root'), \
-                self.assertRaisesRegex(tofi_host.HostError, r'cannot run a computer, and nothing was changed.*/dev/kvm'):
+                self.assertRaisesRegex(tofi_host.HostError, r'cannot run a Bot computer, and nothing was changed.*/dev/kvm'):
             tofi_host.computer_add('kvm')
         self.assertEqual(self.P.env_file.read_bytes(), before)
         self.assertFalse(self.P.worker_json.exists())
@@ -2523,7 +2523,7 @@ class ComputerAddRemoveTests(NoComputerCase):
             tofi_host.computer_add_preflight()
         self.write(self.P.meminfo, 'MemTotal: 8000000 kB\n')
         with mock.patch.object(tofi_host, 'free_disk_bytes', return_value=10 * tofi_host.GIB), \
-                self.assertRaisesRegex(tofi_host.HostError, 'first computer needs 16 GiB'):
+                self.assertRaisesRegex(tofi_host.HostError, 'first Bot computer needs 16 GiB'):
             tofi_host.computer_add_preflight()
         with mock.patch.object(tofi_host.os, 'cpu_count', return_value=1), \
                 self.assertRaisesRegex(tofi_host.HostError, 'at least 2 vCPUs'):
@@ -2533,7 +2533,7 @@ class ComputerAddRemoveTests(NoComputerCase):
         self.installed_none()
         before = self.P.env_file.read_bytes()
         self.start_services.side_effect = [tofi_host.HostError('Worker did not become ready'), None]
-        with self.assertRaisesRegex(tofi_host.HostError, 'Adding the computer failed.*Worker did not become ready'):
+        with self.assertRaisesRegex(tofi_host.HostError, 'Adding the Bot computer failed.*Worker did not become ready'):
             tofi_host.computer_add('kvm')
         self.assertEqual(self.P.env_file.read_bytes(), before)
         self.assertEqual(tofi_host.read_env()['TOFI_COMPUTER_BACKEND'], 'none')
@@ -2542,7 +2542,7 @@ class ComputerAddRemoveTests(NoComputerCase):
         self.assertIn(['stop', 'worker'], [c[-2:] for c in self.compose_calls()])
 
     def test_add_refuses_unknown_backends_and_a_pending_transaction(self):
-        with self.assertRaisesRegex(tofi_host.HostError, 'Only kvm'):
+        with self.assertRaisesRegex(tofi_host.HostError, 'Only the built-in VM'):
             tofi_host.computer_add('e2b')
         self.installed_none(phase='upgrade-failed')
         with self.assertRaisesRegex(tofi_host.HostError, 'resume'):
@@ -2594,7 +2594,7 @@ class ComputerAddRemoveTests(NoComputerCase):
         self.host_control.side_effect = None
         self.host_control.return_value = {'detached': 1, 'outbox_synced': 0}
         with mock.patch.object(tofi_host, 'stop_worker', side_effect=tofi_host.HostError('docker is stuck')):
-            with self.assertRaisesRegex(tofi_host.HostError, 'Removing the computer failed'):
+            with self.assertRaisesRegex(tofi_host.HostError, 'Removing the Bot computer failed'):
                 tofi_host.computer_remove()
         self.assertEqual(tofi_host.read_env()['TOFI_COMPUTER_BACKEND'], 'kvm')
         self.start_worker.assert_called_once()
@@ -2627,7 +2627,7 @@ class ComputerAddRemoveTests(NoComputerCase):
         self.installed()
         before = self.P.env_file.read_bytes()
         self.start_services.side_effect = [tofi_host.HostError('app unhealthy'), None]
-        with self.assertRaisesRegex(tofi_host.HostError, 'Removing the computer failed'):
+        with self.assertRaisesRegex(tofi_host.HostError, 'Removing the Bot computer failed'):
             tofi_host.computer_remove()
         self.assertEqual(self.P.env_file.read_bytes(), before)
 
@@ -2643,7 +2643,7 @@ class ComputerAddRemoveTests(NoComputerCase):
         (self.P.worker / 'state' / 'acct').mkdir(parents=True)
         (self.P.worker / 'state' / 'acct' / 'workspace.ext4').write_bytes(b'disk')
         self.guest_copies.return_value = (3, [])
-        with self.assertRaisesRegex(tofi_host.HostError, r'3 files exist only on the computer.*Nothing was changed'):
+        with self.assertRaisesRegex(tofi_host.HostError, r'3 files exist only on the Bot computer.*Nothing was changed'):
             tofi_host.computer_remove(purge=True, yes=True)
         self.assertEqual(tofi_host.read_env()['TOFI_COMPUTER_BACKEND'], 'kvm', 'a refusal changes nothing')
         self.assertEqual((self.P.worker / 'state' / 'acct' / 'workspace.ext4').read_bytes(), b'disk')
@@ -2658,7 +2658,7 @@ class ComputerAddRemoveTests(NoComputerCase):
     def test_purge_refuses_when_the_pending_count_is_unknown(self):
         self.installed()
         self.guest_copies.return_value = (0, ['/var/lib/tofi/accounts/x/tofi.db'])
-        with self.assertRaisesRegex(tofi_host.HostError, r'Cannot tell whether files exist only on the computer'):
+        with self.assertRaisesRegex(tofi_host.HostError, r'Cannot tell whether files exist only on the Bot computer'):
             tofi_host.computer_remove(purge=True, yes=True)
         self.assertTrue(self.P.worker_json.exists())
 
@@ -2711,7 +2711,7 @@ class ComputerAddRemoveTests(NoComputerCase):
         with mock.patch('sys.stderr', new_callable=io.StringIO) as err:
             result = tofi_host.computer_remove()
         self.assertEqual(result, {'removed': True, 'computer': 'none', 'purged': False})
-        self.assertIn('1 file exists only on this computer', err.getvalue())
+        self.assertIn('1 file exists only on this Bot computer', err.getvalue())
         self.assertEqual((self.P.worker / 'state' / 'acct' / 'workspace.ext4').read_bytes(), b'disk')
 
     def test_cli_wiring_of_discard_unsaved_files(self):

@@ -64,7 +64,7 @@ try {
     await record(page);
     await button.click();
     await shell(page, "is-small").waitFor();
-    await page.getByText("Waking the computer").waitFor();
+    await page.getByText("Waking the Bot computer").waitFor();
     await page.waitForTimeout(1600);
     for (const value of await samples(page)) within(value, "small loading");
     const box = await shell(page, "is-small").boundingBox();
@@ -87,9 +87,9 @@ try {
     await shot(page, "small-loading-light-1440");
     // Hibernation states are named, not shown as a generic boot.
     state.info = info("resuming");
-    await page.getByText(/Waking the computer/).waitFor({ timeout: 6000 });
+    await page.getByText(/Waking the Bot computer/).waitFor({ timeout: 6000 });
     state.info = info("hibernated");
-    await page.getByText(/Waking the computer/).waitFor({ timeout: 6000 });
+    await page.getByText(/Waking the Bot computer/).waitFor({ timeout: 6000 });
     assert.deepEqual(errors, []);
     results.push("small loading");
     await context.close();
@@ -111,7 +111,7 @@ try {
     await button.click();
     await shell(page, "is-small").waitFor();
     await page.getByText("Waking · Restoring session").waitFor({ timeout: 6000 });
-    assert.equal(state.wakes, 1, "opening the small window wakes the computer once");
+    assert.equal(state.wakes, 1, "opening the small window wakes the Bot computer once");
     assert.equal(await page.locator(".computer-preparing").count(), 0, "no banner while the window shows the waking state");
     await page.locator("[data-desktop-frame].desktop-live-screen").waitFor({ timeout: 15000 });
     assert.equal(state.wakes, 1, "a single wake request in total");
@@ -159,20 +159,20 @@ try {
     await shell(page, "is-small").waitFor();
     assert.equal(await shell(page, "is-expanded").count(), 0, "Escape shrinks big to small");
     await page.locator("[data-desktop-frame]").hover();
-    await page.getByRole("button", { name: "Enlarge shared computer" }).click();
+    await page.getByRole("button", { name: "Enlarge Bot computer" }).click();
     await shell(page, "is-expanded").waitFor();
-    await page.getByRole("button", { name: "Shrink shared computer" }).click();
+    await page.getByRole("button", { name: "Shrink Bot computer" }).click();
     await shell(page, "is-small").waitFor();
     // Close from big removes the window entirely; the header button always reopens small.
-    await page.getByRole("button", { name: "Enlarge shared computer" }).click();
+    await page.getByRole("button", { name: "Enlarge Bot computer" }).click();
     await shell(page, "is-expanded").waitFor();
-    await page.getByRole("button", { name: "Close shared computer" }).click();
+    await page.getByRole("button", { name: "Close Bot computer" }).click();
     await page.waitForFunction(() => !document.querySelector(".desktop-floating-shell"));
     await button.click();
     await shell(page, "is-small").waitFor();
     assert.equal(await shell(page, "is-expanded").count(), 0, "every open from the header button starts small");
     await page.locator("[data-desktop-frame]").hover();
-    await page.getByRole("button", { name: "Close shared computer" }).click();
+    await page.getByRole("button", { name: "Close Bot computer" }).click();
     await page.waitForFunction(() => !document.querySelector(".desktop-floating-shell"));
     await page.reload();
     await page.locator(".computer-button").first().click();
@@ -255,10 +255,10 @@ try {
     for (const value of await samples(page)) within(value, "mobile loading");
     assert.equal(await page.getByRole("button", { name: /Enlarge|Shrink/ }).count(), 0, "the sheet has no small form to shrink to");
     assert.ok(await page.getByRole("switch").isVisible(), "control switch stays reachable on the sheet");
-    assert.ok(await page.getByRole("button", { name: "Close shared computer" }).isVisible());
+    assert.ok(await page.getByRole("button", { name: "Close Bot computer" }).isVisible());
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "no horizontal overflow");
     await shot(page, "sheet-loading-light-390");
-    await page.getByRole("button", { name: "Close shared computer" }).click();
+    await page.getByRole("button", { name: "Close Bot computer" }).click();
     await page.waitForFunction(() => !document.querySelector(".desktop-floating-shell"));
     assert.deepEqual(errors, []);
     results.push("mobile sheet");
@@ -274,7 +274,7 @@ try {
     await shell(page, "is-small").waitFor();
     const alert = page.locator("[data-desktop-frame] [role=alert]");
     await alert.waitFor({ timeout: 15000 });
-    assert.match(await alert.innerText(), /Can't reach the desktop right now|Computer connection unavailable/);
+    assert.match(await alert.innerText(), /Can't reach the desktop right now|Bot computer connection unavailable/);
     const retry = page.locator("[data-desktop-frame]").getByRole("button", { name: "Retry" });
     assert.ok(await retry.isVisible(), "Retry sits inside the frame");
     for (const value of await samples(page)) within(value, "failure");
@@ -304,8 +304,8 @@ try {
     await page.waitForFunction(() => document.querySelector("[data-computer-toggle]") !== null);
     await page.waitForTimeout(1500);
     assert.equal(await button.getAttribute("data-computer-state"), "off");
-    assert.equal(await button.getAttribute("aria-label"), "Shared computer, off");
-    assert.equal(await button.getAttribute("title"), "Shared computer, off");
+    assert.equal(await button.getAttribute("aria-label"), "Bot computer, off");
+    assert.equal(await button.getAttribute("title"), "Bot computer, off");
     assert.equal(await button.evaluate(element => element.classList.contains("is-on")), false, "neutral when asleep");
     const neutral = await bg();
     // The computer comes up (nothing opens), then a Bot starts driving it.
@@ -313,29 +313,29 @@ try {
     // A settled (hibernated) computer is re-read every 30 s; the page re-reads at once when it becomes visible again.
     await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
     await page.waitForFunction(() => document.querySelector("[data-computer-toggle]")?.getAttribute("data-computer-state") === "on", null, { timeout: 8000 });
-    assert.equal(await button.getAttribute("aria-label"), "Shared computer, on");
+    assert.equal(await button.getAttribute("aria-label"), "Bot computer, on");
     await page.waitForTimeout(400); // past the colour transition
     const green = await bg();
-    assert.notEqual(green, neutral, "the button changes colour when the computer is on");
+    assert.notEqual(green, neutral, "the button changes colour when the Bot computer is on");
     const [r, g, b, a] = await page.evaluate(css => { const c = document.createElement("canvas").getContext("2d", { willReadFrequently: true }); c.clearRect(0, 0, 1, 1); c.fillStyle = css; c.fillRect(0, 0, 1, 1); return Array.from(c.getImageData(0, 0, 1, 1).data); }, green);
     assert.ok(a > 0 && g > r && g > b, `powered-on background ${green} (rgba ${r},${g},${b},${a}) is green`);
     state.ownership = owner;
     await page.waitForFunction(() => document.querySelector("[data-computer-toggle]")?.getAttribute("data-computer-state") === "driven", null, { timeout: 8000 });
     assert.match(await button.getAttribute("aria-label"), /Mochi is working in it/);
-    assert.equal(await page.locator(".computer-driven-dot").count(), 1, "a small dot marks a Bot driving the computer");
+    assert.equal(await page.locator(".computer-driven-dot").count(), 1, "a small dot marks a Bot driving the Bot computer");
     assert.equal(await page.locator(".computer-driven-dot").evaluate(element => getComputedStyle(element).animationName), "none", "the dot does not animate");
     // A Bot taking the desktop in this conversation opens the Computer widget by itself (Automatic behavior, on by default): docked in the
     // chat column as the bare monitor, with frames, and no pill.
     await shell(page, "is-small").waitFor({ timeout: 6000 });
     assert.equal(await shell(page, "is-docked").count(), 1, "the widget is the docked monitor");
-    assert.equal(await page.locator('[data-card="computer"] .context-card-header').count(), 0, "no card header: the computer is the bare monitor");
+    assert.equal(await page.locator('[data-card="computer"] .context-card-header').count(), 0, "no card header: the Bot computer is the bare monitor");
     await page.locator("[data-desktop-frame].desktop-live-screen").waitFor({ timeout: 6000 });
-    assert.equal(await page.getByText(/is using the computer/).count(), 0, "no 'using the computer' pill");
+    assert.equal(await page.getByText(/is using the Bot computer/).count(), 0, "no 'using the Bot computer' pill");
     assert.equal(await page.locator(".desktop-mini-status, .desktop-presence-launcher").count(), 0);
     await shot(page, "quiet-open-driven-light-1440");
     // Back to neutral when the computer sleeps.
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "Close shared computer" }).click().catch(() => undefined);
+    await page.getByRole("button", { name: "Close Bot computer" }).click().catch(() => undefined);
     state.ownership = { owner: null, waiting: [] };
     state.info = info("hibernated");
     await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
@@ -378,7 +378,7 @@ try {
     assert.equal(await page.locator(".composer textarea, .composer [contenteditable]").first().isVisible(), true, "composer input stays visible");
     await shot(page, `quiet-placement-${width}`);
     // Closing the window gives the width back.
-    await page.getByRole("button", { name: "Close shared computer" }).click({ trial: false }).catch(async () => { await page.locator("[data-desktop-frame]").hover(); await page.getByRole("button", { name: "Close shared computer" }).click(); });
+    await page.getByRole("button", { name: "Close Bot computer" }).click({ trial: false }).catch(async () => { await page.locator("[data-desktop-frame]").hover(); await page.getByRole("button", { name: "Close Bot computer" }).click(); });
     await page.waitForFunction(() => !document.querySelector(".desktop-floating-shell"));
     assert.equal(await page.evaluate(() => document.documentElement.hasAttribute("data-desktop-reserve")), false, "padding removed after close");
     assert.deepEqual(errors, []);

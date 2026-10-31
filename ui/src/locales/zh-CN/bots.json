@@ -237,9 +237,9 @@
       "configure": "配置来源"
     },
     "computer": {
-      "title": "电脑",
-      "shared": "所有 Bot 共用工作区的电脑。",
-      "none": "还没有电脑。在设置里添加后,Bot 才能浏览网页和运行代码。",
+      "title": "Bot 电脑",
+      "shared": "所有 Bot 共用 Bot 电脑。",
+      "none": "还没有 Bot 电脑。在设置里添加后,Bot 才能浏览网页和运行代码。",
       "open": "打开设置"
     },
     "builtin": {

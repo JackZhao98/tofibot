@@ -154,7 +154,7 @@
     "endpoint_changed_oauth": "Die Server-URL hat sich geändert. Hinterlegen Sie vor dem Speichern die OAuth-Einstellungen für die neue URL.",
     "invalid_auth_url": "Ungültige Autorisierungs-URL",
     "metadata_changed_secret": "Die Metadaten-URL der Autorisierung hat sich geändert. Geben Sie das gespeicherte Client-Secret vor dem Speichern neu ein oder löschen Sie es.",
-    "needs_bot": "Erstellen Sie zuerst einen Bot, um über den geteilten Computer zu autorisieren.",
+    "needs_bot": "Erstellen Sie zuerst einen Bot, um über den Bot-Computer zu autorisieren.",
     "oauth_discovery_failed": "Autorisierungsdaten konnten nicht gelesen oder kein Client registriert werden. Prüfen Sie die Server-URL und versuchen Sie es erneut.",
     "oauth_start_failed": "Autorisierung konnte nicht gestartet werden. Prüfen Sie die Server-URL und versuchen Sie es erneut.",
     "offline": "Server nicht erreichbar. Versuchen Sie es erneut.",
@@ -203,7 +203,7 @@
     "project_hint": "Wählen Sie in Google Cloud dasselbe Projekt wie für den OAuth-Client. Solange die App im Testmodus ist, fügen Sie Ihr Konto unter Audience als Testnutzer hinzu.",
     "preview_hint": "Melden Sie das Cloud-Projekt im Google Workspace Developer Preview Program an (developers.google.com/workspace/preview); ohne Anmeldung wird jeder Tool-Aufruf abgelehnt, obwohl die Anmeldung klappt.",
     "agentic_hint": "Aktivieren Sie „Use this client for an AI-powered agent“ (Google Auth Platform → Clients). Ab 2026-11-11 lehnt Workspace MCP Clients ohne diese Markierung ab; ab 2026-11-12 ist sie dauerhaft, ein unmarkierter Client muss ersetzt werden.",
-    "redirect_hint": "Fügen Sie unter Google Auth Platform → Clients in Ihrer Webanwendung jede benötigte URL einzeln bei Authorized redirect URIs hinzu (nicht bei JavaScript origins). Beide Zugänge können diese Zugangsdaten teilen. Adresse, Port und Pfad müssen exakt übereinstimmen. Die dynamische HTTP-Weiterleitung des geteilten Computers passt nicht zu dieser festen Einrichtung; nutzen Sie besser HTTPS oder die App.",
+    "redirect_hint": "Fügen Sie unter Google Auth Platform → Clients in Ihrer Webanwendung jede benötigte URL einzeln bei Authorized redirect URIs hinzu (nicht bei JavaScript origins). Beide Zugänge können diese Zugangsdaten teilen. Adresse, Port und Pfad müssen exakt übereinstimmen. Die dynamische HTTP-Weiterleitung des Bot-Computers passt nicht zu dieser festen Einrichtung; nutzen Sie besser HTTPS oder die App.",
     "test_users": "Testnutzer einrichten",
     "workspace": {
       "title": "Erweitert: Google Workspace MCP (Developer Preview)",
@@ -335,14 +335,14 @@
     "title": "Bei {{title}} anmelden"
   },
   "route": {
-    "desktop": "Melden Sie sich im Systembrowser an; danach geht es automatisch zurück in diese App. Der geteilte Computer wird nicht genutzt.",
-    "desktop_outdated": "Diese App-Version kann noch nicht lokal autorisieren. Aktualisieren Sie die App. Es wird nicht automatisch auf den geteilten Computer ausgewichen.",
-    "http_blocked": "Eine direkte HTTP-Verbindung kann die Weiterleitung nicht sicher empfangen, und kein geteilter Computer ist eingerichtet. Nutzen Sie HTTPS oder die Tofi-App.",
+    "desktop": "Melden Sie sich im Systembrowser an; danach geht es automatisch zurück in diese App. Der Bot-Computer wird nicht genutzt.",
+    "desktop_outdated": "Diese App-Version kann noch nicht lokal autorisieren. Aktualisieren Sie die App. Es wird nicht automatisch auf den Bot-Computer ausgewichen.",
+    "http_blocked": "Eine direkte HTTP-Verbindung kann die Weiterleitung nicht sicher empfangen, und kein Bot-Computer ist eingerichtet. Nutzen Sie HTTPS oder die Tofi-App.",
     "loading": "Autorisierungseinstellungen werden geladen…",
     "loopback_paste": "Dieser Dienst akzeptiert nur eine Weiterleitung an 127.0.0.1. Melden Sie sich in Ihrem Browser an und fügen Sie die Zieladresse der Weiterleitung hier ein.",
     "public_origin_missing": "Setzen Sie auf dem Server TOFI_PUBLIC_ORIGIN (die öffentliche HTTPS-Adresse) und versuchen Sie es erneut.",
-    "vm": "Sie sind per HTTP direkt verbunden, daher wird nur hier über den geteilten Computer autorisiert. Der Dienst muss eine lokale Weiterleitung unterstützen. Empfohlen: HTTPS oder die Tofi-App.",
-    "web": "Melden Sie sich im Browser dieses Geräts an; die Weiterleitung geht an Tofis HTTPS-Server. Der geteilte Computer wird nicht genutzt."
+    "vm": "Sie sind per HTTP direkt verbunden, daher wird nur hier über den Bot-Computer autorisiert. Der Dienst muss eine lokale Weiterleitung unterstützen. Empfohlen: HTTPS oder die Tofi-App.",
+    "web": "Melden Sie sich im Browser dieses Geräts an; die Weiterleitung geht an Tofis HTTPS-Server. Der Bot-Computer wird nicht genutzt."
   },
   "skillCatalog": {
     "document_delivery": {
@@ -454,8 +454,8 @@
     },
     "footer": "Nach Abschluss geht es automatisch zurück. Bildschirmaktionen anderer Bots warten in der Warteschlange.",
     "reconnecting": "Verbindung unterbrochen. Neuer Versuch…",
-    "screen_alt": "Geteilter Computer",
-    "subtitle": "Autorisierung auf dem geteilten Computer abschließen"
+    "screen_alt": "Bot-Computer",
+    "subtitle": "Autorisierung auf dem Bot-Computer abschließen"
   },
   "tools": {
     "changed": "Geändert",

@@ -41,7 +41,7 @@ func TestMailGuideNamesConnectionFirstOrder(t *testing.T) {
 
 // The computer tools state that the computer is the fallback.
 func TestComputerIsTheFallbackAfterConnectedTools(t *testing.T) {
-	for _, want := range []string{"no connected tool fits", "not connected or authorized", "asks for the computer"} {
+	for _, want := range []string{"no connected tool fits", "not connected or authorized", "asks for it"} {
 		if !strings.Contains(computerFallbackNote, want) {
 			t.Fatalf("fallback note lacks %q: %s", want, computerFallbackNote)
 		}
