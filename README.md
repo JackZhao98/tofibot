@@ -7,6 +7,14 @@ Bots keep their identity, conversations, scheduled work and tool connections in
 a persistent workspace. The current release and what each version changed are
 on [GitHub Releases](https://github.com/JackZhao98/tofibot/releases).
 
+## See it work
+
+Recorded on a live TOFI install. Watch the [95-second demo](https://tofibot.com/media/tofi-demo.mp4).
+
+| Ask a Bot | A Bot uses its computer | Bots hand work to Bots |
+|---|---|---|
+| <img src="https://tofibot.com/media/tofi-ask.gif" alt="A Bot answers a question with sources" width="100%"> | <img src="https://tofibot.com/media/tofi-computer.gif" alt="A Bot opens a web page in its computer browser" width="100%"> | <img src="https://tofibot.com/media/tofi-handoff.gif" alt="In a group, one Bot picks and the other writes a Markdown file" width="100%"> |
+
 - Direct and group conversations, streaming replies, attachments and generated files.
 - Persistent queues, scheduled work, cancellation and retry handling.
 - Bot configuration, memory and collaboration across conversations.
