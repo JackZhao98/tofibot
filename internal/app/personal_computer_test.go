@@ -1,16 +1,23 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/JackZhao98/tofibot/internal/computer"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
 // A synthetic Mac: it speaks only the device routes, with its own token.
@@ -621,5 +628,40 @@ func TestOwnerActionCanNameABot(t *testing.T) {
 	}
 	if w := mac.call("POST", "/api/computers/"+mac.id+"/actions", `{"action":"files.list","args":{},"bot_id":"no-such-bot"}`, ""); w.Code != 404 {
 		t.Fatalf("unknown bot: %d", w.Code)
+	}
+}
+
+// A step the Mac claimed and never answered is reported by name as possibly
+// executed, not as a bare context error; its late result is refused and logged.
+func TestPersonalTimeoutAfterClaimIsUnknownAndLateResultRefused(t *testing.T) {
+	s := computerTestServer(t)
+	mac := enrollMac(t, s, "Laptop", "sandbox.exec")
+	run := activeComputerRun(t, s)
+	provider := s.slotFor(mac.id).provider
+
+	var logs bytes.Buffer
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := provider.ActionWithin(context.Background(), computer.Action{BotID: run.BotID, RunID: run.ID, Name: "shell.exec", Args: json.RawMessage(`{"command":"sleep 100"}`)}, 400*time.Millisecond)
+		done <- err
+	}()
+	job := mac.poll(5)
+	if job == nil {
+		t.Fatal("no job")
+	}
+	err := <-done
+	o, ok := tooloutcome.FromError(err)
+	if !ok || o.Certainty != "unknown" || o.Code == "" || errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("want a named outcome with unknown certainty, got %v (%+v)", err, o)
+	}
+	body, _ := json.Marshal(map[string]any{"result": json.RawMessage(`{}`)})
+	if w := mac.call("POST", "/api/computers/"+mac.id+"/jobs/"+job.ID+"/result", string(body), mac.token); w.Code == 200 {
+		t.Fatal("a result after the timeout was accepted")
+	}
+	if !strings.Contains(logs.String(), "late result") {
+		t.Fatalf("late result not logged: %q", logs.String())
 	}
 }

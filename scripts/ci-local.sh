@@ -4,7 +4,8 @@
 #
 #   scripts/ci-local.sh            same as --changed
 #   scripts/ci-local.sh --changed  fast static checks always; Go tests, UI suites and the rest only for what changed
-#   scripts/ci-local.sh --all      every step of every ci.yml job (go, ui, ui-guards, ui-catalog, python, shell, compose)
+#   scripts/ci-local.sh --all      every ci.yml job (go, ui, ui-guards, ui-catalog, python, playwright-mcp, shell, runner-root, compose);
+#                                  steps that need Linux or docker print a clear "not run here" line (CI runs them)
 #   --base <ref>                   what "changed" is measured against (default: merge-base with origin/main, else main)
 #   --only <job>[,<job>]           run just these jobs      --skip <job>[,<job>]   leave these out
 #   --list                         print the job names and exit
@@ -32,7 +33,7 @@ while [ $# -gt 0 ]; do
 done
 
 # ---- the job table: name, what it is, how ci.yml runs it
-JOBS="go-gofmt go-build go-vet go-test ui-typecheck ui-i18n ui-motion-tokens ui-build ui-layers ui-dialogs ui-overlays ui-shell-budget ui-catalog python shell compose"
+JOBS="go-gofmt go-build go-vet go-test ui-typecheck ui-i18n ui-motion-tokens ui-build ui-layers ui-dialogs ui-overlays ui-shell-budget ui-catalog python playwright-mcp shell runner-root compose"
 if [ "$mode" = list ]; then echo "$JOBS" | tr ' ' '\n'; exit 0; fi
 
 export PLAYWRIGHT_MODULE="${PLAYWRIGHT_MODULE:-/Users/jackzhao/Developer/sentiosurge/tofibot-web/node_modules/playwright/index.mjs}"
@@ -146,7 +147,33 @@ job ui-overlays  always guards test:overlays
 job ui-shell-budget always guards test:shell-budget
 job ui-catalog   "$UISRC" npm_ui test:catalog
 job python       "$PY"  bash -c "python3 -m unittest discover -s deploy/microvm -p 'test_*.py' && python3 -m unittest discover -s deploy/self-host -p 'test_*.py' && python3 -m unittest discover -s scripts/release -p 'test_*.py' && python3 -m unittest discover -s scripts/browser-bench -p 'test_*.py' && python3 -m unittest discover -s internal/extensions/builtin_skills/tests -p 'test_*.py'"
+# Mirrors ci.yml playwright-mcp. The pinned package is installed once into deploy/microvm/playwright-mcp/node_modules
+# (about 19 MB, no browser download) and reused. The guest relay tests are linux-only files: elsewhere the guest package
+# is cross-vetted for linux and the tests are left to CI.
+playwright_mcp() {
+  local dir=deploy/microvm/playwright-mcp
+  if [ ! -f "$dir/node_modules/@playwright/mcp/cli.js" ]; then
+    echo "installing the pinned @playwright/mcp (no browser download)"
+    (cd "$dir" && npm ci --omit=dev --ignore-scripts --no-audit --no-fund) || return 1
+  fi
+  (cd "$dir" && node check-tools.mjs) || return 1
+  if [ "$(uname -s)" = Linux ]; then
+    go test ./internal/computer/guest -run 'Playwright' -count=1
+  else
+    echo "ci-local: guest relay tests (playwright_linux_test.go) need Linux and were NOT run here; CI runs them. Cross-vetting for linux instead."
+    GOOS=linux go vet ./internal/computer/guest
+  fi
+}
+runner_root() {
+  if ! docker info >/dev/null 2>&1; then
+    echo "ci-local: docker is not available; the runner-root tests (root on Linux) were NOT run here; CI runs them."
+    return 0
+  fi
+  docker run --rm -v "$PWD:/src" -w /src golang:1.25.11 go test ./internal/mcprunner -count=1 -v -run 'Root|RealUID'
+}
+job playwright-mcp '^(deploy/microvm/playwright-mcp/|internal/computer/guest/playwright)' playwright_mcp
 job shell        "$SH"  bash -c "bash -n install.sh deploy/self-host/bin/tofi scripts/release/make_bundle.sh scripts/check-gofmt.sh scripts/check-release-notes.sh && shellcheck install.sh deploy/self-host/bin/tofi scripts/release/make_bundle.sh scripts/check-gofmt.sh scripts/check-release-notes.sh && scripts/check-release-notes.sh --all"
+job runner-root  '^internal/mcprunner/' runner_root
 job compose      "$CO"  bash -c "
   docker compose -f deploy/self-host/compose.yaml --env-file deploy/self-host/testdata/tofi.env --profile tls config --quiet &&
   docker compose -f deploy/self-host/compose.yaml --env-file deploy/self-host/testdata/tofi-direct.env config --quiet &&

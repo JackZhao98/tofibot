@@ -651,6 +651,9 @@ func (s *Store) completeComputerJob(deviceID, token, jobID string, result json.R
 		return errors.New("job not found")
 	}
 	if status != "running" {
+		if status == "cancelled" || status == "expired" {
+			log.Printf("[computer] late result for job %s on %s refused: job was %s", jobID, deviceID, status)
+		}
 		return errors.New("job is not active")
 	}
 	t := now()

@@ -21,28 +21,36 @@ import (
 const (
 	playwrightStartTimeout = 40 * time.Second
 	playwrightCallTimeout  = 100 * time.Second
-	playwrightIdle         = 10 * time.Minute
 	playwrightLineMax      = 8 << 20
 )
 
-// playwrightSession is one running @playwright/mcp process, bound to the Chrome
-// DevTools port it was started for. A new Chrome (new port) gets a new session.
+// playwrightIdle is how long a Bot's server may sit unused before its process
+// is stopped (a fixed constant on purpose: not a setting). The next call starts
+// a new one. A var only so a test can shorten it.
+var playwrightIdle = 10 * time.Minute
+
+// playwrightSession is one running @playwright/mcp process, bound to the Bot
+// dir (its environment) and the Chrome DevTools port it was started for. A new
+// Chrome (new port) gets a new session.
 type playwrightSession struct {
-	port    int
-	cmd     *exec.Cmd
-	stdin   io.WriteCloser
-	mu      sync.Mutex // one request at a time
-	replies chan json.RawMessage
-	dead    chan struct{}
-	nextID  int
-	last    time.Time
-	log     *limitedBuffer
+	key    string
+	port   int
+	cmd    *exec.Cmd
+	stdin  io.WriteCloser
+	mu     sync.Mutex // one request at a time
+	dead   chan struct{}
+	nextID int
+	log    *limitedBuffer
+	idle   *time.Timer
+
+	pendMu  sync.Mutex
+	pending map[int]chan json.RawMessage // replies routed by JSON-RPC id
 }
 
-// playwrightHost holds the session; it lives on the Service.
+// playwrightHost holds one session per Bot dir; it lives on the Service.
 type playwrightHost struct {
-	mu      sync.Mutex
-	session *playwrightSession
+	mu       sync.Mutex
+	sessions map[string]*playwrightSession
 }
 
 func (s *Service) browserMCP(ctx context.Context, botID string, in playwrightCallArgs) (any, error) {
@@ -80,23 +88,27 @@ func (s *Service) playwrightFor(ctx context.Context, botDir string, port int) (*
 	h := &s.playwright
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if cur := h.session; cur != nil {
+	if cur := h.sessions[botDir]; cur != nil {
 		select {
 		case <-cur.dead:
 		default:
-			if cur.port == port && time.Since(cur.last) < playwrightIdle {
-				cur.last = time.Now()
+			if cur.port == port && cur.idle.Reset(playwrightIdle) {
 				return cur, nil
 			}
 		}
 		cur.stop()
-		h.session = nil
+		delete(h.sessions, botDir)
 	}
 	sess, err := startPlaywright(ctx, s.root, botDir, port)
 	if err != nil {
 		return nil, err
 	}
-	h.session = sess
+	sess.key = botDir
+	sess.idle = time.AfterFunc(playwrightIdle, func() { s.dropPlaywright(sess) })
+	if h.sessions == nil {
+		h.sessions = map[string]*playwrightSession{}
+	}
+	h.sessions[botDir] = sess
 	return sess, nil
 }
 
@@ -105,19 +117,19 @@ func (s *Service) dropPlaywright(sess *playwrightSession) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	sess.stop()
-	if h.session == sess {
-		h.session = nil
+	if h.sessions[sess.key] == sess {
+		delete(h.sessions, sess.key)
 	}
 }
 
-// stopPlaywright ends the session when the desktop goes away.
+// stopPlaywright ends every session when the desktop goes away.
 func (s *Service) stopPlaywright() {
 	h := &s.playwright
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if h.session != nil {
-		h.session.stop()
-		h.session = nil
+	for k, sess := range h.sessions {
+		sess.stop()
+		delete(h.sessions, k)
 	}
 }
 
@@ -157,16 +169,13 @@ func startPlaywright(ctx context.Context, root, botDir string, port int) (*playw
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
-	sess := &playwrightSession{port: port, cmd: cmd, stdin: stdin, replies: make(chan json.RawMessage, 8), dead: make(chan struct{}), last: time.Now(), log: logBuf}
+	sess := &playwrightSession{port: port, cmd: cmd, stdin: stdin, pending: map[int]chan json.RawMessage{}, dead: make(chan struct{}), log: logBuf}
 	go func() {
 		reader := bufio.NewReaderSize(stdout, 64*1024)
 		for {
 			line, err := readLimitedLine(reader, playwrightLineMax)
 			if len(line) > 0 {
-				select {
-				case sess.replies <- json.RawMessage(line):
-				default: // a server notification nobody waits for
-				}
+				sess.route(line)
 			}
 			if err != nil {
 				close(sess.dead)
@@ -220,6 +229,26 @@ func readLimitedLine(r *bufio.Reader, max int) ([]byte, error) {
 	}
 }
 
+// route hands a reply to the call waiting for its id. A line without an id (a
+// server notification) or for a call that gave up is dropped; neither can ever
+// take the place of a reply, because each call has its own one-slot channel.
+func (p *playwrightSession) route(line []byte) {
+	var head struct {
+		ID     *int   `json:"id"`
+		Method string `json:"method"`
+	}
+	if json.Unmarshal(line, &head) != nil || head.ID == nil || head.Method != "" {
+		return
+	}
+	p.pendMu.Lock()
+	ch := p.pending[*head.ID]
+	delete(p.pending, *head.ID)
+	p.pendMu.Unlock()
+	if ch != nil {
+		ch <- json.RawMessage(append([]byte(nil), line...)) // buffered 1, sent once
+	}
+}
+
 func (p *playwrightSession) notify(method string) error {
 	b, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "method": method})
 	_, err := p.stdin.Write(append(b, '\n'))
@@ -234,6 +263,15 @@ func (p *playwrightSession) call(ctx context.Context, method string, params any)
 	p.nextID++
 	id := p.nextID
 	b, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": id, "method": method, "params": params})
+	reply := make(chan json.RawMessage, 1)
+	p.pendMu.Lock()
+	p.pending[id] = reply
+	p.pendMu.Unlock()
+	defer func() {
+		p.pendMu.Lock()
+		delete(p.pending, id)
+		p.pendMu.Unlock()
+	}()
 	if _, err := p.stdin.Write(append(b, '\n')); err != nil {
 		return nil, fmt.Errorf("browser engine is not running: %w", err)
 	}
@@ -247,7 +285,7 @@ func (p *playwrightSession) call(ctx context.Context, method string, params any)
 			return nil, errors.New("browser engine did not answer in time")
 		case <-p.dead:
 			return nil, errors.New("browser engine stopped" + tailNote(p.log))
-		case line := <-p.replies:
+		case line := <-reply:
 			var msg struct {
 				ID     *int            `json:"id"`
 				Result json.RawMessage `json:"result"`
@@ -255,8 +293,8 @@ func (p *playwrightSession) call(ctx context.Context, method string, params any)
 					Message string `json:"message"`
 				} `json:"error"`
 			}
-			if json.Unmarshal(line, &msg) != nil || msg.ID == nil || *msg.ID != id {
-				continue
+			if json.Unmarshal(line, &msg) != nil {
+				return nil, errors.New("browser engine sent an unreadable reply")
 			}
 			if msg.Error != nil {
 				return nil, fmt.Errorf("browser engine: %s", msg.Error.Message)

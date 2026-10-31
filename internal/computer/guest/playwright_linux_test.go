@@ -26,6 +26,8 @@ rl.on('line', line => {
   if (m.method === 'tools/call') {
     const t = m.params.name;
     if (t === 'browser_crash') process.exit(3);
+    if (t === 'browser_noisy') for (let i = 0; i < 3000; i++) console.log(JSON.stringify({jsonrpc: '2.0', method: 'notifications/message', params: {i}}));
+    if (t === 'browser_env') return console.log(JSON.stringify({jsonrpc: '2.0', id: m.id, result: {content: [{type: 'text', text: process.env.HOME || ''}], isError: false}}));
     const text = t + ' ' + JSON.stringify(m.params.arguments) + ' at ' + endpoint + ' in ' + process.cwd();
     return console.log(JSON.stringify({jsonrpc: '2.0', id: m.id, result: {content: [{type: 'text', text}], isError: t === 'browser_fail'}}));
   }
@@ -123,5 +125,77 @@ func TestPlaywrightMissingPackageIsNamed(t *testing.T) {
 	_, err := s.browserMCP(context.Background(), "11111111-1111-1111-1111-111111111111", call("browser_snapshot", `{}`))
 	if err == nil || !strings.Contains(err.Error(), "not installed") {
 		t.Fatalf("want a clear missing-package error, got %v", err)
+	}
+}
+
+func TestPlaywrightNotificationsNeverDisplaceAReply(t *testing.T) {
+	fakePlaywrightDir(t)
+	root := t.TempDir()
+	bot := filepath.Join(root, "bots", "b")
+	if err := os.MkdirAll(bot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	s := &Service{root: root}
+	defer s.stopPlaywright()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	sess, err := s.playwrightFor(ctx, bot, 41003)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 5; i++ {
+		raw, err := sess.call(ctx, "tools/call", map[string]any{"name": "browser_noisy", "arguments": map[string]any{}})
+		if err != nil || len(raw) == 0 {
+			t.Fatalf("round %d: reply lost behind notifications: %v", i, err)
+		}
+	}
+}
+
+func TestPlaywrightSessionsAreKeyedPerBotAndStopWhenIdle(t *testing.T) {
+	fakePlaywrightDir(t)
+	root := t.TempDir()
+	botA := filepath.Join(root, "bots", "a")
+	botB := filepath.Join(root, "bots", "b")
+	for _, b := range []string{botA, botB} {
+		if err := os.MkdirAll(b, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	old := playwrightIdle
+	playwrightIdle = 400 * time.Millisecond
+	defer func() { playwrightIdle = old }()
+	s := &Service{root: root}
+	defer s.stopPlaywright()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	a, err := s.playwrightFor(ctx, botA, 41004)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := s.playwrightFor(ctx, botB, 41004)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a == b {
+		t.Fatal("two Bots shared one server and one environment")
+	}
+	if again, _ := s.playwrightFor(ctx, botA, 41004); again != a {
+		t.Fatal("a Bot's own session must be reused")
+	}
+	select {
+	case <-a.dead:
+	case <-time.After(10 * time.Second):
+		t.Fatal("an idle server was never stopped")
+	}
+	select {
+	case <-b.dead:
+	case <-time.After(10 * time.Second):
+		t.Fatal("an idle server was never stopped")
+	}
+	s.playwright.mu.Lock()
+	n := len(s.playwright.sessions)
+	s.playwright.mu.Unlock()
+	if n != 0 {
+		t.Fatalf("stopped sessions stay listed: %d", n)
 	}
 }
