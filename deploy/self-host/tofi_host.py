@@ -6295,10 +6295,15 @@ def audit_computers(env):
                              'sudo tofi update --version %s  # fetches the Guest again' % server)
     older = sorted(version for version in guest_references() if version != guest)
     if older:
-        return audit_finding(AUDIT_WARN, 'versions.computers', title,
-                             'Guest %s is installed (server %s) but hibernated computers hold snapshots from %s'
-                             % (guest, server, ', '.join(older)),
-                             'sudo tofi computers upgrade --all')
+        # Expected after an update: a hibernated computer stays hibernated until
+        # it is used. A snapshot from another Guest is never restored (its
+        # identity names the release); the next use cold boots on the
+        # installed Guest. Upgrading now only frees the old snapshots' disk.
+        return audit_finding(AUDIT_PASS, 'versions.computers', title,
+                             'Guest %s installed with server %s; hibernated computers with snapshots from %s '
+                             'start on Guest %s at their next use (an older snapshot is never restored). '
+                             'To free their disk now: sudo tofi computers upgrade --all'
+                             % (guest, server, ', '.join(older), guest))
     return audit_finding(AUDIT_PASS, 'versions.computers', title,
                          'Guest %s installed with server %s; no hibernated computer is on an older Guest '
                          '(running computers: sudo tofi computers)' % (guest, server))

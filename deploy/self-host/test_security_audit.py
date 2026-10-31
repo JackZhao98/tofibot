@@ -381,14 +381,16 @@ class VersionTests(AuditCase):
         with mock.patch.object(tofi_host, 'fetch_manifest', side_effect=HostError('offline')):
             self.assertEqual(self.level('versions.tofi', online=True), 'WARN')
 
-    def test_hibernated_computer_on_an_older_guest_warns(self):
+    def test_hibernated_computer_on_an_older_guest_passes_and_names_the_next_start(self):
+        # After an update hibernated computers keep their old snapshot until
+        # used; it is never restored, so this is not a finding.
         directory = self.P.worker_state / 'acct-1' / 'snapshot'
         directory.mkdir(parents=True)
         (directory / 'meta.json').write_text(json.dumps({'format': 1, 'release': 'v0.0.9', 'created_at': '2026-10-08T01:02:03Z'}))
         finding = self.audit()['versions.computers']
-        self.assertEqual(finding['level'], 'WARN')
+        self.assertEqual(finding['level'], 'PASS')
         self.assertIn('v0.0.9', finding['detail'])
-        self.assertEqual(finding['fix'], 'sudo tofi computers upgrade --all')
+        self.assertIn('never restored', finding['detail'])
 
     def test_missing_guest_release_fails(self):
         import shutil
