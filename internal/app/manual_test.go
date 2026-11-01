@@ -93,7 +93,10 @@ func manualFailureCodes(t *testing.T) []string {
 	// Outcomes of the gates and the connections a person meets.
 	for _, code := range []string{"conversation_not_user_visible", "extension_change_needs_owner", "extension_change_needs_approval", "extension_change_unknown",
 		"mcp_internal_host", "mcp_host_unverified", "api_disabled", "oauth_loopback_only", "oauth_https_required", "connection_not_ready",
-		"model_auth_invalid", "connection_interrupted", "approval_window_expired", "task_message_limit"} {
+		"model_auth_invalid", "connection_interrupted", "approval_window_expired", "task_message_limit",
+		// Runtime outcome codes a Bot meets in tool results.
+		"schema_required", "invalid_arguments", "repair_budget_exhausted", "observation_failed", "unclassified_tool_failure", "tool_rejected", "needs_observation", "approval_already_claimed", "approval_gate_required",
+		"mcp_needs_human_unattended", "mcp_high_risk_unattended", "mcp_review_context_missing", "mcp_review_policy_denied", "mcp_review_setup_missing", "mcp_review_unavailable", "mcp_proposal_closed", "mcp_result_unknown", "mcp_call_failed", "mcp_retry_exhausted", "mcp_reported_error", "mcp_permission_denied", "mcp_timeout", "mcp_config_changed", "mcp_server_unknown", "mcp_auth_required", "mcp_not_configured", "mcp_unavailable", "mcp_unknown"} {
 		set[code] = true
 	}
 	codes := make([]string, 0, len(set))
