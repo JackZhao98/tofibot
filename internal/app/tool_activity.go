@@ -337,7 +337,7 @@ FROM tool_activities WHERE conversation_id=? ORDER BY updated_at DESC,run_id DES
 // or call back with the next step. They are the check working, so run
 // summaries and the activity display do not count them as failed calls. The
 // UI lists the same codes (toolTimeline.ts, gateOutcomeCodes).
-var gateOutcomeCodes = []string{"answer_review", "answer_revise", "answer_after_handoff", "answer_pending_work", "answer_checklist_open"}
+var gateOutcomeCodes = []string{"answer_review", "answer_revise", "answer_after_handoff", "answer_pending_work", "answer_checklist_open", "wake_requires_reply"}
 
 var gateOutcomeCodesSQL = "'" + strings.Join(gateOutcomeCodes, "','") + "'"
 

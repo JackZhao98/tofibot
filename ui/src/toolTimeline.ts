@@ -40,7 +40,7 @@ export function toolAttemptIssues(items: Pick<ToolActivity, "status" | "outcome"
 }
 
 // TOFI's own gates send a draft or call back with the next step; keep in step with gateOutcomeCodes in internal/app/tool_activity.go.
-const gateOutcomeCodes = ["answer_review", "answer_revise", "answer_after_handoff", "answer_pending_work", "answer_checklist_open"];
+const gateOutcomeCodes = ["answer_review", "answer_revise", "answer_after_handoff", "answer_pending_work", "answer_checklist_open", "wake_requires_reply"];
 
 export function toolDisplayState(activity: Pick<ToolActivity,"status"|"outcome">): string {
   // The answer review sends a draft back to the Bot; the Bot revises it. That is the check working, not a failure.
