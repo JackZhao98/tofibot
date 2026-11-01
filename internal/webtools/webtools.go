@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 // Code is the stable reason a provider could not serve a request.
@@ -184,7 +185,7 @@ func cleanDomains(in []string) ([]string, error) {
 		}
 		d = strings.TrimPrefix(strings.TrimPrefix(d, "*."), "www.")
 		d = strings.Trim(d, ".")
-		if d == "" || len(d) > 253 || strings.ContainsAny(d, " \t\r\n\x00@\"'()") || !strings.Contains(d, ".") {
+		if d == "" || len(d) > 253 || !validDomain(d) {
 			return nil, fail(BadRequest)
 		}
 		if !slices.Contains(out, d) {
@@ -195,6 +196,26 @@ func cleanDomains(in []string) ([]string, error) {
 		return nil, fail(BadRequest)
 	}
 	return out, nil
+}
+
+// validDomain accepts dotted host names whose labels hold letters, digits and inner hyphens. Anything else
+// (| * % quotes, any whitespace such as U+3000) would reach the search query as an operator or a stray token.
+func validDomain(d string) bool {
+	labels := strings.Split(d, ".")
+	if len(labels) < 2 {
+		return false
+	}
+	for _, label := range labels {
+		if label == "" || len(label) > 63 || strings.HasPrefix(label, "-") || strings.HasSuffix(label, "-") {
+			return false
+		}
+		for _, r := range label {
+			if r != '-' && !unicode.IsLetter(r) && !unicode.IsDigit(r) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func hostMatches(host, domain string) bool {

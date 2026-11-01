@@ -84,6 +84,9 @@ func (r *Runner) gogRequireService(id, service string) (Spec, gogAccount, error)
 	return Spec{}, gogAccount{}, e
 }
 
+// gogHTTP404 matches a 404 that gog reports as a status, not a file name that happens to contain the digits.
+var gogHTTP404 = regexp.MustCompile(`(?:status|error|code|http)[ :=]*"?404\b|\b404 (?:not found|error)`)
+
 // classifyGogFileFailure turns a failed gog command into a typed refusal. Only Google's structured errors and a
 // few stable status markers decide the code; the text is never passed on.
 func (r *Runner) classifyGogFileFailure(id, service string, err error) error {
@@ -105,7 +108,7 @@ func (r *Runner) classifyGogFileFailure(id, service string, err error) error {
 		e := fileErr("scope_missing", "The Google permission granted does not cover this. Ask the person to reconnect Google in Settings > Connections (/settings/connections/local_gog) and approve the requested access.")
 		e.Scope = service
 		return e
-	case strings.Contains(lower, "not found") || strings.Contains(lower, "404") || strings.Contains(lower, "notfound"):
+	case strings.Contains(lower, "not found") || gogHTTP404.MatchString(lower) || strings.Contains(lower, "notfound"):
 		return fileErr("not_found", "Google has no such item, or the account cannot see it. Check the id with a search first.")
 	case strings.Contains(lower, "--format") || strings.Contains(lower, "not supported") || strings.Contains(lower, "cannot export") || strings.Contains(lower, "exportformat"):
 		return fileErr("unsupported_format", "This item cannot be exported in that format. Leave format empty to use the default for its type.")

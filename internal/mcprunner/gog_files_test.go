@@ -155,3 +155,14 @@ func TestGogDriveExport(t *testing.T) {
 		t.Errorf("oversize: %v", err)
 	}
 }
+
+func TestGogHTTP404MatchesStatusesNotFileNames(t *testing.T) {
+	for text, want := range map[string]bool{
+		"googleapi: error 404: file not there": true, "http 404": true, "status: 404": true, "404 not found": true,
+		"cannot read report-404.pdf": false, "file 4041.txt is empty": false, "invoice 404": false,
+	} {
+		if gogHTTP404.MatchString(text) != want {
+			t.Errorf("%q: got %v want %v", text, !want, want)
+		}
+	}
+}

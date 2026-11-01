@@ -21,6 +21,8 @@
     "demo_badge": "Demo · won't send",
     "demo_hint": "Interface demo only; Gmail isn't contacted",
     "add_recipient": "Add a recipient",
+    "add_cc": "Add Cc",
+    "add_bcc": "Add Bcc",
     "working": "Working…",
     "hold": "Not yet",
     "sending": "Sending…",

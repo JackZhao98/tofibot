@@ -37,7 +37,7 @@ func googleFileError(data []byte, status int) error {
 		} `json:"error"`
 	}
 	if json.Unmarshal(data, &body) != nil || body.Error.Code == "" {
-		return tooloutcome.New(tooloutcome.Transient, "google_unavailable", "not_executed", fmt.Sprintf("The Google connection did not answer (status %d). Try again later.", status), "retry_later").Err()
+		return tooloutcome.New(tooloutcome.Transient, "google_unavailable", "not_executed", fmt.Sprintf("The Runner answered with status %d and no readable error. Try again later.", status), "retry_later").Err()
 	}
 	message := body.Error.Message
 	switch body.Error.Code {
@@ -55,7 +55,7 @@ func googleFileError(data []byte, status int) error {
 func (s *Server) googleFetch(ctx context.Context, endpoint string, request any) (name string, data []byte, err error) {
 	body, status, err := s.runnerRequestLarge(ctx, http.MethodPost, "/v1/plugins/gog/gog/"+endpoint, request, googleFileResponseLimit)
 	if err != nil {
-		return "", nil, tooloutcome.New(tooloutcome.Transient, "google_unavailable", "not_executed", "The Google connection could not be reached. Try again later.", "retry_later").Err()
+		return "", nil, tooloutcome.New(tooloutcome.Transient, "google_unavailable", "not_executed", "The Runner that holds the Google connection could not be reached. Try again later.", "retry_later").Err()
 	}
 	if status != http.StatusOK {
 		return "", nil, googleFileError(body, status)

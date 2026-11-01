@@ -21,6 +21,8 @@
     "demo_badge": "示範 · 不會寄出",
     "demo_hint": "僅示範介面，不會連線 Gmail",
     "add_recipient": "新增收件人",
+    "add_cc": "新增副本",
+    "add_bcc": "新增密件副本",
     "working": "處理中…",
     "hold": "再想想",
     "sending": "寄送中…",

@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -54,6 +55,7 @@ func TestPrepareEmailReportsTheGmailConnectionState(t *testing.T) {
 	}{
 		{"not connected", `{"connected":false}`, "no Google account is connected"},
 		{"read only", `{"connected":true,"scope":"readonly"}`, "can read mail but not send it"},
+		{"calendar only", `{"connected":true,"scope":"","services":["calendar","drive"]}`, "not authorised for Gmail"},
 		{"expired", `{"connected":true,"scope":"read-send","reauth_required":true}`, "expired or was revoked"},
 		{"ready", `{"connected":true,"scope":"read-send"}`, "the connection is ready"},
 	}
@@ -140,5 +142,36 @@ func TestPrepareEmailRefusesBadCopiesAndThreadIDs(t *testing.T) {
 	}
 	if drafts, _ := s.store.ListMailDrafts(conv.ID); len(drafts) != 0 {
 		t.Fatalf("drafts kept: %d", len(drafts))
+	}
+}
+
+func TestSendUsesTheCopiesThePersonApprovedThroughTheCard(t *testing.T) {
+	s, conv, run := mailDraftFixture(t)
+	var sent map[string]any
+	useRunnerStatus(t, `{"connected":true,"scope":"read-send"}`, func(body map[string]any) { sent = body })
+	if out, err := prepareEmail(t, s, conv, run, `{"to":"a@example.com","cc":"bot-cc@example.com","bcc":"stranger@example.com","subject":"Plan","body":"B"}`); err != nil {
+		t.Fatalf("out=%q err=%v", out, err)
+	}
+	drafts, _ := s.store.ListMailDrafts(conv.ID)
+	d := drafts[0]
+	// The card clears Bcc and replaces Cc in one PATCH.
+	patch := httptest.NewRequest(http.MethodPatch, "/api/mail-drafts/"+d.ID, strings.NewReader(`{"to":"a@example.com","cc":"me@example.com","bcc":"","subject":"Plan","body":"B","revision":`+strconv.Itoa(d.Revision)+`}`))
+	w := httptest.NewRecorder()
+	s.routeMailDrafts(w, patch, "mail-drafts/"+d.ID)
+	if w.Code != 200 {
+		t.Fatalf("patch=%d %s", w.Code, w.Body.String())
+	}
+	edited, _ := s.store.GetMailDraft(d.ID)
+	send := httptest.NewRequest(http.MethodPost, "/api/mail-drafts/"+d.ID+"/send", strings.NewReader(`{"revision":`+strconv.Itoa(edited.Revision)+`}`))
+	w = httptest.NewRecorder()
+	s.routeMailDrafts(w, send, "mail-drafts/"+d.ID+"/send")
+	if w.Code != 200 {
+		t.Fatalf("send=%d %s", w.Code, w.Body.String())
+	}
+	if sent["cc"] != "me@example.com" {
+		t.Fatalf("cc=%v want the approved value", sent["cc"])
+	}
+	if _, present := sent["bcc"]; present {
+		t.Fatalf("bcc=%v was removed by the person and must not be sent", sent["bcc"])
 	}
 }
