@@ -1816,7 +1816,7 @@ func (s *Store) addHandoff(conv, sender, bot, parent, task string, attachmentIDs
 		return Message{}, Run{}, err
 	}
 	if n, _ := res.RowsAffected(); n != 1 {
-		return Message{}, Run{}, errors.New("run handoff already used")
+		return Message{}, Run{}, errRunHandoffUsed
 	}
 	var model, botName string
 	if err = tx.QueryRow(`SELECT model,name FROM bots WHERE id=?`, bot).Scan(&model, &botName); err != nil {

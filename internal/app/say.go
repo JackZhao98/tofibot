@@ -495,7 +495,7 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 				// for the person; the colleague's result resumes this Bot.
 				// The turn is over: end it here so no trailing text is generated.
 				runtime.EndTurn(ctx)
-				return fail(tooloutcome.New(tooloutcome.Transient, "answer_after_handoff", "not_executed", "Your part is already posted and the rest is delegated. This turn is over; nothing more is said.", "retry").Err())
+				return fail(errAnswerAfterHandoff())
 			}
 			if err := validateWake(c, r, in.Wake); err != nil {
 				return fail(err)

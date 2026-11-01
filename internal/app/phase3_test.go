@@ -670,7 +670,7 @@ func TestAnswerAfterPostingAndHandingOffIsRefused(t *testing.T) {
 	f.post(t, "@tofi get the metaphor from metaphor", f.tofi)
 	f.start(engine)
 	f.settle(t)
-	if refused == nil || !strings.Contains(refused.Error(), "already posted") {
+	if refused == nil || !strings.Contains(refused.Error(), "already posted") || outcomeErrCode(refused) != "answer_after_handoff" {
 		t.Fatalf("answer after posting and handing off: %v", refused)
 	}
 	var n int
