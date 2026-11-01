@@ -998,6 +998,15 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				recoveryCalls[call.ID] = call
 				recoveryBatches[call.ID] = toolCallBatch(msg.ToolCalls)
 			}
+			if msg.Role == "tool" && !msg.ToolFailed && (msg.ToolOutcome == nil || !recoveryStatus(msg.ToolOutcome.Status)) {
+				if call, ok := recoveryCalls[msg.ToolCallID]; ok {
+					identity, ok := recoveryIdentities[call.ID]
+					if !ok {
+						identity = resolveIdentity(call.Name, call.Arguments)
+					}
+					recoveryLedger = pruneRepairsAfterSuccess(recoveryLedger, identity)
+				}
+			}
 			if msg.Role == "tool" {
 				if o := msg.ToolOutcome; o != nil && recoveryStatus(o.Status) && !recoveryBlocked[msg.ToolCallID] {
 					if call, ok := recoveryCalls[msg.ToolCallID]; ok {

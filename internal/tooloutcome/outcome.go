@@ -25,6 +25,13 @@ const (
 // classify on it, never on the text of the underlying stat error.
 const FileNotFound = "file_not_found"
 
+// IsGateCode reports codes of TOFI's own preconditions (a schema not yet
+// shown, a page not yet observed). The model did not malform the call, so such
+// refusals never spend a repair budget.
+func IsGateCode(code string) bool {
+	return code == "schema_required" || code == "needs_observation"
+}
+
 type Outcome struct {
 	Readiness  string `json:"readiness,omitempty"`
 	Version    int    `json:"version"`
