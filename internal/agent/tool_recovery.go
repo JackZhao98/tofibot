@@ -68,6 +68,14 @@ func pruneRepairsAfterSuccess(records []ToolRecoveryRecord, success tooloutcome.
 }
 
 func toolRecoveryRecords(messages []provider.Message) []ToolRecoveryRecord {
+	return toolRecoveryRecordsWith(messages, nil)
+}
+
+// toolRecoveryRecordsWith rebuilds the ledger from a transcript the way the
+// live run keeps it: a later success of the same operation clears the repair
+// records of that operation. resolve gives a call's identity; nil means the
+// default identity.
+func toolRecoveryRecordsWith(messages []provider.Message, resolve func(name, args string) tooloutcome.Identity) []ToolRecoveryRecord {
 	calls := map[string]provider.ToolCall{}
 	batches := map[string]string{}
 	var records []ToolRecoveryRecord
@@ -76,12 +84,21 @@ func toolRecoveryRecords(messages []provider.Message) []ToolRecoveryRecord {
 			calls[call.ID] = call
 			batches[call.ID] = toolCallBatch(msg.ToolCalls)
 		}
-		if msg.Role == "tool" {
-			if o := msg.ToolOutcome; o != nil && recoveryStatus(o.Status) {
-				if call, ok := calls[msg.ToolCallID]; ok {
-					records = append(records, ToolRecoveryRecord{Call: call, Outcome: *o, Batch: batches[call.ID]})
-				}
+		if msg.Role != "tool" {
+			continue
+		}
+		call, ok := calls[msg.ToolCallID]
+		if !ok {
+			continue
+		}
+		if o := msg.ToolOutcome; o != nil && recoveryStatus(o.Status) {
+			records = append(records, ToolRecoveryRecord{Call: call, Outcome: *o, Batch: batches[call.ID]})
+		} else if !msg.ToolFailed {
+			identity := tooloutcome.DefaultIdentity(call.Name, json.RawMessage(call.Arguments))
+			if resolve != nil {
+				identity = resolve(call.Name, call.Arguments)
 			}
+			records = pruneRepairsAfterSuccess(records, identity)
 		}
 	}
 	return records

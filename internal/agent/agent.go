@@ -1084,7 +1084,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		if cfg.Continuation != nil && cfg.Continuation.ToolRecovery != nil {
 			recoveryLedger = append([]ToolRecoveryRecord(nil), cfg.Continuation.ToolRecovery...)
 		} else {
-			recoveryLedger = toolRecoveryRecords(messages)
+			recoveryLedger = toolRecoveryRecordsWith(messages, resolveIdentity)
 		}
 		for i := range recoveryLedger {
 			if recoveryLedger[i].Identity == nil {
