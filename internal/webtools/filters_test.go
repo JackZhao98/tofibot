@@ -108,3 +108,18 @@ func TestDomainFilterIsAppliedToResultsAndFallsThrough(t *testing.T) {
 		t.Fatalf("%+v %v", resp, err)
 	}
 }
+
+func TestCleanDomainsRejectsCharactersThatAreNotInHostNames(t *testing.T) {
+	for _, bad := range []string{"example.com|intitle:x", "exa*mple.com", "a%20b.com", "a\u3000b.com", "a\u00a0b.com", "-a.com", "a-.com", "a..com", "a.com,b.org"} {
+		if _, err := (SearchOptions{Domains: []string{bad}}).Clean(); CodeOf(err) != BadRequest {
+			t.Fatalf("%q accepted as an include filter", bad)
+		}
+		if _, err := (SearchOptions{ExcludeDomains: []string{bad}}).Clean(); CodeOf(err) != BadRequest {
+			t.Fatalf("%q accepted as an exclude filter", bad)
+		}
+	}
+	o, err := SearchOptions{Domains: []string{"münchen.de", "sub-1.example.co.uk"}}.Clean()
+	if err != nil || len(o.Domains) != 2 {
+		t.Fatalf("valid hosts rejected: %+v %v", o, err)
+	}
+}
