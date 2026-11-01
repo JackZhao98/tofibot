@@ -915,7 +915,7 @@ func (m *Manager) callMCPToolObserved(callCtx context.Context, cli *mcp.ClientSe
 			msg := "MCP tool call failed; the read-only retry budget is exhausted or the endpoint rejected the request."
 			var rpc *jsonrpc.Error
 			if errors.As(err, &rpc) {
-				msg = fmt.Sprintf("MCP tool call failed with JSON-RPC code %d. %s %s", rpc.Code, mcpReportedMarker, sanitizeRemoteText(rpc.Message, 600))
+				msg = fmt.Sprintf("MCP tool call failed with JSON-RPC code %d. %s", rpc.Code, mcpReportedBlock(sanitizeRemoteText(rpc.Message, 600)))
 			}
 			o := tooloutcome.New(status, code, "no_side_effect", msg, "explain_blocker")
 			if rpc != nil {
@@ -944,11 +944,11 @@ func (m *Manager) callMCPToolObserved(callCtx context.Context, cli *mcp.ClientSe
 		if readOnly {
 			o = tooloutcome.New(tooloutcome.Permanent, "mcp_reported_error", "no_side_effect", "MCP tool returned an error.", "explain_blocker")
 		}
-		// The remote's reason goes first, as untrusted data and never as
-		// recovery authority, so no later bound can cut it.
+		// The remote's reason is untrusted data inside a delimited block;
+		// TOFI's own sentence comes before it and the next step after it.
 		reason := sanitizeRemoteText(text, maxMCPRemoteErrorRunes)
 		o.RemoteError = reason
-		o.Message = mcpReportedMarker + " " + reason + " " + o.Message
+		o.Message = o.Message + " " + mcpReportedBlock(reason)
 		return text, o.Err()
 	}
 	return text, nil

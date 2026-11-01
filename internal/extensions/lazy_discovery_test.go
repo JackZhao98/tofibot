@@ -533,7 +533,7 @@ func TestLazyDiscoverySourceFailureLeavesAlternateCallable(t *testing.T) {
 			if (err != nil) != tc.wantErr || (!tc.wantErr && output != "MCP returned no text content") {
 				t.Fatalf("source evidence changed: %s %v", output, err)
 			}
-			if tc.wantErr && !strings.Contains(err.Error(), "Untrusted tool-reported details: fixture source unavailable") {
+			if tc.wantErr && !strings.Contains(err.Error(), "Untrusted tool-reported details: «fixture source unavailable") {
 				t.Fatalf("model-visible failure lost the bounded source reason: %v", err)
 			}
 			// A source failure never falls back on its own; the alternate runs
