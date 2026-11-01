@@ -142,6 +142,16 @@ func TestExtensionApprovalSurvivesAChangeThatCouldNotStart(t *testing.T) {
 	}
 }
 
+func TestMCPTestRefusedInScheduleSaysWhatToDo(t *testing.T) {
+	f := newScheduledMCPFixture(t, false, scheduleSourceChat)
+	x := extensionToolArgs{Action: "mcp_test", Name: "notes", TestConnection: true}
+	_, err := f.s.guardExtensionChange(f.c, f.root, x)
+	out, ok := tooloutcome.FromError(err)
+	if !ok || out.Code != "extension_change_needs_owner" || !strings.Contains(out.Message, "list_mcp_servers") || !strings.Contains(out.Message, "notes") {
+		t.Fatalf("mcp_test refusal: %v", err)
+	}
+}
+
 func TestExtensionChangeRefusedInScheduleRootedRuns(t *testing.T) {
 	f := newScheduledMCPFixture(t, false, scheduleSourceChat)
 	x := extensionToolArgs{Action: "skill_publish_version", Name: "sched", Files: map[string]string{"SKILL.md": "---\nname: sched\ndescription: d\n---\nb"}}

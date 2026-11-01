@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"net/url"
 	"strings"
 	"time"
 
@@ -248,4 +249,33 @@ func mcpNeedsHumanUnattended(detail string) error {
 		detail = "a person must decide this call"
 	}
 	return tooloutcome.New(tooloutcome.Denied, "mcp_needs_human_unattended", "not_executed", "This external tool call needs the owner's decision and no one attends this scheduled run, so it was not executed. Reviewer: "+detail+" Continue the remaining work. Explain in the summary that this step needs the owner's go-ahead in chat; do not retry or route around it.", "explain_blocker").Err()
+}
+
+// nameMCPConnectionInOutcome adds the connection, the tool, the Settings link
+// and the person's route to the refusals of an MCP call that no person
+// decided. The fix differs per code, so the text is chosen here, where the call
+// is known.
+func nameMCPConnectionInOutcome(err error, call extensions.MCPCallApproval) error {
+	out, ok := tooloutcome.FromError(err)
+	if !ok || call.Server == "" {
+		return err
+	}
+	link := "/settings/connections/" + url.PathEscape(call.Server)
+	which := " Connection " + call.Server + ", tool " + call.Tool + "."
+	var add string
+	switch out.Code {
+	case "mcp_needs_human_unattended":
+		add = which + " The owner can choose Always allow for this tool on its approval card in chat, or open " + link + " in Settings; later scheduled runs then run it without asking."
+	case "mcp_high_risk_unattended":
+		add = which + " The owner can set this tool to Asks when unsure at " + link + "#tools and then choose Always allow on its approval card. The summary of this run names the tool and the step."
+	case "mcp_review_context_missing":
+		add = which + " With a person in the chat, ask them to send the request as a message of their own, then call again. The owner can check the tool at " + link + "#tools."
+	case "approval_already_claimed":
+		add = which
+	default:
+		return err
+	}
+	out.Message = strings.TrimSpace(out.Message) + add
+	out.Server, out.Tool, out.Link = call.Server, call.Tool, link
+	return out.Err()
 }

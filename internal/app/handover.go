@@ -17,6 +17,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -178,7 +180,7 @@ func (s *Server) connectionTool(c Conversation, r Run) Tool {
 			return "", err
 		}
 		if !oauth {
-			return "", tooloutcome.InvalidArguments("service is not configured or does not use OAuth sign-in")
+			return "", tooloutcome.InvalidArguments(s.unknownConnectionMessage(arg.Service))
 		}
 		if connected {
 			return `{"status":"already_connected","connected":true}`, nil
@@ -220,6 +222,33 @@ func (s *Server) connectionState(name string) (oauth, connected bool, err error)
 		}
 	}
 	return false, false, nil
+}
+
+// unknownConnectionMessage names the service asked for and lists the OAuth
+// services request_connection accepts.
+func (s *Server) unknownConnectionMessage(service string) string {
+	msg := "service " + strconv.Quote(service) + " is not configured or does not use OAuth sign-in."
+	if s.extensions == nil {
+		return msg
+	}
+	servers, err := s.extensions.ListMCP()
+	if err != nil {
+		return msg
+	}
+	var names []string
+	for _, server := range servers {
+		if server.OAuth != nil {
+			names = append(names, server.Name)
+		}
+	}
+	sort.Strings(names)
+	if len(names) == 0 {
+		return msg + " No configured service uses OAuth sign-in."
+	}
+	if len(names) > 20 {
+		names = names[:20]
+	}
+	return msg + " Services that accept it: " + strings.Join(names, ", ") + "."
 }
 
 func (s *Server) connectionEstablished(name string) bool {

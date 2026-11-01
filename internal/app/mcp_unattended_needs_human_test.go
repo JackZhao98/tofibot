@@ -32,7 +32,8 @@ func requireNeedsHumanUnattended(t *testing.T, f *scheduledMCPFixture, err error
 	t.Helper()
 	out, ok := tooloutcome.FromError(err)
 	if !ok || out.Status != tooloutcome.Denied || out.Code != "mcp_needs_human_unattended" || out.Certainty != "not_executed" ||
-		!strings.Contains(out.Message, "Synthetic semantic risk assessment.") || !strings.Contains(out.Message, "needs the owner's go-ahead in chat") || !strings.Contains(out.Message, "do not retry or route around it") {
+		!strings.Contains(out.Message, "Synthetic semantic risk assessment.") || !strings.Contains(out.Message, "needs the owner's go-ahead in chat") || !strings.Contains(out.Message, "do not retry or route around it") ||
+		out.Server != f.call.Server || out.Tool != f.call.Tool || !strings.Contains(out.Message, "Always allow") || !strings.HasPrefix(out.Link, "/settings/connections/") {
 		t.Fatalf("outcome = %v", err)
 	}
 	questions, _ := f.s.store.ListQuestions(f.c.ID)

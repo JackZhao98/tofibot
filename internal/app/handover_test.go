@@ -549,8 +549,12 @@ func TestConnectionToolValidatesTheService(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	for _, args := range []string{`{"service":"missing","question":"x"}`, `{"service":"plain","question":"x"}`} {
-		if _, err := tool.Execute(ctx, json.RawMessage(args)); err == nil {
+		_, err := tool.Execute(ctx, json.RawMessage(args))
+		if err == nil {
 			t.Fatalf("accepted %s", args)
+		}
+		if !strings.Contains(err.Error(), "Services that accept it: notes") {
+			t.Fatalf("refusal does not list the valid services: %v", err)
 		}
 	}
 	connectService(dir, "notes")
@@ -564,9 +568,9 @@ func TestConnectionToolValidatesTheService(t *testing.T) {
 }
 
 func TestOAuthRequiredPointsAtTheCardOnlyWhereAPersonCanAnswer(t *testing.T) {
-	visible := extensionOAuthRequired(Conversation{UserVisible: true})
-	hidden := extensionOAuthRequired(Conversation{UserVisible: false})
-	if !strings.Contains(fmt.Sprint(visible["message"]), "request_connection") || strings.Contains(fmt.Sprint(visible["message"]), "Settings") {
+	visible := extensionOAuthRequired(Conversation{UserVisible: true}, "notes")
+	hidden := extensionOAuthRequired(Conversation{UserVisible: false}, "notes")
+	if !strings.Contains(fmt.Sprint(visible["message"]), "request_connection") || visible["server"] != "notes" || visible["link"] != "/settings/connections/notes" {
 		t.Fatalf("visible: %v", visible)
 	}
 	if strings.Contains(fmt.Sprint(hidden["message"]), "request_connection") || !strings.Contains(fmt.Sprint(hidden["message"]), "Settings") {

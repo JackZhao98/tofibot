@@ -50,6 +50,11 @@ func (s *Server) guardExtensionChange(c Conversation, r Run, x extensionToolArgs
 	}
 	unattended, err := mcpRunRootedInSchedule(s.store.db, r)
 	if err != nil || unattended || !c.UserVisible {
+		if x.Action == "mcp_test" {
+			return nil, tooloutcome.New(tooloutcome.Denied, "extension_change_needs_owner", "not_executed",
+				"A connection test needs a person's decision and no one attends this run, so nothing was tested. Read the cached state of each connection with list_mcp_servers (connected, needs_sign_in, error). Report in the summary the state of connection "+strings.TrimSpace(x.Name)+" and that the owner can test it in chat or at /settings/connections.",
+				"explain_blocker").Err()
+		}
 		return nil, tooloutcome.New(tooloutcome.Denied, "extension_change_needs_owner", "not_executed",
 			"Changing workspace extensions needs a person's decision and no one attends this run, so nothing was changed. Do not retry or route around it; say in your reply what change is needed so the owner can make it in chat or Settings.",
 			"explain_blocker").Err()

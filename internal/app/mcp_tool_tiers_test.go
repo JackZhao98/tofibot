@@ -287,7 +287,8 @@ func TestMCPHighRiskTierUnattendedRunNotExecuted(t *testing.T) {
 	f.r.Kind = runKindSchedule
 	err := f.s.approveMCPCall(context.Background(), f.c, f.r, f.call)
 	out, ok := tooloutcome.FromError(err)
-	if !ok || out.Status != tooloutcome.Denied || out.Code != "mcp_high_risk_unattended" || out.Certainty != "not_executed" || !strings.Contains(out.Message, "scheduled run") {
+	if !ok || out.Status != tooloutcome.Denied || out.Code != "mcp_high_risk_unattended" || out.Certainty != "not_executed" || !strings.Contains(out.Message, "scheduled run") ||
+		out.Server != f.call.Server || out.Tool != "read_public" || out.Link != "/settings/connections/"+f.call.Server || !strings.Contains(out.Message, "Always allow") || !strings.Contains(out.Message, out.Link) {
 		t.Fatalf("unattended high_risk = %v", err)
 	}
 	questions, _ := f.s.store.ListQuestions(f.c.ID)

@@ -201,7 +201,7 @@ func (s *Server) applyExtensionChange(ctx context.Context, c Conversation, r Run
 			if server.Name == x.Name {
 				found = true
 				if server.OAuth != nil && !server.OAuth.Connected {
-					return extensionToolJSON(extensionOAuthRequired(c))
+					return extensionToolJSON(extensionOAuthRequired(c, x.Name))
 				}
 			}
 		}
@@ -234,7 +234,7 @@ func (s *Server) applyExtensionChange(ctx context.Context, c Conversation, r Run
 		if !found {
 			return "", tooloutcome.InvalidArguments("MCP server not found")
 		}
-		result = extensionOAuthRequired(c)
+		result = extensionOAuthRequired(c, x.Name)
 	case "skill_list", "skill_enable", "skill_disable", "skill_install", "skill_publish_version":
 		return s.applySkillAction(ctx, c, r, x)
 	default:
@@ -253,7 +253,7 @@ func (s *Server) applyExtensionChange(ctx context.Context, c Conversation, r Run
 		_, syncErr := s.store.WorkspaceEvent(workspaceScopeConfig)
 		result = map[string]any{"ok": true, "next_run": true, "sync_pending": syncErr != nil}
 		if x.OAuth != nil {
-			result.(map[string]any)["authorization"] = extensionOAuthRequired(c)
+			result.(map[string]any)["authorization"] = extensionOAuthRequired(c, x.Name)
 		}
 		// Writes use existing synchronous manager APIs. Report an already committed
 		// write truthfully even if cancellation arrives during its file operation.
@@ -263,12 +263,16 @@ func (s *Server) applyExtensionChange(ctx context.Context, c Conversation, r Run
 	return extensionToolJSON(result)
 }
 
-func extensionOAuthRequired(c Conversation) map[string]any {
+func extensionOAuthRequired(c Conversation, name string) map[string]any {
+	link := "/settings/connections/" + url.PathEscape(name)
+	out := map[string]any{"user_action_required": true, "server": name, "state": "needs_sign_in", "link": link}
 	if c.UserVisible {
 		// A person can see this conversation, so the sign-in is a card here.
-		return map[string]any{"user_action_required": true, "message": "The user must complete OAuth authorization. Call request_connection with this service's name to ask them in this chat; this tool does not access or return credentials."}
+		out["message"] = "Connection " + name + " needs sign-in by the user. Call request_connection with service " + name + " to ask them in this chat, or send them to " + link + " in Settings. This tool does not access or return credentials. A scheduled run cannot ask: report in the summary that " + name + " needs sign-in."
+		return out
 	}
-	return map[string]any{"user_action_required": true, "message": "The user must complete OAuth authorization in Settings → Extensions. This tool does not access or return credentials."}
+	out["message"] = "Connection " + name + " needs sign-in by the user. They sign in at " + link + " in Settings. This tool does not access or return credentials. Report in the summary that " + name + " needs sign-in."
+	return out
 }
 func extensionToolJSON(value any) (string, error) {
 	data, err := json.Marshal(value)

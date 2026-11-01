@@ -45,7 +45,9 @@ func mcpReadinessOutcome(server string, state runtime.MethodReadiness) tooloutco
 	default:
 		msg = "Connection " + server + " is not ready (" + string(state) + "). The operation was not sent. Preserve the task and use another independently reviewed method, or explain the blocker. The person can check the connection at " + link + " in Settings."
 	}
-	return tooloutcome.New(tooloutcome.Permanent, "mcp_"+string(state), "not_executed", msg, "replan")
+	out := tooloutcome.New(tooloutcome.Permanent, "mcp_"+string(state), "not_executed", msg, "replan")
+	out.Server, out.Link = server, link
+	return out
 }
 
 // mcpConnectionState is the cached state shown by list_mcp_servers. It never

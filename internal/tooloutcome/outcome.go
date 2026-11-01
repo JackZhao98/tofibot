@@ -35,7 +35,12 @@ type Outcome struct {
 	NextAction string `json:"next_action"`
 	// Host and NetError describe a failed browser navigation: the host that
 	// was being loaded and Chrome's own net error name (ERR_*).
-	Host        string `json:"host,omitempty"`
+	Host string `json:"host,omitempty"`
+	// Server, Tool and Link name the MCP connection a refusal is about, the
+	// tool on it, and the Settings page where a person changes it.
+	Server      string `json:"server,omitempty"`
+	Tool        string `json:"tool,omitempty"`
+	Link        string `json:"link,omitempty"`
 	NetError    string `json:"net_error,omitempty"`
 	Attempts    int    `json:"attempts,omitempty"`
 	RetryLimit  int    `json:"retry_limit,omitempty"`

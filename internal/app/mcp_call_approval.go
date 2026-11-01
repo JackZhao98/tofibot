@@ -27,8 +27,9 @@ const mcpReviewRetryCards = 3
 // approveMCPCall binds one reviewed or human decision to the exact run, MCP
 // configuration snapshot, tool and argument bytes. Claiming precedes execution: an
 // uncertain remote result must never cause an automatic replay.
-func (s *Server) approveMCPCall(ctx context.Context, c Conversation, r Run, call extensions.MCPCallApproval) error {
-	err := s.approveMCPCallOnce(ctx, c, r, call, true)
+func (s *Server) approveMCPCall(ctx context.Context, c Conversation, r Run, call extensions.MCPCallApproval) (err error) {
+	err = s.approveMCPCallOnce(ctx, c, r, call, true)
+	defer func() { err = nameMCPConnectionInOutcome(err, call) }()
 	if out, ok := tooloutcome.FromError(err); ok && out.Status == tooloutcome.Transient && out.Code == "mcp_review_context_missing" {
 		if cards, e := s.mcpReviewCards(r, call); e != nil || cards >= mcpReviewRetryCards {
 			return tooloutcome.New(tooloutcome.Permanent, out.Code, out.Certainty, "Evidence kept changing while this exact action was reviewed; its fresh-review limit is reached. Do not retry this MCP action; an identical call stays blocked. Use another permitted route or explain the blocker to the user.", "replan").Err()
