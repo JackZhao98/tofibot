@@ -7,6 +7,7 @@ package webtools
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 )
 
@@ -37,12 +38,29 @@ func (c Code) Falls() bool {
 	return false
 }
 
-// Error is a provider failure. Its text is fixed per code.
-type Error struct{ Code Code }
+// Error is a provider failure. Its text is fixed per code. Status is the HTTP
+// status behind the code when there is one (0 otherwise); it is never an
+// upstream message.
+type Error struct {
+	Code   Code
+	Status int
+}
 
 func (e *Error) Error() string { return string(e.Code) }
 
 func fail(c Code) error { return &Error{Code: c} }
+
+// failStatus is fail for a code that came from an HTTP status.
+func failStatus(c Code, status int) error { return &Error{Code: c, Status: status} }
+
+// StatusOf returns the HTTP status carried by err, 0 when it has none.
+func StatusOf(err error) int {
+	var e *Error
+	if errors.As(err, &e) {
+		return e.Status
+	}
+	return 0
+}
 
 // CodeOf returns the code of err, Network when err carries none.
 func CodeOf(err error) Code {
@@ -60,18 +78,35 @@ func CodeOf(err error) Code {
 type Attempt struct {
 	Source string `json:"source"`
 	Code   Code   `json:"code"`
+	Status int    `json:"status,omitempty"`
+}
+
+// Skip is a source of the chain that was not tried, and why.
+type Skip struct {
+	Source string `json:"source"`
+	Reason string `json:"reason"`
 }
 
 // ChainError is returned when no provider of a chain served the request.
+// Skipped is filled by the caller that built the chain, which knows what it
+// left out.
 type ChainError struct {
 	Attempts []Attempt
+	Skipped  []Skip
 	Last     Code
 }
 
 func (e *ChainError) Error() string {
+	if len(e.Attempts) == 0 {
+		return "no source was available for the request"
+	}
 	parts := make([]string, 0, len(e.Attempts))
 	for _, a := range e.Attempts {
-		parts = append(parts, a.Source+":"+string(a.Code))
+		part := a.Source + ":" + string(a.Code)
+		if a.Status != 0 {
+			part += " HTTP " + strconv.Itoa(a.Status)
+		}
+		parts = append(parts, part)
 	}
 	return "no source could serve the request (" + strings.Join(parts, ", ") + ")"
 }
@@ -170,7 +205,7 @@ func Search(ctx context.Context, chain []SearchProvider, query string, limit int
 			return SearchResponse{Source: p.ID(), Query: query, Results: results}, nil
 		}
 		code := CodeOf(err)
-		attempts = append(attempts, Attempt{Source: p.ID(), Code: code})
+		attempts = append(attempts, Attempt{Source: p.ID(), Code: code, Status: StatusOf(err)})
 		if !code.Falls() {
 			return SearchResponse{}, &ChainError{Attempts: attempts, Last: code}
 		}
@@ -208,7 +243,7 @@ func Fetch(ctx context.Context, chain []FetchProvider, rawURL string, maxChars i
 			return page, nil
 		}
 		code := CodeOf(err)
-		attempts = append(attempts, Attempt{Source: p.ID(), Code: code})
+		attempts = append(attempts, Attempt{Source: p.ID(), Code: code, Status: StatusOf(err)})
 		if !code.Falls() {
 			return Page{}, &ChainError{Attempts: attempts, Last: code}
 		}

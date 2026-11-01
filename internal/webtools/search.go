@@ -61,7 +61,7 @@ func do(c *http.Client, req *http.Request) ([]byte, error) {
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<16))
-		return nil, fail(statusCode(resp.StatusCode))
+		return nil, failStatus(statusCode(resp.StatusCode), resp.StatusCode)
 	}
 	return readBody(resp)
 }

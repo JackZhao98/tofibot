@@ -2,12 +2,14 @@ package webtools
 
 import (
 	"context"
+	"errors"
 	"github.com/JackZhao98/tofibot/internal/extensions"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -355,5 +357,19 @@ func TestBuiltinNotesTextThatMayBeIncomplete(t *testing.T) {
 	})
 	if p, err := (Builtin{Transport: plain}).Fetch(context.Background(), full, 0); err != nil || p.Note != "" {
 		t.Errorf("article note %q err %v", p.Note, err)
+	}
+}
+
+func TestBlockedChainErrorCarriesTheHTTPStatus(t *testing.T) {
+	for _, status := range []int{403, 429} {
+		u := serve(t, func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(status) })
+		_, err := Fetch(context.Background(), []FetchProvider{Builtin{Transport: plain}}, u, 0)
+		var ce *ChainError
+		if !errors.As(err, &ce) || ce.Last != Blocked || len(ce.Attempts) != 1 || ce.Attempts[0].Status != status {
+			t.Fatalf("status %d: %#v", status, err)
+		}
+		if !strings.Contains(ce.Error(), "HTTP "+strconv.Itoa(status)) {
+			t.Fatal(ce.Error())
+		}
 	}
 }
