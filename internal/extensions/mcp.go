@@ -172,7 +172,14 @@ type CachedMCPTool struct {
 	// ReadOnlyHint is the remote tools/list annotation as last seen. It is an
 	// untrusted hint: absent or false means the tool is treated as an effect.
 	ReadOnlyHint bool `json:"read_only_hint,omitempty"`
+	// SchemaCompacted marks a search result whose schema had prose or $defs
+	// bodies left out for size. Only a whole schema can be cached.
+	SchemaCompacted bool `json:"schema_compacted,omitempty"`
 }
+
+// maxCachedSchemaBytes is the largest schema a prior search can hand back
+// whole: the same bound one search page uses for a single tool.
+const maxCachedSchemaBytes = maxSchemaPageBytes - 4096
 
 // MCPCallApproval is an execution-time request for one exact tool call.
 // Approval must occur before the remote CallTool request is sent.
@@ -957,14 +964,14 @@ func validCachedMCPTool(cached CachedMCPTool, servers map[string]MCPServerConfig
 	if !ok || cached.SchemaVersion == "" || cached.SchemaVersion != m.schemaVersion(cached.Server, cfg) {
 		return false
 	}
-	if !validExtensionName(cached.Server) || !safeCachedToolName(cached.Name) || len(cached.RemoteName) == 0 || len(cached.RemoteName) > 256 || len([]rune(cached.Description)) > maxDescription || cached.Parameters == nil {
+	if !validExtensionName(cached.Server) || !safeCachedToolName(cached.Name) || len(cached.RemoteName) == 0 || len(cached.RemoteName) > 256 || len([]rune(cached.Description)) > maxDescription || cached.Parameters == nil || cached.SchemaCompacted {
 		return false
 	}
 	if kind, _ := cached.Parameters["type"].(string); kind != "" && kind != "object" {
 		return false
 	}
 	encoded, err := json.Marshal(cached.Parameters)
-	if err != nil || len(encoded) > 6<<10 {
+	if err != nil || len(encoded) > maxCachedSchemaBytes {
 		return false
 	}
 	allow, deny := map[string]bool{}, map[string]bool{}

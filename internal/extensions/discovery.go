@@ -598,6 +598,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 			Guidance        string       `json:"guidance"`
 			SearchMethod    string       `json:"search_method"`
 			OmittedSchemas  int          `json:"omitted_schema_count,omitempty"`
+			OmittedTools    []string     `json:"omitted_schema_tools,omitempty"`
 			Truncated       bool         `json:"truncated"`
 			Next            *int         `json:"next_server_offset,omitempty"`
 			Diagnostics     []Diagnostic `json:"diagnostics,omitempty"`
@@ -706,7 +707,10 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 					return err == nil && len(data) <= maxSchemaPageBytes-4096
 				})
 				if !fits {
+					// Name it: the first call_mcp_tool of an omitted tool returns
+					// its schema, top-level fields first.
 					out.OmittedSchemas++
+					out.OmittedTools = append(out.OmittedTools, t.Name)
 					continue
 				}
 				if len(out.Tools) > 0 {
