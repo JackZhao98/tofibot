@@ -868,7 +868,7 @@ func (m *Manager) callMCPToolObserved(callCtx context.Context, cli *mcp.ClientSe
 	if len(args) == 0 {
 		arguments = map[string]any{}
 	} else if err := json.Unmarshal(args, &arguments); err != nil {
-		return "", fmt.Errorf("invalid arguments: %w", err)
+		return "", tooloutcome.InvalidArguments("arguments must be a JSON object holding the tool's input fields: " + sanitizeRemoteText(err.Error(), 200))
 	}
 	var out *mcp.CallToolResult
 	var err error

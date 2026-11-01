@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -48,7 +47,7 @@ func strictDiscoveryJSON(raw []byte, value any) error {
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(value); err != nil {
-		return tooloutcome.InvalidArguments("invalid tool arguments")
+		return tooloutcome.InvalidArguments("invalid tool arguments: " + sanitizeRemoteText(err.Error(), 300) + ". Send only the fields this tool's schema lists, with the types it states.")
 	}
 	if err := dec.Decode(new(any)); err != io.EOF {
 		return tooloutcome.InvalidArguments("arguments must contain exactly one object")
@@ -76,16 +75,16 @@ func discoverableMCPTools(runCtx context.Context, available []runtime.Tool) []ru
 		}
 		query := searchTerms(in.Query)
 		if len(query) == 0 || len(in.Query) > 256 {
-			return "", errors.New("query must contain 1–256 bytes")
+			return "", tooloutcome.InvalidArguments(fmt.Sprintf("query must contain 1–256 bytes of search text (got %d bytes)", len(in.Query)))
 		}
 		limit := 5
 		if in.Limit != nil {
 			if bytes.Equal(bytes.TrimSpace(in.Limit), []byte("null")) || json.Unmarshal(in.Limit, &limit) != nil {
-				return "", errors.New("limit must be an integer")
+				return "", tooloutcome.InvalidArguments("limit must be an integer from 1 to 10; send a number or leave it out")
 			}
 		}
 		if limit < 1 || limit > 10 {
-			return "", errors.New("limit must be between 1 and 10")
+			return "", tooloutcome.InvalidArguments(fmt.Sprintf("limit must be between 1 and 10 (got %d)", limit))
 		}
 		type match struct {
 			Name        string         `json:"name"`
@@ -148,13 +147,13 @@ func discoverableMCPTools(runCtx context.Context, available []runtime.Tool) []ru
 		}
 		var args map[string]any
 		if len(in.Arguments) == 0 || json.Unmarshal(in.Arguments, &args) != nil || args == nil {
-			return "", tooloutcome.InvalidArguments("arguments must be an object")
+			return "", tooloutcome.InvalidArguments("arguments must be a JSON object holding the tool's input fields (an empty object when it takes none)")
 		}
 		mu.Lock()
 		t, ok := seen[in.Name]
 		mu.Unlock()
 		if !ok {
-			return "", tooloutcome.New(tooloutcome.Validation, "schema_required", "not_executed", "Tool was not returned by search_mcp_tools in this run.", "refresh_schema").Err()
+			return "", tooloutcome.New(tooloutcome.Validation, "schema_required", "not_executed", "Tool "+sanitizeRemoteText(in.Name, 128)+" was not returned by search_mcp_tools in this run. Search for it with search_mcp_tools, then call it by the exact name returned.", "refresh_schema").Err()
 		}
 		linked, cancel := context.WithCancel(ctx)
 		defer cancel()
@@ -371,13 +370,13 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 			return "", err
 		}
 		if len(strings.TrimSpace(in.Query)) == 0 || len(in.Query) > 256 || in.Offset < 0 {
-			return "", errors.New("invalid catalog query or offset")
+			return "", tooloutcome.InvalidArguments(fmt.Sprintf("query must be 1–256 bytes (got %d) and offset must be 0 or more (got %d)", len(strings.TrimSpace(in.Query)), in.Offset))
 		}
 		if in.Limit == 0 {
 			in.Limit = 20
 		}
 		if in.Limit < 1 || in.Limit > 50 {
-			return "", errors.New("limit must be between 1 and 50")
+			return "", tooloutcome.InvalidArguments(fmt.Sprintf("limit must be between 1 and 50 (got %d)", in.Limit))
 		}
 		type entry struct {
 			Name        string `json:"name"`
@@ -544,21 +543,24 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 			return "", err
 		}
 		if len(strings.TrimSpace(in.Query)) == 0 || len(in.Query) > 256 {
-			return "", errors.New("query must contain 1–256 bytes")
+			return "", tooloutcome.InvalidArguments(fmt.Sprintf("query must contain 1–256 bytes (got %d bytes); use '*' with a server to list that server's tools", len(strings.TrimSpace(in.Query))))
 		}
 		limit := 5
 		if in.Limit != nil && (bytes.Equal(bytes.TrimSpace(in.Limit), []byte("null")) || json.Unmarshal(in.Limit, &limit) != nil) {
-			return "", errors.New("limit must be an integer")
+			return "", tooloutcome.InvalidArguments("limit must be an integer from 1 to 10; send a number or leave it out")
 		}
 		if limit < 1 || limit > 10 {
-			return "", errors.New("limit must be between 1 and 10")
+			return "", tooloutcome.InvalidArguments(fmt.Sprintf("limit must be between 1 and 10 (got %d)", limit))
 		}
 		if in.Offset < 0 || in.Offset > len(names) {
-			return "", errors.New("server_offset outside server list")
+			return "", tooloutcome.InvalidArguments(fmt.Sprintf("server_offset %d is outside the server list; use 0 to %d", in.Offset, len(names)))
 		}
 		browse := strings.TrimSpace(in.Query) == "*"
-		if in.ToolOffset < 0 || (browse && in.Server == "") {
-			return "", errors.New("tool_offset must be nonnegative; wildcard schema browsing requires a specific server")
+		if in.ToolOffset < 0 {
+			return "", tooloutcome.InvalidArguments(fmt.Sprintf("tool_offset must be 0 or more (got %d)", in.ToolOffset))
+		}
+		if browse && in.Server == "" {
+			return "", tooloutcome.InvalidArguments("query '*' lists one server's tools: set server to a name from list_mcp_servers")
 		}
 		targets := names[in.Offset:]
 		var next *int
@@ -572,7 +574,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 				requestedServer, in.Server = in.Server, resolved
 			}
 			if in.Offset != 0 {
-				return "", errors.New("server_offset cannot be combined with server")
+				return "", tooloutcome.InvalidArguments("server_offset pages through all servers; leave it out when server is set")
 			}
 			targets = []string{in.Server}
 		} else if len(targets) > 8 {
@@ -660,7 +662,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 			seenMu.Unlock()
 		}
 		if in.ToolOffset > len(matches) {
-			return "", fmt.Errorf("tool_offset %d is past the end: this query matches %d tools; use a smaller tool_offset or 0", in.ToolOffset, len(matches))
+			return "", tooloutcome.InvalidArguments(fmt.Sprintf("tool_offset %d is past the end: this query matches %d tools; use a smaller tool_offset or 0", in.ToolOffset, len(matches)))
 		}
 		end := in.ToolOffset + limit
 		if end < len(matches) {
@@ -814,7 +816,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 		}
 		var args map[string]any
 		if len(in.Arguments) == 0 || json.Unmarshal(in.Arguments, &args) != nil || args == nil {
-			return "", tooloutcome.InvalidArguments("arguments must be an object")
+			return "", tooloutcome.InvalidArguments("arguments must be a JSON object holding the tool's input fields (an empty object when it takes none)")
 		}
 		seenMu.Lock()
 		t, ok := seen[in.Name]
@@ -847,7 +849,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 			if _, rejected := rejectedCached[in.Name]; rejected {
 				return "", tooloutcome.New(tooloutcome.Validation, "stale_schema", "not_executed", "recent MCP schema was not accepted for the current configuration; search the known server before calling it.", "refresh_schema").Err()
 			}
-			return "", tooloutcome.New(tooloutcome.Validation, "schema_required", "not_executed", "Tool was not returned by search_mcp_tools in this run or accepted from recent capability context.", "refresh_schema").Err()
+			return "", tooloutcome.New(tooloutcome.Validation, "schema_required", "not_executed", "Tool "+sanitizeRemoteText(in.Name, 128)+" was not returned by search_mcp_tools in this run or accepted from recent capability context. Search for it with search_mcp_tools, then call it by the exact name returned.", "refresh_schema").Err()
 		}
 		sourceMu.RLock()
 		source, ok := toolSources[in.Name]
@@ -969,7 +971,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 			return "", err
 		}
 		if in.Offset < 0 || len(in.Query) > 256 {
-			return "", errors.New("invalid offset or query")
+			return "", tooloutcome.InvalidArguments(fmt.Sprintf("offset must be 0 or more (got %d) and query at most 256 bytes (got %d)", in.Offset, len(in.Query)))
 		}
 		matching := []string{}
 		for _, name := range names {
@@ -978,7 +980,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 			}
 		}
 		if in.Offset > len(matching) {
-			return "", errors.New("offset outside server list")
+			return "", tooloutcome.InvalidArguments(fmt.Sprintf("offset %d is outside the server list; this query matches %d servers", in.Offset, len(matching)))
 		}
 		type item struct {
 			Name      string `json:"name"`
@@ -1072,7 +1074,7 @@ func discoverableSkillTools(runCtx context.Context, skills []Skill, max int) []r
 			return "", err
 		}
 		if in.Offset < 0 || in.Offset > len(skills) {
-			return "", errors.New("offset outside skill list")
+			return "", tooloutcome.InvalidArguments(fmt.Sprintf("offset %d is outside the skill list; use 0 to %d", in.Offset, len(skills)))
 		}
 		type item struct {
 			Name        string `json:"name"`
