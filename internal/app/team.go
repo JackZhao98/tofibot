@@ -559,7 +559,7 @@ func (s *Server) teamSend(ctx context.Context, c Conversation, r Run, args json.
 		if changed, e := res.RowsAffected(); e != nil {
 			return "", e
 		} else if changed != 1 {
-			return "", errors.New("run handoff already used")
+			return "", errRunHandoffUsed
 		}
 		var seq int64
 		if e := tx.QueryRow(nextMessageSeqSQL, group.ID, group.ID, streamDraftActive).Scan(&seq); e != nil {

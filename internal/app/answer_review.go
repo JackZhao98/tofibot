@@ -5,6 +5,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -117,7 +118,7 @@ func clipRunes(s string, limit int) string {
 }
 
 // answerRevision is the private message that carries the gap list to the writer.
-func answerRevision(gaps []criterionResult, criteria []rubricCriterion) string {
+func answerRevision(gaps []criterionResult, criteria []rubricCriterion, round, rounds int) string {
 	titles := map[string]string{}
 	for _, c := range criteria {
 		titles[c.ID] = c.Title
@@ -130,7 +131,11 @@ func answerRevision(gaps []criterionResult, criteria []rubricCriterion) string {
 		}
 		b.WriteString("- " + titles[g.ID] + ": " + clipRunes(strings.TrimSpace(g.Note), graderNoteRunes) + "\n")
 	}
-	b.WriteString("Revise the reply, using whatever means you judge useful. This review is private. The draft before it is replaced by your next reply and is not shown to the person, so the next reply must be complete.")
+	fmt.Fprintf(&b, "This is revision %d of at most %d. ", round, rounds)
+	if round >= rounds {
+		b.WriteString("Your next reply is delivered as it stands. ")
+	}
+	b.WriteString("When a gap cannot be closed with the tools you have, deliver the reply with outcome blocked and state that gap. Revise the reply, using whatever means you judge useful. This review is private. The draft before it is replaced by your next reply and is not shown to the person, so the next reply must be complete.")
 	return b.String()
 }
 
@@ -232,5 +237,5 @@ func (s *Server) gradeAnswer(ctx context.Context, p provider.Provider, model, ru
 	if len(gaps) == 0 {
 		return ""
 	}
-	return answerRevision(gaps, criteria)
+	return answerRevision(gaps, criteria, iteration+1, s.answerGateRounds())
 }

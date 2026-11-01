@@ -5,10 +5,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 
 	"github.com/JackZhao98/tofibot/internal/runtime"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
 // Response dispositions: every Bot turn in a group ends with one explicit
@@ -146,7 +148,7 @@ func (s *Server) groupRespondTools(c Conversation, r Run) []runtime.Tool {
 	}
 	return []runtime.Tool{{Name: "respond", Description: "End your group turn with one explicit response disposition: reply (text is the message to post and your final message; list Bots to start in wake with a concrete request), silent (nothing to add; post nothing), concluded (acknowledgement or closing such as thanks/ok/done; post nothing), or follow_up (waiting on another Bot's output: set wait_for). Call it once, before your final message for reply, or instead of a message for the others.", Parameters: objectSchema(map[string]any{
 		"disposition": map[string]any{"type": "string", "enum": []string{dispReply, dispSilent, dispConcluded, dispFollowUp}},
-		"wake":        map[string]any{"type": "array", "items": objectSchema(map[string]any{"bot_id": map[string]any{"type": "string"}, "request": map[string]any{"type": "string", "description": visibleDelegationText}}, []string{"bot_id", "request"})},
+		"wake":        map[string]any{"type": "array", "description": "Only with disposition reply: up to 3 Bots to start after your message is published. Every other disposition takes no wake.", "items": objectSchema(map[string]any{"bot_id": map[string]any{"type": "string"}, "request": map[string]any{"type": "string", "description": visibleDelegationText}}, []string{"bot_id", "request"})},
 		"text":        map[string]any{"type": "string", "description": "reply only: the message to post. It is your final message; write nothing after calling respond."},
 		"wait_for":    map[string]any{"type": "string", "description": "Bot id you are waiting on (follow_up only)"},
 	}, []string{"disposition"}), Execute: func(ctx context.Context, data json.RawMessage) (string, error) {
@@ -192,7 +194,7 @@ func (s *Server) groupRespondTools(c Conversation, r Run) []runtime.Tool {
 			return "Recorded. This is your final message; the listed Bots start after it is published. Write nothing more.", nil
 		case dispSilent, dispConcluded, dispFollowUp:
 			if len(in.Wake) > 0 {
-				return "", errors.New("only a reply can wake Bots")
+				return "", tooloutcome.New(tooloutcome.Validation, "wake_requires_reply", "not_executed", fmt.Sprintf("wake is accepted only with disposition reply, and this call set disposition %s with %d wake entries. To start those Bots, call respond again with disposition reply, your message in text and the same wake list. To start nobody, call respond again with disposition %s and no wake.", in.Disposition, len(in.Wake), in.Disposition), "repair_arguments").Err()
 			}
 			if r.Kind == runKindSchedule || r.scheduleTask != nil || r.Kind == runKindGroupTask || r.Kind == runKindTeam || r.Kind == runKindMessage {
 				return "", errors.New("this assignment needs a posted result; use reply")

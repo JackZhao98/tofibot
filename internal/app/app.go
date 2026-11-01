@@ -1835,7 +1835,7 @@ func (s *Store) addHandoff(conv, sender, bot, parent, task string, attachmentIDs
 		return Message{}, Run{}, err
 	}
 	if n, _ := res.RowsAffected(); n != 1 {
-		return Message{}, Run{}, errors.New("run handoff already used")
+		return Message{}, Run{}, errRunHandoffUsed
 	}
 	var model, botName string
 	if err = tx.QueryRow(`SELECT model,name FROM bots WHERE id=?`, bot).Scan(&model, &botName); err != nil {
@@ -4177,6 +4177,7 @@ func (s *Server) execute(c Conversation, r Run) {
 	// observedToolWork arms the completion review; reviewed records that the
 	// review (on a text final or on a say answer) has already been spent.
 	var observedToolWork, reviewed atomic.Bool
+	var toolWork toolWorkRecord
 	// The answer gate (answer_review.go): graded drafts so far, the cap for this
 	// run, and whether a scheduled receipt repair is under way (which must not
 	// be sent back again).
@@ -4223,6 +4224,8 @@ func (s *Server) execute(c Conversation, r Run) {
 			// Every run's say(answer) gets the one-time review after tool work; a
 			// scheduled run's answer is also its receipt, so it is reviewed too.
 			state.review = func() bool { return observedToolWork.Load() && !reviewed.Swap(true) }
+			state.reviewSkip = toolWork.reviewSkippable
+			state.reviewNote = toolWork.reviewReminder
 			state.owed = func() bool { return observedToolWork.Load() && !reviewed.Load() }
 			state.gradeOwed = func() bool { return int(gradedRounds.Load()) < gateRounds && !inReceiptRepair.Load() }
 			state.grade = func(ctx context.Context, text string, quiet bool) string {
@@ -4416,6 +4419,9 @@ func (s *Server) execute(c Conversation, r Run) {
 			return
 		}
 		observedToolWork.Store(observed)
+		if observed {
+			toolWork.markRestored()
+		}
 	}
 	reviewKind := r.Kind
 	if r.scheduleTask != nil {
@@ -4598,6 +4604,7 @@ func (s *Server) execute(c Conversation, r Run) {
 			}
 		},
 		OnToolEvent: func(ev runtime.ToolEvent) error {
+			toolWork.note(ev)
 			if completionReviewWork(ev.Name, ev.Risk) && (ev.Status == "running" || ev.Status == "completed" || ev.Status == "failed") {
 				observedToolWork.Store(true)
 			}

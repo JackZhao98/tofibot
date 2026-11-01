@@ -176,7 +176,7 @@ func TestSayTextFinalThroughTheLoopIsDeliveredOnce(t *testing.T) {
 func TestRecoveredSayAnswerGetsTheCompletionReview(t *testing.T) {
 	model := newFakeModel(t,
 		fakeStep{calls: []fakeCall{{"c1", "create_work_item", `{"kind":"task","title":"Check the numbers"}`}}},
-		fakeStep{content: `{"purpose":"answer","outcome":"done","text":"First draft of the answer."}`},
+		fakeStep{content: `{"purpose":"answer","outcome":"done","text":"First draft covers 3 items."}`},
 		fakeStep{calls: []fakeCall{{"c3", "say", `{"purpose":"answer","outcome":"done","text":"Reviewed answer."}`}}},
 		fakeStep{content: "a call that must not happen"})
 	s, run := serverWithModel(t, model, true)

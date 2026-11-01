@@ -380,7 +380,7 @@ func TestRubricNamesNoRemedy(t *testing.T) {
 
 func TestRevisionMessageCarriesTitlesAndNotesOnly(t *testing.T) {
 	criteria := rubricCriteria(answerRubric)
-	msg := answerRevision([]criterionResult{{ID: "C2", Result: "gap", Note: "Leaves the date out."}}, criteria)
+	msg := answerRevision([]criterionResult{{ID: "C2", Result: "gap", Note: "Leaves the date out."}}, criteria, 1, 2)
 	if !strings.Contains(msg, "Needs no follow-up: Leaves the date out.") || strings.Contains(msg, "C2") {
 		t.Fatalf("revision = %q", msg)
 	}
