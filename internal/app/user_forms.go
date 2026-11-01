@@ -431,7 +431,7 @@ func (s *Server) applyFormSecret(ctx context.Context, run Run, rec secretRecord,
 		return "", tooloutcome.InvalidArguments("Bot computer control is unavailable; inspect the page again before filling")
 	}
 	if !s.desktopObservedFor(run) {
-		return "", tooloutcome.InvalidArguments("needs_observation: inspect the current page and focus the intended private field before using the reference")
+		return "", tooloutcome.New(tooloutcome.Validation, tooloutcome.NeedsObservation, "not_executed", "needs_observation: inspect the current page and focus the intended private field, then use the reference again. Nothing was changed.", "repair_arguments").Err()
 	}
 	snapshot, err := s.microVMActionOnLease(ctx, run, "browser.snapshot", json.RawMessage(`{}`))
 	if err != nil {
