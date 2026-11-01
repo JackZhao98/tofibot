@@ -175,9 +175,9 @@ func (b Builtin) Fetch(ctx context.Context, rawURL string, maxChars int) (Page, 
 	case resp.StatusCode == 404 || resp.StatusCode == 410:
 		return Page{}, fail(NotFound)
 	case resp.StatusCode == 401 || resp.StatusCode == 403 || resp.StatusCode == 429 || resp.StatusCode == 451:
-		return Page{}, fail(Blocked)
+		return Page{}, failStatus(Blocked, resp.StatusCode)
 	case resp.StatusCode < 200 || resp.StatusCode >= 300:
-		return Page{}, fail(Network)
+		return Page{}, failStatus(Network, resp.StatusCode)
 	}
 	kind, ok := readableType(resp.Header.Get("Content-Type"))
 	if !ok {
@@ -277,7 +277,7 @@ func (f Firecrawl) Fetch(ctx context.Context, rawURL string, maxChars int) (Page
 	if sc := out.Data.Metadata.StatusCode; sc == 404 || sc == 410 {
 		return Page{}, fail(NotFound)
 	} else if sc >= 400 {
-		return Page{}, fail(Blocked)
+		return Page{}, failStatus(Blocked, sc)
 	}
 	u := out.Data.Metadata.SourceURL
 	if u == "" {
@@ -335,7 +335,7 @@ func (b BrightData) Fetch(ctx context.Context, rawURL string, maxChars int) (Pag
 	case resp.StatusCode == 402:
 		return Page{}, fail(QuotaExceeded)
 	case resp.StatusCode < 200 || resp.StatusCode >= 300:
-		return Page{}, fail(Blocked)
+		return Page{}, failStatus(Blocked, resp.StatusCode)
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, MaxBodyBytes+1))
 	if err != nil {

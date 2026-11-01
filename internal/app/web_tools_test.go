@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/JackZhao98/tofibot/internal/extensions"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"github.com/JackZhao98/tofibot/internal/webtools"
 )
 
@@ -298,13 +299,13 @@ func TestFetchToolRefusesPrivateTargetsAndFallsBack(t *testing.T) {
 	}
 	// A private target ends the chain: Firecrawl is never asked.
 	_, err := fetch.Execute(context.Background(), json.RawMessage(`{"url":"http://169.254.169.254/latest/meta-data/"}`))
-	if err == nil || !strings.Contains(err.Error(), "target_refused") || fcCalls.Load() != 0 {
+	if outcomeCode(err) != "web_target_refused" || fcCalls.Load() != 0 {
 		t.Fatalf("err=%v firecrawl calls=%d", err, fcCalls.Load())
 	}
 	// A name that resolves to loopback dies at dial time through the guard.
 	local := strings.Replace(site.URL, "127.0.0.1", "localhost", 1)
 	_, err = fetch.Execute(context.Background(), json.RawMessage(`{"url":"`+local+`"}`))
-	if err == nil || !strings.Contains(err.Error(), "target_refused") || fcCalls.Load() != 0 {
+	if outcomeCode(err) != "web_target_refused" || fcCalls.Load() != 0 {
 		t.Fatalf("err=%v firecrawl calls=%d", err, fcCalls.Load())
 	}
 	// With the guard replaced (test only), the site's 403 falls through to Firecrawl.
@@ -317,7 +318,7 @@ func TestFetchToolRefusesPrivateTargetsAndFallsBack(t *testing.T) {
 	// Switched off, Firecrawl is not tried and the failure names the codes.
 	providerRequest(t, s, http.MethodPut, "/api/web-tools/fetch/firecrawl", `{"enabled":false}`)
 	_, err = fetch.Execute(context.Background(), json.RawMessage(`{"url":"`+local+`"}`))
-	if err == nil || !strings.Contains(err.Error(), "builtin:blocked") || strings.Contains(err.Error(), "firecrawl") {
+	if err == nil || !strings.Contains(err.Error(), "builtin blocked HTTP 403") || strings.Contains(err.Error(), "firecrawl") {
 		t.Fatalf("err=%v", err)
 	}
 }
@@ -400,5 +401,75 @@ func TestSiteRefusalFromBrightDataDoesNotDisableTheKey(t *testing.T) {
 	}
 	if e, _ := entryByID(webEntries(t, s, "fetch"), "brightdata"); e.Status != "ready" {
 		t.Fatalf("the key must stay usable: %+v", e)
+	}
+}
+
+func outcomeCode(err error) string {
+	o, ok := tooloutcome.FromError(err)
+	if !ok {
+		return ""
+	}
+	return o.Code
+}
+
+func TestWebFailureNamesTriedSkippedAndNextStep(t *testing.T) {
+	ce := &webtools.ChainError{
+		Attempts: []webtools.Attempt{{Source: "builtin", Code: webtools.Blocked, Status: 403}},
+		Last:     webtools.Blocked,
+	}
+	skips := []webtools.Skip{{Source: "firecrawl", Reason: "not_configured"}, {Source: "brightdata", Reason: "limit_reached"}, {Source: "computer", Reason: "no_computer"}}
+	err := webFailure("web_fetch", ce, skips)
+	o, ok := tooloutcome.FromError(err)
+	if !ok || o.Code != "web_blocked" || o.NextAction != "explain_blocker" || strings.Contains(o.Message, "Fix the cause") {
+		t.Fatalf("%+v", o)
+	}
+	for _, want := range []string{"builtin blocked HTTP 403", "firecrawl (not set up)", "brightdata (daily limit reached)", "computer (the Bot has no computer)"} {
+		if !strings.Contains(o.Message, want) {
+			t.Fatalf("%q missing from %q", want, o.Message)
+		}
+	}
+	// 429 is a rate limit, not a refusal.
+	ce.Attempts[0].Status = 429
+	if o, _ := tooloutcome.FromError(webFailure("web_fetch", ce, nil)); !strings.Contains(o.Message, "rate limiting") {
+		t.Fatal(o.Message)
+	}
+	// A script-built page names the browser tool while the computer is free to use.
+	js := &webtools.ChainError{Attempts: []webtools.Attempt{{Source: "builtin", Code: webtools.NeedsJavaScript}}, Last: webtools.NeedsJavaScript}
+	o, _ = tooloutcome.FromError(webFailure("web_fetch", js, nil))
+	if !strings.Contains(o.Message, "computer_browser") || o.NextAction != "replan" {
+		t.Fatalf("%+v", o)
+	}
+	// ...and does not send the Bot to a computer that is unavailable or already failed.
+	o, _ = tooloutcome.FromError(webFailure("web_fetch", js, []webtools.Skip{{Source: "computer", Reason: "computer_unavailable"}}))
+	if strings.Contains(o.Message, "open it with") || o.NextAction != "explain_blocker" {
+		t.Fatalf("%+v", o)
+	}
+	// An empty chain says so and points at Settings.
+	o, _ = tooloutcome.FromError(webFailure("web_search", &webtools.ChainError{Last: webtools.NotConfigured}, nil))
+	if !strings.Contains(o.Message, "No source was available") || !strings.Contains(o.Message, "Settings") || strings.Contains(o.Message, "()") {
+		t.Fatal(o.Message)
+	}
+	// Bad arguments are the only case that asks for a repair.
+	o, _ = tooloutcome.FromError(webFailure("web_fetch", &webtools.ChainError{Last: webtools.BadRequest}, nil))
+	if o.NextAction != "repair_arguments" {
+		t.Fatalf("%+v", o)
+	}
+}
+
+func TestWebSearchWithNoUsableSourceListsWhatWasSkipped(t *testing.T) {
+	s := webServer(t)
+	putWebKey(t, s, "tavily", testTavilyKey)
+	var search Tool
+	for _, tool := range s.webTools(Run{Model: "gpt-5.5"}) {
+		if tool.Name == "web_search" {
+			search = tool
+		}
+	}
+	// Switch the only source off after the tool exists: nothing is left to try.
+	providerRequest(t, s, http.MethodPut, "/api/web-tools/search/tavily", `{"enabled":false}`)
+	_, err := search.Execute(context.Background(), json.RawMessage(`{"query":"cats"}`))
+	o, ok := tooloutcome.FromError(err)
+	if !ok || o.Code != "web_not_configured" || !strings.Contains(o.Message, "brave (not set up)") || strings.Contains(o.Message, "Fix the cause") {
+		t.Fatalf("%+v", o)
 	}
 }
