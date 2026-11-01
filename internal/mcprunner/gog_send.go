@@ -23,6 +23,13 @@ type GogSendRequest struct {
 	Subject string `json:"subject"`
 	Body    string `json:"body"`
 
+	// Cc and Bcc are further recipients, comma separated. ThreadID or ReplyToMessageID makes the send a reply inside
+	// that Gmail thread (gog sets In-Reply-To, References and the thread).
+	Cc               string `json:"cc,omitempty"`
+	Bcc              string `json:"bcc,omitempty"`
+	ThreadID         string `json:"thread_id,omitempty"`
+	ReplyToMessageID string `json:"reply_to_message_id,omitempty"`
+
 	Attachments []GogAttachment `json:"attachments,omitempty"`
 }
 
@@ -47,23 +54,50 @@ func (input *GogSendRequest) validate() error {
 	if input.To == "" || len(input.To) > 2048 || input.Subject == "" || utf8.RuneCountInString(input.Subject) > 512 || strings.ContainsAny(input.Subject, "\r\n") || strings.TrimSpace(input.Body) == "" || len(input.Body) > 128<<10 || !utf8.ValidString(input.Body) {
 		return errors.New("valid recipients, subject and body are required")
 	}
-	addresses := strings.Split(input.To, ",")
+	var err error
+	if input.To, err = normalizeGogAddresses(input.To); err != nil {
+		return err
+	}
+	if input.Cc, err = normalizeGogAddresses(input.Cc); err != nil {
+		return err
+	}
+	if input.Bcc, err = normalizeGogAddresses(input.Bcc); err != nil {
+		return err
+	}
+	for _, id := range []string{input.ThreadID, input.ReplyToMessageID} {
+		if id != "" && !gogIDPattern.MatchString(id) {
+			return errors.New("invalid thread or message id")
+		}
+	}
+	if len(input.Attachments) > maxGogAttachments {
+		return errors.New("too many attachments")
+	}
+	return nil
+}
+
+// normalizeGogAddresses checks a comma separated list of literal addresses; an empty list is valid for Cc and Bcc, and
+// the caller has already required To.
+func normalizeGogAddresses(list string) (string, error) {
+	list = strings.TrimSpace(list)
+	if list == "" {
+		return "", nil
+	}
+	if len(list) > 2048 {
+		return "", errors.New("too many recipients")
+	}
+	addresses := strings.Split(list, ",")
 	if len(addresses) > 20 {
-		return errors.New("too many recipients")
+		return "", errors.New("too many recipients")
 	}
 	for i, address := range addresses {
 		address = strings.TrimSpace(address)
 		parsed, err := mail.ParseAddress(address)
 		if err != nil || parsed.Address != address || strings.ContainsAny(address, "\r\n") {
-			return errors.New("invalid recipient address")
+			return "", errors.New("invalid recipient address")
 		}
 		addresses[i] = address
 	}
-	input.To = strings.Join(addresses, ",")
-	if len(input.Attachments) > maxGogAttachments {
-		return errors.New("too many attachments")
-	}
-	return nil
+	return strings.Join(addresses, ","), nil
 }
 
 // attachmentFileName keeps the person's file name, minus anything that could
@@ -190,6 +224,18 @@ func (r *Runner) GogSend(ctx context.Context, id string, input GogSendRequest) (
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	args := []string{"--json", "--no-input", "--account", account.Email, "gmail", "send", "--to", input.To, "--subject", input.Subject, "--body-file", "-"}
+	if input.Cc != "" {
+		args = append(args, "--cc", input.Cc)
+	}
+	if input.Bcc != "" {
+		args = append(args, "--bcc", input.Bcc)
+	}
+	if input.ThreadID != "" {
+		args = append(args, "--thread-id", input.ThreadID)
+	}
+	if input.ReplyToMessageID != "" {
+		args = append(args, "--reply-to-message-id", input.ReplyToMessageID)
+	}
 	for _, f := range files {
 		args = append(args, "--attach", f)
 	}

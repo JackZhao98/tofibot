@@ -295,6 +295,16 @@ func (r *Runner) Tools(ctx context.Context, id string) ([]mcp.Tool, error) {
 }
 
 func (r *Runner) toolsPlugin(ctx context.Context, p *plugin) ([]mcp.Tool, error) {
+	tools, err := r.childTools(ctx, p)
+	if err != nil || p.spec.Kind != "builtin_gog" {
+		return tools, err
+	}
+	// TOFI's own gog tools follow the services the account has authorised.
+	account, _ := r.GogStatus(p.spec.ID)
+	return append(tools, gogExtraTools(account)...), nil
+}
+
+func (r *Runner) childTools(ctx context.Context, p *plugin) ([]mcp.Tool, error) {
 	releaseInstance, err := r.retainPlugin(p)
 	if err != nil {
 		return nil, err
@@ -333,6 +343,14 @@ func (r *Runner) call(ctx context.Context, id string, params *mcp.CallToolParams
 }
 
 func (r *Runner) callPlugin(ctx context.Context, p *plugin, params *mcp.CallToolParams) (*mcp.CallToolResult, error) {
+	if p.spec.Kind == "builtin_gog" && isGogExtraTool(params.Name) {
+		release, err := r.retainPlugin(p)
+		if err != nil {
+			return nil, err
+		}
+		defer release()
+		return r.callGogExtra(ctx, p, params)
+	}
 	if p.spec.Adapter != nil {
 		if err := adapterFeatures(params.InputResponses, params.RequestState, params.Meta); err != nil {
 			return nil, err

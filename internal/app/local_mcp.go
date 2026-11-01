@@ -86,6 +86,12 @@ func (s *Server) runnerRequestContext(ctx context.Context, method, path string, 
 // runnerRequestTo sends one request to an explicit Runner. The migration uses
 // it to talk to the container before the account is switched to it.
 func (s *Server) runnerRequestTo(ctx context.Context, base, token, method, path string, body any) ([]byte, int, error) {
+	return s.runnerRequestToLimit(ctx, base, token, method, path, body, 1<<20)
+}
+
+// runnerRequestToLimit is runnerRequestTo with a larger bound on the response, for the endpoints that return a file.
+// A response over the bound is an error, never a truncated body.
+func (s *Server) runnerRequestToLimit(ctx context.Context, base, token, method, path string, body any, limit int64) ([]byte, int, error) {
 	var err error
 	var reader io.Reader
 	if body != nil {
@@ -117,8 +123,20 @@ func (s *Server) runnerRequestTo(ctx context.Context, base, token, method, path 
 		return nil, 0, err
 	}
 	defer response.Body.Close()
-	data, err := io.ReadAll(io.LimitReader(response.Body, 1<<20))
+	data, err := io.ReadAll(io.LimitReader(response.Body, limit+1))
+	if err == nil && int64(len(data)) > limit {
+		return nil, response.StatusCode, errors.New("runner response too large")
+	}
 	return data, response.StatusCode, err
+}
+
+// runnerRequestLarge sends one request to the local Runner and accepts a response up to limit bytes.
+func (s *Server) runnerRequestLarge(ctx context.Context, method, path string, body any, limit int64) ([]byte, int, error) {
+	base, token, err := s.localRunnerConfig()
+	if err != nil {
+		return nil, 0, err
+	}
+	return s.runnerRequestToLimit(ctx, base, token, method, path, body, limit)
 }
 
 func (s *Server) routeLocalMCP(w http.ResponseWriter, r *http.Request, p string) bool {

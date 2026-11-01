@@ -156,6 +156,29 @@ func (r *Runner) Handler(token string) http.Handler {
 					return
 				}
 				_ = json.NewEncoder(w).Encode(map[string]any{"sent": true, "result": result})
+			case (parts[4] == "attachment" || parts[4] == "drive-export") && req.Method == http.MethodPost:
+				var file GogFile
+				var err error
+				if parts[4] == "attachment" {
+					var input GogAttachmentRequest
+					if err = decodeJSON(req, &input); err != nil {
+						http.Error(w, "invalid attachment request", 400)
+						return
+					}
+					file, err = r.GogAttachment(req.Context(), id, input)
+				} else {
+					var input GogDriveRequest
+					if err = decodeJSON(req, &input); err != nil {
+						http.Error(w, "invalid export request", 400)
+						return
+					}
+					file, err = r.GogDriveExport(req.Context(), id, input)
+				}
+				if err != nil {
+					writeGogFileError(w, err)
+					return
+				}
+				_ = json.NewEncoder(w).Encode(file)
 			case parts[4] == "check" && req.Method == http.MethodPost:
 				if err := r.GogCheck(req.Context(), id); err != nil {
 					var disabled *APIDisabled
@@ -338,4 +361,31 @@ func writePluginError(w http.ResponseWriter, err error) {
 		message = ErrIncompatibleProtocol.Error()
 	}
 	http.Error(w, message, http.StatusBadGateway)
+}
+
+// writeGogFileError answers a file operation with a typed body {"error": {"code", "message", ...}}. An API that is not
+// enabled keeps the structured form the Settings flow already reads.
+func writeGogFileError(w http.ResponseWriter, err error) {
+	w.Header().Set("Content-Type", "application/json")
+	var disabled *APIDisabled
+	if errors.As(err, &disabled) {
+		w.WriteHeader(http.StatusConflict)
+		_ = json.NewEncoder(w).Encode(map[string]any{"error": &GogFileError{Code: "api_disabled", Message: "The Google API for this service is not enabled for the project. Ask the person to enable it in Settings > Connections (/settings/connections/local_gog)."}, "api": disabled.API, "project": disabled.Project})
+		return
+	}
+	var typed *GogFileError
+	if !errors.As(err, &typed) {
+		typed = fileErr("failed", "The file operation failed.")
+	}
+	status := http.StatusConflict
+	switch typed.Code {
+	case "invalid_arguments", "unsupported_format":
+		status = http.StatusBadRequest
+	case "not_found":
+		status = http.StatusNotFound
+	case "failed":
+		status = http.StatusBadGateway
+	}
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]any{"error": typed})
 }
