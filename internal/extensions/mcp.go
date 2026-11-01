@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"log"
 	"net/http"
 	"net/url"
@@ -171,7 +172,14 @@ type CachedMCPTool struct {
 	// ReadOnlyHint is the remote tools/list annotation as last seen. It is an
 	// untrusted hint: absent or false means the tool is treated as an effect.
 	ReadOnlyHint bool `json:"read_only_hint,omitempty"`
+	// SchemaCompacted marks a search result whose schema had prose or $defs
+	// bodies left out for size. Only a whole schema can be cached.
+	SchemaCompacted bool `json:"schema_compacted,omitempty"`
 }
+
+// maxCachedSchemaBytes is the largest schema a prior search can hand back
+// whole: the same bound one search page uses for a single tool.
+const maxCachedSchemaBytes = maxSchemaPageBytes - 4096
 
 // MCPCallApproval is an execution-time request for one exact tool call.
 // Approval must occur before the remote CallTool request is sent.
@@ -860,7 +868,7 @@ func (m *Manager) callMCPToolObserved(callCtx context.Context, cli *mcp.ClientSe
 	if len(args) == 0 {
 		arguments = map[string]any{}
 	} else if err := json.Unmarshal(args, &arguments); err != nil {
-		return "", fmt.Errorf("invalid arguments: %w", err)
+		return "", tooloutcome.InvalidArguments("arguments must be a JSON object holding the tool's input fields: " + sanitizeRemoteText(err.Error(), 200))
 	}
 	var out *mcp.CallToolResult
 	var err error
@@ -883,6 +891,9 @@ func (m *Manager) callMCPToolObserved(callCtx context.Context, cli *mcp.ClientSe
 		if observe.failed != nil {
 			observe.failed(err)
 		}
+		if o, ok := mcpProtocolRejection(err, attempts); ok {
+			return "", o.Err()
+		}
 		if !readOnly {
 			o := uncertainMCPOutcome(attempts)
 			if hint := googleAuthRejection(endpoint, call); hint != "" {
@@ -900,7 +911,15 @@ func (m *Manager) callMCPToolObserved(callCtx context.Context, cli *mcp.ClientSe
 			if transientMCPError(err) || callCtx.Err() != nil {
 				status, code = tooloutcome.Transient, "mcp_retry_exhausted"
 			}
-			o := tooloutcome.New(status, code, "no_side_effect", "MCP tool call failed; the read-only retry budget is exhausted or the endpoint rejected the request.", "explain_blocker")
+			msg := "MCP tool call failed; the read-only retry budget is exhausted or the endpoint rejected the request."
+			var rpc *jsonrpc.Error
+			if errors.As(err, &rpc) {
+				msg = fmt.Sprintf("MCP tool call failed with JSON-RPC code %d. %s %s", rpc.Code, mcpReportedMarker, sanitizeRemoteText(rpc.Message, 600))
+			}
+			o := tooloutcome.New(status, code, "no_side_effect", msg, "explain_blocker")
+			if rpc != nil {
+				o.RPCCode, o.RemoteError = int(rpc.Code), sanitizeRemoteText(rpc.Message, 600)
+			}
 			o.Attempts, o.RetryLimit = attempts, 2
 			return "", o.Err()
 		}
@@ -922,10 +941,13 @@ func (m *Manager) callMCPToolObserved(callCtx context.Context, cli *mcp.ClientSe
 		// value. Preserve bounded tool output while keeping transport errors private.
 		o := uncertainMCPOutcome(attempts)
 		if readOnly {
-			o = tooloutcome.New(tooloutcome.Permanent, "mcp_reported_error", "no_side_effect", "MCP tool returned an error; inspect its result and schema before choosing another action.", "explain_blocker")
+			o = tooloutcome.New(tooloutcome.Permanent, "mcp_reported_error", "no_side_effect", "MCP tool returned an error.", "explain_blocker")
 		}
-		// Preserve bounded details as untrusted data, never as recovery authority.
-		o.Message += " Untrusted tool-reported details: " + text
+		// The remote's reason goes first, as untrusted data and never as
+		// recovery authority, so no later bound can cut it.
+		reason := sanitizeRemoteText(text, maxMCPRemoteErrorRunes)
+		o.RemoteError = reason
+		o.Message = mcpReportedMarker + " " + reason + " " + o.Message
 		return text, o.Err()
 	}
 	return text, nil
@@ -942,14 +964,14 @@ func validCachedMCPTool(cached CachedMCPTool, servers map[string]MCPServerConfig
 	if !ok || cached.SchemaVersion == "" || cached.SchemaVersion != m.schemaVersion(cached.Server, cfg) {
 		return false
 	}
-	if !validExtensionName(cached.Server) || !safeCachedToolName(cached.Name) || len(cached.RemoteName) == 0 || len(cached.RemoteName) > 256 || len([]rune(cached.Description)) > maxDescription || cached.Parameters == nil {
+	if !validExtensionName(cached.Server) || !safeCachedToolName(cached.Name) || len(cached.RemoteName) == 0 || len(cached.RemoteName) > 256 || len([]rune(cached.Description)) > maxDescription || cached.Parameters == nil || cached.SchemaCompacted {
 		return false
 	}
 	if kind, _ := cached.Parameters["type"].(string); kind != "" && kind != "object" {
 		return false
 	}
 	encoded, err := json.Marshal(cached.Parameters)
-	if err != nil || len(encoded) > 6<<10 {
+	if err != nil || len(encoded) > maxCachedSchemaBytes {
 		return false
 	}
 	allow, deny := map[string]bool{}, map[string]bool{}

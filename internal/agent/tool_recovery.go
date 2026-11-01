@@ -50,6 +50,23 @@ func recoveryStatus(status string) bool {
 	return status == tooloutcome.Expired || status == tooloutcome.Validation || status == tooloutcome.Uncertain || status == tooloutcome.Denied || status == tooloutcome.Permanent || status == tooloutcome.Transient
 }
 
+// pruneRepairsAfterSuccess drops the argument-repair records of an operation
+// that has just succeeded, so a later mistake starts a fresh budget.
+func pruneRepairsAfterSuccess(records []ToolRecoveryRecord, success tooloutcome.Identity) []ToolRecoveryRecord {
+	out := records[:0:0]
+	for _, record := range records {
+		prior := tooloutcome.DefaultIdentity(record.Call.Name, json.RawMessage(record.Call.Arguments))
+		if record.Identity != nil {
+			prior = *record.Identity
+		}
+		if record.Outcome.Status == tooloutcome.Validation && prior.Scope == success.Scope && prior.Operation == success.Operation {
+			continue
+		}
+		out = append(out, record)
+	}
+	return out
+}
+
 func toolRecoveryRecords(messages []provider.Message) []ToolRecoveryRecord {
 	calls := map[string]provider.ToolCall{}
 	batches := map[string]string{}
@@ -92,6 +109,7 @@ func toolRecoveryIdentityGuardAt(records []ToolRecoveryRecord, identity tooloutc
 func toolRecoveryCallGuardAt(records []ToolRecoveryRecord, identity tooloutcome.Identity, args string, epoch int) *tooloutcome.Outcome {
 	repairs := 0
 	repairBatches := map[string]bool{}
+	lastProblem := ""
 	observationFailures := 0
 	for _, record := range records {
 		prior := tooloutcome.DefaultIdentity(record.Call.Name, json.RawMessage(record.Call.Arguments))
@@ -137,10 +155,11 @@ func toolRecoveryCallGuardAt(records []ToolRecoveryRecord, identity tooloutcome.
 		if prior.Scope != identity.Scope || prior.Operation != identity.Operation {
 			continue
 		}
-		if o.Status == tooloutcome.Validation && (record.Batch == "" || !repairBatches[record.Batch]) {
+		if o.Status == tooloutcome.Validation && !tooloutcome.IsGateCode(o.Code) && (record.Batch == "" || !repairBatches[record.Batch]) {
 			// Several malformed parallel calls from one model turn are one
 			// repair attempt, not one per call.
 			repairs++
+			lastProblem = o.Message
 			if record.Batch != "" {
 				repairBatches[record.Batch] = true
 			}
@@ -155,11 +174,32 @@ func toolRecoveryCallGuardAt(records []ToolRecoveryRecord, identity tooloutcome.
 		return &o
 	}
 	if repairs >= toolRepairLimit {
-		o := tooloutcome.New(tooloutcome.Permanent, "repair_budget_exhausted", "not_executed", "Argument/schema repair budget exhausted for this operation. Explain the blocker and use another permitted capability or request corrected information.", "explain_blocker")
+		o := tooloutcome.New(tooloutcome.Permanent, "repair_budget_exhausted", "not_executed", repairBudgetMessage(identity.Operation, lastProblem), "explain_blocker")
 		o.RepairLimit = toolRepairLimit
 		return &o
 	}
 	return nil
+}
+
+// repairBudgetMessage says which operation is paused, the last concrete
+// problem, and what stays possible, so the stop is never read as a missing
+// capability.
+func repairBudgetMessage(operation, problem string) string {
+	var b strings.Builder
+	if operation != "" {
+		fmt.Fprintf(&b, "%s was called with invalid arguments %d times in this run and is paused until the next run. ", operation, toolRepairLimit)
+	} else {
+		fmt.Fprintf(&b, "This tool was called with invalid arguments %d times in this run and is paused until the next run. ", toolRepairLimit)
+	}
+	if problem = strings.TrimSpace(problem); problem != "" {
+		r := []rune(problem)
+		if len(r) > 400 {
+			problem = string(r[:400]) + "…"
+		}
+		b.WriteString("Last problem: " + problem + " ")
+	}
+	b.WriteString("The capability exists. Other tools stay available, and the schema shown earlier lists the accepted fields. Report this exact problem and what is needed to fix it.")
+	return b.String()
 }
 
 func uncertainIdentityBlocks(prior, candidate tooloutcome.Identity) bool {

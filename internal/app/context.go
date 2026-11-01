@@ -54,8 +54,8 @@ const contextReuseGuidance = "Reuse history and accepted schemas; recheck change
 const (
 	recentCapabilitySchemaAge  = 24 * time.Hour
 	maxRecentCapabilitySchemas = 3
-	maxRecentCapabilityBytes   = 12 << 10
-	maxRecentSchemaBytes       = 4 << 10
+	maxRecentCapabilityBytes   = 24 << 10
+	maxRecentSchemaBytes       = 18 << 10
 )
 
 // recentCapabilitySchemas preserves only successful schema records from this
@@ -140,7 +140,7 @@ func (s *Store) recentCapabilitySchemas(conversationID, botID, before string) []
 }
 
 func validRecentCapabilitySchema(tool extensions.CachedMCPTool) bool {
-	if !safeCapabilityName(tool.Name) || !safeCapabilityName(tool.Server) || tool.RemoteName == "" || len(tool.RemoteName) > 256 || len([]rune(tool.Description)) > 1024 || len(tool.SchemaVersion) != 64 || tool.Parameters == nil {
+	if !safeCapabilityName(tool.Name) || !safeCapabilityName(tool.Server) || tool.RemoteName == "" || len(tool.RemoteName) > 256 || len([]rune(tool.Description)) > 1024 || len(tool.SchemaVersion) != 64 || tool.Parameters == nil || tool.SchemaCompacted {
 		return false
 	}
 	if kind, _ := tool.Parameters["type"].(string); kind != "" && kind != "object" {
