@@ -19,7 +19,7 @@ func wireReview(st *sayRunState, w *toolWorkRecord) *int {
 func TestReviewSkippedWhenEveryCallSucceededAndDraftClaimsNoExtent(t *testing.T) {
 	s, c, r, st := outcomeFixture(t, "")
 	var w toolWorkRecord
-	w.note(runtime.ToolEvent{Name: "files_write", Status: "completed"})
+	w.note(runtime.ToolEvent{Name: "computer_files", Status: "completed"})
 	spent := wireReview(st, &w)
 	if err := sayOutcome(s, c, r, "k1", `{"purpose":"answer","outcome":"done","text":"Saved the note."}`); err != nil {
 		t.Fatalf("answer = %v", err)
@@ -32,14 +32,14 @@ func TestReviewSkippedWhenEveryCallSucceededAndDraftClaimsNoExtent(t *testing.T)
 func TestReviewRunsWhenACallFailedAndNamesIt(t *testing.T) {
 	s, c, r, st := outcomeFixture(t, "")
 	var w toolWorkRecord
-	w.note(runtime.ToolEvent{Name: "files_write", Status: "failed"})
+	w.note(runtime.ToolEvent{Name: "computer_files", Status: "failed"})
 	wireReview(st, &w)
 	err := sayOutcome(s, c, r, "k1", `{"purpose":"answer","outcome":"done","text":"Saved the note."}`)
 	if outcomeErrCode(err) != "answer_review" {
 		t.Fatalf("code = %q", outcomeErrCode(err))
 	}
 	o, _ := tooloutcome.FromError(err)
-	if !strings.Contains(o.Message, "files_write") || !strings.Contains(o.Message, "runs once") {
+	if !strings.Contains(o.Message, "computer_files") || !strings.Contains(o.Message, "runs once") {
 		t.Fatalf("message = %q", o.Message)
 	}
 }
@@ -47,7 +47,7 @@ func TestReviewRunsWhenACallFailedAndNamesIt(t *testing.T) {
 func TestReviewRunsForFiguresAndQuotesTheSentence(t *testing.T) {
 	s, c, r, st := outcomeFixture(t, "")
 	var w toolWorkRecord
-	w.note(runtime.ToolEvent{Name: "files_write", Status: "completed"})
+	w.note(runtime.ToolEvent{Name: "computer_files", Status: "completed"})
 	wireReview(st, &w)
 	err := sayOutcome(s, c, r, "k1", `{"purpose":"answer","outcome":"done","text":"Saved the note. I checked 42 files."}`)
 	o, _ := tooloutcome.FromError(err)
@@ -61,5 +61,40 @@ func TestRestoredToolWorkKeepsTheReview(t *testing.T) {
 	w.markRestored()
 	if w.reviewSkippable("Done.") {
 		t.Fatal("restored work with unknown results must be reviewed")
+	}
+}
+
+func TestPrepareEmailThenSentClaimIsReviewed(t *testing.T) {
+	s, c, r, st := outcomeFixture(t, "")
+	var w toolWorkRecord
+	w.note(runtime.ToolEvent{Name: "prepare_email", Status: "completed"})
+	spent := wireReview(st, &w)
+	err := sayOutcome(s, c, r, "k1", `{"purpose":"answer","outcome":"done","text":"Sent it."}`)
+	if outcomeErrCode(err) != "answer_review" || *spent != 1 {
+		t.Fatalf("code = %q spent = %d", outcomeErrCode(err), *spent)
+	}
+}
+
+func TestScheduledRunIsNeverSkipped(t *testing.T) {
+	s, c, r, st := outcomeFixture(t, runKindSchedule)
+	var w toolWorkRecord
+	w.note(runtime.ToolEvent{Name: "computer_files", Status: "completed"})
+	wireReview(st, &w)
+	err := sayOutcome(s, c, r, "k1", `{"purpose":"answer","outcome":"done","text":"Saved the note."}`)
+	if outcomeErrCode(err) != "answer_review" {
+		t.Fatalf("code = %q", outcomeErrCode(err))
+	}
+}
+
+func TestRunLevelSkipForSelfConfirmingToolsOnly(t *testing.T) {
+	var w toolWorkRecord
+	w.note(runtime.ToolEvent{Name: "computer_files", Status: "completed"})
+	w.note(runtime.ToolEvent{Name: "task_update", Status: "completed"})
+	if !w.reviewSkippable("Saved the note.") {
+		t.Fatal("self-confirming completed calls with a plain draft should skip")
+	}
+	w.note(runtime.ToolEvent{Name: "call_mcp_tool", Status: "completed"})
+	if w.reviewSkippable("Saved the note.") {
+		t.Fatal("one unlisted tool in the run must keep the review")
 	}
 }
