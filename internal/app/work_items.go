@@ -746,13 +746,14 @@ func (s *Server) workItemBoardTools(c Conversation, r Run) []Tool {
 			}
 			return encode(item, err)
 		}},
-		{Name: "list_work_items", Description: "List durable goals and tasks. current_conversation shows this conversation's items; self shows only your assigned items across conversations, each retaining its origin conversation_id. history=false lists open work; history=true lists completed and cancelled work. Recorded items are commitments, not automatically executing runs.", Parameters: objectSchema(map[string]any{"scope": map[string]any{"type": "string", "enum": []string{"current_conversation", "self"}}, "history": map[string]any{"type": "boolean", "description": "False: only open work (use before creating a task); true: only completed or cancelled records, excluding open work"}}, []string{"scope", "history"}), Execute: func(ctx context.Context, data json.RawMessage) (string, error) {
+		{Name: "list_work_items", Description: "List durable goals and tasks. current_conversation shows this conversation's items; self shows only your assigned items across conversations, each retaining its origin conversation_id. history=false lists open work; history=true lists completed and cancelled work. Recorded items are commitments, not automatically executing runs.", Parameters: objectSchema(map[string]any{"scope": map[string]any{"type": "string", "enum": []string{"current_conversation", "self"}}, "history": map[string]any{"type": "boolean", "description": "False: only open work (use before creating a task); true: only completed or cancelled records, excluding open work"}, "offset": listOffsetProp}, []string{"scope", "history"}), Execute: func(ctx context.Context, data json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
 			var in struct {
 				Scope   string `json:"scope"`
 				History bool   `json:"history"`
+				Offset  int    `json:"offset"`
 			}
 			if err := json.Unmarshal(data, &in); err != nil {
 				return "", err
@@ -764,7 +765,10 @@ func (s *Server) workItemBoardTools(c Conversation, r Run) []Tool {
 				return "", errors.New("scope must be current_conversation or self")
 			}
 			items, err := s.store.ListWorkItems(conversationID, botID, in.History)
-			return encode(map[string]any{"work_items": items}, err)
+			if err != nil {
+				return "", err
+			}
+			return pagedList("work_items", items, in.Offset), nil
 		}},
 	}
 }

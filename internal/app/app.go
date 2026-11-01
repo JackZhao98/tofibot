@@ -5104,9 +5104,17 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 	}}, {Name: "handoff", Deferred: true, Description: "Alias of delegate for one recipient, kept for one version. In a group, publish a bounded task to a member, then end this turn without duplicating the dispatch.", Parameters: objectSchema(map[string]any{"bot_id": map[string]any{"type": "string"}, "task": map[string]any{"type": "string", "description": delegationBriefText}, "attachment_ids": attachmentIDsProp}, []string{"bot_id", "task"}), Execute: func(ctx context.Context, b json.RawMessage) (string, error) {
 		out, _, err := s.execHandoff(ctx, c, r, b)
 		return out, err
-	}}, {Name: "list_bots", Description: "List available Bots, roles and exact IDs when the user asks for the roster, team assembly or contact/delegation and the needed IDs are not already known. Reuse IDs from the current roster or relevant context; do not list on every turn. A mention alone does not authorize delegation.", Parameters: objectSchema(map[string]any{}, nil), Execute: func(ctx context.Context, b json.RawMessage) (string, error) {
+	}}, {Name: "list_bots", Description: "List available Bots, roles and exact IDs when the user asks for the roster, team assembly or contact/delegation and the needed IDs are not already known. Reuse IDs from the current roster or relevant context; do not list on every turn. A mention alone does not authorize delegation.", Parameters: objectSchema(map[string]any{"offset": listOffsetProp}, nil), Execute: func(ctx context.Context, b json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {
 			return "", err
+		}
+		var listIn struct {
+			Offset int `json:"offset"`
+		}
+		if len(b) > 0 && string(b) != "null" {
+			if err := json.Unmarshal(b, &listIn); err != nil {
+				return "", tooloutcome.InvalidArguments("offset must be a non-negative integer")
+			}
 		}
 		bots, err := s.store.ListBots()
 		if err != nil {
@@ -5129,8 +5137,7 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 			model, _ := s.resolveBotModel(ctx, "", b)
 			out = append(out, entry{b.ID, b.Name, model, trimRunes(b.Instructions, 1500)})
 		}
-		data, _ := json.Marshal(out)
-		return string(data), nil
+		return pagedList("bots", out, listIn.Offset), nil
 	}}}
 	// Keep the long-standing base-tool order stable for integrations that use
 	// the handoff tool by position, while exposing the new message tool beside
