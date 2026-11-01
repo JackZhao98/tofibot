@@ -7,6 +7,13 @@ import (
 	"testing"
 )
 
+func TestJSONRefusesInputFarOverTheBound(t *testing.T) {
+	big := "[" + strings.Repeat(`{"a":"bbbbbbbb"},`, 20000) + `{"a":"c"}]`
+	if _, ok := JSON(big, len(big)/(MaxInputFactor+1)); ok {
+		t.Fatal("decoded an input far over the bound")
+	}
+}
+
 func TestJSONArrayStaysValidAndCountsDroppedItems(t *testing.T) {
 	items := make([]map[string]any, 600)
 	for i := range items {

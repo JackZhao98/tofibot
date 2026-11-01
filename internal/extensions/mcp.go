@@ -1054,6 +1054,17 @@ func uniqueToolName(raw string, used map[string]int) string {
 	return raw
 }
 
+// cutRunes returns the first n runes of s without converting all of s.
+func cutRunes(s string, n int) string {
+	for i := range s {
+		if n == 0 {
+			return s[:i]
+		}
+		n--
+	}
+	return s
+}
+
 func boundedContent(result *mcp.CallToolResult, max int) string {
 	if result == nil {
 		return "MCP returned an empty result"
@@ -1074,12 +1085,16 @@ func boundedContent(result *mcp.CallToolResult, max int) string {
 	if out == "" {
 		out = "MCP returned no text content"
 	}
-	r := []rune(out)
-	if len(r) > max {
+	if utf8.RuneCountInString(out) <= max {
+		return out
+	}
+	// resultcut.JSON decodes and re-encodes its input; the remote text is
+	// untrusted and unbounded, so only a bounded input takes that path.
+	if len(out) <= resultcut.MaxInputFactor*max {
 		if cut, ok := resultcut.JSON(out, max); ok {
 			return cut
 		}
-		return string(r[:max]) + fmt.Sprintf("\n[truncated: the first %d of %d characters are shown and the rest was not returned. Narrow the request with the tool's own filter, limit, page or cursor arguments to get it.]", max, len(r))
 	}
-	return out
+	total := utf8.RuneCountInString(out)
+	return cutRunes(out, max) + fmt.Sprintf("\n[truncated: the first %d of %d characters are shown and the rest was not returned. Narrow the request with the tool's own filter, limit, page or cursor arguments to get it.]", max, total)
 }
