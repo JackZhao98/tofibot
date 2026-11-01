@@ -250,6 +250,11 @@ type Page struct {
 	Title     string `json:"title,omitempty"`
 	Truncated bool   `json:"truncated,omitempty"`
 	Content   string `json:"content"`
+	// Offset, NextOffset and TotalChars describe a part of a long page, in characters:
+	// the part starts at Offset, the next part at NextOffset (absent on the last part).
+	Offset     int `json:"offset,omitempty"`
+	NextOffset int `json:"next_offset,omitempty"`
+	TotalChars int `json:"total_chars,omitempty"`
 	// Note tells the model the text may be incomplete; it decides whether to read the page another way.
 	Note string `json:"note,omitempty"`
 }
@@ -383,19 +388,67 @@ func SearchWith(ctx context.Context, chain []SearchProvider, query string, limit
 	return SearchResponse{}, &ChainError{Attempts: attempts, Last: attempts[len(attempts)-1].Code}
 }
 
-// Fetch runs the chain in order until one provider returns readable content.
-// The address is checked once before any provider sees it.
+// Fetch runs the chain and returns the first part of the page, at most
+// maxChars characters.
 func Fetch(ctx context.Context, chain []FetchProvider, rawURL string, maxChars int) (Page, error) {
-	u, err := ValidateTarget(rawURL)
+	page, err := FetchFull(ctx, chain, rawURL)
 	if err != nil {
-		return Page{}, &ChainError{Attempts: []Attempt{{Source: "request", Code: CodeOf(err)}}, Last: CodeOf(err)}
+		return Page{}, err
 	}
+	return Slice(page, 0, maxChars), nil
+}
+
+// Slice returns the part of a full page that starts at offset (characters) and
+// holds at most maxChars. It names the offset of the next part when the page
+// goes on.
+func Slice(page Page, offset, maxChars int) Page {
 	if maxChars < 1000 {
 		maxChars = DefaultMaxChars
 	}
 	if maxChars > MaxMaxChars {
 		maxChars = MaxMaxChars
 	}
+	runes := []rune(page.Content)
+	total := len(runes)
+	if offset < 0 {
+		offset = 0
+	}
+	sourceCut := page.Truncated && page.TotalChars == 0
+	if offset >= total {
+		page.Content, page.Offset, page.NextOffset, page.TotalChars = "", total, 0, total
+		page.Truncated = false
+		page.Note = "The offset is at or past the end of the page. The page has " + strconv.Itoa(total) + " characters."
+		return page
+	}
+	end := offset + maxChars
+	if end >= total {
+		end = total
+	}
+	page.Content = string(runes[offset:end])
+	page.TotalChars = total
+	page.Offset = offset
+	page.NextOffset = 0
+	page.Truncated = sourceCut
+	if end < total {
+		page.NextOffset = end
+		page.Truncated = true
+		page.Note = "Part of a longer page (" + strconv.Itoa(total) + " characters). Call again with offset " + strconv.Itoa(end) + " to read the next part."
+	}
+	return page
+}
+
+// MaxPageChars is how much text of one page the chain holds so it can be read in parts.
+const MaxPageChars = 400000
+
+// FetchFull runs the chain in order until one provider returns readable
+// content and returns all of it up to MaxPageChars. The address is checked once
+// before any provider sees it.
+func FetchFull(ctx context.Context, chain []FetchProvider, rawURL string) (Page, error) {
+	u, err := ValidateTarget(rawURL)
+	if err != nil {
+		return Page{}, &ChainError{Attempts: []Attempt{{Source: "request", Code: CodeOf(err)}}, Last: CodeOf(err)}
+	}
+	maxChars := MaxPageChars
 	var attempts []Attempt
 	for _, p := range chain {
 		if err := ctx.Err(); err != nil {
