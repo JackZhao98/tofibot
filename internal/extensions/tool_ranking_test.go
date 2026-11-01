@@ -103,3 +103,22 @@ func toolNames(tools []runtime.Tool) []string {
 	}
 	return names
 }
+
+func TestExactToolNameRanksFirst(t *testing.T) {
+	tools := []runtime.Tool{
+		{Name: "mcp_notion__notion-query-multiple-data-sources", Description: "Query data across multiple data sources with SQL"},
+		{Name: "mcp_notion__notion-fetch", Description: "Fetch a page, database or data source"},
+		{Name: "mcp_notion__notion-query-data-sources", Description: "Query data source rows"},
+	}
+	for _, q := range []string{"query-data-sources", "notion-query-data-sources", "mcp_notion__notion-query-data-sources", "Query-Data-Sources"} {
+		if got := rankToolMatches(tools, q); len(got) == 0 || got[0].Name != "mcp_notion__notion-query-data-sources" {
+			t.Fatalf("%q ranked %v first", q, got)
+		}
+	}
+	if exactToolNameMatch("mcp_notion__notion-query-multiple-data-sources", "data-sources") == false {
+		t.Fatal("a separator-bounded tail should match")
+	}
+	if exactToolNameMatch("mcp_notion__notion-fetch", "etch") {
+		t.Fatal("a tail inside a word must not match")
+	}
+}

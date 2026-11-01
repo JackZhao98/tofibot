@@ -75,7 +75,7 @@ func rankToolMatches(tools []runtime.Tool, query string) []runtime.Tool {
 			idf := math.Log(1 + (float64(len(docs)-df[term])+0.5)/(float64(df[term])+0.5))
 			d.score += idf * tf * 2.2 / (tf + 1.2*(0.25+0.75*float64(d.length)/avg))
 		}
-		if strings.EqualFold(d.tool.Name, strings.TrimSpace(query)) {
+		if exactToolNameMatch(d.tool.Name, query) {
 			d.score += 100
 		}
 	}
@@ -134,4 +134,28 @@ func rankExpandedToolMatches(tools []runtime.Tool, phrases []string) []runtime.T
 		result = append(result, entry.tool)
 	}
 	return result
+}
+
+// exactToolNameMatch reports a query that names the tool: the full name, the
+// server's own tool name, or a tail of it that starts at a separator
+// ("query-data-sources" for "mcp_notion__notion-query-data-sources").
+func exactToolNameMatch(name, query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if q == "" {
+		return false
+	}
+	name = strings.ToLower(name)
+	remote := name
+	if at := strings.LastIndex(name, "__"); at >= 0 {
+		remote = name[at+2:]
+	}
+	if name == q || remote == q {
+		return true
+	}
+	for _, sep := range []string{"-", "_", "."} {
+		if strings.HasSuffix(remote, sep+q) {
+			return true
+		}
+	}
+	return false
 }
