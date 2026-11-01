@@ -33,7 +33,7 @@ func TestPrepareRemoteMCPPreservesOriginalNamesAndHandlesErrors(t *testing.T) {
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
-		case <-time.After(200 * time.Millisecond):
+		case <-time.After(3 * time.Second):
 			return fixtureText("late"), nil
 		}
 	})
@@ -51,7 +51,9 @@ func TestPrepareRemoteMCPPreservesOriginalNamesAndHandlesErrors(t *testing.T) {
 	if err := os.WriteFile(configPath, b, 0600); err != nil {
 		t.Fatal(err)
 	}
-	p, err := NewManager(Config{MCPConfigPath: configPath, ToolTimeout: 20 * time.Millisecond}).Prepare(context.Background())
+	// The timeout must leave ordinary calls ample room on a loaded machine
+	// (20 ms timed out real calls) while the slow tool still exceeds it.
+	p, err := NewManager(Config{MCPConfigPath: configPath, ToolTimeout: time.Second}).Prepare(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +77,8 @@ func TestPrepareRemoteMCPPreservesOriginalNamesAndHandlesErrors(t *testing.T) {
 	for _, tool := range p.Tools {
 		if strings.HasSuffix(tool.Name, "__slow") {
 			started := time.Now()
-			if _, err = tool.Execute(context.Background(), json.RawMessage(`{}`)); err == nil || time.Since(started) > time.Second {
+			// The call ends at the 1 s tool timeout, well before the tool's 3 s.
+			if _, err = tool.Execute(context.Background(), json.RawMessage(`{}`)); err == nil || time.Since(started) > 2500*time.Millisecond {
 				t.Fatalf("timeout tool err=%v elapsed=%v", err, time.Since(started))
 			}
 		}
