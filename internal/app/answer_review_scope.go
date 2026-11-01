@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -20,21 +21,37 @@ import (
 
 const reviewLongDraftRunes = 600
 
+// reviewSelfConfirming lists the tools whose own completed result is the
+// confirmation of their outcome. Every other review-arming tool, and any tool
+// with an unknown effect, keeps the review armed even when its call completed:
+// a completed call of those can mean a card or a request was created while the
+// effect itself has not happened.
+var reviewSelfConfirming = []string{"computer_files", "create_work_item", "update_work_item", "task_update"}
+
 // toolWorkRecord remembers which review-arming calls ended without a
 // confirmed result.
 type toolWorkRecord struct {
 	mu          sync.Mutex
 	unconfirmed map[string]bool
-	restored    bool
+	// unlisted is set by a review-arming call whose tool is outside
+	// reviewSelfConfirming.
+	unlisted bool
+	restored bool
 }
 
 // note records one tool event. Only a review-arming call counts.
 func (t *toolWorkRecord) note(ev runtime.ToolEvent) {
-	if !completionReviewWork(ev.Name, ev.Risk) || ev.Status != "failed" {
+	if !completionReviewWork(ev.Name, ev.Risk) {
 		return
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	if !slices.Contains(reviewSelfConfirming, ev.Name) {
+		t.unlisted = true
+	}
+	if ev.Status != "failed" {
+		return
+	}
 	if t.unconfirmed == nil {
 		t.unconfirmed = map[string]bool{}
 	}
@@ -63,7 +80,7 @@ func (t *toolWorkRecord) names() []string {
 func (t *toolWorkRecord) clean() bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	return !t.restored && len(t.unconfirmed) == 0
+	return !t.restored && !t.unlisted && len(t.unconfirmed) == 0
 }
 
 // draftSentences splits a draft at sentence ends and line breaks.
@@ -101,7 +118,10 @@ func draftMayClaimExtent(text string) bool {
 	return utf8.RuneCountInString(text) > reviewLongDraftRunes || len(figureSentences(text)) > 0
 }
 
-// reviewSkippable is true when the review has nothing to check.
+// reviewSkippable is true when the review has nothing to check: every
+// review-arming call of the run is from a self-confirming tool and completed,
+// and the draft states no figures. A scheduled run is never skipped; its
+// answer is also its receipt (the caller checks that).
 func (t *toolWorkRecord) reviewSkippable(text string) bool {
 	return t.clean() && !draftMayClaimExtent(text)
 }
