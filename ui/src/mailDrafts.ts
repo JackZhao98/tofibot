@@ -13,6 +13,8 @@ export type MailDraft = {
   bot_id: string;
   run_id: string;
   to: string;
+  cc?: string;
+  bcc?: string;
   subject: string;
   body: string;
   demo: boolean;

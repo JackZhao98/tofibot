@@ -66,7 +66,7 @@ export function MailDraftCard({ draft, bot, group, archived, onDemoAction, onCha
   const pending = draft.status === "pending" || animating;
   if (draft.status === "sent" || draft.status === "declined") return <article className={`task-mail-record mail-draft-done is-${draft.status}${actedHere.current ? " is-arriving" : ""}`} data-draft-id={draft.draft_id} tabIndex={-1}>
     <p><span className="mail-draft-done-dot" aria-hidden="true" />{taskDraftLabel(draft)}: {draft.status === "declined" ? t("draft.declined") : draft.demo ? t("draft.demo_done") : t("draft.sent")}<time>{t(draft.status === "declined" ? "draft.declined_at" : "draft.sent_at", { time: formatClock(draft.updated_at) })}</time></p>
-    <details><summary>{t("draft.view_record")}</summary><dl><dt>TO</dt><dd>{draft.to}</dd><dt>{t("draft.subject")}</dt><dd>{draft.subject}</dd></dl><p>{draft.body}</p><DraftAttachments items={draft.attachments} label={t("draft.attachments")} /></details>
+    <details><summary>{t("draft.view_record")}</summary><dl><dt>TO</dt><dd>{draft.to}</dd>{draft.cc && <><dt>CC</dt><dd>{draft.cc}</dd></>}{draft.bcc && <><dt>BCC</dt><dd>{draft.bcc}</dd></>}<dt>{t("draft.subject")}</dt><dd>{draft.subject}</dd></dl><p>{draft.body}</p><DraftAttachments items={draft.attachments} label={t("draft.attachments")} /></details>
   </article>;
   return <article className={`mail-draft-message${group ? " is-group" : " is-dm"}`} data-draft-id={draft.draft_id} tabIndex={-1}>
     {group && <div className="mail-draft-identity"><BotAvatar id={draft.bot_id} mini /><strong>{bot?.name ?? "Bot"}</strong></div>}
@@ -75,6 +75,8 @@ export function MailDraftCard({ draft, bot, group, archived, onDemoAction, onCha
       <div className="mail-draft-stripe" aria-hidden="true" />
       <div className="mail-draft-fields">
         <label>TO {editing ? <input type="text" value={to} placeholder={t("draft.add_recipient")} onChange={event => setTo(event.target.value)} disabled={Boolean(busy)} /> : <strong className={draft.to ? undefined : "mail-draft-missing"}>{draft.to || t("draft.add_recipient")}</strong>}</label>
+        {draft.cc && <label>CC <strong>{draft.cc}</strong></label>}
+        {draft.bcc && <label>BCC <strong>{draft.bcc}</strong></label>}
         <label>{t("draft.subject")} {editing ? <input type="text" value={subject} onChange={event => setSubject(event.target.value)} disabled={Boolean(busy)} /> : <strong>{draft.subject}</strong>}</label>
         <span className="mail-draft-stamp" aria-hidden="true"><BotAvatar id={draft.bot_id} mini /></span>
       </div>
