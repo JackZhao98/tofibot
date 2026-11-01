@@ -25,6 +25,11 @@ const (
 // classify on it, never on the text of the underlying stat error.
 const FileNotFound = "file_not_found"
 
+// NeedsObservation is the code of the refusal that asks for a fresh view of
+// the shared desktop before a coordinate or typing action. It gates the order
+// of calls and is not a malformed argument, so it does not spend repair budget.
+const NeedsObservation = "needs_observation"
+
 type Outcome struct {
 	Readiness  string `json:"readiness,omitempty"`
 	Version    int    `json:"version"`

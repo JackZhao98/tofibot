@@ -234,18 +234,20 @@ func (s *Server) microVMAction(ctx context.Context, r Run, name string, args jso
 	defer release()
 
 	if actionNeedsObservation(name) && !s.desktopObservedFor(r) {
-		return "", tooloutcome.InvalidArguments("needs_observation: shared desktop control changed; inspect desktop.capture or browser.snapshot before using coordinates or typing")
+		return "", tooloutcome.New(tooloutcome.Validation, tooloutcome.NeedsObservation, "not_executed", "needs_observation: the shared desktop changed since the last view. Call desktop.capture or browser.snapshot, then repeat this action. Nothing was changed.", "repair_arguments").Err()
 	}
 	result, err := s.microVMActionOnLease(ctx, r, name, args)
 	if err == nil {
 		s.recordDesktopAction(r, name, args)
 	}
-	if err == nil && (name == "desktop.start" || name == "desktop.stop" || name == "browser.navigate" || name == "browser.action") {
+	if err == nil && (name == "desktop.start" || name == "desktop.stop") {
 		s.computerOwnerMu.Lock()
 		delete(s.desktopObserved, r.ID)
 		s.computerOwnerMu.Unlock()
 	}
-	if err == nil && (name == "desktop.capture" || name == "browser.snapshot") {
+	// navigate and action answer with the page and tab data, which is the
+	// observation the next call needs.
+	if err == nil && (name == "desktop.capture" || name == "browser.snapshot" || name == "browser.navigate" || name == "browser.action") {
 		s.markDesktopObserved(r)
 	}
 	return result, err
