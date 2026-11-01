@@ -1236,12 +1236,12 @@ func chromeHTTP(ctx context.Context, d *desktop, method, path string) ([]byte, e
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, chromeTimeout(ctx, err)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
-		return nil, err
+		return nil, chromeTimeout(ctx, err)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("browser returned %s: %s", resp.Status, strings.TrimSpace(string(body)))

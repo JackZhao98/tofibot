@@ -116,7 +116,7 @@ const nopageBot = "00000000-0000-4000-8000-000000000001"
 func TestResolveBrowserTargetZeroPagesSuggestsNavigate(t *testing.T) {
 	_, err := resolveBrowserTarget(nil, "")
 	var refusal *rejectedError
-	if !errors.As(err, &refusal) || !strings.Contains(err.Error(), "browser.navigate") || !strings.Contains(err.Error(), "current_source=none") {
+	if !errors.As(err, &refusal) || !strings.Contains(err.Error(), "browser.navigate") || !strings.Contains(err.Error(), "No focused visible browser page") {
 		t.Fatalf("zero-page resolve error = %v, want typed refusal that suggests navigate", err)
 	}
 	if _, err := resolveBrowserTarget(nil, "gone"); !errors.As(err, &refusal) {

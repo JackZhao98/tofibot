@@ -109,6 +109,10 @@ func toolRecoveryCallGuardAt(records []ToolRecoveryRecord, identity tooloutcome.
 			// file may exist by now), so it never fences a later call.
 			continue
 		}
+		if o.Status == tooloutcome.Transient && (o.Code == tooloutcome.BrowserSlow || o.Code == tooloutcome.ConnectionLost) {
+			// A slow browser or a closed connection says nothing about the call.
+			continue
+		}
 		if o.Status == tooloutcome.Expired && prior.Scope == identity.Scope && prior.Operation == identity.Operation {
 			// Changing arguments cannot turn an expired proposal into permission.
 			return &o

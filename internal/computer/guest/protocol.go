@@ -269,6 +269,12 @@ func (s *Service) handle(w http.ResponseWriter, r *http.Request) {
 			writeNavigation(w, navigation)
 			return
 		}
+		var slow *transientError
+		if errors.As(err, &slow) {
+			o := transientOutcome(slow)
+			writeJSON(w, http.StatusServiceUnavailable, ActionResponse{OK: false, Error: o.Message, Outcome: &o})
+			return
+		}
 		var refusal *rejectedError
 		if errors.As(err, &refusal) {
 			// An explicit pre-action refusal proves nothing was performed.

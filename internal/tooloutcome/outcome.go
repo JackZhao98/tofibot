@@ -30,6 +30,14 @@ const FileNotFound = "file_not_found"
 // of calls and is not a malformed argument, so it does not spend repair budget.
 const NeedsObservation = "needs_observation"
 
+// BrowserSlow and ConnectionLost are transient computer failures: the browser
+// or the control connection did not answer. They say nothing about the call's
+// arguments or the target, so they never fence a repeat of the same call.
+const (
+	BrowserSlow    = "browser_slow"
+	ConnectionLost = "computer_connection_lost"
+)
+
 type Outcome struct {
 	Readiness  string `json:"readiness,omitempty"`
 	Version    int    `json:"version"`
