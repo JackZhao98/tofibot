@@ -904,7 +904,7 @@ func (s *Store) updateTask(actor string, in TaskUpdate) (WorkItem, error) {
 		item.Status = in.Status
 	case "cancelled", "done":
 		if !creator {
-			return WorkItem{}, taskRefusal("task_creator_only", "Only the member that gave the task may accept it as done or cancel it.")
+			return WorkItem{}, taskRefusal("task_creator_only", "Only the member that gave the task may accept it as done or cancel it. As the holder, hand in your result by answering with say (outcome done, task_id set to this task), which submits it for the giver to accept; if you cannot finish, set the status to blocked with a reason.")
 		}
 		item.Status = in.Status
 	default:

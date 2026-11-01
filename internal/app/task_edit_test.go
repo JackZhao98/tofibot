@@ -165,6 +165,8 @@ func TestGiverEditsAreRecordedAndTheHolderIsTold(t *testing.T) {
 	// The holder may not answer, accept or cancel.
 	if _, err := f.update(f.holder, map[string]any{"status": "done"}); codeOf(err) != "task_creator_only" {
 		t.Fatalf("holder accepts: %v", err)
+	} else if !strings.Contains(err.Error(), "say (outcome done, task_id") || !strings.Contains(err.Error(), "blocked") {
+		t.Fatalf("the refusal does not give the holder's path: %v", err)
 	}
 	if _, err := f.update(f.holder, map[string]any{"answer": "yes"}); codeOf(err) != "task_answer_giver_only" {
 		t.Fatalf("holder answers: %v", err)
