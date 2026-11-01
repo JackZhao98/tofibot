@@ -15,6 +15,10 @@ const Hint = "Ask the tool for the rest with its offset or cursor argument when 
 
 const maxPasses = 64
 
+// MaxInputFactor bounds the work JSON does: an output more than this many
+// times max is not decoded, and the caller cuts it as text.
+const MaxInputFactor = 16
+
 // JSON returns output cut to at most max bytes when output is a JSON object or
 // array. Arrays lose their middle elements and long strings lose their middle;
 // each cut leaves a marker that names how much was removed. The second result
@@ -23,6 +27,9 @@ const maxPasses = 64
 func JSON(output string, max int) (string, bool) {
 	if len(output) <= max {
 		return output, true
+	}
+	if len(output) > MaxInputFactor*max {
+		return "", false
 	}
 	trimmed := bytes.TrimSpace([]byte(output))
 	if len(trimmed) == 0 || (trimmed[0] != '{' && trimmed[0] != '[') {

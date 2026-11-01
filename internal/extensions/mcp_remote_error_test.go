@@ -34,7 +34,7 @@ func TestRemoteErrorReasonIsWholeAndBeforeSchema(t *testing.T) {
 	if !ok || !rejected {
 		t.Fatalf("no outcome: %v", err)
 	}
-	if !strings.HasPrefix(o.Message, mcpReportedMarker+" "+reason) || o.RemoteError != reason {
+	if !strings.Contains(o.Message, mcpReportedMarker+" "+mcpReportedOpen+reason+mcpReportedClose) || o.RemoteError != reason {
 		t.Fatalf("reason not whole and first: %.200s", o.Message)
 	}
 	if bounded := tooloutcome.Bounded(&o); !strings.Contains(bounded.Message, "END") {

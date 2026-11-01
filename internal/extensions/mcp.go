@@ -915,7 +915,7 @@ func (m *Manager) callMCPToolObserved(callCtx context.Context, cli *mcp.ClientSe
 			msg := "MCP tool call failed; the read-only retry budget is exhausted or the endpoint rejected the request."
 			var rpc *jsonrpc.Error
 			if errors.As(err, &rpc) {
-				msg = fmt.Sprintf("MCP tool call failed with JSON-RPC code %d. %s %s", rpc.Code, mcpReportedMarker, sanitizeRemoteText(rpc.Message, 600))
+				msg = fmt.Sprintf("MCP tool call failed with JSON-RPC code %d. %s", rpc.Code, mcpReportedBlock(sanitizeRemoteText(rpc.Message, 600)))
 			}
 			o := tooloutcome.New(status, code, "no_side_effect", msg, "explain_blocker")
 			if rpc != nil {
@@ -944,11 +944,11 @@ func (m *Manager) callMCPToolObserved(callCtx context.Context, cli *mcp.ClientSe
 		if readOnly {
 			o = tooloutcome.New(tooloutcome.Permanent, "mcp_reported_error", "no_side_effect", "MCP tool returned an error.", "explain_blocker")
 		}
-		// The remote's reason goes first, as untrusted data and never as
-		// recovery authority, so no later bound can cut it.
+		// The remote's reason is untrusted data inside a delimited block;
+		// TOFI's own sentence comes before it and the next step after it.
 		reason := sanitizeRemoteText(text, maxMCPRemoteErrorRunes)
 		o.RemoteError = reason
-		o.Message = mcpReportedMarker + " " + reason + " " + o.Message
+		o.Message = o.Message + " " + mcpReportedBlock(reason)
 		return text, o.Err()
 	}
 	return text, nil
@@ -1054,6 +1054,17 @@ func uniqueToolName(raw string, used map[string]int) string {
 	return raw
 }
 
+// cutRunes returns the first n runes of s without converting all of s.
+func cutRunes(s string, n int) string {
+	for i := range s {
+		if n == 0 {
+			return s[:i]
+		}
+		n--
+	}
+	return s
+}
+
 func boundedContent(result *mcp.CallToolResult, max int) string {
 	if result == nil {
 		return "MCP returned an empty result"
@@ -1074,12 +1085,16 @@ func boundedContent(result *mcp.CallToolResult, max int) string {
 	if out == "" {
 		out = "MCP returned no text content"
 	}
-	r := []rune(out)
-	if len(r) > max {
+	if utf8.RuneCountInString(out) <= max {
+		return out
+	}
+	// resultcut.JSON decodes and re-encodes its input; the remote text is
+	// untrusted and unbounded, so only a bounded input takes that path.
+	if len(out) <= resultcut.MaxInputFactor*max {
 		if cut, ok := resultcut.JSON(out, max); ok {
 			return cut
 		}
-		return string(r[:max]) + fmt.Sprintf("\n[truncated: the first %d of %d characters are shown and the rest was not returned. Narrow the request with the tool's own filter, limit, page or cursor arguments to get it.]", max, len(r))
 	}
-	return out
+	total := utf8.RuneCountInString(out)
+	return cutRunes(out, max) + fmt.Sprintf("\n[truncated: the first %d of %d characters are shown and the rest was not returned. Narrow the request with the tool's own filter, limit, page or cursor arguments to get it.]", max, total)
 }

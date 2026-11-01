@@ -16,6 +16,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/JackZhao98/tofibot/internal/resultcut"
 	"github.com/JackZhao98/tofibot/internal/runtime"
 )
 
@@ -105,9 +106,10 @@ func (s *Store) attachmentAvailableInConversation(id, conv string) (bool, error)
 	return n > 0, err
 }
 
-// attachmentReadPage is the text one read_attachment call returns. It stays
-// well under the result size the model receives, so the page is never cut again.
-const attachmentReadPage = 16 << 10
+// attachmentReadPage is the encoded size of the text one read_attachment call
+// returns. It leaves room under the result size the model receives for the
+// rest of the result, so the page is never cut again.
+const attachmentReadPage = resultcut.PageBudget
 
 // read_attachment reads any attachment the conversation can see: text comes
 // back as text, an image is shown to the model, and any other file is placed
@@ -145,7 +147,7 @@ func (s *Server) attachmentTools(c Conversation, r Run) []Tool {
 			return "", err
 		}
 		if isTextAttachment(a) || strings.HasPrefix(http.DetectContentType(head), "text/") {
-			text, next, err := s.store.readAttachmentPage(path, x.Offset, attachmentReadPage)
+			text, next, err := s.store.readAttachmentToolPage(path, x.Offset)
 			if err != nil {
 				return "", err
 			}
@@ -252,6 +254,20 @@ func (s *Store) readAttachmentPage(path string, offset int64, page int) (string,
 		b = b[:len(b)-1]
 	}
 	return string(b), offset + int64(len(b)), nil
+}
+
+// readAttachmentToolPage is one read_attachment page, sized by what it weighs
+// once the result is encoded, since quotes, newlines and angle brackets take
+// several bytes each there.
+func (s *Store) readAttachmentToolPage(path string, offset int64) (string, int64, error) {
+	text, next, err := s.readAttachmentPage(path, offset, attachmentReadPage)
+	if err != nil {
+		return "", 0, err
+	}
+	if n := resultcut.FitJSON(text, attachmentReadPage); n < len(text) {
+		text, next = text[:n], offset+int64(n)
+	}
+	return text, next, nil
 }
 
 func (s *Server) addAttachmentContext(c Conversation, m Message, pm *runtime.Message, imagesLeft *int, imageBudget *int64, guestPaths map[string]string) {

@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/JackZhao98/tofibot/internal/runtime"
@@ -73,20 +74,34 @@ func mcpSchemaRevealOutcome(t runtime.Tool) tooloutcome.Outcome {
 	return tooloutcome.New(tooloutcome.Validation, "schema_required", "not_executed", msg, "repair_arguments")
 }
 
-// mcpReportedMarker opens the remote's own words; they come first in the
-// message so no later bound can cut them.
-const mcpReportedMarker = "Untrusted tool-reported details:"
+// mcpReportedMarker opens the remote's own words. The words sit between
+// mcpReportedOpen and mcpReportedClose, so a reader can tell where the
+// remote's text stops and TOFI's own text resumes.
+const (
+	mcpReportedMarker = "Untrusted tool-reported details:"
+	mcpReportedOpen   = "«"
+	mcpReportedClose  = "»"
+	mcpReportedEnd    = "End of untrusted details."
+)
+
+// mcpReportedBlock returns the remote's text as a delimited, bounded block.
+// sanitizeRemoteText already removed the delimiter runes from the text.
+func mcpReportedBlock(text string) string {
+	return mcpReportedMarker + " " + mcpReportedOpen + text + mcpReportedClose + " " + mcpReportedEnd
+}
 
 // maxMCPRemoteErrorRunes bounds the remote's error text in an outcome.
-const maxMCPRemoteErrorRunes = 1800
+const maxMCPRemoteErrorRunes = 1500
 
-// sanitizeRemoteText drops control characters and bounds the text by runes.
+// sanitizeRemoteText drops control and Unicode format characters (bidi
+// overrides, zero-width marks) and the block delimiters, and bounds the text
+// by runes.
 func sanitizeRemoteText(text string, limit int) string {
 	text = strings.Map(func(r rune) rune {
 		if r == '\n' || r == '\t' {
 			return ' '
 		}
-		if r < 0x20 || r == 0x7f {
+		if r < 0x20 || r == 0x7f || unicode.Is(unicode.Cf, r) || r == '«' || r == '»' {
 			return -1
 		}
 		return r
@@ -133,10 +148,10 @@ func mcpProtocolRejection(err error, attempts int) (tooloutcome.Outcome, bool) {
 	var o tooloutcome.Outcome
 	switch rpc.Code {
 	case -32602:
-		o = tooloutcome.New(tooloutcome.Validation, "mcp_invalid_params", "not_executed", fmt.Sprintf("The server rejected the arguments (JSON-RPC code %d); nothing was executed. %s %s", rpc.Code, mcpReportedMarker, detail), "repair_arguments")
+		o = tooloutcome.New(tooloutcome.Validation, "mcp_invalid_params", "not_executed", fmt.Sprintf("The server rejected the arguments (JSON-RPC code %d); nothing was executed. %s", rpc.Code, mcpReportedBlock(detail)), "repair_arguments")
 		o.RepairLimit = 3
 	case -32600, -32601, -32700:
-		o = tooloutcome.New(tooloutcome.Permanent, "mcp_request_rejected", "not_executed", fmt.Sprintf("The server rejected the request (JSON-RPC code %d); nothing was executed. %s %s", rpc.Code, mcpReportedMarker, detail), "explain_blocker")
+		o = tooloutcome.New(tooloutcome.Permanent, "mcp_request_rejected", "not_executed", fmt.Sprintf("The server rejected the request (JSON-RPC code %d); nothing was executed. %s", rpc.Code, mcpReportedBlock(detail)), "explain_blocker")
 	default:
 		return tooloutcome.Outcome{}, false
 	}

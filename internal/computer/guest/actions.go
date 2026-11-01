@@ -24,6 +24,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/JackZhao98/tofibot/internal/resultcut"
 )
 
 type desktop struct {
@@ -739,6 +741,7 @@ func (s *Service) readFile(ctx context.Context, botID string, args fileArgs) (ma
 	var b strings.Builder
 	truncated := false
 	nextOffset := 0
+	used, lineBytesOmitted := 0, 0
 	for scanner.Scan() {
 		line++
 		if truncated {
@@ -751,14 +754,31 @@ func (s *Service) readFile(ctx context.Context, botID string, args fileArgs) (ma
 			truncated, nextOffset = true, line
 			continue
 		}
-		if b.Len()+len(scanner.Bytes())+1 > MaxFileBytes && b.Len() > 0 {
+		// A page is sized by its encoded bytes, since quotes, newlines and
+		// angle brackets take several bytes each in the result.
+		text := scanner.Text()
+		cost := resultcut.JSONLen(text)
+		if b.Len() > 0 {
+			cost += 2
+		}
+		if used+cost > resultcut.PageBudget && b.Len() > 0 {
 			truncated, nextOffset = true, line
 			continue
 		}
+		if b.Len() == 0 && cost > resultcut.PageBudget {
+			// One line over a page is cut on a character edge; the next
+			// call continues with the line after it.
+			n := resultcut.FitJSON(text, resultcut.PageBudget)
+			b.WriteString(text[:n])
+			lineBytesOmitted = len(text) - n
+			truncated, nextOffset = true, line+1
+			continue
+		}
+		used += cost
 		if b.Len() > 0 {
 			b.WriteByte('\n')
 		}
-		b.Write(scanner.Bytes())
+		b.WriteString(text)
 		if line%4096 == 0 {
 			if err := ctx.Err(); err != nil {
 				return nil, err
@@ -774,6 +794,9 @@ func (s *Service) readFile(ctx context.Context, botID string, args fileArgs) (ma
 	}
 	if truncated {
 		result["next_offset"] = nextOffset
+	}
+	if lineBytesOmitted > 0 {
+		result["line_bytes_omitted"] = lineBytesOmitted
 	}
 	if fileHash != "" {
 		result["sha256"] = fileHash

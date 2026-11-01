@@ -6,12 +6,16 @@ package webtools
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/url"
 	"slices"
 	"strconv"
 	"strings"
 	"unicode"
+	"unicode/utf8"
+
+	"github.com/JackZhao98/tofibot/internal/resultcut"
 )
 
 // Code is the stable reason a provider could not serve a request.
@@ -445,7 +449,14 @@ func Slice(page Page, offset, maxChars int) Page {
 	if end >= total {
 		end = total
 	}
-	page.Content = string(runes[offset:end])
+	part := string(runes[offset:end])
+	// maxChars counts characters, but the model receives bytes once the page
+	// is encoded; a part that would not fit is shortened on a character edge.
+	if n := resultcut.FitJSON(part, contentBudget(page)); n < len(part) {
+		end = offset + utf8.RuneCountInString(part[:n])
+		part = part[:n]
+	}
+	page.Content = part
 	page.TotalChars = total
 	page.Offset = offset
 	page.NextOffset = 0
@@ -456,6 +467,20 @@ func Slice(page Page, offset, maxChars int) Page {
 		page.Note = "Part of a longer page (" + strconv.Itoa(total) + " characters). Call again with offset " + strconv.Itoa(end) + " to read the next part."
 	}
 	return page
+}
+
+// contentBudget is how many encoded bytes of content one part may hold: what
+// the model receives, less the rest of the encoded page and a margin for the
+// fields the caller adds.
+func contentBudget(page Page) int {
+	page.Content = ""
+	page.Note += strings.Repeat("n", 200)
+	raw, _ := json.Marshal(page)
+	budget := resultcut.ModelBudget - len(raw) - 200
+	if budget < 1000 {
+		budget = 1000
+	}
+	return budget
 }
 
 // MaxPageChars is how much text of one page the chain holds so it can be read in parts.
