@@ -38,7 +38,7 @@ func TestResolveBrowserTargetDoesNotGuessJSONOrder(t *testing.T) {
 		{TargetID: "a", Visible: true},
 		{TargetID: "b", Visible: true},
 	}, "")
-	if err == nil || !strings.Contains(err.Error(), "specify target_id") {
+	if err == nil || !strings.Contains(err.Error(), "Pass one target_id") || !strings.Contains(err.Error(), "target_id=a") || !strings.Contains(err.Error(), "target_id=b") {
 		t.Fatalf("resolve error = %v, want explicit target guidance", err)
 	}
 }
