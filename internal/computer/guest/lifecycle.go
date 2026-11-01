@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 )
@@ -50,8 +51,9 @@ func (s *Service) action(ctx context.Context, req ActionRequest) (any, error) {
 	if req.Action == "files.identity" || (req.Action == "files.write" && req.WriteIdentity != nil) {
 		return s.dispatchAction(ctx, req)
 	}
+	// The alias is a navigation aid; a failure to place it never blocks an action.
 	if _, err := s.ensureWorkspaceAlias(req.BotID, req.BotName); err != nil {
-		return nil, fmt.Errorf("workspace alias: %w", err)
+		log.Printf("computer guest: workspace alias for bot %s skipped: %v", shortBotID(req.BotID), err)
 	}
 	if needsSharedInputGate(req.Action) {
 		gate := s.inputGate(req.BotID)
@@ -542,4 +544,11 @@ func (s *Service) waitForDesktopOperations(ctx context.Context, d *desktop) erro
 		case <-ticker.C:
 		}
 	}
+}
+
+func shortBotID(id string) string {
+	if len(id) > 8 {
+		return id[:8]
+	}
+	return id
 }
