@@ -333,6 +333,14 @@ FROM tool_activities WHERE conversation_id=? ORDER BY updated_at DESC,run_id DES
 	return activities, nil
 }
 
+// gateOutcomeCodes are TOFI's own gates: a refusal that sends the Bot's draft
+// or call back with the next step. They are the check working, so run
+// summaries and the activity display do not count them as failed calls. The
+// UI lists the same codes (toolTimeline.ts, gateOutcomeCodes).
+var gateOutcomeCodes = []string{"answer_review", "answer_revise", "answer_after_handoff", "answer_pending_work", "answer_checklist_open"}
+
+var gateOutcomeCodesSQL = "'" + strings.Join(gateOutcomeCodes, "','") + "'"
+
 // ToolActivitySummaries returns exact, lightweight counts for explicitly
 // loaded runs. It deliberately does not return arguments or results.
 func (s *Store) ToolActivitySummaries(conversationID string, runIDs []string) ([]ToolActivityRunSummary, error) {
@@ -346,7 +354,7 @@ func (s *Store) ToolActivitySummaries(conversationID string, runIDs []string) ([
 		placeholders = append(placeholders, "?")
 		args = append(args, id)
 	}
-	rows, err := s.db.Query(`SELECT run_id,MIN(bot_id),COUNT(*),COALESCE(SUM(status='completed'),0),COALESCE(SUM(status='failed' AND COALESCE(json_extract(NULLIF(outcome_json,''),'$.status'),'')<>'approval_expired' AND COALESCE(json_extract(NULLIF(outcome_json,''),'$.code'),'')<>'batch_skipped' AND COALESCE(json_extract(NULLIF(outcome_json,''),'$.code'),'')<>'answer_review'),0),COALESCE(SUM(status='interrupted'),0),COALESCE(SUM(status IN ('queued','running')),0),COALESCE(MIN(started_at),''),COALESCE(MAX(updated_at),''),COALESCE(SUM(json_extract(NULLIF(outcome_json,''),'$.status')='approval_expired'),0),COALESCE(SUM(json_extract(NULLIF(outcome_json,''),'$.code')='batch_skipped'),0)
+	rows, err := s.db.Query(`SELECT run_id,MIN(bot_id),COUNT(*),COALESCE(SUM(status='completed'),0),COALESCE(SUM(status='failed' AND COALESCE(json_extract(NULLIF(outcome_json,''),'$.status'),'')<>'approval_expired' AND COALESCE(json_extract(NULLIF(outcome_json,''),'$.code'),'')<>'batch_skipped' AND COALESCE(json_extract(NULLIF(outcome_json,''),'$.code'),'') NOT IN (`+gateOutcomeCodesSQL+`)),0),COALESCE(SUM(status='interrupted'),0),COALESCE(SUM(status IN ('queued','running')),0),COALESCE(MIN(started_at),''),COALESCE(MAX(updated_at),''),COALESCE(SUM(json_extract(NULLIF(outcome_json,''),'$.status')='approval_expired'),0),COALESCE(SUM(json_extract(NULLIF(outcome_json,''),'$.code')='batch_skipped'),0)
 FROM tool_activities WHERE conversation_id=? AND run_id IN (`+strings.Join(placeholders, ",")+`) GROUP BY run_id`, args...)
 	if err != nil {
 		return nil, err
