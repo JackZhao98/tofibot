@@ -34,6 +34,26 @@ type oauthSession struct {
 	delivered bool
 	stop      chan struct{}
 	stopOnce  sync.Once
+	// deadline is when a pending session expires. Poll and callback check it
+	// themselves, so expiry does not wait for the timer goroutine to run.
+	deadline time.Time
+}
+
+// expireIfDue ends a pending session whose deadline has passed. The caller
+// holds sess.mu.
+func (sess *oauthSession) expireIfDue(now time.Time) {
+	if sess.status == "pending" && !sess.deadline.IsZero() && !now.Before(sess.deadline) {
+		sess.status, sess.armed = "expired", false
+		sess.state, sess.code = "", ""
+		sess.stopSession(false)
+	}
+}
+
+func (s *Service) oauthSessionTTL() time.Duration {
+	if s.oauthTTL > 0 {
+		return s.oauthTTL
+	}
+	return 10 * time.Minute
 }
 
 type oauthStartRequest struct{}
@@ -124,7 +144,7 @@ func (s *Service) oauthStart(w http.ResponseWriter, r *http.Request) {
 		writeOAuthError(w, http.StatusInternalServerError, "unable to bind callback")
 		return
 	}
-	sess := &oauthSession{id: id, path: "/oauth/callback/" + pathToken, listener: ln, status: "pending", stop: make(chan struct{})}
+	sess := &oauthSession{id: id, path: "/oauth/callback/" + pathToken, listener: ln, status: "pending", stop: make(chan struct{}), deadline: time.Now().Add(s.oauthSessionTTL())}
 	sess.server = &http.Server{Handler: http.HandlerFunc(func(cw http.ResponseWriter, cr *http.Request) { s.oauthCallback(sess, cw, cr) }), ReadHeaderTimeout: 5 * time.Second, MaxHeaderBytes: 16 * 1024}
 	s.oauth = sess
 	go func() { _ = sess.server.Serve(ln) }()
@@ -174,6 +194,7 @@ func (s *Service) oauthPoll(w http.ResponseWriter, r *http.Request) {
 	}
 	sess.mu.Lock()
 	defer sess.mu.Unlock()
+	sess.expireIfDue(time.Now())
 	resp := oauthPollResponse{Status: sess.status}
 	if sess.status == "complete" && !sess.delivered {
 		resp.Code, resp.State = sess.code, sess.state
@@ -224,6 +245,7 @@ func (s *Service) oauthCallback(sess *oauthSession, w http.ResponseWriter, r *ht
 	q := r.URL.Query()
 	state := q.Get("state")
 	sess.mu.Lock()
+	sess.expireIfDue(time.Now())
 	if sess.status != "pending" {
 		sess.mu.Unlock()
 		writeOAuthError(w, http.StatusConflict, "callback already handled")
@@ -255,11 +277,7 @@ func (s *Service) oauthCallback(sess *oauthSession, w http.ResponseWriter, r *ht
 }
 
 func (s *Service) oauthExpire(sess *oauthSession) {
-	ttl := s.oauthTTL
-	if ttl <= 0 {
-		ttl = 10 * time.Minute
-	}
-	t := time.NewTimer(ttl)
+	t := time.NewTimer(time.Until(sess.deadline))
 	defer t.Stop()
 	select {
 	case <-t.C:
@@ -267,11 +285,7 @@ func (s *Service) oauthExpire(sess *oauthSession) {
 		return
 	}
 	sess.mu.Lock()
-	if sess.status == "pending" {
-		sess.status, sess.armed = "expired", false
-		sess.state, sess.code = "", ""
-		sess.stopSession(false)
-	}
+	sess.expireIfDue(time.Now())
 	sess.mu.Unlock()
 }
 
