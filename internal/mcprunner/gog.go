@@ -88,7 +88,7 @@ func gogServiceList(requested, granted []string) ([]string, error) {
 }
 
 // gogAuthAddFlags is the `gog auth add` command line for the services and Gmail scope chosen. Read-only unless the
-// person chose to let Gmail send; even then Drive stays read-only, and Calendar has no narrower mode in gog.
+// person chose to let Gmail send; even then Drive stays read-only. Calendar follows the same switch: read-only access without it, full access with it (calendarWriteGranted).
 func gogAuthAddFlags(email, scope string, services []string) []string {
 	flags := []string{"--json", "--no-input"}
 	hasGmail := len(services) > 0 && services[0] == "gmail"
@@ -171,6 +171,10 @@ func isDefaultGogArgs(args []string) bool {
 // recycle stops an idle MCP child so the next call starts it with the tools of the current account. A child busy with
 // a call is left to finish and is closed by the release of its last lease (releaseLease), not at the idle reap.
 func (p *plugin) recycle() {
+	// The HTTP endpoint lists the tools it was built with; the next request builds it again for the new account.
+	p.httpMu.Lock()
+	p.httpHandler = nil
+	p.httpMu.Unlock()
 	p.mu.Lock()
 	if p.cli == nil || p.active > 0 || p.ready != nil {
 		p.restartWhenIdle = p.cli != nil

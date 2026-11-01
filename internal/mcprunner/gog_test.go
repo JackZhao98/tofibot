@@ -44,6 +44,13 @@ func TestFakeGogProcess(t *testing.T) {
 		os.Exit(1)
 	case strings.Contains(args, "gmail attachment") || strings.Contains(args, "drive download"):
 		fakeGogDownload(args)
+	case strings.Contains(args, "calendar create"):
+		if strings.Contains(args, "--summary=fail") {
+			_, _ = fmt.Fprint(os.Stderr, "googleapi: Error 403: Request had insufficient authentication scopes.")
+			os.Exit(1)
+		}
+		out, _ := json.Marshal(map[string]any{"event": map[string]any{"id": "evt1", "argv": os.Args}})
+		_, _ = os.Stdout.Write(out)
 	case strings.Contains(args, "calendar events"):
 		_, _ = fmt.Fprint(os.Stdout, `{"events":[]}`)
 	case strings.Contains(args, "drive search"):
