@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -289,7 +290,37 @@ func TestMCPSchemaHintIsBounded(t *testing.T) {
 	params := map[string]any{"type": "object", "required": []string{"v"}, "properties": map[string]any{"v": map[string]any{"type": "string", "description": strings.Repeat("界", 8192)}}}
 	err := withMCPSchemaHint(validateMCPArguments(params, map[string]any{}), params)
 	o, ok := tooloutcome.FromError(err)
-	if !ok || o.Code != "invalid_arguments" || !strings.HasSuffix(o.Message, "[schema truncated]") || len(o.Message) > maxMCPSchemaHintBytes+512 {
+	// Over-long prose is dropped before structure: the hint stays bounded and
+	// whole, with the top-level required list first.
+	if !ok || o.Code != "invalid_arguments" || len(o.Message) > maxMCPSchemaHintBytes+1024 || strings.Contains(o.Message, "[schema truncated]") ||
+		!strings.Contains(o.Message, `Current input schema: {"type":"object","required":["v"]`) || !strings.Contains(o.Message, `missing properties: ["v"]`) {
 		t.Fatalf("hint len=%d outcome=%+v", len(o.Message), o)
+	}
+}
+
+func TestMCPSchemaHintKeepsTopLevelWhenDefsAreLarge(t *testing.T) {
+	// Shaped like a real data-source query tool: many large filter variants in
+	// $defs and a small top level. encoding/json puts $defs first, so a plain
+	// byte cut removed the very fields a repair needs.
+	defs := map[string]any{}
+	for i := 0; i < 60; i++ {
+		defs[fmt.Sprintf("Filter%02d", i)] = map[string]any{"type": "object", "description": strings.Repeat("filter prose ", 60), "properties": map[string]any{"operator": map[string]any{"enum": []string{"is", "is_not", "contains"}, "description": strings.Repeat("op ", 40)}, "value": map[string]any{"type": "string"}}, "required": []string{"operator"}}
+	}
+	params := map[string]any{"type": "object", "$defs": defs, "additionalProperties": false, "required": []string{"data_source_url"},
+		"properties": map[string]any{"data_source_url": map[string]any{"type": "string", "description": "collection:// URL of the data source"}, "filter": map[string]any{"$ref": "#/$defs/Filter00"}, "page_size": map[string]any{"type": "integer"}}}
+	full, _ := json.Marshal(params)
+	if len(full) <= maxMCPSchemaHintBytes {
+		t.Fatalf("fixture must exceed the hint limit, is %d", len(full))
+	}
+	hint, err := boundedMCPSchema(params)
+	if err != nil {
+		t.Fatal(err)
+	}
+	top := `{"type":"object","required":["data_source_url"],"properties":{`
+	if len(hint) > maxMCPSchemaHintBytes || !strings.HasPrefix(hint, top) || !strings.Contains(hint, `"page_size"`) || strings.Contains(hint, "[schema truncated]") {
+		t.Fatalf("hint lost the top level (len %d): %.300s", len(hint), hint)
+	}
+	if !strings.Contains(hint, `"Filter59"`) {
+		t.Fatalf("every $defs name should stay listed: %.300s", hint)
 	}
 }

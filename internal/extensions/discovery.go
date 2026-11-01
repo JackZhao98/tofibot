@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"sort"
 	"strings"
@@ -587,6 +588,9 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 			RemoteName    string         `json:"remote_name,omitempty"`
 			SchemaVersion string         `json:"schema_version,omitempty"`
 			ReadOnlyHint  bool           `json:"read_only_hint,omitempty"`
+			// SchemaCompacted: descriptions or $defs bodies were left out
+			// for size; the top-level properties and required list are whole.
+			SchemaCompacted bool `json:"schema_compacted,omitempty"`
 		}
 		out := struct {
 			Tools           []match      `json:"tools"`
@@ -606,15 +610,20 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 		selected := []runtime.Tool{}
 		key := pageKey{query: in.Query, server: in.Server, serverOffset: in.Offset}
 		var matches []runtime.Tool
+		// A later page reuses the ranked list of the first one. An offset with
+		// no earlier page (a new query, or a restarted run) searches now
+		// instead of failing the call.
+		cached := false
 		if in.ToolOffset > 0 {
 			seenMu.Lock()
 			page, ok := pages[key]
 			seenMu.Unlock()
-			if !ok {
-				return "", errors.New("start search at tool_offset 0 before continuing with the same query and server or server_offset")
+			if ok {
+				cached = true
+				matches, out.Diagnostics, out.SearchMethod = page.matches, page.diagnostics, page.method
 			}
-			matches, out.Diagnostics, out.SearchMethod = page.matches, page.diagnostics, page.method
-		} else {
+		}
+		if !cached {
 			var candidates []runtime.Tool
 			for _, name := range targets {
 				available, err := ensure(ctx, name)
@@ -650,7 +659,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 			seenMu.Unlock()
 		}
 		if in.ToolOffset > len(matches) {
-			return "", errors.New("tool_offset outside matching tool list")
+			return "", fmt.Errorf("tool_offset %d is past the end: this query matches %d tools; use a smaller tool_offset or 0", in.ToolOffset, len(matches))
 		}
 		end := in.ToolOffset + limit
 		if end < len(matches) {
@@ -689,7 +698,27 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 					out.NextTool = &n
 					break
 				}
-				out.OmittedSchemas++
+				// Too large even alone: show it compacted instead of dropping
+				// the tool, so the model still sees every top-level field.
+				compact, fits := compactMatch(single.Tools[0].Schema, func(schema map[string]any) bool {
+					single.Tools[0].Schema = schema
+					data, err := json.Marshal(single)
+					return err == nil && len(data) <= maxSchemaPageBytes-4096
+				})
+				if !fits {
+					out.OmittedSchemas++
+					continue
+				}
+				if len(out.Tools) > 0 {
+					// Give it a page of its own.
+					n := in.ToolOffset + index
+					out.NextTool = &n
+					break
+				}
+				m := single.Tools[0]
+				m.Schema, m.SchemaCompacted = compact, true
+				out.Tools = append(out.Tools, m)
+				selected = append(selected, t)
 				continue
 			}
 			selected = append(selected, t)

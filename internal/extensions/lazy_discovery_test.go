@@ -267,22 +267,25 @@ func TestLazyDiscoveryBrowseAfterKeywordMissRemainsBoundedAndScoped(t *testing.T
 		}
 		offset = *result.Next
 	}
-	if len(found) != 12 || omitted != 1 {
+	// The oversized entry_00 is shown compacted, not dropped.
+	if len(found) != 13 || omitted != 0 || !found["mcp_catalog__entry_00"] {
 		t.Fatalf("schemas=%d omissions=%d", len(found), omitted)
 	}
 	if requests.Load() != requestsAfterDiscovery || otherRequests.Load() != 0 {
 		t.Fatal("cached pagination contacted remote or unrelated server")
 	}
-	// An oversized schema omitted from search pages stays callable by its
-	// exact name; the server's own schema still validates the arguments.
-	if _, err = call.Execute(context.Background(), json.RawMessage(`{"name":"mcp_catalog__entry_00","arguments":{"value":1}}`)); err == nil || !strings.Contains(err.Error(), "Input schema: ") {
-		t.Fatalf("omitted schema was not shown before its first call: %v", err)
-	}
-	if _, err = call.Execute(context.Background(), json.RawMessage(`{"name":"mcp_catalog__entry_00","arguments":{"value":1}}`)); err == nil || !strings.Contains(err.Error(), "Current input schema") {
-		t.Fatalf("omitted schema did not validate arguments: %v", err)
+	// The compacted schema counts as shown: a wrong first call gets the
+	// validator's concrete problem and the schema, not a reveal round-trip.
+	if _, err = call.Execute(context.Background(), json.RawMessage(`{"name":"mcp_catalog__entry_00","arguments":{"value":1}}`)); err == nil || !strings.Contains(err.Error(), "Problem: ") || !strings.Contains(err.Error(), "Current input schema") || strings.Contains(err.Error(), "had not been shown") {
+		t.Fatalf("compacted schema call did not explain the problem: %v", err)
 	}
 	if _, err = executeAfterSchema(call, `{"name":"mcp_catalog__entry_12","arguments":{}}`); err != nil {
 		t.Fatal(err)
+	}
+	// A later page of a query that has no first page in this run searches
+	// now instead of failing the call.
+	if out, err := search.Execute(context.Background(), json.RawMessage(`{"server":"catalog","query":"inventory records","tool_offset":2,"limit":3}`)); err != nil || !strings.Contains(out, "mcp_catalog__entry_") {
+		t.Fatalf("offset without a first page failed: %s %v", out, err)
 	}
 	for _, raw := range []string{`{"query":"*"}`, `{"query":"*","server_offset":1}`, `{"query":"records","tool_offset":-1}`, `{"query":"*","server":"catalog","tool_offset":-1}`, `{"query":"*","server":"catalog","tool_offset":99}`} {
 		if _, err = search.Execute(context.Background(), json.RawMessage(raw)); err == nil {

@@ -36,13 +36,21 @@ func withMCPSchemaHint(err error, params map[string]any) error {
 	return o.Err()
 }
 
+// boundedMCPSchema is the schema as the model should see it in an error hint:
+// top level first, compacted in steps (see schemaWithin) until it fits, and
+// only as a last resort cut at a byte limit, which then loses "$defs" detail,
+// never the top-level fields.
 func boundedMCPSchema(params map[string]any) (string, error) {
-	encoded, err := json.Marshal(params)
-	if err != nil {
-		return "", err
+	_, encoded, _, ok := schemaWithin(params, maxMCPSchemaHintBytes)
+	if encoded == nil {
+		data, err := json.Marshal(params)
+		if err != nil {
+			return "", err
+		}
+		encoded = data
 	}
 	schema := string(encoded)
-	if len(schema) > maxMCPSchemaHintBytes {
+	if !ok && len(schema) > maxMCPSchemaHintBytes {
 		const marker = " …[schema truncated]"
 		// Cut on a rune boundary in linear time; schemas can be large.
 		cut := maxMCPSchemaHintBytes - len(marker)
