@@ -38,14 +38,24 @@ func TestReadAttachmentOpensTextImagesAndOtherFiles(t *testing.T) {
 		t.Fatalf("running=%v %v", ok, err)
 	}
 
-	first := readAttachmentOut(t, s, conv, run, `{"attachment_id":"`+files[0].ID+`"}`)
-	next, ok := first["next_offset"].(float64)
-	if !ok || next <= 0 {
-		t.Fatalf("long text gave no next_offset: %v", first["next_offset"])
+	var got strings.Builder
+	var next float64
+	pages := 0
+	for {
+		page := readAttachmentOut(t, s, conv, run, `{"attachment_id":"`+files[0].ID+`","offset":`+jsonNumber(next)+`}`)
+		got.WriteString(page["content"].(string))
+		pages++
+		n, more := page["next_offset"].(float64)
+		if !more {
+			break
+		}
+		if page["size"] == nil || !strings.Contains(page["note"].(string), "offset="+jsonNumber(n)) || n <= next {
+			t.Fatalf("page does not say size or how to continue: %v", page)
+		}
+		next = n
 	}
-	rest := readAttachmentOut(t, s, conv, run, `{"attachment_id":"`+files[0].ID+`","offset":`+jsonNumber(next)+`}`)
-	if first["content"].(string)+rest["content"].(string) != long || rest["next_offset"] != nil {
-		t.Fatal("paged text does not reassemble")
+	if got.String() != long || pages < 2 {
+		t.Fatalf("paged text does not reassemble in %d pages", pages)
 	}
 
 	img := readAttachmentOut(t, s, conv, run, `{"attachment_id":"`+files[1].ID+`"}`)
