@@ -31,7 +31,7 @@ func TestFilesReadPagesThroughALargeFile(t *testing.T) {
 	offset, pages := 1, 0
 	for offset > 0 {
 		pages++
-		if pages > 20 {
+		if pages > 100 {
 			t.Fatal("paging did not finish")
 		}
 		res, err := s.readFile(context.Background(), testBot, fileArgs{Path: "big.txt", Offset: offset})

@@ -523,7 +523,7 @@ func (s *Server) webTools(r Run) []Tool {
 	}
 	tools = append(tools, Tool{Name: "web_fetch", Description: webFetchDescription, Timeout: webToolTimeout, Parameters: objectSchema(map[string]any{
 		"url":       map[string]any{"type": "string", "description": "Public http or https address of the page."},
-		"max_chars": map[string]any{"type": "integer", "minimum": 1000, "maximum": webtools.MaxMaxChars, "description": "Text budget of this part, in characters. Default 20000."},
+		"max_chars": map[string]any{"type": "integer", "minimum": 1000, "maximum": webtools.MaxMaxChars, "description": "Largest part in characters. Default 20000. A part holds fewer when its encoded size would not fit one result; next_offset names where the next part starts."},
 		"offset":    map[string]any{"type": "integer", "minimum": 0, "description": "Character position where this part starts. Default 0. Use the next_offset of an earlier result to read the next part of a long page."},
 	}, []string{"url"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		var in struct {

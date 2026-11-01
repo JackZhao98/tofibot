@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/JackZhao98/tofibot/internal/extensions"
+	"github.com/JackZhao98/tofibot/internal/resultcut"
 	"github.com/JackZhao98/tofibot/internal/runtime"
 )
 
@@ -31,7 +32,7 @@ const (
 	requestNoteReserve = 600
 	maxMemoryRunes     = 8000
 	maxSummaryRunes    = 8000
-	maxSearchRunes     = 16000
+	maxSearchBytes     = resultcut.PageBudget
 	// earlierNoteReserve is the history room kept for the note that says earlier
 	// turns exist beyond the window.
 	earlierNoteReserve = 400
@@ -310,13 +311,14 @@ func boundedSearchJSON(messages []Message, total, offset int, newestFirst bool) 
 	used := 0
 	for _, m := range messages {
 		content := trimRunes(m.Content, 4000)
+		content = content[:resultcut.FitJSON(content, 8000)]
 		h := hit{ID: m.ID, Seq: m.Seq, Role: m.Role, SenderBotID: m.SenderBotID, Content: content, Truncated: content != m.Content}
 		b, _ := json.Marshal(h)
-		if used+len([]rune(string(b)))+1 > maxSearchRunes && len(out) > 0 {
+		if used+len(b)+1 > maxSearchBytes && len(out) > 0 {
 			break
 		}
 		out = append(out, h)
-		used += len([]rune(string(b))) + 1
+		used += len(b) + 1
 	}
 	p := page{Total: total, Offset: offset, Order: "oldest", Results: out}
 	if newestFirst {

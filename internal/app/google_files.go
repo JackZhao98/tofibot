@@ -12,6 +12,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/JackZhao98/tofibot/internal/resultcut"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
@@ -21,8 +22,8 @@ import (
 const (
 	// googleFileResponseLimit bounds the Runner's reply: a 20 MB file is about 27 MB of base64.
 	googleFileResponseLimit = 30 << 20
-	googleReadPageDefault   = 60000
-	googleReadPageMax       = 200000
+	googleReadPageDefault   = resultcut.PageBudget
+	googleReadPageMax       = resultcut.PageBudget
 )
 
 // googleTextExtensions are the export types a Bot reads as text. Everything else is saved to the Bot computer.
@@ -151,7 +152,7 @@ func (s *Server) googleFileTools(c Conversation, r Run) []Tool {
 			"file_id":   googleIDSchema("Drive file id"),
 			"format":    map[string]any{"type": "string", "enum": []string{"txt", "md", "csv", "html", "pdf", "docx", "xlsx", "pptx", "png"}, "description": "Export format for Google Docs, Sheets and Slides; empty uses the default of the file type"},
 			"offset":    map[string]any{"type": "integer", "minimum": 0, "description": "Byte offset to continue a paged text read from"},
-			"max_bytes": map[string]any{"type": "integer", "minimum": 1, "maximum": googleReadPageMax, "description": "Largest text page to return; defaults to 60000"},
+			"max_bytes": map[string]any{"type": "integer", "minimum": 1, "maximum": googleReadPageMax, "description": "Largest text page to return; defaults to 18000"},
 		}, []string{"file_id"}),
 		Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			var in struct {
@@ -184,7 +185,7 @@ func (s *Server) googleFileTools(c Conversation, r Run) []Tool {
 
 // googleTextPage returns one page of an exported text file, cut on a character boundary.
 func googleTextPage(name string, data []byte, offset, limit int) string {
-	if limit == 0 {
+	if limit <= 0 || limit > googleReadPageMax {
 		limit = googleReadPageDefault
 	}
 	total := len(data)
