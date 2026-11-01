@@ -84,6 +84,11 @@ type Tavily struct {
 func (Tavily) ID() string { return "tavily" }
 
 func (t Tavily) Search(ctx context.Context, query string, limit int) ([]SearchResult, error) {
+	return t.SearchWith(ctx, query, limit, SearchOptions{})
+}
+
+// SearchWith maps the filters to time_range, include_domains and exclude_domains.
+func (t Tavily) SearchWith(ctx context.Context, query string, limit int, opts SearchOptions) ([]SearchResult, error) {
 	if t.Key == "" {
 		return nil, fail(NotConfigured)
 	}
@@ -91,7 +96,17 @@ func (t Tavily) Search(ctx context.Context, query string, limit int) ([]SearchRe
 	if ep == "" {
 		ep = TavilyEndpoint
 	}
-	body, _ := json.Marshal(map[string]any{"query": query, "max_results": limit, "search_depth": "basic", "include_answer": false})
+	params := map[string]any{"query": query, "max_results": limit, "search_depth": "basic", "include_answer": false}
+	if opts.Recency != "" {
+		params["time_range"] = opts.Recency
+	}
+	if len(opts.Domains) > 0 {
+		params["include_domains"] = opts.Domains
+	}
+	if len(opts.ExcludeDomains) > 0 {
+		params["exclude_domains"] = opts.ExcludeDomains
+	}
+	body, _ := json.Marshal(params)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ep, bytes.NewReader(body))
 	if err != nil {
 		return nil, fail(BadRequest)
@@ -127,6 +142,15 @@ type Brave struct {
 func (Brave) ID() string { return "brave" }
 
 func (b Brave) Search(ctx context.Context, query string, limit int) ([]SearchResult, error) {
+	return b.SearchWith(ctx, query, limit, SearchOptions{})
+}
+
+// BestEffortFilters: Brave takes recency as freshness; domains go in the query as site: operators.
+func (Brave) BestEffortFilters() bool { return true }
+
+var braveFreshness = map[string]string{"day": "pd", "week": "pw", "month": "pm", "year": "py"}
+
+func (b Brave) SearchWith(ctx context.Context, query string, limit int, opts SearchOptions) ([]SearchResult, error) {
 	if b.Key == "" {
 		return nil, fail(NotConfigured)
 	}
@@ -134,7 +158,10 @@ func (b Brave) Search(ctx context.Context, query string, limit int) ([]SearchRes
 	if ep == "" {
 		ep = BraveEndpoint
 	}
-	q := url.Values{"q": {query}, "count": {strconv.Itoa(limit)}}
+	q := url.Values{"q": {QueryWithSites(query, opts)}, "count": {strconv.Itoa(limit)}}
+	if f := braveFreshness[opts.Recency]; f != "" {
+		q.Set("freshness", f)
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, ep+"?"+q.Encode(), nil)
 	if err != nil {
 		return nil, fail(BadRequest)
@@ -172,11 +199,21 @@ type SearXNG struct {
 func (SearXNG) ID() string { return "searxng" }
 
 func (s SearXNG) Search(ctx context.Context, query string, limit int) ([]SearchResult, error) {
+	return s.SearchWith(ctx, query, limit, SearchOptions{})
+}
+
+// BestEffortFilters: the instance's engines decide what time_range and site: do.
+func (SearXNG) BestEffortFilters() bool { return true }
+
+func (s SearXNG) SearchWith(ctx context.Context, query string, limit int, opts SearchOptions) ([]SearchResult, error) {
 	base, err := CleanBaseURL(s.BaseURL)
 	if err != nil {
 		return nil, fail(NotConfigured)
 	}
-	q := url.Values{"q": {query}, "format": {"json"}}
+	q := url.Values{"q": {QueryWithSites(query, opts)}, "format": {"json"}}
+	if opts.Recency != "" {
+		q.Set("time_range", opts.Recency)
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base.String()+"/search?"+q.Encode(), nil)
 	if err != nil {
 		return nil, fail(BadRequest)

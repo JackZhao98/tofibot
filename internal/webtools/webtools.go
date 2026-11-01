@@ -7,6 +7,8 @@ package webtools
 import (
 	"context"
 	"errors"
+	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -124,6 +126,122 @@ type SearchResponse struct {
 	Source  string         `json:"source"`
 	Query   string         `json:"query"`
 	Results []SearchResult `json:"results"`
+	// Note says when a filter was only best effort at the source that served the results.
+	Note string `json:"note,omitempty"`
+}
+
+// SearchOptions are the optional filters of a search. Every source applies
+// them as far as it can; the chain also drops results whose address breaks a
+// domain filter.
+type SearchOptions struct {
+	Recency        string // day, week, month or year
+	Domains        []string
+	ExcludeDomains []string
+}
+
+// Empty reports whether no filter is set.
+func (o SearchOptions) Empty() bool {
+	return o.Recency == "" && len(o.Domains) == 0 && len(o.ExcludeDomains) == 0
+}
+
+// Clean validates the options: a known recency and bare host names.
+func (o SearchOptions) Clean() (SearchOptions, error) {
+	o.Recency = strings.ToLower(strings.TrimSpace(o.Recency))
+	switch o.Recency {
+	case "", "day", "week", "month", "year":
+	default:
+		return o, fail(BadRequest)
+	}
+	var err error
+	if o.Domains, err = cleanDomains(o.Domains); err != nil {
+		return o, err
+	}
+	if o.ExcludeDomains, err = cleanDomains(o.ExcludeDomains); err != nil {
+		return o, err
+	}
+	return o, nil
+}
+
+const maxFilterDomains = 20
+
+// cleanDomains reduces each entry to a lower-case host name: a pasted address
+// loses its scheme, path and port, and a leading "www." or "*." is dropped.
+func cleanDomains(in []string) ([]string, error) {
+	var out []string
+	for _, d := range in {
+		d = strings.ToLower(strings.TrimSpace(d))
+		if d == "" {
+			continue
+		}
+		if i := strings.Index(d, "://"); i >= 0 {
+			d = d[i+3:]
+		}
+		if i := strings.IndexAny(d, "/?#"); i >= 0 {
+			d = d[:i]
+		}
+		if i := strings.LastIndex(d, ":"); i >= 0 {
+			d = d[:i]
+		}
+		d = strings.TrimPrefix(strings.TrimPrefix(d, "*."), "www.")
+		d = strings.Trim(d, ".")
+		if d == "" || len(d) > 253 || strings.ContainsAny(d, " \t\r\n\x00@\"'()") || !strings.Contains(d, ".") {
+			return nil, fail(BadRequest)
+		}
+		if !slices.Contains(out, d) {
+			out = append(out, d)
+		}
+	}
+	if len(out) > maxFilterDomains {
+		return nil, fail(BadRequest)
+	}
+	return out, nil
+}
+
+func hostMatches(host, domain string) bool {
+	return host == domain || strings.HasSuffix(host, "."+domain)
+}
+
+// filterResults drops results outside the include list or inside the exclude list.
+func filterResults(in []SearchResult, o SearchOptions) []SearchResult {
+	if len(o.Domains) == 0 && len(o.ExcludeDomains) == 0 {
+		return in
+	}
+	var out []SearchResult
+	for _, r := range in {
+		u, err := url.Parse(r.URL)
+		if err != nil {
+			continue
+		}
+		host := strings.TrimPrefix(strings.ToLower(u.Hostname()), "www.")
+		if len(o.Domains) > 0 && !slices.ContainsFunc(o.Domains, func(d string) bool { return hostMatches(host, d) }) {
+			continue
+		}
+		if slices.ContainsFunc(o.ExcludeDomains, func(d string) bool { return hostMatches(host, d) }) {
+			continue
+		}
+		out = append(out, r)
+	}
+	return out
+}
+
+// QueryWithSites appends site: operators to a query, for engines with no
+// domain parameter.
+func QueryWithSites(query string, o SearchOptions) string {
+	if len(o.Domains) > 0 {
+		parts := make([]string, len(o.Domains))
+		for i, d := range o.Domains {
+			parts[i] = "site:" + d
+		}
+		if len(parts) == 1 {
+			query += " " + parts[0]
+		} else {
+			query += " (" + strings.Join(parts, " OR ") + ")"
+		}
+	}
+	for _, d := range o.ExcludeDomains {
+		query += " -site:" + d
+	}
+	return query
 }
 
 type Page struct {
@@ -157,6 +275,16 @@ type SearchProvider interface {
 	Search(ctx context.Context, query string, limit int) ([]SearchResult, error)
 }
 
+// FilteredSearcher is a provider that takes the search filters. One that does
+// not is called without them and the result says so.
+type FilteredSearcher interface {
+	SearchWith(ctx context.Context, query string, limit int, opts SearchOptions) ([]SearchResult, error)
+}
+
+// BestEffortFilters marks a provider whose filters are requests to an engine
+// that may ignore them, not parameters the service honours.
+type BestEffortFilters interface{ BestEffortFilters() bool }
+
 type FetchProvider interface {
 	ID() string
 	Fetch(ctx context.Context, url string, maxChars int) (Page, error)
@@ -166,9 +294,20 @@ type FetchProvider interface {
 type SearchFunc struct {
 	Name string
 	Fn   func(ctx context.Context, query string, limit int) ([]SearchResult, error)
+	// FnWith, when set, takes the filters (best effort, like the engine behind it).
+	FnWith func(ctx context.Context, query string, limit int, opts SearchOptions) ([]SearchResult, error)
 }
 
 func (f SearchFunc) ID() string { return f.Name }
+
+func (f SearchFunc) SearchWith(ctx context.Context, q string, n int, o SearchOptions) ([]SearchResult, error) {
+	if f.FnWith == nil {
+		return f.Fn(ctx, q, n)
+	}
+	return f.FnWith(ctx, q, n, o)
+}
+
+func (f SearchFunc) BestEffortFilters() bool { return f.FnWith != nil }
 func (f SearchFunc) Search(ctx context.Context, q string, n int) ([]SearchResult, error) {
 	return f.Fn(ctx, q, n)
 }
@@ -185,6 +324,16 @@ func (f FetchFunc) Fetch(ctx context.Context, u string, n int) (Page, error) {
 
 // Search runs the chain in order until one provider returns results.
 func Search(ctx context.Context, chain []SearchProvider, query string, limit int) (SearchResponse, error) {
+	return SearchWith(ctx, chain, query, limit, SearchOptions{})
+}
+
+// SearchWith is Search with filters. A source without filter support is still
+// asked, and the response says its results are not filtered.
+func SearchWith(ctx context.Context, chain []SearchProvider, query string, limit int, opts SearchOptions) (SearchResponse, error) {
+	opts, err := opts.Clean()
+	if err != nil {
+		return SearchResponse{}, &ChainError{Attempts: []Attempt{{Source: "request", Code: BadRequest}}, Last: BadRequest}
+	}
 	query = strings.TrimSpace(query)
 	if query == "" || len(query) > 2000 {
 		return SearchResponse{}, fail(BadRequest)
@@ -197,12 +346,30 @@ func Search(ctx context.Context, chain []SearchProvider, query string, limit int
 		if err := ctx.Err(); err != nil {
 			return SearchResponse{}, fail(Network)
 		}
-		results, err := p.Search(ctx, query, limit)
+		var results []SearchResult
+		var err error
+		note := ""
+		fs, filtered := p.(FilteredSearcher)
+		switch {
+		case opts.Empty() || !filtered:
+			results, err = p.Search(ctx, query, limit)
+			if !opts.Empty() {
+				note = "This source ignores the recency and domain filters."
+			}
+		default:
+			results, err = fs.SearchWith(ctx, query, limit, opts)
+			if be, ok := p.(BestEffortFilters); ok && be.BestEffortFilters() {
+				note = "This source applies the recency and domain filters on a best-effort basis; check the dates and addresses."
+			}
+		}
+		if err == nil {
+			results = filterResults(results, opts)
+		}
 		if err == nil && len(results) == 0 {
 			err = fail(EmptyContent)
 		}
 		if err == nil {
-			return SearchResponse{Source: p.ID(), Query: query, Results: results}, nil
+			return SearchResponse{Source: p.ID(), Query: query, Results: results, Note: note}, nil
 		}
 		code := CodeOf(err)
 		attempts = append(attempts, Attempt{Source: p.ID(), Code: code, Status: StatusOf(err)})
