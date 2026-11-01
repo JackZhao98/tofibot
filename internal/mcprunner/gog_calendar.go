@@ -234,7 +234,7 @@ func (r *Runner) callGogExtra(ctx context.Context, p *plugin, params *mcp.CallTo
 		if ctx.Err() != nil {
 			return gogToolError("Tool result unknown; the event may have been created. Check the calendar before creating it again."), nil
 		}
-		return gogToolError("Google Calendar did not create the event. Nothing was confirmed; check the calendar before trying again."), nil
+		return gogToolError("Google Calendar reported an error. Nothing was confirmed, so the event may or may not exist; check the calendar before trying again."), nil
 	}
 	if !json.Valid(output) {
 		return gogToolError("Google Calendar returned an unrecognised result; check the calendar before creating the event again."), nil

@@ -55,6 +55,7 @@ func TestPrepareEmailReportsTheGmailConnectionState(t *testing.T) {
 	}{
 		{"not connected", `{"connected":false}`, "no Google account is connected"},
 		{"read only", `{"connected":true,"scope":"readonly"}`, "can read mail but not send it"},
+		{"calendar only", `{"connected":true,"scope":"","services":["calendar","drive"]}`, "not authorised for Gmail"},
 		{"expired", `{"connected":true,"scope":"read-send","reauth_required":true}`, "expired or was revoked"},
 		{"ready", `{"connected":true,"scope":"read-send"}`, "the connection is ready"},
 	}

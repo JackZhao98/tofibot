@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/mail"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -620,9 +621,10 @@ func (s *Server) gmailSendState(ctx context.Context) string {
 	defer cancel()
 	data, code, err := s.runnerRequestContext(ctx, http.MethodGet, "/v1/plugins/gog/gog/status", nil)
 	var account struct {
-		Connected      bool   `json:"connected"`
-		Scope          string `json:"scope"`
-		ReauthRequired bool   `json:"reauth_required"`
+		Connected      bool     `json:"connected"`
+		Scope          string   `json:"scope"`
+		Services       []string `json:"services"`
+		ReauthRequired bool     `json:"reauth_required"`
 	}
 	if err != nil || code != http.StatusOK || json.Unmarshal(data, &account) != nil {
 		return "Gmail sending: the connection could not be checked just now, so it is not known whether this can be sent."
@@ -632,6 +634,8 @@ func (s *Server) gmailSendState(ctx context.Context) string {
 		return "Gmail sending: no Google account is connected, so this draft cannot be sent yet. Tell the person to connect Google in Settings > Connections (/settings/connections/local_gog) and choose the access level Read and send; the draft stays on the card."
 	case account.ReauthRequired:
 		return "Gmail sending: Google authorization expired or was revoked, so this draft cannot be sent yet. Tell the person to reconnect Google in Settings > Connections (/settings/connections/local_gog); the draft stays on the card."
+	case account.Scope == "" && len(account.Services) > 0 && !slices.Contains(account.Services, "gmail"):
+		return "Gmail sending: the connected Google account is not authorised for Gmail, so this draft cannot be sent yet. Tell the person to open Settings > Connections (/settings/connections/local_gog), add Gmail with the access level Read and send, and approve the Google prompt; the draft stays on the card."
 	case account.Scope != "read-send":
 		return "Gmail sending: the connected Google account can read mail but not send it, so this draft cannot be sent yet. Tell the person to open Settings > Connections (/settings/connections/local_gog), choose the access level Read and send, and approve the Google prompt; the draft stays on the card."
 	}
