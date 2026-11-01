@@ -105,6 +105,10 @@ func (s *Store) attachmentAvailableInConversation(id, conv string) (bool, error)
 	return n > 0, err
 }
 
+// attachmentReadPage is the text one read_attachment call returns. It stays
+// well under the result size the model receives, so the page is never cut again.
+const attachmentReadPage = 16 << 10
+
 // read_attachment reads any attachment the conversation can see: text comes
 // back as text, an image is shown to the model, and any other file is placed
 // on the computer so the Bot opens it there with its own tools.
@@ -141,13 +145,14 @@ func (s *Server) attachmentTools(c Conversation, r Run) []Tool {
 			return "", err
 		}
 		if isTextAttachment(a) || strings.HasPrefix(http.DetectContentType(head), "text/") {
-			text, next, err := s.store.readAttachmentTextAt(path, x.Offset)
+			text, next, err := s.store.readAttachmentPage(path, x.Offset, attachmentReadPage)
 			if err != nil {
 				return "", err
 			}
-			m := map[string]any{"name": a.Name, "content": text}
+			m := map[string]any{"name": a.Name, "size": a.Size, "offset": x.Offset, "content": text}
 			if next > 0 {
 				m["next_offset"] = next
+				m["note"] = fmt.Sprintf("bytes %d-%d of %d shown; call read_attachment again with offset=%d for the rest. A large file can be analysed whole on the Bot computer instead.", x.Offset, next, a.Size, next)
 			}
 			out, _ := json.Marshal(m)
 			return string(out), nil
@@ -220,6 +225,11 @@ func (s *Store) attachmentHead(ctx context.Context, path string, limit int64) ([
 // readAttachmentTextAt returns up to maxAttachmentText bytes of text from
 // offset, cut at a rune boundary, and the offset to continue from (0 at end).
 func (s *Store) readAttachmentTextAt(path string, offset int64) (string, int64, error) {
+	return s.readAttachmentPage(path, offset, maxAttachmentText)
+}
+
+// readAttachmentPage is readAttachmentTextAt with the page size given.
+func (s *Store) readAttachmentPage(path string, offset int64, page int) (string, int64, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	f, err := s.openAttachment(ctx, path)
@@ -230,14 +240,14 @@ func (s *Store) readAttachmentTextAt(path string, offset int64) (string, int64, 
 	if _, err = io.CopyN(io.Discard, f, offset); err != nil && !errors.Is(err, io.EOF) {
 		return "", 0, err
 	}
-	b, err := io.ReadAll(io.LimitReader(f, maxAttachmentText+1))
+	b, err := io.ReadAll(io.LimitReader(f, int64(page)+1))
 	if err != nil {
 		return "", 0, err
 	}
-	if len(b) <= maxAttachmentText {
+	if len(b) <= page {
 		return string(b), 0, nil
 	}
-	b = b[:maxAttachmentText]
+	b = b[:page]
 	for i := 0; i < utf8.UTFMax && len(b) > 0 && !utf8.Valid(b); i++ {
 		b = b[:len(b)-1]
 	}

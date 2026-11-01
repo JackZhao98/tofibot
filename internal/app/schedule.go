@@ -1572,13 +1572,14 @@ func (s *Server) scheduleTools(c Conversation, r Run) []Tool {
 			}
 			return scheduleToolJSON(x), nil
 		}},
-		{Name: "list_schedules", Description: "List scheduled work for this conversation or this Bot across conversations. Use view upcoming, history, or all. Each schedule reports kind, daily_time, weekdays (weekly only), timezone, next_at_utc and next_at_local.", Parameters: objectSchema(map[string]any{"scope": map[string]any{"type": "string", "enum": []string{"conversation", "self"}}, "view": map[string]any{"type": "string", "enum": []string{"upcoming", "history", "all"}}}, nil), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+		{Name: "list_schedules", Description: "List scheduled work for this conversation or this Bot across conversations. Use view upcoming, history, or all. Each schedule reports kind, daily_time, weekdays (weekly only), timezone, next_at_utc and next_at_local.", Parameters: objectSchema(map[string]any{"scope": map[string]any{"type": "string", "enum": []string{"conversation", "self"}}, "view": map[string]any{"type": "string", "enum": []string{"upcoming", "history", "all"}}, "offset": listOffsetProp}, nil), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
 			var in struct {
-				Scope string `json:"scope"`
-				View  string `json:"view"`
+				Scope  string `json:"scope"`
+				View   string `json:"view"`
+				Offset int    `json:"offset"`
 			}
 			if len(raw) > 0 && string(raw) != "null" {
 				if err := json.Unmarshal(raw, &in); err != nil {
@@ -1608,7 +1609,7 @@ func (s *Server) scheduleTools(c Conversation, r Run) []Tool {
 			if err != nil {
 				return "", err
 			}
-			return scheduleToolListJSON(v), nil
+			return scheduleToolListJSON(v, in.Offset), nil
 		}},
 		{Name: "pause_schedule", Description: "Pause (stop for now) a schedule of this Bot. Find ids with list_schedules; use scope self for schedules made in other conversations.", Parameters: objectSchema(map[string]any{"schedule_id": map[string]any{"type": "string"}}, []string{"schedule_id"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
@@ -1756,11 +1757,10 @@ func scheduleToolJSON(x Schedule) string {
 	return string(b)
 }
 
-func scheduleToolListJSON(v []Schedule) string {
+func scheduleToolListJSON(v []Schedule, offset int) string {
 	out := make([]scheduleToolSchedule, 0, len(v))
 	for _, x := range v {
 		out = append(out, scheduleToolView(x))
 	}
-	b, _ := json.Marshal(out)
-	return string(b)
+	return pagedList("schedules", out, offset)
 }

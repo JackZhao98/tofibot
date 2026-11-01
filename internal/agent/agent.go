@@ -20,6 +20,7 @@ import (
 	"github.com/JackZhao98/tofibot/internal/executor"
 	"github.com/JackZhao98/tofibot/internal/models"
 	"github.com/JackZhao98/tofibot/internal/provider"
+	"github.com/JackZhao98/tofibot/internal/resultcut"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 
 	"github.com/modelcontextprotocol/go-sdk/auth"
@@ -3174,8 +3175,11 @@ func truncateToolResultForModel(output string, maxChars int) string {
 	if len(output) <= maxChars {
 		return output
 	}
-	if cut := smartTruncate(output, maxChars); len(cut) <= maxChars+200 && len(cut) >= maxChars/2 && utf8.ValidString(cut) && strings.Contains(cut, "lines omitted") {
+	if cut, ok := resultcut.JSON(output, maxChars); ok {
 		return cut
+	}
+	if cut := smartTruncate(output, maxChars); len(cut) <= maxChars+200 && len(cut) >= maxChars/2 && utf8.ValidString(cut) && strings.Contains(cut, "lines omitted") {
+		return cut + "\n" + resultcut.Hint
 	}
 	head, tail := maxChars*6/10, maxChars*3/10
 	for head > 0 && !utf8.RuneStart(output[head]) {
@@ -3185,7 +3189,7 @@ func truncateToolResultForModel(output string, maxChars int) string {
 	for tailStart < len(output) && !utf8.RuneStart(output[tailStart]) {
 		tailStart++
 	}
-	return output[:head] + fmt.Sprintf("\n\n... [%d of %d chars omitted from the middle] ...\n\n", tailStart-head, len(output)) + output[tailStart:]
+	return output[:head] + fmt.Sprintf("\n\n... [%d of %d chars omitted from the middle. %s] ...\n\n", tailStart-head, len(output), resultcut.Hint) + output[tailStart:]
 }
 
 func directToolResultChars(args map[string]interface{}) (int, error) {
