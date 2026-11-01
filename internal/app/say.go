@@ -177,6 +177,10 @@ type sayRunState struct {
 	// answer; review reports whether the one-time completion review is due.
 	demote func(string)
 	review func() bool
+	// reviewSkip reports that the draft leaves the review nothing to check;
+	// reviewNote adds what to check in this draft to the review text.
+	reviewSkip func(text string) bool
+	reviewNote func(base, text string) string
 	// owed peeks at review without spending it.
 	owed func() bool
 	// grade reads the draft against the answer rubric and returns the private
@@ -560,7 +564,7 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			// keeps the Bot in a run that should have ended (B7). An answer that
 			// claims done is reviewed as before. The review stays unspent.
 			awaitsWake := in.Outcome == sayOutcomePending && !saySendsSources(r) && s.store.runHasPendingWait(r.ID)
-			if state != nil && state.review != nil && !awaitsWake && state.review() {
+			if state != nil && state.review != nil && !awaitsWake && !(state.reviewSkip != nil && state.reviewSkip(text)) && state.review() {
 				// The completion review text finals get: once, when tool work
 				// was done. The text is kept as the draft to publish if the
 				// run ends without a reviewed answer.
@@ -572,6 +576,9 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 				reminder := taskCompletionFinalReminder
 				if saySendsSources(r) {
 					reminder = scheduleFinalReminderStructured
+				}
+				if state.reviewNote != nil {
+					reminder = state.reviewNote(reminder, text)
 				}
 				return fail(tooloutcome.New(tooloutcome.Transient, "answer_review", "not_executed", reminder, "retry").Err())
 			}

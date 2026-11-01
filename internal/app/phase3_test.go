@@ -483,14 +483,14 @@ func TestRunRequestsForcedToolUseOnlyForAHaikuDMUnderTheFlag(t *testing.T) {
 func TestIdenticalSayAnswerAfterTheReviewRefusalIsRecorded(t *testing.T) {
 	model := newFakeModel(t,
 		fakeStep{calls: []fakeCall{{"c1", "create_work_item", `{"kind":"task","title":"Check the numbers"}`}}},
-		fakeStep{calls: []fakeCall{{"c2", "say", `{"purpose":"answer","outcome":"done","text":"The complete answer."}`}}},
-		fakeStep{calls: []fakeCall{{"c3", "say", `{"purpose":"answer","outcome":"done","text":"The complete answer."}`}}},
+		fakeStep{calls: []fakeCall{{"c2", "say", `{"purpose":"answer","outcome":"done","text":"The complete answer covers 3 items."}`}}},
+		fakeStep{calls: []fakeCall{{"c3", "say", `{"purpose":"answer","outcome":"done","text":"The complete answer covers 3 items."}`}}},
 		fakeStep{content: "a call that must not happen"})
 	s, run := serverWithModel(t, model, true)
 	if run.Status != "done" {
 		t.Fatalf("run=%+v", run)
 	}
-	if rows := assistantRows(t, s.store, run.ConversationID); !equalStrings(kindsAndText(rows), []string{"|The complete answer."}) {
+	if rows := assistantRows(t, s.store, run.ConversationID); !equalStrings(kindsAndText(rows), []string{"|The complete answer covers 3 items."}) {
 		t.Fatalf("messages = %q", kindsAndText(rows))
 	}
 	if got := originOf(t, s.store, run.ID); got != finalOriginSay {
@@ -507,8 +507,8 @@ func TestIdenticalSayAnswerAfterTheReviewRefusalIsRecorded(t *testing.T) {
 func TestScheduledSayAnswerAfterToolWorkIsReviewedOnce(t *testing.T) {
 	model := newFakeModel(t,
 		fakeStep{calls: []fakeCall{{"c1", "create_work_item", `{"kind":"task","title":"Check the numbers"}`}}},
-		fakeStep{calls: []fakeCall{{"c2", "say", `{"purpose":"answer","outcome":"done","text":"The scheduled report.","sources":["synthetic source"]}`}}},
-		fakeStep{calls: []fakeCall{{"c3", "say", `{"purpose":"answer","outcome":"done","text":"The scheduled report.","sources":["synthetic source"]}`}}},
+		fakeStep{calls: []fakeCall{{"c2", "say", `{"purpose":"answer","outcome":"done","text":"The scheduled report lists 3 items.","sources":["synthetic source"]}`}}},
+		fakeStep{calls: []fakeCall{{"c3", "say", `{"purpose":"answer","outcome":"done","text":"The scheduled report lists 3 items.","sources":["synthetic source"]}`}}},
 		fakeStep{content: "a call that must not happen"})
 	f := newDedupeFixture(t, model.engine(t))
 	got := runScheduledOnce(t, f)
@@ -525,7 +525,7 @@ func TestScheduledSayAnswerAfterToolWorkIsReviewedOnce(t *testing.T) {
 		t.Fatalf("scheduled reminder appeared %d times, want 1", reminders)
 	}
 	var n int
-	_ = f.server.store.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE run_id=? AND role='assistant' AND kind='' AND content='The scheduled report.'`, got.ID).Scan(&n)
+	_ = f.server.store.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE run_id=? AND role='assistant' AND kind='' AND content='The scheduled report lists 3 items.'`, got.ID).Scan(&n)
 	if n != 1 || originOf(t, f.server.store, got.ID) != finalOriginSay {
 		t.Fatalf("delivered %d times, origin %q", n, originOf(t, f.server.store, got.ID))
 	}
