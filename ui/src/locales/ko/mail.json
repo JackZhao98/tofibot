@@ -21,6 +21,8 @@
     "demo_badge": "데모 · 발송 안 됨",
     "demo_hint": "화면 데모 전용, Gmail에 연결하지 않음",
     "add_recipient": "받는 사람 추가",
+    "add_cc": "참조 추가",
+    "add_bcc": "숨은 참조 추가",
     "working": "처리 중…",
     "hold": "보류",
     "sending": "보내는 중…",

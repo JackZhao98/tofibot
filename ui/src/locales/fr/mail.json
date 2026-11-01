@@ -21,6 +21,8 @@
     "demo_badge": "Démo · aucun envoi",
     "demo_hint": "Démo de l’interface uniquement ; Gmail n’est pas contacté",
     "add_recipient": "Ajouter un destinataire",
+    "add_cc": "Ajouter en Cc",
+    "add_bcc": "Ajouter en Cci",
     "working": "En cours…",
     "hold": "Pas encore",
     "sending": "Envoi…",

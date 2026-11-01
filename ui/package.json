@@ -106,7 +106,8 @@
     "test:bot-tools": "node scripts/test-bot-tools.mjs",
     "test:standing-allowance": "node scripts/test-standing-allowance-card.mjs",
     "test:handover-cards": "node scripts/test-handover-cards.mjs",
-    "test:question-poll": "node scripts/test-question-poll.mjs"
+    "test:question-poll": "node scripts/test-question-poll.mjs",
+    "test:mail-draft-copies": "node scripts/test-mail-draft-copies.mjs"
   },
   "dependencies": {
     "@emoji-mart/data": "1.2.1",

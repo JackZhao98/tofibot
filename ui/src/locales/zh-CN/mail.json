@@ -21,6 +21,8 @@
     "demo_badge": "演示 · 不会发送",
     "demo_hint": "只演示界面，不联系 Gmail",
     "add_recipient": "添加收件人",
+    "add_cc": "添加抄送",
+    "add_bcc": "添加密送",
     "working": "处理中…",
     "hold": "再想想",
     "sending": "发送中…",
