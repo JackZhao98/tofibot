@@ -74,6 +74,7 @@ func Bounded(o *Outcome) *Outcome {
 		return s
 	}
 	copy.Message = limit(copy.Message, 2048)
+	copy.RemoteError = limit(copy.RemoteError, 2048)
 	copy.Status = limit(copy.Status, 128)
 	copy.Code = limit(copy.Code, 128)
 	copy.Certainty = limit(copy.Certainty, 128)

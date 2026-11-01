@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"log"
 	"net/http"
 	"net/url"
@@ -883,6 +884,9 @@ func (m *Manager) callMCPToolObserved(callCtx context.Context, cli *mcp.ClientSe
 		if observe.failed != nil {
 			observe.failed(err)
 		}
+		if o, ok := mcpProtocolRejection(err, attempts); ok {
+			return "", o.Err()
+		}
 		if !readOnly {
 			o := uncertainMCPOutcome(attempts)
 			if hint := googleAuthRejection(endpoint, call); hint != "" {
@@ -900,7 +904,15 @@ func (m *Manager) callMCPToolObserved(callCtx context.Context, cli *mcp.ClientSe
 			if transientMCPError(err) || callCtx.Err() != nil {
 				status, code = tooloutcome.Transient, "mcp_retry_exhausted"
 			}
-			o := tooloutcome.New(status, code, "no_side_effect", "MCP tool call failed; the read-only retry budget is exhausted or the endpoint rejected the request.", "explain_blocker")
+			msg := "MCP tool call failed; the read-only retry budget is exhausted or the endpoint rejected the request."
+			var rpc *jsonrpc.Error
+			if errors.As(err, &rpc) {
+				msg = fmt.Sprintf("MCP tool call failed with JSON-RPC code %d. %s %s", rpc.Code, mcpReportedMarker, sanitizeRemoteText(rpc.Message, 600))
+			}
+			o := tooloutcome.New(status, code, "no_side_effect", msg, "explain_blocker")
+			if rpc != nil {
+				o.RPCCode, o.RemoteError = int(rpc.Code), sanitizeRemoteText(rpc.Message, 600)
+			}
 			o.Attempts, o.RetryLimit = attempts, 2
 			return "", o.Err()
 		}
@@ -922,10 +934,13 @@ func (m *Manager) callMCPToolObserved(callCtx context.Context, cli *mcp.ClientSe
 		// value. Preserve bounded tool output while keeping transport errors private.
 		o := uncertainMCPOutcome(attempts)
 		if readOnly {
-			o = tooloutcome.New(tooloutcome.Permanent, "mcp_reported_error", "no_side_effect", "MCP tool returned an error; inspect its result and schema before choosing another action.", "explain_blocker")
+			o = tooloutcome.New(tooloutcome.Permanent, "mcp_reported_error", "no_side_effect", "MCP tool returned an error.", "explain_blocker")
 		}
-		// Preserve bounded details as untrusted data, never as recovery authority.
-		o.Message += " Untrusted tool-reported details: " + text
+		// The remote's reason goes first, as untrusted data and never as
+		// recovery authority, so no later bound can cut it.
+		reason := sanitizeRemoteText(text, maxMCPRemoteErrorRunes)
+		o.RemoteError = reason
+		o.Message = mcpReportedMarker + " " + reason + " " + o.Message
 		return text, o.Err()
 	}
 	return text, nil

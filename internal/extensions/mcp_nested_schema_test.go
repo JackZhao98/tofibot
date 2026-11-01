@@ -68,13 +68,20 @@ func newNotionFixture(t *testing.T, schema map[string]any, tools ...string) noti
 			return fixtureText("updated"), nil
 		})
 	}
+	f := newNotionFixtureWithServer(t, srv)
+	f.calls, f.reject = &calls, &reject
+	return f
+}
+
+func newNotionFixtureWithServer(t *testing.T, srv *mcp.Server) notionFixture {
+	t.Helper()
 	httpSrv := fixtureHTTPServer(srv)
 	t.Cleanup(httpSrv.Close)
 	m := NewManager(Config{MCPConfigPath: filepath.Join(t.TempDir(), "mcp.json")})
 	if err := m.SaveMCP("notion", MCPServerConfig{URL: httpSrv.URL}, false); err != nil {
 		t.Fatal(err)
 	}
-	return notionFixture{manager: m, calls: &calls, reject: &reject}
+	return notionFixture{manager: m}
 }
 
 func (f notionFixture) prepare(t *testing.T) *Prepared {
@@ -253,8 +260,8 @@ func TestRemoteRejectionCarriesSchemaForRepair(t *testing.T) {
 	}
 	schemaAt := strings.Index(o.Message, `"new_str"`)
 	detailsAt := strings.Index(o.Message, "Untrusted tool-reported details:")
-	if schemaAt < 0 || detailsAt < 0 || schemaAt > detailsAt || !strings.Contains(o.Message, `requires a "new_str" parameter`) {
-		t.Fatalf("message lacks schema before details: %s", o.Message)
+	if schemaAt < 0 || detailsAt < 0 || detailsAt > schemaAt || !strings.Contains(o.Message, `requires a "new_str" parameter`) {
+		t.Fatalf("message lacks details before schema: %s", o.Message)
 	}
 }
 

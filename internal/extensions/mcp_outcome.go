@@ -3,6 +3,7 @@ package extensions
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"io"
@@ -72,25 +73,75 @@ func mcpSchemaRevealOutcome(t runtime.Tool) tooloutcome.Outcome {
 	return tooloutcome.New(tooloutcome.Validation, "schema_required", "not_executed", msg, "repair_arguments")
 }
 
-// withMCPReportedSchema lets the model repair a call the remote rejected after
-// dispatch: the remote's own words stay at the end as untrusted details, and
-// the current input schema goes before them.
+// mcpReportedMarker opens the remote's own words; they come first in the
+// message so no later bound can cut them.
+const mcpReportedMarker = "Untrusted tool-reported details:"
+
+// maxMCPRemoteErrorRunes bounds the remote's error text in an outcome.
+const maxMCPRemoteErrorRunes = 1800
+
+// sanitizeRemoteText drops control characters and bounds the text by runes.
+func sanitizeRemoteText(text string, limit int) string {
+	text = strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\t' {
+			return ' '
+		}
+		if r < 0x20 || r == 0x7f {
+			return -1
+		}
+		return r
+	}, strings.TrimSpace(text))
+	if r := []rune(text); len(r) > limit {
+		return string(r[:limit]) + "…"
+	}
+	return text
+}
+
+// withMCPReportedSchema lets the model repair a call the remote rejected: the
+// remote's own words stay first, and the current input schema follows them.
 func withMCPReportedSchema(err error, params map[string]any) error {
 	o, ok := tooloutcome.FromError(err)
-	if !ok || (o.Code != "mcp_reported_error" && o.Code != "mcp_result_unknown") {
+	if !ok {
 		return err
 	}
-	const marker = " Untrusted tool-reported details:"
-	at := strings.Index(o.Message, marker)
-	if at < 0 {
+	switch o.Code {
+	case "mcp_invalid_params":
+	case "mcp_reported_error", "mcp_result_unknown":
+		if !strings.Contains(o.Message, mcpReportedMarker) {
+			return err
+		}
+	default:
 		return err
 	}
 	schema, marshalErr := boundedMCPSchema(params)
 	if marshalErr != nil {
 		return err
 	}
-	o.Message = o.Message[:at] + " If the details below say the arguments were rejected, repair them against the current input schema: " + schema + o.Message[at:]
+	o.Message += " If the details name rejected arguments, repair them against the current input schema: " + schema
 	return o.Err()
+}
+
+// mcpProtocolRejection classifies a JSON-RPC error the server returned for the
+// request itself (malformed request, unknown method, invalid params). The
+// server refused to run it, so nothing happened, for write tools as well.
+func mcpProtocolRejection(err error, attempts int) (tooloutcome.Outcome, bool) {
+	var rpc *jsonrpc.Error
+	if !errors.As(err, &rpc) {
+		return tooloutcome.Outcome{}, false
+	}
+	detail := sanitizeRemoteText(rpc.Message, 600)
+	var o tooloutcome.Outcome
+	switch rpc.Code {
+	case -32602:
+		o = tooloutcome.New(tooloutcome.Validation, "mcp_invalid_params", "not_executed", fmt.Sprintf("The server rejected the arguments (JSON-RPC code %d); nothing was executed. %s %s", rpc.Code, mcpReportedMarker, detail), "repair_arguments")
+		o.RepairLimit = 3
+	case -32600, -32601, -32700:
+		o = tooloutcome.New(tooloutcome.Permanent, "mcp_request_rejected", "not_executed", fmt.Sprintf("The server rejected the request (JSON-RPC code %d); nothing was executed. %s %s", rpc.Code, mcpReportedMarker, detail), "explain_blocker")
+	default:
+		return tooloutcome.Outcome{}, false
+	}
+	o.RPCCode, o.RemoteError, o.Attempts = int(rpc.Code), detail, attempts
+	return o, true
 }
 
 func transientMCPError(err error) bool {
