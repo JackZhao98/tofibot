@@ -25,11 +25,24 @@ const (
 // classify on it, never on the text of the underlying stat error.
 const FileNotFound = "file_not_found"
 
+// NeedsObservation is the code of the refusal that asks for a fresh view of
+// the shared desktop before a coordinate or typing action. It gates the order
+// of calls and is not a malformed argument, so it does not spend repair budget.
+const NeedsObservation = "needs_observation"
+
+// BrowserSlow and ConnectionLost are transient computer failures: the browser
+// or the control connection did not answer. They say nothing about the call's
+// arguments or the target, so they never fence a repeat of the same call.
+const (
+	BrowserSlow    = "browser_slow"
+	ConnectionLost = "computer_connection_lost"
+)
+
 // IsGateCode reports codes of TOFI's own preconditions (a schema not yet
 // shown, a page not yet observed). The model did not malform the call, so such
 // refusals never spend a repair budget.
 func IsGateCode(code string) bool {
-	return code == "schema_required" || code == "needs_observation"
+	return code == "schema_required" || code == NeedsObservation
 }
 
 type Outcome struct {

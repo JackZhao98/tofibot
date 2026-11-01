@@ -333,6 +333,11 @@ func (s *Server) applySecret(ctx context.Context, r Run, action, target, value, 
 	raw, _ := json.Marshal(args)
 	out, err := s.microVMAction(ctx, r, name, raw)
 	if err != nil {
+		// A typed outcome (computer busy, restarting, timed out) says exactly
+		// what happened and carries no secret; only untyped text is replaced.
+		if _, typed := tooloutcome.FromError(err); typed {
+			return "", err
+		}
 		return "", errors.New("Secret operation failed; the Bot computer may be unavailable or controlled by another session")
 	}
 	var result struct {

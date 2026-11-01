@@ -368,6 +368,20 @@ func (s *Server) browserEngineCall(ctx context.Context, r Run, tool string, args
 	return browserEngineResult(out)
 }
 
+// engineRefusal is the error the Playwright and desktop engines report for a
+// tool call they declined or could not complete (is_error). The engine's own
+// text names the reason, so the model can repair the call with it. The engine
+// does not say whether a failed action partly ran, so the certainty stays
+// unknown; the failure blocks only an identical replay, never other calls,
+// and spends no repair budget.
+func engineRefusal(text string) error {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		text = "the engine reported an error without a reason"
+	}
+	return tooloutcome.New(tooloutcome.Permanent, "engine_error", "unknown", text+" Check the page or app state, then change the arguments or take another approach.", "repair_arguments").Err()
+}
+
 // browserEngineResult unwraps the guest answer {tool,text,is_error}.
 func browserEngineResult(out string) (string, error) {
 	var res struct {
@@ -381,7 +395,7 @@ func browserEngineResult(out string) (string, error) {
 		if pwStaleRef.MatchString(res.Text) {
 			return "", tooloutcome.InvalidArguments(strings.TrimSpace(res.Text))
 		}
-		return "", errors.New(strings.TrimSpace(res.Text))
+		return "", engineRefusal(res.Text)
 	}
 	if strings.TrimSpace(res.Text) == "" {
 		return "Done.", nil

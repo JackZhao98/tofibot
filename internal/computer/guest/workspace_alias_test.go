@@ -117,3 +117,30 @@ func TestAliasCollisionUsesFallbackLink(t *testing.T) {
 		t.Fatalf("workspaceAlias = %q, %v; want %q", alias, ok, want)
 	}
 }
+
+func TestActionProceedsWhenWorkspaceAliasCannotBePlaced(t *testing.T) {
+	s, err := NewWithIdleTimeout(t.TempDir(), 1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close(context.Background())
+	// A plain file where the alias directory belongs makes every alias step fail.
+	home := filepath.Join(s.root, "home")
+	if err := os.MkdirAll(home, 0770); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(filepath.Join(home, "bots")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, "bots"), []byte("x"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	botID := "11111111-1111-4111-8111-111111111111"
+	if _, err := s.ensureWorkspaceAlias(botID, "Helper"); err == nil {
+		t.Fatal("expected the alias step itself to fail in this setup")
+	}
+	_, err = s.action(context.Background(), ActionRequest{BotID: botID, RunID: "r", Source: "model", Action: "files.list", Args: []byte(`{}`)})
+	if err != nil && strings.Contains(err.Error(), "workspace alias") {
+		t.Fatalf("alias failure aborted the action: %v", err)
+	}
+}

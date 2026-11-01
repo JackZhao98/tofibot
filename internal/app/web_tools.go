@@ -825,15 +825,15 @@ func (s *Server) computerReadPage(ctx context.Context, r Run, target string) (co
 		return computerPage{}, &webtools.Error{Code: webtools.NotConfigured}
 	}
 	if _, err := s.microVMAction(ctx, r, "desktop.start", json.RawMessage(`{}`)); err != nil {
-		return computerPage{}, &webtools.Error{Code: webtools.Network}
+		return computerPage{}, &webtools.Error{Code: computerPageCode(err)}
 	}
 	nav, _ := json.Marshal(map[string]string{"url": target})
 	if _, err := s.microVMAction(ctx, r, "browser.navigate", nav); err != nil {
-		return computerPage{}, &webtools.Error{Code: webtools.Network}
+		return computerPage{}, &webtools.Error{Code: computerPageCode(err)}
 	}
 	raw, err := s.browserRead(ctx, r, json.RawMessage(`{}`))
 	if err != nil {
-		return computerPage{}, &webtools.Error{Code: webtools.Network}
+		return computerPage{}, &webtools.Error{Code: computerPageCode(err)}
 	}
 	var page computerPage
 	var wire struct {
@@ -857,6 +857,25 @@ func (s *Server) computerReadPage(ctx context.Context, r Run, target string) (co
 		return computerPage{}, &webtools.Error{Code: webtools.EmptyContent}
 	}
 	return page, nil
+}
+
+// computerPageCode maps a typed Bot computer failure to the web chain's code:
+// a refused request ends the chain, a computer that is not there lets the next
+// source try, and everything else is a network failure.
+func computerPageCode(err error) webtools.Code {
+	o, ok := tooloutcome.FromError(err)
+	if !ok {
+		return webtools.Network
+	}
+	switch {
+	case o.Status == tooloutcome.Validation && o.Certainty == "not_executed":
+		return webtools.BadRequest
+	case o.Code == tooloutcome.BrowserUnsafePort:
+		return webtools.BadRequest
+	case o.Code == "computer_restarting" || o.Code == "computer_unresponsive" || o.Code == codeComputerOffline || o.Code == codeComputerDetached:
+		return webtools.NotConfigured
+	}
+	return webtools.Network
 }
 
 // ---- Settings API ----

@@ -234,18 +234,20 @@ func (s *Server) microVMAction(ctx context.Context, r Run, name string, args jso
 	defer release()
 
 	if actionNeedsObservation(name) && !s.desktopObservedFor(r) {
-		return "", tooloutcome.InvalidArguments("needs_observation: shared desktop control changed; inspect desktop.capture or browser.snapshot before using coordinates or typing")
+		return "", tooloutcome.New(tooloutcome.Validation, tooloutcome.NeedsObservation, "not_executed", "needs_observation: the shared desktop changed since the last view. Call desktop.capture or browser.snapshot, then repeat this action. Nothing was changed.", "repair_arguments").Err()
 	}
 	result, err := s.microVMActionOnLease(ctx, r, name, args)
 	if err == nil {
 		s.recordDesktopAction(r, name, args)
 	}
-	if err == nil && (name == "desktop.start" || name == "desktop.stop" || name == "browser.navigate" || name == "browser.action") {
+	if err == nil && (name == "desktop.start" || name == "desktop.stop") {
 		s.computerOwnerMu.Lock()
 		delete(s.desktopObserved, r.ID)
 		s.computerOwnerMu.Unlock()
 	}
-	if err == nil && (name == "desktop.capture" || name == "browser.snapshot") {
+	// navigate and action answer with the page and tab data, which is the
+	// observation the next call needs.
+	if err == nil && (name == "desktop.capture" || name == "browser.snapshot" || name == "browser.navigate" || name == "browser.action") {
 		s.markDesktopObserved(r)
 	}
 	return result, err
@@ -571,7 +573,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 		}
 		return t
 	}
-	shell := call("computer_shell", "Run a bounded shell command with this Bot's default working directory inside the Bot computer. HOME and installed tools are shared across all Bots in this Bot computer; installing or uninstalling a command affects all of them. Only default working directories differ and remain mutually accessible. Load a project's .env explicitly when needed. To use a saved secret, list its name in secrets: it is set as an environment variable for this command only and masked in the output.", objectSchema(map[string]any{"command": map[string]any{"type": "string", "description": "bash command, for example pwd"}, "secrets": map[string]any{"type": "array", "maxItems": maxShellSecrets, "items": map[string]any{"type": "string"}, "description": "Names of saved secrets this command needs"}, "timeout_sec": map[string]any{"type": "integer", "minimum": 1, "maximum": 120, "description": "Optional command timeout in seconds"}}, []string{"command"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
+	shell := call("computer_shell", "Run a bounded shell command with this Bot's default working directory inside the Bot computer. HOME and installed tools are shared across all Bots in this Bot computer; installing or uninstalling a command affects all of them. Only default working directories differ and remain mutually accessible. Load a project's .env explicitly when needed. To use a saved secret, list its name in secrets: it is set as an environment variable for this command only and masked in the output.", objectSchema(map[string]any{"command": map[string]any{"type": "string", "description": "bash command, for example pwd"}, "secrets": map[string]any{"type": "array", "maxItems": maxShellSecrets, "items": map[string]any{"type": "string"}, "description": "Names of saved secrets this command needs"}, "timeout_sec": map[string]any{"type": "integer", "minimum": 1, "maximum": 120, "description": "Command timeout in seconds. Default 60, maximum 120. Nothing keeps running after the call returns; use computer_terminal for longer jobs."}}, []string{"command"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
 		var in struct {
 			Command    string   `json:"command"`
 			TimeoutSec int      `json:"timeout_sec,omitempty"`
@@ -583,7 +585,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 		args, _ := json.Marshal(map[string]any{"command": in.Command, "timeout_sec": in.TimeoutSec})
 		return "shell.exec", args, nil
 	})
-	files := call("computer_files", "List, read, or write files in the Bot computer. Relative paths start in the current Bot profile; absolute paths under /workspace may access shared files or another Bot profile when needed. Files are shared and other Bots may write concurrently. Read sha256 then send expected_sha256 on writes to avoid overwriting another Bot's changes. Keep writes scoped to the requested Bot or shared workspace. A write result carries location, the absolute place the file now lives on the Bot computer; the file stays there, unpublished until publish_file. files.view shows you a PNG, JPEG, GIF or WebP on the Bot computer as an image (large ones are scaled down, at most 16 views per run): a path or a shell listing shows nothing of how a page, slide, chart or screenshot looks, so view what you rendered before you judge it.", objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"files.list", "files.read", "files.write", "files.view"}, "description": "files.list, files.read, files.write, or files.view"}, "path": map[string]any{"type": "string", "description": "Relative to this Bot profile, or an absolute path under /workspace such as /workspace/shared/..."}, "content": map[string]any{"type": "string"}, "expected_sha256": map[string]any{"type": "string", "description": "Optional SHA-256 from files.read for conditional writes to shared files; reject if another writer changed the file"}, "append": map[string]any{"type": "boolean"}, "offset": map[string]any{"type": "integer", "minimum": 1}, "limit": map[string]any{"type": "integer", "minimum": 1}}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
+	files := call("computer_files", "List, read, or write files in the Bot computer. Relative paths start in the current Bot profile; absolute paths under /workspace may access shared files or another Bot profile when needed. Files are shared and other Bots may write concurrently. Read sha256 then send expected_sha256 on writes to avoid overwriting another Bot's changes. Keep writes scoped to the requested Bot or shared workspace. A write result carries location, the absolute place the file now lives on the Bot computer; the file stays there, unpublished until publish_file. files.read returns up to 256 KB of whole lines with total_bytes and total_lines; when truncated is true, call again with offset set to next_offset. files.view shows you a PNG, JPEG, GIF or WebP on the Bot computer as an image (large ones are scaled down, at most 16 views per run): a path or a shell listing shows nothing of how a page, slide, chart or screenshot looks, so view what you rendered before you judge it.", objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"files.list", "files.read", "files.write", "files.view"}, "description": "files.list, files.read, files.write, or files.view"}, "path": map[string]any{"type": "string", "description": "Relative to this Bot profile, or an absolute path under /workspace such as /workspace/shared/..."}, "content": map[string]any{"type": "string"}, "expected_sha256": map[string]any{"type": "string", "description": "Optional SHA-256 from files.read for conditional writes to shared files; reject if another writer changed the file"}, "append": map[string]any{"type": "boolean"}, "offset": map[string]any{"type": "integer", "minimum": 1}, "limit": map[string]any{"type": "integer", "minimum": 1}}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
 		var in struct {
 			Action         string  `json:"action"`
 			Path           string  `json:"path,omitempty"`

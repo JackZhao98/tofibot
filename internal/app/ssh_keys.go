@@ -196,6 +196,9 @@ func (s *Server) computerSSHKeys(ctx context.Context, r Run, op sshKeyOperation)
 		output, err = s.microVMAction(ctx, r, "shell.exec", args)
 	}
 	if err != nil {
+		if _, typed := tooloutcome.FromError(err); typed {
+			return sshKeyResult{}, err
+		}
 		return sshKeyResult{}, errors.New("Bot computer unavailable or busy; try again after its current task")
 	}
 	var shell struct {

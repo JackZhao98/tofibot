@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
@@ -207,6 +208,12 @@ func (c *Client) do(ctx context.Context, method, endpoint string, body any, out 
 // managerWakeLimit bounds the wait for a just-admitted manager's socket.
 const managerWakeLimit = 20 * time.Second
 
+// connectionLost reports a connection that ended after the request was sent.
+func connectionLost(err error) bool {
+	return errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) ||
+		errors.Is(err, syscall.ECONNRESET) || errors.Is(err, syscall.EPIPE)
+}
+
 // controlDialFailed reports a failure to connect to the control socket, where
 // no request bytes were sent.
 func controlDialFailed(err error) bool {
@@ -253,6 +260,10 @@ func (c *Client) send(ctx context.Context, method, endpoint string, body any, ou
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
+		if _, isAction := body.(Action); isAction && ctx.Err() == nil && connectionLost(err) {
+			return tooloutcome.New(tooloutcome.Transient, tooloutcome.ConnectionLost, "unknown",
+				"The Bot computer closed the connection, which usually means it restarted. Wait a few seconds, then check the state of what this call changed before repeating it.", "retry").Err()
+		}
 		return fmt.Errorf("computer control socket: %w", err)
 	}
 	defer resp.Body.Close()
@@ -265,6 +276,9 @@ func (c *Client) send(ctx context.Context, method, endpoint string, body any, ou
 			if json.Unmarshal(message, &rejected) == nil && rejected.Outcome != nil {
 				o := *rejected.Outcome
 				if o.Version == 1 && tooloutcome.IsBrowserNavigation(o) && o.NextAction != "" {
+					return o.Err()
+				}
+				if o.Version == 1 && o.Status == tooloutcome.Transient && o.Code == tooloutcome.BrowserSlow && o.NextAction == "retry" {
 					return o.Err()
 				}
 				refused := o.Status == tooloutcome.Validation || (o.Status == tooloutcome.Permanent && o.Code == tooloutcome.FileNotFound)

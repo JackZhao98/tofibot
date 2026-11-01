@@ -314,6 +314,7 @@ func (s *Service) inspectBrowserPages(ctx context.Context, d *desktop) ([]browse
 		return nil, fmt.Errorf("decode browser targets: %w", err)
 	}
 	pages := make([]browserPage, 0, len(targets))
+	candidates := 0
 	for _, target := range targets {
 		if target.Type != "page" || target.ID == "" || target.WebSocketDebuggerURL == "" {
 			continue
@@ -321,6 +322,7 @@ func (s *Service) inspectBrowserPages(ctx context.Context, d *desktop) ([]browse
 		if err := validateDebuggerURL(target.WebSocketDebuggerURL, d.remotePort); err != nil {
 			continue
 		}
+		candidates++
 		state, err := cdpEvaluateBrowserState(ctx, target.WebSocketDebuggerURL, d.remotePort)
 		if err != nil {
 			// A page can disappear between /json/list and CDP evaluation. Skip
@@ -333,6 +335,11 @@ func (s *Service) inspectBrowserPages(ctx context.Context, d *desktop) ([]browse
 			Visible: state.VisibilityState == "visible", Focused: state.HasFocus,
 			WebSocketDebuggerURL: target.WebSocketDebuggerURL,
 		})
+	}
+	if candidates > 0 && len(pages) == 0 && ctx.Err() == nil {
+		// Every listed page failed inspection: the browser is slow, and an
+		// empty list would read as "no page is open".
+		return nil, browserSlowf("The browser listed %d tab(s) but none answered inspection; it is busy. Wait a few seconds and repeat the call.", candidates)
 	}
 	return pages, nil
 }
@@ -426,9 +433,13 @@ func resolveBrowserTarget(pages []browserPage, targetID string) (browserPage, er
 		}
 		return page, nil
 	}
-	page, source := chooseCurrentPage(pages)
+	page, _ := chooseCurrentPage(pages)
 	if page == nil {
-		return browserPage{}, rejectedf("no focused visible browser page; use browser.navigate with a url to open one, or specify target_id (current_source=%s)", source)
+		tabs := make([]tabSummary, 0, len(pages))
+		for _, p := range pages {
+			tabs = append(tabs, tabSummary{ID: p.TargetID, Title: p.Title, URL: p.URL})
+		}
+		return browserPage{}, rejected(errors.New(noPageMessage(tabs)))
 	}
 	return *page, nil
 }
