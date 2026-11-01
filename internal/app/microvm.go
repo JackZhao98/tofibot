@@ -378,7 +378,7 @@ func (s *Server) releaseComputerOwner(botID, runID string) {
 }
 
 func isReadOnlyMicroVMAction(name string) bool {
-	return name == "desktop.capture" || name == "browser.snapshot" || name == "files.list" || name == "files.read" || name == "files.export_chunk"
+	return computer.ObservationAction(name)
 }
 
 func (s *Server) botHasActiveRun(botID string) bool {

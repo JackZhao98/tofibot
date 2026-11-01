@@ -343,7 +343,7 @@ func (s *Server) computerActionTimeoutError(ctx context.Context, name string, li
 		// fenced: the person's next step is a shorter command or a terminal.
 		return tooloutcome.New(tooloutcome.Transient, runtime.ToolTimeoutCode, "unknown",
 			fmt.Sprintf("The shell command got no answer within %s. It may have run partly. Check its output files or state, then run a shorter command or use computer_terminal for long jobs.", limit),
-			"retry").Err()
+			"verify_effect").Err()
 	}
 	return runtime.ToolTimeoutOutcome(fmt.Sprintf("Computer action %s", name), limit, observation).Err()
 }

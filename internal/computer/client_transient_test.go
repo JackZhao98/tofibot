@@ -33,9 +33,11 @@ func TestControlSocketEOFOnActionIsTransient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = client.Action(context.Background(), Action{BotID: "b", Name: "shell.exec"})
-	o, ok := tooloutcome.FromError(err)
-	if !ok || o.Status != tooloutcome.Transient || o.Code != tooloutcome.ConnectionLost || o.NextAction != "retry" {
-		t.Fatalf("err=%v, want transient computer_connection_lost", err)
+	for name, want := range map[string]string{"shell.exec": "verify_effect", "files.write": "verify_effect", "files.read": "retry", "browser.snapshot": "retry"} {
+		_, err = client.Action(context.Background(), Action{BotID: "b", Name: name})
+		o, ok := tooloutcome.FromError(err)
+		if !ok || o.Status != tooloutcome.Transient || o.Code != tooloutcome.ConnectionLost || o.NextAction != want {
+			t.Fatalf("%s: err=%v, want transient computer_connection_lost with %s", name, err, want)
+		}
 	}
 }

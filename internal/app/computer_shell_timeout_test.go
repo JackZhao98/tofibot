@@ -19,7 +19,7 @@ func TestShellTimeoutIsTransientAndDoesNotFence(t *testing.T) {
 	r := Run{ID: "run-shell-timeout", BotID: "bot-shell-timeout"}
 	_, err := s.microVMActionFromSource(context.Background(), r, "shell.exec", json.RawMessage(`{"command":"sleep 500"}`), "model")
 	o, ok := tooloutcome.FromError(err)
-	if !ok || o.Code != runtime.ToolTimeoutCode || o.Status != tooloutcome.Transient || o.NextAction != "retry" {
+	if !ok || o.Code != runtime.ToolTimeoutCode || o.Status != tooloutcome.Transient || o.NextAction != "verify_effect" {
 		t.Fatalf("shell timeout = %#v, %v", o, err)
 	}
 }

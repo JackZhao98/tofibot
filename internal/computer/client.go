@@ -86,6 +86,15 @@ type WakeInfo struct {
 	ClockSynced    *bool             `json:"clock_synced,omitempty"`
 }
 
+// ObservationAction reports whether a guest action only reads state.
+func ObservationAction(name string) bool {
+	switch name {
+	case "desktop.capture", "browser.snapshot", "files.list", "files.read", "files.export_chunk":
+		return true
+	}
+	return false
+}
+
 type Action struct {
 	Source        string                `json:"source,omitempty"`
 	BotID         string                `json:"bot_id"`
@@ -260,9 +269,19 @@ func (c *Client) send(ctx context.Context, method, endpoint string, body any, ou
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
-		if _, isAction := body.(Action); isAction && ctx.Err() == nil && connectionLost(err) {
+		if action, isAction := body.(Action); isAction && ctx.Err() == nil && connectionLost(err) {
+			// The effect of a lost call is unknown. Only a read may be repeated
+			// as it is; anything else needs its target state checked first.
+			next := "verify_effect"
+			observation := ObservationAction(action.Name)
+			if identity, ok := tooloutcome.ExecutionIdentity(ctx); ok {
+				observation = identity.Risk == tooloutcome.Observation
+			}
+			if observation {
+				next = "retry"
+			}
 			return tooloutcome.New(tooloutcome.Transient, tooloutcome.ConnectionLost, "unknown",
-				"The Bot computer closed the connection, which usually means it restarted. Wait a few seconds, then check the state of what this call changed before repeating it.", "retry").Err()
+				"The Bot computer closed the connection, which usually means it restarted. Wait a few seconds, then check the state of what this call changed before repeating it.", next).Err()
 		}
 		return fmt.Errorf("computer control socket: %w", err)
 	}
