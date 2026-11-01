@@ -284,7 +284,12 @@ func (s *Server) scheduledFallbackGuidance() string {
 	return scheduledBrowserFallbackGuidance
 }
 
-func boundedSearchJSON(messages []Message) string {
+// searchWindow is how many matches one search_history call reads.
+const searchWindow = 50
+
+// boundedSearchJSON packs as many matches as fit the search budget. The answer
+// always carries the total, the order and, when matches remain, next_offset.
+func boundedSearchJSON(messages []Message, total, offset int, newestFirst bool) string {
 	type hit struct {
 		ID          string `json:"id"`
 		Seq         int64  `json:"seq"`
@@ -293,19 +298,35 @@ func boundedSearchJSON(messages []Message) string {
 		Content     string `json:"content"`
 		Truncated   bool   `json:"truncated,omitempty"`
 	}
+	type page struct {
+		Total      int    `json:"total"`
+		Offset     int    `json:"offset"`
+		Order      string `json:"order"`
+		NextOffset *int   `json:"next_offset,omitempty"`
+		Note       string `json:"note,omitempty"`
+		Results    []hit  `json:"results"`
+	}
 	out := make([]hit, 0, len(messages))
 	used := 0
 	for _, m := range messages {
 		content := trimRunes(m.Content, 4000)
 		h := hit{ID: m.ID, Seq: m.Seq, Role: m.Role, SenderBotID: m.SenderBotID, Content: content, Truncated: content != m.Content}
 		b, _ := json.Marshal(h)
-		if used+len([]rune(string(b)))+1 > maxSearchRunes {
+		if used+len([]rune(string(b)))+1 > maxSearchRunes && len(out) > 0 {
 			break
 		}
 		out = append(out, h)
 		used += len([]rune(string(b))) + 1
 	}
-	b, _ := json.Marshal(out)
+	p := page{Total: total, Offset: offset, Order: "oldest", Results: out}
+	if newestFirst {
+		p.Order = "newest"
+	}
+	if next := offset + len(out); next < total {
+		p.NextOffset = &next
+		p.Note = fmt.Sprintf("%d of %d matches shown; call search_history again with the same query and offset=%d for the rest.", len(out), total, next)
+	}
+	b, _ := json.Marshal(p)
 	return string(b)
 }
 
