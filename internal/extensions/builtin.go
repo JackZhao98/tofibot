@@ -138,8 +138,8 @@ func readBuiltinFile(s Skill, rel string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if len(data) > maxSkillRead {
-		return "", fmt.Errorf("file exceeds %d byte limit", maxSkillRead)
+	if len(data) > maxSkillFile {
+		return "", fmt.Errorf("file exceeds %d byte limit", maxSkillFile)
 	}
 	return string(data), nil
 }

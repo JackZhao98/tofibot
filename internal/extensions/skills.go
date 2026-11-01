@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/JackZhao98/tofibot/internal/runtime"
 	"gopkg.in/yaml.v3"
@@ -20,7 +21,6 @@ import (
 
 const (
 	maxSkillFile = 1 << 20
-	maxSkillRead = 100_000
 )
 
 var skillNamePattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`)
@@ -183,12 +183,13 @@ func skillToolsMode(skills []Skill, max int, lazy bool) []runtime.Tool {
 		b, _ := json.Marshal(out)
 		return string(b), nil
 	}}
-	read := runtime.Tool{Name: "read_skill", Description: "Read a configured skill's instructions", Parameters: map[string]any{"type": "object", "properties": map[string]any{"name": map[string]any{"type": "string"}}, "required": []string{"name"}}, Execute: func(ctx context.Context, args json.RawMessage) (string, error) {
+	read := runtime.Tool{Name: "read_skill", Description: "Read a configured skill's instructions", Parameters: map[string]any{"type": "object", "properties": map[string]any{"name": map[string]any{"type": "string"}, "offset": map[string]any{"type": "integer", "minimum": 0, "description": "Byte offset to continue from; use the offset a truncated page names."}}, "required": []string{"name"}}, Execute: func(ctx context.Context, args json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
 		var in struct {
-			Name string `json:"name"`
+			Name   string `json:"name"`
+			Offset int    `json:"offset"`
 		}
 		decode := json.Unmarshal
 		if lazy {
@@ -202,7 +203,7 @@ func skillToolsMode(skills []Skill, max int, lazy bool) []runtime.Tool {
 			return "", fmt.Errorf("skill %q not found", in.Name)
 		}
 		if s.Builtin {
-			return boundSkill(s.Body, max), nil
+			return boundSkill(s.Body, max, in.Offset), nil
 		}
 		if lazy {
 			root, err := os.OpenRoot(s.Path)
@@ -229,17 +230,18 @@ func skillToolsMode(skills []Skill, max int, lazy bool) []runtime.Tool {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
-			return boundSkill(current.Body, max), nil
+			return boundSkill(current.Body, max, in.Offset), nil
 		}
-		return boundSkill(s.Body, max), nil
+		return boundSkill(s.Body, max, in.Offset), nil
 	}}
-	readFile := runtime.Tool{Name: "read_skill_file", Description: "Read a file within a configured skill directory", Parameters: map[string]any{"type": "object", "properties": map[string]any{"name": map[string]any{"type": "string"}, "path": map[string]any{"type": "string"}}, "required": []string{"name", "path"}}, Execute: func(ctx context.Context, args json.RawMessage) (string, error) {
+	readFile := runtime.Tool{Name: "read_skill_file", Description: "Read a file within a configured skill directory", Parameters: map[string]any{"type": "object", "properties": map[string]any{"name": map[string]any{"type": "string"}, "path": map[string]any{"type": "string"}, "offset": map[string]any{"type": "integer", "minimum": 0, "description": "Byte offset to continue from; use the offset a truncated page names."}}, "required": []string{"name", "path"}}, Execute: func(ctx context.Context, args json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
 		var in struct {
-			Name string `json:"name"`
-			Path string `json:"path"`
+			Name   string `json:"name"`
+			Path   string `json:"path"`
+			Offset int    `json:"offset"`
 		}
 		decode := json.Unmarshal
 		if lazy {
@@ -256,7 +258,11 @@ func skillToolsMode(skills []Skill, max int, lazy bool) []runtime.Tool {
 			return "", errors.New("skill file path must be relative")
 		}
 		if s.Builtin {
-			return readBuiltinFile(s, in.Path)
+			text, err := readBuiltinFile(s, in.Path)
+			if err != nil {
+				return "", err
+			}
+			return pageText(text, in.Offset, maxSkillPage), nil
 		}
 		root, err := os.OpenRoot(s.Path)
 		if err != nil {
@@ -268,8 +274,11 @@ func skillToolsMode(skills []Skill, max int, lazy bool) []runtime.Tool {
 			return "", err
 		}
 		defer file.Close()
-		b, err := readBounded(file, maxSkillRead)
-		return string(b), err
+		b, err := readBounded(file, maxSkillFile)
+		if err != nil {
+			return "", err
+		}
+		return pageText(string(b), in.Offset, maxSkillPage), nil
 	}}
 	return []runtime.Tool{list, read, readFile}
 }
@@ -295,15 +304,47 @@ func readBounded(file *os.File, max int64) ([]byte, error) {
 	return b, nil
 }
 
-func boundSkill(s string, max int) string {
-	if max <= 0 || max > maxSkillRead {
-		max = maxSkillRead
+// maxSkillPage is the most bytes one read_skill / read_skill_file call returns.
+// It stays under the per-result limit the model receives so a page is never cut
+// a second time on the way in.
+const maxSkillPage = 20_000
+
+// boundSkill returns one page of s starting at byte offset. A page that does not
+// reach the end says how much was shown and the offset that continues.
+func boundSkill(s string, max int, offset int) string {
+	page := maxSkillPage
+	if max > 0 && max < page {
+		page = max
 	}
-	r := []rune(s)
-	if len(r) > max {
-		return string(r[:max]) + "\n[truncated]"
+	return pageText(s, offset, page)
+}
+
+func pageText(s string, offset, page int) string {
+	total := len(s)
+	if offset < 0 {
+		offset = 0
 	}
-	return s
+	if offset > total {
+		return fmt.Sprintf("[offset %d is past the end: the text is %d bytes]", offset, total)
+	}
+	for offset < total && !utf8.RuneStart(s[offset]) {
+		offset++
+	}
+	end := offset + page
+	if end >= total {
+		if offset == 0 {
+			return s
+		}
+		return fmt.Sprintf("[bytes %d-%d of %d, end of text]\n", offset, total, total) + s[offset:]
+	}
+	for end > offset && !utf8.RuneStart(s[end]) {
+		end--
+	}
+	head := ""
+	if offset > 0 {
+		head = fmt.Sprintf("[bytes %d-%d of %d]\n", offset, end, total)
+	}
+	return head + s[offset:end] + fmt.Sprintf("\n[truncated: bytes %d-%d of %d shown; call again with offset=%d for the rest]", offset, end, total, end)
 }
 
 // Read only frontmatter for a discoverable run. Bodies stay on disk until read_skill.
