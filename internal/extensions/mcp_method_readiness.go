@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net"
 	"net/url"
+	"os"
+	"strings"
 
 	"github.com/JackZhao98/tofibot/internal/runtime"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
@@ -21,10 +23,72 @@ func mcpErrorReadiness(err error) runtime.MethodReadiness {
 	return runtime.MethodUnknown
 }
 
-func mcpReadinessOutcome(state runtime.MethodReadiness) tooloutcome.Outcome {
-	// Fixed messages prevent private URLs, credential headers and provider
-	// errors from escaping. A readiness failure always precedes tools/call.
-	return tooloutcome.New(tooloutcome.Permanent, "mcp_"+string(state), "not_executed", "The MCP method is not ready ("+string(state)+"). The operation was not sent. Preserve the user's task and consider another independently reviewed method, or explain the blocker.", "replan")
+// mcpConnectionLink is the Settings page of one connection.
+func mcpConnectionLink(server string) string {
+	return "/settings/connections/" + url.PathEscape(server)
+}
+
+// mcpReadinessOutcome refuses a call before dispatch. The message names the
+// connection, its state and the fix for a run with a person and for a run
+// without one. Fixed text prevents private URLs, credential headers and
+// provider errors from escaping. A readiness failure always precedes tools/call.
+func mcpReadinessOutcome(server string, state runtime.MethodReadiness) tooloutcome.Outcome {
+	link := mcpConnectionLink(server)
+	var msg string
+	switch state {
+	case runtime.MethodAuthRequired:
+		msg = "Connection " + server + " needs sign-in (auth_required). The operation was not sent. With a person in the chat, call request_connection with service " + server + ". Otherwise the person signs in at " + link + " in Settings. A scheduled run cannot sign in: finish the other work and report in the summary that " + server + " needs sign-in."
+	case runtime.MethodNotConfigured:
+		msg = "Connection " + server + " is not configured, or its configuration changed (not_configured). The operation was not sent. Search again with search_mcp_tools to read the current tools. The person can check the connection at " + link + " in Settings."
+	case runtime.MethodUnavailable:
+		msg = "Connection " + server + " did not answer (unavailable). The operation was not sent. Try again later or use another permitted method. The person can check the connection at " + link + " in Settings. A scheduled run reports in the summary that " + server + " was unreachable."
+	default:
+		msg = "Connection " + server + " is not ready (" + string(state) + "). The operation was not sent. Preserve the task and use another independently reviewed method, or explain the blocker. The person can check the connection at " + link + " in Settings."
+	}
+	return tooloutcome.New(tooloutcome.Permanent, "mcp_"+string(state), "not_executed", msg, "replan")
+}
+
+// mcpConnectionState is the cached state shown by list_mcp_servers. It never
+// opens a connection: a fresh handshake is connected, a recorded failure is
+// needs_sign_in or error, an OAuth server without a token file needs sign-in,
+// and anything else is unchecked.
+func (m *Manager) mcpConnectionState(name string, cfg MCPServerConfig) string {
+	if m.mcpReadyFresh(name, cfg) {
+		return "connected"
+	}
+	c := &m.readiness
+	c.mu.Lock()
+	failed := c.failed[name]
+	c.mu.Unlock()
+	switch failed {
+	case runtime.MethodAuthRequired:
+		return "needs_sign_in"
+	case "":
+	default:
+		return "error"
+	}
+	if cfg.OAuth != nil && strings.TrimSpace(m.cfg.MCPConfigPath) != "" {
+		if _, err := os.Stat(m.tokenPath(name)); err != nil {
+			return "needs_sign_in"
+		}
+	}
+	return "unchecked"
+}
+
+// noteMCPReadiness records the last readiness failure of a server for
+// list_mcp_servers; a ready answer clears it.
+func (m *Manager) noteMCPReadiness(name string, state runtime.MethodReadiness) {
+	c := &m.readiness
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if state == runtime.MethodReady {
+		delete(c.failed, name)
+		return
+	}
+	if c.failed == nil {
+		c.failed = map[string]runtime.MethodReadiness{}
+	}
+	c.failed[name] = state
 }
 
 func (m *Manager) mcpTransportReadiness(ctx context.Context, cfg MCPServerConfig) (runtime.MethodReadiness, error) {
@@ -57,7 +121,8 @@ func (m *Manager) mcpTransportReadiness(ctx context.Context, cfg MCPServerConfig
 // A recent successful handshake for the same configuration is reused for
 // mcpReadinessTTL; the cheap transport check still runs every time.
 func (m *Manager) mcpMethodReadiness(name string, cfg MCPServerConfig) func(context.Context) (runtime.MethodReadiness, error) {
-	return func(ctx context.Context) (runtime.MethodReadiness, error) {
+	return func(ctx context.Context) (state runtime.MethodReadiness, err error) {
+		defer func() { m.noteMCPReadiness(name, state) }()
 		ctx, cancel := context.WithTimeout(ctx, m.cfg.DiscoveryTimeout)
 		defer cancel()
 		if state, err := m.mcpTransportReadiness(ctx, cfg); state != runtime.MethodReady || err != nil {

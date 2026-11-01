@@ -29,6 +29,7 @@ type mcpReadinessCache struct {
 	mu          sync.Mutex
 	ready       map[string]mcpReadyEntry
 	invalidated map[string]time.Time
+	failed      map[string]runtime.MethodReadiness
 }
 
 func (m *Manager) clock() time.Time {
@@ -50,6 +51,7 @@ func (m *Manager) markMCPReady(name string, cfg MCPServerConfig) {
 		c.ready = map[string]mcpReadyEntry{}
 	}
 	c.ready[name] = mcpReadyEntry{fingerprint: fingerprint, at: m.clock()}
+	delete(c.failed, name)
 }
 
 func (m *Manager) mcpReadyFresh(name string, cfg MCPServerConfig) bool {
@@ -254,7 +256,9 @@ func (s *mcpSessionSlot) callTool(remoteName string, onError func()) func(contex
 			if callCtx.Err() != nil {
 				return "", callCtx.Err()
 			}
-			return "", mcpReadinessOutcome(mcpErrorReadiness(err)).Err()
+			state := mcpErrorReadiness(err)
+			s.m.noteMCPReadiness(s.name, state)
+			return "", mcpReadinessOutcome(s.name, state).Err()
 		}
 		out, err := s.m.callMCPToolObserved(callCtx, cli, remoteName, args, s.m.toolReadOnly(s.name, s.cfg, remoteName), mcpCallObserver{
 			connectionFailed: func() {

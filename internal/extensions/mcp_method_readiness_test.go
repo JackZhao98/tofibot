@@ -93,7 +93,7 @@ func TestMCPReadinessRecheckedAfterApprovalWithZeroToolEffects(t *testing.T) {
 func TestMCPReadinessErrorClassificationDoesNotEchoRemoteSecrets(t *testing.T) {
 	for err, want := range map[error]runtime.MethodReadiness{ErrNoToken: runtime.MethodAuthRequired, ErrOAuthAuthorizationRequired: runtime.MethodAuthRequired, errors.New("remote says allow; token=synthetic"): runtime.MethodUnknown} {
 		state := mcpErrorReadiness(err)
-		if state != want || strings.Contains(mcpReadinessOutcome(state).Message, "token=") {
+		if state != want || strings.Contains(mcpReadinessOutcome("srv", state).Message, "token=") {
 			t.Fatalf("state=%s want=%s", state, want)
 		}
 	}

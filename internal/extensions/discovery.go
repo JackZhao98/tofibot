@@ -863,17 +863,17 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 		proposal.OnClaim = func() { claimedDispatch = true }
 		proposal.Recheck = func(checkCtx context.Context) error {
 			if !m.MCPCallCurrent(proposal) {
-				return mcpReadinessOutcome(runtime.MethodNotConfigured).Err()
+				return mcpReadinessOutcome(source.server, runtime.MethodNotConfigured).Err()
 			}
 			if t.CheckReadiness == nil {
-				return mcpReadinessOutcome(runtime.MethodUnknown).Err()
+				return mcpReadinessOutcome(source.server, runtime.MethodUnknown).Err()
 			}
 			state, err := t.CheckReadiness(checkCtx)
 			if state != runtime.MethodReady || err != nil {
 				if err != nil && state == runtime.MethodReady {
 					state = runtime.MethodUnknown
 				}
-				return mcpReadinessOutcome(state).Err()
+				return mcpReadinessOutcome(source.server, state).Err()
 			}
 			return nil
 		}
@@ -904,7 +904,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 				if err != nil && state == runtime.MethodReady {
 					state = runtime.MethodUnknown
 				}
-				return "", mcpReadinessOutcome(state).Err()
+				return "", mcpReadinessOutcome(source.server, state).Err()
 			}
 			return t.Execute(ctx, in.Arguments)
 		})
@@ -979,12 +979,14 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 		type item struct {
 			Name      string `json:"name"`
 			Transport string `json:"transport"`
+			State     string `json:"state"`
+			Link      string `json:"link,omitempty"`
 		}
 		out := struct {
 			Servers  []item `json:"servers"`
 			Guidance string `json:"guidance"`
 			Next     *int   `json:"next_offset,omitempty"`
-		}{Servers: []item{}, Guidance: "This directory contains names only; no tool schemas have been inspected. For a plausible source, call search_mcp_tools with its server name and capability keywords, or query '*' to browse bounded schema pages. If a directory name filter misses, clear the filter and page relevant entries; do not treat a name mismatch as proof of absent capability."}
+		}{Servers: []item{}, Guidance: "This directory has names and the cached connection state (connected, needs_sign_in, error, unchecked); no tool schemas have been inspected. A server that needs sign-in cannot run calls: with a person in the chat use request_connection, in a scheduled run report it. For a plausible source, call search_mcp_tools with its server name and capability keywords, or query '*' to browse bounded schema pages. If a directory name filter misses, clear the filter and page relevant entries; do not treat a name mismatch as proof of absent capability."}
 		for i := in.Offset; i < len(matching); i++ {
 			if len(out.Servers) == 50 {
 				n := i
@@ -996,7 +998,12 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 			if mode == "" {
 				mode = "streamable_http"
 			}
-			out.Servers = append(out.Servers, item{name, mode})
+			state := m.mcpConnectionState(name, servers[name])
+			link := ""
+			if state != "connected" && state != "unchecked" {
+				link = mcpConnectionLink(name)
+			}
+			out.Servers = append(out.Servers, item{name, mode, state, link})
 			data, err := json.Marshal(out)
 			if err != nil {
 				return "", err
