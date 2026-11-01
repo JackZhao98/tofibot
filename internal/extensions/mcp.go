@@ -20,6 +20,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/JackZhao98/tofibot/internal/resultcut"
 	"github.com/JackZhao98/tofibot/internal/runtime"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -1053,7 +1054,10 @@ func boundedContent(result *mcp.CallToolResult, max int) string {
 	}
 	r := []rune(out)
 	if len(r) > max {
-		return string(r[:max]) + "\n[truncated]"
+		if cut, ok := resultcut.JSON(out, max); ok {
+			return cut
+		}
+		return string(r[:max]) + fmt.Sprintf("\n[truncated: the first %d of %d characters are shown and the rest was not returned. Narrow the request with the tool's own filter, limit, page or cursor arguments to get it.]", max, len(r))
 	}
 	return out
 }
