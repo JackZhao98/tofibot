@@ -42,6 +42,8 @@ func TestFakeGogProcess(t *testing.T) {
 		os.Exit(1)
 	case strings.Contains(args, "auth remove") && os.Getenv("TOFI_FAKE_GOG_FAIL_REMOVE") == "1":
 		os.Exit(1)
+	case strings.Contains(args, "gmail attachment") || strings.Contains(args, "drive download"):
+		fakeGogDownload(args)
 	case strings.Contains(args, "calendar events"):
 		_, _ = fmt.Fprint(os.Stdout, `{"events":[]}`)
 	case strings.Contains(args, "drive search"):
