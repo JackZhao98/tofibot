@@ -724,36 +724,57 @@ func (s *Service) readFile(ctx context.Context, botID string, args fileArgs) (ma
 	if args.Limit <= 0 || args.Limit > MaxFileBytes {
 		args.Limit = MaxFileBytes
 	}
-	scanner := bufio.NewScanner(bytes.NewReader(data))
+	// A file over the cap is scanned from the file itself, so a later offset
+	// reaches past the first window; the scan stops at readScanLimit bytes.
+	var source io.Reader = bytes.NewReader(data)
+	if len(data) > MaxFileBytes {
+		if _, err := f.Seek(0, io.SeekStart); err != nil {
+			return nil, err
+		}
+		source = io.LimitReader(f, readScanLimit)
+	}
+	scanner := bufio.NewScanner(source)
 	scanner.Buffer(make([]byte, 4096), MaxFileBytes)
 	line := 0
 	var b strings.Builder
 	truncated := false
+	nextOffset := 0
 	for scanner.Scan() {
 		line++
+		if truncated {
+			continue // keep counting lines for total_lines
+		}
 		if line < args.Offset {
 			continue
 		}
 		if line >= args.Offset+args.Limit {
-			truncated = true
-			break
+			truncated, nextOffset = true, line
+			continue
+		}
+		if b.Len()+len(scanner.Bytes())+1 > MaxFileBytes && b.Len() > 0 {
+			truncated, nextOffset = true, line
+			continue
 		}
 		if b.Len() > 0 {
 			b.WriteByte('\n')
 		}
-		if b.Len()+len(scanner.Bytes()) > MaxFileBytes {
-			truncated = true
-			break
-		}
 		b.Write(scanner.Bytes())
-		if err := ctx.Err(); err != nil {
-			return nil, err
+		if line%4096 == 0 {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, err
 	}
-	result := map[string]any{"path": args.Path, "content": b.String(), "bytes": b.Len(), "truncated": truncated}
+	result := map[string]any{"path": args.Path, "content": b.String(), "bytes": b.Len(), "truncated": truncated, "total_bytes": info.Size()}
+	if int64(len(data)) <= MaxFileBytes || info.Size() <= readScanLimit {
+		result["total_lines"] = line
+	}
+	if truncated {
+		result["next_offset"] = nextOffset
+	}
 	if fileHash != "" {
 		result["sha256"] = fileHash
 	} else {
@@ -761,6 +782,9 @@ func (s *Service) readFile(ctx context.Context, botID string, args fileArgs) (ma
 	}
 	return result, nil
 }
+
+// readScanLimit bounds how much of a large file one files.read scans.
+const readScanLimit = 64 << 20
 
 func readFileBytes(ctx context.Context, r io.Reader, limit int64) ([]byte, error) {
 	if limit <= 0 {
