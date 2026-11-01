@@ -278,7 +278,7 @@ func desktopEngineResult(out string) (string, error) {
 		if dsStaleRef.MatchString(res.Text) {
 			return "", tooloutcome.InvalidArguments(strings.TrimSpace(res.Text) + " Read the app again with desktop_get_app_state and use the new refs. Nothing was done.")
 		}
-		return "", errors.New(strings.TrimSpace(res.Text))
+		return "", engineRefusal(res.Text)
 	}
 	if strings.TrimSpace(res.Text) == "" {
 		return "Done.", nil
