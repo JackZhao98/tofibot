@@ -52,7 +52,11 @@ func compactSchema(params map[string]any, level int) map[string]any {
 			out["x-tofi-note"] = "The bodies of " + defsKey + " are omitted for size. The top-level properties and required list are complete."
 			continue
 		}
-		out[defsKey] = stripDescriptions(defs)
+		kept := map[string]any{}
+		for name, def := range defs {
+			kept[name] = stripSubschema(def)
+		}
+		out[defsKey] = kept
 	}
 	if level >= schemaNoDescriptions {
 		// Keep only structure: an over-long description must not hide it.
@@ -82,27 +86,50 @@ func compactSchema(params map[string]any, level int) map[string]any {
 	return out
 }
 
-// stripDescriptions removes prose keys at every depth; structure stays.
-func stripDescriptions(value map[string]any) map[string]any {
+// Keywords whose value maps names to subschemas: the names are data (a
+// property may be called "title" or "description") and always stay.
+var schemaNameMapKeywords = map[string]bool{"properties": true, "patternProperties": true, "$defs": true, "definitions": true, "dependentSchemas": true}
+
+// Keywords whose value is one subschema, or a list of subschemas.
+var schemaSubschemaKeywords = map[string]bool{"items": true, "additionalProperties": true, "additionalItems": true, "unevaluatedProperties": true,
+	"unevaluatedItems": true, "not": true, "if": true, "then": true, "else": true, "contains": true, "propertyNames": true,
+	"anyOf": true, "allOf": true, "oneOf": true, "prefixItems": true}
+
+// stripDescriptions removes prose keywords from a schema node and its
+// subschemas; structure stays. It walks schema keywords only: property names
+// and data values (enum, const, default) are never touched.
+func stripDescriptions(node map[string]any) map[string]any {
 	out := map[string]any{}
-	for key, v := range value {
-		switch key {
-		case "description", "title", "examples", "$comment":
+	for key, v := range node {
+		switch {
+		case key == "description" || key == "title" || key == "examples" || key == "$comment":
+			continue
+		case schemaNameMapKeywords[key]:
+			if names, ok := v.(map[string]any); ok {
+				kept := map[string]any{}
+				for name, sub := range names {
+					kept[name] = stripSubschema(sub)
+				}
+				out[key] = kept
+				continue
+			}
+		case schemaSubschemaKeywords[key]:
+			out[key] = stripSubschema(v)
 			continue
 		}
-		out[key] = stripAny(v)
+		out[key] = v
 	}
 	return out
 }
 
-func stripAny(v any) any {
+func stripSubschema(v any) any {
 	switch t := v.(type) {
 	case map[string]any:
 		return stripDescriptions(t)
 	case []any:
 		items := make([]any, len(t))
 		for i, item := range t {
-			items[i] = stripAny(item)
+			items[i] = stripSubschema(item)
 		}
 		return items
 	}

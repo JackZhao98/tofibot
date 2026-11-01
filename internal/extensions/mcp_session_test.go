@@ -324,3 +324,37 @@ func TestMCPSchemaHintKeepsTopLevelWhenDefsAreLarge(t *testing.T) {
 		t.Fatalf("every $defs name should stay listed: %.300s", hint)
 	}
 }
+
+func TestSchemaCompactionKeepsPropertiesNamedLikeKeywords(t *testing.T) {
+	params := map[string]any{"type": "object", "required": []any{"title", "description"},
+		"properties": map[string]any{
+			"title":       map[string]any{"type": "string", "description": "Page title"},
+			"description": map[string]any{"type": "string", "title": "Description"},
+			"status":      map[string]any{"enum": []any{map[string]any{"title": "Done"}}, "default": map[string]any{"description": "kept data"}},
+		},
+		"$defs": map[string]any{"title": map[string]any{"type": "object", "properties": map[string]any{"examples": map[string]any{"type": "array", "description": "x"}}}}}
+	for level := schemaNoDefDescriptions; level <= schemaNoDescriptions; level++ {
+		got := compactSchema(params, level)
+		props, _ := got["properties"].(map[string]any)
+		if props["title"] == nil || props["description"] == nil || props["status"] == nil {
+			t.Fatalf("level %d dropped a property named like a keyword: %v", level, props)
+		}
+		status, _ := props["status"].(map[string]any)
+		if enum, _ := status["enum"].([]any); len(enum) != 1 || enum[0].(map[string]any)["title"] != "Done" {
+			t.Fatalf("level %d changed enum data: %v", level, status)
+		}
+		if def, _ := status["default"].(map[string]any); def["description"] != "kept data" {
+			t.Fatalf("level %d changed default data: %v", level, status)
+		}
+		defs, _ := got["$defs"].(map[string]any)
+		inner, _ := defs["title"].(map[string]any)
+		if innerProps, _ := inner["properties"].(map[string]any); innerProps["examples"] == nil {
+			t.Fatalf("level %d dropped a nested property named examples: %v", level, defs)
+		}
+	}
+	// Prose is still removed where it is a keyword.
+	got := compactSchema(params, schemaNoDescriptions)
+	if title := got["properties"].(map[string]any)["title"].(map[string]any); title["description"] != nil {
+		t.Fatalf("description keyword kept at level %d: %v", schemaNoDescriptions, title)
+	}
+}
