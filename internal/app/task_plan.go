@@ -127,16 +127,37 @@ func stringsToAny(in []string) []any {
 	return out
 }
 
-// planPartView adds to a plan item what the card shows of the task behind it.
-func planPartView(q queryer, item *ChecklistItem) {
-	id := planChildID(item.Mark)
-	if id == "" {
+// planPartViews adds to the plan items what the card shows of the tasks behind
+// them, in one query for all of them.
+func planPartViews(q queryer, items []ChecklistItem) {
+	byTask := map[string][]int{}
+	var args []any
+	for i := range items {
+		id := planChildID(items[i].Mark)
+		if id == "" {
+			continue
+		}
+		items[i].TaskID = id
+		if _, seen := byTask[id]; !seen {
+			args = append(args, id)
+		}
+		byTask[id] = append(byTask[id], i)
+	}
+	if len(args) == 0 {
 		return
 	}
-	item.TaskID = id
-	var botID, botName, status, deadline, progress string
-	if q.QueryRow(`SELECT w.bot_id,b.name,w.status,w.deadline_at,w.progress_line FROM work_items w JOIN bots b ON b.id=w.bot_id WHERE w.id=?`, id).Scan(&botID, &botName, &status, &deadline, &progress) != nil {
+	rows, err := q.Query(`SELECT w.id,w.bot_id,b.name,w.status,w.deadline_at,w.progress_line FROM work_items w JOIN bots b ON b.id=w.bot_id WHERE w.id IN (`+placeholders(len(args))+`)`, args...)
+	if err != nil {
 		return
 	}
-	item.BotID, item.BotName, item.TaskStatus, item.DeadlineAt, item.ProgressLine = botID, botName, status, deadline, progress
+	defer rows.Close()
+	for rows.Next() {
+		var id, botID, botName, status, deadline, progress string
+		if rows.Scan(&id, &botID, &botName, &status, &deadline, &progress) != nil {
+			continue
+		}
+		for _, i := range byTask[id] {
+			items[i].BotID, items[i].BotName, items[i].TaskStatus, items[i].DeadlineAt, items[i].ProgressLine = botID, botName, status, deadline, progress
+		}
+	}
 }

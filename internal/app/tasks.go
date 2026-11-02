@@ -93,9 +93,7 @@ func checklistTx(q queryer, taskID string) ([]ChecklistItem, error) {
 		return nil, err
 	}
 	rows.Close()
-	for i := range items {
-		planPartView(q, &items[i])
-	}
+	planPartViews(q, items)
 	return items, nil
 }
 
