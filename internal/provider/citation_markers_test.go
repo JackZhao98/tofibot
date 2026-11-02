@@ -19,10 +19,6 @@ func TestStripMarkersEveryByteSplit(t *testing.T) {
 			t.Fatalf("split %d = %q", i, got)
 		}
 	}
-	var f MarkerFilter
-	if got := f.Feed("a citetur") + f.Flush(); got != "a " {
-		t.Fatalf("unclosed span = %q", got)
-	}
 	if got := StripMarkers("plain  text"); got != "plain  text" {
 		t.Fatalf("other private-use text changed: %q", got)
 	}

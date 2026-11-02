@@ -951,7 +951,12 @@ func (o *openaiResponses) parseStream(body io.Reader, onDelta func(StreamDelta))
 		return nil, ErrStreamIncomplete
 	}
 
-	markers.Flush()
+	if tail := markers.Flush(); tail != "" {
+		contentBuf.WriteString(tail)
+		if onDelta != nil {
+			onDelta(StreamDelta{Content: tail})
+		}
+	}
 	result.Content = contentBuf.String()
 	result.Reasoning = reasoningBuf.String()
 	web.finish(result)

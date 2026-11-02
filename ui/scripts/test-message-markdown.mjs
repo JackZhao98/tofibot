@@ -9,7 +9,8 @@ const ui = await openUiModules({ language: "zh-CN" });
 let checks = 0;
 
 try {
-  const { MessageMarkdown } = await ui.load("/src/MessageMarkdown.tsx");
+  const mod = await ui.load("/src/MessageMarkdown.tsx");
+  const { MessageMarkdown } = mod;
   const render = (content, mention) => renderToStaticMarkup(createElement(MessageMarkdown, { content, mention }));
   const check = (name, fn) => {
     fn();
@@ -30,6 +31,28 @@ try {
   check("stored citation spans are hidden", () => {
     assert.equal(render("Open daily. \uE200cite\uE202turn784583view0\uE202turn269275view0\uE201 Go early."), "<p>Open daily. Go early.</p>");
     assert.equal(render("Half \uE200cite\uE202turn7"), "<p>Half</p>");
+  });
+
+  check("citation spans: bounded, only E200..E201, code untouched", () => {
+    const { hidePrivateSpans } = mod;
+    // An unclosed start never swallows the rest: abandoned at a line break, the text stays.
+    assert.equal(hidePrivateSpans("a cite\nnext line stays"), "a cite\nnext line stays");
+    // Abandoned after 200 characters.
+    const long = "x".repeat(250);
+    assert.equal(hidePrivateSpans(`a ${long} tail`), `a ${long} tail`);
+    // A span closes at E201 and the join collapses one space only.
+    assert.equal(hidePrivateSpans("a citeturn1 b"), "a b");
+    assert.equal(hidePrivateSpans("acite b"), "a b");
+    // Other private-use characters and spaces outside a span are left alone.
+    assert.equal(hidePrivateSpans("a    b c."), "a    b .");
+    assert.equal(hidePrivateSpans("a  b"), "a  b");
+    // Code blocks keep their indentation and everything else, even next to a marker.
+    const fenced = "x c y\n```js\nif (a) {\n    return  1;\n}\n```\nz c w";
+    assert.equal(hidePrivateSpans(fenced), "x y\n```js\nif (a) {\n    return  1;\n}\n```\nz w");
+    const open = "x c\n```\n    keep   this\n";
+    assert.equal(hidePrivateSpans(open), "x \n```\n    keep   this\n");
+    // Rendered: the code block survives with its spacing.
+    assert.ok(render("p \uE200c\uE201 q\n\n```\n  a   b\n```").includes("  a   b"), "indentation and runs of spaces in code survive");
   });
 
   check("ordinary emphasis, lists, and GFM strikethrough", () => {

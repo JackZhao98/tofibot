@@ -147,11 +147,67 @@ function settledMarkdown(content: string): ReactNode {
   return rendered;
 }
 
-/** Citation spans a model wrote in its private-use format (U+E200 to U+E201) hide in messages stored before the server dropped them. Cheap: text without U+E2xx is returned as is. */
-const PRIVATE_SPAN = /[\uE200-\uE2FF]/;
+/**
+ * Citation spans a model wrote in its private-use format (U+E200 to U+E201) are hidden, as the server drops them
+ * (`provider.MarkerFilter`). Only those spans go: other private-use characters stay, spaces are collapsed only at the
+ * join of a removed span, and fenced code blocks are never touched. A span is short and has no line break, so a U+E200
+ * that is not closed is abandoned (the character goes, the text stays) at a line break or after MAX_SPAN characters;
+ * an open span at the end of the text is still held back, as in a draft that is being written.
+ */
+const MARKER_START = "\uE200";
+const MARKER_END = "\uE201";
+const MAX_SPAN = 200;
+const hasMarker = (text: string) => text.includes(MARKER_START) || text.includes(MARKER_END);
+
+function hideSpansInLine(line: string, atEnd: boolean): string {
+  if (!hasMarker(line)) return line;
+  let out = "";
+  let held = "";
+  let heldLength = 0;
+  let inSpan = false;
+  let lastSpace = false;
+  let skip = false;
+  const write = (ch: string) => {
+    if (skip && ch === " ") return;
+    skip = false;
+    out += ch;
+    lastSpace = ch === " ";
+  };
+  const abandon = () => {
+    inSpan = false;
+    for (const ch of held) write(ch);
+    held = "";
+    heldLength = 0;
+  };
+  for (const ch of line) {
+    if (inSpan) {
+      if (ch === MARKER_END) { inSpan = false; held = ""; heldLength = 0; skip = lastSpace; continue; }
+      if (ch === MARKER_START) { abandon(); inSpan = true; continue; }
+      if (heldLength < MAX_SPAN) { held += ch; heldLength++; continue; }
+      abandon();
+    }
+    if (ch === MARKER_START) inSpan = true;
+    else if (ch !== MARKER_END) write(ch);
+  }
+  if (inSpan && !atEnd) abandon();
+  return out;
+}
+
+const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
+
 export function hidePrivateSpans(text: string): string {
-  if (!PRIVATE_SPAN.test(text)) return text;
-  return text.replace(/\uE200[^\uE201]*(?:\uE201|$)/g, "").replace(/[\uE200-\uE2FF]/g, "").replace(/ {2,}/g, " ");
+  if (!hasMarker(text)) return text;
+  let fence = "";
+  const lines = text.split("\n");
+  return lines.map((line, index) => {
+    const match = FENCE.exec(line);
+    if (fence) {
+      if (match && match[1][0] === fence[0] && match[1].length >= fence.length && match[2].trim() === "") fence = "";
+      return line;
+    }
+    if (match && !(match[1][0] === "`" && match[2].includes("`"))) { fence = match[1]; return line; }
+    return hideSpansInLine(line, index === lines.length - 1);
+  }).join("\n");
 }
 
 /** Memoized: parsing a long conversation's Markdown on every unrelated Workspace commit costs tens of milliseconds. `reuse` marks finished text whose elements may be kept for the next time it is drawn. */
