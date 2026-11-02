@@ -150,9 +150,9 @@ func TestMCPOAuthMetadataDestinationActualExchange(t *testing.T) {
 					}
 					return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader(body)), Request: r}, nil
 				})}
-				oldClient := http.DefaultClient
-				http.DefaultClient = client
-				defer func() { http.DefaultClient = oldClient }()
+				oldClient := oauthHTTPClient
+				oauthHTTPClient = client
+				defer func() { oauthHTTPClient = oldClient }()
 				h := NewOAuthHandler(OAuthFlowConfig{ClientID: cfg.OAuth.ClientID, ClientSecret: cfg.OAuth.ClientSecret, AuthServerMetadataURL: cfg.OAuth.AuthServerMetadataURL, RedirectURI: "https://tofi.fixture.test/callback", TokenStore: NewMemoryTokenStore(), PKCEEnabled: true})
 				h.SetBaseURL(cfg.URL)
 				h.SetExpectedState("synthetic-state")

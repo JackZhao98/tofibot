@@ -826,7 +826,7 @@ func fetchOAuthJSON(ctx context.Context, endpoint string, out any) (int, error) 
 		return 0, err
 	}
 	req.Header.Set("Accept", "application/json")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := oauthHTTPClient.Do(req)
 	if err != nil {
 		return 0, err
 	}
@@ -1291,7 +1291,7 @@ func (m *Manager) OAuthDisconnect(name string) error {
 			req, err := http.NewRequestWithContext(ctx, http.MethodPost, metadata.RevocationEndpoint, strings.NewReader(form.Encode()))
 			if err == nil {
 				req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-				resp, err := http.DefaultClient.Do(req)
+				resp, err := oauthHTTPClient.Do(req)
 				if err == nil {
 					resp.Body.Close()
 					if resp.StatusCode/100 != 2 {

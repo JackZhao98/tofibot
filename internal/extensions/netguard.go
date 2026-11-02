@@ -244,3 +244,14 @@ func (m *Manager) ownerTransport() http.RoundTripper {
 	})
 	return m.ownerRT
 }
+
+// oauthHTTPClient reaches OAuth discovery, registration and revocation
+// endpoints that a remote MCP server names. A server may steer discovery to a
+// metadata address, so the dial refuses link-local, unspecified and multicast
+// addresses. Tests replace it with their fake.
+var oauthHTTPClient = func() *http.Client {
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.Proxy = nil
+	t.DialContext = (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second, Control: ownerDialControl(func() bool { return true })}).DialContext
+	return &http.Client{Transport: t, Timeout: 60 * time.Second}
+}()

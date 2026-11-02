@@ -161,7 +161,7 @@ func (h *OAuthHandler) RegisterClient(ctx context.Context, name string) error {
 	}
 	registration, err := oauthex.RegisterClient(ctx, md.RegistrationEndpoint, &oauthex.ClientRegistrationMetadata{
 		RedirectURIs: []string{h.cfg.RedirectURI}, TokenEndpointAuthMethod: "none", GrantTypes: []string{"authorization_code", "refresh_token"}, ResponseTypes: []string{"code"}, ClientName: name, Scope: strings.Join(h.cfg.Scopes, " "),
-	}, http.DefaultClient)
+	}, oauthHTTPClient)
 	if err != nil {
 		return err
 	}
