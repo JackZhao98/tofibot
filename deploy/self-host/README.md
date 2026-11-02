@@ -87,8 +87,12 @@ confirm:
    No continues with the next question.
    **How will you open TOFI?** `By IP over HTTPS (self-signed)` (default, shows
    `https://<first LAN IP>:8321`), `With a domain (automatic HTTPS)` (dimmed with
-   "not supported: ports 80/443 in use by <process>" when they are taken), or
-   `This machine only (SSH tunnel)`.
+   "not supported: ports 80/443 in use by <process>" when they are taken),
+   `This machine only (SSH tunnel)`, or `Through a VPN (Tailscale)` (dimmed
+   with "not found" until a tailscale interface or a 100.64.0.0/10 address
+   exists). The VPN choice behaves like the IP choice (self-signed HTTPS on
+   `0.0.0.0:8321`). It lists the MagicDNS name (or the Tailscale IP) as the
+   address, and the certificate carries both.
 4. Follow-ups. Domain: host name syntax is checked, and you are asked again if
    it is invalid. Its A/AAAA records are resolved. If they do not point at this
    host the installer explains that certificate issuance will fail and asks
@@ -194,6 +198,10 @@ updates, resumes and reinstalls over retained data:
 - EC P-256, valid 825 days (the browser maximum), CN = hostname, SANs = the
   hostname, `localhost`, `127.0.0.1`, `::1` and every global address of the
   host's non-virtual interfaces (Docker bridges, veth and tap devices excluded).
+  When the host is on Tailscale (a `tailscale` interface or a 100.64.0.0/10
+  address), the Tailscale addresses and the MagicDNS name from
+  `tailscale status --json` are in the SANs too. After you join a tailnet later,
+  run `sudo tofi regenerate-cert`.
 - Renewed whenever host config is re-applied (`tofi install`, a resumed
   operation, `tofi update`) if missing or within 30 days of expiry; `sudo tofi regenerate-cert` replaces it on
   demand (for example after the server's IP changed) and restarts the App.
@@ -212,6 +220,25 @@ Installs made before this default (plain HTTP on `127.0.0.1`) keep their
 `TOFI_TLS_CERT_FILE=/etc/tofi-tls/cert.pem`, `TOFI_TLS_KEY_FILE=/etc/tofi-tls/key.pem`
 and `TOFI_OWNER_ALLOW_LAN_HTTP=0` to `/etc/tofi/tofi.env`, run
 `sudo tofi regenerate-cert`, then `sudo tofi stop && sudo tofi start`.
+
+### Three ways to open TOFI
+
+| Way | Use it when | Phones |
+|---|---|---|
+| Tailscale (or another VPN) | The server is at home, or behind NAT, or you do not want a public port | Best. Install Tailscale on the phone, sign in, and open `https://<MagicDNS name>:8321`. Close TCP 8321 on the Internet side. The browser still warns once: the certificate is self-signed |
+| IP address with the self-signed certificate | You are on the same LAN, or you accept the warning | Works. Accept the warning once on each device. If the server IP changes, run `sudo tofi regenerate-cert` |
+| Domain (`--domain`) | You have a domain and ports 80 and 443 are free | Works with no warning. The certificate comes from Let's Encrypt |
+
+The installer prints the same three lines at the end of an install. It also
+prints `Installed in m:ss` (the time since you started, without the time you spent
+answering questions). When `/dev/kvm` is missing, it says which clouds document nested
+virtualization: Google Cloud
+([docs](https://cloud.google.com/compute/docs/instances/nested-virtualization/overview))
+and Azure on some sizes
+([announcement](https://azure.microsoft.com/en-us/blog/nested-virtualization-in-azure/)).
+Hetzner is marked "check your plan" because sources disagree. Linode does not
+support it ([Linode community answer](https://www.linode.com/community/questions/19459)).
+Without a Bot computer, the server and web app work on any supported host.
 
 ### Behind another reverse proxy
 
@@ -374,7 +401,7 @@ Later accounts are created by the Admin. Then open Settings -> Model provider.
 | `tofi setup-secret` | Print the pending setup key |
 | `tofi regenerate-cert` | Replace the self-signed certificate (new names/IPs, new fingerprint) and restart the App |
 | `tofi logs [app\|worker\|caddy\|runner]` | Follow container logs |
-| `tofi doctor` | The installer's "This machine" card, then check KVM, Bot computer backend, cgroup, profile, `/run/tofi`, Worker config, Guest release, images, disk, health. With backend `none` the KVM, cgroup, profile, Worker, Guest and memory checks are not run (a host without KVM is healthy) |
+| `tofi doctor` | The installer's "This machine" card, then check KVM, Bot computer backend, cgroup, profile, `/run/tofi`, Worker config, Guest release, images, disk, health. With backend `none` the KVM, cgroup, profile, Worker, Guest and memory checks are not run (a host without KVM is healthy). Then an "Exposure (read-only)" list, PASS or WARN with one fix line each: listening on 0.0.0.0 with a public address and no domain, setup key still unused, plain-HTTP sign-in allowed on a public address, local MCP Runner port published. A WARN there does not fail the doctor. The web app does not show doctor results |
 | `tofi security audit [--json] [--online]` | Read-only report of where this install deviates from safe defaults: HTTPS and certificate type, listening interfaces and public addresses, plain-HTTP sign-in, pending Admin setup key, login limiter and trusted proxies, modes and owners of `/etc/tofi`, the data dir, vault files, the TLS key and backups, credential-looking names in `tofi.env` (names only, never values), plaintext model keys, installed vs latest release (stored check; `--online` fetches), Guest vs hibernated Bot computers, the Runner's network fence (`runner.fence`), newest backup age. PASS/WARN/FAIL with one fix line each; exit 0 (no FAIL), 2 (a FAIL), 1 (could not run). Changes nothing |
 | `tofi version` | Host tool, installed release and images |
 

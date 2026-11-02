@@ -914,7 +914,7 @@ class InteractiveTests(InstallBase):
 
     def test_ctrl_c_before_proceed_cancels_without_changes(self):
         before = self.host_tree()
-        answered = [('Choose 1-2', '\r'), ('Tunnel...)? [y/N]', 'n\r'), ('Choose 1-3', '\r'),
+        answered = [('Choose 1-2', '\r'), ('Tunnel...)? [y/N]', 'n\r'), ('Choose 1-4', '\r'),
                     ('[8321]:', '\r'), ('Turn on automatic fix releases?', '\r'), ('Send an anonymous install report?', '\r')]
         for prompt, count in (('Choose 1-2', 0), ('Tunnel...)? [y/N]', 1), ('Port for TOFI', 3),
                               ('Turn on automatic', 4), ('Send an anonymous', 5), ('Proceed?', 6)):
