@@ -29,14 +29,21 @@ type delegatePartInput struct {
 	Limits        string   `json:"limits"`
 }
 
-func delegatePartsSchema() map[string]any {
+// checklistParamText is the description of the checklist parameter. It holds the
+// rule for when a checklist is right; the parameter text is outside the cap of
+// the tool description.
+func checklistParamText(what string) string {
+	return "The items of the " + what + "'s checklist, in order. Add items only for work that has separate parts; a small piece of work needs none."
+}
+
+func delegatePartsSchema()map[string]any {
 	return map[string]any{"type": "array", "maxItems": maxDelegateParts,
 		"description": "Several different tasks in one call, each for one member. Use it in place of bot_id and task. The tasks start together, and the receipt holds one wait on all of them.",
 		"items": objectSchema(map[string]any{
 			"bot_id":           stringProp("Exact id of the member that holds this part."),
 			"task":             stringProp(delegationBriefText),
 			"title":            stringProp("A short name for the part. The group reads it in your message."),
-			"checklist":        map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "The items of the part's checklist, in order."},
+			"checklist":        map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": checklistParamText("part")},
 			"depends_on":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Ids of tasks in the same tree that must end done before this part starts."},
 			"attachment_ids":   attachmentIDsProp,
 			"result_format":    stringProp("The form of the result that you need back."),
