@@ -76,6 +76,7 @@ try {
   // Run classes.
   assert.match(text(one([],{error:"main-model api error (http 503): PRIVATE_SECRET"})),/model service was unavailable/);assert(!text(one([],{error:"api error (http 503): PRIVATE_SECRET"})).includes("PRIVATE_SECRET"));
   assert.match(text(one([],{error:"x",failure:{code:"budget_exhausted",source:"runtime",message:""}})),/step budget/);
+  assert.match(text(one([],{error:"spend_cap_reached: The monthly spend limit of $1 is reached. PRIVATE_FIGURE"})),/spend limit is reached, so the model was not called/);assert(!text(one([],{error:"spend_cap_reached: PRIVATE_FIGURE"})).includes("PRIVATE_FIGURE"));
   assert.match(text(one([])),/without confirming a result/);
   // Nothing known: generic line only.
   assert.match(text(one([],{error:"",failure:{code:"execution_failed",source:"runtime",message:""}})),/No specific cause was recorded|not yet confirmed/);

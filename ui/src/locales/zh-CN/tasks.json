@@ -597,6 +597,7 @@
     },
     "run": {
       "model_unavailable": "模型服务不可用。",
+      "spend_cap_reached": "本月花费已达上限，模型没有被调用。可在 设置 › 用量 中提高或关闭上限。",
       "budget_exhausted": "任务在完成前用尽了步骤预算。",
       "no_final_answer": "模型结束时没有给出最终回答。",
       "tool_stuck": "某个工具步骤停止响应，任务已被停止。",

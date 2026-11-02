@@ -134,6 +134,7 @@ function runReason(run: Run, tools: ToolActivity[], t: ReturnType<typeof tasksT>
   if (step) return known(stepReasonKeys, code) ? t(stepReasonKeys[code], { step: stepName(step) }) : t("reason.step.failed", { step: stepName(step) });
   const error = (run.error ?? "").toLowerCase();
   if (/api error \(http (?:429|5\d\d)\)|overloaded|service unavailable|bad gateway|gateway time-?out/.test(error)) return t("reason.run.model_unavailable");
+  if (error.startsWith("spend_cap_reached")) return t("reason.run.spend_cap_reached");
   if (run.failure?.code === "budget_exhausted") return t("reason.run.budget_exhausted");
   if (run.failure?.code === "no_final_answer") return t("reason.run.no_final_answer");
   if (run.failure?.code === "tool_stuck") return t("reason.run.tool_stuck");

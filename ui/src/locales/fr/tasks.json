@@ -611,6 +611,7 @@
     },
     "run": {
       "model_unavailable": "Le service du modèle était indisponible.",
+      "spend_cap_reached": "Le plafond de dépenses du mois est atteint : le modèle n'a pas été appelé. Relevez ou désactivez le plafond dans Réglages › Utilisation.",
       "budget_exhausted": "La tâche a épuisé son budget d'étapes avant de terminer.",
       "no_final_answer": "Le modèle s'est arrêté sans réponse finale.",
       "tool_stuck": "Une étape d'outil ne répondait plus et la tâche a été arrêtée.",

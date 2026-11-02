@@ -604,6 +604,7 @@
     },
     "run": {
       "model_unavailable": "The model service was unavailable.",
+      "spend_cap_reached": "This month's spend limit is reached, so the model was not called. Raise or turn off the limit in Settings › Usage.",
       "budget_exhausted": "The task hit its step budget before finishing.",
       "no_final_answer": "The model ended without a final answer.",
       "tool_stuck": "A tool step stopped responding and the task was stopped.",

@@ -604,6 +604,7 @@
     },
     "run": {
       "model_unavailable": "Der Modelldienst war nicht verfügbar.",
+      "spend_cap_reached": "Das Ausgabenlimit für diesen Monat ist erreicht, daher wurde das Modell nicht aufgerufen. Erhöhe oder deaktiviere das Limit unter Einstellungen › Nutzung.",
       "budget_exhausted": "Die Aufgabe hat ihr Schrittbudget aufgebraucht, bevor sie fertig war.",
       "no_final_answer": "Das Modell hat ohne endgültige Antwort geendet.",
       "tool_stuck": "Ein Tool-Schritt reagierte nicht mehr, die Aufgabe wurde gestoppt.",
