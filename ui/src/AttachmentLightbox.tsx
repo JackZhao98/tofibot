@@ -10,7 +10,7 @@ import { MOTION, EASE } from "./motion";
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** The image lightbox (native <dialog>, top layer): zooms from the thumbnail, Copy / Download, arrows step through the message's images. */
-export default function AttachmentLightbox({ images, index, onIndex, onClose, origin }: { images: Attachment[]; index: number | null; onIndex: (index: number) => void; onClose: () => void; origin: () => HTMLElement | null }) {
+export default function AttachmentLightbox({ images, index, onIndex, onClose, origin, cellAt }: { images: Attachment[]; index: number | null; onIndex: (index: number) => void; onClose: () => void; origin: () => HTMLElement | null; /** A click on the picture asks which image to show next, from the point as fractions of its width and height (the work-trace strip). */ cellAt?: (index: number, fx: number, fy: number) => number | null }) {
   const { t } = useTranslation(["chat", "common"]);
   const dialog = useRef<HTMLDialogElement>(null);
   const zoomImage = useRef<HTMLImageElement>(null);
@@ -58,7 +58,7 @@ export default function AttachmentLightbox({ images, index, onIndex, onClose, or
     onKeyDown={event => { if (index === null || images.length < 2) return; if (event.key === "ArrowRight") onIndex((index + 1) % images.length); if (event.key === "ArrowLeft") onIndex((index + images.length - 1) % images.length); }}>
     <button type="button" onClick={() => void close()} aria-label={t("attachment.close_image")}><TofiIcon name="close" size={20} /></button>
     {current && <>
-      <img ref={zoomImage} src={attachmentUrl(current.id)} alt={current.name} />
+      <img ref={zoomImage} src={attachmentUrl(current.id)} alt={current.name} className={cellAt ? "is-pickable" : undefined} onClick={cellAt ? event => { const box = event.currentTarget.getBoundingClientRect(); const next = box.width && box.height && index !== null ? cellAt(index, (event.clientX - box.left) / box.width, (event.clientY - box.top) / box.height) : null; if (next !== null) onIndex(next); } : undefined} />
       <div className="attachment-lightbox-bar">
         <small>{current.name}{images.length > 1 && ` · ${(index ?? 0) + 1}/${images.length}`}</small>
         <button type="button" onClick={() => void copy()} aria-label={t("attachment.copy", { name: current.name })}>{isDesktop ? <TofiIcon name="copy" size={16} /> : <CopyFeedbackIcon copied={copied} />}</button>

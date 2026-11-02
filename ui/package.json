@@ -53,6 +53,7 @@
     "test:no-computer": "node scripts/test-no-computer.mjs",
     "test:settings-choices": "node scripts/test-settings-choices.mjs",
     "test:automation-settings": "node scripts/test-automation-settings.mjs",
+    "test:work-trace": "node scripts/test-work-trace.mjs",
     "test:web-tools": "node scripts/test-web-tools.mjs",
     "test:search-palette": "node scripts/test-search-palette.mjs",
     "test:i18n": "node scripts/check-i18n.mjs",

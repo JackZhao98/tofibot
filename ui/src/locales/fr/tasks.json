@@ -654,5 +654,20 @@
         "not_ready": "Tofi ne voit pas encore la connexion. Terminez la connexion, puis réessayez."
       }
     }
+  },
+  "trace": {
+    "title": "Trace de travail",
+    "steps_one": "{{count}} étape",
+    "steps_many": "{{count}} étapes",
+    "steps_other": "{{count}} étapes",
+    "open": "Ouvrir la trace de travail",
+    "step": "Étape {{seq}} : {{label}}",
+    "load_failed": "Impossible de charger la trace de travail.",
+    "delete": "Supprimer la trace",
+    "delete_confirm": "Supprimer les images de cette exécution ?",
+    "delete_yes": "Supprimer",
+    "delete_no": "Conserver",
+    "delete_failed": "Impossible de supprimer la trace.",
+    "deleted": "Trace de travail supprimée."
   }
 }

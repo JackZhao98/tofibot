@@ -640,5 +640,18 @@
         "not_ready": "Tofi가 아직 연결을 확인하지 못했습니다. 로그인을 마친 뒤 다시 시도하세요."
       }
     }
+  },
+  "trace": {
+    "title": "작업 트레이스",
+    "steps_other": "{{count}}단계",
+    "open": "작업 트레이스 열기",
+    "step": "{{seq}}단계: {{label}}",
+    "load_failed": "작업 트레이스를 불러오지 못했습니다.",
+    "delete": "트레이스 삭제",
+    "delete_confirm": "이 실행의 스크린샷을 모두 삭제할까요?",
+    "delete_yes": "삭제",
+    "delete_no": "유지",
+    "delete_failed": "트레이스를 삭제하지 못했습니다.",
+    "deleted": "작업 트레이스를 삭제했습니다."
   }
 }

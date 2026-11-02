@@ -222,7 +222,7 @@ func (s *Store) exportPortable(ctx context.Context, instance string, selection p
 		}
 		b.Conversations = append(b.Conversations, portableConversation{ID: c.ID, Kind: c.Kind, Name: c.Name, BotID: c.BotID, BotIDs: members, UpdatedAt: c.UpdatedAt, Archived: c.Archived, UserVisible: c.UserVisible})
 		var attachmentCount int
-		if err = tx.QueryRowContext(ctx, `SELECT (SELECT COUNT(*) FROM attachments WHERE conversation_id=?)+(SELECT COUNT(*) FROM portability_missing_assets WHERE conversation_id=?)`, c.ID, c.ID).Scan(&attachmentCount); err != nil {
+		if err = tx.QueryRowContext(ctx, `SELECT (SELECT COUNT(*) FROM attachments WHERE conversation_id=? AND origin<>'trace')+(SELECT COUNT(*) FROM portability_missing_assets WHERE conversation_id=?)`, c.ID, c.ID).Scan(&attachmentCount); err != nil {
 			return b, err
 		}
 		b.AttachmentCount += attachmentCount

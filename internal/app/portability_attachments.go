@@ -255,7 +255,7 @@ func snapshotPortableAttachments(ctx context.Context, tx *sql.Tx, b *portableBun
 		messages[m.ID] = m.ConversationID
 		args = append(args, m.ID)
 	}
-	query := `SELECT id,conversation_id,name,size,created_at,disk_name FROM attachments WHERE conversation_id IN (` + portablePlaceholders(len(convs)) + `) OR id IN (SELECT attachment_id FROM attachment_messages WHERE message_id IN (` + portablePlaceholders(len(messages)) + `)) ORDER BY id LIMIT ?`
+	query := `SELECT id,conversation_id,name,size,created_at,disk_name FROM attachments WHERE origin<>'` + attachmentOriginTrace + `' AND (conversation_id IN (` + portablePlaceholders(len(convs)) + `) OR id IN (SELECT attachment_id FROM attachment_messages WHERE message_id IN (` + portablePlaceholders(len(messages)) + `))) ORDER BY id LIMIT ?`
 	args = append(args, portableMaxRecords+1)
 	rows, err := tx.QueryContext(ctx, query, args...)
 	if err != nil {

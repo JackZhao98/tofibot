@@ -162,8 +162,10 @@ type Run struct {
 	// PausedTaskTitle names the task this run left paused when a person's message
 	// took the Bot away from it (task continuity); set when runs are read or sent.
 	PausedTaskTitle string `json:"paused,omitempty"`
-	CreatedAt       string `json:"created_at"`
-	UpdatedAt       string `json:"updated_at"`
+	// Trace is the folded strip of the run's screen work (work trace); set when runs are read or sent.
+	Trace     *RunTrace `json:"trace,omitempty"`
+	CreatedAt string    `json:"created_at"`
+	UpdatedAt string    `json:"updated_at"`
 	// Resolved from durable occurrence ancestry for execution only. Keep Kind
 	// unchanged so delegated work retains its context and return routing.
 	scheduleTask *Message
@@ -2170,6 +2172,7 @@ func (s *Store) Runs(conv string) ([]Run, error) {
 	}
 	rows.Close()
 	s.decoratePausedRuns(out)
+	s.decorateRunTraces(out)
 	return out, nil
 }
 
@@ -2254,6 +2257,7 @@ func (s *Store) RunsPage(conv string, limit int, beforeCreated, beforeID string)
 		page = []Run{}
 	}
 	s.decoratePausedRuns(page)
+	s.decorateRunTraces(page)
 	return page, hasMore, nil
 }
 
@@ -4017,6 +4021,7 @@ func (s *Server) execute(c Conversation, r Run) {
 				status = questionCancelled
 			}
 			_ = s.store.MarkQuestionsForRun(r.ID, status)
+			s.finalizeRunTrace(c, current)
 		}
 	}()
 	// A human terminal request owns the Bot's terminal briefly. Let queued

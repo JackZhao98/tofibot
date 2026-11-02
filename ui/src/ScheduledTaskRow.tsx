@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { TofiIcon } from "./icons";
 import { isDesktop } from "./desktop";
 import type { Message, Run, Schedule } from "./types";
@@ -8,6 +8,8 @@ import { MessageMarkdown } from "./MessageMarkdown";
 import { scheduledRunMetadata } from "./scheduledRunMetadata";
 import { useTranslation } from "./i18n";
 import "./scheduled-task-row.css";
+
+const WorkTrace = lazy(() => import("./WorkTrace"));
 
 export function ScheduledTaskRow({ message, run, occurrence, pending = false, schedule, timezone, onRetry }: { message: Message; run?: Run; occurrence?: ScheduleOccurrence; pending?: boolean; schedule?: Schedule; timezone?: string; onRetry?: (id: string) => Promise<void> }) {
   const [retrying, setRetrying] = useState(false);
@@ -33,6 +35,8 @@ export function ScheduledTaskRow({ message, run, occurrence, pending = false, sc
   const retryId = exactOccurrence?.status_run_id ?? owningRun?.id;
   const receiptMissing = error?.includes("scheduled task returned without confirming a completed result");
   const metadata = scheduledRunMetadata(message, run, occurrence, schedule, timezone);
+  // The run's work trace, when it kept screen captures: the same folded line as in a chat run.
+  const traceLine = owningRun?.trace ? <Suspense fallback={null}><WorkTrace run={owningRun} /></Suspense> : undefined;
   // The occurrence read is still in flight: a blank ticket of the same shape, never a guessed status.
   const blank = "\u00a0";
   if (!isDesktop && pending) return <div className="scheduled-run-pending" aria-hidden="true" inert>
@@ -49,9 +53,10 @@ export function ScheduledTaskRow({ message, run, occurrence, pending = false, sc
     resultSources={exactOccurrence?.result_sources}
     failureSummary={receiptMissing ? t("row.failure.receipt_missing") : t("row.failure.incomplete")}
     error={error}
-    notes={(!exactOccurrence || (exactOccurrence.execution_status === "done" && !exactOccurrence.result_in_conversation && !quiet)) ? <>
+    notes={(!exactOccurrence || (exactOccurrence.execution_status === "done" && !exactOccurrence.result_in_conversation && !quiet)) || traceLine ? <>
       {!exactOccurrence && <p>{t("row.note.partial_status")}</p>}
       {exactOccurrence?.execution_status === "done" && !exactOccurrence.result_in_conversation && !quiet && <p>{t("row.note.unpublished")}</p>}
+      {traceLine}
     </> : undefined}
     onRetry={onRetry && retryId ? () => onRetry(retryId) : undefined}
   />;
@@ -65,7 +70,7 @@ export function ScheduledTaskRow({ message, run, occurrence, pending = false, sc
         <span className="scheduled-task-status">{status}</span>
         <TofiIcon className="scheduled-task-chevron" name="chevron-right" size={14} />
       </summary>
-      <div className="scheduled-task-details"><p>{metadata.description}</p><details><summary>{t("row.manage_instructions")}</summary><p>{message.content}</p></details>{!exactOccurrence && <p className="field-note">{t("row.note.partial_status")}</p>}{exactOccurrence?.execution_status === "done" && !exactOccurrence.result_in_conversation && !quiet && <p className="field-note">{t("row.note.unpublished")}</p>}{exactOccurrence?.result_text && !exactOccurrence.result_in_conversation && <details open><summary>{t("row.result.heading")}</summary><MessageMarkdown content={exactOccurrence.result_text} /></details>}{isFailure && <div className="scheduled-task-recovery"><p>{receiptMissing ? t("row.failure.receipt_missing_confirm") : t("row.failure.incomplete_confirm")}</p>{error && <details><summary>{t("row.technical_reason")}</summary><p className="error-text">{error}</p></details>}{onRetry && retryId && <button type="button" className="text-button" disabled={retrying} onClick={() => { setRetrying(true); void onRetry(retryId).finally(() => setRetrying(false)); }}>{retrying ? t("row.rerunning") : t("row.rerun")}</button>}</div>}</div>
+      <div className="scheduled-task-details"><p>{metadata.description}</p><details><summary>{t("row.manage_instructions")}</summary><p>{message.content}</p></details>{!exactOccurrence && <p className="field-note">{t("row.note.partial_status")}</p>}{exactOccurrence?.execution_status === "done" && !exactOccurrence.result_in_conversation && !quiet && <p className="field-note">{t("row.note.unpublished")}</p>}{exactOccurrence?.result_text && !exactOccurrence.result_in_conversation && <details open><summary>{t("row.result.heading")}</summary><MessageMarkdown content={exactOccurrence.result_text} /></details>}{isFailure && <div className="scheduled-task-recovery"><p>{receiptMissing ? t("row.failure.receipt_missing_confirm") : t("row.failure.incomplete_confirm")}</p>{error && <details><summary>{t("row.technical_reason")}</summary><p className="error-text">{error}</p></details>}{onRetry && retryId && <button type="button" className="text-button" disabled={retrying} onClick={() => { setRetrying(true); void onRetry(retryId).finally(() => setRetrying(false)); }}>{retrying ? t("row.rerunning") : t("row.rerun")}</button>}</div>}{traceLine}</div>
     </details>
   </article>;
 }

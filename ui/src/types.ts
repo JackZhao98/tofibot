@@ -408,6 +408,8 @@ export interface Run {
   queue_seq?: number;
   /** The task this run left paused when a person's message took the Bot away from it. */
   paused?: string;
+  /** The folded strip of the run's screen work, made by the server when the run ends (work trace). */
+  trace?: { attachment_id: string; tiles: number; steps: number; created_at: string };
   created_at: string;
   updated_at: string;
 }

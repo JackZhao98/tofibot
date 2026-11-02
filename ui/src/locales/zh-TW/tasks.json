@@ -640,5 +640,18 @@
         "not_ready": "Tofi 尚未偵測到連線。請先完成登入，再重試。"
       }
     }
+  },
+  "trace": {
+    "title": "工作留痕",
+    "steps_other": "{{count}} 步",
+    "open": "開啟工作留痕",
+    "step": "第 {{seq}} 步：{{label}}",
+    "load_failed": "無法載入工作留痕。",
+    "delete": "刪除留痕",
+    "delete_confirm": "刪除這次執行的全部截圖？",
+    "delete_yes": "刪除",
+    "delete_no": "保留",
+    "delete_failed": "無法刪除留痕。",
+    "deleted": "工作留痕已刪除。"
   }
 }

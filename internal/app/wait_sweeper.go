@@ -60,6 +60,7 @@ func (s *Server) startWaitSweeper() {
 				if lastRetention.IsZero() || at.Sub(lastRetention) >= taskRetentionEvery {
 					lastRetention = at
 					s.runTaskRetention(at)
+					s.runTraceRetention(at)
 				}
 			}
 		}

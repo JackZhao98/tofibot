@@ -640,5 +640,18 @@
         "not_ready": "Tofi 尚未检测到连接。请先完成登录，再重试。"
       }
     }
+  },
+  "trace": {
+    "title": "工作留痕",
+    "steps_other": "{{count}} 步",
+    "open": "打开工作留痕",
+    "step": "第 {{seq}} 步：{{label}}",
+    "load_failed": "无法加载工作留痕。",
+    "delete": "删除留痕",
+    "delete_confirm": "删除这次运行的全部截图？",
+    "delete_yes": "删除",
+    "delete_no": "保留",
+    "delete_failed": "无法删除留痕。",
+    "deleted": "工作留痕已删除。"
   }
 }

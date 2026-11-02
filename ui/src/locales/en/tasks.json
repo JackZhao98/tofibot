@@ -647,5 +647,19 @@
         "not_ready": "Tofi doesn't see the connection yet. Finish signing in, then try again."
       }
     }
+  },
+  "trace": {
+    "title": "Work trace",
+    "steps_one": "{{count}} step",
+    "steps_other": "{{count}} steps",
+    "open": "Open the work trace",
+    "step": "Step {{seq}}: {{label}}",
+    "load_failed": "The work trace could not be loaded.",
+    "delete": "Delete trace",
+    "delete_confirm": "Delete the pictures of this run?",
+    "delete_yes": "Delete",
+    "delete_no": "Keep",
+    "delete_failed": "Could not delete the trace.",
+    "deleted": "Work trace deleted."
   }
 }

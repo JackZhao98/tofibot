@@ -647,5 +647,19 @@
         "not_ready": "Tofi sieht die Verbindung noch nicht. Schließe die Anmeldung ab und versuche es dann erneut."
       }
     }
+  },
+  "trace": {
+    "title": "Arbeitsspur",
+    "steps_one": "{{count}} Schritt",
+    "steps_other": "{{count}} Schritte",
+    "open": "Arbeitsspur öffnen",
+    "step": "Schritt {{seq}}: {{label}}",
+    "load_failed": "Die Arbeitsspur konnte nicht geladen werden.",
+    "delete": "Spur löschen",
+    "delete_confirm": "Die Bilder dieses Laufs löschen?",
+    "delete_yes": "Löschen",
+    "delete_no": "Behalten",
+    "delete_failed": "Die Spur konnte nicht gelöscht werden.",
+    "deleted": "Arbeitsspur gelöscht."
   }
 }

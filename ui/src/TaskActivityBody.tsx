@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import "./approval-card.css";
 import { TofiIcon } from "./icons";
 import { MessageMarkdown } from "./MessageMarkdown";
@@ -14,6 +14,9 @@ import { REMEMBERED_APPROVAL_ACTOR, STANDING_ALLOWANCE_ACTOR, type Question } fr
 import type { MailDraft } from "./MailDraftCard";
 import type { Message, ToolActivity, ToolActivityRunSummary } from "./types";
 import { problemStates, toggleDisclosure, type TaskDetailState } from "./TaskRunBlock";
+
+/** The work trace line closes the list of a run that kept captures; it is its own chunk. */
+const WorkTrace = lazy(() => import("./WorkTrace"));
 
 /**
  * The opened Activity list of a task block. It draws only after a person opens Activity, so it is its own chunk
@@ -79,6 +82,7 @@ export function TaskActivityBody({ owner, head = true, tail = true, allTools, to
           {count !== 0 && (detail?.hasMore !== false || (count !== undefined && loaded < count)) && <button type="button" className="secondary-button" disabled={detail?.loading} onClick={() => void onLoadDetails?.(attempt.id, detail?.loaded ?? 0)}>{detail?.loading ? t("activity.loading") : t("activity.load")}{count !== undefined ? ` (${loaded}/${count})` : ""}</button>}
         </div>;
       })}
+      {tail && owner.family.attempts.map(attempt => attempt.trace ? <Suspense key={`trace-${attempt.id}`} fallback={null}><WorkTrace run={attempt} /></Suspense> : null)}
   </>;
 }
 
