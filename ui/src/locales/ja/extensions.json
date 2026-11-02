@@ -97,6 +97,15 @@
       "description": "プレゼンテーションの閲覧と作成。",
       "note": "Google Slides MCP は Developer Preview です。slides.googleapis.com と slidesmcp.googleapis.com を有効にしてください。"
     },
+    "home_assistant": {
+      "description": "家の照明、空調、センサー、シーン。",
+      "note": "Home Assistant 公式の MCP Server 連携です。Assist に公開したエンティティにだけ届き、Bot が何かを変更する前には Tofi が確認します。",
+      "setup": {
+        "add_integration": "Home Assistant で「Model Context Protocol Server」連携を追加します（設定 > デバイスとサービス）。",
+        "create_token": "Home Assistant のプロフィール（セキュリティ）で長期アクセストークンを作成し、ここに貼り付けます。",
+        "address": "アドレスは編集できます。Tofi のサーバーから homeassistant.local を解決できない場合は、デバイスの IP アドレス（例: http://192.168.1.20:8123/api/mcp）を使ってください。"
+      }
+    },
     "linear": {
       "description": "プロジェクト、タスク、コメントの管理。",
       "note": "Linear の主なトランスポートは Streamable HTTP です。/mcp/readonly は読み取りツールのみ、/sse は非推奨の互換パスです。",
@@ -229,6 +238,21 @@
       "description": "コミュニティが保守する相場情報の検索。",
       "reason": "インストール可能な互換バージョンが未確認です。コミュニティ版はトークン不要です。"
     }
+  },
+  "lan": {
+    "mdns_unresolved": "Tofi のサーバーは .local の名前を解決できませんでした。mDNS の名前は、Tofi が動くコンテナ内では解決できないことがよくあります。代わりにデバイスの IP アドレス（例: http://192.168.1.20:8123/api/mcp）を使ってください。",
+    "host_not_found": "Tofi のサーバーがそのホスト名を見つけられませんでした。綴りを確認するか、デバイスの IP アドレスを使ってください。",
+    "connection_refused": "デバイスが接続を拒否しました。アドレスとポート（Home Assistant は 8123 で待ち受けます）、および起動していることを確認してください。",
+    "unreachable": "Tofi のサーバーからそのアドレスへの経路がありません。デバイスと同じネットワークで動くか、そのネットワークに到達できる必要があります。",
+    "timeout": "デバイスが時間内に応答しませんでした。アドレス、デバイスの電源、Tofi のサーバーからネットワークに届くかを確認してください。",
+    "unauthorized": "デバイスがアクセストークンを拒否しました。Home Assistant（プロフィール > セキュリティ）で長期アクセストークンを作り直し、もう一度入力してください。",
+    "forbidden": "デバイスはトークンを受け付けましたが、リクエストを拒否しました。MCP Server は管理者アカウントに限定されている場合があります。管理者のトークンを使ってください。",
+    "not_found": "デバイスは応答しましたが、このパスに MCP エンドポイントがありません。Home Assistant で Model Context Protocol Server 連携を追加し、アドレスが /api/mcp で終わっていることを確認してください。",
+    "token_label": "長期アクセストークン",
+    "token_hint": "Home Assistant のプロフィールの「セキュリティ」で作成します。",
+    "token_link": "セキュリティのページを開く",
+    "address_hint": "アドレスが違う場合は編集してください。homeassistant.local が使えない場合は、デバイスの IP アドレス（例: http://192.168.1.20:8123/api/mcp）を使います。.local の名前は Tofi が動くコンテナ内では解決できないことがよくあります。",
+    "add_test": "保存してテスト"
   },
   "local": {
     "custom": {

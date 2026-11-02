@@ -36,7 +36,7 @@ async function run() {
   for (const item of integrationCatalog) {
     assert.ok(!ids.has(item.id), `duplicate preset: ${item.id}`);
     ids.add(item.id);
-    assert.equal(new URL(item.url).protocol, "https:");
+    assert.equal(new URL(item.url).protocol, item.lan ? "http:" : "https:", "only a service on the person's own network may use plain http");
     assert.equal(new URL(item.docsURL).protocol, "https:");
     assert.ok(item.setup.length);
     assert.ok(!("token" in item) && !("headers" in item) && !("env" in item), "presets contain public configuration only");

@@ -314,6 +314,18 @@
       "kit": "official",
       "retrieved": "2026-10-27",
       "license": "Bright Data site icon published by the vendor at brightdata.com; used only to name the service."
+    },
+    {
+      "name": "homeassistant.svg",
+      "brand": "homeassistant",
+      "style": "monochrome",
+      "source": "https://cdn.jsdelivr.net/npm/simple-icons@16.36.0/icons/homeassistant.svg",
+      "sha256": "fed294bba289ad605cd4cab2df98dd239f52d40e5cb8e03c9487c649a6a62957",
+      "modified": false,
+      "runtime": "brand/services/homeassistant.svg",
+      "kit": "simple-icons",
+      "retrieved": "2026-11-01",
+      "license": "Simple Icons (CC0-1.0); Home Assistant is a trademark of Nabu Casa, Inc., mark used to name the service."
     }
   ],
   "brands": [

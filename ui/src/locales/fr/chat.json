@@ -517,6 +517,7 @@
       "github": "Tickets et code",
       "notion": "Pages et notes",
       "linear": "Tickets et projets",
+      "home_assistant": "Lumières, climat et capteurs de la maison",
       "robinhood": "Cours, positions ; ordres seulement dans ton compte Agentic",
       "context7": "Docs des bibliothèques",
       "microsoft_learn": "Docs Microsoft",
@@ -580,6 +581,7 @@
     "howto": {
       "github": "Crée sur GitHub un jeton d’accès personnel avec un accès en lecture aux dépôts que tu veux partager.",
       "linear": "Crée une clé d’API personnelle dans Linear et colle-la ici.",
+      "home_assistant": "Saisissez l’adresse de votre Home Assistant et un jeton d’accès longue durée (profil > Sécurité). Les Bots peuvent lire l’état des appareils ; les changements passent par une approbation.",
       "context7": "Crée une clé d’API gratuite dans le tableau de bord Context7 et colle-la ici.",
       "notion": "Une fenêtre de connexion s’ouvre. Choisis les pages à partager, puis reviens ici.",
       "robinhood": "Une fenêtre de connexion s’ouvre. Les Bots peuvent lire les cours et les positions, et ne négocient que dans ton compte Agentic.",

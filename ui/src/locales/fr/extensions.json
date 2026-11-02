@@ -97,6 +97,15 @@
       "description": "Lisez et créez des présentations.",
       "note": "Google Slides MCP est en Developer Preview. Activez slides.googleapis.com et slidesmcp.googleapis.com."
     },
+    "home_assistant": {
+      "description": "Lumières, climat, capteurs et scènes de votre maison.",
+      "note": "L’intégration MCP Server officielle de Home Assistant. Elle n’atteint que les entités que vous exposez à Assist, et Tofi demande toujours avant qu’un Bot ne change quoi que ce soit.",
+      "setup": {
+        "add_integration": "Dans Home Assistant, ajoutez l’intégration « Model Context Protocol Server » (Paramètres > Appareils et services).",
+        "create_token": "Créez un jeton d’accès longue durée dans votre profil Home Assistant (Sécurité) et collez-le ici.",
+        "address": "L’adresse est modifiable. Si le serveur de Tofi ne résout pas homeassistant.local, utilisez l’adresse IP de l’appareil, par exemple http://192.168.1.20:8123/api/mcp."
+      }
+    },
     "linear": {
       "description": "Gérez projets, tâches et commentaires.",
       "note": "Le transport principal de Linear est Streamable HTTP. /mcp/readonly ne propose que des outils de lecture ; /sse est un chemin de compatibilité obsolète.",
@@ -229,6 +238,21 @@
       "description": "Consultation de cours maintenue par la communauté.",
       "reason": "Aucune version compatible installable vérifiée pour l’instant. La solution communautaire ne nécessite pas de jeton."
     }
+  },
+  "lan": {
+    "mdns_unresolved": "Le serveur de Tofi n’a pas pu résoudre un nom en .local. Les noms mDNS ne se résolvent souvent pas dans le conteneur où Tofi s’exécute. Utilisez plutôt l’adresse IP de l’appareil, par exemple http://192.168.1.20:8123/api/mcp.",
+    "host_not_found": "Le serveur de Tofi n’a pas trouvé ce nom d’hôte. Vérifiez l’orthographe, ou utilisez l’adresse IP de l’appareil.",
+    "connection_refused": "L’appareil a refusé la connexion. Vérifiez l’adresse et le port (Home Assistant écoute sur 8123) et qu’il fonctionne.",
+    "unreachable": "Le serveur de Tofi n’a aucune route vers cette adresse. Il doit s’exécuter sur le même réseau que l’appareil, ou pouvoir l’atteindre.",
+    "timeout": "L’appareil n’a pas répondu à temps. Vérifiez l’adresse, que l’appareil est allumé et que le serveur de Tofi atteint votre réseau.",
+    "unauthorized": "L’appareil a refusé le jeton d’accès. Créez un nouveau jeton d’accès longue durée dans Home Assistant (profil > Sécurité) et saisissez-le de nouveau.",
+    "forbidden": "L’appareil a accepté le jeton mais refusé la requête. Le serveur MCP est peut-être réservé aux comptes administrateurs : utilisez le jeton d’un administrateur.",
+    "not_found": "L’appareil a répondu, mais il n’y a pas de point d’accès MCP à ce chemin. Dans Home Assistant, ajoutez l’intégration Model Context Protocol Server et vérifiez que l’adresse se termine par /api/mcp.",
+    "token_label": "Jeton d’accès longue durée",
+    "token_hint": "Créez-le dans votre profil Home Assistant, sous Sécurité.",
+    "token_link": "Ouvrir la page Sécurité",
+    "address_hint": "Modifiez l’adresse si la vôtre diffère. Si homeassistant.local ne fonctionne pas, utilisez l’adresse IP de l’appareil, par exemple http://192.168.1.20:8123/api/mcp : les noms en .local ne se résolvent souvent pas dans le conteneur où Tofi s’exécute.",
+    "add_test": "Enregistrer et tester"
   },
   "local": {
     "custom": {

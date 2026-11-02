@@ -505,6 +505,7 @@
       "github": "Issues und Code",
       "notion": "Seiten und Notizen",
       "linear": "Issues und Projekte",
+      "home_assistant": "Licht, Klima und Sensoren im Zuhause",
       "robinhood": "Kurse, Positionen; Trades nur in deinem Agentic-Konto",
       "context7": "Bibliotheks-Doku",
       "microsoft_learn": "Microsoft-Doku",
@@ -567,6 +568,7 @@
     "howto": {
       "github": "Erstelle auf GitHub ein persönliches Zugriffstoken mit Lesezugriff auf die Repositories, die du freigeben willst.",
       "linear": "Erstelle in Linear einen persönlichen API-Schlüssel und füge ihn hier ein.",
+      "home_assistant": "Gib deine Home-Assistant-Adresse und ein langlebiges Zugriffstoken ein (Profil > Sicherheit). Bots können Gerätezustände lesen; Änderungen laufen über eine Freigabe.",
       "context7": "Erstelle im Context7-Dashboard einen kostenlosen API-Schlüssel und füge ihn hier ein.",
       "notion": "Ein Anmeldefenster öffnet sich. Wähle die Seiten zum Teilen aus und komm dann hierher zurück.",
       "robinhood": "Ein Anmeldefenster öffnet sich. Bots können Kurse und Positionen lesen und nur in deinem Agentic-Konto handeln.",

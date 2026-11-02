@@ -9,6 +9,7 @@ import { googleAPIEnableURL, googleAudienceURL, getIntegrationPreset, type Integ
 import { PasteBackDialog } from "./connections/PasteBackDialog";
 import { mcpOAuthRoute, type OAuthOptions } from "./mcpOAuthRoute";
 import { mcpTokenHeaders } from "./mcpTokenHeaders";
+import { diagnosticText } from "./connections/shared";
 import { useTranslation } from "./i18n";
 import { VMOAuthDialog, type VMOAuthSession } from "./VMOAuthDialog";
 
@@ -20,6 +21,7 @@ export const onboardingTiles = [
   { id: "github", badge: "token" },
   { id: "notion", badge: "sign_in" },
   { id: "linear", badge: "token" },
+  { id: "home-assistant", badge: "token" },
   { id: "robinhood", badge: "official" },
   { id: "context7", badge: "token" },
   { id: "microsoft-learn", badge: "none" },
@@ -27,7 +29,7 @@ export const onboardingTiles = [
 type TileId = (typeof onboardingTiles)[number]["id"];
 const purposeKeys = {
   github: "onboarding.purpose.github", notion: "onboarding.purpose.notion", linear: "onboarding.purpose.linear", robinhood: "onboarding.purpose.robinhood",
-  context7: "onboarding.purpose.context7", "microsoft-learn": "onboarding.purpose.microsoft_learn",
+  "home-assistant": "onboarding.purpose.home_assistant", context7: "onboarding.purpose.context7", "microsoft-learn": "onboarding.purpose.microsoft_learn",
 } as const satisfies Record<TileId, string>;
 const badgeKeys = { sign_in: "onboarding.badge.sign_in", official: "onboarding.badge.official", token: "onboarding.badge.token", none: "onboarding.badge.none", setup: "onboarding.badge.setup" } as const satisfies Record<Badge, string>;
 
@@ -37,10 +39,13 @@ const tokenPages: Record<string, string> = {
   linear: "https://linear.app/settings/account/security",
   context7: "https://context7.com/dashboard",
 };
-const howtoKeys: Record<string, "onboarding.howto.github" | "onboarding.howto.linear" | "onboarding.howto.context7" | "onboarding.howto.notion" | "onboarding.howto.robinhood" | "onboarding.howto.microsoft_learn"> = {
+const howtoKeys: Record<string, "onboarding.howto.github" | "onboarding.howto.linear" | "onboarding.howto.context7" | "onboarding.howto.notion" | "onboarding.howto.robinhood" | "onboarding.howto.microsoft_learn" | "onboarding.howto.home_assistant"> = {
   github: "onboarding.howto.github", linear: "onboarding.howto.linear", context7: "onboarding.howto.context7",
-  notion: "onboarding.howto.notion", robinhood: "onboarding.howto.robinhood", "microsoft-learn": "onboarding.howto.microsoft_learn",
+  notion: "onboarding.howto.notion", robinhood: "onboarding.howto.robinhood", "home-assistant": "onboarding.howto.home_assistant", "microsoft-learn": "onboarding.howto.microsoft_learn",
 };
+
+/** Where a Home Assistant person creates a long-lived access token, built from the address they typed. */
+const lanProfilePage = (address: string) => { try { return `${new URL(address).origin}/profile/security`; } catch { return undefined; } };
 
 const endpoint = (name: string) => `/api/extensions/mcp/${encodeURIComponent(name)}`;
 const post = (body: unknown) => ({ method: "POST", body: JSON.stringify(body) });
@@ -69,7 +74,7 @@ export function OnboardingServices({ titleId, botId, onQueue, onFinish }: { titl
   }, [queue, index, summary, onQueue]);
   const added = (id: string) => {
     const preset = getIntegrationPreset(id);
-    const server = preset && servers?.find(item => item.url === preset.url);
+    const server = preset && servers?.find(item => item.url === preset.url || (preset.lan && item.name === preset.id));
     return Boolean(server && (!server.oauth || server.oauth.connected));
   };
 
@@ -117,7 +122,7 @@ export function OnboardingServices({ titleId, botId, onQueue, onFinish }: { titl
         </ol>
       </>
     );
-    return <ServiceConnect key={preset.id} lead={lead} preset={preset} last={last} existing={servers?.find(item => item.url === preset.url)} botId={botId} refreshServers={refresh} onResult={next} />;
+    return <ServiceConnect key={preset.id} lead={lead} preset={preset} last={last} existing={servers?.find(item => item.url === preset.url || (preset.lan && item.name === preset.id))} botId={botId} refreshServers={refresh} onResult={next} />;
   }
 
   const toggle = (id: string) => setSelected(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id]);
@@ -168,6 +173,7 @@ function ServiceConnect({ lead, preset, last, existing, botId, refreshServers, o
   const { t } = useTranslation(["chat", "extensions"]);
   const [phase, setPhase] = useState<Phase>("connect");
   const [token, setToken] = useState("");
+  const [address, setAddress] = useState(existing?.url ?? preset.url);
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
   const [tools, setTools] = useState(0);
@@ -188,16 +194,18 @@ function ServiceConnect({ lead, preset, last, existing, botId, refreshServers, o
   async function save(id: number) {
     const headers = preset.auth === "token" ? mcpTokenHeaders("{}", token, preset) : {};
     const oauth = preset.auth === "oauth" ? { oauth: { client_id: preset.dcr ? "" : clientId.trim(), client_secret: preset.dcr ? "" : clientSecret.trim(), scopes: preset.scopes ?? [], auth_server_metadata_url: preset.metadataURL ?? "", ...(preset.oauthRedirect ? { redirect_policy: preset.oauthRedirect } : {}) } } : {};
-    await request("/api/extensions/mcp", { method: existing ? "PUT" : "POST", body: JSON.stringify({ name, url: preset.url, transport: "streamable_http", headers, tool_allowlist: [], tool_denylist: [], ...oauth }) });
+    await request("/api/extensions/mcp", { method: existing ? "PUT" : "POST", body: JSON.stringify({ name, url: preset.lan ? address.trim() : preset.url, transport: "streamable_http", headers, tool_allowlist: [], tool_denylist: [], ...oauth }) });
     if (op.current !== id) throw new Error("cancelled");
+    // A retry after a failed check edits this connection instead of adding it again.
+    if (preset.lan) await refreshServers();
   }
   async function test(id: number) {
     setPhase("testing"); setError("");
     try {
-      const result = await request<{ ok: boolean; tool_count?: number; auth_required?: boolean; diagnostics?: { message: string }[] }>(endpoint(name) + "/test", post({}));
+      const result = await request<{ ok: boolean; tool_count?: number; auth_required?: boolean; diagnostics?: { message: string; code?: string }[] }>(endpoint(name) + "/test", post({}));
       if (!alive.current || op.current !== id) return;
       if (result.ok) { setTools(result.tool_count ?? 0); setPhase("done"); void refreshServers(); }
-      else { setPhase("error"); setError(result.auth_required ? t("onboarding.connect_not_signed_in", { name: preset.name }) : result.diagnostics?.map(item => item.message).join("; ") || t("onboarding.connect_failed", { name: preset.name })); }
+      else { setPhase("error"); setError(result.auth_required ? t("onboarding.connect_not_signed_in", { name: preset.name }) : result.diagnostics?.map(diagnosticText).join("; ") || t("onboarding.connect_failed", { name: preset.name })); }
     } catch (cause) { fail(cause, id); }
   }
   async function authorize(id: number) {
@@ -257,9 +265,9 @@ function ServiceConnect({ lead, preset, last, existing, botId, refreshServers, o
   const busy = phase === "authorizing" || phase === "testing";
   const needsToken = preset.auth === "token";
   const needsClient = google;
-  const canConnect = !busy && (!needsToken || token.trim()) && (!needsClient || (clientId.trim() && clientSecret.trim()));
+  const canConnect = !busy && (!preset.lan || address.trim()) && (!needsToken || token.trim()) && (!needsClient || (clientId.trim() && clientSecret.trim()));
   const mainLabel = preset.auth === "oauth" ? t("onboarding.sign_in_with", { name: preset.name }) : preset.auth === "none" ? t("onboarding.connect_plain") : t("onboarding.connect_test");
-  const tokenPage = tokenPages[preset.id];
+  const tokenPage = preset.lan ? lanProfilePage(address) : tokenPages[preset.id];
   const howto = howtoKeys[preset.id];
   const primaryLabel = phase === "authorizing" ? t("onboarding.waiting") : phase === "testing" ? t("onboarding.checking") : phase === "error" ? t("onboarding.try_again") : mainLabel;
   return (
@@ -276,7 +284,8 @@ function ServiceConnect({ lead, preset, last, existing, botId, refreshServers, o
           {howto && <p className="onb-small onb-howto">{t(howto)}{tokenPage && <> <a className="onb-link" href={tokenPage} target="_blank" rel="noopener noreferrer">{t("onboarding.where_token")}</a></>}</p>}
           {google && <p className="onb-small">{t("onboarding.google_setup")} <a className="onb-link" href={googleAPIEnableURL(preset.googleAPIs!.api)} target="_blank" rel="noopener noreferrer">{t("extensions:google.enable_api")}</a> · <a className="onb-link" href={googleAPIEnableURL(preset.googleAPIs!.mcp)} target="_blank" rel="noopener noreferrer">{t("extensions:google.enable_mcp")}</a> · <a className="onb-link" href={googleAudienceURL} target="_blank" rel="noopener noreferrer">{t("extensions:google.test_users")}</a></p>}
           {needsClient && <><label>{t("extensions:form.client_id")}<input value={clientId} autoComplete="off" disabled={busy} onChange={event => setClientId(event.target.value)} /></label><label>{t("extensions:form.client_secret")}<input type="password" value={clientSecret} autoComplete="off" disabled={busy} onChange={event => setClientSecret(event.target.value)} /></label>{options?.web_callback_origin && <p className="onb-small">{t("extensions:callback.web")}: <code>{`${options.web_callback_origin}${endpoint(name)}/oauth/callback`}</code></p>}</>}
-          {needsToken && <label>{t("onboarding.token_label", { name: preset.name })}<input type="password" value={token} autoComplete="off" spellCheck={false} placeholder={t("extensions:form.token_paste")} disabled={busy} data-autofocus onChange={event => setToken(event.target.value)} /></label>}
+          {preset.lan && <><label>{t("extensions:form.url")}<input type="url" inputMode="url" value={address} autoComplete="off" spellCheck={false} disabled={busy} data-autofocus onChange={event => setAddress(event.target.value)} /></label><p className="onb-small">{t("extensions:lan.address_hint")}</p></>}
+          {needsToken && <label>{t("onboarding.token_label", { name: preset.name })}<input type="password" value={token} autoComplete="off" spellCheck={false} placeholder={t("extensions:form.token_paste")} disabled={busy} data-autofocus={!preset.lan || undefined} onChange={event => setToken(event.target.value)} /></label>}
           {busy && <p className="onb-waiting" role="status"><i aria-hidden="true" />{phase === "authorizing" ? t("onboarding.service_waiting", { name: preset.name }) : t("onboarding.service_checking", { name: preset.name })}</p>}
           {phase === "error" && error && <p className="onb-error" role="alert"><TofiIcon name="error" size={15} /> {error}</p>}
           {preset.setup.length > 0 && <div className="onb-details"><Disclosure title={t("onboarding.details")}><ul className="onb-service-notes">{preset.setup.slice(0, 3).map(line => <li key={line}><TofiIcon name="check" size={14} /> {line}</li>)}</ul></Disclosure></div>}

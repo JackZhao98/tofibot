@@ -493,6 +493,7 @@
       "github": "Issue 和代码",
       "notion": "页面和笔记",
       "linear": "Issue 和项目",
+      "home_assistant": "家中的灯光、空调和传感器",
       "robinhood": "行情和持仓；只在你的 Agentic 账户里交易",
       "context7": "代码库文档",
       "microsoft_learn": "微软官方文档",
@@ -554,6 +555,7 @@
     "howto": {
       "github": "在 GitHub 上创建一个个人访问令牌，授予你想让 Bot 读取的仓库的读取权限。",
       "linear": "在 Linear 里创建一个个人 API 密钥，然后粘贴到这里。",
+      "home_assistant": "填入你的 Home Assistant 地址和长期访问令牌（个人资料 > 安全）。Bot 可以读取设备状态；改动需要经过审批。",
       "context7": "在 Context7 控制台创建一个免费的 API 密钥，然后粘贴到这里。",
       "notion": "会打开一个登录窗口。选择要共享的页面，然后回到这里。",
       "robinhood": "会打开一个登录窗口。Bot 可以读取行情和持仓，只能在你的 Agentic 账户里交易。",

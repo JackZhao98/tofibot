@@ -26,7 +26,7 @@ import { displayName, presetFor } from "./connections/names";
 import { OPEN_CONNECTION_EVENT, takeConnectionTarget } from "./settings/deepLinks";
 import { connectionKind, primaryAction, type Phase } from "./connections/status";
 import { GOOGLE_SERVICE_NAME, googleServiceForAPI, googleServicesLabel, isConsoleURL, useGoogleOverview, type GoogleOverview } from "./connections/google";
-import { endpoint, localPluginId, message, normalizeTiers, post, toolsEndpoint, type MCP, type TestResult, type ToolTierList } from "./connections/shared";
+import { endpoint, localPluginId, message, normalizeTiers, post, toolsEndpoint, type MCP, type TestResult, type ToolTierList, diagnosticText } from "./connections/shared";
 import "./connections/connections.css";
 
 export type { ToolTier, ToolTierView, ToolTierList } from "./connections/shared";
@@ -172,7 +172,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
   const route = loopbackOnly ? mcpOAuthRoute(window.location.protocol, isDesktop, Boolean(window.tofiDesktop?.authorizeMCP), options, true) : pageRoute;
   const [phase, setPhase] = useState<Phase>(server.oauth && !server.oauth.connected ? "auth" : known ? (known.ok ? "ready" : known.error_class === "auth" ? "auth" : "error") : "idle");
   const [checkedAt, setCheckedAt] = useState<string | undefined>(known?.checked_at);
-  const [error, setError] = useState(known && !known.ok && known.error_class !== "auth" ? known.error_code === "api_disabled" ? "" : i18n.t("extensions:error.tools_failed") : "");
+  const [error, setError] = useState(known && !known.ok && known.error_class !== "auth" ? known.error_code === "api_disabled" ? "" : known.error_code?.startsWith("lan_") ? diagnosticText({ message: "", code: known.error_code }) : i18n.t("extensions:error.tools_failed") : "");
   const [authURL, setAuthURL] = useState("");
   // Google said the API is not enabled in the project: which API, and the console page that enables it.
   const [apiIssue, setApiIssue] = useState<{ api: string; url: string } | null>(known?.error_code === "api_disabled" && isConsoleURL(known.enable_url) ? { api: known.api ?? "", url: known.enable_url } : null);
@@ -217,7 +217,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
       else {
         const disabled = result.diagnostics?.find(item => item.code === "api_disabled" && isConsoleURL(item.enable_url));
         setApiIssue(disabled ? { api: disabled.api ?? "", url: disabled.enable_url! } : null);
-        setPhase("error"); setError(disabled ? "" : result.diagnostics?.map(item => message(item.message)).join(t("diagnostics_separator")) || t("error.tools_failed"));
+        setPhase("error"); setError(disabled ? "" : result.diagnostics?.map(diagnosticText).join(t("diagnostics_separator")) || t("error.tools_failed"));
       }
     } catch (e) { if (alive.current && operation.current === id) { setPhase("error"); setError(message(e)); } }
     // The server stored this check's outcome: the list (and the rail badge) read it back.
@@ -251,7 +251,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
       else {
         const disabled = r.diagnostics?.find(item => item.code === "api_disabled" && isConsoleURL(item.enable_url));
         if (disabled) setApiIssue({ api: disabled.api ?? "", url: disabled.enable_url! });
-        setPhase(p => p === "idle" || p === "ready" || p === "error" ? "error" : p); setError(disabled ? "" : r.diagnostics?.map(item => message(item.message)).join(t("diagnostics_separator")) || t("error.tools_failed"));
+        setPhase(p => p === "idle" || p === "ready" || p === "error" ? "error" : p); setError(disabled ? "" : r.diagnostics?.map(diagnosticText).join(t("diagnostics_separator")) || t("error.tools_failed"));
       }
     })();
     return () => { live = false; window.clearTimeout(timer); controller.abort(); };
@@ -386,7 +386,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
       const value = normalizeTiers(await request<ToolTierList>(toolsEndpoint(server.name) + "/refresh", post({})));
       if (!alive.current) return;
       setTiers(value);
-      if (value.error_class) setToolsError(value.diagnostics?.map(item => message(item.message)).join(t("diagnostics_separator")) || t("tools.error.refresh_failed"));
+      if (value.error_class) setToolsError(value.diagnostics?.map(diagnosticText).join(t("diagnostics_separator")) || t("tools.error.refresh_failed"));
     } catch (e) { if (alive.current) setToolsError(message(e)); }
     finally { if (alive.current) setRefreshing(false); }
   }

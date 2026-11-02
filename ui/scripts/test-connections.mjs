@@ -75,7 +75,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const path = url.pathname;
     // One-click connections: the POST is remembered so the next list shows the saved server (state lives in this test only).
     if (path === "/api/extensions/mcp" && method === "POST" && q.get("onecl")) { savedServers.push(JSON.parse(postData || "{}")); return {ok: true, next_run: true}; }
-    if (path === "/api/extensions/mcp" && method === "GET" && q.get("onecl") && savedServers.length) return {servers: savedServers.map(item => ({...item, oauth: {...item.oauth, connected: false}}))};
+    if (path === "/api/extensions/mcp" && method === "GET" && q.get("onecl") && savedServers.length) return {servers: savedServers.map(item => item.oauth ? {...item, oauth: {...item.oauth, connected: false}} : item)};
     if (path === "/api/server-info") return {service: "tofi", protocol_version: 1, instance_id: "0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d", auth: {mode: "owner"}};
     if (path === "/api/auth/session") return {enabled: true, setup_required: false, authenticated: true, password_transport_allowed: true, multi_account: false, owner: {id: "acct_sample", username: "Ada Sample", email: "ada@example.test", role: "owner"}};
     if (path === "/api/bots") return {bots: [{id: "bot_research", name: "Research Bot", archived: false}]};
@@ -95,6 +95,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (/^\/api\/extensions\/mcp\/[^/]+\/test$/.test(path) && method === "POST") {
       const name = path.split("/")[4];
       if (q.get("apidisabled") && name === "google-gmail") return {ok: false, tool_count: 0, diagnostics: [{message: "Google 返回 API 未启用。", code: "api_disabled", api: "gmail.googleapis.com", enable_url: ENABLE}]};
+      // Home Assistant on the LAN: the server names why in a code; the page shows it in the person's language.
+      if (name === "home-assistant" && q.get("ha")) return {ok: false, tool_count: 0, diagnostics: [{code: q.get("ha"), message: "English sentence that the page does not show"}]};
+      if (name === "home-assistant") return {ok: true, tool_count: 4};
       if (q.get("fail") === name) return {ok: false, tool_count: 0, diagnostics: [{message: "Google 返回 API 未启用。请在 OAuth Client 所属的同一个项目中启用产品 API 和 MCP 服务，再刷新工具。", code: "api_disabled"}]};
       // A Google account that is gone or expired is never probed; the probe would fail (502) and read as a broken connection.
       if (name === "local_gog" && q.get("gog") !== "authorised") return {__status: 502, error: {code: "runner", message: "Request failed (502)"}};
@@ -910,6 +913,51 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       assert.deepEqual(token.posts.filter(post => post.path === "/api/extensions/mcp"), [], "no connection was saved: this page cannot sign in, so the form explains why");
       await token.close();
       console.log("PASS one click: Notion saves its defaults and starts sign-in, Robinhood opens its tab in the click then the paste-back dialog; token and blocked-route services keep the form");
+    }
+
+    // ---- 7g. Home Assistant (MCP): a LAN service. Editable prefilled address, long-lived token, official mark, Save and test; a failed test names the LAN reason.
+    {
+      savedServers.length = 0;
+      const ha = await open({fresh: "1", onecl: "1", ha: "lan_mdns_unresolved"});
+      await ha.page.getByRole("button", {name: "Add connection"}).click();
+      const dialog = ha.page.locator('[role="dialog"].connect-dialog');
+      await dialog.waitFor();
+      const tile = dialog.locator('[data-integration-id="home-assistant"]');
+      assert.equal(await tile.locator('img[src="/brand/services/homeassistant.svg"]').count(), 1, "the directory tile wears the official Home Assistant mark");
+      await tile.click();
+      assert.equal(await dialog.locator("form").count(), 1, "a LAN service opens its form: there is no one click without an address and a token");
+      const address = dialog.locator('input[type="url"]').first();
+      assert.equal(await address.inputValue(), "http://homeassistant.local:8123/api/mcp", "the usual address is prefilled");
+      assert.match(await dialog.innerText(), /\.local names often do not resolve inside the container/, "the form says what to do when .local does not resolve");
+      assert.match(await dialog.innerText(), /Long-lived access token/);
+      assert.equal(await dialog.locator('input[type="password"]').count(), 1);
+      await address.fill("http://192.168.1.20:8123/api/mcp");
+      await dialog.locator('input[type="password"]').fill("synthetic-ha-token");
+      assert.equal(await dialog.locator('a[href="http://192.168.1.20:8123/profile/security"]').count(), 1, "the token link follows the address typed");
+      await dialog.getByRole("button", {name: "Save and test"}).click();
+      await ha.page.locator('.mcp-service[aria-label="Home Assistant (MCP)"]').waitFor({timeout: 8000});
+      const saved = ha.posts.find(post => post.path === "/api/extensions/mcp");
+      assert.ok(saved, "saved");
+      const body = JSON.parse(saved.body);
+      assert.equal(body.name, "home-assistant");
+      assert.equal(body.url, "http://192.168.1.20:8123/api/mcp", "the edited address is what is saved");
+      assert.equal(body.headers.Authorization, "Bearer synthetic-ha-token", "the long-lived token travels as a Bearer header like any key");
+      assert.equal(body.oauth, undefined, "no OAuth: Home Assistant's sign-in needs an address its host can fetch");
+      await ha.page.getByText(/mDNS names often do not resolve inside the container/).first().waitFor({timeout: 8000});
+      await ha.close();
+      // Every LAN reason has a sentence in every language (no raw key, no server English).
+      for (const lang of ["zh-CN", "ja", "de"]) for (const code of ["lan_connection_refused", "lan_unauthorized", "lan_not_found", "lan_timeout"]) {
+        savedServers.length = 0;
+        const other = await open({fresh: "1", onecl: "1", ha: code, lang});
+        savedServers.push({name: "home-assistant", url: "http://192.168.1.20:8123/api/mcp", transport: "streamable_http", headers: {Authorization: "••••••••"}, tool_allowlist: [], tool_denylist: []});
+        await other.page.reload();
+        await other.page.locator(".mcp-service").first().waitFor({timeout: 8000});
+        await other.page.waitForTimeout(500);
+        const text = await other.page.locator(".mcp-settings").innerText();
+        assert.doesNotMatch(text, /does not show|\blan\.[a-z_]+\b/, `${lang} ${code}: neither the server's English nor a raw key`);
+        await other.close();
+      }
+      console.log("PASS home assistant: official mark, prefilled editable address with the .local caveat, Bearer token (no OAuth), Save and test, LAN reasons in the page language");
     }
 
     // ---- 8. Phone width: no horizontal overflow, 44 px targets for the controls that matter.

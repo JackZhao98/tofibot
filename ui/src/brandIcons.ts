@@ -34,6 +34,7 @@ export const brandIcons: BrandIcon[] = [
   { key: "notion", ids: ["notion", "notion-token"], match: /\bNotion\b/i, src: dir + "notion.svg", label: "Notion" },
   { key: "linear", ids: ["linear", "linear-readonly"], match: /\bLinear\b/i, src: dir + "linear.svg", label: "Linear" },
   { key: "robinhood", ids: ["robinhood"], match: /\bRobinhood\b/i, src: dir + "robinhood.svg", tile: "dark", label: "Robinhood" },
+  { key: "homeassistant", ids: ["home-assistant"], match: /\bHome Assistant\b/i, src: dir + "homeassistant.svg", label: "Home Assistant" },
   { key: "context7", ids: ["context7"], match: /\bContext7\b/i, src: dir + "context7.svg", label: "Context7" },
   { key: "microsoft-learn", ids: ["microsoft-learn"], match: /\bMicrosoft\b/i, src: dir + "microsoft-learn.svg", label: "Microsoft Learn" },
   { key: "discord", ids: ["discord"], match: /\bDiscord\b/i, src: dir + "discord-color.svg", label: "Discord" },
