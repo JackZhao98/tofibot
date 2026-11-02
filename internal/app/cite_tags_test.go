@@ -48,3 +48,13 @@ func TestCiteTagsNeverReachStoredText(t *testing.T) {
 		t.Fatalf("stored answer = %+v ok=%v", rec, ok)
 	}
 }
+
+// Citation spans in the model's private-use format never reach stored text.
+func TestStoredTextHasNoPrivateUseCitationSpans(t *testing.T) {
+	in := "Open daily. citeturn784583view0turn269275view0 Go early."
+	for _, got := range []string{stripCiteTags(in), stripProgressTags(in)} {
+		if got != "Open daily. Go early." {
+			t.Fatalf("got %q", got)
+		}
+	}
+}

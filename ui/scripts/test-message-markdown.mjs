@@ -27,6 +27,11 @@ try {
     ]) assert.equal(render(input), `<p>${expected}</p>`, input);
   });
 
+  check("stored citation spans are hidden", () => {
+    assert.equal(render("Open daily. \uE200cite\uE202turn784583view0\uE202turn269275view0\uE201 Go early."), "<p>Open daily. Go early.</p>");
+    assert.equal(render("Half \uE200cite\uE202turn7"), "<p>Half</p>");
+  });
+
   check("ordinary emphasis, lists, and GFM strikethrough", () => {
     assert.equal(render("**bold** and *italic* and ~~removed~~"), "<p><strong>bold</strong> and <em>italic</em> and <del>removed</del></p>");
     assert.equal(render("- **说明：**Example\n- second"), "<ul>\n<li><strong>说明：</strong>Example</li>\n<li>second</li>\n</ul>");

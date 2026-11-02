@@ -585,7 +585,7 @@ func (o *openaiResponses) parseResponse(body string) (*ChatResponse, error) {
 		case "message":
 			for _, c := range item.Content {
 				if c.Type == "output_text" {
-					result.Content += c.Text
+					result.Content += StripMarkers(c.Text)
 				}
 			}
 		case "function_call":
@@ -687,6 +687,7 @@ func (o *openaiResponses) parseStream(body io.Reader, onDelta func(StreamDelta))
 	result := &ChatResponse{}
 	var contentBuf strings.Builder
 	var reasoningBuf strings.Builder
+	var markers MarkerFilter
 
 	calls := &streamCalls{byItem: map[string]*streamCall{}, byIndex: map[int]*streamCall{}}
 	// setFinal records authoritative arguments and forwards any part that was
@@ -741,9 +742,11 @@ func (o *openaiResponses) parseStream(body io.Reader, onDelta func(StreamDelta))
 				Delta string `json:"delta"`
 			}
 			if json.Unmarshal([]byte(data), &ev) == nil && ev.Delta != "" {
-				contentBuf.WriteString(ev.Delta)
-				if onDelta != nil {
-					onDelta(StreamDelta{Content: ev.Delta})
+				if visible := markers.Feed(ev.Delta); visible != "" {
+					contentBuf.WriteString(visible)
+					if onDelta != nil {
+						onDelta(StreamDelta{Content: visible})
+					}
 				}
 			}
 
@@ -948,6 +951,7 @@ func (o *openaiResponses) parseStream(body io.Reader, onDelta func(StreamDelta))
 		return nil, ErrStreamIncomplete
 	}
 
+	markers.Flush()
 	result.Content = contentBuf.String()
 	result.Reasoning = reasoningBuf.String()
 	web.finish(result)
