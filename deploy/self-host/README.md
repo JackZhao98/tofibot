@@ -236,8 +236,7 @@ virtualization: Google Cloud
 ([docs](https://cloud.google.com/compute/docs/instances/nested-virtualization/overview))
 and Azure on some sizes
 ([announcement](https://azure.microsoft.com/en-us/blog/nested-virtualization-in-azure/)).
-Hetzner is marked "check your plan" because sources disagree. Linode does not
-support it ([Linode community answer](https://www.linode.com/community/questions/19459)).
+Hetzner is marked "check your plan" because sources disagree.
 Without a Bot computer, the server and web app work on any supported host.
 
 ### Behind another reverse proxy
