@@ -20,6 +20,7 @@ func setAuto(t *testing.T, s *Server, key, value string) {
 
 func captures(t *testing.T, s *Server, run Run) []RunCapture {
 	t.Helper()
+	s.traceWG.Wait()
 	rows, err := s.store.runCaptures(run.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -174,9 +175,9 @@ func TestPrivateOriginsAndVaultBoundOriginsAreNeverKept(t *testing.T) {
 		{"https://pay.example/x", false},
 		{"https://news.example/a", false},
 	} {
-		c.snapshotURL = ""
+		// The page is resolved at capture time, from the guest's own answer.
+		c.snapshotURL = tc.url
 		before := len(captures(t, s, run))
-		s.noteTracePage(run.ID, tc.url)
 		runTool(t, s, run, "computer_desktop", `{"action":"desktop.capture"}`)
 		rows := captures(t, s, run)
 		got := rows[before]
@@ -191,7 +192,7 @@ func TestPrivateOriginsAndVaultBoundOriginsAreNeverKept(t *testing.T) {
 	s.secretVault, _ = initializeSecretVault(t.TempDir())
 	s.secretVault.records["ref1"] = secretRecord{ID: "ref1", Kind: "browser_form", Target: "https://login.shop.example", Status: "ready"}
 	before := len(captures(t, s, run))
-	s.noteTracePage(run.ID, "https://login.shop.example/signin?next=/")
+	c.snapshotURL = "https://login.shop.example/signin?next=/"
 	runTool(t, s, run, "computer_desktop", `{"action":"desktop.capture"}`)
 	if got := captures(t, s, run)[before]; !got.Redacted || got.AttachmentID != "" {
 		t.Fatalf("vault origin kept: %+v", got)
@@ -314,6 +315,7 @@ func TestCaptureRoutesListAndDeleteATrace(t *testing.T) {
 	if picture.Code != 200 || picture.Header().Get("Content-Type") != "image/jpeg" {
 		t.Fatalf("picture: %d %s", picture.Code, picture.Header().Get("Content-Type"))
 	}
+	endRun(t, s, run) // a run that is still going keeps its numbering (trace_delete_test.go)
 	del := httptest.NewRecorder()
 	s.Handler().ServeHTTP(del, httptest.NewRequest(http.MethodDelete, "http://tofi.local/api/runs/"+run.ID+"/captures", nil))
 	if del.Code != 200 {

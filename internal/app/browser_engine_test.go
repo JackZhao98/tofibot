@@ -252,6 +252,7 @@ func TestBrowserEngineRelaysRefsAsTargets(t *testing.T) {
 		t.Fatalf("result lacks the snapshot: %q", out)
 	}
 	// The work trace may add its own screenshot after the call: look at the engine call.
+	s.traceWG.Wait()
 	var a computer.Action
 	for _, x := range rec.actions {
 		if x.Name == "browser.mcp" {
@@ -286,6 +287,7 @@ func TestBrowserEngineRejectsBadArguments(t *testing.T) {
 		"browser_snapshot":    `{"filename":"/etc/passwd"}`,
 		"browser_file_upload": `{"paths":[]}`,
 	} {
+		s.traceWG.Wait()
 		before := len(rec.actions)
 		_, err := tools[name].Execute(context.Background(), json.RawMessage(raw))
 		if err == nil {
@@ -320,11 +322,13 @@ func TestBrowserEngineActionsGoThroughActionReview(t *testing.T) {
 	if _, err := tools["browser_click"].Execute(ctx, json.RawMessage(`{"ref":"e7","element":"Next","effect":"none"}`)); err != nil || stub.calls.Load() != 0 {
 		t.Fatalf("a no-effect click must not be reviewed: %v calls=%d", err, stub.calls.Load())
 	}
+	s.traceWG.Wait()
 	sent := len(rec.actions)
 	_, err := tools["browser_click"].Execute(ctx, json.RawMessage(`{"ref":"e7","element":"Pay button","effect":"purchase"}`))
 	if o, ok := tooloutcome.FromError(err); !ok || o.Code != "user_confirmation_required" {
 		t.Fatalf("a refused review must ask the user: %v", err)
 	}
+	s.traceWG.Wait()
 	if len(rec.actions) != sent {
 		t.Fatal("a click the reviewer refused reached the computer")
 	}

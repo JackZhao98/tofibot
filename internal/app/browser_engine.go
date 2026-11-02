@@ -339,8 +339,7 @@ func (s *Server) browserEngineTools(r Run, prepare func(context.Context), classi
 				}
 				page.learn(out)
 				s.noteEngineTrace(r.ID, sp.Name, args, page)
-				pageURL, _ := page.get()
-				s.engineTraceCapture(ctx, r, sp.Name, args, pageURL)
+				s.engineTraceCapture(ctx, r, sp.Name, args)
 				if sp.Name == "browser_snapshot" || sp.Name == "browser_navigate" {
 					s.markDesktopObserved(r)
 				}

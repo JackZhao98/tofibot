@@ -484,6 +484,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 				if viewed.Add(1) > viewsPerRunMax {
 					return "", tooloutcome.InvalidArguments(fmt.Sprintf("desktop.trace is limited to %d images per run with files.view; judge from the views you already have", viewsPerRunMax))
 				}
+				s.waitTraceCaptures(r.ID)
 				return s.traceForModel(ctx, r, args)
 			}
 			if action == "files.view" {

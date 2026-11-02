@@ -16,6 +16,10 @@ import (
 type shotRecorder struct {
 	*pwRecorder
 	failShot bool
+	// shotURL is the page the screenshot answer names.
+	shotURL string
+	// gate, when set, holds every screenshot answer until it is closed.
+	gate chan struct{}
 }
 
 func (c *shotRecorder) Action(ctx context.Context, a computer.Action) (computer.ActionResult, error) {
@@ -27,10 +31,13 @@ func (c *shotRecorder) ActionWithin(ctx context.Context, a computer.Action, d ti
 		c.rmu.Lock()
 		c.actions = append(c.actions, a)
 		c.rmu.Unlock()
+		if c.gate != nil {
+			<-c.gate
+		}
 		if c.failShot {
 			return computer.ActionResult{}, errors.New("synthetic screenshot failure")
 		}
-		return computer.ActionResult{OK: true, Result: captureJSON(1280, 800, "", 90)}, nil
+		return computer.ActionResult{OK: true, Result: captureJSON(1280, 800, c.shotURL, 90)}, nil
 	}
 	return c.pwRecorder.ActionWithin(ctx, a, d)
 }
@@ -83,8 +90,9 @@ func TestPlaywrightCallsLeaveAPictureInTheTraceThatTheModelNeverSees(t *testing.
 }
 
 func TestPlaywrightCapturesFollowTheSamePrivacyRules(t *testing.T) {
-	s, _, run := engineTraceServer(t)
+	s, c, run := engineTraceServer(t)
 	setAuto(t, s, autoTracePrivateOrigins, "shop.example")
+	c.shotURL = "https://shop.example/cart"
 	if err := engineCall(t, s, run, "browser_navigate", `{"url":"https://shop.example/cart"}`); err != nil {
 		t.Fatal(err)
 	}
