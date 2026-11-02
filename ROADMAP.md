@@ -12,8 +12,6 @@ fixed. Finished work is in [release-notes/](release-notes/).
   released yet.
 - **E2B Bot computers (planned).** A second kind of Bot computer: a hosted E2B
   sandbox that you rent with your own key. The built-in VM stays the default.
-- **Local and OpenAI-compatible models.** Use a model that runs on your own
-  hardware, or any service with an OpenAI-compatible API, as the model provider.
 - **Workflow templates.** Ready-made Bot and workflow setups that you can start
   from and change.
 - **Cloud.** Planned. We have no date and no design to share yet.
@@ -24,6 +22,11 @@ fixed. Finished work is in [release-notes/](release-notes/).
   no KVM ([README](README.md#install)).
 - A Bot computer for each account as an optional upgrade. The kind available today
   is the built-in VM (a Firecracker microVM on your server, needs KVM).
+
+- Local and OpenAI-compatible models. Use Ollama, LM Studio, vLLM, OpenRouter or
+  any server with an OpenAI-compatible API as the model provider. First-run setup
+  can connect Ollama, so you can start without a cloud account. This is in the
+  v0.6.2 release candidates, from [v0.6.2-rc.2](release-notes/v0.6.2-rc.2.md).
 
 ## How to help
 
