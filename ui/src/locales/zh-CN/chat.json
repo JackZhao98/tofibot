@@ -886,5 +886,35 @@
     "connection_unavailable": "连接不可用",
     "loading": "加载工作区…",
     "refresh_failed": "暂时无法刷新工作区。"
+  },
+  "firstrun": {
+    "title": "现在就能交给我的事",
+    "hint": "这几件在评测里每次都做对了。点一条会填进输入框，你可以改，再发送。",
+    "items": {
+      "computer_script": {
+        "label": "在电脑上写个小脚本并运行",
+        "message": "在你的电脑上写个小脚本，运行一遍，把输出给我看。"
+      },
+      "printable_checklist": {
+        "label": "做一页能打印的清单",
+        "message": "帮我做一页能打印的清单，先问我这是做什么用的。"
+      },
+      "unit_conversion_table": {
+        "label": "把单位换算成表格",
+        "message": "把一些烹饪用量换算成一张小表，先问我是哪几项。"
+      },
+      "reminder_in_minutes": {
+        "label": "定一个几分钟后的提醒",
+        "message": "几分钟后提醒我站起来活动一下。"
+      },
+      "project_still_maintained": {
+        "label": "查一个开源项目还有没有人维护",
+        "message": "查一下某个开源项目是否还有人维护，回答是或否并给出理由，先问我是哪个项目。"
+      },
+      "foreign_name_reading": {
+        "label": "读出一个陌生的外文名字",
+        "message": "告诉我一个日文名字怎么念，先问我名字是什么。"
+      }
+    }
   }
 }

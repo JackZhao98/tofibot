@@ -108,7 +108,8 @@ async function mockApi(page, state) {
     if (path === "/api/extensions/mcp") { const server = body(); state.mcp = [...state.mcp.filter(item => item.name !== server.name), server]; return json({}); }
     if (path.endsWith("/test") && path.startsWith("/api/extensions/mcp/")) return json({ ok: true, tool_count: 7 });
     if (/^\/api\/extensions\/mcp\/[^/]+\/tools$/.test(path)) return json({ tools: [], read_only: 0, write: 0, high_risk: 0, pending: 0, unclassified: 0 });
-    if (path.endsWith("/messages")) return json({ messages: [], drafts: [], has_more: false, event_cursor: 0 });
+    if (path === "/api/onboarding/handovers") { state.calls.push(`${method} ${path}${new URL(request.url()).search}`); return json({ handovers: state.handovers ?? [] }); }
+    if (path.endsWith("/messages") && method === "GET") return json({ messages: state.messages ?? [], drafts: [], has_more: false, event_cursor: 0 });
     if (path.endsWith("/runs")) return json({ runs: [] });
     if (path.endsWith("/tools")) return json({ activities: [], summaries: [], tool_count: 0, has_more: false });
     if (path.startsWith("/api/computer")) return json({ owner: null, waiting: [] });
@@ -609,6 +610,62 @@ try {
     assert.equal(state.onboarding.completed, true);
     await context.close();
     pass("pick step with a connected service: Connected badge, enabled Continue that finishes");
+  }
+
+  // First-run handovers: the pending Bot's first direct message offers up to four proven tasks instead of the day-one card.
+  {
+    const state = makeServer({ model: true, bots: 1, onboarding: { step: 3, completed: true, skipped: false } });
+    state.bots[0].onboarding_pending = true;
+    state.handovers = [{ id: "computer_script" }, { id: "reminder_in_minutes" }, { id: "unit_conversion_table" }, { id: "project_still_maintained" }, { id: "id_without_wording" }];
+    state.messages = ["Hi, welcome to TOFI.", "I'm your own Bot.", "First, what should I be called?"].map((content, index) => ({ id: `m${index + 1}`, conversation_id: "conv_1", seq: index + 1, role: "assistant", sender_bot_id: "bot_1", content, created_at: at }));
+    const { page, context, errors } = await open(state, { url: "/b/bot_1" });
+    const chips = page.locator("[data-handover-chips]");
+    await chips.waitFor({ timeout: 20000 });
+    assert.equal(await page.locator(".handover-chip").count(), 4, "four chips; an id with no wording is left out");
+    assert.equal(await page.locator("[data-day-one]").count(), 0, "the day-one card does not stack under the chips");
+    assert.ok(state.calls.some(call => typeof call === "string" && call.startsWith("GET /api/onboarding/handovers?bot_id=bot_1")), "the list is read for this Bot");
+    const box = await chips.locator(".handover-chips-grid").boundingBox();
+    const first = await page.locator(".handover-chip").nth(0).boundingBox(), second = await page.locator(".handover-chip").nth(1).boundingBox(), third = await page.locator(".handover-chip").nth(2).boundingBox();
+    assert.ok(Math.abs(first.y - second.y) < 2 && third.y > first.y + 10 && box.width > 300, "two columns, two rows");
+    const sends = () => state.calls.filter(call => typeof call === "string" && /^POST .*\/messages$/.test(call)).length;
+    const sentBefore = sends();
+    await page.locator("[data-handover='reminder_in_minutes']").click();
+    const composer = page.locator("form.composer textarea");
+    await page.waitForFunction(() => document.querySelector("form.composer textarea")?.value === "Remind me in a few minutes to stand up and stretch.");
+    assert.equal(sends(), sentBefore, "a click fills the composer and sends nothing");
+    assert.equal(await composer.evaluate(node => document.activeElement === node), true, "the composer has focus");
+    await composer.pressSequentially(" Use my timezone.");
+    assert.ok((await composer.inputValue()).endsWith("stretch. Use my timezone."), "the text stays editable");
+    assert.ok((await overflow(page)) <= 0, "no horizontal scroll");
+    assert.deepEqual(errors, []);
+    await context.close();
+    pass("first-run handovers: 2x2 chips replace the day-one card, a click fills the composer without sending");
+  }
+
+  // Phone width: one column.
+  {
+    const state = makeServer({ model: true, bots: 1, onboarding: { step: 3, completed: true, skipped: false } });
+    state.bots[0].onboarding_pending = true;
+    state.handovers = [{ id: "reminder_in_minutes" }, { id: "unit_conversion_table" }];
+    state.messages = [{ id: "m1", conversation_id: "conv_1", seq: 1, role: "assistant", sender_bot_id: "bot_1", content: "Hi.", created_at: at }];
+    const { page, context } = await open(state, { width: 390, height: 844, url: "/b/bot_1" });
+    await page.locator("[data-handover-chips]").waitFor({ timeout: 20000 });
+    const a = await page.locator(".handover-chip").nth(0).boundingBox(), b = await page.locator(".handover-chip").nth(1).boundingBox();
+    assert.ok(b.y > a.y + 10, "one column on a phone");
+    assert.ok((await overflow(page)) <= 0, "no horizontal scroll on a phone");
+    await context.close();
+    pass("first-run handovers: one column on a phone");
+  }
+
+  // A Bot whose setup is finished gets the day-one card, never the chips.
+  {
+    const state = makeServer({ model: true, bots: 1, onboarding: { step: 3, completed: true, skipped: false } });
+    state.handovers = [{ id: "reminder_in_minutes" }];
+    const { page, context } = await open(state, { url: "/b/bot_1" });
+    await page.locator("[data-day-one]").waitFor({ timeout: 20000 });
+    assert.equal(await page.locator("[data-handover-chips]").count(), 0);
+    await context.close();
+    pass("first-run handovers: a finished Bot shows the day-one card, not the chips");
   }
 
   // Reduced motion: no transitions or animations; the bubbles and the waiting dot are simply there.

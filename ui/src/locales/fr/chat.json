@@ -946,5 +946,35 @@
     "connection_unavailable": "Connexion impossible",
     "loading": "Chargement de l’espace de travail…",
     "refresh_failed": "Impossible d’actualiser l’espace de travail."
+  },
+  "firstrun": {
+    "title": "Ce que tu peux me confier maintenant",
+    "hint": "Chacune de ces tâches a réussi à tous les essais d'évaluation. Choisis-en une pour remplir la zone de message, puis modifie-la et envoie.",
+    "items": {
+      "computer_script": {
+        "label": "Écrire et lancer un petit script",
+        "message": "Sur ton ordinateur, écris un petit script, lance-le et montre-moi la sortie."
+      },
+      "printable_checklist": {
+        "label": "Faire une liste imprimable",
+        "message": "Fais-moi une liste de contrôle imprimable sur une page. Demande-moi à quoi elle sert."
+      },
+      "unit_conversion_table": {
+        "label": "Convertir des unités en tableau",
+        "message": "Convertis quelques mesures de cuisine dans un petit tableau. Demande-moi lesquelles."
+      },
+      "reminder_in_minutes": {
+        "label": "Programmer un rappel court",
+        "message": "Rappelle-moi dans quelques minutes de me lever et de m'étirer."
+      },
+      "project_still_maintained": {
+        "label": "Vérifier si un projet est maintenu",
+        "message": "Vérifie si un projet open source est toujours maintenu et réponds par oui ou non avec la raison. Demande-moi quel projet."
+      },
+      "foreign_name_reading": {
+        "label": "Lire un nom étranger à voix haute",
+        "message": "Dis-moi comment prononcer un nom écrit en japonais. Demande-moi le nom."
+      }
+    }
   }
 }

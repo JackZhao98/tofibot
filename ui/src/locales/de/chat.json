@@ -916,5 +916,35 @@
     "connection_unavailable": "Keine Verbindung",
     "loading": "Arbeitsbereich wird geladen…",
     "refresh_failed": "Arbeitsbereich konnte nicht aktualisiert werden."
+  },
+  "firstrun": {
+    "title": "Das kannst du mir jetzt übergeben",
+    "hint": "Jede dieser Aufgaben hat alle Testläufe bestanden. Wähle eine aus, sie landet im Nachrichtenfeld, dann kannst du sie ändern und senden.",
+    "items": {
+      "computer_script": {
+        "label": "Kleines Skript schreiben und ausführen",
+        "message": "Schreibe auf deinem Computer ein kleines Skript, führe es aus und zeig mir die Ausgabe."
+      },
+      "printable_checklist": {
+        "label": "Druckbare Checkliste erstellen",
+        "message": "Erstelle mir eine druckbare Checkliste auf einer Seite. Frag mich, wofür sie gedacht ist."
+      },
+      "unit_conversion_table": {
+        "label": "Einheiten in eine Tabelle umrechnen",
+        "message": "Rechne einige Kochmengen in eine kleine Tabelle um. Frag mich, welche."
+      },
+      "reminder_in_minutes": {
+        "label": "Kurze Erinnerung setzen",
+        "message": "Erinnere mich in ein paar Minuten daran, aufzustehen und mich zu strecken."
+      },
+      "project_still_maintained": {
+        "label": "Prüfen, ob ein Projekt gepflegt wird",
+        "message": "Prüfe, ob ein Open-Source-Projekt noch gepflegt wird, und antworte mit Ja oder Nein samt Begründung. Frag mich, welches Projekt."
+      },
+      "foreign_name_reading": {
+        "label": "Fremden Namen vorlesen",
+        "message": "Sag mir, wie man einen japanisch geschriebenen Namen ausspricht. Frag mich nach dem Namen."
+      }
+    }
   }
 }

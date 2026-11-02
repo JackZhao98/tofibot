@@ -886,5 +886,35 @@
     "connection_unavailable": "無法連線",
     "loading": "載入工作區…",
     "refresh_failed": "暫時無法重新整理工作區。"
+  },
+  "firstrun": {
+    "title": "現在就能交給我的事",
+    "hint": "這幾件在評測中每次都做對了。點一條會填進輸入框，你可以修改，再送出。",
+    "items": {
+      "computer_script": {
+        "label": "在電腦上寫個小腳本並執行",
+        "message": "在你的電腦上寫個小腳本，執行一遍，把輸出給我看。"
+      },
+      "printable_checklist": {
+        "label": "做一頁可列印的清單",
+        "message": "幫我做一頁可列印的清單，先問我這是做什麼用的。"
+      },
+      "unit_conversion_table": {
+        "label": "把單位換算成表格",
+        "message": "把一些烹飪用量換算成一張小表，先問我是哪幾項。"
+      },
+      "reminder_in_minutes": {
+        "label": "設一個幾分鐘後的提醒",
+        "message": "幾分鐘後提醒我站起來活動一下。"
+      },
+      "project_still_maintained": {
+        "label": "查一個開源專案還有沒有人維護",
+        "message": "查一下某個開源專案是否還有人維護，回答是或否並給出理由，先問我是哪個專案。"
+      },
+      "foreign_name_reading": {
+        "label": "唸出一個陌生的外文名字",
+        "message": "告訴我一個日文名字怎麼唸，先問我名字是什麼。"
+      }
+    }
   }
 }

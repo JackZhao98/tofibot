@@ -3294,7 +3294,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if s.routeExtensions(w, r, p) {
 		return
 	}
-	if s.routeUsage(w, r, p) || s.routeUsageRuns(w, r, p) {
+	if s.routeOnboardingHandovers(w, r, p) || s.routeUsage(w, r, p) || s.routeUsageRuns(w, r, p) {
 		return
 	}
 	if s.routeProviders(w, r, p) || s.routeWebTools(w, r, p) {
