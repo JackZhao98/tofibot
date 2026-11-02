@@ -208,4 +208,22 @@ func TestPartForTheGiverItselfWaitsForItsLane(t *testing.T) {
 	if got := f.taskRow(r.Tasks[0].TaskID); got.AssigneeRunID != own[0].ID || got.BotID != f.a.ID {
 		t.Fatalf("own part %+v", got)
 	}
+	// Both parts end; the giver, who is also a holder, is woken once for the whole group.
+	other := f.startPart(r.Tasks[1].TaskID, f.b)
+	if _, ok, err := f.s.FinishRun(other.ID, f.g.ID, f.b.ID, "Bravo is done."); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	if n := f.count(`SELECT COUNT(*) FROM bot_inbox WHERE bot_id=? AND kind='wait_result' AND wakes=1`, f.a.ID); n != 0 {
+		t.Fatalf("the giver was woken before its own part ended: %d", n)
+	}
+	f.start(own[0].ID)
+	if _, ok, err := f.s.FinishRun(own[0].ID, f.g.ID, f.a.ID, "My own part is done."); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	if n := f.count(`SELECT COUNT(*) FROM bot_inbox WHERE bot_id=? AND kind='wait_result' AND wakes=1`, f.a.ID); n != 1 {
+		t.Fatalf("the giver hears once, after the last part: %d", n)
+	}
+	if got := f.taskRow(r.Tasks[0].TaskID); got.Status != "done" {
+		t.Fatalf("own part status %s", got.Status)
+	}
 }

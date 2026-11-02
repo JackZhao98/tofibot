@@ -513,6 +513,7 @@ func (f taskFix) wokenRoot(root Run) Run {
 
 func TestAWokenRootCannotEscapeTheBudgetWithAFreshTree(t *testing.T) {
 	f := newTaskFix(t)
+	f.setSetting(autoTaskFanoutWidth, 12) // this test is about the idle budget, not the open-task cap
 	root := f.running(f.g.ID, f.a)
 	tree := f.reachLimit(root, 10)
 	woken := f.wokenRoot(root)
