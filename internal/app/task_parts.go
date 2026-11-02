@@ -36,7 +36,7 @@ func checklistParamText(what string) string {
 	return "The items of the " + what + "'s checklist, in order. Add items only for work that has separate parts; a small piece of work needs none."
 }
 
-func delegatePartsSchema()map[string]any {
+func delegatePartsSchema() map[string]any {
 	return map[string]any{"type": "array", "maxItems": maxDelegateParts,
 		"description": "Several different tasks in one call, each for one member. Use it in place of bot_id and task. The tasks start together, and the receipt holds one wait on all of them.",
 		"items": objectSchema(map[string]any{
