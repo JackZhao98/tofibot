@@ -1041,7 +1041,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	if s.botProfileRunEligible(c, r) {
 		pending, err := s.store.onboardingPending(bot.ID)
 		if err == nil && pending {
-			system += onboardingSystemPromptFor(s.computer() != nil)
+			system += onboardingSystemPromptFor(s.computer() != nil) + s.provenHandoversBlock(context.Background())
 		} else if err == nil {
 			system += "\nUse set_bot_profile only when the user explicitly asks to change your name/role/instructions. Preserve omitted fields; never change model or permissions."
 		}

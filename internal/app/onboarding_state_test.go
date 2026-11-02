@@ -193,7 +193,7 @@ func TestFirstBotRefusesWhenABotAppearsInTheTransaction(t *testing.T) {
 	}
 }
 
-// The opening message asks for a name and for the work, in every UI language,
+// The opening message asks one question, about the work, in every UI language,
 // and the model-facing onboarding prompt carries the name rules.
 func TestOnboardingOpeningMessageAndPrompt(t *testing.T) {
 	for language := range uiLanguages {
@@ -217,12 +217,12 @@ func TestOnboardingOpeningMessageAndPrompt(t *testing.T) {
 		t.Fatalf("unknown language did not fall back: %q", got)
 	}
 	en := strings.Join(onboardingWelcome("en"), " ")
-	if !strings.Contains(en, "called") {
-		t.Fatalf("english opening misses the name question: %q", en)
+	if !strings.Contains(en, "help with") || strings.Count(en, "?") != 1 {
+		t.Fatalf("english opening must ask exactly one question, about the work: %q", en)
 	}
 
 	prompt := onboardingSystemPrompt
-	for _, want := range []string{"use it exactly", "pick", "set_bot_profile", "at most one clarification question at a time", "placeholder"} {
+	for _, want := range []string{"use it exactly", "choose a short friendly name", "set_bot_profile", "at most one clarification question at a time", "placeholder"} {
 		if !strings.Contains(prompt, want) {
 			t.Fatalf("onboarding prompt lacks %q", want)
 		}

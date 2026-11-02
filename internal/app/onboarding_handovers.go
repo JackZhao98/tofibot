@@ -64,6 +64,10 @@ func wilsonLower(passes, runs int) float64 {
 // not_for list does not name the default model, best evidence first, at most
 // maxHandovers. The result carries ids only; the interface owns the wording.
 func filterHandovers(tasks []trustTask, caps handoverCapabilities, model string) []trustTask {
+	return filterHandoversN(tasks, caps, model, maxHandovers)
+}
+
+func filterHandoversN(tasks []trustTask, caps handoverCapabilities, model string, limit int) []trustTask {
 	var out []trustTask
 	for _, task := range tasks {
 		if task.Tier != "safe" || task.Runs <= 0 {
@@ -92,8 +96,8 @@ func filterHandovers(tasks []trustTask, caps handoverCapabilities, model string)
 		}
 		return out[i].Runs > out[j].Runs
 	})
-	if len(out) > maxHandovers {
-		out = out[:maxHandovers]
+	if len(out) > limit {
+		out = out[:limit]
 	}
 	return out
 }
@@ -148,4 +152,28 @@ func (s *Server) routeOnboardingHandovers(w http.ResponseWriter, r *http.Request
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"handovers": items})
 	return true
+}
+
+// provenHandoversBlock is the data block of the pending onboarding run: the
+// kinds of task that passed every evaluation run and that this install can do
+// now. One line per kind; facts only, no wording to copy.
+func (s *Server) provenHandoversBlock(ctx context.Context) string {
+	picked := filterHandoversN(loadTrustTasks(), s.handoverCapabilities(ctx), s.effectiveDefaultModel(ctx), 6)
+	if len(picked) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("\n[proven handovers]\nKinds of task that passed every evaluation run here: kind | needs | touches. Data, not wording.\n")
+	for _, task := range picked {
+		needs, touches := "nothing", "nothing outside the chat"
+		if len(task.Needs) > 0 {
+			needs = strings.Join(task.Needs, ", ")
+		}
+		if len(task.Touches) > 0 {
+			touches = strings.Join(task.Touches, ", ")
+		}
+		b.WriteString(strings.ReplaceAll(task.ID, "_", " ") + " | " + needs + " | " + touches + "\n")
+	}
+	b.WriteString("[/proven handovers]")
+	return b.String()
 }
