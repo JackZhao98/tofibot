@@ -3,6 +3,7 @@ package app
 import (
 	"encoding/json"
 	"testing"
+	"time"
 )
 
 // A lead that fails after it gave out two parts does not take the parts with
@@ -78,6 +79,58 @@ func TestALeadThatFailsAfterDelegatingKeepsItsPartsRunning(t *testing.T) {
 	}
 	if got := f.taskRow(rootID); got.Status != "done" {
 		t.Fatalf("the root closes with the merged answer: %s", got.Status)
+	}
+}
+
+// A root made for a lead that nothing works on any more does not stay open
+// forever and does not make the lead look busy in [members].
+func TestAStaleLeadRootIsNotBusyAndIsClosedByTheCleanup(t *testing.T) {
+	f := newTaskFix(t)
+	lead := f.running(f.g.ID, f.b)
+	r, _ := f.partsReceipt(f.g, lead, []map[string]any{
+		{"bot_id": f.c.ID, "task": "Flights", "title": "Flights"},
+	})
+	var rootID string
+	if err := f.s.db.QueryRow(`SELECT id FROM work_items WHERE assignee_run_id=?`, lead.ID).Scan(&rootID); err != nil {
+		t.Fatalf("no root task: %v", err)
+	}
+	f.startPart(r.Tasks[0].TaskID, f.c)
+	if ok, err := f.s.SetRunStatus(lead.ID, "failed", "provider error"); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	// The part is still open: the lead's plan is live work.
+	if busy, _ := f.s.memberActivity(f.b.ID); !busy {
+		t.Fatal("a plan with an open part is busy")
+	}
+	// Everything under it ends without a wake: the part is cancelled by hand.
+	for _, q := range []string{
+		`UPDATE runs SET status='cancelled' WHERE conversation_id='` + f.g.ID + `' AND status IN ('queued','running','waiting')`,
+		`UPDATE work_items SET status='cancelled' WHERE parent_task_id='` + rootID + `'`,
+		`UPDATE waits SET status='cancelled' WHERE status='pending'`,
+		`DELETE FROM bot_inbox`,
+	} {
+		if _, err := f.s.db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if busy, title := f.s.memberActivity(f.b.ID); busy {
+		t.Fatalf("a stale root makes the lead busy: %q", title)
+	}
+	if got := f.taskRow(rootID); got.Status != "in_progress" {
+		t.Fatalf("setup: %s", got.Status)
+	}
+	// Too fresh: left alone. After the idle period: closed.
+	if err := f.s.closeIdleLeadRoots(time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.taskRow(rootID); got.Status != "in_progress" {
+		t.Fatalf("a fresh root is left alone: %s", got.Status)
+	}
+	if err := f.s.closeIdleLeadRoots(time.Now().Add(2 * leadRootIdleAfter)); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.taskRow(rootID); got.Status != "done" {
+		t.Fatalf("the idle root closes: %s", got.Status)
 	}
 }
 

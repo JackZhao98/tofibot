@@ -442,6 +442,13 @@ func taskFinishedOneTx(tx *sql.Tx, done Run, item WorkItem, result Message, sayO
 		status = "blocked"
 	case sayOutcome == sayOutcomePending || sayOutcome == sayOutcomeDelegated:
 		status = "in_progress"
+	case isLeadRootTx(tx, item):
+		// Nobody gave the plan to review: it ends with the lead's answer. Parts
+		// still open at that point leave it blocked, which is not "busy".
+		status = "done"
+		if openChecklistCount(tx, item.ID) > 0 {
+			status = "blocked"
+		}
 	case openChecklistCount(tx, item.ID) > 0:
 		status = "review"
 	}

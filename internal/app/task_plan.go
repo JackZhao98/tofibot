@@ -9,6 +9,7 @@ package app
 import (
 	"database/sql"
 	"strings"
+	"time"
 )
 
 const planMarkPrefix = "p:"
@@ -208,6 +209,55 @@ func ensureLeadTaskTx(tx *sql.Tx, conv, bot, runID, fallbackTitle string) (strin
 // taskSourceLead marks the root task ensureLeadTaskTx made: no person or Bot
 // gave it, the run's own delegation did.
 const taskSourceLead = "lead_plan"
+
+// leadRootIdleAfter is how long a lead's root task may sit with nothing active
+// before the cleanup closes it.
+const leadRootIdleAfter = 10 * time.Minute
+
+// closeIdleLeadRoots closes the root tasks made for leads that nothing works on
+// any more: no active run of the lead, no open part below, no pending wait or
+// wake of the lead in the conversation. The plan ends done; the parts carry
+// their own results. It is bounded to 100 roots per call.
+func (s *Store) closeIdleLeadRoots(at time.Time) error {
+	ids, err := waitIDsTx(s.db, `SELECT w.id FROM work_items w WHERE w.source=? AND w.parent_task_id='' AND w.status IN (`+openTaskStatuses+`) AND w.updated_at<?
+ AND NOT EXISTS(SELECT 1 FROM runs r WHERE r.id=w.assignee_run_id AND r.status IN ('queued','running','waiting'))
+ AND NOT EXISTS(SELECT 1 FROM runs r WHERE r.bot_id=w.bot_id AND r.conversation_id=w.conversation_id AND r.status IN ('queued','running','waiting'))
+ AND NOT EXISTS(SELECT 1 FROM work_items c WHERE c.parent_task_id=w.id AND c.status NOT IN ('done','cancelled','failed'))
+ AND NOT EXISTS(SELECT 1 FROM waits p WHERE p.bot_id=w.bot_id AND p.conversation_id=w.conversation_id AND p.status='pending')
+ AND NOT EXISTS(SELECT 1 FROM bot_inbox i WHERE i.bot_id=w.bot_id AND i.conversation_id=w.conversation_id AND i.wakes=1 AND i.consumed_at='')
+ ORDER BY w.updated_at LIMIT 100`, taskSourceLead, stampTime(at.Add(-leadRootIdleAfter)))
+	if err != nil {
+		return err
+	}
+	for _, id := range ids {
+		tx, err := s.db.Begin()
+		if err != nil {
+			return err
+		}
+		item, err := getTaskTx(tx, id)
+		if err != nil || isClosedWorkStatus(item.Status) {
+			tx.Rollback()
+			continue
+		}
+		t := now()
+		if _, err = tx.Exec(`UPDATE work_items SET status='done',updated_at=?,completed_at=?,closed_at=?,assignee_run_id='',submit_run_id='' WHERE id=?`, t, t, t, id); err != nil {
+			tx.Rollback()
+			return err
+		}
+		item.Status = "done"
+		if err = settleClosedTaskTx(tx, item); err == nil {
+			err = taskEventTx(tx, id)
+		}
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+		if err = tx.Commit(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 // isLeadRootTx is true for a root task ensureLeadTaskTx made.
 func isLeadRootTx(q queryer, item WorkItem) bool {

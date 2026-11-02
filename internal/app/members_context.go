@@ -29,7 +29,12 @@ func roleGist(instructions string) string {
 func (s *Store) memberActivity(botID string) (busy bool, title string) {
 	var running int
 	_ = s.db.QueryRow(`SELECT COUNT(*) FROM runs WHERE bot_id=? AND status IN ('running','queued') AND COALESCE(kind,'')<>?`, botID, runKindTriage).Scan(&running)
-	_ = s.db.QueryRow(`SELECT title FROM work_items WHERE bot_id=? AND kind='task' AND hidden=0 AND status IN ('in_progress','todo','input_required') ORDER BY (status='in_progress') DESC,updated_at DESC LIMIT 1`, botID).Scan(&title)
+	// A plan root made for a lead counts only while its run is active or a part
+	// below it is open; a stale one does not make the lead busy.
+	_ = s.db.QueryRow(`SELECT title FROM work_items w WHERE bot_id=? AND kind='task' AND hidden=0 AND status IN ('in_progress','todo','input_required')
+ AND (source<>? OR parent_task_id<>'' OR EXISTS(SELECT 1 FROM runs r WHERE r.id=w.assignee_run_id AND r.status IN ('queued','running','waiting'))
+  OR EXISTS(SELECT 1 FROM work_items c WHERE c.parent_task_id=w.id AND c.status NOT IN ('done','cancelled','failed')))
+ ORDER BY (status='in_progress') DESC,updated_at DESC LIMIT 1`, botID, taskSourceLead).Scan(&title)
 	return running > 0 || title != "", title
 }
 
