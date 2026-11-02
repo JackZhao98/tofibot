@@ -1075,6 +1075,22 @@
         "name": "Leerlauf-Nachrichten pro Aufgabenbaum",
         "what": "Wie viele Nachrichten die Bots einer Arbeit untereinander ohne Fortschritt austauschen dürfen. Fortschritt ist ein abgeschlossener Checklistenpunkt, eine erledigte Aufgabe oder ein abgegebenes Ergebnis; er setzt den Zähler zurück. Am Limit geben sie einander keine Arbeit mehr weiter, bis Fortschritt eintritt, und der Wurzel-Bot entscheidet, was er Ihnen sagt."
       },
+      "task_fanout_width": {
+        "name": "Teile pro Delegation",
+        "what": "Wie viele Teile ein Bot in einem Aufruf vergeben darf. Ein Aufgabenbaum hat außerdem höchstens doppelt so viele offene Aufgaben gleichzeitig. Ein Aufruf über der Grenze wird abgelehnt; der Bot fasst Teile zusammen oder wartet."
+      },
+      "task_fanout_depth": {
+        "name": "Tiefe geteilter Arbeit",
+        "what": "Wie viele Ebenen von Aufgaben eine Arbeit unter ihrer Wurzel haben darf. 1: Nur der Bot an der Wurzel vergibt Teile, niemand teilt weiter. 2: Ein Mitglied darf seinen Teil noch einmal teilen. Ein Mitglied an der Grenze erledigt seinen Teil selbst oder fragt den Bot, der ihn vergeben hat."
+      },
+      "task_part_deadline_minutes": {
+        "name": "Frist eines Teils",
+        "what": "Wie lange ein Teil hat, wenn Sie im Gespräch sind und der Bot keine eigene Zeit setzt. Danach wird der Bot, der den Teil vergeben hat, mit einem Zeitüberschreitungs-Ergebnis geweckt und entscheidet, was er liefert."
+      },
+      "task_part_deadline_scheduled_minutes": {
+        "name": "Frist eines Teils in geplanten Läufen",
+        "what": "Wie lange ein Teil hat, wenn ein Zeitplan die Arbeit gestartet hat und der Bot keine eigene Zeit setzt. Im Chat wartet niemand, daher ist der Standard länger."
+      },
       "widget_artifacts_auto": {
         "name": "Artefakte öffnen, wenn ein Bot eine Datei erstellt",
         "what": "Sobald ein Bot in einem Chat zum ersten Mal eine Datei übergibt, öffnet sich das Artefakte-Widget neben den Nachrichten. Weitere Dateien aktualisieren die Liste. Aus lässt es geschlossen, bis du es öffnest."

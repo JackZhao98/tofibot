@@ -1075,6 +1075,22 @@
         "name": "Idle messages per task tree",
         "what": "How many messages the Bots of one piece of work may pass between them without progress. Progress is a checklist item that ends, a task that closes done, or a result handed in, and it restarts the count. At the limit they stop handing work to each other until progress happens, and the root Bot decides what to tell you."
       },
+      "task_fanout_width": {
+        "name": "Parts per delegation",
+        "what": "How many parts a Bot may give in one call. A task tree also holds at most twice this number of open tasks at one time. A call over the limit is refused and the Bot joins parts or waits."
+      },
+      "task_fanout_depth": {
+        "name": "Depth of divided work",
+        "what": "How many levels of tasks a piece of work may have below its root. 1 lets the Bot at the root give parts and nobody split them again; 2 lets a member split its own part once more. A member at the limit does its part or asks the Bot that gave it."
+      },
+      "task_part_deadline_minutes": {
+        "name": "Part deadline",
+        "what": "How long a part has when you are in the conversation and the Bot sets no time of its own. When it passes, the Bot that gave the part is woken with a timeout result and decides what to deliver."
+      },
+      "task_part_deadline_scheduled_minutes": {
+        "name": "Part deadline in scheduled runs",
+        "what": "How long a part has when the work was started by a schedule and the Bot sets no time of its own. Nobody waits in the chat, so the default is longer."
+      },
       "widget_artifacts_auto": {
         "name": "Open Artifacts when a Bot makes a file",
         "what": "The first time a Bot hands over a file in a chat, the Artifacts widget opens beside the messages. Later files refresh its list. Off keeps it closed until you open it."

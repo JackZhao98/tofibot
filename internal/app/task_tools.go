@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	delegateToolDescription = "Give a task to one or more members. Each gets a task record: your brief, a version number and an optional checklist. The call returns a receipt at once and starts the work. The result returns later as an event that wakes you, so do not poll. Write the brief to stand alone: the goal, the form of the result, the tools and sources, and the limits. Split broad work into tasks, each with one owner and one result, and give independent parts in the same turn so that they run in parallel. A part that needs the result of other tasks names their ids in depends_on: it waits, starts by itself when all of them are done, and you are told if one of them fails or is cancelled. Before parallel work on code, give a first task that fixes the interface the parts share, and make the parts depend on it. Match the number of tasks to the difficulty of the work: simple work needs one task. Add a checklist only for work with separate parts. Pass files the member needs in attachment_ids. Give result_format, deadline_seconds and limits for each task that needs them; the holder reads them as written. The receipt holds the wait on the result: end your turn with a pending answer, and you wake when the task ends or when its deadline passes. A task that ends late or fails shows on your task's checklist with its reason, and your final answer states what is in and what is missing. A task given to yourself starts after this run ends, so it is serial."
+	delegateToolDescription = "Give a task to one or more members. Each gets a task record: your brief, a version number and an optional checklist. The call returns a receipt at once and starts the work. The result returns later as an event that wakes you, so do not poll. Write the brief to stand alone: the goal, the form of the result, the tools and sources, and the limits. Split broad work into tasks, each with one owner and one result, and give independent parts in the same turn so that they run in parallel. A part that needs the result of other tasks names their ids in depends_on: it waits, starts by itself when all of them are done, and you are told if one of them fails or is cancelled. Before parallel work on code, give a first task that fixes the interface the parts share, and make the parts depend on it. Match the number of tasks to the difficulty of the work: simple work needs one task. Add a checklist only for work with separate parts. Pass files the member needs in attachment_ids. Give result_format, deadline_seconds and limits for each task that needs them; the holder reads them as written. The receipt holds the wait on the result: end your turn with a pending answer, and you wake when the task ends or when its deadline passes. A task that ends late or fails shows on your task's checklist with its reason, and your final answer states what is in and what is missing. A task given to yourself starts after this run ends, so it is serial. To give different tasks to several members at once, use parts in place of bot_id and task: one call makes all the tasks and one message in the group."
 
 	waitForToolDescription = "Start a wait and get a receipt at once. The wait ends when its event happens or its deadline passes; then you are woken with the result, and a timeout is a result too. After the receipt, tell the person what they need and end your turn. To wait for several events together, repeat the call with the group id from the receipt: mode all ends when every member has ended, mode any at the first fulfilled member. A wait that would close a cycle is refused. A wait on a command (kind command_exit, target the terminal id) ends when the process ends, or, for a shell terminal, when the shell is back at its prompt; the result has the exit code when one exists and the last output. It always has a timer check in its group, mode any: add your own timer to the group first, or the system adds one. If the timer comes first, read the terminal and wait again when the command still runs."
 
@@ -63,27 +63,35 @@ func (s *Server) delegateTool(c Conversation, r Run) Tool {
 			"result_format":    stringProp("The form of the result: the layout, the fields or the file that you need back. The holder reads it as written."),
 			"deadline_seconds": map[string]any{"type": "integer", "description": "How long the holder has, in seconds. When it passes you are woken with a timeout result."},
 			"limits":           stringProp("What the holder must not do or touch, and its budget of pages or attempts."),
-		}, []string{"task"}),
+			"parts":            delegatePartsSchema(),
+		}, []string{}),
 		Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
 			var in struct {
-				ResultFormat  string   `json:"result_format"`
-				DeadlineSecs  int      `json:"deadline_seconds"`
-				Limits        string   `json:"limits"`
-				BotID         string   `json:"bot_id"`
-				BotIDs        []string `json:"bot_ids"`
-				Task          string   `json:"task"`
-				Title         string   `json:"title"`
-				Checklist     []string `json:"checklist"`
-				DependsOn     []string `json:"depends_on"`
-				AttachmentIDs []string `json:"attachment_ids"`
+				ResultFormat  string              `json:"result_format"`
+				DeadlineSecs  int                 `json:"deadline_seconds"`
+				Limits        string              `json:"limits"`
+				BotID         string              `json:"bot_id"`
+				BotIDs        []string            `json:"bot_ids"`
+				Task          string              `json:"task"`
+				Title         string              `json:"title"`
+				Checklist     []string            `json:"checklist"`
+				DependsOn     []string            `json:"depends_on"`
+				AttachmentIDs []string            `json:"attachment_ids"`
+				Parts         []delegatePartInput `json:"parts"`
 			}
 			if json.Unmarshal(raw, &in) != nil {
 				return "", errors.New("invalid delegate arguments")
 			}
 			in.Task = strings.TrimSpace(in.Task)
+			if len(in.Parts) > 0 {
+				if in.BotID != "" || len(in.BotIDs) > 0 || in.Task != "" || in.Title != "" || len(in.Checklist) > 0 || len(in.DependsOn) > 0 || len(in.AttachmentIDs) > 0 || in.ResultFormat != "" || in.Limits != "" || in.DeadlineSecs != 0 {
+					return "", taskRefusal("parts_exclusive", "Give either parts, or bot_id with task. When parts is set, put every field of each task inside its part.")
+				}
+				return s.delegateParts(c, r, in.Parts)
+			}
 			var recipients []string
 			seen := map[string]bool{}
 			for _, id := range append([]string{in.BotID}, in.BotIDs...) {
@@ -110,6 +118,12 @@ func (s *Server) delegateTool(c Conversation, r Run) Tool {
 			contract, cerr := cleanTaskContract(taskContract{ResultFormat: in.ResultFormat, Limits: in.Limits, DeadlineSeconds: in.DeadlineSecs})
 			if cerr != nil {
 				return "", cerr
+			}
+			if err := checkFanoutTx(s.store.db, r.ID, len(recipients)); err != nil {
+				return "", err
+			}
+			if contract.DeadlineSeconds == 0 {
+				contract.DeadlineSeconds = defaultPartDeadlineSeconds(s.store.db, r.ID)
 			}
 			selfIncluded := false
 			for _, id := range recipients {

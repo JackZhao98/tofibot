@@ -431,18 +431,19 @@ func (s *Store) AddDependentTasksWith(conv, giver, parentRun string, recipients 
 			parts = append(parts, delegatePart{Bot: bot, Brief: brief, Title: title, Checklist: checklist, Deps: deps, Attachments: attachmentIDs, Contract: contract})
 		}
 	}
-	return s.AddTasks(conv, giver, parentRun, parts)
+	return s.AddTasks(conv, giver, parentRun, parts, false)
 }
 
 // AddTasks makes the tasks of one delegation call in one transaction. A refusal
-// leaves none of them.
-func (s *Store) AddTasks(conv, giver, parentRun string, parts []delegatePart) ([]delegatedTaskReceipt, error) {
-	receipts, err := s.addTasks(conv, giver, parentRun, parts)
+// leaves none of them. With post set, the same transaction posts the one visible
+// message of the call in the group: "@name title" for each part.
+func (s *Store) AddTasks(conv, giver, parentRun string, parts []delegatePart, post bool) ([]delegatedTaskReceipt, error) {
+	receipts, err := s.addTasks(conv, giver, parentRun, parts, post)
 	s.afterTreeLimit(err)
 	return receipts, err
 }
 
-func (s *Store) addTasks(conv, giver, parentRun string, parts []delegatePart) ([]delegatedTaskReceipt, error) {
+func (s *Store) addTasks(conv, giver, parentRun string, parts []delegatePart, post bool) ([]delegatedTaskReceipt, error) {
 	if len(parts) == 0 {
 		return nil, taskRefusal("dependency_invalid", "A task needs a brief and a recipient.")
 	}
@@ -508,6 +509,7 @@ func (s *Store) addTasks(conv, giver, parentRun string, parts []delegatePart) ([
 		}
 	}
 	var receipts []delegatedTaskReceipt
+	var postLines, postAttachments []string
 	for _, part := range parts {
 		bot, brief, title, deps := part.Bot, part.Brief, part.Title, part.Deps
 		open, err := depsOpenTx(tx, deps)
@@ -609,6 +611,15 @@ func (s *Store) addTasks(conv, giver, parentRun string, parts []delegatePart) ([
 		rc := delegatedTaskReceipt{TaskID: id, BotID: bot, Status: item.Status, Version: item.SpecVersion, BlockedBy: deps}
 		rc.fillContractTx(tx, giver)
 		receipts = append(receipts, rc)
+		var name string
+		_ = tx.QueryRow(`SELECT name FROM bots WHERE id=?`, bot).Scan(&name)
+		postLines = append(postLines, "@"+name+" "+title)
+		postAttachments = append(postAttachments, part.Attachments...)
+	}
+	if post {
+		if err = insertPartsMessageTx(tx, conv, giver, parentRun, strings.Join(postLines, "; "), cleanDepIDs(postAttachments)); err != nil {
+			return nil, err
+		}
 	}
 	return receipts, tx.Commit()
 }

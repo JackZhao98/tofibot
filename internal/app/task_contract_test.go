@@ -7,6 +7,13 @@ import (
 	"time"
 )
 
+func mustJSON(t *testing.T, raw string, into any) {
+	t.Helper()
+	if err := json.Unmarshal([]byte(raw), into); err != nil {
+		t.Fatalf("json %q: %v", raw, err)
+	}
+}
+
 type contractReceipt struct {
 	Tasks []struct {
 		TaskID     string `json:"task_id"`

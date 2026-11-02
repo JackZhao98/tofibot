@@ -30,6 +30,10 @@ Open this page: [{{ui:settings:shell.page.automation.name}}](/settings/automatio
 | {{ui:settings:automation.item.schedule_receipt_review.name}} | `automation.schedule_receipt_review` | on or off | true | direct | `/settings/automation#schedules` |
 | {{ui:settings:automation.item.settings_change_limit.name}} | `automation.settings_change_limit` | read only | 8 | forbidden: the person changes it on the page | `/settings/automation#checks` |
 | {{ui:settings:automation.item.structured_output.name}} | `automation.structured_output` | on or off | true | direct | `/settings/automation#replies` |
+| {{ui:settings:automation.item.task_fanout_depth.name}} | `automation.task_fanout_depth` | whole number 1 to 5 | 2 | direct | `/settings/automation#reliability` |
+| {{ui:settings:automation.item.task_fanout_width.name}} | `automation.task_fanout_width` | whole number 1 to 12 | 4 | direct | `/settings/automation#reliability` |
+| {{ui:settings:automation.item.task_part_deadline_minutes.name}} | `automation.task_part_deadline_minutes` | whole number 1 to 1440 | 30 minutes | direct | `/settings/automation#reliability` |
+| {{ui:settings:automation.item.task_part_deadline_scheduled_minutes.name}} | `automation.task_part_deadline_scheduled_minutes` | whole number 1 to 1440 | 60 minutes | direct | `/settings/automation#reliability` |
 | {{ui:settings:automation.item.task_retention_days.name}} | `automation.task_retention_days` | whole number 0 to 3650 | 30 days | direct | `/settings/automation#history` |
 | {{ui:settings:automation.item.task_stall_rounds.name}} | `automation.task_stall_rounds` | whole number 1 to 20 | 3 | direct | `/settings/automation#checks` |
 | {{ui:settings:automation.item.task_tree_idle_message_limit.name}} | `automation.task_tree_idle_message_limit` | whole number 10 to 500 | 30 | direct | `/settings/automation#reliability` |
@@ -75,6 +79,14 @@ Open this page: [{{ui:settings:shell.page.automation.name}}](/settings/automatio
 **{{ui:settings:automation.item.settings_change_limit.name}}.** {{ui:settings:automation.item.settings_change_limit.what}}
 
 **{{ui:settings:automation.item.structured_output.name}}.** {{ui:settings:automation.item.structured_output.what}}
+
+**{{ui:settings:automation.item.task_fanout_depth.name}}.** {{ui:settings:automation.item.task_fanout_depth.what}}
+
+**{{ui:settings:automation.item.task_fanout_width.name}}.** {{ui:settings:automation.item.task_fanout_width.what}}
+
+**{{ui:settings:automation.item.task_part_deadline_minutes.name}}.** {{ui:settings:automation.item.task_part_deadline_minutes.what}}
+
+**{{ui:settings:automation.item.task_part_deadline_scheduled_minutes.name}}.** {{ui:settings:automation.item.task_part_deadline_scheduled_minutes.what}}
 
 **{{ui:settings:automation.item.task_retention_days.name}}.** {{ui:settings:automation.item.task_retention_days.what}}
 

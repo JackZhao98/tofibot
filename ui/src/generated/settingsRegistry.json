@@ -801,6 +801,62 @@
       "audit": true
     },
     {
+      "key": "automation.task_fanout_width",
+      "scope": "account",
+      "kind": "int",
+      "min": 1,
+      "max": 12,
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#reliability",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.task_fanout_width.name",
+      "audit": true
+    },
+    {
+      "key": "automation.task_fanout_depth",
+      "scope": "account",
+      "kind": "int",
+      "min": 1,
+      "max": 5,
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#reliability",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.task_fanout_depth.name",
+      "audit": true
+    },
+    {
+      "key": "automation.task_part_deadline_minutes",
+      "scope": "account",
+      "kind": "int",
+      "min": 1,
+      "max": 1440,
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#reliability",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.task_part_deadline_minutes.name",
+      "audit": true
+    },
+    {
+      "key": "automation.task_part_deadline_scheduled_minutes",
+      "scope": "account",
+      "kind": "int",
+      "min": 1,
+      "max": 1440,
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#reliability",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.task_part_deadline_scheduled_minutes.name",
+      "audit": true
+    },
+    {
       "key": "automation.widget_artifacts_auto",
       "scope": "account",
       "kind": "bool",
