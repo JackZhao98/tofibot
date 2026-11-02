@@ -81,6 +81,31 @@ func (rc *delegatedTaskReceipt) fillContractTx(q queryer, giver string) {
 	}
 }
 
+const (
+	maxProgressRunes = 140
+	// progressEmitSeconds is how often a status line reaches the card: a line written
+	// sooner after the last one is stored (the next card update shows it) and sends no event.
+	progressEmitSeconds = 20
+)
+
+// setProgressTx stores the holder's one-line status. It overwrites the earlier line
+// and makes no message. The card event goes out at most once in progressEmitSeconds.
+func setProgressTx(tx *sql.Tx, taskID, line string) error {
+	var last string
+	if err := tx.QueryRow(`SELECT progress_at FROM work_items WHERE id=?`, taskID).Scan(&last); err != nil {
+		return err
+	}
+	at := time.Now()
+	if prev, err := time.Parse(storedTimeLayout, last); err == nil && at.Sub(prev) < progressEmitSeconds*time.Second {
+		_, err = tx.Exec(`UPDATE work_items SET progress_line=? WHERE id=?`, line, taskID)
+		return err
+	}
+	if _, err := tx.Exec(`UPDATE work_items SET progress_line=?,progress_at=?,updated_at=? WHERE id=?`, line, stampTime(at), now(), taskID); err != nil {
+		return err
+	}
+	return taskEventTx(tx, taskID)
+}
+
 // taskContractLines is the text of the contract for the blocks the holder reads.
 // The deadline is the time left at the moment of reading.
 func taskContractLines(item WorkItem, at time.Time) string {

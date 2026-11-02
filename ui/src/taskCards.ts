@@ -174,7 +174,14 @@ export function deriveCards(tasks: readonly WorkItem[], botById: ReadonlyMap<str
   const planned = plannedPartIds(tasks, models);
   const drawn = tasks.filter(task => !planned.has(task.id));
   const anchored = folded.size ? messages.filter(message => !folded.has(message.id)) : messages;
-  return { models, folded, byMessage: anchorCards(drawn, models, anchored, runById), roster: rosterTasks(models.values()) };
+  return { models, folded, byMessage: anchorCards(drawn, models, anchored, runById), roster: rosterTasks(models.values()), progressByRun: progressByRun(tasks) };
+}
+
+/** The one-line status each working run's holder keeps (task_update progress): the live line shows it in place of the generic step label. */
+export function progressByRun(tasks: readonly WorkItem[]): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const task of tasks) if (task.progress_line && task.assignee_run_id && isOpenTask(task.status)) out.set(task.assignee_run_id, task.progress_line);
+  return out;
 }
 
 export interface TaskFeed { push: (event: object) => void; cancel: () => void }

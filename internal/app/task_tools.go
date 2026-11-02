@@ -23,7 +23,7 @@ const (
 
 	cancelWaitToolDescription = "End a wait you no longer need, for example when its event came another way or the work changed. A wait you end does not wake you."
 
-	taskUpdateToolDescription = "Change a task you gave or hold. Either side may edit it when new information needs it: change the request (the version goes up), add, remove, rewrite or reorder checklist items, change what a blocked task that has not started waits on, or absorb another task of the same tree into this one. Every edit needs a reason. The other side is told and the edit is recorded. Do not remove an item, or end it as skipped, to avoid hard work. The holder also reports its status and ends each checklist item as done, skipped or blocked with a reason. The giver also answers a question about the task, accepts it as done, or cancels it. Work on one item at a time."
+	taskUpdateToolDescription = "Change a task you gave or hold. Either side may edit it when new information needs it: change the request (the version goes up), add, remove, rewrite or reorder checklist items, change what a blocked task that has not started waits on, or absorb another task of the same tree into this one. Every edit needs a reason. The other side is told and the edit is recorded. Do not remove an item, or end it as skipped, to avoid hard work. The holder also reports its status and ends each checklist item as done, skipped or blocked with a reason. The giver also answers a question about the task, accepts it as done, or cancels it. Work on one item at a time. The holder also sets progress: one short line, at most 140 characters, that says what the holder does now. It replaces the earlier line, shows on the task card and in the live line, and posts no message."
 
 	taskAskToolDescription = "Ask the member that gave you a task a question about it. The task becomes input_required, and the question wakes that member after your turn ends. End your turn after you ask; you wake when the answer arrives. When the person gave the task, ask the person with the question tool."
 
@@ -370,6 +370,7 @@ func (s *Server) taskUpdateTool(r Run) Tool {
 			"absorb_task_id":    stringProp("The id of a task of the same tree that this task takes in. Its checklist joins this one and it closes as merged."),
 			"add_depends_on":    map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Tasks of the same tree that a blocked task, not yet started, also waits on."},
 			"remove_depends_on": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Tasks that a blocked task, not yet started, no longer waits on. A task that waits on nothing starts."},
+			"progress":          stringProp("The holder's one-line status, at most 140 characters. An empty string clears it."),
 			"items": map[string]any{"type": "array", "description": "The holder sets the status and reason of checklist items.", "items": objectSchema(map[string]any{
 				"id":     map[string]any{"type": "string"},
 				"status": map[string]any{"type": "string", "enum": []string{checklistOpen, checklistDone, checklistSkipped, checklistBlocked}},
@@ -394,11 +395,12 @@ func (s *Server) taskUpdateTool(r Run) Tool {
 				Items       []ChecklistChange  `json:"items"`
 				AddDeps     []string           `json:"add_depends_on"`
 				RemoveDeps  []string           `json:"remove_depends_on"`
+				Progress    *string            `json:"progress"`
 			}
 			if json.Unmarshal(raw, &in) != nil || strings.TrimSpace(in.TaskID) == "" {
 				return "", errors.New("task_id is required")
 			}
-			item, err := s.store.updateTask(r.BotID, TaskUpdate{TaskID: strings.TrimSpace(in.TaskID), Status: in.Status, Brief: in.Brief, AddItems: in.AddItems, RemoveItems: in.RemoveItems, RewriteItems: in.Rewrite, Order: in.Order, Absorb: in.Absorb, Items: in.Items, Reason: in.Reason, Answer: strings.TrimSpace(in.Answer), AddDependsOn: in.AddDeps, RemoveDependsOn: in.RemoveDeps})
+			item, err := s.store.updateTask(r.BotID, TaskUpdate{TaskID: strings.TrimSpace(in.TaskID), Status: in.Status, Brief: in.Brief, AddItems: in.AddItems, RemoveItems: in.RemoveItems, RewriteItems: in.Rewrite, Order: in.Order, Absorb: in.Absorb, Items: in.Items, Reason: in.Reason, Answer: strings.TrimSpace(in.Answer), AddDependsOn: in.AddDeps, RemoveDependsOn: in.RemoveDeps, Progress: in.Progress})
 			if err != nil {
 				return "", err
 			}

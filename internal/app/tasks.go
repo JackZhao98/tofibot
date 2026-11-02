@@ -709,6 +709,9 @@ type TaskUpdate struct {
 	// started waits on (decision 0064).
 	AddDependsOn    []string
 	RemoveDependsOn []string
+	// Progress is the holder's one-line status (divide and conquer, line A):
+	// it overwrites the earlier line and posts no message.
+	Progress *string
 }
 
 func (in TaskUpdate) structural() bool {
@@ -745,9 +748,30 @@ func (s *Store) updateTask(actor string, in TaskUpdate) (WorkItem, error) {
 		return WorkItem{}, taskRefusal("task_answer_giver_only", "Only the member that gave the task may answer a question about it.")
 	}
 	// Item results and the task's own progress belong to the holder.
-	if len(in.Items) > 0 || in.Status == "in_progress" || in.Status == "blocked" {
+	if len(in.Items) > 0 || in.Status == "in_progress" || in.Status == "blocked" || in.Progress != nil {
 		if !assignee {
 			return WorkItem{}, taskRefusal("task_assignee_only", "Only the member that holds the task may report its progress or the result of a checklist item.")
+		}
+	}
+	progressOnly := in.Progress != nil && !in.structural() && len(in.Items) == 0 && in.Status == "" && in.Answer == ""
+	if in.Progress != nil {
+		line := strings.TrimSpace(*in.Progress)
+		if utf8.RuneCountInString(line) > maxProgressRunes {
+			return WorkItem{}, taskRefusal("progress_too_long", fmt.Sprintf("The progress line holds at most %d characters.", maxProgressRunes))
+		}
+		if err = setProgressTx(tx, item.ID, line); err != nil {
+			return WorkItem{}, err
+		}
+		if progressOnly {
+			// A status line is not an edit and not a message: no reason, no inbox row, no tree charge.
+			out, e := getTaskTx(tx, item.ID)
+			if e != nil {
+				return WorkItem{}, e
+			}
+			if e = decorateTaskTx(tx, &out); e != nil {
+				return WorkItem{}, e
+			}
+			return out, tx.Commit()
 		}
 	}
 	editReason := strings.TrimSpace(in.Reason)
@@ -1140,6 +1164,14 @@ func (s *Store) taskRecordContext(runID string) string {
 		b.WriteString("Checklist, one item at a time, each ended with a reason:\n")
 		for _, c := range item.Checklist {
 			fmt.Fprintf(&b, "- %s [%s] %s", c.ID, c.Status, c.Text)
+			if c.TaskID != "" {
+				// A plan item: the task of the part, its state and the line its holder keeps.
+				fmt.Fprintf(&b, " {task %s %s", c.TaskID, c.TaskStatus)
+				if c.ProgressLine != "" {
+					fmt.Fprintf(&b, ": %s", trimRunes(c.ProgressLine, maxProgressRunes))
+				}
+				b.WriteString("}")
+			}
 			if c.Reason != "" {
 				fmt.Fprintf(&b, " (%s)", trimRunes(c.Reason, 160))
 			}

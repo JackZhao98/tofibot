@@ -2349,6 +2349,8 @@ function Workspace() {
   // written, or the model's latest reasoning headline.
   function runLiveStatus(run: Run): string {
     if (run.status === "waiting") return t("live.waiting_confirm");
+    const progress = taskView?.progressByRun.get(run.id);
+    if (progress) return progress;
     const tool = activeToolForRun(toolActivities, run.id);
     if (tool) return toolActionLabel(tool);
     if (Object.values(drafts).some(d => d.run_id === run.id && d.status === "active" && d.content.trim())) return t("live.writing_fast");

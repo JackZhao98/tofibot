@@ -131,6 +131,11 @@ try {
   // mergeTasks sees the one-line status and the waits as changes.
   const baseTask = task("a", { updated_at: "2026-10-23T10:00:09Z" });
   assert.notEqual(mergeTasks([baseTask], [{ ...baseTask, progress_line: "Working" }]), mergeTasks([baseTask], [baseTask]), "a new status line replaces the task even with the same time");
+  // The live line shows the holder's one-line status while its run works, and not after the task ends.
+  const { progressByRun } = await modules.load("/src/taskCards.ts");
+  const working = [task("w1", { assignee_run_id: "run1", progress_line: "Reading the price list" }), task("w2", { assignee_run_id: "run2", progress_line: "Old", status: "done" }), task("w3", { assignee_run_id: "run3" })];
+  assert.deepEqual([...progressByRun(working)], [["run1", "Reading the price list"]]);
+  assert.equal(deriveCards(working, new Map(), [], new Map()).progressByRun.get("run1"), "Reading the price list");
   console.log("task cards: ok");
 } finally {
   await modules.close();
