@@ -23,6 +23,7 @@ export const message = (e: unknown) => {
   if (text === "MCP server connection or discovery failed") return i18n.t("extensions:error.discovery_failed");
   if (text.includes("HTTP redirects must use localhost")) return i18n.t("extensions:error.redirect_needs_https");
   if (text.includes("OAuth discovery or client registration failed")) return i18n.t("extensions:error.oauth_discovery_failed");
+  if (text.startsWith("This server may not connect to that address.")) return i18n.t("extensions:error.endpoint_not_allowed");
   if (text.startsWith("OAuth connection could not be started")) return i18n.t("extensions:error.oauth_start_failed");
   if (text === "MCP endpoint changed; re-enter or remove saved headers before saving") return i18n.t("extensions:error.endpoint_changed_headers");
   if (text === "MCP endpoint changed; explicitly configure OAuth for the new endpoint before saving") return i18n.t("extensions:error.endpoint_changed_oauth");
@@ -40,6 +41,7 @@ export const diagnosticText = (item: { message: string; code?: string }) => {
     case "lan_unauthorized": return i18n.t("extensions:lan.unauthorized");
     case "lan_forbidden": return i18n.t("extensions:lan.forbidden");
     case "lan_not_found": return i18n.t("extensions:lan.not_found");
+    case "endpoint_not_allowed": return i18n.t("extensions:error.endpoint_not_allowed");
     default: return message(item.message);
   }
 };

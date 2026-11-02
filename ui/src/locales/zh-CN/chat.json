@@ -415,8 +415,8 @@
     "settings_change_undone": "已撤销",
     "settings_change_undo_failed": "无法撤销",
     "settings_change_stale": "此后又被更改过",
-    "spend_alert": "本月花费：${{spend}}，已达额度 ${{limit}} 的 80%。使用计费模型的新运行将在额度处停止。",
-    "spend_alert_reached": "本月花费：${{spend}}，已达额度 ${{limit}}。使用计费模型的新运行将被拒绝。",
+    "spend_alert": "本月花费：${{spend}}，已达额度 ${{limit}} 的 {{percent}}%。对计费模型的调用将在额度处停止。",
+    "spend_alert_reached": "本月花费：${{spend}}，已达额度 ${{limit}}（{{percent}}%）。对计费模型的调用将被拒绝。",
     "spend_alert_open": "调整额度"
   },
   "notifications": {
@@ -570,7 +570,7 @@
     "server_pick": "起始模型",
     "server_connect": "连接",
     "server_failed": "无法连接该服务器。请检查地址后重试。",
-    "server_not_allowed": "本服务器不允许连接本地或内网地址。仅服务器管理员可用；否则需由运维在服务器环境中设置 TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1 并重启后才可使用。"
+    "server_not_allowed": "本服务器不允许连接本地或内网地址。仅服务器管理员可用；否则需由运维在服务器环境中设置 TOFI_ALLOW_PRIVATE_ENDPOINTS=1 并重启后才可使用。"
   },
   "primary": {
     "badge": "主助理",

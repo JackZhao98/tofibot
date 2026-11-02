@@ -168,7 +168,8 @@
     "oauth_start_failed": "暫時無法開始授權，請檢查服務網址後再試一次。",
     "offline": "無法連線至伺服器，請再試一次。",
     "redirect_needs_https": "授權需要 HTTPS 網址，或透過 localhost 通道連線至 Tofi。內部網路的 HTTP 網址無法完成重新導向。",
-    "tools_failed": "無法讀取工具，請再試一次。"
+    "tools_failed": "無法讀取工具，請再試一次。",
+    "endpoint_not_allowed": "此伺服器不允許連線到該位址。只有伺服器管理員（Admin）可以使用私有或本機位址；否則需由維運人員在伺服器環境中設定 TOFI_ALLOW_PRIVATE_ENDPOINTS=1 並重新啟動。中繼資料與連結本機位址一律不允許。"
   },
   "form": {
     "add": "新增",

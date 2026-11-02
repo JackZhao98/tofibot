@@ -260,7 +260,9 @@ type Config struct {
 	StorageLimit     func() *int64
 	HostMinFreeBytes int64
 	StorageSnapshot  func(StorageReport)
-	ComputerUsage    func(context.Context) *ComputerUsage
+	// SpendSnapshot receives the month's spend and limit after each booked call and limit change (gateway only).
+	SpendSnapshot func(SpendStatus)
+	ComputerUsage func(context.Context) *ComputerUsage
 }
 type Server struct {
 	// personalComputers is Config.PersonalComputers: the pairing routes answer only when it is set.
@@ -396,6 +398,10 @@ type Server struct {
 // Store is a single SQLite writer. WAL plus one connection keeps sequence and
 // idempotency transactions deterministic across HTTP handlers and workers.
 type Store struct {
+	// spendRefusalLogged holds the month+limit keys whose background refusal is already logged.
+	spendRefusalLogged sync.Map
+	// spendSnapshot publishes the month's spend to the gateway's root database (nil without one).
+	spendSnapshot func(SpendStatus)
 	// guestBlobs reads and deletes legacy `vm:` attachments only (S1).
 	guestBlobs guestBlobStorage
 	// guestBlobsMu guards guestBlobs, which a hot attach and detach change.
@@ -3045,6 +3051,7 @@ func NewServer(c Config) (*Server, error) {
 	server := &Server{accountID: c.AccountID, accountIsAdmin: c.AccountIsAdmin, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerFactory: computerFactory, computerSlots: map[string]*computerSlot{}, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}, providerEndpoints: map[string]string{}, envProviderKeys: map[string]string{}, envProviderErrors: map[string]string{}, providerCatalogs: map[string]providerCatalog{}}
 	server.personalComputers = c.PersonalComputers
 	st.storage = storageGate{limit: c.StorageLimit, minFree: c.HostMinFreeBytes}
+	st.spendSnapshot = c.SpendSnapshot
 	server.storageSnapshot, server.computerUsage = c.StorageSnapshot, c.ComputerUsage
 	st.onReturnQueued = func(r Run) {
 		if conv, ce := st.GetConversation(r.ConversationID); ce == nil {
@@ -3099,7 +3106,7 @@ func NewServer(c Config) (*Server, error) {
 	} else if switched > 0 {
 		log.Printf("[model-settings] %d Bot(s) now follow the global model", switched)
 	}
-	server.extensions = extensions.NewManager(extensions.Config{MCPConfigPath: c.MCPConfigPath, SkillsDir: c.SkillsDir, ExpandToolQuery: server.expandToolSearchQuery, HTTPTransport: server.localMCPTransport, ServerUsable: server.mcpServerUsable, SkillAccess: st.skillEnabledFilter, ConnectionAccess: st.connectionAccessFilter, ServerIdentityChanged: server.markStandingServerChanged})
+	server.extensions = extensions.NewManager(extensions.Config{MCPConfigPath: c.MCPConfigPath, SkillsDir: c.SkillsDir, ExpandToolQuery: server.expandToolSearchQuery, HTTPTransport: server.localMCPTransport, AllowPrivateEndpoints: server.mcpPrivateAllowed, ServerUsable: server.mcpServerUsable, SkillAccess: st.skillEnabledFilter, ConnectionAccess: st.connectionAccessFilter, ServerIdentityChanged: server.markStandingServerChanged})
 	if err := server.migrateSkillLibraryData(); err != nil {
 		st.Close()
 		return nil, fmt.Errorf("skill library migration: %w", err)
@@ -3162,6 +3169,7 @@ func NewServer(c Config) (*Server, error) {
 		st.Close()
 		return nil, e
 	}
+	st.publishSpend(time.Now())
 	return server, nil
 }
 func (s *Server) Close() error {
@@ -4175,11 +4183,10 @@ func (s *Server) execute(c Conversation, r Run) {
 	}
 	// A billed model is refused before its first call once the month's spend
 	// reaches the limit (spend_cap.go); a plan or an unpriced local model passes.
-	if r.Kind != runKindTriage {
-		if capErr := s.store.checkSpendCap(model, time.Now()); capErr != nil {
-			s.failRun(c, r, capErr)
-			return
-		}
+	// A refused routing run falls back to the default member like any failed one.
+	if capErr := s.store.checkSpendCap(model, time.Now()); capErr != nil {
+		s.failRun(c, r, capErr)
+		return
 	}
 	var onDelta, onThinking func(string)
 	var onAssistantTurn, onReviewDraft func(int, string) error
@@ -4590,7 +4597,12 @@ func (s *Server) execute(c Conversation, r Run) {
 		// text private, ending quietly is how that turn closes.
 		endOnEmptyFinal = func() bool { return hasHandoff(s.store, r.ID) }
 	}
-	res, e := runEngine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, ConversationID: c.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, StructuredOutput: structured, ForceToolUse: structured && s.forceSayHaikuDMEnabled() && forceSayFor(c, r, model), OnToolCallDelta: onToolCallDelta, EndOnEmptyFinal: endOnEmptyFinal, BeforeModelCall: steeringBoundary, DrainInbox: drainInbox, BeginStep: s.beginStep(r.ID), BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
+	res, e := runEngine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, ConversationID: c.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, StructuredOutput: structured, ForceToolUse: structured && s.forceSayHaikuDMEnabled() && forceSayFor(c, r, model), OnToolCallDelta: onToolCallDelta, EndOnEmptyFinal: endOnEmptyFinal, BeforeModelCall: func() error {
+		if err := steeringBoundary(); err != nil {
+			return err
+		}
+		return s.store.checkSpendCap(model, time.Now())
+	}, DrainInbox: drainInbox, BeginStep: s.beginStep(r.ID), BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
 		OnThinking: onThinking, OnRetry: onRetry, OnStreamReset: onStreamReset, OnReviewDraft: onReviewDraft,
 		Continuation:     continuation,
 		WebSearchMaxUses: s.searchUses(model, tools),
@@ -4661,6 +4673,10 @@ func (s *Server) execute(c Conversation, r Run) {
 			return s.store.RecordToolEvent(c.ID, r.BotID, r.ID, ev)
 		}})
 	flushStream()
+	var capErr *spendCapError
+	if errors.As(e, &capErr) {
+		e = capErr // the typed code leads the stored error so the run shows the limit message
+	}
 	streamMu.Lock()
 	persistErr := streamErr
 	streamMu.Unlock()

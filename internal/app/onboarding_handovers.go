@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	evaldata "github.com/JackZhao98/tofibot/eval"
+	"github.com/JackZhao98/tofibot/internal/provider"
 )
 
 // maxHandovers is the number of suggestions the first direct message shows.
@@ -81,7 +82,7 @@ func filterHandoversN(tasks []trustTask, caps handoverCapabilities, model string
 			}
 		}
 		for _, bad := range task.NotFor {
-			if model != "" && strings.EqualFold(bad, model) {
+			if handoverModelMatches(bad, model) {
 				ok = false
 			}
 		}
@@ -100,6 +101,15 @@ func filterHandoversN(tasks []trustTask, caps handoverCapabilities, model string
 		out = out[:limit]
 	}
 	return out
+}
+
+// handoverModelMatches says whether a not_for entry names the model by the rule
+// provider.GetModelInfo uses: the model id starts with the entry (so a dated
+// snapshot matches its family), after the compatible-endpoint prefix is removed.
+func handoverModelMatches(entry, model string) bool {
+	entry = strings.ToLower(strings.TrimSpace(entry))
+	model = strings.ToLower(strings.TrimPrefix(strings.TrimSpace(model), provider.CompatModelPrefix))
+	return entry != "" && model != "" && strings.HasPrefix(model, entry)
 }
 
 func (s *Server) handoverCapabilities(ctx context.Context) handoverCapabilities {

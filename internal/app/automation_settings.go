@@ -213,7 +213,13 @@ ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_
 	if err = insertWorkspaceEventTx(tx, workspaceScopeConfig, now()); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	if key == autoMonthlySpendLimit {
+		s.publishSpend(time.Now())
+	}
+	return nil
 }
 
 // autoStored returns the stored value of a plain item.

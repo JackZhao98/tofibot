@@ -2928,7 +2928,7 @@ export function MessageBubble({ receipt, message, replyTarget, replyTargetName, 
   if (message.kind === "notice" && message.notice?.type === "spend_alert") {
     // Posted once by the server when the month's spend reaches 80% of the limit; the text is localized here.
     const notice = message.notice;
-    return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div><span>{t(notice.reason === "reached" ? "message.spend_alert_reached" : "message.spend_alert", { spend: notice.new_value, limit: notice.old_value })}</span> <button onClick={() => void linkRuntime().then(module => module.openHref("/settings/usage#spend"))}>{t("message.spend_alert_open")}</button></div></article>;
+    return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div><span>{t(notice.reason === "reached" ? "message.spend_alert_reached" : "message.spend_alert", { spend: notice.new_value, limit: notice.old_value, percent: Math.round(Number(notice.new_value) / Math.max(1, Number(notice.old_value)) * 100) })}</span> <button onClick={() => void linkRuntime().then(module => module.openHref("/settings/usage#spend"))}>{t("message.spend_alert_open")}</button></div></article>;
   }
   if (message.kind === "notice" && message.notice?.type === "command_exit") {
     // Posted by the server when a command a Bot waited on has ended; the text is localized here.

@@ -66,7 +66,7 @@
   "settings:automation.item.group_triage_model.name": "Group routing model",
   "settings:automation.item.group_triage_model.what": "The model that picks the member for an unaddressed group message. Automatic means the background model.",
   "settings:automation.item.monthly_spend_limit_usd.name": "Monthly spend limit",
-  "settings:automation.item.monthly_spend_limit_usd.what": "Refuses new runs on billed models once this month's spend reaches the limit, and sends one notice at 80%. Whole dollars, 0 is off. Set on the Usage page.",
+  "settings:automation.item.monthly_spend_limit_usd.what": "Refuses calls to billed models once this month's spend reaches the limit, and sends one notice at 80%. Whole dollars, 0 is off. Set on the Usage page.",
   "settings:automation.item.own_replies_verbatim.name": "Own replies kept in full",
   "settings:automation.item.own_replies_verbatim.what": "A Bot sees this many of its latest replies word for word. Older ones shrink to a one-line gist so it stops copying its own phrasing.",
   "settings:automation.item.provider_retries.name": "Automatic retries",

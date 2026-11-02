@@ -168,7 +168,8 @@
     "oauth_start_failed": "暂时无法启动授权，请检查服务地址后重试。",
     "offline": "无法连接服务器，请重试。",
     "redirect_needs_https": "授权需要 HTTPS 地址，或通过 localhost 隧道连接 Tofi。内网 HTTP 地址无法完成回调。",
-    "tools_failed": "无法读取工具，请重试。"
+    "tools_failed": "无法读取工具，请重试。",
+    "endpoint_not_allowed": "此服务器不允许连接该地址。只有服务器管理员（Admin）可以使用私有或本地地址；否则需由运维人员在服务器环境中设置 TOFI_ALLOW_PRIVATE_ENDPOINTS=1 并重启。元数据和链路本地地址始终不允许。"
   },
   "form": {
     "add": "添加",

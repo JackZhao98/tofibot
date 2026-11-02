@@ -248,7 +248,7 @@
       "invalid_base_url": "Saisissez une URL de base qui commence par http:// ou https://, sans identifiants ni paramètres de requête.",
       "invalid_models": "Un identifiant de modèle ne peut pas contenir d'espaces.",
       "invalid_key": "Le point d'accès a refusé cette clé API. Elle n'a pas été enregistrée.",
-      "endpoint_not_allowed": "Ce serveur n'a pas le droit de se connecter à cette adresse. Seul un administrateur du serveur peut utiliser une adresse locale ou privée ; sinon l'opérateur doit définir TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1 dans l'environnement du serveur, puis redémarrer.",
+      "endpoint_not_allowed": "Ce serveur n'a pas le droit de se connecter à cette adresse. Seul un administrateur du serveur peut utiliser une adresse locale ou privée ; sinon l'opérateur doit définir TOFI_ALLOW_PRIVATE_ENDPOINTS=1 dans l'environnement du serveur, puis redémarrer.",
       "unreachable": "Ce serveur n'a pas pu joindre le point d'accès. Vérifiez l'adresse ou saisissez les identifiants de modèles à la main.",
       "no_models": "Le point d'accès n'a renvoyé aucune liste de modèles. Saisissez les identifiants à la main.",
       "presets": "Partir de",
@@ -1127,7 +1127,7 @@
       },
       "monthly_spend_limit_usd": {
         "name": "Plafond de dépenses mensuel",
-        "what": "Refuse les nouvelles exécutions sur des modèles facturés dès que les dépenses du mois atteignent le plafond, et envoie une notification à 80 %. Dollars entiers, 0 désactive. Se règle sur la page Utilisation."
+        "what": "Refuse les appels aux modèles facturés dès que les dépenses du mois atteignent le plafond, et envoie une notification à 80 %. Dollars entiers, 0 désactive. Se règle sur la page Utilisation."
       }
     },
     "option": {
@@ -1313,30 +1313,30 @@
   },
   "spend": {
     "title": "Plafond mensuel",
-    "description": "Compte ce que coûtent les modèles à clé API au tarif public, sur le mois civil de votre fuseau horaire. Les connexions ChatGPT et Codex ne sont pas comptées.",
+    "description": "Compte ce que coûtent, au tarif public, les modèles à clé API et les modèles compatibles dont le prix est connu, sur le mois civil de votre fuseau horaire. Les connexions ChatGPT et Codex, les modèles locaux et ceux sans tarif ne sont pas comptés.",
     "loading": "Chargement des dépenses…",
     "load_failed": "Impossible de charger les dépenses. Réessayez.",
     "this_month": "Dépenses du mois",
     "limit_label": "Plafond mensuel",
-    "limit_help": "Désactivé par défaut. À 80 %, vous recevez une notification. À 100 %, les nouvelles exécutions sur des modèles facturés sont refusées ; celles déjà en cours terminent leur appel de modèle actuel.",
+    "limit_help": "Désactivé par défaut. À 80 %, vous recevez une notification. À 100 %, tout appel à un modèle facturé est refusé : les nouvelles exécutions, le prochain appel d'une exécution en cours et les appels d'arrière-plan comme les relances et les revues.",
     "off": "Désactivé",
     "amount": "{{amount}} $",
     "amount_exact": "{{amount}} $",
     "resets": "Réinitialisé le {{date}}",
     "plans_label": "Connexions par abonnement",
-    "plans_note": "Les connexions ChatGPT et Codex n'ont pas de prix par appel : les limites de l'abonnement s'appliquent, et elles ne sont ni comptées ni refusées. Les modèles locaux et compatibles comptent pour 0 $ sans tarif.",
+    "plans_note": "Les connexions ChatGPT et Codex n'ont pas de prix par appel : les limites de l'abonnement s'appliquent, et elles ne sont ni comptées ni refusées. Les modèles locaux et les modèles compatibles sans tarif connu ne sont pas comptés.",
     "state": {
       "off": "Aucun plafond défini",
       "ok": "{{percent}} % du plafond utilisé",
       "near": "{{percent}} % du plafond atteint",
-      "reached": "Plafond atteint. Les nouvelles exécutions sur des modèles facturés sont refusées."
+      "reached": "Plafond atteint. Les appels aux modèles facturés sont refusés."
     },
     "admin": {
       "title": "Dépenses du mois",
       "column": "Dépenses",
       "of_limit": "{{spend}} $ / {{limit}} $",
       "no_limit": "{{spend}} $ · sans plafond",
-      "unavailable": "Ce compte est illisible pour le moment."
+      "unavailable": "Aucune dépense n'a encore été remontée pour ce compte."
     }
   }
 }

@@ -168,7 +168,8 @@
     "oauth_start_failed": "Couldn't start authorization. Check the server URL and try again.",
     "offline": "Can't reach the server. Try again.",
     "redirect_needs_https": "Authorization needs an HTTPS address or a localhost tunnel to Tofi. A private-network HTTP address can't receive the redirect.",
-    "tools_failed": "Couldn't load tools. Try again."
+    "tools_failed": "Couldn't load tools. Try again.",
+    "endpoint_not_allowed": "This server may not connect to that address. Only a server Admin can use a private or local address; otherwise the operator must set TOFI_ALLOW_PRIVATE_ENDPOINTS=1 in the server environment, then restart. Metadata and link-local addresses are never allowed."
   },
   "form": {
     "add": "Add",

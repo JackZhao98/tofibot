@@ -246,7 +246,7 @@
       "invalid_base_url": "請輸入以 http:// 或 https:// 開頭的基礎 URL，不能含憑證或查詢參數。",
       "invalid_models": "模型 ID 不能包含空格。",
       "invalid_key": "端點拒絕了這個 API 金鑰，未儲存。",
-      "endpoint_not_allowed": "此伺服器不允許連線到該位址。本機與內網位址僅伺服器管理員可用；否則需由維運人員在伺服器環境中設定 TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1 並重新啟動。",
+      "endpoint_not_allowed": "此伺服器不允許連線到該位址。本機與內網位址僅伺服器管理員可用；否則需由維運人員在伺服器環境中設定 TOFI_ALLOW_PRIVATE_ENDPOINTS=1 並重新啟動。",
       "unreachable": "此伺服器無法連線到該端點。請檢查位址，或手動填寫模型 ID。",
       "no_models": "此端點沒有回傳模型清單，請手動填寫模型 ID。",
       "presets": "快速填入",
@@ -1109,7 +1109,7 @@
       },
       "monthly_spend_limit_usd": {
         "name": "每月花費上限",
-        "what": "本月花費達到上限後，拒絕使用計費模型的新執行，並在 80% 時提醒一次。單位為整數美元，0 表示關閉。在「用量」頁設定。"
+        "what": "本月花費達到上限後，拒絕對計費模型的呼叫，並在 80% 時提醒一次。單位為整數美元，0 表示關閉。在「用量」頁設定。"
       }
     },
     "option": {
@@ -1293,30 +1293,30 @@
   },
   "spend": {
     "title": "每月額度",
-    "description": "依公開標價統計 API 金鑰模型在當前日曆月（以你的時區為準）的花費。ChatGPT 與 Codex 登入不計入。",
+    "description": "依公開標價統計 API 金鑰模型與已知定價的相容模型在當前日曆月（以你的時區為準）的花費。ChatGPT 與 Codex 登入、本機模型和未定價的模型不計入。",
     "loading": "正在載入花費…",
     "load_failed": "無法載入花費，請重試。",
     "this_month": "本月花費",
     "limit_label": "每月額度",
-    "limit_help": "預設關閉。達到 80% 時提醒一次；達到 100% 後，使用計費模型的新執行會被拒絕，已在執行的任務會完成目前這次模型呼叫。",
+    "limit_help": "預設關閉。達到 80% 時提醒一次；達到 100% 後，所有計費模型的呼叫都會被拒絕，包括新執行、已在執行的任務的下一次呼叫，以及追蹤檢查、審核等背景呼叫。",
     "off": "關閉",
     "amount": "${{amount}}",
     "amount_exact": "${{amount}}",
     "resets": "{{date}} 重置",
     "plans_label": "方案登入",
-    "plans_note": "ChatGPT 與 Codex 登入沒有按次價格，適用方案額度，不計入也不會被拒絕。本機與相容模型除非有定價，否則以 $0 計。",
+    "plans_note": "ChatGPT 與 Codex 登入沒有按次價格，適用方案額度，不計入也不會被拒絕。本機模型和價格未知的相容模型不計入。",
     "state": {
       "off": "未設額度",
       "ok": "已用額度的 {{percent}}%",
       "near": "已達額度的 {{percent}}%",
-      "reached": "已達額度。使用計費模型的新執行將被拒絕。"
+      "reached": "已達額度。對計費模型的呼叫將被拒絕。"
     },
     "admin": {
       "title": "本月花費",
       "column": "花費",
       "of_limit": "${{spend}} / ${{limit}}",
       "no_limit": "${{spend}} · 無額度",
-      "unavailable": "暫時無法讀取此帳戶。"
+      "unavailable": "此帳戶尚未回報花費。"
     }
   }
 }

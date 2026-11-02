@@ -1,6 +1,7 @@
 package app
 
 import (
+	"log"
 	"net/http"
 	"time"
 )
@@ -12,7 +13,7 @@ type adminAccountSpend struct {
 	SpendUSD  float64 `json:"spend_usd"`
 	LimitUSD  int     `json:"limit_usd"`
 	State     string  `json:"state"`
-	// Available is false for an account whose workspace cannot be opened (disabled or being deleted).
+	// Available is false for an account that has not published a month yet (never started, disabled or being deleted).
 	Available bool `json:"available"`
 }
 
@@ -47,17 +48,32 @@ func (g *AccountGateway) adminSpend(w http.ResponseWriter, r *http.Request, a Ac
 	}
 	rows.Close()
 	out := []adminAccountSpend{}
+	at := time.Now()
 	for _, x := range accounts {
 		item := adminAccountSpend{AccountID: x.ID, State: "off"}
 		if !x.Disabled && !x.Deleting {
-			if ws, err := g.workspace(x); err == nil && ws.store != nil {
-				if st, e := ws.store.spendStatus(time.Now()); e == nil {
-					item.Month, item.SpendUSD, item.LimitUSD, item.State, item.Available = st.Month, st.SpendUSD, st.LimitUSD, st.State, true
+			// Read the published row; opening a workspace here would boot a runtime per account.
+			var month, monthEnd string
+			err := g.root.store.db.QueryRowContext(r.Context(), `SELECT month,month_end,spend_usd,limit_usd FROM account_spend WHERE account_id=?`, x.ID).Scan(&month, &monthEnd, &item.SpendUSD, &item.LimitUSD)
+			if err == nil {
+				item.Month, item.Available = month, true
+				if end, e := time.Parse(time.RFC3339Nano, monthEnd); e == nil && !at.Before(end) {
+					item.SpendUSD = 0 // the published month is over; nothing is spent in the new one until a call books
 				}
+				item.State = spendState(item.SpendUSD, item.LimitUSD)
 			}
 		}
 		out = append(out, item)
 	}
 	writeJSON(w, 200, map[string]any{"version": 1, "accounts": out})
 	return true
+}
+
+// recordSpendSnapshot keeps one row per account: the workspace's own month and limit.
+func (g *AccountGateway) recordSpendSnapshot(accountID string, st SpendStatus) {
+	if _, err := g.root.store.db.Exec(`INSERT INTO account_spend(account_id,month,month_end,spend_usd,limit_usd,updated_at) VALUES(?,?,?,?,?,?)
+ON CONFLICT(account_id) DO UPDATE SET month=excluded.month,month_end=excluded.month_end,spend_usd=excluded.spend_usd,limit_usd=excluded.limit_usd,updated_at=excluded.updated_at`,
+		accountID, st.Month, st.MonthEnd, st.SpendUSD, st.LimitUSD, now()); err != nil {
+		log.Printf("[spend] publish for account %s: %v", accountID, err)
+	}
 }

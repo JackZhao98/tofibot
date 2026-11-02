@@ -247,7 +247,7 @@
       "invalid_base_url": "Enter a base URL that starts with http:// or https://, without credentials or a query.",
       "invalid_models": "A model ID can't contain spaces.",
       "invalid_key": "The endpoint rejected this API key. It wasn't saved.",
-      "endpoint_not_allowed": "This server isn't allowed to connect to that address. Local and private addresses can be used by a server Admin; otherwise the operator must set TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1 in the server environment (/etc/tofi/tofi.env) and restart.",
+      "endpoint_not_allowed": "This server isn't allowed to connect to that address. Local and private addresses can be used by a server Admin; otherwise the operator must set TOFI_ALLOW_PRIVATE_ENDPOINTS=1 in the server environment (/etc/tofi/tofi.env) and restart.",
       "unreachable": "Couldn't reach the endpoint from this server. Check the address, or type the model IDs by hand.",
       "no_models": "The endpoint returned no model list. Type the model IDs by hand.",
       "presets": "Start from",
@@ -1118,7 +1118,7 @@
       },
       "monthly_spend_limit_usd": {
         "name": "Monthly spend limit",
-        "what": "Refuses new runs on billed models once this month's spend reaches the limit, and sends one notice at 80%. Whole dollars, 0 is off. Set on the Usage page."
+        "what": "Refuses calls to billed models once this month's spend reaches the limit, and sends one notice at 80%. Whole dollars, 0 is off. Set on the Usage page."
       }
     },
     "option": {
@@ -1303,30 +1303,30 @@
   },
   "spend": {
     "title": "Monthly limit",
-    "description": "Counts what API-key models cost at list price over the calendar month, in your time zone. ChatGPT and Codex sign-ins are not counted.",
+    "description": "Counts what API-key models and priced compatible models cost at list price over the calendar month, in your time zone. ChatGPT and Codex sign-ins, local models and unpriced models are not counted.",
     "loading": "Loading spend…",
     "load_failed": "Couldn't load spend. Try again.",
     "this_month": "Spend this month",
     "limit_label": "Monthly limit",
-    "limit_help": "Off by default. At 80% you get one notice. At 100%, new runs on billed models are refused; runs already going finish their current model call.",
+    "limit_help": "Off by default. At 80% you get one notice. At 100%, every billed model call is refused: new runs, the next call of a run already going, and background calls such as follow-up checks and reviews.",
     "off": "Off",
     "amount": "${{amount}}",
     "amount_exact": "${{amount}}",
     "resets": "Resets {{date}}",
     "plans_label": "Plan sign-ins",
-    "plans_note": "ChatGPT and Codex sign-ins have no per-call price, so plan limits apply and they are never counted or refused. Local and compatible models count $0 unless priced.",
+    "plans_note": "ChatGPT and Codex sign-ins have no per-call price, so plan limits apply and they are never counted or refused. Local models and compatible models without a known price are not counted.",
     "state": {
       "off": "No limit set",
       "ok": "{{percent}}% of the limit used",
       "near": "At {{percent}}% of the limit",
-      "reached": "Limit reached. New runs on billed models are refused."
+      "reached": "Limit reached. Calls to billed models are refused."
     },
     "admin": {
       "title": "Spend this month",
       "column": "Spend",
       "of_limit": "${{spend}} / ${{limit}}",
       "no_limit": "${{spend}} · no limit",
-      "unavailable": "This account cannot be read now."
+      "unavailable": "No spend has been reported for this account yet."
     }
   }
 }

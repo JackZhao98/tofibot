@@ -103,6 +103,9 @@ func usageReferencePrice(model string) (input, output float64, ok bool) {
 // above; every other model uses the provider registry (dated and aliased IDs
 // match by prefix), with cache reads and writes at their own rates.
 func usageEquivalent(model string, u provider.Usage) (float64, bool) {
+	// A compatible endpoint serving a model the registry prices (through a
+	// hosted router, say) counts at that price; unknown names stay unpriced.
+	model = strings.TrimPrefix(model, provider.CompatModelPrefix)
 	if i, o, ok := usageReferencePrice(model); ok {
 		if u.InputTokens > 272_000 {
 			i *= 2

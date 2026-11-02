@@ -42,11 +42,13 @@ import (
 // reachable. The rule is enforced when each connection is dialed, so a name
 // that later resolves elsewhere, or a redirect, meets the same check.
 const (
-	compatMaxModels      = 100
-	compatMaxModelIDLen  = 200
-	compatMaxBaseURLLen  = 512
-	compatMaxKeyLen      = 4096
-	compatPrivateEnvFlag = "TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS"
+	compatMaxModels     = 100
+	compatMaxModelIDLen = 200
+	compatMaxBaseURLLen = 512
+	compatMaxKeyLen     = 4096
+	// compatPrivateEnvFlag is the older model-only spelling; privateEndpointsEnvFlag covers models and MCP.
+	compatPrivateEnvFlag    = "TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS"
+	privateEndpointsEnvFlag = "TOFI_ALLOW_PRIVATE_ENDPOINTS"
 )
 
 var errCompatBlocked = errors.New("endpoint address is not allowed")
@@ -119,7 +121,7 @@ func normalizeCompatModelIDs(in []string) ([]string, error) {
 }
 
 func (s *Server) compatPrivateAllowed() bool {
-	if s.accountID == "" || os.Getenv(compatPrivateEnvFlag) == "1" {
+	if s.accountID == "" || os.Getenv(compatPrivateEnvFlag) == "1" || os.Getenv(privateEndpointsEnvFlag) == "1" {
 		return true
 	}
 	return s.accountIsAdmin != nil && s.accountIsAdmin()
@@ -571,7 +573,7 @@ func (s *Server) routeCompatProvider(w http.ResponseWriter, r *http.Request, sub
 func compatFailure(w http.ResponseWriter, status int, err error) {
 	switch {
 	case errors.Is(err, errCompatBlocked):
-		writeErr(w, http.StatusBadRequest, "endpoint_not_allowed", "This server may not connect to that address. Only a server Admin can use a private or local address, or the operator can allow it for everyone by setting "+compatPrivateEnvFlag+"=1.")
+		writeErr(w, http.StatusBadRequest, "endpoint_not_allowed", "This server may not connect to that address. Only a server Admin can use a private or local address, or the operator can allow it for everyone by setting "+privateEndpointsEnvFlag+"=1.")
 	case status == http.StatusUnauthorized || status == http.StatusForbidden:
 		writeErr(w, http.StatusBadRequest, "invalid_key", fmt.Sprintf("The endpoint rejected this API key (HTTP %d).", status))
 	case errors.Is(err, errProviderUnreachable) || status >= 500 || status == http.StatusTooManyRequests:

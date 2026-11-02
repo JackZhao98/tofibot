@@ -1,12 +1,17 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
+	"net/netip"
+	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/JackZhao98/tofibot/internal/extensions"
 )
@@ -146,6 +151,10 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		if in.GoogleClient && !s.useWorkspaceGoogleClient(w, &in.OAuth) {
 			return true
 		}
+		if s.mcpEndpointCheck(r.Context(), in.URL) != nil {
+			writeMCPEndpointBlocked(w)
+			return true
+		}
 		e := s.extensions.SaveMCP(in.Name, extensions.MCPServerConfig{URL: in.URL, Transport: in.Transport, Headers: in.Headers, ToolAllowlist: in.ToolAllowlist, ToolDenylist: in.ToolDenylist, OAuth: in.OAuth}, r.Method == http.MethodPut)
 		if e != nil {
 			writeErr(w, 400, "extensions", e.Error())
@@ -187,6 +196,10 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		}
 		if e := decodeExtensionJSON(r, &in); e != nil {
 			writeErr(w, 400, "invalid_request", e.Error())
+			return true
+		}
+		if s.mcpEndpointCheck(r.Context(), in.URL) != nil {
+			writeMCPEndpointBlocked(w)
 			return true
 		}
 		e := s.extensions.SaveMCP(name, extensions.MCPServerConfig{URL: in.URL, Transport: in.Transport, Headers: in.Headers, ToolAllowlist: in.ToolAllowlist, ToolDenylist: in.ToolDenylist, OAuth: in.OAuth}, true)
@@ -232,4 +245,51 @@ func (s *Server) writeExtensionSaved(w http.ResponseWriter, status int) {
 		return
 	}
 	writeJSON(w, status, map[string]any{"ok": true, "next_run": true})
+}
+
+// mcpPrivateAllowed is the address rule for an MCP server the account owner
+// saves: loopback, private and CGNAT addresses only for a server Admin, a
+// workspace without a gateway, or when the operator sets
+// TOFI_ALLOW_PRIVATE_ENDPOINTS=1. Metadata and link-local addresses are never
+// allowed. The dial enforces it again (extensions.Config.AllowPrivateEndpoints).
+func (s *Server) mcpPrivateAllowed() bool {
+	if s.accountID == "" || os.Getenv(privateEndpointsEnvFlag) == "1" {
+		return true
+	}
+	return s.accountIsAdmin != nil && s.accountIsAdmin()
+}
+
+// mcpEndpointCheck refuses at save time an address literal, or a name that
+// resolves to addresses, the rule forbids. A name that does not resolve is left
+// to the connection test.
+func (s *Server) mcpEndpointCheck(ctx context.Context, raw string) error {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Hostname() == "" {
+		return nil // SaveMCP names the malformed address
+	}
+	allow := s.mcpPrivateAllowed()
+	if addr, e := netip.ParseAddr(u.Hostname()); e == nil {
+		if !extensions.OwnerAddrAllowed(addr, allow) {
+			return errMCPEndpointBlocked
+		}
+		return nil
+	}
+	lctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	addrs, err := net.DefaultResolver.LookupNetIP(lctx, "ip", u.Hostname())
+	if err != nil {
+		return nil
+	}
+	for _, addr := range addrs {
+		if !extensions.OwnerAddrAllowed(addr, allow) {
+			return errMCPEndpointBlocked
+		}
+	}
+	return nil
+}
+
+var errMCPEndpointBlocked = errors.New("endpoint address is not allowed")
+
+func writeMCPEndpointBlocked(w http.ResponseWriter) {
+	writeErr(w, http.StatusBadRequest, "endpoint_not_allowed", "This server may not connect to that address. Only a server Admin can use a private or local address, or the operator can allow it for everyone by setting "+privateEndpointsEnvFlag+"=1. Metadata and link-local addresses are never allowed.")
 }

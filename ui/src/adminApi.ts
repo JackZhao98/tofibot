@@ -48,7 +48,7 @@ export const DELETE_STEPS = ["export", "computer", "data", "sessions", "record"]
 export type DeleteStep = (typeof DELETE_STEPS)[number];
 export const LEGACY_OWNER_ID = "legacy-owner";
 
-/** One account's month in GET /api/admin/spend. `available` is false for an account whose workspace is not open to read (disabled or being deleted). */
+/** One account's month in GET /api/admin/spend. `available` is false for an account that has not published a month yet (never started, disabled or being deleted); the view never opens a workspace. */
 export type AdminAccountSpend = {account_id: string; month?: string; spend_usd: number; limit_usd: number; state: "off" | "ok" | "near" | "reached"; available: boolean};
 
 export const adminApi = {

@@ -66,7 +66,7 @@
   "settings:automation.item.group_triage_model.name": "グループ振り分けモデル",
   "settings:automation.item.group_triage_model.what": "宛先のないグループメッセージの担当メンバーを選ぶモデルです。自動はバックグラウンドモデルを使います。",
   "settings:automation.item.monthly_spend_limit_usd.name": "月間支出上限",
-  "settings:automation.item.monthly_spend_limit_usd.what": "今月の支出が上限に達すると、課金モデルを使う新しい実行を拒否し、80%で一度通知します。単位は整数のドル、0でオフです。使用量ページで設定します。",
+  "settings:automation.item.monthly_spend_limit_usd.what": "今月の支出が上限に達すると、課金モデルの呼び出しを拒否し、80%で一度通知します。単位は整数のドル、0でオフです。使用量ページで設定します。",
   "settings:automation.item.own_replies_verbatim.name": "自分の返信を原文で保持",
   "settings:automation.item.own_replies_verbatim.what": "Bot は直近のこの件数の返信だけを原文で見ます。それ以前は一行の要約に縮め、自分の言い回しの使い回しを防ぎます。",
   "settings:automation.item.provider_retries.name": "自動リトライ",

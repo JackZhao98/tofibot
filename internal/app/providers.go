@@ -251,6 +251,9 @@ func (s *Server) backgroundProvider(ctx context.Context, purpose string) (provid
 		return nil, "", errors.New("background model unavailable")
 	}
 	model := s.backgroundModel(purpose)
+	if err := s.store.refuseBackground(model, "the "+purpose+" model"); err != nil {
+		return nil, "", err
+	}
 	p, err := s.newModelProvider(ctx, model)
 	if err != nil {
 		return nil, "", err

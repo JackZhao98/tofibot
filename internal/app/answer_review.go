@@ -214,6 +214,9 @@ func (s *Server) gradeAnswer(ctx context.Context, p provider.Provider, model, ru
 	ctx, cancel := context.WithTimeout(ctx, answerGraderTimeout)
 	defer cancel()
 	started := time.Now()
+	if s.store.refuseBackground(model, "the answer grader") != nil {
+		return ""
+	}
 	var err error
 	resp, err := p.Chat(ctx, &provider.ChatRequest{Model: model, ReasoningEffort: "low", System: answerGraderSystem,
 		Messages: []provider.Message{{Role: "user", Content: graderInput(pm, draft, s.store.filesAttachedToRun(runID), quiet)}}})

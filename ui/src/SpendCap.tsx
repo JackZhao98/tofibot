@@ -15,7 +15,8 @@ const money = (value: number) => formatNumber(value, {minimumFractionDigits: 2, 
 
 /**
  * Settings › Usage › Monthly limit. The limit is the automation setting monthly_spend_limit_usd (whole dollars, off by default);
- * the server stops new runs on billed models at 100% and posts one notice at 80%.
+ * the server refuses each billed model call at 100% (new runs, the next call of a run in progress, background calls) and posts one notice at 80%.
+ * Counted: API-key models and compatible models with a known price. Not counted: ChatGPT/Codex sign-ins, local and unpriced models.
  */
 export function SpendCap() {
   const {t} = useTranslation("settings");

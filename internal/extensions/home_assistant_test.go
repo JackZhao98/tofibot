@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -45,9 +46,15 @@ func fakeHomeAssistant(t *testing.T, token string, turnedOff *atomic.Int32) *htt
 	return srv
 }
 
+// haManager is a Manager of an Admin account: only an Admin (or the operator flag) may reach a LAN address.
 func haManager(t *testing.T, url, token string) *Manager {
 	t.Helper()
-	manager := NewManager(Config{MCPConfigPath: filepath.Join(t.TempDir(), "mcp.json")})
+	return haManagerFor(t, url, token, true)
+}
+
+func haManagerFor(t *testing.T, url, token string, admin bool) *Manager {
+	t.Helper()
+	manager := NewManager(Config{MCPConfigPath: filepath.Join(t.TempDir(), "mcp.json"), AllowPrivateEndpoints: func() bool { return admin }})
 	if err := manager.SaveMCP("home-assistant", MCPServerConfig{URL: url, Transport: "streamable_http", Headers: map[string]string{"Authorization": "Bearer " + token}}, false); err != nil {
 		t.Fatal(err)
 	}
@@ -91,6 +98,29 @@ func TestHomeAssistantMCPLANConnection(t *testing.T) {
 	}
 	if err := run("GetLiveContext", `{}`); err != nil {
 		t.Fatalf("a state read: %v", err)
+	}
+}
+
+// A member's workspace refuses the same loopback/LAN address at dial time with the typed code, and nobody reaches
+// link-local or metadata addresses.
+func TestMCPPrivateEndpointBlockedForMember(t *testing.T) {
+	var turnedOff atomic.Int32
+	srv := fakeHomeAssistant(t, "ha-long-lived", &turnedOff)
+	got := haManagerFor(t, srv.URL+"/api/mcp", "ha-long-lived", false).InspectMCP(context.Background(), "home-assistant")
+	if len(got.Diagnostics) != 1 || got.Diagnostics[0].Code != "endpoint_not_allowed" || !strings.Contains(got.Diagnostics[0].Message, "TOFI_ALLOW_PRIVATE_ENDPOINTS=1") {
+		t.Fatalf("member: %+v", got)
+	}
+	meta := haManagerFor(t, "http://169.254.169.254/api/mcp", "x", true).InspectMCP(context.Background(), "home-assistant")
+	if len(meta.Diagnostics) != 1 || meta.Diagnostics[0].Code != "endpoint_not_allowed" {
+		t.Fatalf("metadata address must be refused even for an Admin: %+v", meta)
+	}
+	for addr, want := range map[string]bool{"127.0.0.1": false, "10.0.0.5": false, "100.64.1.1": false, "169.254.169.254": false, "0.0.0.0": false, "224.0.0.1": false, "fe80::1": false, "8.8.8.8": true} {
+		if OwnerAddrAllowed(netip.MustParseAddr(addr), false) != want {
+			t.Fatalf("OwnerAddrAllowed(%s, false) != %v", addr, want)
+		}
+	}
+	if !OwnerAddrAllowed(netip.MustParseAddr("192.168.1.2"), true) || OwnerAddrAllowed(netip.MustParseAddr("169.254.1.1"), true) {
+		t.Fatal("allowPrivate must open private ranges only")
 	}
 }
 

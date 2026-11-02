@@ -561,9 +561,9 @@ try {
     const { page, context } = await open(state);
     await page.locator(".onb-choice[data-choice='server']").click();
     await page.getByRole("button", { name: "Test connection" }).click();
-    await page.getByRole("alert").filter({ hasText: "TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1" }).waitFor();
+    await page.getByRole("alert").filter({ hasText: "TOFI_ALLOW_PRIVATE_ENDPOINTS=1" }).waitFor();
     await context.close();
-    pass("own server: a blocked private address names TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS");
+    pass("own server: a blocked private address names TOFI_ALLOW_PRIVATE_ENDPOINTS");
   }
 
   // The server failing to reach OpenAI is not the person cancelling.

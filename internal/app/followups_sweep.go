@@ -269,6 +269,9 @@ func (s *Server) runChatSweep(ctx context.Context, botID string, now time.Time) 
 		return res, errors.New("no model is configured")
 	}
 	model := s.triageModelName()
+	if err := s.store.refuseBackground(model, "the follow-up sweep"); err != nil {
+		return res, errFollowupPaused
+	}
 	payload, err := json.Marshal(items)
 	if err != nil {
 		return res, err

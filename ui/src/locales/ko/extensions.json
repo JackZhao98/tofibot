@@ -168,7 +168,8 @@
     "oauth_start_failed": "승인을 시작할 수 없습니다. 서버 URL을 확인한 뒤 다시 시도하세요.",
     "offline": "서버에 연결할 수 없습니다. 다시 시도하세요.",
     "redirect_needs_https": "승인하려면 HTTPS 주소나 localhost 터널로 Tofi에 연결해야 합니다. 내부망 HTTP 주소로는 리디렉션을 완료할 수 없습니다.",
-    "tools_failed": "도구를 불러올 수 없습니다. 다시 시도하세요."
+    "tools_failed": "도구를 불러올 수 없습니다. 다시 시도하세요.",
+    "endpoint_not_allowed": "이 서버는 해당 주소에 연결할 수 없습니다. 사설 또는 로컬 주소는 서버 Admin만 사용할 수 있으며, 그 외에는 운영자가 서버 환경에 TOFI_ALLOW_PRIVATE_ENDPOINTS=1을 설정하고 다시 시작해야 합니다. 메타데이터 및 링크 로컬 주소는 항상 허용되지 않습니다."
   },
   "form": {
     "add": "추가",

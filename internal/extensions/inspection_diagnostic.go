@@ -26,6 +26,10 @@ func mcpInspectionDiagnostic(name, endpoint string, err error) Diagnostic {
 		d.Code, d.Message = "unsupported_protocol", "This MCP service offers no protocol version that Tofi supports (2024-11-05 through 2026-07-28). Upgrade the service."
 		return d
 	}
+	if errors.Is(err, ErrBlockedAddress) {
+		d.Code, d.Message = "endpoint_not_allowed", "This server may not connect to that address. Only a server Admin can use a private or local address, or the operator can allow it by setting TOFI_ALLOW_PRIVATE_ENDPOINTS=1. Metadata and link-local addresses are never allowed."
+		return d
+	}
 	if isLANEndpoint(endpoint) {
 		if code, message := lanDiagnostic(endpoint, err); code != "" {
 			d.Code, d.Message = code, message

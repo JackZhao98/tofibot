@@ -22,7 +22,10 @@ const (
  computer_logical_bytes INTEGER, computer_allocated_bytes INTEGER,
  detail TEXT NOT NULL, PRIMARY KEY(account_id,measured_at));
  CREATE TABLE IF NOT EXISTS account_storage_quota(
- account_id TEXT PRIMARY KEY, server_bytes_limit INTEGER);`
+ account_id TEXT PRIMARY KEY, server_bytes_limit INTEGER);
+ CREATE TABLE IF NOT EXISTS account_spend(
+ account_id TEXT PRIMARY KEY, month TEXT NOT NULL, month_end TEXT NOT NULL,
+ spend_usd REAL NOT NULL, limit_usd INTEGER NOT NULL, updated_at TEXT NOT NULL);`
 	storageSnapshotKeepDays = 90
 	computerUsageTTL        = 60 * time.Second
 )
@@ -121,6 +124,7 @@ func (g *AccountGateway) wireStorage(c *Config, a Account) {
 	c.StorageLimit = func() *int64 { return g.storageLimitFor(id) }
 	c.HostMinFreeBytes = g.config.HostMinFreeBytes
 	c.StorageSnapshot = func(rep StorageReport) { g.recordStorageSnapshot(a, rep) }
+	c.SpendSnapshot = func(st SpendStatus) { g.recordSpendSnapshot(a.ID, st) }
 	if g.config.AccountProvisionerSocket != "" {
 		c.ComputerUsage = func(ctx context.Context) *ComputerUsage { return g.computerUsageFor(ctx, a) }
 	}

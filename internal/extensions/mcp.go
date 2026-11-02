@@ -107,6 +107,11 @@ type Diagnostic struct {
 }
 
 type Config struct {
+	// AllowPrivateEndpoints says whether an owner-saved MCP server may sit on a
+	// loopback, private or CGNAT address right now (an Admin account, a
+	// workspace without a gateway, or the operator flag). Nil allows it. Link-local,
+	// metadata, unspecified and multicast addresses are refused either way.
+	AllowPrivateEndpoints func() bool
 	// HTTPTransport resolves service-owned private endpoints. A nil result
 	// retains ordinary remote HTTP; errors must never fall back to remote DNS.
 	HTTPTransport    func(string) (http.RoundTripper, error)
@@ -141,6 +146,8 @@ type Manager struct {
 	mcpStatus          sync.Map     // *mcp.ClientSession -> *mcpSessionHTTP
 	mcpConfigFence     sync.RWMutex // Dispatch/configuration fence, separate from OAuth cache locking.
 	cfg                Config
+	ownerOnce          sync.Once
+	ownerRT            http.RoundTripper
 	mu                 sync.RWMutex
 	statusMu           sync.Mutex // guards the last-known status file
 	oauth              map[string]oauthSession
@@ -762,7 +769,9 @@ func (m *Manager) openMCPClient(runCtx, discoveryCtx context.Context, name strin
 	if mode != "streamable_http" {
 		return nil, fmt.Errorf("unsupported MCP transport %q", cfg.Transport)
 	}
-	baseTransport := http.DefaultTransport
+	// A Bot-made server meets the full guard; an owner-saved one meets the
+	// owner rule (metadata and link-local never, private only when allowed).
+	baseTransport := m.ownerTransport()
 	if cfg.BotManaged {
 		baseTransport = GuardedTransport()
 	}

@@ -179,3 +179,68 @@ func (m *Manager) IsBotManaged(name string) bool {
 	cfg, err := loadServers(m.cfg.MCPConfigPath)
 	return err == nil && cfg[name].BotManaged
 }
+
+var carrierGradeNAT = netip.MustParsePrefix("100.64.0.0/10")
+
+// OwnerAddrAllowed is the address rule for an MCP server the account owner
+// saved (the model-endpoint rule): link-local and metadata, unspecified and
+// multicast addresses are never reachable; loopback, private and CGNAT
+// addresses only when allowPrivate is true.
+func OwnerAddrAllowed(a netip.Addr, allowPrivate bool) bool {
+	a = a.Unmap().WithZone("")
+	switch {
+	case !a.IsValid(), a.IsUnspecified(), a.IsMulticast(), a.IsLinkLocalUnicast(), a.IsLinkLocalMulticast():
+		return false
+	case a.IsLoopback(), a.IsPrivate(), carrierGradeNAT.Contains(a):
+		return allowPrivate
+	}
+	return true
+}
+
+func ownerDialControl(allowPrivate func() bool) func(string, string, syscall.RawConn) error {
+	return func(network, address string, _ syscall.RawConn) error {
+		host, _, err := net.SplitHostPort(address)
+		if err != nil {
+			return ErrBlockedAddress
+		}
+		a, err := netip.ParseAddr(host)
+		if err != nil || !OwnerAddrAllowed(a, allowPrivate == nil || allowPrivate()) {
+			return ErrBlockedAddress
+		}
+		return nil
+	}
+}
+
+// ownerRoundTripper drops idle connections when the private-address allowance
+// turns off, so an open connection to a LAN host does not outlive the rule.
+type ownerRoundTripper struct {
+	allow   func() bool
+	tr      *http.Transport
+	mu      sync.Mutex
+	private bool
+}
+
+func (o *ownerRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	now := o.allow == nil || o.allow()
+	o.mu.Lock()
+	drop := o.private && !now
+	o.private = now
+	o.mu.Unlock()
+	if drop {
+		o.tr.CloseIdleConnections()
+	}
+	return o.tr.RoundTrip(r)
+}
+
+// ownerTransport is the HTTP transport for MCP servers saved by the account
+// owner: refused at dial time for the addresses OwnerAddrAllowed forbids. It
+// ignores proxy variables so the check sees the real destination.
+func (m *Manager) ownerTransport() http.RoundTripper {
+	m.ownerOnce.Do(func() {
+		t := http.DefaultTransport.(*http.Transport).Clone()
+		t.Proxy = nil
+		t.DialContext = (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second, Control: ownerDialControl(m.cfg.AllowPrivateEndpoints)}).DialContext
+		m.ownerRT = &ownerRoundTripper{allow: m.cfg.AllowPrivateEndpoints, tr: t}
+	})
+	return m.ownerRT
+}

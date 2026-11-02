@@ -8,12 +8,13 @@ package app
 // sign-in has no per-call price: it is never counted and never refused. At 80%
 // the owner gets one in-app notice. At 100% a new run that would call a billed
 // model fails before the call with the typed code spend_cap_reached; a run in
-// progress finishes. The ledger keeps one row per billed call, because
+// progress stops before its next billed call. The ledger keeps one row per billed call, because
 // usage_calls keeps seven days only.
 
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -108,17 +109,21 @@ func (s *Store) spendStatus(at time.Time) (SpendStatus, error) {
 		return out, err
 	}
 	out.SpendUSD = sum.Float64
-	switch {
-	case out.LimitUSD <= 0:
-		out.State = "off"
-	case out.SpendUSD >= float64(out.LimitUSD):
-		out.State = "reached"
-	case out.SpendUSD*100 >= float64(out.LimitUSD*spendAlertPercent):
-		out.State = "near"
-	default:
-		out.State = "ok"
-	}
+	out.State = spendState(out.SpendUSD, out.LimitUSD)
 	return out, nil
+}
+
+// spendState is off (no limit), ok, near (at or past 80%) or reached (at or past 100%).
+func spendState(spend float64, limit int) string {
+	switch {
+	case limit <= 0:
+		return "off"
+	case spend >= float64(limit):
+		return "reached"
+	case spend*100 >= float64(limit*spendAlertPercent):
+		return "near"
+	}
+	return "ok"
 }
 
 // spendCapError refuses a run before its first model call. Its text is read by
@@ -146,6 +151,28 @@ func (s *Store) checkSpendCap(model string, at time.Time) error {
 	return nil
 }
 
+// spendPercent is the whole percent of the limit already spent (0 with no limit).
+func spendPercent(st SpendStatus) int {
+	if st.LimitUSD <= 0 {
+		return 0
+	}
+	return int(st.SpendUSD * 100 / float64(st.LimitUSD))
+}
+
+// refuseBackground checks the cap for an unattended billed call (follow-up
+// sweep, reviewer, grader, tool-search expansion). A refusal is logged once
+// per month and limit, never posted to the chat.
+func (s *Store) refuseBackground(model, what string) error {
+	err := s.checkSpendCap(model, time.Now())
+	var capErr *spendCapError
+	if errors.As(err, &capErr) {
+		if _, seen := s.spendRefusalLogged.LoadOrStore(fmt.Sprintf("%s/%d", capErr.status.Month, capErr.status.LimitUSD), true); !seen {
+			log.Printf("[spend] limit reached; %s and other background model calls are refused until the month ends or the limit is raised", what)
+		}
+	}
+	return err
+}
+
 // spendCapFailureMessage is the sentence a refused run shows (the error text without its code).
 func spendCapFailureMessage(errorText string) string {
 	_, rest, _ := strings.Cut(errorText, ": ")
@@ -155,6 +182,7 @@ func spendCapFailureMessage(errorText string) string {
 // noteSpend runs after a billed call is stored: at 80% of the limit it posts
 // one notice per month and limit, in the Primary Assistant's chat.
 func (s *Store) noteSpend(at time.Time) {
+	s.publishSpend(at)
 	if autoIntTx(s.db, autoMonthlySpendLimit) <= 0 {
 		return
 	}
@@ -164,6 +192,17 @@ func (s *Store) noteSpend(at time.Time) {
 	}
 	if err := s.postSpendAlert(st); err != nil {
 		log.Printf("[spend] alert: %v", err)
+	}
+}
+
+// publishSpend hands the month's status to the gateway, so the admin view
+// reads a table and never opens a workspace.
+func (s *Store) publishSpend(at time.Time) {
+	if s.spendSnapshot == nil {
+		return
+	}
+	if st, err := s.spendStatus(at); err == nil {
+		s.spendSnapshot(st)
 	}
 }
 
@@ -195,7 +234,7 @@ func (s *Store) postSpendAlert(st SpendStatus) error {
 	}
 	notice := &HandoffNotice{Type: "spend_alert", Reason: st.State, FromBotID: botID, ToBotID: botID, TargetConversationID: conv, OldValue: fmt.Sprintf("%d", st.LimitUSD), NewValue: fmt.Sprintf("%.2f", st.SpendUSD)}
 	data, _ := json.Marshal(notice)
-	m := Message{ID: newID(), ConversationID: conv, Seq: seq, Role: "assistant", Kind: "notice", SenderBotID: "system", Content: fmt.Sprintf("This month's spend is $%.2f of the $%d limit (%d%%). New runs that use a billed model stop at the limit. Change it in Settings > Usage.", st.SpendUSD, st.LimitUSD, spendAlertPercent), Notice: notice, CreatedAt: t}
+	m := Message{ID: newID(), ConversationID: conv, Seq: seq, Role: "assistant", Kind: "notice", SenderBotID: "system", Content: fmt.Sprintf("This month's spend is $%.2f of the $%d limit (%d%%). Model calls that bill per use stop at the limit. Change it in Settings > Usage.", st.SpendUSD, st.LimitUSD, spendPercent(st)), Notice: notice, CreatedAt: t}
 	if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, m.ID, m.ConversationID, m.Seq, m.Role, m.Kind, m.SenderBotID, nil, m.Content, string(data), t); err != nil {
 		return err
 	}

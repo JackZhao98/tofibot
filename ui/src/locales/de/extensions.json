@@ -168,7 +168,8 @@
     "oauth_start_failed": "Autorisierung konnte nicht gestartet werden. Prüfen Sie die Server-URL und versuchen Sie es erneut.",
     "offline": "Server nicht erreichbar. Versuchen Sie es erneut.",
     "redirect_needs_https": "Die Autorisierung braucht eine HTTPS-Adresse oder einen localhost-Tunnel zu Tofi. Eine HTTP-Adresse im internen Netz kann die Weiterleitung nicht empfangen.",
-    "tools_failed": "Tools konnten nicht geladen werden. Versuchen Sie es erneut."
+    "tools_failed": "Tools konnten nicht geladen werden. Versuchen Sie es erneut.",
+    "endpoint_not_allowed": "Dieser Server darf sich nicht mit dieser Adresse verbinden. Nur ein Server-Admin kann eine private oder lokale Adresse nutzen; sonst muss der Betreiber TOFI_ALLOW_PRIVATE_ENDPOINTS=1 in der Server-Umgebung setzen und neu starten. Metadaten- und Link-Local-Adressen sind nie erlaubt."
   },
   "form": {
     "add": "Hinzufügen",

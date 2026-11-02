@@ -415,8 +415,8 @@
     "settings_change_undone": "元に戻しました",
     "settings_change_undo_failed": "元に戻せませんでした",
     "settings_change_stale": "その後に再び変更されています",
-    "spend_alert": "今月の支出：${{spend}}（上限${{limit}}の80%）。課金モデルを使う新しい実行は上限で止まります。",
-    "spend_alert_reached": "今月の支出：${{spend}}（上限${{limit}}に到達）。課金モデルを使う新しい実行は拒否されます。",
+    "spend_alert": "今月の支出：${{spend}}（上限${{limit}}の{{percent}}%）。課金モデルの呼び出しは上限で止まります。",
+    "spend_alert_reached": "今月の支出：${{spend}}（上限${{limit}}に到達、{{percent}}%）。課金モデルの呼び出しは拒否されます。",
     "spend_alert_open": "上限を変更"
   },
   "notifications": {
@@ -570,7 +570,7 @@
     "server_pick": "最初に使うモデル",
     "server_connect": "接続",
     "server_failed": "そのサーバーに接続できませんでした。アドレスを確認してもう一度お試しください。",
-    "server_not_allowed": "このサーバーはローカルやプライベートのアドレスに接続できません。使えるのはサーバー管理者のみです。それ以外は、運用者がサーバー環境に TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1 を設定して再起動してください。"
+    "server_not_allowed": "このサーバーはローカルやプライベートのアドレスに接続できません。使えるのはサーバー管理者のみです。それ以外は、運用者がサーバー環境に TOFI_ALLOW_PRIVATE_ENDPOINTS=1 を設定して再起動してください。"
   },
   "primary": {
     "badge": "メイン",

@@ -246,7 +246,7 @@
       "invalid_base_url": "请输入以 http:// 或 https:// 开头的基础 URL，不能带凭据或查询参数。",
       "invalid_models": "模型 ID 不能包含空格。",
       "invalid_key": "端点拒绝了这个 API 密钥，未保存。",
-      "endpoint_not_allowed": "本服务器不允许连接该地址。本地和内网地址仅服务器管理员可用；否则需由运维在服务器环境中设置 TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1 并重启。",
+      "endpoint_not_allowed": "本服务器不允许连接该地址。本地和内网地址仅服务器管理员可用；否则需由运维在服务器环境中设置 TOFI_ALLOW_PRIVATE_ENDPOINTS=1 并重启。",
       "unreachable": "本服务器无法连接该端点。请检查地址，或手动填写模型 ID。",
       "no_models": "该端点没有返回模型列表，请手动填写模型 ID。",
       "presets": "快速填入",
@@ -1109,7 +1109,7 @@
       },
       "monthly_spend_limit_usd": {
         "name": "月度花费上限",
-        "what": "本月花费达到上限后，拒绝使用计费模型的新运行，并在 80% 时提醒一次。单位为整数美元，0 表示关闭。在“用量”页设置。"
+        "what": "本月花费达到上限后，拒绝对计费模型的调用，并在 80% 时提醒一次。单位为整数美元，0 表示关闭。在“用量”页设置。"
       }
     },
     "option": {
@@ -1293,30 +1293,30 @@
   },
   "spend": {
     "title": "月度额度",
-    "description": "按公开标价统计 API 密钥模型在当前自然月（以你的时区为准）的花费。ChatGPT 与 Codex 登录不计入。",
+    "description": "按公开标价统计 API 密钥模型和已知定价的兼容模型在当前自然月（以你的时区为准）的花费。ChatGPT 与 Codex 登录、本地模型和未定价的模型不计入。",
     "loading": "正在加载花费…",
     "load_failed": "无法加载花费，请重试。",
     "this_month": "本月花费",
     "limit_label": "月度额度",
-    "limit_help": "默认关闭。达到 80% 时提醒一次；达到 100% 后，使用计费模型的新运行会被拒绝，已在运行的任务会完成当前这次模型调用。",
+    "limit_help": "默认关闭。达到 80% 时提醒一次；达到 100% 后，所有计费模型的调用都会被拒绝，包括新运行、已在运行的任务的下一次调用，以及跟进检查、审核等后台调用。",
     "off": "关闭",
     "amount": "${{amount}}",
     "amount_exact": "${{amount}}",
     "resets": "{{date}} 重置",
     "plans_label": "套餐登录",
-    "plans_note": "ChatGPT 与 Codex 登录没有按次价格，适用套餐额度，不计入也不会被拒绝。本地和兼容模型除非有定价，否则按 $0 计。",
+    "plans_note": "ChatGPT 与 Codex 登录没有按次价格，适用套餐额度，不计入也不会被拒绝。本地模型和价格未知的兼容模型不计入。",
     "state": {
       "off": "未设额度",
       "ok": "已用额度的 {{percent}}%",
       "near": "已达额度的 {{percent}}%",
-      "reached": "已达额度。使用计费模型的新运行将被拒绝。"
+      "reached": "已达额度。对计费模型的调用将被拒绝。"
     },
     "admin": {
       "title": "本月花费",
       "column": "花费",
       "of_limit": "${{spend}} / ${{limit}}",
       "no_limit": "${{spend}} · 无额度",
-      "unavailable": "暂时无法读取该账户。"
+      "unavailable": "该账户尚未上报花费。"
     }
   }
 }
