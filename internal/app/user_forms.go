@@ -388,9 +388,15 @@ func (s *Server) AnswerUserFormSaving(id, actor string, values map[string]string
 			return q, false, errors.New("could not save private input")
 		}
 		// From here until the next navigation the screen may show the private input: the work trace keeps no picture of it.
-		if q.RunID != "" {
-			if _, err := tx.Exec(`INSERT OR REPLACE INTO run_secret_windows(run_id,opened_at) VALUES(?,?)`, q.RunID, now()); err != nil {
-				return q, false, errors.New("could not save form response")
+		// The window belongs to the computer, so it covers every run and Bot on that screen.
+		if _, err := tx.Exec(`INSERT OR REPLACE INTO computer_secret_windows(computer_id,run_id,opened_at) VALUES(?,?,?)`, microVMComputerID, q.RunID, now()); err != nil {
+			return q, false, errors.New("could not save form response")
+		}
+		for _, id := range created {
+			if rec, ok := v.records[id]; ok && rec.Kind == "browser_form" && rec.Target != "" {
+				if _, err := tx.Exec(`INSERT OR IGNORE INTO trace_bound_origins(origin,created_at) VALUES(?,?)`, rec.Target, now()); err != nil {
+					return q, false, errors.New("could not save form response")
+				}
 			}
 		}
 	}
@@ -464,13 +470,18 @@ func (s *Server) applyFormSecret(ctx context.Context, run Run, rec secretRecord,
 		return "", tooloutcome.New(tooloutcome.Permanent, "secret_unavailable", "not_executed", "secret unavailable", "explain_blocker").Err()
 	}
 	args, _ := json.Marshal(map[string]string{"origin": rec.Target, "text": value})
+	// The window opens before the guest types, so no capture of any run can store the screen while the value is on it.
+	windowWasOpen := s.store.secretWindowOpen()
+	s.store.openSecretWindow(run.ID)
 	// Internal-only action: do not add it to the model/public computer-action
 	// allowlist. This path already owns the shared lease and approved vault ref.
 	if _, err := s.computer().Action(ctx, computer.Action{BotID: run.BotID, RunID: run.ID, Source: "model", Name: "browser.type_private", Args: args}); err != nil {
+		if !windowWasOpen {
+			s.store.closeSecretWindow()
+		}
 		// Do not forward guest/CDP diagnostics: they may contain private input.
 		// Older guests fail closed; never fall back to unguarded desktop paste.
 		return "", errors.New("private input rejected: inspect the page and focus the visible password field on the approved website before retrying; the Bot computer must support protected form input")
 	}
-	s.store.openSecretWindow(run.ID)
 	return `{"ok":true}`, nil
 }

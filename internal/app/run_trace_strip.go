@@ -55,8 +55,8 @@ func (s *Server) finalizeRunTrace(c Conversation, run Run) {
 			log.Printf("[trace] strip of run %s: %v", run.ID, v)
 		}
 	}()
+	s.waitTraceCaptures(run.ID)
 	s.forgetTraceState(run.ID)
-	s.store.closeSecretWindow(run.ID)
 	if !s.autoBool(autoWorkTrace) {
 		return
 	}
@@ -118,12 +118,15 @@ func (s *Server) runTraceRetention(at time.Time) {
 	}
 }
 
-// cleanupRunTraces removes the capture pictures taken before the cutoff and the
-// strips made before it, with their rows and files.
+// cleanupRunTraces removes expired traces. A run with a strip ages by the
+// strip: its pictures, rows and strip go together, so the cells of a strip
+// never name a step that is gone. A run with no strip ages by each picture.
 func (s *Store) cleanupRunTraces(cutoff time.Time) (int, error) {
 	stamp := stampTime(cutoff)
 	removed := 0
-	rows, err := s.db.Query(`SELECT attachment_id FROM run_captures WHERE attachment_id IS NOT NULL AND taken_at<? UNION SELECT attachment_id FROM run_traces WHERE attachment_id IS NOT NULL AND created_at<?`, stamp, stamp)
+	const expired = `(EXISTS(SELECT 1 FROM run_traces t WHERE t.run_id=c.run_id AND t.created_at<?)
+	 OR (NOT EXISTS(SELECT 1 FROM run_traces t WHERE t.run_id=c.run_id) AND c.taken_at<?))`
+	rows, err := s.db.Query(`SELECT c.attachment_id FROM run_captures c WHERE c.attachment_id IS NOT NULL AND `+expired+` UNION SELECT attachment_id FROM run_traces WHERE attachment_id IS NOT NULL AND created_at<?`, stamp, stamp, stamp)
 	if err != nil {
 		return 0, err
 	}
@@ -141,7 +144,7 @@ func (s *Store) cleanupRunTraces(cutoff time.Time) (int, error) {
 		}
 		removed++
 	}
-	if _, err := s.db.Exec(`DELETE FROM run_captures WHERE taken_at<?`, stamp); err != nil {
+	if _, err := s.db.Exec(`DELETE FROM run_captures WHERE rowid IN (SELECT c.rowid FROM run_captures c WHERE `+expired+`)`, stamp, stamp); err != nil {
 		return removed, err
 	}
 	if _, err := s.db.Exec(`DELETE FROM run_traces WHERE created_at<?`, stamp); err != nil {

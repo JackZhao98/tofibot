@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"image"
 	"image/color"
 	"image/png"
@@ -26,6 +27,8 @@ type captureComputer struct {
 	snapshotURL string
 	// shade changes the picture of the next captures.
 	shade uint8
+	// failSnapshot makes browser.snapshot fail, as when Chrome is not up.
+	failSnapshot bool
 }
 
 func (c *captureComputer) Action(ctx context.Context, a computer.Action) (computer.ActionResult, error) {
@@ -35,12 +38,15 @@ func (c *captureComputer) Action(ctx context.Context, a computer.Action) (comput
 func (c *captureComputer) ActionWithin(_ context.Context, a computer.Action, _ time.Duration) (computer.ActionResult, error) {
 	c.cmu.Lock()
 	c.actions = append(c.actions, a)
-	shade, pageURL := c.shade, c.snapshotURL
+	shade, pageURL, fail := c.shade, c.snapshotURL, c.failSnapshot
 	c.cmu.Unlock()
 	switch a.Name {
 	case "desktop.capture":
 		return computer.ActionResult{OK: true, Result: captureJSON(1280, 800, "", shade)}, nil
 	case "browser.snapshot":
+		if fail {
+			return computer.ActionResult{}, errors.New("synthetic: Chrome is not reachable")
+		}
 		return computer.ActionResult{OK: true, Result: captureJSON(1280, 800, pageURL, shade)}, nil
 	}
 	return computer.ActionResult{OK: true, Result: json.RawMessage(`{}`)}, nil

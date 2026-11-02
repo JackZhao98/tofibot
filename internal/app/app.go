@@ -346,6 +346,8 @@ type Server struct {
 	computerLeases        map[string]*sync.Mutex
 	generatedOnComputer   sync.Map // run id -> *generatedImages
 	traceRuns             sync.Map // run id -> *runTraceState (work trace notes)
+	traceInflight         atomic.Int32
+	traceWG               sync.WaitGroup // background trace captures in flight
 	computerOwnerMu       sync.Mutex
 	computerOwners        map[string]string
 	desktopQueueLeft      map[string]time.Time
@@ -3159,6 +3161,7 @@ func NewServer(c Config) (*Server, error) {
 	return server, nil
 }
 func (s *Server) Close() error {
+	s.traceWG.Wait()
 	s.stopLocalRunnerMigration()
 	s.stopShadowMCPReviews()
 	s.ownerAuth.close()

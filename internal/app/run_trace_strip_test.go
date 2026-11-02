@@ -101,8 +101,8 @@ func TestStripOfOnlyRedactedStepsIsNotMade(t *testing.T) {
 	if trace := traceOf(s, endRun(t, s, run)); trace != nil {
 		t.Fatalf("a strip of grey cells was made: %+v", trace)
 	}
-	if s.store.secretWindowOpen(run.ID) {
-		t.Fatal("the secret window outlived the run")
+	if !s.store.secretWindowOpen() {
+		t.Fatal("the secret window closed at the end of the run")
 	}
 }
 
@@ -171,11 +171,11 @@ func TestRetentionDeletesOldPicturesRowsAndStripsButNotNewOnes(t *testing.T) {
 	stripID := traceOf(s, run).AttachmentID
 	setAuto(t, s, autoTraceRetentionDays, "7")
 	s.runTraceRetention(time.Now())
-	left := captures(t, s, run)
-	if len(left) != 1 || left[0].Seq != 3 || left[0].AttachmentID != rows[2].AttachmentID {
+	// The strip is old, so its steps go with it, also the one taken later.
+	if left := captures(t, s, run); len(left) != 0 {
 		t.Fatalf("%+v", left)
 	}
-	for _, gone := range []string{rows[0].AttachmentID, rows[1].AttachmentID, stripID} {
+	for _, gone := range []string{rows[0].AttachmentID, rows[1].AttachmentID, rows[2].AttachmentID, stripID} {
 		if _, _, err := s.store.Attachment(gone); err == nil {
 			t.Fatalf("picture %s kept past its period", gone)
 		}
@@ -183,8 +183,34 @@ func TestRetentionDeletesOldPicturesRowsAndStripsButNotNewOnes(t *testing.T) {
 	if traceOf(s, run) != nil {
 		t.Fatal("old strip kept")
 	}
-	if _, _, err := s.store.Attachment(rows[2].AttachmentID); err != nil {
-		t.Fatalf("a recent picture was deleted: %v", err)
+}
+
+// A strip and its steps age together: a young strip keeps every step, also the
+// ones taken before the cutoff, so a click on a cell never opens another step.
+func TestAYoungStripKeepsAllItsStepsAndAnOldRunWithoutOneAgesPerPicture(t *testing.T) {
+	s, _, run := captureServer(t)
+	captureN(t, s, run, 3)
+	endRun(t, s, run)
+	old := stampTime(time.Now().Add(-10 * 24 * time.Hour))
+	if _, err := s.store.db.Exec(`UPDATE run_captures SET taken_at=? WHERE seq<=2 AND run_id=?`, old, run.ID); err != nil {
+		t.Fatal(err)
+	}
+	setAuto(t, s, autoTraceRetentionDays, "7")
+	s.runTraceRetention(time.Now())
+	if len(captures(t, s, run)) != 3 || traceOf(s, run) == nil {
+		t.Fatal("a young strip lost steps")
+	}
+	// No strip (one capture only): the picture ages by itself.
+	s2, _, run2 := captureServer(t)
+	captureN(t, s2, run2, 1)
+	endRun(t, s2, run2)
+	if _, err := s2.store.db.Exec(`UPDATE run_captures SET taken_at=?`, old); err != nil {
+		t.Fatal(err)
+	}
+	setAuto(t, s2, autoTraceRetentionDays, "7")
+	s2.runTraceRetention(time.Now())
+	if len(captures(t, s2, run2)) != 0 {
+		t.Fatal("an old picture without a strip was kept")
 	}
 }
 

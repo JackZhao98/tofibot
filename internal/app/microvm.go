@@ -240,6 +240,10 @@ func (s *Server) microVMAction(ctx context.Context, r Run, name string, args jso
 	if err == nil {
 		s.recordDesktopAction(r, name, args)
 	}
+	if err == nil && name == "desktop.stop" && s.store != nil {
+		// The screen is gone: a private input typed on it is gone with it.
+		s.store.closeSecretWindow()
+	}
 	if err == nil && (name == "desktop.start" || name == "desktop.stop") {
 		s.computerOwnerMu.Lock()
 		delete(s.desktopObserved, r.ID)
@@ -480,6 +484,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 				if viewed.Add(1) > viewsPerRunMax {
 					return "", tooloutcome.InvalidArguments(fmt.Sprintf("desktop.trace is limited to %d images per run with files.view; judge from the views you already have", viewsPerRunMax))
 				}
+				s.waitTraceCaptures(r.ID)
 				return s.traceForModel(ctx, r, args)
 			}
 			if action == "files.view" {

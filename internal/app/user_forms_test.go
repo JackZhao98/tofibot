@@ -290,6 +290,9 @@ func TestUserFormPasswordDestinationAndOutput(t *testing.T) {
 			var ref formSecretAnswer
 			json.Unmarshal(fields["password"], &ref)
 			typed := 0
+			// Close the window the answer opened, so the typing step has to open it itself.
+			s.store.closeSecretWindow()
+			windowWhileTyping := false
 			client, err := computer.New(computer.Config{Socket: "/tmp/synthetic-form.sock", Client: &http.Client{Transport: secretTransport(func(req *http.Request) (*http.Response, error) {
 				var action computer.Action
 				json.NewDecoder(req.Body).Decode(&action)
@@ -316,6 +319,7 @@ func TestUserFormPasswordDestinationAndOutput(t *testing.T) {
 						Origin string `json:"origin"`
 					}
 					json.Unmarshal(action.Args, &args)
+					windowWhileTyping = s.store.secretWindowOpen()
 					if args.Text != formValues()["password"] || args.Origin != "https://example.test" {
 						t.Error("private browser input or approved origin was rewritten")
 					}
@@ -346,8 +350,14 @@ func TestUserFormPasswordDestinationAndOutput(t *testing.T) {
 				if err != nil || typed != 1 || out != `{"ok":true}` {
 					t.Fatalf("fill failed typed=%d out=%s err=%v", typed, out, err)
 				}
+				if !windowWhileTyping || !s.store.secretWindowOpen() {
+					t.Fatal("the secret window must be open before the guest types, and stay open after")
+				}
 			} else if err == nil || typed != 0 {
 				t.Fatalf("unsafe destination accepted typed=%d", typed)
+			}
+			if (scenario == "wrong_field" || scenario == "unsupported_guest") && (!windowWhileTyping || s.store.secretWindowOpen()) {
+				t.Fatalf("a failed type must close the window it opened: during=%v", windowWhileTyping)
 			}
 			if strings.Contains(out, "synthetic-private-value") || (err != nil && strings.Contains(err.Error(), "synthetic-private-value")) {
 				t.Fatal("private computer output returned to model")

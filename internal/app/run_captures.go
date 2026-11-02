@@ -54,6 +54,8 @@ const (
 	traceTileQualityFirst  = 70
 	traceTileBytesMax      = 120 << 10
 	traceCapturesPerRunMax = 60
+	// The share of them the server may take on its own after Playwright calls.
+	traceBackgroundPerRunMax = 48
 
 	tracePrivateOriginsMax = 100
 	tracePrivateOriginLen  = 200
@@ -65,6 +67,7 @@ const (
 	traceReasonPrivateOrigin = "private_origin"
 	traceReasonLimit         = "limit"
 	traceReasonStorage       = "storage"
+	traceReasonDeleted       = "deleted"
 )
 
 func traceRetentionDefault() string { return fmt.Sprint(defaultTraceRetentionDays) }
@@ -81,9 +84,23 @@ func migrateRunCaptures(db *sql.DB) error {
 	 FOREIGN KEY(attachment_id) REFERENCES attachments(id) ON DELETE SET NULL);
 	CREATE INDEX IF NOT EXISTS run_captures_attachment ON run_captures(attachment_id);
 	CREATE INDEX IF NOT EXISTS run_captures_taken ON run_captures(taken_at);
-	CREATE TABLE IF NOT EXISTS run_secret_windows(
-	 run_id TEXT PRIMARY KEY, opened_at TEXT NOT NULL,
-	 FOREIGN KEY(run_id) REFERENCES runs(id) ON DELETE CASCADE);`)
+	CREATE TABLE IF NOT EXISTS computer_secret_windows(
+	 computer_id TEXT PRIMARY KEY, run_id TEXT NOT NULL DEFAULT '', opened_at TEXT NOT NULL);
+	CREATE TABLE IF NOT EXISTS trace_bound_origins(
+	 origin TEXT PRIMARY KEY, created_at TEXT NOT NULL);`)
+	if err != nil {
+		return err
+	}
+	// The window of an older binary was keyed by run; keep a window that was
+	// open at the upgrade, as one for the computer.
+	var old string
+	if db.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name='run_secret_windows'`).Scan(&old) == nil {
+		if _, err = db.Exec(`INSERT OR IGNORE INTO computer_secret_windows(computer_id,run_id,opened_at)
+		 SELECT ?,run_id,opened_at FROM run_secret_windows ORDER BY opened_at DESC LIMIT 1`, microVMComputerID); err != nil {
+			return err
+		}
+		_, err = db.Exec(`DROP TABLE run_secret_windows`)
+	}
 	return err
 }
 
@@ -142,24 +159,42 @@ func (s *Store) runCaptureCount(runID string) int {
 	return n
 }
 
-// Secret window: the run holds a private input and the screen may show it.
+// Secret window: a private input was typed (or is about to be) on the Bot
+// computer and its screen may show it. The screen belongs to the computer, not
+// to a run, so the window is keyed by the computer: it covers every run and
+// every Bot that captures on it, and a run ending does not close it. It closes
+// on a confirmed navigation, on desktop.stop, or after secretWindowMax.
+const secretWindowMax = secretReferenceLifetime
+
 func (s *Store) openSecretWindow(runID string) {
-	if runID == "" {
-		return
-	}
-	if _, err := s.db.Exec(`INSERT OR REPLACE INTO run_secret_windows(run_id,opened_at) VALUES(?,?)`, runID, now()); err != nil {
-		log.Printf("[trace] could not open the secret window of run %s: %v", runID, err)
+	if _, err := s.db.Exec(`INSERT OR REPLACE INTO computer_secret_windows(computer_id,run_id,opened_at) VALUES(?,?,?)`, microVMComputerID, runID, now()); err != nil {
+		log.Printf("[trace] could not open the secret window of the computer: %v", err)
 	}
 }
 
-func (s *Store) closeSecretWindow(runID string) {
-	_, _ = s.db.Exec(`DELETE FROM run_secret_windows WHERE run_id=?`, runID)
+func (s *Store) closeSecretWindow() {
+	_, _ = s.db.Exec(`DELETE FROM computer_secret_windows WHERE computer_id=?`, microVMComputerID)
 }
 
-func (s *Store) secretWindowOpen(runID string) bool {
-	var found bool
-	_ = s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM run_secret_windows WHERE run_id=?)`, runID).Scan(&found)
-	return found
+// secretWindowOpen fails closed: an unreadable row counts as open.
+func (s *Store) secretWindowOpen() bool {
+	var opened string
+	err := s.db.QueryRow(`SELECT opened_at FROM computer_secret_windows WHERE computer_id=?`, microVMComputerID).Scan(&opened)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false
+	}
+	if err != nil {
+		return true
+	}
+	at, perr := time.Parse(time.RFC3339Nano, opened)
+	if perr != nil {
+		return true
+	}
+	if time.Since(at) > secretWindowMax {
+		s.closeSecretWindow()
+		return false
+	}
+	return true
 }
 
 // runTraceState is what the server learns about a run's screen between two
@@ -169,6 +204,8 @@ type runTraceState struct {
 	pageURL    string
 	lastAction string
 	lastStored time.Time
+	inflight   sync.WaitGroup // background captures of this run
+	tail       chan struct{}  // closed when the newest background capture has stored its row
 }
 
 func (s *Server) traceState(runID string) *runTraceState {
@@ -385,14 +422,19 @@ func (s *Server) privateTraceOrigin(pageURL string) bool {
 			return true
 		}
 	}
-	if s.secretVault == nil {
-		return false
-	}
 	u, err := url.Parse(strings.TrimSpace(pageURL))
 	if err != nil || u.Hostname() == "" {
 		return false
 	}
 	origin := formOrigin(u)
+	// An origin a form password was once bound to stays private for every later run on the computer.
+	var bound bool
+	if s.store != nil && s.store.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM trace_bound_origins WHERE origin=?)`, origin).Scan(&bound) == nil && bound {
+		return true
+	}
+	if s.secretVault == nil {
+		return false
+	}
 	s.secretVault.mu.Lock()
 	defer s.secretVault.mu.Unlock()
 	for _, rec := range s.secretVault.records {
@@ -403,16 +445,55 @@ func (s *Server) privateTraceOrigin(pageURL string) bool {
 	return false
 }
 
-// traceRedaction names the privacy rule that applies to the next capture of the
-// run, or "" when the picture may be kept.
-func (s *Server) traceRedaction(runID, pageURL string) string {
-	if s.store.secretWindowOpen(runID) {
+// traceOriginRulesExist says whether any private-origin rule is in force. With
+// none, the page a picture shows cannot make it private.
+func (s *Server) traceOriginRulesExist() bool {
+	if len(s.tracePrivateOrigins()) > 0 {
+		return true
+	}
+	var bound bool
+	if s.store != nil && s.store.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM trace_bound_origins)`).Scan(&bound) == nil && bound {
+		return true
+	}
+	if s.secretVault != nil {
+		s.secretVault.mu.Lock()
+		defer s.secretVault.mu.Unlock()
+		for _, rec := range s.secretVault.records {
+			if rec.Target != "" && strings.Contains(rec.Target, "://") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// traceRedaction names the privacy rule that applies to the next capture, or
+// "" when the picture may be kept. pageURL is the page the screenshot shows,
+// resolved when the picture was taken; resolved is false when it could not be
+// learned, and then the picture counts as private while any origin rule exists.
+func (s *Server) traceRedaction(pageURL string, resolved bool) string {
+	if s.store.secretWindowOpen() {
 		return traceReasonSecretInput
+	}
+	if !resolved && s.traceOriginRulesExist() {
+		return traceReasonPrivateOrigin
 	}
 	if s.privateTraceOrigin(pageURL) {
 		return traceReasonPrivateOrigin
 	}
 	return ""
+}
+
+// resolveTracePage asks the guest which page the shared Chrome shows now. It
+// uses the viewer source, so the call acts as no model: it drains no tab-limit
+// note and does not count as the model's observation.
+func (s *Server) resolveTracePage(ctx context.Context, r Run) (string, bool) {
+	out, err := s.microVMActionFromSource(ctx, r, "browser.snapshot", json.RawMessage(`{}`), "viewer")
+	if err != nil {
+		return "", false
+	}
+	pageURL := pageURLFromResult(out)
+	return pageURL, pageURL != ""
 }
 
 // traceTileJPEG shrinks a capture to the stored picture: long side 640 and at
@@ -438,6 +519,7 @@ func (s *Server) finishCapture(ctx context.Context, r Run, tool, action string, 
 	if pageURL != "" {
 		s.noteTracePage(r.ID, pageURL)
 	}
+	resolved := true
 	if s.store == nil {
 		return applyCaptureDetail(result, detail), nil
 	}
@@ -448,29 +530,49 @@ func (s *Server) finishCapture(ctx context.Context, r Run, tool, action string, 
 	if r.ID == "" || !s.autoBool(autoWorkTrace) {
 		return out, nil
 	}
-	return withCaptureSeq(out, s.recordTrace(ctx, r, tool, action, pageURL, result, detail)), nil
+	// The decision uses the page as it is now. A browser.snapshot result names it; a desktop
+	// capture does not, so the guest is asked (only when a rule could match).
+	if action != "browser.snapshot" {
+		pageURL, resolved = "", false
+		if !s.store.secretWindowOpen() && s.traceOriginRulesExist() {
+			pageURL, resolved = s.resolveTracePage(ctx, r)
+		}
+	} else {
+		resolved = pageURL != ""
+	}
+	return withCaptureSeq(out, s.recordTrace(ctx, r, tool, action, pageURL, resolved, result, detail)), nil
 }
 
 // recordTrace applies the privacy decision, stores the picture of a capture
 // result and inserts the row. It returns the capture number, or 0 when no row
 // was written.
-func (s *Server) recordTrace(ctx context.Context, r Run, tool, action, pageURL, result, detail string) int {
+func (s *Server) recordTrace(ctx context.Context, r Run, tool, action, pageURL string, resolved bool, result, detail string) int {
+	return s.recordTraceLabeled(ctx, r, tool, action, "", pageURL, resolved, result, detail)
+}
+
+// recordTraceLabeled is recordTrace with the step label already taken (a
+// background capture takes it when the call ends, before a later call can
+// replace it).
+func (s *Server) recordTraceLabeled(ctx context.Context, r Run, tool, action, label, pageURL string, resolved bool, result, detail string) int {
 	st := s.traceState(r.ID)
 	st.mu.Lock()
-	if pageURL == "" {
-		pageURL = st.pageURL
+	if label == "" {
+		label = st.lastAction
+		st.lastAction = ""
 	}
-	label := st.lastAction
-	st.lastAction = ""
 	st.lastStored = time.Now()
 	st.mu.Unlock()
 	if label == "" {
 		label = strings.TrimPrefix(strings.TrimPrefix(action, "desktop."), "browser.")
 	}
 	row := RunCapture{RunID: r.ID, TakenAt: now(), Tool: tool, Action: action, Label: label, Detail: detail}
-	reason := s.traceRedaction(r.ID, pageURL)
-	if reason == "" && s.store.runCaptureCount(r.ID) >= traceCapturesPerRunMax {
-		reason = traceReasonLimit
+	reason := s.traceRedaction(pageURL, resolved)
+	if reason == "" {
+		// Background pictures leave room for the model's own captures.
+		count := s.store.runCaptureCount(r.ID)
+		if count >= traceCapturesPerRunMax || (detail == "background" && count >= traceBackgroundPerRunMax) {
+			reason = traceReasonLimit
+		}
 	}
 	switch reason {
 	case traceReasonSecretInput, traceReasonPrivateOrigin:
@@ -513,13 +615,21 @@ var engineTraceTools = map[string]bool{
 // for the trace on its own.
 const traceMinGap = 2 * time.Second
 
+// traceInflightMax bounds the background captures running at once; a call that
+// finds them all busy takes no picture.
+const traceInflightMax = 2
+
 // engineTraceCapture keeps a picture of the page after a Playwright call. The
 // Playwright tools return no screenshot, so the server asks the guest for the
 // shared Chrome's screenshot (the classic browser.snapshot action; the guest
-// is not changed). The picture is never returned to the model, costs it no
-// tokens and does not count toward its views. A failure here never fails the
-// tool call.
-func (s *Server) engineTraceCapture(ctx context.Context, r Run, tool string, args map[string]any, pageURL string) {
+// is not changed). The call leaves the tool's path at once: the screenshot, the
+// privacy decision, the decode and the store run in the background, at most
+// traceInflightMax at a time, and a busy server drops the picture. The request
+// has the viewer source, so it drains no note meant for the model and does not
+// mark the desktop as observed. The picture is never returned to the model,
+// costs it no tokens and does not count toward its views. A failure never
+// fails the tool call.
+func (s *Server) engineTraceCapture(ctx context.Context, r Run, tool string, args map[string]any) {
 	if s.store == nil || r.ID == "" || !engineTraceTools[tool] || !s.autoBool(autoWorkTrace) {
 		return
 	}
@@ -533,24 +643,66 @@ func (s *Server) engineTraceCapture(ctx context.Context, r Run, tool string, arg
 	}
 	st := s.traceState(r.ID)
 	st.mu.Lock()
-	recent := !st.lastStored.IsZero() && time.Since(st.lastStored) < traceMinGap
+	if !st.lastStored.IsZero() && time.Since(st.lastStored) < traceMinGap {
+		st.mu.Unlock()
+		return
+	}
+	st.lastStored = time.Now()
+	label := st.lastAction
+	st.lastAction = ""
 	st.mu.Unlock()
-	if recent {
+	if s.traceInflight.Add(1) > traceInflightMax {
+		s.traceInflight.Add(-1)
 		return
 	}
-	defer func() {
-		if v := recover(); v != nil {
-			log.Printf("[trace] engine capture of run %s: %v", r.ID, v)
+	// Rows are written in the order the calls ended, though the screenshots may return in another order.
+	st.mu.Lock()
+	prev, done := st.tail, make(chan struct{})
+	st.tail = done
+	st.mu.Unlock()
+	s.traceWG.Add(1)
+	st.inflight.Add(1)
+	detached := context.WithoutCancel(ctx)
+	go func() {
+		defer func() {
+			if v := recover(); v != nil {
+				log.Printf("[trace] engine capture of run %s: %v", r.ID, v)
+			}
+			close(done)
+			st.inflight.Done()
+			s.traceWG.Done()
+			s.traceInflight.Add(-1)
+		}()
+		bg, cancel := context.WithTimeout(detached, 20*time.Second)
+		defer cancel()
+		out, err := s.microVMActionFromSource(bg, r, "browser.snapshot", json.RawMessage(`{}`), "viewer")
+		if prev != nil {
+			select {
+			case <-prev:
+			case <-bg.Done():
+			}
 		}
+		if err != nil || s.store.holdsPendingTakeover(r.ID) {
+			return
+		}
+		pageURL := pageURLFromResult(out)
+		s.recordTraceLabeled(bg, r, "computer_browser", "browser.snapshot", label, pageURL, pageURL != "", out, "background")
 	}()
-	out, err := s.microVMAction(ctx, r, "browser.snapshot", json.RawMessage(`{}`))
-	if err != nil {
+}
+
+// waitTraceCaptures waits, for a short while, for the background pictures of a
+// run that is ending, so the strip includes them.
+func (s *Server) waitTraceCaptures(runID string) {
+	v, ok := s.traceRuns.Load(runID)
+	if !ok {
 		return
 	}
-	if pageURL == "" {
-		pageURL = pageURLFromResult(out)
+	done := make(chan struct{})
+	go func() { v.(*runTraceState).inflight.Wait(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
 	}
-	s.recordTrace(ctx, r, "computer_browser", "browser.snapshot", pageURL, out, "background")
 }
 
 func traceShortID(id string) string {
@@ -579,7 +731,15 @@ func (s *Store) deleteRunTrace(runID string) (int, error) {
 			return 0, err
 		}
 	}
-	if _, err := s.db.Exec(`DELETE FROM run_captures WHERE run_id=?`, runID); err != nil {
+	// A run that is still going keeps its rows as empty steps: capture numbers
+	// the Bot already holds must not name other pictures after a new capture.
+	var status string
+	_ = s.db.QueryRow(`SELECT status FROM runs WHERE id=?`, runID).Scan(&status)
+	if status == "queued" || status == "running" || status == runWaiting {
+		if _, err := s.db.Exec(`UPDATE run_captures SET attachment_id=NULL,label='',redacted=1,reason=?,width=0,height=0 WHERE run_id=?`, traceReasonDeleted, runID); err != nil {
+			return 0, err
+		}
+	} else if _, err := s.db.Exec(`DELETE FROM run_captures WHERE run_id=?`, runID); err != nil {
 		return 0, err
 	}
 	s.deleteRunTraceStrip(runID)
@@ -643,6 +803,6 @@ func (s *Server) noteEngineTrace(runID, tool string, args map[string]any, page *
 	}
 	s.noteTraceAction(runID, traceLabelText(label, 40))
 	if tool == "browser_navigate" && s.store != nil {
-		s.store.closeSecretWindow(runID)
+		s.store.closeSecretWindow()
 	}
 }

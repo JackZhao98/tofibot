@@ -10,7 +10,7 @@ import { MOTION, EASE } from "./motion";
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** The image lightbox (native <dialog>, top layer): zooms from the thumbnail, Copy / Download, arrows step through the message's images. */
-export default function AttachmentLightbox({ images, index, onIndex, onClose, origin, cellAt }: { images: Attachment[]; index: number | null; onIndex: (index: number) => void; onClose: () => void; origin: () => HTMLElement | null; /** A click on the picture asks which image to show next, from the point as fractions of its width and height (the work-trace strip). */ cellAt?: (index: number, fx: number, fy: number) => number | null }) {
+export default function AttachmentLightbox({ images, index, onIndex, onClose, origin, cellAt, stepButtons, stepsLabel }: { images: Attachment[]; index: number | null; onIndex: (index: number) => void; onClose: () => void; origin: () => HTMLElement | null; /** A click on the picture asks which image to show next, from the point as fractions of its width and height (the work-trace strip). */ cellAt?: (index: number, fx: number, fy: number) => number | null; /** The same step pick for the keyboard and screen readers: one button per image, shown when focused. */ stepButtons?: { label: string; to: number }[]; stepsLabel?: string }) {
   const { t } = useTranslation(["chat", "common"]);
   const dialog = useRef<HTMLDialogElement>(null);
   const zoomImage = useRef<HTMLImageElement>(null);
@@ -64,6 +64,9 @@ export default function AttachmentLightbox({ images, index, onIndex, onClose, or
         <button type="button" onClick={() => void copy()} aria-label={t("attachment.copy", { name: current.name })}>{isDesktop ? <TofiIcon name="copy" size={16} /> : <CopyFeedbackIcon copied={copied} />}</button>
         {isDesktop ? <button type="button" onClick={() => void save()} aria-label={t("attachment.save", { name: current.name })}><TofiIcon name="download" size={16} /></button> : <a href={attachmentUrl(current.id)} download={current.name} aria-label={t("attachment.download", { name: current.name })}><TofiIcon name="download" size={16} /></a>}
       </div>
+      {stepButtons && stepButtons.length > 1 && <ul className="attachment-lightbox-steps" aria-label={stepsLabel}>
+        {stepButtons.map(step => <li key={step.to}><button type="button" className="text-button" aria-current={step.to === index ? "true" : undefined} onClick={() => onIndex(step.to)}>{step.label}</button></li>)}
+      </ul>}
       {error && <small className="attachment-lightbox-error" role="alert">{error}</small>}
       {copied && <span className="sr-only" role="status">{t("attachment.copied")}</span>}
     </>}

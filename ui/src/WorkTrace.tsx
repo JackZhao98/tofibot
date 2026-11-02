@@ -37,6 +37,8 @@ export default function WorkTrace({ run }: { run: Run }) {
   const file = (id: string, name: string): Attachment => ({ id, conversation_id: run.conversation_id, name, mime: "image/jpeg", size: 0, created_at: trace.created_at });
   const images = [file(trace.attachment_id, t("trace.title")), ...withPicture.map(capture => file(capture.attachment_id!, t("trace.step", { seq: capture.seq, label: capture.label })))];
 
+  const stepButtons = images.map((image, to) => ({ label: image.name, to }));
+
   async function open() {
     setError("");
     try {
@@ -79,6 +81,6 @@ export default function WorkTrace({ run }: { run: Run }) {
       </span>
       : <button type="button" className="text-button work-trace-delete" onClick={() => setAsking(true)}>{t("trace.delete")}</button>}
     {error && <small className="error-text" role="alert">{error}</small>}
-    {index !== null && <Suspense fallback={null}><Lightbox images={images} index={index} onIndex={setIndex} onClose={() => setIndex(null)} origin={() => button.current} cellAt={cellAt} /></Suspense>}
+    {index !== null && <Suspense fallback={null}><Lightbox images={images} index={index} onIndex={setIndex} onClose={() => setIndex(null)} origin={() => button.current} cellAt={cellAt} stepButtons={stepButtons} stepsLabel={t("trace.title")} /></Suspense>}
   </div>;
 }
