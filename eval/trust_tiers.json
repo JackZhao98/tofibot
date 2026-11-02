@@ -1,0 +1,16 @@
+{
+  "generated_at": "2026-10-22",
+  "source_sha": "82ff7e6",
+  "rc": "rc.33",
+  "note": "Machine copy of the trust report. Tier follows the pass rate rule; needs lists the capabilities a task requires; not_for lists models that failed it.",
+  "tasks": [
+    {"id": "computer_script", "tier": "safe", "passes": 4, "runs": 4, "needs": ["computer"], "touches": []},
+    {"id": "printable_checklist", "tier": "safe", "passes": 4, "runs": 4, "needs": ["computer"], "touches": ["own_files"]},
+    {"id": "unit_conversion_table", "tier": "safe", "passes": 4, "runs": 4, "needs": [], "touches": [], "not_for": ["claude-haiku-5-5"]},
+    {"id": "reminder_in_minutes", "tier": "safe", "passes": 4, "runs": 4, "needs": ["schedules"], "touches": []},
+    {"id": "project_still_maintained", "tier": "safe", "passes": 4, "runs": 4, "needs": ["web_search"], "touches": []},
+    {"id": "foreign_name_reading", "tier": "safe", "passes": 3, "runs": 3, "needs": [], "touches": []},
+    {"id": "landlord_letter_draft", "tier": "glance", "passes": 3, "runs": 4, "needs": [], "touches": []},
+    {"id": "inbox_digest", "tier": "glance", "passes": 3, "runs": 4, "needs": ["gmail"], "touches": []}
+  ]
+}

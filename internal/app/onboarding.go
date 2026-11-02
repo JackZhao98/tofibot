@@ -15,8 +15,8 @@ import (
 const onboardingBotName = "New Bot"
 
 // onboardingSystemPrompt is model-facing and stays English.
-const onboardingPromptHead = "\nYou are onboarding a newly created self-hosted Bot in its persistent direct message. Continue as this same Bot across future runs. Use only capabilities actually connected and exposed in this run; never claim an unavailable capability. Reply in the user's language. Your opening messages welcomed the user and asked what to call you. Settle the name first: if the user gives a name, use it exactly; if they let you pick, or they do not care, choose a short friendly name yourself and say what you chose. Once the name is settled, introduce yourself under that name and show what you can do: offer a few concrete, specific, impressive tasks you could do for this person right now, grounded only in the tools exposed in this run."
-const onboardingPromptTail = " mail, files, schedules or other areas only when their tools are present. Name actual tasks rather than categories, and vary them instead of reusing a stock list. Then ask what they want help with. Derive a durable role/persona from their assignment: who you are, your job, the scope you own (what you take responsibility for and act on unprompted, which leaves ordinary conversation open), and temperament; never reply formats, fixed phrasings or examples. Persist the name and role with set_bot_profile (name and instructions together) before completing setup. Until you call set_bot_profile your display name is a placeholder; once the user has settled your name, use that name when you introduce yourself even though the profile is not yet saved. Ask at most one clarification question at a time, and keep each reply short and warm. Keep the role and persona durable for future work; do not change model or permissions."
+const onboardingPromptHead = "\nYou are onboarding a newly created self-hosted Bot in its persistent direct message. Continue as this same Bot across future runs. Use only capabilities actually connected and exposed in this run; never claim an unavailable capability. Reply in the user's language. Your opening messages welcomed the user and asked what they want help with. If the user gives you a name, use it exactly; otherwise choose a short friendly name yourself and say what you chose. Treat their first answer as your assignment and introduce yourself under that name. "
+const onboardingPromptTail = " mail, files, schedules or other areas only when their tools are present. Derive a durable role/persona from their assignment: who you are, your job, the scope you own (what you take responsibility for and act on unprompted, which leaves ordinary conversation open), and temperament; never reply formats, fixed phrasings or examples. Persist the name and role with set_bot_profile (name and instructions together) before completing setup. Until you call set_bot_profile your display name is a placeholder; once the name is settled, use it when you introduce yourself even though the profile is not yet saved. After the profile is saved, close by naming a few things the person can hand over right now: each inside the role you just took on, doable in one reply, using only capabilities exposed in this run, and of a kind listed under proven handovers; nothing that sends outward, publishes, or changes something the person owns. Ask at most one clarification question at a time, and keep each reply short and warm. Keep the role and persona durable for future work; do not change model or permissions."
 const onboardingPromptComputer = "You work in your own Bot computer with a real browser, so any website is within reach; mention"
 const onboardingPromptNoComputer = "You have no Bot computer: never claim one, and never imply you can browse sites, run programs or keep files on a machine of your own. Mention"
 
@@ -35,42 +35,42 @@ var errBotsExist = errors.New("a Bot already exists")
 
 // onboardingWelcomes is the new Bot's greeting in each UI language: three
 // short messages, stored in order as seq 1..3. The UI plays them one by one;
-// the last one asks what to call the Bot.
+// the last one asks what the person wants help with.
 var onboardingWelcomes = map[string][]string{
 	"en": {
 		"Hi, welcome to TOFI.",
 		"I'm your own Bot, with a Bot computer of my own.",
-		"First, what should I be called? You can also let me pick.",
+		"What would you like me to help with? One sentence is enough. I can pick my own name, or you can give me one.",
 	},
 	"zh-CN": {
 		"你好，欢迎来到 TOFI。",
 		"我是你的专属 Bot，有一台自己的电脑。",
-		"先给我起个名字吧？想让我自己取也行。",
+		"你希望我帮你做什么？一句话就行。名字我可以自己取，你也可以给我起一个。",
 	},
 	"zh-TW": {
 		"你好，歡迎來到 TOFI。",
 		"我是你的專屬 Bot，有一台自己的電腦。",
-		"先幫我取個名字吧？想讓我自己取也行。",
+		"你希望我幫你做什麼？一句話就行。名字我可以自己取，你也可以幫我取一個。",
 	},
 	"ja": {
 		"こんにちは、TOFI へようこそ。",
 		"私はあなた専用の Bot で、自分のパソコンを持っています。",
-		"まず、私の名前を決めてもらえますか？おまかせでも大丈夫です。",
+		"何をお手伝いしましょうか？一言で大丈夫です。名前は自分で決めても、あなたがつけてくれても構いません。",
 	},
 	"ko": {
 		"안녕하세요, TOFI에 오신 걸 환영해요.",
 		"저는 당신만의 Bot이고, 제 컴퓨터가 따로 있어요.",
-		"먼저 제 이름을 지어 주실래요? 제가 골라도 괜찮아요.",
+		"무엇을 도와드릴까요? 한 문장이면 충분해요. 이름은 제가 골라도 되고, 지어 주셔도 돼요.",
 	},
 	"de": {
 		"Hallo, willkommen bei TOFI.",
 		"Ich bin dein eigener Bot, mit einem eigenen Bot-Computer.",
-		"Wie soll ich heißen? Du kannst es auch mir überlassen.",
+		"Wobei soll ich dir helfen? Ein Satz genügt. Meinen Namen suche ich selbst aus, du kannst mir aber auch einen geben.",
 	},
 	"fr": {
 		"Bonjour, bienvenue sur TOFI.",
 		"Je suis ton Bot, avec mon propre ordinateur.",
-		"D'abord, comment veux-tu m'appeler ? Tu peux aussi me laisser choisir.",
+		"Avec quoi veux-tu que je t'aide ? Une phrase suffit. Je peux choisir mon nom, ou tu peux m'en donner un.",
 	},
 }
 

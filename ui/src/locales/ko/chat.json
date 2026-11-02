@@ -891,5 +891,35 @@
     "connection_unavailable": "연결할 수 없습니다",
     "loading": "작업 공간을 불러오는 중…",
     "refresh_failed": "작업 공간을 새로고침하지 못했습니다."
+  },
+  "firstrun": {
+    "title": "지금 바로 맡길 수 있는 일",
+    "hint": "모두 평가에서 매번 성공했어요. 하나를 고르면 입력창에 채워지고, 고쳐서 보내면 돼요.",
+    "items": {
+      "computer_script": {
+        "label": "작은 스크립트 작성하고 실행",
+        "message": "당신의 컴퓨터에서 작은 스크립트를 작성해 실행하고 출력을 보여 주세요."
+      },
+      "printable_checklist": {
+        "label": "인쇄할 체크리스트 만들기",
+        "message": "한 페이지짜리 인쇄용 체크리스트를 만들어 주세요. 용도는 저에게 물어봐 주세요."
+      },
+      "unit_conversion_table": {
+        "label": "단위 환산을 표로",
+        "message": "요리 분량 몇 가지를 환산해 작은 표로 만들어 주세요. 어떤 것인지는 저에게 물어봐 주세요."
+      },
+      "reminder_in_minutes": {
+        "label": "짧은 알림 설정",
+        "message": "몇 분 뒤에 일어나서 스트레칭하라고 알려 주세요."
+      },
+      "project_still_maintained": {
+        "label": "프로젝트가 관리되는지 확인",
+        "message": "오픈소스 프로젝트가 아직 관리되고 있는지 확인하고, 예 또는 아니요와 이유로 답해 주세요. 어떤 프로젝트인지는 저에게 물어봐 주세요."
+      },
+      "foreign_name_reading": {
+        "label": "외국어 이름 읽는 법",
+        "message": "일본어로 쓴 이름을 어떻게 읽는지 알려 주세요. 이름은 저에게 물어봐 주세요."
+      }
+    }
   }
 }

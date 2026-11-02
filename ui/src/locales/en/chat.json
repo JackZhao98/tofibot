@@ -921,5 +921,35 @@
     "connection_unavailable": "Can't connect",
     "loading": "Loading workspace…",
     "refresh_failed": "Couldn't refresh the workspace."
+  },
+  "firstrun": {
+    "title": "Things you can hand me now",
+    "hint": "Every one of these has passed all evaluation runs. Pick one to fill the message box, then edit it and send.",
+    "items": {
+      "computer_script": {
+        "label": "Write and run a small script",
+        "message": "On your computer, write a small script, run it, and show me the output."
+      },
+      "printable_checklist": {
+        "label": "Make a printable checklist",
+        "message": "Make me a one-page printable checklist. Ask me what it is for."
+      },
+      "unit_conversion_table": {
+        "label": "Convert units into a table",
+        "message": "Convert some cooking measurements into a small table. Ask me which ones."
+      },
+      "reminder_in_minutes": {
+        "label": "Set a short reminder",
+        "message": "Remind me in a few minutes to stand up and stretch."
+      },
+      "project_still_maintained": {
+        "label": "Check if a project is maintained",
+        "message": "Check whether an open-source project is still maintained and answer yes or no with the reason. Ask me which project."
+      },
+      "foreign_name_reading": {
+        "label": "Read a foreign name aloud",
+        "message": "Tell me how to pronounce a name written in Japanese. Ask me for the name."
+      }
+    }
   }
 }
