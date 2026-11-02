@@ -2,6 +2,7 @@ import { memo, useState } from "react";
 import { api, request } from "./api";
 import { Disclosure } from "./InteractionSystem";
 import { useTranslation } from "./i18n";
+import { MessageMarkdown } from "./MessageMarkdown";
 import { minutesLeft, type FoldedResult, type TaskCardModel } from "./taskCards";
 import type { WorkChecklistItem, WorkStatus } from "./types";
 import "./task-card.css";
@@ -24,7 +25,7 @@ export function useTaskLine(card: Pick<TaskCardModel, "holderName" | "done" | "t
 
 function PartResult({ result }: { result: FoldedResult }) {
   const { t } = useTranslation("work");
-  return <Disclosure title={<span className="task-card-result-line">{t("card.result_of", { name: result.sender })}</span>}><p className="task-card-result-text">{result.text}</p></Disclosure>;
+  return <Disclosure title={<span className="task-card-result-line">{t("card.result_of", { name: result.sender })}</span>}><div className="task-card-result-text"><MessageMarkdown content={result.text} /></div></Disclosure>;
 }
 
 /** One checklist item. A plan item (it stands for a task the lead gave) adds the state of that task, its deadline, its one line and its folded results. */

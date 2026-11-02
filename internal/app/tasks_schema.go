@@ -166,6 +166,14 @@ CREATE INDEX IF NOT EXISTS command_waits_bot ON command_waits(bot_id);`); err !=
 	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS work_items_origin_run ON work_items(origin_run_id) WHERE origin_run_id<>''`); err != nil {
 		return err
 	}
+	// The fold join (task_fold.go) finds the part a message is the result of, and
+	// whether its run read a message of the person.
+	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS work_items_result_message ON work_items(result_message_id) WHERE result_message_id<>''`); err != nil {
+		return err
+	}
+	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS bot_inbox_consumed_run ON bot_inbox(consumed_by_run) WHERE consumed_by_run<>''`); err != nil {
+		return err
+	}
 	if err := migrateWaitsFromRunWaits(db); err != nil {
 		return err
 	}

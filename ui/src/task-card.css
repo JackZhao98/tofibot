@@ -16,7 +16,7 @@
 .task-card-items li[data-part][data-status=open] .task-card-mark{color:var(--text-body)}
 .task-card-results{display:grid;gap:var(--space-1);padding-bottom:var(--space-2)}
 .task-card-result-line{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-secondary)}
-.task-card-result-text{margin:0 0 var(--space-2);white-space:pre-wrap;overflow-wrap:anywhere;color:var(--text-body)}
+.task-card-result-text{margin:0 0 var(--space-2);overflow-wrap:anywhere;color:var(--text-body)}
 /* A paused task: the note and the two actions under its title. */
 .task-card-actions{display:flex;flex-wrap:wrap;gap:var(--space-2);align-items:center;padding-bottom:var(--space-2)}
 .task-card-actions .secondary-button{min-height:32px}

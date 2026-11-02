@@ -136,6 +136,15 @@ try {
   const working = [task("w1", { assignee_run_id: "run1", progress_line: "Reading the price list" }), task("w2", { assignee_run_id: "run2", progress_line: "Old", status: "done" }), task("w3", { assignee_run_id: "run3" })];
   assert.deepEqual([...progressByRun(working)], [["run1", "Reading the price list"]]);
   assert.equal(deriveCards(working, new Map(), [], new Map()).progressByRun.get("run1"), "Reading the price list");
+  // A folded result renders with the same Markdown renderer as a normal message: lists, emphasis and links survive.
+  const { createElement } = await import("react");
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const { TaskCard } = await modules.load("/src/TaskCard.tsx");
+  const folded = { ...leadCard, results: [{ id: "r9", taskId: "part1", sender: "Atlas", text: "Two hotels:\n\n- **Hotel A** at [the site](https://example.com/a)\n- Hotel B", at: "2026-10-23T10:00:10Z" }] };
+  const html = renderToStaticMarkup(createElement(TaskCard, { card: folded }));
+  assert.match(html, /<li>.*<strong>Hotel A<\/strong>/s, "a list and emphasis in a folded result render as Markdown");
+  assert.match(html, /<a href="https:\/\/example\.com\/a"[^>]*>the site<\/a>/, "a link in a folded result is a link");
+  assert.doesNotMatch(html, /\*\*Hotel A\*\*/, "no raw Markdown marks are left");
   console.log("task cards: ok");
 } finally {
   await modules.close();
