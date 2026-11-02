@@ -49,14 +49,12 @@ func TestPartMessagesCarryTheirTaskID(t *testing.T) {
 	seen := false
 	for _, ev := range events {
 		data, _ := ev["data"].(map[string]any)
-		if ev["type"] == "message" && data["id"] == msg.ID {
+		// The message event may be sent twice: when it is posted, and again once the task takes it as its result.
+		if ev["type"] == "message" && data["id"] == msg.ID && data["task_id"] == r.Tasks[0].TaskID {
 			seen = true
-			if data["task_id"] != r.Tasks[0].TaskID {
-				t.Fatalf("event data %+v", data)
-			}
 		}
 	}
 	if !seen {
-		t.Fatal("no message event for the part's result")
+		t.Fatal("no message event for the part's result with its task_id")
 	}
 }
