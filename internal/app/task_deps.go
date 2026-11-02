@@ -646,8 +646,15 @@ func (s *Store) addTasks(conv, giver, parentRun string, parts []delegatePart, po
 		postAttachments = append(postAttachments, part.Attachments...)
 	}
 	if post {
-		if err = insertPartsMessageTx(tx, conv, giver, parentRun, strings.Join(postLines, "; "), cleanDepIDs(postAttachments)); err != nil {
-			return nil, err
+		planMessage, perr := insertPartsMessageTx(tx, conv, giver, parentRun, strings.Join(postLines, "; "), cleanDepIDs(postAttachments))
+		if perr != nil {
+			return nil, perr
+		}
+		// The plan card sits after this message, whatever becomes of its parts.
+		if parent != "" {
+			if _, err = tx.Exec(`UPDATE work_items SET plan_message_id=? WHERE id=? AND plan_message_id=''`, planMessage, parent); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return receipts, tx.Commit()

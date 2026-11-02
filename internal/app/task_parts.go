@@ -105,22 +105,22 @@ func (s *Server) delegateParts(c Conversation, r Run, in []delegatePartInput) (s
 // insertPartsMessageTx posts the one visible message of a delegation with parts,
 // as the giver's own message in the group. It triggers nothing: the tasks carry
 // the work. The caller commits.
-func insertPartsMessageTx(tx *sql.Tx, conv, sender, runID, content string, attachmentIDs []string) error {
+func insertPartsMessageTx(tx *sql.Tx, conv, sender, runID, content string, attachmentIDs []string) (string, error) {
 	var seq int64
 	if err := tx.QueryRow(nextMessageSeqSQL, conv, conv, streamDraftActive).Scan(&seq); err != nil {
-		return err
+		return "", err
 	}
 	t := now()
 	m := Message{ID: uuid.NewString(), ConversationID: conv, Seq: seq, Role: "assistant", SenderBotID: sender, RunID: runID, Content: content, CreatedAt: t}
 	if err := insertVisibleDelegationTx(tx, m); err != nil {
-		return err
+		return "", err
 	}
 	if err := bindDeliveredTx(tx, &m, attachmentIDs); err != nil {
-		return err
+		return "", err
 	}
 	if err := insertEventTx(tx, conv, "message", m, t); err != nil {
-		return err
+		return "", err
 	}
 	_, err := tx.Exec(`UPDATE conversations SET updated_at=? WHERE id=?`, t, conv)
-	return err
+	return m.ID, err
 }

@@ -134,6 +134,34 @@ func TestAStaleLeadRootIsNotBusyAndIsClosedByTheCleanup(t *testing.T) {
 	}
 }
 
+// The lead's task keeps the id of the assignment message, so its plan card does
+// not depend on any part staying in the feed.
+func TestTheLeadRootStoresItsAssignmentMessage(t *testing.T) {
+	f := newTaskFix(t)
+	lead := f.running(f.g.ID, f.b)
+	r, _ := f.partsReceipt(f.g, lead, []map[string]any{
+		{"bot_id": f.c.ID, "task": "Flights", "title": "Flights"},
+		{"bot_id": f.a.ID, "task": "Lodging", "title": "Lodging"},
+	})
+	var rootID, assignment string
+	if err := f.s.db.QueryRow(`SELECT id FROM work_items WHERE assignee_run_id=?`, lead.ID).Scan(&rootID); err != nil {
+		t.Fatalf("no root task: %v", err)
+	}
+	if err := f.s.db.QueryRow(`SELECT id FROM messages WHERE run_id=? AND client_message_id LIKE 'delegation:%'`, lead.ID).Scan(&assignment); err != nil {
+		t.Fatalf("no assignment message: %v", err)
+	}
+	if got := f.taskRow(rootID).PlanMessageID; got != assignment {
+		t.Fatalf("plan_message_id = %q, want %q", got, assignment)
+	}
+	// Cancelling the first part changes nothing about it.
+	if _, err := f.s.db.Exec(`UPDATE work_items SET status='cancelled' WHERE id=?`, r.Tasks[0].TaskID); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.taskRow(rootID).PlanMessageID; got != assignment {
+		t.Fatalf("plan_message_id after the first part was cancelled = %q", got)
+	}
+}
+
 // Stop ends the plan: the tree is cancelled and so are the runs that held the
 // parts, so nothing keeps working.
 func TestStoppingALeadStopsTheHolderRunsOfItsParts(t *testing.T) {

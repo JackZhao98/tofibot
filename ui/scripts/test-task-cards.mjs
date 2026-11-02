@@ -166,6 +166,17 @@ try {
   assert.deepEqual([...liveView.byMessage.keys()], ["assign"], "one card, right after the assignment message, none under the request");
   assert.deepEqual(liveView.byMessage.get("assign").map(card => card.id), ["L"]);
   assert.equal(liveView.models.get("L").results.length, 2);
+  // The plan card stays after the assignment message when no part is left in the feed (cancelled, closed long ago, or over the cap).
+  {
+    const onlyLead = { ...liveLead, plan_message_id: "assign" };
+    const cardsOfLead = buildCardModels([onlyLead], names);
+    const trimmed = anchorCards([onlyLead], cardsOfLead, liveMessages, liveRuns, [onlyLead]);
+    assert.deepEqual([...trimmed.keys()], ["assign"], "with no part in the feed the card still sits after the assignment message");
+    const unmarked = anchorCards([liveLead], buildCardModels([liveLead], names), liveMessages, liveRuns, [liveLead]);
+    assert.deepEqual([...unmarked.keys()], ["ask"], "without the stored message and without a part it falls back to the request (the old behavior)");
+    const firstCancelled = anchorCards([onlyLead], cardsOfLead, liveMessages, liveRuns, [onlyLead, { ...livePart("P1", "b2", "res1"), status: "cancelled", created_at: "2026-10-23T10:00:06.000Z" }]);
+    assert.deepEqual([...firstCancelled.keys()], ["assign"], "a cancelled first part does not move the card");
+  }
   // The link event is merged into the message held: reactions and delivery state survive, an unknown id changes nothing.
   const { applyMessageTask } = await modules.load("/src/messageLink.ts");
   const held = [{ ...liveMessages[2], task_id: undefined, reactions: [{ emoji: "+1", actor_type: "user" }], delivery: "delivered" }, liveMessages[3]];

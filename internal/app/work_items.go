@@ -81,6 +81,9 @@ type WorkItem struct {
 	Limits       string `json:"limits,omitempty"`
 	DeadlineAt   string `json:"deadline_at,omitempty"`
 	ProgressLine string `json:"progress_line,omitempty"`
+	// PlanMessageID is the message where the task, as the lead of a plan, gave
+	// its parts: its plan card sits right after it.
+	PlanMessageID string `json:"plan_message_id,omitempty"`
 }
 
 type WorkItemInput struct {

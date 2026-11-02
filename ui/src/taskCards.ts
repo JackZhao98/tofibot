@@ -129,7 +129,13 @@ function firstPartsByLead(tasks: readonly WorkItem[]): Map<string, WorkItem> {
  * the part was made (the assignment is made in the same step as the parts). Undefined for a task that is no plan.
  */
 function planAnchor(task: WorkItem, part: WorkItem | undefined, messages: readonly Message[]): Message | undefined {
-  if (!part?.origin_run_id || !task.checklist?.some(item => item.task_id)) return undefined;
+  if (!task.checklist?.some(item => item.task_id)) return undefined;
+  // The server keeps the assignment message on the lead's task, so the card does not move when the first part is cancelled or trimmed from the feed.
+  if (task.plan_message_id) {
+    const stored = messages.find(message => message.id === task.plan_message_id);
+    if (stored) return stored;
+  }
+  if (!part?.origin_run_id) return undefined;
   return messages.find(message => message.run_id === part.origin_run_id && message.sender_bot_id === task.bot_id && message.created_at >= part.created_at);
 }
 

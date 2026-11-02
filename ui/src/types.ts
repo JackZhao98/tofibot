@@ -325,6 +325,8 @@ export interface WorkItem {
   limits?: string;
   deadline_at?: string;
   progress_line?: string;
+  /** The message where this task, as the lead of a plan, gave its parts: its card sits right after it. */
+  plan_message_id?: string;
   /** When the holder claimed the task (claim_task); absent until it does. */
   claimed_at?: string;
   /** Task continuity: a paused task has interrupted_at set and waits for the Bot (auto_resume) or for the person. */

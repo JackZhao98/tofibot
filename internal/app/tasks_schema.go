@@ -128,7 +128,7 @@ CREATE INDEX IF NOT EXISTS command_waits_bot ON command_waits(bot_id);`); err !=
 	}
 	// The contract of a delegated part (divide and conquer, line A): the form of
 	// the result, the limits, the deadline and the one-line status the holder keeps.
-	for _, column := range []string{"result_format", "limits", "deadline_at", "progress_line", "progress_at"} {
+	for _, column := range []string{"result_format", "limits", "deadline_at", "progress_line", "progress_at", "plan_message_id"} {
 		if err := ensureColumn(db, "work_items", column, `ALTER TABLE work_items ADD COLUMN `+column+` TEXT NOT NULL DEFAULT ''`); err != nil {
 			return err
 		}
