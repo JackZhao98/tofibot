@@ -94,6 +94,43 @@ try {
   const before = applied.length;
   co.push("t1", { v: 99 }); co.cancel(); run(clock + 5000);
   assert.ok(applied.length <= before + 1, "a cancelled coalescer applies nothing later");
+  // The card of a lead is its plan (divide and conquer): the parts are items, the holders' words fold under the card.
+  const { deriveCards, foldParts, plannedPartIds, minutesLeft } = await modules.load("/src/taskCards.ts");
+  const plan = [
+    { id: "p1", text: "Hotels · Atlas", status: "open", task_id: "part1", bot_id: "b2", bot_name: "Atlas", task_status: "in_progress", deadline_at: "2026-10-23T10:30:00Z", progress_line: "Comparing prices" },
+    { id: "p2", text: "Days · Quill", status: "blocked", reason: "timed out", task_id: "part2", bot_id: "b1", bot_name: "Quill", task_status: "in_progress" },
+  ];
+  const lead = task("lead", { bot_id: "b1", checklist: plan, waiting_on: [{ id: "w1", kind: "task_result", target_name: "Atlas", mode: "all", group_id: "g1", deadline_at: "2026-10-23T10:30:00Z" }, { id: "w0", kind: "bot_post", target_name: "Nobody", mode: "any", group_id: "g2", deadline_at: "2026-10-23T10:00:00Z" }], progress_line: "Waiting for the parts" });
+  const part1 = task("part1", { bot_id: "b2", parent_task_id: "lead", assigner_kind: "bot", assigner_bot_id: "b1", progress_line: "Comparing prices", deadline_at: "2026-10-23T10:30:00Z" });
+  const part2 = task("part2", { bot_id: "b1", parent_task_id: "lead", assigner_kind: "bot", assigner_bot_id: "b1" });
+  const reply = (id, taskId, at, extra = {}) => ({ id, conversation_id: "g", seq: 5, role: "assistant", sender_bot_id: "b2", content: `Result ${id}`, created_at: at, task_id: taskId, ...extra });
+  const all = [lead, part1, part2];
+  const planMessages = [msg("m1", "2026-10-23T10:00:00Z"), reply("r1", "part1", "2026-10-23T10:00:10Z"), reply("r2", "part1", "2026-10-23T10:00:12Z", { attachments: [{ id: "a1" }] }), reply("r3", undefined, "2026-10-23T10:00:14Z"), reply("r4", "lead", "2026-10-23T10:00:20Z")];
+  const view = deriveCards(all, new Map([["b1", { name: "Quill" }], ["b2", { name: "Atlas" }]]), planMessages, new Map());
+  const leadCard = view.models.get("lead");
+  assert.deepEqual([...view.folded], ["r1"], "only a part holder's words without files fold; a task with no parent, a message with no task and a message with files stay");
+  assert.deepEqual(leadCard.results.map(result => [result.id, result.taskId, result.sender, result.text]), [["r1", "part1", "Atlas", "Result r1"]]);
+  assert.deepEqual(leadCard.waiting, [{ name: "Atlas", deadlineAt: "2026-10-23T10:30:00Z" }], "the card waits on the members of task_result waits only");
+  assert.equal(leadCard.progressLine, "Waiting for the parts");
+  assert.deepEqual([...plannedPartIds(all, view.models)].sort(), ["part1", "part2"]);
+  assert.equal([...view.byMessage.values()].flat().some(card => card.id === "part1" || card.id === "part2"), false, "a planned part draws no card of its own");
+  assert.equal(view.byMessage.get("m1").some(card => card.id === "lead"), true, "the lead's card sits under a message that is drawn");
+  assert.equal(view.roster.get("b2")?.some(card => card.id === "part1"), true, "the member list still shows the part");
+  const replay = deriveCards(all, new Map([["b1", { name: "Quill" }], ["b2", { name: "Atlas" }]]), planMessages, new Map(), view.models);
+  assert.equal(replay.models.get("lead"), leadCard, "the same plan and results keep the object");
+  const changed = deriveCards(all.map(item => item.id === "part1" ? { ...item, progress_line: "x" } : item).map(item => item.id === "lead" ? { ...item, checklist: [{ ...plan[0], progress_line: "Almost done" }, plan[1]] } : item), new Map(), planMessages, new Map(), view.models);
+  assert.notEqual(changed.models.get("lead"), leadCard, "a part's one-line status is a change");
+  // A folded message never anchors a card: the card falls back to the last drawn message.
+  const foldedOnly = foldParts(all, view.models, [planMessages[1]], () => "x");
+  assert.equal(foldedOnly.folded.has("r1"), true);
+  const noParent = foldParts([task("part1", { parent_task_id: "gone" })], new Map(), [planMessages[1]], () => "x");
+  assert.equal(noParent.folded.size, 0, "no parent card, nothing folds");
+  assert.equal(minutesLeft("2026-10-23T10:30:00Z", Date.parse("2026-10-23T10:20:30Z")), 10);
+  assert.equal(minutesLeft("2026-10-23T10:00:00Z", Date.parse("2026-10-23T10:05:00Z")) < 0, true);
+  assert.equal(Number.isNaN(minutesLeft(undefined, 0)), true);
+  // mergeTasks sees the one-line status and the waits as changes.
+  const baseTask = task("a", { updated_at: "2026-10-23T10:00:09Z" });
+  assert.notEqual(mergeTasks([baseTask], [{ ...baseTask, progress_line: "Working" }]), mergeTasks([baseTask], [baseTask]), "a new status line replaces the task even with the same time");
   console.log("task cards: ok");
 } finally {
   await modules.close();

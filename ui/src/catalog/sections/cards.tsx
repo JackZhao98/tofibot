@@ -93,6 +93,13 @@ const CHECKLIST: TaskCardModel["items"] = [
   { id: "c1", text: "Collect the venue quotes", status: "done" }, { id: "c2", text: "Compare price and distance", status: "done" }, { id: "c3", text: "Check the room is free on Thursday", status: "done" },
   { id: "c4", text: "Draft the booking mail", status: "open" }, { id: "c5", text: "Ask the board for a budget exception", status: "blocked", reason: "Waiting for the board" },
 ];
+/** A time m minutes from now: the card counts the minutes left against the real clock. */
+const soon = (m: number) => new Date(Date.now() + m * 60_000 + 30_000).toISOString();
+const PLAN: TaskCardModel["items"] = [
+  { id: "p1", text: "Hotels · Nori", status: "done", task_id: "part_hotels", bot_id: "bot_nori", bot_name: "Nori", task_status: "done" },
+  { id: "p2", text: "Itinerary · Mochi", status: "open", task_id: "part_days", bot_id: "bot_mochi", bot_name: "Mochi", task_status: "in_progress", deadline_at: soon(20), progress_line: "Comparing two routes" },
+  { id: "p3", text: "Budget · Nori", status: "blocked", reason: "timed out", task_id: "part_budget", bot_id: "bot_nori", bot_name: "Nori", task_status: "in_progress" },
+];
 const taskModel = (extra: Partial<TaskCardModel>): TaskCardModel => ({ id: "t_a", title: "Book the venue for the launch", holderId: "bot_miso", holderName: "Miso", status: "in_progress", done: 3, total: CHECKLIST.length, items: CHECKLIST, claimed: true, open: true, paused: false, autoResume: false, ...extra });
 const task = (id: string, label: string, model: TaskCardModel, note?: string, drive?: CatalogState["drive"]): CatalogState => ({ id, label, note, kind: "inline", render: () => <TaskCard card={model} />, drive });
 
@@ -118,6 +125,9 @@ export const handover: CatalogSection = {
     task("task-card-paused-manual", "Task card, paused (waits for the person)", taskModel({ status: "todo", done: 0, total: 0, items: [], claimed: false, paused: true, autoResume: false }), "the automatic resumes are used up"),
     task("task-card-blocked", "Task card, blocked", taskModel({ status: "blocked", done: 2 })),
     task("task-card-done", "Task card, done", taskModel({ status: "done", done: 3, open: false, items: CHECKLIST.map(item => ({ ...item, status: "done" as const })) })),
+    // The card of a lead is its plan: each part is an item with its state, deadline and one line; the holders' words fold under the item.
+    task("task-card-plan", "Task card, a plan of parts", taskModel({ title: "Plan three days in Kyoto", holderName: "Miso", done: 1, total: 3, items: PLAN, waiting: [{ name: "Nori", deadlineAt: soon(25) }], progressLine: "Waiting for the other two parts" }), "the parts are items; the line names who it waits on and for how long", async step => { await step.click(".task-card .disclosure-toggle"); }),
+    task("task-card-plan-results", "Task card, part results folded", taskModel({ title: "Plan three days in Kyoto", done: 1, total: 3, items: PLAN, results: [{ id: "r1", taskId: "part_hotels", sender: "Nori", text: "Three hotels near Kyoto Station, all under the budget:\n1. Hotel A\n2. Hotel B\n3. Hotel C", at: at(-5) }] }), "the holder's words sit under its item as one collapsed line", async step => { await step.click(".task-card .disclosure-toggle"); }),
     { id: "member-tasks", label: "Member list, tasks a member holds", note: "claimed first, then assigned; no chat line", kind: "inline", render: () => <ul className="member-tasks" style={{ listStyle: "none", padding: 0 }}>
       <MemberTask card={taskModel({ claimed: true })} /><MemberTask card={taskModel({ id: "t_b", title: "Draft the Thursday agenda", claimed: false, status: "todo", done: 0, total: 0, items: [] })} />
     </ul> },

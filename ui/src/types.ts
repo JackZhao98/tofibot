@@ -159,6 +159,8 @@ export interface Message {
   client_message_id?: string;
   /** A person's message sent while the addressed Bot was working: "queued" until the run reads it at its next step, then "read". Absent for ordinary messages. */
   delivery?: "queued" | "read";
+  /** The part (a task with a parent) this message of its holder belongs to; the timeline folds it under the parent's card. */
+  task_id?: string;
   /** Client only: this message has not been stored by the server (yet). It never comes from the API. */
   local?: { state: "sending" | "retrying" | "failed"; error?: string; /** Why it failed: drives the line under the bubble and whether the app tries again by itself. */ reason?: "offline" | "network" | "server" | "rejected"; /** The app already tried again on its own once (so it does not loop). */ auto?: boolean };
   notice?: {
@@ -259,7 +261,11 @@ export interface Schedule {
 }
 
 export type WorkStatus = "todo" | "in_progress" | "blocked" | "review" | "input_required" | "done" | "cancelled" | "failed";
-export type WorkChecklistItem = { id: string; text: string; status: "open" | "done" | "skipped" | "blocked"; reason?: string; updated_at?: string };
+export type WorkChecklistItem = {
+  id: string; text: string; status: "open" | "done" | "skipped" | "blocked"; reason?: string; updated_at?: string;
+  /** A plan item stands for a task the lead gave: the task, its holder, its state, its deadline and the one line its holder keeps. */
+  task_id?: string; bot_id?: string; bot_name?: string; task_status?: WorkStatus; deadline_at?: string; progress_line?: string;
+};
 export type WorkWait = { id: string; kind: "bot_post" | "task_result" | "human_answer" | "command_exit" | "timer"; target?: string; target_name?: string; mode: "any" | "all"; group_id: string; deadline_at: string; note?: string };
 export type TaskImpact = { given_tasks: number; held_tasks: number; open_waits: number };
 export interface WorkExecution {
@@ -314,6 +320,11 @@ export interface WorkItem {
   closed_at?: string;
   checklist?: WorkChecklistItem[];
   waiting_on?: WorkWait[];
+  /** The contract of a delegated part, and the one line its holder keeps. */
+  result_format?: string;
+  limits?: string;
+  deadline_at?: string;
+  progress_line?: string;
   /** When the holder claimed the task (claim_task); absent until it does. */
   claimed_at?: string;
   /** Task continuity: a paused task has interrupted_at set and waits for the Bot (auto_resume) or for the person. */

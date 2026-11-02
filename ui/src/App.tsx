@@ -2702,6 +2702,8 @@ function Workspace() {
                     <EmptyState name="conversation" className="conversation-empty" look={CATS.mochi} pose="curious" size={84}><h2>{t("empty.start_chat")}</h2><p>{t("empty.start_chat_body")}</p></EmptyState> :
                     conversationItems.map((item, index) => {
                       if (index < timelineFrom) return null;
+                      // A part holder's message folds under its parent's task card (taskCards.ts); an Activity block anchored to it stays.
+                      if (item.kind === "message" && taskView?.folded.has(item.message.id)) return placementsAt("message", item.message.id).map(renderPlacement);
                       const previousItem = conversationItems[index - 1];
                       const previousTime = previousItem?.kind === "message" ? previousItem.message.created_at : previousItem?.kind === "question" ? previousItem.question.created_at : previousItem?.draft.created_at;
                       if (item.kind === "mail_draft") {

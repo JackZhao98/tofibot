@@ -10,6 +10,13 @@
 .task-card-mark{flex:none;min-width:5.5em;color:var(--text-secondary)}
 .task-card-items li[data-status=done] .task-card-mark{color:var(--text-body)}
 .task-card-items li[data-status=blocked] .task-card-mark{color:var(--status-error-text)}
+/* The card of a lead is its plan: each part is an item with its state, deadline and one line; the words of its holder fold under it. */
+.task-card-item-body{min-width:0;flex:1 1 auto;display:grid;gap:2px}
+.task-card-meta{color:var(--text-secondary)}
+.task-card-items li[data-part][data-status=open] .task-card-mark{color:var(--text-body)}
+.task-card-results{display:grid;gap:var(--space-1);padding-bottom:var(--space-2)}
+.task-card-result-line{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-secondary)}
+.task-card-result-text{margin:0 0 var(--space-2);white-space:pre-wrap;overflow-wrap:anywhere;color:var(--text-body)}
 /* A paused task: the note and the two actions under its title. */
 .task-card-actions{display:flex;flex-wrap:wrap;gap:var(--space-2);align-items:center;padding-bottom:var(--space-2)}
 .task-card-actions .secondary-button{min-height:32px}

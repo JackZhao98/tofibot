@@ -198,6 +198,15 @@
     "paused": "Paused",
     "resume": "Resume",
     "drop": "Drop",
-    "resumes_after": "Resumes after the current reply"
+    "resumes_after": "Resumes after the current reply",
+    "waiting_on": "Waiting on {{names}}",
+    "minutes_left": "{{minutes}} min left",
+    "overdue": "Past its deadline",
+    "result_of": "{{name}}: result",
+    "reason": {
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "timed_out": "Timed out"
+    }
   }
 }

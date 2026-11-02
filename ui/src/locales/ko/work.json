@@ -195,6 +195,15 @@
     "paused": "일시중지됨",
     "resume": "재개",
     "drop": "삭제",
-    "resumes_after": "현재 답변 후 이어서 진행합니다"
+    "resumes_after": "현재 답변 후 이어서 진행합니다",
+    "waiting_on": "{{names}} 대기 중",
+    "minutes_left": "{{minutes}}분 남음",
+    "overdue": "기한 지남",
+    "result_of": "{{name}}의 결과",
+    "reason": {
+      "failed": "실패",
+      "cancelled": "취소됨",
+      "timed_out": "시간 초과"
+    }
   }
 }

@@ -119,6 +119,9 @@ type Message struct {
 	// Delivery is "queued" while a working Bot has not read the person's message
 	// yet and "read" once it has (queued steering, decision 0062).
 	Delivery string `json:"delivery,omitempty"`
+	// TaskID is the task a part holder's message belongs to, when that task has a
+	// parent: the timeline folds it under the parent's card. Derived, never stored.
+	TaskID string `json:"task_id,omitempty"`
 }
 type HandoffNotice struct {
 	Type string `json:"type"`
@@ -1507,6 +1510,9 @@ func (s *Store) Messages(conv string, before, limit int64) ([]Message, bool, err
 	if err := s.hydrateMessageDelivery(out); err != nil {
 		return nil, false, err
 	}
+	if err := s.hydrateMessagePartTasks(out); err != nil {
+		return nil, false, err
+	}
 	if err := s.hydrateClientMessageIDs(conv, out); err != nil {
 		return nil, false, err
 	}
@@ -2892,6 +2898,15 @@ func (s *Store) Events(conv string, after int64) ([]map[string]any, error) {
 	for i, message := range messages {
 		if message.Kind == "scheduled_task" {
 			messagePayloads[i]["kind"] = message.Kind
+		}
+	}
+	// The part a member's message belongs to: the timeline folds it under the lead's card.
+	if err := s.hydrateMessagePartTasks(messages); err != nil {
+		return nil, err
+	}
+	for i, message := range messages {
+		if message.TaskID != "" {
+			messagePayloads[i]["task_id"] = message.TaskID
 		}
 	}
 	return out, nil
