@@ -825,6 +825,44 @@
       "audit": true
     },
     {
+      "key": "automation.work_trace",
+      "scope": "account",
+      "kind": "bool",
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#computer",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.work_trace.name",
+      "audit": true
+    },
+    {
+      "key": "automation.trace_retention_days",
+      "scope": "account",
+      "kind": "int",
+      "max": 90,
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#computer",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.trace_retention_days.name",
+      "audit": true
+    },
+    {
+      "key": "automation.trace_private_origins",
+      "scope": "account",
+      "kind": "string",
+      "max": 4000,
+      "risk": {
+        "self": "confirm"
+      },
+      "link": "/settings/automation#computer",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.trace_private_origins.name",
+      "audit": true
+    },
+    {
       "key": "automation.settings_change_limit",
       "scope": "account",
       "kind": "readonly",

@@ -1086,6 +1086,18 @@
       "settings_change_limit": {
         "name": "Settings changes per run",
         "what": "The most settings changes a Bot may make by itself in one run. Past it, the Bot lists the rest for you to make. Only you change this number."
+      },
+      "work_trace": {
+        "name": "Work trace",
+        "what": "Keeps small pictures of a Bot's screen work so you can review what it did. A page that may show a private input, and a private origin, are never kept. Off keeps no pictures at all."
+      },
+      "trace_retention_days": {
+        "name": "Work trace kept for",
+        "what": "How long the pictures of a Bot's screen work stay on the server. They are deleted after this period. Keep everything never deletes them."
+      },
+      "trace_private_origins": {
+        "name": "Private origins",
+        "what": "Sites whose pages never enter the work trace. One host or origin per line. A host also covers its subdomains. Sites where a Bot used a private password input are always left out."
       }
     },
     "option": {
@@ -1122,7 +1134,9 @@
     "managed": "Managed by the Bot computer service",
     "days": "{{count}} d",
     "keep_all": "Keep everything",
-    "in_permissions": "Set in Permissions"
+    "in_permissions": "Set in Permissions",
+    "origins_placeholder": "bank.example.com",
+    "empty_list": "None"
   },
   "webtools": {
     "title": "Web search & fetch",

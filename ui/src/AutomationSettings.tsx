@@ -16,14 +16,15 @@ export type AutomationKey =
   | "group_exchange_gists" | "own_replies_verbatim" | "completion_review" | "answer_gate" | "mcp_auto_review"
   | "remembered_approval_hours" | "provider_retries" | "schedule_receipt_review" | "desktop_idle_seconds"
   | "group_triage" | "group_triage_model" | "group_followup_to_working" | "task_retention_days" | "command_check_minutes" | "task_stall_rounds" | "task_tree_idle_message_limit"
-  | "widget_artifacts_auto" | "widget_computer_auto" | "browser_engine" | "desktop_engine";
+  | "widget_artifacts_auto" | "widget_computer_auto" | "browser_engine" | "desktop_engine"
+  | "work_trace" | "trace_retention_days" | "trace_private_origins";
 export type AutomationGroup = "models" | "replies" | "history" | "checks" | "reliability" | "schedules" | "computer" | "widgets";
 const groupOrder: AutomationGroup[] = ["models", "replies", "history", "checks", "reliability", "schedules", "computer", "widgets"];
 
 export type AutomationItem = {
   key: AutomationKey;
   group: AutomationGroup;
-  kind: "bool" | "int" | "enum" | "model" | "readonly";
+  kind: "bool" | "int" | "enum" | "model" | "readonly" | "text";
   default: boolean | number | string | null;
   value: boolean | number | string | null;
   /** The model actually in force (model items). */
@@ -59,15 +60,24 @@ function formatValue(item: AutomationItem, value: Value, {t, catalog}: Names): s
     const id = String(value ?? "");
     return catalog ? modelName(catalog.models, id) : id;
   }
+  if (item.kind === "text") return typeof value === "string" && value.trim() ? value.split("\n").join(", ") : t("automation.empty_list");
   if (typeof value !== "number") return t("automation.not_reported");
   if (item.key === "provider_retries" && value === 0) return t("automation.retries_none");
   if (item.key === "desktop_idle_seconds") {
     if (value === 0) return t("automation.idle_off");
     return value % 60 === 0 ? t("automation.minutes", {count: value / 60}) : t("automation.seconds", {count: value});
   }
-  if (item.key === "task_retention_days" && value === 0) return t("automation.keep_all");
+  if ((item.key === "task_retention_days" || item.key === "trace_retention_days") && value === 0) return t("automation.keep_all");
   if (item.unit) return t(`automation.${item.unit}`, {count: value});
   return String(value);
+}
+
+/** A short list, one entry per line; the change is saved when the field loses focus. */
+function TextControl({id, value, disabled, label, onCommit}: {id: string; value: string; disabled: boolean; label: string; onCommit: (value: string) => void}) {
+  const {t} = useTranslation("settings");
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  return <textarea id={id} className="auto-text" rows={3} spellCheck={false} aria-label={label} placeholder={t("automation.origins_placeholder")} value={draft} disabled={disabled} onChange={event => setDraft(event.target.value)} onBlur={() => {if (draft !== value) onCommit(draft);}}/>;
 }
 
 function Control({item, catalog, busy, label, onChange, onOpenPermissions}: {item: AutomationItem; catalog: ModelCatalog | null; busy: boolean; label: string; onChange: (value: Value) => void; onOpenPermissions?: () => void}) {
@@ -80,6 +90,7 @@ function Control({item, catalog, busy, label, onChange, onOpenPermissions}: {ite
   if (item.kind === "readonly") {
     return <span className="auto-static">{formatValue(item, item.value, {t, catalog})}</span>;
   }
+  if (item.kind === "text") return <TextControl id={id} value={typeof item.value === "string" ? item.value : ""} disabled={disabled} label={label} onCommit={value => onChange(value)}/>;
   // The reviewer mode lives in one place, Settings > Permissions; this row shows the value (D15) and links there.
   if (item.kind === "enum" && (item.key === "browser_engine" || item.key === "desktop_engine")) {
     return <Select id={id} value={String(item.value ?? item.default ?? "")} disabled={disabled} onValueChange={value => onChange(value)}>{(item.options ?? []).map(choice => <option key={choice} value={choice}>{formatValue(item, choice, {t, catalog})}</option>)}</Select>;

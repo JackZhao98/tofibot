@@ -1086,6 +1086,18 @@
       "settings_change_limit": {
         "name": "Einstellungsänderungen pro Lauf",
         "what": "Die meisten Einstellungsänderungen, die ein Bot in einem Lauf selbst vornehmen darf. Den Rest listet der Bot für dich auf. Nur du kannst diese Zahl ändern."
+      },
+      "work_trace": {
+        "name": "Arbeitsspur",
+        "what": "Speichert kleine Bilder der Bildschirmarbeit eines Bots, damit Sie nachsehen können, was er getan hat. Eine Seite, die eine private Eingabe zeigen kann, und private Ursprünge werden nie gespeichert. Aus speichert gar keine Bilder."
+      },
+      "trace_retention_days": {
+        "name": "Arbeitsspur aufbewahren",
+        "what": "Wie lange die Bilder der Bildschirmarbeit eines Bots auf dem Server bleiben. Danach werden sie gelöscht. Alles behalten löscht sie nie."
+      },
+      "trace_private_origins": {
+        "name": "Private Ursprünge",
+        "what": "Seiten dieser Sites kommen nie in die Arbeitsspur. Ein Host oder Ursprung pro Zeile. Ein Host umfasst auch seine Subdomains. Sites, bei denen ein Bot eine private Passworteingabe nutzte, bleiben immer außen vor."
       }
     },
     "option": {
@@ -1122,7 +1134,9 @@
     "managed": "Vom Bot-Computer-Dienst verwaltet",
     "days": "{{count}} Tage",
     "keep_all": "Alles behalten",
-    "in_permissions": "In „Berechtigungen“ festlegen"
+    "in_permissions": "In „Berechtigungen“ festlegen",
+    "origins_placeholder": "bank.example.com",
+    "empty_list": "Keine"
   },
   "webtools": {
     "title": "Websuche und Abruf",

@@ -15,7 +15,6 @@ import (
 	"image"
 	"image/jpeg"
 	"strings"
-	"sync/atomic"
 
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
@@ -160,9 +159,24 @@ func withCaptureSeq(result string, seq int) string {
 	return string(out)
 }
 
-// finishCapture is the one point every screenshot passes on its way to the
-// model: it numbers the capture and scales it for the requested detail.
-func (s *Server) finishCapture(ctx context.Context, r Run, action, result, detail string, seq *atomic.Int32) string {
-	out := applyCaptureDetail(result, detail)
-	return withCaptureSeq(out, int(seq.Add(1)))
+// afterComputerAction is what the server keeps of a computer action that
+// succeeded: a capture goes through the work-trace point; any other action
+// leaves a short note for the next capture, and a navigation closes the secret
+// window of the run.
+func (s *Server) afterComputerAction(ctx context.Context, r Run, tool, action string, raw, args json.RawMessage, out, detail string) (string, error) {
+	if action == "desktop.capture" || action == "browser.snapshot" {
+		return s.finishCapture(ctx, r, tool, action, args, out, detail)
+	}
+	if strings.HasPrefix(action, "desktop.") || strings.HasPrefix(action, "browser.") {
+		s.noteTraceAction(r.ID, traceActionLabel(action, args))
+	}
+	if navigationAction(action, raw) {
+		s.store.closeSecretWindow(r.ID)
+		var nav struct {
+			URL string `json:"url"`
+		}
+		_ = json.Unmarshal(args, &nav)
+		s.noteTracePage(r.ID, nav.URL)
+	}
+	return out, nil
 }

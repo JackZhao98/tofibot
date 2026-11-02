@@ -1077,6 +1077,18 @@
       "settings_change_limit": {
         "name": "每次執行的設定變更上限",
         "what": "Bot 在一次執行中可自行變更的設定數量上限。超過後，Bot 會把其餘變更列給你。只有你能修改這個數字。"
+      },
+      "work_trace": {
+        "name": "工作留痕",
+        "what": "保留 Bot 在電腦上操作時的縮圖截圖，方便你回看它做了什麼。可能顯示私密輸入的頁面和私密來源都不會被保留。關閉後不保留任何截圖。"
+      },
+      "trace_retention_days": {
+        "name": "工作留痕保留時間",
+        "what": "Bot 螢幕操作的截圖在伺服器上保留多久，到期後自動刪除。選擇「全部保留」則不會自動刪除。"
+      },
+      "trace_private_origins": {
+        "name": "私密來源",
+        "what": "這些網站的頁面不會進入工作留痕。每行一個主機名稱或來源；主機名稱同時涵蓋其子網域。Bot 用私密密碼輸入登入過的網站一律不會留痕。"
       }
     },
     "option": {
@@ -1113,7 +1125,9 @@
     "managed": "由 Bot 電腦服務管理",
     "days": "{{count}} 天",
     "keep_all": "全部保留",
-    "in_permissions": "在「權限」裡設定"
+    "in_permissions": "在「權限」裡設定",
+    "origins_placeholder": "bank.example.com",
+    "empty_list": "無"
   },
   "webtools": {
     "title": "網頁搜尋與擷取",

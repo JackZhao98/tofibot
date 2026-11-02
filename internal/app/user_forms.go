@@ -387,6 +387,12 @@ func (s *Server) AnswerUserFormSaving(id, actor string, values map[string]string
 		if err := v.saveLocked(); err != nil {
 			return q, false, errors.New("could not save private input")
 		}
+		// From here until the next navigation the screen may show the private input: the work trace keeps no picture of it.
+		if q.RunID != "" {
+			if _, err := tx.Exec(`INSERT OR REPLACE INTO run_secret_windows(run_id,opened_at) VALUES(?,?)`, q.RunID, now()); err != nil {
+				return q, false, errors.New("could not save form response")
+			}
+		}
 	}
 	encoded, err := json.Marshal(answers)
 	if err != nil {
@@ -465,5 +471,6 @@ func (s *Server) applyFormSecret(ctx context.Context, run Run, rec secretRecord,
 		// Older guests fail closed; never fall back to unguarded desktop paste.
 		return "", errors.New("private input rejected: inspect the page and focus the visible password field on the approved website before retrying; the Bot computer must support protected form input")
 	}
+	s.store.openSecretWindow(run.ID)
 	return `{"ok":true}`, nil
 }

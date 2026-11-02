@@ -86,6 +86,8 @@ const (
 	autoKindEnum     automationKind = "enum"
 	autoKindModel    automationKind = "model"
 	autoKindReadOnly automationKind = "readonly"
+	// autoKindText is a short free text (a list, one entry per line); Max is its length in characters.
+	autoKindText automationKind = "text"
 )
 
 type automationItem struct {
@@ -126,6 +128,9 @@ var automationItems = []automationItem{
 	{Key: autoTaskTreeIdleLimit, Group: "reliability", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskTreeIdleLimit), Min: 10, Max: 500},
 	{Key: autoWidgetArtifacts, Group: "widgets", Kind: autoKindBool, Default: "true"},
 	{Key: autoWidgetComputer, Group: "widgets", Kind: autoKindBool, Default: "true"},
+	{Key: autoWorkTrace, Group: "computer", Kind: autoKindBool, Default: "true"},
+	{Key: autoTraceRetentionDays, Group: "computer", Kind: autoKindInt, Default: traceRetentionDefault(), Min: 0, Max: 90, Unit: "days"},
+	{Key: autoTracePrivateOrigins, Group: "computer", Kind: autoKindText, Max: 4000},
 	{Key: autoSettingsChangeLimit, Group: "checks", Kind: autoKindInt, Default: strconv.Itoa(defaultSettingsChange), Min: 1, Max: 50},
 }
 
@@ -640,6 +645,22 @@ func (s *Server) parseAutomationValue(ctx context.Context, item automationItem, 
 			}
 		}
 		return nil, fmt.Errorf("must be one of %s", strings.Join(item.Options, ", "))
+	case autoKindText:
+		var v string
+		if json.Unmarshal(raw, &v) != nil {
+			return nil, errors.New("expected text")
+		}
+		if item.Key == autoTracePrivateOrigins {
+			list, err := normalizeTraceOrigins(v)
+			if err != nil {
+				return nil, err
+			}
+			v = strings.Join(list, "\n")
+		}
+		if len([]rune(v)) > item.Max {
+			return nil, fmt.Errorf("must be at most %d characters", item.Max)
+		}
+		out = v
 	case autoKindModel:
 		var v string
 		if json.Unmarshal(raw, &v) != nil {

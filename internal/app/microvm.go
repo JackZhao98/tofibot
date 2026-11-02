@@ -433,7 +433,6 @@ func (s *Server) microVMTools(r Run) []Tool {
 		return d.Decode(target)
 	}
 	var viewed atomic.Int32
-	var captureSeq atomic.Int32
 	// Values injected earlier in this run stay masked in every later computer
 	// tool result of the run (a command may have written one to a file).
 	injected := &injectedSecrets{}
@@ -484,7 +483,12 @@ func (s *Server) microVMTools(r Run) []Tool {
 				return s.viewComputerFile(ctx, r, args)
 			}
 			if action == "browser.click" {
-				return s.browserClick(ctx, r, args)
+				out, err := s.browserClick(ctx, r, args)
+				if err == nil {
+					s.noteTraceAction(r.ID, traceActionLabel(action, args))
+					s.noteTracePage(r.ID, pageURLFromResult(out))
+				}
+				return out, err
 			}
 			if action == "browser.upload" {
 				return s.browserUpload(ctx, r, args)
@@ -493,6 +497,9 @@ func (s *Server) microVMTools(r Run) []Tool {
 				out, err := s.browserRead(ctx, r, args)
 				if err != nil && browserProcessGone(err) && s.restartDesktop(ctx, r) == nil {
 					out, err = s.browserRead(ctx, r, args)
+				}
+				if err == nil {
+					s.noteTracePage(r.ID, pageURLFromResult(out))
 				}
 				return out, err
 			}
@@ -569,8 +576,8 @@ func (s *Server) microVMTools(r Run) []Tool {
 			}
 			// An approval spent above comes back only if the action provably did nothing.
 			settle(err)
-			if err == nil && (action == "desktop.capture" || action == "browser.snapshot") {
-				out = s.finishCapture(ctx, r, action, out, captureDetail, &captureSeq)
+			if err == nil {
+				out, err = s.afterComputerAction(ctx, r, name, action, raw, args, out, captureDetail)
 			}
 			return out, err
 		}}

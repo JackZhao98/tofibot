@@ -1095,6 +1095,18 @@
       "settings_change_limit": {
         "name": "Modifications de réglages par exécution",
         "what": "Le nombre maximal de réglages qu'un Bot peut modifier de lui-même en une exécution. Il liste le reste pour vous. Vous seul pouvez changer ce nombre."
+      },
+      "work_trace": {
+        "name": "Trace de travail",
+        "what": "Conserve de petites images du travail d'un Bot à l'écran pour que vous puissiez revoir ce qu'il a fait. Une page pouvant montrer une saisie privée et une origine privée ne sont jamais conservées. Désactivé : aucune image n'est conservée."
+      },
+      "trace_retention_days": {
+        "name": "Durée de conservation de la trace",
+        "what": "Durée pendant laquelle les images du travail d'un Bot à l'écran restent sur le serveur. Elles sont supprimées ensuite. Tout conserver ne les supprime jamais."
+      },
+      "trace_private_origins": {
+        "name": "Origines privées",
+        "what": "Les pages de ces sites n'entrent jamais dans la trace de travail. Un hôte ou une origine par ligne. Un hôte couvre aussi ses sous-domaines. Les sites où un Bot a utilisé une saisie de mot de passe privée sont toujours exclus."
       }
     },
     "option": {
@@ -1131,7 +1143,9 @@
     "managed": "Géré par le service de l’ordinateur Bot",
     "days": "{{count}} j",
     "keep_all": "Tout conserver",
-    "in_permissions": "À régler dans « Autorisations »"
+    "in_permissions": "À régler dans « Autorisations »",
+    "origins_placeholder": "bank.example.com",
+    "empty_list": "Aucune"
   },
   "webtools": {
     "title": "Recherche et lecture web",

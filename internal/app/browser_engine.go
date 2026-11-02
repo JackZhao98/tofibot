@@ -338,6 +338,7 @@ func (s *Server) browserEngineTools(r Run, prepare func(context.Context), classi
 					return s.browserClassicFallback(ctx, sp, args, classic, "the page snapshot had no element refs", &noted)
 				}
 				page.learn(out)
+				s.noteEngineTrace(r.ID, sp.Name, args, page)
 				if sp.Name == "browser_snapshot" || sp.Name == "browser_navigate" {
 					s.markDesktopObserved(r)
 				}

@@ -352,6 +352,8 @@ func automationSettingKind(item automationItem) SettingKind {
 		return KindEnum
 	case autoKindModel:
 		return KindModel
+	case autoKindText:
+		return KindString
 	}
 	return KindReadOnly
 }
@@ -362,7 +364,8 @@ func automationRisk(item automationItem) RiskSpec {
 	if item.Key == autoSettingsChangeLimit {
 		return riskForbidden
 	}
-	if item.Key == autoRememberedApprovalHrs || item.Kind == autoKindModel {
+	// A shorter list of private origins would keep pictures of pages the person marked private.
+	if item.Key == autoRememberedApprovalHrs || item.Key == autoTracePrivateOrigins || item.Kind == autoKindModel {
 		return riskConfirm
 	}
 	if item.Kind == autoKindReadOnly {

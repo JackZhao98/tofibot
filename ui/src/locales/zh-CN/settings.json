@@ -1077,6 +1077,18 @@
       "settings_change_limit": {
         "name": "每次运行的设置更改上限",
         "what": "Bot 在一次运行中可自行更改的设置数量上限。超过后，Bot 会把其余更改列给你。只有你能修改这个数字。"
+      },
+      "work_trace": {
+        "name": "工作留痕",
+        "what": "保留 Bot 在电脑上操作时的缩略截图，方便你回看它做了什么。可能显示私密输入的页面和私密来源都不会被保留。关闭后不保留任何截图。"
+      },
+      "trace_retention_days": {
+        "name": "工作留痕保留时长",
+        "what": "Bot 屏幕操作的截图在服务器上保留多久，到期后自动删除。选择“全部保留”则不会自动删除。"
+      },
+      "trace_private_origins": {
+        "name": "私密来源",
+        "what": "这些网站的页面不会进入工作留痕。每行一个主机名或来源；主机名同时覆盖其子域名。Bot 用私密密码输入登录过的网站始终不会留痕。"
       }
     },
     "option": {
@@ -1113,7 +1125,9 @@
     "managed": "由 Bot 电脑服务管理",
     "days": "{{count}} 天",
     "keep_all": "全部保留",
-    "in_permissions": "在“权限”里设置"
+    "in_permissions": "在“权限”里设置",
+    "origins_placeholder": "bank.example.com",
+    "empty_list": "无"
   },
   "webtools": {
     "title": "网页搜索与抓取",
