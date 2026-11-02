@@ -433,6 +433,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 		return d.Decode(target)
 	}
 	var viewed atomic.Int32
+	var captureSeq atomic.Int32
 	// Values injected earlier in this run stay masked in every later computer
 	// tool result of the run (a command may have written one to a file).
 	injected := &injectedSecrets{}
@@ -458,6 +459,10 @@ func (s *Server) microVMTools(r Run) []Tool {
 			return s.resolveComputerRecovery(ctx, r, microVMComputerID, action, args)
 		}, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			action, args, err := parse(raw)
+			if err != nil {
+				return "", err
+			}
+			captureDetail, err := captureDetailOf(raw)
 			if err != nil {
 				return "", err
 			}
@@ -564,6 +569,9 @@ func (s *Server) microVMTools(r Run) []Tool {
 			}
 			// An approval spent above comes back only if the action provably did nothing.
 			settle(err)
+			if err == nil && (action == "desktop.capture" || action == "browser.snapshot") {
+				out = s.finishCapture(ctx, r, action, out, captureDetail, &captureSeq)
+			}
 			return out, err
 		}}
 		inner := t.Execute
@@ -627,9 +635,10 @@ func (s *Server) microVMTools(r Run) []Tool {
 		argsJSON, _ := json.Marshal(args)
 		return in.Action, argsJSON, nil
 	})
-	desktop := call("computer_desktop", computerFallbackNote+" Control the Bot computer's display and Chrome session. All Bots share this display/browser. Graphical actions wait for exclusive control; inspect after acquiring it or after the page changes. A successful browser.snapshot already includes a current screenshot and proves the desktop is running: use that screenshot directly, without an extra desktop.start or desktop.capture. Use desktop.start when desktop readiness is unknown/stopped; desktop.capture is an alternative observation for non-browser UI. Click/double_click/triple_click/type/key/scroll act on the current visible screen; a double or triple click is one action, so opening a folder, a word or a line selection is never two separate click calls. After an input sequence, inspect the result before claiming success.", objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"desktop.start", "desktop.stop", "desktop.capture", "desktop.snapshot", "desktop.click", "desktop.double_click", "desktop.triple_click", "desktop.type", "desktop.key", "desktop.scroll", "start", "stop", "capture", "click", "double_click", "triple_click", "type", "key", "scroll"}, "description": "desktop.start/stop/capture/click/double_click/triple_click/type/key/scroll (desktop.snapshot = capture)"}, "x": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel X from the latest capture"}, "y": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel Y from the latest capture"}, "screenshot_width": map[string]any{"type": "integer", "minimum": 1, "maximum": 1280, "description": "Width of the screenshot used for x/y; provide together with screenshot_height"}, "screenshot_height": map[string]any{"type": "integer", "minimum": 1, "maximum": 800, "description": "Height of the screenshot used for x/y; provide together with screenshot_width"}, "direction": map[string]any{"type": "string", "enum": []string{"up", "down", "left", "right"}, "description": "Visible page scroll direction"}, "amount": map[string]any{"type": "integer", "minimum": 1, "maximum": 20, "description": "Mouse wheel steps, default 3"}, "text": map[string]any{"type": "string"}, "key": map[string]any{"type": "string", "description": "X11 key name, for example Return or Escape"}, "effect": effectParam, "modifiers": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
+	desktop := call("computer_desktop", computerFallbackNote+" Control the Bot computer's display and Chrome session. All Bots share this display/browser. Graphical actions wait for exclusive control; inspect after acquiring it or after the page changes. A successful browser.snapshot already includes a current screenshot and proves the desktop is running: use that screenshot directly, without an extra desktop.start or desktop.capture. Use desktop.start when desktop readiness is unknown/stopped; desktop.capture is an alternative observation for non-browser UI. Click/double_click/triple_click/type/key/scroll act on the current visible screen. After an input sequence, inspect the result before claiming success. "+captureDetailSentence+" Each capture result carries capture_seq.", objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"desktop.start", "desktop.stop", "desktop.capture", "desktop.snapshot", "desktop.click", "desktop.double_click", "desktop.triple_click", "desktop.type", "desktop.key", "desktop.scroll", "start", "stop", "capture", "click", "double_click", "triple_click", "type", "key", "scroll"}, "description": "desktop.start/stop/capture/click/double_click/triple_click/type/key/scroll (desktop.snapshot = capture). A double or triple click is one action: opening a folder, a word or a line selection is never two separate click calls."}, "x": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel X from the latest capture"}, "y": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel Y from the latest capture"}, "screenshot_width": map[string]any{"type": "integer", "minimum": 1, "maximum": 1280, "description": "Width of the screenshot used for x/y; provide together with screenshot_height"}, "screenshot_height": map[string]any{"type": "integer", "minimum": 1, "maximum": 800, "description": "Height of the screenshot used for x/y; provide together with screenshot_width"}, "direction": map[string]any{"type": "string", "enum": []string{"up", "down", "left", "right"}, "description": "Visible page scroll direction"}, "amount": map[string]any{"type": "integer", "minimum": 1, "maximum": 20, "description": "Mouse wheel steps, default 3"}, "text": map[string]any{"type": "string"}, "key": map[string]any{"type": "string", "description": "X11 key name, for example Return or Escape"}, "effect": effectParam, "modifiers": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "detail": captureDetailParam}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
 		var in struct {
 			Action           string   `json:"action"`
+			Detail           string   `json:"detail,omitempty"`
 			Direction        string   `json:"direction,omitempty"`
 			Amount           int      `json:"amount,omitempty"`
 			X                int      `json:"x,omitempty"`
@@ -643,6 +652,9 @@ func (s *Server) microVMTools(r Run) []Tool {
 		}
 		if err := decode(raw, &in); err != nil {
 			return "", nil, errors.New("computer_desktop requires a desktop action")
+		}
+		if _, err := normalizeCaptureDetail(in.Detail); err != nil {
+			return "", nil, err
 		}
 		if !strings.HasPrefix(in.Action, "desktop.") {
 			in.Action = "desktop." + in.Action // models drop the prefix
@@ -693,9 +705,10 @@ func (s *Server) microVMTools(r Run) []Tool {
 		argsJSON, _ := json.Marshal(args)
 		return in.Action, argsJSON, nil
 	})
-	browser := call("computer_browser", computerFallbackNote+" Use the shared Chrome. browser.read returns the focused page's text and links (use find to jump to a phrase); prefer it over a screenshot for reading pages, results and articles. browser.click clicks an item by its visible text (a mail subject, button, link) and returns the new page, so no screenshot or coordinates are needed. File uploads in web pages use browser.upload, never the system file dialog. browser.snapshot returns a screenshot for layout and click coordinates. browser.navigate opens a URL in the current tab (search engines and site searches by URL are fine). browser.action switches/opens/closes tabs. All Bots share this Chrome and its logged-in profile.", objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"browser.read", "browser.click", "browser.upload", "browser.navigate", "browser.snapshot", "browser.action", "read", "click", "upload", "navigate", "snapshot"}, "description": "browser.read: page text+links (optional find, max_chars); browser.click: click the element showing click text, then returns the page like read; browser.upload: attach files to a file input; browser.navigate needs url; browser.snapshot: screenshot; browser.action uses target_action"}, "click": map[string]any{"type": "string", "description": "browser.click: visible text of the item to click (a mail subject, button or link label); browser.upload: visible text of the element that opens the file chooser"}, "files": map[string]any{"type": "array", "maxItems": browserUploadMaxFiles, "items": map[string]any{"type": "string"}, "description": "browser.upload: paths of files on the Bot computer, inside /workspace"}, "attachment_ids": map[string]any{"type": "array", "maxItems": browserUploadMaxFiles, "items": map[string]any{"type": "string"}, "description": "browser.upload: ids of files the person sent in this conversation"}, "selector": map[string]any{"type": "string", "description": "browser.upload: CSS selector of the file input (or a label around it); give selector or click"}, "effect": effectParam, "find": map[string]any{"type": "string", "description": "browser.read: return passages around this phrase"}, "max_chars": map[string]any{"type": "integer", "minimum": 1000, "maximum": 60000, "description": "browser.read: text budget, default 20000"}, "url": map[string]any{"type": "string", "description": "URL for browser.navigate"}, "target_action": map[string]any{"type": "string", "enum": []string{"navigate", "snapshot", "new", "switch", "close"}, "description": "Browser action; new explicitly opens a foreground tab; switch/close require target_id"}, "target_id": map[string]any{"type": "string", "description": "Exact target_id from browser.snapshot; omit to use the actual current foreground tab"}}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
+	browser := call("computer_browser", computerFallbackNote+" Use the shared Chrome. browser.read returns the focused page's text and links (use find to jump to a phrase); prefer it over a screenshot for reading pages, results and articles. browser.click clicks an item by its visible text (a mail subject, button, link) and returns the new page, so no screenshot or coordinates are needed. File uploads in web pages use browser.upload, never the system file dialog. browser.snapshot returns a screenshot for layout and click coordinates; "+captureDetailSentence+" browser.navigate opens a URL in the current tab. All Bots share this Chrome and its logged-in profile.", objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"browser.read", "browser.click", "browser.upload", "browser.navigate", "browser.snapshot", "browser.action", "read", "click", "upload", "navigate", "snapshot"}, "description": "browser.read: page text+links (optional find, max_chars); browser.click: click the element showing click text, then returns the page like read; browser.upload: attach files to a file input; browser.navigate needs url; browser.snapshot: screenshot; browser.action switches, opens or closes tabs with target_action"}, "click": map[string]any{"type": "string", "description": "browser.click: visible text of the item to click (a mail subject, button or link label); browser.upload: visible text of the element that opens the file chooser"}, "files": map[string]any{"type": "array", "maxItems": browserUploadMaxFiles, "items": map[string]any{"type": "string"}, "description": "browser.upload: paths of files on the Bot computer, inside /workspace"}, "attachment_ids": map[string]any{"type": "array", "maxItems": browserUploadMaxFiles, "items": map[string]any{"type": "string"}, "description": "browser.upload: ids of files the person sent in this conversation"}, "selector": map[string]any{"type": "string", "description": "browser.upload: CSS selector of the file input (or a label around it); give selector or click"}, "effect": effectParam, "find": map[string]any{"type": "string", "description": "browser.read: return passages around this phrase"}, "max_chars": map[string]any{"type": "integer", "minimum": 1000, "maximum": 60000, "description": "browser.read: text budget, default 20000"}, "url": map[string]any{"type": "string", "description": "URL for browser.navigate"}, "target_action": map[string]any{"type": "string", "enum": []string{"navigate", "snapshot", "new", "switch", "close"}, "description": "Browser action; new explicitly opens a foreground tab; switch/close require target_id"}, "target_id": map[string]any{"type": "string", "description": "Exact target_id from browser.snapshot; omit to use the actual current foreground tab"}, "detail": captureDetailParam}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
 		var in struct {
 			Action        string   `json:"action"`
+			Detail        string   `json:"detail,omitempty"`
 			URL           string   `json:"url,omitempty"`
 			TargetAction  string   `json:"target_action,omitempty"`
 			TargetID      string   `json:"target_id,omitempty"`
@@ -709,6 +722,9 @@ func (s *Server) microVMTools(r Run) []Tool {
 		}
 		if err := decode(raw, &in); err != nil || in.Action == "" {
 			return "", nil, errors.New("computer_browser requires a browser action")
+		}
+		if _, err := normalizeCaptureDetail(in.Detail); err != nil {
+			return "", nil, err
 		}
 		if !strings.HasPrefix(in.Action, "browser.") {
 			in.Action = "browser." + in.Action // models drop the prefix
