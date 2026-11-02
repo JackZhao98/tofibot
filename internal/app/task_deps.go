@@ -521,6 +521,19 @@ func (s *Store) addTasks(conv, giver, parentRun string, parts []delegatePart, po
 			root, parent = r2, p2
 		}
 	}
+	if root == "" && giver != "system" {
+		// The run holds no task and gives its first part: it is the lead of a plan,
+		// and the parts become the items of one card (line A).
+		fallback := parts[0].Title
+		if fallback == "" {
+			fallback = parts[0].Brief
+		}
+		leadID, lerr := ensureLeadTaskTx(tx, conv, giver, parentRun, fallback)
+		if lerr != nil {
+			return nil, lerr
+		}
+		root, parent = leadID, leadID
+	}
 	var receipts []delegatedTaskReceipt
 	var postLines, postAttachments []string
 	for _, part := range parts {

@@ -145,6 +145,27 @@ try {
   assert.match(html, /<li>.*<strong>Hotel A<\/strong>/s, "a list and emphasis in a folded result render as Markdown");
   assert.match(html, /<a href="https:\/\/example\.com\/a"[^>]*>the site<\/a>/, "a link in a folded result is a link");
   assert.doesNotMatch(html, /\*\*Hotel A\*\*/, "no raw Markdown marks are left");
+  // The live shape: the person asked Quill, Quill posted one assignment message, two parts worked, one root task holds the plan.
+  // The plan card sits right after the assignment message, the parts' words fold, and no flat card of a part is drawn.
+  const liveLead = task("L", { bot_id: "b1", assignee_run_id: "run-lead", assigner_kind: "user", checklist: [
+    { id: "i1", text: "Flights · Atlas", status: "done", task_id: "P1", bot_id: "b2", bot_name: "Atlas", task_status: "done" },
+    { id: "i2", text: "Lodging · Quill", status: "done", task_id: "P2", bot_id: "b1", bot_name: "Quill", task_status: "done" },
+  ], created_at: "2026-10-23T10:00:05.000Z" });
+  const livePart = (id, bot, result) => task(id, { bot_id: bot, parent_task_id: "L", assigner_kind: "bot", assigner_bot_id: "b1", origin_run_id: "run-lead", status: "done", created_at: "2026-10-23T10:00:06.000Z", result_message_id: result });
+  const liveTasks = [liveLead, livePart("P1", "b2", "res1"), livePart("P2", "b1", "res2")];
+  const liveMessages = [
+    msg("ask", "2026-10-23T10:00:00Z"),
+    { id: "assign", conversation_id: "g", seq: 2, role: "assistant", sender_bot_id: "b1", run_id: "run-lead", content: "@Atlas Flights; @Quill Lodging", created_at: "2026-10-23T10:00:07Z" },
+    { id: "res1", conversation_id: "g", seq: 3, role: "assistant", sender_bot_id: "b2", run_id: "run-p1", content: "Flights found.", created_at: "2026-10-23T10:00:30Z", task_id: "P1" },
+    { id: "res2", conversation_id: "g", seq: 4, role: "assistant", sender_bot_id: "b1", run_id: "run-p2", content: "Lodging found.", created_at: "2026-10-23T10:00:31Z", task_id: "P2" },
+    { id: "final", conversation_id: "g", seq: 5, role: "assistant", sender_bot_id: "b1", run_id: "run-final", content: "Here is the plan.", created_at: "2026-10-23T10:01:00Z" },
+  ];
+  const liveRuns = new Map([["run-lead", { id: "run-lead", trigger_message_id: "ask" }]]);
+  const liveView = deriveCards(liveTasks, new Map([["b1", { name: "Quill" }], ["b2", { name: "Atlas" }]]), liveMessages, liveRuns);
+  assert.deepEqual([...liveView.folded].sort(), ["res1", "res2"], "both part results fold under the plan");
+  assert.deepEqual([...liveView.byMessage.keys()], ["assign"], "one card, right after the assignment message, none under the request");
+  assert.deepEqual(liveView.byMessage.get("assign").map(card => card.id), ["L"]);
+  assert.equal(liveView.models.get("L").results.length, 2);
   console.log("task cards: ok");
 } finally {
   await modules.close();
