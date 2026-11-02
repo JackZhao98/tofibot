@@ -794,6 +794,9 @@ def access_urls(env):
     if env.get('TOFI_BIND') != '0.0.0.0':
         return ['%s://127.0.0.1:%s' % (scheme, port)]
     urls = ['%s://%s:%s' % (scheme, address, port) for family, address in interface_addresses() if family == 'inet']
+    magicdns = (tofi_tui.tailscale_info() or {}).get('dns')
+    if magicdns:
+        urls.append('%s://%s:%s' % (scheme, magicdns, port))
     return urls or ['%s://<server-ip>:%s' % (scheme, port)]
 
 
@@ -820,6 +823,14 @@ def certificate_names():
     for _family, address in interface_addresses():
         if address not in ips:
             ips.append(address)
+    # A Tailscale address (100.64.0.0/10) and the MagicDNS name must be in the
+    # certificate, or the browser names the wrong host on top of the self-signed warning.
+    tailnet = tofi_tui.tailscale_info() or {}
+    for address in tailnet.get('ips') or []:
+        if address not in ips:
+            ips.append(address)
+    if tailnet.get('dns') and tailnet['dns'] not in dns:
+        dns.append(tailnet['dns'])
     return dns, ips
 
 
@@ -3608,7 +3619,22 @@ def systemd_start():
         ensure_update_request_channel_quietly()
 
 
+def format_elapsed(seconds):
+    """m:ss for the end banner ("Installed in 4:07")."""
+    seconds = max(0, int(seconds))
+    return '%d:%02d' % (seconds // 60, seconds % 60)
+
+
+def installer_seconds():
+    """Seconds install.sh already spent (TOFI_INSTALL_ELAPSED), 0 when it did not say."""
+    try:
+        return max(0, int(os.environ.get('TOFI_INSTALL_ELAPSED', '0')))
+    except ValueError:
+        return 0
+
+
 def fresh_install(manifest, options):
+    started = time.monotonic()
     progress = tofi_tui.Progress(tofi_tui.UI(sys.stdout))
     try:
         options = dict(options, computer=options.get('computer') or 'kvm')
@@ -3633,7 +3659,7 @@ def fresh_install(manifest, options):
     except BaseException:
         progress.end(ok=False)
         raise
-    return final_message(env)
+    return final_message(env, elapsed=installer_seconds() + time.monotonic() - started)
 
 
 def finish_install(state, env):
@@ -3647,7 +3673,7 @@ def finish_install(state, env):
         raise
 
 
-def final_message(env):
+def final_message(env, elapsed=None):
     ui = tofi_tui.UI(sys.stdout)
     if ui.fancy:
         ui.mark('ok', 'TOFI is running')
@@ -3660,7 +3686,9 @@ def final_message(env):
             'domain': env.get('TOFI_DOMAIN', ''), 'port': env.get('TOFI_HTTP_PORT') or str(DEFAULT_PORT),
             'fingerprint': certificate_fingerprint() if app_scheme(env) == 'https' else None,
             'local_only': not env.get('TOFI_DOMAIN') and env.get('TOFI_BIND') != '0.0.0.0',
-            'computer': backend_of(env)}
+            'computer': backend_of(env), 'elapsed': elapsed,
+            'kvm_missing': not (P.dev_kvm.exists() and stat.S_ISCHR(P.dev_kvm.stat().st_mode)),
+            'tailscale': (tofi_tui.tailscale_info() or {}).get('dns') or ''}
     sys.stdout.write(render_banner(info, color_mode(sys.stdout), terminal_width()))
     sys.stdout.flush()
     notes = render_proxy_notes(env)
@@ -3671,6 +3699,27 @@ def final_message(env):
 
 # --------------------------------------------------------------------------
 # End-of-install banner (also the `tofi status` header)
+
+# Shown when /dev/kvm is missing. Sources: Google Cloud documents nested
+# virtualization on Compute Engine; Azure documents it on Dv3/Ev3 and newer
+# sizes; Hetzner sources conflict, so it is marked "check your plan".
+KVM_CLOUD_LINES = (
+    'No KVM here. Nested virtualization: Google Cloud, Azure (some sizes); Hetzner: check your plan.',
+    'The server and web app work on any host without a Bot computer.',
+)
+
+
+def access_help_rows(info):
+    """(name, text) rows in Simplified Technical English: how to open TOFI, and which way suits a phone."""
+    port = info.get('port') or str(DEFAULT_PORT)
+    name = info.get('tailscale') or '<server-name>'
+    return [
+        ('Tailscale', 'Best for phones. Install it on the phone and sign in, then open'),
+        ('', 'https://%s:%s' % (name, port)),
+        ('IP address', 'The browser warns about the certificate. Accept it once on each device.'),
+        ('Domain', 'No warning. Run the installer again with --domain <name>.'),
+    ]
+
 
 def render_banner(info, mode=None, width=80):
     """The end-of-install summary. `mode` is color_mode(); None is plain text."""
@@ -3685,6 +3734,8 @@ def render_banner(info, mode=None, width=80):
         lines = ['tofi v%s · %s' % (version, TAGLINE)]
     else:
         lines = render_art(paint, version)
+    if info.get('elapsed') is not None:
+        lines.append('  ' + paint.dim('Installed in ' + format_elapsed(info['elapsed'])))
     lines.append('')
     urls = info.get('urls') or []
     for index, url in enumerate(urls):
@@ -3701,6 +3752,8 @@ def render_banner(info, mode=None, width=80):
         lines.append(row('Sign in', 'with your existing admin account'))
     if info.get('computer') == 'none':
         lines.append(row('Bot computer', 'none · add one later: ' + paint.bold('sudo tofi computer add kvm')))
+        if info.get('kvm_missing'):
+            lines.extend('  ' + paint.dim(text) for text in KVM_CLOUD_LINES)
     lines.append('')
     if info.get('domain'):
         lines.append('  Allow TCP 80 and 443.')
@@ -3720,6 +3773,11 @@ def render_banner(info, mode=None, width=80):
             lines.append('  ' + fingerprint)
         if cloud and not (len(single) <= width):
             lines.append('  ' + cloud)
+        if not info.get('local_only'):
+            lines.append('')
+            lines.append('  ' + paint.bold('Three ways to open TOFI'))
+            for name, text in access_help_rows(info):
+                lines.append('  %s %s' % (paint.dim(name.ljust(10)), text))
     lines.append('')
     lines.append('  ' + paint.dim(' · ').join(['tofi status', 'tofi update', 'tofi logs', 'tofi uninstall']))
     return '\n'.join(lines) + '\n'
@@ -5442,6 +5500,52 @@ def computer_remove(purge=False, yes=False, wait=0, force=False, discard_unsaved
 # Diagnostics
 
 
+def exposure_findings(env):
+    """Read-only exposure checks for `tofi doctor`: (PASS or WARN, name, detail, fix)."""
+    bind = env.get('TOFI_BIND') or '127.0.0.1'
+    port = env.get('TOFI_HTTP_PORT') or str(DEFAULT_PORT)
+    domain = env.get('TOFI_DOMAIN')
+    public = [] if domain else public_addresses()
+    open_bind = bind == '0.0.0.0' and not domain
+    found = []
+    if open_bind and public:
+        found.append(('WARN', 'Open to the Internet',
+                      'the App listens on 0.0.0.0:%s and this host has public address %s; no domain or VPN protects it'
+                      % (port, public[0]),
+                      'use Tailscale or a domain, close TCP %s on the firewall, or run: sudo tofi install --local-only' % port))
+    else:
+        found.append(('PASS', 'Open to the Internet',
+                      'a domain fronts the App' if domain else
+                      'the App listens on %s:%s only' % (bind, port) if not open_bind else
+                      'no public address on this host (LAN or VPN only)', ''))
+    if read_setup_secret():
+        found.append(('WARN', 'Setup key unused',
+                      'nobody has created the Admin account yet; anyone who reaches the page and has the key can',
+                      'open the web page and create the Admin password now (sudo tofi setup-secret prints the key)'))
+    else:
+        found.append(('PASS', 'Setup key unused', 'the Admin account exists', ''))
+    plain_http = (env.get('TOFI_OWNER_ALLOW_LAN_HTTP') or '1') == '1' and not domain
+    if plain_http and open_bind and public:
+        found.append(('WARN', 'Plain-HTTP sign-in',
+                      'sign-in over plain HTTP is allowed and this host has a public address',
+                      'set TOFI_OWNER_ALLOW_LAN_HTTP=0 in /etc/tofi/tofi.env, then sudo tofi stop && sudo tofi start'))
+    else:
+        found.append(('PASS', 'Plain-HTTP sign-in', 'refused, or no public address to reach it from', ''))
+    try:
+        compose = compose_file().read_text()
+    except OSError:
+        compose = ''
+    published = re.search(r'^\s*-\s*"?[^"\n]*:8390"?\s*$', compose, re.M)
+    if published:
+        found.append(('WARN', 'MCP Runner port', 'compose.yaml publishes the local MCP Runner port 8390 on the host',
+                      'remove the 8390 line from ports in compose.yaml; only the App needs to reach the Runner'))
+    elif env.get('TOFI_RUNNER_URL'):
+        found.append(('PASS', 'MCP Runner port', 'not published; only the App reaches the local MCP Runner', ''))
+    else:
+        found.append(('PASS', 'MCP Runner port', 'no local MCP Runner installed', ''))
+    return found
+
+
 def doctor():
     checks = []
 
@@ -5538,6 +5642,16 @@ def doctor():
     check('App health', lambda: health(attempts=3) and None)
     for result, name, detail in checks:
         say('%-4s %-20s %s' % (result, name, detail))
+    try:
+        exposure = exposure_findings(read_env())
+    except (OSError, HostError):
+        exposure = []
+    if exposure:
+        say('Exposure (read-only)')
+        for result, name, detail, fix in exposure:
+            say('%-4s %-20s %s' % (result, name, detail))
+            if fix:
+                say('     fix: %s' % fix)
     # Advisories are printed but never fail the doctor.
     return all(result in ('ok', 'WARN') for result, _, _ in checks)
 

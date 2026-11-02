@@ -73,6 +73,7 @@ class HostCase(unittest.TestCase):
             mock.patch.object(tofi_host, 'run', side_effect=self.fake_run),
             mock.patch.object(tofi_host.os, 'chown'),
             mock.patch.object(tofi_host.time, 'sleep'),
+            mock.patch.object(tofi_host.tofi_tui, 'tailscale_info', return_value=None),
             mock.patch('sys.stdout', new_callable=io.StringIO),
         ]
         for patcher in patches:

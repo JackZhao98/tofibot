@@ -54,6 +54,14 @@ By default TOFI serves HTTPS with a self-signed certificate on port 8321.
 Compare the SHA-256 fingerprint that the installer prints with the one in your
 browser. On a cloud server, allow TCP 8321 in the firewall.
 
+There are three ways to open TOFI. Choose in the installer:
+
+- **Tailscale (VPN):** best for phones. No public port. The certificate includes the Tailscale IP and MagicDNS name.
+- **IP address:** self-signed certificate. Accept the browser warning once on each device.
+- **Domain:** `--domain`. Real certificate, no warning.
+
+The installer prints `Installed in m:ss` at the end. `sudo tofi doctor` also checks whether the server is open to the Internet.
+
 ### Option B: Docker Compose (no Bot computer)
 
 For a server without KVM, or if you want to manage Docker yourself. It uses the

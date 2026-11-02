@@ -68,6 +68,7 @@ AUTO_UPDATE=
 # Anonymous install report: off unless asked for (see deploy/self-host/README.md).
 TELEMETRY=0
 TELEMETRY_DONE=0
+PROMPT_SECONDS=0
 TELEMETRY_FLAG=0
 CURRENT_STEP=0
 ASSUME_YES=0
@@ -374,7 +375,9 @@ run_tui() {
   RESULT_FILE="$WORK_DIR/answers"
   # Let Python see Ctrl-C (it prints "Cancelled" and exits 130).
   trap ':' INT
+  local asked_from=$SECONDS
   python3 -I -c "$(tui_source)" installer --result "$RESULT_FILE" "$@" || rc=$?
+  PROMPT_SECONDS=$(( SECONDS - asked_from ))
   trap on_interrupt INT
   if (( rc != 0 )); then
     exit "$rc"
@@ -801,7 +804,8 @@ hand_off() {
   STEP_DONE_TEXT="Host tools ready; 'tofi install' takes over"
   step_ok
   local rc=0
-  "$BIN_DIR/tofi" "${args[@]}" || rc=$?
+  # Seconds spent so far, without the time spent answering questions; the host tool adds its own.
+  TOFI_INSTALL_ELAPSED=$(( SECONDS - PROMPT_SECONDS )) "$BIN_DIR/tofi" "${args[@]}" || rc=$?
   if (( rc != 0 )); then
     report_install failed
     exit "$rc"
@@ -1386,6 +1390,51 @@ def is_public(address):
         return False
 
 
+TAILSCALE_NET = ipaddress.ip_network('100.64.0.0/10')
+MAGICDNS_RE = re.compile(r'^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$')
+
+
+def is_tailscale_address(address):
+    """True for an address in 100.64.0.0/10, the range Tailscale (and carrier-grade NAT) uses."""
+    try:
+        return ipaddress.ip_address(address) in TAILSCALE_NET
+    except ValueError:
+        return False
+
+
+def parse_tailscale_addresses(ip_output):
+    """IPv4 addresses on a tailscale interface or inside 100.64.0.0/10, from `ip -o addr show`."""
+    found = []
+    for line in ip_output.splitlines():
+        fields = line.split()
+        if len(fields) < 4 or fields[2] != 'inet':
+            continue
+        address = fields[3].split('/')[0]
+        if (fields[1].split('@')[0].startswith('tailscale') or is_tailscale_address(address)) and address not in found:
+            found.append(address)
+    return found
+
+
+def parse_magicdns_name(status_json):
+    """This node's MagicDNS name from `tailscale status --json` (no trailing dot), or None."""
+    try:
+        name = str(json.loads(status_json)['Self']['DNSName']).strip().lower().rstrip('.')
+    except (ValueError, KeyError, TypeError):
+        return None
+    return name if MAGICDNS_RE.match(name) else None
+
+
+def tailscale_info():
+    """{'ips': [...], 'dns': name or None} when this host is on a tailnet, else None."""
+    code, output = command(['ip', '-o', 'addr', 'show'])
+    ips = parse_tailscale_addresses(output) if code == 0 else []
+    dns = None
+    if shutil.which('tailscale'):
+        code, output = command(['tailscale', 'status', '--json'], timeout=5)
+        dns = parse_magicdns_name(output) if code == 0 else None
+    return {'ips': ips, 'dns': dns} if ips or dns else None
+
+
 def public_ip_lookup(environ):
     """This host's public IPv4 as the internet sees it (one HTTPS request, 3 s), or None.
 
@@ -1494,6 +1543,7 @@ def detect(host=None, environ=None, port=DEFAULT_PORT, lookup_public=True):
     if looked_up and looked_up not in public:
         public.append(looked_up)
     facts['public'] = public
+    facts['tailscale'] = tailscale_info()
     return facts
 
 
@@ -2189,6 +2239,10 @@ def access_url(mode, facts, port, domain=''):
         return 'https://' + (domain or '<your domain>')
     if mode == 'local':
         return 'https://127.0.0.1:%s' % port
+    if mode == 'vpn':
+        tailnet = facts.get('tailscale') or {}
+        address = tailnet.get('dns') or (tailnet.get('ips') or ['<tailscale-ip>'])[0]
+        return 'https://%s:%s' % (address, port)
     address = (facts['lan'] or facts['public'] or ['<server-ip>'])[0]
     return 'https://%s:%s' % (address, port)
 
@@ -2449,6 +2503,7 @@ class Installer:
         question = 'How will you open TOFI?'
         labels = {'ip': 'By IP over HTTPS (self-signed)', 'domain': 'With a domain (automatic HTTPS)',
                   'local': 'This machine only (SSH tunnel)',
+                  'vpn': 'Through a VPN (Tailscale)',
                   'proxy': 'Behind your reverse proxy (self-signed upstream)'}
         if mode:
             if interactive:
@@ -2480,6 +2535,10 @@ class Installer:
                     Option('domain', labels['domain'], aliases=('domain', 'letsencrypt', "let's encrypt"),
                            unsupported=reason),
                     Option('local', labels['local'], aliases=('local', 'local-only', 'ssh', 'tunnel', 'this machine')),
+                    Option('vpn', labels['vpn'], detail=access_url('vpn', facts, port),
+                           aliases=('vpn', 'tailscale', 'tailnet', 'magicdns'),
+                           unsupported=None if facts.get('tailscale') else
+                           'not found: install Tailscale and run "tailscale up" first'),
                 ], 0)
                 mode = choice.key
                 ui.write()
@@ -2623,6 +2682,10 @@ class Installer:
         elif mode == 'local':
             rows.append(('ok', 'Open', 'https://127.0.0.1:%d via ssh -L %d:127.0.0.1:%d%s'
                          % (port, port, port, source_note('access'))))
+        elif mode == 'vpn':
+            rows.append(('ok', 'Open', '%s (self-signed, over Tailscale)%s'
+                         % (access_url('vpn', facts, port), source_note('access'))))
+            rows.append(('info', 'Firewall', 'Tailscale needs no open port; keep TCP %d closed to the Internet' % port))
         else:
             rows.append(('ok', 'Open', '%s (self-signed)%s' % (access_url('ip', facts, port), source_note('access'))))
             rows.append(('info', 'Firewall', 'on a cloud server allow TCP %d' % port))
