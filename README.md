@@ -2,10 +2,9 @@
 
 <p align="center">Persistent bots, conversations and connected tools — on your own server.</p>
 
-TOFI is a self-hosted AI bot workspace. It has a Go server and a React web app.
-Bots keep their identity, conversations, scheduled work and tool connections in
-a persistent workspace. The current release and what each version changed are
-on [GitHub Releases](https://github.com/JackZhao98/tofibot/releases).
+TOFI is a self-hosted AI Bot workspace. You install it on a Linux server you own. Bots keep their identity, memory, schedules and tool connections there. Each account can have its own sandboxed computer (a Firecracker microVM with Chrome, a desktop and a terminal). Bots can work alone or as a group that splits a request into parts. You choose the model: sign in with ChatGPT, use an OpenAI or Anthropic key, or point TOFI at Ollama, LM Studio, vLLM or any OpenAI-compatible server. The server is Apache-2.0; the web app is PolyForm Shield.
+
+Install on Ubuntu 22.04/24.04 or Debian 12/13 (x86_64 or aarch64) with one command. KVM is optional. See [Install](#install). Current release: [GitHub Releases](https://github.com/JackZhao98/tofibot/releases).
 
 ## See it work
 
@@ -14,6 +13,16 @@ Recorded on a live TOFI install. Watch the [95-second demo](https://tofibot.com/
 | Ask a Bot | A Bot uses its Bot computer | Bots hand work to Bots |
 |---|---|---|
 | <img src="https://tofibot.com/media/tofi-ask.gif" alt="A Bot answers a question with sources" width="100%"> | <img src="https://tofibot.com/media/tofi-computer.gif" alt="A Bot opens a web page in its Bot computer browser" width="100%"> | <img src="https://tofibot.com/media/tofi-handoff.gif" alt="In a group, one Bot picks and the other writes a Markdown file" width="100%"> |
+
+### Why not OpenClaw or Grok Bot?
+
+| | Where Bots run | Models | Isolation |
+|---|---|---|---|
+| [OpenClaw](https://github.com/openclaw/openclaw) (MIT) | Any machine you own | Many providers | Docker sandbox is optional. Tools run on the host unless you [configure sandboxing](https://docs.openclaw.ai/gateway/sandboxing). |
+| [Grok Bot](https://docs.x.ai/grok-bot/overview) | The computers Bots work on run in Cursor's cloud. All Bots of one account share one computer. | xAI | Vendor cloud |
+| TOFI | A Linux server you own | ChatGPT sign-in, OpenAI or Anthropic key, Ollama, LM Studio, vLLM or any OpenAI-compatible server | One Firecracker microVM for each account (needs KVM). Without KVM, Bots work without a computer. |
+
+OpenClaw has a much larger community and skill library. Grok Bot needs no install and has phone apps. TOFI has a web app only. Read [WHY-SELF-HOST.md](WHY-SELF-HOST.md) for what TOFI does better, what it does worse, and when to use something else.
 
 - Direct and group conversations, streaming replies, attachments and generated files.
 - Persistent queues, scheduled work, cancellation and retry handling.
