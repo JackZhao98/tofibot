@@ -65,6 +65,8 @@
   "settings:automation.item.group_triage.what": "Quand un message de groupe ne nomme personne, un modèle d'arrière-plan choisit le membre dont le rôle convient le mieux. Désactivé : l'assistant principal, ou un membre au hasard s'il n'y en a pas. Un groupe à un seul membre actif saute l'étape.",
   "settings:automation.item.group_triage_model.name": "Modèle d'aiguillage de groupe",
   "settings:automation.item.group_triage_model.what": "Le modèle qui choisit le membre pour un message de groupe sans destinataire. Automatique signifie le modèle d'arrière-plan.",
+  "settings:automation.item.monthly_spend_limit_usd.name": "Plafond de dépenses mensuel",
+  "settings:automation.item.monthly_spend_limit_usd.what": "Refuse les nouvelles exécutions sur des modèles facturés dès que les dépenses du mois atteignent le plafond, et envoie une notification à 80 %. Dollars entiers, 0 désactive. Se règle sur la page Utilisation.",
   "settings:automation.item.own_replies_verbatim.name": "Propres réponses conservées en entier",
   "settings:automation.item.own_replies_verbatim.what": "Un Bot voit mot pour mot ce nombre de ses dernières réponses. Les plus anciennes sont réduites à une ligne pour qu’il cesse de recopier ses tournures.",
   "settings:automation.item.provider_retries.name": "Nouvelles tentatives automatiques",

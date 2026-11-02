@@ -137,7 +137,7 @@ var settingsTabPages = []settingsPage{
 	{"computer", "settings:shell.page.computer.name", []string{"resources", "environment"}},
 	{"devices", "settings:shell.page.devices.name", []string{"devices"}},
 	{"keys", "settings:shell.page.keys.name", []string{"keys"}},
-	{"usage", "settings:shell.page.usage.name", []string{"health", "usage"}},
+	{"usage", "settings:shell.page.usage.name", []string{"health", "spend", "usage"}},
 	{"advanced", "settings:shell.page.advanced.name", []string{"version", "server", "data", "changes", "debug", "danger"}},
 	{"admin", "settings:shell.page.admin.name", []string{"accounts"}},
 }
@@ -278,7 +278,11 @@ func buildSettingsRegistry() []SettingDef {
 		if item.Key == autoMCPReview {
 			continue // the approval mode owns this value
 		}
-		d := entry("automation."+item.Key, ScopeAccount, automationSettingKind(item), automationRisk(item), "/settings/automation#"+item.Group, "settings/automation", "settings:automation.item."+item.Key+".name")
+		link := "/settings/automation#" + item.Group
+		if item.Key == autoMonthlySpendLimit {
+			link = "/settings/usage#spend" // the limit lives beside the spend it caps
+		}
+		d := entry("automation."+item.Key, ScopeAccount, automationSettingKind(item), automationRisk(item), link, "settings/automation", "settings:automation.item."+item.Key+".name")
 		d.DescKey = "settings:automation.item." + item.Key + ".what"
 		d.Options, d.Min, d.Max = item.Options, item.Min, item.Max
 		if d.Kind == KindModel {
@@ -361,7 +365,7 @@ func automationSettingKind(item automationItem) SettingKind {
 // automationRisk: model items cost money; everything else is a reversible switch or number.
 func automationRisk(item automationItem) RiskSpec {
 	// The cap on the tool itself and the window that remembered approvals last are the person's: the first would let a Bot lift its own limit, the second makes approvals reach further.
-	if item.Key == autoSettingsChangeLimit {
+	if item.Key == autoSettingsChangeLimit || item.Key == autoMonthlySpendLimit {
 		return riskForbidden
 	}
 	// A shorter list of private origins would keep pictures of pages the person marked private.

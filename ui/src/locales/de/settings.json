@@ -343,7 +343,8 @@
         "model_auth_invalid": "Modell-Anmeldung abgelehnt",
         "model_quota_exhausted": "Modell-Kontingent erreicht",
         "connection_interrupted": "Verbindung getrennt",
-        "budget_exhausted": "Schrittbudget aufgebraucht"
+        "budget_exhausted": "Schrittbudget aufgebraucht",
+        "spend_cap_reached": "Ausgabenlimit erreicht"
       }
     }
   },
@@ -1114,6 +1115,10 @@
       "trace_private_origins": {
         "name": "Private Ursprünge",
         "what": "Seiten dieser Sites kommen nie in die Arbeitsspur. Ein Host oder Ursprung pro Zeile. Ein Host umfasst auch seine Subdomains. Sites, bei denen ein Bot eine private Passworteingabe nutzte, bleiben immer außen vor."
+      },
+      "monthly_spend_limit_usd": {
+        "name": "Monatliches Ausgabenlimit",
+        "what": "Lehnt neue Läufe mit kostenpflichtigen Modellen ab, sobald die Ausgaben dieses Monats das Limit erreichen, und sendet bei 80 % einen Hinweis. Ganze Dollar, 0 ist aus. Wird auf der Seite Nutzung eingestellt."
       }
     },
     "option": {
@@ -1295,5 +1300,33 @@
     "revert_failed": "Zurücksetzen fehlgeschlagen. Versuche es erneut.",
     "stale": "Die Einstellung wurde nach dieser Änderung erneut geändert.",
     "empty_value": "leer"
+  },
+  "spend": {
+    "title": "Monatslimit",
+    "description": "Zählt, was Modelle mit API-Schlüssel zum Listenpreis kosten, im Kalendermonat deiner Zeitzone. ChatGPT- und Codex-Anmeldungen zählen nicht.",
+    "loading": "Ausgaben werden geladen…",
+    "load_failed": "Ausgaben konnten nicht geladen werden. Versuche es erneut.",
+    "this_month": "Ausgaben diesen Monat",
+    "limit_label": "Monatslimit",
+    "limit_help": "Standardmäßig aus. Bei 80 % erhältst du einen Hinweis. Bei 100 % werden neue Läufe mit kostenpflichtigen Modellen abgelehnt; laufende Läufe beenden ihren aktuellen Modellaufruf.",
+    "off": "Aus",
+    "amount": "{{amount}} $",
+    "amount_exact": "{{amount}} $",
+    "resets": "Wird am {{date}} zurückgesetzt",
+    "plans_label": "Anmeldung über Tarif",
+    "plans_note": "ChatGPT- und Codex-Anmeldungen haben keinen Preis pro Aufruf. Es gelten die Tariflimits; sie werden weder gezählt noch abgelehnt. Lokale und kompatible Modelle zählen mit 0 $, solange sie keinen Preis haben.",
+    "state": {
+      "off": "Kein Limit gesetzt",
+      "ok": "{{percent}} % des Limits genutzt",
+      "near": "{{percent}} % des Limits erreicht",
+      "reached": "Limit erreicht. Neue Läufe mit kostenpflichtigen Modellen werden abgelehnt."
+    },
+    "admin": {
+      "title": "Ausgaben diesen Monat",
+      "column": "Ausgaben",
+      "of_limit": "{{spend}} $ / {{limit}} $",
+      "no_limit": "{{spend}} $ · kein Limit",
+      "unavailable": "Dieses Konto kann gerade nicht gelesen werden."
+    }
   }
 }

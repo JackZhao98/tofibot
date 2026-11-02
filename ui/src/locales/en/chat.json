@@ -425,7 +425,10 @@
     "settings_change_undo": "Undo",
     "settings_change_undone": "Undone",
     "settings_change_undo_failed": "Couldn't undo",
-    "settings_change_stale": "Changed again since"
+    "settings_change_stale": "Changed again since",
+    "spend_alert": "Spend this month: ${{spend}} of your ${{limit}} limit (80%). New runs on billed models stop at the limit.",
+    "spend_alert_reached": "Spend this month: ${{spend}}, at your ${{limit}} limit. New runs on billed models are refused.",
+    "spend_alert_open": "Change limit"
   },
   "notifications": {
     "description": "Get notified about new replies when you're away from the chat.",

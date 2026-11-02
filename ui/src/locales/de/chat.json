@@ -425,7 +425,10 @@
     "settings_change_undo": "Rückgängig",
     "settings_change_undone": "Rückgängig gemacht",
     "settings_change_undo_failed": "Konnte nicht rückgängig gemacht werden",
-    "settings_change_stale": "Seitdem erneut geändert"
+    "settings_change_stale": "Seitdem erneut geändert",
+    "spend_alert": "Ausgaben diesen Monat: {{spend}} $ von deinem Limit von {{limit}} $ (80 %). Neue Läufe mit kostenpflichtigen Modellen stoppen am Limit.",
+    "spend_alert_reached": "Ausgaben diesen Monat: {{spend}} $, dein Limit von {{limit}} $ ist erreicht. Neue Läufe mit kostenpflichtigen Modellen werden abgelehnt.",
+    "spend_alert_open": "Limit ändern"
   },
   "notifications": {
     "description": "Werde über neue Antworten benachrichtigt, wenn du nicht im Chat bist.",

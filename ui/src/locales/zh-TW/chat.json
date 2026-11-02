@@ -414,7 +414,10 @@
     "settings_change_undo": "復原",
     "settings_change_undone": "已復原",
     "settings_change_undo_failed": "無法復原",
-    "settings_change_stale": "此後又被變更過"
+    "settings_change_stale": "此後又被變更過",
+    "spend_alert": "本月花費：${{spend}}，已達額度 ${{limit}} 的 80%。使用計費模型的新執行將在額度處停止。",
+    "spend_alert_reached": "本月花費：${{spend}}，已達額度 ${{limit}}。使用計費模型的新執行將被拒絕。",
+    "spend_alert_open": "調整額度"
   },
   "notifications": {
     "description": "離開目前的聊天時，提醒你有新的回覆。",

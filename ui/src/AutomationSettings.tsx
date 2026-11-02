@@ -18,7 +18,7 @@ export type AutomationKey =
   | "group_triage" | "group_triage_model" | "group_followup_to_working" | "task_retention_days" | "command_check_minutes" | "task_stall_rounds" | "task_tree_idle_message_limit"
   | "task_fanout_width" | "task_fanout_depth" | "task_part_deadline_minutes" | "task_part_deadline_scheduled_minutes"
   | "widget_artifacts_auto" | "widget_computer_auto" | "browser_engine" | "desktop_engine"
-  | "work_trace" | "trace_retention_days" | "trace_private_origins";
+  | "work_trace" | "trace_retention_days" | "trace_private_origins" | "monthly_spend_limit_usd";
 export type AutomationGroup = "models" | "replies" | "history" | "checks" | "reliability" | "schedules" | "computer" | "widgets";
 const groupOrder: AutomationGroup[] = ["models", "replies", "history", "checks", "reliability", "schedules", "computer", "widgets"];
 

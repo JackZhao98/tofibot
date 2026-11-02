@@ -43,6 +43,11 @@ func (r Run) failure() *RunFailure {
 		}
 		return failure
 	}
+	if strings.HasPrefix(errorText, spendCapReachedCode+":") {
+		failure.Code = spendCapReachedCode
+		failure.Message = spendCapFailureMessage(r.Error)
+		return failure
+	}
 	if errorText == "approval_expired" {
 		failure.Code = "approval_expired"
 		failure.Message = "Approval expired. This workflow stopped; completed results are retained and uncertain effects require verification."

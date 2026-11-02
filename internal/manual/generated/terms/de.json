@@ -65,6 +65,8 @@
   "settings:automation.item.group_triage.what": "Nennt eine Gruppennachricht niemanden, wählt ein Hintergrundmodell das Mitglied, dessen Rolle am besten passt. Aus schickt sie an den Primären Assistenten, ohne ihn an ein zufälliges Mitglied. Eine Gruppe mit nur einem aktiven Mitglied überspringt den Schritt.",
   "settings:automation.item.group_triage_model.name": "Modell für die Gruppenzuweisung",
   "settings:automation.item.group_triage_model.what": "Das Modell, das für eine nicht adressierte Gruppennachricht das Mitglied wählt. Automatisch heißt: das Hintergrundmodell.",
+  "settings:automation.item.monthly_spend_limit_usd.name": "Monatliches Ausgabenlimit",
+  "settings:automation.item.monthly_spend_limit_usd.what": "Lehnt neue Läufe mit kostenpflichtigen Modellen ab, sobald die Ausgaben dieses Monats das Limit erreichen, und sendet bei 80 % einen Hinweis. Ganze Dollar, 0 ist aus. Wird auf der Seite Nutzung eingestellt.",
   "settings:automation.item.own_replies_verbatim.name": "Eigene Antworten im Wortlaut",
   "settings:automation.item.own_replies_verbatim.what": "So viele seiner letzten Antworten sieht ein Bot wortwörtlich. Ältere schrumpfen auf eine Zeile, damit er die eigenen Formulierungen nicht nachahmt.",
   "settings:automation.item.provider_retries.name": "Automatische Wiederholungen",

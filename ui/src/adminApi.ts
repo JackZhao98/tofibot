@@ -48,7 +48,11 @@ export const DELETE_STEPS = ["export", "computer", "data", "sessions", "record"]
 export type DeleteStep = (typeof DELETE_STEPS)[number];
 export const LEGACY_OWNER_ID = "legacy-owner";
 
+/** One account's month in GET /api/admin/spend. `available` is false for an account whose workspace is not open to read (disabled or being deleted). */
+export type AdminAccountSpend = {account_id: string; month?: string; spend_usd: number; limit_usd: number; state: "off" | "ok" | "near" | "reached"; available: boolean};
+
 export const adminApi = {
+  spend: () => request<{version: number; accounts: AdminAccountSpend[]}>("/api/admin/spend"),
   accounts: () => request<AdminAccount[]>("/api/admin/accounts"),
   capacity: () => request<Capacity>("/api/admin/capacity"),
   exports: () => request<DeletedExport[]>("/api/admin/deleted-exports"),

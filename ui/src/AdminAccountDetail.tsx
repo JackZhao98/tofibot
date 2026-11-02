@@ -1,6 +1,6 @@
 import {useEffect, useRef, useState} from "react";
 import {AccountBadges, AdminSheet, SecretField} from "./AdminSheets";
-import {LEGACY_OWNER_ID, adminApi, generatePassword, initialOf, type AdminAccount, type Capacity, type DiskInfo} from "./adminApi";
+import {LEGACY_OWNER_ID, adminApi, generatePassword, initialOf, type AdminAccount, type AdminAccountSpend, type Capacity, type DiskInfo} from "./adminApi";
 import {ResourceSheet, validAllocation, type Allocation, type Resources} from "./ResourceSheet";
 import {useTranslation} from "./i18n";
 import {TofiIcon} from "./icons";
@@ -9,6 +9,7 @@ import {ComputerAttach} from "./ComputerAttach";
 import {SETTLE_MS, settleDelay} from "./resourceSettle";
 import {AdminStorageLimit} from "./AdminStorage";
 import type {AdminStorageAccount} from "./storageApi";
+import {AdminSpend} from "./AdminSpend";
 import {Banner, DangerZone, Segmented, SettingsCard, SettingsRow, SettingsSection} from "./settings/components";
 
 type Props = {
@@ -16,6 +17,7 @@ type Props = {
   accounts: AdminAccount[];
   disk?: DiskInfo;
   storage?: AdminStorageAccount;
+  spend?: AdminAccountSpend;
   capacity: Capacity | null;
   selfId: string;
   busy: boolean;
@@ -70,7 +72,7 @@ function ComputerSize({account, disabled, run, attachedTick}: {account: AdminAcc
 }
 
 /** One account: Role, Computer, Sign-in and the Danger zone. Destructive actions the server forbids are explained, not offered. */
-export function AccountDetail({account, accounts, disk, storage, capacity, selfId, busy, run, onBack, onDelete}: Props) {
+export function AccountDetail({account, accounts, disk, storage, spend, capacity, selfId, busy, run, onBack, onDelete}: Props) {
   const {t} = useTranslation("settings");
   const hasComputer = useHostHasComputer();
   const [attachedTick, setAttachedTick] = useState(0);
@@ -118,6 +120,8 @@ export function AccountDetail({account, accounts, disk, storage, capacity, selfI
     </SettingsSection>
 
     <AdminStorageLimit accountId={account.id} entry={storage} busy={busy || deleting} run={run}/>
+
+    <AdminSpend entry={spend}/>
 
     {hasComputer && <SettingsSection title={t("admin.detail.computer.title")}>
       <ComputerAttach base={`/api/admin/accounts/${encodeURIComponent(account.id)}/computer`} running={disk?.state === "ready"} disabled={busy || deleting} onAttached={() => setAttachedTick(n => n + 1)}>

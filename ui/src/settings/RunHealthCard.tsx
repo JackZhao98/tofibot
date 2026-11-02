@@ -9,7 +9,7 @@ import {SettingsCard, SettingsRow, SettingsSection} from "./components";
 import "./run-health.css";
 
 const statusOrder = ["done", "failed", "cancelled", "interrupted", "running", "waiting", "queued"] as const;
-const reasonKeys = ["execution_failed", "no_final_answer", "tool_stuck", "resumed_repeatedly", "approval_expired", "model_unconfigured", "model_auth_invalid", "model_quota_exhausted", "connection_interrupted", "budget_exhausted"] as const;
+const reasonKeys = ["execution_failed", "no_final_answer", "tool_stuck", "resumed_repeatedly", "approval_expired", "model_unconfigured", "model_auth_invalid", "model_quota_exhausted", "connection_interrupted", "budget_exhausted", "spend_cap_reached"] as const;
 type Reason = (typeof reasonKeys)[number];
 const isReason = (code: string): code is Reason => (reasonKeys as readonly string[]).includes(code);
 const REFRESH_MS = 30000;
