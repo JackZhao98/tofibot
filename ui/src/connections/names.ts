@@ -2,8 +2,8 @@ import { i18n } from "../i18n";
 import { integrationCatalog, type IntegrationPreset } from "../integrationCatalog";
 import { localPluginId, type MCP } from "./shared";
 
-/** The catalog entry a saved connection came from, by address. */
-export const presetFor = (server: MCP): IntegrationPreset | undefined => integrationCatalog.find(item => item.url === server.url);
+/** The catalog entry a saved connection came from, by address; a LAN service's address is the person's own, so it is found by the preset's name too. */
+export const presetFor = (server: MCP): IntegrationPreset | undefined => integrationCatalog.find(item => item.url === server.url || (item.lan && item.id === server.name));
 
 /** The name a person sees: a catalog name, "Gmail" for the personal Gmail plugin, else what they called it. Never `local_gog`. */
 export function displayName(server: MCP, preset: IntegrationPreset | undefined = presetFor(server)) {

@@ -9,7 +9,7 @@ export type MCP = { name: string; url: string; transport?: MCPTransport; status?
 /** Tool tiers (docs/agent-plan/mcp-tool-tiers.md). The words a person sees: read_only "Runs without asking" (marked by the service, or by you), write "Asks when unsure", high_risk "Always asks me". */
 export type ToolTier = "read_only" | "write" | "high_risk";
 export type ToolTierView = { name: string; description?: string; tier: ToolTier; source: "owner" | "provider" | "default"; override?: ToolTier; changed?: boolean; duplicated?: boolean; read_only_hint?: boolean; destructive_hint?: boolean };
-export type ToolTierList = { tools: ToolTierView[]; read_only: number; write: number; high_risk: number; checked?: boolean; error_class?: "auth" | "failed"; diagnostics?: { message: string }[] };
+export type ToolTierList = { tools: ToolTierView[]; read_only: number; write: number; high_risk: number; checked?: boolean; error_class?: "auth" | "failed"; diagnostics?: { message: string; code?: string }[] };
 export const TIERS: readonly ToolTier[] = ["read_only", "write", "high_risk"];
 
 export const toolsEndpoint = (name: string) => `/api/extensions/mcp/${encodeURIComponent(name)}/tools`;
@@ -28,6 +28,20 @@ export const message = (e: unknown) => {
   if (text === "MCP endpoint changed; explicitly configure OAuth for the new endpoint before saving") return i18n.t("extensions:error.endpoint_changed_oauth");
   if (text === "OAuth metadata destination changed; re-enter or remove the saved client secret before saving") return i18n.t("extensions:error.metadata_changed_secret");
   return text;
+};
+/** A diagnostic as a person reads it: a LAN reason (a service on their own network) in their language, else the plain sentence. */
+export const diagnosticText = (item: { message: string; code?: string }) => {
+  switch (item.code) {
+    case "lan_mdns_unresolved": return i18n.t("extensions:lan.mdns_unresolved");
+    case "lan_host_not_found": return i18n.t("extensions:lan.host_not_found");
+    case "lan_connection_refused": return i18n.t("extensions:lan.connection_refused");
+    case "lan_unreachable": return i18n.t("extensions:lan.unreachable");
+    case "lan_timeout": return i18n.t("extensions:lan.timeout");
+    case "lan_unauthorized": return i18n.t("extensions:lan.unauthorized");
+    case "lan_forbidden": return i18n.t("extensions:lan.forbidden");
+    case "lan_not_found": return i18n.t("extensions:lan.not_found");
+    default: return message(item.message);
+  }
 };
 /** Protocol names, not translated. */
 export const transportLabels: Record<MCPTransport, string> = { streamable_http: "Streamable HTTP", sse: "SSE" };

@@ -97,6 +97,15 @@
       "description": "閱讀和製作簡報。",
       "note": "Google Slides MCP 屬於 Developer Preview；請啟用 slides.googleapis.com 和 slidesmcp.googleapis.com。"
     },
+    "home_assistant": {
+      "description": "家中的燈光、空調、感測器與情境。",
+      "note": "Home Assistant 官方的 MCP Server 整合。它只能存取你在 Assist 中開放的實體，Bot 要變更任何東西前 Tofi 仍會先詢問你。",
+      "setup": {
+        "add_integration": "在 Home Assistant 中新增「Model Context Protocol Server」整合（設定 > 裝置與服務）。",
+        "create_token": "在 Home Assistant 個人資料（安全性）中建立長期存取權杖，並貼到這裡。",
+        "address": "位址可以修改。如果 Tofi 所在伺服器無法解析 homeassistant.local，請改用裝置的 IP 位址，例如 http://192.168.1.20:8123/api/mcp。"
+      }
+    },
     "linear": {
       "description": "管理專案、任務與留言。",
       "note": "Linear 的主要傳輸方式是 Streamable HTTP；/mcp/readonly 只提供讀取工具，/sse 是已淘汰的相容路徑。",
@@ -229,6 +238,21 @@
       "description": "社群維護的行情查詢方案。",
       "reason": "尚未核實可安裝的相容版本；社群方案不需要 Token。"
     }
+  },
+  "lan": {
+    "mdns_unresolved": "Tofi 所在伺服器無法解析 .local 名稱。mDNS 名稱在 Tofi 執行的容器內往往無法解析。請改用裝置的 IP 位址，例如 http://192.168.1.20:8123/api/mcp。",
+    "host_not_found": "Tofi 所在伺服器找不到這個主機名稱。請檢查拼寫，或改用裝置的 IP 位址。",
+    "connection_refused": "裝置拒絕了連線。請檢查位址與連接埠（Home Assistant 監聽 8123），並確認它正在執行。",
+    "unreachable": "Tofi 所在伺服器沒有通往該位址的路由。它必須執行在裝置所在的網路中，或能連到該網路。",
+    "timeout": "裝置沒有及時回應。請檢查位址、裝置是否開機，以及 Tofi 所在伺服器能否連到你的網路。",
+    "unauthorized": "裝置拒絕了該存取權杖。請在 Home Assistant（個人資料 > 安全性）中重新建立長期存取權杖並再次輸入。",
+    "forbidden": "裝置接受了權杖，但拒絕了該請求。MCP Server 可能僅限管理員帳號使用：請使用管理員的權杖。",
+    "not_found": "裝置有回應，但該路徑下沒有 MCP 端點。請在 Home Assistant 中新增 Model Context Protocol Server 整合，並確認位址以 /api/mcp 結尾。",
+    "token_label": "長期存取權杖",
+    "token_hint": "在 Home Assistant 個人資料的「安全性」頁面中建立。",
+    "token_link": "開啟安全性頁面",
+    "address_hint": "如果你的位址不同，請修改。如果 homeassistant.local 無法使用，請改用裝置的 IP 位址，例如 http://192.168.1.20:8123/api/mcp：.local 名稱在 Tofi 執行的容器內往往無法解析。",
+    "add_test": "儲存並測試"
   },
   "local": {
     "custom": {

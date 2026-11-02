@@ -105,8 +105,8 @@ async function mockApi(page, state) {
     if (path === "/api/model-settings" && method === "PUT") { state.modelSettings = body(); return json(state.modelSettings); }
     if (path === "/api/extensions/oauth-options") return json({ vm_available: false, web_callback_origin: "", desktop_redirect_uri: "" });
     if (path === "/api/extensions/mcp" && method === "GET") return json({ servers: state.mcp });
-    if (path === "/api/extensions/mcp") { const server = body(); state.mcp = [...state.mcp.filter(item => item.name !== server.name), server]; return json({}); }
-    if (path.endsWith("/test") && path.startsWith("/api/extensions/mcp/")) return json({ ok: true, tool_count: 7 });
+    if (path === "/api/extensions/mcp") { state.calls.push(method + " /api/extensions/mcp"); const server = body(); state.mcp = [...state.mcp.filter(item => item.name !== server.name), server]; return json({}); }
+    if (path.endsWith("/test") && path.startsWith("/api/extensions/mcp/")) { state.calls.push("TEST " + path); return json(state.testResult ?? { ok: true, tool_count: 7 }); }
     if (/^\/api\/extensions\/mcp\/[^/]+\/tools$/.test(path)) return json({ tools: [], read_only: 0, write: 0, high_risk: 0, pending: 0, unclassified: 0 });
     if (path.endsWith("/messages")) return json({ messages: [], drafts: [], has_more: false, event_cursor: 0 });
     if (path.endsWith("/runs")) return json({ runs: [] });
@@ -231,7 +231,7 @@ async function walkthrough({ width, height, theme, locale = "en-US", shotsOn = t
     // 3. Services.
     await page.locator(".onb-foot .onb-primary").click();
     await page.locator(".onb-tiles").waitFor();
-    assert.equal(await page.locator(".onb-tile").count(), 6);
+    assert.equal(await page.locator(".onb-tile").count(), 7);
     const names = await page.locator(".onb-tile strong").allInnerTexts();
     assert.ok(!names.includes("Slack") && !names.includes("Discord"), "no tile without a working connect path");
     assert.ok(names.includes("Robinhood"));
@@ -241,7 +241,7 @@ async function walkthrough({ width, height, theme, locale = "en-US", shotsOn = t
     assert.match(await primary.innerText(), /Select a service|Dienst auswählen/);
     // Every named service wears its own real brand mark, not a shared glyph.
     const marks = await page.locator(".onb-tile").evaluateAll(tiles => tiles.map(tile => `${tile.dataset.integrationId}:${tile.querySelector(".service-mark")?.dataset.mark}:${tile.querySelector(".service-mark img")?.getAttribute("src")}`));
-    assert.deepEqual(marks, ["github:github", "notion:notion", "linear:linear", "robinhood:robinhood", "context7:context7", "microsoft-learn:microsoft-learn"].map(item => { const key = item.split(":")[1]; return `${item.split(":")[0]}:${key}:/brand/services/${{ github: "github-monochrome.svg", notion: "notion.svg", linear: "linear.svg", robinhood: "robinhood.svg", context7: "context7.svg", "microsoft-learn": "microsoft-learn.svg" }[key]}`; }));
+    assert.deepEqual(marks, ["github:github", "notion:notion", "linear:linear", "home-assistant:homeassistant", "robinhood:robinhood", "context7:context7", "microsoft-learn:microsoft-learn"].map(item => { const key = item.split(":")[1]; return `${item.split(":")[0]}:${key}:/brand/services/${{ github: "github-monochrome.svg", notion: "notion.svg", linear: "linear.svg", robinhood: "robinhood.svg", homeassistant: "homeassistant.svg", context7: "context7.svg", "microsoft-learn": "microsoft-learn.svg" }[key]}`; }));
     await page.locator("[data-integration-id='github']").click();
     await page.locator("[data-integration-id='linear']").click();
     assert.match(await primary.innerText(), /2/);
@@ -445,6 +445,45 @@ try {
     assert.equal(await page.locator(".onb-chips").innerText().then(text => /Thinking/.test(text)), false, "a model without efforts shows no thinking chip");
     await context.close();
     pass("Advanced: thinking options derive from the selected model (segmented, select, none)");
+  }
+
+  // Home Assistant tile: address, long-lived token, a LAN reason in words, then a retry that edits the saved connection.
+  {
+    const state = makeServer({ model: true, bots: 1, onboarding: { step: 2, completed: false, skipped: false } });
+    const { page, context, errors } = await open(state);
+    await page.locator(".onb-connected").waitFor();
+    await page.locator(".onb-foot .onb-primary").click();
+    await page.locator(".onb-tiles").waitFor();
+    const tile = page.locator("[data-integration-id='home-assistant']");
+    assert.equal(await tile.locator("img[src='/brand/services/homeassistant.svg']").count(), 1, "official mark on the tile");
+    await tile.click();
+    await page.locator(".onb-foot .onb-primary").click();
+    await page.locator(".onb-service-form").waitFor();
+    assert.match(await page.locator(".onb-title").innerText(), /Home Assistant \(MCP\)/);
+    const address = page.locator(".onb-service-form input[type=url]");
+    assert.equal(await address.inputValue(), "http://homeassistant.local:8123/api/mcp", "the usual address, editable");
+    assert.match(await page.locator(".onb-service-form").innerText(), /\.local names often do not resolve inside the container/);
+    assert.equal(await page.locator(".onb-foot .onb-primary").isDisabled(), true, "Connect waits for the token");
+    await address.fill("http://192.168.1.20:8123/api/mcp");
+    await page.locator(".onb-service-form input[type=password]").fill("synthetic-ha-token");
+    assert.equal(await page.locator(".onb-service-form a.onb-link[href='http://192.168.1.20:8123/profile/security']").count(), 1, "the token page follows the address");
+    state.testResult = { ok: false, tool_count: 0, diagnostics: [{ code: "lan_connection_refused", message: "English text the page must not show" }] };
+    await page.locator(".onb-foot .onb-primary").click();
+    await page.locator(".onb-error").waitFor();
+    assert.match(await page.locator(".onb-error").innerText(), /refused the connection/);
+    assert.doesNotMatch(await page.locator(".onb-error").innerText(), /must not show/);
+    state.testResult = null;
+    await page.locator(".onb-foot .onb-primary").click();
+    await page.locator(".onb-service-done").waitFor();
+    assert.deepEqual([...new Set(state.calls.filter(call => /^(POST|PUT) \/api\/extensions\/mcp$/.test(call)))], ["POST /api/extensions/mcp", "PUT /api/extensions/mcp"], "the retry edits the saved connection, it does not add a second one");
+    assert.equal(state.mcp.length, 1);
+    assert.equal(state.mcp[0].name, "home-assistant");
+    assert.equal(state.mcp[0].url, "http://192.168.1.20:8123/api/mcp");
+    assert.equal(state.mcp[0].headers.Authorization, "Bearer synthetic-ha-token");
+    assert.equal(state.mcp[0].oauth, undefined);
+    assert.deepEqual(errors, []);
+    await context.close();
+    pass("Home Assistant: official mark, editable address with the .local caveat, token link, LAN reason in words, retry edits the saved connection");
   }
 
   // A key that works but has no models, and an unreachable provider, each give one sentence and a fix.

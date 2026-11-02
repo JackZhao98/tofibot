@@ -97,6 +97,15 @@
       "description": "阅读和制作演示文稿。",
       "note": "Google Slides MCP 属于 Developer Preview；启用 slides.googleapis.com 和 slidesmcp.googleapis.com。"
     },
+    "home_assistant": {
+      "description": "家中的灯光、空调、传感器和场景。",
+      "note": "Home Assistant 官方的 MCP Server 集成。它只能访问你在 Assist 中开放的实体，Bot 要改动任何东西前 Tofi 仍会先问你。",
+      "setup": {
+        "add_integration": "在 Home Assistant 中添加“Model Context Protocol Server”集成（设置 > 设备与服务）。",
+        "create_token": "在 Home Assistant 个人资料（安全）里创建一个长期访问令牌，粘贴到这里。",
+        "address": "地址可以修改。如果 Tofi 所在服务器解析不了 homeassistant.local，请改用设备的 IP 地址，例如 http://192.168.1.20:8123/api/mcp。"
+      }
+    },
     "linear": {
       "description": "管理项目、任务与评论。",
       "note": "Linear 主传输是 Streamable HTTP；/mcp/readonly 只提供读取工具，/sse 是已弃用的兼容路径。",
@@ -229,6 +238,21 @@
       "description": "社区维护的行情查询方案。",
       "reason": "尚未核实可安装的兼容版本；社区方案无需 Token。"
     }
+  },
+  "lan": {
+    "mdns_unresolved": "Tofi 所在服务器无法解析 .local 名称。mDNS 名称在 Tofi 运行的容器内往往解析不了。请改用设备的 IP 地址，例如 http://192.168.1.20:8123/api/mcp。",
+    "host_not_found": "Tofi 所在服务器找不到这个主机名。请检查拼写，或改用设备的 IP 地址。",
+    "connection_refused": "设备拒绝了连接。请检查地址和端口（Home Assistant 监听 8123），并确认它在运行。",
+    "unreachable": "Tofi 所在服务器没有通往该地址的路由。它必须运行在设备所在的网络中，或能访问该网络。",
+    "timeout": "设备没有及时响应。请检查地址、设备是否开机，以及 Tofi 所在服务器能否访问你的网络。",
+    "unauthorized": "设备拒绝了该访问令牌。请在 Home Assistant（个人资料 > 安全）中重新创建长期访问令牌并再次输入。",
+    "forbidden": "设备接受了令牌，但拒绝了该请求。MCP Server 可能仅限管理员账户使用：请使用管理员的令牌。",
+    "not_found": "设备有响应，但该路径下没有 MCP 端点。请在 Home Assistant 中添加 Model Context Protocol Server 集成，并确认地址以 /api/mcp 结尾。",
+    "token_label": "长期访问令牌",
+    "token_hint": "在 Home Assistant 个人资料的“安全”页中创建。",
+    "token_link": "打开安全页",
+    "address_hint": "如果你的地址不同，请修改。如果 homeassistant.local 不可用，请改用设备的 IP 地址，例如 http://192.168.1.20:8123/api/mcp：.local 名称在 Tofi 运行的容器内往往解析不了。",
+    "add_test": "保存并测试"
   },
   "local": {
     "custom": {

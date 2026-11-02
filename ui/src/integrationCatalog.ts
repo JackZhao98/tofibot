@@ -39,6 +39,8 @@ export type IntegrationPreset = {
   tokenHeader?: string;
   /** Prefix used before a token value, e.g. `Bearer `. */
   tokenPrefix?: string;
+  /** A server on the person's own network: the address is theirs to edit (the preset's is only the usual one), plain http is fine, and a failure is explained in LAN terms. */
+  lan?: true;
   note?: string;
   status?: "active" | "developer-preview" | "public-preview";
 };
@@ -232,6 +234,32 @@ export const integrationCatalog: IntegrationPreset[] = [
     dcr: true,
     oauthRedirect: "loopback",
     get note() { return i18n.t("extensions:catalog.robinhood.note"); },
+    status: "active",
+  },
+  {
+    // Home Assistant's own "Model Context Protocol Server" integration: Streamable HTTP at /api/mcp. HA signs clients in with
+    // OAuth 2.0 + PKCE and OAuth Client ID Metadata Documents (no dynamic client registration), which needs a client_id URL the
+    // HA host can fetch, so a Tofi on the same LAN cannot use it; HA's API also takes a long-lived access token as a Bearer
+    // token, which is what this preset uses.
+    id: "home-assistant", repo: "home-assistant/core",
+    name: "Home Assistant (MCP)",
+    get description() { return i18n.t("extensions:catalog.home_assistant.description"); },
+    category: "service",
+    url: "http://homeassistant.local:8123/api/mcp",
+    docsURL: "https://www.home-assistant.io/integrations/mcp_server/",
+    upstream: "vendor",
+    lan: true,
+    get setup() {
+      return [
+        i18n.t("extensions:catalog.home_assistant.setup.add_integration"),
+        i18n.t("extensions:catalog.home_assistant.setup.create_token"),
+        i18n.t("extensions:catalog.home_assistant.setup.address"),
+      ];
+    },
+    auth: "token",
+    tokenHeader: "Authorization",
+    tokenPrefix: "Bearer ",
+    get note() { return i18n.t("extensions:catalog.home_assistant.note"); },
     status: "active",
   },
   {

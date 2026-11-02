@@ -97,6 +97,15 @@
       "description": "Read and build presentations.",
       "note": "Google Slides MCP is in Developer Preview. Enable slides.googleapis.com and slidesmcp.googleapis.com."
     },
+    "home_assistant": {
+      "description": "Lights, climate, sensors and scenes in your home.",
+      "note": "Home Assistant’s own MCP Server integration. It reaches only the entities you expose to Assist, and Tofi still asks before a Bot changes anything.",
+      "setup": {
+        "add_integration": "In Home Assistant, add the “Model Context Protocol Server” integration (Settings > Devices & services).",
+        "create_token": "Create a long-lived access token in your Home Assistant profile (Security) and paste it here.",
+        "address": "The address is yours to edit. If homeassistant.local does not resolve from Tofi’s server, use the device’s IP address, for example http://192.168.1.20:8123/api/mcp."
+      }
+    },
     "linear": {
       "description": "Manage projects, issues and comments.",
       "note": "Linear's main transport is Streamable HTTP. /mcp/readonly offers read tools only; /sse is a deprecated compatibility path.",
@@ -229,6 +238,21 @@
       "description": "Community-maintained market data lookup.",
       "reason": "No installable compatible version verified yet. The community server needs no token."
     }
+  },
+  "lan": {
+    "mdns_unresolved": "Tofi’s server could not resolve a .local name. mDNS names often do not resolve inside the container Tofi runs in. Use the device’s IP address instead, for example http://192.168.1.20:8123/api/mcp.",
+    "host_not_found": "Tofi’s server could not find that host name. Check the spelling, or use the device’s IP address.",
+    "connection_refused": "The device refused the connection. Check the address and port (Home Assistant listens on 8123) and that it is running.",
+    "unreachable": "Tofi’s server has no route to that address. It must run on, or be able to reach, the same network as the device.",
+    "timeout": "The device did not answer in time. Check the address, that the device is on, and that Tofi’s server can reach your network.",
+    "unauthorized": "The device refused the access token. Create a new long-lived access token in Home Assistant (your profile > Security) and enter it again.",
+    "forbidden": "The device accepted the token but refused the request. The MCP Server may be limited to administrator accounts: use a token from an administrator.",
+    "not_found": "The device answered, but there is no MCP endpoint at this path. In Home Assistant, add the Model Context Protocol Server integration, and check that the address ends in /api/mcp.",
+    "token_label": "Long-lived access token",
+    "token_hint": "Create it in your Home Assistant profile, under Security.",
+    "token_link": "Open the Security page",
+    "address_hint": "Edit the address if yours differs. If homeassistant.local does not work, use the device’s IP address, for example http://192.168.1.20:8123/api/mcp: .local names often do not resolve inside the container Tofi runs in.",
+    "add_test": "Save and test"
   },
   "local": {
     "custom": {

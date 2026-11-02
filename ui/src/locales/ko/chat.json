@@ -493,6 +493,7 @@
       "github": "이슈와 코드",
       "notion": "페이지와 노트",
       "linear": "이슈와 프로젝트",
+      "home_assistant": "집 안의 조명, 냉난방, 센서",
       "robinhood": "시세와 보유 종목. 거래는 Agentic 계좌에서만",
       "context7": "라이브러리 문서",
       "microsoft_learn": "Microsoft 문서",
@@ -554,6 +555,7 @@
     "howto": {
       "github": "GitHub에서 Bot이 읽을 저장소에 대한 읽기 권한을 가진 개인 액세스 토큰을 만드세요.",
       "linear": "Linear에서 개인 API 키를 만들어 여기에 붙여넣으세요.",
+      "home_assistant": "Home Assistant 주소와 장기 액세스 토큰(프로필 > 보안)을 입력하세요. Bot은 기기 상태를 읽을 수 있고, 변경은 승인을 거칩니다.",
       "context7": "Context7 대시보드에서 무료 API 키를 만들어 여기에 붙여넣으세요.",
       "notion": "로그인 창이 열립니다. 공유할 페이지를 고른 뒤 이곳으로 돌아오세요.",
       "robinhood": "로그인 창이 열립니다. Bot은 시세와 보유 종목을 읽을 수 있고, 거래는 Agentic 계좌에서만 할 수 있어요.",

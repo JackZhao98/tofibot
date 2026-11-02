@@ -43,6 +43,18 @@ export function CallbackAddress({ label, value }: { label: string; value: string
   return <div className="integration-callback"><span>{label}</span><code>{value}</code><button className="secondary-button" type="button" onClick={() => void copy()}>{t("callback.copy")}</button>{notice && <small role="status">{notice}</small>}</div>;
 }
 
+/** The page where a Home Assistant person creates a long-lived access token, built from the address they typed; none when it is not a URL. */
+const profilePage = (address: string) => { try { return `${new URL(address).origin}/profile/security`; } catch { return ""; } };
+
+/** The address of a service on the person's own network: editable, with the prefilled usual address and the `.local` caveat beside it. */
+function LanAddress({ url, onChange }: { url: string; onChange: (value: string) => void }) {
+  const { t } = useTranslation("extensions");
+  return <>
+    <label>{t("form.url")}<input required type="url" inputMode="url" autoComplete="off" spellCheck={false} value={url} onChange={e => onChange(e.target.value)} placeholder="http://192.168.1.20:8123/api/mcp" /></label>
+    <p className="field-note">{t("lan.address_hint")}</p>
+  </>;
+}
+
 /** Remote MCP setup (a catalog preset, a custom URL, or editing a saved connection), as the body of the connect dialog. */
 export function RemoteForm({ initial, preset, options, route, busy, onSave, onCancel, google }: {
   google: GoogleOverview | null; initial: MCP | null; preset?: IntegrationPreset; options: OAuthOptions | null; route: OAuthRoute; busy: boolean;
@@ -79,7 +91,9 @@ export function RemoteForm({ initial, preset, options, route, busy, onSave, onCa
       {oauth && <OAuthLoginHelp route={route} />}
       {!preset && <label>{t("form.name")}<input required maxLength={64} disabled={Boolean(initial)} value={name} onChange={e => setName(e.target.value)} placeholder="my-service" /></label>}
       {!preset && <label>{t("form.url")}<input required type="url" value={url} onChange={e => { setURL(e.target.value); setToken(""); }} placeholder="https://example.com/mcp" /></label>}
-      {preset?.auth === "token" && <label>{t("form.token")}<input type="password" autoComplete="off" value={token} onChange={e => setToken(e.target.value)} placeholder={initial ? t("form.token_keep") : t("form.token_paste")} required={!initial} /></label>}
+      {preset?.lan && <LanAddress url={url} onChange={value => { setURL(value); setToken(""); }} />}
+      {preset?.auth === "token" && <label>{preset.lan ? t("lan.token_label") : t("form.token")}<input type="password" autoComplete="off" value={token} onChange={e => setToken(e.target.value)} placeholder={initial ? t("form.token_keep") : t("form.token_paste")} required={!initial} /></label>}
+      {preset?.lan && <p className="field-note">{t("lan.token_hint")} {profilePage(url) && <a href={profilePage(url)} target="_blank" rel="noopener noreferrer">{t("lan.token_link")}</a>}</p>}
       {!preset && <label className="extension-check"><input type="checkbox" checked={oauth} onChange={e => setOAuth(e.target.checked)} disabled={Boolean(initial?.oauth)} />{t("auth.oauth")}</label>}
       {oauth && !preset?.dcr && savedClient && <p className="connect-lead">{t("connections.google.using_client", { project: google!.client.project_id || google!.client.project_number })} <button type="button" className="text-button" onClick={() => setReplaceClient(true)}>{t("connections.google.replace_client")}</button></p>}
       {oauth && !preset?.dcr && !savedClient && <>
@@ -91,14 +105,14 @@ export function RemoteForm({ initial, preset, options, route, busy, onSave, onCa
       </>}
       <Disclosure title={t("form.advanced")}>
         {preset && <label>{t("form.name")}<input required maxLength={64} disabled={Boolean(initial)} value={name} onChange={e => setName(e.target.value)} placeholder="my-service" /></label>}
-        {preset && <label>{t("form.url")}<input required type="url" value={url} onChange={e => { setURL(e.target.value); setToken(""); }} /></label>}
+        {preset && !preset.lan && <label>{t("form.url")}<input required type="url" value={url} onChange={e => { setURL(e.target.value); setToken(""); }} /></label>}
         <label>{t("form.transport")}<Select value={transport} disabled={busy} onValueChange={value => setTransport(value as MCPTransport)}><option value="streamable_http">{transportLabels.streamable_http}</option><option value="sse">{transportLabels.sse}</option></Select></label>
         <label>{t("form.headers")}<textarea rows={3} value={headers} onChange={e => setHeaders(e.target.value)} spellCheck={false} /></label>{initial && <p className="field-note">{t("form.headers_note")}</p>}
         {oauth && <><label>{t("form.scopes")}<input value={scopes} onChange={e => setScopes(e.target.value)} placeholder={t("form.comma_separated")} /></label><label>{t("form.metadata_url")}<input type="url" value={metadata} onChange={e => setMetadata(e.target.value)} /></label></>}
         <label>{t("form.allowlist")}<input value={allow} onChange={e => setAllow(e.target.value)} placeholder={t("form.allowlist_hint")} /></label><label>{t("form.denylist")}<input value={deny} onChange={e => setDeny(e.target.value)} placeholder={t("form.comma_separated")} /></label>
       </Disclosure>
       {error && <Banner tone="error" title={error} />}
-      <div className="sheet-actions"><button type="button" className="secondary-button" disabled={busy} onClick={onCancel}>{t("action.cancel")}</button><button type="submit" className="primary-button" disabled={busy}>{busy ? t("form.saving") : initial ? t("form.save") : t("form.add")}</button></div>
+      <div className="sheet-actions"><button type="button" className="secondary-button" disabled={busy} onClick={onCancel}>{t("action.cancel")}</button><button type="submit" className="primary-button" disabled={busy}>{busy ? t("form.saving") : initial ? t("form.save") : preset?.lan ? t("lan.add_test") : t("form.add")}</button></div>
     </fieldset>
   </form>;
 }

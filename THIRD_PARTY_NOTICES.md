@@ -86,7 +86,7 @@ Provider marks are in `assets/brand-icons`. Copies for the Web app are in `ui/pu
 
 | Component | Version | License | Source URL |
 |---|---|---|---|
-| Simple Icons marks (Notion, Linear, Robinhood, Brave, SearXNG) | commit c71c69e3a27e4436936b831c72643e6513b9f49b | CC0-1.0 for the package; brand rights stay with the owners | https://github.com/simple-icons/simple-icons |
+| Simple Icons marks (Notion, Linear, Robinhood, Brave, SearXNG, Home Assistant) | commit c71c69e3a27e4436936b831c72643e6513b9f49b | CC0-1.0 for the package; brand rights stay with the owners | https://github.com/simple-icons/simple-icons |
 | Google Workspace product icons and Google "G" | n/a | Google trademarks, not open-licensed; used unmodified | https://about.google/brand-resource-center/ |
 | GitHub mark | n/a | GitHub brand kit terms | https://brand.github.com/ |
 | Discord mark | n/a | Discord brand terms | https://discord.com/branding |

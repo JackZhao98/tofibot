@@ -493,6 +493,7 @@
       "github": "Issue とコード",
       "notion": "ページとメモ",
       "linear": "Issue とプロジェクト",
+      "home_assistant": "家の照明、空調、センサー",
       "robinhood": "相場とポジション。取引は Agentic アカウント内のみ",
       "context7": "ライブラリのドキュメント",
       "microsoft_learn": "Microsoft のドキュメント",
@@ -554,6 +555,7 @@
     "howto": {
       "github": "GitHub で、Bot に読ませたいリポジトリへの読み取り権限を付けたパーソナルアクセストークンを作成します。",
       "linear": "Linear でパーソナル API キーを作成し、ここに貼り付けます。",
+      "home_assistant": "Home Assistant のアドレスと長期アクセストークン（プロフィール > セキュリティ）を入力します。Bot はデバイスの状態を読み取れます。変更は承認を経ます。",
       "context7": "Context7 のダッシュボードで無料の API キーを作成し、ここに貼り付けます。",
       "notion": "サインイン用のウィンドウが開きます。共有するページを選んだら、ここに戻ってください。",
       "robinhood": "サインイン用のウィンドウが開きます。Bot は相場とポジションを読み取れ、取引は Agentic アカウントでのみ行えます。",

@@ -493,6 +493,7 @@
       "github": "Issue 和程式碼",
       "notion": "頁面和筆記",
       "linear": "Issue 和專案",
+      "home_assistant": "家中的燈光、空調與感測器",
       "robinhood": "行情和持倉；只在你的 Agentic 帳戶裡交易",
       "context7": "程式庫文件",
       "microsoft_learn": "微軟官方文件",
@@ -554,6 +555,7 @@
     "howto": {
       "github": "在 GitHub 上建立一個個人存取權杖，授予你想讓 Bot 讀取的儲存庫的讀取權限。",
       "linear": "在 Linear 裡建立一個個人 API 金鑰，然後貼到這裡。",
+      "home_assistant": "填入你的 Home Assistant 位址與長期存取權杖（個人資料 > 安全性）。Bot 可以讀取裝置狀態；變更需要經過核准。",
       "context7": "在 Context7 控制台建立一個免費的 API 金鑰，然後貼到這裡。",
       "notion": "會開啟一個登入視窗。選擇要分享的頁面，然後回到這裡。",
       "robinhood": "會開啟一個登入視窗。Bot 可以讀取行情和持倉，只能在你的 Agentic 帳戶裡交易。",

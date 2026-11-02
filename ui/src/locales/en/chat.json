@@ -505,6 +505,7 @@
       "github": "Issues and code",
       "notion": "Pages and notes",
       "linear": "Issues and projects",
+      "home_assistant": "Lights, climate and sensors at home",
       "robinhood": "Quotes, positions; trades only in your Agentic account",
       "context7": "Library docs",
       "microsoft_learn": "Microsoft docs",
@@ -567,6 +568,7 @@
     "howto": {
       "github": "Create a personal access token on GitHub with read access to the repositories you want.",
       "linear": "Create a personal API key in Linear and paste it here.",
+      "home_assistant": "Enter your Home Assistant address and a long-lived access token (profile > Security). Bots can read device states; changes go through approval.",
       "context7": "Create a free API key on the Context7 dashboard and paste it here.",
       "notion": "A sign-in window opens. Choose which pages to share, then come back here.",
       "robinhood": "A sign-in window opens. Bots can read quotes and positions, and trade only in your Agentic account.",

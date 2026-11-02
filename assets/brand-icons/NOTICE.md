@@ -15,6 +15,7 @@ Notion, Linear and Robinhood come from Simple Icons (https://github.com/simple-i
 - Notion: unmodified (brand hex 000000 is the default fill).
 - Linear and Robinhood: `modified: true`. The only change is a `fill` attribute on the root `<svg>` set to the brand hex from Simple Icons' `data/simple-icons.json` (Linear 5E6AD2, Robinhood CCFF00); paths are untouched. The manifest records `recolor`, the modification and the upstream sha256.
 - Robinhood's brand color has no contrast on white, so it alone sits on a dark tile.
+- Home Assistant (`homeassistant.svg`, simple-icons 16.36.0 from the jsDelivr copy of the package): unmodified. Home Assistant is a trademark of Nabu Casa, Inc.; the mark only names the service the person connects.
 
 ## Official kits and vendor-published assets
 
