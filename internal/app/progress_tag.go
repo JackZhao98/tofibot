@@ -3,6 +3,8 @@ package app
 import (
 	"regexp"
 	"strings"
+
+	"github.com/JackZhao98/tofibot/internal/provider"
 )
 
 // The Bot marks transient narration with <progress>...</progress> in its normal
@@ -210,6 +212,8 @@ var citeTagRE = regexp.MustCompile(`(?i)(?:<cite\b[^>\n]{0,200}>|\(cite\s+index=
 // stripCiteTags removes citation markup and keeps the cited words, so the
 // markup never reaches the stored or served text.
 func stripCiteTags(text string) string {
+	// The model's private-use citation spans (U+E200 to U+E201) from any provider.
+	text = provider.StripMarkers(text)
 	if !strings.Contains(text, "cite") && !strings.Contains(text, "CITE") {
 		return text
 	}

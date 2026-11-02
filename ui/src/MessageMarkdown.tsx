@@ -147,8 +147,16 @@ function settledMarkdown(content: string): ReactNode {
   return rendered;
 }
 
+/** Citation spans a model wrote in its private-use format (U+E200 to U+E201) hide in messages stored before the server dropped them. Cheap: text without U+E2xx is returned as is. */
+const PRIVATE_SPAN = /[\uE200-\uE2FF]/;
+export function hidePrivateSpans(text: string): string {
+  if (!PRIVATE_SPAN.test(text)) return text;
+  return text.replace(/\uE200[^\uE201]*(?:\uE201|$)/g, "").replace(/[\uE200-\uE2FF]/g, "").replace(/ {2,}/g, " ");
+}
+
 /** Memoized: parsing a long conversation's Markdown on every unrelated Workspace commit costs tens of milliseconds. `reuse` marks finished text whose elements may be kept for the next time it is drawn. */
-export const MessageMarkdown = memo(function MessageMarkdown({ content, mention, cursor = false, reuse = false }: { content: string; mention?: ReactNode; cursor?: boolean; reuse?: boolean }) {
+export const MessageMarkdown = memo(function MessageMarkdown({ content: raw, mention, cursor = false, reuse = false }: { content: string; mention?: ReactNode; cursor?: boolean; reuse?: boolean }) {
+  const content = hidePrivateSpans(raw);
   if (reuse && !mention && !cursor) return <MentionContext.Provider value={undefined}>{settledMarkdown(content)}</MentionContext.Provider>;
   return <MentionContext.Provider value={mention}><Markdown remarkPlugins={remarkPlugins} rehypePlugins={[...(mention ? [prependMention] : []), ...(cursor ? [appendCursor] : [])]} skipHtml urlTransform={urlTransform} components={mentionComponents}>{content}</Markdown></MentionContext.Provider>;
 });
