@@ -19,6 +19,8 @@ services:
       TOFI_SKILLS_DIR: /app/data/skills
       TOFI_MODEL_API_KEY: ${TOFI_MODEL_API_KEY:-}
       TOFI_MODEL_BASE_URL: ${TOFI_MODEL_BASE_URL:-}
+      # 1: let member accounts use a private/LAN model address (a server Admin already may).
+      TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS: ${TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS:-}
       TOFI_TRANSCRIPTION_API_KEY: ${TOFI_TRANSCRIPTION_API_KEY:-}
       TOFI_TRANSCRIPTION_URL: ${TOFI_TRANSCRIPTION_URL:-https://api.openai.com/v1/audio/transcriptions}
     ports:

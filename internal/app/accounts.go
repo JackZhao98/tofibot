@@ -381,6 +381,7 @@ func (g *AccountGateway) workspace(a Account) (*Server, error) {
 	}
 	g.configureAccountRunner(&c, a.ID)
 	c.AccountID = a.ID
+	c.AccountIsAdmin = func() bool { return g.accountIsAdmin(a.ID) }
 	g.wireStorage(&c, a)
 	createRuntime := g.runtimeFactory
 	if createRuntime == nil {
@@ -708,4 +709,15 @@ func (g *AccountGateway) deviceWorkspace(r *http.Request) (*Server, bool) {
 		return nil, true
 	}
 	return workspace, true
+}
+
+// accountIsAdmin reads the account's current role on every call, so a demoted
+// or disabled admin loses admin-only allowances at the next check.
+func (g *AccountGateway) accountIsAdmin(id string) bool {
+	var role string
+	var disabled bool
+	if err := g.root.store.db.QueryRow(`SELECT role,disabled FROM accounts WHERE id=?`, id).Scan(&role, &disabled); err != nil {
+		return false
+	}
+	return role == "admin" && !disabled
 }

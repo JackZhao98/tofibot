@@ -34,9 +34,10 @@ import (
 // Network rule (SSRF): the request leaves the App server for a host the admin
 // typed. Loopback, private (RFC 1918, ULA) and carrier-grade NAT addresses are
 // reachable only where the person setting the endpoint is the server's own
-// administrator: a single-account install, or any install whose operator set
-// TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1. In a multi-account gateway a member
-// cannot aim the server at its internal network. Link-local addresses (cloud
+// administrator: a gateway account whose role is currently admin (read live at
+// each check, so a demotion applies at once), a workspace without a gateway, or
+// any install whose operator set TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1. A member
+// account cannot aim the server at its internal network. Link-local addresses (cloud
 // metadata at 169.254.169.254), unspecified and multicast addresses are never
 // reachable. The rule is enforced when each connection is dialed, so a name
 // that later resolves elsewhere, or a redirect, meets the same check.
@@ -118,7 +119,10 @@ func normalizeCompatModelIDs(in []string) ([]string, error) {
 }
 
 func (s *Server) compatPrivateAllowed() bool {
-	return s.accountID == "" || os.Getenv(compatPrivateEnvFlag) == "1"
+	if s.accountID == "" || os.Getenv(compatPrivateEnvFlag) == "1" {
+		return true
+	}
+	return s.accountIsAdmin != nil && s.accountIsAdmin()
 }
 
 var carrierGradeNAT = netip.MustParsePrefix("100.64.0.0/10")
@@ -158,19 +162,40 @@ func (s *Server) providerHTTPClient(name string) *http.Client {
 	defer s.providerMu.Unlock()
 	if s.compatClient == nil {
 		dialer := &net.Dialer{Timeout: 10 * time.Second, Control: s.compatDialControl}
-		s.compatClient = &http.Client{
-			Timeout: 10 * time.Minute,
-			Transport: &http.Transport{
-				Proxy:                 nil,
-				DialContext:           dialer.DialContext,
-				TLSHandshakeTimeout:   10 * time.Second,
-				ResponseHeaderTimeout: 5 * time.Minute,
-				MaxIdleConnsPerHost:   4,
-				IdleConnTimeout:       60 * time.Second,
-			},
+		tr := &http.Transport{
+			Proxy:                 nil,
+			DialContext:           dialer.DialContext,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ResponseHeaderTimeout: 5 * time.Minute,
+			MaxIdleConnsPerHost:   4,
+			IdleConnTimeout:       60 * time.Second,
 		}
+		s.compatClient = &http.Client{Timeout: 10 * time.Minute, Transport: &compatRoundTripper{s: s, tr: tr}}
 	}
 	return s.compatClient
+}
+
+// compatRoundTripper drops idle connections when the private-address allowance
+// is withdrawn (an admin demoted), because a kept-alive connection is reused
+// without a new dial and so without the dial check. A request already streaming
+// finishes; the next one dials again and meets the rule.
+type compatRoundTripper struct {
+	s       *Server
+	tr      *http.Transport
+	mu      sync.Mutex
+	private bool
+}
+
+func (c *compatRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	now := c.s.compatPrivateAllowed()
+	c.mu.Lock()
+	drop := c.private && !now
+	c.private = now
+	c.mu.Unlock()
+	if drop {
+		c.tr.CloseIdleConnections()
+	}
+	return c.tr.RoundTrip(r)
 }
 
 // compatHostCheck refuses at save time an endpoint whose addresses the rule
@@ -546,7 +571,7 @@ func (s *Server) routeCompatProvider(w http.ResponseWriter, r *http.Request, sub
 func compatFailure(w http.ResponseWriter, status int, err error) {
 	switch {
 	case errors.Is(err, errCompatBlocked):
-		writeErr(w, http.StatusBadRequest, "endpoint_not_allowed", "This server may not connect to that address. A private or local address is allowed only on a single-account install, or when the operator sets "+compatPrivateEnvFlag+"=1.")
+		writeErr(w, http.StatusBadRequest, "endpoint_not_allowed", "This server may not connect to that address. Only a server Admin can use a private or local address, or the operator can allow it for everyone by setting "+compatPrivateEnvFlag+"=1.")
 	case status == http.StatusUnauthorized || status == http.StatusForbidden:
 		writeErr(w, http.StatusBadRequest, "invalid_key", fmt.Sprintf("The endpoint rejected this API key (HTTP %d).", status))
 	case errors.Is(err, errProviderUnreachable) || status >= 500 || status == http.StatusTooManyRequests:

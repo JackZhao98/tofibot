@@ -578,7 +578,7 @@
     "server_pick": "Model to start with",
     "server_connect": "Connect",
     "server_failed": "Couldn't connect to that server. Check the address and try again.",
-    "server_not_allowed": "This server may not connect to a local or private address. On a multi-account install the administrator must allow it by setting TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1 in the server environment, then restart."
+    "server_not_allowed": "This server may not connect to a local or private address. Only a server Admin can use one; otherwise the operator must set TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1 in the server environment, then restart."
   },
   "primary": {
     "badge": "Primary",

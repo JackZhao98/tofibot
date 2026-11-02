@@ -565,7 +565,7 @@
     "server_pick": "起始模型",
     "server_connect": "連線",
     "server_failed": "無法連線到該伺服器。請檢查位址後再試。",
-    "server_not_allowed": "此伺服器不允許連線到本機或內網位址。多帳號安裝需由管理員在伺服器環境中設定 TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1 並重新啟動後才可使用。"
+    "server_not_allowed": "此伺服器不允許連線到本機或內網位址。僅伺服器管理員可用；否則需由維運人員在伺服器環境中設定 TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1 並重新啟動後才可使用。"
   },
   "primary": {
     "badge": "主要助理",

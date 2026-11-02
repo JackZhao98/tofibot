@@ -248,7 +248,7 @@
       "invalid_base_url": "Saisissez une URL de base qui commence par http:// ou https://, sans identifiants ni paramètres de requête.",
       "invalid_models": "Un identifiant de modèle ne peut pas contenir d'espaces.",
       "invalid_key": "Le point d'accès a refusé cette clé API. Elle n'a pas été enregistrée.",
-      "endpoint_not_allowed": "Ce serveur n'a pas le droit de se connecter à cette adresse. Les adresses locales et privées fonctionnent sur une installation à compte unique ; avec plusieurs comptes, l'administrateur doit définir TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1 dans l'environnement du serveur, puis redémarrer.",
+      "endpoint_not_allowed": "Ce serveur n'a pas le droit de se connecter à cette adresse. Seul un administrateur du serveur peut utiliser une adresse locale ou privée ; sinon l'opérateur doit définir TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1 dans l'environnement du serveur, puis redémarrer.",
       "unreachable": "Ce serveur n'a pas pu joindre le point d'accès. Vérifiez l'adresse ou saisissez les identifiants de modèles à la main.",
       "no_models": "Le point d'accès n'a renvoyé aucune liste de modèles. Saisissez les identifiants à la main.",
       "presets": "Partir de",

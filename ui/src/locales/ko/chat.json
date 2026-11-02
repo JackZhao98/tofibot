@@ -565,7 +565,7 @@
     "server_pick": "처음 사용할 모델",
     "server_connect": "연결",
     "server_failed": "해당 서버에 연결하지 못했습니다. 주소를 확인하고 다시 시도하세요.",
-    "server_not_allowed": "이 서버는 로컬 또는 사설 주소에 연결할 수 없습니다. 다중 계정 설치에서는 관리자가 서버 환경에 TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1을 설정하고 다시 시작해야 합니다."
+    "server_not_allowed": "이 서버는 로컬 또는 사설 주소에 연결할 수 없습니다. 서버 관리자만 사용할 수 있고, 그 외에는 운영자가 서버 환경에 TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1을 설정하고 다시 시작해야 합니다."
   },
   "primary": {
     "badge": "기본",

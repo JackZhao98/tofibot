@@ -246,7 +246,7 @@
       "invalid_base_url": "請輸入以 http:// 或 https:// 開頭的基礎 URL，不能含憑證或查詢參數。",
       "invalid_models": "模型 ID 不能包含空格。",
       "invalid_key": "端點拒絕了這個 API 金鑰，未儲存。",
-      "endpoint_not_allowed": "此伺服器不允許連線到該位址。本機與內網位址在單帳號安裝中可用；多帳號安裝需由管理員在伺服器環境中設定 TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1 並重新啟動。",
+      "endpoint_not_allowed": "此伺服器不允許連線到該位址。本機與內網位址僅伺服器管理員可用；否則需由維運人員在伺服器環境中設定 TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1 並重新啟動。",
       "unreachable": "此伺服器無法連線到該端點。請檢查位址，或手動填寫模型 ID。",
       "no_models": "此端點沒有回傳模型清單，請手動填寫模型 ID。",
       "presets": "快速填入",

@@ -195,6 +195,8 @@ services:
       # separated IPs/CIDRs). Empty: the header is ignored. --domain installs set
       # Docker's bridge ranges; see README "Behind another reverse proxy".
       TOFI_TRUSTED_PROXIES: ${TOFI_TRUSTED_PROXIES:-}
+      # 1: let member accounts use a private/LAN model address (a server Admin already may).
+      TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS: ${TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS:-}
       # patch|off: shown by the web page; the host timer does the updating (tofi config auto-update).
       TOFI_AUTO_UPDATE: ${TOFI_AUTO_UPDATE:-off}
       # Where the page leaves an update request and reads its progress (see deploy/self-host/tofi_host.py).

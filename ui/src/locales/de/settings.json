@@ -247,7 +247,7 @@
       "invalid_base_url": "Gib eine Basis-URL an, die mit http:// oder https:// beginnt, ohne Zugangsdaten und ohne Query.",
       "invalid_models": "Eine Modell-ID darf keine Leerzeichen enthalten.",
       "invalid_key": "Der Endpunkt hat diesen API-Schlüssel abgelehnt. Er wurde nicht gespeichert.",
-      "endpoint_not_allowed": "Dieser Server darf sich nicht mit dieser Adresse verbinden. Lokale und private Adressen gehen bei einer Installation mit einem Konto; bei mehreren Konten muss der Administrator TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1 in der Server-Umgebung setzen und neu starten.",
+      "endpoint_not_allowed": "Dieser Server darf sich nicht mit dieser Adresse verbinden. Lokale und private Adressen kann nur ein Server-Admin nutzen; sonst muss der Betreiber TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS=1 in der Server-Umgebung setzen und neu starten.",
       "unreachable": "Der Endpunkt war von diesem Server aus nicht erreichbar. Prüfe die Adresse oder trage die Modell-IDs von Hand ein.",
       "no_models": "Der Endpunkt hat keine Modellliste geliefert. Trage die Modell-IDs von Hand ein.",
       "presets": "Vorlage",

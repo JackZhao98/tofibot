@@ -416,3 +416,32 @@ func TestOllamaRootAndShowParsing(t *testing.T) {
 		t.Errorf("empty = %d", got)
 	}
 }
+
+// A gateway account whose user is a server Admin may use a private address; the
+// role is read at each check, so a demotion takes effect at once. Link-local
+// addresses stay blocked for an admin.
+func TestCompatPrivateAddressesAllowedForAdminAccount(t *testing.T) {
+	api := newFakeCompatAPI(t, true, "ok") // 127.0.0.1
+	s := providerServer(t, nil, nil)
+	s.accountID = "acct_admin"
+	admin := true
+	s.accountIsAdmin = func() bool { return admin }
+	if rec := putCompat(t, s, `{"base_url":"`+api.URL+`/v1"}`); rec.Code != http.StatusOK {
+		t.Fatalf("admin account: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if _, _, err := s.listCompatModels(t.Context(), compatConfig{BaseURL: api.URL + "/v1"}); err != nil {
+		t.Fatalf("admin dial: %v", err)
+	}
+	rec := providerRequest(t, s, http.MethodPost, "/api/providers/compatible/models", `{"base_url":"http://169.254.169.254/v1"}`)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "endpoint_not_allowed") {
+		t.Fatalf("link-local for admin: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	admin = false // demoted
+	if _, _, err := s.listCompatModels(t.Context(), compatConfig{BaseURL: api.URL + "/v1"}); err == nil {
+		t.Fatal("a demoted admin must be refused at the next dial")
+	}
+	rec = providerRequest(t, s, http.MethodPost, "/api/providers/compatible/models", `{"base_url":"`+api.URL+`/v1"}`)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "Admin") {
+		t.Fatalf("member message: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}

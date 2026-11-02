@@ -43,6 +43,8 @@ services:
       # Proxies whose X-Forwarded-For is believed for sign-in rate limits.
       # Comma-separated IPs or CIDRs. Empty: the header is ignored.
       TOFI_TRUSTED_PROXIES: ${TOFI_TRUSTED_PROXIES:-172.16.0.0/12,192.168.0.0/16}
+      # 1: let member accounts use a private/LAN model address (a server Admin already may).
+      TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS: ${TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS:-}
       # Updates are made by you (see README), not by the web page.
       TOFI_AUTO_UPDATE: "off"
     ports:
