@@ -703,6 +703,7 @@
       "form_answers": "Prior form answers",
       "group_profiles": "Group member roles",
       "co_addressed": "Co-addressed members",
+      "members": "Group members and their state",
       "coordination": "Coordination",
       "mentions_since_trigger": "Mentions since the request",
       "handoff_task": "Handoff assignment",

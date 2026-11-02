@@ -39,6 +39,16 @@ type ChecklistItem struct {
 	Status    string `json:"status"`
 	Reason    string `json:"reason,omitempty"`
 	UpdatedAt string `json:"updated_at,omitempty"`
+	// Mark is the progress mark of the item ("p:<task id>" for a plan item).
+	Mark string `json:"-"`
+	// A plan item stands for a task the lead gave: the task, who holds it, its
+	// state, its deadline and the one line its holder keeps.
+	TaskID       string `json:"task_id,omitempty"`
+	BotID        string `json:"bot_id,omitempty"`
+	BotName      string `json:"bot_name,omitempty"`
+	TaskStatus   string `json:"task_status,omitempty"`
+	DeadlineAt   string `json:"deadline_at,omitempty"`
+	ProgressLine string `json:"progress_line,omitempty"`
 }
 
 type ChecklistChange struct {
@@ -65,20 +75,28 @@ func taskRefusal(code, message string) error {
 }
 
 func checklistTx(q queryer, taskID string) ([]ChecklistItem, error) {
-	rows, err := q.Query(`SELECT item_id,text,status,reason,updated_at FROM task_checklist WHERE task_id=? ORDER BY ord,item_id`, taskID)
+	rows, err := q.Query(`SELECT item_id,text,status,reason,updated_at,mark FROM task_checklist WHERE task_id=? ORDER BY ord,item_id`, taskID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 	var items []ChecklistItem
 	for rows.Next() {
 		var item ChecklistItem
-		if err := rows.Scan(&item.ID, &item.Text, &item.Status, &item.Reason, &item.UpdatedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.Text, &item.Status, &item.Reason, &item.UpdatedAt, &item.Mark); err != nil {
+			rows.Close()
 			return nil, err
 		}
 		items = append(items, item)
 	}
-	return items, rows.Err()
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+	for i := range items {
+		planPartView(q, &items[i])
+	}
+	return items, nil
 }
 
 func openChecklistCount(q queryer, taskID string) int {
@@ -538,6 +556,10 @@ func taskEndedOneTx(tx *sql.Tx, runID, status string, item WorkItem) error {
 // Waits on it settle, and a cancelled or failed task takes the open tasks below
 // it along.
 func settleClosedTaskTx(tx *sql.Tx, item WorkItem) error {
+	// The plan item of the giver's card follows the task (line A).
+	if err := syncPlanItemTx(tx, item); err != nil {
+		return err
+	}
 	if item.Status == "done" {
 		// A task that closes done is progress anywhere in its tree.
 		if err := resetTreeIdleTx(tx, item.RootTaskID); err != nil {

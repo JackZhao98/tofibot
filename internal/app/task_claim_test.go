@@ -304,7 +304,7 @@ func stampFor(i int) string {
 }
 
 func TestGroupPromptCarriesTheSecondPassTriagePrinciple(t *testing.T) {
-	for _, want := range []string{"claim it", "pass it with a reason", "post nothing in the chat", "claim_task", "pass_task"} {
+	for _, want := range []string{"claim it", "pass it with a reason", "post nothing in the chat", "claim_task", "pass_task", "independent parts", "also when the person named only you"} {
 		if !strings.Contains(groupTriageGuidance, want) {
 			t.Fatalf("the principle lacks %q", want)
 		}

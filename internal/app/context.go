@@ -660,6 +660,13 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 			used += len([]rune(metadata))
 		}
 	}
+	if c.Kind == "group" && (r.Kind == runKindGroupChat || r.Kind == runKindFollowup || r.Kind == runKindGroupTask) {
+		// The roster the Bot reads when it divides work: role and idle or busy.
+		if block := s.membersContext(c, r, bot); block != "" && used+len([]rune(block)) <= maxHistoryRunes {
+			pm = append(pm, runtime.Message{Role: "user", Content: block})
+			used += len([]rune(block))
+		}
+	}
 	// A child run is a bounded handoff from its parent. Keep that assignment as
 	// an explicit final user message so the child does not replay the parent's
 	// delegation. Retry runs inherit the original child run through ParentRunID.

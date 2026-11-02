@@ -567,6 +567,9 @@ func (s *Store) addTasks(conv, giver, parentRun string, parts []delegatePart, po
 		if err = storeTaskContractTx(tx, id, contract); err != nil {
 			return nil, err
 		}
+		if err = addPlanItemTx(tx, id); err != nil {
+			return nil, err
+		}
 		if len(part.Checklist) > 0 {
 			if err = addChecklistItemsTx(tx, id, part.Checklist); err != nil {
 				return nil, err

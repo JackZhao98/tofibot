@@ -687,6 +687,7 @@
       "form_answers": "先前的表单答案",
       "group_profiles": "群成员角色",
       "co_addressed": "同时被点名的成员",
+      "members": "群成员与当前状态",
       "coordination": "协调",
       "mentions_since_trigger": "请求之后的提及",
       "handoff_task": "交接任务",

@@ -212,6 +212,9 @@ func (s *Store) shapeDelegatedTasks(runs []Run, title string, checklist []string
 				return nil, err
 			}
 		}
+		if err = addPlanItemTx(tx, id); err != nil {
+			return nil, err
+		}
 		if len(checklist) > 0 {
 			if err = addChecklistItemsTx(tx, id, checklist); err != nil {
 				return nil, err
