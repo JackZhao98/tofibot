@@ -113,19 +113,41 @@ export function plannedPartIds(tasks: readonly WorkItem[], cards: ReadonlyMap<st
   return out;
 }
 
+/** The earliest part of each lead: the tasks a task gave carry the parent's id. */
+function firstPartsByLead(tasks: readonly WorkItem[]): Map<string, WorkItem> {
+  const out = new Map<string, WorkItem>();
+  for (const task of tasks) {
+    if (!task.parent_task_id) continue;
+    const first = out.get(task.parent_task_id);
+    if (!first || task.created_at < first.created_at) out.set(task.parent_task_id, task);
+  }
+  return out;
+}
+
+/**
+ * The message a lead posted when it gave its first part: the first message of the run that gave it, by the lead, from the moment
+ * the part was made (the assignment is made in the same step as the parts). Undefined for a task that is no plan.
+ */
+function planAnchor(task: WorkItem, part: WorkItem | undefined, messages: readonly Message[]): Message | undefined {
+  if (!part?.origin_run_id || !task.checklist?.some(item => item.task_id)) return undefined;
+  return messages.find(message => message.run_id === part.origin_run_id && message.sender_bot_id === task.bot_id && message.created_at >= part.created_at);
+}
+
 /**
  * The message each card sits under: the message that started the task's run, else the last message at or before
  * the task's creation. A task older than the loaded history has no anchor and draws nowhere.
  */
-export function anchorCards(tasks: readonly WorkItem[], cards: ReadonlyMap<string, TaskCardModel>, messages: readonly Message[], runById: ReadonlyMap<string, Run>): Map<string, TaskCardModel[]> {
+export function anchorCards(tasks: readonly WorkItem[], cards: ReadonlyMap<string, TaskCardModel>, messages: readonly Message[], runById: ReadonlyMap<string, Run>, everyTask: readonly WorkItem[] = tasks): Map<string, TaskCardModel[]> {
   const out = new Map<string, TaskCardModel[]>();
   if (!cards.size || !messages.length) return out;
   const byId = new Map(messages.map(message => [message.id, message]));
+  const firstPart = firstPartsByLead(everyTask);
   for (const task of [...tasks].sort((a, b) => a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0)) {
     const card = cards.get(task.id);
     if (!card) continue;
     const trigger = task.assignee_run_id || task.source_run_id ? runById.get(task.assignee_run_id || task.source_run_id!)?.trigger_message_id : undefined;
-    let anchor = trigger ? byId.get(trigger) : undefined;
+    // The plan of a lead sits right after the message where the lead gave the parts, not under the request.
+    let anchor = planAnchor(task, firstPart.get(task.id), messages) ?? (trigger ? byId.get(trigger) : undefined);
     if (!anchor) for (const message of messages) if (message.created_at <= task.created_at) anchor = message;
     if (!anchor) continue;
     const list = out.get(anchor.id);
@@ -174,7 +196,7 @@ export function deriveCards(tasks: readonly WorkItem[], botById: ReadonlyMap<str
   const planned = plannedPartIds(tasks, models);
   const drawn = tasks.filter(task => !planned.has(task.id));
   const anchored = folded.size ? messages.filter(message => !folded.has(message.id)) : messages;
-  return { models, folded, byMessage: anchorCards(drawn, models, anchored, runById), roster: rosterTasks(models.values()), progressByRun: progressByRun(tasks) };
+  return { models, folded, byMessage: anchorCards(drawn, models, anchored, runById, tasks), roster: rosterTasks(models.values()), progressByRun: progressByRun(tasks) };
 }
 
 /** The one-line status each working run's holder keeps (task_update progress): the live line shows it in place of the generic step label. */
