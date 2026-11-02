@@ -9,7 +9,10 @@ package app
 // server names the part with Message.TaskID, derived and never stored. A
 // delegation message of the group never folds: it is the visible plan.
 
-import "strings"
+import (
+	"database/sql"
+	"strings"
+)
 
 // partFoldConditions is the part of the fold query that holds for one message
 // m joined to its task w. A run that read a message of the person (queued
@@ -64,4 +67,26 @@ func (s *Store) hydrateMessagePartTasks(msgs []Message) error {
 		msgs[idx[messageID]].TaskID = taskID
 	}
 	return rows.Err()
+}
+
+// announceFoldedResultTx sends the message of a part's result again, with its
+// task_id, when the link to the task is made. A holder's say(answer, task_id)
+// posts the message while the run works and the task takes it as its result only
+// when the run ends; a client that read the message from the stream before then
+// has no task_id, so it would keep the words as a bubble. The client replaces the
+// message by its id.
+func announceFoldedResultTx(tx *sql.Tx, messageID string) error {
+	if messageID == "" {
+		return nil
+	}
+	taskID := partTaskForMessage(tx, messageID)
+	if taskID == "" {
+		return nil
+	}
+	m, err := scanMsg(tx.QueryRow(`SELECT id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at FROM messages WHERE id=?`, messageID))
+	if err != nil {
+		return err
+	}
+	m.TaskID = taskID
+	return insertEventTx(tx, m.ConversationID, "message", m, now())
 }

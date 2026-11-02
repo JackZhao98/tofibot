@@ -464,6 +464,9 @@ func taskFinishedOneTx(tx *sql.Tx, done Run, item WorkItem, result Message, sayO
 		status, t, completed, completed, result.ID, summary, item.RunSpecVersion, item.ID); err != nil {
 		return err
 	}
+	if err = announceFoldedResultTx(tx, result.ID); err != nil {
+		return err
+	}
 	// A result submitted for the task (done, or in review for the giver) is
 	// progress the first time for a spec version; a holder that resubmits the
 	// same result each round, or a round that ends still working or blocked, is not.
