@@ -122,3 +122,8 @@ html:not([data-desktop]) .workspace .attachment-lightbox-bar small { flex:0 1 au
 .workspace .upload-progress.is-failed .upload-progress-bar { background:var(--danger-text); opacity:.5; }
 .workspace .delivered-attachment.is-pending .attachment-file-open { cursor:default; }
 @media (prefers-reduced-motion:no-preference) { .workspace .upload-progress-bar { transition:transform var(--m-quick) var(--ease-out); } }
+
+/* The work-trace step pick for the keyboard: out of sight until one of its buttons has focus. */
+.workspace .attachment-lightbox-steps { display:flex; flex-wrap:wrap; gap:4px 10px; margin:6px 0 0; padding:0; list-style:none; }
+.workspace .attachment-lightbox-steps:not(:focus-within) { position:absolute; width:1px; height:1px; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.workspace .attachment-lightbox-steps [aria-current="true"] { font-weight:600; }

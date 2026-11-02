@@ -178,6 +178,14 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.match(await imageName(t.page), /strip1$/, "a redacted step has no picture to open");
     await clickCell(t, 4);
     assert.match(await imageName(t.page), /cap-5$/);
+    // The keyboard reaches every step through buttons that show when focused, and the way back to the strip.
+    await t.page.getByRole("button", { name: "Work trace", exact: true }).focus();
+    assert.match(await imageName(t.page), /cap-5$/, "focus alone changes nothing");
+    await t.page.keyboard.press("Enter");
+    assert.match(await imageName(t.page), /strip1$/, "the Work trace button goes back to the strip");
+    await t.page.getByRole("button", { name: /^Step 4: click 4$/ }).focus();
+    await t.page.keyboard.press("Enter");
+    assert.match(await imageName(t.page), /cap-4$/, "a step button opens that step");
     await t.page.keyboard.press("Escape");
     await t.page.locator("dialog[open]").waitFor({ state: "detached" });
     assert.deepEqual(t.errors, [], `page errors: ${t.errors}`);
