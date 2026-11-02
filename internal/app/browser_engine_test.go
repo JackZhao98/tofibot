@@ -251,9 +251,15 @@ func TestBrowserEngineRelaysRefsAsTargets(t *testing.T) {
 	if !strings.Contains(out, "[ref=e7]") {
 		t.Fatalf("result lacks the snapshot: %q", out)
 	}
-	a := rec.last()
+	// The work trace may add its own screenshot after the call: look at the engine call.
+	var a computer.Action
+	for _, x := range rec.actions {
+		if x.Name == "browser.mcp" {
+			a = x
+		}
+	}
 	if a.Name != "browser.mcp" {
-		t.Fatalf("action %q", a.Name)
+		t.Fatalf("no engine call: %v", rec.actions)
 	}
 	var sent struct {
 		Tool string         `json:"tool"`

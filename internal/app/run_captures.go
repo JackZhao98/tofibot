@@ -34,6 +34,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 	"unicode/utf8"
 
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
@@ -167,6 +168,7 @@ type runTraceState struct {
 	mu         sync.Mutex
 	pageURL    string
 	lastAction string
+	lastStored time.Time
 }
 
 func (s *Server) traceState(runID string) *runTraceState {
@@ -446,6 +448,13 @@ func (s *Server) finishCapture(ctx context.Context, r Run, tool, action string, 
 	if r.ID == "" || !s.autoBool(autoWorkTrace) {
 		return out, nil
 	}
+	return withCaptureSeq(out, s.recordTrace(ctx, r, tool, action, pageURL, result, detail)), nil
+}
+
+// recordTrace applies the privacy decision, stores the picture of a capture
+// result and inserts the row. It returns the capture number, or 0 when no row
+// was written.
+func (s *Server) recordTrace(ctx context.Context, r Run, tool, action, pageURL, result, detail string) int {
 	st := s.traceState(r.ID)
 	st.mu.Lock()
 	if pageURL == "" {
@@ -453,6 +462,7 @@ func (s *Server) finishCapture(ctx context.Context, r Run, tool, action string, 
 	}
 	label := st.lastAction
 	st.lastAction = ""
+	st.lastStored = time.Now()
 	st.mu.Unlock()
 	if label == "" {
 		label = strings.TrimPrefix(strings.TrimPrefix(action, "desktop."), "browser.")
@@ -486,9 +496,61 @@ func (s *Server) finishCapture(ctx context.Context, r Run, tool, action string, 
 	seq, err := s.store.addRunCapture(row)
 	if err != nil {
 		log.Printf("[trace] could not record a capture of run %s: %v", r.ID, err)
-		return out, nil
+		return 0
 	}
-	return withCaptureSeq(out, seq), nil
+	return seq
+}
+
+// engineTraceTools are the browser_ calls that can change the page. After one
+// of them the server takes its own screenshot for the work trace.
+var engineTraceTools = map[string]bool{
+	"browser_navigate": true, "browser_navigate_back": true, "browser_click": true, "browser_type": true,
+	"browser_fill_form": true, "browser_select_option": true, "browser_press_key": true,
+	"browser_file_upload": true, "browser_handle_dialog": true, "browser_tabs": true,
+}
+
+// traceMinGap is the least time between two stored captures of one run taken
+// for the trace on its own.
+const traceMinGap = 2 * time.Second
+
+// engineTraceCapture keeps a picture of the page after a Playwright call. The
+// Playwright tools return no screenshot, so the server asks the guest for the
+// shared Chrome's screenshot (the classic browser.snapshot action; the guest
+// is not changed). The picture is never returned to the model, costs it no
+// tokens and does not count toward its views. A failure here never fails the
+// tool call.
+func (s *Server) engineTraceCapture(ctx context.Context, r Run, tool string, args map[string]any, pageURL string) {
+	if s.store == nil || r.ID == "" || !engineTraceTools[tool] || !s.autoBool(autoWorkTrace) {
+		return
+	}
+	if tool == "browser_tabs" {
+		if action, _ := args["action"].(string); action != "new" && action != "select" {
+			return
+		}
+	}
+	if s.store.holdsPendingTakeover(r.ID) {
+		return
+	}
+	st := s.traceState(r.ID)
+	st.mu.Lock()
+	recent := !st.lastStored.IsZero() && time.Since(st.lastStored) < traceMinGap
+	st.mu.Unlock()
+	if recent {
+		return
+	}
+	defer func() {
+		if v := recover(); v != nil {
+			log.Printf("[trace] engine capture of run %s: %v", r.ID, v)
+		}
+	}()
+	out, err := s.microVMAction(ctx, r, "browser.snapshot", json.RawMessage(`{}`))
+	if err != nil {
+		return
+	}
+	if pageURL == "" {
+		pageURL = pageURLFromResult(out)
+	}
+	s.recordTrace(ctx, r, "computer_browser", "browser.snapshot", pageURL, out, "background")
 }
 
 func traceShortID(id string) string {
