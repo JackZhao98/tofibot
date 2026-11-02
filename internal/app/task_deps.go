@@ -459,6 +459,7 @@ func (s *Store) addTasks(conv, giver, parentRun string, parts []delegatePart, po
 		allDeps = append(allDeps, parts[i].Deps...)
 	}
 	allDeps = cleanDepIDs(allDeps)
+	coAddressedGuard := s.structuredOutputOn() // read before the transaction: one connection
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
@@ -474,6 +475,18 @@ func (s *Store) addTasks(conv, giver, parentRun string, parts []delegatePart, po
 	var convKind string
 	if err = tx.QueryRow(`SELECT kind FROM conversations WHERE id=?`, conv).Scan(&convKind); err != nil {
 		return nil, err
+	}
+	// The fan-out limits are read in the transaction that inserts, so two members
+	// that delegate at the same moment cannot both pass the open-task limit.
+	if err = checkFanoutTx(tx, parentRun, len(parts)); err != nil {
+		return nil, err
+	}
+	if convKind == "group" && giver != "system" {
+		for _, part := range parts {
+			if err = checkPartRecipientTx(tx, parentRun, giver, part.Bot, coAddressedGuard); err != nil {
+				return nil, err
+			}
+		}
 	}
 	root, depParent, err := checkDepsTx(tx, giver, conv, allDeps)
 	if err != nil {
@@ -628,3 +641,33 @@ func (s *Store) addTasks(conv, giver, parentRun string, parts []delegatePart, po
 }
 
 func utf8Len(s string) int { return len([]rune(s)) }
+
+// checkPartRecipientTx applies to a part the rules the hand-over path applies to
+// a direct task: a member the person addressed in the same message answers it in
+// its own run, and a member that holds or was given work for it is not given
+// more. A task for the giver itself is not a hand-over and is not checked.
+func checkPartRecipientTx(tx *sql.Tx, parentRun, giver, bot string, coAddressedGuard bool) error {
+	if bot == giver {
+		return nil
+	}
+	var name string
+	_ = tx.QueryRow(`SELECT name FROM bots WHERE id=?`, bot).Scan(&name)
+	if coAddressedGuard {
+		addressed, err := coAddressedRootTx(tx, parentRun, bot)
+		if err != nil {
+			return err
+		}
+		if addressed {
+			return recipientAddressedRefusal(name)
+		}
+	}
+	refuse, steer, err := delegationConflictTx(tx, parentRun, bot)
+	if err != nil {
+		return err
+	}
+	if refuse || len(steer) > 0 {
+		// A part cannot steer a run that works on its own part of the message.
+		return delegationRefusal(name)
+	}
+	return nil
+}

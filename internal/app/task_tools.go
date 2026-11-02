@@ -119,9 +119,6 @@ func (s *Server) delegateTool(c Conversation, r Run) Tool {
 			if cerr != nil {
 				return "", cerr
 			}
-			if err := checkFanoutTx(s.store.db, r.ID, len(recipients)); err != nil {
-				return "", err
-			}
 			if contract.DeadlineSeconds == 0 {
 				contract.DeadlineSeconds = defaultPartDeadlineSeconds(s.store.db, r.ID)
 			}
@@ -145,6 +142,11 @@ func (s *Server) delegateTool(c Conversation, r Run) Tool {
 				}
 				s.flushInbox()
 				return receiptJSON(map[string]any{"tasks": receipts, "note": "A task that waits starts when every task it waits on is done. Every result returns to you as an event."})
+			}
+			// The tasks of this call start runs now; the limits are read here, as the
+			// hand-over path has its own transaction.
+			if err := checkFanoutTx(s.store.db, r.ID, len(recipients)); err != nil {
+				return "", err
 			}
 			var out string
 			var runs []Run

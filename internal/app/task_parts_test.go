@@ -227,3 +227,52 @@ func TestPartForTheGiverItselfWaitsForItsLane(t *testing.T) {
 		t.Fatalf("own part status %s", got.Status)
 	}
 }
+
+// coAddressedRoots makes one person message that addresses two members: each has
+// its own root run for it. The first member's run is running, as in a live turn.
+func (f taskFix) coAddressedRoots(x, y Bot) (Run, Run) {
+	f.t.Helper()
+	_, runs, _, _, err := f.s.addUserRunsSteering(f.g.ID, "plan the trip", "client-"+newID(), []runSpec{{BotID: x.ID, Model: x.Model}, {BotID: y.ID, Model: y.Model}}, nil, true)
+	if err != nil || len(runs) != 2 {
+		f.t.Fatalf("co-addressed runs: %v %d", err, len(runs))
+	}
+	f.start(runs[0].ID)
+	a, _ := f.s.GetRun(runs[0].ID)
+	b, _ := f.s.GetRun(runs[1].ID)
+	return a, b
+}
+
+// A member the person addressed in the same message answers it in its own run:
+// no part of that message goes to it, on any path of delegate.
+func TestPartsRefuseACoAddressedMember(t *testing.T) {
+	f := newTaskFix(t)
+	lead, _ := f.coAddressedRoots(f.a, f.b)
+	for name, args := range map[string]map[string]any{
+		"parts":      {"parts": []map[string]any{{"bot_id": f.b.ID, "task": "Hotels"}, {"bot_id": f.c.ID, "task": "Days"}}},
+		"depends_on": {"bot_id": f.b.ID, "task": "Hotels", "depends_on": []string{"no-such-task"}},
+	} {
+		_, err := call(t, f.tool(f.g, lead, "delegate"), args)
+		if name == "parts" && codeOf(err) != "recipient_already_addressed" {
+			t.Fatalf("%s: got %v", name, err)
+		}
+		if name == "depends_on" && err == nil {
+			t.Fatalf("%s: a co-addressed member was given a task", name)
+		}
+	}
+	if n := f.count(`SELECT COUNT(*) FROM work_items`); n != 0 {
+		t.Fatalf("%d tasks after the refusals", n)
+	}
+	// A member the message did not address still gets its part.
+	if r, _ := f.partsReceipt(f.g, lead, []map[string]any{{"bot_id": f.c.ID, "task": "Days"}}); len(r.Tasks) != 1 {
+		t.Fatal("the other member must get the part")
+	}
+}
+
+// The giver may keep a part for itself: it is no hand-over.
+func TestPartsAllowAPartForTheCoAddressedGiver(t *testing.T) {
+	f := newTaskFix(t)
+	lead, _ := f.coAddressedRoots(f.a, f.b)
+	if r, _ := f.partsReceipt(f.g, lead, []map[string]any{{"bot_id": f.a.ID, "task": "My own part"}, {"bot_id": f.c.ID, "task": "Days"}}); len(r.Tasks) != 2 {
+		t.Fatal("a part for the giver must stand")
+	}
+}

@@ -53,9 +53,6 @@ func (s *Server) delegateParts(c Conversation, r Run, in []delegatePartInput) (s
 	if len(in) > maxDelegateParts {
 		return "", taskRefusal("task_fanout_width", fmt.Sprintf("One call gives at most %d parts.", maxDelegateParts))
 	}
-	if err := checkFanoutTx(s.store.db, r.ID, len(in)); err != nil {
-		return "", err
-	}
 	defaultDeadline := defaultPartDeadlineSeconds(s.store.db, r.ID)
 	parts := make([]delegatePart, 0, len(in))
 	var recipients []string
