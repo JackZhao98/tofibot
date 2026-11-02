@@ -222,7 +222,7 @@ func TestOnboardingOpeningMessageAndPrompt(t *testing.T) {
 	}
 
 	prompt := onboardingSystemPrompt
-	for _, want := range []string{"use it exactly", "choose a short friendly name", "set_bot_profile", "at most one clarification question at a time", "placeholder"} {
+	for _, want := range []string{"use it exactly", "choose a short friendly personal name", "never a description of a task", "when it is a single task, do the task in this run", "set_bot_profile", "at most one clarification question at a time", "placeholder"} {
 		if !strings.Contains(prompt, want) {
 			t.Fatalf("onboarding prompt lacks %q", want)
 		}
