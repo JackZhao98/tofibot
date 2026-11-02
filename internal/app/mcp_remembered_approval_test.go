@@ -57,8 +57,18 @@ func answerRoute(t *testing.T, f *autoReviewFixture, id string, body string) (in
 
 func pendingCard(t *testing.T, f *autoReviewFixture) Question {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
+	// Wait for the call to reach the gate (signalled by the fixture), then for
+	// its card. Both are bounded by the test's deadline, not a fixed budget.
+	deadline := time.NewTimer(testBudget(t))
+	defer deadline.Stop()
+	select {
+	case <-f.gateEntered:
+	case <-deadline.C:
+		t.Fatal("the call never reached the approval gate")
+	}
+	tick := time.NewTicker(2 * time.Millisecond)
+	defer tick.Stop()
+	for {
 		qs, err := f.s.store.ListQuestions(f.c.ID)
 		if err != nil {
 			t.Fatal(err)
@@ -66,10 +76,12 @@ func pendingCard(t *testing.T, f *autoReviewFixture) Question {
 		if len(qs) > 0 && qs[0].RunID == f.r.ID && qs[0].Status == questionPending {
 			return qs[0]
 		}
-		time.Sleep(5 * time.Millisecond)
+		select {
+		case <-tick.C:
+		case <-deadline.C:
+			t.Fatal("no pending card for the current run")
+		}
 	}
-	t.Fatal("no pending card for the current run")
-	return Question{}
 }
 
 func cardForRun(t *testing.T, f *autoReviewFixture, run string) Question {

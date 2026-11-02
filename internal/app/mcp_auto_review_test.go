@@ -77,6 +77,32 @@ type autoReviewFixture struct {
 	executeTool func(context.Context, string, string) error
 	// tool is the fixture's remote tool; tests may set its annotations.
 	tool *mcp.Tool
+	// gateEntered gets one signal each time a call reaches the approval gate, so a
+	// test waits for the code under test instead of for a wall-clock budget.
+	gateEntered chan struct{}
+}
+
+// testBudget is the time a wait in this test may still take: what is left of the
+// test binary's deadline (-timeout), less a margin so the failure is reported by
+// the test and not by the alarm. The package is slow under load; a fixed few
+// seconds is not a property of the code under test.
+func testBudget(t *testing.T) time.Duration {
+	t.Helper()
+	if d, ok := t.Deadline(); ok {
+		if left := time.Until(d) - 15*time.Second; left > time.Second {
+			return left
+		}
+		return time.Second
+	}
+	return 2 * time.Minute
+}
+
+// enterGate records that a call reached the approval gate.
+func (f *autoReviewFixture) enterGate() {
+	select {
+	case f.gateEntered <- struct{}{}:
+	default:
+	}
 }
 
 func newAutoReviewFixture(t *testing.T) *autoReviewFixture {
@@ -101,7 +127,7 @@ func newAutoReviewFixtureWith(t *testing.T, secondTool bool) *autoReviewFixture 
 	if _, err = store.db.Exec(`UPDATE runs SET status='running' WHERE id=?`, r.ID); err != nil {
 		t.Fatal(err)
 	}
-	f := &autoReviewFixture{c: c, r: r, dir: dir}
+	f := &autoReviewFixture{c: c, r: r, dir: dir, gateEntered: make(chan struct{}, 64)}
 	// The fixture tool carries no provider annotation, so it is in the write
 	// tier (reviewed per call). Tests that need the provider's readOnlyHint
 	// route set tool.Annotations before their next discovery.
@@ -187,6 +213,7 @@ func newAutoReviewFixtureWith(t *testing.T, secondTool bool) *autoReviewFixture 
 
 	f.executeArgs = func(ctx context.Context, args string) error {
 		p, err := f.s.extensions.PrepareDiscoverableForBotWithCallGate(ctx, f.r.BotID, nil, func(ctx context.Context, call extensions.MCPCallApproval) error {
+			f.enterGate()
 			return f.s.approveMCPCall(ctx, f.c, f.r, call)
 		})
 		if err != nil {
@@ -197,6 +224,7 @@ func newAutoReviewFixtureWith(t *testing.T, secondTool bool) *autoReviewFixture 
 	}
 	f.executeTool = func(ctx context.Context, tool, args string) error {
 		p, err := f.s.extensions.PrepareDiscoverableForBotWithCallGate(ctx, f.r.BotID, nil, func(ctx context.Context, call extensions.MCPCallApproval) error {
+			f.enterGate()
 			return f.s.approveMCPCall(ctx, f.c, f.r, call)
 		})
 		if err != nil {
@@ -228,7 +256,7 @@ type runtimeTool func(context.Context, json.RawMessage) (string, error)
 
 func waitReviewQuestion(t *testing.T, f *autoReviewFixture, status string) Question {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(testBudget(t))
 	for time.Now().Before(deadline) {
 		qs, err := f.s.store.ListQuestions(f.c.ID)
 		if err != nil {
@@ -247,7 +275,7 @@ func waitReviewDone(t *testing.T, done <-chan error) error {
 	select {
 	case err := <-done:
 		return err
-	case <-time.After(5 * time.Second):
+	case <-time.After(testBudget(t)):
 		t.Fatal("gate did not settle")
 		return nil
 	}
