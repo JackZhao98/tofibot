@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	delegateToolDescription = "Give a task to one or more members. Each gets a task record: your brief, a version number and an optional checklist. The call returns a receipt at once and starts the work. The result returns later as an event that wakes you, so do not poll. Write the brief to stand alone: the goal, the form of the result, the tools and sources, and the limits. Split broad work into tasks, each with one owner and one result, and give independent parts in the same turn so that they run in parallel. A part that needs the result of other tasks names their ids in depends_on: it waits, starts by itself when all of them are done, and you are told if one of them fails or is cancelled. Before parallel work on code, give a first task that fixes the interface the parts share, and make the parts depend on it. Match the number of tasks to the difficulty of the work: simple work needs one task. Add a checklist only for work with separate parts. Pass files the member needs in attachment_ids."
+	delegateToolDescription = "Give a task to one or more members. Each gets a task record: your brief, a version number and an optional checklist. The call returns a receipt at once and starts the work. The result returns later as an event that wakes you, so do not poll. Write the brief to stand alone: the goal, the form of the result, the tools and sources, and the limits. Split broad work into tasks, each with one owner and one result, and give independent parts in the same turn so that they run in parallel. A part that needs the result of other tasks names their ids in depends_on: it waits, starts by itself when all of them are done, and you are told if one of them fails or is cancelled. Before parallel work on code, give a first task that fixes the interface the parts share, and make the parts depend on it. Match the number of tasks to the difficulty of the work: simple work needs one task. Add a checklist only for work with separate parts. Pass files the member needs in attachment_ids. Give result_format, deadline_seconds and limits for each task that needs them; the holder reads them as written. The receipt holds the wait on the result: end your turn with a pending answer, and you wake when the task ends or when its deadline passes. A task that ends late or fails shows on your task's checklist with its reason, and your final answer states what is in and what is missing. A task given to yourself starts after this run ends, so it is serial."
 
 	waitForToolDescription = "Start a wait and get a receipt at once. The wait ends when its event happens or its deadline passes; then you are woken with the result, and a timeout is a result too. After the receipt, tell the person what they need and end your turn. To wait for several events together, repeat the call with the group id from the receipt: mode all ends when every member has ended, mode any at the first fulfilled member. A wait that would close a cycle is refused. A wait on a command (kind command_exit, target the terminal id) ends when the process ends, or, for a shell terminal, when the shell is back at its prompt; the result has the exit code when one exists and the last output. It always has a timer check in its group, mode any: add your own timer to the group first, or the system adds one. If the timer comes first, read the terminal and wait again when the command still runs."
 
@@ -53,19 +53,25 @@ func receiptJSON(value any) (string, error) {
 func (s *Server) delegateTool(c Conversation, r Run) Tool {
 	return Tool{Name: "delegate", Description: delegateToolDescription, Local: true,
 		Parameters: objectSchema(map[string]any{
-			"bot_id":         stringProp("Exact id of the member."),
-			"bot_ids":        map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Exact ids of the members, when more than one."},
-			"task":           stringProp(delegationBriefText),
-			"title":          stringProp("A short name for the task."),
-			"checklist":      map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "The items of the task's checklist, in order."},
-			"depends_on":     map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Ids of tasks in the same tree that must end done before this task starts."},
-			"attachment_ids": attachmentIDsProp,
+			"bot_id":           stringProp("Exact id of the member."),
+			"bot_ids":          map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Exact ids of the members, when more than one."},
+			"task":             stringProp(delegationBriefText),
+			"title":            stringProp("A short name for the task."),
+			"checklist":        map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "The items of the task's checklist, in order."},
+			"depends_on":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Ids of tasks in the same tree that must end done before this task starts."},
+			"attachment_ids":   attachmentIDsProp,
+			"result_format":    stringProp("The form of the result: the layout, the fields or the file that you need back. The holder reads it as written."),
+			"deadline_seconds": map[string]any{"type": "integer", "description": "How long the holder has, in seconds. When it passes you are woken with a timeout result."},
+			"limits":           stringProp("What the holder must not do or touch, and its budget of pages or attempts."),
 		}, []string{"task"}),
 		Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
 			var in struct {
+				ResultFormat  string   `json:"result_format"`
+				DeadlineSecs  int      `json:"deadline_seconds"`
+				Limits        string   `json:"limits"`
 				BotID         string   `json:"bot_id"`
 				BotIDs        []string `json:"bot_ids"`
 				Task          string   `json:"task"`
@@ -101,13 +107,21 @@ func (s *Server) delegateTool(c Conversation, r Run) Tool {
 					return "", taskRefusal("checklist_item_invalid", fmt.Sprintf("Each item needs 1-%d characters.", maxChecklistTextRunes))
 				}
 			}
-			if deps := cleanDepIDs(in.DependsOn); len(deps) > 0 || (len(recipients) == 1 && s.store.handoffUsed(r.ID)) {
+			contract, cerr := cleanTaskContract(taskContract{ResultFormat: in.ResultFormat, Limits: in.Limits, DeadlineSeconds: in.DeadlineSecs})
+			if cerr != nil {
+				return "", cerr
+			}
+			selfIncluded := false
+			for _, id := range recipients {
+				selfIncluded = selfIncluded || id == r.BotID
+			}
+			if deps := cleanDepIDs(in.DependsOn); len(deps) > 0 || selfIncluded || (len(recipients) == 1 && s.store.handoffUsed(r.ID)) {
 				// The tasks wait, or this run gave its one direct task already: no run
 				// starts now, and no hand-over slot of this run is used.
 				if c.Kind != "group" && c.Kind != "dm" {
 					return "", errors.New("delegate requires a conversation")
 				}
-				receipts, err := s.store.AddDependentTasks(c.ID, r.BotID, r.ID, recipients, in.Task, in.Title, in.Checklist, deps, in.AttachmentIDs...)
+				receipts, err := s.store.AddDependentTasksWith(c.ID, r.BotID, r.ID, recipients, in.Task, in.Title, in.Checklist, deps, contract, in.AttachmentIDs...)
 				if err != nil {
 					return "", err
 				}
@@ -131,7 +145,7 @@ func (s *Server) delegateTool(c Conversation, r Run) Tool {
 			if err != nil {
 				return "", err
 			}
-			tasks, err := s.store.shapeDelegatedTasks(runs, in.Title, in.Checklist)
+			tasks, err := s.store.shapeDelegatedTasks(runs, in.Title, in.Checklist, contract)
 			if err != nil {
 				return "", err
 			}
@@ -151,11 +165,17 @@ type delegatedTaskReceipt struct {
 	RunID   string `json:"run_id,omitempty"`
 	// BlockedBy lists the tasks a task waits on; such a task has no run yet.
 	BlockedBy []string `json:"blocked_by,omitempty"`
+	// DeadlineAt is when the giver's wait on the task times out; empty when the
+	// task waits on others (the time starts when it unlocks) or has no deadline.
+	DeadlineAt string `json:"deadline_at,omitempty"`
+	// Runs is "serial" for a task the giver holds itself: it starts after the
+	// run that gave it, because a Bot runs one run at a time.
+	Runs string `json:"runs,omitempty"`
 }
 
 // shapeDelegatedTasks gives the tasks the delegation made their name and
 // checklist, and reports them as receipts.
-func (s *Store) shapeDelegatedTasks(runs []Run, title string, checklist []string) ([]delegatedTaskReceipt, error) {
+func (s *Store) shapeDelegatedTasks(runs []Run, title string, checklist []string, contract taskContract) ([]delegatedTaskReceipt, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
@@ -183,6 +203,20 @@ func (s *Store) shapeDelegatedTasks(runs []Run, title string, checklist []string
 				return nil, err
 			}
 		}
+		if contract != (taskContract{}) {
+			if err = storeTaskContractTx(tx, id, contract); err != nil {
+				return nil, err
+			}
+			if contract.DeadlineSeconds > 0 {
+				deadline := deadlineFrom(time.Now(), contract.DeadlineSeconds)
+				if _, err = tx.Exec(`UPDATE work_items SET deadline_at=? WHERE id=?`, deadline, id); err != nil {
+					return nil, err
+				}
+				if _, err = tx.Exec(`UPDATE waits SET deadline_at=? WHERE kind=? AND target=? AND status='pending'`, deadline, waitTaskResult, id); err != nil {
+					return nil, err
+				}
+			}
+		}
 		if err = taskEventTx(tx, id); err != nil {
 			return nil, err
 		}
@@ -190,7 +224,9 @@ func (s *Store) shapeDelegatedTasks(runs []Run, title string, checklist []string
 		if err != nil {
 			return nil, err
 		}
-		receipts = append(receipts, delegatedTaskReceipt{TaskID: id, BotID: item.BotID, Status: item.Status, Version: item.SpecVersion, RunID: run.ID})
+		rc := delegatedTaskReceipt{TaskID: id, BotID: item.BotID, Status: item.Status, Version: item.SpecVersion, RunID: run.ID}
+		rc.fillContractTx(tx, item.AssignerBotID)
+		receipts = append(receipts, rc)
 	}
 	return receipts, tx.Commit()
 }

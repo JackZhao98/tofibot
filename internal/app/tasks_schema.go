@@ -126,6 +126,16 @@ CREATE INDEX IF NOT EXISTS command_waits_bot ON command_waits(bot_id);`); err !=
 	if err := ensureColumn(db, "work_items", "stall_sig", `ALTER TABLE work_items ADD COLUMN stall_sig TEXT NOT NULL DEFAULT ''`); err != nil {
 		return err
 	}
+	// The contract of a delegated part (divide and conquer, line A): the form of
+	// the result, the limits, the deadline and the one-line status the holder keeps.
+	for _, column := range []string{"result_format", "limits", "deadline_at", "progress_line", "progress_at"} {
+		if err := ensureColumn(db, "work_items", column, `ALTER TABLE work_items ADD COLUMN `+column+` TEXT NOT NULL DEFAULT ''`); err != nil {
+			return err
+		}
+	}
+	if err := ensureColumn(db, "work_items", "deadline_seconds", `ALTER TABLE work_items ADD COLUMN deadline_seconds INTEGER NOT NULL DEFAULT 0`); err != nil {
+		return err
+	}
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS task_tree_budget(
  tree_key TEXT PRIMARY KEY,
  messages INTEGER NOT NULL DEFAULT 0,

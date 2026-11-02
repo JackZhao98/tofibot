@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
@@ -139,6 +140,7 @@ func decorateTaskTx(q queryer, item *WorkItem) error {
 	item.Checklist = checklist
 	item.ClaimedAt = claimedAtTx(q, item.ID, item.BotID)
 	_ = q.QueryRow(`SELECT merged_into,source,source_run_id,schedule_id,interrupted_at,interrupt_reason,resume_count FROM work_items WHERE id=?`, item.ID).Scan(&item.MergedInto, &item.Source, &item.SourceRunID, &item.ScheduleID, &item.InterruptedAt, &item.InterruptReason, &item.ResumeCount)
+	_ = q.QueryRow(`SELECT result_format,limits,deadline_at,progress_line FROM work_items WHERE id=?`, item.ID).Scan(&item.ResultFormat, &item.Limits, &item.DeadlineAt, &item.ProgressLine)
 	item.AutoResume = item.InterruptedAt != "" && item.Status == "todo" && (item.InterruptReason == interruptSteered || item.ResumeCount < taskAutoResumeLimit)
 	if item.AssignerBotID != "" {
 		_ = q.QueryRow(`SELECT name FROM bots WHERE id=?`, item.AssignerBotID).Scan(&item.AssignerBotName)
@@ -1107,6 +1109,10 @@ func (s *Store) taskRecordContext(runID string) string {
 	b.WriteString("\n")
 	if item.AssignerKind == "user" && item.Title != "" && item.Title != firstLine(item.Description, 80) {
 		fmt.Fprintf(&b, "Brief of the request, resolved from the conversation: %s\nThe person's own words and the earlier turns are in the transcript.\n", item.Title)
+	}
+	b.WriteString(taskContractLines(item, time.Now()))
+	if item.ProgressLine != "" {
+		fmt.Fprintf(&b, "Status line you keep: %s\n", item.ProgressLine)
 	}
 	if len(item.Checklist) > 0 {
 		b.WriteString("Checklist, one item at a time, each ended with a reason:\n")
