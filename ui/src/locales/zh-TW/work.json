@@ -195,6 +195,15 @@
     "paused": "已暫停",
     "resume": "繼續",
     "drop": "放棄",
-    "resumes_after": "目前回覆結束後自動繼續"
+    "resumes_after": "目前回覆結束後自動繼續",
+    "waiting_on": "等待 {{names}}",
+    "minutes_left": "還剩 {{minutes}} 分鐘",
+    "overdue": "已逾期限",
+    "result_of": "{{name}} 的結果",
+    "reason": {
+      "failed": "失敗",
+      "cancelled": "已取消",
+      "timed_out": "已逾時"
+    }
   }
 }

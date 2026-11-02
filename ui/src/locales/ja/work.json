@@ -195,6 +195,15 @@
     "paused": "一時停止中",
     "resume": "再開",
     "drop": "破棄",
-    "resumes_after": "現在の返信のあとに再開します"
+    "resumes_after": "現在の返信のあとに再開します",
+    "waiting_on": "{{names}} を待機中",
+    "minutes_left": "残り {{minutes}} 分",
+    "overdue": "期限切れ",
+    "result_of": "{{name}} の結果",
+    "reason": {
+      "failed": "失敗",
+      "cancelled": "取り消し",
+      "timed_out": "タイムアウト"
+    }
   }
 }

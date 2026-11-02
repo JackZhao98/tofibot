@@ -163,8 +163,18 @@ func unlockTaskTx(tx *sql.Tx, item WorkItem) (bool, error) {
 	if n, _ := res.RowsAffected(); n != 1 {
 		return false, nil
 	}
-	// The giver's wait on the task runs its usual deadline from now, not from when it was made.
-	if _, err = tx.Exec(`UPDATE waits SET deadline_at=? WHERE kind=? AND target=? AND status='pending'`, stampTime(time.Now().Add(waitTimeoutFor(waitTaskResult))), waitTaskResult, item.ID); err != nil {
+	// The giver's wait on the task runs the part's deadline (its own, else the
+	// default of the setting) from now, not from when the task was made.
+	contract := loadContractTx(tx, item.ID)
+	deadline := stampTime(time.Now().Add(waitTimeoutFor(waitTaskResult)))
+	if secs := contract.deadlineSeconds; secs > 0 {
+		deadline = deadlineFrom(time.Now(), secs)
+		if _, err = tx.Exec(`UPDATE work_items SET deadline_at=? WHERE id=?`, deadline, item.ID); err != nil {
+			return false, err
+		}
+		contract.item.DeadlineAt = deadline
+	}
+	if _, err = tx.Exec(`UPDATE waits SET deadline_at=? WHERE kind=? AND target=? AND status='pending'`, deadline, waitTaskResult, item.ID); err != nil {
 		return false, err
 	}
 	var b strings.Builder
@@ -180,6 +190,9 @@ func unlockTaskTx(tx *sql.Tx, item WorkItem) (bool, error) {
 		if tx.QueryRow(`SELECT title,result_summary FROM work_items WHERE id=?`, id).Scan(&title, &summary) == nil {
 			fmt.Fprintf(&b, "\nResult of %q (%s): %s", title, id, trimRunes(strings.TrimSpace(summary), 300))
 		}
+	}
+	if lines := taskContractLines(contract.item, time.Now()); lines != "" {
+		b.WriteString("\n" + strings.TrimRight(lines, "\n"))
 	}
 	fmt.Fprintf(&b, "\nDo the work, then deliver the result with say and task_id %s.", item.ID)
 	if err = addInboxTx(tx, InboxItem{BotID: item.BotID, ConversationID: item.WorkConversationOrConversation(), Kind: inboxTaskUpdate, TaskID: item.ID, RootTaskID: item.RootTaskID,
@@ -384,6 +397,19 @@ func deliverTaskAttachmentsTx(tx *sql.Tx, taskID, runID string) error {
 	return insertEventTx(tx, conv, "message", m, t)
 }
 
+// delegatePart is one task of a delegation: who holds it, the brief and the
+// contract, what it waits on. A call with several parts makes them in one
+// transaction (AddTasks).
+type delegatePart struct {
+	Bot         string
+	Brief       string
+	Title       string
+	Checklist   []string
+	Deps        []string
+	Attachments []string
+	Contract    taskContract
+}
+
 // AddDependentTasks creates the tasks of a delegation that waits on other
 // tasks: one per recipient, with no run until they unlock. A task with no
 // dependency, or whose dependencies are all done, starts at once through the
@@ -391,18 +417,48 @@ func deliverTaskAttachmentsTx(tx *sql.Tx, taskID, runID string) error {
 // so independent parts run in parallel. The giver holds the wait for each
 // result, delivered through the inbox when the task ends.
 func (s *Store) AddDependentTasks(conv, giver, parentRun string, recipients []string, brief, title string, checklist, deps []string, attachmentIDs ...string) ([]delegatedTaskReceipt, error) {
-	receipts, err := s.addDependentTasks(conv, giver, parentRun, recipients, brief, title, checklist, deps, attachmentIDs)
+	return s.AddDependentTasksWith(conv, giver, parentRun, recipients, brief, title, checklist, deps, taskContract{}, attachmentIDs...)
+}
+
+// AddDependentTasksWith is AddDependentTasks with a contract: one brief for
+// every recipient.
+func (s *Store) AddDependentTasksWith(conv, giver, parentRun string, recipients []string, brief, title string, checklist, deps []string, contract taskContract, attachmentIDs ...string) ([]delegatedTaskReceipt, error) {
+	var parts []delegatePart
+	seen := map[string]bool{}
+	for _, bot := range recipients {
+		if bot = strings.TrimSpace(bot); bot != "" && !seen[bot] {
+			seen[bot] = true
+			parts = append(parts, delegatePart{Bot: bot, Brief: brief, Title: title, Checklist: checklist, Deps: deps, Attachments: attachmentIDs, Contract: contract})
+		}
+	}
+	return s.AddTasks(conv, giver, parentRun, parts, false)
+}
+
+// AddTasks makes the tasks of one delegation call in one transaction. A refusal
+// leaves none of them. With post set, the same transaction posts the one visible
+// message of the call in the group: "@name title" for each part.
+func (s *Store) AddTasks(conv, giver, parentRun string, parts []delegatePart, post bool) ([]delegatedTaskReceipt, error) {
+	receipts, err := s.addTasks(conv, giver, parentRun, parts, post)
 	s.afterTreeLimit(err)
 	return receipts, err
 }
 
-func (s *Store) addDependentTasks(conv, giver, parentRun string, recipients []string, brief, title string, checklist, deps []string, attachmentIDs []string) ([]delegatedTaskReceipt, error) {
-	deps = cleanDepIDs(deps)
-	brief = strings.TrimSpace(brief)
-	title = strings.TrimSpace(title)
-	if brief == "" || len(recipients) == 0 {
+func (s *Store) addTasks(conv, giver, parentRun string, parts []delegatePart, post bool) ([]delegatedTaskReceipt, error) {
+	if len(parts) == 0 {
 		return nil, taskRefusal("dependency_invalid", "A task needs a brief and a recipient.")
 	}
+	var allDeps []string
+	for i := range parts {
+		parts[i].Deps = cleanDepIDs(parts[i].Deps)
+		parts[i].Brief = strings.TrimSpace(parts[i].Brief)
+		parts[i].Title = strings.TrimSpace(parts[i].Title)
+		parts[i].Bot = strings.TrimSpace(parts[i].Bot)
+		if parts[i].Brief == "" || parts[i].Bot == "" {
+			return nil, taskRefusal("dependency_invalid", "A task needs a brief and a recipient.")
+		}
+		allDeps = append(allDeps, parts[i].Deps...)
+	}
+	allDeps = cleanDepIDs(allDeps)
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
@@ -419,7 +475,7 @@ func (s *Store) addDependentTasks(conv, giver, parentRun string, recipients []st
 	if err = tx.QueryRow(`SELECT kind FROM conversations WHERE id=?`, conv).Scan(&convKind); err != nil {
 		return nil, err
 	}
-	root, depParent, err := checkDepsTx(tx, giver, conv, deps)
+	root, depParent, err := checkDepsTx(tx, giver, conv, allDeps)
 	if err != nil {
 		return nil, err
 	}
@@ -452,33 +508,33 @@ func (s *Store) addDependentTasks(conv, giver, parentRun string, recipients []st
 			root, parent = r2, p2
 		}
 	}
-	open, err := depsOpenTx(tx, deps)
-	if err != nil {
-		return nil, err
-	}
-	status := "blocked"
-	if open == 0 {
-		status = "todo"
-	}
-	if utf8Len(title) > 240 {
-		title = string([]rune(title)[:240])
-	}
-	if title == "" {
-		title = firstLine(brief, 80)
-	}
-	if title == "" {
-		title = "Task"
-	}
 	var receipts []delegatedTaskReceipt
-	seen := map[string]bool{}
-	for _, bot := range recipients {
-		bot = strings.TrimSpace(bot)
-		if bot == "" || seen[bot] {
-			continue
+	var postLines, postAttachments []string
+	for _, part := range parts {
+		bot, brief, title, deps := part.Bot, part.Brief, part.Title, part.Deps
+		open, err := depsOpenTx(tx, deps)
+		if err != nil {
+			return nil, err
 		}
-		seen[bot] = true
-		if bot == giver {
-			return nil, taskRefusal("delegate_self", "A task goes to another member.")
+		status := "blocked"
+		if open == 0 {
+			status = "todo"
+		}
+		if utf8Len(title) > 240 {
+			title = string([]rune(title)[:240])
+		}
+		if title == "" {
+			title = firstLine(brief, 80)
+		}
+		if title == "" {
+			title = "Task"
+		}
+		contract, err := cleanTaskContract(part.Contract)
+		if err != nil {
+			return nil, err
+		}
+		if len(part.Checklist) > maxChecklistItems {
+			return nil, taskRefusal("checklist_too_long", fmt.Sprintf("A checklist holds at most %d items.", maxChecklistItems))
 		}
 		workConv := conv
 		if convKind == "group" {
@@ -508,12 +564,18 @@ func (s *Store) addDependentTasks(conv, giver, parentRun string, recipients []st
 		if _, err = tx.Exec(`INSERT INTO task_revisions(task_id,version,source,actor,text,created_at) VALUES(?,?,?,?,?,?)`, id, 1, "assigner", giver, trimRunes(brief, maxTaskBriefRunes), t); err != nil {
 			return nil, err
 		}
-		if len(checklist) > 0 {
-			if err = addChecklistItemsTx(tx, id, checklist); err != nil {
+		if err = storeTaskContractTx(tx, id, contract); err != nil {
+			return nil, err
+		}
+		if err = addPlanItemTx(tx, id); err != nil {
+			return nil, err
+		}
+		if len(part.Checklist) > 0 {
+			if err = addChecklistItemsTx(tx, id, part.Checklist); err != nil {
 				return nil, err
 			}
 		}
-		for _, att := range attachmentIDs {
+		for _, att := range part.Attachments {
 			if _, err = tx.Exec(`INSERT OR IGNORE INTO task_attachments(task_id,attachment_id) VALUES(?,?)`, id, att); err != nil {
 				return nil, err
 			}
@@ -549,7 +611,18 @@ func (s *Store) addDependentTasks(conv, giver, parentRun string, recipients []st
 		if err != nil {
 			return nil, err
 		}
-		receipts = append(receipts, delegatedTaskReceipt{TaskID: id, BotID: bot, Status: item.Status, Version: item.SpecVersion, BlockedBy: deps})
+		rc := delegatedTaskReceipt{TaskID: id, BotID: bot, Status: item.Status, Version: item.SpecVersion, BlockedBy: deps}
+		rc.fillContractTx(tx, giver)
+		receipts = append(receipts, rc)
+		var name string
+		_ = tx.QueryRow(`SELECT name FROM bots WHERE id=?`, bot).Scan(&name)
+		postLines = append(postLines, "@"+name+" "+title)
+		postAttachments = append(postAttachments, part.Attachments...)
+	}
+	if post {
+		if err = insertPartsMessageTx(tx, conv, giver, parentRun, strings.Join(postLines, "; "), cleanDepIDs(postAttachments)); err != nil {
+			return nil, err
+		}
 	}
 	return receipts, tx.Commit()
 }

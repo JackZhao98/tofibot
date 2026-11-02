@@ -1084,6 +1084,22 @@
         "name": "Messages sans progrès par arbre de tâches",
         "what": "Le nombre de messages que les Bots d'un même travail peuvent échanger sans progrès. Un progrès est un point de liste qui se termine, une tâche close comme faite ou un résultat remis ; il remet le compte à zéro. À la limite, ils cessent de se passer du travail jusqu'à un progrès, et le Bot racine décide de ce qu'il vous dit."
       },
+      "task_fanout_width": {
+        "name": "Parties par délégation",
+        "what": "Nombre de parties qu'un Bot peut confier en un appel. Un arbre de tâches compte aussi au plus le double de tâches ouvertes en même temps. Un appel au-delà de la limite est refusé ; le Bot regroupe des parties ou attend."
+      },
+      "task_fanout_depth": {
+        "name": "Profondeur du travail divisé",
+        "what": "Nombre de niveaux de tâches qu'un travail peut avoir sous sa racine. 1 : seul le Bot à la racine confie des parties, personne ne les redivise. 2 : un membre peut diviser sa part une fois de plus. Un membre à la limite fait sa part lui-même ou interroge le Bot qui la lui a confiée."
+      },
+      "task_part_deadline_minutes": {
+        "name": "Délai d'une partie",
+        "what": "Temps accordé à une partie quand vous êtes dans la conversation et que le Bot ne fixe pas de délai. Passé ce délai, le Bot qui a confié la partie est réveillé avec un résultat d'expiration et décide de ce qu'il livre."
+      },
+      "task_part_deadline_scheduled_minutes": {
+        "name": "Délai d'une partie dans les exécutions planifiées",
+        "what": "Temps accordé à une partie quand une planification a lancé le travail et que le Bot ne fixe pas de délai. Personne n'attend dans le chat, donc le délai par défaut est plus long."
+      },
       "widget_artifacts_auto": {
         "name": "Ouvrir les artefacts quand un Bot crée un fichier",
         "what": "La première fois qu'un Bot remet un fichier dans une conversation, le widget Artefacts s'ouvre à côté des messages. Les fichiers suivants actualisent sa liste. Désactivé, il reste fermé jusqu'à ce que vous l'ouvriez."

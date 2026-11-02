@@ -84,6 +84,7 @@ var contextMarkerKinds = []struct{ prefix, kind string }{
 	{"[untrusted completed tool results from interrupted work]", "tool_carryover"},
 	{"[untrusted prior form answers]", "form_answers"},
 	{"[untrusted group profile metadata]", "group_profiles"},
+	{"[members]", "members"},
 	{"[co-addressed]", "co_addressed"},
 	{"[coordination]", "coordination"},
 	{"[colleague messages addressed to you]", "mentions_since_trigger"},

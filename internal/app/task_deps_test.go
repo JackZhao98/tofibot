@@ -411,6 +411,7 @@ func TestTreeLimitStopsDelegationAndReportsOnce(t *testing.T) {
 	f := newTaskFix(t)
 	const limit = 10
 	f.setSetting(autoTaskTreeIdleLimit, limit)
+	f.setSetting(autoTaskFanoutWidth, 12) // this test is about the idle budget, not the open-task cap
 	root := f.running(f.g.ID, f.a)
 	first := f.delegateTo(f.g, root, f.b, "Root work")
 	for i := 1; i < limit; i++ {
@@ -472,9 +473,11 @@ func TestWaitOnABlockedTaskStartsItsDeadlineAtUnlock(t *testing.T) {
 	if _, ok, err := f.s.FinishRun(run, f.g.ID, f.b.ID, "Base done."); err != nil || !ok {
 		t.Fatal(ok, err)
 	}
+	// A part without its own deadline has the default of the setting (30 minutes), counted from the unlock.
+	want := time.Duration(defaultTaskPartDeadline) * time.Minute
 	left := time.Until(deadline())
-	if left > waitTimeoutFor(waitTaskResult)+time.Minute || left < waitTimeoutFor(waitTaskResult)-time.Minute {
-		t.Fatalf("after unlock the deadline must be the usual %v from now, is %v", waitTimeoutFor(waitTaskResult), left)
+	if left > want+time.Minute || left < want-time.Minute {
+		t.Fatalf("after unlock the deadline must be the default %v from now, is %v", want, left)
 	}
 }
 
@@ -510,6 +513,7 @@ func (f taskFix) wokenRoot(root Run) Run {
 
 func TestAWokenRootCannotEscapeTheBudgetWithAFreshTree(t *testing.T) {
 	f := newTaskFix(t)
+	f.setSetting(autoTaskFanoutWidth, 12) // this test is about the idle budget, not the open-task cap
 	root := f.running(f.g.ID, f.a)
 	tree := f.reachLimit(root, 10)
 	woken := f.wokenRoot(root)

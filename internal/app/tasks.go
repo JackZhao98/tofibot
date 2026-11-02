@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
@@ -38,6 +39,16 @@ type ChecklistItem struct {
 	Status    string `json:"status"`
 	Reason    string `json:"reason,omitempty"`
 	UpdatedAt string `json:"updated_at,omitempty"`
+	// Mark is the progress mark of the item ("p:<task id>" for a plan item).
+	Mark string `json:"-"`
+	// A plan item stands for a task the lead gave: the task, who holds it, its
+	// state, its deadline and the one line its holder keeps.
+	TaskID       string `json:"task_id,omitempty"`
+	BotID        string `json:"bot_id,omitempty"`
+	BotName      string `json:"bot_name,omitempty"`
+	TaskStatus   string `json:"task_status,omitempty"`
+	DeadlineAt   string `json:"deadline_at,omitempty"`
+	ProgressLine string `json:"progress_line,omitempty"`
 }
 
 type ChecklistChange struct {
@@ -64,20 +75,28 @@ func taskRefusal(code, message string) error {
 }
 
 func checklistTx(q queryer, taskID string) ([]ChecklistItem, error) {
-	rows, err := q.Query(`SELECT item_id,text,status,reason,updated_at FROM task_checklist WHERE task_id=? ORDER BY ord,item_id`, taskID)
+	rows, err := q.Query(`SELECT item_id,text,status,reason,updated_at,mark FROM task_checklist WHERE task_id=? ORDER BY ord,item_id`, taskID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 	var items []ChecklistItem
 	for rows.Next() {
 		var item ChecklistItem
-		if err := rows.Scan(&item.ID, &item.Text, &item.Status, &item.Reason, &item.UpdatedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.Text, &item.Status, &item.Reason, &item.UpdatedAt, &item.Mark); err != nil {
+			rows.Close()
 			return nil, err
 		}
 		items = append(items, item)
 	}
-	return items, rows.Err()
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+	for i := range items {
+		planPartView(q, &items[i])
+	}
+	return items, nil
 }
 
 func openChecklistCount(q queryer, taskID string) int {
@@ -139,6 +158,7 @@ func decorateTaskTx(q queryer, item *WorkItem) error {
 	item.Checklist = checklist
 	item.ClaimedAt = claimedAtTx(q, item.ID, item.BotID)
 	_ = q.QueryRow(`SELECT merged_into,source,source_run_id,schedule_id,interrupted_at,interrupt_reason,resume_count FROM work_items WHERE id=?`, item.ID).Scan(&item.MergedInto, &item.Source, &item.SourceRunID, &item.ScheduleID, &item.InterruptedAt, &item.InterruptReason, &item.ResumeCount)
+	_ = q.QueryRow(`SELECT result_format,limits,deadline_at,progress_line FROM work_items WHERE id=?`, item.ID).Scan(&item.ResultFormat, &item.Limits, &item.DeadlineAt, &item.ProgressLine)
 	item.AutoResume = item.InterruptedAt != "" && item.Status == "todo" && (item.InterruptReason == interruptSteered || item.ResumeCount < taskAutoResumeLimit)
 	if item.AssignerBotID != "" {
 		_ = q.QueryRow(`SELECT name FROM bots WHERE id=?`, item.AssignerBotID).Scan(&item.AssignerBotName)
@@ -536,6 +556,10 @@ func taskEndedOneTx(tx *sql.Tx, runID, status string, item WorkItem) error {
 // Waits on it settle, and a cancelled or failed task takes the open tasks below
 // it along.
 func settleClosedTaskTx(tx *sql.Tx, item WorkItem) error {
+	// The plan item of the giver's card follows the task (line A).
+	if err := syncPlanItemTx(tx, item); err != nil {
+		return err
+	}
 	if item.Status == "done" {
 		// A task that closes done is progress anywhere in its tree.
 		if err := resetTreeIdleTx(tx, item.RootTaskID); err != nil {
@@ -685,6 +709,9 @@ type TaskUpdate struct {
 	// started waits on (decision 0064).
 	AddDependsOn    []string
 	RemoveDependsOn []string
+	// Progress is the holder's one-line status (divide and conquer, line A):
+	// it overwrites the earlier line and posts no message.
+	Progress *string
 }
 
 func (in TaskUpdate) structural() bool {
@@ -721,9 +748,30 @@ func (s *Store) updateTask(actor string, in TaskUpdate) (WorkItem, error) {
 		return WorkItem{}, taskRefusal("task_answer_giver_only", "Only the member that gave the task may answer a question about it.")
 	}
 	// Item results and the task's own progress belong to the holder.
-	if len(in.Items) > 0 || in.Status == "in_progress" || in.Status == "blocked" {
+	if len(in.Items) > 0 || in.Status == "in_progress" || in.Status == "blocked" || in.Progress != nil {
 		if !assignee {
 			return WorkItem{}, taskRefusal("task_assignee_only", "Only the member that holds the task may report its progress or the result of a checklist item.")
+		}
+	}
+	progressOnly := in.Progress != nil && !in.structural() && len(in.Items) == 0 && in.Status == "" && in.Answer == ""
+	if in.Progress != nil {
+		line := strings.TrimSpace(*in.Progress)
+		if utf8.RuneCountInString(line) > maxProgressRunes {
+			return WorkItem{}, taskRefusal("progress_too_long", fmt.Sprintf("The progress line holds at most %d characters.", maxProgressRunes))
+		}
+		if err = setProgressTx(tx, item.ID, line); err != nil {
+			return WorkItem{}, err
+		}
+		if progressOnly {
+			// A status line is not an edit and not a message: no reason, no inbox row, no tree charge.
+			out, e := getTaskTx(tx, item.ID)
+			if e != nil {
+				return WorkItem{}, e
+			}
+			if e = decorateTaskTx(tx, &out); e != nil {
+				return WorkItem{}, e
+			}
+			return out, tx.Commit()
 		}
 	}
 	editReason := strings.TrimSpace(in.Reason)
@@ -1108,10 +1156,22 @@ func (s *Store) taskRecordContext(runID string) string {
 	if item.AssignerKind == "user" && item.Title != "" && item.Title != firstLine(item.Description, 80) {
 		fmt.Fprintf(&b, "Brief of the request, resolved from the conversation: %s\nThe person's own words and the earlier turns are in the transcript.\n", item.Title)
 	}
+	b.WriteString(taskContractLines(item, time.Now()))
+	if item.ProgressLine != "" {
+		fmt.Fprintf(&b, "Status line you keep: %s\n", item.ProgressLine)
+	}
 	if len(item.Checklist) > 0 {
 		b.WriteString("Checklist, one item at a time, each ended with a reason:\n")
 		for _, c := range item.Checklist {
 			fmt.Fprintf(&b, "- %s [%s] %s", c.ID, c.Status, c.Text)
+			if c.TaskID != "" {
+				// A plan item: the task of the part, its state and the line its holder keeps.
+				fmt.Fprintf(&b, " {task %s %s", c.TaskID, c.TaskStatus)
+				if c.ProgressLine != "" {
+					fmt.Fprintf(&b, ": %s", trimRunes(c.ProgressLine, maxProgressRunes))
+				}
+				b.WriteString("}")
+			}
 			if c.Reason != "" {
 				fmt.Fprintf(&b, " (%s)", trimRunes(c.Reason, 160))
 			}

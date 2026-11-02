@@ -639,6 +639,13 @@ func (s *Store) expireDueWaits(at time.Time) (int, error) {
 			status = waitFulfilled
 		}
 		changed, err := resolveWaitTx(tx, id, status, "")
+		if err == nil && changed && kind == waitTaskResult && status == waitTimedOut {
+			// The giver's card shows a part that missed its deadline as blocked.
+			var target string
+			if tx.QueryRow(`SELECT target FROM waits WHERE id=?`, id).Scan(&target) == nil {
+				err = planItemTimedOutTx(tx, target)
+			}
+		}
 		if err != nil {
 			// One wait that cannot end must not keep the later ones from timing out.
 			tx.Rollback()

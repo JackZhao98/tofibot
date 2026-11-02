@@ -198,6 +198,15 @@
     "paused": "Pausiert",
     "resume": "Fortsetzen",
     "drop": "Verwerfen",
-    "resumes_after": "Wird nach der laufenden Antwort fortgesetzt"
+    "resumes_after": "Wird nach der laufenden Antwort fortgesetzt",
+    "waiting_on": "Wartet auf {{names}}",
+    "minutes_left": "noch {{minutes}} Min.",
+    "overdue": "Frist überschritten",
+    "result_of": "Ergebnis von {{name}}",
+    "reason": {
+      "failed": "Fehlgeschlagen",
+      "cancelled": "Abgebrochen",
+      "timed_out": "Zeitüberschreitung"
+    }
   }
 }

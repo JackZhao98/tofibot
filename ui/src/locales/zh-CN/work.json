@@ -195,6 +195,15 @@
     "paused": "已暂停",
     "resume": "继续",
     "drop": "放弃",
-    "resumes_after": "当前回复结束后自动继续"
+    "resumes_after": "当前回复结束后自动继续",
+    "waiting_on": "等待 {{names}}",
+    "minutes_left": "还剩 {{minutes}} 分钟",
+    "overdue": "已过期限",
+    "result_of": "{{name}} 的结果",
+    "reason": {
+      "failed": "失败",
+      "cancelled": "已取消",
+      "timed_out": "已超时"
+    }
   }
 }

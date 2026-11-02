@@ -5,6 +5,11 @@
  */
 import type { Message, Run, WorkChecklistItem, WorkItem, WorkStatus } from "./types";
 
+/** A part holder's message folded under its parent's card: the holder, the words and when. */
+export interface FoldedResult { id: string; taskId: string; sender: string; text: string; at: string }
+/** A member the card's holder waits on, and when that wait times out. */
+export interface CardWait { name: string; deadlineAt: string }
+
 export interface TaskCardModel {
   id: string;
   title: string;
@@ -20,6 +25,18 @@ export interface TaskCardModel {
   paused: boolean;
   /** The Bot starts a paused task again by itself. */
   autoResume: boolean;
+  /** What the holder waits on (a task result of a member), earliest deadline first. */
+  waiting?: CardWait[];
+  /** The one line the holder keeps for its status (task_update progress). */
+  progressLine?: string;
+  /** Messages of the parts' holders, folded here (their task_id names the part). */
+  results?: FoldedResult[];
+}
+
+/** Whole minutes from `now` to `deadline`; negative once it passed. NaN for no deadline. */
+export function minutesLeft(deadline: string | undefined, now: number): number {
+  const at = deadline ? Date.parse(deadline) : NaN;
+  return Number.isNaN(at) ? NaN : Math.ceil((at - now) / 60_000);
 }
 
 const OPEN: ReadonlySet<WorkStatus> = new Set(["todo", "in_progress", "blocked", "review", "input_required"]);
@@ -38,15 +55,16 @@ export function checklistProgress(items: readonly WorkChecklistItem[] | undefine
 }
 
 function sameModel(a: TaskCardModel, b: TaskCardModel): boolean {
-  if (a.title !== b.title || a.holderId !== b.holderId || a.holderName !== b.holderName || a.status !== b.status || a.claimed !== b.claimed || a.paused !== b.paused || a.autoResume !== b.autoResume || a.done !== b.done || a.total !== b.total || a.items.length !== b.items.length) return false;
-  return a.items.every((item, index) => { const other = b.items[index]; return item.id === other.id && item.text === other.text && item.status === other.status && item.reason === other.reason; });
+  if (a.title !== b.title || a.holderId !== b.holderId || a.holderName !== b.holderName || a.status !== b.status || a.claimed !== b.claimed || a.paused !== b.paused || a.autoResume !== b.autoResume || a.done !== b.done || a.total !== b.total || a.items.length !== b.items.length || a.progressLine !== b.progressLine) return false;
+  if (JSON.stringify(a.waiting) !== JSON.stringify(b.waiting) || JSON.stringify(a.results) !== JSON.stringify(b.results)) return false;
+  return a.items.every((item, index) => { const other = b.items[index]; return item.id === other.id && item.text === other.text && item.status === other.status && item.reason === other.reason && item.task_id === other.task_id && item.task_status === other.task_status && item.deadline_at === other.deadline_at && item.progress_line === other.progress_line && item.bot_name === other.bot_name; });
 }
 
 /**
  * The card model of every task that draws one. A model whose content did not change keeps its object identity
  * (from `previous`), so a row that shows it is skipped by `rowModelEqual`.
  */
-export function buildCardModels(tasks: readonly WorkItem[], botName: (id: string) => string | undefined, previous?: ReadonlyMap<string, TaskCardModel>): Map<string, TaskCardModel> {
+export function buildCardModels(tasks: readonly WorkItem[], botName: (id: string) => string | undefined, previous?: ReadonlyMap<string, TaskCardModel>, results?: ReadonlyMap<string, FoldedResult[]>): Map<string, TaskCardModel> {
   const out = new Map<string, TaskCardModel>();
   for (const task of tasks) {
     if (!showsCard(task)) continue;
@@ -56,9 +74,42 @@ export function buildCardModels(tasks: readonly WorkItem[], botName: (id: string
       done, total, items: task.checklist ?? [], claimed: Boolean(task.claimed_at), open: isOpenTask(task.status),
       paused: task.status === "todo" && Boolean(task.interrupted_at), autoResume: Boolean(task.auto_resume),
     };
+    const waiting = (task.waiting_on ?? []).filter(wait => wait.kind === "task_result").map(wait => ({ name: wait.target_name ?? "", deadlineAt: wait.deadline_at })).sort((x, y) => x.deadlineAt < y.deadlineAt ? -1 : x.deadlineAt > y.deadlineAt ? 1 : 0);
+    if (waiting.length && model.open) model.waiting = waiting;
+    if (task.progress_line && model.open) model.progressLine = task.progress_line;
+    const folded = results?.get(task.id);
+    if (folded?.length) model.results = folded;
     const old = previous?.get(task.id);
     out.set(task.id, old && sameModel(old, model) ? old : model);
   }
+  return out;
+}
+
+/**
+ * The messages of part holders that fold under their parent's card: a message whose task_id names a task with a parent whose
+ * card is drawn. A message with files keeps its own place (the card shows words only).
+ */
+export function foldParts(tasks: readonly WorkItem[], cards: ReadonlyMap<string, unknown>, messages: readonly Message[], botName: (id: string) => string | undefined): { folded: Set<string>; results: Map<string, FoldedResult[]> } {
+  const folded = new Set<string>();
+  const results = new Map<string, FoldedResult[]>();
+  if (!cards.size) return { folded, results };
+  const byId = new Map(tasks.map(task => [task.id, task]));
+  for (const message of messages) {
+    const part = message.task_id ? byId.get(message.task_id) : undefined;
+    const parent = part?.parent_task_id;
+    if (!part || !parent || !cards.has(parent) || message.attachments?.length || message.local) continue;
+    folded.add(message.id);
+    const entry: FoldedResult = { id: message.id, taskId: part.id, sender: botName(message.sender_bot_id ?? part.bot_id) ?? message.sender_bot_name ?? part.bot_name ?? "", text: message.content, at: message.created_at };
+    const list = results.get(parent);
+    if (list) list.push(entry); else results.set(parent, [entry]);
+  }
+  return { folded, results };
+}
+
+/** A part the lead's card lists as an item has no card of its own in the timeline: the plan item stands for it. */
+export function plannedPartIds(tasks: readonly WorkItem[], cards: ReadonlyMap<string, unknown>): Set<string> {
+  const out = new Set<string>();
+  for (const task of tasks) if (cards.has(task.id)) for (const item of task.checklist ?? []) if (item.task_id) out.add(item.task_id);
   return out;
 }
 
@@ -105,7 +156,7 @@ export function mergeTasks(current: readonly WorkItem[], incoming: readonly Work
       const old = list[index];
       // An older copy (a fetch that crossed a newer event) never replaces a newer one; an identical one changes nothing.
       if (old.updated_at > task.updated_at) continue;
-      if (old.updated_at === task.updated_at && old.status === task.status && old.bot_id === task.bot_id && old.claimed_at === task.claimed_at && old.interrupted_at === task.interrupted_at && JSON.stringify(old.checklist) === JSON.stringify(task.checklist)) continue;
+      if (old.updated_at === task.updated_at && old.status === task.status && old.bot_id === task.bot_id && old.claimed_at === task.claimed_at && old.interrupted_at === task.interrupted_at && old.progress_line === task.progress_line && old.deadline_at === task.deadline_at && JSON.stringify(old.checklist) === JSON.stringify(task.checklist) && JSON.stringify(old.waiting_on) === JSON.stringify(task.waiting_on)) continue;
     }
     next = next ?? [...current];
     if (index >= 0) next[index] = task; else next.push(task);
@@ -115,8 +166,22 @@ export function mergeTasks(current: readonly WorkItem[], incoming: readonly Work
 
 /** Everything the timeline and the member list draw from the task list, in one pass. */
 export function deriveCards(tasks: readonly WorkItem[], botById: ReadonlyMap<string, { name: string }>, messages: readonly Message[], runById: ReadonlyMap<string, Run>, previous?: ReadonlyMap<string, TaskCardModel>) {
-  const models = buildCardModels(tasks, id => botById.get(id)?.name, previous);
-  return { models, byMessage: anchorCards(tasks, models, messages, runById), roster: rosterTasks(models.values()) };
+  const name = (id: string) => botById.get(id)?.name;
+  const base = buildCardModels(tasks, name);
+  const { folded, results } = foldParts(tasks, base, messages, name);
+  const models = results.size ? buildCardModels(tasks, name, previous, results) : buildCardModels(tasks, name, previous);
+  // A folded message draws no row, so it cannot anchor a card; a planned part draws no card of its own.
+  const planned = plannedPartIds(tasks, models);
+  const drawn = tasks.filter(task => !planned.has(task.id));
+  const anchored = folded.size ? messages.filter(message => !folded.has(message.id)) : messages;
+  return { models, folded, byMessage: anchorCards(drawn, models, anchored, runById), roster: rosterTasks(models.values()), progressByRun: progressByRun(tasks) };
+}
+
+/** The one-line status each working run's holder keeps (task_update progress): the live line shows it in place of the generic step label. */
+export function progressByRun(tasks: readonly WorkItem[]): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const task of tasks) if (task.progress_line && task.assignee_run_id && isOpenTask(task.status)) out.set(task.assignee_run_id, task.progress_line);
+  return out;
 }
 
 export interface TaskFeed { push: (event: object) => void; cancel: () => void }

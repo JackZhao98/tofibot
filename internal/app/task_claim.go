@@ -28,7 +28,7 @@ const (
 
 // groupTriageGuidance is the second-pass triage principle of a group member.
 const groupTriageGuidance = `[task triage]
-Work can reach you first and not fit your role. Compare it with the role of each member. If it fits and you will not answer at once, claim it. If another member fits better, pass it with a reason. Claiming and passing post nothing in the chat. Answer a simple request in one turn. The tools load on demand with workspace_capabilities: claim_task, pass_task.
+Work can reach you first and not fit your role. Compare it with the role of each member. If it fits and you will not answer at once, claim it. If another member fits better, pass it with a reason. Claiming and passing post nothing in the chat. Answer a simple request in one turn. Work that has independent parts goes to the members whose roles fit them, also when the person named only you; you keep the whole task and deliver the one result. The tools load on demand with workspace_capabilities: claim_task, pass_task.
 [/task triage]
 `
 

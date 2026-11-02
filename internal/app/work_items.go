@@ -75,6 +75,12 @@ type WorkItem struct {
 	ResumeCount     int    `json:"resume_count,omitempty"`
 	// AutoResume says the Bot will start a paused task again by itself.
 	AutoResume bool `json:"auto_resume,omitempty"`
+	// The contract of a delegated part and the holder's one-line status
+	// (divide and conquer): read by decorateTaskTx, not part of workItemAllColumns.
+	ResultFormat string `json:"result_format,omitempty"`
+	Limits       string `json:"limits,omitempty"`
+	DeadlineAt   string `json:"deadline_at,omitempty"`
+	ProgressLine string `json:"progress_line,omitempty"`
 }
 
 type WorkItemInput struct {

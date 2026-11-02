@@ -17,13 +17,13 @@ import (
 )
 
 const (
-	delegateToolDescription = "Give a task to one or more members. Each gets a task record: your brief, a version number and an optional checklist. The call returns a receipt at once and starts the work. The result returns later as an event that wakes you, so do not poll. Write the brief to stand alone: the goal, the form of the result, the tools and sources, and the limits. Split broad work into tasks, each with one owner and one result, and give independent parts in the same turn so that they run in parallel. A part that needs the result of other tasks names their ids in depends_on: it waits, starts by itself when all of them are done, and you are told if one of them fails or is cancelled. Before parallel work on code, give a first task that fixes the interface the parts share, and make the parts depend on it. Match the number of tasks to the difficulty of the work: simple work needs one task. Add a checklist only for work with separate parts. Pass files the member needs in attachment_ids."
+	delegateToolDescription = "Give tasks to members. Each task has a record with your brief and a version number. The call returns a receipt at once and starts the work; each result returns later as an event that wakes you, so do not poll. Write the brief to stand alone: the goal, the tools and sources; give the form of the result, the time and the limits in result_format, deadline_seconds and limits. Split broad work into parts with one owner and one result each. Give independent parts in one call with parts, or in one turn, so that they run in parallel. A part names the tasks it needs in depends_on and starts when they are done. Before parallel work on code, give a first task that fixes the shared interface. Simple work needs one task. The receipt holds the wait: end your turn with a pending answer, and you wake when the tasks end or a deadline passes. A part that fails or ends late shows on your task card; your answer states what is in and what is missing. A task for yourself starts after this run ends. Pass files in attachment_ids."
 
 	waitForToolDescription = "Start a wait and get a receipt at once. The wait ends when its event happens or its deadline passes; then you are woken with the result, and a timeout is a result too. After the receipt, tell the person what they need and end your turn. To wait for several events together, repeat the call with the group id from the receipt: mode all ends when every member has ended, mode any at the first fulfilled member. A wait that would close a cycle is refused. A wait on a command (kind command_exit, target the terminal id) ends when the process ends, or, for a shell terminal, when the shell is back at its prompt; the result has the exit code when one exists and the last output. It always has a timer check in its group, mode any: add your own timer to the group first, or the system adds one. If the timer comes first, read the terminal and wait again when the command still runs."
 
 	cancelWaitToolDescription = "End a wait you no longer need, for example when its event came another way or the work changed. A wait you end does not wake you."
 
-	taskUpdateToolDescription = "Change a task you gave or hold. Either side may edit it when new information needs it: change the request (the version goes up), add, remove, rewrite or reorder checklist items, change what a blocked task that has not started waits on, or absorb another task of the same tree into this one. Every edit needs a reason. The other side is told and the edit is recorded. Do not remove an item, or end it as skipped, to avoid hard work. The holder also reports its status and ends each checklist item as done, skipped or blocked with a reason. The giver also answers a question about the task, accepts it as done, or cancels it. Work on one item at a time."
+	taskUpdateToolDescription = "Change a task you gave or hold. Either side may edit it when new information needs it: change the request (the version goes up), add, remove, rewrite or reorder checklist items, change what a blocked task that has not started waits on, or absorb another task of the same tree into this one. Every edit needs a reason. The other side is told and the edit is recorded. Do not remove an item, or end it as skipped, to avoid hard work. The holder also reports its status and ends each checklist item as done, skipped or blocked with a reason. The giver also answers a question about the task, accepts it as done, or cancels it. Work on one item at a time. The holder also sets progress: one short line, at most 140 characters, that says what the holder does now. It replaces the earlier line, shows on the task card and in the live line, and posts no message."
 
 	taskAskToolDescription = "Ask the member that gave you a task a question about it. The task becomes input_required, and the question wakes that member after your turn ends. End your turn after you ask; you wake when the answer arrives. When the person gave the task, ask the person with the question tool."
 
@@ -53,31 +53,45 @@ func receiptJSON(value any) (string, error) {
 func (s *Server) delegateTool(c Conversation, r Run) Tool {
 	return Tool{Name: "delegate", Description: delegateToolDescription, Local: true,
 		Parameters: objectSchema(map[string]any{
-			"bot_id":         stringProp("Exact id of the member."),
-			"bot_ids":        map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Exact ids of the members, when more than one."},
-			"task":           stringProp(delegationBriefText),
-			"title":          stringProp("A short name for the task."),
-			"checklist":      map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "The items of the task's checklist, in order."},
-			"depends_on":     map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Ids of tasks in the same tree that must end done before this task starts."},
-			"attachment_ids": attachmentIDsProp,
-		}, []string{"task"}),
+			"bot_id":           stringProp("Exact id of the member."),
+			"bot_ids":          map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Exact ids of the members, when more than one."},
+			"task":             stringProp(delegationBriefText),
+			"title":            stringProp("A short name for the task."),
+			"checklist":        map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "The items of the task's checklist, in order."},
+			"depends_on":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Ids of tasks in the same tree that must end done before this task starts."},
+			"attachment_ids":   attachmentIDsProp,
+			"result_format":    stringProp("The form of the result: the layout, the fields or the file that you need back. The holder reads it as written."),
+			"deadline_seconds": map[string]any{"type": "integer", "description": "How long the holder has, in seconds. When it passes you are woken with a timeout result."},
+			"limits":           stringProp("What the holder must not do or touch, and its budget of pages or attempts."),
+			"parts":            delegatePartsSchema(),
+		}, []string{}),
 		Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
 			var in struct {
-				BotID         string   `json:"bot_id"`
-				BotIDs        []string `json:"bot_ids"`
-				Task          string   `json:"task"`
-				Title         string   `json:"title"`
-				Checklist     []string `json:"checklist"`
-				DependsOn     []string `json:"depends_on"`
-				AttachmentIDs []string `json:"attachment_ids"`
+				ResultFormat  string              `json:"result_format"`
+				DeadlineSecs  int                 `json:"deadline_seconds"`
+				Limits        string              `json:"limits"`
+				BotID         string              `json:"bot_id"`
+				BotIDs        []string            `json:"bot_ids"`
+				Task          string              `json:"task"`
+				Title         string              `json:"title"`
+				Checklist     []string            `json:"checklist"`
+				DependsOn     []string            `json:"depends_on"`
+				AttachmentIDs []string            `json:"attachment_ids"`
+				Parts         []delegatePartInput `json:"parts"`
 			}
 			if json.Unmarshal(raw, &in) != nil {
 				return "", errors.New("invalid delegate arguments")
 			}
 			in.Task = strings.TrimSpace(in.Task)
+			if len(in.Parts) > 0 {
+				if in.BotID != "" || len(in.BotIDs) > 0 || in.Task != "" || in.Title != "" || len(in.Checklist) > 0 || len(in.DependsOn) > 0 || len(in.AttachmentIDs) > 0 || in.ResultFormat != "" || in.Limits != "" || in.DeadlineSecs != 0 {
+					return "", taskRefusal("parts_exclusive", "Give either parts, or bot_id with task. When parts is set, put every field of each task inside its part.")
+				}
+				return s.delegateParts(c, r, in.Parts)
+			}
 			var recipients []string
 			seen := map[string]bool{}
 			for _, id := range append([]string{in.BotID}, in.BotIDs...) {
@@ -101,13 +115,27 @@ func (s *Server) delegateTool(c Conversation, r Run) Tool {
 					return "", taskRefusal("checklist_item_invalid", fmt.Sprintf("Each item needs 1-%d characters.", maxChecklistTextRunes))
 				}
 			}
-			if deps := cleanDepIDs(in.DependsOn); len(deps) > 0 || (len(recipients) == 1 && s.store.handoffUsed(r.ID)) {
+			contract, cerr := cleanTaskContract(taskContract{ResultFormat: in.ResultFormat, Limits: in.Limits, DeadlineSeconds: in.DeadlineSecs})
+			if cerr != nil {
+				return "", cerr
+			}
+			if err := checkFanoutTx(s.store.db, r.ID, len(recipients)); err != nil {
+				return "", err
+			}
+			if contract.DeadlineSeconds == 0 {
+				contract.DeadlineSeconds = defaultPartDeadlineSeconds(s.store.db, r.ID)
+			}
+			selfIncluded := false
+			for _, id := range recipients {
+				selfIncluded = selfIncluded || id == r.BotID
+			}
+			if deps := cleanDepIDs(in.DependsOn); len(deps) > 0 || selfIncluded || (len(recipients) == 1 && s.store.handoffUsed(r.ID)) {
 				// The tasks wait, or this run gave its one direct task already: no run
 				// starts now, and no hand-over slot of this run is used.
 				if c.Kind != "group" && c.Kind != "dm" {
 					return "", errors.New("delegate requires a conversation")
 				}
-				receipts, err := s.store.AddDependentTasks(c.ID, r.BotID, r.ID, recipients, in.Task, in.Title, in.Checklist, deps, in.AttachmentIDs...)
+				receipts, err := s.store.AddDependentTasksWith(c.ID, r.BotID, r.ID, recipients, in.Task, in.Title, in.Checklist, deps, contract, in.AttachmentIDs...)
 				if err != nil {
 					return "", err
 				}
@@ -131,7 +159,7 @@ func (s *Server) delegateTool(c Conversation, r Run) Tool {
 			if err != nil {
 				return "", err
 			}
-			tasks, err := s.store.shapeDelegatedTasks(runs, in.Title, in.Checklist)
+			tasks, err := s.store.shapeDelegatedTasks(runs, in.Title, in.Checklist, contract)
 			if err != nil {
 				return "", err
 			}
@@ -151,11 +179,17 @@ type delegatedTaskReceipt struct {
 	RunID   string `json:"run_id,omitempty"`
 	// BlockedBy lists the tasks a task waits on; such a task has no run yet.
 	BlockedBy []string `json:"blocked_by,omitempty"`
+	// DeadlineAt is when the giver's wait on the task times out; empty when the
+	// task waits on others (the time starts when it unlocks) or has no deadline.
+	DeadlineAt string `json:"deadline_at,omitempty"`
+	// Runs is "serial" for a task the giver holds itself: it starts after the
+	// run that gave it, because a Bot runs one run at a time.
+	Runs string `json:"runs,omitempty"`
 }
 
 // shapeDelegatedTasks gives the tasks the delegation made their name and
 // checklist, and reports them as receipts.
-func (s *Store) shapeDelegatedTasks(runs []Run, title string, checklist []string) ([]delegatedTaskReceipt, error) {
+func (s *Store) shapeDelegatedTasks(runs []Run, title string, checklist []string, contract taskContract) ([]delegatedTaskReceipt, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
@@ -178,9 +212,26 @@ func (s *Store) shapeDelegatedTasks(runs []Run, title string, checklist []string
 				return nil, err
 			}
 		}
+		if err = addPlanItemTx(tx, id); err != nil {
+			return nil, err
+		}
 		if len(checklist) > 0 {
 			if err = addChecklistItemsTx(tx, id, checklist); err != nil {
 				return nil, err
+			}
+		}
+		if contract != (taskContract{}) {
+			if err = storeTaskContractTx(tx, id, contract); err != nil {
+				return nil, err
+			}
+			if contract.DeadlineSeconds > 0 {
+				deadline := deadlineFrom(time.Now(), contract.DeadlineSeconds)
+				if _, err = tx.Exec(`UPDATE work_items SET deadline_at=? WHERE id=?`, deadline, id); err != nil {
+					return nil, err
+				}
+				if _, err = tx.Exec(`UPDATE waits SET deadline_at=? WHERE kind=? AND target=? AND status='pending'`, deadline, waitTaskResult, id); err != nil {
+					return nil, err
+				}
 			}
 		}
 		if err = taskEventTx(tx, id); err != nil {
@@ -190,7 +241,9 @@ func (s *Store) shapeDelegatedTasks(runs []Run, title string, checklist []string
 		if err != nil {
 			return nil, err
 		}
-		receipts = append(receipts, delegatedTaskReceipt{TaskID: id, BotID: item.BotID, Status: item.Status, Version: item.SpecVersion, RunID: run.ID})
+		rc := delegatedTaskReceipt{TaskID: id, BotID: item.BotID, Status: item.Status, Version: item.SpecVersion, RunID: run.ID}
+		rc.fillContractTx(tx, item.AssignerBotID)
+		receipts = append(receipts, rc)
 	}
 	return receipts, tx.Commit()
 }
@@ -317,6 +370,7 @@ func (s *Server) taskUpdateTool(r Run) Tool {
 			"absorb_task_id":    stringProp("The id of a task of the same tree that this task takes in. Its checklist joins this one and it closes as merged."),
 			"add_depends_on":    map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Tasks of the same tree that a blocked task, not yet started, also waits on."},
 			"remove_depends_on": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Tasks that a blocked task, not yet started, no longer waits on. A task that waits on nothing starts."},
+			"progress":          stringProp("The holder's one-line status, at most 140 characters. An empty string clears it."),
 			"items": map[string]any{"type": "array", "description": "The holder sets the status and reason of checklist items.", "items": objectSchema(map[string]any{
 				"id":     map[string]any{"type": "string"},
 				"status": map[string]any{"type": "string", "enum": []string{checklistOpen, checklistDone, checklistSkipped, checklistBlocked}},
@@ -341,11 +395,12 @@ func (s *Server) taskUpdateTool(r Run) Tool {
 				Items       []ChecklistChange  `json:"items"`
 				AddDeps     []string           `json:"add_depends_on"`
 				RemoveDeps  []string           `json:"remove_depends_on"`
+				Progress    *string            `json:"progress"`
 			}
 			if json.Unmarshal(raw, &in) != nil || strings.TrimSpace(in.TaskID) == "" {
 				return "", errors.New("task_id is required")
 			}
-			item, err := s.store.updateTask(r.BotID, TaskUpdate{TaskID: strings.TrimSpace(in.TaskID), Status: in.Status, Brief: in.Brief, AddItems: in.AddItems, RemoveItems: in.RemoveItems, RewriteItems: in.Rewrite, Order: in.Order, Absorb: in.Absorb, Items: in.Items, Reason: in.Reason, Answer: strings.TrimSpace(in.Answer), AddDependsOn: in.AddDeps, RemoveDependsOn: in.RemoveDeps})
+			item, err := s.store.updateTask(r.BotID, TaskUpdate{TaskID: strings.TrimSpace(in.TaskID), Status: in.Status, Brief: in.Brief, AddItems: in.AddItems, RemoveItems: in.RemoveItems, RewriteItems: in.Rewrite, Order: in.Order, Absorb: in.Absorb, Items: in.Items, Reason: in.Reason, Answer: strings.TrimSpace(in.Answer), AddDependsOn: in.AddDeps, RemoveDependsOn: in.RemoveDeps, Progress: in.Progress})
 			if err != nil {
 				return "", err
 			}
