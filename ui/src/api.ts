@@ -170,7 +170,7 @@ export function openConversationEvents(
   // Cursor 0 means this client has seen nothing yet: start at the live head instead of replaying the whole log.
   if (workspace) query.set("workspace_after", workspace.after > 0 ? String(workspace.after) : "head");
   const source = new EventSource(`/api/conversations/${encodeURIComponent(id)}/events?${query}`);
-  const types = ["message", "reaction", "run", "delta", "draft_reset", "thinking", "retrying", "memory", "memory_deleted", "schedule", "work_item", "tool", "bot", "inbox"] as const;
+  const types = ["message", "message_task", "reaction", "run", "delta", "draft_reset", "thinking", "retrying", "memory", "memory_deleted", "schedule", "work_item", "tool", "bot", "inbox"] as const;
   for (const type of types) {
     source.addEventListener(type, (event) => {
       onActivity?.();

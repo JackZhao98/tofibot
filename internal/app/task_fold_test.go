@@ -46,15 +46,28 @@ func TestPartMessagesCarryTheirTaskID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	seen := false
+	// The message is posted once, whole; the link comes later as a narrow event
+	// the client merges, so a reaction or delivery state on the message is kept.
+	posted, linked := 0, 0
 	for _, ev := range events {
 		data, _ := ev["data"].(map[string]any)
-		// The message event may be sent twice: when it is posted, and again once the task takes it as its result.
-		if ev["type"] == "message" && data["id"] == msg.ID && data["task_id"] == r.Tasks[0].TaskID {
-			seen = true
+		if data["id"] != msg.ID {
+			continue
+		}
+		switch ev["type"] {
+		case "message":
+			posted++
+			if data["content"] != "Three hotels." {
+				t.Fatalf("the posted message lost its words: %v", data)
+			}
+		case "message_task":
+			linked++
+			if len(data) != 2 || data["task_id"] != r.Tasks[0].TaskID {
+				t.Fatalf("the link event is only {id, task_id}: %v", data)
+			}
 		}
 	}
-	if !seen {
-		t.Fatal("no message event for the part's result with its task_id")
+	if posted != 1 || linked != 1 {
+		t.Fatalf("the message is sent once (%d) and linked once (%d)", posted, linked)
 	}
 }

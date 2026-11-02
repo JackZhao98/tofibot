@@ -166,6 +166,15 @@ try {
   assert.deepEqual([...liveView.byMessage.keys()], ["assign"], "one card, right after the assignment message, none under the request");
   assert.deepEqual(liveView.byMessage.get("assign").map(card => card.id), ["L"]);
   assert.equal(liveView.models.get("L").results.length, 2);
+  // The link event is merged into the message held: reactions and delivery state survive, an unknown id changes nothing.
+  const { applyMessageTask } = await modules.load("/src/messageLink.ts");
+  const held = [{ ...liveMessages[2], task_id: undefined, reactions: [{ emoji: "+1", actor_type: "user" }], delivery: "delivered" }, liveMessages[3]];
+  const linked = applyMessageTask(held, { id: "res1", task_id: "P1" });
+  assert.equal(linked[0].task_id, "P1");
+  assert.deepEqual([linked[0].reactions, linked[0].delivery, linked[0].content, linked[0].seq], [held[0].reactions, "delivered", "Flights found.", 3], "reactions, delivery state and words survive");
+  assert.equal(linked[1], held[1], "other messages keep their object");
+  assert.equal(applyMessageTask(held, { id: "nope", task_id: "P1" }), held, "an unknown message changes nothing");
+  assert.equal(applyMessageTask(linked, { id: "res1", task_id: "P1" }), linked, "a link already there changes nothing");
   console.log("task cards: ok");
 } finally {
   await modules.close();

@@ -20,6 +20,7 @@ import {AttachmentList} from "./MessageAttachment";
 import {FilePreviewHost} from "./FileViewer";
 import {MessageReactions} from "./MessageReactions";
 import { applyUserReaction } from "./reactionState";
+import { applyMessageTask } from "./messageLink";
 import { clearMessageActions, setMessageActions, tappedMessageActionsId, useMessageActionsOpen } from "./messageActionsStore";
 import { CopyFeedbackIcon } from "./CopyFeedbackIcon";
 import { attachmentUrl, fileKind } from "./filePreviewModel";
@@ -1735,6 +1736,9 @@ function Workspace() {
         if (message.seq > snapshotMaxSeq.current) arrivalIDs.current.add(blockKey(message));
         upsertMessage(message); updateConversationPreview(message);
       }
+    } else if (type === "message_task") {
+      // The link of a result to its part: merged into the message held, so reactions and delivery state stay.
+      setMessages(current => applyMessageTask(current, data));
     } else if (type === "inbox") {
       setMessages(current => applyInbox(current, data));
     } else if (type === "reaction") {

@@ -69,12 +69,12 @@ func (s *Store) hydrateMessagePartTasks(msgs []Message) error {
 	return rows.Err()
 }
 
-// announceFoldedResultTx sends the message of a part's result again, with its
-// task_id, when the link to the task is made. A holder's say(answer, task_id)
-// posts the message while the run works and the task takes it as its result only
-// when the run ends; a client that read the message from the stream before then
-// has no task_id, so it would keep the words as a bubble. The client replaces the
-// message by its id.
+// announceFoldedResultTx sends the link of a part's result to its task, as a
+// narrow `message_task` event ({id, task_id}), when the link is made. A holder's
+// say(answer, task_id) posts the message while the run works and the task takes
+// it as its result only when the run ends; a client that read the message from
+// the stream before then has no task_id, so it would keep the words as a bubble.
+// The client merges the link into the message it holds by id.
 func announceFoldedResultTx(tx *sql.Tx, messageID string) error {
 	if messageID == "" {
 		return nil
@@ -83,10 +83,11 @@ func announceFoldedResultTx(tx *sql.Tx, messageID string) error {
 	if taskID == "" {
 		return nil
 	}
-	m, err := scanMsg(tx.QueryRow(`SELECT id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at FROM messages WHERE id=?`, messageID))
-	if err != nil {
+	var conv string
+	if err := tx.QueryRow(`SELECT conversation_id FROM messages WHERE id=?`, messageID).Scan(&conv); err != nil {
 		return err
 	}
-	m.TaskID = taskID
-	return insertEventTx(tx, m.ConversationID, "message", m, now())
+	// Only the link goes out: the client merges it into the message it holds, so
+	// reactions and delivery state stay as they are.
+	return insertEventTx(tx, conv, "message_task", map[string]string{"id": messageID, "task_id": taskID}, now())
 }
