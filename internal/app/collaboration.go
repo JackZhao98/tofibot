@@ -1588,8 +1588,16 @@ func (s *Store) CancelRunTree(id string) error {
 	// A pending wait of the stopped lineage must not wake anyone later. The
 	// tasks the stopped runs held or gave end with them, with the waits on
 	// them and the runs below them, in a direct message as in a group.
-	if err = cancelTaskWorkForRunsTx(tx, append(cancelled, id), lineageKey(tx, id)); err != nil {
+	holders, err := cancelTaskWorkForRunsTx(tx, append(cancelled, id), lineageKey(tx, id))
+	if err != nil {
 		return err
+	}
+	// The runs that held the cancelled parts stop with the plan (they may not
+	// be descendants of the stopped run).
+	if len(holders) > 0 {
+		if _, err = cancelRunsBelowCollect(tx, `SELECT id FROM runs WHERE id IN (`+sqlMarks(len(holders))+`)`, anyArgs(holders)...); err != nil {
+			return err
+		}
 	}
 	// Stop all: what the Bot had paused does not start again by itself.
 	var stoppedConv, stoppedBot string

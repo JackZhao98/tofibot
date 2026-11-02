@@ -359,6 +359,11 @@ func (s *Store) wakeBotFromInbox(botID, conv string, rows []inboxRow) (Run, bool
 			return Run{}, false, err
 		}
 	}
+	// The plan of a lead whose run failed has no run; the run its parts wake
+	// carries it on.
+	if _, err = tx.Exec(`UPDATE work_items SET assignee_run_id=? WHERE bot_id=? AND conversation_id=? AND source=? AND parent_task_id='' AND assignee_run_id='' AND status='in_progress'`, run.ID, botID, conv, taskSourceLead); err != nil {
+		return Run{}, false, err
+	}
 	if err = insertEventTx(tx, conv, "run", run, t); err != nil {
 		return Run{}, false, err
 	}

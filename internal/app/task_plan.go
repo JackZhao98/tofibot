@@ -196,11 +196,25 @@ func ensureLeadTaskTx(tx *sql.Tx, conv, bot, runID, fallbackTitle string) (strin
 	if _, err := tx.Exec(`INSERT INTO task_revisions(task_id,version,source,actor,text,created_at) VALUES(?,?,?,?,?,?)`, id, 1, "person", "", trimRunes(content, maxTaskBriefRunes), t); err != nil {
 		return "", err
 	}
-	if _, err := tx.Exec(`UPDATE work_items SET run_spec_version=spec_version WHERE id=?`, id); err != nil {
+	if _, err := tx.Exec(`UPDATE work_items SET run_spec_version=spec_version,source=? WHERE id=?`, taskSourceLead, id); err != nil {
 		return "", err
 	}
 	if err := baselineStallTx(tx, id); err != nil {
 		return "", err
 	}
 	return id, nil
+}
+
+// taskSourceLead marks the root task ensureLeadTaskTx made: no person or Bot
+// gave it, the run's own delegation did.
+const taskSourceLead = "lead_plan"
+
+// isLeadRootTx is true for a root task ensureLeadTaskTx made.
+func isLeadRootTx(q queryer, item WorkItem) bool {
+	if item.ParentTaskID != "" {
+		return false
+	}
+	var src string
+	_ = q.QueryRow(`SELECT source FROM work_items WHERE id=?`, item.ID).Scan(&src)
+	return src == taskSourceLead
 }

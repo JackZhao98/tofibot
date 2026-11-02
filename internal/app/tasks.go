@@ -525,6 +525,15 @@ func taskEndedOneTx(tx *sql.Tx, runID, status string, item WorkItem) error {
 	var next string
 	switch status {
 	case "failed":
+		if isLeadRootTx(tx, item) {
+			// The lead failed, its parts did not: they keep running and report
+			// to the plan. The root stays open with no run; the run that the
+			// parts' results wake takes it up again.
+			if _, err = tx.Exec(`UPDATE work_items SET assignee_run_id='',updated_at=? WHERE id=?`, now(), item.ID); err != nil {
+				return err
+			}
+			return taskEventTx(tx, item.ID)
+		}
 		next = "failed"
 	case "cancelled":
 		// A run a newer message took over from is not a stopped run: the task

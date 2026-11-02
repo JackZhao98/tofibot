@@ -33,40 +33,43 @@ func anyArgs(ids []string) []any {
 	return out
 }
 
-// cancelTaskWorkForRunsTx ends the task work of runs that were stopped.
-func cancelTaskWorkForRunsTx(tx *sql.Tx, runIDs []string, lineage string) error {
+// cancelTaskWorkForRunsTx ends the task work of runs that were stopped. It
+// returns the runs that worked on the cancelled tasks (the holders of the parts
+// of a plan among them); the caller stops those too.
+func cancelTaskWorkForRunsTx(tx *sql.Tx, runIDs []string, lineage string) ([]string, error) {
+	var holders []string
 	if len(runIDs) > 0 {
 		marks := sqlMarks(len(runIDs))
 		args := anyArgs(runIDs)
 		roots, err := waitIDsTx(tx, `SELECT id FROM work_items WHERE status NOT IN ('done','cancelled','failed') AND (assignee_run_id IN (`+marks+`) OR origin_run_id IN (`+marks+`))`, append(args, args...)...)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		if _, _, err = cancelTaskTreeTx(tx, roots, true); err != nil {
-			return err
+		if _, holders, err = cancelTaskTreeTx(tx, roots, true); err != nil {
+			return nil, err
 		}
 		waits, err := waitIDsTx(tx, `SELECT id FROM waits WHERE status='pending' AND run_id IN (`+marks+`)`, args...)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		for _, id := range waits {
 			if _, err = resolveWaitTx(tx, id, waitCancelled, ""); err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
 	if lineage != "" {
 		waits, err := waitIDsTx(tx, `SELECT id FROM waits WHERE status='pending' AND lineage=?`, lineage)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		for _, id := range waits {
 			if _, err = resolveWaitTx(tx, id, waitCancelled, ""); err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
-	return nil
+	return holders, nil
 }
 
 const openTaskStatuses = `'todo','in_progress','blocked','review','input_required'`
