@@ -71,6 +71,23 @@ There are three ways to open TOFI. Choose in the installer:
 
 The installer prints `Installed in m:ss` at the end. `sudo tofi doctor` also checks whether the server is open to the Internet.
 
+### Measured: no cloud account at all
+
+On 2026-11-02 we installed v0.6.2-rc.9 on a 2 vCPU, 2 GiB Debian 13 VM with no KVM
+and used Ollama on a MacBook Air (Apple M2, 16 GB) on the same LAN with `qwen2.5:7b`:
+
+| Step | Time |
+|---|---|
+| `curl … \| sudo bash`, including the Docker install | 39 s |
+| Setup key, Admin account, connect Ollama, first Bot | about 25 s of clicks |
+| First reply (the first prompt is about 10,800 tokens; the M2 reads about 150 tokens/s) | 89 s |
+| Later replies (Ollama keeps the prompt prefix cached) | 4–10 s |
+
+Start Ollama with `OLLAMA_HOST=0.0.0.0` and `OLLAMA_CONTEXT_LENGTH=32768`, then
+enter `http://<computer's LAN IP>:11434/v1` under "Ollama or your own server".
+A 7B model chats well but often skips tool calls (for example, it may not save its
+name). Use a larger model when Bots must use tools reliably.
+
 ### Option B: Docker Compose (no Bot computer)
 
 For a server without KVM, or if you want to manage Docker yourself. It uses the
