@@ -161,3 +161,46 @@ func planPartViews(q queryer, items []ChecklistItem) {
 		}
 	}
 }
+
+// ensureLeadTaskTx gives a run that delegates while it holds no task a root
+// task, so the parts become the checklist of one plan card. The Bot the person
+// addressed is the lead: the task is held by the run's Bot, given by the
+// person, in the run's conversation, titled from the request that started the
+// run (the title of the first part when the run has no such request). It is
+// idempotent per run: once the run holds the task, the ancestor walk of the
+// callers finds it. The task closes by the settle rules of any task: when the
+// lead delivers its answer.
+func ensureLeadTaskTx(tx *sql.Tx, conv, bot, runID, fallbackTitle string) (string, error) {
+	var trigger string
+	if err := tx.QueryRow(`SELECT COALESCE(trigger_message_id,'') FROM runs WHERE id=?`, runID).Scan(&trigger); err != nil {
+		return "", err
+	}
+	var content string
+	if trigger != "" {
+		_ = tx.QueryRow(`SELECT content FROM messages WHERE id=?`, trigger).Scan(&content)
+	}
+	content = strings.TrimSpace(content)
+	title := firstLine(content, 80)
+	if title == "" {
+		title = firstLine(fallbackTitle, 80)
+	}
+	if title == "" {
+		title = "Task"
+	}
+	id, t := newID(), now()
+	if _, err := tx.Exec(`INSERT INTO work_items(`+workItemColumns+`,assigner_kind,assigner_bot_id,root_task_id,parent_task_id,origin_run_id,assignee_run_id,work_conversation_id,spec_version)
+ VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, id, conv, bot, "task", title, trimRunes(content, maxTaskBriefRunes), "in_progress", nil, t, t, "",
+		"user", "", id, "", "", runID, conv, 1); err != nil {
+		return "", err
+	}
+	if _, err := tx.Exec(`INSERT INTO task_revisions(task_id,version,source,actor,text,created_at) VALUES(?,?,?,?,?,?)`, id, 1, "person", "", trimRunes(content, maxTaskBriefRunes), t); err != nil {
+		return "", err
+	}
+	if _, err := tx.Exec(`UPDATE work_items SET run_spec_version=spec_version WHERE id=?`, id); err != nil {
+		return "", err
+	}
+	if err := baselineStallTx(tx, id); err != nil {
+		return "", err
+	}
+	return id, nil
+}

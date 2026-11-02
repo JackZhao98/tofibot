@@ -235,6 +235,14 @@ func recordTaskForChildTx(tx *sql.Tx, child delegationChild) (WorkItem, error) {
 		// gives into that tree.
 		rootID = r
 	}
+	if rootID == "" && child.ParentRun != "" {
+		// The giver holds no task and gives its first part: it leads a plan (line A).
+		leadID, lerr := ensureLeadTaskTx(tx, child.ParentConversation, child.ParentBot, child.ParentRun, child.Brief)
+		if lerr != nil {
+			return WorkItem{}, lerr
+		}
+		rootID, parentTask = leadID, leadID
+	}
 	id := newID()
 	if rootID == "" {
 		rootID = id

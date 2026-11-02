@@ -142,8 +142,8 @@ func TestScheduledRunsGiveTheirPartsAnHour(t *testing.T) {
 	attended := f.running(f.g.ID, f.c)
 	f.setSetting(autoTaskPartDeadline, 10)
 	r3, _ := f.partsReceipt(f.g, attended, []map[string]any{{"bot_id": f.a.ID, "task": "Attended part"}})
-	if _, err := f.s.db.Exec(`UPDATE runs SET status='cancelled' WHERE id=?`, lead.ID); err != nil {
-		t.Fatal(err)
+	if ok, err := f.s.SetRunStatus(lead.ID, "cancelled", ""); err != nil || !ok {
+		t.Fatal(ok, err)
 	}
 	f.startPart(r3.Tasks[0].TaskID, f.a)
 	if left := time.Until(f.waitDeadline(r3.Tasks[0].TaskID)); left < 9*time.Minute || left > 10*time.Minute+time.Second {

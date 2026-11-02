@@ -134,12 +134,45 @@ func TestADirectHandoffAlsoAddsItsPlanItem(t *testing.T) {
 	}
 }
 
-func TestAGiverWithNoTaskGetsNoPlanItems(t *testing.T) {
+// A run that holds no task and gives parts becomes the lead: the system makes its
+// root task (given by the person, titled from the request) and the parts are the
+// items of that one card. A second call of the same run joins the same task.
+func TestAGiverWithNoTaskBecomesTheLeadOfOnePlan(t *testing.T) {
 	f := newTaskFix(t)
 	root := f.running(f.g.ID, f.a)
-	f.partsReceipt(f.g, root, []map[string]any{{"bot_id": f.b.ID, "task": "x"}, {"bot_id": f.c.ID, "task": "y"}})
-	if n := f.count(`SELECT COUNT(*) FROM task_checklist WHERE mark LIKE 'p:%'`); n != 0 {
-		t.Fatalf("%d plan items without a lead task", n)
+	r, _ := f.partsReceipt(f.g, root, []map[string]any{{"bot_id": f.b.ID, "task": "x", "title": "X"}, {"bot_id": f.c.ID, "task": "y", "title": "Y"}})
+	var leadID string
+	if err := f.s.db.QueryRow(`SELECT id FROM work_items WHERE assignee_run_id=?`, root.ID).Scan(&leadID); err != nil {
+		t.Fatalf("the run holds no root task: %v", err)
+	}
+	lead := f.taskRow(leadID)
+	if lead.AssignerKind != "user" || lead.BotID != f.a.ID || lead.ConversationID != f.g.ID || lead.Title != "synthetic request" || lead.ParentTaskID != "" || lead.RootTaskID != leadID || lead.Status != "in_progress" || f.hiddenOf(leadID) {
+		t.Fatalf("lead task %+v", lead)
+	}
+	for _, task := range r.Tasks {
+		if row := f.taskRow(task.TaskID); row.ParentTaskID != leadID || row.RootTaskID != leadID {
+			t.Fatalf("part %+v", row)
+		}
+	}
+	if items := f.planItems(leadID); len(items) != 2 {
+		t.Fatalf("plan items %+v", items)
+	}
+	// A later call of the same run adds to the same plan, and no second root task appears.
+	f.partsReceipt(f.g, root, []map[string]any{{"bot_id": f.b.ID, "task": "z", "title": "Z"}})
+	if n := f.count(`SELECT COUNT(*) FROM work_items WHERE assignee_run_id=?`, root.ID); n != 1 {
+		t.Fatalf("%d root tasks for one run", n)
+	}
+	if items := f.planItems(leadID); len(items) != 3 {
+		t.Fatalf("plan items %+v", items)
+	}
+}
+
+// A run that gives nothing gets no root task.
+func TestARunThatDelegatesNothingGetsNoRootTask(t *testing.T) {
+	f := newTaskFix(t)
+	root := f.running(f.g.ID, f.a)
+	if n := f.count(`SELECT COUNT(*) FROM work_items WHERE assignee_run_id=?`, root.ID); n != 0 {
+		t.Fatalf("%d tasks", n)
 	}
 }
 
