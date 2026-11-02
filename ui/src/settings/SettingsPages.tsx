@@ -27,6 +27,7 @@ import {WebToolsSettings} from "../WebToolsSettings";
 import type {SettingsTab} from "../SettingsShell";
 import {TimezoneSetting} from "../TimezoneSettings";
 import {UsagePanel} from "../UsagePanel";
+import {SpendCap} from "../SpendCap";
 import {VersionCard,useIsUpdateAdmin} from "../UpdateNotice";
 import {WorkspacePurgeSettings} from "../WorkspacePurgeSettings";
 import {useTranslation} from "../i18n";
@@ -70,7 +71,7 @@ export function SettingsPages(props:SettingsPagesProps){
   case "automation": return <AutomationSettings onOpenPermissions={()=>props.openTab("permissions")}/>;
   case "computer": return <ComputerPage openTab={props.openTab}/>;
   case "keys": return <SectionAnchor id="keys"><KeysPage bots={activeBots}/></SectionAnchor>;
-  case "usage": return <div className="settings-stack"><SectionAnchor id="health"><RunHealthCard/></SectionAnchor><SectionAnchor id="usage"><UsagePanel preferredBotId={props.usageBotId} timezone={props.timezone}/></SectionAnchor></div>;
+  case "usage": return <div className="settings-stack"><SectionAnchor id="health"><RunHealthCard/></SectionAnchor><SectionAnchor id="spend"><SpendCap/></SectionAnchor><SectionAnchor id="usage"><UsagePanel preferredBotId={props.usageBotId} timezone={props.timezone}/></SectionAnchor></div>;
   case "advanced": return <AdvancedPage {...props} bots={bots} activeBots={activeBots}/>;
   case "admin": return <Suspense fallback={null}><SectionAnchor id="accounts"><AdminAccounts/></SectionAnchor></Suspense>;
   default: return unreachable(page);

@@ -36,7 +36,7 @@ import { buildQuestionTimeline, compareQuestionTime } from "./questionTimeline";
 import { useDebugMode } from "./debugMode";
 import type { SettingsEntry, SettingsTab, SettingsView } from "./SettingsShell";
 import { AfterPaint, CoverShell, CoverView, SidebarShell, SidebarView, WidgetColumn, WidgetView, GreetingSetup, UpdateBanner, PermissionCoach, BotDesktopPanel, DeleteConversationDialog, ReassignPrimaryDialog, SearchPalette, RememberedApprovalsSheet, DesktopSkeleton, TeamBoard, ViewOnlyChat, Onboarding, QuestionCard, RunContextView, TaskCard, ComposerStopMenu, FloatingDesktop, panelLoaded, preloadPanel, usePanelLoaded, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle, WebToolSteps, whenPanelLoaded } from "./lazyPanels";
-import { provideLinkDeps, subscribeSettingsDeepLinks, subscribeSidebarDeepLinks } from "./settings/deepLinks";
+import { linkRuntime, provideLinkDeps, subscribeSettingsDeepLinks, subscribeSidebarDeepLinks } from "./settings/deepLinks";
 import type { OpenLinkDeps } from "./settings/linkRuntime";
 import { BotIdentityCard } from "./BotIdentityCard";
 import { arrowOpens, OverlayMenu, OverlaySlot, SlotView } from "./overlays/OverlayHost";
@@ -2921,6 +2921,11 @@ export function MessageBubble({ receipt, message, replyTarget, replyTargetName, 
   if (message.kind === "notice" && message.notice?.type === "settings_change") {
     // A setting a Bot changed by itself: the line and its Undo are worded in a lazy chunk, in the UI's language.
     return <Suspense fallback={null}><SettingsChangeNotice notice={message.notice} fallback={message.content} title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`} /></Suspense>;
+  }
+  if (message.kind === "notice" && message.notice?.type === "spend_alert") {
+    // Posted once by the server when the month's spend reaches 80% of the limit; the text is localized here.
+    const notice = message.notice;
+    return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div><span>{t(notice.reason === "reached" ? "message.spend_alert_reached" : "message.spend_alert", { spend: notice.new_value, limit: notice.old_value })}</span> <button onClick={() => void linkRuntime().then(module => module.openHref("/settings/usage#spend"))}>{t("message.spend_alert_open")}</button></div></article>;
   }
   if (message.kind === "notice" && message.notice?.type === "command_exit") {
     // Posted by the server when a command a Bot waited on has ended; the text is localized here.

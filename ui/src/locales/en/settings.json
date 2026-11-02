@@ -343,7 +343,8 @@
         "model_auth_invalid": "Model sign-in rejected",
         "model_quota_exhausted": "Model quota reached",
         "connection_interrupted": "Connection dropped",
-        "budget_exhausted": "Step budget exhausted"
+        "budget_exhausted": "Step budget exhausted",
+        "spend_cap_reached": "Spend limit reached"
       }
     }
   },
@@ -1114,6 +1115,10 @@
       "trace_private_origins": {
         "name": "Private origins",
         "what": "Sites whose pages never enter the work trace. One host or origin per line. A host also covers its subdomains. Sites where a Bot used a private password input are always left out."
+      },
+      "monthly_spend_limit_usd": {
+        "name": "Monthly spend limit",
+        "what": "Refuses new runs on billed models once this month's spend reaches the limit, and sends one notice at 80%. Whole dollars, 0 is off. Set on the Usage page."
       }
     },
     "option": {
@@ -1295,5 +1300,33 @@
     "revert_failed": "Couldn't revert. Try again.",
     "stale": "The setting changed again after this change.",
     "empty_value": "empty"
+  },
+  "spend": {
+    "title": "Monthly limit",
+    "description": "Counts what API-key models cost at list price over the calendar month, in your time zone. ChatGPT and Codex sign-ins are not counted.",
+    "loading": "Loading spend…",
+    "load_failed": "Couldn't load spend. Try again.",
+    "this_month": "Spend this month",
+    "limit_label": "Monthly limit",
+    "limit_help": "Off by default. At 80% you get one notice. At 100%, new runs on billed models are refused; runs already going finish their current model call.",
+    "off": "Off",
+    "amount": "${{amount}}",
+    "amount_exact": "${{amount}}",
+    "resets": "Resets {{date}}",
+    "plans_label": "Plan sign-ins",
+    "plans_note": "ChatGPT and Codex sign-ins have no per-call price, so plan limits apply and they are never counted or refused. Local and compatible models count $0 unless priced.",
+    "state": {
+      "off": "No limit set",
+      "ok": "{{percent}}% of the limit used",
+      "near": "At {{percent}}% of the limit",
+      "reached": "Limit reached. New runs on billed models are refused."
+    },
+    "admin": {
+      "title": "Spend this month",
+      "column": "Spend",
+      "of_limit": "${{spend}} / ${{limit}}",
+      "no_limit": "${{spend}} · no limit",
+      "unavailable": "This account cannot be read now."
+    }
   }
 }

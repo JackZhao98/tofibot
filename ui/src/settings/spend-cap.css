@@ -1,0 +1,6 @@
+.spend-figure{font:600 15px/1.3 var(--body);font-variant-numeric:tabular-nums;color:var(--ink)}
+.spend-figure[data-state="reached"]{color:var(--danger-text)}
+.spend-meter{height:4px;margin:0 16px 12px;border-radius:2px;background:var(--line-soft);overflow:hidden}
+.spend-meter>span{display:block;height:100%;background:var(--ink-soft)}
+.spend-meter[data-state="near"]>span{background:var(--ink)}
+.spend-meter[data-state="reached"]>span{background:var(--danger-text)}

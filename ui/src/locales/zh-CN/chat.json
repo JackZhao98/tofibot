@@ -414,7 +414,10 @@
     "settings_change_undo": "撤销",
     "settings_change_undone": "已撤销",
     "settings_change_undo_failed": "无法撤销",
-    "settings_change_stale": "此后又被更改过"
+    "settings_change_stale": "此后又被更改过",
+    "spend_alert": "本月花费：${{spend}}，已达额度 ${{limit}} 的 80%。使用计费模型的新运行将在额度处停止。",
+    "spend_alert_reached": "本月花费：${{spend}}，已达额度 ${{limit}}。使用计费模型的新运行将被拒绝。",
+    "spend_alert_open": "调整额度"
   },
   "notifications": {
     "description": "离开当前聊天时，提醒你有新的回复。",

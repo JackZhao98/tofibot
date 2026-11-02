@@ -3298,7 +3298,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if s.routeExtensions(w, r, p) {
 		return
 	}
-	if s.routeUsage(w, r, p) || s.routeUsageRuns(w, r, p) {
+	if s.routeUsage(w, r, p) || s.routeUsageRuns(w, r, p) || s.routeSpend(w, r, p) {
 		return
 	}
 	if s.routeProviders(w, r, p) || s.routeWebTools(w, r, p) {
@@ -4172,6 +4172,14 @@ func (s *Server) execute(c Conversation, r Run) {
 			return
 		}
 		r.Model = model
+	}
+	// A billed model is refused before its first call once the month's spend
+	// reaches the limit (spend_cap.go); a plan or an unpriced local model passes.
+	if r.Kind != runKindTriage {
+		if capErr := s.store.checkSpendCap(model, time.Now()); capErr != nil {
+			s.failRun(c, r, capErr)
+			return
+		}
 	}
 	var onDelta, onThinking func(string)
 	var onAssistantTurn, onReviewDraft func(int, string) error

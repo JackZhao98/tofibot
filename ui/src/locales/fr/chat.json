@@ -436,7 +436,10 @@
     "settings_change_undo": "Annuler",
     "settings_change_undone": "Annulé",
     "settings_change_undo_failed": "Impossible d'annuler",
-    "settings_change_stale": "Modifié à nouveau depuis"
+    "settings_change_stale": "Modifié à nouveau depuis",
+    "spend_alert": "Dépenses du mois : {{spend}} $ sur votre plafond de {{limit}} $ (80 %). Les nouvelles exécutions sur des modèles facturés s'arrêtent au plafond.",
+    "spend_alert_reached": "Dépenses du mois : {{spend}} $, plafond de {{limit}} $ atteint. Les nouvelles exécutions sur des modèles facturés sont refusées.",
+    "spend_alert_open": "Modifier le plafond"
   },
   "notifications": {
     "description": "Soyez averti des nouvelles réponses quand vous n’êtes pas dans la conversation.",

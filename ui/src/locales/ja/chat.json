@@ -414,7 +414,10 @@
     "settings_change_undo": "元に戻す",
     "settings_change_undone": "元に戻しました",
     "settings_change_undo_failed": "元に戻せませんでした",
-    "settings_change_stale": "その後に再び変更されています"
+    "settings_change_stale": "その後に再び変更されています",
+    "spend_alert": "今月の支出：${{spend}}（上限${{limit}}の80%）。課金モデルを使う新しい実行は上限で止まります。",
+    "spend_alert_reached": "今月の支出：${{spend}}（上限${{limit}}に到達）。課金モデルを使う新しい実行は拒否されます。",
+    "spend_alert_open": "上限を変更"
   },
   "notifications": {
     "description": "チャットを離れているときに新しい返信を通知します。",

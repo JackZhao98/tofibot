@@ -98,6 +98,7 @@
       "id": "usage",
       "sections": [
         "health",
+        "spend",
         "usage"
       ]
     },
@@ -916,6 +917,19 @@
       "link": "/settings/automation#computer",
       "manual": "settings/automation",
       "label_key": "settings:automation.item.trace_private_origins.name",
+      "audit": true
+    },
+    {
+      "key": "automation.monthly_spend_limit_usd",
+      "scope": "account",
+      "kind": "readonly",
+      "max": 100000,
+      "risk": {
+        "self": "forbidden"
+      },
+      "link": "/settings/usage#spend",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.monthly_spend_limit_usd.name",
       "audit": true
     },
     {

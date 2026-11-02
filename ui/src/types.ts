@@ -410,7 +410,7 @@ export interface Run {
   bot_id: string;
   status: RunStatus;
   error?: string;
-  failure?: { code: "connection_interrupted" | "execution_failed" | "no_final_answer" | "budget_exhausted" | "approval_expired" | "model_unconfigured" | "model_auth_invalid" | "model_quota_exhausted" | "tool_stuck" | "resumed_repeatedly"; source: "runtime"; count?: number; message: string };
+  failure?: { code: "connection_interrupted" | "execution_failed" | "no_final_answer" | "budget_exhausted" | "approval_expired" | "model_unconfigured" | "model_auth_invalid" | "model_quota_exhausted" | "tool_stuck" | "resumed_repeatedly" | "spend_cap_reached"; source: "runtime"; count?: number; message: string };
   stop_reason?: "approval_expired";
   finishing_reason?: "approval_expired";
   parent_run_id?: string;

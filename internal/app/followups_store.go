@@ -422,6 +422,9 @@ func recordSweepTx(tx *sql.Tx, r sweepRecord) error {
 	if !r.PriceKnown {
 		unknown = 1
 	}
+	if err := bookSpendTx(tx, r.StartedAt, r.Model, r.USD); err != nil {
+		return err
+	}
 	_, err := tx.Exec(`INSERT INTO usage_hourly(hour,bot_id,input_tokens,output_tokens,requests,equivalent_usd,unpriced_requests,followup_input_tokens,followup_output_tokens,followup_requests,followup_equivalent_usd,followup_unpriced_requests) VALUES(?,?,0,0,0,0,0,?,?,1,?,?)
 ON CONFLICT(hour,bot_id) DO UPDATE SET followup_input_tokens=followup_input_tokens+excluded.followup_input_tokens,followup_output_tokens=followup_output_tokens+excluded.followup_output_tokens,followup_requests=followup_requests+1,followup_equivalent_usd=followup_equivalent_usd+excluded.followup_equivalent_usd,followup_unpriced_requests=followup_unpriced_requests+excluded.followup_unpriced_requests`,
 		r.StartedAt.UTC().Format("2006-01-02T15"), r.BotID, r.InputTokens, r.OutputTokens, r.USD, unknown)

@@ -172,6 +172,9 @@ func migrateUsage(db *sql.DB) error {
 			return err
 		}
 	}
+	if err := migrateSpendLedger(db); err != nil {
+		return err
+	}
 	return pruneUsage(db, time.Now().UTC())
 }
 
@@ -179,8 +182,10 @@ func pruneUsage(db *sql.DB, at time.Time) error {
 	if _, err := db.Exec(`DELETE FROM usage_calls WHERE occurred_at < ?`, stampTime(at.Add(-7*24*time.Hour))); err != nil {
 		return err
 	}
-	_, err := db.Exec(`DELETE FROM usage_hourly WHERE hour < ?`, at.Add(-31*24*time.Hour).UTC().Format("2006-01-02T15"))
-	return err
+	if _, err := db.Exec(`DELETE FROM usage_hourly WHERE hour < ?`, at.Add(-31*24*time.Hour).UTC().Format("2006-01-02T15")); err != nil {
+		return err
+	}
+	return pruneSpendLedger(db, at)
 }
 
 func (s *Store) recordContextEstimate(runID, model string, estimated int) error {
@@ -224,6 +229,9 @@ func (s *Store) recordModelUsage(runID string, u provider.Usage) error {
 	if _, err = tx.Exec(`INSERT INTO usage_calls(run_id,bot_id,model,input_tokens,output_tokens,equivalent_usd,price_known,trigger_content,occurred_at,cache_read_tokens,cache_write_tokens,cache_reported) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, runID, botID, model, input, output, price, known, prompt, stamp, u.CacheReadTokens, u.CacheWriteTokens, u.CacheReported); err != nil {
 		return err
 	}
+	if err = bookSpendTx(tx, t, model, price); err != nil {
+		return err
+	}
 	unknown := 0
 	if !known {
 		unknown = 1
@@ -234,6 +242,7 @@ func (s *Store) recordModelUsage(runID string, u provider.Usage) error {
 	if err = tx.Commit(); err != nil {
 		return err
 	}
+	s.noteSpend(t)
 	return pruneUsage(s.db, t)
 }
 
@@ -260,6 +269,9 @@ func (s *Store) recordAuxiliaryModelUsage(runID, model string, input, output int
 	if _, err = tx.Exec(`INSERT INTO usage_calls(run_id,bot_id,model,input_tokens,output_tokens,equivalent_usd,price_known,trigger_content,occurred_at,kind) VALUES(?,?,?,?,?,?,?,?,?,?)`, runID, botID, model, input, output, price, known, prompt, stamp, usageKindReview); err != nil {
 		return err
 	}
+	if err = bookSpendTx(tx, t, model, price); err != nil {
+		return err
+	}
 	unknown := 0
 	if !known {
 		unknown = 1
@@ -267,7 +279,11 @@ func (s *Store) recordAuxiliaryModelUsage(runID, model string, input, output int
 	if _, err = tx.Exec(`INSERT INTO usage_hourly(hour,bot_id,input_tokens,output_tokens,requests,equivalent_usd,unpriced_requests,review_input_tokens,review_output_tokens,review_requests,review_equivalent_usd,review_unpriced_requests) VALUES(?,?,0,0,0,0,0,?,?,1,?,?) ON CONFLICT(hour,bot_id) DO UPDATE SET review_input_tokens=review_input_tokens+excluded.review_input_tokens,review_output_tokens=review_output_tokens+excluded.review_output_tokens,review_requests=review_requests+1,review_equivalent_usd=review_equivalent_usd+excluded.review_equivalent_usd,review_unpriced_requests=review_unpriced_requests+excluded.review_unpriced_requests`, t.Format("2006-01-02T15"), botID, input, output, price, unknown); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	s.noteSpend(t)
+	return nil
 }
 
 // usagePeriod sums one window for either chat or review calls. The two never
@@ -530,8 +546,15 @@ func (s *Store) recordWebSearchUsageAt(runID string, n int64, perSearch float64)
 	if _, err = tx.Exec(`INSERT INTO usage_calls(run_id,bot_id,model,input_tokens,output_tokens,equivalent_usd,price_known,trigger_content,occurred_at,kind) VALUES(?,?,?,0,0,?,1,?,?,?)`, runID, botID, model, fee, prompt, stamp, usageKindSearch); err != nil {
 		return err
 	}
+	if err = bookSpendTx(tx, t, model, fee); err != nil {
+		return err
+	}
 	if _, err = tx.Exec(`INSERT INTO usage_hourly(hour,bot_id,input_tokens,output_tokens,requests,equivalent_usd,unpriced_requests) VALUES(?,?,0,0,0,?,0) ON CONFLICT(hour,bot_id) DO UPDATE SET equivalent_usd=equivalent_usd+excluded.equivalent_usd`, t.Format("2006-01-02T15"), botID, fee); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	s.noteSpend(t)
+	return nil
 }

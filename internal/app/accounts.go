@@ -576,6 +576,9 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 	if g.adminQuota(w, r, a) || g.adminResources(w, r, a) {
 		return
 	}
+	if g.adminSpend(w, r, a) {
+		return
+	}
 	if g.adminStorage(w, r, a) {
 		return
 	}

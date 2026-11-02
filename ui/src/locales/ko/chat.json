@@ -414,7 +414,10 @@
     "settings_change_undo": "되돌리기",
     "settings_change_undone": "되돌렸습니다",
     "settings_change_undo_failed": "되돌리지 못했습니다",
-    "settings_change_stale": "이후 다시 변경되었습니다"
+    "settings_change_stale": "이후 다시 변경되었습니다",
+    "spend_alert": "이번 달 지출: ${{spend}}, 한도 ${{limit}}의 80%입니다. 과금 모델을 쓰는 새 실행은 한도에서 멈춥니다.",
+    "spend_alert_reached": "이번 달 지출: ${{spend}}, 한도 ${{limit}}에 도달했습니다. 과금 모델을 쓰는 새 실행은 거부됩니다.",
+    "spend_alert_open": "한도 변경"
   },
   "notifications": {
     "description": "채팅을 벗어나 있을 때 새 답장을 알려 드립니다.",

@@ -135,6 +135,7 @@ var automationItems = []automationItem{
 	{Key: autoWorkTrace, Group: "computer", Kind: autoKindBool, Default: "true"},
 	{Key: autoTraceRetentionDays, Group: "computer", Kind: autoKindInt, Default: traceRetentionDefault(), Min: 0, Max: 90, Unit: "days"},
 	{Key: autoTracePrivateOrigins, Group: "computer", Kind: autoKindText, Max: 4000},
+	{Key: autoMonthlySpendLimit, Group: "usage", Kind: autoKindInt, Default: "0", Min: 0, Max: maxSpendLimitUSD, Unit: "usd"},
 	{Key: autoSettingsChangeLimit, Group: "checks", Kind: autoKindInt, Default: strconv.Itoa(defaultSettingsChange), Min: 1, Max: 50},
 }
 

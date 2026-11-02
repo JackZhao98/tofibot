@@ -338,7 +338,8 @@
         "model_auth_invalid": "模型登录被拒绝",
         "model_quota_exhausted": "已达模型配额",
         "connection_interrupted": "连接中断",
-        "budget_exhausted": "步数预算已用尽"
+        "budget_exhausted": "步数预算已用尽",
+        "spend_cap_reached": "已达花费上限"
       }
     }
   },
@@ -1105,6 +1106,10 @@
       "trace_private_origins": {
         "name": "私密来源",
         "what": "这些网站的页面不会进入工作留痕。每行一个主机名或来源；主机名同时覆盖其子域名。Bot 用私密密码输入登录过的网站始终不会留痕。"
+      },
+      "monthly_spend_limit_usd": {
+        "name": "月度花费上限",
+        "what": "本月花费达到上限后，拒绝使用计费模型的新运行，并在 80% 时提醒一次。单位为整数美元，0 表示关闭。在“用量”页设置。"
       }
     },
     "option": {
@@ -1285,5 +1290,33 @@
     "revert_failed": "无法还原，请重试。",
     "stale": "此更改之后该设置又被改动过。",
     "empty_value": "空"
+  },
+  "spend": {
+    "title": "月度额度",
+    "description": "按公开标价统计 API 密钥模型在当前自然月（以你的时区为准）的花费。ChatGPT 与 Codex 登录不计入。",
+    "loading": "正在加载花费…",
+    "load_failed": "无法加载花费，请重试。",
+    "this_month": "本月花费",
+    "limit_label": "月度额度",
+    "limit_help": "默认关闭。达到 80% 时提醒一次；达到 100% 后，使用计费模型的新运行会被拒绝，已在运行的任务会完成当前这次模型调用。",
+    "off": "关闭",
+    "amount": "${{amount}}",
+    "amount_exact": "${{amount}}",
+    "resets": "{{date}} 重置",
+    "plans_label": "套餐登录",
+    "plans_note": "ChatGPT 与 Codex 登录没有按次价格，适用套餐额度，不计入也不会被拒绝。本地和兼容模型除非有定价，否则按 $0 计。",
+    "state": {
+      "off": "未设额度",
+      "ok": "已用额度的 {{percent}}%",
+      "near": "已达额度的 {{percent}}%",
+      "reached": "已达额度。使用计费模型的新运行将被拒绝。"
+    },
+    "admin": {
+      "title": "本月花费",
+      "column": "花费",
+      "of_limit": "${{spend}} / ${{limit}}",
+      "no_limit": "${{spend}} · 无额度",
+      "unavailable": "暂时无法读取该账户。"
+    }
   }
 }

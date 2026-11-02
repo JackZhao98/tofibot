@@ -24,6 +24,7 @@ Open this page: [{{ui:settings:shell.page.automation.name}}](/settings/automatio
 | {{ui:settings:automation.item.group_followup_to_working.name}} | `automation.group_followup_to_working` | on or off | true | direct | `/settings/automation#replies` |
 | {{ui:settings:automation.item.group_triage.name}} | `automation.group_triage` | on or off | true | direct | `/settings/automation#replies` |
 | {{ui:settings:automation.item.group_triage_model.name}} | `automation.group_triage_model` | a configured model ID, or default |  | confirm | `/settings/automation#models` |
+| {{ui:settings:automation.item.monthly_spend_limit_usd.name}} | `automation.monthly_spend_limit_usd` | read only | 0 usd | forbidden: the person changes it on the page | `/settings/usage#spend` |
 | {{ui:settings:automation.item.own_replies_verbatim.name}} | `automation.own_replies_verbatim` | whole number 1 to 20 | 3 | direct | `/settings/automation#history` |
 | {{ui:settings:automation.item.provider_retries.name}} | `automation.provider_retries` | whole number 0 to 10 | 8 | direct | `/settings/automation#reliability` |
 | {{ui:settings:automation.item.remembered_approval_hours.name}} | `automation.remembered_approval_hours` | whole number 1 to 720 | 24 hours | confirm | `/settings/automation#checks` |
@@ -70,6 +71,8 @@ Open this page: [{{ui:settings:shell.page.automation.name}}](/settings/automatio
 **{{ui:settings:automation.item.group_triage.name}}.** {{ui:settings:automation.item.group_triage.what}}
 
 **{{ui:settings:automation.item.group_triage_model.name}}.** {{ui:settings:automation.item.group_triage_model.what}}
+
+**{{ui:settings:automation.item.monthly_spend_limit_usd.name}}.** {{ui:settings:automation.item.monthly_spend_limit_usd.what}}
 
 **{{ui:settings:automation.item.own_replies_verbatim.name}}.** {{ui:settings:automation.item.own_replies_verbatim.what}}
 

@@ -338,7 +338,8 @@
         "model_auth_invalid": "모델 로그인 거부됨",
         "model_quota_exhausted": "모델 한도 도달",
         "connection_interrupted": "연결 끊김",
-        "budget_exhausted": "단계 예산 소진"
+        "budget_exhausted": "단계 예산 소진",
+        "spend_cap_reached": "지출 한도 도달"
       }
     }
   },
@@ -1105,6 +1106,10 @@
       "trace_private_origins": {
         "name": "비공개 출처",
         "what": "이 사이트의 페이지는 작업 트레이스에 들어가지 않습니다. 한 줄에 호스트 또는 출처 하나씩 입력합니다. 호스트는 하위 도메인도 포함합니다. 봇이 비공개 비밀번호 입력을 쓴 사이트는 항상 제외됩니다."
+      },
+      "monthly_spend_limit_usd": {
+        "name": "월 지출 한도",
+        "what": "이번 달 지출이 한도에 도달하면 과금 모델을 쓰는 새 실행을 거부하고, 80%에서 한 번 알립니다. 단위는 정수 달러이며 0은 꺼짐입니다. 사용량 페이지에서 설정합니다."
       }
     },
     "option": {
@@ -1285,5 +1290,33 @@
     "revert_failed": "되돌리지 못했습니다. 다시 시도해 주세요.",
     "stale": "이 변경 이후 설정이 다시 바뀌었습니다.",
     "empty_value": "비어 있음"
+  },
+  "spend": {
+    "title": "월 한도",
+    "description": "API 키 모델의 비용을 공개 가격 기준으로, 사용자 시간대의 달력 월 동안 집계합니다. ChatGPT 및 Codex 로그인은 포함하지 않습니다.",
+    "loading": "지출을 불러오는 중…",
+    "load_failed": "지출을 불러오지 못했습니다. 다시 시도하세요.",
+    "this_month": "이번 달 지출",
+    "limit_label": "월 한도",
+    "limit_help": "기본값은 꺼짐입니다. 80%에서 한 번 알립니다. 100%에 도달하면 과금 모델을 쓰는 새 실행은 거부되고, 이미 진행 중인 실행은 현재 모델 호출을 마칩니다.",
+    "off": "꺼짐",
+    "amount": "${{amount}}",
+    "amount_exact": "${{amount}}",
+    "resets": "{{date}}에 초기화",
+    "plans_label": "요금제 로그인",
+    "plans_note": "ChatGPT 및 Codex 로그인은 호출당 가격이 없어 요금제 한도가 적용되며, 집계되거나 거부되지 않습니다. 로컬 및 호환 모델은 가격이 없으면 $0으로 계산합니다.",
+    "state": {
+      "off": "한도 없음",
+      "ok": "한도의 {{percent}}% 사용",
+      "near": "한도의 {{percent}}% 도달",
+      "reached": "한도에 도달했습니다. 과금 모델을 쓰는 새 실행은 거부됩니다."
+    },
+    "admin": {
+      "title": "이번 달 지출",
+      "column": "지출",
+      "of_limit": "${{spend}} / ${{limit}}",
+      "no_limit": "${{spend}} · 한도 없음",
+      "unavailable": "지금은 이 계정을 읽을 수 없습니다."
+    }
   }
 }
