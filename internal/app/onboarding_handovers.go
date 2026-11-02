@@ -155,12 +155,17 @@ func (s *Server) routeOnboardingHandovers(w http.ResponseWriter, r *http.Request
 		writeJSON(w, http.StatusOK, empty)
 		return true
 	}
-	picked := filterHandovers(loadTrustTasks(), s.handoverCapabilities(r.Context()), s.effectiveDefaultModel(r.Context()))
+	model := s.effectiveDefaultModel(r.Context())
+	picked := filterHandovers(loadTrustTasks(), s.handoverCapabilities(r.Context()), model)
 	items := make([]map[string]any, 0, len(picked))
 	for _, task := range picked {
 		items = append(items, map[string]any{"id": task.ID, "passes": task.Passes, "runs": task.Runs})
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"handovers": items})
+	// The evaluation ran on hosted models; a model behind a compatible endpoint
+	// (a local Ollama, for one) was never measured, so the page must not say
+	// these passed with it.
+	evaluated := !strings.HasPrefix(model, provider.CompatModelPrefix)
+	writeJSON(w, http.StatusOK, map[string]any{"handovers": items, "evaluated": evaluated})
 	return true
 }
 

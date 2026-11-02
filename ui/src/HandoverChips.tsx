@@ -13,11 +13,12 @@ type Offer = {id: string};
 export default function HandoverChips({botId, onPick}: {botId: string; /** Receives the ready message; the caller puts it in the composer and focuses it. */ onPick: (message: string) => void}) {
  const {t, i18n} = useTranslation("chat");
  const [offers, setOffers] = useState<Offer[]>([]);
+ const [evaluated, setEvaluated] = useState(true);
 
  useEffect(() => {
   const controller = new AbortController();
-  request<{handovers: Offer[]}>(`/api/onboarding/handovers?bot_id=${encodeURIComponent(botId)}`, {signal: controller.signal})
-   .then(result => { if (!controller.signal.aborted) setOffers(Array.isArray(result.handovers) ? result.handovers : []); })
+  request<{handovers: Offer[]; evaluated?: boolean}>(`/api/onboarding/handovers?bot_id=${encodeURIComponent(botId)}`, {signal: controller.signal})
+   .then(result => { if (!controller.signal.aborted) { setOffers(Array.isArray(result.handovers) ? result.handovers : []); setEvaluated(result.evaluated !== false); } })
    .catch(() => { if (!controller.signal.aborted) setOffers([]); });
   return () => controller.abort();
  }, [botId]);
@@ -32,6 +33,6 @@ export default function HandoverChips({botId, onPick}: {botId: string; /** Recei
     {t(`firstrun.items.${offer.id}.label` as never)}
    </button>)}
   </div>
-  <p className="field-note">{t("firstrun.hint")}</p>
+  <p className="field-note">{t(evaluated ? "firstrun.hint" : "firstrun.hint_unevaluated")}</p>
  </section>;
 }

@@ -955,6 +955,7 @@
   "firstrun": {
     "title": "Ce que tu peux me confier maintenant",
     "hint": "Chacune de ces tâches a réussi à tous les essais d'évaluation. Choisis-en une pour remplir la zone de message, puis modifie-la et envoie.",
+    "hint_unevaluated": "Ces tâches ont réussi toutes les évaluations avec des modèles hébergés. Ce modèle n'a pas été évalué : vérifiez que la tâche a vraiment été faite. Choisissez-en une pour remplir le champ de message, modifiez-la puis envoyez-la.",
     "items": {
       "computer_script": {
         "label": "Écrire et lancer un petit script",

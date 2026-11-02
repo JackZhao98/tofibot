@@ -925,6 +925,7 @@
   "firstrun": {
     "title": "Das kannst du mir jetzt übergeben",
     "hint": "Jede dieser Aufgaben hat alle Testläufe bestanden. Wähle eine aus, sie landet im Nachrichtenfeld, dann kannst du sie ändern und senden.",
+    "hint_unevaluated": "Diese haben jeden Evaluationslauf mit gehosteten Modellen bestanden. Dieses Modell wurde nicht evaluiert, prüfe also, ob die Aufgabe wirklich erledigt wurde. Wähle eine aus, um das Nachrichtenfeld zu füllen, bearbeite sie und sende sie.",
     "items": {
       "computer_script": {
         "label": "Kleines Skript schreiben und ausführen",

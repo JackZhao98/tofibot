@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"github.com/JackZhao98/tofibot/internal/provider"
 	"net/http"
 	"strings"
 	"testing"
@@ -126,5 +127,28 @@ func TestOnboardingHandoversEndpoint(t *testing.T) {
 	}
 	if code, ids = getHandovers(t, s); code != http.StatusOK || len(ids) != 0 {
 		t.Fatalf("completed: code=%d ids=%v", code, ids)
+	}
+}
+
+func TestOnboardingHandoversSayWhetherTheModelWasEvaluated(t *testing.T) {
+	for _, tc := range []struct {
+		model     string
+		evaluated bool
+	}{{"test-model", true}, {provider.CompatModelPrefix + "qwen2.5:7b", false}} {
+		s, err := NewServer(Config{DataDir: t.TempDir(), DefaultModel: tc.model})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := s.store.CreateOnboardingBot(uuid.NewString(), tc.model); err != nil {
+			t.Fatal(err)
+		}
+		rec := providerRequest(t, s, http.MethodGet, "/api/onboarding/handovers", "")
+		var out struct {
+			Evaluated *bool `json:"evaluated"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || out.Evaluated == nil || *out.Evaluated != tc.evaluated {
+			t.Fatalf("%s: evaluated=%v err=%v body=%s", tc.model, out.Evaluated, err, rec.Body.String())
+		}
+		s.Close()
 	}
 }
