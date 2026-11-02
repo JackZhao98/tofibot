@@ -49,6 +49,15 @@ assert.equal(layout.traceCellAt(0.5, 1.2, 5), null);
   assert.equal(style.backgroundSize, `${(1280 * 64 / 424).toFixed(2)}px ${(572 * 64 / 424).toFixed(2)}px`);
   assert.equal(style.backgroundPosition, `${(-(2 + 426) * 64 / 424).toFixed(2)}px ${(-2 * 64 / 424).toFixed(2)}px`);
 }
+{
+  const base = { hasTrace: true, isFinalReply: true, hasTaskBlock: true, activityShown: false };
+  assert.equal(layout.traceUnderReply(base), true, "Activity hidden: the line goes under the final reply");
+  assert.equal(layout.traceUnderReply({ ...base, hasTaskBlock: false }), true, "no task block drawn: under the reply");
+  assert.equal(layout.traceUnderReply({ ...base, hasTaskBlock: false, activityShown: true }), true, "Activity on but no block: under the reply");
+  assert.equal(layout.traceUnderReply({ ...base, activityShown: true }), false, "Activity drawn: only there, never twice");
+  assert.equal(layout.traceUnderReply({ ...base, isFinalReply: false }), false, "only the final reply carries it");
+  assert.equal(layout.traceUnderReply({ ...base, hasTrace: false }), false, "no trace, no line");
+}
 console.log("PASS the strip grid matches the server's");
 
 // ---- 2. the component ----
@@ -88,10 +97,16 @@ try {
 import React from 'react';import {createRoot} from 'react-dom/client';
 import {i18nReady,setLanguage} from '../src/i18n';
 import WorkTrace from '../src/WorkTrace';
+import {traceUnderReply} from '../src/workTraceLayout';
 const query=new URLSearchParams(location.search);
 const tiles=Number(query.get('tiles')||5), steps=Number(query.get('steps')||tiles);
 const run={id:'r1',conversation_id:'c1',bot_id:'b1',status:'done',created_at:'2026-11-01T10:00:00Z',updated_at:'2026-11-01T10:05:00Z',trace:{attachment_id:'strip1',tiles,steps,created_at:'2026-11-01T10:05:00Z'}};
-void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<div className="workspace" style={{padding:16}}><WorkTrace run={run as any}/></div>));
+void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<div className="workspace" style={{padding:16}}>{(()=>{
+  const mode=query.get('mode');
+  if(!mode)return <WorkTrace run={run as any}/>;
+  const under=traceUnderReply({hasTrace:true,isFinalReply:true,hasTaskBlock:mode==='shown',activityShown:mode==='shown'});
+  return <div className="message-block"><div className="message-bubble" data-testid="reply">Done.</div>{under&&<div className="message-work-trace"><WorkTrace run={run as any}/></div>}{mode==='shown'&&<details open className="task-activity" data-testid="activity"><summary>Activity</summary><WorkTrace run={run as any}/></details>}</div>;
+})()}</div>));
 `);
   server = await createServer({ configFile: false, root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0, hmr: false }, logLevel: "error" });
   await server.listen();
@@ -160,6 +175,28 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.deepEqual(numbers(pos), numbers(`${(-(2 + 426) * 64 / 424).toFixed(2)}px ${(-2 * 64 / 424).toFixed(2)}px`), "the summary cell is skipped: the first thumbnail is the second cell");
     await t.close();
     console.log("PASS earlier steps fold into the first cell and the thumbnails skip it");
+  }
+
+  // ---- where the line sits ----
+  {
+    const hidden = await open({ mode: "hidden" });
+    assert.equal(await hidden.page.locator(".work-trace").count(), 1);
+    assert.equal(await hidden.page.locator("[data-testid=reply] ~ .message-work-trace .work-trace-line").count(), 1, "Activity hidden: the line is under the reply");
+    assert.equal(await hidden.page.locator("[data-testid=activity]").count(), 0);
+    await hidden.page.locator(".work-trace-line").click();
+    await hidden.page.locator("dialog.attachment-lightbox[open]").waitFor();
+    assert.match(await imageName(hidden.page), /strip1$/, "the same viewer opens from under the reply");
+    await hidden.page.keyboard.press("Escape");
+    await hidden.page.getByRole("button", { name: "Delete trace" }).click();
+    assert.equal(await hidden.page.locator(".work-trace-confirm").count(), 1, "delete still asks first");
+    assert.deepEqual(hidden.errors, [], `page errors: ${hidden.errors}`);
+    await hidden.close();
+    const shown = await open({ mode: "shown" });
+    assert.equal(await shown.page.locator(".work-trace").count(), 1, "Activity shown: one line, not two");
+    assert.equal(await shown.page.locator("[data-testid=activity] .work-trace-line").count(), 1, "it is in Activity");
+    assert.equal(await shown.page.locator(".message-work-trace").count(), 0, "nothing under the reply");
+    await shown.close();
+    console.log("PASS the line sits under the final reply when Activity is not drawn, and only in Activity when it is");
   }
 
   // ---- the viewer ----

@@ -1,4 +1,4 @@
-/* Work trace: one folded line at the end of a run's Activity list; small cuts of the strip, the title, a chevron. */
+/* Work trace: one folded line at the end of a run's Activity list, or under its final reply when that list is not drawn; small cuts of the strip, the title, a chevron. */
 .work-trace{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-3);margin:var(--space-2) 0 0}
 .work-trace-line{flex:1 1 220px;cursor:pointer}
 .work-trace-thumbs{display:inline-flex;flex:none;gap:2px}
@@ -8,3 +8,4 @@
 .work-trace-note{margin:var(--space-2) 0 0}
 
 .attachment-lightbox img.is-pickable{cursor:pointer}
+.message-work-trace{padding:0 var(--space-2)}

@@ -62,3 +62,11 @@ export function traceThumbStyle(url: string, index: number, cells: number, thumb
     backgroundPosition: `${(-rect.x * scale).toFixed(2)}px ${(-rect.y * scale).toFixed(2)}px`,
   };
 }
+
+/**
+ * Where a run's work trace line goes. It ends the run's Activity list when that list is drawn (Activity on, or opened for the
+ * run, and a task block exists); otherwise it sits under the run's final reply. Never both.
+ */
+export function traceUnderReply(input: { hasTrace: boolean; isFinalReply: boolean; hasTaskBlock: boolean; activityShown: boolean }): boolean {
+  return input.hasTrace && input.isFinalReply && !(input.hasTaskBlock && input.activityShown);
+}

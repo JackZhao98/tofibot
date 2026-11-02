@@ -112,6 +112,9 @@ import type { SurfaceCtx } from "./SurfaceViews";
 // The page-wide file drop target loads right after first paint; it is not needed to draw the shell.
 const WebFileDropOverlay = lazy(() => import("./WebFileDropOverlay").then(module => ({ default: module.WebFileDropOverlay })));
 // Shown only before the first Bot exists.
+/** The work trace line under a run's final reply, for a run whose Activity list is not drawn; the same chunk as in Activity. */
+const WorkTrace = lazy(() => import("./WorkTrace"));
+import { traceUnderReply } from "./workTraceLayout";
 const DayOneTemplates = lazy(() => import("./DayOneTemplates"));
 const FirstRunHero = lazy(() => import("./FirstRunHero").then(module => ({ default: module.FirstRunHero })));
 const WorkspaceToast = lazy(() => import("./WorkspaceToast").then(module => ({ default: module.WorkspaceToast })));
@@ -2420,6 +2423,14 @@ function Workspace() {
   const messageRecordIDs = new Set(messageRecords.map(record => record.id));
   // Runs whose reply is on screen: the live status line gives way to it in the same frame.
   const replyingRunIDs = new Set([...Object.values(drafts).filter(draft => draft.status === "active" && draft.content.trim()).map(draft => draft.run_id), ...messageRecords.filter(record => record.role === "assistant" && record.run_id && !record.kind).map(record => record.run_id as string)]);
+  // The work trace shows under a run's final reply only when that run's Activity list is not drawn (otherwise it ends that list).
+  const finalReplyByRun = new Map<string, string>();
+  for (const record of messageRecords) if (record.role === "assistant" && record.run_id && !record.kind) finalReplyByRun.set(record.run_id, record.id);
+  const traceRunFor = (message: Message): Run | undefined => {
+    const run = message.run_id ? runById.get(message.run_id) : undefined;
+    const owner = run && taskOwners.find(item => item.family.attempts.some(attempt => attempt.id === run.id));
+    return run && traceUnderReply({ hasTrace: Boolean(run.trace), isFinalReply: message.role === "assistant" && !message.kind && finalReplyByRun.get(run.id) === message.id, hasTaskBlock: Boolean(owner), activityShown: Boolean(owner) && (showActivity || ownerRevealed(owner!)) }) ? run : undefined;
+  };
   const ownedAttemptKeys = new Set(taskOwners.flatMap(owner => owner.family.attempts.map(run => `${run.id}|${run.bot_id}|${run.conversation_id}`)));
   const ownedBy = (item: { run_id: string; bot_id: string; conversation_id: string }) => ownedAttemptKeys.has(`${item.run_id}|${item.bot_id}|${item.conversation_id}`);
   function renderPlacement({ owner, key, segment }: OwnerPlacement) {
@@ -2779,7 +2790,7 @@ function Workspace() {
                         replyTarget: showReplyQuote ? replyTarget : undefined, replyTargetName: replyTarget?.role === "user" ? t("message.you") : replyTarget?.sender_bot_name ?? (replyTarget?.sender_bot_id ? botById.get(replyTarget.sender_bot_id)?.name ?? knownBotNames.current.get(replyTarget.sender_bot_id) : undefined),
                         senderName: message.sender_bot_name ?? (message.sender_bot_id ? knownBotNames.current.get(message.sender_bot_id) : undefined),
                         targetBot: message.notice?.to_bot_id ? botById.get(message.notice.to_bot_id) : undefined, sender: message.sender_bot_id ? botById.get(message.sender_bot_id) : undefined,
-                        run: message.run_id ? runById.get(message.run_id) : undefined,
+                        run: message.run_id ? runById.get(message.run_id) : undefined, traceRun: traceRunFor(message),
                         toolLists: hasProcessTools || hasAfterTools ? { details: toolDetailState, botById, activeRunIds } : undefined,
                         processTools: hasProcessTools ? [...processTools, ...processAggregateTools] : undefined, processProgress: hasProcessTools ? processProgress : undefined, processSummaries: hasProcessTools ? processSummaries : undefined, processSummaryErrors: hasProcessTools ? processSummaryErrors : undefined, processSummaryLoading: hasProcessTools ? processSummaryLoading : undefined,
                         afterTools: hasAfterTools ? [...afterTools, ...afterAggregateTools] : undefined, afterSummaries: hasAfterTools ? afterSummaries : undefined, afterSummaryErrors: hasAfterTools ? afterSummaryErrors : undefined, afterSummaryLoading: hasAfterTools ? afterSummaryLoading : undefined,
@@ -2967,7 +2978,7 @@ interface RowModel {
   canReact: boolean; isGroup: boolean; archived: boolean;
   /** The draft whose live text this row follows, and whether the bubble shows it as still being written. */
   liveId?: string; isStub: boolean; drafting: boolean;
-  replyTarget?: Message; replyTargetName?: string; senderName?: string; targetBot?: Bot; sender?: Bot; run?: Run;
+  replyTarget?: Message; replyTargetName?: string; senderName?: string; targetBot?: Bot; sender?: Bot; run?: Run; /** Set when this is the final reply of a run that kept a work trace and its Activity list is not drawn. */ traceRun?: Run;
   toolLists?: { details: Record<string, ToolDetailState>; botById: Map<string, Bot>; activeRunIds: Set<string> };
   processTools?: ToolActivity[]; processProgress?: Message[]; processSummaries?: ToolActivityRunSummary[]; processSummaryErrors?: Record<string, string>; processSummaryLoading?: Record<string, boolean>;
   afterTools?: ToolActivity[]; afterSummaries?: ToolActivityRunSummary[]; afterSummaryErrors?: Record<string, string>; afterSummaryLoading?: Record<string, boolean>;
@@ -3034,6 +3045,7 @@ const MessageRow = memo(function MessageRow({ model: m, h, stream }: { model: Ro
     </div>
     {m.canReact && <MessageReactions message={message} botNames={m.botNames} menuPosition={m.menuPosition} onCloseMenu={h.closeMenu} onSet={(emoji, present) => h.setReaction(message, emoji, present)} />}
     {actions && <div className="message-actions-row" data-host-id={message.id} data-side={message.role === "user" ? "user" : "bot"} data-gutter={m.isGroup && message.role !== "user" && message.kind !== "ui_card" ? "" : undefined}>{actions}</div>}
+    {m.traceRun && <div className="message-work-trace"><Suspense fallback={null}><WorkTrace run={m.traceRun} /></Suspense></div>}
     {m.ownerNodes}
     {m.taskCards && <Suspense fallback={null}>{m.taskCards.map(card => <TaskCard key={card.id} card={card} />)}</Suspense>}
     {m.afterTools ? <ToolActivityList activities={m.afterTools} summaries={m.afterSummaries} summaryErrors={m.afterSummaryErrors} summaryLoading={m.afterSummaryLoading} details={m.toolLists!.details} onLoadDetails={h.loadDetails} onRetrySummary={h.retrySummary} botById={m.toolLists!.botById} activeRunIds={m.toolLists!.activeRunIds} group={m.isGroup} /> : null}
