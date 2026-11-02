@@ -172,7 +172,7 @@ func (s *Server) afterComputerAction(ctx context.Context, r Run, tool, action st
 	}
 	if navigationAction(action, raw) {
 		if s.store != nil {
-			s.store.closeSecretWindow(r.ID)
+			s.store.closeSecretWindow()
 		}
 		var nav struct {
 			URL string `json:"url"`

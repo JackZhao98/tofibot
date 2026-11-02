@@ -18,8 +18,8 @@ A run with fewer than two pictures has no strip. A run that a person watched or 
 
 The server decides this before it stores a picture. A step that is not kept shows as a grey cell with the word "redacted".
 
-- **Private input.** From the moment a form password or a private input exists in the run until the Bot opens the next page, no picture is kept.
-- **Private origins.** A site that a saved or form password is bound to is never kept. The person can add more sites in the setting {{ui:settings:automation.item.trace_private_origins.name}}. A host also covers its subdomains.
+- **Private input.** From the moment a form password is typed on the Bot computer until a Bot opens the next page, stops the desktop, or 15 minutes pass, no picture is kept. This holds for every run and every Bot on that computer, also after the run that typed it has ended.
+- **Private origins.** A site that a form password was bound to is never kept, in any later run. The person can add more sites in the setting {{ui:settings:automation.item.trace_private_origins.name}}. A host also covers its subdomains.
 - **Takeover.** While the person controls the screen, the Bot gets no capture and nothing is kept.
 - **Typed text.** The line under a step names the action, a host or a short label. It never holds typed text, a path or a query string.
 

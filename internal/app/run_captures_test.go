@@ -143,19 +143,19 @@ func TestNoPictureIsKeptWhileTheRunHoldsAPrivateInput(t *testing.T) {
 }
 
 func TestAnsweringAFormWithAPasswordOpensTheSecretWindow(t *testing.T) {
-	s, c, run, q := formFixture(t)
-	if s.store.secretWindowOpen(run.ID) {
+	s, c, _, q := formFixture(t)
+	if s.store.secretWindowOpen() {
 		t.Fatal("window open before the answer")
 	}
 	if _, _, err := s.AnswerUserForm(q.ID, "human", formValues()); err != nil {
 		t.Fatal(err)
 	}
-	if !s.store.secretWindowOpen(run.ID) {
+	if !s.store.secretWindowOpen() {
 		t.Fatal("a password reference exists but the window is closed")
 	}
 	_ = c
-	s.store.closeSecretWindow(run.ID)
-	if s.store.secretWindowOpen(run.ID) {
+	s.store.closeSecretWindow()
+	if s.store.secretWindowOpen() {
 		t.Fatal("window not closed")
 	}
 }

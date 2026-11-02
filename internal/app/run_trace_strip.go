@@ -56,7 +56,6 @@ func (s *Server) finalizeRunTrace(c Conversation, run Run) {
 		}
 	}()
 	s.forgetTraceState(run.ID)
-	s.store.closeSecretWindow(run.ID)
 	if !s.autoBool(autoWorkTrace) {
 		return
 	}

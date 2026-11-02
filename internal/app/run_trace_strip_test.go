@@ -101,8 +101,8 @@ func TestStripOfOnlyRedactedStepsIsNotMade(t *testing.T) {
 	if trace := traceOf(s, endRun(t, s, run)); trace != nil {
 		t.Fatalf("a strip of grey cells was made: %+v", trace)
 	}
-	if s.store.secretWindowOpen(run.ID) {
-		t.Fatal("the secret window outlived the run")
+	if !s.store.secretWindowOpen() {
+		t.Fatal("the secret window closed at the end of the run")
 	}
 }
 

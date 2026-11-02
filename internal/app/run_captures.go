@@ -81,9 +81,23 @@ func migrateRunCaptures(db *sql.DB) error {
 	 FOREIGN KEY(attachment_id) REFERENCES attachments(id) ON DELETE SET NULL);
 	CREATE INDEX IF NOT EXISTS run_captures_attachment ON run_captures(attachment_id);
 	CREATE INDEX IF NOT EXISTS run_captures_taken ON run_captures(taken_at);
-	CREATE TABLE IF NOT EXISTS run_secret_windows(
-	 run_id TEXT PRIMARY KEY, opened_at TEXT NOT NULL,
-	 FOREIGN KEY(run_id) REFERENCES runs(id) ON DELETE CASCADE);`)
+	CREATE TABLE IF NOT EXISTS computer_secret_windows(
+	 computer_id TEXT PRIMARY KEY, run_id TEXT NOT NULL DEFAULT '', opened_at TEXT NOT NULL);
+	CREATE TABLE IF NOT EXISTS trace_bound_origins(
+	 origin TEXT PRIMARY KEY, created_at TEXT NOT NULL);`)
+	if err != nil {
+		return err
+	}
+	// The window of an older binary was keyed by run; keep a window that was
+	// open at the upgrade, as one for the computer.
+	var old string
+	if db.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name='run_secret_windows'`).Scan(&old) == nil {
+		if _, err = db.Exec(`INSERT OR IGNORE INTO computer_secret_windows(computer_id,run_id,opened_at)
+		 SELECT ?,run_id,opened_at FROM run_secret_windows ORDER BY opened_at DESC LIMIT 1`, microVMComputerID); err != nil {
+			return err
+		}
+		_, err = db.Exec(`DROP TABLE run_secret_windows`)
+	}
 	return err
 }
 
@@ -142,24 +156,42 @@ func (s *Store) runCaptureCount(runID string) int {
 	return n
 }
 
-// Secret window: the run holds a private input and the screen may show it.
+// Secret window: a private input was typed (or is about to be) on the Bot
+// computer and its screen may show it. The screen belongs to the computer, not
+// to a run, so the window is keyed by the computer: it covers every run and
+// every Bot that captures on it, and a run ending does not close it. It closes
+// on a confirmed navigation, on desktop.stop, or after secretWindowMax.
+const secretWindowMax = secretReferenceLifetime
+
 func (s *Store) openSecretWindow(runID string) {
-	if runID == "" {
-		return
-	}
-	if _, err := s.db.Exec(`INSERT OR REPLACE INTO run_secret_windows(run_id,opened_at) VALUES(?,?)`, runID, now()); err != nil {
-		log.Printf("[trace] could not open the secret window of run %s: %v", runID, err)
+	if _, err := s.db.Exec(`INSERT OR REPLACE INTO computer_secret_windows(computer_id,run_id,opened_at) VALUES(?,?,?)`, microVMComputerID, runID, now()); err != nil {
+		log.Printf("[trace] could not open the secret window of the computer: %v", err)
 	}
 }
 
-func (s *Store) closeSecretWindow(runID string) {
-	_, _ = s.db.Exec(`DELETE FROM run_secret_windows WHERE run_id=?`, runID)
+func (s *Store) closeSecretWindow() {
+	_, _ = s.db.Exec(`DELETE FROM computer_secret_windows WHERE computer_id=?`, microVMComputerID)
 }
 
-func (s *Store) secretWindowOpen(runID string) bool {
-	var found bool
-	_ = s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM run_secret_windows WHERE run_id=?)`, runID).Scan(&found)
-	return found
+// secretWindowOpen fails closed: an unreadable row counts as open.
+func (s *Store) secretWindowOpen() bool {
+	var opened string
+	err := s.db.QueryRow(`SELECT opened_at FROM computer_secret_windows WHERE computer_id=?`, microVMComputerID).Scan(&opened)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false
+	}
+	if err != nil {
+		return true
+	}
+	at, perr := time.Parse(time.RFC3339Nano, opened)
+	if perr != nil {
+		return true
+	}
+	if time.Since(at) > secretWindowMax {
+		s.closeSecretWindow()
+		return false
+	}
+	return true
 }
 
 // runTraceState is what the server learns about a run's screen between two
@@ -385,14 +417,19 @@ func (s *Server) privateTraceOrigin(pageURL string) bool {
 			return true
 		}
 	}
-	if s.secretVault == nil {
-		return false
-	}
 	u, err := url.Parse(strings.TrimSpace(pageURL))
 	if err != nil || u.Hostname() == "" {
 		return false
 	}
 	origin := formOrigin(u)
+	// An origin a form password was once bound to stays private for every later run on the computer.
+	var bound bool
+	if s.store != nil && s.store.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM trace_bound_origins WHERE origin=?)`, origin).Scan(&bound) == nil && bound {
+		return true
+	}
+	if s.secretVault == nil {
+		return false
+	}
 	s.secretVault.mu.Lock()
 	defer s.secretVault.mu.Unlock()
 	for _, rec := range s.secretVault.records {
@@ -405,8 +442,8 @@ func (s *Server) privateTraceOrigin(pageURL string) bool {
 
 // traceRedaction names the privacy rule that applies to the next capture of the
 // run, or "" when the picture may be kept.
-func (s *Server) traceRedaction(runID, pageURL string) string {
-	if s.store.secretWindowOpen(runID) {
+func (s *Server) traceRedaction(pageURL string) string {
+	if s.store.secretWindowOpen() {
 		return traceReasonSecretInput
 	}
 	if s.privateTraceOrigin(pageURL) {
@@ -468,7 +505,7 @@ func (s *Server) recordTrace(ctx context.Context, r Run, tool, action, pageURL, 
 		label = strings.TrimPrefix(strings.TrimPrefix(action, "desktop."), "browser.")
 	}
 	row := RunCapture{RunID: r.ID, TakenAt: now(), Tool: tool, Action: action, Label: label, Detail: detail}
-	reason := s.traceRedaction(r.ID, pageURL)
+	reason := s.traceRedaction(pageURL)
 	if reason == "" && s.store.runCaptureCount(r.ID) >= traceCapturesPerRunMax {
 		reason = traceReasonLimit
 	}
@@ -643,6 +680,6 @@ func (s *Server) noteEngineTrace(runID, tool string, args map[string]any, page *
 	}
 	s.noteTraceAction(runID, traceLabelText(label, 40))
 	if tool == "browser_navigate" && s.store != nil {
-		s.store.closeSecretWindow(runID)
+		s.store.closeSecretWindow()
 	}
 }

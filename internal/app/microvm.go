@@ -240,6 +240,10 @@ func (s *Server) microVMAction(ctx context.Context, r Run, name string, args jso
 	if err == nil {
 		s.recordDesktopAction(r, name, args)
 	}
+	if err == nil && name == "desktop.stop" && s.store != nil {
+		// The screen is gone: a private input typed on it is gone with it.
+		s.store.closeSecretWindow()
+	}
 	if err == nil && (name == "desktop.start" || name == "desktop.stop") {
 		s.computerOwnerMu.Lock()
 		delete(s.desktopObserved, r.ID)
