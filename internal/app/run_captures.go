@@ -436,6 +436,9 @@ func (s *Server) finishCapture(ctx context.Context, r Run, tool, action string, 
 	if pageURL != "" {
 		s.noteTracePage(r.ID, pageURL)
 	}
+	if s.store == nil {
+		return applyCaptureDetail(result, detail), nil
+	}
 	if s.store.holdsPendingTakeover(r.ID) {
 		return "", tooloutcome.New(tooloutcome.Denied, "takeover_active", "not_executed", "The person controls the screen now. Wait for the handover to end, then capture again.", "explain_blocker").Err()
 	}
@@ -577,7 +580,7 @@ func (s *Server) noteEngineTrace(runID, tool string, args map[string]any, page *
 		label = "type"
 	}
 	s.noteTraceAction(runID, traceLabelText(label, 40))
-	if tool == "browser_navigate" {
+	if tool == "browser_navigate" && s.store != nil {
 		s.store.closeSecretWindow(runID)
 	}
 }

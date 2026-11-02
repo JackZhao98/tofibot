@@ -215,7 +215,7 @@ func mcpObservationOnlyActivity(a ToolActivity) bool {
 		if json.Unmarshal([]byte(a.Arguments), &in) != nil {
 			return false
 		}
-		return in.Action == "browser.snapshot" || in.Action == "browser.action" && in.TargetAction == "snapshot" || in.Action == "desktop.capture"
+		return in.Action == "browser.snapshot" || in.Action == "browser.action" && in.TargetAction == "snapshot" || in.Action == "desktop.capture" || in.Action == "desktop.trace"
 	}
 	return false
 }
@@ -282,7 +282,7 @@ func mcpUncertainEffectActivityWith(a ToolActivity, observation func(ToolActivit
 func computerObservationAction(action, target string) bool {
 	switch action {
 	case "browser.navigate", "navigate", "browser.read", "read", "browser.snapshot", "snapshot",
-		"desktop.capture", "desktop.snapshot", "capture",
+		"desktop.capture", "desktop.snapshot", "capture", "desktop.trace", "trace",
 		"files.read", "files.list", "screen.capture", "host.info", "terminal.list", "terminal.read":
 		return true
 	case "browser.action":

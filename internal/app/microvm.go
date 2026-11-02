@@ -476,6 +476,12 @@ func (s *Server) microVMTools(r Run) []Tool {
 					return "", fmt.Errorf("scheduled browser startup: %w", err)
 				}
 			}
+			if action == "desktop.trace" {
+				if viewed.Add(1) > viewsPerRunMax {
+					return "", tooloutcome.InvalidArguments(fmt.Sprintf("desktop.trace is limited to %d images per run with files.view; judge from the views you already have", viewsPerRunMax))
+				}
+				return s.traceForModel(ctx, r, args)
+			}
 			if action == "files.view" {
 				if viewed.Add(1) > viewsPerRunMax {
 					return "", tooloutcome.InvalidArguments(fmt.Sprintf("files.view is limited to %d images per run; judge from the views you already have", viewsPerRunMax))
@@ -642,9 +648,12 @@ func (s *Server) microVMTools(r Run) []Tool {
 		argsJSON, _ := json.Marshal(args)
 		return in.Action, argsJSON, nil
 	})
-	desktop := call("computer_desktop", computerFallbackNote+" Control the Bot computer's display and Chrome session. All Bots share this display/browser. Graphical actions wait for exclusive control; inspect after acquiring it or after the page changes. A successful browser.snapshot already includes a current screenshot and proves the desktop is running: use that screenshot directly, without an extra desktop.start or desktop.capture. Use desktop.start when desktop readiness is unknown/stopped; desktop.capture is an alternative observation for non-browser UI. Click/double_click/triple_click/type/key/scroll act on the current visible screen. After an input sequence, inspect the result before claiming success. "+captureDetailSentence+" Each capture result carries capture_seq.", objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"desktop.start", "desktop.stop", "desktop.capture", "desktop.snapshot", "desktop.click", "desktop.double_click", "desktop.triple_click", "desktop.type", "desktop.key", "desktop.scroll", "start", "stop", "capture", "click", "double_click", "triple_click", "type", "key", "scroll"}, "description": "desktop.start/stop/capture/click/double_click/triple_click/type/key/scroll (desktop.snapshot = capture). A double or triple click is one action: opening a folder, a word or a line selection is never two separate click calls."}, "x": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel X from the latest capture"}, "y": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel Y from the latest capture"}, "screenshot_width": map[string]any{"type": "integer", "minimum": 1, "maximum": 1280, "description": "Width of the screenshot used for x/y; provide together with screenshot_height"}, "screenshot_height": map[string]any{"type": "integer", "minimum": 1, "maximum": 800, "description": "Height of the screenshot used for x/y; provide together with screenshot_width"}, "direction": map[string]any{"type": "string", "enum": []string{"up", "down", "left", "right"}, "description": "Visible page scroll direction"}, "amount": map[string]any{"type": "integer", "minimum": 1, "maximum": 20, "description": "Mouse wheel steps, default 3"}, "text": map[string]any{"type": "string"}, "key": map[string]any{"type": "string", "description": "X11 key name, for example Return or Escape"}, "effect": effectParam, "modifiers": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "detail": captureDetailParam}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
+	desktop := call("computer_desktop", computerFallbackNote+" Control the Bot computer's display and Chrome session. Graphical actions wait for exclusive control; inspect after acquiring it or after the page changes. A successful browser.snapshot already includes a current screenshot: use it directly, without an extra desktop.start or desktop.capture. Use desktop.start when readiness is unknown; desktop.capture is for non-browser UI. Click/double_click/triple_click/type/key/scroll act on the current visible screen. After an input sequence, inspect the result before claiming success. "+captureDetailSentence+" "+traceActionSentence, objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"desktop.start", "desktop.stop", "desktop.capture", "desktop.snapshot", "desktop.trace", "desktop.click", "desktop.double_click", "desktop.triple_click", "desktop.type", "desktop.key", "desktop.scroll", "start", "stop", "capture", "trace", "click", "double_click", "triple_click", "type", "key", "scroll"}, "description": "desktop.start/stop/capture/click/double_click/triple_click/type/key/scroll (desktop.snapshot = capture). A double or triple click is one action: opening a folder, a word or a line selection is never two separate click calls."}, "x": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel X from the latest capture"}, "y": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel Y from the latest capture"}, "screenshot_width": map[string]any{"type": "integer", "minimum": 1, "maximum": 1280, "description": "Width of the screenshot used for x/y; provide together with screenshot_height"}, "screenshot_height": map[string]any{"type": "integer", "minimum": 1, "maximum": 800, "description": "Height of the screenshot used for x/y; provide together with screenshot_width"}, "direction": map[string]any{"type": "string", "enum": []string{"up", "down", "left", "right"}, "description": "Visible page scroll direction"}, "amount": map[string]any{"type": "integer", "minimum": 1, "maximum": 20, "description": "Mouse wheel steps, default 3"}, "text": map[string]any{"type": "string"}, "key": map[string]any{"type": "string", "description": "X11 key name, for example Return or Escape"}, "effect": effectParam, "modifiers": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "detail": captureDetailParam, "last": traceActionParams["last"], "capture_seqs": traceActionParams["capture_seqs"], "columns": traceActionParams["columns"]}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
 		var in struct {
 			Action           string   `json:"action"`
+			Last             int      `json:"last,omitempty"`
+			CaptureSeqs      []int    `json:"capture_seqs,omitempty"`
+			Columns          int      `json:"columns,omitempty"`
 			Detail           string   `json:"detail,omitempty"`
 			Direction        string   `json:"direction,omitempty"`
 			Amount           int      `json:"amount,omitempty"`
@@ -684,6 +693,8 @@ func (s *Server) microVMTools(r Run) []Tool {
 		switch in.Action {
 		case "desktop.start", "desktop.stop", "desktop.capture":
 			args = struct{}{}
+		case "desktop.trace":
+			args = traceArgs{Last: in.Last, CaptureSeqs: in.CaptureSeqs, Columns: in.Columns}
 		case "desktop.click":
 			args = struct {
 				X                int `json:"x,omitempty"`
