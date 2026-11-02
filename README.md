@@ -65,7 +65,7 @@ browser. On a cloud server, allow TCP 8321 in the firewall.
 
 There are three ways to open TOFI. Choose in the installer:
 
-- **Tailscale (VPN):** best for phones. No public port. The certificate includes the Tailscale IP and MagicDNS name.
+- **Tailscale (VPN):** best for phones. TOFI still listens on all interfaces, so close TCP 8321 at your firewall or cloud security group; Tailscale does not need it open. The certificate includes the Tailscale IP and MagicDNS name.
 - **IP address:** self-signed certificate. Accept the browser warning once on each device.
 - **Domain:** `--domain`. Real certificate, no warning.
 

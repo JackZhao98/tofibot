@@ -69,7 +69,7 @@ Do not expect these to work without help.
 
 ### When a Bot asks first
 
-TOFI drafts email. It never sends email for you. You send it. For other actions, the rules differ:
+TOFI drafts email. It sends only the exact draft you approved, and nothing else. For other actions, the rules differ:
 
 - **Hard rules.** Sign-ins, two-step codes and CAPTCHAs: the Bot asks you to do them. Installing a connection or skill needs your approval. A Bot that works in the background without you cannot approve its own request.
 - **Judged by a model.** Clicks on buy, send, publish or delete buttons in a web page, and write calls to outside services (MCP), go to a review model first. If you clearly asked for the action, it can go ahead. If not, the Bot asks you. This relies on the model labeling the action correctly. It is not a hard guarantee.

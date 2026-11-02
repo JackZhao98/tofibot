@@ -1849,7 +1849,8 @@ class Installer:
         elif mode == 'vpn':
             rows.append(('ok', 'Open', '%s (self-signed, over Tailscale)%s'
                          % (access_url('vpn', facts, port), source_note('access'))))
-            rows.append(('info', 'Firewall', 'Tailscale needs no open port; keep TCP %d closed to the Internet' % port))
+            rows.append(('info', 'Firewall', 'TOFI listens on all interfaces; Tailscale does not need TCP %d open, so close it '
+                         'to the Internet at your firewall or cloud security group' % port))
         else:
             rows.append(('ok', 'Open', '%s (self-signed)%s' % (access_url('ip', facts, port), source_note('access'))))
             rows.append(('info', 'Firewall', 'on a cloud server allow TCP %d' % port))

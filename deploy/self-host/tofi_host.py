@@ -5510,9 +5510,11 @@ def exposure_findings(env):
     found = []
     if open_bind and public:
         found.append(('WARN', 'Open to the Internet',
-                      'the App listens on 0.0.0.0:%s and this host has public address %s; no domain or VPN protects it'
+                      'the App listens on 0.0.0.0:%s and this host has public address %s; no domain fronts it and a VPN does not close the port'
                       % (port, public[0]),
-                      'use Tailscale or a domain, close TCP %s on the firewall, or run: sudo tofi install --local-only' % port))
+                      ('close TCP %s on the firewall or cloud security group; Tailscale does not need it open' % port
+                       if tofi_tui.tailscale_info() else
+                       'use Tailscale or a domain, close TCP %s on the firewall, or run: sudo tofi install --local-only' % port)))
     else:
         found.append(('PASS', 'Open to the Internet',
                       'a domain fronts the App' if domain else
