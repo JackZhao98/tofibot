@@ -379,6 +379,9 @@ func taskRunStartedTx(tx *sql.Tx, runID string) error {
 	if err = baselineStallTx(tx, item.ID); err != nil {
 		return err
 	}
+	if err = startTaskClockTx(tx, item.ID); err != nil {
+		return err
+	}
 	return taskEventTx(tx, item.ID)
 }
 

@@ -163,19 +163,15 @@ func unlockTaskTx(tx *sql.Tx, item WorkItem) (bool, error) {
 	if n, _ := res.RowsAffected(); n != 1 {
 		return false, nil
 	}
-	// The giver's wait on the task runs the part's deadline (its own, else the
-	// default of the setting) from now, not from when the task was made.
+	// A task with a deadline of its own starts its clock when its holder's run
+	// starts (startTaskClockTx); the queue of the holder is free time. Another
+	// task keeps the old rule: the giver's wait runs its default from now.
 	contract := loadContractTx(tx, item.ID)
-	deadline := stampTime(time.Now().Add(waitTimeoutFor(waitTaskResult)))
-	if secs := contract.deadlineSeconds; secs > 0 {
-		deadline = deadlineFrom(time.Now(), secs)
-		if _, err = tx.Exec(`UPDATE work_items SET deadline_at=? WHERE id=?`, deadline, item.ID); err != nil {
+	if contract.deadlineSeconds <= 0 {
+		deadline := stampTime(time.Now().Add(waitTimeoutFor(waitTaskResult)))
+		if _, err = tx.Exec(`UPDATE waits SET deadline_at=? WHERE kind=? AND target=? AND status='pending'`, deadline, waitTaskResult, item.ID); err != nil {
 			return false, err
 		}
-		contract.item.DeadlineAt = deadline
-	}
-	if _, err = tx.Exec(`UPDATE waits SET deadline_at=? WHERE kind=? AND target=? AND status='pending'`, deadline, waitTaskResult, item.ID); err != nil {
-		return false, err
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "Task %q (%s) is unblocked: every task it waited on is done. It is yours now.", item.Title, item.ID)
@@ -193,6 +189,10 @@ func unlockTaskTx(tx *sql.Tx, item WorkItem) (bool, error) {
 	}
 	if lines := taskContractLines(contract.item, time.Now()); lines != "" {
 		b.WriteString("\n" + strings.TrimRight(lines, "\n"))
+	}
+	if contract.deadlineSeconds > 0 && contract.item.DeadlineAt == "" {
+		// The clock starts with your run, so the queue costs nothing.
+		fmt.Fprintf(&b, "\nDeadline: %d minutes, counted from the start of your run.", (contract.deadlineSeconds+59)/60)
 	}
 	fmt.Fprintf(&b, "\nDo the work, then deliver the result with say and task_id %s.", item.ID)
 	if err = addInboxTx(tx, InboxItem{BotID: item.BotID, ConversationID: item.WorkConversationOrConversation(), Kind: inboxTaskUpdate, TaskID: item.ID, RootTaskID: item.RootTaskID,

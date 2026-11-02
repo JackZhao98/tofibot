@@ -57,11 +57,16 @@ func TestDelegateContractIsStoredOnTheDirectHandoff(t *testing.T) {
 	f := newTaskFix(t)
 	root := f.running(f.g.ID, f.a)
 	r := f.delegateArgs(f.g, root, map[string]any{"bot_id": f.b.ID, "task": "Collect three prices", "result_format": "A table with name and price", "limits": "Use two sites at most", "deadline_seconds": 600})
-	if len(r.Tasks) != 1 || r.Tasks[0].DeadlineAt == "" || r.Tasks[0].RunID == "" {
+	// The clock starts with the holder's run: the receipt has no deadline yet.
+	if len(r.Tasks) != 1 || r.Tasks[0].DeadlineAt != "" || r.Tasks[0].RunID == "" {
 		t.Fatalf("receipt %+v", r)
 	}
+	if left := time.Until(f.waitDeadline(r.Tasks[0].TaskID)); left < time.Hour {
+		t.Fatalf("before the run starts the wait keeps its long default, has %s", left)
+	}
+	f.start(r.Tasks[0].RunID)
 	row := f.taskRow(r.Tasks[0].TaskID)
-	if row.ResultFormat != "A table with name and price" || row.Limits != "Use two sites at most" || row.DeadlineAt != r.Tasks[0].DeadlineAt {
+	if row.ResultFormat != "A table with name and price" || row.Limits != "Use two sites at most" || row.DeadlineAt == "" {
 		t.Fatalf("task %+v", row)
 	}
 	if left := time.Until(f.waitDeadline(row.ID)); left < 9*time.Minute || left > 10*time.Minute+time.Second {
@@ -86,11 +91,8 @@ func TestDelegateContractReachesAHolderWokenThroughTheInbox(t *testing.T) {
 	root := f.running(f.g.ID, f.a)
 	f.delegateTo(f.g, root, f.b, "First")
 	r := f.delegateArgs(f.g, root, map[string]any{"bot_id": f.c.ID, "task": "Second", "result_format": "One paragraph", "deadline_seconds": 1200})
-	if len(r.Tasks) != 1 || r.Tasks[0].RunID != "" || r.Tasks[0].DeadlineAt == "" {
+	if len(r.Tasks) != 1 || r.Tasks[0].RunID != "" || r.Tasks[0].DeadlineAt != "" {
 		t.Fatalf("receipt %+v", r)
-	}
-	if left := time.Until(f.waitDeadline(r.Tasks[0].TaskID)); left < 19*time.Minute || left > 20*time.Minute+time.Second {
-		t.Fatalf("the giver's wait ends in %s, want about 20 minutes", left)
 	}
 	f.srv.flushInbox()
 	runs := f.wokenRuns(f.c)
@@ -99,8 +101,16 @@ func TestDelegateContractReachesAHolderWokenThroughTheInbox(t *testing.T) {
 	}
 	var request string
 	f.s.db.QueryRow(`SELECT request FROM run_wakes WHERE run_id=?`, runs[0].ID).Scan(&request)
-	if !strings.Contains(request, "Result format: One paragraph") || !strings.Contains(request, "Deadline: 20 minutes left") {
+	if !strings.Contains(request, "Result format: One paragraph") || !strings.Contains(request, "Deadline: 20 minutes, counted from the start of your run.") {
 		t.Fatalf("wake request %q", request)
+	}
+	// The queue costs nothing: the clock starts when the run does.
+	if row := f.taskRow(r.Tasks[0].TaskID); row.DeadlineAt != "" {
+		t.Fatalf("the deadline runs before the run starts: %+v", row)
+	}
+	f.start(runs[0].ID)
+	if left := time.Until(f.waitDeadline(r.Tasks[0].TaskID)); left < 19*time.Minute || left > 20*time.Minute+time.Second {
+		t.Fatalf("the giver's wait ends in %s, want about 20 minutes", left)
 	}
 }
 
@@ -121,8 +131,13 @@ func TestDelegateDeadlineStartsAtUnlock(t *testing.T) {
 		t.Fatal(ok, err)
 	}
 	row := f.taskRow(id)
-	if row.Status != "todo" || row.DeadlineAt == "" {
-		t.Fatalf("after unlock %+v", row)
+	if row.Status != "todo" || row.DeadlineAt != "" {
+		t.Fatalf("after unlock the clock waits for the run: %+v", row)
+	}
+	f.srv.flushInbox()
+	f.start(f.wokenRuns(f.c)[0].ID)
+	if row = f.taskRow(id); row.DeadlineAt == "" {
+		t.Fatalf("the run started: %+v", row)
 	}
 	if left := time.Until(f.waitDeadline(id)); left < 14*time.Minute || left > 15*time.Minute+time.Second {
 		t.Fatalf("wait ends in %s, want about 15 minutes", left)
@@ -155,6 +170,8 @@ func TestDelegateDeadlineTimesOutTheGiversWait(t *testing.T) {
 	f.delegateTo(f.g, root, f.b, "First")
 	r := f.delegateArgs(f.g, root, map[string]any{"bot_id": f.c.ID, "task": "Slow part", "deadline_seconds": 60})
 	id := r.Tasks[0].TaskID
+	f.srv.flushInbox()
+	f.start(f.wokenRuns(f.c)[0].ID)
 	f.srv.sweepWaits(time.Now().Add(2 * time.Minute))
 	var status string
 	if err := f.s.db.QueryRow(`SELECT status FROM waits WHERE kind='task_result' AND target=? AND bot_id=?`, id, f.a.ID).Scan(&status); err != nil || status != waitTimedOut {

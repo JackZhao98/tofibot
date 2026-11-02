@@ -106,12 +106,17 @@ func TestProgressIsBoundedAndTheHoldersOnly(t *testing.T) {
 }
 
 // A part given by a scheduled run, or by a run below one, has an hour and not half of it.
+// The time counts from the start of the holder's run, and only parts have a default.
 func TestScheduledRunsGiveTheirPartsAnHour(t *testing.T) {
 	f := newTaskFix(t)
 	lead := queueRun(t, f.s, f.g.ID, f.a.ID, runKindSchedule, "")
 	f.start(lead.ID)
 	lead, _ = f.s.GetRun(lead.ID)
-	r := f.delegateArgs(f.g, lead, map[string]any{"bot_id": f.b.ID, "task": "Scheduled part"})
+	r, _ := f.partsReceipt(f.g, lead, []map[string]any{{"bot_id": f.b.ID, "task": "Scheduled part"}})
+	if row := f.taskRow(r.Tasks[0].TaskID); row.DeadlineAt != "" {
+		t.Fatalf("the clock must wait for the holder's run: %+v", row)
+	}
+	held := f.startPart(r.Tasks[0].TaskID, f.b)
 	if left := time.Until(f.waitDeadline(r.Tasks[0].TaskID)); left < 59*time.Minute || left > 60*time.Minute+time.Second {
 		t.Fatalf("a part of a scheduled run has about 60 minutes, has %s", left)
 	}
@@ -122,16 +127,45 @@ func TestScheduledRunsGiveTheirPartsAnHour(t *testing.T) {
 	child := queueRun(t, f.s, f.g.ID, f.c.ID, runKindFollowup, lead.ID)
 	f.start(child.ID)
 	child, _ = f.s.GetRun(child.ID)
-	r2 := f.delegateArgs(f.g, child, map[string]any{"bot_id": f.b.ID, "task": "Below the schedule"})
+	if _, ok, err := f.s.FinishRun(held.ID, f.g.ID, f.b.ID, "Done."); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	r2, _ := f.partsReceipt(f.g, child, []map[string]any{{"bot_id": f.b.ID, "task": "Below the schedule"}})
+	f.startPart(r2.Tasks[0].TaskID, f.b)
 	if left := time.Until(f.waitDeadline(r2.Tasks[0].TaskID)); left < 59*time.Minute {
 		t.Fatalf("a descendant run of a schedule has an hour, has %s", left)
 	}
 	// An attended run keeps the shorter default, and the setting changes it.
-	attended := f.running(f.g.ID, f.b)
+	if ok, err := f.s.SetRunStatus(child.ID, "cancelled", ""); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	attended := f.running(f.g.ID, f.c)
 	f.setSetting(autoTaskPartDeadline, 10)
-	r3 := f.delegateArgs(f.g, attended, map[string]any{"bot_id": f.c.ID, "task": "Attended part"})
+	r3, _ := f.partsReceipt(f.g, attended, []map[string]any{{"bot_id": f.a.ID, "task": "Attended part"}})
+	if _, err := f.s.db.Exec(`UPDATE runs SET status='cancelled' WHERE id=?`, lead.ID); err != nil {
+		t.Fatal(err)
+	}
+	f.startPart(r3.Tasks[0].TaskID, f.a)
 	if left := time.Until(f.waitDeadline(r3.Tasks[0].TaskID)); left < 9*time.Minute || left > 10*time.Minute+time.Second {
 		t.Fatalf("an attended part has the setting's 10 minutes, has %s", left)
+	}
+}
+
+// A single delegate has no default deadline: its wait keeps the two hours it always had.
+func TestAFlatDelegateKeepsTheOldWaitDefault(t *testing.T) {
+	f := newTaskFix(t)
+	root := f.running(f.g.ID, f.a)
+	r := f.delegateArgs(f.g, root, map[string]any{"bot_id": f.b.ID, "task": "One task"})
+	f.start(r.Tasks[0].RunID)
+	if row := f.taskRow(r.Tasks[0].TaskID); row.DeadlineAt != "" {
+		t.Fatalf("a flat delegate must have no deadline of its own: %+v", row)
+	}
+	if left := time.Until(f.waitDeadline(r.Tasks[0].TaskID)); left < 119*time.Minute || left > 120*time.Minute+time.Second {
+		t.Fatalf("the wait of a flat delegate has 2 hours, has %s", left)
+	}
+	second := f.delegateArgs(f.g, root, map[string]any{"bot_id": f.c.ID, "task": "A second task"})
+	if second.Tasks[0].DeadlineAt != "" {
+		t.Fatalf("a second flat delegate must have no deadline: %+v", second.Tasks[0])
 	}
 }
 

@@ -76,6 +76,11 @@ func syncPlanItemTx(tx *sql.Tx, item WorkItem) error {
 	switch item.Status {
 	case "done":
 		status = checklistDone
+		// A result that comes after the deadline is recorded as late on the card.
+		var late int
+		if tx.QueryRow(`SELECT COUNT(*) FROM task_checklist WHERE task_id=? AND mark=? AND status=? AND reason='timed out'`, parent, planMark(item.ID), checklistBlocked).Scan(&late) == nil && late > 0 {
+			reason = "late"
+		}
 	case "failed":
 		status, reason = checklistBlocked, "failed"
 	case "cancelled":

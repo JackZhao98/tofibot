@@ -119,9 +119,6 @@ func (s *Server) delegateTool(c Conversation, r Run) Tool {
 			if cerr != nil {
 				return "", cerr
 			}
-			if contract.DeadlineSeconds == 0 {
-				contract.DeadlineSeconds = defaultPartDeadlineSeconds(s.store.db, r.ID)
-			}
 			selfIncluded := false
 			for _, id := range recipients {
 				selfIncluded = selfIncluded || id == r.BotID
@@ -226,12 +223,10 @@ func (s *Store) shapeDelegatedTasks(runs []Run, title string, checklist []string
 			if err = storeTaskContractTx(tx, id, contract); err != nil {
 				return nil, err
 			}
-			if contract.DeadlineSeconds > 0 {
-				deadline := deadlineFrom(time.Now(), contract.DeadlineSeconds)
-				if _, err = tx.Exec(`UPDATE work_items SET deadline_at=? WHERE id=?`, deadline, id); err != nil {
-					return nil, err
-				}
-				if _, err = tx.Exec(`UPDATE waits SET deadline_at=? WHERE kind=? AND target=? AND status='pending'`, deadline, waitTaskResult, id); err != nil {
+			// The clock starts with the holder's run; a run that works already starts it now.
+			var runStatus string
+			if tx.QueryRow(`SELECT status FROM runs WHERE id=?`, run.ID).Scan(&runStatus) == nil && runStatus == "running" {
+				if err = startTaskClockTx(tx, id); err != nil {
 					return nil, err
 				}
 			}

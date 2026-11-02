@@ -62,13 +62,19 @@ func TestDelegatePartsMakeOneMessageOneWaitGroup(t *testing.T) {
 		if n := f.count(`SELECT COUNT(*) FROM waits WHERE kind='task_result' AND target=? AND group_id=? AND group_mode='all' AND status='pending' AND bot_id=?`, task.TaskID, group.GroupID, f.a.ID); n != 1 {
 			t.Fatalf("task %s is not in the group", task.TaskID)
 		}
-		if task.Status != "todo" || task.DeadlineAt == "" {
+		if task.Status != "todo" || task.DeadlineAt != "" {
 			t.Fatalf("part %+v", task)
 		}
 	}
 	// The first part kept its contract; the second took the default deadline of the setting (30 min).
 	if row := f.taskRow(r.Tasks[0].TaskID); row.ResultFormat != "A list with price" {
 		t.Fatalf("part one %+v", row)
+	}
+	// The time counts from the start of the holder's run, not from the call.
+	f.startPart(r.Tasks[0].TaskID, f.b)
+	f.startPart(r.Tasks[1].TaskID, f.c)
+	if left := time.Until(f.waitDeadline(r.Tasks[0].TaskID)); left < 14*time.Minute || left > 15*time.Minute+time.Second {
+		t.Fatalf("own deadline %s", left)
 	}
 	if left := time.Until(f.waitDeadline(r.Tasks[1].TaskID)); left < 29*time.Minute || left > 30*time.Minute+time.Second {
 		t.Fatalf("default deadline %s", left)

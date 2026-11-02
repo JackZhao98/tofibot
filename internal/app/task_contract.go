@@ -139,3 +139,22 @@ func (s *Store) taskContractForRun(runID string) string {
 	}
 	return taskContractLines(item, time.Now())
 }
+
+// startTaskClockTx starts the deadline of a task whose holder's run has just
+// started: the time counts from here, not from when the task was made, so the
+// time a part spends in the queue of its member does not count. The giver's
+// wait on the task follows the deadline. A task with no deadline_seconds, or
+// with a deadline already running, is left as it is.
+func startTaskClockTx(tx *sql.Tx, taskID string) error {
+	var secs int
+	var at string
+	if tx.QueryRow(`SELECT deadline_seconds,deadline_at FROM work_items WHERE id=?`, taskID).Scan(&secs, &at) != nil || secs <= 0 || at != "" {
+		return nil
+	}
+	deadline := deadlineFrom(time.Now(), secs)
+	if _, err := tx.Exec(`UPDATE work_items SET deadline_at=? WHERE id=?`, deadline, taskID); err != nil {
+		return err
+	}
+	_, err := tx.Exec(`UPDATE waits SET deadline_at=? WHERE kind=? AND target=? AND status='pending'`, deadline, waitTaskResult, taskID)
+	return err
+}

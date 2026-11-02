@@ -64,7 +64,7 @@ func TestPartsBecomeTheItemsOfTheLeadsTaskCard(t *testing.T) {
 	if len(items) != 2 || items[0].Text != "Hotels · charlie" || items[1].Text != "Itinerary · alpha" || items[0].Status != "open" {
 		t.Fatalf("plan items %+v", items)
 	}
-	if items[0].TaskID != r.Tasks[0].TaskID || items[0].BotID != f.c.ID || items[0].BotName != "charlie" || items[0].DeadlineAt == "" || items[0].TaskStatus != "todo" {
+	if items[0].TaskID != r.Tasks[0].TaskID || items[0].BotID != f.c.ID || items[0].BotName != "charlie" || items[0].DeadlineAt != "" || items[0].TaskStatus != "todo" {
 		t.Fatalf("plan item view %+v", items[0])
 	}
 	// The card is visible: the plan is what the group watches.

@@ -473,11 +473,11 @@ func TestWaitOnABlockedTaskStartsItsDeadlineAtUnlock(t *testing.T) {
 	if _, ok, err := f.s.FinishRun(run, f.g.ID, f.b.ID, "Base done."); err != nil || !ok {
 		t.Fatal(ok, err)
 	}
-	// A part without its own deadline has the default of the setting (30 minutes), counted from the unlock.
-	want := time.Duration(defaultTaskPartDeadline) * time.Minute
+	// A single delegate without a deadline keeps the usual two hours of a task wait, counted from the unlock.
+	want := waitTimeoutFor(waitTaskResult)
 	left := time.Until(deadline())
 	if left > want+time.Minute || left < want-time.Minute {
-		t.Fatalf("after unlock the deadline must be the default %v from now, is %v", want, left)
+		t.Fatalf("after unlock the wait must have the usual %v from now, is %v", want, left)
 	}
 }
 
