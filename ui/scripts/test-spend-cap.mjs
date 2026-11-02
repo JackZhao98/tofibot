@@ -112,7 +112,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     state.spend = 50.3; state.limit = 7;
     t = await open();
     const text = await t.page.locator(".settings-page-body").innerText();
-    assert.match(text, /Limit reached\. New runs on billed models are refused\./);
+    assert.match(text, /Limit reached\. Calls to billed models are refused\./);
     assert.equal(await t.page.locator("#spend-limit").getAttribute("data-value"), "7", "a limit set elsewhere stays selectable");
     assert.equal(await t.page.locator("[data-testid=spend-figure]").getAttribute("data-state"), "reached");
     await t.close();
