@@ -205,6 +205,7 @@ type runTraceState struct {
 	lastAction string
 	lastStored time.Time
 	inflight   sync.WaitGroup // background captures of this run
+	tail       chan struct{}  // closed when the newest background capture has stored its row
 }
 
 func (s *Server) traceState(runID string) *runTraceState {
@@ -654,6 +655,11 @@ func (s *Server) engineTraceCapture(ctx context.Context, r Run, tool string, arg
 		s.traceInflight.Add(-1)
 		return
 	}
+	// Rows are written in the order the calls ended, though the screenshots may return in another order.
+	st.mu.Lock()
+	prev, done := st.tail, make(chan struct{})
+	st.tail = done
+	st.mu.Unlock()
 	s.traceWG.Add(1)
 	st.inflight.Add(1)
 	detached := context.WithoutCancel(ctx)
@@ -662,6 +668,7 @@ func (s *Server) engineTraceCapture(ctx context.Context, r Run, tool string, arg
 			if v := recover(); v != nil {
 				log.Printf("[trace] engine capture of run %s: %v", r.ID, v)
 			}
+			close(done)
 			st.inflight.Done()
 			s.traceWG.Done()
 			s.traceInflight.Add(-1)
@@ -669,6 +676,12 @@ func (s *Server) engineTraceCapture(ctx context.Context, r Run, tool string, arg
 		bg, cancel := context.WithTimeout(detached, 20*time.Second)
 		defer cancel()
 		out, err := s.microVMActionFromSource(bg, r, "browser.snapshot", json.RawMessage(`{}`), "viewer")
+		if prev != nil {
+			select {
+			case <-prev:
+			case <-bg.Done():
+			}
+		}
 		if err != nil || s.store.holdsPendingTakeover(r.ID) {
 			return
 		}
