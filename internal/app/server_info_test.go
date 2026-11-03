@@ -28,7 +28,7 @@ func TestServerInfoBeforeModelConfigurationAndAfterRestart(t *testing.T) {
 			if err := json.Unmarshal(response.Body.Bytes(), &info); err != nil {
 				t.Fatal(err)
 			}
-			if len(info) != 5 || string(info["service"]) != `"tofi"` || string(info["protocol_version"]) != "1" || string(info["auth"]) != `{"mode":"none"}` || string(info["tenancy"]) != `{"mode":"single"}` {
+			if len(info) != 6 || string(info["service"]) != `"tofi"` || string(info["protocol_version"]) != "1" || string(info["auth"]) != `{"mode":"none"}` || string(info["tenancy"]) != `{"mode":"single"}` || string(info["desktop"]) != `{"contract":1,"min_client":"0.2.1"}` {
 				t.Fatalf("unexpected discovery metadata: %s", response.Body.String())
 			}
 			var identity string
