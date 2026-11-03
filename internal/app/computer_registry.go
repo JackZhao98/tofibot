@@ -920,9 +920,11 @@ func (s *Server) isVMRoute(id string) bool {
 }
 
 // guardPersonalAction runs the VM's approval gate for a personal computer.
-// Desktop input (click, type, key) is gated by the effect the Bot declares, as
-// on the VM. Writes (files.write, sandbox.exec) are always reviewed; the Bot may
-// declare a more specific effect. Reads are never gated.
+// This is the person's own machine, so it fails closed: desktop input (click,
+// double and triple click, drag, scroll, type, key) that declares no effect is
+// reviewed as consequential. A Bot that declares effect "none" skips the review.
+// Capture and move never need one. Writes (files.write, sandbox.exec) are always
+// reviewed; the Bot may declare a more specific effect. Reads are never gated.
 func (s *Server) guardPersonalAction(ctx context.Context, r Run, name string, args []byte) (func(error), error) {
 	action := personalActionName(name)
 	var declared struct {
@@ -935,11 +937,17 @@ func (s *Server) guardPersonalAction(ctx context.Context, r Run, name string, ar
 	_ = json.Unmarshal(args, &declared)
 	review := actionReview{Kind: strings.TrimPrefix(action, "desktop."), Effect: declared.Effect, Text: declared.Text}
 	switch action {
-	case "desktop.click", "desktop.type", "desktop.key":
-		if action == "desktop.key" {
-			review.Text = "key " + declared.Key
+	case "desktop.click", "desktop.double_click", "desktop.triple_click", "desktop.drag", "desktop.scroll", "desktop.type", "desktop.key":
+		if strings.TrimSpace(review.Effect) == "" {
+			review.Effect = undeclaredInputEffect
 		}
-		if action == "desktop.click" {
+		switch action {
+		case "desktop.key":
+			review.Text = "key " + declared.Key
+		case "desktop.drag":
+			review.Element = "drag between screen points"
+		case "desktop.type":
+		default:
 			review.Element = "screen point"
 		}
 	case "files.write":
@@ -957,6 +965,10 @@ func (s *Server) guardPersonalAction(ctx context.Context, r Run, name string, ar
 	}
 	return s.guardAction(ctx, r, review)
 }
+
+// undeclaredInputEffect is what the reviewer sees when a Bot sent input to a
+// person's own computer without saying what it does.
+const undeclaredInputEffect = "not declared by the Bot (input on the person's own computer)"
 
 // withoutEffect drops the Bot's declared "effect" from desktop input args: it
 // is for the approval gate and is not part of what the Mac is asked to do.
