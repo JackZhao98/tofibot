@@ -422,7 +422,7 @@ func (s *Server) resourceLease(botID string) *sync.Mutex {
 // already bound to this service's one workspace and therefore never accepts a
 // user-provided VM/socket identifier.
 // effectParam is the model's own statement of a page action's effect.
-var effectParam = map[string]any{"type": "string", "enum": actionEffects, "description": "For click/type/key: what this does outside reading. none = read, open, navigate, select, search; otherwise submit, purchase, send, delete, publish, account (sign-up, permissions, settings) or other_external. Actions with an effect may need the user's confirmation."}
+var effectParam = map[string]any{"type": "string", "enum": actionEffects, "description": "For click/type/key: what this changes beyond reading. none: nothing is written, sent, closed, quit or discarded, and the previous state can be brought back; reading, opening, navigating, selecting and searching are none. discard: closes, quits or reverts something that may hold unsaved work, or throws away unsaved changes. delete: removes stored data. Otherwise submit, purchase, send, publish, account (sign-up, permissions, settings) or other_external. Actions with an effect may need the user's confirmation."}
 
 // computerBrowserFallbackNote opens the description of computer_browser while the browser_ tools are offered.
 const computerBrowserFallbackNote = "Fallback only: use the browser_ tools. Use this tool when a browser_ tool says the browser engine is unavailable."

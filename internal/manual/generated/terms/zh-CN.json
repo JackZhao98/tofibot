@@ -69,6 +69,8 @@
   "settings:automation.item.monthly_spend_limit_usd.what": "本月花费达到上限后，拒绝对计费模型的调用，并在 80% 时提醒一次。单位为整数美元，0 表示关闭。在“用量”页设置。",
   "settings:automation.item.own_replies_verbatim.name": "保留原文的自己的回复",
   "settings:automation.item.own_replies_verbatim.what": "Bot 只会逐字看到自己最近这几条回复，更早的缩成一句摘要，避免照搬自己的措辞。",
+  "settings:automation.item.personal_input_review.name": "审核 Mac 上的输入",
+  "settings:automation.item.personal_input_review.what": "Bot 在你自己已配对的 Mac 上的输入，执行前会先经过审核。这里选择哪些输入需要审核。",
   "settings:automation.item.provider_retries.name": "自动重试次数",
   "settings:automation.item.provider_retries.what": "模型服务出现过载、断线等临时错误时，最多重试这么多次才判定失败。设为 0 即不重试。",
   "settings:automation.item.remembered_approval_hours.name": "记住的审批有效期",

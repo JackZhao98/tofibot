@@ -232,3 +232,91 @@ func TestPersonalGuardReviewShowsKeyModifiers(t *testing.T) {
 		t.Fatalf("approval label: %v", err)
 	}
 }
+
+// personal_input_review decides which input declared as none still goes to the
+// reviewer: nothing more, every Cmd or Ctrl chord (the default), or all input.
+func TestPersonalInputReviewModes(t *testing.T) {
+	cases := []struct {
+		mode, action, args string
+		reviewed           bool
+	}{
+		{"", "desktop.key", `{"key":"q","modifiers":["cmd"],"effect":"none"}`, true},
+		{"", "desktop.key", `{"key":"ctrl+c","effect":"none"}`, true},
+		{"", "desktop.key", `{"key":"a","modifiers":["shift"],"effect":"none"}`, false},
+		{"", "desktop.click", `{"x":1,"y":1,"effect":"none"}`, false},
+		{personalReviewDeclared, "desktop.key", `{"key":"q","modifiers":["command"],"effect":"none"}`, false},
+		{personalReviewAll, "desktop.click", `{"x":1,"y":1,"effect":"none"}`, true},
+		{personalReviewAll, "desktop.type", `{"text":"x","effect":"none"}`, true},
+	}
+	for _, c := range cases {
+		s, mac, run, stub := personalGuardServer(t, "confirm")
+		if c.mode != "" {
+			mode := c.mode
+			if err := s.saveAutomationValue(autoPersonalInputReview, &mode); err != nil {
+				t.Fatal(err)
+			}
+		}
+		tool := computerActionTool(s, run)
+		done := make(chan error, 1)
+		go func() { _, err := runCall(tool, mac.id, c.action, c.args); done <- err }()
+		if c.reviewed {
+			if err := <-done; toolCode(err) != "user_confirmation_required" {
+				t.Fatalf("mode %q %s %s: want review, got %v", c.mode, c.action, c.args, err)
+			}
+			continue
+		}
+		job := mac.poll(5)
+		if job == nil || job.Action != c.action {
+			t.Fatalf("mode %q %s %s: not queued (%+v)", c.mode, c.action, c.args, job)
+		}
+		mac.answer(job, `{"ok":true}`)
+		if err := <-done; err != nil || stub.calls.Load() != 0 {
+			t.Fatalf("mode %q %s %s: err %v, reviewer calls %d", c.mode, c.action, c.args, err, stub.calls.Load())
+		}
+	}
+}
+
+// Before a review the Mac says what is in front and under the point: the
+// reviewer reads it and the approval card names the element. A Mac that does
+// not answer leaves the point and coordinates as the label.
+func TestPersonalReviewSeesMacContext(t *testing.T) {
+	s, mac, run, stub := personalGuardServer(t, "confirm")
+	var seen string
+	stub.reply = func(_ context.Context, req *provider.ChatRequest) (*provider.ChatResponse, error) {
+		seen = req.Messages[0].Content
+		return &provider.ChatResponse{Content: `{"decision":"confirm","reason":"stub"}`}, nil
+	}
+	tool := computerActionTool(s, run)
+	done := make(chan error, 1)
+	go func() {
+		_, err := runCall(tool, mac.id, "desktop.click", `{"x":10,"y":20,"screenshot_width":1280,"screenshot_height":720,"effect":"discard"}`)
+		done <- err
+	}()
+	w := mac.call("GET", "/api/computers/"+mac.id+"/jobs?wait=5", "", mac.token)
+	var got struct{ Job *ComputerJob }
+	if json.Unmarshal(w.Body.Bytes(), &got) != nil || got.Job == nil || got.Job.Action != "desktop.inspect" {
+		t.Fatalf("no inspect job: %s", w.Body.String())
+	}
+	if args := string(got.Job.Args); !strings.Contains(args, `"x":10`) || !strings.Contains(args, `"screenshot_width":1280`) {
+		t.Fatalf("inspect args %s", args)
+	}
+	mac.answer(got.Job, `{"app":{"name":"TextEdit","bundle_id":"com.apple.TextEdit"},"window":"Untitled\n2","element":{"role":"AXButton","role_description":"button","title":"Don't Save","app":"TextEdit"}}`)
+	err := <-done
+	if toolCode(err) != "user_confirmation_required" || !strings.Contains(err.Error(), "\n\"Don't Save\" button in TextEdit") {
+		t.Fatalf("approval: %v", err)
+	}
+	for _, want := range []string{`"application":"TextEdit"`, `"window_title":"Untitled 2"`, `"element":"\"Don't Save\" button in TextEdit"`, `"declared_effect":"discard"`} {
+		if !strings.Contains(seen, want) {
+			t.Fatalf("review input lacks %s: %s", want, seen)
+		}
+	}
+	// No answer from the Mac: the review goes on with the point as the label.
+	_, err = runCall(tool, mac.id, "desktop.click", `{"x":30,"y":40,"effect":"purchase"}`)
+	if toolCode(err) != "user_confirmation_required" || !strings.Contains(err.Error(), "\nscreen point 30,40") {
+		t.Fatalf("approval without context: %v", err)
+	}
+	// The look is the server's own step, never a Bot's action.
+	if _, err = runCall(tool, mac.id, "desktop.inspect", `{}`); err == nil || !strings.Contains(err.Error(), "unsupported") {
+		t.Fatalf("a Bot ran desktop.inspect: %v", err)
+	}
+}

@@ -257,10 +257,10 @@ func personalDesktopArgs(in desktopToolInput) (string, json.RawMessage, error) {
 // macModifierNames maps the modifier names a model commonly writes to the four
 // names the Mac accepts. The desktop app keeps the same table (desktop-keys.cjs).
 var macModifierNames = map[string]string{
-	"cmd": "cmd", "command": "cmd", "super": "cmd", "meta": "cmd", "win": "cmd",
-	"ctrl": "ctrl", "control": "ctrl",
-	"alt": "alt", "option": "alt", "opt": "alt",
-	"shift": "shift",
+	"cmd": "cmd", "command": "cmd", "super": "cmd", "super_l": "cmd", "super_r": "cmd", "meta": "cmd", "win": "cmd",
+	"ctrl": "ctrl", "control": "ctrl", "control_l": "ctrl", "control_r": "ctrl",
+	"alt": "alt", "option": "alt", "opt": "alt", "alt_l": "alt", "alt_r": "alt",
+	"shift": "shift", "shift_l": "shift", "shift_r": "shift",
 }
 
 // macModifiers returns the Mac names for known aliases. An unknown name stays
@@ -278,6 +278,53 @@ func macModifiers(in []string) []string {
 		}
 	}
 	return out
+}
+
+// macModifierOrder is the order the desktop app presses modifiers in.
+var macModifierOrder = []string{"cmd", "ctrl", "alt", "shift"}
+
+// keyChord reads a key as the Mac will press it: modifiers written into the key
+// ("cmd+shift+t"; "ctrl++" is Ctrl with the plus key) merged with the modifiers
+// list, in the Mac's names and order, and the key itself. A key whose prefix is
+// not made of modifier names stays whole. Unknown modifier names in the list
+// are kept last, for the action check to refuse.
+func keyChord(key string, modifiers []string) ([]string, string) {
+	base, prefix := key, ""
+	if strings.HasSuffix(key, "++") {
+		prefix, base = key[:len(key)-2], "+"
+	} else if i := strings.LastIndex(key, "+"); i > 0 && i < len(key)-1 {
+		prefix, base = key[:i], key[i+1:]
+	}
+	held := map[string]bool{}
+	var unknown []string
+	for _, m := range macModifiers(modifiers) {
+		if _, ok := macModifierNames[m]; ok {
+			held[m] = true
+		} else {
+			unknown = append(unknown, m)
+		}
+	}
+	if prefix != "" {
+		var inKey []string
+		for _, part := range strings.Split(prefix, "+") {
+			name, ok := macModifierNames[strings.ToLower(strings.TrimSpace(part))]
+			if !ok {
+				inKey, base = nil, key
+				break
+			}
+			inKey = append(inKey, name)
+		}
+		for _, name := range inKey {
+			held[name] = true
+		}
+	}
+	var out []string
+	for _, name := range macModifierOrder {
+		if held[name] {
+			out = append(out, name)
+		}
+	}
+	return append(out, unknown...), base
 }
 
 // personalDesktop runs one translated computer_desktop call on a person's own
@@ -348,7 +395,7 @@ func (s *Server) personalDesktopTools(r Run) []Tool {
 	}
 	return []Tool{{
 		Name:        "computer_desktop",
-		Description: "Control the screen of a person's own paired Mac: capture, click, double_click, triple_click, move, drag, scroll, type, key. Coordinates are pixels of the latest capture. Input needs effect: none for harmless input such as focusing, scrolling or opening, otherwise what it changes; an undeclared effect needs the person's approval. Pass computer_id when more than one Mac is paired. Files and commands: computer_action.",
+		Description: "Control the screen of a person's own paired Mac: capture, click, double_click, triple_click, move, drag, scroll, type, key. Coordinates are pixels of the latest capture. Each input declares its effect. Input with an effect other than none, or with none declared, is reviewed, and only a few need the person's confirmation. Pass computer_id when more than one Mac is paired. Files and commands: computer_action.",
 		Parameters:  desktopToolSchema(),
 		Timeout:     computerToolTimeout,
 		Identity: func(raw json.RawMessage) tooloutcome.Identity {

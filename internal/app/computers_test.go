@@ -29,6 +29,10 @@ func computerTestServer(t *testing.T) *Server {
 	}
 	t.Cleanup(func() { _ = s.Close() })
 	s.autoReviewProvider = allowReviewer{}
+	// A test Mac that does not poll leaves each pre-review look unanswered.
+	oldInspect := personalInspectTimeout
+	personalInspectTimeout = 300 * time.Millisecond
+	t.Cleanup(func() { personalInspectTimeout = oldInspect })
 	return s
 }
 

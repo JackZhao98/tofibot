@@ -1077,6 +1077,10 @@
         "name": "Contrôle du bureau",
         "what": "Manière dont un Bot travaille dans les applications du bureau autres que le navigateur. Classique utilise des captures d'écran et des clics au pixel. Accessibilité ajoute des outils qui lisent l'arbre d'éléments d'une application et agissent sur des index d'éléments, plus précis dans les gestionnaires de fichiers et les boîtes de réglages. L'outil de capture reste disponible."
       },
+      "personal_input_review": {
+        "name": "Revue des saisies sur votre Mac",
+        "what": "Le relecteur vérifie les saisies qu’un Bot envoie à votre propre Mac jumelé avant leur exécution. Choisissez la part qu’il examine."
+      },
       "task_stall_rounds": {
         "name": "Signalement d'un blocage après",
         "what": "Lorsqu'un Bot qui détient une tâche termine autant de tours sans changer la liste de contrôle ni le statut de la tâche, le Bot à la racine du travail en est informé une fois. Le compte repart dès que la tâche avance."
@@ -1143,6 +1147,11 @@
       "desktop_engine": {
         "classic": "Classique",
         "a11y": "Accessibilité"
+      },
+      "personal_input_review": {
+        "declared": "Ce que le Bot déclare",
+        "commands": "Aussi les raccourcis clavier",
+        "all": "Toutes les saisies"
       }
     },
     "auto": "Automatique · {{model}}",

@@ -1068,6 +1068,10 @@
         "name": "Desktop control",
         "what": "How a Bot works in desktop apps other than the browser. Classic uses screenshots and pixel clicks. Accessibility adds tools that read an app's element tree and act on element indexes, which is more exact in file managers and settings dialogs. The screenshot tool stays available."
       },
+      "personal_input_review": {
+        "name": "Review input on your Mac",
+        "what": "The reviewer checks input a Bot sends to your own paired Mac before it runs. Choose how much of that input it sees."
+      },
       "task_stall_rounds": {
         "name": "Stall report after",
         "what": "When a Bot that holds a task finishes this many rounds with no change in the task's checklist or status, the Bot at the root of the work is told once. The count starts again when the task moves."
@@ -1134,6 +1138,11 @@
       "desktop_engine": {
         "classic": "Classic",
         "a11y": "Accessibility"
+      },
+      "personal_input_review": {
+        "declared": "What the Bot declares",
+        "commands": "Also key commands",
+        "all": "All input"
       }
     },
     "auto": "Automatic · {{model}}",

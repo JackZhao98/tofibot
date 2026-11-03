@@ -1068,6 +1068,10 @@
         "name": "Desktopsteuerung",
         "what": "Wie ein Bot in Desktop-Apps außerhalb des Browsers arbeitet. Klassisch nutzt Screenshots und Klicks auf Pixel. Barrierefreiheit fügt Werkzeuge hinzu, die den Elementbaum einer App lesen und über Elementnummern handeln, was in Dateimanagern und Einstellungsdialogen genauer ist. Das Screenshot-Werkzeug bleibt verfügbar."
       },
+      "personal_input_review": {
+        "name": "Eingaben auf deinem Mac prüfen",
+        "what": "Der Prüfer kontrolliert Eingaben, die ein Bot an deinen eigenen gekoppelten Mac sendet, bevor sie ausgeführt werden. Lege fest, wie viele davon er sieht."
+      },
       "task_stall_rounds": {
         "name": "Stillstandsmeldung nach",
         "what": "Beendet ein Bot, der eine Aufgabe hält, so viele Runden ohne Änderung an Checkliste oder Status der Aufgabe, wird der Bot an der Wurzel der Arbeit einmal informiert. Die Zählung beginnt neu, sobald sich die Aufgabe bewegt."
@@ -1134,6 +1138,11 @@
       "desktop_engine": {
         "classic": "Klassisch",
         "a11y": "Barrierefreiheit"
+      },
+      "personal_input_review": {
+        "declared": "Was der Bot angibt",
+        "commands": "Auch Tastenbefehle",
+        "all": "Alle Eingaben"
       }
     },
     "auto": "Automatisch · {{model}}",

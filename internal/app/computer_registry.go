@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -422,7 +423,7 @@ func (s *Server) computerActionOn(ctx context.Context, r Run, id, name string, a
 	settle := func(error) {}
 	if slot.rowKind == computer.RowKindPersonal {
 		var guardErr error
-		if settle, guardErr = s.guardPersonalAction(ctx, r, name, args); guardErr != nil {
+		if settle, guardErr = s.guardPersonalAction(ctx, r, slot, name, args); guardErr != nil {
 			return "", guardErr
 		}
 		args = withoutEffect(args)
@@ -919,40 +920,104 @@ func (s *Server) isVMRoute(id string) bool {
 	return id == computer.DefaultID
 }
 
+// Values of the personal_input_review setting: which input on a person's own
+// Mac goes to the reviewer besides what the Bot declares as consequential.
+const (
+	personalReviewDeclared = "declared"
+	personalReviewCommands = "commands" // also every Cmd or Ctrl chord
+	personalReviewAll      = "all"      // every input
+)
+
+// What the reviewer sees as the effect of input the Bot declared as none but
+// that personal_input_review sends to review.
+const (
+	keyCommandEffect       = "key command on the person's own computer (the Bot declared none)"
+	reviewedAllInputEffect = "input on the person's own computer (the Bot declared none)"
+)
+
+// personalInspectTimeout bounds the look at the Mac before a review. A Mac that
+// does not answer in time, or an older desktop app, leaves the review without it.
+var personalInspectTimeout = 2 * time.Second
+
 // guardPersonalAction runs the VM's approval gate for a personal computer.
 // This is the person's own machine, so it fails closed: desktop input (click,
 // double and triple click, drag, scroll, type, key) that declares no effect is
-// reviewed as consequential. A Bot that declares effect "none" skips the review.
+// reviewed as consequential. A Bot that declares effect "none" skips the review,
+// unless personal_input_review sends that input too (key commands by default).
 // Capture and move never need one. Writes (files.write, sandbox.exec) are always
 // reviewed, also when the Bot declares "none"; the Bot may declare a more
-// specific effect. Reads are never gated.
-func (s *Server) guardPersonalAction(ctx context.Context, r Run, name string, args []byte) (func(error), error) {
+// specific effect. Reads are never gated. Before a review the Mac is asked what
+// is in front and under the point, so the reviewer and the approval card name
+// the real target.
+func (s *Server) guardPersonalAction(ctx context.Context, r Run, slot *computerSlot, name string, args []byte) (func(error), error) {
 	action := personalActionName(name)
+	type point struct {
+		X *float64 `json:"x"`
+		Y *float64 `json:"y"`
+	}
 	var declared struct {
-		Effect    string   `json:"effect"`
-		Text      string   `json:"text"`
-		Key       string   `json:"key"`
-		Modifiers []string `json:"modifiers"`
-		Path      string   `json:"path"`
-		Cmd       string   `json:"command"`
+		Effect           string   `json:"effect"`
+		Text             string   `json:"text"`
+		Key              string   `json:"key"`
+		Modifiers        []string `json:"modifiers"`
+		Path             string   `json:"path"`
+		Cmd              string   `json:"command"`
+		X                *float64 `json:"x"`
+		Y                *float64 `json:"y"`
+		To               *point   `json:"to"`
+		ScreenshotWidth  *int     `json:"screenshot_width"`
+		ScreenshotHeight *int     `json:"screenshot_height"`
 	}
 	_ = json.Unmarshal(args, &declared)
 	review := actionReview{Kind: strings.TrimPrefix(action, "desktop."), Effect: declared.Effect, Text: declared.Text}
 	switch action {
 	case "desktop.click", "desktop.double_click", "desktop.triple_click", "desktop.drag", "desktop.scroll", "desktop.type", "desktop.key":
-		if strings.TrimSpace(review.Effect) == "" {
-			review.Effect = undeclaredInputEffect
-		}
-		switch action {
-		case "desktop.key":
+		command := false
+		if action == "desktop.key" {
 			// The chord as the Mac presses it: a reviewer that sees only the key
 			// cannot tell a letter from an application command.
-			review.Text = "key " + strings.Join(append(macModifiers(declared.Modifiers), declared.Key), "+")
+			mods, key := keyChord(declared.Key, declared.Modifiers)
+			review.Text = "key " + strings.Join(append(mods, key), "+")
+			command = slices.Contains(mods, "cmd") || slices.Contains(mods, "ctrl")
+		}
+		mode := s.autoValue(autoPersonalInputReview)
+		switch {
+		case strings.TrimSpace(review.Effect) == "":
+			review.Effect = undeclaredInputEffect
+		case consequentialEffect(review.Effect):
+		case mode == personalReviewAll:
+			review.Effect = reviewedAllInputEffect
+		case command && mode != personalReviewDeclared:
+			// A Cmd or Ctrl chord is an application command, not text.
+			review.Effect = keyCommandEffect
+		}
+		if !consequentialEffect(review.Effect) {
+			return func(error) {}, nil
+		}
+		var at point
+		switch action {
 		case "desktop.drag":
-			review.Element = "drag between screen points"
-		case "desktop.type":
+			if declared.To != nil {
+				at = *declared.To
+			}
+		case "desktop.key", "desktop.type":
 		default:
-			review.Element = "screen point"
+			at = point{declared.X, declared.Y}
+		}
+		look := map[string]any{}
+		if at.X != nil && at.Y != nil {
+			look["x"], look["y"] = *at.X, *at.Y
+			if declared.ScreenshotWidth != nil && declared.ScreenshotHeight != nil {
+				look["screenshot_width"], look["screenshot_height"] = *declared.ScreenshotWidth, *declared.ScreenshotHeight
+			}
+		}
+		seen := s.personalInputContext(ctx, r, slot, look)
+		review.App, review.Window = oneLine(seen.App.Name, 60), oneLine(seen.Window, 120)
+		if action != "desktop.key" && action != "desktop.type" {
+			review.Element = seen.elementLabel()
+			if review.Element == "" {
+				review.Element = screenPointLabel(action, at.X, at.Y, review.App)
+			}
 		}
 	case "files.write":
 		review.Element, review.Text = declared.Path, ""
@@ -968,6 +1033,95 @@ func (s *Server) guardPersonalAction(ctx context.Context, r Run, name string, ar
 		return func(error) {}, nil
 	}
 	return s.guardAction(ctx, r, review)
+}
+
+// inputContext is the Mac's answer to desktop.inspect: the app and window in
+// front and, for a point, the element under it. All of it is untrusted text.
+type inputContext struct {
+	App struct {
+		Name     string `json:"name"`
+		BundleID string `json:"bundle_id"`
+	} `json:"app"`
+	Window  string `json:"window"`
+	Element *struct {
+		Role            string `json:"role"`
+		RoleDescription string `json:"role_description"`
+		Title           string `json:"title"`
+		Description     string `json:"description"`
+		App             string `json:"app"`
+	} `json:"element"`
+}
+
+// personalInputContext asks the Mac what is in front and under the point. It
+// returns nothing when the Mac cannot answer within personalInspectTimeout.
+func (s *Server) personalInputContext(ctx context.Context, r Run, slot *computerSlot, look map[string]any) inputContext {
+	var out inputContext
+	if slot == nil || slot.provider == nil {
+		return out
+	}
+	raw, _ := json.Marshal(look)
+	ctx, cancel := context.WithTimeout(ctx, personalInspectTimeout)
+	defer cancel()
+	res, err := slot.provider.ActionWithin(ctx, computer.Action{BotID: r.BotID, RunID: r.ID, Name: "desktop.inspect", Args: raw, Source: "review"}, personalInspectTimeout)
+	if err == nil && res.OK {
+		_ = json.Unmarshal(res.Result, &out)
+	}
+	return out
+}
+
+// elementLabel names the element under the point: its name, its kind and its
+// app. It is empty when the element has no name, so the label never matches a
+// different unnamed element.
+func (c inputContext) elementLabel() string {
+	e := c.Element
+	if e == nil {
+		return ""
+	}
+	name := oneLine(e.Title, 80)
+	if name == "" {
+		name = oneLine(e.Description, 80)
+	}
+	kind := oneLine(e.RoleDescription, 40)
+	if kind == "" {
+		kind = oneLine(strings.TrimPrefix(e.Role, "AX"), 40)
+	}
+	if name == "" || kind == "" {
+		return ""
+	}
+	label := `"` + name + `" ` + kind
+	app := oneLine(e.App, 60)
+	if app == "" {
+		app = oneLine(c.App.Name, 60)
+	}
+	if app != "" {
+		label += " in " + app
+	}
+	return label
+}
+
+// screenPointLabel names a point when the Mac named no element there.
+func screenPointLabel(action string, x, y *float64, app string) string {
+	if x == nil || y == nil {
+		return "the front window" + inApp(app)
+	}
+	prefix := "screen point"
+	if action == "desktop.drag" {
+		prefix = "drag to screen point"
+	}
+	return fmt.Sprintf("%s %g,%g", prefix, *x, *y) + inApp(app)
+}
+
+func inApp(app string) string {
+	if app == "" {
+		return ""
+	}
+	return " in " + app
+}
+
+// oneLine folds whitespace (newlines included) and bounds the length, for text
+// shown on one line of a review or an approval card.
+func oneLine(text string, max int) string {
+	return trimRunes(strings.Join(strings.Fields(text), " "), max)
 }
 
 // undeclaredInputEffect is what the reviewer sees when a Bot sent input to a

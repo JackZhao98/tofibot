@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -26,6 +27,11 @@ type testMac struct {
 	s     *Server
 	id    string
 	token string
+	// inspect is what this Mac answers to the server's desktop.inspect look
+	// before a review; poll answers it and keeps polling, as the desktop app
+	// would. The last look's args are kept.
+	inspect    string
+	inspectArg string
 }
 
 func (m *testMac) call(method, path, body string, token string) *httptest.ResponseRecorder {
@@ -64,15 +70,21 @@ func enrollMac(t *testing.T, s *Server, name string, caps ...string) *testMac {
 
 func (m *testMac) poll(wait int) *ComputerJob {
 	m.t.Helper()
-	w := m.call("GET", "/api/computers/"+m.id+"/jobs?wait="+strconv.Itoa(wait), "", m.token)
-	if w.Code != 200 {
-		m.t.Fatalf("poll: %d %s", w.Code, w.Body.String())
+	for {
+		w := m.call("GET", "/api/computers/"+m.id+"/jobs?wait="+strconv.Itoa(wait), "", m.token)
+		if w.Code != 200 {
+			m.t.Fatalf("poll: %d %s", w.Code, w.Body.String())
+		}
+		var out struct {
+			Job *ComputerJob `json:"job"`
+		}
+		_ = json.Unmarshal(w.Body.Bytes(), &out)
+		if out.Job == nil || out.Job.Action != "desktop.inspect" {
+			return out.Job
+		}
+		m.inspectArg = string(out.Job.Args)
+		m.answer(out.Job, cmp.Or(m.inspect, "{}"))
 	}
-	var out struct {
-		Job *ComputerJob `json:"job"`
-	}
-	_ = json.Unmarshal(w.Body.Bytes(), &out)
-	return out.Job
 }
 
 func (m *testMac) answer(job *ComputerJob, result string) {

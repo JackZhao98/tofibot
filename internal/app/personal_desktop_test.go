@@ -504,3 +504,25 @@ func TestPersonalDesktopKeyModifierAliases(t *testing.T) {
 		t.Fatalf("unknown modifier error = %v", err)
 	}
 }
+
+func TestKeyChord(t *testing.T) {
+	for _, c := range []struct {
+		key  string
+		mods []string
+		want string
+	}{
+		{"q", []string{"command"}, "cmd+q"},
+		{"cmd+shift+t", nil, "cmd+shift+t"},
+		{"Shift+Cmd+Q", []string{"cmd"}, "cmd+shift+Q"},
+		{"ctrl++", nil, "ctrl++"},
+		{"+", nil, "+"},
+		{"a+b", nil, "a+b"},
+		{"Return", []string{"shift", "Option"}, "alt+shift+Return"},
+		{"t", []string{"hyper"}, "hyper+t"},
+	} {
+		mods, key := keyChord(c.key, c.mods)
+		if got := strings.Join(append(mods, key), "+"); got != c.want {
+			t.Errorf("keyChord(%q, %v) = %q, want %q", c.key, c.mods, got, c.want)
+		}
+	}
+}

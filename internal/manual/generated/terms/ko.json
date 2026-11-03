@@ -69,6 +69,8 @@
   "settings:automation.item.monthly_spend_limit_usd.what": "이번 달 지출이 한도에 도달하면 과금 모델 호출을 거부하고, 80%에서 한 번 알립니다. 단위는 정수 달러이며 0은 꺼짐입니다. 사용량 페이지에서 설정합니다.",
   "settings:automation.item.own_replies_verbatim.name": "본인 답장 원문 유지",
   "settings:automation.item.own_replies_verbatim.what": "Bot은 최근 답장 이 개수만 원문 그대로 봅니다. 그 이전은 한 줄 요약으로 줄여, 자기 표현을 그대로 따라 하지 않게 합니다.",
+  "settings:automation.item.personal_input_review.name": "내 Mac 입력 검토",
+  "settings:automation.item.personal_input_review.what": "Bot이 내가 페어링한 Mac으로 보내는 입력은 실행 전에 검토자가 확인합니다. 검토자가 볼 입력의 범위를 고를 수 있습니다.",
   "settings:automation.item.provider_retries.name": "자동 재시도",
   "settings:automation.item.provider_retries.what": "과부하나 연결 끊김 같은 일시적인 모델 오류를, 실행이 실패하기 전에 이 횟수만큼 다시 시도합니다. 0이면 재시도하지 않습니다.",
   "settings:automation.item.remembered_approval_hours.name": "기억한 승인 유지 시간",

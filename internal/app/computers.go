@@ -52,7 +52,9 @@ var computerActions = map[string]bool{
 
 // impliedByClick lists the actions a Mac that grants desktop.click also serves
 // (the desktop app gates them on the same Accessibility grant).
-var impliedByClick = []string{"desktop.double_click", "desktop.triple_click", "desktop.move", "desktop.drag", "desktop.scroll"}
+// desktop.inspect is the server's own pre-review look at the Mac (front app,
+// window, element under a point); it is not part of a Bot's vocabulary.
+var impliedByClick = []string{"desktop.double_click", "desktop.triple_click", "desktop.move", "desktop.drag", "desktop.scroll", "desktop.inspect"}
 
 // grantedAction reports whether a device that declared caps serves action.
 func grantedAction(caps []string, action string) bool {
@@ -579,6 +581,16 @@ func validateComputerArgs(action string, raw json.RawMessage) error {
 			return errors.New("desktop.scroll requires direction (up, down, left, right), optional amount 1-20 and x, y together")
 		}
 		return nil
+	case "desktop.inspect":
+		var v struct {
+			X *float64 `json:"x"`
+			Y *float64 `json:"y"`
+			pointShot
+		}
+		if err := strict(&v); err != nil || (v.X == nil) != (v.Y == nil) || (v.X != nil && !boundedPoint(v.X, v.Y)) || !v.pointShot.valid() {
+			return errors.New("desktop.inspect takes an optional x and y together")
+		}
+		return nil
 	case "desktop.type":
 		var v struct {
 			Text   *string `json:"text"`
@@ -597,8 +609,9 @@ func validateComputerArgs(action string, raw json.RawMessage) error {
 		if err := strict(&v); err != nil || v.Key == "" || len(v.Key) > 64 || len(v.Modifiers) > 8 || len(v.Effect) > 32 {
 			return errors.New("desktop.key requires key and optional modifiers")
 		}
+		// The desktop app reads the same names, in any letter case.
 		for _, m := range v.Modifiers {
-			if m != "cmd" && m != "ctrl" && m != "alt" && m != "shift" {
+			if _, ok := macModifierNames[strings.ToLower(m)]; !ok {
 				return errors.New("unsupported key modifier; use cmd, ctrl, alt or shift")
 			}
 		}
