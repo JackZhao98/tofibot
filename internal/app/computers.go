@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"path"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -28,8 +29,10 @@ import (
 )
 
 const (
-	computerPairTTL      = 5 * time.Minute
-	computerOnlineWindow = 30 * time.Second
+	computerPairTTL = 5 * time.Minute
+	// computerOnlineWindow is how recent a poll or heartbeat must be for a device
+	// to count as online. The desktop long-polls with wait=25 and beats every 10 s.
+	computerOnlineWindow = 60 * time.Second
 	computerJobTTL       = 60 * time.Second
 	computerWaitTimeout  = 45 * time.Second
 	maxComputerResult    = 1 << 20
@@ -313,6 +316,17 @@ func (s *Store) listComputers(instanceID string) ([]Computer, error) {
 		out = append(out, c)
 	}
 	return out, rows.Err()
+}
+
+// computerRecentlySeen reports a last_seen stamp inside computerOnlineWindow.
+func computerRecentlySeen(lastSeen string) bool {
+	last, err := time.Parse(time.RFC3339Nano, lastSeen)
+	return err == nil && last.After(time.Now().UTC().Add(-computerOnlineWindow))
+}
+
+// onlineFirst orders online computers before offline ones, keeping order otherwise.
+func onlineFirst(items []Computer) {
+	sort.SliceStable(items, func(i, j int) bool { return items[i].Online && !items[j].Online })
 }
 
 func bearerToken(r *http.Request) string {
@@ -1227,10 +1241,11 @@ func (s *Server) computerTools(r Run) []Tool {
 		if err != nil {
 			return "", err
 		}
-		b, _ := json.Marshal(map[string]any{"computers": items})
+		onlineFirst(items)
+		b, _ := json.Marshal(map[string]any{"computers": items, "note": "A computer with online=false is offline and cannot run actions; pick an online one."})
 		return string(b), nil
 	}}
-	action := Tool{Name: "computer_action", Timeout: computerToolTimeout, Description: "Run one explicitly granted action on a Bot computer from list_computers; pick the one the person named, otherwise the Bot workspace. A Bot computer is used by one Bot at a time; a busy or detached Bot computer answers with an error, and work that does not need it goes on. Use only capabilities currently advertised by that Bot computer; an action name does not grant access or enable an unavailable runtime. Callers cannot override local grants or execution policy. When a paired Mac advertises sandbox.exec, pass only args.command: it runs for at most 30 seconds in the locally authorized directory and directly changes its files, with no automatic rollback. It does not grant network, SSH keys, Keychain or arbitrary host toolchains. A stopped managed process group does not prove every detached descendant stopped. Inspect exitCode, stderr and cancellation before claiming success; do not retry uncertain writes automatically. Use host.info on the service host only to read its OS and architecture.", Parameters: objectSchema(map[string]any{"computer_id": map[string]any{"type": "string"}, "action": map[string]any{"type": "string"}, "args": map[string]any{"type": "object"}}, []string{"computer_id", "action", "args"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
+	action := Tool{Name: "computer_action", Timeout: computerToolTimeout, Description: "Run one explicitly granted action on a Bot computer from list_computers; pick the one the person named, otherwise the Bot workspace. A Bot computer is used by one Bot at a time; a busy or detached Bot computer answers with an error, and work that does not need it goes on. Use only capabilities currently advertised by that Bot computer; an action name does not grant access or enable an unavailable runtime. Callers cannot override local grants or execution policy. For desktop.click, desktop.type and desktop.key on a paired Mac, add args.effect (none, or what the action changes: submit, send, purchase, delete, and so on): anything but none is reviewed and may need the person's approval, as on the Bot computer. When a paired Mac advertises sandbox.exec, pass only args.command: it runs for at most 30 seconds in the locally authorized directory and directly changes its files, with no automatic rollback. It does not grant network, SSH keys, Keychain or arbitrary host toolchains. A stopped managed process group does not prove every detached descendant stopped. Inspect exitCode, stderr and cancellation before claiming success; do not retry uncertain writes automatically. Use host.info on the service host only to read its OS and architecture.", Parameters: objectSchema(map[string]any{"computer_id": map[string]any{"type": "string"}, "action": map[string]any{"type": "string"}, "args": map[string]any{"type": "object"}}, []string{"computer_id", "action", "args"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
 		var in struct {
 			ComputerID string          `json:"computer_id"`
 			Action     string          `json:"action"`
@@ -1272,6 +1287,9 @@ func (s *Server) computerTools(r Run) []Tool {
 			return fmt.Sprintf(`{"os":%q,"arch":%q}`, runtime.GOOS, runtime.GOARCH), nil
 		}
 		if slot := s.ensurePersonalSlot(v.ComputerID); slot != nil {
+			if err := s.personalOfflineError(ctx, v.ComputerID); err != nil {
+				return "", err
+			}
 			return s.computerActionOn(ctx, r, v.ComputerID, v.Action, v.Args)
 		}
 		j, err := s.store.queueComputerJob(r, v.ComputerID, v.Action, v.Args)
@@ -1314,4 +1332,32 @@ func (s *Server) computerTools(r Run) []Tool {
 // HTTP, so this is the one place its wording is matched; everything above this file sees the typed code.
 func isDesktopNotRunningError(err error) bool {
 	return err != nil && strings.Contains(strings.ToLower(err.Error()), "desktop is not running")
+}
+
+// personalOfflineError refuses an action aimed at a personal computer that has
+// not polled lately, and names the online computers the Bot can use instead.
+func (s *Server) personalOfflineError(ctx context.Context, id string) error {
+	items, err := s.listComputers(ctx)
+	if err != nil {
+		return nil
+	}
+	var alt []string
+	for _, c := range items {
+		if c.ID == id {
+			if c.Online || c.Kind != computer.RowKindPersonal {
+				return nil
+			}
+			continue
+		}
+		if c.Online && c.Kind != "host" {
+			alt = append(alt, fmt.Sprintf("%s (%s, id=%s)", c.Name, c.Kind, c.ID))
+		}
+	}
+	msg := "That computer is offline: it has not contacted the service in the last minute."
+	if len(alt) > 0 {
+		msg += " Online computers: " + strings.Join(alt, "; ") + "."
+	} else {
+		msg += " No other computer is online."
+	}
+	return tooloutcome.New(tooloutcome.Permanent, "computer_offline", "not_executed", msg, "explain_blocker").Err()
 }

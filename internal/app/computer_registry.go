@@ -18,6 +18,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -416,13 +417,25 @@ func (s *Server) computerActionOn(ctx context.Context, r Run, id, name string, a
 	} else if !microVMActions[name] {
 		return "", tooloutcome.InvalidArguments(fmt.Sprintf("unsupported computer action %q", name))
 	}
+	// A personal computer goes through the same approval gate as the VM: a
+	// consequential input or write raises the approval card before it queues.
+	settle := func(error) {}
+	if slot.rowKind == computer.RowKindPersonal {
+		var guardErr error
+		if settle, guardErr = s.guardPersonalAction(ctx, r, name, args); guardErr != nil {
+			return "", guardErr
+		}
+		args = withoutEffect(args)
+	}
 	releaseLock, err := slot.acquire(ctx, r.BotID, r.ID)
 	if err != nil {
+		settle(err)
 		return "", err
 	}
 	defer releaseLock() // a lease per call: the next Bot in line gets the computer when this call ends
 	callCtx, done, err := slot.begin(ctx, false)
 	if err != nil {
+		settle(err)
 		return "", err
 	}
 	defer done()
@@ -435,6 +448,7 @@ func (s *Server) computerActionOn(ctx context.Context, r Run, id, name string, a
 	started := time.Now()
 	result, err := slot.provider.ActionWithin(callCtx, computer.Action{BotID: r.BotID, BotName: botName, RunID: r.ID, Name: name, Args: args, Source: "model"}, computerDispatchTimeoutFor(name, args))
 	s.store.recordRunComputer(r.ID, slot.id, slot.region, time.Since(started))
+	settle(err)
 	if err != nil {
 		if slot.endedByComputer(ctx) {
 			return "", slot.lostOrDetachedError()
@@ -490,6 +504,7 @@ func (s *Server) botComputers(ctx context.Context) []computerSummary {
 			item.Online = state == slotAttached
 			if s.store != nil {
 				if row, err := s.store.computerRow(slot.id); err == nil {
+					item.Online = item.Online && computerRecentlySeen(row.LastSeen)
 					item.Name = row.Name
 					item.Capabilities = row.Capabilities
 				}
@@ -902,4 +917,61 @@ func (s *Server) isVMRoute(id string) bool {
 		return vm.ID() == id
 	}
 	return id == computer.DefaultID
+}
+
+// guardPersonalAction runs the VM's approval gate for a personal computer.
+// Desktop input (click, type, key) is gated by the effect the Bot declares, as
+// on the VM. Writes (files.write, sandbox.exec) are always reviewed; the Bot may
+// declare a more specific effect. Reads are never gated.
+func (s *Server) guardPersonalAction(ctx context.Context, r Run, name string, args []byte) (func(error), error) {
+	action := personalActionName(name)
+	var declared struct {
+		Effect string `json:"effect"`
+		Text   string `json:"text"`
+		Key    string `json:"key"`
+		Path   string `json:"path"`
+		Cmd    string `json:"command"`
+	}
+	_ = json.Unmarshal(args, &declared)
+	review := actionReview{Kind: strings.TrimPrefix(action, "desktop."), Effect: declared.Effect, Text: declared.Text}
+	switch action {
+	case "desktop.click", "desktop.type", "desktop.key":
+		if action == "desktop.key" {
+			review.Text = "key " + declared.Key
+		}
+		if action == "desktop.click" {
+			review.Element = "screen point"
+		}
+	case "files.write":
+		review.Element, review.Text = declared.Path, ""
+		if strings.TrimSpace(review.Effect) == "" {
+			review.Effect = "writes a file on the person's computer"
+		}
+	case "sandbox.exec":
+		review.Text = declared.Cmd
+		if strings.TrimSpace(review.Effect) == "" {
+			review.Effect = "runs a command that changes files on the person's computer"
+		}
+	default:
+		return func(error) {}, nil
+	}
+	return s.guardAction(ctx, r, review)
+}
+
+// withoutEffect drops the Bot's declared "effect" from desktop input args: it
+// is for the approval gate and is not part of what the Mac is asked to do.
+func withoutEffect(args []byte) []byte {
+	var m map[string]json.RawMessage
+	if json.Unmarshal(args, &m) != nil {
+		return args
+	}
+	if _, ok := m["effect"]; !ok {
+		return args
+	}
+	delete(m, "effect")
+	out, err := json.Marshal(m)
+	if err != nil {
+		return args
+	}
+	return out
 }

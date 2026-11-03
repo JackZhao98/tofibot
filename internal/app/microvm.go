@@ -179,7 +179,8 @@ func (s *Server) listComputers(ctx context.Context) ([]Computer, error) {
 	}
 	for i := range items {
 		if slot := s.slotFor(items[i].ID); slot != nil {
-			items[i].Online = slot.currentState() == slotAttached
+			// A slot stays attached until the sweep marks it lost; the last poll decides.
+			items[i].Online = slot.currentState() == slotAttached && (items[i].Kind != computer.RowKindPersonal || computerRecentlySeen(items[i].LastSeen))
 			items[i].Region = slot.region
 			items[i].InUse = slot.holder() != ""
 		}

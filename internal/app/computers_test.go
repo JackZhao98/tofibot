@@ -28,6 +28,7 @@ func computerTestServer(t *testing.T) *Server {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = s.Close() })
+	s.autoReviewProvider = allowReviewer{}
 	return s
 }
 

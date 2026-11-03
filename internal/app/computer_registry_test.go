@@ -83,6 +83,7 @@ func newRegistryServer(t *testing.T) *Server {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { s.Close() })
+	s.autoReviewProvider = allowReviewer{}
 	return s
 }
 
