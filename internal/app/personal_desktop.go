@@ -59,8 +59,13 @@ func ptrVal(p *int) int {
 	return *p
 }
 
+// desktopNeedsComputerID stands for "several Macs and no Bot computer, and the Bot named none".
+const desktopNeedsComputerID = "?"
+
 // desktopToolComputer is the computer a computer_desktop call is aimed at: the
-// Bot computer unless computer_id names another one.
+// Bot computer unless computer_id names another one. With no Bot computer, the
+// only paired Mac with desktop control is the default; with several the Bot
+// must name one (desktopNeedsComputerID).
 func (s *Server) desktopToolComputer(tool string, raw json.RawMessage) string {
 	if tool != "computer_desktop" {
 		return microVMComputerID
@@ -70,6 +75,12 @@ func (s *Server) desktopToolComputer(tool string, raw json.RawMessage) string {
 	}
 	_ = json.Unmarshal(raw, &in)
 	id := strings.TrimSpace(in.ComputerID)
+	if id == "" && s.computer() == nil {
+		if macs := s.desktopMacs(); len(macs) == 1 {
+			return macs[0].ID
+		}
+		return desktopNeedsComputerID
+	}
 	if id == "" || id == microVMComputerID {
 		return microVMComputerID
 	}
@@ -247,6 +258,19 @@ func personalDesktopArgs(in desktopToolInput) (string, json.RawMessage, error) {
 // computer. The approval gate, the computer's lock and the Mac's own refusals
 // are in computerActionOn and the provider.
 func (s *Server) personalDesktop(ctx context.Context, r Run, id, action string, args json.RawMessage, detail string) (string, error) {
+	if id == desktopNeedsComputerID {
+		msg := "Pass computer_id: there is no Bot computer"
+		if macs := s.desktopMacs(); len(macs) > 0 {
+			var names []string
+			for _, m := range macs {
+				names = append(names, m.Name+" (id="+m.ID+")")
+			}
+			msg += " and more than one Mac can be controlled: " + strings.Join(names, "; ") + "."
+		} else {
+			msg += " and no paired Mac with desktop control; list_computers shows what is paired."
+		}
+		return "", tooloutcome.InvalidArguments(msg)
+	}
 	row, err := s.store.computerRow(id)
 	if err != nil || row.Kind != computer.RowKindPersonal || s.ensurePersonalSlot(id) == nil {
 		return "", tooloutcome.InvalidArguments("computer_id must be the id of a person's own paired computer from list_computers; omit it for the Bot computer.")
@@ -263,4 +287,80 @@ func (s *Server) personalDesktop(ctx context.Context, r Run, id, action string, 
 		out = applyCaptureDetail(out, detail)
 	}
 	return out, nil
+}
+
+// desktopMacs lists the paired personal computers that declared a desktop
+// capability, whether or not they are online now.
+func (s *Server) desktopMacs() []ComputerRow {
+	if s.store == nil {
+		return nil
+	}
+	rows, err := s.store.listComputerRows()
+	if err != nil {
+		return nil
+	}
+	var out []ComputerRow
+	for _, row := range rows {
+		if row.Kind != computer.RowKindPersonal {
+			continue
+		}
+		for _, c := range row.Capabilities {
+			if c == "screen.capture" || strings.HasPrefix(c, "desktop.") {
+				out = append(out, row)
+				break
+			}
+		}
+	}
+	return out
+}
+
+// personalDesktopTools gives an account with no Bot computer (no VM) the
+// desktop tool for its paired Macs. With a Bot computer the tool comes from microVMTools.
+func (s *Server) personalDesktopTools(r Run) []Tool {
+	if s.computer() != nil || len(s.desktopMacs()) == 0 {
+		return nil
+	}
+	return []Tool{{
+		Name:        "computer_desktop",
+		Description: "Control the screen of a person's own paired Mac: capture, click, double_click, triple_click, move, drag, scroll, type, key. Coordinates are pixels of the latest capture. Input needs effect: none for harmless input such as focusing, scrolling or opening, otherwise what it changes; an undeclared effect needs the person's approval. Pass computer_id when more than one Mac is paired. Files and commands: computer_action.",
+		Parameters:  desktopToolSchema(),
+		Timeout:     computerToolTimeout,
+		Identity: func(raw json.RawMessage) tooloutcome.Identity {
+			action, args, err := s.parseDesktopTool(raw)
+			if err != nil {
+				var in struct {
+					Action string `json:"action"`
+				}
+				_ = json.Unmarshal(raw, &in)
+				action, args = in.Action, raw
+				if action == "" {
+					action = "computer_desktop"
+				}
+			}
+			return computerRecoveryIdentity(r.BotID, s.desktopToolComputer("computer_desktop", raw), action, args)
+		},
+		ResolveIdentity: func(ctx context.Context, raw json.RawMessage) (tooloutcome.Identity, error) {
+			action, args, err := s.parseDesktopTool(raw)
+			if err != nil {
+				return tooloutcome.Identity{}, tooloutcome.InvalidArguments(err.Error())
+			}
+			return s.resolveComputerRecovery(ctx, r, s.desktopToolComputer("computer_desktop", raw), action, args)
+		},
+		Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+			action, args, err := s.parseDesktopTool(raw)
+			if err != nil {
+				return "", err
+			}
+			detail, err := captureDetailOf(raw)
+			if err != nil {
+				return "", err
+			}
+			return s.personalDesktop(ctx, r, s.desktopToolComputer("computer_desktop", raw), action, args, detail)
+		},
+	}}
+}
+
+// desktopToolSchema is the argument schema of computer_desktop, the same for every kind of computer.
+func desktopToolSchema() map[string]any {
+	return objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"desktop.start", "desktop.stop", "desktop.capture", "desktop.snapshot", "desktop.trace", "desktop.click", "desktop.double_click", "desktop.triple_click", "desktop.type", "desktop.key", "desktop.scroll", "desktop.move", "desktop.drag", "start", "stop", "capture", "trace", "click", "double_click", "triple_click", "type", "key", "scroll", "move", "drag"}, "description": "desktop.start/stop/capture/click/double_click/triple_click/type/key/scroll (desktop.snapshot = capture). A double or triple click is one action: opening a folder, a word or a line selection is never two separate click calls."}, "x": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel X from the latest capture"}, "y": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel Y from the latest capture"}, "screenshot_width": map[string]any{"type": "integer", "minimum": 1, "maximum": 1280, "description": "Width of the screenshot used for x/y; provide together with screenshot_height"}, "screenshot_height": map[string]any{"type": "integer", "minimum": 1, "maximum": 800, "description": "Height of the screenshot used for x/y; provide together with screenshot_width"}, "direction": map[string]any{"type": "string", "enum": []string{"up", "down", "left", "right"}, "description": "Visible page scroll direction"}, "amount": map[string]any{"type": "integer", "minimum": 1, "maximum": 20, "description": "Mouse wheel steps, default 3"}, "text": map[string]any{"type": "string"}, "key": map[string]any{"type": "string", "description": "X11 key name, for example Return or Escape"}, "effect": effectParam, "computer_id": desktopComputerIDParam, "button": desktopButtonParam, "to_x": desktopToParam("X"), "to_y": desktopToParam("Y"), "display": desktopDisplayParam, "modifiers": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "detail": captureDetailParam, "last": traceActionParams["last"], "capture_seqs": traceActionParams["capture_seqs"], "columns": traceActionParams["columns"]}, []string{"action"})
 }

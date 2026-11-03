@@ -406,3 +406,82 @@ func TestComputerDesktopAllowedByReviewerRuns(t *testing.T) {
 		t.Fatalf("err=%v calls=%d", err, stub.calls.Load())
 	}
 }
+
+// The desktop tool follows what the account has: VM only, Mac only, or both.
+func TestComputerDesktopToolByComputerKind(t *testing.T) {
+	// VM only: the tool is there and goes to the Bot computer.
+	s, vm, run := captureServer(t)
+	if _, ok := toolNamed(s.microVMTools(run), "computer_desktop"); !ok {
+		t.Fatal("VM only: no computer_desktop")
+	}
+	before := vm.count("desktop.capture")
+	if _, err := runDesktop(desktopTool(t, s, run), `{"action":"capture"}`); err != nil || vm.count("desktop.capture") != before+1 {
+		t.Fatalf("VM only: %v", err)
+	}
+
+	// Both: with no computer_id the Bot computer is the default; computer_id picks the Mac.
+	s, vm, mac, run, _ := computerDesktopServer(t, "allow")
+	tool := desktopTool(t, s, run)
+	before = vm.count("desktop.capture")
+	if _, err := runDesktop(tool, `{"action":"capture"}`); err != nil || vm.count("desktop.capture") != before+1 {
+		t.Fatalf("both, default: %v", err)
+	}
+	done := make(chan error, 1)
+	go func() { _, err := runDesktop(tool, `{"computer_id":"`+mac.id+`","action":"capture"}`); done <- err }()
+	if job := mac.poll(5); job == nil || job.Action != "desktop.capture" {
+		t.Fatalf("both, Mac: %+v", job)
+	} else {
+		mac.answer(job, `{"image_url":"`+tinyPNGURL+`"}`)
+	}
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+
+	// Mac only (no VM, no KVM): the account still gets computer_desktop.
+	s = computerTestServer(t)
+	run = activeComputerRun(t, s)
+	if tools := s.microVMTools(run); len(tools) != 0 {
+		t.Fatalf("no computers: %d tools", len(tools))
+	}
+	filesOnly := enrollMac(t, s, "Files only", "files.read")
+	if tools := s.microVMTools(run); len(tools) != 0 {
+		t.Fatalf("a Mac without desktop control got %d tools", len(tools))
+	}
+	only := enrollMac(t, s, "Studio Mac", "desktop.capture", "desktop.click", "files.read")
+	tools := s.microVMTools(run)
+	if len(tools) != 1 || tools[0].Name != "computer_desktop" || len(tools[0].Description) > 1024 {
+		t.Fatalf("Mac only: %+v", tools)
+	}
+	tool = tools[0]
+	// With exactly one Mac that has desktop control, no computer_id means that Mac.
+	go func() { _, err := runDesktop(tool, `{"action":"capture"}`); done <- err }()
+	job := only.poll(5)
+	if job == nil || job.Action != "desktop.capture" {
+		t.Fatalf("Mac only, default: %+v", job)
+	}
+	only.answer(job, `{"image_url":"`+tinyPNGURL+`"}`)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	// Input there is still gated when it declares nothing.
+	s.autoReviewProvider = &reviewStub{t: t, reply: func(context.Context, *provider.ChatRequest) (*provider.ChatResponse, error) {
+		return &provider.ChatResponse{Content: `{"decision":"confirm","reason":"stub"}`}, nil
+	}}
+	if _, err := runDesktop(tool, `{"action":"click","x":1,"y":1}`); toolCode(err) != "user_confirmation_required" {
+		t.Fatalf("Mac only, undeclared click: %v", err)
+	}
+	// A second Mac with desktop control: the Bot must say which.
+	second := enrollMac(t, s, "Laptop", "desktop.capture")
+	_, err := runDesktop(tool, `{"action":"capture"}`)
+	if toolCode(err) != "invalid_arguments" || !strings.Contains(err.Error(), only.id) || !strings.Contains(err.Error(), second.id) || strings.Contains(err.Error(), filesOnly.id) {
+		t.Fatalf("two Macs: %v", err)
+	}
+	go func() { _, e := runDesktop(tool, `{"computer_id":"`+second.id+`","action":"capture"}`); done <- e }()
+	if job = second.poll(5); job == nil {
+		t.Fatal("named Mac got no job")
+	}
+	second.answer(job, `{"image_url":"`+tinyPNGURL+`"}`)
+	if err = <-done; err != nil {
+		t.Fatal(err)
+	}
+}
