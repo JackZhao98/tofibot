@@ -489,6 +489,26 @@ await check("reaction menu: a pixel of list settling keeps it open, a real scrol
   await context.close();
 });
 
+await check("icon hint: a pixel of list settling keeps it, a scroll that moves the button hides it", async () => {
+  const { page, context, errors } = await fx.open({});
+  const block = page.locator('[data-message-id="dm_a_m11"]');
+  const b = await block.locator(".message-content").boundingBox();
+  await page.mouse.move(b.x + 30, b.y + 10);
+  const react = block.locator('[data-action="react"]');
+  await react.waitFor();
+  await page.keyboard.press("Shift");
+  await react.focus();
+  await page.locator(".action-hint").waitFor({ state: "visible" });
+  const scroller = page.locator(".message-scroll");
+  assert.ok(await scroller.evaluate(el => { const before = el.scrollTop; el.scrollTop -= 1; return el.scrollTop !== before; }), "the list can move one pixel");
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+  assert.equal(await page.locator(".action-hint").count(), 1, "a one-pixel settle keeps the hint");
+  const moved = await scroller.evaluate(el => { const before = el.scrollTop; el.scrollTop = Math.max(0, before - 120); return [before, el.scrollTop]; });
+  await page.locator(".action-hint").waitFor({ state: "detached", timeout: 5000 }).catch(async () => { throw new Error(`hint stayed after scrolling ${moved} now ${await scroller.evaluate(el => el.scrollTop)} hint=${await page.locator(".action-hint").count()}`); });
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
 await check("group read-by names are a quiet hint in #tofi-layers", async () => {
   const { page, context } = await fx.open({ path: "/g/grp" });
   const block = page.locator('[data-message-id="grp_m3"]');

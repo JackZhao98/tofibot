@@ -82,6 +82,22 @@ export function driver(root: HTMLElement) {
       await frames(3);
       return element;
     },
+    /** Repeats an idempotent action until the selector shows. For a state that the app can undo or miss while it is
+     * still starting: its own first focus can take focus back from a button, and an event sent before a lazy listener
+     * mounts is lost. The state checked is the same; only the start-up race is removed. */
+    async until(selector: string, act: () => unknown | Promise<unknown>, everyMs = 400) {
+      const end = performance.now() + PATIENCE_MS;
+      for (;;) {
+        await act();
+        const stop = performance.now() + everyMs;
+        while (performance.now() < stop) {
+          const found = [...document.querySelectorAll<HTMLElement>(selector)].find(element => element.getClientRects().length > 0);
+          if (found) return found;
+          await wait(30);
+        }
+        if (performance.now() > end) throw new Error(`catalog: nothing matches ${selector}`);
+      }
+    },
     emit(type: string, data: unknown) { (window as unknown as { __catalogEmit: (type: string, data: unknown) => void }).__catalogEmit(type, data); },
   };
 }

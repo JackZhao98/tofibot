@@ -56,6 +56,8 @@ export function ActionHints() {
   useEffect(() => {
     let timer: number | undefined;
     let visible = false;
+    // Where the element sat when it was chosen: a scroll that leaves it in place (a list settling by a pixel) keeps the hint.
+    let anchor: { left: number; top: number } | null = null;
     let hiddenAt = -Infinity;
     // A hint whose text changes while it shows (a group's read-by names) follows the element.
     const watch = new MutationObserver(() => { const text = target.current?.dataset.hint; if (text) setHint(current => current && { ...current, text }); });
@@ -67,6 +69,7 @@ export function ActionHints() {
       if (!element || element.closest("[inert]")) { hide(); return; }
       if (target.current === element) return;
       hide(); target.current = element;
+      const box = element.getBoundingClientRect(); anchor = { left: box.left, top: box.top };
       timer = window.setTimeout(() => {
         if (!element.isConnected) return;
         visible = true;
@@ -78,6 +81,11 @@ export function ActionHints() {
         setHint({ text: element.dataset.hint || "", tone: element.dataset.hintTone, x: Math.max(100, Math.min(innerWidth - 100, rect.left + rect.width / 2)), y: rect.top > 62 ? rect.top - 8 : rect.bottom + 8, above: rect.top > 62, host });
       }, event.type === "focusin" ? 150 : performance.now() - hiddenAt < 400 ? 0 : 500);
     };
+    const scrolled = () => {
+      const element = target.current;
+      if (element && anchor) { const box = element.getBoundingClientRect(); if (Math.abs(box.left - anchor.left) < 4 && Math.abs(box.top - anchor.top) < 4) return; }
+      hide();
+    };
     const leave = (event: PointerEvent) => { if (!target.current?.contains(event.relatedTarget as Node | null)) hide(); };
     document.addEventListener("pointerover", show);
     document.addEventListener("pointerout", leave);
@@ -85,8 +93,8 @@ export function ActionHints() {
     document.addEventListener("focusout", hide);
     document.addEventListener("pointerdown", hide);
     document.addEventListener("keydown", hide);
-    window.addEventListener("scroll", hide, true);
-    return () => { hide(); document.removeEventListener("pointerover", show); document.removeEventListener("pointerout", leave); document.removeEventListener("focusin", show); document.removeEventListener("focusout", hide); document.removeEventListener("pointerdown", hide); document.removeEventListener("keydown", hide); window.removeEventListener("scroll", hide, true); };
+    window.addEventListener("scroll", scrolled, true);
+    return () => { hide(); document.removeEventListener("pointerover", show); document.removeEventListener("pointerout", leave); document.removeEventListener("focusin", show); document.removeEventListener("focusout", hide); document.removeEventListener("pointerdown", hide); document.removeEventListener("keydown", hide); window.removeEventListener("scroll", scrolled, true); };
   }, []);
   return hint ? createPortal(<div className={`action-hint${hint.tone ? ` is-${hint.tone}` : ""}`} role="tooltip" style={{ left: hint.x, top: hint.y, transform: hint.side ? "translate(0, -50%)" : `translate(-50%, ${hint.above ? "-100%" : "0"})` }}>{hint.text}</div>, hint.host) : null;
 }
