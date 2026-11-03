@@ -191,10 +191,16 @@ await check("reduced motion: menus open and close at once", async () => {
     }, menu);
     assert.ok(seen.animation <= 0.001 && seen.transition <= 0.001, `${menu} has no motion under reduced motion (${JSON.stringify(seen)})`);
     await page.waitForFunction(selector => getComputedStyle(document.querySelector(selector)).opacity === "1", menu, { timeout: 2000 });
-    const t0 = Date.now();
     await page.keyboard.press("Escape");
+    // "At once" is a property of the styles, not of the runner's clock: a closing menu that is still in the DOM must
+    // carry no exit animation or transition. Wall-clock timing failed on a busy CI runner (497 ms) with no motion at all.
+    const closing = await page.evaluate(selector => {
+      const el = document.querySelector(selector); if (!el) return null; const cs = getComputedStyle(el);
+      const seconds = value => Math.max(...value.split(",").map(part => part.trim().endsWith("ms") ? parseFloat(part) / 1000 : parseFloat(part) || 0));
+      return { animation: seconds(cs.animationDuration), transition: seconds(cs.transitionDuration), name: cs.animationName };
+    }, menu);
+    assert.ok(closing === null || (closing.animation <= 0.001 && closing.transition <= 0.001), `${menu} closes without motion (${JSON.stringify(closing)})`);
     await closed(page, menu);
-    assert.ok(Date.now() - t0 < 300, `${menu} is gone at once (${Date.now() - t0} ms)`);
   }
   await context.close();
 });
