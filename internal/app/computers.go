@@ -599,7 +599,7 @@ func validateComputerArgs(action string, raw json.RawMessage) error {
 		}
 		for _, m := range v.Modifiers {
 			if m != "cmd" && m != "ctrl" && m != "alt" && m != "shift" {
-				return errors.New("unsupported key modifier")
+				return errors.New("unsupported key modifier; use cmd, ctrl, alt or shift")
 			}
 		}
 		return nil

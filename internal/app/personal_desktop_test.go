@@ -485,3 +485,22 @@ func TestComputerDesktopToolByComputerKind(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestPersonalDesktopKeyModifierAliases(t *testing.T) {
+	action, args, err := personalDesktopArgs(desktopToolInput{Action: "desktop.key", Key: "q", Modifiers: []string{"command", "Option", " control ", "shift"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct{ Modifiers []string }
+	_ = json.Unmarshal(args, &got)
+	if strings.Join(got.Modifiers, ",") != "cmd,alt,ctrl,shift" {
+		t.Fatalf("modifiers = %v", got.Modifiers)
+	}
+	if err := validateComputerArgs(action, args); err != nil {
+		t.Fatalf("aliased modifiers rejected: %v", err)
+	}
+	_, args, _ = personalDesktopArgs(desktopToolInput{Action: "desktop.key", Key: "q", Modifiers: []string{"hyper"}})
+	if err := validateComputerArgs("desktop.key", args); err == nil || !strings.Contains(err.Error(), "cmd, ctrl, alt or shift") {
+		t.Fatalf("unknown modifier error = %v", err)
+	}
+}

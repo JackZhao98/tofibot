@@ -246,12 +246,38 @@ func personalDesktopArgs(in desktopToolInput) (string, json.RawMessage, error) {
 			Key       string   `json:"key"`
 			Modifiers []string `json:"modifiers,omitempty"`
 			Effect    string   `json:"effect,omitempty"`
-		}{in.Key, in.Modifiers, in.Effect}
+		}{in.Key, macModifiers(in.Modifiers), in.Effect}
 	default:
 		return "", nil, errors.New("computer_desktop requires a supported desktop action")
 	}
 	argsJSON, _ := json.Marshal(args)
 	return in.Action, argsJSON, nil
+}
+
+// macModifierNames maps the modifier names a model commonly writes to the four
+// names the Mac accepts. The desktop app keeps the same table (desktop-keys.cjs).
+var macModifierNames = map[string]string{
+	"cmd": "cmd", "command": "cmd", "super": "cmd", "meta": "cmd", "win": "cmd",
+	"ctrl": "ctrl", "control": "ctrl",
+	"alt": "alt", "option": "alt", "opt": "alt",
+	"shift": "shift",
+}
+
+// macModifiers returns the Mac names for known aliases. An unknown name stays
+// as written, so the action check rejects it and names the accepted ones.
+func macModifiers(in []string) []string {
+	if len(in) == 0 {
+		return in
+	}
+	out := make([]string, len(in))
+	for i, m := range in {
+		if name, ok := macModifierNames[strings.ToLower(strings.TrimSpace(m))]; ok {
+			out[i] = name
+		} else {
+			out[i] = m
+		}
+	}
+	return out
 }
 
 // personalDesktop runs one translated computer_desktop call on a person's own
