@@ -3,7 +3,7 @@ name: release
 # Publishes a TOFI release from a tag vX.Y.Z (or vX.Y.Z-rc.N, published as a
 # prerelease): App/Worker images on ghcr.io pinned by digest, the sealed
 # account Guest release per architecture (x86_64, aarch64), the host bundle,
-# manifest.json and install.sh. Images are multi-arch manifest lists; images
+# manifest.json, install.sh and the desktop UI artifact (tofi-desktop-ui-<tag>.tar.gz + .sha256). Images are multi-arch manifest lists; images
 # and guest build natively in parallel with `test`, and nothing is tagged or
 # published until `test` passes.
 # One-time setup per package (tofi, tofi-worker, tofi-mcp-runner): make the
@@ -299,6 +299,39 @@ jobs:
           retention-days: 7
           compression-level: 0
 
+  # The desktop app bundles a copy of this Web UI (contracts: AGENTS.md "Desktop UI artifact and version skew").
+  # Built from the tag's commit; the tarball is the artifact directory (ui-artifact.json at its root).
+  desktop-ui:
+    needs: version
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ needs.version.outputs.tag }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm --prefix ui ci
+      - run: npm --prefix ui run build
+      - name: Desktop UI artifact
+        run: |
+          mkdir -p dist
+          node scripts/export-desktop-ui.cjs "$RUNNER_TEMP/desktop-ui" --version "$TAG"
+          archive="dist/tofi-desktop-ui-$TAG.tar.gz"
+          SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
+          tar --sort=name --numeric-owner --owner=0 --group=0 --mtime="@$SOURCE_DATE_EPOCH" \
+            -C "$RUNNER_TEMP/desktop-ui" -cf - . | gzip -n -9 > "$archive"
+          sha256sum "$archive" | awk '{ print $1 }' > "$archive.sha256"
+          ls -l dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-ui
+          path: dist/
+          retention-days: 7
+          compression-level: 0
+
   bundle:
     needs: [version, image-manifest, guest]
     runs-on: ubuntu-24.04
@@ -359,7 +392,7 @@ jobs:
           compression-level: 0
 
   publish:
-    needs: [version, test, bundle]
+    needs: [version, test, bundle, desktop-ui]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -367,6 +400,10 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: release
+          path: dist/
+      - uses: actions/download-artifact@v4
+        with:
+          name: desktop-ui
           path: dist/
       - name: Images must be publicly pullable
         run: |
@@ -399,4 +436,5 @@ jobs:
             dist/manifest.json dist/install.sh \
             "dist/tofi-host-$TAG.tar.gz" "dist/tofi-host-$TAG.tar.gz.sha256" \
             "dist/tofi-guest-$TAG-x86_64.tar.zst" "dist/tofi-guest-$TAG-x86_64.tar.zst.sha256" \
-            "dist/tofi-guest-$TAG-aarch64.tar.zst" "dist/tofi-guest-$TAG-aarch64.tar.zst.sha256"
+            "dist/tofi-guest-$TAG-aarch64.tar.zst" "dist/tofi-guest-$TAG-aarch64.tar.zst.sha256" \
+            "dist/tofi-desktop-ui-$TAG.tar.gz" "dist/tofi-desktop-ui-$TAG.tar.gz.sha256"

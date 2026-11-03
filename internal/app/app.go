@@ -3371,6 +3371,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 			"instance_id":      s.instance.ID,
 			"auth":             s.ownerAuthInfo(),
 			"tenancy":          map[string]string{"mode": "single"},
+			"desktop":          desktopServerInfo(),
 		})
 	case p == "system/update" || strings.HasPrefix(p, "system/update/"):
 		s.serveSystemUpdate(w, r, strings.TrimPrefix(strings.TrimPrefix(p, "system/update"), "/"))

@@ -428,7 +428,7 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		writeJSON(w, 200, map[string]any{"service": "tofi", "protocol_version": 1, "instance_id": workspace.instance.ID, "environment": workspace.instance.Environment, "auth": map[string]string{"mode": "accounts"}})
+		writeJSON(w, 200, map[string]any{"service": "tofi", "protocol_version": 1, "instance_id": workspace.instance.ID, "environment": workspace.instance.Environment, "auth": map[string]string{"mode": "accounts"}, "desktop": desktopServerInfo()})
 		return
 	}
 	if workspace, served := g.deviceWorkspace(r); served {

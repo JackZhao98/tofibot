@@ -5,8 +5,16 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { execFileSync } = require("node:child_process");
 const root = path.resolve(__dirname, "..");
-const output = process.argv[2];
-if (!output) throw new Error("Usage: node scripts/export-desktop-ui.cjs NEW_OUTPUT_DIRECTORY (after Web build)");
+const args = process.argv.slice(2);
+const versionFlag = args.indexOf("--version");
+let serverVersion = process.env.TOFI_RELEASE_VERSION || "dev";
+if (versionFlag >= 0) serverVersion = args.splice(versionFlag, 2)[1] || "";
+const output = args[0];
+if (!output || !/^(dev|v\d+\.\d+\.\d+(-rc\.\d+)?)$/.test(serverVersion)) throw new Error("Usage: node scripts/export-desktop-ui.cjs NEW_OUTPUT_DIRECTORY [--version vX.Y.Z] (after Web build)");
+// The contract number is defined once, in Go, next to the server-info field that reports it.
+const contractMatch = /^const DesktopContract = (\d+)$/m.exec(fs.readFileSync(path.join(root, "internal", "app", "desktop_contract.go"), "utf8"));
+if (!contractMatch) throw new Error("DesktopContract not found in internal/app/desktop_contract.go");
+const desktopContract = Number(contractMatch[1]);
 const destination = path.resolve(output);
 if (fs.existsSync(destination)) throw new Error("Output must not exist");
 const source = path.join(root, "ui", "dist");
@@ -24,5 +32,5 @@ const revision = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encodin
 if (execFileSync("git", ["status", "--porcelain", "--", "ui"], { cwd: root, encoding: "utf8" }).trim()) throw new Error("Web source must be committed before artifact export");
 if (!fs.existsSync(path.join(source, "index.html"))) throw new Error("Build Web UI first");
 fs.cpSync(source, destination, { recursive: true, errorOnExist: true, force: false });
-fs.writeFileSync(path.join(destination, "ui-artifact.json"), JSON.stringify({ schema: 1, desktop_contract: 1, revision, files: inventory(destination) }, null, 2)+"\n");
+fs.writeFileSync(path.join(destination, "ui-artifact.json"), JSON.stringify({ schema: 1, desktop_contract: desktopContract, server_version: serverVersion, revision, files: inventory(destination) }, null, 2)+"\n");
 console.log(destination);
