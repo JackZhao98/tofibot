@@ -74,7 +74,7 @@ The installer prints `Installed in m:ss` at the end. `sudo tofi doctor` also che
 ### Measured: no cloud account at all
 
 On 2026-11-02 we installed v0.6.2-rc.9 on a 2 vCPU, 2 GiB Debian 13 VM with no KVM
-and used Ollama on a MacBook Air (Apple M2, 16 GB) on the same LAN with `qwen2.5:7b`:
+and used Ollama on a Mac (Apple M2, 16 GB) on the same LAN with `qwen2.5:7b`:
 
 | Step | Time |
 |---|---|
