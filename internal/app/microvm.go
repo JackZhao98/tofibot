@@ -454,13 +454,13 @@ func (s *Server) microVMTools(r Run) []Tool {
 					action = name
 				}
 			}
-			return computerRecoveryIdentity(r.BotID, microVMComputerID, action, args)
+			return computerRecoveryIdentity(r.BotID, s.desktopToolComputer(name, raw), action, args)
 		}, ResolveIdentity: func(ctx context.Context, raw json.RawMessage) (tooloutcome.Identity, error) {
 			action, args, err := parse(raw)
 			if err != nil {
 				return tooloutcome.Identity{}, tooloutcome.InvalidArguments(err.Error())
 			}
-			return s.resolveComputerRecovery(ctx, r, microVMComputerID, action, args)
+			return s.resolveComputerRecovery(ctx, r, s.desktopToolComputer(name, raw), action, args)
 		}, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			action, args, err := parse(raw)
 			if err != nil {
@@ -469,6 +469,9 @@ func (s *Server) microVMTools(r Run) []Tool {
 			captureDetail, err := captureDetailOf(raw)
 			if err != nil {
 				return "", err
+			}
+			if cid := s.desktopToolComputer(name, raw); cid != microVMComputerID {
+				return s.personalDesktop(ctx, r, cid, action, args, captureDetail)
 			}
 			inputs.ensure(ctx, s, r)
 			s.flushGeneratedImages(ctx, r)
@@ -654,81 +657,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 		argsJSON, _ := json.Marshal(args)
 		return in.Action, argsJSON, nil
 	})
-	desktop := call("computer_desktop", computerFallbackNote+" Control the Bot computer's display and Chrome session. Graphical actions wait for exclusive control; inspect after acquiring it or after the page changes. A successful browser.snapshot already includes a current screenshot: use it directly, without an extra desktop.start or desktop.capture. Use desktop.start when readiness is unknown; desktop.capture is for non-browser UI. Click/double_click/triple_click/type/key/scroll act on the current visible screen. After an input sequence, inspect the result before claiming success. "+captureDetailSentence+" "+traceActionSentence, objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"desktop.start", "desktop.stop", "desktop.capture", "desktop.snapshot", "desktop.trace", "desktop.click", "desktop.double_click", "desktop.triple_click", "desktop.type", "desktop.key", "desktop.scroll", "start", "stop", "capture", "trace", "click", "double_click", "triple_click", "type", "key", "scroll"}, "description": "desktop.start/stop/capture/click/double_click/triple_click/type/key/scroll (desktop.snapshot = capture). A double or triple click is one action: opening a folder, a word or a line selection is never two separate click calls."}, "x": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel X from the latest capture"}, "y": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel Y from the latest capture"}, "screenshot_width": map[string]any{"type": "integer", "minimum": 1, "maximum": 1280, "description": "Width of the screenshot used for x/y; provide together with screenshot_height"}, "screenshot_height": map[string]any{"type": "integer", "minimum": 1, "maximum": 800, "description": "Height of the screenshot used for x/y; provide together with screenshot_width"}, "direction": map[string]any{"type": "string", "enum": []string{"up", "down", "left", "right"}, "description": "Visible page scroll direction"}, "amount": map[string]any{"type": "integer", "minimum": 1, "maximum": 20, "description": "Mouse wheel steps, default 3"}, "text": map[string]any{"type": "string"}, "key": map[string]any{"type": "string", "description": "X11 key name, for example Return or Escape"}, "effect": effectParam, "modifiers": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "detail": captureDetailParam, "last": traceActionParams["last"], "capture_seqs": traceActionParams["capture_seqs"], "columns": traceActionParams["columns"]}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
-		var in struct {
-			Action           string   `json:"action"`
-			Last             int      `json:"last,omitempty"`
-			CaptureSeqs      []int    `json:"capture_seqs,omitempty"`
-			Columns          int      `json:"columns,omitempty"`
-			Detail           string   `json:"detail,omitempty"`
-			Direction        string   `json:"direction,omitempty"`
-			Amount           int      `json:"amount,omitempty"`
-			X                int      `json:"x,omitempty"`
-			Y                int      `json:"y,omitempty"`
-			ScreenshotWidth  int      `json:"screenshot_width,omitempty"`
-			ScreenshotHeight int      `json:"screenshot_height,omitempty"`
-			Text             string   `json:"text,omitempty"`
-			Key              string   `json:"key,omitempty"`
-			Modifiers        []string `json:"modifiers,omitempty"`
-			Effect           string   `json:"effect,omitempty"`
-		}
-		if err := decode(raw, &in); err != nil {
-			return "", nil, errors.New("computer_desktop requires a desktop action")
-		}
-		if _, err := normalizeCaptureDetail(in.Detail); err != nil {
-			return "", nil, err
-		}
-		if !strings.HasPrefix(in.Action, "desktop.") {
-			in.Action = "desktop." + in.Action // models drop the prefix
-		}
-		if in.Action == "desktop." {
-			return "", nil, errors.New("computer_desktop requires a desktop action")
-		}
-		if in.Action == "desktop.snapshot" || in.Action == "desktop.screenshot" {
-			// Models borrow browser.snapshot's verb; it means a screen capture.
-			in.Action = "desktop.capture"
-		}
-		var args any
-		clicks := 0
-		switch in.Action {
-		case "desktop.double_click":
-			in.Action, clicks = "desktop.click", 2
-		case "desktop.triple_click":
-			in.Action, clicks = "desktop.click", 3
-		}
-		switch in.Action {
-		case "desktop.start", "desktop.stop", "desktop.capture":
-			args = struct{}{}
-		case "desktop.trace":
-			args = traceArgs{Last: in.Last, CaptureSeqs: in.CaptureSeqs, Columns: in.Columns}
-		case "desktop.click":
-			args = struct {
-				X                int `json:"x,omitempty"`
-				Y                int `json:"y,omitempty"`
-				Clicks           int `json:"clicks,omitempty"`
-				ScreenshotWidth  int `json:"screenshot_width,omitempty"`
-				ScreenshotHeight int `json:"screenshot_height,omitempty"`
-			}{X: in.X, Y: in.Y, Clicks: clicks, ScreenshotWidth: in.ScreenshotWidth, ScreenshotHeight: in.ScreenshotHeight}
-		case "desktop.scroll":
-			args = struct {
-				Direction string `json:"direction"`
-				Amount    int    `json:"amount,omitempty"`
-			}{in.Direction, in.Amount}
-		case "desktop.type":
-			args = struct {
-				Text string `json:"text"`
-			}{Text: in.Text}
-		case "desktop.key":
-			args = struct {
-				Key       string   `json:"key"`
-				Modifiers []string `json:"modifiers,omitempty"`
-			}{Key: in.Key, Modifiers: in.Modifiers}
-		default:
-			return "", nil, errors.New("computer_desktop requires a supported desktop action")
-		}
-		argsJSON, _ := json.Marshal(args)
-		return in.Action, argsJSON, nil
-	})
+	desktop := call("computer_desktop", computerFallbackNote+" Control the Bot computer's display and Chrome session. "+desktopKindsSentence+" Graphical actions wait for exclusive control; inspect after acquiring it or after the page changes. A successful browser.snapshot already includes a current screenshot: use it directly, without an extra desktop.start or desktop.capture. Use desktop.start when readiness is unknown; desktop.capture is for non-browser UI. Click/double_click/triple_click/type/key/scroll act on the current visible screen. After an input sequence, inspect the result before claiming success. "+captureDetailSentence+" "+traceActionSentence, objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"desktop.start", "desktop.stop", "desktop.capture", "desktop.snapshot", "desktop.trace", "desktop.click", "desktop.double_click", "desktop.triple_click", "desktop.type", "desktop.key", "desktop.scroll", "desktop.move", "desktop.drag", "start", "stop", "capture", "trace", "click", "double_click", "triple_click", "type", "key", "scroll", "move", "drag"}, "description": "desktop.start/stop/capture/click/double_click/triple_click/type/key/scroll (desktop.snapshot = capture). A double or triple click is one action: opening a folder, a word or a line selection is never two separate click calls."}, "x": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel X from the latest capture"}, "y": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel Y from the latest capture"}, "screenshot_width": map[string]any{"type": "integer", "minimum": 1, "maximum": 1280, "description": "Width of the screenshot used for x/y; provide together with screenshot_height"}, "screenshot_height": map[string]any{"type": "integer", "minimum": 1, "maximum": 800, "description": "Height of the screenshot used for x/y; provide together with screenshot_width"}, "direction": map[string]any{"type": "string", "enum": []string{"up", "down", "left", "right"}, "description": "Visible page scroll direction"}, "amount": map[string]any{"type": "integer", "minimum": 1, "maximum": 20, "description": "Mouse wheel steps, default 3"}, "text": map[string]any{"type": "string"}, "key": map[string]any{"type": "string", "description": "X11 key name, for example Return or Escape"}, "effect": effectParam, "computer_id": desktopComputerIDParam, "button": desktopButtonParam, "to_x": desktopToParam("X"), "to_y": desktopToParam("Y"), "display": desktopDisplayParam, "modifiers": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "detail": captureDetailParam, "last": traceActionParams["last"], "capture_seqs": traceActionParams["capture_seqs"], "columns": traceActionParams["columns"]}, []string{"action"}), s.parseDesktopTool)
 	browser := call("computer_browser", computerFallbackNote+" Use the shared Chrome. browser.read returns the focused page's text and links (use find to jump to a phrase); prefer it over a screenshot for reading pages, results and articles. browser.click clicks an item by its visible text (a mail subject, button, link) and returns the new page, so no screenshot or coordinates are needed. File uploads in web pages use browser.upload, never the system file dialog. browser.snapshot returns a screenshot for layout and click coordinates; "+captureDetailSentence+" browser.navigate opens a URL in the current tab. All Bots share this Chrome and its logged-in profile.", objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"browser.read", "browser.click", "browser.upload", "browser.navigate", "browser.snapshot", "browser.action", "read", "click", "upload", "navigate", "snapshot"}, "description": "browser.read: page text+links (optional find, max_chars); browser.click: click the element showing click text, then returns the page like read; browser.upload: attach files to a file input; browser.navigate needs url; browser.snapshot: screenshot; browser.action switches, opens or closes tabs with target_action"}, "click": map[string]any{"type": "string", "description": "browser.click: visible text of the item to click (a mail subject, button or link label); browser.upload: visible text of the element that opens the file chooser"}, "files": map[string]any{"type": "array", "maxItems": browserUploadMaxFiles, "items": map[string]any{"type": "string"}, "description": "browser.upload: paths of files on the Bot computer, inside /workspace"}, "attachment_ids": map[string]any{"type": "array", "maxItems": browserUploadMaxFiles, "items": map[string]any{"type": "string"}, "description": "browser.upload: ids of files the person sent in this conversation"}, "selector": map[string]any{"type": "string", "description": "browser.upload: CSS selector of the file input (or a label around it); give selector or click"}, "effect": effectParam, "find": map[string]any{"type": "string", "description": "browser.read: return passages around this phrase"}, "max_chars": map[string]any{"type": "integer", "minimum": 1000, "maximum": 60000, "description": "browser.read: text budget, default 20000"}, "url": map[string]any{"type": "string", "description": "URL for browser.navigate"}, "target_action": map[string]any{"type": "string", "enum": []string{"navigate", "snapshot", "new", "switch", "close"}, "description": "Browser action; new explicitly opens a foreground tab; switch/close require target_id"}, "target_id": map[string]any{"type": "string", "description": "Exact target_id from browser.snapshot; omit to use the actual current foreground tab"}, "detail": captureDetailParam}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
 		var in struct {
 			Action        string   `json:"action"`

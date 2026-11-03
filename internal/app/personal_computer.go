@@ -77,7 +77,7 @@ func deviceTagOf(secret string) string {
 
 // personalAliases maps the VM's tool vocabulary onto the Mac's action names, so
 // a Bot that learned shell.exec on the VM can use it on a Mac too.
-var personalAliases = map[string]string{"shell.exec": "sandbox.exec"}
+var personalAliases = map[string]string{"shell.exec": "sandbox.exec", "screen.capture": "desktop.capture"}
 
 func personalActionName(name string) string {
 	if alias, ok := personalAliases[name]; ok {
@@ -187,7 +187,7 @@ func (p *personalProvider) ActionWithin(ctx context.Context, a computer.Action, 
 				}
 				// A job the Mac ran and refused carries its own words (folder not
 				// granted, Bot not allowed). Everything else is the server's.
-				return computer.ActionResult{}, personalJobError(current.Status, msg)
+				return computer.ActionResult{}, personalJobError(current.Status, msg, job.Action)
 			}
 			// A claimed job whose Mac went quiet ends here as computer_lost; the
 			// sweep would find it too, but only every few seconds.
@@ -208,16 +208,63 @@ func (p *personalProvider) silentFor() time.Duration {
 }
 
 // personalJobError turns a finished-but-not-completed job into a tool error.
-func personalJobError(status, message string) error {
-	switch {
-	case strings.HasPrefix(message, "bot_not_allowed"), strings.HasPrefix(message, "folder_not_granted"):
-		code, _, _ := strings.Cut(message, ":")
-		return tooloutcome.New(tooloutcome.Denied, code, "not_executed", strings.TrimSpace(strings.TrimPrefix(message, code+":")), "explain_blocker").Err()
-	case message == codeComputerLost:
+// The Mac names why it refused in its first word (bot_not_allowed, user_stop,
+// ...); the words the Bot reads are the server's, so they stay the same across
+// desktop app versions and never carry the Mac's own text.
+func personalJobError(status, message, action string) error {
+	code := deviceErrorCode(message)
+	switch code {
+	case "bot_not_allowed":
+		return tooloutcome.New(tooloutcome.Denied, code, "not_executed", "The person has not allowed this Bot to use their Mac. They must allow this Bot in the TOFI desktop app under Mac Device Settings. Do not retry this action or any other on this Mac; tell the person what to enable and stop.", "explain_blocker").Err()
+	case "user_stop":
+		return tooloutcome.New(tooloutcome.Denied, code, "unknown", "The person pressed Stop in the TOFI desktop app, which cancelled this step; whether it partly ran is unknown. Do not retry automatically and do not continue the plan. Tell the person it was stopped and wait for their instruction.", "explain_blocker").Err()
+	case "user_paused":
+		return tooloutcome.New(tooloutcome.Denied, code, "not_executed", "The person paused this Mac's control in the TOFI desktop app, so nothing was run. Do not retry automatically. Tell the person control is paused and that they can resume it in the desktop app when they want you to continue.", "explain_blocker").Err()
+	case "user_takeover":
+		return tooloutcome.New(tooloutcome.Denied, code, "not_executed", "The person took over the mouse or keyboard, so the TOFI desktop app paused this step and nothing was run. Do not retry automatically. Tell the person you stopped because they took over and ask whether to continue; capture the screen again before the next action.", "explain_blocker").Err()
+	case "secure_input":
+		return tooloutcome.New(tooloutcome.Denied, code, "not_executed", "A secure text field on the Mac has keyboard focus (a password field or similar), so typing was refused and nothing was typed. Do not type secrets or passwords. Ask the person to enter the value themselves, then continue.", "explain_blocker").Err()
+	case "capability_not_granted":
+		return capabilityNotGrantedOutcome(action).Err()
+	case "folder_not_granted":
+		_, rest, _ := strings.Cut(message, ":")
+		rest = strings.TrimSpace(rest)
+		if rest == "" {
+			rest = "The person has not granted this folder to TOFI. They can add it in the TOFI desktop app's folder settings."
+		}
+		return tooloutcome.New(tooloutcome.Denied, code, "not_executed", rest, "explain_blocker").Err()
+	case codeComputerLost:
 		return tooloutcome.New(tooloutcome.Permanent, codeComputerLost, "unknown", "The computer stopped answering while this step ran. Whether the step finished on it is unknown; continue without it.", "explain_blocker").Err()
 	}
 	_ = status
 	return errors.New(message)
+}
+
+// deviceErrorCode is the leading word of a Mac's refusal ("user_stop: ..." or "user_stop").
+func deviceErrorCode(message string) string {
+	message = strings.TrimSpace(message)
+	if i := strings.IndexAny(message, ": \t\n"); i >= 0 {
+		message = message[:i]
+	}
+	return strings.ToLower(message)
+}
+
+// capabilityNotGrantedOutcome names the capability a Mac has not granted and
+// where the person turns it on. It serves both the server's own check and the
+// Mac's refusal.
+func capabilityNotGrantedOutcome(action string) tooloutcome.Outcome {
+	what := "the capability for " + action
+	switch {
+	case action == "desktop.capture" || action == "screen.capture":
+		what = "Screen capture (" + action + "), which also needs the macOS Screen Recording permission"
+	case strings.HasPrefix(action, "desktop."):
+		what = "Desktop control (" + action + "), which also needs the macOS Accessibility permission"
+	case action == "sandbox.exec":
+		what = "Command execution (sandbox.exec)"
+	case strings.HasPrefix(action, "files."):
+		what = "File access (" + action + ")"
+	}
+	return tooloutcome.New(tooloutcome.Denied, "capability_not_granted", "not_executed", "This Mac has not granted "+what+" to TOFI. The person can turn it on in the TOFI desktop app under Mac Device Settings. Do not retry; tell the person what to enable, or continue with another computer.", "explain_blocker")
 }
 
 // ---- store helpers ----

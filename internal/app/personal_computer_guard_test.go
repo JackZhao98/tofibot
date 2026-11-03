@@ -25,7 +25,7 @@ func (a allowReviewer) ChatStream(ctx context.Context, req *provider.ChatRequest
 func personalGuardServer(t *testing.T, decision string) (*Server, *testMac, Run, *reviewStub) {
 	t.Helper()
 	s := computerTestServer(t)
-	mac := enrollMac(t, s, "Studio Mac", "files.read", "files.write", "sandbox.exec", "desktop.click", "desktop.type", "desktop.key", "screen.capture")
+	mac := enrollMac(t, s, "Studio Mac", "files.read", "files.write", "sandbox.exec", "desktop.click", "desktop.type", "desktop.key", "screen.capture", "desktop.capture", "desktop.move", "desktop.drag", "desktop.scroll", "desktop.double_click", "desktop.triple_click")
 	run := activeComputerRun(t, s)
 	stub := &reviewStub{t: t, reply: func(context.Context, *provider.ChatRequest) (*provider.ChatResponse, error) {
 		return &provider.ChatResponse{Content: `{"decision":"` + decision + `","reason":"stub"}`}, nil
@@ -59,6 +59,35 @@ func TestPersonalGuardBlocksConsequentialActions(t *testing.T) {
 	}
 }
 
+// Fail closed on the person's own computer: input that declares no effect is
+// reviewed as consequential, in every input action except move.
+func TestPersonalGuardUndeclaredInputIsConsequential(t *testing.T) {
+	s, mac, run, stub := personalGuardServer(t, "confirm")
+	tool := computerActionTool(s, run)
+	cases := []struct{ action, args string }{
+		{"desktop.click", `{"x":10,"y":10}`},
+		{"desktop.double_click", `{"x":10,"y":10}`},
+		{"desktop.triple_click", `{"x":10,"y":10}`},
+		{"desktop.drag", `{"from":{"x":1,"y":1},"to":{"x":9,"y":9}}`},
+		{"desktop.scroll", `{"direction":"down","amount":3}`},
+		{"desktop.type", `{"text":"hello"}`},
+		{"desktop.key", `{"key":"ctrl+shift+t"}`},
+		{"desktop.click", `{"x":10,"y":10,"effect":""}`},
+	}
+	for _, c := range cases {
+		_, err := runCall(tool, mac.id, c.action, c.args)
+		if toolCode(err) != "user_confirmation_required" {
+			t.Fatalf("%s %s: want approval, got %v", c.action, c.args, err)
+		}
+	}
+	if int(stub.calls.Load()) != len(cases) {
+		t.Fatalf("reviewer calls=%d want %d", stub.calls.Load(), len(cases))
+	}
+	if w := mac.call("GET", "/api/computers/"+mac.id+"/jobs?wait=0", "", mac.token); strings.Contains(w.Body.String(), `"job":{`) {
+		t.Fatalf("a refused action was queued: %s", w.Body.String())
+	}
+}
+
 // Reads and no-effect input stay ungated and reach the Mac.
 func TestPersonalGuardLeavesReadsAndNoEffectInputAlone(t *testing.T) {
 	s, mac, run, stub := personalGuardServer(t, "confirm")
@@ -67,11 +96,22 @@ func TestPersonalGuardLeavesReadsAndNoEffectInputAlone(t *testing.T) {
 		{"screen.capture", `{}`, `{"image_url":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="}`},
 		{"files.read", `{"path":"a"}`, `{"ok":true}`},
 		{"desktop.click", `{"x":1,"y":1,"button":"left","effect":"none"}`, `{"ok":true}`},
+		{"desktop.capture", `{}`, `{"image_url":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="}`},
+		{"desktop.move", `{"x":5,"y":5}`, `{"ok":true}`},
+		{"desktop.double_click", `{"x":1,"y":1,"effect":"none"}`, `{"ok":true}`},
+		{"desktop.drag", `{"from":{"x":1,"y":1},"to":{"x":2,"y":2},"effect":"none"}`, `{"ok":true}`},
+		{"desktop.scroll", `{"direction":"up","effect":"none"}`, `{"ok":true}`},
+		{"desktop.type", `{"text":"x","effect":"none"}`, `{"ok":true}`},
+		{"desktop.key", `{"key":"Return","effect":"none"}`, `{"ok":true}`},
 	} {
 		done := make(chan error, 1)
 		go func() { _, err := runCall(tool, mac.id, c.action, c.args); done <- err }()
 		job := mac.poll(5)
-		if job == nil || job.Action != c.action {
+		want := c.action
+		if want == "screen.capture" {
+			want = "desktop.capture" // the old name is an alias of the new one
+		}
+		if job == nil || job.Action != want {
 			t.Fatalf("%s: job %+v", c.action, job)
 		}
 		mac.answer(job, c.result)
