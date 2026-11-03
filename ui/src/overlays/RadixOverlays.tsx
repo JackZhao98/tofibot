@@ -128,6 +128,9 @@ export function Menu({ open, onOpenChange, className, id, label, trigger, anchor
   </DropdownMenu.Root>;
 }
 
+/** Scroll, in CSS pixels, that a close-on-scroll popover ignores in the scrollers under its anchor. */
+const SCROLL_SLACK_PX = 4;
+
 export function Popover({ open, onOpenChange, className, anchor, container, takeFocus = true, closeOnScroll = false, side = "bottom", align = "start", sideOffset = 0, alignOffset = 0, children, ...rest }: OverlayPopoverProps) {
   const opener = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null);
   const outside = useRef(false);
@@ -139,11 +142,23 @@ export function Popover({ open, onOpenChange, className, anchor, container, take
     if (!open) return;
     outside.current = false;
     if (!closeOnScroll) return;
-    // Scrolling inside the surface (the emoji picker's categories) keeps it open.
-    const close = (event: Event) => { if (!(event.target instanceof Node && content.current?.contains(event.target))) change.current(false); };
+    // Scrolling inside the surface (the emoji picker's categories) keeps it open. So does a correction of a pixel or two
+    // in a scroller under the anchor: a chat list that settles onto its bottom edge moved 474 -> 475 just after the
+    // reaction menu opened and closed it at once. Anything that moves the anchor further still closes it.
+    const box = anchor?.current?.getBoundingClientRect?.();
+    const under = box ? document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2) : null;
+    const start = new Map<Element, [number, number]>();
+    for (let node = under; node; node = node.parentElement) start.set(node, [node.scrollTop, node.scrollLeft]);
+    const close = (event: Event) => {
+      if (event.target instanceof Node && content.current?.contains(event.target)) return;
+      const target = event.target instanceof Element ? event.target : null;
+      const was = target ? start.get(target) : undefined;
+      if (target && was && Math.abs(target.scrollTop - was[0]) < SCROLL_SLACK_PX && Math.abs(target.scrollLeft - was[1]) < SCROLL_SLACK_PX) return;
+      change.current(false);
+    };
     window.addEventListener("scroll", close, true); window.addEventListener("resize", close);
     return () => { window.removeEventListener("scroll", close, true); window.removeEventListener("resize", close); };
-  }, [open, closeOnScroll]);
+  }, [open, closeOnScroll, anchor]);
   return <RadixPopover.Root open={open} onOpenChange={onOpenChange}>
     <RadixPopover.Anchor virtualRef={anchor} />
     <RadixPopover.Portal container={container ?? layerRoot()}>

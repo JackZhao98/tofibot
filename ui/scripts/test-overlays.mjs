@@ -471,6 +471,24 @@ await check("reaction menu: focus goes in, Escape closes it and focus returns to
   await context.close();
 });
 
+await check("reaction menu: a pixel of list settling keeps it open, a real scroll closes it", async () => {
+  const { page, context, errors } = await fx.open({});
+  const scroller = page.locator(".message-scroll");
+  const block = page.locator('[data-message-id="dm_a_m11"]');
+  const b = await block.locator(".message-content").boundingBox();
+  await page.mouse.move(b.x + 30, b.y + 10);
+  await block.locator('[data-action="react"]').click();
+  await onTop(page, ".reaction-context-menu");
+  // A stick-to-bottom correction moved the list by one pixel and closed the menu at once (catalog flake, 4 in 6 runs).
+  assert.ok(await scroller.evaluate(el => { const before = el.scrollTop; el.scrollTop -= 1; return el.scrollTop !== before; }), "the list can move one pixel");
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+  assert.equal(await page.locator(".reaction-context-menu").count(), 1, "a one-pixel settle keeps the menu open");
+  await scroller.evaluate(el => { el.scrollTop -= 120; });
+  await closed(page, ".reaction-context-menu");
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
 await check("group read-by names are a quiet hint in #tofi-layers", async () => {
   const { page, context } = await fx.open({ path: "/g/grp" });
   const block = page.locator('[data-message-id="grp_m3"]');
