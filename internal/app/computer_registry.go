@@ -924,15 +924,17 @@ func (s *Server) isVMRoute(id string) bool {
 // double and triple click, drag, scroll, type, key) that declares no effect is
 // reviewed as consequential. A Bot that declares effect "none" skips the review.
 // Capture and move never need one. Writes (files.write, sandbox.exec) are always
-// reviewed; the Bot may declare a more specific effect. Reads are never gated.
+// reviewed, also when the Bot declares "none"; the Bot may declare a more
+// specific effect. Reads are never gated.
 func (s *Server) guardPersonalAction(ctx context.Context, r Run, name string, args []byte) (func(error), error) {
 	action := personalActionName(name)
 	var declared struct {
-		Effect string `json:"effect"`
-		Text   string `json:"text"`
-		Key    string `json:"key"`
-		Path   string `json:"path"`
-		Cmd    string `json:"command"`
+		Effect    string   `json:"effect"`
+		Text      string   `json:"text"`
+		Key       string   `json:"key"`
+		Modifiers []string `json:"modifiers"`
+		Path      string   `json:"path"`
+		Cmd       string   `json:"command"`
 	}
 	_ = json.Unmarshal(args, &declared)
 	review := actionReview{Kind: strings.TrimPrefix(action, "desktop."), Effect: declared.Effect, Text: declared.Text}
@@ -943,7 +945,9 @@ func (s *Server) guardPersonalAction(ctx context.Context, r Run, name string, ar
 		}
 		switch action {
 		case "desktop.key":
-			review.Text = "key " + declared.Key
+			// The chord as the Mac presses it: a reviewer that sees only the key
+			// cannot tell a letter from an application command.
+			review.Text = "key " + strings.Join(append(macModifiers(declared.Modifiers), declared.Key), "+")
 		case "desktop.drag":
 			review.Element = "drag between screen points"
 		case "desktop.type":
@@ -952,12 +956,12 @@ func (s *Server) guardPersonalAction(ctx context.Context, r Run, name string, ar
 		}
 	case "files.write":
 		review.Element, review.Text = declared.Path, ""
-		if strings.TrimSpace(review.Effect) == "" {
+		if !consequentialEffect(review.Effect) {
 			review.Effect = "writes a file on the person's computer"
 		}
 	case "sandbox.exec":
 		review.Text = declared.Cmd
-		if strings.TrimSpace(review.Effect) == "" {
+		if !consequentialEffect(review.Effect) {
 			review.Effect = "runs a command that changes files on the person's computer"
 		}
 	default:

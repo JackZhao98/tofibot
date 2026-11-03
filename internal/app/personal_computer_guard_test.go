@@ -191,3 +191,44 @@ func TestPersonalStaleDeviceIsOffline(t *testing.T) {
 		t.Fatalf("offline error: %v", err)
 	}
 }
+
+// A write or a command on the person's Mac is always reviewed: declaring effect
+// "none" does not skip the review.
+func TestPersonalGuardWritesIgnoreDeclaredNone(t *testing.T) {
+	s, mac, run, stub := personalGuardServer(t, "confirm")
+	tool := computerActionTool(s, run)
+	for _, c := range []struct{ action, args string }{
+		{"files.write", `{"path":"a","content":"x","effect":"none"}`},
+		{"shell.exec", `{"command":"rm -rf x","effect":"none"}`},
+		{"shell.exec", `{"command":"rm -rf x","effect":" None "}`},
+	} {
+		_, err := runCall(tool, mac.id, c.action, c.args)
+		if toolCode(err) != "user_confirmation_required" {
+			t.Fatalf("%s %s: want approval, got %v", c.action, c.args, err)
+		}
+	}
+	if stub.calls.Load() != 3 {
+		t.Fatalf("reviewer calls=%d", stub.calls.Load())
+	}
+}
+
+// The reviewer sees a key chord with its modifiers, in the Mac's names.
+func TestPersonalGuardReviewShowsKeyModifiers(t *testing.T) {
+	s, mac, run, stub := personalGuardServer(t, "confirm")
+	var seen string
+	stub.reply = func(_ context.Context, req *provider.ChatRequest) (*provider.ChatResponse, error) {
+		seen = req.Messages[0].Content
+		return &provider.ChatResponse{Content: `{"decision":"confirm","reason":"stub"}`}, nil
+	}
+	tool := computerActionTool(s, run)
+	_, err := runCall(tool, mac.id, "desktop.key", `{"key":"q","modifiers":["command"],"effect":"other_external"}`)
+	if toolCode(err) != "user_confirmation_required" {
+		t.Fatalf("want approval, got %v", err)
+	}
+	if !strings.Contains(seen, `"typed_text":"key cmd+q"`) {
+		t.Fatalf("review input %s", seen)
+	}
+	if !strings.Contains(err.Error(), "key cmd+q") {
+		t.Fatalf("approval label: %v", err)
+	}
+}
