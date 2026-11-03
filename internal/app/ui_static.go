@@ -46,9 +46,21 @@ func acceptsGzip(r *http.Request) bool {
 	return false
 }
 
+// uiInstallAsset reports whether the path is part of the install-as-app surface: the web app manifest and its icons.
+// There is no service worker on purpose (a caching worker would serve a stale UI after an update).
+func uiInstallAsset(urlPath string) bool {
+	return urlPath == "/manifest.webmanifest" || strings.HasPrefix(urlPath, "/pwa/")
+}
+
 func serveUIFile(w http.ResponseWriter, r *http.Request, path string, info os.FileInfo, immutable bool) {
 	if immutable {
 		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	} else if uiInstallAsset(r.URL.Path) {
+		// Install metadata: public, short-lived. Browsers fetch it before sign-in (serveUI runs ahead of the owner gate).
+		w.Header().Set("Cache-Control", "public, max-age=3600")
+		if r.URL.Path == "/manifest.webmanifest" {
+			w.Header().Set("Content-Type", "application/manifest+json")
+		}
 	} else {
 		w.Header().Set("Cache-Control", "no-cache")
 	}
@@ -76,8 +88,10 @@ func serveUIFile(w http.ResponseWriter, r *http.Request, path string, info os.Fi
 		body = buf.Bytes()
 		uiGzipCache.Store(key, body)
 	}
-	if ct := mime.TypeByExtension(filepath.Ext(path)); ct != "" {
-		w.Header().Set("Content-Type", ct)
+	if ct := w.Header().Get("Content-Type"); ct == "" {
+		if ct = mime.TypeByExtension(filepath.Ext(path)); ct != "" {
+			w.Header().Set("Content-Type", ct)
+		}
 	}
 	w.Header().Set("Content-Encoding", "gzip")
 	w.Header().Add("Vary", "Accept-Encoding")

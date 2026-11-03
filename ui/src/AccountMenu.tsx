@@ -5,6 +5,7 @@ import { TofiIcon } from "./icons";
 import { matchLanguage, useLanguage, useTranslation, type LanguagePreference } from "./i18n";
 import { languageChoices, selectedLanguageChoice } from "./languageChoices";
 import { chooseLanguage } from "./saveLanguage";
+import { promptInstall, useInstallKind } from "./installApp";
 import type { OwnerSession } from "./ownerAuthApi";
 
 /** Project links in the account menu. They open in a new tab; discussions are off on the repository, so feedback goes to issues. */
@@ -17,12 +18,13 @@ const projectLinks = [
 ] as const;
 
 /** The sidebar account menu body; kept out of the entry chunk. */
-export function AccountMenu({ setOpen, name, host, trigger, menu, session, logout, onSettings, onUsage, onConnection, onArtifacts }: { setOpen: (open: boolean) => void; name: string; host: string; trigger: RefObject<HTMLButtonElement | null>; menu: RefObject<HTMLDivElement | null>; session: OwnerSession | null; logout: () => Promise<void>; onSettings: () => void; onUsage: () => void; onConnection: () => void; onArtifacts: () => void }) {
+export function AccountMenu({ setOpen, name, host, trigger, menu, session, logout, onSettings, onUsage, onConnection, onArtifacts, onInstallHelp }: { setOpen: (open: boolean) => void; name: string; host: string; trigger: RefObject<HTMLButtonElement | null>; menu: RefObject<HTMLDivElement | null>; session: OwnerSession | null; logout: () => Promise<void>; onSettings: () => void; onUsage: () => void; onConnection: () => void; onArtifacts: () => void; onInstallHelp: () => void }) {
   const appearance = useAppearance();
   const { preference: language } = useLanguage();
   const browserLanguage = matchLanguage(typeof navigator === "undefined" ? [] : navigator.languages ?? [navigator.language]) ?? "en";
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const installKind = useInstallKind();
   const { t } = useTranslation(["auth", "common", "settings"]);
   const pickLanguage = (next: LanguagePreference) => { setError(""); void chooseLanguage(next, t("settings:language.save_failed")).then(setError); };
   const navigate = (action: () => void) => { setOpen(false); action(); };
@@ -36,6 +38,7 @@ export function AccountMenu({ setOpen, name, host, trigger, menu, session, logou
       </OverlaySubmenu>
       <button onClick={() => navigate(onConnection)}><TofiIcon name="server" size={16}/>{t("common:nav.connection")}</button>
       <button onClick={() => navigate(onArtifacts)}><TofiIcon name="folder" size={16}/>{t("common:nav.artifacts")}</button>
+      {installKind !== "none" && <button onClick={() => navigate(() => { if (installKind === "prompt") void promptInstall().catch(() => {}); else onInstallHelp(); })}><TofiIcon name="download" size={16}/>{t("auth:account.install_app")}</button>}
       <div className="sidebar-account-menu-rule"/>
       {projectLinks.map(([key, path, icon]) => <button key={key} className="sidebar-account-link" onClick={() => { setOpen(false); window.open(REPO_URL + path, "_blank", "noopener,noreferrer"); }}><TofiIcon name={icon} size={16}/><span>{t(`auth:account.${key}`)}</span><TofiIcon name="external-link" size={14} aria-hidden="true"/></button>)}
       {session?.enabled && <><div className="sidebar-account-menu-rule"/><button className="sidebar-account-logout" disabled={busy} onClick={() => { setBusy(true); setError(""); void logout().catch(cause => setError(cause instanceof Error ? cause.message : t("account.sign_out_failed"))).finally(() => setBusy(false)); }}>{busy ? t("account.signing_out") : t("account.sign_out")}</button></>}

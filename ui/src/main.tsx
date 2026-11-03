@@ -6,10 +6,12 @@ import { BootDissolve } from "./BootScreen";
 import { ProxyChallengeSlot } from "./ProxyChallengeSlot";
 import { i18nReady, useLanguage } from "./i18n";
 import { installFocusModality } from "./focusModality";
+import { watchInstallPrompt } from "./installApp";
 import "./fonts.css";
 import "./styles.css";
 
 installFocusModality();
+watchInstallPrompt();
 
 /** Re-renders the tree on a language switch so helpers that read the active language refresh too. */
 function Root() {

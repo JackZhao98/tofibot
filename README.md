@@ -129,6 +129,8 @@ sudo tofi computer remove       # Bot computer disks are kept (--purge deletes t
 ... | sudo bash -s -- --computer none
 ```
 
+Installing the web app to a home screen or desktop works best with a trusted certificate (a domain) or Tailscale; with a self-signed certificate some browsers do not offer install.
+
 Replace `...` with the `curl` command above. The full list of flags and
 `TOFI_*` variables is in [deploy/self-host/README.md](deploy/self-host/README.md).
 

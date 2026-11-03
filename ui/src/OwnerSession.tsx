@@ -12,6 +12,8 @@ import { AuthLanguageSwitch } from "./AuthLanguageSwitch";
 
 // The account menu body loads on first open.
 const AccountMenu = lazy(() => import("./AccountMenu").then(module => ({ default: module.AccountMenu })));
+// The iOS "Add to Home Screen" how-to sheet loads when it is opened.
+const InstallSheet = lazy(() => import("./InstallSheet").then(module => ({ default: module.InstallSheet })));
 // First-run setup and the password checklist are only ever drawn on the gate: keep them out of the entry bundle.
 const OwnerSetup = lazy(() => import("./OwnerSetup").then(module => ({ default: module.OwnerSetup })));
 const PasswordChecklist = lazy(() => import("./OwnerSetup").then(module => ({ default: module.PasswordChecklist })));
@@ -153,6 +155,7 @@ export function SidebarAccount({ onSettings, onUsage, onConnection, onArtifacts,
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [installHelp, setInstallHelp] = useState(false);
   const menu = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const { t } = useTranslation(["auth", "common", "settings"]);
@@ -165,6 +168,7 @@ export function SidebarAccount({ onSettings, onUsage, onConnection, onArtifacts,
       <span className="sidebar-account-copy"><strong>{name}</strong><small>{host}</small></span>
     </button>
     <button className="sidebar-account-settings" aria-label={t("common:nav.settings")} data-hint={t("common:nav.settings")} onClick={onSettings}><TofiIcon name="settings" size={20}/></button>
-    {open && <Suspense fallback={null}><AccountMenu setOpen={setOpen} name={name} host={host} trigger={trigger} menu={menu} session={session} logout={logout} onSettings={onSettings} onUsage={onUsage} onConnection={onConnection} onArtifacts={onArtifacts}/></Suspense>}
+    {open && <Suspense fallback={null}><AccountMenu setOpen={setOpen} name={name} host={host} trigger={trigger} menu={menu} session={session} logout={logout} onSettings={onSettings} onUsage={onUsage} onConnection={onConnection} onArtifacts={onArtifacts} onInstallHelp={() => setInstallHelp(true)}/></Suspense>}
+    {installHelp && <Suspense fallback={null}><InstallSheet onClose={() => setInstallHelp(false)} returnFocus={trigger.current}/></Suspense>}
   </div>;
 }

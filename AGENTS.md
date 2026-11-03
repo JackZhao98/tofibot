@@ -407,6 +407,17 @@ from the device (`attachmentImages.ts` `registerPreview`/`adoptPreview`: one obj
 sessionStorage for older drafts), per conversation, per owner. Tests: `test:composer-resilience` (offline -> failed -> reconnect -> sent once,
 reload, Delete/Edit, drafts, upload progress), `test:send-receipts`, catalog states `receipts/pending|offline|retrying|failed`.
 
+# Install as an app (PWA, no service worker)
+
+The web app installs to a phone home screen or desktop from `ui/public/manifest.webmanifest` alone (icons in `ui/public/pwa/`,
+regenerated from the brand SVG by `ui/scripts/make-pwa-icons.sh`; light/dark `theme-color` pair in `ui/index.html`). There is
+deliberately NO service worker: the server updates often and a caching worker would keep serving a stale UI after an update. No code
+path may assume one. `serveUIFile` (`internal/app/ui_static.go`) serves `/manifest.webmanifest` as `application/manifest+json` and
+`/pwa/*` with `Cache-Control: public, max-age=3600`; UI paths are served before the owner gate, so the sign-in page is installable too
+(`TestManifestAndIconsServedBeforeSignIn`). The account menu shows "Install app" only when `beforeinstallprompt` was captured
+(`ui/src/installApp.ts`, listener started in `main.tsx`) or on iOS Safari (then `InstallSheet` explains Share > Add to Home Screen);
+nothing shows when already standalone. Some browsers do not offer install on a self-signed certificate (README, install options).
+
 # Web UI layers
 
 One layer scale, in `ui/src/design-tokens.css` (`--z-base` 0, `--z-raised` 1, `--z-edge-blur` 10 (unused since the bottom blur was removed), `--z-chrome` 20, `--z-pill` 30,

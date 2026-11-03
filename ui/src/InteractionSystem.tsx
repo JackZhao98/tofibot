@@ -23,7 +23,8 @@ export function useAppearance() {
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
     const pageColor = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
-    if (pageColor) document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute("content", pageColor);
+    // index.html ships a light/dark pair keyed on the OS setting; the in-app choice wins once it runs, so drop the media query.
+    if (pageColor) document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]').forEach(meta => { meta.removeAttribute("media"); meta.setAttribute("content", pageColor); });
   }, [theme]);
   useEffect(() => { void window.tofiDesktop?.appearance(preference); }, [preference]);
   function choose(value: ThemePreference) { setPreference(value); try { localStorage.setItem("tofi:appearance", value); window.dispatchEvent(new StorageEvent("storage", { key: "tofi:appearance", newValue: value })); } catch { /* Keep in-memory preference. */ } }
