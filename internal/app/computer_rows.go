@@ -165,14 +165,17 @@ func (s *Store) upsertVMComputer(id, name, platform, region string, caps []strin
 	return err
 }
 
-// setComputerStatus changes a row's status and last-seen time.
+// setComputerStatus changes a row's status. It leaves last_seen alone:
+// last_seen is when the computer last answered, and for a personal computer
+// the heartbeat sweep reads it back. Stamping it when a silent Mac was marked
+// lost made the next sweep revive that Mac, so a dead Mac showed online again
+// every minute.
 func (s *Store) setComputerStatus(id, status string) error {
-	t := now()
 	var detached any
 	if status == computerRowDetached {
-		detached = t
+		detached = now()
 	}
-	_, err := s.db.Exec(`UPDATE computers SET status=?,last_seen=?,detached_at=? WHERE id=? AND revoked_at IS NULL`, status, t, detached, id)
+	_, err := s.db.Exec(`UPDATE computers SET status=?,detached_at=? WHERE id=? AND revoked_at IS NULL`, status, detached, id)
 	return err
 }
 

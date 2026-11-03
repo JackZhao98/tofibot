@@ -665,3 +665,52 @@ func TestPersonalTimeoutAfterClaimIsUnknownAndLateResultRefused(t *testing.T) {
 		t.Fatalf("late result not logged: %q", logs.String())
 	}
 }
+
+// A Mac that went quiet stays lost. Marking it lost is not hearing from it:
+// that write once refreshed last_seen, so the next sweep revived the Mac and
+// the list showed a dead Mac online again every minute.
+func TestPersonalComputerStaysLostWhileSilent(t *testing.T) {
+	s := computerTestServer(t)
+	mac := enrollMac(t, s, "Laptop", "files.list")
+	quiet := time.Now().UTC().Add(-10 * time.Minute)
+	if _, err := s.store.db.Exec(`UPDATE computers SET last_seen=? WHERE id=?`, quiet.Format(time.RFC3339Nano), mac.id); err != nil {
+		t.Fatal(err)
+	}
+	online := func() bool {
+		t.Helper()
+		w := mac.call("GET", "/api/computers", "", "")
+		var out struct{ Computers []Computer }
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &out) != nil {
+			t.Fatalf("list: %d %s", w.Code, w.Body.String())
+		}
+		for _, c := range out.Computers {
+			if c.ID == mac.id {
+				return c.Online
+			}
+		}
+		t.Fatal("the Mac is not listed")
+		return false
+	}
+	for i := range 3 {
+		s.sweepComputerHeartbeats(time.Now())
+		if state := s.slotFor(mac.id).currentState(); state != slotLost {
+			t.Fatalf("sweep %d: slot state %v, want lost", i, state)
+		}
+		if online() {
+			t.Fatalf("sweep %d: the silent Mac is listed online", i)
+		}
+	}
+	row, _ := s.store.computerRow(mac.id)
+	seen, _ := time.Parse(time.RFC3339Nano, row.LastSeen)
+	if row.Status != computerRowLost || !seen.Equal(quiet) {
+		t.Fatalf("row status %q last_seen %s, want lost and %s", row.Status, row.LastSeen, quiet.Format(time.RFC3339Nano))
+	}
+	// The Mac answers again: the next sweep attaches it and the list shows it online.
+	if w := mac.call("POST", "/api/computers/"+mac.id+"/heartbeat", "", mac.token); w.Code != 200 {
+		t.Fatalf("heartbeat: %d", w.Code)
+	}
+	s.sweepComputerHeartbeats(time.Now())
+	if s.slotFor(mac.id).currentState() != slotAttached || !online() {
+		t.Fatal("the Mac that answered again is not back online")
+	}
+}
