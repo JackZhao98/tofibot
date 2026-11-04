@@ -187,6 +187,7 @@ if [ "$mode" = changed ] && [ -z "$failed" ] && [ -z "$only" ]; then
   for f in $(printf '%s\n' "$changed" | grep -E '^ui/scripts/test-[^/]+\.mjs$'); do
     name="test:$(basename "$f" .mjs | sed 's/^test-//')"
     case "$name" in test:layers|test:dialogs|test:overlays|test:shell-budget|test:catalog) continue ;; esac
+    in_list "ui-$name" "$skip" && { summary+=("skip  ui-$name (--skip)"); continue; }
     grep -q "\"$name\"" ui/package.json && { run "ui-$name" npm_ui "$name" || break; }
   done
 fi
