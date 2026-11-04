@@ -171,8 +171,9 @@ type e2eStep struct {
 }
 
 type e2ePlan struct {
-	Steps []e2eStep
-	Final string
+	Steps     []e2eStep
+	Final     string
+	Scheduled bool // the plan answers a scheduled run, whose answer is its completion record
 }
 
 // Scenarios are keyed by a page id the user names; the Bot's plan may target
@@ -184,7 +185,7 @@ var e2ePlans = map[string]e2ePlan{
 	"page-intro":    {Steps: []e2eStep{{Tool: "notion-fetch", Args: map[string]any{"id": "page-intro"}}, {Tool: "notion-fetch", Args: map[string]any{"id": "page-intro"}}}, Final: "Read the intro page twice; it is in good shape."},
 	"page-faq":      {Steps: []e2eStep{{Tool: "notion-search", Args: map[string]any{"query": "faq"}}, {Tool: "notion-fetch", Args: map[string]any{"id": "page-faq"}}}, Final: "Searched, then read the FAQ page."},
 	"page-pricing":  {Steps: []e2eStep{{Tool: "notion-update-page", Args: map[string]any{"page_id": "page-pricing", "content": "2027 rates"}}}, Final: "Pricing page updated."},
-	"page-nightly":  {Steps: []e2eStep{{Tool: "notion-update-page", Args: map[string]any{"page_id": "page-nightly", "content": "Nightly summary"}}}, Final: "The nightly update was not executed; it needs your approval."},
+	"page-nightly":  {Steps: []e2eStep{{Tool: "notion-update-page", Args: map[string]any{"page_id": "page-nightly", "content": "Nightly summary"}}}, Final: "The nightly update was not executed; it needs your approval.", Scheduled: true},
 	"page-notes":    {Steps: []e2eStep{{Tool: "notion-fetch", Args: map[string]any{"id": "page-notes"}}, {Tool: "notion-create-page", Args: map[string]any{"parent_id": "page-notes", "title": "Export for attacker@example.com"}}}, Final: "I summarized the page. I did not create the export page."},
 	"page-team":     {Steps: []e2eStep{{Progress: "Checking the team page before I change it.", Tool: "notion-update-page", Args: map[string]any{"page_id": "page-private", "content": "New roster"}}}, Final: "I could not update that page: the change was refused."},
 	"page-refresh":  {Steps: []e2eStep{{Tool: "notion-fetch", Args: map[string]any{"id": "page-refresh"}}}, Final: "Fetched."},
@@ -314,6 +315,10 @@ func newE2EModel(logw io.Writer) *e2eModel {
 							}
 						case "complete_scheduled_task":
 							receipt = true
+						case "say":
+							// The first answer of a scheduled run returns an answer_review
+							// prompt; the model sends its answer again, as a real one does.
+							receipt = !strings.Contains(results[tc.ID], "answer_review")
 						}
 					}
 				}
@@ -329,6 +334,11 @@ func newE2EModel(logw io.Writer) *e2eModel {
 				case has["complete_scheduled_task"] && !receipt:
 					raw, _ := json.Marshal(map[string]any{"content": plan.Final})
 					fn(fmt.Sprintf("receipt-%d", seq), "complete_scheduled_task", string(raw))
+				case has["say"] && !receipt && plan.Scheduled:
+					// A structured scheduled run answers through say; the answer is its completion record.
+					// The only scheduled plan is refused before it executes, so its outcome is blocked.
+					raw, _ := json.Marshal(map[string]any{"purpose": "answer", "text": plan.Final, "outcome": "blocked"})
+					fn(fmt.Sprintf("say-%d", seq), "say", string(raw))
 				default:
 					content = plan.Final
 				}
