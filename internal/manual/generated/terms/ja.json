@@ -69,6 +69,8 @@
   "settings:automation.item.monthly_spend_limit_usd.what": "今月の支出が上限に達すると、課金モデルの呼び出しを拒否し、80%で一度通知します。単位は整数のドル、0でオフです。使用量ページで設定します。",
   "settings:automation.item.own_replies_verbatim.name": "自分の返信を原文で保持",
   "settings:automation.item.own_replies_verbatim.what": "Bot は直近のこの件数の返信だけを原文で見ます。それ以前は一行の要約に縮め、自分の言い回しの使い回しを防ぎます。",
+  "settings:automation.item.personal_input_review.name": "Mac への入力のレビュー",
+  "settings:automation.item.personal_input_review.what": "Bot があなたのペアリング済み Mac に送る入力は、実行前にレビュアーが確認します。レビュアーに見せる入力の範囲を選べます。",
   "settings:automation.item.provider_retries.name": "自動リトライ",
   "settings:automation.item.provider_retries.what": "過負荷や接続断などの一時的なモデルエラーを、実行が失敗となる前にこの回数まで再試行します。0 でリトライなしです。",
   "settings:automation.item.remembered_approval_hours.name": "記憶した承認の有効期間",

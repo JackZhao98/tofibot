@@ -46,6 +46,8 @@ services:
       # 1: let member accounts use a private/LAN model address (a server Admin already may).
       TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS: ${TOFI_ALLOW_PRIVATE_MODEL_ENDPOINTS:-}
       TOFI_ALLOW_PRIVATE_ENDPOINTS: ${TOFI_ALLOW_PRIVATE_ENDPOINTS:-}
+      TOFI_PERSONAL_COMPUTERS: ${TOFI_PERSONAL_COMPUTERS:-}
+      TOFI_MAX_PERSONAL_COMPUTERS: ${TOFI_MAX_PERSONAL_COMPUTERS:-}
       # Updates are made by you (see README), not by the web page.
       TOFI_AUTO_UPDATE: "off"
     ports:

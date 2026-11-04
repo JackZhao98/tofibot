@@ -31,7 +31,7 @@ export function ComputerPanel({part="environment"}:{part?:"environment"|"devices
     const [vm,all]=await Promise.all([request<VMInfo>("/api/computers/firecracker/info",{signal:ac.signal}),request<{computers:Computer[]}>("/api/computers",{signal:ac.signal})]);
     if(!closed&&currentId===refreshId){
      setInfo(vm);
-     setDevices(all.computers.filter(v=>v.kind==="mac"));
+     setDevices(all.computers.filter(v=>v.kind==="personal"));
      setError(current=>current===i18n.t("computer:env.unavailable")?"":current);
     }
    }catch{if(!closed&&currentId===refreshId)setError(i18n.t("computer:env.unavailable"))}
@@ -51,7 +51,7 @@ export function ComputerPanel({part="environment"}:{part?:"environment"|"devices
      setPairing(current=>current?.pairing_id===pairing.pairing_id?{...current,...result}:current);
      if(result.status==="paired"){
       const list=await request<{computers:Computer[]}>("/api/computers");
-      if(!closed)setDevices(list.computers.filter(device=>device.kind==="mac"));
+      if(!closed)setDevices(list.computers.filter(device=>device.kind==="personal"));
      }
     }
    }catch{/* A transient poll failure must not turn an unconfirmed pairing into success. */}

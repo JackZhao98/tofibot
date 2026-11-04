@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"path"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -28,8 +29,10 @@ import (
 )
 
 const (
-	computerPairTTL      = 5 * time.Minute
-	computerOnlineWindow = 30 * time.Second
+	computerPairTTL = 5 * time.Minute
+	// computerOnlineWindow is how recent a poll or heartbeat must be for a device
+	// to count as online. The desktop long-polls with wait=25 and beats every 10 s.
+	computerOnlineWindow = 60 * time.Second
 	computerJobTTL       = 60 * time.Second
 	computerWaitTimeout  = 45 * time.Second
 	maxComputerResult    = 1 << 20
@@ -41,6 +44,73 @@ var computerActions = map[string]bool{
 	"files.list": true, "files.read": true, "files.write": true,
 	"screen.capture": true, "desktop.click": true, "desktop.type": true, "desktop.key": true,
 	"sandbox.exec": true,
+	// The desktop vocabulary shared with the Bot computer. screen.capture is the
+	// older name of desktop.capture and stays accepted both ways.
+	"desktop.capture": true, "desktop.double_click": true, "desktop.triple_click": true,
+	"desktop.move": true, "desktop.drag": true, "desktop.scroll": true,
+}
+
+// impliedByClick lists the actions a Mac that grants desktop.click also serves
+// (the desktop app gates them on the same Accessibility grant).
+// desktop.inspect is the server's own pre-review look at the Mac (front app,
+// window, element under a point); it is not part of a Bot's vocabulary.
+var impliedByClick = []string{"desktop.double_click", "desktop.triple_click", "desktop.move", "desktop.drag", "desktop.scroll", "desktop.inspect"}
+
+// grantedAction reports whether a device that declared caps serves action.
+func grantedAction(caps []string, action string) bool {
+	for _, c := range caps {
+		if c == action {
+			return true
+		}
+		if (c == "screen.capture" && action == "desktop.capture") || (c == "desktop.capture" && action == "screen.capture") {
+			return true
+		}
+		if c == "desktop.click" {
+			for _, a := range impliedByClick {
+				if a == action {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// deviceActionName is the name a job carries for this device: the one it
+// declared, so a client that only knows screen.capture still gets that.
+func deviceActionName(caps []string, action string) string {
+	var other string
+	switch action {
+	case "desktop.capture":
+		other = "screen.capture"
+	case "screen.capture":
+		other = "desktop.capture"
+	default:
+		return action
+	}
+	for _, c := range caps {
+		if c == action {
+			return action
+		}
+	}
+	for _, c := range caps {
+		if c == other {
+			return other
+		}
+	}
+	return action
+}
+
+// servedActions lists every action name a device with caps serves.
+func servedActions(caps []string) []string {
+	var out []string
+	for name := range computerActions {
+		if grantedAction(caps, name) {
+			out = append(out, name)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 type Computer struct {
@@ -315,6 +385,17 @@ func (s *Store) listComputers(instanceID string) ([]Computer, error) {
 	return out, rows.Err()
 }
 
+// computerRecentlySeen reports a last_seen stamp inside computerOnlineWindow.
+func computerRecentlySeen(lastSeen string) bool {
+	last, err := time.Parse(time.RFC3339Nano, lastSeen)
+	return err == nil && last.After(time.Now().UTC().Add(-computerOnlineWindow))
+}
+
+// onlineFirst orders online computers before offline ones, keeping order otherwise.
+func onlineFirst(items []Computer) {
+	sort.SliceStable(items, func(i, j int) bool { return items[i].Online && !items[j].Online })
+}
+
 func bearerToken(r *http.Request) string {
 	v := r.Header.Get("Authorization")
 	if !strings.HasPrefix(v, "Bearer ") {
@@ -382,10 +463,10 @@ func (s *Store) updateComputerCapabilities(id, token string, capabilities []stri
 	}
 	query := `UPDATE computer_jobs SET status='cancelled',error='computer capability no longer granted',completed_at=? WHERE device_id=? AND status IN ('pending','running')`
 	args := []any{now(), id}
-	if len(caps) > 0 {
-		query += ` AND action NOT IN (` + strings.TrimRight(strings.Repeat("?,", len(caps)), ",") + `)`
-		for _, capability := range caps {
-			args = append(args, capability)
+	if served := servedActions(caps); len(served) > 0 {
+		query += ` AND action NOT IN (` + strings.TrimRight(strings.Repeat("?,", len(served)), ",") + `)`
+		for _, name := range served {
+			args = append(args, name)
 		}
 	}
 	if _, err = tx.Exec(query, args...); err != nil {
@@ -440,27 +521,82 @@ func validateComputerArgs(action string, raw json.RawMessage) error {
 			return errors.New("files.write args require bounded path and content")
 		}
 		return validPath(v.Path, false)
-	case "screen.capture":
-		var v struct{}
-		if err := strict(&v); err != nil {
-			return errors.New("screen.capture takes no args")
+	case "screen.capture", "desktop.capture":
+		var v struct {
+			Display *int   `json:"display"`
+			Detail  string `json:"detail"`
+			Effect  string `json:"effect"`
+		}
+		if err := strict(&v); err != nil || (v.Display != nil && (*v.Display < 0 || *v.Display > 15)) || len(v.Detail) > 32 || len(v.Effect) > 32 {
+			return errors.New(action + " takes only optional display and detail")
 		}
 		return nil
-	case "desktop.click":
+	case "desktop.click", "desktop.double_click", "desktop.triple_click":
 		var v struct {
 			X      *float64 `json:"x"`
 			Y      *float64 `json:"y"`
-			Button string   `json:"button"`
+			Button any      `json:"button"`
+			Clicks *int     `json:"clicks"`
+			pointShot
 		}
-		if err := strict(&v); err != nil || v.X == nil || v.Y == nil || *v.X < 0 || *v.Y < 0 || *v.X > 100000 || *v.Y > 100000 || (v.Button != "" && v.Button != "left" && v.Button != "right") {
-			return errors.New("desktop.click requires bounded x, y, and optional button")
+		if err := strict(&v); err != nil || !boundedPoint(v.X, v.Y) || !validButton(v.Button) || (v.Clicks != nil && (*v.Clicks < 1 || *v.Clicks > 3)) || !v.pointShot.valid() {
+			return errors.New(action + " requires bounded x, y, and optional button (left, right, middle), clicks and screenshot size")
+		}
+		return nil
+	case "desktop.move":
+		var v struct {
+			X *float64 `json:"x"`
+			Y *float64 `json:"y"`
+			pointShot
+		}
+		if err := strict(&v); err != nil || !boundedPoint(v.X, v.Y) || !v.pointShot.valid() {
+			return errors.New("desktop.move requires bounded x and y")
+		}
+		return nil
+	case "desktop.drag":
+		type end struct {
+			X *float64 `json:"x"`
+			Y *float64 `json:"y"`
+		}
+		var v struct {
+			From   *end `json:"from"`
+			To     *end `json:"to"`
+			Button any  `json:"button"`
+			pointShot
+		}
+		if err := strict(&v); err != nil || v.From == nil || v.To == nil || !boundedPoint(v.From.X, v.From.Y) || !boundedPoint(v.To.X, v.To.Y) || !validButton(v.Button) || !v.pointShot.valid() {
+			return errors.New("desktop.drag requires bounded from {x,y} and to {x,y}")
+		}
+		return nil
+	case "desktop.scroll":
+		var v struct {
+			X         *float64 `json:"x"`
+			Y         *float64 `json:"y"`
+			Direction string   `json:"direction"`
+			Amount    *int     `json:"amount"`
+			pointShot
+		}
+		if err := strict(&v); err != nil || (v.Direction != "up" && v.Direction != "down" && v.Direction != "left" && v.Direction != "right") ||
+			(v.Amount != nil && (*v.Amount < 1 || *v.Amount > 20)) || (v.X == nil) != (v.Y == nil) || (v.X != nil && !boundedPoint(v.X, v.Y)) || !v.pointShot.valid() {
+			return errors.New("desktop.scroll requires direction (up, down, left, right), optional amount 1-20 and x, y together")
+		}
+		return nil
+	case "desktop.inspect":
+		var v struct {
+			X *float64 `json:"x"`
+			Y *float64 `json:"y"`
+			pointShot
+		}
+		if err := strict(&v); err != nil || (v.X == nil) != (v.Y == nil) || (v.X != nil && !boundedPoint(v.X, v.Y)) || !v.pointShot.valid() {
+			return errors.New("desktop.inspect takes an optional x and y together")
 		}
 		return nil
 	case "desktop.type":
 		var v struct {
-			Text *string `json:"text"`
+			Text   *string `json:"text"`
+			Effect string  `json:"effect"`
 		}
-		if err := strict(&v); err != nil || v.Text == nil || len(*v.Text) > 65536 {
+		if err := strict(&v); err != nil || v.Text == nil || len(*v.Text) > 65536 || len(v.Effect) > 32 {
 			return errors.New("desktop.type requires bounded text")
 		}
 		return nil
@@ -468,13 +604,15 @@ func validateComputerArgs(action string, raw json.RawMessage) error {
 		var v struct {
 			Key       string   `json:"key"`
 			Modifiers []string `json:"modifiers"`
+			Effect    string   `json:"effect"`
 		}
-		if err := strict(&v); err != nil || v.Key == "" || len(v.Key) > 64 || len(v.Modifiers) > 8 {
+		if err := strict(&v); err != nil || v.Key == "" || len(v.Key) > 64 || len(v.Modifiers) > 8 || len(v.Effect) > 32 {
 			return errors.New("desktop.key requires key and optional modifiers")
 		}
+		// The desktop app reads the same names, in any letter case.
 		for _, m := range v.Modifiers {
-			if m != "cmd" && m != "ctrl" && m != "alt" && m != "shift" {
-				return errors.New("unsupported key modifier")
+			if _, ok := macModifierNames[strings.ToLower(m)]; !ok {
+				return errors.New("unsupported key modifier; use cmd, ctrl, alt or shift")
 			}
 		}
 		return nil
@@ -489,6 +627,42 @@ func validateComputerArgs(action string, raw json.RawMessage) error {
 	default:
 		return errors.New("unsupported action")
 	}
+}
+
+// pointShot is the optional size of the screenshot a coordinate was read from.
+type pointShot struct {
+	ScreenshotWidth  *int   `json:"screenshot_width"`
+	ScreenshotHeight *int   `json:"screenshot_height"`
+	Effect           string `json:"effect"`
+}
+
+func (p pointShot) valid() bool {
+	if (p.ScreenshotWidth == nil) != (p.ScreenshotHeight == nil) || len(p.Effect) > 32 {
+		return false
+	}
+	for _, n := range []*int{p.ScreenshotWidth, p.ScreenshotHeight} {
+		if n != nil && (*n < 1 || *n > 8192) {
+			return false
+		}
+	}
+	return true
+}
+
+func boundedPoint(x, y *float64) bool {
+	return x != nil && y != nil && *x >= 0 && *y >= 0 && *x <= 100000 && *y <= 100000
+}
+
+// validButton accepts the names left, right, middle and the xdotool numbers 1-3.
+func validButton(b any) bool {
+	switch v := b.(type) {
+	case nil:
+		return true
+	case string:
+		return v == "" || v == "left" || v == "right" || v == "middle"
+	case float64:
+		return v == 1 || v == 2 || v == 3
+	}
+	return false
 }
 
 func validateHostInfoArgs(raw json.RawMessage) error {
@@ -529,16 +703,10 @@ func (s *Store) queueComputerJob(r Run, deviceID, action string, args json.RawMe
 	}
 	var caps []string
 	_ = json.Unmarshal([]byte(capsRaw), &caps)
-	granted := false
-	for _, cap := range caps {
-		if cap == action {
-			granted = true
-			break
-		}
+	if !grantedAction(caps, action) {
+		return ComputerJob{}, capabilityNotGrantedOutcome(action).Err()
 	}
-	if !granted {
-		return ComputerJob{}, tooloutcome.New(tooloutcome.Denied, "capability_not_granted", "not_executed", "computer capability not granted", "explain_blocker").Err()
-	}
+	action = deviceActionName(caps, action)
 	var outstanding int
 	if err = tx.QueryRow(`SELECT COUNT(*) FROM computer_jobs WHERE device_id=? AND status IN ('pending','running')`, deviceID).Scan(&outstanding); err != nil {
 		return ComputerJob{}, err
@@ -604,7 +772,7 @@ func validateComputerResult(action string, raw json.RawMessage) error {
 	if len(raw) > maxComputerResult || !json.Valid(raw) {
 		return errors.New("result must be valid JSON no larger than 1 MiB")
 	}
-	if action != "screen.capture" {
+	if action != "screen.capture" && action != "desktop.capture" {
 		return nil
 	}
 	var v struct {
@@ -1227,10 +1395,11 @@ func (s *Server) computerTools(r Run) []Tool {
 		if err != nil {
 			return "", err
 		}
-		b, _ := json.Marshal(map[string]any{"computers": items})
+		onlineFirst(items)
+		b, _ := json.Marshal(map[string]any{"computers": items, "note": "A computer with online=false is offline and cannot run actions; pick an online one."})
 		return string(b), nil
 	}}
-	action := Tool{Name: "computer_action", Timeout: computerToolTimeout, Description: "Run one explicitly granted action on a Bot computer from list_computers; pick the one the person named, otherwise the Bot workspace. A Bot computer is used by one Bot at a time; a busy or detached Bot computer answers with an error, and work that does not need it goes on. Use only capabilities currently advertised by that Bot computer; an action name does not grant access or enable an unavailable runtime. Callers cannot override local grants or execution policy. When a paired Mac advertises sandbox.exec, pass only args.command: it runs for at most 30 seconds in the locally authorized directory and directly changes its files, with no automatic rollback. It does not grant network, SSH keys, Keychain or arbitrary host toolchains. A stopped managed process group does not prove every detached descendant stopped. Inspect exitCode, stderr and cancellation before claiming success; do not retry uncertain writes automatically. Use host.info on the service host only to read its OS and architecture.", Parameters: objectSchema(map[string]any{"computer_id": map[string]any{"type": "string"}, "action": map[string]any{"type": "string"}, "args": map[string]any{"type": "object"}}, []string{"computer_id", "action", "args"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
+	action := Tool{Name: "computer_action", Timeout: computerToolTimeout, Description: "Run one explicitly granted action on a Bot computer from list_computers; pick the one the person named, otherwise the Bot workspace. A Bot computer is used by one Bot at a time; a busy or detached one answers with an error, and work that does not need it goes on. Use only capabilities currently advertised by that computer; an action name does not grant access or enable an unavailable runtime, and callers cannot override local grants or execution policy. Desktop input on a paired Mac needs args.effect, and sandbox.exec changes files with no rollback: the args field lists the rules. host.info on the service host reads its OS and architecture.", Parameters: objectSchema(map[string]any{"computer_id": map[string]any{"type": "string"}, "action": map[string]any{"type": "string"}, "args": map[string]any{"type": "object", "description": "Action arguments. Desktop input on a paired Mac (click, double_click, triple_click, drag, scroll, type, key; not move or capture): add effect, either none or what it changes (submit, send, purchase, delete, and so on). No effect counts as consequential: anything but none is reviewed and may need the person's approval, as on the Bot computer. A system permission or privacy prompt on a Mac is the person's to answer: tell them and leave it. Names and fields are those of computer_desktop; drag takes from and to. When a paired Mac advertises sandbox.exec, pass only command: it runs for at most 30 seconds in the locally authorized directory and directly changes its files, with no automatic rollback. It does not grant network, SSH keys, Keychain or arbitrary host toolchains. A stopped managed process group does not prove every detached descendant stopped. Inspect exitCode, stderr and cancellation before claiming success; do not retry uncertain writes automatically."}}, []string{"computer_id", "action", "args"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
 		var in struct {
 			ComputerID string          `json:"computer_id"`
 			Action     string          `json:"action"`
@@ -1272,6 +1441,12 @@ func (s *Server) computerTools(r Run) []Tool {
 			return fmt.Sprintf(`{"os":%q,"arch":%q}`, runtime.GOOS, runtime.GOARCH), nil
 		}
 		if slot := s.ensurePersonalSlot(v.ComputerID); slot != nil {
+			// Only a person's own computer can be offline; the Bot computer is not asked about (no extra round trip to it).
+			if slot.rowKind == computer.RowKindPersonal {
+				if err := s.personalOfflineError(ctx, v.ComputerID); err != nil {
+					return "", err
+				}
+			}
 			return s.computerActionOn(ctx, r, v.ComputerID, v.Action, v.Args)
 		}
 		j, err := s.store.queueComputerJob(r, v.ComputerID, v.Action, v.Args)
@@ -1314,4 +1489,32 @@ func (s *Server) computerTools(r Run) []Tool {
 // HTTP, so this is the one place its wording is matched; everything above this file sees the typed code.
 func isDesktopNotRunningError(err error) bool {
 	return err != nil && strings.Contains(strings.ToLower(err.Error()), "desktop is not running")
+}
+
+// personalOfflineError refuses an action aimed at a personal computer that has
+// not polled lately, and names the online computers the Bot can use instead.
+func (s *Server) personalOfflineError(ctx context.Context, id string) error {
+	items, err := s.listComputers(ctx)
+	if err != nil {
+		return nil
+	}
+	var alt []string
+	for _, c := range items {
+		if c.ID == id {
+			if c.Online || c.Kind != computer.RowKindPersonal {
+				return nil
+			}
+			continue
+		}
+		if c.Online && c.Kind != "host" {
+			alt = append(alt, fmt.Sprintf("%s (%s, id=%s)", c.Name, c.Kind, c.ID))
+		}
+	}
+	msg := "That computer is offline: it has not contacted the service in the last minute."
+	if len(alt) > 0 {
+		msg += " Online computers: " + strings.Join(alt, "; ") + "."
+	} else {
+		msg += " No other computer is online."
+	}
+	return tooloutcome.New(tooloutcome.Permanent, "computer_offline", "not_executed", msg, "explain_blocker").Err()
 }

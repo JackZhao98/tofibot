@@ -28,6 +28,11 @@ func computerTestServer(t *testing.T) *Server {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = s.Close() })
+	s.autoReviewProvider = allowReviewer{}
+	// A test Mac that does not poll leaves each pre-review look unanswered.
+	oldInspect := personalInspectTimeout
+	personalInspectTimeout = 300 * time.Millisecond
+	t.Cleanup(func() { personalInspectTimeout = oldInspect })
 	return s
 }
 
@@ -212,7 +217,10 @@ func TestNativeSandboxBotToolReturnsClaimedResultToOwningRun(t *testing.T) {
 	id, token := pairedComputer(t, s, "sandbox.exec")
 	run := activeComputerRun(t, s)
 	tool := s.computerTools(run)[1]
-	if !strings.Contains(tool.Description, "only args.command") || !strings.Contains(tool.Description, "no automatic rollback") {
+	// The rules live in the tool description and the args field description: a model reads both.
+	params, _ := json.Marshal(tool.Parameters)
+	contract := tool.Description + " " + string(params)
+	if !strings.Contains(contract, "pass only command") || !strings.Contains(contract, "no automatic rollback") || !strings.Contains(tool.Description, "sandbox.exec") {
 		t.Fatal("native execution contract missing from tool metadata")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

@@ -641,6 +641,23 @@
       "audit": true
     },
     {
+      "key": "automation.personal_input_review",
+      "scope": "account",
+      "kind": "enum",
+      "options": [
+        "declared",
+        "commands",
+        "all"
+      ],
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#checks",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.personal_input_review.name",
+      "audit": true
+    },
+    {
       "key": "automation.remembered_approval_hours",
       "scope": "account",
       "kind": "int",

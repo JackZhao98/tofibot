@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -26,6 +27,11 @@ type testMac struct {
 	s     *Server
 	id    string
 	token string
+	// inspect is what this Mac answers to the server's desktop.inspect look
+	// before a review; poll answers it and keeps polling, as the desktop app
+	// would. The last look's args are kept.
+	inspect    string
+	inspectArg string
 }
 
 func (m *testMac) call(method, path, body string, token string) *httptest.ResponseRecorder {
@@ -64,15 +70,21 @@ func enrollMac(t *testing.T, s *Server, name string, caps ...string) *testMac {
 
 func (m *testMac) poll(wait int) *ComputerJob {
 	m.t.Helper()
-	w := m.call("GET", "/api/computers/"+m.id+"/jobs?wait="+strconv.Itoa(wait), "", m.token)
-	if w.Code != 200 {
-		m.t.Fatalf("poll: %d %s", w.Code, w.Body.String())
+	for {
+		w := m.call("GET", "/api/computers/"+m.id+"/jobs?wait="+strconv.Itoa(wait), "", m.token)
+		if w.Code != 200 {
+			m.t.Fatalf("poll: %d %s", w.Code, w.Body.String())
+		}
+		var out struct {
+			Job *ComputerJob `json:"job"`
+		}
+		_ = json.Unmarshal(w.Body.Bytes(), &out)
+		if out.Job == nil || out.Job.Action != "desktop.inspect" {
+			return out.Job
+		}
+		m.inspectArg = string(out.Job.Args)
+		m.answer(out.Job, cmp.Or(m.inspect, "{}"))
 	}
-	var out struct {
-		Job *ComputerJob `json:"job"`
-	}
-	_ = json.Unmarshal(w.Body.Bytes(), &out)
-	return out.Job
 }
 
 func (m *testMac) answer(job *ComputerJob, result string) {
@@ -663,5 +675,54 @@ func TestPersonalTimeoutAfterClaimIsUnknownAndLateResultRefused(t *testing.T) {
 	}
 	if !strings.Contains(logs.String(), "late result") {
 		t.Fatalf("late result not logged: %q", logs.String())
+	}
+}
+
+// A Mac that went quiet stays lost. Marking it lost is not hearing from it:
+// that write once refreshed last_seen, so the next sweep revived the Mac and
+// the list showed a dead Mac online again every minute.
+func TestPersonalComputerStaysLostWhileSilent(t *testing.T) {
+	s := computerTestServer(t)
+	mac := enrollMac(t, s, "Laptop", "files.list")
+	quiet := time.Now().UTC().Add(-10 * time.Minute)
+	if _, err := s.store.db.Exec(`UPDATE computers SET last_seen=? WHERE id=?`, quiet.Format(time.RFC3339Nano), mac.id); err != nil {
+		t.Fatal(err)
+	}
+	online := func() bool {
+		t.Helper()
+		w := mac.call("GET", "/api/computers", "", "")
+		var out struct{ Computers []Computer }
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &out) != nil {
+			t.Fatalf("list: %d %s", w.Code, w.Body.String())
+		}
+		for _, c := range out.Computers {
+			if c.ID == mac.id {
+				return c.Online
+			}
+		}
+		t.Fatal("the Mac is not listed")
+		return false
+	}
+	for i := range 3 {
+		s.sweepComputerHeartbeats(time.Now())
+		if state := s.slotFor(mac.id).currentState(); state != slotLost {
+			t.Fatalf("sweep %d: slot state %v, want lost", i, state)
+		}
+		if online() {
+			t.Fatalf("sweep %d: the silent Mac is listed online", i)
+		}
+	}
+	row, _ := s.store.computerRow(mac.id)
+	seen, _ := time.Parse(time.RFC3339Nano, row.LastSeen)
+	if row.Status != computerRowLost || !seen.Equal(quiet) {
+		t.Fatalf("row status %q last_seen %s, want lost and %s", row.Status, row.LastSeen, quiet.Format(time.RFC3339Nano))
+	}
+	// The Mac answers again: the next sweep attaches it and the list shows it online.
+	if w := mac.call("POST", "/api/computers/"+mac.id+"/heartbeat", "", mac.token); w.Code != 200 {
+		t.Fatalf("heartbeat: %d", w.Code)
+	}
+	s.sweepComputerHeartbeats(time.Now())
+	if s.slotFor(mac.id).currentState() != slotAttached || !online() {
+		t.Fatal("the Mac that answered again is not back online")
 	}
 }

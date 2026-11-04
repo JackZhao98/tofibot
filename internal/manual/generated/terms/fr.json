@@ -69,6 +69,8 @@
   "settings:automation.item.monthly_spend_limit_usd.what": "Refuse les appels aux modèles facturés dès que les dépenses du mois atteignent le plafond, et envoie une notification à 80 %. Dollars entiers, 0 désactive. Se règle sur la page Utilisation.",
   "settings:automation.item.own_replies_verbatim.name": "Propres réponses conservées en entier",
   "settings:automation.item.own_replies_verbatim.what": "Un Bot voit mot pour mot ce nombre de ses dernières réponses. Les plus anciennes sont réduites à une ligne pour qu’il cesse de recopier ses tournures.",
+  "settings:automation.item.personal_input_review.name": "Revue des saisies sur votre Mac",
+  "settings:automation.item.personal_input_review.what": "Le relecteur vérifie les saisies qu’un Bot envoie à votre propre Mac jumelé avant leur exécution. Choisissez la part qu’il examine.",
   "settings:automation.item.provider_retries.name": "Nouvelles tentatives automatiques",
   "settings:automation.item.provider_retries.what": "Les erreurs passagères du modèle, comme une surcharge ou une connexion coupée, sont retentées ce nombre de fois avant l’échec. 0 désactive les nouvelles tentatives.",
   "settings:automation.item.remembered_approval_hours.name": "Durée des approbations mémorisées",

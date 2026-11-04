@@ -69,6 +69,8 @@
   "settings:automation.item.monthly_spend_limit_usd.what": "Lehnt Aufrufe kostenpflichtiger Modelle ab, sobald die Ausgaben dieses Monats das Limit erreichen, und sendet bei 80 % einen Hinweis. Ganze Dollar, 0 ist aus. Wird auf der Seite Nutzung eingestellt.",
   "settings:automation.item.own_replies_verbatim.name": "Eigene Antworten im Wortlaut",
   "settings:automation.item.own_replies_verbatim.what": "So viele seiner letzten Antworten sieht ein Bot wortwörtlich. Ältere schrumpfen auf eine Zeile, damit er die eigenen Formulierungen nicht nachahmt.",
+  "settings:automation.item.personal_input_review.name": "Eingaben auf deinem Mac prüfen",
+  "settings:automation.item.personal_input_review.what": "Der Prüfer kontrolliert Eingaben, die ein Bot an deinen eigenen gekoppelten Mac sendet, bevor sie ausgeführt werden. Lege fest, wie viele davon er sieht.",
   "settings:automation.item.provider_retries.name": "Automatische Wiederholungen",
   "settings:automation.item.provider_retries.what": "Vorübergehende Modellfehler wie Überlastung oder abgebrochene Verbindung werden so oft wiederholt, bevor ein Lauf scheitert. 0 schaltet Wiederholungen aus.",
   "settings:automation.item.remembered_approval_hours.name": "Gemerkte Freigaben gelten",

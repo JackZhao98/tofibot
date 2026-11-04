@@ -58,6 +58,9 @@ const (
 	autoBrowserEngine = "browser_engine"
 	// autoDesktopEngine picks how the Bot drives desktop apps other than the browser: the screenshot tool alone, or the desktop_ accessibility tools next to it.
 	autoDesktopEngine = "desktop_engine"
+	// autoPersonalInputReview picks which input on a person's own Mac goes to the reviewer:
+	// what the Bot declares as consequential, also every key command (Cmd or Ctrl chord), or all input.
+	autoPersonalInputReview = "personal_input_review"
 	// defaultWebFetchLimit lets multi-page research finish; the cap stays so a loop cannot read pages without end.
 	defaultWebFetchLimit = 20
 
@@ -114,6 +117,7 @@ var automationItems = []automationItem{
 	{Key: autoCompletionReview, Group: "checks", Kind: autoKindBool, Default: "true"},
 	{Key: autoAnswerGate, Group: "checks", Kind: autoKindInt, Default: "2", Min: 0, Max: 5},
 	{Key: autoMCPReview, Group: "checks", Kind: autoKindEnum, Default: "off", Options: []string{"off", "shadow", "auto"}},
+	{Key: autoPersonalInputReview, Group: "checks", Kind: autoKindEnum, Default: personalReviewCommands, Options: []string{personalReviewDeclared, personalReviewCommands, personalReviewAll}},
 	{Key: autoRememberedApprovalHrs, Group: "checks", Kind: autoKindInt, Default: strconv.Itoa(int(rememberedApprovalValidity / time.Hour)), Min: 1, Max: 720, Unit: "hours"},
 	{Key: autoProviderRetries, Group: "reliability", Kind: autoKindInt, Default: strconv.Itoa(defaultProviderRetries), Min: 0, Max: 10, Env: "TOFI_PROVIDER_RETRIES"},
 	{Key: autoScheduleReceiptReview, Group: "schedules", Kind: autoKindBool, Default: "true"},

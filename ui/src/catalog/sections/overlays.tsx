@@ -123,9 +123,9 @@ export const hints: CatalogSection = {
   id: "hints", number: "10", title: "Hover hints",
   states: [
     { id: "action-hint", kind: "app", label: "Icon button hint (ActionHints)", note: "keyboard focus shows it after 150 ms, hover after 500 ms", app: LIST, probe: ".action-hint",
-      drive: async step => { await step.focus(".sidebar-account-settings"); await step.find(".action-hint"); } },
+      drive: async step => { const button = await step.find(".sidebar-account-settings"); await step.until(".action-hint", async () => { button.blur(); await step.focus(button); }, 600); } },
     { id: "hint-near-top", kind: "app", label: "Icon button hint near the top edge", note: "flips below the button", app: DM, probe: ".action-hint",
-      drive: async step => { await step.focus(".header-more > button"); await step.find(".action-hint"); } },
+      drive: async step => { const button = await step.find(".header-more > button"); await step.until(".action-hint", async () => { button.blur(); await step.focus(button); }, 600); } },
     { id: "read-names", kind: "app", label: "Read-by names (group)", note: "section 3; the receipt mark's data-hint in the quiet tone", app: GROUP, probe: ".action-hint",
       drive: async step => { await step.hover(await step.find('.message-block[data-message-id="m_grp_launch_7"] .message-hover-host')); await step.focus(".send-receipt-mark.has-tip"); await step.find(".action-hint.is-quiet"); } },
   ],

@@ -428,7 +428,12 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		writeJSON(w, 200, map[string]any{"service": "tofi", "protocol_version": 1, "instance_id": workspace.instance.ID, "environment": workspace.instance.Environment, "auth": map[string]string{"mode": "accounts"}})
+		auth := map[string]any{"mode": "accounts"}
+		// The desktop client signs in over plain HTTP only to a server that allows it on the LAN.
+		if g.auth != nil && g.auth.allowLAN {
+			auth["lan_http"] = true
+		}
+		writeJSON(w, 200, map[string]any{"service": "tofi", "protocol_version": 1, "instance_id": workspace.instance.ID, "environment": workspace.instance.Environment, "auth": auth, "desktop": desktopServerInfo()})
 		return
 	}
 	if workspace, served := g.deviceWorkspace(r); served {

@@ -230,7 +230,7 @@ func TestCodexOnlyWorkspaceFallsBackToCodexModel(t *testing.T) {
 func TestAutomationSettingsInventoryAndDefaults(t *testing.T) {
 	s := providerServer(t, nil, nil)
 	body := autoGet(t, s)
-	want := []string{autoConversationModel, autoBackgroundModel, autoStructuredOutput, autoForceSayHaikuDM, autoWebSearch, autoWebFetchLimit, autoGroupExchangeGists, autoOwnRepliesVerbatim, autoTaskRetentionDays, autoCompletionReview, autoAnswerGate, autoMCPReview, autoRememberedApprovalHrs, autoProviderRetries, autoScheduleReceiptReview, autoDesktopIdle, autoBrowserEngine, autoDesktopEngine, autoGroupTriage, autoGroupTriageModel, autoGroupFollowUp, autoCommandCheckMinutes, autoTaskStallRounds, autoTaskTreeIdleLimit, autoTaskFanoutWidth, autoTaskFanoutDepth, autoTaskPartDeadline, autoTaskPartDeadlineSched, autoWidgetArtifacts, autoWidgetComputer, autoWorkTrace, autoTraceRetentionDays, autoTracePrivateOrigins, autoMonthlySpendLimit, autoSettingsChangeLimit}
+	want := []string{autoConversationModel, autoBackgroundModel, autoStructuredOutput, autoForceSayHaikuDM, autoWebSearch, autoWebFetchLimit, autoGroupExchangeGists, autoOwnRepliesVerbatim, autoTaskRetentionDays, autoCompletionReview, autoAnswerGate, autoMCPReview, autoPersonalInputReview, autoRememberedApprovalHrs, autoProviderRetries, autoScheduleReceiptReview, autoDesktopIdle, autoBrowserEngine, autoDesktopEngine, autoGroupTriage, autoGroupTriageModel, autoGroupFollowUp, autoCommandCheckMinutes, autoTaskStallRounds, autoTaskTreeIdleLimit, autoTaskFanoutWidth, autoTaskFanoutDepth, autoTaskPartDeadline, autoTaskPartDeadlineSched, autoWidgetArtifacts, autoWidgetComputer, autoWorkTrace, autoTraceRetentionDays, autoTracePrivateOrigins, autoMonthlySpendLimit, autoSettingsChangeLimit}
 	if len(body.Items) != len(want) {
 		t.Fatalf("%d items, want %d", len(body.Items), len(want))
 	}
@@ -239,7 +239,7 @@ func TestAutomationSettingsInventoryAndDefaults(t *testing.T) {
 			t.Fatalf("item %d is %s, want %s", i, body.Items[i].Key, key)
 		}
 	}
-	defaults := map[string]any{autoConversationModel: "claude-sonnet-5-5", autoStructuredOutput: true, autoForceSayHaikuDM: true, autoWebSearch: true, autoGroupExchangeGists: true, autoGroupTriage: true, autoGroupFollowUp: true, autoWidgetArtifacts: true, autoWidgetComputer: true, autoOwnRepliesVerbatim: float64(3), autoTaskRetentionDays: float64(30), autoCommandCheckMinutes: float64(60), autoTaskStallRounds: float64(3), autoTaskTreeIdleLimit: float64(30), autoTaskFanoutWidth: float64(4), autoTaskFanoutDepth: float64(2), autoTaskPartDeadline: float64(30), autoTaskPartDeadlineSched: float64(60), autoCompletionReview: true, autoAnswerGate: float64(2), autoMCPReview: "off", autoBrowserEngine: "playwright", autoDesktopEngine: "classic", autoRememberedApprovalHrs: float64(24), autoProviderRetries: float64(8), autoScheduleReceiptReview: true}
+	defaults := map[string]any{autoConversationModel: "claude-sonnet-5-5", autoStructuredOutput: true, autoForceSayHaikuDM: true, autoWebSearch: true, autoGroupExchangeGists: true, autoGroupTriage: true, autoGroupFollowUp: true, autoWidgetArtifacts: true, autoWidgetComputer: true, autoOwnRepliesVerbatim: float64(3), autoTaskRetentionDays: float64(30), autoCommandCheckMinutes: float64(60), autoTaskStallRounds: float64(3), autoTaskTreeIdleLimit: float64(30), autoTaskFanoutWidth: float64(4), autoTaskFanoutDepth: float64(2), autoTaskPartDeadline: float64(30), autoTaskPartDeadlineSched: float64(60), autoCompletionReview: true, autoAnswerGate: float64(2), autoMCPReview: "off", autoPersonalInputReview: "commands", autoBrowserEngine: "playwright", autoDesktopEngine: "classic", autoRememberedApprovalHrs: float64(24), autoProviderRetries: float64(8), autoScheduleReceiptReview: true}
 	for key, def := range defaults {
 		item := body.find(t, key)
 		if item.Default != def || item.Value != def || item.Source != "default" {
@@ -268,6 +268,7 @@ func TestAutomationSettingsReadWriteEachItem(t *testing.T) {
 		{autoCompletionReview, "false", false, func() bool { return !s.completionReviewEnabled() }},
 		{autoAnswerGate, "4", float64(4), func() bool { return s.answerGateRounds() == 4 }},
 		{autoMCPReview, `"shadow"`, "shadow", func() bool { x, _ := s.store.getAutoReviewSettings(); return x.Mode == "shadow" }},
+		{autoPersonalInputReview, `"all"`, "all", func() bool { return s.autoValue(autoPersonalInputReview) == personalReviewAll }},
 		{autoRememberedApprovalHrs, "48", float64(48), func() bool { return s.rememberedApprovalWindow().Hours() == 48 }},
 		{autoProviderRetries, "2", float64(2), func() bool { return s.providerRetries() == 2 }},
 		{autoScheduleReceiptReview, "false", false, func() bool { return !s.scheduleReceiptReviewEnabled() }},

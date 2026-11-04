@@ -19,7 +19,7 @@ func computerRecoveryIdentity(bot, computerID, action string, raw json.RawMessag
 	_ = json.Unmarshal(raw, &args)
 	if computerID != microVMComputerID {
 		i := tooloutcome.OperationIdentity("computer/"+computerID, action, raw)
-		if action == "files.read" || action == "files.list" || action == "screen.capture" || action == "host.info" {
+		if action == "files.read" || action == "files.list" || action == "screen.capture" || action == "desktop.capture" || action == "desktop.move" || action == "host.info" {
 			i.Risk = tooloutcome.Observation
 		}
 		return i

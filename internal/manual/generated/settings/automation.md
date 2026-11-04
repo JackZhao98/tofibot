@@ -26,6 +26,7 @@ Open this page: [{{ui:settings:shell.page.automation.name}}](/settings/automatio
 | {{ui:settings:automation.item.group_triage_model.name}} | `automation.group_triage_model` | a configured model ID, or default |  | confirm | `/settings/automation#models` |
 | {{ui:settings:automation.item.monthly_spend_limit_usd.name}} | `automation.monthly_spend_limit_usd` | read only | 0 usd | forbidden: the person changes it on the page | `/settings/usage#spend` |
 | {{ui:settings:automation.item.own_replies_verbatim.name}} | `automation.own_replies_verbatim` | whole number 1 to 20 | 3 | direct | `/settings/automation#history` |
+| {{ui:settings:automation.item.personal_input_review.name}} | `automation.personal_input_review` | declared, commands, all | commands | direct | `/settings/automation#checks` |
 | {{ui:settings:automation.item.provider_retries.name}} | `automation.provider_retries` | whole number 0 to 10 | 8 | direct | `/settings/automation#reliability` |
 | {{ui:settings:automation.item.remembered_approval_hours.name}} | `automation.remembered_approval_hours` | whole number 1 to 720 | 24 hours | confirm | `/settings/automation#checks` |
 | {{ui:settings:automation.item.schedule_receipt_review.name}} | `automation.schedule_receipt_review` | on or off | true | direct | `/settings/automation#schedules` |
@@ -75,6 +76,8 @@ Open this page: [{{ui:settings:shell.page.automation.name}}](/settings/automatio
 **{{ui:settings:automation.item.monthly_spend_limit_usd.name}}.** {{ui:settings:automation.item.monthly_spend_limit_usd.what}}
 
 **{{ui:settings:automation.item.own_replies_verbatim.name}}.** {{ui:settings:automation.item.own_replies_verbatim.what}}
+
+**{{ui:settings:automation.item.personal_input_review.name}}.** {{ui:settings:automation.item.personal_input_review.what}}
 
 **{{ui:settings:automation.item.provider_retries.name}}.** {{ui:settings:automation.item.provider_retries.what}}
 
