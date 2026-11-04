@@ -1589,7 +1589,7 @@ function Workspace() {
   }, []);
   const viewport = useConversationScroll({ conversation: active, messages: messageRecords,
     ready: loadedId === activeId && !loadingMessages, hasMore, loadingOlder, mobileList,
-    loadOlder, markRead });
+    loadOlder, markRead, beforeFirstPosition: () => markSenderGroups(messageListRef.current) });
   const jumpLatest = viewport.jumpLatest;
   // Phone: a finger dragging the chat to the right returns to the list (D35); the gesture commits the same state as the back button.
   usePhoneSwipeBack(() => flushSync(() => setMobileList(true)));

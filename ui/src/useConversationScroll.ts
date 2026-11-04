@@ -12,6 +12,8 @@ interface Options {
   mobileList: boolean;
   loadOlder: () => Promise<boolean>;
   markRead: (conversationId: string, seq: number) => void;
+  /** Runs before a visit is first positioned, so the DOM-side layout marks (bubble runs, speaker gaps) change heights before the target offset is measured. */
+  beforeFirstPosition?: () => void;
 }
 
 interface Visit {
@@ -266,6 +268,7 @@ export function useConversationScroll(options: Options) {
     const max = records[records.length - 1]?.seq ?? 0;
     if (v.entryMax === null) v.entryMax = max;
     if (!v.positioned) {
+      o.beforeFirstPosition?.();
       stopGlide(v, false);
       const resume = v.resume;
       let resumeNode = resume?.anchorSeq ? el.querySelector<HTMLElement>(`[data-message-seq="${resume.anchorSeq}"]`) : null;
