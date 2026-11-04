@@ -5,7 +5,7 @@
 .workspace .contact-section .dnd-live:not(.is-dnd-dragging):hover { background:transparent; }
 .workspace .contact-section [data-dnd-id].is-dnd-dragging {
   position:relative; z-index:var(--z-drag); cursor:grabbing; will-change:transform; transition:none;
-  background:var(--surface); box-shadow:0 12px 26px color-mix(in srgb,var(--hard-ink) 20%,transparent); pointer-events:none;
+  background:var(--surface); box-shadow:0 12px 26px color-mix(in srgb,var(--shade) 20%,transparent); pointer-events:none;
 }
 .workspace .contact-section [data-dnd-id].is-dnd-dragging.is-dnd-settling {
   box-shadow:0 0 0 transparent; pointer-events:auto;

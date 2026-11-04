@@ -11,7 +11,7 @@
 .extension-row-heading{display:flex;align-items:center;gap:12px;padding-right:100px;min-height:42px}
 .extension-row-heading strong{font-size:14px;font-weight:550}.extension-row-heading small{display:block;margin-top:4px;font-size:12px}
 .service-mark{display:grid;place-items:center;flex:0 0 40px;width:40px;height:40px;border:1px solid var(--line-soft);border-radius:12px;background:var(--surface-2);color:var(--ink)}
-.service-mark-brand{display:block;--mark-tile:var(--mark-plate);--mark-line:color-mix(in srgb,var(--hard-ink) 14%,transparent);padding:7px;box-sizing:border-box;background:var(--mark-tile);border-color:var(--mark-line)}
+.service-mark-brand{display:block;--mark-tile:var(--mark-plate);--mark-line:color-mix(in srgb,var(--shade) 14%,transparent);padding:7px;box-sizing:border-box;background:var(--mark-tile);border-color:var(--mark-line)}
 .service-mark-brand[data-tile="dark"]{--mark-tile:var(--mark-plate-dark);--mark-line:color-mix(in srgb,var(--white) 20%,transparent)}
 .onb-queue .service-mark-brand{padding:4px}
 .service-mark-brand img{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none;user-select:none}
@@ -119,7 +119,7 @@ button.mcp-service-open:focus-visible{outline:var(--focus-ring-width) solid var(
 .mcp-tool-copy p{margin:0;font-size:12px;line-height:1.5;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .mcp-tool-marks{display:flex;flex-wrap:wrap;gap:6px}
 .mcp-tier-mark{display:inline-flex;align-items:center;min-height:20px;padding:0 7px;border-radius:999px;background:color-mix(in srgb,var(--text) 6%,transparent);font-size:12px;line-height:1.4;color:var(--muted);white-space:nowrap}
-.mcp-tier-mark.is-changed{background:color-mix(in srgb,var(--honey) 16%,transparent);color:var(--ink)}
+.mcp-tier-mark.is-changed{background:color-mix(in srgb,var(--amber) 16%,transparent);color:var(--ink)}
 .mcp-tool[data-source=owner] .mcp-tier-mark:first-child{background:color-mix(in srgb,var(--blue) 14%,transparent);color:var(--ink)}
 .mcp-tool-group[data-tier=high_risk] h5{color:var(--danger-text)}
 @media (max-width:700px){

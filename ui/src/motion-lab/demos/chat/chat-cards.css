@@ -53,7 +53,7 @@
 .zoom-thumb.is-away { visibility:hidden; }
 .shot-art { display:block; width:100%; height:auto; }
 .zoom-layer { position:fixed; inset:0; z-index:60; display:grid; place-items:center; padding:48px 16px; }
-.zoom-backdrop { position:absolute; inset:0; background:color-mix(in srgb,var(--hard-ink) 74%,transparent); }
+.zoom-backdrop { position:absolute; inset:0; background:var(--lightbox-scrim); }
 .zoom-figure { position:relative; margin:0; width:min(860px, 100%); }
 .zoom-art { border-radius:16px; overflow:hidden; border:var(--edge) solid var(--line); box-shadow:var(--hard); transform-origin:0 0; }
 .zoom-figure figcaption { margin-top:12px; text-align:center; font:var(--type-status); color:var(--lightbox-ink); animation:zoom-caption 300ms ease both 200ms; }
@@ -83,7 +83,7 @@
 .secret-input {
   flex:1; min-width:0; height:42px; padding:0 12px; border:0; border-radius:12px; outline:none;
   background:var(--sunk); color:var(--ink); font:15px/1.2 var(--body); caret-color:var(--clay);
-  box-shadow:inset 0 1px 2px color-mix(in srgb,var(--hard-ink) 8%,transparent); transition:background-color 160ms ease, box-shadow 160ms ease;
+  box-shadow:inset 0 1px 2px color-mix(in srgb,var(--shade) 8%,transparent); transition:background-color 160ms ease, box-shadow 160ms ease;
 }
 .secret-input::placeholder { color:var(--muted); }
 .secret-input:focus { background:var(--surface); box-shadow:0 0 0 var(--edge) var(--line), var(--hard-sm); }
