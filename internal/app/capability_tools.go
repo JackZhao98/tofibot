@@ -17,9 +17,11 @@ import (
 // names directly stay declared.
 var onDemandTools = map[string]bool{
 	"manage_extensions": true, "workspace_list": true, "workspace_update_bot": true, "workspace_update_group": true,
-	"workspace_delete_bot": true, "workspace_delete_group": true, "list_groups": true,
+	"workspace_delete_bot": true, "workspace_delete_group": true,
 	"create_work_item": true, "update_work_item": true, "list_work_item_executions": true,
-	"list_schedules": true, "pause_schedule": true, "resume_schedule": true, "delete_schedule": true,
+	// list_schedules and list_groups stay declared: they are the only way to the ids that the declared
+	// update_schedule, invite_bot and send_group_message need, and tool results of earlier turns are not in context.
+	"pause_schedule": true, "resume_schedule": true, "delete_schedule": true,
 	// Tools of the task system that only a Bot holding a task or a wait needs;
 	// the context blocks that tell it of the task or the wait name them.
 	"cancel_wait": true, "task_update": true, "task_ask": true, "claim_task": true, "pass_task": true,

@@ -42,9 +42,11 @@ func TestOnDemandToolsLeaveTheDeclaredList(t *testing.T) {
 		if tl.Deferred {
 			deferred[tl.Name] = true
 		}
-		// Tools that a prompt or guide names, and the everyday core, stay declared.
+		// Tools that a prompt or guide names, and the everyday core, stay declared. A declared tool that needs an id
+		// keeps a declared way to find it: list_schedules for update_schedule, list_groups for invite_bot and
+		// send_group_message (tool results of earlier turns are not in context).
 		switch tl.Name {
-		case "say", "save_memory", "search_history", "create_schedule", "update_schedule", "prepare_email", "ask_user_question", "list_bots", "list_work_items":
+		case "say", "save_memory", "search_history", "create_schedule", "update_schedule", "list_schedules", "list_groups", "prepare_email", "ask_user_question", "list_bots", "list_work_items":
 			if tl.Deferred {
 				t.Fatalf("%s must stay declared", tl.Name)
 			}
