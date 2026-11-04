@@ -103,7 +103,9 @@ func newE2ENotion() *e2eNotion {
 			case "notion-create-page":
 				text = fmt.Sprintf("Created page %v under %v.", a["title"], a["parent_id"])
 			case "notion-search":
-				text = "Results: page-q4, page-roadmap, page-notes."
+				// Every page a scenario writes to is listed: page-daily is updated by the scheduled scenarios (live L5, L9,
+				// L10), and a model that searches before writing took its absence as "the page does not exist".
+				text = "Results: page-q4, page-roadmap, page-notes, page-daily."
 			}
 			return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: text}}}, nil
 		})
