@@ -230,6 +230,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/computer/credentials") return {credentials: [{id: "cred_1", name: "WEB_API_TOKEN", kind: "env", target: "WEB_API_TOKEN", created_at: day(3)}, {id: "cred_2", name: "DEPLOY_REGION", kind: "env", target: "DEPLOY_REGION", created_at: day(5)}]};
     if (path === "/api/computer/ssh-keys") return {keys: []};
     if (path === "/api/computer/contents") return {environment: ["WEB_API_TOKEN", "DEPLOY_REGION"], ssh_keys: [], pending_file_copies: 0};
+    // Monthly spend limit (2267545b): off, nothing spent.
+    if (path === "/api/usage/spend") return {month: "2026-11", month_start: "2026-11-01T00:00:00Z", month_end: "2026-12-01T00:00:00Z", timezone: "UTC", spend_usd: 0, limit_usd: 0, state: "off"};
     if (path === "/api/usage/runs") return {days: 7, since: day(7), runs: 48, by_status: {done: 41, failed: 4, cancelled: 2, running: 1}, failures: [{code: "model_auth_invalid", count: 3}, {code: "connection_interrupted", count: 1}], tool_calls: 212, tool_timeouts: 2, model_calls: 96};
     if (path === "/api/usage") return {contexts: [{run_id: "run_1", conversation_id: "conv_1", conversation_name: "Weekly summary", bot_id: "bot_research", bot_name: "Research Bot", run_status: "completed", model: "codex-gpt-6-sol", window_tokens: 200000, window_known: true, compact_at: 160000, estimated_input: 52000, last_input: 48000, total_input: 310000, total_output: 42000, compact_count: 1, updated_at: day(0)}],
       agents: [{bot_id: "bot_research", bot_name: "Research Bot", input_tokens: 310000, output_tokens: 42000, runs: 14, compactions: 1}, {bot_id: "bot_inbox", bot_name: "Inbox Bot", input_tokens: 120000, output_tokens: 18000, runs: 6, compactions: 0}],
@@ -906,10 +908,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await body.getByRole("button", {name: "Add account"}).count(), 1, "Add account is a primary action on the list");
     const row = id => body.locator(`.admin-row[data-account="${id}"]`);
     assert.match(await text(row("acct_sample")), /A.*Ada Sample.*You.*Admin.*Active.*Ready · 16 GiB/);
-    // Server and Computer columns (S3): used / limit, red when the account reached its limit; a host disk line above the list.
-    assert.match(await text(body.locator(".admin-row-head")), /Server\s*Bot computer/);
-    assert.match(await text(row("acct_sample").locator(".admin-row-storage")), /^1\.5 GiB$/, "no limit set: used only");
-    assert.match(await text(row("acct_two").locator(".admin-row-storage")), /^9\.5 GiB \/ 10 GiB$/);
+    // Server, Spend (monthly spend limit, 2267545b) and Computer columns (S3): used / limit, red when the account reached its limit; a host disk line above the list.
+    assert.match(await text(body.locator(".admin-row-head")), /Server\s*Spend\s*Bot computer/);
+    assert.match(await text(row("acct_sample").locator(".admin-row-storage[data-column=\"server\"]")), /^1\.5 GiB$/, "no limit set: used only");
+    assert.match(await text(row("acct_two").locator(".admin-row-storage[data-column=\"server\"]")), /^9\.5 GiB \/ 10 GiB$/);
     assert.match(await text(body), /80 GiB free of 500 GiB/);
     assert.match(await text(row("acct_two")), /Sam Example.*Member.*Active.*Ready · 8 GiB/);
     assert.match(await text(row("acct_three")), /Lee Example.*Member.*Deactivated.*Stopped · 8 GiB/);
