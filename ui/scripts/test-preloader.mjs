@@ -101,7 +101,7 @@ for (const [name, launcher] of [["chromium", pw.chromium], ["webkit", pw.webkit]
     });
     assert.match(probe.blur, /blur\(/, `${name}: frost layer must blur`);
     assert.ok(probe.skeleton, `${name}: skeleton must hold sidebar rows, header, bubbles and composer`);
-    assert.match(probe.logoSrc, /tofi-logo-calico\.svg/);
+    assert.match(probe.logoSrc, /tofi-logo-calico-awake\.svg/, "the boot screen shows the open-eyed calico (f6e55b8f)");
     assert.match(probe.logoFilter, /grayscale/);
     assert.equal(probe.breathe, "boot-breathe");
     assert.equal(probe.duration, "2.4s");

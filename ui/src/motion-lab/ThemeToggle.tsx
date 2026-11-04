@@ -22,7 +22,7 @@ function initialTheme(): Theme {
 
 function applyTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#14120f" : "#f1efeb");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", getComputedStyle(document.documentElement).getPropertyValue("--bg").trim());
   try { localStorage.setItem(STORAGE_KEY, theme); } catch { /* per-viewer convenience only */ }
 }
 

@@ -325,7 +325,17 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 	var seenMu sync.Mutex
 	seen := map[string]runtime.Tool{}
 	rejectedCached := map[string]CachedMCPTool{}
+	// Names this run was shown before a resume rebuilt the runtime. The model
+	// has their schemas in its replayed transcript, so call_mcp_tool resolves
+	// them live and lets them run without another reveal.
+	shownInRun := map[string]bool{}
 	for _, cachedTool := range cachedTools {
+		if cachedTool.ShownInRun {
+			if safeCachedToolName(cachedTool.Name) {
+				shownInRun[strings.ToLower(cachedTool.Name)] = true
+			}
+			continue
+		}
 		if !validCachedMCPTool(cachedTool, servers, m) {
 			if safeCachedToolName(cachedTool.Name) {
 				rejectedCached[cachedTool.Name] = cachedTool
@@ -778,6 +788,10 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 			defer seenMu.Unlock()
 			if existing, ok := seen[candidate.Name]; ok {
 				return existing, true, true
+			}
+			if shownInRun[strings.ToLower(candidate.Name)] {
+				seen[candidate.Name] = candidate
+				return candidate, true, true
 			}
 			return candidate, true, false
 		}

@@ -118,8 +118,8 @@ export function settleSidebarDnd(scroller: HTMLElement, ctx: DndContext) {
   const landed = () => el.classList.remove(LANDING);
   const flight = p.source === p.target
     ? el.animate([
-      { transform: `translate(${dx}px,${dy}px) scale(${LIFT})`, boxShadow: "0 12px 26px rgba(0,0,0,.2)", backgroundColor: p.background ?? resting },
-      { transform: "none", boxShadow: "0 0 0 rgba(0,0,0,0)", backgroundColor: resting },
+      { transform: `translate(${dx}px,${dy}px) scale(${LIFT})`, boxShadow: "0 12px 26px color-mix(in srgb,var(--shade) 20%,transparent)", backgroundColor: p.background ?? resting },
+      { transform: "none", boxShadow: "0 0 0 transparent", backgroundColor: resting },
     ], { duration: MOTION.panelIn, easing: EASE.settle })
     // The row became a tile (or the reverse): a new element of another size, so it flies out of the lifted row's place.
     : el.animate([

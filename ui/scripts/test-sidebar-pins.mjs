@@ -177,7 +177,7 @@ const check = async (name, run) => {
   catch (error) { failures.push(name); console.log(`not ok - ${name}\n    ${String(error.message).split("\n").slice(0, 16).join("\n    ")}`); }
 };
 
-await check("dragging a row reorders the list, lifts it, and the order survives a reload", async () => {
+await check("dragging a row lifts it, but the list stays in recency order: nothing moves, nothing is saved", async () => {
   const { page, context, puts, errors } = await open();
   assert.deepEqual((await names(page)).slice(0, 4), ["Cat 00", "Cat 01", "Cat 02", "Cat 03"], "starts in recency order");
   const from = await centre(rowFor(page, "Cat 03"));
@@ -187,7 +187,7 @@ await check("dragging a row reorders the list, lifts it, and the order survives 
   await sleep(300);
   const top = await centre(rowFor(page, "Cat 00"));
   await page.mouse.move(from.x, top.y - 12, { steps: 10 });
-  // While held: the row is lifted (scale <= 1.02, shadow) and follows the pointer; neighbours have moved aside.
+  // While held: the row is lifted (scale <= 1.02, shadow) and follows the pointer; the other rows keep their slots (rows are ordered by recency, a row only moves into the pinned dock).
   const lift = await page.evaluate(() => {
     const el = document.querySelector(".is-dnd-dragging");
     const m = new DOMMatrixReadOnly(getComputedStyle(el).transform);
@@ -198,19 +198,16 @@ await check("dragging a row reorders the list, lifts it, and the order survives 
   assert.notEqual(lift.shadow, "none");
   await sleep(300);
   const moved = await page.evaluate(() => [...document.querySelectorAll(".conversation-row:not(.is-dnd-dragging)")].slice(0, 4).map(el => new DOMMatrixReadOnly(getComputedStyle(el).transform).m42));
-  assert.ok(moved.slice(0, 3).every(y => y > 40), `the three rows above the pickup glide down one slot: ${moved}`);
-  assert.ok(Math.abs(moved[3]) < 1, `rows below the pickup stay put: ${moved}`);
+  assert.ok(moved.every(y => Math.abs(y) < 1.5), `rows do not glide aside for a drag inside the list: ${moved}`);
   if (shots) await page.screenshot({ path: join(shots, "drag-reorder.png") });
   await page.mouse.up();
   await settled(page);
-  assert.deepEqual((await names(page)).slice(0, 4), ["Cat 03", "Cat 00", "Cat 01", "Cat 02"]);
-  await until(() => puts.length === 1, "the layout save");
-  assert.deepEqual(puts[0].pinned, []);
-  assert.deepEqual(puts[0].order.slice(0, 4), ["dm_03", "dm_00", "dm_01", "dm_02"]);
-  assert.equal(puts[0].order.length, COUNT + 1, "the whole list is numbered, not just the moved row");
+  assert.deepEqual((await names(page)).slice(0, 4), ["Cat 00", "Cat 01", "Cat 02", "Cat 03"], "the row went back to its recency slot");
+  await sleep(300);
+  assert.equal(puts.length, 0, "a drop that changes nothing saves nothing");
   await page.reload();
   await page.locator(".conversation-row").first().waitFor();
-  assert.deepEqual((await names(page)).slice(0, 4), ["Cat 03", "Cat 00", "Cat 01", "Cat 02"], "order comes back from the server");
+  assert.deepEqual((await names(page)).slice(0, 4), ["Cat 00", "Cat 01", "Cat 02", "Cat 03"], "recency order after a reload");
   assert.deepEqual(errors, []);
   await context.close();
 });
@@ -315,8 +312,8 @@ await check("tiles reorder among themselves; dragging a tile back into the list 
   await page.mouse.up();
   await settled(page);
   assert.deepEqual(await pinnedNames(page), ["Cat 06", "Cat 04"]);
-  const list = await names(page);
-  assert.equal(list[list.indexOf("Cat 03") + 1], "Cat 01", `Cat 01 sits right after Cat 03: ${list.slice(0, 6)}`);
+  // An unpinned conversation goes back to its recency slot, wherever it was dropped.
+  assert.deepEqual((await names(page)).slice(0, 6), ["Cat 00", "Cat 01", "Cat 02", "Cat 03", "Cat 05", "Cat 07"], "Cat 01 is back at its recency slot");
   assert.deepEqual(puts.at(-1).pinned, ["dm_06", "dm_04"]);
   await context.close();
 });
@@ -460,7 +457,7 @@ await check("the context menu pins and unpins, for rows and tiles", async () => 
   await page.getByRole("menuitem", { name: "Unpin", exact: true }).click();
   await until(() => puts.length === 2, "save");
   assert.deepEqual(await pinnedNames(page), []);
-  assert.equal((await names(page))[0], "Cat 03", "an unpinned conversation returns at the top of the list");
+  assert.deepEqual((await names(page)).slice(0, 5), ["Cat 00", "Cat 01", "Cat 02", "Cat 03", "Cat 04"], "an unpinned conversation returns at its recency slot");
   await context.close();
 });
 
@@ -478,44 +475,39 @@ await check("a pinned group shows the group mark (member heads), not a full cat"
   await context.close();
 });
 
-await check("keyboard: Alt+Arrow moves a row and a tile, focus stays, and the move is announced", async () => {
+await check("keyboard: Alt+Arrow moves a tile and focus stays, the move is announced; rows follow recency and do not move", async () => {
   const { page, context, puts } = await open();
+  // Rows are ordered by recency: Alt+Arrow does nothing on them and saves nothing.
   await rowFor(page, "Cat 01").focus();
   await page.keyboard.press("Alt+ArrowDown");
-  await until(() => puts.length === 1, "save");
-  assert.deepEqual((await names(page)).slice(0, 3), ["Cat 00", "Cat 02", "Cat 01"]);
-  assert.equal(await page.evaluate(() => document.activeElement?.querySelector(".contact-name")?.textContent), "Cat 01", "focus stays on the moved row");
-  assert.match(await live(page), /Cat 01 moved to position 3 of \d+/);
-  await page.keyboard.press("Alt+ArrowUp");
-  await until(() => puts.length === 2, "save");
+  await sleep(300);
   assert.deepEqual((await names(page)).slice(0, 3), ["Cat 00", "Cat 01", "Cat 02"]);
-  // The first row cannot move up: nothing is saved.
-  await rowFor(page, "Cat 00").focus();
+  assert.equal(puts.length, 0);
   await page.keyboard.press("Alt+ArrowUp");
   await sleep(200);
-  assert.equal(puts.length, 2);
+  assert.equal(puts.length, 0);
   // Pin from the keyboard through the menu, then move the tile.
   await rowFor(page, "Cat 05").focus();
   await page.keyboard.press("Shift+F10");
   await page.getByRole("menuitem", { name: "Pin", exact: true }).waitFor();
   assert.equal(await page.evaluate(() => document.activeElement?.textContent), "Pin", "the menu takes focus");
   await page.keyboard.press("Enter");
-  await until(() => puts.length === 3, "pin saved");
+  await until(() => puts.length === 1, "pin saved");
   await rowFor(page, "Cat 06").focus();
   await page.keyboard.press("Shift+F10");
   await page.keyboard.press("Enter");
-  await until(() => puts.length === 4, "second pin saved");
+  await until(() => puts.length === 2, "second pin saved");
   assert.deepEqual(await pinnedNames(page), ["Cat 05", "Cat 06"]);
   await tileFor(page, "Cat 06").focus();
   await page.keyboard.press("Alt+ArrowLeft");
-  await until(() => puts.length === 5, "tile move saved");
+  await until(() => puts.length === 3, "tile move saved");
   assert.deepEqual(await pinnedNames(page), ["Cat 06", "Cat 05"]);
   assert.equal(await page.evaluate(() => document.activeElement?.querySelector(".pin-tile-name")?.textContent), "Cat 06");
   assert.match(await live(page), /Cat 06 moved to position 1 of 2/);
   await context.close();
 });
 
-await check("announcements: lift, drop and pin are spoken", async () => {
+await check("announcements: lift, pin and unpin are spoken", async () => {
   const { page, context, puts } = await open();
   const from = await centre(rowFor(page, "Cat 04"));
   await dragTo(page, from, { x: from.x, y: from.y }, { hold: true, steps: 1 });
@@ -524,10 +516,16 @@ await check("announcements: lift, drop and pin are spoken", async () => {
   await page.mouse.move(from.x, from.y - 140, { steps: 10 });
   await page.mouse.up();
   await settled(page);
-  await until(async () => /Cat 04 moved to position \d of /.test(await live(page)), "drop announcement");
+  assert.equal(puts.length, 0, "a row dropped back in the list changes nothing");
   await pinBy(page, "Cat 07");
   await until(async () => /Cat 07 pinned\. Position 1 of 1/.test(await live(page)), "pin announcement");
-  assert.ok(puts.length >= 2);
+  assert.equal(puts.length, 1);
+  // A tile dragged back into the list is spoken as an unpin.
+  const tile = await centre(tileFor(page, "Cat 07"));
+  const rowAt = await centre(rowFor(page, "Cat 05"));
+  await dragTo(page, tile, { x: rowAt.x, y: rowAt.y + 10 });
+  await settled(page);
+  await until(async () => /Cat 07 unpinned\. Position \d+ of /.test(await live(page)), "unpin announcement");
   await context.close();
 });
 
@@ -655,7 +653,7 @@ for (const _ of engine === "chromium" ? [0] : []) await check("touch: a long pre
   assert.equal(puts.length, 0);
   assert.equal(await page.locator(".is-dnd-dragging").count(), 0);
   if (process.env.DEBUG_TOUCH) await page.evaluate(() => { window.__ev = []; for (const t of ["pointerdown","pointermove","pointerup","pointercancel","touchmove","contextmenu","click","touchstart","touchend"]) window.addEventListener(t, e => window.__ev.push(t + (e.cancelable === false ? "!" : "")), true); });
-  // Long press, then drag Cat 03 to the top.
+  // Long press, then drag Cat 03 to the top: it lifts, but a row does not take a new place in the list.
   await page.evaluate(() => document.querySelector(".contact-section").scrollTo(0, 0));
   p = await centre(rowFor(page, "Cat 03"));
   await touch(cdp, "touchStart", p.x, p.y);
@@ -668,8 +666,8 @@ for (const _ of engine === "chromium" ? [0] : []) await check("touch: a long pre
   await touch(cdp, "touchEnd");
   if (process.env.DEBUG_TOUCH) console.log((await page.evaluate(() => window.__ev)).join(" "));
   await settled(page);
-  assert.deepEqual((await names(page)).slice(0, 4), ["Cat 03", "Cat 00", "Cat 01", "Cat 02"]);
-  await until(() => puts.length === 1, "the layout save");
+  assert.deepEqual((await names(page)).slice(0, 4), ["Cat 00", "Cat 01", "Cat 02", "Cat 03"]);
+  assert.equal(puts.length, 0, "nothing is saved for a drop that changes nothing");
   // The page did not open the chat from the drag.
   assert.ok(await page.locator(".contact-pane.open").count() > 0, "still on the list");
   // A long press released without moving opens the menu rather than leaving the row lifted.
@@ -682,7 +680,7 @@ for (const _ of engine === "chromium" ? [0] : []) await check("touch: a long pre
   await until(async () => (await page.locator(".is-dnd-dragging").count()) === 0, "the lifted row to settle back");
   await sleep(450); // the release's own click is ignored for a moment so it cannot hit the menu that just opened under the finger
   await page.getByRole("menuitem", { name: "Pin", exact: true }).tap();
-  await until(() => puts.length === 2, "pin saved");
+  await until(() => puts.length === 1, "pin saved");
   await page.locator(".pin-tile").first().waitFor();
   await sleep(600);
   if (shots) await page.screenshot({ path: join(shots, "pinned-390.png") });

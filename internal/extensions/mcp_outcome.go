@@ -71,7 +71,11 @@ func mcpSchemaRevealOutcome(t runtime.Tool) tooloutcome.Outcome {
 	if schema, err := boundedMCPSchema(t.Parameters); err == nil {
 		msg += " Input schema: " + schema
 	}
-	return tooloutcome.New(tooloutcome.Validation, "schema_required", "not_executed", msg, "repair_arguments")
+	o := tooloutcome.New(tooloutcome.Validation, "schema_required", "not_executed", msg, "repair_arguments")
+	// The name rides in the outcome: a large first call's stored arguments are
+	// cut, and a resume reads this name to know the schema was shown.
+	o.Tool = t.Name
+	return o
 }
 
 // mcpReportedMarker opens the remote's own words. The words sit between

@@ -9,8 +9,8 @@
    Sidebar: a real third grid track at the window edge (.sidebar-pane) that PUSHES the chat. Open animates the track with
    --m-panel-in, close with --m-panel-out; expanding changes --sidebar-w with --m-base. The chat and the widget column shrink
    with it (--widget-w). Widget chrome and sidebar chrome are in context-column.css / sidebar-shell.css and load with their chunks. */
-:root { --panel-elevation-edge:-14px 0 32px -22px rgba(42,32,25,.32); --panel-float-elevation:0 1px 3px rgba(42,32,25,.08), 0 3px 12px -3px rgba(42,32,25,.22); --panel-gap:12px; --panel-radius:16px; --widget-bleed-l:44px; --widget-bleed-r:16px; --widget-bleed-b:16px; }
-:root[data-theme="dark"] { --panel-elevation-edge:-14px 0 32px -20px rgba(0,0,0,.75); --panel-float-elevation:0 1px 3px rgba(0,0,0,.5), 0 3px 12px -3px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.04); }
+:root { --panel-elevation-edge:-14px 0 32px -22px color-mix(in srgb,var(--shade-ink) 32%,transparent); --panel-float-elevation:0 1px 3px color-mix(in srgb,var(--shade-ink) 8%,transparent), 0 3px 12px -3px color-mix(in srgb,var(--shade-ink) 22%,transparent); --panel-gap:12px; --panel-radius:16px; --widget-bleed-l:44px; --widget-bleed-r:16px; --widget-bleed-b:16px; }
+:root[data-theme="dark"] { --panel-elevation-edge:-14px 0 32px -20px color-mix(in srgb,var(--shade) 75%,transparent); --panel-float-elevation:0 1px 3px color-mix(in srgb,var(--shade) 50%,transparent), 0 3px 12px -3px color-mix(in srgb,var(--shade) 65%,transparent), inset 0 1px 0 color-mix(in srgb,var(--white) 4%,transparent); }
 @media (min-width:1100px) {
   html:not([data-desktop]) .workspace .workspace-grid {
     position:relative;

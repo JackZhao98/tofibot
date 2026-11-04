@@ -25,11 +25,11 @@
 /* Postage stamp: perforations are holes punched by the mask in the padding ring only. */
 .cat-stamp {
   flex:none; display:block; width:60px; height:72px; padding:5px; rotate:4deg; background:var(--mail-paper);
-  filter:drop-shadow(1px 1.5px 0 rgba(42,32,25,.35));
-  -webkit-mask:linear-gradient(#000 0 0) content-box, radial-gradient(circle 2.6px, #0000 96%, #000) -3.5px -3.5px / 7px 7px;
-  mask:linear-gradient(#000 0 0) content-box, radial-gradient(circle 2.6px, #0000 96%, #000) -3.5px -3.5px / 7px 7px;
+  filter:drop-shadow(1px 1.5px 0 color-mix(in srgb,var(--shade-ink) 35%,transparent));
+  -webkit-mask:linear-gradient(black 0 0) content-box, radial-gradient(circle 2.6px, transparent 96%, black) -3.5px -3.5px / 7px 7px;
+  mask:linear-gradient(black 0 0) content-box, radial-gradient(circle 2.6px, transparent 96%, black) -3.5px -3.5px / 7px 7px;
 }
-.cat-stamp .lab-cat { width:100%; height:100%; border-radius:2px; background:var(--lagoon); outline:1px solid rgba(42,32,25,.25); outline-offset:-1px; }
+.cat-stamp .lab-cat { width:100%; height:100%; border-radius:2px; background:var(--lagoon); outline:1px solid color-mix(in srgb,var(--shade-ink) 25%,transparent); outline-offset:-1px; }
 
 .letter-foot {
   display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin-top:-3px; padding:10px 12px;
@@ -39,8 +39,8 @@
 }
 /* The footer is paper in both themes, so its buttons use stationery ink, never theme surfaces. */
 .letter-foot .lab-btn.quiet { color:var(--mail-muted); }
-.letter-foot .lab-btn.quiet:not(:disabled):hover { background:rgba(42,32,25,.08); color:var(--mail-ink); }
-.letter-foot .lab-btn.quiet:not(:disabled):active { background:rgba(42,32,25,.14); }
+.letter-foot .lab-btn.quiet:not(:disabled):hover { background:color-mix(in srgb,var(--shade-ink) 8%,transparent); color:var(--mail-ink); }
+.letter-foot .lab-btn.quiet:not(:disabled):active { background:color-mix(in srgb,var(--shade-ink) 14%,transparent); }
 .letter-foot .lab-btn.primary { border-color:var(--mail-ink); box-shadow:2px 3px 0 var(--mail-ink); }
 .letter-foot .lab-btn.primary:not(:disabled):hover { box-shadow:3px 4px 0 var(--mail-ink); }
 .letter-foot .lab-btn.primary:not(:disabled):active { box-shadow:none; }

@@ -140,6 +140,145 @@ func (s *Store) recentCapabilitySchemas(conversationID, botID, before string) []
 	return out
 }
 
+// runSearchedCapabilitySchemas returns the MCP tool schemas that this run's own
+// search_mcp_tools calls returned. A run resumed after an approval replays its
+// own transcript, so its model has seen these schemas, but they are newer than
+// the run's start, the boundary recentCapabilitySchemas uses. Without them the
+// resumed runtime treated the approved tool as never shown, answered the
+// approved call with schema_required, and the approval was spent on nothing.
+func (s *Store) runSearchedCapabilitySchemas(runID, botID string) []extensions.CachedMCPTool {
+	if s == nil || s.db == nil || runID == "" || botID == "" {
+		return nil
+	}
+	rows, err := s.db.Query(`SELECT result FROM tool_activities
+		WHERE run_id=? AND bot_id=? AND name='search_mcp_tools' AND status='completed' AND truncated=0
+		ORDER BY julianday(updated_at) DESC LIMIT 24`, runID, botID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var out []extensions.CachedMCPTool
+	seen := map[string]bool{}
+	for rows.Next() {
+		var result string
+		if rows.Scan(&result) != nil {
+			break
+		}
+		var record struct {
+			Tools []extensions.CachedMCPTool `json:"tools"`
+		}
+		if json.Unmarshal([]byte(result), &record) != nil {
+			continue
+		}
+		for _, tool := range record.Tools {
+			if seen[tool.Name] || !validRecentCapabilitySchema(tool) {
+				continue
+			}
+			if encoded, err := json.Marshal(tool); err != nil || len(encoded) > maxRecentSchemaBytes {
+				continue
+			}
+			out = append(out, tool)
+			seen[tool.Name] = true
+		}
+	}
+	return out
+}
+
+// runShownMCPToolNames lists the MCP tool names this run was shown before its
+// runtime was rebuilt for a resume: every tool on its search_mcp_tools pages,
+// whole or compacted, and every tool a call_mcp_tool schema reveal showed (code
+// schema_required with next action repair_arguments; the "not searched" refusal
+// shares the code but shows nothing). Only names: the runtime resolves the
+// schemas live under the current policy.
+func (s *Store) runShownMCPToolNames(runID, botID string) []string {
+	if s == nil || s.db == nil || runID == "" || botID == "" {
+		return nil
+	}
+	rows, err := s.db.Query(`SELECT name, arguments, result, outcome_json FROM tool_activities
+		WHERE run_id=? AND bot_id=? AND ((name='search_mcp_tools' AND status='completed') OR name='call_mcp_tool')
+		ORDER BY julianday(updated_at) DESC LIMIT 200`, runID, botID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var names []string
+	seen := map[string]bool{}
+	add := func(name string) {
+		if safeCapabilityName(name) && !seen[strings.ToLower(name)] {
+			seen[strings.ToLower(name)] = true
+			names = append(names, name)
+		}
+	}
+	for rows.Next() {
+		var tool, arguments, result, outcome string
+		if rows.Scan(&tool, &arguments, &result, &outcome) != nil {
+			break
+		}
+		switch tool {
+		case "search_mcp_tools":
+			var page struct {
+				Tools []struct {
+					Name string `json:"name"`
+				} `json:"tools"`
+			}
+			if json.Unmarshal([]byte(result), &page) == nil {
+				for _, t := range page.Tools {
+					add(t.Name)
+				}
+			}
+		case "call_mcp_tool":
+			var o struct {
+				Code       string `json:"code"`
+				NextAction string `json:"next_action"`
+				Tool       string `json:"tool"`
+			}
+			if json.Unmarshal([]byte(outcome), &o) != nil || o.Code != "schema_required" || o.NextAction != "repair_arguments" {
+				continue
+			}
+			// The reveal names its tool; older rows only have the arguments,
+			// which are cut for a large call.
+			if o.Tool != "" {
+				add(o.Tool)
+				continue
+			}
+			var call struct {
+				Name string `json:"name"`
+			}
+			if json.Unmarshal([]byte(arguments), &call) == nil {
+				add(call.Name)
+			}
+		}
+	}
+	return names
+}
+
+// withRunShownNames adds the names this run was shown as name-only entries.
+func withRunShownNames(tools []extensions.CachedMCPTool, names []string) []extensions.CachedMCPTool {
+	for _, name := range names {
+		tools = append(tools, extensions.CachedMCPTool{Name: name, ShownInRun: true})
+	}
+	return tools
+}
+
+// withRunSearchedSchemas puts this run's own searched schemas ahead of the
+// recent ones, one entry per tool name.
+func withRunSearchedSchemas(run, recent []extensions.CachedMCPTool) []extensions.CachedMCPTool {
+	if len(run) == 0 {
+		return recent
+	}
+	out := append([]extensions.CachedMCPTool(nil), run...)
+	have := map[string]bool{}
+	for _, tool := range run {
+		have[tool.Name] = true
+	}
+	for _, tool := range recent {
+		if !have[tool.Name] {
+			out = append(out, tool)
+		}
+	}
+	return out
+}
+
 func validRecentCapabilitySchema(tool extensions.CachedMCPTool) bool {
 	if !safeCapabilityName(tool.Name) || !safeCapabilityName(tool.Server) || tool.RemoteName == "" || len(tool.RemoteName) > 256 || len([]rune(tool.Description)) > 1024 || len(tool.SchemaVersion) != 64 || tool.Parameters == nil || tool.SchemaCompacted {
 		return false

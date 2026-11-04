@@ -295,7 +295,8 @@ for (const [layout, inGroup, ids] of [["DM", false, ["m1", "m2", "m3", "m4", "m5
         for (const other of g.others) if (other.bottom <= g.content.top + 0.5) assert.ok(g.bar.top >= other.bottom - 12, `${layout} ${id}: the floating bar covers the previous bubble's text`);
         assert.ok(g.bar.left >= 0 && g.bar.right <= g.vw, `${layout} ${id}: bar stays inside the window`);
       } else {
-      assert.ok(g.bar.top >= g.content.bottom - 0.5, `${layout} ${id}: bar top ${g.bar.top} is above its bubble's bottom ${g.content.bottom}`);
+      // The row is pulled 4px up toward the bubble (e9fa15a5), so the bar may overlap the bubble's bottom edge by at most those 4px.
+      assert.ok(g.bar.top >= g.content.bottom - 4.5, `${layout} ${id}: bar top ${g.bar.top} is more than 4px above its bubble's bottom ${g.content.bottom}`);
       assert.ok(g.bar.top - g.content.bottom <= 40, `${layout} ${id}: bar is ${g.bar.top - g.content.bottom}px below its bubble`);
       assert.ok(g.bar.left >= 0 && g.bar.right <= g.vw, `${layout} ${id}: bar stays inside the window`);
       for (const other of [...g.others, ...g.avatars]) assert.ok(!intersects(g.bar, other), `${layout} ${id}: bar covers another message or avatar`);

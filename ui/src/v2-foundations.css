@@ -79,7 +79,7 @@ body { color:var(--ink); background:var(--bg); font-family:var(--body); }
   box-shadow:inset 0 2px 0 color-mix(in srgb,var(--line) 8%,transparent);
 }
 :is(input,textarea)::placeholder { color:var(--muted); opacity:1; }
-:is(input:not([type="checkbox"]):not([type="radio"]),textarea,select):not(:disabled):hover {
+:is(input:not([type="checkbox"]):not([type="radio"]),textarea,select):not(:disabled):not([aria-invalid="true"]):hover {
   border-color:var(--line-soft);
 }
 :is(input:not([type="checkbox"]):not([type="radio"]),textarea,select):focus-visible,

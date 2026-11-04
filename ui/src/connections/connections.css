@@ -80,7 +80,7 @@
 .paste-back .paste-back-steps label{display:grid;gap:6px;color:var(--ink)}
 .paste-back .paste-back-steps input{font-family:var(--mono);font-size:12px}
 .paste-back .paste-back-note{margin:0;font:var(--type-meta);color:var(--muted)}
-.paste-back .paste-back-error{margin:0;font:var(--type-meta);color:var(--danger)}
+.paste-back .paste-back-error{margin:0;font:var(--type-meta);color:var(--danger-text)}
 
 /* Connections list and detail page (docs/design/tools-and-connections.md sections 3.2, 3.3). Filled surfaces, no outlined
    containers; transitions run on motion tokens and are instant under reduced motion. */

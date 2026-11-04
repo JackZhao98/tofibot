@@ -5,10 +5,10 @@
 .workspace .contact-section .dnd-live:not(.is-dnd-dragging):hover { background:transparent; }
 .workspace .contact-section [data-dnd-id].is-dnd-dragging {
   position:relative; z-index:var(--z-drag); cursor:grabbing; will-change:transform; transition:none;
-  background:var(--surface); box-shadow:0 12px 26px rgba(0,0,0,.2); pointer-events:none;
+  background:var(--surface); box-shadow:0 12px 26px color-mix(in srgb,var(--shade) 20%,transparent); pointer-events:none;
 }
 .workspace .contact-section [data-dnd-id].is-dnd-dragging.is-dnd-settling {
-  box-shadow:0 0 0 rgba(0,0,0,0); pointer-events:auto;
+  box-shadow:0 0 0 transparent; pointer-events:auto;
   transition:transform var(--m-panel-in) var(--ease-settle),box-shadow var(--m-panel-in) var(--ease-settle);
 }
 /* The dropped element keeps the drag layer while it flies to its slot (the engine adds the class for the flight). */

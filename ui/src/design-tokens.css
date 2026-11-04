@@ -61,6 +61,19 @@
   --swatch-dark-edge:#3a352e;
   --swatch-dark-ink:#c9bca8;
   /* Letter and stationery colors are fixed artwork from the v2 MailRead preview. */
+  /* D51 (docs/decisions/0051): the hard-shadow ink, always ink, decoupled from --line (dark: black, below). Shadows elsewhere mix it with transparent. */
+  --hard-ink:#2a2019; --white:#fff;
+  /* Shadow inks kept at the exact values the shadows always had (mixed with transparent at each shadow's own alpha); --amber was never defined before and rendered this fallback. */
+  --shade:#000; --shade-warm:#140e08; --shade-ink:#2a2019; --amber:#c98a1b;
+  /* File type tile (FileTile.tsx, file-tile.css): one family colour per format; --ft-on is the label ink on a family colour. */
+  --ft-pdf:#c8402f; --ft-image:#b83d70; --ft-sheet:#2f7d52; --ft-doc:#2f63b5; --ft-md:#6d51c4; --ft-slides:#c0601f;
+  --ft-code:#1f7a6b; --ft-json:#9a6a00; --ft-archive:#9a5530; --ft-media:#4a52c0; --ft-text:#6b6558; --ft-other:#6b6558; --ft-on:#fff;
+  /* Brand-logo plates (extensions-system.css): a white plate for most marks, a near-black one for logos that vanish on white. Same in both themes. */
+  --mark-plate:#fff; --mark-plate-dark:#111;
+  /* Motion Lab's fake computer screen: fixed artwork. */
+  --fd-dot:#6f6252; --fd-frame:#2a2f38; --fd-screen:#12161c; --fd-screen-dot:#ffffff12; --fd-off-ink:#8f8778; --fd-icon-ink:#e8eef5;
+  --fd-window:#fbf8f3; --fd-window-ink:#2a2019; --fd-window-bar:#ece6dc; --fd-window-muted:#6f6252; --fd-window-light:#d8cfc2;
+  --fd-field-line:#d8d0c4; --fd-placeholder:#9a8f80; --fd-line:#e6dfd4; --fd-pointer-edge:#0c0e12;
   --mail-paper:#fffdf7; --mail-stripe-paper:#fbf4e6; --mail-ink:#2a2019; --mail-muted:#766751;
   --mail-post-blue:#4f789d; --mail-post-red:#d9562a;
   --mail-rule:#e3d6bf; --mail-note:#f7e3a8; --mail-note-ink:#3a2e1c;
@@ -119,7 +132,10 @@
   --paper:#fbf4e6;
   --code-inline-bg:#332b23; --code-inline-ink:#ead8bf; --code-inline-edge:#4b3d30;
   --code-block-bg:#25201b; --code-block-ink:#f0e2cf; --code-block-edge:#493d32;
-  --hard:3px 4px 0 #000; --hard-sm:2px 3px 0 #000;
+  --hard:3px 4px 0 #000; --hard-sm:2px 3px 0 #000; --hard-ink:#000;
+  --shade:#000; --shade-warm:#140e08; --shade-ink:#2a2019; --amber:#c98a1b;
+  --ft-pdf:#d8604f; --ft-image:#cc5c8a; --ft-sheet:#3f9467; --ft-doc:#4a7fd0; --ft-md:#8267d8; --ft-slides:#d27a3a;
+  --ft-code:#2f9484; --ft-json:#b8861a; --ft-archive:#b8704a; --ft-media:#6870d4; --ft-text:#857d6e; --ft-other:#857d6e;
   --dots:radial-gradient(#ffffff14 1px,transparent 1.2px) 0 0/16px 16px;
   --glass:rgba(31,28,24,.52); --glass-strong:rgba(31,28,24,.8);
   --glass-edge:rgba(241,230,214,.2); --sheen:inset 0 1px 0 rgba(255,255,255,.08);

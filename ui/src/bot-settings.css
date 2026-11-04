@@ -1,8 +1,8 @@
 /* Bot settings cover (BotSettingsPanel.tsx, docs/design/widgets-and-sidebar.md section 5). Loads with the lazy chunk `botSettings`.
    Owner taste: filled surfaces, no outlined containers or rows, no hand cursor (the global convention), tooltips are data-hint.
    Section switch cross-fades with --m-quick; below 900px the section list and the page are two layers that slide (--m-base). */
-.bot-settings { --bs-lift:0 1px 2px rgba(42,32,25,.08), 0 6px 16px -10px rgba(42,32,25,.32); --bs-pop:0 18px 48px -14px rgba(20,14,8,.45), 0 2px 6px rgba(20,14,8,.12); }
-:root[data-theme="dark"] .bot-settings, :root[data-theme="dark"] .bot-style-pop { --bs-lift:0 1px 2px rgba(0,0,0,.45); --bs-pop:0 18px 48px -14px rgba(0,0,0,.75), inset 0 1px 0 rgba(255,255,255,.05); }
+.bot-settings { --bs-lift:0 1px 2px color-mix(in srgb,var(--shade-ink) 8%,transparent), 0 6px 16px -10px color-mix(in srgb,var(--shade-ink) 32%,transparent); --bs-pop:0 18px 48px -14px color-mix(in srgb,var(--shade-warm) 45%,transparent), 0 2px 6px color-mix(in srgb,var(--shade-warm) 12%,transparent); }
+:root[data-theme="dark"] .bot-settings, :root[data-theme="dark"] .bot-style-pop { --bs-lift:0 1px 2px color-mix(in srgb,var(--shade) 45%,transparent); --bs-pop:0 18px 48px -14px color-mix(in srgb,var(--shade) 75%,transparent), inset 0 1px 0 color-mix(in srgb,var(--white) 5%,transparent); }
 .cover-body:has(> .bot-settings) { overflow:hidden; }
 .bot-settings { position:relative; display:grid; grid-template-columns:232px minmax(0,1fr); height:100%; min-height:0; overflow:hidden; background:var(--surface); }
 
