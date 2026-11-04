@@ -280,3 +280,35 @@ func TestLocalValidationHintKeepsLateFields(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 }
+
+// A runtime rebuilt for a resume keeps what the run was already shown: a name
+// marked ShownInRun runs on its first call, resolved live, with no reveal. An
+// unmarked tool still gets the reveal first, and the mark cannot come from JSON.
+func TestToolShownBeforeAResumeRunsWithoutAnotherReveal(t *testing.T) {
+	f := newNotionFixture(t, notionLikeSchema(20))
+	ctx := context.Background()
+	shown := []CachedMCPTool{{Name: "mcp_notion__notion-update-page", ShownInRun: true}, {Name: "mcp_nowhere__tool", ShownInRun: true}}
+	p, err := f.manager.PrepareDiscoverableForBotWithCallGate(ctx, "bot", shown, func(context.Context, MCPCallApproval) error { return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = p.Close() })
+	call := discoveryTool(t, p, "call_mcp_tool")
+	if out, err := call.Execute(ctx, json.RawMessage(validReplace)); err != nil || out != "updated" || f.calls.Load() != 1 {
+		t.Fatalf("shown tool after a resume: %q %v calls=%d", out, err, f.calls.Load())
+	}
+	// A name on a server that is not configured stays uncallable.
+	if _, err := call.Execute(ctx, json.RawMessage(`{"name":"mcp_nowhere__tool","arguments":{}}`)); err == nil || f.calls.Load() != 1 {
+		t.Fatalf("unknown server ran: %v calls=%d", err, f.calls.Load())
+	}
+	// Without the mark the same tool is revealed first.
+	plain := f.prepare(t)
+	_, err = discoveryTool(t, plain, "call_mcp_tool").Execute(ctx, json.RawMessage(validReplace))
+	if o, _ := tooloutcome.FromError(err); o.Code != "schema_required" || f.calls.Load() != 1 {
+		t.Fatalf("unmarked tool ran blind: %v calls=%d", err, f.calls.Load())
+	}
+	var decoded CachedMCPTool
+	if json.Unmarshal([]byte(`{"name":"mcp_notion__notion-update-page","ShownInRun":true,"shown_in_run":true}`), &decoded) != nil || decoded.ShownInRun {
+		t.Fatal("ShownInRun must never come from JSON")
+	}
+}

@@ -4152,7 +4152,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		// The runtime also counts schemas this run already searched: a run resumed
 		// after an approval has them in its replayed transcript. The model context
 		// above stays as it was.
-		runtimeMCPTools := withRunSearchedSchemas(s.store.runSearchedCapabilitySchemas(r.ID, r.BotID), cachedMCPTools)
+		runtimeMCPTools := withRunShownNames(withRunSearchedSchemas(s.store.runSearchedCapabilitySchemas(r.ID, r.BotID), cachedMCPTools), s.store.runShownMCPToolNames(r.ID, r.BotID))
 		prepared, err := s.extensions.PrepareDiscoverableForBotWithCallGate(ctx, r.BotID, runtimeMCPTools, func(callCtx context.Context, call extensions.MCPCallApproval) error {
 			return s.approveMCPCall(callCtx, c, r, call)
 		})

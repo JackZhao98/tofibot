@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"sort"
 	"strings"
 	"testing"
 
@@ -123,5 +124,37 @@ func TestRunSearchedCapabilitySchemasCoverTheRunsOwnSearches(t *testing.T) {
 	}
 	if s.runSearchedCapabilitySchemas("", b.ID) != nil || s.runSearchedCapabilitySchemas("run_now", "") != nil {
 		t.Fatal("an empty run or Bot must return nothing")
+	}
+}
+
+// The names a run was shown before a resume: every tool on its search pages
+// (compacted ones too) and every tool a schema reveal showed. The "not searched"
+// refusal shares the code schema_required but shows nothing, so it does not count.
+func TestRunShownMCPToolNamesCountSearchesAndReveals(t *testing.T) {
+	s, err := OpenStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	b, _ := s.CreateBot("one", "", "model")
+	row := func(run, call, name, arguments, result, status, outcome string) {
+		t.Helper()
+		if _, e := s.db.Exec(`INSERT INTO tool_activities(conversation_id,bot_id,run_id,call_id,name,arguments,result,status,outcome_json,started_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,'2026-11-04T08:00:00Z','2026-11-04T08:00:01Z')`, b.DMConversationID, b.ID, run, call, name, arguments, result, status, outcome); e != nil {
+			t.Fatal(e)
+		}
+	}
+	row("run_now", "s1", "search_mcp_tools", `{}`, `{"tools":[{"name":"mcp_whole"},{"name":"mcp_compacted","schema_compacted":true}],"omitted_tools":["mcp_omitted"]}`, "completed", "")
+	row("run_now", "c1", "call_mcp_tool", `{"name":"mcp_revealed","arguments":{}}`, "", "failed", `{"code":"schema_required","execution_certainty":"not_executed","next_action":"repair_arguments"}`)
+	row("run_now", "c2", "call_mcp_tool", `{"name":"mcp_never_searched","arguments":{}}`, "", "failed", `{"code":"schema_required","execution_certainty":"not_executed","next_action":"refresh_schema"}`)
+	row("run_now", "s2", "search_mcp_tools", `{}`, `{"tools":[{"name":"mcp_failed_search"}]}`, "failed", "")
+	row("run_old", "s3", "search_mcp_tools", `{}`, `{"tools":[{"name":"mcp_other_run"}]}`, "completed", "")
+	got := s.runShownMCPToolNames("run_now", b.ID)
+	sort.Strings(got)
+	if strings.Join(got, ",") != "mcp_compacted,mcp_revealed,mcp_whole" {
+		t.Fatalf("names = %v", got)
+	}
+	tools := withRunShownNames(nil, got)
+	if len(tools) != 3 || !tools[0].ShownInRun || tools[0].Parameters != nil {
+		t.Fatalf("name-only entries = %+v", tools)
 	}
 }

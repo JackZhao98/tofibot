@@ -183,6 +183,11 @@ type CachedMCPTool struct {
 	// SchemaCompacted marks a search result whose schema had prose or $defs
 	// bodies left out for size. Only a whole schema can be cached.
 	SchemaCompacted bool `json:"schema_compacted,omitempty"`
+	// ShownInRun marks only a name: this run was already shown the tool (in a
+	// search page, whole or compacted, or by a schema reveal) before its runtime
+	// was rebuilt for a resume. The schema is resolved live under the current
+	// policy. TOFI sets it from its own records; it is never decoded from JSON.
+	ShownInRun bool `json:"-"`
 }
 
 // maxCachedSchemaBytes is the largest schema a prior search can hand back
