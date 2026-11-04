@@ -7,9 +7,9 @@ fixed. Finished work is in [release-notes/](release-notes/).
 
 - **Mac desktop app with personal computers.** A Mac app that pairs with your
   server. Bots can then use your own Mac as another computer, with per-Bot permissions
-  decided on the Mac. The server side is in the code and is off by default
-  (`TOFI_PERSONAL_COMPUTERS=1`). The Mac app is a separate project and is not
-  released yet.
+  decided on the Mac. The server side is on by default
+  (`TOFI_PERSONAL_COMPUTERS=0` turns it off). The Mac app is a separate project
+  and is not released yet.
 - **E2B Bot computers (planned).** A second kind of Bot computer: a hosted E2B
   sandbox that you rent with your own key. The built-in VM stays the default.
 - **Workflow templates.** Ready-made Bot and workflow setups that you can start

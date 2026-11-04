@@ -253,7 +253,7 @@ type Config struct {
 	// MaxPersonalComputers is how many personal computers an account may connect (0 = DefaultMaxPersonalComputers).
 	MaxPersonalComputers int
 	// PersonalComputers turns on the pairing routes and the "Other devices" page
-	// (env TOFI_PERSONAL_COMPUTERS=1). Off by default: no client exists yet.
+	// (on unless the server runs with TOFI_PERSONAL_COMPUTERS=0).
 	PersonalComputers bool
 	// Storage accounting (S3). All optional: nil limit = unlimited, zero floor
 	// = 2 GiB of host free space, nil hooks = no gateway.

@@ -55,7 +55,17 @@ func newConfiguredServer(config app.Config, getenv func(string) string) (applica
 		}
 		config.MaxPersonalComputers = limit
 	}
-	config.PersonalComputers = getenv("TOFI_PERSONAL_COMPUTERS") == "1"
+	// Personal computers are on by default (owner, 2026-11-03): whether a person
+	// uses one is up to their desktop app, which pairs only when they ask it to.
+	// TOFI_PERSONAL_COMPUTERS=0 turns the pairing routes off.
+	switch getenv("TOFI_PERSONAL_COMPUTERS") {
+	case "", "1":
+		config.PersonalComputers = true
+	case "0":
+		config.PersonalComputers = false
+	default:
+		return nil, fmt.Errorf("TOFI_PERSONAL_COMPUTERS must be 0 or 1")
+	}
 	if backend == app.ComputerBackendNone {
 		config.ComputerSocket = ""
 	}

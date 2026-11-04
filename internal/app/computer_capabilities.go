@@ -41,7 +41,7 @@ type ComputerCapabilities struct {
 	// detach surfaces follow it; computer tools and settings follow Backend.
 	HostBackend  string   `json:"host_backend"`
 	Capabilities []string `json:"capabilities"`
-	// PersonalComputers is true only while the pairing routes are on (TOFI_PERSONAL_COMPUTERS=1).
+	// PersonalComputers is true while the pairing routes are on (unless TOFI_PERSONAL_COMPUTERS=0).
 	PersonalComputers bool `json:"personal_computers,omitempty"`
 }
 

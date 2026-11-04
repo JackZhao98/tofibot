@@ -22,7 +22,7 @@ const {default: react} = await import("@vitejs/plugin-react");
 const LANGS = ["en", "zh-CN", "zh-TW", "ja", "ko", "de", "fr"];
 // The rail with the Advanced group folded; the folded group holds ADV_TABS ("advanced" is the System page, labelled Maintenance).
 const TABS = ["general", "connections", "skills", "permissions", "models", "tools", "automation", "computer", "keys", "usage", "advanced"];
-// "devices" (Other devices) is behind TOFI_PERSONAL_COMPUTERS: the rail lists it only when `computer.personal_computers` is true.
+// "devices" (Other devices) follows TOFI_PERSONAL_COMPUTERS (on unless 0): the rail lists it only when `computer.personal_computers` is true.
 const ADV_TABS = ["allowances", "followups"];
 const ICONS = {general: "sliders", connections: "plug", skills: "skill", permissions: "shield-check", allowances: "checklist", followups: "bell", devices: "laptop", models: "sparkles", tools: "globe", automation: "workflow", computer: "monitor", keys: "key", usage: "progress", advanced: "settings", admin: "group"};
 const NAMES = {general: "General", connections: "Connections", skills: "Skills", permissions: "Permissions", allowances: "Tool rules", followups: "Follow-ups", devices: "Other devices", models: "AI Models", tools: "Search & fetch", automation: "Behavior", computer: "Bot computer", keys: "Bot computer keys", usage: "Usage", advanced: "Maintenance", admin: "Admin console"};

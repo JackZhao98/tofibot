@@ -130,3 +130,30 @@ func TestRunnerContainerConfigurationIsAllOrNothingAndNeedsNoComputer(t *testing
 	}
 	s.Close()
 }
+
+// Personal computers are on by default; 0 turns them off; anything else is refused.
+func TestPersonalComputersOnByDefault(t *testing.T) {
+	for _, c := range []struct {
+		value string
+		want  bool
+		fails bool
+	}{{"", true, false}, {"1", true, false}, {"0", false, false}, {"yes", false, true}} {
+		env := map[string]string{"TOFI_COMPUTER_BACKEND": "none", "TOFI_PERSONAL_COMPUTERS": c.value}
+		s, err := newConfiguredServer(app.Config{DataDir: t.TempDir(), Environment: "acceptance"}, func(k string) string { return env[k] })
+		if c.fails {
+			if err == nil || !strings.Contains(err.Error(), "TOFI_PERSONAL_COMPUTERS") {
+				t.Fatalf("%q: want an error, got %v", c.value, err)
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatalf("%q: %v", c.value, err)
+		}
+		w := httptest.NewRecorder()
+		s.Handler().ServeHTTP(w, httptest.NewRequest("GET", "/api/computer/capabilities", nil))
+		_ = s.Close()
+		if got := strings.Contains(w.Body.String(), `"personal_computers":true`); w.Code != 200 || got != c.want {
+			t.Fatalf("%q: personal computers %v, want %v (%d %s)", c.value, got, c.want, w.Code, w.Body.String())
+		}
+	}
+}
