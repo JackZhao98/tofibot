@@ -433,13 +433,16 @@ await check("desktop: the hover bar sits below its bubble, clear of the neighbou
     assert.deepEqual(await heights(), before, `${id}: hovering changed a message height`);
     const geometry = await page.evaluate(id => {
       const blockEl = document.querySelector(`.message-block[data-message-id="${id}"]`), b = blockEl.querySelector(".message-hover-actions").getBoundingClientRect(), c = blockEl.querySelector(".message-content").getBoundingClientRect();
-      const hit = [...document.querySelectorAll(".message-block")].filter(el => el !== blockEl).flatMap(el => [...el.querySelectorAll(".message-content")]).some(el => { const r = el.getBoundingClientRect(); return Math.min(b.right, r.right) - Math.max(b.left, r.left) > 0.5 && Math.min(b.bottom, r.bottom) - Math.max(b.top, r.top) > 0.5; });
-      return { below: b.top >= c.bottom - 0.5, hit, inside: b.left >= 0 && b.right <= innerWidth, btn: blockEl.querySelector(".message-hover-actions button").getBoundingClientRect().width };
+      const floating = blockEl.dataset.joinsNext === "true" || blockEl.dataset.ownsNext !== undefined;
+      const hit = [...document.querySelectorAll(".message-block")].filter(el => el !== blockEl).flatMap(el => [...el.querySelectorAll(".message-content")]).some(el => { const r = el.getBoundingClientRect(); return Math.min(b.right, r.right) - Math.max(b.left, r.left) > 0.5 && Math.min(b.bottom, r.bottom - (floating && r.bottom <= c.top + 0.5 ? 12 : 0)) - Math.max(b.top, r.top) > 0.5; }); // a floating bar may sit over the previous bubble's 12px bottom padding, never its text
+      // The row is pulled 4px up toward the bubble (e9fa15a5): the bar may overlap its bubble's bottom edge by at most 4px.
+      // A bubble that joins the next one has no reserved row (32bbd79b): its bar floats on its own top edge, above its text.
+      return { floating, below: floating ? b.top >= c.top - 40 && b.bottom <= c.top + 12 : b.top >= c.bottom - 4.5, hit, inside: b.left >= 0 && b.right <= innerWidth, btn: blockEl.querySelector(".message-hover-actions button").getBoundingClientRect().width };
     }, id);
-    assert.ok(geometry.below, `${id}: bar is above its bubble's bottom edge`);
+    assert.ok(geometry.below, `${id}: bar is not where its bubble's kind puts it (under the bubble, or on the top edge of a bubble that joins the next)`);
     assert.ok(!geometry.hit, `${id}: bar covers another message`);
     assert.ok(geometry.inside, `${id}: bar leaves the window`);
-    assert.ok(geometry.btn >= 28, `${id}: desktop hit targets are ${geometry.btn}px`);
+    assert.ok(geometry.btn >= (geometry.floating ? 24 : 28), `${id}: desktop hit targets are ${geometry.btn}px`);
   }
   await context.close();
 });
