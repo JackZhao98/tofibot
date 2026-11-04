@@ -51,4 +51,9 @@ assert.ok(handlersAt > 0 && /\}, \[\]\);/.test(app.slice(handlersAt, handlersAt 
 assert.ok(/const FIRST_PAINT_BLOCKS = \d+;/.test(app), "the first paint draws a fixed number of newest blocks");
 assert.ok(mapBody.includes("if (index < timelineFrom) return null;"), "blocks before the first-paint window are skipped, not removed from the derivations");
 assert.ok(app.includes("fullTimelineFor !== active.id && viewport.opensAtBottom && !taskFocus"), "only a visit that lands at the bottom is windowed");
-console.log("perf structure checks: PASS (stable connectEvents, gated ownership poll, slow computer-info poll)");
+// A lazy chunk landing must not render the whole Workspace: the warm-up lands chunks mid-drag and a store update renders
+// synchronously (2026-11-04: an 84 ms task at 4x CPU when a row hover's Bot settings chunk landed during a sidebar drag).
+const panelWatches = [...app.matchAll(/usePanelLoaded\(([^)]*)\)/g)].map(match => match[1]);
+assert.ok(panelWatches.length > 0, "the Workspace still watches a lazy chunk somewhere (update this check if not)");
+for (const args of panelWatches) assert.ok(args.includes(","), `usePanelLoaded(${args}) in App.tsx must say when it watches (second argument)`);
+console.log("perf structure checks: PASS (stable connectEvents, gated ownership poll, slow computer-info poll, chunk watches)");

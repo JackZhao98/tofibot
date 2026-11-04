@@ -220,7 +220,11 @@ export function mountCat(host,options={}){
   let current={...rest,o:idle==='awake'?1:0,k:idle==='awake'?0:1};
   let tailRig=null,svg,body,marksGroup,eyesGroup,outline,fillNode,parts=[],eyes=[],bodyG,legsG,pawsG,legs=[],paws=[],floor=null;
   let job=null,raf=0,destroyed=false,lastStepAt=-Infinity;
-  const frameGap=()=>{const w=host.clientWidth;return w>0&&w<=SMALL_HOST_PX?SMALL_HOST_FRAME_MS-4:0;};
+  // The host's width picks the frame rate. Reading clientWidth here, right after the previous cat wrote its paths, forced a
+  // style and layout pass per cat per frame; the width is kept from a ResizeObserver instead (read once before its first call).
+  let hostWidth=-1;
+  const sizeObserver=typeof ResizeObserver==='function'?new ResizeObserver(()=>{hostWidth=host.clientWidth;}):null;
+  const frameGap=()=>{if(hostWidth<0||!sizeObserver)hostWidth=host.clientWidth;const w=hostWidth;return w>0&&w<=SMALL_HOST_PX?SMALL_HOST_FRAME_MS-4:0;};
   const nextDue=()=>lastStepAt+frameGap();
   // v2 life layer: tiny continuous motion on top of the resting pose while no
   // clip plays (breath, auto-blink, eye drift, ear twitch). Off with life:false.
@@ -619,6 +623,7 @@ export function mountCat(host,options={}){
       document.removeEventListener('visibilitychange',visibility);
       media.removeEventListener('change',motionPreference);
       observer?.disconnect();
+      sizeObserver?.disconnect();
       svg.remove();
     }
   };
@@ -634,6 +639,7 @@ export function mountCat(host,options={}){
   document.addEventListener('visibilitychange',visibility);
   media.addEventListener('change',motionPreference);
   observer?.observe(host);
+  sizeObserver?.observe(host);
   emit('ready');
   startLife();
   return api;

@@ -1,4 +1,3 @@
-@property --paint-r { syntax:"<length>"; inherits:false; initial-value:0px; }
 html:not([data-desktop]) .bot-style-pop .bot-avatar-stage { position:relative; overflow:hidden; }
 html:not([data-desktop]) .bot-style-pop .bot-avatar-stage .web-avatar-paint { position:absolute; z-index:2; pointer-events:none; -webkit-mask:radial-gradient(circle at var(--x) var(--y),transparent var(--paint-r),black calc(var(--paint-r) + 1.5px)); mask:radial-gradient(circle at var(--x) var(--y),transparent var(--paint-r),black calc(var(--paint-r) + 1.5px)); }
 html:not([data-desktop]) .bot-style-pop .bot-avatar-stage .web-avatar-paint > .avatar,html:not([data-desktop]) .bot-style-pop .bot-avatar-stage .web-avatar-paint > .avatar > .tofi-avatar { display:block; width:100%; height:100%; }
