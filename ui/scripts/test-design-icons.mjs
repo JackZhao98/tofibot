@@ -48,7 +48,8 @@ function inspect(directory) {
     if (entry.isDirectory()) { if (entry.name !== "lib" && entry.name !== "icons") inspect(path); continue; }
     if (!path.endsWith(".tsx")) continue;
     const source = readFileSync(path, "utf8");
-    if (entry.name !== "ComposerGlyph.tsx") assert.doesNotMatch(source, /<svg\b/, `Ad-hoc SVG in ${entry.name}`);
+    // FileTile draws its own filled per-format glyphs and page fold; components.md documents it as an inline SVG ("FileTile" entry), and the catalog has no per-format file glyphs.
+    if (entry.name !== "ComposerGlyph.tsx" && entry.name !== "FileTile.tsx") assert.doesNotMatch(source, /<svg\b/, `Ad-hoc SVG in ${entry.name}`);
     assert.doesNotMatch(source, /from ["']\.\/UiIcon["']/, `Legacy icon adapter in ${entry.name}`);
     assert.doesNotMatch(source, />\s*[✓✕✖▣▧⧉⤢×⌄]\s*</u, `Character icon in ${entry.name}`);
   }

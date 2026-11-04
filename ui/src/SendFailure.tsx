@@ -1,9 +1,10 @@
+import { TofiIcon } from "./icons";
 import { useTranslation } from "./i18n";
 import type { Receipt } from "./sendReceipts";
 
 // The failed and "sending again" lines under a bubble: lazy (SendReceipt.tsx loads it), so the actions cost the entry bundle nothing.
 function Spinner() {
-  return <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><circle cx="8" cy="8" r="5.6" fill="none" stroke="currentColor" strokeWidth="1.4" /><path d="M8 4.8V8l2.2 1.4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+  return <TofiIcon name="clock" size={13} />;
 }
 
 export function SendFailure({ receipt, onRetry, onEdit, onDelete }: { receipt: Receipt; names?: string[]; group?: boolean; onRetry?: () => void; onEdit?: () => void; onDelete?: () => void }) {
