@@ -6,6 +6,8 @@
 //   - page storage (localStorage, sessionStorage, indexedDB, document.cookie) in the page's own files; in shared files
 //     only the validated language preference helper (i18n/index.ts) may read it
 //   - packages outside react, react-dom, i18next, react-i18next and @radix-ui/*
+//   - useAppearance anywhere in the graph, and storage in InteractionSystem.tsx outside useAppearance
+//   - an import() or import.meta.glob() it cannot follow (a non-literal path would hide part of the graph)
 // It then builds the entry with its real config and checks the output: dist/desktop-settings.html exists, its scripts and
 // styles exist, and no built file carries an /api/ URL. No browser is needed.
 import assert from "node:assert/strict";
@@ -27,6 +29,7 @@ const FORBIDDEN_CODE = [
 const STORAGE = /\b(localStorage|sessionStorage|indexedDB)\b|document\.cookie/;
 const PACKAGES = [/^react$/, /^react\/jsx(-dev)?-runtime$/, /^react-dom(\/.*)?$/, /^i18next$/, /^react-i18next$/, /^@radix-ui\/.+$/];
 const SHARED_STORAGE = new Set(["i18n/index.ts"]); // the validated language preference helper
+const SOURCE = /\.(tsx?|mts|m?js)$/;
 
 const stripComments = text => text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`\\])\/\/.*$/gm, "$1");
 const rel = file => relative(src, file).split("\\").join("/");
@@ -46,13 +49,20 @@ while (queue.length) {
   const [file, importer] = queue.pop();
   if (seen.has(file)) continue;
   seen.set(file, importer);
-  if (!/\.(tsx?|mts)$/.test(file)) continue;
+  if (!SOURCE.test(file)) continue;
   const text = stripComments(readFileSync(file, "utf8"));
   const specs = [];
   for (const m of text.matchAll(/(?:^|[\n;])\s*(?:import|export)\s+(type\s+)?(?:[^"'`;]*?\sfrom\s+)?["']([^"']+)["']/g)) if (!m[1]) specs.push(m[2]);
-  for (const m of text.matchAll(/\bimport\s*\(\s*["']([^"']+)["']\s*\)/g)) specs.push(m[1]);
-  // The i18n loader globs every language bundle: pull those in as dynamic imports.
-  if (/import\.meta\.glob\(\s*["']\.\.\/locales\/\*\/index\.ts["']/.test(text)) {
+  const dynamic = [...text.matchAll(/\bimport\s*\(\s*["']([^"']+)["']\s*\)/g)];
+  for (const m of dynamic) specs.push(m[1]);
+  // A dynamic import this walk cannot read would hide its target: fail rather than skip it.
+  assert.equal((text.match(/\bimport\s*\(/g) || []).length, dynamic.length, `${rel(file)}: an import() with a non-literal path; the isolation walk cannot follow it`);
+  // The i18n loader globs every language bundle: pull those in as dynamic imports. No other glob is followed.
+  const localesGlob = /import\.meta\.glob\(\s*["']\.\.\/locales\/\*\/index\.ts["']/g;
+  const globs = (text.match(/import\.meta\.glob\s*\(/g) || []).length, known = (text.match(localesGlob) || []).length;
+  assert.equal(globs, known, `${rel(file)}: an import.meta.glob() other than the locales bundle; the isolation walk cannot follow it`);
+  if (known && rel(file) !== "i18n/index.ts") assert.fail(`${rel(file)}: only i18n/index.ts may glob the locales`);
+  if (known) {
     for (const lang of readdirSync(join(src, "locales"))) if (existsSync(join(src, "locales", lang, "index.ts"))) specs.push(`../locales/${lang}/index.ts`);
   }
   for (const spec of specs) {
@@ -65,7 +75,7 @@ while (queue.length) {
   }
 }
 
-const files = [...seen.keys()].filter(file => /\.(tsx?|mts)$/.test(file));
+const files = [...seen.keys()].filter(file => SOURCE.test(file));
 const own = files.filter(file => rel(file).startsWith("desktop-settings/"));
 const failures = [];
 for (const file of files) {
@@ -77,15 +87,29 @@ for (const file of files) {
     if (own.includes(file)) failures.push(`${name} touches page storage`);
     else if (!SHARED_STORAGE.has(name)) {
       // Shared UI that merely contains a storage helper must not be called from the page: only InteractionSystem's
-      // useAppearance (not used here) is tolerated, and only while no page file references it.
+      // useAppearance (not used here) is tolerated, only while its storage stays inside that function and nothing in
+      // the graph calls it (checked below).
       if (name !== "InteractionSystem.tsx") failures.push(`${name} touches page storage and is not an allowed helper`);
+      else {
+        const lines = text.split("\n"), start = lines.findIndex(line => /^export function useAppearance\(/.test(line));
+        let end = lines.findIndex((line, index) => index > start && /^(export |function |const |let |class )/.test(line));
+        if (end < 0) end = lines.length;
+        lines.forEach((line, index) => {
+          if (STORAGE.test(line) && (start < 0 || index < start || index >= end)) failures.push(`${name}:${index + 1} touches page storage outside useAppearance`);
+        });
+      }
     }
   }
 }
 for (const spec of packages) if (!PACKAGES.some(pattern => pattern.test(spec))) failures.push(`package ${spec} is not allowed`);
+for (const file of files) {
+  // useAppearance reads page storage and calls workspace-only IPC. Its definition is the one mention allowed.
+  const text = stripComments(readFileSync(file, "utf8"));
+  const mentions = (text.match(/\buseAppearance\b/g) || []).length;
+  if (mentions > (rel(file) === "InteractionSystem.tsx" ? 1 : 0)) failures.push(`${rel(file)} uses useAppearance`);
+}
 for (const file of own) {
   const text = stripComments(readFileSync(file, "utf8"));
-  if (/\buseAppearance\b/.test(text)) failures.push(`${rel(file)} uses useAppearance (it reads page storage and calls workspace-only IPC)`);
   // A runtime import of ../desktop would register workspace IPC listeners; the page may only import its types.
   if (/(?:^|\n)\s*import\s+(?!type\b)[^;]*from\s+["']\.\.\/desktop["']/.test(text)) failures.push(`${rel(file)} imports ../desktop at runtime`);
 }
@@ -96,7 +120,7 @@ const reads = [...i18nSource.matchAll(/localStorage\??\.(\w+)\(([^)]*)\)/g)].map
 assert.deepEqual([...new Set(reads)].sort(), ["getItem(STORAGE_KEY)", "setItem(STORAGE_KEY, preference)"], "i18n/index.ts may use storage only for the language preference");
 // Nothing in the workspace may pull the privileged page's code in.
 for (const file of (function walk(dir) { return readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? (e.name === "desktop-settings" || e.name === "locales" ? [] : walk(join(dir, e.name))) : [join(dir, e.name)]); })(src)) {
-  if (/\.(tsx?|mts)$/.test(file) && /["']\.{1,2}\/(\.\.\/)*desktop-settings\//.test(readFileSync(file, "utf8"))) failures.push(`${rel(file)} imports the desktop-settings entry`);
+  if (SOURCE.test(file) && /["']\.{1,2}\/(\.\.\/)*desktop-settings\//.test(readFileSync(file, "utf8"))) failures.push(`${rel(file)} imports the desktop-settings entry`);
 }
 assert.deepEqual(failures, [], `desktop settings isolation violated:\n  ${failures.join("\n  ")}`);
 assert.ok(own.some(file => rel(file) === "desktop-settings/MacSettingsPage.tsx"), "the page is part of the graph");
