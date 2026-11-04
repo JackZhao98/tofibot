@@ -317,7 +317,7 @@ input,textarea,select{width:100%;margin-top:7px;resize:vertical}
   .contact-pane::after{opacity:0}
 }
 .back-button{display:grid}
-.back-button:active,.chat-header .header-actions button:active{background:var(--surface-2,rgba(0,0,0,.08));transform:scale(.94)}
+.back-button:active,.chat-header .header-actions button:active{background:var(--surface-2);transform:scale(.94)}
 .chat-header{min-height:58px;padding:max(7px,env(safe-area-inset-top)) 12px 7px}
 .chat-title{gap:8px;min-width:0;flex:1}
 .chat-identity{max-width:calc(100vw - 112px);flex:1;min-width:0}
@@ -428,6 +428,6 @@ input,textarea,select{width:100%;margin-top:7px;resize:vertical}
 .computer-detail.is-expanded .computer-screen{height:100%;max-height:100%;width:100%}
 .view-only-chat-participant{display:flex;align-items:center;gap:7px;min-width:0}.view-only-chat-participant strong{max-width:24vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px}
 /* A failed workspace refresh floats over the app: it must never push the layout down. */
-.workspace-status.workspace-toast{pointer-events:auto;position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:var(--z-toast);display:flex;align-items:center;gap:10px;max-width:calc(100vw - 32px);border-radius:10px;box-shadow:0 6px 24px rgb(0 0 0 / .18)}
+.workspace-status.workspace-toast{pointer-events:auto;position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:var(--z-toast);display:flex;align-items:center;gap:10px;max-width:calc(100vw - 32px);border-radius:10px;box-shadow:0 6px 24px color-mix(in srgb,var(--hard-ink) 18%,transparent)}
 /* A failure notice in the conversation is the app speaking, never a Bot reply. */
 .message-list > .error-banner.system-notice{margin:10px 18px;padding:9px 12px;border:1px solid var(--danger);border-radius:12px;background:color-mix(in srgb,var(--danger) 9%,var(--surface));color:var(--ink);font-size:13px;line-height:1.45}

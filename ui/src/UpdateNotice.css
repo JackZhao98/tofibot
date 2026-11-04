@@ -16,7 +16,7 @@
 .update-banner .update-progress{flex:1}
 .update-progress{display:inline-flex;align-items:center;flex-wrap:wrap;gap:10px;min-width:0;color:var(--ink);font:13px/1.45 var(--body)}
 .update-progress>svg{flex:none;color:var(--lagoon-text)}
-.update-progress.is-failed>svg{color:var(--danger)}
+.update-progress.is-failed>svg{color:var(--danger-text)}
 .update-progress-copy{display:grid;gap:2px;min-width:0;overflow-wrap:anywhere}
 .update-progress-meta{display:flex;flex-wrap:wrap;gap:8px;color:var(--muted);font-size:12px}
 .update-progress-meta code{padding:1px 6px;border-radius:6px;background:var(--sunk);font:12px var(--mono)}
@@ -28,6 +28,6 @@
 .update-dialog-badge{padding:2px 9px;border:1px solid var(--line-soft);border-radius:999px;font-size:12px;font-weight:600;color:var(--ink)}
 .update-dialog-badge.is-rc{border-color:var(--lagoon-text);color:var(--lagoon-text)}
 .update-dialog .delete-dialog-note a{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
-.update-dialog-error{color:var(--danger)}
+.update-dialog-error{color:var(--danger-text)}
 .version-card .update-progress{justify-content:flex-end}
 @media(max-width:700px){.version-card .update-progress{justify-content:flex-start}.update-progress-bar{flex-basis:100%;width:auto}}

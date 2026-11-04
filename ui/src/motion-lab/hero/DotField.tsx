@@ -18,7 +18,7 @@ const BASE_ALPHA = 0.1;
 type Pointer = { x: number; y: number } | null;
 
 function readInk(): string {
-  return getComputedStyle(document.documentElement).getPropertyValue("--ink").trim() || "#241b14";
+  return getComputedStyle(document.documentElement).getPropertyValue("--ink").trim() || "canvastext";
 }
 
 /** The hero's dotted ground: dots swell under the pointer and ring outward on impacts. */

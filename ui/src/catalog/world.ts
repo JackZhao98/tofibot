@@ -192,7 +192,11 @@ export type AppOptions = {
   usage?: "full" | "split-unavailable" | "no-snapshot" | "old-server";
 };
 
-const SCREEN = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800"><rect width="1280" height="800" fill="#d9e6ee"/><rect width="1280" height="36" fill="#33495a"/><rect x="120" y="140" width="560" height="360" rx="14" fill="#fff"/><text x="160" y="200" font-size="34" font-family="sans-serif" fill="#33495a">Synthetic screen</text></svg>')}`;
+/** A data-URI image cannot read CSS tokens, so the fake screenshot takes its colours from the live theme when it is asked for. */
+const screen = () => {
+  const token = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800"><rect width="1280" height="800" fill="${token("--sunk")}"/><rect width="1280" height="36" fill="${token("--ink-soft")}"/><rect x="120" y="140" width="560" height="360" rx="14" fill="${token("--surface")}"/><text x="160" y="200" font-size="34" font-family="sans-serif" fill="${token("--ink-soft")}">Synthetic screen</text></svg>`)}`;
+};
 
 /** GET /api/system/update (internal/app/update_request.go): the release check plus what the host reports about an update in flight. */
 function updateAnswer(update: AppOptions["update"]) {
@@ -299,7 +303,7 @@ export function workspace(options: AppOptions): Synthetic {
     if (p === "/api/storage") return json({ version: 1, measured_at: "2026-10-27T10:00:00Z", server_bytes: 1610612736, files_bytes: 1395864371, database_bytes: 214748365, physical_files_bytes: 1395864371, pending_copy_count: 0, classes: [{ class: "uploads", bytes: 644245094, objects: 12, billable: true }, { class: "published", bytes: 751619277, objects: 4, billable: true }, { class: "generated", bytes: 0, objects: 0, billable: true }, { class: "outbox", bytes: 0, objects: 0, billable: true }, { class: "mirror", bytes: 0, objects: 0, billable: true }, { class: "conversations", bytes: 104857600, objects: 300, billable: false }, { class: "db", bytes: 214748365, objects: 0, billable: true }], limit_bytes: 10737418240, remaining_bytes: 9126805504, over_limit: false, computer: null, by_bot: [], by_conversation: [] });
     if (options.computer === "none" && (p === "/api/computers/firecracker/info" || p === "/api/computers/firecracker/actions" || p === "/api/computer/desktop-ownership")) return json({ error: { code: "not_configured", message: "computer VM is not configured" } }, 404);
     if (p === "/api/computers/firecracker/info") return json({ kind: "firecracker", state: options.computer === "starting" || options.computer === "hibernated" || options.computer === "resuming" ? options.computer : "ready", phase: options.computer === "starting" ? "booting" : undefined, desktop_starting: options.computer === "desktop-starting" || undefined });
-    if (p === "/api/computers/firecracker/actions") return json({ ok: true, result: String(init?.body ?? "").includes("desktop.control.acquire") ? { control_id: "ctl_catalog" } : { image_url: SCREEN } });
+    if (p === "/api/computers/firecracker/actions") return json({ ok: true, result: String(init?.body ?? "").includes("desktop.control.acquire") ? { control_id: "ctl_catalog" } : { image_url: screen() } });
     if (p === "/api/computer/desktop-ownership") return json({ owner: options.driver === "bot" ? { kind: "bot", bot_id: "bot_mochi", run_id: "run_driver", conversation_id: "dm_mochi" } : null, waiting: [] });
     if (p === "/api/system/update") return json(updateAnswer(options.update));
     return json({});
@@ -363,7 +367,7 @@ export function isolated(extra: Record<string, unknown> = {}): Synthetic {
     if (p === "/api/preferences") return json({ timezone: "UTC", timezone_configured: true, language: localStorage.getItem("tofi.language") ?? "en", show_activity: false });
     if (p === "/api/bots") return json({ bots: BOTS });
     if (p === "/api/computers/firecracker/info") return json({ kind: "firecracker", state: "ready" });
-    if (p === "/api/computers/firecracker/actions") return json({ ok: true, result: { image_url: SCREEN } });
+    if (p === "/api/computers/firecracker/actions") return json({ ok: true, result: { image_url: screen() } });
     if (p === "/api/computer/desktop-ownership") return json({ owner: null, waiting: [] });
     if (p.startsWith("/api/questions/") && p.endsWith("/answer") && init?.method === "POST") return json({ question: null });
     return json({});

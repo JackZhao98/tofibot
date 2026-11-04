@@ -30,7 +30,7 @@
 .catalog-frame-box figcaption a { color: inherit; }
 .catalog-frame-viewport { overflow: hidden; border: 1px solid var(--line); border-radius: 10px; }
 .catalog-frame-viewport iframe { display: block; border: 0; transform-origin: 0 0; }
-.catalog-frame-error, html.catalog-frame .catalog-error { margin: 0 0 6px; padding: 8px 10px; white-space: pre-wrap; color: var(--danger, #b3261e); border: 1px solid currentColor; border-radius: 8px; font: 12px/1.4 ui-monospace, monospace; }
+.catalog-frame-error, html.catalog-frame .catalog-error { margin: 0 0 6px; padding: 8px 10px; white-space: pre-wrap; color: var(--danger-text); border: 1px solid currentColor; border-radius: 8px; font: 12px/1.4 ui-monospace, monospace; }
 
 /* Inside a frame: the inline states of a section, stacked with a caption each. */
 html.catalog-frame-inline .catalog-stage { height: auto; overflow: visible; display: block; padding: 16px 20px 24px; }

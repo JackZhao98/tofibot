@@ -84,7 +84,7 @@
   }
   .workspace .sidebar-collapsed :is(.conversation-status,.pin-tile-badge)[data-status="unread"] { background:var(--orange); color:var(--on-block); }
   .workspace .sidebar-collapsed :is(.conversation-status,.pin-tile-badge):is([data-status="attention"],[data-status="failed"]) { min-width:16px; padding:0; border:0; background:var(--iris); color:var(--on-block); font:700 11px/1 var(--mono); }
-  .workspace .sidebar-collapsed :is(.conversation-status,.pin-tile-badge)[data-status="failed"] { background:var(--danger); color:#fff; }
+  .workspace .sidebar-collapsed :is(.conversation-status,.pin-tile-badge)[data-status="failed"] { background:var(--danger); color:var(--on-danger); }
   .workspace .sidebar-collapsed :is(.conversation-status,.pin-tile-badge)[data-status="working"] { top:6px; right:6px; min-width:0; width:9px; height:9px; padding:0; background:var(--blue); }
 
   /* Bottom: the account avatar on the same axis, no divider. */

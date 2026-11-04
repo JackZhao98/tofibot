@@ -1,8 +1,7 @@
 @import "../fonts.css";
 
 /* Motion Lab page chrome. Colours come only from design-tokens.css. */
-:root { --hard-ink:#2a2019; --lab-max:1160px; }
-:root[data-theme="dark"] { --hard-ink:#000; }
+:root { --lab-max:1160px; }
 
 *, *::before, *::after { box-sizing:border-box; }
 html { scroll-behavior:smooth; }
@@ -115,7 +114,7 @@ button { font:inherit; color:inherit; }
 }
 .lab-btn.primary { background:var(--clay); color:var(--on-block); }
 .lab-btn:not(:disabled):hover { transform:translate(-1px,-1px); box-shadow:3px 4px 0 var(--hard-ink); }
-.lab-btn.primary:not(:disabled):hover { background:color-mix(in srgb,var(--clay) 88%,#fff); }
+.lab-btn.primary:not(:disabled):hover { background:color-mix(in srgb,var(--clay) 88%,var(--white)); }
 .lab-btn:not(:disabled):active { transform:translate(2px,3px); box-shadow:none; }
 .lab-btn:disabled { opacity:.45; box-shadow:none; cursor:not-allowed; }
 .lab-btn.quiet { border-color:transparent; box-shadow:none; background:transparent; color:var(--ink-soft); }

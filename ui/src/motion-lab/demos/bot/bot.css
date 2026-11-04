@@ -32,8 +32,8 @@
 .bp-cat .lab-cat { width:100%; height:100%; }
 .bp-paint {
   position:absolute; inset:0;
-  -webkit-mask:radial-gradient(circle at var(--x) var(--y), transparent var(--paint-r), #000 calc(var(--paint-r) + 1.5px));
-  mask:radial-gradient(circle at var(--x) var(--y), transparent var(--paint-r), #000 calc(var(--paint-r) + 1.5px));
+  -webkit-mask:radial-gradient(circle at var(--x) var(--y), transparent var(--paint-r), black calc(var(--paint-r) + 1.5px));
+  mask:radial-gradient(circle at var(--x) var(--y), transparent var(--paint-r), black calc(var(--paint-r) + 1.5px));
 }
 .bp-paint > svg { display:block; width:100%; height:100%; }
 .bp-hero h4 { margin:10px 0 0; font:700 22px/1.2 var(--display); }
