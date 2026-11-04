@@ -304,11 +304,57 @@ func TestToolShownBeforeAResumeRunsWithoutAnotherReveal(t *testing.T) {
 	// Without the mark the same tool is revealed first.
 	plain := f.prepare(t)
 	_, err = discoveryTool(t, plain, "call_mcp_tool").Execute(ctx, json.RawMessage(validReplace))
-	if o, _ := tooloutcome.FromError(err); o.Code != "schema_required" || f.calls.Load() != 1 {
-		t.Fatalf("unmarked tool ran blind: %v calls=%d", err, f.calls.Load())
+	if o, _ := tooloutcome.FromError(err); o.Code != "schema_required" || o.Tool != "mcp_notion__notion-update-page" || f.calls.Load() != 1 {
+		t.Fatalf("unmarked tool ran blind, or the reveal does not name its tool: %v (tool %q) calls=%d", err, o.Tool, f.calls.Load())
 	}
 	var decoded CachedMCPTool
 	if json.Unmarshal([]byte(`{"name":"mcp_notion__notion-update-page","ShownInRun":true,"shown_in_run":true}`), &decoded) != nil || decoded.ShownInRun {
 		t.Fatal("ShownInRun must never come from JSON")
+	}
+}
+
+// A shown-in-run name only skips the reveal: the server's denylist, argument
+// validation and the approval gate all still apply.
+func TestShownInRunKeepsPolicyValidationAndGate(t *testing.T) {
+	ctx := context.Background()
+	shown := []CachedMCPTool{{Name: "mcp_notion__notion-update-page", ShownInRun: true}}
+	// Denied on the server: still uncallable, nothing reaches the remote.
+	var deniedCalls atomic.Int32
+	srv := fixtureServer("notion", "1")
+	tool := fixtureTool("notion-update-page", fixtureDescription("Update a page"))
+	tool.InputSchema = notionLikeSchema(20)
+	srv.AddTool(tool, func(context.Context, *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		deniedCalls.Add(1)
+		return fixtureText("updated"), nil
+	})
+	httpSrv := fixtureHTTPServer(srv)
+	t.Cleanup(httpSrv.Close)
+	denied := NewManager(Config{MCPConfigPath: filepath.Join(t.TempDir(), "mcp.json")})
+	if err := denied.SaveMCP("notion", MCPServerConfig{URL: httpSrv.URL, ToolDenylist: []string{"notion-update-page"}}, false); err != nil {
+		t.Fatal(err)
+	}
+	p, err := denied.PrepareDiscoverableForBotWithCallGate(ctx, "bot", shown, func(context.Context, MCPCallApproval) error { return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = p.Close() })
+	if _, err := discoveryTool(t, p, "call_mcp_tool").Execute(ctx, json.RawMessage(validReplace)); err == nil || deniedCalls.Load() != 0 {
+		t.Fatalf("denied tool ran: %v calls=%d", err, deniedCalls.Load())
+	}
+	// Allowed: invalid arguments are refused locally, valid ones pass the gate once.
+	f := newNotionFixture(t, notionLikeSchema(20))
+	var gate atomic.Int32
+	q, err := f.manager.PrepareDiscoverableForBotWithCallGate(ctx, "bot", shown, func(context.Context, MCPCallApproval) error { gate.Add(1); return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = q.Close() })
+	call := discoveryTool(t, q, "call_mcp_tool")
+	_, err = call.Execute(ctx, json.RawMessage(`{"name":"mcp_notion__notion-update-page","arguments":{}}`))
+	if o, _ := tooloutcome.FromError(err); err == nil || o.Code == "schema_required" || f.calls.Load() != 0 {
+		t.Fatalf("invalid arguments: %v (code %q) calls=%d", err, o.Code, f.calls.Load())
+	}
+	if out, err := call.Execute(ctx, json.RawMessage(validReplace)); err != nil || out != "updated" || f.calls.Load() != 1 || gate.Load() != 1 {
+		t.Fatalf("valid call: %q %v calls=%d gate=%d", out, err, f.calls.Load(), gate.Load())
 	}
 }

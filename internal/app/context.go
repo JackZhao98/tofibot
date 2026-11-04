@@ -230,11 +230,21 @@ func (s *Store) runShownMCPToolNames(runID, botID string) []string {
 			var o struct {
 				Code       string `json:"code"`
 				NextAction string `json:"next_action"`
+				Tool       string `json:"tool"`
+			}
+			if json.Unmarshal([]byte(outcome), &o) != nil || o.Code != "schema_required" || o.NextAction != "repair_arguments" {
+				continue
+			}
+			// The reveal names its tool; older rows only have the arguments,
+			// which are cut for a large call.
+			if o.Tool != "" {
+				add(o.Tool)
+				continue
 			}
 			var call struct {
 				Name string `json:"name"`
 			}
-			if json.Unmarshal([]byte(outcome), &o) == nil && o.Code == "schema_required" && o.NextAction == "repair_arguments" && json.Unmarshal([]byte(arguments), &call) == nil {
+			if json.Unmarshal([]byte(arguments), &call) == nil {
 				add(call.Name)
 			}
 		}

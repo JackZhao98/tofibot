@@ -148,13 +148,15 @@ func TestRunShownMCPToolNamesCountSearchesAndReveals(t *testing.T) {
 	row("run_now", "c2", "call_mcp_tool", `{"name":"mcp_never_searched","arguments":{}}`, "", "failed", `{"code":"schema_required","execution_certainty":"not_executed","next_action":"refresh_schema"}`)
 	row("run_now", "s2", "search_mcp_tools", `{}`, `{"tools":[{"name":"mcp_failed_search"}]}`, "failed", "")
 	row("run_old", "s3", "search_mcp_tools", `{}`, `{"tools":[{"name":"mcp_other_run"}]}`, "completed", "")
+	// A large first call: its stored arguments are cut, so the reveal's own tool field names it.
+	row("run_now", "c3", "call_mcp_tool", `{"arguments":{"data":{"new_str":"aaaa…`, "", "failed", `{"code":"schema_required","execution_certainty":"not_executed","next_action":"repair_arguments","tool":"mcp_large_write"}`)
 	got := s.runShownMCPToolNames("run_now", b.ID)
 	sort.Strings(got)
-	if strings.Join(got, ",") != "mcp_compacted,mcp_revealed,mcp_whole" {
+	if strings.Join(got, ",") != "mcp_compacted,mcp_large_write,mcp_revealed,mcp_whole" {
 		t.Fatalf("names = %v", got)
 	}
 	tools := withRunShownNames(nil, got)
-	if len(tools) != 3 || !tools[0].ShownInRun || tools[0].Parameters != nil {
+	if len(tools) != 4 || !tools[0].ShownInRun || tools[0].Parameters != nil {
 		t.Fatalf("name-only entries = %+v", tools)
 	}
 }
