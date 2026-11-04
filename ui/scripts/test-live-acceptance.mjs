@@ -415,10 +415,9 @@ async function L4({fx, page}) {
   await page.getByRole('button', {name: 'Settings', exact: true}).click();
   await page.getByRole('button', {name: 'Connections'}).first().click();
   await page.getByText('notion', {exact: true}).first().waitFor({timeout: 15000});
-  const toggle = page.getByRole('button', {name: /^Tools · \d+$/});
-  await toggle.waitFor({timeout: 15000});
-  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
-  await page.locator('.mcp-tools').waitFor();
+  // The permission list lives on the connection's own page (same steps as test-tool-tiers-e2e.mjs openConnections).
+  await page.locator('.mcp-service[aria-label="notion"] .mcp-service-open').click();
+  await page.locator('.mcp-detail [data-section="tools"] .mcp-tool').first().waitFor({timeout: 15000});
   await page.getByRole('button', {name: 'Permission for notion-update-page'}).click();
   await page.getByRole('menu', {name: 'Permission for notion-update-page'}).locator('button[data-value="high_risk"]').click();
   await waitFor(async () => (await fx.call('GET', '/api/extensions/mcp/notion/tools')).json.tools.find(t => t.name === 'notion-update-page')?.tier === 'high_risk', 'override stored');
@@ -426,9 +425,16 @@ async function L4({fx, page}) {
   await page.getByRole('button', {name: 'Close settings'}).first().click();
   const m = (await fx.state()).mcp_calls.length;
   await openBot(page, fx, bot);
-  await say(page, 'Update page page-pricing with: Pricing table v2');
+  // A page the fake Notion search lists: with an unknown id the model stops to ask, and the gate is never reached.
+  await say(page, 'Update page page-roadmap with: Roadmap v2');
   await settle(fx, bot, {allowPending: true});
   let s = await snapshot(fx, bot, m);
+  if (!s.questions.length && !s.activities.some(a => /update-page/.test(a.args + a.name))) {
+    current.evidence = s;
+    inconclusive('the model never attempted notion-update-page, so the always-ask gate was not exercised');
+    await fx.call('PUT', '/api/extensions/mcp/notion/tools/notion-update-page', {tier: ''}).catch(() => {});
+    return;
+  }
   check('a human card is pending although the user asked', s.questions.some(x => x.status === 'pending'), JSON.stringify(s.questions));
   check('card visible in the UI (Approve button)', (await approveButtons(page).count()) >= 1, '');
   const revReq = (await fx.sql(`select count(*) n from usage_calls where kind<>'chat' and run_id in (select id from runs where conversation_id='${q(bot.dm_conversation_id)}')`))[0].n;
@@ -441,7 +447,7 @@ async function L4({fx, page}) {
     await sleep(800);
     s = await snapshot(fx, bot, m);
     const upd = s.calls.filter(c => c.tool === 'notion-update-page');
-    check('after approval: exactly one update-page on page-pricing', upd.length === 1 && upd[0].args.page_id === 'page-pricing', JSON.stringify(s.calls));
+    check('after approval: exactly one update-page on page-roadmap', upd.length === 1 && upd[0].args.page_id === 'page-roadmap', JSON.stringify(s.calls));
     check('still no reviewer model request', (await fx.sql(`select count(*) n from usage_calls where kind<>'chat' and run_id in (select id from runs where conversation_id='${q(bot.dm_conversation_id)}')`))[0].n === 0, '');
     check('question answered by a human', s.questions.some(x => x.answered_by === 'human'), JSON.stringify(s.questions));
   }
