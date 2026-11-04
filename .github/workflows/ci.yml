@@ -44,6 +44,7 @@ jobs:
       - run: npm --prefix ui run test:i18n
       - run: npm --prefix ui run test:motion-tokens
       - run: npm --prefix ui run build
+      - run: npm --prefix ui run test:lazy-css
 
   # Browser guards. The scripts load Playwright from PLAYWRIGHT_MODULE (ui/package.json has no Playwright dependency).
   # TOFI_SKIP_TIMING=1 leaves out the clock-reading checks of test:dialogs and test:overlays; test:shell-budget runs

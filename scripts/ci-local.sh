@@ -120,6 +120,8 @@ go_test() {
 
 npm_ui() { npm --prefix ui run "$@"; }
 guards() { TOFI_SKIP_TIMING=1 SHELL_BUDGET_ONLY=struct npm_ui "$@"; }
+# The lazy-CSS scan reads the dist the build just wrote (ci.yml runs it right after the build too).
+ui_build() { npm_ui build && npm_ui test:lazy-css; }
 need_playwright() { [ -f "$PLAYWRIGHT_MODULE" ] || { echo "PLAYWRIGHT_MODULE not found: $PLAYWRIGHT_MODULE" >&2; return 1; }; }
 
 GO='\.go$|^go\.(mod|sum)$|^internal/|^cmd/'
@@ -137,7 +139,7 @@ job go-test      "$GO"  go_test
 job ui-typecheck "$UI"  npm_ui typecheck
 job ui-i18n      always npm_ui test:i18n
 job ui-motion-tokens always npm_ui test:motion-tokens
-job ui-build     "$UI"  npm_ui build
+job ui-build     "$UI"  ui_build
 if wanted ui-layers always || wanted ui-dialogs always || wanted ui-overlays always || wanted ui-shell-budget always || wanted ui-catalog "$UISRC"; then
   need_playwright || { summary+=("FAIL  playwright (PLAYWRIGHT_MODULE missing)"); failed="playwright"; }
 fi

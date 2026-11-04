@@ -110,8 +110,12 @@ export const ComposerStopMenu = chunk("stopMenu", module => module.ComposerStopM
 export const panelLoaded = (name: PanelChunk) => loaded.has(name);
 export const whenPanelLoaded = (name: PanelChunk) => load(name);
 const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; };
-/** Re-renders its caller once the chunk lands (steps that must be in the DOM to be found wait on it). */
-export const usePanelLoaded = (name: PanelChunk) => useSyncExternalStore(subscribe, () => loaded.has(name), () => loaded.has(name));
+/**
+ * Re-renders its caller once the chunk lands (steps that must be in the DOM to be found wait on it). With `watch` false the
+ * answer is false and the chunk's arrival renders nothing: a caller as large as the Workspace should watch only while it needs
+ * the answer, because a store update renders synchronously and the warm-up lands chunks while the person is dragging or typing.
+ */
+export const usePanelLoaded = (name: PanelChunk, watch = true) => useSyncExternalStore(subscribe, () => watch && loaded.has(name), () => watch && loaded.has(name));
 
 /**
  * For content that only shows after a person opens something: draws nothing until the chunk is in memory, with no
