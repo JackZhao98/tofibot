@@ -4,6 +4,10 @@ import assert from "node:assert/strict";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+if (!process.env.TOFI_ROUTE_BROWSER_MANIFEST) {
+  console.error("TOFI_ROUTE_BROWSER_MANIFEST is not set: start the fixture first with `TOFI_ROUTE_BROWSER_MANIFEST=<abs path to a json file> go test ./internal/app -run '^TestConversationRouteBrowserFixture$' -count=1 -timeout 20m &` (repo root), then rerun with the same variable.");
+  process.exit(2);
+}
 const fixture = JSON.parse(readFileSync(process.env.TOFI_ROUTE_BROWSER_MANIFEST, "utf8"));
 const { origin, accounts, password } = fixture;
 assert.match(origin, /^http:\/\/127\.0\.0\.1:\d+$/, "only disposable loopback fixtures are allowed");
@@ -74,7 +78,8 @@ try {
       results.push({ layout, label, path: new URL(page.url()).pathname, pass: true });
     };
     const sidebar = async name => {
-      if (width < 600 && !await page.locator(".contact-pane").isVisible()) await page.getByRole("button", { name: "返回消息列表", exact: true }).click();
+      // The list drawer is "closed" by state (.open), not by visibility: visibility only flips after the slide-out transition ends.
+      if (width < 600 && await page.locator(".contact-pane.open").count() === 0) await page.getByRole("button", { name: "返回消息列表", exact: true }).click();
       await page.locator(".conversation-row").filter({ has: page.locator("strong", { hasText: name }) }).click();
     };
     const unavailable = async path => {
@@ -156,8 +161,21 @@ try {
     await record("unavailable-recovery-by-sidebar");
 
     // The sidebar view is the one surface the address carries: a direct link opens it, a switch keeps it (and the address), and a link
-    // without it has none. Wide windows only (narrow ones draw it as a drawer).
-    if (width >= 1100) {
+    // without it has none. The column sidebar is for wide browser windows; the native desktop shell and narrow windows draw the same
+    // view as a drawer (.detail-pane.context-panel) over the chat, so there the address must open that drawer.
+    if (width >= 1100 && native) {
+      await page.goto(`${origin}/b/${two.id}?side=memory`);
+      await chat(`/b/${two.id}?side=memory`, two.name);
+      await page.locator(".detail-pane.context-panel.visible").waitFor();
+      assert.equal(await page.locator(".sidebar-pane").count(), 0, "the native shell draws the sidebar as a drawer, not a column");
+      await page.goto(`${origin}/b/${one.id}?side=nonsense`);
+      await chat(`/b/${one.id}?side=nonsense`, one.name);
+      assert.equal(await page.locator(".detail-pane.context-panel").count(), 0, "an unknown ?side= opens nothing");
+      await page.goto(`${origin}/b/${one.id}`);
+      await chat(`/b/${one.id}`, one.name);
+      await record("side-param-opens-sidebar-drawer-native");
+    }
+    if (width >= 1100 && !native) {
       await page.goto(`${origin}/b/${two.id}?side=memory`);
       await chat(`/b/${two.id}?side=memory`, two.name);
       await page.locator(".sidebar-pane").waitFor();
