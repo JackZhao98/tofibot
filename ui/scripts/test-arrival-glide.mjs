@@ -2,7 +2,8 @@
 // scroll tween instead of jumping. Budgets (plan item 3):
 //  - a whole message: no frame moves the previous message more than 24 px, it is home within ~220 ms (+2 frames),
 //    the pane is never more than 34 px from the bottom, layout shift <= 0.01, no frame over 34 ms;
-//  - streaming growth: the follow step is at most 12 px per frame at p95 (hops of ~120 ms);
+//  - streaming growth: each hop closes within its window (120 ms while streaming, 220 ms after 400 ms of quiet; +3 frames)
+//    and no frame moves more than 24 px;
 //  - reduced motion: the pane lands in one frame; a reader who scrolls up abandons the hop and is not pulled back.
 // Synthetic data. Run: PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:arrival-glide
 // ARRIVAL_GLIDE_ENGINE=webkit runs the same checks in WebKit; ARRIVAL_GLIDE_THROTTLE=4 slows Chromium's CPU 4x.
@@ -277,11 +278,19 @@ await check("a tall message hands the rest of the hop to the glide: no jump on t
   await context.close();
 });
 
-await check("streaming growth follows with steps of at most 12 px", async () => {
+// The follow windows of ui/src/useConversationScroll.ts; change them together. A hop that starts after GLIDE_STREAM_WINDOW_MS
+// of quiet is a fresh arrival and glides GLIDE_MS; growth sooner than that is a stream and glides GLIDE_STREAM_MS.
+const GLIDE_MS = 220, GLIDE_STREAM_MS = 120, GLIDE_STREAM_WINDOW_MS = 400;
+// Three frames: the glide's clock starts on the first painted frame after the growth, the trace's frame callback can run
+// before the glide's and so read the position a frame late, and WebKit's frames vary between 15 and 21 ms.
+const FOLLOW_SLACK_MS = 50 * THROTTLE;
+await check("streaming growth is followed within the glide window, never more than 24 px a frame", async () => {
   const { page, context, errors } = await open();
   const text = Array.from({ length: 14 }, (_, i) => `Synthetic streamed sentence ${i + 1} reads the weekly entries and totals them against the ledger.`).join("\n\n");
   const common = { conversation_id: "dm_a", run_id: "run_live", bot_id: "bot_a", message_id: "m_live", seq: 41, created_at: new Date().toISOString() };
   await startTrace(page);
+  // Two traced frames before the first delta, so the draft's first appearance is measured against the page without it.
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   const t0 = await page.evaluate(() => performance.now());
   let rev = 0;
   for (let i = 0; i < text.length; i += 14) {
@@ -296,20 +305,67 @@ await check("streaming growth follows with steps of at most 12 px", async () => 
   const steps = [];
   for (let i = 1; i < trace.length; i++) if (trace[i].t >= t0 && trace[i].y != null && trace[i - 1].y != null && Math.abs(trace[i].y - trace[i - 1].y) > 0.5) steps.push(Math.abs(trace[i].y - trace[i - 1].y));
   steps.sort((a, b) => a - b);
-  const p95 = steps[Math.min(steps.length - 1, Math.floor(steps.length * 0.95))] ?? 0;
-  // The draft's first appearance is an arrival (a whole block, ~95 px); after that each line must be followed closely.
-  const peakFb = Math.max(...trace.filter(f => f.t >= t0 + 300).map(f => f.fb));
+  // How long the pane trails the text. Every growth sets a deadline by the rule above: a hop that starts at the bottom gets
+  // the arrival or the stream window by how long the page was quiet; growth during a hop must be caught up within the stream
+  // window. A frame still above the bottom after its deadline is late. Growth is read from the scroll height (fb + top), not
+  // from fb, because a glide step can hide a small growth in the same frame. A hop's size depends on where the text wraps;
+  // the time to close it does not.
+  let prevGrowth = -Infinity, deadline = -Infinity, late = -Infinity, lateAt = 0;
+  for (let i = 1; i < trace.length; i++) {
+    const f = trace[i], before = trace[i - 1];
+    if (f.fb + f.top > before.fb + before.top + 0.5) {
+      if (before.fb <= 0.5) deadline = f.t + (f.t - prevGrowth >= GLIDE_STREAM_WINDOW_MS ? GLIDE_MS : GLIDE_STREAM_MS) + FOLLOW_SLACK_MS;
+      deadline = Math.max(deadline, f.t + GLIDE_STREAM_MS + FOLLOW_SLACK_MS);
+      prevGrowth = f.t;
+    }
+    if (f.t >= t0 && f.fb > 0.5 && f.t - deadline > late) { late = f.t - deadline; lateAt = f.t - t0; }
+  }
+  if (process.env.ARRIVAL_GLIDE_DEBUG) console.log(`    latest frame ${late.toFixed(0)} ms past its deadline at ${lateAt.toFixed(0)} ms`);
   const endFb = trace.at(-1).fb;
   if (process.env.ARRIVAL_GLIDE_DEBUG) console.log(trace.filter(f => f.t >= t0).map(f => `${(f.t - t0).toFixed(0)}:${f.fb.toFixed(0)}${f.jump ? "J" : ""}`).join(" "));
   const cls = ls.filter(([t]) => t >= t0).reduce((sum, [, v]) => sum + v, 0);
-  report.stream = { stepsMoving: steps.length, p95: +p95.toFixed(1), max: +(steps.at(-1) ?? 0).toFixed(1), fromBottomMax: +peakFb.toFixed(1), endFromBottom: +endFb.toFixed(1), cls: +cls.toFixed(4) };
+  report.stream = { stepsMoving: steps.length, maxStep: +(steps.at(-1) ?? 0).toFixed(1), latestMs: +late.toFixed(0), endFromBottom: +endFb.toFixed(1), cls: +cls.toFixed(4) };
   console.log("    stream", JSON.stringify(report.stream));
   assert.ok(steps.length > 10, `the pane followed the text (${steps.length} moving frames)`);
-  assert.ok(p95 <= 12 * (THROTTLE > 1 ? 2 : 1), `follow step p95 ${p95}px (limit 12)`);
   assert.ok(steps.at(-1) <= 24.5 * (THROTTLE > 1 ? 2 : 1), `a follow step moved ${steps.at(-1)}px`);
-  assert.ok(peakFb <= 34 + 24 * (THROTTLE > 1 ? 2 : 1), `${peakFb}px from the bottom at worst while streaming`);
+  assert.ok(late <= 0, `the pane was still ${late.toFixed(0)} ms behind the text past its follow window, ${lateAt.toFixed(0)} ms in`);
   assert.ok(endFb <= 0.5, `ends at the bottom (${endFb}px)`);
   assert.ok(cls <= 0.01, `layout shift ${cls}`);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+await check("growth that a glide in flight reads first still counts as a stream: the next hop glides the stream window", async () => {
+  const { page, context, errors } = await open();
+  await page.waitForTimeout(500);
+  await startTrace(page);
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  // Plain 40 px blocks appended to the list; the pane's ResizeObserver sees them like any growth. The first starts a hop after
+  // a long quiet (GLIDE_MS). The second lands 100 ms into that glide, whose own frame reads the new height before the observer
+  // runs. The third comes 350 ms after the second and 450 ms after the first: a stream by the rule, so it glides GLIDE_STREAM_MS.
+  // If the second growth were not counted, the third would look like a fresh arrival and glide GLIDE_MS.
+  const marks = await page.evaluate(() => new Promise(resolve => {
+    const list = document.querySelector(".message-list");
+    const add = () => { const block = document.createElement("div"); block.style.height = "40px"; list.append(block); return performance.now(); };
+    const at = [add()];
+    setTimeout(() => { at.push(add()); setTimeout(() => { at.push(add()); setTimeout(() => resolve(at), 600); }, 350); }, 100);
+  }));
+  const { trace } = await stopTrace(page);
+  const height = f => f.fb + f.top;
+  const closeAfter = mark => {
+    const grew = trace.findIndex((f, i) => i > 0 && f.t >= mark - 1 && height(f) > height(trace[i - 1]) + 0.5);
+    const home = trace.findIndex((f, i) => i > grew && f.fb <= 0.5);
+    return grew > 0 && home > 0 ? trace[home].t - trace[grew].t : Infinity;
+  };
+  const first = closeAfter(marks[0]), third = closeAfter(marks[2]);
+  report.absorbed = { gaps: [+(marks[1] - marks[0]).toFixed(0), +(marks[2] - marks[1]).toFixed(0)], firstHopMs: +first.toFixed(0), thirdHopMs: +third.toFixed(0) };
+  console.log("    absorbed", JSON.stringify(report.absorbed));
+  assert.ok(marks[2] - marks[1] < GLIDE_STREAM_WINDOW_MS - 20 && marks[2] - marks[0] > GLIDE_STREAM_WINDOW_MS + 20, `the timers kept their spacing (${report.absorbed.gaps})`);
+  // Which window a hop used: the line sits halfway between the two, so frame jitter cannot move a hop across it. Both hops
+  // carry the same frame delays, so the slack is not scaled by the CPU throttle here.
+  const midway = (GLIDE_STREAM_MS + GLIDE_MS) / 2 + FOLLOW_SLACK_MS / THROTTLE;
+  assert.ok(first > midway, `the first hop, after a long quiet, took the arrival glide (${first.toFixed(0)} ms, line ${midway})`);
+  assert.ok(third <= midway, `the third hop took ${third.toFixed(0)} ms, the arrival glide; 350 ms after the absorbed growth it is a stream (line ${midway})`);
   assert.deepEqual(errors, []);
   await context.close();
 });

@@ -250,6 +250,9 @@ export function useConversationScroll(options: Options) {
       const wanted = glide.from + (end - glide.from) * easeInOutSine(p);
       const next = Math.min(wanted, node.scrollTop + GLIDE_STEP_MAX);
       node.scrollTop = p >= 1 && end - node.scrollTop <= GLIDE_STEP_MAX ? end : Math.max(next, node.scrollTop);
+      // Growth this frame reads first never reaches followBottom (the height already matches), so it is a stream here:
+      // without this, the next hop after a quiet-looking gap would glide GLIDE_MS instead of GLIDE_STREAM_MS.
+      if (node.scrollHeight > glide.height) v.lastGrowth = performance.now();
       glide.height = node.scrollHeight;
       v.bottomTop = Math.max(v.bottomTop, node.scrollTop);
       if (p >= 1 && Math.abs(end - node.scrollTop) <= 0.5) { v.glide = null; syncPosition(); return; }
