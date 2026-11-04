@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "dev:remote": "TOFI_DEV_API_INSECURE=1 vite",
-    "build": "tsc -b && vite build && vite build --config vite.motion-lab.config.ts",
+    "build": "tsc -b && vite build && vite build --config vite.motion-lab.config.ts && vite build --config vite.desktop-settings.config.ts",
     "typecheck": "tsc -b --pretty false",
     "test:portability": "node scripts/test-portability.mjs",
     "test:owner-bootstrap": "node scripts/test-owner-bootstrap.mjs",
@@ -50,6 +50,8 @@
     "test:model-catalog": "node scripts/test-model-catalog.mjs",
     "test:model-catalog-refresh": "node scripts/test-model-catalog-refresh.mjs",
     "test:settings-shell": "node scripts/test-settings-shell.mjs",
+    "test:desktop-settings": "node scripts/test-desktop-settings.mjs",
+    "test:desktop-settings-isolation": "node scripts/test-desktop-settings-isolation.mjs",
     "test:no-computer": "node scripts/test-no-computer.mjs",
     "test:settings-choices": "node scripts/test-settings-choices.mjs",
     "test:automation-settings": "node scripts/test-automation-settings.mjs",

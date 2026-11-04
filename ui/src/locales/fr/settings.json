@@ -1347,5 +1347,157 @@
       "no_limit": "{{spend}} $ · sans plafond",
       "unavailable": "Aucune dépense n'a encore été remontée pour ce compte."
     }
+  },
+  "mac": {
+    "title": "Réglages du Mac",
+    "back": "Retour au chat",
+    "loading": "Lecture de l’état…",
+    "refresh": "Actualiser l’état",
+    "unavailable": "Cette page ne fonctionne que dans l’app de bureau Tofi.",
+    "device": {
+      "title": "Appareil",
+      "description": "Comment ce Mac apparaît à vos Bots.",
+      "name": "Nom de l’appareil",
+      "nameHint": "Affiché à vos Bots et dans Tofi.",
+      "folder": "Dossier de travail",
+      "folderHint": "Les Bots n’accèdent qu’aux fichiers de ce dossier.",
+      "choose": "Choisir…",
+      "choosing": "Sélection…",
+      "paired": "Associé · {{id}}",
+      "unpaired": "Non associé",
+      "capabilities": "Actif : {{list}}"
+    },
+    "caps": {
+      "title": "Capacités",
+      "description": "Ce que les Bots peuvent faire sur ce Mac. Les autorisations macOS ci-dessous sont aussi nécessaires.",
+      "files": {
+        "label": "Fichiers",
+        "hint": "Lister, lire et écrire des fichiers dans le dossier de travail."
+      },
+      "screen": {
+        "label": "Capture d’écran",
+        "hint": "Prendre des captures une fois l’enregistrement de l’écran autorisé."
+      },
+      "control": {
+        "label": "Contrôle du bureau",
+        "hint": "Cliquer et saisir au clavier une fois l’accessibilité autorisée."
+      },
+      "save": "Enregistrer les réglages",
+      "saving": "Enregistrement…"
+    },
+    "perm": {
+      "title": "Autorisations macOS",
+      "description": "macOS vous demande de les accorder dans Réglages Système.",
+      "screen": {
+        "label": "Enregistrement de l’écran",
+        "hint": "Nécessaire pour les captures d’écran."
+      },
+      "accessibility": {
+        "label": "Accessibilité",
+        "hint": "Nécessaire pour les clics et la saisie au clavier."
+      },
+      "granted": "Autorisé",
+      "missing": "Non autorisé",
+      "grant": "Ouvrir Réglages Système",
+      "hint": {
+        "screen": "Réglages Système affiche « Enregistrement de l’écran et de l’audio système ». Activez Tofi dans la liste. S’il n’y figure pas, faites glisser l’icône de la carte sous la fenêtre vers la liste. macOS peut demander de rouvrir Tofi, et à la première capture il peut proposer de contourner le sélecteur de fenêtres privé du système. Choisissez Autoriser.",
+        "accessibility": "Réglages Système affiche « Accessibilité ». Activez Tofi dans la liste. S’il n’y figure pas, faites glisser l’icône de la carte sous la fenêtre vers la liste."
+      },
+      "monthly": "Une fois l’enregistrement de l’écran activé, macOS demande environ une fois par mois si Tofi peut contourner le sélecteur de fenêtres privé du système. Choisissez Autoriser pour continuer les captures. Seul vous pouvez répondre à cette demande ; un Bot qui s’y heurte vous le signalera."
+    },
+    "bots": {
+      "title": "Bots sur ce Mac",
+      "description": "Un Bot est refusé la première fois qu’il demande à utiliser ce Mac. Il reste listé ici jusqu’à ce que vous l’autorisiez.",
+      "empty": "Aucun Bot n’a encore demandé à utiliser ce Mac.",
+      "unnamed": "Bot sans nom",
+      "allowed": "Autorisé",
+      "denied": "Refusé",
+      "waiting": "En attente de votre décision",
+      "allow": "Autoriser",
+      "deny": "Refuser",
+      "remove": "Retirer",
+      "control": {
+        "paused_stop": "Contrôle du bureau en pause (vous avez appuyé sur Arrêter).",
+        "paused_takeover": "Contrôle du bureau en pause (vous avez repris la souris ou le clavier).",
+        "active": "Un Bot contrôle ce Mac.",
+        "idle": "Aucun Bot ne contrôle ce Mac."
+      },
+      "stop": "Arrêter et pauser 60 s",
+      "resume": "Reprendre",
+      "shortcut": "Pendant qu’un Bot a le contrôle, une bannière s’affiche en haut de l’écran. Appuyez sur ⌃⌥⌘Échap pour arrêter aussitôt et pauser 60 secondes."
+    },
+    "local": {
+      "title": "Exécution locale",
+      "description": "Autorisez les Bots de ce serveur à exécuter des commandes dans un dossier que vous choisissez.",
+      "root": "Dossier autorisé",
+      "noRoot": "Aucun dossier autorisé.",
+      "selected": "Dossier à autoriser",
+      "none": "Aucun choisi",
+      "server": "Serveur cible",
+      "serverNone": "Affiché une fois un dossier choisi",
+      "choose": "Choisir un dossier…",
+      "choosing": "Sélection…",
+      "authorize": "Autoriser ce dossier…",
+      "authorizing": "En attente de confirmation…",
+      "revoke": "Révoquer",
+      "revoking": "Révocation…",
+      "run": "Exécuter des commandes en local",
+      "summary": {
+        "unknown": "Impossible de lire l’état de l’autorisation. Les commandes sont désactivées.",
+        "faulted": "Environnement verrouillé : {{reason}}",
+        "unavailable": "Environnement indisponible : {{reason}}",
+        "disabled": "L’exécution locale n’est pas autorisée.",
+        "unbound": "L’autorisation n’est pas liée à ce serveur. Choisissez de nouveau le dossier et autorisez-le.",
+        "running": "Autorisé pour ce serveur · une commande s’exécute",
+        "ready": "Autorisé pour ce serveur · aucune commande en cours"
+      },
+      "reason": {
+        "faulted": "Le nettoyage des processus n’est pas confirmé. Arrêtez ou révoquez, puis actualisez l’état.",
+        "unavailable": "Actualisez l’état et réessayez."
+      },
+      "select": {
+        "idle": "Choisir un dossier n’accorde rien. Vous confirmez l’autorisation séparément.",
+        "pending": "Pas encore autorisé. Vérifiez le dossier et le serveur cible, puis autorisez.",
+        "noApi": "Cette version n’a pas d’autorisation native. Mettez l’app à jour et réessayez.",
+        "cancelled": "Autorisation annulée. Le dossier choisi n’a pas de nouvel accès.",
+        "changed": "L’autorisation a changé. Choisissez de nouveau le dossier et confirmez.",
+        "unknown": "Impossible de savoir si le choix est toujours valide. Actualisez l’état, puis choisissez de nouveau.",
+        "authorized": "Dossier autorisé pour les Bots de ce serveur.",
+        "unconfirmed": "L’autorisation n’a pas pu être confirmée. Choisissez de nouveau le dossier et autorisez-le.",
+        "revoked": "Autorisation révoquée. Pour l’utiliser, choisissez un dossier et autorisez-le de nouveau.",
+        "revoking": "Révocation…",
+        "revokePending": "La révocation n’est pas confirmée. Réessayez et actualisez l’état."
+      },
+      "boundary": "Les commandes peuvent lire le dossier autorisé, les outils de ~/.local/bin et tout fichier hors de votre dossier personnel que vous pouvez lire. Elles ne peuvent écrire que dans le dossier autorisé et un espace de projet privé, et les modifications ne sont pas annulées. ~/.local/bin est en lecture seule, mais ses outils peuvent changer pendant l’autorisation, et les exécuter peut avoir des effets de bord. Le reste de votre dossier personnel et les dossiers d’identifiants ne sont ni lisibles ni modifiables. Pas encore d’accès à SSH, au réseau ni au Trousseau. L’espace privé reste dans un dossier temporaire local après la révocation ; il n’est pas nettoyé automatiquement.",
+      "persist": "L’autorisation reste valable quand vous quittez cette page. Elle prend fin à la fermeture de l’app, au changement de serveur ou à la révocation."
+    },
+    "pair": {
+      "title": "Associer ce Mac",
+      "description": "Saisissez le code d’association affiché dans Tofi, sous Réglages, Autres appareils.",
+      "code": "Code d’association",
+      "submit": "Associer ce Mac",
+      "pairing": "Association…",
+      "note": "Les identifiants de l’appareil restent dans le processus principal de l’app de bureau et ne sont jamais envoyés à la page."
+    },
+    "error": {
+      "last": "La dernière action sur l’appareil a échoué",
+      "action": "Échec de l’action : {{message}}",
+      "noStatus": "Aucun état d’exécution reçu. Actualisez et réessayez.",
+      "invalidSelection": "Aucun dossier ni serveur cible valide reçu. Choisissez de nouveau.",
+      "stopFailed": "Impossible de lire l’état du Mac."
+    },
+    "confirm": {
+      "cancel": "Annuler",
+      "deny": {
+        "title": "Refuser {{name}} ?",
+        "body": "Toutes les demandes de ce Bot pour utiliser ce Mac sont refusées tant que vous ne l’autorisez pas de nouveau.",
+        "confirm": "Refuser"
+      },
+      "revoke": {
+        "title": "Révoquer l’exécution locale ?",
+        "body": "Les commandes en cours s’arrêtent et les Bots perdent l’accès au dossier autorisé. Vous pourrez autoriser un dossier de nouveau plus tard.",
+        "confirm": "Révoquer"
+      }
+    }
   }
 }

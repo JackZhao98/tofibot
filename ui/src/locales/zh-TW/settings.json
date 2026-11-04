@@ -1327,5 +1327,157 @@
       "no_limit": "${{spend}} · 無額度",
       "unavailable": "此帳戶尚未回報花費。"
     }
+  },
+  "mac": {
+    "title": "Mac 設定",
+    "back": "返回聊天",
+    "loading": "正在讀取…",
+    "refresh": "重新整理狀態",
+    "unavailable": "此頁面只能在 Tofi 桌面應用程式中使用。",
+    "device": {
+      "title": "裝置",
+      "description": "這台 Mac 在你的 Bot 眼中的樣子。",
+      "name": "裝置名稱",
+      "nameHint": "會顯示給你的 Bot 和 Tofi。",
+      "folder": "工作資料夾",
+      "folderHint": "Bot 只能存取這個資料夾內的檔案。",
+      "choose": "選擇…",
+      "choosing": "正在選擇…",
+      "paired": "已配對 · {{id}}",
+      "unpaired": "尚未配對",
+      "capabilities": "已啟用：{{list}}"
+    },
+    "caps": {
+      "title": "功能",
+      "description": "Bot 可以在這台 Mac 上做什麼。下方的 macOS 權限也需要授予。",
+      "files": {
+        "label": "檔案",
+        "hint": "在工作資料夾內列出、讀取和寫入檔案。"
+      },
+      "screen": {
+        "label": "螢幕截圖",
+        "hint": "授予「螢幕錄製」權限後允許截圖。"
+      },
+      "control": {
+        "label": "桌面控制",
+        "hint": "授予「輔助使用」權限後允許點按和鍵盤輸入。"
+      },
+      "save": "儲存設定",
+      "saving": "正在儲存…"
+    },
+    "perm": {
+      "title": "macOS 權限",
+      "description": "需要在「系統設定」中授予。",
+      "screen": {
+        "label": "螢幕錄製",
+        "hint": "截圖時需要。"
+      },
+      "accessibility": {
+        "label": "輔助使用",
+        "hint": "點按和鍵盤輸入時需要。"
+      },
+      "granted": "已允許",
+      "missing": "尚未允許",
+      "grant": "前往授權",
+      "hint": {
+        "screen": "已開啟「系統設定」的「螢幕與系統音訊錄製」。在列表中開啟 Tofi 的開關；列表中沒有的話，將視窗下方卡片裡的圖示拖進去。開啟後 macOS 可能要求重新開啟 Tofi，第一次截圖時也會提示「略過系統的私人視窗選擇器」，請按「允許」。",
+        "accessibility": "已開啟「系統設定」的「輔助使用」。在列表中開啟 Tofi 的開關；列表中沒有的話，將視窗下方卡片裡的圖示拖進去。"
+      },
+      "monthly": "開啟螢幕錄製後，macOS 大約每月會詢問一次 Tofi 是否可略過系統的私人視窗選擇器。這是 macOS 的規定，按「允許」即可繼續截圖。這個提示只能由你本人回答，Bot 遇到時會告訴你。"
+    },
+    "bots": {
+      "title": "這台 Mac 上的 Bot",
+      "description": "Bot 第一次請求使用這台 Mac 時會被拒絕並列在這裡，等你按「允許」才會放行。",
+      "empty": "還沒有 Bot 請求過這台 Mac。",
+      "unnamed": "（未命名 Bot）",
+      "allowed": "已允許",
+      "denied": "已拒絕",
+      "waiting": "等待你的決定",
+      "allow": "允許",
+      "deny": "拒絕",
+      "remove": "移除",
+      "control": {
+        "paused_stop": "桌面控制已暫停（你按了停止）。",
+        "paused_takeover": "桌面控制已暫停（你接管了滑鼠或鍵盤）。",
+        "active": "有 Bot 正在控制這台 Mac。",
+        "idle": "目前沒有 Bot 在控制這台 Mac。"
+      },
+      "stop": "停止並暫停 60 秒",
+      "resume": "繼續",
+      "shortcut": "Bot 控制期間，螢幕上方會顯示橫幅。按 ⌃⌥⌘Esc 可立即停止並暫停 60 秒。"
+    },
+    "local": {
+      "title": "本機執行",
+      "description": "讓目前伺服器的 Bot 在你指定的資料夾中執行指令。",
+      "root": "目前授權的資料夾",
+      "noRoot": "目前沒有已授權的資料夾。",
+      "selected": "待授權資料夾",
+      "none": "尚未選擇",
+      "server": "授權的目標伺服器",
+      "serverNone": "選擇資料夾後顯示",
+      "choose": "選擇資料夾…",
+      "choosing": "正在選擇…",
+      "authorize": "授權此資料夾…",
+      "authorizing": "等待確認…",
+      "revoke": "撤銷授權",
+      "revoking": "正在撤銷…",
+      "run": "在本機執行指令",
+      "summary": {
+        "unknown": "無法讀取執行授權狀態，已停用執行。",
+        "faulted": "執行環境已鎖定：{{reason}}",
+        "unavailable": "執行環境無法使用：{{reason}}",
+        "disabled": "尚未授權 Bot 在本機執行。",
+        "unbound": "授權未綁定目前的伺服器，請重新選擇資料夾並授權。",
+        "running": "已授權目前的伺服器 · 正在執行",
+        "ready": "已授權目前的伺服器 · 沒有執行中的指令"
+      },
+      "reason": {
+        "faulted": "程序清理尚未確認，請停止或撤銷授權後重新整理狀態。",
+        "unavailable": "請重新整理狀態後再試一次。"
+      },
+      "select": {
+        "idle": "選擇資料夾不會授予執行權限，需另外確認授權。",
+        "pending": "尚未授權。請核對資料夾與目標伺服器後再授權。",
+        "noApi": "此版本缺少原生授權介面，請更新應用程式後再試。",
+        "cancelled": "已取消授權，所選資料夾沒有取得新的存取權。",
+        "changed": "授權狀態已變更，請重新選擇資料夾並確認授權。",
+        "unknown": "無法確認所選項目是否仍有效，請重新整理後再選擇。",
+        "authorized": "已授權所選資料夾給目前伺服器的 Bot。",
+        "unconfirmed": "無法確認授權已綁定，請重新選擇資料夾並授權。",
+        "revoked": "已撤銷授權。要再使用時，請重新選擇資料夾並授權。",
+        "revoking": "正在撤銷…",
+        "revokePending": "撤銷尚未確認，請再試一次並重新整理狀態。"
+      },
+      "boundary": "指令可讀取授權的資料夾、~/.local/bin 中的工具，以及家目錄以外你能讀取的檔案；只能寫入授權的資料夾和私人專案工作區，變更不會復原。~/.local/bin 為唯讀，但其中的工具可能在授權期間改變，執行工具也可能產生副作用。家目錄的其他位置與憑證資料夾無法讀寫。目前不支援 SSH、網路或鑰匙圈存取。私人工作區在撤銷後仍保留在本機暫存資料夾，不會自動清除。",
+      "persist": "離開此頁面後授權仍然有效；結束應用程式、切換伺服器或撤銷授權後即失效。"
+    },
+    "pair": {
+      "title": "配對這台 Mac",
+      "description": "輸入 Tofi「設定 › 其他裝置」中顯示的配對碼。",
+      "code": "配對碼",
+      "submit": "配對這台 Mac",
+      "pairing": "正在配對…",
+      "note": "裝置憑證由桌面應用程式的主程序保管，不會傳送給頁面。"
+    },
+    "error": {
+      "last": "上一次裝置操作失敗",
+      "action": "操作失敗：{{message}}",
+      "noStatus": "未收到執行授權狀態，請重新整理後再試。",
+      "invalidSelection": "未收到有效的資料夾與目標伺服器，請重新選擇。",
+      "stopFailed": "無法讀取這台 Mac 的狀態。"
+    },
+    "confirm": {
+      "cancel": "取消",
+      "deny": {
+        "title": "拒絕 {{name}}？",
+        "body": "在你再次允許之前，這個 Bot 所有使用這台 Mac 的請求都會被拒絕。",
+        "confirm": "拒絕"
+      },
+      "revoke": {
+        "title": "撤銷本機執行授權？",
+        "body": "執行中的指令會停止，Bot 也會失去授權資料夾的存取權。之後可以重新授權資料夾。",
+        "confirm": "撤銷"
+      }
+    }
   }
 }

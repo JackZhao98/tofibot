@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- The Mac settings page of the Tofi desktop app. The desktop app serves this file at exactly /__desktop/settings and
+         nowhere else; it talks only to window.tofiDesktop and never to the server. Built by vite.desktop-settings.config.ts. -->
+    <link rel="icon" type="image/svg+xml" href="/brand/tofi-app-icon.svg?v=2" />
+    <title>Tofi</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div id="tofi-layers"></div>
+    <script type="module" src="/src/desktop-settings/main.tsx"></script>
+  </body>
+</html>

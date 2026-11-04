@@ -217,7 +217,10 @@
     "online": "オンライン",
     "offline": "オフライン",
     "disconnect_failed": "デバイスの接続を解除できませんでした。",
-    "disconnect": "接続解除"
+    "disconnect": "接続解除",
+    "this_mac": "この Mac",
+    "this_mac_note": "この Mac のデバイス名、フォルダ、macOS の権限、Bot のアクセス、ローカル実行。",
+    "open_mac": "Mac の設定を開く"
   },
   "resources": {
     "restart": {

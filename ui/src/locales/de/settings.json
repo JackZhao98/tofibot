@@ -1337,5 +1337,157 @@
       "no_limit": "{{spend}} $ · kein Limit",
       "unavailable": "Für dieses Konto wurden noch keine Ausgaben gemeldet."
     }
+  },
+  "mac": {
+    "title": "Mac-Einstellungen",
+    "back": "Zurück zum Chat",
+    "loading": "Status wird gelesen …",
+    "refresh": "Status aktualisieren",
+    "unavailable": "Diese Seite funktioniert nur in der Tofi-Desktop-App.",
+    "device": {
+      "title": "Gerät",
+      "description": "Wie dieser Mac für deine Bots erscheint.",
+      "name": "Gerätename",
+      "nameHint": "Wird deinen Bots und in Tofi angezeigt.",
+      "folder": "Arbeitsordner",
+      "folderHint": "Bots erreichen nur Dateien in diesem Ordner.",
+      "choose": "Auswählen …",
+      "choosing": "Wird ausgewählt …",
+      "paired": "Gekoppelt · {{id}}",
+      "unpaired": "Nicht gekoppelt",
+      "capabilities": "Aktiv: {{list}}"
+    },
+    "caps": {
+      "title": "Fähigkeiten",
+      "description": "Was Bots auf diesem Mac tun dürfen. Die macOS-Berechtigungen unten sind ebenfalls nötig.",
+      "files": {
+        "label": "Dateien",
+        "hint": "Dateien im Arbeitsordner auflisten, lesen und schreiben."
+      },
+      "screen": {
+        "label": "Bildschirmaufnahme",
+        "hint": "Screenshots, sobald die Bildschirmaufnahme erlaubt ist."
+      },
+      "control": {
+        "label": "Desktop-Steuerung",
+        "hint": "Klicken und Tippen, sobald die Bedienungshilfen erlaubt sind."
+      },
+      "save": "Einstellungen sichern",
+      "saving": "Wird gesichert …"
+    },
+    "perm": {
+      "title": "macOS-Berechtigungen",
+      "description": "Diese erteilst du in den Systemeinstellungen.",
+      "screen": {
+        "label": "Bildschirmaufnahme",
+        "hint": "Für Screenshots nötig."
+      },
+      "accessibility": {
+        "label": "Bedienungshilfen",
+        "hint": "Für Klicks und Tastatureingaben nötig."
+      },
+      "granted": "Erlaubt",
+      "missing": "Nicht erlaubt",
+      "grant": "Systemeinstellungen öffnen",
+      "hint": {
+        "screen": "Die Systemeinstellungen zeigen „Bildschirm- & Systemaudioaufnahme“. Aktiviere Tofi in der Liste. Steht Tofi nicht darin, ziehe das Symbol von der Karte unter dem Fenster in die Liste. macOS fordert eventuell einen Neustart von Tofi, und bei der ersten Aufnahme fragt es, ob die private Fensterauswahl des Systems umgangen werden darf. Wähle „Erlauben“.",
+        "accessibility": "Die Systemeinstellungen zeigen „Bedienungshilfen“. Aktiviere Tofi in der Liste. Steht Tofi nicht darin, ziehe das Symbol von der Karte unter dem Fenster in die Liste."
+      },
+      "monthly": "Ist die Bildschirmaufnahme aktiv, fragt macOS etwa einmal im Monat, ob Tofi die private Fensterauswahl des Systems umgehen darf. Wähle „Erlauben“, damit Aufnahmen weiter funktionieren. Nur du kannst diese Abfrage beantworten; stößt ein Bot darauf, sagt er dir Bescheid."
+    },
+    "bots": {
+      "title": "Bots auf diesem Mac",
+      "description": "Beim ersten Zugriff wird ein Bot abgewiesen und hier aufgeführt, bis du ihn erlaubst.",
+      "empty": "Noch kein Bot hat diesen Mac angefragt.",
+      "unnamed": "Bot ohne Namen",
+      "allowed": "Erlaubt",
+      "denied": "Abgelehnt",
+      "waiting": "Wartet auf dich",
+      "allow": "Erlauben",
+      "deny": "Ablehnen",
+      "remove": "Entfernen",
+      "control": {
+        "paused_stop": "Desktop-Steuerung pausiert (du hast Stopp gedrückt).",
+        "paused_takeover": "Desktop-Steuerung pausiert (du hast Maus oder Tastatur übernommen).",
+        "active": "Ein Bot steuert diesen Mac.",
+        "idle": "Kein Bot steuert diesen Mac."
+      },
+      "stop": "Stoppen und 60 s pausieren",
+      "resume": "Fortsetzen",
+      "shortcut": "Während ein Bot steuert, erscheint oben am Bildschirm ein Banner. Mit ⌃⌥⌘Esc stoppst du sofort und pausierst 60 Sekunden."
+    },
+    "local": {
+      "title": "Lokale Ausführung",
+      "description": "Die Bots dieses Servers dürfen in einem Ordner deiner Wahl Befehle ausführen.",
+      "root": "Freigegebener Ordner",
+      "noRoot": "Kein Ordner freigegeben.",
+      "selected": "Ordner zur Freigabe",
+      "none": "Keiner gewählt",
+      "server": "Zielserver",
+      "serverNone": "Erscheint nach der Ordnerwahl",
+      "choose": "Ordner wählen …",
+      "choosing": "Wird ausgewählt …",
+      "authorize": "Diesen Ordner freigeben …",
+      "authorizing": "Warte auf Bestätigung …",
+      "revoke": "Freigabe widerrufen",
+      "revoking": "Wird widerrufen …",
+      "run": "Befehle lokal ausführen",
+      "summary": {
+        "unknown": "Der Status der Ausführungsfreigabe ist nicht lesbar. Befehle sind deaktiviert.",
+        "faulted": "Laufzeit gesperrt: {{reason}}",
+        "unavailable": "Laufzeit nicht verfügbar: {{reason}}",
+        "disabled": "Lokale Ausführung ist nicht freigegeben.",
+        "unbound": "Die Freigabe gehört nicht zu diesem Server. Wähle den Ordner erneut und gib ihn frei.",
+        "running": "Für diesen Server freigegeben · ein Befehl läuft",
+        "ready": "Für diesen Server freigegeben · kein Befehl läuft"
+      },
+      "reason": {
+        "faulted": "Das Aufräumen der Prozesse ist nicht bestätigt. Stoppe oder widerrufe und aktualisiere dann den Status.",
+        "unavailable": "Aktualisiere den Status und versuche es erneut."
+      },
+      "select": {
+        "idle": "Die Ordnerwahl erteilt keine Rechte. Die Freigabe bestätigst du separat.",
+        "pending": "Noch nicht freigegeben. Prüfe Ordner und Zielserver und gib dann frei.",
+        "noApi": "Diese Version hat keine native Freigabe. Aktualisiere die App und versuche es erneut.",
+        "cancelled": "Freigabe abgebrochen. Der gewählte Ordner hat keinen neuen Zugriff.",
+        "changed": "Die Freigabe hat sich geändert. Wähle den Ordner erneut und bestätige.",
+        "unknown": "Unklar, ob die Auswahl noch gilt. Aktualisiere den Status und wähle erneut.",
+        "authorized": "Ordner für die Bots dieses Servers freigegeben.",
+        "unconfirmed": "Die Freigabe ließ sich nicht bestätigen. Wähle den Ordner erneut und gib ihn frei.",
+        "revoked": "Freigabe widerrufen. Wähle zum Nutzen einen Ordner und gib ihn erneut frei.",
+        "revoking": "Wird widerrufen …",
+        "revokePending": "Der Widerruf ist nicht bestätigt. Versuche es erneut und aktualisiere den Status."
+      },
+      "boundary": "Befehle können den freigegebenen Ordner, Tools in ~/.local/bin und jede Datei außerhalb deines Home-Ordners lesen, die du lesen kannst. Schreiben dürfen sie nur im freigegebenen Ordner und in einem privaten Projekt-Arbeitsbereich; Änderungen werden nicht zurückgerollt. ~/.local/bin ist schreibgeschützt, die Tools darin können sich aber während der Freigabe ändern, und ihre Ausführung kann Nebenwirkungen haben. Der übrige Home-Ordner und Ordner mit Zugangsdaten sind weder les- noch schreibbar. SSH, Netzwerk und Schlüsselbund sind noch nicht zugänglich. Der private Arbeitsbereich bleibt nach dem Widerruf in einem lokalen temporären Ordner und wird nicht automatisch bereinigt.",
+      "persist": "Die Freigabe bleibt bestehen, wenn du diese Seite verlässt. Sie endet beim Beenden der App, beim Serverwechsel oder beim Widerruf."
+    },
+    "pair": {
+      "title": "Diesen Mac koppeln",
+      "description": "Gib den Kopplungscode ein, der in Tofi unter Einstellungen, Weitere Geräte steht.",
+      "code": "Kopplungscode",
+      "submit": "Diesen Mac koppeln",
+      "pairing": "Wird gekoppelt …",
+      "note": "Gerätezugangsdaten bleiben im Hauptprozess der Desktop-App und werden nie an die Seite gesendet."
+    },
+    "error": {
+      "last": "Die letzte Geräteaktion ist fehlgeschlagen",
+      "action": "Aktion fehlgeschlagen: {{message}}",
+      "noStatus": "Es kam kein Ausführungsstatus zurück. Aktualisiere und versuche es erneut.",
+      "invalidSelection": "Es kamen kein gültiger Ordner und Zielserver zurück. Wähle erneut.",
+      "stopFailed": "Der Mac-Status ließ sich nicht lesen."
+    },
+    "confirm": {
+      "cancel": "Abbrechen",
+      "deny": {
+        "title": "{{name}} ablehnen?",
+        "body": "Alle Anfragen dieses Bots an diesen Mac werden abgelehnt, bis du ihn wieder erlaubst.",
+        "confirm": "Ablehnen"
+      },
+      "revoke": {
+        "title": "Lokale Ausführung widerrufen?",
+        "body": "Laufende Befehle werden beendet, und Bots verlieren den Zugriff auf den freigegebenen Ordner. Du kannst später erneut freigeben.",
+        "confirm": "Widerrufen"
+      }
+    }
   }
 }

@@ -10,6 +10,25 @@ export type DesktopPermissionSnapshot = {
   accessibility: boolean;
 };
 
+/** One Bot the Mac has seen asking to use it (desktop device bridge, botAllow.list()). */
+export type DesktopBotEntry = { bot_id: string; bot_name?: string; decision?: "allow" | "deny" | "pending" | string };
+export type DesktopSandboxStatus = {
+  enabled?: boolean; root?: string | null; connectionID?: string | null; bound?: boolean;
+  available?: boolean; reason?: string; reasonCode?: string; faulted?: boolean; running?: boolean;
+};
+/** What the Mac settings page reads: the device bridge status. Only the privileged settings page may call it. */
+export type DesktopDeviceStatus = {
+  name: string; workspaceRoot: string; fileAccess: boolean; screenCapture: boolean; desktopControl: boolean;
+  paired: boolean; deviceID?: string | null; capabilities?: string[];
+  permissions?: { screen?: boolean; accessibility?: boolean };
+  sandbox: DesktopSandboxStatus;
+  lastError?: string | null;
+  bots?: DesktopBotEntry[];
+  control?: { phase?: "idle" | "active" | "lingering" | "paused" | string; reason?: string };
+};
+export type DesktopSettingsInput = { name?: string; workspaceRoot?: string; fileAccess?: boolean; screenCapture?: boolean; desktopControl?: boolean };
+export type DesktopSandboxSelection = { selectionID: string; root: string; serverLabel: string };
+
 declare global {
   interface Window {
     tofiDesktop?: {
@@ -33,6 +52,20 @@ declare global {
       saveAttachment: (handle: string) => Promise<boolean>;
       revealAttachment: (handle: string) => Promise<void>;
       dragAttachment: (handle: string) => void;
+      /** Workspace pages only: navigates the window to the privileged Mac settings page. */
+      openDesktopSettings?: () => Promise<void>;
+      // Privileged methods: the main process answers them only to the Mac settings page (/__desktop/settings).
+      getSettings?: () => Promise<DesktopDeviceStatus>;
+      updateSettings?: (settings: DesktopSettingsInput) => Promise<DesktopDeviceStatus>;
+      chooseWorkspace?: () => Promise<string | null>;
+      openPermissionGuide?: (kind: "screen" | "accessibility") => Promise<boolean>;
+      setBotDecision?: (botID: string, decision: "allow" | "deny" | "forget") => Promise<DesktopDeviceStatus>;
+      controlStop?: () => Promise<DesktopDeviceStatus>;
+      controlResume?: () => Promise<DesktopDeviceStatus>;
+      pair?: (code: string) => Promise<DesktopDeviceStatus>;
+      chooseSandboxRoot?: () => Promise<DesktopSandboxSelection | null>;
+      authorizeSandboxRoot?: (selectionID: string) => Promise<DesktopDeviceStatus | null>;
+      sandboxRevoke?: () => Promise<DesktopDeviceStatus | null>;
     };
   }
 }

@@ -219,7 +219,10 @@
     "online": "Online",
     "offline": "Offline",
     "disconnect_failed": "Couldn't disconnect the device.",
-    "disconnect": "Disconnect"
+    "disconnect": "Disconnect",
+    "this_mac": "This Mac",
+    "this_mac_note": "Device name, folder, macOS permissions, Bot access and local execution for this Mac.",
+    "open_mac": "Open Mac settings"
   },
   "resources": {
     "restart": {

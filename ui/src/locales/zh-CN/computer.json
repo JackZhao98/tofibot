@@ -217,7 +217,10 @@
     "online": "在线",
     "offline": "离线",
     "disconnect_failed": "未能断开设备。",
-    "disconnect": "断开"
+    "disconnect": "断开",
+    "this_mac": "这台 Mac",
+    "this_mac_note": "这台 Mac 的设备名称、目录、macOS 权限、Bot 访问和本地执行。",
+    "open_mac": "打开 Mac 设置"
   },
   "resources": {
     "restart": {

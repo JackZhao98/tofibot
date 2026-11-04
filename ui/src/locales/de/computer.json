@@ -219,7 +219,10 @@
     "online": "Online",
     "offline": "Offline",
     "disconnect_failed": "Gerät konnte nicht getrennt werden.",
-    "disconnect": "Trennen"
+    "disconnect": "Trennen",
+    "this_mac": "Dieser Mac",
+    "this_mac_note": "Gerätename, Ordner, macOS-Berechtigungen, Bot-Zugriff und lokale Ausführung für diesen Mac.",
+    "open_mac": "Mac-Einstellungen öffnen"
   },
   "resources": {
     "restart": {
