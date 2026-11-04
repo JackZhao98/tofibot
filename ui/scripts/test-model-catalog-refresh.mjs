@@ -8,6 +8,7 @@
 //
 //   PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:model-catalog-refresh
 import assert from "node:assert/strict";
+import {selectLabels} from "./lib/select.mjs";
 import {mkdtemp, rm, writeFile} from "node:fs/promises";
 import {basename, dirname, join} from "node:path";
 import {fileURLToPath, pathToFileURL} from "node:url";
@@ -53,11 +54,22 @@ void i18nReady.then(()=>setLanguage('en')).then(()=>createRoot(document.getEleme
     unexpected.push(`${request.method()} ${url.pathname}`);
     return reply({});
   });
-  const options = async which => (await page.locator(`[data-testid=${which}] select option`).allTextContents()).join("|");
+  // The picker is the shared Select: its items exist only while the list is open, so read them by opening it.
+  const trigger = which => page.locator(`[data-testid=${which}] button.ui-select-trigger`).first();
+  const options = async which => (await selectLabels(trigger(which))).join("|");
+  // Poll the visible catalog (open, read, close) until it satisfies `want`; bounded by the page timeout.
+  const catalogShows = async (ids, want) => {
+    for (let i = 0; i < 100; i++) {
+      const lists = []; for (const id of ids) lists.push(await options(id));
+      if (lists.every(list => list.includes("Codex") === want)) return;
+      await page.waitForTimeout(50);
+    }
+    throw new Error(`catalog never ${want ? "gained" : "lost"} the Codex models`);
+  };
   const settle = async expectedRequests => { await page.waitForFunction(() => true); for (let i = 0; i < 50 && modelRequests < expectedRequests; i++) await page.waitForTimeout(20); await page.waitForTimeout(150); };
 
   await page.goto(`${origin}/${basename(fixture)}/index.html`);
-  await page.waitForSelector("[data-testid=a] optgroup", {state: "attached"});
+  await page.locator("[data-testid=a] button.ui-select-trigger:not([disabled])").first().waitFor();
   await settle(1);
   assert.equal(modelRequests, 1, "two pickers mounting together share one request");
   assert.ok((await options("a")).includes("Claude Opus 5.5") && (await options("b")).includes("Claude Opus 5.5"));
@@ -68,7 +80,7 @@ void i18nReady.then(()=>setLanguage('en')).then(()=>createRoot(document.getEleme
   await page.evaluate(() => window.__invalidate());
   await page.waitForTimeout(100);
   assert.ok((await options("a")).includes("Claude Opus 5.5") && !(await options("a")).includes("Codex"), "old list stays during the refetch");
-  await page.waitForFunction(() => ["a", "b"].every(id => document.querySelector(`[data-testid=${id}]`).textContent.includes("Codex")));
+  await catalogShows(["a", "b"], true);
   await settle(2);
   assert.ok((await options("a")).includes("Codex · GPT-6 Sol") && (await options("b")).includes("Codex · GPT-6 Sol"));
   assert.equal(modelRequests, 2, "one more request for both pickers");
@@ -79,7 +91,7 @@ void i18nReady.then(()=>setLanguage('en')).then(()=>createRoot(document.getEleme
   const run = async (label, fn, next, count) => {
     served = next;
     await page.evaluate(fn);
-    await page.waitForFunction(want => document.querySelector("[data-testid=b]").textContent.includes("Codex") === want, next === withCodex);
+    await catalogShows(["b"], next === withCodex);
     await settle(count);
     assert.equal(modelRequests, count, `${label}: one refetch`);
   };
@@ -97,7 +109,7 @@ void i18nReady.then(()=>setLanguage('en')).then(()=>createRoot(document.getEleme
   assert.equal(modelRequests, 6, "first status sighting is not a change");
   codexConnected = false; served = old;
   await page.evaluate(() => window.__api.codexStatus());
-  await page.waitForFunction(() => !document.querySelector("[data-testid=a]").textContent.includes("Codex"));
+  await catalogShows(["a"], false);
   await settle(7);
   assert.equal(modelRequests, 7);
   console.log("PASS 4: a Codex status change seen from another tab refreshes the pickers");
@@ -108,7 +120,7 @@ void i18nReady.then(()=>setLanguage('en')).then(()=>createRoot(document.getEleme
   assert.equal(modelRequests, 7, "focus right after a load does not refetch");
   served = withCodex;
   await page.evaluate(() => { const real = Date.now; Date.now = () => real() + 60_000; window.dispatchEvent(new Event("focus")); });
-  await page.waitForFunction(() => document.querySelector("[data-testid=a]").textContent.includes("Codex"));
+  await catalogShows(["a"], true);
   await settle(8);
   assert.equal(modelRequests, 8, "focus after the last load went stale refetches once");
   const idle = modelRequests;
