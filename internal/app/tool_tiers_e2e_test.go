@@ -304,7 +304,12 @@ func newE2EModel(logw io.Writer) *e2eModel {
 						case "call_mcp_tool":
 							// The host's own instruction after an approval is to call
 							// again with the identical name and arguments, no search.
-							if !strings.Contains(results[tc.ID], "approval_recorded") {
+							// A first call to a tool whose schema this run has not shown (after a
+							// durable resume, or a tool the search did not return) executes nothing
+							// and returns the schema ("schema_required"). The model repeats the call
+							// with the schema in hand, so neither that nor an approval receipt
+							// settles the step.
+							if res := results[tc.ID]; !strings.Contains(res, "approval_recorded") && !strings.Contains(res, "schema_required") {
 								i++
 							}
 						case "complete_scheduled_task":

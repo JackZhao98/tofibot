@@ -207,7 +207,9 @@ async function motionReport(page) {
     const dialog = document.querySelector('.mcp-service')?.closest('[role="dialog"]') ?? document.body;
     const running = document.getAnimations().filter(a => a.playState === 'running' && a.effect?.target && dialog.contains(a.effect.target))
       .map(a => `${a.effect.target.tagName}.${a.effect.target.className}:${a.animationName || a.transitionProperty || 'anim'}`);
-    const spinners = [...dialog.querySelectorAll('[role="progressbar"],[class*="spinner" i],[class*="loading" i],[aria-busy="true"]')].map(e => `${e.tagName}.${e.className}`);
+    const spinners = [...dialog.querySelectorAll('[role="progressbar"],[class*="spinner" i],[class*="loading" i],[aria-busy="true"]')]
+      // The storage meter is a static usage bar of the settings dialog, not a loading indicator.
+      .filter(e => !e.classList.contains('storage-bar')).map(e => `${e.tagName}.${e.className}`);
     return {running, spinners};
   });
 }
@@ -373,7 +375,10 @@ async function scenarioDefiniteRefusal(page, fx) {
   const d = await since(fx, m);
   const text = await bodyText(page);
   check('reviewer denied; nothing executed', d.reviews.length === 1 && d.reviews[0].Decision === 'deny' && d.calls.length === 0, JSON.stringify({reviews: d.reviews.map(r => r.Decision), calls: d.calls}));
-  check('mid-run Bot reply stays visible in the chat', text.includes('Checking the team page before I change it.'), '');
+  // D04/D08: working text between tool calls is never a chat row; it is stored as an internal
+  // message and shown under the reply's "View activity".
+  const working = await fx.sql(`select kind from messages where conversation_id='${bot.dm_conversation_id}' and content like '%Checking the team page before I change it.%'`);
+  check('mid-run working text is not a chat row; it is kept as internal text for View activity', !text.includes('Checking the team page before I change it.') && working.length === 1 && working[0].kind === 'internal', JSON.stringify(working));
   check('no approval card for a definite refusal', (await approveButtons(page).count()) === 0 && (await declineButtons(page).count()) === 0, '');
   check('uncertain card does not appear for a definite refusal', !text.includes('Not sure this went through'), text.includes('This action did not pass the safety check') ? 'shows the safety-check refusal' : '', 'BUG-1');
   check('no literal <progress> tag anywhere in the page', !/<\/?progress>/i.test(await page.locator('body').innerHTML()), '');
@@ -537,8 +542,11 @@ async function scenarioRemember(page, fx) {
   check('9b: the shadow reviewer still advised (needs_human); the memory replaced only the person', d.reviews.length === 1 && d.reviews[0].Decision === 'needs_human', JSON.stringify(d.reviews));
   const q2 = await fx.sql(`select q.answered_by, a.grant_id, a.claimed_at, json_extract(q.approval_json,'$.review.decision_source') as source from questions q join mcp_call_approvals a on a.question_id=q.id where q.conversation_id='${bot.dm_conversation_id}' order by q.created_at desc limit 1`);
   check('9b: DB: decided by remembered-approval with decision source remembered_approval and the grant id, claimed once', q2.length === 1 && q2[0].answered_by === 'remembered-approval' && q2[0].source === 'remembered_approval' && q2[0].grant_id === g[0].id && q2[0].claimed_at !== '', JSON.stringify(q2));
-  const activity = page.locator('.task-activity').last();
-  if ((await activity.locator(':scope > summary').count()) && !(await activity.evaluate(node => node.open))) await activity.locator(':scope > summary').click();
+  // Activity is hidden by default; the reply's own "View activity" action opens it.
+  const reply = page.locator('.message-block', {hasText: 'Budget page updated again.'}).last();
+  await reply.locator('.message-content').first().hover();
+  await reply.getByRole('button', {name: 'View activity', exact: true}).click();
+  const activity = page.locator('.task-activity[open]').last();
   const record = await waitFor(async () => (await bodyText(page)).includes('Approved by a remembered approval from this chat'), 'remembered activity record', 15000).catch(() => false);
   check('9b: the activity record says a remembered approval decided it (no one was asked)', record, (await activity.innerText().catch(() => '')).replace(/\s+/g, ' ').slice(0, 200));
   await shot(page, 's9b-remembered-no-card');
@@ -553,7 +561,7 @@ async function scenarioRemember(page, fx) {
   await waitSettled(fx, bot);
   // 9d: the conversation lists the grant; Revoke ends it; the same target asks again.
   await page.getByRole('button', {name: 'More actions', exact: true}).click();
-  await page.getByRole('button', {name: 'Remembered approvals', exact: true}).click();
+  await page.getByRole('menuitem', {name: 'Approvals in this chat', exact: true}).click();
   const sheet = page.locator('.remembered-sheet');
   await sheet.waitFor({timeout: 10000});
   await sheet.locator('.remembered-item').first().waitFor({timeout: 10000});
