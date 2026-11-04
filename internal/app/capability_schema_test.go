@@ -76,3 +76,52 @@ func TestRecentCapabilitySchemasSkipOversizedAndMalformed(t *testing.T) {
 		t.Fatalf("unsafe schema or valid item lost: %+v", got)
 	}
 }
+
+// A run resumed after an approval replays its own transcript, so the schemas
+// its earlier search_mcp_tools calls returned count as shown, although they are
+// newer than the run's start. Other runs, other Bots and failed or truncated
+// searches do not count.
+func TestRunSearchedCapabilitySchemasCoverTheRunsOwnSearches(t *testing.T) {
+	s, err := OpenStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	b, _ := s.CreateBot("one", "", "model")
+	other, _ := s.CreateBot("two", "", "model")
+	schema := func(name string) extensions.CachedMCPTool {
+		return extensions.CachedMCPTool{Name: name, Server: "fixture", RemoteName: name, Description: "Fixture capability", SchemaVersion: strings.Repeat("a", 64), Parameters: map[string]any{"type": "object"}}
+	}
+	insert := func(run, call, bot, status string, truncated int, tools ...extensions.CachedMCPTool) {
+		t.Helper()
+		body, _ := json.Marshal(map[string]any{"tools": tools})
+		if _, e := s.db.Exec(`INSERT INTO tool_activities(conversation_id,bot_id,run_id,call_id,name,result,status,truncated,started_at,updated_at) VALUES(?,?,?,?,'search_mcp_tools',?,?,?,'2026-11-04T08:00:00Z','2026-11-04T08:00:01Z')`, b.DMConversationID, bot, run, call, string(body), status, truncated); e != nil {
+			t.Fatal(e)
+		}
+	}
+	insert("run_now", "s1", b.ID, "completed", 0, schema("mcp_update_page"), schema("mcp_search"))
+	insert("run_now", "s2", b.ID, "completed", 0, schema("mcp_update_page"))
+	insert("run_now", "s3", b.ID, "failed", 0, schema("mcp_failed"))
+	insert("run_now", "s4", b.ID, "completed", 1, schema("mcp_truncated"))
+	insert("run_now", "s5", other.ID, "completed", 0, schema("mcp_other_bot"))
+	insert("run_old", "s6", b.ID, "completed", 0, schema("mcp_old_run"))
+	got := s.runSearchedCapabilitySchemas("run_now", b.ID)
+	var names []string
+	for _, tool := range got {
+		names = append(names, tool.Name)
+	}
+	if strings.Join(names, ",") != "mcp_update_page,mcp_search" {
+		t.Fatalf("schemas = %v", names)
+	}
+	merged := withRunSearchedSchemas(got, []extensions.CachedMCPTool{schema("mcp_search"), schema("mcp_recent")})
+	names = nil
+	for _, tool := range merged {
+		names = append(names, tool.Name)
+	}
+	if strings.Join(names, ",") != "mcp_update_page,mcp_search,mcp_recent" {
+		t.Fatalf("merged = %v", names)
+	}
+	if s.runSearchedCapabilitySchemas("", b.ID) != nil || s.runSearchedCapabilitySchemas("run_now", "") != nil {
+		t.Fatal("an empty run or Bot must return nothing")
+	}
+}

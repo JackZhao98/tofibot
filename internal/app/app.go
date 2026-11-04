@@ -4149,7 +4149,11 @@ func (s *Server) execute(c Conversation, r Run) {
 		system = triageSystemPrompt(members, s.store.openTasksForTriage(c.ID), working)
 	}
 	if r.Kind != runKindTriage && s.extensions != nil {
-		prepared, err := s.extensions.PrepareDiscoverableForBotWithCallGate(ctx, r.BotID, cachedMCPTools, func(callCtx context.Context, call extensions.MCPCallApproval) error {
+		// The runtime also counts schemas this run already searched: a run resumed
+		// after an approval has them in its replayed transcript. The model context
+		// above stays as it was.
+		runtimeMCPTools := withRunSearchedSchemas(s.store.runSearchedCapabilitySchemas(r.ID, r.BotID), cachedMCPTools)
+		prepared, err := s.extensions.PrepareDiscoverableForBotWithCallGate(ctx, r.BotID, runtimeMCPTools, func(callCtx context.Context, call extensions.MCPCallApproval) error {
 			return s.approveMCPCall(callCtx, c, r, call)
 		})
 		if err != nil {
