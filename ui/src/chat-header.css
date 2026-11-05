@@ -1,6 +1,8 @@
 /* Browser chat header: no bar. The identity and the actions are two quiet pills resting on the
    reading plane, over frosted glass the messages scroll up under (progressive-blur.css). The action pill
    is also where the top-right context card hangs from. */
+/* The macOS window-drag strip (desktop-system.css); nothing on the web. It never takes the pointer (wheel scrolls the list under the header). */
+:root .workspace .chat-header > .chat-header-drag { display:none; pointer-events:none; }
 :root .workspace .chat-header {
   min-height:64px; padding:10px 16px 10px 14px; gap:12px;
   background:transparent; border-bottom:0; box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none;
