@@ -44,6 +44,7 @@ const STUB = `(() => {
     updateSettings: async input => { rec("updateSettings", input); Object.assign(state.status, { name: input.name, workspaceRoot: input.workspaceRoot, fileAccess: input.fileAccess, screenCapture: input.screenCapture, desktopControl: input.desktopControl }); return snap(); },
     chooseWorkspace: async () => { rec("chooseWorkspace"); return "/Users/demo/Elsewhere"; },
     openPermissionGuide: async kind => { rec("openPermissionGuide", kind); return true; },
+    relaunch: async () => { rec("relaunch"); return true; },
     setBotDecision: async (id, decision) => { rec("setBotDecision", id, decision); const bots = state.status.bots; const i = bots.findIndex(b => b.bot_id === id);
       if (decision === "forget") bots.splice(i, 1); else bots[i].decision = decision; return snap(); },
     controlStop: async () => { rec("controlStop"); state.status.control = { phase: "paused", reason: "user_stop" }; return snap(); },
@@ -116,6 +117,8 @@ try {
     assert.equal(await page.getByRole("switch", { name: L("en", "caps.screen.label") }).isChecked(), false);
     assert.equal(await badge(page, L("en", "perm.granted")).count(), 1, "accessibility is granted");
     assert.equal(await badge(page, L("en", "perm.missing")).count(), 1, "screen recording is not");
+    assert.equal(await page.getByText(L("en", "perm.stale")).count(), 0, "no stale-entry note before System Settings was opened");
+    assert.equal(await buttonIn(page, L("en", "perm.reopen.action")).count(), 0, "no reopen offer before System Settings was opened");
 
     // Save sends exactly the five fields, nothing about the execution grant.
     await page.locator("#mac-name").fill("Desk Mac");
@@ -134,10 +137,16 @@ try {
     assert.deepEqual((await named(page, "openPermissionGuide"))[0], ["openPermissionGuide", "screen"]);
     await page.getByText(L("en", "perm.hint.screen")).waitFor();
     assert.ok(await page.getByText(L("en", "perm.monthly")).count() === 1, "the monthly private window picker note is always shown");
+    // After System Settings opened: the note names the stale entry an earlier copy of Tofi leaves, and Screen Recording,
+    // which macOS applies only to a fresh process, offers to reopen Tofi (clicked in its own page below).
+    assert.equal(await page.getByText(L("en", "perm.stale")).count(), 1, "a missing permission explains the earlier-copy entry");
+    assert.equal(await buttonIn(page, L("en", "perm.reopen.action")).count(), 1, "Screen Recording offers to reopen Tofi");
     const before = (await named(page, "getSettings")).length;
     await page.evaluate(() => { window.__state.status.permissions.screen = true; });
     await page.getByText(L("en", "perm.hint.screen")).waitFor({ state: "detached", timeout: 6000 });
     assert.equal(await badge(page, L("en", "perm.granted")).count(), 2);
+    assert.equal(await page.getByText(L("en", "perm.stale")).count(), 0, "no stale-entry note once both are allowed");
+    assert.equal(await buttonIn(page, L("en", "perm.reopen.action")).count(), 0, "no reopen offer once Screen Recording is allowed");
     assert.ok((await named(page, "getSettings")).length > before, "the page polls the status");
     await page.evaluate(() => { window.__state.status.permissions.accessibility = false; });
     await badge(page, L("en", "perm.missing")).waitFor({ timeout: 6000 });
@@ -217,7 +226,19 @@ try {
     }
     await context.close();
   }
-  console.log("PASS actions: save payload, permission guides and poll, Bot allow/deny/remove, stop/resume, local execution, pair, failures");
+  {
+    const { page, context } = await open();
+    await page.waitForFunction(() => document.querySelector("#mac-name").value === "Studio Mac");
+    await buttonIn(page, L("en", "perm.grant")).click();
+    await buttonIn(page, L("en", "perm.reopen.action")).click();
+    const reopening = buttonIn(page, L("en", "perm.reopen.busy"));
+    await reopening.waitFor();
+    assert.equal(await reopening.isDisabled(), true, "the reopen button stays disabled while Tofi quits");
+    assert.equal(await buttonIn(page, L("en", "caps.save")).isDisabled(), true, "the whole page is locked while Tofi quits");
+    assert.equal((await named(page, "relaunch")).length, 1, "one relaunch");
+    await context.close();
+  }
+  console.log("PASS actions: save payload, permission guides and poll, stale-entry note and reopen, Bot allow/deny/remove, stop/resume, local execution, pair, failures");
 
   // ---- 3. Deny and revoke in a locale with long text, and the control state when the user took over.
   {

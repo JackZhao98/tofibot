@@ -424,11 +424,14 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     });
     return {page, context, admin};
   }
+  const READY_MS = 60000;
   async function openTab(page, tab, mobile, params = {}) {
     const query = new URLSearchParams({lang: "en", tab, view: "page", ...params});
     await page.goto(`${origin}/${basename(fixture)}/index.html?${query}`);
-    await page.locator(".settings-shell").waitFor({timeout: 20000});
-    await page.waitForFunction(id => (document.querySelector(`.settings-page-body[data-page="${id}"]`)?.innerText ?? "").trim().length > 20, tab, {timeout: 20000});
+    // Readiness waits, not speed checks: four workers cold-load the Vite dev modules at once, and on a busy machine a
+    // first paint took over 20 s (2026-11-04, admin-delete-failed; whole scenarios ran p50 11 s, max 27 s).
+    await page.locator(".settings-shell").waitFor({timeout: READY_MS});
+    await page.waitForFunction(id => (document.querySelector(`.settings-page-body[data-page="${id}"]`)?.innerText ?? "").trim().length > 20, tab, {timeout: READY_MS});
     await page.waitForTimeout(tab === "usage" ? 1800 : 700);
   }
 

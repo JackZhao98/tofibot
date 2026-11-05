@@ -198,19 +198,17 @@
       "ready": "Bot 电脑已就绪",
       "starting": "正在准备 Bot 电脑",
       "stopped": "Bot 电脑已停止",
-      "waiting": "等待 Bot 电脑连接"
+      "resuming": "正在唤醒 Bot 电脑",
+      "asleep": "Bot 电脑休眠中 · Bot 用到时自动唤醒",
+      "failed": "Bot 电脑启动失败",
+      "checking": "正在检查 Bot 电脑…",
+      "unknown": "Bot 电脑不可用"
     },
     "workspace": "工作目录 {{path}}",
     "workspace_idle_other": "工作目录 {{path}} · 桌面闲置 {{count}} 分钟后自动关闭",
     "retry": "重新准备 Bot 电脑"
   },
-  "mac": {
-    "title": "Mac 权限",
-    "description": "管理屏幕录制和辅助功能权限，允许 Tofi 在你授权后查看屏幕并操作桌面。",
-    "open_card": "查看授权卡片"
-  },
   "devices": {
-    "title": "其他设备",
     "note": "也可以连接已安装 Tofi 客户端的 Mac。",
     "pair_failed": "暂时无法创建配对码。",
     "connect": "连接 Mac",
@@ -220,7 +218,12 @@
     "disconnect": "断开",
     "this_mac": "这台 Mac",
     "this_mac_note": "这台 Mac 的设备名称、目录、macOS 权限、Bot 访问和本地执行。",
-    "open_mac": "打开 Mac 设置"
+    "open_mac": "打开 Mac 设置",
+    "connected": "已连接的 Mac",
+    "mac_settings": "Mac 设置",
+    "empty": "还没有连接 Mac。",
+    "copy": "复制配对码",
+    "copied": "已复制"
   },
   "resources": {
     "restart": {

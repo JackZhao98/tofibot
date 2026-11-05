@@ -52,6 +52,7 @@
     "test:settings-shell": "node scripts/test-settings-shell.mjs",
     "test:desktop-settings": "node scripts/test-desktop-settings.mjs",
     "test:desktop-settings-isolation": "node scripts/test-desktop-settings-isolation.mjs",
+    "test:desktop-drag-regions": "node scripts/test-desktop-drag-regions.mjs",
     "test:no-computer": "node scripts/test-no-computer.mjs",
     "test:settings-choices": "node scripts/test-settings-choices.mjs",
     "test:automation-settings": "node scripts/test-automation-settings.mjs",

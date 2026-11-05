@@ -1403,7 +1403,14 @@
         "screen": "Réglages Système affiche « Enregistrement de l’écran et de l’audio système ». Activez Tofi dans la liste. S’il n’y figure pas, faites glisser l’icône de la carte sous la fenêtre vers la liste. macOS peut demander de rouvrir Tofi, et à la première capture il peut proposer de contourner le sélecteur de fenêtres privé du système. Choisissez Autoriser.",
         "accessibility": "Réglages Système affiche « Accessibilité ». Activez Tofi dans la liste. S’il n’y figure pas, faites glisser l’icône de la carte sous la fenêtre vers la liste."
       },
-      "monthly": "Une fois l’enregistrement de l’écran activé, macOS demande environ une fois par mois si Tofi peut contourner le sélecteur de fenêtres privé du système. Choisissez Autoriser pour continuer les captures. Seul vous pouvez répondre à cette demande ; un Bot qui s’y heurte vous le signalera."
+      "monthly": "Une fois l’enregistrement de l’écran activé, macOS demande environ une fois par mois si Tofi peut contourner le sélecteur de fenêtres privé du système. Choisissez Autoriser pour continuer les captures. Seul vous pouvez répondre à cette demande ; un Bot qui s’y heurte vous le signalera.",
+      "stale": "Tofi est déjà activé dans Réglages Système mais apparaît ici comme « Non autorisé » ? Cette entrée appartient à une copie précédente de Tofi. Dans Réglages Système, sélectionnez Tofi, cliquez sur − pour le retirer, puis choisissez « Ouvrir Réglages Système » ici et réactivez-le.",
+      "reopen": {
+        "label": "Enregistrement de l’écran activé ?",
+        "hint": "macOS ne l’applique qu’après la réouverture de Tofi.",
+        "action": "Rouvrir Tofi",
+        "busy": "Réouverture…"
+      }
     },
     "bots": {
       "title": "Bots sur ce Mac",

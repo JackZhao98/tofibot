@@ -199,20 +199,18 @@
       "ready": "Bot-Computer bereit",
       "starting": "Bot-Computer wird vorbereitet",
       "stopped": "Bot-Computer gestoppt",
-      "waiting": "Warten auf den Bot-Computer"
+      "resuming": "Bot-Computer wird aufgeweckt",
+      "asleep": "Bot-Computer im Ruhezustand · wacht auf, sobald ein Bot ihn braucht",
+      "failed": "Bot-Computer konnte nicht starten",
+      "checking": "Bot-Computer wird geprüft…",
+      "unknown": "Bot-Computer nicht verfügbar"
     },
     "workspace": "Arbeitsverzeichnis {{path}}",
     "workspace_idle_one": "Arbeitsverzeichnis {{path}} · Desktop schließt nach {{count}} Minute Inaktivität",
     "workspace_idle_other": "Arbeitsverzeichnis {{path}} · Desktop schließt nach {{count}} Minuten Inaktivität",
     "retry": "Bot-Computer neu vorbereiten"
   },
-  "mac": {
-    "title": "Mac-Berechtigungen",
-    "description": "Verwalte die Berechtigungen für Bildschirmaufnahme und Bedienungshilfen, damit Tofi nach deiner Freigabe den Bildschirm sehen und den Desktop bedienen kann.",
-    "open_card": "Berechtigungskarte anzeigen"
-  },
   "devices": {
-    "title": "Weitere Geräte",
     "note": "Du kannst auch einen Mac verbinden, auf dem die Tofi-App installiert ist.",
     "pair_failed": "Kopplungscode konnte nicht erstellt werden.",
     "connect": "Mac verbinden",
@@ -222,7 +220,12 @@
     "disconnect": "Trennen",
     "this_mac": "Dieser Mac",
     "this_mac_note": "Gerätename, Ordner, macOS-Berechtigungen, Bot-Zugriff und lokale Ausführung für diesen Mac.",
-    "open_mac": "Mac-Einstellungen öffnen"
+    "open_mac": "Mac-Einstellungen öffnen",
+    "connected": "Verbundene Macs",
+    "mac_settings": "Mac-Einstellungen",
+    "empty": "Noch kein Mac verbunden.",
+    "copy": "Code kopieren",
+    "copied": "Kopiert"
   },
   "resources": {
     "restart": {

@@ -33,7 +33,7 @@ while [ $# -gt 0 ]; do
 done
 
 # ---- the job table: name, what it is, how ci.yml runs it
-JOBS="go-gofmt go-build go-vet go-test ui-typecheck ui-i18n ui-motion-tokens ui-build ui-desktop-settings ui-layers ui-dialogs ui-overlays ui-shell-budget ui-catalog python playwright-mcp shell runner-root compose"
+JOBS="go-gofmt go-build go-vet go-test ui-typecheck ui-i18n ui-motion-tokens ui-build ui-desktop-settings ui-layers ui-dialogs ui-overlays ui-desktop-drag ui-shell-budget ui-catalog python playwright-mcp shell runner-root compose"
 if [ "$mode" = list ]; then echo "$JOBS" | tr ' ' '\n'; exit 0; fi
 
 export PLAYWRIGHT_MODULE="${PLAYWRIGHT_MODULE:-/Users/jackzhao/Developer/sentiosurge/tofibot-web/node_modules/playwright/index.mjs}"
@@ -141,12 +141,13 @@ job ui-i18n      always npm_ui test:i18n
 job ui-motion-tokens always npm_ui test:motion-tokens
 job ui-build     "$UI"  ui_build
 job ui-desktop-settings "$UISRC" npm_ui test:desktop-settings-isolation
-if wanted ui-layers always || wanted ui-dialogs always || wanted ui-overlays always || wanted ui-shell-budget always || wanted ui-catalog "$UISRC"; then
+if wanted ui-layers always || wanted ui-dialogs always || wanted ui-overlays always || wanted ui-desktop-drag always || wanted ui-shell-budget always || wanted ui-catalog "$UISRC"; then
   need_playwright || { summary+=("FAIL  playwright (PLAYWRIGHT_MODULE missing)"); failed="playwright"; }
 fi
 job ui-layers    always guards test:layers
 job ui-dialogs   always guards test:dialogs
 job ui-overlays  always guards test:overlays
+job ui-desktop-drag always guards test:desktop-drag-regions
 job ui-shell-budget always guards test:shell-budget
 job ui-catalog   "$UISRC" npm_ui test:catalog
 job python       "$PY"  bash -c "python3 -m unittest discover -s deploy/microvm -p 'test_*.py' && python3 -m unittest discover -s deploy/self-host -p 'test_*.py' && python3 -m unittest discover -s scripts/release -p 'test_*.py' && python3 -m unittest discover -s scripts/browser-bench -p 'test_*.py' && python3 -m unittest discover -s internal/extensions/builtin_skills/tests -p 'test_*.py'"

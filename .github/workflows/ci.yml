@@ -76,6 +76,8 @@ jobs:
       - run: npm --prefix ui run test:layers
       - run: npm --prefix ui run test:dialogs
       - run: npm --prefix ui run test:overlays
+      # Controls covered by a macOS drag strip cannot be clicked in the desktop app.
+      - run: npm --prefix ui run test:desktop-drag-regions
       - run: npm --prefix ui run test:shell-budget
 
   # The component catalog opens every state of every component in a browser: slow (minutes), no timing assertions.

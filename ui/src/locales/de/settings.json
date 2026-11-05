@@ -1393,7 +1393,14 @@
         "screen": "Die Systemeinstellungen zeigen „Bildschirm- & Systemaudioaufnahme“. Aktiviere Tofi in der Liste. Steht Tofi nicht darin, ziehe das Symbol von der Karte unter dem Fenster in die Liste. macOS fordert eventuell einen Neustart von Tofi, und bei der ersten Aufnahme fragt es, ob die private Fensterauswahl des Systems umgangen werden darf. Wähle „Erlauben“.",
         "accessibility": "Die Systemeinstellungen zeigen „Bedienungshilfen“. Aktiviere Tofi in der Liste. Steht Tofi nicht darin, ziehe das Symbol von der Karte unter dem Fenster in die Liste."
       },
-      "monthly": "Ist die Bildschirmaufnahme aktiv, fragt macOS etwa einmal im Monat, ob Tofi die private Fensterauswahl des Systems umgehen darf. Wähle „Erlauben“, damit Aufnahmen weiter funktionieren. Nur du kannst diese Abfrage beantworten; stößt ein Bot darauf, sagt er dir Bescheid."
+      "monthly": "Ist die Bildschirmaufnahme aktiv, fragt macOS etwa einmal im Monat, ob Tofi die private Fensterauswahl des Systems umgehen darf. Wähle „Erlauben“, damit Aufnahmen weiter funktionieren. Nur du kannst diese Abfrage beantworten; stößt ein Bot darauf, sagt er dir Bescheid.",
+      "stale": "Tofi ist in den Systemeinstellungen schon aktiviert, wird hier aber als „Nicht erlaubt“ angezeigt? Dieser Eintrag gehört zu einer früheren Kopie von Tofi. Wähle Tofi in den Systemeinstellungen aus, entferne es mit −, wähle hier „Systemeinstellungen öffnen“ und aktiviere es erneut.",
+      "reopen": {
+        "label": "Bildschirmaufnahme aktiviert?",
+        "hint": "macOS übernimmt das erst, wenn Tofi neu geöffnet wird.",
+        "action": "Tofi neu öffnen",
+        "busy": "Wird neu geöffnet…"
+      }
     },
     "bots": {
       "title": "Bots auf diesem Mac",

@@ -1393,7 +1393,14 @@
         "screen": "System Settings is open on Screen & System Audio Recording. Turn on Tofi in the list. If it is not listed, drag the icon from the card below the window into it. macOS may ask you to reopen Tofi, and the first capture may prompt you to bypass the system private window picker. Choose Allow.",
         "accessibility": "System Settings is open on Accessibility. Turn on Tofi in the list. If it is not listed, drag the icon from the card below the window into it."
       },
-      "monthly": "After Screen Recording is on, macOS asks about once a month whether Tofi may bypass the system private window picker. Choose Allow to keep capturing. Only you can answer this prompt; a Bot that runs into it will tell you."
+      "monthly": "After Screen Recording is on, macOS asks about once a month whether Tofi may bypass the system private window picker. Choose Allow to keep capturing. Only you can answer this prompt; a Bot that runs into it will tell you.",
+      "stale": "Tofi is already on in System Settings but still shows Not allowed here? That entry belongs to an earlier copy of Tofi. In System Settings, select Tofi, click − to remove it, then choose Open System Settings here and turn it on again.",
+      "reopen": {
+        "label": "Turned on Screen Recording?",
+        "hint": "macOS applies it only after Tofi reopens.",
+        "action": "Reopen Tofi",
+        "busy": "Reopening…"
+      }
     },
     "bots": {
       "title": "Bots on this Mac",
