@@ -5,7 +5,8 @@
 //     with no frame over 50 ms in the next 200 ms. A cold chunk (slow network) still shows the frame at once, then the content.
 //  3. The phone list/chat change is an iOS-style push: the chat slides in from the right over the list while the list shifts left
 //     and dims; reversed on back; 280 ms in / 220 ms back (motion tokens panel-in / base); reduced motion switches at once;
-//     at no sampled frame is a pane missing (no blank frames).
+//     at no sampled frame is a pane missing (no blank frames); at 4x CPU (Chromium) the tap is handled in <= 60 ms (median) and no
+//     main-thread task during a push is over 100 ms.
 // Run: PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:shell-budget
 // SHELL_BUDGET_ENGINE=webkit runs the browser checks in WebKit. SHELL_BUDGET_DIST=/path/to/dist measures an existing build
 // instead of building one; SHELL_BUDGET_ONLY=struct,panel,phone picks sections (both used to prove each check fails on the
@@ -288,11 +289,15 @@ if (only.includes("phone")) {
   await context.close();
 }
 if (engineName === "chromium") {
-  // Frames over 25 ms are wall-clock, so on a loaded machine they come from the machine as much as from our code. What the code controls is
-  // whether the push itself costs frames: each push is measured against an idle window of the same length, at the same throttle, in the same
-  // run (the idle count is what the machine alone costs right now), and the verdict is the median over PUSHES pushes, so one scheduler stall
-  // cannot decide it. A real regression (the push dropping frames every time) still fails: the median push stays above idle + 1.
+  // What a push costs our code at 4x CPU is main-thread time: the tap's event handlers (React renders and commits the chat there) and
+  // any long task the push starts. Both come from the browser's own Event Timing and Long Tasks entries, so they are task times on the
+  // page's main thread. Frames over 25 ms are printed but not judged: at 4x they come from raster and compositing (the chat's layer is
+  // drawn again each time the list releases it), which follow the machine. On 2026-11-05 main dropped 6-8 frames per push while a
+  // screen share and another session's iOS build ran, and a bare full-screen layer slid with the same transition dropped 4-6; the tap's
+  // handlers took 20-27 ms and no task reached 50 ms, the same with 10 busy loops running. 150 ms of work added on pointerdown fails both.
   const PUSHES = 5;
+  const TAP_BUDGET = 60; // ms of event handling per tap at 4x (median): 15 ms at full speed
+  const TASK_BUDGET = 100; // ms: the longest main-thread task during any push at 4x
   const { page, context } = await open({ width: 390, height: 844, touch: true, path: "/", cpu: 4 });
   await page.waitForTimeout(800);
   const mocha = () => page.locator(".conversation-row").filter({ hasText: "Mocha Cat" }).first();
@@ -302,19 +307,29 @@ if (engineName === "chromium") {
   await page.waitForFunction(() => document.querySelector(".chat-pane") && document.querySelector(".chat-pane").getBoundingClientRect().x === 0);
   await page.locator(".back-button").tap();
   await page.waitForFunction(() => document.querySelector(".chat-pane").getBoundingClientRect().x >= window.innerWidth - 0.5);
+  await page.evaluate(() => {
+    window.__cost = { handlers: 0, tasks: [] };
+    new PerformanceObserver(list => { for (const entry of list.getEntries()) if (/^(pointerdown|pointerup|touchstart|touchend|click)$/.test(entry.name)) window.__cost.handlers += entry.processingEnd - entry.processingStart; }).observe({ type: "event", durationThreshold: 16 });
+    new PerformanceObserver(list => { for (const entry of list.getEntries()) window.__cost.tasks.push(entry.duration); }).observe({ type: "longtask" });
+  });
   const slowOf = swap => swap.frames.slice(1).filter((frame, i) => frame.t - swap.frames[i].t > 25).length;
-  const pushed = [], idle = [];
+  const taps = [], longest = [], slow = [];
   for (let i = 0; i < PUSHES; i++) {
-    idle.push(slowOf(await sampleSwap(page, async () => {}, 520)));
+    await page.evaluate(() => { window.__cost = { handlers: 0, tasks: [] }; });
     const into = await sampleSwap(page, () => mocha().tap(), 520);
     checkCoverage(into, "list to chat at 4x", 390);
-    pushed.push(slowOf(into));
+    await page.waitForTimeout(50); // the observers report after the frame
+    const cost = await page.evaluate(() => window.__cost);
+    taps.push(Math.round(cost.handlers));
+    longest.push(Math.round(Math.max(0, ...cost.tasks)));
+    slow.push(slowOf(into));
     await page.locator(".back-button").tap();
     await page.waitForFunction(() => document.querySelector(".chat-pane").getBoundingClientRect().x >= window.innerWidth - 0.5);
   }
-  const slow = median(pushed), floor = median(idle);
-  console.log(`phone push at 4x CPU: frames over 25 ms per push ${pushed.join(", ")} (median ${slow}); idle windows ${idle.join(", ")} (median ${floor})`);
-  assert.ok(slow <= floor + 1, `the push drops at most one frame over 25 ms beyond what an idle page drops at 4x: median ${slow} over ${pushed.join(", ")}, idle median ${floor}`);
+  const tap = median(taps), task = Math.max(...longest);
+  console.log(`phone push at 4x CPU: tap handlers ${taps.join(", ")} ms (median ${tap}, budget ${TAP_BUDGET}); longest task ${longest.join(", ")} ms (budget ${TASK_BUDGET}); frames over 25 ms ${slow.join(", ")} (not judged)`);
+  assert.ok(tap <= TAP_BUDGET, `the tap that pushes the chat is handled in at most ${TAP_BUDGET} ms at 4x: median ${tap} over ${taps.join(", ")}`);
+  assert.ok(task <= TASK_BUDGET, `no main-thread task over ${TASK_BUDGET} ms during a push at 4x: ${longest.join(", ")}`);
   await context.close();
 }
 }

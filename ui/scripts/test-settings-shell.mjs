@@ -515,7 +515,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await models.getByText("Approval mode for this account").count(), 0, "AutoReview left the Models page");
     assert.equal(await models.locator(".segmented").count(), 1, "the selected model's three reasoning values render as a segmented control");
     assert.equal(await models.locator(".segmented button").count(), 3);
-    assert.equal(await models.locator(".settings-two").evaluate(element => getComputedStyle(element).gridTemplateColumns.split(" ").length), 2, "two columns at 1440");
+    // One column (the Settings window is at most 1180 px wide): Dictation comes after the defaults.
+    assert.equal(await models.locator(".settings-two").count(), 0, "one column");
+    assert.ok(await models.evaluate(body => { const all = [...body.querySelectorAll("h2,h3,.settings-section-title,*")].filter(el => el.children.length === 0); const y = text => all.find(el => el.textContent.trim() === text)?.getBoundingClientRect().top ?? NaN; return y("Dictation") > y("Defaults for new Bots"); }), "Dictation sits below the defaults");
     // Deep links open the tab.
     await page.evaluate(() => window.dispatchEvent(new Event("tofi:open-tool-settings")));
     await page.waitForFunction(() => document.querySelector('.settings-tabs [aria-current="page"]')?.dataset.tab === "connections");

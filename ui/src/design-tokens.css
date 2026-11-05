@@ -118,6 +118,10 @@
   --ease-out:cubic-bezier(.22,1,.36,1); --ease-settle:cubic-bezier(.2,.8,.2,1);
   --ease-spring:cubic-bezier(.34,1.3,.64,1); --ease-inout:cubic-bezier(.45,0,.2,1); --ease-in:cubic-bezier(.5,0,.75,0);
   --chat-max:760px; --sidebar-width:272px; --sidebar-collapsed:72px; --settings-rail:216px;
+  /* The large windows (Settings, covers): at most 88% x 86% of the viewport, so they always sit well inside it (and clear of the
+     macOS traffic lights at the window's top left), and never wider/taller than the caps. Below 768px they fill the screen. */
+  --window-w:min(1180px,calc(100vw - 48px),88vw); --window-w-cover:min(880px,calc(100vw - 48px),88vw); --window-w-cover-wide:min(1080px,calc(100vw - 48px),88vw);
+  --window-h:min(760px,calc(100dvh - 48px),86dvh);
   /* Layer scale (docs/design/tokens.md §9.3; the guard is scripts/test-layers.mjs, the JS mirror is layers.ts). Global
      layers are only for things placed against the viewport (position:fixed or portaled into #tofi-layers); stacking
      inside a component uses its own stacking context and the local integers -1..3. One step between neighbours is

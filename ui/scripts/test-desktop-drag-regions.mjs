@@ -1,7 +1,15 @@
 // In the macOS desktop app, `-webkit-app-region: drag` areas move the window and swallow clicks. Electron builds the
-// drag region from the page in document order: each `drag` box is added, each `no-drag` box is cut out; elements without
-// an app-region change nothing, so a panel drawn over the header is still a drag area under it (2026-11-04: the enlarged
-// Bot computer's close button sat in the header strip and could not be clicked in the app, while the browser was fine).
+// drag region from the page in layout-tree order (Blink LocalFrameView::CollectDraggableRegions): each `drag` box is added,
+// each `no-drag` box is cut out; elements without an app-region change nothing, so a panel drawn over the header is still
+// a drag area under it (2026-11-04: the enlarged Bot computer's close button sat in the header strip and could not be
+// clicked in the app, while the browser was fine).
+// In the app's Chromium app-region is INHERITED (Blink's window-drag surrogate), pseudo-elements included, and an element's
+// ::after comes after all its children in that order. rc.4 set drag on .chat-header, whose ::after blur layer then covered
+// every header button again (2026-11-05; confirmed with ELECTRON_DEBUG_DRAGGABLE_REGIONS in Electron 44 / Chromium 152:
+// one solid 1280x94 drag block). Playwright's older Chromium does not inherit it, so the walk below applies the
+// inheritance itself and includes ::before/::after; the conversation check also asserts the header still moves the window.
+// Do not set `app-region: none` to stop the inheritance: Electron 44 treats it as no-drag. Keep drag off elements that
+// have pseudo-element layers instead (the chat header drags through its own .chat-header-drag strip).
 //
 // This mounts the real workspace with the desktop bridge stubbed, opens every surface that can cover the title strips,
 // rebuilds the drag region the way Electron does, and fails when a visible control is inside it.
@@ -9,7 +17,8 @@ import assert from "node:assert/strict";
 import { installStubs, startUi, launch } from "./computer-window-fixture.mjs";
 
 // 1110 px: the drawer still overlays the chat (up to 1120 px) while the layout already counts as wide (from 1100 px).
-const SIZES = [{ width: 1280, height: 800 }, { width: 1110, height: 760 }, { width: 860, height: 640 }];
+// 1200 px: between 1121 and 1279 the old drawer track rule applied to Settings.
+const SIZES = [{ width: 1280, height: 800 }, { width: 1200, height: 760 }, { width: 1110, height: 760 }, { width: 860, height: 640 }];
 
 const { server, origin } = await startUi();
 const browser = await launch();
@@ -51,12 +60,30 @@ async function open(size) {
 async function blocked(page) {
   return page.evaluate(() => {
     const regions = [];
-    for (const element of document.querySelectorAll("body *")) {
-      const mode = getComputedStyle(element).webkitAppRegion || getComputedStyle(element).getPropertyValue("-webkit-app-region");
-      if (mode !== "drag" && mode !== "no-drag") continue;
+    const modeOf = style => style.webkitAppRegion || style.getPropertyValue("-webkit-app-region");
+    const add = (mode, box) => { if ((mode === "drag" || mode === "no-drag") && box.width && box.height) regions.push({ drag: mode === "drag", box }); };
+    // A rendered ::before/::after: its own box when it is positioned with resolved sizes, else (pessimistically) its element's box.
+    // Inherited mode: an element's own drag/no-drag, else its parent's (what the app's Chromium computes).
+    const own = style => { const mode = modeOf(style); return mode === "drag" || mode === "no-drag" ? mode : null; };
+    const pseudo = (element, which, inherited) => {
+      const style = getComputedStyle(element, which);
+      if (style.content === "none" || style.content === "normal" || /^(none|inline|contents)$/.test(style.display) || style.visibility !== "visible") return;
       const box = element.getBoundingClientRect();
-      if (box.width && box.height) regions.push({ drag: mode === "drag", box });
-    }
+      const px = value => (/^-?[\d.]+px$/.test(value) ? parseFloat(value) : null);
+      const [left, top, width, height] = [px(style.left), px(style.top), px(style.width), px(style.height)];
+      const placed = /absolute|fixed/.test(style.position) && left !== null && top !== null && width && height;
+      add(own(style) ?? inherited, placed ? new DOMRect(box.left + left, box.top + top, width, height) : box);
+    };
+    const walk = (element, parentMode) => {
+      const style = getComputedStyle(element);
+      const mode = own(style) ?? parentMode;
+      // Blink only adds boxes (not inline or display:contents) that are visible; their children are still walked.
+      if (style.visibility === "visible" && !/^(inline|contents)$/.test(style.display)) add(mode, element.getBoundingClientRect());
+      pseudo(element, "::before", mode);
+      for (const child of element.children) walk(child, mode);
+      pseudo(element, "::after", mode);
+    };
+    for (const child of document.body.children) walk(child, null);
     const inDrag = (x, y) => {
       let drag = false;
       for (const { drag: add, box } of regions) if (x >= box.left && x < box.right && y >= box.top && y < box.bottom) drag = add;
@@ -75,16 +102,28 @@ async function blocked(page) {
       const hit = points.filter(([x, y]) => inDrag(x, y) && (document.elementFromPoint(x, y) === control || control.contains(document.elementFromPoint(x, y))));
       if (hit.length) out.push(`${control.getAttribute("aria-label") || control.textContent.trim().slice(0, 40) || control.className} @${Math.round(box.left)},${Math.round(box.top)}`);
     }
-    return { out, total: controls.length, drags: regions.filter(region => region.drag).length };
+    // The chat header must still move the window: the empty middle between its two pills is drag, the message list just under it is not.
+    const header = document.querySelector(".chat-header");
+    let headerDrag = null;
+    if (header && header.getBoundingClientRect().width) {
+      const h = header.getBoundingClientRect(), title = header.querySelector(".chat-title").getBoundingClientRect(), actions = header.querySelector(".header-actions").getBoundingClientRect();
+      const y = h.top + h.height / 2;
+      headerDrag = { middle: inDrag((title.right + actions.left) / 2, y), below: inDrag((title.right + actions.left) / 2, h.bottom + 12) };
+    }
+    return { out, total: controls.length, drags: regions.filter(region => region.drag).length, headerDrag };
   });
 }
 
 async function check(page, surface, size) {
   // Panels finish their entrance motion (finite animations only; spinners loop forever).
   await page.waitForFunction(() => document.getAnimations().every(a => a.playState !== "running" || a.effect?.getTiming().iterations === Infinity), null, { timeout: 5000 });
-  const { out, drags } = await blocked(page);
+  const { out, drags, headerDrag } = await blocked(page);
   // Without a drag box the check would pass on nothing (a rule that stopped applying, or a renamed header).
   assert.ok(drags > 0, `${size.width}x${size.height} ${surface}: no macOS drag area found; the check would be empty`);
+  if (surface === "conversation") {
+    if (!headerDrag?.middle) out.push("the empty middle of the chat header does not move the window");
+    if (headerDrag?.below) out.push("the message list just under the chat header moves the window");
+  }
   checked++;
   for (const label of out) failures.push(`${size.width}x${size.height} ${surface}: ${label}`);
   console.log(`${out.length ? "FAIL" : "PASS"} ${size.width}x${size.height} ${surface}${out.length ? ": " + out.join("; ") : ""}`);
@@ -139,9 +178,16 @@ for (const size of SIZES) {
 
   for (const tab of ["computer", "devices", "general"]) {
     page = await open(size);
+    const panes = () => page.evaluate(() => [".contact-pane", ".chat-pane"].map(s => { const b = document.querySelector(s)?.getBoundingClientRect(); return b ? `${Math.round(b.left)}+${Math.round(b.width)}` : "none"; }).join(" "));
+    const before = await panes();
     await page.goto(`${origin}/settings/${tab}`);
     await page.locator(".settings-tabs").waitFor();
     await check(page, `settings › ${tab}`, size);
+    // Settings floats over the workspace; it must not make the grid open a drawer track (2026-11-05: the chat shrank by 336 px on desktop).
+    const after = await panes();
+    assert.equal(after, before, `${size.width}x${size.height} settings › ${tab}: the sidebar and chat keep their place (${before} -> ${after})`);
+    const win = await page.evaluate(() => { const b = document.querySelector(".detail-pane:has(.settings-tabs)").getBoundingClientRect(); return { w: b.width / innerWidth, h: b.height / innerHeight, left: b.left, top: b.top }; });
+    assert.ok(win.w <= 0.885 && win.h <= 0.865 && win.left >= 48 && win.top >= 40, `${size.width}x${size.height} settings › ${tab}: the window sits inside the viewport, clear of the traffic lights (${JSON.stringify(win)})`);
     await page.close();
   }
 }
@@ -173,7 +219,7 @@ await browser.close();
 await server.close();
 assert.ok(checked >= 27, `checked ${checked} surfaces`);
 if (failures.length) {
-  console.error(`\n${failures.length} control(s) sit in a macOS drag area and cannot be clicked in the desktop app:\n  ${failures.join("\n  ")}`);
+  console.error(`\n${failures.length} drag-area problem(s) in the desktop app (controls that cannot be clicked, or a header that cannot move the window):\n  ${failures.join("\n  ")}`);
   process.exit(1);
 }
 console.log(`PASS ${checked} surfaces: no visible control inside a macOS drag area`);

@@ -5,8 +5,11 @@ html[data-desktop="darwin"] .contact-pane{background:color-mix(in srgb,var(--sid
 html[data-desktop="darwin"] .chat-pane{background:var(--bg)}
 /* A window does not rubber-band: lists scroll inside themselves (overscroll-behavior:contain on each list). */
 html[data-desktop] body{overscroll-behavior:none}
-/* The chat header looks the same as on the web (chat-header.css); on macOS it also moves the window. */
-html[data-desktop="darwin"] .chat-header{-webkit-app-region:drag;user-select:none}
+/* The chat header looks the same as on the web (chat-header.css); on macOS its own strip (.chat-header-drag, first child) moves the window.
+   The header itself has no app-region: app-region is inherited, so the header's blur layers (::before/::after, progressive-blur.css)
+   would inherit drag, and ::after is laid out after the buttons, so it covered them all again (rc.4: no header button could be clicked). */
+html[data-desktop="darwin"] .chat-header{user-select:none}
+html[data-desktop="darwin"] .workspace .chat-header > .chat-header-drag{display:block;position:absolute;inset:0;z-index:-1;-webkit-app-region:drag}
 html[data-desktop="darwin"] .chat-header button,html[data-desktop="darwin"] .chat-header input{-webkit-app-region:no-drag}
 /* A box without an app-region does not cut a hole in the drag strips under it, so its clicks would move the window instead.
    Everything drawn over the strips (dialogs, native <dialog> such as the image viewer, menus, popovers, the enlarged Bot
