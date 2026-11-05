@@ -1,57 +1,57 @@
 /* Browser chat header: no bar. The identity and the actions are two quiet pills resting on the
    reading plane, over frosted glass the messages scroll up under (progressive-blur.css). The action pill
    is also where the top-right context card hangs from. */
-html:not([data-desktop]) .workspace .chat-header {
+:root .workspace .chat-header {
   min-height:64px; padding:10px 16px 10px 14px; gap:12px;
   background:transparent; border-bottom:0; box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none;
 }
 
 /* Identity pill: the composer's glass (conversation-workspace.css .composer-row): --glass fill, --blur backdrop, --sheen rim, 9% ink border. */
-html:not([data-desktop]) .workspace .chat-identity {
+:root .workspace .chat-identity {
   min-height:44px; padding:4px 16px 4px 5px; gap:9px;
   border:1px solid color-mix(in srgb,var(--ink) 9%,transparent); border-radius:999px;
   background:var(--glass); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur); box-shadow:var(--sheen);
   transition:border-color var(--m-quick) var(--ease-out);
 }
-html:not([data-desktop]) .workspace .chat-identity:hover { border-color:color-mix(in srgb,var(--ink) 18%,transparent); }
-html:not([data-desktop]) .workspace .chat-identity:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
-html:not([data-desktop]) .workspace .member-avatar-stack { min-width:34px; }
-html:not([data-desktop]) .workspace .member-avatar-stack .avatar { width:34px; height:34px; flex-basis:34px; margin-left:-10px; border-radius:50%; background:var(--surface-2); }
-html:not([data-desktop]) .workspace .member-avatar-stack .avatar:first-child { margin-left:0; }
-html:not([data-desktop]) .workspace .chat-name-pill { display:grid; gap:1px; }
-html:not([data-desktop]) .workspace .chat-title h1 { font:600 15px/1.2 var(--display); }
-html:not([data-desktop]) .workspace .chat-name-pill small { font:10px/1.2 var(--mono); }
+:root .workspace .chat-identity:hover { border-color:color-mix(in srgb,var(--ink) 18%,transparent); }
+:root .workspace .chat-identity:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
+:root .workspace .member-avatar-stack { min-width:34px; }
+:root .workspace .member-avatar-stack .avatar { width:34px; height:34px; flex-basis:34px; margin-left:-10px; border-radius:50%; background:var(--surface-2); }
+:root .workspace .member-avatar-stack .avatar:first-child { margin-left:0; }
+:root .workspace .chat-name-pill { display:grid; gap:1px; }
+:root .workspace .chat-title h1 { font:600 15px/1.2 var(--display); }
+:root .workspace .chat-name-pill small { font:10px/1.2 var(--mono); }
 
 /* Action pill: one rounded group; the open surface is marked with a lagoon tint. */
-html:not([data-desktop]) .workspace .header-actions {
+:root .workspace .header-actions {
   gap:2px; padding:3px; border:1px solid color-mix(in srgb,var(--ink) 9%,transparent); border-radius:999px;
   background:var(--glass); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur); box-shadow:var(--sheen);
 }
-html:not([data-desktop]) .workspace .header-actions :is(.computer-button,.ghost-button) {
+:root .workspace .header-actions :is(.computer-button,.ghost-button) {
   width:36px; height:36px; min-width:36px; padding:0; border:0; border-radius:50%;
   background:transparent; color:var(--ink-soft); transition:background-color var(--m-quick) var(--ease-out),color var(--m-quick) var(--ease-out);
 }
-html:not([data-desktop]) .workspace .header-actions :is(.computer-button,.ghost-button):hover { background:var(--surface-2); color:var(--ink); border:0; }
-html:not([data-desktop]) .workspace .header-actions :is([aria-pressed="true"],[aria-expanded="true"]) { background:color-mix(in srgb,var(--lagoon) 18%,transparent); color:var(--ink); border:0; }
-html:not([data-desktop]) .workspace .header-actions .computer-button.is-ready { color:var(--green-text); }
-html:not([data-desktop]) .workspace .header-actions .header-more { display:flex; }
+:root .workspace .header-actions :is(.computer-button,.ghost-button):hover { background:var(--surface-2); color:var(--ink); border:0; }
+:root .workspace .header-actions :is([aria-pressed="true"],[aria-expanded="true"]) { background:color-mix(in srgb,var(--lagoon) 18%,transparent); color:var(--ink); border:0; }
+:root .workspace .header-actions .computer-button.is-ready { color:var(--green-text); }
+:root .workspace .header-actions .header-more { display:flex; }
 
 @media (max-width:767px) {
-  html:not([data-desktop]) .workspace .chat-header { padding-inline:10px; gap:8px; }
-  html:not([data-desktop]) .workspace .chat-identity { padding-right:12px; }
+  :root .workspace .chat-header { padding-inline:10px; gap:8px; }
+  :root .workspace .chat-identity { padding-right:12px; }
 }
 @media (prefers-reduced-transparency:reduce) {
-  html:not([data-desktop]) .workspace .chat-header { background:transparent; }
-  html:not([data-desktop]) .workspace :is(.chat-identity,.header-actions) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
+  :root .workspace .chat-header { background:transparent; }
+  :root .workspace :is(.chat-identity,.header-actions) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
 }
-html:not([data-desktop]) .workspace .header-actions :is(.computer-button,.ghost-button) { display:grid; place-items:center; }
+:root .workspace .header-actions :is(.computer-button,.ghost-button) { display:grid; place-items:center; }
 
 
 /* Shared computer button: green while the computer is powered on, neutral when asleep. A small static dot marks a Bot driving it. */
-html:not([data-desktop]) .workspace .header-actions .computer-button { position:relative; }
-html:not([data-desktop]) .workspace .header-actions .computer-button.is-on { background:color-mix(in srgb,var(--green) 24%,transparent); color:var(--green-text); }
-html:not([data-desktop]) .workspace .header-actions .computer-button.is-on:hover { background:color-mix(in srgb,var(--green) 34%,transparent); color:var(--green-text); }
-html:not([data-desktop]) .workspace .header-actions .computer-button.is-on[aria-pressed="true"] { background:color-mix(in srgb,var(--green) 34%,transparent); color:var(--green-text); }
+:root .workspace .header-actions .computer-button { position:relative; }
+:root .workspace .header-actions .computer-button.is-on { background:color-mix(in srgb,var(--green) 24%,transparent); color:var(--green-text); }
+:root .workspace .header-actions .computer-button.is-on:hover { background:color-mix(in srgb,var(--green) 34%,transparent); color:var(--green-text); }
+:root .workspace .header-actions .computer-button.is-on[aria-pressed="true"] { background:color-mix(in srgb,var(--green) 34%,transparent); color:var(--green-text); }
 .computer-driven-dot { position:absolute; top:5px; right:5px; width:7px; height:7px; border-radius:50%; background:var(--green-text); box-shadow:0 0 0 2px var(--surface); }
 @media (forced-colors:active) { .computer-button.is-on { border:1px solid Highlight; } .computer-driven-dot { background:Highlight; } }
 

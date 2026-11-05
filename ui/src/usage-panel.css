@@ -46,20 +46,20 @@
 .workspace .usage-empty { color:var(--muted); font:13px/1.55 var(--body); }
 @media(max-width:700px) { .workspace .usage-layout { display:block; } .workspace .usage-agents { flex-direction:row; gap:6px; overflow:auto; margin-bottom:18px; padding:0 0 10px; border-right:0; border-bottom:1px solid var(--line-soft); } .workspace .usage-agents button { width:auto; flex:none; max-width:170px; } }
 /* Motion Lab's one-time odometer and seven-day bars, using real request rows. */
-html:not([data-desktop]) .web-usage-number{display:inline-flex}
-html:not([data-desktop]) .web-usage-col{display:block;height:1.1em;overflow:hidden}
-html:not([data-desktop]) .web-usage-reel{display:flex;flex-direction:column;transform:translateY(calc(var(--d)*-1.1em));transition:transform 1400ms var(--ease-settle) var(--delay)}
-html:not([data-desktop]) .web-usage-reel>span{display:block;height:1.1em;line-height:1.1em}
-html:not([data-desktop]) .usage-detail:not(.is-rolled) .web-usage-reel{transition:none}
-html:not([data-desktop]) .web-usage-chart h4{margin-bottom:12px}
-html:not([data-desktop]) .web-usage-bars{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));align-items:end;gap:8px;height:110px;padding:10px 10px 0;border-radius:12px;background:var(--surface)}
-html:not([data-desktop]) .web-usage-bar{display:grid;grid-template-rows:1fr auto;justify-items:center;gap:4px;height:100%}
-html:not([data-desktop]) .web-usage-bar i{align-self:end;width:100%;max-width:22px;height:var(--h);min-height:2px;border-radius:6px 6px 3px 3px;background:var(--lagoon);transform:scaleY(0);transform-origin:50% 100%;transition:transform var(--m-flight) var(--ease-spring) var(--delay)}
-html:not([data-desktop]) .web-usage-bar:nth-child(4) i{background:var(--clay)}
-html:not([data-desktop]) .web-usage-bar small{padding-bottom:6px;color:var(--muted);font:600 12px/1.4 var(--mono)}
-html:not([data-desktop]) .usage-detail.is-rolled .web-usage-bar i{transform:scaleY(1)}
-html:not([data-desktop]) .usage-detail:not(.is-rolled) .web-usage-bar i{transition:none}
-@media(prefers-reduced-motion:reduce){html:not([data-desktop]) .web-usage-reel,html:not([data-desktop]) .web-usage-bar i{transition:none}}
+:root .web-usage-number{display:inline-flex}
+:root .web-usage-col{display:block;height:1.1em;overflow:hidden}
+:root .web-usage-reel{display:flex;flex-direction:column;transform:translateY(calc(var(--d)*-1.1em));transition:transform 1400ms var(--ease-settle) var(--delay)}
+:root .web-usage-reel>span{display:block;height:1.1em;line-height:1.1em}
+:root .usage-detail:not(.is-rolled) .web-usage-reel{transition:none}
+:root .web-usage-chart h4{margin-bottom:12px}
+:root .web-usage-bars{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));align-items:end;gap:8px;height:110px;padding:10px 10px 0;border-radius:12px;background:var(--surface)}
+:root .web-usage-bar{display:grid;grid-template-rows:1fr auto;justify-items:center;gap:4px;height:100%}
+:root .web-usage-bar i{align-self:end;width:100%;max-width:22px;height:var(--h);min-height:2px;border-radius:6px 6px 3px 3px;background:var(--lagoon);transform:scaleY(0);transform-origin:50% 100%;transition:transform var(--m-flight) var(--ease-spring) var(--delay)}
+:root .web-usage-bar:nth-child(4) i{background:var(--clay)}
+:root .web-usage-bar small{padding-bottom:6px;color:var(--muted);font:600 12px/1.4 var(--mono)}
+:root .usage-detail.is-rolled .web-usage-bar i{transform:scaleY(1)}
+:root .usage-detail:not(.is-rolled) .web-usage-bar i{transition:none}
+@media(prefers-reduced-motion:reduce){:root .web-usage-reel,:root .web-usage-bar i{transition:none}}
 .workspace .usage-review { padding:4px 0 20px; border-bottom:1px solid var(--line-soft); }
 .workspace .usage-review>div { display:flex; flex-wrap:wrap; gap:16px 32px; }
 .workspace .usage-review>div>span { display:grid; gap:4px; }

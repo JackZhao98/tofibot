@@ -71,20 +71,20 @@
 }
 .workspace .attachment-lightbox img { display: block; max-width: calc(95vw - 32px); max-height: calc(94dvh - 56px); object-fit: contain; }
 .workspace .attachment-lightbox small { display: block; margin-top: 5px; color: var(--muted); font: 11px/1.4 var(--mono); }
-html:not([data-desktop]) .workspace .attachment-lightbox { max-width:min(860px,calc(100vw - 32px)); max-height:calc(100dvh - 96px); padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; overflow:visible; }
-html:not([data-desktop]) .workspace .attachment-lightbox::backdrop { background:var(--lightbox-scrim); animation:web-zoom-backdrop-in var(--m-panel-in) var(--ease-out) both; }
-html:not([data-desktop]) .workspace .attachment-lightbox.is-closing::backdrop { animation:web-zoom-backdrop-out var(--m-panel-in) var(--ease-in) both; }
+:root .workspace .attachment-lightbox { max-width:min(860px,calc(100vw - 32px)); max-height:calc(100dvh - 96px); padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; overflow:visible; }
+:root .workspace .attachment-lightbox::backdrop { background:var(--lightbox-scrim); animation:web-zoom-backdrop-in var(--m-panel-in) var(--ease-out) both; }
+:root .workspace .attachment-lightbox.is-closing::backdrop { animation:web-zoom-backdrop-out var(--m-panel-in) var(--ease-in) both; }
 @keyframes web-zoom-backdrop-in { from { background:transparent; } }
 @keyframes web-zoom-backdrop-out { to { background:transparent; } }
-html:not([data-desktop]) .workspace .attachment-lightbox img { max-width:min(860px,calc(100vw - 32px)); max-height:calc(100dvh - 116px); border:var(--edge) solid var(--line); border-radius:16px; box-shadow:var(--hard); transform-origin:0 0; }
-html:not([data-desktop]) .workspace .attachment-lightbox small { margin-top:12px; color:var(--lightbox-ink); font:var(--type-status); text-align:center; animation:web-zoom-caption var(--m-panel-in) var(--ease-out) both 200ms; }
+:root .workspace .attachment-lightbox img { max-width:min(860px,calc(100vw - 32px)); max-height:calc(100dvh - 116px); border:var(--edge) solid var(--line); border-radius:16px; box-shadow:var(--hard); transform-origin:0 0; }
+:root .workspace .attachment-lightbox small { margin-top:12px; color:var(--lightbox-ink); font:var(--type-status); text-align:center; animation:web-zoom-caption var(--m-panel-in) var(--ease-out) both 200ms; }
 @keyframes web-zoom-caption { from { opacity:0; transform:translateY(-6px); } }
-html:not([data-desktop]) .workspace .attachment-lightbox > button { position:fixed; top:16px; right:16px; width:42px; height:42px; border:var(--edge) solid var(--line); border-radius:12px; background:var(--surface); box-shadow:var(--hard-sm); }
+:root .workspace .attachment-lightbox > button { position:fixed; top:16px; right:16px; width:42px; height:42px; border:var(--edge) solid var(--line); border-radius:12px; background:var(--surface); box-shadow:var(--hard-sm); }
 .workspace .attachment-recovery { display: flex; align-items: center; gap: 12px; padding: 0 12px 10px; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .workspace .attachment-recovery button { padding: 0; border: 0; background: transparent; color: var(--ink); font-size: 12px; }
 .workspace .attachment-recovery button:hover { text-decoration: underline; text-underline-offset: 3px; }
 
-@media (prefers-reduced-motion: reduce) { html:not([data-desktop]) .workspace .attachment-lightbox::backdrop,html:not([data-desktop]) .workspace .attachment-lightbox small { animation:none; } }
+@media (prefers-reduced-motion: reduce) { :root .workspace .attachment-lightbox::backdrop,:root .workspace .attachment-lightbox small { animation:none; } }
 
 
 /* Message attachments. A user's sit in .message-attachments above the text bubble (no bubble of their own, like a photo in iMessage);
@@ -106,8 +106,8 @@ html:not([data-desktop]) .workspace .attachment-lightbox > button { position:fix
 .workspace .attachment-lightbox-bar small { flex:1; min-width:0; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .workspace .attachment-lightbox-bar :is(button,a) { display:grid; width:32px; height:32px; place-items:center; border:1px solid var(--line-soft); border-radius:10px; background:var(--surface-2); color:var(--ink); }
 .workspace .attachment-lightbox-error { color:var(--danger-text); }
-html:not([data-desktop]) .workspace .attachment-lightbox-bar { justify-content:center; }
-html:not([data-desktop]) .workspace .attachment-lightbox-bar small { flex:0 1 auto; }
+:root .workspace .attachment-lightbox-bar { justify-content:center; }
+:root .workspace .attachment-lightbox-bar small { flex:0 1 auto; }
 /* A sent or arriving message rises into place; history and switches never get .new-arrival. */
 @keyframes attachments-arrive { from { opacity:0; transform:translateY(8px); } }
 .workspace .new-arrival .message-attachments { animation:attachments-arrive var(--m-base) var(--ease-out) both; }

@@ -1440,7 +1440,7 @@ function Workspace() {
   const messages = useMemo(() => greeting.stage === "done" ? foldedProgress.visible : foldedProgress.visible.slice(0, greeting.shown), [foldedProgress.visible, greeting.stage, greeting.shown]);
   const scheduledRootKey = useMemo(() => occurrenceRootKey(messageRecords.filter(message => message.kind === "scheduled_task" && message.conversation_id === activeId).map(message => message.run_id ?? "")), [messageRecords, activeId]);
   const occurrenceRead = useScheduleOccurrences(activeId, scheduledRootKey, scheduleRefresh);
-  const metadataRead = useScheduleMetadata(isDesktop ? null : activeId, scheduledRootKey, scheduleRefresh);
+  const metadataRead = useScheduleMetadata(activeId, scheduledRootKey, scheduleRefresh);
   const scheduleOccurrences = occurrenceRead.items;
   const scheduleMetadata = metadataRead.items;
   /** A scheduled card whose occurrence data has not arrived yet draws a blank ticket instead of placeholder status text. */
@@ -3340,44 +3340,9 @@ function WebToolActivityRun({ runId, items, notes, summary, summaryError, summar
   </section>;
 }
 
+/** One tool run, the same in the browser and the desktop app. */
 function ToolActivityRun(props: ToolRunProps) {
-  return isDesktop ? <DesktopToolActivityRun {...props} /> : <WebToolActivityRun {...props} />;
-}
-
-function DesktopToolActivityRun({ runId, items, notes, summary: runSummary, summaryError, summaryLoading, detail, onLoadDetails, onRetrySummary, live, now, timezone, botName }: ToolRunProps) {
-    const { t } = useTranslation(["chat", "common"]);
-    const finishing = useContext(ExpiryFinishingContext).has(runId);
-    const [expanded, setExpanded] = useState(false);
-    const count = runSummary?.tool_count ?? (summaryError || summaryLoading ? undefined : items.length);
-    const current = activeToolForRun(items, runId);
-    const queued = items.find(item => item.status === "queued");
-    const times = toolRunTimes(items, notes, runSummary);
-    const firstTime = times.first;
-    const lastTime = live && !finishing ? now : times.last;
-    const duration = Number.isFinite(firstTime) && Number.isFinite(lastTime) && lastTime >= firstTime ? formatRunDuration(lastTime - firstTime, false) : undefined;
-    const summary = finishing ? t("live.finishing") : live ? current ? t("tools.running_step", { name: current.name, step: items.indexOf(current) + 1 }) : queued ? t("tools.waiting_step", { name: queued.name, step: items.indexOf(queued) + 1 }) : t("tools.collecting") : summaryLoading ? t("tools.summary_loading") : summaryError ? t("tools.details_not_loaded") : notes.length ? [t("tools.process"), t("tools.report_count", { count: notes.length }), count ? t("tools.tool_count", { count }) : ""].filter(Boolean).join(" · ") : t("tools.tool_count", { count: count ?? 0 });
-    const entries = [
-      ...items.map(activity => ({ type: "tool" as const, at: activity.started_at, activity })),
-      ...notes.map(note => ({ type: "note" as const, at: note.created_at, note })),
-    ].sort((a, b) => compareQuestionTime(a.at, b.at));
-    return <section className={`tool-message${live ? " is-live" : ""}`}>
-      <div className="tool-sender">{botName}</div>
-      <details className="tool-activity v2-tool-run" open={expanded} onToggle={event => { setExpanded(event.currentTarget.open); if (event.currentTarget.open && !detail?.loading && (count === undefined || items.length < count) && detail?.hasMore !== false) void onLoadDetails?.(runId, detail?.loaded ?? 0); }}>
-        <summary className="v2-tool-summary"><span>{summary}{duration === undefined ? "" : ` · ${duration}`}</span></summary>
-        <ol className="v2-tool-steps">{summaryLoading && <li className="v2-progress-note"><div>{t("tools.summary_loading")}</div></li>}{summaryError && <li className="v2-progress-note"><div>{t("tools.summary_failed", { error: summaryError })}</div><button type="button" className="secondary-button" onClick={() => onRetrySummary?.(runId)}>{t("common:action.retry")}</button></li>}{!entries.length && <li className="v2-progress-note"><div>{detail?.loading ? t("tools.details_loading") : detail?.error ? t("tools.details_failed", { error: detail.error }) : t("tools.expand_to_load")}</div></li>}{entries.map(entry => {
-          if (entry.type === "note") return <li className="v2-progress-note" key={entry.note.id}><span className="v2-tool-step-marker" aria-hidden="true" /><div><small>{t("tools.progress_note")} · {formatExactTime(entry.note.created_at, timezone)}</small><MessageMarkdown content={entry.note.content} /></div></li>;
-          const { activity } = entry;
-          const start = Date.parse(activity.started_at);
-          const end = activity.status === "running" ? now : Date.parse(activity.updated_at);
-          const duration = Number.isFinite(start) && Number.isFinite(end) && end >= start ? (end - start) / 1000 : undefined;
-          return <li className={`v2-tool-step tool-status-${toolDisplayState(activity)}`} key={toolActivityKey(activity)}>
-            <details className="v2-tool-step-detail" onToggle={event => { if (event.currentTarget.open) requestFullToolResult(activity); }}><summary><span className="v2-tool-step-marker" aria-hidden="true" /><strong>{activity.name}</strong>{toolArgumentPreview(activity) && <span className="v2-tool-step-argument">{toolArgumentPreview(activity)}</span>}{toolSourceLabel(activity) && <span className="v2-tool-step-argument" data-source>{toolSourceLabel(activity)}</span>}<span className="v2-tool-step-state">{toolDisplayLabel(activity)}</span><time>{duration === undefined ? "" : activity.status === "running" ? `${duration}s…` : `${duration}s`}</time></summary>
-              <div className="tool-activity-details"><small>{Number.isFinite(Date.parse(activity.started_at)) ? formatExactTime(activity.started_at, timezone) : ""} · {timezone}</small><div><span>{t("tools.arguments")}</span><pre>{activity.arguments || t("tools.none")}</pre></div><div><span>{t("tools.result")}</span>{activity.outcome && <p className="tool-outcome" role="note">{activity.outcome.message}</p>}<pre>{activity.result || (activity.status === "running" || activity.status === "queued" ? t("tools.waiting_result") : t("tools.none"))}</pre></div>{activity.truncated && <small>{t("tools.truncated")}</small>}</div>
-            </details>
-          </li>;
-        })}{detail?.hasMore && (count === undefined || items.length < count) && <li className="v2-progress-note"><button type="button" className="secondary-button" disabled={detail.loading} onClick={() => void onLoadDetails?.(runId, detail.loaded)}>{detail.loading ? t("action.loading") : t("tools.load_more", { shown: items.length, total: count ?? "?" })}</button></li>}</ol>
-      </details>
-    </section>;
+  return <WebToolActivityRun {...props} />;
 }
 
 function DictationControls({ elapsed, levels, busy, onCancel, onConfirm }: { elapsed: number; levels: number[]; busy: boolean; onCancel: () => void; onConfirm: () => void }) {

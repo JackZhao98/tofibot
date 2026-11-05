@@ -1,6 +1,4 @@
 import { lazy, Suspense, useState } from "react";
-import { TofiIcon } from "./icons";
-import { isDesktop } from "./desktop";
 import type { Message, Run, Schedule } from "./types";
 import type { ScheduleOccurrence } from "./scheduleOccurrences";
 import { ScheduledRun } from "./ScheduledRun";
@@ -39,10 +37,10 @@ export function ScheduledTaskRow({ message, run, occurrence, pending = false, sc
   const traceLine = owningRun?.trace ? <Suspense fallback={null}><WorkTrace run={owningRun} /></Suspense> : undefined;
   // The occurrence read is still in flight: a blank ticket of the same shape, never a guessed status.
   const blank = "\u00a0";
-  if (!isDesktop && pending) return <div className="scheduled-run-pending" aria-hidden="true" inert>
+  if (pending) return <div className="scheduled-run-pending" aria-hidden="true" inert>
     <ScheduledRun title={blank} description={blank} content="" plannedTime={blank} plannedTimeDescription="" metadata={blank} statusLabel={blank} />
   </div>;
-  if (!isDesktop) return <ScheduledRun
+  return <ScheduledRun
     {...metadata}
     content={message.content}
     state={state}
@@ -60,17 +58,4 @@ export function ScheduledTaskRow({ message, run, occurrence, pending = false, sc
     </> : undefined}
     onRetry={onRetry && retryId ? () => onRetry(retryId) : undefined}
   />;
-  // Preserve the native desktop row and its existing disclosure/retry behavior.
-  return <article className={`scheduled-task-row scheduled-task-${state ?? "unknown"}`}>
-    <details>
-      <summary>
-        <span className="scheduled-task-dot" aria-hidden="true" />
-        <TofiIcon className="scheduled-task-clock" name="clock" size={13} aria-hidden="true" />
-        <span className="scheduled-task-label" title={metadata.title}><strong>{metadata.title}</strong><small>{metadata.description}</small></span>
-        <span className="scheduled-task-status">{status}</span>
-        <TofiIcon className="scheduled-task-chevron" name="chevron-right" size={14} />
-      </summary>
-      <div className="scheduled-task-details"><p>{metadata.description}</p><details><summary>{t("row.manage_instructions")}</summary><p>{message.content}</p></details>{!exactOccurrence && <p className="field-note">{t("row.note.partial_status")}</p>}{exactOccurrence?.execution_status === "done" && !exactOccurrence.result_in_conversation && !quiet && <p className="field-note">{t("row.note.unpublished")}</p>}{exactOccurrence?.result_text && !exactOccurrence.result_in_conversation && <details open><summary>{t("row.result.heading")}</summary><MessageMarkdown content={exactOccurrence.result_text} /></details>}{isFailure && <div className="scheduled-task-recovery"><p>{receiptMissing ? t("row.failure.receipt_missing_confirm") : t("row.failure.incomplete_confirm")}</p>{error && <details><summary>{t("row.technical_reason")}</summary><p className="error-text">{error}</p></details>}{onRetry && retryId && <button type="button" className="text-button" disabled={retrying} onClick={() => { setRetrying(true); void onRetry(retryId).finally(() => setRetrying(false)); }}>{retrying ? t("row.rerunning") : t("row.rerun")}</button>}</div>}{traceLine}</div>
-    </details>
-  </article>;
 }

@@ -119,7 +119,6 @@ button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 :root[data-theme="dark"] .computer-detail.is-expanded{background:var(--surface)}
 :root[data-theme="dark"] .message-content code{background:var(--surface-hover);color:var(--text)}
 :root[data-theme="dark"] .composer-row,:root[data-theme="dark"] .composer-toolbar,:root[data-theme="dark"] .tool-activity-details{background:var(--surface-soft)}
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;animation-iteration-count:1!important}}
 /* Group messages read top-down: avatar beside the sender name, then the message body. */
 html[data-desktop] .message-avatar{align-self:flex-start;width:38px;height:38px;margin-top:0;margin-bottom:0}
 html[data-desktop] .message-avatar .avatar{width:38px;height:38px}
@@ -183,7 +182,6 @@ html[data-desktop] .message-avatar .avatar{width:38px;height:38px}
   .conversation-row>.avatar{width:46px;height:46px;flex-basis:46px}
 }
 .group-avatar,.user-avatar{background:var(--surface-hover);color:var(--text-soft)}
-.unread-divider::before,.unread-divider::after{background:var(--line)!important}
 .back-button{color:var(--text);background:transparent}.back-button:hover{background:var(--surface-hover)}
 .bot-identity-card[data-state="closed"]{animation:menu-leave var(--m-quick) var(--ease-out) both;pointer-events:none}
 html[data-desktop] .new-arrival .message-content{transform-origin:0 100%;animation:bubble-arrive var(--m-panel-in) var(--ease-out) both}

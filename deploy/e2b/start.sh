@@ -9,6 +9,8 @@ guest_home=$(getent passwd 1000 | cut -d: -f6 || true)
 guest_home=${guest_home:-/home/bot}
 
 if [[ $(id -u) -eq 0 ]]; then
+  # E2B's template finalizer makes /usr/local world-writable; our programs are not.
+  chmod 0755 /usr/local/bin/tofi-guest /usr/local/bin/tofi-e2b-start 2>/dev/null || true
   mkdir -p /run/dbus
   if [[ -f /usr/share/dbus-1/system.conf ]] && ! pgrep -x dbus-daemon >/dev/null 2>&1; then
     dbus-daemon --system --fork

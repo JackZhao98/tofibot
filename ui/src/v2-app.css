@@ -110,13 +110,7 @@
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-themes button[aria-checked="true"] { color:var(--on-block); background:var(--yellow); }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-rule { height:1px; margin:6px 5px; background:var(--line-soft); }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>.sidebar-account-logout { color:var(--danger-text); }
-/* The reading plane is warm, quiet, and independent of the floating chrome. */
-.workspace .chat-header {
-  min-height:70px; padding:10px clamp(14px,3vw,28px);
-  background:var(--glass); border-bottom:1px solid var(--glass-edge);
-  -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur);
-  box-shadow:var(--sheen);
-}
+/* The chat header (both shells) is chat-header.css + progressive-blur.css: two pills over a light progressive blur. */
 .workspace .chat-identity { gap:8px; padding:4px 8px 4px 2px; border:0; border-radius:12px; background:transparent; }
 .workspace .chat-identity:hover { background:var(--surface-2); }
 .workspace .member-avatar-stack { min-width:40px; }
@@ -131,7 +125,8 @@
 .workspace .header-actions :is(.computer-button,.ghost-button):hover,
 .workspace .header-actions [aria-pressed="true"] { color:var(--ink); border-color:var(--line); background:var(--surface); }
 .workspace .header-actions .computer-button.is-ready { color:var(--green-text); }
-.workspace .message-scroll { padding:26px clamp(18px,4vw,64px) calc(var(--composer-height,110px) + 28px); }
+/* Room under the last message: composer + a 24px margin + a gap (--composer-height follows the composer, App.tsx). The one rule for both shells. */
+.workspace .message-scroll { padding:26px clamp(18px,4vw,64px) calc(var(--composer-height,110px) + 24px + 20px); }
 /* The floating composer is reserved once; its own padding provides the gap. */
 /* Keep the latest reply above the cat; older messages may scroll behind it. */
 .workspace .message-list { max-width:var(--v2-chat-width); margin:auto; }
@@ -431,7 +426,6 @@ html:not([data-desktop]) .workspace .composer .working-member.work-companion .wo
 
 @media (max-width:767px) {
   .workspace .contact-pane { padding-inline:8px; }
-  .workspace .chat-header { padding-inline:10px; }
   .workspace .message-scroll { padding-inline:16px; }
   .workspace .composer { padding-inline:12px; }
 }
@@ -440,7 +434,6 @@ html:not([data-desktop]) .workspace .composer .working-member.work-companion .wo
   .workspace .sidebar-account-identity { transition:none; }
 }
 @media (prefers-reduced-transparency:reduce) {
-  .workspace .chat-header { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
   .workspace .composer .composer-row,:is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
   :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
 }

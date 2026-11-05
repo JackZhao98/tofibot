@@ -3,7 +3,6 @@ import { CATS, EmptyState } from "./EmptyCat";
 import { api } from "./api";
 import { BotAvatar } from "./BotAvatar";
 import { useSettingsActive } from "./settingsActivity";
-import { isDesktop } from "./desktop";
 import type { AgentUsageTotal, ContextUsage, UsageCall, UsagePeriod } from "./types";
 import "./usage-panel.css";
 import { intlLocale } from "./i18n/format";
@@ -17,7 +16,6 @@ const ranges = [["24h", "usage.range.24h"], ["7d", "usage.range.7d"], ["30d", "u
 const fail = (cause: unknown) => cause instanceof Error ? cause.message : i18n.t("settings:usage.load_failed");
 
 function UsageReel({text,rolled}:{text:string;rolled:boolean}) {
- if(isDesktop)return <>{text}</>;
  return <span className="web-usage-number" aria-label={text}>{Array.from(text).map((char,index)=>/\d/.test(char)?<span className="web-usage-col" aria-hidden="true" key={index}><span className="web-usage-reel" style={{"--d":rolled?Number(char)+10:0,"--delay":`${(text.length-index)*45}ms`} as CSSProperties}>{Array.from("01234567890123456789").map((face,at)=><span key={at}>{face}</span>)}</span></span>:<span aria-hidden="true" key={index}>{char}</span>)}</span>;
 }
 
@@ -35,7 +33,7 @@ export function UsagePanel({ preferredBotId, timezone }: { preferredBotId?: stri
   const [selected, setSelected] = useState("");
   const [loading, setLoading] = useState(true);
   useEffect(() => {
-    if (isDesktop || !active || loading || rolled) return;
+    if (!active || loading || rolled) return;
     const element = detailRef.current;
     if (!element) return;
     const observer = new IntersectionObserver(entries => { if (entries.some(entry => entry.isIntersecting)) { observer.disconnect(); requestAnimationFrame(() => requestAnimationFrame(() => setRolled(true))); } }, { threshold: .2 });
@@ -88,7 +86,7 @@ export function UsagePanel({ preferredBotId, timezone }: { preferredBotId?: stri
       <div className={`usage-detail${rolled ? " is-rolled" : ""}`} ref={detailRef}>
         <div className="usage-summary"><h3>{selectedId === "all" ? t("usage.all_bots") : current?.bot_name ?? t("usage.agent_fallback")}</h3><div className="usage-ranges" aria-label={t("usage.ranges")}>{ranges.map(([key, label]) => <button key={key} type="button" aria-pressed={range === key} onClick={() => setRange(key)}>{t(label)}</button>)}</div><div><span><small>{t("usage.input_tokens")}</small><strong><UsageReel text={count(total.input)} rolled={rolled}/></strong></span><span><small>{t("usage.output_tokens")}</small><strong><UsageReel text={count(total.output)} rolled={rolled}/></strong></span><span><small>{t("usage.requests")}</small><strong><UsageReel text={count(total.requests)} rolled={rolled}/></strong></span><span><small>{t("usage.api_equivalent")}</small><strong><UsageReel text={total.unpriced === total.requests && total.requests ? t("usage.no_price") : money(total.usd)} rolled={rolled}/></strong></span></div>{total.unpriced > 0 && <p>{t("usage.unpriced", { count: total.unpriced, requests: count(total.unpriced) })}</p>}<p><Trans t={t} i18nKey="usage.pricing_source" components={{ link: <a href="https://developers.openai.com/api/docs/pricing" target="_blank" rel="noreferrer" /> }} /></p></div>
         <div className="usage-review" aria-label={t("usage.review_title")}><h4>{t("usage.review_title")}</h4>{review.requests === 0 ? <p>{t("usage.review_none")}</p> : <div><span><small>{t("usage.requests")}</small><strong>{count(review.requests)}</strong></span><span><small>{t("usage.input_tokens")}</small><strong>{count(review.input)}</strong></span><span><small>{t("usage.output_tokens")}</small><strong>{count(review.output)}</strong></span><span><small>{t("usage.api_equivalent")}</small><strong>{review.unpriced === review.requests ? t("usage.no_price") : money(review.usd)}</strong></span></div>}<p>{t("usage.review_note")}</p></div>
-        {!isDesktop && <div className="web-usage-chart"><h4>{t("usage.chart_title")}</h4><div className="web-usage-bars" aria-label={t("usage.chart_label")}>{recentDays.map((day,index)=><span className="web-usage-bar" key={day.key}><i style={{"--h":`${day.requests/chartMax*100}%`,"--delay":`${200+index*60}ms`} as CSSProperties} title={t("usage.chart_bar", { day: day.label, count: day.requests })}/><small>{day.label}</small></span>)}</div></div>}
+        {<div className="web-usage-chart"><h4>{t("usage.chart_title")}</h4><div className="web-usage-bars" aria-label={t("usage.chart_label")}>{recentDays.map((day,index)=><span className="web-usage-bar" key={day.key}><i style={{"--h":`${day.requests/chartMax*100}%`,"--delay":`${200+index*60}ms`} as CSSProperties} title={t("usage.chart_bar", { day: day.label, count: day.requests })}/><small>{day.label}</small></span>)}</div></div>}
         <h4>{t("usage.calls_title")}</h4>
         {!visibleCalls.length ? <EmptyState name="usage-no-calls" className="usage-empty is-compact" look={CATS.taro} pose="asleep"><p>{t("usage.no_calls")}</p></EmptyState> : <div className="usage-call-list">{visibleCalls.map(call => <details key={call.id} className="usage-call"><summary><time dateTime={call.occurred_at}>{new Intl.DateTimeFormat(intlLocale(), { timeZone: timezone, month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" }).format(new Date(call.occurred_at))}</time><span>{call.kind === "review" && <em className="usage-call-kind">{t("usage.review_title")}</em>}{call.bot_name} · {call.conversation_name}</span><strong>{call.price_known ? money(call.equivalent_usd) : t("usage.no_price")}</strong></summary><p>{call.model} · {t("usage.call_input", { value: count(call.input_tokens) })} · {t("usage.call_output", { value: count(call.output_tokens) })}</p><p>{t("usage.trigger", { content: call.trigger_content || t("usage.trigger_none") })}</p></details>)}</div>}
         {selectedId !== "all" && <>

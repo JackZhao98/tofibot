@@ -200,6 +200,11 @@ func (f *fake) handle(w http.ResponseWriter, r *http.Request) {
 		f.sandboxJSON(w, code, id)
 	case r.Method == "POST" && strings.HasSuffix(p, "/timeout"):
 		f.timeouts++
+		if f.sandboxState == "paused" { // E2B: a paused sandbox is not in the running set
+			w.WriteHeader(404)
+			w.Write([]byte(`{"code":404,"message":"sandbox not found"}`))
+			return
+		}
 		w.WriteHeader(204)
 	case r.Method == "POST" && strings.HasSuffix(p, "/pause"):
 		f.sandboxState = "paused"
@@ -493,7 +498,7 @@ func TestCheckKey(t *testing.T) {
 		code   string
 	}{{200, ""}, {401, CodeInvalidKey}, {429, CodeLimit}, {500, CodeUnreachable}} {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path != "/v2/sandboxes" || r.URL.Query().Get("paginationLimit") != "1" || r.Header.Get("X-API-Key") != "k" {
+			if r.URL.Path != "/v2/sandboxes" || r.URL.Query().Get("limit") != "1" || r.Header.Get("X-API-Key") != "k" {
 				t.Errorf("bad request %s", r.URL)
 			}
 			w.WriteHeader(c.status)
@@ -684,5 +689,66 @@ func TestSandboxURLsStayOnE2BDomains(t *testing.T) {
 		if _, err := p.hostURL(8331, "sbx1", d); err != nil {
 			t.Fatalf("%s: %v", d, err)
 		}
+	}
+}
+
+func TestRetryWakesAPausedSandbox(t *testing.T) {
+	f := newFake(t)
+	f.sandboxState = "paused"
+	st := ready
+	st.SandboxID = "sbx1"
+	p, store := f.provider(st)
+	if err := p.Retry(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if f.connects != 1 || f.sandboxState != "running" || f.creates != 0 || store.state.SandboxID != "sbx1" {
+		t.Fatalf("retry on a paused sandbox: connects=%d state=%s creates=%d stored=%+v", f.connects, f.sandboxState, f.creates, store.state)
+	}
+}
+
+func TestRetryCreatesASandboxWhenThereIsNone(t *testing.T) {
+	f := newFake(t)
+	p, store := f.provider(ready)
+	if err := p.Retry(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if f.creates != 1 || store.state.SandboxID == "" {
+		t.Fatalf("retry with no sandbox: creates=%d stored=%+v", f.creates, store.state)
+	}
+}
+
+func TestASandboxThatAutoPausedResumesInsteadOfLookingGone(t *testing.T) {
+	f := newFake(t)
+	p, store := f.provider(ready)
+	now := time.Unix(1000, 0)
+	p.cfg.Now = func() time.Time { return now }
+	if _, err := act(p); err != nil { // creates and marks it running
+		t.Fatal(err)
+	}
+	f.mu.Lock()
+	f.sandboxState = "paused" // idle timeout: E2B paused it behind our back
+	f.mu.Unlock()
+	now = now.Add(16 * time.Minute)
+	if _, err := act(p); err != nil {
+		t.Fatalf("an auto-paused sandbox was not resumed: %v", err)
+	}
+	if f.creates != 1 || f.connects != 1 || store.state.Phase != PhaseReady || store.state.SandboxID != "sbx1" {
+		t.Fatalf("creates=%d connects=%d state=%+v", f.creates, f.connects, store.state)
+	}
+}
+
+func TestA403IsNotAnInvalidKey(t *testing.T) {
+	if got := statusCode(403, CodeSandboxFailed); got != CodeSandboxFailed {
+		t.Fatalf("403 maps to %s", got)
+	}
+	if got := statusCode(401, CodeSandboxFailed); got != CodeInvalidKey {
+		t.Fatalf("401 maps to %s", got)
+	}
+}
+
+func TestABuildFailureNamesItsLastErrors(t *testing.T) {
+	b := buildStatus{LogEntries: []buildLogEntry{{Message: "pulling image", Level: "info"}, {Message: "manifest unknown", Level: "error"}, {Message: "disk full", Level: "error"}}}
+	if got := b.lastErrors(3); got != " (manifest unknown | disk full)" {
+		t.Fatalf("got %q", got)
 	}
 }
