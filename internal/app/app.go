@@ -341,6 +341,8 @@ type Server struct {
 	computerMu      sync.RWMutex
 	computerSlots   map[string]*computerSlot
 	computerFactory func() (computer.Provider, error)
+	// e2bEnv is the account's E2B cloud computer, set up or not (environments.go).
+	e2bEnv e2bEnvironment
 	// computerBeatCancel stops the heartbeat sweep of personal computers.
 	computerBeatCancel    context.CancelFunc
 	computerBeatDone      chan struct{}
@@ -3027,6 +3029,9 @@ func NewServer(c Config) (*Server, error) {
 	// detached the computer earlier (the stored row says so).
 	var computerFactory func() (computer.Provider, error)
 	var microVM computer.Provider
+	// The person chose their E2B computer as the Bot computer: the VM stays
+	// set aside and restoreE2BEnvironment attaches the E2B computer instead.
+	preferE2B := storedBotComputerChoice(st) == envKindE2B
 	if strings.TrimSpace(c.ComputerSocket) != "" {
 		socket, ensure := c.ComputerSocket, c.ComputerEnsure
 		computerFactory = func() (computer.Provider, error) {
@@ -3036,7 +3041,7 @@ func NewServer(c Config) (*Server, error) {
 			}
 			return client, nil
 		}
-		if !st.vmDetachedByAdmin() && !c.ComputerStartDetached {
+		if !st.vmDetachedByAdmin() && !c.ComputerStartDetached && !preferE2B {
 			if microVM, e = computerFactory(); e != nil {
 				st.Close()
 				return nil, e
@@ -3141,6 +3146,7 @@ func NewServer(c Config) (*Server, error) {
 	if c.AccountControlPlane || c.AccountMaintenance {
 		return server, nil
 	}
+	server.restoreE2BEnvironment(preferE2B)
 	workerIDs, e := st.workerConversationIDs()
 	if e != nil {
 		server.ownerAuth.close()
@@ -3319,7 +3325,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if s.routeOnboardingHandovers(w, r, p) || s.routeUsage(w, r, p) || s.routeUsageRuns(w, r, p) || s.routeSpend(w, r, p) {
 		return
 	}
-	if s.routeProviders(w, r, p) || s.routeWebTools(w, r, p) {
+	if s.routeProviders(w, r, p) || s.routeWebTools(w, r, p) || s.routeEnvironments(w, r, p) {
 		return
 	}
 	if p == "automation-settings" {

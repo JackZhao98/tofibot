@@ -47,13 +47,26 @@ type ComputerCapabilities struct {
 
 func (s *Server) computerCapabilities() ComputerCapabilities {
 	host := ComputerBackendNone
-	if s.computerFactory != nil || s.computer() != nil {
+	if s.computerFactory != nil {
 		host = ComputerBackendKVM
 	}
-	if s.computer() == nil {
+	cur := s.computer()
+	if cur == nil {
 		return ComputerCapabilities{Backend: ComputerBackendNone, HostBackend: host, Capabilities: []string{}, PersonalComputers: s.personalComputers}
 	}
-	return ComputerCapabilities{Backend: ComputerBackendKVM, Available: true, Attached: true, HostBackend: host, Capabilities: append([]string(nil), kvmCapabilities...), PersonalComputers: s.personalComputers}
+	if cur.Kind() == envKindE2B {
+		// HostBackend stays about this server: an E2B computer is not a host backend.
+		return ComputerCapabilities{Backend: ComputerBackendE2B, Available: true, Attached: true, HostBackend: host, Capabilities: append([]string(nil), e2bCapabilities...), PersonalComputers: s.personalComputers}
+	}
+	return ComputerCapabilities{Backend: ComputerBackendKVM, Available: true, Attached: true, HostBackend: ComputerBackendKVM, Capabilities: append([]string(nil), kvmCapabilities...), PersonalComputers: s.personalComputers}
+}
+
+// botComputerRowLabel is the stored name and capability list of the Bot computer row.
+func botComputerRowLabel(p interface{ Kind() string }) (string, []string) {
+	if p.Kind() == envKindE2B {
+		return "E2B cloud computer", e2bCapabilities
+	}
+	return "Bot workspace", kvmCapabilities
 }
 
 // hasComputerCapability is the one question prompts and tools ask instead of

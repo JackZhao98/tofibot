@@ -20,7 +20,13 @@ func main() {
 	idleTimeout := flag.Duration("desktop-idle-timeout", 15*time.Minute, "automatically stop an idle Bot desktop (0 disables cleanup)")
 	clockSync := flag.Bool("clock-sync", false, "run only the root wall-clock setter the host uses after a snapshot restore")
 	maxBrowserTabs := flag.Int("max-browser-tabs", guest.DefaultMaxBrowserTabs, "maximum open page tabs in the shared Chrome; the least recently used tab closes beyond it (0 disables)")
+	listen := flag.String("listen", "vsock", `listener: "vsock" (Firecracker VM) or "tcp://HOST:PORT" (E2B; every route except GET /health needs a bearer token)`)
+	tokenFile := flag.String("token-file", "", "file holding the bearer token (required with --listen tcp://; read on every request)")
 	flag.Parse()
+	spec, err := guest.ParseListen(*listen, *tokenFile)
+	if err != nil && !*clockSync {
+		log.Fatal(err)
+	}
 	if *clockSync {
 		if os.Geteuid() != 0 {
 			log.Fatal("tofi-guest --clock-sync must run as root")
@@ -50,7 +56,12 @@ func main() {
 	})
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	if err := svc.ListenAndServe(ctx, uint32(*port)); err != nil && ctx.Err() == nil {
+	if spec.TCP() {
+		err = svc.ServeTCP(ctx, spec.Addr, spec.TokenFile)
+	} else {
+		err = svc.ListenAndServe(ctx, uint32(*port))
+	}
+	if err != nil && ctx.Err() == nil {
 		log.Fatal(err)
 	}
 }

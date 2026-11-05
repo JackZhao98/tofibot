@@ -269,44 +269,18 @@ func (c *Client) send(ctx context.Context, method, endpoint string, body any, ou
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
-		if action, isAction := body.(Action); isAction && ctx.Err() == nil && connectionLost(err) {
-			// The effect of a lost call is unknown. Only a read may be repeated
-			// as it is; anything else needs its target state checked first.
-			next := "verify_effect"
-			observation := ObservationAction(action.Name)
-			if identity, ok := tooloutcome.ExecutionIdentity(ctx); ok {
-				observation = identity.Risk == tooloutcome.Observation
+		if action, isAction := body.(Action); isAction {
+			if lost := ActionConnectionError(ctx, action, err); lost != nil {
+				return lost
 			}
-			if observation {
-				next = "retry"
-			}
-			return tooloutcome.New(tooloutcome.Transient, tooloutcome.ConnectionLost, "unknown",
-				"The Bot computer closed the connection, which usually means it restarted. Wait a few seconds, then check the state of what this call changed before repeating it.", next).Err()
 		}
 		return fmt.Errorf("computer control socket: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		message, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
-		// A guest refusal that carries a structured not-executed outcome proves
-		// the action was never performed. Anything else stays unclassified.
-		if _, ok := body.(Action); ok {
-			var rejected ActionResult
-			if json.Unmarshal(message, &rejected) == nil && rejected.Outcome != nil {
-				o := *rejected.Outcome
-				if o.Version == 1 && tooloutcome.IsBrowserNavigation(o) && o.NextAction != "" {
-					return o.Err()
-				}
-				if o.Version == 1 && o.Status == tooloutcome.Transient && o.Code == tooloutcome.BrowserSlow && o.NextAction == "retry" {
-					return o.Err()
-				}
-				refused := o.Status == tooloutcome.Validation || (o.Status == tooloutcome.Permanent && o.Code == tooloutcome.FileNotFound)
-				if o.Version == 1 && refused && o.Certainty == "not_executed" && o.NextAction != "" {
-					return o.Err()
-				}
-			}
-		}
-		return fmt.Errorf("computer control returned %s: %s", resp.Status, strings.TrimSpace(string(message)))
+		_, isAction := body.(Action)
+		return ActionStatusError(resp.Status, message, isAction)
 	}
 	if out == nil {
 		return nil
@@ -315,6 +289,79 @@ func (c *Client) send(ctx context.Context, method, endpoint string, body any, ou
 		return fmt.Errorf("invalid computer control response: %w", err)
 	}
 	return nil
+}
+
+// ActionConnectionError maps a transport error that ended after an action was
+// sent to the structured transient outcome, or returns nil when err is not a
+// lost connection (or ctx is done). Shared with other Provider kinds so the
+// server sees identical errors.
+func ActionConnectionError(ctx context.Context, action Action, err error) error {
+	if ctx.Err() != nil || !connectionLost(err) {
+		return nil
+	}
+	// The effect of a lost call is unknown. Only a read may be repeated
+	// as it is; anything else needs its target state checked first.
+	next := "verify_effect"
+	observation := ObservationAction(action.Name)
+	if identity, ok := tooloutcome.ExecutionIdentity(ctx); ok {
+		observation = identity.Risk == tooloutcome.Observation
+	}
+	if observation {
+		next = "retry"
+	}
+	return tooloutcome.New(tooloutcome.Transient, tooloutcome.ConnectionLost, "unknown",
+		"The Bot computer closed the connection, which usually means it restarted. Wait a few seconds, then check the state of what this call changed before repeating it.", next).Err()
+}
+
+// ActionStatusError maps a non-2xx guest reply to an error. A guest refusal
+// that carries a structured not-executed outcome proves the action was never
+// performed; anything else stays unclassified.
+func ActionStatusError(status string, message []byte, isAction bool) error {
+	if isAction {
+		var rejected ActionResult
+		if json.Unmarshal(message, &rejected) == nil && rejected.Outcome != nil {
+			o := *rejected.Outcome
+			if o.Version == 1 && tooloutcome.IsBrowserNavigation(o) && o.NextAction != "" {
+				return o.Err()
+			}
+			if o.Version == 1 && o.Status == tooloutcome.Transient && o.Code == tooloutcome.BrowserSlow && o.NextAction == "retry" {
+				return o.Err()
+			}
+			refused := o.Status == tooloutcome.Validation || (o.Status == tooloutcome.Permanent && o.Code == tooloutcome.FileNotFound)
+			if o.Version == 1 && refused && o.Certainty == "not_executed" && o.NextAction != "" {
+				return o.Err()
+			}
+		}
+	}
+	return fmt.Errorf("computer control returned %s: %s", status, strings.TrimSpace(string(message)))
+}
+
+// PrepareAction validates and normalizes an action the way Client.ActionWithin does.
+func PrepareAction(action Action) (Action, error) {
+	if strings.TrimSpace(action.BotID) == "" {
+		return action, errors.New("bot_id is required")
+	}
+	if strings.TrimSpace(action.Name) == "" {
+		return action, errors.New("action is required")
+	}
+	if len(action.Args) == 0 {
+		action.Args = json.RawMessage(`{}`)
+	}
+	return action, nil
+}
+
+// FinishActionResult applies the post-decode rules of Client.ActionWithin.
+func FinishActionResult(out ActionResult) (ActionResult, error) {
+	if !out.OK {
+		if out.Error == "" {
+			out.Error = "computer action failed"
+		}
+		return out, errors.New(out.Error)
+	}
+	if len(out.Result) == 0 {
+		out.Result = json.RawMessage(`null`)
+	}
+	return out, nil
 }
 
 func (c *Client) Info(ctx context.Context) (Info, error) {
@@ -337,29 +384,15 @@ func (c *Client) Action(ctx context.Context, action Action) (ActionResult, error
 // ActionWithin is Action with a deadline for the guest's answer. Admission and
 // cold-boot readiness stay bounded by ctx alone; a slow boot is not a hung guest.
 func (c *Client) ActionWithin(ctx context.Context, action Action, limit time.Duration) (ActionResult, error) {
-	if strings.TrimSpace(action.BotID) == "" {
-		return ActionResult{}, errors.New("bot_id is required")
-	}
-	if strings.TrimSpace(action.Name) == "" {
-		return ActionResult{}, errors.New("action is required")
-	}
-	if len(action.Args) == 0 {
-		action.Args = json.RawMessage(`{}`)
+	action, err := PrepareAction(action)
+	if err != nil {
+		return ActionResult{}, err
 	}
 	var out ActionResult
 	if err := c.do(ctx, http.MethodPost, "/v1/action", action, &out, true, limit); err != nil {
 		return out, err
 	}
-	if !out.OK {
-		if out.Error == "" {
-			out.Error = "computer action failed"
-		}
-		return out, errors.New(out.Error)
-	}
-	if len(out.Result) == 0 {
-		out.Result = json.RawMessage(`null`)
-	}
-	return out, nil
+	return FinishActionResult(out)
 }
 
 func (c *Client) Retry(ctx context.Context) error {
