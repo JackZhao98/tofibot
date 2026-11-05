@@ -105,6 +105,10 @@
   /* Hover hints: a neutral black chip, never the accent colour. Dark theme inverts (a near-black chip would vanish on the near-black page). */
   --tooltip-bg:#171411; --tooltip-ink:#ffffff;
   --float-shadow:var(--hard);
+  /* Widget cards (docs/design/widgets-and-sidebar.md): a soft elevation, no outline. Here and not in the lazy
+     widget CSS: a :root rule arriving with a chunk restyles every element on the page. */
+  --card-elevation:0 1px 2px color-mix(in srgb,var(--shade-ink) 6%,transparent), 0 10px 28px -14px color-mix(in srgb,var(--shade-ink) 28%,transparent);
+  --card-lift:0 2px 4px color-mix(in srgb,var(--shade-ink) 10%,transparent), 0 18px 38px -12px color-mix(in srgb,var(--shade-ink) 42%,transparent);
   /* Motion vocabulary (one scale; the guard is scripts/test-motion-tokens.mjs, the JS mirror is motion.ts).
      Durations: instant = hover fades, press = pressed feedback, quick = toggles/tooltips/fades, base = arrivals,
      disclosures and glides, panel-in/panel-out = panels, drawers, dialogs and page pushes (leaving is ~35% shorter),
@@ -140,7 +144,13 @@
   --glass:rgba(31,28,24,.52); --glass-strong:rgba(31,28,24,.8);
   --glass-edge:rgba(241,230,214,.2); --sheen:inset 0 1px 0 rgba(255,255,255,.08);
   --float-shadow:var(--hard);
+  --card-elevation:0 1px 2px color-mix(in srgb,var(--shade) 45%,transparent), 0 12px 30px -14px color-mix(in srgb,var(--shade) 70%,transparent), inset 0 1px 0 color-mix(in srgb,var(--white) 4%,transparent);
+  --card-lift:0 2px 4px color-mix(in srgb,var(--shade) 50%,transparent), 0 20px 40px -12px color-mix(in srgb,var(--shade) 85%,transparent), inset 0 1px 0 color-mix(in srgb,var(--white) 6%,transparent);
   --tooltip-bg:#f2efe9; --tooltip-ink:#171411;
   --bubble-bot:#2b2722; --bubble-user:#4a3125; --bubble-inset:#1c1915; --bubble-inset-ink:#f0e2cf;
   --mail-paper:#fbf4e6;
 }
+
+/* The avatar picker's paint reveal animates this (BotAvatarPicker.tsx). Registered here, not in the picker's lazy CSS:
+   an @property rule arriving with a chunk restyles every element on the page. */
+@property --paint-r { syntax:"<length>"; inherits:false; initial-value:0px; }

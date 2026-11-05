@@ -14,11 +14,24 @@ import (
 // the say tool directly.
 func outcomeFixture(t *testing.T, kind string) (*Server, Conversation, Run, *sayRunState) {
 	t.Helper()
-	s, run := dmRun(t, dmFuncEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
+	// No run is enqueued, so no conversation worker exists: the claim below cannot race one that read the run as
+	// queued (a fixture that first executed a run left its worker to pick this one up).
+	retainDeltaEvents(t)
+	s, err := NewServer(Config{DataDir: t.TempDir(), Engine: dmFuncEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
 		return runtime.Result{Content: "plain"}, nil
-	}))
-	c, _ := s.store.GetConversation(run.ConversationID)
-	bot, _ := s.store.GetBot(run.BotID)
+	})})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { s.Close() })
+	if err := s.store.putUserStructuredOutput(true); err != nil {
+		t.Fatal(err)
+	}
+	bot, err := s.store.CreateBot("origin fixture", "", "model")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, _ := s.store.GetConversation(bot.DMConversationID)
 	_, live, _, err := s.store.AddUserRun(c.ID, bot.ID, "synthetic request", "outcome-"+t.Name())
 	if err != nil {
 		t.Fatal(err)

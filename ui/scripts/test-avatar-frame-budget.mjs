@@ -48,6 +48,32 @@ try {
   assert.ok(result.rafPerSecond <= 75, `20 cats must share one frame pump, got ${result.rafPerSecond.toFixed(0)} rAF/s`);
   assert.ok(result.firstPathUpdatesPerSecond <= 30, `a 25 px cat must step at <= ~24 fps, got ${result.firstPathUpdatesPerSecond.toFixed(1)}/s`);
 
+  // One style pass a frame: a cat must not read layout (its host's size) while it steps, or every cat after the first forces
+  // its own style and layout pass in the same frame (2026-11-04: 5.3 passes a frame with the 61-row sidebar open).
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Performance.enable");
+  const recalcs = async () => (await cdp.send("Performance.getMetrics")).metrics.find(m => m.name === "RecalcStyleCount").value;
+  await page.evaluate(async () => {
+    const { mountCat } = await import("/src/lib/tofi-avatar/index.js");
+    const root = document.createElement("div");
+    root.id = "style-pass-cats";
+    root.style.cssText = "position:fixed;left:0;top:40px";
+    document.body.append(root);
+    window.__styleCats = Array.from({ length: 20 }, () => { const host = document.createElement("span"); host.style.cssText = "display:inline-block;width:25px;height:25px"; root.append(host); return mountCat(host, { initialState: "awake" }); });
+    window.__frames = 0;
+    window.__countFrames = true;
+    const tick = () => { window.__frames++; if (window.__countFrames) requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+    await new Promise(r => setTimeout(r, 400));
+  });
+  const [recalc0, frames0] = [await recalcs(), await page.evaluate(() => window.__frames)];
+  await page.waitForTimeout(1500);
+  const [recalc1, frames1] = [await recalcs(), await page.evaluate(() => window.__frames)];
+  await page.evaluate(() => { window.__countFrames = false; window.__styleCats.forEach(cat => cat.destroy()); document.getElementById("style-pass-cats").remove(); });
+  const passes = (recalc1 - recalc0) / (frames1 - frames0);
+  console.log(JSON.stringify({ stylePassesPerFrame: +passes.toFixed(2) }));
+  assert.ok(passes <= 1.5, `20 stepping cats must share one style pass a frame, got ${passes.toFixed(2)}`);
+
   // Idle pause: no input for IDLE_PAUSE_MS settles every cat and the shared pump goes quiet; input resumes within a frame.
   const idle = await page.evaluate(async () => {
     const { mountCat, IDLE_PAUSE_MS, setIdlePauseDelay, isIdlePaused, holdAvatarLife } = await import("/src/lib/tofi-avatar/index.js");

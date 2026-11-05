@@ -67,6 +67,7 @@
     "test:day-one-templates": "node scripts/test-day-one-templates.mjs",
     "test:compat-provider": "node scripts/test-compat-provider.mjs",
     "test:file-preview": "node scripts/test-file-preview.mjs",
+    "test:lazy-css": "node scripts/test-lazy-css.mjs",
     "test:perf-structure": "node scripts/test-perf-structure.mjs",
     "test:avatar-frame-budget": "node scripts/test-avatar-frame-budget.mjs",
     "test:shell-budget": "node scripts/test-shell-budget.mjs",

@@ -670,7 +670,8 @@ function Workspace() {
   const displayedCover = useSurfacePresence(cover, 240);
   // Bot settings is a heavy chunk: its cover frame waits for it, so the window never opens with an empty body (the enter animation starts
   // with the content in place). Hover and focus on the entry points and idle time warm it (lazyPanels.tsx), and opening asks for it at once.
-  const botSettingsReady = usePanelLoaded("botSettings");
+  // Watched only while that cover is shown: otherwise the chunk landing (a row hover warms it) re-rendered the whole Workspace mid-drag.
+  const botSettingsReady = usePanelLoaded("botSettings", displayedCover === "bot-settings");
   useEffect(() => { if (cover === "bot-settings" && !botSettingsReady) preloadPanel("botSettings"); }, [cover, botSettingsReady]);
   const lastSidebarExpanded = useRef(false);
   if (surfaces.sidebar) lastSidebarExpanded.current = surfaces.sidebar.expanded;

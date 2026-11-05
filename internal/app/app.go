@@ -2279,6 +2279,16 @@ func (s *Store) RunsPage(conv string, limit int, beforeCreated, beforeID string)
 	return page, hasMore, nil
 }
 
+// runActive reports whether the run is still queued, running or waiting (an unreadable run counts as active,
+// so a caller that only cleans up after inactive runs leaves it alone).
+func (s *Store) runActive(id string) bool {
+	var active bool
+	if err := s.db.QueryRow(`SELECT status IN ('queued','running','waiting') FROM runs WHERE id=?`, id).Scan(&active); err != nil {
+		return err != sql.ErrNoRows
+	}
+	return active
+}
+
 func (s *Store) SetRunStatus(id, status, msg string) (bool, error) {
 	tx, e := s.db.Begin()
 	if e != nil {
@@ -4004,7 +4014,14 @@ func (s *Server) execute(c Conversation, r Run) {
 		s.executeApprovalExpiry(c, r)
 		return
 	}
+	// claimed is set once this call owns the run (the queued -> running claim). A call that never claimed it
+	// (the run was claimed elsewhere after the worker read it as queued, or it was cancelled) must leave the
+	// run's tool calls, questions, computer, secrets and trace alone: they belong to whoever runs it.
+	claimed := false
 	defer func() {
+		if !claimed && s.store.runActive(r.ID) {
+			return
+		}
 		if !s.store.preservesInputWait(r.ID) {
 			s.clearRunSecrets(r.ID)
 		}
@@ -4032,6 +4049,13 @@ func (s *Server) execute(c Conversation, r Run) {
 	stopComputerHold := s.maintainComputerHold(ctx, r)
 	defer func() {
 		cancel()
+		if !claimed && s.store.runActive(r.ID) {
+			// Someone else runs it. cancel() has stopped the hold renewal; the final release is the owner's.
+			s.mu.Lock()
+			delete(s.runs, r.ID)
+			s.mu.Unlock()
+			return
+		}
 		stopComputerHold()
 		s.releaseComputerOwner(r.BotID, r.ID)
 		s.releaseComputerHolds(r.ID)
@@ -4088,6 +4112,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		}
 		return
 	}
+	claimed = true
 	if current, err := s.store.GetRun(r.ID); err == nil {
 		_, _ = s.store.Event(c.ID, "run", current)
 	}
