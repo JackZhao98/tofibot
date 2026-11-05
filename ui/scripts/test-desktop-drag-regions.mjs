@@ -1,0 +1,153 @@
+// In the macOS desktop app, `-webkit-app-region: drag` areas move the window and swallow clicks. Electron builds the
+// drag region from the page in document order: each `drag` box is added, each `no-drag` box is cut out; elements without
+// an app-region change nothing, so a panel drawn over the header is still a drag area under it (2026-11-04: the enlarged
+// Bot computer's close button sat in the header strip and could not be clicked in the app, while the browser was fine).
+//
+// This mounts the real workspace with the desktop bridge stubbed, opens every surface that can cover the title strips,
+// rebuilds the drag region the way Electron does, and fails when a visible control is inside it.
+import assert from "node:assert/strict";
+import { installStubs, startUi, launch } from "./computer-window-fixture.mjs";
+
+const SIZES = [{ width: 1280, height: 800 }, { width: 860, height: 640 }];
+
+const { server, origin } = await startUi();
+const browser = await launch();
+const failures = [];
+let checked = 0;
+
+async function open(size) {
+  const page = await browser.newPage({ viewport: size });
+  const state = { info: { kind: "firecracker", state: "hibernated", workspace_root: "/workspace", browser: "Google Chrome", hibernation: true }, requests: [] };
+  await installStubs(page, state);
+  await page.route("**/api/**", async route => {
+    const path = new URL(route.request().url()).pathname;
+    const json = body => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+    const allocation = { vcpus: 4, memory_mib: 8192, disk_gib: 40 };
+    if (path === "/api/computer/resources") return json({ current: allocation, desired: allocation, pending: false, state: "ready", host: { cpus: 16, memory_total_mib: 65536, memory_available_mib: 32768, disk_available_gib: 500 }, limits: { max_vcpus: 8, max_memory_mib: 16384, max_disk_gib: 100 } });
+    return route.fallback();
+  });
+  await page.addInitScript(() => {
+    const off = () => () => {};
+    window.tofiDesktop = {
+      platform: "darwin", themePreference: "light",
+      onCommand: off, onWindowState: off, onFlushState: off,
+      appearance: async () => {}, requestMicrophoneAccess: async () => false,
+      getPermissionStatus: async () => ({ supported: true, microphone: "not-determined", screen: "denied", accessibility: false }),
+      requestPermission: async () => false, openPrivacySettings: async () => true, openDesktopSettings: async () => true,
+      startAccessibilityDrag: () => {}, remoteInputFocus: () => {},
+      readWorkspaceState: async () => ({}), writeWorkspaceState: async () => {},
+      prepareAttachment: async () => ({ handle: "h", name: "n" }), saveAttachment: async () => true, revealAttachment: async () => {}, dragAttachment: () => {},
+    };
+  });
+  await page.goto(origin + "/");
+  await page.locator(".chat-header").waitFor();
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.desktop), "darwin", "the workspace runs as the macOS desktop app");
+  return page;
+}
+
+// Controls that a person can see and reach (the topmost element at their centre), sampled at five points each, tested
+// against the drag region rebuilt from every element's computed app-region in document order.
+async function blocked(page) {
+  return page.evaluate(() => {
+    const regions = [];
+    for (const element of document.querySelectorAll("body *")) {
+      const mode = getComputedStyle(element).webkitAppRegion || getComputedStyle(element).getPropertyValue("-webkit-app-region");
+      if (mode !== "drag" && mode !== "no-drag") continue;
+      const box = element.getBoundingClientRect();
+      if (box.width && box.height) regions.push({ drag: mode === "drag", box });
+    }
+    const inDrag = (x, y) => {
+      let drag = false;
+      for (const { drag: add, box } of regions) if (x >= box.left && x < box.right && y >= box.top && y < box.bottom) drag = add;
+      return drag;
+    };
+    const controls = document.querySelectorAll("button, a[href], input, select, textarea, [role=button], [role=menuitem], [role=switch], [role=tab], [role=option]");
+    const out = [];
+    for (const control of controls) {
+      const box = control.getBoundingClientRect();
+      if (box.width < 4 || box.height < 4 || control.closest("[inert], [aria-hidden=true]")) continue;
+      const cx = box.left + box.width / 2, cy = box.top + box.height / 2;
+      if (cx < 0 || cy < 0 || cx >= innerWidth || cy >= innerHeight) continue;
+      const top = document.elementFromPoint(cx, cy);
+      if (!top || !(top === control || control.contains(top))) continue;
+      const points = [[cx, cy], [box.left + 3, box.top + 3], [box.right - 3, box.top + 3], [box.left + 3, box.bottom - 3], [box.right - 3, box.bottom - 3]];
+      const hit = points.filter(([x, y]) => inDrag(x, y) && (document.elementFromPoint(x, y) === control || control.contains(document.elementFromPoint(x, y))));
+      if (hit.length) out.push(`${control.getAttribute("aria-label") || control.textContent.trim().slice(0, 40) || control.className} @${Math.round(box.left)},${Math.round(box.top)}`);
+    }
+    return { out, total: controls.length };
+  });
+}
+
+async function check(page, surface, size) {
+  // Panels finish their entrance motion (finite animations only; spinners loop forever).
+  await page.waitForFunction(() => document.getAnimations().every(a => a.playState !== "running" || a.effect?.getTiming().iterations === Infinity), null, { timeout: 5000 });
+  const { out } = await blocked(page);
+  checked++;
+  for (const label of out) failures.push(`${size.width}x${size.height} ${surface}: ${label}`);
+  console.log(`${out.length ? "FAIL" : "PASS"} ${size.width}x${size.height} ${surface}${out.length ? ": " + out.join("; ") : ""}`);
+}
+
+for (const size of SIZES) {
+  let page = await open(size);
+  await check(page, "conversation", size);
+
+  await page.getByRole("button", { name: /^Bot computer/ }).first().click();
+  await page.locator(".computer-hide-button, [aria-label='Close Bot computer']").first().waitFor();
+  await check(page, "Bot computer card", size);
+
+  await page.locator("[aria-label='Enlarge Bot computer']").last().click();
+  await page.locator("[aria-label='Shrink Bot computer']").first().waitFor();
+  await check(page, "enlarged Bot computer", size);
+  await page.locator("[aria-label='Close Bot computer']").first().click();
+
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menu").first().waitFor();
+  await check(page, "More actions menu", size);
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: "Search" }).first().click();
+  await page.getByRole("dialog").first().waitFor();
+  await check(page, "search", size);
+  await page.keyboard.press("Escape");
+  await page.close();
+
+  for (const tab of ["computer", "devices", "general"]) {
+    page = await open(size);
+    await page.goto(`${origin}/settings/${tab}`);
+    await page.locator(".settings-tabs").waitFor();
+    await check(page, `settings › ${tab}`, size);
+    await page.close();
+  }
+}
+
+// The Mac settings page is its own document: it needs a strip the window can be dragged by, and nothing on it may sit in that strip.
+for (const size of SIZES) {
+  const page = await browser.newPage({ viewport: size });
+  await page.addInitScript(() => {
+    const status = { name: "Mac", workspaceRoot: "/Users/demo/Tofi", fileAccess: true, screenCapture: true, desktopControl: true, paired: false, permissions: { screen: false, accessibility: false },
+      sandbox: { enabled: false, available: true, bound: false, root: null, connectionID: null, running: false }, bots: [{ bot_id: "b1", bot_name: "Inbox", decision: "ask" }], control: { phase: "idle" } };
+    const same = async () => JSON.parse(JSON.stringify(status));
+    window.tofiDesktop = { platform: "darwin", themePreference: "light", getSettings: same, openPermissionGuide: async () => true, updateSettings: same, chooseWorkspace: async () => null,
+      setBotDecision: same, controlStop: same, controlResume: same, pair: same, relaunch: async () => true, chooseSandboxRoot: async () => null, authorizeSandboxRoot: same, sandboxRevoke: same };
+  });
+  await page.route(url => new URL(url).pathname.startsWith("/api/"), route => route.abort());
+  await page.goto(origin + "/desktop-settings.html");
+  await page.locator("#mac-name").waitFor();
+  const strip = await page.evaluate(() => { const el = document.querySelector(".mac-settings-titlebar"); const box = el?.getBoundingClientRect(); return el && getComputedStyle(el).webkitAppRegion === "drag" && box.width === innerWidth && box.height >= 24; });
+  assert.ok(strip, `${size.width}x${size.height}: the Mac settings page has a full-width drag strip`);
+  await check(page, "Mac settings page", size);
+  for (let y = 300; y < 3000; y += 300) { // scrolled content passes under the strip
+    await page.evaluate(top => { for (const el of document.querySelectorAll("*")) if (el.scrollHeight > el.clientHeight + 20 && /auto|scroll/.test(getComputedStyle(el).overflowY)) el.scrollTop = top; }, y);
+    await check(page, `Mac settings page scrolled ${y}px`, size);
+  }
+  await page.close();
+}
+
+await browser.close();
+await server.close();
+assert.ok(checked >= 16, `checked ${checked} surfaces`);
+if (failures.length) {
+  console.error(`\n${failures.length} control(s) sit in a macOS drag area and cannot be clicked in the desktop app:\n  ${failures.join("\n  ")}`);
+  process.exit(1);
+}
+console.log(`PASS ${checked} surfaces: no visible control inside a macOS drag area`);

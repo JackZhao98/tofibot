@@ -198,16 +198,15 @@
       "ready": "Bot 電腦已就緒",
       "starting": "正在準備 Bot 電腦",
       "stopped": "Bot 電腦已停止",
-      "waiting": "等待 Bot 電腦連線"
+      "resuming": "正在喚醒 Bot 電腦",
+      "asleep": "Bot 電腦休眠中 · Bot 用到時自動喚醒",
+      "failed": "Bot 電腦啟動失敗",
+      "checking": "正在檢查 Bot 電腦…",
+      "unknown": "Bot 電腦無法使用"
     },
     "workspace": "工作目錄 {{path}}",
     "workspace_idle_other": "工作目錄 {{path}} · 桌面閒置 {{count}} 分鐘後自動關閉",
     "retry": "重新準備 Bot 電腦"
-  },
-  "mac": {
-    "title": "Mac 權限",
-    "description": "管理螢幕錄製和輔助使用權限，讓 Tofi 在你授權後檢視螢幕並操作桌面。",
-    "open_card": "查看授權卡片"
   },
   "devices": {
     "title": "其他裝置",
@@ -220,7 +219,12 @@
     "disconnect": "中斷連線",
     "this_mac": "這台 Mac",
     "this_mac_note": "這台 Mac 的裝置名稱、資料夾、macOS 權限、Bot 存取與本機執行。",
-    "open_mac": "開啟 Mac 設定"
+    "open_mac": "開啟 Mac 設定",
+    "connected": "已連線的 Mac",
+    "mac_settings": "Mac 設定",
+    "empty": "還沒有連線的 Mac。",
+    "copy": "複製配對碼",
+    "copied": "已複製"
   },
   "resources": {
     "restart": {

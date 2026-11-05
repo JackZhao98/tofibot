@@ -16,6 +16,12 @@ html:not([data-desktop]) .web-pairing-wait{color:var(--muted);font:var(--type-st
 @keyframes web-pair-connect{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 @keyframes web-pair-check{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
 html:not([data-desktop]) .settings-section>.field-note{margin:8px 0 0}
-html:not([data-desktop]) .other-computers>.field-note{margin:10px 0 12px}
 @media(max-width:420px){html:not([data-desktop]) .web-pairing-card code{gap:4px;flex-wrap:nowrap}html:not([data-desktop]) .web-pairing-digit{box-sizing:border-box;min-width:0;width:calc((100% - 32px)/9);height:36px;padding:0;font-size:18px}}
 @media(prefers-reduced-motion:reduce){html:not([data-desktop]) .web-pairing-route i,html:not([data-desktop]) .web-pairing-digit,html:not([data-desktop]) .web-pairing-card.is-paired .web-pairing-route>svg{animation:none}}
+/* Other devices: the code a Mac enters, as a row of its card, and the button that asks for one. */
+.device-pairing-code{display:grid;gap:8px;padding:14px 16px}
+.device-pairing-code code{color:var(--ink);font:700 24px/1.2 var(--font-mono);letter-spacing:.14em}
+.device-pairing-code p{margin:0;color:var(--muted);font:var(--type-meta)}
+.device-pairing-actions{display:flex;flex-wrap:wrap;gap:8px}
+.device-pairing-web{padding:0 16px}
+.device-pairing-row{justify-content:flex-start}

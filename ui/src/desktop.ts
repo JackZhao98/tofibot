@@ -63,6 +63,8 @@ declare global {
       controlStop?: () => Promise<DesktopDeviceStatus>;
       controlResume?: () => Promise<DesktopDeviceStatus>;
       pair?: (code: string) => Promise<DesktopDeviceStatus>;
+      /** Quits and reopens Tofi (Mac settings page only); macOS applies a new Screen Recording grant to a fresh process. */
+      relaunch?: () => Promise<boolean>;
       chooseSandboxRoot?: () => Promise<DesktopSandboxSelection | null>;
       authorizeSandboxRoot?: (selectionID: string) => Promise<DesktopDeviceStatus | null>;
       sandboxRevoke?: () => Promise<DesktopDeviceStatus | null>;

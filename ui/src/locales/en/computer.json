@@ -199,17 +199,16 @@
       "ready": "Bot computer ready",
       "starting": "Preparing the Bot computer",
       "stopped": "Bot computer stopped",
-      "waiting": "Waiting for the Bot computer"
+      "resuming": "Waking the Bot computer",
+      "asleep": "Bot computer asleep · wakes when a Bot needs it",
+      "failed": "Bot computer failed to start",
+      "checking": "Checking the Bot computer…",
+      "unknown": "Bot computer unavailable"
     },
     "workspace": "Work folder {{path}}",
     "workspace_idle_one": "Work folder {{path}} · desktop closes after {{count}} idle minute",
     "workspace_idle_other": "Work folder {{path}} · desktop closes after {{count}} idle minutes",
     "retry": "Prepare the Bot computer again"
-  },
-  "mac": {
-    "title": "Mac permissions",
-    "description": "Manage Screen Recording and Accessibility permissions so Tofi can see the screen and use the desktop once you allow it.",
-    "open_card": "View permission card"
   },
   "devices": {
     "title": "Other devices",
@@ -222,7 +221,12 @@
     "disconnect": "Disconnect",
     "this_mac": "This Mac",
     "this_mac_note": "Device name, folder, macOS permissions, Bot access and local execution for this Mac.",
-    "open_mac": "Open Mac settings"
+    "open_mac": "Open Mac settings",
+    "connected": "Connected Macs",
+    "mac_settings": "Mac settings",
+    "empty": "No Mac is connected yet.",
+    "copy": "Copy code",
+    "copied": "Copied"
   },
   "resources": {
     "restart": {

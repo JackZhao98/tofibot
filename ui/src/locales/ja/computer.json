@@ -198,16 +198,15 @@
       "ready": "Bot コンピューターの準備完了",
       "starting": "Bot コンピューターを準備中",
       "stopped": "Bot コンピューターは停止中",
-      "waiting": "Bot コンピューターの接続を待っています"
+      "resuming": "Bot コンピューターを復帰しています",
+      "asleep": "Bot コンピューターはスリープ中 · Bot が使うときに自動で復帰します",
+      "failed": "Bot コンピューターの起動に失敗しました",
+      "checking": "Bot コンピューターを確認中…",
+      "unknown": "Bot コンピューターを利用できません"
     },
     "workspace": "作業ディレクトリ {{path}}",
     "workspace_idle_other": "作業ディレクトリ {{path}} · デスクトップは {{count}} 分間操作がないと自動で閉じます",
     "retry": "Bot コンピューターを再準備"
-  },
-  "mac": {
-    "title": "Mac の権限",
-    "description": "画面収録とアクセシビリティの権限を管理します。許可すると Tofi が画面を確認し、デスクトップを操作できます。",
-    "open_card": "権限カードを表示"
   },
   "devices": {
     "title": "その他のデバイス",
@@ -220,7 +219,12 @@
     "disconnect": "接続解除",
     "this_mac": "この Mac",
     "this_mac_note": "この Mac のデバイス名、フォルダ、macOS の権限、Bot のアクセス、ローカル実行。",
-    "open_mac": "Mac の設定を開く"
+    "open_mac": "Mac の設定を開く",
+    "connected": "接続済みの Mac",
+    "mac_settings": "Mac の設定",
+    "empty": "まだ Mac は接続されていません。",
+    "copy": "コードをコピー",
+    "copied": "コピーしました"
   },
   "resources": {
     "restart": {

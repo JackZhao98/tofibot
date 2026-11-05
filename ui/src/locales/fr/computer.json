@@ -200,18 +200,17 @@
       "ready": "Ordinateur Bot prêt",
       "starting": "Préparation de l'ordinateur Bot",
       "stopped": "Ordinateur Bot arrêté",
-      "waiting": "En attente de l'ordinateur Bot"
+      "resuming": "Réveil de l’ordinateur Bot",
+      "asleep": "Ordinateur Bot en veille · se réveille dès qu’un Bot en a besoin",
+      "failed": "Échec du démarrage de l’ordinateur Bot",
+      "checking": "Vérification de l’ordinateur Bot…",
+      "unknown": "Ordinateur Bot indisponible"
     },
     "workspace": "Dossier de travail {{path}}",
     "workspace_idle_one": "Dossier de travail {{path}} · le bureau se ferme après {{count}} minute d'inactivité",
     "workspace_idle_many": "Dossier de travail {{path}} · le bureau se ferme après {{count}} minutes d'inactivité",
     "workspace_idle_other": "Dossier de travail {{path}} · le bureau se ferme après {{count}} minutes d'inactivité",
     "retry": "Préparer à nouveau l'ordinateur Bot"
-  },
-  "mac": {
-    "title": "Autorisations Mac",
-    "description": "Gérez les autorisations Enregistrement de l'écran et Accessibilité pour que Tofi puisse voir l'écran et utiliser le bureau une fois autorisé.",
-    "open_card": "Voir la carte d'autorisation"
   },
   "devices": {
     "title": "Autres appareils",
@@ -224,7 +223,12 @@
     "disconnect": "Déconnecter",
     "this_mac": "Ce Mac",
     "this_mac_note": "Nom de l’appareil, dossier, autorisations macOS, accès des Bots et exécution locale pour ce Mac.",
-    "open_mac": "Ouvrir les réglages du Mac"
+    "open_mac": "Ouvrir les réglages du Mac",
+    "connected": "Mac connectés",
+    "mac_settings": "Réglages du Mac",
+    "empty": "Aucun Mac connecté pour l’instant.",
+    "copy": "Copier le code",
+    "copied": "Copié"
   },
   "resources": {
     "restart": {

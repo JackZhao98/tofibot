@@ -12,7 +12,7 @@ const MacConfirm = lazy(() => import("./MacConfirm"));
 const POLL_MS = 1500;
 const message = (cause: unknown) => String((cause as { message?: unknown } | null)?.message || cause || "").slice(0, 2000);
 
-type Pending = "" | "load" | "refresh" | "workspace" | "save" | "pair" | "bot" | "control" | "permission" | "choose" | "authorize" | "revoke";
+type Pending = "" | "load" | "refresh" | "workspace" | "save" | "pair" | "bot" | "control" | "permission" | "choose" | "authorize" | "revoke" | "relaunch";
 type NoteKey = "idle" | "pending" | "noApi" | "cancelled" | "changed" | "unknown" | "authorized" | "unconfirmed" | "revoked" | "revoking" | "revokePending";
 type Confirm = { kind: "deny"; botID: string; name: string } | { kind: "revoke" } | null;
 type Draft = { name: string; workspaceRoot: string; files: boolean; screen: boolean; control: boolean };
@@ -25,7 +25,7 @@ function Switch({ checked, label, disabled, onChange }: { checked: boolean; labe
 export function MacSettingsPage() {
   const { t } = useTranslation("settings");
   const api = window.tofiDesktop;
-  const has = (name: "getSettings" | "chooseWorkspace" | "openPermissionGuide" | "chooseSandboxRoot" | "authorizeSandboxRoot" | "sandboxRevoke" | "setBotDecision" | "controlStop" | "controlResume" | "updateSettings" | "pair") => typeof api?.[name] === "function";
+  const has = (name: "getSettings" | "chooseWorkspace" | "openPermissionGuide" | "chooseSandboxRoot" | "authorizeSandboxRoot" | "sandboxRevoke" | "setBotDecision" | "controlStop" | "controlResume" | "updateSettings" | "pair" | "relaunch") => typeof api?.[name] === "function";
 
   const [status, setStatus] = useState<DesktopDeviceStatus | null>(null);
   const [known, setKnownState] = useState(false);
@@ -206,6 +206,7 @@ export function MacSettingsPage() {
   };
 
   return <div className="workspace mac-settings">
+    <div className="mac-settings-titlebar" aria-hidden="true" />
     <main className="settings-page-body"><div className="mac-settings-inner">
       <header className="mac-settings-head">
         <h1>{t("mac.title")}</h1>
@@ -245,6 +246,9 @@ export function MacSettingsPage() {
           {permission("screen")}
           {permission("accessibility")}
           {guiding && <p className="settings-card-note" role="status">{t(`mac.perm.hint.${guiding}`)}</p>}
+          {status && (!status.permissions?.screen || !status.permissions?.accessibility) && <p className="settings-card-note">{t("mac.perm.stale")}</p>}
+          {status && !status.permissions?.screen && has("relaunch") && <SettingsRow inline label={t("mac.perm.reopen.label")} description={t("mac.perm.reopen.hint")} control={
+            <button type="button" className="secondary-button" disabled={locked} onClick={() => void operation("relaunch", async () => { await api?.relaunch?.(); })}>{t("mac.perm.reopen.action")}</button>} />}
           <p className="settings-card-note">{t("mac.perm.monthly")}</p>
           <div className="settings-row-v2 mac-save-row"><button type="button" className="secondary-button" disabled={locked || !has("getSettings")} onClick={() => void operation("refresh", () => refresh())}>{pending === "refresh" ? t("mac.loading") : t("mac.refresh")}</button></div>
         </SettingsCard>
