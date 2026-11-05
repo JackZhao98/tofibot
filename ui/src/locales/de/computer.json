@@ -211,7 +211,6 @@
     "retry": "Bot-Computer neu vorbereiten"
   },
   "devices": {
-    "title": "Weitere Geräte",
     "note": "Du kannst auch einen Mac verbinden, auf dem die Tofi-App installiert ist.",
     "pair_failed": "Kopplungscode konnte nicht erstellt werden.",
     "connect": "Mac verbinden",

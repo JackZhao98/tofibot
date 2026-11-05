@@ -1388,7 +1388,8 @@
       "reopen": {
         "label": "画面収録をオンにしましたか？",
         "hint": "macOS では Tofi を開き直してから反映されます。",
-        "action": "Tofi を開き直す"
+        "action": "Tofi を開き直す",
+        "busy": "開き直しています…"
       }
     },
     "bots": {

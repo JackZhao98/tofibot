@@ -209,7 +209,6 @@
     "retry": "重新准备 Bot 电脑"
   },
   "devices": {
-    "title": "其他设备",
     "note": "也可以连接已安装 Tofi 客户端的 Mac。",
     "pair_failed": "暂时无法创建配对码。",
     "connect": "连接 Mac",

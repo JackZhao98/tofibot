@@ -213,7 +213,6 @@
     "retry": "Préparer à nouveau l'ordinateur Bot"
   },
   "devices": {
-    "title": "Autres appareils",
     "note": "Vous pouvez aussi connecter un Mac sur lequel l'app Tofi est installée.",
     "pair_failed": "Impossible de créer un code d'association.",
     "connect": "Connecter un Mac",

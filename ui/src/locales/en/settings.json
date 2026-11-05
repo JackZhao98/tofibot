@@ -1398,7 +1398,8 @@
       "reopen": {
         "label": "Turned on Screen Recording?",
         "hint": "macOS applies it only after Tofi reopens.",
-        "action": "Reopen Tofi"
+        "action": "Reopen Tofi",
+        "busy": "Reopening…"
       }
     },
     "bots": {

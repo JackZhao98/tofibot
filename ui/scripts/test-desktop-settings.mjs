@@ -117,6 +117,8 @@ try {
     assert.equal(await page.getByRole("switch", { name: L("en", "caps.screen.label") }).isChecked(), false);
     assert.equal(await badge(page, L("en", "perm.granted")).count(), 1, "accessibility is granted");
     assert.equal(await badge(page, L("en", "perm.missing")).count(), 1, "screen recording is not");
+    assert.equal(await page.getByText(L("en", "perm.stale")).count(), 0, "no stale-entry note before System Settings was opened");
+    assert.equal(await buttonIn(page, L("en", "perm.reopen.action")).count(), 0, "no reopen offer before System Settings was opened");
 
     // Save sends exactly the five fields, nothing about the execution grant.
     await page.locator("#mac-name").fill("Desk Mac");
@@ -135,11 +137,10 @@ try {
     assert.deepEqual((await named(page, "openPermissionGuide"))[0], ["openPermissionGuide", "screen"]);
     await page.getByText(L("en", "perm.hint.screen")).waitFor();
     assert.ok(await page.getByText(L("en", "perm.monthly")).count() === 1, "the monthly private window picker note is always shown");
-    // A grant System Settings shows but this copy of Tofi does not have: the note names the stale entry, and Screen
-    // Recording, which macOS applies only to a fresh process, offers to reopen Tofi.
+    // After System Settings opened: the note names the stale entry an earlier copy of Tofi leaves, and Screen Recording,
+    // which macOS applies only to a fresh process, offers to reopen Tofi (clicked in its own page below).
     assert.equal(await page.getByText(L("en", "perm.stale")).count(), 1, "a missing permission explains the earlier-copy entry");
-    await buttonIn(page, L("en", "perm.reopen.action")).click();
-    await page.waitForFunction(() => window.__calls.some(call => call[0] === "relaunch"));
+    assert.equal(await buttonIn(page, L("en", "perm.reopen.action")).count(), 1, "Screen Recording offers to reopen Tofi");
     const before = (await named(page, "getSettings")).length;
     await page.evaluate(() => { window.__state.status.permissions.screen = true; });
     await page.getByText(L("en", "perm.hint.screen")).waitFor({ state: "detached", timeout: 6000 });
@@ -223,6 +224,18 @@ try {
       await page.evaluate(() => { window.__state.status.lastError = null; });
       await page.screenshot({ path: join(shots, "mac-settings-1280-light.png"), fullPage: false });
     }
+    await context.close();
+  }
+  {
+    const { page, context } = await open();
+    await page.waitForFunction(() => document.querySelector("#mac-name").value === "Studio Mac");
+    await buttonIn(page, L("en", "perm.grant")).click();
+    await buttonIn(page, L("en", "perm.reopen.action")).click();
+    const reopening = buttonIn(page, L("en", "perm.reopen.busy"));
+    await reopening.waitFor();
+    assert.equal(await reopening.isDisabled(), true, "the reopen button stays disabled while Tofi quits");
+    assert.equal(await buttonIn(page, L("en", "caps.save")).isDisabled(), true, "the whole page is locked while Tofi quits");
+    assert.equal((await named(page, "relaunch")).length, 1, "one relaunch");
     await context.close();
   }
   console.log("PASS actions: save payload, permission guides and poll, stale-entry note and reopen, Bot allow/deny/remove, stop/resume, local execution, pair, failures");

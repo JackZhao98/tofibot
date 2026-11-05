@@ -1388,7 +1388,8 @@
       "reopen": {
         "label": "已經開啟螢幕錄製？",
         "hint": "macOS 要在 Tofi 重新開啟後才會生效。",
-        "action": "重新開啟 Tofi"
+        "action": "重新開啟 Tofi",
+        "busy": "正在重新開啟…"
       }
     },
     "bots": {

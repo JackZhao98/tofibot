@@ -36,6 +36,9 @@ export function MacSettingsPage() {
   const [selection, setSelectionState] = useState<DesktopSandboxSelection | null>(null);
   const [note, setNote] = useState<NoteKey>("idle");
   const [guiding, setGuiding] = useState<"" | PermissionKind>("");
+  // Kinds whose System Settings pane this page opened; the stale-entry and reopen notes only make sense after that.
+  const [guided, setGuided] = useState<PermissionKind[]>([]);
+  const [leaving, setLeaving] = useState(false);
   const [confirm, setConfirm] = useState<Confirm>(null);
 
   // Truth for async continuations; the state above only drives rendering.
@@ -122,7 +125,7 @@ export function MacSettingsPage() {
   useEffect(() => { if (guiding && status?.permissions?.[guiding]) setGuiding(""); }, [guiding, status]);
 
   const sandbox = status?.sandbox;
-  const locked = !!pending || !status;
+  const locked = !!pending || !status || leaving;
   const running = sandbox?.running === true;
   const bound = known && sandbox?.enabled === true && sandbox.bound === true && !!sandbox.root;
   const available = known && sandbox?.available === true && sandbox.faulted !== true;
@@ -130,7 +133,9 @@ export function MacSettingsPage() {
 
   const guide = (kind: PermissionKind) => operation("permission", async () => {
     const opened = await api?.openPermissionGuide?.(kind);
-    if (mounted.current) setGuiding(opened ? kind : "");
+    if (!mounted.current) return;
+    setGuiding(opened ? kind : "");
+    if (opened) setGuided(list => list.includes(kind) ? list : [...list, kind]);
   });
   const chooseFolder = () => operation("choose", async () => {
     const value = await api?.chooseSandboxRoot?.();
@@ -246,9 +251,12 @@ export function MacSettingsPage() {
           {permission("screen")}
           {permission("accessibility")}
           {guiding && <p className="settings-card-note" role="status">{t(`mac.perm.hint.${guiding}`)}</p>}
-          {status && (!status.permissions?.screen || !status.permissions?.accessibility) && <p className="settings-card-note">{t("mac.perm.stale")}</p>}
-          {status && !status.permissions?.screen && has("relaunch") && <SettingsRow inline label={t("mac.perm.reopen.label")} description={t("mac.perm.reopen.hint")} control={
-            <button type="button" className="secondary-button" disabled={locked} onClick={() => void operation("relaunch", async () => { await api?.relaunch?.(); })}>{t("mac.perm.reopen.action")}</button>} />}
+          {status && guided.some(kind => !status.permissions?.[kind]) && <p className="settings-card-note">{t("mac.perm.stale")}</p>}
+          {status && !status.permissions?.screen && guided.includes("screen") && has("relaunch") && <SettingsRow inline label={t("mac.perm.reopen.label")} description={t("mac.perm.reopen.hint")} control={
+            <button type="button" className="secondary-button" disabled={locked} onClick={() => void operation("relaunch", async () => {
+              // Tofi takes a moment to flush and quit; a second click would reach a quitting app and show an error.
+              if (await api?.relaunch?.() && mounted.current) setLeaving(true);
+            })}>{pending === "relaunch" || leaving ? t("mac.perm.reopen.busy") : t("mac.perm.reopen.action")}</button>} />}
           <p className="settings-card-note">{t("mac.perm.monthly")}</p>
           <div className="settings-row-v2 mac-save-row"><button type="button" className="secondary-button" disabled={locked || !has("getSettings")} onClick={() => void operation("refresh", () => refresh())}>{pending === "refresh" ? t("mac.loading") : t("mac.refresh")}</button></div>
         </SettingsCard>

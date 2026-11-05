@@ -1388,7 +1388,8 @@
       "reopen": {
         "label": "화면 기록을 켰나요?",
         "hint": "macOS는 Tofi를 다시 열어야 적용합니다.",
-        "action": "Tofi 다시 열기"
+        "action": "Tofi 다시 열기",
+        "busy": "다시 여는 중…"
       }
     },
     "bots": {

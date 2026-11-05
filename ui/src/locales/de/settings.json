@@ -1398,7 +1398,8 @@
       "reopen": {
         "label": "Bildschirmaufnahme aktiviert?",
         "hint": "macOS übernimmt das erst, wenn Tofi neu geöffnet wird.",
-        "action": "Tofi neu öffnen"
+        "action": "Tofi neu öffnen",
+        "busy": "Wird neu geöffnet…"
       }
     },
     "bots": {

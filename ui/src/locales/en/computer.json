@@ -211,7 +211,6 @@
     "retry": "Prepare the Bot computer again"
   },
   "devices": {
-    "title": "Other devices",
     "note": "You can also connect a Mac that has the Tofi app installed.",
     "pair_failed": "Couldn't create a pairing code.",
     "connect": "Connect a Mac",

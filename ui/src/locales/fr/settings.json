@@ -1408,7 +1408,8 @@
       "reopen": {
         "label": "Enregistrement de l’écran activé ?",
         "hint": "macOS ne l’applique qu’après la réouverture de Tofi.",
-        "action": "Rouvrir Tofi"
+        "action": "Rouvrir Tofi",
+        "busy": "Réouverture…"
       }
     },
     "bots": {

@@ -8,7 +8,8 @@
 import assert from "node:assert/strict";
 import { installStubs, startUi, launch } from "./computer-window-fixture.mjs";
 
-const SIZES = [{ width: 1280, height: 800 }, { width: 860, height: 640 }];
+// 1110 px: the drawer still overlays the chat (up to 1120 px) while the layout already counts as wide (from 1100 px).
+const SIZES = [{ width: 1280, height: 800 }, { width: 1110, height: 760 }, { width: 860, height: 640 }];
 
 const { server, origin } = await startUi();
 const browser = await launch();
@@ -74,14 +75,16 @@ async function blocked(page) {
       const hit = points.filter(([x, y]) => inDrag(x, y) && (document.elementFromPoint(x, y) === control || control.contains(document.elementFromPoint(x, y))));
       if (hit.length) out.push(`${control.getAttribute("aria-label") || control.textContent.trim().slice(0, 40) || control.className} @${Math.round(box.left)},${Math.round(box.top)}`);
     }
-    return { out, total: controls.length };
+    return { out, total: controls.length, drags: regions.filter(region => region.drag).length };
   });
 }
 
 async function check(page, surface, size) {
   // Panels finish their entrance motion (finite animations only; spinners loop forever).
   await page.waitForFunction(() => document.getAnimations().every(a => a.playState !== "running" || a.effect?.getTiming().iterations === Infinity), null, { timeout: 5000 });
-  const { out } = await blocked(page);
+  const { out, drags } = await blocked(page);
+  // Without a drag box the check would pass on nothing (a rule that stopped applying, or a renamed header).
+  assert.ok(drags > 0, `${size.width}x${size.height} ${surface}: no macOS drag area found; the check would be empty`);
   checked++;
   for (const label of out) failures.push(`${size.width}x${size.height} ${surface}: ${label}`);
   console.log(`${out.length ? "FAIL" : "PASS"} ${size.width}x${size.height} ${surface}${out.length ? ": " + out.join("; ") : ""}`);
@@ -100,10 +103,33 @@ for (const size of SIZES) {
   await check(page, "enlarged Bot computer", size);
   await page.locator("[aria-label='Close Bot computer']").first().click();
 
+  // The tasks drawer: a column beside the chat when wide, a panel over the chat (and its header) below 1120 px.
+  await page.getByRole("button", { name: "Tasks" }).first().click();
+  await page.locator(".detail-pane.visible").first().waitFor();
+  await check(page, "tasks drawer", size);
+  await page.getByRole("button", { name: "Tasks" }).first().click({ force: true }).catch(() => {});
+  await page.keyboard.press("Escape");
+  await page.locator(".detail-pane.visible").first().waitFor({ state: "detached", timeout: 3000 }).catch(() => {});
+
   await page.getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menu").first().waitFor();
   await check(page, "More actions menu", size);
   await page.keyboard.press("Escape");
+
+  // A native <dialog> has no role attribute (the image viewer, AttachmentLightbox, is one); its close button sits at the top.
+  await page.evaluate(() => {
+    const dialog = document.createElement("dialog");
+    dialog.className = "attachment-lightbox";
+    dialog.style.cssText = "position:fixed;inset:8px auto auto 50%;transform:translateX(-50%);margin:0;padding:12px;width:420px;height:300px";
+    const close = document.createElement("button");
+    close.type = "button"; close.setAttribute("aria-label", "Close image");
+    close.style.cssText = "width:36px;height:36px";
+    dialog.append(close);
+    document.body.append(dialog);
+    dialog.showModal();
+  });
+  await check(page, "native <dialog> (image viewer)", size);
+  await page.evaluate(() => { const dialog = document.querySelector("dialog.attachment-lightbox"); dialog.close(); dialog.remove(); });
 
   await page.getByRole("button", { name: "Search" }).first().click();
   await page.getByRole("dialog").first().waitFor();
@@ -145,7 +171,7 @@ for (const size of SIZES) {
 
 await browser.close();
 await server.close();
-assert.ok(checked >= 16, `checked ${checked} surfaces`);
+assert.ok(checked >= 27, `checked ${checked} surfaces`);
 if (failures.length) {
   console.error(`\n${failures.length} control(s) sit in a macOS drag area and cannot be clicked in the desktop app:\n  ${failures.join("\n  ")}`);
   process.exit(1);

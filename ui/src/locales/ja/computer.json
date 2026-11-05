@@ -209,7 +209,6 @@
     "retry": "Bot コンピューターを再準備"
   },
   "devices": {
-    "title": "その他のデバイス",
     "note": "Tofi アプリをインストールした Mac も接続できます。",
     "pair_failed": "ペアリングコードを作成できませんでした。",
     "connect": "Mac を接続",
