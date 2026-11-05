@@ -52,7 +52,7 @@ async function swipeFunctional(browser, engineName, server, out) {
       ["past half, at rest", [...line(40, 300, Y, 26), [300, Y, 140]], "list", false],
       ["short of half, at rest", [...line(40, 160, Y, 14), [160, Y, 140]], "chat", false],
       ["flick right", line(40, 160, Y, 5, 10), "list", true],
-      ["flick left past half", [...line(40, 280, Y, 22), [280, Y, 80], ...line(280, 220, Y, 4, 12).slice(1)], "chat", true],
+      ["flick left past half", [...line(40, 340, Y, 22), [340, Y, 80], ...line(340, 240, Y, 4, 12).slice(1)], "chat", true],
     ]) {
       const { page, context, finger, errors } = await openChat(browser, engineName, server.origin);
       if (fast) { await flick(page, finger, path, { reset: () => reopenChat(page) }); await stopTrace(page); } else await drag(finger, path);

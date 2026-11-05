@@ -136,7 +136,8 @@ await check("a fast flick right completes from a short distance, and the pane le
 
 await check("a fast flick left cancels even past half", async () => {
   const { page, context, finger } = await openChat(browser, engineName, server.origin);
-  const speed = await flick(page, finger, [...line(40, 280, Y, 22), [280, Y, 80], ...line(280, 220, Y, 4, 12).slice(1)], { reset: () => reopenChat(page) });
+  // Released at 240 of 390 (past half) after 25 px moves: still a flick when touch events reach the page at ~35 ms instead of 12 ms.
+  const speed = await flick(page, finger, [...line(40, 340, Y, 22), [340, Y, 80], ...line(340, 240, Y, 4, 12).slice(1)], { reset: () => reopenChat(page) });
   await stopTrace(page);
   await settle(page);
   assert.ok(speed <= -0.5, `the finger flicked left (${speed.toFixed(2)} px/ms)`);
