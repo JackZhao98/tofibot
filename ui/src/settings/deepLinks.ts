@@ -3,7 +3,7 @@ import {ARCHIVE_ENABLED} from "../featureFlags";
 import type {SettingsLink} from "../settingsRoute";
 import type {OpenLinkDeps} from "./linkRuntime";
 
-/** Opens Settings > Computer (a file whose bytes are on a detached computer points here). */
+/** Opens Settings > Environments (a file whose bytes are on a detached computer points here). */
 export const OPEN_COMPUTER_SETTINGS_EVENT = "tofi:open-computer-settings";
 
 /** Window events other surfaces dispatch to open Settings on a tab (chat cards, the model picker). */
@@ -27,7 +27,7 @@ export const takeConnectionTarget = (): ConnectionTarget | null => { const targe
 export const openPermissionsDeepLink = () => window.dispatchEvent(new Event("tofi:open-permissions"));
 
 /** Settings tab ids that were renamed: the old id still opens the page that replaced it. */
-export const legacySettingsTabs: Record<string, SettingsTab> = { approvals: "permissions" };
+export const legacySettingsTabs: Record<string, SettingsTab> = { approvals: "permissions", devices: "computer" };
 
 /** Listens for every deep-link event and calls `open` with its tab. Returns the unsubscribe. */
 export function subscribeSettingsDeepLinks(open: (tab: SettingsTab) => void): () => void {

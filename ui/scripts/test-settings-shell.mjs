@@ -21,11 +21,11 @@ const {default: react} = await import("@vitejs/plugin-react");
 
 const LANGS = ["en", "zh-CN", "zh-TW", "ja", "ko", "de", "fr"];
 // The rail with the Advanced group folded; the folded group holds ADV_TABS ("advanced" is the System page, labelled Maintenance).
-const TABS = ["general", "connections", "skills", "permissions", "models", "tools", "automation", "computer", "keys", "usage", "advanced"];
-// "devices" (Other devices) follows TOFI_PERSONAL_COMPUTERS (on unless 0): the rail lists it only when `computer.personal_computers` is true.
-const ADV_TABS = ["allowances", "followups"];
-const ICONS = {general: "sliders", connections: "plug", skills: "skill", permissions: "shield-check", allowances: "checklist", followups: "bell", devices: "laptop", models: "sparkles", tools: "globe", automation: "workflow", computer: "monitor", keys: "key", usage: "progress", advanced: "settings", admin: "group"};
-const NAMES = {general: "General", connections: "Connections", skills: "Skills", permissions: "Permissions", allowances: "Tool rules", followups: "Follow-ups", devices: "Other devices", models: "AI Models", tools: "Search & fetch", automation: "Behavior", computer: "Bot computer", keys: "Bot computer keys", usage: "Usage", advanced: "Maintenance", admin: "Admin console"};
+const TABS = ["general", "connections", "skills", "permissions", "models", "tools", "automation", "computer", "usage", "advanced"];
+// "devices" (Other devices) is merged into Environments: no rail item, its id still routes to the Environments page. Keys sits in the folded group.
+const ADV_TABS = ["allowances", "followups", "keys"];
+const ICONS = {general: "sliders", connections: "plug", skills: "skill", permissions: "shield-check", allowances: "checklist", followups: "bell", devices: "laptop", models: "sparkles", tools: "globe", automation: "workflow", computer: "layers", keys: "key", usage: "progress", advanced: "settings", admin: "group"};
+const NAMES = {general: "General", connections: "Connections", skills: "Skills", permissions: "Permissions", allowances: "Tool rules", followups: "Follow-ups", devices: "Other devices", models: "AI Models", tools: "Search & fetch", automation: "Behavior", computer: "Environments", keys: "Bot computer keys", usage: "Usage", advanced: "Maintenance", admin: "Admin console"};
 
 // ---- Catalog checks (every locale): groups, page names and descriptions are real translations.
 const catalogs = {};
@@ -224,6 +224,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/dictation-settings") return query.get("dict") === "unknown"
       ? {model: "mystery-model", configured: true, auth_source: "api_key", models: [{id: "mystery-model", name: "Mystery Transcribe"}]}
       : {model: "gpt-4o-mini-transcribe", configured: true, auth_source: "api_key", models: [{id: "gpt-4o-mini-transcribe", name: "GPT-4o mini Transcribe"}, {id: "gpt-4o-transcribe", name: "GPT-4o Transcribe"}]};
+    if (path === "/api/environments") return {environments: [{id: "firecracker", kind: "vm", name: "", state: "ready", error_code: "", bot_computer: true, access: "all_bots", actions: ["retry", "configure"]}, {id: "dev_sample", kind: "mac", name: "Sample laptop", state: "online", platform: "darwin", bot_computer: false, access: "allowed_on_mac", actions: ["disconnect"]}], add: {e2b: true, mac: true, vm_command: ""}, e2b: null};
     if (path === "/api/computers/firecracker/info") return {state: "ready", workspace_root: "/workspace", browser: "Chromium"};
     if (path === "/api/computers") return {computers: [{id: "dev_sample", name: "Sample laptop", kind: "mac", online: true}]};
     if (path === "/api/computer/resources") return {current: {vcpus: 2, memory_mib: 4096, disk_gib: 20}, desired: {vcpus: 2, memory_mib: 4096, disk_gib: 20}, pending: false, state: "ready", host: {cpus: 8, memory_total_mib: 16384, memory_available_mib: 9000, disk_available_gib: 120}, limits: {max_vcpus: 6, max_memory_mib: 12288, max_disk_gib: 100}};
@@ -471,14 +472,13 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await fold.getAttribute("aria-expanded"), "true");
     assert.deepEqual(await railTabs(page), [...TABS, ...ADV_TABS], "the folded group lists its pages when opened");
     assert.equal((await page.locator('.settings-tabs [data-tab="followups"] .settings-nav-tag').textContent()).trim(), "Beta");
-    assert.equal(await page.locator('.settings-tabs [data-tab="devices"]').count(), 0, "Other devices is hidden unless personal computers are on");
+    assert.equal(await page.locator('.settings-tabs [data-tab="devices"]').count(), 0, "Other devices has no rail item: it is part of Environments");
     await fold.click();
     assert.deepEqual(await railTabs(page), TABS, "folding hides them again");
     await close();
     const personal = await open({admin: "0", personal: "1"});
     await personal.page.locator(".settings-tabs .settings-nav-fold").click();
-    assert.deepEqual(await railTabs(personal.page), [...TABS, ...ADV_TABS, "devices"], "personal computers on: Other devices is listed");
-    assert.equal((await personal.page.locator('.settings-tabs [data-tab="devices"] .settings-nav-tag').textContent()).trim(), "In development");
+    assert.deepEqual(await railTabs(personal.page), [...TABS, ...ADV_TABS], "personal computers on: still no Other devices item");
     await personal.close();
     const admin = await open({admin: "1"});
     assert.deepEqual(await railTabs(admin.page), [...TABS, "admin"], "admin tab appears for a multi-account admin");
@@ -657,10 +657,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await page.locator(".settings-shell").getAttribute("data-view"), "home");
     assert.equal(await page.locator(".settings-mhome").isVisible(), true);
     assert.equal(await page.locator(".settings-content").evaluate(element => getComputedStyle(element).visibility), "hidden", "page is parked off-screen on the home list");
+    await page.locator(".settings-mhome .settings-mfold").click();
+    await settle(page);
     const hints = await page.$$eval(".settings-mhome .settings-mrow", rows => Object.fromEntries(rows.map(row => [row.dataset.tab, row.querySelector(".settings-mhint")?.textContent ?? ""])));
     assert.equal(hints.models, "Codex", "Models hint is the provider of the global model");
     assert.equal(hints.keys, "2", "Keys hint is the number of variables");
-    assert.ok(hints.computer.length > 0, "Computer hint is the Bot computer state");
+    assert.equal(hints.computer, "2", "Environments hint is the number of environments");
     assert.equal(hints.usage, "", "Usage has no hint in Phase 1");
     assert.deepEqual(await page.$$eval(".settings-mhome .settings-mgroup>p", items => items.map(item => item.textContent)), ["Bots can use", "Workspace", "System"]);
     await page.locator('.settings-mhome [data-tab="models"]').click();
@@ -711,14 +713,14 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       const lineHeight = parseFloat(style.lineHeight);
       return {text: label.textContent, ellipsis: style.textOverflow === "ellipsis", clipped: label.scrollWidth > label.clientWidth, lines: Math.round(box.height / lineHeight), inside: box.right <= row.right + 0.5 && box.left >= row.left - 0.5};
     }));
-    assert.equal(report.length, 12);
+    assert.equal(report.length, 11);
     for (const item of report) {
       assert.equal(item.ellipsis, false, `${item.text}: no text-overflow ellipsis`);
       assert.equal(item.clipped, false, `${item.text}: scrollWidth <= clientWidth`);
       assert.ok(item.lines <= 2, `${item.text}: ${item.lines} lines`);
       assert.equal(item.inside, true, `${item.text}: inside its rail item`);
     }
-    for (const text of ["Verbindungen", "Berechtigungen", "Bot-Computer-Schlüssel"]) assert.ok(report.some(item => item.text === text), `German rail shows ${text}`);
+    for (const text of ["Verbindungen", "Berechtigungen", "Umgebungen"]) assert.ok(report.some(item => item.text === text), `German rail shows ${text}`);
     const rail = await page.locator(".settings-tabs").evaluate(element => element.getBoundingClientRect().width);
     assert.equal(Math.round(rail), 248, "rail is 248px wide");
     await close();
@@ -1401,6 +1403,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     // The size of the computer is the admin's to set: a member sees CPU, memory and disk, with no way to change them and no host limits.
     await member.page.locator('.settings-tabs [data-tab="computer"]').click();
     const memberComputer = member.page.locator('.settings-page-body[data-page="computer"]');
+    await memberComputer.getByRole("button", {name: "Configure"}).click();
     await memberComputer.locator(".resource-grid").waitFor({timeout: 15000});
     assert.deepEqual((await memberComputer.locator(".resource-grid > div").allInnerTexts()).map(item => item.replace(/\s+/g, " ").trim().toUpperCase()), ["CPU 2 CORES", "MEMORY 4 GB", "ALLOCATED DISK 20 GB"]);
     assert.match(await memberComputer.innerText(), /Your admin sets the size of this Bot computer\./);
@@ -1412,12 +1415,14 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     // An admin of a multi-account server is pointed to the Admin console; the single-account owner sets the size here.
     const consoleAdmin = await open({admin: "1", tab: "computer"});
     const adminComputer = consoleAdmin.page.locator('.settings-page-body[data-page="computer"]');
+    await adminComputer.getByRole("button", {name: "Configure"}).click();
     await adminComputer.getByRole("button", {name: "Open Admin console"}).waitFor({timeout: 15000});
     assert.equal(await adminComputer.getByRole("button", {name: "Adjust"}).count(), 0, "no Adjust for a multi-account admin");
     await consoleAdmin.close();
     const soloOwner = await open({admin: "0", tab: "computer"});
     const ownerComputer = soloOwner.page.locator('.settings-page-body[data-page="computer"]');
     // The single-account owner has the same card, on the /api/admin/computer route.
+    await ownerComputer.getByRole("button", {name: "Configure"}).click();
     const soloCard = ownerComputer.getByTestId("computer-attach");
     await soloCard.getByText("Attached · Running").waitFor({timeout: 15000});
     adminWrites.length = 0;

@@ -59,10 +59,8 @@
         "description": "Anbieter und Standardmodell."
       },
       "computer": {
-        "name": "Bot-Computer",
-        "description": "Bot-Computer, Speicher und Laufzeitressourcen",
-        "description_none": "Möglichkeiten, diesem Server einen Bot-Computer hinzuzufügen",
-        "description_detached": "Einen Bot-Computer an dieses Konto anbinden"
+        "name": "Umgebungen",
+        "description": "Cloud-Computer, dieser Server und deine Macs"
       },
       "keys": {
         "name": "Bot-Computer-Schlüssel",
@@ -119,11 +117,7 @@
     },
     "hint": {
       "computer": {
-        "ready": "Läuft",
-        "starting": "Startet",
-        "stopped": "Gestoppt",
-        "waiting": "Wartet",
-        "none": "Keiner"
+        "none": "Keine"
       }
     },
     "tag": {

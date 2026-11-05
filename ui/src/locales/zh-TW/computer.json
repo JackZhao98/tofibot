@@ -181,49 +181,14 @@
     "live_aria": "即時終端機"
   },
   "pairing": {
-    "this_device": "這台裝置",
-    "mac_client": "Mac 用戶端",
     "connected": "{{name}} 已連線。",
     "expired": "配對碼已過期，請重新產生。",
-    "enter_code": "在 Mac 用戶端輸入此配對碼，5 分鐘內有效。",
     "code_aria": "配對碼 {{code}}",
     "waiting": "等待裝置確認…"
   },
-  "env": {
-    "unavailable": "執行環境暫時無法使用。",
-    "start_failed": "Bot 電腦未能啟動，請稍後再試。",
-    "title": "執行環境",
-    "description": "Linux、Google Chrome、檔案瀏覽器和終端機使用同一套環境。每個 Bot 都有自己的工作資料夾，也可互相存取。",
-    "state": {
-      "ready": "Bot 電腦已就緒",
-      "starting": "正在準備 Bot 電腦",
-      "stopped": "Bot 電腦已停止",
-      "resuming": "正在喚醒 Bot 電腦",
-      "asleep": "Bot 電腦休眠中 · Bot 用到時自動喚醒",
-      "failed": "Bot 電腦啟動失敗",
-      "checking": "正在檢查 Bot 電腦…",
-      "unknown": "Bot 電腦無法使用"
-    },
-    "workspace": "工作目錄 {{path}}",
-    "workspace_idle_other": "工作目錄 {{path}} · 桌面閒置 {{count}} 分鐘後自動關閉",
-    "retry": "重新準備 Bot 電腦"
-  },
   "devices": {
-    "note": "也可以連接已安裝 Tofi 用戶端的 Mac。",
-    "pair_failed": "暫時無法建立配對碼。",
-    "connect": "連接 Mac",
-    "online": "線上",
-    "offline": "離線",
-    "disconnect_failed": "未能中斷裝置連線。",
-    "disconnect": "中斷連線",
     "this_mac": "這台 Mac",
-    "this_mac_note": "這台 Mac 的裝置名稱、資料夾、macOS 權限、Bot 存取與本機執行。",
-    "open_mac": "開啟 Mac 設定",
-    "connected": "已連線的 Mac",
-    "mac_settings": "Mac 設定",
-    "empty": "還沒有連線的 Mac。",
-    "copy": "複製配對碼",
-    "copied": "已複製"
+    "open_mac": "開啟 Mac 設定"
   },
   "resources": {
     "restart": {
@@ -405,9 +370,11 @@
       "what": "讓 Bot 在你已有的機器上工作。"
     },
     "e2b": {
-      "name": "E2B 雲端沙盒",
-      "what": "用你自己的金鑰向 E2B 租用一台 Bot 電腦。"
-    }
+      "name": "E2B 雲端電腦",
+      "what": "用你自己的金鑰向 E2B 租用一台 Bot 電腦。",
+      "add": "新增 E2B 雲端電腦"
+    },
+    "add": "新增"
   },
   "contents": {
     "title": "這台 Bot 電腦上有什麼",
@@ -492,6 +459,119 @@
       "impact": "執行中的 Bot 電腦工具會在目前步驟結束後停止。Bot 電腦上的檔案會先複製到伺服器。Bot 在沒有 Bot 電腦的情況下繼續運作,之後可以再次接入。",
       "cancel": "取消",
       "action": "分離"
+    }
+  },
+  "environments": {
+    "description": "Bot 工作的地方。Bot 電腦供所有 Bot 使用；Mac 只供你在其上放行的 Bot 使用。",
+    "unavailable": "未能載入環境。",
+    "stale": "未能重新整理環境，顯示的是上次的結果。",
+    "retry": "重試",
+    "loading": "正在載入環境…",
+    "empty": "還沒有環境。新增一個，Bot 才能在聊天之外工作。",
+    "add": "新增環境",
+    "add_menu": {
+      "e2b": "E2B 雲端電腦",
+      "mac": "你的 Mac",
+      "vm": "這台伺服器上的 Bot 電腦"
+    },
+    "name": {
+      "vm": "這台伺服器",
+      "e2b": "E2B 雲端電腦",
+      "mac": "Mac"
+    },
+    "bot_computer": "Bot 電腦",
+    "access": {
+      "all_bots": "所有 Bot 使用",
+      "allowed_on_mac": "在那台 Mac 上放行的 Bot",
+      "none": "未啟用"
+    },
+    "last_seen": "上次上線 {{time}}",
+    "this_mac_note": "資料夾、macOS 權限與 Bot 存取在 Mac 設定中配置。",
+    "state": {
+      "ready": "就緒",
+      "starting": "啟動中",
+      "resuming": "喚醒中",
+      "asleep": "休眠",
+      "stopped": "已停止",
+      "standby": "備用",
+      "failed": "失敗",
+      "preparing": "準備中",
+      "online": "線上",
+      "offline": "離線",
+      "unknown": "未知"
+    },
+    "action": {
+      "retry": "重試",
+      "wake": "喚醒",
+      "configure": "設定",
+      "use": "設為 Bot 使用",
+      "remove": "移除",
+      "disconnect": "中斷連線"
+    },
+    "more": "{{name}} 的更多操作",
+    "attach_title": "Bot 電腦",
+    "error": {
+      "generic": "操作未完成，請重試。",
+      "invalid_key": "E2B 不接受這個 API 金鑰。",
+      "e2b_unreachable": "暫時連不上 E2B。",
+      "e2b_limit": "已達 E2B 帳戶上限。",
+      "image_missing": "電腦映像檔尚未發布。",
+      "template_build_failed": "E2B 未能建置電腦映像檔。",
+      "sandbox_failed": "E2B 沙盒未能啟動。",
+      "guest_unreachable": "電腦沒有回應。",
+      "sandbox_gone": "E2B 沙盒已不存在。重試會建立新的。",
+      "token_unreadable": "無法讀取已儲存的金鑰。請重新新增 E2B 金鑰。"
+    },
+    "confirm": {
+      "use": {
+        "title": "讓 Bot 使用 {{name}}？",
+        "body": "進行中的工作會先完成。之後所有 Bot 使用這台電腦，目前的電腦轉為閒置。",
+        "action": "設為 Bot 使用"
+      },
+      "remove": {
+        "title": "移除 {{name}}？",
+        "body": "沙盒會被刪除，API 金鑰會被清除。若 Bot 正在使用它，進行中的工作會先完成，檔案先複製到伺服器。",
+        "action": "移除"
+      },
+      "disconnect": {
+        "title": "中斷 {{name}} 的連線？",
+        "body": "重新用新配對碼連接前，Bot 無法使用這台 Mac。",
+        "action": "中斷連線"
+      }
+    },
+    "cancel": "取消",
+    "save": "儲存",
+    "close": "關閉",
+    "done": "完成",
+    "copy": "複製",
+    "copied": "已複製",
+    "e2b": {
+      "title": "新增 E2B 雲端電腦",
+      "key": "API 金鑰",
+      "get_key": "取得金鑰",
+      "cost": "由 E2B 依執行秒數計費；閒置時自動暫停。",
+      "saving": "驗證中…",
+      "template_toggle": "使用現有範本",
+      "template_id": "範本 ID",
+      "template_hint": "適用於你用 E2B CLI 從 deploy/e2b 建置的範本。"
+    },
+    "mac": {
+      "title": "連接你的 Mac",
+      "step_open": "在 Mac 上開啟 Tofi 應用程式。",
+      "step_code": "輸入此配對碼，5 分鐘內有效。",
+      "creating": "正在產生配對碼…",
+      "failed": "暫時無法建立配對碼。",
+      "new_code": "新配對碼",
+      "copy_aria": "複製配對碼"
+    },
+    "vm": {
+      "title": "在這台伺服器上新增 Bot 電腦",
+      "run": "在伺服器主機上執行：",
+      "after": "Bot 電腦接入後，本頁會自動更新。",
+      "copy_aria": "複製指令"
+    },
+    "configure": {
+      "title": "設定 Bot 電腦"
     }
   }
 }

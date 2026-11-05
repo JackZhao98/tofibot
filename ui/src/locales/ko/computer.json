@@ -181,49 +181,14 @@
     "live_aria": "실시간 터미널"
   },
   "pairing": {
-    "this_device": "이 기기",
-    "mac_client": "Mac 앱",
     "connected": "{{name}}이(가) 연결되었습니다.",
     "expired": "페어링 코드가 만료되었습니다. 새로 생성하세요.",
-    "enter_code": "Mac 앱에 이 페어링 코드를 입력하세요. 5분 동안 유효합니다.",
     "code_aria": "페어링 코드 {{code}}",
     "waiting": "기기 확인을 기다리는 중…"
   },
-  "env": {
-    "unavailable": "실행 환경을 사용할 수 없습니다.",
-    "start_failed": "Bot 컴퓨터를 시작하지 못했습니다. 잠시 후 다시 시도하세요.",
-    "title": "실행 환경",
-    "description": "Linux, Google Chrome, 파일 브라우저, 터미널은 같은 환경을 사용합니다. 각 Bot은 자신의 작업 폴더가 있으며 서로의 폴더에도 접근할 수 있습니다.",
-    "state": {
-      "ready": "Bot 컴퓨터 준비됨",
-      "starting": "Bot 컴퓨터 준비 중",
-      "stopped": "Bot 컴퓨터 중지됨",
-      "resuming": "Bot 컴퓨터를 깨우는 중",
-      "asleep": "Bot 컴퓨터 절전 중 · Bot이 쓸 때 자동으로 깨어납니다",
-      "failed": "Bot 컴퓨터를 시작하지 못했습니다",
-      "checking": "Bot 컴퓨터 확인 중…",
-      "unknown": "Bot 컴퓨터를 사용할 수 없음"
-    },
-    "workspace": "작업 디렉터리 {{path}}",
-    "workspace_idle_other": "작업 디렉터리 {{path}} · 데스크톱은 {{count}}분 동안 사용하지 않으면 자동으로 닫힙니다",
-    "retry": "Bot 컴퓨터 다시 준비"
-  },
   "devices": {
-    "note": "Tofi 앱이 설치된 Mac도 연결할 수 있습니다.",
-    "pair_failed": "페어링 코드를 만들 수 없습니다.",
-    "connect": "Mac 연결",
-    "online": "온라인",
-    "offline": "오프라인",
-    "disconnect_failed": "기기 연결을 해제하지 못했습니다.",
-    "disconnect": "연결 해제",
     "this_mac": "이 Mac",
-    "this_mac_note": "이 Mac의 기기 이름, 폴더, macOS 권한, Bot 접근, 로컬 실행.",
-    "open_mac": "Mac 설정 열기",
-    "connected": "연결된 Mac",
-    "mac_settings": "Mac 설정",
-    "empty": "아직 연결된 Mac이 없습니다.",
-    "copy": "코드 복사",
-    "copied": "복사됨"
+    "open_mac": "Mac 설정 열기"
   },
   "resources": {
     "restart": {
@@ -405,9 +370,11 @@
       "what": "이미 가지고 있는 기기에서 Bot이 일하게 해요."
     },
     "e2b": {
-      "name": "E2B 클라우드 샌드박스",
-      "what": "내 키로 E2B에서 Bot 컴퓨터를 빌려요."
-    }
+      "name": "E2B 클라우드 컴퓨터",
+      "what": "내 키로 E2B에서 Bot 컴퓨터를 빌려요.",
+      "add": "E2B 클라우드 컴퓨터 추가"
+    },
+    "add": "추가"
   },
   "contents": {
     "title": "이 Bot 컴퓨터에 있는 것",
@@ -492,6 +459,119 @@
       "impact": "실행 중인 Bot 컴퓨터 도구는 현재 단계 후에 중지됩니다. Bot 컴퓨터의 파일은 먼저 서버로 복사됩니다. Bot은 Bot 컴퓨터 없이 계속 작동하며 나중에 다시 연결할 수 있습니다.",
       "cancel": "취소",
       "action": "분리"
+    }
+  },
+  "environments": {
+    "description": "Bot이 일하는 곳입니다. Bot 컴퓨터는 모든 Bot이 쓰고, Mac은 그 Mac에서 허용한 Bot만 씁니다.",
+    "unavailable": "환경을 불러오지 못했습니다.",
+    "stale": "환경을 새로 고치지 못했습니다. 마지막 결과를 보여 줍니다.",
+    "retry": "다시 시도",
+    "loading": "환경을 불러오는 중…",
+    "empty": "아직 환경이 없습니다. 추가하면 Bot이 채팅 밖에서도 일할 수 있습니다.",
+    "add": "환경 추가",
+    "add_menu": {
+      "e2b": "E2B 클라우드 컴퓨터",
+      "mac": "내 Mac",
+      "vm": "이 서버의 Bot 컴퓨터"
+    },
+    "name": {
+      "vm": "이 서버",
+      "e2b": "E2B 클라우드 컴퓨터",
+      "mac": "Mac"
+    },
+    "bot_computer": "Bot 컴퓨터",
+    "access": {
+      "all_bots": "모든 Bot이 사용",
+      "allowed_on_mac": "해당 Mac에서 허용한 Bot",
+      "none": "사용 안 함"
+    },
+    "last_seen": "마지막 접속 {{time}}",
+    "this_mac_note": "폴더, macOS 권한, Bot 접근은 Mac 설정에서 지정합니다.",
+    "state": {
+      "ready": "준비됨",
+      "starting": "시작 중",
+      "resuming": "깨우는 중",
+      "asleep": "절전",
+      "stopped": "중지됨",
+      "standby": "대기",
+      "failed": "실패",
+      "preparing": "준비 중",
+      "online": "온라인",
+      "offline": "오프라인",
+      "unknown": "알 수 없음"
+    },
+    "action": {
+      "retry": "다시 시도",
+      "wake": "깨우기",
+      "configure": "설정",
+      "use": "Bot이 사용",
+      "remove": "제거",
+      "disconnect": "연결 해제"
+    },
+    "more": "{{name}} 추가 작업",
+    "attach_title": "Bot 컴퓨터",
+    "error": {
+      "generic": "완료하지 못했습니다. 다시 시도하세요.",
+      "invalid_key": "E2B가 API 키를 받아들이지 않았습니다.",
+      "e2b_unreachable": "지금은 E2B에 연결할 수 없습니다.",
+      "e2b_limit": "E2B 계정 한도에 도달했습니다.",
+      "image_missing": "컴퓨터 이미지가 아직 게시되지 않았습니다.",
+      "template_build_failed": "E2B가 컴퓨터 이미지를 빌드하지 못했습니다.",
+      "sandbox_failed": "E2B 샌드박스가 시작되지 않았습니다.",
+      "guest_unreachable": "컴퓨터가 응답하지 않습니다.",
+      "sandbox_gone": "E2B 샌드박스가 없어졌습니다. 다시 시도하면 새로 만듭니다.",
+      "token_unreadable": "저장된 키를 읽을 수 없습니다. E2B 키를 다시 추가하세요."
+    },
+    "confirm": {
+      "use": {
+        "title": "{{name}}을(를) Bot이 사용할까요?",
+        "body": "실행 중인 작업이 먼저 끝납니다. 이후 모든 Bot이 이 컴퓨터를 쓰고, 현재 컴퓨터는 유휴 상태가 됩니다.",
+        "action": "Bot이 사용"
+      },
+      "remove": {
+        "title": "{{name}}을(를) 제거할까요?",
+        "body": "샌드박스가 삭제되고 API 키가 지워집니다. Bot이 사용 중이면 실행 중인 작업이 끝나고 파일이 서버로 복사된 뒤 제거됩니다.",
+        "action": "제거"
+      },
+      "disconnect": {
+        "title": "{{name}} 연결을 해제할까요?",
+        "body": "새 코드로 다시 연결하기 전까지 Bot은 이 Mac을 쓸 수 없습니다.",
+        "action": "연결 해제"
+      }
+    },
+    "cancel": "취소",
+    "save": "저장",
+    "close": "닫기",
+    "done": "완료",
+    "copy": "복사",
+    "copied": "복사됨",
+    "e2b": {
+      "title": "E2B 클라우드 컴퓨터 추가",
+      "key": "API 키",
+      "get_key": "키 받기",
+      "cost": "E2B가 실행 중인 시간을 초 단위로 청구하며, 유휴 상태에서는 일시 중지됩니다.",
+      "saving": "확인 중…",
+      "template_toggle": "기존 템플릿 사용",
+      "template_id": "템플릿 ID",
+      "template_hint": "deploy/e2b에서 E2B CLI로 빌드한 템플릿용입니다."
+    },
+    "mac": {
+      "title": "Mac 연결",
+      "step_open": "Mac에서 Tofi 앱을 엽니다.",
+      "step_code": "이 코드를 입력하세요. 5분 동안 유효합니다.",
+      "creating": "코드를 만드는 중…",
+      "failed": "페어링 코드를 만들 수 없습니다.",
+      "new_code": "새 코드",
+      "copy_aria": "페어링 코드 복사"
+    },
+    "vm": {
+      "title": "이 서버에 Bot 컴퓨터 추가",
+      "run": "서버 호스트에서 다음을 실행하세요:",
+      "after": "Bot 컴퓨터가 연결되면 이 페이지가 자동으로 바뀝니다.",
+      "copy_aria": "명령어 복사"
+    },
+    "configure": {
+      "title": "Bot 컴퓨터 설정"
     }
   }
 }

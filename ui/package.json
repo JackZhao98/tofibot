@@ -54,6 +54,7 @@
     "test:desktop-settings-isolation": "node scripts/test-desktop-settings-isolation.mjs",
     "test:desktop-drag-regions": "node scripts/test-desktop-drag-regions.mjs",
     "test:no-computer": "node scripts/test-no-computer.mjs",
+    "test:environments": "node scripts/test-environments.mjs",
     "test:settings-choices": "node scripts/test-settings-choices.mjs",
     "test:automation-settings": "node scripts/test-automation-settings.mjs",
     "test:spend-cap": "node scripts/test-spend-cap.mjs",

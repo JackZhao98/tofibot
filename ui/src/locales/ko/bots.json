@@ -237,10 +237,12 @@
       "configure": "소스 구성"
     },
     "computer": {
-      "title": "Bot 컴퓨터",
-      "shared": "모든 Bot이 워크스페이스 Bot 컴퓨터를 함께 사용합니다.",
+      "title": "환경",
       "none": "아직 Bot 컴퓨터가 없습니다. 설정에서 추가하면 Bot이 웹을 탐색하고 코드를 실행할 수 있습니다.",
-      "open": "설정 열기"
+      "manage": "환경 관리",
+      "always": "항상 사용 가능",
+      "mac": "해당 Mac에서 허용했을 때",
+      "error": "환경을 읽지 못했습니다."
     },
     "builtin": {
       "title": "내장",

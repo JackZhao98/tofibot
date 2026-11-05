@@ -59,10 +59,8 @@
         "description": "Providers and the default model."
       },
       "computer": {
-        "name": "Bot computer",
-        "description": "Bot computer, storage and runtime resources",
-        "description_none": "Options for adding a Bot computer to this server",
-        "description_detached": "Attach a Bot computer to this account"
+        "name": "Environments",
+        "description": "Cloud computers, this server and your Macs"
       },
       "keys": {
         "name": "Bot computer keys",
@@ -119,11 +117,7 @@
     },
     "hint": {
       "computer": {
-        "ready": "Running",
-        "starting": "Starting",
-        "stopped": "Stopped",
-        "waiting": "Waiting",
-        "none": "Not added"
+        "none": "None yet"
       }
     },
     "tag": {

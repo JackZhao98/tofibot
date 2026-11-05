@@ -59,10 +59,8 @@
         "description": "模型服務商與預設模型。"
       },
       "computer": {
-        "name": "Bot 電腦",
-        "description": "Bot 電腦、儲存空間與執行資源",
-        "description_none": "為這台伺服器新增 Bot 電腦的方式",
-        "description_detached": "為此帳戶接入 Bot 電腦"
+        "name": "環境",
+        "description": "雲端電腦、這台伺服器與你的 Mac"
       },
       "keys": {
         "name": "Bot 電腦金鑰",
@@ -119,11 +117,7 @@
     },
     "hint": {
       "computer": {
-        "ready": "執行中",
-        "starting": "啟動中",
-        "stopped": "已停止",
-        "waiting": "等待中",
-        "none": "未新增"
+        "none": "尚無"
       }
     },
     "tag": {

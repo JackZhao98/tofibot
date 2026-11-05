@@ -5,13 +5,8 @@ import {ChatsSettings} from "../ChatsSettings";
 import {AutomationSettings} from "../AutomationSettings";
 import {DebugSettings} from "../BotInspector";
 import {ComputerCredentials} from "../ComputerCredentials";
-import {ComputerPanel} from "../ComputerPanel";
-import {ComputerContents} from "../ComputerContents";
-import {ComputerOptions} from "../ComputerOptions";
-import {useHasComputer,useHostHasComputer} from "../computerCapability";
-import {ComputerAttach} from "../ComputerAttach";
-import {useOwnerSession} from "../OwnerSession";
-import {ComputerResources} from "../ComputerResources";
+import {EnvironmentsPage} from "../EnvironmentsPage";
+import {useHasComputer} from "../computerCapability";
 import {ConnectionInfo} from "../ConnectionInfo";
 import {DictationSettings,useDictationStatus} from "../DictationSettings";
 import {ExtensionPanel} from "../ExtensionPanel";
@@ -67,9 +62,10 @@ export function SettingsPages(props:SettingsPagesProps){
   case "followups": return <FollowupsSettings/>;
   case "models": return <ModelsPage {...props}/>;
   case "tools": return <div className="settings-stack"><SectionAnchor id="web"><WebToolsSettings/></SectionAnchor></div>;
-  case "devices": return <SectionAnchor id="devices"><ComputerPanel part="devices"/></SectionAnchor>;
+  // "devices" (Other devices) is part of Environments; the shell redirects its id, and a direct render still lands on the same page.
+  case "devices": return <SectionAnchor id="devices"><EnvironmentsPage openTab={props.openTab}/></SectionAnchor>;
   case "automation": return <AutomationSettings onOpenPermissions={()=>props.openTab("permissions")}/>;
-  case "computer": return <ComputerPage openTab={props.openTab}/>;
+  case "computer": return <SectionAnchor id="resources"><EnvironmentsPage openTab={props.openTab}/></SectionAnchor>;
   case "keys": return <SectionAnchor id="keys"><KeysPage bots={activeBots}/></SectionAnchor>;
   case "usage": return <div className="settings-stack"><SectionAnchor id="health"><RunHealthCard/></SectionAnchor><SectionAnchor id="spend"><SpendCap/></SectionAnchor><SectionAnchor id="usage"><UsagePanel preferredBotId={props.usageBotId} timezone={props.timezone}/></SectionAnchor></div>;
   case "advanced": return <AdvancedPage {...props} bots={bots} activeBots={activeBots}/>;
@@ -84,27 +80,6 @@ export function SettingsPages(props:SettingsPagesProps){
  */
 function KeysPage({bots}:{bots:Bot[]}){
  return useHasComputer()?<ComputerCredentials bots={bots}/>:null;
-}
-
-/**
- * With no computer backend the page explains the options; otherwise it is the computer's own settings, including what
- * lives only on it. That list (and the Keys page it links to) is the computer's configuration, so it exists only here.
- */
-function ComputerPage({openTab}:{openTab:(tab:SettingsTab)=>void}){
- const has=useHasComputer();
- const host=useHostHasComputer();
- const session=useOwnerSession();
- if(has)return <><SectionAnchor id="resources"><ComputerResources onOpenAdmin={()=>openTab("admin")}/></SectionAnchor><SectionAnchor id="environment"><ComputerPanel part="environment"/></SectionAnchor><ComputerContents openTab={openTab}/></>;
- // This account's computer is detached but the host can run one: the administrator attaches it here. Tools and computer settings stay hidden until then.
- const isAdmin=Boolean(session?.multi_account&&session.owner?.role==="admin");
- const selfId=session?.owner?.id;
- if(host&&(!session?.multi_account||isAdmin))return <DetachedComputer base={session?.multi_account&&selfId?`/api/admin/accounts/${encodeURIComponent(selfId)}/computer`:"/api/admin/computer"}/>;
- return <ComputerOptions/>;
-}
-
-function DetachedComputer({base}:{base:string}){
- const {t}=useTranslation("settings");
- return <SettingsSection id="resources" title={t("admin.detail.computer.title")}><ComputerAttach base={base}/></SettingsSection>;
 }
 
 function GeneralPage({appearance,slots,bots,onBotsChanged}:SettingsPagesProps){

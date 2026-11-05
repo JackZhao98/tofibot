@@ -74,6 +74,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/bots/bot_a/connections" && method === "GET") return {connections: q.get("none") ? [] : servers.map(item => ({server: item.name, enabled: item.name !== "github"}))};
     if (path === "/api/bots/bot_a/connections/linear" && method === "PUT") return {__status: 500, error: {code: "internal", message: "connection access not saved"}};
     if (/^\/api\/bots\/bot_a\/connections\/[^/]+$/.test(path) && method === "PUT") return {ok: true};
+    if (path === "/api/environments") return q.get("computer") === "none" ? {environments: [], add: {e2b: true, mac: true, vm_command: ""}, e2b: null} : {environments: [{id: "firecracker", kind: "vm", name: "", state: "ready", error_code: "", bot_computer: true, access: "all_bots", actions: ["configure"]}, {id: "e2b", kind: "e2b", name: "", state: "asleep", error_code: "", bot_computer: false, access: "none", actions: ["use", "remove"]}, {id: "mac_1", kind: "mac", name: "Studio MacBook", state: "online", bot_computer: false, access: "allowed_on_mac", actions: ["disconnect"]}], add: {e2b: false, mac: true, vm_command: ""}, e2b: null};
     if (path === "/api/web-tools") return {enabled: true, computer: true, search_offered: !q.get("nosearch"), search: [{id: "native", label: "Claude native", kind: "native", paid: false, fixed: true, enabled: true, status: "always", testable: false}, ...chain(["tavily", "Tavily", "ready"], ["brave", "Brave", "off", false])], fetch: [{id: "builtin", label: "Built-in", kind: "builtin", paid: false, fixed: true, enabled: true, status: "always", testable: false}, ...chain(["firecrawl", "Firecrawl", "ready"])]};
     if (path === "/api/standing-allowances" && method === "GET") return {allowances: q.get("none") ? [] : [{id: "al-1", bot_id: "bot_a", bot_name: "Mochi", server: "notion", tool: "create_page", state: "active", created_at: "2026-10-21T16:00:00Z", use_count: 5}, {id: "al-2", bot_id: "bot_a", bot_name: "Mochi", server: "github", tool: "create_issue", state: "tool_changed", created_at: "2026-10-22T16:00:00Z", use_count: 0}], remembered: q.get("none") ? [] : [{id: "rm-1"}]};
     if (path === "/api/bots/bot_a/skills") return {skills: [{name: "web-research", description: "Search the web and read pages", builtin: true, enabled: true}, {name: "calendar-notes", description: "Keep a running calendar of launches", enabled: true, set_by: "owner", set_at: checked}], bundles: []};
@@ -136,7 +137,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await sw("acme_tracker").isChecked(), false);
     assert.equal(await conn(page, "github").getAttribute("data-off"), "true", "an off connection dims");
     assert.match(await page.locator('[data-group="web"] dl').innerText(), /Search\s+On · Claude native → Tavily\s+Fetch\s+On · Built-in → Firecrawl/, "the web chains in order, only the sources that are on");
-    assert.match(await page.locator('[data-group="computer"]').innerText(), /Every Bot uses the Bot computer/);
+    const environments = page.locator('[data-group="computer"]');
+    const envText = await environments.innerText();
+    assert.match(envText, /This server\s*Always\s*Ready/, "the Bot computer: always, with its state");
+    assert.match(envText, /Studio MacBook\s*When you allow it on that Mac\s*Online/, "a Mac: only where the Bot is allowed on it");
+    assert.ok(!/E2B/.test(envText), "an environment that is not the Bot computer is not listed");
+    assert.equal(await environments.getByRole("button", {name: /Manage environments/}).count(), 1, "one link to Settings > Environments");
     assert.equal(await page.locator('[data-group="builtin"] .disclosure-region').getAttribute("aria-hidden"), "true", "Built in is folded");
     assert.equal(await page.locator('.bot-skill-row').count(), 2, "Skills are the library checkboxes");
     assert.equal(await page.locator('[data-group="skills"] h2').count(), 0, "the group is the Skills heading; the Skills view adds none");
