@@ -1,0 +1,28 @@
+/* The Mac settings page of the desktop app. Tokens only; the rows, cards and badges come from settings-components.css. */
+.mac-settings .settings-page-body{padding:28px 30px 48px}
+.mac-settings-inner{display:grid;gap:26px;align-content:start;width:min(760px,100%);margin-inline:auto;min-width:0}
+.mac-settings-head{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.mac-settings-head h1{margin:0;color:var(--ink);font:600 22px/1.3 var(--display)}
+.mac-settings-back{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:6px 12px;font-size:13px;text-decoration:none}
+.mac-settings .settings-row-control{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:8px}
+.mac-settings .settings-row-copy code{display:block;margin-top:2px;color:var(--ink-soft);font:12.5px/1.5 var(--mono);overflow-wrap:anywhere}
+.mac-settings .settings-row-control .secondary-button,.mac-settings .settings-row-control .primary-button{min-height:36px;padding:6px 12px;font-size:13px;text-decoration:none}
+.mac-settings .settings-row-control .mac-input{width:300px;max-width:100%}
+.mac-settings .settings-card-note[role="status"]:empty{display:none}
+.mac-save-row{justify-content:flex-end}
+.mac-confirm-dialog{position:fixed;inset:0;width:min(420px,calc(100vw - 40px));height:fit-content;max-width:none;max-height:calc(100% - 6px - 2em);margin:auto;overflow:auto;padding:22px;border:2px solid var(--line);border-radius:var(--radius-xl);color:var(--ink);background:var(--surface);box-shadow:var(--hard);animation:menu-enter var(--m-base) var(--ease-out) both}
+.mac-confirm-overlay{position:fixed;inset:0;z-index:var(--z-dialog);background:color-mix(in srgb,var(--bg) 58%,transparent);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.mac-confirm-dialog h3{margin:0 0 10px;color:var(--ink);font:600 15px/1.4 var(--body)}
+.mac-confirm-dialog p{margin:0;color:var(--ink-soft);font:var(--type-body)}
+.mac-confirm-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:20px}
+.mac-confirm-dialog button.primary-button{min-height:40px;padding:9px 16px;border-radius:11px;font-size:13px}
+@media(prefers-reduced-motion:reduce){.mac-confirm-dialog{animation:none}}
+@media(max-width:700px){
+  .mac-settings .settings-page-body{padding:16px 16px 32px}
+  .mac-settings-head h1{font-size:19px}
+  .mac-settings .settings-row-control,.mac-settings .settings-row-v2:not(.is-inline) .settings-row-control{justify-content:flex-start}
+  .mac-settings .settings-row-control .mac-input{width:100%}
+  .mac-settings .secondary-button,.mac-settings .primary-button,.mac-settings .settings-row-control .secondary-button,.mac-settings .settings-row-control .primary-button,.mac-settings .settings-row-v2 .primary-button{min-height:44px}
+  .mac-save-row{justify-content:stretch}
+}
+.mac-form{display:grid;gap:26px;min-width:0}

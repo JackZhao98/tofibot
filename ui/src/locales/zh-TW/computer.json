@@ -217,7 +217,10 @@
     "online": "線上",
     "offline": "離線",
     "disconnect_failed": "未能中斷裝置連線。",
-    "disconnect": "中斷連線"
+    "disconnect": "中斷連線",
+    "this_mac": "這台 Mac",
+    "this_mac_note": "這台 Mac 的裝置名稱、資料夾、macOS 權限、Bot 存取與本機執行。",
+    "open_mac": "開啟 Mac 設定"
   },
   "resources": {
     "restart": {

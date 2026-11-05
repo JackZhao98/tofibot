@@ -221,7 +221,10 @@
     "online": "En ligne",
     "offline": "Hors ligne",
     "disconnect_failed": "Impossible de déconnecter l'appareil.",
-    "disconnect": "Déconnecter"
+    "disconnect": "Déconnecter",
+    "this_mac": "Ce Mac",
+    "this_mac_note": "Nom de l’appareil, dossier, autorisations macOS, accès des Bots et exécution locale pour ce Mac.",
+    "open_mac": "Ouvrir les réglages du Mac"
   },
   "resources": {
     "restart": {

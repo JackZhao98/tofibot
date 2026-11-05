@@ -217,7 +217,10 @@
     "online": "온라인",
     "offline": "오프라인",
     "disconnect_failed": "기기 연결을 해제하지 못했습니다.",
-    "disconnect": "연결 해제"
+    "disconnect": "연결 해제",
+    "this_mac": "이 Mac",
+    "this_mac_note": "이 Mac의 기기 이름, 폴더, macOS 권한, Bot 접근, 로컬 실행.",
+    "open_mac": "Mac 설정 열기"
   },
   "resources": {
     "restart": {
