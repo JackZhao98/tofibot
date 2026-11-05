@@ -183,51 +183,14 @@
     "live_aria": "Terminal en direct"
   },
   "pairing": {
-    "this_device": "Cet appareil",
-    "mac_client": "App Mac",
     "connected": "{{name}} est connecté.",
     "expired": "Le code d'association a expiré. Générez-en un nouveau.",
-    "enter_code": "Saisissez ce code d'association dans l'app Mac. Il est valable 5 minutes.",
     "code_aria": "Code d'association {{code}}",
     "waiting": "En attente de confirmation de l'appareil…"
   },
-  "env": {
-    "unavailable": "L'environnement d'exécution est indisponible.",
-    "start_failed": "L'ordinateur Bot n'a pas démarré. Réessayez plus tard.",
-    "title": "Environnement d'exécution",
-    "description": "Linux, Google Chrome, le navigateur de fichiers et le terminal partagent le même environnement. Chaque Bot a son propre dossier de travail et peut accéder à ceux des autres.",
-    "state": {
-      "ready": "Ordinateur Bot prêt",
-      "starting": "Préparation de l'ordinateur Bot",
-      "stopped": "Ordinateur Bot arrêté",
-      "resuming": "Réveil de l’ordinateur Bot",
-      "asleep": "Ordinateur Bot en veille · se réveille dès qu’un Bot en a besoin",
-      "failed": "Échec du démarrage de l’ordinateur Bot",
-      "checking": "Vérification de l’ordinateur Bot…",
-      "unknown": "Ordinateur Bot indisponible"
-    },
-    "workspace": "Dossier de travail {{path}}",
-    "workspace_idle_one": "Dossier de travail {{path}} · le bureau se ferme après {{count}} minute d'inactivité",
-    "workspace_idle_many": "Dossier de travail {{path}} · le bureau se ferme après {{count}} minutes d'inactivité",
-    "workspace_idle_other": "Dossier de travail {{path}} · le bureau se ferme après {{count}} minutes d'inactivité",
-    "retry": "Préparer à nouveau l'ordinateur Bot"
-  },
   "devices": {
-    "note": "Vous pouvez aussi connecter un Mac sur lequel l'app Tofi est installée.",
-    "pair_failed": "Impossible de créer un code d'association.",
-    "connect": "Connecter un Mac",
-    "online": "En ligne",
-    "offline": "Hors ligne",
-    "disconnect_failed": "Impossible de déconnecter l'appareil.",
-    "disconnect": "Déconnecter",
     "this_mac": "Ce Mac",
-    "this_mac_note": "Nom de l’appareil, dossier, autorisations macOS, accès des Bots et exécution locale pour ce Mac.",
-    "open_mac": "Ouvrir les réglages du Mac",
-    "connected": "Mac connectés",
-    "mac_settings": "Réglages du Mac",
-    "empty": "Aucun Mac connecté pour l’instant.",
-    "copy": "Copier le code",
-    "copied": "Copié"
+    "open_mac": "Ouvrir les réglages du Mac"
   },
   "resources": {
     "restart": {
@@ -409,9 +372,11 @@
       "what": "Laisse un Bot travailler sur une machine que tu possèdes déjà."
     },
     "e2b": {
-      "name": "Bac à sable cloud E2B",
-      "what": "Loue un ordinateur Bot chez E2B avec ta propre clé."
-    }
+      "name": "Ordinateur cloud E2B",
+      "what": "Loue un ordinateur Bot chez E2B avec ta propre clé.",
+      "add": "Ajouter un ordinateur cloud E2B"
+    },
+    "add": "Ajouter"
   },
   "contents": {
     "title": "Ce qui se trouve sur cet ordinateur Bot",
@@ -506,6 +471,119 @@
       "impact": "Les outils de l'ordinateur Bot en cours s'arrêtent après l'étape en cours. Les fichiers de l'ordinateur Bot sont d'abord copiés sur le serveur. Le Bot continue de travailler sans ordinateur Bot, et vous pouvez le rattacher plus tard.",
       "cancel": "Annuler",
       "action": "Détacher"
+    }
+  },
+  "environments": {
+    "description": "Là où les Bots travaillent. L’ordinateur Bot sert tous les Bots ; un Mac sert les Bots que vous y autorisez.",
+    "unavailable": "Impossible de charger les environnements.",
+    "stale": "Impossible d’actualiser les environnements. Dernier résultat affiché.",
+    "retry": "Réessayer",
+    "loading": "Chargement des environnements…",
+    "empty": "Aucun environnement pour l’instant. Ajoutez-en un pour que les Bots travaillent au-delà du chat.",
+    "add": "Ajouter un environnement",
+    "add_menu": {
+      "e2b": "Ordinateur cloud E2B",
+      "mac": "Votre Mac",
+      "vm": "Ordinateur Bot sur ce serveur"
+    },
+    "name": {
+      "vm": "Ce serveur",
+      "e2b": "Ordinateur cloud E2B",
+      "mac": "Mac"
+    },
+    "bot_computer": "Ordinateur Bot",
+    "access": {
+      "all_bots": "Utilisé par tous les Bots",
+      "allowed_on_mac": "Bots que vous autorisez sur ce Mac",
+      "none": "Inutilisé"
+    },
+    "last_seen": "Vu pour la dernière fois {{time}}",
+    "this_mac_note": "Dossier, autorisations macOS et accès des Bots se règlent dans les réglages du Mac.",
+    "state": {
+      "ready": "Prêt",
+      "starting": "Démarrage",
+      "resuming": "Réveil",
+      "asleep": "En veille",
+      "stopped": "Arrêté",
+      "standby": "En réserve",
+      "failed": "Échec",
+      "preparing": "Préparation",
+      "online": "En ligne",
+      "offline": "Hors ligne",
+      "unknown": "Inconnu"
+    },
+    "action": {
+      "retry": "Réessayer",
+      "wake": "Réveiller",
+      "configure": "Configurer",
+      "use": "Utiliser pour les Bots",
+      "remove": "Retirer",
+      "disconnect": "Déconnecter"
+    },
+    "more": "Autres actions pour {{name}}",
+    "attach_title": "Ordinateur Bot",
+    "error": {
+      "generic": "Impossible de terminer. Réessayez.",
+      "invalid_key": "E2B n’a pas accepté la clé API.",
+      "e2b_unreachable": "E2B est injoignable pour le moment.",
+      "e2b_limit": "Limite du compte E2B atteinte.",
+      "image_missing": "L’image de l’ordinateur n’est pas encore publiée.",
+      "template_build_failed": "E2B n’a pas pu construire l’image de l’ordinateur.",
+      "sandbox_failed": "Le bac à sable E2B n’a pas démarré.",
+      "guest_unreachable": "L’ordinateur ne répond pas.",
+      "sandbox_gone": "Le bac à sable E2B n’existe plus. Réessayer en crée un nouveau.",
+      "token_unreadable": "La clé enregistrée est illisible. Ajoutez à nouveau la clé E2B."
+    },
+    "confirm": {
+      "use": {
+        "title": "Utiliser {{name}} pour les Bots ?",
+        "body": "Le travail en cours se termine d’abord. Ensuite tous les Bots utilisent cet ordinateur et l’actuel passe en veille.",
+        "action": "Utiliser pour les Bots"
+      },
+      "remove": {
+        "title": "Retirer {{name}} ?",
+        "body": "Le bac à sable est supprimé et la clé API oubliée. Si des Bots l’utilisent, le travail en cours se termine et les fichiers sont copiés sur le serveur d’abord.",
+        "action": "Retirer"
+      },
+      "disconnect": {
+        "title": "Déconnecter {{name}} ?",
+        "body": "Les Bots ne peuvent pas utiliser ce Mac tant que vous ne le reconnectez pas avec un nouveau code.",
+        "action": "Déconnecter"
+      }
+    },
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "close": "Fermer",
+    "done": "Terminé",
+    "copy": "Copier",
+    "copied": "Copié",
+    "e2b": {
+      "title": "Ajouter un ordinateur cloud E2B",
+      "key": "Clé API",
+      "get_key": "Obtenir une clé",
+      "cost": "Facturé par E2B à la seconde pendant l’exécution ; en pause quand il est inactif.",
+      "saving": "Vérification…",
+      "template_toggle": "Utiliser un modèle existant",
+      "template_id": "ID du modèle",
+      "template_hint": "Pour un modèle construit avec la CLI E2B depuis deploy/e2b."
+    },
+    "mac": {
+      "title": "Connecter votre Mac",
+      "step_open": "Ouvrez l’app Tofi sur votre Mac.",
+      "step_code": "Saisissez ce code. Il est valable 5 minutes.",
+      "creating": "Création du code…",
+      "failed": "Impossible de créer un code d’association.",
+      "new_code": "Nouveau code",
+      "copy_aria": "Copier le code d’association"
+    },
+    "vm": {
+      "title": "Ajouter un ordinateur Bot sur ce serveur",
+      "run": "À exécuter sur l’hôte du serveur :",
+      "after": "Cette page se met à jour toute seule dès que l’ordinateur Bot est rattaché.",
+      "copy_aria": "Copier la commande"
+    },
+    "configure": {
+      "title": "Configurer l’ordinateur Bot"
     }
   }
 }

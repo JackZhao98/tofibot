@@ -182,50 +182,14 @@
     "live_aria": "Live terminal"
   },
   "pairing": {
-    "this_device": "This device",
-    "mac_client": "Mac app",
     "connected": "{{name}} is connected.",
     "expired": "The pairing code expired. Generate a new one.",
-    "enter_code": "Enter this pairing code in the Mac app. It's valid for 5 minutes.",
     "code_aria": "Pairing code {{code}}",
     "waiting": "Waiting for the device to confirm…"
   },
-  "env": {
-    "unavailable": "The runtime environment is unavailable.",
-    "start_failed": "The Bot computer didn't start. Try again later.",
-    "title": "Runtime environment",
-    "description": "Linux, Google Chrome, the file browser and the terminal share one environment. Each Bot has its own work folder and can reach the others'.",
-    "state": {
-      "ready": "Bot computer ready",
-      "starting": "Preparing the Bot computer",
-      "stopped": "Bot computer stopped",
-      "resuming": "Waking the Bot computer",
-      "asleep": "Bot computer asleep · wakes when a Bot needs it",
-      "failed": "Bot computer failed to start",
-      "checking": "Checking the Bot computer…",
-      "unknown": "Bot computer unavailable"
-    },
-    "workspace": "Work folder {{path}}",
-    "workspace_idle_one": "Work folder {{path}} · desktop closes after {{count}} idle minute",
-    "workspace_idle_other": "Work folder {{path}} · desktop closes after {{count}} idle minutes",
-    "retry": "Prepare the Bot computer again"
-  },
   "devices": {
-    "note": "You can also connect a Mac that has the Tofi app installed.",
-    "pair_failed": "Couldn't create a pairing code.",
-    "connect": "Connect a Mac",
-    "online": "Online",
-    "offline": "Offline",
-    "disconnect_failed": "Couldn't disconnect the device.",
-    "disconnect": "Disconnect",
     "this_mac": "This Mac",
-    "this_mac_note": "Device name, folder, macOS permissions, Bot access and local execution for this Mac.",
-    "open_mac": "Open Mac settings",
-    "connected": "Connected Macs",
-    "mac_settings": "Mac settings",
-    "empty": "No Mac is connected yet.",
-    "copy": "Copy code",
-    "copied": "Copied"
+    "open_mac": "Open Mac settings"
   },
   "resources": {
     "restart": {
@@ -407,9 +371,11 @@
       "what": "Let a Bot work on a machine you already own."
     },
     "e2b": {
-      "name": "E2B cloud sandbox",
-      "what": "Rent a Bot computer from E2B with your own key."
-    }
+      "name": "E2B cloud computer",
+      "what": "Rent a Bot computer from E2B with your own key.",
+      "add": "Add E2B cloud computer"
+    },
+    "add": "Add"
   },
   "contents": {
     "title": "What is on this Bot computer",
@@ -499,6 +465,119 @@
       "impact": "Running Bot computer tools stop after the current step. Files on the Bot computer are copied to the server first. The Bot keeps working without a Bot computer, and you can attach it again later.",
       "cancel": "Cancel",
       "action": "Detach"
+    }
+  },
+  "environments": {
+    "description": "Where Bots work. The Bot computer serves every Bot; a Mac serves the Bots you allow on it.",
+    "unavailable": "Couldn't load environments.",
+    "stale": "Couldn't refresh environments. Showing the last result.",
+    "retry": "Try again",
+    "loading": "Loading environments…",
+    "empty": "No environments yet. Add one so Bots can work beyond chat.",
+    "add": "Add environment",
+    "add_menu": {
+      "e2b": "E2B cloud computer",
+      "mac": "Your Mac",
+      "vm": "Bot computer on this server"
+    },
+    "name": {
+      "vm": "This server",
+      "e2b": "E2B cloud computer",
+      "mac": "Mac"
+    },
+    "bot_computer": "Bot computer",
+    "access": {
+      "all_bots": "Used by all Bots",
+      "allowed_on_mac": "Bots you allow on that Mac",
+      "none": "Not in use"
+    },
+    "last_seen": "Last seen {{time}}",
+    "this_mac_note": "Folder, macOS permissions and Bot access are set in Mac settings.",
+    "state": {
+      "ready": "Ready",
+      "starting": "Starting",
+      "resuming": "Waking",
+      "asleep": "Asleep",
+      "stopped": "Stopped",
+      "standby": "Standby",
+      "failed": "Failed",
+      "preparing": "Preparing",
+      "online": "Online",
+      "offline": "Offline",
+      "unknown": "Unknown"
+    },
+    "action": {
+      "retry": "Retry",
+      "wake": "Wake",
+      "configure": "Configure",
+      "use": "Use for Bots",
+      "remove": "Remove",
+      "disconnect": "Disconnect"
+    },
+    "more": "More actions for {{name}}",
+    "attach_title": "Bot computer",
+    "error": {
+      "generic": "Couldn't complete that. Try again.",
+      "invalid_key": "E2B didn't accept the API key.",
+      "e2b_unreachable": "Can't reach E2B right now.",
+      "e2b_limit": "E2B account limit reached.",
+      "image_missing": "The computer image isn't published yet.",
+      "template_build_failed": "E2B couldn't build the computer image.",
+      "sandbox_failed": "The E2B sandbox didn't start.",
+      "guest_unreachable": "The computer isn't responding.",
+      "sandbox_gone": "The E2B sandbox is gone. Retry creates a new one.",
+      "token_unreadable": "The saved key can't be read. Add the E2B key again."
+    },
+    "confirm": {
+      "use": {
+        "title": "Use {{name}} for Bots?",
+        "body": "Running work finishes first. Then every Bot uses this computer and the current one goes idle.",
+        "action": "Use for Bots"
+      },
+      "remove": {
+        "title": "Remove {{name}}?",
+        "body": "The sandbox is deleted and the API key is forgotten. If Bots use it now, running work finishes and files are copied to the server first.",
+        "action": "Remove"
+      },
+      "disconnect": {
+        "title": "Disconnect {{name}}?",
+        "body": "Bots can't use this Mac until you connect it again with a new code.",
+        "action": "Disconnect"
+      }
+    },
+    "cancel": "Cancel",
+    "save": "Save",
+    "close": "Close",
+    "done": "Done",
+    "copy": "Copy",
+    "copied": "Copied",
+    "e2b": {
+      "title": "Add E2B cloud computer",
+      "key": "API key",
+      "get_key": "Get a key",
+      "cost": "Billed by E2B per second while running; pauses when idle.",
+      "saving": "Checking…",
+      "template_toggle": "Use an existing template",
+      "template_id": "Template ID",
+      "template_hint": "For a template you built with the E2B CLI from deploy/e2b."
+    },
+    "mac": {
+      "title": "Connect your Mac",
+      "step_open": "Open the Tofi app on your Mac.",
+      "step_code": "Enter this code. It's valid for 5 minutes.",
+      "creating": "Creating a code…",
+      "failed": "Couldn't create a pairing code.",
+      "new_code": "New code",
+      "copy_aria": "Copy pairing code"
+    },
+    "vm": {
+      "title": "Add a Bot computer on this server",
+      "run": "Run this on the server host:",
+      "after": "This page updates by itself once the Bot computer is attached.",
+      "copy_aria": "Copy command"
+    },
+    "configure": {
+      "title": "Configure Bot computer"
     }
   }
 }

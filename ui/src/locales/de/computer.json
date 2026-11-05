@@ -182,50 +182,14 @@
     "live_aria": "Live-Terminal"
   },
   "pairing": {
-    "this_device": "Dieses Gerät",
-    "mac_client": "Mac-App",
     "connected": "{{name}} ist verbunden.",
     "expired": "Der Kopplungscode ist abgelaufen. Erstelle einen neuen.",
-    "enter_code": "Gib diesen Kopplungscode in der Mac-App ein. Er ist 5 Minuten gültig.",
     "code_aria": "Kopplungscode {{code}}",
     "waiting": "Warten auf Bestätigung des Geräts…"
   },
-  "env": {
-    "unavailable": "Die Laufzeitumgebung ist nicht verfügbar.",
-    "start_failed": "Der Bot-Computer ist nicht gestartet. Versuch es später noch einmal.",
-    "title": "Laufzeitumgebung",
-    "description": "Linux, Google Chrome, Dateibrowser und Terminal teilen sich eine Umgebung. Jeder Bot hat einen eigenen Arbeitsordner und kann auf die der anderen zugreifen.",
-    "state": {
-      "ready": "Bot-Computer bereit",
-      "starting": "Bot-Computer wird vorbereitet",
-      "stopped": "Bot-Computer gestoppt",
-      "resuming": "Bot-Computer wird aufgeweckt",
-      "asleep": "Bot-Computer im Ruhezustand · wacht auf, sobald ein Bot ihn braucht",
-      "failed": "Bot-Computer konnte nicht starten",
-      "checking": "Bot-Computer wird geprüft…",
-      "unknown": "Bot-Computer nicht verfügbar"
-    },
-    "workspace": "Arbeitsverzeichnis {{path}}",
-    "workspace_idle_one": "Arbeitsverzeichnis {{path}} · Desktop schließt nach {{count}} Minute Inaktivität",
-    "workspace_idle_other": "Arbeitsverzeichnis {{path}} · Desktop schließt nach {{count}} Minuten Inaktivität",
-    "retry": "Bot-Computer neu vorbereiten"
-  },
   "devices": {
-    "note": "Du kannst auch einen Mac verbinden, auf dem die Tofi-App installiert ist.",
-    "pair_failed": "Kopplungscode konnte nicht erstellt werden.",
-    "connect": "Mac verbinden",
-    "online": "Online",
-    "offline": "Offline",
-    "disconnect_failed": "Gerät konnte nicht getrennt werden.",
-    "disconnect": "Trennen",
     "this_mac": "Dieser Mac",
-    "this_mac_note": "Gerätename, Ordner, macOS-Berechtigungen, Bot-Zugriff und lokale Ausführung für diesen Mac.",
-    "open_mac": "Mac-Einstellungen öffnen",
-    "connected": "Verbundene Macs",
-    "mac_settings": "Mac-Einstellungen",
-    "empty": "Noch kein Mac verbunden.",
-    "copy": "Code kopieren",
-    "copied": "Kopiert"
+    "open_mac": "Mac-Einstellungen öffnen"
   },
   "resources": {
     "restart": {
@@ -407,9 +371,11 @@
       "what": "Lass einen Bot auf einem Rechner arbeiten, den du schon besitzt."
     },
     "e2b": {
-      "name": "E2B-Cloud-Sandbox",
-      "what": "Miete mit deinem eigenen Schlüssel einen Bot-Computer bei E2B."
-    }
+      "name": "E2B-Cloud-Computer",
+      "what": "Miete mit deinem eigenen Schlüssel einen Bot-Computer bei E2B.",
+      "add": "E2B-Cloud-Computer hinzufügen"
+    },
+    "add": "Hinzufügen"
   },
   "contents": {
     "title": "Was sich auf diesem Bot-Computer befindet",
@@ -499,6 +465,119 @@
       "impact": "Laufende Bot-Computer-Tools stoppen nach dem aktuellen Schritt. Dateien auf dem Bot-Computer werden zuerst auf den Server kopiert. Der Bot arbeitet ohne Bot-Computer weiter, und du kannst ihn später wieder anbinden.",
       "cancel": "Abbrechen",
       "action": "Trennen"
+    }
+  },
+  "environments": {
+    "description": "Wo Bots arbeiten. Der Bot-Computer dient allen Bots; ein Mac nur den Bots, die du dort erlaubst.",
+    "unavailable": "Umgebungen konnten nicht geladen werden.",
+    "stale": "Umgebungen konnten nicht aktualisiert werden. Zeige das letzte Ergebnis.",
+    "retry": "Erneut versuchen",
+    "loading": "Umgebungen werden geladen…",
+    "empty": "Noch keine Umgebungen. Füge eine hinzu, damit Bots über den Chat hinaus arbeiten können.",
+    "add": "Umgebung hinzufügen",
+    "add_menu": {
+      "e2b": "E2B-Cloud-Computer",
+      "mac": "Dein Mac",
+      "vm": "Bot-Computer auf diesem Server"
+    },
+    "name": {
+      "vm": "Dieser Server",
+      "e2b": "E2B-Cloud-Computer",
+      "mac": "Mac"
+    },
+    "bot_computer": "Bot-Computer",
+    "access": {
+      "all_bots": "Von allen Bots genutzt",
+      "allowed_on_mac": "Bots, die du auf diesem Mac erlaubst",
+      "none": "Nicht in Gebrauch"
+    },
+    "last_seen": "Zuletzt gesehen {{time}}",
+    "this_mac_note": "Ordner, macOS-Berechtigungen und Bot-Zugriff stellst du in den Mac-Einstellungen ein.",
+    "state": {
+      "ready": "Bereit",
+      "starting": "Startet",
+      "resuming": "Wacht auf",
+      "asleep": "Schläft",
+      "stopped": "Gestoppt",
+      "standby": "Standby",
+      "failed": "Fehlgeschlagen",
+      "preparing": "Wird vorbereitet",
+      "online": "Online",
+      "offline": "Offline",
+      "unknown": "Unbekannt"
+    },
+    "action": {
+      "retry": "Wiederholen",
+      "wake": "Aufwecken",
+      "configure": "Konfigurieren",
+      "use": "Für Bots nutzen",
+      "remove": "Entfernen",
+      "disconnect": "Trennen"
+    },
+    "more": "Weitere Aktionen für {{name}}",
+    "attach_title": "Bot-Computer",
+    "error": {
+      "generic": "Das hat nicht geklappt. Versuche es erneut.",
+      "invalid_key": "E2B hat den API-Schlüssel nicht akzeptiert.",
+      "e2b_unreachable": "E2B ist gerade nicht erreichbar.",
+      "e2b_limit": "Das Limit deines E2B-Kontos ist erreicht.",
+      "image_missing": "Das Computer-Image ist noch nicht veröffentlicht.",
+      "template_build_failed": "E2B konnte das Computer-Image nicht bauen.",
+      "sandbox_failed": "Die E2B-Sandbox ist nicht gestartet.",
+      "guest_unreachable": "Der Computer antwortet nicht.",
+      "sandbox_gone": "Die E2B-Sandbox existiert nicht mehr. Erneut versuchen erstellt eine neue.",
+      "token_unreadable": "Der gespeicherte Schlüssel ist nicht lesbar. Füge den E2B-Schlüssel erneut hinzu."
+    },
+    "confirm": {
+      "use": {
+        "title": "{{name}} für Bots nutzen?",
+        "body": "Laufende Arbeit wird zuerst beendet. Danach nutzen alle Bots diesen Computer, der aktuelle wird inaktiv.",
+        "action": "Für Bots nutzen"
+      },
+      "remove": {
+        "title": "{{name}} entfernen?",
+        "body": "Die Sandbox wird gelöscht und der API-Schlüssel vergessen. Nutzen Bots sie gerade, wird laufende Arbeit zuerst beendet und es werden Dateien auf den Server kopiert.",
+        "action": "Entfernen"
+      },
+      "disconnect": {
+        "title": "{{name}} trennen?",
+        "body": "Bots können diesen Mac nicht nutzen, bis du ihn mit einem neuen Code wieder verbindest.",
+        "action": "Trennen"
+      }
+    },
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "close": "Schließen",
+    "done": "Fertig",
+    "copy": "Kopieren",
+    "copied": "Kopiert",
+    "e2b": {
+      "title": "E2B-Cloud-Computer hinzufügen",
+      "key": "API-Schlüssel",
+      "get_key": "Schlüssel holen",
+      "cost": "E2B rechnet sekundengenau ab, solange er läuft; im Leerlauf pausiert er.",
+      "saving": "Prüfe…",
+      "template_toggle": "Vorhandene Vorlage verwenden",
+      "template_id": "Vorlagen-ID",
+      "template_hint": "Für eine Vorlage, die du mit der E2B-CLI aus deploy/e2b gebaut hast."
+    },
+    "mac": {
+      "title": "Mac verbinden",
+      "step_open": "Öffne die Tofi-App auf deinem Mac.",
+      "step_code": "Gib diesen Code ein. Er ist 5 Minuten gültig.",
+      "creating": "Code wird erstellt…",
+      "failed": "Kopplungscode konnte nicht erstellt werden.",
+      "new_code": "Neuer Code",
+      "copy_aria": "Kopplungscode kopieren"
+    },
+    "vm": {
+      "title": "Bot-Computer auf diesem Server hinzufügen",
+      "run": "Auf dem Server-Host ausführen:",
+      "after": "Diese Seite aktualisiert sich selbst, sobald der Bot-Computer angebunden ist.",
+      "copy_aria": "Befehl kopieren"
+    },
+    "configure": {
+      "title": "Bot-Computer konfigurieren"
     }
   }
 }

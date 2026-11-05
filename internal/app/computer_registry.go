@@ -603,7 +603,8 @@ func (s *Server) afterVMAttached(p computer.Provider) {
 			s.store.setLegacyBlobs(blobs)
 			s.store.cleanupDeletedAttachments()
 		}
-		if err := s.store.upsertVMComputer(p.ID(), "Bot workspace", "linux", "", kvmCapabilities, 1, computerRowAttached); err != nil {
+		name, caps := botComputerRowLabel(p)
+		if err := s.store.upsertVMComputer(p.ID(), name, "linux", "", caps, 1, computerRowAttached); err != nil {
 			log.Printf("[computer] could not record the computer row: %v", err)
 		}
 	}

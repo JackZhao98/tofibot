@@ -15,6 +15,8 @@ import { ConnectionsEmpty } from "../../connections/ConnectionsEmpty";
 import type { ToolTierList } from "../../connections/shared";
 import { ComputerOptions } from "../../ComputerOptions";
 import { ComputerContentsView } from "../../ComputerContents";
+import { EnvironmentList } from "../../EnvironmentsPage";
+import type { EnvironmentsView } from "../../environments";
 import { ComputerLossView } from "../../ComputerLoss";
 import { PasteBackView } from "../../connections/PasteBackDialog";
 import type { ConnectionKind } from "../../connections/status";
@@ -31,6 +33,23 @@ import type { CatalogSection, CatalogState } from "../types";
 import { Select } from "../../Select";
 
 const noop = () => {};
+const sampleEnvironments: EnvironmentsView = {
+  environments: [
+    { id: "firecracker", kind: "vm", name: "", state: "ready", error_code: "", bot_computer: true, access: "all_bots", actions: ["retry", "configure"] },
+    { id: "e2b", kind: "e2b", name: "", state: "preparing", error_code: "", bot_computer: false, access: "none", actions: ["use", "remove"] },
+    { id: "mac_ab12", kind: "mac", name: "Studio MacBook", state: "online", error_code: "", platform: "darwin", bot_computer: false, access: "allowed_on_mac", actions: ["disconnect"] },
+  ],
+  add: { e2b: false, mac: true, vm_command: "" },
+  e2b: { configured: true, key_hint: "e2b_…a1b2", phase: "preparing", error_code: "", error: "" },
+};
+const failedEnvironments: EnvironmentsView = {
+  environments: [
+    { id: "e2b", kind: "e2b", name: "", state: "failed", error_code: "template_build_failed", bot_computer: true, access: "all_bots", actions: ["retry", "remove"] },
+    { id: "mac_cd34", kind: "mac", name: "Old iMac", state: "offline", error_code: "", platform: "darwin", last_seen: "2026-11-01T08:00:00Z", bot_computer: false, access: "allowed_on_mac", actions: ["disconnect"] },
+  ],
+  add: { e2b: false, mac: true, vm_command: "" },
+  e2b: { configured: true, key_hint: "e2b_…a1b2", phase: "failed", error_code: "template_build_failed", error: "Build failed: image pull denied" },
+};
 const t = i18n.t.bind(i18n);
 const never = () => new Promise<void>(() => {});
 
@@ -155,6 +174,9 @@ export const settings: CatalogSection = {
       { drive: step => step.click('.web-row[data-id="tavily"] button[aria-expanded]').then(() => undefined) }),
     webState("master-off", "web search switched off in Automatic behavior", webView([webTavily({ status: "ready", key_hint: "…9a2f" }), webBrave(), webSearx()], [webFirecrawl(), webBright()], { enabled: false })),
     { id: "computer-none", kind: "inline", label: "Computer page on a server with no computer", note: "what works without one, and the ways to add a computer", render: () => <ComputerOptions /> },
+    { id: "environments-list", kind: "inline", label: "Environments page: Bot computer, E2B preparing, a Mac online", note: "controls come only from `actions`; the Bot computer carries its tag; destructive actions sit in the row menu", render: () => <EnvironmentList view={sampleEnvironments} handlers={{ busy: "", onAction: noop }} /> },
+    { id: "environments-failed", kind: "inline", label: "Environments page: failed and offline rows", note: "named reason under the row; an offline Mac says when it was last seen", render: () => <EnvironmentList view={failedEnvironments} handlers={{ busy: "", onAction: noop }} /> },
+    { id: "environments-empty", kind: "inline", label: "Environments page: nothing added", render: () => <EnvironmentList view={{ environments: [], add: { e2b: true, mac: true, vm_command: "" }, e2b: null }} handlers={{ busy: "", onAction: noop }} /> },
     { id: "computer-contents", kind: "inline", label: "Computer page: what is on this computer", note: "four rows; Environment and keys links to Keys; the list reads names and counts only", render: () => <ComputerContentsView data={{ environment: ["WEB_API_TOKEN", "DEPLOY_REGION"], ssh_keys: ["id_work"], pending_file_copies: 0 }} failed={false} retry={noop} openTab={noop} /> },
     { id: "computer-contents-pending", kind: "inline", label: "Computer page: nothing saved, files still copying", note: "the Work files row says how many files still wait for their copy", render: () => <ComputerContentsView data={{ environment: [], ssh_keys: [], pending_file_copies: 2 }} failed={false} retry={noop} openTab={noop} /> },
     { id: "computer-contents-loading", kind: "inline", label: "Computer page: what is on this computer, reading", render: () => <ComputerContentsView data={null} failed={false} retry={noop} openTab={noop} /> },

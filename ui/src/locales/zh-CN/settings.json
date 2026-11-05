@@ -59,10 +59,8 @@
         "description": "模型服务商与默认模型。"
       },
       "computer": {
-        "name": "Bot 电脑",
-        "description": "Bot 电脑、存储与运行资源",
-        "description_none": "为这台服务器添加 Bot 电脑的方式",
-        "description_detached": "为此账户接入 Bot 电脑"
+        "name": "环境",
+        "description": "云电脑、这台服务器和你的 Mac"
       },
       "keys": {
         "name": "Bot 电脑密钥",
@@ -119,11 +117,7 @@
     },
     "hint": {
       "computer": {
-        "ready": "运行中",
-        "starting": "启动中",
-        "stopped": "已停止",
-        "waiting": "等待中",
-        "none": "未添加"
+        "none": "暂无"
       }
     },
     "tag": {

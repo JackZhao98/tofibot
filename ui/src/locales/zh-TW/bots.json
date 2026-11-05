@@ -237,10 +237,12 @@
       "configure": "設定來源"
     },
     "computer": {
-      "title": "Bot 電腦",
-      "shared": "所有 Bot 共用 Bot 電腦。",
+      "title": "環境",
       "none": "還沒有 Bot 電腦。在設定中新增後,Bot 才能瀏覽網頁和執行程式碼。",
-      "open": "開啟設定"
+      "manage": "管理環境",
+      "always": "一律可用",
+      "mac": "在那台 Mac 上放行後可用",
+      "error": "未能讀取環境。"
     },
     "builtin": {
       "title": "內建",

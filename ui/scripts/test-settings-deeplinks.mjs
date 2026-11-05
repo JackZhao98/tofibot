@@ -42,6 +42,7 @@ const content=[
  '[Defaults](/settings/models#defaults)',
  '[Nowhere](/settings/models#nowhere)',
  '[Old id](/settings/approvals)',
+ '[Devices](/settings/devices)',
  '[Acme](/settings/connections/acme_tracker?tool=create_issue)',
  '[Bot model](/b/bot_research/settings#model)',
  '[Elsewhere](https://elsewhere.example.test/settings/general#region)',
@@ -113,6 +114,9 @@ void i18nReady.then(()=>setLanguage('en')).then(()=>createRoot(document.getEleme
   await page.getByRole("link", {name: "Old id"}).click();
   await page.locator('.settings-tabs [data-tab="permissions"][aria-current="page"]').waitFor();
   console.log("PASS /settings/approvals opens Permissions");
+  await page.getByRole("link", {name: "Devices"}).click();
+  await page.locator('.settings-tabs [data-tab="computer"][aria-current="page"]').waitFor();
+  console.log("PASS /settings/devices opens Environments");
 
   // A modified click is the browser's; a link to another origin is not ours.
   const prevented = await page.evaluate(() => new Promise(resolve => {

@@ -36,4 +36,4 @@ export type GroupSettingsSection = (typeof GROUP_SETTINGS_SECTIONS)[number];
 export const CONNECTION_SECTIONS = ["status", "tools", "advanced", "danger"] as const;
 
 /** Settings tab ids that were renamed: the old id still opens the page that replaced it. */
-export const LEGACY_SETTINGS_TABS: Record<string, SettingsTabId> = { approvals: "permissions" };
+export const LEGACY_SETTINGS_TABS: Record<string, SettingsTabId> = { approvals: "permissions", devices: "computer" };

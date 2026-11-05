@@ -3,7 +3,7 @@ import { api, request } from "./api";
 import { BotAvatar } from "./BotAvatar";
 import { BotInspector } from "./BotInspector";
 import { BotSkills } from "./BotSkills";
-import { useHasComputer } from "./computerCapability";
+import { readEnvironments, type Environment } from "./environments";
 import { displayName, markName, presetFor } from "./connections/names";
 import { message, type MCP } from "./connections/shared";
 import { storedKind, type ConnectionKind } from "./connections/status";
@@ -13,6 +13,7 @@ import { formatDateTime } from "./i18n/format";
 import { TofiIcon } from "./icons";
 import { ServiceMark } from "./ServiceMark";
 import { openConnectionDeepLink } from "./settings/deepLinks";
+import { StatusBadge, type BadgeState } from "./settings/components";
 import type { StandingAllowance } from "./StandingAllowances";
 import type { WebSourceEntry, WebToolsView } from "./types";
 import "./extensions-system.css";
@@ -38,11 +39,14 @@ export type BotToolsViewProps = {
   onToggle: (server: string, next: boolean) => void; onOpenConnection: (server: string) => void; onAddConnection: () => void;
   skills: ReactNode; onOpenSkills: () => void;
   web: WebToolsView | null; onOpenWeb: () => void;
-  computer: boolean; onOpenComputer: () => void;
+  /** What this Bot can work in: null while loading, "error" when the read failed. */
+  environments: Environment[] | "error" | null; onOpenComputer: () => void;
   inspector: ReactNode;
   allowances: StandingAllowance[] | null; leaving: string[]; onGone: (id: string) => void; remembered: number; revoking: string; permissionsError: string; serverName: (server: string) => string;
   onRevoke: (item: StandingAllowance) => void; onOpenPermissions: () => void;
 };
+
+const envBadge: Record<Environment["state"], BadgeState> = { ready: "ok", online: "ok", starting: "testing", resuming: "testing", preparing: "testing", asleep: "asleep", offline: "asleep", stopped: "asleep", standby: "asleep", unknown: "asleep", failed: "bad" };
 
 /** The status words are the Connections page's own. */
 function kindKey(kind: ConnectionKind) {
@@ -74,7 +78,9 @@ function LinkButton({ children, onClick }: { children: ReactNode; onClick: () =>
 
 /** Presentational: everything arrives as props so every state can be drawn without a server. */
 export function BotToolsView(p: BotToolsViewProps) {
-  const { t } = useTranslation(["bots", "extensions", "settings"]);
+  const { t } = useTranslation(["bots", "extensions", "settings", "computer"]);
+  // The Bot computer is always available to a Bot; a Mac only where the person allowed this Bot on it (decided on the Mac).
+  const usable = Array.isArray(p.environments) ? p.environments.filter(item => item.bot_computer || item.kind === "mac") : [];
   const searchLine = !p.web ? "" : !p.web.search_offered ? t("bots:tools.web.search_none") : t("bots:tools.web.on", { chain: chainText(p.web.search) });
   const fetchLine = !p.web ? "" : t("bots:tools.web.on", { chain: chainText(p.web.fetch) });
   const when = (value: string) => formatDateTime(value);
@@ -110,8 +116,17 @@ export function BotToolsView(p: BotToolsViewProps) {
       </dl>}
     </Group>
 
-    <Group id="computer" title={t("bots:tools.computer.title")} action={<LinkButton onClick={p.onOpenComputer}>{t("bots:tools.computer.open")}</LinkButton>}>
-      <p className="bt-line">{p.computer ? t("bots:tools.computer.shared") : t("bots:tools.computer.none")}</p>
+    <Group id="computer" title={t("bots:tools.computer.title")} action={<LinkButton onClick={p.onOpenComputer}>{t("bots:tools.computer.manage")}</LinkButton>}>
+      {p.environments === null && <p className="field-note" role="status">{t("bots:tools.connections.loading")}</p>}
+      {p.environments === "error" && <p className="error-text" role="alert">{t("bots:tools.computer.error")}</p>}
+      {Array.isArray(p.environments) && usable.length === 0 && <p className="bt-line">{t("bots:tools.computer.none")}</p>}
+      {usable.length > 0 && <ul className="bt-list">
+        {usable.map(item => <li key={item.id} className="bt-row bt-env" data-environment={item.id} data-kind={item.kind}>
+          <TofiIcon name={item.kind === "mac" ? "laptop" : item.kind === "e2b" ? "cloud" : "server"} size={18} aria-hidden="true" />
+          <span className="bt-row-copy"><strong>{item.name || t(`computer:environments.name.${item.kind}`)}</strong><small>{t(item.kind === "mac" ? "bots:tools.computer.mac" : "bots:tools.computer.always")}</small></span>
+          <StatusBadge state={envBadge[item.state]}>{t(`computer:environments.state.${item.state}`)}</StatusBadge>
+        </li>)}
+      </ul>}
     </Group>
 
     <Group id="builtin" title={t("bots:tools.builtin.title")}>
@@ -152,7 +167,7 @@ export function BotTools({ bot, refreshToken = 0, leaveTo, onOpenSettings }: {
   onOpenSettings: (tab: "skills" | "models" | "tools" | "computer" | "permissions" | "connections") => void;
 }) {
   const { t } = useTranslation("bots");
-  const hasComputer = useHasComputer();
+  const [environments, setEnvironments] = useState<Environment[] | "error" | null>(null);
   const [servers, setServers] = useState<MCP[] | null>(null);
   const [access, setAccess] = useState<Record<string, boolean>>({});
   const [error, setError] = useState("");
@@ -166,11 +181,12 @@ export function BotTools({ bot, refreshToken = 0, leaveTo, onOpenSettings }: {
   const alive = useRef(true);
   const id = encodeURIComponent(bot.id);
   const load = useCallback(async () => {
-    const [list, mine, sources, granted] = await Promise.allSettled([
+    const [list, mine, sources, granted, places] = await Promise.allSettled([
       request<{ servers: MCP[] }>("/api/extensions/mcp"),
       request<{ connections: { server: string; enabled: boolean }[] }>(`/api/bots/${id}/connections`),
       api.webTools(),
       request<{ allowances?: StandingAllowance[]; remembered?: unknown[] }>(`/api/standing-allowances?bot=${id}`),
+      readEnvironments(),
     ]);
     if (!alive.current) return;
     if (list.status === "fulfilled" && mine.status === "fulfilled") {
@@ -179,11 +195,12 @@ export function BotTools({ bot, refreshToken = 0, leaveTo, onOpenSettings }: {
       setError("");
     } else { setServers(current => current ?? []); setError(t("tools.connections.error")); }
     if (sources.status === "fulfilled" && Array.isArray(sources.value.search) && Array.isArray(sources.value.fetch)) setWeb(sources.value);
+    setEnvironments(current => places.status === "fulfilled" ? places.value.environments : current ?? "error");
     if (granted.status === "fulfilled") { setAllowances(granted.value.allowances ?? []); setRemembered(granted.value.remembered?.length ?? 0); setPermissionsError(""); }
     else { setAllowances(current => current ?? []); setPermissionsError(t("tools.permissions.error")); }
   }, [id, t]);
   useEffect(() => {
-    alive.current = true; setServers(null); setAllowances(null); void load();
+    alive.current = true; setServers(null); setAllowances(null); setEnvironments(null); void load();
     const focus = () => { if (!document.hidden) void load(); };
     const changed = () => void load();
     window.addEventListener("focus", focus);
@@ -223,7 +240,7 @@ export function BotTools({ bot, refreshToken = 0, leaveTo, onOpenSettings }: {
   return <BotToolsView botName={bot.name} connections={rows} connectionsError={error} saving={saving}
     onToggle={(server, next) => void toggle(server, next)} onOpenConnection={server => leaveTo(() => openConnectionDeepLink({ server }))} onAddConnection={() => leaveTo(() => onOpenSettings("connections"))}
     skills={<BotSkills botId={bot.id} refreshToken={refreshToken} bare />} onOpenSkills={() => leaveTo(() => onOpenSettings("skills"))}
-    web={web} onOpenWeb={() => leaveTo(() => onOpenSettings("tools"))} computer={hasComputer} onOpenComputer={() => leaveTo(() => onOpenSettings("computer"))}
+    web={web} onOpenWeb={() => leaveTo(() => onOpenSettings("tools"))} environments={environments} onOpenComputer={() => leaveTo(() => onOpenSettings("computer"))}
     inspector={<BotInspector botId={bot.id} tools />}
     allowances={allowances} leaving={leaving} onGone={gone} remembered={remembered} revoking={revoking} permissionsError={permissionsError} serverName={server => names.get(server) ?? server}
     onRevoke={item => void revoke(item)} onOpenPermissions={() => leaveTo(() => onOpenSettings("permissions"))} />;

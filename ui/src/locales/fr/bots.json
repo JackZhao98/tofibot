@@ -245,10 +245,12 @@
       "configure": "Configurer les sources"
     },
     "computer": {
-      "title": "Ordinateur Bot",
-      "shared": "Tous les Bots utilisent l'ordinateur Bot de l'espace de travail.",
+      "title": "Environnements",
       "none": "Pas encore d'ordinateur Bot. Ajoutez-en un dans les réglages pour que les Bots puissent naviguer et exécuter du code.",
-      "open": "Ouvrir les réglages"
+      "manage": "Gérer les environnements",
+      "always": "Toujours",
+      "mac": "Quand vous l’autorisez sur ce Mac",
+      "error": "Impossible de lire les environnements."
     },
     "builtin": {
       "title": "Intégrés",

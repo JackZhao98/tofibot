@@ -59,10 +59,8 @@
         "description": "Fournisseurs et modèle par défaut."
       },
       "computer": {
-        "name": "Ordinateur Bot",
-        "description": "Ordinateur Bot Linux, stockage et ressources d’exécution",
-        "description_none": "Façons d'ajouter un ordinateur Bot à ce serveur",
-        "description_detached": "Rattacher un ordinateur Bot à ce compte"
+        "name": "Environnements",
+        "description": "Ordinateurs cloud, ce serveur et vos Mac"
       },
       "keys": {
         "name": "Clés de l’ordinateur Bot",
@@ -119,10 +117,6 @@
     },
     "hint": {
       "computer": {
-        "ready": "En marche",
-        "starting": "Démarrage",
-        "stopped": "Arrêté",
-        "waiting": "En attente",
         "none": "Aucun"
       }
     },

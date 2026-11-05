@@ -71,7 +71,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
 
   const requested = [], unexpected = [], writes = [];
   const json = (route, status, body) => route.fulfill({status, contentType: "application/json", body: JSON.stringify(body)});
-  const stub = path => {
+  const stub = (path, params = {}) => {
     if (path === "/api/auth/session") return {enabled: true, setup_required: false, authenticated: true, password_transport_allowed: true, multi_account: false, owner: {id: "acct_sample", username: "Ada Sample", email: "ada@example.test", role: "owner"}};
     if (path === "/api/server-info") return {service: "tofi", protocol_version: 1, instance_id: "0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d", auth: {mode: "owner"}};
     if (path === "/api/system/update") return {current: "v0.1.0", latest: "v0.1.0", update_available: false, notes_url: "https://github.com/example/tofibot/releases/tag/v0.1.0", checked_at: "2026-10-27T09:00:00Z", auto_update: "off"};
@@ -79,6 +79,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/preferences") return {timezone: "America/Los_Angeles", timezone_configured: true};
     if (path === "/api/computers/firecracker/info") return {state: "ready", workspace_root: "/workspace", browser: "Chromium"};
     if (path === "/api/computers") return {computers: []};
+    if (path === "/api/environments") return params.computer === "none"
+      ? {environments: [], add: {e2b: true, mac: true, vm_command: "sudo tofi computer add kvm"}, e2b: null}
+      : {environments: [{id: "firecracker", kind: "vm", name: "", state: "ready", error_code: "", bot_computer: true, access: "all_bots", actions: ["retry", "configure"]}], add: {e2b: true, mac: true, vm_command: ""}, e2b: null};
     if (path === "/api/computer/resources") return {current: {vcpus: 2, memory_mib: 4096, disk_gib: 20}, desired: {vcpus: 2, memory_mib: 4096, disk_gib: 20}, pending: false, state: "ready", host: {cpus: 8, memory_total_mib: 16384, memory_available_mib: 8192, disk_available_gib: 100}, limits: {max_vcpus: 4, max_memory_mib: 8192, max_disk_gib: 64}};
     if (path === "/api/computer/contents") return {environment: ["WEB_API_TOKEN", "DEPLOY_REGION"], ssh_keys: ["id_work"], pending_file_copies: 2};
     if (path === "/api/computer/credentials") return {credentials: [{id: "cred_1", name: "WEB_API_TOKEN", kind: "env", target: "WEB_API_TOKEN", created_at: "2026-10-20T10:00:00Z"}]};
@@ -113,7 +116,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
         // The viewer reads one byte of a PDF to learn why it could not open; this one is on a detached computer.
         await json(route, 409, {error: {code: "file_on_detached_computer", message: "detached"}}); return;
       }
-      const body = stub(url.pathname);
+      const body = stub(url.pathname, params);
       if (body === undefined) { unexpected.push(`${method} ${url.pathname}`); await json(route, 404, {error: {message: "not stubbed", code: "not_found"}}); return; }
       await json(route, 200, body);
     });
@@ -161,20 +164,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   {
     requested.length = 0;
     const {page, close} = await open({computer: "kvm", tab: "computer", view: "page"});
-    assert.ok((await railTabs(page)).includes("keys"), "Keys is shown with a Bot computer");
-    await page.getByText(en.contents.title).waitFor();
-    const section = page.locator(".computer-contents");
-    for (const label of [en.contents.browser.name, en.contents.tools.name, en.contents.files.name, en.contents.config.name]) await section.getByText(label, {exact: true}).waitFor();
-    const text = (await section.innerText()).replace(/\s+/g, " ");
-    assert.match(text, /lost/i, "the section says these are lost when the Bot computer is wiped");
-    assert.match(text, /signs the Bot out of every one/, "browser sign-ins: what a wipe does");
-    assert.match(text, /installs them again when it needs them/, "installed tools: what a wipe does");
-    assert.match(text, /2 files are still being copied to the server/, "work files: pending copies");
-    assert.match(text, /3 saved/, "environment and keys: count");
-    assert.equal(await section.locator(".computer-kept").count(), 3, "three rows say they stay on the Bot computer");
-    assert.ok(requested.includes("GET /api/computer/contents"), "the list is read from /api/computer/contents");
-    await section.getByRole("button", {name: en.contents.config.manage}).click();
-    await page.waitForFunction(() => document.querySelector(`.settings-tabs [aria-current="page"]`)?.dataset.tab === "keys");
+    await page.locator(".environments-page").waitFor();
+    await page.locator(".settings-tabs .settings-nav-fold").click();
+    assert.ok((await railTabs(page)).includes("keys"), "Keys is shown, in the Advanced group, with a Bot computer");
+    assert.equal(await page.locator(".computer-contents").count(), 0, "the Environments page has no 'what is on this computer' list");
+    await goTab(page, "keys");
     await page.locator(".computer-credentials").waitFor();
     // The wipe list sits above the typed confirmation.
     await goTab(page, "advanced");
@@ -190,14 +184,14 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     // Entry animation uses the tokens (--m-base = 220 ms); reduced motion has none.
     const duration = await loss.evaluate(node => getComputedStyle(node).animationDuration);
     assert.equal(duration, "0.22s", "the wipe list rises in over --m-base");
-    if (shots) { await loss.scrollIntoViewIfNeeded(); await page.waitForTimeout(500); await page.screenshot({path: join(shots, "computer-wipe-list-1440.png")}); await goTab(page, "computer"); await page.waitForTimeout(500); await page.screenshot({path: join(shots, "computer-contents-1440.png"), fullPage: true}); }
+    if (shots) { await loss.scrollIntoViewIfNeeded(); await page.waitForTimeout(500); await page.screenshot({path: join(shots, "computer-wipe-list-1440.png")}); }
     await close();
     const reduced = await open({computer: "kvm", tab: "advanced", view: "page"}, {reduced: true});
     await reduced.page.locator(".computer-loss").waitFor();
     assert.equal(await reduced.page.locator(".computer-loss").evaluate(node => getComputedStyle(node).animationName), "none", "reduced motion: no rise-in");
     await reduced.close();
     const phone = await open({computer: "kvm", tab: "computer", view: "page"}, {width: 390, height: 844});
-    await phone.page.locator(".computer-contents").waitFor();
+    await phone.page.locator(".environments-page .env-row").first().waitFor();
     await phone.page.waitForTimeout(400);
     assert.equal(await phone.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "no horizontal scroll at 390px");
     if (shots) { await phone.page.screenshot({path: join(shots, "computer-contents-390.png"), fullPage: true}); }
@@ -211,14 +205,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     for (const lang of LANGS.slice(1)) {
       const words = await catalog(lang, "computer");
       const localized = await open({computer: "kvm", tab: "computer", view: "page", lang});
-      await localized.page.getByText(words.contents.title, {exact: true}).waitFor();
-      const body = (await localized.page.locator(".computer-contents").innerText()).replace(/\s+/g, " ");
-      assert.ok(body.includes(words.contents.browser.name) && body.includes(words.contents.config.what), `${lang}: rows are translated`);
-      assert.notEqual(words.contents.title, en.contents.title, `${lang}: title is not an English copy`);
-      assert.notEqual(words.contents.browser.what, en.contents.browser.what, `${lang}: browser sign-ins sentence is not an English copy`);
+      await localized.page.getByRole("button", {name: words.environments.add}).waitFor();
+      assert.notEqual(words.environments.add, en.environments.add, `${lang}: add button is not an English copy`);
+      assert.notEqual(words.environments.access.all_bots, en.environments.access.all_bots, `${lang}: access wording is not an English copy`);
       await localized.close();
     }
-    console.log("PASS computer attached: four rows with honest wording, Manage opens Keys, wipe list with names and counts, token animation, reduced motion, 390px, 7 languages");
+    console.log("PASS computer attached: Environments list, Keys in the Advanced group, wipe list with names and counts, token animation, reduced motion, 390px, 7 languages");
   }
 
   // ---- 3. A file only on a detached computer says so (card, viewer, 404 variant), and a good file still downloads.

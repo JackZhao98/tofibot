@@ -59,10 +59,8 @@
         "description": "プロバイダーと既定のモデル。"
       },
       "computer": {
-        "name": "Bot コンピューター",
-        "description": "Bot コンピューター、ストレージ、実行リソース",
-        "description_none": "このサーバーに Bot コンピューターを追加する方法",
-        "description_detached": "このアカウントに Bot コンピューターを接続"
+        "name": "環境",
+        "description": "クラウドのコンピューター、このサーバー、Mac"
       },
       "keys": {
         "name": "Bot コンピューターのキー",
@@ -119,11 +117,7 @@
     },
     "hint": {
       "computer": {
-        "ready": "稼働中",
-        "starting": "起動中",
-        "stopped": "停止中",
-        "waiting": "待機中",
-        "none": "未追加"
+        "none": "なし"
       }
     },
     "tag": {

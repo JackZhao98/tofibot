@@ -190,14 +190,15 @@ func (s *Server) listComputers(ctx context.Context) ([]Computer, error) {
 		return items, nil
 	}
 	info, infoErr := s.microVMInfo(ctx)
-	item := Computer{ID: vm.ID(), Name: "Bot workspace", Platform: "linux", Kind: computer.RowKindVM, Status: computerRowAttached, Default: true, Capabilities: []string{"shell.exec", "files.list", "files.read", "files.write", "desktop.start", "desktop.stop", "desktop.capture", "desktop.click", "desktop.type", "desktop.key", "desktop.scroll", "browser.navigate", "browser.snapshot", "browser.action", "terminal.open", "terminal.list", "terminal.read", "terminal.write", "terminal.resize", "terminal.close"}}
+	name, _ := botComputerRowLabel(vm)
+	item := Computer{ID: vm.ID(), Name: name, Platform: "linux", Kind: computer.RowKindVM, Status: computerRowAttached, Default: true, Capabilities: []string{"shell.exec", "files.list", "files.read", "files.write", "desktop.start", "desktop.stop", "desktop.capture", "desktop.click", "desktop.type", "desktop.key", "desktop.scroll", "browser.navigate", "browser.snapshot", "browser.action", "terminal.open", "terminal.list", "terminal.read", "terminal.write", "terminal.resize", "terminal.close"}}
 	if slot := s.slotFor(vm.ID()); slot != nil && slot.currentState() == slotLost {
 		item.Status = computerRowLost
 	}
 	if infoErr == nil {
 		item.Online = computer.Available(info.State) && item.Status == computerRowAttached
 		if info.WorkspaceRoot != "" {
-			item.Name = "Bot workspace · " + info.WorkspaceRoot
+			item.Name = name + " · " + info.WorkspaceRoot
 		}
 	} else {
 		item.Online = false

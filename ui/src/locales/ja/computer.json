@@ -181,49 +181,14 @@
     "live_aria": "ライブターミナル"
   },
   "pairing": {
-    "this_device": "このデバイス",
-    "mac_client": "Mac アプリ",
     "connected": "{{name}} が接続されました。",
     "expired": "ペアリングコードの有効期限が切れました。新しく生成してください。",
-    "enter_code": "Mac アプリにこのペアリングコードを入力してください。有効期限は 5 分です。",
     "code_aria": "ペアリングコード {{code}}",
     "waiting": "デバイスの確認を待っています…"
   },
-  "env": {
-    "unavailable": "実行環境を利用できません。",
-    "start_failed": "Bot コンピューターを起動できませんでした。しばらくしてから再試行してください。",
-    "title": "実行環境",
-    "description": "Linux、Google Chrome、ファイルブラウザ、ターミナルは同じ環境を使います。Bot ごとに作業フォルダがあり、互いにアクセスできます。",
-    "state": {
-      "ready": "Bot コンピューターの準備完了",
-      "starting": "Bot コンピューターを準備中",
-      "stopped": "Bot コンピューターは停止中",
-      "resuming": "Bot コンピューターを復帰しています",
-      "asleep": "Bot コンピューターはスリープ中 · Bot が使うときに自動で復帰します",
-      "failed": "Bot コンピューターの起動に失敗しました",
-      "checking": "Bot コンピューターを確認中…",
-      "unknown": "Bot コンピューターを利用できません"
-    },
-    "workspace": "作業ディレクトリ {{path}}",
-    "workspace_idle_other": "作業ディレクトリ {{path}} · デスクトップは {{count}} 分間操作がないと自動で閉じます",
-    "retry": "Bot コンピューターを再準備"
-  },
   "devices": {
-    "note": "Tofi アプリをインストールした Mac も接続できます。",
-    "pair_failed": "ペアリングコードを作成できませんでした。",
-    "connect": "Mac を接続",
-    "online": "オンライン",
-    "offline": "オフライン",
-    "disconnect_failed": "デバイスの接続を解除できませんでした。",
-    "disconnect": "接続解除",
     "this_mac": "この Mac",
-    "this_mac_note": "この Mac のデバイス名、フォルダ、macOS の権限、Bot のアクセス、ローカル実行。",
-    "open_mac": "Mac の設定を開く",
-    "connected": "接続済みの Mac",
-    "mac_settings": "Mac の設定",
-    "empty": "まだ Mac は接続されていません。",
-    "copy": "コードをコピー",
-    "copied": "コピーしました"
+    "open_mac": "Mac の設定を開く"
   },
   "resources": {
     "restart": {
@@ -405,9 +370,11 @@
       "what": "お持ちのマシンで Bot が作業できるようにします。"
     },
     "e2b": {
-      "name": "E2B クラウドサンドボックス",
-      "what": "ご自身のキーで E2B から Bot コンピューターを借ります。"
-    }
+      "name": "E2B クラウドコンピューター",
+      "what": "ご自身のキーで E2B から Bot コンピューターを借ります。",
+      "add": "E2B クラウドコンピューターを追加"
+    },
+    "add": "追加"
   },
   "contents": {
     "title": "この Bot コンピューターにあるもの",
@@ -492,6 +459,119 @@
       "impact": "実行中の Bot コンピューターツールは現在のステップの後に停止します。Bot コンピューター上のファイルは先にサーバーへコピーされます。Bot コンピューターがなくても Bot は動作を続け、後でもう一度接続できます。",
       "cancel": "キャンセル",
       "action": "切断"
+    }
+  },
+  "environments": {
+    "description": "Bot が作業する場所です。Bot コンピューターはすべての Bot が使い、Mac はその Mac で許可した Bot だけが使います。",
+    "unavailable": "環境を読み込めませんでした。",
+    "stale": "環境を更新できませんでした。前回の結果を表示しています。",
+    "retry": "再試行",
+    "loading": "環境を読み込み中…",
+    "empty": "環境がまだありません。追加すると、Bot がチャット以外の作業をできます。",
+    "add": "環境を追加",
+    "add_menu": {
+      "e2b": "E2B クラウドコンピューター",
+      "mac": "お使いの Mac",
+      "vm": "このサーバー上の Bot コンピューター"
+    },
+    "name": {
+      "vm": "このサーバー",
+      "e2b": "E2B クラウドコンピューター",
+      "mac": "Mac"
+    },
+    "bot_computer": "Bot コンピューター",
+    "access": {
+      "all_bots": "すべての Bot が使用",
+      "allowed_on_mac": "その Mac で許可した Bot",
+      "none": "未使用"
+    },
+    "last_seen": "最終確認 {{time}}",
+    "this_mac_note": "フォルダ、macOS の権限、Bot のアクセスは Mac の設定で行います。",
+    "state": {
+      "ready": "準備完了",
+      "starting": "起動中",
+      "resuming": "復帰中",
+      "asleep": "スリープ",
+      "stopped": "停止中",
+      "standby": "待機中",
+      "failed": "失敗",
+      "preparing": "準備中",
+      "online": "オンライン",
+      "offline": "オフライン",
+      "unknown": "不明"
+    },
+    "action": {
+      "retry": "再試行",
+      "wake": "復帰",
+      "configure": "設定",
+      "use": "Bot に使用",
+      "remove": "削除",
+      "disconnect": "接続解除"
+    },
+    "more": "{{name}} のその他の操作",
+    "attach_title": "Bot コンピューター",
+    "error": {
+      "generic": "完了できませんでした。もう一度お試しください。",
+      "invalid_key": "E2B が API キーを受け付けませんでした。",
+      "e2b_unreachable": "現在 E2B に接続できません。",
+      "e2b_limit": "E2B アカウントの上限に達しました。",
+      "image_missing": "コンピューターのイメージがまだ公開されていません。",
+      "template_build_failed": "E2B でコンピューターのイメージをビルドできませんでした。",
+      "sandbox_failed": "E2B のサンドボックスが起動しませんでした。",
+      "guest_unreachable": "コンピューターが応答しません。",
+      "sandbox_gone": "E2B のサンドボックスが存在しません。再試行すると新しく作成します。",
+      "token_unreadable": "保存したキーを読み取れません。E2B のキーを追加し直してください。"
+    },
+    "confirm": {
+      "use": {
+        "title": "{{name}} を Bot に使用しますか?",
+        "body": "実行中の作業は先に完了します。その後はすべての Bot がこのコンピューターを使い、現在のものはアイドルになります。",
+        "action": "Bot に使用"
+      },
+      "remove": {
+        "title": "{{name}} を削除しますか?",
+        "body": "サンドボックスは削除され、API キーは破棄されます。Bot が使用中の場合は、実行中の作業が完了し、ファイルがサーバーにコピーされてから削除されます。",
+        "action": "削除"
+      },
+      "disconnect": {
+        "title": "{{name}} の接続を解除しますか?",
+        "body": "新しいコードで再接続するまで、Bot はこの Mac を使えません。",
+        "action": "接続解除"
+      }
+    },
+    "cancel": "キャンセル",
+    "save": "保存",
+    "close": "閉じる",
+    "done": "完了",
+    "copy": "コピー",
+    "copied": "コピーしました",
+    "e2b": {
+      "title": "E2B クラウドコンピューターを追加",
+      "key": "API キー",
+      "get_key": "キーを取得",
+      "cost": "E2B が稼働中の秒単位で課金します。アイドル時は一時停止します。",
+      "saving": "確認中…",
+      "template_toggle": "既存のテンプレートを使う",
+      "template_id": "テンプレート ID",
+      "template_hint": "E2B CLI で deploy/e2b からビルドしたテンプレート用です。"
+    },
+    "mac": {
+      "title": "Mac を接続",
+      "step_open": "Mac で Tofi アプリを開きます。",
+      "step_code": "このコードを入力します。有効期限は 5 分です。",
+      "creating": "コードを作成中…",
+      "failed": "ペアリングコードを作成できませんでした。",
+      "new_code": "新しいコード",
+      "copy_aria": "ペアリングコードをコピー"
+    },
+    "vm": {
+      "title": "このサーバーに Bot コンピューターを追加",
+      "run": "サーバーのホストで次を実行します:",
+      "after": "Bot コンピューターが接続されると、このページは自動で更新されます。",
+      "copy_aria": "コマンドをコピー"
+    },
+    "configure": {
+      "title": "Bot コンピューターの設定"
     }
   }
 }

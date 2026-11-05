@@ -33,7 +33,12 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
   }
 
   // Every link the reader accepts is written back unchanged.
+  // A retired tab (Settings > Other devices is now part of Environments) opens the tab that replaced it.
+  for (const [legacy, tab] of Object.entries(sections.LEGACY_SETTINGS_TABS)) {
+    assert.deepEqual(readSettingsLink(`/settings/${legacy}`, ""), { kind: "settings", tab }, `/settings/${legacy}`);
+  }
   for (const [tab, list] of Object.entries(sections.SETTINGS_SECTIONS)) {
+    if (tab in sections.LEGACY_SETTINGS_TABS) continue;
     for (const section of [undefined, ...list]) {
       const link = { kind: "settings", tab, ...(section ? { section } : {}) };
       const path = settingsLinkPath(link);

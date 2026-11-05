@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode} from "react";
 import {request} from "./api";
+import {readEnvironments} from "./environments";
 import {useAccountIdentity, useOwnerSession} from "./OwnerSession";
 import {TofiIcon, type TofiIconName} from "./icons";
 import {SettingsActivityContext} from "./settingsActivity";
@@ -13,7 +14,7 @@ import {SETTINGS_SECTIONS} from "./settings/sections";
 import {providerForModel, providerLabels} from "./modelCatalog";
 import {useLanguage, useTranslation} from "./i18n";
 import {ConfirmDialog} from "./overlays/ModalDialog";
-import {useComputerCapability,useHasComputer,useHostHasComputer} from "./computerCapability";
+import {useHasComputer} from "./computerCapability";
 
 export type SettingsTab="general"|"connections"|"skills"|"permissions"|"allowances"|"followups"|"models"|"tools"|"automation"|"computer"|"devices"|"keys"|"usage"|"advanced"|"admin";
 // Compile-time check: every tab has its section list in settings/sections.ts (the ids a link can scroll to).
@@ -35,9 +36,9 @@ const adminPage=page("admin","group");
 const groups:Group[]=[
  group("you",[page("general","sliders")]),
  group("bots",[page("connections","plug"),page("skills","skill"),page("permissions","shield-check"),page("models","sparkles"),page("tools","globe"),page("automation","workflow")]),
- group("workspace",[page("computer","monitor"),page("keys","key"),page("usage","progress")]),
+ group("workspace",[page("computer","layers"),page("usage","progress")]),
  group("system",[page("advanced","settings")]),
- group("more",[page("allowances","checklist"),page("followups","bell","beta"),page("devices","laptop","dev")])
+ group("more",[page("allowances","checklist"),page("followups","bell","beta"),page("keys","key")])
 ];
 type Target=SettingsTab|"close"|"home";
 const narrowQuery="(max-width: 700px)";
@@ -48,16 +49,14 @@ function useNarrow(){
 }
 /** Right-side value hints for the mobile list. Fetched only while the list is showing, and none of them probes a service. */
 function useMobileHints(enabled:boolean,hasComputer:boolean){
- const [hints,setHints]=useState<{model?:string;computer?:string;keys?:number}>({});
+ const [hints,setHints]=useState<{model?:string;environments?:number;keys?:number}>({});
  useEffect(()=>{
   if(!enabled)return;
   const controller=new AbortController();const {signal}=controller;
   const merge=(patch:object)=>{if(!signal.aborted)setHints(current=>({...current,...patch}))};
   request<{model:string}>("/api/model-settings",{signal}).then(value=>merge({model:value.model?providerLabels[providerForModel(value.model)]:undefined})).catch(()=>{});
-  if(hasComputer){
-   request<{state:string}>("/api/computers/firecracker/info",{signal}).then(value=>merge({computer:value.state})).catch(()=>{});
-   request<{credentials:{kind?:string}[]}>("/api/computer/credentials",{signal}).then(value=>merge({keys:(value.credentials??[]).length})).catch(()=>{});
-  }
+  readEnvironments(signal).then(value=>merge({environments:value.environments.length})).catch(()=>{});
+  if(hasComputer)request<{credentials:{kind?:string}[]}>("/api/computer/credentials",{signal}).then(value=>merge({keys:(value.credentials??[]).length})).catch(()=>{});
   return()=>controller.abort();
  },[enabled,hasComputer]);
  return hints;
@@ -71,11 +70,8 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
  const identity=useAccountIdentity();
  const isAdmin=Boolean(session?.multi_account&&session.owner?.role==="admin");
  const hasComputer=useHasComputer();
- // A detached computer on a host that has a backend: the administrator can attach it again from the Computer page.
- const canAttach=useHostHasComputer()&&(!session?.multi_account||isAdmin);
- const personal=useComputerCapability()?.personal_computers===true;
  // Without a computer the Keys page (environment variables and SSH keys, used only inside it) is hidden; Computer stays and explains the options.
- const visibleGroups:Group[]=useMemo(()=>groups.map(item=>item.id==="system"&&isAdmin?{...item,items:[...item.items,adminPage]}:{...item,items:item.items.filter(page=>(hasComputer||page.id!=="keys")&&(page.id!=="devices"||hasComputer&&personal))}),[isAdmin,hasComputer,personal]);
+ const visibleGroups:Group[]=useMemo(()=>groups.map(item=>item.id==="system"&&isAdmin?{...item,items:[...item.items,adminPage]}:{...item,items:item.items.filter(page=>(hasComputer||page.id!=="keys"))}),[isAdmin,hasComputer]);
  const allItems=visibleGroups.flatMap(item=>item.items);
  const attention=useConnectionAttention(refreshToken);
  const counts:Partial<Record<SettingsTab,{value:number;tone:"honey"|"iris"}>>={...(attention>0?{connections:{value:attention,tone:"honey"}}:{})};
@@ -86,7 +82,7 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
  const hints=useMobileHints(narrow&&mobileView==="home",hasComputer);
  useEffect(()=>{if(tab!==requestedTab)onTab(tab)},[tab,requestedTab,onTab]);
  useEffect(()=>{if(tab==="admin"&&!isAdmin)onTab("general")},[tab,isAdmin,onTab]);
- useEffect(()=>{if((tab==="keys"&&!hasComputer)||(tab==="devices"&&!(hasComputer&&personal)))onTab("computer")},[tab,hasComputer,personal,onTab]);
+ useEffect(()=>{if(tab==="keys"&&!hasComputer)onTab("computer")},[tab,hasComputer,onTab]);
  // The Advanced group is folded until opened; a selected page inside it keeps it open.
  const [advancedOpen,setAdvancedOpen]=useState(false);
  const inAdvanced=visibleGroups.some(item=>item.id==="more"&&item.items.some(page=>page.id===tab));
@@ -158,8 +154,7 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
  const [slot,setSlot]=useState<HTMLElement|null>(null);
  const hint=(id:SettingsTab):string=>{
   if(id==="models")return hints.model??"";
-  if(id==="computer"&&!hasComputer)return t("shell.hint.computer.none");
-  if(id==="computer")return hints.computer?t(`shell.hint.computer.${hints.computer==="ready"||hints.computer==="starting"||hints.computer==="stopped"?hints.computer:"waiting"}`):"";
+  if(id==="computer")return hints.environments===undefined?"":hints.environments>0?String(hints.environments):t("shell.hint.computer.none");
   if(id==="keys")return hints.keys===undefined?"":String(hints.keys);
   return "";
  };
@@ -195,7 +190,7 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
    </div>
   </div>
   <div className="settings-content" inert={narrow&&!mobileOpen}>
-   <header className="settings-page-heading"><button type="button" className="settings-back" aria-label={t("shell.back")} onClick={()=>navigate("home")}><TofiIcon name="chevron-left" size={20}/></button><div className="settings-page-title"><h2>{t(selected.name)}{pageTag(selected)}</h2><p>{selected.id==="computer"&&!hasComputer?t(canAttach?"shell.page.computer.description_detached":"shell.page.computer.description_none"):t(selected.description)}</p></div><div className="settings-header-actions" ref={setSlot}/><button className="settings-dismiss" aria-label={t("shell.close")} onClick={()=>navigate("close")}><TofiIcon name="close" size={20}/></button></header>
+   <header className="settings-page-heading"><button type="button" className="settings-back" aria-label={t("shell.back")} onClick={()=>navigate("home")}><TofiIcon name="chevron-left" size={20}/></button><div className="settings-page-title"><h2>{t(selected.name)}{pageTag(selected)}</h2><p>{t(selected.description)}</p></div><div className="settings-header-actions" ref={setSlot}/><button className="settings-dismiss" aria-label={t("shell.close")} onClick={()=>navigate("close")}><TofiIcon name="close" size={20}/></button></header>
    <SettingsHeaderSlotContext.Provider value={slot}>{pages.map(page=><div key={page} hidden={page!==tab} data-page={page} className="settings-page-body"><SettingsDraftContext.Provider value={providers[page]}><SettingsActivityContext.Provider value={page===tab}>{renderPage(page)}</SettingsActivityContext.Provider></SettingsDraftContext.Provider></div>)}</SettingsHeaderSlotContext.Provider>
    {activeDrafts.length>0&&<div className="settings-save-bar" role="status"><span>{t("shell.unsaved")}</span><button type="button" disabled={busy} onClick={()=>activeDrafts.forEach(draft=>draft.discard())}>{t("shell.discard")}</button><button type="button" className="primary-button" disabled={busy} onClick={()=>void saveActive()}>{saving?t("shell.saving"):t("shell.save")}</button></div>}
   </div>
