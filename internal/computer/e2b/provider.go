@@ -301,7 +301,7 @@ func (p *Provider) waitBuild(ctx context.Context, templateID, buildID string, fa
 			case "error":
 				msg := "template build failed"
 				if bs.Reason != nil && strings.TrimSpace(bs.Reason.Message) != "" {
-					msg = p.api.scrub(bs.Reason.Message)
+					msg = p.api.scrub(bs.Reason.Message + bs.lastErrors(3))
 				}
 				code := CodeTemplateBuildFailed
 				if imageProblem(msg) {
@@ -697,21 +697,19 @@ func (p *Provider) ensure(ctx context.Context) error {
 			return nil
 		}
 		err := p.api.setTimeout(ctx, st.SandboxID, p.cfg.IdleTimeout)
-		switch {
-		case err == nil:
+		if err == nil {
 			p.mu.Lock()
 			p.lastRefresh = p.cfg.Now()
 			p.mu.Unlock()
 			return nil
-		case isNotFound(err):
-			return p.gone(st.SandboxID)
-		default:
-			var e *Error
-			if errors.As(err, &e) && e.Code == CodeInvalidKey {
-				return err
-			}
-			return nil // best effort; the call below will show a real problem
 		}
+		var e *Error
+		if errors.As(err, &e) && e.Code == CodeInvalidKey {
+			return err
+		}
+		// E2B auto-paused it after the idle timeout: a paused sandbox is not in the running set and the timeout call
+		// answers 404. Connect below resumes it; only a 404 from connect means the sandbox is gone.
+		p.setRunning(false)
 	}
 	info, err := p.api.connect(ctx, st.SandboxID, p.cfg.IdleTimeout)
 	if isNotFound(err) {

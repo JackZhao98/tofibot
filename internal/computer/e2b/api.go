@@ -39,7 +39,7 @@ const (
 	defaultAPIBase = "https://api.e2b.app"
 	defaultDomain  = "e2b.app"
 	restTimeout    = 30 * time.Second
-	maxMessage     = 300
+	maxMessage     = 600
 )
 
 // Error is a named E2B failure. Message is E2B's own short text and never
@@ -110,7 +110,7 @@ func (s sandboxInfo) domain() string {
 
 func statusCode(status int, fallback string) string {
 	switch {
-	case status == http.StatusUnauthorized || status == http.StatusForbidden:
+	case status == http.StatusUnauthorized:
 		return CodeInvalidKey
 	case status == http.StatusTooManyRequests:
 		return CodeLimit
@@ -203,8 +203,11 @@ func CheckKey(ctx context.Context, hc *http.Client, apiBase, key string) error {
 		apiBase = defaultAPIBase
 	}
 	a := &api{hc: hc, base: strings.TrimRight(apiBase, "/"), key: key}
-	_, err := a.call(ctx, http.MethodGet, "/v2/sandboxes?paginationLimit=1", nil, nil, nil, CodeUnreachable, http.StatusOK)
+	_, err := a.call(ctx, http.MethodGet, "/v2/sandboxes?limit=1", nil, nil, nil, CodeUnreachable, http.StatusOK)
 	var e *Error
+	if errors.As(err, &e) && e.Status == http.StatusForbidden {
+		e.Code = CodeInvalidKey // a key that may not even list its own sandboxes is not usable
+	}
 	if errors.As(err, &e) {
 		switch e.Code {
 		case CodeInvalidKey, CodeLimit, CodeUnreachable:
@@ -263,7 +266,8 @@ type templateInfo struct {
 func (a *api) createTemplate(ctx context.Context, name string) (templateInfo, error) {
 	var out templateInfo
 	// The Guest runs Chrome, Xvfb and office tools: E2B's template default is too small.
-	body := map[string]any{"name": name, "cpuCount": 2, "memoryMB": 4096, "minFreeDiskMb": 4096}
+	// Free disk after the build: Hobby builds get 10 GiB in all and the Guest image is about 4 GiB.
+	body := map[string]any{"name": name, "cpuCount": 2, "memoryMB": 4096, "minFreeDiskMb": 2048}
 	_, err := a.call(ctx, http.MethodPost, "/v3/templates", body, &out, nil, CodeTemplateBuildFailed, http.StatusAccepted, http.StatusCreated, http.StatusOK)
 	return out, err
 }
@@ -304,12 +308,38 @@ func (a *api) startBuild(ctx context.Context, templateID, buildID, image string)
 	return err
 }
 
+type buildLogEntry struct {
+	Message string `json:"message"`
+	Level   string `json:"level"`
+}
+
 type buildStatus struct {
 	Status string `json:"status"`
 	Reason *struct {
-		Message string `json:"message"`
-		Step    string `json:"step"`
+		Message    string          `json:"message"`
+		Step       string          `json:"step"`
+		LogEntries []buildLogEntry `json:"logEntries"`
 	} `json:"reason"`
+	LogEntries []buildLogEntry `json:"logEntries"`
+}
+
+// lastErrors is the last n error lines of the build, so a failed image pull or a full disk names itself.
+func (b buildStatus) lastErrors(n int) string {
+	var entries []buildLogEntry
+	if b.Reason != nil {
+		entries = append(entries, b.Reason.LogEntries...)
+	}
+	entries = append(entries, b.LogEntries...)
+	var lines []string
+	for i := len(entries) - 1; i >= 0 && len(lines) < n; i-- {
+		if e := entries[i]; strings.EqualFold(e.Level, "error") && strings.TrimSpace(e.Message) != "" {
+			lines = append([]string{strings.TrimSpace(e.Message)}, lines...)
+		}
+	}
+	if len(lines) == 0 {
+		return ""
+	}
+	return " (" + strings.Join(lines, " | ") + ")"
 }
 
 func (a *api) buildStatus(ctx context.Context, templateID, buildID string) (buildStatus, error) {
