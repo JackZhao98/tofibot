@@ -445,7 +445,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   };
   const scenarios = [];
   const tabScenario = (id, tab) => scenarios.push({id, tab, run: async () => {}});
-  for (const tab of ["general", "connections", "skills", "permissions", "allowances", "followups", "models", "tools", "automation", "computer", "devices", "keys", "usage", "advanced", "admin"]) tabScenario(tab, tab);
+  for (const tab of ["general", "connections", "skills", "permissions", "allowances", "followups", "models", "tools", "automation", "computer", "keys", "usage", "advanced", "admin"]) tabScenario(tab, tab);
   scenarios.push(
     // Sign-in in progress shows no illustration (the old TOFI / key diagram is gone); the only cue is the primary button.
     {id: "connections-signin", tab: "connections", run: async ({page}) => {
