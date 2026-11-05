@@ -686,3 +686,28 @@ func TestSandboxURLsStayOnE2BDomains(t *testing.T) {
 		}
 	}
 }
+
+func TestRetryWakesAPausedSandbox(t *testing.T) {
+	f := newFake(t)
+	f.sandboxState = "paused"
+	st := ready
+	st.SandboxID = "sbx1"
+	p, store := f.provider(st)
+	if err := p.Retry(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if f.connects != 1 || f.sandboxState != "running" || f.creates != 0 || store.state.SandboxID != "sbx1" {
+		t.Fatalf("retry on a paused sandbox: connects=%d state=%s creates=%d stored=%+v", f.connects, f.sandboxState, f.creates, store.state)
+	}
+}
+
+func TestRetryCreatesASandboxWhenThereIsNone(t *testing.T) {
+	f := newFake(t)
+	p, store := f.provider(ready)
+	if err := p.Retry(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if f.creates != 1 || store.state.SandboxID == "" {
+		t.Fatalf("retry with no sandbox: creates=%d stored=%+v", f.creates, store.state)
+	}
+}

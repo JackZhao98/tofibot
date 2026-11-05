@@ -797,9 +797,21 @@ func (p *Provider) Remove(ctx context.Context) error {
 	return p.cfg.Store.SaveGuestToken("")
 }
 
-// Retry clears a sandbox problem: the next use reconnects, and a sandbox whose
-// guest does not answer is killed so the next use creates a new one.
+// Retry clears a sandbox problem (a sandbox whose guest does not answer is
+// killed) and then brings the computer up the way a Bot call does: a paused
+// sandbox resumes, a missing one is created. The server's wake route (the
+// person opened the computer window on an asleep computer) relies on that.
 func (p *Provider) Retry(ctx context.Context) error {
+	if err := p.clearProblem(ctx); err != nil {
+		return err
+	}
+	if p.Status().Phase != PhaseReady {
+		return nil
+	}
+	return p.ensure(ctx)
+}
+
+func (p *Provider) clearProblem(ctx context.Context) error {
 	p.ensureMu.Lock()
 	defer p.ensureMu.Unlock()
 	p.setRunning(false)
