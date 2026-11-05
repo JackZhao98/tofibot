@@ -26,13 +26,13 @@ export default function AttachmentLightbox({ images, index, onIndex, onClose, or
     const d = dialog.current; if (!d) return;
     if (index !== null && !d.open) {
       d.showModal();
-      if (!isDesktop && !reducedMotion()) { const start = delta(); if (start) zoomImage.current?.animate({ transform: [start, "none"] }, { duration: MOTION.panelIn, easing: EASE.out }); }
+      if (!reducedMotion()) { const start = delta(); if (start) zoomImage.current?.animate({ transform: [start, "none"] }, { duration: MOTION.panelIn, easing: EASE.out }); }
     }
     if (index === null && d.open) d.close();
   }, [index, delta]);
   const close = useCallback(async () => {
     const d = dialog.current; if (!d || closing.current) return;
-    if (isDesktop || reducedMotion()) { onClose(); return; }
+    if (reducedMotion()) { onClose(); return; }
     closing.current = true; d.classList.add("is-closing");
     const end = delta();
     if (end) { try { await zoomImage.current?.animate({ transform: ["none", end] }, { duration: MOTION.panelOut, easing: EASE.inout, fill: "forwards" }).finished; } catch { /* Closing still proceeds if animation is interrupted. */ } }
@@ -61,7 +61,7 @@ export default function AttachmentLightbox({ images, index, onIndex, onClose, or
       <img ref={zoomImage} src={attachmentUrl(current.id)} alt={current.name} className={cellAt ? "is-pickable" : undefined} onClick={cellAt ? event => { const box = event.currentTarget.getBoundingClientRect(); const next = box.width && box.height && index !== null ? cellAt(index, (event.clientX - box.left) / box.width, (event.clientY - box.top) / box.height) : null; if (next !== null) onIndex(next); } : undefined} />
       <div className="attachment-lightbox-bar">
         <small>{current.name}{images.length > 1 && ` · ${(index ?? 0) + 1}/${images.length}`}</small>
-        <button type="button" onClick={() => void copy()} aria-label={t("attachment.copy", { name: current.name })}>{isDesktop ? <TofiIcon name="copy" size={16} /> : <CopyFeedbackIcon copied={copied} />}</button>
+        <button type="button" onClick={() => void copy()} aria-label={t("attachment.copy", { name: current.name })}><CopyFeedbackIcon copied={copied} /></button>
         {isDesktop ? <button type="button" onClick={() => void save()} aria-label={t("attachment.save", { name: current.name })}><TofiIcon name="download" size={16} /></button> : <a href={attachmentUrl(current.id)} download={current.name} aria-label={t("attachment.download", { name: current.name })}><TofiIcon name="download" size={16} /></a>}
       </div>
       {stepButtons && stepButtons.length > 1 && <ul className="attachment-lightbox-steps" aria-label={stepsLabel}>

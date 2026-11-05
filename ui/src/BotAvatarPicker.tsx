@@ -3,7 +3,6 @@ import { flushSync } from "react-dom";
 import { catalog, paletteOptions, type AvatarConfig } from "./lib/tofi-avatar/index.js";
 import { BotAvatar, type AvatarMotion } from "./BotAvatar";
 import { randomBotAvatarConfig } from "./avatarStore";
-import { isDesktop } from "./desktop";
 import { SPRINGS, springEasing } from "./motion-lab/lib/spring";
 import { useTranslation } from "./i18n";
 import "./bot-avatar-picker-motion.css";
@@ -17,7 +16,7 @@ export function BotAvatarPicker({ botId, config, onChange }: { botId: string; co
   async function changeShape(next: AvatarConfig) {
     if (busy.current || config.shape === next.shape) return;
     const avatar = stageRef.current?.querySelector<HTMLElement>(".avatar");
-    if (isDesktop || matchMedia("(prefers-reduced-motion: reduce)").matches || !avatar) { onChange(next); return; }
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches || !avatar) { onChange(next); return; }
     busy.current = true;
     const out = avatar.animate({ transform:["none","translateY(-22px) scale(.25) rotate(-14deg)"], opacity:[1,0] }, { duration:MOTION.base,easing:EASE.in,fill:"forwards" });
     try { await out.finished; } catch { /* Continue with the new shape. */ }
@@ -32,7 +31,7 @@ export function BotAvatarPicker({ botId, config, onChange }: { botId: string; co
     if (busy.current || config.palette === next.palette) return;
     const stage = stageRef.current;
     const avatar = stage?.querySelector<HTMLElement>(".avatar");
-    if (isDesktop || matchMedia("(prefers-reduced-motion: reduce)").matches || !stage || !avatar) { onChange(next); return; }
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches || !stage || !avatar) { onChange(next); return; }
     busy.current = true;
     const box = avatar.getBoundingClientRect();
     const stageBox = stage.getBoundingClientRect();

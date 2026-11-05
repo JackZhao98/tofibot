@@ -5,29 +5,29 @@
 /* Header: frosted glass you can see through. The message pane runs up under the header (--chat-header-height is measured in
    App.tsx), so scrolled lines stay visible, blurred, behind the two pills; the blur is full at the top edge and fades out
    toward the list, with only a light translucent tint. Two stacked layers (::before and ::after), each with its own mask band. */
-html:not([data-desktop]) .workspace .chat-body { margin-top:calc(var(--chat-header-height,64px) * -1); }
-html:not([data-desktop]) .workspace .message-scroll { mask-image:none; -webkit-mask-image:none; scroll-padding-top:var(--chat-header-height,64px); padding-top:calc(var(--chat-header-height,64px) + 14px); }
-html:not([data-desktop]) .workspace .chat-header { pointer-events:none; isolation:isolate; --pbt-ramp:30px; --pbt-blur-1:3px; --pbt-blur-2:9px; --pbt-tint:30%; }
-html:not([data-desktop]) .workspace .chat-header > * { pointer-events:auto; }
-html:not([data-desktop]) .workspace .chat-header::before,
-html:not([data-desktop]) .workspace .chat-header::after { content:""; position:absolute; z-index:-1; left:0; right:var(--scroll-bar-w,0px); top:0; height:calc(100% + var(--pbt-ramp)); pointer-events:none; }
-html:not([data-desktop]) .workspace .chat-header::before {
+:root .workspace .chat-body { margin-top:calc(var(--chat-header-height,64px) * -1); }
+:root .workspace .message-scroll { mask-image:none; -webkit-mask-image:none; scroll-padding-top:var(--chat-header-height,64px); padding-top:calc(var(--chat-header-height,64px) + 14px); }
+:root .workspace .chat-header { pointer-events:none; isolation:isolate; --pbt-ramp:30px; --pbt-blur-1:3px; --pbt-blur-2:9px; --pbt-tint:30%; }
+:root .workspace .chat-header > * { pointer-events:auto; }
+:root .workspace .chat-header::before,
+:root .workspace .chat-header::after { content:""; position:absolute; z-index:-1; left:0; right:var(--scroll-bar-w,0px); top:0; height:calc(100% + var(--pbt-ramp)); pointer-events:none; }
+:root .workspace .chat-header::before {
   background:linear-gradient(to bottom,color-mix(in srgb,var(--bg) var(--pbt-tint),transparent),transparent);
   -webkit-backdrop-filter:blur(var(--pbt-blur-1)); backdrop-filter:blur(var(--pbt-blur-1));
   -webkit-mask-image:linear-gradient(to bottom,#000 45%,transparent 100%); mask-image:linear-gradient(to bottom,#000 45%,transparent 100%);
 }
-html:not([data-desktop]) .workspace .chat-header::after {
+:root .workspace .chat-header::after {
   -webkit-backdrop-filter:blur(var(--pbt-blur-2)); backdrop-filter:blur(var(--pbt-blur-2));
   -webkit-mask-image:linear-gradient(to bottom,#000 20%,transparent 78%); mask-image:linear-gradient(to bottom,#000 20%,transparent 78%);
 }
 /* The jump pill (.jump-latest, var(--z-pill) in styles.css) sits above the blur and the composer chrome: it is the one thing in this corner that must always be reachable. */
 /* Without real blur (Reduce Transparency, no backdrop-filter) fall back to the soft veil the pane always had. */
 @media (prefers-reduced-transparency:reduce) {
-  html:not([data-desktop]) .workspace .chat-header::after { display:none; }
-  html:not([data-desktop]) .workspace .chat-header::before { -webkit-backdrop-filter:none; backdrop-filter:none; background:linear-gradient(to bottom,var(--bg) 60%,transparent); }
-  html:not([data-desktop]) .workspace .composer .composer-row { background:var(--surface); }
+  :root .workspace .chat-header::after { display:none; }
+  :root .workspace .chat-header::before { -webkit-backdrop-filter:none; backdrop-filter:none; background:linear-gradient(to bottom,var(--bg) 60%,transparent); }
+  :root .workspace .composer .composer-row { background:var(--surface); }
 }
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
-  html:not([data-desktop]) .workspace .chat-header::after { display:none; }
-  html:not([data-desktop]) .workspace .chat-header::before { background:linear-gradient(to bottom,var(--bg) 60%,transparent); }
+  :root .workspace .chat-header::after { display:none; }
+  :root .workspace .chat-header::before { background:linear-gradient(to bottom,var(--bg) 60%,transparent); }
 }

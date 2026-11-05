@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { ApiError, request } from "./api";
 import { BotAvatar } from "./BotAvatar";
-import { isDesktop } from "./desktop";
 import { TofiIcon } from "./icons";
 import { MessageMarkdown } from "./MessageMarkdown";
 import { ApprovalCard } from "./ApprovalCard";
@@ -37,7 +36,7 @@ type QuestionCardProps = { item: Question; bot?: Bot; group?: boolean; archived?
 export function QuestionCard(props: QuestionCardProps) {
   if (props.item.question_type === "takeover") return <TakeoverCard key={props.item.question_id} {...props} />;
   if (props.item.question_type === "connection") return <ConnectionCard key={props.item.question_id} {...props} />;
-  if (props.item.question_type === "approval" || (!isDesktop && props.item.question_type === "yes_no" && !props.item.allow_other)) return <BinaryQuestionCard key={props.item.question_id} {...props} />;
+  if (props.item.question_type === "approval" || (props.item.question_type === "yes_no" && !props.item.allow_other)) return <BinaryQuestionCard key={props.item.question_id} {...props} />;
   return props.item.question_type === "form"
     ? <UserFormCard key={userFormIdentity(props.item)} {...props} />
     : <LegacyQuestionCard key={props.item.question_id} {...props} />;
@@ -306,11 +305,11 @@ function LegacyQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
   const previousActive = useRef(active);
   const closing = useRef(false);
   const [settled, setSettled] = useState(false);
-  const foldAnswer = !isDesktop && !active && current.status === "answered" && selectedCount > 0 && !settled && (previousActive.current || closing.current);
+  const foldAnswer = !active && current.status === "answered" && selectedCount > 0 && !settled && (previousActive.current || closing.current);
   useEffect(() => {
     const changedToAnswered = previousActive.current && !active && current.status === "answered" && selectedCount > 0;
     previousActive.current = active;
-    if (!changedToAnswered || isDesktop) return;
+    if (!changedToAnswered) return;
     closing.current = true;
     const timer = window.setTimeout(() => { closing.current = false; setSettled(true); }, window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 440);
     return () => window.clearTimeout(timer);
@@ -355,7 +354,7 @@ function LegacyQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
           </div>}
           {item.question_type === "multi_choice" && <p className="field-note">{minimum === maximum ? t("question.select_exact", { count: minimum }) : t("question.select_range", { min: minimum, max: maximum })}</p>}
           {foldAnswer ? null : archived ? <p className="field-note">{t("question.note.archived")}</p> : <div className="question-actions"><button className="text-button" type="button" disabled={busy} onClick={() => void finish(true)}>{t("question.cancel")}</button><button className="primary-button" disabled={busy || !valid}>{busy ? t("question.submitting") : error ? t("question.retry_submit") : t("question.submit_answer")}</button></div>}
-        </> : <div className="question-result" role="status">{!isDesktop && current.status === "answered" && <TofiIcon name="check" size={15} variant="filled" aria-hidden="true" />}<span>{current.status === "answered" ? t("status.answered") : current.status === "expired" ? t("status.expired") : current.status === "run_done" ? t("question.resolution.run_done") : t(current.superseded ? "status.superseded" : "status.cancelled")}</span>{current.status === "answered" && <p>{answerLabel(current)}</p>}</div>}
+        </> : <div className="question-result" role="status">{current.status === "answered" && <TofiIcon name="check" size={15} variant="filled" aria-hidden="true" />}<span>{current.status === "answered" ? t("status.answered") : current.status === "expired" ? t("status.expired") : current.status === "run_done" ? t("question.resolution.run_done") : t(current.superseded ? "status.superseded" : "status.cancelled")}</span>{current.status === "answered" && <p>{answerLabel(current)}</p>}</div>}
         {error && <p className="error-text" role="alert">{error}</p>}
       </form>
     </div>

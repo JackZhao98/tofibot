@@ -35,7 +35,7 @@ input,textarea,select{width:100%;margin-top:7px;resize:vertical}
 .search-box{display:flex;align-items:center;gap:8px;margin:0 5px 16px;padding:0 10px}
 .search-box input{height:34px;margin:0;padding:0}
 
-.contact-section{display:flex;min-height:0;flex:1;flex-direction:column;margin:0;overflow-y:auto}
+.contact-section{display:flex;min-height:0;flex:1;flex-direction:column;margin:0;overflow-y:auto;overscroll-behavior:contain}
 .sidebar-footer{margin-top:auto}
 .section-label{display:flex;justify-content:space-between;padding:0 9px 7px}
 .archive-entry{padding:0;color:var(--muted);font-size:11px;letter-spacing:0}
@@ -89,7 +89,7 @@ input,textarea,select{width:100%;margin-top:7px;resize:vertical}
 .tool-activity-details{display:grid;gap:7px;margin:2px 0 6px 18px;padding:8px 10px}
 .tool-activity-details pre{max-height:160px;margin:0;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--text-soft);font:11px/1.45 ui-monospace,monospace}
 
-.message-scroll{position:relative;min-height:0;flex:1;overflow-y:auto;padding:34px clamp(16px,5vw,80px) 120px;scroll-behavior:auto}
+.message-scroll{position:relative;min-height:0;flex:1;overflow-y:auto;overscroll-behavior:contain;padding:34px clamp(16px,5vw,80px) 120px;scroll-behavior:auto}
 .load-older{display:block;margin:0 auto 18px;color:var(--muted);border:0;background:transparent;font-size:12px}
 .inline-state,.conversation-empty{display:grid;place-items:center;min-height:250px;color:var(--muted);font-size:13px;gap:10px}
 .conversation-empty h2{margin:0;color:var(--text);font-size:17px}

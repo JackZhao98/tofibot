@@ -1,14 +1,14 @@
 /* Conversation placement only. The ticket itself is shared with Motion Lab. */
-html:not([data-desktop]) .workspace .scheduled-run {
+:root .workspace .scheduled-run {
   width:100%;
   max-width:var(--chat-max);
   margin:6px auto 16px;
 }
 /* A task block directly under the ticket ("Waiting to start", an Activity stretch) sits at the normal item gap, not the ticket's own 16px. */
-html:not([data-desktop]) .workspace .message-block[data-owns-next] .scheduled-run { margin-bottom:var(--space-3); }
+:root .workspace .message-block[data-owns-next] .scheduled-run { margin-bottom:var(--space-3); }
 .scheduled-task-label > strong { display:block; overflow:hidden; text-overflow:ellipsis; font-weight:500; }
 .scheduled-task-label > small { display:block; overflow:hidden; text-overflow:ellipsis; color:var(--text-soft); font-size:11px; }
 /* Blank ticket while the occurrence read is in flight: same box, no text, no icons, no hit targets. */
-html:not([data-desktop]) .workspace .scheduled-run-pending { opacity:.55; pointer-events:none; }
+:root .workspace .scheduled-run-pending { opacity:.55; pointer-events:none; }
 .scheduled-run-pending * { color:transparent !important; }
 .scheduled-run-pending svg, .scheduled-run-pending .scheduled-run-dot, .scheduled-run-pending .scheduled-run-chevron { visibility:hidden; }

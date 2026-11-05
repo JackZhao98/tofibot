@@ -15,7 +15,6 @@
 .workspace .composer-row>.send-button{width:44px;height:44px;min-width:44px;flex-basis:44px}
 .workspace .composer-row>.dictation-button{width:44px;height:44px;min-width:44px;flex:0 0 44px}
 .workspace .composer-row textarea{min-height:44px;padding:10px 0}
-.workspace .message-scroll{padding-bottom:calc(var(--composer-height,90px) + 24px)}
 .workspace .jump-latest{bottom:calc(var(--composer-height,90px) + 12px)}
 .header-actions [aria-pressed="true"]{background:var(--surface-hover)}
 .related-message-link,.message-notice .related-message-link{max-width:100%;min-height:32px;gap:7px;padding:5px 9px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--text-soft);font-size:12px;line-height:20px;text-align:left}
