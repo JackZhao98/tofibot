@@ -97,3 +97,13 @@ export function fadeArrival(block: HTMLElement | null) {
   if (!block || typeof block.animate !== "function") return;
   block.animate([{ opacity: 0 }, { opacity: 1 }], { id: TAG, duration: MOTION.quick, easing: EASE.out });
 }
+
+/** A press on the content holds the cascade where it is, so nothing moves under the pointer; the release lets it finish. */
+export function holdArrivalCascade(scroller: HTMLElement, hold: boolean) {
+  if (typeof document.getAnimations !== "function") return;
+  for (const a of document.getAnimations()) {
+    if (a.id !== TAG || !(a.effect instanceof KeyframeEffect) || !(a.effect.target instanceof Node) || !scroller.contains(a.effect.target)) continue;
+    if (hold && a.playState === "running") a.pause();
+    else if (!hold && a.playState === "paused") a.play();
+  }
+}

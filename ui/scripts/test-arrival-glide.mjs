@@ -401,6 +401,88 @@ await check("scrolling up mid-glide abandons the hop and is not pulled back", as
   await context.close();
 });
 
+// A press on the content mid-glide: nothing moves under it until the release, so the click reaches the control pressed.
+// A jump between press and release puts the release on another element and the browser sends the click to their parent.
+const recordPress = page => page.evaluate(() => {
+  const sc = document.querySelector(".message-scroll");
+  window.__press = [];
+  for (const type of ["pointerdown", "pointerup", "click"]) window.addEventListener(type, event => window.__press.push({ type, top: sc.scrollTop, fb: sc.scrollHeight - sc.clientHeight - sc.scrollTop, target: event.target, pressed: window.__pressedNode }), true);
+});
+await check("a press on the content mid-glide holds the pane still until the release; the click reaches what was pressed", async () => {
+  const { page, context, errors } = await open();
+  await recordPress(page);
+  // Resolves on the first frame of the glide that follows the cascade's share, with the point of an earlier message.
+  const point = await page.evaluate(({ WHOLE }) => new Promise(resolve => {
+    const sc = document.querySelector(".message-scroll");
+    window.__emit("message", { id: "m_w", conversation_id: "dm_a", seq: 41, role: "assistant", sender_bot_id: "bot_a", run_id: "run_w", content: WHOLE, created_at: new Date().toISOString() });
+    let last = sc.scrollTop;
+    const tick = () => {
+      const fb = sc.scrollHeight - sc.clientHeight - sc.scrollTop;
+      const moving = sc.scrollTop !== last;
+      last = sc.scrollTop;
+      const text = document.querySelector('[data-message-id="m40"] .message-content p');
+      const r = text?.getBoundingClientRect();
+      if (moving && fb > 24 && r && r.top > 80 && r.bottom < sc.getBoundingClientRect().bottom - 160) { window.__pressedNode = text; resolve({ x: r.left + 8, y: r.top + r.height / 2, fb }); }
+      else requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }), { WHOLE });
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.down();
+  await page.waitForTimeout(120);
+  await page.mouse.up();
+  await page.waitForTimeout(700);
+  const events = await page.evaluate(() => window.__press.map(e => ({ type: e.type, top: e.top, fb: e.fb, onPressed: e.pressed?.contains(e.target) ?? false })));
+  const down = events.find(e => e.type === "pointerdown"), up = events.find(e => e.type === "pointerup"), click = events.find(e => e.type === "click");
+  assert.ok(down && up, `press recorded: ${JSON.stringify(events)}`);
+  assert.ok(down.fb > 2, `a glide was in flight at the press (${down.fb}px from the bottom)`);
+  assert.ok(Math.abs(up.top - down.top) <= 0.5, `the pane moved ${up.top - down.top}px between the press and the release`);
+  assert.ok(click?.onPressed, `the click reached the pressed text: ${JSON.stringify(events)}`);
+  const fb = await page.evaluate(() => { const sc = document.querySelector(".message-scroll"); return sc.scrollHeight - sc.clientHeight - sc.scrollTop; });
+  assert.ok(fb <= 0.5, `following resumed after the release: ends ${fb}px from the bottom`);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+await check("a right press mid-glide lets the hop land instead of leaving the pane short of the bottom", async () => {
+  const { page, context, errors } = await open();
+  const point = await page.evaluate(({ WHOLE }) => new Promise(resolve => {
+    const sc = document.querySelector(".message-scroll");
+    window.__emit("message", { id: "m_w", conversation_id: "dm_a", seq: 41, role: "assistant", sender_bot_id: "bot_a", run_id: "run_w", content: WHOLE, created_at: new Date().toISOString() });
+    let last = sc.scrollTop;
+    const tick = () => {
+      const fb = sc.scrollHeight - sc.clientHeight - sc.scrollTop, moving = sc.scrollTop !== last;
+      last = sc.scrollTop;
+      const r = document.querySelector('[data-message-id="m40"] .message-content p')?.getBoundingClientRect();
+      if (moving && fb > 24 && r && r.top > 80) resolve({ x: r.left + 8, y: r.top + r.height / 2 }); else requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }), { WHOLE });
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.down({ button: "right" });
+  await page.mouse.up({ button: "right" });
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(700);
+  const fb = await page.evaluate(() => { const sc = document.querySelector(".message-scroll"); return sc.scrollHeight - sc.clientHeight - sc.scrollTop; });
+  assert.ok(fb <= 0.5, `the pane stopped ${fb}px short of the bottom after a right press`);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+await check("a press while scrolled far up does not pull the reader to the bottom on release", async () => {
+  const { page, context, errors } = await open();
+  await page.evaluate(() => { document.querySelector(".message-scroll").scrollTop = 0; });
+  await page.waitForTimeout(200);
+  const box = await page.locator(".message-block .message-content p").nth(1).boundingBox();
+  await page.mouse.move(box.x + 8, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(80);
+  await page.mouse.up();
+  await page.waitForTimeout(500);
+  const top = await page.evaluate(() => document.querySelector(".message-scroll").scrollTop);
+  assert.ok(top <= 1, `the reader was moved to ${top}px after a press while scrolled up`);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
 await check("viewing a message's activity opens the record as a drawer, not in one frame", async () => {
   const { page, context, errors } = await open();
   const target = page.locator('[data-message-id="m39"] .message-content');
