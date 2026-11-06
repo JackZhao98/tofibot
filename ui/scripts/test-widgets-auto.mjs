@@ -97,7 +97,7 @@ try {
     assert.equal(await page.locator(".computer-detail.is-folded").count(), 0, "not folded 5 s after the Bot let go");
     assert.deepEqual(await cards(page), ["computer"]);
     // The small screen has no fold button, no capsule, no chin controls and no shadow; the fold is the 30 s one (the video element is the same node throughout).
-    for (const gone of [".desktop-control-fold", ".desktop-frame-status", ".desktop-power", ".desktop-driver-switch", ".desktop-drop"]) assert.equal(await page.locator(`[data-card="computer"] ${gone}`).count(), 0, `the small computer has no ${gone}`);
+    for (const gone of [".desktop-control-fold", ".desktop-frame-status", ".desktop-chin-hide", ".desktop-driver-switch", ".desktop-drop"]) assert.equal(await page.locator(`[data-card="computer"] ${gone}`).count(), 0, `the small computer has no ${gone}`);
     assert.equal(await page.locator(".computer-detail").evaluate(node => getComputedStyle(node).boxShadow.replace(/rgba?\([^)]*\) 0px 0px 0px 1px/, "none")), "none", "no shadow under the small computer");
     await page.evaluate(() => { window.__screen = document.querySelector(".computer-screen-wrap"); });
     await poll(page, () => document.querySelector(".computer-detail.is-folded"), null, 40000);

@@ -1042,7 +1042,51 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 			Health *ComputerHealth `json:"health,omitempty"`
 			// DesktopStarting is true while a desktop.start is in flight on a running computer.
 			DesktopStarting bool `json:"desktop_starting,omitempty"`
-		}{info, s.watchdog().view(), s.desktopStarting.Load() > 0})
+			// CanSleep is true when the computer has a power button (POST .../sleep).
+			CanSleep bool `json:"can_sleep,omitempty"`
+		}{info, s.watchdog().view(), s.desktopStarting.Load() > 0, canSleep(s.computer())})
+		return true
+	}
+	if len(parts) == 2 && s.isVMRoute(parts[0]) && parts[1] == "sleep" && r.Method == http.MethodPost {
+		cur := s.computer()
+		if cur == nil {
+			writeErr(w, http.StatusNotFound, "not_configured", "computer VM is not configured")
+			return true
+		}
+		// The person's power button: turn the computer off now. Off is E2B's
+		// pause: the files stay, billing stops, and the next Bot call or the
+		// person's power button turns it on again (wake). Never while a call is
+		// in flight or a run or the person holds the desktop: a pause in the
+		// middle of a step would fail that step.
+		sleeper, ok := cur.(computerSleeper)
+		if !ok || !canSleep(cur) {
+			writeErr(w, http.StatusConflict, "computer_sleep_unsupported", "This computer cannot be turned off from here.")
+			return true
+		}
+		info, err := s.microVMInfo(r.Context())
+		if err != nil {
+			writeErr(w, http.StatusServiceUnavailable, "computer_unavailable", err.Error())
+			return true
+		}
+		if info.State == computer.StateHibernated || info.State == computer.StateHibernating {
+			writeJSON(w, http.StatusOK, map[string]any{"accepted": false, "state": info.State})
+			return true
+		}
+		if info.State != "ready" {
+			writeErr(w, http.StatusConflict, "computer_not_ready", "The Bot computer can be turned off once it is ready.")
+			return true
+		}
+		if s.computerInUse(cur.ID()) {
+			writeErr(w, http.StatusConflict, "computer_busy", "The Bot computer is in use. It turns off by itself once it has been idle.")
+			return true
+		}
+		if err := sleeper.Pause(r.Context()); err != nil {
+			writeErr(w, http.StatusBadGateway, "computer_sleep_failed", err.Error())
+			return true
+		}
+		s.microVMInfoCache.reset()
+		s.touchWorkspace()
+		writeJSON(w, http.StatusAccepted, map[string]any{"accepted": true, "state": computer.StateHibernated})
 		return true
 	}
 	if len(parts) == 2 && s.isVMRoute(parts[0]) && parts[1] == "wake" && r.Method == http.MethodPost {

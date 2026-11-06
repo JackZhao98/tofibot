@@ -49,6 +49,8 @@
   "settings:automation.item.command_check_minutes.what": "Wartet ein Bot auf das Ende eines Befehls, weckt ihn nach dieser Zeit eine zeitgesteuerte Prüfung, falls das Endesignal verloren geht. Ein eigener Timer des Bots ersetzt sie.",
   "settings:automation.item.completion_review.name": "Abschlussprüfung nach Werkzeugarbeit",
   "settings:automation.item.completion_review.what": "Nach der Nutzung von Werkzeugen gleicht ein Bot seine Antwort vor dem Senden einmal mit den tatsächlichen Ergebnissen ab.",
+  "settings:automation.item.computer_idle_off_minutes.name": "Cloud-Computer bei Leerlauf ausschalten",
+  "settings:automation.item.computer_idle_off_minutes.what": "Ein E2B-Computer, der so viele Minuten nichts tut, schaltet sich aus (pausiert). Seine Dateien bleiben erhalten, und er startet, wenn ein Bot ihn braucht. E2B rechnet ab, solange er läuft.",
   "settings:automation.item.conversation_model.name": "Gesprächsmodell",
   "settings:automation.item.conversation_model.what": "Führt Chats, Gruppenarbeit, geplante Läufe und alles aus, was Werkzeuge nutzt. Die eigene Modelleinstellung eines Bots hat Vorrang.",
   "settings:automation.item.desktop_engine.name": "Desktopsteuerung",

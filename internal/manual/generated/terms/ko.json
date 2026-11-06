@@ -49,6 +49,8 @@
   "settings:automation.item.command_check_minutes.what": "Bot이 명령 종료를 기다릴 때 종료 신호가 사라져도 이 시간이 지나면 정기 확인으로 깨어납니다. Bot이 자체 타이머를 설정하면 그것을 씁니다.",
   "settings:automation.item.completion_review.name": "도구 사용 후 완료 검토",
   "settings:automation.item.completion_review.what": "도구를 쓴 뒤, Bot은 답장하기 전에 실제 결과와 대조해 답을 한 번 더 점검합니다.",
+  "settings:automation.item.computer_idle_off_minutes.name": "클라우드 컴퓨터 유휴 시 끄기",
+  "settings:automation.item.computer_idle_off_minutes.what": "E2B 컴퓨터가 이 시간(분) 동안 아무 작업도 하지 않으면 꺼집니다(일시 중지). 파일은 유지되며 Bot이 필요할 때 켜집니다. E2B는 실행 중에 요금이 부과됩니다.",
   "settings:automation.item.conversation_model.name": "대화 모델",
   "settings:automation.item.conversation_model.what": "채팅, 그룹 작업, 예약 실행, 도구를 쓰는 모든 작업을 맡습니다. Bot에 직접 지정한 모델이 우선합니다.",
   "settings:automation.item.desktop_engine.name": "데스크톱 제어",

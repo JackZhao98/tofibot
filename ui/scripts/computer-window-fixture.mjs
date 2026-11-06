@@ -28,6 +28,12 @@ export async function installStubs(page, state) {
     if (p === "/api/environments") return json(state.environments ?? {environments: [{id: "firecracker", kind: "vm", name: "", state: state.info?.state === "error" ? "failed" : state.info?.state ?? "ready", error_code: "", bot_computer: true, access: "all_bots", actions: ["retry", "configure"]}], add: {e2b: true, mac: true, vm_command: ""}, e2b: null});
     if (p === "/api/computers/firecracker/info") return json(state.info);
     if (p === "/api/computers/firecracker/retry") { state.retries = (state.retries ?? 0) + 1; return json({ accepted: true }); }
+    if (p === "/api/computers/firecracker/sleep") {
+      state.sleeps = (state.sleeps ?? 0) + 1;
+      if (state.sleepError) return json({ error: { code: state.sleepError, message: "Synthetic: the computer is in use" } }, 409);
+      state.info = { ...state.info, state: "hibernated" };
+      return json({ accepted: true, state: "hibernated" }, 202);
+    }
     if (p === "/api/computers/firecracker/wake") { state.wakes = (state.wakes ?? 0) + 1; state.onWake?.(); return json({ accepted: true, state: "resuming" }, 202); }
     if (p === "/api/computers/firecracker/actions") {
       if (state.capture === "pending") return; // never answers: the screen is not ready

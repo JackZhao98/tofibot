@@ -58,6 +58,18 @@
       "idle": "Bot-Computer frei"
     },
     "power_hint": "Bildschirm ausblenden (Bot-Computer läuft weiter)",
+    "power": {
+      "label": "Stromschalter des Bot-Computers",
+      "off_hint": "Ausschalten (Dateien bleiben)",
+      "on_hint": "Einschalten",
+      "held": "In Benutzung. Er schaltet sich nach Leerlauf selbst aus.",
+      "busy": "Ein Bot benutzt den Computer, darum bleibt er an. Nach Leerlauf schaltet er sich selbst aus.",
+      "not_ready": "Der Computer lässt sich ausschalten, sobald er gestartet ist.",
+      "failed": "Der Computer ließ sich nicht ausschalten. Bitte erneut versuchen.",
+      "turn_on": "Einschalten",
+      "turning_off": "Wird ausgeschaltet…",
+      "turning_on": "Wird eingeschaltet…"
+    },
     "control": {
       "release": "Steuerung zurückgeben",
       "take": "Steuerung übernehmen",
@@ -92,8 +104,8 @@
       "resuming_phase": "Wird geweckt · {{phase}}",
       "waking_computer": "Bot-Computer wird geweckt …",
       "starting_desktop": "Desktop wird gestartet …",
-      "hibernated": "Im Ruhezustand · wird geweckt…",
-      "hibernating": "Wechselt in den Ruhezustand…",
+      "off": "Aus · Dateien bleiben erhalten. Er startet, wenn ein Bot ihn braucht.",
+      "hibernating": "Wird ausgeschaltet…",
       "no_desktop": "Der Bot arbeitet im Browser, ohne Desktop",
       "retry": "Erneut versuchen"
     },

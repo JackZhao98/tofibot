@@ -7,6 +7,7 @@ import { isDesktop } from "./desktop";
 import { useDesktopPresence, type DesktopPresenceState } from "./desktopPresence";
 import "./desktop-presence.css";
 import { DesktopPlaceholder, type DesktopPlaceholderTone } from "./DesktopPlaceholder";
+import { PowerGlyph } from "./PowerGlyph";
 import { DesktopVideo, type DesktopVideoState } from "./DesktopVideo";
 import { TofiIcon } from "./icons";
 import { RemoteDesktopControl, type RemoteControlHandle } from "./RemoteDesktopControl";
@@ -15,7 +16,7 @@ import { MOTION, EASE } from "./motion";
 import { useWidgetGrip } from "./widgetGrip";
 
 type Props = { /** The widget's strip form: the screen is a thumbnail, the chin's status and switch sit beside it. */ folded?: boolean; onFold?: () => void; onUnfold?: () => void; expanded?: boolean; sheet?: boolean; passivePreview?: boolean; autoConnect?: boolean; presence?: DesktopPresenceState; botId: string; botName: string; members?: Array<{ id: string; name: string }>; onClose: (reason?: "hide" | "shutdown") => void; onReadyChange?: (ready: boolean) => void; onExpandedChange?: (expanded: boolean) => void };
-type ComputerInfo = { kind: string; state: string; phase?: string; desktop_starting?: boolean; workspace_root?: string; browser?: string; error?: string };
+type ComputerInfo = { kind: string; state: string; phase?: string; desktop_starting?: boolean; workspace_root?: string; browser?: string; error?: string; can_sleep?: boolean };
 type ViewerState = "disconnected" | "connecting" | "connected";
 type FrameStatus = "shown" | "busy" | "not-running" | "waking" | "failed";
 
@@ -167,6 +168,8 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   const generation = useRef(0);
   const busyRef = useRef(false);
   const infoRef = useRef<ComputerInfo | null>(null);
+  // The info poll's refresh, for a change the panel made itself (the power button) to show at once instead of on the next poll.
+  const refreshInfoRef = useRef<(() => Promise<void>) | null>(null);
   const desktopStartedRef = useRef(false);
   const desktopActiveRef = useRef(false);
   const viewerStateRef = useRef<ViewerState>("disconnected");
@@ -278,6 +281,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
       }
     };
 
+    refreshInfoRef.current = () => refresh(true);
     const pollInfo = async (quiet: boolean) => {
       if (!alive) return;
       if (document.visibilityState === "visible") await refresh(quiet);
@@ -286,6 +290,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
     void pollInfo(false);
     return () => {
       alive = false;
+      refreshInfoRef.current = null;
       generation.current++;
       frameRequestRef.current++;
       frameInFlightRef.current = false;
@@ -596,18 +601,37 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [passivePreview, info?.state, ownershipUnavailable, ownership?.owner, busy]);
 
-  // Opening the window is an explicit request to use the computer: a hibernated one is resumed
-  // through the same server path a Bot tool call uses. Once per hibernation; a failure waits for Retry.
-  const wakeRequested = useRef(false);
-  useEffect(() => {
-    if (info?.state !== "hibernated") { wakeRequested.current = false; return; }
-    if (passivePreview || wakeRequested.current) return;
-    wakeRequested.current = true;
+  // Opening the window is an explicit request to use the computer: a hibernated one is resumed once, through the same
+  // server path a Bot tool call uses. Only on open: a computer that turns off while the window is open (idle, or the
+  // power button) stays off until a Bot needs it or the person presses power. Waking it on every turn to hibernated
+  // kept an open window's computer running, and billed, for as long as the window stayed open.
+  const wakeOnOpen = useRef(false);
+  const [waking, setWaking] = useState(false);
+  const [powerBusy, setPowerBusy] = useState(false);
+  const [powerNote, setPowerNote] = useState("");
+  const wake = () => {
     const current = generation.current;
-    void api.computerWake()
+    setWaking(true);
+    setError("");
+    setPowerNote("");
+    return api.computerWake()
       .then(() => api.computerInfo())
       .then(next => { if (generation.current === current) { infoRef.current = next; setInfo(next); } })
-      .catch(cause => { if (generation.current === current) setError(errorText(cause)); });
+      .catch(cause => { if (generation.current === current) setError(errorText(cause)); })
+      .finally(() => setWaking(false));
+  };
+  // A refusal ("in use") is a moment's answer, not a standing banner.
+  useEffect(() => {
+    if (!powerNote) return;
+    const timer = window.setTimeout(() => setPowerNote(""), 6000);
+    return () => window.clearTimeout(timer);
+  }, [powerNote]);
+  useEffect(() => {
+    // A computer still turning off when the window opens is decided once it has settled.
+    if (passivePreview || wakeOnOpen.current || !info?.state || info.state === "hibernating") return;
+    wakeOnOpen.current = true;
+    if (info.state === "hibernated") void wake();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [passivePreview, info?.state]);
 
   useEffect(() => {
@@ -669,7 +693,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   const ready = info?.state === "ready";
   // Staged status while the computer comes back: the server's own state says which stage (hibernated/resuming = waking
   // the computer, ready + desktop_starting = starting the desktop). "Paused" is only for a stream that broke while the computer runs.
-  const computerWaking = !passivePreview && (info?.state === "hibernated" || info?.state === "resuming");
+  const computerWaking = !passivePreview && (info?.state === "hibernated" && waking || info?.state === "resuming");
   const desktopStarting = info?.state === "ready" && info.desktop_starting === true;
   const wakeStatus = computerWaking ? (info?.state === "resuming" && info.phase && info.phase !== "hibernated" ? t("desktop.placeholder.resuming_phase", { phase: phaseText(info.phase) }) : t("desktop.placeholder.waking_computer"))
     : desktopStarting ? t("desktop.placeholder.starting_desktop") : "";
@@ -737,7 +761,20 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   // In the widget column the monitor has no header and no handle: pressing the screen and moving (or holding, then moving) drags the widget, a plain
   // press is the click that enlarges, and Alt+Up / Alt+Down on the screen button move it (ContextCard's engine, through the grip context).
   const widgetGrip = useWidgetGrip();
+  // The power button sits with the window's own controls in every form (the small screen and the strip too): whether the
+  // computer is on is the one thing worth a glance. Only a computer that has one (the server says can_sleep).
+  const poweredOn = info?.state === "ready";
+  const powerChanging = waking || powerBusy || info?.state === "starting" || info?.state === "resuming" || info?.state === "hibernating";
+  const powerHeld = poweredOn && (humanControlled || ownership?.owner?.kind === "bot");
+  const turningOff = powerBusy || info?.state === "hibernating";
+  const powerHint = powerChanging ? (turningOff ? t("desktop.power.turning_off") : t("desktop.power.turning_on"))
+    : powerHeld ? t("desktop.power.held") : poweredOn ? t("desktop.power.off_hint") : t("desktop.power.on_hint");
+  const powerButton = info?.can_sleep === true && !passivePreview && <button key="power" type="button"
+    className={`desktop-control-button desktop-control-power is-${powerChanging ? "changing" : poweredOn ? "on" : "off"}`}
+    aria-pressed={poweredOn} aria-label={t("desktop.power.label")} data-hint={powerHint} title={powerHint}
+    disabled={powerChanging || powerHeld} onClick={() => void (poweredOn ? turnOff() : wake())}><PowerGlyph size={16} /></button>;
   const windowButtons = [
+    powerButton,
     !compactWeb && onFold && !expanded && !folded && <button key="fold" type="button" className="desktop-control-button desktop-control-fold" aria-label={t("desktop.fold_aria")} title={t("desktop.fold")} onClick={onFold}><TofiIcon name="chevron-down" size={16} /></button>,
     !compactWeb && !sheet && <button key="expand" type="button" className="desktop-control-button desktop-control-expand" aria-label={expanded ? t("desktop.shrink_aria") : t("desktop.expand_aria")} title={expanded ? t("desktop.shrink") : t("desktop.expand")} onClick={() => setExpanded(!expanded)}><span className={`desktop-expand-glyph${expanded ? " is-expanded" : ""}`} aria-hidden="true" /></button>,
     <button key="close" type="button" className="desktop-control-button computer-hide-button" aria-label={t("desktop.close_aria")} data-hint={compactWeb ? t("desktop.close") : undefined} title={compactWeb ? undefined : t("desktop.close")} onClick={() => closePanel("hide")}><TofiIcon name="close" size={16} /></button>,
@@ -768,18 +805,34 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
     void controlRef.current?.acquire();
   }, [takePending, expanded]);
   const screenRef = useRef<HTMLDivElement>(null);
-  async function powerOff() {
+  function hideScreen() {
     stopViewing();
-    const screen = screenRef.current?.querySelector<HTMLElement>(".remote-desktop-surface, .desktop-launch-preview");
-    if (screen && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      // The CRT boot in reverse: fold to a bright line, then out.
-      await screen.animate([
+    onClose("hide");
+  }
+  // The power button. Off is the server's sleep (E2B's pause: the files stay, billing stops); on is the wake the window
+  // already uses. The server refuses while a call is in flight or a run or the person holds the desktop.
+  async function turnOff() {
+    if (powerBusy) return;
+    setPowerBusy(true);
+    setPowerNote("");
+    try {
+      await api.computerSleep();
+      const screen = screenRef.current?.querySelector<HTMLElement>(".remote-desktop-surface, .desktop-launch-preview");
+      // The CRT boot in reverse: fold to a bright line, then out. The next info shows the computer off in its place.
+      const fold = screen && !window.matchMedia("(prefers-reduced-motion: reduce)").matches ? screen.animate([
         { transform: "scale(1, 1)", filter: "brightness(1)" },
         { transform: "scale(1, .006)", filter: "brightness(2.6)", offset: 0.55 },
         { transform: "scale(0, .006)", filter: "brightness(3)" },
-      ], { duration: MOTION.panelIn, easing: EASE.in, fill: "forwards" }).finished.catch(() => undefined);
+      ], { duration: MOTION.panelIn, easing: EASE.in, fill: "forwards" }) : null;
+      await fold?.finished.catch(() => undefined);
+      await refreshInfoRef.current?.();
+      fold?.cancel();
+    } catch (cause) {
+      const code = cause && typeof cause === "object" && typeof (cause as { code?: unknown }).code === "string" ? (cause as { code: string }).code : "";
+      setPowerNote(code === "computer_busy" ? t("desktop.power.busy") : code === "computer_not_ready" ? t("desktop.power.not_ready") : t("desktop.power.failed"));
+    } finally {
+      setPowerBusy(false);
     }
-    onClose("hide");
   }
   // Who holds the mouse: the bezel color, the chin status and the cat ⇄ you switch all follow it.
   const driver = humanControlled ? "you" : botWorking && imageURL ? "bot" : "";
@@ -793,7 +846,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   const failedReason = error || (info?.state === "error" ? t("desktop.state.error") : connectionLost ? t("desktop.error.connection_lost") : "");
   const placeholder: { tone: DesktopPlaceholderTone; status: string } = failedReason ? { tone: "failed", status: failedReason }
     : wakeStatus ? { tone: "resuming", status: wakeStatus }
-    : info?.state === "hibernated" ? { tone: "hibernated", status: t("desktop.placeholder.hibernated") }
+    : info?.state === "hibernated" ? { tone: "hibernated", status: t("desktop.placeholder.off") }
     : info?.state === "hibernating" ? { tone: "hibernated", status: t("desktop.placeholder.hibernating") }
     : info?.state === "resuming" ? { tone: "resuming", status: info.phase && info.phase !== "hibernated" ? t("desktop.placeholder.resuming_phase", { phase: phaseText(info.phase) }) : t("desktop.placeholder.resuming") }
     : botWithoutDesktop && info?.state === "ready" ? { tone: "browser", status: t("desktop.placeholder.no_desktop") }
@@ -818,7 +871,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   // Only the big window shows the group; the small one and the strip keep the status text for the screen reader and the strip.
   const controlBar = !isDesktop && (expanded ? <div className={`desktop-chin is-${capsule.tone}`}>
     <span className="desktop-drop" aria-hidden="true" />
-    <button type="button" className="desktop-power" aria-label={onFold && !expanded ? t("desktop.close_aria") : t("desktop.hide_aria")} data-hint={t("desktop.power_hint")} onClick={() => void powerOff()}><TofiIcon name="chevron-down" size={15} /></button>
+    <button type="button" className="desktop-chin-hide" aria-label={onFold && !expanded ? t("desktop.close_aria") : t("desktop.hide_aria")} data-hint={t("desktop.power_hint")} onClick={hideScreen}><TofiIcon name="chevron-down" size={15} /></button>
     <span className="sr-only desktop-chin-text" role="status">{capsule.text}</span>
     <button type="button" role="switch" aria-checked={humanControlled} className={`desktop-driver-switch is-${humanControlled ? "you" : "bot"}`} disabled={!switchEnabled}
       aria-label={humanControlled ? t("desktop.control.release") : t("desktop.control.take")} data-hint={humanControlled ? t("desktop.control.release") : t("desktop.control.take")} onClick={toggleDriver}>
@@ -835,11 +888,13 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
 
     {!isDesktop && !passivePreview && <div className="desktop-window-controls">{windowButtons}</div>}
     {(error || connectionLost) && (imageURL || debug) && <p className="error-banner" role="alert">{connectionLost ? t("desktop.error.connection_lost") : error}</p>}
+    {powerNote && <p className="error-banner desktop-power-note" role="alert">{powerNote}</p>}
     {!botWorking && info && (debug || info.state !== "ready" && (imageURL || isDesktop)) && <div className="computer-info"><div className="computer-info-main"><strong>{known(stateKeys, info.state) ? t(stateKeys[info.state]) : t("desktop.state.other", { state: info.state })}</strong><small>{info.phase && info.state !== "error" && info.state !== "stopped" ? t("desktop.phase_label", { phase: phaseText(info.phase) }) : t("desktop.state_synced")}</small></div>{info.error && <small className="error-text">{info.error}</small>}{(info.state === "error" || info.state === "stopped") && <button className="secondary-button" disabled={busy} onClick={() => void retry()}>{t("desktop.retry_prepare")}</button>}</div>}
     {imageURL && <div data-desktop-frame="" className={`computer-screen-wrap desktop-presence-frame desktop-preview-surface desktop-live-screen${humanControlled ? " is-human-controlled" : ""}`}><RemoteDesktopControl key={selectedBotId} controlRef={controlRef} onControlChange={setHumanControlled} botId={selectedBotId} enabled={!passivePreview && !!screenReady && !busy} blocked={passivePreview || showOwnershipStatus && Boolean(ownership?.owner && !humanControlled)} takeoverRun={showOwnershipStatus && !ownershipUnavailable && ownership?.owner?.kind === "bot" ? { id: ownership.owner.run_id, name: botLabel(ownership.owner.bot_id), botId: ownership.owner.bot_id } : undefined} expanded={expanded} onExpand={() => setExpanded(true)} waiting={!!ownership?.waiting.length}>{videoState !== "stopped" && (videoState !== "fallback" || !fallbackFrameReady) ? <DesktopVideo key={`${selectedBotId}:${videoSession}`} botId={selectedBotId} cursor={isDesktop && !humanControlled ? "visible" : "hidden"} enabled={!!ready && (viewerState === "connected" || preserveViewerRef.current) && desktopActive} poster={imageURL} onState={videoStateChanged}  /> : <img className="computer-screen" src={imageURL} alt={t("desktop.screen_alt")}  />}<DesktopPointerMarker presence={desktopPresence} humanControlled={humanControlled || !screenReady || busy} botLabel={botLabel} /></RemoteDesktopControl>{wakeOverlay && <div className="desktop-wake-overlay"><DesktopPlaceholder tone="resuming" status={wakeStatus} botId={ownership?.owner?.bot_id ?? botId} /></div>}{enlargeButton}{previewControls}</div>}
     {!imageURL && <div className="desktop-preview-surface desktop-launch-surface" data-desktop-frame="">
       {enlargeButton}
-      <DesktopPlaceholder tone={placeholder.tone} status={placeholder.status} botId={ownership?.owner?.bot_id ?? botId} onRetry={retryDesktop} />
+      <DesktopPlaceholder tone={placeholder.tone} status={placeholder.status} botId={ownership?.owner?.bot_id ?? botId} onRetry={retryDesktop}
+        action={info?.state === "hibernated" && !waking && !passivePreview ? { label: t("desktop.power.turn_on"), onClick: () => void wake() } : undefined} />
       {previewControls}
     </div>}
     {!passivePreview && controlBar}

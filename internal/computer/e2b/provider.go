@@ -93,6 +93,7 @@ type Provider struct {
 	info        computer.Info
 	infoAt      time.Time
 	infoOK      bool
+	idle        time.Duration // how long E2B lets the sandbox sit idle before it pauses it (SetIdleTimeout)
 
 	pollEvery   time.Duration
 	healthEvery time.Duration
@@ -146,7 +147,7 @@ func New(cfg Config) (*Provider, error) {
 	if st.Phase == "" {
 		st.Phase = PhaseNone
 	}
-	p := &Provider{cfg: cfg, state: st, pinDomain: pin, pollEvery: 5 * time.Second, healthEvery: time.Second, healthWait: 60 * time.Second}
+	p := &Provider{cfg: cfg, state: st, pinDomain: pin, idle: cfg.IdleTimeout, pollEvery: 5 * time.Second, healthEvery: time.Second, healthWait: 60 * time.Second}
 	p.api = &api{hc: cfg.HTTP, base: strings.TrimRight(cfg.APIBase, "/"), key: cfg.APIKey, secrets: p.secretValues}
 	return p, nil
 }
@@ -185,6 +186,42 @@ func (p *Provider) invalidate() {
 	p.mu.Lock()
 	p.infoOK = false
 	p.mu.Unlock()
+}
+
+func (p *Provider) idleTimeout() time.Duration {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.idle
+}
+
+// SetIdleTimeout changes how long the sandbox may sit idle before E2B pauses it
+// (the person's "turn off when idle" setting). A running sandbox gets the new
+// timeout now; a paused or new one gets it when it resumes or is created.
+// d <= 0 restores the 15 minute default.
+func (p *Provider) SetIdleTimeout(ctx context.Context, d time.Duration) error {
+	if d <= 0 {
+		d = 15 * time.Minute
+	}
+	p.ensureMu.Lock()
+	defer p.ensureMu.Unlock()
+	p.mu.Lock()
+	changed := p.idle != d
+	p.idle = d
+	running := p.running
+	p.mu.Unlock()
+	id := p.Status().SandboxID
+	if !changed || !running || id == "" {
+		return nil
+	}
+	if err := p.api.setTimeout(ctx, id, d); err != nil {
+		// Paused meanwhile, or gone: the next resume or create applies the new timeout.
+		p.setRunning(false)
+		return err
+	}
+	p.mu.Lock()
+	p.lastRefresh = p.cfg.Now()
+	p.mu.Unlock()
+	return nil
 }
 
 func (p *Provider) setRunning(v bool) {
@@ -626,7 +663,7 @@ func (p *Provider) create(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	info, err := p.api.createSandbox(ctx, st.TemplateID, p.cfg.IdleTimeout, randomHex(16))
+	info, err := p.api.createSandbox(ctx, st.TemplateID, p.idleTimeout(), randomHex(16))
 	if err != nil {
 		var e *Error
 		if errors.As(err, &e) && (e.Code == CodeInvalidKey || e.Code == CodeSandboxFailed) {
@@ -696,7 +733,7 @@ func (p *Provider) ensure(ctx context.Context) error {
 		if p.cfg.Now().Sub(last) < 60*time.Second {
 			return nil
 		}
-		err := p.api.setTimeout(ctx, st.SandboxID, p.cfg.IdleTimeout)
+		err := p.api.setTimeout(ctx, st.SandboxID, p.idleTimeout())
 		if err == nil {
 			p.mu.Lock()
 			p.lastRefresh = p.cfg.Now()
@@ -711,7 +748,7 @@ func (p *Provider) ensure(ctx context.Context) error {
 		// answers 404. Connect below resumes it; only a 404 from connect means the sandbox is gone.
 		p.setRunning(false)
 	}
-	info, err := p.api.connect(ctx, st.SandboxID, p.cfg.IdleTimeout)
+	info, err := p.api.connect(ctx, st.SandboxID, p.idleTimeout())
 	if isNotFound(err) {
 		return p.gone(st.SandboxID)
 	}
@@ -822,7 +859,7 @@ func (p *Provider) clearProblem(ctx context.Context) error {
 			unreachable = true
 		case err == nil && info.State == "running":
 			// Refresh the traffic and envd tokens, then probe the guest.
-			if cinfo, cerr := p.api.connect(ctx, st.SandboxID, p.cfg.IdleTimeout); cerr == nil && p.remember(cinfo) == nil {
+			if cinfo, cerr := p.api.connect(ctx, st.SandboxID, p.idleTimeout()); cerr == nil && p.remember(cinfo) == nil {
 				p.setRunning(true)
 				unreachable = !p.guestHealthy(ctx)
 				p.setRunning(false)
