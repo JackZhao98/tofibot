@@ -61,6 +61,7 @@ type fake struct {
 	connects     int
 	connectCode  int // 0 => 200/201 by state, else the error status
 	timeouts     int
+	lastTimeout  int // seconds in the last /timeout or /connect body
 	kills        int
 	uploaded     string
 	guestToken   string // token the guest accepts (what was uploaded)
@@ -186,6 +187,11 @@ func (f *fake) handle(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{"sandboxID": strings.TrimPrefix(p, "/sandboxes/"), "state": f.sandboxState})
 	case r.Method == "POST" && strings.HasSuffix(p, "/connect"):
 		f.connects++
+		var body struct {
+			Timeout int `json:"timeout"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		f.lastTimeout = body.Timeout
 		if f.connectCode != 0 {
 			w.WriteHeader(f.connectCode)
 			w.Write([]byte(`{"code":404,"message":"sandbox not found"}`))
@@ -200,6 +206,11 @@ func (f *fake) handle(w http.ResponseWriter, r *http.Request) {
 		f.sandboxJSON(w, code, id)
 	case r.Method == "POST" && strings.HasSuffix(p, "/timeout"):
 		f.timeouts++
+		var body struct {
+			Timeout int `json:"timeout"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		f.lastTimeout = body.Timeout
 		if f.sandboxState == "paused" { // E2B: a paused sandbox is not in the running set
 			w.WriteHeader(404)
 			w.Write([]byte(`{"code":404,"message":"sandbox not found"}`))
@@ -386,6 +397,42 @@ func TestTimeoutRefreshThrottled(t *testing.T) {
 	act(p)
 	if f.timeouts != 1 {
 		t.Fatalf("timeouts=%d", f.timeouts)
+	}
+}
+
+// The person's "turn off when idle" setting: a running sandbox gets the new
+// timeout at once; a paused one gets it when it resumes.
+func TestSetIdleTimeoutAppliesNowOrOnResume(t *testing.T) {
+	f := newFake(t)
+	p, _ := f.provider(ready)
+	if _, err := act(p); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.SetIdleTimeout(context.Background(), 30*time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	if f.timeouts != 1 || f.lastTimeout != 1800 {
+		t.Fatalf("running sandbox: timeouts=%d last=%d, want 1 and 1800", f.timeouts, f.lastTimeout)
+	}
+	// The same value again asks nothing.
+	if err := p.SetIdleTimeout(context.Background(), 30*time.Minute); err != nil || f.timeouts != 1 {
+		t.Fatalf("unchanged value: err=%v timeouts=%d", err, f.timeouts)
+	}
+	if err := p.Pause(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.SetIdleTimeout(context.Background(), 20*time.Minute); err != nil || f.timeouts != 1 {
+		t.Fatalf("paused sandbox: err=%v timeouts=%d, want no call", err, f.timeouts)
+	}
+	if _, err := act(p); err != nil {
+		t.Fatal(err)
+	}
+	if f.connects != 1 || f.lastTimeout != 1200 {
+		t.Fatalf("resume: connects=%d last=%d, want 1 and 1200", f.connects, f.lastTimeout)
+	}
+	// Zero restores the 15 minute default.
+	if err := p.SetIdleTimeout(context.Background(), 0); err != nil || f.lastTimeout != 900 {
+		t.Fatalf("default: err=%v last=%d", err, f.lastTimeout)
 	}
 }
 

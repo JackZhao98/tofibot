@@ -159,8 +159,8 @@ html:not([data-desktop]) .desktop-floating-shell .computer-detail :is(.computer-
 .desktop-drop::after{background:var(--bezel-fill);-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 172 44' preserveAspectRatio='none'%3E%3Cpath d='M0 2Q14 2 14 12V26A16 16 0 0 0 30 42H142A16 16 0 0 0 158 26V12Q158 2 172 2Z'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 172 44' preserveAspectRatio='none'%3E%3Cpath d='M0 2Q14 2 14 12V26A16 16 0 0 0 30 42H142A16 16 0 0 0 158 26V12Q158 2 172 2Z'/%3E%3C/svg%3E")}
 .computer-detail.is-driven-by-bot .desktop-drop{filter:drop-shadow(0 10px 16px color-mix(in srgb,var(--lagoon) 45%,transparent))}
 .computer-detail.is-driven-by-you .desktop-drop{filter:drop-shadow(0 10px 16px color-mix(in srgb,var(--clay) 40%,transparent))}
-.desktop-power{display:grid;place-items:center;width:26px;height:26px;flex:none;padding:0;border:1px solid var(--desktop-controls-edge);border-radius:50%;background:transparent;color:var(--desktop-controls-ink);}
-.desktop-power:hover{background:var(--desktop-controls-hover)}
+.desktop-chin-hide{display:grid;place-items:center;width:26px;height:26px;flex:none;padding:0;border:1px solid var(--desktop-controls-edge);border-radius:50%;background:transparent;color:var(--desktop-controls-ink);}
+.desktop-chin-hide:hover{background:var(--desktop-controls-hover)}
 .desktop-boot-phase{color:var(--desktop-controls-ink);font:var(--type-status);opacity:.8}
 .desktop-floating-shell .desktop-bot-starting{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:8px}
 
@@ -175,7 +175,7 @@ html:not([data-desktop]) .desktop-floating-shell .computer-detail :is(.computer-
 .desktop-driver-side .avatar{width:22px;height:22px;background:transparent}
 .desktop-driver-side.is-you{font:700 12px/1 var(--display);color:var(--desktop-controls-ink)}
 .desktop-driver-switch.is-you .desktop-driver-side.is-you{color:var(--on-block)}
-:is(.desktop-power,.desktop-driver-switch):focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+:is(.desktop-chin-hide,.desktop-driver-switch):focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 @media(prefers-reduced-motion:reduce){.desktop-driver-thumb{transition:none}.desktop-status-dot{animation:none!important}}
 /* Clicking the dimmed area around the enlarged screen shrinks it back. */
 .desktop-expanded-scrim{position:fixed;inset:0;z-index:-1;cursor:zoom-out}
@@ -246,7 +246,7 @@ html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-folded :is(
 .computer-detail.is-folded .computer-screen-wrap .remote-desktop-surface{display:grid;place-items:center;overflow:hidden}
 .computer-detail.is-folded :is(.desktop-window-controls,.desktop-enlarge,.error-banner,.computer-info,.remote-control-bar,.desktop-expanded-scrim){display:none}
 .computer-detail.is-folded .desktop-chin{position:static;display:contents;translate:none;width:auto;height:auto;padding:0}
-.computer-detail.is-folded :is(.desktop-drop,.desktop-power){display:none}
+.computer-detail.is-folded :is(.desktop-drop,.desktop-chin-hide){display:none}
 .computer-detail.is-folded .desktop-chin-text{position:static;grid-area:1/2;width:auto;height:auto;margin:0;overflow:hidden;clip:auto;clip-path:none;text-overflow:ellipsis;color:var(--desktop-controls-ink);font:600 12px/1.3 var(--display)}
 .desktop-strip-open{position:absolute;inset:0;z-index:1;width:100%;height:100%;padding:0;border:0;border-radius:inherit;background:transparent}
 .desktop-strip-open:hover{background:color-mix(in srgb,var(--desktop-controls-ink) 7%,transparent)}
@@ -272,3 +272,14 @@ html:not([data-desktop]) .desktop-floating-shell:not(.is-expanded) .desktop-pres
 /* The glass corner is dark in both themes, so its icons stay light (the big window's generic button ink is the page's dark ink). */
 html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .desktop-window-controls .desktop-control-button{color:var(--desktop-controls-ink)}
 html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .desktop-window-controls .desktop-control-button:hover{background:var(--desktop-controls-hover)}
+
+/* The power button: lit (green, as the chat header's computer button) while the computer runs, quiet when it is off, a slow
+   breath while it turns on or off. Disabled while a call or a holder is using it (the hint says why). */
+/* On the screen's dark glass (web, small and big) the light green reads; in the desktop app's window heading the text green does. */
+.desktop-window-controls .desktop-control-power.is-on,
+html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .desktop-window-controls .desktop-control-power.is-on{color:var(--green)}
+.desktop-floating-shell .computer-floating-actions .desktop-control-power.is-on{color:var(--green-text)}
+.desktop-control-power.is-changing svg{animation:desktop-mini-breathe 1.8s var(--ease-inout) infinite}
+/* Shared with the placeholder's status dot; the keyframes left with the old mini TV (5369c760) and the dot stood still since. */
+@keyframes desktop-mini-breathe{50%{opacity:.35}}
+@media(prefers-reduced-motion:reduce){.desktop-control-power.is-changing svg{animation:none}}

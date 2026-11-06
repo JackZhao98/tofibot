@@ -88,8 +88,13 @@ try {
     // Hibernation states are named, not shown as a generic boot.
     state.info = info("resuming");
     await page.getByText(/Waking the Bot computer/).waitFor({ timeout: 6000 });
+    // A computer that turns off while the window is open stays off: the window woke it only when it opened.
+    state.wakes = 0;
     state.info = info("hibernated");
-    await page.getByText(/Waking the Bot computer/).waitFor({ timeout: 6000 });
+    await page.getByText(/Off · files kept/).waitFor({ timeout: 6000 });
+    await page.waitForTimeout(3200); // two more polls
+    assert.equal(state.wakes, 0, "an open window does not wake a computer that turned off");
+    assert.equal(await page.locator(".desktop-placeholder-action").count(), 1, "the off screen offers Turn on");
     assert.deepEqual(errors, []);
     results.push("small loading");
     await context.close();
@@ -123,6 +128,78 @@ try {
     const stopped = await open({ state: { info: info("stopped"), capture: "image", requests: [] } });
     await stopped.page.locator(".computer-preparing").waitFor({ timeout: 6000 });
     await stopped.context.close();
+  }
+
+  // 1c. The power button (a computer that has one: E2B). Lit while on; off turns the computer off (files kept) with no wake
+  //     after it; on wakes it; a busy computer stays on and says why; a computer without one (the VM) shows no button but
+  //     its off screen still offers Turn on.
+  {
+    const state = { info: info("ready", { kind: "e2b", can_sleep: true }), capture: "image", requests: [], wakes: 0, sleeps: 0 };
+    state.onWake = () => {
+      state.info = info("resuming", { kind: "e2b", can_sleep: true });
+      setTimeout(() => { state.info = info("ready", { kind: "e2b", can_sleep: true }); }, 1500);
+    };
+    const { context, page, errors, button } = await open({ state });
+    await button.click();
+    await shell(page, "is-small").waitFor();
+    const power = page.locator(".desktop-control-power");
+    await power.waitFor();
+    assert.equal(await power.getAttribute("aria-pressed"), "true", "on: the power button is pressed");
+    assert.ok(await power.evaluate(element => element.classList.contains("is-on")), "on: the power button is lit");
+    await page.locator("[data-desktop-frame].desktop-live-screen").waitFor({ timeout: 15000 });
+    await page.locator("[data-desktop-frame]").first().hover();
+    await page.waitForTimeout(700);
+    await shot(page, "power-on-small-light-1440");
+
+    state.sleepError = "computer_busy";
+    await power.click();
+    await page.locator(".desktop-power-note").waitFor({ timeout: 6000 });
+    assert.match(await page.locator(".desktop-power-note").innerText(), /using the computer/, "a busy computer says why it stays on");
+    assert.equal(await power.getAttribute("aria-pressed"), "true", "a refused turn-off leaves it on");
+    delete state.sleepError;
+
+    await power.click();
+    await page.getByText(/Off · files kept/).waitFor({ timeout: 6000 });
+    assert.equal(state.sleeps, 2, "one refused and one accepted turn-off");
+    assert.equal(await power.getAttribute("aria-pressed"), "false", "off: the power button is not pressed");
+    assert.equal(await page.locator(".desktop-power-note").count(), 0, "the note clears");
+    await page.waitForTimeout(3200);
+    assert.equal(state.wakes, 0, "nothing wakes a computer the person turned off");
+    await shot(page, "power-off-small-light-1440");
+
+    await power.click();
+    await page.locator("[data-desktop-frame].desktop-live-screen").waitFor({ timeout: 15000 });
+    assert.equal(state.wakes, 1, "the power button turns it on once");
+    assert.equal(await power.getAttribute("aria-pressed"), "true", "on again");
+    // The big window carries the same button with its other controls.
+    await page.locator(".desktop-enlarge, [data-desktop-frame]").first().click();
+    await shell(page, "is-expanded").waitFor();
+    await page.waitForTimeout(700);
+    await shot(page, "power-on-big-light-1440");
+    await page.evaluate(() => { document.documentElement.dataset.theme = "dark"; });
+    await page.waitForTimeout(300);
+    await shot(page, "power-on-big-dark-1440");
+    await page.evaluate(() => { document.documentElement.dataset.theme = "light"; });
+    await page.keyboard.press("Escape");
+    await shell(page, "is-small").waitFor();
+
+    state.ownership = { owner: { kind: "bot", bot_id: "bot-synthetic" }, waiting: [] };
+    await page.waitForFunction(() => document.querySelector(".desktop-control-power")?.disabled === true, null, { timeout: 6000 });
+    assert.match(await power.getAttribute("data-hint"), /In use/, "a computer in use cannot be turned off, and the hint says so");
+    assert.deepEqual(errors, []);
+    results.push("power button");
+    await context.close();
+
+    const vm = { info: info("hibernated"), capture: "image", requests: [], wakes: 0 };
+    vm.onWake = () => { vm.info = info("resuming"); };
+    const second = await open({ state: vm });
+    await second.button.click();
+    await shell(second.page, "is-small").waitFor();
+    await second.page.waitForFunction(() => document.querySelector(".desktop-placeholder") !== null);
+    assert.equal(await second.page.locator(".desktop-control-power").count(), 0, "a computer without a power button shows none");
+    for (let i = 0; i < 40 && vm.wakes === 0; i++) await second.page.waitForTimeout(100);
+    assert.equal(vm.wakes, 1, "opening the window still wakes a hibernated VM once");
+    await second.context.close();
   }
 
   // 2. Ready: click -> big, Escape -> small, shrink/expand controls, close; last size is remembered for the page only.
@@ -250,7 +327,8 @@ try {
     assert.equal(await shell(page, "is-small").count(), 0, "no small window on mobile");
     await shell(page, "is-sheet").waitFor();
     const sheet = await shell(page, "is-sheet").boundingBox();
-    assert.deepEqual([sheet.x, sheet.y, sheet.width, sheet.height], [0, 0, 390, 844], "the sheet fills the screen");
+    // Rounded: WebKit lays out in 1/64 px, so a full-height sheet can measure 843.984375.
+    assert.deepEqual([sheet.x, sheet.y, sheet.width, sheet.height].map(Math.round), [0, 0, 390, 844], "the sheet fills the screen");
     await page.waitForTimeout(800);
     for (const value of await samples(page)) within(value, "mobile loading");
     assert.equal(await page.getByRole("button", { name: /Enlarge|Shrink/ }).count(), 0, "the sheet has no small form to shrink to");

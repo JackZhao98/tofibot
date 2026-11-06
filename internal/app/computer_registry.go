@@ -709,6 +709,19 @@ func (s *Server) waitComputerIdle(ctx context.Context, slot *computerSlot, wait 
 	}
 }
 
+// computerInUse reports that a call is in flight on the computer or that a run
+// or the person holds its desktop: the same signals DetachVM waits on.
+func (s *Server) computerInUse(id string) bool {
+	slot := s.slotFor(id)
+	active := 0
+	if slot != nil {
+		slot.mu.Lock()
+		active = slot.active
+		slot.mu.Unlock()
+	}
+	return active > 0 || !s.desktopIdle()
+}
+
 // desktopIdle reports that no run holds the shared desktop of the VM.
 func (s *Server) desktopIdle() bool {
 	s.computerOwnerMu.Lock()

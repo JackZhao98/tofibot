@@ -57,6 +57,18 @@
       "idle": "Bot 電腦閒置中"
     },
     "power_hint": "收起螢幕（Bot 電腦會繼續執行）",
+    "power": {
+      "label": "Bot 電腦電源",
+      "off_hint": "關機（檔案保留）",
+      "on_hint": "開機",
+      "held": "正在使用中，閒置後會自動關機",
+      "busy": "Bot 正在用這台電腦，暫時不關；閒置後會自動關機。",
+      "not_ready": "電腦啟動完成後才能關機。",
+      "failed": "關機沒有成功，請再試一次。",
+      "turn_on": "開機",
+      "turning_off": "正在關機…",
+      "turning_on": "正在開機…"
+    },
     "control": {
       "release": "交還控制",
       "take": "接管控制",
@@ -91,8 +103,8 @@
       "resuming_phase": "正在喚醒 · {{phase}}",
       "waking_computer": "正在喚醒 Bot 電腦…",
       "starting_desktop": "正在啟動桌面…",
-      "hibernated": "休眠中 · 正在喚醒…",
-      "hibernating": "正在進入休眠…",
+      "off": "已關機 · 檔案都在，Bot 要用時自動開機",
+      "hibernating": "正在關機…",
       "no_desktop": "Bot 正在用瀏覽器工作，沒有使用桌面",
       "retry": "重試"
     },

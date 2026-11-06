@@ -58,6 +58,18 @@
       "idle": "Bot computer idle"
     },
     "power_hint": "Hide screen (the Bot computer keeps running)",
+    "power": {
+      "label": "Bot computer power",
+      "off_hint": "Turn off (files are kept)",
+      "on_hint": "Turn on",
+      "held": "In use. It turns off by itself once it has been idle.",
+      "busy": "A Bot is using the computer, so it stays on. It turns off by itself once it has been idle.",
+      "not_ready": "The computer can be turned off once it has started.",
+      "failed": "Could not turn the computer off. Try again.",
+      "turn_on": "Turn on",
+      "turning_off": "Turning off…",
+      "turning_on": "Turning on…"
+    },
     "control": {
       "release": "Hand back control",
       "take": "Take control",
@@ -92,8 +104,8 @@
       "resuming_phase": "Waking · {{phase}}",
       "waking_computer": "Waking the Bot computer…",
       "starting_desktop": "Starting the desktop…",
-      "hibernated": "Asleep · waking up…",
-      "hibernating": "Going to sleep…",
+      "off": "Off · files kept. It turns on when a Bot needs it.",
+      "hibernating": "Turning off…",
       "no_desktop": "The Bot is working in the browser without a desktop",
       "retry": "Retry"
     },

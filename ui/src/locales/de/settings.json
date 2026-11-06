@@ -1054,6 +1054,10 @@
         "name": "Prüfintervall für Befehle",
         "what": "Wartet ein Bot auf das Ende eines Befehls, weckt ihn nach dieser Zeit eine zeitgesteuerte Prüfung, falls das Endesignal verloren geht. Ein eigener Timer des Bots ersetzt sie."
       },
+      "computer_idle_off_minutes": {
+        "name": "Cloud-Computer bei Leerlauf ausschalten",
+        "what": "Ein E2B-Computer, der so viele Minuten nichts tut, schaltet sich aus (pausiert). Seine Dateien bleiben erhalten, und er startet, wenn ein Bot ihn braucht. E2B rechnet ab, solange er läuft."
+      },
       "browser_engine": {
         "name": "Browsersteuerung",
         "what": "Wie ein Bot im Browser des Bot-Computers arbeitet. Klassisch liest Seitentext und klickt auf sichtbaren Text. Playwright liest einen Barrierefreiheitsbaum und handelt über Element-Referenzen, was auf komplexen Seiten genauer ist."

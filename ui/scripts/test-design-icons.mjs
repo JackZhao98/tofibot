@@ -52,8 +52,8 @@ function inspect(directory) {
     const source = readFileSync(path, "utf8");
     // FileTile draws its own filled per-format glyphs and page fold; components.md documents it as an inline SVG ("FileTile" entry), and the catalog has no per-format file glyphs.
     // SendReceipt (read double tick) and widgetGrip (six-dot drag grip) are micro glyphs the 144-icon set has no counterpart for; like
-    // ComposerGlyph they are drawn inline until the icon set gains them.
-    const inlineGlyphs = ["ComposerGlyph.tsx", "FileTile.tsx", "SendReceipt.tsx", "widgetGrip.tsx"];
+    // ComposerGlyph they are drawn inline until the icon set gains them. So is PowerGlyph (the computer's power button).
+    const inlineGlyphs = ["ComposerGlyph.tsx", "FileTile.tsx", "PowerGlyph.tsx", "SendReceipt.tsx", "widgetGrip.tsx"];
     if (!inlineGlyphs.includes(entry.name)) assert.doesNotMatch(source, /<svg\b/, `Ad-hoc SVG in ${entry.name}`);
     assert.doesNotMatch(source, /from ["']\.\/UiIcon["']/, `Legacy icon adapter in ${entry.name}`);
     assert.doesNotMatch(source, />\s*[✓✕✖▣▧⧉⤢×⌄]\s*</u, `Character icon in ${entry.name}`);

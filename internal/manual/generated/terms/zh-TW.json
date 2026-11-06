@@ -49,6 +49,8 @@
   "settings:automation.item.command_check_minutes.what": "Bot 等待指令結束時，若結束訊號遺失，會在這段時間後被定時喚醒查看一次。Bot 自己設了定時則以它為準。",
   "settings:automation.item.completion_review.name": "用過工具後的完成複核",
   "settings:automation.item.completion_review.what": "Bot 用過工具後，回覆前會對照實際結果再檢查一次答案。",
+  "settings:automation.item.computer_idle_off_minutes.name": "雲端電腦閒置關機",
+  "settings:automation.item.computer_idle_off_minutes.what": "E2B 電腦閒置這麼多分鐘後自動關機（暫停）。檔案會保留，Bot 需要時自動開機。E2B 依運行時間計費。",
   "settings:automation.item.conversation_model.name": "對話模型",
   "settings:automation.item.conversation_model.what": "負責聊天、群組協作、排程執行，以及所有用到工具的工作。Bot 自己指定的模型優先於它。",
   "settings:automation.item.desktop_engine.name": "桌面控制",

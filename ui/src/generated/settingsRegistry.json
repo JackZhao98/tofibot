@@ -791,6 +791,20 @@
       "audit": true
     },
     {
+      "key": "automation.computer_idle_off_minutes",
+      "scope": "account",
+      "kind": "int",
+      "min": 5,
+      "max": 60,
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/automation#computer",
+      "manual": "settings/automation",
+      "label_key": "settings:automation.item.computer_idle_off_minutes.name",
+      "audit": true
+    },
+    {
       "key": "automation.task_stall_rounds",
       "scope": "account",
       "kind": "int",

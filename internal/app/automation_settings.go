@@ -128,6 +128,7 @@ var automationItems = []automationItem{
 	{Key: autoGroupTriageModel, Group: "models", Kind: autoKindModel},
 	{Key: autoGroupFollowUp, Group: "replies", Kind: autoKindBool, Default: "true"},
 	{Key: autoCommandCheckMinutes, Group: "computer", Kind: autoKindInt, Default: commandCheckMinutesDefault(), Min: 5, Max: 1440, Unit: "minutes"},
+	{Key: autoComputerIdleOff, Group: "computer", Kind: autoKindInt, Default: strconv.Itoa(defaultComputerIdleOffMins), Min: 5, Max: 60, Unit: "minutes"},
 	{Key: autoTaskStallRounds, Group: "checks", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskStallRounds), Min: 1, Max: 20},
 	{Key: autoTaskTreeIdleLimit, Group: "reliability", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskTreeIdleLimit), Min: 10, Max: 500},
 	{Key: autoTaskFanoutWidth, Group: "reliability", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskFanoutWidth), Min: 1, Max: 12},
@@ -724,6 +725,12 @@ func (s *Server) applyAutomationValue(ctx context.Context, item automationItem, 
 			mode = *value
 		}
 		return s.store.putAutoReviewMode(mode)
+	case autoComputerIdleOff:
+		if err := s.saveAutomationValue(item.Key, value); err != nil {
+			return err
+		}
+		s.applyE2BIdleTimeout()
+		return nil
 	}
 	return s.saveAutomationValue(item.Key, value)
 }

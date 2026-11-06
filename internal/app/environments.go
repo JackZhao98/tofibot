@@ -227,13 +227,57 @@ func e2bTemplateVersion() string {
 
 func (s *Server) newE2BProvider(key string) (*e2b.Provider, error) {
 	return e2b.New(e2b.Config{
-		ID:      computer.DefaultID,
-		APIKey:  key,
-		APIBase: e2bAPIBase(),
-		Image:   e2bImage(),
-		Version: e2bTemplateVersion(),
-		Store:   e2bStore{s},
+		ID:          computer.DefaultID,
+		APIKey:      key,
+		APIBase:     e2bAPIBase(),
+		Image:       e2bImage(),
+		Version:     e2bTemplateVersion(),
+		Store:       e2bStore{s},
+		IdleTimeout: s.e2bIdleTimeout(),
 	})
+}
+
+// autoComputerIdleOff is how many idle minutes an E2B computer runs before E2B
+// turns it off (pauses it: files kept, billing stops). E2B's Hobby plan caps a
+// sandbox's timeout at one hour, so the setting stops there.
+const (
+	autoComputerIdleOff        = "computer_idle_off_minutes"
+	defaultComputerIdleOffMins = 15
+)
+
+func (s *Server) e2bIdleTimeout() time.Duration {
+	return time.Duration(s.autoInt(autoComputerIdleOff)) * time.Minute
+}
+
+// applyE2BIdleTimeout hands a changed setting to the E2B computer: a running
+// sandbox gets the new timeout now, a paused one when it resumes.
+func (s *Server) applyE2BIdleTimeout() {
+	s.e2bEnv.mu.Lock()
+	p := s.e2bEnv.provider
+	s.e2bEnv.mu.Unlock()
+	if p == nil {
+		return
+	}
+	d := s.e2bIdleTimeout()
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := p.SetIdleTimeout(ctx, d); err != nil {
+			log.Printf("[environments] E2B idle timeout: %s", e2bErrorCode(err))
+		}
+	}()
+}
+
+// computerSleeper is a computer the person can turn off from its power button:
+// today the E2B computer, whose off is E2B's pause.
+type computerSleeper interface {
+	Pause(ctx context.Context) error
+}
+
+// canSleep reports that the attached computer has a power button.
+func canSleep(p computer.Provider) bool {
+	_, ok := p.(computerSleeper)
+	return ok && p.Kind() == envKindE2B
 }
 
 // e2bCurrent returns the provider for the stored key, built once.

@@ -151,9 +151,11 @@ export const api = {
   toolActivityResult: (id: string, runId: string, callId: string) => request<{ activity: ToolActivity }>(`/api/conversations/${encodeURIComponent(id)}/tools?${new URLSearchParams({ run_id: runId, call_id: callId })}`),
   toolActivityDetails: (id: string, runId: string, offset = 0) => request<ToolActivityDetailPage>(`/api/conversations/${encodeURIComponent(id)}/tools?${new URLSearchParams({ run_id: runId, offset: String(offset) })}`),
   runContext: (runId: string, signal?: AbortSignal) => request<RunContextSnapshot>(`/api/runs/${encodeURIComponent(runId)}/context`, { signal }),
-  computerInfo: () => request<{ kind: string; state: string; phase?: string; workspace_root?: string; browser?: string; error?: string; health?: ComputerHealth }>("/api/computers/firecracker/info"),
+  computerInfo: () => request<{ kind: string; state: string; phase?: string; workspace_root?: string; browser?: string; error?: string; health?: ComputerHealth; can_sleep?: boolean }>("/api/computers/firecracker/info"),
   computerRetry: () => request<{ accepted: boolean }>("/api/computers/firecracker/retry", { method: "POST" }),
   computerWake: () => request<{ accepted: boolean; state?: string }>("/api/computers/firecracker/wake", { method: "POST" }),
+  /** The power button: turn the computer off now (E2B's pause; files kept). 409 computer_busy while it is in use. */
+  computerSleep: () => request<{ accepted: boolean; state?: string }>("/api/computers/firecracker/sleep", { method: "POST" }),
   computerAction: (input: { bot_id: string; run_id?: string; action: string; args?: Record<string, unknown> }) => request<{ ok: boolean; result?: unknown; error?: string }>("/api/computers/firecracker/actions", { method: "POST", body: JSON.stringify(input) }),
 };
 

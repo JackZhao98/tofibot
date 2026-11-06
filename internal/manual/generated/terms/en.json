@@ -49,6 +49,8 @@
   "settings:automation.item.command_check_minutes.what": "When a Bot waits for a command to end, a timed check wakes it after this long in case the end signal is lost. A timer the Bot sets itself replaces it.",
   "settings:automation.item.completion_review.name": "Completion review after tool work",
   "settings:automation.item.completion_review.what": "After using tools, a Bot checks its answer against the actual results once before it replies.",
+  "settings:automation.item.computer_idle_off_minutes.name": "Cloud computer idle turn-off",
+  "settings:automation.item.computer_idle_off_minutes.what": "An E2B computer that has done nothing for this many minutes turns off (pauses). Its files are kept, and it turns on when a Bot needs it. E2B bills while it runs.",
   "settings:automation.item.conversation_model.name": "Conversation model",
   "settings:automation.item.conversation_model.what": "Runs chats, group work, scheduled runs and anything that uses tools. A Bot's own model setting overrides it.",
   "settings:automation.item.desktop_engine.name": "Desktop control",

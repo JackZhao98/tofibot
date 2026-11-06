@@ -59,6 +59,18 @@
       "idle": "Ordinateur Bot inactif"
     },
     "power_hint": "Masquer l'écran (l'ordinateur Bot reste allumé)",
+    "power": {
+      "label": "Alimentation de l'ordinateur du Bot",
+      "off_hint": "Éteindre (fichiers conservés)",
+      "on_hint": "Allumer",
+      "held": "En cours d'utilisation. Il s'éteint seul une fois inactif.",
+      "busy": "Un Bot utilise l'ordinateur, il reste donc allumé. Il s'éteindra seul une fois inactif.",
+      "not_ready": "L'ordinateur peut être éteint une fois démarré.",
+      "failed": "Impossible d'éteindre l'ordinateur. Réessayez.",
+      "turn_on": "Allumer",
+      "turning_off": "Extinction…",
+      "turning_on": "Démarrage…"
+    },
     "control": {
       "release": "Rendre le contrôle",
       "take": "Prendre le contrôle",
@@ -93,8 +105,8 @@
       "resuming_phase": "Réveil · {{phase}}",
       "waking_computer": "Réveil de l’ordinateur Bot…",
       "starting_desktop": "Démarrage du bureau…",
-      "hibernated": "En veille · réveil en cours…",
-      "hibernating": "Passage en hibernation…",
+      "off": "Éteint · fichiers conservés. Il redémarre quand un Bot en a besoin.",
+      "hibernating": "Extinction…",
       "no_desktop": "Le Bot travaille dans le navigateur, sans bureau",
       "retry": "Réessayer"
     },
