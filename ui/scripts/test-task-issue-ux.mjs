@@ -144,7 +144,9 @@ try {
  assert.equal(p.canAnswerQuestion(question),true);assert.equal(p.canAnswerQuestion(question,true),false);
  assert.equal(p.canAnswerQuestion({...question,outcome:{status:"approval_expired",execution_certainty:"not_executed"}}),false);
  assert.equal(p.canAnswerQuestion({...question,outcome:{status:"uncertain_effect",execution_certainty:"unknown"}}),false);
- for(const status of ["reviewing","approved","shadow_allow","setup_required","context_required","unavailable","policy_denied","terminal"]) assert.equal(p.canAnswerQuestion({...question,approval:{...question.approval,review:{...question.approval.review,status}}}),false,status);
+ for(const status of ["reviewing","approved","setup_required","context_required","unavailable","policy_denied","terminal"]) assert.equal(p.canAnswerQuestion({...question,approval:{...question.approval,review:{...question.approval.review,status}}}),false,status);
+ // Shadow advice never decides: the person answers a manual card while the reviewer works and whatever it advises; a review-only card stays an observation.
+ for(const status of ["shadow","shadow_reviewing","shadow_allow","shadow_deny","shadow_needs_human","shadow_context_required","shadow_setup_required","shadow_unavailable","shadow_invalidated"]) { const review={...question.approval.review,status}; assert.equal(p.canAnswerQuestion({...question,approval:{...question.approval,review}}),true,status); assert.equal(p.canAnswerQuestion({...question,approval:{...question.approval,review,review_only:true}}),false,`${status} review-only`); }
  assert.equal(p.canAnswerQuestion({...question,approval:{...question.approval,review_only:true}}),false);assert.equal(view(scenario("shadow")),undefined);
  assert(markup({...incident,questions:[...incident.questions,{...question,question_id:"independent-human"}]}).includes('data-valid-proposal="independent-human"'));
  // Review gaps arrive as outcome codes on a tooloutcome status; the code closes the proposal and keeps it off the record.

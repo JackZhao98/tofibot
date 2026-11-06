@@ -1,7 +1,7 @@
 import { desktopState, updateDesktopState } from "./desktop";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { Conversation, Message } from "./types";
-import { cascadeRoom, fadeArrival, playArrivalCascade } from "./arrivalCascade";
+import { cascadeRoom, fadeArrival, holdArrivalCascade, playArrivalCascade } from "./arrivalCascade";
 
 interface Options {
   conversation?: Conversation;
@@ -53,6 +53,8 @@ interface Visit {
   distance: number;
   /** When the reader last scrolled away on purpose; an arrival never pulls them back within a moment of that. */
   gestureAt: number;
+  /** A primary press on the content that is still down: the pane holds still until it is released (see onPress). */
+  press: { id: number; top: number; following: boolean } | null;
 }
 
 /** A follow-bottom scroll tween in flight. The target is read live every frame, so growth that lands mid-glide is followed. */
@@ -141,7 +143,7 @@ export function useConversationScroll(options: Options) {
     visit.current = { id, readSeq: options.conversation?.read_seq ?? 0, entryMax: snapshot?.entryMax ?? null,
       resume: snapshot, positioned: false, landing: snapshot ? (snapshot.atBottom ? "bottom" : "elsewhere") : null, atBottom: snapshot?.atBottom ?? true, nearBottom: true, width: 0, height: 0, listWidth: -1,
       baseline: 0, detached: snapshot?.detached ?? false, resumeIntent: false, lastScrollTop: 0,
-      prepend: null, followNext: false, loadingBoundary: false, boundaryFailed: false, hold: null, glide: null, lastGrowth: 0, bottomTop: 0, dipFrame: -1, positionedAt: 0, lastRecordId: "", distance: 0, gestureAt: 0 };
+      prepend: null, followNext: false, loadingBoundary: false, boundaryFailed: false, hold: null, glide: null, lastGrowth: 0, bottomTop: 0, dipFrame: -1, positionedAt: 0, lastRecordId: "", distance: 0, gestureAt: 0, press: null };
   }
 
   const isVisible = useCallback(() => document.visibilityState === "visible" &&
@@ -167,8 +169,10 @@ export function useConversationScroll(options: Options) {
     v.height = el.clientHeight;
     v.listWidth = listWidth;
     const distanceFromBottom = el.scrollHeight - el.clientHeight - el.scrollTop;
-    // A glide is following the bottom on purpose: the pane is mid-hop, not scrolled away.
-    const bottom = distanceFromBottom < 48 || Boolean(v.glide && !v.detached);
+    // The reader moved the pane during a press (a selection dragged past the edge): there is nothing left to hold.
+    if (fromUserScroll && v.press && Math.abs(el.scrollTop - v.press.top) > 2) v.press = null;
+    // A glide is following the bottom on purpose: the pane is mid-hop, not scrolled away. So is a press held mid-hop.
+    const bottom = distanceFromBottom < 48 || Boolean((v.glide || v.press?.following) && !v.detached);
     // The near-bottom threshold is useful for displaying state, but it cannot
     // cancel an explicit upward gesture. Only an actual return to the bottom
     // may re-enable streaming follow. Allow fractional CSS-pixel rounding at
@@ -208,6 +212,8 @@ export function useConversationScroll(options: Options) {
     // would be a jump.
     const floor = Math.min(v.bottomTop, target());
     if (el.scrollTop < floor - 0.5 && v.dipFrame >= 0 && v.dipFrame === currentFrame()) el.scrollTop = floor;
+    // Nothing moves under a press: following resumes after the release.
+    if (v.press) return;
     let gap = target() - el.scrollTop;
     if (gap <= 0.5 && !v.glide) return;
     const now = performance.now();
@@ -396,6 +402,7 @@ export function useConversationScroll(options: Options) {
     if (!el) return;
     const effectVisit = visit.current;
     let touchY = 0;
+    let presses = 0;
     const pauseFollow = () => {
       const v = visit.current;
       if (!v?.positioned) return;
@@ -448,9 +455,32 @@ export function useConversationScroll(options: Options) {
     el.addEventListener("touchmove", onTouchMove, { passive: true });
     el.addEventListener("keydown", onKey);
     el.addEventListener("click", onDisclosure, true);
-    // Scrollbar drags send no wheel; a pointer press on the pane hands control back too.
-    el.addEventListener("pointerdown", release, true);
-    el.addEventListener("pointerdown", land, true);
+    // Scrollbar drags send no wheel; a pointer press on the pane hands control back too. A press on the pane itself (its
+    // scrollbar) lets the hop land. A press on the content must not move what is under it: if the pane jumps between the
+    // press and the release, the release lands on another element and the browser sends the click to their common parent,
+    // so the click is lost. The hop stops where it is, and a primary press holds the pane and the arrival cascade still
+    // until it is released.
+    const onPress = (event: PointerEvent) => {
+      release();
+      // A right or middle press, or a second finger, is not a click on the content: the hop lands as it always did.
+      if (event.target === el || event.button !== 0 || !event.isPrimary) { land(); return; }
+      const v = visit.current;
+      stopGlide(v, false);
+      if (v?.positioned) { v.press = { id: ++presses, top: el.scrollTop, following: v.atBottom }; holdArrivalCascade(el, true); }
+    };
+    // Following resumes a frame after the release, once the click has reached the control that was pressed. A native drag
+    // or a context menu (macOS ctrl+click) can swallow the pointerup, so they end the hold too.
+    const onRelease = () => {
+      const v = visit.current, press = v?.press;
+      if (!v || !press) return;
+      requestAnimationFrame(() => { if (v.press === press) { v.press = null; holdArrivalCascade(el, false); position(); } });
+    };
+    el.addEventListener("pointerdown", onPress, true);
+    window.addEventListener("pointerup", onRelease, true);
+    window.addEventListener("pointercancel", onRelease, true);
+    window.addEventListener("dragstart", onRelease, true);
+    window.addEventListener("contextmenu", onRelease, true);
+    window.addEventListener("blur", onRelease);
     const observer = new ResizeObserver(position);
     observer.observe(el);
     const content = el.querySelector(".message-list");
@@ -468,8 +498,13 @@ export function useConversationScroll(options: Options) {
       el.removeEventListener("touchmove", onTouchMove);
       el.removeEventListener("keydown", onKey);
       el.removeEventListener("click", onDisclosure, true);
-      el.removeEventListener("pointerdown", release, true);
-      el.removeEventListener("pointerdown", land, true);
+      el.removeEventListener("pointerdown", onPress, true);
+      window.removeEventListener("pointerup", onRelease, true);
+      window.removeEventListener("pointercancel", onRelease, true);
+      window.removeEventListener("dragstart", onRelease, true);
+      window.removeEventListener("contextmenu", onRelease, true);
+      window.removeEventListener("blur", onRelease);
+      if (effectVisit?.press) { effectVisit.press = null; holdArrivalCascade(el, false); }
       stopGlide(effectVisit, false);
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onFocus);
