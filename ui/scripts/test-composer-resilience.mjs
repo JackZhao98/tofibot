@@ -93,9 +93,15 @@ async function open({ view = "desktop" } = {}) {
   const errors = [];
   // Going offline also stops lazy chunks that were not loaded yet: that is the browser, not the app.
   page.on("pageerror", error => { if (!/dynamically imported module/.test(error.message)) errors.push(error.message); });
+  // The app fetches what a failed send needs (the failure line, the outbox controller) in idle time after start, while it is
+  // still online (App.tsx). A person who goes offline later has them; a check that goes offline the moment the composer shows
+  // can race that fetch on a cold dev server and see the minimal "Not sent" line. So wait until the app has them, as it promises.
+  const loaded = Promise.all([/SendFailure/, /outboxController/, /outboxActions/].map(name =>
+    page.waitForResponse(response => name.test(new URL(response.url()).pathname) && response.ok(), { timeout: 15_000 })));
   await page.goto(origin + "/");
   await page.locator(".conversation-row").first().waitFor();
   await openConversation(page, "Ledger Cat");
+  await loaded;
   return { page, context, errors };
 }
 async function openConversation(page, name) {
