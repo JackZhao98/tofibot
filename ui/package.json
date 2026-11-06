@@ -44,6 +44,7 @@
     "test:catalog": "node scripts/test-catalog.mjs",
     "preview": "vite preview",
     "test:auto-review": "node scripts/test-auto-review.mjs",
+    "test:task-issue-ux": "node scripts/test-task-issue-ux.mjs",
     "test:computer-window": "node scripts/test-computer-window.mjs",
     "test:ipad-computer": "node scripts/test-ipad-computer.mjs",
     "test:desktop-connect": "node scripts/test-desktop-connect.mjs",

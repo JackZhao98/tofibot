@@ -46,7 +46,10 @@ export function canAnswerQuestion(question: Question, archived = false) {
   const approval = question.approval, review = approval?.review;
   if (approval?.review_only) return false;
   if (!review) return true; // Legacy backend pending manual proposal.
-  return ["human_required", "invalidated", "not_eligible", "not_reviewed", "shadow", "shadow_needs_human"].includes(review.status);
+  // Shadow advice never decides (mcp_shadow_review.go): the person answers this card while the shadow reviewer works and
+  // whatever it advises, and the server accepts that answer in every shadow state. Only review-only cards are observations.
+  if (review.status === "shadow" || review.status.startsWith("shadow_")) return true;
+  return ["human_required", "invalidated", "not_eligible", "not_reviewed"].includes(review.status);
 }
 
 
