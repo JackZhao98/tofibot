@@ -39,6 +39,8 @@ class ProxyListTests(unittest.TestCase):
         self.assertIn('reverse_proxy https://192.0.2.20:8321', caddy)
         self.assertIn('tls_insecure_skip_verify', caddy)
         self.assertIn('flush_interval -1', caddy)
+        # Without it Caddy sends Host: <upstream> to an HTTPS upstream and the CSRF check fails.
+        self.assertIn('header_up Host {host}', caddy)
         self.assertIn('proxy_pass https://192.0.2.20:8321;', nginx)
         self.assertIn('proxy_ssl_verify off;', nginx)
         for header in ('X-Forwarded-For $proxy_add_x_forwarded_for', 'X-Forwarded-Proto', 'Upgrade $http_upgrade',
