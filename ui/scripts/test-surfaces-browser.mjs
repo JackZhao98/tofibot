@@ -102,7 +102,7 @@ try {
     assert.match(page.url(), /\/b\/bot-two$/);
     // The deep-link event, and a value that is not a sidebar.
     await page.evaluate(() => window.dispatchEvent(new CustomEvent("tofi:open-sidebar", { detail: { id: "memory" } })));
-    await poll(page, () => document.querySelector(".sidebar-pane"));
+    await poll(page, () => document.querySelector(".sidebar-pane") && new URL(location.href).searchParams.get("side") === "memory");
     assert.equal(side(page), "memory");
     await page.evaluate(() => window.dispatchEvent(new CustomEvent("tofi:open-sidebar", { detail: { id: "nonsense" } })));
     await settled(page);
@@ -478,6 +478,44 @@ try {
     assert.deepEqual(errors, []);
     results.push("escape: a native dialog keeps its Escape; Settings closes and the widgets stay");
     await context.close();
+  }
+  // 8. Widgets reserve no space of their own (owner, 11-08: "why did this empty right side bar come in by itself?"). The widget column
+  // lives inside the chat area, so opening it must leave the grid's third track at 0 and the chat pane at the window edge, at every
+  // wide width; only an open sidebar owns that track. A host without a computer (config.computer.backend "none") shows no computer
+  // button and no computer widget, and asks nothing of /api/computers.
+  {
+    const none = { backend: "none", available: false, attached: false, host_backend: "none", capabilities: [] };
+    const kvm = { backend: "kvm", available: true, attached: true, host_backend: "kvm", capabilities: ["shell", "files", "browser", "desktop", "desktop_stream", "terminal"] };
+    const tracks = page => page.evaluate(() => ({ columns: getComputedStyle(document.querySelector(".workspace-grid")).gridTemplateColumns.split(" ").map(Number.parseFloat), chatRight: Math.round(document.querySelector(".chat-pane").getBoundingClientRect().right), width: window.innerWidth }));
+    for (const [name, computerConfig] of [["no computer", none], ["computer", kvm]]) {
+      for (const width of [1122, 1280, 1440, 1728, 2000]) {
+        const state = newState();
+        state.computerConfig = computerConfig;
+        const { context, page, errors } = await openWorkspace(browser, origin, state, { width, theme: "dark" });
+        assert.equal(await page.locator("[data-computer-toggle]").count(), computerConfig === none ? 0 : 1, `${name} ${width}: the computer button follows the host`);
+        if (computerConfig !== none) await page.locator("[data-computer-toggle]").click();
+        await page.getByRole("button", { name: "Open artifacts" }).click();
+        await poll(page, () => document.querySelector('.widget-column [data-card="artifacts"]'));
+        await page.waitForTimeout(600);
+        assert.deepEqual(await cards(page), computerConfig === none ? ["artifacts"] : ["computer", "artifacts"], `${name} ${width}: only the widgets this host can show`);
+        const open = await tracks(page);
+        assert.equal(open.columns.length, 3, `${name} ${width}: three grid tracks`);
+        assert.equal(open.columns[2], 0, `${name} ${width}: opening widgets reserves no right-hand track (got ${open.columns[2]}px)`);
+        assert.equal(open.chatRight, open.width, `${name} ${width}: the chat reaches the window edge`);
+        // The sidebar still owns that track while it is open, and gives it back.
+        await page.getByRole("button", { name: "Tasks" }).click();
+        await page.locator(".sidebar-pane:not(.is-leaving)").waitFor();
+        await page.waitForTimeout(700);
+        assert.ok((await tracks(page)).columns[2] >= 360, `${name} ${width}: an open sidebar takes its track`);
+        await page.keyboard.press("Escape");
+        await page.waitForTimeout(700);
+        assert.equal((await tracks(page)).columns[2], 0, `${name} ${width}: the track is given back`);
+        if (computerConfig === none) assert.equal(state.requests.filter(path => path.startsWith("/api/computer")).length, 0, `${name} ${width}: no /api/computer request (${state.requests.filter(path => path.startsWith("/api/computer")).join(", ")})`);
+        assert.deepEqual(errors, []);
+        await context.close();
+      }
+    }
+    results.push("widgets: opening them reserves no right-hand grid track at 1122-2000 px, the sidebar still does; a host with no computer shows no computer button or widget");
   }
   console.log(results.map(line => `PASS ${line}`).join("\n"));
   console.log("surfaces browser: PASS");

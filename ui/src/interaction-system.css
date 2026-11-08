@@ -106,7 +106,8 @@ button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .theme-swatch-dark{background:var(--swatch-dark-bg);border-left-color:var(--swatch-dark-edge)}.theme-swatch-dark i{background:var(--swatch-dark-ink)}
 .theme-swatch-system{background:linear-gradient(90deg,var(--swatch-light-bg) 50%,var(--swatch-dark-bg) 50%)}
 @media(min-width:1280px){
- .workspace-grid:has(.detail-pane.visible):not(:has(.settings-tabs)){grid-template-columns:var(--sidebar-width) minmax(0,1fr) 340px}
+ /* The widget column lives inside the chat area and owns no grid track (context-card.css); only the drawer reserves this one. */
+ .workspace-grid:has(.detail-pane.visible:not(.widget-column)):not(:has(.settings-tabs)){grid-template-columns:var(--sidebar-width) minmax(0,1fr) 340px}
  .workspace-grid:has(.computer-detail.is-expanded){grid-template-columns:var(--sidebar-width) minmax(0,1fr)}
 }
 @media(min-width:768px) and (max-width:1023px){.workspace-grid{--sidebar-width:232px}}

@@ -100,3 +100,30 @@ func TestGatewayAdminAssignsTheVMAndSeesNothingPersonal(t *testing.T) {
 		t.Fatalf("out of range wait: %d", w.Code)
 	}
 }
+
+// A host without a computer backend tells every account the same thing through the gateway: the account's
+// config says backend "none", not attached, and host_backend "none", so the UI hides every computer surface.
+func TestGatewayWithoutComputerBackendReportsNoneToAnAccount(t *testing.T) {
+	g := accountFixture(t)
+	user, err := g.create(context.Background(), "none-user", "", "SyntheticPassword123!", false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = g.root.store.db.Exec(`UPDATE accounts SET must_change_password=0 WHERE id=?`, user.ID); err != nil {
+		t.Fatal(err)
+	}
+	w := accountRequest(g, "GET", "/api/config", "", accountCookie(t, g, user))
+	if w.Code != 200 {
+		t.Fatalf("config: %d %s", w.Code, w.Body.String())
+	}
+	var body struct {
+		Computer ComputerCapabilities `json:"computer"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	c := body.Computer
+	if c.Backend != "none" || c.Available || c.Attached || c.HostBackend != "none" || len(c.Capabilities) != 0 {
+		t.Fatalf("a host with no computer reported %+v", c)
+	}
+}

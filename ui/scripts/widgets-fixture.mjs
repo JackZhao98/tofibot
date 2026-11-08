@@ -60,6 +60,8 @@ export async function openWorkspace(browser, origin, state, { width = 1440, heig
   await page.route("**/api/**", async route => {
     const url = new URL(route.request().url()); const p = url.pathname;
     const json = body => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+    // `state.computerConfig` is the `computer` block of GET /api/config (a host without a computer says backend "none"); unset keeps the stub's empty config.
+    if (p === "/api/config" && state.computerConfig) return json({ model_configured: true, default_model: "synthetic-model", provider: "synthetic", computer: state.computerConfig });
     if (p === "/api/bots") return json({ bots: [BOT, BOT2] });
     if (p === "/api/conversations") return json({ conversations: [DM, GROUP, DM2] });
     if (p === "/api/computers/firecracker/actions" && String(route.request().postData() ?? "").includes("desktop.control.acquire")) return json({ ok: true, result: { control_id: "ctl-synthetic" } });

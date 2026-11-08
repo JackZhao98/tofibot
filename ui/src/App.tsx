@@ -1297,8 +1297,9 @@ function Workspace() {
     if (columnMode && opener?.isConnected) requestAnimationFrame(() => { if (!document.activeElement || document.activeElement === document.body || document.querySelector(".detail-pane")?.contains(document.activeElement)) opener.focus({ preventScroll: true }); });
   }, [anyOpen, columnMode]);
   useEffect(() => { setHeaderMenuOpen(false); }, [activeId]);
-  // A server with no computer backend has nothing to poll: no /info request, no status bar, no presence poll.
-  const noComputer = config?.computer?.backend === "none";
+  // A server with no computer backend has nothing to poll: no /info request, no status bar, no presence poll. Until the first
+  // config read lands the answer is unknown, and unknown shows no computer surface and asks nothing of /api/computers either.
+  const noComputer = !config || config.computer?.backend === "none";
   useEffect(() => {
     if (noComputer) { setComputerInfo(null); return; }
     let alive = true;
