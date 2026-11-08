@@ -101,7 +101,7 @@ func policyMapOut(rows []policyRow) map[string]policyOut {
 // parsePolicyRows validates an incoming capability map. fill adds a self_serve
 // row for each capability the request leaves out (a group always holds all four);
 // an override holds only the capabilities the admin sets. v1 stores no params.
-func parsePolicyRows(in map[string]policyIn, fill bool) ([]policyRow, bool) {
+func (g *AccountGateway) parsePolicyRows(in map[string]policyIn, fill bool) ([]policyRow, bool) {
 	for c := range in {
 		if !slices.Contains(orgCapabilities, c) {
 			return nil, false
@@ -118,6 +118,10 @@ func parsePolicyRows(in map[string]policyIn, fill bool) ([]policyRow, bool) {
 			continue
 		}
 		if !validPolicy(c, v.Mode, v.Source) {
+			return nil, false
+		}
+		// A VM can be provided only where this server can reserve one.
+		if c == capComputer && v.Mode == policyModeProvided && v.Source == computerSourceVM && !g.hostIsKVM() {
 			return nil, false
 		}
 		if p := strings.TrimSpace(string(v.Params)); p != "" && p != "{}" {
@@ -324,7 +328,7 @@ func (g *AccountGateway) createGroup(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 400, "invalid_request", "group name must be 1 to 64 characters")
 		return
 	}
-	rows, ok := parsePolicyRows(in.Policies, true)
+	rows, ok := g.parsePolicyRows(in.Policies, true)
 	if !ok {
 		writeErr(w, 400, "invalid_policy", "policy is not valid")
 		return
@@ -406,7 +410,7 @@ func (g *AccountGateway) patchGroup(w http.ResponseWriter, r *http.Request, id s
 	var rows []policyRow
 	if in.Policies != nil {
 		var ok bool
-		if rows, ok = parsePolicyRows(*in.Policies, true); !ok {
+		if rows, ok = g.parsePolicyRows(*in.Policies, true); !ok {
 			writeErr(w, 400, "invalid_policy", "policy is not valid")
 			return
 		}
@@ -633,7 +637,7 @@ func (g *AccountGateway) putAccountPolicy(w http.ResponseWriter, r *http.Request
 	var rows []policyRow
 	if in.Overrides != nil {
 		var ok bool
-		if rows, ok = parsePolicyRows(*in.Overrides, false); !ok {
+		if rows, ok = g.parsePolicyRows(*in.Overrides, false); !ok {
 			writeErr(w, 400, "invalid_policy", "policy is not valid")
 			return false
 		}

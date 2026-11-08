@@ -138,6 +138,10 @@ func (g *AccountGateway) missingResources(ctx context.Context) ([]orgMissing, er
 			return nil, err
 		}
 		for c, v := range resolvePolicy(stored, nil) {
+			if c == capComputer && v.Mode == policyModeProvided && v.Source == computerSourceVM && !g.hostIsKVM() {
+				byCap[c] = append(byCap[c], h.id) // a VM cannot be provided where none can be reserved
+				continue
+			}
 			needs := orgNeeds(c, v)
 			if len(needs) == 0 || slices.ContainsFunc(needs, func(id string) bool { return have[id] }) {
 				continue
@@ -216,21 +220,27 @@ func (g *AccountGateway) verifyOrgModelKey(ctx context.Context, name, sealed str
 	return orgVerifyResult{ok: true}
 }
 
-// verifyOrgCompat checks the compatible endpoint the way a workspace does.
+// verifyOrgCompat checks the compatible endpoint the way a workspace does. An
+// endpoint that answers no model list but has typed model IDs is accepted as
+// stored, not verified (the address could not be proven).
 func (g *AccountGateway) verifyOrgCompat(ctx context.Context, cfg compatConfig) orgVerifyResult {
 	root := g.root
-	if err := root.compatHostCheck(ctx, cfg.BaseURL); err != nil && (errors.Is(err, errCompatBlocked) || len(cfg.Models) == 0) {
-		return compatVerifyFailure(0, err)
+	hostErr := root.compatHostCheck(ctx, cfg.BaseURL)
+	if hostErr != nil && (errors.Is(hostErr, errCompatBlocked) || len(cfg.Models) == 0) {
+		return compatVerifyFailure(0, hostErr)
 	}
-	models, status, err := root.fetchCompatModels(ctx, cfg)
-	if err != nil {
+	models, status, err := root.listCompatModels(ctx, cfg)
+	switch {
+	case err == nil && len(models) > 0 && hostErr == nil:
+		return orgVerifyResult{ok: true}
+	case err != nil && (status == http.StatusUnauthorized || status == http.StatusForbidden || errors.Is(err, errCompatBlocked)):
 		log.Printf("[org] compatible endpoint verification failed: status=%d", status)
 		return compatVerifyFailure(status, err)
+	case len(cfg.Models) > 0:
+		return orgVerifyResult{ok: true, stored: true}
 	}
-	if len(models) == 0 {
-		return compatVerifyFailure(status, nil)
-	}
-	return orgVerifyResult{ok: true}
+	log.Printf("[org] compatible endpoint verification failed: status=%d", status)
+	return compatVerifyFailure(status, err)
 }
 
 func compatVerifyFailure(status int, err error) orgVerifyResult {
@@ -305,8 +315,29 @@ type orgResourceIn struct {
 	WorkspaceID string   `json:"workspace_id"`
 }
 
+// minOrgKeyLen is the shortest organization key accepted: a shorter secret
+// could not be masked, so none of it would be safe to show an admin.
+const minOrgKeyLen = 16
+
 func validSecretKey(key string, max int) bool {
-	return key != "" && len(key) <= max && !strings.ContainsAny(key, " \t\r\n\x00")
+	return len(key) >= minOrgKeyLen && len(key) <= max && !strings.ContainsAny(key, " \t\r\n\x00")
+}
+
+// orgKeyHint and orgKeyPrefix are what an admin may see of an organization key:
+// the last four characters of a key of 16 or more, the first four of one of 32
+// or more. A member sees neither.
+func orgKeyHint(key string) string {
+	if len(key) < 16 {
+		return ""
+	}
+	return keyHint(key)
+}
+
+func orgKeyPrefix(key string) string {
+	if len(key) < 32 {
+		return ""
+	}
+	return key[:4]
 }
 
 func (g *AccountGateway) putOrgResource(w http.ResponseWriter, r *http.Request, sp orgResourceSpec) {
@@ -344,7 +375,7 @@ func (g *AccountGateway) putOrgResource(w http.ResponseWriter, r *http.Request, 
 			writeErr(w, 400, "invalid_workspace", "Only Claude keys take a workspace ID.")
 			return
 		}
-		hintKey, label = key, keyHint(key)
+		hintKey, label = key, orgKeyHint(key)
 		res = g.verifyOrgModelKey(ctx, sp.Target, sealed)
 	case sp.ID == providerVaultID(providerCompat):
 		cfg, code, msg := g.orgCompatFromBody(ctx, in)
@@ -376,7 +407,7 @@ func (g *AccountGateway) putOrgResource(w http.ResponseWriter, r *http.Request, 
 			writeErr(w, 400, "invalid_request", "this resource takes a key and an optional template_id")
 			return
 		}
-		sealed, hintKey, label = key, key, keyHint(key)
+		sealed, hintKey, label = key, key, orgKeyHint(key)
 		if template != "" {
 			config["template_id"] = template
 		}
@@ -401,7 +432,7 @@ func (g *AccountGateway) putOrgResource(w http.ResponseWriter, r *http.Request, 
 			writeErr(w, 400, "invalid_request", "this resource takes a key and an optional zone")
 			return
 		}
-		sealed, hintKey, label = key, key, keyHint(key)
+		sealed, hintKey, label = key, key, orgKeyHint(key)
 		if zone != "" {
 			sealed += "\x00" + zone
 		}
@@ -423,7 +454,7 @@ func (g *AccountGateway) putOrgResource(w http.ResponseWriter, r *http.Request, 
 	}
 	row := orgResourceRow{ID: sp.ID, Kind: sp.Kind, Config: string(cfgJSON), KeyHint: "", KeyPrefix: "", Status: status, VerifiedAt: verifiedAt, UpdatedAt: now()}
 	if hintKey != "" {
-		row.KeyHint, row.KeyPrefix = keyHint(hintKey), keyPrefix(hintKey)
+		row.KeyHint, row.KeyPrefix = orgKeyHint(hintKey), orgKeyPrefix(hintKey)
 	}
 	rec := secretRecord{ID: sp.ID, Name: sp.Name, Kind: sp.Kind, Target: sp.Target, Label: label, Status: "stored", CreatedAt: now()}
 	if status == orgStatusVerified {
@@ -565,19 +596,27 @@ func (g *AccountGateway) testOrgResource(w http.ResponseWriter, r *http.Request,
 		key, zone, _ := strings.Cut(secret.Value, "\x00")
 		res = verifyOrgWeb(g.orgWebProbe(ctx, sp.Target, key, zone))
 	}
-	if res.ok {
-		row.Status, row.ErrorCode, row.VerifiedAt = orgStatusVerified, "", sql.NullString{String: now(), Valid: true}
-	} else if res.reject {
-		row.Status, row.ErrorCode, row.VerifiedAt = orgStatusRejected, res.code, sql.NullString{}
-	}
 	if res.ok || res.reject {
-		row.UpdatedAt = now()
+		status, code, verified := orgStatusVerified, "", sql.NullString{String: now(), Valid: true}
+		switch {
+		case res.reject:
+			status, code, verified = orgStatusRejected, res.code, sql.NullString{}
+		case res.stored:
+			status, verified = orgStatusStored, sql.NullString{}
+		}
+		// Only the outcome is written, and only if no PUT replaced the resource
+		// while the check ran (updated_at is the version read before it).
 		g.orgWriteMu.Lock()
-		err = g.saveOrgResource(ctx, row)
+		result, uerr := g.root.store.db.ExecContext(ctx, `UPDATE org_resources SET status=?,error_code=?,verified_at=?,updated_at=? WHERE id=? AND updated_at=?`, status, code, verified, now(), sp.ID, row.UpdatedAt)
 		g.orgWriteMu.Unlock()
-		if err != nil {
-			storageFailure(w, "record test", err)
+		if uerr != nil {
+			storageFailure(w, "record test", uerr)
 			return
+		}
+		if n, _ := result.RowsAffected(); n == 1 {
+			if fresh, ok, e := g.getOrgResource(ctx, sp.ID); e == nil && ok {
+				row = fresh
+			}
 		}
 	}
 	if !res.ok {

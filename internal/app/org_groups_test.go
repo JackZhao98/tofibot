@@ -1,10 +1,12 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,6 +14,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestValidPolicyMatrix(t *testing.T) {
@@ -366,10 +369,10 @@ func TestAdminGroupsCRUDAndBuiltinsReadonly(t *testing.T) {
 	if got := orgErrCode(t, f.admin_(t, "PATCH", "/api/admin/groups/provided", `{"name":"Everything"}`, 409)); got != "group_builtin_readonly" {
 		t.Fatalf("provided rename: %s", got)
 	}
-	f.admin_(t, "PATCH", "/api/admin/groups/provided", `{"name":"Provided","policies":{"computer":{"mode":"provided","source":"vm"}}}`, 200)
+	f.admin_(t, "PATCH", "/api/admin/groups/provided", `{"name":"Provided","policies":{"computer":{"mode":"none"}}}`, 200)
 	var source string
-	f.g.root.store.db.QueryRow(`SELECT source FROM org_group_policies WHERE group_id='provided' AND capability='computer'`).Scan(&source)
-	if source != "vm" {
+	f.g.root.store.db.QueryRow(`SELECT mode FROM org_group_policies WHERE group_id='provided' AND capability='computer'`).Scan(&source)
+	if source != "none" {
 		t.Fatalf("provided edit not stored: %q", source)
 	}
 	for _, id := range []string{"self_serve", "provided"} {
@@ -515,7 +518,7 @@ func TestMemberForbiddenOnEveryOrgRoute(t *testing.T) {
 		{"GET", "/api/admin/org/web-tools"}, {"PUT", "/api/admin/org/web-tools"}, {"GET", "/api/admin/org/usage"}, {"GET", "/api/admin/org/nothing"},
 	}
 	for _, r := range routes {
-		if code, body := f.call(t, r[0], r[1], `{"name":"x","key":"synthetic-member-key-123456"}`, f.mc); code != 403 && code != 404 {
+		if code, body := f.call(t, r[0], r[1], `{"name":"x","key":"synthetic-member-key-123456"}`, f.mc); code != 403 {
 			t.Errorf("member %s %s: %d %s", r[0], r[1], code, body)
 		}
 		if code, _ := f.call(t, r[0], r[1], `{}`, nil); code != 401 {
@@ -534,6 +537,40 @@ func TestMemberForbiddenOnEveryOrgRoute(t *testing.T) {
 	f.g.root.store.db.QueryRow(`SELECT COUNT(*) FROM org_groups`).Scan(&n)
 	if n != 2 {
 		t.Fatalf("groups after member attempts: %d", n)
+	}
+}
+
+func TestOrgSecretNeverMarshals(t *testing.T) {
+	secret := orgSecret{ID: "provider:openai", Value: "synthetic-never-marshaled-value", Hint: "…abcd"}
+	for _, v := range []any{secret, &secret, map[string]any{"secret": secret}, []orgSecret{secret}} {
+		raw, err := json.Marshal(v)
+		if err != nil || strings.Contains(string(raw), "synthetic-never") || strings.Contains(string(raw), "abcd") {
+			t.Fatalf("marshaled %T: %s %v", v, raw, err)
+		}
+	}
+}
+
+func TestComputerProvidedVMNeedsKVMHost(t *testing.T) {
+	f := newOrgFixture(t) // no KVM host
+	body := `{"name":"vm group","policies":{"computer":{"mode":"provided","source":"vm"}}}`
+	if got := orgErrCode(t, f.admin_(t, "POST", "/api/admin/groups", body, 400)); got != "invalid_policy" {
+		t.Fatalf("provided vm without KVM: %s", got)
+	}
+	f.admin_(t, "PUT", "/api/admin/accounts/"+f.member.ID+"/policy", `{"overrides":{"computer":{"mode":"provided","source":"vm"}}}`, 400)
+	// A row stored before (the host changed) is reported as missing.
+	if _, err := f.g.root.store.db.Exec(`UPDATE org_group_policies SET source='vm' WHERE group_id='provided' AND capability='computer'`); err != nil {
+		t.Fatal(err)
+	}
+	missing, err := f.g.missingResources(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, m := range missing {
+		found = found || (m.Capability == capComputer && len(m.GroupIDs) > 0)
+	}
+	if !found {
+		t.Fatalf("missing: %+v", missing)
 	}
 }
 
@@ -614,6 +651,9 @@ func fakeOpenAI(t *testing.T, key string) *httptest.Server {
 
 func TestOrgSecretWriteOnly(t *testing.T) {
 	f := newOrgFixture(t)
+	var logs bytes.Buffer
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
 	up := fakeOpenAI(t, orgTestKey)
 	f.g.root.providerEndpoints[providerOpenAI] = up.URL + "/v1"
 	webProbe := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -674,6 +714,35 @@ func TestOrgSecretWriteOnly(t *testing.T) {
 		t.Fatalf("model test: %d %s", code, out)
 	}
 
+	// Anthropic, E2B and the compatible endpoint answer 401 and echo the key.
+	echo := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(401)
+		fmt.Fprintf(w, `{"error":{"message":"invalid key %s / %s / %s"}}`, orgTestKey, r.Header.Get("X-Api-Key"), r.Header.Get("Authorization"))
+	}))
+	defer echo.Close()
+	f.g.root.providerEndpoints[providerAnthropic] = echo.URL
+	t.Setenv("TOFI_E2B_API_BASE", echo.URL)
+	code, out = f.call(t, "PUT", "/api/admin/org/resources/provider:anthropic", `{"key":"`+orgTestKey+`","workspace_id":"wrkspc_abcdefgh12"}`, f.ac)
+	collect("anthropic echo", code, out)
+	if code != 400 || orgErrCode(t, out) != "invalid_key" {
+		t.Fatalf("anthropic echo: %d %s", code, out)
+	}
+	code, out = f.call(t, "PUT", "/api/admin/org/resources/computer:e2b", `{"key":"`+orgTestKey+`"}`, f.ac)
+	collect("e2b echo", code, out)
+	if code != 400 || orgErrCode(t, out) != "invalid_key" {
+		t.Fatalf("e2b echo: %d %s", code, out)
+	}
+	code, out = f.call(t, "PUT", "/api/admin/org/resources/provider:openai_compat", `{"base_url":"`+echo.URL+`/v1","key":"`+orgTestKey+`"}`, f.ac)
+	collect("compat echo", code, out)
+	if code != 400 || orgErrCode(t, out) != "invalid_key" {
+		t.Fatalf("compat echo: %d %s", code, out)
+	}
+	// Key ends: 16+ characters show the last four, 32+ also the first four.
+	code, out = f.call(t, "PUT", "/api/admin/org/resources/webtool:brave", `{"key":"twenty-chars-key-abc"}`, f.ac)
+	if code != 200 || !strings.Contains(out, `"key_hint":"…`) || strings.Contains(out, "key_prefix") {
+		t.Fatalf("a 25-character key shows a hint and no prefix: %d %s", code, out)
+	}
+
 	// Every read surface, as admin and as member.
 	both("GET", "/api/admin/org/resources", "")
 	both("GET", "/api/admin/org/resources/provider:openai", "")
@@ -700,6 +769,9 @@ func TestOrgSecretWriteOnly(t *testing.T) {
 	}
 	if raw, err := os.ReadFile(filepath.Join(f.g.config.DataDir, "accounts", f.member.ID, "secrets", "vault.json")); err == nil && strings.Contains(string(raw), "provider:") {
 		t.Fatal("a workspace vault holds a provider record")
+	}
+	if s := substr8(logs.String(), orgTestKey); s != "" {
+		t.Fatalf("the server log holds %q of the key: %s", s, logs.String())
 	}
 	// The server can still use it (in process only).
 	secret, err := f.g.orgCredential(context.Background(), "provider:openai")
@@ -731,16 +803,19 @@ func TestOrgResourceValidationAndKinds(t *testing.T) {
 	put("provider:openai", `{}`, 400)
 	put("provider:openai", `{"key":"has space"}`, 400)
 	put("provider:openai", `{"key":"abcdefgh","extra":1}`, 400)
-	put("provider:openai", `{"key":"abcdefgh","workspace_id":"wrkspc_abcdefgh12"}`, 400)
-	put("provider:anthropic", `{"key":"abcdefgh"}`, 400)
-	if got := orgErrCode(t, put("provider:anthropic", `{"key":"abcdefgh","workspace_id":"nope"}`, 400)); got != "invalid_workspace" {
+	put("provider:openai", `{"key":"abcdefgh-0123456789","workspace_id":"wrkspc_abcdefgh12"}`, 400)
+	if got := orgErrCode(t, put("provider:openai", `{"key":"short-15-chars"}`, 400)); got != "invalid_key" {
+		t.Fatalf("a key under 16 characters: %s", got)
+	}
+	put("provider:anthropic", `{"key":"abcdefgh-0123456789"}`, 400)
+	if got := orgErrCode(t, put("provider:anthropic", `{"key":"abcdefgh-0123456789","workspace_id":"nope"}`, 400)); got != "invalid_workspace" {
 		t.Fatalf("anthropic workspace: %s", got)
 	}
-	if got := orgErrCode(t, put("webtool:brightdata", `{"key":"abcdefgh"}`, 400)); got != "invalid_zone" {
+	if got := orgErrCode(t, put("webtool:brightdata", `{"key":"abcdefgh-0123456789"}`, 400)); got != "invalid_zone" {
 		t.Fatalf("brightdata zone: %s", got)
 	}
-	put("webtool:tavily", `{"key":"abcdefgh","zone":"z1"}`, 400)
-	put("computer:e2b", `{"key":"abcdefgh","template_id":"bad id!"}`, 400)
+	put("webtool:tavily", `{"key":"abcdefgh-0123456789","zone":"z1"}`, 400)
+	put("computer:e2b", `{"key":"abcdefgh-0123456789","template_id":"bad id!"}`, 400)
 	put("provider:openai_compat", `{"base_url":"ftp://x"}`, 400)
 
 	// Web keys store; zone stays readable; delete works.
@@ -1025,5 +1100,47 @@ func TestDeletingAdminKeepsOrgResources(t *testing.T) {
 	secret, err := g.orgCredential(ctx, "webtool:tavily")
 	if err != nil || secret.Value != "org-tavily-key-1234567890" {
 		t.Fatalf("the organization key is gone: %v", err)
+	}
+}
+
+// A Test that runs while the key is replaced must not write its old row back or
+// mark the new key rejected.
+func TestOrgTestDoesNotOverwriteConcurrentPut(t *testing.T) {
+	f := newOrgFixture(t)
+	started, release := make(chan struct{}), make(chan struct{})
+	probe := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(started)
+		<-release
+		w.WriteHeader(401)
+	}))
+	defer probe.Close()
+	f.g.orgWebEndpoints = map[string]string{"tavily": probe.URL}
+	f.admin_(t, "PUT", "/api/admin/org/resources/webtool:tavily", `{"key":"old-synthetic-key-AAAA1111"}`, 200)
+	done := make(chan string, 1)
+	go func() {
+		_, out := f.call(t, "POST", "/api/admin/org/resources/webtool:tavily/test", ``, f.ac)
+		done <- out
+	}()
+	<-started
+	time.Sleep(5 * time.Millisecond) // a later updated_at than the Test read
+	f.admin_(t, "PUT", "/api/admin/org/resources/webtool:tavily", `{"key":"new-synthetic-key-BBBB2222"}`, 200)
+	close(release)
+	if out := <-done; orgErrCode(t, out) != "invalid_key" {
+		t.Fatalf("the test result: %s", out)
+	}
+	row, _, _ := f.g.getOrgResource(context.Background(), "webtool:tavily")
+	if row.Status != orgStatusStored || row.KeyHint != keyHint("new-synthetic-key-BBBB2222") || row.ErrorCode != "" {
+		t.Fatalf("the stale Test changed the new key's row: %+v", row)
+	}
+}
+
+// An endpoint that lists no models and passes only on typed IDs is stored, not verified.
+func TestOrgCompatTypedModelsAreStoredNotVerified(t *testing.T) {
+	f := newOrgFixture(t)
+	down := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(500) }))
+	defer down.Close()
+	out := f.admin_(t, "PUT", "/api/admin/org/resources/provider:openai_compat", `{"base_url":"`+down.URL+`/v1","models":["llama-test"]}`, 200)
+	if !strings.Contains(out, `"status":"stored"`) || strings.Contains(out, "verified_at") {
+		t.Fatalf("typed-only endpoint: %s", out)
 	}
 }

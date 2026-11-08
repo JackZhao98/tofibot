@@ -73,6 +73,8 @@ const orgGroupsDDL = `CREATE TABLE IF NOT EXISTS org_groups(
  status TEXT NOT NULL,
  verified_at TEXT, error_code TEXT NOT NULL DEFAULT '',
  updated_at TEXT NOT NULL);
+ -- org_usage.account_id has no foreign key on purpose: usage history survives
+ -- account deletion for accounting. (A retention cleanup is a later slice.)
  CREATE TABLE IF NOT EXISTS org_usage(
  account_id TEXT NOT NULL, month TEXT NOT NULL, capability TEXT NOT NULL,
  requests INTEGER NOT NULL DEFAULT 0, usd REAL NOT NULL DEFAULT 0, updated_at TEXT NOT NULL,
@@ -262,8 +264,9 @@ type OrgUsageEvent struct {
 // log or an error string by accident.
 type orgSecret struct {
 	ID, Kind string
-	Value    string
-	Hint     string
+	// Value never marshals: an orgSecret that reaches a JSON encoder by mistake carries no key.
+	Value string `json:"-"`
+	Hint  string `json:"-"`
 }
 
 func (o orgSecret) Format(f fmt.State, _ rune) { _, _ = fmt.Fprintf(f, "orgSecret(%s)", o.ID) }
