@@ -470,10 +470,8 @@ func (p *Provider) Prepare(ctx context.Context) error {
 	if st.Phase == PhaseReady && st.TemplateID != "" && st.TemplateVersion == p.cfg.Version {
 		return nil
 	}
-	if st.SandboxID != "" && st.TemplateVersion != p.cfg.Version {
-		// The sandbox belongs to an older template; the next use recreates it.
-		_ = p.Remove(ctx)
-	}
+	// A sandbox of an older template is kept: it reports guest_outdated and the
+	// person decides when to replace it (Upgrade). Its files are never dropped here.
 	_ = p.update(func(s *State) { s.Phase, s.ErrorCode, s.Error = PhasePreparing, "", "" })
 	failed := func(err error, fallback string) error {
 		if errors.Is(ctx.Err(), context.Canceled) {

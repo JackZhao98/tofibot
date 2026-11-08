@@ -875,6 +875,22 @@ func TestTheTemplateGatesOnlyCreation(t *testing.T) {
 	}
 }
 
+func TestPrepareKeepsASandboxOfAnOlderTemplate(t *testing.T) {
+	f := newFake(t)
+	f.buildStatus = []string{"ready"}
+	p, store := f.provider(State{Phase: PhaseReady, TemplateID: "tpl0", TemplateVersion: "v0.0.1", SandboxID: "sbx9", SandboxVersion: "v0.0.1"})
+	if err := p.Prepare(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	st := store.state
+	if f.kills != 0 || st.SandboxID != "sbx9" || st.TemplateVersion != "v1.2.3+rc.1" || st.TemplateID != "tpl1" {
+		t.Fatalf("kills %d state %+v: the old sandbox must stay", f.kills, st)
+	}
+	if got := p.Status(); !got.GuestOutdated {
+		t.Fatalf("status %+v", got)
+	}
+}
+
 func TestOutdatedSandboxStaysUsableUntilTheUpgrade(t *testing.T) {
 	f := newFake(t)
 	p, store := f.provider(State{Phase: PhaseReady, TemplateID: "tpl1", TemplateVersion: "v1"})

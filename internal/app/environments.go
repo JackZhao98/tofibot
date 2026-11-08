@@ -425,7 +425,7 @@ func (s *Server) restoreE2BEnvironment(preferE2B bool) {
 	}
 	st := p.Status()
 	switch {
-	case st.Phase == e2b.PhasePreparing || st.Phase == e2b.PhaseNone:
+	case st.TemplatePhase == e2b.PhasePreparing || st.TemplatePhase == e2b.PhaseNone:
 		// A build cut short by the restart: run it again.
 		s.startE2BPrepare(p, preferE2B)
 	case preferE2B && s.computer() == nil:
@@ -564,8 +564,8 @@ func (s *Server) environmentsView(ctx context.Context) environmentsView {
 		if preparing && phase != "ready" {
 			phase = "preparing"
 		}
-		out.E2B = e2bView{Configured: true, KeyHint: rec.Label, Phase: phase, ErrorCode: st.ErrorCode, Error: st.Error}
-		item := environmentItem{ID: e2bEnvironmentID, Kind: envKindE2B, State: "asleep", ErrorCode: st.ErrorCode, Access: "none", Actions: []string{}}
+		out.E2B = e2bView{Configured: true, KeyHint: rec.Label, Phase: phase, ErrorCode: st.ErrorCode, Error: st.Error, TemplatePhase: st.TemplatePhase, GuestOutdated: st.GuestOutdated || st.GuestOutdatedRequired}
+		item := environmentItem{ID: e2bEnvironmentID, Kind: envKindE2B, State: "asleep", ErrorCode: st.ErrorCode, Access: "none", Actions: []string{}, GuestOutdated: out.E2B.GuestOutdated}
 		switch {
 		case phase == "preparing" || phase == "none":
 			item.State = "preparing"
@@ -575,12 +575,19 @@ func (s *Server) environmentsView(ctx context.Context) environmentsView {
 			item.BotComputer, item.Access = true, "all_bots"
 			if info, err := s.microVMInfo(ctx); err == nil {
 				item.State = environmentState(info.State)
-				if info.State == "error" {
+				if info.State == "error" && !st.GuestOutdatedRequired {
 					item.Actions = append(item.Actions, "retry")
 				}
 			}
 		default:
 			item.Actions = append(item.Actions, "use")
+		}
+		if st.GuestOutdatedRequired {
+			item.ErrorCode = e2b.CodeGuestOutdatedRequired
+			item.State = "failed"
+		}
+		if out.E2B.GuestOutdated {
+			item.Actions = append(item.Actions, "upgrade")
 		}
 		item.Actions = append(item.Actions, "remove")
 		// The Bot computer is listed first.

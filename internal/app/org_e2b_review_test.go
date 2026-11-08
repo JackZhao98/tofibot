@@ -430,3 +430,63 @@ func TestAccountDeleteReclaimsOrgE2BSandbox(t *testing.T) {
 		t.Fatal("another account's sandbox was removed")
 	}
 }
+
+// The person's own E2B computer is never replaced silently when a new TOFI version
+// builds a new template: it keeps working, reports guest_outdated, and the
+// upgrade action replaces it on request.
+func TestOwnE2BComputerKeepsItsSandboxOnANewTemplateUntilUpgrade(t *testing.T) {
+	setTestVersion(t, "v1.0.0")
+	f := newOrgFixture(t)
+	fake := newOrgE2BFake(t, ownE2BKeyText)
+	ws := f.memberWorkspace(t)
+	if err := ws.storeVaultValue(e2bKeyVaultID, "E2B API key", keyHint(ownE2BKeyText), ownE2BKeyText); err != nil {
+		t.Fatal(err)
+	}
+	if err := (e2bStore{ws}).SaveState(e2b.State{TemplateID: "tpl_own", TemplateVersion: "v1.0.0", Phase: e2b.PhaseReady}); err != nil {
+		t.Fatal(err)
+	}
+	p := ws.e2bCurrent()
+	if p == nil {
+		t.Fatal("no own provider")
+	}
+	if _, err := p.Action(context.Background(), computer.Action{BotID: e2bTestBotID, Name: "shell.exec"}); err != nil {
+		t.Fatal(err)
+	}
+	oldSandbox := p.Status().SandboxID
+	if oldSandbox == "" || p.Status().GuestOutdated {
+		t.Fatalf("status %+v", p.Status())
+	}
+	if err := ws.attachProvider(p); err != nil {
+		t.Fatal(err)
+	}
+	// A new TOFI version builds its template. The sandbox stays.
+	setTestVersion(t, "v1.1.0")
+	ws.e2bEnv.mu.Lock()
+	ws.e2bEnv.provider = nil
+	ws.e2bEnv.mu.Unlock()
+	p2 := ws.e2bCurrent()
+	if err := p2.Prepare(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if fake.sandbox(oldSandbox) == nil {
+		t.Fatal("the new template build removed the person's sandbox (no silent replacement)")
+	}
+	st := p2.Status()
+	if !st.GuestOutdated || st.SandboxID != oldSandbox || st.Phase != e2b.PhaseReady {
+		t.Fatalf("status %+v", st)
+	}
+	if _, err := p2.Action(context.Background(), computer.Action{BotID: e2bTestBotID, Name: "shell.exec"}); err != nil {
+		t.Fatalf("the outdated sandbox must keep working: %v", err)
+	}
+	it, ok := environmentByID(environments(t, ws), e2bEnvironmentID)
+	if !ok || !it.GuestOutdated || !hasAction(it, "upgrade") {
+		t.Fatalf("own computer view: %+v", it)
+	}
+	// Legacy state without a recorded version counts as outdated, still usable.
+	if err := p2.Upgrade(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if fake.sandbox(oldSandbox) != nil || p2.Status().GuestOutdated || p2.Status().SandboxID == oldSandbox {
+		t.Fatalf("after the upgrade: %+v", p2.Status())
+	}
+}
