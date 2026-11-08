@@ -16,6 +16,7 @@ import (
 
 	"github.com/JackZhao98/tofibot/internal/extensions"
 	"github.com/JackZhao98/tofibot/internal/provider"
+	"github.com/JackZhao98/tofibot/internal/runtime"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
@@ -553,12 +554,13 @@ func (s *Server) requestMCPReview(ctx context.Context, r Run, call extensions.MC
 	var failure *mcpReviewFailure
 	for attempt := 1; attempt <= 2; attempt++ {
 		started := time.Now()
+		org := s.credentialSource(runtime.ModelProvider(model)) == sourceOrganization
 		resp, err := p.Chat(ctx, &provider.ChatRequest{Model: model, System: mcpAutoReviewPrompt, Messages: []provider.Message{{Role: "user", Content: string(raw)}}, Tools: nil})
 		if resp != nil {
 			if e := s.store.recordAuxiliaryModelUsage(r.ID, model, resp.Usage.InputTokens, resp.Usage.OutputTokens); e != nil {
 				log.Printf("[usage] reviewer usage for run %s: %v", r.ID, e)
 			}
-			s.noteOrgModelUse(model, resp.Usage)
+			s.noteOrgModelUseAs(org, model, resp.Usage)
 		}
 		var result mcpReviewResult
 		var fenced bool

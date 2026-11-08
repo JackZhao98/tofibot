@@ -355,6 +355,9 @@ func (sr settingRun) revert(ctx context.Context, in settingsToolInput) (string, 
 		return "", settingsDenied("settings_change_not_revertable", "This change cannot be undone with the tool.")
 	}
 	lang := sr.s.settingsLanguage()
+	if mode := managedSettingMode(d.Key, sr.s.policy()); mode != "" {
+		return "", settingsManagedError("This setting is managed by the organization (" + mode + "). Nothing was changed; say so and do not try another way.")
+	}
 	t := change.target()
 	if err := sr.checkRevertable(ctx, d, t, change); err != nil {
 		return "", err

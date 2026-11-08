@@ -292,6 +292,7 @@ type computerPolicyFixture struct {
 	*orgFixture
 	broker  *brokerLog
 	configs map[string]Config
+	vms     map[string]*fakeComputer
 }
 
 func newComputerPolicyFixture(t *testing.T) *computerPolicyFixture {
@@ -324,7 +325,7 @@ func newComputerPolicyFixture(t *testing.T) *computerPolicyFixture {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { g.Close() })
-	p := &computerPolicyFixture{broker: b, configs: map[string]Config{}}
+	p := &computerPolicyFixture{broker: b, configs: map[string]Config{}, vms: map[string]*fakeComputer{}}
 	g.runtimeFactory = func(c Config) (*Server, error) {
 		p.configs[c.AccountID] = c
 		c.ComputerSocket = "" // the fake computer stands in for the Worker's socket
@@ -333,6 +334,7 @@ func newComputerPolicyFixture(t *testing.T) *computerPolicyFixture {
 			return nil, err
 		}
 		vm := newFakeComputer("fake-" + c.AccountID)
+		p.vms[c.AccountID] = vm
 		s.computerFactory = func() (computer.Provider, error) { return vm, nil }
 		return s, nil
 	}
@@ -678,6 +680,9 @@ func TestOrgSecretNeverInMemberResponses(t *testing.T) {
 	if _, _, err := org.put(secretRecord{ID: providerVaultID(providerOpenAI), Name: "k", Kind: modelProviderKind, Target: providerOpenAI, CreatedAt: now()}, enforceOrgKey); err != nil {
 		t.Fatal(err)
 	}
+	if err := f.g.saveOrgResource(context.Background(), orgResourceRow{ID: providerVaultID(providerOpenAI), Kind: modelProviderKind, Config: "{}", Status: orgStatusVerified, UpdatedAt: now()}); err != nil {
+		t.Fatal(err)
+	}
 	f.admin_(t, "PUT", "/api/admin/org/resources/webtool:tavily", `{"key":"`+enforceOrgKey+`"}`, 200)
 	f.admin_(t, "PUT", "/api/admin/org/resources/webtool:firecrawl", `{"key":"`+enforceOrgKey+`"}`, 200)
 	f.setOverrides(t, `{"ai_models":{"mode":"provided"},"web_search":{"mode":"provided"},"web_fetch":{"mode":"provided"}}`)
@@ -712,6 +717,25 @@ func TestOrgSecretNeverInMemberResponses(t *testing.T) {
 		t.Fatal("expected the upstream refusal")
 	}
 	record("model error", err.Error())
+	// A down organization endpoint must not give its address to the member either.
+	up.Close()
+	f.setOverrides(t, `{"ai_models":{"mode":"provided"},"web_search":{"mode":"provided"},"web_fetch":{"mode":"provided"}}`)
+	derr := chatOnce(ctx, ws, "compat:llama-test")
+	if derr == nil {
+		t.Fatal("a stopped endpoint answered")
+	}
+	hostPort := strings.TrimPrefix(up.URL, "http://")
+	for _, text := range []string{derr.Error(), ws.redactRunError("compat:llama-test", fmt.Errorf("Post %q: dial tcp %s: connect: connection refused (key %s)", up.URL+"/v1/chat/completions", hostPort, enforceOrgKey))} {
+		if strings.Contains(text, hostPort) || strings.Contains(text, up.URL) || substr8(text, enforceOrgKey) != "" {
+			t.Fatalf("the organization endpoint or key reached an error: %s", text)
+		}
+	}
+	derrRun := Run{Status: "failed", Error: ws.redactRunError("compat:llama-test", derr), Model: "compat:llama-test"}
+	rawRun, _ := json.Marshal(derrRun)
+	record("run record of a down endpoint", string(rawRun))
+	if strings.Contains(string(rawRun), hostPort) {
+		t.Fatal("the endpoint address is in the run record")
+	}
 	if orgFailure(err.Error()) != codeProviderAuthFailed {
 		t.Fatalf("the refusal is not a named code: %v", err)
 	}
@@ -721,26 +745,40 @@ func TestOrgSecretNeverInMemberResponses(t *testing.T) {
 	if run.failure().Code != codeProviderAuthFailed {
 		t.Fatalf("failure code %s", run.failure().Code)
 	}
+	// The refusal is recorded on the organization resource, not only logged.
+	if row, _, _ := f.g.getOrgResource(ctx, providerVaultID(providerOpenAI)); row.Status != orgStatusRejected || row.ErrorCode != codeProviderAuthFailed {
+		t.Fatalf("the model key's rejection was not recorded: %+v", row)
+	}
 	// A vendor that refuses the key and echoes it.
 	f.admin_(t, "PUT", "/api/admin/org/resources/webtool:tavily", `{"key":"`+enforceOrgKey+`-x"}`, 200)
 	for _, tl := range tools {
 		if tl.Name == "web_search" {
 			_, e := tl.Execute(ctx, json.RawMessage(`{"query":"tofu"}`))
-			if e == nil {
-				t.Fatal("a refused key searched")
+			if outcomeCode(e) != "web_auth_failed" {
+				t.Fatalf("a refused organization key must be a named failure: %v", e)
 			}
 			record("search failure", e.Error())
 		}
+	}
+	if row, _, _ := f.g.getOrgResource(ctx, webVaultID("tavily")); row.Status != orgStatusRejected {
+		t.Fatalf("the web key's rejection was not recorded: %+v", row)
 	}
 	// Every member-reachable response.
 	for _, path := range []string{"/api/providers", "/api/web-tools", "/api/environments", "/api/config", "/api/models", "/api/automation-settings", "/api/model-settings", "/api/usage", "/api/computer/capabilities", "/api/secrets"} {
 		code, out := f.memberCall(t, "GET", path, "")
 		record("GET "+path+fmt.Sprintf(" (%d)", code), out)
 	}
-	for _, path := range []string{"/api/export", "/api/account/export"} {
-		_, out := f.memberCall(t, "GET", path, "")
-		record("GET "+path, out)
+	// The real exports: the portable export of everything and the bundle the account-deletion export seals.
+	code, out := f.memberCall(t, "POST", "/api/portability/export", `{"selection":{"categories":`+jsonText(portableDefaultCategories)+`}}`)
+	if code != 200 || len(out) < 100 {
+		t.Fatalf("portable export: %d %.200s", code, out)
 	}
+	record("portable export", out)
+	bundle, _, err := f.g.exportBundle(ctx, f.member)
+	if err != nil || len(bundle) < 100 {
+		t.Fatalf("account export bundle: %v (%d bytes)", err, len(bundle))
+	}
+	record("account export bundle", string(bundle))
 	// Disk: the workspace database, WAL, vault and every other file; and the log.
 	scanTreeForKey(t, f.memberDir(), enforceOrgKey)
 	if s := substr8(logs.String(), enforceOrgKey); s != "" {
@@ -816,4 +854,9 @@ func TestPolicyNotesAreShort(t *testing.T) {
 	if kind := contextKindFor(note); kind != ctxKindPolicy {
 		t.Fatalf("kind %s", kind)
 	}
+}
+
+func jsonText(v any) string {
+	raw, _ := json.Marshal(v)
+	return string(raw)
 }

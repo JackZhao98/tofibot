@@ -227,7 +227,7 @@ func streamWithWatchdogs(ctx context.Context, providerName string, client *http.
 	// No client timeout: the watchdogs bound header wait and body separately.
 	resp, err := client.Do(httpReq)
 	if err != nil {
-		return nil, watchdogErr(fmt.Errorf("request failed: %w", err))
+		return nil, watchdogErr(RequestFailure(err))
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {

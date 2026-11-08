@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"net/url"
 	"strings"
 	"syscall"
 	"time"
@@ -159,9 +160,22 @@ func (s *Server) orgProviderKeyNow(name string) (providerKeyState, bool) {
 // 402, 403, a quota 429) is replaced by a named code, so no upstream text, which
 // may echo the key, reaches an error, a run record, a capture or a log. Other
 // error bodies pass with every 8-character stretch of the credential removed.
-type orgSanitizeTransport struct{ base http.RoundTripper }
+type orgSanitizeTransport struct {
+	base http.RoundTripper
+	// resource is the organization resource whose credential this client carries.
+	resource string
+	// hostOK, when set, binds the client to the organization's own endpoint: a
+	// request to any other host (a person's own address, a redirect) is refused,
+	// whatever the dial rule would allow.
+	hostOK func(host string) bool
+	// outcome records a refusal of the credential on the resource.
+	outcome func(resource, code string)
+}
 
 func (t orgSanitizeTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if t.hostOK != nil && !t.hostOK(req.URL.Host) {
+		return nil, errCompatBlocked
+	}
 	resp, err := t.base.RoundTrip(req)
 	if err != nil || resp.StatusCode < 400 {
 		return resp, err
@@ -190,6 +204,9 @@ func (t orgSanitizeTransport) RoundTrip(req *http.Request) (*http.Response, erro
 			body += " insufficient_quota" // keeps the no-retry rule for an exhausted account
 		}
 		log.Printf("[org] model provider answered HTTP %d for an organization credential (%s)", resp.StatusCode, code)
+		if t.outcome != nil {
+			t.outcome(t.resource, code)
+		}
 	} else {
 		body = scrubSecrets(body, secrets)
 	}
@@ -262,7 +279,13 @@ func orgFailureMessage(code string) string {
 // noteOrgModelUse reports one model call to the organization's usage when it
 // used an organization credential. Own keys report nothing.
 func (s *Server) noteOrgModelUse(model string, usage provider.Usage) {
-	if s.orgUsage == nil || s.credentialSource(runtime.ModelProvider(model)) != sourceOrganization {
+	s.noteOrgModelUseAs(s.credentialSource(runtime.ModelProvider(model)) == sourceOrganization, model, usage)
+}
+
+// noteOrgModelUseAs reports with the credential source the caller fixed when it
+// started the call, so a policy change during the call cannot misattribute it.
+func (s *Server) noteOrgModelUseAs(org bool, model string, usage provider.Usage) {
+	if s.orgUsage == nil || !org {
 		return
 	}
 	usd, _ := usageEquivalent(model, usage)
@@ -285,8 +308,10 @@ func (s *Server) noteOrgWebUse(chain, id string) {
 }
 
 // orgModelClient is the client of a model provider while the credential is the
-// organization's: the same destination rules as the own client (the dial check
-// runs for a compatible endpoint), with refusals of the credential redacted.
+// organization's, with refusals of the credential redacted and recorded. For a
+// compatible endpoint it has its own transport (private addresses allowed,
+// link-local, unspecified and multicast refused at every dial) and is bound to the
+// organization's endpoint host: the dial rule follows the client, not a policy read.
 func (s *Server) orgModelClient(name string) *http.Client {
 	s.providerMu.Lock()
 	c := s.orgHTTPClients[name]
@@ -294,13 +319,21 @@ func (s *Server) orgModelClient(name string) *http.Client {
 	if c != nil {
 		return c
 	}
-	var base http.RoundTripper = http.DefaultTransport
+	tr := orgSanitizeTransport{base: http.DefaultTransport, resource: providerVaultID(name), outcome: s.orgOutcome}
 	timeout := time.Duration(0)
 	if name == providerCompat {
-		own := s.ownCompatClient()
-		base, timeout = own.Transport, own.Timeout
+		tr.base = &http.Transport{
+			Proxy:                 nil,
+			DialContext:           (&net.Dialer{Timeout: 10 * time.Second, Control: orgEndpointControl}).DialContext,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ResponseHeaderTimeout: 5 * time.Minute,
+			MaxIdleConnsPerHost:   4,
+			IdleConnTimeout:       60 * time.Second,
+		}
+		tr.hostOK = s.isOrgCompatHost
+		timeout = 10 * time.Minute
 	}
-	c = &http.Client{Timeout: timeout, Transport: orgSanitizeTransport{base: base}}
+	c = &http.Client{Timeout: timeout, Transport: tr}
 	s.providerMu.Lock()
 	defer s.providerMu.Unlock()
 	if s.orgHTTPClients == nil {
@@ -311,6 +344,70 @@ func (s *Server) orgModelClient(name string) *http.Client {
 	}
 	s.orgHTTPClients[name] = c
 	return c
+}
+
+// isOrgCompatHost says whether host is the organization's compatible endpoint.
+func (s *Server) isOrgCompatHost(host string) bool {
+	st, ok := s.orgProviderKeyNow(providerCompat)
+	if !ok {
+		return false
+	}
+	cfg := parseCompatKey(st.Key)
+	u, err := url.Parse(cfg.BaseURL)
+	return err == nil && u.Host != "" && strings.EqualFold(u.Host, host)
+}
+
+// ---- scrubbing a stored or logged error ----
+
+// orgScrubTerms are the organization secrets and the compatible endpoint's address,
+// for the backstop that cleans error text before it is stored or logged.
+func (s *Server) orgScrubTerms() (secrets, hosts []string) {
+	if s.orgCredential == nil {
+		return nil, nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), policyReadTimeout)
+	defer cancel()
+	for _, name := range apiKeyProviders {
+		sec, err := s.orgCredential(ctx, providerVaultID(name))
+		if err != nil {
+			continue
+		}
+		if name == providerCompat {
+			cfg := parseCompatKey(sec.Value)
+			if cfg.Key != "" {
+				secrets = append(secrets, cfg.Key)
+			}
+			if u, err := url.Parse(cfg.BaseURL); err == nil && u.Host != "" {
+				hosts = append(hosts, u.Host, u.Hostname())
+			}
+			continue
+		}
+		for _, part := range strings.Split(sec.Value, "\x00") {
+			if part != "" {
+				secrets = append(secrets, part)
+			}
+		}
+	}
+	return secrets, hosts
+}
+
+// redactOrgText removes the organization's keys and endpoint address from text
+// when the model's credential is the organization's. It is the backstop behind the
+// transport: it also covers an error event inside an HTTP 200 stream.
+func (s *Server) redactOrgText(model, text string) string {
+	if text == "" || s.credentialSource(runtime.ModelProvider(model)) != sourceOrganization {
+		return text
+	}
+	secrets, hosts := s.orgScrubTerms()
+	text = scrubSecrets(text, secrets)
+	for _, h := range hosts {
+		text = strings.ReplaceAll(text, h, "[organization endpoint]")
+	}
+	return text
+}
+
+func (s *Server) redactRunError(model string, err error) string {
+	return s.redactOrgText(model, err.Error())
 }
 
 // ---- model-facing text ----
@@ -452,29 +549,50 @@ func (g *AccountGateway) groupMemberIDs(ctx context.Context, groupID string) []s
 // A workspace that is not loaded follows the policy when it starts.
 func (g *AccountGateway) applyPolicyChange(accountIDs []string) {
 	for _, id := range accountIDs {
+		// The wait group is joined under g.mu with the closed flag, so Close never
+		// waits while a detach is being added, and none starts after Close.
 		g.mu.Lock()
+		if g.closed {
+			g.mu.Unlock()
+			return
+		}
 		ws := g.workspaces[id]
+		if ws != nil {
+			g.policyApply.Add(1)
+		}
 		g.mu.Unlock()
 		if ws == nil {
 			continue
 		}
-		pol, err := g.policyFor(context.Background(), id)
-		if err != nil {
-			continue
-		}
-		v := pol[capComputer]
-		cur := ws.computer()
-		if cur == nil || (cur.Kind() == envKindE2B && computerAllowsOwnE2B(v)) || (cur.Kind() != envKindE2B && computerAllowsVM(v)) {
-			continue // nothing attached, or what is attached is what the policy allows
-		}
-		g.policyApply.Add(1)
-		go func(ws *Server, id string, v PolicyValue) {
+		go func(ws *Server, id string) {
 			defer g.policyApply.Done()
-			ctx, cancel := context.WithTimeout(context.Background(), 3*detachWaitDefault)
-			defer cancel()
-			if _, err := ws.DetachVM(ctx, detachWaitDefault); err != nil && !errors.Is(err, errComputerNone) {
-				log.Printf("[org] detach after policy change for account %s: %v", id, err)
-			}
-		}(ws, id, pol[capComputer])
+			ws.enforceComputerPolicy(context.Background())
+		}(ws, id)
 	}
+}
+
+// enforceComputerPolicy detaches the attached computer when the current policy
+// does not allow it (DetachVM: stop new calls, drain, copy the outbox, detach).
+func (s *Server) enforceComputerPolicy(ctx context.Context) {
+	if s.orgPolicy == nil {
+		return
+	}
+	v := s.policy()[capComputer]
+	cur := s.computer()
+	if cur == nil || (cur.Kind() == envKindE2B && computerAllowsOwnE2B(v)) || (cur.Kind() != envKindE2B && computerAllowsVM(v)) {
+		return // nothing attached, or what is attached is what the policy allows
+	}
+	ctx, cancel := context.WithTimeout(ctx, 3*detachWaitDefault)
+	defer cancel()
+	if _, err := s.DetachVM(ctx, detachWaitDefault); err != nil && !errors.Is(err, errComputerNone) {
+		log.Printf("[org] detach after policy change for account %s: %v", s.accountID, err)
+	}
+}
+
+// redactErrOrNil is err's text cleaned for the log, or the error itself when nil.
+func (s *Server) redactErrOrNil(model string, err error) any {
+	if err == nil {
+		return nil
+	}
+	return s.redactOrgText(model, err.Error())
 }

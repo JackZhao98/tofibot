@@ -380,8 +380,13 @@ func (s *Server) attachProvider(p computer.Provider) error {
 // restoreE2BEnvironment runs at start-up after the vault opens. preferE2B is
 // the stored choice; start-up did not attach the VM when it is set.
 func (s *Server) restoreE2BEnvironment(preferE2B bool) {
-	if !computerAllowsOwnE2B(s.policy()[capComputer]) {
-		return // the policy gives this account no E2B computer of its own
+	if v := s.policy()[capComputer]; !computerAllowsOwnE2B(v) {
+		// The policy gives this account no E2B computer of its own. A stored choice
+		// of one must not leave a VM-allowed account without its VM.
+		if preferE2B && computerAllowsVM(v) {
+			s.fallBackToVM("the policy gives no computer of its own")
+		}
+		return
 	}
 	p := s.e2bCurrent()
 	if p == nil {

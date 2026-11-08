@@ -272,6 +272,8 @@ type Config struct {
 	// OrgConfig returns the non-secret configuration of an organization
 	// resource (the web-tools order, for one); found is false when none is stored.
 	OrgConfig func(ctx context.Context, resource string) (config json.RawMessage, found bool, err error)
+	// OrgResourceOutcome records that the provider refused an organization credential (code names why).
+	OrgResourceOutcome func(resource, code string)
 }
 type Server struct {
 	// personalComputers is Config.PersonalComputers: the pairing routes answer only when it is set.
@@ -293,6 +295,7 @@ type Server struct {
 	orgCredential                        func(ctx context.Context, resource string) (orgSecret, error)
 	orgUsage                             func(ev OrgUsageEvent)
 	orgConfig                            func(ctx context.Context, resource string) (json.RawMessage, bool, error)
+	orgOutcome                           func(resource, code string)
 	webEndpoints                         map[string]string       // Tests only: redirects a paid web source.
 	orgHTTPClients                       map[string]*http.Client // providerMu; clients that read errors of an organization credential
 	mcpApprovalMu                        sync.Mutex
@@ -3078,7 +3081,7 @@ func NewServer(c Config) (*Server, error) {
 	if savedSettings.ReasoningEffort == "" {
 		savedSettings.ReasoningEffort = "medium"
 	}
-	server := &Server{accountID: c.AccountID, accountIsAdmin: c.AccountIsAdmin, orgPolicy: c.OrgPolicy, orgCredential: c.OrgCredential, orgUsage: c.OrgUsage, orgConfig: c.OrgConfig, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerFactory: computerFactory, computerSlots: map[string]*computerSlot{}, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}, providerEndpoints: map[string]string{}, envProviderKeys: map[string]string{}, envProviderErrors: map[string]string{}, providerCatalogs: map[string]providerCatalog{}}
+	server := &Server{accountID: c.AccountID, accountIsAdmin: c.AccountIsAdmin, orgPolicy: c.OrgPolicy, orgCredential: c.OrgCredential, orgUsage: c.OrgUsage, orgConfig: c.OrgConfig, orgOutcome: c.OrgResourceOutcome, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerFactory: computerFactory, computerSlots: map[string]*computerSlot{}, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}, providerEndpoints: map[string]string{}, envProviderKeys: map[string]string{}, envProviderErrors: map[string]string{}, providerCatalogs: map[string]providerCatalog{}}
 	server.personalComputers = c.PersonalComputers
 	st.storage = storageGate{limit: c.StorageLimit, minFree: c.HostMinFreeBytes}
 	st.spendSnapshot = c.SpendSnapshot
@@ -4634,6 +4637,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		return ""
 	}
 	runEngine := engine
+	var orgCall atomic.Bool
 	var onToolCallDelta func(runtime.ToolCallDelta)
 	if sayStream != nil {
 		onToolCallDelta = sayStream.Delta
@@ -4654,6 +4658,8 @@ func (s *Server) execute(c Conversation, r Run) {
 		if err := steeringBoundary(); err != nil {
 			return err
 		}
+		// The credential source of this call, fixed when the call starts (usage follows it).
+		orgCall.Store(s.credentialSource(runtime.ModelProvider(model)) == sourceOrganization)
 		return s.store.checkSpendCap(model, time.Now())
 	}, DrainInbox: drainInbox, BeginStep: s.beginStep(r.ID), BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
 		OnThinking: onThinking, OnRetry: onRetry, OnStreamReset: onStreamReset, OnReviewDraft: onReviewDraft,
@@ -4704,7 +4710,7 @@ func (s *Server) execute(c Conversation, r Run) {
 			if err := s.store.recordModelUsage(r.ID, u); err != nil {
 				log.Printf("[usage] model usage: %v", err)
 			}
-			s.noteOrgModelUse(model, u)
+			s.noteOrgModelUseAs(orgCall.Load(), model, u)
 		},
 		OnCompact: func(_, compacted int) {
 			if err := s.store.recordContextCompact(r.ID, compacted); err != nil {
@@ -4768,7 +4774,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		if status == "failed" && r.Kind == runKindTriage && s.routeAfterFailedTriage(c, r, e) {
 			return // an unavailable routing model hands the message to the default member
 		}
-		s.store.SetRunStatus(r.ID, status, e.Error())
+		s.store.SetRunStatus(r.ID, status, s.redactRunError(model, e))
 		if failed, fe := s.store.GetRun(r.ID); fe == nil {
 			_, _ = s.store.Event(c.ID, "run", failed)
 		}
@@ -5089,7 +5095,7 @@ func (s *Server) failRun(c Conversation, r Run, err error) {
 	if r.Kind == runKindTriage && s.routeAfterFailedTriage(c, r, err) {
 		return
 	}
-	if changed, _ := s.store.SetRunStatus(r.ID, "failed", err.Error()); changed {
+	if changed, _ := s.store.SetRunStatus(r.ID, "failed", s.redactRunError(s.runModel(r), err)); changed {
 		if failed, e := s.store.GetRun(r.ID); e == nil {
 			_, _ = s.store.Event(c.ID, "run", failed)
 		}

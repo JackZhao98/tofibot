@@ -254,7 +254,7 @@ func (o *openaiResponses) stream(ctx context.Context, req *ChatRequest, onDelta 
 	// No client timeout: the watchdogs bound header wait and body separately.
 	resp, err := o.client(0).Do(httpReq)
 	if err != nil {
-		return nil, idleErr(fmt.Errorf("request failed: %w", err))
+		return nil, idleErr(RequestFailure(err))
 	}
 	defer resp.Body.Close()
 
@@ -516,7 +516,7 @@ func (o *openaiResponses) doRequest(ctx context.Context, payload map[string]inte
 	client := o.client(5 * time.Minute)
 	resp, err := client.Do(httpReq)
 	if err != nil {
-		return "", fmt.Errorf("request failed: %w", err)
+		return "", RequestFailure(err)
 	}
 	defer resp.Body.Close()
 

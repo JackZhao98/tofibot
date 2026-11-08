@@ -396,6 +396,9 @@ func (s *Server) afterWebCall(chain, id string, org bool, err error) {
 		return
 	}
 	s.noteOrgWebUse(chain, id)
+	if (code == webtools.AuthFailed || code == webtools.QuotaExceeded) && s.orgOutcome != nil {
+		s.orgOutcome(webVaultID(id), string(code))
+	}
 	if code != "" {
 		log.Printf("[org] web source %s answered with code %s for an organization key", id, code)
 	}

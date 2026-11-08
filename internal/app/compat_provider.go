@@ -121,13 +121,11 @@ func normalizeCompatModelIDs(in []string) ([]string, error) {
 }
 
 // compatPrivateAllowed: where the person setting the endpoint is the server's
-// administrator, or the endpoint is the organization's (an admin configured it, so
-// the member's own role does not matter). Link-local, unspecified and multicast
-// stay refused at every dial either way.
+// administrator, a workspace without a gateway, or the operator allowed it. The
+// organization's endpoint is not decided here: it has its own client
+// (orgModelClient) whose dial check allows private addresses, bound to that
+// endpoint's host. Link-local, unspecified and multicast are refused at every dial.
 func (s *Server) compatPrivateAllowed() bool {
-	if s.accountID != "" && s.aiProvided() {
-		return true
-	}
 	if s.accountID == "" || os.Getenv(compatPrivateEnvFlag) == "1" || os.Getenv(privateEndpointsEnvFlag) == "1" {
 		return true
 	}

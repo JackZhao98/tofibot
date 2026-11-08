@@ -282,6 +282,7 @@ func (g *AccountGateway) wirePolicy(c *Config, a Account) {
 	c.OrgPolicy = func(ctx context.Context) (ResolvedPolicy, error) { return g.policyFor(ctx, id) }
 	c.OrgCredential = func(ctx context.Context, resource string) (orgSecret, error) { return g.orgCredential(ctx, resource) }
 	c.OrgUsage = func(ev OrgUsageEvent) { g.recordOrgUsage(id, ev) }
+	c.OrgResourceOutcome = func(resource, code string) { g.recordOrgRejection(resource, code) }
 	c.OrgConfig = func(ctx context.Context, resource string) (json.RawMessage, bool, error) {
 		row, found, err := g.getOrgResource(ctx, resource)
 		if err != nil || !found {
@@ -302,5 +303,22 @@ ON CONFLICT(account_id,month,capability) DO UPDATE SET requests=requests+exclude
 		accountID, at.Format("2006-01"), ev.Capability, ev.Requests, ev.USD, at.Format(time.RFC3339))
 	if err != nil {
 		log.Printf("[org] usage for account %s: %v", accountID, err)
+	}
+}
+
+// recordOrgRejection marks an organization resource rejected after a provider
+// refused its credential. Like the Test path it writes only the outcome, under
+// orgWriteMu, and only if the resource was not replaced since it was read.
+func (g *AccountGateway) recordOrgRejection(resource, code string) {
+	ctx, cancel := context.WithTimeout(context.Background(), policyReadTimeout)
+	defer cancel()
+	row, found, err := g.getOrgResource(ctx, resource)
+	if err != nil || !found || (row.Status == orgStatusRejected && row.ErrorCode == code) {
+		return
+	}
+	g.orgWriteMu.Lock()
+	defer g.orgWriteMu.Unlock()
+	if _, err := g.root.store.db.ExecContext(ctx, `UPDATE org_resources SET status=?,error_code=?,verified_at=NULL,updated_at=? WHERE id=? AND updated_at=?`, orgStatusRejected, code, now(), resource, row.UpdatedAt); err != nil {
+		log.Printf("[org] record rejection of %s: %v", resource, err)
 	}
 }
