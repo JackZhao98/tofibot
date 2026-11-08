@@ -58,6 +58,9 @@ export function ActionHints() {
     let visible = false;
     // Where the element sat when it was chosen: a scroll that leaves it in place (a list settling by a pixel) keeps the hint.
     let anchor: { left: number; top: number } | null = null;
+    // How far each ancestor was scrolled then. Position alone is not enough: a scroll can bring a different
+    // element into the same spot (the hover actions follow the message under the pointer).
+    let scrolledAt = new Map<Element, [number, number]>();
     let hiddenAt = -Infinity;
     // A hint whose text changes while it shows (a group's read-by names) follows the element.
     const watch = new MutationObserver(() => { const text = target.current?.dataset.hint; if (text) setHint(current => current && { ...current, text }); });
@@ -70,6 +73,8 @@ export function ActionHints() {
       if (target.current === element) return;
       hide(); target.current = element;
       const box = element.getBoundingClientRect(); anchor = { left: box.left, top: box.top };
+      scrolledAt = new Map();
+      for (let node = element.parentElement; node; node = node.parentElement) scrolledAt.set(node, [node.scrollTop, node.scrollLeft]);
       timer = window.setTimeout(() => {
         if (!element.isConnected) return;
         visible = true;
@@ -81,9 +86,12 @@ export function ActionHints() {
         setHint({ text: element.dataset.hint || "", tone: element.dataset.hintTone, x: Math.max(100, Math.min(innerWidth - 100, rect.left + rect.width / 2)), y: rect.top > 62 ? rect.top - 8 : rect.bottom + 8, above: rect.top > 62, host });
       }, event.type === "focusin" ? 150 : performance.now() - hiddenAt < 400 ? 0 : 500);
     };
-    const scrolled = () => {
+    const scrolled = (event: Event) => {
       const element = target.current;
-      if (element && anchor) { const box = element.getBoundingClientRect(); if (Math.abs(box.left - anchor.left) < 4 && Math.abs(box.top - anchor.top) < 4) return; }
+      const scroller = event.target === document ? document.scrollingElement : event.target;
+      const before = scroller instanceof Element ? scrolledAt.get(scroller) : undefined;
+      const scrolledAway = before !== undefined && (Math.abs((scroller as Element).scrollTop - before[0]) >= 4 || Math.abs((scroller as Element).scrollLeft - before[1]) >= 4);
+      if (element && anchor && !scrolledAway) { const box = element.getBoundingClientRect(); if (Math.abs(box.left - anchor.left) < 4 && Math.abs(box.top - anchor.top) < 4) return; }
       hide();
     };
     const leave = (event: PointerEvent) => { if (!target.current?.contains(event.relatedTarget as Node | null)) hide(); };
