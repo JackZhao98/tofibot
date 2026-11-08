@@ -13,7 +13,9 @@
       "policy_denied": "Cette action n’a pas passé le contrôle de sécurité",
       "connection_status": "Connexion perdue, état non confirmé",
       "runtime_connection": "Connexion interrompue, la tâche n’a pas abouti",
-      "unknown_failure": "La tâche n’a pas abouti"
+      "unknown_failure": "La tâche n’a pas abouti",
+      "org_resource_missing": "En attente de votre administrateur",
+      "org_credential_failed": "Le compte de modèles de l’organisation demande votre attention"
     },
     "action": {
       "open_tools": "Ouvrir les réglages des outils",
@@ -128,7 +130,12 @@
     "finishing_results_kept": "Finalisation en cours. Les résultats obtenus sont conservés.",
     "stopped_results_kept": "Ce flux de travail s’est arrêté. Les résultats obtenus sont conservés.",
     "completed_steps_kept": "Les étapes d’outil terminées sont conservées dans l’activité.",
-    "reply_below": "Le résultat se trouve dans la réponse ci-dessous."
+    "reply_below": "Le résultat se trouve dans la réponse ci-dessous.",
+    "org_resource_missing": "Votre organisation n’a pas fourni de modèle pour ce compte.",
+    "org_resource_missing_next": "Demandez à votre administrateur d’en ajouter un, puis réessayez.",
+    "org_credential_auth": "Les identifiants de modèles de l’organisation ont été refusés.",
+    "org_credential_quota": "Le compte de modèles de l’organisation a atteint sa limite d’utilisation.",
+    "org_credential_next": "Demandez à votre administrateur de vérifier les ressources de l’organisation."
   },
   "secondary": {
     "then_provider_busy": "Le service du modèle a ensuite été saturé et la tâche n’a pas abouti.",

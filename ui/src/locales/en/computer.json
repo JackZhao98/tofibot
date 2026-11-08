@@ -590,6 +590,10 @@
     },
     "configure": {
       "title": "Configure Bot computer"
-    }
+    },
+    "provided": "Provided by your organization",
+    "provided_note": "Your organization provides this Bot computer. Its key and image are managed by your administrator.",
+    "none_title": "Your administrator has not assigned a Bot computer",
+    "none_body": "Bots run without a computer until one is assigned. Your Macs can still be connected."
   }
 }

@@ -34,7 +34,7 @@ export function readSettingsLink(pathname: string, hash = "", search = ""): Sett
     const section = sectionFrom(hash, CONNECTION_SECTIONS);
     return { kind: "connection", name, ...(section ? { section } : {}), ...(tool && tool.length <= 200 && !/[\x00-\x1f]/.test(tool) ? { tool } : {}) };
   }
-  const tabMatch = /^\/settings\/([a-z]+)\/?$/.exec(pathname);
+  const tabMatch = /^\/settings\/([a-z]+(?:-[a-z]+)*)\/?$/.exec(pathname);
   if (tabMatch) {
     const id = LEGACY_SETTINGS_TABS[tabMatch[1]] ?? tabMatch[1];
     if (!Object.prototype.hasOwnProperty.call(SETTINGS_SECTIONS, id)) return null;

@@ -31,7 +31,8 @@
       "bots": "Bot이 쓰는 것",
       "workspace": "워크스페이스",
       "system": "시스템",
-      "more": "고급"
+      "more": "고급",
+      "admin": "관리"
     },
     "page": {
       "general": {
@@ -75,7 +76,7 @@
         "description": "버전, 서버, 데이터, 디버그, 처음부터 다시 시작."
       },
       "admin": {
-        "name": "Admin 콘솔",
+        "name": "계정",
         "description": "계정 초대, 관리, 비활성화"
       },
       "automation": {
@@ -93,6 +94,14 @@
       "devices": {
         "name": "다른 기기",
         "description": "Tofi 앱이 있는 Mac 연결"
+      },
+      "admin-groups": {
+        "name": "그룹",
+        "description": "계정 묶음별 리소스 정책"
+      },
+      "admin-resources": {
+        "name": "조직 리소스",
+        "description": "서버가 그룹에 제공하는 키"
       }
     },
     "category": "설정 분류",
@@ -381,7 +390,14 @@
     },
     "accounts": {
       "title": "계정",
-      "empty": "아직 계정이 없습니다."
+      "empty": "아직 계정이 없습니다.",
+      "group_col": "그룹",
+      "group_of": "{{name}}의 그룹",
+      "select": "{{name}} 선택",
+      "bulk": "일괄 작업",
+      "selected": "{{count}}개 선택됨",
+      "move_n": "{{count}}개를 그룹으로 이동…",
+      "clear": "선택 해제"
     },
     "add": "계정 추가",
     "open": "{{name}} 열기",
@@ -474,6 +490,15 @@
         "delete_legacy": "처음 소유자 계정과 그 Bot 컴퓨터는 삭제할 수 없습니다.",
         "delete_running": "삭제가 진행 중입니다.",
         "delete_need_deactivate": "먼저 계정을 비활성화하세요. 비활성화된 계정만 삭제할 수 있습니다."
+      },
+      "group": {
+        "title": "그룹",
+        "label": "소속 그룹",
+        "help": "그룹이 이 계정의 모델, Bot 컴퓨터, 검색, 가져오기 기본 정책을 정합니다."
+      },
+      "overrides": {
+        "title": "개별 재정의",
+        "help": "각 기능은 여기서 값을 지정하기 전까지 그룹을 따릅니다. 재설정하면 그룹으로 돌아갑니다."
       }
     },
     "delete": {
@@ -570,7 +595,120 @@
       "resource_configuration_failed": "Bot 컴퓨터 크기를 적용하지 못했습니다. 다시 시도하세요.",
       "computer_unavailable": "지금은 Bot 컴퓨터에 연결할 수 없습니다. 잠시 후 다시 시도하세요."
     },
-    "intro_no_computer": "계정을 만들고, 누가 Admin인지 정하고, 로그인을 관리해요. 멤버는 처음 로그인할 때 초기 비밀번호를 바꿔요."
+    "intro_no_computer": "계정을 만들고, 누가 Admin인지 정하고, 로그인을 관리해요. 멤버는 처음 로그인할 때 초기 비밀번호를 바꿔요.",
+    "groups": {
+      "title": "그룹",
+      "intro": "그룹은 계정이 개인 리소스와 조직 리소스 중 무엇을 쓰는지 정합니다. 계정은 한 그룹에 속하며, 예외는 계정에서 설정합니다.",
+      "unknown": "그룹",
+      "loading": "그룹을 불러오는 중…",
+      "builtin": "기본 제공",
+      "new": "새 그룹",
+      "back": "그룹",
+      "name_label": "이름",
+      "rename": "이름 바꾸기",
+      "policy_title": "리소스 정책",
+      "policy_help": "변경 사항은 모든 구성원에게 즉시 적용됩니다.",
+      "policy_readonly": "Self-serve는 현재 동작이며 읽기 전용입니다. 정책을 바꾸려면 그룹을 만드세요.",
+      "saved": "저장됨",
+      "resource_missing": "조직 리소스가 없습니다.",
+      "open_resources": "조직 리소스 열기",
+      "members_title": "구성원 ({{count}})",
+      "members_self_serve": "이동한 적 없는 계정은 모두 Self-serve에 있습니다.",
+      "members_empty": "구성원이 없습니다.",
+      "add_members": "구성원 추가",
+      "add_title": "{{name}}에 구성원 추가",
+      "add_none": "모든 계정이 이미 이 그룹에 있습니다.",
+      "add_current": "현재: {{group}}",
+      "add_submit": "{{count}}개 추가",
+      "delete_title": "그룹 삭제",
+      "delete_label": "이 그룹 삭제",
+      "delete_help": "그룹과 그 정책을 삭제합니다.",
+      "delete_action": "그룹 삭제",
+      "delete_confirm_title": "{{name}}을(를) 삭제할까요?",
+      "delete_confirm_body": "그룹과 그 정책이 삭제됩니다. 되돌릴 수 없습니다.",
+      "create_title": "새 그룹",
+      "create_name": "그룹 이름",
+      "create_note": "새 그룹은 Self-serve와 같은 상태로 시작합니다. 이어서 정책을 설정하세요.",
+      "create_submit": "그룹 만들기",
+      "delete_in_use_other": "먼저 이 그룹의 구성원 {{count}}명을 다른 그룹으로 옮기세요.",
+      "members_count_other": "구성원 {{count}}명"
+    },
+    "org": {
+      "missing_title": "제공되어야 할 리소스가 없습니다",
+      "missing_item": "{{capability}}: {{who}}",
+      "missing_action": "그룹 열기",
+      "models": {
+        "title": "AI 모델",
+        "help": "그룹이 AI 모델을 제공하는 계정용 API 키입니다. 키는 쓰기 전용이며 끝 몇 자리만 표시됩니다."
+      },
+      "computers": {
+        "title": "Bot 컴퓨터",
+        "help": "그룹이 클라우드 컴퓨터를 제공하는 계정용 E2B 키입니다. 서버 VM은 계정에서 계정별로 설정합니다.",
+        "vm_title": "서버 VM",
+        "vm_ready": "이 서버는 VM을 실행할 수 있습니다. 크기와 연결은 계정별로 설정합니다.",
+        "vm_none": "이 서버는 VM을 실행할 수 없습니다(KVM 호스트 없음).",
+        "vm_open": "계정 열기"
+      },
+      "web": {
+        "title": "검색 및 가져오기",
+        "help": "그룹이 검색과 가져오기를 제공하는 계정용 소스이며, Bot은 이 순서대로 시도합니다."
+      },
+      "compat_name": "OpenAI 호환 엔드포인트",
+      "endpoint_tag": "엔드포인트",
+      "compat_address": "엔드포인트 주소",
+      "compat_key": "API 키(선택)",
+      "compat_models_label": "모델 ID",
+      "compat_models": "모델: {{models}}",
+      "compat_note": "키를 비워 두면 같은 주소에 저장된 키를 유지합니다. 엔드포인트가 모델을 나열하지 않으면 모델 ID를 입력하세요.",
+      "e2b_name": "E2B 클라우드 컴퓨터",
+      "e2b_key": "E2B API 키",
+      "e2b_template_label": "템플릿 ID(선택)",
+      "e2b_template_id": "템플릿: {{id}}",
+      "e2b_template_pending": "이 서버에서 공유 컴퓨터가 활성화되면 템플릿 빌드 상태가 표시됩니다.",
+      "key_note": "키는 서버에 저장되며 다시 표시되지 않습니다.",
+      "no_hint": "키 저장됨",
+      "edit": "편집",
+      "test": "테스트",
+      "test_ok": "키를 확인했습니다.",
+      "removed": "삭제했습니다.",
+      "saved": "{{name}}을(를) 저장했습니다.",
+      "remove_question": "조직의 {{name}} 키를 삭제할까요?",
+      "status": {
+        "verified": "확인됨",
+        "stored": "저장됨, 확인 전",
+        "rejected": "거부됨: {{reason}}"
+      },
+      "error": {
+        "generic": "실패했습니다. 다시 시도하세요.",
+        "invalid_policy": "이 정책은 올바르지 않습니다.",
+        "group_exists": "같은 이름의 그룹이 이미 있습니다.",
+        "group_limit": "그룹 수 한도에 도달했습니다.",
+        "group_builtin_readonly": "기본 제공 그룹은 이렇게 변경할 수 없습니다.",
+        "group_in_use": "먼저 그룹 구성원을 다른 그룹으로 옮기세요.",
+        "not_found": "해당 항목이 더 이상 없습니다.",
+        "invalid_key": "제공업체가 이 키를 거부했습니다.",
+        "invalid_workspace": "Claude Console 워크스페이스 ID(wrkspc_…)를 입력하세요.",
+        "invalid_template": "올바른 E2B 템플릿 ID가 아닙니다.",
+        "invalid_zone": "올바른 zone을 입력하세요.",
+        "invalid_base_url": "올바른 엔드포인트 주소를 입력하세요.",
+        "invalid_models": "모델 ID를 확인하세요.",
+        "invalid_address": "http:// 또는 https://로 시작하는 주소를 입력하세요.",
+        "no_models": "이 키로 사용할 수 있는 모델이 없습니다.",
+        "no_quota": "계정에 남은 사용량이 없습니다.",
+        "provider_unreachable": "이 서버에서 제공업체에 연결할 수 없습니다.",
+        "endpoint_not_allowed": "이 서버는 해당 주소에 연결할 수 없습니다.",
+        "invalid_request": "요청이 올바르지 않습니다.",
+        "forbidden": "관리자 권한이 필요합니다.",
+        "storage": "서버가 저장하지 못했습니다."
+      },
+      "missing_accounts_other": "계정 재정의 {{count}}개",
+      "intro": "이 키는 이 서버에 속하며, 소속 그룹이 조직 제공 리소스를 쓰는 계정이 사용합니다. 개인 키가 아닙니다. 개인 키는 설정 › AI 모델, 환경, 검색 및 가져오기에 있습니다.",
+      "badge": {
+        "verified": "확인됨",
+        "stored": "확인 전",
+        "rejected": "거부됨"
+      }
+    }
   },
   "connection": {
     "label": "현재 서버 연결",
@@ -1227,7 +1365,14 @@
     "limit_fetch": "소스별 가져오기 횟수",
     "limit_option": "하루 {{count}}회",
     "limit_unlimited": "제한 없음",
-    "used_today": "최근 24시간 {{count}}회"
+    "used_today": "최근 24시간 {{count}}회",
+    "managed": {
+      "organization": "조직",
+      "search_provided": "조직에서 제공합니다. 소스와 순서는 읽기 전용입니다.",
+      "fetch_provided": "조직에서 제공합니다. 소스와 순서는 읽기 전용입니다.",
+      "fetch_builtin": "정책으로 관리됩니다. Bot은 내장 페이지 리더만 사용합니다.",
+      "search_off": "정책에 따라 이 계정의 웹 검색은 꺼져 있습니다."
+    }
   },
   "permissionsPage": {
     "heading": "검토자",
@@ -1482,6 +1627,71 @@
         "title": "로컬 실행 허용을 취소할까요?",
         "body": "실행 중인 명령이 중지되고 Bot은 허용된 폴더에 접근할 수 없게 됩니다. 나중에 폴더를 다시 허용할 수 있습니다.",
         "confirm": "취소하기"
+      }
+    }
+  },
+  "policy": {
+    "capability": {
+      "ai_models": {
+        "name": "AI 모델",
+        "help": "계정의 Bot이 누구의 API 키를 쓰는지."
+      },
+      "computer": {
+        "name": "Bot 컴퓨터",
+        "help": "계정의 Bot이 어떤 컴퓨터에서 일하는지."
+      },
+      "web_search": {
+        "name": "웹 검색",
+        "help": "Bot이 웹을 검색할 수 있는지, 누구의 키를 쓰는지."
+      },
+      "web_fetch": {
+        "name": "웹 가져오기",
+        "help": "내장 리더 외의 가져오기 소스를 쓸 수 있는지, 누구의 키를 쓰는지."
+      }
+    },
+    "value": {
+      "ai_models": {
+        "own": "개인 키",
+        "provided": "조직 제공"
+      },
+      "computer": {
+        "host": "서버 VM",
+        "own": "개인 E2B 키",
+        "provided": "조직 제공",
+        "none": "없음"
+      },
+      "web_search": {
+        "own": "개인 키",
+        "provided": "조직 제공",
+        "off": "끔"
+      },
+      "web_fetch": {
+        "own": "개인 키",
+        "provided": "조직 제공",
+        "builtin": "내장만"
+      }
+    },
+    "source": {
+      "label": "컴퓨터 제공 방식",
+      "vm": "VM",
+      "e2b": "E2B"
+    },
+    "follows": "그룹을 따름 · {{value}}",
+    "overridden": "재정의됨 · {{value}} (그룹: {{group}})",
+    "reset": "그룹 설정으로 되돌리기",
+    "member": {
+      "managed": "정책으로 관리됨",
+      "banner_title": "일부 리소스는 조직에서 제공합니다",
+      "banner_body": "관리자가 모델, 검색, Bot 컴퓨터 등 Bot이 쓰는 일부를 관리합니다. 해당 설정은 여기서 읽기 전용입니다.",
+      "banner_action": "확인",
+      "banner_dismiss": "닫기",
+      "models": {
+        "title": "모델은 조직에서 제공합니다",
+        "body": "Bot은 조직의 모델 계정으로 실행됩니다. API 키와 로그인은 관리자가 관리합니다.",
+        "available": "사용 가능",
+        "not_provided": "제공되지 않음",
+        "waiting_title": "관리자를 기다리는 중",
+        "waiting_body": "조직이 아직 모델을 제공하지 않았습니다. 관리자가 추가할 때까지 Bot을 실행할 수 없습니다."
       }
     }
   }

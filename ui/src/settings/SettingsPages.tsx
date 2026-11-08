@@ -32,6 +32,7 @@ import {Banner, DangerZone, SectionAnchor, SettingsCard, SettingsSection} from "
 import {RunHealthCard} from "./RunHealthCard";
 import {SettingsChanges} from "./SettingsChanges";
 import {StandingAllowances} from "../StandingAllowances";
+import {PolicyBanner} from "../PolicyBanner";
 
 /** Pieces that live in App.tsx and are handed in, so this folder never imports App. */
 export type SettingsSlots={codexRefresh:number;onCodexConfigured:()=>void;providersRefresh:number;onProvidersConfigured:()=>void;legacyArchive:ReactNode};
@@ -45,6 +46,9 @@ export type SettingsPagesProps={
 };
 /** Only admins of a multi-account install reach this page, so its code (accounts list, detail, delete flows) loads on demand. */
 const AdminAccounts=lazy(()=>import("../AdminAccounts").then(module=>({default:module.AdminAccounts})));
+/** The other two Administration pages load on demand for the same reason. */
+const AdminGroups=lazy(()=>import("../AdminGroups").then(module=>({default:module.AdminGroups})));
+const AdminResources=lazy(()=>import("../AdminResources").then(module=>({default:module.AdminResources})));
 /** The storage card loads on demand; it is not part of the first paint of Settings. */
 const StorageUsage=lazy(()=>import("../StorageUsage").then(module=>({default:module.StorageUsage})));
 const unreachable=(value:never):never=>{throw new Error(`unhandled settings page: ${String(value)}`)};
@@ -70,6 +74,8 @@ export function SettingsPages(props:SettingsPagesProps){
   case "usage": return <div className="settings-stack"><SectionAnchor id="health"><RunHealthCard/></SectionAnchor><SectionAnchor id="spend"><SpendCap/></SectionAnchor><SectionAnchor id="usage"><UsagePanel preferredBotId={props.usageBotId} timezone={props.timezone}/></SectionAnchor></div>;
   case "advanced": return <AdvancedPage {...props} bots={bots} activeBots={activeBots}/>;
   case "admin": return <Suspense fallback={null}><SectionAnchor id="accounts"><AdminAccounts/></SectionAnchor></Suspense>;
+  case "admin-groups": return <Suspense fallback={null}><AdminGroups openTab={props.openTab}/></Suspense>;
+  case "admin-resources": return <Suspense fallback={null}><AdminResources openTab={props.openTab}/></Suspense>;
   default: return unreachable(page);
  }
 }
@@ -82,9 +88,10 @@ function KeysPage({bots}:{bots:Bot[]}){
  return useHasComputer()?<ComputerCredentials bots={bots}/>:null;
 }
 
-function GeneralPage({appearance,slots,bots,onBotsChanged}:SettingsPagesProps){
+function GeneralPage({appearance,slots,bots,onBotsChanged,openTab}:SettingsPagesProps){
  const {t}=useTranslation("settings");
  return <div className="settings-stack">
+  <PolicyBanner openTab={openTab}/>
   <SectionAnchor id="account"><OwnerAccount/></SectionAnchor>
   <Suspense fallback={null}><StorageUsage/></Suspense>
   <SectionAnchor id="appearance"><AppearancePicker value={appearance.preference} onChange={appearance.choose}/></SectionAnchor>

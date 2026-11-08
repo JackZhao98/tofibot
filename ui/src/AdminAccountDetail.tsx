@@ -10,6 +10,7 @@ import {SETTLE_MS, settleDelay} from "./resourceSettle";
 import {AdminStorageLimit} from "./AdminStorage";
 import type {AdminStorageAccount} from "./storageApi";
 import {AdminSpend} from "./AdminSpend";
+import {AccountPolicySections} from "./AdminAccountPolicy";
 import {Banner, DangerZone, Segmented, SettingsCard, SettingsRow, SettingsSection} from "./settings/components";
 
 type Props = {
@@ -118,6 +119,8 @@ export function AccountDetail({account, accounts, disk, storage, spend, capacity
             onChange={role => { if (role !== account.role) void run(async () => { await adminApi.patch(account.id, {role}); }); }}/>}/>
       </SettingsCard>
     </SettingsSection>
+
+    <AccountPolicySections account={account} busy={busy} run={run}/>
 
     <AdminStorageLimit accountId={account.id} entry={storage} busy={busy || deleting} run={run}/>
 

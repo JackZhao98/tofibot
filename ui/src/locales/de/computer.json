@@ -590,6 +590,10 @@
     },
     "configure": {
       "title": "Bot-Computer konfigurieren"
-    }
+    },
+    "provided": "Von Ihrer Organisation bereitgestellt",
+    "provided_note": "Diesen Bot-Computer stellt Ihre Organisation bereit. Schlüssel und Image verwaltet Ihr Administrator.",
+    "none_title": "Ihr Administrator hat keinen Bot-Computer zugewiesen",
+    "none_body": "Bots laufen ohne Computer, bis einer zugewiesen wird. Ihre Macs lassen sich weiterhin verbinden."
   }
 }

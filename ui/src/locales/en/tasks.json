@@ -13,7 +13,9 @@
       "policy_denied": "This action did not pass the safety check",
       "connection_status": "Connection lost; status is unconfirmed",
       "runtime_connection": "Connection interrupted; the task did not finish",
-      "unknown_failure": "The task did not finish"
+      "unknown_failure": "The task did not finish",
+      "org_resource_missing": "Waiting for your administrator",
+      "org_credential_failed": "The organization's model account needs attention"
     },
     "action": {
       "open_tools": "Open tool settings",
@@ -128,7 +130,12 @@
     "finishing_results_kept": "Finishing up; completed results are retained.",
     "stopped_results_kept": "This workflow stopped; completed results are retained.",
     "completed_steps_kept": "Completed tool steps are retained in activity.",
-    "reply_below": "The result is in the reply below."
+    "reply_below": "The result is in the reply below.",
+    "org_resource_missing": "Your organization has not provided a model for this account.",
+    "org_resource_missing_next": "Ask your administrator to add one, then retry.",
+    "org_credential_auth": "The organization's model credential was rejected.",
+    "org_credential_quota": "The organization's model account has reached its usage limit.",
+    "org_credential_next": "Ask your administrator to review Organization resources."
   },
   "secondary": {
     "then_provider_busy": "The model service was then busy, and the task did not finish.",

@@ -584,6 +584,10 @@
     },
     "configure": {
       "title": "配置 Bot 电脑"
-    }
+    },
+    "provided": "由你的组织提供",
+    "provided_note": "这台 Bot 电脑由你的组织提供，密钥与镜像由管理员管理。",
+    "none_title": "管理员还没有为你分配 Bot 电脑",
+    "none_body": "分配之前，Bot 不使用电脑运行；你的 Mac 仍可以连接。"
   }
 }

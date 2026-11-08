@@ -13,7 +13,9 @@
       "policy_denied": "Diese Aktion hat die Sicherheitsprüfung nicht bestanden",
       "connection_status": "Verbindung getrennt, Status unbestätigt",
       "runtime_connection": "Verbindung unterbrochen, die Aufgabe wurde nicht abgeschlossen",
-      "unknown_failure": "Die Aufgabe wurde nicht abgeschlossen"
+      "unknown_failure": "Die Aufgabe wurde nicht abgeschlossen",
+      "org_resource_missing": "Warten auf Ihren Administrator",
+      "org_credential_failed": "Das Modellkonto der Organisation braucht Aufmerksamkeit"
     },
     "action": {
       "open_tools": "Tool-Einstellungen öffnen",
@@ -128,7 +130,12 @@
     "finishing_results_kept": "Wird abgeschlossen. Fertige Ergebnisse bleiben erhalten.",
     "stopped_results_kept": "Dieser Ablauf wurde gestoppt. Fertige Ergebnisse bleiben erhalten.",
     "completed_steps_kept": "Abgeschlossene Tool-Schritte bleiben in der Aktivität erhalten.",
-    "reply_below": "Das Ergebnis steht in der Antwort unten."
+    "reply_below": "Das Ergebnis steht in der Antwort unten.",
+    "org_resource_missing": "Ihre Organisation hat für dieses Konto kein Modell bereitgestellt.",
+    "org_resource_missing_next": "Bitten Sie Ihren Administrator, eines hinzuzufügen, und versuchen Sie es dann erneut.",
+    "org_credential_auth": "Die Modell-Zugangsdaten der Organisation wurden abgelehnt.",
+    "org_credential_quota": "Das Modellkonto der Organisation hat sein Nutzungslimit erreicht.",
+    "org_credential_next": "Bitten Sie Ihren Administrator, die Organisationsressourcen zu prüfen."
   },
   "secondary": {
     "then_provider_busy": "Danach war der Modelldienst ausgelastet, die Aufgabe wurde nicht abgeschlossen.",

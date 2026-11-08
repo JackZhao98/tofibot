@@ -1,0 +1,94 @@
+/* Administration: groups, organization resources, the Group column and the bulk bar. Tokens only (design-tokens.css). */
+
+/* Accounts list: a checkbox, the open-account row, and the Group menu. The row stays one button; the menu sits beside it. */
+.admin-row-wrap{display:grid;grid-template-columns:32px minmax(0,1fr) 168px;align-items:center;min-width:0;padding-left:12px}
+.admin-row-wrap[data-selected]{background:color-mix(in srgb,var(--iris) 8%,var(--surface))}
+.admin-row-wrap .admin-row{grid-template-columns:40px minmax(0,1.1fr) 200px minmax(0,1fr)}
+.admin-row-wrap .admin-row>svg{display:none}
+.admin-row-check{display:grid;place-items:center;align-self:stretch;cursor:pointer}
+.admin-row-check input{width:18px;height:18px;margin:0;accent-color:var(--iris);cursor:pointer}
+.admin-row-check input:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+.admin-row-group{display:flex;justify-content:flex-start;padding-right:12px;min-width:0}
+.admin-list .admin-row-head{grid-template-columns:32px minmax(0,1fr) 168px;gap:0;padding:8px 0 8px 12px}
+.admin-list .admin-row-head-main{display:grid;grid-template-columns:40px minmax(0,1.1fr) 200px minmax(0,1fr);gap:14px;padding:0 16px}
+.admin-list .admin-row-head>span:last-child{padding-left:2px}
+.group-menu-trigger{display:inline-flex;align-items:center;justify-content:space-between;gap:8px;min-height:36px;max-width:100%;padding:6px 10px;font-size:13px}
+.group-menu-trigger>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.group-menu button{display:flex;align-items:center;gap:8px}
+.group-menu-gap{display:inline-block;width:16px;height:16px;flex:none}
+.admin-bulk{position:sticky;bottom:12px;z-index:2;display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-top:12px;padding:10px 14px;border:1px solid var(--line-soft);border-radius:14px;background:var(--surface);box-shadow:var(--shadow-2,0 6px 18px color-mix(in srgb,var(--ink) 14%,transparent))}
+.admin-bulk-count{flex:1 1 auto;color:var(--ink);font:600 13px/1.4 var(--body)}
+
+/* Groups: list on the left, editor on the right; one column on a phone */
+.admin-groups{display:grid;gap:22px;align-content:start;min-width:0;max-width:960px}
+.admin-groups .admin-intro{margin:0;color:var(--muted);font:13px/1.6 var(--body)}
+.admin-groups .admin-error{margin:0;padding:10px 12px;border:1px solid color-mix(in srgb,var(--danger) 45%,var(--line-soft));border-radius:12px;background:color-mix(in srgb,var(--danger) 9%,var(--surface));color:var(--danger-text);font:13px/1.5 var(--body);overflow-wrap:anywhere}
+.ag-layout{display:grid;grid-template-columns:240px minmax(0,1fr);gap:24px;align-items:start}
+.ag-side{display:grid;gap:10px;min-width:0}
+.ag-side-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ag-side-head h4{margin:0;color:var(--ink);font:600 16px/1.3 var(--display)}
+.ag-new{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:6px 10px;font-size:13px}
+.ag-list{display:grid;gap:6px;min-width:0}
+.ag-item{display:grid;gap:3px;width:100%;padding:11px 13px;border:1px solid var(--line-soft);border-radius:14px;background:var(--surface);color:var(--ink);text-align:left;cursor:pointer;transition:background var(--m-quick) var(--ease-out),border-color var(--m-quick) var(--ease-out)}
+.ag-item:hover{background:var(--surface-2)}
+.ag-item[aria-current="true"]{border-color:var(--line);background:var(--surface-2)}
+.ag-item:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+.ag-item-name{display:flex;align-items:center;gap:8px;min-width:0}
+.ag-item-name strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 14px/1.4 var(--body)}
+.ag-item-count{color:var(--muted);font:12px/1.4 var(--body)}
+.ag-editor{display:grid;gap:22px;align-content:start;min-width:0}
+.ag-back{display:none}
+.ag-head{display:grid;gap:12px;min-width:0}
+.ag-head-title{display:flex;align-items:center;gap:10px;min-width:0}
+.ag-head-title h3{margin:0;color:var(--ink);font:600 20px/1.3 var(--display);overflow-wrap:anywhere}
+.ag-rename{display:grid;gap:6px;max-width:420px}
+.ag-rename label{color:var(--ink-soft);font:13px/1.4 var(--body)}
+.ag-rename input{min-width:0;min-height:40px}
+.ag-policy .settings-row-control{max-width:62%}
+.policy-control{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;min-width:0}
+.policy-control .ui-select-trigger{min-width:200px}
+.ag-missing{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0;padding:0 16px 12px;color:var(--honey-text);font:12.5px/1.5 var(--body)}
+.ag-saved{min-height:1.4em;margin:8px 0 0}
+.ag-member-actions{margin:-38px 0 12px}
+.ag-member{display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:14px;padding:12px 16px}
+.ag-pick{display:grid;gap:4px;margin:0;padding:0;border:0;max-height:min(50vh,360px);overflow:auto}
+.ag-pick-row{display:grid;grid-template-columns:20px 40px minmax(0,1fr);align-items:center;gap:12px;padding:8px 6px;border-radius:10px;cursor:pointer}
+.ag-pick-row:hover{background:var(--surface-2)}
+.ag-pick-row input{width:18px;height:18px;margin:0;accent-color:var(--iris)}
+.ag-override-control{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:10px}
+.ag-overrides .ag-override-row[data-overridden="true"] .settings-row-copy p{color:var(--honey-text)}
+
+/* Organization resources */
+.admin-resources{display:grid;gap:26px;align-content:start;min-width:0;max-width:860px}
+.admin-resources .admin-intro{margin:0;color:var(--muted);font:13px/1.6 var(--body)}
+.admin-resources .admin-error{margin:0;padding:10px 12px;border:1px solid color-mix(in srgb,var(--danger) 45%,var(--line-soft));border-radius:12px;background:color-mix(in srgb,var(--danger) 9%,var(--surface));color:var(--danger-text);font:13px/1.5 var(--body);overflow-wrap:anywhere}
+.admin-resources .org-card+.org-card,.admin-resources .org-card+.org-vm{margin-top:12px}
+.admin-resources .provider-key-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.admin-resources .org-template{margin:6px 0 0}
+.admin-resources .web-tools{margin:0}
+
+/* Member side: managed notes */
+
+@media(max-width:900px){
+  .ag-layout{grid-template-columns:minmax(0,1fr)}
+  .admin-groups[data-view="list"] .ag-editor{display:none}
+  .admin-groups[data-view="editor"] .ag-side{display:none}
+  .ag-back{display:inline-flex}
+}
+@media(max-width:700px){
+  .admin-row-wrap{grid-template-columns:32px minmax(0,1fr);grid-template-areas:"check row" ". group"}
+  .admin-row-wrap .admin-row{grid-area:row;grid-template-columns:40px minmax(0,1fr) 18px}
+  .admin-row-wrap .admin-row>svg{display:block}
+  .admin-row-check{grid-area:check;align-self:start;padding-top:22px}
+  .admin-row-group{grid-area:group;padding:0 16px 12px}
+  .group-menu-trigger{min-height:44px}
+  .ag-policy .settings-row-control{max-width:none}
+  .ag-policy .settings-row-v2,.ag-overrides .settings-row-v2{flex-direction:column;align-items:stretch}
+  .policy-control{justify-content:flex-start}
+  .ag-override-control{justify-content:flex-start}
+  .ag-member{grid-template-columns:40px minmax(0,1fr)}
+  .ag-member .group-menu-trigger{grid-column:2}
+  .ag-member-actions{margin:0 0 12px}
+  .admin-bulk{bottom:8px}
+  .ag-new{min-height:44px}
+}

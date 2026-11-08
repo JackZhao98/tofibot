@@ -18,6 +18,8 @@ export type EnvironmentsView = {
   environments: Environment[];
   add: {e2b: boolean; mac: boolean; vm_command: string};
   e2b: {configured: boolean; key_hint: string; phase: string; error_code: string; error: string} | null;
+  /** Whose Bot computer this is (user groups): `host` and `own` are the person's; `provided` the organization's; `none` has no Bot computer. Absent on an older server. */
+  policy?: {mode: string; source: string; via: string} | null;
 };
 
 const kinds: EnvironmentKind[] = ["vm", "e2b", "mac"];
@@ -41,6 +43,7 @@ export function normalizeEnvironments(body: unknown): EnvironmentsView {
   return {
     environments,
     add: {e2b: add.e2b === true, mac: add.mac === true, vm_command: typeof add.vm_command === "string" ? add.vm_command : ""},
+    policy: raw.policy && typeof raw.policy === "object" ? {mode: String(raw.policy.mode ?? "host"), source: String(raw.policy.source ?? "own"), via: String(raw.policy.via ?? "")} : null,
     e2b: e2b ? {configured: e2b.configured === true, key_hint: String(e2b.key_hint ?? ""), phase: String(e2b.phase ?? "none"), error_code: String(e2b.error_code ?? ""), error: String(e2b.error ?? "")} : null,
   };
 }

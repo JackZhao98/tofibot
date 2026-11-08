@@ -583,7 +583,13 @@
     "server_pick": "Modell zum Start",
     "server_connect": "Verbinden",
     "server_failed": "Verbindung zu diesem Server nicht möglich. Prüfe die Adresse und versuche es erneut.",
-    "server_not_allowed": "Dieser Server darf sich nicht mit einer lokalen oder privaten Adresse verbinden. Nur ein Server-Admin darf das; sonst muss der Betreiber TOFI_ALLOW_PRIVATE_ENDPOINTS=1 in der Server-Umgebung setzen und neu starten."
+    "server_not_allowed": "Dieser Server darf sich nicht mit einer lokalen oder privaten Adresse verbinden. Nur ein Server-Admin darf das; sonst muss der Betreiber TOFI_ALLOW_PRIVATE_ENDPOINTS=1 in der Server-Umgebung setzen und neu starten.",
+    "provided_title": "Modelle stellt Ihre Organisation bereit",
+    "provided_body": "Ihre Organisation stellt die Modelle bereit, es ist nichts zu verbinden.",
+    "waiting_heading": "Warten auf Modelle",
+    "waiting_title": "Warten auf Ihren Administrator",
+    "waiting_body": "Ihre Organisation hat noch kein Modell bereitgestellt. Die Einrichtung geht weiter, sobald ein Administrator eines hinzufügt.",
+    "waiting_check": "Erneut prüfen"
   },
   "primary": {
     "badge": "Haupt",

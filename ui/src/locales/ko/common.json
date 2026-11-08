@@ -95,6 +95,14 @@
     "host_update_unavailable": "이 서버는 아직 페이지에서 업데이트할 수 없습니다. 서버에서 sudo tofi update를 실행하세요.",
     "storage_quota_exceeded": "이 계정의 저장 한도에 도달했습니다. 파일을 삭제하거나 관리자에게 문의하세요.",
     "storage_host_full": "서버 디스크가 거의 가득 차 새 파일을 받을 수 없습니다. 이 서버의 운영자에게 알려 주세요.",
-    "update_check_failed": "업데이트 서버에 연결하지 못했습니다. 나중에 다시 시도해 주세요."
+    "update_check_failed": "업데이트 서버에 연결하지 못했습니다. 나중에 다시 시도해 주세요.",
+    "managed_by_organization": "조직에서 관리합니다.",
+    "capability_off": "조직에서 꺼 두었습니다.",
+    "org_resource_missing": "조직이 아직 이 리소스를 제공하지 않았습니다.",
+    "group_in_use": "먼저 그룹 구성원을 다른 그룹으로 옮기세요.",
+    "group_builtin_readonly": "기본 제공 그룹은 이렇게 변경할 수 없습니다.",
+    "invalid_policy": "이 정책은 올바르지 않습니다.",
+    "group_exists": "같은 이름의 그룹이 이미 있습니다.",
+    "group_limit": "그룹 수 한도에 도달했습니다."
   }
 }

@@ -31,7 +31,8 @@
       "bots": "Utilisé par les Bots",
       "workspace": "Espace de travail",
       "system": "Système",
-      "more": "Avancé"
+      "more": "Avancé",
+      "admin": "Administration"
     },
     "page": {
       "general": {
@@ -75,7 +76,7 @@
         "description": "Version, serveur, données, débogage et réinitialisation."
       },
       "admin": {
-        "name": "Console Admin",
+        "name": "Comptes",
         "description": "Inviter, gérer et désactiver des comptes"
       },
       "automation": {
@@ -93,6 +94,14 @@
       "devices": {
         "name": "Autres appareils",
         "description": "Connecter un Mac avec l’app Tofi"
+      },
+      "admin-groups": {
+        "name": "Groupes",
+        "description": "Politique de ressources par groupe de comptes"
+      },
+      "admin-resources": {
+        "name": "Ressources de l’organisation",
+        "description": "Clés que le serveur fournit aux groupes"
       }
     },
     "category": "Catégorie de réglages",
@@ -391,7 +400,14 @@
     },
     "accounts": {
       "title": "Comptes",
-      "empty": "Aucun compte pour l’instant."
+      "empty": "Aucun compte pour l’instant.",
+      "group_col": "Groupe",
+      "group_of": "Groupe de {{name}}",
+      "select": "Sélectionner {{name}}",
+      "bulk": "Actions groupées",
+      "selected": "{{count}} sélectionné(s)",
+      "move_n": "Déplacer {{count}} vers un groupe…",
+      "clear": "Effacer la sélection"
     },
     "add": "Ajouter un compte",
     "open": "Ouvrir {{name}}",
@@ -484,6 +500,15 @@
         "delete_legacy": "Le compte du propriétaire d’origine et son ordinateur Bot ne peuvent pas être supprimés.",
         "delete_running": "Suppression en cours.",
         "delete_need_deactivate": "Désactivez d’abord le compte. Seul un compte désactivé peut être supprimé."
+      },
+      "group": {
+        "title": "Groupe",
+        "label": "Groupe",
+        "help": "Le groupe définit la politique par défaut du compte pour les modèles, l’ordinateur du Bot, la recherche et la récupération."
+      },
+      "overrides": {
+        "title": "Exceptions",
+        "help": "Chaque capacité suit le groupe tant qu’aucune valeur n’est définie ici. Réinitialiser rétablit celle du groupe."
       }
     },
     "delete": {
@@ -580,7 +605,126 @@
       "resource_configuration_failed": "La taille de l'ordinateur Bot n'a pas pu être appliquée. Réessayez.",
       "computer_unavailable": "L'ordinateur Bot est injoignable pour le moment. Réessayez dans un instant."
     },
-    "intro_no_computer": "Crée des comptes, choisis qui est Admin et gère leur connexion. Les membres changent leur mot de passe initial à la première connexion."
+    "intro_no_computer": "Crée des comptes, choisis qui est Admin et gère leur connexion. Les membres changent leur mot de passe initial à la première connexion.",
+    "groups": {
+      "title": "Groupes",
+      "intro": "Un groupe définit ce que ses comptes utilisent : leurs propres ressources ou celles de l’organisation. Chaque compte appartient à un groupe ; les exceptions se règlent sur le compte.",
+      "unknown": "Groupe",
+      "loading": "Chargement des groupes…",
+      "builtin": "Intégré",
+      "new": "Nouveau groupe",
+      "back": "Groupes",
+      "name_label": "Nom",
+      "rename": "Renommer",
+      "policy_title": "Politique de ressources",
+      "policy_help": "Les modifications s’appliquent aussitôt à tous les membres.",
+      "policy_readonly": "Self-serve correspond au comportement actuel et est en lecture seule. Créez un groupe pour modifier la politique.",
+      "saved": "Enregistré",
+      "resource_missing": "Ressource d’organisation manquante.",
+      "open_resources": "Ouvrir les ressources de l’organisation",
+      "members_title": "Membres ({{count}})",
+      "members_self_serve": "Les comptes jamais déplacés sont dans Self-serve.",
+      "members_empty": "Aucun membre.",
+      "add_members": "Ajouter des membres",
+      "add_title": "Ajouter des membres à {{name}}",
+      "add_none": "Tous les comptes sont déjà dans ce groupe.",
+      "add_current": "Actuellement dans {{group}}",
+      "add_submit": "Ajouter {{count}}",
+      "delete_title": "Supprimer le groupe",
+      "delete_label": "Supprimer ce groupe",
+      "delete_help": "Supprime le groupe et sa politique.",
+      "delete_action": "Supprimer le groupe",
+      "delete_confirm_title": "Supprimer {{name}} ?",
+      "delete_confirm_body": "Le groupe et sa politique sont supprimés. Cette action est irréversible.",
+      "create_title": "Nouveau groupe",
+      "create_name": "Nom du groupe",
+      "create_note": "Un nouveau groupe démarre comme Self-serve. Définissez ensuite sa politique.",
+      "create_submit": "Créer le groupe",
+      "delete_in_use_one": "Déplacez d’abord son {{count}} membre vers un autre groupe.",
+      "delete_in_use_many": "Déplacez d’abord ses {{count}} membres vers un autre groupe.",
+      "delete_in_use_other": "Déplacez d’abord ses {{count}} membres vers un autre groupe.",
+      "members_count_one": "{{count}} membre",
+      "members_count_many": "{{count}} membres",
+      "members_count_other": "{{count}} membres"
+    },
+    "org": {
+      "missing_title": "Des ressources fournies sont manquantes",
+      "missing_item": "{{capability}} : {{who}}",
+      "missing_action": "Ouvrir les groupes",
+      "models": {
+        "title": "Modèles d’IA",
+        "help": "Clés d’API pour les comptes dont le groupe fournit les modèles d’IA. Les clés sont en écriture seule : seuls les derniers caractères s’affichent."
+      },
+      "computers": {
+        "title": "Ordinateurs de Bot",
+        "help": "La clé E2B pour les comptes dont le groupe fournit un ordinateur cloud. La VM du serveur se règle par compte dans Comptes.",
+        "vm_title": "VM du serveur",
+        "vm_ready": "Ce serveur peut exécuter des VM. La taille et le rattachement se règlent par compte.",
+        "vm_none": "Ce serveur ne peut pas exécuter de VM (pas d’hôte KVM).",
+        "vm_open": "Ouvrir les comptes"
+      },
+      "web": {
+        "title": "Recherche et récupération",
+        "help": "Sources de recherche et de lecture de pages pour les comptes dont le groupe les fournit, dans l’ordre où les Bots les essaient."
+      },
+      "compat_name": "Point de terminaison compatible OpenAI",
+      "endpoint_tag": "Point de terminaison",
+      "compat_address": "Adresse du point de terminaison",
+      "compat_key": "Clé d’API (facultatif)",
+      "compat_models_label": "ID de modèles",
+      "compat_models": "Modèles : {{models}}",
+      "compat_note": "Laissez la clé vide pour conserver celle déjà stockée pour la même adresse. Ajoutez des ID de modèles si le point de terminaison ne les liste pas.",
+      "e2b_name": "Ordinateur cloud E2B",
+      "e2b_key": "Clé d’API E2B",
+      "e2b_template_label": "ID de modèle (facultatif)",
+      "e2b_template_id": "Modèle : {{id}}",
+      "e2b_template_pending": "L’état de build du modèle s’affichera une fois les ordinateurs partagés activés sur ce serveur.",
+      "key_note": "La clé est stockée sur le serveur et n’est plus jamais affichée.",
+      "no_hint": "Clé enregistrée",
+      "edit": "Modifier",
+      "test": "Tester",
+      "test_ok": "Clé vérifiée.",
+      "removed": "Supprimée.",
+      "saved": "{{name}} enregistré.",
+      "remove_question": "Supprimer la clé {{name}} de l’organisation ?",
+      "status": {
+        "verified": "Vérifiée",
+        "stored": "Enregistrée, non vérifiée",
+        "rejected": "Refusée : {{reason}}"
+      },
+      "error": {
+        "generic": "Cela n’a pas fonctionné. Réessayez.",
+        "invalid_policy": "Cette politique n’est pas valide.",
+        "group_exists": "Un groupe portant ce nom existe déjà.",
+        "group_limit": "La limite de groupes est atteinte.",
+        "group_builtin_readonly": "Les groupes intégrés ne peuvent pas être modifiés ainsi.",
+        "group_in_use": "Déplacez d’abord les membres du groupe vers un autre groupe.",
+        "not_found": "Cet élément n’existe plus.",
+        "invalid_key": "Le fournisseur a refusé cette clé.",
+        "invalid_workspace": "Saisissez l’ID d’espace de travail de la Claude Console (wrkspc_…).",
+        "invalid_template": "Ce n’est pas un ID de modèle E2B valide.",
+        "invalid_zone": "Saisissez une zone valide.",
+        "invalid_base_url": "Saisissez une adresse de point de terminaison valide.",
+        "invalid_models": "Vérifiez les ID de modèles.",
+        "invalid_address": "Saisissez une adresse commençant par http:// ou https://.",
+        "no_models": "Aucun modèle utilisable avec cette clé.",
+        "no_quota": "Le compte n’a plus de crédit.",
+        "provider_unreachable": "Le fournisseur est injoignable depuis ce serveur.",
+        "endpoint_not_allowed": "Ce serveur n’est pas autorisé à se connecter à cette adresse.",
+        "invalid_request": "La requête n’est pas valide.",
+        "forbidden": "Un accès administrateur est requis.",
+        "storage": "Le serveur n’a pas pu l’enregistrer."
+      },
+      "missing_accounts_one": "{{count}} exception de compte",
+      "missing_accounts_many": "{{count}} exceptions de compte",
+      "missing_accounts_other": "{{count}} exceptions de compte",
+      "intro": "Ces clés appartiennent à ce serveur et servent les comptes dont le groupe les fournit. Ce ne sont pas vos clés personnelles ; les vôtres sont dans Réglages › Modèles d’IA, Environnements et Recherche et récupération.",
+      "badge": {
+        "verified": "Vérifiée",
+        "stored": "Non vérifiée",
+        "rejected": "Refusée"
+      }
+    }
   },
   "connection": {
     "label": "Connexion actuelle au serveur",
@@ -1245,7 +1389,14 @@
     "limit_fetch": "Lectures par source",
     "limit_option": "{{count}} par jour",
     "limit_unlimited": "Sans limite",
-    "used_today": "{{count}} sur les dernières 24 h"
+    "used_today": "{{count}} sur les dernières 24 h",
+    "managed": {
+      "organization": "Organisation",
+      "search_provided": "Fournie par votre organisation. Les sources et leur ordre sont en lecture seule.",
+      "fetch_provided": "Fournie par votre organisation. Les sources et leur ordre sont en lecture seule.",
+      "fetch_builtin": "Géré par la politique. Les Bots n’utilisent que le lecteur de pages intégré.",
+      "search_off": "La recherche web est désactivée pour ce compte par la politique."
+    }
   },
   "permissionsPage": {
     "heading": "Relecteur",
@@ -1502,6 +1653,71 @@
         "title": "Révoquer l’exécution locale ?",
         "body": "Les commandes en cours s’arrêtent et les Bots perdent l’accès au dossier autorisé. Vous pourrez autoriser un dossier de nouveau plus tard.",
         "confirm": "Révoquer"
+      }
+    }
+  },
+  "policy": {
+    "capability": {
+      "ai_models": {
+        "name": "Modèles d’IA",
+        "help": "À quelles clés d’API les Bots du compte font appel."
+      },
+      "computer": {
+        "name": "Ordinateur du Bot",
+        "help": "Sur quel ordinateur les Bots du compte travaillent."
+      },
+      "web_search": {
+        "name": "Recherche web",
+        "help": "Si les Bots peuvent chercher sur le web, et avec quelles clés."
+      },
+      "web_fetch": {
+        "name": "Récupération web",
+        "help": "Si les Bots peuvent lire des pages au-delà du lecteur intégré, et avec quelles clés."
+      }
+    },
+    "value": {
+      "ai_models": {
+        "own": "Clés personnelles",
+        "provided": "Organisation"
+      },
+      "computer": {
+        "host": "VM du serveur",
+        "own": "Clé E2B personnelle",
+        "provided": "Organisation",
+        "none": "Aucun"
+      },
+      "web_search": {
+        "own": "Clés personnelles",
+        "provided": "Organisation",
+        "off": "Désactivée"
+      },
+      "web_fetch": {
+        "own": "Clés personnelles",
+        "provided": "Organisation",
+        "builtin": "Intégré seulement"
+      }
+    },
+    "source": {
+      "label": "Source de l’ordinateur",
+      "vm": "VM",
+      "e2b": "E2B"
+    },
+    "follows": "Suit le groupe · {{value}}",
+    "overridden": "Remplacé · {{value}} (groupe : {{group}})",
+    "reset": "Rétablir le groupe",
+    "member": {
+      "managed": "Géré par la politique",
+      "banner_title": "Certaines ressources sont fournies par votre organisation",
+      "banner_body": "Votre administrateur gère une partie de ce que les Bots utilisent, comme les modèles, la recherche ou l’ordinateur du Bot. Ces réglages sont en lecture seule ici.",
+      "banner_action": "Consulter",
+      "banner_dismiss": "Ignorer",
+      "models": {
+        "title": "Modèles fournis par votre organisation",
+        "body": "Les Bots s’exécutent sur les comptes de modèles de votre organisation. Les clés d’API et la connexion sont gérées par votre administrateur.",
+        "available": "Disponible",
+        "not_provided": "Non fourni",
+        "waiting_title": "En attente de votre administrateur",
+        "waiting_body": "Votre organisation n’a pas encore fourni de modèle. Les Bots ne peuvent pas s’exécuter tant qu’un administrateur n’en ajoute pas."
       }
     }
   }

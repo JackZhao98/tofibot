@@ -13,7 +13,9 @@
       "policy_denied": "此操作未通過安全檢查",
       "connection_status": "連線中斷，狀態待確認",
       "runtime_connection": "連線中斷，任務未完成",
-      "unknown_failure": "任務未完成"
+      "unknown_failure": "任務未完成",
+      "org_resource_missing": "等待管理員提供",
+      "org_credential_failed": "組織的模型帳戶需要處理"
     },
     "action": {
       "open_tools": "查看工具設定",
@@ -128,7 +130,12 @@
     "finishing_results_kept": "正在收尾，已完成的結果會保留。",
     "stopped_results_kept": "這次工作已停止，已完成的結果會保留。",
     "completed_steps_kept": "已完成的工具步驟保留在工作過程中。",
-    "reply_below": "結果在下方的回覆中。"
+    "reply_below": "結果在下方的回覆中。",
+    "org_resource_missing": "組織還沒有為該帳戶提供模型。",
+    "org_resource_missing_next": "請管理員新增後再重試。",
+    "org_credential_auth": "組織的模型憑證被拒絕。",
+    "org_credential_quota": "組織的模型帳戶已達到用量上限。",
+    "org_credential_next": "請管理員檢查組織資源。"
   },
   "secondary": {
     "then_provider_busy": "隨後模型服務忙碌，任務未完成。",

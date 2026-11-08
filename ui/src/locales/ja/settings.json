@@ -31,7 +31,8 @@
       "bots": "Bot が使うもの",
       "workspace": "ワークスペース",
       "system": "システム",
-      "more": "詳細設定"
+      "more": "詳細設定",
+      "admin": "管理"
     },
     "page": {
       "general": {
@@ -75,7 +76,7 @@
         "description": "バージョン、サーバー、データ、デバッグ、最初からやり直す。"
       },
       "admin": {
-        "name": "Admin コンソール",
+        "name": "アカウント",
         "description": "アカウントの招待・管理・無効化"
       },
       "automation": {
@@ -93,6 +94,14 @@
       "devices": {
         "name": "その他のデバイス",
         "description": "Tofi アプリのある Mac を接続"
+      },
+      "admin-groups": {
+        "name": "グループ",
+        "description": "アカウントの集合ごとにリソースポリシーを設定します"
+      },
+      "admin-resources": {
+        "name": "組織のリソース",
+        "description": "サーバーがグループに提供するキー"
       }
     },
     "category": "設定カテゴリ",
@@ -381,7 +390,14 @@
     },
     "accounts": {
       "title": "アカウント",
-      "empty": "アカウントはまだありません。"
+      "empty": "アカウントはまだありません。",
+      "group_col": "グループ",
+      "group_of": "{{name}} のグループ",
+      "select": "{{name}} を選択",
+      "bulk": "一括操作",
+      "selected": "{{count}} 件を選択中",
+      "move_n": "{{count}} 件をグループへ移動…",
+      "clear": "選択を解除"
     },
     "add": "アカウントを追加",
     "open": "{{name}} を開く",
@@ -474,6 +490,15 @@
         "delete_legacy": "元のオーナーアカウントとその Bot コンピューターは削除できません。",
         "delete_running": "削除を実行中です。",
         "delete_need_deactivate": "先にアカウントを無効化してください。削除できるのは無効化済みのアカウントだけです。"
+      },
+      "group": {
+        "title": "グループ",
+        "label": "所属グループ",
+        "help": "グループが、このアカウントのモデル・Bot コンピューター・検索・取得の既定ポリシーを決めます。"
+      },
+      "overrides": {
+        "title": "個別の上書き",
+        "help": "各機能はここで値を設定するまでグループに従います。リセットするとグループに戻ります。"
       }
     },
     "delete": {
@@ -570,7 +595,120 @@
       "resource_configuration_failed": "Bot コンピューターのサイズを適用できませんでした。もう一度お試しください。",
       "computer_unavailable": "Bot コンピューターに今は接続できません。しばらくしてからもう一度お試しください。"
     },
-    "intro_no_computer": "アカウントの作成、Admin の指定、サインインの管理ができます。メンバーは初回サインイン時に初期パスワードを変更します。"
+    "intro_no_computer": "アカウントの作成、Admin の指定、サインインの管理ができます。メンバーは初回サインイン時に初期パスワードを変更します。",
+    "groups": {
+      "title": "グループ",
+      "intro": "グループは、アカウントが自分のリソースと組織のリソースのどちらを使うかを決めます。各アカウントは 1 つのグループに属し、例外はアカウント側で設定します。",
+      "unknown": "グループ",
+      "loading": "グループを読み込み中…",
+      "builtin": "組み込み",
+      "new": "新しいグループ",
+      "back": "グループ",
+      "name_label": "名前",
+      "rename": "名前を変更",
+      "policy_title": "リソースポリシー",
+      "policy_help": "変更はすべてのメンバーに即時に適用されます。",
+      "policy_readonly": "Self-serve は現在の動作で、読み取り専用です。ポリシーを変えるにはグループを作成してください。",
+      "saved": "保存しました",
+      "resource_missing": "組織のリソースがありません。",
+      "open_resources": "組織のリソースを開く",
+      "members_title": "メンバー（{{count}}）",
+      "members_self_serve": "一度も移動していないアカウントは Self-serve にいます。",
+      "members_empty": "メンバーはいません。",
+      "add_members": "メンバーを追加",
+      "add_title": "{{name}} にメンバーを追加",
+      "add_none": "すべてのアカウントがすでにこのグループにいます。",
+      "add_current": "現在: {{group}}",
+      "add_submit": "{{count}} 件を追加",
+      "delete_title": "グループを削除",
+      "delete_label": "このグループを削除",
+      "delete_help": "グループとそのポリシーを削除します。",
+      "delete_action": "グループを削除",
+      "delete_confirm_title": "{{name}} を削除しますか？",
+      "delete_confirm_body": "グループとそのポリシーが削除されます。元に戻せません。",
+      "create_title": "新しいグループ",
+      "create_name": "グループ名",
+      "create_note": "新しいグループは Self-serve と同じ状態で始まります。続けてポリシーを設定してください。",
+      "create_submit": "グループを作成",
+      "delete_in_use_other": "先にこのグループの {{count}} 人のメンバーを別のグループへ移動してください。",
+      "members_count_other": "メンバー {{count}} 人"
+    },
+    "org": {
+      "missing_title": "提供されるはずのリソースが不足しています",
+      "missing_item": "{{capability}}: {{who}}",
+      "missing_action": "グループを開く",
+      "models": {
+        "title": "AI モデル",
+        "help": "グループが AI モデルを提供するアカウント向けの API キーです。キーは書き込み専用で、末尾の数文字のみ表示されます。"
+      },
+      "computers": {
+        "title": "Bot コンピューター",
+        "help": "グループがクラウドコンピューターを提供するアカウント向けの E2B キーです。サーバー VM は「アカウント」でアカウントごとに設定します。",
+        "vm_title": "サーバー VM",
+        "vm_ready": "このサーバーは VM を実行できます。サイズと接続はアカウントごとに設定します。",
+        "vm_none": "このサーバーは VM を実行できません（KVM ホストなし）。",
+        "vm_open": "アカウントを開く"
+      },
+      "web": {
+        "title": "検索と取得",
+        "help": "グループが検索と取得を提供するアカウント向けのソースで、Bot はこの順に試します。"
+      },
+      "compat_name": "OpenAI 互換エンドポイント",
+      "endpoint_tag": "エンドポイント",
+      "compat_address": "エンドポイントのアドレス",
+      "compat_key": "API キー（任意）",
+      "compat_models_label": "モデル ID",
+      "compat_models": "モデル: {{models}}",
+      "compat_note": "キーを空にすると、同じアドレスの保存済みキーを維持します。エンドポイントがモデルを列挙しない場合はモデル ID を入力してください。",
+      "e2b_name": "E2B クラウドコンピューター",
+      "e2b_key": "E2B API キー",
+      "e2b_template_label": "テンプレート ID（任意）",
+      "e2b_template_id": "テンプレート: {{id}}",
+      "e2b_template_pending": "共有コンピューターがこのサーバーで有効になると、テンプレートのビルド状況が表示されます。",
+      "key_note": "キーはサーバーに保存され、再表示されません。",
+      "no_hint": "キーを保存済み",
+      "edit": "編集",
+      "test": "テスト",
+      "test_ok": "キーを確認しました。",
+      "removed": "削除しました。",
+      "saved": "{{name}} を保存しました。",
+      "remove_question": "組織の {{name}} キーを削除しますか？",
+      "status": {
+        "verified": "確認済み",
+        "stored": "保存済み（未確認）",
+        "rejected": "拒否されました: {{reason}}"
+      },
+      "error": {
+        "generic": "うまくいきませんでした。もう一度お試しください。",
+        "invalid_policy": "このポリシーは無効です。",
+        "group_exists": "同じ名前のグループがすでにあります。",
+        "group_limit": "グループ数の上限に達しました。",
+        "group_builtin_readonly": "組み込みグループはこの方法では変更できません。",
+        "group_in_use": "先にグループのメンバーを別のグループへ移動してください。",
+        "not_found": "この項目はもう存在しません。",
+        "invalid_key": "プロバイダーがこのキーを拒否しました。",
+        "invalid_workspace": "Claude Console のワークスペース ID（wrkspc_…）を入力してください。",
+        "invalid_template": "有効な E2B テンプレート ID ではありません。",
+        "invalid_zone": "有効なゾーンを入力してください。",
+        "invalid_base_url": "有効なエンドポイントのアドレスを入力してください。",
+        "invalid_models": "モデル ID を確認してください。",
+        "invalid_address": "http:// または https:// で始まるアドレスを入力してください。",
+        "no_models": "このキーで使えるモデルがありません。",
+        "no_quota": "アカウントの利用枠が残っていません。",
+        "provider_unreachable": "このサーバーからプロバイダーに接続できません。",
+        "endpoint_not_allowed": "このサーバーはそのアドレスに接続できません。",
+        "invalid_request": "リクエストが無効です。",
+        "forbidden": "管理者権限が必要です。",
+        "storage": "サーバーが保存できませんでした。"
+      },
+      "missing_accounts_other": "アカウントの上書き {{count}} 件",
+      "intro": "これらのキーはこのサーバーに属し、グループが組織提供のリソースを使うアカウントに使われます。あなた個人のキーではありません。個人のキーは 設定 › AI モデル、環境、検索と取得 にあります。",
+      "badge": {
+        "verified": "確認済み",
+        "stored": "未確認",
+        "rejected": "拒否"
+      }
+    }
   },
   "connection": {
     "label": "現在のサーバー接続",
@@ -1227,7 +1365,14 @@
     "limit_fetch": "ソースごとの取得回数",
     "limit_option": "1 日 {{count}} 回",
     "limit_unlimited": "上限なし",
-    "used_today": "直近 24 時間で {{count}} 回"
+    "used_today": "直近 24 時間で {{count}} 回",
+    "managed": {
+      "organization": "組織",
+      "search_provided": "組織が提供しています。ソースと順序は読み取り専用です。",
+      "fetch_provided": "組織が提供しています。ソースと順序は読み取り専用です。",
+      "fetch_builtin": "ポリシーで管理されています。Bot は内蔵のページリーダーのみ使います。",
+      "search_off": "ポリシーにより、このアカウントのウェブ検索はオフです。"
+    }
   },
   "permissionsPage": {
     "heading": "レビュアー",
@@ -1482,6 +1627,71 @@
         "title": "ローカル実行の許可を取り消しますか？",
         "body": "実行中のコマンドは停止し、Bot は許可したフォルダにアクセスできなくなります。あとで再度許可できます。",
         "confirm": "取り消す"
+      }
+    }
+  },
+  "policy": {
+    "capability": {
+      "ai_models": {
+        "name": "AI モデル",
+        "help": "アカウントの Bot がどの API キーを使うか。"
+      },
+      "computer": {
+        "name": "Bot コンピューター",
+        "help": "アカウントの Bot がどのコンピューターで作業するか。"
+      },
+      "web_search": {
+        "name": "ウェブ検索",
+        "help": "Bot がウェブ検索できるか、どのキーを使うか。"
+      },
+      "web_fetch": {
+        "name": "ウェブ取得",
+        "help": "内蔵リーダー以外のページ取得を使えるか、どのキーを使うか。"
+      }
+    },
+    "value": {
+      "ai_models": {
+        "own": "個人のキー",
+        "provided": "組織提供"
+      },
+      "computer": {
+        "host": "サーバー VM",
+        "own": "個人の E2B キー",
+        "provided": "組織提供",
+        "none": "なし"
+      },
+      "web_search": {
+        "own": "個人のキー",
+        "provided": "組織提供",
+        "off": "オフ"
+      },
+      "web_fetch": {
+        "own": "個人のキー",
+        "provided": "組織提供",
+        "builtin": "内蔵のみ"
+      }
+    },
+    "source": {
+      "label": "コンピューターの提供元",
+      "vm": "VM",
+      "e2b": "E2B"
+    },
+    "follows": "グループに従う · {{value}}",
+    "overridden": "上書き中 · {{value}}（グループ: {{group}}）",
+    "reset": "グループに戻す",
+    "member": {
+      "managed": "ポリシーで管理",
+      "banner_title": "一部のリソースは組織が提供しています",
+      "banner_body": "管理者が、モデル・検索・Bot コンピューターなど Bot が使う一部を管理しています。これらの設定はここでは読み取り専用です。",
+      "banner_action": "確認する",
+      "banner_dismiss": "閉じる",
+      "models": {
+        "title": "モデルは組織が提供しています",
+        "body": "Bot は組織のモデルアカウントで動作します。API キーとサインインは管理者が管理します。",
+        "available": "利用可能",
+        "not_provided": "未提供",
+        "waiting_title": "管理者の対応待ちです",
+        "waiting_body": "組織はまだモデルを提供していません。管理者が追加するまで Bot は実行できません。"
       }
     }
   }

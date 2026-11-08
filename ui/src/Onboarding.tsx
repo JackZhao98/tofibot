@@ -13,6 +13,7 @@ import type { Bot } from "./types";
 import { loadModelCatalog, useModelCatalog } from "./useModelCatalog";
 import "./onboarding.css";
 import { ModalDialog } from "./overlays/ModalDialog";
+import { usePolicy } from "./capabilityPolicy";
 import { Select } from "./Select";
 
 const OnboardingServer = lazy(() => import("./OnboardingServer"));
@@ -63,11 +64,15 @@ export function Onboarding(props: OnboardingProps) {
   // Stable callbacks that return the same state when nothing changed, so a child's effect cannot loop.
   const onConnected = useCallback((connected: boolean) => setMeta(current => current.connected === connected ? current : { ...current, connected }), []);
   const onQueue = useCallback((queue: Meta["queue"]) => setMeta(current => JSON.stringify(current.queue) === JSON.stringify(queue) ? current : { ...current, queue }), []);
-  const go = useCallback((next: OnboardingStep) => {
+  const policy = usePolicy();
+  const skipModel = policy.provided("ai_models") && props.modelConfigured;
+  const go = useCallback((requested: OnboardingStep) => {
+    // Models are provided by the organization and available: the model step connects nothing and passes itself on (after it makes sure the first Bot exists), so going back from the last step skips it.
+    const next: OnboardingStep = skipModel && requested === 2 && step > 2 ? 1 : requested;
     setDirection(next > step ? "forward" : "back");
     setStepState(next);
     props.onProgress({ step: next, skipped: false });
-  }, [step, props]);
+  }, [step, props, skipModel]);
   useEffect(() => { if (props.initialStep === 1) props.onProgress({ step: 1 }); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
   useEffect(() => { sheet.current?.querySelector<HTMLElement>("[data-autofocus]")?.focus(); }, [step]);
   const status = step === 1 ? "" : step === 2 ? t(meta.connected ? "onboarding.status_done" : "onboarding.status_required") : meta.queue?.kind === "walk" ? t("onboarding.status_app", { name: meta.queue.name, index: meta.queue.index, total: meta.queue.total }) : meta.queue?.kind === "summary" ? t("onboarding.status_done") : t("onboarding.status_optional");
@@ -160,6 +165,8 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
   const [saveError, setSaveError] = useState(false);
   const run = useRef(0);
   const alive = useRef(true);
+  const provided = usePolicy().provided("ai_models");
+  const [checking, setChecking] = useState(false);
   const cat = useRef<CatHandle | null>(null);
   const keyInput = useRef<HTMLInputElement>(null);
   useEffect(() => { alive.current = true; return () => { alive.current = false; run.current++; }; }, []);
@@ -190,6 +197,13 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
 
   // An account that already has a model lands here "connected": show what it has, and make sure the Bot exists.
   useEffect(() => { if (modelConfigured) { void loadDefaults(); void ensureFirstBot(); } /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+
+  // Models provided by the organization and available: make sure the first Bot exists, then go on; there is nothing to connect.
+  useEffect(() => {
+    if (!provided || !modelConfigured) return;
+    void ensureFirstBot().then(() => { if (alive.current) onNext(); });
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [provided, modelConfigured]);
 
   const finishConnect = useCallback(async (how: Via) => {
     await onModelChanged();
@@ -282,7 +296,11 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
   const continueLabel = choice === "chatgpt" ? t("onboarding.model_continue_chatgpt") : t("onboarding.key_connect");
 
   let body: ReactNode;
-  if (connected) {
+  if (provided) {
+    body = modelConfigured
+      ? <p className="onb-lede onb-lede-left" role="status">{t("onboarding.provided_body")}</p>
+      : <div className="onb-panel onb-waiting-admin" data-state="org_resource_missing" role="status"><p className="onb-waiting"><TofiIcon name="lock" size={15} /> {t("onboarding.waiting_title")}</p><p className="onb-small">{t("onboarding.waiting_body")}</p></div>;
+  } else if (connected) {
     body = (
       <>
         <div className="onb-connected" role="status">
@@ -381,7 +399,8 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
   }
 
   let foot: ReactNode;
-  if (connected) foot = <><span /><button type="button" className="primary-button onb-primary" data-autofocus onClick={onNext}>{t("onboarding.next")} <TofiIcon name="arrow-right" size={16} /></button></>;
+  if (provided) foot = <><button type="button" className="onb-quiet" onClick={onBack}>{t("onboarding.back")}</button>{!modelConfigured && <button type="button" className="primary-button onb-primary" data-autofocus disabled={checking} onClick={() => { setChecking(true); void onModelChanged().finally(() => { if (alive.current) setChecking(false); }); }}>{checking ? t("onboarding.key_checking_short") : t("onboarding.waiting_check")}</button>}</>;
+  else if (connected) foot = <><span /><button type="button" className="primary-button onb-primary" data-autofocus onClick={onNext}>{t("onboarding.next")} <TofiIcon name="arrow-right" size={16} /></button></>;
   else if (phase === "waiting" && choice === "chatgpt") foot = <><button type="button" className="onb-quiet" onClick={cancelChatGPT}>{t("onboarding.cancel")}</button><button type="button" className="primary-button onb-primary" disabled>{t("onboarding.waiting")}</button></>;
   else if (choice === "chatgpt") foot = <><span className="onb-lock"><TofiIcon name="lock" size={14} /> {t("onboarding.private_note")}</span><button type="button" className="primary-button onb-primary" data-autofocus onClick={() => void startChatGPT()}>{phase === "error" ? t("onboarding.sign_in_again") : continueLabel}</button></>;
   else if (choice === "server") foot = <><button type="button" className="onb-quiet" disabled={busy} onClick={onBack}>{t("onboarding.back")}</button><button type="submit" form="onb-server-form" className="primary-button onb-primary" disabled={serverBusy}>{serverBusy ? t("onboarding.key_checking_short") : t("onboarding.server_connect")}</button></>;
@@ -391,7 +410,7 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
   return (
     <>
       <div className="onb-body">
-        <h2 id={titleId} className="onb-title">{connected ? t("onboarding.connected_title") : t("onboarding.model_title")}</h2>
+        <h2 id={titleId} className="onb-title">{provided ? t(modelConfigured ? "onboarding.provided_title" : "onboarding.waiting_heading") : connected ? t("onboarding.connected_title") : t("onboarding.model_title")}</h2>
         {body}
       </div>
       <footer className="onb-foot">{foot}</footer>

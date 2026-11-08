@@ -47,6 +47,7 @@ import { conversationPath, readConversationRoute, readSideParam, withSideParam }
 import { useConversationNavigation } from "./useConversationNavigation";
 import { useDesktopPresence } from "./desktopPresence";
 import { setComputerCapability, useHasComputer } from "./computerCapability";
+import { setCapabilityPolicy } from "./capabilityPolicy";
 import type { DeleteTarget } from "./DeleteConversationDialog";
 import { PrimaryBadge, otherActiveBots } from "./PrimaryAssistant";
 import type { ViewOnlyChatTarget } from "./ViewOnlyChat";
@@ -917,6 +918,7 @@ function Workspace() {
     const previous = configRef.current;
     configRef.current = nextConfig;
     setComputerCapability(nextConfig.computer);
+    setCapabilityPolicy(nextConfig.capabilities);
     setConfig((current) => sameData(current, nextConfig) ? current : nextConfig);
     if (previous && (previous.model_configured !== nextConfig.model_configured || previous.default_model !== nextConfig.default_model || previous.provider !== nextConfig.provider)) {
       setCodexStatusRefresh((current) => current + 1);

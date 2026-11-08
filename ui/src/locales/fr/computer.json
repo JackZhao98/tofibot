@@ -596,6 +596,10 @@
     },
     "configure": {
       "title": "Configurer l’ordinateur Bot"
-    }
+    },
+    "provided": "Fourni par votre organisation",
+    "provided_note": "Votre organisation fournit cet ordinateur de Bot. Sa clé et son image sont gérées par votre administrateur.",
+    "none_title": "Votre administrateur n’a pas attribué d’ordinateur de Bot",
+    "none_body": "Les Bots fonctionnent sans ordinateur tant qu’aucun n’est attribué. Vos Mac peuvent toujours être connectés."
   }
 }

@@ -1,0 +1,106 @@
+import {useCallback, useEffect, useMemo, useRef, useState, type RefObject} from "react";
+import {adminOrgApi, modesFor, orgError, SELF_SERVE, valueFor, type AdminGroup, type PolicyValue} from "./adminOrgApi";
+import type {AdminAccount} from "./adminApi";
+import {useTranslation} from "./i18n";
+import {TofiIcon} from "./icons";
+import {arrowOpens, OverlayMenu} from "./overlays/OverlayHost";
+import {Segmented} from "./settings/components";
+import {Select} from "./Select";
+import type {CapabilityId} from "./types";
+
+/** The group list, read once and again on `reload`. The built-in groups come first, as the server orders them. */
+export function useGroups(enabled = true) {
+  const [groups, setGroups] = useState<AdminGroup[] | null>(null);
+  const [error, setError] = useState("");
+  const [version, setVersion] = useState(0);
+  useEffect(() => {
+    if (!enabled) return;
+    let alive = true;
+    adminOrgApi.groups().then(list => { if (alive) { setGroups(list); setError(""); } }).catch(cause => { if (alive) setError(orgError(cause)); });
+    return () => { alive = false; };
+  }, [enabled, version]);
+  const reload = useCallback(() => setVersion(value => value + 1), []);
+  const replace = useCallback((group: AdminGroup) => setGroups(list => list && list.map(item => item.id === group.id ? group : item)), []);
+  return {groups, error, reload, replace, setGroups};
+}
+
+type GroupRef = {id: string; name: string};
+
+/**
+ * Which group each account is in. The accounts list does not carry it, so this reads each account's policy (a few requests for a
+ * server with a handful of accounts); an account that has not answered yet shows no group rather than a wrong one.
+ */
+export function useAccountGroups(accounts: AdminAccount[] | null, enabled = true) {
+  const [byAccount, setByAccount] = useState<Record<string, GroupRef>>({});
+  const [version, setVersion] = useState(0);
+  const key = useMemo(() => (accounts ?? []).map(account => account.id).join(","), [accounts]);
+  useEffect(() => {
+    if (!enabled || !key) return;
+    let alive = true;
+    const ids = key.split(",");
+    void (async () => {
+      for (let start = 0; start < ids.length; start += 6) {
+        const batch = ids.slice(start, start + 6);
+        const results = await Promise.allSettled(batch.map(id => adminOrgApi.accountPolicy(id)));
+        if (!alive) return;
+        setByAccount(current => {
+          const next = {...current};
+          results.forEach((result, index) => { if (result.status === "fulfilled") next[batch[index]] = result.value.group; });
+          return next;
+        });
+      }
+    })();
+    return () => { alive = false; };
+  }, [enabled, key, version]);
+  const assign = useCallback((ids: string[], group: GroupRef) => setByAccount(current => ({...current, ...Object.fromEntries(ids.map(id => [id, group]))})), []);
+  const refresh = useCallback(() => setVersion(value => value + 1), []);
+  return {byAccount, assign, refresh};
+}
+
+/** A button that names the current group and opens a menu of every group; the choice is applied by `onPick`. */
+export function GroupMenu({groups, value, onPick, disabled = false, label, text, className = ""}: {groups: AdminGroup[]; value?: string; onPick: (id: string) => void; disabled?: boolean; label: string; /** Replaces the current group's name on the button (a bulk move has no current group). */ text?: string; className?: string}) {
+  const {t} = useTranslation("settings");
+  const [open, setOpen] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const current = groups.find(group => group.id === value);
+  return <>
+    <button ref={trigger} type="button" className={`secondary-button group-menu-trigger ${className}`.trim()} disabled={disabled || groups.length === 0} aria-haspopup="menu" aria-expanded={open} aria-label={label} data-group={value}
+      onClick={() => setOpen(next => !next)} onKeyDown={arrowOpens(setOpen)}>
+      <span>{text ?? (current ? current.name : t("admin.groups.unknown"))}</span><TofiIcon name="chevron-down" size={14} aria-hidden="true"/>
+    </button>
+    {open && <OverlayMenu open onOpenChange={setOpen} className="mcp-menu group-menu" label={label} trigger={trigger as RefObject<HTMLElement | null>} anchor={trigger as RefObject<HTMLElement | null>} align="end" sideOffset={6}>
+      {groups.map(group => <button key={group.id} type="button" data-group-option={group.id} aria-current={group.id === value ? "true" : undefined} onClick={() => { setOpen(false); if (group.id !== value) onPick(group.id); }}>
+        {group.id === value ? <TofiIcon name="check" size={16} aria-hidden="true"/> : <span className="group-menu-gap" aria-hidden="true"/>}{group.name}
+      </button>)}
+    </OverlayMenu>}
+  </>;
+}
+
+/** The words for one capability value: "Organization keys", "Provided · VM". */
+export function usePolicyText() {
+  const {t} = useTranslation("settings");
+  return useCallback((capability: CapabilityId, value: PolicyValue | undefined) => {
+    const v = value ?? SELF_SERVE[capability];
+    const base = t(`policy.value.${capability}.${v.mode}` as "policy.value.computer.host");
+    return capability === "computer" && v.mode === "provided" && v.source ? `${base} · ${t(`policy.source.${v.source as "vm"}`)}` : base;
+  }, [t]);
+}
+
+/**
+ * One capability's value as a control: a segmented list (a select for the computer's four modes) and, when the computer is
+ * provided, the source. Shared by the group editor and the account's overrides, so both set values the same way.
+ */
+export function PolicyControl({capability, value, onChange, hostHasVm, disabled = false, label}: {capability: CapabilityId; value: PolicyValue | undefined; onChange: (value: PolicyValue) => void; hostHasVm: boolean; disabled?: boolean; label: string}) {
+  const {t} = useTranslation("settings");
+  const current = value ?? SELF_SERVE[capability];
+  const options = modesFor(capability).map(mode => ({value: mode, label: t(`policy.value.${capability}.${mode}` as "policy.value.computer.host")}));
+  const pick = (mode: string) => { if (mode !== current.mode) onChange(valueFor(capability, mode, hostHasVm)); };
+  return <div className="policy-control" data-capability={capability} data-mode={current.mode}>
+    {capability === "computer"
+      ? <Select size="sm" value={current.mode} onValueChange={pick} disabled={disabled} aria-label={label} options={options}/>
+      : <Segmented<string> label={label} value={current.mode} disabled={disabled} options={options} onChange={pick}/>}
+    {capability === "computer" && current.mode === "provided" && <Segmented<string> label={t("policy.source.label")} value={current.source ?? "e2b"} disabled={disabled}
+      options={[...(hostHasVm || current.source === "vm" ? [{value: "vm", label: t("policy.source.vm")}] : []), {value: "e2b", label: t("policy.source.e2b")}]}
+      onChange={source => { if (source !== current.source) onChange({mode: "provided", source, params: {}}); }}/>}
+  </div>;
+}

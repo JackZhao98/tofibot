@@ -95,6 +95,14 @@
     "host_update_unavailable": "这台服务器暂时还不能从页面更新。请在服务器上运行 sudo tofi update。",
     "storage_quota_exceeded": "此账户的存储已达上限。请删除文件，或联系管理员。",
     "storage_host_full": "服务器磁盘几乎已满，暂不接收新文件。请通知此服务器的运维人员。",
-    "update_check_failed": "无法连接更新服务器，请稍后再试。"
+    "update_check_failed": "无法连接更新服务器，请稍后再试。",
+    "managed_by_organization": "由你的组织管理。",
+    "capability_off": "已被你的组织关闭。",
+    "org_resource_missing": "你的组织还没有提供这项资源。",
+    "group_in_use": "请先把该组成员移到其他用户组。",
+    "group_builtin_readonly": "内置用户组不能这样修改。",
+    "invalid_policy": "这个策略无效。",
+    "group_exists": "已有同名用户组。",
+    "group_limit": "已达到用户组数量上限。"
   }
 }
