@@ -320,6 +320,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     }
     if (match && method === "PATCH") return jsonAnswer(200, adminState.accounts.find(a => a.id === match[1]));
     if (/\/passphrase$/.test(path)) return jsonAnswer(200, {passphrase: "ABCD-EFGH-IJKL-MNOP-QRST-UVWX-YZ23-4567"});
+    if (path === "/api/admin/groups" && method === "GET") return jsonAnswer(200, [{id: "self_serve", name: "Self-serve", builtin: true, position: 0, member_count: 4, policies: {}}, {id: "provided", name: "Provided", builtin: true, position: 1, member_count: 0, policies: {}}]);
+    if (/^\/api\/admin\/accounts\/[^/]+\/policy$/.test(path)) return jsonAnswer(200, {group: {id: "self_serve", name: "Self-serve"}, overrides: {}, effective: {ai_models: {mode: "own"}, computer: {mode: "host"}, web_search: {mode: "own"}, web_fetch: {mode: "own"}}});
     return jsonAnswer(404, {error: {code: "not_found", message: "not stubbed"}});
   }
   return {adminState, adminStub};

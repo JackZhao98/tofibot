@@ -35,7 +35,7 @@ import {SettingsPages} from '../src/settings/SettingsPages';
 import {subscribeSettingsDeepLinks} from '../src/settings/deepLinks';
 import {setComputerCapability} from '../src/computerCapability';
 const query=new URLSearchParams(location.search);
-setComputerCapability({backend:'kvm',available:true,capabilities:['shell','files','browser','desktop','terminal','resources'],personal_computers:true} as any);
+setComputerCapability((query.get('computer')==='detached'?{backend:'none',available:false,host_backend:'kvm',capabilities:[],personal_computers:true}:{backend:'kvm',available:true,capabilities:['shell','files','browser','desktop','terminal','resources'],personal_computers:true}) as any);
 const bots=[{id:'bot_research',name:'Research Bot',is_primary:true,archived:false,model:'default',reasoning_effort:'default'}] as any;
 function Settings(){
  const appearance=useAppearance();
@@ -57,7 +57,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   const vm = (extra = {}) => ({id: "firecracker", kind: "vm", name: "", state: "ready", error_code: "", bot_computer: true, access: "all_bots", actions: ["configure"], ...extra});
   const e2b = (extra = {}) => ({id: "e2b", kind: "e2b", name: "", state: "asleep", error_code: "", bot_computer: false, access: "none", actions: ["use", "remove"], ...extra});
   const mac = (extra = {}) => ({id: "mac_ab12", kind: "mac", name: "Jack's MacBook Pro", state: "online", error_code: "", platform: "darwin", last_seen: "2026-11-05T08:01:02Z", bot_computer: false, access: "allowed_on_mac", actions: ["disconnect"], ...extra});
-  const body = (environments, add = {e2b: true, mac: true, vm_command: ""}, e2bState = null) => ({environments, add, e2b: e2bState});
+  const body = (environments, add = {e2b: true, mac: true, vm_command: ""}, e2bState = null, policy = null) => ({environments, add, e2b: e2bState, ...(policy ? {policy} : {})});
 
   async function open(params = {}, {width = 1280, height = 800, theme = "light", desktop = false, state} = {}) {
     const context = await browser.newContext({viewport: {width, height}, colorScheme: theme});
@@ -72,7 +72,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const page = await context.newPage();
     page.on("pageerror", error => errors.push(`pageerror: ${error.message}`));
     const calls = [];
-    const scenario = {environments: state?.environments ?? [vm(), e2b(), mac()], add: state?.add, e2bState: state?.e2bState ?? null, put: state?.put, pairing: {status: "pending"}};
+    const scenario = {environments: state?.environments ?? [vm(), e2b(), mac()], add: state?.add, e2bState: state?.e2bState ?? null, put: state?.put, policy: state?.policy, pairing: {status: "pending"}};
     await page.route("**/*", async route => {
       const request = route.request(), url = new URL(request.url()), method = request.method(), path = url.pathname;
       if (url.origin !== origin) { await route.abort(); return; }
@@ -83,7 +83,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       if (path === "/api/server-info") return json(route, 200, {service: "tofi", protocol_version: 1, instance_id: "0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d", auth: {mode: "owner"}});
       if (path === "/api/bots") return json(route, 200, {bots: [{id: "bot_research", name: "Research Bot", archived: false}]});
       if (path === "/api/preferences") return json(route, 200, {timezone: "America/Los_Angeles", timezone_configured: true});
-      if (path === "/api/environments" && method === "GET") return json(route, 200, body(scenario.environments, scenario.add, scenario.e2bState));
+      if (path === "/api/environments" && method === "GET") return json(route, 200, body(scenario.environments, scenario.add, scenario.e2bState, scenario.policy));
       if (path === "/api/environments/e2b" && method === "PUT") {
         const sent = JSON.parse(text);
         if (scenario.put === "invalid") return json(route, 400, {error: {code: "invalid_key", message: "E2B rejected the key"}});
@@ -271,6 +271,50 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await rows(page).first().waitFor();
     assert.equal(await page.locator('.settings-tabs [data-tab="devices"]').count(), 0);
     await close();
+  }
+
+  // ---- 9. Organization policy (user groups): provided shows whose Bot computer it is and offers no key or switch; none says so
+  //         and leaves only the Mac side, with no way to attach or add a computer. A server without a policy changes nothing.
+  {
+    // Provided, VM: the server drops use/remove and the E2B add; the row carries the organization mark.
+    const provided = await open({tab: "computer"}, {state: {environments: [vm({actions: ["configure"]}), mac()], add: {e2b: false, mac: true, vm_command: ""}, policy: {mode: "provided", source: "organization", via: "vm"}}});
+    await rows(provided.page).first().waitFor();
+    assert.match((await row(provided.page, "firecracker").innerText()).replace(/\s+/g, " "), /This server Bot computer Provided by your organization Used by all Bots Ready/);
+    assert.equal(await row(provided.page, "firecracker").locator('[data-tag="organization"]').count(), 1);
+    assert.deepEqual(await buttons(row(provided.page, "firecracker")), ["configure"], "only what the server allows: no Use for Bots, no Remove");
+    assert.equal(await provided.page.locator(".env-add").count(), 1);
+    await provided.page.locator(".env-add").click();
+    assert.deepEqual(await provided.page.locator(".env-add-menu button").allInnerTexts(), ["Your Mac"], "no E2B to add while the organization provides the computer");
+    await provided.page.keyboard.press("Escape");
+    assert.equal(await provided.page.locator('[data-section="attach"]').count(), 0);
+    if (shots) await provided.page.screenshot({path: join(shots, "policy-provided-1280.png")});
+    await provided.close();
+
+    // Provided, E2B, not attached yet: the page still says whose Bot computer it will be, with no control.
+    const waiting = await open({tab: "computer"}, {state: {environments: [], add: {e2b: false, mac: true, vm_command: ""}, policy: {mode: "provided", source: "organization", via: "e2b"}}});
+    await waiting.page.locator('.env-row[data-environment="organization"]').waitFor();
+    assert.match((await waiting.page.locator('.env-row[data-environment="organization"]').innerText()).replace(/\s+/g, " "), /E2B cloud computer Bot computer Provided by your organization Your organization provides this Bot computer/);
+    assert.equal(await waiting.page.locator('.env-row[data-environment="organization"] button').count(), 0, "no controls on the organization's computer");
+    assert.equal(await waiting.page.locator(".environments-page .computer-options, .environments-page [data-computer-command]").count(), 0, "no 'how to add' guide");
+    await waiting.close();
+
+    // None: a banner, only the Mac, nothing to attach, the host command is not shown even to an administrator of this server.
+    const none = await open({tab: "computer", computer: "detached"}, {state: {environments: [mac()], add: {e2b: false, mac: true, vm_command: ""}, policy: {mode: "none", source: "none"}}});
+    await rows(none.page).first().waitFor();
+    assert.match(await none.page.locator(".settings-banner").innerText(), /Your administrator has not assigned a Bot computer/);
+    assert.deepEqual(await names(none.page), ["Jack's MacBook Pro"]);
+    assert.equal(await none.page.locator('[data-section="attach"]').count(), 0, "no way to attach a computer under 'none'");
+    assert.ok(!/sudo tofi computer add kvm/.test(await none.page.locator(".environments-page").innerText()), "no host command under 'none'");
+    if (shots) await none.page.screenshot({path: join(shots, "policy-none-1280.png")});
+    await none.close();
+
+    // Control: the same detached computer under 'host' (today's behavior) still offers Attach.
+    const host = await open({tab: "computer", computer: "detached"}, {state: {environments: [mac()], add: {e2b: true, mac: true, vm_command: ""}, policy: {mode: "host", source: "own"}}});
+    await rows(host.page).first().waitFor();
+    await host.page.locator('[data-section="attach"]').waitFor();
+    assert.equal(await host.page.locator(".settings-banner").count(), 0, "no policy banner under 'host'");
+    await host.close();
+    console.log("PASS policy: provided names the organization with no key or switch, none leaves only the Mac side, host is unchanged");
   }
 
   assert.deepEqual(errors, [], `page errors: ${errors.join("; ")}`);
