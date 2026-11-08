@@ -431,6 +431,40 @@ func TestAccountDeleteReclaimsOrgE2BSandbox(t *testing.T) {
 	}
 }
 
+// Each account of the admin list carries its group.
+func TestAdminAccountsListCarriesGroup(t *testing.T) {
+	f := newOrgFixture(t)
+	list := func() map[string]accountListItem {
+		var items []accountListItem
+		if err := json.Unmarshal([]byte(f.admin_(t, "GET", "/api/admin/accounts", "", 200)), &items); err != nil {
+			t.Fatal(err)
+		}
+		out := map[string]accountListItem{}
+		for _, it := range items {
+			out[it.ID] = it
+		}
+		return out
+	}
+	for _, id := range []string{f.admin.ID, f.member.ID} {
+		it := list()[id]
+		if it.Group == nil || it.Group.ID != groupSelfServe || it.Group.Name == "" {
+			t.Fatalf("default group of %s: %+v", it.Username, it.Group)
+		}
+	}
+	f.admin_(t, "PUT", "/api/admin/groups/"+groupProvided+"/members", `{"account_ids":["`+f.member.ID+`"]}`, 200)
+	it := list()[f.member.ID]
+	if it.Group == nil || it.Group.ID != groupProvided || it.Group.Name != "Provided" && it.Group.Name == "" {
+		t.Fatalf("moved account: %+v", it.Group)
+	}
+	if list()[f.admin.ID].Group.ID != groupSelfServe {
+		t.Fatal("another account moved")
+	}
+	raw := f.admin_(t, "GET", "/api/admin/accounts", "", 200)
+	if !strings.Contains(raw, `"group":{"id":"provided"`) || !strings.Contains(raw, `"username":"org-member"`) {
+		t.Fatalf("response shape: %s", raw)
+	}
+}
+
 // The person's own E2B computer is never replaced silently when a new TOFI version
 // builds a new template: it keeps working, reports guest_outdated, and the
 // upgrade action replaces it on request.

@@ -9,6 +9,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,6 +39,18 @@ type Account struct {
 	DeleteStep  string `json:"delete_step,omitempty"`
 	DeleteError string `json:"delete_error,omitempty"`
 }
+
+// accountListItem is a row of GET /api/admin/accounts: the account and its group.
+type accountListItem struct {
+	Account
+	Group *accountGroupRef `json:"group"`
+}
+
+type accountGroupRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 type AccountGateway struct {
 	root                *Server
 	config              Config
@@ -662,18 +675,23 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, 201, created)
 			return
 		case http.MethodGet:
-			rows, err := g.root.store.db.Query(`SELECT id,username,email,role,disabled,must_change_password,deleting,delete_step,delete_error FROM accounts ORDER BY created_at,id`)
+			// Each account carries its group, so the list needs no policy call per account.
+			rows, err := g.root.store.db.Query(`SELECT a.id,a.username,a.email,a.role,a.disabled,a.must_change_password,a.deleting,a.delete_step,a.delete_error,g.id,g.name FROM accounts a LEFT JOIN org_group_members m ON m.account_id=a.id LEFT JOIN org_groups g ON g.id=COALESCE(m.group_id,?) ORDER BY a.created_at,a.id`, groupSelfServe)
 			if err != nil {
 				writeErr(w, 500, "storage", "cannot list accounts")
 				return
 			}
 			defer rows.Close()
-			items := []Account{}
+			items := []accountListItem{}
 			for rows.Next() {
-				var item Account
-				if rows.Scan(&item.ID, &item.Username, &item.Email, &item.Role, &item.Disabled, &item.MustChangePassword, &item.Deleting, &item.DeleteStep, &item.DeleteError) != nil {
+				var item accountListItem
+				var gid, gname sql.NullString
+				if rows.Scan(&item.ID, &item.Username, &item.Email, &item.Role, &item.Disabled, &item.MustChangePassword, &item.Deleting, &item.DeleteStep, &item.DeleteError, &gid, &gname) != nil {
 					writeErr(w, 500, "storage", "cannot list accounts")
 					return
+				}
+				if gid.Valid {
+					item.Group = &accountGroupRef{ID: gid.String, Name: gname.String}
 				}
 				items = append(items, item)
 			}
