@@ -924,8 +924,6 @@
   },
   "firstrun": {
     "title": "Things you can hand me now",
-    "hint": "Every one of these has passed all evaluation runs. Pick one to fill the message box, then edit it and send.",
-    "hint_unevaluated": "These passed every evaluation run on hosted models. This model was not evaluated, so check that the task was really done. Pick one to fill the message box, then edit it and send.",
     "items": {
       "computer_script": {
         "label": "Write and run a small script",

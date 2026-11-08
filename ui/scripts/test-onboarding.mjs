@@ -684,9 +684,19 @@ try {
     assert.equal(await page.locator(".handover-chip").count(), 4, "four chips; an id with no wording is left out");
     assert.equal(await page.locator("[data-day-one]").count(), 0, "the day-one card does not stack under the chips");
     assert.ok(state.calls.some(call => typeof call === "string" && call.startsWith("GET /api/onboarding/handovers?bot_id=bot_1")), "the list is read for this Bot");
-    const box = await chips.locator(".handover-chips-grid").boundingBox();
-    const first = await page.locator(".handover-chip").nth(0).boundingBox(), second = await page.locator(".handover-chip").nth(1).boundingBox(), third = await page.locator(".handover-chip").nth(2).boundingBox();
-    assert.ok(Math.abs(first.y - second.y) < 2 && third.y > first.y + 10 && box.width > 300, "two columns, two rows");
+    // Layout: a row of label-wide keys that wraps, left on the chat column with the heading and the bubbles; no card around it.
+    const box = await chips.locator(".handover-chips-grid").boundingBox(), heading = await chips.locator("h2").boundingBox();
+    const first = await page.locator(".handover-chip").nth(0).boundingBox(), second = await page.locator(".handover-chip").nth(1).boundingBox(), last = await page.locator(".handover-chip").nth(3).boundingBox();
+    assert.ok(Math.abs(first.y - second.y) < 2 && box.width > 300, "the first two keys share a row");
+    assert.ok(last.y > first.y + 10, "four English labels do not fit one row: the row wraps instead of squeezing them");
+    assert.ok(first.width < box.width / 2 && Math.abs(first.x - heading.x) < 1, `keys take their label's width and start under the heading: ${JSON.stringify({ first, heading })}`);
+    assert.equal(await chips.locator("p").count(), 0, "no footnote under the keys");
+    const frame = await chips.evaluate(node => { const style = getComputedStyle(node); return { edge: style.borderTopWidth, shadow: style.boxShadow, image: style.backgroundImage }; });
+    assert.deepEqual(frame, { edge: "0px", shadow: "none", image: "none" }, `no card around the keys: ${JSON.stringify(frame)}`);
+    const heights = await page.locator(".handover-chip").evaluateAll(nodes => nodes.map(node => Math.round(node.getBoundingClientRect().height)));
+    assert.ok(heights.every(height => height === heights[0] && height >= 40), `keys share one height and clear 40 px: ${heights.join(",")}`);
+    const key = await page.locator(".handover-chip").first().evaluate(node => { const style = getComputedStyle(node); return { shadow: style.boxShadow, edge: style.borderTopWidth }; });
+    assert.ok(key.shadow !== "none" && key.edge === "2px", `a key carries the ink edge and the hard shadow: ${JSON.stringify(key)}`);
     const sends = () => state.calls.filter(call => typeof call === "string" && /^POST .*\/messages$/.test(call)).length;
     const sentBefore = sends();
     await page.locator("[data-handover='reminder_in_minutes']").click();
@@ -696,10 +706,20 @@ try {
     assert.equal(await composer.evaluate(node => document.activeElement === node), true, "the composer has focus");
     await composer.pressSequentially(" Use my timezone.");
     assert.ok((await composer.inputValue()).endsWith("stretch. Use my timezone."), "the text stays editable");
+    // Keyboard: Space on a focused key holds the pressed pose (data-pressed) until release, which fills the composer the
+    // same way. (Enter activates on keydown, so its pose is one frame long: focus moves to the composer and releases it.)
+    const unitKey = page.locator("[data-handover='unit_conversion_table']");
+    await unitKey.focus();
+    await page.keyboard.down("Space");
+    assert.equal(await unitKey.evaluate(node => node.hasAttribute("data-pressed")), true, "Space held shows the pressed pose");
+    await page.keyboard.up("Space");
+    assert.equal(await unitKey.evaluate(node => node.hasAttribute("data-pressed")), false, "Space released lifts the key");
+    await page.waitForFunction(() => document.querySelector("form.composer textarea")?.value === "Convert some cooking measurements into a small table. Ask me which ones.");
+    assert.equal(sends(), sentBefore, "Space fills the composer and sends nothing");
     assert.ok((await overflow(page)) <= 0, "no horizontal scroll");
     assert.deepEqual(errors, []);
     await context.close();
-    pass("first-run handovers: 2x2 chips replace the day-one card, a click fills the composer without sending");
+    pass("first-run handovers: a row of keys replaces the day-one card, a click fills the composer without sending");
   }
 
   // Phone width: one column.
@@ -710,8 +730,9 @@ try {
     state.messages = [{ id: "m1", conversation_id: "conv_1", seq: 1, role: "assistant", sender_bot_id: "bot_1", content: "Hi.", created_at: at }];
     const { page, context } = await open(state, { width: 390, height: 844, url: "/b/bot_1" });
     await page.locator("[data-handover-chips]").waitFor({ timeout: 20000 });
-    const a = await page.locator(".handover-chip").nth(0).boundingBox(), b = await page.locator(".handover-chip").nth(1).boundingBox();
+    const a = await page.locator(".handover-chip").nth(0).boundingBox(), b = await page.locator(".handover-chip").nth(1).boundingBox(), row = await page.locator(".handover-chips-grid").boundingBox();
     assert.ok(b.y > a.y + 10, "one column on a phone");
+    assert.ok(Math.abs(a.width - (row.width - 3)) < 2 && a.height >= 44, `full-width keys of at least 44 px on a phone: ${JSON.stringify({ a, row })}`);
     assert.ok((await overflow(page)) <= 0, "no horizontal scroll on a phone");
     await context.close();
     pass("first-run handovers: one column on a phone");
