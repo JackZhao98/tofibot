@@ -684,6 +684,7 @@
       "capability_refs": "最近使った機能の参照",
       "schedule_states": "スケジュールの状態",
       "run_context": "実行コンテキスト（時刻）",
+      "policy": "組織のポリシー",
       "request_note": "リクエストの注記",
       "scheduled_task": "スケジュールされたタスク",
       "scheduled_order": "以前のスケジュール実行",

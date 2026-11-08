@@ -80,6 +80,8 @@ func (s *Server) serveComputerAttach(w http.ResponseWriter, r *http.Request, op 
 			writeJSON(w, 200, s.adminVMSummary())
 		case errors.Is(err, errComputerAttached):
 			writeJSON(w, 200, s.adminVMSummary())
+		case errors.Is(err, errComputerPolicy):
+			writeErr(w, 403, codeCapabilityOff, "the account's policy gives it no VM")
 		case IsComputerBackendUnavailable(err):
 			writeErr(w, 409, "computer_backend_unavailable", "this server has no Bot computer backend configured")
 		default:
@@ -157,6 +159,13 @@ func (g *AccountGateway) adminComputer(w http.ResponseWriter, r *http.Request, a
 		Scan(&target.ID, &target.Username, &target.Email, &target.Role, &target.Disabled, &target.MustChangePassword, &target.Legacy) != nil {
 		writeErr(w, 404, "not_found", "account not found")
 		return true
+	}
+	if op == "attach" {
+		// The policy decides whether this account may hold a VM; an admin cannot attach around it.
+		if pol, perr := g.policyFor(r.Context(), id); perr != nil || !computerAllowsVM(pol[capComputer]) {
+			writeErr(w, 403, codeCapabilityOff, "the account's policy gives it no VM")
+			return true
+		}
 	}
 	workspace, err := g.workspace(target)
 	if err != nil {

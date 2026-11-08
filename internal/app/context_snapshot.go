@@ -60,6 +60,7 @@ const (
 	ctxKindCapabilityRefs = "capability_refs"
 	ctxKindScheduleStates = "schedule_states"
 	ctxKindRunContext     = "run_context"
+	ctxKindPolicy         = "policy"
 	ctxKindRequestNote    = "request_note"
 	ctxKindOther          = "other"
 )
@@ -93,6 +94,7 @@ var contextMarkerKinds = []struct{ prefix, kind string }{
 	{"[failed colleague task]", "colleague_failure"},
 	{"[group mention]", "group_mention"},
 	{"[run context]", ctxKindRunContext},
+	{"[policy]", ctxKindPolicy},
 }
 
 // ContextPart is one piece of what the model call received.
@@ -230,6 +232,7 @@ type contextCapture struct {
 	chosenStart int
 	noteAt      int
 	noteBase    string
+	notePolicy  string
 	noteStates  string
 	messages    []ContextPart
 	stats       ContextHistory
@@ -262,7 +265,7 @@ func (c *contextCapture) markHistoryStart(pmLen int) {
 
 // markNote records where the request note will be inserted (before the last
 // message) and the pieces it is built from.
-func (c *contextCapture) markNote(pmLen int, base, states string) {
+func (c *contextCapture) markNote(pmLen int, base, policy, states string) {
 	if c == nil {
 		return
 	}
@@ -270,7 +273,7 @@ func (c *contextCapture) markNote(pmLen int, base, states string) {
 	if c.noteAt < 0 {
 		c.noteAt = 0
 	}
-	c.noteBase, c.noteStates = base, states
+	c.noteBase, c.notePolicy, c.noteStates = base, policy, states
 }
 
 func contextKindFor(content string) string {
@@ -348,6 +351,9 @@ func (c *contextCapture) noteParts(m runtime.Message) []ContextPart {
 		return []ContextPart{partFor(ctxKindRequestNote, m.Role, text, 0)}
 	}
 	take(ctxKindRunContext, c.noteBase)
+	if c.notePolicy != "" && strings.HasPrefix(text, "\n"+c.notePolicy) {
+		take(ctxKindPolicy, "\n"+c.notePolicy)
+	}
 	if c.noteStates != "" && strings.HasPrefix(text, "\n"+c.noteStates) {
 		take(ctxKindScheduleStates, "\n"+c.noteStates)
 	}

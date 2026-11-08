@@ -558,6 +558,7 @@ func (s *Server) requestMCPReview(ctx context.Context, r Run, call extensions.MC
 			if e := s.store.recordAuxiliaryModelUsage(r.ID, model, resp.Usage.InputTokens, resp.Usage.OutputTokens); e != nil {
 				log.Printf("[usage] reviewer usage for run %s: %v", r.ID, e)
 			}
+			s.noteOrgModelUse(model, resp.Usage)
 		}
 		var result mcpReviewResult
 		var fenced bool

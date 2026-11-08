@@ -229,6 +229,9 @@ func (sr settingRun) set(ctx context.Context, in settingsToolInput) (string, err
 		return "", err
 	}
 	lang := sr.s.settingsLanguage()
+	if mode := managedSettingMode(d.Key, sr.s.policy()); mode != "" {
+		return "", settingsManagedError("This setting is managed by the organization (" + mode + "). Nothing was changed; say so and do not try another way.")
+	}
 	if d.Risk.Self == RiskForbidden {
 		return "", sr.forbiddenError(d, t, lang)
 	}

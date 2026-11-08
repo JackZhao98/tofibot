@@ -447,6 +447,9 @@ func (g *AccountGateway) patchGroup(w http.ResponseWriter, r *http.Request, id s
 		storageFailure(w, "patch group", err)
 		return
 	}
+	if in.Policies != nil {
+		g.applyPolicyChange(g.groupMemberIDs(ctx, id))
+	}
 	g.writeGroup(w, ctx, 200, id)
 }
 
@@ -564,6 +567,7 @@ func (g *AccountGateway) moveMembers(w http.ResponseWriter, r *http.Request, gro
 		storageFailure(w, "move members", err)
 		return
 	}
+	g.applyPolicyChange(ids)
 	writeJSON(w, 200, map[string]any{"group_id": groupID, "moved": len(ids)})
 }
 
@@ -684,5 +688,6 @@ func (g *AccountGateway) putAccountPolicy(w http.ResponseWriter, r *http.Request
 		storageFailure(w, "save account policy", err)
 		return false
 	}
+	g.applyPolicyChange([]string{id})
 	return true
 }

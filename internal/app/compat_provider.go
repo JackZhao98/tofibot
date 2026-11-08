@@ -120,7 +120,14 @@ func normalizeCompatModelIDs(in []string) ([]string, error) {
 	return out, nil
 }
 
+// compatPrivateAllowed: where the person setting the endpoint is the server's
+// administrator, or the endpoint is the organization's (an admin configured it, so
+// the member's own role does not matter). Link-local, unspecified and multicast
+// stay refused at every dial either way.
 func (s *Server) compatPrivateAllowed() bool {
+	if s.accountID != "" && s.aiProvided() {
+		return true
+	}
 	if s.accountID == "" || os.Getenv(compatPrivateEnvFlag) == "1" || os.Getenv(privateEndpointsEnvFlag) == "1" {
 		return true
 	}
@@ -157,9 +164,18 @@ func (s *Server) compatDialControl(network, address string, _ syscall.RawConn) e
 // through; other providers keep their default transport. It ignores proxy
 // environment variables so the dial check sees the real destination.
 func (s *Server) providerHTTPClient(name string) *http.Client {
+	if name != providerCodex && s.credentialSource(name) == sourceOrganization {
+		return s.orgModelClient(name)
+	}
 	if name != providerCompat {
 		return nil
 	}
+	return s.ownCompatClient()
+}
+
+// ownCompatClient is the guarded client to a compatible endpoint; it applies
+// compatPrivateAllowed at each dial and so follows the policy live.
+func (s *Server) ownCompatClient() *http.Client {
 	s.providerMu.Lock()
 	defer s.providerMu.Unlock()
 	if s.compatClient == nil {
@@ -541,6 +557,12 @@ func (s *Server) compatFromBody(in compatBody) (compatConfig, string, string) {
 }
 
 func (s *Server) routeCompatProvider(w http.ResponseWriter, r *http.Request, sub string) {
+	// While the organization provides the models, the endpoint is not the person's to
+	// set, delete or probe (a probe would dial an address the person typed).
+	if s.aiProvided() && (sub == "config" || sub == "models") && r.Method != http.MethodGet {
+		refusePolicy(w, false)
+		return
+	}
 	switch {
 	case sub == "config" && r.Method == http.MethodPut:
 		s.putCompatConfig(w, r)

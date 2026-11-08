@@ -571,6 +571,9 @@ func (s *Server) AttachVM(ctx context.Context) error {
 	if s.computerFactory == nil {
 		return errComputerBackend
 	}
+	if s.accountID != "" && s.orgPolicy != nil && !computerAllowsVM(s.policy()[capComputer]) {
+		return errComputerPolicy // the account's policy gives it no VM: no path attaches one around it
+	}
 	// The container keeps serving local connections after the attach.
 	s.recordContainerRunnerNoComputer()
 	s.computerMu.Lock()

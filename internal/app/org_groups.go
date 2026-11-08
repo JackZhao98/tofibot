@@ -282,6 +282,13 @@ func (g *AccountGateway) wirePolicy(c *Config, a Account) {
 	c.OrgPolicy = func(ctx context.Context) (ResolvedPolicy, error) { return g.policyFor(ctx, id) }
 	c.OrgCredential = func(ctx context.Context, resource string) (orgSecret, error) { return g.orgCredential(ctx, resource) }
 	c.OrgUsage = func(ev OrgUsageEvent) { g.recordOrgUsage(id, ev) }
+	c.OrgConfig = func(ctx context.Context, resource string) (json.RawMessage, bool, error) {
+		row, found, err := g.getOrgResource(ctx, resource)
+		if err != nil || !found {
+			return nil, false, err
+		}
+		return json.RawMessage(row.Config), true, nil
+	}
 }
 
 // recordOrgUsage adds one use to the account's month row (UTC month).

@@ -224,6 +224,7 @@ func (s *Server) gradeAnswer(ctx context.Context, p provider.Provider, model, ru
 		if e := s.store.recordAuxiliaryModelUsage(runID, model, resp.Usage.InputTokens, resp.Usage.OutputTokens); e != nil {
 			log.Printf("[usage] answer grader usage for run %s: %v", runID, e)
 		}
+		s.noteOrgModelUse(model, resp.Usage)
 	}
 	if err != nil || resp == nil || len(resp.ToolCalls) != 0 {
 		log.Printf("[answer-grade] run=%s model=%s iteration=%d failed latency_ms=%d err=%v", runID, model, iteration, time.Since(started).Milliseconds(), err)

@@ -70,6 +70,8 @@ type AccountGateway struct {
 	orgWriteMu sync.Mutex
 	// orgWebEndpoints redirects an organization web-key probe; tests only.
 	orgWebEndpoints map[string]string
+	// policyApply tracks the detaches that follow a policy change.
+	policyApply sync.WaitGroup
 }
 
 func NewAccountGateway(c Config) (*AccountGateway, error) {
@@ -185,6 +187,7 @@ func (g *AccountGateway) Close() error {
 	workspaces := g.workspaces
 	g.workspaces = map[string]*Server{}
 	g.mu.Unlock()
+	g.policyApply.Wait()
 	for _, s := range workspaces {
 		s.Close()
 	}
@@ -378,10 +381,16 @@ func (g *AccountGateway) workspace(a Account) (*Server, error) {
 			return nil, errors.New("absolute account socket root required")
 		}
 		c.ComputerSocket = filepath.Join(g.config.AccountComputerSocketRoot, g.computerIdentity(a), "control.sock")
-		c.ComputerStartDetached = g.computerOff.Load()
+		// The policy decides whether this account holds a VM at all: none, own and
+		// provided/e2b start detached and are refused at ensure.
+		pol, perr := g.policyFor(context.Background(), a.ID)
+		c.ComputerStartDetached = g.computerOff.Load() || perr != nil || !computerAllowsVM(pol[capComputer])
 		c.ComputerEnsure = func(ctx context.Context) error {
 			if g.config.AccountMaintenance {
 				return errors.New("account computer startup is fenced during maintenance")
+			}
+			if p, err := g.policyFor(ctx, a.ID); err != nil || !computerAllowsVM(p[capComputer]) {
+				return errors.New(codeCapabilityOff + ": the policy gives this account no VM")
 			}
 			var disabled, change bool
 			if err := g.root.store.db.QueryRowContext(ctx, `SELECT disabled,must_change_password FROM accounts WHERE id=?`, a.ID).Scan(&disabled, &change); err != nil || disabled || change {

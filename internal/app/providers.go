@@ -120,6 +120,9 @@ type providerKeyState struct {
 
 // providerKey returns the vault key, else the operator's environment key.
 func (s *Server) providerKey(name string) (providerKeyState, bool) {
+	if s.credentialSource(name) == sourceOrganization {
+		return s.orgProviderKeyNow(name)
+	}
 	if v := s.secretVault; v != nil {
 		v.mu.Lock()
 		record, ok := v.records[providerVaultID(name)]
@@ -144,8 +147,10 @@ func (s *Server) usableProviderKey(name string) bool {
 	return ok && state.Error == ""
 }
 
+// codexConnected: a Codex sign-in serves models only while the person brings
+// their own; provided models never fall back to it.
 func (s *Server) codexConnected() bool {
-	return s.codex != nil && s.codex.Status().Connected
+	return s.codex != nil && s.codex.Status().Connected && !s.aiProvided()
 }
 
 func (s *Server) anyProviderConfigured() bool {
@@ -170,6 +175,20 @@ func (s *Server) activeProvider() string {
 
 // providerCredential is the routed engine's credential resolver.
 func (s *Server) providerCredential(ctx context.Context, name string) (string, error) {
+	if name == providerCodex && s.aiProvided() {
+		return "", errOrgCodex
+	}
+	if name != providerCodex && s.credentialSource(name) == sourceOrganization {
+		// No fallback: a missing organization key is org_resource_missing, never the person's own key.
+		state, err := s.orgProviderKey(ctx, name)
+		if err != nil {
+			return "", orgCredentialError(name, err)
+		}
+		if name == providerCompat {
+			return parseCompatKey(state.Key).Key, nil
+		}
+		return state.Key, nil
+	}
 	switch name {
 	case providerCodex:
 		if s.codex == nil {
@@ -267,14 +286,24 @@ type providerCatalog struct {
 	source string
 }
 
+// catalogKey names a provider's catalog by whose credential serves it, so the
+// models of an organization key and of a personal key never stand in for each other.
+func (s *Server) catalogKey(name string) string {
+	if s.credentialSource(name) == sourceOrganization {
+		return name + "#org"
+	}
+	return name
+}
+
 func (s *Server) cachedProviderCatalog(name string) []ModelOption {
+	key := s.catalogKey(name)
 	s.providerMu.Lock()
-	entry, ok := s.providerCatalogs[name]
+	entry, ok := s.providerCatalogs[key]
 	s.providerMu.Unlock()
 	if ok && len(entry.models) > 0 {
 		return append([]ModelOption(nil), entry.models...)
 	}
-	models, _ := s.store.cachedProviderModels(name)
+	models, _ := s.store.cachedProviderModels(key)
 	if name == providerCompat {
 		s.publishCompatWindows(models)
 	}
@@ -292,7 +321,7 @@ func providerMemoTTL(source string) time.Duration {
 
 func (s *Server) forgetProviderCatalog(name string) {
 	s.providerMu.Lock()
-	delete(s.providerCatalogs, name)
+	delete(s.providerCatalogs, s.catalogKey(name))
 	s.providerMu.Unlock()
 }
 
@@ -304,8 +333,9 @@ func (s *Server) providerModels(ctx context.Context, name string) ([]ModelOption
 		return nil, "", ""
 	}
 	label := providerLabel(name)
+	ckey := s.catalogKey(name)
 	s.providerMu.Lock()
-	entry, cached := s.providerCatalogs[name]
+	entry, cached := s.providerCatalogs[ckey]
 	s.providerMu.Unlock()
 	if cached && time.Since(entry.at) < providerMemoTTL(entry.source) && len(entry.models) > 0 {
 		if entry.source == "live" {
@@ -324,9 +354,9 @@ func (s *Server) providerModels(ctx context.Context, name string) ([]ModelOption
 	if status == http.StatusUnauthorized || status == http.StatusForbidden {
 		s.noteProviderKeyRejected(name, status)
 	}
-	if models, e := s.store.cachedProviderModels(name); e == nil && len(models) > 0 {
+	if models, e := s.store.cachedProviderModels(ckey); e == nil && len(models) > 0 {
 		s.providerMu.Lock()
-		s.providerCatalogs[name] = providerCatalog{models: models, at: time.Now(), source: "cache"}
+		s.providerCatalogs[ckey] = providerCatalog{models: models, at: time.Now(), source: "cache"}
 		s.providerMu.Unlock()
 		return models, "cache", "live " + label + " model metadata is unavailable; showing the last successful snapshot"
 	}
@@ -337,11 +367,12 @@ func (s *Server) rememberProviderCatalog(name string, models []ModelOption) {
 	if name == providerCompat {
 		s.publishCompatWindows(models)
 	}
-	if err := s.store.cacheProviderModels(name, models); err != nil {
+	key := s.catalogKey(name)
+	if err := s.store.cacheProviderModels(key, models); err != nil {
 		log.Printf("[providers] cache %s catalog: %v", name, err)
 	}
 	s.providerMu.Lock()
-	s.providerCatalogs[name] = providerCatalog{models: append([]ModelOption(nil), models...), at: time.Now(), source: "live"}
+	s.providerCatalogs[key] = providerCatalog{models: append([]ModelOption(nil), models...), at: time.Now(), source: "live"}
 	s.providerMu.Unlock()
 }
 
@@ -379,7 +410,11 @@ func (s *Server) fetchProviderModels(ctx context.Context, name, key string) ([]M
 		return nil, 0, err
 	}
 	req.Header.Set("User-Agent", "tofi/1.0")
-	resp, err := http.DefaultClient.Do(req)
+	client := http.DefaultClient
+	if c := s.providerHTTPClient(name); c != nil {
+		client = c
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, 0, errProviderUnreachable
 	}
@@ -410,7 +445,7 @@ func (s *Server) fetchProviderModels(ctx context.Context, name, key string) ([]M
 			break
 		}
 		next.Header = req.Header.Clone()
-		more, err := http.DefaultClient.Do(next)
+		more, err := client.Do(next)
 		if err != nil {
 			break
 		}
@@ -643,6 +678,9 @@ func (s *Server) deleteProviderKey(name string) error {
 
 // setProviderKeyError records (or clears) why a stored key needs attention.
 func (s *Server) setProviderKeyError(name, message string) bool {
+	if s.credentialSource(name) == sourceOrganization {
+		return false // the organization's key is not this workspace's record to mark
+	}
 	if v := s.secretVault; v != nil {
 		id := providerVaultID(name)
 		v.mu.Lock()
@@ -697,6 +735,23 @@ type ProviderStatus struct {
 }
 
 func (s *Server) providerStatus(name string) ProviderStatus {
+	out := s.providerStatusOwn(name)
+	if name == providerCodex && s.aiProvided() {
+		// A Codex sign-in is never an organization resource: not used while models are provided.
+		return ProviderStatus{ID: "codex", Label: "Codex", Kind: "oauth", Status: "disconnected", Source: sourceOrganization}
+	}
+	if s.credentialSource(name) == sourceOrganization {
+		// A member sees that the organization provides the provider, and no part of its key or address.
+		out.Source, out.KeyHint, out.KeyPrefix, out.BaseURL = sourceOrganization, "", "", ""
+		return out
+	}
+	if out.Source == "" {
+		out.Source = sourceOwn
+	}
+	return out
+}
+
+func (s *Server) providerStatusOwn(name string) ProviderStatus {
 	if name == providerCodex {
 		out := ProviderStatus{ID: "codex", Label: "Codex", Kind: "oauth", Status: "disconnected"}
 		if s.codex != nil {
@@ -758,6 +813,10 @@ func (s *Server) routeProviders(w http.ResponseWriter, r *http.Request, p string
 		return true
 	}
 	name := parts[0]
+	if s.aiProvided() && (r.Method == http.MethodPut || r.Method == http.MethodDelete) {
+		refusePolicy(w, false)
+		return true
+	}
 	switch r.Method {
 	case http.MethodPut:
 		s.putProviderKey(w, r, name)

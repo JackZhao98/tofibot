@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -379,6 +380,9 @@ func (s *Server) attachProvider(p computer.Provider) error {
 // restoreE2BEnvironment runs at start-up after the vault opens. preferE2B is
 // the stored choice; start-up did not attach the VM when it is set.
 func (s *Server) restoreE2BEnvironment(preferE2B bool) {
+	if !computerAllowsOwnE2B(s.policy()[capComputer]) {
+		return // the policy gives this account no E2B computer of its own
+	}
 	p := s.e2bCurrent()
 	if p == nil {
 		if preferE2B {
@@ -448,6 +452,8 @@ type environmentsView struct {
 	Environments []environmentItem `json:"environments"`
 	Add          environmentsAdd   `json:"add"`
 	E2B          e2bView           `json:"e2b"`
+	// Policy is the account's computer policy: whose Bot computer this is.
+	Policy capabilityView `json:"policy"`
 }
 
 // environmentState maps a computer state to the words the page shows.
@@ -477,7 +483,7 @@ func (s *Server) accountAdmin() bool {
 }
 
 func (s *Server) environmentsView(ctx context.Context) environmentsView {
-	out := environmentsView{Environments: []environmentItem{}}
+	out := environmentsView{Environments: []environmentItem{}, Policy: s.capabilitiesView()[capComputer]}
 	cur := s.computer()
 
 	// The VM: attached, or set aside by the person for the E2B computer.
@@ -562,6 +568,13 @@ func (s *Server) environmentsView(ctx context.Context) environmentsView {
 	if cur == nil && s.computerFactory == nil && s.accountAdmin() {
 		out.Add.VMCommand = "sudo tofi computer add kvm"
 	}
+	if v := s.policy()[capComputer]; !computerAllowsOwnE2B(v) {
+		// Managed by the organization (or none): no way to add or remove a computer here.
+		out.Add.E2B, out.Add.VMCommand = false, ""
+		for i := range out.Environments {
+			out.Environments[i].Actions = slices.DeleteFunc(out.Environments[i].Actions, func(a string) bool { return a == "use" || a == "remove" })
+		}
+	}
 	return out
 }
 
@@ -590,7 +603,24 @@ func (s *Server) routeEnvironments(w http.ResponseWriter, r *http.Request, p str
 	return true
 }
 
+// computerPolicyRefusal refuses a write to the person's own computers while the
+// policy gives none (capability_off) or provides them (managed_by_organization).
+func (s *Server) computerPolicyRefusal(w http.ResponseWriter) bool {
+	switch v := s.policy()[capComputer]; {
+	case computerAllowsOwnE2B(v):
+		return false
+	case v.Mode == policyModeProvided:
+		refusePolicy(w, false)
+	default:
+		refusePolicy(w, true)
+	}
+	return true
+}
+
 func (s *Server) putE2BKey(w http.ResponseWriter, r *http.Request) {
+	if s.computerPolicyRefusal(w) {
+		return
+	}
 	var body struct {
 		APIKey     string `json:"api_key"`
 		TemplateID string `json:"template_id"`
@@ -681,6 +711,9 @@ func (s *Server) putE2BKey(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) removeE2B(w http.ResponseWriter, r *http.Request) {
+	if s.computerPolicyRefusal(w) {
+		return
+	}
 	wasBotComputer := s.botComputerIsE2B()
 	if wasBotComputer {
 		if _, err := s.DetachVM(r.Context(), detachWaitDefault); err != nil && !errors.Is(err, errComputerNone) {
@@ -733,6 +766,10 @@ func (s *Server) removeE2B(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) useEnvironment(w http.ResponseWriter, r *http.Request, id string) {
+	if v := s.policy()[capComputer]; v.Mode == "none" || v.Mode == policyModeProvided || (v.Mode == policyModeOwn && id != e2bEnvironmentID) {
+		refusePolicy(w, v.Mode != policyModeProvided)
+		return
+	}
 	cur := s.computer()
 	switch id {
 	case e2bEnvironmentID:

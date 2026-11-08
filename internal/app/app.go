@@ -269,6 +269,9 @@ type Config struct {
 	OrgPolicy     func(ctx context.Context) (ResolvedPolicy, error)
 	OrgCredential func(ctx context.Context, resource string) (orgSecret, error)
 	OrgUsage      func(ev OrgUsageEvent)
+	// OrgConfig returns the non-secret configuration of an organization
+	// resource (the web-tools order, for one); found is false when none is stored.
+	OrgConfig func(ctx context.Context, resource string) (config json.RawMessage, found bool, err error)
 }
 type Server struct {
 	// personalComputers is Config.PersonalComputers: the pairing routes answer only when it is set.
@@ -289,6 +292,9 @@ type Server struct {
 	orgPolicy                            func(ctx context.Context) (ResolvedPolicy, error) // Config.OrgPolicy; nil outside a gateway
 	orgCredential                        func(ctx context.Context, resource string) (orgSecret, error)
 	orgUsage                             func(ev OrgUsageEvent)
+	orgConfig                            func(ctx context.Context, resource string) (json.RawMessage, bool, error)
+	webEndpoints                         map[string]string       // Tests only: redirects a paid web source.
+	orgHTTPClients                       map[string]*http.Client // providerMu; clients that read errors of an organization credential
 	mcpApprovalMu                        sync.Mutex
 	autoReviewProvider                   provider.Provider // Deterministic tests only; production uses the existing Codex adapter.
 	answerGraderProvider                 provider.Provider // Deterministic tests only; production uses the background model.
@@ -3072,7 +3078,7 @@ func NewServer(c Config) (*Server, error) {
 	if savedSettings.ReasoningEffort == "" {
 		savedSettings.ReasoningEffort = "medium"
 	}
-	server := &Server{accountID: c.AccountID, accountIsAdmin: c.AccountIsAdmin, orgPolicy: c.OrgPolicy, orgCredential: c.OrgCredential, orgUsage: c.OrgUsage, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerFactory: computerFactory, computerSlots: map[string]*computerSlot{}, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}, providerEndpoints: map[string]string{}, envProviderKeys: map[string]string{}, envProviderErrors: map[string]string{}, providerCatalogs: map[string]providerCatalog{}}
+	server := &Server{accountID: c.AccountID, accountIsAdmin: c.AccountIsAdmin, orgPolicy: c.OrgPolicy, orgCredential: c.OrgCredential, orgUsage: c.OrgUsage, orgConfig: c.OrgConfig, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerFactory: computerFactory, computerSlots: map[string]*computerSlot{}, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}, providerEndpoints: map[string]string{}, envProviderKeys: map[string]string{}, envProviderErrors: map[string]string{}, providerCatalogs: map[string]providerCatalog{}}
 	server.personalComputers = c.PersonalComputers
 	st.storage = storageGate{limit: c.StorageLimit, minFree: c.HostMinFreeBytes}
 	st.spendSnapshot = c.SpendSnapshot
@@ -3401,7 +3407,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	case p == "system/update" || strings.HasPrefix(p, "system/update/"):
 		s.serveSystemUpdate(w, r, strings.TrimPrefix(strings.TrimPrefix(p, "system/update"), "/"))
 	case p == "config":
-		writeJSON(w, 200, map[string]any{"model_configured": s.modelConfigured(), "default_model": s.effectiveDefaultModel(r.Context()), "background_model": s.backgroundModel(backgroundTriage), "provider": s.activeProvider(), "computer": s.computerCapabilities(), "dictation_configured": s.dictationAuthSource() != ""})
+		writeJSON(w, 200, map[string]any{"model_configured": s.modelConfigured(), "default_model": s.effectiveDefaultModel(r.Context()), "background_model": s.backgroundModel(backgroundTriage), "provider": s.activeProvider(), "computer": s.computerCapabilities(), "capabilities": s.capabilitiesView(), "dictation_configured": s.dictationAuthSource() != ""})
 	case p == "computer/capabilities":
 		if r.Method != http.MethodGet {
 			writeErr(w, 405, "method_not_allowed", "use GET")
@@ -3475,6 +3481,8 @@ func (s *Server) codexAuth(w http.ResponseWriter, r *http.Request, path string) 
 			}
 		}
 		writeJSON(w, 200, s.codex.Status())
+	case (path == "/connect" || strings.HasPrefix(path, "/connect/")) && r.Method == http.MethodPost && s.aiProvided():
+		refusePolicy(w, false) // a Codex sign-in is never an organization resource, and not used while models are provided
 	case path == "/connect" && r.Method == http.MethodPost:
 		before := s.codex.Status()
 		x, e := s.codex.Start(r.Context())
@@ -4696,6 +4704,7 @@ func (s *Server) execute(c Conversation, r Run) {
 			if err := s.store.recordModelUsage(r.ID, u); err != nil {
 				log.Printf("[usage] model usage: %v", err)
 			}
+			s.noteOrgModelUse(model, u)
 		},
 		OnCompact: func(_, compacted int) {
 			if err := s.store.recordContextCompact(r.ID, compacted); err != nil {

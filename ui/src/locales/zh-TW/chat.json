@@ -684,6 +684,7 @@
       "capability_refs": "近期能力引用",
       "schedule_states": "排程狀態",
       "run_context": "執行上下文（時間）",
+      "policy": "組織政策",
       "request_note": "請求附註",
       "scheduled_task": "排程任務",
       "scheduled_order": "較早的排程執行",

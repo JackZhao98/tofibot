@@ -700,6 +700,7 @@
       "capability_refs": "Zuletzt genutzte Fähigkeiten",
       "schedule_states": "Zeitplanstatus",
       "run_context": "Laufkontext (Zeit)",
+      "policy": "Richtlinie der Organisation",
       "request_note": "Anfragenotiz",
       "scheduled_task": "Geplante Aufgabe",
       "scheduled_order": "Frühere geplante Läufe",

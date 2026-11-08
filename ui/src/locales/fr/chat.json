@@ -716,6 +716,7 @@
       "capability_refs": "Capacités récemment utilisées",
       "schedule_states": "États des planifications",
       "run_context": "Contexte d’exécution (heure)",
+      "policy": "Politique de l’organisation",
       "request_note": "Note de la demande",
       "scheduled_task": "Tâche planifiée",
       "scheduled_order": "Exécutions planifiées antérieures",

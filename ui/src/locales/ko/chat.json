@@ -684,6 +684,7 @@
       "capability_refs": "최근 기능 참조",
       "schedule_states": "일정 상태",
       "run_context": "실행 컨텍스트(시간)",
+      "policy": "조직 정책",
       "request_note": "요청 메모",
       "scheduled_task": "예약된 작업",
       "scheduled_order": "이전 예약 실행",

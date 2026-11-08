@@ -447,3 +447,22 @@ func TestNoComputerPromptIsSmallerAndNamesNoComputerRoute(t *testing.T) {
 		}
 	}
 }
+
+// The policy lines ride the run context only where a capability is off, and stay short.
+func TestPolicyNotesStayWithinBudget(t *testing.T) {
+	if got := policyNotesFor(selfServeDefaults()); got != "" {
+		t.Fatalf("today's policy adds text to every run: %q", got)
+	}
+	if got := policyNotesFor(ResolvedPolicy{capWebSearch: {Mode: "provided"}, capComputer: {Mode: "provided", Source: "e2b"}, capWebFetch: {Mode: "builtin"}}); got != "" {
+		t.Fatalf("a provided or builtin capability needs no model text: %q", got)
+	}
+	both := policyNotesFor(ResolvedPolicy{capWebSearch: {Mode: "off"}, capComputer: {Mode: "none"}})
+	if n := len([]rune(both)); n > 300 {
+		t.Fatalf("the policy block is %d characters", n)
+	}
+	for _, line := range strings.Split(strings.Trim(both, "[]/policy\n"), "\n") {
+		if words := len(strings.Fields(line)); words > 25 {
+			t.Fatalf("a policy line has %d words: %q", words, line)
+		}
+	}
+}

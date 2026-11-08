@@ -700,6 +700,7 @@
       "capability_refs": "Recent capability references",
       "schedule_states": "Schedule states",
       "run_context": "Run context (time)",
+      "policy": "Organization policy",
       "request_note": "Request note",
       "scheduled_task": "Scheduled task",
       "scheduled_order": "Earlier scheduled runs",

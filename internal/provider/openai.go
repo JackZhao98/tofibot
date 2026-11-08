@@ -54,6 +54,16 @@ type openaiResponses struct {
 	legacy  *openaiChatCompletions // Chat Completions fallback for tool-related errors
 	headers map[string]string
 	noStore bool
+	// httpClient is the caller's client (WithHTTPClient); nil keeps the plain default.
+	httpClient *http.Client
+}
+
+// client is the caller's client, else a plain one with the given timeout (0: none).
+func (o *openaiResponses) client(timeout time.Duration) *http.Client {
+	if o.httpClient != nil {
+		return o.httpClient
+	}
+	return &http.Client{Timeout: timeout}
 }
 
 func newOpenAIResponses(apiKey string, cfg *providerConfig) (Provider, error) {
@@ -65,8 +75,8 @@ func newOpenAIResponses(apiKey string, cfg *providerConfig) (Provider, error) {
 		baseURL = cfg.BaseURL
 	}
 	// Create a Chat Completions fallback for when Responses API has tool issues
-	legacy := &openaiChatCompletions{apiKey: apiKey, baseURL: baseURL}
-	return &openaiResponses{apiKey: apiKey, baseURL: baseURL, legacy: legacy}, nil
+	legacy := &openaiChatCompletions{apiKey: apiKey, baseURL: baseURL, httpClient: cfg.HTTPClient}
+	return &openaiResponses{apiKey: apiKey, baseURL: baseURL, legacy: legacy, httpClient: cfg.HTTPClient}, nil
 }
 
 // isToolCallError checks if the error is a Responses API tool-related error
@@ -242,7 +252,7 @@ func (o *openaiResponses) stream(ctx context.Context, req *ChatRequest, onDelta 
 	}
 
 	// No client timeout: the watchdogs bound header wait and body separately.
-	resp, err := (&http.Client{}).Do(httpReq)
+	resp, err := o.client(0).Do(httpReq)
 	if err != nil {
 		return nil, idleErr(fmt.Errorf("request failed: %w", err))
 	}
@@ -503,7 +513,7 @@ func (o *openaiResponses) doRequest(ctx context.Context, payload map[string]inte
 		httpReq.Header.Set(key, value)
 	}
 
-	client := &http.Client{Timeout: 5 * time.Minute}
+	client := o.client(5 * time.Minute)
 	resp, err := client.Do(httpReq)
 	if err != nil {
 		return "", fmt.Errorf("request failed: %w", err)

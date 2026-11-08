@@ -109,6 +109,8 @@ func orgNeeds(capability string, v PolicyValue) []string {
 type orgMissing struct {
 	Capability string   `json:"capability"`
 	GroupIDs   []string `json:"group_ids"`
+	// AccountIDs are accounts whose own override provides the capability with no resource to serve it.
+	AccountIDs []string `json:"account_ids"`
 }
 
 // missingResources names the capabilities some group provides without the
@@ -149,10 +151,43 @@ func (g *AccountGateway) missingResources(ctx context.Context) ([]orgMissing, er
 			byCap[c] = append(byCap[c], h.id)
 		}
 	}
+	// Per-account overrides set to provided count too.
+	byAccount := map[string][]string{}
+	overrides, err := db.QueryContext(ctx, `SELECT account_id,capability,mode,source,params FROM org_account_policies ORDER BY account_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer overrides.Close()
+	for overrides.Next() {
+		var id string
+		var row policyRow
+		if err := overrides.Scan(&id, &row.Capability, &row.Mode, &row.Source, &row.Params); err != nil {
+			return nil, err
+		}
+		if !validPolicy(row.Capability, row.Mode, row.Source) {
+			continue
+		}
+		v := PolicyValue{Mode: row.Mode, Source: row.Source}
+		needs := orgNeeds(row.Capability, v)
+		vmWithoutHost := row.Capability == capComputer && v.Mode == policyModeProvided && v.Source == computerSourceVM && !g.hostIsKVM()
+		if vmWithoutHost || (len(needs) > 0 && !slices.ContainsFunc(needs, func(id string) bool { return have[id] })) {
+			byAccount[row.Capability] = append(byAccount[row.Capability], id)
+		}
+	}
+	if err := overrides.Err(); err != nil {
+		return nil, err
+	}
 	result := []orgMissing{}
 	for _, c := range orgCapabilities {
-		if ids := byCap[c]; len(ids) > 0 {
-			result = append(result, orgMissing{Capability: c, GroupIDs: ids})
+		if len(byCap[c]) > 0 || len(byAccount[c]) > 0 {
+			m := orgMissing{Capability: c, GroupIDs: byCap[c], AccountIDs: byAccount[c]}
+			if m.GroupIDs == nil {
+				m.GroupIDs = []string{}
+			}
+			if m.AccountIDs == nil {
+				m.AccountIDs = []string{}
+			}
+			result = append(result, m)
 		}
 	}
 	return result, nil

@@ -684,6 +684,7 @@
       "capability_refs": "近期能力引用",
       "schedule_states": "日程状态",
       "run_context": "运行上下文（时间）",
+      "policy": "组织策略",
       "request_note": "请求附注",
       "scheduled_task": "定时任务",
       "scheduled_order": "较早的定时运行",
