@@ -62,6 +62,14 @@ type AccountGateway struct {
 	storageMu   sync.Mutex
 	diskCache   map[string]accountDiskCapacity
 	diskCacheAt time.Time
+	// Organization resources: the vault under <data>/org (never a workspace's or
+	// the root's own secrets directory), opened on first use. orgWriteMu
+	// serializes resource writes.
+	orgVault   *secretVault
+	orgInitMu  sync.Mutex
+	orgWriteMu sync.Mutex
+	// orgWebEndpoints redirects an organization web-key probe; tests only.
+	orgWebEndpoints map[string]string
 }
 
 func NewAccountGateway(c Config) (*AccountGateway, error) {
@@ -107,6 +115,10 @@ func NewAccountGateway(c Config) (*AccountGateway, error) {
 		return nil, err
 	}
 	if _, err = tx.Exec(accountStorageDDL); err != nil {
+		root.Close()
+		return nil, err
+	}
+	if err = migrateOrgGroups(tx, g.providedComputerSource()); err != nil {
 		root.Close()
 		return nil, err
 	}
@@ -383,6 +395,7 @@ func (g *AccountGateway) workspace(a Account) (*Server, error) {
 	c.AccountID = a.ID
 	c.AccountIsAdmin = func() bool { return g.accountIsAdmin(a.ID) }
 	g.wireStorage(&c, a)
+	g.wirePolicy(&c, a)
 	createRuntime := g.runtimeFactory
 	if createRuntime == nil {
 		createRuntime = NewServer
@@ -585,6 +598,9 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if g.adminStorage(w, r, a) {
+		return
+	}
+	if g.adminOrg(w, r, a) {
 		return
 	}
 	if g.adminComputer(w, r, a) {
