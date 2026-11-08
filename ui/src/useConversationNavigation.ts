@@ -15,6 +15,10 @@ export function useConversationNavigation(bots: Bot[], conversations: Conversati
       ?? conversations.find(conversation => !conversation.archived && conversation.user_visible !== false)
     : resolveConversationRoute(route, bots, conversations);
 
+  // An account with no Bot and no conversation has nothing a link could point at and nothing to "pick from the list": whatever
+  // address the tab holds (a Bot of a previous install, a deleted one, a typo) lands on the first-run page, not on an error.
+  const firstRun = ready && bots.length === 0 && conversations.length === 0;
+
   const writePath = useCallback((path: string, replace = false) => {
     if (window.location.pathname !== path) {
       window.history[replace ? "replaceState" : "pushState"](window.history.state, "", path + window.location.search + window.location.hash);
@@ -29,6 +33,12 @@ export function useConversationNavigation(bots: Bot[], conversations: Conversati
     const path = conversationPath(active, bots);
     if (path) writePath(path, true);
   }, [route, active, bots, writePath]);
+
+  useEffect(() => {
+    if (!firstRun || route.kind === "home") return;
+    window.history.replaceState(window.history.state, "", "/" + window.location.search);
+    setRoute({ kind: "home" });
+  }, [firstRun, route]);
 
   // An address that is a link into the settings (`/settings/models#defaults`, `/b/<id>/settings#model`): once the index is loaded the
   // matching cover opens and the address goes back to the conversation, because covers stay out of the address. A Bot or group that
@@ -58,5 +68,5 @@ export function useConversationNavigation(bots: Bot[], conversations: Conversati
     if (path) writePath(path);
   }, [writePath]);
 
-  return { activeId: active?.id ?? null, selectConversation, historyVersion, routeUnavailable: ready && route.kind !== "home" && !active };
+  return { activeId: active?.id ?? null, selectConversation, historyVersion, routeUnavailable: ready && !firstRun && route.kind !== "home" && !active };
 }

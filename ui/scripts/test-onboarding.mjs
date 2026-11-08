@@ -122,13 +122,14 @@ async function mockApi(page, state) {
   return external;
 }
 
-async function open(state, { width = 1440, height = 900, theme = "light", reduced = false, locale = "en-US", url = "/" } = {}) {
+async function open(state, { width = 1440, height = 900, theme = "light", reduced = false, locale = "en-US", url = "/", latency = false } = {}) {
   const context = await browser.newContext({ hasTouch: width < 700, viewport: { width, height }, locale, reducedMotion: reduced ? "reduce" : "no-preference", colorScheme: theme, permissions: ["clipboard-read", "clipboard-write"] });
   await context.addInitScript(value => { try { localStorage.setItem("tofi:appearance", value); } catch {} }, theme);
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   const external = await mockApi(page, state);
+  if (latency) await page.route("**/api/**", async route => { await new Promise(resolve => setTimeout(resolve, 200 + Math.random() * 700)); return route.fallback(); });
   await page.goto(origin + url);
   return { page, context, errors, external };
 }
@@ -397,6 +398,26 @@ try {
     await fresh.context.close();
     pass("model step: Not now stores the skip; progress resumes after a reload");
   }
+
+  // Closing the sheet early on an account with no Bot lands on the first-run pane, never on "Can't open this conversation", even when
+  // the tab holds an address from an earlier install (a Bot link, a group link, a typo) and the API is slow. The error card sits
+  // under the sheet from the first paint, so closing is what used to reveal it.
+  for (const start of ["/b/bot_old", "/g/conv_old", "/nope"]) for (const [step, close] of [[0, "skip"], [2, "skip"]]) {
+    const state = makeServer({ onboarding: { step, completed: false, skipped: false } });
+    const { page, context } = await open(state, { theme: "dark", url: start, latency: true });
+    await sheet(page).waitFor();
+    // Escape and the scrim never close the sheet; only its own buttons do, and the stale address is already gone under it.
+    await page.keyboard.press("Escape");
+    await page.locator("[data-onboarding='true']").click({ position: { x: 4, y: 4 } });
+    assert.equal(await sheet(page).count(), 1, `${start} step ${step}: Escape and the scrim leave the sheet open`);
+    await page.getByRole("button", { name: step === 0 ? "Skip for now" : "Not now" }).click();
+    await page.locator("[data-finish-setup]").waitFor();
+    await page.locator("[data-first-run='pane']").waitFor();
+    assert.equal(await page.locator("[role=alert]").count(), 0, `${start} step ${step} ${close}: no unavailable-conversation card`);
+    assert.equal(new URL(page.url()).pathname, "/", `${start} step ${step} ${close}: the address is the first-run page`);
+    await context.close();
+  }
+  pass("closing the sheet early with a stale address lands on the first-run pane (Skip for now / Not now, steps 1-2, slow API)");
 
   // ChatGPT sign-in: waiting, then connected, with the first Bot created and a window opened.
   {
