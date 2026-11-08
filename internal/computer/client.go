@@ -47,6 +47,11 @@ type Info struct {
 	Browser            string `json:"browser,omitempty"`
 	Error              string `json:"error,omitempty"`
 	ID                 string `json:"id,omitempty"`
+	// GuestOutdated: the computer runs an older image than the current one. It is
+	// usable; replacing it (an explicit upgrade) removes the files on it.
+	// GuestOutdatedRequired: it is below the server's minimum and is refused.
+	GuestOutdated         bool `json:"guest_outdated,omitempty"`
+	GuestOutdatedRequired bool `json:"guest_outdated_required,omitempty"`
 	// Hibernation reports whether an idle computer is snapshotted to disk
 	// instead of left running; HibernatedAt is set while it is.
 	Hibernation  bool      `json:"hibernation,omitempty"`

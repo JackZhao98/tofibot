@@ -218,6 +218,11 @@ func e2bImage() string {
 	return e2bDefaultImageRepo + ":" + Version + "-e2b"
 }
 
+// e2bMinGuestVersion is the oldest guest image a sandbox may run
+// (TOFI_E2B_MIN_GUEST_VERSION); empty, the default, enforces nothing. A sandbox
+// below it is refused (guest_outdated_required) until its owner upgrades it.
+func e2bMinGuestVersion() string { return strings.TrimSpace(os.Getenv("TOFI_E2B_MIN_GUEST_VERSION")) }
+
 func e2bAPIBase() string { return strings.TrimSpace(os.Getenv("TOFI_E2B_API_BASE")) }
 
 func e2bTemplateVersion() string {
@@ -230,15 +235,16 @@ func e2bTemplateVersion() string {
 
 func (s *Server) newE2BProvider(key string) (*e2b.Provider, error) {
 	return e2b.New(e2b.Config{
-		ID:          computer.DefaultID,
-		APIKey:      key,
-		APIBase:     e2bAPIBase(),
-		Image:       e2bImage(),
-		Version:     e2bTemplateVersion(),
-		Store:       e2bStore{s},
-		IdleTimeout: s.e2bIdleTimeout(),
-		HostURL:     e2bHostURL,
-		Now:         e2bNow,
+		ID:              computer.DefaultID,
+		APIKey:          key,
+		APIBase:         e2bAPIBase(),
+		Image:           e2bImage(),
+		Version:         e2bTemplateVersion(),
+		MinGuestVersion: e2bMinGuestVersion(),
+		Store:           e2bStore{s},
+		IdleTimeout:     s.e2bIdleTimeout(),
+		HostURL:         e2bHostURL,
+		Now:             e2bNow,
 	})
 }
 
@@ -279,6 +285,13 @@ func (s *Server) applyE2BIdleTimeout() {
 // today the E2B computer, whose off is E2B's pause.
 type computerSleeper interface {
 	Pause(ctx context.Context) error
+}
+
+// computerUpgrader is a computer whose image can be replaced by the person's
+// explicit action (the E2B computer: Upgrade removes the sandbox and its files and
+// makes a new one from the current template).
+type computerUpgrader interface {
+	Upgrade(ctx context.Context) error
 }
 
 // canSleep reports that the attached computer has a power button.
@@ -452,6 +465,9 @@ type environmentItem struct {
 	BotComputer bool     `json:"bot_computer"`
 	Access      string   `json:"access"`
 	Actions     []string `json:"actions"`
+	// GuestOutdated: the computer runs an older image than the current one. It
+	// works; the "upgrade" action replaces it and removes its files.
+	GuestOutdated bool `json:"guest_outdated,omitempty"`
 }
 
 type environmentsAdd struct {
@@ -466,6 +482,10 @@ type e2bView struct {
 	Phase      string `json:"phase"`
 	ErrorCode  string `json:"error_code,omitempty"`
 	Error      string `json:"error,omitempty"`
+	// TemplatePhase is the image's own phase (none, preparing, ready, failed);
+	// Phase is the computer's. An image being built blocks only a new computer.
+	TemplatePhase string `json:"template_phase,omitempty"`
+	GuestOutdated bool   `json:"guest_outdated,omitempty"`
 }
 
 type environmentsView struct {

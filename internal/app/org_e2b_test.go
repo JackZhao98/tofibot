@@ -54,7 +54,10 @@ type orgE2BFake struct {
 	gate            chan struct{} // builds stay "building" until it is closed
 	buildFails      bool
 	createStatus    int // answer every sandbox create with this status (echoing the key it was given)
+	createMessage   string
 	actions         int
+	gateTpl         string // when set, only this template's build waits on gate
+	sandboxStatus   int    // answer every per-sandbox API call with this status
 }
 
 func newOrgE2BFake(t *testing.T, key string) *orgE2BFake {
@@ -135,7 +138,27 @@ func (f *orgE2BFake) handle(w http.ResponseWriter, r *http.Request) {
 	}
 	switch {
 	case r.Method == http.MethodGet && p == "/v2/sandboxes":
-		_, _ = w.Write([]byte(`[]`))
+		// The list, filtered by the metadata query the way E2B does.
+		want := map[string]string{}
+		if q := r.URL.Query().Get("metadata"); q != "" {
+			for _, kv := range strings.Split(q, "&") {
+				k, v, _ := strings.Cut(kv, "=")
+				want[k] = v
+			}
+		}
+		rows := []map[string]any{}
+		for _, sb := range f.sandboxes {
+			match := true
+			for k, v := range want {
+				if sb.metadata[k] != v {
+					match = false
+				}
+			}
+			if match {
+				rows = append(rows, map[string]any{"sandboxID": sb.id, "state": sb.state, "metadata": sb.metadata})
+			}
+		}
+		_ = json.NewEncoder(w).Encode(rows)
 	case r.Method == http.MethodPost && p == "/v3/templates":
 		f.templateCreates++
 		f.nextTpl++
@@ -148,7 +171,7 @@ func (f *orgE2BFake) handle(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case f.buildFails:
 			_, _ = w.Write([]byte(`{"status":"error","reason":{"message":"boom"}}`))
-		case f.gate != nil:
+		case f.gate != nil && (f.gateTpl == "" || strings.Contains(p, "/"+f.gateTpl+"/")):
 			select {
 			case <-f.gate:
 				_, _ = w.Write([]byte(`{"status":"ready"}`))
@@ -163,6 +186,10 @@ func (f *orgE2BFake) handle(w http.ResponseWriter, r *http.Request) {
 		f.createBodies = append(f.createBodies, string(body))
 		if f.createStatus != 0 {
 			w.WriteHeader(f.createStatus)
+			if f.createMessage != "" {
+				fmt.Fprintf(w, `{"code":%d,"message":%q}`, f.createStatus, f.createMessage)
+				return
+			}
 			fmt.Fprintf(w, `{"code":%d,"message":"invalid api key %s"}`, f.createStatus, got)
 			return
 		}
@@ -174,6 +201,9 @@ func (f *orgE2BFake) handle(w http.ResponseWriter, r *http.Request) {
 		sb := &orgFakeSandbox{id: fmt.Sprintf("sbx%d", f.nextSbx), state: "running", envd: fmt.Sprintf("envd-tok-%d", f.nextSbx), traf: fmt.Sprintf("traffic-tok-%d", f.nextSbx), metadata: in.Metadata}
 		f.sandboxes[sb.id] = sb
 		f.sandboxJSON(w, 201, sb)
+	case f.sandboxStatus != 0 && strings.HasPrefix(p, "/sandboxes/"):
+		w.WriteHeader(f.sandboxStatus)
+		_, _ = w.Write([]byte(`{"code":1,"message":"nope"}`))
 	case r.Method == http.MethodGet && strings.HasPrefix(p, "/sandboxes/"):
 		sb := f.sandboxes[strings.TrimPrefix(p, "/sandboxes/")]
 		if sb == nil {

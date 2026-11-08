@@ -82,6 +82,9 @@ type orgE2BBuildView struct {
 	Version   string `json:"version"`
 	ErrorCode string `json:"error_code,omitempty"`
 	UpdatedAt string `json:"updated_at,omitempty"`
+	// MinGuestVersion is the server's minimum guest version (TOFI_E2B_MIN_GUEST_VERSION):
+	// empty when none is enforced. A member's computer below it is refused until it is upgraded.
+	MinGuestVersion string `json:"min_guest_version,omitempty"`
 }
 
 func orgE2BViewOf(row orgResourceRow) *orgE2BBuildView {
@@ -89,7 +92,7 @@ func orgE2BViewOf(row orgResourceRow) *orgE2BBuildView {
 		return nil
 	}
 	cfg, _ := parseOrgE2BConfig(row.Config)
-	v := &orgE2BBuildView{Phase: e2b.PhaseNone, Version: e2bTemplateVersion()}
+	v := &orgE2BBuildView{Phase: e2b.PhaseNone, Version: e2bTemplateVersion(), MinGuestVersion: e2bMinGuestVersion()}
 	switch {
 	case cfg.TemplateID != "":
 		v.Phase, v.Custom = e2b.PhaseReady, true
@@ -203,7 +206,7 @@ func (g *AccountGateway) runOrgE2BBuild(ctx context.Context, run *orgE2BRun) {
 		Version:       e2bTemplateVersion(),
 		Store:         store,
 		HostURL:       e2bHostURL,
-		OnKeyRejected: func() { g.recordOrgRejection(e2bKeyVaultID, e2b.CodeInvalidKey) },
+		OnKeyRejected: func(used string) { g.rejectOrgE2BKey(run.gen, used) },
 	})
 	if err != nil {
 		log.Printf("[org] E2B template build: %v", err)
@@ -233,14 +236,33 @@ func (g *AccountGateway) orgE2BBuilding() bool {
 	return g.orgE2B.run != nil && g.orgE2B.run.gen == g.orgE2B.gen
 }
 
-// stopOrgE2BBuilds cancels a running build and waits for it (Close).
+// stopOrgE2BBuilds cancels a running build and waits for it (Close). The build
+// is of a past generation from here on, so nothing it still tries to write lands.
 func (g *AccountGateway) stopOrgE2BBuilds() {
-	g.orgE2B.mu.Lock()
-	if g.orgE2B.run != nil {
-		g.orgE2B.run.cancel()
-	}
-	g.orgE2B.mu.Unlock()
+	g.orgWriteMu.Lock()
+	g.orgE2BReset()
+	g.orgWriteMu.Unlock()
 	g.orgBuilds.Wait()
+}
+
+// rejectOrgE2BKey records that E2B refused the organization's key, when the
+// refusal answers the key in force now: a request made with an older key, or by
+// a build of a past generation, says nothing about the key the admin set since.
+// gen < 0 skips the generation check (a request not made by a build).
+func (g *AccountGateway) rejectOrgE2BKey(gen int, usedKey string) {
+	g.orgE2B.mu.Lock()
+	current := g.orgE2B.gen
+	g.orgE2B.mu.Unlock()
+	if gen >= 0 && gen != current {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), policyReadTimeout)
+	defer cancel()
+	sec, err := g.orgCredential(ctx, e2bKeyVaultID)
+	if err != nil || sec.Value != usedKey {
+		return
+	}
+	g.recordOrgRejection(e2bKeyVaultID, e2b.CodeInvalidKey)
 }
 
 var errOrgBuildSuperseded = errors.New("organization E2B build superseded")
@@ -376,6 +398,32 @@ func (g *AccountGateway) markOrgE2BPreparing(ctx context.Context) {
 	_ = g.writeOrgE2BBuild(ctx, gen, &orgE2BBuild{Version: e2bTemplateVersion(), Phase: e2b.PhasePreparing, UpdatedAt: now()})
 }
 
+// reclaimOrgE2BSandbox removes the organization's E2B sandbox of an account that is
+// being deleted, before its data goes: the sandbox costs the organization and the
+// workspace that knew its id is about to disappear. It finds the sandbox by the
+// account marker the team records, so a retry of the deletion works too. It is
+// best effort and never stops the deletion: a failure is logged as a code, and
+// the admin can remove what is left in E2B (the marker is "account"=<id>).
+func (g *AccountGateway) reclaimOrgE2BSandbox(ctx context.Context, accountID string) {
+	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	defer cancel()
+	key, err := g.orgCredential(ctx, e2bKeyVaultID)
+	if err != nil {
+		if !errors.Is(err, errOrgResourceMissing) {
+			log.Printf("[org] reclaim the E2B sandbox of deleted account %s: key unavailable", accountID)
+		}
+		return
+	}
+	n, err := e2b.RemoveAccountSandboxes(ctx, nil, e2bAPIBase(), key.Value, accountID)
+	if err != nil {
+		log.Printf("[org] reclaim the E2B sandbox of deleted account %s: %s (removed %d)", accountID, e2bErrorCode(err), n)
+		return
+	}
+	if n > 0 {
+		log.Printf("[org] removed %d E2B sandbox(es) of deleted account %s", n, accountID)
+	}
+}
+
 // ---- workspace part ----
 
 // orgE2BStore is the provider's store for a provided/e2b workspace: the template
@@ -389,6 +437,9 @@ type orgE2BSandboxState struct {
 	Phase     string `json:"phase"`
 	ErrorCode string `json:"error_code,omitempty"`
 	Error     string `json:"error,omitempty"`
+	// TemplateVersion names the template the sandbox was created from (the TOFI
+	// version, or "custom:<id>"). Missing on a sandbox made before it was recorded.
+	TemplateVersion string `json:"template_version,omitempty"`
 }
 
 func (st orgE2BStore) LoadState() (e2b.State, error) {
@@ -401,7 +452,7 @@ func (st orgE2BStore) LoadState() (e2b.State, error) {
 	if json.Unmarshal([]byte(raw), &v) != nil {
 		return out, nil
 	}
-	out.SandboxID = v.SandboxID
+	out.SandboxID, out.SandboxVersion = v.SandboxID, v.TemplateVersion
 	if v.Phase == e2b.PhaseFailed {
 		out.Phase, out.ErrorCode, out.Error = e2b.PhaseFailed, v.ErrorCode, v.Error
 	}
@@ -415,7 +466,7 @@ func (st orgE2BStore) SaveState(v e2b.State) error {
 	if v.Phase == e2b.PhaseFailed {
 		phase = e2b.PhaseFailed
 	}
-	b, err := json.Marshal(orgE2BSandboxState{SandboxID: v.SandboxID, Phase: phase, ErrorCode: v.ErrorCode, Error: v.Error})
+	b, err := json.Marshal(orgE2BSandboxState{SandboxID: v.SandboxID, Phase: phase, ErrorCode: v.ErrorCode, Error: v.Error, TemplateVersion: v.SandboxVersion})
 	if err != nil {
 		return err
 	}
@@ -449,6 +500,21 @@ func (s *Server) orgE2BKey(ctx context.Context) (string, error) {
 		return "", errors.New("organization key unavailable")
 	}
 	return sec.Value, nil
+}
+
+// orgE2BKeyRejected records E2B's refusal of a team-level request, only when it
+// answers the organization key in force now.
+func (s *Server) orgE2BKeyRejected(usedKey string) {
+	if s.orgOutcome == nil || s.orgCredential == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), policyReadTimeout)
+	defer cancel()
+	sec, err := s.orgCredential(ctx, e2bKeyVaultID)
+	if err != nil || sec.Value != usedKey {
+		return
+	}
+	s.orgOutcome(e2bKeyVaultID, e2b.CodeInvalidKey)
 }
 
 // orgE2BScrub removes the organization's key (every 8-character stretch of it)
@@ -488,19 +554,16 @@ func (s *Server) orgE2BProvider() *e2b.Provider {
 		KeySource:       s.orgE2BKey,
 		APIBase:         e2bAPIBase(),
 		Version:         e2bTemplateVersion(),
+		MinGuestVersion: e2bMinGuestVersion(),
 		Store:           orgE2BStore{s},
 		IdleTimeout:     s.e2bIdleTimeout(),
 		TemplateSource:  s.orgE2BTemplate,
 		SandboxMetadata: map[string]string{"account": s.accountID},
-		OnKeyRejected: func() {
-			if s.orgOutcome != nil {
-				s.orgOutcome(e2bKeyVaultID, e2b.CodeInvalidKey)
-			}
-		},
-		OnUsage: s.noteOrgComputerUse,
-		Scrub:   s.orgE2BScrub,
-		HostURL: e2bHostURL,
-		Now:     e2bNow,
+		OnKeyRejected:   s.orgE2BKeyRejected,
+		OnUsage:         s.noteOrgComputerUse,
+		Scrub:           s.orgE2BScrub,
+		HostURL:         e2bHostURL,
+		Now:             e2bNow,
 	}
 	p, err := e2b.New(cfg)
 	if err != nil {
@@ -578,9 +641,10 @@ func (s *Server) orgE2BEnvironmentView(ctx context.Context, out *environmentsVie
 	if phase == e2b.PhaseNone {
 		phase = "preparing"
 	}
-	// An organization failure is a code only: no upstream text for a member.
-	out.E2B = e2bView{Configured: true, Phase: phase, ErrorCode: st.ErrorCode}
-	item := environmentItem{ID: e2bEnvironmentID, Kind: envKindE2B, State: "asleep", ErrorCode: st.ErrorCode, Access: "none", Actions: []string{}}
+	// An organization failure is a code only: no upstream text for a member. The
+	// template's own phase is its own field: it gates only making a computer.
+	out.E2B = e2bView{Configured: true, Phase: phase, TemplatePhase: st.TemplatePhase, ErrorCode: st.ErrorCode, GuestOutdated: st.GuestOutdated || st.GuestOutdatedRequired}
+	item := environmentItem{ID: e2bEnvironmentID, Kind: envKindE2B, State: "asleep", ErrorCode: st.ErrorCode, Access: "none", Actions: []string{}, GuestOutdated: out.E2B.GuestOutdated}
 	switch {
 	case phase == "preparing":
 		item.State = "preparing"
@@ -591,10 +655,20 @@ func (s *Server) orgE2BEnvironmentView(ctx context.Context, out *environmentsVie
 		item.BotComputer, item.Access = true, "all_bots"
 		if info, err := s.microVMInfo(ctx); err == nil {
 			item.State = environmentState(info.State)
-			if info.State == "error" {
+			if info.State == "error" && !st.GuestOutdatedRequired {
 				item.Actions = append(item.Actions, "retry")
 			}
 		}
+	}
+	if st.GuestOutdatedRequired {
+		item.ErrorCode = e2b.CodeGuestOutdatedRequired
+		if item.State != "preparing" {
+			item.State = "failed"
+		}
+	}
+	// Replacing an outdated computer removes its files, so it is the member's action.
+	if out.E2B.GuestOutdated {
+		item.Actions = append(item.Actions, "upgrade")
 	}
 	if item.BotComputer {
 		out.Environments = append([]environmentItem{item}, out.Environments...)

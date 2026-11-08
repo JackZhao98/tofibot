@@ -36,6 +36,16 @@ const (
 	// CodeOrgResourceMissing: the organization holds no E2B key (provided computer).
 	// There is no fallback to a member's own key.
 	CodeOrgResourceMissing = "org_resource_missing"
+	// CodeTemplateStale: the team holds a template under this version's name whose
+	// newest build failed, and E2B refuses a new build on it (the alias is taken).
+	// Only the E2B team's owner can clear it, so the admin sees this code, not a
+	// generic build failure.
+	CodeTemplateStale = "template_stale_in_team"
+	// CodeGuestOutdatedRequired: the sandbox runs an image older than the server's
+	// minimum guest version. It is refused (fail closed) until the person upgrades.
+	CodeGuestOutdatedRequired = "guest_outdated_required"
+	// CodeNotOutdated: an upgrade was asked for on a computer that is current.
+	CodeNotOutdated = "not_outdated"
 )
 
 // ErrKeyMissing is what a Config.KeySource returns when no key is stored.
@@ -93,8 +103,16 @@ type api struct {
 	secrets func() []string // extra values to scrub from messages
 	// extraScrub cleans an upstream message further (the organization's key).
 	extraScrub func(string) string
-	// onReject is told of a 401 or 403 on a request made with the API key.
-	onReject func(status int)
+	// onReject is told of a 401 or 403 on a team-level request (sandbox create,
+	// template calls) made with the API key; key is the key that request carried.
+	// Per-sandbox calls are not told: a sandbox answering 401/403 says nothing
+	// about the key.
+	onReject func(status int, key string)
+	// memberSafe: the answers of this client reach people who do not own the E2B
+	// team (the organization's computer), so an upstream message is replaced by
+	// text we make, keeping only the status and the code. Upstream text can name
+	// the organization's template, build and team.
+	memberSafe bool
 }
 
 type sandboxInfo struct {
@@ -212,8 +230,8 @@ func (a *api) call(ctx context.Context, method, path string, body, out any, head
 			return resp.StatusCode, nil
 		}
 	}
-	if a.onReject != nil && (resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden) {
-		a.onReject(resp.StatusCode)
+	if a.onReject != nil && teamLevel(method, path) && (resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden) {
+		a.onReject(resp.StatusCode, key)
 	}
 	var e struct {
 		Message string `json:"message"`
@@ -223,7 +241,87 @@ func (a *api) call(ctx context.Context, method, path string, body, out any, head
 	if msg == "" {
 		msg = http.StatusText(resp.StatusCode)
 	}
+	if a.memberSafe {
+		return resp.StatusCode, &Error{Code: statusCode(resp.StatusCode, fallback), Status: resp.StatusCode, Message: memberText(resp.StatusCode)}
+	}
 	return resp.StatusCode, &Error{Code: statusCode(resp.StatusCode, fallback), Status: resp.StatusCode, Message: a.scrub(msg)}
+}
+
+// memberText is what a member is told of an E2B refusal of the organization's team.
+func memberText(status int) string {
+	switch {
+	case status == http.StatusUnauthorized || status == http.StatusForbidden:
+		return "the organization's E2B account refused the request"
+	case status == http.StatusNotFound:
+		return "E2B could not find what was asked for"
+	case status == http.StatusTooManyRequests:
+		return "E2B is limiting requests for the organization's account"
+	case status >= 500:
+		return "E2B had a problem answering"
+	}
+	return "E2B refused the request"
+}
+
+// teamLevel says whether a request is one the team's key alone decides: creating
+// a sandbox and the template calls. A call about one sandbox is not.
+func teamLevel(method, path string) bool {
+	if method == http.MethodPost && path == "/v2/sandboxes" {
+		return true
+	}
+	for _, prefix := range []string{"/v3/templates", "/v2/templates", "/templates"} {
+		if path == prefix || strings.HasPrefix(path, prefix+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+// RemoveAccountSandboxes kills the sandboxes (running or paused) that carry the
+// account marker of accountID in the team the key belongs to. It is the cleanup
+// for an account that is deleted: the sandbox id lives in the workspace being
+// deleted, and the marker is what the team itself records. It returns how many
+// it killed. Listing is limited to marked sandboxes, and the marker is checked
+// again on each row.
+func RemoveAccountSandboxes(ctx context.Context, hc *http.Client, apiBase, key, accountID string) (int, error) {
+	if hc == nil {
+		hc = defaultHTTP()
+	}
+	if apiBase == "" {
+		apiBase = defaultAPIBase
+	}
+	if accountID == "" {
+		return 0, errors.New("e2b: account id is required")
+	}
+	a := &api{hc: hc, base: strings.TrimRight(apiBase, "/"), key: key}
+	killed := 0
+	for round := 0; round < 5; round++ {
+		var rows []struct {
+			SandboxID string            `json:"sandboxID"`
+			Metadata  map[string]string `json:"metadata"`
+		}
+		q := url.Values{}
+		q.Set("metadata", "account="+url.QueryEscape(accountID))
+		q.Set("state", "running,paused")
+		q.Set("limit", "100")
+		if _, err := a.call(ctx, http.MethodGet, "/v2/sandboxes?"+q.Encode(), nil, &rows, nil, CodeUnreachable, http.StatusOK); err != nil {
+			return killed, err
+		}
+		n := 0
+		for _, r := range rows {
+			if r.Metadata["account"] != accountID || r.Metadata["app"] != "tofi" || !idPattern.MatchString(r.SandboxID) {
+				continue
+			}
+			if err := a.kill(ctx, r.SandboxID); err != nil && !isNotFound(err) {
+				return killed, err
+			}
+			n++
+		}
+		killed += n
+		if n == 0 {
+			break
+		}
+	}
+	return killed, nil
 }
 
 // CheckKey validates an API key with a cheap list call. It returns nil, or an

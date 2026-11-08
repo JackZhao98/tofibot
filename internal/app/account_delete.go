@@ -233,6 +233,7 @@ func (g *AccountGateway) deleteStep(ctx context.Context, step string, a Account)
 	case "export":
 		return g.exportAccount(ctx, a)
 	case "computer":
+		g.reclaimOrgE2BSandbox(ctx, a.ID)
 		return g.deleteComputer(ctx, a.ID)
 	case "data":
 		if err := g.deleteRunnerState(ctx, a.ID); err != nil {
