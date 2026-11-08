@@ -23,6 +23,7 @@ import (
 	"github.com/JackZhao98/tofibot/internal/agent"
 	"github.com/JackZhao98/tofibot/internal/codexauth"
 	"github.com/JackZhao98/tofibot/internal/computer"
+	"github.com/JackZhao98/tofibot/internal/computer/e2b"
 	"github.com/JackZhao98/tofibot/internal/extensions"
 	"github.com/JackZhao98/tofibot/internal/provider"
 	"github.com/JackZhao98/tofibot/internal/runtime"
@@ -274,6 +275,9 @@ type Config struct {
 	OrgConfig func(ctx context.Context, resource string) (config json.RawMessage, found bool, err error)
 	// OrgResourceOutcome records that the provider refused an organization credential (code names why).
 	OrgResourceOutcome func(resource, code string)
+	// OrgE2BTemplate is the organization's E2B template state, read at each use of a
+	// provided/e2b computer; it starts the organization's build when this version has none.
+	OrgE2BTemplate func(ctx context.Context) (e2b.State, error)
 }
 type Server struct {
 	// personalComputers is Config.PersonalComputers: the pairing routes answer only when it is set.
@@ -296,6 +300,7 @@ type Server struct {
 	orgUsage                             func(ev OrgUsageEvent)
 	orgConfig                            func(ctx context.Context, resource string) (json.RawMessage, bool, error)
 	orgOutcome                           func(resource, code string)
+	orgE2BTemplate                       func(ctx context.Context) (e2b.State, error)
 	webEndpoints                         map[string]string       // Tests only: redirects a paid web source.
 	orgHTTPClients                       map[string]*http.Client // providerMu; clients that read errors of an organization credential
 	mcpApprovalMu                        sync.Mutex
@@ -3081,7 +3086,7 @@ func NewServer(c Config) (*Server, error) {
 	if savedSettings.ReasoningEffort == "" {
 		savedSettings.ReasoningEffort = "medium"
 	}
-	server := &Server{accountID: c.AccountID, accountIsAdmin: c.AccountIsAdmin, orgPolicy: c.OrgPolicy, orgCredential: c.OrgCredential, orgUsage: c.OrgUsage, orgConfig: c.OrgConfig, orgOutcome: c.OrgResourceOutcome, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerFactory: computerFactory, computerSlots: map[string]*computerSlot{}, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}, providerEndpoints: map[string]string{}, envProviderKeys: map[string]string{}, envProviderErrors: map[string]string{}, providerCatalogs: map[string]providerCatalog{}}
+	server := &Server{accountID: c.AccountID, accountIsAdmin: c.AccountIsAdmin, orgPolicy: c.OrgPolicy, orgCredential: c.OrgCredential, orgUsage: c.OrgUsage, orgConfig: c.OrgConfig, orgOutcome: c.OrgResourceOutcome, orgE2BTemplate: c.OrgE2BTemplate, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerFactory: computerFactory, computerSlots: map[string]*computerSlot{}, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}, providerEndpoints: map[string]string{}, envProviderKeys: map[string]string{}, envProviderErrors: map[string]string{}, providerCatalogs: map[string]providerCatalog{}}
 	server.personalComputers = c.PersonalComputers
 	st.storage = storageGate{limit: c.StorageLimit, minFree: c.HostMinFreeBytes}
 	st.spendSnapshot = c.SpendSnapshot
@@ -3227,6 +3232,7 @@ func (s *Server) Close() error {
 	s.stopWaitSweeper()
 	s.stopFileStoreCopier()
 	s.stopStorageReconciler()
+	s.settleOrgE2B()
 	return s.store.Close()
 }
 func (s *Server) Listen() string { return s.listen }

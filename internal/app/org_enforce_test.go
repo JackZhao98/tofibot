@@ -763,6 +763,41 @@ func TestOrgSecretNeverInMemberResponses(t *testing.T) {
 	if row, _, _ := f.g.getOrgResource(ctx, webVaultID("tavily")); row.Status != orgStatusRejected {
 		t.Fatalf("the web key's rejection was not recorded: %+v", row)
 	}
+	// The organization's E2B computer: a sandbox is made, the key is refused once and
+	// echoed back by E2B, and the member's own surfaces show none of it.
+	e2bFake := newOrgE2BFake(t, enforceOrgKey)
+	f.seedOrgE2B(t, enforceOrgKey, `{"template_id":"tpl_custom"}`)
+	f.setOverrides(t, `{"ai_models":{"mode":"provided"},"web_search":{"mode":"provided"},"web_fetch":{"mode":"provided"},"computer":{"mode":"provided","source":"e2b"}}`)
+	f.g.policyApply.Wait()
+	orgWait(t, "the organization computer", func() bool { return ws.attachedIsOrgE2B() })
+	orgWait(t, "the organization template", func() bool {
+		_ = ws.orgE2BProvider().RefreshTemplate(ctx)
+		return ws.orgE2BProvider().Status().Phase == "ready"
+	})
+	if e := e2bAction(ws); e != nil {
+		t.Fatalf("E2B action: %v", e)
+	}
+	e2bFake.mu.Lock()
+	for _, u := range e2bFake.uploads {
+		record("write into the sandbox", u)
+	}
+	for _, b := range e2bFake.createBodies {
+		record("create-sandbox request", b)
+	}
+	e2bFake.createStatus = 401
+	e2bFake.mu.Unlock()
+	if e := ws.orgE2BProvider().Remove(ctx); e != nil {
+		t.Fatal(e)
+	}
+	e2bErr := e2bAction(ws)
+	if e2bErr == nil {
+		t.Fatal("the refused E2B key worked")
+	}
+	record("E2B error", e2bErr.Error())
+	record("E2B error as a run failure", jsonText(Run{Status: "failed", Error: ws.redactRunError("gpt-5", e2bErr)}))
+	if row, _, _ := f.g.getOrgResource(ctx, e2bKeyVaultID); row.Status != orgStatusRejected {
+		t.Fatalf("the E2B key's rejection was not recorded: %+v", row)
+	}
 	// Every member-reachable response.
 	for _, path := range []string{"/api/providers", "/api/web-tools", "/api/environments", "/api/config", "/api/models", "/api/automation-settings", "/api/model-settings", "/api/usage", "/api/computer/capabilities", "/api/secrets"} {
 		code, out := f.memberCall(t, "GET", path, "")

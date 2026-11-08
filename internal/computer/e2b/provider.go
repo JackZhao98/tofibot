@@ -68,6 +68,23 @@ type Config struct {
 	Store       Store
 	Now         func() time.Time
 	HostURL     func(port int, sandboxID, domain string) string
+
+	// The fields below serve a computer whose E2B team belongs to an organization
+	// (the member's workspace never holds the key or builds the template).
+
+	// KeySource replaces APIKey: the key is asked for at each request and never kept.
+	KeySource func(ctx context.Context) (string, error)
+	// TemplateSource gives the template part of the state at each use: the template
+	// is the organization's, so only the sandbox part of State is this provider's own.
+	TemplateSource func(ctx context.Context) (State, error)
+	// SandboxMetadata is added to the sandbox's metadata (account marker).
+	SandboxMetadata map[string]string
+	// OnKeyRejected is told when E2B answers 401 or 403 to a request made with the key.
+	OnKeyRejected func()
+	// OnUsage receives sandbox running time as it accrues.
+	OnUsage func(time.Duration)
+	// Scrub cleans an upstream message further (the organization's key).
+	Scrub func(string) string
 }
 
 // Provider is the E2B Bot computer.
@@ -94,6 +111,8 @@ type Provider struct {
 	infoAt      time.Time
 	infoOK      bool
 	idle        time.Duration // how long E2B lets the sandbox sit idle before it pauses it (SetIdleTimeout)
+	tpl         *State        // the template part from Config.TemplateSource, last read
+	usageFrom   time.Time     // running time before this is reported; zero while not running
 
 	pollEvery   time.Duration
 	healthEvery time.Duration
@@ -113,7 +132,7 @@ func New(cfg Config) (*Provider, error) {
 	if cfg.Store == nil {
 		return nil, errors.New("e2b: store is required")
 	}
-	if strings.TrimSpace(cfg.APIKey) == "" {
+	if strings.TrimSpace(cfg.APIKey) == "" && cfg.KeySource == nil {
 		return nil, errors.New("e2b: api key is required")
 	}
 	if cfg.ID == "" {
@@ -148,7 +167,10 @@ func New(cfg Config) (*Provider, error) {
 		st.Phase = PhaseNone
 	}
 	p := &Provider{cfg: cfg, state: st, pinDomain: pin, idle: cfg.IdleTimeout, pollEvery: 5 * time.Second, healthEvery: time.Second, healthWait: 60 * time.Second}
-	p.api = &api{hc: cfg.HTTP, base: strings.TrimRight(cfg.APIBase, "/"), key: cfg.APIKey, secrets: p.secretValues}
+	p.api = &api{hc: cfg.HTTP, base: strings.TrimRight(cfg.APIBase, "/"), key: cfg.APIKey, keyFn: cfg.KeySource, secrets: p.secretValues, extraScrub: cfg.Scrub}
+	if cfg.OnKeyRejected != nil {
+		p.api.onReject = func(int) { cfg.OnKeyRejected() }
+	}
 	return p, nil
 }
 
@@ -161,11 +183,47 @@ func (p *Provider) secretValues() []string {
 	return []string{p.token, p.envdToken, p.trafficTok}
 }
 
-// Status returns the persisted state.
+// Status returns the persisted state. With a TemplateSource the template part
+// is the organization's (read by RefreshTemplate), and a template that is not
+// ready shows as the computer's own phase.
 func (p *Provider) Status() State {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	return p.state
+	return p.statusLocked()
+}
+
+func (p *Provider) statusLocked() State {
+	st := p.state
+	if p.tpl != nil {
+		st.TemplateID, st.TemplateVersion, st.CustomTemplate = p.tpl.TemplateID, p.tpl.TemplateVersion, p.tpl.CustomTemplate
+		if p.tpl.Phase != PhaseReady {
+			st.Phase, st.ErrorCode, st.Error = p.tpl.Phase, p.tpl.ErrorCode, p.tpl.Error
+		}
+	}
+	return st
+}
+
+// RefreshTemplate reads the organization's template state (no-op without a
+// TemplateSource). Every sandbox action does it first, so a build that finished,
+// a new version or a replaced key is seen at the next use.
+func (p *Provider) RefreshTemplate(ctx context.Context) error {
+	if p.cfg.TemplateSource == nil {
+		return nil
+	}
+	t, err := p.cfg.TemplateSource(ctx)
+	if err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return &Error{Code: CodeUnreachable, Message: "the organization's template could not be read"}
+	}
+	p.mu.Lock()
+	if p.tpl == nil || *p.tpl != t {
+		p.infoOK = false
+	}
+	p.tpl = &t
+	p.mu.Unlock()
+	return nil
 }
 
 // update applies fn to the state and persists it.
@@ -226,10 +284,75 @@ func (p *Provider) SetIdleTimeout(ctx context.Context, d time.Duration) error {
 
 func (p *Provider) setRunning(v bool) {
 	p.mu.Lock()
+	was := p.running
 	p.running = v
 	p.infoOK = false
+	now := p.cfg.Now()
+	var d time.Duration
+	switch {
+	case v && !was:
+		p.usageFrom = now
+	case !v && was:
+		d = p.endUsageLocked(now, false)
+	}
 	p.mu.Unlock()
+	p.reportUsage(d)
 }
+
+// Sandbox running time, for whoever pays for the sandbox (Config.OnUsage). It
+// accrues from the moment the sandbox is created or resumed; while it is used
+// the time so far is reported about once a minute (the timeout refresh), and
+// when it stops the rest is. A stop nobody saw (E2B paused it after the idle
+// timeout) ends at the last refresh plus that timeout, not at the time it was noticed.
+
+func (p *Provider) reportUsage(d time.Duration) {
+	if d > 0 && p.cfg.OnUsage != nil {
+		p.cfg.OnUsage(d)
+	}
+}
+
+// endUsageLocked closes the running interval. explicit: the stop was ours (pause, kill).
+func (p *Provider) endUsageLocked(now time.Time, explicit bool) time.Duration {
+	if p.usageFrom.IsZero() {
+		return 0
+	}
+	end := now
+	if !explicit {
+		if limit := p.lastRefresh.Add(p.idle); !p.lastRefresh.IsZero() && limit.Before(end) {
+			end = limit
+		}
+	}
+	from := p.usageFrom
+	p.usageFrom = time.Time{}
+	if !end.After(from) {
+		return 0
+	}
+	return end.Sub(from)
+}
+
+func (p *Provider) endUsage(explicit bool) {
+	p.mu.Lock()
+	d := p.endUsageLocked(p.cfg.Now(), explicit)
+	p.mu.Unlock()
+	p.reportUsage(d)
+}
+
+// accrueUsage reports the running time so far and keeps counting.
+func (p *Provider) accrueUsage() {
+	p.mu.Lock()
+	now := p.cfg.Now()
+	var d time.Duration
+	if !p.usageFrom.IsZero() && now.After(p.usageFrom) {
+		d = now.Sub(p.usageFrom)
+		p.usageFrom = now
+	}
+	p.mu.Unlock()
+	p.reportUsage(d)
+}
+
+// Settle reports the running time of a sandbox that is left running when its
+// owner goes away (the server stops). E2B pauses it after the idle timeout.
+func (p *Provider) Settle() { p.endUsage(false) }
 
 func randomHex(n int) string {
 	b := make([]byte, n)
@@ -446,8 +569,13 @@ func (p *Provider) remember(info sandboxInfo) error {
 
 func (p *Provider) forget() {
 	p.mu.Lock()
+	var d time.Duration
+	if p.running {
+		d = p.endUsageLocked(p.cfg.Now(), false)
+	}
 	p.running, p.envdToken, p.trafficTok, p.domain, p.infoOK = false, "", "", "", false
 	p.mu.Unlock()
+	p.reportUsage(d)
 }
 
 type creds struct{ sandbox, domain, traffic, envd, token string }
@@ -663,7 +791,7 @@ func (p *Provider) create(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	info, err := p.api.createSandbox(ctx, st.TemplateID, p.idleTimeout(), randomHex(16))
+	info, err := p.api.createSandbox(ctx, st.TemplateID, p.idleTimeout(), randomHex(16), p.cfg.SandboxMetadata)
 	if err != nil {
 		var e *Error
 		if errors.As(err, &e) && (e.Code == CodeInvalidKey || e.Code == CodeSandboxFailed) {
@@ -719,6 +847,9 @@ func (p *Provider) create(ctx context.Context) error {
 func (p *Provider) ensure(ctx context.Context) error {
 	p.ensureMu.Lock()
 	defer p.ensureMu.Unlock()
+	if err := p.RefreshTemplate(ctx); err != nil {
+		return err
+	}
 	if err := p.notReady(); err != nil {
 		return err
 	}
@@ -738,6 +869,7 @@ func (p *Provider) ensure(ctx context.Context) error {
 			p.mu.Lock()
 			p.lastRefresh = p.cfg.Now()
 			p.mu.Unlock()
+			p.accrueUsage()
 			return nil
 		}
 		var e *Error
@@ -809,6 +941,7 @@ func (p *Provider) Pause(ctx context.Context) error {
 	if err != nil && !(errors.As(err, &e) && e.Status == http.StatusConflict) && !isNotFound(err) {
 		return err
 	}
+	p.endUsage(true)
 	p.setRunning(false)
 	return nil
 }
@@ -822,6 +955,7 @@ func (p *Provider) Remove(ctx context.Context) error {
 			return err
 		}
 	}
+	p.endUsage(true)
 	p.forget()
 	if err := p.update(func(s *State) { s.SandboxID = "" }); err != nil {
 		return err
@@ -837,6 +971,9 @@ func (p *Provider) Remove(ctx context.Context) error {
 // sandbox resumes, a missing one is created. The server's wake route (the
 // person opened the computer window on an asleep computer) relies on that.
 func (p *Provider) Retry(ctx context.Context) error {
+	if err := p.RefreshTemplate(ctx); err != nil {
+		return err
+	}
 	if err := p.clearProblem(ctx); err != nil {
 		return err
 	}
@@ -902,7 +1039,12 @@ func (p *Provider) Info(ctx context.Context) (computer.Info, error) {
 		return out, nil
 	}
 	creating, running := p.creating, p.running
-	st := p.state
+	p.mu.Unlock()
+	if err := p.RefreshTemplate(ctx); err != nil && ctx.Err() != nil {
+		return computer.Info{}, ctx.Err()
+	}
+	p.mu.Lock()
+	st := p.statusLocked()
 	p.mu.Unlock()
 
 	out := computer.Info{Kind: "e2b", ID: p.cfg.ID, Phase: st.Phase, Hibernation: true, WorkspaceRoot: "/workspace"}

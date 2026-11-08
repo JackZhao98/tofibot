@@ -33,7 +33,13 @@ const (
 	CodeTokenUnreadable = "token_unreadable"
 	// CodeNotReady is returned by an action while the template is not ready.
 	CodeNotReady = "not_ready"
+	// CodeOrgResourceMissing: the organization holds no E2B key (provided computer).
+	// There is no fallback to a member's own key.
+	CodeOrgResourceMissing = "org_resource_missing"
 )
+
+// ErrKeyMissing is what a Config.KeySource returns when no key is stored.
+var ErrKeyMissing = errors.New("e2b: no key stored")
 
 const (
 	defaultAPIBase = "https://api.e2b.app"
@@ -78,10 +84,17 @@ func e2bDomain(d string) bool {
 
 // api is the REST client for api.e2b.app.
 type api struct {
-	hc      *http.Client
-	base    string
-	key     string
+	hc   *http.Client
+	base string
+	key  string
+	// keyFn, when set, supplies the key at each request (an organization key is
+	// never held by the provider).
+	keyFn   func(context.Context) (string, error)
 	secrets func() []string // extra values to scrub from messages
+	// extraScrub cleans an upstream message further (the organization's key).
+	extraScrub func(string) string
+	// onReject is told of a 401 or 403 on a request made with the API key.
+	onReject func(status int)
 }
 
 type sandboxInfo struct {
@@ -131,6 +144,9 @@ func (a *api) scrub(s string) string {
 			s = strings.ReplaceAll(s, secret, "***")
 		}
 	}
+	if a.extraScrub != nil {
+		s = a.extraScrub(s)
+	}
 	if len(s) > maxMessage {
 		s = s[:maxMessage] + "..."
 	}
@@ -155,7 +171,21 @@ func (a *api) call(ctx context.Context, method, path string, body, out any, head
 	if err != nil {
 		return 0, &Error{Code: CodeUnreachable, Message: "bad E2B request"}
 	}
-	req.Header.Set("X-API-Key", a.key)
+	key := a.key
+	if a.keyFn != nil {
+		k, kerr := a.keyFn(ctx)
+		switch {
+		case errors.Is(kerr, ErrKeyMissing):
+			return 0, &Error{Code: CodeOrgResourceMissing, Message: "the organization has no E2B key"}
+		case kerr != nil:
+			if ctx.Err() != nil {
+				return 0, ctx.Err()
+			}
+			return 0, &Error{Code: CodeUnreachable, Message: "the organization key could not be read"}
+		}
+		key = k
+	}
+	req.Header.Set("X-API-Key", key)
 	req.Header.Set("Accept", "application/json")
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
@@ -181,6 +211,9 @@ func (a *api) call(ctx context.Context, method, path string, body, out any, head
 			}
 			return resp.StatusCode, nil
 		}
+	}
+	if a.onReject != nil && (resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden) {
+		a.onReject(resp.StatusCode)
 	}
 	var e struct {
 		Message string `json:"message"`
@@ -218,14 +251,18 @@ func CheckKey(ctx context.Context, hc *http.Client, apiBase, key string) error {
 	return err
 }
 
-func (a *api) createSandbox(ctx context.Context, templateID string, timeout time.Duration, idem string) (sandboxInfo, error) {
+func (a *api) createSandbox(ctx context.Context, templateID string, timeout time.Duration, idem string, extra map[string]string) (sandboxInfo, error) {
 	var out sandboxInfo
+	metadata := map[string]string{"app": "tofi"}
+	for k, v := range extra {
+		metadata[k] = v
+	}
 	body := map[string]any{
 		"templateID": templateID,
 		"timeout":    int(timeout.Seconds()),
 		"autoPause":  true,
 		"network":    map[string]any{"allowPublicTraffic": false},
-		"metadata":   map[string]string{"app": "tofi"},
+		"metadata":   metadata,
 	}
 	_, err := a.call(ctx, http.MethodPost, "/v2/sandboxes", body, &out, map[string]string{"Idempotency-Key": idem}, CodeSandboxFailed, http.StatusCreated)
 	return out, err

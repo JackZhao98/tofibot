@@ -229,6 +229,8 @@ type orgResourceView struct {
 	ErrorCode  string          `json:"error_code,omitempty"`
 	UpdatedAt  string          `json:"updated_at"`
 	Config     json.RawMessage `json:"config"`
+	// Build is the template of the organization's E2B computer (computer:e2b only).
+	Build *orgE2BBuildView `json:"build,omitempty"`
 }
 
 func (r orgResourceRow) view() orgResourceView {
@@ -239,6 +241,7 @@ func (r orgResourceRow) view() orgResourceView {
 	if !json.Valid(v.Config) {
 		v.Config = json.RawMessage("{}")
 	}
+	v.Build = orgE2BViewOf(r)
 	return v
 }
 

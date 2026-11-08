@@ -98,7 +98,7 @@ func (s *Server) webSearchAllowed() bool {
 }
 
 // computerAllowsVM says whether the policy lets this workspace hold a VM.
-// provided/e2b waits for slice 3 and so holds no computer yet.
+// provided/e2b holds the organization's E2B computer instead (computerUsesOrgE2B).
 func computerAllowsVM(v PolicyValue) bool {
 	return v.Mode == "host" || (v.Mode == policyModeProvided && v.Source == computerSourceVM)
 }
@@ -521,7 +521,36 @@ var orgEndpointHTTP = &http.Client{
 	},
 }
 
-func orgEndpointClient() *http.Client { return orgEndpointHTTP }
+// hostBoundTransport refuses any request, redirects included, to a host other
+// than the one an administrator configured.
+type hostBoundTransport struct {
+	base http.RoundTripper
+	host string
+}
+
+func (t hostBoundTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if !strings.EqualFold(req.URL.Host, t.host) {
+		return nil, errCompatBlocked
+	}
+	return t.base.RoundTrip(req)
+}
+
+// orgEndpointClientFor is the client for the organization's own address: the dial
+// rule of orgEndpointControl, and bound to that address's host, like the
+// organization's compatible client. A redirect elsewhere is refused.
+func orgEndpointClientFor(baseURL string) *http.Client {
+	u, err := url.Parse(baseURL)
+	if err != nil || u.Host == "" {
+		return &http.Client{Transport: refusingRoundTripper{}}
+	}
+	return &http.Client{Timeout: webToolTimeout, Transport: hostBoundTransport{base: orgEndpointHTTP.Transport, host: u.Host}}
+}
+
+type refusingRoundTripper struct{}
+
+func (refusingRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
+	return nil, errCompatBlocked
+}
 
 // ---- gateway: what follows a policy change ----
 
@@ -542,9 +571,8 @@ func (g *AccountGateway) groupMemberIDs(ctx context.Context, groupID string) []s
 	return ids
 }
 
-// applyPolicyChange takes the VM away from every running workspace whose new
-// computer policy gives it none (none, own, provided/e2b), through the existing
-// DetachVM path: stop new calls, drain, copy the outbox, then detach. It runs in
+// applyPolicyChange makes every running workspace's Bot computer follow its new
+// computer policy (enforceComputerPolicy), through the existing DetachVM path: stop new calls, drain, copy the outbox, then detach. It runs in
 // the background so an admin request does not wait on a drain; Close waits for it.
 // A workspace that is not loaded follows the policy when it starts.
 func (g *AccountGateway) applyPolicyChange(accountIDs []string) {
@@ -571,22 +599,75 @@ func (g *AccountGateway) applyPolicyChange(accountIDs []string) {
 	}
 }
 
-// enforceComputerPolicy detaches the attached computer when the current policy
-// does not allow it (DetachVM: stop new calls, drain, copy the outbox, detach).
+// enforceComputerPolicy makes the attached Bot computer what the current policy
+// allows. A computer the policy does not allow goes through DetachVM (stop new
+// calls, drain, copy the outbox, detach); an account the policy gives the
+// organization's E2B computer then gets it attached (a person's own E2B computer
+// is replaced, never mixed with it), and one that moved out of it gets its own
+// computer back where it has one. A workspace that is not loaded follows the
+// policy when it starts.
 func (s *Server) enforceComputerPolicy(ctx context.Context) {
 	if s.orgPolicy == nil {
 		return
 	}
 	v := s.policy()[capComputer]
 	cur := s.computer()
-	if cur == nil || (cur.Kind() == envKindE2B && computerAllowsOwnE2B(v)) || (cur.Kind() != envKindE2B && computerAllowsVM(v)) {
-		return // nothing attached, or what is attached is what the policy allows
+	if cur != nil {
+		allowed := computerAllowsVM(v)
+		if cur.Kind() == envKindE2B {
+			if s.attachedIsOrgE2B() {
+				allowed = computerUsesOrgE2B(v)
+			} else {
+				allowed = computerAllowsOwnE2B(v)
+			}
+		}
+		if allowed {
+			return // what is attached is what the policy allows
+		}
+		wasOrg := s.attachedIsOrgE2B()
+		dctx, cancel := context.WithTimeout(ctx, 3*detachWaitDefault)
+		defer cancel()
+		if _, err := s.DetachVM(dctx, detachWaitDefault); err != nil && !errors.Is(err, errComputerNone) {
+			log.Printf("[org] detach after policy change for account %s: %v", s.accountID, err)
+			return
+		}
+		if wasOrg {
+			s.pauseOrgE2B() // the sandbox stops costing the organization; its files stay for a move back
+		}
 	}
-	ctx, cancel := context.WithTimeout(ctx, 3*detachWaitDefault)
-	defer cancel()
-	if _, err := s.DetachVM(ctx, detachWaitDefault); err != nil && !errors.Is(err, errComputerNone) {
-		log.Printf("[org] detach after policy change for account %s: %v", s.accountID, err)
+	switch {
+	case computerUsesOrgE2B(v):
+		if s.computer() == nil {
+			if err := s.attachOrgE2B(); err != nil && !errors.Is(err, errComputerAttached) {
+				log.Printf("[org] attach the organization E2B computer for account %s: %v", s.accountID, err)
+			}
+		}
+	case cur != nil:
+		// It moved off a computer it may not keep: give it the one the new policy allows.
+		s.restoreE2BEnvironment(s.botComputerChoice() == envKindE2B)
+		if s.computer() == nil && computerAllowsVM(v) && s.computerFactory != nil {
+			if err := s.AttachVM(ctx); err != nil && !errors.Is(err, errComputerAttached) && !errors.Is(err, errComputerPolicy) {
+				log.Printf("[org] attach VM after policy change for account %s: %v", s.accountID, err)
+			}
+		}
 	}
+}
+
+// pauseOrgE2B turns the organization's sandbox off in the background.
+func (s *Server) pauseOrgE2B() {
+	s.e2bEnv.mu.Lock()
+	p := s.e2bEnv.orgProvider
+	s.e2bEnv.mu.Unlock()
+	if p == nil {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		if err := p.Pause(ctx); err != nil {
+			log.Printf("[org] pause the organization E2B computer of account %s: %s", s.accountID, e2bErrorCode(err))
+		}
+	}()
 }
 
 // redactErrOrNil is err's text cleaned for the log, or the error itself when nil.

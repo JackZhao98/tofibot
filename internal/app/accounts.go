@@ -72,6 +72,9 @@ type AccountGateway struct {
 	orgWebEndpoints map[string]string
 	// policyApply tracks the detaches that follow a policy change.
 	policyApply sync.WaitGroup
+	// orgE2B is the organization's E2B template build (org_e2b.go): one at a time.
+	orgE2B    orgE2BGate
+	orgBuilds sync.WaitGroup
 }
 
 func NewAccountGateway(c Config) (*AccountGateway, error) {
@@ -121,6 +124,10 @@ func NewAccountGateway(c Config) (*AccountGateway, error) {
 		return nil, err
 	}
 	if err = migrateOrgGroups(tx, g.providedComputerSource()); err != nil {
+		root.Close()
+		return nil, err
+	}
+	if err = ensureOrgUsageColumns(tx); err != nil {
 		root.Close()
 		return nil, err
 	}
@@ -187,6 +194,7 @@ func (g *AccountGateway) Close() error {
 	workspaces := g.workspaces
 	g.workspaces = map[string]*Server{}
 	g.mu.Unlock()
+	g.stopOrgE2BBuilds()
 	g.policyApply.Wait()
 	for _, s := range workspaces {
 		s.Close()

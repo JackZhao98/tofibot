@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"strconv"
@@ -518,8 +519,11 @@ func classifyMCPReviewFailure(ctx context.Context, resp *provider.ChatResponse, 
 // One failure line per failed reviewer request. It names the run, tool,
 // category, model and latency; arguments, prompt and response text never
 // appear here.
-func logMCPReviewFailure(r Run, call extensions.MCPCallApproval, model string, attempt int, latency time.Duration, f *mcpReviewFailure) {
-	log.Printf("[auto-review] reviewer failure run=%s server=%s tool=%s category=%s detail=%s model=%s attempt=%d latency_ms=%d", r.ID, call.Server, call.Tool, f.Category, f.Detail, model, attempt, latency.Milliseconds())
+// The line goes through the organization redaction first: a reviewer that ran on
+// an organization credential must not put the key or the endpoint address in a log.
+func (s *Server) logMCPReviewFailure(r Run, call extensions.MCPCallApproval, model string, attempt int, latency time.Duration, f *mcpReviewFailure) {
+	line := fmt.Sprintf("[auto-review] reviewer failure run=%s server=%s tool=%s category=%s detail=%s model=%s attempt=%d latency_ms=%d", r.ID, call.Server, call.Tool, f.Category, f.Detail, model, attempt, latency.Milliseconds())
+	log.Print(s.redactOrgText(model, line))
 }
 
 // requestMCPReview makes the reviewer request for one reserved review. Every
@@ -536,19 +540,19 @@ func (s *Server) requestMCPReview(ctx context.Context, r Run, call extensions.MC
 		p, model, err = s.backgroundProvider(ctx, backgroundReview) // No retry/fallback wrapper.
 		if err != nil {
 			f := &mcpReviewFailure{mcpReviewFailureNotConfigured, ""}
-			logMCPReviewFailure(r, call, s.backgroundModel(backgroundReview), 0, 0, f)
+			s.logMCPReviewFailure(r, call, s.backgroundModel(backgroundReview), 0, 0, f)
 			return mcpReviewResult{}, f
 		}
 	}
 	raw, err := mcpReviewInput(call, x, digest, s.mcpReviewHostEvidence(r, x))
 	if err != nil {
 		f := &mcpReviewFailure{mcpReviewFailureInputInvalid, "encoding"}
-		logMCPReviewFailure(r, call, model, 0, 0, f)
+		s.logMCPReviewFailure(r, call, model, 0, 0, f)
 		return mcpReviewResult{}, f
 	}
 	if len(raw) > mcpReviewInputLimit {
 		f := &mcpReviewFailure{mcpReviewFailureInputTooLarge, strconv.Itoa(len(raw)) + "_bytes_limit_" + strconv.Itoa(mcpReviewInputLimit)}
-		logMCPReviewFailure(r, call, model, 0, 0, f)
+		s.logMCPReviewFailure(r, call, model, 0, 0, f)
 		return mcpReviewResult{}, f
 	}
 	var failure *mcpReviewFailure
@@ -571,7 +575,7 @@ func (s *Server) requestMCPReview(ctx context.Context, r Run, call extensions.MC
 			}
 			return result, nil
 		}
-		logMCPReviewFailure(r, call, model, attempt, time.Since(started), failure)
+		s.logMCPReviewFailure(r, call, model, attempt, time.Since(started), failure)
 		if !failure.retryable() || ctx.Err() != nil {
 			break
 		}

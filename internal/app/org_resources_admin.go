@@ -68,6 +68,12 @@ func (g *AccountGateway) serveOrg(w http.ResponseWriter, r *http.Request, rest s
 		default:
 			methodNotAllowed(w, "GET, PUT, DELETE")
 		}
+	case len(parts) == 3 && parts[0] == "resources" && parts[1] == e2bKeyVaultID && parts[2] == "build":
+		if r.Method != http.MethodPost {
+			methodNotAllowed(w, "POST")
+			return
+		}
+		g.retryOrgE2BBuild(w, r)
 	case len(parts) == 3 && parts[0] == "resources" && parts[2] == "test":
 		sp, ok := orgSpecFor(parts[1])
 		if !ok {
@@ -499,6 +505,14 @@ func (g *AccountGateway) putOrgResource(w http.ResponseWriter, r *http.Request, 
 		storageFailure(w, "store resource", err)
 		return
 	}
+	if sp.ID == e2bKeyVaultID {
+		// Build the template now, so the first member does not wait for it.
+		g.kickOrgE2BBuild()
+		g.markOrgE2BPreparing(ctx)
+		if fresh, ok, e := g.getOrgResource(ctx, sp.ID); e == nil && ok {
+			row = fresh
+		}
+	}
 	writeJSON(w, 200, row.view())
 }
 
@@ -514,6 +528,11 @@ func (g *AccountGateway) storeOrgResource(ctx context.Context, rec secretRecord,
 	prev, existed, err := v.put(rec, sealed)
 	if err != nil {
 		return err
+	}
+	if rec.ID == e2bKeyVaultID {
+		// A new key may belong to another E2B team: a build of the old one ends, and
+		// the new config carries no build.
+		g.orgE2BReset()
 	}
 	if err = g.saveOrgResource(ctx, row); err != nil {
 		v.restore(rec.ID, prev, existed)
@@ -580,6 +599,9 @@ func (g *AccountGateway) deleteOrgResource(w http.ResponseWriter, r *http.Reques
 	}
 	g.orgWriteMu.Lock()
 	err = v.remove(sp.ID)
+	if err == nil && sp.ID == e2bKeyVaultID {
+		g.orgE2BReset()
+	}
 	if err == nil {
 		_, err = g.root.store.db.ExecContext(ctx, `DELETE FROM org_resources WHERE id=?`, sp.ID)
 	}

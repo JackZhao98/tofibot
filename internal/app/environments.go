@@ -66,6 +66,8 @@ type e2bEnvironment struct {
 	// when a new key or a removal replaces that provider.
 	preparing *e2b.Provider
 	cancel    context.CancelFunc
+	// orgProvider is the organization's E2B computer under provided/e2b (org_e2b.go).
+	orgProvider *e2b.Provider
 }
 
 // stopE2BPrepare cancels a running template build. Caller holds e2bEnv.mu.
@@ -235,6 +237,8 @@ func (s *Server) newE2BProvider(key string) (*e2b.Provider, error) {
 		Version:     e2bTemplateVersion(),
 		Store:       e2bStore{s},
 		IdleTimeout: s.e2bIdleTimeout(),
+		HostURL:     e2bHostURL,
+		Now:         e2bNow,
 	})
 }
 
@@ -254,19 +258,21 @@ func (s *Server) e2bIdleTimeout() time.Duration {
 // sandbox gets the new timeout now, a paused one when it resumes.
 func (s *Server) applyE2BIdleTimeout() {
 	s.e2bEnv.mu.Lock()
-	p := s.e2bEnv.provider
+	providers := []*e2b.Provider{s.e2bEnv.provider, s.e2bEnv.orgProvider}
 	s.e2bEnv.mu.Unlock()
-	if p == nil {
-		return
-	}
 	d := s.e2bIdleTimeout()
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		if err := p.SetIdleTimeout(ctx, d); err != nil {
-			log.Printf("[environments] E2B idle timeout: %s", e2bErrorCode(err))
+	for _, p := range providers {
+		if p == nil {
+			continue
 		}
-	}()
+		go func(p *e2b.Provider) {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			if err := p.SetIdleTimeout(ctx, d); err != nil {
+				log.Printf("[environments] E2B idle timeout: %s", e2bErrorCode(err))
+			}
+		}(p)
+	}
 }
 
 // computerSleeper is a computer the person can turn off from its power button:
@@ -380,7 +386,16 @@ func (s *Server) attachProvider(p computer.Provider) error {
 // restoreE2BEnvironment runs at start-up after the vault opens. preferE2B is
 // the stored choice; start-up did not attach the VM when it is set.
 func (s *Server) restoreE2BEnvironment(preferE2B bool) {
-	if v := s.policy()[capComputer]; !computerAllowsOwnE2B(v) {
+	if v := s.policy()[capComputer]; computerUsesOrgE2B(v) {
+		// The organization's computer: attached whatever the stored choice says. A
+		// missing organization key or a failed build shows as a named error on it.
+		if s.computer() == nil {
+			if err := s.attachOrgE2B(); err != nil {
+				log.Printf("[environments] attach the organization E2B computer for account %s: %v", s.accountID, err)
+			}
+		}
+		return
+	} else if !computerAllowsOwnE2B(v) {
 		// The policy gives this account no E2B computer of its own. A stored choice
 		// of one must not leave a VM-allowed account without its VM.
 		if preferE2B && computerAllowsVM(v) {
@@ -489,6 +504,13 @@ func (s *Server) accountAdmin() bool {
 
 func (s *Server) environmentsView(ctx context.Context) environmentsView {
 	out := environmentsView{Environments: []environmentItem{}, Policy: s.capabilitiesView()[capComputer]}
+	if computerUsesOrgE2B(s.policy()[capComputer]) {
+		// The organization's computer is the only one listed: no own key, no choice, no add.
+		s.orgE2BEnvironmentView(ctx, &out)
+		s.appendPairedMacs(ctx, &out)
+		out.Add.Mac = s.personalComputers
+		return out
+	}
 	cur := s.computer()
 
 	// The VM: attached, or set aside by the person for the E2B computer.
@@ -551,19 +573,7 @@ func (s *Server) environmentsView(ctx context.Context) environmentsView {
 		out.E2B = e2bView{Phase: "none"}
 	}
 
-	// Paired Macs.
-	if items, err := s.listComputers(ctx); err == nil {
-		for _, c := range items {
-			if c.Kind != computer.RowKindPersonal {
-				continue
-			}
-			state := "offline"
-			if c.Online {
-				state = "online"
-			}
-			out.Environments = append(out.Environments, environmentItem{ID: c.ID, Kind: envKindMac, Name: c.Name, State: state, Platform: c.Platform, LastSeen: c.LastSeen, Access: "allowed_on_mac", Actions: []string{"disconnect"}})
-		}
-	}
+	s.appendPairedMacs(ctx, &out)
 
 	out.Add.E2B = p == nil || out.E2B.Phase == "failed"
 	if out.Add.E2B && e2bImage() == "" {
@@ -581,6 +591,24 @@ func (s *Server) environmentsView(ctx context.Context) environmentsView {
 		}
 	}
 	return out
+}
+
+// appendPairedMacs lists the paired Macs (decided on the Mac, not by the policy).
+func (s *Server) appendPairedMacs(ctx context.Context, out *environmentsView) {
+	items, err := s.listComputers(ctx)
+	if err != nil {
+		return
+	}
+	for _, c := range items {
+		if c.Kind != computer.RowKindPersonal {
+			continue
+		}
+		state := "offline"
+		if c.Online {
+			state = "online"
+		}
+		out.Environments = append(out.Environments, environmentItem{ID: c.ID, Kind: envKindMac, Name: c.Name, State: state, Platform: c.Platform, LastSeen: c.LastSeen, Access: "allowed_on_mac", Actions: []string{"disconnect"}})
+	}
 }
 
 func (s *Server) routeEnvironments(w http.ResponseWriter, r *http.Request, p string) bool {

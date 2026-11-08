@@ -77,7 +77,7 @@ const orgGroupsDDL = `CREATE TABLE IF NOT EXISTS org_groups(
  -- account deletion for accounting. (A retention cleanup is a later slice.)
  CREATE TABLE IF NOT EXISTS org_usage(
  account_id TEXT NOT NULL, month TEXT NOT NULL, capability TEXT NOT NULL,
- requests INTEGER NOT NULL DEFAULT 0, usd REAL NOT NULL DEFAULT 0, updated_at TEXT NOT NULL,
+ requests INTEGER NOT NULL DEFAULT 0, usd REAL NOT NULL DEFAULT 0, compute_ms INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL,
  PRIMARY KEY(account_id,month,capability));`
 
 // validPolicy is the one place that says which (mode, source) pairs a
@@ -257,6 +257,8 @@ type OrgUsageEvent struct {
 	Capability string
 	Requests   int
 	USD        float64
+	// ComputeMS is sandbox running time (the organization's E2B computer).
+	ComputeMS int64
 }
 
 // orgSecret is an organization credential, valid only inside the server
@@ -283,6 +285,7 @@ func (g *AccountGateway) wirePolicy(c *Config, a Account) {
 	c.OrgCredential = func(ctx context.Context, resource string) (orgSecret, error) { return g.orgCredential(ctx, resource) }
 	c.OrgUsage = func(ev OrgUsageEvent) { g.recordOrgUsage(id, ev) }
 	c.OrgResourceOutcome = func(resource, code string) { g.recordOrgRejection(resource, code) }
+	c.OrgE2BTemplate = g.orgE2BTemplate
 	c.OrgConfig = func(ctx context.Context, resource string) (json.RawMessage, bool, error) {
 		row, found, err := g.getOrgResource(ctx, resource)
 		if err != nil || !found {
@@ -294,13 +297,13 @@ func (g *AccountGateway) wirePolicy(c *Config, a Account) {
 
 // recordOrgUsage adds one use to the account's month row (UTC month).
 func (g *AccountGateway) recordOrgUsage(accountID string, ev OrgUsageEvent) {
-	if (ev.Requests == 0 && ev.USD == 0) || !slices.Contains(orgCapabilities, ev.Capability) {
+	if (ev.Requests == 0 && ev.USD == 0 && ev.ComputeMS == 0) || !slices.Contains(orgCapabilities, ev.Capability) {
 		return
 	}
 	at := time.Now().UTC()
-	_, err := g.root.store.db.Exec(`INSERT INTO org_usage(account_id,month,capability,requests,usd,updated_at) VALUES(?,?,?,?,?,?)
-ON CONFLICT(account_id,month,capability) DO UPDATE SET requests=requests+excluded.requests,usd=usd+excluded.usd,updated_at=excluded.updated_at`,
-		accountID, at.Format("2006-01"), ev.Capability, ev.Requests, ev.USD, at.Format(time.RFC3339))
+	_, err := g.root.store.db.Exec(`INSERT INTO org_usage(account_id,month,capability,requests,usd,compute_ms,updated_at) VALUES(?,?,?,?,?,?,?)
+ON CONFLICT(account_id,month,capability) DO UPDATE SET requests=requests+excluded.requests,usd=usd+excluded.usd,compute_ms=compute_ms+excluded.compute_ms,updated_at=excluded.updated_at`,
+		accountID, at.Format("2006-01"), ev.Capability, ev.Requests, ev.USD, ev.ComputeMS, at.Format(time.RFC3339))
 	if err != nil {
 		log.Printf("[org] usage for account %s: %v", accountID, err)
 	}
@@ -321,4 +324,32 @@ func (g *AccountGateway) recordOrgRejection(resource, code string) {
 	if _, err := g.root.store.db.ExecContext(ctx, `UPDATE org_resources SET status=?,error_code=?,verified_at=NULL,updated_at=? WHERE id=? AND updated_at=?`, orgStatusRejected, code, now(), resource, row.UpdatedAt); err != nil {
 		log.Printf("[org] record rejection of %s: %v", resource, err)
 	}
+}
+
+// ensureOrgUsageColumns adds compute_ms (sandbox running time of the
+// organization's E2B computer) to an org_usage table made by an earlier build.
+func ensureOrgUsageColumns(tx *sql.Tx) error {
+	rows, err := tx.Query(`PRAGMA table_info(org_usage)`)
+	if err != nil {
+		return err
+	}
+	have := map[string]bool{}
+	for rows.Next() {
+		var cid, notnull, pk int
+		var name, kind string
+		var dflt sql.NullString
+		if err = rows.Scan(&cid, &name, &kind, &notnull, &dflt, &pk); err != nil {
+			rows.Close()
+			return err
+		}
+		have[name] = true
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	if !have["compute_ms"] {
+		_, err = tx.Exec(`ALTER TABLE org_usage ADD COLUMN compute_ms INTEGER NOT NULL DEFAULT 0`)
+	}
+	return err
 }

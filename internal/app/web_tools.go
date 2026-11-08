@@ -429,7 +429,7 @@ func (s *Server) searchProviderFor(id string, cfg webToolsConfig, r *Run) webtoo
 		}
 		if s.webMode(webChainSearch) == policyModeProvided {
 			// The organization's instance is admin-configured: private addresses are fine, link-local never.
-			return webtools.SearXNG{BaseURL: cfg.SearXNGURL, Client: orgEndpointClient()}
+			return webtools.SearXNG{BaseURL: cfg.SearXNGURL, Client: orgEndpointClientFor(cfg.SearXNGURL)}
 		}
 		return webtools.SearXNG{BaseURL: cfg.SearXNGURL}
 	case webComputerID:
