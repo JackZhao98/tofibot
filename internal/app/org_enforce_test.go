@@ -443,10 +443,10 @@ func TestComputerPolicyDetachDrains(t *testing.T) {
 		t.Fatalf("computer row %q %v", status, err)
 	}
 	// A group move applies the same way.
+	f.admin_(t, "PUT", "/api/admin/accounts/"+f.member.ID+"/policy", `{"overrides":{}}`, 200)
 	if err := ws.AttachVM(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	f.admin_(t, "PUT", "/api/admin/accounts/"+f.member.ID+"/policy", `{"overrides":{}}`, 200)
 	gid := f.admin_(t, "POST", "/api/admin/groups", `{"name":"no computers","policies":{"computer":{"mode":"none"}}}`, 201)
 	var created struct{ ID string }
 	_ = json.Unmarshal([]byte(gid), &created)
