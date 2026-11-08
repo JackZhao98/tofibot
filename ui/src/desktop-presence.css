@@ -277,7 +277,7 @@ html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .d
    breath while it turns on or off. Disabled while a call or a holder is using it (the hint says why). */
 /* On the screen's dark glass (web, small and big) the light green reads; in the desktop app's window heading the text green does. */
 .desktop-window-controls .desktop-control-power.is-on,
-html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .desktop-window-controls .desktop-control-power.is-on{color:var(--green)}
+html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .desktop-window-controls .desktop-control-power.is-on{color:var(--green-text)}
 .desktop-floating-shell .computer-floating-actions .desktop-control-power.is-on{color:var(--green-text)}
 .desktop-control-power.is-changing svg{animation:desktop-mini-breathe 1.8s var(--ease-inout) infinite}
 /* Shared with the placeholder's status dot; the keyframes left with the old mini TV (5369c760) and the dot stood still since. */

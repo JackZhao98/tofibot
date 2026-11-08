@@ -43,6 +43,7 @@ jobs:
       - run: npm --prefix ui run typecheck
       - run: npm --prefix ui run test:i18n
       - run: npm --prefix ui run test:motion-tokens
+      - run: npm --prefix ui run test:final-v2-tokens
       - run: npm --prefix ui run build
       - run: npm --prefix ui run test:lazy-css
       # The desktop app gives privileged IPC to this page only; no browser needed.
