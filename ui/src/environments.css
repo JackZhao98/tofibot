@@ -4,13 +4,19 @@
 .env-head .env-add{flex:none}
 .env-add{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:6px 14px;font-size:13px}
 .env-row{min-width:0}
-.env-name{display:flex;align-items:center;gap:8px;min-width:0}
+.env-name{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;min-width:0}
 .env-name>svg{flex:none;color:var(--muted)}
 .env-name-text{min-width:0;overflow-wrap:anywhere}
 .env-tag{flex:none;padding:2px 8px;border:1px solid var(--line-soft);border-radius:999px;color:var(--ink-soft);font:600 11px/1.4 var(--mono);white-space:nowrap}
 .workspace .settings-page-body .env-row .settings-row-copy p{padding-left:26px}
 .env-line{display:block}
 .env-reason{color:var(--danger-text)}
+.env-outdated{color:var(--ink-soft)}
+.env-building{color:var(--muted)}
+.resource-restart-dialog .env-danger-button{min-height:40px;padding:9px 16px;border:2px solid var(--line);border-radius:11px;background:var(--danger);color:var(--on-danger);font:600 13px/1 var(--body);cursor:pointer}
+.resource-restart-dialog .env-danger-button:hover:not(:disabled){filter:brightness(1.06)}
+.resource-restart-dialog .env-danger-button:disabled{opacity:.45;cursor:not-allowed}
+.resource-restart-dialog .env-danger-button:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 .env-reason-detail{color:var(--muted);font-size:11.5px;line-height:1.5}
 .env-controls{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px}
 .workspace .settings-page-body .env-controls .secondary-button{min-height:34px;padding:6px 12px;font-size:13px}

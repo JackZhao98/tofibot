@@ -110,7 +110,8 @@
     },
     "fold": "折叠",
     "fold_aria": "把 Bot 电脑折成窄栏",
-    "unfold_aria": "显示 Bot 电脑"
+    "unfold_aria": "显示 Bot 电脑",
+    "outdated_required": "这台电脑的镜像已不再受支持。请在 设置 > 环境 中升级。"
   },
   "remote": {
     "error": {
@@ -518,7 +519,9 @@
       "configure": "配置",
       "use": "设为 Bot 使用",
       "remove": "移除",
-      "disconnect": "断开"
+      "disconnect": "断开",
+      "upgrade": "升级",
+      "details": "详情"
     },
     "more": "{{name}} 的更多操作",
     "attach_title": "Bot 电脑",
@@ -532,7 +535,13 @@
       "sandbox_failed": "E2B 沙盒未能启动。",
       "guest_unreachable": "电脑没有响应。",
       "sandbox_gone": "E2B 沙盒已不存在。重试会新建一个。",
-      "token_unreadable": "无法读取已保存的密钥。请重新添加 E2B 密钥。"
+      "token_unreadable": "无法读取已保存的密钥。请重新添加 E2B 密钥。",
+      "org_resource_missing": "你的组织尚未配置这台电脑。请联系管理员。",
+      "not_ready": "电脑镜像尚未就绪。请几分钟后重试。",
+      "guest_outdated_required": "这台电脑的镜像已不再受支持。请升级后继续使用。升级会替换这台电脑，其中的文件将被删除。",
+      "computer_upgrade_failed": "无法升级这台电脑。请重试。",
+      "not_outdated": "这台电脑已是最新。",
+      "computer_busy": "电脑正忙。请在运行中的任务结束后重试。"
     },
     "confirm": {
       "use": {
@@ -549,6 +558,11 @@
         "title": "断开 {{name}}？",
         "body": "重新用新配对码连接前，Bot 无法使用这台 Mac。",
         "action": "断开"
+      },
+      "upgrade": {
+        "title": "升级 {{name}}？",
+        "body": "这台电脑会被替换为基于当前镜像的新电脑。其中的文件将被删除且无法恢复。进行中的任务需先结束。",
+        "action": "升级并删除文件"
       }
     },
     "cancel": "取消",
@@ -583,11 +597,15 @@
       "copy_aria": "复制命令"
     },
     "configure": {
-      "title": "配置 Bot 电脑"
+      "title": "配置 Bot 电脑",
+      "provided_title": "Bot 电脑详情"
     },
     "provided": "由你的组织提供",
     "provided_note": "这台 Bot 电脑由你的组织提供，密钥与镜像由管理员管理。",
     "none_title": "管理员还没有为你分配 Bot 电脑",
-    "none_body": "分配之前，Bot 不使用电脑运行；你的 Mac 仍可以连接。"
+    "none_body": "分配之前，Bot 不使用电脑运行；你的 Mac 仍可以连接。",
+    "outdated": "有较新的电脑镜像。更新会替换这台电脑，其中的文件将被删除。",
+    "image_preparing": "正在构建电脑镜像，需要几分钟。",
+    "image_building": "正在构建较新的电脑镜像。"
   }
 }

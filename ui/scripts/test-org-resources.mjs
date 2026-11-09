@@ -2,7 +2,7 @@
 // SettingsPages as an administrator in a Vite fixture with the Administration API stubbed (scripts/lib/org-fixture.mjs): the
 // page says these keys belong to the server and are not the administrator's own; AI model cards (Claude with its workspace ID,
 // OpenAI, the OpenAI-compatible endpoint) save a key, show only the masked hint, Test and Remove; the E2B card and its template
-// placeholder; the VM row; the Search & fetch chains (the member's chain editor over the organization endpoints: key, order,
+// image build state with Retry build; the VM row; the Search & fetch chains (the member's chain editor over the organization endpoints: key, order,
 // switch, address, Test); the "provided resources are missing" banner; refusals worded from their code. The key itself must never
 // come back: after every save the page holds no part of it beyond the server's hint. Synthetic data only. Needs PLAYWRIGHT_MODULE.
 //   UG_SHOTS=<dir>  also saves screenshots (light and dark, 1440x900 and 390x844).
@@ -184,7 +184,7 @@ try {
     console.log("PASS compatible endpoint: save, masked key, Edit never refills the key, refusals are worded");
   }
 
-  // ---- 5. E2B: key and an optional template; the build status is a named placeholder until shared computers exist.
+  // ---- 5. E2B: key and an optional template; a custom template is used as supplied and never rebuilt.
   {
     stub.reset();
     const {page, close} = await open();
@@ -198,8 +198,9 @@ try {
     await e2b.locator(".provider-key-mask").waitFor();
     assert.deepEqual(stub.writes, [`PUT /api/admin/org/resources/computer:e2b ${JSON.stringify({key: E2B_KEY, template_id: "tpl_shared_1"})}`]);
     assert.equal(await e2b.locator(".provider-key-mask").innerText(), "e2b_••••••••4567");
-    assert.equal(await e2b.locator(".org-template").getAttribute("data-slice"), "shared-computers", "the placeholder is named for what fills it");
-    assert.match(await text(e2b.locator(".org-template")), /Template: tpl_shared_1/);
+    assert.equal(await e2b.locator(".org-template").getAttribute("data-custom"), "true");
+    assert.match(await text(e2b.locator(".org-template")), /^Custom template tpl_shared_1\. Used as supplied and never rebuilt\.$/);
+    assert.equal(await e2b.locator('[data-action="retry-build"]').count(), 0, "a custom template is never rebuilt: no Retry build");
     await holdsNoKey(page, E2B_KEY);
     await e2b.getByRole("button", {name: "Remove"}).click();
     await e2b.locator(".inline-confirmation .danger-link").click();
@@ -211,7 +212,94 @@ try {
     await ready(none.page);
     assert.match(await text(none.page.locator(".org-vm")), /This server cannot run VMs \(no KVM host\)\./);
     await none.close();
-    console.log("PASS E2B card: key and template, masked, placeholder for the template build, VM row follows the host");
+    console.log("PASS E2B card: key and template, masked, custom template note with no rebuild, VM row follows the host");
+
+  // ---- 5b. The image build: phase, named failures with what to do, minimum version, Retry build (not for a custom template).
+  {
+    const e2bRow = (extra = {}) => ({id: "computer:e2b", kind: "computer_provider", status: "verified", key_prefix: "e2b_", key_hint: "…4567", verified_at: "2026-11-08T20:00:00Z", updated_at: "t0", config: {}, ...extra});
+    const openBuild = async build => {
+      stub.reset({build: {version: "0.9.1", updated_at: "2026-11-08T19:00:00Z", ...build}});
+      stub.state.resources = {"computer:e2b": e2bRow()};
+      const view = await open();
+      await ready(view.page);
+      return view;
+    };
+    const note = view => view.page.locator('[data-resource="computer:e2b"] .org-template');
+
+    // Ready: the version, nothing to retry.
+    let view = await openBuild({phase: "ready"});
+    assert.match(await text(note(view)), /^Computer image ready, version 0\.9\.1\.$/);
+    assert.equal(await note(view).locator('[data-action="retry-build"]').count(), 0);
+    await view.close();
+
+    // Not built yet: says when it builds and offers Build now.
+    view = await openBuild({phase: "none"});
+    assert.match(await text(note(view)), /No computer image is built for version 0\.9\.1 yet\. It builds when a member first needs a computer, or now with Build now\./);
+    await note(view).getByRole("button", {name: "Build now"}).waitFor();
+    await view.close();
+
+    // Minimum guest version, when the server enforces one.
+    view = await openBuild({phase: "ready", min_guest_version: "0.8.0"});
+    assert.match(await text(note(view).locator("[data-min-guest]")), /Minimum computer image version: 0\.8\.0\. Computers on an older image must be upgraded before they run\./);
+    await view.close();
+
+    // Preparing: no action; the page reads again by itself and shows the result.
+    view = await openBuild({phase: "preparing"});
+    assert.match(await text(note(view)), /Building the computer image, version 0\.9\.1\./);
+    assert.equal(await note(view).locator("button").count(), 0, "nothing to press while it builds");
+    await shot(view.page, "build-preparing-light-1440");
+    stub.state.build.phase = "ready";
+    await note(view).getByText("Computer image ready, version 0.9.1.").waitFor({timeout: 12000});
+    await view.close();
+
+    // Failed, each named code with what to do; Retry build starts one build and shows it running.
+    const named = {
+      template_build_failed: /E2B couldn't build the computer image\./,
+      image_missing: /This server build ships no computer image for E2B\./,
+      invalid_key: /E2B rejected the organization's API key\. Replace the key\./,
+      e2b_unreachable: /This server can't reach E2B\. Retry the build in a moment\./,
+      e2b_limit: /The E2B account limit is reached\. Free capacity in E2B, then retry the build\./,
+      template_stale_in_team: /The E2B team already holds a template named tofi-computer-0\.9\.1 whose last build failed.*Delete that template in the E2B dashboard \(the team owner can\), then retry the build\./,
+    };
+    for (const [code, pattern] of Object.entries(named)) {
+      view = await openBuild({phase: "failed", error_code: code});
+      assert.match(await text(note(view)), /The computer image for version 0\.9\.1 failed to build\./);
+      assert.match(await text(note(view).locator("[data-error-code]")), pattern, code);
+      assert.equal(await note(view).locator("[data-error-code]").getAttribute("data-error-code"), code);
+      if (code === "template_stale_in_team") await shot(view.page, "build-stale-in-team-light-1440");
+      if (code === "template_build_failed") {
+        stub.writes.length = 0;
+        await note(view).getByRole("button", {name: "Retry build"}).click();
+        await note(view).getByText("Building the computer image, version 0.9.1.").waitFor();
+        assert.deepEqual(stub.writes, ["POST /api/admin/org/resources/computer:e2b/build"]);
+        assert.equal(await note(view).locator("button").count(), 0, "one build at a time: no second Retry while it runs");
+      }
+      await view.close();
+    }
+
+    // A refusal from the server is worded from its code.
+    view = await openBuild({phase: "failed", error_code: "template_build_failed"});
+    stub.state.failNext = Object.assign(/\/build$/, {code: "custom_template"});
+    await note(view).getByRole("button", {name: "Retry build"}).click();
+    await note(view).getByRole("alert").getByText("This computer uses a template you supplied. It is never rebuilt.").waitFor();
+    await view.close();
+
+    // The page in dark and on a phone: no overflow.
+    for (const [width, height, touch, theme] of [[1440, 900, false, "dark"], [390, 844, true, "light"], [390, 844, true, "dark"]]) {
+      stub.reset({build: {phase: "failed", version: "0.9.1", error_code: "template_stale_in_team", updated_at: "2026-11-08T19:00:00Z", min_guest_version: "0.8.0"}});
+      stub.state.resources = {"computer:e2b": e2bRow()};
+      const small = await open({}, {width, height, theme, touch});
+      if (width < 700) await small.page.locator('.settings-mhome [data-tab="admin-resources"]').click().catch(() => {});
+      await ready(small.page);
+      await note(small).waitFor();
+      const overflow = await small.page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      assert.ok(overflow <= 0, `${theme} ${width}: no horizontal overflow (${overflow}px)`);
+      await note(small).scrollIntoViewIfNeeded();
+      await shot(small.page, `build-stale-${theme}-${width}`);
+      await small.close();
+    }
+    console.log("PASS image build: phase, custom note, every named failure with its action, minimum version, Retry build, polling while it builds");
+  }
   }
 
   // ---- 6. Search & fetch: the member's chain editor over the organization endpoints.
@@ -320,6 +408,11 @@ try {
     assert.equal(await models(view.page).locator(".provided-card").getByRole("button").count(), 0, "no dead button on the provided card");
     assert.ok(!/Codex|ChatGPT|Replace key|Remove/.test(await models(view.page).locator(".model-providers").innerText()), "nothing about a personal sign-in or key");
     assert.equal(await models(view.page).locator(".settings-banner").count(), 0, "a model is available: no waiting banner");
+    // The model list is empty here: under a provided policy the page names who can fix it and offers no action the member cannot take.
+    await models(view.page).locator('[data-managed="ai_models"]').waitFor();
+    assert.match(await text(models(view.page).locator('[data-managed="ai_models"]')), /^No models available yet\. Your organization hasn't provisioned any\. Contact an administrator\.$/);
+    assert.equal(await models(view.page).getByRole("button", {name: "Open settings"}).count(), 0, "no 'connect Codex or add a key' action under provided");
+    assert.ok(!/Connect Codex|OpenAI or Claude API key/.test(await models(view.page).innerText()), "no instruction the member cannot follow");
     await shot(view.page, "member-models-provided-light-1440");
     await view.close();
     const phone = await open({tab: "models", policy: capabilities(provided)}, {width: 390, height: 844, theme: "dark", touch: true});

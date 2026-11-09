@@ -170,7 +170,9 @@
     "unavailable": "Bot コンピューターは現在利用できません",
     "health_restarting": "Bot コンピューターが応答しません · 再起動中",
     "health_unresponsive": "Bot コンピューターが応答しません",
-    "resuming": "Bot コンピューターを復帰しています"
+    "resuming": "Bot コンピューターを復帰しています",
+    "outdated_required": "Bot コンピューターのイメージはサポート対象外です",
+    "open_environments": "環境を開く"
   },
   "computer_phase": {
     "booting": "VM を起動中",

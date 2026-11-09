@@ -47,7 +47,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   const requests = [];
   const reset = () => {
     Object.assign(state, {
-      computer: false, masterOn: true, failNext: false, testDelay: 0, managed: undefined,
+      computer: false, masterOn: true, failNext: false, testDelay: 0, managed: undefined, leak: false,
       order: {search: ["tavily", "brave", "searxng", "computer"], fetch: ["firecrawl", "brightdata", "computer"]},
       off: new Set(), keys: {}, errors: {}, address: "", testResult: {}, limits: {search: 300, fetch: 300}, used: {},
     });
@@ -87,6 +87,18 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const view = baseView();
     if (!state.managed) return view;
     const out = {...view, managed: state.managed};
+    // The gateway shows an organization source's state and nothing of its key (no hint, zone or address). `leak` is a payload that
+    // still carried them, with the source marked: the page must not draw them either.
+    for (const chain of ["search", "fetch"]) {
+      if (state.managed[chain] !== "provided") continue;
+      out[chain] = out[chain].map(item => {
+        if (item.fixed) return item;
+        const clean = {...item, testable: false};
+        delete clean.key_hint; delete clean.zone; delete clean.base_url;
+        if (!state.leak) return clean;
+        return {...item, source: "organization", key_hint: item.key_hint ?? "…9876", zone: "leaked_zone", base_url: item.kind === "self_hosted" ? "http://searxng.local:8080" : item.base_url};
+      });
+    }
     if (state.managed.search === "off") out.search = [];
     if (state.managed.fetch === "builtin") out.fetch = view.fetch.filter(item => item.fixed);
     delete out.limits;
@@ -364,8 +376,26 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await t.page.locator(".web-limits").count(), 0, "the member cannot set the daily cap");
     assert.match(await t.page.locator(".web-chain-head p").first().innerText(), /Provided by your organization\. Sources and order are read-only\./);
     assert.equal(await t.page.locator(".web-row .web-row-form, .web-tools input").count(), 0, "no key or address input anywhere");
+    assert.match(await row(t.page, "search", "brave").innerText(), /Not provided/, "a source the organization has not set up is not 'Needs a key' to a member");
+    assert.ok(!/Needs a key|Needs an address/.test(await t.page.locator(".web-tools").innerText()), "no setup wording on a chain the member cannot set up");
+    // An organization source shows no key fragment, zone or address: the keys' last four characters, the SearXNG address.
+    const shown = await t.page.locator(".web-tools").innerText();
+    assert.ok(!/1111|2222|aaaa|bbbb|…[A-Za-z0-9]{4}\b|searxng\.local|Set up \(/i.test(shown), `no key fragment for an organization source: ${shown.replace(/\s+/g, " ")}`);
+    assert.equal(await t.page.locator(".web-row-detail").evaluateAll(items => items.filter(item => /…/.test(item.textContent)).length), 0, "no masked key in any row detail");
     if (shots) await t.page.locator(".settings-page-body").screenshot({path: join(shots, "web-tools-provided.png")});
     await t.close();
+
+    // Even if the payload carried a hint, a zone and an address for an organization source (marked `source: "organization"`, and
+    // on a chain whose policy is provided), the page draws none of them.
+    reset();
+    state.keys = {tavily: "tvly-aaaa1111", firecrawl: "fc-bbbb2222"}; state.address = "http://searxng.local:8080"; state.leak = true;
+    state.managed = {search: "provided", fetch: "provided"};
+    const leaky = await open({}, {width: 1100, height: 1600});
+    await row(leaky.page, "search", "tavily").waitFor();
+    const leakText = await leaky.page.locator(".web-tools").innerText();
+    assert.ok(!/1111|2222|9876|…[A-Za-z0-9]{4}\b|leaked_zone|searxng\.local|Set up \(/i.test(leakText), `a leaking payload still shows no key fragment: ${leakText.replace(/\s+/g, " ")}`);
+    assert.equal(await row(leaky.page, "search", "tavily").locator('[data-tag="organization"]').count(), 1);
+    await leaky.close();
 
     reset();
     state.managed = {search: "off", fetch: "builtin"};

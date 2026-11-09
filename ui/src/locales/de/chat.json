@@ -171,7 +171,9 @@
     "unavailable": "Bot-Computer nicht verfügbar",
     "health_restarting": "Bot-Computer reagiert nicht · Neustart läuft",
     "health_unresponsive": "Bot-Computer reagiert nicht",
-    "resuming": "Bot-Computer wird aufgeweckt"
+    "resuming": "Bot-Computer wird aufgeweckt",
+    "outdated_required": "Image des Bot-Computers wird nicht mehr unterstützt",
+    "open_environments": "Umgebungen öffnen"
   },
   "computer_phase": {
     "booting": "VM wird gestartet",

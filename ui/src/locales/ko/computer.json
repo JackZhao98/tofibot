@@ -110,7 +110,8 @@
     },
     "fold": "접기",
     "fold_aria": "Bot 컴퓨터를 막대로 접기",
-    "unfold_aria": "Bot 컴퓨터 보기"
+    "unfold_aria": "Bot 컴퓨터 보기",
+    "outdated_required": "이 컴퓨터의 이미지는 더 이상 지원되지 않습니다. 설정 > 환경에서 업그레이드하세요."
   },
   "remote": {
     "error": {
@@ -518,7 +519,9 @@
       "configure": "설정",
       "use": "Bot이 사용",
       "remove": "제거",
-      "disconnect": "연결 해제"
+      "disconnect": "연결 해제",
+      "upgrade": "업그레이드",
+      "details": "세부 정보"
     },
     "more": "{{name}} 추가 작업",
     "attach_title": "Bot 컴퓨터",
@@ -532,7 +535,13 @@
       "sandbox_failed": "E2B 샌드박스가 시작되지 않았습니다.",
       "guest_unreachable": "컴퓨터가 응답하지 않습니다.",
       "sandbox_gone": "E2B 샌드박스가 없어졌습니다. 다시 시도하면 새로 만듭니다.",
-      "token_unreadable": "저장된 키를 읽을 수 없습니다. E2B 키를 다시 추가하세요."
+      "token_unreadable": "저장된 키를 읽을 수 없습니다. E2B 키를 다시 추가하세요.",
+      "org_resource_missing": "조직에서 이 컴퓨터를 아직 프로비저닝하지 않았습니다. 관리자에게 문의하세요.",
+      "not_ready": "컴퓨터 이미지가 아직 준비되지 않았습니다. 몇 분 후에 다시 시도하세요.",
+      "guest_outdated_required": "이 컴퓨터의 이미지는 더 이상 지원되지 않습니다. 계속 사용하려면 업그레이드하세요. 업그레이드하면 이 컴퓨터가 교체되고 안의 파일이 삭제됩니다.",
+      "computer_upgrade_failed": "컴퓨터를 업그레이드하지 못했습니다. 다시 시도하세요.",
+      "not_outdated": "이 컴퓨터는 이미 최신 상태입니다.",
+      "computer_busy": "컴퓨터가 사용 중입니다. 진행 중인 작업이 끝난 뒤 다시 시도하세요."
     },
     "confirm": {
       "use": {
@@ -549,6 +558,11 @@
         "title": "{{name}} 연결을 해제할까요?",
         "body": "새 코드로 다시 연결하기 전까지 Bot은 이 Mac을 쓸 수 없습니다.",
         "action": "연결 해제"
+      },
+      "upgrade": {
+        "title": "{{name}}을(를) 업그레이드할까요?",
+        "body": "컴퓨터가 현재 이미지로 만든 컴퓨터로 교체됩니다. 안의 파일은 삭제되며 복구할 수 없습니다. 진행 중인 작업이 먼저 끝나야 합니다.",
+        "action": "업그레이드 및 파일 삭제"
       }
     },
     "cancel": "취소",
@@ -583,11 +597,15 @@
       "copy_aria": "명령어 복사"
     },
     "configure": {
-      "title": "Bot 컴퓨터 설정"
+      "title": "Bot 컴퓨터 설정",
+      "provided_title": "Bot 컴퓨터 세부 정보"
     },
     "provided": "조직 제공",
     "provided_note": "이 Bot 컴퓨터는 조직에서 제공합니다. 키와 이미지는 관리자가 관리합니다.",
     "none_title": "관리자가 Bot 컴퓨터를 할당하지 않았습니다",
-    "none_body": "할당되기 전까지 Bot은 컴퓨터 없이 실행됩니다. Mac은 계속 연결할 수 있습니다."
+    "none_body": "할당되기 전까지 Bot은 컴퓨터 없이 실행됩니다. Mac은 계속 연결할 수 있습니다.",
+    "outdated": "더 새로운 컴퓨터 이미지가 있습니다. 업데이트하면 이 컴퓨터가 교체되고 안의 파일이 삭제됩니다.",
+    "image_preparing": "컴퓨터 이미지를 빌드하는 중입니다. 몇 분 걸립니다.",
+    "image_building": "더 새로운 컴퓨터 이미지를 빌드하는 중입니다."
   }
 }

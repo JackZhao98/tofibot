@@ -33,6 +33,13 @@ export function AdminResources({openTab}: {openTab: (tab: SettingsTab) => void})
     adminOrgApi.resources().then(value => { if (alive) { setResources(value.resources); setMissing(value.missing); setError(""); } }).catch(cause => { if (alive) setError(orgError(cause)); });
     return () => { alive = false; };
   }, [allowed, version]);
+  // The image builds in the background: read the list again every 5 s while it does (nothing else on this page changes by itself).
+  const building = Boolean(resources?.some(item => item.build?.phase === "preparing"));
+  useEffect(() => {
+    if (!allowed || !building) return;
+    const timer = window.setInterval(() => { if (!document.hidden) setVersion(value => value + 1); }, 5000);
+    return () => window.clearInterval(timer);
+  }, [allowed, building]);
   /** A write answered with the resource: put it in the list and read the missing list again. */
   const adopt = useCallback((resource: OrgResource) => { setResources(list => list ? [...list.filter(item => item.id !== resource.id), resource] : [resource]); setVersion(value => value + 1); }, []);
   const dropped = useCallback((id: OrgResourceId, rest: OrgMissing[]) => { setResources(list => list && list.filter(item => item.id !== id)); setMissing(rest); }, []);
@@ -70,6 +77,40 @@ function MissingBanner({missing, groupName, openGroups}: {missing: OrgMissing[];
     return t("admin.org.missing_item", {capability: t(`policy.capability.${item.capability}.name`), who: formatList(who)});
   });
   return <div data-testid="org-missing"><Banner tone="warn" title={t("admin.org.missing_title")} action={{label: t("admin.org.missing_action"), onClick: openGroups}}>{items.join(" · ")}</Banner></div>;
+}
+
+/**
+ * The organization's computer image: custom (the admin's template, never rebuilt) or the build for this TOFI version, with its
+ * phase and, when it failed, the named reason and what to do. The build runs once for the organization, so Retry build is the
+ * admin's alone; the page reads again while it runs.
+ */
+function BuildState({resource, onChange}: {resource: OrgResource; onChange: (resource: OrgResource) => void}) {
+  const {t} = useTranslation("settings");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const build = resource.build;
+  if (!build) return null;
+  const code = build.error_code && !(resource.status === "rejected" && build.error_code === "invalid_key") ? build.error_code : "";
+  const named = code ? t(`admin.org.build.error.${code}` as "admin.org.build.error.generic", {version: build.version, defaultValue: t("admin.org.build.error.generic")}) : "";
+  const text = build.custom ? t("admin.org.build.custom", {id: resource.config.template_id ?? ""})
+    : build.phase === "preparing" ? t("admin.org.build.preparing", {version: build.version})
+    : build.phase === "ready" ? t("admin.org.build.ready", {version: build.version})
+    : build.phase === "failed" ? t("admin.org.build.failed", {version: build.version})
+    : t("admin.org.build.none", {version: build.version});
+  const canBuild = !build.custom && (build.phase === "failed" || build.phase === "none");
+  async function retry() {
+    setBusy(true); setError("");
+    try { onChange(await adminOrgApi.retryBuild()); }
+    catch (cause) { setError(orgError(cause)); }
+    finally { setBusy(false); }
+  }
+  return <div className="org-template" data-build-phase={build.phase} data-custom={build.custom ? "true" : undefined}>
+    <p className={`field-note${build.phase === "failed" ? " is-failed" : ""}`} role="status">{text}</p>
+    {named && build.phase !== "ready" && <p className="field-note is-failed" role="status" data-error-code={code}>{named}</p>}
+    {build.min_guest_version && <p className="field-note" data-min-guest>{t("admin.org.build.min_version", {version: build.min_guest_version})}</p>}
+    {canBuild && <div className="org-build-actions"><button type="button" className="secondary-button" data-action="retry-build" disabled={busy} onClick={() => void retry()}>{busy ? t("admin.org.build.starting") : build.phase === "failed" ? t("admin.org.build.retry") : t("admin.org.build.start")}</button></div>}
+    {error && <p className="error-text" role="alert">{error}</p>}
+  </div>;
 }
 
 type CardProps = {resource?: OrgResource; loading: boolean; onChange: (resource: OrgResource) => void; onDropped: (id: OrgResourceId, missing: OrgMissing[]) => void};
@@ -218,7 +259,7 @@ function CompatCard({resource, loading, onChange, onDropped}: CardProps) {
   </article>;
 }
 
-/** The E2B key for shared Bot computers. The template build status comes from the shared-computer work (slice 3): until then the card says so. */
+/** The E2B key for shared Bot computers and the state of the computer image the server builds with it. */
 function E2BCard({resource, loading, onChange, onDropped}: CardProps) {
   const {t} = useTranslation("settings");
   const badge = useBadgeWord();
@@ -242,7 +283,7 @@ function E2BCard({resource, loading, onChange, onDropped}: CardProps) {
   return <article className="detail-content provider-card org-resource" data-resource="computer:e2b" aria-labelledby={titleId} aria-busy={saving || loading}>
     <CardHead id={titleId} title={t("admin.org.e2b_name")} state={resourceState(resource, loading)} status={badge(resource)} tag={t("providers.api_key_tag")}/>
     {resource && <p className={`provider-key-line${resource.status === "rejected" ? " is-failed" : ""}`} role="status"><code className="provider-key-mask">{maskedKey(resource) || t("admin.org.no_hint")}</code><StatusLine resource={resource}/></p>}
-    {resource && <p className="field-note org-template" data-state="pending" data-slice="shared-computers">{resource.config.template_id ? t("admin.org.e2b_template_id", {id: resource.config.template_id}) : t("admin.org.e2b_template_pending")}</p>}
+    {resource && <BuildState resource={resource} onChange={onChange}/>}
     {resource && <ResourceActions resource={resource} label={t("admin.org.e2b_name")} actions={actions} replacing={replacing} onReplace={() => { setReplacing(value => !value); actions.setNotice(""); }}/>}
     {showForm && !loading && <form className="provider-key-form" onSubmit={event => void save(event)}>
       <label htmlFor={inputId}>{t("admin.org.e2b_key")}</label>

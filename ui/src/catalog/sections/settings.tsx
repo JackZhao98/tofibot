@@ -35,21 +35,32 @@ import { Select } from "../../Select";
 const noop = () => {};
 const sampleEnvironments: EnvironmentsView = {
   environments: [
-    { id: "firecracker", kind: "vm", name: "", state: "ready", error_code: "", bot_computer: true, access: "all_bots", actions: ["retry", "configure"] },
-    { id: "e2b", kind: "e2b", name: "", state: "preparing", error_code: "", bot_computer: false, access: "none", actions: ["use", "remove"] },
-    { id: "mac_ab12", kind: "mac", name: "Studio MacBook", state: "online", error_code: "", platform: "darwin", bot_computer: false, access: "allowed_on_mac", actions: ["disconnect"] },
+    { id: "firecracker", kind: "vm", name: "", state: "ready", error_code: "", bot_computer: true, guest_outdated: false, access: "all_bots", actions: ["retry", "configure"] },
+    { id: "e2b", kind: "e2b", name: "", state: "preparing", error_code: "", bot_computer: false, guest_outdated: false, access: "none", actions: ["use", "remove"] },
+    { id: "mac_ab12", kind: "mac", name: "Studio MacBook", state: "online", error_code: "", platform: "darwin", bot_computer: false, guest_outdated: false, access: "allowed_on_mac", actions: ["disconnect"] },
   ],
   add: { e2b: false, mac: true, vm_command: "" },
-  e2b: { configured: true, key_hint: "e2b_…a1b2", phase: "preparing", error_code: "", error: "" },
+  e2b: { configured: true, key_hint: "e2b_…a1b2", phase: "preparing", error_code: "", error: "", template_phase: "preparing", guest_outdated: false },
 };
 const failedEnvironments: EnvironmentsView = {
   environments: [
-    { id: "e2b", kind: "e2b", name: "", state: "failed", error_code: "template_build_failed", bot_computer: true, access: "all_bots", actions: ["retry", "remove"] },
-    { id: "mac_cd34", kind: "mac", name: "Old iMac", state: "offline", error_code: "", platform: "darwin", last_seen: "2026-11-01T08:00:00Z", bot_computer: false, access: "allowed_on_mac", actions: ["disconnect"] },
+    { id: "e2b", kind: "e2b", name: "", state: "failed", error_code: "template_build_failed", bot_computer: true, guest_outdated: false, access: "all_bots", actions: ["retry", "remove"] },
+    { id: "mac_cd34", kind: "mac", name: "Old iMac", state: "offline", error_code: "", platform: "darwin", last_seen: "2026-11-01T08:00:00Z", bot_computer: false, guest_outdated: false, access: "allowed_on_mac", actions: ["disconnect"] },
   ],
   add: { e2b: false, mac: true, vm_command: "" },
-  e2b: { configured: true, key_hint: "e2b_…a1b2", phase: "failed", error_code: "template_build_failed", error: "Build failed: image pull denied" },
+  e2b: { configured: true, key_hint: "e2b_…a1b2", phase: "failed", error_code: "template_build_failed", error: "Build failed: image pull denied", template_phase: "failed", guest_outdated: false },
 };
+/** The organization's computer (user groups): provided rows carry no key hint and no error text, only codes. */
+const orgE2B = (state: EnvironmentsView["environments"][number]["state"], extra: Partial<EnvironmentsView["environments"][number]> = {}): EnvironmentsView["environments"][number] =>
+  ({ id: "e2b", kind: "e2b", name: "", state, error_code: "", bot_computer: true, access: "all_bots", actions: [], guest_outdated: false, ...extra });
+const orgView = (item: EnvironmentsView["environments"][number], e2b: Partial<NonNullable<EnvironmentsView["e2b"]>> = {}): EnvironmentsView => ({
+  environments: [item], add: { e2b: false, mac: false, vm_command: "" },
+  e2b: { configured: true, key_hint: "", phase: "ready", error_code: "", error: "", template_phase: "ready", guest_outdated: false, ...e2b },
+  policy: { mode: "provided", source: "organization", via: "e2b" },
+});
+const outdatedEnvironments = orgView(orgE2B("ready", { guest_outdated: true, actions: ["upgrade"] }), { guest_outdated: true });
+const requiredEnvironments = orgView(orgE2B("failed", { error_code: "guest_outdated_required", guest_outdated: true, actions: ["upgrade"] }), { guest_outdated: true });
+const buildingEnvironments = orgView(orgE2B("preparing", { bot_computer: false, access: "none" }), { phase: "preparing", template_phase: "preparing" });
 const t = i18n.t.bind(i18n);
 const never = () => new Promise<void>(() => {});
 
@@ -176,6 +187,9 @@ export const settings: CatalogSection = {
     { id: "computer-none", kind: "inline", label: "Computer page on a server with no computer", note: "what works without one, and the ways to add a computer", render: () => <ComputerOptions /> },
     { id: "environments-list", kind: "inline", label: "Environments page: Bot computer, E2B preparing, a Mac online", note: "controls come only from `actions`; the Bot computer carries its tag; destructive actions sit in the row menu", render: () => <EnvironmentList view={sampleEnvironments} handlers={{ busy: "", onAction: noop }} /> },
     { id: "environments-failed", kind: "inline", label: "Environments page: failed and offline rows", note: "named reason under the row; an offline Mac says when it was last seen", render: () => <EnvironmentList view={failedEnvironments} handlers={{ busy: "", onAction: noop }} /> },
+    { id: "environments-outdated", kind: "inline", label: "Environments page: provided computer, newer image available", note: "Upgrade is the row's action; the confirmation names the file loss", render: () => <EnvironmentList view={outdatedEnvironments} handlers={{ busy: "", onAction: noop }} organization={{ via: "e2b" }} /> },
+    { id: "environments-upgrade-required", kind: "inline", label: "Environments page: provided computer, upgrade required", note: "below the server minimum: failed, only Upgrade is offered", render: () => <EnvironmentList view={requiredEnvironments} handlers={{ busy: "", onAction: noop }} organization={{ via: "e2b" }} /> },
+    { id: "environments-image-building", kind: "inline", label: "Environments page: provided computer, image being built", note: "the organization builds the image once; a member has nothing to retry", render: () => <EnvironmentList view={buildingEnvironments} handlers={{ busy: "", onAction: noop }} organization={{ via: "e2b" }} /> },
     { id: "environments-empty", kind: "inline", label: "Environments page: nothing added", render: () => <EnvironmentList view={{ environments: [], add: { e2b: true, mac: true, vm_command: "" }, e2b: null }} handlers={{ busy: "", onAction: noop }} /> },
     { id: "computer-contents", kind: "inline", label: "Computer page: what is on this computer", note: "four rows; Environment and keys links to Keys; the list reads names and counts only", render: () => <ComputerContentsView data={{ environment: ["WEB_API_TOKEN", "DEPLOY_REGION"], ssh_keys: ["id_work"], pending_file_copies: 0 }} failed={false} retry={noop} openTab={noop} /> },
     { id: "computer-contents-pending", kind: "inline", label: "Computer page: nothing saved, files still copying", note: "the Work files row says how many files still wait for their copy", render: () => <ComputerContentsView data={{ environment: [], ssh_keys: [], pending_file_copies: 2 }} failed={false} retry={noop} openTab={noop} /> },

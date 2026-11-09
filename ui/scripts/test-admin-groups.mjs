@@ -55,6 +55,7 @@ try {
     assert.deepEqual(await pane.locator(".ag-item").evaluateAll(items => items.map(item => item.dataset.group)), ["self_serve", "provided"]);
     assert.match(await text(pane.locator('.ag-item[data-group="self_serve"]')), /Self-serve Built in 3 members/);
     assert.match(await text(pane.locator('.ag-item[data-group="provided"]')), /Provided Built in 1 member$/);
+    assert.deepEqual(stub.reads, [], "the groups page needs no per-account policy read either");
     assert.equal(await pane.locator('.ag-item[aria-current="true"]').getAttribute("data-group"), "self_serve", "the first group is open");
     assert.deepEqual(await pane.locator(".ag-policy-row").evaluateAll(rows => rows.map(row => row.dataset.capability)), ["ai_models", "computer", "web_search", "web_fetch"], "one row per capability");
     assert.match(await text(pane.locator(".ag-editor")), /Self-serve is today's behavior and is read-only/);
@@ -221,6 +222,7 @@ try {
     assert.match(await text(pane.locator(".admin-row-head")), /Group$/);
     await pane.locator('.admin-row-wrap:has([data-account="acct_two"]) .group-menu-trigger:has-text("Provided")').waitFor();
     assert.equal(await text(pane.locator('.admin-row-wrap:has([data-account="acct_three"]) .group-menu-trigger')), "Self-serve");
+    assert.deepEqual(stub.reads, [], "the list carries each account's group (GET /api/admin/accounts): no per-account policy read");
     assert.equal(await pane.locator("button.admin-row").count(), 4, "the row is still one button; the checkbox and menu sit beside it");
     // One account, inline.
     stub.writes.length = 0;
@@ -248,6 +250,7 @@ try {
     await page.locator('.group-menu [data-group-option="provided"]').click();
     await pane.getByRole("alert").getByText("That item no longer exists.").waitFor();
     assert.equal(await text(pane.locator('.admin-row-wrap:has([data-account="acct_two"]) .group-menu-trigger')), "Self-serve");
+    assert.deepEqual(stub.reads, [], "moving accounts reads the accounts list again, never one policy per account");
     await close();
     console.log("PASS accounts: Group column, inline change, bulk move and a refused move");
   }

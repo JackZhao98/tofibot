@@ -168,7 +168,8 @@
     "global_description_followers_one": "Bots set to Follow global use this model and reasoning effort; {{count}} Bot follows it now. New Bots follow global by default.",
     "global_description_followers_other": "Bots set to Follow global use this model and reasoning effort; {{count}} Bots follow it now. New Bots follow global by default.",
     "global_description_no_followers": "Bots set to Follow global use this model and reasoning effort; no Bots follow it now. New Bots follow global by default.",
-    "effort_hint": "Model default: {{effort}}"
+    "effort_hint": "Model default: {{effort}}",
+    "no_models_provided": "No models available yet. Your organization hasn't provisioned any. Contact an administrator."
   },
   "effort": {
     "none": "Off",
@@ -670,8 +671,6 @@
       "e2b_name": "E2B cloud computer",
       "e2b_key": "E2B API key",
       "e2b_template_label": "Template ID (optional)",
-      "e2b_template_id": "Template: {{id}}",
-      "e2b_template_pending": "Template build status is reported once shared computers are enabled on this server.",
       "key_note": "The key is stored on the server and is never shown again.",
       "no_hint": "Key stored",
       "edit": "Edit",
@@ -706,7 +705,8 @@
         "endpoint_not_allowed": "This server may not connect to that address.",
         "invalid_request": "The request was not valid.",
         "forbidden": "Administrator access is required.",
-        "storage": "The server could not save this."
+        "storage": "The server could not save this.",
+        "custom_template": "This computer uses a template you supplied. It is never rebuilt."
       },
       "missing_accounts_one": "{{count}} account override",
       "missing_accounts_other": "{{count}} account overrides",
@@ -715,6 +715,26 @@
         "verified": "Verified",
         "stored": "Not verified",
         "rejected": "Rejected"
+      },
+      "build": {
+        "none": "No computer image is built for version {{version}} yet. It builds when a member first needs a computer, or now with Build now.",
+        "preparing": "Building the computer image, version {{version}}. This takes a few minutes. Members' computers start when it is ready.",
+        "ready": "Computer image ready, version {{version}}.",
+        "failed": "The computer image for version {{version}} failed to build.",
+        "custom": "Custom template {{id}}. Used as supplied and never rebuilt.",
+        "min_version": "Minimum computer image version: {{version}}. Computers on an older image must be upgraded before they run.",
+        "starting": "Starting…",
+        "retry": "Retry build",
+        "start": "Build now",
+        "error": {
+          "generic": "The build failed.",
+          "template_build_failed": "E2B couldn't build the computer image.",
+          "image_missing": "This server build ships no computer image for E2B.",
+          "invalid_key": "E2B rejected the organization's API key. Replace the key.",
+          "e2b_unreachable": "This server can't reach E2B. Retry the build in a moment.",
+          "e2b_limit": "The E2B account limit is reached. Free capacity in E2B, then retry the build.",
+          "template_stale_in_team": "The E2B team already holds a template named tofi-computer-{{version}} whose last build failed, and E2B won't accept a new build on it. Delete that template in the E2B dashboard (the team owner can), then retry the build."
+        }
       }
     }
   },
@@ -1342,7 +1362,8 @@
       "needs_address": "Needs an address",
       "error": "Error",
       "off": "Off",
-      "limit": "Daily limit reached"
+      "limit": "Daily limit reached",
+      "not_provided": "Not provided"
     },
     "test_ok": "Working",
     "test": "Test",

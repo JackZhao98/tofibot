@@ -171,7 +171,9 @@
     "unavailable": "Bot computer unavailable",
     "health_restarting": "Bot computer stopped responding · restarting",
     "health_unresponsive": "Bot computer isn't responding",
-    "resuming": "Waking Bot computer"
+    "resuming": "Waking Bot computer",
+    "outdated_required": "Bot computer image no longer supported",
+    "open_environments": "Open Environments"
   },
   "computer_phase": {
     "booting": "Starting VM",

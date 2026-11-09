@@ -168,7 +168,8 @@
     "global_description_followers_one": "Bots mit „Global folgen“ verwenden dieses Modell und diesen Denkaufwand; derzeit folgt {{count}} Bot. Neue Bots folgen standardmäßig global.",
     "global_description_followers_other": "Bots mit „Global folgen“ verwenden dieses Modell und diesen Denkaufwand; derzeit folgen {{count}} Bots. Neue Bots folgen standardmäßig global.",
     "global_description_no_followers": "Bots mit „Global folgen“ verwenden dieses Modell und diesen Denkaufwand; derzeit folgt kein Bot. Neue Bots folgen standardmäßig global.",
-    "effort_hint": "Modellstandard: {{effort}}"
+    "effort_hint": "Modellstandard: {{effort}}",
+    "no_models_provided": "Noch keine Modelle verfügbar. Ihre Organisation hat noch keine bereitgestellt. Wenden Sie sich an einen Administrator."
   },
   "effort": {
     "none": "Aus",
@@ -670,8 +671,6 @@
       "e2b_name": "E2B-Cloud-Computer",
       "e2b_key": "E2B-API-Schlüssel",
       "e2b_template_label": "Vorlagen-ID (optional)",
-      "e2b_template_id": "Vorlage: {{id}}",
-      "e2b_template_pending": "Der Build-Status der Vorlage erscheint, sobald geteilte Computer auf diesem Server aktiviert sind.",
       "key_note": "Der Schlüssel wird auf dem Server gespeichert und nicht erneut angezeigt.",
       "no_hint": "Schlüssel gespeichert",
       "edit": "Bearbeiten",
@@ -706,7 +705,8 @@
         "endpoint_not_allowed": "Dieser Server darf sich nicht mit dieser Adresse verbinden.",
         "invalid_request": "Die Anfrage war ungültig.",
         "forbidden": "Administratorzugriff ist erforderlich.",
-        "storage": "Der Server konnte dies nicht speichern."
+        "storage": "Der Server konnte dies nicht speichern.",
+        "custom_template": "Dieser Computer nutzt eine von Ihnen gelieferte Vorlage. Sie wird nie neu gebaut."
       },
       "missing_accounts_one": "{{count}} Konto-Überschreibung",
       "missing_accounts_other": "{{count}} Konto-Überschreibungen",
@@ -715,6 +715,26 @@
         "verified": "Geprüft",
         "stored": "Nicht geprüft",
         "rejected": "Abgelehnt"
+      },
+      "build": {
+        "none": "Für Version {{version}} gibt es noch kein Computer-Image. Es wird gebaut, sobald ein Mitglied erstmals einen Computer braucht, oder jetzt mit „Jetzt bauen“.",
+        "preparing": "Das Computer-Image, Version {{version}}, wird gebaut. Das dauert einige Minuten. Die Computer der Mitglieder starten, sobald es fertig ist.",
+        "ready": "Computer-Image bereit, Version {{version}}.",
+        "failed": "Das Computer-Image für Version {{version}} konnte nicht gebaut werden.",
+        "custom": "Eigene Vorlage {{id}}. Wird unverändert verwendet und nie neu gebaut.",
+        "min_version": "Mindestversion des Computer-Images: {{version}}. Computer mit einem älteren Image müssen vor dem Start aktualisiert werden.",
+        "starting": "Wird gestartet …",
+        "retry": "Build wiederholen",
+        "start": "Jetzt bauen",
+        "error": {
+          "generic": "Der Build ist fehlgeschlagen.",
+          "template_build_failed": "E2B konnte das Computer-Image nicht bauen.",
+          "image_missing": "Dieser Server-Build enthält kein Computer-Image für E2B.",
+          "invalid_key": "E2B hat den API-Schlüssel der Organisation abgelehnt. Ersetzen Sie den Schlüssel.",
+          "e2b_unreachable": "Dieser Server erreicht E2B nicht. Wiederholen Sie den Build in einem Moment.",
+          "e2b_limit": "Das Limit des E2B-Kontos ist erreicht. Schaffen Sie in E2B Kapazität und wiederholen Sie dann den Build.",
+          "template_stale_in_team": "Das E2B-Team enthält bereits eine Vorlage namens tofi-computer-{{version}}, deren letzter Build fehlgeschlagen ist, und E2B nimmt darauf keinen neuen Build an. Löschen Sie die Vorlage im E2B-Dashboard (das kann der Team-Inhaber) und wiederholen Sie dann den Build."
+        }
       }
     }
   },
@@ -1342,7 +1362,8 @@
       "needs_address": "Adresse nötig",
       "error": "Fehler",
       "off": "Aus",
-      "limit": "Tageslimit erreicht"
+      "limit": "Tageslimit erreicht",
+      "not_provided": "Nicht bereitgestellt"
     },
     "test_ok": "Funktioniert",
     "test": "Testen",

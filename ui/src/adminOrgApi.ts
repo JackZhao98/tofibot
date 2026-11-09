@@ -21,6 +21,17 @@ export const SELF_SERVE: PolicyMap = {ai_models: {mode: "own"}, computer: {mode:
 
 export type OrgResourceId = "provider:anthropic" | "provider:openai" | "provider:compatible" | "computer:e2b" | "webtool:tavily" | "webtool:brave" | "webtool:firecrawl" | "webtool:brightdata";
 export type OrgResourceStatus = "stored" | "verified" | "rejected";
+/** The organization's E2B computer image (`computer:e2b` only): custom (the admin's own template, never rebuilt) or the build for this TOFI version. */
+export type OrgBuild = {
+  phase: "none" | "preparing" | "ready" | "failed";
+  custom: boolean;
+  version: string;
+  /** `template_build_failed`, `image_missing`, `invalid_key`, `e2b_unreachable`, `e2b_limit` or `template_stale_in_team`. */
+  error_code?: string;
+  updated_at?: string;
+  /** The oldest computer image the server accepts; empty or absent when none is enforced. */
+  min_guest_version?: string;
+};
 export type OrgResource = {
   id: OrgResourceId;
   kind: string;
@@ -31,6 +42,7 @@ export type OrgResource = {
   /** A stable code: `invalid_key`, `no_quota`. The provider's own text is never returned. */
   error_code?: string;
   updated_at: string;
+  build?: OrgBuild;
   config: {base_url?: string; models?: string[]; zone?: string; template_id?: string; [key: string]: unknown};
 };
 /** A capability some group (or account override) provides while the organization holds nothing to serve it. */
@@ -56,12 +68,13 @@ export const adminOrgApi = {
   resources: () => request<OrgResources>("/api/admin/org/resources"),
   putResource: (id: OrgResourceId, body: OrgResourceInput) => request<OrgResource>(`/api/admin/org/resources/${enc(id)}`, send("PUT", body)),
   deleteResource: (id: OrgResourceId) => request<{deleted: boolean; id: string; missing: OrgMissing[]}>(`/api/admin/org/resources/${enc(id)}`, send("DELETE")),
+  retryBuild: () => request<OrgResource>("/api/admin/org/resources/computer:e2b/build", send("POST")),
   testResource: (id: OrgResourceId) => request<OrgResource>(`/api/admin/org/resources/${enc(id)}/test`, send("POST")),
   webTools: (signal?: AbortSignal) => request<OrgWebTools>("/api/admin/org/web-tools", {signal}),
   putWebTools: (body: {search_order?: string[]; fetch_order?: string[]; disabled?: string[]; searxng_url?: string; daily_search?: number; daily_fetch?: number}) => request<OrgWebTools>("/api/admin/org/web-tools", send("PUT", body)),
 };
 
-const errorCodes = ["invalid_policy", "group_exists", "group_limit", "group_builtin_readonly", "group_in_use", "not_found", "invalid_key", "invalid_workspace", "invalid_template", "invalid_zone", "invalid_base_url", "invalid_models", "invalid_address", "no_models", "no_quota", "provider_unreachable", "endpoint_not_allowed", "invalid_request", "forbidden", "storage"] as const;
+const errorCodes = ["invalid_policy", "group_exists", "group_limit", "group_builtin_readonly", "group_in_use", "not_found", "invalid_key", "invalid_workspace", "invalid_template", "invalid_zone", "invalid_base_url", "invalid_models", "invalid_address", "no_models", "no_quota", "provider_unreachable", "endpoint_not_allowed", "invalid_request", "custom_template", "forbidden", "storage"] as const;
 
 /** Words for a failed Administration call, from the server's stable code. The provider's own text is never shown. Resolved at call time. */
 export function orgError(cause: unknown): string {

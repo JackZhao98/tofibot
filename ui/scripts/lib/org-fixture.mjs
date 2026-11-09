@@ -66,6 +66,7 @@ const WEB = [
 export function createOrgStub() {
   const state = {};
   const writes = [];
+  const reads = []; // GETs of a per-account policy: the accounts list carries each account's group and must not need them
   const secrets = new Set(); // every key ever sent, to prove none comes back
   const reset = (options = {}) => {
     Object.assign(state, {
@@ -85,10 +86,13 @@ export function createOrgStub() {
       resources: {}, // id -> view
       web: {search_order: ["tavily", "brave", "searxng", "computer"], fetch_order: ["firecrawl", "brightdata", "computer"], disabled: [], searxng_url: "", daily_search: null, daily_fetch: null},
       providers: [],
+      // The organization's computer image (computer:e2b): the server's build for this TOFI version.
+      build: {phase: "ready", version: "0.9.1", error_code: undefined, updated_at: "2026-11-08T19:00:00Z", min_guest_version: undefined},
       rejectKeys: new Set(), failNext: null, nextId: 1, now: 0,
       ...options,
     });
     writes.length = 0;
+    reads.length = 0;
   };
   reset();
   const groupOf = id => state.members[id] ?? "self_serve";
@@ -99,6 +103,14 @@ export function createOrgStub() {
     return Object.fromEntries(CAPS.map(cap => { const v = state.overrides[id]?.[cap] ?? group.policies[cap] ?? SELF_SERVE[cap]; return [cap, {mode: v.mode, ...(v.source ? {source: v.source} : {})}]; }));
   };
   const policyView = id => { const group = state.groups.find(item => item.id === groupOf(id)); return {group: {id: group.id, name: group.name}, overrides: state.overrides[id] ?? {}, effective: effective(id)}; };
+  /** The view the gateway returns: computer:e2b carries `build` (custom when the admin supplied a template, else this version's build). */
+  const viewOf = row => {
+    if (!row || row.id !== "computer:e2b") return row;
+    const custom = Boolean(row.config.template_id);
+    const build = custom ? {phase: "ready", custom: true, version: state.build.version} : {phase: state.build.phase, custom: false, version: state.build.version, error_code: state.build.error_code, updated_at: state.build.updated_at};
+    if (state.build.min_guest_version) build.min_guest_version = state.build.min_guest_version;
+    return {...row, build};
+  };
   const have = id => Boolean(state.resources[id]) || (id === "webtool:searxng" && Boolean(state.web.searxng_url));
   const missing = () => {
     const out = [];
@@ -141,7 +153,7 @@ export function createOrgStub() {
     if (method !== "GET") writes.push(`${method} ${path}${body && Object.keys(body).length ? " " + JSON.stringify(body) : ""}`);
     if (state.failNext && method !== "GET" && state.failNext.test(path)) { const code = state.failNext.code; state.failNext = null; return fail(409, code); }
     if (path === "/api/providers" && method === "GET") return [200, {providers: state.providers}];
-    if (path === "/api/admin/accounts" && method === "GET") return [200, state.accounts];
+    if (path === "/api/admin/accounts" && method === "GET") return [200, state.accounts.map(account => { const group = state.groups.find(item => item.id === groupOf(account.id)); return {...account, group: {id: group.id, name: group.name}}; })];
     if (path === "/api/admin/capacity") return [200, {total_bytes: 500 * 2 ** 30, available_bytes: 300 * 2 ** 30, allocated_bytes: 100 * 2 ** 30, promised_bytes: 100 * 2 ** 30, admission_remaining_bytes: 120 * 2 ** 30, warning: false, accounts: []}];
     if (path === "/api/admin/storage") return [200, {version: 1, host: {total_bytes: 500 * 2 ** 30, available_bytes: 300 * 2 ** 30}, accounts: state.accounts.map(a => ({account_id: a.id, server_bytes: 2 ** 30, limit_bytes: null, over_limit: false, source: "measured"}))}];
     if (path === "/api/admin/spend") return [200, {version: 1, accounts: state.accounts.map(a => ({account_id: a.id, spend_usd: 0, limit_usd: 0, state: "off", available: true}))}];
@@ -187,6 +199,7 @@ export function createOrgStub() {
       return [200, {group_id: group.id, moved: ids.length}];
     }
     if ((m = path.match(/^\/api\/admin\/accounts\/([^/]+)\/policy$/))) {
+      if (method === "GET") reads.push(`GET ${path}`);
       if (!state.accounts.some(a => a.id === m[1])) return fail(404, "not_found");
       if (method === "PUT") {
         if (body.group_id !== undefined) { if (!state.groups.some(g => g.id === body.group_id)) return fail(404, "not_found"); if (body.group_id === "self_serve") delete state.members[m[1]]; else state.members[m[1]] = body.group_id; }
@@ -197,7 +210,14 @@ export function createOrgStub() {
       }
       return [200, policyView(m[1])];
     }
-    if (path === "/api/admin/org/resources" && method === "GET") return [200, {resources: Object.values(state.resources), missing: missing()}];
+    if (path === "/api/admin/org/resources" && method === "GET") return [200, {resources: Object.values(state.resources).map(viewOf), missing: missing()}];
+    if (path === "/api/admin/org/resources/computer:e2b/build" && method === "POST") {
+      const row = state.resources["computer:e2b"];
+      if (!row) return fail(404, "not_found");
+      if (row.config.template_id) return fail(409, "custom_template");
+      if (state.build.phase !== "preparing") Object.assign(state.build, {phase: "preparing", error_code: undefined, updated_at: "2026-11-08T20:05:00Z"});
+      return [202, viewOf(row)];
+    }
     if ((m = path.match(/^\/api\/admin\/org\/resources\/([^/]+?)(\/test)?$/))) {
       const id = decodeURIComponent(m[1]);
       if (!specs[id]) return fail(404, "not_found");
@@ -207,9 +227,9 @@ export function createOrgStub() {
         if (!row) return fail(404, "not_found");
         if (state.rejectKeys.has(id)) { Object.assign(row, {status: "rejected", error_code: "invalid_key", verified_at: undefined}); return fail(400, "invalid_key"); }
         Object.assign(row, {status: "verified", error_code: undefined, verified_at: "2026-11-08T20:00:00Z", updated_at: `t${++state.now}`});
-        return [200, row];
+        return [200, viewOf(row)];
       }
-      if (method === "GET") return state.resources[id] ? [200, state.resources[id]] : fail(404, "not_found");
+      if (method === "GET") return state.resources[id] ? [200, viewOf(state.resources[id])] : fail(404, "not_found");
       if (method === "DELETE") { if (!state.resources[id]) return fail(404, "not_found"); delete state.resources[id]; return [200, {deleted: true, id, missing: missing()}]; }
       if (method === "PUT") {
         const key = String(body.key ?? "").trim();
@@ -228,7 +248,7 @@ export function createOrgStub() {
         if (specs[id].kind === "web_provider") status = "stored";
         const keptKey = id === "provider:compatible" && !key ? state.resources[id]?.key_hint : "";
         state.resources[id] = {id, kind: specs[id].kind, status, key_prefix: prefix(key), key_hint: key ? hint(key) : keptKey, verified_at: status === "verified" ? "2026-11-08T20:00:00Z" : undefined, updated_at: `t${++state.now}`, config};
-        return [200, state.resources[id]];
+        return [200, viewOf(state.resources[id])];
       }
     }
     if (path === "/api/admin/org/web-tools") {
@@ -239,11 +259,11 @@ export function createOrgStub() {
     }
     return undefined;
   };
-  return {state, writes, secrets, reset, handle, groupOf, effective, missing};
+  return {state, writes, reads, secrets, reset, handle, groupOf, effective, missing};
 }
 
 /** A page on the fixture with every /api/* call answered by `stub.handle` (and the few the shell itself makes). */
-export async function openSettings({browser, fixture, stub, errors, params = {}, width = 1440, height = 900, theme = "light", language = "en", locale = "en-US", touch = false}) {
+export async function openSettings({browser, fixture, stub, errors, params = {}, width = 1440, height = 900, theme = "light", language = "en", locale = "en-US", touch = false, role = "admin"}) {
   const context = await browser.newContext({viewport: {width, height}, colorScheme: theme, locale, hasTouch: touch, isMobile: touch});
   await context.addInitScript(value => { try { localStorage.setItem("tofi:appearance", value); } catch {} }, theme);
   const page = await context.newPage();
@@ -255,7 +275,7 @@ export async function openSettings({browser, fixture, stub, errors, params = {},
     if (!path.startsWith("/api/")) { await route.continue(); return; }
     let body = {};
     try { body = JSON.parse(request.postData() || "{}"); } catch { /* a GET */ }
-    if (path === "/api/auth/session") return json(route, 200, {enabled: true, setup_required: false, authenticated: true, password_transport_allowed: true, multi_account: true, owner: {id: "acct_sample", username: "Ada Sample", email: "ada@example.test", role: "admin"}});
+    if (path === "/api/auth/session") return json(route, 200, {enabled: true, setup_required: false, authenticated: true, password_transport_allowed: true, multi_account: true, owner: {id: "acct_sample", username: "Ada Sample", email: "ada@example.test", role}});
     if (path === "/api/server-info") return json(route, 200, {service: "tofi", protocol_version: 1, instance_id: "0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d", auth: {mode: "owner"}});
     if (path === "/api/bots") return json(route, 200, {bots: [{id: "bot_research", name: "Research Bot", archived: false}]});
     if (path === "/api/preferences") return json(route, 200, {timezone: "America/Los_Angeles", timezone_configured: true});

@@ -565,6 +565,8 @@ export interface WebSourceEntry {
   key_hint?: string;
   zone?: string;
   base_url?: string;
+  /** `organization` when the source is the organization's: it never shows a key, zone or address. Absent otherwise. */
+  source?: string;
   fields?: ("key" | "zone" | "base_url")[];
   testable: boolean;
   tested_at?: string;

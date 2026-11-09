@@ -167,7 +167,8 @@
     "global_description": "設為「跟隨全域」的 Bot 會使用這裡的模型和思考強度。新建立的 Bot 預設跟隨全域。",
     "global_description_followers_other": "設為「跟隨全域」的 Bot 會使用這裡的模型和思考強度，目前有 {{count}} 個 Bot 跟隨。新建立的 Bot 預設跟隨全域。",
     "global_description_no_followers": "設為「跟隨全域」的 Bot 會使用這裡的模型和思考強度，目前沒有 Bot 跟隨。新建立的 Bot 預設跟隨全域。",
-    "effort_hint": "模型預設：{{effort}}"
+    "effort_hint": "模型預設：{{effort}}",
+    "no_models_provided": "尚無可用模型。你的組織尚未配置任何模型。請聯絡管理員。"
   },
   "effort": {
     "none": "關閉",
@@ -663,8 +664,6 @@
       "e2b_name": "E2B 雲端電腦",
       "e2b_key": "E2B API 金鑰",
       "e2b_template_label": "範本 ID（選填）",
-      "e2b_template_id": "範本：{{id}}",
-      "e2b_template_pending": "共享電腦在這台伺服器上啟用後，這裡會顯示範本建置狀態。",
       "key_note": "金鑰保存在伺服器上，之後不會再次顯示。",
       "no_hint": "金鑰已儲存",
       "edit": "編輯",
@@ -699,7 +698,8 @@
         "endpoint_not_allowed": "這台伺服器不允許連線該位址。",
         "invalid_request": "請求無效。",
         "forbidden": "需要管理員權限。",
-        "storage": "伺服器未能儲存。"
+        "storage": "伺服器未能儲存。",
+        "custom_template": "此電腦使用你提供的範本，不會重新建置。"
       },
       "missing_accounts_other": "{{count}} 個帳戶覆寫",
       "intro": "這些金鑰屬於這台伺服器，供所在群組由組織提供資源的帳戶使用；它們不是你的個人金鑰，你的在 設定 › AI 模型、環境、搜尋與擷取。",
@@ -707,6 +707,26 @@
         "verified": "已驗證",
         "stored": "未驗證",
         "rejected": "被拒絕"
+      },
+      "build": {
+        "none": "版本 {{version}} 的電腦映像尚未建置。成員首次需要電腦時會自動建置，也可以現在按「立即建置」。",
+        "preparing": "正在建置電腦映像（版本 {{version}}），需要幾分鐘。完成後成員的電腦才會啟動。",
+        "ready": "電腦映像已就緒（版本 {{version}}）。",
+        "failed": "版本 {{version}} 的電腦映像建置失敗。",
+        "custom": "自訂範本 {{id}}。依原樣使用，不會重新建置。",
+        "min_version": "電腦映像最低版本：{{version}}。使用較舊映像的電腦必須先升級才能執行。",
+        "starting": "正在開始…",
+        "retry": "重試建置",
+        "start": "立即建置",
+        "error": {
+          "generic": "建置失敗。",
+          "template_build_failed": "E2B 無法建置電腦映像。",
+          "image_missing": "此伺服器版本未附帶 E2B 電腦映像。",
+          "invalid_key": "E2B 拒絕了組織的 API 金鑰。請更換金鑰。",
+          "e2b_unreachable": "此伺服器無法連線到 E2B。請稍後重試建置。",
+          "e2b_limit": "已達到 E2B 帳戶上限。請先在 E2B 釋放額度，再重試建置。",
+          "template_stale_in_team": "E2B 團隊中已有一個名為 tofi-computer-{{version}} 的範本，其上次建置失敗，E2B 不接受在它上面重新建置。請在 E2B 控制台刪除該範本（團隊擁有者可以操作），然後重試建置。"
+        }
       }
     }
   },
@@ -1330,7 +1350,8 @@
       "needs_address": "需要位址",
       "error": "錯誤",
       "off": "已關閉",
-      "limit": "已達每日上限"
+      "limit": "已達每日上限",
+      "not_provided": "未提供"
     },
     "test_ok": "運作正常",
     "test": "測試",

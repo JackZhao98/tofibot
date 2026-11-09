@@ -1,6 +1,6 @@
 import {useCallback, useEffect, useRef, useState} from "react";
 import {AccountDetail} from "./AdminAccountDetail";
-import {GroupMenu, useAccountGroups, useGroups} from "./AdminGroupBits";
+import {GroupMenu, useGroups} from "./AdminGroupBits";
 import {adminOrgApi, orgError} from "./adminOrgApi";
 import {DeleteSheet, ExportResultSheet} from "./AdminDelete";
 import {AccountBadges, AdminSheet, CopyButton} from "./AdminSheets";
@@ -59,7 +59,6 @@ export function AdminAccounts() {
 
   useEffect(() => { if (allowed) void refresh().catch(cause => setError(adminError(cause))); }, [allowed, refresh]);
   const {groups, reload: reloadGroups} = useGroups(allowed);
-  const {byAccount, assign} = useAccountGroups(accounts, allowed);
   // A selection only holds accounts that still exist.
   useEffect(() => { if (accounts) setPicked(current => current.filter(id => accounts.some(account => account.id === id))); }, [accounts]);
 
@@ -80,7 +79,7 @@ export function AdminAccounts() {
     if (!target) return;
     let failure = "";
     const ok = await run(async () => { try { await adminOrgApi.moveMembers(groupId, ids); } catch (cause) { failure = orgError(cause); throw cause; } });
-    if (ok) { assign(ids, {id: target.id, name: target.name}); reloadGroups(); setPicked([]); }
+    if (ok) { reloadGroups(); setPicked([]); }
     else if (failure) setError(failure);
   };
 
@@ -161,7 +160,7 @@ export function AdminAccounts() {
             </span>
             <TofiIcon name="chevron-right" size={18} aria-hidden="true"/>
           </button>
-          <span className="admin-row-group" data-column="group"><GroupMenu groups={groups ?? []} value={byAccount[account.id]?.id} disabled={busy || Boolean(account.deleting) || !(account.id in byAccount)} label={t("admin.accounts.group_of", {name: account.username})} onPick={id => void moveTo([account.id], id)}/></span>
+          <span className="admin-row-group" data-column="group"><GroupMenu groups={groups ?? []} value={account.group?.id} disabled={busy || Boolean(account.deleting) || !account.group} label={t("admin.accounts.group_of", {name: account.username})} onPick={id => void moveTo([account.id], id)}/></span>
           </div>;
         })}
       </SettingsCard>

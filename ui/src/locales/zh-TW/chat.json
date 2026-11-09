@@ -170,7 +170,9 @@
     "unavailable": "Bot 電腦暫時無法使用",
     "health_restarting": "Bot 電腦沒有回應 · 正在重新啟動",
     "health_unresponsive": "Bot 電腦沒有回應",
-    "resuming": "正在喚醒 Bot 電腦"
+    "resuming": "正在喚醒 Bot 電腦",
+    "outdated_required": "Bot 電腦映像已不再受支援",
+    "open_environments": "開啟環境"
   },
   "computer_phase": {
     "booting": "啟動虛擬機器",

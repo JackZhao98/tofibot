@@ -64,7 +64,10 @@
 .admin-resources .admin-error{margin:0;padding:10px 12px;border:1px solid color-mix(in srgb,var(--danger) 45%,var(--line-soft));border-radius:12px;background:color-mix(in srgb,var(--danger) 9%,var(--surface));color:var(--danger-text);font:13px/1.5 var(--body);overflow-wrap:anywhere}
 .admin-resources .org-card+.org-card,.admin-resources .org-card+.org-vm{margin-top:12px}
 .admin-resources .provider-key-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
-.admin-resources .org-template{margin:6px 0 0}
+.admin-resources .org-template{display:grid;gap:4px;margin:6px 0 0;min-width:0}
+.admin-resources .org-template .field-note{margin:0;overflow-wrap:anywhere}
+.admin-resources .org-template .field-note.is-failed{color:var(--danger-text)}
+.admin-resources .org-template .org-build-actions{margin-top:4px}
 .admin-resources .web-tools{margin:0}
 
 /* Member side: managed notes */

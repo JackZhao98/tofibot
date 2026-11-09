@@ -111,7 +111,8 @@
     },
     "fold": "Fold",
     "fold_aria": "Fold Bot computer to a strip",
-    "unfold_aria": "Show Bot computer"
+    "unfold_aria": "Show Bot computer",
+    "outdated_required": "This computer's image is no longer supported. Upgrade it in Settings > Environments."
   },
   "remote": {
     "error": {
@@ -524,7 +525,9 @@
       "configure": "Configure",
       "use": "Use for Bots",
       "remove": "Remove",
-      "disconnect": "Disconnect"
+      "disconnect": "Disconnect",
+      "upgrade": "Upgrade",
+      "details": "Details"
     },
     "more": "More actions for {{name}}",
     "attach_title": "Bot computer",
@@ -538,7 +541,13 @@
       "sandbox_failed": "The E2B sandbox didn't start.",
       "guest_unreachable": "The computer isn't responding.",
       "sandbox_gone": "The E2B sandbox is gone. Retry creates a new one.",
-      "token_unreadable": "The saved key can't be read. Add the E2B key again."
+      "token_unreadable": "The saved key can't be read. Add the E2B key again.",
+      "org_resource_missing": "Your organization hasn't provisioned this computer. Contact an administrator.",
+      "not_ready": "The computer image isn't ready yet. Try again in a few minutes.",
+      "guest_outdated_required": "This computer's image is no longer supported. Upgrade it to keep using it. Upgrading replaces this computer; files on it are removed.",
+      "computer_upgrade_failed": "Couldn't upgrade the computer. Try again.",
+      "not_outdated": "This computer is already up to date.",
+      "computer_busy": "The computer is busy. Try again when running work finishes."
     },
     "confirm": {
       "use": {
@@ -555,6 +564,11 @@
         "title": "Disconnect {{name}}?",
         "body": "Bots can't use this Mac until you connect it again with a new code.",
         "action": "Disconnect"
+      },
+      "upgrade": {
+        "title": "Upgrade {{name}}?",
+        "body": "The computer is replaced with one from the current image. Files on it are removed and can't be recovered. Work in progress must finish first.",
+        "action": "Upgrade and remove files"
       }
     },
     "cancel": "Cancel",
@@ -589,11 +603,15 @@
       "copy_aria": "Copy command"
     },
     "configure": {
-      "title": "Configure Bot computer"
+      "title": "Configure Bot computer",
+      "provided_title": "Bot computer details"
     },
     "provided": "Provided by your organization",
     "provided_note": "Your organization provides this Bot computer. Its key and image are managed by your administrator.",
     "none_title": "Your administrator has not assigned a Bot computer",
-    "none_body": "Bots run without a computer until one is assigned. Your Macs can still be connected."
+    "none_body": "Bots run without a computer until one is assigned. Your Macs can still be connected.",
+    "outdated": "Newer computer image available. Updating replaces this computer; files on it are removed.",
+    "image_preparing": "The computer image is being built. This takes a few minutes.",
+    "image_building": "A newer computer image is being built."
   }
 }

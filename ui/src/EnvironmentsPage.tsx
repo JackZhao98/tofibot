@@ -56,7 +56,7 @@ function RowMenu({item, name, items, onAction, disabled}: {item: Environment; na
 }
 
 /** One environment: kind icon, name, a "Bot computer" tag on the one Bots use, who may use it, a named reason when it failed. Controls come only from `actions`. */
-export function EnvironmentRow({item, e2bError, handlers, provided = false}: {item: Environment; e2bError?: string; handlers: EnvironmentRowHandlers; provided?: boolean}) {
+export function EnvironmentRow({item, e2bError, handlers, provided = false, templatePhase = ""}: {item: Environment; e2bError?: string; handlers: EnvironmentRowHandlers; provided?: boolean; templatePhase?: string}) {
   const {t} = useTranslation("computer");
   const words = useEnvironmentWords();
   const name = words.name(item);
@@ -64,15 +64,19 @@ export function EnvironmentRow({item, e2bError, handlers, provided = false}: {it
   const menu = item.actions.filter(action => menuActions.includes(action));
   const working = handlers.busy === item.id;
   const lastSeen = item.kind === "mac" && item.state === "offline" && item.last_seen ? formatRelativeTime(item.last_seen) : "";
-  const label = <span className="env-name"><TofiIcon name={kindIcon[item.kind]} size={18} aria-hidden="true"/><span className="env-name-text">{name}</span>{item.bot_computer && <span className="env-tag">{t("environments.bot_computer")}</span>}{item.bot_computer && provided && <span className="env-tag env-tag-org" data-tag="organization"><TofiIcon name="lock" size={11} aria-hidden="true"/>{t("environments.provided")}</span>}</span>;
+  const label = <span className="env-name"><TofiIcon name={kindIcon[item.kind]} size={18} aria-hidden="true"/><span className="env-name-text">{name}</span>{(item.bot_computer || provided) && <span className="env-tag">{t("environments.bot_computer")}</span>}{provided && <span className="env-tag env-tag-org" data-tag="organization"><TofiIcon name="lock" size={11} aria-hidden="true"/>{t("environments.provided")}</span>}</span>;
+  const required = item.error_code === "guest_outdated_required";
+  const imageBuilding = item.kind === "e2b" && templatePhase === "preparing" && !required;
   const description = <>
-    <span className="env-line">{words.access(item)}{lastSeen && ` · ${t("environments.last_seen", {time: lastSeen})}`}</span>
+    {!(provided && item.access === "none") && <span className="env-line">{words.access(item)}{lastSeen && ` · ${t("environments.last_seen", {time: lastSeen})}`}</span>}
+    {item.guest_outdated && !required && <span className="env-line env-outdated" data-outdated="true">{t("environments.outdated")}</span>}
+    {imageBuilding && <span className="env-line env-building" data-template="preparing">{t(item.state === "preparing" ? "environments.image_preparing" : "environments.image_building")}</span>}
     {item.error_code && <span className="env-line env-reason" data-error-code={item.error_code}>{t(`environments.error.${reasonKey(item.error_code)}` as "environments.error.generic")}</span>}
     {e2bError && <span className="env-line env-reason-detail">{e2bError}</span>}
   </>;
   const control = <div className="env-controls">
     <StatusBadge state={badgeFor[item.state]}>{words.state(item.state)}</StatusBadge>
-    {buttons.map(action => <button key={action} type="button" className="secondary-button" data-action={action} disabled={working} onClick={() => handlers.onAction(action, item)}>{t(`environments.action.${action}`)}</button>)}
+    {buttons.map(action => <button key={action} type="button" className="secondary-button" data-action={action} disabled={working} onClick={() => handlers.onAction(action, item)}>{t(action === "configure" && provided ? "environments.action.details" : `environments.action.${action}`)}</button>)}
     {menu.length > 0 && <RowMenu item={item} name={name} items={menu} onAction={handlers.onAction} disabled={working}/>}
   </div>;
   return <div className="env-row" data-environment={item.id} data-kind={item.kind} data-state={item.state}><SettingsRow label={label} description={description} control={control}/></div>;
@@ -92,9 +96,12 @@ export function EnvironmentList({view, handlers, children, organization}: {view:
   const {t} = useTranslation("computer");
   const macs = view.environments.filter(item => item.kind === "mac");
   const others = view.environments.filter(item => item.kind !== "mac");
-  const row = (item: Environment) => <EnvironmentRow key={item.id} item={item} e2bError={item.kind === "e2b" ? view.e2b?.error : undefined} handlers={handlers} provided={Boolean(organization)}/>;
-  // Provided but nothing attached yet (the shared computer is not ready): the page still says whose Bot computer it will be.
-  const waiting = organization && !view.environments.some(item => item.bot_computer);
+  // The organization's computer is the one of its kind, also while it is still being prepared (no Bot computer yet).
+  const orgKind = organization ? (organization.via === "e2b" ? "e2b" : "vm") : "";
+  const isOrg = (item: Environment) => Boolean(organization) && item.kind === orgKind;
+  const row = (item: Environment) => <EnvironmentRow key={item.id} item={item} e2bError={item.kind === "e2b" && !organization ? view.e2b?.error : undefined} handlers={handlers} provided={isOrg(item)} templatePhase={item.kind === "e2b" ? view.e2b?.template_phase : ""}/>;
+  // Provided but nothing listed yet (the shared computer is not there): the page still says whose Bot computer it will be.
+  const waiting = organization && !view.environments.some(isOrg);
   const empty = !others.length && !macs.length && !waiting;
   return <SettingsCard className="env-list">
     {waiting && <div className="env-row" data-environment="organization" data-kind={organization.via || "organization"} data-state="provided"><SettingsRow
@@ -107,7 +114,7 @@ export function EnvironmentList({view, handlers, children, organization}: {view:
   </SettingsCard>;
 }
 
-type Dialog = {kind: "e2b"} | {kind: "mac"} | {kind: "vm"} | {kind: "configure"} | {kind: "confirm"; action: "use" | "remove" | "disconnect"; item: Environment};
+type Dialog = {kind: "e2b"} | {kind: "mac"} | {kind: "vm"} | {kind: "configure"} | {kind: "confirm"; action: "use" | "remove" | "disconnect" | "upgrade"; item: Environment};
 
 /** Settings > Environments (tab id `computer`): which environments exist, which Bots can use them, and the cloud ones' controls. */
 export function EnvironmentsPage({openTab}: {openTab: (tab: SettingsTab) => void}) {
@@ -148,15 +155,16 @@ export function EnvironmentsPage({openTab}: {openTab: (tab: SettingsTab) => void
     else if (action === "wake") void run(item.id, () => request("/api/computers/firecracker/wake", {method: "POST"}));
     else setDialog({kind: "confirm", action, item});
   }
-  function confirmed(action: "use" | "remove" | "disconnect", item: Environment) {
-    if (action === "use") void run(item.id, () => request<unknown>(`/api/environments/${encodeURIComponent(item.id)}/use`, {method: "POST"}), replace);
+  function confirmed(action: "use" | "remove" | "disconnect" | "upgrade", item: Environment) {
+    if (action === "upgrade") void run(item.id, () => request("/api/computers/firecracker/upgrade", {method: "POST"}));
+    else if (action === "use") void run(item.id, () => request<unknown>(`/api/environments/${encodeURIComponent(item.id)}/use`, {method: "POST"}), replace);
     else if (action === "remove") void run(item.id, () => request<unknown>("/api/environments/e2b", {method: "DELETE"}), replace);
     else void run(item.id, () => request(`/api/computers/${encodeURIComponent(item.id)}`, {method: "DELETE"}));
   }
   const words = useEnvironmentWords();
-  function spec(action: "use" | "remove" | "disconnect", item: Environment): ConfirmSpec {
+  function spec(action: "use" | "remove" | "disconnect" | "upgrade", item: Environment): ConfirmSpec {
     const name = words.name(item);
-    return {title: t(`environments.confirm.${action}.title`, {name}), body: t(`environments.confirm.${action}.body`, {name}), action: t(`environments.confirm.${action}.action`)};
+    return {title: t(`environments.confirm.${action}.title`, {name}), body: t(`environments.confirm.${action}.body`, {name}), action: t(`environments.confirm.${action}.action`), danger: action === "upgrade"};
   }
 
   const add = data?.add;
@@ -200,7 +208,7 @@ export function EnvironmentsPage({openTab}: {openTab: (tab: SettingsTab) => void
     {dialog?.kind === "e2b" && <E2BDialog onClose={() => setDialog(null)} onSaved={body => { replace(body); setDialog(null); }}/>}
     {dialog?.kind === "mac" && <MacDialog onClose={() => setDialog(null)} onPaired={() => void reload()}/>}
     {dialog?.kind === "vm" && add?.vm_command && <VmCommandDialog command={add.vm_command} onClose={() => setDialog(null)}/>}
-    {dialog?.kind === "configure" && <ConfigureDialog onClose={() => setDialog(null)} onOpenAdmin={() => openTab("admin")}/>}
+    {dialog?.kind === "configure" && <ConfigureDialog provided={Boolean(organization)} onClose={() => setDialog(null)} onOpenAdmin={() => openTab("admin")}/>}
     {dialog?.kind === "confirm" && <ActionConfirm spec={spec(dialog.action, dialog.item)} busy={busy !== ""} onCancel={() => setDialog(null)} onConfirm={() => confirmed(dialog.action, dialog.item)}/>}
   </div>;
 }

@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useMemo, useRef, useState, type RefObject} from "react";
+import {useCallback, useEffect, useRef, useState, type RefObject} from "react";
 import {adminOrgApi, modesFor, orgError, SELF_SERVE, valueFor, type AdminGroup, type PolicyValue} from "./adminOrgApi";
 import type {AdminAccount} from "./adminApi";
 import {useTranslation} from "./i18n";
@@ -26,35 +26,11 @@ export function useGroups(enabled = true) {
 
 type GroupRef = {id: string; name: string};
 
-/**
- * Which group each account is in. The accounts list does not carry it, so this reads each account's policy (a few requests for a
- * server with a handful of accounts); an account that has not answered yet shows no group rather than a wrong one.
- */
-export function useAccountGroups(accounts: AdminAccount[] | null, enabled = true) {
-  const [byAccount, setByAccount] = useState<Record<string, GroupRef>>({});
-  const [version, setVersion] = useState(0);
-  const key = useMemo(() => (accounts ?? []).map(account => account.id).join(","), [accounts]);
-  useEffect(() => {
-    if (!enabled || !key) return;
-    let alive = true;
-    const ids = key.split(",");
-    void (async () => {
-      for (let start = 0; start < ids.length; start += 6) {
-        const batch = ids.slice(start, start + 6);
-        const results = await Promise.allSettled(batch.map(id => adminOrgApi.accountPolicy(id)));
-        if (!alive) return;
-        setByAccount(current => {
-          const next = {...current};
-          results.forEach((result, index) => { if (result.status === "fulfilled") next[batch[index]] = result.value.group; });
-          return next;
-        });
-      }
-    })();
-    return () => { alive = false; };
-  }, [enabled, key, version]);
-  const assign = useCallback((ids: string[], group: GroupRef) => setByAccount(current => ({...current, ...Object.fromEntries(ids.map(id => [id, group]))})), []);
-  const refresh = useCallback(() => setVersion(value => value + 1), []);
-  return {byAccount, assign, refresh};
+/** Which group each account is in, from the `group` the accounts list carries (the self-serve group when it has no membership row). */
+export function groupsByAccount(accounts: AdminAccount[] | null): Record<string, GroupRef> {
+  const out: Record<string, GroupRef> = {};
+  for (const account of accounts ?? []) if (account.group) out[account.id] = account.group;
+  return out;
 }
 
 /** A button that names the current group and opens a menu of every group; the choice is applied by `onPick`. */

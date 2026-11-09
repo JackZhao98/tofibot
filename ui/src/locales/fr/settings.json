@@ -169,7 +169,8 @@
     "global_description_followers_many": "Les Bots réglés sur « Suivre le global » utilisent ce modèle et cet effort de raisonnement ; {{count}} de Bots le suivent actuellement. Les nouveaux Bots suivent le global par défaut.",
     "global_description_followers_other": "Les Bots réglés sur « Suivre le global » utilisent ce modèle et cet effort de raisonnement ; {{count}} Bots le suivent actuellement. Les nouveaux Bots suivent le global par défaut.",
     "global_description_no_followers": "Les Bots réglés sur « Suivre le global » utilisent ce modèle et cet effort de raisonnement ; aucun Bot ne le suit actuellement. Les nouveaux Bots suivent le global par défaut.",
-    "effort_hint": "Valeur par défaut du modèle : {{effort}}"
+    "effort_hint": "Valeur par défaut du modèle : {{effort}}",
+    "no_models_provided": "Aucun modèle disponible pour le moment. Votre organisation n’en a pas encore provisionné. Contactez un administrateur."
   },
   "effort": {
     "none": "Désactivé",
@@ -677,8 +678,6 @@
       "e2b_name": "Ordinateur cloud E2B",
       "e2b_key": "Clé d’API E2B",
       "e2b_template_label": "ID de modèle (facultatif)",
-      "e2b_template_id": "Modèle : {{id}}",
-      "e2b_template_pending": "L’état de build du modèle s’affichera une fois les ordinateurs partagés activés sur ce serveur.",
       "key_note": "La clé est stockée sur le serveur et n’est plus jamais affichée.",
       "no_hint": "Clé enregistrée",
       "edit": "Modifier",
@@ -713,7 +712,8 @@
         "endpoint_not_allowed": "Ce serveur n’est pas autorisé à se connecter à cette adresse.",
         "invalid_request": "La requête n’est pas valide.",
         "forbidden": "Un accès administrateur est requis.",
-        "storage": "Le serveur n’a pas pu l’enregistrer."
+        "storage": "Le serveur n’a pas pu l’enregistrer.",
+        "custom_template": "Cet ordinateur utilise un modèle que vous avez fourni. Il n’est jamais reconstruit."
       },
       "missing_accounts_one": "{{count}} exception de compte",
       "missing_accounts_many": "{{count}} exceptions de compte",
@@ -723,6 +723,26 @@
         "verified": "Vérifiée",
         "stored": "Non vérifiée",
         "rejected": "Refusée"
+      },
+      "build": {
+        "none": "Aucune image d’ordinateur n’est construite pour la version {{version}}. Elle se construit au premier besoin d’un membre, ou maintenant avec « Construire maintenant ».",
+        "preparing": "Construction de l’image d’ordinateur, version {{version}}. Cela prend quelques minutes. Les ordinateurs des membres démarrent dès qu’elle est prête.",
+        "ready": "Image d’ordinateur prête, version {{version}}.",
+        "failed": "La construction de l’image d’ordinateur de la version {{version}} a échoué.",
+        "custom": "Modèle personnalisé {{id}}. Utilisé tel quel, jamais reconstruit.",
+        "min_version": "Version minimale de l’image d’ordinateur : {{version}}. Les ordinateurs sur une image plus ancienne doivent être mis à niveau avant de démarrer.",
+        "starting": "Démarrage…",
+        "retry": "Relancer la construction",
+        "start": "Construire maintenant",
+        "error": {
+          "generic": "La construction a échoué.",
+          "template_build_failed": "E2B n’a pas pu construire l’image d’ordinateur.",
+          "image_missing": "Cette version du serveur n’inclut aucune image d’ordinateur pour E2B.",
+          "invalid_key": "E2B a refusé la clé API de l’organisation. Remplacez la clé.",
+          "e2b_unreachable": "Ce serveur ne peut pas joindre E2B. Relancez la construction dans un instant.",
+          "e2b_limit": "La limite du compte E2B est atteinte. Libérez de la capacité dans E2B, puis relancez la construction.",
+          "template_stale_in_team": "L’équipe E2B contient déjà un modèle nommé tofi-computer-{{version}} dont la dernière construction a échoué, et E2B n’en accepte pas de nouvelle dessus. Supprimez ce modèle dans le tableau de bord E2B (le propriétaire de l’équipe le peut), puis relancez la construction."
+        }
       }
     }
   },
@@ -1354,7 +1374,8 @@
       "needs_address": "Adresse requise",
       "error": "Erreur",
       "off": "Désactivé",
-      "limit": "Limite quotidienne atteinte"
+      "limit": "Limite quotidienne atteinte",
+      "not_provided": "Non fourni"
     },
     "test_ok": "Fonctionne",
     "test": "Tester",

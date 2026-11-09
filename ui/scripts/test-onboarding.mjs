@@ -685,6 +685,8 @@ try {
     assert.equal(await page.locator("[data-day-one]").count(), 0, "the day-one card does not stack under the chips");
     assert.ok(state.calls.some(call => typeof call === "string" && call.startsWith("GET /api/onboarding/handovers?bot_id=bot_1")), "the list is read for this Bot");
     // Layout: a row of label-wide keys that wraps, left on the chat column with the heading and the bubbles; no card around it.
+    // The block slides in (translate) when it appears: measure at rest, not mid-entry (a 2 px drift made the row check flaky).
+    await chips.evaluate(node => Promise.all(node.getAnimations({ subtree: true }).map(animation => animation.finished)));
     const box = await chips.locator(".handover-chips-grid").boundingBox(), heading = await chips.locator("h2").boundingBox();
     const first = await page.locator(".handover-chip").nth(0).boundingBox(), second = await page.locator(".handover-chip").nth(1).boundingBox(), last = await page.locator(".handover-chip").nth(3).boundingBox();
     assert.ok(Math.abs(first.y - second.y) < 2 && box.width > 300, "the first two keys share a row");

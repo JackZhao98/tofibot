@@ -112,7 +112,8 @@
     },
     "fold": "Replier",
     "fold_aria": "Replier l'ordinateur Bot en bandeau",
-    "unfold_aria": "Afficher l'ordinateur Bot"
+    "unfold_aria": "Afficher l'ordinateur Bot",
+    "outdated_required": "L’image de cet ordinateur n’est plus prise en charge. Mettez-le à niveau dans Réglages > Environnements."
   },
   "remote": {
     "error": {
@@ -530,7 +531,9 @@
       "configure": "Configurer",
       "use": "Utiliser pour les Bots",
       "remove": "Retirer",
-      "disconnect": "Déconnecter"
+      "disconnect": "Déconnecter",
+      "upgrade": "Mettre à niveau",
+      "details": "Détails"
     },
     "more": "Autres actions pour {{name}}",
     "attach_title": "Ordinateur Bot",
@@ -544,7 +547,13 @@
       "sandbox_failed": "Le bac à sable E2B n’a pas démarré.",
       "guest_unreachable": "L’ordinateur ne répond pas.",
       "sandbox_gone": "Le bac à sable E2B n’existe plus. Réessayer en crée un nouveau.",
-      "token_unreadable": "La clé enregistrée est illisible. Ajoutez à nouveau la clé E2B."
+      "token_unreadable": "La clé enregistrée est illisible. Ajoutez à nouveau la clé E2B.",
+      "org_resource_missing": "Votre organisation n’a pas provisionné cet ordinateur. Contactez un administrateur.",
+      "not_ready": "L’image d’ordinateur n’est pas encore prête. Réessayez dans quelques minutes.",
+      "guest_outdated_required": "L’image de cet ordinateur n’est plus prise en charge. Mettez-le à niveau pour continuer à l’utiliser. La mise à niveau remplace cet ordinateur ; les fichiers qu’il contient sont supprimés.",
+      "computer_upgrade_failed": "Impossible de mettre l’ordinateur à niveau. Réessayez.",
+      "not_outdated": "Cet ordinateur est déjà à jour.",
+      "computer_busy": "L’ordinateur est occupé. Réessayez quand le travail en cours sera terminé."
     },
     "confirm": {
       "use": {
@@ -561,6 +570,11 @@
         "title": "Déconnecter {{name}} ?",
         "body": "Les Bots ne peuvent pas utiliser ce Mac tant que vous ne le reconnectez pas avec un nouveau code.",
         "action": "Déconnecter"
+      },
+      "upgrade": {
+        "title": "Mettre {{name}} à niveau ?",
+        "body": "L’ordinateur est remplacé par un autre issu de l’image actuelle. Les fichiers qu’il contient sont supprimés et irrécupérables. Le travail en cours doit d’abord se terminer.",
+        "action": "Mettre à niveau et supprimer les fichiers"
       }
     },
     "cancel": "Annuler",
@@ -595,11 +609,15 @@
       "copy_aria": "Copier la commande"
     },
     "configure": {
-      "title": "Configurer l’ordinateur Bot"
+      "title": "Configurer l’ordinateur Bot",
+      "provided_title": "Détails de l’ordinateur du Bot"
     },
     "provided": "Fourni par votre organisation",
     "provided_note": "Votre organisation fournit cet ordinateur de Bot. Sa clé et son image sont gérées par votre administrateur.",
     "none_title": "Votre administrateur n’a pas attribué d’ordinateur de Bot",
-    "none_body": "Les Bots fonctionnent sans ordinateur tant qu’aucun n’est attribué. Vos Mac peuvent toujours être connectés."
+    "none_body": "Les Bots fonctionnent sans ordinateur tant qu’aucun n’est attribué. Vos Mac peuvent toujours être connectés.",
+    "outdated": "Une image d’ordinateur plus récente est disponible. La mise à jour remplace cet ordinateur ; les fichiers qu’il contient sont supprimés.",
+    "image_preparing": "L’image d’ordinateur est en cours de construction. Cela prend quelques minutes.",
+    "image_building": "Une image d’ordinateur plus récente est en cours de construction."
   }
 }

@@ -1,7 +1,7 @@
-import {useCallback, useEffect, useRef, useState} from "react";
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {AdminSheet} from "./AdminSheets";
 import {adminApi, initialOf, type AdminAccount} from "./adminApi";
-import {GroupMenu, PolicyControl, useAccountGroups, useGroups} from "./AdminGroupBits";
+import {GroupMenu, groupsByAccount, PolicyControl, useGroups} from "./AdminGroupBits";
 import {adminOrgApi, CAPABILITIES, orgError, SELF_SERVE, type AdminGroup, type OrgMissing, type PolicyMap, type PolicyValue} from "./adminOrgApi";
 import {useHostHasComputer} from "./computerCapability";
 import {useTranslation} from "./i18n";
@@ -24,7 +24,7 @@ export function AdminGroups({openTab}: {openTab: (tab: SettingsTab) => void}) {
   const {groups, error: loadError, reload, replace, setGroups} = useGroups(allowed);
   const [accounts, setAccounts] = useState<AdminAccount[] | null>(null);
   const [missing, setMissing] = useState<OrgMissing[]>([]);
-  const {byAccount, assign, refresh: refreshMembers} = useAccountGroups(accounts, allowed);
+  const byAccount = useMemo(() => groupsByAccount(accounts), [accounts]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "editor">("list");
   const [creating, setCreating] = useState(false);
@@ -75,8 +75,8 @@ export function AdminGroups({openTab}: {openTab: (tab: SettingsTab) => void}) {
     if (!target) return Promise.resolve(false);
     return run(async () => {
       await adminOrgApi.moveMembers(groupId, ids);
-      assign(ids, {id: target.id, name: target.name});
-      reload(); refreshMembers();
+      reload();
+      setAccounts(await adminApi.accounts());
     });
   };
 

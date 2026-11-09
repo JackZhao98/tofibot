@@ -172,7 +172,9 @@
     "unavailable": "Ordinateur Bot indisponible",
     "health_restarting": "L’ordinateur Bot ne répond plus · redémarrage en cours",
     "health_unresponsive": "L’ordinateur Bot ne répond pas",
-    "resuming": "Réveil de l’ordinateur Bot"
+    "resuming": "Réveil de l’ordinateur Bot",
+    "outdated_required": "L’image de l’ordinateur du Bot n’est plus prise en charge",
+    "open_environments": "Ouvrir Environnements"
   },
   "computer_phase": {
     "booting": "Démarrage de la VM",

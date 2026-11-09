@@ -167,7 +167,8 @@
     "global_description": "设为「跟随全局」的 Bot 使用这里的模型和思考强度。新建的 Bot 默认跟随全局。",
     "global_description_followers_other": "设为「跟随全局」的 Bot 使用这里的模型和思考强度，当前有 {{count}} 个 Bot 跟随。新建的 Bot 默认跟随全局。",
     "global_description_no_followers": "设为「跟随全局」的 Bot 使用这里的模型和思考强度，当前没有 Bot 跟随。新建的 Bot 默认跟随全局。",
-    "effort_hint": "模型默认：{{effort}}"
+    "effort_hint": "模型默认：{{effort}}",
+    "no_models_provided": "暂无可用模型。你的组织尚未配置任何模型。请联系管理员。"
   },
   "effort": {
     "none": "关闭",
@@ -663,8 +664,6 @@
       "e2b_name": "E2B 云电脑",
       "e2b_key": "E2B API 密钥",
       "e2b_template_label": "模板 ID（可选）",
-      "e2b_template_id": "模板：{{id}}",
-      "e2b_template_pending": "共享电脑在这台服务器上启用后，这里会显示模板构建状态。",
       "key_note": "密钥保存在服务器上，之后不会再次显示。",
       "no_hint": "密钥已保存",
       "edit": "编辑",
@@ -699,7 +698,8 @@
         "endpoint_not_allowed": "这台服务器不允许连接该地址。",
         "invalid_request": "请求无效。",
         "forbidden": "需要管理员权限。",
-        "storage": "服务器未能保存。"
+        "storage": "服务器未能保存。",
+        "custom_template": "此电脑使用你提供的模板，不会重新构建。"
       },
       "missing_accounts_other": "{{count}} 个账户覆盖",
       "intro": "这些密钥属于这台服务器，供所在组由组织提供资源的账户使用；它们不是你的个人密钥，你的在 设置 › AI 模型、环境、搜索与抓取。",
@@ -707,6 +707,26 @@
         "verified": "已验证",
         "stored": "未验证",
         "rejected": "被拒绝"
+      },
+      "build": {
+        "none": "版本 {{version}} 的电脑镜像尚未构建。成员首次需要电脑时会自动构建，也可以现在点“立即构建”。",
+        "preparing": "正在构建电脑镜像（版本 {{version}}），需要几分钟。完成后成员的电脑才会启动。",
+        "ready": "电脑镜像已就绪（版本 {{version}}）。",
+        "failed": "版本 {{version}} 的电脑镜像构建失败。",
+        "custom": "自定义模板 {{id}}。按原样使用，不会重新构建。",
+        "min_version": "电脑镜像最低版本：{{version}}。使用更旧镜像的电脑必须先升级才能运行。",
+        "starting": "正在开始…",
+        "retry": "重试构建",
+        "start": "立即构建",
+        "error": {
+          "generic": "构建失败。",
+          "template_build_failed": "E2B 无法构建电脑镜像。",
+          "image_missing": "此服务器版本未附带 E2B 电脑镜像。",
+          "invalid_key": "E2B 拒绝了组织的 API 密钥。请更换密钥。",
+          "e2b_unreachable": "此服务器无法连接 E2B。请稍后重试构建。",
+          "e2b_limit": "已达到 E2B 账户上限。请先在 E2B 释放额度，再重试构建。",
+          "template_stale_in_team": "E2B 团队中已有一个名为 tofi-computer-{{version}} 的模板，其上次构建失败，E2B 不接受在它上面重新构建。请在 E2B 控制台删除该模板（团队所有者可以操作），然后重试构建。"
+        }
       }
     }
   },
@@ -1330,7 +1350,8 @@
       "needs_address": "需要地址",
       "error": "出错",
       "off": "已关闭",
-      "limit": "已达每日上限"
+      "limit": "已达每日上限",
+      "not_provided": "未提供"
     },
     "test_ok": "工作正常",
     "test": "测试",

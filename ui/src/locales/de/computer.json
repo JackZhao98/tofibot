@@ -111,7 +111,8 @@
     },
     "fold": "Einklappen",
     "fold_aria": "Bot-Computer zu einem Streifen einklappen",
-    "unfold_aria": "Bot-Computer anzeigen"
+    "unfold_aria": "Bot-Computer anzeigen",
+    "outdated_required": "Das Image dieses Computers wird nicht mehr unterstützt. Aktualisieren Sie ihn unter Einstellungen > Umgebungen."
   },
   "remote": {
     "error": {
@@ -524,7 +525,9 @@
       "configure": "Konfigurieren",
       "use": "Für Bots nutzen",
       "remove": "Entfernen",
-      "disconnect": "Trennen"
+      "disconnect": "Trennen",
+      "upgrade": "Aktualisieren",
+      "details": "Details"
     },
     "more": "Weitere Aktionen für {{name}}",
     "attach_title": "Bot-Computer",
@@ -538,7 +541,13 @@
       "sandbox_failed": "Die E2B-Sandbox ist nicht gestartet.",
       "guest_unreachable": "Der Computer antwortet nicht.",
       "sandbox_gone": "Die E2B-Sandbox existiert nicht mehr. Erneut versuchen erstellt eine neue.",
-      "token_unreadable": "Der gespeicherte Schlüssel ist nicht lesbar. Füge den E2B-Schlüssel erneut hinzu."
+      "token_unreadable": "Der gespeicherte Schlüssel ist nicht lesbar. Füge den E2B-Schlüssel erneut hinzu.",
+      "org_resource_missing": "Ihre Organisation hat diesen Computer nicht bereitgestellt. Wenden Sie sich an einen Administrator.",
+      "not_ready": "Das Computer-Image ist noch nicht bereit. Versuchen Sie es in einigen Minuten erneut.",
+      "guest_outdated_required": "Das Image dieses Computers wird nicht mehr unterstützt. Aktualisieren Sie ihn, um ihn weiter zu nutzen. Das Upgrade ersetzt diesen Computer; Dateien darauf werden entfernt.",
+      "computer_upgrade_failed": "Der Computer konnte nicht aktualisiert werden. Versuchen Sie es erneut.",
+      "not_outdated": "Dieser Computer ist bereits auf dem neuesten Stand.",
+      "computer_busy": "Der Computer ist ausgelastet. Versuchen Sie es erneut, wenn die laufende Arbeit beendet ist."
     },
     "confirm": {
       "use": {
@@ -555,6 +564,11 @@
         "title": "{{name}} trennen?",
         "body": "Bots können diesen Mac nicht nutzen, bis du ihn mit einem neuen Code wieder verbindest.",
         "action": "Trennen"
+      },
+      "upgrade": {
+        "title": "{{name}} aktualisieren?",
+        "body": "Der Computer wird durch einen aus dem aktuellen Image ersetzt. Dateien darauf werden entfernt und lassen sich nicht wiederherstellen. Laufende Arbeit muss zuvor beendet sein.",
+        "action": "Aktualisieren und Dateien entfernen"
       }
     },
     "cancel": "Abbrechen",
@@ -589,11 +603,15 @@
       "copy_aria": "Befehl kopieren"
     },
     "configure": {
-      "title": "Bot-Computer konfigurieren"
+      "title": "Bot-Computer konfigurieren",
+      "provided_title": "Details zum Bot-Computer"
     },
     "provided": "Von Ihrer Organisation bereitgestellt",
     "provided_note": "Diesen Bot-Computer stellt Ihre Organisation bereit. Schlüssel und Image verwaltet Ihr Administrator.",
     "none_title": "Ihr Administrator hat keinen Bot-Computer zugewiesen",
-    "none_body": "Bots laufen ohne Computer, bis einer zugewiesen wird. Ihre Macs lassen sich weiterhin verbinden."
+    "none_body": "Bots laufen ohne Computer, bis einer zugewiesen wird. Ihre Macs lassen sich weiterhin verbinden.",
+    "outdated": "Ein neueres Computer-Image ist verfügbar. Die Aktualisierung ersetzt diesen Computer; Dateien darauf werden entfernt.",
+    "image_preparing": "Das Computer-Image wird gebaut. Das dauert einige Minuten.",
+    "image_building": "Ein neueres Computer-Image wird gebaut."
   }
 }

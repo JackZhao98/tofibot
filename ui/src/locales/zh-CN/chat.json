@@ -170,7 +170,9 @@
     "unavailable": "Bot 电脑暂不可用",
     "health_restarting": "Bot 电脑无响应 · 正在重启",
     "health_unresponsive": "Bot 电脑无响应",
-    "resuming": "正在唤醒 Bot 电脑"
+    "resuming": "正在唤醒 Bot 电脑",
+    "outdated_required": "Bot 电脑镜像已不再受支持",
+    "open_environments": "打开环境"
   },
   "computer_phase": {
     "booting": "启动虚拟机",
