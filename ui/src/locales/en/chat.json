@@ -173,7 +173,8 @@
     "health_unresponsive": "Bot computer isn't responding",
     "resuming": "Waking Bot computer",
     "outdated_required": "Bot computer image no longer supported",
-    "open_environments": "Open Environments"
+    "open_environments": "Open Environments",
+    "org_missing": "Your organization hasn't provisioned a Bot computer. Contact an administrator."
   },
   "computer_phase": {
     "booting": "Starting VM",

@@ -172,7 +172,8 @@
     "health_unresponsive": "Bot コンピューターが応答しません",
     "resuming": "Bot コンピューターを復帰しています",
     "outdated_required": "Bot コンピューターのイメージはサポート対象外です",
-    "open_environments": "環境を開く"
+    "open_environments": "環境を開く",
+    "org_missing": "組織が Bot コンピューターをまだ用意していません。管理者に連絡してください。"
   },
   "computer_phase": {
     "booting": "VM を起動中",

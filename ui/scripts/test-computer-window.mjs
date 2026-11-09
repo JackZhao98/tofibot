@@ -128,6 +128,17 @@ try {
     const stopped = await open({ state: { info: info("stopped"), capture: "image", requests: [] } });
     await stopped.page.locator(".computer-preparing").waitFor({ timeout: 6000 });
     await stopped.context.close();
+    // An organization computer the organization has not set up names that, in the banner and in the window.
+    const missing = await open({ state: { info: info("error", { kind: "e2b", error_code: "org_resource_missing" }), capture: "image", requests: [] } });
+    await missing.page.locator(".computer-preparing").waitFor({ timeout: 6000 });
+    assert.match(await missing.page.locator(".computer-preparing").innerText(), /Your organization hasn't provisioned a Bot computer\. Contact an administrator\./, "the banner names the missing organization computer");
+    assert.doesNotMatch(await missing.page.locator(".computer-preparing").innerText(), /failed to start/, "not the generic failure");
+    await missing.button.click();
+    await shell(missing.page, "is-small").waitFor();
+    await missing.page.getByText("Your organization hasn't provisioned this computer. Contact an administrator.").first().waitFor({ timeout: 6000 });
+    assert.deepEqual(missing.errors, []);
+    results.push("organization computer not provisioned is named");
+    await missing.context.close();
   }
 
   // 1c. The power button (a computer that has one: E2B). Lit while on; off turns the computer off (files kept) with no wake

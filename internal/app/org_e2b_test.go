@@ -657,6 +657,11 @@ func TestProvidedE2BWithoutOrgKeyFailsNotFallsBack(t *testing.T) {
 	if !ok || item.State != "failed" || item.ErrorCode != codeOrgResourceMissing {
 		t.Fatalf("environments item: %+v", item)
 	}
+	// The computer status the workspace banner reads names the same reason.
+	info, err := ws.microVMInfo(context.Background())
+	if err != nil || info.State != "error" || info.ErrorCode != codeOrgResourceMissing {
+		t.Fatalf("computer info: %+v, %v", info, err)
+	}
 }
 
 func TestPolicyMoveIntoAndOutOfProvidedE2B(t *testing.T) {

@@ -174,7 +174,8 @@
     "health_unresponsive": "L’ordinateur Bot ne répond pas",
     "resuming": "Réveil de l’ordinateur Bot",
     "outdated_required": "L’image de l’ordinateur du Bot n’est plus prise en charge",
-    "open_environments": "Ouvrir Environnements"
+    "open_environments": "Ouvrir Environnements",
+    "org_missing": "Votre organisation n’a pas provisionné d’ordinateur Bot. Contactez un administrateur."
   },
   "computer_phase": {
     "booting": "Démarrage de la VM",

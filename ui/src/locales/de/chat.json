@@ -173,7 +173,8 @@
     "health_unresponsive": "Bot-Computer reagiert nicht",
     "resuming": "Bot-Computer wird aufgeweckt",
     "outdated_required": "Image des Bot-Computers wird nicht mehr unterstützt",
-    "open_environments": "Umgebungen öffnen"
+    "open_environments": "Umgebungen öffnen",
+    "org_missing": "Ihre Organisation hat keinen Bot-Computer bereitgestellt. Wenden Sie sich an einen Administrator."
   },
   "computer_phase": {
     "booting": "VM wird gestartet",

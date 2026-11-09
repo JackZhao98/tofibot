@@ -172,7 +172,8 @@
     "health_unresponsive": "Bot 電腦沒有回應",
     "resuming": "正在喚醒 Bot 電腦",
     "outdated_required": "Bot 電腦映像已不再受支援",
-    "open_environments": "開啟環境"
+    "open_environments": "開啟環境",
+    "org_missing": "你的組織尚未配置 Bot 電腦。請聯絡管理員。"
   },
   "computer_phase": {
     "booting": "啟動虛擬機器",

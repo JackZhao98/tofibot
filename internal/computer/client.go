@@ -46,7 +46,11 @@ type Info struct {
 	WorkspaceRoot      string `json:"workspace_root"`
 	Browser            string `json:"browser,omitempty"`
 	Error              string `json:"error,omitempty"`
-	ID                 string `json:"id,omitempty"`
+	// ErrorCode names why the computer is in error when the provider knows it
+	// (org_resource_missing, guest_outdated_required, a build code), so a page can
+	// say what to do instead of a generic failure.
+	ErrorCode string `json:"error_code,omitempty"`
+	ID        string `json:"id,omitempty"`
 	// GuestOutdated: the computer runs an older image than the current one. It is
 	// usable; replacing it (an explicit upgrade) removes the files on it.
 	// GuestOutdatedRequired: it is below the server's minimum and is refused.

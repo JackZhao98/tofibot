@@ -1186,7 +1186,7 @@ func (p *Provider) Info(ctx context.Context) (computer.Info, error) {
 	case creating || st.Phase == PhasePreparing:
 		out.State = "starting"
 	case st.Phase == PhaseFailed:
-		out.State, out.Error = "error", p.scrubForView(st.Error)
+		out.State, out.Error, out.ErrorCode = "error", p.scrubForView(st.Error), st.ErrorCode
 	case st.Phase != PhaseReady:
 		out.State = "stopped"
 	case st.SandboxID == "":
@@ -1211,7 +1211,7 @@ func (p *Provider) Info(ctx context.Context) (computer.Info, error) {
 		}
 	}
 	if st.GuestOutdatedRequired && out.State != "starting" {
-		out.State, out.Error = "error", guestOutdatedRequired().(*Error).Message
+		out.State, out.Error, out.ErrorCode = "error", guestOutdatedRequired().(*Error).Message, CodeGuestOutdatedRequired
 	}
 	if cache {
 		p.mu.Lock()
