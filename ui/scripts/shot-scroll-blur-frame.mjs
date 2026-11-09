@@ -10,7 +10,7 @@ const out = process.env.SHOT_DIR || "/tmp/scroll-blur-frame";
 mkdirSync(out, { recursive: true });
 const { server, origin } = await startUi();
 // Classic (always visible) scrollbars: headless hides them by default, and the point of the shots is where the scrollbar sits.
-const { chromium } = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE || "/Users/jackzhao/Developer/sentiosurge/tofibot-web/node_modules/playwright/index.mjs"));
+const { chromium } = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE || `${process.env.HOME}/.claude/skills/gstack/node_modules/playwright/index.mjs`));
 const browser = await chromium.launch({ headless: true, ignoreDefaultArgs: ["--hide-scrollbars"], args: ["--disable-features=OverlayScrollbar"] });
 // If this Chromium still draws overlay scrollbars, force a 15px classic one on the message pane so its position is visible and measurable.
 const CLASSIC = ".message-scroll{scrollbar-color:auto!important}.message-scroll::-webkit-scrollbar{width:15px}.message-scroll::-webkit-scrollbar-thumb{background:#8a8a8a;border-radius:8px;border:3px solid transparent;background-clip:padding-box}.message-scroll::-webkit-scrollbar-track{background:rgba(128,128,128,.15)}";

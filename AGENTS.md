@@ -13,9 +13,10 @@ TOFI 是自托管的 AI Bot 工作台（Go 后端 `internal/`，React 19 网页�
 第 10 节）。Every merge, release or owner decision updates the matching docs in the same commit. 本文件仍是总入口，下面各节是代码约定。
 
 **Before pushing to main, merging a branch or tagging, run `scripts/ci-local.sh` (or `make ci-local`; `--all` runs every `ci.yml` job; steps that need Linux or docker say so and are left to CI) and push only on exit code 0.**
-Before an rc tag, also run `scripts/ui-suites-all.sh` (every UI browser suite once; ci.yml runs only a few and the rest otherwise fall behind) on a quiet machine, with a `PLAYWRIGHT_MODULE` whose Chromium and WebKit are installed; tag only on exit 0.
+Before an rc tag, run only the UI browser suites for this batch's new features and the places they touch (`scripts/ui-suites-all.sh test:a test:b …`; decision D76, owner 2026-11-09); tag only on exit 0.
+Before a stable `v*` tag, run `scripts/ui-suites-all.sh` with no arguments (every UI browser suite once; ci.yml runs only a few and the rest otherwise fall behind) on a quiet machine, with a `PLAYWRIGHT_MODULE` whose Chromium and WebKit are installed; tag only on exit 0.
 Every failed workflow run emails the owner. The script runs what `ci.yml` runs, with the same environment (`TOFI_SKIP_TIMING=1`, `SHELL_BUDGET_ONLY=struct`;
-`PLAYWRIGHT_MODULE` defaults to tofibot-web's Playwright). Rules and how to write tests that do not flake: `docs/process.md` 3.6.
+`PLAYWRIGHT_MODULE` defaults to gstack's Playwright 1.58.2 at `~/.claude/skills/gstack/node_modules/playwright`, the version CI installs). Rules and how to write tests that do not flake: `docs/process.md` 3.6.
 
 # Core source boundaries
 

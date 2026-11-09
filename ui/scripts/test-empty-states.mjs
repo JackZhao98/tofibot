@@ -118,7 +118,8 @@ try {
 
   // 2. Other App-level empty states.
   {
-    const { page, context, errors } = await open("/b/missing", { api: {} });
+    // An account with a Bot: with none, any address shows the first-run page instead (test-onboarding).
+    const { page, context, errors } = await open("/b/missing", { api: { withBot: true } });
     await mountedCat(page, "route-unavailable");
     await context.close();
     const second = await open("/b/bot_1", { api: { withBot: true } });

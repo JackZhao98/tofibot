@@ -9,14 +9,14 @@
 #   scripts/ui-suites-all.sh test:chat-motion test:preloader    just these
 #
 # Environment: PLAYWRIGHT_MODULE — a Playwright whose browsers are installed, Chromium and WebKit (several suites run both;
-# CI uses 1.58.2). Default: tofibot-web's Playwright, as in ci-local. Results and one log per suite go to $UI_SUITES_OUT
+# CI uses 1.58.2). Default: gstack's Playwright 1.58.2, as in ci-local. Results and one log per suite go to $UI_SUITES_OUT
 # (default: a new temp dir). Run it on a quiet machine: the frame-timing checks fail under heavy load.
 # Exit 0 only when every suite exits 0 and none prints SKIP.
 set -uo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo/ui" || exit 2
-export PLAYWRIGHT_MODULE="${PLAYWRIGHT_MODULE:-/Users/jackzhao/Developer/sentiosurge/tofibot-web/node_modules/playwright/index.mjs}"
+export PLAYWRIGHT_MODULE="${PLAYWRIGHT_MODULE:-$HOME/.claude/skills/gstack/node_modules/playwright/index.mjs}"
 export TOFI_SKIP_TIMING=1 SHELL_BUDGET_ONLY=struct
 [ -f "$PLAYWRIGHT_MODULE" ] || { echo "ui-suites-all: PLAYWRIGHT_MODULE not found: $PLAYWRIGHT_MODULE" >&2; exit 2; }
 out="${UI_SUITES_OUT:-$(mktemp -d -t ui-suites)}"

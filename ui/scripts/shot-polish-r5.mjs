@@ -10,7 +10,7 @@ const out = process.env.SHOT_DIR || "/tmp/polish-r5";
 mkdirSync(out, { recursive: true });
 const engines = (process.env.ENGINES || "chromium,webkit").split(",");
 const themes = (process.env.THEMES || "light,dark").split(",");
-const pw = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE || "/Users/jackzhao/Developer/sentiosurge/tofibot-web/node_modules/playwright/index.mjs"));
+const pw = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE || `${process.env.HOME}/.claude/skills/gstack/node_modules/playwright/index.mjs`));
 const { server, origin } = await startUi();
 const long = Array.from({ length: 40 }, (_, i) => ({ id: `msg-long-${i}`, conversation_id: DM.id, seq: i + 1, role: i % 2 ? "assistant" : "user", content: i % 2 ? "Here is a longer reply with a few lines of text so the blurred band has something to show under the header. ".repeat(2) : "Please keep going with the quarterly numbers and the charts.", created_at: `2026-10-26T11:${String(i % 60).padStart(2, "0")}:00Z`, sender_bot_id: i % 2 ? BOT.id : undefined }));
 const errors = [];

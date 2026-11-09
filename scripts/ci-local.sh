@@ -10,7 +10,7 @@
 #   --only <job>[,<job>]           run just these jobs      --skip <job>[,<job>]   leave these out
 #   --list                         print the job names and exit
 #
-# Environment: PLAYWRIGHT_MODULE (default: tofibot-web's playwright; CI installs playwright@1.58.2 in a temp dir).
+# Environment: PLAYWRIGHT_MODULE (default: gstack's Playwright 1.58.2, the version CI installs in a temp dir).
 # The first failing job stops the run (exit 1); a summary of all jobs is printed either way.
 set -uo pipefail
 
@@ -36,7 +36,7 @@ done
 JOBS="go-gofmt go-build go-vet go-test ui-typecheck ui-i18n ui-motion-tokens ui-final-v2-tokens ui-build ui-desktop-settings ui-layers ui-dialogs ui-overlays ui-desktop-drag ui-shell-budget ui-catalog python playwright-mcp shell runner-root compose"
 if [ "$mode" = list ]; then echo "$JOBS" | tr ' ' '\n'; exit 0; fi
 
-export PLAYWRIGHT_MODULE="${PLAYWRIGHT_MODULE:-/Users/jackzhao/Developer/sentiosurge/tofibot-web/node_modules/playwright/index.mjs}"
+export PLAYWRIGHT_MODULE="${PLAYWRIGHT_MODULE:-$HOME/.claude/skills/gstack/node_modules/playwright/index.mjs}"
 if [ ! -f "$PLAYWRIGHT_MODULE" ]; then
   for cand in /Users/jackzhao/.claude/skills/gstack/node_modules/playwright/index.mjs "$repo/ui/node_modules/playwright/index.mjs"; do
     [ -f "$cand" ] && { PLAYWRIGHT_MODULE="$cand"; export PLAYWRIGHT_MODULE; break; }
