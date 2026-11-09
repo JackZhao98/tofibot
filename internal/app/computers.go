@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/JackZhao98/tofibot/internal/computer"
+	"github.com/JackZhao98/tofibot/internal/computer/e2b"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"github.com/google/uuid"
 )
@@ -1118,6 +1119,37 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 			return true
 		}
 		writeJSON(w, http.StatusAccepted, map[string]any{"accepted": true, "state": computer.StateResuming})
+		return true
+	}
+	if len(parts) == 2 && s.isVMRoute(parts[0]) && parts[1] == "upgrade" && r.Method == http.MethodPost {
+		// Replace an outdated E2B computer with one made from the current image. The
+		// files on the old one are removed, so this runs only on the person's own
+		// request (the same consent as Retry after sandbox_gone), never by itself.
+		cur := s.computer()
+		up, ok := cur.(computerUpgrader)
+		if cur == nil || !ok || cur.Kind() != envKindE2B {
+			writeErr(w, http.StatusNotFound, "not_configured", "this computer has no newer image to upgrade to")
+			return true
+		}
+		if v := s.policy()[capComputer]; !computerUsesOrgE2B(v) && !computerAllowsOwnE2B(v) {
+			refusePolicy(w, v.Mode != policyModeProvided)
+			return true
+		}
+		if s.computerInUse(cur.ID()) {
+			writeErr(w, http.StatusConflict, "computer_busy", "The Bot computer is in use. Upgrade once it is idle.")
+			return true
+		}
+		if err := up.Upgrade(r.Context()); err != nil {
+			status, code := http.StatusBadGateway, "computer_upgrade_failed"
+			if e2bErrorCode(err) == e2b.CodeNotOutdated {
+				status, code = http.StatusConflict, e2b.CodeNotOutdated
+			}
+			writeErr(w, status, code, err.Error())
+			return true
+		}
+		s.microVMInfoCache.reset()
+		s.touchWorkspace()
+		writeJSON(w, http.StatusAccepted, map[string]any{"accepted": true})
 		return true
 	}
 	if len(parts) == 2 && s.isVMRoute(parts[0]) && parts[1] == "retry" && r.Method == http.MethodPost {

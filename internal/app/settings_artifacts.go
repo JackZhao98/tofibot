@@ -369,7 +369,7 @@ func riskSummary(d SettingDef) string {
 	return string(d.Risk.Self)
 }
 
-var uiTermPattern = regexp.MustCompile(`\{\{ui:([a-z]+:[A-Za-z0-9_.]+)\}\}`)
+var uiTermPattern = regexp.MustCompile(`\{\{ui:([a-z]+:[A-Za-z0-9_.-]+)\}\}`)
 
 // guideUITerms lists the catalog keys the hand-written manual pages use.
 func guideUITerms(repoRoot string) []string {

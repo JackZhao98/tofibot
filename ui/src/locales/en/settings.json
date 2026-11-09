@@ -31,7 +31,8 @@
       "bots": "Bots can use",
       "workspace": "Workspace",
       "system": "System",
-      "more": "Advanced"
+      "more": "Advanced",
+      "admin": "Administration"
     },
     "page": {
       "general": {
@@ -75,7 +76,7 @@
         "description": "Version, server, data, debugging and Start over."
       },
       "admin": {
-        "name": "Admin console",
+        "name": "Accounts",
         "description": "Invite, manage and deactivate accounts"
       },
       "automation": {
@@ -93,6 +94,14 @@
       "devices": {
         "name": "Other devices",
         "description": "Connect a Mac that has the Tofi app"
+      },
+      "admin-groups": {
+        "name": "Groups",
+        "description": "Resource policy for sets of accounts"
+      },
+      "admin-resources": {
+        "name": "Organization resources",
+        "description": "Keys this server provides to groups"
       }
     },
     "category": "Settings category",
@@ -159,7 +168,8 @@
     "global_description_followers_one": "Bots set to Follow global use this model and reasoning effort; {{count}} Bot follows it now. New Bots follow global by default.",
     "global_description_followers_other": "Bots set to Follow global use this model and reasoning effort; {{count}} Bots follow it now. New Bots follow global by default.",
     "global_description_no_followers": "Bots set to Follow global use this model and reasoning effort; no Bots follow it now. New Bots follow global by default.",
-    "effort_hint": "Model default: {{effort}}"
+    "effort_hint": "Model default: {{effort}}",
+    "no_models_provided": "No models available yet. Your organization hasn't provisioned any. Contact an administrator."
   },
   "effort": {
     "none": "Off",
@@ -386,7 +396,14 @@
     },
     "accounts": {
       "title": "Accounts",
-      "empty": "No accounts yet."
+      "empty": "No accounts yet.",
+      "group_col": "Group",
+      "group_of": "Group of {{name}}",
+      "select": "Select {{name}}",
+      "bulk": "Bulk actions",
+      "selected": "{{count}} selected",
+      "move_n": "Move {{count}} to group…",
+      "clear": "Clear selection"
     },
     "add": "Add account",
     "open": "Open {{name}}",
@@ -479,6 +496,15 @@
         "delete_legacy": "The original owner account and its Bot computer can't be deleted.",
         "delete_running": "Deletion is in progress.",
         "delete_need_deactivate": "Deactivate the account first. Only a deactivated account can be deleted."
+      },
+      "group": {
+        "title": "Group",
+        "label": "Group",
+        "help": "The group sets this account's default policy for models, Bot computer, search and fetch."
+      },
+      "overrides": {
+        "title": "Overrides",
+        "help": "Each capability follows the group until a value is set here. Reset returns it to the group."
       }
     },
     "delete": {
@@ -575,7 +601,142 @@
       "resource_configuration_failed": "The Bot computer size couldn't be applied. Try again.",
       "computer_unavailable": "The Bot computer isn't reachable right now. Try again shortly."
     },
-    "intro_no_computer": "Create accounts, choose who is an Admin and manage their sign-in. Members change their initial password at first sign-in."
+    "intro_no_computer": "Create accounts, choose who is an Admin and manage their sign-in. Members change their initial password at first sign-in.",
+    "groups": {
+      "title": "Groups",
+      "intro": "A group sets what its accounts use: their own resources or the organization's. Each account is in one group; set exceptions on the account.",
+      "unknown": "Group",
+      "loading": "Loading groups…",
+      "builtin": "Built in",
+      "new": "New group",
+      "back": "Groups",
+      "name_label": "Name",
+      "rename": "Rename",
+      "policy_title": "Resource policy",
+      "policy_help": "Changes apply to every member at once.",
+      "policy_readonly": "Self-serve is today's behavior and is read-only. Create a group to change policy.",
+      "saved": "Saved",
+      "resource_missing": "Organization resource missing.",
+      "open_resources": "Open Organization resources",
+      "members_title": "Members ({{count}})",
+      "members_self_serve": "Accounts that were never moved are in Self-serve.",
+      "members_empty": "No members.",
+      "add_members": "Add members",
+      "add_title": "Add members to {{name}}",
+      "add_none": "Every account is already in this group.",
+      "add_current": "Now in {{group}}",
+      "add_submit": "Add {{count}}",
+      "delete_title": "Delete group",
+      "delete_label": "Delete this group",
+      "delete_help": "Removes the group and its policy.",
+      "delete_action": "Delete group",
+      "delete_confirm_title": "Delete {{name}}?",
+      "delete_confirm_body": "The group and its policy are removed. This can't be undone.",
+      "create_title": "New group",
+      "create_name": "Group name",
+      "create_note": "A new group starts as Self-serve. Set its policy next.",
+      "create_submit": "Create group",
+      "delete_in_use_one": "Move its {{count}} member to another group first.",
+      "delete_in_use_other": "Move its {{count}} members to another group first.",
+      "members_count_one": "{{count}} member",
+      "members_count_other": "{{count}} members"
+    },
+    "org": {
+      "missing_title": "Provided resources are missing",
+      "missing_item": "{{capability}}: {{who}}",
+      "missing_action": "Open Groups",
+      "models": {
+        "title": "AI models",
+        "help": "API keys for accounts whose group provides AI models. Keys are write-only: only the last characters are shown."
+      },
+      "computers": {
+        "title": "Bot computers",
+        "help": "The E2B key for accounts whose group provides a cloud computer. The server VM is set per account under Accounts.",
+        "vm_title": "Server VM",
+        "vm_ready": "This server can run VMs. Size and attach are set per account.",
+        "vm_none": "This server cannot run VMs (no KVM host).",
+        "vm_open": "Open Accounts"
+      },
+      "web": {
+        "title": "Search & fetch",
+        "help": "Search and page-reading sources for accounts whose group provides them, in the order Bots try them."
+      },
+      "compat_name": "OpenAI-compatible endpoint",
+      "endpoint_tag": "Endpoint",
+      "compat_address": "Endpoint address",
+      "compat_key": "API key (optional)",
+      "compat_models_label": "Model IDs",
+      "compat_models": "Models: {{models}}",
+      "compat_note": "Leave the key empty to keep the stored one for the same address. Add model IDs if the endpoint does not list them.",
+      "e2b_name": "E2B cloud computer",
+      "e2b_key": "E2B API key",
+      "e2b_template_label": "Template ID (optional)",
+      "key_note": "The key is stored on the server and is never shown again.",
+      "no_hint": "Key stored",
+      "edit": "Edit",
+      "test": "Test",
+      "test_ok": "Key verified.",
+      "removed": "Removed.",
+      "saved": "{{name}} saved.",
+      "remove_question": "Remove the organization's {{name}} key?",
+      "status": {
+        "verified": "Verified",
+        "stored": "Stored, not verified",
+        "rejected": "Rejected: {{reason}}"
+      },
+      "error": {
+        "generic": "That did not work. Try again.",
+        "invalid_policy": "That policy is not valid.",
+        "group_exists": "A group with that name already exists.",
+        "group_limit": "The group limit is reached.",
+        "group_builtin_readonly": "Built-in groups can't be changed that way.",
+        "group_in_use": "Move the group's members to another group first.",
+        "not_found": "That item no longer exists.",
+        "invalid_key": "The provider rejected this key.",
+        "invalid_workspace": "Enter the Claude Console workspace ID (wrkspc_…).",
+        "invalid_template": "That is not a valid E2B template ID.",
+        "invalid_zone": "Enter a valid zone.",
+        "invalid_base_url": "Enter a valid endpoint address.",
+        "invalid_models": "Check the model IDs.",
+        "invalid_address": "Enter an address that starts with http:// or https://.",
+        "no_models": "No usable models for this key.",
+        "no_quota": "The account has no usage left.",
+        "provider_unreachable": "The provider could not be reached from this server.",
+        "endpoint_not_allowed": "This server may not connect to that address.",
+        "invalid_request": "The request was not valid.",
+        "forbidden": "Administrator access is required.",
+        "storage": "The server could not save this.",
+        "custom_template": "This computer uses a template you supplied. It is never rebuilt."
+      },
+      "missing_accounts_one": "{{count}} account override",
+      "missing_accounts_other": "{{count}} account overrides",
+      "intro": "These keys belong to this server and serve accounts whose group provides them. They are not your personal keys; yours are in Settings › AI Models, Environments and Search & fetch.",
+      "badge": {
+        "verified": "Verified",
+        "stored": "Not verified",
+        "rejected": "Rejected"
+      },
+      "build": {
+        "none": "No computer image is built for version {{version}} yet. It builds when a member first needs a computer, or now with Build now.",
+        "preparing": "Building the computer image, version {{version}}. This takes a few minutes. Members' computers start when it is ready.",
+        "ready": "Computer image ready, version {{version}}.",
+        "failed": "The computer image for version {{version}} failed to build.",
+        "custom": "Custom template {{id}}. Used as supplied and never rebuilt.",
+        "min_version": "Minimum computer image version: {{version}}. Computers on an older image must be upgraded before they run.",
+        "starting": "Starting…",
+        "retry": "Retry build",
+        "start": "Build now",
+        "error": {
+          "generic": "The build failed.",
+          "template_build_failed": "E2B couldn't build the computer image.",
+          "image_missing": "This server build ships no computer image for E2B.",
+          "invalid_key": "E2B rejected the organization's API key. Replace the key.",
+          "e2b_unreachable": "This server can't reach E2B. Retry the build in a moment.",
+          "e2b_limit": "The E2B account limit is reached. Free capacity in E2B, then retry the build.",
+          "template_stale_in_team": "The E2B team already holds a template named tofi-computer-{{version}} whose last build failed, and E2B won't accept a new build on it. Delete that template in the E2B dashboard (the team owner can), then retry the build."
+        }
+      }
+    }
   },
   "connection": {
     "label": "Current server connection",
@@ -1201,7 +1362,8 @@
       "needs_address": "Needs an address",
       "error": "Error",
       "off": "Off",
-      "limit": "Daily limit reached"
+      "limit": "Daily limit reached",
+      "not_provided": "Not provided"
     },
     "test_ok": "Working",
     "test": "Test",
@@ -1236,7 +1398,14 @@
     "limit_fetch": "Fetch calls per source",
     "limit_option": "{{count}} a day",
     "limit_unlimited": "No limit",
-    "used_today": "{{count}} in the last 24 h"
+    "used_today": "{{count}} in the last 24 h",
+    "managed": {
+      "organization": "Organization",
+      "search_provided": "Provided by your organization. Sources and order are read-only.",
+      "fetch_provided": "Provided by your organization. Sources and order are read-only.",
+      "fetch_builtin": "Managed by policy. Bots use the built-in page reader only.",
+      "search_off": "Web search is turned off for this account by policy."
+    }
   },
   "permissionsPage": {
     "heading": "Reviewer",
@@ -1492,6 +1661,71 @@
         "title": "Revoke local execution?",
         "body": "Running commands stop and Bots lose access to the authorized folder. You can authorize a folder again later.",
         "confirm": "Revoke"
+      }
+    }
+  },
+  "policy": {
+    "capability": {
+      "ai_models": {
+        "name": "AI models",
+        "help": "Whose API keys serve the account's Bots."
+      },
+      "computer": {
+        "name": "Bot computer",
+        "help": "Which computer the account's Bots work on."
+      },
+      "web_search": {
+        "name": "Web search",
+        "help": "Whether Bots can search the web, and with whose keys."
+      },
+      "web_fetch": {
+        "name": "Web fetch",
+        "help": "Whether Bots can read pages beyond the built-in reader, and with whose keys."
+      }
+    },
+    "value": {
+      "ai_models": {
+        "own": "Own keys",
+        "provided": "Organization"
+      },
+      "computer": {
+        "host": "Server VM",
+        "own": "Own E2B key",
+        "provided": "Organization",
+        "none": "None"
+      },
+      "web_search": {
+        "own": "Own keys",
+        "provided": "Organization",
+        "off": "Off"
+      },
+      "web_fetch": {
+        "own": "Own keys",
+        "provided": "Organization",
+        "builtin": "Built-in only"
+      }
+    },
+    "source": {
+      "label": "Computer source",
+      "vm": "VM",
+      "e2b": "E2B"
+    },
+    "follows": "Follows group · {{value}}",
+    "overridden": "Overridden · {{value}} (group: {{group}})",
+    "reset": "Reset to group",
+    "member": {
+      "managed": "Managed by policy",
+      "banner_title": "Some resources are provided by your organization",
+      "banner_body": "Your administrator manages some of what Bots use, such as models, search or the Bot computer. Those settings are read-only here.",
+      "banner_action": "Review",
+      "banner_dismiss": "Dismiss",
+      "models": {
+        "title": "Models provided by your organization",
+        "body": "Bots run on your organization's model accounts. API keys and sign-in are managed by your administrator.",
+        "available": "Available",
+        "not_provided": "Not provided",
+        "waiting_title": "Waiting for your administrator",
+        "waiting_body": "Your organization has not provided a model yet. Bots cannot run until an administrator adds one."
       }
     }
   }

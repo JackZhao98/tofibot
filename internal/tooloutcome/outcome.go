@@ -69,6 +69,14 @@ type Outcome struct {
 	// RPCCode its JSON-RPC error code, kept apart from TOFI's wording.
 	RemoteError string `json:"remote_error,omitempty"`
 	RPCCode     int    `json:"rpc_code,omitempty"`
+	// Detail carries a second, finer code under Code (settings_forbidden with
+	// managed_by_organization when policy is why).
+	Detail *Detail `json:"detail,omitempty"`
+}
+
+// Detail is the finer code of an outcome.
+type Detail struct {
+	Code string `json:"code"`
 }
 
 func New(status, code, certainty, message, next string) Outcome {

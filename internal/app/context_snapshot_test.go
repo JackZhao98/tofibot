@@ -276,7 +276,7 @@ func TestContextSnapshotReportsSkippedHistory(t *testing.T) {
 
 func TestContextCaptureKindsAreExtensibleAndUnknownIsLabelled(t *testing.T) {
 	c := newContextCapture()
-	c.markNote(2, "[run context]\nnow\n[/run context]", "")
+	c.markNote(2, "[run context]\nnow\n[/run context]", "", "")
 	pm := []runtime.Message{
 		{Role: "user", Content: "[brand new block]\nbody\n[/brand new block]"},
 		{Role: "user", Content: "[run context]\nnow\n[/run context]\nsay line"},

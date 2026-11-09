@@ -110,7 +110,8 @@
     },
     "fold": "摺疊",
     "fold_aria": "把 Bot 電腦摺成窄欄",
-    "unfold_aria": "顯示 Bot 電腦"
+    "unfold_aria": "顯示 Bot 電腦",
+    "outdated_required": "這台電腦的映像已不再受支援。請在 設定 > 環境 中升級。"
   },
   "remote": {
     "error": {
@@ -518,7 +519,9 @@
       "configure": "設定",
       "use": "設為 Bot 使用",
       "remove": "移除",
-      "disconnect": "中斷連線"
+      "disconnect": "中斷連線",
+      "upgrade": "升級",
+      "details": "詳細資料"
     },
     "more": "{{name}} 的更多操作",
     "attach_title": "Bot 電腦",
@@ -532,7 +535,13 @@
       "sandbox_failed": "E2B 沙盒未能啟動。",
       "guest_unreachable": "電腦沒有回應。",
       "sandbox_gone": "E2B 沙盒已不存在。重試會建立新的。",
-      "token_unreadable": "無法讀取已儲存的金鑰。請重新新增 E2B 金鑰。"
+      "token_unreadable": "無法讀取已儲存的金鑰。請重新新增 E2B 金鑰。",
+      "org_resource_missing": "你的組織尚未配置這台電腦。請聯絡管理員。",
+      "not_ready": "電腦映像尚未就緒。請幾分鐘後重試。",
+      "guest_outdated_required": "這台電腦的映像已不再受支援。請升級後繼續使用。升級會取代這台電腦，其中的檔案將被移除。",
+      "computer_upgrade_failed": "無法升級這台電腦。請重試。",
+      "not_outdated": "這台電腦已是最新。",
+      "computer_busy": "電腦正忙。請在執行中的工作結束後重試。"
     },
     "confirm": {
       "use": {
@@ -549,6 +558,11 @@
         "title": "中斷 {{name}} 的連線？",
         "body": "重新用新配對碼連接前，Bot 無法使用這台 Mac。",
         "action": "中斷連線"
+      },
+      "upgrade": {
+        "title": "升級 {{name}}？",
+        "body": "這台電腦會被替換為依目前映像建立的新電腦。其中的檔案將被移除且無法復原。進行中的工作需先結束。",
+        "action": "升級並移除檔案"
       }
     },
     "cancel": "取消",
@@ -583,7 +597,15 @@
       "copy_aria": "複製指令"
     },
     "configure": {
-      "title": "設定 Bot 電腦"
-    }
+      "title": "設定 Bot 電腦",
+      "provided_title": "Bot 電腦詳細資料"
+    },
+    "provided": "由你的組織提供",
+    "provided_note": "這台 Bot 電腦由你的組織提供，金鑰與映像由管理員管理。",
+    "none_title": "管理員還沒有為你分配 Bot 電腦",
+    "none_body": "分配之前，Bot 不使用電腦運行；你的 Mac 仍可以連線。",
+    "outdated": "有較新的電腦映像。更新會取代這台電腦，其中的檔案將被移除。",
+    "image_preparing": "正在建置電腦映像，需要幾分鐘。",
+    "image_building": "正在建置較新的電腦映像。"
   }
 }

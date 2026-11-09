@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -46,6 +47,21 @@ type State struct {
 	Error           string `json:"error,omitempty"` // E2B's own short message, never a secret
 	// CustomTemplate: the person gave a template they built themselves; Prepare never builds.
 	CustomTemplate bool `json:"custom_template,omitempty"`
+	// SandboxVersion names the template the sandbox was created from: the TOFI
+	// version of a built template, or "custom:<template id>". Empty when the
+	// sandbox was made before this was recorded (it counts as outdated, but usable).
+	SandboxVersion string `json:"sandbox_version,omitempty"`
+
+	// Computed by Status, never stored. TemplatePhase is the template's own phase:
+	// Phase is the computer's, and a template that is being built or failed gates
+	// only the creation of a sandbox, never one that exists.
+	TemplatePhase     string `json:"template_phase,omitempty"`
+	TemplateErrorCode string `json:"template_error_code,omitempty"`
+	// GuestOutdated: the sandbox runs an older image than the template that is
+	// ready now. It stays usable; replacing it (Upgrade) needs the person's consent.
+	GuestOutdated bool `json:"guest_outdated,omitempty"`
+	// GuestOutdatedRequired: the sandbox is below Config.MinGuestVersion and is refused.
+	GuestOutdatedRequired bool `json:"guest_outdated_required,omitempty"`
 }
 
 // Store persists State and the sealed guest token.
@@ -68,6 +84,28 @@ type Config struct {
 	Store       Store
 	Now         func() time.Time
 	HostURL     func(port int, sandboxID, domain string) string
+
+	// The fields below serve a computer whose E2B team belongs to an organization
+	// (the member's workspace never holds the key or builds the template).
+
+	// KeySource replaces APIKey: the key is asked for at each request and never kept.
+	KeySource func(ctx context.Context) (string, error)
+	// TemplateSource gives the template part of the state at each use: the template
+	// is the organization's, so only the sandbox part of State is this provider's own.
+	TemplateSource func(ctx context.Context) (State, error)
+	// SandboxMetadata is added to the sandbox's metadata (account marker).
+	SandboxMetadata map[string]string
+	// OnKeyRejected is told when E2B answers 401 or 403 to a team-level request
+	// (creating a sandbox, a template call) made with the key; usedKey is the key
+	// that request carried, so the owner can ignore an answer to an older key.
+	OnKeyRejected func(usedKey string)
+	// MinGuestVersion, when set, refuses (guest_outdated_required) a sandbox made
+	// from an image older than it until the person upgrades. Empty: not enforced.
+	MinGuestVersion string
+	// OnUsage receives sandbox running time as it accrues.
+	OnUsage func(time.Duration)
+	// Scrub cleans an upstream message further (the organization's key).
+	Scrub func(string) string
 }
 
 // Provider is the E2B Bot computer.
@@ -94,6 +132,8 @@ type Provider struct {
 	infoAt      time.Time
 	infoOK      bool
 	idle        time.Duration // how long E2B lets the sandbox sit idle before it pauses it (SetIdleTimeout)
+	tpl         *State        // the template part from Config.TemplateSource, last read
+	usageFrom   time.Time     // running time before this is reported; zero while not running
 
 	pollEvery   time.Duration
 	healthEvery time.Duration
@@ -113,7 +153,7 @@ func New(cfg Config) (*Provider, error) {
 	if cfg.Store == nil {
 		return nil, errors.New("e2b: store is required")
 	}
-	if strings.TrimSpace(cfg.APIKey) == "" {
+	if strings.TrimSpace(cfg.APIKey) == "" && cfg.KeySource == nil {
 		return nil, errors.New("e2b: api key is required")
 	}
 	if cfg.ID == "" {
@@ -148,7 +188,11 @@ func New(cfg Config) (*Provider, error) {
 		st.Phase = PhaseNone
 	}
 	p := &Provider{cfg: cfg, state: st, pinDomain: pin, idle: cfg.IdleTimeout, pollEvery: 5 * time.Second, healthEvery: time.Second, healthWait: 60 * time.Second}
-	p.api = &api{hc: cfg.HTTP, base: strings.TrimRight(cfg.APIBase, "/"), key: cfg.APIKey, secrets: p.secretValues}
+	p.api = &api{hc: cfg.HTTP, base: strings.TrimRight(cfg.APIBase, "/"), key: cfg.APIKey, keyFn: cfg.KeySource, secrets: p.secretValues, extraScrub: cfg.Scrub}
+	p.api.memberSafe = cfg.TemplateSource != nil
+	if cfg.OnKeyRejected != nil {
+		p.api.onReject = func(_ int, key string) { cfg.OnKeyRejected(key) }
+	}
 	return p, nil
 }
 
@@ -158,14 +202,101 @@ func (p *Provider) Kind() string { return "e2b" }
 func (p *Provider) secretValues() []string {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	return []string{p.token, p.envdToken, p.trafficTok}
+	out := []string{p.token, p.envdToken, p.trafficTok}
+	if p.cfg.TemplateSource != nil && p.tpl != nil {
+		// The organization's template and build belong to the organization: a
+		// member's view of an upstream message never names them.
+		out = append(out, p.tpl.TemplateID, p.tpl.BuildID)
+	}
+	return out
 }
 
-// Status returns the persisted state.
+// Status returns the persisted state. With a TemplateSource the template part
+// is the organization's (read by RefreshTemplate), and a template that is not
+// ready shows as the computer's own phase.
 func (p *Provider) Status() State {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	return p.statusLocked()
+}
+
+func (p *Provider) statusLocked() State {
+	st := p.state
+	tplPhase, tplCode, tplErr := PhaseReady, "", ""
+	if p.tpl != nil {
+		st.TemplateID, st.BuildID, st.TemplateVersion, st.CustomTemplate = p.tpl.TemplateID, p.tpl.BuildID, p.tpl.TemplateVersion, p.tpl.CustomTemplate
+		tplPhase, tplCode, tplErr = p.tpl.Phase, p.tpl.ErrorCode, p.tpl.Error
+	} else if st.Phase == PhaseNone || st.Phase == PhasePreparing || (st.Phase == PhaseFailed && templateFailure(st.ErrorCode)) {
+		// The person's own computer keeps the template's progress in its Phase.
+		tplPhase, tplCode, tplErr = st.Phase, st.ErrorCode, st.Error
+		if st.SandboxID != "" {
+			st.Phase, st.ErrorCode, st.Error = PhaseReady, "", ""
+		}
+	}
+	if tplPhase != PhaseReady && st.SandboxID == "" {
+		// No sandbox yet: the template gates its creation.
+		st.Phase, st.ErrorCode, st.Error = tplPhase, tplCode, tplErr
+	}
+	st.TemplatePhase, st.TemplateErrorCode = tplPhase, tplCode
+	if st.SandboxID != "" {
+		if tplPhase == PhaseReady && st.TemplateID != "" {
+			if ident := templateIdentity(st); ident != "" && st.SandboxVersion != ident {
+				st.GuestOutdated = true
+			}
+		}
+		if min := p.cfg.MinGuestVersion; min != "" && !strings.HasPrefix(st.SandboxVersion, "custom:") && VersionBelow(st.SandboxVersion, min) {
+			st.GuestOutdatedRequired = true
+		}
+	}
+	return st
+}
+
+// templateFailure says whether a failure code belongs to the template, not the sandbox.
+func templateFailure(code string) bool {
+	return code == CodeTemplateBuildFailed || code == CodeImageMissing || code == CodeTemplateStale
+}
+
+// templateIdentity names the template a new sandbox would be made from.
+func templateIdentity(st State) string {
+	if st.CustomTemplate {
+		if st.TemplateID == "" {
+			return ""
+		}
+		// A digest, not the id: the id is the organization's, and the identity is
+		// kept in a member's workspace.
+		sum := sha256.Sum256([]byte(st.TemplateID))
+		return "custom:" + hex.EncodeToString(sum[:6])
+	}
+	return st.TemplateVersion
+}
+
+func (p *Provider) rawState() State {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	return p.state
+}
+
+// RefreshTemplate reads the organization's template state (no-op without a
+// TemplateSource). Every sandbox action does it first, so a build that finished,
+// a new version or a replaced key is seen at the next use.
+func (p *Provider) RefreshTemplate(ctx context.Context) error {
+	if p.cfg.TemplateSource == nil {
+		return nil
+	}
+	t, err := p.cfg.TemplateSource(ctx)
+	if err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return &Error{Code: CodeUnreachable, Message: "the organization's template could not be read"}
+	}
+	p.mu.Lock()
+	if p.tpl == nil || *p.tpl != t {
+		p.infoOK = false
+	}
+	p.tpl = &t
+	p.mu.Unlock()
+	return nil
 }
 
 // update applies fn to the state and persists it.
@@ -226,10 +357,75 @@ func (p *Provider) SetIdleTimeout(ctx context.Context, d time.Duration) error {
 
 func (p *Provider) setRunning(v bool) {
 	p.mu.Lock()
+	was := p.running
 	p.running = v
 	p.infoOK = false
+	now := p.cfg.Now()
+	var d time.Duration
+	switch {
+	case v && !was:
+		p.usageFrom = now
+	case !v && was:
+		d = p.endUsageLocked(now, false)
+	}
 	p.mu.Unlock()
+	p.reportUsage(d)
 }
+
+// Sandbox running time, for whoever pays for the sandbox (Config.OnUsage). It
+// accrues from the moment the sandbox is created or resumed; while it is used
+// the time so far is reported about once a minute (the timeout refresh), and
+// when it stops the rest is. A stop nobody saw (E2B paused it after the idle
+// timeout) ends at the last refresh plus that timeout, not at the time it was noticed.
+
+func (p *Provider) reportUsage(d time.Duration) {
+	if d > 0 && p.cfg.OnUsage != nil {
+		p.cfg.OnUsage(d)
+	}
+}
+
+// endUsageLocked closes the running interval. explicit: the stop was ours (pause, kill).
+func (p *Provider) endUsageLocked(now time.Time, explicit bool) time.Duration {
+	if p.usageFrom.IsZero() {
+		return 0
+	}
+	end := now
+	if !explicit {
+		if limit := p.lastRefresh.Add(p.idle); !p.lastRefresh.IsZero() && limit.Before(end) {
+			end = limit
+		}
+	}
+	from := p.usageFrom
+	p.usageFrom = time.Time{}
+	if !end.After(from) {
+		return 0
+	}
+	return end.Sub(from)
+}
+
+func (p *Provider) endUsage(explicit bool) {
+	p.mu.Lock()
+	d := p.endUsageLocked(p.cfg.Now(), explicit)
+	p.mu.Unlock()
+	p.reportUsage(d)
+}
+
+// accrueUsage reports the running time so far and keeps counting.
+func (p *Provider) accrueUsage() {
+	p.mu.Lock()
+	now := p.cfg.Now()
+	var d time.Duration
+	if !p.usageFrom.IsZero() && now.After(p.usageFrom) {
+		d = now.Sub(p.usageFrom)
+		p.usageFrom = now
+	}
+	p.mu.Unlock()
+	p.reportUsage(d)
+}
+
+// Settle reports the running time of a sandbox that is left running when its
+// owner goes away (the server stops). E2B pauses it after the idle timeout.
+func (p *Provider) Settle() { p.endUsage(false) }
 
 func randomHex(n int) string {
 	b := make([]byte, n)
@@ -261,7 +457,7 @@ func TemplateName(version string) string {
 func (p *Provider) Prepare(ctx context.Context) error {
 	p.prepMu.Lock()
 	defer p.prepMu.Unlock()
-	st := p.Status()
+	st := p.rawState()
 	if st.CustomTemplate && st.TemplateID != "" {
 		if st.Phase != PhaseReady {
 			return p.update(func(s *State) { s.Phase, s.ErrorCode, s.Error = PhaseReady, "", "" })
@@ -274,12 +470,15 @@ func (p *Provider) Prepare(ctx context.Context) error {
 	if st.Phase == PhaseReady && st.TemplateID != "" && st.TemplateVersion == p.cfg.Version {
 		return nil
 	}
-	if st.SandboxID != "" && st.TemplateVersion != p.cfg.Version {
-		// The sandbox belongs to an older template; the next use recreates it.
-		_ = p.Remove(ctx)
-	}
+	// A sandbox of an older template is kept: it reports guest_outdated and the
+	// person decides when to replace it (Upgrade). Its files are never dropped here.
 	_ = p.update(func(s *State) { s.Phase, s.ErrorCode, s.Error = PhasePreparing, "", "" })
 	failed := func(err error, fallback string) error {
+		if errors.Is(ctx.Err(), context.Canceled) {
+			// The server is closing (or the build was replaced): the build is not over, so
+			// the phase stays preparing and the next use resumes it.
+			return ctx.Err()
+		}
 		var e *Error
 		if !errors.As(err, &e) {
 			e = &Error{Code: fallback, Message: describe(err)}
@@ -299,6 +498,11 @@ func (p *Provider) Prepare(ctx context.Context) error {
 		}
 		return failed(err, CodeTemplateBuildFailed)
 	}
+	return p.runBuild(ctx, tpl, failed)
+}
+
+// runBuild starts the build E2B registered and waits for it.
+func (p *Provider) runBuild(ctx context.Context, tpl templateInfo, failed func(error, string) error) error {
 	if !idPattern.MatchString(tpl.TemplateID) || !idPattern.MatchString(tpl.BuildID) {
 		return failed(&Error{Message: "E2B sent an invalid template id"}, CodeTemplateBuildFailed)
 	}
@@ -376,7 +580,23 @@ func (p *Provider) adoptTemplate(ctx context.Context, name string, failed func(e
 		}
 	}
 	if last == nil || !idPattern.MatchString(last.BuildID) || last.Status == "error" {
-		return failed(&Error{Message: "a template named " + name + " exists in your E2B team but has no usable build; delete it in the E2B dashboard and add the key again"}, CodeTemplateBuildFailed)
+		// The newest build of the team's template failed (or there is none): start a
+		// new build on that template. E2B's template API registers a new build on a
+		// team's own template when the name is posted again (the 409 an earlier call
+		// met was a race or an older answer), so one more create is the recovery.
+		tpl, cerr := p.api.createTemplate(ctx, name)
+		if cerr == nil {
+			return p.runBuild(ctx, tpl, failed)
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		var conflict *Error
+		if errors.As(cerr, &conflict) && conflict.Status == http.StatusConflict {
+			// E2B still refuses a new build under the taken name: only the team's owner can clear it.
+			return failed(&Error{Code: CodeTemplateStale, Message: "the E2B team already has a template named " + name + " whose last build failed, and E2B did not accept a new build on it"}, CodeTemplateStale)
+		}
+		return failed(cerr, CodeTemplateBuildFailed)
 	}
 	_ = p.update(func(s *State) { s.TemplateID, s.BuildID = id, last.BuildID })
 	if last.Status == "ready" {
@@ -446,8 +666,13 @@ func (p *Provider) remember(info sandboxInfo) error {
 
 func (p *Provider) forget() {
 	p.mu.Lock()
+	var d time.Duration
+	if p.running {
+		d = p.endUsageLocked(p.cfg.Now(), false)
+	}
 	p.running, p.envdToken, p.trafficTok, p.domain, p.infoOK = false, "", "", "", false
 	p.mu.Unlock()
+	p.reportUsage(d)
 }
 
 type creds struct{ sandbox, domain, traffic, envd, token string }
@@ -659,11 +884,15 @@ func (p *Provider) create(ctx context.Context) error {
 		p.mu.Unlock()
 	}()
 	st := p.Status()
+	version := templateIdentity(st)
+	if version == "" {
+		version = p.cfg.Version
+	}
 	token, err := p.newToken()
 	if err != nil {
 		return err
 	}
-	info, err := p.api.createSandbox(ctx, st.TemplateID, p.idleTimeout(), randomHex(16))
+	info, err := p.api.createSandbox(ctx, st.TemplateID, p.idleTimeout(), randomHex(16), p.cfg.SandboxMetadata)
 	if err != nil {
 		var e *Error
 		if errors.As(err, &e) && (e.Code == CodeInvalidKey || e.Code == CodeSandboxFailed) {
@@ -684,14 +913,14 @@ func (p *Provider) create(ctx context.Context) error {
 	abort := func(err error) error {
 		p.killQuietly(info.SandboxID)
 		p.forget()
-		_ = p.update(func(s *State) { s.SandboxID = "" })
+		_ = p.update(func(s *State) { s.SandboxID, s.SandboxVersion = "", "" })
 		var e *Error
 		if errors.As(err, &e) && e.Code == CodeGuestUnreachable {
 			p.fail(e.Code, e.Message)
 		}
 		return err
 	}
-	if err := p.update(func(s *State) { s.SandboxID = info.SandboxID }); err != nil {
+	if err := p.update(func(s *State) { s.SandboxID, s.SandboxVersion = info.SandboxID, version }); err != nil {
 		return abort(&Error{Code: CodeSandboxFailed, Message: "could not save the sandbox id"})
 	}
 	p.setRunning(true)
@@ -719,12 +948,18 @@ func (p *Provider) create(ctx context.Context) error {
 func (p *Provider) ensure(ctx context.Context) error {
 	p.ensureMu.Lock()
 	defer p.ensureMu.Unlock()
+	if err := p.RefreshTemplate(ctx); err != nil {
+		return err
+	}
 	if err := p.notReady(); err != nil {
 		return err
 	}
 	st := p.Status()
 	if st.SandboxID == "" {
 		return p.create(ctx)
+	}
+	if st.GuestOutdatedRequired {
+		return guestOutdatedRequired()
 	}
 	p.mu.Lock()
 	running, last := p.running, p.lastRefresh
@@ -738,6 +973,7 @@ func (p *Provider) ensure(ctx context.Context) error {
 			p.mu.Lock()
 			p.lastRefresh = p.cfg.Now()
 			p.mu.Unlock()
+			p.accrueUsage()
 			return nil
 		}
 		var e *Error
@@ -781,6 +1017,10 @@ func (p *Provider) ensure(ctx context.Context) error {
 	return nil
 }
 
+func guestOutdatedRequired() error {
+	return &Error{Code: CodeGuestOutdatedRequired, Message: "this computer runs an image that is too old; upgrading replaces it and removes the files on it"}
+}
+
 // gone records that the stored sandbox no longer exists on E2B. Its disk went
 // with it, so no new sandbox is made behind the person's back: the computer
 // shows sandbox_gone and Retry makes a new one.
@@ -789,7 +1029,7 @@ func (p *Provider) gone(id string) error {
 	msg := "the cloud computer no longer exists on E2B; retry makes a new one (its files are gone)"
 	_ = p.update(func(s *State) {
 		if s.SandboxID == id {
-			s.SandboxID = ""
+			s.SandboxID, s.SandboxVersion = "", ""
 		}
 		s.Phase, s.ErrorCode, s.Error = PhaseFailed, CodeSandboxGone, msg
 	})
@@ -809,6 +1049,7 @@ func (p *Provider) Pause(ctx context.Context) error {
 	if err != nil && !(errors.As(err, &e) && e.Status == http.StatusConflict) && !isNotFound(err) {
 		return err
 	}
+	p.endUsage(true)
 	p.setRunning(false)
 	return nil
 }
@@ -817,13 +1058,39 @@ func (p *Provider) Pause(ctx context.Context) error {
 func (p *Provider) Remove(ctx context.Context) error {
 	p.ensureMu.Lock()
 	defer p.ensureMu.Unlock()
+	return p.removeLocked(ctx)
+}
+
+// Upgrade replaces a sandbox of an older image with one of the template that is
+// ready now. It destroys the files on the old one, so it runs only when the
+// person asked (the consent model of sandbox_gone then Retry), and only when the
+// new template is ready: the old computer is never removed for one that cannot
+// be made.
+func (p *Provider) Upgrade(ctx context.Context) error {
+	if err := p.RefreshTemplate(ctx); err != nil {
+		return err
+	}
+	p.ensureMu.Lock()
+	defer p.ensureMu.Unlock()
+	st := p.Status()
+	if st.SandboxID == "" || !st.GuestOutdated {
+		return &Error{Code: CodeNotOutdated, Message: "this computer already runs the current image"}
+	}
+	if err := p.removeLocked(ctx); err != nil {
+		return err
+	}
+	return p.create(ctx)
+}
+
+func (p *Provider) removeLocked(ctx context.Context) error {
 	if id := p.Status().SandboxID; id != "" {
 		if err := p.api.kill(ctx, id); err != nil && !isNotFound(err) {
 			return err
 		}
 	}
+	p.endUsage(true)
 	p.forget()
-	if err := p.update(func(s *State) { s.SandboxID = "" }); err != nil {
+	if err := p.update(func(s *State) { s.SandboxID, s.SandboxVersion = "", "" }); err != nil {
 		return err
 	}
 	p.mu.Lock()
@@ -837,6 +1104,9 @@ func (p *Provider) Remove(ctx context.Context) error {
 // sandbox resumes, a missing one is created. The server's wake route (the
 // person opened the computer window on an asleep computer) relies on that.
 func (p *Provider) Retry(ctx context.Context) error {
+	if err := p.RefreshTemplate(ctx); err != nil {
+		return err
+	}
 	if err := p.clearProblem(ctx); err != nil {
 		return err
 	}
@@ -870,7 +1140,7 @@ func (p *Provider) clearProblem(ctx context.Context) error {
 				return err
 			}
 			p.forget()
-			_ = p.update(func(s *State) { s.SandboxID = "" })
+			_ = p.update(func(s *State) { s.SandboxID, s.SandboxVersion = "", "" })
 		}
 	}
 	if st.Phase == PhaseFailed && st.TemplateID != "" && st.TemplateVersion != "" &&
@@ -902,16 +1172,21 @@ func (p *Provider) Info(ctx context.Context) (computer.Info, error) {
 		return out, nil
 	}
 	creating, running := p.creating, p.running
-	st := p.state
+	p.mu.Unlock()
+	if err := p.RefreshTemplate(ctx); err != nil && ctx.Err() != nil {
+		return computer.Info{}, ctx.Err()
+	}
+	p.mu.Lock()
+	st := p.statusLocked()
 	p.mu.Unlock()
 
-	out := computer.Info{Kind: "e2b", ID: p.cfg.ID, Phase: st.Phase, Hibernation: true, WorkspaceRoot: "/workspace"}
+	out := computer.Info{Kind: "e2b", ID: p.cfg.ID, Phase: st.Phase, Hibernation: true, WorkspaceRoot: "/workspace", GuestOutdated: st.GuestOutdated || st.GuestOutdatedRequired, GuestOutdatedRequired: st.GuestOutdatedRequired}
 	cache := true
 	switch {
 	case creating || st.Phase == PhasePreparing:
 		out.State = "starting"
 	case st.Phase == PhaseFailed:
-		out.State, out.Error = "error", st.Error
+		out.State, out.Error = "error", p.scrubForView(st.Error)
 	case st.Phase != PhaseReady:
 		out.State = "stopped"
 	case st.SandboxID == "":
@@ -923,7 +1198,7 @@ func (p *Provider) Info(ctx context.Context) (computer.Info, error) {
 			gerr := p.gone(st.SandboxID)
 			out.State, out.Error = "error", gerr.(*Error).Message
 		case err != nil:
-			out.State, out.Error = "error", describe(err)
+			out.State, out.Error = "error", p.scrubForView(describe(err))
 			cache = false
 		case detail.State == "running":
 			out.State = "ready"
@@ -935,12 +1210,24 @@ func (p *Provider) Info(ctx context.Context) (computer.Info, error) {
 			p.setRunning(false)
 		}
 	}
+	if st.GuestOutdatedRequired && out.State != "starting" {
+		out.State, out.Error = "error", guestOutdatedRequired().(*Error).Message
+	}
 	if cache {
 		p.mu.Lock()
 		p.info, p.infoAt, p.infoOK = out, p.cfg.Now(), true
 		p.mu.Unlock()
 	}
 	return out, nil
+}
+
+// scrubForView cleans a stored message for what a person sees: the key and, for
+// the organization's computer, its template and build ids.
+func (p *Provider) scrubForView(s string) string {
+	if s == "" {
+		return s
+	}
+	return p.api.scrub(s)
 }
 
 func (p *Provider) mergeGuestInfo(ctx context.Context, out *computer.Info) {

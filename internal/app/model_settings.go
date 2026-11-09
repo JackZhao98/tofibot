@@ -299,7 +299,7 @@ func (s *Server) loadModels(ctx context.Context) ([]ModelOption, string, string)
 	}
 	models := []ModelOption{}
 	var sources, warnings []string
-	if s.codex != nil {
+	if s.codex != nil && !s.aiProvided() {
 		status := s.codex.Status()
 		if status.Connected || status.NeedsReconnect || len(keyed) == 0 {
 			codexModels, source, warning := s.loadCodexModels(ctx)
@@ -532,7 +532,7 @@ func (s *Server) loadModelsCached() []ModelOption {
 		}()
 	}
 	models := []ModelOption{}
-	if s.codex != nil {
+	if s.codex != nil && !s.aiProvided() {
 		s.modelCatalogMu.Lock()
 		codexModels := append([]ModelOption(nil), s.modelCatalog...)
 		s.modelCatalogMu.Unlock()

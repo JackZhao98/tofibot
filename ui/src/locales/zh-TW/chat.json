@@ -170,7 +170,9 @@
     "unavailable": "Bot 電腦暫時無法使用",
     "health_restarting": "Bot 電腦沒有回應 · 正在重新啟動",
     "health_unresponsive": "Bot 電腦沒有回應",
-    "resuming": "正在喚醒 Bot 電腦"
+    "resuming": "正在喚醒 Bot 電腦",
+    "outdated_required": "Bot 電腦映像已不再受支援",
+    "open_environments": "開啟環境"
   },
   "computer_phase": {
     "booting": "啟動虛擬機器",
@@ -570,7 +572,13 @@
     "server_pick": "起始模型",
     "server_connect": "連線",
     "server_failed": "無法連線到該伺服器。請檢查位址後再試。",
-    "server_not_allowed": "此伺服器不允許連線到本機或內網位址。僅伺服器管理員可用；否則需由維運人員在伺服器環境中設定 TOFI_ALLOW_PRIVATE_ENDPOINTS=1 並重新啟動後才可使用。"
+    "server_not_allowed": "此伺服器不允許連線到本機或內網位址。僅伺服器管理員可用；否則需由維運人員在伺服器環境中設定 TOFI_ALLOW_PRIVATE_ENDPOINTS=1 並重新啟動後才可使用。",
+    "provided_title": "模型由你的組織提供",
+    "provided_body": "模型由組織提供，無需連線。",
+    "waiting_heading": "等待模型",
+    "waiting_title": "等待管理員",
+    "waiting_body": "組織還沒有提供模型；管理員新增後，設定會繼續。",
+    "waiting_check": "重新檢查"
   },
   "primary": {
     "badge": "主要助理",
@@ -684,6 +692,7 @@
       "capability_refs": "近期能力引用",
       "schedule_states": "排程狀態",
       "run_context": "執行上下文（時間）",
+      "policy": "組織政策",
       "request_note": "請求附註",
       "scheduled_task": "排程任務",
       "scheduled_order": "較早的排程執行",

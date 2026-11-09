@@ -24,16 +24,16 @@ const LANGS = ["en", "zh-CN", "zh-TW", "ja", "ko", "de", "fr"];
 const TABS = ["general", "connections", "skills", "permissions", "models", "tools", "automation", "computer", "usage", "advanced"];
 // "devices" (Other devices) is merged into Environments: no rail item, its id still routes to the Environments page. Keys sits in the folded group.
 const ADV_TABS = ["allowances", "followups", "keys"];
-const ICONS = {general: "sliders", connections: "plug", skills: "skill", permissions: "shield-check", allowances: "checklist", followups: "bell", devices: "laptop", models: "sparkles", tools: "globe", automation: "workflow", computer: "layers", keys: "key", usage: "progress", advanced: "settings", admin: "group"};
-const NAMES = {general: "General", connections: "Connections", skills: "Skills", permissions: "Permissions", allowances: "Tool rules", followups: "Follow-ups", devices: "Other devices", models: "AI Models", tools: "Search & fetch", automation: "Behavior", computer: "Environments", keys: "Bot computer keys", usage: "Usage", advanced: "Maintenance", admin: "Admin console"};
+const ICONS = {general: "sliders", connections: "plug", skills: "skill", permissions: "shield-check", allowances: "checklist", followups: "bell", devices: "laptop", models: "sparkles", tools: "globe", automation: "workflow", computer: "layers", keys: "key", usage: "progress", advanced: "settings", admin: "group", "admin-groups": "workspace", "admin-resources": "server"};
+const NAMES = {general: "General", connections: "Connections", skills: "Skills", permissions: "Permissions", allowances: "Tool rules", followups: "Follow-ups", devices: "Other devices", models: "AI Models", tools: "Search & fetch", automation: "Behavior", computer: "Environments", keys: "Bot computer keys", usage: "Usage", advanced: "Maintenance", admin: "Accounts", "admin-groups": "Groups", "admin-resources": "Organization resources"};
 
 // ---- Catalog checks (every locale): groups, page names and descriptions are real translations.
 const catalogs = {};
 for (const lang of LANGS) catalogs[lang] = JSON.parse(await readFile(join(ui, "src/locales", lang, "settings.json"), "utf8"));
 for (const lang of LANGS) {
   const shell = catalogs[lang].shell;
-  assert.deepEqual(Object.keys(shell.group).sort(), ["bots", "more", "system", "workspace", "you"], `${lang}: shell.group keys`);
-  assert.deepEqual(Object.keys(shell.page).sort(), [...TABS, ...ADV_TABS, "devices", "admin"].sort(), `${lang}: shell.page keys (no stale tab ids)`);
+  assert.deepEqual(Object.keys(shell.group).sort(), ["admin", "bots", "more", "system", "workspace", "you"], `${lang}: shell.group keys`);
+  assert.deepEqual(Object.keys(shell.page).sort(), [...TABS, ...ADV_TABS, "devices", "admin", "admin-groups", "admin-resources"].sort(), `${lang}: shell.page keys (no stale tab ids)`);
   let sameAsEnglish = 0;
   for (const [id, page] of Object.entries(shell.page)) {
     assert.ok(page.name && page.description, `${lang}: ${id} needs a name and a description`);
@@ -370,6 +370,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
         return json(200, {id: account.id, deleted: true, export: exported});
       }
     }
+    if (path === "/api/admin/groups" && method === "GET") return json(200, [{id: "self_serve", name: "Self-serve", builtin: true, position: 0, member_count: 4, policies: {}}, {id: "provided", name: "Provided", builtin: true, position: 1, member_count: 0, policies: {}}]);
+    if (/^\/api\/admin\/accounts\/[^/]+\/policy$/.test(path)) return json(200, {group: {id: "self_serve", name: "Self-serve"}, overrides: {}, effective: {ai_models: {mode: "own"}, computer: {mode: "host"}, web_search: {mode: "own"}, web_fetch: {mode: "own"}}});
     return json(404, {error: {code: "not_found", message: "not stubbed"}});
   }
   async function open(params = {}, {width = 1440, height = 900, theme = "light", reduced = false, locale = "en-US"} = {}) {
@@ -481,7 +483,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.deepEqual(await railTabs(personal.page), [...TABS, ...ADV_TABS], "personal computers on: still no Other devices item");
     await personal.close();
     const admin = await open({admin: "1"});
-    assert.deepEqual(await railTabs(admin.page), [...TABS, "admin"], "admin tab appears for a multi-account admin");
+    assert.deepEqual(await railTabs(admin.page), [...TABS, "admin", "admin-groups", "admin-resources"], "the Administration group appears for a multi-account admin");
+    assert.deepEqual(await admin.page.$$eval(".settings-tabs .settings-nav-group>p", items => items.map(item => item.textContent)), ["You", "Bots can use", "Workspace", "System", "Administration"], "Administration is its own navigation group, after System");
+    assert.deepEqual(await admin.page.$$eval('.settings-tabs [data-group="admin"] button[data-tab]', items => items.map(item => item.dataset.tab)), ["admin", "admin-groups", "admin-resources"]);
+    assert.equal(await admin.page.locator('.settings-tabs [data-group="system"] [data-tab="admin"]').count(), 0, "Accounts no longer sits in System");
     const adminIcon = await admin.page.locator('.settings-tabs [data-tab="admin"] svg').getAttribute("data-tofi-icon");
     assert.equal(adminIcon, ICONS.admin);
     await admin.close();
@@ -666,7 +671,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(hints.keys, "2", "Keys hint is the number of variables");
     assert.equal(hints.computer, "2", "Environments hint is the number of environments");
     assert.equal(hints.usage, "", "Usage has no hint in Phase 1");
-    assert.deepEqual(await page.$$eval(".settings-mhome .settings-mgroup>p", items => items.map(item => item.textContent)), ["Bots can use", "Workspace", "System"]);
+    assert.deepEqual(await page.$$eval(".settings-mhome .settings-mgroup>p", items => items.map(item => item.textContent)), ["Bots can use", "Workspace", "System", "Administration"], "an administrator sees Administration on the phone list too");
     await page.locator('.settings-mhome [data-tab="models"]').click();
     await settle(page);
     assert.equal(await page.locator(".settings-shell").getAttribute("data-view"), "page");
@@ -715,7 +720,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       const lineHeight = parseFloat(style.lineHeight);
       return {text: label.textContent, ellipsis: style.textOverflow === "ellipsis", clipped: label.scrollWidth > label.clientWidth, lines: Math.round(box.height / lineHeight), inside: box.right <= row.right + 0.5 && box.left >= row.left - 0.5};
     }));
-    assert.equal(report.length, 11);
+    assert.equal(report.length, 13, "ten pages and the three Administration pages");
     for (const item of report) {
       assert.equal(item.ellipsis, false, `${item.text}: no text-overflow ellipsis`);
       assert.equal(item.clipped, false, `${item.text}: scrollWidth <= clientWidth`);
@@ -1154,6 +1159,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await create.getByRole("button", {name: "Create account"}).click();
     await body.locator('.admin-row[data-account="acct_new"]').waitFor();
     assert.match(adminWrites[0], /^POST \/api\/admin\/accounts \{"username":"Nia Example","email":"","password":"synthetic-pass-12345"\}$/);
+    // The row appears with the account list; the disk line follows the capacity read that comes right after it.
+    await page.waitForFunction(() => /Not started · 8 GiB/.test(document.querySelector('.admin-row[data-account="acct_new"]')?.innerText ?? ""));
     assert.match(await text(body.locator('.admin-row[data-account="acct_new"]')), /Awaiting first sign-in.*Not started · 8 GiB/);
     await close();
 
@@ -1451,7 +1458,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       const memberCard = memberDetail.getByTestId("computer-attach");
       await memberCard.getByText("Attached · Running").waitFor({timeout: 15000});
       await memberCard.getByRole("button", {name: "Detach…"}).waitFor();
-      assert.equal(await memberDetail.getByText("Bot computer", {exact: true}).count(), 1, "the member's Computer section is still there");
+      assert.equal(await memberDetail.locator("h4").getByText("Bot computer", {exact: true}).count(), 1, "the member's Computer section is still there (the Overrides row of the same name is not a section heading)");
       assert.equal(await memberDetail.locator(".resource-sheet.is-flush").count(), 1, "the size sliders are rows of the same card");
       assert.equal(await memberCard.locator(".resource-sheet").evaluate(node => getComputedStyle(node).borderTopWidth), "0px", "no card inside the card");
       assert.equal(await memberCard.getByText("State", {exact: true}).count(), 0, "one status line, no State row");

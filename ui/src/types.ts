@@ -410,7 +410,7 @@ export interface Run {
   bot_id: string;
   status: RunStatus;
   error?: string;
-  failure?: { code: "connection_interrupted" | "execution_failed" | "no_final_answer" | "budget_exhausted" | "approval_expired" | "model_unconfigured" | "model_auth_invalid" | "model_quota_exhausted" | "tool_stuck" | "resumed_repeatedly" | "spend_cap_reached"; source: "runtime"; count?: number; message: string };
+  failure?: { code: "connection_interrupted" | "execution_failed" | "no_final_answer" | "budget_exhausted" | "approval_expired" | "model_unconfigured" | "model_auth_invalid" | "model_quota_exhausted" | "org_resource_missing" | "provider_auth_failed" | "provider_quota_exhausted" | "tool_stuck" | "resumed_repeatedly" | "spend_cap_reached"; source: "runtime"; count?: number; message: string };
   stop_reason?: "approval_expired";
   finishing_reason?: "approval_expired";
   parent_run_id?: string;
@@ -463,9 +463,22 @@ export interface ComputerCapability {
   personal_computers?: boolean;
 }
 
+/** One capability of this account as `GET /api/config` reports it: who serves it, never the organization's key. */
+export interface CapabilityView {
+  mode: string;
+  /** `own` the person's resource, `organization` provided by the administrator, `none` off. */
+  source: "own" | "organization" | "none";
+  /** The Bot computer source when provided: `vm` or `e2b`. */
+  via?: "vm" | "e2b" | "";
+}
+export type CapabilityId = "ai_models" | "computer" | "web_search" | "web_fetch";
+export type CapabilitiesView = Record<CapabilityId, CapabilityView>;
+
 export interface Config {
   /** Absent on a server that predates the capability field: treat as a computer being present. */
   computer?: ComputerCapability;
+  /** Organization policy per capability (user groups). Absent on a server without it: everything is the person's own. */
+  capabilities?: CapabilitiesView;
   /** True when any model provider (Codex, OpenAI or Claude) is configured. */
   model_configured: boolean;
   /** True when a transcription credential exists (ChatGPT sign-in, OpenAI key or a server key); the composer mic follows it. */
@@ -495,6 +508,8 @@ export interface ModelProviderStatus {
   /** OpenAI-compatible endpoint only: its base URL and the model IDs typed by hand. */
   base_url?: string;
   models?: string[];
+  /** Whose credential serves the provider. `organization` entries carry no hint, prefix or address. */
+  source?: "own" | "environment" | "organization";
 }
 
 /** What the OpenAI-compatible card sends: the key stays empty to keep the saved one for the same address. */
@@ -550,6 +565,8 @@ export interface WebSourceEntry {
   key_hint?: string;
   zone?: string;
   base_url?: string;
+  /** `organization` when the source is the organization's: it never shows a key, zone or address. Absent otherwise. */
+  source?: string;
   fields?: ("key" | "zone" | "base_url")[];
   testable: boolean;
   tested_at?: string;
@@ -564,6 +581,8 @@ export interface WebToolsView {
   /** Daily cap per paid source; -1 means no cap. */
   limits?: { search: number; fetch: number };
   test?: { id: string; ok: boolean; code: string };
+  /** The policy mode of each chain: `own` is managed by the person; `provided`, `off` and `builtin` are not. */
+  managed?: { search: string; fetch: string };
 }
 
 /** GET /api/search. Offsets are UTF-16 units into the string they belong to (`name` or `snippet`). */

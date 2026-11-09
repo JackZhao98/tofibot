@@ -12,13 +12,15 @@ import { useCodexConnection, type CodexConnection } from "./settings/AppSlots";
 import { TofiIcon as Icon } from "./icons";
 import { CompatCard } from "./CompatProviderCard";
 import { ProviderCost } from "./ProviderCost";
+import { usePolicy } from "./capabilityPolicy";
+import { ProvidedModels } from "./ProvidedModels";
 
 type KeyProvider = "openai" | "anthropic";
 const labels: Record<KeyProvider, string> = {openai: "OpenAI", anthropic: "Claude"};
 const placeholders: Record<KeyProvider, string> = {openai: "sk-…", anthropic: "sk-ant-…"};
 
 /** The stored key as the server describes it: first four and last four characters with dots between, never the whole key. */
-function maskedKey(status?: ModelProviderStatus) {
+export function maskedKey(status?: {key_hint?: string; key_prefix?: string}) {
  if (!status?.key_hint) return "";
  return `${status.key_prefix ?? ""}••••••••${status.key_hint.replace(/^…/, "")}`;
 }
@@ -28,7 +30,12 @@ function maskedKey(status?: ModelProviderStatus) {
  * A card that is set up shows what is set up, masked, with Replace and Remove as small secondary actions; the key input
  * appears only when the person chooses to add or replace a key.
  */
-export function ModelProviders({refreshToken, codexRefresh, onConfigured, onCodexConfigured}: {refreshToken: number; codexRefresh: number; onConfigured: () => void; onCodexConfigured: () => void}) {
+export function ModelProviders(props: {refreshToken: number; codexRefresh: number; onConfigured: () => void; onCodexConfigured: () => void}) {
+ // Provided by the organization: nothing to enter and no ChatGPT sign-in, so this account's own cards are not rendered at all.
+ return usePolicy().provided("ai_models") ? <ProvidedModels refreshToken={props.refreshToken}/> : <OwnModelProviders {...props}/>;
+}
+
+function OwnModelProviders({refreshToken, codexRefresh, onConfigured, onCodexConfigured}: {refreshToken: number; codexRefresh: number; onConfigured: () => void; onCodexConfigured: () => void}) {
  const {t} = useTranslation("settings");
  const [providers, setProviders] = useProviders(refreshToken);
  const codex = useCodexConnection(codexRefresh, onCodexConfigured);
@@ -60,8 +67,8 @@ function useProviders(refreshToken: number) {
 }
 
 /** Heading row shared by every provider card: the name, the one status badge and the method tag. */
-function CardHead({id, title, state, tag}: {id: string; title: string; state: BadgeState; tag?: string}) {
- return <div className="provider-card-head"><h3 id={id}>{title}</h3><span className="provider-card-marks"><StatusBadge state={state}/>{tag && <span className="settings-tag">{tag}</span>}</span></div>;
+export function CardHead({id, title, state, tag, status}: {id: string; title: string; state: BadgeState; tag?: string; /** Replaces the badge's default word. */ status?: string}) {
+ return <div className="provider-card-head"><h3 id={id}>{title}</h3><span className="provider-card-marks"><StatusBadge state={state}>{status}</StatusBadge>{tag && <span className="settings-tag">{tag}</span>}</span></div>;
 }
 
 function verifiedText(status: ModelProviderStatus | undefined, timezone: string, t: TFunction<"settings">) {
@@ -253,7 +260,7 @@ function SwitchMethod({label, question, confirm, onConfirm}: {label: string; que
  </span>;
 }
 
-function formatVerified(value: string, timeZone: string) {
+export function formatVerified(value: string, timeZone: string) {
  const date = new Date(value);
  if (Number.isNaN(date.getTime())) return "";
  try { return date.toLocaleString(intlLocale(), {timeZone, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit"}); }

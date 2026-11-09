@@ -53,6 +53,11 @@ func (r Run) failure() *RunFailure {
 		failure.Message = "Approval expired. This workflow stopped; completed results are retained and uncertain effects require verification."
 		return failure
 	}
+	// A failure caused by an organization credential has a named code and no upstream text.
+	if code := orgFailure(r.Error); code != "" {
+		failure.Code, failure.Message = code, orgFailureMessage(code)
+		return failure
+	}
 	// Model account failures name the account state; provider bodies stay in the audit error.
 	if code, message := modelAccountFailure(errorText, r.Model); code != "" {
 		failure.Code, failure.Message = code, message

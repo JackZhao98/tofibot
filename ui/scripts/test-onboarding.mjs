@@ -59,7 +59,7 @@ async function mockApi(page, state) {
     state.calls.push(`${method} ${path}`);
     if (path === "/api/server-info") return json({ service: "tofi", protocol_version: 1, instance_id: INSTANCE, auth: { mode: "none" } });
     if (path === "/api/preferences") return json({ timezone: "UTC", timezone_configured: true });
-    if (path === "/api/config") return json({ model_configured: state.model, default_model: state.model ? state.modelSettings.model : "", provider: "synthetic" });
+    if (path === "/api/config") { state.configReads = (state.configReads ?? 0) + 1; return json({ model_configured: state.model, default_model: state.model ? state.modelSettings.model : "", provider: "synthetic", ...(state.capabilities ? { capabilities: state.capabilities } : {}) }); }
     if (path === "/api/bots" && method === "GET") return json({ bots: state.bots });
     if (path === "/api/bots" && method === "POST") { const bot = state.makeBot(); state.bots = [bot]; return json(bot, 201); }
     if (path === "/api/conversations") return json({ conversations: state.bots.map(dmFor) });
@@ -685,6 +685,8 @@ try {
     assert.equal(await page.locator("[data-day-one]").count(), 0, "the day-one card does not stack under the chips");
     assert.ok(state.calls.some(call => typeof call === "string" && call.startsWith("GET /api/onboarding/handovers?bot_id=bot_1")), "the list is read for this Bot");
     // Layout: a row of label-wide keys that wraps, left on the chat column with the heading and the bubbles; no card around it.
+    // The block slides in (translate) when it appears: measure at rest, not mid-entry (a 2 px drift made the row check flaky).
+    await chips.evaluate(node => Promise.all(node.getAnimations({ subtree: true }).map(animation => animation.finished)));
     const box = await chips.locator(".handover-chips-grid").boundingBox(), heading = await chips.locator("h2").boundingBox();
     const first = await page.locator(".handover-chip").nth(0).boundingBox(), second = await page.locator(".handover-chip").nth(1).boundingBox(), last = await page.locator(".handover-chip").nth(3).boundingBox();
     assert.ok(Math.abs(first.y - second.y) < 2 && box.width > 300, "the first two keys share a row");
@@ -747,6 +749,47 @@ try {
     assert.equal(await page.locator("[data-handover-chips]").count(), 0);
     await context.close();
     pass("first-run handovers: a finished Bot shows the day-one card, not the chips");
+  }
+
+  // Models provided by the organization (user groups): with one available the model step passes itself on and connects nothing;
+  // without one the step waits for the administrator, with no key field, no ChatGPT sign-in and no dead button.
+  {
+    const capabilities = { ai_models: { mode: "provided", source: "organization" }, computer: { mode: "host", source: "own" }, web_search: { mode: "own", source: "own" }, web_fetch: { mode: "own", source: "own" } };
+    const available = makeServer({ model: true });
+    available.capabilities = capabilities;
+    const first = await open(available);
+    await sheet(first.page).waitFor();
+    // An account that already has a model resumes at the model step, which passes itself on: no welcome, no choices.
+    await first.page.locator(".onb-count", { hasText: "Step 3 of 3" }).waitFor();
+    assert.equal(await first.page.locator(".onb-choice, #onb-key, .onb-keyform").count(), 0, "provided models: nothing to connect is ever shown");
+    assert.ok(available.calls.includes("POST /api/onboarding/first-bot"), "the first Bot is still created when the model step passes itself on");
+    assert.ok(!available.calls.some(call => typeof call === "string" && call.includes("/api/auth/codex")), "no ChatGPT sign-in is started or polled");
+    assert.deepEqual(first.errors, []);
+    await first.context.close();
+
+    const waiting = makeServer({ model: false });
+    waiting.capabilities = capabilities;
+    const second = await open(waiting);
+    await sheet(second.page).waitFor();
+    await second.page.getByRole("button", { name: /set up your crew/ }).click();
+    await second.page.locator(".onb-waiting-admin").waitFor();
+    assert.equal(await second.page.locator(".onb-waiting-admin").getAttribute("data-state"), "org_resource_missing");
+    assert.match(await sheet(second.page).innerText(), /Waiting for your administrator[\s\S]*has not provided a model yet/);
+    assert.equal(await sheet(second.page).locator(".onb-choice, #onb-key, input, textarea").count(), 0, "no input while waiting for the administrator");
+    assert.equal(await second.page.getByRole("button", { name: /ChatGPT|Connect/ }).count(), 0, "no sign-in or connect button");
+    assert.ok((await overflow(second.page)) <= 0);
+    currentShot = "organization-waiting"; await shoot(second.page, "model-step"); currentShot = null;
+    const before = waiting.configReads;
+    await second.page.getByRole("button", { name: "Check again" }).click();
+    await second.page.waitForTimeout(400);
+    assert.ok(waiting.configReads > before, "Check again reads the configuration again");
+    assert.equal(await second.page.locator(".onb-waiting-admin").count(), 1, "still waiting while the administrator has added nothing");
+    waiting.model = true; // the administrator adds a model
+    await second.page.getByRole("button", { name: "Check again" }).click();
+    await second.page.locator(".onb-count", { hasText: "Step 3 of 3" }).waitFor();
+    assert.ok(waiting.calls.includes("POST /api/onboarding/first-bot"));
+    await second.context.close();
+    pass("organization-provided models: the model step passes itself on, or waits for the administrator without a key field or dead button");
   }
 
   // Reduced motion: no transitions or animations; the bubbles and the waiting dot are simply there.

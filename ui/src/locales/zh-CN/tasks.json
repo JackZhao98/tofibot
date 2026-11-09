@@ -13,7 +13,9 @@
       "policy_denied": "此操作未通过安全检查",
       "connection_status": "连接中断，状态待确认",
       "runtime_connection": "连接中断，任务未完成",
-      "unknown_failure": "任务未完成"
+      "unknown_failure": "任务未完成",
+      "org_resource_missing": "等待管理员提供",
+      "org_credential_failed": "组织的模型账户需要处理"
     },
     "action": {
       "open_tools": "查看工具设置",
@@ -128,7 +130,12 @@
     "finishing_results_kept": "正在收尾，已完成结果保留。",
     "stopped_results_kept": "本次工作已停止，已完成结果保留。",
     "completed_steps_kept": "已完成的工具步骤保留在工作过程。",
-    "reply_below": "结果在下方的回复中。"
+    "reply_below": "结果在下方的回复中。",
+    "org_resource_missing": "组织还没有为该账户提供模型。",
+    "org_resource_missing_next": "请管理员添加后再重试。",
+    "org_credential_auth": "组织的模型凭据被拒绝。",
+    "org_credential_quota": "组织的模型账户已达到用量上限。",
+    "org_credential_next": "请管理员检查组织资源。"
   },
   "secondary": {
     "then_provider_busy": "随后模型服务繁忙，任务未完成。",

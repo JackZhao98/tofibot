@@ -23,6 +23,7 @@ import (
 	"github.com/JackZhao98/tofibot/internal/agent"
 	"github.com/JackZhao98/tofibot/internal/codexauth"
 	"github.com/JackZhao98/tofibot/internal/computer"
+	"github.com/JackZhao98/tofibot/internal/computer/e2b"
 	"github.com/JackZhao98/tofibot/internal/extensions"
 	"github.com/JackZhao98/tofibot/internal/provider"
 	"github.com/JackZhao98/tofibot/internal/runtime"
@@ -263,6 +264,20 @@ type Config struct {
 	// SpendSnapshot receives the month's spend and limit after each booked call and limit change (gateway only).
 	SpendSnapshot func(SpendStatus)
 	ComputerUsage func(context.Context) *ComputerUsage
+	// Organization policy (gateway only; docs/design/user-groups.md 4.1). nil
+	// means no policy layer: every capability behaves as "own". Each call reads
+	// live; a workspace never stores an organization credential.
+	OrgPolicy     func(ctx context.Context) (ResolvedPolicy, error)
+	OrgCredential func(ctx context.Context, resource string) (orgSecret, error)
+	OrgUsage      func(ev OrgUsageEvent)
+	// OrgConfig returns the non-secret configuration of an organization
+	// resource (the web-tools order, for one); found is false when none is stored.
+	OrgConfig func(ctx context.Context, resource string) (config json.RawMessage, found bool, err error)
+	// OrgResourceOutcome records that the provider refused an organization credential (code names why).
+	OrgResourceOutcome func(resource, code string)
+	// OrgE2BTemplate is the organization's E2B template state, read at each use of a
+	// provided/e2b computer; it starts the organization's build when this version has none.
+	OrgE2BTemplate func(ctx context.Context) (e2b.State, error)
 }
 type Server struct {
 	// personalComputers is Config.PersonalComputers: the pairing routes answer only when it is set.
@@ -279,7 +294,15 @@ type Server struct {
 	desktopStarting                      atomic.Int32 // desktop.start calls in flight; the computer info reports it as desktop_starting
 	gogStatus                            gogStatusCache
 	accountID                            string
-	accountIsAdmin                       func() bool // nil outside a gateway
+	accountIsAdmin                       func() bool                                       // nil outside a gateway
+	orgPolicy                            func(ctx context.Context) (ResolvedPolicy, error) // Config.OrgPolicy; nil outside a gateway
+	orgCredential                        func(ctx context.Context, resource string) (orgSecret, error)
+	orgUsage                             func(ev OrgUsageEvent)
+	orgConfig                            func(ctx context.Context, resource string) (json.RawMessage, bool, error)
+	orgOutcome                           func(resource, code string)
+	orgE2BTemplate                       func(ctx context.Context) (e2b.State, error)
+	webEndpoints                         map[string]string       // Tests only: redirects a paid web source.
+	orgHTTPClients                       map[string]*http.Client // providerMu; clients that read errors of an organization credential
 	mcpApprovalMu                        sync.Mutex
 	autoReviewProvider                   provider.Provider // Deterministic tests only; production uses the existing Codex adapter.
 	answerGraderProvider                 provider.Provider // Deterministic tests only; production uses the background model.
@@ -3063,7 +3086,7 @@ func NewServer(c Config) (*Server, error) {
 	if savedSettings.ReasoningEffort == "" {
 		savedSettings.ReasoningEffort = "medium"
 	}
-	server := &Server{accountID: c.AccountID, accountIsAdmin: c.AccountIsAdmin, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerFactory: computerFactory, computerSlots: map[string]*computerSlot{}, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}, providerEndpoints: map[string]string{}, envProviderKeys: map[string]string{}, envProviderErrors: map[string]string{}, providerCatalogs: map[string]providerCatalog{}}
+	server := &Server{accountID: c.AccountID, accountIsAdmin: c.AccountIsAdmin, orgPolicy: c.OrgPolicy, orgCredential: c.OrgCredential, orgUsage: c.OrgUsage, orgConfig: c.OrgConfig, orgOutcome: c.OrgResourceOutcome, orgE2BTemplate: c.OrgE2BTemplate, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerFactory: computerFactory, computerSlots: map[string]*computerSlot{}, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}, providerEndpoints: map[string]string{}, envProviderKeys: map[string]string{}, envProviderErrors: map[string]string{}, providerCatalogs: map[string]providerCatalog{}}
 	server.personalComputers = c.PersonalComputers
 	st.storage = storageGate{limit: c.StorageLimit, minFree: c.HostMinFreeBytes}
 	st.spendSnapshot = c.SpendSnapshot
@@ -3209,6 +3232,7 @@ func (s *Server) Close() error {
 	s.stopWaitSweeper()
 	s.stopFileStoreCopier()
 	s.stopStorageReconciler()
+	s.settleOrgE2B()
 	return s.store.Close()
 }
 func (s *Server) Listen() string { return s.listen }
@@ -3392,7 +3416,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	case p == "system/update" || strings.HasPrefix(p, "system/update/"):
 		s.serveSystemUpdate(w, r, strings.TrimPrefix(strings.TrimPrefix(p, "system/update"), "/"))
 	case p == "config":
-		writeJSON(w, 200, map[string]any{"model_configured": s.modelConfigured(), "default_model": s.effectiveDefaultModel(r.Context()), "background_model": s.backgroundModel(backgroundTriage), "provider": s.activeProvider(), "computer": s.computerCapabilities(), "dictation_configured": s.dictationAuthSource() != ""})
+		writeJSON(w, 200, map[string]any{"model_configured": s.modelConfigured(), "default_model": s.effectiveDefaultModel(r.Context()), "background_model": s.backgroundModel(backgroundTriage), "provider": s.activeProvider(), "computer": s.computerCapabilities(), "capabilities": s.capabilitiesView(), "dictation_configured": s.dictationAuthSource() != ""})
 	case p == "computer/capabilities":
 		if r.Method != http.MethodGet {
 			writeErr(w, 405, "method_not_allowed", "use GET")
@@ -3466,6 +3490,8 @@ func (s *Server) codexAuth(w http.ResponseWriter, r *http.Request, path string) 
 			}
 		}
 		writeJSON(w, 200, s.codex.Status())
+	case (path == "/connect" || strings.HasPrefix(path, "/connect/")) && r.Method == http.MethodPost && s.aiProvided():
+		refusePolicy(w, false) // a Codex sign-in is never an organization resource, and not used while models are provided
 	case path == "/connect" && r.Method == http.MethodPost:
 		before := s.codex.Status()
 		x, e := s.codex.Start(r.Context())
@@ -4617,6 +4643,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		return ""
 	}
 	runEngine := engine
+	var orgCall atomic.Bool
 	var onToolCallDelta func(runtime.ToolCallDelta)
 	if sayStream != nil {
 		onToolCallDelta = sayStream.Delta
@@ -4637,6 +4664,8 @@ func (s *Server) execute(c Conversation, r Run) {
 		if err := steeringBoundary(); err != nil {
 			return err
 		}
+		// The credential source of this call, fixed when the call starts (usage follows it).
+		orgCall.Store(s.credentialSource(runtime.ModelProvider(model)) == sourceOrganization)
 		return s.store.checkSpendCap(model, time.Now())
 	}, DrainInbox: drainInbox, BeginStep: s.beginStep(r.ID), BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
 		OnThinking: onThinking, OnRetry: onRetry, OnStreamReset: onStreamReset, OnReviewDraft: onReviewDraft,
@@ -4687,6 +4716,7 @@ func (s *Server) execute(c Conversation, r Run) {
 			if err := s.store.recordModelUsage(r.ID, u); err != nil {
 				log.Printf("[usage] model usage: %v", err)
 			}
+			s.noteOrgModelUseAs(orgCall.Load(), model, u)
 		},
 		OnCompact: func(_, compacted int) {
 			if err := s.store.recordContextCompact(r.ID, compacted); err != nil {
@@ -4750,7 +4780,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		if status == "failed" && r.Kind == runKindTriage && s.routeAfterFailedTriage(c, r, e) {
 			return // an unavailable routing model hands the message to the default member
 		}
-		s.store.SetRunStatus(r.ID, status, e.Error())
+		s.store.SetRunStatus(r.ID, status, s.redactRunError(model, e))
 		if failed, fe := s.store.GetRun(r.ID); fe == nil {
 			_, _ = s.store.Event(c.ID, "run", failed)
 		}
@@ -5071,7 +5101,7 @@ func (s *Server) failRun(c Conversation, r Run, err error) {
 	if r.Kind == runKindTriage && s.routeAfterFailedTriage(c, r, err) {
 		return
 	}
-	if changed, _ := s.store.SetRunStatus(r.ID, "failed", err.Error()); changed {
+	if changed, _ := s.store.SetRunStatus(r.ID, "failed", s.redactRunError(s.runModel(r), err)); changed {
 		if failed, e := s.store.GetRun(r.ID); e == nil {
 			_, _ = s.store.Event(c.ID, "run", failed)
 		}

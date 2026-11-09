@@ -118,6 +118,21 @@
       "sections": [
         "accounts"
       ]
+    },
+    {
+      "id": "admin-groups",
+      "sections": [
+        "policy",
+        "members"
+      ]
+    },
+    {
+      "id": "admin-resources",
+      "sections": [
+        "models",
+        "computers",
+        "web"
+      ]
     }
   ],
   "bot_sections": [

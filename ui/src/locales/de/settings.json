@@ -31,7 +31,8 @@
       "bots": "Bots nutzen",
       "workspace": "Workspace",
       "system": "System",
-      "more": "Erweitert"
+      "more": "Erweitert",
+      "admin": "Verwaltung"
     },
     "page": {
       "general": {
@@ -75,7 +76,7 @@
         "description": "Version, Server, Daten, Debugging und Neu beginnen."
       },
       "admin": {
-        "name": "Admin-Konsole",
+        "name": "Konten",
         "description": "Konten einladen, verwalten und deaktivieren"
       },
       "automation": {
@@ -93,6 +94,14 @@
       "devices": {
         "name": "Weitere Geräte",
         "description": "Einen Mac mit der Tofi-App verbinden"
+      },
+      "admin-groups": {
+        "name": "Gruppen",
+        "description": "Ressourcenrichtlinie für Kontogruppen"
+      },
+      "admin-resources": {
+        "name": "Organisationsressourcen",
+        "description": "Schlüssel, die der Server Gruppen bereitstellt"
       }
     },
     "category": "Einstellungsbereich",
@@ -159,7 +168,8 @@
     "global_description_followers_one": "Bots mit „Global folgen“ verwenden dieses Modell und diesen Denkaufwand; derzeit folgt {{count}} Bot. Neue Bots folgen standardmäßig global.",
     "global_description_followers_other": "Bots mit „Global folgen“ verwenden dieses Modell und diesen Denkaufwand; derzeit folgen {{count}} Bots. Neue Bots folgen standardmäßig global.",
     "global_description_no_followers": "Bots mit „Global folgen“ verwenden dieses Modell und diesen Denkaufwand; derzeit folgt kein Bot. Neue Bots folgen standardmäßig global.",
-    "effort_hint": "Modellstandard: {{effort}}"
+    "effort_hint": "Modellstandard: {{effort}}",
+    "no_models_provided": "Noch keine Modelle verfügbar. Ihre Organisation hat noch keine bereitgestellt. Wenden Sie sich an einen Administrator."
   },
   "effort": {
     "none": "Aus",
@@ -386,7 +396,14 @@
     },
     "accounts": {
       "title": "Konten",
-      "empty": "Noch keine Konten."
+      "empty": "Noch keine Konten.",
+      "group_col": "Gruppe",
+      "group_of": "Gruppe von {{name}}",
+      "select": "{{name}} auswählen",
+      "bulk": "Sammelaktionen",
+      "selected": "{{count}} ausgewählt",
+      "move_n": "{{count}} in Gruppe verschieben …",
+      "clear": "Auswahl aufheben"
     },
     "add": "Konto hinzufügen",
     "open": "{{name}} öffnen",
@@ -479,6 +496,15 @@
         "delete_legacy": "Das ursprüngliche Inhaberkonto und sein Bot-Computer können nicht gelöscht werden.",
         "delete_running": "Das Löschen läuft.",
         "delete_need_deactivate": "Deaktiviere das Konto zuerst. Nur deaktivierte Konten können gelöscht werden."
+      },
+      "group": {
+        "title": "Gruppe",
+        "label": "Gruppe",
+        "help": "Die Gruppe legt die Standardrichtlinie dieses Kontos für Modelle, Bot-Computer, Suche und Abruf fest."
+      },
+      "overrides": {
+        "title": "Überschreibungen",
+        "help": "Jede Fähigkeit folgt der Gruppe, bis hier ein Wert gesetzt wird. Zurücksetzen stellt die Gruppe wieder her."
       }
     },
     "delete": {
@@ -575,7 +601,142 @@
       "resource_configuration_failed": "Die Bot-Computer-Größe konnte nicht angewendet werden. Versuche es erneut.",
       "computer_unavailable": "Der Bot-Computer ist gerade nicht erreichbar. Versuche es gleich noch einmal."
     },
-    "intro_no_computer": "Lege Konten an, bestimme, wer Admin ist, und verwalte die Anmeldung. Mitglieder ändern ihr Startpasswort bei der ersten Anmeldung."
+    "intro_no_computer": "Lege Konten an, bestimme, wer Admin ist, und verwalte die Anmeldung. Mitglieder ändern ihr Startpasswort bei der ersten Anmeldung.",
+    "groups": {
+      "title": "Gruppen",
+      "intro": "Eine Gruppe legt fest, was ihre Konten nutzen: eigene Ressourcen oder die der Organisation. Jedes Konto gehört zu einer Gruppe; Ausnahmen legen Sie am Konto fest.",
+      "unknown": "Gruppe",
+      "loading": "Gruppen werden geladen …",
+      "builtin": "Integriert",
+      "new": "Neue Gruppe",
+      "back": "Gruppen",
+      "name_label": "Name",
+      "rename": "Umbenennen",
+      "policy_title": "Ressourcenrichtlinie",
+      "policy_help": "Änderungen gelten sofort für alle Mitglieder.",
+      "policy_readonly": "Self-serve entspricht dem heutigen Verhalten und ist schreibgeschützt. Legen Sie eine Gruppe an, um die Richtlinie zu ändern.",
+      "saved": "Gespeichert",
+      "resource_missing": "Organisationsressource fehlt.",
+      "open_resources": "Organisationsressourcen öffnen",
+      "members_title": "Mitglieder ({{count}})",
+      "members_self_serve": "Konten, die nie verschoben wurden, sind in Self-serve.",
+      "members_empty": "Keine Mitglieder.",
+      "add_members": "Mitglieder hinzufügen",
+      "add_title": "Mitglieder zu {{name}} hinzufügen",
+      "add_none": "Alle Konten sind bereits in dieser Gruppe.",
+      "add_current": "Derzeit in {{group}}",
+      "add_submit": "{{count}} hinzufügen",
+      "delete_title": "Gruppe löschen",
+      "delete_label": "Diese Gruppe löschen",
+      "delete_help": "Entfernt die Gruppe und ihre Richtlinie.",
+      "delete_action": "Gruppe löschen",
+      "delete_confirm_title": "{{name}} löschen?",
+      "delete_confirm_body": "Die Gruppe und ihre Richtlinie werden entfernt. Das lässt sich nicht rückgängig machen.",
+      "create_title": "Neue Gruppe",
+      "create_name": "Gruppenname",
+      "create_note": "Eine neue Gruppe startet wie Self-serve. Legen Sie danach die Richtlinie fest.",
+      "create_submit": "Gruppe anlegen",
+      "delete_in_use_one": "Verschieben Sie zuerst das {{count}} Mitglied in eine andere Gruppe.",
+      "delete_in_use_other": "Verschieben Sie zuerst die {{count}} Mitglieder in eine andere Gruppe.",
+      "members_count_one": "{{count}} Mitglied",
+      "members_count_other": "{{count}} Mitglieder"
+    },
+    "org": {
+      "missing_title": "Bereitgestellte Ressourcen fehlen",
+      "missing_item": "{{capability}}: {{who}}",
+      "missing_action": "Gruppen öffnen",
+      "models": {
+        "title": "KI-Modelle",
+        "help": "API-Schlüssel für Konten, deren Gruppe KI-Modelle bereitstellt. Schlüssel sind nur schreibbar: angezeigt werden nur die letzten Zeichen."
+      },
+      "computers": {
+        "title": "Bot-Computer",
+        "help": "Der E2B-Schlüssel für Konten, deren Gruppe einen Cloud-Computer bereitstellt. Die Server-VM stellen Sie unter Konten je Konto ein.",
+        "vm_title": "Server-VM",
+        "vm_ready": "Dieser Server kann VMs ausführen. Größe und Anbindung stellen Sie je Konto ein.",
+        "vm_none": "Dieser Server kann keine VMs ausführen (kein KVM-Host).",
+        "vm_open": "Konten öffnen"
+      },
+      "web": {
+        "title": "Suche & Abruf",
+        "help": "Such- und Abrufquellen für Konten, deren Gruppe sie bereitstellt, in der Reihenfolge, in der Bots sie versuchen."
+      },
+      "compat_name": "OpenAI-kompatibler Endpunkt",
+      "endpoint_tag": "Endpunkt",
+      "compat_address": "Endpunktadresse",
+      "compat_key": "API-Schlüssel (optional)",
+      "compat_models_label": "Modell-IDs",
+      "compat_models": "Modelle: {{models}}",
+      "compat_note": "Lassen Sie den Schlüssel leer, um den gespeicherten für dieselbe Adresse zu behalten. Tragen Sie Modell-IDs ein, wenn der Endpunkt sie nicht auflistet.",
+      "e2b_name": "E2B-Cloud-Computer",
+      "e2b_key": "E2B-API-Schlüssel",
+      "e2b_template_label": "Vorlagen-ID (optional)",
+      "key_note": "Der Schlüssel wird auf dem Server gespeichert und nicht erneut angezeigt.",
+      "no_hint": "Schlüssel gespeichert",
+      "edit": "Bearbeiten",
+      "test": "Testen",
+      "test_ok": "Schlüssel geprüft.",
+      "removed": "Entfernt.",
+      "saved": "{{name}} gespeichert.",
+      "remove_question": "Den Organisationsschlüssel für {{name}} entfernen?",
+      "status": {
+        "verified": "Geprüft",
+        "stored": "Gespeichert, nicht geprüft",
+        "rejected": "Abgelehnt: {{reason}}"
+      },
+      "error": {
+        "generic": "Das hat nicht geklappt. Versuchen Sie es erneut.",
+        "invalid_policy": "Diese Richtlinie ist ungültig.",
+        "group_exists": "Eine Gruppe mit diesem Namen existiert bereits.",
+        "group_limit": "Das Gruppenlimit ist erreicht.",
+        "group_builtin_readonly": "Integrierte Gruppen lassen sich so nicht ändern.",
+        "group_in_use": "Verschieben Sie zuerst die Mitglieder in eine andere Gruppe.",
+        "not_found": "Dieser Eintrag existiert nicht mehr.",
+        "invalid_key": "Der Anbieter hat diesen Schlüssel abgelehnt.",
+        "invalid_workspace": "Geben Sie die Workspace-ID der Claude Console ein (wrkspc_…).",
+        "invalid_template": "Das ist keine gültige E2B-Vorlagen-ID.",
+        "invalid_zone": "Geben Sie eine gültige Zone ein.",
+        "invalid_base_url": "Geben Sie eine gültige Endpunktadresse ein.",
+        "invalid_models": "Prüfen Sie die Modell-IDs.",
+        "invalid_address": "Geben Sie eine Adresse mit http:// oder https:// am Anfang ein.",
+        "no_models": "Für diesen Schlüssel gibt es keine nutzbaren Modelle.",
+        "no_quota": "Das Konto hat kein Guthaben mehr.",
+        "provider_unreachable": "Der Anbieter ist von diesem Server aus nicht erreichbar.",
+        "endpoint_not_allowed": "Dieser Server darf sich nicht mit dieser Adresse verbinden.",
+        "invalid_request": "Die Anfrage war ungültig.",
+        "forbidden": "Administratorzugriff ist erforderlich.",
+        "storage": "Der Server konnte dies nicht speichern.",
+        "custom_template": "Dieser Computer nutzt eine von Ihnen gelieferte Vorlage. Sie wird nie neu gebaut."
+      },
+      "missing_accounts_one": "{{count}} Konto-Überschreibung",
+      "missing_accounts_other": "{{count}} Konto-Überschreibungen",
+      "intro": "Diese Schlüssel gehören diesem Server und werden von Konten genutzt, deren Gruppe sie bereitstellt. Es sind nicht Ihre persönlichen Schlüssel; die finden Sie unter Einstellungen › KI-Modelle, Umgebungen und Suche & Abruf.",
+      "badge": {
+        "verified": "Geprüft",
+        "stored": "Nicht geprüft",
+        "rejected": "Abgelehnt"
+      },
+      "build": {
+        "none": "Für Version {{version}} gibt es noch kein Computer-Image. Es wird gebaut, sobald ein Mitglied erstmals einen Computer braucht, oder jetzt mit „Jetzt bauen“.",
+        "preparing": "Das Computer-Image, Version {{version}}, wird gebaut. Das dauert einige Minuten. Die Computer der Mitglieder starten, sobald es fertig ist.",
+        "ready": "Computer-Image bereit, Version {{version}}.",
+        "failed": "Das Computer-Image für Version {{version}} konnte nicht gebaut werden.",
+        "custom": "Eigene Vorlage {{id}}. Wird unverändert verwendet und nie neu gebaut.",
+        "min_version": "Mindestversion des Computer-Images: {{version}}. Computer mit einem älteren Image müssen vor dem Start aktualisiert werden.",
+        "starting": "Wird gestartet …",
+        "retry": "Build wiederholen",
+        "start": "Jetzt bauen",
+        "error": {
+          "generic": "Der Build ist fehlgeschlagen.",
+          "template_build_failed": "E2B konnte das Computer-Image nicht bauen.",
+          "image_missing": "Dieser Server-Build enthält kein Computer-Image für E2B.",
+          "invalid_key": "E2B hat den API-Schlüssel der Organisation abgelehnt. Ersetzen Sie den Schlüssel.",
+          "e2b_unreachable": "Dieser Server erreicht E2B nicht. Wiederholen Sie den Build in einem Moment.",
+          "e2b_limit": "Das Limit des E2B-Kontos ist erreicht. Schaffen Sie in E2B Kapazität und wiederholen Sie dann den Build.",
+          "template_stale_in_team": "Das E2B-Team enthält bereits eine Vorlage namens tofi-computer-{{version}}, deren letzter Build fehlgeschlagen ist, und E2B nimmt darauf keinen neuen Build an. Löschen Sie die Vorlage im E2B-Dashboard (das kann der Team-Inhaber) und wiederholen Sie dann den Build."
+        }
+      }
+    }
   },
   "connection": {
     "label": "Aktuelle Serververbindung",
@@ -1201,7 +1362,8 @@
       "needs_address": "Adresse nötig",
       "error": "Fehler",
       "off": "Aus",
-      "limit": "Tageslimit erreicht"
+      "limit": "Tageslimit erreicht",
+      "not_provided": "Nicht bereitgestellt"
     },
     "test_ok": "Funktioniert",
     "test": "Testen",
@@ -1236,7 +1398,14 @@
     "limit_fetch": "Abrufe pro Quelle",
     "limit_option": "{{count}} pro Tag",
     "limit_unlimited": "Kein Limit",
-    "used_today": "{{count}} in den letzten 24 Std."
+    "used_today": "{{count}} in den letzten 24 Std.",
+    "managed": {
+      "organization": "Organisation",
+      "search_provided": "Von Ihrer Organisation bereitgestellt. Quellen und Reihenfolge sind schreibgeschützt.",
+      "fetch_provided": "Von Ihrer Organisation bereitgestellt. Quellen und Reihenfolge sind schreibgeschützt.",
+      "fetch_builtin": "Per Richtlinie verwaltet. Bots nutzen nur den eingebauten Seitenleser.",
+      "search_off": "Die Websuche ist für dieses Konto per Richtlinie ausgeschaltet."
+    }
   },
   "permissionsPage": {
     "heading": "Prüfer",
@@ -1492,6 +1661,71 @@
         "title": "Lokale Ausführung widerrufen?",
         "body": "Laufende Befehle werden beendet, und Bots verlieren den Zugriff auf den freigegebenen Ordner. Du kannst später erneut freigeben.",
         "confirm": "Widerrufen"
+      }
+    }
+  },
+  "policy": {
+    "capability": {
+      "ai_models": {
+        "name": "KI-Modelle",
+        "help": "Wessen API-Schlüssel die Bots des Kontos nutzen."
+      },
+      "computer": {
+        "name": "Bot-Computer",
+        "help": "Auf welchem Computer die Bots des Kontos arbeiten."
+      },
+      "web_search": {
+        "name": "Websuche",
+        "help": "Ob Bots im Web suchen dürfen und mit wessen Schlüsseln."
+      },
+      "web_fetch": {
+        "name": "Webabruf",
+        "help": "Ob Bots über den eingebauten Leser hinaus Seiten abrufen dürfen und mit wessen Schlüsseln."
+      }
+    },
+    "value": {
+      "ai_models": {
+        "own": "Eigene Schlüssel",
+        "provided": "Organisation"
+      },
+      "computer": {
+        "host": "Server-VM",
+        "own": "Eigener E2B-Schlüssel",
+        "provided": "Organisation",
+        "none": "Keiner"
+      },
+      "web_search": {
+        "own": "Eigene Schlüssel",
+        "provided": "Organisation",
+        "off": "Aus"
+      },
+      "web_fetch": {
+        "own": "Eigene Schlüssel",
+        "provided": "Organisation",
+        "builtin": "Nur integriert"
+      }
+    },
+    "source": {
+      "label": "Computerquelle",
+      "vm": "VM",
+      "e2b": "E2B"
+    },
+    "follows": "Folgt der Gruppe · {{value}}",
+    "overridden": "Überschrieben · {{value}} (Gruppe: {{group}})",
+    "reset": "Auf Gruppe zurücksetzen",
+    "member": {
+      "managed": "Per Richtlinie verwaltet",
+      "banner_title": "Einige Ressourcen stellt Ihre Organisation bereit",
+      "banner_body": "Ihr Administrator verwaltet einen Teil dessen, was Bots nutzen, etwa Modelle, Suche oder den Bot-Computer. Diese Einstellungen sind hier schreibgeschützt.",
+      "banner_action": "Ansehen",
+      "banner_dismiss": "Ausblenden",
+      "models": {
+        "title": "Modelle stellt Ihre Organisation bereit",
+        "body": "Bots laufen über die Modellkonten Ihrer Organisation. API-Schlüssel und Anmeldung verwaltet Ihr Administrator.",
+        "available": "Verfügbar",
+        "not_provided": "Nicht bereitgestellt",
+        "waiting_title": "Warten auf Ihren Administrator",
+        "waiting_body": "Ihre Organisation hat noch kein Modell bereitgestellt. Bots laufen erst, wenn ein Administrator eines hinzufügt."
       }
     }
   }

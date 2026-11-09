@@ -140,6 +140,8 @@ var settingsTabPages = []settingsPage{
 	{"usage", "settings:shell.page.usage.name", []string{"health", "spend", "usage"}},
 	{"advanced", "settings:shell.page.advanced.name", []string{"version", "server", "data", "changes", "debug", "danger"}},
 	{"admin", "settings:shell.page.admin.name", []string{"accounts"}},
+	{"admin-groups", "settings:shell.page.admin-groups.name", []string{"policy", "members"}},
+	{"admin-resources", "settings:shell.page.admin-resources.name", []string{"models", "computers", "web"}},
 }
 
 var botSettingsPages = []settingsPage{

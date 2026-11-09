@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -65,6 +66,8 @@ type e2bEnvironment struct {
 	// when a new key or a removal replaces that provider.
 	preparing *e2b.Provider
 	cancel    context.CancelFunc
+	// orgProvider is the organization's E2B computer under provided/e2b (org_e2b.go).
+	orgProvider *e2b.Provider
 }
 
 // stopE2BPrepare cancels a running template build. Caller holds e2bEnv.mu.
@@ -215,6 +218,11 @@ func e2bImage() string {
 	return e2bDefaultImageRepo + ":" + Version + "-e2b"
 }
 
+// e2bMinGuestVersion is the oldest guest image a sandbox may run
+// (TOFI_E2B_MIN_GUEST_VERSION); empty, the default, enforces nothing. A sandbox
+// below it is refused (guest_outdated_required) until its owner upgrades it.
+func e2bMinGuestVersion() string { return strings.TrimSpace(os.Getenv("TOFI_E2B_MIN_GUEST_VERSION")) }
+
 func e2bAPIBase() string { return strings.TrimSpace(os.Getenv("TOFI_E2B_API_BASE")) }
 
 func e2bTemplateVersion() string {
@@ -227,13 +235,16 @@ func e2bTemplateVersion() string {
 
 func (s *Server) newE2BProvider(key string) (*e2b.Provider, error) {
 	return e2b.New(e2b.Config{
-		ID:          computer.DefaultID,
-		APIKey:      key,
-		APIBase:     e2bAPIBase(),
-		Image:       e2bImage(),
-		Version:     e2bTemplateVersion(),
-		Store:       e2bStore{s},
-		IdleTimeout: s.e2bIdleTimeout(),
+		ID:              computer.DefaultID,
+		APIKey:          key,
+		APIBase:         e2bAPIBase(),
+		Image:           e2bImage(),
+		Version:         e2bTemplateVersion(),
+		MinGuestVersion: e2bMinGuestVersion(),
+		Store:           e2bStore{s},
+		IdleTimeout:     s.e2bIdleTimeout(),
+		HostURL:         e2bHostURL,
+		Now:             e2bNow,
 	})
 }
 
@@ -253,25 +264,34 @@ func (s *Server) e2bIdleTimeout() time.Duration {
 // sandbox gets the new timeout now, a paused one when it resumes.
 func (s *Server) applyE2BIdleTimeout() {
 	s.e2bEnv.mu.Lock()
-	p := s.e2bEnv.provider
+	providers := []*e2b.Provider{s.e2bEnv.provider, s.e2bEnv.orgProvider}
 	s.e2bEnv.mu.Unlock()
-	if p == nil {
-		return
-	}
 	d := s.e2bIdleTimeout()
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		if err := p.SetIdleTimeout(ctx, d); err != nil {
-			log.Printf("[environments] E2B idle timeout: %s", e2bErrorCode(err))
+	for _, p := range providers {
+		if p == nil {
+			continue
 		}
-	}()
+		go func(p *e2b.Provider) {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			if err := p.SetIdleTimeout(ctx, d); err != nil {
+				log.Printf("[environments] E2B idle timeout: %s", e2bErrorCode(err))
+			}
+		}(p)
+	}
 }
 
 // computerSleeper is a computer the person can turn off from its power button:
 // today the E2B computer, whose off is E2B's pause.
 type computerSleeper interface {
 	Pause(ctx context.Context) error
+}
+
+// computerUpgrader is a computer whose image can be replaced by the person's
+// explicit action (the E2B computer: Upgrade removes the sandbox and its files and
+// makes a new one from the current template).
+type computerUpgrader interface {
+	Upgrade(ctx context.Context) error
 }
 
 // canSleep reports that the attached computer has a power button.
@@ -379,6 +399,23 @@ func (s *Server) attachProvider(p computer.Provider) error {
 // restoreE2BEnvironment runs at start-up after the vault opens. preferE2B is
 // the stored choice; start-up did not attach the VM when it is set.
 func (s *Server) restoreE2BEnvironment(preferE2B bool) {
+	if v := s.policy()[capComputer]; computerUsesOrgE2B(v) {
+		// The organization's computer: attached whatever the stored choice says. A
+		// missing organization key or a failed build shows as a named error on it.
+		if s.computer() == nil {
+			if err := s.attachOrgE2B(); err != nil {
+				log.Printf("[environments] attach the organization E2B computer for account %s: %v", s.accountID, err)
+			}
+		}
+		return
+	} else if !computerAllowsOwnE2B(v) {
+		// The policy gives this account no E2B computer of its own. A stored choice
+		// of one must not leave a VM-allowed account without its VM.
+		if preferE2B && computerAllowsVM(v) {
+			s.fallBackToVM("the policy gives no computer of its own")
+		}
+		return
+	}
 	p := s.e2bCurrent()
 	if p == nil {
 		if preferE2B {
@@ -388,7 +425,7 @@ func (s *Server) restoreE2BEnvironment(preferE2B bool) {
 	}
 	st := p.Status()
 	switch {
-	case st.Phase == e2b.PhasePreparing || st.Phase == e2b.PhaseNone:
+	case st.TemplatePhase == e2b.PhasePreparing || st.TemplatePhase == e2b.PhaseNone:
 		// A build cut short by the restart: run it again.
 		s.startE2BPrepare(p, preferE2B)
 	case preferE2B && s.computer() == nil:
@@ -428,6 +465,9 @@ type environmentItem struct {
 	BotComputer bool     `json:"bot_computer"`
 	Access      string   `json:"access"`
 	Actions     []string `json:"actions"`
+	// GuestOutdated: the computer runs an older image than the current one. It
+	// works; the "upgrade" action replaces it and removes its files.
+	GuestOutdated bool `json:"guest_outdated,omitempty"`
 }
 
 type environmentsAdd struct {
@@ -442,12 +482,18 @@ type e2bView struct {
 	Phase      string `json:"phase"`
 	ErrorCode  string `json:"error_code,omitempty"`
 	Error      string `json:"error,omitempty"`
+	// TemplatePhase is the image's own phase (none, preparing, ready, failed);
+	// Phase is the computer's. An image being built blocks only a new computer.
+	TemplatePhase string `json:"template_phase,omitempty"`
+	GuestOutdated bool   `json:"guest_outdated,omitempty"`
 }
 
 type environmentsView struct {
 	Environments []environmentItem `json:"environments"`
 	Add          environmentsAdd   `json:"add"`
 	E2B          e2bView           `json:"e2b"`
+	// Policy is the account's computer policy: whose Bot computer this is.
+	Policy capabilityView `json:"policy"`
 }
 
 // environmentState maps a computer state to the words the page shows.
@@ -477,7 +523,14 @@ func (s *Server) accountAdmin() bool {
 }
 
 func (s *Server) environmentsView(ctx context.Context) environmentsView {
-	out := environmentsView{Environments: []environmentItem{}}
+	out := environmentsView{Environments: []environmentItem{}, Policy: s.capabilitiesView()[capComputer]}
+	if computerUsesOrgE2B(s.policy()[capComputer]) {
+		// The organization's computer is the only one listed: no own key, no choice, no add.
+		s.orgE2BEnvironmentView(ctx, &out)
+		s.appendPairedMacs(ctx, &out)
+		out.Add.Mac = s.personalComputers
+		return out
+	}
 	cur := s.computer()
 
 	// The VM: attached, or set aside by the person for the E2B computer.
@@ -511,8 +564,8 @@ func (s *Server) environmentsView(ctx context.Context) environmentsView {
 		if preparing && phase != "ready" {
 			phase = "preparing"
 		}
-		out.E2B = e2bView{Configured: true, KeyHint: rec.Label, Phase: phase, ErrorCode: st.ErrorCode, Error: st.Error}
-		item := environmentItem{ID: e2bEnvironmentID, Kind: envKindE2B, State: "asleep", ErrorCode: st.ErrorCode, Access: "none", Actions: []string{}}
+		out.E2B = e2bView{Configured: true, KeyHint: rec.Label, Phase: phase, ErrorCode: st.ErrorCode, Error: st.Error, TemplatePhase: st.TemplatePhase, GuestOutdated: st.GuestOutdated || st.GuestOutdatedRequired}
+		item := environmentItem{ID: e2bEnvironmentID, Kind: envKindE2B, State: "asleep", ErrorCode: st.ErrorCode, Access: "none", Actions: []string{}, GuestOutdated: out.E2B.GuestOutdated}
 		switch {
 		case phase == "preparing" || phase == "none":
 			item.State = "preparing"
@@ -522,12 +575,19 @@ func (s *Server) environmentsView(ctx context.Context) environmentsView {
 			item.BotComputer, item.Access = true, "all_bots"
 			if info, err := s.microVMInfo(ctx); err == nil {
 				item.State = environmentState(info.State)
-				if info.State == "error" {
+				if info.State == "error" && !st.GuestOutdatedRequired {
 					item.Actions = append(item.Actions, "retry")
 				}
 			}
 		default:
 			item.Actions = append(item.Actions, "use")
+		}
+		if st.GuestOutdatedRequired {
+			item.ErrorCode = e2b.CodeGuestOutdatedRequired
+			item.State = "failed"
+		}
+		if out.E2B.GuestOutdated {
+			item.Actions = append(item.Actions, "upgrade")
 		}
 		item.Actions = append(item.Actions, "remove")
 		// The Bot computer is listed first.
@@ -540,19 +600,7 @@ func (s *Server) environmentsView(ctx context.Context) environmentsView {
 		out.E2B = e2bView{Phase: "none"}
 	}
 
-	// Paired Macs.
-	if items, err := s.listComputers(ctx); err == nil {
-		for _, c := range items {
-			if c.Kind != computer.RowKindPersonal {
-				continue
-			}
-			state := "offline"
-			if c.Online {
-				state = "online"
-			}
-			out.Environments = append(out.Environments, environmentItem{ID: c.ID, Kind: envKindMac, Name: c.Name, State: state, Platform: c.Platform, LastSeen: c.LastSeen, Access: "allowed_on_mac", Actions: []string{"disconnect"}})
-		}
-	}
+	s.appendPairedMacs(ctx, &out)
 
 	out.Add.E2B = p == nil || out.E2B.Phase == "failed"
 	if out.Add.E2B && e2bImage() == "" {
@@ -562,7 +610,32 @@ func (s *Server) environmentsView(ctx context.Context) environmentsView {
 	if cur == nil && s.computerFactory == nil && s.accountAdmin() {
 		out.Add.VMCommand = "sudo tofi computer add kvm"
 	}
+	if v := s.policy()[capComputer]; !computerAllowsOwnE2B(v) {
+		// Managed by the organization (or none): no way to add or remove a computer here.
+		out.Add.E2B, out.Add.VMCommand = false, ""
+		for i := range out.Environments {
+			out.Environments[i].Actions = slices.DeleteFunc(out.Environments[i].Actions, func(a string) bool { return a == "use" || a == "remove" })
+		}
+	}
 	return out
+}
+
+// appendPairedMacs lists the paired Macs (decided on the Mac, not by the policy).
+func (s *Server) appendPairedMacs(ctx context.Context, out *environmentsView) {
+	items, err := s.listComputers(ctx)
+	if err != nil {
+		return
+	}
+	for _, c := range items {
+		if c.Kind != computer.RowKindPersonal {
+			continue
+		}
+		state := "offline"
+		if c.Online {
+			state = "online"
+		}
+		out.Environments = append(out.Environments, environmentItem{ID: c.ID, Kind: envKindMac, Name: c.Name, State: state, Platform: c.Platform, LastSeen: c.LastSeen, Access: "allowed_on_mac", Actions: []string{"disconnect"}})
+	}
 }
 
 func (s *Server) routeEnvironments(w http.ResponseWriter, r *http.Request, p string) bool {
@@ -590,7 +663,24 @@ func (s *Server) routeEnvironments(w http.ResponseWriter, r *http.Request, p str
 	return true
 }
 
+// computerPolicyRefusal refuses a write to the person's own computers while the
+// policy gives none (capability_off) or provides them (managed_by_organization).
+func (s *Server) computerPolicyRefusal(w http.ResponseWriter) bool {
+	switch v := s.policy()[capComputer]; {
+	case computerAllowsOwnE2B(v):
+		return false
+	case v.Mode == policyModeProvided:
+		refusePolicy(w, false)
+	default:
+		refusePolicy(w, true)
+	}
+	return true
+}
+
 func (s *Server) putE2BKey(w http.ResponseWriter, r *http.Request) {
+	if s.computerPolicyRefusal(w) {
+		return
+	}
 	var body struct {
 		APIKey     string `json:"api_key"`
 		TemplateID string `json:"template_id"`
@@ -681,6 +771,9 @@ func (s *Server) putE2BKey(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) removeE2B(w http.ResponseWriter, r *http.Request) {
+	if s.computerPolicyRefusal(w) {
+		return
+	}
 	wasBotComputer := s.botComputerIsE2B()
 	if wasBotComputer {
 		if _, err := s.DetachVM(r.Context(), detachWaitDefault); err != nil && !errors.Is(err, errComputerNone) {
@@ -733,6 +826,10 @@ func (s *Server) removeE2B(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) useEnvironment(w http.ResponseWriter, r *http.Request, id string) {
+	if v := s.policy()[capComputer]; v.Mode == "none" || v.Mode == policyModeProvided || (v.Mode == policyModeOwn && id != e2bEnvironmentID) {
+		refusePolicy(w, v.Mode != policyModeProvided)
+		return
+	}
 	cur := s.computer()
 	switch id {
 	case e2bEnvironmentID:

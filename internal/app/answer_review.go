@@ -218,15 +218,17 @@ func (s *Server) gradeAnswer(ctx context.Context, p provider.Provider, model, ru
 		return ""
 	}
 	var err error
+	org := s.credentialSource(runtime.ModelProvider(model)) == sourceOrganization
 	resp, err := p.Chat(ctx, &provider.ChatRequest{Model: model, ReasoningEffort: "low", System: answerGraderSystem,
 		Messages: []provider.Message{{Role: "user", Content: graderInput(pm, draft, s.store.filesAttachedToRun(runID), quiet)}}})
 	if resp != nil {
 		if e := s.store.recordAuxiliaryModelUsage(runID, model, resp.Usage.InputTokens, resp.Usage.OutputTokens); e != nil {
 			log.Printf("[usage] answer grader usage for run %s: %v", runID, e)
 		}
+		s.noteOrgModelUseAs(org, model, resp.Usage)
 	}
 	if err != nil || resp == nil || len(resp.ToolCalls) != 0 {
-		log.Printf("[answer-grade] run=%s model=%s iteration=%d failed latency_ms=%d err=%v", runID, model, iteration, time.Since(started).Milliseconds(), err)
+		log.Printf("[answer-grade] run=%s model=%s iteration=%d failed latency_ms=%d err=%v", runID, model, iteration, time.Since(started).Milliseconds(), s.redactErrOrNil(model, err))
 		return ""
 	}
 	criteria := rubricCriteria(answerRubric)

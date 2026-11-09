@@ -171,7 +171,9 @@
     "unavailable": "Bot computer unavailable",
     "health_restarting": "Bot computer stopped responding · restarting",
     "health_unresponsive": "Bot computer isn't responding",
-    "resuming": "Waking Bot computer"
+    "resuming": "Waking Bot computer",
+    "outdated_required": "Bot computer image no longer supported",
+    "open_environments": "Open Environments"
   },
   "computer_phase": {
     "booting": "Starting VM",
@@ -583,7 +585,13 @@
     "server_pick": "Model to start with",
     "server_connect": "Connect",
     "server_failed": "Couldn't connect to that server. Check the address and try again.",
-    "server_not_allowed": "This server may not connect to a local or private address. Only a server Admin can use one; otherwise the operator must set TOFI_ALLOW_PRIVATE_ENDPOINTS=1 in the server environment, then restart."
+    "server_not_allowed": "This server may not connect to a local or private address. Only a server Admin can use one; otherwise the operator must set TOFI_ALLOW_PRIVATE_ENDPOINTS=1 in the server environment, then restart.",
+    "provided_title": "Models provided by your organization",
+    "provided_body": "Your organization provides the models, so there is nothing to connect.",
+    "waiting_heading": "Waiting for models",
+    "waiting_title": "Waiting for your administrator",
+    "waiting_body": "Your organization has not provided a model yet. Setup continues once an administrator adds one.",
+    "waiting_check": "Check again"
   },
   "primary": {
     "badge": "Primary",
@@ -700,6 +708,7 @@
       "capability_refs": "Recent capability references",
       "schedule_states": "Schedule states",
       "run_context": "Run context (time)",
+      "policy": "Organization policy",
       "request_note": "Request note",
       "scheduled_task": "Scheduled task",
       "scheduled_order": "Earlier scheduled runs",

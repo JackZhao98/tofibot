@@ -9,6 +9,8 @@ export type AdminAccount = {
   role: "admin" | "user";
   disabled: boolean;
   must_change_password: boolean;
+  /** The account's group (the self-serve group when it has no membership row). */
+  group?: {id: string; name: string};
   deleting?: boolean;
   delete_step?: string;
   delete_error?: string;

@@ -62,7 +62,7 @@ func Term(lang, key string) string {
 	return key
 }
 
-var uiPattern = regexp.MustCompile(`\{\{ui:([a-z]+:[A-Za-z0-9_.]+)\}\}`)
+var uiPattern = regexp.MustCompile(`\{\{ui:([a-z]+:[A-Za-z0-9_.-]+)\}\}`)
 
 // Localize puts the person's words for every {{ui:key}} placeholder into text.
 func Localize(lang, text string) string {

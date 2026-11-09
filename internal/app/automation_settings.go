@@ -347,7 +347,7 @@ func (s *Server) webSearchEnabled() bool { return s.autoBool(autoWebSearch) }
 
 // searchUses is webSearchMaxUses behind the stored switch.
 func (s *Server) searchUses(model string, tools []Tool) int {
-	if !s.webSearchEnabled() {
+	if !s.webSearchAllowed() {
 		return 0
 	}
 	return webSearchMaxUses(model, tools)
@@ -355,7 +355,8 @@ func (s *Server) searchUses(model string, tools []Tool) int {
 
 // fetchUses is webFetchMaxUses behind the same stored switch as search.
 func (s *Server) fetchUses(model string, tools []Tool) int {
-	if !s.webSearchEnabled() {
+	// builtin leaves only the built-in fetcher, so the model's own page reader is off too.
+	if !s.webSearchEnabled() || s.webMode(webChainFetch) == "builtin" {
 		return 0
 	}
 	return webFetchMaxUses(model, tools)

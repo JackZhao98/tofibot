@@ -54,6 +54,15 @@ type anthropicProvider struct {
 	apiKey  string
 	baseURL string
 	headers map[string]string
+	// httpClient is the caller's client (WithHTTPClient); nil keeps the plain default.
+	httpClient *http.Client
+}
+
+func (a *anthropicProvider) client() *http.Client {
+	if a.httpClient != nil {
+		return a.httpClient
+	}
+	return &http.Client{}
 }
 
 func newAnthropic(apiKey string, cfg *providerConfig) (Provider, error) {
@@ -75,7 +84,7 @@ func newAnthropic(apiKey string, cfg *providerConfig) (Provider, error) {
 		}
 		headers = merged
 	}
-	return &anthropicProvider{apiKey: apiKey, baseURL: baseURL, headers: headers}, nil
+	return &anthropicProvider{apiKey: apiKey, baseURL: baseURL, headers: headers, httpClient: cfg.HTTPClient}, nil
 }
 
 // Chat aggregates a streamed response.
@@ -182,7 +191,7 @@ func (a *anthropicProvider) stream(ctx context.Context, req *ChatRequest, onDelt
 		}
 		return httpReq, nil
 	}
-	resp, err := streamWithWatchdogs(ctx, "anthropic", build, func(r io.Reader) (*ChatResponse, error) {
+	resp, err := streamWithWatchdogs(ctx, "anthropic", a.client(), build, func(r io.Reader) (*ChatResponse, error) {
 		return parseAnthropicStream(r, onDelta)
 	})
 	return resp, codeRequestRejection(err)
@@ -191,7 +200,7 @@ func (a *anthropicProvider) stream(ctx context.Context, req *ChatRequest, onDelt
 // streamWithWatchdogs runs one streaming POST under the shared idle and wall
 // watchdogs (streamIdleTimeout covers the header wait too) and maps their
 // aborts to StreamIdleError / StreamWallCapError.
-func streamWithWatchdogs(ctx context.Context, providerName string, build func(context.Context) (*http.Request, error), parse func(io.Reader) (*ChatResponse, error)) (*ChatResponse, error) {
+func streamWithWatchdogs(ctx context.Context, providerName string, client *http.Client, build func(context.Context) (*http.Request, error), parse func(io.Reader) (*ChatResponse, error)) (*ChatResponse, error) {
 	streamCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	idle, wallCap := streamIdleTimeout, streamWallCap
@@ -216,9 +225,9 @@ func streamWithWatchdogs(ctx context.Context, providerName string, build func(co
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	// No client timeout: the watchdogs bound header wait and body separately.
-	resp, err := (&http.Client{}).Do(httpReq)
+	resp, err := client.Do(httpReq)
 	if err != nil {
-		return nil, watchdogErr(fmt.Errorf("request failed: %w", err))
+		return nil, watchdogErr(RequestFailure(err))
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {

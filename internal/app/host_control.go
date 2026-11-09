@@ -254,6 +254,8 @@ func (g *AccountGateway) hostAttachAll(w http.ResponseWriter, r *http.Request) {
 			attached++
 		case errors.Is(err, errComputerAttached):
 			already++
+		case errors.Is(err, errComputerPolicy):
+			// the policy gives this account no VM; it is skipped, not a failure
 		default:
 			log.Printf("[computer] host attach: account %s: %v", a.ID, err)
 			failed = append(failed, a.ID)

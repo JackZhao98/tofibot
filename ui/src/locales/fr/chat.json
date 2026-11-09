@@ -172,7 +172,9 @@
     "unavailable": "Ordinateur Bot indisponible",
     "health_restarting": "L’ordinateur Bot ne répond plus · redémarrage en cours",
     "health_unresponsive": "L’ordinateur Bot ne répond pas",
-    "resuming": "Réveil de l’ordinateur Bot"
+    "resuming": "Réveil de l’ordinateur Bot",
+    "outdated_required": "L’image de l’ordinateur du Bot n’est plus prise en charge",
+    "open_environments": "Ouvrir Environnements"
   },
   "computer_phase": {
     "booting": "Démarrage de la VM",
@@ -596,7 +598,13 @@
     "server_pick": "Modèle de départ",
     "server_connect": "Connecter",
     "server_failed": "Impossible de joindre ce serveur. Vérifiez l'adresse et réessayez.",
-    "server_not_allowed": "Ce serveur n'a pas le droit de se connecter à une adresse locale ou privée. Seul un administrateur du serveur peut en utiliser une ; sinon l'opérateur doit définir TOFI_ALLOW_PRIVATE_ENDPOINTS=1 dans l'environnement du serveur, puis redémarrer."
+    "server_not_allowed": "Ce serveur n'a pas le droit de se connecter à une adresse locale ou privée. Seul un administrateur du serveur peut en utiliser une ; sinon l'opérateur doit définir TOFI_ALLOW_PRIVATE_ENDPOINTS=1 dans l'environnement du serveur, puis redémarrer.",
+    "provided_title": "Modèles fournis par votre organisation",
+    "provided_body": "Votre organisation fournit les modèles : il n’y a rien à connecter.",
+    "waiting_heading": "En attente des modèles",
+    "waiting_title": "En attente de votre administrateur",
+    "waiting_body": "Votre organisation n’a pas encore fourni de modèle. La configuration reprend dès qu’un administrateur en ajoute un.",
+    "waiting_check": "Vérifier à nouveau"
   },
   "primary": {
     "badge": "Principal",
@@ -716,6 +724,7 @@
       "capability_refs": "Capacités récemment utilisées",
       "schedule_states": "États des planifications",
       "run_context": "Contexte d’exécution (heure)",
+      "policy": "Politique de l’organisation",
       "request_note": "Note de la demande",
       "scheduled_task": "Tâche planifiée",
       "scheduled_order": "Exécutions planifiées antérieures",

@@ -171,7 +171,9 @@
     "unavailable": "Bot-Computer nicht verfügbar",
     "health_restarting": "Bot-Computer reagiert nicht · Neustart läuft",
     "health_unresponsive": "Bot-Computer reagiert nicht",
-    "resuming": "Bot-Computer wird aufgeweckt"
+    "resuming": "Bot-Computer wird aufgeweckt",
+    "outdated_required": "Image des Bot-Computers wird nicht mehr unterstützt",
+    "open_environments": "Umgebungen öffnen"
   },
   "computer_phase": {
     "booting": "VM wird gestartet",
@@ -583,7 +585,13 @@
     "server_pick": "Modell zum Start",
     "server_connect": "Verbinden",
     "server_failed": "Verbindung zu diesem Server nicht möglich. Prüfe die Adresse und versuche es erneut.",
-    "server_not_allowed": "Dieser Server darf sich nicht mit einer lokalen oder privaten Adresse verbinden. Nur ein Server-Admin darf das; sonst muss der Betreiber TOFI_ALLOW_PRIVATE_ENDPOINTS=1 in der Server-Umgebung setzen und neu starten."
+    "server_not_allowed": "Dieser Server darf sich nicht mit einer lokalen oder privaten Adresse verbinden. Nur ein Server-Admin darf das; sonst muss der Betreiber TOFI_ALLOW_PRIVATE_ENDPOINTS=1 in der Server-Umgebung setzen und neu starten.",
+    "provided_title": "Modelle stellt Ihre Organisation bereit",
+    "provided_body": "Ihre Organisation stellt die Modelle bereit, es ist nichts zu verbinden.",
+    "waiting_heading": "Warten auf Modelle",
+    "waiting_title": "Warten auf Ihren Administrator",
+    "waiting_body": "Ihre Organisation hat noch kein Modell bereitgestellt. Die Einrichtung geht weiter, sobald ein Administrator eines hinzufügt.",
+    "waiting_check": "Erneut prüfen"
   },
   "primary": {
     "badge": "Haupt",
@@ -700,6 +708,7 @@
       "capability_refs": "Zuletzt genutzte Fähigkeiten",
       "schedule_states": "Zeitplanstatus",
       "run_context": "Laufkontext (Zeit)",
+      "policy": "Richtlinie der Organisation",
       "request_note": "Anfragenotiz",
       "scheduled_task": "Geplante Aufgabe",
       "scheduled_order": "Frühere geplante Läufe",

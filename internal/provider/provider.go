@@ -225,7 +225,7 @@ type providerConfig struct {
 	BaseURL      string            // Custom endpoint URL (for OpenAI-compatible providers)
 	RetryConfig  *RetryConfig      // Retry configuration (nil = no retry)
 	ExtraHeaders map[string]string // Additional HTTP headers (e.g., OpenRouter attribution)
-	HTTPClient   *http.Client      // Optional transport for the OpenAI-compatible providers
+	HTTPClient   *http.Client      // Optional client for the OpenAI, Anthropic and compatible providers
 }
 
 // WithHTTPClient sets the HTTP client an OpenAI-compatible provider sends

@@ -13,7 +13,9 @@
       "policy_denied": "이 작업이 안전 검사를 통과하지 못했습니다",
       "connection_status": "연결이 끊겨 상태를 확인할 수 없습니다",
       "runtime_connection": "연결이 끊겨 작업이 완료되지 않았습니다",
-      "unknown_failure": "작업이 완료되지 않았습니다"
+      "unknown_failure": "작업이 완료되지 않았습니다",
+      "org_resource_missing": "관리자를 기다리는 중",
+      "org_credential_failed": "조직의 모델 계정을 확인해야 합니다"
     },
     "action": {
       "open_tools": "도구 설정 열기",
@@ -128,7 +130,12 @@
     "finishing_results_kept": "마무리 중입니다. 완료된 결과는 보존됩니다.",
     "stopped_results_kept": "이번 작업이 중지되었습니다. 완료된 결과는 보존됩니다.",
     "completed_steps_kept": "완료된 도구 단계는 활동에 보존됩니다.",
-    "reply_below": "결과는 아래 답장에 있습니다."
+    "reply_below": "결과는 아래 답장에 있습니다.",
+    "org_resource_missing": "조직이 이 계정에 모델을 제공하지 않았습니다.",
+    "org_resource_missing_next": "관리자에게 추가를 요청한 뒤 다시 시도하세요.",
+    "org_credential_auth": "조직의 모델 자격 증명이 거부되었습니다.",
+    "org_credential_quota": "조직의 모델 계정이 사용 한도에 도달했습니다.",
+    "org_credential_next": "관리자에게 조직 리소스 확인을 요청하세요."
   },
   "secondary": {
     "then_provider_busy": "이후 모델 서비스가 혼잡해 작업이 완료되지 않았습니다.",

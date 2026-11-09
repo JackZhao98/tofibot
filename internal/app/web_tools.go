@@ -174,6 +174,25 @@ func (s *Server) webConfig() webToolsConfig {
 	return c
 }
 
+// webConfigFor is the configuration a chain runs on: the account's own, or the
+// organization's order, switches, address and caps while the chain is provided.
+func (s *Server) webConfigFor(chain string) (cfg webToolsConfig, org bool) {
+	if s.webMode(chain) != policyModeProvided {
+		return s.webConfig(), false
+	}
+	var c webToolsConfig
+	if s.orgConfig != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), policyReadTimeout)
+		defer cancel()
+		if raw, found, err := s.orgConfig(ctx, orgWebToolsID); err == nil && found {
+			_ = json.Unmarshal(raw, &c)
+		}
+	}
+	c.SearchOrder = normalizeOrder(c.SearchOrder, defaultSearchOrder)
+	c.FetchOrder = normalizeOrder(c.FetchOrder, defaultFetchOrder)
+	return c, true
+}
+
 func (s *Server) saveWebConfig(c webToolsConfig) error {
 	raw, err := json.Marshal(c)
 	if err != nil {
@@ -191,6 +210,26 @@ func webVaultID(id string) string { return "webtool:" + id }
 
 type webSecret struct {
 	Key, Zone, Hint, VerifiedAt, Error string
+}
+
+// webSecretFor reads a chain's key: the organization's while the chain is
+// provided (and then never the person's own, even if one is stored), else the account's.
+func (s *Server) webSecretFor(chain, id string) (sec webSecret, ok, org bool) {
+	if s.webMode(chain) != policyModeProvided {
+		sec, ok = s.webSecret(id)
+		return sec, ok, false
+	}
+	if s.orgCredential == nil {
+		return webSecret{}, false, true
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), policyReadTimeout)
+	defer cancel()
+	got, err := s.orgCredential(ctx, webVaultID(id))
+	if err != nil || got.Value == "" {
+		return webSecret{}, false, true
+	}
+	key, zone, _ := strings.Cut(got.Value, "\x00")
+	return webSecret{Key: key, Zone: zone}, true, true
 }
 
 func (s *Server) webSecret(id string) (webSecret, bool) {
@@ -305,6 +344,8 @@ func (s *Server) noteWebProvider(id string, code webtools.Code, tested bool) {
 type trackedSearch struct {
 	webtools.SearchProvider
 	s *Server
+	// org: the key is the organization's; its outcome is not noted on a workspace record.
+	org bool
 }
 
 func (t trackedSearch) Search(ctx context.Context, q string, n int) ([]webtools.SearchResult, error) {
@@ -325,28 +366,42 @@ func (t trackedSearch) SearchWith(ctx context.Context, q string, n int, o webtoo
 	} else {
 		res, err = t.SearchProvider.Search(ctx, q, n)
 	}
-	if err == nil {
-		t.s.noteWebProvider(t.ID(), "", false)
-	} else {
-		t.s.noteWebProvider(t.ID(), webtools.CodeOf(err), false)
-	}
+	t.s.afterWebCall(webChainSearch, t.ID(), t.org, err)
 	return res, err
 }
 
 type trackedFetch struct {
 	webtools.FetchProvider
-	s *Server
+	s   *Server
+	org bool
 }
 
 func (t trackedFetch) Fetch(ctx context.Context, u string, n int) (webtools.Page, error) {
 	t.s.bookWebCall(t.ID())
 	p, err := t.FetchProvider.Fetch(ctx, u, n)
-	if err == nil {
-		t.s.noteWebProvider(t.ID(), "", false)
-	} else {
-		t.s.noteWebProvider(t.ID(), webtools.CodeOf(err), false)
-	}
+	t.s.afterWebCall(webChainFetch, t.ID(), t.org, err)
 	return p, err
+}
+
+// afterWebCall records the outcome of a call to a paid or keyed source. A key of
+// the account is marked on its record; an organization key reports usage and
+// its failure goes to the server log as the source and code only.
+func (s *Server) afterWebCall(chain, id string, org bool, err error) {
+	code := webtools.Code("")
+	if err != nil {
+		code = webtools.CodeOf(err)
+	}
+	if !org {
+		s.noteWebProvider(id, code, false)
+		return
+	}
+	s.noteOrgWebUse(chain, id)
+	if (code == webtools.AuthFailed || code == webtools.QuotaExceeded) && s.orgOutcome != nil {
+		s.orgOutcome(webVaultID(id), string(code))
+	}
+	if code != "" {
+		log.Printf("[org] web source %s answered with code %s for an organization key", id, code)
+	}
 }
 
 // webComputerExists says whether this Bot workspace has a computer at all;
@@ -360,17 +415,21 @@ func (s *Server) webComputerOn() bool {
 func (s *Server) searchProviderFor(id string, cfg webToolsConfig, r *Run) webtools.SearchProvider {
 	switch id {
 	case "tavily", "brave":
-		sec, ok := s.webSecret(id)
+		sec, ok, org := s.webSecretFor(webChainSearch, id)
 		if !ok || sec.Error == string(webtools.AuthFailed) || s.webLimitReached(webChainSearch, id, cfg) {
 			return nil
 		}
 		if id == "tavily" {
-			return trackedSearch{webtools.Tavily{Key: sec.Key}, s}
+			return trackedSearch{webtools.Tavily{Key: sec.Key, Endpoint: s.webEndpoints[id]}, s, org}
 		}
-		return trackedSearch{webtools.Brave{Key: sec.Key}, s}
+		return trackedSearch{webtools.Brave{Key: sec.Key, Endpoint: s.webEndpoints[id]}, s, org}
 	case "searxng":
 		if cfg.SearXNGURL == "" {
 			return nil
+		}
+		if s.webMode(webChainSearch) == policyModeProvided {
+			// The organization's instance is admin-configured: private addresses are fine, link-local never.
+			return webtools.SearXNG{BaseURL: cfg.SearXNGURL, Client: orgEndpointClientFor(cfg.SearXNGURL)}
 		}
 		return webtools.SearXNG{BaseURL: cfg.SearXNGURL}
 	case webComputerID:
@@ -390,14 +449,14 @@ func (s *Server) searchProviderFor(id string, cfg webToolsConfig, r *Run) webtoo
 func (s *Server) fetchProviderFor(id string, cfg webToolsConfig, r *Run) webtools.FetchProvider {
 	switch id {
 	case "firecrawl", "brightdata":
-		sec, ok := s.webSecret(id)
+		sec, ok, org := s.webSecretFor(webChainFetch, id)
 		if !ok || sec.Error == string(webtools.AuthFailed) || (id == "brightdata" && sec.Zone == "") || s.webLimitReached(webChainFetch, id, cfg) {
 			return nil
 		}
 		if id == "firecrawl" {
-			return trackedFetch{webtools.Firecrawl{Key: sec.Key}, s}
+			return trackedFetch{webtools.Firecrawl{Key: sec.Key, Endpoint: s.webEndpoints[id]}, s, org}
 		}
-		return trackedFetch{webtools.BrightData{Key: sec.Key, Zone: sec.Zone}, s}
+		return trackedFetch{webtools.BrightData{Key: sec.Key, Zone: sec.Zone, Endpoint: s.webEndpoints[id]}, s, org}
 	case webComputerID:
 		if r == nil || !s.webComputerOn() {
 			return nil
@@ -412,7 +471,10 @@ func (s *Server) fetchProviderFor(id string, cfg webToolsConfig, r *Run) webtool
 
 // searchChain is the usable, enabled providers in the owner's order.
 func (s *Server) searchChain(r *Run) []webtools.SearchProvider {
-	cfg := s.webConfig()
+	if s.webMode(webChainSearch) == "off" {
+		return nil
+	}
+	cfg, _ := s.webConfigFor(webChainSearch)
 	var out []webtools.SearchProvider
 	for _, id := range cfg.SearchOrder {
 		if !cfg.enabled(webChainSearch, id) {
@@ -427,8 +489,11 @@ func (s *Server) searchChain(r *Run) []webtools.SearchProvider {
 
 // fetchChain starts with the built-in fetch, which is always there.
 func (s *Server) fetchChain(r *Run) []webtools.FetchProvider {
-	cfg := s.webConfig()
 	out := []webtools.FetchProvider{webtools.Builtin{Transport: webBuiltinTransport}}
+	if s.webMode(webChainFetch) == "builtin" {
+		return out
+	}
+	cfg, _ := s.webConfigFor(webChainFetch)
 	for _, id := range cfg.FetchOrder {
 		if !cfg.enabled(webChainFetch, id) {
 			continue
@@ -489,7 +554,7 @@ func (s *Server) webTools(r Run) []Tool {
 	var tools []Tool
 	var searches, fetches atomic.Int32
 	cache := &heldPage{}
-	if !s.webNativeWins(r) && s.externalSearchFirst(r) {
+	if s.webMode(webChainSearch) != "off" && !s.webNativeWins(r) && s.externalSearchFirst(r) {
 		tools = append(tools, Tool{Name: "web_search", Description: webSearchDescription, Timeout: webToolTimeout, Parameters: objectSchema(map[string]any{
 			"query":           map[string]any{"type": "string", "description": "What to look up."},
 			"max_results":     map[string]any{"type": "integer", "minimum": 1, "maximum": 10, "description": "How many results to return. Default 5."},
@@ -506,6 +571,10 @@ func (s *Server) webTools(r Run) []Tool {
 			}
 			if json.Unmarshal(raw, &in) != nil {
 				return "", errors.New("web_search: arguments must be a JSON object with a query")
+			}
+			// The tool may have been registered before the policy turned search off.
+			if s.webMode(webChainSearch) == "off" {
+				return "", capabilityOffError("web_search")
 			}
 			if searches.Add(1) > webSearchesPerRun {
 				return "", webLimitError("web_search", "search")
@@ -569,6 +638,11 @@ func (s *Server) webTools(r Run) []Tool {
 	return tools
 }
 
+// capabilityOffError is the refusal of a tool whose capability the organization turned off.
+func capabilityOffError(tool string) error {
+	return tooloutcome.New(tooloutcome.Permanent, codeCapabilityOff, tooloutcome.NoSideEffects, tool+" is turned off for this workspace by the organization. Say so; do not try another way around it.", "explain_blocker").Err()
+}
+
 // heldPage keeps the text of the last page a run fetched, so its later parts
 // can be read without fetching again.
 type heldPage struct {
@@ -609,7 +683,7 @@ func (s *Server) webChainFailure(tool, chain string, r *Run, err error) error {
 // webSkips lists the enabled sources of a chain that the run could not use
 // and why, so a failure can say what was never tried.
 func (s *Server) webSkips(chain string, r *Run) []webtools.Skip {
-	cfg := s.webConfig()
+	cfg, _ := s.webConfigFor(chain)
 	order := cfg.SearchOrder
 	if chain == webChainFetch {
 		order = cfg.FetchOrder
@@ -643,7 +717,7 @@ func (s *Server) webSkipReason(chain, id string, cfg webToolsConfig) string {
 	if s.webLimitReached(chain, id, cfg) {
 		return "limit_reached"
 	}
-	if sec, ok := s.webSecret(id); ok && sec.Error == string(webtools.AuthFailed) {
+	if sec, ok, _ := s.webSecretFor(chain, id); ok && sec.Error == string(webtools.AuthFailed) {
 		return "key_rejected"
 	}
 	return "not_configured"
@@ -899,6 +973,18 @@ type webEntry struct {
 }
 
 func (s *Server) webEntryFor(id, chain string, cfg webToolsConfig) webEntry {
+	e := s.webEntryOwn(id, chain, cfg)
+	if s.webMode(chain) == policyModeProvided {
+		// An organization source shows its state and nothing of the key.
+		e.KeyHint, e.Zone, e.TestedAt, e.Testable = "", "", "", false
+		if e.BaseURL != "" {
+			e.BaseURL = ""
+		}
+	}
+	return e
+}
+
+func (s *Server) webEntryOwn(id, chain string, cfg webToolsConfig) webEntry {
 	e := webEntry{ID: id, Enabled: cfg.enabled(chain, id)}
 	if id == webComputerID {
 		e.Label, e.Kind = "Bot computer", "computer"
@@ -923,7 +1009,7 @@ func (s *Server) webEntryFor(id, chain string, cfg webToolsConfig) webEntry {
 			e.Status = "ready"
 		}
 	default:
-		sec, ok := s.webSecret(id)
+		sec, ok, _ := s.webSecretFor(chain, id)
 		switch {
 		case !ok || (id == "brightdata" && sec.Zone == ""):
 			e.Status = "needs_key"
@@ -949,26 +1035,33 @@ func (s *Server) webEntryFor(id, chain string, cfg webToolsConfig) webEntry {
 }
 
 func (s *Server) webToolsView() map[string]any {
-	cfg := s.webConfig()
+	pol := s.policy()
+	searchCfg, _ := s.webConfigFor(webChainSearch)
+	fetchCfg, _ := s.webConfigFor(webChainFetch)
 	model := s.defaultModel
 	native := s.searchUses(model, nil) > 0
-	search := []webEntry{{ID: "native", Label: "Model web search", Kind: "native", Fixed: true, Enabled: true, Status: "always"}}
-	for _, id := range cfg.SearchOrder {
-		if id == webComputerID && !s.webComputerExists() {
-			continue
+	search := []webEntry{}
+	if webModeOf(pol, webChainSearch) != "off" {
+		search = append(search, webEntry{ID: "native", Label: "Model web search", Kind: "native", Fixed: true, Enabled: true, Status: "always"})
+		for _, id := range searchCfg.SearchOrder {
+			if id == webComputerID && !s.webComputerExists() {
+				continue
+			}
+			search = append(search, s.webEntryFor(id, webChainSearch, searchCfg))
 		}
-		search = append(search, s.webEntryFor(id, webChainSearch, cfg))
 	}
 	fetch := []webEntry{{ID: "builtin", Label: "Built-in fetch", Kind: "builtin", Fixed: true, Enabled: true, Status: "always", Testable: true}}
-	for _, id := range cfg.FetchOrder {
-		if id == webComputerID && !s.webComputerExists() {
-			continue
+	if webModeOf(pol, webChainFetch) != "builtin" {
+		for _, id := range fetchCfg.FetchOrder {
+			if id == webComputerID && !s.webComputerExists() {
+				continue
+			}
+			fetch = append(fetch, s.webEntryFor(id, webChainFetch, fetchCfg))
 		}
-		fetch = append(fetch, s.webEntryFor(id, webChainFetch, cfg))
 	}
 	// Search is offered to the Bot when a provider besides the model's own is usable.
 	registered := false
-	for _, e := range search[1:] {
+	for _, e := range search[min(1, len(search)):] {
 		if e.Status == "ready" && e.Enabled {
 			registered = true
 		}
@@ -978,9 +1071,28 @@ func (s *Server) webToolsView() map[string]any {
 		"computer":       s.webComputerExists(),
 		"search":         search,
 		"fetch":          fetch,
-		"search_offered": registered || native,
+		"search_offered": webModeOf(pol, webChainSearch) != "off" && (registered || native),
 		"native_default": native,
+		// managed: the policy mode of each chain; "own" means the person manages it.
+		"managed": map[string]string{"search": webModeOf(pol, webChainSearch), "fetch": webModeOf(pol, webChainFetch)},
 	}
+}
+
+// webManagedRefusal answers a write the organization's policy reserves. It reports
+// whether it wrote the refusal. chain is search, fetch or "" for both.
+func (s *Server) webManagedRefusal(w http.ResponseWriter, chains ...string) bool {
+	pol := s.policy()
+	for _, chain := range chains {
+		switch webModeOf(pol, chain) {
+		case policyModeProvided:
+			refusePolicy(w, false)
+			return true
+		case "off", "builtin":
+			refusePolicy(w, true)
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Server) routeWebTools(w http.ResponseWriter, r *http.Request, p string) bool {
@@ -1000,6 +1112,25 @@ func (s *Server) routeWebTools(w http.ResponseWriter, r *http.Request, p string)
 	changed := func() {
 		if _, err := s.store.WorkspaceEvent(workspaceScopeConfig); err != nil {
 			log.Printf("[workspace-events] web tools: %v", err)
+		}
+	}
+	// Keys, order, switches, caps and tests of a chain the organization manages are not the person's to change.
+	if r.Method != http.MethodGet {
+		var managed []string
+		switch {
+		case len(parts) >= 1 && (parts[0] == webChainSearch || parts[0] == webChainFetch):
+			managed = []string{parts[0]}
+		case len(parts) == 1 && parts[0] == "limits":
+			managed = []string{webChainSearch, webChainFetch}
+		case len(parts) >= 2 && parts[0] == "providers":
+			if sp, ok := webSpec(parts[1]); ok {
+				managed = []string{sp.Chain}
+			} else if parts[1] == "builtin" {
+				managed = nil // the built-in fetch is free and always there
+			}
+		}
+		if s.webManagedRefusal(w, managed...) {
+			return true
 		}
 	}
 	switch {

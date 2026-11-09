@@ -20,7 +20,7 @@ const E2B_KEYS_URL = "https://e2b.dev/dashboard?tab=keys";
 /** The dialogs sit inside the page body, so the settings styles that scope to `.settings-page-body` still reach them. */
 const pageContainer = () => document.querySelector<HTMLElement>('.settings-content [data-page="computer"]');
 
-const knownErrors = ["invalid_key", "e2b_unreachable", "e2b_limit", "image_missing", "template_build_failed", "sandbox_failed", "guest_unreachable", "sandbox_gone", "token_unreadable"] as const;
+const knownErrors = ["invalid_key", "e2b_unreachable", "e2b_limit", "image_missing", "template_build_failed", "sandbox_failed", "guest_unreachable", "sandbox_gone", "token_unreadable", "org_resource_missing", "not_ready", "guest_outdated_required", "computer_upgrade_failed", "not_outdated", "computer_busy"] as const;
 export const reasonKey = (code: string) => (knownErrors as readonly string[]).includes(code) ? code : "generic";
 
 /** Copy button with the same glyph the rest of the app uses; clipboard failures stay silent (the text is selectable). */
@@ -149,7 +149,7 @@ export function VmCommandDialog({command, onClose}: {command: string; onClose: (
 }
 
 /** The VM's size and attach controls, moved off the page. `ComputerResources` is the same component the page used to render. */
-export function ConfigureDialog({onClose, onOpenAdmin}: {onClose: () => void; onOpenAdmin: () => void}) {
+export function ConfigureDialog({onClose, onOpenAdmin, provided = false}: {onClose: () => void; onOpenAdmin: () => void; provided?: boolean}) {
   const {t} = useTranslation("computer");
   const session = useOwnerSession();
   const close = useRef<HTMLButtonElement>(null);
@@ -157,17 +157,17 @@ export function ConfigureDialog({onClose, onOpenAdmin}: {onClose: () => void; on
   const selfId = session?.owner?.id;
   return <ModalDialog onClose={onClose} initialFocus={close} overlayClassName="resource-restart-overlay" container={pageContainer()}>
     <section className="resource-restart-dialog env-dialog is-wide" aria-labelledby="env-config-title">
-      <h3 id="env-config-title">{t("environments.configure.title")}</h3>
+      <h3 id="env-config-title">{t(provided ? "environments.configure.provided_title" : "environments.configure.title")}</h3>
       <div className="env-config-body">
         <ComputerResources bare onOpenAdmin={() => { onClose(); onOpenAdmin(); }}/>
-        {isAdmin && selfId && <ComputerAttach base={`/api/admin/accounts/${encodeURIComponent(selfId)}/computer`}/>}
+        {isAdmin && selfId && !provided && <ComputerAttach base={`/api/admin/accounts/${encodeURIComponent(selfId)}/computer`}/>}
       </div>
       <div className="resource-restart-actions"><button ref={close} type="button" className="primary-button" onClick={onClose}>{t("environments.done")}</button></div>
     </section>
   </ModalDialog>;
 }
 
-export type ConfirmSpec = {title: string; body: string; action: string};
+export type ConfirmSpec = {title: string; body: string; action: string; /** A destructive confirmation: the action button takes the danger tone. */ danger?: boolean};
 
 /** A confirmation with one named effect. Cancel is focused first; a press outside never confirms. */
 export function ActionConfirm({spec, busy, onCancel, onConfirm}: {spec: ConfirmSpec; busy: boolean; onCancel: () => void; onConfirm: () => void}) {
@@ -178,7 +178,7 @@ export function ActionConfirm({spec, busy, onCancel, onConfirm}: {spec: ConfirmS
     <div className="resource-restart-dialog env-dialog" aria-labelledby="env-confirm-title" aria-describedby="env-confirm-body">
       <h3 id="env-confirm-title">{spec.title}</h3>
       <p id="env-confirm-body">{spec.body}</p>
-      <div className="resource-restart-actions"><button ref={cancel} type="button" className="secondary-button" disabled={busy} onClick={onCancel}>{t("environments.cancel")}</button><button type="button" className="primary-button" disabled={busy} onClick={confirm}>{spec.action}</button></div>
+      <div className="resource-restart-actions"><button ref={cancel} type="button" className="secondary-button" disabled={busy} onClick={onCancel}>{t("environments.cancel")}</button><button type="button" className={spec.danger ? "env-danger-button" : "primary-button"} disabled={busy} onClick={confirm}>{spec.action}</button></div>
     </div>
   </ConfirmDialog>;
 }

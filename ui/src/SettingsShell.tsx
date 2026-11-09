@@ -16,7 +16,7 @@ import {useLanguage, useTranslation} from "./i18n";
 import {ConfirmDialog} from "./overlays/ModalDialog";
 import {useHasComputer} from "./computerCapability";
 
-export type SettingsTab="general"|"connections"|"skills"|"permissions"|"allowances"|"followups"|"models"|"tools"|"automation"|"computer"|"devices"|"keys"|"usage"|"advanced"|"admin";
+export type SettingsTab="general"|"connections"|"skills"|"permissions"|"allowances"|"followups"|"models"|"tools"|"automation"|"computer"|"devices"|"keys"|"usage"|"advanced"|"admin"|"admin-groups"|"admin-resources";
 // Compile-time check: every tab has its section list in settings/sections.ts (the ids a link can scroll to).
 export const SETTINGS_TAB_SECTIONS:Record<SettingsTab,readonly string[]>=SETTINGS_SECTIONS;
 export type SettingsView="home"|"page";
@@ -26,11 +26,12 @@ export type SettingsEntry={seq:number;view:SettingsView};
 /** `beta` and `dev` show a small tag next to the name: a working preview, and a feature still being built. */
 export type PageTag="beta"|"dev";
 type Page={id:SettingsTab;icon:TofiIconName;tag?:PageTag;name:`shell.page.${SettingsTab}.name`;description:`shell.page.${SettingsTab}.description`};
-type GroupId="you"|"bots"|"workspace"|"system"|"more";
+type GroupId="you"|"bots"|"workspace"|"system"|"admin"|"more";
 type Group={id:GroupId;label:`shell.group.${GroupId}`;items:Page[]};
 const page=(id:SettingsTab,icon:TofiIconName,tag?:PageTag):Page=>({id,icon,tag,name:`shell.page.${id}.name`,description:`shell.page.${id}.description`});
 const group=(id:GroupId,items:Page[]):Group=>({id,label:`shell.group.${id}`,items});
-const adminPage=page("admin","group");
+// Administration is its own navigation group, for administrators of a multi-account install only.
+const adminGroup=group("admin",[page("admin","group"),page("admin-groups","layers"),page("admin-resources","key")]);
 // The "advanced" tab id is the System page (version, server, data, debug, Start over); its label is "Maintenance" so it
 // does not clash with the collapsible "Advanced" group ("more"), which holds the long, rarely used and unfinished pages.
 const groups:Group[]=[
@@ -71,7 +72,11 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
  const isAdmin=Boolean(session?.multi_account&&session.owner?.role==="admin");
  const hasComputer=useHasComputer();
  // Without a computer the Keys page (environment variables and SSH keys, used only inside it) is hidden; Computer stays and explains the options.
- const visibleGroups:Group[]=useMemo(()=>groups.map(item=>item.id==="system"&&isAdmin?{...item,items:[...item.items,adminPage]}:{...item,items:item.items.filter(page=>(hasComputer||page.id!=="keys"))}),[isAdmin,hasComputer]);
+ const visibleGroups:Group[]=useMemo(()=>{
+  const base=groups.map(item=>({...item,items:item.items.filter(page=>(hasComputer||page.id!=="keys"))}));
+  // Administration sits between System and the folded Advanced group.
+  return isAdmin?[...base.slice(0,-1),adminGroup,...base.slice(-1)]:base;
+ },[isAdmin,hasComputer]);
  const allItems=visibleGroups.flatMap(item=>item.items);
  const attention=useConnectionAttention(refreshToken);
  const counts:Partial<Record<SettingsTab,{value:number;tone:"honey"|"iris"}>>={...(attention>0?{connections:{value:attention,tone:"honey"}}:{})};
@@ -81,7 +86,7 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
  useEffect(()=>{if(entry&&entry.seq!==entrySeq.current){entrySeq.current=entry.seq;setMobileView(entry.view)}},[entry]);
  const hints=useMobileHints(narrow&&mobileView==="home",hasComputer);
  useEffect(()=>{if(tab!==requestedTab)onTab(tab)},[tab,requestedTab,onTab]);
- useEffect(()=>{if(tab==="admin"&&!isAdmin)onTab("general")},[tab,isAdmin,onTab]);
+ useEffect(()=>{if((tab==="admin"||tab==="admin-groups"||tab==="admin-resources")&&!isAdmin)onTab("general")},[tab,isAdmin,onTab]);
  useEffect(()=>{if(tab==="keys"&&!hasComputer)onTab("computer")},[tab,hasComputer,onTab]);
  // The Advanced group is folded until opened; a selected page inside it keeps it open.
  const [advancedOpen,setAdvancedOpen]=useState(false);

@@ -26,7 +26,7 @@ const source = async path => readFile(join(root, "src", path), "utf8");
   const shell = await source("SettingsShell.tsx");
   const union = /export type SettingsTab=([^;]+);/.exec(shell)?.[1];
   assert.ok(union, "SettingsTab union found in SettingsShell.tsx");
-  const shellTabs = [...union.matchAll(/"([a-z]+)"/g)].map(match => match[1]).sort();
+  const shellTabs = [...union.matchAll(/"([a-z]+(?:-[a-z]+)*)"/g)].map(match => match[1]).sort();
   assert.deepEqual(shellTabs, Object.keys(tsTabs).sort(), "every SettingsTab has a registry entry and every registry tab is a SettingsTab");
 
   // 3. Every link in the registry resolves to a page and a section the UI has.
@@ -51,8 +51,8 @@ const source = async path => readFile(join(root, "src", path), "utf8");
   assert.ok(checked > 40, "most registry links are checked");
 
   // 4. Every section id is in the component that owns it.
-  const pages = (await Promise.all(["settings/SettingsPages.tsx", "EnvironmentsPage.tsx", "StandingAllowances.tsx", "FollowupsSettings.tsx", "DictationSettings.tsx"].map(source))).join("\n");
-  const ids = new Set([...pages.matchAll(/(?:<SectionAnchor|<SettingsSection)[^>]*?\bid="([a-z]+)"/g)].map(match => match[1]));
+  const pages = (await Promise.all(["settings/SettingsPages.tsx", "EnvironmentsPage.tsx", "StandingAllowances.tsx", "FollowupsSettings.tsx", "DictationSettings.tsx", "AdminGroups.tsx", "AdminResources.tsx"].map(source))).join("\n");
+  const ids = new Set([...pages.matchAll(/(?:<SectionAnchor|<SettingsSection)[^>]*?\bid="([a-z-]+)"/g)].map(match => match[1]));
   const automation = await source("AutomationSettings.tsx");
   const groupOrder = /const groupOrder: AutomationGroup\[\] = \[([^\]]+)\]/.exec(automation)?.[1].match(/"([a-z]+)"/g)?.map(item => item.slice(1, -1));
   assert.deepEqual(groupOrder, tsTabs.automation, "the automation sections are the Behavior page's groups, in order");

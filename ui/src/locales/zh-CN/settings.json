@@ -31,7 +31,8 @@
       "bots": "Bot 可用",
       "workspace": "工作空间",
       "system": "系统",
-      "more": "高级"
+      "more": "高级",
+      "admin": "管理"
     },
     "page": {
       "general": {
@@ -75,7 +76,7 @@
         "description": "版本、服务器、数据、调试与从头开始。"
       },
       "admin": {
-        "name": "Admin 控制台",
+        "name": "账户",
         "description": "邀请、管理和停用账号"
       },
       "automation": {
@@ -93,6 +94,14 @@
       "devices": {
         "name": "其他设备",
         "description": "连接装有 Tofi 应用的 Mac"
+      },
+      "admin-groups": {
+        "name": "用户组",
+        "description": "按组设置账户可用的资源"
+      },
+      "admin-resources": {
+        "name": "组织资源",
+        "description": "服务器提供给用户组的密钥"
       }
     },
     "category": "设置分类",
@@ -158,7 +167,8 @@
     "global_description": "设为「跟随全局」的 Bot 使用这里的模型和思考强度。新建的 Bot 默认跟随全局。",
     "global_description_followers_other": "设为「跟随全局」的 Bot 使用这里的模型和思考强度，当前有 {{count}} 个 Bot 跟随。新建的 Bot 默认跟随全局。",
     "global_description_no_followers": "设为「跟随全局」的 Bot 使用这里的模型和思考强度，当前没有 Bot 跟随。新建的 Bot 默认跟随全局。",
-    "effort_hint": "模型默认：{{effort}}"
+    "effort_hint": "模型默认：{{effort}}",
+    "no_models_provided": "暂无可用模型。你的组织尚未配置任何模型。请联系管理员。"
   },
   "effort": {
     "none": "关闭",
@@ -381,7 +391,14 @@
     },
     "accounts": {
       "title": "账号",
-      "empty": "还没有账号。"
+      "empty": "还没有账号。",
+      "group_col": "用户组",
+      "group_of": "{{name}} 的用户组",
+      "select": "选择 {{name}}",
+      "bulk": "批量操作",
+      "selected": "已选 {{count}} 个",
+      "move_n": "将 {{count}} 个移到用户组…",
+      "clear": "取消选择"
     },
     "add": "添加账号",
     "open": "打开 {{name}}",
@@ -474,6 +491,15 @@
         "delete_legacy": "原始所有者账号及其 Bot 电脑不能删除。",
         "delete_running": "正在删除。",
         "delete_need_deactivate": "请先停用该账号，只有已停用的账号才能删除。"
+      },
+      "group": {
+        "title": "用户组",
+        "label": "所在用户组",
+        "help": "用户组决定该账户在模型、Bot 电脑、搜索与抓取上的默认策略。"
+      },
+      "overrides": {
+        "title": "单项覆盖",
+        "help": "每项能力默认跟随用户组；在这里选一个值就会单独覆盖，重置则回到用户组。"
       }
     },
     "delete": {
@@ -570,7 +596,139 @@
       "resource_configuration_failed": "无法应用 Bot 电脑大小。请重试。",
       "computer_unavailable": "暂时无法连接这台 Bot 电脑。请稍后重试。"
     },
-    "intro_no_computer": "创建账号、指定谁是 Admin，并管理他们的登录。成员首次登录时需要更换初始密码。"
+    "intro_no_computer": "创建账号、指定谁是 Admin，并管理他们的登录。成员首次登录时需要更换初始密码。",
+    "groups": {
+      "title": "用户组",
+      "intro": "用户组决定账户使用谁的资源：自己的还是组织提供的。每个账户属于一个组，个别例外在账户详情里设置。",
+      "unknown": "用户组",
+      "loading": "正在加载用户组…",
+      "builtin": "内置",
+      "new": "新建用户组",
+      "back": "用户组",
+      "name_label": "名称",
+      "rename": "重命名",
+      "policy_title": "资源策略",
+      "policy_help": "更改会立即对所有成员生效。",
+      "policy_readonly": "Self-serve 是现有行为，只读；要改策略请新建用户组。",
+      "saved": "已保存",
+      "resource_missing": "缺少组织资源。",
+      "open_resources": "打开组织资源",
+      "members_title": "成员（{{count}}）",
+      "members_self_serve": "从未调整过的账户都在 Self-serve。",
+      "members_empty": "没有成员。",
+      "add_members": "添加成员",
+      "add_title": "向 {{name}} 添加成员",
+      "add_none": "所有账户都已在该组。",
+      "add_current": "当前在 {{group}}",
+      "add_submit": "添加 {{count}} 个",
+      "delete_title": "删除用户组",
+      "delete_label": "删除此用户组",
+      "delete_help": "移除该用户组及其策略。",
+      "delete_action": "删除用户组",
+      "delete_confirm_title": "删除 {{name}}？",
+      "delete_confirm_body": "该用户组及其策略会被移除，无法撤销。",
+      "create_title": "新建用户组",
+      "create_name": "用户组名称",
+      "create_note": "新组初始等同 Self-serve，随后再设置策略。",
+      "create_submit": "创建用户组",
+      "delete_in_use_other": "先把该组的 {{count}} 个成员移到其他组。",
+      "members_count_other": "{{count}} 位成员"
+    },
+    "org": {
+      "missing_title": "有组织提供的资源缺失",
+      "missing_item": "{{capability}}：{{who}}",
+      "missing_action": "打开用户组",
+      "models": {
+        "title": "AI 模型",
+        "help": "供所在组由组织提供模型的账户使用的 API 密钥。密钥只写不读，只显示末尾几位。"
+      },
+      "computers": {
+        "title": "Bot 电脑",
+        "help": "供所在组提供云电脑的账户使用的 E2B 密钥；服务器虚拟机在“账户”里按账户设置。",
+        "vm_title": "服务器虚拟机",
+        "vm_ready": "这台服务器可以运行虚拟机；规格与挂接按账户设置。",
+        "vm_none": "这台服务器不能运行虚拟机（没有 KVM 主机）。",
+        "vm_open": "打开账户"
+      },
+      "web": {
+        "title": "搜索与抓取",
+        "help": "供所在组由组织提供搜索与抓取的账户使用，Bot 按此顺序依次尝试。"
+      },
+      "compat_name": "OpenAI 兼容端点",
+      "endpoint_tag": "端点",
+      "compat_address": "端点地址",
+      "compat_key": "API 密钥（可选）",
+      "compat_models_label": "模型 ID",
+      "compat_models": "模型：{{models}}",
+      "compat_note": "密钥留空会沿用同一地址已存的密钥；端点不列出模型时，请手动填写模型 ID。",
+      "e2b_name": "E2B 云电脑",
+      "e2b_key": "E2B API 密钥",
+      "e2b_template_label": "模板 ID（可选）",
+      "key_note": "密钥保存在服务器上，之后不会再次显示。",
+      "no_hint": "密钥已保存",
+      "edit": "编辑",
+      "test": "测试",
+      "test_ok": "密钥验证通过。",
+      "removed": "已移除。",
+      "saved": "{{name}} 已保存。",
+      "remove_question": "移除组织的 {{name}} 密钥？",
+      "status": {
+        "verified": "已验证",
+        "stored": "已保存，未验证",
+        "rejected": "被拒绝：{{reason}}"
+      },
+      "error": {
+        "generic": "没有成功，请重试。",
+        "invalid_policy": "这个策略无效。",
+        "group_exists": "已有同名用户组。",
+        "group_limit": "已达到用户组数量上限。",
+        "group_builtin_readonly": "内置用户组不能这样修改。",
+        "group_in_use": "请先把该组成员移到其他用户组。",
+        "not_found": "该项已不存在。",
+        "invalid_key": "服务商拒绝了这个密钥。",
+        "invalid_workspace": "请填写 Claude Console 的工作区 ID（wrkspc_…）。",
+        "invalid_template": "这不是有效的 E2B 模板 ID。",
+        "invalid_zone": "请填写有效的 zone。",
+        "invalid_base_url": "请填写有效的端点地址。",
+        "invalid_models": "请检查模型 ID。",
+        "invalid_address": "请填写以 http:// 或 https:// 开头的地址。",
+        "no_models": "这个密钥没有可用的模型。",
+        "no_quota": "该账户已没有可用额度。",
+        "provider_unreachable": "这台服务器连不上服务商。",
+        "endpoint_not_allowed": "这台服务器不允许连接该地址。",
+        "invalid_request": "请求无效。",
+        "forbidden": "需要管理员权限。",
+        "storage": "服务器未能保存。",
+        "custom_template": "此电脑使用你提供的模板，不会重新构建。"
+      },
+      "missing_accounts_other": "{{count}} 个账户覆盖",
+      "intro": "这些密钥属于这台服务器，供所在组由组织提供资源的账户使用；它们不是你的个人密钥，你的在 设置 › AI 模型、环境、搜索与抓取。",
+      "badge": {
+        "verified": "已验证",
+        "stored": "未验证",
+        "rejected": "被拒绝"
+      },
+      "build": {
+        "none": "版本 {{version}} 的电脑镜像尚未构建。成员首次需要电脑时会自动构建，也可以现在点“立即构建”。",
+        "preparing": "正在构建电脑镜像（版本 {{version}}），需要几分钟。完成后成员的电脑才会启动。",
+        "ready": "电脑镜像已就绪（版本 {{version}}）。",
+        "failed": "版本 {{version}} 的电脑镜像构建失败。",
+        "custom": "自定义模板 {{id}}。按原样使用，不会重新构建。",
+        "min_version": "电脑镜像最低版本：{{version}}。使用更旧镜像的电脑必须先升级才能运行。",
+        "starting": "正在开始…",
+        "retry": "重试构建",
+        "start": "立即构建",
+        "error": {
+          "generic": "构建失败。",
+          "template_build_failed": "E2B 无法构建电脑镜像。",
+          "image_missing": "此服务器版本未附带 E2B 电脑镜像。",
+          "invalid_key": "E2B 拒绝了组织的 API 密钥。请更换密钥。",
+          "e2b_unreachable": "此服务器无法连接 E2B。请稍后重试构建。",
+          "e2b_limit": "已达到 E2B 账户上限。请先在 E2B 释放额度，再重试构建。",
+          "template_stale_in_team": "E2B 团队中已有一个名为 tofi-computer-{{version}} 的模板，其上次构建失败，E2B 不接受在它上面重新构建。请在 E2B 控制台删除该模板（团队所有者可以操作），然后重试构建。"
+        }
+      }
+    }
   },
   "connection": {
     "label": "当前服务器连接",
@@ -1192,7 +1350,8 @@
       "needs_address": "需要地址",
       "error": "出错",
       "off": "已关闭",
-      "limit": "已达每日上限"
+      "limit": "已达每日上限",
+      "not_provided": "未提供"
     },
     "test_ok": "工作正常",
     "test": "测试",
@@ -1227,7 +1386,14 @@
     "limit_fetch": "每个来源的抓取次数",
     "limit_option": "每天 {{count}} 次",
     "limit_unlimited": "不限",
-    "used_today": "最近 24 小时 {{count}} 次"
+    "used_today": "最近 24 小时 {{count}} 次",
+    "managed": {
+      "organization": "组织",
+      "search_provided": "由你的组织提供；来源与顺序只读。",
+      "fetch_provided": "由你的组织提供；来源与顺序只读。",
+      "fetch_builtin": "由策略管理：Bot 只使用内置的网页读取器。",
+      "search_off": "按策略，该账户的网页搜索已关闭。"
+    }
   },
   "permissionsPage": {
     "heading": "审查员",
@@ -1482,6 +1648,71 @@
         "title": "撤销本地执行授权？",
         "body": "正在运行的命令会停止，Bot 将失去对授权目录的访问。之后可以重新授权目录。",
         "confirm": "撤销"
+      }
+    }
+  },
+  "policy": {
+    "capability": {
+      "ai_models": {
+        "name": "AI 模型",
+        "help": "账户的 Bot 使用谁的 API 密钥。"
+      },
+      "computer": {
+        "name": "Bot 电脑",
+        "help": "账户的 Bot 在哪台电脑上工作。"
+      },
+      "web_search": {
+        "name": "网页搜索",
+        "help": "Bot 能否搜索网页，以及用谁的密钥。"
+      },
+      "web_fetch": {
+        "name": "网页抓取",
+        "help": "Bot 能否使用内置读取器之外的抓取来源，以及用谁的密钥。"
+      }
+    },
+    "value": {
+      "ai_models": {
+        "own": "自带密钥",
+        "provided": "组织提供"
+      },
+      "computer": {
+        "host": "服务器虚拟机",
+        "own": "自带 E2B 密钥",
+        "provided": "组织提供",
+        "none": "无"
+      },
+      "web_search": {
+        "own": "自带密钥",
+        "provided": "组织提供",
+        "off": "关闭"
+      },
+      "web_fetch": {
+        "own": "自带密钥",
+        "provided": "组织提供",
+        "builtin": "仅内置"
+      }
+    },
+    "source": {
+      "label": "电脑来源",
+      "vm": "虚拟机",
+      "e2b": "E2B"
+    },
+    "follows": "跟随用户组 · {{value}}",
+    "overridden": "已覆盖 · {{value}}（用户组：{{group}}）",
+    "reset": "恢复为用户组设置",
+    "member": {
+      "managed": "由策略管理",
+      "banner_title": "部分资源由你的组织提供",
+      "banner_body": "管理员统一管理 Bot 用到的部分资源，例如模型、搜索或 Bot 电脑；这些设置在这里只读。",
+      "banner_action": "查看",
+      "banner_dismiss": "关闭提示",
+      "models": {
+        "title": "模型由你的组织提供",
+        "body": "Bot 使用组织的模型账户运行；API 密钥与登录由管理员管理。",
+        "available": "可用",
+        "not_provided": "未提供",
+        "waiting_title": "等待管理员提供模型",
+        "waiting_body": "组织还没有提供模型；管理员添加之前，Bot 无法运行。"
       }
     }
   }

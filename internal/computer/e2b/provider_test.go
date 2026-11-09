@@ -77,6 +77,14 @@ type fake struct {
 	// tplConflict: the team already has the template name.
 	tplConflict bool
 	tplSize     map[string]any
+	// tplConflictN: answer this many template creates with 409, then accept.
+	tplConflictN int
+	// tplBuildsJSON replaces the build list of the team's template.
+	tplBuildsJSON string
+	// onAlias runs when the alias lookup arrives (the answer then waits a moment).
+	onAlias func()
+	// createMsg: answer a sandbox create with 400 and this message.
+	createMsg string
 }
 
 func newFake(t *testing.T) *fake {
@@ -157,6 +165,11 @@ func (f *fake) handle(w http.ResponseWriter, r *http.Request) {
 	}
 	switch {
 	case r.Method == "POST" && p == "/v2/sandboxes":
+		if f.createMsg != "" {
+			w.WriteHeader(400)
+			json.NewEncoder(w).Encode(map[string]any{"code": 400, "message": f.createMsg})
+			return
+		}
 		if r.Header.Get("Idempotency-Key") == "" {
 			f.t.Error("missing Idempotency-Key")
 		}
@@ -228,9 +241,17 @@ func (f *fake) handle(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`[]`))
 	case r.Method == "GET" && strings.HasPrefix(p, "/templates/aliases/"):
 		f.tplCalls = append(f.tplCalls, "alias:"+strings.TrimPrefix(p, "/templates/aliases/"))
+		if f.onAlias != nil {
+			f.onAlias()
+			time.Sleep(80 * time.Millisecond)
+		}
 		w.Write([]byte(`{"templateID":"tpl1","public":false}`))
 	case r.Method == "GET" && p == "/templates/tpl1":
 		f.tplCalls = append(f.tplCalls, "builds")
+		if f.tplBuildsJSON != "" {
+			w.Write([]byte(f.tplBuildsJSON))
+			return
+		}
 		w.Write([]byte(`{"templateID":"tpl1","builds":[{"buildID":"old0","status":"error","createdAt":"2026-11-01T00:00:00Z","updatedAt":"2026-11-01T00:00:00Z","cpuCount":2,"memoryMB":4096},{"buildID":"bld1","status":"ready","createdAt":"2026-11-04T00:00:00Z","updatedAt":"2026-11-04T00:00:00Z","cpuCount":2,"memoryMB":4096}]}`))
 	case r.Method == "POST" && p == "/v3/templates":
 		var b map[string]any
@@ -238,7 +259,10 @@ func (f *fake) handle(w http.ResponseWriter, r *http.Request) {
 		f.tplSize = b
 		name, _ := b["name"].(string)
 		f.tplCalls = append(f.tplCalls, "create:"+name)
-		if f.tplConflict {
+		if f.tplConflict || f.tplConflictN > 0 {
+			if f.tplConflictN > 0 {
+				f.tplConflictN--
+			}
 			w.WriteHeader(409)
 			w.Write([]byte(`{"code":409,"message":"template name already exists"}`))
 			return
@@ -797,5 +821,309 @@ func TestABuildFailureNamesItsLastErrors(t *testing.T) {
 	b := buildStatus{LogEntries: []buildLogEntry{{Message: "pulling image", Level: "info"}, {Message: "manifest unknown", Level: "error"}, {Message: "disk full", Level: "error"}}}
 	if got := b.lastErrors(3); got != " (manifest unknown | disk full)" {
 		t.Fatalf("got %q", got)
+	}
+}
+
+// ---- slice 3 review fixes ----
+
+const errorOnlyBuilds = `{"templateID":"tpl1","builds":[{"buildID":"old0","status":"error","createdAt":"2026-11-01T00:00:00Z"}]}`
+
+func TestAnExistingSandboxIsUsableWhileTheTemplateBuildsOrFailed(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		phase string
+		code  string
+	}{{"building", PhasePreparing, ""}, {"failed", PhaseFailed, CodeTemplateBuildFailed}} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFake(t)
+			p, _ := f.provider(ready)
+			if _, err := act(p); err != nil {
+				t.Fatal(err)
+			}
+			// A new TOFI version starts a build for the person's own computer (or fails it).
+			if err := p.update(func(s *State) { s.Phase, s.ErrorCode = tc.phase, tc.code }); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := act(p); err != nil {
+				t.Fatalf("an action on the existing sandbox during a %s template: %v", tc.name, err)
+			}
+			info, err := p.Info(context.Background())
+			if err != nil || info.State != "ready" || info.Phase != PhaseReady {
+				t.Fatalf("info %+v err %v", info, err)
+			}
+			if st := p.Status(); st.TemplatePhase != tc.phase || st.TemplateErrorCode != tc.code {
+				t.Fatalf("the template phase is not reported on its own: %+v", st)
+			}
+			if err := p.Retry(context.Background()); err != nil {
+				t.Fatalf("retry: %v", err)
+			}
+			if f.creates != 1 || f.kills != 0 {
+				t.Fatalf("creates %d kills %d: the sandbox was replaced", f.creates, f.kills)
+			}
+		})
+	}
+}
+
+func TestTheTemplateGatesOnlyCreation(t *testing.T) {
+	f := newFake(t)
+	p, _ := f.provider(State{Phase: PhasePreparing})
+	if _, err := act(p); err == nil || err.(*Error).Code != CodeNotReady {
+		t.Fatalf("create during a build: %v", err)
+	}
+	if f.creates != 0 {
+		t.Fatal("a sandbox was created without a template")
+	}
+}
+
+func TestPrepareKeepsASandboxOfAnOlderTemplate(t *testing.T) {
+	f := newFake(t)
+	f.buildStatus = []string{"ready"}
+	p, store := f.provider(State{Phase: PhaseReady, TemplateID: "tpl0", TemplateVersion: "v0.0.1", SandboxID: "sbx9", SandboxVersion: "v0.0.1"})
+	if err := p.Prepare(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	st := store.state
+	if f.kills != 0 || st.SandboxID != "sbx9" || st.TemplateVersion != "v1.2.3+rc.1" || st.TemplateID != "tpl1" {
+		t.Fatalf("kills %d state %+v: the old sandbox must stay", f.kills, st)
+	}
+	if got := p.Status(); !got.GuestOutdated {
+		t.Fatalf("status %+v", got)
+	}
+}
+
+func TestOutdatedSandboxStaysUsableUntilTheUpgrade(t *testing.T) {
+	f := newFake(t)
+	p, store := f.provider(State{Phase: PhaseReady, TemplateID: "tpl1", TemplateVersion: "v1"})
+	if _, err := act(p); err != nil {
+		t.Fatal(err)
+	}
+	if got := store.state.SandboxVersion; got != "v1" {
+		t.Fatalf("version recorded at create: %q", got)
+	}
+	if p.Status().GuestOutdated {
+		t.Fatal("a current sandbox reported outdated")
+	}
+	// The template moves to a newer version.
+	_ = p.update(func(s *State) { s.TemplateVersion = "v2" })
+	if st := p.Status(); !st.GuestOutdated || st.GuestOutdatedRequired {
+		t.Fatalf("status %+v", st)
+	}
+	if info, _ := p.Info(context.Background()); !info.GuestOutdated || info.State != "ready" {
+		t.Fatalf("info %+v", info)
+	}
+	if _, err := act(p); err != nil || f.kills != 0 {
+		t.Fatalf("an outdated sandbox must keep working: err %v kills %d", err, f.kills)
+	}
+	if err := p.Upgrade(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if f.kills != 1 || f.creates != 2 || store.state.SandboxVersion != "v2" || p.Status().GuestOutdated {
+		t.Fatalf("kills %d creates %d state %+v", f.kills, f.creates, store.state)
+	}
+	if _, err := act(p); err != nil {
+		t.Fatal(err)
+	}
+	err := p.Upgrade(context.Background())
+	if e, ok := err.(*Error); !ok || e.Code != CodeNotOutdated {
+		t.Fatalf("upgrade of a current computer: %v", err)
+	}
+	if f.kills != 1 {
+		t.Fatal("a current computer was removed")
+	}
+}
+
+func TestSandboxWithoutARecordedVersionIsOutdatedButUsable(t *testing.T) {
+	f := newFake(t)
+	p, _ := f.provider(ready)
+	if _, err := act(p); err != nil {
+		t.Fatal(err)
+	}
+	_ = p.update(func(s *State) { s.SandboxVersion = "" })
+	if !p.Status().GuestOutdated {
+		t.Fatal("a sandbox of unknown version is not flagged")
+	}
+	if _, err := act(p); err != nil {
+		t.Fatalf("unknown version must stay usable: %v", err)
+	}
+}
+
+func TestUpgradeNeedsAReadyTemplate(t *testing.T) {
+	f := newFake(t)
+	p, _ := f.provider(ready)
+	if _, err := act(p); err != nil {
+		t.Fatal(err)
+	}
+	// The new template is still building: the old computer is not removed for it.
+	_ = p.update(func(s *State) { s.Phase, s.TemplateVersion, s.SandboxVersion = PhasePreparing, "v2", "v1" })
+	if err := p.Upgrade(context.Background()); err == nil || err.(*Error).Code != CodeNotOutdated {
+		t.Fatalf("upgrade while building: %v", err)
+	}
+	if f.kills != 0 {
+		t.Fatal("the sandbox was removed without a template to replace it")
+	}
+}
+
+func TestMinimumGuestVersionFailsClosedUntilUpgrade(t *testing.T) {
+	f := newFake(t)
+	p, store := f.provider(State{Phase: PhaseReady, TemplateID: "tpl1", TemplateVersion: "v2.1.0"})
+	p.cfg.MinGuestVersion = "v2.0.0"
+	if _, err := act(p); err != nil {
+		t.Fatal(err)
+	}
+	_ = p.update(func(s *State) { s.SandboxVersion = "v1.9.0" })
+	_, err := act(p)
+	if e, ok := err.(*Error); !ok || e.Code != CodeGuestOutdatedRequired {
+		t.Fatalf("below the minimum: %v", err)
+	}
+	if info, _ := p.Info(context.Background()); !info.GuestOutdatedRequired || info.State != "error" {
+		t.Fatalf("info %+v", info)
+	}
+	if f.actions != 1 {
+		t.Fatalf("an action ran on a sandbox below the minimum (%d)", f.actions)
+	}
+	if err := p.Upgrade(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := act(p); err != nil || store.state.SandboxVersion != "v2.1.0" {
+		t.Fatalf("after the upgrade: %v %+v", err, store.state)
+	}
+	// Unset: not enforced, even for an unknown version.
+	p.cfg.MinGuestVersion = ""
+	_ = p.update(func(s *State) { s.SandboxVersion = "" })
+	if _, err := act(p); err != nil {
+		t.Fatalf("no minimum set: %v", err)
+	}
+}
+
+func TestVersionBelow(t *testing.T) {
+	for _, tc := range []struct {
+		v, min string
+		want   bool
+	}{
+		{"v1.0.0", "", false}, {"v1.0.0", "v1.0.0", false}, {"v1.0.0", "v1.0.1", true}, {"v1.10.0", "v1.9.0", false},
+		{"v2.0.0-rc.1", "v2.0.0", true}, {"v2.0.0", "v2.0.0-rc.1", false}, {"v2.0.0-rc.2", "v2.0.0-rc.10", true},
+		{"", "v1.0.0", true}, {"dev", "v1.0.0", true}, {"dev", "dev", false}, {"v1.0.0+build5", "v1.0.0", false},
+	} {
+		if got := VersionBelow(tc.v, tc.min); got != tc.want {
+			t.Errorf("VersionBelow(%q,%q)=%v want %v", tc.v, tc.min, got, tc.want)
+		}
+	}
+}
+
+func TestACanceledAdoptDoesNotPersistFailed(t *testing.T) {
+	f := newFake(t)
+	f.tplConflict = true
+	p, store := f.provider(State{Phase: PhaseNone})
+	ctx, cancel := context.WithCancel(context.Background())
+	f.onAlias = cancel // the server closes while the alias lookup is in flight
+	err := p.Prepare(ctx)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("err %v", err)
+	}
+	if st := store.state; st.Phase != PhasePreparing {
+		t.Fatalf("a close left the build as %+v; the next use must resume it", st)
+	}
+	// The next use resumes the build.
+	f.onAlias = nil
+	if err := p.Prepare(context.Background()); err != nil || store.state.Phase != PhaseReady {
+		t.Fatalf("resume: %v %+v", err, store.state)
+	}
+}
+
+func TestAnErroredAdoptedBuildStartsANewBuild(t *testing.T) {
+	f := newFake(t)
+	f.tplConflictN = 1 // the first create meets a race, the second is accepted
+	f.tplBuildsJSON = errorOnlyBuilds
+	p, store := f.provider(State{Phase: PhaseNone})
+	if err := p.Prepare(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	got := strings.Join(f.tplCalls, ",")
+	if store.state.Phase != PhaseReady || !strings.HasSuffix(got, "create:tofi-computer-v1-2-3-rc-1,build") {
+		t.Fatalf("state %+v calls %s", store.state, got)
+	}
+}
+
+func TestAStaleTemplateInTheTeamHasItsOwnCode(t *testing.T) {
+	f := newFake(t)
+	f.tplConflict = true // E2B keeps refusing a new build under the taken name
+	f.tplBuildsJSON = errorOnlyBuilds
+	p, store := f.provider(State{Phase: PhaseNone})
+	err := p.Prepare(context.Background())
+	if e, ok := err.(*Error); !ok || e.Code != CodeTemplateStale {
+		t.Fatalf("err %v", err)
+	}
+	if st := store.state; st.Phase != PhaseFailed || st.ErrorCode != CodeTemplateStale {
+		t.Fatalf("state %+v", st)
+	}
+}
+
+func orgProviderWith(f *fake, tpl State, st State) (*Provider, *memStore) {
+	store := &memStore{state: st}
+	p, err := New(Config{KeySource: func(context.Context) (string, error) { return testKey, nil }, APIBase: f.srv.URL, Version: "v1", Store: store,
+		TemplateSource: func(context.Context) (State, error) { return tpl, nil },
+		HostURL:        func(port int, id, dom string) string { return f.srv.URL + "/p" + itoa(port) },
+	})
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	p.pollEvery, p.healthEvery = time.Millisecond, time.Millisecond
+	return p, store
+}
+
+func TestMemberSeesNoOrganizationTemplateOrBuildIds(t *testing.T) {
+	f := newFake(t)
+	const tplID, bldID = "tpl_org_secret_123", "bld_org_secret_456"
+	tpl := State{Phase: PhaseReady, TemplateID: tplID, BuildID: bldID, TemplateVersion: "v1"}
+	f.createMsg = "template " + tplID + " build " + bldID + " could not start"
+	p, _ := orgProviderWith(f, tpl, State{Phase: PhaseReady})
+	_, err := act(p)
+	if err == nil || strings.Contains(err.Error(), tplID) || strings.Contains(err.Error(), bldID) {
+		t.Fatalf("the action error names the organization's ids: %v", err)
+	}
+	info, _ := p.Info(context.Background())
+	if strings.Contains(info.Error, tplID) || strings.Contains(info.Error, bldID) || info.Error == "" {
+		t.Fatalf("info error %q", info.Error)
+	}
+	// Text stored before the ids were known to this provider is cleaned when read.
+	_ = p.update(func(s *State) { s.Phase, s.ErrorCode, s.Error = PhaseFailed, CodeSandboxFailed, "old text with "+tplID })
+	info, _ = p.Info(context.Background())
+	if strings.Contains(info.Error, tplID) {
+		t.Fatalf("stored error shown with the template id: %q", info.Error)
+	}
+}
+
+func TestOnlyTeamLevelCallsRejectTheKey(t *testing.T) {
+	f := newFake(t)
+	var used []string
+	mk := func(key string) *Provider {
+		store := &memStore{state: ready}
+		p, err := New(Config{KeySource: func(context.Context) (string, error) { return key, nil }, APIBase: f.srv.URL, Version: "v1", Store: store,
+			HostURL:       func(port int, id, dom string) string { return f.srv.URL + "/p" + itoa(port) },
+			OnKeyRejected: func(k string) { used = append(used, k) }})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	// A sandbox call answered 401 is not a verdict on the key.
+	good := mk(testKey)
+	if _, err := act(good); err != nil {
+		t.Fatal(err)
+	}
+	f.mu.Lock()
+	f.getCode = 401
+	f.mu.Unlock()
+	good.invalidate()
+	_, _ = good.Info(context.Background())
+	if len(used) != 0 {
+		t.Fatalf("a per-sandbox 401 rejected the key: %v", used)
+	}
+	// A sandbox create with a wrong key is, and says which key it used.
+	bad := mk("older-key-0000000")
+	bad.state = State{Phase: PhaseReady, TemplateID: "tpl1", TemplateVersion: "v1"}
+	_, _ = act(bad)
+	if len(used) != 1 || used[0] != "older-key-0000000" {
+		t.Fatalf("rejections %v", used)
 	}
 }

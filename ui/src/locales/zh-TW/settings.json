@@ -31,7 +31,8 @@
       "bots": "Bot 可用",
       "workspace": "工作區",
       "system": "系統",
-      "more": "進階"
+      "more": "進階",
+      "admin": "管理"
     },
     "page": {
       "general": {
@@ -75,7 +76,7 @@
         "description": "版本、伺服器、資料、除錯與從頭開始。"
       },
       "admin": {
-        "name": "Admin 主控台",
+        "name": "帳戶",
         "description": "邀請、管理和停用帳號"
       },
       "automation": {
@@ -93,6 +94,14 @@
       "devices": {
         "name": "其他裝置",
         "description": "連接裝有 Tofi 應用程式的 Mac"
+      },
+      "admin-groups": {
+        "name": "使用者群組",
+        "description": "依群組設定帳戶可用的資源"
+      },
+      "admin-resources": {
+        "name": "組織資源",
+        "description": "伺服器提供給群組的金鑰"
       }
     },
     "category": "設定分類",
@@ -158,7 +167,8 @@
     "global_description": "設為「跟隨全域」的 Bot 會使用這裡的模型和思考強度。新建立的 Bot 預設跟隨全域。",
     "global_description_followers_other": "設為「跟隨全域」的 Bot 會使用這裡的模型和思考強度，目前有 {{count}} 個 Bot 跟隨。新建立的 Bot 預設跟隨全域。",
     "global_description_no_followers": "設為「跟隨全域」的 Bot 會使用這裡的模型和思考強度，目前沒有 Bot 跟隨。新建立的 Bot 預設跟隨全域。",
-    "effort_hint": "模型預設：{{effort}}"
+    "effort_hint": "模型預設：{{effort}}",
+    "no_models_provided": "尚無可用模型。你的組織尚未配置任何模型。請聯絡管理員。"
   },
   "effort": {
     "none": "關閉",
@@ -381,7 +391,14 @@
     },
     "accounts": {
       "title": "帳號",
-      "empty": "還沒有帳號。"
+      "empty": "還沒有帳號。",
+      "group_col": "群組",
+      "group_of": "{{name}} 的群組",
+      "select": "選取 {{name}}",
+      "bulk": "批次操作",
+      "selected": "已選 {{count}} 個",
+      "move_n": "將 {{count}} 個移到群組…",
+      "clear": "取消選取"
     },
     "add": "新增帳號",
     "open": "開啟 {{name}}",
@@ -474,6 +491,15 @@
         "delete_legacy": "原始擁有者帳號及其 Bot 電腦無法刪除。",
         "delete_running": "正在刪除。",
         "delete_need_deactivate": "請先停用此帳號，只有已停用的帳號才能刪除。"
+      },
+      "group": {
+        "title": "群組",
+        "label": "所屬群組",
+        "help": "群組決定此帳戶在模型、Bot 電腦、搜尋與擷取上的預設政策。"
+      },
+      "overrides": {
+        "title": "個別覆寫",
+        "help": "每項能力預設跟隨群組；在這裡選一個值就會單獨覆寫，重設則回到群組。"
       }
     },
     "delete": {
@@ -570,7 +596,139 @@
       "resource_configuration_failed": "無法套用 Bot 電腦大小。請重試。",
       "computer_unavailable": "暫時無法連線到這台 Bot 電腦。請稍後重試。"
     },
-    "intro_no_computer": "建立帳號、指定誰是 Admin，並管理他們的登入。成員首次登入時需要更換初始密碼。"
+    "intro_no_computer": "建立帳號、指定誰是 Admin，並管理他們的登入。成員首次登入時需要更換初始密碼。",
+    "groups": {
+      "title": "群組",
+      "intro": "群組決定帳戶使用誰的資源：自己的還是組織提供的。每個帳戶屬於一個群組，個別例外在帳戶詳情裡設定。",
+      "unknown": "群組",
+      "loading": "正在載入群組…",
+      "builtin": "內建",
+      "new": "新增群組",
+      "back": "群組",
+      "name_label": "名稱",
+      "rename": "重新命名",
+      "policy_title": "資源政策",
+      "policy_help": "變更會立即對所有成員生效。",
+      "policy_readonly": "Self-serve 是現有行為，唯讀；要改政策請新增群組。",
+      "saved": "已儲存",
+      "resource_missing": "缺少組織資源。",
+      "open_resources": "開啟組織資源",
+      "members_title": "成員（{{count}}）",
+      "members_self_serve": "從未調整過的帳戶都在 Self-serve。",
+      "members_empty": "沒有成員。",
+      "add_members": "新增成員",
+      "add_title": "向 {{name}} 新增成員",
+      "add_none": "所有帳戶都已在該群組。",
+      "add_current": "目前在 {{group}}",
+      "add_submit": "新增 {{count}} 個",
+      "delete_title": "刪除群組",
+      "delete_label": "刪除此群組",
+      "delete_help": "移除該群組及其政策。",
+      "delete_action": "刪除群組",
+      "delete_confirm_title": "刪除 {{name}}？",
+      "delete_confirm_body": "該群組及其政策會被移除，無法復原。",
+      "create_title": "新增群組",
+      "create_name": "群組名稱",
+      "create_note": "新群組初始等同 Self-serve，隨後再設定政策。",
+      "create_submit": "建立群組",
+      "delete_in_use_other": "先把該群組的 {{count}} 個成員移到其他群組。",
+      "members_count_other": "{{count}} 位成員"
+    },
+    "org": {
+      "missing_title": "有組織提供的資源缺失",
+      "missing_item": "{{capability}}：{{who}}",
+      "missing_action": "開啟群組",
+      "models": {
+        "title": "AI 模型",
+        "help": "供所在群組由組織提供模型的帳戶使用的 API 金鑰。金鑰只寫不讀，只顯示末尾幾位。"
+      },
+      "computers": {
+        "title": "Bot 電腦",
+        "help": "供所在群組提供雲端電腦的帳戶使用的 E2B 金鑰；伺服器虛擬機在「帳戶」裡按帳戶設定。",
+        "vm_title": "伺服器虛擬機",
+        "vm_ready": "這台伺服器可以運行虛擬機；規格與掛接按帳戶設定。",
+        "vm_none": "這台伺服器不能運行虛擬機（沒有 KVM 主機）。",
+        "vm_open": "開啟帳戶"
+      },
+      "web": {
+        "title": "搜尋與擷取",
+        "help": "供所在群組由組織提供搜尋與擷取的帳戶使用，Bot 按此順序依序嘗試。"
+      },
+      "compat_name": "OpenAI 相容端點",
+      "endpoint_tag": "端點",
+      "compat_address": "端點位址",
+      "compat_key": "API 金鑰（選填）",
+      "compat_models_label": "模型 ID",
+      "compat_models": "模型：{{models}}",
+      "compat_note": "金鑰留空會沿用同一位址已存的金鑰；端點不列出模型時，請手動填寫模型 ID。",
+      "e2b_name": "E2B 雲端電腦",
+      "e2b_key": "E2B API 金鑰",
+      "e2b_template_label": "範本 ID（選填）",
+      "key_note": "金鑰保存在伺服器上，之後不會再次顯示。",
+      "no_hint": "金鑰已儲存",
+      "edit": "編輯",
+      "test": "測試",
+      "test_ok": "金鑰驗證通過。",
+      "removed": "已移除。",
+      "saved": "{{name}} 已儲存。",
+      "remove_question": "移除組織的 {{name}} 金鑰？",
+      "status": {
+        "verified": "已驗證",
+        "stored": "已儲存，未驗證",
+        "rejected": "被拒絕：{{reason}}"
+      },
+      "error": {
+        "generic": "沒有成功，請重試。",
+        "invalid_policy": "這個政策無效。",
+        "group_exists": "已有同名群組。",
+        "group_limit": "已達到群組數量上限。",
+        "group_builtin_readonly": "內建群組不能這樣修改。",
+        "group_in_use": "請先把該群組成員移到其他群組。",
+        "not_found": "該項已不存在。",
+        "invalid_key": "服務商拒絕了這個金鑰。",
+        "invalid_workspace": "請填寫 Claude Console 的工作區 ID（wrkspc_…）。",
+        "invalid_template": "這不是有效的 E2B 範本 ID。",
+        "invalid_zone": "請填寫有效的 zone。",
+        "invalid_base_url": "請填寫有效的端點位址。",
+        "invalid_models": "請檢查模型 ID。",
+        "invalid_address": "請填寫以 http:// 或 https:// 開頭的位址。",
+        "no_models": "這個金鑰沒有可用的模型。",
+        "no_quota": "該帳戶已沒有可用額度。",
+        "provider_unreachable": "這台伺服器連不上服務商。",
+        "endpoint_not_allowed": "這台伺服器不允許連線該位址。",
+        "invalid_request": "請求無效。",
+        "forbidden": "需要管理員權限。",
+        "storage": "伺服器未能儲存。",
+        "custom_template": "此電腦使用你提供的範本，不會重新建置。"
+      },
+      "missing_accounts_other": "{{count}} 個帳戶覆寫",
+      "intro": "這些金鑰屬於這台伺服器，供所在群組由組織提供資源的帳戶使用；它們不是你的個人金鑰，你的在 設定 › AI 模型、環境、搜尋與擷取。",
+      "badge": {
+        "verified": "已驗證",
+        "stored": "未驗證",
+        "rejected": "被拒絕"
+      },
+      "build": {
+        "none": "版本 {{version}} 的電腦映像尚未建置。成員首次需要電腦時會自動建置，也可以現在按「立即建置」。",
+        "preparing": "正在建置電腦映像（版本 {{version}}），需要幾分鐘。完成後成員的電腦才會啟動。",
+        "ready": "電腦映像已就緒（版本 {{version}}）。",
+        "failed": "版本 {{version}} 的電腦映像建置失敗。",
+        "custom": "自訂範本 {{id}}。依原樣使用，不會重新建置。",
+        "min_version": "電腦映像最低版本：{{version}}。使用較舊映像的電腦必須先升級才能執行。",
+        "starting": "正在開始…",
+        "retry": "重試建置",
+        "start": "立即建置",
+        "error": {
+          "generic": "建置失敗。",
+          "template_build_failed": "E2B 無法建置電腦映像。",
+          "image_missing": "此伺服器版本未附帶 E2B 電腦映像。",
+          "invalid_key": "E2B 拒絕了組織的 API 金鑰。請更換金鑰。",
+          "e2b_unreachable": "此伺服器無法連線到 E2B。請稍後重試建置。",
+          "e2b_limit": "已達到 E2B 帳戶上限。請先在 E2B 釋放額度，再重試建置。",
+          "template_stale_in_team": "E2B 團隊中已有一個名為 tofi-computer-{{version}} 的範本，其上次建置失敗，E2B 不接受在它上面重新建置。請在 E2B 控制台刪除該範本（團隊擁有者可以操作），然後重試建置。"
+        }
+      }
+    }
   },
   "connection": {
     "label": "目前的伺服器連線",
@@ -1192,7 +1350,8 @@
       "needs_address": "需要位址",
       "error": "錯誤",
       "off": "已關閉",
-      "limit": "已達每日上限"
+      "limit": "已達每日上限",
+      "not_provided": "未提供"
     },
     "test_ok": "運作正常",
     "test": "測試",
@@ -1227,7 +1386,14 @@
     "limit_fetch": "每個來源的擷取次數",
     "limit_option": "每天 {{count}} 次",
     "limit_unlimited": "不限",
-    "used_today": "最近 24 小時 {{count}} 次"
+    "used_today": "最近 24 小時 {{count}} 次",
+    "managed": {
+      "organization": "組織",
+      "search_provided": "由你的組織提供；來源與順序唯讀。",
+      "fetch_provided": "由你的組織提供；來源與順序唯讀。",
+      "fetch_builtin": "由政策管理：Bot 只使用內建的網頁讀取器。",
+      "search_off": "依政策，此帳戶的網頁搜尋已關閉。"
+    }
   },
   "permissionsPage": {
     "heading": "審查員",
@@ -1482,6 +1648,71 @@
         "title": "撤銷本機執行授權？",
         "body": "執行中的指令會停止，Bot 也會失去授權資料夾的存取權。之後可以重新授權資料夾。",
         "confirm": "撤銷"
+      }
+    }
+  },
+  "policy": {
+    "capability": {
+      "ai_models": {
+        "name": "AI 模型",
+        "help": "帳戶的 Bot 使用誰的 API 金鑰。"
+      },
+      "computer": {
+        "name": "Bot 電腦",
+        "help": "帳戶的 Bot 在哪台電腦上工作。"
+      },
+      "web_search": {
+        "name": "網頁搜尋",
+        "help": "Bot 能否搜尋網頁，以及用誰的金鑰。"
+      },
+      "web_fetch": {
+        "name": "網頁擷取",
+        "help": "Bot 能否使用內建讀取器之外的擷取來源，以及用誰的金鑰。"
+      }
+    },
+    "value": {
+      "ai_models": {
+        "own": "自備金鑰",
+        "provided": "組織提供"
+      },
+      "computer": {
+        "host": "伺服器虛擬機",
+        "own": "自備 E2B 金鑰",
+        "provided": "組織提供",
+        "none": "無"
+      },
+      "web_search": {
+        "own": "自備金鑰",
+        "provided": "組織提供",
+        "off": "關閉"
+      },
+      "web_fetch": {
+        "own": "自備金鑰",
+        "provided": "組織提供",
+        "builtin": "僅內建"
+      }
+    },
+    "source": {
+      "label": "電腦來源",
+      "vm": "虛擬機",
+      "e2b": "E2B"
+    },
+    "follows": "跟隨群組 · {{value}}",
+    "overridden": "已覆寫 · {{value}}（群組：{{group}}）",
+    "reset": "恢復為群組設定",
+    "member": {
+      "managed": "由政策管理",
+      "banner_title": "部分資源由你的組織提供",
+      "banner_body": "管理員統一管理 Bot 用到的部分資源，例如模型、搜尋或 Bot 電腦；這些設定在這裡唯讀。",
+      "banner_action": "檢視",
+      "banner_dismiss": "關閉提示",
+      "models": {
+        "title": "模型由你的組織提供",
+        "body": "Bot 使用組織的模型帳戶運行；API 金鑰與登入由管理員管理。",
+        "available": "可用",
+        "not_provided": "未提供",
+        "waiting_title": "等待管理員提供模型",
+        "waiting_body": "組織還沒有提供模型；管理員新增之前，Bot 無法運行。"
       }
     }
   }

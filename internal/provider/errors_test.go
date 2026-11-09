@@ -1,7 +1,11 @@
 package provider
 
 import (
+	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -130,5 +134,45 @@ func TestIsRetryableQuotaExhausted429(t *testing.T) {
 	}
 	if !IsRetryable(NewAPIError("openai", 429, `{"error":{"code":"rate_limit_exceeded"}}`)) {
 		t.Fatal("plain 429 must stay retryable")
+	}
+}
+
+// A failed HTTP call names neither the URL nor host:port, in all three providers.
+func TestRequestFailureDropsTheAddress(t *testing.T) {
+	srv := httptest.NewServer(http.NotFoundHandler())
+	base := srv.URL
+	hostPort := strings.TrimPrefix(base, "http://")
+	srv.Close() // nothing listens now
+	check := func(name string, err error) {
+		t.Helper()
+		if err == nil {
+			t.Fatalf("%s: no error", name)
+		}
+		if strings.Contains(err.Error(), hostPort) || strings.Contains(err.Error(), "http://") {
+			t.Fatalf("%s names the address: %v", name, err)
+		}
+		if !strings.Contains(err.Error(), "connection refused") {
+			t.Fatalf("%s lost the cause: %v", name, err)
+		}
+	}
+	req := &ChatRequest{Model: "gpt-5", Messages: []Message{{Role: "user", Content: "hi"}}}
+	for name, p := range map[string]func() (Provider, error){
+		"openai":    func() (Provider, error) { return New("openai", "k-synthetic-0123456789", WithBaseURL(base+"/v1")) },
+		"anthropic": func() (Provider, error) { return New("anthropic", "k-synthetic-0123456789", WithBaseURL(base)) },
+		"compat":    func() (Provider, error) { return New(ProviderOpenAICompat, "", WithBaseURL(base+"/v1")) },
+	} {
+		prov, err := p()
+		if err != nil {
+			t.Fatal(err)
+		}
+		r := *req
+		if name == "anthropic" {
+			r.Model = "claude-sonnet-5-5"
+		}
+		if name == "compat" {
+			r.Model = "compat:x"
+		}
+		_, err = prov.Chat(context.Background(), &r)
+		check(name, err)
 	}
 }

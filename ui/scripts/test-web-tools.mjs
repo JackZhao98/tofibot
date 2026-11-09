@@ -47,7 +47,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   const requests = [];
   const reset = () => {
     Object.assign(state, {
-      computer: false, masterOn: true, failNext: false, testDelay: 0,
+      computer: false, masterOn: true, failNext: false, testDelay: 0, managed: undefined, leak: false,
       order: {search: ["tavily", "brave", "searxng", "computer"], fetch: ["firecrawl", "brightdata", "computer"]},
       off: new Set(), keys: {}, errors: {}, address: "", testResult: {}, limits: {search: 300, fetch: 300}, used: {},
     });
@@ -75,12 +75,35 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (!enabled && (e.status === "ready" || e.status === "limit")) e.status = "off";
     return e;
   };
-  const viewOf = () => ({
+  const baseView = () => ({
     enabled: state.masterOn, computer: state.computer, limits: state.limits,
     search: [{id: "native", label: "Model web search", kind: "native", paid: false, fixed: true, enabled: true, status: "always", testable: false}, ...state.order.search.filter(id => id !== "computer" || state.computer).map(id => entry("search", id))],
     fetch: [{id: "builtin", label: "Built-in fetch", kind: "builtin", paid: false, fixed: true, enabled: true, status: "always", testable: true}, ...state.order.fetch.filter(id => id !== "computer" || state.computer).map(id => entry("fetch", id))],
     search_offered: Object.keys(state.keys).some(id => id in specs && ["tavily", "brave"].includes(id) && !state.errors[id]) || Boolean(state.address),
   });
+  // Under an organization policy the server adds `managed` (the mode of each chain), drops the search list when it is off and
+  // keeps only the built-in fetch when fetch is built-in only.
+  const viewOf = () => {
+    const view = baseView();
+    if (!state.managed) return view;
+    const out = {...view, managed: state.managed};
+    // The gateway shows an organization source's state and nothing of its key (no hint, zone or address). `leak` is a payload that
+    // still carried them, with the source marked: the page must not draw them either.
+    for (const chain of ["search", "fetch"]) {
+      if (state.managed[chain] !== "provided") continue;
+      out[chain] = out[chain].map(item => {
+        if (item.fixed) return item;
+        const clean = {...item, testable: false};
+        delete clean.key_hint; delete clean.zone; delete clean.base_url;
+        if (!state.leak) return clean;
+        return {...item, source: "organization", key_hint: item.key_hint ?? "…9876", zone: "leaked_zone", base_url: item.kind === "self_hosted" ? "http://searxng.local:8080" : item.base_url};
+      });
+    }
+    if (state.managed.search === "off") out.search = [];
+    if (state.managed.fetch === "builtin") out.fetch = view.fetch.filter(item => item.fixed);
+    delete out.limits;
+    return out;
+  };
   const answer = (url, method, body) => {
     const path = url.pathname;
     if (path === "/api/web-tools" && method === "GET") return viewOf();
@@ -332,6 +355,62 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       }
     }
     console.log("PASS seven languages, light and dark, desktop and phone, without raw keys or overflow");
+  }
+  // ---- 8. Organization policy (user groups): a provided chain is read-only with the organization mark; search off and fetch
+  //         built-in only replace their list with one line; nothing sends a write.
+  {
+    reset();
+    state.keys = {tavily: "tvly-aaaa1111", firecrawl: "fc-bbbb2222"}; state.used = {tavily: 12};
+    state.managed = {search: "provided", fetch: "provided"};
+    const t = await open({}, {width: 1100, height: 1600});
+    assert.deepEqual(await ids(t.page, "search"), ["native", "tavily", "brave", "searxng"], "the organization's chain is listed");
+    assert.match(await row(t.page, "search", "tavily").innerText(), /Ready/);
+    assert.match(await row(t.page, "search", "tavily").innerText(), /Used in the last 24 hours: 12|12/, "the 24-hour count still shows");
+    for (const [chain, id] of [["search", "tavily"], ["search", "brave"], ["search", "searxng"], ["fetch", "firecrawl"], ["fetch", "brightdata"]]) {
+      const item = row(t.page, chain, id);
+      assert.equal(await item.locator('[data-tag="organization"]').count(), 1, `${id} carries the Organization mark`);
+      assert.equal(await item.locator(".web-grip, .web-row-move, [role=switch]").count(), 0, `${id}: no grip, arrows or switch`);
+      assert.equal(await item.getByRole("button").count(), 0, `${id}: no Test, Set up or Edit`);
+    }
+    assert.equal(await t.page.locator('[data-tag="organization"] svg[data-tofi-icon="lock"]').count(), 5, "the mark carries a lock");
+    assert.equal(await t.page.locator(".web-limits").count(), 0, "the member cannot set the daily cap");
+    assert.match(await t.page.locator(".web-chain-head p").first().innerText(), /Provided by your organization\. Sources and order are read-only\./);
+    assert.equal(await t.page.locator(".web-row .web-row-form, .web-tools input").count(), 0, "no key or address input anywhere");
+    assert.match(await row(t.page, "search", "brave").innerText(), /Not provided/, "a source the organization has not set up is not 'Needs a key' to a member");
+    assert.ok(!/Needs a key|Needs an address/.test(await t.page.locator(".web-tools").innerText()), "no setup wording on a chain the member cannot set up");
+    // An organization source shows no key fragment, zone or address: the keys' last four characters, the SearXNG address.
+    const shown = await t.page.locator(".web-tools").innerText();
+    assert.ok(!/1111|2222|aaaa|bbbb|…[A-Za-z0-9]{4}\b|searxng\.local|Set up \(/i.test(shown), `no key fragment for an organization source: ${shown.replace(/\s+/g, " ")}`);
+    assert.equal(await t.page.locator(".web-row-detail").evaluateAll(items => items.filter(item => /…/.test(item.textContent)).length), 0, "no masked key in any row detail");
+    if (shots) await t.page.locator(".settings-page-body").screenshot({path: join(shots, "web-tools-provided.png")});
+    await t.close();
+
+    // Even if the payload carried a hint, a zone and an address for an organization source (marked `source: "organization"`, and
+    // on a chain whose policy is provided), the page draws none of them.
+    reset();
+    state.keys = {tavily: "tvly-aaaa1111", firecrawl: "fc-bbbb2222"}; state.address = "http://searxng.local:8080"; state.leak = true;
+    state.managed = {search: "provided", fetch: "provided"};
+    const leaky = await open({}, {width: 1100, height: 1600});
+    await row(leaky.page, "search", "tavily").waitFor();
+    const leakText = await leaky.page.locator(".web-tools").innerText();
+    assert.ok(!/1111|2222|9876|…[A-Za-z0-9]{4}\b|leaked_zone|searxng\.local|Set up \(/i.test(leakText), `a leaking payload still shows no key fragment: ${leakText.replace(/\s+/g, " ")}`);
+    assert.equal(await row(leaky.page, "search", "tavily").locator('[data-tag="organization"]').count(), 1);
+    await leaky.close();
+
+    reset();
+    state.managed = {search: "off", fetch: "builtin"};
+    const off = await open({}, {width: 1100, height: 1400});
+    await off.page.locator(".web-chain-managed").waitFor();
+    assert.equal(await off.page.locator('.web-row[data-chain="search"]').count(), 0, "web search off: no list, no sources to add");
+    assert.equal(await off.page.locator('.web-chain-managed [data-managed="off"]').innerText(), "Web search is turned off for this account by policy.");
+    assert.deepEqual(await ids(off.page, "fetch"), ["builtin"], "fetch built-in only: the built-in reader and nothing to add");
+    assert.match(await off.page.locator(".web-chain").nth(1).locator(".web-chain-head p").innerText(), /Managed by policy\. Bots use the built-in page reader only\./);
+    assert.equal(await off.page.locator(".web-tools button:not([disabled])").evaluateAll(list => list.filter(item => !item.closest(".web-row")).length), 0);
+    assert.equal(await off.page.locator(".settings-banner.is-warn").count(), 0, "no 'no search source' warning while search is off by policy");
+    assert.deepEqual(off.errors, []);
+    if (shots) await off.page.locator(".settings-page-body").screenshot({path: join(shots, "web-tools-off-builtin.png")});
+    await off.close();
+    console.log("PASS policy: provided chains are read-only with the Organization mark; search off and fetch built-in say so");
   }
   console.log("Web tools settings: PASS");
 } finally {

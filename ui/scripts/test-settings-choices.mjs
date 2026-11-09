@@ -57,7 +57,38 @@ try {
     assert.equal(preferredDefaultModel([m("claude-opus-5"), m("claude-sonnet-5")]).id, "claude-opus-5");
     assert.equal(preferredDefaultModel([m("codex-sol-1")]), undefined, "without Claude nothing is preselected");
   }
-  console.log("PASS: language list (Default tag, no Auto), approval mode mapping, default Claude model");
+
+  // Organization policy (user groups, design 5.2): what usePolicy() derives from GET /api/config.capabilities. A server without
+  // the field means everything is the person's own, and the computer is the host's.
+  {
+    const { bundleModules } = await import("./lib/bundle.mjs");
+    const { policyFrom } = await bundleModules(root, ["src/capabilityPolicy.ts"]);
+    const own = { mode: "own", source: "own" };
+    const none = policyFrom(undefined);
+    assert.equal(none.managed, false);
+    assert.equal(none.first, null);
+    assert.deepEqual(none.of("computer"), { mode: "host", source: "own" }, "no policy: the computer is the host's");
+    assert.equal(none.provided("ai_models"), false);
+    const view = overrides => ({ ai_models: own, computer: { mode: "host", source: "own" }, web_search: own, web_fetch: own, ...overrides });
+    assert.equal(policyFrom(view({})).managed, false, "all own: nothing is managed");
+    const provided = policyFrom(view({ ai_models: { mode: "provided", source: "organization" } }));
+    assert.equal(provided.provided("ai_models"), true);
+    assert.equal(provided.off("ai_models"), false);
+    assert.equal(provided.managed, true);
+    assert.equal(provided.first, "ai_models");
+    const searchOff = policyFrom(view({ web_search: { mode: "off", source: "none" }, web_fetch: { mode: "builtin", source: "none" } }));
+    assert.equal(searchOff.off("web_search"), true, "off reads as nothing to set up");
+    assert.equal(searchOff.off("web_fetch"), true, "built-in only reads as nothing to set up");
+    assert.equal(searchOff.provided("web_search"), false);
+    assert.equal(searchOff.first, "web_search", "the banner links to the first managed page in Settings order");
+    const computer = policyFrom(view({ computer: { mode: "provided", source: "organization", via: "e2b" } }));
+    assert.equal(computer.of("computer").via, "e2b");
+    assert.equal(computer.first, "computer");
+    assert.equal(policyFrom(view({ computer: { mode: "none", source: "none" } })).off("computer"), true);
+    const stable = policyFrom(view({}));
+    assert.equal(typeof stable.of, "function");
+  }
+  console.log("PASS: language list (Default tag, no Auto), approval mode mapping, default Claude model, organization policy");
 } finally {
   await rm(output, { recursive: true, force: true });
 }

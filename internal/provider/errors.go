@@ -3,7 +3,9 @@ package provider
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -363,4 +365,30 @@ func codeRequestRejection(err error) error {
 		return &RequestRejectionError{Code: RequestPrefillRejected, Err: apiErr}
 	}
 	return err
+}
+
+// RequestFailure wraps the error of an HTTP client call without the address it
+// named: http.Client puts the full URL in a *url.Error and the dial error names
+// host:port, and for a compatible endpoint an administrator set up that address
+// is not the person's to read. Only the operation and the underlying cause stay
+// (still reachable with errors.Is and errors.As, and still matching the
+// connection-error words IsRetryable looks for).
+func RequestFailure(err error) error {
+	if err == nil {
+		return nil
+	}
+	var ue *url.Error
+	if errors.As(err, &ue) {
+		inner := ue.Err
+		var oe *net.OpError
+		if errors.As(inner, &oe) && oe.Err != nil {
+			return fmt.Errorf("request failed: %s: %w", oe.Op, oe.Err)
+		}
+		return fmt.Errorf("request failed: %s: %w", ue.Op, inner)
+	}
+	var oe *net.OpError
+	if errors.As(err, &oe) && oe.Err != nil {
+		return fmt.Errorf("request failed: %s: %w", oe.Op, oe.Err)
+	}
+	return fmt.Errorf("request failed: %w", err)
 }

@@ -395,7 +395,7 @@ func TestSiteRefusalFromBrightDataDoesNotDisableTheKey(t *testing.T) {
 	if rec := providerRequest(t, s, http.MethodPut, "/api/web-tools/providers/brightdata", `{"key":"bd-key-12345678","zone":"z1"}`); rec.Code != 200 {
 		t.Fatal(rec.Body.String())
 	}
-	_, err := (trackedFetch{webtools.BrightData{Key: "bd-key-12345678", Zone: "z1"}, s}).Fetch(context.Background(), "https://example.com/", 0)
+	_, err := (trackedFetch{webtools.BrightData{Key: "bd-key-12345678", Zone: "z1"}, s, false}).Fetch(context.Background(), "https://example.com/", 0)
 	if webtools.CodeOf(err) != webtools.Blocked {
 		t.Fatalf("a site's 403 is blocked, got %v", err)
 	}

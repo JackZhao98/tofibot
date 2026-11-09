@@ -13,7 +13,9 @@
       "policy_denied": "この操作は安全チェックを通過しませんでした",
       "connection_status": "接続が切れたため、状態を確認できません",
       "runtime_connection": "接続が中断され、タスクは完了しませんでした",
-      "unknown_failure": "タスクは完了しませんでした"
+      "unknown_failure": "タスクは完了しませんでした",
+      "org_resource_missing": "管理者の対応待ち",
+      "org_credential_failed": "組織のモデルアカウントに対応が必要です"
     },
     "action": {
       "open_tools": "ツール設定を開く",
@@ -128,7 +130,12 @@
     "finishing_results_kept": "仕上げ中です。完了した結果は保持されています。",
     "stopped_results_kept": "このワークフローは停止しました。完了した結果は保持されています。",
     "completed_steps_kept": "完了したツールのステップはアクティビティに保持されています。",
-    "reply_below": "結果は下の返信にあります。"
+    "reply_below": "結果は下の返信にあります。",
+    "org_resource_missing": "組織はこのアカウントにモデルを提供していません。",
+    "org_resource_missing_next": "管理者に追加を依頼してから再試行してください。",
+    "org_credential_auth": "組織のモデル認証情報が拒否されました。",
+    "org_credential_quota": "組織のモデルアカウントが利用上限に達しました。",
+    "org_credential_next": "管理者に組織のリソースの確認を依頼してください。"
   },
   "secondary": {
     "then_provider_busy": "その後モデルサービスが混雑し、タスクは完了しませんでした。",

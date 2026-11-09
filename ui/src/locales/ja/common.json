@@ -95,6 +95,14 @@
     "host_update_unavailable": "このサーバーはまだページから更新できません。サーバーで sudo tofi update を実行してください。",
     "storage_quota_exceeded": "このアカウントのストレージが上限に達しました。ファイルを削除するか、管理者に連絡してください。",
     "storage_host_full": "サーバーのディスクがほぼ満杯のため、新しいファイルを受け付けられません。このサーバーの運用担当者に伝えてください。",
-    "update_check_failed": "更新サーバーに接続できませんでした。しばらくしてからもう一度お試しください。"
+    "update_check_failed": "更新サーバーに接続できませんでした。しばらくしてからもう一度お試しください。",
+    "managed_by_organization": "組織が管理しています。",
+    "capability_off": "組織によりオフにされています。",
+    "org_resource_missing": "組織がこのリソースをまだ提供していません。",
+    "group_in_use": "先にグループのメンバーを別のグループへ移動してください。",
+    "group_builtin_readonly": "組み込みグループはこの方法では変更できません。",
+    "invalid_policy": "このポリシーは無効です。",
+    "group_exists": "同じ名前のグループがすでにあります。",
+    "group_limit": "グループ数の上限に達しました。"
   }
 }

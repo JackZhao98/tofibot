@@ -70,7 +70,7 @@ func (o *openaiChatCompletions) ChatStream(ctx context.Context, req *ChatRequest
 
 	resp, err := o.client(10 * time.Minute).Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+		return nil, RequestFailure(err)
 	}
 	defer resp.Body.Close()
 
@@ -198,7 +198,7 @@ func (o *openaiChatCompletions) doRequest(ctx context.Context, payload map[strin
 
 	resp, err := o.client(5 * time.Minute).Do(httpReq)
 	if err != nil {
-		return "", fmt.Errorf("request failed: %w", err)
+		return "", RequestFailure(err)
 	}
 	defer resp.Body.Close()
 

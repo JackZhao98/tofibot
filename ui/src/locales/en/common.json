@@ -95,6 +95,14 @@
     "host_update_unavailable": "This server can't update from the page yet. Run sudo tofi update on the server.",
     "storage_quota_exceeded": "This account's storage limit is reached. Delete files or ask the administrator.",
     "storage_host_full": "The server disk is almost full, so no new files are accepted. Tell the operator of this server.",
-    "update_check_failed": "Couldn't reach the update server. Try again later."
+    "update_check_failed": "Couldn't reach the update server. Try again later.",
+    "managed_by_organization": "Managed by your organization.",
+    "capability_off": "Turned off by your organization.",
+    "org_resource_missing": "Your organization has not provided this resource yet.",
+    "group_in_use": "Move the group's members to another group first.",
+    "group_builtin_readonly": "Built-in groups can't be changed that way.",
+    "invalid_policy": "That policy is not valid.",
+    "group_exists": "A group with that name already exists.",
+    "group_limit": "The group limit is reached."
   }
 }

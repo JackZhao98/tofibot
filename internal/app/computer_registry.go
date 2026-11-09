@@ -571,6 +571,9 @@ func (s *Server) AttachVM(ctx context.Context) error {
 	if s.computerFactory == nil {
 		return errComputerBackend
 	}
+	if s.accountID != "" && s.orgPolicy != nil && !computerAllowsVM(s.policy()[capComputer]) {
+		return errComputerPolicy // the account's policy gives it no VM: no path attaches one around it
+	}
 	// The container keeps serving local connections after the attach.
 	s.recordContainerRunnerNoComputer()
 	s.computerMu.Lock()
@@ -593,6 +596,11 @@ func (s *Server) AttachVM(ctx context.Context) error {
 	// A kept disk may hold an old guest Runner: check it against the container.
 	s.stopLocalRunnerMigration()
 	s.startLocalRunnerMigration()
+	// The policy may have changed while the attach ran (applyPolicyChange saw nothing to detach).
+	if s.accountID != "" && s.orgPolicy != nil && !computerAllowsVM(s.policy()[capComputer]) {
+		s.enforceComputerPolicy(ctx)
+		return errComputerPolicy
+	}
 	return nil
 }
 

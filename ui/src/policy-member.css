@@ -1,0 +1,13 @@
+/* What an account sees while the organization provides or restricts a resource: managed notes, the lock mark, the Settings banner. Tokens only. */
+.provided-list{display:grid;gap:0;margin:10px 0 0;padding:0;list-style:none}
+.provided-list li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line-soft)}
+.provided-list li strong{color:var(--ink);font:600 14px/1.4 var(--body)}
+.provided-card .provider-card-head h3{display:flex;align-items:center;gap:8px}
+.web-org-tag{display:inline-flex;align-items:center;gap:4px}
+.policy-note{display:flex;align-items:flex-start;gap:8px;margin:0;color:var(--ink-soft);font:13px/1.5 var(--body)}
+.web-chain-managed .web-chain-head{padding-bottom:14px}
+.policy-banner{position:relative}
+.policy-banner .settings-banner{padding-right:48px}
+.policy-banner-dismiss{position:absolute;top:8px;right:8px;width:32px;height:32px;min-width:32px}
+.env-tag-org{display:inline-flex;align-items:center;gap:4px}
+.provided-models .settings-banner{margin-top:12px}

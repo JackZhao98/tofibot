@@ -1125,6 +1125,11 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		}
 	}
 	noteBase := noteText
+	// A capability the organization turned off gets one short line, only then.
+	policyBlock := policyNotesFor(s.policy())
+	if policyBlock != "" {
+		noteText += "\n" + policyBlock
+	}
 	states := s.scheduleStateNote(c, r, s.userLocation())
 	if states != "" {
 		noteText += "\n" + states
@@ -1148,7 +1153,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		}
 	}
 	note := runtime.Message{Role: "user", Content: noteText}
-	r.ctxCapture.markNote(len(pm), noteBase, states)
+	r.ctxCapture.markNote(len(pm), noteBase, policyBlock, states)
 	if n := len(pm); n > 0 {
 		last := pm[n-1]
 		pm = append(pm[:n-1], note, last)

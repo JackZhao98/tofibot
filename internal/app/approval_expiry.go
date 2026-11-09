@@ -340,7 +340,8 @@ func (s *Server) executeApprovalExpiry(c Conversation, r Run) {
 			// The run row holds the concrete model it started with; the
 			// Bot's effort may be "default" and resolves the same way.
 			model, effort := s.resolveBotModel(ctx, r.Model, b)
-			res, e := engine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, Model: model, ReasoningEffort: effort, System: system, Continuation: checkpoint, ApprovalExpiryRecovery: true, Tools: tools, OnToolEvent: func(ev runtime.ToolEvent) error { return s.store.RecordToolEvent(c.ID, r.BotID, r.ID, ev) }, OnUsage: func(u provider.Usage) { _ = s.store.recordModelUsage(r.ID, u) }})
+			orgCall := s.credentialSource(runtime.ModelProvider(model)) == sourceOrganization
+			res, e := engine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, Model: model, ReasoningEffort: effort, System: system, Continuation: checkpoint, ApprovalExpiryRecovery: true, Tools: tools, OnToolEvent: func(ev runtime.ToolEvent) error { return s.store.RecordToolEvent(c.ID, r.BotID, r.ID, ev) }, OnUsage: func(u provider.Usage) { _ = s.store.recordModelUsage(r.ID, u); s.noteOrgModelUseAs(orgCall, model, u) }})
 			if e == nil {
 				// The model resumes a transcript that may carry <progress>
 				// notes; only the answer part joins the stored conclusion.

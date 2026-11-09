@@ -10,6 +10,7 @@ import type {WebSourceEntry, WebToolsView} from "./types";
 import "./extensions-system.css";
 import "./settings/automation.css";
 import "./web-tools-settings.css";
+import "./policy-member.css";
 import { Select } from "./Select";
 
 type Chain = "search" | "fetch";
@@ -18,8 +19,25 @@ type Outcome = {ok: boolean; code: string};
 const badge: Record<WebSourceEntry["status"], BadgeState> = {ready: "ok", always: "ok", needs_key: "need", needs_address: "need", error: "bad", off: "asleep", limit: "need"};
 const placeholders: Record<string, string> = {tavily: "tvly-…", brave: "BSA…", firecrawl: "fc-…", brightdata: ""};
 
-/** Settings section: where Bots search and read the web. Two ordered lists; a source that fails hands over to the next by error code. */
-export function WebToolsSettings({initial}: {initial?: WebToolsView}) {
+type ProviderBody = {key?: string; zone?: string; base_url?: string};
+/** Where the chains are read and written: this account's own (`/api/web-tools`) or the organization's (Administration > Organization resources). */
+export type WebToolsAdapter = {
+ load: (signal?: AbortSignal) => Promise<WebToolsView>;
+ setOrder: (chain: Chain, order: string[]) => Promise<WebToolsView>;
+ setEnabled: (chain: Chain, id: string, enabled: boolean) => Promise<WebToolsView>;
+ setLimits: (limits: {search?: number; fetch?: number}) => Promise<WebToolsView>;
+ save: (id: string, body: ProviderBody) => Promise<WebToolsView>;
+ remove: (id: string) => Promise<WebToolsView>;
+ test: (id: string) => Promise<WebToolsView>;
+};
+export const ownWebTools: WebToolsAdapter = {
+ load: signal => api.webTools(signal), setOrder: api.setWebToolOrder, setEnabled: api.setWebToolEnabled, setLimits: api.setWebToolLimits,
+ save: api.saveWebProvider, remove: api.removeWebProvider, test: api.testWebProvider,
+};
+
+/** Settings section: where Bots search and read the web. Two ordered lists; a source that fails hands over to the next by error code.
+ * `managed` (from the server) turns a chain read-only: `provided` shows the organization's chain, `off` and `builtin` replace it with one line. */
+export function WebToolsSettings({initial, adapter = ownWebTools, bare = false, title, description}: {initial?: WebToolsView; adapter?: WebToolsAdapter; /** No section heading or wrapper: the caller supplies them. */ bare?: boolean; title?: string; description?: string}) {
  const {t} = useTranslation("settings");
  const [view, setView] = useState<WebToolsView | null>(initial ?? null);
  const [error, setError] = useState("");
@@ -29,9 +47,9 @@ export function WebToolsSettings({initial}: {initial?: WebToolsView}) {
  useEffect(() => {
   if (initial) return;
   const controller = new AbortController();
-  api.webTools(controller.signal).then(setView).catch(() => { if (!controller.signal.aborted) setError(t("webtools.load_failed")); });
+  adapter.load(controller.signal).then(setView).catch(() => { if (!controller.signal.aborted) setError(t("webtools.load_failed")); });
   return () => controller.abort();
- }, [initial, t]);
+ }, [initial, adapter, t]);
  const adopt = useCallback((next: WebToolsView) => setView({...next, test: undefined}), []);
  async function run(action: () => Promise<WebToolsView>, failure = t("action.save_failed")) {
   setError("");
@@ -41,7 +59,7 @@ export function WebToolsSettings({initial}: {initial?: WebToolsView}) {
  async function test(id: string) {
   setTesting(id); setError("");
   try {
-   const next = await api.testWebProvider(id);
+   const next = await adapter.test(id);
    if (next.test) setOutcomes(current => ({...current, [id]: {ok: next.test!.ok, code: next.test!.code}}));
    adopt(next);
   } catch { setOutcomes(current => ({...current, [id]: {ok: false, code: "network"}})); }
@@ -57,33 +75,39 @@ export function WebToolsSettings({initial}: {initial?: WebToolsView}) {
   next.splice(to, 0, item);
   setView({...view, [chain]: [...fixed, ...next]});
   setAnnounce(t("webtools.moved", {name: item.label, position: to + 1, total: next.length}));
-  if (!await run(() => api.setWebToolOrder(chain, next.map(entry => entry.id)))) void api.webTools().then(setView).catch(() => undefined);
+  if (!await run(() => adapter.setOrder(chain, next.map(entry => entry.id)))) void adapter.load().then(setView).catch(() => undefined);
  }
- return <SettingsSection className="web-tools" title={t("webtools.title")} description={t("webtools.description")}>
+ const managed = view?.managed;
+ const chainMode = (chain: Chain) => managed?.[chain] ?? "own";
+ const anyManaged = chainMode("search") !== "own" || chainMode("fetch") !== "own";
+ const content = <>
   {view && !view.enabled && <Banner tone="warn" title={t("webtools.master_off_title")}>{t("webtools.master_off_body")}</Banner>}
-  {view && view.enabled && !view.search_offered && <Banner tone="warn" title={t("webtools.no_search_title")}>{t("webtools.no_search_body")}</Banner>}
+  {view && view.enabled && !view.search_offered && chainMode("search") !== "off" && <Banner tone="warn" title={t("webtools.no_search_title")}>{t("webtools.no_search_body")}</Banner>}
   {error && <p className="error-text" role="alert">{error}</p>}
   {!view && !error && <p className="field-note" role="status">{t("providers.status_loading")}</p>}
-  {view && (["search", "fetch"] as const).map(chain => <ChainCard key={chain} chain={chain} entries={view[chain]} outcomes={outcomes} testing={testing} onMove={(from, to) => void move(chain, from, to)}
-   onEnabled={(id, enabled) => void run(() => api.setWebToolEnabled(chain, id, enabled))}
-   onSave={(id, body) => run(() => api.saveWebProvider(id, body), t("webtools.save_failed"))}
-   onRemove={id => run(() => api.removeWebProvider(id), t("webtools.remove_failed"))}
+  {view && (["search", "fetch"] as const).map(chain => chainMode(chain) === "off"
+   ? <SettingsCard key={chain} className="web-chain web-chain-managed" ><div className="web-chain-head"><h5>{t(`webtools.${chain}_title`)}</h5><p data-managed="off">{t("webtools.managed.search_off")}</p></div></SettingsCard>
+   : <ChainCard key={chain} chain={chain} entries={view[chain]} outcomes={outcomes} testing={testing} readOnly={chainMode(chain) !== "own"} organization={chainMode(chain) === "provided"} managedNote={chainMode(chain) === "builtin" ? t("webtools.managed.fetch_builtin") : chainMode(chain) === "provided" ? t(`webtools.managed.${chain}_provided`) : ""} onMove={(from, to) => void move(chain, from, to)}
+   onEnabled={(id, enabled) => void run(() => adapter.setEnabled(chain, id, enabled))}
+   onSave={(id, body) => run(() => adapter.save(id, body), t("webtools.save_failed"))}
+   onRemove={id => run(() => adapter.remove(id), t("webtools.remove_failed"))}
    onTest={id => void test(id)} />)}
-  {view?.limits && <SettingsCard className="web-limits">
+  {view?.limits && !anyManaged && <SettingsCard className="web-limits">
    <div className="web-chain-head"><h5>{t("webtools.limits_title")}</h5><p>{t("webtools.limits_note")}</p></div>
    {(["search", "fetch"] as const).map(chain => <div className="web-limit-row" key={chain}>
     <label htmlFor={`web-limit-${chain}`}>{t(`webtools.limit_${chain}`)}</label>
-    <Select id={`web-limit-${chain}`} value={String(view.limits![chain])} onValueChange={value => void run(() => api.setWebToolLimits({[chain]: Number(value)}))}>
+    <Select id={`web-limit-${chain}`} value={String(view.limits![chain])} onValueChange={value => void run(() => adapter.setLimits({[chain]: Number(value)}))}>
      {[...new Set([50, 100, 300, 1000, view.limits![chain]].filter(value => value !== -1))].sort((a, b) => a - b).map(value => <option key={value} value={value}>{t("webtools.limit_option", {count: value})}</option>)}
      <option value="-1">{t("webtools.limit_unlimited")}</option>
     </Select>
    </div>)}
   </SettingsCard>}
   <p className="sr-only" role="status" aria-live="polite">{announce}</p>
- </SettingsSection>;
+ </>;
+ return bare ? <div className="web-tools">{content}</div> : <SettingsSection className="web-tools" title={title ?? t("webtools.title")} description={description ?? t("webtools.description")}>{content}</SettingsSection>;
 }
 
-function ChainCard({chain, entries, outcomes, testing, onMove, onEnabled, onSave, onRemove, onTest}: {chain: Chain; entries: WebSourceEntry[]; outcomes: Record<string, Outcome>; testing: string | null; onMove: (from: number, to: number) => void; onEnabled: (id: string, enabled: boolean) => void; onSave: (id: string, body: {key?: string; zone?: string; base_url?: string}) => Promise<boolean>; onRemove: (id: string) => Promise<boolean>; onTest: (id: string) => void}) {
+function ChainCard({chain, entries, outcomes, testing, readOnly, organization, managedNote, onMove, onEnabled, onSave, onRemove, onTest}: {chain: Chain; entries: WebSourceEntry[]; outcomes: Record<string, Outcome>; testing: string | null; /** Managed by policy: no grip, switch, test or key form. */ readOnly: boolean; /** The sources are the organization's: each row carries its mark. */ organization: boolean; managedNote: string; onMove: (from: number, to: number) => void; onEnabled: (id: string, enabled: boolean) => void; onSave: (id: string, body: {key?: string; zone?: string; base_url?: string}) => Promise<boolean>; onRemove: (id: string) => Promise<boolean>; onTest: (id: string) => void}) {
  const {t} = useTranslation("settings");
  const titleId = useId();
  const list = useRef<HTMLOListElement>(null);
@@ -122,11 +146,11 @@ function ChainCard({chain, entries, outcomes, testing, onMove, onEnabled, onSave
   requestAnimationFrame(() => list.current?.querySelector<HTMLElement>(`[data-id='${id}'] .web-grip`)?.focus());
  }
  return <SettingsCard className="web-chain">
-  <div className="web-chain-head"><h5 id={titleId}>{t(`webtools.${chain}_title`)}</h5><p>{t(`webtools.${chain}_note`)}</p></div>
+  <div className="web-chain-head"><h5 id={titleId}>{t(`webtools.${chain}_title`)}</h5><p>{readOnly && managedNote ? managedNote : t(`webtools.${chain}_note`)}</p></div>
   <ol ref={list} className="web-chain-list" aria-labelledby={titleId}>
    {entries.map(entry => {
     const index = movable.indexOf(entry);
-    return <SourceRow key={entry.id} entry={entry} chain={chain} index={index} count={movable.length} first={fixedCount} outcome={outcomes[entry.id]} testing={testing === entry.id} busy={testing !== null}
+    return <SourceRow key={entry.id} entry={entry} chain={chain} readOnly={readOnly} organization={organization} index={index} count={movable.length} first={fixedCount} outcome={outcomes[entry.id]} testing={testing === entry.id} busy={testing !== null}
      dragging={dragging?.from === index && !entry.fixed} over={dragging !== null && dragging.over === index && dragging.from !== index && !entry.fixed}
      grip={{onPointerDown: event => press(event, index), onPointerMove: dragMove, onPointerUp: release, onPointerCancel: () => setDragging(null), onKeyDown: event => key(event, index)}}
      onMove={step => onMove(index, index + step)} onEnabled={enabled => onEnabled(entry.id, enabled)} onSave={body => onSave(entry.id, body)} onRemove={() => onRemove(entry.id)} onTest={() => onTest(entry.id)} />;
@@ -137,7 +161,7 @@ function ChainCard({chain, entries, outcomes, testing, onMove, onEnabled, onSave
 
 type GripHandlers = {onPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void; onPointerMove: (event: ReactPointerEvent<HTMLButtonElement>) => void; onPointerUp: (event: ReactPointerEvent<HTMLButtonElement>) => void; onPointerCancel: () => void; onKeyDown: (event: ReactKeyboardEvent<HTMLButtonElement>) => void};
 
-function SourceRow({entry, chain, index, count, outcome, testing, busy, dragging, over, grip, onMove, onEnabled, onSave, onRemove, onTest}: {entry: WebSourceEntry; chain: Chain; index: number; count: number; first: number; outcome?: Outcome; testing: boolean; busy: boolean; dragging: boolean; over: boolean; grip: GripHandlers; onMove: (step: -1 | 1) => void; onEnabled: (enabled: boolean) => void; onSave: (body: {key?: string; zone?: string; base_url?: string}) => Promise<boolean>; onRemove: () => Promise<boolean>; onTest: () => void}) {
+function SourceRow({entry, chain, readOnly, organization, index, count, outcome, testing, busy, dragging, over, grip, onMove, onEnabled, onSave, onRemove, onTest}: {entry: WebSourceEntry; chain: Chain; readOnly: boolean; organization: boolean; index: number; count: number; first: number; outcome?: Outcome; testing: boolean; busy: boolean; dragging: boolean; over: boolean; grip: GripHandlers; onMove: (step: -1 | 1) => void; onEnabled: (enabled: boolean) => void; onSave: (body: {key?: string; zone?: string; base_url?: string}) => Promise<boolean>; onRemove: () => Promise<boolean>; onTest: () => void}) {
  const {t} = useTranslation("settings");
  const [editing, setEditing] = useState(false);
  const switchId = useId();
@@ -145,25 +169,29 @@ function SourceRow({entry, chain, index, count, outcome, testing, busy, dragging
  const code = entry.status === "error" ? entry.error_code : outcome && !outcome.ok ? outcome.code : "";
  const needsSetup = entry.status === "needs_key" || entry.status === "needs_address";
  const configurable = Boolean(entry.fields?.length);
- const statusText = testing ? t("webtools.testing") : entry.status === "error" ? t("webtools.status.error") : outcome?.ok && entry.status === "ready" ? t("webtools.test_ok") : t(`webtools.status.${entry.status}` as "webtools.status.ready");
- const detail = entry.kind === "self_hosted" ? entry.base_url : [entry.key_hint ? t("providers.configured_hint", {hint: entry.key_hint}) : "", entry.used_today ? t("webtools.used_today", {count: entry.used_today}) : ""].filter(Boolean).join(" · ");
+// A source the organization has not set up is not the person's to set up: it reads "Not provided", not "Needs a key".
+ const notProvided = (organization || entry.source === "organization") && (entry.status === "needs_key" || entry.status === "needs_address");
+ const statusText = testing ? t("webtools.testing") : notProvided ? t("webtools.status.not_provided") : entry.status === "error" ? t("webtools.status.error") : outcome?.ok && entry.status === "ready" ? t("webtools.test_ok") : t(`webtools.status.${entry.status}` as "webtools.status.ready");
+ // An organization source shows its state and nothing of its key or address, whatever the payload carries.
+ const fromOrganization = organization || entry.source === "organization";
+ const detail = fromOrganization && entry.kind === "self_hosted" ? "" : entry.kind === "self_hosted" ? entry.base_url : [entry.key_hint && !fromOrganization ? t("providers.configured_hint", {hint: entry.key_hint}) : "", entry.used_today ? t("webtools.used_today", {count: entry.used_today}) : ""].filter(Boolean).join(" · ");
  return <li className="web-row" data-id={entry.id} data-chain={chain} data-movable={!entry.fixed} data-status={entry.status} data-dragging={dragging || undefined} data-over={over || undefined}>
   <div className="web-row-main">
-   {entry.fixed ? <span className="web-grip-spacer" aria-hidden="true" /> : <button type="button" className="web-grip" aria-label={t("webtools.move_label", {name: entry.label})} aria-keyshortcuts="ArrowUp ArrowDown" title={t("webtools.move_hint")} {...grip}><GripGlyph size={16} /></button>}
+   {entry.fixed || readOnly ? <span className="web-grip-spacer" aria-hidden="true" /> : <button type="button" className="web-grip" aria-label={t("webtools.move_label", {name: entry.label})} aria-keyshortcuts="ArrowUp ArrowDown" title={t("webtools.move_hint")} {...grip}><GripGlyph size={16} /></button>}
    <span className="web-row-mark">{entry.kind === "native" ? <span className="service-mark service-mark-generic" aria-hidden="true"><TofiIcon name="sparkles" size={22} /></span> : entry.kind === "builtin" ? <span className="service-mark service-mark-generic" aria-hidden="true"><TofiIcon name="globe" size={22} /></span> : entry.kind === "computer" ? <span className="service-mark service-mark-generic" aria-hidden="true"><TofiIcon name="monitor" size={22} /></span> : <ServiceMark name={entry.label} id={entry.id} />}</span>
    <div className="web-row-copy">
-    <div className="web-row-title"><strong>{entry.kind === "native" ? t("webtools.native_label") : entry.kind === "builtin" ? t("webtools.builtin_label") : entry.kind === "computer" ? t("webtools.computer_label") : entry.label}</strong>{entry.paid && <span className="settings-tag" data-tag="paid">{t("webtools.paid")}</span>}</div>
+    <div className="web-row-title"><strong>{entry.kind === "native" ? t("webtools.native_label") : entry.kind === "builtin" ? t("webtools.builtin_label") : entry.kind === "computer" ? t("webtools.computer_label") : entry.label}</strong>{entry.paid && <span className="settings-tag" data-tag="paid">{t("webtools.paid")}</span>}{fromOrganization && !entry.fixed && <span className="settings-tag web-org-tag" data-tag="organization"><TofiIcon name="lock" size={12} aria-hidden="true"/>{t("webtools.managed.organization")}</span>}</div>
     <p>{t(`webtools.about.${entry.id}` as "webtools.about.tavily")}</p>
     <div className="web-row-status" role="status"><StatusBadge state={state}>{statusText}</StatusBadge>{code && <span className="web-row-code" data-code={code}>{t(`webtools.code.${code}` as "webtools.code.network", {defaultValue: code})}</span>}{detail && <span className="web-row-detail">{detail}</span>}</div>
    </div>
    <div className="web-row-actions">
-    {!entry.fixed && <span className="web-row-move"><button type="button" className="icon-button" aria-label={t("webtools.move_up", {name: entry.label})} disabled={index <= 0} onClick={() => onMove(-1)}><TofiIcon name="arrow-up" size={16} /></button><button type="button" className="icon-button" aria-label={t("webtools.move_down", {name: entry.label})} disabled={index >= count - 1} onClick={() => onMove(1)}><TofiIcon name="arrow-down" size={16} /></button></span>}
-    {entry.testable && <button type="button" className="secondary-button" disabled={busy || needsSetup} onClick={onTest}>{testing ? t("webtools.testing") : t("webtools.test")}</button>}
-    {configurable && <button type="button" className="secondary-button" aria-expanded={editing} onClick={() => setEditing(value => !value)}>{needsSetup ? t("webtools.set_up") : t("webtools.edit")}</button>}
-    {!entry.fixed && <label className="debug-toggle auto-switch" htmlFor={switchId}><input id={switchId} type="checkbox" role="switch" aria-label={t("webtools.enable_label", {name: entry.label})} checked={entry.enabled} onChange={event => onEnabled(event.target.checked)} /></label>}
+    {!entry.fixed && !readOnly && <span className="web-row-move"><button type="button" className="icon-button" aria-label={t("webtools.move_up", {name: entry.label})} disabled={index <= 0} onClick={() => onMove(-1)}><TofiIcon name="arrow-up" size={16} /></button><button type="button" className="icon-button" aria-label={t("webtools.move_down", {name: entry.label})} disabled={index >= count - 1} onClick={() => onMove(1)}><TofiIcon name="arrow-down" size={16} /></button></span>}
+    {entry.testable && !readOnly && <button type="button" className="secondary-button" disabled={busy || needsSetup} onClick={onTest}>{testing ? t("webtools.testing") : t("webtools.test")}</button>}
+    {configurable && !readOnly && <button type="button" className="secondary-button" aria-expanded={editing} onClick={() => setEditing(value => !value)}>{needsSetup ? t("webtools.set_up") : t("webtools.edit")}</button>}
+    {!entry.fixed && !readOnly && <label className="debug-toggle auto-switch" htmlFor={switchId}><input id={switchId} type="checkbox" role="switch" aria-label={t("webtools.enable_label", {name: entry.label})} checked={entry.enabled} onChange={event => onEnabled(event.target.checked)} /></label>}
    </div>
   </div>
-  {editing && configurable && <ProviderForm entry={entry} onSave={async body => { if (await onSave(body)) { setEditing(false); return true; } return false; }} onRemove={async () => { if (await onRemove()) { setEditing(false); return true; } return false; }} />}
+  {editing && configurable && !readOnly && <ProviderForm entry={entry} onSave={async body => { if (await onSave(body)) { setEditing(false); return true; } return false; }} onRemove={async () => { if (await onRemove()) { setEditing(false); return true; } return false; }} />}
  </li>;
 }
 

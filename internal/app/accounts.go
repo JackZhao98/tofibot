@@ -9,6 +9,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,6 +39,18 @@ type Account struct {
 	DeleteStep  string `json:"delete_step,omitempty"`
 	DeleteError string `json:"delete_error,omitempty"`
 }
+
+// accountListItem is a row of GET /api/admin/accounts: the account and its group.
+type accountListItem struct {
+	Account
+	Group *accountGroupRef `json:"group"`
+}
+
+type accountGroupRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 type AccountGateway struct {
 	root                *Server
 	config              Config
@@ -62,6 +75,19 @@ type AccountGateway struct {
 	storageMu   sync.Mutex
 	diskCache   map[string]accountDiskCapacity
 	diskCacheAt time.Time
+	// Organization resources: the vault under <data>/org (never a workspace's or
+	// the root's own secrets directory), opened on first use. orgWriteMu
+	// serializes resource writes.
+	orgVault   *secretVault
+	orgInitMu  sync.Mutex
+	orgWriteMu sync.Mutex
+	// orgWebEndpoints redirects an organization web-key probe; tests only.
+	orgWebEndpoints map[string]string
+	// policyApply tracks the detaches that follow a policy change.
+	policyApply sync.WaitGroup
+	// orgE2B is the organization's E2B template build (org_e2b.go): one at a time.
+	orgE2B    orgE2BGate
+	orgBuilds sync.WaitGroup
 }
 
 func NewAccountGateway(c Config) (*AccountGateway, error) {
@@ -107,6 +133,14 @@ func NewAccountGateway(c Config) (*AccountGateway, error) {
 		return nil, err
 	}
 	if _, err = tx.Exec(accountStorageDDL); err != nil {
+		root.Close()
+		return nil, err
+	}
+	if err = migrateOrgGroups(tx, g.providedComputerSource()); err != nil {
+		root.Close()
+		return nil, err
+	}
+	if err = ensureOrgUsageColumns(tx); err != nil {
 		root.Close()
 		return nil, err
 	}
@@ -173,6 +207,8 @@ func (g *AccountGateway) Close() error {
 	workspaces := g.workspaces
 	g.workspaces = map[string]*Server{}
 	g.mu.Unlock()
+	g.stopOrgE2BBuilds()
+	g.policyApply.Wait()
 	for _, s := range workspaces {
 		s.Close()
 	}
@@ -366,10 +402,16 @@ func (g *AccountGateway) workspace(a Account) (*Server, error) {
 			return nil, errors.New("absolute account socket root required")
 		}
 		c.ComputerSocket = filepath.Join(g.config.AccountComputerSocketRoot, g.computerIdentity(a), "control.sock")
-		c.ComputerStartDetached = g.computerOff.Load()
+		// The policy decides whether this account holds a VM at all: none, own and
+		// provided/e2b start detached and are refused at ensure.
+		pol, perr := g.policyFor(context.Background(), a.ID)
+		c.ComputerStartDetached = g.computerOff.Load() || perr != nil || !computerAllowsVM(pol[capComputer])
 		c.ComputerEnsure = func(ctx context.Context) error {
 			if g.config.AccountMaintenance {
 				return errors.New("account computer startup is fenced during maintenance")
+			}
+			if p, err := g.policyFor(ctx, a.ID); err != nil || !computerAllowsVM(p[capComputer]) {
+				return errors.New(codeCapabilityOff + ": the policy gives this account no VM")
 			}
 			var disabled, change bool
 			if err := g.root.store.db.QueryRowContext(ctx, `SELECT disabled,must_change_password FROM accounts WHERE id=?`, a.ID).Scan(&disabled, &change); err != nil || disabled || change {
@@ -383,6 +425,7 @@ func (g *AccountGateway) workspace(a Account) (*Server, error) {
 	c.AccountID = a.ID
 	c.AccountIsAdmin = func() bool { return g.accountIsAdmin(a.ID) }
 	g.wireStorage(&c, a)
+	g.wirePolicy(&c, a)
 	createRuntime := g.runtimeFactory
 	if createRuntime == nil {
 		createRuntime = NewServer
@@ -587,6 +630,9 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 	if g.adminStorage(w, r, a) {
 		return
 	}
+	if g.adminOrg(w, r, a) {
+		return
+	}
 	if g.adminComputer(w, r, a) {
 		return
 	}
@@ -629,18 +675,23 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, 201, created)
 			return
 		case http.MethodGet:
-			rows, err := g.root.store.db.Query(`SELECT id,username,email,role,disabled,must_change_password,deleting,delete_step,delete_error FROM accounts ORDER BY created_at,id`)
+			// Each account carries its group, so the list needs no policy call per account.
+			rows, err := g.root.store.db.Query(`SELECT a.id,a.username,a.email,a.role,a.disabled,a.must_change_password,a.deleting,a.delete_step,a.delete_error,g.id,g.name FROM accounts a LEFT JOIN org_group_members m ON m.account_id=a.id LEFT JOIN org_groups g ON g.id=COALESCE(m.group_id,?) ORDER BY a.created_at,a.id`, groupSelfServe)
 			if err != nil {
 				writeErr(w, 500, "storage", "cannot list accounts")
 				return
 			}
 			defer rows.Close()
-			items := []Account{}
+			items := []accountListItem{}
 			for rows.Next() {
-				var item Account
-				if rows.Scan(&item.ID, &item.Username, &item.Email, &item.Role, &item.Disabled, &item.MustChangePassword, &item.Deleting, &item.DeleteStep, &item.DeleteError) != nil {
+				var item accountListItem
+				var gid, gname sql.NullString
+				if rows.Scan(&item.ID, &item.Username, &item.Email, &item.Role, &item.Disabled, &item.MustChangePassword, &item.Deleting, &item.DeleteStep, &item.DeleteError, &gid, &gname) != nil {
 					writeErr(w, 500, "storage", "cannot list accounts")
 					return
+				}
+				if gid.Valid {
+					item.Group = &accountGroupRef{ID: gid.String, Name: gname.String}
 				}
 				items = append(items, item)
 			}

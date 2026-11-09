@@ -114,7 +114,7 @@ func handoverModelMatches(entry, model string) bool {
 
 func (s *Server) handoverCapabilities(ctx context.Context) handoverCapabilities {
 	caps := handoverCapabilities{Computer: s.computer() != nil, Needs: map[string]bool{"schedules": true}}
-	if s.webSearchEnabled() {
+	if s.webSearchAllowed() {
 		caps.Needs["web_search"] = true
 	}
 	if s.extensions != nil {
