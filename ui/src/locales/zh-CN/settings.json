@@ -1517,89 +1517,25 @@
     }
   },
   "mac": {
-    "title": "Mac 设置",
+    "title": "文件与本机执行",
     "back": "返回聊天",
     "loading": "正在读取…",
-    "refresh": "刷新状态",
     "unavailable": "此页面只能在 Tofi 桌面应用中使用。",
     "device": {
-      "title": "设备",
-      "description": "这台 Mac 在你的 Bot 眼中的样子。",
-      "name": "设备名称",
-      "nameHint": "显示给你的 Bot 和 Tofi。",
       "folder": "工作目录",
       "folderHint": "Bot 只能访问这个目录里的文件。",
       "choose": "选择…",
-      "choosing": "正在选择…",
-      "paired": "已配对 · {{id}}",
-      "unpaired": "尚未配对",
-      "capabilities": "已启用：{{list}}"
+      "choosing": "正在选择…"
     },
     "caps": {
-      "title": "能力",
-      "description": "Bot 可以在这台 Mac 上做什么。下方的 macOS 权限也需要授予。",
+      "title": "文件",
+      "description": "远程控制开着时，Bot 可以使用这个工作文件夹。",
       "files": {
         "label": "文件",
         "hint": "在工作目录内列出、读取和写入文件。"
       },
-      "screen": {
-        "label": "屏幕截图",
-        "hint": "授予「屏幕录制」权限后允许截屏。"
-      },
-      "control": {
-        "label": "桌面控制",
-        "hint": "授予「辅助功能」权限后允许点击和键盘输入。"
-      },
       "save": "保存设置",
       "saving": "正在保存…"
-    },
-    "perm": {
-      "title": "macOS 权限",
-      "description": "需要在系统设置里授予。",
-      "screen": {
-        "label": "屏幕录制",
-        "hint": "截屏需要。"
-      },
-      "accessibility": {
-        "label": "辅助功能",
-        "hint": "点击和键盘输入需要。"
-      },
-      "granted": "已授权",
-      "missing": "尚未授权",
-      "grant": "去授权",
-      "hint": {
-        "screen": "已打开系统设置的「屏幕与系统录音」。在列表里打开 Tofi 的开关；列表里没有的话，把系统设置下方卡片里的图标拖进去。开启后 macOS 可能要求重新打开 Tofi，第一次截屏时还会提示「绕过系统的隐私窗口选择器」，点「允许」。",
-        "accessibility": "已打开系统设置的「辅助功能」。在列表里打开 Tofi 的开关；列表里没有的话，把系统设置下方卡片里的图标拖进去。"
-      },
-      "monthly": "开启屏幕录制后，macOS 会提示 Tofi「正在请求绕过系统的隐私窗口选择器」，之后大约每月一次。这是 macOS 的规定，点「允许」即可继续。这个提示只能由你本人回答，Bot 遇到时会告诉你。",
-      "stale": "系统设置里 Tofi 已经打开，这里却仍显示「尚未授权」？那一项属于之前装的 Tofi。在系统设置里选中 Tofi，点 − 删除，再回到这里点「去授权」重新打开。",
-      "reopen": {
-        "label": "已经打开屏幕录制？",
-        "hint": "macOS 要在 Tofi 重新打开后才生效。",
-        "action": "重新打开 Tofi",
-        "busy": "正在重新打开…"
-      }
-    },
-    "bots": {
-      "title": "允许使用这台 Mac 的 Bot",
-      "description": "Bot 首次请求时会被拒绝并在此列出，只有你点「允许」后才会放行。",
-      "empty": "还没有 Bot 请求过这台 Mac。",
-      "unnamed": "（未命名 Bot）",
-      "allowed": "已允许",
-      "denied": "已拒绝",
-      "waiting": "等待你的决定",
-      "allow": "允许",
-      "deny": "拒绝",
-      "remove": "移除",
-      "control": {
-        "paused_stop": "桌面控制已暂停（你按了停止）。",
-        "paused_takeover": "桌面控制已暂停（你接管了鼠标或键盘）。",
-        "active": "有 Bot 正在控制这台 Mac。",
-        "idle": "当前没有 Bot 在控制这台 Mac。"
-      },
-      "stop": "停止并暂停 60 秒",
-      "resume": "恢复",
-      "shortcut": "控制期间屏幕上方会显示横幅，按 ⌃⌥⌘Esc 可立即停止并暂停 60 秒。"
     },
     "local": {
       "title": "本地执行",
@@ -1646,14 +1582,6 @@
       "boundary": "命令可读取授权目录、当前用户 ~/.local/bin 中的工具，以及主目录之外的本机可读文件；仅可写入授权目录和私有 Project Workspace，修改不会回滚。~/.local/bin 只读，但其中的工具可能在授权期间变化，运行工具也可能产生副作用。主目录其余位置与凭据目录不可读写；目前无 SSH、网络或钥匙串访问。私有工作区在撤权后仍留在本机临时目录，尚未自动清理。",
       "persist": "返回聊天后授权仍有效；重启 App、切换服务器或撤销授权后失效。"
     },
-    "pair": {
-      "title": "配对这台 Mac",
-      "description": "输入网页版 Tofi「设置 › 环境 › 添加环境 › 你的 Mac」里显示的配对码。",
-      "code": "配对码",
-      "submit": "配对这台 Mac",
-      "pairing": "正在配对…",
-      "note": "设备凭据由 Electron 主进程保管，不会发送给页面。"
-    },
     "error": {
       "last": "上一次设备操作失败",
       "action": "操作失败：{{message}}",
@@ -1663,17 +1591,13 @@
     },
     "confirm": {
       "cancel": "取消",
-      "deny": {
-        "title": "拒绝 {{name}}？",
-        "body": "在你再次允许之前，这个 Bot 的所有使用这台 Mac 的请求都会被拒绝。",
-        "confirm": "拒绝"
-      },
       "revoke": {
         "title": "撤销本地执行授权？",
         "body": "正在运行的命令会停止，Bot 将失去对授权目录的访问。之后可以重新授权目录。",
         "confirm": "撤销"
       }
-    }
+    },
+    "inDevelopment": "开发中"
   },
   "policy": {
     "capability": {
@@ -1696,8 +1620,9 @@
     },
     "value": {
       "ai_models": {
-        "own": "自带密钥",
-        "provided": "组织提供"
+        "own": "成员自带",
+        "provided": "组织提供，成员也可自带",
+        "provided_only": "仅组织提供"
       },
       "computer": {
         "host": "服务器虚拟机",
@@ -1736,7 +1661,10 @@
         "available": "可用",
         "not_provided": "未提供",
         "waiting_title": "等待管理员提供模型",
-        "waiting_body": "组织还没有提供模型；管理员添加之前，Bot 无法运行。"
+        "waiting_body": "组织还没有提供模型；管理员添加之前，Bot 无法运行。",
+        "own_title": "你自己的",
+        "own_note": "用 ChatGPT 登录后，它的模型会出现在模型选择里。已有的 Bot 继续用原来的模型。",
+        "own_not_allowed": "此账户的模型由你的组织管理。"
       }
     }
   }

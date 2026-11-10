@@ -15,7 +15,8 @@
       "runtime_connection": "连接中断，任务未完成",
       "unknown_failure": "任务未完成",
       "org_resource_missing": "等待管理员提供",
-      "org_credential_failed": "组织的模型账户需要处理"
+      "org_credential_failed": "组织的模型账户需要处理",
+      "own_models_not_allowed": "不允许使用自己的模型"
     },
     "action": {
       "open_tools": "查看工具设置",
@@ -135,7 +136,9 @@
     "org_resource_missing_next": "请管理员添加后再重试。",
     "org_credential_auth": "组织的模型凭据被拒绝。",
     "org_credential_quota": "组织的模型账户已达到用量上限。",
-    "org_credential_next": "请管理员检查组织资源。"
+    "org_credential_next": "请管理员检查组织资源。",
+    "own_models_not_allowed": "你的组织不允许此账户使用自己的模型。",
+    "own_models_not_allowed_next": "请改选组织提供的模型，然后重试。"
   },
   "secondary": {
     "then_provider_busy": "随后模型服务繁忙，任务未完成。",

@@ -15,7 +15,8 @@
       "runtime_connection": "Connexion interrompue, la tâche n’a pas abouti",
       "unknown_failure": "La tâche n’a pas abouti",
       "org_resource_missing": "En attente de votre administrateur",
-      "org_credential_failed": "Le compte de modèles de l’organisation demande votre attention"
+      "org_credential_failed": "Le compte de modèles de l’organisation demande votre attention",
+      "own_models_not_allowed": "Vos propres modèles ne sont pas autorisés"
     },
     "action": {
       "open_tools": "Ouvrir les réglages des outils",
@@ -135,7 +136,9 @@
     "org_resource_missing_next": "Demandez à votre administrateur d’en ajouter un, puis réessayez.",
     "org_credential_auth": "Les identifiants de modèles de l’organisation ont été refusés.",
     "org_credential_quota": "Le compte de modèles de l’organisation a atteint sa limite d’utilisation.",
-    "org_credential_next": "Demandez à votre administrateur de vérifier les ressources de l’organisation."
+    "org_credential_next": "Demandez à votre administrateur de vérifier les ressources de l’organisation.",
+    "own_models_not_allowed": "Votre organisation n'autorise pas vos propres modèles pour ce compte.",
+    "own_models_not_allowed_next": "Choisissez un modèle de l'organisation, puis réessayez."
   },
   "secondary": {
     "then_provider_busy": "Le service du modèle a ensuite été saturé et la tâche n’a pas abouti.",

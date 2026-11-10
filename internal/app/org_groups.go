@@ -101,6 +101,50 @@ func validPolicy(capability, mode, source string) bool {
 	return false
 }
 
+// paramAllowOwn is the ai_models parameter that lets a member also use their own
+// model sources while the organization provides models (design own-alongside, P1).
+const paramAllowOwn = "allow_own"
+
+// validPolicyParams says whether params fit the (capability, mode). Only
+// ai_models under provided takes one, {"allow_own": bool}; every other row is empty.
+func validPolicyParams(capability, mode string, params []byte) bool {
+	p := strings.TrimSpace(string(params))
+	if p == "" || p == "{}" {
+		return true
+	}
+	if capability != capAIModels || mode != policyModeProvided {
+		return false
+	}
+	dec := json.NewDecoder(strings.NewReader(p))
+	dec.DisallowUnknownFields()
+	var v struct {
+		AllowOwn *bool `json:"allow_own"`
+	}
+	if dec.Decode(&v) != nil || dec.More() {
+		return false
+	}
+	return true
+}
+
+// allowOwnOf reads allow_own off a resolved ai_models value: true unless the
+// mode is provided and the parameter says false. A parameter that does not parse
+// as a boolean fails closed (false), so a damaged row never widens access.
+func allowOwnOf(v PolicyValue) bool {
+	if v.Mode != policyModeProvided {
+		return true
+	}
+	if len(v.Params) == 0 {
+		return true
+	}
+	var x struct {
+		AllowOwn *bool `json:"allow_own"`
+	}
+	if json.Unmarshal(v.Params, &x) != nil {
+		return false
+	}
+	return x.AllowOwn == nil || *x.AllowOwn
+}
+
 // policyRow is one stored (group or override) capability row.
 type policyRow struct {
 	Capability string
@@ -141,8 +185,14 @@ func resolvePolicy(group, override []policyRow) ResolvedPolicy {
 				continue
 			}
 			v := PolicyValue{Mode: row.Mode, Source: row.Source}
-			if p := strings.TrimSpace(row.Params); p != "" && p != "{}" && json.Valid([]byte(p)) {
-				v.Params = json.RawMessage(p)
+			if p := strings.TrimSpace(row.Params); p != "" && p != "{}" {
+				switch {
+				case json.Valid([]byte(p)):
+					v.Params = json.RawMessage(p)
+				case row.Capability == capAIModels && row.Mode == policyModeProvided:
+					// A damaged row must not widen access.
+					v.Params = json.RawMessage(`{"allow_own":false}`)
+				}
 			}
 			out[row.Capability] = v
 		}

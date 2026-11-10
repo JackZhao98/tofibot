@@ -76,6 +76,10 @@ try {
     assert.equal(provided.off("ai_models"), false);
     assert.equal(provided.managed, true);
     assert.equal(provided.first, "ai_models");
+    assert.equal(provided.ownModels, false, "an older server that does not say own_allowed reads as exclusive");
+    assert.equal(policyFrom(view({ ai_models: { mode: "provided", source: "organization", own_allowed: true } })).ownModels, true, "provided, own sources allowed");
+    assert.equal(policyFrom(view({ ai_models: { mode: "provided", source: "organization", own_allowed: false } })).ownModels, false, "provided only");
+    assert.equal(policyFrom(view({})).ownModels, false, "own mode is not 'alongside'");
     const searchOff = policyFrom(view({ web_search: { mode: "off", source: "none" }, web_fetch: { mode: "builtin", source: "none" } }));
     assert.equal(searchOff.off("web_search"), true, "off reads as nothing to set up");
     assert.equal(searchOff.off("web_fetch"), true, "built-in only reads as nothing to set up");

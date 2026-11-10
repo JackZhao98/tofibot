@@ -147,10 +147,11 @@ func (s *Server) usableProviderKey(name string) bool {
 	return ok && state.Error == ""
 }
 
-// codexConnected: a Codex sign-in serves models only while the person brings
-// their own; provided models never fall back to it.
+// codexConnected: a Codex sign-in serves models while the person may bring their
+// own: under own, and under provided unless allow_own is off. It is never an
+// organization resource and never a fallback for organization models.
 func (s *Server) codexConnected() bool {
-	return s.codex != nil && s.codex.Status().Connected && !s.aiProvided()
+	return s.codex != nil && s.codex.Status().Connected && s.ownModelsAllowed()
 }
 
 func (s *Server) anyProviderConfigured() bool {
@@ -162,7 +163,8 @@ func (s *Server) activeProvider() string {
 	if !managedProviderName(s.provider) {
 		return s.provider
 	}
-	if s.codexConnected() {
+	// Beside organization models the organization's providers come first.
+	if s.codexConnected() && !s.aiProvided() {
 		return providerCodex
 	}
 	for _, name := range apiKeyProviders {
@@ -170,13 +172,16 @@ func (s *Server) activeProvider() string {
 			return name
 		}
 	}
+	if s.codexConnected() {
+		return providerCodex
+	}
 	return s.provider
 }
 
 // providerCredential is the routed engine's credential resolver.
 func (s *Server) providerCredential(ctx context.Context, name string) (string, error) {
-	if name == providerCodex && s.aiProvided() {
-		return "", errOrgCodex
+	if name == providerCodex && !s.ownModelsAllowed() {
+		return "", errOwnModelsNotAllowed
 	}
 	if name != providerCodex && s.credentialSource(name) == sourceOrganization {
 		// No fallback: a missing organization key is org_resource_missing, never the person's own key.
@@ -736,8 +741,8 @@ type ProviderStatus struct {
 
 func (s *Server) providerStatus(name string) ProviderStatus {
 	out := s.providerStatusOwn(name)
-	if name == providerCodex && s.aiProvided() {
-		// A Codex sign-in is never an organization resource: not used while models are provided.
+	if name == providerCodex && !s.ownModelsAllowed() {
+		// Models are provided and the administrator does not allow the person's own sources.
 		return ProviderStatus{ID: "codex", Label: "Codex", Kind: "oauth", Status: "disconnected", Source: sourceOrganization}
 	}
 	if s.credentialSource(name) == sourceOrganization {

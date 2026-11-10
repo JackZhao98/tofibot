@@ -123,7 +123,8 @@ func chatOnce(ctx context.Context, ws *Server, model string) error {
 
 func TestMemberCannotWriteProvidedProviderKey(t *testing.T) {
 	f := newOrgFixture(t)
-	f.setOverrides(t, `{"ai_models":{"mode":"provided"}}`)
+	// With allow_own=false the organization is the only source (the exclusive form).
+	f.setOverrides(t, `{"ai_models":{"mode":"provided","params":{"allow_own":false}}}`)
 	writes := [][3]string{
 		{"PUT", "/api/providers/openai/key", `{"key":"` + enforceOwnKey + `"}`},
 		{"DELETE", "/api/providers/anthropic/key", ``},
@@ -845,8 +846,25 @@ func TestCapabilitiesInConfigAndProviderSource(t *testing.T) {
 		t.Fatal(out)
 	}
 	for _, p := range providers.Providers {
-		if p.Source != sourceOrganization {
+		// A ChatGPT sign-in is the person's own and is allowed beside organization models by default (D79).
+		want := sourceOrganization
+		if p.ID == "codex" {
+			want = sourceOwn
+		}
+		if p.Source != want {
 			t.Errorf("provider %s source %q", p.ID, p.Source)
+		}
+	}
+	// With allow_own=false every provider, Codex included, is the organization's.
+	f.setOverrides(t, `{"ai_models":{"mode":"provided","params":{"allow_own":false}}}`)
+	_, out2 := f.memberCall(t, "GET", "/api/providers", "")
+	var exclusive struct{ Providers []ProviderStatus }
+	if json.Unmarshal([]byte(out2), &exclusive) != nil {
+		t.Fatal(out2)
+	}
+	for _, p := range exclusive.Providers {
+		if p.Source != sourceOrganization {
+			t.Errorf("allow_own=false: provider %s source %q", p.ID, p.Source)
 		}
 	}
 	if strings.Contains(out, up.URL) {

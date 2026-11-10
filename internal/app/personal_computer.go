@@ -215,7 +215,7 @@ func personalJobError(status, message, action string) error {
 	code := deviceErrorCode(message)
 	switch code {
 	case "bot_not_allowed":
-		return tooloutcome.New(tooloutcome.Denied, code, "not_executed", "The person has not allowed this Bot to use their Mac. They must allow this Bot in the TOFI desktop app under Mac Device Settings. Do not retry this action or any other on this Mac; tell the person what to enable and stop.", "explain_blocker").Err()
+		return tooloutcome.New(tooloutcome.Denied, code, "not_executed", "The person has denied this Bot on their Mac. They can allow it again in the TOFI desktop app: Settings > Environments, the This Mac row, the ... menu, Bots denied on this Mac. Do not retry this action or any other on this Mac; tell the person what to enable and stop.", "explain_blocker").Err()
 	case "user_stop":
 		return tooloutcome.New(tooloutcome.Denied, code, "unknown", "The person pressed Stop in the TOFI desktop app, which cancelled this step; whether it partly ran is unknown. Do not retry automatically and do not continue the plan. Tell the person it was stopped and wait for their instruction.", "explain_blocker").Err()
 	case "user_paused":

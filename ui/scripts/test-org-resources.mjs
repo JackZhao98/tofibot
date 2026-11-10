@@ -10,6 +10,7 @@ import assert from "node:assert/strict";
 import {mkdir, rm} from "node:fs/promises";
 import {dirname, join} from "node:path";
 import {fileURLToPath, pathToFileURL} from "node:url";
+import {selectItems} from "./lib/select.mjs";
 import {createOrgStub, openSettings, startFixture} from "./lib/org-fixture.mjs";
 
 const ui = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -460,6 +461,93 @@ try {
     await again.page.locator('[data-testid="policy-banner"]').waitFor();
     await again.close();
     console.log("PASS member side: provided models are read-only with no key or sign-in, a missing model says so, the banner links and is dismissible, the administrator's own pages stay personal");
+  }
+
+  // ---- 9b. Own models alongside the organization's (D79, P1): under provided the member may also sign in with ChatGPT unless the
+  //          administrator forbids it. Three states, nothing but the ChatGPT card in "Your own", no dead button.
+  {
+    const capabilities = ownAllowed => JSON.stringify({ai_models: {mode: "provided", source: "organization", ...(ownAllowed === undefined ? {} : {own_allowed: ownAllowed})}, computer: {mode: "host", source: "own"}, web_search: {mode: "own", source: "own"}, web_fetch: {mode: "own", source: "own"}});
+    const organization = [
+      {id: "codex", label: "Codex", kind: "oauth", configured: false, status: "disconnected", verified_at: "", error: "", source: "organization"},
+      {id: "openai", label: "OpenAI", kind: "api_key", configured: true, verified_at: "", error: "", source: "organization"},
+      {id: "anthropic", label: "Claude", kind: "api_key", configured: false, verified_at: "", error: "", source: "organization"},
+      {id: "compatible", label: "OpenAI-compatible endpoint", kind: "endpoint", configured: false, verified_at: "", error: "", source: "organization"},
+    ];
+    const models = page => page.locator('.settings-page-body[data-page="models"]');
+    const section = page => models(page).locator(".provided-own");
+    const noOwnKeys = async page => assert.equal(await models(page).locator("input[type=password], input[type=url], .provider-choices, .provider-openai, .provider-anthropic, .provider-compatible").count(), 0, "Claude, OpenAI and compatible cards stay hidden");
+    const primaries = async page => assert.ok((await models(page).locator("button.primary-button:visible").count()) <= 1, "at most one orange primary button");
+
+    // Allowed, not signed in: the organization's card stays, "Your own" holds only the ChatGPT card with one way in.
+    stub.reset();
+    stub.state.providers = organization;
+    const out = await open({tab: "models", policy: capabilities(true)});
+    await models(out.page).locator(".provided-card").waitFor();
+    await section(out.page).locator('[data-provider="codex"]').waitFor();
+    assert.match(await text(models(out.page).locator(".provided-card")), /Models provided by your organization/);
+    assert.equal(await section(out.page).locator(".provider-card").count(), 1, "one card in Your own: the ChatGPT sign-in");
+    assert.match(await text(section(out.page)), /^Your own .*ChatGPT.*Sign in with your ChatGPT account$/);
+    assert.equal(await models(out.page).locator(".provided-own-off").count(), 0, "no 'organization manages' line while allowed");
+    await noOwnKeys(out.page); await primaries(out.page);
+    assert.equal(await models(out.page).locator(".settings-banner").count(), 0);
+    await shot(out.page, "member-own-allowed-signed-out-light-1440");
+    // Signing in goes through the Codex endpoints and shows the state.
+    await section(out.page).locator('[data-method="chatgpt"]').click();
+    await section(out.page).getByText("Codex connected").waitFor({timeout: 15000});
+    assert.equal(stub.state.codex.connected, true);
+    await out.close();
+
+    // Allowed, signed in: connected state with Disconnect; the organization's card is unchanged.
+    stub.state.codex = {connected: true, needs_reconnect: false};
+    stub.state.defaultModel = "gpt-5";
+    stub.state.models = [
+      {id: "gpt-5", name: "GPT-5", provider: "openai", reasoning_efforts: ["low", "medium"], default_reasoning: "medium"},
+      {id: "codex-gpt-6-luna", name: "Codex · GPT-6 Luna", provider: "codex", reasoning_efforts: ["medium"], default_reasoning: "medium"},
+    ];
+    const signed = await open({tab: "models", policy: capabilities(true)});
+    await section(signed.page).getByText(/Codex connected/).waitFor();
+    assert.equal(await models(signed.page).locator(".provided-card").count(), 1);
+    assert.equal(await section(signed.page).getByRole("button", {name: "Disconnect Codex"}).count(), 1);
+    // The default-model picker shows the saved default (the empty select in the first screenshot was a fixture with no model-settings) and lists Codex beside the organization's models.
+    const picker = models(signed.page).locator(".ui-select-trigger").first();
+    await picker.waitFor();
+    assert.match(await text(picker), /GPT-5/, "the saved default is shown");
+    assert.deepEqual((await selectItems(picker)).map(item => item.value).sort(), ["codex-gpt-6-luna", "gpt-5"], "Codex models are listed beside the organization's");
+    await noOwnKeys(signed.page); await primaries(signed.page);
+    await shot(signed.page, "member-own-allowed-signed-in-light-1440");
+    await signed.close();
+    const signedPhone = await open({tab: "models", policy: capabilities(true)}, {width: 390, height: 844, theme: "dark", touch: true});
+    await signedPhone.page.locator('.settings-mhome [data-tab="models"]').click().catch(() => {});
+    await section(signedPhone.page).locator('[data-provider="codex"]').waitFor();
+    assert.ok((await signedPhone.page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)) <= 0, "no horizontal overflow on a phone");
+    await shot(signedPhone.page, "member-own-allowed-signed-in-dark-390");
+    await signedPhone.close();
+    stub.state.codex = {connected: false, needs_reconnect: false};
+    stub.state.defaultModel = undefined; stub.state.models = undefined;
+    const outPhone = await open({tab: "models", policy: capabilities(true)}, {width: 390, height: 844, theme: "dark", touch: true});
+    await outPhone.page.locator('.settings-mhome [data-tab="models"]').click().catch(() => {});
+    await section(outPhone.page).locator('[data-provider="codex"]').waitFor();
+    assert.ok((await outPhone.page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)) <= 0, "no horizontal overflow on a phone");
+    await shot(outPhone.page, "member-own-allowed-signed-out-dark-390");
+    await outPhone.close();
+
+    // Not allowed (and an older server that does not say): the organization's card and one muted line, no sign-in, no button.
+    for (const [label, flag] of [["forbidden", false], ["unsaid", undefined]]) {
+      const off = await open({tab: "models", policy: capabilities(flag)});
+      await models(off.page).locator(".provided-card").waitFor();
+      assert.equal(await section(off.page).count(), 0, `${label}: no Your own section`);
+      assert.equal(await models(off.page).locator('[data-managed="ai_models-own"]').innerText(), "Your organization manages the models for this account.");
+      assert.equal(await models(off.page).locator("[data-method], .provider-chatgpt").count(), 0, `${label}: no ChatGPT sign-in`);
+      await noOwnKeys(off.page);
+      if (label === "forbidden") await shot(off.page, "member-own-forbidden-light-1440");
+      await off.close();
+    }
+    const offPhone = await open({tab: "models", policy: capabilities(false)}, {width: 390, height: 844, theme: "dark", touch: true});
+    await offPhone.page.locator('.settings-mhome [data-tab="models"]').click().catch(() => {});
+    await models(offPhone.page).locator('[data-managed="ai_models-own"]').waitFor();
+    await shot(offPhone.page, "member-own-forbidden-dark-390");
+    await offPhone.close();
+    console.log("PASS member side, own models alongside: Your own holds only the ChatGPT card when allowed, one muted line when not");
   }
 
   // ---- 8. Every language renders the page without raw keys.

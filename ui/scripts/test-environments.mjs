@@ -1,6 +1,6 @@
 // Settings > Environments (docs/design/environments.md E1, E2, E7-E9): one list of environments, controls only from `actions`,
-// the E2B add dialog, Use for Bots and Disconnect behind a confirmation, the desktop-only "This Mac" row, and /settings/devices
-// landing on this page. Mounts the real SettingsShell + SettingsPages in a Vite fixture with every /api/* call stubbed
+// the E2B add dialog, Use for Bots and Disconnect behind a confirmation, the Mac app's one "Remote control this Mac" switch with its
+// this-Mac row (no pairing code, no "Your Mac" menu item), and /settings/devices landing on this page. Mounts the real SettingsShell + SettingsPages in a Vite fixture with every /api/* call stubbed
 // (synthetic data only). Needs PLAYWRIGHT_MODULE.
 //   ENVIRONMENTS_SHOTS=<dir>  also saves screenshots.
 import assert from "node:assert/strict";
@@ -59,16 +59,39 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   const mac = (extra = {}) => ({id: "mac_ab12", kind: "mac", name: "Jack's MacBook Pro", state: "online", error_code: "", platform: "darwin", last_seen: "2026-11-05T08:01:02Z", bot_computer: false, access: "allowed_on_mac", actions: ["disconnect"], ...extra});
   const body = (environments, add = {e2b: true, mac: true, vm_command: ""}, e2bState = null, policy = null) => ({environments, add, e2b: e2bState, ...(policy ? {policy} : {})});
 
-  async function open(params = {}, {width = 1280, height = 800, theme = "light", desktop = false, state, member = false} = {}) {
+  async function open(params = {}, {width = 1280, height = 800, theme = "light", desktop = false, bridgeless = false, state, member = false, rc} = {}) {
     const context = await browser.newContext({viewport: {width, height}, colorScheme: theme});
-    await context.addInitScript(({value, desktop}) => {
+    await context.addInitScript(({value, desktop, bridgeless}) => {
       try { localStorage.setItem("tofi:appearance", value); } catch {}
       if (desktop) {
         const off = () => () => {};
         window.__openedMacSettings = 0;
-        window.tofiDesktop = {platform: "darwin", themePreference: value, onCommand: off, onWindowState: off, onFlushState: off, appearance: async () => {}, openDesktopSettings: async () => { window.__openedMacSettings++; }, pair: async code => { window.__pairedWith = code; if (window.__pairFails) throw new Error("pair failed"); return {paired: true}; }, readWorkspaceState: async () => ({}), writeWorkspaceState: async () => {}, remoteInputFocus: () => {}, startAccessibilityDrag: () => {}, requestMicrophoneAccess: async () => false};
+        window.__rc = {calls: [], listeners: new Set(), dialogAnswer: true,
+          status: {enabled: false, paired: false, deviceID: null, name: "Studio MacBook", permissions: {screen: true, accessibility: true}, needsRelaunch: false, phase: "idle", botName: "", pausedUntil: null, hotkeyOk: true, reason: null},
+          denied: [], failWith: null, onTurnOn: null};
+        const rc = window.__rc, snap = () => JSON.parse(JSON.stringify(rc.status));
+        const push = () => rc.listeners.forEach(listener => listener(snap()));
+        rc.push = push;
+        const bridge = {
+          status: async () => { rc.calls.push(["status"]); return snap(); },
+          // The macOS dialog is the main process's: the page only asks and gets {ok, code?, status}.
+          set: async on => {
+            rc.calls.push(["set", on]);
+            if (on && rc.dialogAnswer === false) return {ok: false, code: "cancelled", status: snap()};
+            if (on && rc.failWith) return {ok: false, code: rc.failWith, status: snap()};
+            if (on) { Object.assign(rc.status, {enabled: true, paired: true, deviceID: "mac_ab12"}, rc.onTurnOn || {}); } else Object.assign(rc.status, {enabled: false, paired: false, deviceID: null, reason: null});
+            return {ok: true, status: snap()};
+          },
+          authorize: async () => { rc.calls.push(["authorize"]); return {ok: true, status: snap()}; },
+          stop: async () => { rc.calls.push(["stop"]); return {ok: true, status: snap()}; },
+          relaunch: async () => { rc.calls.push(["relaunch"]); return {ok: true, status: snap()}; },
+          deniedBots: async () => ({ok: true, bots: rc.denied.slice()}),
+          undoDeny: async id => { rc.calls.push(["undoDeny", id]); rc.denied = rc.denied.filter(bot => bot.bot_id !== id); return {ok: true, bots: rc.denied.slice()}; },
+          onStatus: listener => { rc.listeners.add(listener); return () => rc.listeners.delete(listener); }
+        };
+        window.tofiDesktop = {platform: "darwin", themePreference: value, onCommand: off, onWindowState: off, onFlushState: off, appearance: async () => {}, openDesktopSettings: async () => { window.__openedMacSettings++; }, readWorkspaceState: async () => ({}), writeWorkspaceState: async () => {}, remoteInputFocus: () => {}, startAccessibilityDrag: () => {}, requestMicrophoneAccess: async () => false, ...(bridgeless ? {} : {remoteControl: bridge})};
       }
-    }, {value: theme, desktop});
+    }, {value: theme, desktop, bridgeless});
     const page = await context.newPage();
     page.on("pageerror", error => errors.push(`pageerror: ${error.message}`));
     const calls = [];
@@ -110,7 +133,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const query = new URLSearchParams({lang: "en", ...params});
     await page.goto(`${origin}/${basename(fixture)}/index.html?${query}`);
     await page.locator(".settings-shell").first().waitFor({timeout: 20000});
-    return {page, calls, scenario, close: () => context.close()};
+    if (rc) await page.evaluate(patch => { Object.assign(window.__rc.status, patch.status || {}); window.__rc.denied = patch.denied || []; window.__rc.push(); }, rc);
+    return {page, calls, scenario, close: () => context.close(), rcCalls: () => page.evaluate(() => window.__rc.calls.filter(call => call[0] !== "status"))};
   }
   const rows = page => page.locator(".environments-page .env-row");
   const row = (page, id) => page.locator(`.environments-page .env-row[data-environment="${id}"]`);
@@ -126,7 +150,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.match((await row(page, "firecracker").innerText()).replace(/\s+/g, " "), /This server Bot computer Used by all Bots Ready/);
     assert.equal(await page.locator(".env-tag").count(), 1, "one environment carries the Bot computer tag");
     assert.match((await row(page, "e2b").innerText()).replace(/\s+/g, " "), /E2B cloud computer Not in use Asleep/);
-    assert.match((await row(page, "mac_ab12").innerText()).replace(/\s+/g, " "), /Bots you allow on that Mac Online/);
+    assert.match((await row(page, "mac_ab12").innerText()).replace(/\s+/g, " "), /Used by all Bots while remote control is on Online/);
     assert.deepEqual(await buttons(row(page, "firecracker")), ["configure"]);
     assert.deepEqual(await buttons(row(page, "e2b")), ["use"], "remove sits in the row menu");
     assert.deepEqual(await buttons(row(page, "mac_ab12")), [], "disconnect sits in the row menu");
@@ -155,7 +179,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const {page, calls, scenario, close} = await open({tab: "computer"}, {state: {environments: [vm(), mac()], put: "invalid"}});
     await rows(page).first().waitFor();
     await page.locator(".env-add").click();
-    assert.deepEqual(await page.locator(".env-add-menu button").allInnerTexts(), ["E2B cloud computer", "Your Mac"], "no host command item without add.vm_command");
+    assert.deepEqual(await page.locator(".env-add-menu button").allInnerTexts(), ["E2B cloud computer"], "no Your Mac item, and no host command item without add.vm_command");
     await page.locator('.env-add-menu [data-add="e2b"]').click();
     const dialog = page.getByRole("dialog", {name: "Add E2B cloud computer"});
     await dialog.waitFor();
@@ -178,10 +202,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(calls.at(-1), 'PUT /api/environments/e2b {"api_key":"e2b_goodkey9","template_id":"tpl_cli_1"}');
     await row(page, "e2b").waitFor();
     assert.match((await row(page, "e2b").innerText()).replace(/\s+/g, " "), /Preparing/, "the E2B row shows preparing");
-    assert.equal(await page.locator(".env-add").count(), 1);
-    await page.locator(".env-add").click();
-    assert.deepEqual(await page.locator(".env-add-menu button").allInnerTexts(), ["Your Mac"], "E2B is set up: it leaves the menu");
-    await page.keyboard.press("Escape");
+    assert.equal(await page.locator(".env-add").count(), 0, "E2B is set up and a Mac is no menu item: nothing left to add");
     await close();
   }
 
@@ -214,9 +235,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await close();
   }
 
-  // ---- 5. A Mac: Disconnect confirms, then DELETE /api/computers/{id}; the Mac dialog shows the code and closes when it is paired.
+  // ---- 5. A Mac in the list (another Mac, or any Mac seen from a browser): Disconnect confirms, then DELETE /api/computers/{id}.
   {
-    const {page, calls, scenario, close} = await open({tab: "computer"});
+    const {page, calls, close} = await open({tab: "computer"});
     await rows(page).first().waitFor();
     await row(page, "mac_ab12").getByRole("button", {name: "More actions for Jack's MacBook Pro"}).click();
     await page.locator(".env-menu button", {hasText: "Disconnect"}).click();
@@ -227,39 +248,6 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await confirm.waitFor({state: "detached"});
     assert.deepEqual(calls, ["DELETE /api/computers/mac_ab12"]);
     await row(page, "mac_ab12").waitFor({state: "detached"});
-    await page.locator(".env-add").click();
-    await page.locator('.env-add-menu [data-add="mac"]').click();
-    const dialog = page.getByRole("dialog", {name: "Connect your Mac"});
-    await dialog.getByText("7Q4K9M2").waitFor();
-    assert.match(await dialog.innerText(), /Open the Tofi app on your Mac\./);
-    scenario.pairing = {status: "paired", device_name: "Studio iMac"};
-    await dialog.waitFor({state: "detached", timeout: 10000});
-    await close();
-  }
-
-  // ---- 5b. Inside the Mac app the dialog pairs this Mac with one click (no copying); the code stays for another Mac.
-  {
-    const {page, close, scenario} = await open({tab: "computer"}, {desktop: true, state: {environments: [vm()]}});
-    await page.locator(".env-add").click();
-    await page.locator('.env-add-menu [data-add="mac"]').click();
-    const dialog = page.getByRole("dialog", {name: "Connect your Mac"});
-    await dialog.getByText("7Q4K9M2").waitFor();
-    const text = await dialog.innerText();
-    assert.doesNotMatch(text, /Open the Tofi app on your Mac\./, "no step telling the person to open the app they are in");
-    assert.match(text, /To connect another Mac, open Tofi on it and enter this code\./);
-    assert.equal(await dialog.getByRole("button", {name: "Open Mac settings"}).count(), 0, "no detour through Mac settings");
-    // A failed pair is named and keeps the code.
-    await page.evaluate(() => { window.__pairFails = true; });
-    await dialog.getByRole("button", {name: "Connect this Mac"}).click();
-    await dialog.getByRole("alert").waitFor();
-    assert.match(await dialog.getByRole("alert").innerText(), /Couldn't connect this Mac\./);
-    await dialog.getByText("7Q4K9M2").waitFor();
-    // Then it works: the app pairs with this dialog's code, and the dialog closes once the server says paired.
-    await page.evaluate(() => { window.__pairFails = false; });
-    await dialog.getByRole("button", {name: "Connect this Mac"}).click();
-    assert.equal(await page.evaluate(() => window.__pairedWith), "7Q4K9M2", "the app pairs with the code from this dialog");
-    scenario.pairing = {status: "paired", device_name: "This Mac"};
-    await dialog.waitFor({state: "detached", timeout: 10000});
     await close();
   }
 
@@ -268,7 +256,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const {page, close} = await open({tab: "computer"}, {state: {environments: [], add: {e2b: true, mac: true, vm_command: "sudo tofi computer add kvm"}}});
     await page.locator(".env-add").waitFor();
     await page.locator(".env-add").click();
-    assert.deepEqual(await page.locator(".env-add-menu button").allInnerTexts(), ["E2B cloud computer", "Your Mac", "Bot computer on this server"]);
+    assert.deepEqual(await page.locator(".env-add-menu button").allInnerTexts(), ["E2B cloud computer", "Bot computer on this server"]);
     await page.locator('.env-add-menu [data-add="vm"]').click();
     const dialog = page.getByRole("dialog", {name: "Add a Bot computer on this server"});
     assert.equal((await dialog.locator("[data-computer-command]").innerText()).trim(), "sudo tofi computer add kvm");
@@ -281,18 +269,199 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await configured.close();
   }
 
-  // ---- 7. Desktop app: a This Mac row with Open Mac settings; the web has none.
+  // ---- 7. Remote control this Mac (Mac app with the bridge): one switch replaces the pairing code. The page only asks; the macOS dialog
+  //         is the main process's. Turning on puts "This Mac" in the block above the list (not a second time in the list); off removes it.
+  const RC = {
+    title: "Remote control this Mac",
+    off: "Bots can see the screen and use the mouse and keyboard. Actions with consequences ask you first.",
+  };
   {
-    const {page, close} = await open({tab: "computer"}, {desktop: true});
+    const {page, close, rcCalls, calls} = await open({tab: "computer"}, {desktop: true});
     await rows(page).first().waitFor();
-    assert.deepEqual(await names(page), ["This server", "E2B cloud computer", "Jack's MacBook Pro"], "This Mac is not an environment row");
-    const card = page.locator(".env-this-mac");
-    assert.equal(await card.locator(".status-badge").count(), 0, "no status badge on the This Mac card");
-    assert.equal(await page.locator(".env-list .env-this-mac, .env-list [data-environment='this-mac']").count(), 0);
-    assert.equal(await card.evaluate(node => node.compareDocumentPosition(document.querySelector(".env-list")) & Node.DOCUMENT_POSITION_FOLLOWING) > 0, true, "the card sits above the list");
-    await card.getByRole("button", {name: "Open Mac settings"}).click();
-    assert.equal(await page.evaluate(() => window.__openedMacSettings), 1);
+    const toggle = page.getByRole("switch", {name: RC.title});
+    await toggle.waitFor();
+    assert.equal(await toggle.isChecked(), false, "off until the person turns it on");
+    assert.equal(await page.locator(".rc-block").getByText(RC.off).count(), 1);
+    assert.equal(await page.locator('[data-environment="this-mac"]').count(), 0, "no this-Mac row while it is off");
+    assert.equal(await page.locator("[data-add-mac-note]").count(), 0, "the browser paragraph is not shown next to the switch");
+    // No pairing code anywhere, no "Your Mac" add item, no Open Mac settings button, no pairing request.
+    await page.locator(".env-add").click();
+    assert.deepEqual(await page.locator(".env-add-menu button").allInnerTexts(), ["E2B cloud computer"], "no Your Mac menu item");
+    await page.keyboard.press("Escape");
+    assert.equal(await page.getByRole("button", {name: "Open Mac settings"}).count(), 0);
+    assert.equal(await page.getByRole("button", {name: "Connect this Mac"}).count(), 0);
+    if (shots) await page.screenshot({path: join(shots, "rc-off-1280.png")});
+    // Turn on: one set(true) call, then the this-Mac row; the server row of this same device is not listed again.
+    await toggle.check();
+    const mine = page.locator('[data-environment="this-mac"]');
+    await mine.waitFor();
+    assert.deepEqual(await rcCalls(), [["set", true]]);
+    assert.match((await mine.innerText()).replace(/\s+/g, " "), /This Mac Studio MacBook Available/);
+    assert.equal(await toggle.isChecked(), true);
+    assert.equal(await page.locator(".rc-block").getByText("Actions with consequences still ask you first.", {exact: false}).count(), 1);
+    assert.deepEqual(await names(page), ["This server", "E2B cloud computer"], "the paired Mac is shown once: the this-Mac row, not the list");
+    assert.ok(!calls.some(call => call.includes("/pairings")), "the page never creates a pairing code");
+    assert.equal(await page.getByText(/[A-Z0-9]{7}/).filter({hasText: /^7Q4K9M2$/}).count(), 0);
+    if (shots) await page.screenshot({path: join(shots, "rc-on-1280.png")});
+    // Off again: set(false), the row is gone.
+    await toggle.uncheck();
+    await mine.waitFor({state: "detached"});
+    assert.deepEqual(await rcCalls(), [["set", true], ["set", false]]);
     await close();
+  }
+
+  // A cancel in the macOS dialog is silent and changes nothing; every failure has its own words and a role=alert.
+  {
+    const {page, close, rcCalls} = await open({tab: "computer"}, {desktop: true});
+    const toggle = page.getByRole("switch", {name: RC.title});
+    await toggle.waitFor();
+    await page.evaluate(() => { window.__rc.dialogAnswer = false; });
+    await toggle.check({force: true}).catch(() => {});
+    await page.waitForFunction(() => window.__rc.calls.some(call => call[0] === "set"));
+    assert.equal(await toggle.isChecked(), false, "cancel: the switch stays off");
+    assert.equal(await page.locator(".rc-note").count(), 0, "cancel: nothing is said");
+    assert.equal(await page.locator('[data-environment="this-mac"]').count(), 0);
+    await page.evaluate(() => { window.__rc.dialogAnswer = true; });
+    const FAILURES = {
+      no_session: "You're signed out. Sign in again, then try again.",
+      personal_disabled: "This server doesn't offer personal computers.",
+      rate_limited: "Too many attempts. Try again in a minute.",
+      limit_reached: "This account has reached its Mac limit. Remove one first.",
+      connection_changed: "The server changed. Turn it on again for the new one.",
+      keychain_unavailable: "The Mac's keychain isn't available, so the connection can't be saved.",
+      offline: "Can't reach the server. Check the connection and try again.",
+      no_connection: "Connect to a server first.",
+      permission_missing: "macOS access is still missing.",
+      failed: "Couldn't connect this Mac. Try again.",
+    };
+    assert.equal(new Set(Object.values(FAILURES)).size, Object.keys(FAILURES).length, "every failure has its own sentence");
+    for (const [code, text] of Object.entries(FAILURES)) {
+      await page.evaluate(value => { window.__rc.failWith = value; }, code);
+      await toggle.check({force: true}).catch(() => {});
+      const alert = page.locator(".rc-note.is-error");
+      await alert.waitFor();
+      assert.equal((await alert.innerText()).trim(), text, `${code}: its own sentence`);
+      assert.equal(await alert.getAttribute("data-failure"), code);
+      assert.equal(await toggle.isChecked(), false, `${code}: the switch is back off`);
+      assert.ok(!/upstream|ECONN|stack|code:/i.test(await alert.innerText()), `${code}: no server text`);
+      await page.evaluate(() => { window.__rc.failWith = null; });
+    }
+    await close();
+  }
+
+  // The this-Mac row from the app's status: a named reason and at most one inline action; pushes update it.
+  {
+    const cases = [
+      ["needs_accessibility", {permissions: {screen: true, accessibility: false}}, "Unavailable", "Still needs macOS Accessibility access.", "authorize", "Grant access", ["authorize"]],
+      ["needs_screen", {permissions: {screen: false, accessibility: true}}, "Unavailable", "Still needs macOS Screen Recording access.", "authorize", "Grant access", ["authorize"]],
+      ["needs_both", {permissions: {screen: false, accessibility: false}}, "Unavailable", "Still needs macOS Accessibility and Screen Recording access.", "authorize", "Grant access", ["authorize"]],
+      ["needs_relaunch", {permissions: {screen: false, accessibility: true}, needsRelaunch: true}, "Unavailable", "Access is granted. Reopen Tofi to apply it.", "relaunch", "Reopen Tofi", ["relaunch"]],
+      ["half_on", {}, "Unavailable", "Only part of remote control is on.", "turn_on_both", "Turn both on", ["set", true]],
+      ["offline", {paired: false, deviceID: null}, "Unavailable", "Can't reach the server. Check the connection and try again.", "retry", "Try again", ["authorize"]],
+      ["paused_stop", {phase: "paused"}, "Unavailable", "You stopped it. It resumes on its own.", null, null, null],
+      ["connecting", {paired: false, deviceID: null}, "Unavailable", "Connecting to the server…", null, null, null],
+    ];
+    for (const [reason, patch, word, sentence, action, label, expected] of cases) {
+      const {page, close, rcCalls} = await open({tab: "computer"}, {desktop: true, rc: {status: {enabled: true, paired: true, deviceID: "mac_ab12", reason, ...patch}}});
+      const mine = page.locator('[data-environment="this-mac"]');
+      await mine.waitFor();
+      assert.equal(await mine.getAttribute("data-reason"), reason);
+      const text = (await mine.innerText()).replace(/\s+/g, " ");
+      assert.ok(text.includes(word) && text.includes(sentence), `${reason}: "${text}"`);
+      const buttonsIn = await mine.locator("button.rc-action").allInnerTexts();
+      assert.deepEqual(buttonsIn, label ? [label] : [], `${reason}: at most one inline action`);
+      if (action) {
+        await mine.locator(`button[data-action="${action}"]`).click();
+        await page.waitForFunction(() => window.__rc.calls.some(call => call[0] !== "status"));
+        assert.deepEqual((await rcCalls())[0], expected, `${reason}: the action asks the app`);
+      }
+      if (reason === "needs_accessibility" && shots) await page.screenshot({path: join(shots, "rc-needs-accessibility-1280.png")});
+      await close();
+    }
+    // A push makes the row change without a reload: in use, with Stop, then idle.
+    const {page, close, rcCalls} = await open({tab: "computer"}, {desktop: true, rc: {status: {enabled: true, paired: true, deviceID: "mac_ab12"}}});
+    const mine = page.locator('[data-environment="this-mac"]');
+    await mine.waitFor();
+    assert.equal(await mine.locator("button.rc-action").count(), 0, "available: no action");
+    await page.evaluate(() => { Object.assign(window.__rc.status, {phase: "active", botName: "Research Bot"}); window.__rc.push(); });
+    await page.waitForFunction(() => document.querySelector('[data-environment="this-mac"]')?.dataset.state === "in_use");
+    assert.match((await mine.innerText()).replace(/\s+/g, " "), /Used by Research Bot In use/);
+    await mine.locator('button[data-action="stop"]').click();
+    await page.waitForFunction(() => window.__rc.calls.some(call => call[0] === "stop"));
+    await page.evaluate(() => { Object.assign(window.__rc.status, {phase: "idle", botName: "", hotkeyOk: false}); window.__rc.push(); });
+    await page.waitForFunction(() => document.querySelector('[data-environment="this-mac"]')?.dataset.state === "available");
+    assert.match(await mine.innerText(), /Another app holds the stop shortcut\. Use Stop on this row\./);
+    assert.deepEqual(await rcCalls(), [["stop"]]);
+    await close();
+  }
+
+  // The menu on the this-Mac row: Files and local execution (the slim page) is reached only from here; denied Bots can be allowed again
+  // (the app asks in its own dialog).
+  {
+    const {page, close, rcCalls} = await open({tab: "computer"}, {desktop: true, rc: {status: {enabled: true, paired: true, deviceID: "mac_ab12"}, denied: [{bot_id: "bot_inbox", bot_name: "Inbox Bot"}]}});
+    const mine = page.locator('[data-environment="this-mac"]');
+    await mine.waitFor();
+    assert.equal(await page.getByRole("button", {name: "Open Mac settings"}).count(), 0, "no other way into the Mac settings page");
+    await mine.getByRole("button", {name: "More actions for This Mac"}).click();
+    assert.deepEqual(await page.locator(".env-menu button").allInnerTexts(), ["Files and local execution", "Bots denied on this Mac"]);
+    await page.locator('.env-menu button[data-action="files"]').click();
+    assert.equal(await page.evaluate(() => window.__openedMacSettings), 1);
+    await mine.getByRole("button", {name: "More actions for This Mac"}).click();
+    await page.locator('.env-menu button[data-action="denied"]').click();
+    const dialog = page.getByRole("dialog", {name: "Bots denied on this Mac"});
+    await dialog.waitFor();
+    assert.match(await dialog.innerText(), /Inbox Bot/);
+    await dialog.getByRole("button", {name: "Allow again"}).click();
+    await dialog.getByText("No Bot is denied.").waitFor();
+    assert.deepEqual(await rcCalls(), [["undoDeny", "bot_inbox"]]);
+    await dialog.getByRole("button", {name: "Close"}).click();
+    await mine.getByRole("button", {name: "More actions for This Mac"}).click();
+    assert.deepEqual(await page.locator(".env-menu button").allInnerTexts(), ["Files and local execution"], "no denied-Bots item once none is left");
+    await close();
+  }
+
+  // A server without personal computers: the switch is off and disabled, with the reason; a Mac app without the bridge (older) or a
+  // browser shows no switch and the one paragraph about how to add a Mac.
+  {
+    const off = await open({tab: "computer"}, {desktop: true, state: {add: {e2b: true, mac: false, vm_command: ""}}});
+    const toggle = off.page.getByRole("switch", {name: RC.title});
+    await toggle.waitFor();
+    assert.equal(await toggle.isDisabled(), true);
+    assert.match(await off.page.locator(".rc-note").innerText(), /This server doesn't offer personal computers\./);
+    await off.close();
+    const NOTE = "To add a Mac, install the Tofi Mac app, open Settings › Environments there and turn on Remote control this Mac.";
+    for (const options of [{}, {desktop: true, bridgeless: true}]) {
+      const plain = await open({tab: "computer"}, options);
+      await rows(plain.page).first().waitFor();
+      assert.equal(await plain.page.getByRole("switch", {name: RC.title}).count(), 0, "no switch without the bridge");
+      assert.equal(await plain.page.locator(".rc-block").count(), 0);
+      assert.equal((await plain.page.locator("[data-add-mac-note]").innerText()).trim(), NOTE);
+      assert.deepEqual(await plain.page.locator(".env-add-menu button").count(), 0);
+      assert.deepEqual(await names(plain.page), ["This server", "E2B cloud computer", "Jack's MacBook Pro"], "the paired Mac stays in the list");
+      if (shots && !options.desktop) await plain.page.screenshot({path: join(shots, "rc-browser-1280.png")});
+      await plain.close();
+    }
+    const quiet = await open({tab: "computer"}, {state: {add: {e2b: true, mac: false, vm_command: ""}}});
+    await rows(quiet.page).first().waitFor();
+    assert.equal(await quiet.page.locator("[data-add-mac-note]").count(), 0, "no paragraph on a server without personal computers");
+    await quiet.close();
+  }
+
+  // Seven languages: every string the switch and the row use is in each catalog.
+  {
+    const LANGS = ["en", "zh-CN", "zh-TW", "ja", "ko", "de", "fr"];
+    const catalogs = await Promise.all(LANGS.map(async lang => [lang, JSON.parse(await readFile(join(ui, "src/locales", lang, "computer.json"), "utf8")).environments.rc]));
+    const flatten = (node, prefix = "") => Object.entries(node).flatMap(([key, value]) => typeof value === "object" ? flatten(value, `${prefix}${key}.`) : [[`${prefix}${key}`, value]]);
+    const keys = flatten(catalogs[0][1]).map(([key]) => key);
+    for (const code of ["no_session", "personal_disabled", "rate_limited", "limit_reached", "connection_changed", "keychain_unavailable", "offline", "no_connection", "permission_missing", "failed"]) assert.ok(keys.includes(`reason.${code}`), `a sentence for ${code}`);
+    for (const [lang, catalog] of catalogs) {
+      assert.deepEqual(flatten(catalog).map(([key]) => key), keys, `${lang}: same keys as English`);
+      for (const [key, value] of flatten(catalog)) assert.ok(typeof value === "string" && value.trim(), `${lang}: ${key} is text`);
+    }
+    for (const [lang, catalog] of catalogs) {
+      const sentences = flatten(catalog).filter(([key]) => key.startsWith("reason.")).map(([, value]) => value);
+      assert.equal(new Set(sentences).size, sentences.length, `${lang}: no two reasons share a sentence`);
+    }
   }
 
   // ---- 8. Old links: /settings/devices lands here, and the rail has no Other devices item.
@@ -313,10 +482,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.match((await row(provided.page, "firecracker").innerText()).replace(/\s+/g, " "), /This server Bot computer Provided by your organization Used by all Bots Ready/);
     assert.equal(await row(provided.page, "firecracker").locator('[data-tag="organization"]').count(), 1);
     assert.deepEqual(await buttons(row(provided.page, "firecracker")), ["configure"], "only what the server allows: no Use for Bots, no Remove");
-    assert.equal(await provided.page.locator(".env-add").count(), 1);
-    await provided.page.locator(".env-add").click();
-    assert.deepEqual(await provided.page.locator(".env-add-menu button").allInnerTexts(), ["Your Mac"], "no E2B to add while the organization provides the computer");
-    await provided.page.keyboard.press("Escape");
+    assert.equal(await provided.page.locator(".env-add").count(), 0, "no E2B to add while the organization provides the computer, and no Mac menu item");
     assert.equal(await provided.page.locator('[data-section="attach"]').count(), 0);
     if (shots) await provided.page.screenshot({path: join(shots, "policy-provided-1280.png")});
     await provided.close();
@@ -471,7 +637,24 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   }
 
   assert.deepEqual(errors, [], `page errors: ${errors.join("; ")}`);
-  console.log("PASS environments: list, actions from the server, E2B add (invalid key, template, success), confirmations, Mac pairing and disconnect, configure, desktop row, /settings/devices");
+  // ---- Screenshots (ENVIRONMENTS_SHOTS): the switch off, on with this Mac available, and this Mac missing Accessibility; 1280 and 390, light and dark.
+  if (shots) {
+    const states = {
+      "switch-off": undefined,
+      "switch-on": {status: {enabled: true, paired: true, deviceID: "mac_ab12"}},
+      "missing-accessibility": {status: {enabled: true, paired: true, deviceID: "mac_ab12", reason: "needs_accessibility", permissions: {screen: true, accessibility: false}}},
+    };
+    for (const [name, rc] of Object.entries(states)) for (const theme of ["light", "dark"]) for (const width of [1280, 390]) {
+      const view = await open({tab: "computer"}, {desktop: true, width, height: width === 390 ? 844 : 800, theme, rc});
+      await rows(view.page).first().waitFor();
+      if (rc) await view.page.locator('[data-environment="this-mac"]').waitFor();
+      await view.page.waitForTimeout(600); // the switch finishes its slide
+      await view.page.screenshot({path: join(shots, `env-p0-${name}-${width}-${theme}.png`)});
+      await view.close();
+    }
+  }
+
+  console.log("PASS environments: list, actions from the server, E2B add (invalid key, template, success), confirmations, Mac disconnect, configure, remote-control switch and this-Mac row, /settings/devices");
 } finally {
   await browser?.close();
   await server?.close();

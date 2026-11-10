@@ -56,6 +56,7 @@ try {
  const generic=view({...scenario("busy"),run:{...run,status:"failed",error:"",failure:{code:"execution_failed",source:"runtime",message:""}},tools:[],summaries:[zero]});
  assert.equal(generic.kind,"unknown_failure");assert.match(generic.facts.join(" "),/没有记录具体原因/);assert.equal(generic.recordsComplete,true);
  assert.equal(view({...scenario("busy"),run:{...run,status:"failed",failure:{code:"model_auth_invalid",source:"runtime",message:""}},tools:[],summaries:[zero]},"en").title,"Model account sign-in is no longer valid");
+ {const own=view({...scenario("busy"),run:{...run,model:"codex-gpt-6-sol",status:"failed",failure:{code:"own_models_not_allowed",source:"runtime",message:""}},tools:[],summaries:[zero]},"en");assert.equal(own.kind,"own_models_not_allowed");assert.equal(own.title,"Your own models are not allowed");assert(own.facts.join(" ").includes("does not allow your own models"));assert(own.facts.join(" ").includes("Choose one of the organization's models"));}
  console.log("PASS 2b: model account failures are named, routed to model settings, and zero-tool runs say so");
 
  // 2f. A failed run names ONE decisive reason from durable facts: refused step, then run error class, then generic.

@@ -1543,89 +1543,25 @@
     }
   },
   "mac": {
-    "title": "Réglages du Mac",
+    "title": "Fichiers et exécution locale",
     "back": "Retour au chat",
     "loading": "Lecture de l’état…",
-    "refresh": "Actualiser l’état",
     "unavailable": "Cette page ne fonctionne que dans l’app de bureau Tofi.",
     "device": {
-      "title": "Appareil",
-      "description": "Comment ce Mac apparaît à vos Bots.",
-      "name": "Nom de l’appareil",
-      "nameHint": "Affiché à vos Bots et dans Tofi.",
       "folder": "Dossier de travail",
       "folderHint": "Les Bots n’accèdent qu’aux fichiers de ce dossier.",
       "choose": "Choisir…",
-      "choosing": "Sélection…",
-      "paired": "Associé · {{id}}",
-      "unpaired": "Non associé",
-      "capabilities": "Actif : {{list}}"
+      "choosing": "Sélection…"
     },
     "caps": {
-      "title": "Capacités",
-      "description": "Ce que les Bots peuvent faire sur ce Mac. Les autorisations macOS ci-dessous sont aussi nécessaires.",
+      "title": "Fichiers",
+      "description": "Tant que le contrôle à distance est activé, les Bots peuvent utiliser le dossier de travail.",
       "files": {
         "label": "Fichiers",
         "hint": "Lister, lire et écrire des fichiers dans le dossier de travail."
       },
-      "screen": {
-        "label": "Capture d’écran",
-        "hint": "Prendre des captures une fois l’enregistrement de l’écran autorisé."
-      },
-      "control": {
-        "label": "Contrôle du bureau",
-        "hint": "Cliquer et saisir au clavier une fois l’accessibilité autorisée."
-      },
       "save": "Enregistrer les réglages",
       "saving": "Enregistrement…"
-    },
-    "perm": {
-      "title": "Autorisations macOS",
-      "description": "macOS vous demande de les accorder dans Réglages Système.",
-      "screen": {
-        "label": "Enregistrement de l’écran",
-        "hint": "Nécessaire pour les captures d’écran."
-      },
-      "accessibility": {
-        "label": "Accessibilité",
-        "hint": "Nécessaire pour les clics et la saisie au clavier."
-      },
-      "granted": "Autorisé",
-      "missing": "Non autorisé",
-      "grant": "Ouvrir Réglages Système",
-      "hint": {
-        "screen": "Réglages Système affiche « Enregistrement de l’écran et de l’audio système ». Activez Tofi dans la liste. S’il n’y figure pas, faites glisser l’icône de la carte sous la fenêtre vers la liste. macOS peut demander de rouvrir Tofi, et à la première capture il peut proposer de contourner le sélecteur de fenêtres privé du système. Choisissez Autoriser.",
-        "accessibility": "Réglages Système affiche « Accessibilité ». Activez Tofi dans la liste. S’il n’y figure pas, faites glisser l’icône de la carte sous la fenêtre vers la liste."
-      },
-      "monthly": "Une fois l’enregistrement de l’écran activé, macOS demande environ une fois par mois si Tofi peut contourner le sélecteur de fenêtres privé du système. Choisissez Autoriser pour continuer les captures. Seul vous pouvez répondre à cette demande ; un Bot qui s’y heurte vous le signalera.",
-      "stale": "Tofi est déjà activé dans Réglages Système mais apparaît ici comme « Non autorisé » ? Cette entrée appartient à une copie précédente de Tofi. Dans Réglages Système, sélectionnez Tofi, cliquez sur − pour le retirer, puis choisissez « Ouvrir Réglages Système » ici et réactivez-le.",
-      "reopen": {
-        "label": "Enregistrement de l’écran activé ?",
-        "hint": "macOS ne l’applique qu’après la réouverture de Tofi.",
-        "action": "Rouvrir Tofi",
-        "busy": "Réouverture…"
-      }
-    },
-    "bots": {
-      "title": "Bots sur ce Mac",
-      "description": "Un Bot est refusé la première fois qu’il demande à utiliser ce Mac. Il reste listé ici jusqu’à ce que vous l’autorisiez.",
-      "empty": "Aucun Bot n’a encore demandé à utiliser ce Mac.",
-      "unnamed": "Bot sans nom",
-      "allowed": "Autorisé",
-      "denied": "Refusé",
-      "waiting": "En attente de votre décision",
-      "allow": "Autoriser",
-      "deny": "Refuser",
-      "remove": "Retirer",
-      "control": {
-        "paused_stop": "Contrôle du bureau en pause (vous avez appuyé sur Arrêter).",
-        "paused_takeover": "Contrôle du bureau en pause (vous avez repris la souris ou le clavier).",
-        "active": "Un Bot contrôle ce Mac.",
-        "idle": "Aucun Bot ne contrôle ce Mac."
-      },
-      "stop": "Arrêter et pauser 60 s",
-      "resume": "Reprendre",
-      "shortcut": "Pendant qu’un Bot a le contrôle, une bannière s’affiche en haut de l’écran. Appuyez sur ⌃⌥⌘Échap pour arrêter aussitôt et pauser 60 secondes."
     },
     "local": {
       "title": "Exécution locale",
@@ -1672,14 +1608,6 @@
       "boundary": "Les commandes peuvent lire le dossier autorisé, les outils de ~/.local/bin et tout fichier hors de votre dossier personnel que vous pouvez lire. Elles ne peuvent écrire que dans le dossier autorisé et un espace de projet privé, et les modifications ne sont pas annulées. ~/.local/bin est en lecture seule, mais ses outils peuvent changer pendant l’autorisation, et les exécuter peut avoir des effets de bord. Le reste de votre dossier personnel et les dossiers d’identifiants ne sont ni lisibles ni modifiables. Pas encore d’accès à SSH, au réseau ni au Trousseau. L’espace privé reste dans un dossier temporaire local après la révocation ; il n’est pas nettoyé automatiquement.",
       "persist": "L’autorisation reste valable quand vous quittez cette page. Elle prend fin à la fermeture de l’app, au changement de serveur ou à la révocation."
     },
-    "pair": {
-      "title": "Associer ce Mac",
-      "description": "Saisissez le code d’association affiché dans Tofi sur le web : Réglages > Environnements > Ajouter un environnement > Votre Mac.",
-      "code": "Code d’association",
-      "submit": "Associer ce Mac",
-      "pairing": "Association…",
-      "note": "Les identifiants de l’appareil restent dans le processus principal de l’app de bureau et ne sont jamais envoyés à la page."
-    },
     "error": {
       "last": "La dernière action sur l’appareil a échoué",
       "action": "Échec de l’action : {{message}}",
@@ -1689,17 +1617,13 @@
     },
     "confirm": {
       "cancel": "Annuler",
-      "deny": {
-        "title": "Refuser {{name}} ?",
-        "body": "Toutes les demandes de ce Bot pour utiliser ce Mac sont refusées tant que vous ne l’autorisez pas de nouveau.",
-        "confirm": "Refuser"
-      },
       "revoke": {
         "title": "Révoquer l’exécution locale ?",
         "body": "Les commandes en cours s’arrêtent et les Bots perdent l’accès au dossier autorisé. Vous pourrez autoriser un dossier de nouveau plus tard.",
         "confirm": "Révoquer"
       }
-    }
+    },
+    "inDevelopment": "En développement"
   },
   "policy": {
     "capability": {
@@ -1722,8 +1646,9 @@
     },
     "value": {
       "ai_models": {
-        "own": "Clés personnelles",
-        "provided": "Organisation"
+        "own": "Les membres apportent les leurs",
+        "provided": "Fournis ; les membres peuvent aussi utiliser les leurs",
+        "provided_only": "Fournis uniquement"
       },
       "computer": {
         "host": "VM du serveur",
@@ -1762,7 +1687,10 @@
         "available": "Disponible",
         "not_provided": "Non fourni",
         "waiting_title": "En attente de votre administrateur",
-        "waiting_body": "Votre organisation n’a pas encore fourni de modèle. Les Bots ne peuvent pas s’exécuter tant qu’un administrateur n’en ajoute pas."
+        "waiting_body": "Votre organisation n’a pas encore fourni de modèle. Les Bots ne peuvent pas s’exécuter tant qu’un administrateur n’en ajoute pas.",
+        "own_title": "Les vôtres",
+        "own_note": "Connectez-vous avec ChatGPT pour ajouter ses modèles aux sélecteurs. Les Bots gardent le modèle qu'ils utilisent déjà.",
+        "own_not_allowed": "Votre organisation gère les modèles de ce compte."
       }
     }
   }

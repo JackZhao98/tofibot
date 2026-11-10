@@ -3501,8 +3501,8 @@ func (s *Server) codexAuth(w http.ResponseWriter, r *http.Request, path string) 
 			}
 		}
 		writeJSON(w, 200, s.codex.Status())
-	case (path == "/connect" || strings.HasPrefix(path, "/connect/")) && r.Method == http.MethodPost && s.aiProvided():
-		refusePolicy(w, false) // a Codex sign-in is never an organization resource, and not used while models are provided
+	case (path == "/connect" || strings.HasPrefix(path, "/connect/")) && r.Method == http.MethodPost && !s.ownModelsAllowed():
+		refusePolicy(w, false) // models are provided and the administrator does not allow the person's own sign-in
 	case path == "/connect" && r.Method == http.MethodPost:
 		before := s.codex.Status()
 		x, e := s.codex.Start(r.Context())

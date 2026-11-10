@@ -1,0 +1,39 @@
+/* Remote control this Mac: one filled block (settings-simplify.md 5). Tokens only; no borders around the group, a soft line between rows. */
+.rc-block{display:block;margin:0 0 20px;padding:0 16px;border-radius:14px;background:var(--surface-2);min-width:0}
+.rc-row{display:flex;align-items:center;gap:12px;min-height:52px;padding:10px 0;min-width:0}
+.rc-row+.rc-row,.rc-note+.rc-row{border-top:1px solid var(--line-soft)}
+.rc-copy{flex:1;min-width:0}
+.rc-copy strong{display:block;color:var(--ink);font:500 14px/1.4 var(--body)}
+.rc-copy p{margin:2px 0 0;color:var(--muted);font:12.5px/1.5 var(--body);overflow-wrap:anywhere}
+.workspace .settings-page-body .rc-copy p{margin:2px 0 0}
+.rc-mac>svg{flex:none;color:var(--muted)}
+.rc-mac .rc-copy .rc-reason{color:var(--ink-soft)}
+.rc-side{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:4px 12px;flex:none;max-width:55%}
+.rc-state{display:inline-flex;align-items:center;gap:7px;color:var(--muted);font:12.5px/1.4 var(--body);white-space:nowrap}
+.rc-state::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;box-sizing:border-box;border:1.5px solid var(--muted)}
+.rc-state.is-available{color:var(--green-text)}
+.rc-state.is-available::before{border-color:var(--green);background:var(--green)}
+.rc-state.is-in_use{color:var(--lagoon-text)}
+.rc-state.is-in_use::before{border-color:var(--lagoon);background:var(--lagoon)}
+.rc-state.is-unavailable::before{background:transparent}
+.rc-action{padding:4px 2px;border:0;background:none;color:var(--ink-soft);font:500 13px/1.4 var(--body);text-decoration:underline;text-decoration-color:var(--line-soft);text-underline-offset:3px;cursor:pointer}
+.rc-action:hover:not(:disabled){color:var(--ink);text-decoration-color:currentColor}
+.rc-action:disabled{opacity:.5;cursor:not-allowed}
+.rc-action:focus-visible,.rc-more:focus-visible{outline:var(--focus-ring-width,2px) solid var(--focus-ring,var(--focus));outline-offset:2px;border-radius:6px}
+.rc-more{display:inline-grid;place-items:center;width:32px;height:32px;padding:0;border:0;border-radius:9px;background:none;color:var(--ink-soft);cursor:pointer}
+.rc-more:hover{background:var(--sunk)}
+.rc-note{margin:0;padding:0 0 12px;color:var(--ink-soft);font:12.5px/1.5 var(--body);overflow-wrap:anywhere}
+.rc-note.is-error{color:var(--danger-text)}
+.rc-switch-row .rc-switch{flex:none;margin:0;padding:0}
+.rc-browser-note{margin:14px 0 0;color:var(--muted);font:12.5px/1.6 var(--body)}
+.rc-denied-list{display:grid;gap:0;margin:12px 0 0;padding:0;list-style:none}
+.rc-denied-list li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line-soft)}
+.rc-denied-list li:first-child{border-top:0}
+.rc-denied-list span{min-width:0;overflow-wrap:anywhere;color:var(--ink);font:500 14px/1.4 var(--body)}
+@media(max-width:700px){
+  .rc-block{padding:0 14px}
+  .rc-mac{flex-wrap:wrap}
+  .rc-mac .rc-copy{flex-basis:calc(100% - 40px)}
+  .rc-side{max-width:none;flex-basis:100%;justify-content:flex-start;padding-left:30px}
+}
+@media(max-width:700px){.rc-more{width:44px;height:44px}}

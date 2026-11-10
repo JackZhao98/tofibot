@@ -1517,89 +1517,25 @@
     }
   },
   "mac": {
-    "title": "Mac 設定",
+    "title": "檔案與本機執行",
     "back": "返回聊天",
     "loading": "正在讀取…",
-    "refresh": "重新整理狀態",
     "unavailable": "此頁面只能在 Tofi 桌面應用程式中使用。",
     "device": {
-      "title": "裝置",
-      "description": "這台 Mac 在你的 Bot 眼中的樣子。",
-      "name": "裝置名稱",
-      "nameHint": "會顯示給你的 Bot 和 Tofi。",
       "folder": "工作資料夾",
       "folderHint": "Bot 只能存取這個資料夾內的檔案。",
       "choose": "選擇…",
-      "choosing": "正在選擇…",
-      "paired": "已配對 · {{id}}",
-      "unpaired": "尚未配對",
-      "capabilities": "已啟用：{{list}}"
+      "choosing": "正在選擇…"
     },
     "caps": {
-      "title": "功能",
-      "description": "Bot 可以在這台 Mac 上做什麼。下方的 macOS 權限也需要授予。",
+      "title": "檔案",
+      "description": "遠端控制開啟時，Bot 可以使用這個工作資料夾。",
       "files": {
         "label": "檔案",
         "hint": "在工作資料夾內列出、讀取和寫入檔案。"
       },
-      "screen": {
-        "label": "螢幕截圖",
-        "hint": "授予「螢幕錄製」權限後允許截圖。"
-      },
-      "control": {
-        "label": "桌面控制",
-        "hint": "授予「輔助使用」權限後允許點按和鍵盤輸入。"
-      },
       "save": "儲存設定",
       "saving": "正在儲存…"
-    },
-    "perm": {
-      "title": "macOS 權限",
-      "description": "需要在「系統設定」中授予。",
-      "screen": {
-        "label": "螢幕錄製",
-        "hint": "截圖時需要。"
-      },
-      "accessibility": {
-        "label": "輔助使用",
-        "hint": "點按和鍵盤輸入時需要。"
-      },
-      "granted": "已允許",
-      "missing": "尚未允許",
-      "grant": "前往授權",
-      "hint": {
-        "screen": "已開啟「系統設定」的「螢幕與系統音訊錄製」。在列表中開啟 Tofi 的開關；列表中沒有的話，將視窗下方卡片裡的圖示拖進去。開啟後 macOS 可能要求重新開啟 Tofi，第一次截圖時也會提示「略過系統的私人視窗選擇器」，請按「允許」。",
-        "accessibility": "已開啟「系統設定」的「輔助使用」。在列表中開啟 Tofi 的開關；列表中沒有的話，將視窗下方卡片裡的圖示拖進去。"
-      },
-      "monthly": "開啟螢幕錄製後，macOS 大約每月會詢問一次 Tofi 是否可略過系統的私人視窗選擇器。這是 macOS 的規定，按「允許」即可繼續截圖。這個提示只能由你本人回答，Bot 遇到時會告訴你。",
-      "stale": "系統設定裡 Tofi 已經開啟，這裡卻仍顯示「尚未允許」？那一項屬於之前安裝的 Tofi。在系統設定裡選取 Tofi，按 − 刪除，再回到這裡按「前往授權」重新開啟。",
-      "reopen": {
-        "label": "已經開啟螢幕錄製？",
-        "hint": "macOS 要在 Tofi 重新開啟後才會生效。",
-        "action": "重新開啟 Tofi",
-        "busy": "正在重新開啟…"
-      }
-    },
-    "bots": {
-      "title": "這台 Mac 上的 Bot",
-      "description": "Bot 第一次請求使用這台 Mac 時會被拒絕並列在這裡，等你按「允許」才會放行。",
-      "empty": "還沒有 Bot 請求過這台 Mac。",
-      "unnamed": "（未命名 Bot）",
-      "allowed": "已允許",
-      "denied": "已拒絕",
-      "waiting": "等待你的決定",
-      "allow": "允許",
-      "deny": "拒絕",
-      "remove": "移除",
-      "control": {
-        "paused_stop": "桌面控制已暫停（你按了停止）。",
-        "paused_takeover": "桌面控制已暫停（你接管了滑鼠或鍵盤）。",
-        "active": "有 Bot 正在控制這台 Mac。",
-        "idle": "目前沒有 Bot 在控制這台 Mac。"
-      },
-      "stop": "停止並暫停 60 秒",
-      "resume": "繼續",
-      "shortcut": "Bot 控制期間，螢幕上方會顯示橫幅。按 ⌃⌥⌘Esc 可立即停止並暫停 60 秒。"
     },
     "local": {
       "title": "本機執行",
@@ -1646,14 +1582,6 @@
       "boundary": "指令可讀取授權的資料夾、~/.local/bin 中的工具，以及家目錄以外你能讀取的檔案；只能寫入授權的資料夾和私人專案工作區，變更不會復原。~/.local/bin 為唯讀，但其中的工具可能在授權期間改變，執行工具也可能產生副作用。家目錄的其他位置與憑證資料夾無法讀寫。目前不支援 SSH、網路或鑰匙圈存取。私人工作區在撤銷後仍保留在本機暫存資料夾，不會自動清除。",
       "persist": "離開此頁面後授權仍然有效；結束應用程式、切換伺服器或撤銷授權後即失效。"
     },
-    "pair": {
-      "title": "配對這台 Mac",
-      "description": "輸入網頁版 Tofi「設定 › 環境 › 新增環境 › 你的 Mac」中顯示的配對碼。",
-      "code": "配對碼",
-      "submit": "配對這台 Mac",
-      "pairing": "正在配對…",
-      "note": "裝置憑證由桌面應用程式的主程序保管，不會傳送給頁面。"
-    },
     "error": {
       "last": "上一次裝置操作失敗",
       "action": "操作失敗：{{message}}",
@@ -1663,17 +1591,13 @@
     },
     "confirm": {
       "cancel": "取消",
-      "deny": {
-        "title": "拒絕 {{name}}？",
-        "body": "在你再次允許之前，這個 Bot 所有使用這台 Mac 的請求都會被拒絕。",
-        "confirm": "拒絕"
-      },
       "revoke": {
         "title": "撤銷本機執行授權？",
         "body": "執行中的指令會停止，Bot 也會失去授權資料夾的存取權。之後可以重新授權資料夾。",
         "confirm": "撤銷"
       }
-    }
+    },
+    "inDevelopment": "開發中"
   },
   "policy": {
     "capability": {
@@ -1696,8 +1620,9 @@
     },
     "value": {
       "ai_models": {
-        "own": "自備金鑰",
-        "provided": "組織提供"
+        "own": "成員自帶",
+        "provided": "組織提供，成員也可自帶",
+        "provided_only": "僅組織提供"
       },
       "computer": {
         "host": "伺服器虛擬機",
@@ -1736,7 +1661,10 @@
         "available": "可用",
         "not_provided": "未提供",
         "waiting_title": "等待管理員提供模型",
-        "waiting_body": "組織還沒有提供模型；管理員新增之前，Bot 無法運行。"
+        "waiting_body": "組織還沒有提供模型；管理員新增之前，Bot 無法運行。",
+        "own_title": "你自己的",
+        "own_note": "用 ChatGPT 登入後，它的模型會出現在模型選擇裡。既有的 Bot 繼續用原來的模型。",
+        "own_not_allowed": "此帳戶的模型由你的組織管理。"
       }
     }
   }

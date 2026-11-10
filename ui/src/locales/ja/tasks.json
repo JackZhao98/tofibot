@@ -15,7 +15,8 @@
       "runtime_connection": "接続が中断され、タスクは完了しませんでした",
       "unknown_failure": "タスクは完了しませんでした",
       "org_resource_missing": "管理者の対応待ち",
-      "org_credential_failed": "組織のモデルアカウントに対応が必要です"
+      "org_credential_failed": "組織のモデルアカウントに対応が必要です",
+      "own_models_not_allowed": "自分のモデルは使えません"
     },
     "action": {
       "open_tools": "ツール設定を開く",
@@ -135,7 +136,9 @@
     "org_resource_missing_next": "管理者に追加を依頼してから再試行してください。",
     "org_credential_auth": "組織のモデル認証情報が拒否されました。",
     "org_credential_quota": "組織のモデルアカウントが利用上限に達しました。",
-    "org_credential_next": "管理者に組織のリソースの確認を依頼してください。"
+    "org_credential_next": "管理者に組織のリソースの確認を依頼してください。",
+    "own_models_not_allowed": "組織はこのアカウントで自分のモデルを使うことを許可していません。",
+    "own_models_not_allowed_next": "組織が提供するモデルを選んでから再試行してください。"
   },
   "secondary": {
     "then_provider_busy": "その後モデルサービスが混雑し、タスクは完了しませんでした。",

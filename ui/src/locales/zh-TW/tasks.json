@@ -15,7 +15,8 @@
       "runtime_connection": "連線中斷，任務未完成",
       "unknown_failure": "任務未完成",
       "org_resource_missing": "等待管理員提供",
-      "org_credential_failed": "組織的模型帳戶需要處理"
+      "org_credential_failed": "組織的模型帳戶需要處理",
+      "own_models_not_allowed": "不允許使用自己的模型"
     },
     "action": {
       "open_tools": "查看工具設定",
@@ -135,7 +136,9 @@
     "org_resource_missing_next": "請管理員新增後再重試。",
     "org_credential_auth": "組織的模型憑證被拒絕。",
     "org_credential_quota": "組織的模型帳戶已達到用量上限。",
-    "org_credential_next": "請管理員檢查組織資源。"
+    "org_credential_next": "請管理員檢查組織資源。",
+    "own_models_not_allowed": "你的組織不允許此帳戶使用自己的模型。",
+    "own_models_not_allowed_next": "請改選組織提供的模型，然後重試。"
   },
   "secondary": {
     "then_provider_busy": "隨後模型服務忙碌，任務未完成。",
