@@ -1674,7 +1674,7 @@
     },
     "pair": {
       "title": "Associer ce Mac",
-      "description": "Saisissez le code d’association affiché dans Tofi, sous Réglages, Autres appareils.",
+      "description": "Saisissez le code d’association affiché dans Tofi sur le web : Réglages > Environnements > Ajouter un environnement > Votre Mac.",
       "code": "Code d’association",
       "submit": "Associer ce Mac",
       "pairing": "Association…",

@@ -588,7 +588,12 @@
       "creating": "코드를 만드는 중…",
       "failed": "페어링 코드를 만들 수 없습니다.",
       "new_code": "새 코드",
-      "copy_aria": "페어링 코드 복사"
+      "copy_aria": "페어링 코드 복사",
+      "here_note": "지금 이 Mac의 Tofi 앱을 사용하고 있습니다. 한 번의 클릭으로 연결하세요.",
+      "here": "이 Mac 연결",
+      "here_busy": "연결 중…",
+      "here_failed": "이 Mac을 연결하지 못했습니다. 다시 시도하거나 Mac 설정에서 코드를 입력하세요.",
+      "other_mac": "다른 Mac을 연결하려면 그 Mac에서 Tofi를 열고 이 코드를 입력하세요. 5분 동안 유효합니다."
     },
     "vm": {
       "title": "이 서버에 Bot 컴퓨터 추가",

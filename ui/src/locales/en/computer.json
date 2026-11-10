@@ -594,7 +594,12 @@
       "creating": "Creating a code…",
       "failed": "Couldn't create a pairing code.",
       "new_code": "New code",
-      "copy_aria": "Copy pairing code"
+      "copy_aria": "Copy pairing code",
+      "here_note": "You're in the Tofi app on this Mac. Connect it with one click.",
+      "here": "Connect this Mac",
+      "here_busy": "Connecting…",
+      "here_failed": "Couldn't connect this Mac. Try again, or enter the code in Mac settings.",
+      "other_mac": "To connect another Mac, open Tofi on it and enter this code. It's valid for 5 minutes."
     },
     "vm": {
       "title": "Add a Bot computer on this server",

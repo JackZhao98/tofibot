@@ -1661,7 +1661,7 @@
     },
     "pair": {
       "title": "Diesen Mac koppeln",
-      "description": "Gib den Kopplungscode ein, der in Tofi unter Einstellungen, Weitere Geräte steht.",
+      "description": "Gib den Kopplungscode aus Tofi im Web ein: Einstellungen > Umgebungen > Umgebung hinzufügen > Dein Mac.",
       "code": "Kopplungscode",
       "submit": "Diesen Mac koppeln",
       "pairing": "Wird gekoppelt …",

@@ -84,6 +84,9 @@ export function MacDialog({onClose, onPaired}: {onClose: () => void; onPaired: (
   const [attempt, setAttempt] = useState(0);
   const close = useRef<HTMLButtonElement>(null);
   const openMac = isDesktop && window.tofiDesktop?.openDesktopSettings ? () => { void window.tofiDesktop?.openDesktopSettings?.().catch(() => {}); } : null;
+  // Inside the Mac app this Mac pairs itself with the code: one click, nothing to copy. The code stays for another Mac.
+  const pairHere = isDesktop ? window.tofiDesktop?.pair : undefined;
+  const [here, setHere] = useState<"" | "busy" | "failed">("");
   useEffect(() => {
     let closed = false;
     setPairing(null); setError(false);
@@ -112,22 +115,34 @@ export function MacDialog({onClose, onPaired}: {onClose: () => void; onPaired: (
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per pairing; the callbacks only reload and close.
   }, [status]);
   const paired = status === "paired", expired = status === "expired";
+  const connectHere = async () => {
+    if (!pairHere || !pairing || here === "busy") return;
+    setHere("busy");
+    // Success shows up through the pairing poll above, which also closes the dialog.
+    try { await pairHere(pairing.code); setHere(""); } catch { setHere("failed"); }
+  };
   return <ModalDialog onClose={onClose} initialFocus={close} overlayClassName="resource-restart-overlay" container={pageContainer()}>
     <section className="resource-restart-dialog env-dialog" aria-labelledby="env-mac-title">
       <h3 id="env-mac-title">{t("environments.mac.title")}</h3>
       {error && <p className="env-dialog-error" role="alert">{t("environments.mac.failed")}</p>}
       {!error && !pairing && <p className="env-dialog-note" role="status">{t("environments.mac.creating")}</p>}
+      {pairing && !paired && !expired && pairHere && <>
+        <p className="env-dialog-note">{t("environments.mac.here_note")}</p>
+        <div className="env-here-row"><button type="button" className="primary-button" data-pair-here="" disabled={here === "busy"} onClick={() => void connectHere()}>{here === "busy" ? t("environments.mac.here_busy") : t("environments.mac.here")}</button></div>
+        {here === "failed" && <p className="env-dialog-error" role="alert">{t("environments.mac.here_failed")}</p>}
+        <p className="env-dialog-note">{t("environments.mac.other_mac")}</p>
+      </>}
       {pairing && !paired && !expired && <>
-        <ol className="env-steps"><li>{t("environments.mac.step_open")}</li><li>{t("environments.mac.step_code")}</li></ol>
+        {!pairHere && <ol className="env-steps"><li>{t("environments.mac.step_open")}</li><li>{t("environments.mac.step_code")}</li></ol>}
         <div className="env-code-row"><code className="env-code" aria-label={t("pairing.code_aria", {code: pairing.code})}>{pairing.code}</code><CopyButton text={pairing.code} label={t("environments.mac.copy_aria")}/></div>
         <p className="env-dialog-note" role="status">{t("pairing.waiting")}</p>
       </>}
       {paired && <p className="env-dialog-note is-ok" role="status">{t("pairing.connected", {name: pairing?.device_name || t("environments.name.mac")})}</p>}
       {expired && <p className="env-dialog-note" role="status">{t("pairing.expired")}</p>}
       <div className="resource-restart-actions">
-        {openMac && !paired && <button type="button" className="secondary-button" onClick={openMac}>{t("devices.open_mac")}</button>}
+        {openMac && !pairHere && !paired && <button type="button" className="secondary-button" onClick={openMac}>{t("devices.open_mac")}</button>}
         {(expired || error) && <button type="button" className="secondary-button" onClick={() => setAttempt(value => value + 1)}>{t("environments.mac.new_code")}</button>}
-        <button ref={close} type="button" className="primary-button" onClick={onClose}>{paired ? t("environments.done") : t("environments.close")}</button>
+        <button ref={close} type="button" className={pairHere && !paired ? "secondary-button" : "primary-button"} onClick={onClose}>{paired ? t("environments.done") : t("environments.close")}</button>
       </div>
     </section>
   </ModalDialog>;

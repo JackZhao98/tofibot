@@ -600,7 +600,12 @@
       "creating": "Création du code…",
       "failed": "Impossible de créer un code d’association.",
       "new_code": "Nouveau code",
-      "copy_aria": "Copier le code d’association"
+      "copy_aria": "Copier le code d’association",
+      "here_note": "Vous êtes dans l’app Tofi sur ce Mac. Connectez-le en un clic.",
+      "here": "Connecter ce Mac",
+      "here_busy": "Connexion…",
+      "here_failed": "Impossible de connecter ce Mac. Réessayez, ou saisissez le code dans les réglages du Mac.",
+      "other_mac": "Pour connecter un autre Mac, ouvrez Tofi sur ce Mac et saisissez ce code. Il est valable 5 minutes."
     },
     "vm": {
       "title": "Ajouter un ordinateur Bot sur ce serveur",

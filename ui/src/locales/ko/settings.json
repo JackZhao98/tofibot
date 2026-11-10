@@ -1648,7 +1648,7 @@
     },
     "pair": {
       "title": "이 Mac 페어링",
-      "description": "Tofi '설정 › 다른 기기'에 표시된 페어링 코드를 입력하세요.",
+      "description": "웹 Tofi의 '설정 › 환경 › 환경 추가 › 내 Mac'에 표시된 페어링 코드를 입력하세요.",
       "code": "페어링 코드",
       "submit": "이 Mac 페어링",
       "pairing": "페어링하는 중…",

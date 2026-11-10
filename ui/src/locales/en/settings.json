@@ -1661,7 +1661,7 @@
     },
     "pair": {
       "title": "Pair this Mac",
-      "description": "Enter the pairing code shown in Tofi under Settings, Other devices.",
+      "description": "Enter the pairing code from Tofi on the web: Settings > Environments > Add environment > Your Mac.",
       "code": "Pairing code",
       "submit": "Pair this Mac",
       "pairing": "Pairing…",

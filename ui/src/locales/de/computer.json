@@ -594,7 +594,12 @@
       "creating": "Code wird erstellt…",
       "failed": "Kopplungscode konnte nicht erstellt werden.",
       "new_code": "Neuer Code",
-      "copy_aria": "Kopplungscode kopieren"
+      "copy_aria": "Kopplungscode kopieren",
+      "here_note": "Du bist in der Tofi-App auf diesem Mac. Verbinde ihn mit einem Klick.",
+      "here": "Diesen Mac verbinden",
+      "here_busy": "Wird verbunden…",
+      "here_failed": "Dieser Mac konnte nicht verbunden werden. Versuch es erneut oder gib den Code in den Mac-Einstellungen ein.",
+      "other_mac": "Um einen anderen Mac zu verbinden, öffne Tofi dort und gib diesen Code ein. Er ist 5 Minuten gültig."
     },
     "vm": {
       "title": "Bot-Computer auf diesem Server hinzufügen",

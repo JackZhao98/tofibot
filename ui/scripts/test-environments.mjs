@@ -66,7 +66,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       if (desktop) {
         const off = () => () => {};
         window.__openedMacSettings = 0;
-        window.tofiDesktop = {platform: "darwin", themePreference: value, onCommand: off, onWindowState: off, onFlushState: off, appearance: async () => {}, openDesktopSettings: async () => { window.__openedMacSettings++; }, readWorkspaceState: async () => ({}), writeWorkspaceState: async () => {}, remoteInputFocus: () => {}, startAccessibilityDrag: () => {}, requestMicrophoneAccess: async () => false};
+        window.tofiDesktop = {platform: "darwin", themePreference: value, onCommand: off, onWindowState: off, onFlushState: off, appearance: async () => {}, openDesktopSettings: async () => { window.__openedMacSettings++; }, pair: async code => { window.__pairedWith = code; if (window.__pairFails) throw new Error("pair failed"); return {paired: true}; }, readWorkspaceState: async () => ({}), writeWorkspaceState: async () => {}, remoteInputFocus: () => {}, startAccessibilityDrag: () => {}, requestMicrophoneAccess: async () => false};
       }
     }, {value: theme, desktop});
     const page = await context.newPage();
@@ -233,6 +233,32 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await dialog.getByText("7Q4K9M2").waitFor();
     assert.match(await dialog.innerText(), /Open the Tofi app on your Mac\./);
     scenario.pairing = {status: "paired", device_name: "Studio iMac"};
+    await dialog.waitFor({state: "detached", timeout: 10000});
+    await close();
+  }
+
+  // ---- 5b. Inside the Mac app the dialog pairs this Mac with one click (no copying); the code stays for another Mac.
+  {
+    const {page, close, scenario} = await open({tab: "computer"}, {desktop: true, state: {environments: [vm()]}});
+    await page.locator(".env-add").click();
+    await page.locator('.env-add-menu [data-add="mac"]').click();
+    const dialog = page.getByRole("dialog", {name: "Connect your Mac"});
+    await dialog.getByText("7Q4K9M2").waitFor();
+    const text = await dialog.innerText();
+    assert.doesNotMatch(text, /Open the Tofi app on your Mac\./, "no step telling the person to open the app they are in");
+    assert.match(text, /To connect another Mac, open Tofi on it and enter this code\./);
+    assert.equal(await dialog.getByRole("button", {name: "Open Mac settings"}).count(), 0, "no detour through Mac settings");
+    // A failed pair is named and keeps the code.
+    await page.evaluate(() => { window.__pairFails = true; });
+    await dialog.getByRole("button", {name: "Connect this Mac"}).click();
+    await dialog.getByRole("alert").waitFor();
+    assert.match(await dialog.getByRole("alert").innerText(), /Couldn't connect this Mac\./);
+    await dialog.getByText("7Q4K9M2").waitFor();
+    // Then it works: the app pairs with this dialog's code, and the dialog closes once the server says paired.
+    await page.evaluate(() => { window.__pairFails = false; });
+    await dialog.getByRole("button", {name: "Connect this Mac"}).click();
+    assert.equal(await page.evaluate(() => window.__pairedWith), "7Q4K9M2", "the app pairs with the code from this dialog");
+    scenario.pairing = {status: "paired", device_name: "This Mac"};
     await dialog.waitFor({state: "detached", timeout: 10000});
     await close();
   }

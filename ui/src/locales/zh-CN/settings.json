@@ -1648,7 +1648,7 @@
     },
     "pair": {
       "title": "配对这台 Mac",
-      "description": "输入 Tofi「设置 › 其他设备」里显示的配对码。",
+      "description": "输入网页版 Tofi「设置 › 环境 › 添加环境 › 你的 Mac」里显示的配对码。",
       "code": "配对码",
       "submit": "配对这台 Mac",
       "pairing": "正在配对…",

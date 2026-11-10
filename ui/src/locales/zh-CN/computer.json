@@ -588,7 +588,12 @@
       "creating": "正在生成配对码…",
       "failed": "暂时无法创建配对码。",
       "new_code": "新配对码",
-      "copy_aria": "复制配对码"
+      "copy_aria": "复制配对码",
+      "here_note": "你正在这台 Mac 的 Tofi 应用里，点一下就能连接。",
+      "here": "连接这台 Mac",
+      "here_busy": "正在连接…",
+      "here_failed": "无法连接这台 Mac。请重试，或在 Mac 设置里输入配对码。",
+      "other_mac": "要连接另一台 Mac，在那台 Mac 上打开 Tofi 并输入此配对码，5 分钟内有效。"
     },
     "vm": {
       "title": "在这台服务器上添加 Bot 电脑",
