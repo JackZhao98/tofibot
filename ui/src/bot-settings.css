@@ -1,8 +1,8 @@
 /* Bot settings cover (BotSettingsPanel.tsx, docs/design/widgets-and-sidebar.md section 5). Loads with the lazy chunk `botSettings`.
    Owner taste: filled surfaces, no outlined containers or rows, no hand cursor (the global convention), tooltips are data-hint.
    Section switch cross-fades with --m-quick; below 900px the section list and the page are two layers that slide (--m-base). */
-.bot-settings { --bs-lift:0 1px 2px color-mix(in srgb,var(--shade-ink) 8%,transparent), 0 6px 16px -10px color-mix(in srgb,var(--shade-ink) 32%,transparent); --bs-pop:0 18px 48px -14px color-mix(in srgb,var(--shade-warm) 45%,transparent), 0 2px 6px color-mix(in srgb,var(--shade-warm) 12%,transparent); }
-:root[data-theme="dark"] .bot-settings, :root[data-theme="dark"] .bot-style-pop { --bs-lift:0 1px 2px color-mix(in srgb,var(--shade) 45%,transparent); --bs-pop:0 18px 48px -14px color-mix(in srgb,var(--shade) 75%,transparent), inset 0 1px 0 color-mix(in srgb,var(--white) 5%,transparent); }
+.bot-settings { --bs-pop:0 18px 48px -14px color-mix(in srgb,var(--shade-warm) 45%,transparent), 0 2px 6px color-mix(in srgb,var(--shade-warm) 12%,transparent); }
+:root[data-theme="dark"] .bot-settings, :root[data-theme="dark"] .bot-style-pop { --bs-pop:0 18px 48px -14px color-mix(in srgb,var(--shade) 75%,transparent), inset 0 1px 0 color-mix(in srgb,var(--white) 5%,transparent); }
 .cover-body:has(> .bot-settings) { overflow:hidden; }
 .bot-settings { position:relative; display:grid; grid-template-columns:232px minmax(0,1fr); height:100%; min-height:0; overflow:hidden; background:var(--surface); }
 
@@ -18,7 +18,7 @@
 .bs-nav-item { display:flex; align-items:center; gap:10px; width:100%; min-height:42px; padding:8px 10px; border:0; border-radius:12px; background:transparent; color:var(--ink-soft); text-align:left; font:500 13px/1.3 var(--body);
   transition:background-color var(--m-press) var(--ease-out), color var(--m-press) var(--ease-out), box-shadow var(--m-quick) var(--ease-out); }
 .bs-nav-item:hover { background:color-mix(in srgb,var(--sunk) 65%,transparent); color:var(--ink); }
-.bs-nav-item[aria-current="page"] { background:var(--surface); color:var(--ink); font-weight:600; box-shadow:var(--bs-lift); }
+.bs-nav-item[aria-current="page"] { background:var(--surface); color:var(--ink); font-weight:600; box-shadow:var(--st-lift); }
 .bs-nav-item:focus-visible, .bs-button:focus-visible, .bs-back:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
 .bs-nav-label { flex:1; min-width:0; }
 .bs-nav-hint, .bs-nav-chevron { display:none; }
@@ -54,7 +54,7 @@
 .bs-row .primary-badge { border:0; background:var(--surface); }
 .bs-avatar { display:grid; flex:none; width:72px; height:72px; }
 .bs-avatar > .avatar, .bs-avatar > .avatar > .tofi-avatar { display:block; width:100%; height:100%; }
-.bs-button { flex:none; min-height:36px; padding:0 14px; border:0; border-radius:11px; background:var(--surface); color:var(--ink); box-shadow:var(--bs-lift); font:600 13px/1 var(--body);
+.bs-button { flex:none; min-height:36px; padding:0 14px; border:0; border-radius:11px; background:var(--surface); color:var(--ink); box-shadow:var(--st-lift); font:600 13px/1 var(--body);
   transition:background-color var(--m-press) var(--ease-out), box-shadow var(--m-press) var(--ease-out); }
 .bs-button:hover:not(:disabled) { background:color-mix(in srgb,var(--sunk) 55%,var(--surface)); }
 .bs-button:disabled { opacity:.55; }
