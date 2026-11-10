@@ -408,6 +408,10 @@ func (s *Server) rememberedApprovalWindow() time.Duration {
 // backgroundDefaultModel is what background work runs on when no background
 // model is chosen: Haiku beside an Anthropic conversation default, Luna beside a
 // Codex one (the reviewer for reviews), otherwise the conversation default itself.
+// It follows the conversation default's source and never leaves it: while models
+// are provided, modelDefaults keeps a saved default in its own source (see
+// providedModelDefaults), so an expired Codex sign-in leaves a Codex background
+// model that fails with a named error instead of an organization model.
 func (s *Server) backgroundDefaultModel(purpose string) string {
 	conversation, _ := s.modelDefaults()
 	switch p := runtime.ModelProvider(conversation); {

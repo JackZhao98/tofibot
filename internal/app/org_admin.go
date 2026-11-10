@@ -10,6 +10,7 @@ package app
 // provider_unreachable. No response carries organization key material.
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -100,7 +101,8 @@ func policyMapOut(rows []policyRow) map[string]policyOut {
 
 // parsePolicyRows validates an incoming capability map. fill adds a self_serve
 // row for each capability the request leaves out (a group always holds all four);
-// an override holds only the capabilities the admin sets. v1 stores no params.
+// an override holds only the capabilities the admin sets. Only ai_models under
+// provided takes params ({"allow_own": bool}); every other row stores {}.
 func (g *AccountGateway) parsePolicyRows(in map[string]policyIn, fill bool) ([]policyRow, bool) {
 	for c := range in {
 		if !slices.Contains(orgCapabilities, c) {
@@ -124,10 +126,18 @@ func (g *AccountGateway) parsePolicyRows(in map[string]policyIn, fill bool) ([]p
 		if c == capComputer && v.Mode == policyModeProvided && v.Source == computerSourceVM && !g.hostIsKVM() {
 			return nil, false
 		}
-		if p := strings.TrimSpace(string(v.Params)); p != "" && p != "{}" {
+		if !validPolicyParams(c, v.Mode, v.Params) {
 			return nil, false
 		}
-		rows = append(rows, policyRow{Capability: c, Mode: v.Mode, Source: v.Source, Params: "{}"})
+		params := "{}"
+		if p := strings.TrimSpace(string(v.Params)); p != "" && p != "{}" {
+			var compact bytes.Buffer
+			if json.Compact(&compact, []byte(p)) != nil {
+				return nil, false
+			}
+			params = compact.String()
+		}
+		rows = append(rows, policyRow{Capability: c, Mode: v.Mode, Source: v.Source, Params: params})
 	}
 	return rows, true
 }
@@ -593,7 +603,9 @@ func (g *AccountGateway) accountPolicyView(ctx context.Context, id string) (map[
 	}
 	eff := map[string]PolicyValue{}
 	for c, v := range effective {
-		v.Params = nil
+		if c != capAIModels {
+			v.Params = nil
+		}
 		eff[c] = v
 	}
 	return map[string]any{"group": map[string]string{"id": gid, "name": gname}, "overrides": policyMapOut(overrides), "effective": eff}, true, nil

@@ -58,6 +58,9 @@ func (s *Server) modelDefaults() (string, string) {
 	s.mu.Lock()
 	model, effort := s.defaultModel, s.defaultReasoning
 	s.mu.Unlock()
+	if s.aiProvided() {
+		return s.providedModelDefaults(model, effort)
+	}
 	if s.modelProviderUsable(model) || !s.anyProviderConfigured() {
 		return model, effort
 	}
@@ -70,6 +73,39 @@ func (s *Server) modelDefaults() (string, string) {
 				pick := preferredProviderModel(name, models)
 				return pick.ID, pick.DefaultReasoning
 			}
+		}
+	}
+	if s.codexConnected() {
+		return s.codexConversationDefault(), effort
+	}
+	return model, effort
+}
+
+// providedModelDefaults is modelDefaults while the organization provides models.
+// Two sources are in play (the organization's keys and the person's own ChatGPT
+// sign-in), so a switch of provider would be a switch of whose credential is spent.
+// A default the person saved is therefore never moved: if its source is unusable
+// the run fails with the named error. Only a default nobody saved (the built-in
+// one) may pick another model, and then from the organization's catalogs; the
+// person's own source is taken only when the organization offers no model at all.
+func (s *Server) providedModelDefaults(model, effort string) (string, string) {
+	if saved, err := s.store.getModelSettings(); err != nil || saved.Model != "" {
+		return model, effort
+	}
+	if name := runtime.ModelProvider(model); name != providerCodex && s.usableProviderKey(name) {
+		return model, effort
+	}
+	for _, name := range []string{providerOpenAI, providerAnthropic, providerCompat} {
+		if s.usableProviderKey(name) {
+			if models := s.cachedProviderCatalog(name); len(models) > 0 {
+				pick := preferredProviderModel(name, models)
+				return pick.ID, pick.DefaultReasoning
+			}
+		}
+	}
+	for _, name := range apiKeyProviders {
+		if s.usableProviderKey(name) {
+			return model, effort // an organization source exists; its catalog is not known yet
 		}
 	}
 	if s.codexConnected() {
@@ -299,9 +335,10 @@ func (s *Server) loadModels(ctx context.Context) ([]ModelOption, string, string)
 	}
 	models := []ModelOption{}
 	var sources, warnings []string
-	if s.codex != nil && !s.aiProvided() {
+	if s.codex != nil && s.ownModelsAllowed() {
 		status := s.codex.Status()
-		if status.Connected || status.NeedsReconnect || len(keyed) == 0 {
+		// Beside organization models a Codex catalog is listed only for a person who has signed in.
+		if status.Connected || status.NeedsReconnect || (len(keyed) == 0 && !s.aiProvided()) {
 			codexModels, source, warning := s.loadCodexModels(ctx)
 			for _, option := range codexModels {
 				option.Provider = "codex"
@@ -532,7 +569,7 @@ func (s *Server) loadModelsCached() []ModelOption {
 		}()
 	}
 	models := []ModelOption{}
-	if s.codex != nil && !s.aiProvided() {
+	if s.codex != nil && s.ownModelsAllowed() && (!s.aiProvided() || s.codex.Status().Connected || s.codex.Status().NeedsReconnect) {
 		s.modelCatalogMu.Lock()
 		codexModels := append([]ModelOption(nil), s.modelCatalog...)
 		s.modelCatalogMu.Unlock()

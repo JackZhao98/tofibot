@@ -8,6 +8,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -37,6 +38,7 @@ const (
 	codeProviderAuthFailed    = "provider_auth_failed"
 	codeProviderQuota         = "provider_quota_exhausted"
 	codeProviderError         = "provider_error"
+	codeOwnModelsNotAllowed   = "own_models_not_allowed"
 
 	// orgFailureMarker leads the body that replaces an upstream error caused by an
 	// organization credential. Run failures read the code after it.
@@ -46,7 +48,7 @@ const (
 // restrictedPolicy is what an unreadable policy resolves to.
 func restrictedPolicy() ResolvedPolicy {
 	return ResolvedPolicy{
-		capAIModels:  {Mode: policyModeProvided},
+		capAIModels:  {Mode: policyModeProvided, Params: json.RawMessage(`{"` + paramAllowOwn + `":false}`)},
 		capComputer:  {Mode: "none"},
 		capWebSearch: {Mode: "off"},
 		capWebFetch:  {Mode: "builtin"},
@@ -70,6 +72,16 @@ func (s *Server) policy() ResolvedPolicy {
 
 func (s *Server) aiProvided() bool {
 	return s != nil && s.orgPolicy != nil && s.policy()[capAIModels].Mode == policyModeProvided
+}
+
+// ownModelsAllowed says whether the person's own model sources (today: the
+// ChatGPT/Codex sign-in) may serve this workspace: always under own, and under
+// provided unless an administrator turned allow_own off. No policy means own.
+func (s *Server) ownModelsAllowed() bool {
+	if s == nil || s.orgPolicy == nil {
+		return true
+	}
+	return allowOwnOf(s.policy()[capAIModels])
 }
 
 // credentialSource is the one decision point for model credentials: the
@@ -121,8 +133,9 @@ func refusePolicy(w http.ResponseWriter, off bool) {
 // errComputerPolicy refuses a VM attach the account's policy does not allow.
 var errComputerPolicy = errors.New(codeCapabilityOff + ": the policy gives this account no VM")
 
-// errOrgCodex is returned for a Codex model while models are provided.
-var errOrgCodex = errors.New(codeManagedByOrganization + ": models are provided by the organization, not a personal sign-in")
+// errOwnModelsNotAllowed is returned for a Codex model while the organization
+// provides models and forbids members' own sources (allow_own=false).
+var errOwnModelsNotAllowed = errors.New(codeOwnModelsNotAllowed + ": your organization does not allow your own models")
 
 // orgCredentialError names a failed organization read without any inner text.
 func orgCredentialError(name string, err error) error {
@@ -242,9 +255,11 @@ func scrubSecrets(text string, secrets []string) string {
 }
 
 // orgFailure reads the named code out of a run error caused by an organization
-// credential: org_resource_missing, managed_by_organization or a provider code.
+// credential: org_resource_missing, own_models_not_allowed or a provider code.
 func orgFailure(errorText string) string {
 	switch {
+	case strings.Contains(errorText, codeOwnModelsNotAllowed+":"):
+		return codeOwnModelsNotAllowed
 	case strings.Contains(errorText, codeOrgResourceMissing):
 		return codeOrgResourceMissing
 	case strings.Contains(errorText, codeManagedByOrganization+": models are provided"):
@@ -266,6 +281,8 @@ func orgFailureMessage(code string) string {
 	switch code {
 	case codeOrgResourceMissing:
 		return "Your administrator has not provided the key for this model provider yet. Ask your administrator."
+	case codeOwnModelsNotAllowed:
+		return "Your organization does not allow your own models for this account. Choose one of the organization's models."
 	case codeManagedByOrganization:
 		return "Your organization provides the models for this account. This model is not one of them; choose another."
 	case codeProviderQuota:
@@ -392,10 +409,12 @@ func (s *Server) orgScrubTerms() (secrets, hosts []string) {
 }
 
 // redactOrgText removes the organization's keys and endpoint address from text
-// when the model's credential is the organization's. It is the backstop behind the
-// transport: it also covers an error event inside an HTTP 200 stream.
+// whenever the organization provides models, whatever this model's own credential
+// is: with two sources side by side the reference alone does not say which one a
+// piece of text came from. It is the backstop behind the transport: it also
+// covers an error event inside an HTTP 200 stream.
 func (s *Server) redactOrgText(model, text string) string {
-	if text == "" || s.credentialSource(runtime.ModelProvider(model)) != sourceOrganization {
+	if text == "" || !s.aiProvided() {
 		return text
 	}
 	secrets, hosts := s.orgScrubTerms()
@@ -450,7 +469,8 @@ func managedSettingMode(key string, p ResolvedPolicy) string {
 			}
 		}
 	case "models.providers":
-		if p[capAIModels].Mode == policyModeProvided {
+		// Managed only while members may not bring their own (allow_own=false).
+		if v := p[capAIModels]; v.Mode == policyModeProvided && !allowOwnOf(v) {
 			return policyModeProvided
 		}
 	case "system.computer_resources":
@@ -473,6 +493,10 @@ type capabilityView struct {
 	Source string `json:"source"`
 	// Via is the computer source of a provided computer: vm or e2b.
 	Via string `json:"via,omitempty"`
+	// OwnAllowed is set on ai_models only: whether the person's own model sources
+	// (the ChatGPT sign-in) may be used beside the organization's. An old client
+	// that does not read it treats provided as exclusive.
+	OwnAllowed *bool `json:"own_allowed,omitempty"`
 }
 
 // capabilitiesView is the policy a client may rely on. Source says whose
@@ -489,7 +513,12 @@ func (s *Server) capabilitiesView() map[string]capabilityView {
 		case v.Mode == "off" || v.Mode == "none" || v.Mode == "builtin":
 			src = "none"
 		}
-		out[c] = capabilityView{Mode: v.Mode, Source: src, Via: v.Source}
+		cv := capabilityView{Mode: v.Mode, Source: src, Via: v.Source}
+		if c == capAIModels {
+			allowed := allowOwnOf(v)
+			cv.OwnAllowed = &allowed
+		}
+		out[c] = cv
 	}
 	return out
 }
