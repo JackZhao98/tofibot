@@ -179,13 +179,20 @@ runner_root() {
 job playwright-mcp '^(deploy/microvm/playwright-mcp/|internal/computer/guest/playwright)' playwright_mcp
 job shell        "$SH"  bash -c "bash -n install.sh deploy/self-host/bin/tofi scripts/release/make_bundle.sh scripts/check-gofmt.sh scripts/check-release-notes.sh && shellcheck install.sh deploy/self-host/bin/tofi scripts/release/make_bundle.sh scripts/check-gofmt.sh scripts/check-release-notes.sh && scripts/check-release-notes.sh --all"
 job runner-root  '^internal/mcprunner/' runner_root
-job compose      "$CO"  bash -c "
+compose_config() {
+  # Only the docker compose command is needed (it renders the files); the daemon need not run.
+  if ! docker compose version >/dev/null 2>&1; then
+    echo "ci-local: docker compose is not installed; the compose config checks were NOT run here; CI runs them."
+    return 0
+  fi
   docker compose -f deploy/self-host/compose.yaml --env-file deploy/self-host/testdata/tofi.env --profile tls config --quiet &&
   docker compose -f deploy/self-host/compose.yaml --env-file deploy/self-host/testdata/tofi-direct.env config --quiet &&
   docker compose -f deploy/self-host/compose.yaml --env-file deploy/self-host/testdata/tofi.env --profile computer-kvm config --services | sort | tr '\n' ' ' | grep -qx 'app worker ' &&
   docker compose -f deploy/self-host/compose.yaml --env-file deploy/self-host/testdata/tofi.env config --services | sort | tr '\n' ' ' | grep -qx 'app ' &&
   docker compose -f deploy/self-host/compose.yaml --env-file deploy/self-host/testdata/tofi-none.env config --services | sort | tr '\n' ' ' | grep -qx 'app ' &&
-  docker compose -f compose.yaml config --quiet"
+  docker compose -f compose.yaml config --quiet
+}
+job compose      "$CO"  compose_config
 
 # Changed UI browser suites that ci.yml does not run (flaky on shared runners, so local only): run the ones whose script changed.
 if [ "$mode" = changed ] && [ -z "$failed" ] && [ -z "$only" ]; then
