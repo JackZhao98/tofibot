@@ -32,11 +32,19 @@ func init() {
 	})
 	bindSettingWrite("account.notify_chats", func(ctx context.Context, sr settingRun, _ Target, v any) error {
 		on := v.(bool)
-		return sr.s.store.putUserNotify(&on, nil)
+		return sr.s.store.putUserNotify(notifySwitches{Chats: &on})
 	})
 	bindSettingWrite("account.notify_tasks", func(ctx context.Context, sr settingRun, _ Target, v any) error {
 		on := v.(bool)
-		return sr.s.store.putUserNotify(nil, &on)
+		return sr.s.store.putUserNotify(notifySwitches{Tasks: &on})
+	})
+	bindSettingWrite("account.notify_needs_you", func(ctx context.Context, sr settingRun, _ Target, v any) error {
+		on := v.(bool)
+		return sr.s.store.putUserNotify(notifySwitches{NeedsYou: &on})
+	})
+	bindSettingWrite("account.notify_spend_alerts", func(ctx context.Context, sr settingRun, _ Target, v any) error {
+		on := v.(bool)
+		return sr.s.store.putUserNotify(notifySwitches{SpendAlerts: &on})
 	})
 
 	bindSettingWrite("bot.name", func(ctx context.Context, sr settingRun, t Target, v any) error {

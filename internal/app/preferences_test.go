@@ -182,4 +182,17 @@ func TestPreferencesNotifySwitchesDefaultOnAndPersist(t *testing.T) {
 	if body := call(http.MethodGet, ""); !strings.Contains(body, `"notify_chats":true`) || !strings.Contains(body, `"notify_tasks":false`) {
 		t.Fatalf("notify_tasks off must persist and leave chats alone: %s", body)
 	}
+	// The two delivery-view switches default on, persist on their own and leave the others alone.
+	if body := call(http.MethodGet, ""); !strings.Contains(body, `"notify_needs_you":true`) || !strings.Contains(body, `"notify_spend_alerts":true`) {
+		t.Fatalf("needs_you and spend alert notifications must default on: %s", body)
+	}
+	call(http.MethodPut, `{"notify_needs_you":false}`)
+	call(http.MethodPut, `{"notify_chats":false}`)
+	if body := call(http.MethodGet, ""); !strings.Contains(body, `"notify_needs_you":false`) || !strings.Contains(body, `"notify_spend_alerts":true`) || !strings.Contains(body, `"notify_tasks":false`) {
+		t.Fatalf("notify_needs_you off must persist and leave spend alerts alone: %s", body)
+	}
+	call(http.MethodPut, `{"notify_spend_alerts":false}`)
+	if body := call(http.MethodGet, ""); !strings.Contains(body, `"notify_spend_alerts":false`) || !strings.Contains(body, `"notify_needs_you":false`) {
+		t.Fatalf("notify_spend_alerts off must persist: %s", body)
+	}
 }

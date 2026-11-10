@@ -216,6 +216,10 @@ func buildSettingsRegistry() []SettingDef {
 	add(d)
 	d = acct("account.notify_tasks", KindBool, riskDirect, "chats", "settings:chats.task_notifications")
 	add(d)
+	d = acct("account.notify_needs_you", KindBool, riskDirect, "chats", "settings:chats.needs_you_notifications")
+	add(d)
+	d = acct("account.notify_spend_alerts", KindBool, riskDirect, "chats", "settings:chats.spend_alert_notifications")
+	add(d)
 	d = acct("account.primary_bot", KindString, riskConfirm, "primary", "settings:primary.label")
 	add(d)
 

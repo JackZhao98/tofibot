@@ -428,7 +428,12 @@
     "off": "通知已關閉，可在瀏覽器設定中開啟。",
     "on": "通知已開啟",
     "title": "任務結果通知",
-    "unsupported": "目前的瀏覽器不支援系統通知"
+    "unsupported": "目前的瀏覽器不支援系統通知",
+    "new_message": "有新訊息",
+    "new_messages": "{{n}} 則新訊息",
+    "needs_you": "在等你回答",
+    "spend_warning": "本月用量已達上限的 80%",
+    "spend_cap": "本月用量已達上限"
   },
   "onboarding": {
     "greeting_setup": "正在準備一切…",

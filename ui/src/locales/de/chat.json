@@ -439,7 +439,12 @@
     "off": "Benachrichtigungen sind aus. Aktiviere sie in den Browsereinstellungen.",
     "on": "Benachrichtigungen sind an",
     "title": "Benachrichtigungen zu Aufgabenergebnissen",
-    "unsupported": "Dieser Browser unterstützt keine Systembenachrichtigungen"
+    "unsupported": "Dieser Browser unterstützt keine Systembenachrichtigungen",
+    "new_message": "Neue Nachricht",
+    "new_messages": "{{n}} neue Nachrichten",
+    "needs_you": "Wartet auf deine Antwort",
+    "spend_warning": "Die Ausgaben dieses Monats haben 80 % deines Limits erreicht",
+    "spend_cap": "Die Ausgaben dieses Monats haben dein Limit erreicht"
   },
   "onboarding": {
     "greeting_setup": "Alles wird eingerichtet…",

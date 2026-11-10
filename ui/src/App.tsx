@@ -15,6 +15,7 @@ import { BootScreen } from "./BootScreen";
 import { SidebarAccount, useOwnerSession } from "./OwnerSession";
 import { desktopState, updateDesktopState, isDesktop, type DesktopCommand } from "./desktop";
 import {TimezoneProvider, useUserTimezone} from "./UserTimezone";
+import { browserNotifier, type DeliveryItem } from "./attentionNotifier";
 import {dateInTimezone, dateTimeFormat, formatExactTime, formatZonedTime} from "./timezone";
 import {AttachmentList} from "./MessageAttachment";
 import {FilePreviewHost} from "./FileViewer";
@@ -505,10 +506,7 @@ function App() {
 
 function Workspace() {
   const { t } = useTranslation(["chat", "common"]);
-  const {timezone, showActivity, notifyChats, notifyTasks} = useUserTimezone();
-  // The poll below reads the two notification switches through refs, so a change never restarts it.
-  const notifyRef = useRef({ chats: notifyChats, tasks: notifyTasks });
-  notifyRef.current = { chats: notifyChats, tasks: notifyTasks };
+  const {timezone, showActivity} = useUserTimezone();
   const [revealedRuns, setRevealedRuns] = useState<ReadonlySet<string>>(() => new Set());
   const revealRun = useCallback((runId: string) => { focusToggleOfRun = runId; setRevealedRuns(current => current.has(runId) ? current : new Set(current).add(runId)); }, []);
   const activityView = useMemo(() => ({ show: showActivity, revealed: revealedRuns, reveal: revealRun }), [showActivity, revealedRuns, revealRun]);
@@ -612,6 +610,19 @@ function Workspace() {
   const [settingsEntry, setSettingsEntry] = useState<SettingsEntry>({ seq: 0, view: "home" });
   /** Opens Settings on a tab. On a narrow screen a deep link lands on the page itself; the plain Settings button lands on the list. */
   const openSettings = (tab: SettingsTab, view: SettingsView = "page") => { setSettingsTab(tab); setSettingsEntry(current => ({ seq: current.seq + 1, view })); openCoverPanel("settings"); };
+  // Notifications are the server's call (attention_delivery.go); this is the web outlet, see attentionNotifier.ts.
+  const notifyOpen = useRef<(target: Pick<DeliveryItem, "kind"> & { conversation_id?: string }) => void>(() => {});
+  const lastNotifierPoll = useRef(0);
+  const attentionNotifier = useMemo(() => browserNotifier({
+    watching: (conversationId) => document.visibilityState === "visible" && conversationId === activeIdRef.current,
+    t: (key, options) => i18n.t(key as never, options as never) as unknown as string,
+    open: (item) => notifyOpen.current(item),
+  }), []);
+  // A click on a web notification, and the Mac app's open-conversation command, go to the same place.
+  notifyOpen.current = (item) => {
+    if (item.conversation_id) { selectConversation(item.conversation_id); setMobileList(false); }
+    else if (item.kind === "spend_alert") openSettings("usage");
+  };
   const [usageBotId, setUsageBotId] = useState("");
   // What is open (docs/design/widgets-and-sidebar.md): widgets in the chat, one sidebar at the window edge, one exclusive cover.
   // Every call site speaks the surfaces API (surfaces.ts) directly; `openSurface` only remembers where focus goes back to.
@@ -812,7 +823,6 @@ function Workspace() {
       ]));
     }
   }, [conversations, runs, drafts, toolActivities, streamConnected, loading]);
-  const notificationSeen = useRef<Record<string, number>>({});
   const eventCursor = useRef(0);
   const eventSource = useRef<EventSource | null>(null);
   const reconnectTimer = useRef<number | undefined>(undefined);
@@ -888,7 +898,21 @@ function Workspace() {
   }, []);
 
   useEffect(() => { updateDesktopState({ ...(activeId ? { activeConversation: activeId } : {}), sidebarCollapsed }); }, [activeId, sidebarCollapsed]);
+  // The Mac app's main process notifies; it needs to know which conversation is in view. A browser ignores this.
+  useEffect(() => { attentionNotifier.setView(activeId ?? null); }, [attentionNotifier, activeId]);
+  // The cursor belongs to one account's database: a sign-out or another account starts from the tail again.
+  useEffect(() => {
+    const reset = () => attentionNotifier.reset();
+    reset();
+    window.addEventListener("tofi:unauthorized", reset);
+    return () => window.removeEventListener("tofi:unauthorized", reset);
+  }, [attentionNotifier, accountId]);
   useEffect(() => window.tofiDesktop?.onCommand((command: DesktopCommand) => {
+    if (typeof command === "object") {
+      if (command.type === "open-conversation" && command.id) notifyOpen.current({ kind: "reply", conversation_id: command.id });
+      else if (command.type === "open-usage") notifyOpen.current({ kind: "spend_alert" });
+      return;
+    }
     // Native menu shortcuts must not steal keys while a remote machine owns input.
     const focus = document.activeElement;
     if (focus instanceof Element && focus.closest(".terminal-panel,.remote-desktop-surface,.remote-desktop.in-control,.xterm")) return;
@@ -979,7 +1003,6 @@ function Workspace() {
       applied = true;
       setBots(botResult.bots);
       setConversations(conversationResult.conversations);
-      for (const c of conversationResult.conversations) notificationSeen.current[c.id] = c.last_message?.seq ?? 0;
       indexInitialized.current = true;
       setWorkspaceError("");
       // A config-only refresh may have superseded this combined request while
@@ -1016,18 +1039,8 @@ function Workspace() {
         return sameData(current, merged) ? current : merged;
       });
       setWorkspaceError("");
-      for (const c of result.conversations) {
-        const message = c.last_message;
-        const previous = notificationSeen.current[c.id] ?? 0;
-        notificationSeen.current[c.id] = message?.seq ?? previous;
-        if (indexInitialized.current && message && message.seq > previous && message.role === "assistant" && !message.internal &&
-            (document.visibilityState !== "visible" || c.id !== activeIdRef.current) &&
-            "Notification" in window && Notification.permission === "granted" &&
-            (message.kind === "bot_result" || message.kind === "forward_result" ? notifyRef.current.tasks : notifyRef.current.chats)) {
-          const notice = new Notification(c.name, {body: previewText(message.content), tag: `tofi-${c.id}`});
-          notice.onclick = () => { window.focus(); selectConversation(c.id); setMobileList(false); notice.close(); };
-        }
-      }
+      // The 5 s beat also reads the notification view; the notifier keeps its own cursor and does nothing under the Mac app's bridge.
+      if (indexInitialized.current && Date.now() - lastNotifierPoll.current >= 2000) { lastNotifierPoll.current = Date.now(); void attentionNotifier.poll(); }
       setConversations((current) => {
         const localById = new Map(current.map((conversation) => [conversation.id, conversation]));
         const merged = result.conversations.map((conversation) => {
@@ -1048,7 +1061,7 @@ function Workspace() {
       // Whichever workspace request lands last must release the shared loading indicator.
       endWorkspaceRequest(applied);
     }
-  }, [selectConversation]);
+  }, [attentionNotifier]);
 
   const refreshConfig = useCallback(async () => {
     const generation = snapshotGeneration.current;

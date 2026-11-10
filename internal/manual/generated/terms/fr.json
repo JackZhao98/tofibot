@@ -112,6 +112,8 @@
   "settings:automation.item.work_trace.name": "Trace de travail",
   "settings:automation.item.work_trace.what": "Conserve de petites images du travail d'un Bot à l'écran pour que vous puissiez revoir ce qu'il a fait. Une page pouvant montrer une saisie privée et une origine privée ne sont jamais conservées. Désactivé : aucune image n'est conservée.",
   "settings:chats.chat_notifications": "Notifications de discussion",
+  "settings:chats.needs_you_notifications": "Questions en attente de votre réponse",
+  "settings:chats.spend_alert_notifications": "Alertes de plafond de dépenses",
   "settings:chats.task_notifications": "Notifications de résultats de tâches",
   "settings:general.activity_title": "Afficher l’activité dans les discussions",
   "settings:language.label": "Langue de l’interface",

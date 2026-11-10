@@ -10,7 +10,7 @@ package app
 // the same transaction. A row holds ids and a sequence number, never text: the
 // content is read from the conversation API. Delivery channels, per-kind
 // switches, quiet hours and read-cursor suppression come with the first channel
-// (phase 2) and read this table; nothing here sends anything.
+// (phase 2, attention_delivery.go) and read this table; nothing here sends anything.
 //
 // The message conditions copy the web client's rule exactly, so the web and a
 // later channel agree: an assistant message, not internal, in a conversation
@@ -24,8 +24,6 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
-	"strconv"
-	"strings"
 	"time"
 )
 
@@ -235,9 +233,10 @@ func (s *Server) runAttentionRetention(at time.Time) {
 	}
 }
 
-// routeNotifications serves GET /api/notifications?after=<id>&limit=<n>. The
-// answer holds pointers, never content; the body of a message comes from the
-// conversation API.
+// routeNotifications serves GET /api/notifications. Without view it is the
+// phase 1 answer, pointer rows after a cursor; view=delivery is the phase 2
+// view (attention_delivery.go). The answer holds pointers and, in the delivery
+// view, a title and a preview read at request time; nothing is stored.
 func (s *Server) routeNotifications(w http.ResponseWriter, r *http.Request, path string) bool {
 	if path != "notifications" {
 		return false
@@ -247,38 +246,6 @@ func (s *Server) routeNotifications(w http.ResponseWriter, r *http.Request, path
 		writeErr(w, http.StatusMethodNotAllowed, "method_not_allowed", "use GET")
 		return true
 	}
-	query := r.URL.Query()
-	var after int64
-	if v := strings.TrimSpace(query.Get("after")); v != "" {
-		n, err := strconv.ParseInt(v, 10, 64)
-		if err != nil || n < 0 {
-			writeErr(w, http.StatusBadRequest, "invalid_cursor", "after must be a non-negative integer")
-			return true
-		}
-		after = n
-	}
-	limit := attentionDefaultLimit
-	if v := strings.TrimSpace(query.Get("limit")); v != "" {
-		n, err := strconv.Atoi(v)
-		if err != nil || n < 1 {
-			writeErr(w, http.StatusBadRequest, "invalid_limit", "limit must be a positive integer")
-			return true
-		}
-		limit = min(n, attentionMaxLimit)
-	}
-	rows, err := s.store.attentionAfter(after, limit)
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "storage", "notifications unavailable")
-		return true
-	}
-	next := after
-	if len(rows) > 0 {
-		next = rows[len(rows)-1].ID
-	}
-	w.Header().Set("Cache-Control", "no-store")
-	writeJSON(w, http.StatusOK, struct {
-		Notifications []AttentionRow `json:"notifications"`
-		NextAfter     int64          `json:"next_after"`
-	}{rows, next})
+	s.serveNotifications(w, r)
 	return true
 }

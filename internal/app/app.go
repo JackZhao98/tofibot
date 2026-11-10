@@ -291,7 +291,8 @@ type Server struct {
 	reactionWakeWindow                   time.Duration // 0 = defaultReactionWakeWindow
 	desktopRestartedAt                   time.Time
 	browserFallbackAt                    sync.Map
-	desktopStarting                      atomic.Int32 // desktop.start calls in flight; the computer info reports it as desktop_starting
+	attentionWaiters                     attentionWaiters // open long polls of GET /api/notifications
+	desktopStarting                      atomic.Int32     // desktop.start calls in flight; the computer info reports it as desktop_starting
 	gogStatus                            gogStatusCache
 	accountID                            string
 	accountIsAdmin                       func() bool                                       // nil outside a gateway
@@ -3421,6 +3422,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 			"auth":             s.ownerAuthInfo(),
 			"tenancy":          map[string]string{"mode": "single"},
 			"desktop":          desktopServerInfo(),
+			"notifications":    notificationsServerInfo(),
 		})
 	case p == "system/update" || strings.HasPrefix(p, "system/update/"):
 		s.serveSystemUpdate(w, r, strings.TrimPrefix(strings.TrimPrefix(p, "system/update"), "/"))

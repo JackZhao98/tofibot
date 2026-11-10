@@ -428,7 +428,12 @@
     "off": "通知已关闭，可在浏览器设置中开启。",
     "on": "通知已开启",
     "title": "任务结果通知",
-    "unsupported": "当前浏览器不支持系统通知"
+    "unsupported": "当前浏览器不支持系统通知",
+    "new_message": "有新消息",
+    "new_messages": "{{n}} 条新消息",
+    "needs_you": "在等你回答",
+    "spend_warning": "本月用量已达上限的 80%",
+    "spend_cap": "本月用量已达上限"
   },
   "onboarding": {
     "greeting_setup": "正在准备一切…",

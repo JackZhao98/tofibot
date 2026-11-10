@@ -450,7 +450,12 @@
     "off": "Les notifications sont désactivées. Activez-les dans les réglages du navigateur.",
     "on": "Notifications activées",
     "title": "Notifications de résultats",
-    "unsupported": "Ce navigateur ne prend pas en charge les notifications système"
+    "unsupported": "Ce navigateur ne prend pas en charge les notifications système",
+    "new_message": "Nouveau message",
+    "new_messages": "{{n}} nouveaux messages",
+    "needs_you": "En attente de votre réponse",
+    "spend_warning": "Les dépenses de ce mois ont atteint 80 % de votre plafond",
+    "spend_cap": "Les dépenses de ce mois ont atteint votre plafond"
   },
   "onboarding": {
     "greeting_setup": "Tout se met en place…",
