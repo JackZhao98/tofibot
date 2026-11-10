@@ -31,7 +31,7 @@ export function AdminStorageLimit({accountId, entry, busy, run}: {accountId: str
           {steps.map(step => <option key={step} value={step}>{t("admin.limit_option", {size: step})}</option>)}
         </Select>}/>
       <SettingsRow label={t("admin.limit_save")}
-        control={<button type="button" className="secondary-button" disabled={busy || value === current}
+        control={<button type="button" className="st-button" disabled={busy || value === current}
           onClick={() => void run(async () => { await storageApi.setLimit(accountId, value === UNLIMITED ? null : Math.round(Number(value) * GIB)); setSaved(true); })}>{t("admin.limit_save")}</button>}/>
     </SettingsCard>
   </SettingsSection>;

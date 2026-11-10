@@ -27,11 +27,6 @@
   },
   "shell": {
     "group": {
-      "you": "你",
-      "bots": "Bot 可用",
-      "workspace": "工作空间",
-      "system": "系统",
-      "more": "高级",
       "admin": "管理"
     },
     "page": {
@@ -132,7 +127,8 @@
     "tag": {
       "beta": "测试版",
       "dev": "开发中"
-    }
+    },
+    "more": "更多"
   },
   "appearance": {
     "title": "主题",
@@ -1027,8 +1023,6 @@
   "followups": {
     "load_failed": "无法加载跟进事项，请重试。",
     "save_failed": "无法保存，请重试。",
-    "banner_title": "仅预览，不会发送任何内容。",
-    "banner_body": "Bot 会读取你自己发的消息，列出它们将来会提醒你的事项。不会向任何聊天发送内容。请逐条评价，帮助调整后续效果。",
     "no_model_title": "未连接模型",
     "no_model_body": "扫描需要已连接的模型。请在“模型”中连接一个。",
     "paused_title": "今天已暂停",
@@ -1667,5 +1661,10 @@
         "own_not_allowed": "此账户的模型由你的组织管理。"
       }
     }
+  },
+  "saved": "已保存",
+  "changed": {
+    "note": "已改 · 默认 {{value}}",
+    "reset": "恢复默认"
   }
 }

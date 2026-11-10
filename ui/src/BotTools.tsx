@@ -13,7 +13,7 @@ import { formatDateTime } from "./i18n/format";
 import { TofiIcon } from "./icons";
 import { ServiceMark } from "./ServiceMark";
 import { openConnectionDeepLink } from "./settings/deepLinks";
-import { StatusBadge, type BadgeState } from "./settings/components";
+import { SettingsSwitch, StatusBadge, type BadgeState } from "./settings/components";
 import type { StandingAllowance } from "./StandingAllowances";
 import type { WebSourceEntry, WebToolsView } from "./types";
 import "./extensions-system.css";
@@ -96,9 +96,7 @@ export function BotToolsView(p: BotToolsViewProps) {
           return <li key={row.server} className="bt-row bt-conn" data-server={row.server} data-off={!row.enabled || paused ? "true" : undefined} data-paused={paused ? "true" : undefined}>
             <ServiceMark name={row.mark} />
             <span className="bt-row-copy"><strong>{row.name}</strong>{summary && <small>{summary}</small>}</span>
-            <label className="debug-toggle auto-switch">
-              <input type="checkbox" role="switch" aria-label={t("bots:tools.connections.switch", { connection: row.name, bot: p.botName })} checked={row.enabled && !paused} disabled={paused || p.saving === row.server} onChange={event => p.onToggle(row.server, event.target.checked)} />
-            </label>
+            <SettingsSwitch label={t("bots:tools.connections.switch", { connection: row.name, bot: p.botName })} checked={row.enabled && !paused} disabled={paused || p.saving === row.server} busy={p.saving === row.server} showSaved={false} onChange={next => p.onToggle(row.server, next)} />
             <button type="button" className="bt-open" aria-label={t("bots:tools.connections.open", { connection: row.name })} data-hint={t("bots:tools.connections.open", { connection: row.name })} onClick={() => p.onOpenConnection(row.server)}><TofiIcon name="chevron-right" size={16} aria-hidden="true" /></button>
           </li>;
         })}

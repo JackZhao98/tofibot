@@ -102,7 +102,7 @@ export function AdminAccounts() {
     {exportAction?.kind === "delete" && <AdminSheet title={t("admin.exports.delete_title", {name: exportAction.item.username})} onClose={() => setExportAction(null)} locked={busy}>
       <p className="admin-sheet-lead">{t("admin.exports.delete_body")}</p>
       <div className="sheet-actions">
-        <button type="button" className="secondary-button" disabled={busy} onClick={() => setExportAction(null)}>{t("action.cancel")}</button>
+        <button type="button" className="st-button" disabled={busy} onClick={() => setExportAction(null)}>{t("action.cancel")}</button>
         <button type="button" className="admin-danger-button" disabled={busy} onClick={() => void run(async () => { await adminApi.removeExport(exportAction.item.id); }).then(() => setExportAction(null))}>{t("admin.exports.delete")}</button>
       </div>
     </AdminSheet>}
@@ -183,7 +183,7 @@ export function AdminAccounts() {
           </div>
           <div className="admin-export-actions">
             {!item.link_unavailable && <CopyButton value={absoluteLink(item.link_path)} label={t("admin.exports.copy_link")}/>}
-            {item.passphrase_pending && !item.passphrase_unavailable && <button type="button" className="secondary-button" onClick={() => setExportAction({kind: "passphrase", item})}>{t("admin.exports.show_passphrase")}</button>}
+            {item.passphrase_pending && !item.passphrase_unavailable && <button type="button" className="st-button" onClick={() => setExportAction({kind: "passphrase", item})}>{t("admin.exports.show_passphrase")}</button>}
             <button type="button" className="admin-danger-button" disabled={busy} onClick={() => setExportAction({kind: "delete", item})}>{t("admin.exports.delete")}</button>
           </div>
         </div>)}
@@ -214,7 +214,7 @@ function CreateSheet({onClose, onCreated}: {onClose: () => void; onCreated: () =
       <p className="admin-sheet-note">{t("admin.create.password_note")}</p>
       {error && <p role="alert" className="admin-error">{error}</p>}
       <div className="sheet-actions">
-        <button type="button" className="secondary-button" disabled={busy} onClick={onClose}>{t("action.cancel")}</button>
+        <button type="button" className="st-button" disabled={busy} onClick={onClose}>{t("action.cancel")}</button>
         <button type="submit" className="primary-button" disabled={busy}>{t("admin.create.submit")}</button>
       </div>
     </form>

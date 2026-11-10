@@ -40,7 +40,7 @@ export function GroupMenu({groups, value, onPick, disabled = false, label, text,
   const trigger = useRef<HTMLButtonElement>(null);
   const current = groups.find(group => group.id === value);
   return <>
-    <button ref={trigger} type="button" className={`secondary-button group-menu-trigger ${className}`.trim()} disabled={disabled || groups.length === 0} aria-haspopup="menu" aria-expanded={open} aria-label={label} data-group={value}
+    <button ref={trigger} type="button" className={`st-button group-menu-trigger ${className}`.trim()} disabled={disabled || groups.length === 0} aria-haspopup="menu" aria-expanded={open} aria-label={label} data-group={value}
       onClick={() => setOpen(next => !next)} onKeyDown={arrowOpens(setOpen)}>
       <span>{text ?? (current ? current.name : t("admin.groups.unknown"))}</span><TofiIcon name="chevron-down" size={14} aria-hidden="true"/>
     </button>

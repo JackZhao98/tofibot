@@ -98,7 +98,7 @@ export function CompatCard({status, loading, onChange}: {status?: ModelProviderS
    </>}
    {showForm && <form className="provider-key-form compat-form" onSubmit={event => void save(event)} aria-busy={Boolean(working)}>
     <div className="compat-presets" role="group" aria-label={t("providers.compat.presets")}>
-     <button type="button" className="secondary-button" aria-pressed={isOllama(baseUrl)} disabled={Boolean(working)} onClick={() => { setBaseUrl(OLLAMA_URL); setListed(null); setError(""); }}>Ollama</button>
+     <button type="button" className="st-button" aria-pressed={isOllama(baseUrl)} disabled={Boolean(working)} onClick={() => { setBaseUrl(OLLAMA_URL); setListed(null); setError(""); }}>Ollama</button>
     </div>
     <label htmlFor={urlId}>{t("providers.compat.url_label")}</label>
     <input id={urlId} name="compat-base-url" type="url" inputMode="url" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder="http://host:11434/v1" value={baseUrl} disabled={Boolean(working)} required autoFocus={configured} onChange={event => { setBaseUrl(event.target.value); setListed(null); setError(""); }}/>
@@ -114,9 +114,9 @@ export function CompatCard({status, loading, onChange}: {status?: ModelProviderS
      {listed.length > 0 && <ul>{listed.slice(0, SHOWN_MODELS).map(model => <li key={model.id}><code>{model.id}</code>{model.context_window ? <span>{t("providers.compat.window", {tokens: formatNumber(model.context_window)})}</span> : null}</li>)}{listed.length > SHOWN_MODELS && <li className="compat-more">{t("providers.compat.more", {count: listed.length - SHOWN_MODELS})}</li>}</ul>}
     </div>}
     <div className="provider-key-row">
-     <button type="submit" className="primary-button" disabled={Boolean(working) || !baseUrl.trim()}>{working === "save" ? t("providers.verifying") : t("providers.save")}</button>
-     <button type="button" className="secondary-button" disabled={Boolean(working) || !baseUrl.trim()} onClick={() => void fetchModels()}>{working === "fetch" ? t("providers.compat.fetching") : t("providers.compat.fetch")}</button>
-     {configured && <button type="button" className="secondary-button" disabled={Boolean(working)} onClick={close}>{t("action.cancel")}</button>}
+     <button type="submit" className="st-button" disabled={Boolean(working) || !baseUrl.trim()}>{working === "save" ? t("providers.verifying") : t("providers.save")}</button>
+     <button type="button" className="st-button" disabled={Boolean(working) || !baseUrl.trim()} onClick={() => void fetchModels()}>{working === "fetch" ? t("providers.compat.fetching") : t("providers.compat.fetch")}</button>
+     {configured && <button type="button" className="st-button" disabled={Boolean(working)} onClick={close}>{t("action.cancel")}</button>}
     </div>
     {error && <p className="error-text" role="alert">{error}</p>}
     <p className="field-note">{t("providers.compat.network_note")}</p>

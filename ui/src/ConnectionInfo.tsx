@@ -82,7 +82,7 @@ export function ConnectionInfo() {
   }
   const addressLabel = connection?.connectionMode === "ssh" ? t("connection.server") : isDesktop ? t("connection.server_address") : t("connection.access_address");
   return <>
-    <SettingsRow label={t("connection.title")} description={mode} control={isDesktop ? <a className="secondary-button" href="/__desktop/setup">{t("connection.switch_server")}</a> : undefined}/>
+    <SettingsRow label={t("connection.title")} description={mode} control={isDesktop ? <a className="st-button" href="/__desktop/setup">{t("connection.switch_server")}</a> : undefined}/>
     <SettingsRow label={addressLabel} control={<code className="connection-value">{endpoint}</code>}/>
     {debug && <SettingsRow label={t("connection.instance_id")} control={<code className="connection-value">{state.instanceID || (state.loading ? t("connection.confirming") : t("connection.unconfirmed"))}</code>}/>}
     {memorySession && <p className="settings-card-note" role="status">{t("connection.memory_session")}</p>}

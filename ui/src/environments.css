@@ -7,7 +7,7 @@
 .env-name{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;min-width:0}
 .env-name>svg{flex:none;color:var(--muted)}
 .env-name-text{min-width:0;overflow-wrap:anywhere}
-.env-tag{flex:none;padding:2px 8px;border:1px solid var(--line-soft);border-radius:999px;color:var(--ink-soft);font:600 11px/1.4 var(--mono);white-space:nowrap}
+.env-tag{flex:none;padding:0;border:0;color:var(--muted);font:500 12.5px/1.4 var(--body);white-space:nowrap}
 .workspace .settings-page-body .env-row .settings-row-copy p{padding-left:26px}
 .env-line{display:block}
 .env-reason{color:var(--danger-text)}
@@ -19,8 +19,7 @@
 .resource-restart-dialog .env-danger-button:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 .env-reason-detail{color:var(--muted);font-size:11.5px;line-height:1.5}
 .env-controls{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px}
-.workspace .settings-page-body .env-controls .secondary-button{min-height:34px;padding:6px 12px;font-size:13px}
-.workspace .settings-page-body .env-controls .env-more{width:34px;padding:0}
+.env-controls .env-more{width:32px;padding:0}
 .env-menu .mcp-menu-danger{margin-top:0;border-top:0;border-radius:8px}
 .env-add-menu button{display:flex;align-items:center;gap:9px}
 .env-add-menu button>svg{flex:none;color:var(--muted)}
@@ -40,7 +39,7 @@
 .resource-restart-dialog .env-steps{margin:0;padding-left:20px;color:var(--ink-soft);font:var(--type-body)}
 .env-steps li+li{margin-top:4px}
 .env-code-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:14px}
-.env-code,.env-command{flex:1;min-width:0;padding:10px 14px;border:1px solid var(--line-soft);border-radius:10px;background:var(--sunk);color:var(--ink);overflow-wrap:anywhere}
+.env-code,.env-command{flex:1;min-width:0;padding:10px 14px;border:0;border-radius:10px;background:var(--sunk);color:var(--ink);overflow-wrap:anywhere}
 .env-code{font:700 22px/1.2 var(--mono);letter-spacing:.14em}
 .env-command{font:12.5px/1.5 var(--mono)}
 .env-copy{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:6px 12px;font-size:13px}

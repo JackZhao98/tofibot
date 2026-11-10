@@ -44,8 +44,13 @@ export function useSurfacePresence<T>(value: T | null, duration = 220) {
 
 export function AppearancePicker({ value, onChange }: { value: ThemePreference; onChange: (theme: ThemePreference) => void }) {
   const { t } = useTranslation("settings");
-  return <section className="appearance-setting"><div><h3>{t("appearance.title")}</h3></div><div className="appearance-options" role="group" aria-label={t("appearance.label")}>
-    {(["system", "light", "dark"] as const).map((theme) => <button key={theme} aria-pressed={value === theme} onClick={() => onChange(theme)}><span className={`theme-swatch theme-swatch-${theme}`} aria-hidden="true"><i /><i /><i /></span><span>{t(`appearance.${theme}`)}</span></button>)}
+  // A choice applies at once; "Saved" shows for 1.5 s (the same note as SettingsSwitch, kept local: this file is in the entry chunk).
+  const [saved, setSaved] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  const choose = (theme: ThemePreference) => { onChange(theme); setSaved(true); window.clearTimeout(timer.current); timer.current = window.setTimeout(() => setSaved(false), 1500); };
+  return <section className="appearance-setting"><div className="appearance-head"><h3>{t("appearance.title")}</h3><span className="settings-saved" aria-live="polite">{saved ? t("saved") : ""}</span></div><div className="appearance-options" role="group" aria-label={t("appearance.label")}>
+    {(["system", "light", "dark"] as const).map((theme) => <button key={theme} aria-pressed={value === theme} onClick={() => choose(theme)}><span className={`theme-swatch theme-swatch-${theme}`} aria-hidden="true"><i /><i /><i /></span><span>{t(`appearance.${theme}`)}</span></button>)}
   </div></section>;
 }
 

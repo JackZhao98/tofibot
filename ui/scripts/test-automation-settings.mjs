@@ -162,7 +162,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       const text = (await row(t.page, key).innerText()).replace(/\s+/g, " ");
       assert.ok(!/automation\./.test(text), `${key}: raw i18n key on the page: ${text}`);
       assert.ok(text.length > 60, `${key}: name and one-sentence description are shown: ${text}`);
-      if (key !== "desktop_idle_seconds") assert.match(text, /Default: /, `${key}: shows its default`);
+      // A value at its default says nothing; "Changed · default X · Reset" appears only once it differs (settings-simplify 5.4).
+      assert.doesNotMatch(text, /Default: |Changed/, `${key}: nothing about a default while the value is the default`);
     }
     assert.equal(await t.page.locator(".settings-sec h4").count(), 8, "eight calm groups; the allowance tables live on the Permissions page");
     assert.equal(await t.page.locator(".standing-item, .standing-list").count(), 0, "no allowance table on this page");
@@ -183,7 +184,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.match(await row(t.page, "browser_engine").locator("[data-testid=default-changed]").innerText(), /Default changed/, "the browser engine row says its default changed");
     assert.equal(await row(t.page, "desktop_engine").locator("[data-testid=default-changed]").count(), 0, "only the browser engine row carries the note");
     assert.equal(await row(t.page, "desktop_engine").locator(".ui-select-trigger").getAttribute("data-value"), "classic", "the desktop engine is a real choice, classic by default");
-    assert.equal(await t.page.locator(".auto-chip").count(), 0, "nothing is marked changed at the defaults");
+    assert.equal(await t.page.locator(".st-changed").count(), 0, "nothing is marked changed at the defaults");
     assert.deepEqual(t.errors, [], `page errors: ${t.errors}`);
     if (shots) await t.page.locator(".settings-page-body").screenshot({path: join(shots, "automation-light.png")});
     await t.close();
@@ -200,19 +201,19 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     });
     const start = Date.now();
     await row(t.page, "web_search").getByRole("switch").click();
-    await t.page.waitForFunction(() => document.querySelector('.auto-row[data-key="web_search"] .auto-chip'));
+    await t.page.waitForFunction(() => document.querySelector('.auto-row[data-key="web_search"] .st-changed'));
     const elapsed = Date.now() - start;
     assert.deepEqual(requests, ['PUT /api/automation-settings {"values":{"web_search":false}}'], "one write with just that value");
     assert.equal(await row(t.page, "web_search").getByRole("switch").isChecked(), false);
     assert.match(await row(t.page, "web_search").innerText(), /Changed/);
-    assert.match(await row(t.page, "web_search").innerText(), /Default: On/, "the default stays visible after a change");
+    assert.match(await row(t.page, "web_search").innerText(), /Changed · default On/, "a changed value names its default");
     const touched = await t.page.evaluate(() => [...new Set(window.__mutations)]);
     assert.deepEqual(touched, ["web_search"], `a change must touch only its own row, touched: ${touched}`);
     assert.ok(elapsed < 1500, `toggle round trip took ${elapsed}ms`);
     await pickSelect(row(t.page, "provider_retries"), "2");
-    await t.page.waitForFunction(() => document.querySelector('.auto-row[data-key="provider_retries"] .auto-chip'));
+    await t.page.waitForFunction(() => document.querySelector('.auto-row[data-key="provider_retries"] .st-changed'));
     await pickSelect(row(t.page, "background_model"), "claude-opus-5-5");
-    await t.page.waitForFunction(() => document.querySelector('.auto-row[data-key="background_model"] .auto-chip'));
+    await t.page.waitForFunction(() => document.querySelector('.auto-row[data-key="background_model"] .st-changed'));
     assert.equal(requests.length, 3);
     assert.deepEqual(state.stored, {web_search: false, provider_retries: 2, background_model: "claude-opus-5-5"});
     await t.page.reload();
@@ -223,7 +224,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     // Reset returns to the default and drops the marker.
     requests.length = 0;
     await row(t.page, "web_search").getByRole("button", {name: "Reset to default"}).click();
-    await t.page.waitForFunction(() => !document.querySelector('.auto-row[data-key="web_search"] .auto-chip'));
+    await t.page.waitForFunction(() => !document.querySelector('.auto-row[data-key="web_search"] .st-changed'));
     assert.deepEqual(requests, ['PUT /api/automation-settings {"values":{"web_search":null}}']);
     assert.equal(await row(t.page, "web_search").getByRole("switch").isChecked(), true);
     assert.deepEqual(t.errors, [], `page errors: ${t.errors}`);

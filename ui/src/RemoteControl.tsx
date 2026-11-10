@@ -1,3 +1,4 @@
+import { SettingsSwitch } from "./settings/components";
 import {useRef, useState, type RefObject} from "react";
 import {useTranslation} from "./i18n";
 import {TofiIcon} from "./icons";
@@ -15,7 +16,8 @@ import "./remote-control.css";
 const keptReasons: RemoteControlReason[] = ["revoked", "connection_changed", "removal_pending"];
 
 function Switch({checked, label, disabled, busy, onChange}: {checked: boolean; label: string; disabled: boolean; busy: boolean; onChange: (value: boolean) => void}) {
-  return <label className="debug-toggle auto-switch rc-switch"><input type="checkbox" role="switch" aria-label={label} aria-busy={busy || undefined} checked={checked} disabled={disabled} onChange={event => onChange(event.target.checked)}/></label>;
+  // No inline "Saved": the macOS dialog decides, and the row's own state line says what happened.
+  return <SettingsSwitch className="rc-switch" label={label} busy={busy} checked={checked} disabled={disabled} showSaved={false} onChange={onChange}/>;
 }
 
 function ThisMacMenu({name, denied, onOpenFiles, onOpenDenied}: {name: string; denied: number; onOpenFiles: (() => void) | null; onOpenDenied: () => void}) {

@@ -1,133 +1,282 @@
-/* Shared settings components and the page-level restyle of the existing panels. Tokens only (design-tokens.css). */
-.workspace .settings-page-body .settings-stack{display:grid;gap:22px;align-content:start;min-width:0}
+/* The settings visual language (docs/design/settings-simplify.md section 5): filled surfaces, no outlines, no hard shadows.
+   Chunky things left: the window frame (settings-system.css) and the one orange primary button per view.
+   Tokens only (design-tokens.css). Shared components first, then the few panels that still need a rule of their own. */
+.settings-stack{display:grid;gap:24px;align-content:start;min-width:0}
 /* A block a link can scroll to (SectionAnchor) is a plain grid item: it must not widen its track. */
 .settings-anchor{min-width:0}
 
-/* Section */
-.workspace .settings-page-body .settings-sec,.workspace .settings-page-body .settings-section.dictation-settings{margin:0;min-width:0}
-.settings-sec-head{display:flex;align-items:baseline;gap:10px;margin:0 0 10px}
-.workspace .settings-page-body .settings-sec-head h4{margin:0;color:var(--ink);font:600 16px/1.3 var(--display)}
-.settings-sec-hint{color:var(--muted);font:12px/1.4 var(--body)}
-.workspace .settings-page-body .settings-sec-desc{margin:-4px 0 12px;color:var(--muted);font:13px/1.6 var(--body)}
+/* Section: a grey 13px title, then one filled group. */
+.settings-sec,.settings-section.dictation-settings{margin:0;min-width:0}
+.settings-sec-head{display:flex;align-items:baseline;gap:8px;margin:0 0 8px}
+.settings-sec-head h4{margin:0;color:var(--muted);font:600 13px/1.4 var(--body)}
+.settings-sec-hint{color:var(--muted);font:600 13px/1.4 var(--body)}
+.settings-sec-desc{margin:-4px 0 10px;color:var(--muted);font:12.5px/1.5 var(--body)}
 
-/* Card and row */
-.settings-card{min-width:0;border:1px solid var(--line-soft);border-radius:18px;background:var(--surface)}
+/* Group (settings-card): one filled block; rows are divided by a hairline that stops short of the edges. */
+.settings-card{min-width:0;margin:0;padding:0 16px;border:0;border-radius:14px;background:var(--surface-2)}
 .settings-card>*+*{border-top:1px solid var(--line-soft)}
-.settings-card>:first-child{border-top-left-radius:17px;border-top-right-radius:17px}
-.settings-card>:last-child{border-bottom-left-radius:17px;border-bottom-right-radius:17px}
-.settings-row-v2{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px}
+.settings-row-v2{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;box-sizing:border-box;padding:10px 0}
 .settings-row-copy{flex:1;min-width:0}
-.workspace .settings-page-body .settings-row-copy label,.settings-row-copy strong{display:block;margin:0;color:var(--ink);font:600 14px/1.4 var(--body)}
-.workspace .settings-page-body .settings-row-copy p{margin:2px 0 0;color:var(--muted);font:12.5px/1.5 var(--body);overflow-wrap:anywhere}
-.settings-row-control{flex:none;max-width:55%;min-width:0}
-.workspace .settings-page-body .settings-row-control :is(select,input:not([type="checkbox"]):not([type="radio"])){width:300px;min-width:0;max-width:100%;min-height:40px;padding:8px 12px;border-radius:10px;background:var(--surface-2)}
-.workspace .settings-page-body .settings-card-note{margin:0;padding:12px 16px;color:var(--muted);font:12.5px/1.6 var(--body);overflow-wrap:anywhere}
-.settings-card.settings-flush>*{margin:0;padding:16px;border:0;border-radius:0;background:transparent;box-shadow:none}
+.settings-page-body .settings-row-copy label,.settings-row-copy strong{display:block;gap:0;margin:0;color:var(--ink);font:500 14px/1.4 var(--body)}
+.settings-row-copy p{margin:2px 0 0;color:var(--muted);font:12.5px/1.5 var(--body);overflow-wrap:anywhere}
+.settings-row-control{flex:none;display:flex;align-items:center;justify-content:flex-end;gap:10px;max-width:60%;min-width:0}
+.settings-row-status{flex:none}
+.settings-row-value{flex:none;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font:13px/1.4 var(--body)}
+/* A subpage row: the whole row opens it; grey value and a chevron on the right. */
+button.settings-row-v2.is-link{width:100%;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer}
+button.settings-row-v2.is-link>svg{flex:none;color:var(--muted)}
+button.settings-row-v2.is-link:hover .settings-row-copy strong{color:var(--ink)}
+button.settings-row-v2.is-link:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px;border-radius:10px}
+.settings-card-note{margin:0;padding:12px 0;color:var(--muted);font:12.5px/1.6 var(--body);overflow-wrap:anywhere}
+.settings-card.settings-flush,.settings-card.storage-card,.settings-card.portability-card{padding:0}
+.settings-card.portability-card>.settings-row-v2,.settings-card.settings-flush>.settings-row-v2{padding-left:16px;padding-right:16px}
+.settings-card.settings-flush>*{margin:0;padding:12px 16px;border:0;border-radius:0;background:transparent}
+.settings-row-control :is(input:not([type="checkbox"],[type="radio"]),select){width:240px;max-width:100%}
 @media(max-width:700px){
   .settings-row-v2:not(.is-inline){flex-direction:column;align-items:stretch;gap:10px}
-  .settings-row-v2:not(.is-inline) .settings-row-control{max-width:none}
-  .workspace .settings-page-body .settings-row-v2:not(.is-inline) .settings-row-control :is(select,input:not([type="checkbox"]):not([type="radio"])){width:100%;min-height:44px}
+  .settings-row-v2:not(.is-inline) .settings-row-control{max-width:none;justify-content:flex-start}
+  .settings-row-v2:not(.is-inline) .settings-row-control :is(input:not([type="checkbox"],[type="radio"]),select,.ui-select-trigger){width:100%;max-width:none}
   .settings-row-v2.is-inline .settings-row-control{max-width:60%}
 }
 
-/* Status badge: icon plus text, never color alone. Text uses the -text token on a tint. */
-.status-badge{display:inline-flex;align-items:center;gap:5px;flex:none;padding:3px 9px;border-radius:999px;font:600 11px/1.4 var(--mono);white-space:nowrap}
-.status-badge>svg{flex:none}
-.status-badge.is-ok{color:var(--green-text);background:color-mix(in srgb,var(--green) 16%,transparent)}
-.status-badge.is-need{color:var(--honey-text);background:color-mix(in srgb,var(--honey) 18%,transparent)}
-.status-badge.is-bad{color:var(--danger-text);background:color-mix(in srgb,var(--danger) 16%,transparent)}
-.status-badge.is-asleep{color:var(--muted);background:color-mix(in srgb,var(--muted) 14%,transparent)}
-.status-badge.is-testing{color:var(--lagoon-text);background:color-mix(in srgb,var(--lagoon) 16%,transparent)}
+/* Status: a 7px dot and a word. Solid green = fine, solid honey = needs you, hollow = off, red = failed. */
+.status-badge{display:inline-flex;align-items:center;gap:6px;flex:none;color:var(--muted);font:12.5px/1.4 var(--body);white-space:nowrap}
+.status-dot{display:block;flex:none;width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.status-badge.is-ok .status-dot{background:var(--green)}
+.status-badge.is-need .status-dot{background:var(--honey)}
+.status-badge.is-bad{color:var(--danger-text)}
+.status-badge.is-bad .status-dot{background:var(--danger)}
+.status-badge.is-asleep .status-dot{background:transparent;box-shadow:inset 0 0 0 1.5px var(--muted)}
+.status-badge.is-testing .status-dot{background:var(--lagoon)}
 
-/* Banner */
-.settings-banner{display:flex;align-items:flex-start;gap:12px;padding:13px 16px;border:1px solid var(--line-soft);border-radius:14px;background:var(--surface-2);min-width:0}
+/* Switch (Radix): 36x22; off = 20% ink, on = lagoon. */
+.st-switch-wrap{display:inline-flex;align-items:center;gap:8px;flex:none}
+.st-switch{position:relative;flex:none;width:36px;height:22px;min-height:22px;padding:0;border:0;border-radius:11px;background:color-mix(in srgb,var(--ink) 20%,transparent);transition:background-color var(--m-press)}
+.st-switch[data-state="checked"]{background:var(--lagoon)}
+.st-switch-thumb{display:block;width:18px;height:18px;margin:0;border-radius:50%;background:var(--surface);transform:translateX(2px);transition:transform var(--m-press) var(--ease-out);will-change:transform}
+.st-switch[data-state="checked"] .st-switch-thumb{transform:translateX(16px)}
+.st-switch:disabled{opacity:.5;cursor:not-allowed}
+.st-switch:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+.st-switch[aria-busy="true"]{cursor:progress}
+/* On a phone the button is a 44px tap target; the 36x22 track is drawn inside it. */
+@media(max-width:700px){
+  .st-switch{width:52px;height:44px;min-height:44px;border-radius:0;background:transparent}
+  .st-switch[data-state="checked"]{background:transparent}
+  .st-switch::before{content:"";position:absolute;left:8px;top:11px;width:36px;height:22px;border-radius:11px;background:color-mix(in srgb,var(--ink) 20%,transparent);transition:background-color var(--m-press)}
+  .st-switch[data-state="checked"]::before{background:var(--lagoon)}
+  .st-switch-thumb{position:absolute;left:10px;top:13px;transform:none}
+  .st-switch[data-state="checked"] .st-switch-thumb{transform:translateX(14px)}
+}
+/* "Saved" beside the control that saved: 1.5 s, reserved width so nothing jumps. */
+.settings-saved{min-width:0;color:var(--muted);font:12.5px/1.4 var(--body);white-space:nowrap}
+.settings-saved:empty{display:none}
+/* Changed value: honey text, no pill. */
+.st-changed{color:var(--honey-text);font:12.5px/1.5 var(--body)}
+.st-link{padding:0;border:0;background:transparent;color:var(--ink-soft);font:500 13px/1.4 var(--body);text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--ink-soft) 35%,transparent);text-underline-offset:3px}
+.st-link:hover:not(:disabled){color:var(--ink)}
+.st-link:disabled{opacity:.5;cursor:not-allowed}
+.st-link:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px;border-radius:4px}
+
+/* Buttons. Quiet (default): filled, lifted, no outline. The one orange primary keeps the 2px line, the hard shadow and the press. */
+.st-button,.mcp-settings .mcp-button{display:inline-flex;align-items:center;justify-content:center;gap:6px;flex:none;min-height:32px;box-sizing:border-box;padding:0 12px;border:0;border-radius:9px;background:var(--surface);box-shadow:var(--st-lift);color:var(--ink);font:600 13px/1 var(--body);white-space:nowrap;text-decoration:none;transition:background-color var(--m-press),transform var(--m-press)}
+.st-button:hover:not(:disabled),.mcp-settings .mcp-button:hover:not(:disabled){background:color-mix(in srgb,var(--surface) 70%,var(--sunk))}
+.st-button:active:not(:disabled),.mcp-settings .mcp-button:active:not(:disabled){transform:translateY(1px)}
+.st-button:disabled,.mcp-settings .mcp-button:disabled{opacity:.5;cursor:not-allowed}
+.st-button:focus-visible,.mcp-settings .mcp-button:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+.st-button.is-danger,.mcp-settings .mcp-danger{color:var(--danger-text)}
+.st-button>svg{flex:none}
+.settings-shell .primary-button{min-height:36px;padding:0 16px;border-radius:10px;font:600 13.5px/1 var(--display)}
+/* In-place confirm (ConfirmAction): the trigger is quiet danger text; the confirming step is the filled red one, still without outline or hard shadow. */
+.settings-shell .danger-link{min-height:32px;padding:0 12px;border:0;border-radius:9px;background:var(--surface);box-shadow:var(--st-lift);color:var(--danger-text);font:600 13px/1 var(--body)}
+.settings-shell .danger-link:not(:disabled):hover{background:color-mix(in srgb,var(--danger) 8%,var(--surface))}
+.settings-shell .inline-confirmation .danger-link{background:var(--danger);color:var(--on-danger);box-shadow:none}
+.settings-ghost-button{display:inline-flex;align-items:center;gap:6px;flex:none;min-height:32px;padding:0 10px;border:0;border-radius:9px;background:transparent;color:var(--ink-soft);font:600 13px/1 var(--body)}
+.settings-ghost-button:hover:not(:disabled){background:var(--surface);color:var(--ink)}
+.settings-ghost-button:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+/* Phones: every tap target is 44px (the prefix outranks the component rules that load later). */
+@media(max-width:700px){
+  .settings-shell :is(.st-button,.settings-ghost-button,.purge-button,.admin-danger-button,.danger-link,.mcp-button,.primary-button),.settings-shell :is(.settings-save-bar,.settings-leave-actions) button{min-height:44px}
+  .settings-shell .settings-row-control button.ui-select-trigger,.settings-shell .settings-page-body button.ui-select-trigger[data-size="sm"]{min-height:44px}
+  .settings-shell .segmented>button{min-height:36px}
+}
+
+/* Fields: a title above, a filled input with no outline, 40px, 10px radius. Not inside a group. */
+.settings-page-body label,.model-fields label{display:grid;gap:6px;margin:0 0 16px;color:var(--muted);font:600 13px/1.4 var(--body)}
+.settings-page-body label>:is(input,select,textarea){margin-top:0}
+.settings-page-body :is(input:not([type="checkbox"],[type="radio"],[type="range"],[type="file"]),textarea,select){width:100%;min-height:40px;box-sizing:border-box;padding:9px 12px;border:0;border-radius:10px;background:var(--surface-2);box-shadow:none;color:var(--ink);font:14px/1.5 var(--body);transform:none}
+.settings-card :is(input:not([type="checkbox"],[type="radio"],[type="range"],[type="file"]),textarea,select){background:var(--surface)}
+.settings-page-body textarea{min-height:88px}
+.settings-page-body :is(input,textarea,select):not(:disabled):hover{background:color-mix(in srgb,var(--surface-2) 80%,var(--sunk))}
+.settings-card :is(input,textarea,select):not(:disabled):hover{background:var(--surface)}
+.settings-page-body :is(input:not([type="checkbox"],[type="radio"]),textarea,select):focus-visible{background:var(--surface);box-shadow:none;transform:none;outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+.settings-page-body :is(input,textarea,select)[aria-invalid="true"]{background:color-mix(in srgb,var(--danger) 8%,var(--surface-2));box-shadow:inset 0 0 0 1.5px var(--danger)}
+.settings-page-body :is(input,select,textarea):disabled{background:var(--surface-soft);color:var(--muted);cursor:not-allowed;opacity:.7}
+.settings-page-body select{appearance:none;-webkit-appearance:none;padding-right:34px;text-overflow:ellipsis;white-space:nowrap;background-image:linear-gradient(45deg,transparent 50%,var(--ink-soft) 50%),linear-gradient(135deg,var(--ink-soft) 50%,transparent 50%);background-position:calc(100% - 17px) 50%,calc(100% - 12px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+.settings-page-body .field-note{margin:6px 0 0;color:var(--muted);font:12.5px/1.5 var(--body);overflow-wrap:anywhere}
+.settings-page-body small{font-size:12.5px}
+.settings-page-body code{font-size:12.5px}
+.settings-page-body .muted{font-size:13px;line-height:1.65}
+.settings-page-body a:not([class]){color:var(--ink);text-decoration-color:var(--yellow);text-underline-offset:3px}
+.settings-page-body input[type="file"]::file-selector-button{margin-right:10px;padding:6px 12px;border:0;border-radius:9px;background:var(--surface);box-shadow:var(--st-lift);color:var(--ink);font:600 13px/1 var(--body)}
+
+/* The custom Select (Select.tsx): in a row it is the quiet 32px control; in a form it is a field. */
+.settings-page-body button.ui-select-trigger{min-height:40px;padding:9px 12px;border:0;border-radius:10px;background:var(--surface-2);box-shadow:none;font:14px/1.4 var(--body)}
+.settings-card button.ui-select-trigger{background:var(--surface)}
+.settings-row-control button.ui-select-trigger,.settings-page-body button.ui-select-trigger[data-size="sm"]{width:auto;min-width:0;max-width:240px;min-height:32px;padding:0 10px 0 12px;border-radius:9px;background:var(--surface);box-shadow:var(--st-lift);font:500 13px/1.4 var(--body)}
+.settings-page-body button.ui-select-trigger:not(:disabled):hover{background:color-mix(in srgb,var(--surface) 70%,var(--sunk))}
+.settings-page-body button.ui-select-trigger[data-state="open"]{background:var(--surface)}
+.settings-page-body button.ui-select-trigger:focus-visible{outline-offset:2px}
+.settings-page-body button.ui-select-trigger[aria-invalid="true"]{box-shadow:inset 0 0 0 1.5px var(--danger)}
+
+/* Segmented: only for 2-3 short options worth seeing together. Groove under a lifted selected block. */
+.segmented{display:inline-flex;gap:2px;margin:0;padding:3px;border:0;border-radius:10px;background:var(--sunk);max-width:100%}
+.segmented>button{min-height:28px;padding:0 12px;border:0;border-radius:8px;background:transparent;color:var(--ink-soft);font:500 13px/1 var(--body);white-space:nowrap;transition:background-color var(--m-press),color var(--m-press)}
+.segmented>button:hover:not(:disabled){color:var(--ink)}
+.segmented>button[aria-checked="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--st-lift)}
+.segmented>button:disabled{opacity:.5;cursor:not-allowed}
+.segmented>button:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+
+/* Banner: only for an error or something you must do; one per page, at the top. Tinted, never outlined. */
+.settings-banner{display:flex;align-items:flex-start;gap:12px;padding:12px 16px;border-radius:14px;background:var(--surface-2);min-width:0}
 .settings-banner>svg{flex:none;margin-top:1px}
 .settings-banner-copy{flex:1;min-width:0}
 .settings-banner-copy strong{display:block;color:var(--ink);font:600 14px/1.4 var(--body);overflow-wrap:anywhere}
-.workspace .settings-page-body .settings-banner-copy p{margin:2px 0 0;color:var(--ink-soft);font:13px/1.5 var(--body)}
-.settings-banner.is-error{border-color:color-mix(in srgb,var(--danger) 45%,var(--line-soft));background:color-mix(in srgb,var(--danger) 9%,var(--surface))}
+.settings-banner-copy p{margin:2px 0 0;color:var(--ink-soft);font:13px/1.5 var(--body)}
+.settings-banner.is-error{background:color-mix(in srgb,var(--danger) 10%,var(--surface))}
 .settings-banner.is-error>svg{color:var(--danger-text)}
-.settings-banner.is-warn{border-color:color-mix(in srgb,var(--honey) 50%,var(--line-soft));background:color-mix(in srgb,var(--honey) 10%,var(--surface))}
+.settings-banner.is-warn{background:color-mix(in srgb,var(--honey) 14%,var(--surface))}
 .settings-banner.is-warn>svg{color:var(--honey-text)}
 .settings-banner.is-info>svg{color:var(--lagoon-text)}
-.settings-banner-action{flex:none;align-self:center;min-height:36px;padding:6px 12px;font-size:13px}
-.settings-banner-more{margin-top:6px;padding:0;border:0;background:transparent;color:var(--muted);font:600 11px/1.4 var(--mono);text-decoration:underline;text-underline-offset:3px}
+.settings-banner-action{align-self:center}
+.settings-banner-more{margin-top:6px;padding:0;border:0;background:transparent;color:var(--muted);font:500 12.5px/1.4 var(--body);text-decoration:underline;text-underline-offset:3px}
 .settings-banner-details{margin:8px 0 0;padding:10px 12px;border-radius:10px;background:var(--sunk);color:var(--ink-soft);font:12px/1.5 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
-@media(max-width:700px){.settings-banner{flex-wrap:wrap}.settings-banner-action{margin-left:30px}}
+@media(max-width:700px){.settings-banner{flex-wrap:wrap}.settings-banner-action{margin-left:30px}.settings-banner-copy{flex:1 1 calc(100% - 32px)}}
 
-/* Danger zone */
-.danger-zone{padding:16px;border:1.5px dashed var(--danger);border-radius:18px;min-width:0}
-.danger-zone>h4{margin:0 0 12px;color:var(--danger-text);font:600 11px/1.3 var(--mono);letter-spacing:.14em;text-transform:uppercase}
-.workspace .settings-page-body .danger-zone .purge-section{margin:0;padding:0;border:0}
-.danger-zone .purge-button{background:var(--danger);border-color:var(--line);color:var(--on-danger)}
+/* Danger zone: an ordinary section, last on the page. Names and descriptions are ordinary ink; only the button text is red. */
+.danger-zone .purge-section{display:grid;gap:8px;margin:0;padding:0}
+.danger-zone .purge-section :is(h3,p){margin:0;color:var(--ink);font:500 14px/1.4 var(--body)}
+.danger-zone .purge-section :is(.settings-description,.field-note){color:var(--muted);font:12.5px/1.5 var(--body)}
+.danger-zone .purge-section .settings-row-v2{padding-left:0;padding-right:0}
+.purge-actions{display:flex;justify-content:flex-end;padding-top:4px}
+.purge-button{min-height:32px;padding:0 12px;border:0;border-radius:9px;background:var(--surface);box-shadow:var(--st-lift);color:var(--danger-text);font:600 13px/1 var(--body)}
+.purge-button:disabled{opacity:.5;cursor:not-allowed}
+.purge-button:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 
-/* Segmented */
-.segmented{display:inline-flex;gap:2px;padding:3px;border:1px solid var(--line-soft);border-radius:12px;background:var(--sunk);max-width:100%}
-.workspace .settings-page-body .segmented>button{min-height:34px;padding:6px 12px;border:2px solid transparent;border-radius:9px;background:transparent;color:var(--muted);font:600 12px/1 var(--mono);white-space:nowrap;transition:background-color var(--m-press),color var(--m-press),box-shadow var(--m-press)}
-.workspace .settings-page-body .segmented>button:hover:not(:disabled){color:var(--ink)}
-.workspace .settings-page-body .segmented>button[aria-checked="true"]{border-color:var(--line);background:var(--surface);color:var(--ink);box-shadow:var(--hard-sm)}
-.workspace .settings-page-body .segmented>button:disabled{opacity:.5;cursor:not-allowed}
-.workspace .settings-page-body .segmented>button:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+/* Subpage: back, title, optional actions. */
+.st-subpage{display:grid;gap:20px;min-width:0}
+.st-subpage-head{display:flex;align-items:center;gap:10px;min-width:0}
+.st-subpage-back{display:grid;place-items:center;flex:none;width:32px;height:32px;margin-left:-8px;border:0;border-radius:9px;background:transparent;color:var(--ink-soft)}
+.st-subpage-back:hover{background:var(--surface-2);color:var(--ink)}
+.st-subpage-back:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+.st-subpage-title{flex:1;min-width:0}
+.st-subpage-title h3{margin:0;color:var(--ink);font:600 17px/1.3 var(--display);overflow-wrap:anywhere}
+.st-subpage-title p{margin:2px 0 0;color:var(--muted);font:12.5px/1.4 var(--body)}
 
-/* General: account card, appearance thumbnails, language and region rows, notifications */
-.workspace .settings-page-body .owner-account{display:flex;flex-wrap:nowrap;align-items:center;gap:14px;margin:0;padding:14px 16px;border:1px solid var(--line-soft);border-radius:18px;background:var(--surface)}
-.owner-account-avatar{display:grid;place-items:center;flex:none;width:44px;height:44px;border:2px solid var(--line);border-radius:50%;background:var(--iris);color:var(--on-block);font:600 18px/1 var(--display)}
-.workspace .settings-page-body .owner-account>div{display:grid;gap:2px;flex:1;min-width:0}
-.workspace .settings-page-body .owner-account strong{font:600 15px/1.3 var(--display);color:var(--ink)}
-.workspace .settings-page-body .owner-account span{font-size:12.5px}
-.settings-ghost-button{display:inline-flex;align-items:center;gap:6px;flex:none;min-height:36px;padding:6px 10px;border:0;border-radius:10px;background:transparent;color:var(--ink-soft);font:500 13px/1 var(--body)}
-.settings-ghost-button:hover:not(:disabled){background:var(--surface-2);color:var(--ink)}
-.settings-ghost-button:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
-.workspace .settings-page-body .appearance-setting{padding:0;margin:0;border:0}
-.workspace .settings-page-body .appearance-setting h3{margin:0 0 10px;font:600 16px/1.3 var(--display)}
-.workspace .settings-page-body .appearance-options{gap:12px}
-.workspace .settings-page-body .appearance-options button{padding:8px;border:2px solid var(--line-soft);border-radius:16px;background:var(--surface);color:var(--ink-soft);font:600 12px/1.2 var(--mono);transition:box-shadow var(--m-press),border-color var(--m-press)}
-.workspace .settings-page-body .appearance-options button:hover{background:var(--surface-2)}
-.workspace .settings-page-body .appearance-options button[aria-pressed="true"]{border-color:var(--line);box-shadow:var(--hard-sm);color:var(--ink);background:var(--surface)}
-.workspace .settings-page-body .appearance-options .theme-swatch{height:56px;border-radius:8px}
+/* File picker: a quiet button, the chosen file as a chip, a drop zone that is only a filled block. */
+.file-picker{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;min-width:0;padding:14px 16px;border-radius:14px;background:var(--surface-2);transition:background-color var(--m-press)}
+.file-picker.is-dragging{background:var(--sunk)}
+.file-picker-hint{color:var(--muted);font:12.5px/1.4 var(--body)}
+.file-chip{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:100%;padding:4px 10px;border-radius:999px;background:var(--surface);color:var(--ink);font:12.5px/1.4 var(--mono)}
+.file-chip>svg{flex:none;color:var(--muted)}
+.file-chip>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.settings-row-control .connection-value{display:block;max-width:100%;color:var(--ink);font:12.5px/1.5 var(--mono);overflow-wrap:anywhere;text-align:right}
+@media(max-width:700px){.settings-row-control .connection-value{text-align:left}}
+
+/* General: account, appearance, region, notifications are ordinary rows. */
+.owner-account{display:flex;flex-wrap:nowrap;align-items:center;gap:12px;margin:0;padding:12px 16px;border-radius:14px;background:var(--surface-2)}
+.owner-account-avatar{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:50%;background:var(--iris);color:var(--on-block);font:600 13px/1 var(--body)}
+.owner-account>div{display:grid;gap:2px;flex:1;min-width:0}
+.owner-account strong{font:500 14px/1.3 var(--body);color:var(--ink)}
+.owner-account span:not(.owner-account-avatar){color:var(--muted);font:12.5px/1.4 var(--body)}
+.owner-error{flex-basis:100%;margin:0}
 .settings-region{display:grid}
-.workspace .settings-page-body .settings-region .timezone-setting{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;margin:0;padding:14px 16px;border:0}
-.workspace .settings-page-body .settings-region .timezone-setting>div:first-child{flex:1;min-width:180px}
-.workspace .settings-page-body .settings-region .timezone-setting h3{font:600 14px/1.4 var(--body)}
-.workspace .settings-page-body .settings-region .timezone-setting .field-note{margin:2px 0 0;font:12.5px/1.5 var(--body)}
-.workspace .settings-page-body .settings-region .timezone-setting form{display:block;flex:none;max-width:55%}
-.workspace .settings-page-body .settings-region .timezone-select{display:block;margin:0}
-.workspace .settings-page-body .settings-region .timezone-select{font-size:0}
-.workspace .settings-page-body .settings-region .timezone-select select{width:auto;min-width:200px;max-width:100%;min-height:40px;padding:8px 12px;border-radius:10px;background:var(--surface-2);font-size:14px}
-.workspace .settings-page-body .settings-region .language-setting>label{flex:none;max-width:55%}
-.workspace .settings-page-body .settings-region .timezone-error,.workspace .settings-page-body .settings-region .settings-feedback{flex-basis:100%}
-.workspace .settings-page-body .notification-setting{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;margin:0;padding:14px 16px;border:0}
-.workspace .settings-page-body .notification-setting>strong{flex:1 1 240px;font:600 14px/1.4 var(--body)}
-.workspace .settings-page-body .notification-setting .field-note{flex:1 1 100%;order:3;margin:-4px 0 0;font:12.5px/1.5 var(--body)}
-.workspace .settings-page-body .notification-setting>.secondary-button,.workspace .settings-page-body .notification-setting>.notification-status{flex:none;margin:0}
+.settings-region .timezone-setting{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;margin:0;padding:10px 0;border:0;min-height:52px;box-sizing:border-box}
+.settings-region .timezone-setting>div:first-child{flex:1;min-width:160px}
+.settings-region .timezone-setting h3{margin:0;color:var(--ink);font:500 14px/1.4 var(--body)}
+.settings-region .timezone-setting .field-note{margin:2px 0 0;font:12.5px/1.5 var(--body)}
+.settings-region .timezone-setting form{display:block;flex:none;max-width:60%}
+.settings-region .timezone-select{display:block;margin:0}
+.settings-region .language-setting>label{flex:none;max-width:60%}
+.settings-region .timezone-error,.settings-region .settings-feedback{flex-basis:100%}
+.settings-region .timezone-select button.ui-select-trigger{width:auto;min-width:160px;max-width:240px;min-height:32px;padding:0 10px 0 12px;border-radius:9px;background:var(--surface);box-shadow:var(--st-lift);font:500 13px/1.4 var(--body)}
+.appearance-setting{margin:0;padding:0;border:0}
+.appearance-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:0 0 10px}
+.appearance-setting h3{margin:0;color:var(--ink);font:500 14px/1.4 var(--body)}
+.appearance-head .settings-saved{margin-right:auto}
+.appearance-options{display:inline-flex;gap:2px;padding:3px;border-radius:10px;background:var(--sunk)}
+.appearance-options button{display:inline-flex;align-items:center;gap:8px;min-height:28px;padding:0 12px;border:0;border-radius:8px;background:transparent;color:var(--ink-soft);font:500 13px/1 var(--body)}
+.appearance-options button:hover{color:var(--ink)}
+.appearance-options button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--st-lift)}
+.appearance-options .theme-swatch{display:none}
+.notification-setting{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin:0;padding:10px 0;border:0}
+.notification-setting>strong{font:500 14px/1.4 var(--body);color:var(--ink)}
+.notification-setting>.notification-status{max-width:100%;color:var(--ink-soft);font:13px/1.5 var(--body);overflow-wrap:anywhere;text-align:left}
+.notification-setting .field-note{margin:0}
+.notification-setting>.st-button{margin-top:6px}
+.device-notifications{margin-top:16px;display:grid;gap:8px;min-width:0}
+.device-notifications-title{margin:0;color:var(--muted);font:600 13px/1.4 var(--body)}
+.device-notifications .field-note{margin:0;overflow-wrap:anywhere}
 @media(max-width:700px){
-  .workspace .settings-page-body .settings-region .timezone-setting form,.workspace .settings-page-body .settings-region .language-setting>label{flex-basis:100%;max-width:none}
-  .workspace .settings-page-body .settings-region .timezone-select select{width:100%;min-height:44px}
+  .settings-region .timezone-setting form,.settings-region .language-setting>label{flex-basis:100%;max-width:none}
+  .settings-region .timezone-select button.ui-select-trigger{width:100%;max-width:none;min-height:40px}
 }
 
-/* Models: providers as rows of one card, status as badges */
-.workspace .settings-page-body .model-providers{margin:0}
-.settings-card.provider-list{display:grid;gap:0}
-.workspace .settings-page-body .settings-card>.detail-content.provider-card,.settings-card>.provider-card{margin:0;padding:14px 16px;border:0;border-radius:0;background:transparent}
+/* Models: providers as rows of one group. */
+.model-providers{margin:0}
+.settings-card.provider-list{display:grid;gap:0;padding:0}
+.settings-card>.detail-content.provider-card,.settings-card>.provider-card{margin:0;padding:14px 16px;border:0;border-radius:0;background:transparent}
+.settings-card>.provider-card+.provider-card{border-top:1px solid var(--line-soft)}
 .provider-card-head{margin:0 0 10px}
 .provider-card-marks{display:flex;align-items:center;gap:8px;flex:none}
-.provider-card .codex-status{margin:0 0 12px;padding:0;border:0;background:transparent;color:var(--muted);font:12px/1.5 var(--body)}
+.provider-card .codex-status{margin:0 0 12px;padding:0;border:0;border-radius:0;background:transparent;color:var(--muted);font:12px/1.5 var(--body)}
 .provider-card .codex-status .status-dot{display:none}
-.workspace .settings-page-body .model-fields-rows{margin:0;min-width:0}
-.workspace .settings-page-body .model-fields-rows .field-note{margin:8px 0 0}
+.model-fields-rows{margin:0;min-width:0}
+.model-fields-rows .field-note{margin:8px 0 0}
+.provider-key-form{display:grid}
+.provider-key-form>:is(.primary-button,.st-button){justify-self:end}
+@media(max-width:700px){.provider-card-head .settings-tag{display:none}}
 
-/* Connections, skills: extension cards */
-.workspace .settings-page-body .extension-panel .extension-card{border:1px solid var(--line-soft);border-radius:18px;background:var(--surface)}
-.workspace .settings-page-body .extension-panel>.settings-banner{margin-bottom:14px}
+/* Connections, skills: extension cards are filled rows, not outlined cards. */
+.settings-page-body .extension-panel{margin:0;padding:0;border:0;background:transparent;box-shadow:none;border-radius:0}
+.settings-page-body .extension-panel>h2{font-size:16px}
+.settings-page-body .extension-panel>p{font-size:13px;line-height:1.65}
+.settings-page-body .extension-panel .extension-list{display:grid;gap:8px}
+.settings-page-body .extension-panel .extension-card{padding:14px 16px;border:0;border-radius:14px;background:var(--surface-2);box-shadow:none}
+.settings-page-body .extension-panel>.settings-banner{margin-bottom:14px}
+.settings-page-body .detail-content,.settings-page-body .connection-info{padding:0;margin:0;border:0;background:transparent;box-shadow:none;border-radius:0}
+.settings-page-body .detail-heading{padding-right:0;padding-left:0}
+.settings-page-body .detail-heading h2{font-size:16px}
+.legacy-archive-entry{margin:0;padding:12px 16px;border-radius:14px;background:var(--surface-2)}
+.integration-search input{padding-left:42px;background:var(--surface-2)}
+.integration-grid>:last-child:nth-child(odd){grid-column:1/-1}
+.admin-accounts{max-width:none}
 
-/* Advanced: debug row inside the card */
-.settings-card.settings-flush .settings-section{margin:0}
-.workspace .settings-page-body .legacy-archive-entry{margin:0;padding:14px 16px;border:1px solid var(--line-soft);border-radius:14px}
-.workspace .settings-page-body .settings-card .provider-card .codex-status{padding:0;border:0;border-radius:0;background:transparent}
-@media(max-width:700px){.workspace .settings-page-body .provider-card-head .settings-tag{display:none}}
-@media(max-width:700px){.workspace .settings-page-body .notification-setting>.notification-status{flex:1 1 100%;margin:0;overflow-wrap:anywhere;text-align:left}.settings-banner-copy{flex:1 1 calc(100% - 32px)}}
-.workspace .settings-page-body .notification-setting>.notification-status{max-width:100%;overflow-wrap:anywhere}
-.workspace .settings-page-body .usage-page{max-width:none;margin:0}
+/* Keys: saved variables and keys form one group. */
+.credential-list{border-radius:14px;background:var(--surface-2);overflow:hidden}
+.credential-list:empty{display:none}
+.credential-list .credential-row{padding:12px 16px;border-bottom:0}
+.credential-list>*+*{border-top:1px solid var(--line-soft)}
+.settings-page-body .credential-list textarea.ssh-public-key{display:block;width:calc(100% - 32px);margin:0 16px 14px}
+.computer-credentials .credential-form .primary-button{justify-self:end;width:auto}
+@media(max-width:700px){.credential-list .credential-row{flex-wrap:wrap}.credential-list .credential-copy{flex:1 1 100%;min-width:0}.credential-list .credential-actions{flex:1 1 100%}}
+
+/* Permissions: one row per Bot, avatar and name left, its own mode right. */
+.approval-bots{display:grid}
+.approval-bot-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;min-width:0;padding:10px 0}
+.approval-bot-who{display:flex;flex:1 1 140px;align-items:center;gap:10px;min-width:0}
+.approval-bot-who strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 14px/1.4 var(--body)}
+.approval-bot-who .avatar{flex:none}
+.approval-bot-row .segmented{flex:none}
+
+.settings-shell .primary-badge{min-height:0;padding:1px 8px;border:0;background:var(--surface);font:500 12px/1.4 var(--body);letter-spacing:0;text-transform:none}
+
+/* Help text never drops below 12px. */
+.settings-page-body :is(.error-text,.settings-feedback){font-size:12px;line-height:1.55}
+.settings-page-body .settings-tag{font-size:12px;letter-spacing:0}
+.status-badge,.settings-count{font-family:var(--body)}
+.resource-grid span{text-transform:none;letter-spacing:0}
+.usage-page{max-width:none;margin:0}
+@media(max-width:700px){.usage-agents{flex-wrap:wrap;overflow:visible}.usage-agents button{max-width:none}}
 
 /* Sheet (small modal form). Skill access used it before decision 0058; keep it for the next sheet. */
 .sheet-overlay{position:fixed;inset:0;z-index:calc(var(--z-dialog) + 1);display:grid;place-items:center;padding:24px;background:color-mix(in srgb,var(--desktop-controls-solid) 50%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
@@ -147,3 +296,6 @@
 .sheet-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
 @media(max-width:767px){.sheet-overlay{padding:8px;align-items:end}.sheet{padding:16px;border-radius:18px;max-height:calc(100dvh - 16px)}.sheet-actions>button{flex:1}}
 .sheet-radio input[type="radio"]{border-radius:50%}
+
+/* Checked boxes and radios in Settings: no hard shadow. */
+.settings-page-body :is(input[type="checkbox"],input[type="radio"]):checked{box-shadow:none}

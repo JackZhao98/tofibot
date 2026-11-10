@@ -23,7 +23,7 @@ function RestartConfirmation({onCancel,onConfirm}:{onCancel:()=>void;onConfirm:(
   <h3 id="resource-restart-title">{t("resources.restart.title")}</h3>
   <p id="resource-restart-impact">{t("resources.restart.impact")}</p>
   {waiting.length>0&&<p role="status">{t("resources.restart.command_waits",{names:waiting.join(", ")})}</p>}
-  <div className="resource-restart-actions"><button ref={cancel} type="button" className="secondary-button" onClick={onCancel}>{t("resources.cancel")}</button><button type="button" className="primary-button" onClick={onConfirm}>{t("resources.restart.confirm")}</button></div>
+  <div className="resource-restart-actions"><button ref={cancel} type="button" className="st-button" onClick={onCancel}>{t("resources.cancel")}</button><button type="button" className="primary-button" onClick={onConfirm}>{t("resources.restart.confirm")}</button></div>
  </div></ConfirmDialog>;
 }
 
@@ -130,18 +130,18 @@ export function ComputerResources({onOpenAdmin,bare=false}:{onOpenAdmin?:()=>voi
  const dirty=Boolean(editing&&data&&desired&&(desired.vcpus!==data.desired.vcpus||desired.memory_mib!==data.desired.memory_mib||desired.disk_gib!==data.desired.disk_gib));
  useSettingsDraft({label:t("resources.draft_label"),dirty,busy,save,discard:()=>{if(data)setDesired(data.desired);editingRef.current=false;setEditing(false);setActionError("")}});
  return <section className="settings-section">
-  <div className="settings-row">{bare?<span/>:<h3>{t("resources.title")}</h3>}{canEdit&&data&&!editing&&<button type="button" className="secondary-button" disabled={busy||restarting} onClick={()=>{const next=!editing;editingRef.current=next;setDesired(data.desired);setEditing(next);setActionError("")}}>{editing?t("resources.cancel"):t("resources.adjust")}</button>}</div>
+  <div className="settings-row">{bare?<span/>:<h3>{t("resources.title")}</h3>}{canEdit&&data&&!editing&&<button type="button" className="st-button" disabled={busy||restarting} onClick={()=>{const next=!editing;editingRef.current=next;setDesired(data.desired);setEditing(next);setActionError("")}}>{editing?t("resources.cancel"):t("resources.adjust")}</button>}</div>
   {data&&<>
    <div className="resource-grid"><div><span>CPU</span><strong>{data.current.vcpus}<small> {t("resources.unit.cores")}</small></strong></div><div><span>{t("resources.memory")}</span><strong>{Number((data.current.memory_mib/1024).toFixed(1))}<small> GB</small></strong></div><div><span>{t("resources.disk_allocated")}</span><strong>{data.current.disk_gib}<small> GB</small></strong></div></div>
    {!canEdit&&<p className="field-note resource-admin-note">{isAdmin?t("resources.admin_sets_admin"):t("resources.admin_sets")}{isAdmin&&onOpenAdmin&&<> <button type="button" className="text-button" onClick={onOpenAdmin}>{t("resources.open_admin")}</button></>}</p>}
    {debug&&(canEdit||isAdmin)&&<p className="field-note">{t("resources.host",{cpus:data.host.cpus,memory:Math.round(data.host.memory_total_mib/1024),disk:Math.floor(data.host.disk_available_gib)})}</p>}
-   {data.pending&&<div className="settings-notice resource-pending"><span>{t("resources.pending",{cpus:data.desired.vcpus,memory:data.desired.memory_mib/1024,disk:data.desired.disk_gib})}</span>{!restarting&&<button ref={restartButton} type="button" className="secondary-button" disabled={busy||editing} onClick={()=>setConfirming(true)}>{t("resources.restart_apply")}</button>}</div>}
+   {data.pending&&<div className="settings-notice resource-pending"><span>{t("resources.pending",{cpus:data.desired.vcpus,memory:data.desired.memory_mib/1024,disk:data.desired.disk_gib})}</span>{!restarting&&<button ref={restartButton} type="button" className="st-button" disabled={busy||editing} onClick={()=>setConfirming(true)}>{t("resources.restart_apply")}</button>}</div>}
   </>}
   {canEdit&&<ComputerAttach base="/api/admin/computer" onAttached={attached} running={data?.state==="ready"} disabled={busy||restarting}/>}
   {canEdit&&editing&&data&&desired&&<ResourceSheet data={data} desired={desired} dirty={dirty} busy={busy||restarting} onChange={setDesired} onSave={()=>void save()} onCancel={()=>{setDesired(data.desired);editingRef.current=false;setEditing(false);setActionError("")}}/>}
   {restarting&&<p className="settings-feedback" role="status">{t("resources.restarting")}</p>}
   {!restarting&&status&&<p className="settings-feedback" role="status">{status}</p>}
-  {failure&&<div className="resource-read-error" role="alert"><span>{failure}</span>{data?.state==="error"&&!data.pending&&!restarting&&<button ref={restartButton} type="button" className="secondary-button" disabled={busy||editing} onClick={()=>setConfirming(true)}>{t("resources.retry_restart")}</button>}</div>}
+  {failure&&<div className="resource-read-error" role="alert"><span>{failure}</span>{data?.state==="error"&&!data.pending&&!restarting&&<button ref={restartButton} type="button" className="st-button" disabled={busy||editing} onClick={()=>setConfirming(true)}>{t("resources.retry_restart")}</button>}</div>}
   {readError&&!settling&&<div className="resource-read-error" role="alert"><span>{readError}</span><button type="button" className="text-button" disabled={reading||busy} onClick={()=>void refresh()}>{reading?t("resources.reading"):t("resources.retry")}</button></div>}
   {!data&&(settling||!readError)&&<p className="field-note" role="status">{t("resources.loading")}</p>}
   {confirming&&<RestartConfirmation onCancel={()=>setConfirming(false)} onConfirm={()=>void apply()}/>}

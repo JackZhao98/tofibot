@@ -4,6 +4,7 @@ import { isLanguagePreference, matchLanguage, useLanguage, useTranslation, type 
 import { languageChoices, selectedLanguageChoice } from "./languageChoices";
 import "./timezone-settings.css";
 import { Select } from "./Select";
+import { SavedNote, useSavedFlash } from "./settings/components";
 
 /**
  * Settings › General. A choice applies at once (like appearance), then saves to
@@ -14,15 +15,19 @@ export function LanguageSetting() {
   const { language, preference } = useLanguage();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [saved, flash] = useSavedFlash();
   const browser = matchLanguage(typeof navigator === "undefined" ? [] : navigator.languages ?? [navigator.language]) ?? "en";
   async function choose(next: LanguagePreference) {
     setBusy(true); setError("");
-    setError(await chooseLanguage(next, t("language.save_failed")));
+    const failure = await chooseLanguage(next, t("language.save_failed"));
+    setError(failure);
     setBusy(false);
+    if (!failure) flash();
   }
   return <section className="timezone-setting language-setting">
     <div><h3>{t("language.title")}{language !== "en" && <span lang="en"> · Language</span>}</h3></div>
-    <label className="timezone-select">{t("language.label")}
+    <SavedNote show={saved}/>
+    <label className="timezone-select"><span className="sr-only">{t("language.label")}</span>
       <Select value={selectedLanguageChoice(preference, browser)} disabled={busy} onValueChange={value => { if (isLanguagePreference(value)) void choose(value); }}
         options={languageChoices(browser).map(choice => ({ value: choice.value, label: choice.label, tag: choice.tag ? t("language.default") : undefined }))} />
     </label>

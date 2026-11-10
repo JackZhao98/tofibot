@@ -72,7 +72,7 @@ function ChatGPTCard({codex}: {codex: CodexConnection}) {
  </>;
  else body = <>
   <p className="provider-card-note">{t("providers.chatgpt_note")}</p>
-  <div className="provider-actions"><button type="button" className="secondary-button" data-method="chatgpt" disabled={codex.working} onClick={() => void codex.connect()}>{t("providers.chatgpt_title")}</button></div>
+  <div className="provider-actions"><button type="button" className="st-button" data-method="chatgpt" disabled={codex.working} onClick={() => void codex.connect()}>{t("providers.chatgpt_title")}</button></div>
   {codex.connected === null && !codex.working && <p className="field-note"><button type="button" className="text-button" onClick={codex.refresh}>{tc("codex.retry_status")}</button></p>}
  </>;
  return <article className="detail-content provider-card" aria-labelledby={titleId} aria-busy={waiting || codex.working} data-provider="codex">
@@ -170,19 +170,19 @@ function KeyForm({id, entry, onCancel, autoFocus = false}: {id: KeyProvider; ent
  const {t} = useTranslation("settings");
  const inputId = useId();
  const {key, setKey, workspace, setWorkspace, verifying, error, setError, save} = entry;
- const saveButton = <button type="submit" className="primary-button" disabled={verifying || !key.trim() || (id === "anthropic" && !workspace.trim())}>{verifying ? t("providers.verifying") : t("providers.save")}</button>;
+ const saveButton = <button type="submit" className="st-button" disabled={verifying || !key.trim() || (id === "anthropic" && !workspace.trim())}>{verifying ? t("providers.verifying") : t("providers.save")}</button>;
  return <form className="provider-key-form" onSubmit={event => void save(event)} aria-busy={verifying}>
   <label htmlFor={inputId}>{t("providers.key_label", {provider: labels[id]})}</label>
   <div className="provider-key-row">
    <input id={inputId} name={`${id}-api-key`} type="password" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder={placeholders[id]} value={key} disabled={verifying} autoFocus={autoFocus} onChange={event => { setKey(event.target.value); setError(""); }} aria-invalid={Boolean(error)} aria-describedby={error ? `${inputId}-error` : undefined}/>
    {id !== "anthropic" && saveButton}
-   {id !== "anthropic" && onCancel && <button type="button" className="secondary-button" disabled={verifying} onClick={onCancel}>{t("action.cancel")}</button>}
+   {id !== "anthropic" && onCancel && <button type="button" className="st-button" disabled={verifying} onClick={onCancel}>{t("action.cancel")}</button>}
   </div>
   {id === "anthropic" && <>
    <label htmlFor={`${inputId}-workspace`}>{t("providers.workspace_label")}</label>
    <input id={`${inputId}-workspace`} name="anthropic-workspace-id" type="text" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder="wrkspc_…" value={workspace} required disabled={verifying} onChange={event => { setWorkspace(event.target.value); setError(""); }}/>
    <p className="field-note">{t("providers.workspace_note")}</p>
-   <div className="provider-key-row">{saveButton}{onCancel && <button type="button" className="secondary-button" disabled={verifying} onClick={onCancel}>{t("action.cancel")}</button>}</div>
+   <div className="provider-key-row">{saveButton}{onCancel && <button type="button" className="st-button" disabled={verifying} onClick={onCancel}>{t("action.cancel")}</button>}</div>
   </>}
   {error && <p id={`${inputId}-error`} className="error-text" role="alert">{error}</p>}
   <p className="field-note">{t("providers.key_note")}</p>

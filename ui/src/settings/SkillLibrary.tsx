@@ -25,8 +25,8 @@ export function EnableChoicePicker({ bots, busy, onChoose, onCancel }: { bots: B
   const [picked, setPicked] = useState<string[]>([]);
   if (!choosing) return <div className="extension-actions skill-enable" data-step="default">
     <button type="button" className="primary-button" disabled={busy} onClick={() => onChoose({ mode: "all" })}>{busy ? t("skills.installing") : t("skills.library.enable_all")}</button>
-    {bots.length > 0 && <button type="button" className="secondary-button" disabled={busy} onClick={() => setChoosing(true)}>{t("skills.library.choose_bots")}</button>}
-    {onCancel && <button type="button" className="secondary-button" disabled={busy} onClick={onCancel}>{t("action.cancel")}</button>}
+    {bots.length > 0 && <button type="button" className="st-button" disabled={busy} onClick={() => setChoosing(true)}>{t("skills.library.choose_bots")}</button>}
+    {onCancel && <button type="button" className="st-button" disabled={busy} onClick={onCancel}>{t("action.cancel")}</button>}
   </div>;
   return <div className="skill-enable" data-step="choose">
     <fieldset className="skill-enable-bots" disabled={busy}>
@@ -35,7 +35,7 @@ export function EnableChoicePicker({ bots, busy, onChoose, onCancel }: { bots: B
     </fieldset>
     <div className="extension-actions">
       <button type="button" className="primary-button" disabled={busy} onClick={() => onChoose({ mode: "bots", ids: picked })}>{picked.length ? t("skills.library.add_enable", { count: picked.length }) : t("skills.library.add_without")}</button>
-      <button type="button" className="secondary-button" disabled={busy} onClick={() => setChoosing(false)}>{t("skills.library.back")}</button>
+      <button type="button" className="st-button" disabled={busy} onClick={() => setChoosing(false)}>{t("skills.library.back")}</button>
     </div>
   </div>;
 }
@@ -149,8 +149,8 @@ export function SkillLibraryView(props: SkillLibraryViewProps) {
       <span className="skill-add-actions">
         <input aria-label={t("skills.folder_label")} hidden type="file" multiple ref={el => { folderInput.current = el; el?.setAttribute("webkitdirectory", ""); }}
           onChange={event => { const files = Array.from(event.target.files ?? []); event.target.value = ""; if (files.length) props.onPickFolder(files); }} />
-        <button type="button" className="secondary-button" disabled={props.busy} onClick={() => folderInput.current?.click()}><TofiIcon name="folder-open" size={16} />{t("skills.library.add_folder")}</button>
-        <button type="button" className="secondary-button" disabled={props.busy} aria-expanded={props.form} onClick={props.onToggleForm}><TofiIcon name="plus" size={16} />{t("skills.library.add_paste")}</button>
+        <button type="button" className="st-button" disabled={props.busy} onClick={() => folderInput.current?.click()}><TofiIcon name="folder-open" size={16} />{t("skills.library.add_folder")}</button>
+        <button type="button" className="st-button" disabled={props.busy} aria-expanded={props.form} onClick={props.onToggleForm}><TofiIcon name="plus" size={16} />{t("skills.library.add_paste")}</button>
       </span>
     </div>
     {props.pending !== null && <section className="extension-form skill-pending" aria-label={t("skills.library.pending_title", { name: props.pending })}>

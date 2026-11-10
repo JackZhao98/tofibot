@@ -53,9 +53,6 @@ html[data-desktop] .view-only-chat-body{overscroll-behavior:contain}
 .owner-switch{display:block;margin-top:28px;text-align:center;color:var(--muted);font-size:13px;text-decoration:none}
 .owner-switch:hover{color:var(--ink)}
 .owner-loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:30px;color:var(--muted);font-size:14px}
-.owner-account{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-bottom:24px;padding:0 0 24px;border-bottom:1px solid var(--line)}
-.owner-account>div{display:grid;gap:3px;flex:1;min-width:0}.owner-account strong{font-size:15px}.owner-account span{font-size:13px;color:var(--muted)}
-.owner-account .secondary-button{font-size:13px;font-weight:500;padding:8px 14px}
 @media(max-width:767px){.owner-gate{padding-inline:16px}.owner-card{width:min(420px,100%);padding:22px 20px 24px;border-radius:18px}.owner-card>.brand-logo{margin-bottom:26px}.owner-card h1{font-size:23px}.owner-subtitle{margin-bottom:22px}}
 .composer.is-dragging .composer-row{border-color:var(--text-soft);background:var(--surface-hover)}
 .attachment-native-actions{display:flex;align-items:center;gap:6px}

@@ -202,8 +202,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await t.page.locator("[data-setting='notify-device-reason'][data-reason='too_many_waiters']").waitFor();
     await t.page.evaluate(next => window.__setBridgeStatus(next), status("offline", {reason: "some_new_reason"}));
     await t.page.waitForFunction(() => !document.querySelector("[data-setting='notify-device-reason']"));
-    await t.page.locator("[data-setting='notify-device-content'] input").click();
-    await t.page.locator("[data-setting='notify-device-openAtLogin'] input").click();
+    await t.page.locator("[data-setting='notify-device-content'] [role=switch]").click();
+    await t.page.locator("[data-setting='notify-device-openAtLogin'] [role=switch]").click();
     assert.deepEqual((await t.page.evaluate(() => window.__bridgeCalls)).filter(call => call[0] === "update"), [["update", {content: false}], ["update", {openAtLogin: true}]]);
     assert.deepEqual(t.errors, []);
     await t.close();
@@ -215,14 +215,14 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   {
     const t = await open();
     assert.equal(await t.page.locator("[data-setting='notify-device']").count(), 0, "no device rows in a browser");
-    for (const key of ["tasks", "chats", "needs_you", "spend_alerts"]) assert.equal(await t.page.locator(`[data-setting='notify-${key}'] input`).isChecked(), true, `${key} defaults on`);
-    await t.page.locator("[data-setting='notify-needs_you'] input").click();
-    await t.page.waitForFunction(() => document.querySelector("[data-setting='notify-needs_you'] input")?.checked === false);
+    for (const key of ["tasks", "chats", "needs_you", "spend_alerts"]) assert.equal(await t.page.locator(`[data-setting='notify-${key}'] [role=switch]`).isChecked(), true, `${key} defaults on`);
+    await t.page.locator("[data-setting='notify-needs_you'] [role=switch]").click();
+    await t.page.waitForFunction(() => document.querySelector("[data-setting='notify-needs_you'] [role=switch]")?.getAttribute("aria-checked") === "false");
     assert.deepEqual(state.putBodies, [{notify_needs_you: false}]);
-    await t.page.locator("[data-setting='notify-spend_alerts'] input").click();
-    await t.page.waitForFunction(() => document.querySelector("[data-setting='notify-spend_alerts'] input")?.checked === false);
+    await t.page.locator("[data-setting='notify-spend_alerts'] [role=switch]").click();
+    await t.page.waitForFunction(() => document.querySelector("[data-setting='notify-spend_alerts'] [role=switch]")?.getAttribute("aria-checked") === "false");
     assert.deepEqual(state.putBodies, [{notify_needs_you: false}, {notify_spend_alerts: false}]);
-    assert.equal(await t.page.locator("[data-setting='notify-chats'] input").isChecked(), true, "the others stay");
+    assert.equal(await t.page.locator("[data-setting='notify-chats'] [role=switch]").isChecked(), true, "the others stay");
     await t.close();
     console.log("PASS four account switches default on and save on their own");
   }
@@ -240,7 +240,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
         assert.ok(!/settings:|chats\.|device_|notify_|reason_/.test(text), `${label}: raw key on the page: ${text.slice(0, 200)}`);
         for (const key of ["tasks", "chats", "needs_you", "spend_alerts"]) assert.equal(await t.page.locator(`[data-setting='notify-${key}']`).count(), 1, `${label}: ${key} row`);
         if (withBridge) {
-          assert.equal(await t.page.locator("[data-setting^='notify-device-']:not([data-setting='notify-device-status']) input").count(), 3, `${label}: device switches`);
+          assert.equal(await t.page.locator("[data-setting^='notify-device-']:not([data-setting='notify-device-status']) [role=switch]").count(), 3, `${label}: device switches`);
           assert.ok(!/\{\{/.test(text), `${label}: untranslated or uninterpolated text`);
         }
         const overflow = await t.page.evaluate(() => {

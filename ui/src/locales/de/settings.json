@@ -27,11 +27,6 @@
   },
   "shell": {
     "group": {
-      "you": "Du",
-      "bots": "Bots nutzen",
-      "workspace": "Workspace",
-      "system": "System",
-      "more": "Erweitert",
       "admin": "Verwaltung"
     },
     "page": {
@@ -132,7 +127,8 @@
     "tag": {
       "beta": "Beta",
       "dev": "In Entwicklung"
-    }
+    },
+    "more": "Mehr"
   },
   "appearance": {
     "title": "Design",
@@ -1039,8 +1035,6 @@
   "followups": {
     "load_failed": "Nachfassungen konnten nicht geladen werden. Versuche es erneut.",
     "save_failed": "Speichern fehlgeschlagen. Versuche es erneut.",
-    "banner_title": "Nur Vorschau. Es wird nichts gesendet.",
-    "banner_body": "Bots lesen deine eigenen Nachrichten und listen auf, woran sie dich erinnern würden. Es wird nichts in einen Chat gepostet. Bewerte die Einträge, um das Ergebnis zu verbessern.",
     "no_model_title": "Kein Modell verbunden",
     "no_model_body": "Das Scannen braucht ein verbundenes Modell. Verbinde eines unter „Modelle“.",
     "paused_title": "Für heute pausiert",
@@ -1680,5 +1674,10 @@
         "own_not_allowed": "Ihre Organisation verwaltet die Modelle für dieses Konto."
       }
     }
+  },
+  "saved": "Gespeichert",
+  "changed": {
+    "note": "Geändert · Standard {{value}}",
+    "reset": "Zurücksetzen"
   }
 }

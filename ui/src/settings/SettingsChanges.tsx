@@ -21,7 +21,7 @@ function ChangeRow({ change, busy, error, onRevert }: { change: SettingsChangeRo
   </>;
   return <SettingsRow label={label} description={description}
     control={reverted ? <span className="muted">{t("changes.reverted")}</span>
-      : change.revertable ? <button type="button" className="secondary-button" disabled={busy} onClick={() => onRevert(change.id)}>{busy ? t("changes.reverting") : t("changes.revert")}</button>
+      : change.revertable ? <button type="button" className="st-button" disabled={busy} onClick={() => onRevert(change.id)}>{busy ? t("changes.reverting") : t("changes.revert")}</button>
       : <span className="muted">{t("changes.not_revertable")}</span>} />;
 }
 

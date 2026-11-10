@@ -27,11 +27,6 @@
   },
   "shell": {
     "group": {
-      "you": "你",
-      "bots": "Bot 可用",
-      "workspace": "工作區",
-      "system": "系統",
-      "more": "進階",
       "admin": "管理"
     },
     "page": {
@@ -132,7 +127,8 @@
     "tag": {
       "beta": "測試版",
       "dev": "開發中"
-    }
+    },
+    "more": "更多"
   },
   "appearance": {
     "title": "主題",
@@ -1027,8 +1023,6 @@
   "followups": {
     "load_failed": "無法載入跟進事項，請重試。",
     "save_failed": "無法儲存，請重試。",
-    "banner_title": "僅預覽，不會傳送任何內容。",
-    "banner_body": "Bot 會讀取你自己發的訊息，列出它們將來會提醒你的事項。不會向任何聊天傳送內容。請逐條評價，幫助調整後續效果。",
     "no_model_title": "未連接模型",
     "no_model_body": "掃描需要已連接的模型。請在「模型」中連接一個。",
     "paused_title": "今天已暫停",
@@ -1667,5 +1661,10 @@
         "own_not_allowed": "此帳戶的模型由你的組織管理。"
       }
     }
+  },
+  "saved": "已儲存",
+  "changed": {
+    "note": "已改 · 預設 {{value}}",
+    "reset": "恢復預設"
   }
 }

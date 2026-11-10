@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ApiError, api } from "./api";
 import { useTranslation } from "./i18n";
 import { primaryBotOf } from "./PrimaryAssistant";
-import { SettingsCard, SettingsRow, SettingsSection } from "./settings/components";
+import { SavedNote, SettingsCard, SettingsRow, SettingsSection, useSavedFlash } from "./settings/components";
 import type { Bot } from "./types";
 import { Select } from "./Select";
 
@@ -13,12 +13,13 @@ export function PrimaryAssistantSetting({ bots, onChanged }: { bots: Bot[]; onCh
   const current = primaryBotOf(bots)?.id ?? "";
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [saved, flash] = useSavedFlash();
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   async function choose(id: string) {
     if (!id || id === current || busy) return;
     setBusy(true); setError("");
-    try { await api.setPrimaryAssistant(id); await onChanged?.(); }
+    try { await api.setPrimaryAssistant(id); await onChanged?.(); flash(); }
     catch (cause) { if (mounted.current) setError(cause instanceof ApiError && cause.code === "primary_invalid" ? t("primary.invalid") : t("primary.save_failed")); }
     finally { if (mounted.current) setBusy(false); }
   }
@@ -27,10 +28,10 @@ export function PrimaryAssistantSetting({ bots, onChanged }: { bots: Bot[]; onCh
       {active.length === 0
         ? <SettingsRow label={t("primary.label")} description={t("primary.none")} />
         : <SettingsRow labelFor="primary-assistant" label={t("primary.label")} description={t("primary.hint")}
-            control={<Select id="primary-assistant" value={current} disabled={busy} onValueChange={value => void choose(value)}>
+            control={<><SavedNote show={saved}/><Select id="primary-assistant" value={current} disabled={busy} onValueChange={value => void choose(value)}>
               {!current && <option value="">{t("primary.choose")}</option>}
               {active.map(bot => <option key={bot.id} value={bot.id}>{bot.name}</option>)}
-            </Select>} />}
+            </Select></>} />}
     </SettingsCard>
     {error && <p className="error-text" role="alert">{error}</p>}
   </SettingsSection>;

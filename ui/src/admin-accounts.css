@@ -1,13 +1,13 @@
 /* Admin console: capacity summary, account list, account detail, delete flow. Tokens only. */
 .admin-accounts{display:grid;gap:22px;align-content:start;min-width:0;max-width:860px}
 .admin-accounts .admin-intro{margin:0;color:var(--muted);font:13px/1.6 var(--body)}
-.admin-accounts .admin-error{margin:0;padding:10px 12px;border:1px solid color-mix(in srgb,var(--danger) 45%,var(--line-soft));border-radius:12px;background:color-mix(in srgb,var(--danger) 9%,var(--surface));color:var(--danger-text);font:13px/1.5 var(--body);overflow-wrap:anywhere}
+.admin-accounts .admin-error{margin:0;padding:10px 12px;border:0;border-radius:12px;background:color-mix(in srgb,var(--danger) 9%,var(--surface));color:var(--danger-text);font:13px/1.5 var(--body);overflow-wrap:anywhere}
 
 /* Capacity summary */
 .admin-capacity{padding:16px}
 .admin-capacity dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0}
 .admin-capacity dl>div{display:grid;gap:4px;min-width:0}
-.admin-capacity dt{color:var(--muted);font:600 12px/1.3 var(--mono);letter-spacing:.06em;text-transform:uppercase}
+.admin-capacity dt{color:var(--muted);font:12.5px/1.4 var(--body)}
 .admin-capacity dd{margin:0;color:var(--ink);font:600 22px/1.2 var(--display);overflow-wrap:anywhere}
 .admin-capacity dd small{color:var(--muted);font:600 12px/1 var(--mono)}
 .admin-capacity-low{display:flex;align-items:center;gap:8px;margin:12px 0 0;color:var(--honey-text);font:13px/1.5 var(--body)}
@@ -26,7 +26,7 @@
 .admin-row:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:-2px}
 .admin-row>svg{justify-self:end;color:var(--muted);transition:transform var(--m-quick) var(--ease-out),color var(--m-quick) var(--ease-out)}
 .admin-row:hover>svg{color:var(--ink-soft);transform:translateX(2px)}
-.admin-avatar{display:grid;place-items:center;flex:none;width:40px;height:40px;border:2px solid var(--line);border-radius:50%;background:var(--iris);color:var(--on-block);font:600 16px/1 var(--display)}
+.admin-avatar{display:grid;place-items:center;flex:none;width:40px;height:40px;border-radius:50%;background:var(--iris);color:var(--on-block);font:600 16px/1 var(--display)}
 .admin-avatar.is-large{width:56px;height:56px;font-size:22px}
 .admin-row-main{display:grid;gap:2px;min-width:0}
 .admin-row-main strong{display:flex;align-items:baseline;gap:8px;min-width:0;color:var(--ink);font:600 14px/1.4 var(--body)}
@@ -40,7 +40,7 @@
 .admin-row-usage{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:4px 14px;min-width:0}
 .admin-row-storage{color:var(--ink-soft);font:12.5px/1.4 var(--body);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .admin-row-storage.is-over{color:var(--danger-text);font-weight:600}
-.admin-role{display:inline-flex;align-items:center;padding:3px 9px;border:1px solid var(--line-soft);border-radius:999px;background:var(--surface-2);color:var(--ink-soft);font:600 12px/1.4 var(--mono);white-space:nowrap}
+.admin-role{display:inline-flex;align-items:center;padding:3px 9px;border:0;border-radius:999px;background:var(--surface-2);color:var(--ink-soft);font:600 12px/1.4 var(--mono);white-space:nowrap}
 
 /* Detail */
 .admin-detail{display:grid;gap:22px;align-content:start;min-width:0}
@@ -50,9 +50,10 @@
 .admin-detail-head h3{display:flex;align-items:baseline;gap:8px;margin:0;color:var(--ink);font:600 20px/1.3 var(--display);overflow-wrap:anywhere}
 .admin-detail-head p{margin:0;color:var(--muted);font:13px/1.5 var(--body);overflow-wrap:anywhere}
 .admin-value{color:var(--ink);font:600 13px/1.4 var(--body)}
-.admin-danger-rows>*+*{border-top:1px dashed color-mix(in srgb,var(--danger) 35%,var(--line-soft))}
+.admin-danger-rows>*+*{border-top:1px solid var(--line-soft)}
 .admin-danger-rows .settings-row-v2{padding-left:0;padding-right:0}
-.admin-danger-button{min-height:40px;padding:8px 14px;border:2px solid var(--line);border-radius:10px;background:var(--danger);color:var(--on-danger);font:600 13px/1 var(--body);}
+.admin-danger-button{min-height:32px;padding:0 12px;border:0;border-radius:9px;background:var(--surface);box-shadow:var(--st-lift);color:var(--danger-text);font:600 13px/1 var(--body);}
+.admin-sheet .admin-danger-button{min-height:40px;padding:0 16px;background:var(--danger);box-shadow:none;color:var(--on-danger)}
 .admin-danger-button:hover:not(:disabled){filter:brightness(1.06)}
 .admin-danger-button:disabled{opacity:.45;cursor:not-allowed}
 .admin-danger-button:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
@@ -104,9 +105,9 @@
   .admin-detail{animation:admin-push var(--m-base) var(--ease-settle)}
   .admin-detail-head{align-items:flex-start}
   .admin-export-actions>*{flex:1 1 auto}
-  .admin-danger-rows .settings-row-v2:not(.is-inline) .admin-danger-button,.admin-danger-rows .settings-row-v2:not(.is-inline) .secondary-button{width:100%;min-height:44px}
+  .admin-danger-rows .settings-row-v2:not(.is-inline) .admin-danger-button,.admin-danger-rows .settings-row-v2:not(.is-inline) .st-button{width:100%;min-height:44px}
   .admin-secret-line{flex-direction:column}
-  .admin-sheet .admin-danger-button,.admin-sheet .primary-button,.admin-sheet .secondary-button{min-height:44px}
+  .admin-sheet .admin-danger-button,.admin-sheet .primary-button,.admin-sheet .secondary-button,.admin-sheet .st-button{min-height:44px}
 }
 @keyframes admin-push{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){.admin-detail{animation:none}}
