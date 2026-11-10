@@ -135,7 +135,7 @@ export function AccountDetail({account, accounts, disk, storage, spend, capacity
     <SettingsSection title={t("admin.detail.signin.title")}>
       <SettingsCard>
         <SettingsRow label={t("admin.detail.signin.label")} description={deleting ? t("admin.detail.signin.deleting") : t("admin.detail.signin.help")}
-          control={<button type="button" className="secondary-button" disabled={busy || deleting} onClick={() => setReset("confirm")}>{t("admin.detail.signin.action")}</button>}/>
+          control={<button type="button" className="st-button" disabled={busy || deleting} onClick={() => setReset("confirm")}>{t("admin.detail.signin.action")}</button>}/>
       </SettingsCard>
     </SettingsSection>
 
@@ -143,7 +143,7 @@ export function AccountDetail({account, accounts, disk, storage, spend, capacity
       <div className="admin-danger-rows">
         {account.disabled
           ? <SettingsRow label={t("admin.detail.danger.reactivate_label")} description={deleting ? t("admin.detail.danger.reactivate_deleting") : t("admin.detail.danger.reactivate_help")}
-              control={<button type="button" className="secondary-button" disabled={busy || deleting} onClick={() => void run(async () => { await adminApi.patch(account.id, {disabled: false}); })}>{t("admin.detail.danger.reactivate_action")}</button>}/>
+              control={<button type="button" className="st-button" disabled={busy || deleting} onClick={() => void run(async () => { await adminApi.patch(account.id, {disabled: false}); })}>{t("admin.detail.danger.reactivate_action")}</button>}/>
           : <SettingsRow label={t("admin.detail.danger.deactivate_label")} description={deactivateWhy || t("admin.detail.danger.deactivate_help")}
               control={<button type="button" className="admin-danger-button" disabled={busy || Boolean(deactivateWhy)} onClick={() => void run(async () => { await adminApi.patch(account.id, {disabled: true}); })}>{t("admin.detail.danger.deactivate_action")}</button>}/>}
         <SettingsRow label={t("admin.detail.danger.delete_label")} description={deleteWhy || t("admin.detail.danger.delete_help")}
@@ -154,7 +154,7 @@ export function AccountDetail({account, accounts, disk, storage, spend, capacity
     {reset === "confirm" && <AdminSheet title={t("admin.detail.reset.confirm_title", {name: account.username})} onClose={() => setReset(null)} locked={busy}>
       <p className="admin-sheet-lead">{t("admin.detail.reset.confirm_body")}</p>
       <div className="sheet-actions">
-        <button type="button" className="secondary-button" disabled={busy} onClick={() => setReset(null)}>{t("action.cancel")}</button>
+        <button type="button" className="st-button" disabled={busy} onClick={() => setReset(null)}>{t("action.cancel")}</button>
         <button type="button" className="primary-button" disabled={busy} onClick={() => void resetPassword()}>{t("admin.detail.reset.confirm_action")}</button>
       </div>
     </AdminSheet>}

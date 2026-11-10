@@ -77,8 +77,8 @@ export function ComputerAttach({base, running, disabled, onAttached, children}: 
 
   const tone = stateKey === "attached_running" ? "on" : stateKey === "lost" || stateKey === "detaching" ? "warn" : "off";
   const action = stateKey === "none" ? null : on
-    ? <button type="button" className="secondary-button is-danger" disabled={disabled || busy} onClick={() => setConfirming(true)}>{t("attach.action.detach")}</button>
-    : <button type="button" className="secondary-button" disabled={disabled || busy} onClick={() => void attach()}>{t("attach.action.attach")}</button>;
+    ? <button type="button" className="st-button is-danger" disabled={disabled || busy} onClick={() => setConfirming(true)}>{t("attach.action.detach")}</button>
+    : <button type="button" className="st-button" disabled={disabled || busy} onClick={() => void attach()}>{t("attach.action.attach")}</button>;
   return <div className="settings-card computer-attach" data-testid="computer-attach">
     <SettingsRow inline label={<span className="computer-status" data-tone={tone} data-testid="computer-attach-state"><span className="computer-status-dot" aria-hidden="true"/>{t(`attach.state.${stateKey}` as "attach.state.none")}{on && <small className="computer-kind"> · {t("kind.vm")}</small>}</span>}
       description={t(`attach.help.${on ? "attached" : stateKey === "none" ? "none" : "detached"}` as "attach.help.none")} control={action}/>
@@ -90,7 +90,7 @@ export function ComputerAttach({base, running, disabled, onAttached, children}: 
       <h3 id="attach-detach-title">{t("attach.confirm.title")}</h3>
       <p id="attach-detach-impact">{t("attach.confirm.impact")}</p>
       <div className="resource-restart-actions">
-        <button type="button" className="secondary-button" onClick={() => setConfirming(false)}>{t("attach.confirm.cancel")}</button>
+        <button type="button" className="st-button" onClick={() => setConfirming(false)}>{t("attach.confirm.cancel")}</button>
         <button type="button" className="primary-button" onClick={() => void detach()}>{t("attach.confirm.action")}</button>
       </div>
     </div></ConfirmDialog>}

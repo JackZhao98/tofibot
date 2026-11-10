@@ -54,9 +54,9 @@ export function FollowupsSettings() {
   const stats = data.stats;
 
   return <div className="settings-stack followups-page">
-    <Banner tone="info" title={t("followups.banner_title")}>{t("followups.banner_body")}</Banner>
-    {!data.model_configured && <Banner tone="warn" title={t("followups.no_model_title")}>{t("followups.no_model_body")}</Banner>}
-    {data.budget_paused && <Banner tone="warn" title={t("followups.paused_title")}>{t("followups.paused_body", { limit: money(data.account.daily_budget_usd) })}</Banner>}
+    {/* One banner at most, and only for something to fix: the preview explanation is the Beta tag and the section copy. */}
+    {!data.model_configured ? <Banner tone="warn" title={t("followups.no_model_title")}>{t("followups.no_model_body")}</Banner>
+      : data.budget_paused ? <Banner tone="warn" title={t("followups.paused_title")}>{t("followups.paused_body", { limit: money(data.account.daily_budget_usd) })}</Banner> : null}
     {error && <p className="error-text" role="alert">{error}</p>}
 
     <SettingsSection id="bots" title={t("followups.bots_title")} description={t("followups.bots_description")}>
@@ -113,7 +113,7 @@ export function FollowupsSettings() {
       {loop.quote && <blockquote className="followup-quote">{loop.quote}</blockquote>}
       {loop.suggested_next && <p className="followup-next">{t("followups.next", { step: loop.suggested_next })}</p>}
       {isLive(loop) && <div className="followup-actions" role="group" aria-label={t("followups.review_label", { topic: loop.topic })}>
-        {(["useful", "annoying", "handled"] as FollowupVerdict[]).map(verdict => <button key={verdict} type="button" className="secondary-button" aria-pressed={loop.verdict === verdict} disabled={Boolean(busy)} onClick={() => void act(`loop-${loop.id}`, () => api.followupFeedback(loop.id, verdict))}>{t(verdictKeys[verdict])}</button>)}
+        {(["useful", "annoying", "handled"] as FollowupVerdict[]).map(verdict => <button key={verdict} type="button" className="st-button" aria-pressed={loop.verdict === verdict} disabled={Boolean(busy)} onClick={() => void act(`loop-${loop.id}`, () => api.followupFeedback(loop.id, verdict))}>{t(verdictKeys[verdict])}</button>)}
       </div>}
     </article>)}</SettingsCard>;
   }

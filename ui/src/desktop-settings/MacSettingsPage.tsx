@@ -3,7 +3,7 @@ import { Suspense, lazy, useEffect, useRef, useState, type FormEvent } from "rea
 import type { DesktopDeviceStatus, DesktopSandboxSelection } from "../desktop";
 import { TofiIcon } from "../icons";
 import { useTranslation } from "../i18n";
-import { Banner, SettingsCard, SettingsRow, SettingsSection } from "../settings/components";
+import { Banner, SettingsCard, SettingsRow, SettingsSection, SettingsSwitch } from "../settings/components";
 import { RemoteControlBlock } from "../RemoteControl";
 import { useRemoteControl } from "../useRemoteControl";
 
@@ -20,7 +20,8 @@ type Confirm = { kind: "revoke" } | null;
 type Draft = { workspaceRoot: string; files: boolean };
 
 function Switch({ checked, label, disabled, onChange }: { checked: boolean; label: string; disabled: boolean; onChange: (value: boolean) => void }) {
-  return <label className="debug-toggle auto-switch"><input type="checkbox" role="switch" aria-label={label} checked={checked} disabled={disabled} onChange={event => onChange(event.target.checked)} /></label>;
+  // A draft inside a form with its own Save: no inline "Saved".
+  return <SettingsSwitch label={label} checked={checked} disabled={disabled} showSaved={false} onChange={onChange} />;
 }
 
 export function MacSettingsPage() {
@@ -177,7 +178,7 @@ export function MacSettingsPage() {
     <main className="settings-page-body"><div className="mac-settings-inner">
       <header className="mac-settings-head">
         <h1>{t("mac.title")}<span className="mac-dev-tag">{t("mac.inDevelopment")}</span></h1>
-        <a className="secondary-button mac-settings-back" href="/"><TofiIcon name="arrow-left" size={16} aria-hidden="true" />{t("mac.back")}</a>
+        <a className="st-button mac-settings-back" href="/"><TofiIcon name="arrow-left" size={16} aria-hidden="true" />{t("mac.back")}</a>
       </header>
 
       {!has("getSettings") && <Banner tone="warn" title={t("mac.unavailable")} />}
@@ -191,7 +192,7 @@ export function MacSettingsPage() {
         <SettingsSection title={t("mac.caps.title")} description={t("mac.caps.description")}>
           <SettingsCard>
             <SettingsRow label={t("mac.device.folder")} description={<>{t("mac.device.folderHint")}<code dir="auto">{draft.workspaceRoot}</code></>} control={
-              <button type="button" className="secondary-button" disabled={locked || running || !has("chooseWorkspace")} onClick={() => void operation("workspace", async () => {
+              <button type="button" className="st-button" disabled={locked || running || !has("chooseWorkspace")} onClick={() => void operation("workspace", async () => {
                 const value = await api?.chooseWorkspace?.();
                 if (mounted.current && value) setDraft(current => ({ ...current, workspaceRoot: value }));
               })}><TofiIcon name="folder-open" size={16} aria-hidden="true" />{pending === "workspace" ? t("mac.device.choosing") : t("mac.device.choose")}</button>} />
@@ -205,14 +206,14 @@ export function MacSettingsPage() {
         <SettingsCard>
           <SettingsRow label={t("mac.local.root")} description={<><span role="status">{summary}</span><code dir="auto">{!known ? t("mac.local.summary.unknown") : bound ? sandbox?.root : t("mac.local.noRoot")}</code></>} />
           <SettingsRow label={t("mac.local.selected")} description={<><code dir="auto">{selection?.root || t("mac.local.none")}</code>{t("mac.local.server")}: <code dir="auto">{selection?.serverLabel || t("mac.local.serverNone")}</code></>} control={<>
-            <button type="button" className="secondary-button" disabled={locked || running || !available || !has("chooseSandboxRoot")} onClick={() => void chooseFolder()}>{pending === "choose" ? t("mac.local.choosing") : t("mac.local.choose")}</button>
-            <button type="button" className="secondary-button" disabled={locked || running || !available || !selection || !has("authorizeSandboxRoot")} aria-describedby="mac-local-boundary" onClick={() => void authorize()}>{pending === "authorize" ? t("mac.local.authorizing") : t("mac.local.authorize")}</button>
-            <button type="button" className="secondary-button" disabled={locked || !has("sandboxRevoke") || !(sandbox?.enabled || sandbox?.bound || running || selection)} onClick={() => setConfirm({ kind: "revoke" })}>{pending === "revoke" ? t("mac.local.revoking") : t("mac.local.revoke")}</button>
+            <button type="button" className="st-button" disabled={locked || running || !available || !has("chooseSandboxRoot")} onClick={() => void chooseFolder()}>{pending === "choose" ? t("mac.local.choosing") : t("mac.local.choose")}</button>
+            <button type="button" className="st-button" disabled={locked || running || !available || !selection || !has("authorizeSandboxRoot")} aria-describedby="mac-local-boundary" onClick={() => void authorize()}>{pending === "authorize" ? t("mac.local.authorizing") : t("mac.local.authorize")}</button>
+            <button type="button" className="st-button" disabled={locked || !has("sandboxRevoke") || !(sandbox?.enabled || sandbox?.bound || running || selection)} onClick={() => setConfirm({ kind: "revoke" })}>{pending === "revoke" ? t("mac.local.revoking") : t("mac.local.revoke")}</button>
           </>} />
           <p className="settings-card-note" role="status">{noteText}</p>
           <p className="settings-card-note" id="mac-local-boundary">{t("mac.local.boundary")}</p>
           <p className="settings-card-note">{t("mac.local.persist")}</p>
-          <SettingsRow label={t("mac.local.run")} control={<a className="secondary-button" href="/__desktop/local-run"><TofiIcon name="terminal" size={16} aria-hidden="true" />{t("mac.local.run")}</a>} />
+          <SettingsRow label={t("mac.local.run")} control={<a className="st-button" href="/__desktop/local-run"><TofiIcon name="terminal" size={16} aria-hidden="true" />{t("mac.local.run")}</a>} />
         </SettingsCard>
       </SettingsSection>
     </div></main>

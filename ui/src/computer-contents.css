@@ -8,7 +8,7 @@
 .computer-loss-note>svg{flex:none;animation:computer-loss-spin 1s linear infinite}
 
 /* The wipe list rises in over --m-base; rows follow one after another (30 ms apart). */
-.computer-loss{margin:14px 0 4px;padding:12px 14px;border:1px solid var(--line-soft);border-radius:var(--radius-md);background:var(--sunk);animation:computer-loss-in var(--m-base) var(--ease-out) both}
+.computer-loss{margin:14px 0 4px;padding:12px 14px;border:0;border-radius:var(--radius-md);background:var(--sunk);animation:computer-loss-in var(--m-base) var(--ease-out) both}
 .computer-loss-title{display:block;margin:0 0 6px;color:var(--ink);font:600 13px/1.4 var(--body)}
 .computer-loss ul{margin:0;padding:0 0 0 18px;display:grid;gap:4px;color:var(--ink);font:var(--type-meta)}
 .computer-loss li{overflow-wrap:anywhere;animation:computer-loss-row var(--m-base) var(--ease-out) both}

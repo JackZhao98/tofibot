@@ -71,9 +71,9 @@ export function SettingsPages(props:SettingsPagesProps){
   case "automation": return <AutomationSettings onOpenPermissions={()=>props.openTab("permissions")}/>;
   case "computer": return <SectionAnchor id="resources"><EnvironmentsPage openTab={props.openTab}/></SectionAnchor>;
   case "keys": return <SectionAnchor id="keys"><KeysPage bots={activeBots}/></SectionAnchor>;
-  case "usage": return <div className="settings-stack"><SectionAnchor id="health"><RunHealthCard/></SectionAnchor><SectionAnchor id="spend"><SpendCap/></SectionAnchor><SectionAnchor id="usage"><UsagePanel preferredBotId={props.usageBotId} timezone={props.timezone}/></SectionAnchor></div>;
+  case "usage": return <div className="settings-stack"><SectionAnchor id="health"><RunHealthCard/></SectionAnchor><SectionAnchor id="spend"><SpendCap/></SectionAnchor><SectionAnchor id="usage" wide><UsagePanel preferredBotId={props.usageBotId} timezone={props.timezone}/></SectionAnchor></div>;
   case "advanced": return <AdvancedPage {...props} bots={bots} activeBots={activeBots}/>;
-  case "admin": return <Suspense fallback={null}><SectionAnchor id="accounts"><AdminAccounts/></SectionAnchor></Suspense>;
+  case "admin": return <Suspense fallback={null}><SectionAnchor id="accounts" wide><AdminAccounts/></SectionAnchor></Suspense>;
   case "admin-groups": return <Suspense fallback={null}><AdminGroups openTab={props.openTab}/></Suspense>;
   case "admin-resources": return <Suspense fallback={null}><AdminResources openTab={props.openTab}/></Suspense>;
   default: return unreachable(page);

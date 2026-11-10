@@ -4,7 +4,7 @@ import {BotAvatar} from "./BotAvatar";
 import {useSettingsActive} from "./settingsActivity";
 import {useTranslation} from "./i18n";
 import {approvalChoiceFor, reviewModeFor, type ApprovalChoice, type ReviewMode} from "./approvalMode";
-import {SettingsCard, SettingsRow, SettingsSection, Segmented} from "./settings/components";
+import {SavedNote, SettingsCard, SettingsRow, SettingsSection, Segmented, useSavedFlash} from "./settings/components";
 import {groupModels, modelName} from "./modelCatalog";
 import {useModelCatalog} from "./useModelCatalog";
 import type {Bot} from "./types";
@@ -25,6 +25,8 @@ export function ApprovalModeSetting() {
   const [account, setAccount] = useState<ReviewMode | null>(null);
   const [unlocked, setUnlocked] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [savedTop, flashTop] = useSavedFlash();
+  const [savedBots, flashBots] = useSavedFlash();
   const [error, setError] = useState("");
   const [version, setVersion] = useState(0);
   const writing = useRef(false);
@@ -44,10 +46,10 @@ export function ApprovalModeSetting() {
   const locked = top !== "bot";
 
   const patch = (id: string, mode: ApprovalChoice) => request<Bot>(`/api/bots/${encodeURIComponent(id)}`, {method: "PATCH", body: JSON.stringify({approval_mode: mode})});
-  async function run(work: () => Promise<void>) {
+  async function run(work: () => Promise<void>, flash: () => void) {
     if (writing.current) return;
     writing.current = true; setBusy(true); setError("");
-    try { await work(); }
+    try { await work(); flash(); }
     catch (cause) { setError(cause instanceof Error ? cause.message : t("action.save_failed")); setVersion(current => current + 1); }
     finally { writing.current = false; setBusy(false); }
   }
@@ -62,24 +64,24 @@ export function ApprovalModeSetting() {
       setAccount(target);
       setBots(current => current && current.map(bot => ({...bot, approval_mode: next})));
       setUnlocked(false);
-    });
+    }, flashTop);
   };
   const chooseBot = (bot: Bot, next: ApprovalChoice) => {
     if (busy || locked || modeOf(bot) === next) return;
     void run(async () => {
       const saved = await patch(bot.id, next);
       setBots(current => current && current.map(item => item.id === bot.id ? {...item, approval_mode: saved.approval_mode ?? next} : item));
-    });
+    }, flashBots);
   };
   const options = (["auto", "ask"] as const).map(value => ({value, label: t(`approval.${value}`)}));
   const topOptions: {value: Top; label: string}[] = [...options, {value: "bot", label: t("approval.bot")}];
 
   return <div className="settings-stack">
     <SettingsCard>
-      <SettingsRow label={t("approval.label")} control={bots === null ? <span className="muted">{t("action.loading_settings")}</span> : <Segmented label={t("approval.label")} value={top} disabled={busy} options={topOptions} onChange={chooseTop}/>}/>
+      <SettingsRow label={t("approval.label")} control={bots === null ? <span className="muted">{t("action.loading_settings")}</span> : <><SavedNote show={savedTop}/><Segmented label={t("approval.label")} value={top} disabled={busy} options={topOptions} onChange={chooseTop}/></>}/>
     </SettingsCard>
     {error && <p className="error-text" role="alert">{error}{bots === null && <button type="button" className="text-button" onClick={() => setVersion(current => current + 1)}>{t("action.retry")}</button>}</p>}
-    {bots !== null && <SettingsSection title={t("approval.bots_title")} description={locked ? t("approval.bots_locked") : t("approval.bots_description")}>
+    {bots !== null && <SettingsSection title={t("approval.bots_title")} hint={<SavedNote show={savedBots}/>} description={locked ? t("approval.bots_locked") : t("approval.bots_description")}>
       <SettingsCard className="approval-bots">
         {list.length === 0 ? <p className="settings-card-note">{t("approval.no_bots")}</p> : list.map(bot => <div className="approval-bot-row" key={bot.id} data-bot-id={bot.id}>
           <span className="approval-bot-who"><BotAvatar id={bot.id} mini still/><strong>{bot.name}</strong></span>

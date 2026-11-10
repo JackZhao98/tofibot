@@ -2,6 +2,7 @@ import {useEffect,useMemo,useRef,useState} from "react";
 import {browserTimezone,timezoneChoices,validTimezone} from "./timezone";
 import "./timezone-settings.css";
 import {useSettingsDraft} from "./settingsDraft";
+import {SettingsRow,SettingsSwitch} from "./settings/components";
 import {useTranslation} from "./i18n";
 import {Select} from "./Select";
 import {useUserTimezone} from "./UserTimezone";
@@ -9,16 +10,16 @@ import {useUserTimezone} from "./UserTimezone";
 export function ShowActivitySetting(){
  const {t}=useTranslation("settings");
  const preference=useUserTimezone();const [error,setError]=useState(false);const [busy,setBusy]=useState(false);
- async function change(show:boolean){setBusy(true);setError(false);const ok=await preference.saveShowActivity(show);if(!ok)setError(true);setBusy(false)}
+ async function change(show:boolean){setBusy(true);setError(false);const ok=await preference.saveShowActivity(show);if(!ok)setError(true);setBusy(false);return ok}
  return <>
-  <label className="debug-toggle"><span>{t("general.activity_title")}</span><input type="checkbox" role="switch" checked={preference.showActivity} disabled={busy||!preference.ready} onChange={event=>void change(event.target.checked)}/></label>
+  <SettingsRow inline label={t("general.activity_title")} control={<SettingsSwitch label={t("general.activity_title")} checked={preference.showActivity} disabled={busy||!preference.ready} busy={busy} onChange={change}/>}/>
   {error&&<p className="timezone-error" role="alert">{t("general.activity_save_failed")}</p>}
  </>;
 }
-export function TimezoneSelect({value,onChange,disabled,label}:{value:string;onChange:(value:string)=>void;disabled?:boolean;label?:string}){
+export function TimezoneSelect({value,onChange,disabled,label,hideLabel=false}:{value:string;onChange:(value:string)=>void;disabled?:boolean;label?:string;/** The label stays the accessible name; the row already shows the text. */hideLabel?:boolean}){
  const {t}=useTranslation("settings");
  const zones=useMemo(()=>timezoneChoices(value),[value]);
- return <label className="timezone-select">{label??t("timezone.label")}<Select value={value} disabled={disabled} onValueChange={value =>onChange(value)}>{zones.map(zone=><option key={zone} value={zone}>{zone.replaceAll("_"," ")}</option>)}</Select></label>;
+ return <label className="timezone-select"><span className={hideLabel?"sr-only":undefined}>{label??t("timezone.label")}</span><Select value={value} disabled={disabled} onValueChange={value =>onChange(value)}>{zones.map(zone=><option key={zone} value={zone}>{zone.replaceAll("_"," ")}</option>)}</Select></label>;
 }
 export function TimezoneSetting(){
  const {t}=useTranslation(["settings","common"]);
@@ -28,7 +29,7 @@ export function TimezoneSetting(){
  useSettingsDraft({label:t("timezone.label"),dirty:preference.ready&&draft!==preference.timezone,busy:preference.busy,save,discard:()=>{dirty.current=false;setDraft(preference.timezone);setSaved(false)}});
  return <section className="timezone-setting"><div><h3>{t("timezone.label")}</h3><p className="field-note">{t("timezone.note")}</p></div>
   <form onSubmit={event=>{event.preventDefault();void save()}}>
-   <TimezoneSelect label={t("timezone.current")} value={draft} disabled={preference.busy} onChange={zone=>{dirty.current=true;setDraft(zone);setSaved(false)}}/>
+   <TimezoneSelect hideLabel label={t("timezone.current")} value={draft} disabled={preference.busy} onChange={zone=>{dirty.current=true;setDraft(zone);setSaved(false)}}/>
    {!preference.ready&&<p className="field-note">{t("timezone.loading")}</p>}
   </form>
   {saved&&<p className="settings-feedback" role="status">{t("timezone.saved")}</p>}

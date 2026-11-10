@@ -18,7 +18,7 @@ export function ComputerOptions({onAddE2B}: {onAddE2B?: () => void} = {}) {
       <SettingsCard>
         <SettingsRow label={t("none.kvm.name")} description={<>{t("none.kvm.what")}<span className="computer-command-label">{t("none.kvm.run")}</span><code className="computer-command" data-computer-command="">{computerHostCommand}</code><span className="computer-command-note">{t("none.kvm.after")}</span></>}/>
         <SettingsRow label={t("none.own.name")} description={t("none.own.what")}/>
-        <SettingsRow label={t("none.e2b.name")} description={t("none.e2b.what")} control={onAddE2B ? <button type="button" className="secondary-button" data-add="e2b" aria-label={t("none.e2b.add")} onClick={onAddE2B}>{t("none.add")}</button> : <span className="computer-soon"><TofiIcon name="clock" size={14} aria-hidden="true"/>{t("none.soon")}</span>}/>
+        <SettingsRow label={t("none.e2b.name")} description={t("none.e2b.what")} control={onAddE2B ? <button type="button" className="st-button" data-add="e2b" aria-label={t("none.e2b.add")} onClick={onAddE2B}>{t("none.add")}</button> : <span className="computer-soon"><TofiIcon name="clock" size={14} aria-hidden="true"/>{t("none.soon")}</span>}/>
       </SettingsCard>
     </SettingsSection>
   </div>;

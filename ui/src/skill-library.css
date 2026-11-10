@@ -1,7 +1,7 @@
 /* Settings › Skills (library) and a Bot's Skills section (decision 0058) */
 .skill-library .skill-add-actions{display:flex;flex-wrap:wrap;gap:8px}
 .skill-library .extension-toolbar{flex-wrap:wrap}
-.extension-card .skill-tag{margin-left:8px;padding:2px 8px;border:1px solid var(--line);border-radius:999px;font:600 12px/1.5 var(--body);color:var(--text-soft);vertical-align:middle}
+.extension-card .skill-tag{margin-left:8px;padding:2px 8px;border:0;background:var(--surface-2);border-radius:999px;font:600 12px/1.5 var(--body);color:var(--text-soft);vertical-align:middle}
 .extension-card .skill-tag[data-tone=updated]{border-color:var(--lagoon-line,var(--line-strong));color:var(--ink)}
 .extension-card .skill-meta{margin:6px 0 0;color:var(--muted);font:var(--type-meta)}
 .skill-library .skill-group-title{margin:22px 0 6px;color:var(--muted);font:var(--type-meta);text-transform:none}

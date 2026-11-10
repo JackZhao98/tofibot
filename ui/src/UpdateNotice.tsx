@@ -7,7 +7,7 @@ import { formatDateTime } from "./i18n/format";
 import { TofiIcon } from "./icons";
 import { useOwnerSession } from "./OwnerSession";
 import { useUserTimezone } from "./UserTimezone";
-import { SettingsCard, SettingsRow, StatusBadge } from "./settings/components";
+import { SettingsCard, SettingsRow, SettingsSwitch, StatusBadge } from "./settings/components";
 
 const UpdateDialog = lazy(() => import("./UpdateDialog").then(module => ({ default: module.UpdateDialog })));
 
@@ -151,7 +151,7 @@ export function UpdateProgress({ view, onReload, onDismiss }: { view: Exclude<Up
   if (view.kind === "done") {
     return <span className="update-progress" role="status" data-update-state="done">
       <TofiIcon name="check-circle" size={16} aria-hidden="true" /><span>{t("update.progress.done", { version: view.version })}</span>
-      <button type="button" className="secondary-button update-btn" onClick={onReload}>{t("update.progress.reload")}</button>
+      <button type="button" className="st-button update-btn" onClick={onReload}>{t("update.progress.reload")}</button>
     </span>;
   }
   if (view.kind === "failed") {
@@ -166,7 +166,7 @@ export function UpdateProgress({ view, onReload, onDismiss }: { view: Exclude<Up
           {view.code && <code>{t("update.failed.code", { code: view.code })}</code>}
         </span>
       </span>
-      <button type="button" className="secondary-button update-btn" onClick={onDismiss}>{t("update.failed.dismiss")}</button>
+      <button type="button" className="st-button update-btn" onClick={onDismiss}>{t("update.failed.dismiss")}</button>
     </span>;
   }
   const label = view.restarting ? t("update.progress.restarting")
@@ -199,7 +199,7 @@ function useUpdateOffers(flow: UpdateFlow) {
 
 function OfferButton({ offer, onOpen }: { offer: Offer; onOpen: (offer: Offer) => void }) {
   const { t } = useTranslation("settings");
-  return <button type="button" className="secondary-button update-btn" data-update-action={offer.channel} onClick={() => onOpen(offer)}>
+  return <button type="button" className="st-button update-btn" data-update-action={offer.channel} onClick={() => onOpen(offer)}>
     {offer.channel === "rc" ? t("update.action.try_rc", { version: offer.version }) : t("update.action.update", { version: offer.version })}
   </button>;
 }
@@ -258,8 +258,8 @@ export function VersionCard() {
   const fromPage = Boolean(info?.host_update);
   async function setRc(next: boolean) {
     setRcBusy(true); setRcError("");
-    try { flow.setInfo(await request<SystemUpdate>("/api/system/update/settings", { method: "PUT", body: JSON.stringify({ channel_rc: next }) })); }
-    catch (cause) { setRcError(cause instanceof ApiError ? cause.message : t("update.rc.save_failed")); }
+    try { flow.setInfo(await request<SystemUpdate>("/api/system/update/settings", { method: "PUT", body: JSON.stringify({ channel_rc: next }) })); return true; }
+    catch (cause) { setRcError(cause instanceof ApiError ? cause.message : t("update.rc.save_failed")); return false; }
     finally { setRcBusy(false); }
   }
   /** "Check for updates": the server reads the release manifest now; the card shows what it found, or why it could not. */
@@ -283,9 +283,9 @@ export function VersionCard() {
         ? <UpdateProgress view={view} onReload={() => window.location.reload()} onDismiss={flow.dismissView} />
         : <span className="version-value">{offers.stable && <OfferButton offer={offers.stable} onOpen={offers.open} />}{offers.rc && <OfferButton offer={offers.rc} onOpen={offers.open} />}</span>} />}
     {fromPage && <SettingsRow label={t("update.rc.label")} labelFor="update-rc" description={rcError || t("update.rc.hint")}
-      control={<label className="debug-toggle auto-switch"><input id="update-rc" type="checkbox" role="switch" aria-label={t("update.rc.label")} checked={info?.channel_rc_enabled === true} disabled={rcBusy} onChange={event => void setRc(event.target.checked)} /></label>} />}
+      control={<SettingsSwitch id="update-rc" label={t("update.rc.label")} checked={info?.channel_rc_enabled === true} disabled={rcBusy} busy={rcBusy} onChange={setRc} />} />}
     <SettingsRow label={t("update.card.checked")} description={checkNote ? <span className={checkNote.tone === "error" ? "error-text" : undefined} role={checkNote.tone === "error" ? "alert" : "status"}>{checkNote.text}</span> : undefined}
-      control={<span className="version-value">{info?.checked_at ? formatDateTime(info.checked_at, { dateStyle: "medium", timeStyle: "short", ...(timezone ? { timeZone: timezone } : {}) }) : <span className="version-muted">{t("update.card.never")}</span>}<button type="button" className="secondary-button" disabled={checking} aria-busy={checking} onClick={() => void checkNow()}>{checking ? t("update.card.checking") : t("update.card.check")}</button></span>} />
+      control={<span className="version-value">{info?.checked_at ? formatDateTime(info.checked_at, { dateStyle: "medium", timeStyle: "short", ...(timezone ? { timeZone: timezone } : {}) }) : <span className="version-muted">{t("update.card.never")}</span>}<button type="button" className="st-button" disabled={checking} aria-busy={checking} onClick={() => void checkNow()}>{checking ? t("update.card.checking") : t("update.card.check")}</button></span>} />
     <SettingsRow label={t("update.card.auto")} description={<Trans t={t} i18nKey="update.card.auto_hint" components={{ on: <code />, off: <code /> }} />}
       control={<span className="version-value" data-auto-update={info?.auto_update ?? "off"}>{info?.auto_update === "patch" ? t("update.card.auto_on") : t("update.card.auto_off")}</span>} />
     {offers.dialog}

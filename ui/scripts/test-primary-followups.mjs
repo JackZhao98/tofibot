@@ -230,7 +230,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   {
     reset();
     const t = await open({scene: "followups"});
-    await t.page.getByText("Preview only. Nothing is sent.").waitFor({timeout: 15000});
+    // The "Preview only. Nothing is sent." banner is gone (explanatory, not an error or a required action); the page is ready when its sections are.
+    await t.page.getByText("Would remind you").first().waitFor({timeout: 15000});
+    assert.equal(await t.page.locator(".followups-page .settings-banner").count(), 0, "no explanatory banner on a healthy Follow-ups page");
     const body = (await t.page.locator(".followups-page").innerText()).replace(/\s+/g, " ");
     assert.match(body, /Would remind you/);
     assert.match(body, /Weekly digest/);
@@ -268,20 +270,30 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
 
   // ---- 6. Warnings: no model, budget paused.
   {
+    // At most one banner per page: with both problems the missing model comes first; once it is connected, the pause shows.
     reset();
     state.modelConfigured = false; state.budgetPaused = true;
     const t = await open({scene: "followups"});
     await t.page.getByText("No model connected").waitFor({timeout: 15000});
-    await t.page.getByText("Paused for today").waitFor();
+    assert.equal(await t.page.locator(".followups-page .settings-banner").count(), 1, "one banner at most");
+    assert.equal(await t.page.getByText("Paused for today").count(), 0, "the pause waits behind the missing model");
     await t.close();
-    console.log("PASS follow-ups preview: no-model and budget-pause banners");
+    reset();
+    state.budgetPaused = true;
+    const paused = await open({scene: "followups"});
+    await paused.page.getByText("Paused for today").waitFor({timeout: 15000});
+    assert.equal(await paused.page.getByText("No model connected").count(), 0);
+    await paused.close();
+    console.log("PASS follow-ups preview: no-model and budget-pause banners, one at a time");
   }
 
   // ---- 7. Seven locales: the new surfaces are translated and fit at 390px.
   for (const [lang, locale, title, primary] of [["zh-CN", "zh-CN", "仅预览，不会发送任何内容。", "主助理"], ["zh-TW", "zh-TW", "僅預覽，不會傳送任何內容。", "主要助理"], ["ja", "ja-JP", "プレビューのみです。何も送信されません。", "メインアシスタント"], ["ko", "ko-KR", "미리보기 전용입니다. 아무것도 전송되지 않습니다.", "기본 어시스턴트"], ["de", "de-DE", "Nur Vorschau. Es wird nichts gesendet.", "Hauptassistent"], ["fr", "fr-FR", "Aperçu uniquement. Rien n’est envoyé.", "Assistant principal"]]) {
     reset();
     let t = await open({scene: "followups", lang}, {width: 390, height: 844, locale});
-    await t.page.getByText(title).waitFor({timeout: 15000});
+    // The preview banner is gone; the page is ready when its first section is, and it holds no raw catalog key.
+    await t.page.locator(".followups-page .settings-sec").first().waitFor({timeout: 15000});
+    assert.ok(!/followups\./.test(await t.page.locator(".followups-page").innerText()), `${lang}: a raw catalog key on the Follow-ups page`);
     const overflow = await t.page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     assert.ok(overflow <= 1, `${lang}: followups page overflows by ${overflow}px`);
     await t.close();

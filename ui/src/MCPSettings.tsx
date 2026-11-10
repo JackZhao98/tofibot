@@ -126,7 +126,7 @@ export function MCPSettings({ refreshToken = 0, bots = [] }: { refreshToken?: nu
   const close = () => { setNav("back"); setSelected(null); };
   return <div className="extension-panel mcp-settings" data-view={selected ? "detail" : "list"} data-nav={nav || undefined}>
     <div className="mcp-list-pane" hidden={selected !== null} inert={selected !== null || undefined}>
-      <div className="mcp-toolbar"><h3>{t("connections.title")} <span>{total || ""}</span></h3><button ref={addButton} className="mcp-button" onClick={() => openDialog({ view: "directory" })}><TofiIcon name="plus" size={16} />{t("connections.add")}</button></div>
+      <div className="mcp-toolbar"><h3>{t("connections.title")} <span>{total || ""}</span></h3><button ref={addButton} className="primary-button" onClick={() => openDialog({ view: "directory" })}><TofiIcon name="plus" size={16} />{t("connections.add")}</button></div>
       {listError && <div className="mcp-list-error" role="alert"><span>{listError}</span><button className="mcp-button" onClick={() => void refresh()}>{t("common:action.retry")}</button></div>}
       {!loaded && <p className="mcp-placeholder">{t("mcp.loading")}</p>}
       {empty && <ConnectionsEmpty onStart={startTile} onBrowse={() => openDialog({ view: "directory" })} />}

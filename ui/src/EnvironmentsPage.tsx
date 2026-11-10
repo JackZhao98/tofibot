@@ -49,7 +49,7 @@ function RowMenu({item, name, items, onAction, disabled}: {item: Environment; na
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   return <>
-    <button ref={trigger} type="button" className="secondary-button env-more" disabled={disabled} aria-haspopup="menu" aria-expanded={open} aria-label={t("environments.more", {name})} data-hint={t("environments.more", {name})}
+    <button ref={trigger} type="button" className="st-button env-more" disabled={disabled} aria-haspopup="menu" aria-expanded={open} aria-label={t("environments.more", {name})} data-hint={t("environments.more", {name})}
       onClick={() => setOpen(value => !value)} onKeyDown={arrowOpens(setOpen)}><TofiIcon name="more" size={16} aria-hidden="true"/></button>
     {open && <OverlayMenu open onOpenChange={setOpen} className="mcp-menu env-menu" label={t("environments.more", {name})} trigger={trigger as RefObject<HTMLElement | null>} anchor={trigger as RefObject<HTMLElement | null>} align="end" sideOffset={6}>
       {items.map(action => <button key={action} type="button" className="mcp-menu-danger" data-action={action} onClick={() => { setOpen(false); onAction(action, item); }}>{t(`environments.action.${action}`)}</button>)}
@@ -78,7 +78,7 @@ export function EnvironmentRow({item, e2bError, handlers, provided = false, temp
   </>;
   const control = <div className="env-controls">
     <StatusBadge state={badgeFor[item.state]}>{words.state(item.state)}</StatusBadge>
-    {buttons.map(action => <button key={action} type="button" className="secondary-button" data-action={action} disabled={working} onClick={() => handlers.onAction(action, item)}>{t(action === "configure" && provided ? "environments.action.details" : `environments.action.${action}`)}</button>)}
+    {buttons.map(action => <button key={action} type="button" className="st-button" data-action={action} disabled={working} onClick={() => handlers.onAction(action, item)}>{t(action === "configure" && provided ? "environments.action.details" : `environments.action.${action}`)}</button>)}
     {menu.length > 0 && <RowMenu item={item} name={name} items={menu} onAction={handlers.onAction} disabled={working}/>}
   </div>;
   return <div className="env-row" data-environment={item.id} data-kind={item.kind} data-state={item.state}><SettingsRow label={label} description={description} control={control}/></div>;
@@ -175,7 +175,7 @@ export function EnvironmentsPage({openTab}: {openTab: (tab: SettingsTab) => void
     add?.vm_command ? {id: "vm" as const, icon: "server" as const, label: t("environments.add_menu.vm")} : null,
   ].filter(item => item !== null);
   const addControl = addItems.length > 0 && <>
-    <button ref={addButton} type="button" className="primary-button env-add" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(value => !value)} onKeyDown={arrowOpens(setMenuOpen)}><TofiIcon name="plus" size={16} aria-hidden="true"/>{t("environments.add")}</button>
+    <button ref={addButton} type="button" className="st-button env-add" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(value => !value)} onKeyDown={arrowOpens(setMenuOpen)}><TofiIcon name="plus" size={16} aria-hidden="true"/>{t("environments.add")}</button>
     {menuOpen && <OverlayMenu open onOpenChange={setMenuOpen} className="mcp-menu env-menu env-add-menu" label={t("environments.add")} trigger={addButton as RefObject<HTMLElement | null>} anchor={addButton as RefObject<HTMLElement | null>} align="end" sideOffset={6}>
       {addItems.map(item => <button key={item.id} type="button" data-add={item.id} onClick={() => { setMenuOpen(false); setDialog({kind: item.id}); }}><TofiIcon name={item.icon} size={16} aria-hidden="true"/>{item.label}</button>)}
     </OverlayMenu>}

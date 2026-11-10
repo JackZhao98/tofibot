@@ -2,7 +2,7 @@ import {useEffect, useState} from "react";
 import {useTranslation} from "./i18n";
 import {useUserTimezone, type NotifyKey} from "./UserTimezone";
 import {ShowActivitySetting} from "./TimezoneSettings";
-import {SettingsCard} from "./settings/components";
+import {SettingsCard, SettingsRow, SettingsSwitch} from "./settings/components";
 import {useBrowserNotifierState} from "./attentionNotifier";
 import type {DesktopNotifierSettings, DesktopNotifierStatus} from "./desktop";
 
@@ -19,8 +19,10 @@ export function ChatsSettings() {
     setBusy(kind); setFailed(false);
     // The browser asks once; a refusal is shown below the switches. The Mac app asks macOS itself.
     if (on && !bridge && "Notification" in window && Notification.permission === "default") setPermission(await Notification.requestPermission());
-    if (!await preference.saveNotify(kind, on)) setFailed(true);
+    const ok = await preference.saveNotify(kind, on);
+    if (!ok) setFailed(true);
     setBusy(null);
+    return ok;
   }
   const rows: {kind: NotifyKey; label: string; on: boolean}[] = [
     {kind: "tasks", label: t("settings:chats.task_notifications"), on: preference.notifyTasks},
@@ -34,7 +36,7 @@ export function ChatsSettings() {
   return <>
     <SettingsCard>
       <ShowActivitySetting/>
-      {rows.map(row => <label key={row.kind} className="debug-toggle" data-setting={`notify-${row.kind}`}><span>{row.label}</span><input type="checkbox" role="switch" checked={row.on} disabled={busy !== null || !preference.ready} onChange={event => void change(row.kind, event.target.checked)}/></label>)}
+      {rows.map(row => <div key={row.kind} data-setting={`notify-${row.kind}`}><SettingsRow inline label={row.label} control={<SettingsSwitch label={row.label} checked={row.on} disabled={busy !== null || !preference.ready} busy={busy === row.kind} onChange={on => change(row.kind, on)}/>}/></div>)}
     </SettingsCard>
     {failed && <p className="timezone-error" role="alert">{t("settings:general.activity_save_failed")}</p>}
     {bridge && <DeviceNotifications bridge={bridge}/>}
@@ -59,7 +61,7 @@ function DeviceNotifications({bridge}: {bridge: NonNullable<Window["tofiDesktop"
   }, [bridge]);
   async function update(patch: Partial<DesktopNotifierSettings>) {
     setFailed(false);
-    try { setStatus(await bridge.update(patch)); } catch { setFailed(true); }
+    try { setStatus(await bridge.update(patch)); return true; } catch { setFailed(true); return false; }
   }
   const time = status?.lastSuccessAt ? new Date(status.lastSuccessAt).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}) : "";
   const text = !status ? t("settings:chats.device_status_unknown")
@@ -75,7 +77,7 @@ function DeviceNotifications({bridge}: {bridge: NonNullable<Window["tofiDesktop"
   return <section className="device-notifications" aria-label={t("settings:chats.device_title")} data-setting="notify-device">
     <h3 className="field-note device-notifications-title">{t("settings:chats.device_title")}</h3>
     <SettingsCard>
-      {switches.map(item => <label key={item.key} className="debug-toggle" data-setting={`notify-device-${item.key}`}><span>{item.label}</span><input type="checkbox" role="switch" checked={status?.settings[item.key] ?? false} disabled={!status} onChange={event => void update({[item.key]: event.target.checked})}/></label>)}
+      {switches.map(item => <div key={item.key} data-setting={`notify-device-${item.key}`}><SettingsRow inline label={item.label} control={<SettingsSwitch label={item.label} checked={status?.settings[item.key] ?? false} disabled={!status} onChange={on => update({[item.key]: on})}/>}/></div>)}
     </SettingsCard>
     <p className="field-note" role="status" data-setting="notify-device-status" data-state={status?.state ?? "unknown"}>{text}</p>
     {reasonKey && <p className="field-note" data-setting="notify-device-reason" data-reason={reasonKey}>{t(`settings:chats.device_reason_${reasonKey}`)}</p>}

@@ -6,7 +6,7 @@ import {modelName, groupModels} from "./modelCatalog";
 import type {ModelCatalog} from "./types";
 import {useModelCatalog} from "./useModelCatalog";
 import {useTranslation} from "./i18n";
-import {SettingsCard, SettingsRow, SettingsSection} from "./settings/components";
+import {ChangedNote, SettingsCard, SettingsRow, SettingsSection, SettingsSwitch} from "./settings/components";
 import "./settings/automation.css";
 import { Select } from "./Select";
 
@@ -88,7 +88,8 @@ function Control({item, catalog, busy, label, onChange, onOpenPermissions}: {ite
   const id = `auto-${item.key}`;
   const disabled = busy || item.locked === true;
   if (item.kind === "bool") {
-    return <label className="debug-toggle auto-switch"><input id={id} type="checkbox" role="switch" aria-label={label} checked={item.value === true} disabled={disabled} onChange={event => onChange(event.target.checked)}/></label>;
+    // The row shows its own "Saved" and the failure; the switch stays quiet.
+    return <SettingsSwitch id={id} label={label} checked={item.value === true} disabled={disabled} busy={busy} showSaved={false} onChange={onChange}/>;
   }
   if (item.kind === "readonly") {
     return <span className="auto-static">{formatValue(item, item.value, {t, catalog})}</span>;
@@ -126,13 +127,14 @@ const AutomationRow = memo(function AutomationRow({item, catalog, busy, saved, e
   const name = t(`automation.item.${item.key}.name`);
   const changed = item.source === "stored";
   const defaultText = item.key === "background_model" || item.key === "group_triage_model" ? t("automation.auto", {model: catalog ? modelName(catalog.models, String(item.default ?? "")) : String(item.default ?? "")}) : formatValue(item, item.default, {t, catalog});
+  const resettable = changed && !item.locked && item.kind !== "readonly" && (item.kind !== "enum" || item.key === "browser_engine" || item.key === "desktop_engine" || item.key === "personal_input_review");
+  // A value equal to its default says nothing; a changed one reads "Changed · default X · Reset".
   const meta = <span className="auto-meta" data-source={item.source}>
-    {item.kind !== "readonly" && <span>{t("automation.default_is", {value: defaultText})}</span>}
     {item.kind === "readonly" && <span>{t("automation.managed")}</span>}
     {item.key === "browser_engine" && item.source === "default" && <span className="auto-note" data-testid="default-changed">{t("automation.default_changed")}</span>}
     {item.locked && <span className="auto-chip is-env" title={item.env}>{t("automation.env")}</span>}
-    {changed && !item.locked && <span className="auto-chip">{t("automation.changed")}</span>}
-    {changed && !item.locked && item.kind !== "readonly" && (item.kind !== "enum" || item.key === "browser_engine" || item.key === "desktop_engine" || item.key === "personal_input_review") && <button type="button" className="text-button auto-reset" disabled={busy} onClick={() => onChange(item.key, null)}>{t("automation.reset")}</button>}
+    {resettable && <ChangedNote defaultValue={defaultText} disabled={busy} resetLabel={t("automation.reset")} onReset={() => onChange(item.key, null)}/>}
+    {changed && !item.locked && !resettable && item.kind !== "readonly" && <span className="st-changed">{t("changed.note", {value: defaultText})}</span>}
     {saved && <span role="status" className="auto-saved">{t("automation.saved")}</span>}
   </span>;
   return <div className="auto-row" data-key={item.key} data-source={item.source} aria-busy={busy || undefined}>

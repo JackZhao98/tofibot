@@ -9,7 +9,7 @@ html[data-desktop="darwin"] .mac-settings-titlebar{display:block;position:fixed;
 .mac-settings-back{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:6px 12px;font-size:13px;text-decoration:none}
 .mac-settings .settings-row-control{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:8px}
 .mac-settings .settings-row-copy code{display:block;margin-top:2px;color:var(--ink-soft);font:12.5px/1.5 var(--mono);overflow-wrap:anywhere}
-.mac-settings .settings-row-control .secondary-button,.mac-settings .settings-row-control .primary-button{min-height:36px;padding:6px 12px;font-size:13px;text-decoration:none}
+.mac-settings .settings-row-control .primary-button{text-decoration:none}
 .mac-settings .settings-row-control .mac-input{width:300px;max-width:100%}
 .mac-settings .settings-card-note[role="status"]:empty{display:none}
 .mac-save-row{justify-content:flex-end}
@@ -18,14 +18,14 @@ html[data-desktop="darwin"] .mac-settings-titlebar{display:block;position:fixed;
 .mac-confirm-dialog h3{margin:0 0 10px;color:var(--ink);font:600 15px/1.4 var(--body)}
 .mac-confirm-dialog p{margin:0;color:var(--ink-soft);font:var(--type-body)}
 .mac-confirm-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:20px}
-.mac-confirm-dialog button.primary-button{min-height:40px;padding:9px 16px;border-radius:11px;font-size:13px}
+.mac-confirm-dialog button.primary-button{min-height:36px;padding:0 16px;border-radius:10px;font-size:13.5px}
 @media(prefers-reduced-motion:reduce){.mac-confirm-dialog{animation:none}}
 @media(max-width:700px){
   .mac-settings .settings-page-body{padding:16px 16px 32px}
   .mac-settings-head h1{font-size:19px}
   .mac-settings .settings-row-control,.mac-settings .settings-row-v2:not(.is-inline) .settings-row-control{justify-content:flex-start}
   .mac-settings .settings-row-control .mac-input{width:100%}
-  .mac-settings .secondary-button,.mac-settings .primary-button,.mac-settings .settings-row-control .secondary-button,.mac-settings .settings-row-control .primary-button,.mac-settings .settings-row-v2 .primary-button{min-height:44px}
+  .mac-settings .st-button,.mac-settings .primary-button,.mac-settings .settings-row-control .st-button,.mac-settings .settings-row-control .primary-button,.mac-settings .settings-row-v2 .primary-button{min-height:44px}
   .mac-save-row{justify-content:stretch}
 }
 .mac-form{display:grid;gap:26px;min-width:0}

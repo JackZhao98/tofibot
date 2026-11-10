@@ -28,7 +28,7 @@
 .web-row-move{display:inline-flex;gap:2px}
 .web-row-move .icon-button{width:32px;height:32px;min-width:32px}
 .web-row[data-status="off"] .web-row-copy{opacity:.7}
-.web-row-form{margin:12px 0 0 36px;padding:12px;border:1px solid var(--line-soft);border-radius:var(--radius-md);background:var(--surface-2)}
+.web-row-form{margin:12px 0 0 36px;padding:12px;border:0;border-radius:var(--radius-md);background:var(--surface-2)}
 .web-row-form>label{display:block;margin:0 0 6px;font-size:13px;color:var(--text-soft)}
 .web-row-form>label:not(:first-child){margin-top:10px}
 .web-row-form>input{display:block;width:100%;margin:0 0 10px}

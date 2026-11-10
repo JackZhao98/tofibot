@@ -5,7 +5,7 @@ import {ServiceMark} from "./ServiceMark";
 import {TofiIcon} from "./icons";
 import {GripGlyph} from "./widgetGrip";
 import {useTranslation} from "./i18n";
-import {Banner, SettingsCard, SettingsSection, StatusBadge, type BadgeState} from "./settings/components";
+import {Banner, SettingsCard, SettingsSection, SettingsSwitch, StatusBadge, type BadgeState} from "./settings/components";
 import type {WebSourceEntry, WebToolsView} from "./types";
 import "./extensions-system.css";
 import "./settings/automation.css";
@@ -88,7 +88,7 @@ export function WebToolsSettings({initial, adapter = ownWebTools, bare = false, 
   {view && (["search", "fetch"] as const).map(chain => chainMode(chain) === "off"
    ? <SettingsCard key={chain} className="web-chain web-chain-managed" ><div className="web-chain-head"><h5>{t(`webtools.${chain}_title`)}</h5><p data-managed="off">{t("webtools.managed.search_off")}</p></div></SettingsCard>
    : <ChainCard key={chain} chain={chain} entries={view[chain]} outcomes={outcomes} testing={testing} readOnly={chainMode(chain) !== "own"} organization={chainMode(chain) === "provided"} managedNote={chainMode(chain) === "builtin" ? t("webtools.managed.fetch_builtin") : chainMode(chain) === "provided" ? t(`webtools.managed.${chain}_provided`) : ""} onMove={(from, to) => void move(chain, from, to)}
-   onEnabled={(id, enabled) => void run(() => adapter.setEnabled(chain, id, enabled))}
+   onEnabled={(id, enabled) => run(() => adapter.setEnabled(chain, id, enabled))}
    onSave={(id, body) => run(() => adapter.save(id, body), t("webtools.save_failed"))}
    onRemove={id => run(() => adapter.remove(id), t("webtools.remove_failed"))}
    onTest={id => void test(id)} />)}
@@ -186,9 +186,9 @@ function SourceRow({entry, chain, readOnly, organization, index, count, outcome,
    </div>
    <div className="web-row-actions">
     {!entry.fixed && !readOnly && <span className="web-row-move"><button type="button" className="icon-button" aria-label={t("webtools.move_up", {name: entry.label})} disabled={index <= 0} onClick={() => onMove(-1)}><TofiIcon name="arrow-up" size={16} /></button><button type="button" className="icon-button" aria-label={t("webtools.move_down", {name: entry.label})} disabled={index >= count - 1} onClick={() => onMove(1)}><TofiIcon name="arrow-down" size={16} /></button></span>}
-    {entry.testable && !readOnly && <button type="button" className="secondary-button" disabled={busy || needsSetup} onClick={onTest}>{testing ? t("webtools.testing") : t("webtools.test")}</button>}
-    {configurable && !readOnly && <button type="button" className="secondary-button" aria-expanded={editing} onClick={() => setEditing(value => !value)}>{needsSetup ? t("webtools.set_up") : t("webtools.edit")}</button>}
-    {!entry.fixed && !readOnly && <label className="debug-toggle auto-switch" htmlFor={switchId}><input id={switchId} type="checkbox" role="switch" aria-label={t("webtools.enable_label", {name: entry.label})} checked={entry.enabled} onChange={event => onEnabled(event.target.checked)} /></label>}
+    {entry.testable && !readOnly && <button type="button" className="st-button" disabled={busy || needsSetup} onClick={onTest}>{testing ? t("webtools.testing") : t("webtools.test")}</button>}
+    {configurable && !readOnly && <button type="button" className="st-button" aria-expanded={editing} onClick={() => setEditing(value => !value)}>{needsSetup ? t("webtools.set_up") : t("webtools.edit")}</button>}
+    {!entry.fixed && !readOnly && <SettingsSwitch id={switchId} label={t("webtools.enable_label", {name: entry.label})} checked={entry.enabled} onChange={onEnabled} />}
    </div>
   </div>
   {editing && configurable && !readOnly && <ProviderForm entry={entry} onSave={async body => { if (await onSave(body)) { setEditing(false); return true; } return false; }} onRemove={async () => { if (await onRemove()) { setEditing(false); return true; } return false; }} />}
@@ -216,9 +216,9 @@ function ProviderForm({entry, onSave, onRemove}: {entry: WebSourceEntry; onSave:
   <label htmlFor={id}>{address ? t("webtools.address_label") : configured ? t("webtools.replace_key_label") : t("webtools.key_label")}</label>
   <div className="provider-key-row">
    <input id={id} name={`${entry.id}-${address ? "address" : "key"}`} type={address ? "url" : "password"} autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder={address ? "http://searxng.local:8080" : placeholders[entry.id]} value={value} disabled={saving} onChange={event => setValue(event.target.value)} />
-   {!wantsZone && <button type="submit" className="primary-button" disabled={saving || !value.trim()}>{t("providers.save")}</button>}
+   {!wantsZone && <button type="submit" className="st-button" disabled={saving || !value.trim()}>{t("providers.save")}</button>}
   </div>
-  {wantsZone && <><label htmlFor={`${id}-zone`}>{t("webtools.zone_label")}</label><input id={`${id}-zone`} name={`${entry.id}-zone`} type="text" autoComplete="off" spellCheck={false} placeholder="web_unlocker1" value={zone} disabled={saving} onChange={event => setZone(event.target.value)} /><button type="submit" className="primary-button" disabled={saving || !value.trim() || !zone.trim()}>{t("providers.save")}</button></>}
+  {wantsZone && <><label htmlFor={`${id}-zone`}>{t("webtools.zone_label")}</label><input id={`${id}-zone`} name={`${entry.id}-zone`} type="text" autoComplete="off" spellCheck={false} placeholder="web_unlocker1" value={zone} disabled={saving} onChange={event => setZone(event.target.value)} /><button type="submit" className="st-button" disabled={saving || !value.trim() || !zone.trim()}>{t("providers.save")}</button></>}
   <div className="web-row-form-foot"><p className="field-note">{address ? t("webtools.address_note") : t("webtools.key_note")}</p>{configured && <ConfirmAction label={t("providers.remove")} question={t("providers.remove_question", {provider: entry.label})} onConfirm={async () => { if (!await onRemove()) throw new Error(t("webtools.remove_failed")); }} />}</div>
  </form>;
 }

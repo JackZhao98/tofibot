@@ -94,7 +94,7 @@ export function AdminGroups({openTab}: {openTab: (tab: SettingsTab) => void}) {
     {(loadError || error) && <p role="alert" className="admin-error">{error || loadError}</p>}
     <div className="ag-layout">
       <div className="ag-side">
-        <div className="ag-side-head"><h4>{t("admin.groups.title")}</h4><button type="button" className="secondary-button ag-new" onClick={() => setCreating(true)} disabled={busy}><TofiIcon name="plus" size={16} aria-hidden="true"/>{t("admin.groups.new")}</button></div>
+        <div className="ag-side-head"><h4>{t("admin.groups.title")}</h4><button type="button" className="st-button ag-new" onClick={() => setCreating(true)} disabled={busy}><TofiIcon name="plus" size={16} aria-hidden="true"/>{t("admin.groups.new")}</button></div>
         {list}
       </div>
       {selected && <div className="ag-editor" data-group={selected.id}>
@@ -115,7 +115,7 @@ export function AdminGroups({openTab}: {openTab: (tab: SettingsTab) => void}) {
         </SettingsSection>
 
         <SettingsSection id="members" title={t("admin.groups.members_title", {count: members.length})} description={selected.id === SELF_SERVE_ID ? t("admin.groups.members_self_serve") : undefined}>
-          <div className="admin-list-actions ag-member-actions"><button type="button" className="secondary-button" onClick={() => setAdding(true)} disabled={busy || !accounts}><TofiIcon name="user-add" size={16} aria-hidden="true"/>{t("admin.groups.add_members")}</button></div>
+          <div className="admin-list-actions ag-member-actions"><button type="button" className="st-button" onClick={() => setAdding(true)} disabled={busy || !accounts}><TofiIcon name="user-add" size={16} aria-hidden="true"/>{t("admin.groups.add_members")}</button></div>
           <SettingsCard className="ag-members">
             {members.length === 0 && <p className="settings-card-note">{t("admin.groups.members_empty")}</p>}
             {members.map(account => <div key={account.id} className="ag-member" data-account={account.id}>
@@ -137,7 +137,7 @@ export function AdminGroups({openTab}: {openTab: (tab: SettingsTab) => void}) {
     {confirmDelete && selected && <AdminSheet title={t("admin.groups.delete_confirm_title", {name: selected.name})} onClose={() => setConfirmDelete(false)} locked={busy}>
       <p className="admin-sheet-lead">{t("admin.groups.delete_confirm_body")}</p>
       <div className="sheet-actions">
-        <button type="button" className="secondary-button" disabled={busy} onClick={() => setConfirmDelete(false)}>{t("action.cancel")}</button>
+        <button type="button" className="st-button" disabled={busy} onClick={() => setConfirmDelete(false)}>{t("action.cancel")}</button>
         <button type="button" className="admin-danger-button" disabled={busy} onClick={() => void run(async () => {
           await adminOrgApi.deleteGroup(selected.id);
           setGroups(list => list && list.filter(item => item.id !== selected.id)); setSelectedId(null); setView("list"); setConfirmDelete(false);
@@ -158,7 +158,7 @@ function GroupHeader({group, busy, onRename}: {group: AdminGroup; busy: boolean;
       <label htmlFor={`ag-name-${group.id}`}>{t("admin.groups.name_label")}</label>
       <div className="provider-key-row">
         <input id={`ag-name-${group.id}`} value={name} maxLength={64} autoComplete="off" disabled={busy} onChange={event => setName(event.target.value)}/>
-        <button type="submit" className="secondary-button" disabled={busy || !changed}>{t("admin.groups.rename")}</button>
+        <button type="submit" className="st-button" disabled={busy || !changed}>{t("admin.groups.rename")}</button>
       </div>
     </form>}
   </div>;
@@ -181,7 +181,7 @@ function CreateGroupSheet({onClose, onCreated}: {onClose: () => void; onCreated:
       <p className="admin-sheet-note">{t("admin.groups.create_note")}</p>
       {error && <p role="alert" className="admin-error">{error}</p>}
       <div className="sheet-actions">
-        <button type="button" className="secondary-button" disabled={busy} onClick={onClose}>{t("action.cancel")}</button>
+        <button type="button" className="st-button" disabled={busy} onClick={onClose}>{t("action.cancel")}</button>
         <button type="submit" className="primary-button" disabled={busy || !name.trim()}>{t("admin.groups.create_submit")}</button>
       </div>
     </form>
@@ -204,7 +204,7 @@ function AddMembersSheet({group, accounts, byAccount, busy, onClose, onAdd}: {gr
       </label>)}
     </fieldset>}
     <div className="sheet-actions">
-      <button type="button" className="secondary-button" disabled={busy} onClick={onClose}>{t("action.cancel")}</button>
+      <button type="button" className="st-button" disabled={busy} onClick={onClose}>{t("action.cancel")}</button>
       <button type="button" className="primary-button" disabled={busy || picked.length === 0} onClick={() => onAdd(picked)}>{t("admin.groups.add_submit", {count: picked.length})}</button>
     </div>
   </AdminSheet>;
