@@ -86,8 +86,8 @@ func (s *Server) modelDefaults() (string, string) {
 // sign-in), so a switch of provider would be a switch of whose credential is spent.
 // A default the person saved is therefore never moved: if its source is unusable
 // the run fails with the named error. Only a default nobody saved (the built-in
-// one) may pick another model, and then from the organization's catalogs; the
-// person's own source is taken only when the organization offers no model at all.
+// one) may pick another model, and only from the organization's catalogs; with
+// none it stays as is. The member picks a Codex model explicitly if they want one.
 func (s *Server) providedModelDefaults(model, effort string) (string, string) {
 	if saved, err := s.store.getModelSettings(); err != nil || saved.Model != "" {
 		return model, effort
@@ -103,14 +103,9 @@ func (s *Server) providedModelDefaults(model, effort string) (string, string) {
 			}
 		}
 	}
-	for _, name := range apiKeyProviders {
-		if s.usableProviderKey(name) {
-			return model, effort // an organization source exists; its catalog is not known yet
-		}
-	}
-	if s.codexConnected() {
-		return s.codexConversationDefault(), effort
-	}
+	// The organization offers nothing usable: keep the built-in default, so the run fails with the
+	// named error. Never the member's Codex: Bots that follow the default resolve it at each run,
+	// and a Codex default would flip between the member's plan and organization money as keys come and go.
 	return model, effort
 }
 

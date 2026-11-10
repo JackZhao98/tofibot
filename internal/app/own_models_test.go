@@ -296,6 +296,41 @@ func TestDefaultModelNeverCrossesSource(t *testing.T) {
 	}
 }
 
+// A default nobody saved must never become the member's Codex model: Bots that follow it resolve it at each run.
+func TestUnsavedDefaultNeverTakesCodex(t *testing.T) {
+	f := newOrgFixture(t)
+	f.setOverrides(t, provAllowOwn)
+	ws := f.memberWorkspace(t)
+	signInCodex(t, ws, time.Now().Add(time.Hour))
+	ws.modelCatalog = []ModelOption{codexSnapshotOption()}
+	ws.modelCatalogAt, ws.modelCatalogSource = time.Now(), "live"
+	notCodex := func(label string) string {
+		t.Helper()
+		got, _ := ws.modelDefaults()
+		if strings.HasPrefix(got, "codex-") {
+			t.Fatalf("%s: the default became %q", label, got)
+		}
+		resolved, _ := ws.resolveBotModel(context.Background(), "", Bot{Model: ""})
+		if strings.HasPrefix(resolved, "codex-") || resolved != got {
+			t.Fatalf("%s: a following Bot resolved %q, default %q", label, resolved, got)
+		}
+		return got
+	}
+	notCodex("signed in, no organization key")
+	f.seedOrgOpenAI(t)
+	ws.providerMu.Lock()
+	ws.providerCatalogs[ws.catalogKey(providerOpenAI)] = providerCatalog{models: []ModelOption{{ID: "gpt-5", Name: "GPT-5"}}, at: time.Now(), source: "live"}
+	ws.providerMu.Unlock()
+	if got := notCodex("organization key added"); got != "gpt-5" {
+		t.Fatalf("with an organization key the default is %q, want an organization model", got)
+	}
+	org, _ := f.g.orgSecrets()
+	if err := org.remove(providerVaultID(providerOpenAI)); err != nil {
+		t.Fatal(err)
+	}
+	notCodex("organization key removed")
+}
+
 func TestRedactionFollowsPolicyNotReference(t *testing.T) {
 	f := newOrgFixture(t)
 	f.seedOrgOpenAI(t)

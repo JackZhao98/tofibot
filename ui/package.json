@@ -49,6 +49,7 @@
     "test:ipad-computer": "node scripts/test-ipad-computer.mjs",
     "test:desktop-connect": "node scripts/test-desktop-connect.mjs",
     "test:model-catalog": "node scripts/test-model-catalog.mjs",
+    "test:model-providers": "node scripts/test-model-providers-browser.mjs",
     "test:model-catalog-refresh": "node scripts/test-model-catalog-refresh.mjs",
     "test:settings-shell": "node scripts/test-settings-shell.mjs",
     "test:desktop-settings": "node scripts/test-desktop-settings.mjs",

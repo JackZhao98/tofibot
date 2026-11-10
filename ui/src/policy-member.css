@@ -12,6 +12,6 @@
 .env-tag-org{display:inline-flex;align-items:center;gap:4px}
 .provided-models .settings-banner{margin-top:12px}
 /* "Your own" under the organization's card: its own section with room above, one quiet line when the administrator does not allow it. */
-.provided-own{margin-top:24px}
+.workspace .settings-page-body .settings-sec.provided-own{margin-top:18px}
 .provided-own .field-note[data-own="note"]{margin:0 0 10px}
-.provided-own-off{margin:16px 0 0;color:var(--muted)}
+.workspace .settings-page-body .provided-own-off{margin:16px 0 0;color:var(--muted)}

@@ -78,7 +78,7 @@ void i18nReady.then(()=>setLanguage('zh-CN')).then(()=>createRoot(document.getEl
     const claude = page.locator("article.provider-card").filter({has: page.getByRole("heading", {name: "Claude", exact: true})});
     // Codex and the OpenAI key are one card: a connected ChatGPT sign-in shows only that method.
     await openai.getByText("Codex 已连接 · 已验证").waitFor({timeout: 10000});
-    assert.equal(await page.locator("article.provider-card").count(), 2, "OpenAI (ChatGPT or key) and Claude");
+    assert.equal(await page.locator("article.provider-card").count(), 3, "OpenAI (ChatGPT or key), Claude and the compatible endpoint");
     assert.equal(await page.getByRole("heading", {name: "Codex", exact: true}).count(), 0, "no separate Codex card");
     assert.equal(await openai.locator("input").count(), 0, "no key input while the ChatGPT sign-in is the method");
     assert.equal(await openai.locator(".provider-choice").count(), 0, "no chooser once a method is set up");

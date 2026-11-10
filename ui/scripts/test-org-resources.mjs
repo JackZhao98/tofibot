@@ -10,6 +10,7 @@ import assert from "node:assert/strict";
 import {mkdir, rm} from "node:fs/promises";
 import {dirname, join} from "node:path";
 import {fileURLToPath, pathToFileURL} from "node:url";
+import {selectItems} from "./lib/select.mjs";
 import {createOrgStub, openSettings, startFixture} from "./lib/org-fixture.mjs";
 
 const ui = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -498,10 +499,20 @@ try {
 
     // Allowed, signed in: connected state with Disconnect; the organization's card is unchanged.
     stub.state.codex = {connected: true, needs_reconnect: false};
+    stub.state.defaultModel = "gpt-5";
+    stub.state.models = [
+      {id: "gpt-5", name: "GPT-5", provider: "openai", reasoning_efforts: ["low", "medium"], default_reasoning: "medium"},
+      {id: "codex-gpt-6-luna", name: "Codex · GPT-6 Luna", provider: "codex", reasoning_efforts: ["medium"], default_reasoning: "medium"},
+    ];
     const signed = await open({tab: "models", policy: capabilities(true)});
     await section(signed.page).getByText(/Codex connected/).waitFor();
     assert.equal(await models(signed.page).locator(".provided-card").count(), 1);
     assert.equal(await section(signed.page).getByRole("button", {name: "Disconnect Codex"}).count(), 1);
+    // The default-model picker shows the saved default (the empty select in the first screenshot was a fixture with no model-settings) and lists Codex beside the organization's models.
+    const picker = models(signed.page).locator(".ui-select-trigger").first();
+    await picker.waitFor();
+    assert.match(await text(picker), /GPT-5/, "the saved default is shown");
+    assert.deepEqual((await selectItems(picker)).map(item => item.value).sort(), ["codex-gpt-6-luna", "gpt-5"], "Codex models are listed beside the organization's");
     await noOwnKeys(signed.page); await primaries(signed.page);
     await shot(signed.page, "member-own-allowed-signed-in-light-1440");
     await signed.close();
@@ -512,6 +523,7 @@ try {
     await shot(signedPhone.page, "member-own-allowed-signed-in-dark-390");
     await signedPhone.close();
     stub.state.codex = {connected: false, needs_reconnect: false};
+    stub.state.defaultModel = undefined; stub.state.models = undefined;
     const outPhone = await open({tab: "models", policy: capabilities(true)}, {width: 390, height: 844, theme: "dark", touch: true});
     await outPhone.page.locator('.settings-mhome [data-tab="models"]').click().catch(() => {});
     await section(outPhone.page).locator('[data-provider="codex"]').waitFor();

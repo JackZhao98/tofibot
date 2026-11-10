@@ -155,6 +155,7 @@ export function createOrgStub() {
     if (method !== "GET") writes.push(`${method} ${path}${body && Object.keys(body).length ? " " + JSON.stringify(body) : ""}`);
     if (state.failNext && method !== "GET" && state.failNext.test(path)) { const code = state.failNext.code; state.failNext = null; return fail(409, code); }
     if (path === "/api/providers" && method === "GET") return [200, {providers: state.providers}];
+    if (path === "/api/model-settings" && method === "GET") return [200, {model: state.defaultModel ?? "", reasoning_effort: "medium"}];
     if (path === "/api/auth/codex" && method === "GET") return [200, {connected: state.codex.connected, expires_at: Date.parse("2026-12-01T00:00:00Z"), needs_reconnect: state.codex.needs_reconnect}];
     if (path === "/api/auth/codex/verify") return [200, {connected: state.codex.connected, expires_at: Date.parse("2026-12-01T00:00:00Z"), needs_reconnect: state.codex.needs_reconnect, check: "ok"}];
     if (path === "/api/auth/codex" && method === "DELETE") { state.codex = {connected: false, needs_reconnect: false}; return [200, {}]; }
@@ -286,7 +287,7 @@ export async function openSettings({browser, fixture, stub, errors, params = {},
     if (path === "/api/server-info") return json(route, 200, {service: "tofi", protocol_version: 1, instance_id: "0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d", auth: {mode: "owner"}});
     if (path === "/api/bots") return json(route, 200, {bots: [{id: "bot_research", name: "Research Bot", archived: false}]});
     if (path === "/api/preferences") return json(route, 200, {timezone: "America/Los_Angeles", timezone_configured: true});
-    if (path === "/api/models") return json(route, 200, {models: []});
+    if (path === "/api/models") return json(route, 200, {models: stub.state.models ?? []});
     const answer = stub.handle(url, method, body);
     if (answer === undefined) { if (method !== "GET") errors.push(`unstubbed ${method} ${path}`); return json(route, 200, {}); }
     return json(route, answer[0], answer[1]);
