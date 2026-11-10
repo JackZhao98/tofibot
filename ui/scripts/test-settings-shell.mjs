@@ -27,12 +27,14 @@ const ADV_TABS = ["allowances", "followups", "keys"];
 const ICONS = {general: "sliders", connections: "plug", skills: "skill", permissions: "shield-check", allowances: "checklist", followups: "bell", devices: "laptop", models: "sparkles", tools: "globe", automation: "workflow", computer: "layers", keys: "key", usage: "progress", advanced: "settings", admin: "group", "admin-groups": "workspace", "admin-resources": "server"};
 const NAMES = {general: "General", connections: "Connections", skills: "Skills", permissions: "Permissions", allowances: "Tool rules", followups: "Follow-ups", devices: "Other devices", models: "AI Models", tools: "Search & fetch", automation: "Behavior", computer: "Environments", keys: "Bot computer keys", usage: "Usage", advanced: "Maintenance", admin: "Accounts", "admin-groups": "Groups", "admin-resources": "Organization resources"};
 
-// ---- Catalog checks (every locale): groups, page names and descriptions are real translations.
+// ---- Catalog checks (every locale): page names and descriptions are real translations. Descriptions are no longer shown in the window; the manual and reference pages the server generates read them.
 const catalogs = {};
 for (const lang of LANGS) catalogs[lang] = JSON.parse(await readFile(join(ui, "src/locales", lang, "settings.json"), "utf8"));
 for (const lang of LANGS) {
   const shell = catalogs[lang].shell;
-  assert.deepEqual(Object.keys(shell.group).sort(), ["admin", "bots", "more", "system", "workspace", "you"], `${lang}: shell.group keys`);
+  // Only Administration keeps a heading; "More" is a rail item (shell.more), the other clusters are spacing.
+  assert.deepEqual(Object.keys(shell.group).sort(), ["admin"], `${lang}: shell.group keys`);
+  assert.ok(shell.more && (lang === "en" || shell.more !== catalogs.en.shell.more), `${lang}: shell.more is translated`);
   assert.deepEqual(Object.keys(shell.page).sort(), [...TABS, ...ADV_TABS, "devices", "admin", "admin-groups", "admin-resources"].sort(), `${lang}: shell.page keys (no stale tab ids)`);
   let sameAsEnglish = 0;
   for (const [id, page] of Object.entries(shell.page)) {
@@ -49,7 +51,7 @@ for (const lang of LANGS) {
     if (lang !== "en") assert.notEqual(catalogs[lang].dictation.model[id].hint, catalogs.en.dictation.model[id].hint, `${lang}: dictation hint is an English copy`);
   }
 }
-console.log(`PASS catalogs: ${LANGS.length} locales have groups, 15 page names, descriptions of at most 70 characters, dictation copy`);
+console.log(`PASS catalogs: ${LANGS.length} locales have the Administration heading, More, 15 page names, descriptions of at most 70 characters, dictation copy`);
 
 const shots = process.env.SETTINGS_SHOTS;
 if (shots) await mkdir(shots, {recursive: true});
@@ -441,7 +443,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   {
     const {page, close} = await open({admin: "0"});
     assert.deepEqual(await railTabs(page), TABS, "rail shows the ten tabs in order for a non-admin session");
-    assert.deepEqual(await page.$$eval(".settings-tabs .settings-nav-group>p", items => items.map(item => item.textContent)), ["You", "Bots can use", "Workspace", "System"]);
+    // No group headings (the clusters are spacing), no account card: General is the first rail item.
+    assert.deepEqual(await page.$$eval(".settings-tabs .settings-nav-group>p", items => items.map(item => item.textContent)), []);
+    assert.equal(await page.locator(".settings-account-card").count(), 0, "the account card at the top of the rail is gone");
+    assert.equal(await page.locator('.settings-tabs [data-tab="general"]').count(), 1);
+    assert.equal(await page.locator(".settings-tabs").evaluate(element => element.offsetWidth), 216, "rail is 216px wide (layout width: the window may still be scaling in)");
     assert.equal(await page.locator("#settings-category").count(), 0, "no category select");
     const icons = await page.$$eval(".settings-tabs .settings-nav-group button[data-tab]", buttons => buttons.map(button => button.querySelector("svg").dataset.tofiIcon));
     assert.equal(new Set(icons).size, icons.length, "no two tabs share an icon");
@@ -468,23 +474,24 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     }
     for (const forbidden of ["/api/extensions/local-mcp", "/api/computers", "/api/computer/"]) assert.ok(!requested.some(line => line.includes(forbidden)), `opening Settings on General made no ${forbidden} request`);
     // The Advanced group is folded until opened; opening lists Tool rules, Follow-ups (Beta) and Other devices (In development).
-    const fold = page.locator(".settings-tabs .settings-nav-fold");
+    const fold = page.locator(".settings-tabs .settings-nav-more");
+    assert.equal((await fold.innerText()).trim(), "More", "the folded group is one quiet rail item, no heading, no tag");
     assert.equal(await fold.getAttribute("aria-expanded"), "false", "Advanced starts folded");
     await fold.click();
     assert.equal(await fold.getAttribute("aria-expanded"), "true");
     assert.deepEqual(await railTabs(page), [...TABS, ...ADV_TABS], "the folded group lists its pages when opened");
-    assert.equal((await page.locator('.settings-tabs [data-tab="followups"] .settings-nav-tag').textContent()).trim(), "Beta");
+    assert.equal(await page.locator(".settings-nav-tag").count(), 0, "no tag pill in the rail");
     assert.equal(await page.locator('.settings-tabs [data-tab="devices"]').count(), 0, "Other devices has no rail item: it is part of Environments");
     await fold.click();
     assert.deepEqual(await railTabs(page), TABS, "folding hides them again");
     await close();
     const personal = await open({admin: "0", personal: "1"});
-    await personal.page.locator(".settings-tabs .settings-nav-fold").click();
+    await personal.page.locator(".settings-tabs .settings-nav-more").click();
     assert.deepEqual(await railTabs(personal.page), [...TABS, ...ADV_TABS], "personal computers on: still no Other devices item");
     await personal.close();
     const admin = await open({admin: "1"});
     assert.deepEqual(await railTabs(admin.page), [...TABS, "admin", "admin-groups", "admin-resources"], "the Administration group appears for a multi-account admin");
-    assert.deepEqual(await admin.page.$$eval(".settings-tabs .settings-nav-group>p", items => items.map(item => item.textContent)), ["You", "Bots can use", "Workspace", "System", "Administration"], "Administration is its own navigation group, after System");
+    assert.deepEqual(await admin.page.$$eval(".settings-tabs .settings-nav-group>p", items => items.map(item => item.textContent)), ["Administration"], "only Administration keeps a heading, after System");
     assert.deepEqual(await admin.page.$$eval('.settings-tabs [data-group="admin"] button[data-tab]', items => items.map(item => item.dataset.tab)), ["admin", "admin-groups", "admin-resources"]);
     assert.equal(await admin.page.locator('.settings-tabs [data-group="system"] [data-tab="admin"]').count(), 0, "Accounts no longer sits in System");
     const adminIcon = await admin.page.locator('.settings-tabs [data-tab="admin"] svg').getAttribute("data-tofi-icon");
@@ -498,13 +505,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const {page, close} = await open({admin: "1"});
     const markers = {general: "Language and region", connections: "Add", skills: "research-assistant", permissions: "Approval mode for this account", allowances: "Reviewer", followups: null, devices: "Other devices", models: "Defaults for new Bots", tools: "Search", computer: null, keys: null, usage: null, advanced: "Danger zone", admin: null};
     for (const id of [...TABS, ...ADV_TABS, "admin"]) {
-      if (ADV_TABS.includes(id) && await page.locator(`.settings-tabs [data-tab="${id}"]`).count() === 0) await page.locator(".settings-tabs .settings-nav-fold").click();
+      if (ADV_TABS.includes(id) && await page.locator(`.settings-tabs [data-tab="${id}"]`).count() === 0) await page.locator(".settings-tabs .settings-nav-more").click();
       await page.locator(`.settings-tabs [data-tab="${id}"]`).click();
       await page.waitForFunction(tab => document.querySelector(`.settings-tabs [aria-current="page"]`)?.dataset.tab === tab, id);
       const heading = (await page.locator(".settings-content .settings-page-title h2").textContent()).replace(/(Beta|In development)$/, "").trim();
-      const description = (await page.locator(".settings-content .settings-page-title p").textContent()).trim();
       assert.equal(heading, NAMES[id], `${id} heading`);
-      assert.equal(description, catalogs.en.shell.page[id].description, `${id} description`);
+      assert.equal(await page.locator(".settings-content .settings-page-title p").count(), 0, `${id}: the page description is not rendered`);
       const body = page.locator(`.settings-page-body[data-page="${id}"]`);
       assert.equal(await body.isVisible(), true, `${id} page visible`);
       await page.waitForFunction(tab => (document.querySelector(`.settings-page-body[data-page="${tab}"]`)?.innerText ?? "").trim().length > 20, id, {timeout: 15000});
@@ -644,7 +650,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.match(await reviewer.innerText(), /Automatic/);
     perm.writes.length = 0;
     await pickSelect(body.locator(".settings-row-v2", {hasText: "Reviewer model"}), "claude-opus-5-5");
-    await body.getByText("Saved").waitFor();
+    await body.locator(".settings-feedback", {hasText: "Saved"}).waitFor();
     assert.deepEqual(perm.writes, ['PUT /api/automation-settings {"values":{"background_model":"claude-opus-5-5"}}']);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
     await close();
@@ -664,14 +670,16 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await page.locator(".settings-shell").getAttribute("data-view"), "home");
     assert.equal(await page.locator(".settings-mhome").isVisible(), true);
     assert.equal(await page.locator(".settings-content").evaluate(element => getComputedStyle(element).visibility), "hidden", "page is parked off-screen on the home list");
-    await page.locator(".settings-mhome .settings-mfold").click();
+    assert.equal(await page.locator('.settings-mhome [data-tab="general"]').count(), 1, "the phone list reaches General without an account card");
+    assert.equal(await page.locator(".settings-maccount").count(), 0);
+    await page.locator(".settings-mhome .settings-mmore").click();
     await settle(page);
     const hints = await page.$$eval(".settings-mhome .settings-mrow", rows => Object.fromEntries(rows.map(row => [row.dataset.tab, row.querySelector(".settings-mhint")?.textContent ?? ""])));
     assert.equal(hints.models, "Codex", "Models hint is the provider of the global model");
     assert.equal(hints.keys, "2", "Keys hint is the number of variables");
     assert.equal(hints.computer, "2", "Environments hint is the number of environments");
     assert.equal(hints.usage, "", "Usage has no hint in Phase 1");
-    assert.deepEqual(await page.$$eval(".settings-mhome .settings-mgroup>p", items => items.map(item => item.textContent)), ["Bots can use", "Workspace", "System", "Administration"], "an administrator sees Administration on the phone list too");
+    assert.deepEqual(await page.$$eval(".settings-mhome .settings-mgroup>p", items => items.map(item => item.textContent)), ["Administration"], "only Administration keeps a heading on the phone list");
     await page.locator('.settings-mhome [data-tab="models"]').click();
     await settle(page);
     assert.equal(await page.locator(".settings-shell").getAttribute("data-view"), "page");
@@ -715,7 +723,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   {
     const {page, close} = await open({lang: "de", admin: "1"});
     await page.waitForTimeout(500);
-    const report = await page.$$eval(".settings-tabs .settings-nav-label", labels => labels.map(label => {
+    const report = await page.$$eval(".settings-tabs button[data-tab] .settings-nav-label", labels => labels.map(label => {
       const style = getComputedStyle(label), box = label.getBoundingClientRect(), row = label.closest("button").getBoundingClientRect();
       const lineHeight = parseFloat(style.lineHeight);
       return {text: label.textContent, ellipsis: style.textOverflow === "ellipsis", clipped: label.scrollWidth > label.clientWidth, lines: Math.round(box.height / lineHeight), inside: box.right <= row.right + 0.5 && box.left >= row.left - 0.5};
@@ -729,9 +737,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     }
     for (const text of ["Verbindungen", "Berechtigungen", "Umgebungen"]) assert.ok(report.some(item => item.text === text), `German rail shows ${text}`);
     const rail = await page.locator(".settings-tabs").evaluate(element => element.getBoundingClientRect().width);
-    assert.equal(Math.round(rail), 248, "rail is 248px wide");
+    assert.equal(Math.round(rail), 216, "rail is 216px wide");
     await close();
-    console.log("PASS german: Verbindungen, Berechtigungen and Bot-Computer-Schlüssel fit the 248px rail in at most two lines, no clipping");
+    console.log("PASS german: Verbindungen, Berechtigungen and Bot-Computer-Schlüssel fit the 216px rail in at most two lines, no clipping");
   }
 
   // ---- 7b. Skill library (decision 0058): installer and version on each row, bundles expand, rollback, remove, one-click add.
@@ -1058,6 +1066,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await detail.getByRole("button", {name: "Deactivate", exact: true}).click();
     await detail.getByRole("button", {name: "Reactivate"}).waitFor();
     assert.deepEqual(adminWrites, ['PATCH /api/admin/accounts/acct_two {"disabled":true}']);
+    // The Reactivate row renders before the request settles ("busy" lifts a beat later): wait for that, then judge the button.
+    await deleteButton.waitFor();
+    await page.waitForFunction(() => { const button = [...document.querySelectorAll(".admin-danger-button")].find(item => /^Delete/.test(item.textContent.trim())); return Boolean(button) && !button.disabled; }, null, {timeout: 5000}).catch(() => {});
     assert.equal(await deleteButton.isDisabled(), false, "a deactivated account can be deleted");
     await detail.getByRole("button", {name: "Reactivate"}).click();
     await detail.getByRole("button", {name: "Deactivate", exact: true}).waitFor();
@@ -1319,12 +1330,62 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     console.log(`PASS admin screenshots: ${count} saved to ${dir}`);
   }
 
-  // ---- 8. Screenshots.
+  // ---- 7e. Visual language (settings-simplify P0): a quiet window. Nothing inside is outlined or hard-shadowed except the one
+  // orange primary button per view; header 56px with a 20px title and no line; content column at most 640px.
+  {
+    const {page, close} = await open({admin: "1"}, {reduced: true});
+    await page.waitForTimeout(600);
+    const head = await page.locator(".settings-page-heading").evaluate(element => { const h2 = element.querySelector("h2"); return {height: element.offsetHeight, line: getComputedStyle(element).borderBottomWidth, title: getComputedStyle(h2).fontSize}; });
+    assert.deepEqual(head, {height: 56, line: "0px", title: "20px"}, "page header: 56px, no bottom line, 20px title");
+    assert.equal(await page.locator(".settings-nav-group>p").count(), 1, "one heading in the rail (Administration)");
+    const inspect = id => page.locator(`.settings-page-body[data-page="${id}"]`).evaluate(body => {
+      const visible = node => { const rect = node.getBoundingClientRect(); return rect.width > 0 && rect.height > 0; };
+      const all = [...body.querySelectorAll("*")].filter(visible);
+      const bordered = all.filter(node => { const style = getComputedStyle(node); return parseFloat(style.borderTopWidth) >= 1 && style.borderTopStyle !== "none" && parseFloat(style.borderLeftWidth) >= 1 && node.getBoundingClientRect().width > 60; }).map(node => node.tagName.toLowerCase() + "." + [...node.classList].join("."));
+      const hard = all.filter(node => /\d+px \d+px 0px/.test(getComputedStyle(node).boxShadow.replace(/inset [^,]*/g, ""))).map(node => node.tagName.toLowerCase() + "." + [...node.classList].join("."));
+      const column = Math.max(0, ...[...body.children].filter(visible).filter(node => !node.classList.contains("st-wide") && !node.classList.contains("settings-stack")).map(node => node.getBoundingClientRect().width));
+      const stack = body.querySelector(":scope > .settings-stack");
+      const stackWidest = stack ? Math.max(0, ...[...stack.children].filter(visible).filter(node => !node.classList.contains("st-wide")).map(node => node.getBoundingClientRect().width)) : 0;
+      return {bordered, hard, primaries: all.filter(node => node.matches(".primary-button")).length, column: Math.max(column, stackWidest), wide: body.querySelectorAll(".st-wide").length};
+    });
+    for (const id of ["general", "advanced"]) {
+      await page.locator(`.settings-tabs [data-tab="${id}"]`).click();
+      await page.waitForFunction(tab => (document.querySelector(`.settings-page-body[data-page="${tab}"]`)?.innerText ?? "").trim().length > 20, id);
+      await page.waitForTimeout(500);
+      const report = await inspect(id);
+      assert.deepEqual(report.bordered, [], `${id}: no bordered container`);
+      assert.deepEqual(report.hard, [], `${id}: no hard shadow`);
+      assert.equal(report.primaries, 0, `${id}: no add or submit action, so no primary button`);
+      assert.ok(report.column <= 640.5, `${id}: content column is at most 640px (saw ${report.column})`);
+    }
+    // At most one primary button per view; Connections has the add action, Environments, Models and Maintenance none.
+    const primaries = {};
+    for (const id of [...TABS, "admin", "admin-groups", "admin-resources"]) {
+      await page.locator(`.settings-tabs [data-tab="${id}"]`).click();
+      await page.waitForFunction(tab => (document.querySelector(`.settings-page-body[data-page="${tab}"]`)?.innerText ?? "").trim().length > 20, id);
+      await page.waitForTimeout(id === "usage" ? 1500 : 500);
+      primaries[id] = (await inspect(id)).primaries;
+      assert.ok(primaries[id] <= 1, `${id}: ${primaries[id]} primary buttons (at most one per view)`);
+    }
+    assert.equal(primaries.connections, 1, "Connections: Add connection is the one primary");
+    for (const id of ["computer", "models", "advanced", "tools", "permissions", "automation", "usage"]) assert.equal(primaries[id], 0, `${id}: no primary button`);
+    // Switch: 36x22 Radix switch, button role, saved in place.
+    await page.locator('.settings-tabs [data-tab="general"]').click();
+    const switchBox = await page.locator('.settings-page-body[data-page="general"] [role="switch"]').first().evaluate(element => ({tag: element.tagName, w: element.offsetWidth, h: element.offsetHeight}));
+    assert.deepEqual(switchBox, {tag: "BUTTON", w: 36, h: 22}, "a switch is a 36x22 Radix button");
+    // A phone column is 16px from the edge and nothing is wider than the viewport.
+    await close();
+    console.log("PASS visual language: 56px header, 20px title, no group headings but Administration, 640px column, no bordered container or hard shadow on General and Maintenance, at most one primary per view, 36x22 switch");
+  }
+
+  // ---- 8. Screenshots: every tab (the folded ones and Administration too) at 1440x900 and 390x844, light and dark.
   if (shots) {
     let count = 0;
+    const ALL = [...TABS, ...ADV_TABS, "admin", "admin-groups", "admin-resources"];
     for (const theme of ["light", "dark"]) {
       const desktop = await open({admin: "1"}, {theme});
-      for (const id of [...TABS, "admin"]) {
+      for (const id of ALL) {
+        if (await desktop.page.locator(`.settings-tabs [data-tab="${id}"]`).count() === 0) { await desktop.page.locator(".settings-tabs .settings-nav-more").click(); await desktop.page.waitForTimeout(150); }
         await desktop.page.locator(`.settings-tabs [data-tab="${id}"]`).click();
         await desktop.page.waitForFunction(tab => (document.querySelector(`.settings-page-body[data-page="${tab}"]`)?.innerText ?? "").trim().length > 20, id);
         await desktop.page.waitForTimeout(id === "usage" ? 1800 : 900);
@@ -1343,13 +1404,17 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await mobile.page.waitForTimeout(900);
       await mobile.page.screenshot({path: join(shots, `mobile-${theme}-home.png`)});
       count++;
-      for (const id of [...TABS, "admin"]) {
+      for (const id of ALL) {
+        if (await mobile.page.locator(`.settings-mhome [data-tab="${id}"]`).count() === 0) { await mobile.page.locator(".settings-mhome .settings-mmore").click(); await mobile.page.waitForTimeout(150); }
         await mobile.page.locator(`.settings-mhome [data-tab="${id}"]`).first().scrollIntoViewIfNeeded().catch(() => {});
         await mobile.page.locator(`.settings-mhome [data-tab="${id}"]`).first().click();
         await mobile.page.waitForFunction(tab => (document.querySelector(`.settings-page-body[data-page="${tab}"]`)?.innerText ?? "").trim().length > 20, id);
         await mobile.page.waitForTimeout(id === "usage" ? 1800 : 1000);
         await mobile.page.screenshot({path: join(shots, `mobile-${theme}-${id}.png`)});
         count++;
+        // No page scrolls sideways at 390px.
+        const sideways = await mobile.page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1 || [...document.querySelectorAll(".settings-page-body:not([hidden])")].some(element => element.scrollWidth > element.clientWidth + 1));
+        assert.equal(sideways, false, `${theme} ${id}: no horizontal scroll at 390px`);
         await mobile.page.locator(".settings-back").click();
         await settle(mobile.page);
       }

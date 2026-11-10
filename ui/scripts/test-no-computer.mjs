@@ -165,7 +165,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     requested.length = 0;
     const {page, close} = await open({computer: "kvm", tab: "computer", view: "page"});
     await page.locator(".environments-page").waitFor();
-    await page.locator(".settings-tabs .settings-nav-fold").click();
+    await page.locator(".settings-tabs .settings-nav-more").click();
     assert.ok((await railTabs(page)).includes("keys"), "Keys is shown, in the Advanced group, with a Bot computer");
     assert.equal(await page.locator(".computer-contents").count(), 0, "the Environments page has no 'what is on this computer' list");
     await goTab(page, "keys");

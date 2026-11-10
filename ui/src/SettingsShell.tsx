@@ -1,7 +1,7 @@
 import {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode} from "react";
 import {request} from "./api";
 import {readEnvironments} from "./environments";
-import {useAccountIdentity, useOwnerSession} from "./OwnerSession";
+import {useOwnerSession} from "./OwnerSession";
 import {TofiIcon, type TofiIconName} from "./icons";
 import {SettingsActivityContext} from "./settingsActivity";
 import {SettingsDraftContext, type SettingsDraft} from "./settingsDraft";
@@ -25,11 +25,13 @@ export type SettingsEntry={seq:number;view:SettingsView};
 // Names and descriptions are catalog keys (settings:shell.*), translated at render.
 /** `beta` and `dev` show a small tag next to the name: a working preview, and a feature still being built. */
 export type PageTag="beta"|"dev";
-type Page={id:SettingsTab;icon:TofiIconName;tag?:PageTag;name:`shell.page.${SettingsTab}.name`;description:`shell.page.${SettingsTab}.description`};
+// A page's description (`shell.page.<id>.description`) is no longer shown in the window; the manual and reference pages the server generates still read it (internal/app/settings_artifacts.go).
+type Page={id:SettingsTab;icon:TofiIconName;tag?:PageTag;name:`shell.page.${SettingsTab}.name`};
+// Groups are spacing clusters in the rail. Only Administration shows a heading; "more" is the folded cluster behind one quiet rail item.
 type GroupId="you"|"bots"|"workspace"|"system"|"admin"|"more";
-type Group={id:GroupId;label:`shell.group.${GroupId}`;items:Page[]};
-const page=(id:SettingsTab,icon:TofiIconName,tag?:PageTag):Page=>({id,icon,tag,name:`shell.page.${id}.name`,description:`shell.page.${id}.description`});
-const group=(id:GroupId,items:Page[]):Group=>({id,label:`shell.group.${id}`,items});
+type Group={id:GroupId;items:Page[]};
+const page=(id:SettingsTab,icon:TofiIconName,tag?:PageTag):Page=>({id,icon,tag,name:`shell.page.${id}.name`});
+const group=(id:GroupId,items:Page[]):Group=>({id,items});
 // Administration is its own navigation group, for administrators of a multi-account install only.
 const adminGroup=group("admin",[page("admin","group"),page("admin-groups","layers"),page("admin-resources","key")]);
 // The "advanced" tab id is the System page (version, server, data, debug, Start over); its label is "Maintenance" so it
@@ -68,7 +70,6 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
  const tab=(legacySettingsTabs[requestedTab as string]??requestedTab) as SettingsTab;
  const {language}=useLanguage();
  const session=useOwnerSession();
- const identity=useAccountIdentity();
  const isAdmin=Boolean(session?.multi_account&&session.owner?.role==="admin");
  const hasComputer=useHasComputer();
  // Without a computer the Keys page (environment variables and SSH keys, used only inside it) is hidden; Computer stays and explains the options.
@@ -134,7 +135,7 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
  const pages=visited.includes(tab)?visited:[...visited,tab];
  const selected=allItems.find(item=>item.id===tab) ?? allItems[0];
 
- // One indicator slides between rail items; it draws the selected background, border and shadow.
+ // One indicator slides between rail items; it draws the selected look (a lifted filled surface, no border).
  const list=useRef<HTMLDivElement>(null);
  const [indicator,setIndicator]=useState<{y:number;h:number}|null>(null);
  const [slide,setSlide]=useState(false);
@@ -164,19 +165,19 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
   return "";
  };
  const badge=(id:SettingsTab)=>{const count=counts[id];return count&&count.value>0?<span className={`settings-count is-${count.tone}`} aria-label={t("shell.attention",{count:count.value})}>{count.value}</span>:null};
- const accountBody=<><span className="settings-account-avatar" aria-hidden="true">{identity.initial}</span><span className="settings-account-copy"><strong>{identity.name}</strong>{identity.detail&&<small>{identity.detail}</small>}</span></>;
- const pageTag=(item:Page)=>item.tag?<span className={`settings-nav-tag is-${item.tag}`}>{t(`shell.tag.${item.tag}`)}</span>:null;
+ // The beta / in-development state is a quiet word beside the page title, not a pill in the rail.
+ const pageTag=(item:Page)=>item.tag?<span className="settings-page-tag">{t(`shell.tag.${item.tag}`)}</span>:null;
  const mobileOpen=mobileView==="page";
  return <div className="settings-shell" data-view={mobileView}>
   <nav className="settings-tabs" aria-label={t("shell.category")}>
-   <button type="button" className="settings-account-card" aria-current={tab==="general"?"true":undefined} onClick={()=>navigate("general")}>{accountBody}</button>
    <div className="settings-rail-list" ref={list}>
     <span className={`settings-rail-indicator${slide?" is-ready":""}`} aria-hidden="true" style={indicator?{transform:`translateY(${indicator.y}px)`,height:indicator.h}:{display:"none"}}/>
     {visibleGroups.map(section=>{
      const folded=section.id==="more";const shown=!folded||advancedOpen;
      return <div className="settings-nav-group" key={section.id} data-group={section.id}>
-      {folded?<button type="button" className="settings-nav-fold" aria-expanded={advancedOpen} aria-controls="settings-nav-more" onClick={()=>setAdvancedOpen(open=>!open)}><span>{t(section.label)}</span><TofiIcon name={advancedOpen?"chevron-down":"chevron-right"} size={14} aria-hidden="true"/></button>:<p>{t(section.label)}</p>}
-      {shown&&<div className="settings-nav-items" id={folded?"settings-nav-more":undefined}>{section.items.map(item=><button key={item.id} data-tab={item.id} className={tab===item.id?"selected":""} aria-current={tab===item.id?"page":undefined} onClick={()=>navigate(item.id)}><TofiIcon name={item.icon} size={20} variant={tab===item.id?"filled":"outline"}/><span className="settings-nav-label">{t(item.name)}</span>{pageTag(item)}{badge(item.id)}</button>)}</div>}
+      {section.id==="admin"&&<p>{t("shell.group.admin")}</p>}
+      {folded&&<button type="button" className="settings-nav-more" aria-expanded={advancedOpen} aria-controls="settings-nav-more" onClick={()=>setAdvancedOpen(open=>!open)}><TofiIcon name="more" size={18} aria-hidden="true"/><span className="settings-nav-label">{t("shell.more")}</span><TofiIcon name={advancedOpen?"chevron-down":"chevron-right"} size={14} aria-hidden="true"/></button>}
+      {shown&&<div className="settings-nav-items" id={folded?"settings-nav-more":undefined}>{section.items.map(item=><button key={item.id} data-tab={item.id} className={tab===item.id?"selected":""} aria-current={tab===item.id?"page":undefined} onClick={()=>navigate(item.id)}><TofiIcon name={item.icon} size={18} variant="outline"/><span className="settings-nav-label">{t(item.name)}</span>{badge(item.id)}</button>)}</div>}
      </div>;
     })}
    </div>
@@ -184,18 +185,18 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
   <div className="settings-mhome" inert={narrow&&mobileOpen}>
    <header className="settings-mbar"><span aria-hidden="true"/><h2>{t("shell.title")}</h2><button className="settings-dismiss" aria-label={t("shell.close")} onClick={()=>navigate("close")}><TofiIcon name="close" size={20}/></button></header>
    <div className="settings-mscroll">
-    <button type="button" className="settings-mlist settings-mrow settings-maccount" data-tab="general" onClick={()=>navigate("general")}>{accountBody}<TofiIcon name="chevron-right" size={16} aria-hidden="true"/></button>
-    {visibleGroups.filter(section=>section.id!=="you").map(section=>{
+    {visibleGroups.map(section=>{
      const folded=section.id==="more";
      return <section key={section.id} className="settings-mgroup" data-group={section.id}>
-      {folded?<button type="button" className="settings-mfold" aria-expanded={advancedOpen} onClick={()=>setAdvancedOpen(open=>!open)}><span>{t(section.label)}</span><TofiIcon name={advancedOpen?"chevron-down":"chevron-right"} size={14} aria-hidden="true"/></button>:<p>{t(section.label)}</p>}
-      {(!folded||advancedOpen)&&<div className="settings-mlist">{section.items.map(item=><button type="button" className="settings-mrow" key={item.id} data-tab={item.id} onClick={()=>navigate(item.id)}><span className="settings-mtile" aria-hidden="true"><TofiIcon name={item.icon} size={18}/></span><span className="settings-mname">{t(item.name)}</span>{pageTag(item)}{badge(item.id)}{hint(item.id)&&<span className="settings-mhint">{hint(item.id)}</span>}<TofiIcon name="chevron-right" size={16} aria-hidden="true"/></button>)}</div>}
+      {section.id==="admin"&&<p>{t("shell.group.admin")}</p>}
+      {folded&&<div className="settings-mlist"><button type="button" className="settings-mrow settings-mmore" aria-expanded={advancedOpen} onClick={()=>setAdvancedOpen(open=>!open)}><span className="settings-mtile" aria-hidden="true"><TofiIcon name="more" size={18}/></span><span className="settings-mname">{t("shell.more")}</span><TofiIcon name={advancedOpen?"chevron-down":"chevron-right"} size={14} aria-hidden="true"/></button></div>}
+      {(!folded||advancedOpen)&&<div className="settings-mlist">{section.items.map(item=><button type="button" className="settings-mrow" key={item.id} data-tab={item.id} onClick={()=>navigate(item.id)}><span className="settings-mtile" aria-hidden="true"><TofiIcon name={item.icon} size={18}/></span><span className="settings-mname">{t(item.name)}</span>{badge(item.id)}{hint(item.id)&&<span className="settings-mhint">{hint(item.id)}</span>}<TofiIcon name="chevron-right" size={16} aria-hidden="true"/></button>)}</div>}
      </section>;
     })}
    </div>
   </div>
   <div className="settings-content" inert={narrow&&!mobileOpen}>
-   <header className="settings-page-heading"><button type="button" className="settings-back" aria-label={t("shell.back")} onClick={()=>navigate("home")}><TofiIcon name="chevron-left" size={20}/></button><div className="settings-page-title"><h2>{t(selected.name)}{pageTag(selected)}</h2><p>{t(selected.description)}</p></div><div className="settings-header-actions" ref={setSlot}/><button className="settings-dismiss" aria-label={t("shell.close")} onClick={()=>navigate("close")}><TofiIcon name="close" size={20}/></button></header>
+   <header className="settings-page-heading"><button type="button" className="settings-back" aria-label={t("shell.back")} onClick={()=>navigate("home")}><TofiIcon name="chevron-left" size={20}/></button><div className="settings-page-title"><h2>{t(selected.name)}{pageTag(selected)}</h2></div><div className="settings-header-actions" ref={setSlot}/><button className="settings-dismiss" aria-label={t("shell.close")} onClick={()=>navigate("close")}><TofiIcon name="close" size={20}/></button></header>
    <SettingsHeaderSlotContext.Provider value={slot}>{pages.map(page=><div key={page} hidden={page!==tab} data-page={page} className="settings-page-body"><SettingsDraftContext.Provider value={providers[page]}><SettingsActivityContext.Provider value={page===tab}>{renderPage(page)}</SettingsActivityContext.Provider></SettingsDraftContext.Provider></div>)}</SettingsHeaderSlotContext.Provider>
    {activeDrafts.length>0&&<div className="settings-save-bar" role="status"><span>{t("shell.unsaved")}</span><button type="button" disabled={busy} onClick={()=>activeDrafts.forEach(draft=>draft.discard())}>{t("shell.discard")}</button><button type="button" className="primary-button" disabled={busy} onClick={()=>void saveActive()}>{saving?t("shell.saving"):t("shell.save")}</button></div>}
   </div>

@@ -27,11 +27,6 @@
   },
   "shell": {
     "group": {
-      "you": "You",
-      "bots": "Bots can use",
-      "workspace": "Workspace",
-      "system": "System",
-      "more": "Advanced",
       "admin": "Administration"
     },
     "page": {
@@ -132,7 +127,8 @@
     "tag": {
       "beta": "Beta",
       "dev": "In development"
-    }
+    },
+    "more": "More"
   },
   "appearance": {
     "title": "Theme",
@@ -1039,8 +1035,6 @@
   "followups": {
     "load_failed": "Couldn’t load follow-ups. Try again.",
     "save_failed": "Couldn’t save. Try again.",
-    "banner_title": "Preview only. Nothing is sent.",
-    "banner_body": "Bots read your own messages and list what they would remind you about. Nothing is posted to any chat. Review the items to tune what comes next.",
     "no_model_title": "No model connected",
     "no_model_body": "Scanning needs a connected model. Connect one in Models.",
     "paused_title": "Paused for today",
@@ -1680,5 +1674,10 @@
         "own_not_allowed": "Your organization manages the models for this account."
       }
     }
+  },
+  "saved": "Saved",
+  "changed": {
+    "note": "Changed · default {{value}}",
+    "reset": "Reset"
   }
 }
