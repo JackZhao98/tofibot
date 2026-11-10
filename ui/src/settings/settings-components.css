@@ -296,3 +296,6 @@ button.settings-row-v2.is-link:focus-visible{outline:var(--focus-ring-width) sol
 .sheet-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
 @media(max-width:767px){.sheet-overlay{padding:8px;align-items:end}.sheet{padding:16px;border-radius:18px;max-height:calc(100dvh - 16px)}.sheet-actions>button{flex:1}}
 .sheet-radio input[type="radio"]{border-radius:50%}
+
+/* Checked boxes and radios in Settings: no hard shadow. */
+.settings-page-body :is(input[type="checkbox"],input[type="radio"]):checked{box-shadow:none}
