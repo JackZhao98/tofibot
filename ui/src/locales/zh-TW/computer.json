@@ -193,16 +193,6 @@
     "reconnecting": "終端機連線暫時中斷，正在重新連線…",
     "live_aria": "即時終端機"
   },
-  "pairing": {
-    "connected": "{{name}} 已連線。",
-    "expired": "配對碼已過期，請重新產生。",
-    "code_aria": "配對碼 {{code}}",
-    "waiting": "等待裝置確認…"
-  },
-  "devices": {
-    "this_mac": "這台 Mac",
-    "open_mac": "開啟 Mac 設定"
-  },
   "resources": {
     "restart": {
       "title": "要重新啟動並套用設定嗎？",
@@ -380,7 +370,7 @@
     },
     "own": {
       "name": "你自己的電腦",
-      "what": "讓 Bot 在你已有的機器上工作。"
+      "what": "讓 Bot 在你已有的 Mac 上工作。在那台 Mac 上安裝 Tofi 桌面版，開啟「遠端控制這台 Mac」。"
     },
     "e2b": {
       "name": "E2B 雲端電腦",
@@ -484,7 +474,6 @@
     "add": "新增環境",
     "add_menu": {
       "e2b": "E2B 雲端電腦",
-      "mac": "你的 Mac",
       "vm": "這台伺服器上的 Bot 電腦"
     },
     "name": {
@@ -499,7 +488,6 @@
       "none": "未啟用"
     },
     "last_seen": "上次上線 {{time}}",
-    "this_mac_note": "資料夾、macOS 權限與 Bot 存取在 Mac 設定中配置。",
     "state": {
       "ready": "就緒",
       "starting": "啟動中",
@@ -556,7 +544,7 @@
       },
       "disconnect": {
         "title": "中斷 {{name}} 的連線？",
-        "body": "重新用新配對碼連接前，Bot 無法使用這台 Mac。",
+        "body": "在那台 Mac 的 Tofi 裡重新開啟遠端控制前，Bot 無法使用這台 Mac。",
         "action": "中斷連線"
       },
       "upgrade": {
@@ -581,20 +569,6 @@
       "template_id": "範本 ID",
       "template_hint": "適用於你用 E2B CLI 從 deploy/e2b 建置的範本。"
     },
-    "mac": {
-      "title": "連接你的 Mac",
-      "step_open": "在 Mac 上開啟 Tofi 應用程式。",
-      "step_code": "輸入此配對碼，5 分鐘內有效。",
-      "creating": "正在產生配對碼…",
-      "failed": "暫時無法建立配對碼。",
-      "new_code": "新配對碼",
-      "copy_aria": "複製配對碼",
-      "here_note": "你正在這台 Mac 的 Tofi 應用程式裡，點一下就能連接。",
-      "here": "連接這台 Mac",
-      "here_busy": "正在連接…",
-      "here_failed": "無法連接這台 Mac。請重試，或在 Mac 設定裡輸入配對碼。",
-      "other_mac": "要連接另一台 Mac，請在那台 Mac 上開啟 Tofi 並輸入此配對碼，5 分鐘內有效。"
-    },
     "vm": {
       "title": "在這台伺服器上新增 Bot 電腦",
       "run": "在伺服器主機上執行：",
@@ -611,6 +585,62 @@
     "none_body": "分配之前，Bot 不使用電腦運行；你的 Mac 仍可以連線。",
     "outdated": "有較新的電腦映像。更新會取代這台電腦，其中的檔案將被移除。",
     "image_preparing": "正在建置電腦映像，需要幾分鐘。",
-    "image_building": "正在建置較新的電腦映像。"
+    "image_building": "正在建置較新的電腦映像。",
+    "rc": {
+      "title": "遠端控制這台 Mac",
+      "off": "Bot 可以查看螢幕並使用滑鼠和鍵盤。有後果的操作會先詢問你。",
+      "on": "有後果的操作仍會先詢問你。Bot 工作時螢幕頂端有提示列，按 ⌃⌥⌘Esc 可立即停止。",
+      "no_personal": "這台伺服器不提供個人電腦。",
+      "this_mac": "這台 Mac",
+      "in_use": "有 Bot 正在使用",
+      "in_use_by": "{{name}} 正在使用",
+      "hotkey_taken": "停止快速鍵被其他 App 佔用，請使用這一列的「停止」。",
+      "browser": "要新增 Mac：在那台 Mac 上安裝 Tofi 桌面版，打開 設定 › 環境，開啟「遠端控制這台 Mac」。",
+      "state": {
+        "available": "可用",
+        "in_use": "使用中",
+        "unavailable": "無法使用"
+      },
+      "action": {
+        "turn_on_both": "兩項都開啟",
+        "authorize": "前往授權",
+        "relaunch": "重新開啟 Tofi",
+        "retry": "重試",
+        "stop": "停止"
+      },
+      "menu": {
+        "files": "檔案與本機執行",
+        "denied": "在這台 Mac 上被拒絕的 Bot"
+      },
+      "reason": {
+        "half_on": "遠端控制只開啟了一部分。",
+        "needs_accessibility": "還差 macOS 的「輔助使用」權限。",
+        "needs_screen": "還差 macOS 的「螢幕錄製」權限。",
+        "needs_both": "還差 macOS 的「輔助使用」和「螢幕錄製」權限。",
+        "needs_relaunch": "權限已授予，重新開啟 Tofi 後生效。",
+        "connecting": "正在連線到伺服器…",
+        "paused_stop": "你按了停止，稍後自動恢復。",
+        "paused_takeover": "你接管了，稍後自動恢復。",
+        "no_session": "你已登出。重新登入後再試。",
+        "personal_disabled": "這台伺服器不提供個人電腦。",
+        "rate_limited": "嘗試太頻繁，請一分鐘後再試。",
+        "limit_reached": "這個帳戶的 Mac 已達上限，請先移除一台。",
+        "connection_changed": "伺服器變了，請再開啟一次。",
+        "keychain_unavailable": "這台 Mac 的鑰匙圈無法使用，無法儲存連線。",
+        "offline": "連不上伺服器。檢查網路後再試。",
+        "no_connection": "請先連線到伺服器。",
+        "permission_missing": "還缺 macOS 的權限。",
+        "failed": "未能連線這台 Mac。請重試。",
+        "revoked": "這台 Mac 已被伺服器移除，遠端控制已關閉。",
+        "removal_pending": "遠端控制已關閉。連上伺服器後，這台 Mac 會從清單中消失。"
+      },
+      "denied": {
+        "title": "在這台 Mac 上被拒絕的 Bot",
+        "body": "這些 Bot 不能使用這台 Mac。重新允許時會請你確認。",
+        "empty": "沒有被拒絕的 Bot。",
+        "unnamed": "未命名的 Bot",
+        "allow": "重新允許"
+      }
+    }
   }
 }

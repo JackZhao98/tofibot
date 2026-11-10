@@ -1530,89 +1530,25 @@
     }
   },
   "mac": {
-    "title": "Mac settings",
+    "title": "Files and local execution",
     "back": "Back to chat",
     "loading": "Reading status…",
-    "refresh": "Refresh status",
     "unavailable": "This page only works inside the Tofi desktop app.",
     "device": {
-      "title": "Device",
-      "description": "How this Mac appears to your Bots.",
-      "name": "Device name",
-      "nameHint": "Shown to your Bots and in Tofi.",
       "folder": "Working folder",
       "folderHint": "Bots can only reach files inside this folder.",
       "choose": "Choose…",
-      "choosing": "Choosing…",
-      "paired": "Paired · {{id}}",
-      "unpaired": "Not paired",
-      "capabilities": "Active: {{list}}"
+      "choosing": "Choosing…"
     },
     "caps": {
-      "title": "Capabilities",
-      "description": "What Bots may do on this Mac. macOS permissions below are needed too.",
+      "title": "Files",
+      "description": "Bots can use the working folder while remote control is on.",
       "files": {
         "label": "Files",
         "hint": "List, read and write files inside the working folder."
       },
-      "screen": {
-        "label": "Screen capture",
-        "hint": "Take screenshots once Screen Recording is allowed."
-      },
-      "control": {
-        "label": "Desktop control",
-        "hint": "Click and type once Accessibility is allowed."
-      },
       "save": "Save settings",
       "saving": "Saving…"
-    },
-    "perm": {
-      "title": "macOS permissions",
-      "description": "macOS asks you to grant these in System Settings.",
-      "screen": {
-        "label": "Screen Recording",
-        "hint": "Needed for screenshots."
-      },
-      "accessibility": {
-        "label": "Accessibility",
-        "hint": "Needed for clicks and keyboard input."
-      },
-      "granted": "Allowed",
-      "missing": "Not allowed",
-      "grant": "Open System Settings",
-      "hint": {
-        "screen": "System Settings is open on Screen & System Audio Recording. Turn on Tofi in the list. If it is not listed, drag the icon from the card below the window into it. macOS may ask you to reopen Tofi, and the first capture may prompt you to bypass the system private window picker. Choose Allow.",
-        "accessibility": "System Settings is open on Accessibility. Turn on Tofi in the list. If it is not listed, drag the icon from the card below the window into it."
-      },
-      "monthly": "After Screen Recording is on, macOS asks about once a month whether Tofi may bypass the system private window picker. Choose Allow to keep capturing. Only you can answer this prompt; a Bot that runs into it will tell you.",
-      "stale": "Tofi is already on in System Settings but still shows Not allowed here? That entry belongs to an earlier copy of Tofi. In System Settings, select Tofi, click − to remove it, then choose Open System Settings here and turn it on again.",
-      "reopen": {
-        "label": "Turned on Screen Recording?",
-        "hint": "macOS applies it only after Tofi reopens.",
-        "action": "Reopen Tofi",
-        "busy": "Reopening…"
-      }
-    },
-    "bots": {
-      "title": "Bots on this Mac",
-      "description": "A Bot is refused the first time it asks to use this Mac. It is listed here until you allow it.",
-      "empty": "No Bot has asked to use this Mac yet.",
-      "unnamed": "Unnamed Bot",
-      "allowed": "Allowed",
-      "denied": "Denied",
-      "waiting": "Waiting for you",
-      "allow": "Allow",
-      "deny": "Deny",
-      "remove": "Remove",
-      "control": {
-        "paused_stop": "Desktop control is paused (you pressed Stop).",
-        "paused_takeover": "Desktop control is paused (you took over the mouse or keyboard).",
-        "active": "A Bot is controlling this Mac.",
-        "idle": "No Bot is controlling this Mac."
-      },
-      "stop": "Stop and pause for 60 s",
-      "resume": "Resume",
-      "shortcut": "While a Bot is in control a banner shows at the top of the screen. Press ⌃⌥⌘Esc to stop it at once and pause for 60 seconds."
     },
     "local": {
       "title": "Local execution",
@@ -1659,14 +1595,6 @@
       "boundary": "Commands can read the authorized folder, tools in ~/.local/bin, and any file outside your home folder that you can read. They can write only inside the authorized folder and a private project workspace, and changes are not rolled back. Tools in ~/.local/bin are read-only but can change while authorized, and running them can have side effects. The rest of your home folder and credential folders cannot be read or written. There is no SSH, network or Keychain access yet. The private workspace stays in a local temporary folder after you revoke; it is not cleaned up automatically.",
       "persist": "The authorization survives leaving this page. It ends when you quit the app, switch servers or revoke it."
     },
-    "pair": {
-      "title": "Pair this Mac",
-      "description": "Enter the pairing code from Tofi on the web: Settings > Environments > Add environment > Your Mac.",
-      "code": "Pairing code",
-      "submit": "Pair this Mac",
-      "pairing": "Pairing…",
-      "note": "Device credentials stay in the desktop app's main process and are never sent to the page."
-    },
     "error": {
       "last": "The last device action failed",
       "action": "Action failed: {{message}}",
@@ -1676,17 +1604,13 @@
     },
     "confirm": {
       "cancel": "Cancel",
-      "deny": {
-        "title": "Deny {{name}}?",
-        "body": "This Bot is refused every request to use this Mac until you allow it again.",
-        "confirm": "Deny"
-      },
       "revoke": {
         "title": "Revoke local execution?",
         "body": "Running commands stop and Bots lose access to the authorized folder. You can authorize a folder again later.",
         "confirm": "Revoke"
       }
-    }
+    },
+    "inDevelopment": "In development"
   },
   "policy": {
     "capability": {

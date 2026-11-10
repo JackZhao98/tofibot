@@ -194,16 +194,6 @@
     "reconnecting": "Terminalverbindung unterbrochen. Neu verbinden…",
     "live_aria": "Live-Terminal"
   },
-  "pairing": {
-    "connected": "{{name}} ist verbunden.",
-    "expired": "Der Kopplungscode ist abgelaufen. Erstelle einen neuen.",
-    "code_aria": "Kopplungscode {{code}}",
-    "waiting": "Warten auf Bestätigung des Geräts…"
-  },
-  "devices": {
-    "this_mac": "Dieser Mac",
-    "open_mac": "Mac-Einstellungen öffnen"
-  },
   "resources": {
     "restart": {
       "title": "Neu starten und Konfiguration anwenden?",
@@ -381,7 +371,7 @@
     },
     "own": {
       "name": "Dein eigener Computer",
-      "what": "Lass einen Bot auf einem Rechner arbeiten, den du schon besitzt."
+      "what": "Lass einen Bot auf einem Mac arbeiten, den du schon besitzt. Installiere dort die Tofi-Mac-App und schalte „Diesen Mac fernsteuern“ ein."
     },
     "e2b": {
       "name": "E2B-Cloud-Computer",
@@ -490,7 +480,6 @@
     "add": "Umgebung hinzufügen",
     "add_menu": {
       "e2b": "E2B-Cloud-Computer",
-      "mac": "Dein Mac",
       "vm": "Bot-Computer auf diesem Server"
     },
     "name": {
@@ -505,7 +494,6 @@
       "none": "Nicht in Gebrauch"
     },
     "last_seen": "Zuletzt gesehen {{time}}",
-    "this_mac_note": "Ordner, macOS-Berechtigungen und Bot-Zugriff stellst du in den Mac-Einstellungen ein.",
     "state": {
       "ready": "Bereit",
       "starting": "Startet",
@@ -562,7 +550,7 @@
       },
       "disconnect": {
         "title": "{{name}} trennen?",
-        "body": "Bots können diesen Mac nicht nutzen, bis du ihn mit einem neuen Code wieder verbindest.",
+        "body": "Bots können diesen Mac nicht nutzen, bis die Fernsteuerung in Tofi auf diesem Mac wieder eingeschaltet wird.",
         "action": "Trennen"
       },
       "upgrade": {
@@ -587,20 +575,6 @@
       "template_id": "Vorlagen-ID",
       "template_hint": "Für eine Vorlage, die du mit der E2B-CLI aus deploy/e2b gebaut hast."
     },
-    "mac": {
-      "title": "Mac verbinden",
-      "step_open": "Öffne die Tofi-App auf deinem Mac.",
-      "step_code": "Gib diesen Code ein. Er ist 5 Minuten gültig.",
-      "creating": "Code wird erstellt…",
-      "failed": "Kopplungscode konnte nicht erstellt werden.",
-      "new_code": "Neuer Code",
-      "copy_aria": "Kopplungscode kopieren",
-      "here_note": "Du bist in der Tofi-App auf diesem Mac. Verbinde ihn mit einem Klick.",
-      "here": "Diesen Mac verbinden",
-      "here_busy": "Wird verbunden…",
-      "here_failed": "Dieser Mac konnte nicht verbunden werden. Versuch es erneut oder gib den Code in den Mac-Einstellungen ein.",
-      "other_mac": "Um einen anderen Mac zu verbinden, öffne Tofi dort und gib diesen Code ein. Er ist 5 Minuten gültig."
-    },
     "vm": {
       "title": "Bot-Computer auf diesem Server hinzufügen",
       "run": "Auf dem Server-Host ausführen:",
@@ -617,6 +591,62 @@
     "none_body": "Bots laufen ohne Computer, bis einer zugewiesen wird. Ihre Macs lassen sich weiterhin verbinden.",
     "outdated": "Ein neueres Computer-Image ist verfügbar. Die Aktualisierung ersetzt diesen Computer; Dateien darauf werden entfernt.",
     "image_preparing": "Das Computer-Image wird gebaut. Das dauert einige Minuten.",
-    "image_building": "Ein neueres Computer-Image wird gebaut."
+    "image_building": "Ein neueres Computer-Image wird gebaut.",
+    "rc": {
+      "title": "Diesen Mac fernsteuern",
+      "off": "Bots sehen den Bildschirm und bedienen Maus und Tastatur. Folgenreiche Aktionen fragen vorher nach.",
+      "on": "Folgenreiche Aktionen fragen weiterhin vorher nach. Ein Banner zeigt, wenn ein Bot arbeitet; ⌃⌥⌘Esc stoppt ihn.",
+      "no_personal": "Dieser Server bietet keine persönlichen Computer an.",
+      "this_mac": "Dieser Mac",
+      "in_use": "Ein Bot nutzt ihn",
+      "in_use_by": "Wird von {{name}} genutzt",
+      "hotkey_taken": "Ein anderes Programm belegt das Stopp-Kürzel. Nutze „Stopp“ in dieser Zeile.",
+      "browser": "Um einen Mac hinzuzufügen, installiere die Tofi-Mac-App, öffne dort Einstellungen › Umgebungen und schalte „Diesen Mac fernsteuern“ ein.",
+      "state": {
+        "available": "Verfügbar",
+        "in_use": "In Benutzung",
+        "unavailable": "Nicht verfügbar"
+      },
+      "action": {
+        "turn_on_both": "Beides einschalten",
+        "authorize": "Zugriff erlauben",
+        "relaunch": "Tofi neu öffnen",
+        "retry": "Erneut versuchen",
+        "stop": "Stopp"
+      },
+      "menu": {
+        "files": "Dateien und lokale Ausführung",
+        "denied": "Auf diesem Mac abgelehnte Bots"
+      },
+      "reason": {
+        "half_on": "Nur ein Teil der Fernsteuerung ist eingeschaltet.",
+        "needs_accessibility": "Es fehlt noch der macOS-Zugriff „Bedienungshilfen“.",
+        "needs_screen": "Es fehlt noch der macOS-Zugriff „Bildschirmaufnahme“.",
+        "needs_both": "Es fehlen noch die macOS-Zugriffe „Bedienungshilfen“ und „Bildschirmaufnahme“.",
+        "needs_relaunch": "Zugriff erteilt. Öffne Tofi neu, damit er gilt.",
+        "connecting": "Verbindung zum Server wird hergestellt …",
+        "paused_stop": "Du hast gestoppt. Es läuft gleich von selbst weiter.",
+        "paused_takeover": "Du hast übernommen. Es läuft gleich von selbst weiter.",
+        "no_session": "Du bist abgemeldet. Melde dich erneut an und versuche es dann noch einmal.",
+        "personal_disabled": "Dieser Server bietet keine persönlichen Computer an.",
+        "rate_limited": "Zu viele Versuche. Versuche es in einer Minute erneut.",
+        "limit_reached": "Dieses Konto hat sein Mac-Limit erreicht. Entferne zuerst einen.",
+        "connection_changed": "Der Server hat gewechselt. Schalte es für den neuen Server erneut ein.",
+        "keychain_unavailable": "Der Schlüsselbund dieses Mac ist nicht verfügbar, die Verbindung kann nicht gespeichert werden.",
+        "offline": "Server nicht erreichbar. Prüfe die Verbindung und versuche es erneut.",
+        "no_connection": "Verbinde dich zuerst mit einem Server.",
+        "permission_missing": "Es fehlt noch ein macOS-Zugriff.",
+        "failed": "Dieser Mac konnte nicht verbunden werden. Versuche es erneut.",
+        "revoked": "Dieser Mac wurde vom Server entfernt, die Fernsteuerung ist aus.",
+        "removal_pending": "Die Fernsteuerung ist aus. Dieser Mac verschwindet aus der Liste, sobald der Server erreichbar ist."
+      },
+      "denied": {
+        "title": "Auf diesem Mac abgelehnte Bots",
+        "body": "Diese Bots dürfen diesen Mac nicht nutzen. Erneutes Erlauben fragt nach.",
+        "empty": "Kein Bot ist abgelehnt.",
+        "unnamed": "Unbenannter Bot",
+        "allow": "Wieder erlauben"
+      }
+    }
   }
 }

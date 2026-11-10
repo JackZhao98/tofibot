@@ -195,16 +195,6 @@
     "reconnecting": "Connexion au terminal interrompue. Reconnexion…",
     "live_aria": "Terminal en direct"
   },
-  "pairing": {
-    "connected": "{{name}} est connecté.",
-    "expired": "Le code d'association a expiré. Générez-en un nouveau.",
-    "code_aria": "Code d'association {{code}}",
-    "waiting": "En attente de confirmation de l'appareil…"
-  },
-  "devices": {
-    "this_mac": "Ce Mac",
-    "open_mac": "Ouvrir les réglages du Mac"
-  },
   "resources": {
     "restart": {
       "title": "Redémarrer et appliquer la configuration ?",
@@ -382,7 +372,7 @@
     },
     "own": {
       "name": "Ton propre ordinateur",
-      "what": "Laisse un Bot travailler sur une machine que tu possèdes déjà."
+      "what": "Laissez un Bot travailler sur un Mac que vous possédez déjà. Installez-y l’app Tofi pour Mac et activez « Contrôler ce Mac à distance »."
     },
     "e2b": {
       "name": "Ordinateur cloud E2B",
@@ -496,7 +486,6 @@
     "add": "Ajouter un environnement",
     "add_menu": {
       "e2b": "Ordinateur cloud E2B",
-      "mac": "Votre Mac",
       "vm": "Ordinateur Bot sur ce serveur"
     },
     "name": {
@@ -511,7 +500,6 @@
       "none": "Inutilisé"
     },
     "last_seen": "Vu pour la dernière fois {{time}}",
-    "this_mac_note": "Dossier, autorisations macOS et accès des Bots se règlent dans les réglages du Mac.",
     "state": {
       "ready": "Prêt",
       "starting": "Démarrage",
@@ -568,7 +556,7 @@
       },
       "disconnect": {
         "title": "Déconnecter {{name}} ?",
-        "body": "Les Bots ne peuvent pas utiliser ce Mac tant que vous ne le reconnectez pas avec un nouveau code.",
+        "body": "Les Bots ne peuvent pas utiliser ce Mac tant que le contrôle à distance n’est pas réactivé dans Tofi sur ce Mac.",
         "action": "Déconnecter"
       },
       "upgrade": {
@@ -593,20 +581,6 @@
       "template_id": "ID du modèle",
       "template_hint": "Pour un modèle construit avec la CLI E2B depuis deploy/e2b."
     },
-    "mac": {
-      "title": "Connecter votre Mac",
-      "step_open": "Ouvrez l’app Tofi sur votre Mac.",
-      "step_code": "Saisissez ce code. Il est valable 5 minutes.",
-      "creating": "Création du code…",
-      "failed": "Impossible de créer un code d’association.",
-      "new_code": "Nouveau code",
-      "copy_aria": "Copier le code d’association",
-      "here_note": "Vous êtes dans l’app Tofi sur ce Mac. Connectez-le en un clic.",
-      "here": "Connecter ce Mac",
-      "here_busy": "Connexion…",
-      "here_failed": "Impossible de connecter ce Mac. Réessayez, ou saisissez le code dans les réglages du Mac.",
-      "other_mac": "Pour connecter un autre Mac, ouvrez Tofi sur ce Mac et saisissez ce code. Il est valable 5 minutes."
-    },
     "vm": {
       "title": "Ajouter un ordinateur Bot sur ce serveur",
       "run": "À exécuter sur l’hôte du serveur :",
@@ -623,6 +597,62 @@
     "none_body": "Les Bots fonctionnent sans ordinateur tant qu’aucun n’est attribué. Vos Mac peuvent toujours être connectés.",
     "outdated": "Une image d’ordinateur plus récente est disponible. La mise à jour remplace cet ordinateur ; les fichiers qu’il contient sont supprimés.",
     "image_preparing": "L’image d’ordinateur est en cours de construction. Cela prend quelques minutes.",
-    "image_building": "Une image d’ordinateur plus récente est en cours de construction."
+    "image_building": "Une image d’ordinateur plus récente est en cours de construction.",
+    "rc": {
+      "title": "Contrôler ce Mac à distance",
+      "off": "Les Bots voient l'écran et utilisent la souris et le clavier. Les actions à conséquences demandent d'abord votre accord.",
+      "on": "Les actions à conséquences demandent toujours votre accord. Un bandeau s'affiche pendant le travail d'un Bot ; ⌃⌥⌘Esc l'arrête.",
+      "no_personal": "Ce serveur ne propose pas d'ordinateurs personnels.",
+      "this_mac": "Ce Mac",
+      "in_use": "Un Bot l'utilise",
+      "in_use_by": "Utilisé par {{name}}",
+      "hotkey_taken": "Une autre app utilise le raccourci d’arrêt. Utilisez « Arrêter » sur cette ligne.",
+      "browser": "Pour ajouter un Mac, installez l’app Tofi pour Mac, ouvrez Réglages › Environnements et activez « Contrôler ce Mac à distance ».",
+      "state": {
+        "available": "Disponible",
+        "in_use": "En cours d’utilisation",
+        "unavailable": "Indisponible"
+      },
+      "action": {
+        "turn_on_both": "Tout activer",
+        "authorize": "Autoriser l’accès",
+        "relaunch": "Rouvrir Tofi",
+        "retry": "Réessayer",
+        "stop": "Arrêter"
+      },
+      "menu": {
+        "files": "Fichiers et exécution locale",
+        "denied": "Bots refusés sur ce Mac"
+      },
+      "reason": {
+        "half_on": "Le contrôle à distance n’est activé qu’en partie.",
+        "needs_accessibility": "L’accès « Accessibilité » de macOS manque encore.",
+        "needs_screen": "L’accès « Enregistrement d’écran » de macOS manque encore.",
+        "needs_both": "Les accès « Accessibilité » et « Enregistrement d’écran » de macOS manquent encore.",
+        "needs_relaunch": "L’accès est accordé. Rouvrez Tofi pour l’appliquer.",
+        "connecting": "Connexion au serveur…",
+        "paused_stop": "Vous l’avez arrêté. Il reprend tout seul.",
+        "paused_takeover": "Vous avez repris la main. Il reprend tout seul.",
+        "no_session": "Vous êtes déconnecté. Reconnectez-vous, puis réessayez.",
+        "personal_disabled": "Ce serveur ne propose pas d'ordinateurs personnels.",
+        "rate_limited": "Trop de tentatives. Réessayez dans une minute.",
+        "limit_reached": "Ce compte a atteint sa limite de Mac. Supprimez-en un d’abord.",
+        "connection_changed": "Le serveur a changé. Réactivez pour le nouveau.",
+        "keychain_unavailable": "Le trousseau de ce Mac est indisponible, la connexion ne peut pas être enregistrée.",
+        "offline": "Serveur injoignable. Vérifiez la connexion et réessayez.",
+        "no_connection": "Connectez-vous d’abord à un serveur.",
+        "permission_missing": "Un accès macOS manque encore.",
+        "failed": "Impossible de connecter ce Mac. Réessayez.",
+        "revoked": "Ce Mac a été retiré du serveur, le contrôle à distance est désactivé.",
+        "removal_pending": "Le contrôle à distance est désactivé. Ce Mac disparaîtra de la liste dès que le serveur sera joignable."
+      },
+      "denied": {
+        "title": "Bots refusés sur ce Mac",
+        "body": "Ces Bots ne peuvent pas utiliser ce Mac. Les autoriser à nouveau demande une confirmation.",
+        "empty": "Aucun Bot n’est refusé.",
+        "unnamed": "Bot sans nom",
+        "allow": "Autoriser à nouveau"
+      }
+    }
   }
 }

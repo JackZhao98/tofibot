@@ -194,16 +194,6 @@
     "reconnecting": "Terminal connection interrupted. Reconnecting…",
     "live_aria": "Live terminal"
   },
-  "pairing": {
-    "connected": "{{name}} is connected.",
-    "expired": "The pairing code expired. Generate a new one.",
-    "code_aria": "Pairing code {{code}}",
-    "waiting": "Waiting for the device to confirm…"
-  },
-  "devices": {
-    "this_mac": "This Mac",
-    "open_mac": "Open Mac settings"
-  },
   "resources": {
     "restart": {
       "title": "Restart and apply the new configuration?",
@@ -381,7 +371,7 @@
     },
     "own": {
       "name": "Your own computer",
-      "what": "Let a Bot work on a machine you already own."
+      "what": "Let a Bot work on a Mac you already own. Install the Tofi Mac app there and turn on Remote control this Mac."
     },
     "e2b": {
       "name": "E2B cloud computer",
@@ -490,7 +480,6 @@
     "add": "Add environment",
     "add_menu": {
       "e2b": "E2B cloud computer",
-      "mac": "Your Mac",
       "vm": "Bot computer on this server"
     },
     "name": {
@@ -505,7 +494,6 @@
       "none": "Not in use"
     },
     "last_seen": "Last seen {{time}}",
-    "this_mac_note": "Folder, macOS permissions and Bot access are set in Mac settings.",
     "state": {
       "ready": "Ready",
       "starting": "Starting",
@@ -562,7 +550,7 @@
       },
       "disconnect": {
         "title": "Disconnect {{name}}?",
-        "body": "Bots can't use this Mac until you connect it again with a new code.",
+        "body": "Bots can't use this Mac until remote control is turned on again in the Tofi app on it.",
         "action": "Disconnect"
       },
       "upgrade": {
@@ -587,20 +575,6 @@
       "template_id": "Template ID",
       "template_hint": "For a template you built with the E2B CLI from deploy/e2b."
     },
-    "mac": {
-      "title": "Connect your Mac",
-      "step_open": "Open the Tofi app on your Mac.",
-      "step_code": "Enter this code. It's valid for 5 minutes.",
-      "creating": "Creating a code…",
-      "failed": "Couldn't create a pairing code.",
-      "new_code": "New code",
-      "copy_aria": "Copy pairing code",
-      "here_note": "You're in the Tofi app on this Mac. Connect it with one click.",
-      "here": "Connect this Mac",
-      "here_busy": "Connecting…",
-      "here_failed": "Couldn't connect this Mac. Try again, or enter the code in Mac settings.",
-      "other_mac": "To connect another Mac, open Tofi on it and enter this code. It's valid for 5 minutes."
-    },
     "vm": {
       "title": "Add a Bot computer on this server",
       "run": "Run this on the server host:",
@@ -617,6 +591,62 @@
     "none_body": "Bots run without a computer until one is assigned. Your Macs can still be connected.",
     "outdated": "Newer computer image available. Updating replaces this computer; files on it are removed.",
     "image_preparing": "The computer image is being built. This takes a few minutes.",
-    "image_building": "A newer computer image is being built."
+    "image_building": "A newer computer image is being built.",
+    "rc": {
+      "title": "Remote control this Mac",
+      "off": "Bots can see the screen and use the mouse and keyboard. Actions with consequences ask you first.",
+      "on": "Actions with consequences still ask you first. A banner shows while a Bot works, and ⌃⌥⌘Esc stops it.",
+      "no_personal": "This server doesn't offer personal computers.",
+      "this_mac": "This Mac",
+      "in_use": "A Bot is using it",
+      "in_use_by": "Used by {{name}}",
+      "hotkey_taken": "Another app holds the stop shortcut. Use Stop on this row.",
+      "browser": "To add a Mac, install the Tofi Mac app, open Settings › Environments there and turn on Remote control this Mac.",
+      "state": {
+        "available": "Available",
+        "in_use": "In use",
+        "unavailable": "Unavailable"
+      },
+      "action": {
+        "turn_on_both": "Turn both on",
+        "authorize": "Grant access",
+        "relaunch": "Reopen Tofi",
+        "retry": "Try again",
+        "stop": "Stop"
+      },
+      "menu": {
+        "files": "Files and local execution",
+        "denied": "Bots denied on this Mac"
+      },
+      "reason": {
+        "half_on": "Only part of remote control is on.",
+        "needs_accessibility": "Still needs macOS Accessibility access.",
+        "needs_screen": "Still needs macOS Screen Recording access.",
+        "needs_both": "Still needs macOS Accessibility and Screen Recording access.",
+        "needs_relaunch": "Access is granted. Reopen Tofi to apply it.",
+        "connecting": "Connecting to the server…",
+        "paused_stop": "You stopped it. It resumes on its own.",
+        "paused_takeover": "You took over. It resumes on its own.",
+        "no_session": "You're signed out. Sign in again, then try again.",
+        "personal_disabled": "This server doesn't offer personal computers.",
+        "rate_limited": "Too many attempts. Try again in a minute.",
+        "limit_reached": "This account has reached its Mac limit. Remove one first.",
+        "connection_changed": "The server changed. Turn it on again for the new one.",
+        "keychain_unavailable": "The Mac's keychain isn't available, so the connection can't be saved.",
+        "offline": "Can't reach the server. Check the connection and try again.",
+        "no_connection": "Connect to a server first.",
+        "permission_missing": "macOS access is still missing.",
+        "failed": "Couldn't connect this Mac. Try again.",
+        "revoked": "This Mac was removed from the server, so remote control is off.",
+        "removal_pending": "Remote control is off. This Mac leaves the server's list once the server can be reached."
+      },
+      "denied": {
+        "title": "Bots denied on this Mac",
+        "body": "These Bots can't use this Mac. Allowing one asks you to confirm.",
+        "empty": "No Bot is denied.",
+        "unnamed": "Unnamed Bot",
+        "allow": "Allow again"
+      }
+    }
   }
 }

@@ -193,16 +193,6 @@
     "reconnecting": "터미널 연결이 끊겼습니다. 다시 연결하는 중…",
     "live_aria": "실시간 터미널"
   },
-  "pairing": {
-    "connected": "{{name}}이(가) 연결되었습니다.",
-    "expired": "페어링 코드가 만료되었습니다. 새로 생성하세요.",
-    "code_aria": "페어링 코드 {{code}}",
-    "waiting": "기기 확인을 기다리는 중…"
-  },
-  "devices": {
-    "this_mac": "이 Mac",
-    "open_mac": "Mac 설정 열기"
-  },
   "resources": {
     "restart": {
       "title": "다시 시작하고 구성을 적용할까요?",
@@ -380,7 +370,7 @@
     },
     "own": {
       "name": "내 컴퓨터",
-      "what": "이미 가지고 있는 기기에서 Bot이 일하게 해요."
+      "what": "이미 가지고 있는 Mac에서 Bot이 일하게 해요. 해당 Mac에 Tofi Mac 앱을 설치하고 '이 Mac 원격 제어'를 켜세요."
     },
     "e2b": {
       "name": "E2B 클라우드 컴퓨터",
@@ -484,7 +474,6 @@
     "add": "환경 추가",
     "add_menu": {
       "e2b": "E2B 클라우드 컴퓨터",
-      "mac": "내 Mac",
       "vm": "이 서버의 Bot 컴퓨터"
     },
     "name": {
@@ -499,7 +488,6 @@
       "none": "사용 안 함"
     },
     "last_seen": "마지막 접속 {{time}}",
-    "this_mac_note": "폴더, macOS 권한, Bot 접근은 Mac 설정에서 지정합니다.",
     "state": {
       "ready": "준비됨",
       "starting": "시작 중",
@@ -556,7 +544,7 @@
       },
       "disconnect": {
         "title": "{{name}} 연결을 해제할까요?",
-        "body": "새 코드로 다시 연결하기 전까지 Bot은 이 Mac을 쓸 수 없습니다.",
+        "body": "해당 Mac의 Tofi에서 원격 제어를 다시 켜기 전까지 Bot은 이 Mac을 쓸 수 없습니다.",
         "action": "연결 해제"
       },
       "upgrade": {
@@ -581,20 +569,6 @@
       "template_id": "템플릿 ID",
       "template_hint": "deploy/e2b에서 E2B CLI로 빌드한 템플릿용입니다."
     },
-    "mac": {
-      "title": "Mac 연결",
-      "step_open": "Mac에서 Tofi 앱을 엽니다.",
-      "step_code": "이 코드를 입력하세요. 5분 동안 유효합니다.",
-      "creating": "코드를 만드는 중…",
-      "failed": "페어링 코드를 만들 수 없습니다.",
-      "new_code": "새 코드",
-      "copy_aria": "페어링 코드 복사",
-      "here_note": "지금 이 Mac의 Tofi 앱을 사용하고 있습니다. 한 번의 클릭으로 연결하세요.",
-      "here": "이 Mac 연결",
-      "here_busy": "연결 중…",
-      "here_failed": "이 Mac을 연결하지 못했습니다. 다시 시도하거나 Mac 설정에서 코드를 입력하세요.",
-      "other_mac": "다른 Mac을 연결하려면 그 Mac에서 Tofi를 열고 이 코드를 입력하세요. 5분 동안 유효합니다."
-    },
     "vm": {
       "title": "이 서버에 Bot 컴퓨터 추가",
       "run": "서버 호스트에서 다음을 실행하세요:",
@@ -611,6 +585,62 @@
     "none_body": "할당되기 전까지 Bot은 컴퓨터 없이 실행됩니다. Mac은 계속 연결할 수 있습니다.",
     "outdated": "더 새로운 컴퓨터 이미지가 있습니다. 업데이트하면 이 컴퓨터가 교체되고 안의 파일이 삭제됩니다.",
     "image_preparing": "컴퓨터 이미지를 빌드하는 중입니다. 몇 분 걸립니다.",
-    "image_building": "더 새로운 컴퓨터 이미지를 빌드하는 중입니다."
+    "image_building": "더 새로운 컴퓨터 이미지를 빌드하는 중입니다.",
+    "rc": {
+      "title": "이 Mac 원격 제어",
+      "off": "Bot이 화면을 보고 마우스와 키보드를 사용할 수 있습니다. 영향이 큰 작업은 먼저 묻습니다.",
+      "on": "영향이 큰 작업은 계속 먼저 묻습니다. Bot이 작업하는 동안 배너가 표시되며 ⌃⌥⌘Esc로 멈출 수 있습니다.",
+      "no_personal": "이 서버는 개인 컴퓨터를 지원하지 않습니다.",
+      "this_mac": "이 Mac",
+      "in_use": "Bot이 사용하고 있습니다",
+      "in_use_by": "{{name}}이(가) 사용 중",
+      "hotkey_taken": "중지 단축키를 다른 앱이 사용 중입니다. 이 행의 '중지'를 사용하세요.",
+      "browser": "Mac을 추가하려면 해당 Mac에 Tofi Mac 앱을 설치하고 설정 › 환경에서 '이 Mac 원격 제어'를 켜세요.",
+      "state": {
+        "available": "사용 가능",
+        "in_use": "사용 중",
+        "unavailable": "사용 불가"
+      },
+      "action": {
+        "turn_on_both": "둘 다 켜기",
+        "authorize": "권한 허용",
+        "relaunch": "Tofi 다시 열기",
+        "retry": "다시 시도",
+        "stop": "중지"
+      },
+      "menu": {
+        "files": "파일 및 로컬 실행",
+        "denied": "이 Mac에서 거부한 Bot"
+      },
+      "reason": {
+        "half_on": "원격 제어가 일부만 켜져 있습니다.",
+        "needs_accessibility": "macOS '손쉬운 사용' 권한이 아직 필요합니다.",
+        "needs_screen": "macOS '화면 기록' 권한이 아직 필요합니다.",
+        "needs_both": "macOS '손쉬운 사용' 및 '화면 기록' 권한이 아직 필요합니다.",
+        "needs_relaunch": "권한이 허용되었습니다. Tofi를 다시 열면 적용됩니다.",
+        "connecting": "서버에 연결하는 중…",
+        "paused_stop": "중지했습니다. 잠시 후 자동으로 재개됩니다.",
+        "paused_takeover": "직접 조작했습니다. 잠시 후 자동으로 재개됩니다.",
+        "no_session": "로그아웃되었습니다. 다시 로그인한 뒤 시도하세요.",
+        "personal_disabled": "이 서버는 개인 컴퓨터를 지원하지 않습니다.",
+        "rate_limited": "시도가 너무 많습니다. 1분 뒤에 다시 시도하세요.",
+        "limit_reached": "이 계정의 Mac 한도에 도달했습니다. 먼저 하나를 제거하세요.",
+        "connection_changed": "서버가 바뀌었습니다. 새 서버에서 다시 켜세요.",
+        "keychain_unavailable": "이 Mac의 키체인을 사용할 수 없어 연결을 저장할 수 없습니다.",
+        "offline": "서버에 연결할 수 없습니다. 연결을 확인한 뒤 다시 시도하세요.",
+        "no_connection": "먼저 서버에 연결하세요.",
+        "permission_missing": "macOS 권한이 아직 부족합니다.",
+        "failed": "이 Mac을 연결하지 못했습니다. 다시 시도하세요.",
+        "revoked": "이 Mac이 서버에서 제거되어 원격 제어가 꺼졌습니다.",
+        "removal_pending": "원격 제어가 꺼졌습니다. 서버에 연결되면 이 Mac이 목록에서 사라집니다."
+      },
+      "denied": {
+        "title": "이 Mac에서 거부한 Bot",
+        "body": "이 Bot들은 이 Mac을 사용할 수 없습니다. 다시 허용할 때 확인을 요청합니다.",
+        "empty": "거부한 Bot이 없습니다.",
+        "unnamed": "이름 없는 Bot",
+        "allow": "다시 허용"
+      }
+    }
   }
 }

@@ -29,3 +29,4 @@ html[data-desktop="darwin"] .mac-settings-titlebar{display:block;position:fixed;
   .mac-save-row{justify-content:stretch}
 }
 .mac-form{display:grid;gap:26px;min-width:0}
+.mac-dev-tag{margin-left:10px;padding:2px 8px;border-radius:999px;background:var(--sunk);color:var(--muted);font:500 12px/1.4 var(--body);vertical-align:middle}

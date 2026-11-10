@@ -38,23 +38,47 @@ export type DesktopPermissionSnapshot = {
   accessibility: boolean;
 };
 
-/** One Bot the Mac has seen asking to use it (desktop device bridge, botAllow.list()). */
-export type DesktopBotEntry = { bot_id: string; bot_name?: string; decision?: "allow" | "deny" | "pending" | string };
+/**
+ * Remote control this Mac (environments-simplify.md): the one switch that replaces the pairing code. The Mac app's main
+ * process answers every method to workspace documents only and shows the native confirmation itself; the page only asks.
+ * A failure carries a named `code`, never the server's text, and nothing here ever carries a pairing code or token.
+ */
+export type RemoteControlFailure = "no_session" | "personal_disabled" | "rate_limited" | "limit_reached" | "connection_changed" | "keychain_unavailable" | "offline" | "no_connection" | "permission_missing" | "failed";
+export type RemoteControlReason = RemoteControlFailure | "half_on" | "needs_accessibility" | "needs_screen" | "needs_both" | "needs_relaunch" | "connecting" | "paused_stop" | "paused_takeover" | "revoked" | "removal_pending";
+export type RemoteControlStatus = {
+  enabled: boolean; paired: boolean; deviceID: string | null; name: string;
+  permissions: { screen: boolean; accessibility: boolean }; needsRelaunch: boolean;
+  phase: "idle" | "active" | "lingering" | "paused"; botName: string; pausedUntil: number | null; hotkeyOk: boolean;
+  reason: RemoteControlReason | null;
+};
+export type RemoteControlResult = { ok: true; status: RemoteControlStatus } | { ok: false; code: RemoteControlFailure | "cancelled" | "off" | "not_needed"; status: RemoteControlStatus };
+export type RemoteControlBridge = {
+  status: () => Promise<RemoteControlStatus>;
+  /** Turning on shows the macOS confirmation; a cancel answers `{ok:false, code:"cancelled"}` and changes nothing. */
+  set: (on: boolean) => Promise<RemoteControlResult>;
+  authorize: () => Promise<RemoteControlResult>;
+  stop: () => Promise<RemoteControlResult>;
+  relaunch: () => Promise<RemoteControlResult>;
+  /** Bots the person denied on this Mac before; a local veto. */
+  deniedBots: () => Promise<{ ok: true; bots: { bot_id: string; bot_name: string }[] }>;
+  /** Lifting a veto also asks in a native dialog. */
+  undoDeny: (botID: string) => Promise<{ ok: boolean; code?: string; bots: { bot_id: string; bot_name: string }[] }>;
+  onStatus: (listener: (status: RemoteControlStatus) => void) => () => void;
+};
 export type DesktopSandboxStatus = {
   enabled?: boolean; root?: string | null; connectionID?: string | null; bound?: boolean;
   available?: boolean; reason?: string; reasonCode?: string; faulted?: boolean; running?: boolean;
 };
 /** What the Mac settings page reads: the device bridge status. Only the privileged settings page may call it. */
 export type DesktopDeviceStatus = {
-  name: string; workspaceRoot: string; fileAccess: boolean; screenCapture: boolean; desktopControl: boolean;
+  name: string; workspaceRoot: string; fileAccess: boolean; screenCapture?: boolean; desktopControl?: boolean;
   paired: boolean; deviceID?: string | null; capabilities?: string[];
   permissions?: { screen?: boolean; accessibility?: boolean };
   sandbox: DesktopSandboxStatus;
   lastError?: string | null;
-  bots?: DesktopBotEntry[];
   control?: { phase?: "idle" | "active" | "lingering" | "paused" | string; reason?: string };
 };
-export type DesktopSettingsInput = { name?: string; workspaceRoot?: string; fileAccess?: boolean; screenCapture?: boolean; desktopControl?: boolean };
+export type DesktopSettingsInput = { name?: string; workspaceRoot?: string; fileAccess?: boolean };
 export type DesktopSandboxSelection = { selectionID: string; root: string; serverLabel: string };
 
 declare global {
@@ -65,6 +89,8 @@ declare global {
       onCommand: (listener: (command: DesktopCommand) => void) => () => void;
       /** Present in a Mac app that notifies from its main process. Its existence picks the outlet (attentionNotifier.ts). */
       notifications?: DesktopNotificationsBridge;
+      /** Present in a Mac app that has the one-switch remote control. Without it (a browser, an older app) the page shows no switch. */
+      remoteControl?: RemoteControlBridge;
       onWindowState: (listener: (state: { focused: boolean; fullscreen: boolean }) => void) => () => void;
       appearance: (preference: "light" | "dark" | "system") => Promise<void>;
       requestMicrophoneAccess: () => Promise<boolean>;
@@ -89,10 +115,8 @@ declare global {
       updateSettings?: (settings: DesktopSettingsInput) => Promise<DesktopDeviceStatus>;
       chooseWorkspace?: () => Promise<string | null>;
       openPermissionGuide?: (kind: "screen" | "accessibility") => Promise<boolean>;
-      setBotDecision?: (botID: string, decision: "allow" | "deny" | "forget") => Promise<DesktopDeviceStatus>;
       controlStop?: () => Promise<DesktopDeviceStatus>;
       controlResume?: () => Promise<DesktopDeviceStatus>;
-      pair?: (code: string) => Promise<DesktopDeviceStatus>;
       /** Quits and reopens Tofi (Mac settings page only); macOS applies a new Screen Recording grant to a fresh process. */
       relaunch?: () => Promise<boolean>;
       chooseSandboxRoot?: () => Promise<DesktopSandboxSelection | null>;
