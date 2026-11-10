@@ -15,17 +15,16 @@ body { color:var(--ink); background:var(--bg); font-family:var(--body); }
   border-radius:12px; font:600 14px/1.2 var(--display);
   transition:transform var(--m-press) var(--ease-out),box-shadow var(--m-press) var(--ease-out),background-color var(--m-press) var(--ease-out),color var(--m-press) var(--ease-out);
 }
-.primary-button,.extension-actions .primary-button,.workspace .settings-page-body .primary-button {
+.primary-button,.extension-actions .primary-button {
   color:var(--on-block); background:var(--yellow); box-shadow:var(--hard-sm);
 }
-.primary-button:not(:disabled):hover,.extension-actions .primary-button:not(:disabled):hover,
-.workspace .settings-page-body .primary-button:not(:disabled):hover {
+.primary-button:not(:disabled):hover,.extension-actions .primary-button:not(:disabled):hover {
   color:var(--on-block); background:color-mix(in srgb,var(--yellow) 88%,var(--surface));
 }
-.secondary-button,.workspace .settings-page-body .secondary-button {
+.secondary-button {
   color:var(--ink); background:var(--surface); box-shadow:var(--hard-sm);
 }
-.secondary-button:not(:disabled):hover,.workspace .settings-page-body .secondary-button:not(:disabled):hover {
+.secondary-button:not(:disabled):hover {
   background:var(--surface-2); color:var(--ink);
 }
 :is(.primary-button,.secondary-button):not(:disabled):hover {
@@ -68,8 +67,7 @@ body { color:var(--ink); background:var(--bg); font-family:var(--body); }
 .close-button { border-radius:50%; }
 
 /* FormControls — preserve existing validation and input behaviour. */
-:is(input:not([type="checkbox"]):not([type="radio"]),textarea,select),
-.workspace .settings-page-body :is(input:not([type="checkbox"]):not([type="radio"]),textarea,select) {
+:is(input:not([type="checkbox"]):not([type="radio"]),textarea,select) {
   min-height:42px; padding:var(--field-pad-y,10px) 12px var(--field-pad-y,10px) 12px; border:2px solid transparent;
   border-radius:14px; background:var(--sunk); color:var(--ink); font:14px/1.5 var(--body);
   box-shadow:inset 0 2px 0 color-mix(in srgb,var(--desktop-controls-solid) 22%,transparent);
@@ -82,18 +80,15 @@ body { color:var(--ink); background:var(--bg); font-family:var(--body); }
 :is(input:not([type="checkbox"]):not([type="radio"]),textarea,select):not(:disabled):not([aria-invalid="true"]):hover {
   border-color:var(--line-soft);
 }
-:is(input:not([type="checkbox"]):not([type="radio"]),textarea,select):focus-visible,
-.workspace .settings-page-body :is(input:not([type="checkbox"]):not([type="radio"]),textarea,select):focus-visible {
+:is(input:not([type="checkbox"]):not([type="radio"]),textarea,select):focus-visible {
   border-color:var(--line); background:var(--surface); outline:none;
   box-shadow:var(--hard-sm); transform:translate(-1px,-1px);
 }
-:is(input:not([type="checkbox"]):not([type="radio"]),textarea,select)[aria-invalid="true"],
-.workspace .settings-page-body :is(input:not([type="checkbox"]):not([type="radio"]),textarea,select)[aria-invalid="true"] {
+:is(input:not([type="checkbox"]):not([type="radio"]),textarea,select)[aria-invalid="true"] {
   border-color:var(--danger); background:color-mix(in srgb,var(--danger) 8%,var(--sunk));
   box-shadow:2px 3px 0 color-mix(in srgb,var(--danger) 55%,transparent);
 }
-:is(input,textarea,select):focus-visible,
-.workspace .settings-page-body :is(input,textarea,select):focus-visible {
+:is(input,textarea,select):focus-visible {
   outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px;
 }
 :is(input[type="checkbox"]:not([role="switch"]),input[type="radio"]) {
@@ -115,9 +110,8 @@ input[type="checkbox"]:not([role="switch"]):checked::after {
 input[type="radio"]:checked { background:var(--surface); box-shadow:none; }
 input[type="radio"]:checked::after { content:""; width:8px; height:8px; border-radius:50%; background:var(--yellow); }
 :is(input[type="checkbox"]:not([role="switch"]),input[type="radio"]):disabled { opacity:.45; cursor:not-allowed; }
-.field-note,.settings-page-body .field-note { color:var(--muted); font-size:11px; }
+.field-note { color:var(--muted); font-size:11px; }
 .error-text,.settings-feedback.error { color:var(--danger-text); font-size:11px; }
-.workspace :is(.settings-page-body,.cover-body) .debug-toggle input:checked { background:var(--blue); }
 .search-box { min-height:42px; border:1.5px solid var(--line-soft); background:var(--surface-2); }
 .search-box:has(:focus-visible) { border-color:var(--line); box-shadow:0 0 0 3px color-mix(in srgb,var(--focus) 32%,transparent); }
 

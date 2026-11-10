@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { openSettings } from "../drive";
-import { Banner, DangerZone, FilePicker, Segmented, SettingsCard, SettingsDetails, SettingsRow, SettingsSection, StatusBadge, type BadgeState } from "../../settings/components";
+import { Banner, ChangedNote, DangerZone, FilePicker, Segmented, SettingsCard, SettingsDetails, SettingsRow, SettingsSection, SettingsSubpage, SettingsSwitch, StatusBadge, type BadgeState } from "../../settings/components";
 import { AppearancePicker, ConfirmAction, Disclosure } from "../../InteractionSystem";
 import { i18n } from "../../i18n";
 import "../../extensions-system.css";
@@ -141,6 +141,21 @@ function Theme() {
   const [value, setValue] = useState<"system" | "light" | "dark">("system");
   return <AppearancePicker value={value} onChange={setValue} />;
 }
+function SwitchSample({ initial = false, disabled = false, slow = false, label = "Switch" }: { initial?: boolean; disabled?: boolean; slow?: boolean; label?: string }) {
+  const [on, setOn] = useState(initial);
+  return <SettingsSwitch label={label} checked={on} disabled={disabled} onChange={async next => { if (slow) await new Promise(resolve => setTimeout(resolve, 400)); setOn(next); }} />;
+}
+function SubpageSample() {
+  const [open, setOpen] = useState(false);
+  return open
+    ? <SettingsSubpage title="Synthetic page" note="Opened from a row; Back returns focus to that row." onBack={() => setOpen(false)}>
+        <SettingsCard><SettingsRow label="A row on the subpage" description="The page below the header is ordinary rows." status={<StatusBadge state="ok">Active</StatusBadge>} /></SettingsCard>
+      </SettingsSubpage>
+    : <SettingsCard>
+        <SettingsRow label="Tool rules" description="Who reviews calls and what is allowed." link={{ onOpen: () => setOpen(true), value: "3 items" }} />
+        <SettingsRow label="Follow-ups" link={{ onOpen: () => setOpen(true), value: "Off" }} status={<StatusBadge state="asleep">Paused</StatusBadge>} />
+      </SettingsCard>;
+}
 function PickOne({ disabled = false, empty = false }: { disabled?: boolean; empty?: boolean }) {
   const [value, setValue] = useState(empty ? "" : "balanced");
   return <Select aria-label="Reasoning effort" value={value} onValueChange={setValue} disabled={disabled} placeholder="Choose one" options={[
@@ -214,11 +229,32 @@ export const settings: CatalogSection = {
     botState("error", "Bot settings, Skills: could not save", () => ({ error: t("bots:skills.error.save") })),
     { id: "rows", kind: "inline", label: "Section, card and rows", render: () => <SettingsSection title={t("settings:appearance.title")} hint="3" description="A synthetic description under the section title.">
       <SettingsCard>
-        <SettingsRow label="Row with a control" description="The control sits on the right; on a phone it drops below." control={<button type="button" className="secondary-button">{t("common:action.retry")}</button>} />
+        <SettingsRow label="Row with a control" description="The control sits on the right; on a phone it drops below." control={<button type="button" className="st-button">{t("common:action.retry")}</button>} />
         <SettingsRow inline label="Inline row" description="Switches and segmented controls stay beside the text on a phone." control={<Choice />} />
         <SettingsRow label="Row without a control" description="Read-only information." />
       </SettingsCard>
     </SettingsSection> },
+    { id: "row-link", kind: "inline", label: "Subpage row: grey current value and a chevron", note: "the whole row opens the subpage; the subpage has Back, a title and returns focus to the row", render: () => <SubpageSample /> },
+    { id: "row-status", kind: "inline", label: "Row with a status", render: () => <SettingsCard>
+      <SettingsRow label="Acme tracker" description="Reached 6 seconds ago." status={<StatusBadge state="ok">Connected</StatusBadge>} control={<button type="button" className="st-button">Refresh</button>} />
+      <SettingsRow label="Acme docs" status={<StatusBadge state="need">Needs sign-in</StatusBadge>} control={<button type="button" className="st-button">Sign in</button>} />
+    </SettingsCard> },
+    { id: "changed-value", kind: "inline", label: "Changed value: Changed, default X, Reset", note: "honey text, no pill; shown only when the value differs from its default", render: () => <SettingsCard>
+      <SettingsRow label="Keep history for" description={<ChangedNote defaultValue="30 days" onReset={noop} />} control={<PickOne />} />
+    </SettingsCard> },
+    { id: "switch", kind: "inline", label: "Switch: off, on, disabled, saving (shows Saved for 1.5 s)", note: "Radix Switch, 36 x 22; off is 20% ink, on is lagoon; the change saves at once", render: () => <SettingsCard>
+      <SettingsRow inline label="Off" control={<SwitchSample label="Off" />} />
+      <SettingsRow inline label="On" control={<SwitchSample initial label="On" />} />
+      <SettingsRow inline label="Disabled" control={<SwitchSample initial disabled label="Disabled" />} />
+      <SettingsRow inline label="Saves slowly" description="Flip it: Saved appears for 1.5 seconds once the save resolves." control={<SwitchSample slow label="Saves slowly" />} />
+    </SettingsCard> },
+    { id: "buttons", kind: "inline", label: "Buttons: quiet (default), quiet danger, the one primary", note: "inside Settings every secondary action is a quiet button; one orange primary per view, none on a view without an add or submit action", render: () => <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+      <button type="button" className="st-button">Quiet</button>
+      <button type="button" className="st-button" disabled>Disabled</button>
+      <button type="button" className="st-button is-danger">Remove…</button>
+      <button type="button" className="primary-button">Add connection</button>
+      <button type="button" className="st-link">Text action</button>
+    </div> },
     { id: "settings-section-jump", kind: "inline", label: "Section reached by a link", note: "a link such as /settings/general#region scrolls here and frames the section once (data-jump-target, cleared after 1.7 s)", render: () => <div data-section="region" data-jump-target=""><SettingsSection title={t("settings:general.region")}><SettingsCard><SettingsRow label={t("settings:language.label")} description="A synthetic description under the label." control={<StatusBadge state="ok" />} /></SettingsCard></SettingsSection></div> },
     { id: "badges", kind: "inline", label: "Status badges", render: () => <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
       {(["ok", "need", "bad", "asleep", "testing"] as BadgeState[]).map(state => <StatusBadge key={state} state={state} />)}</div> },

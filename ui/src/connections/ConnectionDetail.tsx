@@ -7,7 +7,7 @@ import { TofiIcon } from "../icons";
 import { ServiceMark } from "../ServiceMark";
 import { useTranslation } from "../i18n";
 import { arrowOpens, OverlayMenu } from "../overlays/OverlayHost";
-import { Segmented } from "../settings/components";
+import { Segmented, SettingsSubpage } from "../settings/components";
 import type { ConnectionBots } from "./bots";
 import { MoreMenu, PrimaryButton, type RowMenuItem, type RowPrimary } from "./RowView";
 import { RepoLink } from "./repoStars";
@@ -190,19 +190,12 @@ function AdvancedSection({ facts }: { facts: AdvancedFacts }) {
  */
 export function ConnectionDetailView(props: ConnectionDetailViewProps) {
   const { t } = useTranslation("extensions");
-  const back = useRef<HTMLButtonElement>(null);
-  useEffect(() => { back.current?.focus({ preventScroll: true }); }, []);
   const { kind } = props;
-  return <div className="mcp-detail" data-kind={kind} aria-label={props.name}>
-    <header className="mcp-detail-head">
-      <button ref={back} type="button" className="mcp-detail-back" aria-label={t("detail.back")} onClick={props.onBack}><TofiIcon name="chevron-left" size={20} aria-hidden="true" /></button>
-      <ServiceMark name={props.mark} />
-      <div className="mcp-detail-title"><h3>{props.name}</h3><p>{props.source}</p></div>
-      <div className="mcp-detail-actions">
+  return <SettingsSubpage className="mcp-detail" attrs={{ "data-kind": kind, "aria-label": props.name }} headClassName="mcp-detail-head" titleClassName="mcp-detail-title" backClassName="mcp-detail-back" backLabel={t("detail.back")} title={props.name} note={props.source} lead={<ServiceMark name={props.mark} />} onBack={props.onBack}
+    actions={<div className="mcp-detail-actions">
         <button type="button" className="mcp-button" disabled={props.busy || props.refreshing || props.toolsUnavailable} onClick={props.onRefresh}>{props.refreshing ? t("tools.refreshing") : t("tools.refresh")}</button>
         {props.menu.length > 0 && <MoreMenu name={props.name} menu={props.menu} busy={props.busy} />}
-      </div>
-    </header>
+      </div>}>
     <section className="conn-section" data-section="status" aria-labelledby="conn-status-title">
       <h4 id="conn-status-title">{t("detail.status")}</h4>
       <div className="conn-card conn-status" data-kind={kind}>
@@ -227,5 +220,5 @@ export function ConnectionDetailView(props: ConnectionDetailViewProps) {
         ? <div className="mcp-confirm" role="alertdialog" aria-label={props.confirm.text}><span>{props.confirm.text}</span><button type="button" className="mcp-button" disabled={props.busy} onClick={props.confirm.onCancel}>{t("action.cancel")}</button><button type="button" className="mcp-button mcp-danger" disabled={props.busy} onClick={props.confirm.onConfirm}>{props.confirm.submit}</button></div>
         : <div className="conn-danger-actions">{props.danger.map(item => <button key={item.key} type="button" className={`mcp-button${item.remove ? " mcp-danger" : ""}`} disabled={props.busy} onClick={item.onSelect}>{item.label}</button>)}</div>}
     </section>
-  </div>;
+  </SettingsSubpage>;
 }
