@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useRef, useState} from "react";
-import {isDesktop, type RemoteControlFailure, type RemoteControlReason, type RemoteControlResult, type RemoteControlStatus} from "./desktop";
+import type {RemoteControlFailure, RemoteControlReason, RemoteControlResult, RemoteControlStatus} from "./desktop";
 
 /**
  * Remote control this Mac (docs/design/environments-simplify.md 4.3). The bridge exists only in a Mac app that has the one
@@ -43,7 +43,8 @@ type Busy = "" | "set" | "authorize" | "stop" | "relaunch";
 
 /** The switch's state. `active` is whether the settings page is on screen; nothing is read or subscribed while it is not. */
 export function useRemoteControl(active: boolean) {
-  const bridge = isDesktop ? window.tofiDesktop?.remoteControl : undefined;
+  // Types only from ./desktop: its runtime half binds workspace IPC that the Mac settings page must not touch.
+  const bridge = window.tofiDesktop?.remoteControl;
   const [status, setStatus] = useState<RemoteControlStatus | null>(null);
   const [busy, setBusy] = useState<Busy>("");
   const [failure, setFailure] = useState<RemoteControlFailure | null>(null);

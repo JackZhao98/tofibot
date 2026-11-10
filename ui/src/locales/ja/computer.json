@@ -465,7 +465,7 @@
     }
   },
   "environments": {
-    "description": "Bot が作業する場所です。Bot コンピューターはすべての Bot が使い、Mac はその Mac で許可した Bot だけが使います。",
+    "description": "Bot が作業する場所です。Bot コンピューターはすべての Bot が使い、Mac はリモートコントロールがオンの間だけ使います。",
     "unavailable": "環境を読み込めませんでした。",
     "stale": "環境を更新できませんでした。前回の結果を表示しています。",
     "retry": "再試行",
@@ -484,7 +484,7 @@
     "bot_computer": "Bot コンピューター",
     "access": {
       "all_bots": "すべての Bot が使用",
-      "allowed_on_mac": "その Mac で許可した Bot",
+      "allowed_on_mac": "リモートコントロールがオンの間、すべての Bot が使用",
       "none": "未使用"
     },
     "last_seen": "最終確認 {{time}}",

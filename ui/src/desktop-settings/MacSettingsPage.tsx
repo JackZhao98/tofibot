@@ -4,6 +4,8 @@ import type { DesktopDeviceStatus, DesktopSandboxSelection } from "../desktop";
 import { TofiIcon } from "../icons";
 import { useTranslation } from "../i18n";
 import { Banner, SettingsCard, SettingsRow, SettingsSection } from "../settings/components";
+import { RemoteControlBlock } from "../RemoteControl";
+import { useRemoteControl } from "../useRemoteControl";
 
 // Isolation (enforced by scripts/test-desktop-settings-isolation.mjs): this page's only data source is
 // window.tofiDesktop. No server calls, no chat or artifact code, nothing rendered as HTML; Bot names are text.
@@ -26,6 +28,9 @@ export function MacSettingsPage() {
   const api = window.tofiDesktop;
   const has = (name: "getSettings" | "chooseWorkspace" | "chooseSandboxRoot" | "authorizeSandboxRoot" | "sandboxRevoke" | "updateSettings") => typeof api?.[name] === "function";
 
+  // The same switch as Settings > Environments: a new app on an older server has no switch in its workspace, and that
+  // server's "Your Mac" dialog sends people here. The app answers from this document too, and the dialog is its own.
+  const rc = useRemoteControl(true);
   const [status, setStatus] = useState<DesktopDeviceStatus | null>(null);
   const [known, setKnownState] = useState(false);
   const [draft, setDraft] = useState<Draft>({ workspaceRoot: "", files: false });
@@ -179,6 +184,8 @@ export function MacSettingsPage() {
       {error && <Banner tone="error" title={error} />}
       {status?.lastError && <Banner tone="error" title={t("mac.error.last")}>{message(status.lastError)}</Banner>}
       {has("getSettings") && !status && !error && <p className="settings-sec-desc" role="status">{t("mac.loading")}</p>}
+
+      <RemoteControlBlock rc={rc} offered onOpenFiles={null} onOpenDenied={() => {}} menu={false} />
 
       <form className="mac-form" onSubmit={save}>
         <SettingsSection title={t("mac.caps.title")} description={t("mac.caps.description")}>

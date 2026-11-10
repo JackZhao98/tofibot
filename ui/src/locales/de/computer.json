@@ -471,7 +471,7 @@
     }
   },
   "environments": {
-    "description": "Wo Bots arbeiten. Der Bot-Computer dient allen Bots; ein Mac nur den Bots, die du dort erlaubst.",
+    "description": "Wo Bots arbeiten. Der Bot-Computer dient allen Bots; ein Mac dient ihnen, solange die Fernsteuerung an ist.",
     "unavailable": "Umgebungen konnten nicht geladen werden.",
     "stale": "Umgebungen konnten nicht aktualisiert werden. Zeige das letzte Ergebnis.",
     "retry": "Erneut versuchen",
@@ -490,7 +490,7 @@
     "bot_computer": "Bot-Computer",
     "access": {
       "all_bots": "Von allen Bots genutzt",
-      "allowed_on_mac": "Bots, die du auf diesem Mac erlaubst",
+      "allowed_on_mac": "Von allen Bots genutzt, solange die Fernsteuerung an ist",
       "none": "Nicht in Gebrauch"
     },
     "last_seen": "Zuletzt gesehen {{time}}",

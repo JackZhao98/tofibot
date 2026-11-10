@@ -36,4 +36,4 @@
   .rc-mac .rc-copy{flex-basis:calc(100% - 40px)}
   .rc-side{max-width:none;flex-basis:100%;justify-content:flex-start;padding-left:30px}
 }
-@media(max-width:700px){.rc-more{width:40px;height:40px}}
+@media(max-width:700px){.rc-more{width:44px;height:44px}}

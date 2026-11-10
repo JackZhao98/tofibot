@@ -465,7 +465,7 @@
     }
   },
   "environments": {
-    "description": "Bot 工作的地方。Bot 电脑供所有 Bot 使用；Mac 只供你在其上放行的 Bot 使用。",
+    "description": "Bot 工作的地方。Bot 电脑供所有 Bot 使用；Mac 在远程控制开着时供它们使用。",
     "unavailable": "未能加载环境。",
     "stale": "未能刷新环境，显示的是上次的结果。",
     "retry": "重试",
@@ -484,7 +484,7 @@
     "bot_computer": "Bot 电脑",
     "access": {
       "all_bots": "所有 Bot 使用",
-      "allowed_on_mac": "在那台 Mac 上放行的 Bot",
+      "allowed_on_mac": "远程控制开着时，所有 Bot 都能使用",
       "none": "未启用"
     },
     "last_seen": "上次在线 {{time}}",

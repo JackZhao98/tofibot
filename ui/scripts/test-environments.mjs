@@ -150,7 +150,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.match((await row(page, "firecracker").innerText()).replace(/\s+/g, " "), /This server Bot computer Used by all Bots Ready/);
     assert.equal(await page.locator(".env-tag").count(), 1, "one environment carries the Bot computer tag");
     assert.match((await row(page, "e2b").innerText()).replace(/\s+/g, " "), /E2B cloud computer Not in use Asleep/);
-    assert.match((await row(page, "mac_ab12").innerText()).replace(/\s+/g, " "), /Bots you allow on that Mac Online/);
+    assert.match((await row(page, "mac_ab12").innerText()).replace(/\s+/g, " "), /Used by all Bots while remote control is on Online/);
     assert.deepEqual(await buttons(row(page, "firecracker")), ["configure"]);
     assert.deepEqual(await buttons(row(page, "e2b")), ["use"], "remove sits in the row menu");
     assert.deepEqual(await buttons(row(page, "mac_ab12")), [], "disconnect sits in the row menu");

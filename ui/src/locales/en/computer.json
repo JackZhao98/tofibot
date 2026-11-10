@@ -471,7 +471,7 @@
     }
   },
   "environments": {
-    "description": "Where Bots work. The Bot computer serves every Bot; a Mac serves the Bots you allow on it.",
+    "description": "Where Bots work. The Bot computer serves every Bot; a Mac serves them while remote control is on.",
     "unavailable": "Couldn't load environments.",
     "stale": "Couldn't refresh environments. Showing the last result.",
     "retry": "Try again",
@@ -490,7 +490,7 @@
     "bot_computer": "Bot computer",
     "access": {
       "all_bots": "Used by all Bots",
-      "allowed_on_mac": "Bots you allow on that Mac",
+      "allowed_on_mac": "Used by all Bots while remote control is on",
       "none": "Not in use"
     },
     "last_seen": "Last seen {{time}}",

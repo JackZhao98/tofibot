@@ -16,8 +16,9 @@ const { createServer } = await import("vite");
 const { default: react } = await import("@vitejs/plugin-react");
 
 const LANGS = ["en", "zh-CN", "zh-TW", "ja", "ko", "de", "fr"];
-const catalogs = {};
+const catalogs = {}, computer = {};
 for (const lang of LANGS) catalogs[lang] = JSON.parse(await readFile(join(ui, "src/locales", lang, "settings.json"), "utf8")).mac;
+for (const lang of LANGS) computer[lang] = JSON.parse(await readFile(join(ui, "src/locales", lang, "computer.json"), "utf8")).environments.rc;
 const L = (lang, path, vars = {}) => path.split(".").reduce((node, key) => node[key], catalogs[lang]).replace(/\{\{(\w+)\}\}/g, (_, name) => vars[name]);
 const shots = process.env.DESKTOP_SETTINGS_SHOTS;
 if (shots) await mkdir(shots, { recursive: true });
@@ -34,8 +35,19 @@ const STUB = `(() => {
   const snap = () => JSON.parse(JSON.stringify(state.status));
   const rec = (name, ...args) => { calls.push([name, ...args]); if (state.fail === name) throw new Error("stub failure in " + name); };
   window.__calls = calls; window.__state = state;
+  const rc = { calls: [], listeners: new Set(), status: { enabled: false, paired: false, deviceID: null, name: "Studio Mac", permissions: { screen: true, accessibility: true }, needsRelaunch: false, phase: "idle", botName: "", pausedUntil: null, hotkeyOk: true, reason: null } };
+  window.__rc = rc;
+  const rsnap = () => JSON.parse(JSON.stringify(rc.status));
+  const remoteControl = {
+    status: async () => rsnap(),
+    set: async on => { rc.calls.push(["set", on]); Object.assign(rc.status, on ? { enabled: true, paired: true, deviceID: "dev_123", reason: window.__rcReason || null } : { enabled: false, paired: false, deviceID: null, reason: null }); return { ok: true, status: rsnap() }; },
+    authorize: async () => { rc.calls.push(["authorize"]); return { ok: true, status: rsnap() }; },
+    stop: async () => ({ ok: true, status: rsnap() }), relaunch: async () => ({ ok: true, status: rsnap() }),
+    deniedBots: async () => ({ ok: true, bots: [{ bot_id: "b1", bot_name: "Inbox Bot" }] }), undoDeny: async () => ({ ok: true, bots: [] }),
+    onStatus: listener => { rc.listeners.add(listener); return () => rc.listeners.delete(listener); }
+  };
   window.tofiDesktop = Object.freeze({
-    platform: "darwin", themePreference: window.__theme || "system",
+    platform: "darwin", themePreference: window.__theme || "system", remoteControl,
     getSettings: async () => { rec("getSettings"); return snap(); },
     updateSettings: async input => { rec("updateSettings", input); Object.assign(state.status, { workspaceRoot: input.workspaceRoot, fileAccess: input.fileAccess }); return snap(); },
     chooseWorkspace: async () => { rec("chooseWorkspace"); return "/Users/demo/Elsewhere"; },
@@ -98,8 +110,25 @@ try {
     const body = (await page.locator("body").innerText());
     for (const gone of ["Pairing code", "pairing code", "Screen capture", "Desktop control", "macOS permissions", "Bots on this Mac", "Open System Settings", "Refresh status", "Device name"]) assert.ok(!body.includes(gone), `no "${gone}" on the slim page`);
     assert.equal(await page.locator("#mac-name, #mac-code, input[type=text]").count(), 0, "no name or code field");
-    assert.deepEqual(await page.getByRole("switch").evaluateAll(list => list.map(node => node.getAttribute("aria-label"))), [L("en", "caps.files.label")], "the files switch is the only switch");
+    // The same switch as Settings > Environments (a new app on an older server has no switch in its workspace); it asks the app, and the
+    // dialog is the app's. The page has no "⋯" menu of its own: its entries would point at itself.
+    assert.deepEqual(await page.getByRole("switch").evaluateAll(list => list.map(node => node.getAttribute("aria-label"))), [computer.en.title, L("en", "caps.files.label")], "the remote-control switch and the files switch");
+    const rcSwitch = page.getByRole("switch", { name: computer.en.title });
+    assert.equal(await rcSwitch.isChecked(), false);
+    await rcSwitch.check();
+    await page.locator('[data-environment="this-mac"]').waitFor();
+    assert.deepEqual(await page.evaluate(() => window.__rc.calls), [["set", true]]);
+    assert.equal(await page.locator(".rc-more").count(), 0, "no menu on the settings page itself");
+    assert.match((await page.locator('[data-environment="this-mac"]').innerText()).replace(/\s+/g, " "), new RegExp(`${computer.en.this_mac} Studio Mac ${computer.en.state.available}`));
+    if (shots) {
+      await page.evaluate(() => { Object.assign(window.__rc.status, { reason: "needs_accessibility", permissions: { screen: true, accessibility: false } }); window.__rc.listeners.forEach(listener => listener(JSON.parse(JSON.stringify(window.__rc.status)))); });
+      await page.getByText(computer.en.reason.needs_accessibility).waitFor();
+      await page.waitForTimeout(500);
+      await page.screenshot({ path: join(shots, "mac-settings-rc-1280-light.png") });
+      await page.evaluate(() => { Object.assign(window.__rc.status, { reason: null, permissions: { screen: true, accessibility: true } }); window.__rc.listeners.forEach(listener => listener(JSON.parse(JSON.stringify(window.__rc.status)))); });
+    }
     assert.equal(await page.getByRole("switch", { name: L("en", "caps.files.label") }).isChecked(), true);
+    for (const gone of ["Pairing code", "Screen capture"]) assert.ok(!(await page.locator("body").innerText()).includes(gone));
     assert.equal(await page.locator("code", { hasText: "/Users/demo/Tofi" }).count(), 1);
 
     // Save sends exactly two fields, nothing about screen, control or the execution grant.

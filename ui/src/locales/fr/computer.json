@@ -477,7 +477,7 @@
     }
   },
   "environments": {
-    "description": "Là où les Bots travaillent. L’ordinateur Bot sert tous les Bots ; un Mac sert les Bots que vous y autorisez.",
+    "description": "Là où les Bots travaillent. L’ordinateur Bot sert tous les Bots ; un Mac les sert tant que le contrôle à distance est activé.",
     "unavailable": "Impossible de charger les environnements.",
     "stale": "Impossible d’actualiser les environnements. Dernier résultat affiché.",
     "retry": "Réessayer",
@@ -496,7 +496,7 @@
     "bot_computer": "Ordinateur Bot",
     "access": {
       "all_bots": "Utilisé par tous les Bots",
-      "allowed_on_mac": "Bots que vous autorisez sur ce Mac",
+      "allowed_on_mac": "Utilisé par tous les Bots tant que le contrôle à distance est activé",
       "none": "Inutilisé"
     },
     "last_seen": "Vu pour la dernière fois {{time}}",

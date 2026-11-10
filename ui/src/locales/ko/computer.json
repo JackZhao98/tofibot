@@ -465,7 +465,7 @@
     }
   },
   "environments": {
-    "description": "Bot이 일하는 곳입니다. Bot 컴퓨터는 모든 Bot이 쓰고, Mac은 그 Mac에서 허용한 Bot만 씁니다.",
+    "description": "Bot이 일하는 곳입니다. Bot 컴퓨터는 모든 Bot이 쓰고, Mac은 원격 제어가 켜져 있는 동안 씁니다.",
     "unavailable": "환경을 불러오지 못했습니다.",
     "stale": "환경을 새로 고치지 못했습니다. 마지막 결과를 보여 줍니다.",
     "retry": "다시 시도",
@@ -484,7 +484,7 @@
     "bot_computer": "Bot 컴퓨터",
     "access": {
       "all_bots": "모든 Bot이 사용",
-      "allowed_on_mac": "해당 Mac에서 허용한 Bot",
+      "allowed_on_mac": "원격 제어가 켜져 있는 동안 모든 Bot이 사용",
       "none": "사용 안 함"
     },
     "last_seen": "마지막 접속 {{time}}",

@@ -27,14 +27,14 @@ function ThisMacMenu({name, denied, onOpenFiles, onOpenDenied}: {name: string; d
   return <>
     <button ref={trigger} type="button" className="rc-more" aria-haspopup="menu" aria-expanded={open} aria-label={label} data-hint={label} onClick={() => setOpen(value => !value)} onKeyDown={arrowOpens(setOpen)}><TofiIcon name="more" size={16} aria-hidden="true"/></button>
     {open && <OverlayMenu open onOpenChange={setOpen} className="mcp-menu env-menu" label={label} trigger={trigger as RefObject<HTMLElement | null>} anchor={trigger as RefObject<HTMLElement | null>} align="end" sideOffset={6}>
-      {onOpenFiles && <button type="button" className="mcp-menu-danger" data-action="files" onClick={() => { setOpen(false); onOpenFiles(); }}>{t("environments.rc.menu.files")}</button>}
-      {denied > 0 && <button type="button" className="mcp-menu-danger" data-action="denied" onClick={() => { setOpen(false); onOpenDenied(); }}>{t("environments.rc.menu.denied")}</button>}
+      {onOpenFiles && <button type="button" data-action="files" onClick={() => { setOpen(false); onOpenFiles(); }}>{t("environments.rc.menu.files")}</button>}
+      {denied > 0 && <button type="button" data-action="denied" onClick={() => { setOpen(false); onOpenDenied(); }}>{t("environments.rc.menu.denied")}</button>}
     </OverlayMenu>}
   </>;
 }
 
 /** The this-Mac row: icon, "This Mac" with the device name, the state, one inline action, the menu. */
-export function ThisMacRow({rc, state, onOpenFiles, onOpenDenied}: {rc: RemoteControl; state: ThisMacState; onOpenFiles: (() => void) | null; onOpenDenied: () => void}) {
+export function ThisMacRow({rc, state, onOpenFiles, onOpenDenied, menu = true}: {rc: RemoteControl; state: ThisMacState; onOpenFiles: (() => void) | null; onOpenDenied: () => void; /** False on the Mac settings page itself: its own menu entry would point at the page you are on. */ menu?: boolean}) {
   const {t} = useTranslation("computer");
   const status = rc.status!;
   const working = rc.busy !== "";
@@ -57,13 +57,13 @@ export function ThisMacRow({rc, state, onOpenFiles, onOpenDenied}: {rc: RemoteCo
     <div className="rc-side">
       <span className={`rc-state is-${state.word}`} role="status">{t(`environments.rc.state.${state.word}`)}</span>
       {state.action && <button type="button" className="rc-action" data-action={state.action} disabled={working} onClick={act}>{t(`environments.rc.action.${state.action}`)}</button>}
-      <ThisMacMenu name={name} denied={rc.denied.length} onOpenFiles={onOpenFiles} onOpenDenied={onOpenDenied}/>
+      {menu && <ThisMacMenu name={name} denied={rc.denied.length} onOpenFiles={onOpenFiles} onOpenDenied={onOpenDenied}/>}
     </div>
   </div>;
 }
 
 /** The switch row, its one-line note, and the this-Mac row while the switch is on. `offered` is false on a server without personal computers. */
-export function RemoteControlBlock({rc, offered, onOpenFiles, onOpenDenied}: {rc: RemoteControl; offered: boolean; onOpenFiles: (() => void) | null; onOpenDenied: () => void}) {
+export function RemoteControlBlock({rc, offered, onOpenFiles, onOpenDenied, menu = true}: {rc: RemoteControl; offered: boolean; onOpenFiles: (() => void) | null; onOpenDenied: () => void; menu?: boolean}) {
   const {t} = useTranslation("computer");
   const status = rc.status;
   if (!status) return null;
@@ -77,6 +77,6 @@ export function RemoteControlBlock({rc, offered, onOpenFiles, onOpenDenied}: {rc
       <Switch checked={enabled} label={t("environments.rc.title")} disabled={locked} busy={rc.busy === "set"} onChange={value => void rc.set(value)}/>
     </div>
     {note && <p className={`rc-note${note.alert ? " is-error" : ""}`} role={note.alert ? "alert" : "status"} data-failure={rc.failure ?? undefined}>{note.text}</p>}
-    {enabled && <ThisMacRow rc={rc} state={thisMacState(status)} onOpenFiles={onOpenFiles} onOpenDenied={onOpenDenied}/>}
+    {enabled && <ThisMacRow rc={rc} state={thisMacState(status)} onOpenFiles={onOpenFiles} onOpenDenied={onOpenDenied} menu={menu}/>}
   </section>;
 }
