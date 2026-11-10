@@ -157,7 +157,8 @@
 .model-banner-copy strong { font:600 13.5px/1.3 var(--display); overflow-wrap:anywhere; }
 .model-banner-copy span { color:var(--ink-soft); font-size:12.5px; line-height:1.45; overflow-wrap:anywhere; }
 .model-banner .primary-button { flex:none; min-height:36px; padding:6px 16px; white-space:normal; }
-.composer.is-no-model .composer-row { opacity:.55; }
+/* Dim what is inside, not the row: the row is frosted glass, and fading it fades the blur, so the messages behind showed through sharp. */
+.composer.is-no-model .composer-row > * { opacity:.55; }
 
 @media (max-width:700px) {
   .onb-scrim { padding:0; place-items:stretch; }

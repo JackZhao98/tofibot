@@ -309,7 +309,8 @@ html:not([data-desktop]) :is(.workspace,[id="tofi-layers"]) .mention-menu-hint {
 .workspace .working-member .avatar { width:52px; height:52px; margin:0 0 -6px; }
 html:not([data-desktop]) .workspace .composer .composer-row { position:relative; }
 html:not([data-desktop]) .workspace .composer-perch { position:absolute; z-index:2; right:84px; top:-74px; width:84px; height:84px; pointer-events:none; }
-html:not([data-desktop]) .workspace .composer.is-no-model .composer-perch { top:calc(-74px - var(--banner-lift,0px)); }
+/* The no-model banner shows the Bot's own cat; the perched cat waits until it goes, instead of sitting above the banner on the messages. */
+html:not([data-desktop]) .workspace .composer:has([data-model-banner]) .composer-perch { display:none; }
 html:not([data-desktop]) .workspace .composer-perch .lab-cat { display:block; width:100%; height:100%; }
 html:not([data-desktop]) .workspace .work-companion>.avatar { display:none; }
 html:not([data-desktop]) .workspace .work-companion:not(:has(.working-label)) { display:none; }
