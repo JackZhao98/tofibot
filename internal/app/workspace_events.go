@@ -18,9 +18,7 @@ const (
 	workspaceScopeBots   = "bots"
 	workspaceScopeGroups = "groups"
 	workspaceScopeConfig = "config"
-	// workspaceScopeNotifications says a row was added to attention; read GET /api/notifications.
-	workspaceScopeNotifications = "notifications"
-	workspaceEventLimit         = 128
+	workspaceEventLimit  = 128
 )
 
 type workspaceEvent struct {
@@ -33,60 +31,18 @@ func migrateWorkspaceEvents(db *sql.DB) error {
 	if db == nil {
 		return fmt.Errorf("database is required")
 	}
-	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS workspace_events(
+	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS workspace_events(
 id INTEGER PRIMARY KEY AUTOINCREMENT,
-scope TEXT NOT NULL CHECK(scope IN ('bots','groups','config','notifications')),
+scope TEXT NOT NULL CHECK(scope IN ('bots','groups','config')),
 created_at TEXT NOT NULL);
-CREATE INDEX IF NOT EXISTS workspace_events_cursor ON workspace_events(id);`); err != nil {
-		return err
-	}
-	return widenWorkspaceEventScopes(db)
-}
-
-// widenWorkspaceEventScopes rebuilds a table created before the notifications
-// scope existed, because SQLite cannot alter a CHECK in place. Ids and the
-// AUTOINCREMENT high-water mark are kept, so no client cursor moves.
-func widenWorkspaceEventScopes(db *sql.DB) error {
-	var ddl string
-	if err := db.QueryRow(`SELECT sql FROM sqlite_master WHERE type='table' AND name='workspace_events'`).Scan(&ddl); err != nil {
-		return err
-	}
-	if strings.Contains(ddl, "'notifications'") {
-		return nil
-	}
-	tx, err := db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	var high int64
-	if err = tx.QueryRow(`SELECT COALESCE((SELECT seq FROM sqlite_sequence WHERE name='workspace_events'),0)`).Scan(&high); err != nil {
-		return err
-	}
-	for _, stmt := range []string{
-		`CREATE TABLE workspace_events_wide(
-id INTEGER PRIMARY KEY AUTOINCREMENT,
-scope TEXT NOT NULL CHECK(scope IN ('bots','groups','config','notifications')),
-created_at TEXT NOT NULL)`,
-		`INSERT INTO workspace_events_wide(id,scope,created_at) SELECT id,scope,created_at FROM workspace_events`,
-		`DROP TABLE workspace_events`,
-		`ALTER TABLE workspace_events_wide RENAME TO workspace_events`,
-		`CREATE INDEX IF NOT EXISTS workspace_events_cursor ON workspace_events(id)`,
-	} {
-		if _, err = tx.Exec(stmt); err != nil {
-			return err
-		}
-	}
-	if _, err = tx.Exec(`UPDATE sqlite_sequence SET seq=MAX(seq,?) WHERE name='workspace_events'`, high); err != nil {
-		return err
-	}
-	return tx.Commit()
+CREATE INDEX IF NOT EXISTS workspace_events_cursor ON workspace_events(id);`)
+	return err
 }
 
 // insertWorkspaceEventTx must be called in the same transaction as the
 // mutation it describes. The event contains only the invalidation scope.
 func insertWorkspaceEventTx(tx *sql.Tx, scope, createdAt string) error {
-	if scope != workspaceScopeBots && scope != workspaceScopeGroups && scope != workspaceScopeConfig && scope != workspaceScopeNotifications {
+	if scope != workspaceScopeBots && scope != workspaceScopeGroups && scope != workspaceScopeConfig {
 		return fmt.Errorf("invalid workspace event scope")
 	}
 	_, err := tx.Exec(`INSERT INTO workspace_events(scope,created_at) VALUES(?,?)`, scope, createdAt)

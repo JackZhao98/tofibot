@@ -35,6 +35,10 @@ const (
 	attentionNeedsYou   = "needs_you"
 	attentionSpendAlert = "spend_alert"
 
+	// detail values of a spend_alert.
+	attentionSpendWarning = "spend_warning"
+	attentionSpendCap     = "spend_cap"
+
 	attentionKeepDays     = 30
 	attentionDefaultLimit = 50
 	attentionMaxLimit     = 200
@@ -103,24 +107,24 @@ kind TEXT NOT NULL,
 conversation_id TEXT,
 bot_id TEXT,
 message_seq INTEGER,
+detail TEXT,
 created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS attention_created ON attention(created_at);`)
 	return err
 }
 
-// recordAttentionTx writes one row and signals the workspace stream. It must run
-// in the transaction of the change it describes.
-func recordAttentionTx(tx *sql.Tx, kind, conversationID, botID string, messageSeq *int64) error {
+// recordAttentionTx writes one row. It must run in the transaction of the
+// change it describes. detail names a sub-case where the kind has several
+// (spend_alert); it is empty (stored NULL) otherwise. There is no live signal
+// in phase 1: clients read GET /api/notifications, phase 2 adds delivery.
+func recordAttentionTx(tx *sql.Tx, kind, conversationID, botID string, messageSeq *int64, detail string) error {
 	var seq any
 	if messageSeq != nil && *messageSeq > 0 {
 		seq = *messageSeq
 	}
-	t := now()
-	if _, err := tx.Exec(`INSERT INTO attention(kind,conversation_id,bot_id,message_seq,created_at) VALUES(?,?,?,?,?)`,
-		kind, nullString(conversationID), nullString(botID), seq, t); err != nil {
-		return err
-	}
-	return insertWorkspaceEventTx(tx, workspaceScopeNotifications, t)
+	_, err := tx.Exec(`INSERT INTO attention(kind,conversation_id,bot_id,message_seq,detail,created_at) VALUES(?,?,?,?,?,?)`,
+		kind, nullString(conversationID), nullString(botID), seq, nullString(detail), now())
+	return err
 }
 
 // recordMessageAttentionTx classifies a message that was just inserted and
@@ -146,23 +150,46 @@ func recordMessageAttentionTx(tx *sql.Tx, m Message) error {
 		return nil
 	}
 	seq := m.Seq
-	return recordAttentionTx(tx, kind, m.ConversationID, m.SenderBotID, &seq)
+	return recordAttentionTx(tx, kind, m.ConversationID, m.SenderBotID, &seq, "")
 }
 
-// recordRunWaitingTx records that a run stopped and waits for a person (a
-// question card or an approval card).
-func recordRunWaitingTx(tx *sql.Tx, r Run) error {
+// recordNeedsYouTx records that a person is needed for the question a run just
+// stopped on. SaveInputContinuation calls it in the transaction that puts the
+// run to waiting, and it records only when all of these hold, so each wait
+// writes one row:
+//   - the run is waiting on this question (run_input_waits, state waiting);
+//   - the question is still pending (an answered, cancelled or expired card needs nobody);
+//   - no automatic review is still deciding it. A non-shadow review in auto mode
+//     blocks the gate until its verdict, so a run only stops on a card the
+//     reviewer sent to a person (human_required and the other pending outcomes);
+//     an approved card is answered and a denied one is cancelled, and neither
+//     needs a person. Ask mode, plain question cards and shadow mode (the
+//     reviewer only advises, a person always decides) have no deciding review.
+func recordNeedsYouTx(tx *sql.Tx, runID, questionID string) error {
+	var r Run
+	err := tx.QueryRow(`SELECT r.conversation_id,r.bot_id,r.status FROM runs r
+		JOIN run_input_waits w ON w.run_id=r.id AND w.state='waiting' AND w.question_id=?
+		JOIN questions q ON q.id=w.question_id AND q.status=?
+		WHERE r.id=? AND NOT EXISTS(SELECT 1 FROM mcp_auto_reviews a WHERE a.question_id=q.id AND a.status='reviewing' AND a.mode<>'shadow')`,
+		questionID, questionPending, runID).Scan(&r.ConversationID, &r.BotID, &r.Status)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
 	kind := classifyAttention(attentionSignal{Source: attentionFromRun, RunStatus: r.Status})
 	if kind == "" {
 		return nil
 	}
-	return recordAttentionTx(tx, kind, r.ConversationID, r.BotID, nil)
+	return recordAttentionTx(tx, kind, r.ConversationID, r.BotID, nil, "")
 }
 
 // AttentionRow is one notification event as the API serves it: pointers only.
 type AttentionRow struct {
 	ID             int64  `json:"id"`
 	Kind           string `json:"kind"`
+	Detail         string `json:"detail"`
 	ConversationID string `json:"conversation_id,omitempty"`
 	BotID          string `json:"bot_id,omitempty"`
 	MessageSeq     *int64 `json:"message_seq"`
@@ -171,7 +198,7 @@ type AttentionRow struct {
 
 // attentionAfter returns rows with id > after, oldest first, at most limit.
 func (s *Store) attentionAfter(after int64, limit int) ([]AttentionRow, error) {
-	rows, err := s.db.Query(`SELECT id,kind,COALESCE(conversation_id,''),COALESCE(bot_id,''),message_seq,created_at FROM attention WHERE id>? ORDER BY id LIMIT ?`, after, limit)
+	rows, err := s.db.Query(`SELECT id,kind,COALESCE(detail,''),COALESCE(conversation_id,''),COALESCE(bot_id,''),message_seq,created_at FROM attention WHERE id>? ORDER BY id LIMIT ?`, after, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +207,7 @@ func (s *Store) attentionAfter(after int64, limit int) ([]AttentionRow, error) {
 	for rows.Next() {
 		var row AttentionRow
 		var seq sql.NullInt64
-		if err := rows.Scan(&row.ID, &row.Kind, &row.ConversationID, &row.BotID, &seq, &row.CreatedAt); err != nil {
+		if err := rows.Scan(&row.ID, &row.Kind, &row.Detail, &row.ConversationID, &row.BotID, &seq, &row.CreatedAt); err != nil {
 			return nil, err
 		}
 		if seq.Valid {

@@ -267,12 +267,12 @@ func (s *Store) postSpendAlert(st SpendStatus) error {
 	}
 	// The note is a system notice, not a Bot reply: the alert row is the one
 	// notification for it, pointing at the Assistant's chat.
-	percent := spendAlertPercent
+	percent, detail := spendAlertPercent, attentionSpendWarning
 	if capped {
-		percent = 100
+		percent, detail = 100, attentionSpendCap
 	}
 	if kind := classifyAttention(attentionSignal{Source: attentionFromSpend, SpendPercent: percent}); kind != "" {
-		if err = recordAttentionTx(tx, kind, conv, botID, noteSeq); err != nil {
+		if err = recordAttentionTx(tx, kind, conv, botID, noteSeq, detail); err != nil {
 			return err
 		}
 	}

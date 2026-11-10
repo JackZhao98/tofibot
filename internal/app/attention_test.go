@@ -11,12 +11,13 @@ import (
 )
 
 type attentionRowFixture struct {
-	ID    int64
-	Kind  string
-	Conv  string
-	Bot   string
-	Seq   *int64
-	Stamp string
+	ID     int64
+	Kind   string
+	Conv   string
+	Bot    string
+	Seq    *int64
+	Detail string
+	Stamp  string
 }
 
 func attentionRows(t *testing.T, s *Store) []attentionRowFixture {
@@ -27,7 +28,7 @@ func attentionRows(t *testing.T, s *Store) []attentionRowFixture {
 	}
 	out := make([]attentionRowFixture, len(rows))
 	for i, r := range rows {
-		out[i] = attentionRowFixture{r.ID, r.Kind, r.ConversationID, r.BotID, r.MessageSeq, r.CreatedAt}
+		out[i] = attentionRowFixture{r.ID, r.Kind, r.ConversationID, r.BotID, r.MessageSeq, r.Detail, r.CreatedAt}
 	}
 	return out
 }
@@ -217,7 +218,7 @@ func TestHiddenAndInternalMessagesRecordNothing(t *testing.T) {
 	wantKinds(t, s, attentionReply)
 }
 
-func TestRunEnteringWaitRecordsNeedsYou(t *testing.T) {
+func TestAskModeApprovalRecordsNeedsYou(t *testing.T) {
 	s, c, r := questionFixtureDir(t, t.TempDir())
 	t.Cleanup(func() { s.Close() })
 	wantKinds(t, s)
@@ -231,7 +232,7 @@ func TestRunEnteringWaitRecordsNeedsYou(t *testing.T) {
 		t.Fatal(err)
 	}
 	rows := attentionRows(t, s)
-	if len(rows) != 1 || rows[0].Kind != attentionNeedsYou || rows[0].Conv != c.ID || rows[0].Bot != r.BotID || rows[0].Seq != nil {
+	if len(rows) != 1 || rows[0].Kind != attentionNeedsYou || rows[0].Conv != c.ID || rows[0].Bot != r.BotID || rows[0].Seq != nil || rows[0].Detail != "" {
 		t.Fatalf("rows=%+v", rows)
 	}
 }
@@ -253,7 +254,7 @@ func TestSpendAlertsAreRecordedOncePerThresholdPerMonth(t *testing.T) {
 	s.noteSpend(june)
 	wantKinds(t, s, attentionSpendAlert)
 	rows := attentionRows(t, s)
-	if rows[0].Conv != bot.DMConversationID || rows[0].Bot != bot.ID || rows[0].Seq == nil {
+	if rows[0].Conv != bot.DMConversationID || rows[0].Bot != bot.ID || rows[0].Seq == nil || rows[0].Detail != attentionSpendWarning {
 		t.Fatalf("warning row=%+v", rows[0])
 	}
 	// Reaching the cap is its own threshold, again once.
@@ -261,7 +262,7 @@ func TestSpendAlertsAreRecordedOncePerThresholdPerMonth(t *testing.T) {
 	s.noteSpend(june)
 	s.noteSpend(june)
 	wantKinds(t, s, attentionSpendAlert, attentionSpendAlert)
-	if capRow := attentionRows(t, s)[1]; capRow.Seq != nil || capRow.Conv != bot.DMConversationID {
+	if capRow := attentionRows(t, s)[1]; capRow.Seq != nil || capRow.Detail != attentionSpendCap || capRow.Conv != bot.DMConversationID {
 		t.Fatalf("cap row=%+v", capRow)
 	}
 	// A new month alerts again.
@@ -283,29 +284,8 @@ func TestSpendJumpingStraightToTheCapWritesOneNotification(t *testing.T) {
 	s.noteSpend(at)
 	s.noteSpend(at)
 	wantKinds(t, s, attentionSpendAlert)
-}
-
-func TestRecordingSignalsTheWorkspaceStream(t *testing.T) {
-	s := spendStore(t)
-	bot, _ := s.CreateBot("Signal Bot", "", "model")
-	before := s.workspaceEventCursor()
-	postStoredMessage(t, s, Message{ID: newID(), ConversationID: bot.DMConversationID, Seq: 5, Role: "assistant", SenderBotID: bot.ID, Content: "x"})
-	events, err := s.workspaceEvents(before)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var scopes []string
-	for _, e := range events {
-		scopes = append(scopes, e.Scope)
-	}
-	if strings.Join(scopes, ",") != workspaceScopeNotifications {
-		t.Fatalf("scopes after a reply=%v", scopes)
-	}
-	// A message that creates no row creates no signal.
-	before = s.workspaceEventCursor()
-	postStoredMessage(t, s, Message{ID: newID(), ConversationID: bot.DMConversationID, Seq: 6, Role: "user", Content: "x"})
-	if s.workspaceEventCursor() != before {
-		t.Fatal("a silent message signalled the stream")
+	if row := attentionRows(t, s)[0]; row.Detail != attentionSpendCap {
+		t.Fatalf("a jump to the cap names %q", row.Detail)
 	}
 }
 
@@ -374,12 +354,12 @@ func TestNotificationsAPIPagesAndCapsTheLimit(t *testing.T) {
 		t.Fatalf("walked %d rows, cursor %d", seen, after)
 	}
 	row := first.Notifications[0]
-	for _, key := range []string{"id", "kind", "conversation_id", "bot_id", "message_seq", "created_at"} {
+	for _, key := range []string{"id", "kind", "detail", "conversation_id", "bot_id", "message_seq", "created_at"} {
 		if _, ok := row[key]; !ok {
 			t.Fatalf("row lacks %q: %v", key, row)
 		}
 	}
-	if len(row) != 6 {
+	if len(row) != 7 {
 		t.Fatalf("row carries more than pointers: %v", row)
 	}
 	for _, bad := range []string{"?after=-1", "?after=x", "?limit=0", "?limit=x"} {
@@ -484,37 +464,5 @@ func TestDeletingAConversationRemovesItsNotifications(t *testing.T) {
 	rows := attentionRows(t, s)
 	if len(rows) != 1 || rows[0].Conv != b.DMConversationID {
 		t.Fatalf("rows=%+v", rows)
-	}
-}
-
-// A database created before the notifications scope has a narrower CHECK on
-// workspace_events. The migration widens it without moving any cursor.
-func TestWorkspaceEventsTableIsWidenedInPlace(t *testing.T) {
-	s := spendStore(t)
-	for _, stmt := range []string{
-		`DROP TABLE workspace_events`,
-		`CREATE TABLE workspace_events(id INTEGER PRIMARY KEY AUTOINCREMENT, scope TEXT NOT NULL CHECK(scope IN ('bots','groups','config')), created_at TEXT NOT NULL)`,
-		`INSERT INTO workspace_events(scope,created_at) VALUES('bots','a'),('config','b'),('groups','c')`,
-		`DELETE FROM workspace_events WHERE id=3`,
-	} {
-		if _, err := s.db.Exec(stmt); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if _, err := s.WorkspaceEvent(workspaceScopeNotifications); err == nil {
-		t.Fatal("old table accepted the new scope")
-	}
-	for i := 0; i < 2; i++ { // the second run is the idempotence check
-		if err := migrateWorkspaceEvents(s.db); err != nil {
-			t.Fatal(err)
-		}
-	}
-	id, err := s.WorkspaceEvent(workspaceScopeNotifications)
-	if err != nil || id != 4 {
-		t.Fatalf("new event id=%d err=%v (the high-water mark must survive the rebuild)", id, err)
-	}
-	events, err := s.workspaceEvents(0)
-	if err != nil || len(events) != 3 || events[0].Scope != "bots" || events[1].Scope != "config" || events[2].Scope != workspaceScopeNotifications {
-		t.Fatalf("events=%+v err=%v", events, err)
 	}
 }
