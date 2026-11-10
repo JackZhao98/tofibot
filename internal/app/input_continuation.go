@@ -83,6 +83,9 @@ func (s *Store) SaveInputContinuation(ctx context.Context, runID, questionID str
 	if err = insertRecoveryEvent(tx, r.ConversationID, "run", r, r.UpdatedAt); err != nil {
 		return err
 	}
+	if err = recordRunWaitingTx(tx, r); err != nil {
+		return err
+	}
 	if q.Type == questionApproval && q.Status == questionExpired {
 		if err = insertRecoveryEvent(tx, q.ConversationID, "question", q.Card(), r.UpdatedAt); err != nil {
 			return err

@@ -206,17 +206,34 @@ func (s *Store) publishSpend(at time.Time) {
 	}
 }
 
+// postSpendAlert records each threshold once per month and limit: the 80%
+// warning (which also posts the in-app note) and the cap itself. A call that
+// crosses both at once writes one notification, not two.
 func (s *Store) postSpendAlert(st SpendStatus) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	res, err := tx.Exec(`INSERT OR IGNORE INTO spend_alerts(month,limit_usd,percent,sent_at) VALUES(?,?,?,?)`, st.Month, st.LimitUSD, spendAlertPercent, now())
+	crossed := func(percent int) (bool, error) {
+		res, e := tx.Exec(`INSERT OR IGNORE INTO spend_alerts(month,limit_usd,percent,sent_at) VALUES(?,?,?,?)`, st.Month, st.LimitUSD, percent, now())
+		if e != nil {
+			return false, e
+		}
+		n, _ := res.RowsAffected()
+		return n > 0, nil
+	}
+	warned, err := crossed(spendAlertPercent)
 	if err != nil {
 		return err
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
+	capped := false
+	if st.State == "reached" {
+		if capped, err = crossed(100); err != nil {
+			return err
+		}
+	}
+	if !warned && !capped {
 		return nil
 	}
 	botID, err := primaryBotTx(tx)
@@ -227,22 +244,37 @@ func (s *Store) postSpendAlert(st SpendStatus) error {
 	if err = tx.QueryRow(`SELECT dm_conversation_id FROM bots WHERE id=?`, botID).Scan(&conv); err != nil {
 		return err
 	}
-	t := now()
-	var seq int64
-	if err = tx.QueryRow(nextMessageSeqSQL, conv, conv, streamDraftActive).Scan(&seq); err != nil {
-		return err
+	var noteSeq *int64
+	if warned {
+		t := now()
+		var seq int64
+		if err = tx.QueryRow(nextMessageSeqSQL, conv, conv, streamDraftActive).Scan(&seq); err != nil {
+			return err
+		}
+		notice := &HandoffNotice{Type: "spend_alert", Reason: st.State, FromBotID: botID, ToBotID: botID, TargetConversationID: conv, OldValue: fmt.Sprintf("%d", st.LimitUSD), NewValue: fmt.Sprintf("%.2f", st.SpendUSD)}
+		data, _ := json.Marshal(notice)
+		m := Message{ID: newID(), ConversationID: conv, Seq: seq, Role: "assistant", Kind: "notice", SenderBotID: "system", Content: fmt.Sprintf("This month's spend is $%.2f of the $%d limit (%d%%). Model calls that bill per use stop at the limit. Change it in Settings > Usage.", st.SpendUSD, st.LimitUSD, spendPercent(st)), Notice: notice, CreatedAt: t}
+		if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, m.ID, m.ConversationID, m.Seq, m.Role, m.Kind, m.SenderBotID, nil, m.Content, string(data), t); err != nil {
+			return err
+		}
+		if err = insertRecoveryEvent(tx, conv, "message", m, t); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(`UPDATE conversations SET updated_at=? WHERE id=?`, t, conv); err != nil {
+			return err
+		}
+		noteSeq = &seq
 	}
-	notice := &HandoffNotice{Type: "spend_alert", Reason: st.State, FromBotID: botID, ToBotID: botID, TargetConversationID: conv, OldValue: fmt.Sprintf("%d", st.LimitUSD), NewValue: fmt.Sprintf("%.2f", st.SpendUSD)}
-	data, _ := json.Marshal(notice)
-	m := Message{ID: newID(), ConversationID: conv, Seq: seq, Role: "assistant", Kind: "notice", SenderBotID: "system", Content: fmt.Sprintf("This month's spend is $%.2f of the $%d limit (%d%%). Model calls that bill per use stop at the limit. Change it in Settings > Usage.", st.SpendUSD, st.LimitUSD, spendPercent(st)), Notice: notice, CreatedAt: t}
-	if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, m.ID, m.ConversationID, m.Seq, m.Role, m.Kind, m.SenderBotID, nil, m.Content, string(data), t); err != nil {
-		return err
+	// The note is a system notice, not a Bot reply: the alert row is the one
+	// notification for it, pointing at the Assistant's chat.
+	percent := spendAlertPercent
+	if capped {
+		percent = 100
 	}
-	if err = insertRecoveryEvent(tx, conv, "message", m, t); err != nil {
-		return err
-	}
-	if _, err = tx.Exec(`UPDATE conversations SET updated_at=? WHERE id=?`, t, conv); err != nil {
-		return err
+	if kind := classifyAttention(attentionSignal{Source: attentionFromSpend, SpendPercent: percent}); kind != "" {
+		if err = recordAttentionTx(tx, kind, conv, botID, noteSeq); err != nil {
+			return err
+		}
 	}
 	return tx.Commit()
 }

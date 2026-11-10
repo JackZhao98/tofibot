@@ -401,6 +401,9 @@ func (s *Store) publishAssistantPartsOpts(ctx context.Context, runID string, tur
 		if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,created_at) VALUES(?,?,?,?,?,?,?,?,?)`, m.ID, m.ConversationID, m.Seq, m.Role, m.Kind, m.SenderBotID, m.RunID, m.Content, m.CreatedAt); err != nil {
 			return Message{}, false, err
 		}
+		if err = recordMessageAttentionTx(tx, m); err != nil {
+			return Message{}, false, err
+		}
 		b, marshalErr := json.Marshal(m)
 		if marshalErr != nil {
 			return Message{}, false, marshalErr
