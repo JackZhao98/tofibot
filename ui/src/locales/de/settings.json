@@ -1464,7 +1464,14 @@
     "device_status_offline_since": "Server nicht erreichbar. Letzter Erfolg: {{time}}",
     "device_status_blocked_by_system": "macOS erlaubt keine Benachrichtigungen von Tofi",
     "device_status_unknown": "Status nicht verfügbar",
-    "server_unsupported": "Der Server braucht ein Update, um Benachrichtigungen zu senden"
+    "server_unsupported": "Der Server braucht ein Update, um Benachrichtigungen zu senden",
+    "device_reason_connecting": "Verbindung zum Server wird hergestellt",
+    "device_reason_too_many_waiters": "Ein anderes Gerät dieses Kontos belegt alle Warteplätze. Neuer Versuch",
+    "device_reason_wait_ignored": "Der Server hat zu schnell geantwortet. Neuer Versuch",
+    "device_reason_cursor_stalled": "Die Antwort des Servers ist nicht vorangekommen. Neuer Versuch",
+    "device_reason_bad_response": "Der Server hat eine unlesbare Antwort gesendet. Neuer Versuch",
+    "device_reason_session_expired": "Die Anmeldung ist abgelaufen",
+    "device_reason_notifications_unsupported": "Dieser Mac unterstützt keine Benachrichtigungen"
   },
   "approval": {
     "label": "Freigabemodus für dieses Konto",

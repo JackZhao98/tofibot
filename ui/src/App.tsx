@@ -910,6 +910,7 @@ function Workspace() {
   useEffect(() => window.tofiDesktop?.onCommand((command: DesktopCommand) => {
     if (typeof command === "object") {
       if (command.type === "open-conversation" && command.id) notifyOpen.current({ kind: "reply", conversation_id: command.id });
+      else if (command.type === "open-usage") notifyOpen.current({ kind: "spend_alert" });
       return;
     }
     // Native menu shortcuts must not steal keys while a remote machine owns input.

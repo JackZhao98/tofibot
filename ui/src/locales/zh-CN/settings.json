@@ -1451,7 +1451,14 @@
     "device_status_offline_since": "连不上服务器，上次成功 {{time}}",
     "device_status_blocked_by_system": "macOS 不允许 Tofi 发送通知",
     "device_status_unknown": "无法确认状态",
-    "server_unsupported": "服务器需要升级才能发送通知"
+    "server_unsupported": "服务器需要升级才能发送通知",
+    "device_reason_connecting": "正在连接服务器",
+    "device_reason_too_many_waiters": "此账户的其他设备占满了等待名额，正在重试",
+    "device_reason_wait_ignored": "服务器响应过快，正在重试",
+    "device_reason_cursor_stalled": "服务器的响应没有推进，正在重试",
+    "device_reason_bad_response": "服务器返回了无法读取的响应，正在重试",
+    "device_reason_session_expired": "登录已过期",
+    "device_reason_notifications_unsupported": "这台 Mac 不支持通知"
   },
   "approval": {
     "label": "当前账号的审批模式",

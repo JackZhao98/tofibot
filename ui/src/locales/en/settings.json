@@ -1464,7 +1464,14 @@
     "device_status_offline_since": "Can't reach the server. Last success {{time}}",
     "device_status_blocked_by_system": "macOS does not allow notifications from Tofi",
     "device_status_unknown": "Status unavailable",
-    "server_unsupported": "The server needs an update to send notifications"
+    "server_unsupported": "The server needs an update to send notifications",
+    "device_reason_connecting": "Connecting to the server",
+    "device_reason_too_many_waiters": "Another device of this account holds all the waiting slots. Retrying",
+    "device_reason_wait_ignored": "The server answered too fast. Retrying",
+    "device_reason_cursor_stalled": "The server's answer did not advance. Retrying",
+    "device_reason_bad_response": "The server sent an answer Tofi cannot read. Retrying",
+    "device_reason_session_expired": "The sign-in expired",
+    "device_reason_notifications_unsupported": "This Mac does not support notifications"
   },
   "approval": {
     "label": "Approval mode for this account",

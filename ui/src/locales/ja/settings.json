@@ -1451,7 +1451,14 @@
     "device_status_offline_since": "サーバーに接続できません。最後の成功: {{time}}",
     "device_status_blocked_by_system": "macOS が Tofi の通知を許可していません",
     "device_status_unknown": "状態を確認できません",
-    "server_unsupported": "通知を送るにはサーバーの更新が必要です"
+    "server_unsupported": "通知を送るにはサーバーの更新が必要です",
+    "device_reason_connecting": "サーバーに接続しています",
+    "device_reason_too_many_waiters": "このアカウントの他のデバイスが待機枠をすべて使っています。再試行しています",
+    "device_reason_wait_ignored": "サーバーの応答が早すぎます。再試行しています",
+    "device_reason_cursor_stalled": "サーバーの応答が進みません。再試行しています",
+    "device_reason_bad_response": "読み取れない応答がサーバーから届きました。再試行しています",
+    "device_reason_session_expired": "サインインの有効期限が切れました",
+    "device_reason_notifications_unsupported": "この Mac は通知に対応していません"
   },
   "approval": {
     "label": "このアカウントの承認モード",

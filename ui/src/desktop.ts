@@ -1,6 +1,8 @@
 export type DesktopCommand = "new-conversation" | "search" | "settings" | "toggle-sidebar" | "focus-composer"
-  /** A system notification was clicked: show this conversation (and the message at seq, when the server named one). */
-  | { type: "open-conversation"; id: string; seq?: number };
+  /** A system notification was clicked: show this conversation. `seq` is sent but not used yet. */
+  | { type: "open-conversation"; id: string; seq?: number }
+  /** A spend notification without a conversation was clicked: open Settings > Usage. */
+  | { type: "open-usage"; detail?: string };
 
 /** What the Mac app's notifier reports about itself (cloud-services 10.3 item 7). Only the Mac app writes these words. */
 export type DesktopNotifierState = "on" | "off" | "not_connected" | "server_unsupported" | "signed_out" | "offline" | "blocked_by_system";
@@ -8,6 +10,8 @@ export type DesktopNotifierState = "on" | "off" | "not_connected" | "server_unsu
 export type DesktopNotifierSettings = { enabled: boolean; content: boolean; openAtLogin: boolean };
 export type DesktopNotifierStatus = {
   state: DesktopNotifierState;
+  /** Why the Mac app is in this state (`connecting`, `too_many_waiters`, ...). Optional; unknown values are ignored. */
+  reason?: string;
   /** Epoch milliseconds of the last successful read, when the state is offline. */
   lastSuccessAt?: number;
   settings: DesktopNotifierSettings;

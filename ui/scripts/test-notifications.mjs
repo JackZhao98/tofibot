@@ -198,6 +198,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     }
     await t.page.evaluate(next => window.__setBridgeStatus(next), status("offline", {lastSuccessAt: Date.now() - 60_000}));
     await t.page.waitForFunction(() => /Last success/.test(document.querySelector("[data-setting='notify-device-status']")?.textContent ?? ""));
+    await t.page.evaluate(next => window.__setBridgeStatus(next), status("offline", {reason: "too_many_waiters"}));
+    await t.page.locator("[data-setting='notify-device-reason'][data-reason='too_many_waiters']").waitFor();
+    await t.page.evaluate(next => window.__setBridgeStatus(next), status("offline", {reason: "some_new_reason"}));
+    await t.page.waitForFunction(() => !document.querySelector("[data-setting='notify-device-reason']"));
     await t.page.locator("[data-setting='notify-device-content'] input").click();
     await t.page.locator("[data-setting='notify-device-openAtLogin'] input").click();
     assert.deepEqual((await t.page.evaluate(() => window.__bridgeCalls)).filter(call => call[0] === "update"), [["update", {content: false}], ["update", {openAtLogin: true}]]);
@@ -229,11 +233,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     for (const width of [390, 1440]) {
       for (const withBridge of [false, true]) {
         reset();
-        const t = await open({lang}, {width, height: 1000, bridge: withBridge ? status("offline", {lastSuccessAt: Date.now() - 3_600_000}) : null});
+        const t = await open({lang}, {width, height: 1000, bridge: withBridge ? status("offline", {lastSuccessAt: Date.now() - 3_600_000, reason: "too_many_waiters"}) : null});
         if (withBridge) await t.page.waitForFunction(() => document.querySelector("[data-setting='notify-device-status']")?.dataset.state === "offline");
         const label = `${lang} ${width}px ${withBridge ? "bridge" : "browser"}`;
         const text = await t.page.locator(".settings-page-body").innerText();
-        assert.ok(!/settings:|chats\.|device_|notify_/.test(text), `${label}: raw key on the page: ${text.slice(0, 200)}`);
+        assert.ok(!/settings:|chats\.|device_|notify_|reason_/.test(text), `${label}: raw key on the page: ${text.slice(0, 200)}`);
         for (const key of ["tasks", "chats", "needs_you", "spend_alerts"]) assert.equal(await t.page.locator(`[data-setting='notify-${key}']`).count(), 1, `${label}: ${key} row`);
         if (withBridge) {
           assert.equal(await t.page.locator("[data-setting^='notify-device-']:not([data-setting='notify-device-status']) input").count(), 3, `${label}: device switches`);

@@ -171,7 +171,12 @@ func deliverable(rows, before []AttentionRow, f deliveryFacts) []DeliveryItem {
 		}
 		// Quiet: a deliverable row of the conversation, older than this item's
 		// first row, inside the window. Stateless: it reads created_at only.
+		// needs_you and spend_alert are more urgent than a reply: never quiet.
+		burstKind := it.Kind == attentionReply || it.Kind == attentionTaskResult
 		for _, prior := range delivered[it.ConversationID] {
+			if !burstKind {
+				break
+			}
 			age := g.first.Sub(parseAttentionTime(prior.CreatedAt))
 			if prior.ID < g.firstID && age >= 0 && age <= attentionQuietWindow {
 				it.Quiet = true

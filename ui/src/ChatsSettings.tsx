@@ -43,6 +43,9 @@ export function ChatsSettings() {
   </>;
 }
 
+const KNOWN_REASONS = ["connecting", "too_many_waiters", "wait_ignored", "cursor_stalled", "bad_response", "session_expired", "notifications_unsupported"] as const;
+
+
 /** "This device": the Mac app's notifier state and its three switches. Only a Mac app with the bridge renders this. */
 function DeviceNotifications({bridge}: {bridge: NonNullable<Window["tofiDesktop"]>["notifications"] & object}) {
   const {t} = useTranslation(["settings"]);
@@ -62,6 +65,8 @@ function DeviceNotifications({bridge}: {bridge: NonNullable<Window["tofiDesktop"
   const text = !status ? t("settings:chats.device_status_unknown")
     : status.state === "offline" && time ? t("settings:chats.device_status_offline_since", {time})
     : t(`settings:chats.device_status_${status.state}`, {defaultValue: t("settings:chats.device_status_unknown")});
+  // Only reasons the Mac app is known to send are worded; any other value is left out.
+  const reasonKey = KNOWN_REASONS.find(known => known === status?.reason);
   const switches: {key: keyof DesktopNotifierSettings; label: string}[] = [
     {key: "enabled", label: t("settings:chats.device_enabled")},
     {key: "content", label: t("settings:chats.device_content")},
@@ -73,6 +78,7 @@ function DeviceNotifications({bridge}: {bridge: NonNullable<Window["tofiDesktop"
       {switches.map(item => <label key={item.key} className="debug-toggle" data-setting={`notify-device-${item.key}`}><span>{item.label}</span><input type="checkbox" role="switch" checked={status?.settings[item.key] ?? false} disabled={!status} onChange={event => void update({[item.key]: event.target.checked})}/></label>)}
     </SettingsCard>
     <p className="field-note" role="status" data-setting="notify-device-status" data-state={status?.state ?? "unknown"}>{text}</p>
+    {reasonKey && <p className="field-note" data-setting="notify-device-reason" data-reason={reasonKey}>{t(`settings:chats.device_reason_${reasonKey}`)}</p>}
     <p className="field-note">{t("settings:chats.device_login_hint")}</p>
     {failed && <p className="timezone-error" role="alert">{t("settings:general.activity_save_failed")}</p>}
   </section>;

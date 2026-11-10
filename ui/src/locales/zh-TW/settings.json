@@ -1451,7 +1451,14 @@
     "device_status_offline_since": "無法連線到伺服器，上次成功 {{time}}",
     "device_status_blocked_by_system": "macOS 不允許 Tofi 傳送通知",
     "device_status_unknown": "無法確認狀態",
-    "server_unsupported": "伺服器需要升級才能傳送通知"
+    "server_unsupported": "伺服器需要升級才能傳送通知",
+    "device_reason_connecting": "正在連線到伺服器",
+    "device_reason_too_many_waiters": "此帳號的其他裝置佔滿了等待名額，正在重試",
+    "device_reason_wait_ignored": "伺服器回應過快，正在重試",
+    "device_reason_cursor_stalled": "伺服器的回應沒有推進，正在重試",
+    "device_reason_bad_response": "伺服器傳回了無法讀取的回應，正在重試",
+    "device_reason_session_expired": "登入已過期",
+    "device_reason_notifications_unsupported": "這台 Mac 不支援通知"
   },
   "approval": {
     "label": "此帳號的核准模式",

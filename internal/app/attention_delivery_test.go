@@ -156,8 +156,17 @@ func TestDeliverableMarksABurstQuiet(t *testing.T) {
 	// Inside one response the first item is loud, a later kind of the same conversation is quiet.
 	f = dFacts()
 	items = deliverable([]AttentionRow{dRow(1, attentionReply, "c1", 5, 0), dRow(2, attentionNeedsYou, "c1", 0, 3)}, nil, f)
+	if len(items) != 2 || items[0].Quiet || items[1].Quiet {
+		t.Fatalf("burst in one response: the reply is loud, a following needs_you is never quiet: %+v", items)
+	}
+	items = deliverable([]AttentionRow{dRow(1, attentionReply, "c1", 5, 0), dRow(2, attentionTaskResult, "c1", 6, 3)}, nil, f)
 	if len(items) != 2 || items[0].Quiet || !items[1].Quiet {
-		t.Fatalf("burst in one response: %+v", items)
+		t.Fatalf("a task_result after a reply is quiet: %+v", items)
+	}
+	// needs_you and spend_alert stay loud even right after a delivered row of their conversation.
+	items = deliverable([]AttentionRow{dRow(11, attentionNeedsYou, "c1", 0, 5), dRow(12, attentionSpendAlert, "c1", 0, 6)}, []AttentionRow{dRow(10, attentionReply, "c1", 5, 0)}, f)
+	if len(items) != 2 || items[0].Quiet || items[1].Quiet {
+		t.Fatalf("urgent kinds are never quiet: %+v", items)
 	}
 	// Rows merged into one item do not make that item quiet by themselves.
 	items = deliverable([]AttentionRow{dRow(1, attentionReply, "c1", 5, 0), dRow(2, attentionReply, "c1", 6, 3)}, nil, f)

@@ -90,7 +90,7 @@ What the server leaves out before it builds `items`:
 
 Fixed sentences are the client's, in the account language: `needs_you` is "waiting for your answer"; `spend_alert` with `spend_warning` is "80% of the monthly limit", with `spend_cap` "the monthly limit is reached"; an empty preview (and content off) is "new message". The server sends only `kind` and `detail` for these.
 
-A click goes to `conversation_id` (with `message_seq` when set). A `spend_cap` item has no conversation: open Settings > Usage.
+A click goes to `conversation_id`. A `spend_cap` item has no conversation: open Settings > Usage. `needs_you` and `spend_alert` items are never `quiet`; only `reply` and `task_result` bursts are.
 
 ## 4. Long poll
 
@@ -142,6 +142,7 @@ A Mac app that notifies from its main process puts `window.tofiDesktop.notificat
 ```ts
 notifications: {
   status(): Promise<{ state: "on"|"off"|"not_connected"|"server_unsupported"|"signed_out"|"offline"|"blocked_by_system";
+                      reason?: string;        // optional, see below
                       lastSuccessAt?: number; // epoch ms
                       settings: { enabled: boolean; content: boolean; openAtLogin: boolean } }>;
   update(patch: Partial<{ enabled: boolean; content: boolean; openAtLogin: boolean }>): Promise<status>;
@@ -152,4 +153,7 @@ notifications: {
 
 - The page calls `setView` when the open conversation changes. The main process decides if the window is focused.
 - The settings page shows the three switches and the state text only when the bridge exists.
-- A click on a notification sends the command `{type: "open-conversation", id: string, seq?: number}` through `onCommand`. The page opens the conversation. It does not yet jump to `seq` (see AGENTS.md, Notifications).
+- `reason` is optional. The page words these values and ignores any other: `connecting`, `too_many_waiters`, `wait_ignored`, `cursor_stalled`, `bad_response`, `session_expired`, `notifications_unsupported`. The state text always shows; the reason adds one line.
+- The main process sends two commands through `onCommand`:
+  - `{type: "open-conversation", id: string, seq?: number}`: the page opens the conversation. `seq` is not used yet.
+  - `{type: "open-usage", detail?: string}`: for a spend row without a conversation. The page opens Settings > Usage.
