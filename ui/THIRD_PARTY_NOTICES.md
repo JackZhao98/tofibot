@@ -32,7 +32,7 @@ The menus and popovers are Radix primitives in the lazily loaded chunk `assets/R
 
 | Packages | License | Text |
 |---|---|---|
-| `@radix-ui/react-dropdown-menu` 2.2.1, `@radix-ui/react-popover` 1.3.1, `@radix-ui/react-dialog` 1.3.1, `@radix-ui/react-alert-dialog` 1.2.1 and the `@radix-ui/*` primitives they use (menu, popper, dismissable-layer, focus-scope, focus-guards, roving-focus, collection, presence, portal, primitive, slot, id, direction, context, compose-refs, primitive helpers, `use-*` hooks), Copyright (c) 2022 WorkOS | MIT | `public/licenses/radix-ui.txt` |
+| `@radix-ui/react-dropdown-menu` 2.2.1, `@radix-ui/react-popover` 1.3.1, `@radix-ui/react-dialog` 1.3.1, `@radix-ui/react-alert-dialog` 1.2.1, `@radix-ui/react-switch` 1.4.1 (the settings switch) and the `@radix-ui/*` primitives they use (menu, popper, dismissable-layer, focus-scope, focus-guards, roving-focus, collection, presence, portal, primitive, slot, id, direction, context, compose-refs, primitive helpers, `use-*` hooks), Copyright (c) 2022 WorkOS | MIT | `public/licenses/radix-ui.txt` |
 | `@floating-ui/core`, `@floating-ui/dom`, `@floating-ui/react-dom`, `@floating-ui/utils`, Copyright (c) 2021-present Floating UI contributors | MIT | `public/licenses/floating-ui.txt` |
 | `aria-hidden`, `get-nonce`, `react-remove-scroll`, `react-remove-scroll-bar`, `react-style-singleton`, `use-callback-ref`, `use-sidecar`, Copyright (c) Anton Korzunov | MIT | `public/licenses/react-remove-scroll.txt` |
 | `detect-node-es`, Copyright (c) 2017 Ilya Kantor | MIT | `public/licenses/detect-node-es.txt` |
