@@ -92,6 +92,23 @@ export function modesFor(capability: CapabilityId): string[] {
   }
 }
 
+/**
+ * The AI models row offers three choices, stored as a mode plus one parameter: `own` (mode own), `provided` (provided, allow_own
+ * true: members may also use their own sources) and `provided_only` (provided, allow_own false). The server reads a missing
+ * `allow_own` as true.
+ */
+export type AiChoice = "own" | "provided" | "provided_only";
+export const AI_CHOICES: readonly AiChoice[] = ["own", "provided", "provided_only"];
+export function aiChoiceOf(value: PolicyValue | undefined): AiChoice {
+  if (!value || value.mode !== "provided") return "own";
+  const allow = (value.params as {allow_own?: unknown} | undefined)?.allow_own;
+  return allow === false ? "provided_only" : "provided";
+}
+export function aiValueFor(choice: AiChoice): PolicyValue {
+  if (choice === "own") return {mode: "own", params: {}};
+  return {mode: "provided", params: {allow_own: choice === "provided"}};
+}
+
 /** A value for `mode`; the computer's provided mode takes the VM where the host runs one, else E2B. */
 export function valueFor(capability: CapabilityId, mode: string, hostHasVm: boolean): PolicyValue {
   if (capability === "computer" && mode === "provided") return {mode, source: hostHasVm ? "vm" : "e2b", params: {}};

@@ -31,8 +31,56 @@ export function maskedKey(status?: {key_hint?: string; key_prefix?: string}) {
  * appears only when the person chooses to add or replace a key.
  */
 export function ModelProviders(props: {refreshToken: number; codexRefresh: number; onConfigured: () => void; onCodexConfigured: () => void}) {
- // Provided by the organization: nothing to enter and no ChatGPT sign-in, so this account's own cards are not rendered at all.
- return usePolicy().provided("ai_models") ? <ProvidedModels refreshToken={props.refreshToken}/> : <OwnModelProviders {...props}/>;
+ const policy = usePolicy();
+ // Provided by the organization: the organization's card is read-only. Where the administrator allows it, a "Your own" section
+ // beside it holds the ChatGPT sign-in (and only that: own API keys and endpoints come later); otherwise one line says the
+ // organization manages the models. Claude, OpenAI and compatible cards are never rendered while provided.
+ if (!policy.provided("ai_models")) return <OwnModelProviders {...props}/>;
+ return <ProvidedModels refreshToken={props.refreshToken} ownAllowed={policy.ownModels} own={policy.ownModels ? <ProvidedOwnModels codexRefresh={props.codexRefresh} onCodexConfigured={props.onCodexConfigured}/> : undefined}/>;
+}
+
+/** The "Your own" section while models are provided: the ChatGPT sign-in card, in the same quiet filled block as the rest. */
+function ProvidedOwnModels({codexRefresh, onCodexConfigured}: {codexRefresh: number; onCodexConfigured: () => void}) {
+ const {t} = useTranslation("settings");
+ const codex = useCodexConnection(codexRefresh, onCodexConfigured);
+ return <SettingsSection className="model-providers provided-own" title={t("policy.member.models.own_title")}>
+  <p className="field-note" data-own="note">{t("policy.member.models.own_note")}</p>
+  <SettingsCard className="provider-list provider-chatgpt"><ChatGPTCard codex={codex}/></SettingsCard>
+ </SettingsSection>;
+}
+
+/** The ChatGPT (Codex) sign-in on its own: no OpenAI API key beside it. Sign in, reconnect and disconnect, nothing else. */
+function ChatGPTCard({codex}: {codex: CodexConnection}) {
+ const {t} = useTranslation("settings");
+ const {t: tc} = useTranslation("chat");
+ const titleId = useId();
+ const on = codex.connected === true || (codex.connected === false && codex.needsReconnect);
+ const waiting = codex.connected === null && codex.working && !codex.error;
+ const state: BadgeState = waiting ? "testing" : on ? (codex.needsReconnect || codex.connected !== true ? "bad" : "ok") : "need";
+ const statusText = codex.connected === true ? codex.check === "checking" ? tc("codex.verifying") : codex.check === "ok" ? tc("codex.connected_verified") : codex.check === "unverified" ? tc("codex.connected_unverified") : tc("codex.connected") : codex.needsReconnect ? tc("codex.needs_reconnect") : "";
+ let body: ReactNode;
+ if (waiting) body = <p className="provider-key-line is-muted" role="status">{t("providers.status_loading")}</p>;
+ else if (codex.session) body = <div className="verification-card"><p>{tc("codex.enter_code")}</p><code>{codex.session.code}</code><a href={codex.session.url} target="_blank" rel="noreferrer">{tc("codex.open_verification")} <Icon name="external-link" size={16} style={{verticalAlign: "middle"}}/></a></div>;
+ else if (on) body = <>
+  <p className={`provider-key-line${codex.needsReconnect ? " is-failed" : ""}`} role="status">{statusText}</p>
+  {codex.expiresAt && codex.connected && codex.check !== "unverified" && <p className="field-note">{tc("codex.expires", {date: new Date(codex.expiresAt).toLocaleString(intlLocale())})}</p>}
+  {codex.connected && codex.check === "unverified" && <p className="field-note">{tc("codex.unverified_note")} <button type="button" className="text-button" onClick={codex.refresh} disabled={codex.working}>{tc("codex.reverify")}</button></p>}
+  <div className="provider-actions">
+   {codex.needsReconnect && <button type="button" className="text-button" onClick={() => void codex.connect()} disabled={codex.working}>{tc("codex.reconnect")}</button>}
+   <ConfirmAction label={tc("codex.disconnect")} question={t("providers.disconnect_chatgpt_question")} disabled={codex.working} onConfirm={async () => { if (!(await codex.disconnect())) throw new Error(codex.error || t("action.failed")); }}/>
+  </div>
+ </>;
+ else body = <>
+  <p className="provider-card-note">{t("providers.chatgpt_note")}</p>
+  <div className="provider-actions"><button type="button" className="secondary-button" data-method="chatgpt" disabled={codex.working} onClick={() => void codex.connect()}>{t("providers.chatgpt_title")}</button></div>
+  {codex.connected === null && !codex.working && <p className="field-note"><button type="button" className="text-button" onClick={codex.refresh}>{tc("codex.retry_status")}</button></p>}
+ </>;
+ return <article className="detail-content provider-card" aria-labelledby={titleId} aria-busy={waiting || codex.working} data-provider="codex">
+  <CardHead id={titleId} title="ChatGPT" state={state} tag={waiting ? undefined : on ? t("providers.method_chatgpt") : undefined}/>
+  {body}
+  {!waiting && on && <ProviderCost kind="plan"/>}
+  {codex.error && <p className="error-text" role="alert">{codex.error}</p>}
+ </article>;
 }
 
 function OwnModelProviders({refreshToken, codexRefresh, onConfigured, onCodexConfigured}: {refreshToken: number; codexRefresh: number; onConfigured: () => void; onCodexConfigured: () => void}) {

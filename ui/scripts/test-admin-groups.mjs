@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import {mkdir, rm} from "node:fs/promises";
 import {dirname, join} from "node:path";
 import {fileURLToPath, pathToFileURL} from "node:url";
-import {pickSelect, selectItems} from "./lib/select.mjs";
+import {pickSelect, selectItems, selectValue} from "./lib/select.mjs";
 import {createOrgStub, openSettings, startFixture} from "./lib/org-fixture.mjs";
 
 const ui = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -31,6 +31,8 @@ try {
   const shot = async (page, name) => { if (shots) await page.screenshot({path: join(shots, `${name}.png`)}); };
   const text = async locator => (await locator.innerText()).replace(/\s+/g, " ").trim();
   const radio = (scope, name) => scope.getByRole("radio", {name});
+  // The AI models row is a select with three choices (own, provided, provided_only), not a segmented control.
+  const aiTrigger = scope => scope.locator('[data-capability="ai_models"] .ui-select-trigger');
 
   // ---- 1. The Administration group: its own group after System, three pages, admin only.
   {
@@ -59,15 +61,15 @@ try {
     assert.equal(await pane.locator('.ag-item[aria-current="true"]').getAttribute("data-group"), "self_serve", "the first group is open");
     assert.deepEqual(await pane.locator(".ag-policy-row").evaluateAll(rows => rows.map(row => row.dataset.capability)), ["ai_models", "computer", "web_search", "web_fetch"], "one row per capability");
     assert.match(await text(pane.locator(".ag-editor")), /Self-serve is today's behavior and is read-only/);
-    assert.equal(await radio(pane.locator('.ag-policy-row[data-capability=\"ai_models\"]'), "Own keys").getAttribute("aria-checked"), "true");
-    assert.equal(await radio(pane.locator('.ag-policy-row[data-capability=\"ai_models\"]'), "Own keys").isDisabled(), true, "Self-serve cannot be edited");
+    assert.equal(await selectValue(aiTrigger(pane)), "own");
+    assert.equal(await aiTrigger(pane).isDisabled(), true, "Self-serve cannot be edited");
     assert.equal(await pane.locator('.ag-editor [data-action="reset"], .ag-editor .danger-zone').count(), 0, "a built-in group has no delete");
     await shot(page, "groups-selfserve-light-1440");
 
     await pane.locator('.ag-item[data-group="provided"]').click();
     assert.equal(await pane.locator(".ag-editor").getAttribute("data-group"), "provided");
-    assert.equal(await radio(pane.locator('.ag-policy-row[data-capability=\"ai_models\"]'), "Organization").getAttribute("aria-checked"), "true");
-    assert.equal(await radio(pane.locator('.ag-policy-row[data-capability=\"ai_models\"]'), "Organization").isDisabled(), false, "Provided is editable");
+    assert.equal(await selectValue(aiTrigger(pane)), "provided", "a stored provided row without allow_own reads as provided, members may also use their own");
+    assert.equal(await aiTrigger(pane).isDisabled(), false, "Provided is editable");
     assert.equal(await pane.locator('[data-capability="computer"] .ui-select-trigger').getAttribute("data-value"), "provided");
     assert.deepEqual(await pane.locator('[data-capability="computer"] .policy-control [role="radio"]').allInnerTexts(), ["VM", "E2B"], "a KVM host offers the VM source");
     assert.equal(await radio(pane.locator('.ag-policy-row[data-capability=\"computer\"]'), "VM").getAttribute("aria-checked"), "true");
@@ -108,6 +110,41 @@ try {
     console.log("PASS editing: one PATCH with all four rows, no VM source without KVM");
   }
 
+  // ---- 3b. The AI models row: three choices stored as a mode plus allow_own; an account override takes the same three.
+  {
+    stub.reset({members: {acct_two: "provided"}});
+    const {page, close} = await open({tab: "admin-groups"});
+    const pane = body(page, "admin-groups");
+    await pane.locator(".ag-item").first().waitFor();
+    await pane.locator('.ag-item[data-group="provided"]').click();
+    assert.deepEqual((await selectItems(aiTrigger(pane))).map(item => [item.value, item.text]), [["own", "Members bring their own"], ["provided", "Provided; members may also use their own"], ["provided_only", "Provided only"]]);
+    const stored = () => JSON.parse(stub.writes.at(-1).replace(/^PATCH \/api\/admin\/groups\/provided /, "")).policies.ai_models;
+    await pickSelect(aiTrigger(pane), "provided_only");
+    await pane.locator(".ag-saved").getByText("Saved").waitFor();
+    assert.deepEqual(stored(), {mode: "provided", params: {allow_own: false}}, "Provided only stores allow_own=false");
+    assert.equal(await selectValue(aiTrigger(pane)), "provided_only");
+    await pickSelect(aiTrigger(pane), "provided");
+    await pane.locator(".ag-saved").getByText("Saved").waitFor();
+    assert.deepEqual(stored(), {mode: "provided", params: {allow_own: true}}, "Provided, members may also use their own stores allow_own=true");
+    await pickSelect(aiTrigger(pane), "own");
+    await pane.locator(".ag-saved").getByText("Saved").waitFor();
+    assert.deepEqual(stored(), {mode: "own", params: {}}, "own carries no parameter");
+    await close();
+    const overrides = await open({tab: "admin"});
+    const detailPane = body(overrides.page, "admin");
+    await detailPane.locator(".admin-row").first().waitFor();
+    await detailPane.locator('.admin-row[data-account="acct_two"]').click();
+    const detail = detailPane.locator('[data-testid="admin-detail"]');
+    await detail.locator('.ag-override-row[data-capability="ai_models"]').waitFor();
+    stub.writes.length = 0;
+    await pickSelect(aiTrigger(detail), "provided_only");
+    await detail.locator('[data-capability="ai_models"][data-overridden="true"]').waitFor();
+    assert.deepEqual(stub.writes.filter(line => line.startsWith("PUT")), ['PUT /api/admin/accounts/acct_two/policy {"overrides":{"ai_models":{"mode":"provided","params":{"allow_own":false}}}}']);
+    assert.match(await text(detail.locator('[data-capability="ai_models"] .settings-row-copy')), /Overridden · Provided only \(group: Own keys|group: Members bring their own|group: Provided; members may also use their own\)/);
+    await overrides.close();
+    console.log("PASS AI models row: three choices stored as mode + allow_own, group and account override");
+  }
+
   // ---- 4. Create, rename, add members (batch), delete is refused while members remain, then allowed.
   {
     stub.reset();
@@ -124,7 +161,7 @@ try {
     assert.equal(await pane.locator('.ag-item[aria-current="true"] strong').innerText(), "Interns", "the new group opens");
     assert.equal(await pane.locator('.ag-item[data-group="provided"] .settings-tag').count(), 1);
     assert.equal(await pane.locator('.ag-item[aria-current="true"] .settings-tag').count(), 0, "a custom group has no Built in badge");
-    assert.equal(await radio(pane.locator('.ag-policy-row[data-capability=\"ai_models\"]'), "Own keys").getAttribute("aria-checked"), "true", "a new group starts as Self-serve");
+    assert.equal(await selectValue(aiTrigger(pane)), "own", "a new group starts as Self-serve");
 
     // A duplicate name is refused with words, not a code.
     await pane.getByRole("button", {name: "New group"}).click();
@@ -265,7 +302,7 @@ try {
     const detail = pane.locator('[data-testid="admin-detail"]');
     await detail.locator('.ag-override-row[data-capability="ai_models"]').waitFor();
     assert.equal(await text(detail.locator(".group-menu-trigger")), "Provided");
-    assert.match(await text(detail.locator('[data-capability="ai_models"] .settings-row-copy')), /AI models Follows group · Organization/);
+    assert.match(await text(detail.locator('[data-capability="ai_models"] .settings-row-copy')), /AI models Follows group · Provided; members may also use their own/);
     assert.match(await text(detail.locator('[data-capability="computer"] .settings-row-copy')), /Follows group · Organization · VM/);
     assert.equal(await detail.locator('[data-action="reset"]').count(), 0, "nothing is overridden yet");
     await shot(page, "account-overrides-light-1440");
@@ -291,7 +328,7 @@ try {
     await page.locator('.group-menu [data-group-option="self_serve"]').click();
     await detail.locator('.group-menu-trigger:has-text("Self-serve")').waitFor();
     assert.deepEqual(stub.writes.filter(line => line.startsWith("PUT")), ['PUT /api/admin/accounts/acct_two/policy {"group_id":"self_serve"}']);
-    assert.match(await text(detail.locator('[data-capability="ai_models"] .settings-row-copy')), /Follows group · Own keys/);
+    assert.match(await text(detail.locator('[data-capability="ai_models"] .settings-row-copy')), /Follows group · Members bring their own/);
     await close();
     console.log("PASS account detail: follows the group, overrides one capability at a time, resets, changes group");
   }

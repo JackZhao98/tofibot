@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useRef, useState, type RefObject} from "react";
-import {adminOrgApi, modesFor, orgError, SELF_SERVE, valueFor, type AdminGroup, type PolicyValue} from "./adminOrgApi";
+import {adminOrgApi, AI_CHOICES, aiChoiceOf, aiValueFor, modesFor, orgError, SELF_SERVE, valueFor, type AdminGroup, type AiChoice, type PolicyValue} from "./adminOrgApi";
 import type {AdminAccount} from "./adminApi";
 import {useTranslation} from "./i18n";
 import {TofiIcon} from "./icons";
@@ -57,6 +57,7 @@ export function usePolicyText() {
   const {t} = useTranslation("settings");
   return useCallback((capability: CapabilityId, value: PolicyValue | undefined) => {
     const v = value ?? SELF_SERVE[capability];
+    if (capability === "ai_models") return t(`policy.value.ai_models.${aiChoiceOf(v)}` as "policy.value.ai_models.own");
     const base = t(`policy.value.${capability}.${v.mode}` as "policy.value.computer.host");
     return capability === "computer" && v.mode === "provided" && v.source ? `${base} · ${t(`policy.source.${v.source as "vm"}`)}` : base;
   }, [t]);
@@ -71,6 +72,14 @@ export function PolicyControl({capability, value, onChange, hostHasVm, disabled 
   const current = value ?? SELF_SERVE[capability];
   const options = modesFor(capability).map(mode => ({value: mode, label: t(`policy.value.${capability}.${mode}` as "policy.value.computer.host")}));
   const pick = (mode: string) => { if (mode !== current.mode) onChange(valueFor(capability, mode, hostHasVm)); };
+  if (capability === "ai_models") {
+    // Three choices with long names: a select, like the computer's four modes. Stored as a mode plus allow_own.
+    const choice = aiChoiceOf(current);
+    return <div className="policy-control" data-capability={capability} data-mode={current.mode} data-choice={choice}>
+      <Select size="sm" value={choice} onValueChange={next => { if (next !== choice) onChange(aiValueFor(next as AiChoice)); }} disabled={disabled} aria-label={label}
+        options={AI_CHOICES.map(item => ({value: item, label: t(`policy.value.ai_models.${item}` as "policy.value.ai_models.own")}))}/>
+    </div>;
+  }
   return <div className="policy-control" data-capability={capability} data-mode={current.mode}>
     {capability === "computer"
       ? <Select size="sm" value={current.mode} onValueChange={pick} disabled={disabled} aria-label={label} options={options}/>

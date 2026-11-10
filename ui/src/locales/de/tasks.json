@@ -15,7 +15,8 @@
       "runtime_connection": "Verbindung unterbrochen, die Aufgabe wurde nicht abgeschlossen",
       "unknown_failure": "Die Aufgabe wurde nicht abgeschlossen",
       "org_resource_missing": "Warten auf Ihren Administrator",
-      "org_credential_failed": "Das Modellkonto der Organisation braucht Aufmerksamkeit"
+      "org_credential_failed": "Das Modellkonto der Organisation braucht Aufmerksamkeit",
+      "own_models_not_allowed": "Eigene Modelle sind nicht erlaubt"
     },
     "action": {
       "open_tools": "Tool-Einstellungen öffnen",
@@ -135,7 +136,9 @@
     "org_resource_missing_next": "Bitten Sie Ihren Administrator, eines hinzuzufügen, und versuchen Sie es dann erneut.",
     "org_credential_auth": "Die Modell-Zugangsdaten der Organisation wurden abgelehnt.",
     "org_credential_quota": "Das Modellkonto der Organisation hat sein Nutzungslimit erreicht.",
-    "org_credential_next": "Bitten Sie Ihren Administrator, die Organisationsressourcen zu prüfen."
+    "org_credential_next": "Bitten Sie Ihren Administrator, die Organisationsressourcen zu prüfen.",
+    "own_models_not_allowed": "Ihre Organisation erlaubt für dieses Konto keine eigenen Modelle.",
+    "own_models_not_allowed_next": "Wählen Sie eines der Modelle der Organisation und versuchen Sie es erneut."
   },
   "secondary": {
     "then_provider_busy": "Danach war der Modelldienst ausgelastet, die Aufgabe wurde nicht abgeschlossen.",

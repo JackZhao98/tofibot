@@ -86,6 +86,8 @@ export function createOrgStub() {
       resources: {}, // id -> view
       web: {search_order: ["tavily", "brave", "searxng", "computer"], fetch_order: ["firecrawl", "brightdata", "computer"], disabled: [], searxng_url: "", daily_search: null, daily_fetch: null},
       providers: [],
+      // The person's own ChatGPT (Codex) sign-in: the member-side "Your own" section reads and drives it.
+      codex: {connected: false, needs_reconnect: false},
       // The organization's computer image (computer:e2b): the server's build for this TOFI version.
       build: {phase: "ready", version: "0.9.1", error_code: undefined, updated_at: "2026-11-08T19:00:00Z", min_guest_version: undefined},
       rejectKeys: new Set(), failNext: null, nextId: 1, now: 0,
@@ -153,6 +155,11 @@ export function createOrgStub() {
     if (method !== "GET") writes.push(`${method} ${path}${body && Object.keys(body).length ? " " + JSON.stringify(body) : ""}`);
     if (state.failNext && method !== "GET" && state.failNext.test(path)) { const code = state.failNext.code; state.failNext = null; return fail(409, code); }
     if (path === "/api/providers" && method === "GET") return [200, {providers: state.providers}];
+    if (path === "/api/auth/codex" && method === "GET") return [200, {connected: state.codex.connected, expires_at: Date.parse("2026-12-01T00:00:00Z"), needs_reconnect: state.codex.needs_reconnect}];
+    if (path === "/api/auth/codex/verify") return [200, {connected: state.codex.connected, expires_at: Date.parse("2026-12-01T00:00:00Z"), needs_reconnect: state.codex.needs_reconnect, check: "ok"}];
+    if (path === "/api/auth/codex" && method === "DELETE") { state.codex = {connected: false, needs_reconnect: false}; return [200, {}]; }
+    if (path === "/api/auth/codex/connect" && method === "POST") return [200, {session_id: "cx1", verification_url: "https://auth.example.test/device", user_code: "ABCD-EFGH", expires_at: Date.now() + 600000, interval: 1}];
+    if (/^\/api\/auth\/codex\/connect\/[^/]+\/poll$/.test(path)) { state.codex = {connected: true, needs_reconnect: false}; return [200, {connected: true, pending: false, expires_at: Date.parse("2026-12-01T00:00:00Z")}]; }
     if (path === "/api/admin/accounts" && method === "GET") return [200, state.accounts.map(account => { const group = state.groups.find(item => item.id === groupOf(account.id)); return {...account, group: {id: group.id, name: group.name}}; })];
     if (path === "/api/admin/capacity") return [200, {total_bytes: 500 * 2 ** 30, available_bytes: 300 * 2 ** 30, allocated_bytes: 100 * 2 ** 30, promised_bytes: 100 * 2 ** 30, admission_remaining_bytes: 120 * 2 ** 30, warning: false, accounts: []}];
     if (path === "/api/admin/storage") return [200, {version: 1, host: {total_bytes: 500 * 2 ** 30, available_bytes: 300 * 2 ** 30}, accounts: state.accounts.map(a => ({account_id: a.id, server_bytes: 2 ** 30, limit_bytes: null, over_limit: false, source: "measured"}))}];

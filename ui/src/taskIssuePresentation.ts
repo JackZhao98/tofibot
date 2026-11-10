@@ -10,7 +10,7 @@ import { formatClock } from "./i18n/format";
 
 /** Text for one language, or the active UI language when none is given (tests pin one). */
 const tasksT = (locale?: Language) => i18n.getFixedT(locale ?? null, "tasks");
-export type TaskIssueKind = "provider_busy" | "model_unconfigured" | "model_auth" | "model_quota" | "org_resource_missing" | "org_credential_failed" | "tool_setup" | "review_context" | "review_unavailable" | "expired" | "human_denied" | "policy_denied" | "connection_status" | "runtime_connection" | "unknown_failure";
+export type TaskIssueKind = "provider_busy" | "model_unconfigured" | "model_auth" | "model_quota" | "org_resource_missing" | "own_models_not_allowed" | "org_credential_failed" | "tool_setup" | "review_context" | "review_unavailable" | "expired" | "human_denied" | "policy_denied" | "connection_status" | "runtime_connection" | "unknown_failure";
 export type TaskAction = "open_tools" | "open_codex" | "copy_diagnostics" | "view_activity" | "refresh_status";
 export type ExecutionState = "not_executed" | "in_progress" | "completed" | "unknown";
 export type TaskEvidence = { source: "run" | "tool" | "question" | "draft" | "connection"; id: string; code?: string; status?: string; certainty?: string; model?: string; updatedAt?: string; contextCode?: string; failureCategory?: string };
@@ -199,7 +199,7 @@ export function presentTaskIssue({ run, family, tools = [], questions = [], draf
   // Exact independent token in the RUN error only. It affects copy, never replay.
   const overloaded = run.status === "failed" && /(?:^|[^a-zA-Z0-9_])server_is_overloaded(?:$|[^a-zA-Z0-9_])/.test(run.error ?? "");
   // provider_* and org_resource_missing come from a failure caused by the organization's credential (user groups): the person cannot fix it, so the card names it and does not point at their own settings.
-  const modelAccount: Partial<Record<string, TaskIssueKind>> = { model_unconfigured: "model_unconfigured", model_auth_invalid: "model_auth", model_quota_exhausted: "model_quota", org_resource_missing: "org_resource_missing", provider_auth_failed: "org_credential_failed", provider_quota_exhausted: "org_credential_failed" };
+  const modelAccount: Partial<Record<string, TaskIssueKind>> = { model_unconfigured: "model_unconfigured", model_auth_invalid: "model_auth", model_quota_exhausted: "model_quota", org_resource_missing: "org_resource_missing", own_models_not_allowed: "own_models_not_allowed", provider_auth_failed: "org_credential_failed", provider_quota_exhausted: "org_credential_failed" };
   const modelKind = run.status === "failed" ? modelAccount[run.failure?.code ?? ""] : undefined;
   if (overloaded) add("provider_busy");
   else if (modelKind) add(modelKind);
@@ -212,7 +212,7 @@ export function presentTaskIssue({ run, family, tools = [], questions = [], draf
   const stepLevel: TaskIssueKind[] = ["review_context", "review_unavailable", "tool_setup", "policy_denied", "human_denied"];
   for (let index = causes.length - 1; index >= 0; index--) if (stepLevel.includes(causes[index])) causes.splice(index, 1);
   if (!causes.length) return undefined;
-  const priority: TaskIssueKind[] = ["expired", "human_denied", "policy_denied", "tool_setup", "review_context", "review_unavailable", "connection_status", "org_resource_missing", "org_credential_failed", "model_unconfigured", "model_auth", "model_quota", "provider_busy", "runtime_connection", "unknown_failure"];
+  const priority: TaskIssueKind[] = ["expired", "human_denied", "policy_denied", "tool_setup", "review_context", "review_unavailable", "connection_status", "org_resource_missing", "own_models_not_allowed", "org_credential_failed", "model_unconfigured", "model_auth", "model_quota", "provider_busy", "runtime_connection", "unknown_failure"];
   const kind = priority.find(value => causes.includes(value))!;
   const action: TaskAction = kind === "tool_setup" ? "open_tools" : ["model_unconfigured", "model_auth", "model_quota"].includes(kind) ? "open_codex" : ["review_context", "review_unavailable"].includes(kind) ? "copy_diagnostics" : kind === "connection_status" ? "refresh_status" : "view_activity";
   // A zero tool count is a recorded fact: there is nothing more to load or verify.
@@ -232,6 +232,7 @@ export function presentTaskIssue({ run, family, tools = [], questions = [], draf
   if (kind === "model_auth") facts.push(t(`fact.model_auth.${model}`, { provider: keyLabel }), t(`fact.model_auth.${model}_next`, { provider: keyLabel }));
   if (kind === "model_quota") facts.push(t(`fact.model_quota.${model}`, { provider: keyLabel }), t(`fact.model_quota.${model}_next`, { provider: keyLabel }));
   if (kind === "org_resource_missing") facts.push(t("fact.org_resource_missing"), t("fact.org_resource_missing_next"));
+  if (kind === "own_models_not_allowed") facts.push(t("fact.own_models_not_allowed"), t("fact.own_models_not_allowed_next"));
   if (kind === "org_credential_failed") facts.push(t(run.failure?.code === "provider_quota_exhausted" ? "fact.org_credential_quota" : "fact.org_credential_auth"), t("fact.org_credential_next"));
   if (noToolSteps) facts.push(t("fact.no_tool_steps"));
   if (kind === "expired") facts.push(phase === "finishing" ? t("fact.finishing_results_kept") : t("fact.stopped_results_kept"));

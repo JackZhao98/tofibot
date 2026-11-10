@@ -1696,8 +1696,9 @@
     },
     "value": {
       "ai_models": {
-        "own": "自带密钥",
-        "provided": "组织提供"
+        "own": "成员自带",
+        "provided": "组织提供，成员也可自带",
+        "provided_only": "仅组织提供"
       },
       "computer": {
         "host": "服务器虚拟机",
@@ -1736,7 +1737,10 @@
         "available": "可用",
         "not_provided": "未提供",
         "waiting_title": "等待管理员提供模型",
-        "waiting_body": "组织还没有提供模型；管理员添加之前，Bot 无法运行。"
+        "waiting_body": "组织还没有提供模型；管理员添加之前，Bot 无法运行。",
+        "own_title": "你自己的",
+        "own_note": "用 ChatGPT 登录后，它的模型会出现在模型选择里。已有的 Bot 继续用原来的模型。",
+        "own_not_allowed": "此账户的模型由你的组织管理。"
       }
     }
   }

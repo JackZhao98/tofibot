@@ -1722,8 +1722,9 @@
     },
     "value": {
       "ai_models": {
-        "own": "Clés personnelles",
-        "provided": "Organisation"
+        "own": "Les membres apportent les leurs",
+        "provided": "Fournis ; les membres peuvent aussi utiliser les leurs",
+        "provided_only": "Fournis uniquement"
       },
       "computer": {
         "host": "VM du serveur",
@@ -1762,7 +1763,10 @@
         "available": "Disponible",
         "not_provided": "Non fourni",
         "waiting_title": "En attente de votre administrateur",
-        "waiting_body": "Votre organisation n’a pas encore fourni de modèle. Les Bots ne peuvent pas s’exécuter tant qu’un administrateur n’en ajoute pas."
+        "waiting_body": "Votre organisation n’a pas encore fourni de modèle. Les Bots ne peuvent pas s’exécuter tant qu’un administrateur n’en ajoute pas.",
+        "own_title": "Les vôtres",
+        "own_note": "Connectez-vous avec ChatGPT pour ajouter ses modèles aux sélecteurs. Les Bots gardent le modèle qu'ils utilisent déjà.",
+        "own_not_allowed": "Votre organisation gère les modèles de ce compte."
       }
     }
   }

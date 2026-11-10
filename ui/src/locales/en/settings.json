@@ -1709,8 +1709,9 @@
     },
     "value": {
       "ai_models": {
-        "own": "Own keys",
-        "provided": "Organization"
+        "own": "Members bring their own",
+        "provided": "Provided; members may also use their own",
+        "provided_only": "Provided only"
       },
       "computer": {
         "host": "Server VM",
@@ -1749,7 +1750,10 @@
         "available": "Available",
         "not_provided": "Not provided",
         "waiting_title": "Waiting for your administrator",
-        "waiting_body": "Your organization has not provided a model yet. Bots cannot run until an administrator adds one."
+        "waiting_body": "Your organization has not provided a model yet. Bots cannot run until an administrator adds one.",
+        "own_title": "Your own",
+        "own_note": "Sign in with ChatGPT to add its models to the model pickers. Bots keep the model they already use.",
+        "own_not_allowed": "Your organization manages the models for this account."
       }
     }
   }

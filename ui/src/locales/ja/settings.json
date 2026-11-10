@@ -1696,8 +1696,9 @@
     },
     "value": {
       "ai_models": {
-        "own": "個人のキー",
-        "provided": "組織提供"
+        "own": "メンバーが持ち込み",
+        "provided": "組織が提供、メンバーも持ち込み可",
+        "provided_only": "組織提供のみ"
       },
       "computer": {
         "host": "サーバー VM",
@@ -1736,7 +1737,10 @@
         "available": "利用可能",
         "not_provided": "未提供",
         "waiting_title": "管理者の対応待ちです",
-        "waiting_body": "組織はまだモデルを提供していません。管理者が追加するまで Bot は実行できません。"
+        "waiting_body": "組織はまだモデルを提供していません。管理者が追加するまで Bot は実行できません。",
+        "own_title": "自分のもの",
+        "own_note": "ChatGPT でサインインすると、そのモデルがモデル選択に加わります。既存の Bot は今のモデルのままです。",
+        "own_not_allowed": "このアカウントのモデルは組織が管理しています。"
       }
     }
   }

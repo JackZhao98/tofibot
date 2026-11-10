@@ -1709,8 +1709,9 @@
     },
     "value": {
       "ai_models": {
-        "own": "Eigene Schlüssel",
-        "provided": "Organisation"
+        "own": "Mitglieder bringen eigene mit",
+        "provided": "Bereitgestellt; Mitglieder dürfen auch eigene nutzen",
+        "provided_only": "Nur bereitgestellt"
       },
       "computer": {
         "host": "Server-VM",
@@ -1749,7 +1750,10 @@
         "available": "Verfügbar",
         "not_provided": "Nicht bereitgestellt",
         "waiting_title": "Warten auf Ihren Administrator",
-        "waiting_body": "Ihre Organisation hat noch kein Modell bereitgestellt. Bots laufen erst, wenn ein Administrator eines hinzufügt."
+        "waiting_body": "Ihre Organisation hat noch kein Modell bereitgestellt. Bots laufen erst, wenn ein Administrator eines hinzufügt.",
+        "own_title": "Ihre eigenen",
+        "own_note": "Mit ChatGPT anmelden, um dessen Modelle in der Modellauswahl anzubieten. Bots behalten das Modell, das sie bereits nutzen.",
+        "own_not_allowed": "Ihre Organisation verwaltet die Modelle für dieses Konto."
       }
     }
   }

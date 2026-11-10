@@ -27,7 +27,7 @@ export function ModelFields({model,effort,onChange,disabled=false,allowDefault=t
  const empty=Boolean(catalog)&&!models.length;
  const openConnection=()=>window.dispatchEvent(new Event("tofi:open-codex-settings"));
  // Under an organization-provided model list the person has nothing to connect: say who can fix it, with no action.
- const provided=usePolicy().of("ai_models").mode==="provided";
+ const policy=usePolicy();const provided=policy.of("ai_models").mode==="provided"&&!policy.ownModels;
  const emptyNote=provided?<p className="field-note" data-managed="ai_models">{t("model.no_models_provided")}</p>:<p className="field-note">{t("model.no_models")} <button type="button" className="text-button" onClick={openConnection}>{t("model.open_settings")}</button></p>;
  const pick=(value:string)=>{
   if(allowDefault&&value===FOLLOW_GLOBAL){onChange(FOLLOW_GLOBAL,FOLLOW_GLOBAL);return}

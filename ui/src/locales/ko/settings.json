@@ -1696,8 +1696,9 @@
     },
     "value": {
       "ai_models": {
-        "own": "개인 키",
-        "provided": "조직 제공"
+        "own": "구성원이 직접 가져옴",
+        "provided": "조직 제공, 구성원도 직접 사용 가능",
+        "provided_only": "조직 제공만"
       },
       "computer": {
         "host": "서버 VM",
@@ -1736,7 +1737,10 @@
         "available": "사용 가능",
         "not_provided": "제공되지 않음",
         "waiting_title": "관리자를 기다리는 중",
-        "waiting_body": "조직이 아직 모델을 제공하지 않았습니다. 관리자가 추가할 때까지 Bot을 실행할 수 없습니다."
+        "waiting_body": "조직이 아직 모델을 제공하지 않았습니다. 관리자가 추가할 때까지 Bot을 실행할 수 없습니다.",
+        "own_title": "내 모델",
+        "own_note": "ChatGPT로 로그인하면 해당 모델이 모델 선택 목록에 추가됩니다. 기존 Bot은 쓰던 모델을 그대로 사용합니다.",
+        "own_not_allowed": "이 계정의 모델은 조직이 관리합니다."
       }
     }
   }

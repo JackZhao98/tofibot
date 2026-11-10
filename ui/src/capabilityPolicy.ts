@@ -35,6 +35,8 @@ export type Policy = {
   of: (id: CapabilityId) => CapabilityView;
   /** The organization provides this capability. */
   provided: (id: CapabilityId) => boolean;
+  /** Models are provided and the administrator lets the person also use their own sources (the ChatGPT sign-in). An older server that does not say reads as no. */
+  ownModels: boolean;
   /** The capability is switched off or fixed to the built-in for this account (nothing to set up). */
   off: (id: CapabilityId) => boolean;
   /** Some capability is provided or restricted by the organization. */
@@ -47,7 +49,8 @@ function build(view: CapabilitiesView | null): Policy {
   const of = (id: CapabilityId): CapabilityView => view?.[id] ?? DEFAULTS[id];
   const ids: CapabilityId[] = ["ai_models", "web_search", "web_fetch", "computer"];
   const first = ids.find((id) => of(id).source !== "own") ?? null;
-  return { of, provided: (id) => of(id).source === "organization", off: (id) => of(id).source === "none", managed: first !== null, first };
+  const ai = of("ai_models");
+  return { of, provided: (id) => of(id).source === "organization", ownModels: ai.source === "organization" && ai.own_allowed === true, off: (id) => of(id).source === "none", managed: first !== null, first };
 }
 
 const NONE = build(null);

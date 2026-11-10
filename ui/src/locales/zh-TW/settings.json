@@ -1696,8 +1696,9 @@
     },
     "value": {
       "ai_models": {
-        "own": "自備金鑰",
-        "provided": "組織提供"
+        "own": "成員自帶",
+        "provided": "組織提供，成員也可自帶",
+        "provided_only": "僅組織提供"
       },
       "computer": {
         "host": "伺服器虛擬機",
@@ -1736,7 +1737,10 @@
         "available": "可用",
         "not_provided": "未提供",
         "waiting_title": "等待管理員提供模型",
-        "waiting_body": "組織還沒有提供模型；管理員新增之前，Bot 無法運行。"
+        "waiting_body": "組織還沒有提供模型；管理員新增之前，Bot 無法運行。",
+        "own_title": "你自己的",
+        "own_note": "用 ChatGPT 登入後，它的模型會出現在模型選擇裡。既有的 Bot 繼續用原來的模型。",
+        "own_not_allowed": "此帳戶的模型由你的組織管理。"
       }
     }
   }

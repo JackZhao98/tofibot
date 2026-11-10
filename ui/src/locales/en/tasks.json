@@ -15,7 +15,8 @@
       "runtime_connection": "Connection interrupted; the task did not finish",
       "unknown_failure": "The task did not finish",
       "org_resource_missing": "Waiting for your administrator",
-      "org_credential_failed": "The organization's model account needs attention"
+      "org_credential_failed": "The organization's model account needs attention",
+      "own_models_not_allowed": "Your own models are not allowed"
     },
     "action": {
       "open_tools": "Open tool settings",
@@ -135,7 +136,9 @@
     "org_resource_missing_next": "Ask your administrator to add one, then retry.",
     "org_credential_auth": "The organization's model credential was rejected.",
     "org_credential_quota": "The organization's model account has reached its usage limit.",
-    "org_credential_next": "Ask your administrator to review Organization resources."
+    "org_credential_next": "Ask your administrator to review Organization resources.",
+    "own_models_not_allowed": "Your organization does not allow your own models for this account.",
+    "own_models_not_allowed_next": "Choose one of the organization's models, then retry."
   },
   "secondary": {
     "then_provider_busy": "The model service was then busy, and the task did not finish.",

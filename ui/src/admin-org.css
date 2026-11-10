@@ -47,6 +47,7 @@
 .ag-policy .settings-row-control{max-width:62%}
 .policy-control{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;min-width:0}
 .policy-control .ui-select-trigger{min-width:200px}
+.policy-control button.ui-select-trigger[data-size="sm"]{min-height:36px}
 .ag-missing{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0;padding:0 16px 12px;color:var(--honey-text);font:12.5px/1.5 var(--body)}
 .ag-saved{min-height:1.4em;margin:8px 0 0}
 .ag-member-actions{margin:-38px 0 12px}

@@ -410,7 +410,7 @@ export interface Run {
   bot_id: string;
   status: RunStatus;
   error?: string;
-  failure?: { code: "connection_interrupted" | "execution_failed" | "no_final_answer" | "budget_exhausted" | "approval_expired" | "model_unconfigured" | "model_auth_invalid" | "model_quota_exhausted" | "org_resource_missing" | "provider_auth_failed" | "provider_quota_exhausted" | "tool_stuck" | "resumed_repeatedly" | "spend_cap_reached"; source: "runtime"; count?: number; message: string };
+  failure?: { code: "connection_interrupted" | "execution_failed" | "no_final_answer" | "budget_exhausted" | "approval_expired" | "model_unconfigured" | "model_auth_invalid" | "model_quota_exhausted" | "org_resource_missing" | "own_models_not_allowed" | "provider_auth_failed" | "provider_quota_exhausted" | "tool_stuck" | "resumed_repeatedly" | "spend_cap_reached"; source: "runtime"; count?: number; message: string };
   stop_reason?: "approval_expired";
   finishing_reason?: "approval_expired";
   parent_run_id?: string;
@@ -470,6 +470,8 @@ export interface CapabilityView {
   source: "own" | "organization" | "none";
   /** The Bot computer source when provided: `vm` or `e2b`. */
   via?: "vm" | "e2b" | "";
+  /** `ai_models` only: the person's own model sources (the ChatGPT sign-in) may be used beside the organization's. Absent on an older server: provided is exclusive. */
+  own_allowed?: boolean;
 }
 export type CapabilityId = "ai_models" | "computer" | "web_search" | "web_fetch";
 export type CapabilitiesView = Record<CapabilityId, CapabilityView>;
