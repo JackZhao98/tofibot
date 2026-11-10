@@ -1434,7 +1434,24 @@
   },
   "chats": {
     "task_notifications": "작업 결과 알림",
-    "chat_notifications": "채팅 알림"
+    "chat_notifications": "채팅 알림",
+    "needs_you_notifications": "답변을 기다리는 질문",
+    "spend_alert_notifications": "사용 한도 알림",
+    "device_title": "이 기기",
+    "device_enabled": "이 Mac에서 알림 표시",
+    "device_content": "알림에 메시지 내용 표시",
+    "device_login": "로그인할 때 Tofi 열기",
+    "device_login_hint": "켜 두면 Tofi를 열지 않아도 Mac을 시작한 뒤 알림을 받습니다. Tofi를 종료(Cmd+Q)하면 알림이 오지 않습니다.",
+    "device_status_on": "알림이 켜져 있습니다",
+    "device_status_off": "이 Mac의 알림이 꺼져 있습니다",
+    "device_status_not_connected": "서버가 아직 설정되지 않았습니다",
+    "device_status_server_unsupported": "알림을 보내려면 서버를 업데이트해야 합니다",
+    "device_status_signed_out": "로그아웃되어 알림이 일시 중지되었습니다",
+    "device_status_offline": "서버에 연결할 수 없습니다",
+    "device_status_offline_since": "서버에 연결할 수 없습니다. 마지막 성공: {{time}}",
+    "device_status_blocked_by_system": "macOS가 Tofi의 알림을 허용하지 않습니다",
+    "device_status_unknown": "상태를 확인할 수 없습니다",
+    "server_unsupported": "알림을 보내려면 서버를 업데이트해야 합니다"
   },
   "approval": {
     "label": "이 계정의 승인 모드",

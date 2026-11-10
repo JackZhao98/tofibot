@@ -48,6 +48,8 @@ func init() {
 	bindSettingRead("account.show_activity", prefs(func(p userPreferences) any { return p.ShowActivity }, false))
 	bindSettingRead("account.notify_chats", prefs(func(p userPreferences) any { return p.NotifyChats }, true))
 	bindSettingRead("account.notify_tasks", prefs(func(p userPreferences) any { return p.NotifyTasks }, true))
+	bindSettingRead("account.notify_needs_you", prefs(func(p userPreferences) any { return p.NotifyNeedsYou }, true))
+	bindSettingRead("account.notify_spend_alerts", prefs(func(p userPreferences) any { return p.NotifySpendAlerts }, true))
 	bindSettingRead("account.primary_bot", func(ctx context.Context, sr settingRun, _ Target) (SettingValue, error) {
 		id, err := sr.s.store.PrimaryBotID()
 		if err != nil {

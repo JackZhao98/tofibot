@@ -112,6 +112,8 @@
   "settings:automation.item.work_trace.name": "작업 트레이스",
   "settings:automation.item.work_trace.what": "봇이 화면에서 한 작업의 작은 스크린샷을 남겨 무엇을 했는지 되짚어 볼 수 있게 합니다. 비공개 입력이 보일 수 있는 페이지와 비공개 출처는 저장하지 않습니다. 끄면 아무것도 저장하지 않습니다.",
   "settings:chats.chat_notifications": "채팅 알림",
+  "settings:chats.needs_you_notifications": "답변을 기다리는 질문",
+  "settings:chats.spend_alert_notifications": "사용 한도 알림",
   "settings:chats.task_notifications": "작업 결과 알림",
   "settings:general.activity_title": "채팅에 활동 표시",
   "settings:language.label": "표시 언어",

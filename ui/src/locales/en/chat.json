@@ -439,7 +439,12 @@
     "off": "Notifications are off. Turn them on in your browser settings.",
     "on": "Notifications are on",
     "title": "Task result notifications",
-    "unsupported": "This browser doesn't support system notifications"
+    "unsupported": "This browser doesn't support system notifications",
+    "new_message": "New message",
+    "new_messages": "{{n}} new messages",
+    "needs_you": "Waiting for your answer",
+    "spend_warning": "This month's spend reached 80% of your limit",
+    "spend_cap": "This month's spend reached your limit"
   },
   "onboarding": {
     "greeting_setup": "Setting everything up…",

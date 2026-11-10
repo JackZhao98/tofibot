@@ -1434,7 +1434,24 @@
   },
   "chats": {
     "task_notifications": "任務結果通知",
-    "chat_notifications": "對話通知"
+    "chat_notifications": "對話通知",
+    "needs_you_notifications": "等你回答的問題",
+    "spend_alert_notifications": "用量上限提醒",
+    "device_title": "這台裝置",
+    "device_enabled": "在這台 Mac 上顯示通知",
+    "device_content": "通知中顯示訊息內容",
+    "device_login": "登入時開啟 Tofi",
+    "device_login_hint": "開啟後，開機登入即可收到通知，不必手動開啟 Tofi。結束 Tofi（Cmd+Q）後收不到通知。",
+    "device_status_on": "通知已開啟",
+    "device_status_off": "這台 Mac 上的通知已關閉",
+    "device_status_not_connected": "尚未設定伺服器",
+    "device_status_server_unsupported": "伺服器需要升級才能傳送通知",
+    "device_status_signed_out": "已登出，通知已暫停",
+    "device_status_offline": "無法連線到伺服器",
+    "device_status_offline_since": "無法連線到伺服器，上次成功 {{time}}",
+    "device_status_blocked_by_system": "macOS 不允許 Tofi 傳送通知",
+    "device_status_unknown": "無法確認狀態",
+    "server_unsupported": "伺服器需要升級才能傳送通知"
   },
   "approval": {
     "label": "此帳號的核准模式",

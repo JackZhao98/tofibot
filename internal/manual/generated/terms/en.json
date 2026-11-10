@@ -112,6 +112,8 @@
   "settings:automation.item.work_trace.name": "Work trace",
   "settings:automation.item.work_trace.what": "Keeps small pictures of a Bot's screen work so you can review what it did. A page that may show a private input, and a private origin, are never kept. Off keeps no pictures at all.",
   "settings:chats.chat_notifications": "Chat notifications",
+  "settings:chats.needs_you_notifications": "Questions waiting for you",
+  "settings:chats.spend_alert_notifications": "Spend limit alerts",
   "settings:chats.task_notifications": "Task result notifications",
   "settings:general.activity_title": "Show activity in chats",
   "settings:language.label": "Interface language",

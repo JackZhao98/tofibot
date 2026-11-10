@@ -1434,7 +1434,24 @@
   },
   "chats": {
     "task_notifications": "任务结果通知",
-    "chat_notifications": "对话通知"
+    "chat_notifications": "对话通知",
+    "needs_you_notifications": "等你回答的问题",
+    "spend_alert_notifications": "用量上限提醒",
+    "device_title": "这台设备",
+    "device_enabled": "在这台 Mac 上显示通知",
+    "device_content": "通知里显示消息内容",
+    "device_login": "登录时打开 Tofi",
+    "device_login_hint": "开启后，开机登录即可收到通知，无需手动打开 Tofi。退出 Tofi（Cmd+Q）后收不到通知。",
+    "device_status_on": "通知已开启",
+    "device_status_off": "这台 Mac 上的通知已关闭",
+    "device_status_not_connected": "尚未设置服务器",
+    "device_status_server_unsupported": "服务器需要升级才能发送通知",
+    "device_status_signed_out": "已退出登录，通知已暂停",
+    "device_status_offline": "连不上服务器",
+    "device_status_offline_since": "连不上服务器，上次成功 {{time}}",
+    "device_status_blocked_by_system": "macOS 不允许 Tofi 发送通知",
+    "device_status_unknown": "无法确认状态",
+    "server_unsupported": "服务器需要升级才能发送通知"
   },
   "approval": {
     "label": "当前账号的审批模式",

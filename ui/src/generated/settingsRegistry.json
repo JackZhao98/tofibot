@@ -248,6 +248,30 @@
       "audit": true
     },
     {
+      "key": "account.notify_needs_you",
+      "scope": "account",
+      "kind": "bool",
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/general#chats",
+      "manual": "settings/general",
+      "label_key": "settings:chats.needs_you_notifications",
+      "audit": true
+    },
+    {
+      "key": "account.notify_spend_alerts",
+      "scope": "account",
+      "kind": "bool",
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/general#chats",
+      "manual": "settings/general",
+      "label_key": "settings:chats.spend_alert_notifications",
+      "audit": true
+    },
+    {
       "key": "account.primary_bot",
       "scope": "account",
       "kind": "string",

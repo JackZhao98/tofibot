@@ -14,6 +14,8 @@ Open this page: [{{ui:settings:shell.page.general.name}}](/settings/general)
 | {{ui:settings:appearance.label}} | `account.appearance` | system, light, dark |  | direct | `/settings/general#appearance` |
 | {{ui:settings:language.label}} | `account.language` | a language code, or empty for automatic |  | direct | `/settings/general#region` |
 | {{ui:settings:chats.chat_notifications}} | `account.notify_chats` | on or off |  | direct | `/settings/general#chats` |
+| {{ui:settings:chats.needs_you_notifications}} | `account.notify_needs_you` | on or off |  | direct | `/settings/general#chats` |
+| {{ui:settings:chats.spend_alert_notifications}} | `account.notify_spend_alerts` | on or off |  | direct | `/settings/general#chats` |
 | {{ui:settings:chats.task_notifications}} | `account.notify_tasks` | on or off |  | direct | `/settings/general#chats` |
 | {{ui:settings:primary.label}} | `account.primary_bot` | text |  | confirm | `/settings/general#primary` |
 | {{ui:settings:general.activity_title}} | `account.show_activity` | on or off |  | direct | `/settings/general#chats` |

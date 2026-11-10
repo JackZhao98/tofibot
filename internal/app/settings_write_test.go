@@ -38,6 +38,8 @@ func TestSettingsDirectAccountKeysRoundTripAndAreRecorded(t *testing.T) {
 		{"account.show_activity", `true`, func() any { p, _ := e.s.store.userPreferences(); return p.ShowActivity }, true},
 		{"account.notify_chats", `false`, func() any { p, _ := e.s.store.userPreferences(); return p.NotifyChats }, false},
 		{"account.notify_tasks", `false`, func() any { p, _ := e.s.store.userPreferences(); return p.NotifyTasks }, false},
+		{"account.notify_needs_you", `false`, func() any { p, _ := e.s.store.userPreferences(); return p.NotifyNeedsYou }, false},
+		{"account.notify_spend_alerts", `false`, func() any { p, _ := e.s.store.userPreferences(); return p.NotifySpendAlerts }, false},
 	}
 	for _, c := range cases {
 		out := e.mustCall(`{"action":"set","key":"` + c.key + `","value":` + c.value + `}`)

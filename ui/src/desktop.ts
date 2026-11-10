@@ -1,4 +1,28 @@
-export type DesktopCommand = "new-conversation" | "search" | "settings" | "toggle-sidebar" | "focus-composer";
+export type DesktopCommand = "new-conversation" | "search" | "settings" | "toggle-sidebar" | "focus-composer"
+  /** A system notification was clicked: show this conversation (and the message at seq, when the server named one). */
+  | { type: "open-conversation"; id: string; seq?: number };
+
+/** What the Mac app's notifier reports about itself (cloud-services 10.3 item 7). Only the Mac app writes these words. */
+export type DesktopNotifierState = "on" | "off" | "not_connected" | "server_unsupported" | "signed_out" | "offline" | "blocked_by_system";
+/** The three device-level switches; they live in the Mac app, never on the server. */
+export type DesktopNotifierSettings = { enabled: boolean; content: boolean; openAtLogin: boolean };
+export type DesktopNotifierStatus = {
+  state: DesktopNotifierState;
+  /** Epoch milliseconds of the last successful read, when the state is offline. */
+  lastSuccessAt?: number;
+  settings: DesktopNotifierSettings;
+};
+/**
+ * The notification bridge. When it exists the Mac app's main process reads the delivery view and shows the
+ * notifications (contracts/notifications-delivery.md); the page never calls `new Notification` and never reads the view.
+ */
+export type DesktopNotificationsBridge = {
+  status: () => Promise<DesktopNotifierStatus>;
+  update: (patch: Partial<DesktopNotifierSettings>) => Promise<DesktopNotifierStatus>;
+  /** The conversation in view (null: none). The main process decides whether the window is focused. */
+  setView: (view: { conversationId: string | null }) => void;
+  onStatus: (listener: (status: DesktopNotifierStatus) => void) => () => void;
+};
 export type DesktopState = { drafts?: unknown; activeConversation?: string; readingPositions?: Record<string, unknown>; sidebarCollapsed?: boolean };
 export type NativeFile = { handle: string; name: string };
 export type DesktopPermissionKind = "microphone" | "screen" | "accessibility";
@@ -35,6 +59,8 @@ declare global {
       platform: string;
       themePreference: "system" | "light" | "dark";
       onCommand: (listener: (command: DesktopCommand) => void) => () => void;
+      /** Present in a Mac app that notifies from its main process. Its existence picks the outlet (attentionNotifier.ts). */
+      notifications?: DesktopNotificationsBridge;
       onWindowState: (listener: (state: { focused: boolean; fullscreen: boolean }) => void) => () => void;
       appearance: (preference: "light" | "dark" | "system") => Promise<void>;
       requestMicrophoneAccess: () => Promise<boolean>;

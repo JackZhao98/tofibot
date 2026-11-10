@@ -112,6 +112,8 @@
   "settings:automation.item.work_trace.name": "工作留痕",
   "settings:automation.item.work_trace.what": "保留 Bot 在電腦上操作時的縮圖截圖，方便你回看它做了什麼。可能顯示私密輸入的頁面和私密來源都不會被保留。關閉後不保留任何截圖。",
   "settings:chats.chat_notifications": "對話通知",
+  "settings:chats.needs_you_notifications": "等你回答的問題",
+  "settings:chats.spend_alert_notifications": "用量上限提醒",
   "settings:chats.task_notifications": "任務結果通知",
   "settings:general.activity_title": "在對話中顯示活動",
   "settings:language.label": "介面語言",

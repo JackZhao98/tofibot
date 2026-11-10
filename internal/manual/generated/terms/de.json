@@ -112,6 +112,8 @@
   "settings:automation.item.work_trace.name": "Arbeitsspur",
   "settings:automation.item.work_trace.what": "Speichert kleine Bilder der Bildschirmarbeit eines Bots, damit Sie nachsehen können, was er getan hat. Eine Seite, die eine private Eingabe zeigen kann, und private Ursprünge werden nie gespeichert. Aus speichert gar keine Bilder.",
   "settings:chats.chat_notifications": "Chat-Benachrichtigungen",
+  "settings:chats.needs_you_notifications": "Fragen, die auf dich warten",
+  "settings:chats.spend_alert_notifications": "Hinweise zum Ausgabenlimit",
   "settings:chats.task_notifications": "Benachrichtigungen zu Aufgabenergebnissen",
   "settings:general.activity_title": "Aktivität in Chats anzeigen",
   "settings:language.label": "Sprache der Oberfläche",

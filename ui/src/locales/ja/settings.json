@@ -1434,7 +1434,24 @@
   },
   "chats": {
     "task_notifications": "タスク結果の通知",
-    "chat_notifications": "チャットの通知"
+    "chat_notifications": "チャットの通知",
+    "needs_you_notifications": "あなたの回答を待っている質問",
+    "spend_alert_notifications": "利用上限のアラート",
+    "device_title": "このデバイス",
+    "device_enabled": "この Mac で通知を表示",
+    "device_content": "通知にメッセージの内容を表示",
+    "device_login": "ログイン時に Tofi を開く",
+    "device_login_hint": "オンにすると、Mac の起動後に Tofi を開かなくても通知が届きます。Tofi を終了（Cmd+Q）すると通知は届きません。",
+    "device_status_on": "通知はオンです",
+    "device_status_off": "この Mac の通知はオフです",
+    "device_status_not_connected": "サーバーが未設定です",
+    "device_status_server_unsupported": "通知を送るにはサーバーの更新が必要です",
+    "device_status_signed_out": "サインアウト中のため通知は停止しています",
+    "device_status_offline": "サーバーに接続できません",
+    "device_status_offline_since": "サーバーに接続できません。最後の成功: {{time}}",
+    "device_status_blocked_by_system": "macOS が Tofi の通知を許可していません",
+    "device_status_unknown": "状態を確認できません",
+    "server_unsupported": "通知を送るにはサーバーの更新が必要です"
   },
   "approval": {
     "label": "このアカウントの承認モード",

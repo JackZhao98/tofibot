@@ -35,6 +35,11 @@ type userPreferences struct {
 	// default; the browser still needs its own permission.
 	NotifyChats bool `json:"notify_chats"`
 	NotifyTasks bool `json:"notify_tasks"`
+	// NotifyNeedsYou and NotifySpendAlerts gate the other two kinds of the
+	// server-side delivery view (attention_delivery.go): a run waiting for the
+	// person's answer, and the monthly spend alerts. On by default.
+	NotifyNeedsYou    bool `json:"notify_needs_you"`
+	NotifySpendAlerts bool `json:"notify_spend_alerts"`
 	// Appearance is the theme: system, light or dark. Empty means nobody chose yet, which reads as system; a browser that still holds
 	// a choice made before the server kept it hands it up once.
 	Appearance string `json:"appearance"`
@@ -67,7 +72,7 @@ updated_at TEXT NOT NULL
 	if err = ensureColumn(db, "user_preferences", "structured_output", `ALTER TABLE user_preferences ADD COLUMN structured_output INTEGER NOT NULL DEFAULT 1`); err != nil {
 		return err
 	}
-	for _, column := range []string{"notify_chats", "notify_tasks"} {
+	for _, column := range []string{"notify_chats", "notify_tasks", "notify_needs_you", "notify_spend_alerts"} {
 		if err = ensureColumn(db, "user_preferences", column, `ALTER TABLE user_preferences ADD COLUMN `+column+` INTEGER NOT NULL DEFAULT 1`); err != nil {
 			return err
 		}
@@ -83,11 +88,11 @@ updated_at TEXT NOT NULL
 
 func (s *Store) userPreferences() (userPreferences, error) {
 	var prefs userPreferences
-	err := s.db.QueryRow(`SELECT timezone,language,show_activity<>0,structured_output<>0,notify_chats<>0,notify_tasks<>0,appearance FROM user_preferences WHERE id=1`).Scan(&prefs.Timezone, &prefs.Language, &prefs.ShowActivity, &prefs.StructuredOutput, &prefs.NotifyChats, &prefs.NotifyTasks, &prefs.Appearance)
+	err := s.db.QueryRow(`SELECT timezone,language,show_activity<>0,structured_output<>0,notify_chats<>0,notify_tasks<>0,notify_needs_you<>0,notify_spend_alerts<>0,appearance FROM user_preferences WHERE id=1`).Scan(&prefs.Timezone, &prefs.Language, &prefs.ShowActivity, &prefs.StructuredOutput, &prefs.NotifyChats, &prefs.NotifyTasks, &prefs.NotifyNeedsYou, &prefs.NotifySpendAlerts, &prefs.Appearance)
 	if err == sql.ErrNoRows {
 		err = nil
 		prefs.StructuredOutput = true
-		prefs.NotifyChats, prefs.NotifyTasks = true, true
+		prefs.NotifyChats, prefs.NotifyTasks, prefs.NotifyNeedsYou, prefs.NotifySpendAlerts = true, true, true, true
 	}
 	prefs.TimezoneConfigured = prefs.Timezone != ""
 	return prefs, err
@@ -150,8 +155,11 @@ ON CONFLICT(id) DO UPDATE SET show_activity=excluded.show_activity,updated_at=ex
 	return tx.Commit()
 }
 
-// putUserNotify stores the two notification switches; a nil field keeps its value.
-func (s *Store) putUserNotify(chats, tasks *bool) error {
+// notifySwitches are the account's notification switches; a nil field keeps its value.
+type notifySwitches struct{ Chats, Tasks, NeedsYou, SpendAlerts *bool }
+
+// putUserNotify stores the notification switches.
+func (s *Store) putUserNotify(sw notifySwitches) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -160,13 +168,15 @@ func (s *Store) putUserNotify(chats, tasks *bool) error {
 	if _, err = tx.Exec(`INSERT INTO user_preferences(id,timezone,updated_at) VALUES(1,'',?) ON CONFLICT(id) DO NOTHING`, now()); err != nil {
 		return err
 	}
-	if chats != nil {
-		if _, err = tx.Exec(`UPDATE user_preferences SET notify_chats=?,updated_at=? WHERE id=1`, *chats, now()); err != nil {
-			return err
+	for _, column := range []struct {
+		name string
+		on   *bool
+	}{{"notify_chats", sw.Chats}, {"notify_tasks", sw.Tasks}, {"notify_needs_you", sw.NeedsYou}, {"notify_spend_alerts", sw.SpendAlerts}} {
+		if column.on == nil {
+			continue
 		}
-	}
-	if tasks != nil {
-		if _, err = tx.Exec(`UPDATE user_preferences SET notify_tasks=?,updated_at=? WHERE id=1`, *tasks, now()); err != nil {
+		// The column name is one of the constants above.
+		if _, err = tx.Exec(`UPDATE user_preferences SET `+column.name+`=?,updated_at=? WHERE id=1`, *column.on, now()); err != nil {
 			return err
 		}
 	}
@@ -279,10 +289,12 @@ func (s *Server) preferences(w http.ResponseWriter, r *http.Request) {
 			Language       *string `json:"language"`
 			ShowActivity   *bool   `json:"show_activity"`
 			// StructuredOutput switches the say protocol for new runs.
-			StructuredOutput *bool   `json:"structured_output"`
-			NotifyChats      *bool   `json:"notify_chats"`
-			NotifyTasks      *bool   `json:"notify_tasks"`
-			Appearance       *string `json:"appearance"`
+			StructuredOutput  *bool   `json:"structured_output"`
+			NotifyChats       *bool   `json:"notify_chats"`
+			NotifyTasks       *bool   `json:"notify_tasks"`
+			NotifyNeedsYou    *bool   `json:"notify_needs_you"`
+			NotifySpendAlerts *bool   `json:"notify_spend_alerts"`
+			Appearance        *string `json:"appearance"`
 		}
 		dec := json.NewDecoder(io.LimitReader(r.Body, 16*1024))
 		dec.DisallowUnknownFields()
@@ -290,8 +302,8 @@ func (s *Server) preferences(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusBadRequest, "invalid_request", "expected one preferences object")
 			return
 		}
-		if body.Timezone == nil && body.Language == nil && body.ShowActivity == nil && body.StructuredOutput == nil && body.NotifyChats == nil && body.NotifyTasks == nil && body.Appearance == nil {
-			writeErr(w, http.StatusBadRequest, "invalid_request", "expected timezone, language, show_activity, structured_output, notify_chats, notify_tasks or appearance")
+		if body.Timezone == nil && body.Language == nil && body.ShowActivity == nil && body.StructuredOutput == nil && body.NotifyChats == nil && body.NotifyTasks == nil && body.NotifyNeedsYou == nil && body.NotifySpendAlerts == nil && body.Appearance == nil {
+			writeErr(w, http.StatusBadRequest, "invalid_request", "expected timezone, language, show_activity, structured_output, a notify_* switch or appearance")
 			return
 		}
 		if body.Language != nil {
@@ -311,8 +323,8 @@ func (s *Server) preferences(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		if body.NotifyChats != nil || body.NotifyTasks != nil {
-			if err := s.store.putUserNotify(body.NotifyChats, body.NotifyTasks); err != nil {
+		if body.NotifyChats != nil || body.NotifyTasks != nil || body.NotifyNeedsYou != nil || body.NotifySpendAlerts != nil {
+			if err := s.store.putUserNotify(notifySwitches{body.NotifyChats, body.NotifyTasks, body.NotifyNeedsYou, body.NotifySpendAlerts}); err != nil {
 				writeErr(w, http.StatusInternalServerError, "preferences_unavailable", "preferences unavailable")
 				return
 			}
@@ -339,7 +351,7 @@ func (s *Server) preferences(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusInternalServerError, "preferences_unavailable", "preferences unavailable")
 			return
 		}
-		response := map[string]any{"timezone": prefs.Timezone, "timezone_configured": prefs.TimezoneConfigured, "language": prefs.Language, "show_activity": prefs.ShowActivity, "structured_output": prefs.StructuredOutput, "notify_chats": prefs.NotifyChats, "notify_tasks": prefs.NotifyTasks, "appearance": prefs.Appearance}
+		response := map[string]any{"timezone": prefs.Timezone, "timezone_configured": prefs.TimezoneConfigured, "language": prefs.Language, "show_activity": prefs.ShowActivity, "structured_output": prefs.StructuredOutput, "notify_chats": prefs.NotifyChats, "notify_tasks": prefs.NotifyTasks, "notify_needs_you": prefs.NotifyNeedsYou, "notify_spend_alerts": prefs.NotifySpendAlerts, "appearance": prefs.Appearance}
 		if body.Timezone != nil {
 			zone, err := s.store.putUserTimezone(strings.TrimSpace(*body.Timezone), body.InitializeOnly)
 			if err != nil {

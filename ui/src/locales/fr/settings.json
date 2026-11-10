@@ -1460,7 +1460,24 @@
   },
   "chats": {
     "task_notifications": "Notifications de résultats de tâches",
-    "chat_notifications": "Notifications de discussion"
+    "chat_notifications": "Notifications de discussion",
+    "needs_you_notifications": "Questions en attente de votre réponse",
+    "spend_alert_notifications": "Alertes de plafond de dépenses",
+    "device_title": "Cet appareil",
+    "device_enabled": "Afficher les notifications sur ce Mac",
+    "device_content": "Afficher le contenu des messages dans les notifications",
+    "device_login": "Ouvrir Tofi à la connexion",
+    "device_login_hint": "Activez cette option pour recevoir les notifications après le démarrage du Mac sans ouvrir Tofi. Quitter Tofi (Cmd+Q) arrête les notifications.",
+    "device_status_on": "Les notifications sont activées",
+    "device_status_off": "Les notifications sont désactivées sur ce Mac",
+    "device_status_not_connected": "Aucun serveur n'est encore configuré",
+    "device_status_server_unsupported": "Le serveur doit être mis à jour pour envoyer des notifications",
+    "device_status_signed_out": "Déconnecté. Les notifications sont suspendues",
+    "device_status_offline": "Serveur injoignable",
+    "device_status_offline_since": "Serveur injoignable. Dernier succès : {{time}}",
+    "device_status_blocked_by_system": "macOS n'autorise pas les notifications de Tofi",
+    "device_status_unknown": "État indisponible",
+    "server_unsupported": "Le serveur doit être mis à jour pour envoyer des notifications"
   },
   "approval": {
     "label": "Mode d’approbation de ce compte",

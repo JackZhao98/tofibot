@@ -112,6 +112,8 @@
   "settings:automation.item.work_trace.name": "作業トレース",
   "settings:automation.item.work_trace.what": "ボットが画面で行った作業の小さなスクリーンショットを残し、何をしたか振り返れるようにします。非公開入力が写る可能性のあるページと非公開オリジンは保存されません。オフにすると一切保存しません。",
   "settings:chats.chat_notifications": "チャットの通知",
+  "settings:chats.needs_you_notifications": "あなたの回答を待っている質問",
+  "settings:chats.spend_alert_notifications": "利用上限のアラート",
   "settings:chats.task_notifications": "タスク結果の通知",
   "settings:general.activity_title": "チャットにアクティビティを表示",
   "settings:language.label": "表示言語",

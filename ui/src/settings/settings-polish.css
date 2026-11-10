@@ -102,3 +102,8 @@
 .approval-bot-who strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 14px/1.4 var(--body)}
 .approval-bot-who .avatar{flex:none}
 .approval-bot-row .segmented{flex:none}
+
+/* Settings > General > Chats, "This device": the Mac app's notifier (ChatsSettings.tsx DeviceNotifications). */
+.workspace .settings-page-body .device-notifications { margin-top: 16px; display: grid; gap: 8px; min-width: 0; }
+.workspace .settings-page-body .device-notifications-title { margin: 0; font: var(--type-meta); color: var(--ink-soft); }
+.workspace .settings-page-body .device-notifications .field-note { margin: 0; overflow-wrap: anywhere; }

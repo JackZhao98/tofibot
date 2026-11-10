@@ -1447,7 +1447,24 @@
   },
   "chats": {
     "task_notifications": "Task result notifications",
-    "chat_notifications": "Chat notifications"
+    "chat_notifications": "Chat notifications",
+    "needs_you_notifications": "Questions waiting for you",
+    "spend_alert_notifications": "Spend limit alerts",
+    "device_title": "This device",
+    "device_enabled": "Show notifications on this Mac",
+    "device_content": "Show message content in notifications",
+    "device_login": "Open Tofi at login",
+    "device_login_hint": "Turn this on to get notifications after you start your Mac without opening Tofi. Quitting Tofi (Cmd+Q) stops notifications.",
+    "device_status_on": "Notifications are on",
+    "device_status_off": "Notifications are off on this Mac",
+    "device_status_not_connected": "No server is set up yet",
+    "device_status_server_unsupported": "The server needs an update to send notifications",
+    "device_status_signed_out": "Signed out. Notifications are paused",
+    "device_status_offline": "Can't reach the server",
+    "device_status_offline_since": "Can't reach the server. Last success {{time}}",
+    "device_status_blocked_by_system": "macOS does not allow notifications from Tofi",
+    "device_status_unknown": "Status unavailable",
+    "server_unsupported": "The server needs an update to send notifications"
   },
   "approval": {
     "label": "Approval mode for this account",
