@@ -489,22 +489,55 @@ await check("reaction menu: a pixel of list settling keeps it open, a real scrol
   await context.close();
 });
 
-await check("icon hint: a pixel of list settling keeps it, a scroll that moves the button hides it", async () => {
+await check("icon hint: a pixel of list settling keeps a hovered button's hint", async () => {
   const { page, context, errors } = await fx.open({});
   const block = page.locator('[data-message-id="dm_a_m11"]');
   const b = await block.locator(".message-content").boundingBox();
   await page.mouse.move(b.x + 30, b.y + 10);
   const react = block.locator('[data-action="react"]');
   await react.waitFor();
-  await page.keyboard.press("Shift");
-  await react.focus();
+  await react.hover();
   await page.locator(".action-hint").waitFor({ state: "visible" });
+  assert.equal(await page.locator(".action-hint").innerText(), await react.getAttribute("data-hint"), "the hint is the hovered button's");
+  const hint = await page.locator(".action-hint").elementHandle();
   const scroller = page.locator(".message-scroll");
   assert.ok(await scroller.evaluate(el => { const before = el.scrollTop; el.scrollTop -= 1; return el.scrollTop !== before; }), "the list can move one pixel");
   await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
-  assert.equal(await page.locator(".action-hint").count(), 1, "a one-pixel settle keeps the hint");
-  const moved = await scroller.evaluate(el => { const before = el.scrollTop; el.scrollTop = Math.max(0, before - 120); return [before, el.scrollTop]; });
-  await page.locator(".action-hint").waitFor({ state: "detached", timeout: 5000 }).catch(async () => { throw new Error(`hint stayed after scrolling ${moved} now ${await scroller.evaluate(el => el.scrollTop)} hint=${await page.locator(".action-hint").count()}`); });
+  assert.ok(await hint.evaluate(el => el.isConnected), "a one-pixel settle keeps the hint");
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+await check("icon hint: a scroll that leaves the button in place still hides its hint", async () => {
+  const { page, context, errors } = await fx.open({});
+  // The 11-08 bug: the list scrolled while the hovered button stayed in place (the hover actions follow the message
+  // under the pointer), so the position check kept the hint and only its text changed. A sticky button in a scrolling box
+  // stays in place the same way, with no pointer involved: after a scroll Chromium hovers whatever is under a still
+  // pointer, which would hide and redraw the hint by itself and hide the bug.
+  await page.mouse.move(1, 1);
+  await page.evaluate(() => {
+    const box = document.createElement("div");
+    box.id = "hint-scroll-probe";
+    box.style.cssText = "position:fixed;left:40%;top:40%;width:220px;height:140px;overflow:auto;z-index:2147483000;background:Canvas";
+    box.innerHTML = '<div style="height:700px;padding-top:40px"><button type="button" data-hint="Probe hint" style="position:sticky;top:40px">Probe</button></div>';
+    document.body.append(box);
+  });
+  const probe = page.locator("#hint-scroll-probe");
+  await page.keyboard.press("Shift");
+  await probe.locator("button").focus();
+  await page.locator(".action-hint").waitFor({ state: "visible" });
+  assert.equal(await page.locator(".action-hint").innerText(), "Probe hint");
+  const hint = await page.locator(".action-hint").elementHandle();
+  await probe.evaluate(el => { el.scrollTop = 1; });
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+  assert.ok(await hint.evaluate(el => el.isConnected), "a one-pixel settle keeps the hint");
+  const before = await probe.locator("button").boundingBox();
+  await probe.evaluate(el => { el.scrollTop = 121; });
+  const after = await probe.locator("button").boundingBox();
+  assert.ok(Math.abs(after.y - before.y) < 4, `the sticky button stays in place (${before.y} -> ${after.y})`);
+  await page.waitForFunction(el => !el.isConnected, hint, { timeout: 5000 }).catch(async () => {
+    throw new Error(`the hint stayed after the box scrolled under its button; it reads "${await hint.evaluate(el => el.textContent)}"`);
+  });
   assert.deepEqual(errors, []);
   await context.close();
 });
