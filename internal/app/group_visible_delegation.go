@@ -34,7 +34,10 @@ func visibleDelegationMessage(conv string, seq int64, sender, runID string, name
 func insertVisibleDelegationTx(tx *sql.Tx, m Message) error {
 	_, err := tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,created_at,client_message_id) VALUES(?,?,?,?,?,?,?,?,?,?)`,
 		m.ID, m.ConversationID, m.Seq, m.Role, m.Kind, m.SenderBotID, m.RunID, m.Content, m.CreatedAt, delegationClientPrefix+m.ID)
-	return err
+	if err != nil {
+		return err
+	}
+	return recordMessageAttentionTx(tx, m)
 }
 
 // sameGroupRecipients reports whether conv is a visible group and every

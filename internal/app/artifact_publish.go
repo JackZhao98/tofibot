@@ -155,6 +155,9 @@ func keepFailedRunFilesTx(tx *sql.Tx, runID, t string) error {
 	if _, err := tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,created_at) VALUES(?,?,?,?,?,?,?,?,?)`, m.ID, conv, seq, m.Role, m.Kind, bot, runID, "", t); err != nil {
 		return err
 	}
+	if err := recordMessageAttentionTx(tx, m); err != nil {
+		return err
+	}
 	if err := bindRunAttachmentsTx(tx, runID, m.ID); err != nil {
 		return err
 	}

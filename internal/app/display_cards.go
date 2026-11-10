@@ -131,6 +131,9 @@ func (s *Store) AddDisplayCard(ctx context.Context, conv string, run Run, card D
 	if _, err = tx.ExecContext(ctx, `INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, message.ID, conv, seq, message.Role, message.Kind, run.BotID, run.ID, content, string(metadata), message.CreatedAt); err != nil {
 		return Message{}, err
 	}
+	if err = recordMessageAttentionTx(tx, message); err != nil {
+		return Message{}, err
+	}
 	if _, err = tx.ExecContext(ctx, `UPDATE conversations SET updated_at=? WHERE id=?`, message.CreatedAt, conv); err != nil {
 		return Message{}, err
 	}

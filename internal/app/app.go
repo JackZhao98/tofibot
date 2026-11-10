@@ -895,6 +895,9 @@ CREATE INDEX IF NOT EXISTS events_delta ON events(conversation_id,id) WHERE type
 	if err := migrateWorkspaceEvents(s.db); err != nil {
 		return err
 	}
+	if err := migrateAttention(s.db); err != nil {
+		return err
+	}
 	if err := migrateQuestions(s.db); err != nil {
 		return err
 	}
@@ -1411,6 +1414,9 @@ func (s *Store) AddMessage(conv, role, sender, run, content, client string) (Mes
 	}
 	_, e = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at,client_message_id) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, m.ID, conv, seq, role, m.Kind, nullString(sender), nullString(run), content, nil, m.CreatedAt, nullString(client))
 	if e != nil {
+		return Message{}, false, e
+	}
+	if e = recordMessageAttentionTx(tx, m); e != nil {
 		return Message{}, false, e
 	}
 	_, e = tx.Exec(`UPDATE conversations SET updated_at=? WHERE id=?`, m.CreatedAt, conv)
@@ -2616,6 +2622,9 @@ func (s *Store) finishRunOpts(id, conv, bot, content string, silent bool, failur
 		if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,created_at) VALUES(?,?,?,?,?,?,?,?,?)`, m.ID, conv, seq, m.Role, m.Kind, bot, id, content, m.CreatedAt); err != nil {
 			return Message{}, false, err
 		}
+		if err = recordMessageAttentionTx(tx, m); err != nil {
+			return Message{}, false, err
+		}
 		if err = bindRunAttachmentsTx(tx, id, m.ID); err != nil {
 			return Message{}, false, err
 		}
@@ -3346,7 +3355,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if s.routeExtensions(w, r, p) {
 		return
 	}
-	if s.routeOnboardingHandovers(w, r, p) || s.routeUsage(w, r, p) || s.routeUsageRuns(w, r, p) || s.routeSpend(w, r, p) {
+	if s.routeOnboardingHandovers(w, r, p) || s.routeUsage(w, r, p) || s.routeUsageRuns(w, r, p) || s.routeSpend(w, r, p) || s.routeNotifications(w, r, p) {
 		return
 	}
 	if s.routeProviders(w, r, p) || s.routeWebTools(w, r, p) || s.routeEnvironments(w, r, p) {

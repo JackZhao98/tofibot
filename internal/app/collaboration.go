@@ -895,6 +895,9 @@ func (s *Store) AddBotUserMessage(bot, runID, content string) (Message, error) {
 	if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,created_at) VALUES(?,?,?,?,?,?,?,?,?)`, m.ID, m.ConversationID, m.Seq, m.Role, m.Kind, bot, runID, content, t); err != nil {
 		return Message{}, err
 	}
+	if err = recordMessageAttentionTx(tx, m); err != nil {
+		return Message{}, err
+	}
 	data, _ := json.Marshal(m)
 	if _, err = tx.Exec(`INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, targetConversation, "message", string(data), t); err != nil {
 		return Message{}, err
@@ -943,6 +946,9 @@ func appendForwardResult(tx *sql.Tx, origin, sender, runID, content string) (Mes
 	if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, m.ID, origin, seq, m.Role, m.Kind, sender, runID, content, nullString(noticeData), t); err != nil {
 		return Message{}, err
 	}
+	if err = recordMessageAttentionTx(tx, m); err != nil {
+		return Message{}, err
+	}
 	if _, err = tx.Exec(`INSERT OR IGNORE INTO attachment_messages(attachment_id,message_id)
 	 SELECT am.attachment_id,? FROM attachment_messages am JOIN messages source ON source.id=am.message_id
 	 WHERE source.run_id=? AND source.role='assistant'`, m.ID, runID); err != nil {
@@ -983,6 +989,9 @@ func appendBotMessageResult(tx *sql.Tx, origin, sender, runID, content string) (
 	}
 	m := Message{ID: newID(), ConversationID: origin, Seq: seq, Role: "assistant", Kind: kind, SenderBotID: sender, RunID: runID, Content: content, CreatedAt: t}
 	if _, err := tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,created_at) VALUES(?,?,?,?,?,?,?,?,?)`, m.ID, origin, seq, m.Role, m.Kind, sender, runID, content, t); err != nil {
+		return Message{}, err
+	}
+	if err := recordMessageAttentionTx(tx, m); err != nil {
 		return Message{}, err
 	}
 	if _, err := tx.Exec(`INSERT OR IGNORE INTO attachment_messages(attachment_id,message_id)

@@ -172,6 +172,7 @@ func (s *Store) deleteWorkspaceTargetWith(id string, bot bool, actor *Run, succe
 		`UPDATE work_items SET parent_goal_id=NULL WHERE parent_goal_id IN (SELECT id FROM work_items WHERE conversation_id=?)`,
 		`DELETE FROM waits WHERE conversation_id=?`,
 		`DELETE FROM bot_inbox WHERE conversation_id=?`,
+		`DELETE FROM attention WHERE conversation_id=?`,
 		`DELETE FROM conversations WHERE id=?`,
 	} {
 		if _, err = tx.Exec(query, conv); err != nil {
