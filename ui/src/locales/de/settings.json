@@ -1530,89 +1530,25 @@
     }
   },
   "mac": {
-    "title": "Mac-Einstellungen",
+    "title": "Dateien und lokale Ausführung",
     "back": "Zurück zum Chat",
     "loading": "Status wird gelesen …",
-    "refresh": "Status aktualisieren",
     "unavailable": "Diese Seite funktioniert nur in der Tofi-Desktop-App.",
     "device": {
-      "title": "Gerät",
-      "description": "Wie dieser Mac für deine Bots erscheint.",
-      "name": "Gerätename",
-      "nameHint": "Wird deinen Bots und in Tofi angezeigt.",
       "folder": "Arbeitsordner",
       "folderHint": "Bots erreichen nur Dateien in diesem Ordner.",
       "choose": "Auswählen …",
-      "choosing": "Wird ausgewählt …",
-      "paired": "Gekoppelt · {{id}}",
-      "unpaired": "Nicht gekoppelt",
-      "capabilities": "Aktiv: {{list}}"
+      "choosing": "Wird ausgewählt …"
     },
     "caps": {
-      "title": "Fähigkeiten",
-      "description": "Was Bots auf diesem Mac tun dürfen. Die macOS-Berechtigungen unten sind ebenfalls nötig.",
+      "title": "Dateien",
+      "description": "Solange die Fernsteuerung an ist, können Bots den Arbeitsordner nutzen.",
       "files": {
         "label": "Dateien",
         "hint": "Dateien im Arbeitsordner auflisten, lesen und schreiben."
       },
-      "screen": {
-        "label": "Bildschirmaufnahme",
-        "hint": "Screenshots, sobald die Bildschirmaufnahme erlaubt ist."
-      },
-      "control": {
-        "label": "Desktop-Steuerung",
-        "hint": "Klicken und Tippen, sobald die Bedienungshilfen erlaubt sind."
-      },
       "save": "Einstellungen sichern",
       "saving": "Wird gesichert …"
-    },
-    "perm": {
-      "title": "macOS-Berechtigungen",
-      "description": "Diese erteilst du in den Systemeinstellungen.",
-      "screen": {
-        "label": "Bildschirmaufnahme",
-        "hint": "Für Screenshots nötig."
-      },
-      "accessibility": {
-        "label": "Bedienungshilfen",
-        "hint": "Für Klicks und Tastatureingaben nötig."
-      },
-      "granted": "Erlaubt",
-      "missing": "Nicht erlaubt",
-      "grant": "Systemeinstellungen öffnen",
-      "hint": {
-        "screen": "Die Systemeinstellungen zeigen „Bildschirm- & Systemaudioaufnahme“. Aktiviere Tofi in der Liste. Steht Tofi nicht darin, ziehe das Symbol von der Karte unter dem Fenster in die Liste. macOS fordert eventuell einen Neustart von Tofi, und bei der ersten Aufnahme fragt es, ob die private Fensterauswahl des Systems umgangen werden darf. Wähle „Erlauben“.",
-        "accessibility": "Die Systemeinstellungen zeigen „Bedienungshilfen“. Aktiviere Tofi in der Liste. Steht Tofi nicht darin, ziehe das Symbol von der Karte unter dem Fenster in die Liste."
-      },
-      "monthly": "Ist die Bildschirmaufnahme aktiv, fragt macOS etwa einmal im Monat, ob Tofi die private Fensterauswahl des Systems umgehen darf. Wähle „Erlauben“, damit Aufnahmen weiter funktionieren. Nur du kannst diese Abfrage beantworten; stößt ein Bot darauf, sagt er dir Bescheid.",
-      "stale": "Tofi ist in den Systemeinstellungen schon aktiviert, wird hier aber als „Nicht erlaubt“ angezeigt? Dieser Eintrag gehört zu einer früheren Kopie von Tofi. Wähle Tofi in den Systemeinstellungen aus, entferne es mit −, wähle hier „Systemeinstellungen öffnen“ und aktiviere es erneut.",
-      "reopen": {
-        "label": "Bildschirmaufnahme aktiviert?",
-        "hint": "macOS übernimmt das erst, wenn Tofi neu geöffnet wird.",
-        "action": "Tofi neu öffnen",
-        "busy": "Wird neu geöffnet…"
-      }
-    },
-    "bots": {
-      "title": "Bots auf diesem Mac",
-      "description": "Beim ersten Zugriff wird ein Bot abgewiesen und hier aufgeführt, bis du ihn erlaubst.",
-      "empty": "Noch kein Bot hat diesen Mac angefragt.",
-      "unnamed": "Bot ohne Namen",
-      "allowed": "Erlaubt",
-      "denied": "Abgelehnt",
-      "waiting": "Wartet auf dich",
-      "allow": "Erlauben",
-      "deny": "Ablehnen",
-      "remove": "Entfernen",
-      "control": {
-        "paused_stop": "Desktop-Steuerung pausiert (du hast Stopp gedrückt).",
-        "paused_takeover": "Desktop-Steuerung pausiert (du hast Maus oder Tastatur übernommen).",
-        "active": "Ein Bot steuert diesen Mac.",
-        "idle": "Kein Bot steuert diesen Mac."
-      },
-      "stop": "Stoppen und 60 s pausieren",
-      "resume": "Fortsetzen",
-      "shortcut": "Während ein Bot steuert, erscheint oben am Bildschirm ein Banner. Mit ⌃⌥⌘Esc stoppst du sofort und pausierst 60 Sekunden."
     },
     "local": {
       "title": "Lokale Ausführung",
@@ -1659,14 +1595,6 @@
       "boundary": "Befehle können den freigegebenen Ordner, Tools in ~/.local/bin und jede Datei außerhalb deines Home-Ordners lesen, die du lesen kannst. Schreiben dürfen sie nur im freigegebenen Ordner und in einem privaten Projekt-Arbeitsbereich; Änderungen werden nicht zurückgerollt. ~/.local/bin ist schreibgeschützt, die Tools darin können sich aber während der Freigabe ändern, und ihre Ausführung kann Nebenwirkungen haben. Der übrige Home-Ordner und Ordner mit Zugangsdaten sind weder les- noch schreibbar. SSH, Netzwerk und Schlüsselbund sind noch nicht zugänglich. Der private Arbeitsbereich bleibt nach dem Widerruf in einem lokalen temporären Ordner und wird nicht automatisch bereinigt.",
       "persist": "Die Freigabe bleibt bestehen, wenn du diese Seite verlässt. Sie endet beim Beenden der App, beim Serverwechsel oder beim Widerruf."
     },
-    "pair": {
-      "title": "Diesen Mac koppeln",
-      "description": "Gib den Kopplungscode aus Tofi im Web ein: Einstellungen > Umgebungen > Umgebung hinzufügen > Dein Mac.",
-      "code": "Kopplungscode",
-      "submit": "Diesen Mac koppeln",
-      "pairing": "Wird gekoppelt …",
-      "note": "Gerätezugangsdaten bleiben im Hauptprozess der Desktop-App und werden nie an die Seite gesendet."
-    },
     "error": {
       "last": "Die letzte Geräteaktion ist fehlgeschlagen",
       "action": "Aktion fehlgeschlagen: {{message}}",
@@ -1676,17 +1604,13 @@
     },
     "confirm": {
       "cancel": "Abbrechen",
-      "deny": {
-        "title": "{{name}} ablehnen?",
-        "body": "Alle Anfragen dieses Bots an diesen Mac werden abgelehnt, bis du ihn wieder erlaubst.",
-        "confirm": "Ablehnen"
-      },
       "revoke": {
         "title": "Lokale Ausführung widerrufen?",
         "body": "Laufende Befehle werden beendet, und Bots verlieren den Zugriff auf den freigegebenen Ordner. Du kannst später erneut freigeben.",
         "confirm": "Widerrufen"
       }
-    }
+    },
+    "inDevelopment": "In Entwicklung"
   },
   "policy": {
     "capability": {

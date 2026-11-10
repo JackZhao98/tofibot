@@ -187,7 +187,7 @@ func TestPersonalDeviceErrorsBecomeClearOutcomes(t *testing.T) {
 		action, args, device, code, certainty string
 		words                                 []string
 	}{
-		{"desktop.click", `{"x":1,"y":1,"effect":"none"}`, "bot_not_allowed", "bot_not_allowed", "not_executed", []string{"Mac Device Settings", "Do not retry"}},
+		{"desktop.click", `{"x":1,"y":1,"effect":"none"}`, "bot_not_allowed", "bot_not_allowed", "not_executed", []string{"Bots denied on this Mac", "Do not retry"}},
 		{"desktop.click", `{"x":1,"y":1,"effect":"none"}`, "user_stop", "user_stop", "unknown", []string{"pressed Stop", "Do not retry automatically"}},
 		{"desktop.click", `{"x":1,"y":1,"effect":"none"}`, "user_paused", "user_paused", "not_executed", []string{"paused", "Do not retry automatically"}},
 		{"desktop.click", `{"x":1,"y":1,"effect":"none"}`, "user_takeover: mouse moved", "user_takeover", "not_executed", []string{"took over", "Do not retry automatically"}},

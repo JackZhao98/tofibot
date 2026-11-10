@@ -3,8 +3,9 @@ import {ApiError, request} from "./api";
 import {ComputerAttach} from "./ComputerAttach";
 import {ComputerOptions} from "./ComputerOptions";
 import {useHasComputer, useHostHasComputer} from "./computerCapability";
-import {isDesktop} from "./desktop";
-import {ActionConfirm, ConfigureDialog, E2BDialog, MacDialog, reasonKey, VmCommandDialog, type ConfirmSpec} from "./EnvironmentDialogs";
+import {ActionConfirm, ConfigureDialog, DeniedBotsDialog, E2BDialog, reasonKey, VmCommandDialog, type ConfirmSpec} from "./EnvironmentDialogs";
+import {RemoteControlBlock} from "./RemoteControl";
+import {useRemoteControl} from "./useRemoteControl";
 import {useEnvironments, type Environment, type EnvironmentAction, type EnvironmentState, type EnvironmentsView} from "./environments";
 import {useTranslation} from "./i18n";
 import {formatRelativeTime} from "./i18n/format";
@@ -17,6 +18,7 @@ import {Banner, SectionAnchor, SettingsCard, SettingsRow, SettingsSection, Statu
 import type {SettingsTab} from "./SettingsShell";
 import "./extensions-system.css";
 import "./environments.css";
+import "./remote-control.css";
 import "./policy-member.css";
 
 const kindIcon: Record<Environment["kind"], TofiIconName> = {vm: "server", e2b: "cloud", mac: "laptop"};
@@ -82,19 +84,10 @@ export function EnvironmentRow({item, e2bError, handlers, provided = false, temp
   return <div className="env-row" data-environment={item.id} data-kind={item.kind} data-state={item.state}><SettingsRow label={label} description={description} control={control}/></div>;
 }
 
-/** The desktop app's own Mac: not an environment (no state, no access line), just the way into Mac settings, where folder, permissions and Bot access live. */
-export function ThisMacCard({onOpen}: {onOpen: () => void}) {
-  const {t} = useTranslation("computer");
-  return <SettingsSection className="env-this-mac"><SettingsCard><SettingsRow
-    label={<span className="env-name"><TofiIcon name="laptop" size={18} aria-hidden="true"/><span className="env-name-text">{t("devices.this_mac")}</span></span>}
-    description={<span className="env-line">{t("environments.this_mac_note")}</span>}
-    control={<button type="button" className="secondary-button" onClick={onOpen}>{t("devices.open_mac")}</button>}/></SettingsCard></SettingsSection>;
-}
-
 /** The list without the requests, so every state can be drawn from data. */
-export function EnvironmentList({view, handlers, children, organization}: {view: EnvironmentsView; handlers: EnvironmentRowHandlers; children?: ReactNode; organization?: OrganizationComputer}) {
+export function EnvironmentList({view, handlers, children, organization, thisMacID}: {view: EnvironmentsView; handlers: EnvironmentRowHandlers; children?: ReactNode; organization?: OrganizationComputer; /** The Mac app's own device: shown in the remote-control block (one thing in one place), not again here. */ thisMacID?: string | null}) {
   const {t} = useTranslation("computer");
-  const macs = view.environments.filter(item => item.kind === "mac");
+  const macs = view.environments.filter(item => item.kind === "mac" && item.id !== thisMacID);
   const others = view.environments.filter(item => item.kind !== "mac");
   // The organization's computer is the one of its kind, also while it is still being prepared (no Bot computer yet).
   const orgKind = organization ? (organization.via === "e2b" ? "e2b" : "vm") : "";
@@ -114,7 +107,7 @@ export function EnvironmentList({view, handlers, children, organization}: {view:
   </SettingsCard>;
 }
 
-type Dialog = {kind: "e2b"} | {kind: "mac"} | {kind: "vm"} | {kind: "configure"} | {kind: "confirm"; action: "use" | "remove" | "disconnect" | "upgrade"; item: Environment};
+type Dialog = {kind: "e2b"} | {kind: "denied"} | {kind: "vm"} | {kind: "configure"} | {kind: "confirm"; action: "use" | "remove" | "disconnect" | "upgrade"; item: Environment};
 
 /** Settings > Environments (tab id `computer`): which environments exist, which Bots can use them, and the cloud ones' controls. */
 export function EnvironmentsPage({openTab}: {openTab: (tab: SettingsTab) => void}) {
@@ -130,7 +123,16 @@ export function EnvironmentsPage({openTab}: {openTab: (tab: SettingsTab) => void
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const canAttach = host && (!session?.multi_account || session.owner?.role === "admin");
-  const openMac = isDesktop && window.tofiDesktop?.openDesktopSettings ? () => { void window.tofiDesktop?.openDesktopSettings?.().catch(() => {}); } : null;
+  const rc = useRemoteControl(active);
+  // Files and local execution (in development): the slim Mac settings page, reached only from the this-Mac row's menu.
+  const openFiles = rc.available && window.tofiDesktop?.openDesktopSettings ? () => { void window.tofiDesktop?.openDesktopSettings?.().catch(() => {}); } : null;
+  // The list follows the switch: a Mac that appeared or left is read once, not polled.
+  const thisMacID = rc.status?.enabled ? rc.status.deviceID : null;
+  const seenMac = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (seenMac.current !== undefined && seenMac.current !== thisMacID) void reload();
+    seenMac.current = thisMacID;
+  }, [thisMacID, reload]);
 
   // The host command dialog stays open while the Bot computer is not there: the list reads again every 3 s and the dialog closes by itself.
   const vmOpen = dialog?.kind === "vm";
@@ -170,7 +172,6 @@ export function EnvironmentsPage({openTab}: {openTab: (tab: SettingsTab) => void
   const add = data?.add;
   const addItems = [
     add?.e2b ? {id: "e2b" as const, icon: "cloud" as const, label: t("environments.add_menu.e2b")} : null,
-    add?.mac ? {id: "mac" as const, icon: "laptop" as const, label: t("environments.add_menu.mac")} : null,
     add?.vm_command ? {id: "vm" as const, icon: "server" as const, label: t("environments.add_menu.vm")} : null,
   ].filter(item => item !== null);
   const addControl = addItems.length > 0 && <>
@@ -189,24 +190,25 @@ export function EnvironmentsPage({openTab}: {openTab: (tab: SettingsTab) => void
   let body: ReactNode;
   if (failed && !data) body = <Banner tone="error" title={t("environments.unavailable")} action={{label: t("environments.retry"), onClick: retry}}/>;
   else if (!data) body = <p className="field-note" role="status">{t("environments.loading")}</p>;
-  else if (noBackendEmpty) body = <ComputerOptions onAddE2B={add?.e2b ? () => setDialog({kind: "e2b"}) : undefined} onAddMac={add?.mac ? () => setDialog({kind: "mac"}) : undefined}/>;
+  else if (noBackendEmpty) body = <ComputerOptions onAddE2B={add?.e2b ? () => setDialog({kind: "e2b"}) : undefined} />;
   else body = <>
-    {openMac && <ThisMacCard onOpen={openMac}/>}
     {noComputer && <Banner tone="info" title={t("environments.none_title")}>{t("environments.none_body")}</Banner>}
     <SectionAnchor id="environment"><SettingsSection className="env-section">
       <div className="env-head"><p>{t("environments.description")}</p>{addControl}</div>
-      <EnvironmentList view={data} handlers={{busy, onAction}} organization={organization}/>
+      <EnvironmentList view={data} handlers={{busy, onAction}} organization={organization} thisMacID={rc.available ? rc.status?.deviceID : null}/>
     </SettingsSection></SectionAnchor>
+    {!rc.available && add?.mac && <p className="rc-browser-note" data-add-mac-note="">{t("environments.rc.browser")}</p>}
     {failed && <Banner tone="warn" title={t("environments.stale")} action={{label: t("environments.retry"), onClick: retry}}/>}
   </>;
 
   const base = session?.multi_account && session.owner?.id ? `/api/admin/accounts/${encodeURIComponent(session.owner.id)}/computer` : "/api/admin/computer";
   return <div className="settings-stack environments-page">
     {error && <Banner tone="error" title={error}/>}
+    {data && rc.available && <RemoteControlBlock rc={rc} offered={add?.mac !== false} onOpenFiles={openFiles} onOpenDenied={() => setDialog({kind: "denied"})}/>}
     {body}
     {data && !has && canAttach && computerMode === "host" && <SettingsSection id="attach" title={t("environments.attach_title")}><ComputerAttach base={base}/></SettingsSection>}
     {dialog?.kind === "e2b" && <E2BDialog onClose={() => setDialog(null)} onSaved={body => { replace(body); setDialog(null); }}/>}
-    {dialog?.kind === "mac" && <MacDialog onClose={() => setDialog(null)} onPaired={() => void reload()}/>}
+    {dialog?.kind === "denied" && <DeniedBotsDialog bots={rc.denied} onUndo={id => void rc.undoDeny(id)} onClose={() => setDialog(null)}/>}
     {dialog?.kind === "vm" && add?.vm_command && <VmCommandDialog command={add.vm_command} onClose={() => setDialog(null)}/>}
     {dialog?.kind === "configure" && <ConfigureDialog provided={Boolean(organization)} onClose={() => setDialog(null)} onOpenAdmin={() => openTab("admin")}/>}
     {dialog?.kind === "confirm" && <ActionConfirm spec={spec(dialog.action, dialog.item)} busy={busy !== ""} onCancel={() => setDialog(null)} onConfirm={() => confirmed(dialog.action, dialog.item)}/>}

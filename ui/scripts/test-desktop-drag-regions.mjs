@@ -196,15 +196,15 @@ for (const size of SIZES) {
 for (const size of SIZES) {
   const page = await browser.newPage({ viewport: size });
   await page.addInitScript(() => {
-    const status = { name: "Mac", workspaceRoot: "/Users/demo/Tofi", fileAccess: true, screenCapture: true, desktopControl: true, paired: false, permissions: { screen: false, accessibility: false },
-      sandbox: { enabled: false, available: true, bound: false, root: null, connectionID: null, running: false }, bots: [{ bot_id: "b1", bot_name: "Inbox", decision: "ask" }], control: { phase: "idle" } };
+    const status = { name: "Mac", workspaceRoot: "/Users/demo/Tofi", fileAccess: true, paired: false,
+      sandbox: { enabled: false, available: true, bound: false, root: null, connectionID: null, running: false }, control: { phase: "idle" } };
     const same = async () => JSON.parse(JSON.stringify(status));
-    window.tofiDesktop = { platform: "darwin", themePreference: "light", getSettings: same, openPermissionGuide: async () => true, updateSettings: same, chooseWorkspace: async () => null,
-      setBotDecision: same, controlStop: same, controlResume: same, pair: same, relaunch: async () => true, chooseSandboxRoot: async () => null, authorizeSandboxRoot: same, sandboxRevoke: same };
+    window.tofiDesktop = { platform: "darwin", themePreference: "light", getSettings: same, updateSettings: same, chooseWorkspace: async () => null,
+      chooseSandboxRoot: async () => null, authorizeSandboxRoot: same, sandboxRevoke: same };
   });
   await page.route(url => new URL(url).pathname.startsWith("/api/"), route => route.abort());
   await page.goto(origin + "/desktop-settings.html");
-  await page.locator("#mac-name").waitFor();
+  await page.locator(".mac-dev-tag").waitFor();
   const strip = await page.evaluate(() => { const el = document.querySelector(".mac-settings-titlebar"); const box = el?.getBoundingClientRect(); return el && getComputedStyle(el).webkitAppRegion === "drag" && box.width === innerWidth && box.height >= 24; });
   assert.ok(strip, `${size.width}x${size.height}: the Mac settings page has a full-width drag strip`);
   await check(page, "Mac settings page", size);
