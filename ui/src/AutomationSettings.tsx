@@ -6,7 +6,7 @@ import {modelName, groupModels} from "./modelCatalog";
 import type {ModelCatalog} from "./types";
 import {useModelCatalog} from "./useModelCatalog";
 import {useTranslation} from "./i18n";
-import {ChangedNote, SettingsCard, SettingsRow, SettingsSection, SettingsSwitch} from "./settings/components";
+import {ChangedNote, SavedNote, SettingsCard, SettingsRow, SettingsSection, SettingsSwitch} from "./settings/components";
 import "./settings/automation.css";
 import { Select } from "./Select";
 
@@ -135,12 +135,11 @@ const AutomationRow = memo(function AutomationRow({item, catalog, busy, saved, e
     {item.locked && <span className="auto-chip is-env" title={item.env}>{t("automation.env")}</span>}
     {resettable && <ChangedNote defaultValue={defaultText} disabled={busy} resetLabel={t("automation.reset")} onReset={() => onChange(item.key, null)}/>}
     {changed && !item.locked && !resettable && item.kind !== "readonly" && <span className="st-changed">{t("changed.note", {value: defaultText})}</span>}
-    {saved && <span role="status" className="auto-saved">{t("automation.saved")}</span>}
   </span>;
   return <div className="auto-row" data-key={item.key} data-source={item.source} aria-busy={busy || undefined}>
     <SettingsRow inline={item.kind === "bool"} labelFor={item.kind === "bool" || item.kind === "readonly" ? undefined : `auto-${item.key}`} label={name}
       description={<>{t(`automation.item.${item.key}.what`)}{meta}{error && <span className="error-text auto-error" role="alert">{error}</span>}</>}
-      control={<Control item={item} catalog={catalog} busy={busy} label={name} onChange={value => onChange(item.key, value)} onOpenPermissions={onOpenPermissions}/>}/>
+      control={<><SavedNote show={saved}/><Control item={item} catalog={catalog} busy={busy} label={name} onChange={value => onChange(item.key, value)} onOpenPermissions={onOpenPermissions}/></>}/>
   </div>;
 });
 

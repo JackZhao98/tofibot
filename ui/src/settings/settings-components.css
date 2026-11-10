@@ -90,15 +90,15 @@ button.settings-row-v2.is-link:focus-visible{outline:var(--focus-ring-width) sol
 .settings-shell .danger-link{min-height:32px;padding:0 12px;border:0;border-radius:9px;background:var(--surface);box-shadow:var(--st-lift);color:var(--danger-text);font:600 13px/1 var(--body)}
 .settings-shell .danger-link:not(:disabled):hover{background:color-mix(in srgb,var(--danger) 8%,var(--surface))}
 .settings-shell .inline-confirmation .danger-link{background:var(--danger);color:var(--on-danger);box-shadow:none}
-/* Phones: every tap target is 44px. */
-@media(max-width:700px){
-  .st-button,.mcp-settings .mcp-button,.settings-shell .danger-link,.settings-ghost-button,.purge-button,.admin-danger-button,.settings-shell .primary-button,.settings-save-bar button,.settings-leave-actions button{min-height:44px}
-  .settings-row-control button.ui-select-trigger,.settings-page-body button.ui-select-trigger[data-size="sm"]{min-height:44px}
-  .segmented>button{min-height:36px}
-}
 .settings-ghost-button{display:inline-flex;align-items:center;gap:6px;flex:none;min-height:32px;padding:0 10px;border:0;border-radius:9px;background:transparent;color:var(--ink-soft);font:600 13px/1 var(--body)}
 .settings-ghost-button:hover:not(:disabled){background:var(--surface);color:var(--ink)}
 .settings-ghost-button:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+/* Phones: every tap target is 44px (the prefix outranks the component rules that load later). */
+@media(max-width:700px){
+  .settings-shell :is(.st-button,.settings-ghost-button,.purge-button,.admin-danger-button,.danger-link,.mcp-button,.primary-button),.settings-shell :is(.settings-save-bar,.settings-leave-actions) button{min-height:44px}
+  .settings-shell .settings-row-control button.ui-select-trigger,.settings-shell .settings-page-body button.ui-select-trigger[data-size="sm"]{min-height:44px}
+  .settings-shell .segmented>button{min-height:36px}
+}
 
 /* Fields: a title above, a filled input with no outline, 40px, 10px radius. Not inside a group. */
 .settings-page-body label,.model-fields label{display:grid;gap:6px;margin:0 0 16px;color:var(--muted);font:600 13px/1.4 var(--body)}

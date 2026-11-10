@@ -2,7 +2,6 @@
 .auto-meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin-top:6px;color:var(--muted);font:12px/1.5 var(--body)}
 .auto-chip{display:inline-flex;align-items:center;padding:1px 8px;border-radius:999px;font:600 12px/1.5 var(--body);color:var(--text-soft);background:color-mix(in srgb,var(--muted) 14%,transparent)}
 .auto-chip.is-env{color:var(--honey-text);background:color-mix(in srgb,var(--honey) 18%,transparent)}
-.auto-saved{color:var(--green-text)}
 .auto-error{display:block;margin-top:6px}
 .auto-text{width:min(100%,320px);min-height:64px;resize:vertical;padding:8px 10px;border:0;border-radius:10px;background:var(--surface);color:var(--ink);font:13px/1.5 var(--mono)}
 .auto-static{color:var(--ink);font:14px/1.4 var(--body);text-align:right}
