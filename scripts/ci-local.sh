@@ -136,6 +136,9 @@ job go-gofmt     always scripts/check-gofmt.sh
 job go-build     always go build ./...
 job go-vet       always go vet ./...
 job go-test      "$GO"  go_test
+# A new release-notes/<tag>.md also needs its generated manual page (go generate ./internal/app); the full
+# internal/app run is slow, so in --changed mode only the generated-files check runs for release notes.
+job go-manual    '^release-notes/' go test ./internal/app -run 'TestSettingsRegistryGenerated' -count=1
 job ui-typecheck "$UI"  npm_ui typecheck
 job ui-i18n      always npm_ui test:i18n
 job ui-motion-tokens always npm_ui test:motion-tokens
