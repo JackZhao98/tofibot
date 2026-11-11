@@ -796,6 +796,7 @@ class LifecycleBase(HostCase):
         self.install_bundle = mock.patch.object(tofi_host, 'install_bundle', side_effect=lambda m: self.make_bundle(m['version'])).start()
         self.active_runs = mock.patch.object(tofi_host, 'active_runs', return_value=0).start()
         self.guest_copies = mock.patch.object(tofi_host, 'pending_guest_copies', return_value=(0, [])).start()
+        self.object_rows = mock.patch.object(tofi_host, 'object_rows', return_value=(0, 0, [])).start()
         self.addCleanup(mock.patch.stopall)
 
     def write_manifest(self, value):
@@ -2767,6 +2768,62 @@ class GuestCopyCountTests(HostCase):
         folder.mkdir(parents=True)
         sqlite.connect(str(folder / 'tofi.db')).close()
         self.assertEqual(tofi_host.pending_guest_copies(), (0, []))
+
+
+class ObjectStoreRowsTests(HostCase):
+    def database(self, account, rows, config=None):
+        import sqlite3 as sqlite
+        folder = self.P.data / 'accounts' / account if account else self.P.data
+        folder.mkdir(parents=True, exist_ok=True)
+        connection = sqlite.connect(str(folder / 'tofi.db'))
+        connection.execute('CREATE TABLE attachments(id TEXT, disk_name TEXT, size INTEGER)')
+        connection.executemany('INSERT INTO attachments VALUES(?,?,?)', rows)
+        if config is not None:
+            connection.execute('CREATE TABLE org_resources(id TEXT, config TEXT)')
+            connection.execute('INSERT INTO org_resources VALUES(?,?)', ('file_store', json.dumps(config)))
+        connection.commit()
+        connection.close()
+
+    def test_counts_only_obj_rows_across_databases(self):
+        self.database('', [('1', 'obj:tofi/v1/i/accounts/a/uploads/1', 10), ('2', '2.upload', 5)])
+        self.database('a1', [('3', 'obj:tofi/v1/i/accounts/b/uploads/3', 7), ('4', 'vm:x', 1)])
+        self.assertEqual(tofi_host.object_rows(), (2, 17, []))
+
+    def test_an_unreadable_database_is_reported_never_counted_as_zero(self):
+        folder = self.P.data / 'accounts' / 'bad'
+        folder.mkdir(parents=True)
+        (folder / 'tofi.db').write_bytes(b'not a database at all' * 50)
+        rows, size, unreadable = tofi_host.object_rows()
+        self.assertEqual((rows, size, unreadable), (0, 0, [str(folder / 'tofi.db')]))
+
+    def test_an_older_release_is_refused_while_files_live_in_the_bucket(self):
+        self.database('', [('1', 'obj:k/1', 10)])
+        with self.assertRaises(tofi_host.HostError) as caught:
+            tofi_host.check_object_rows('v0.6.2')
+        self.assertIn('object store', str(caught.exception))
+        self.assertIn('1 file ', str(caught.exception))
+        tofi_host.check_object_rows(tofi_host.OBJECT_ROWS_MIN_VERSION)
+        tofi_host.check_object_rows('v0.7.0')
+
+    def test_an_older_release_is_fine_without_obj_rows(self):
+        self.database('', [('1', '1.upload', 10)])
+        tofi_host.check_object_rows('v0.6.2')
+
+    def test_an_unreadable_database_blocks_an_older_release(self):
+        folder = self.P.data / 'accounts' / 'bad'
+        folder.mkdir(parents=True)
+        (folder / 'tofi.db').write_bytes(b'not a database at all' * 50)
+        with self.assertRaises(tofi_host.HostError):
+            tofi_host.check_object_rows('v0.6.2')
+
+    def test_backup_note_names_the_bucket_and_counts(self):
+        self.assertIsNone(tofi_host.file_store_summary())
+        self.database('', [('1', 'obj:k/1', 10), ('2', 'obj:k/2', 20)], config={'bucket': 'tofi-cloud', 'gen': 'g1', 'endpoint': 'https://x'})
+        self.assertEqual(tofi_host.file_store_summary(), {'kind': 's3', 'bucket': 'tofi-cloud', 'gen': 'g1', 'objects': 2, 'bytes': 30})
+        text = tofi_host.render_backups([{'id': 'b1', 'size': 1, 'meta': {'created_at': 'now', 'version': 'v1', 'reason': 'manual',
+                                                                           'file_store': tofi_host.file_store_summary()}}])
+        self.assertIn('keeps 2 files in bucket tofi-cloud', text)
+        self.assertNotIn('https://x', text)
 
 
 class ProgressTests(unittest.TestCase):
