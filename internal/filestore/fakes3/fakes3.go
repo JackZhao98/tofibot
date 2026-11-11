@@ -6,6 +6,7 @@ package fakes3
 import (
 	"bufio"
 	"bytes"
+	"crypto/md5"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -77,6 +78,8 @@ func (s *Server) Set(key string, data []byte) {
 	s.objects[key] = object{data: data, meta: http.Header{}}
 }
 
+func etagOf(b []byte) string { return fmt.Sprintf("%x", md5.Sum(b)) }
+
 func fail(w http.ResponseWriter, status int, code string) {
 	w.Header().Set("Content-Type", "application/xml")
 	w.WriteHeader(status)
@@ -125,6 +128,12 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+		if im := strings.Trim(r.Header.Get("If-Match"), `"`); im != "" {
+			if o, ok := s.objects[key]; !ok || etagOf(o.data) != im {
+				fail(w, 412, "PreconditionFailed")
+				return
+			}
+		}
 		body, err := readBody(r)
 		if err != nil {
 			fail(w, 400, "IncompleteBody")
@@ -135,7 +144,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			meta.Set(h, r.Header.Get(h))
 		}
 		s.objects[key] = object{data: body, meta: meta}
-		w.Header().Set("ETag", `"fake"`)
+		w.Header().Set("ETag", `"`+etagOf(body)+`"`)
 	case http.MethodGet, http.MethodHead:
 		o, ok := s.objects[key]
 		if !ok {
@@ -145,7 +154,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		for k, v := range o.meta {
 			w.Header()[k] = v
 		}
-		w.Header().Set("ETag", `"fake"`)
+		w.Header().Set("ETag", `"`+etagOf(o.data)+`"`)
 		w.Header().Set("Last-Modified", time.Unix(1700000000, 0).UTC().Format(http.TimeFormat))
 		if s.NoRange {
 			r.Header.Del("Range")

@@ -1,6 +1,7 @@
 package filestore
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -105,6 +106,16 @@ func (s *S3) Put(ctx context.Context, key string, src io.ReadSeeker, meta Object
 	}
 	opts.SetMatchETagExcept("*")
 	_, err := s.client.PutObject(ctx, s.cfg.Bucket, key, src, meta.Size, opts)
+	return mapErr(err)
+}
+
+// Replace overwrites key only while its ETag is still etag (If-Match). A
+// changed or missing object is ErrExists: someone else wrote it first. It is
+// for the few small objects that are rewritten (head.json, the key slot).
+func (s *S3) Replace(ctx context.Context, key string, data []byte, etag string) error {
+	opts := minio.PutObjectOptions{ContentType: "application/octet-stream", DisableMultipart: true, SendContentMd5: true}
+	opts.SetMatchETag(etag)
+	_, err := s.client.PutObject(ctx, s.cfg.Bucket, key, bytes.NewReader(data), int64(len(data)), opts)
 	return mapErr(err)
 }
 
