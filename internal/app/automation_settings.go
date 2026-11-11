@@ -96,10 +96,12 @@ type automationItem struct {
 	Key, Group string
 	Kind       automationKind
 	Default    string // canonical: "true"/"false", decimal, enum value or model ID
-	Env        string // environment variable that overrides the stored value
-	Min, Max   int
-	Unit       string
-	Options    []string
+	// AccountDefault replaces Default on a server that hosts accounts (an account workspace); empty means no difference.
+	AccountDefault string
+	Env            string // environment variable that overrides the stored value
+	Min, Max       int
+	Unit           string
+	Options        []string
 }
 
 // automationItems is the inventory, in display order.
@@ -112,6 +114,8 @@ var automationItems = []automationItem{
 	{Key: autoGroupExchangeGists, Group: "groups", Kind: autoKindBool, Default: "true"},
 	{Key: autoOwnRepliesVerbatim, Group: "replies", Kind: autoKindInt, Default: strconv.Itoa(ownVerbatimReplies), Min: 1, Max: 20},
 	{Key: autoTaskRetentionDays, Group: "replies", Kind: autoKindInt, Default: taskRetentionDefault(), Min: 0, Max: 3650, Unit: "days"},
+	{Key: autoUploadRetentionDays, Group: "replies", Kind: autoKindInt, Default: "0", AccountDefault: strconv.Itoa(defaultAccountUploadRetentionDays), Min: 0, Max: 3650, Unit: "days"},
+	{Key: autoBotsKeepFiles, Group: "replies", Kind: autoKindBool, Default: "true"},
 	{Key: autoCompletionReview, Group: "reviews", Kind: autoKindBool, Default: "true"},
 	{Key: autoAnswerGate, Group: "reviews", Kind: autoKindInt, Default: "2", Min: 0, Max: 5},
 	{Key: autoMCPReview, Group: "permissions", Kind: autoKindEnum, Default: "off", Options: []string{"off", "shadow", "auto"}},
@@ -315,6 +319,15 @@ func (s *Server) autoValue(key string) string {
 	if v, ok := s.autoStored(key); ok {
 		return v
 	}
+	return s.autoDefault(item)
+}
+
+// autoDefault is the default in force on this server: an account workspace may
+// differ from a single-account server.
+func (s *Server) autoDefault(item automationItem) string {
+	if item.AccountDefault != "" && s.accountID != "" {
+		return item.AccountDefault
+	}
 	return item.Default
 }
 
@@ -324,7 +337,7 @@ func (s *Server) autoInt(key string) int {
 	n, err := strconv.Atoi(s.autoValue(key))
 	if err != nil {
 		item, _ := automationItemFor(key)
-		n, _ = strconv.Atoi(item.Default)
+		n, _ = strconv.Atoi(s.autoDefault(item))
 	}
 	return n
 }
@@ -482,7 +495,7 @@ func (s *Server) automationView(ctx context.Context, item automationItem) automa
 		lo, hi := item.Min, item.Max
 		v.Min, v.Max = &lo, &hi
 	}
-	def := item.Default
+	def := s.autoDefault(item)
 	switch item.Key {
 	case autoBackgroundModel:
 		def = s.backgroundDefaultModel(backgroundTriage)

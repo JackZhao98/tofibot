@@ -1395,6 +1395,14 @@
         "name": "Arbeitsspur aufbewahren",
         "what": "Wie lange die Bilder der Bildschirmarbeit eines Bots auf dem Server bleiben. Danach werden sie gelöscht. Alles behalten löscht sie nie."
       },
+      "upload_retention_days": {
+        "name": "Hochgeladene Dateien behalten für",
+        "what": "Wie lange hochgeladene Dateien und Bot-Dateien auf dem Server bleiben, gezählt ab dem Tag des Hinzufügens. Danach wird die Datei gelöscht und ihre Karte zeigt „Abgelaufen“. „Alles behalten“ löscht nie. Veröffentlichte und erzeugte Dateien werden so nie gelöscht."
+      },
+      "bots_can_keep_files": {
+        "name": "Bots dürfen hochgeladene Dateien behalten",
+        "what": "Erlaubt einem Bot, eine hochgeladene Datei von der automatischen Löschung auszunehmen. Die Datei wird nicht kopiert; ihre Karte zeigt, welcher Bot sie behalten hat. Aus bedeutet, dass Bots das nicht können."
+      },
       "trace_private_origins": {
         "name": "Private Ursprünge",
         "what": "Seiten dieser Sites kommen nie in die Arbeitsspur. Ein Host oder Ursprung pro Zeile. Ein Host umfasst auch seine Subdomains. Sites, bei denen ein Bot eine private Passworteingabe nutzte, bleiben immer außen vor."

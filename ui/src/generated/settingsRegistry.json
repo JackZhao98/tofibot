@@ -634,6 +634,31 @@
       "audit": true
     },
     {
+      "key": "automation.upload_retention_days",
+      "scope": "account",
+      "kind": "int",
+      "max": 3650,
+      "risk": {
+        "self": "confirm"
+      },
+      "link": "/settings/advanced#replies",
+      "manual": "settings/advanced",
+      "label_key": "settings:automation.item.upload_retention_days.name",
+      "audit": true
+    },
+    {
+      "key": "automation.bots_can_keep_files",
+      "scope": "account",
+      "kind": "bool",
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/advanced#replies",
+      "manual": "settings/advanced",
+      "label_key": "settings:automation.item.bots_can_keep_files.name",
+      "audit": true
+    },
+    {
       "key": "automation.completion_review",
       "scope": "account",
       "kind": "bool",

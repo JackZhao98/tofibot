@@ -421,6 +421,10 @@ func (s *Store) exportPortableAttachmentBytes(ctx context.Context, b *portableBu
 }
 func (s *Store) readPortableAttachment(ctx context.Context, dbFile, id, disk string, size int64) ([]byte, string) {
 	var data []byte
+	if strings.HasPrefix(disk, "expired:") {
+		// The retention sweep removed the bytes (upload_retention.go).
+		return nil, "missing"
+	}
 	if strings.HasPrefix(disk, objPrefix) {
 		f, err := s.openAttachment(ctx, disk)
 		if err != nil {

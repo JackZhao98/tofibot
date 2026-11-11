@@ -25,7 +25,7 @@ type attachmentQuerier interface {
 }
 
 func attachmentMetadata(q attachmentQuerier, id string) ([]Attachment, error) {
-	rows, err := q.Query(`SELECT a.id,a.conversation_id,a.name,a.mime,a.size,a.created_at FROM attachments a JOIN attachment_messages am ON am.attachment_id=a.id WHERE am.message_id=? ORDER BY a.created_at,a.id`, id)
+	rows, err := q.Query(`SELECT a.id,a.conversation_id,a.name,a.mime,a.size,a.created_at,COALESCE(a.expired_at,''),`+attachmentKeptByName+` FROM attachments a JOIN attachment_messages am ON am.attachment_id=a.id WHERE am.message_id=? ORDER BY a.created_at,a.id`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +33,7 @@ func attachmentMetadata(q attachmentQuerier, id string) ([]Attachment, error) {
 	out := []Attachment{}
 	for rows.Next() {
 		var a Attachment
-		if err := rows.Scan(&a.ID, &a.ConversationID, &a.Name, &a.MIME, &a.Size, &a.CreatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.ConversationID, &a.Name, &a.MIME, &a.Size, &a.CreatedAt, &a.ExpiredAt, &a.KeptBy); err != nil {
 			return nil, err
 		}
 		a.MessageID = id
@@ -53,14 +53,14 @@ func attachmentsForMessages(q attachmentQuerier, ids []string) (map[string][]Att
 	for i, id := range ids {
 		args[i] = id
 	}
-	rows, err := q.Query(`SELECT am.message_id,a.id,a.conversation_id,a.name,a.mime,a.size,a.created_at FROM attachment_messages am JOIN attachments a ON a.id=am.attachment_id WHERE am.message_id IN (`+strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")+`) ORDER BY a.created_at,a.id`, args...)
+	rows, err := q.Query(`SELECT am.message_id,a.id,a.conversation_id,a.name,a.mime,a.size,a.created_at,COALESCE(a.expired_at,''),`+attachmentKeptByName+` FROM attachment_messages am JOIN attachments a ON a.id=am.attachment_id WHERE am.message_id IN (`+strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")+`) ORDER BY a.created_at,a.id`, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var a Attachment
-		if err := rows.Scan(&a.MessageID, &a.ID, &a.ConversationID, &a.Name, &a.MIME, &a.Size, &a.CreatedAt); err != nil {
+		if err := rows.Scan(&a.MessageID, &a.ID, &a.ConversationID, &a.Name, &a.MIME, &a.Size, &a.CreatedAt, &a.ExpiredAt, &a.KeptBy); err != nil {
 			return nil, err
 		}
 		out[a.MessageID] = append(out[a.MessageID], a)
@@ -277,6 +277,10 @@ func (s *Server) addAttachmentContext(c Conversation, m Message, pm *runtime.Mes
 	}
 	var note strings.Builder
 	for _, a := range attachments {
+		if a.ExpiredAt != "" {
+			fmt.Fprintf(&note, "\nAttachment: %s (attachment_id=%s) expired: %s.", a.Name, a.ID, codeAttachmentExpired)
+			continue
+		}
 		fmt.Fprintf(&note, "\nAttachment: %s (attachment_id=%s, type=%s, bytes=%d).", a.Name, a.ID, a.MIME, a.Size)
 		if p := guestPaths[a.ID]; p != "" {
 			fmt.Fprintf(&note, " On the Bot computer at %s.", p)

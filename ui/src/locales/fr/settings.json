@@ -1407,6 +1407,14 @@
         "name": "Durée de conservation de la trace",
         "what": "Durée pendant laquelle les images du travail d'un Bot à l'écran restent sur le serveur. Elles sont supprimées ensuite. Tout conserver ne les supprime jamais."
       },
+      "upload_retention_days": {
+        "name": "Fichiers téléversés conservés",
+        "what": "Durée pendant laquelle les fichiers téléversés et les fichiers de Bot restent sur le serveur, comptée depuis le jour de leur ajout. Ensuite le fichier est supprimé et sa carte indique « Expiré ». « Tout conserver » ne supprime jamais. Les fichiers publiés et générés ne sont jamais supprimés ainsi."
+      },
+      "bots_can_keep_files": {
+        "name": "Les Bots peuvent conserver les fichiers téléversés",
+        "what": "Permet à un Bot d'exclure un fichier téléversé de la suppression automatique. Le fichier n'est pas copié ; sa carte indique quel Bot l'a conservé. Désactivé : les Bots ne peuvent pas le faire."
+      },
       "trace_private_origins": {
         "name": "Origines privées",
         "what": "Les pages de ces sites n'entrent jamais dans la trace de travail. Un hôte ou une origine par ligne. Un hôte couvre aussi ses sous-domaines. Les sites où un Bot a utilisé une saisie de mot de passe privée sont toujours exclus."

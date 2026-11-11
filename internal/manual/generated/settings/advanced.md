@@ -13,6 +13,7 @@ Open this page: [{{ui:settings:shell.page.advanced.name}}](/settings/advanced)
 |---|---|---|---|---|---|
 | {{ui:settings:automation.item.answer_gate.name}} | `automation.answer_gate` | whole number 0 to 5 | 2 | direct | `/settings/advanced#reviews` |
 | {{ui:settings:automation.item.background_model.name}} | `automation.background_model` | a configured model ID, or default |  | confirm | `/settings/models#more` |
+| {{ui:settings:automation.item.bots_can_keep_files.name}} | `automation.bots_can_keep_files` | on or off | true | direct | `/settings/advanced#replies` |
 | {{ui:settings:automation.item.browser_engine.name}} | `automation.browser_engine` | classic, playwright | playwright | direct | `/settings/advanced#computer` |
 | {{ui:settings:automation.item.command_check_minutes.name}} | `automation.command_check_minutes` | whole number 5 to 1440 | 60 minutes | direct | `/settings/advanced#computer` |
 | {{ui:settings:automation.item.completion_review.name}} | `automation.completion_review` | on or off | true | direct | `/settings/advanced#reviews` |
@@ -41,6 +42,7 @@ Open this page: [{{ui:settings:shell.page.advanced.name}}](/settings/advanced)
 | {{ui:settings:automation.item.task_tree_idle_message_limit.name}} | `automation.task_tree_idle_message_limit` | whole number 10 to 500 | 30 | direct | `/settings/advanced#tasks` |
 | {{ui:settings:automation.item.trace_private_origins.name}} | `automation.trace_private_origins` | text |  | confirm | `/settings/advanced#computer` |
 | {{ui:settings:automation.item.trace_retention_days.name}} | `automation.trace_retention_days` | whole number 0 to 90 | 7 days | direct | `/settings/advanced#computer` |
+| {{ui:settings:automation.item.upload_retention_days.name}} | `automation.upload_retention_days` | whole number 0 to 3650 | 0 days | confirm | `/settings/advanced#replies` |
 | {{ui:settings:automation.item.web_fetch_limit.name}} | `automation.web_fetch_limit` | whole number 1 to 100 | 20 | direct | `/settings/advanced#replies` |
 | {{ui:settings:automation.item.web_search.name}} | `automation.web_search` | on or off | true | direct | `/settings/advanced#behavior` |
 | {{ui:settings:automation.item.widget_artifacts_auto.name}} | `automation.widget_artifacts_auto` | on or off | true | direct | `/settings/advanced#behavior` |
@@ -54,6 +56,8 @@ Open this page: [{{ui:settings:shell.page.advanced.name}}](/settings/advanced)
 **{{ui:settings:automation.item.answer_gate.name}}.** {{ui:settings:automation.item.answer_gate.what}}
 
 **{{ui:settings:automation.item.background_model.name}}.** {{ui:settings:automation.item.background_model.what}}
+
+**{{ui:settings:automation.item.bots_can_keep_files.name}}.** {{ui:settings:automation.item.bots_can_keep_files.what}}
 
 **{{ui:settings:automation.item.browser_engine.name}}.** {{ui:settings:automation.item.browser_engine.what}}
 
@@ -110,6 +114,8 @@ Open this page: [{{ui:settings:shell.page.advanced.name}}](/settings/advanced)
 **{{ui:settings:automation.item.trace_private_origins.name}}.** {{ui:settings:automation.item.trace_private_origins.what}}
 
 **{{ui:settings:automation.item.trace_retention_days.name}}.** {{ui:settings:automation.item.trace_retention_days.what}}
+
+**{{ui:settings:automation.item.upload_retention_days.name}}.** {{ui:settings:automation.item.upload_retention_days.what}}
 
 **{{ui:settings:automation.item.web_fetch_limit.name}}.** {{ui:settings:automation.item.web_fetch_limit.what}}
 

@@ -61,6 +61,7 @@ func (s *Server) startWaitSweeper() {
 					lastRetention = at
 					s.runTaskRetention(at)
 					s.runTraceRetention(at)
+					s.runUploadRetention(at)
 					s.runAttentionRetention(at)
 				}
 			}

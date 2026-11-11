@@ -23,7 +23,9 @@
     "download_action": "Télécharger",
     "download_only": "Télécharger pour ouvrir",
     "empty": "Le fichier est vide",
+    "expired": "Expiré",
     "image_group": "{{count}} images",
+    "kept_by": "Conservé par {{name}}",
     "load_failed": "Impossible de charger ce fichier. Réessayez.",
     "loading": "Chargement…",
     "not_image": "Le fichier n’est pas une image",
@@ -54,6 +56,7 @@
       "file_missing_on_computer": "Ce fichier n’est plus sur l’ordinateur Bot et n’a jamais été copié vers le serveur. Il ne peut pas être récupéré.",
       "open_computer": "Ouvrir les réglages de l’ordinateur Bot",
       "file_missing_in_store": "Ce fichier n'est plus dans le stockage de fichiers.",
+      "attachment_expired": "Ce fichier a été supprimé à la fin de sa durée de conservation et ne peut pas être ouvert.",
       "file_store_unavailable": "Le stockage de fichiers est injoignable pour le moment. Réessayez dans un instant.",
       "file_store_misconfigured": "Le stockage de fichiers est mal configuré. Demandez à un administrateur de vérifier « Stockage de fichiers »."
     }

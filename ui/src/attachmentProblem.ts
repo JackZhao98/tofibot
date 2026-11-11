@@ -6,10 +6,10 @@ export class AttachmentUnavailable extends Error {
 }
 /** The problem a failed attachment response names, or null for any other failure. */
 export async function attachmentProblem(response: Response): Promise<AttachmentProblem | null> {
-  if (response.ok || (response.status !== 409 && response.status !== 404 && response.status !== 503)) return null;
+  if (response.ok || (response.status !== 409 && response.status !== 404 && response.status !== 410 && response.status !== 503)) return null;
   try {
     const code = ((await response.clone().json()) as { error?: { code?: string } }).error?.code;
-    return code === "file_on_detached_computer" || code === "file_missing_on_computer" || code === "file_missing_in_store" || code === "file_store_unavailable" || code === "file_store_misconfigured" ? code : null;
+    return code === "file_on_detached_computer" || code === "file_missing_on_computer" || code === "file_missing_in_store" || code === "file_store_unavailable" || code === "file_store_misconfigured" || code === "attachment_expired" ? code : null;
   } catch { return null; }
 }
 /** A failed response as an Error: `AttachmentUnavailable` when the server named a problem, else the status text. */
