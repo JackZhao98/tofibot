@@ -39,6 +39,10 @@ type Attachment struct {
 	MIME           string `json:"mime"`
 	Size           int64  `json:"size"`
 	CreatedAt      string `json:"created_at"`
+	// ExpiredAt is set once retention deleted the bytes; the row stays so the card can say so.
+	ExpiredAt string `json:"expired_at,omitempty"`
+	// KeptBy is the name of the Bot that marked this file as not auto-deleted.
+	KeptBy string `json:"kept_by,omitempty"`
 }
 
 func migrateAttachments(db *sql.DB) error {
@@ -68,6 +72,9 @@ func migrateAttachments(db *sql.DB) error {
 		{"bot_id", `ALTER TABLE attachments ADD COLUMN bot_id TEXT`},
 		// '' = this server's disk (or a legacy `vm:` row); else the bucket generation of an `obj:` row.
 		{"store", `ALTER TABLE attachments ADD COLUMN store TEXT NOT NULL DEFAULT ''`},
+		// Upload retention: a swept row keeps expired_at and loses its bytes; kept_by_bot_id exempts a row from the sweep.
+		{"expired_at", `ALTER TABLE attachments ADD COLUMN expired_at TEXT`},
+		{"kept_by_bot_id", `ALTER TABLE attachments ADD COLUMN kept_by_bot_id TEXT`},
 	} {
 		if err = ensureColumn(db, "attachments", col.name, col.ddl); err != nil {
 			return err
@@ -280,9 +287,12 @@ func isRasterFile(path, typ string) bool {
 func (s *Store) Attachment(id string) (Attachment, string, error) {
 	var a Attachment
 	var disk string
-	err := s.db.QueryRow(`SELECT id,conversation_id,name,mime,size,created_at,disk_name FROM attachments WHERE id=?`, id).Scan(&a.ID, &a.ConversationID, &a.Name, &a.MIME, &a.Size, &a.CreatedAt, &disk)
+	err := s.db.QueryRow(`SELECT id,conversation_id,name,mime,size,created_at,disk_name,COALESCE(expired_at,'') FROM attachments WHERE id=?`, id).Scan(&a.ID, &a.ConversationID, &a.Name, &a.MIME, &a.Size, &a.CreatedAt, &disk, &a.ExpiredAt)
 	if err != nil {
 		return Attachment{}, "", err
+	}
+	if a.ExpiredAt != "" {
+		return a, "", fmt.Errorf("%w: %s", errAttachmentExpired, a.Name)
 	}
 	if strings.HasPrefix(disk, objPrefix) {
 		return a, disk, nil
@@ -447,6 +457,10 @@ func (s *Server) routeAttachments(w http.ResponseWriter, r *http.Request, p stri
 	}
 	id := strings.TrimPrefix(p, "attachments/")
 	a, path, err := s.store.Attachment(id)
+	if errors.Is(err, errAttachmentExpired) {
+		writeErr(w, 410, codeAttachmentExpired, "This file was deleted after the retention period.")
+		return true
+	}
 	if err != nil {
 		writeErr(w, 404, "not_found", "attachment not found")
 		return true

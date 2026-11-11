@@ -23,7 +23,9 @@
     "download_action": "下載",
     "download_only": "下載後開啟",
     "empty": "檔案是空的",
+    "expired": "已過期",
     "image_group": "{{count}} 張圖片",
+    "kept_by": "由 {{name}} 保留",
     "load_failed": "檔案沒載入成功，再試一次。",
     "loading": "載入中…",
     "not_image": "檔案不是圖片",
@@ -54,6 +56,7 @@
       "file_missing_on_computer": "這個檔案已不在 Bot 電腦上，也沒有複製到伺服器，無法復原。",
       "open_computer": "開啟 Bot 電腦設定",
       "file_missing_in_store": "檔案儲存中已沒有這個檔案。",
+      "attachment_expired": "這個檔案已超過保留期限被刪除，無法開啟。",
       "file_store_unavailable": "檔案儲存暫時無法連線，請稍後再試。",
       "file_store_misconfigured": "檔案儲存設定不正確，請聯絡管理員檢查「檔案儲存」。"
     }

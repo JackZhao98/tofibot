@@ -210,6 +210,10 @@ export interface Attachment {
   mime: string;
   size: number;
   created_at: string;
+  /** Set once retention deleted the file; the card says so. */
+  expired_at?: string;
+  /** Name of the Bot that kept the file from automatic deletion. */
+  kept_by?: string;
   /** Client only: the file is still on this device on its way up (optimistic send). `progress` is 0..1; `key` is the stable tile identity. */
   pending?: { progress: number; failed?: boolean };
   /** Client only: the tile's identity from selection to the server's copy, so the swap from local to uploaded replays nothing. */

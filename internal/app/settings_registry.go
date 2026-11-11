@@ -397,7 +397,8 @@ func automationRisk(item automationItem) RiskSpec {
 		return riskForbidden
 	}
 	// A shorter list of private origins would keep pictures of pages the person marked private.
-	if item.Key == autoRememberedApprovalHrs || item.Key == autoTracePrivateOrigins || item.Kind == autoKindModel {
+	// A shorter upload retention deletes files the person still has.
+	if item.Key == autoRememberedApprovalHrs || item.Key == autoTracePrivateOrigins || item.Key == autoUploadRetentionDays || item.Kind == autoKindModel {
 		return riskConfirm
 	}
 	if item.Kind == autoKindReadOnly {

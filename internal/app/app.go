@@ -4246,7 +4246,7 @@ func (s *Server) execute(c Conversation, r Run) {
 	}
 	if r.Kind != runKindTriage {
 		tools = append(tools, capabilityTool(deferOnDemandTools(tools)))
-		capabilityPrompt = runtimeCapabilityPrompt
+		capabilityPrompt = runtimeCapabilityPrompt + s.uploadRetentionPrompt()
 	}
 	s.recordToolSnapshot(r.BotID, c.ID, tools)
 	// "default" (and the legacy empty value) follow the global model;
@@ -5362,6 +5362,7 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 	base = append(base, s.settingsTool(c, r), s.manualTool(c, r))
 	base = append(base, s.extensionManagementTools(c, r)...)
 	base = append(base, s.attachmentTools(c, r)...)
+	base = append(base, s.keepFileTools(c, r)...)
 	base = append(base, s.imageGenerationTools(c, r)...)
 	base = append(base, s.publishAttachmentTools(c, r)...)
 	if s.store.hasPairedComputer() || s.hasOtherComputers() {

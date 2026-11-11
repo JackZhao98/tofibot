@@ -1395,6 +1395,14 @@
         "name": "Work trace kept for",
         "what": "How long the pictures of a Bot's screen work stay on the server. They are deleted after this period. Keep everything never deletes them."
       },
+      "upload_retention_days": {
+        "name": "Uploaded files kept for",
+        "what": "How long uploaded files and Bot files stay on the server, counted from the day they were added. After that the file is deleted and its card shows Expired. Keep everything never deletes them. Published and generated files are never deleted this way."
+      },
+      "bots_can_keep_files": {
+        "name": "Bots can keep uploaded files",
+        "what": "Lets a Bot exempt an uploaded file from automatic deletion. The file is not copied; its card shows which Bot kept it. Off means Bots cannot do this."
+      },
       "trace_private_origins": {
         "name": "Private origins",
         "what": "Sites whose pages never enter the work trace. One host or origin per line. A host also covers its subdomains. Sites where a Bot used a private password input are always left out."

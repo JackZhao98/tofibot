@@ -23,7 +23,9 @@
     "download_action": "Download",
     "download_only": "Download to open",
     "empty": "This file is empty",
+    "expired": "Expired",
     "image_group": "{{count}} images",
+    "kept_by": "Kept by {{name}}",
     "load_failed": "Couldn't load this file. Try again.",
     "loading": "Loading…",
     "not_image": "The file isn't an image",
@@ -54,6 +56,7 @@
       "file_missing_on_computer": "This file is no longer on the Bot computer and was never copied to the server, so it can't be recovered.",
       "open_computer": "Open Bot computer settings",
       "file_missing_in_store": "This file is no longer in the file store.",
+      "attachment_expired": "This file was deleted after its retention period and can't be opened.",
       "file_store_unavailable": "The file store is not reachable right now. Try again in a moment.",
       "file_store_misconfigured": "The file store is not set up correctly. Ask an administrator to check File storage."
     }

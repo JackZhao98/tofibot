@@ -23,7 +23,9 @@
     "download_action": "下载",
     "download_only": "下载后打开",
     "empty": "文件是空的",
+    "expired": "已过期",
     "image_group": "{{count}} 张图片",
+    "kept_by": "由 {{name}} 保留",
     "load_failed": "文件没加载出来，再试一次。",
     "loading": "加载中…",
     "not_image": "文件不是图片",
@@ -54,6 +56,7 @@
       "file_missing_on_computer": "这个文件已不在 Bot 电脑上，也没有复制到服务器，无法恢复。",
       "open_computer": "打开 Bot 电脑设置",
       "file_missing_in_store": "文件存储中已没有这个文件。",
+      "attachment_expired": "这个文件已超过保留期被删除，无法打开。",
       "file_store_unavailable": "文件存储暂时无法访问，请稍后重试。",
       "file_store_misconfigured": "文件存储配置不正确，请联系管理员检查“文件存储”。"
     }

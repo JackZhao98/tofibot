@@ -23,7 +23,9 @@
     "download_action": "Herunterladen",
     "download_only": "Zum Öffnen herunterladen",
     "empty": "Die Datei ist leer",
+    "expired": "Abgelaufen",
     "image_group": "{{count}} Bilder",
+    "kept_by": "Behalten von {{name}}",
     "load_failed": "Die Datei konnte nicht geladen werden. Versuche es erneut.",
     "loading": "Wird geladen…",
     "not_image": "Die Datei ist kein Bild",
@@ -54,6 +56,7 @@
       "file_missing_on_computer": "Diese Datei ist nicht mehr auf dem Bot-Computer und wurde nie auf den Server kopiert. Sie lässt sich nicht wiederherstellen.",
       "open_computer": "Bot-Computer-Einstellungen öffnen",
       "file_missing_in_store": "Diese Datei liegt nicht mehr im Dateispeicher.",
+      "attachment_expired": "Diese Datei wurde nach Ablauf der Aufbewahrungsfrist gelöscht und lässt sich nicht öffnen.",
       "file_store_unavailable": "Der Dateispeicher ist gerade nicht erreichbar. Versuche es gleich noch einmal.",
       "file_store_misconfigured": "Der Dateispeicher ist nicht richtig eingerichtet. Bitte die Administration, „Dateispeicher“ zu prüfen."
     }

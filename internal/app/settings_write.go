@@ -257,7 +257,7 @@ func (sr settingRun) set(ctx context.Context, in settingsToolInput) (string, err
 	}
 	newText := settingText(value)
 	if item, isAuto := automationItemFor(strings.TrimPrefix(d.Key, "automation.")); isAuto && value == nil {
-		newText = item.Default // back to the default: the audit shows the value that applies
+		newText = sr.s.autoDefault(item) // back to the default: the audit shows the value that applies
 	}
 	if d.Kind != KindAction && oldText == newText {
 		return settingsOutput(map[string]any{"applied": false, "unchanged": true, "key": d.Key, "value": oldText, "link": settingLinkPath(d, t), "link_label": settingLinkLabel(d, lang)})
