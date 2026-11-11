@@ -522,7 +522,8 @@
         "computer": "移除 Bot 電腦並釋放磁碟",
         "data": "移除 Bot、對話與檔案",
         "sessions": "移除登入狀態",
-        "record": "移除帳號"
+        "record": "移除帳號",
+        "files": "正在從物件儲存刪除檔案"
       }
     },
     "deleting": {
@@ -536,7 +537,8 @@
         "computer_unverified": "Bot 電腦服務有回應，但無法驗證移除結果。",
         "data_failed": "無法刪除此帳號的資料資料夾。",
         "sessions_failed": "無法移除此帳號的登入狀態。",
-        "record_failed": "無法移除帳號紀錄。"
+        "record_failed": "無法移除帳號紀錄。",
+        "files_failed": "無法從物件儲存刪除該帳號的檔案。"
       }
     },
     "result": {
@@ -695,7 +697,20 @@
         "invalid_request": "請求無效。",
         "forbidden": "需要管理員權限。",
         "storage": "伺服器未能儲存。",
-        "custom_template": "此電腦使用你提供的範本，不會重新建置。"
+        "custom_template": "此電腦使用你提供的範本，不會重新建置。",
+        "endpoint_unreachable": "本伺服器無法連上該 Endpoint。",
+        "credentials_rejected": "儲存貯體拒絕了該 Access key。",
+        "bucket_not_found": "該 Endpoint 下不存在此儲存貯體。",
+        "write_denied": "該 Access key 沒有寫入此儲存貯體的權限。",
+        "conditional_put_unsupported": "該 Endpoint 不支援一次性寫入（If-None-Match）。",
+        "range_unsupported": "該 Endpoint 不支援範圍讀取。",
+        "delete_denied": "該 Access key 沒有刪除此儲存貯體物件的權限。",
+        "bucket_is_public": "此儲存貯體不需憑證即可讀取。請改為私有，或確認繼續使用。",
+        "invalid_endpoint": "請以 https://host 填寫 Endpoint，不含路徑。",
+        "invalid_bucket": "請填寫儲存貯體名稱。",
+        "invalid_prefix": "前綴只能包含小寫字母、數字、點、連字號與斜線。",
+        "invalid_grace": "已刪除檔案保留 1 到 365 天。",
+        "file_store_in_use": "檔案已存放在此儲存貯體中。在移走之前，不能變更其位址，也不能移除。"
       },
       "missing_accounts_other": "{{count}} 個帳戶覆寫",
       "intro": "這些金鑰屬於這台伺服器，供所在群組由組織提供資源的帳戶使用；它們不是你的個人金鑰，你的在 設定 › AI 模型、環境、搜尋與擷取。",
@@ -723,6 +738,32 @@
           "e2b_limit": "已達到 E2B 帳戶上限。請先在 E2B 釋放額度，再重試建置。",
           "template_stale_in_team": "E2B 團隊中已有一個名為 tofi-computer-{{version}} 的範本，其上次建置失敗，E2B 不接受在它上面重新建置。請在 E2B 控制台刪除該範本（團隊擁有者可以操作），然後重試建置。"
         }
+      },
+      "storage": {
+        "title": "檔案儲存",
+        "help": "本伺服器存放使用者上傳檔案與 Bot 產出檔案的位置。未設定儲存貯體時，檔案保存在本伺服器磁碟上。"
+      },
+      "file_store": {
+        "name": "物件儲存",
+        "tag": "相容 S3",
+        "summary": "{{endpoint}} 上的 {{bucket}}",
+        "endpoint": "Endpoint",
+        "region": "Region",
+        "bucket": "Bucket",
+        "prefix": "前綴（選填）",
+        "path_style": "Path-style 定址",
+        "access_key": "Access key ID",
+        "secret_key": "Secret access key",
+        "grace": "已刪除檔案保留天數",
+        "destination": "新檔案寫入",
+        "dest_bucket": "物件儲存",
+        "dest_disk": "本伺服器磁碟",
+        "dest_note": "無論選哪一項，已在儲存貯體中的檔案仍可讀取。已刪除的檔案保留 {{days}} 天。",
+        "confirm_public": "此儲存貯體不需憑證即可讀取，仍然保留使用",
+        "save": "測試並儲存",
+        "test": "測試連線",
+        "test_ok": "連線已驗證。",
+        "note": "Access key 組以密封形式保存，之後不再顯示。請使用私有儲存貯體與僅限該貯體的金鑰。"
       }
     }
   },

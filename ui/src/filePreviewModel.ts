@@ -131,7 +131,7 @@ export function useFilePreviewStack(): PreviewTarget[] {
 export const PREVIEW_TEXT_LIMIT = 2 * 1024 * 1024;
 
 /** Why a stored file cannot be read right now; the helpers live in attachmentProblem.ts so the first paint does not carry them. */
-export type AttachmentProblem = "file_on_detached_computer" | "file_missing_on_computer";
+export type AttachmentProblem = "file_on_detached_computer" | "file_missing_on_computer" | "file_missing_in_store" | "file_store_unavailable" | "file_store_misconfigured";
 
 
 export async function readTextHead(url: string, limit = PREVIEW_TEXT_LIMIT, signal?: AbortSignal): Promise<{ text: string; truncated: boolean; name: string }> {

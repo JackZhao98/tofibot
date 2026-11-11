@@ -527,7 +527,8 @@
         "computer": "Bot-Computer entfernen und Speicher freigeben",
         "data": "Bots, Unterhaltungen und Dateien entfernen",
         "sessions": "Anmeldungen entfernen",
-        "record": "Konto entfernen"
+        "record": "Konto entfernen",
+        "files": "Dateien aus dem Objektspeicher entfernen"
       }
     },
     "deleting": {
@@ -541,7 +542,8 @@
         "computer_unverified": "Der Bot-Computer-Dienst hat geantwortet, das Entfernen ließ sich aber nicht prüfen.",
         "data_failed": "Der Datenordner des Kontos konnte nicht entfernt werden.",
         "sessions_failed": "Die Anmeldungen des Kontos konnten nicht entfernt werden.",
-        "record_failed": "Der Kontoeintrag konnte nicht entfernt werden."
+        "record_failed": "Der Kontoeintrag konnte nicht entfernt werden.",
+        "files_failed": "Die Dateien des Kontos konnten nicht aus dem Objektspeicher entfernt werden."
       }
     },
     "result": {
@@ -702,7 +704,20 @@
         "invalid_request": "Die Anfrage war ungültig.",
         "forbidden": "Administratorzugriff ist erforderlich.",
         "storage": "Der Server konnte dies nicht speichern.",
-        "custom_template": "Dieser Computer nutzt eine von Ihnen gelieferte Vorlage. Sie wird nie neu gebaut."
+        "custom_template": "Dieser Computer nutzt eine von Ihnen gelieferte Vorlage. Sie wird nie neu gebaut.",
+        "endpoint_unreachable": "Der Endpoint antwortet von diesem Server aus nicht.",
+        "credentials_rejected": "Der Bucket hat den Access Key abgelehnt.",
+        "bucket_not_found": "Der Bucket existiert an diesem Endpoint nicht.",
+        "write_denied": "Der Access Key darf nicht in diesen Bucket schreiben.",
+        "conditional_put_unsupported": "Der Endpoint unterstützt keine einmaligen Schreibvorgänge (If-None-Match).",
+        "range_unsupported": "Der Endpoint unterstützt keine Bereichsabfragen.",
+        "delete_denied": "Der Access Key darf in diesem Bucket keine Objekte löschen.",
+        "bucket_is_public": "Der Bucket beantwortet Lesezugriffe ohne Zugangsdaten. Stelle ihn auf privat, oder bestätige, dass er so bleiben soll.",
+        "invalid_endpoint": "Gib den Endpoint als https://host ohne Pfad an.",
+        "invalid_bucket": "Gib den Bucket-Namen ein.",
+        "invalid_prefix": "Das Präfix erlaubt Kleinbuchstaben, Ziffern, Punkte, Bindestriche und Schrägstriche.",
+        "invalid_grace": "Gelöschte Dateien werden 1 bis 365 Tage behalten.",
+        "file_store_in_use": "In diesem Bucket liegen Dateien. Seine Adresse lässt sich erst ändern und er lässt sich erst entfernen, wenn sie verschoben sind."
       },
       "missing_accounts_one": "{{count}} Konto-Überschreibung",
       "missing_accounts_other": "{{count}} Konto-Überschreibungen",
@@ -731,6 +746,32 @@
           "e2b_limit": "Das Limit des E2B-Kontos ist erreicht. Schaffen Sie in E2B Kapazität und wiederholen Sie dann den Build.",
           "template_stale_in_team": "Das E2B-Team enthält bereits eine Vorlage namens tofi-computer-{{version}}, deren letzter Build fehlgeschlagen ist, und E2B nimmt darauf keinen neuen Build an. Löschen Sie die Vorlage im E2B-Dashboard (das kann der Team-Inhaber) und wiederholen Sie dann den Build."
         }
+      },
+      "storage": {
+        "title": "Dateispeicher",
+        "help": "Wo dieser Server die von Personen hochgeladenen und von Bots erzeugten Dateien ablegt. Ohne Bucket bleiben die Dateien auf dem Datenträger dieses Servers."
+      },
+      "file_store": {
+        "name": "Objektspeicher",
+        "tag": "S3-kompatibel",
+        "summary": "{{bucket}} bei {{endpoint}}",
+        "endpoint": "Endpoint",
+        "region": "Region",
+        "bucket": "Bucket",
+        "prefix": "Präfix (optional)",
+        "path_style": "Path-Style-Adressierung",
+        "access_key": "Access-Key-ID",
+        "secret_key": "Secret Access Key",
+        "grace": "Gelöschte Dateien behalten (Tage)",
+        "destination": "Neue Dateien gehen nach",
+        "dest_bucket": "Objektspeicher",
+        "dest_disk": "Datenträger dieses Servers",
+        "dest_note": "Dateien, die schon im Bucket liegen, bleiben in beiden Fällen lesbar. Gelöschte Dateien werden {{days}} Tage behalten.",
+        "confirm_public": "Diesen Bucket trotzdem verwenden, obwohl er Anfragen ohne Zugangsdaten beantwortet",
+        "save": "Testen und speichern",
+        "test": "Verbindung testen",
+        "test_ok": "Verbindung geprüft.",
+        "note": "Das Access-Key-Paar wird versiegelt gespeichert und nie wieder angezeigt. Verwende einen privaten Bucket und einen auf ihn beschränkten Schlüssel."
       }
     }
   },

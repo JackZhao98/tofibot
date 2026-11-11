@@ -46,7 +46,7 @@ export type DeletedExport = {
 export const GIB = 2 ** 30;
 /** Disk sizes the Worker accepts are whole GiB from 8 to 1024; the menu offers these steps. */
 export const DISK_SIZES = [8, 16, 32, 64, 128, 256, 512, 1024] as const;
-export const DELETE_STEPS = ["export", "computer", "data", "sessions", "record"] as const;
+export const DELETE_STEPS = ["export", "computer", "files", "data", "sessions", "record"] as const;
 export type DeleteStep = (typeof DELETE_STEPS)[number];
 export const LEGACY_OWNER_ID = "legacy-owner";
 

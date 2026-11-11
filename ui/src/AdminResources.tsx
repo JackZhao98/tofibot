@@ -63,6 +63,10 @@ export function AdminResources({openTab}: {openTab: (tab: SettingsTab) => void})
         control={<button type="button" className="st-button" onClick={() => openTab("admin")}>{t("admin.org.computers.vm_open")}</button>}/></SettingsCard>
     </SettingsSection>
 
+    <SettingsSection id="storage" title={t("admin.org.storage.title")} description={t("admin.org.storage.help")}>
+      <SettingsCard className="provider-list org-card"><FileStoreCard resource={find("file_store")} loading={loading} onChange={adopt} onDropped={dropped}/></SettingsCard>
+    </SettingsSection>
+
     <SettingsSection id="web" title={t("admin.org.web.title")} description={t("admin.org.web.help")}>
       <WebToolsSettings adapter={webAdapter} bare/>
     </SettingsSection>
@@ -145,7 +149,7 @@ function useResourceActions(id: OrgResourceId, onChange: CardProps["onChange"], 
   const [notice, setNotice] = useState("");
   async function test() {
     setTesting(true); setError(""); setNotice("");
-    try { onChange(await adminOrgApi.testResource(id)); setNotice(t("admin.org.test_ok")); }
+    try { onChange(await adminOrgApi.testResource(id)); setNotice(t(id === "file_store" ? "admin.org.file_store.test_ok" : "admin.org.test_ok")); }
     catch (cause) {
       setError(orgError(cause));
       // The provider's refusal is recorded on the resource: read it back so the badge matches.
@@ -292,6 +296,86 @@ function E2BCard({resource, loading, onChange, onDropped}: CardProps) {
       <input id={`${inputId}-template`} name="org-e2b-template" type="text" autoComplete="off" spellCheck={false} value={template} disabled={saving} onChange={event => setTemplate(event.target.value)}/>
       <div className="provider-key-row"><button type="submit" className="st-button" disabled={saving || !key.trim()}>{saving ? t("providers.verifying") : t("providers.save")}</button>{resource && <button type="button" className="st-button" disabled={saving} onClick={() => setReplacing(false)}>{t("action.cancel")}</button>}</div>
       <p className="field-note">{t("admin.org.key_note")}</p>
+    </form>}
+    <Feedback error={actions.error} notice={actions.notice}/>
+  </article>;
+}
+
+/**
+ * File storage: one S3-compatible bucket for the files people upload and Bots produce. Saving tests the connection first
+ * (a failure is named and nothing is stored). The access key pair is write-only; a blank pair keeps the stored one for the
+ * same bucket. "New files go to" is the one switch: files already in the bucket stay readable whichever is chosen.
+ */
+function FileStoreCard({resource, loading, onChange, onDropped}: CardProps) {
+  const {t} = useTranslation("settings");
+  const badge = useBadgeWord();
+  const titleId = useId(), formId = useId();
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({endpoint: "", region: "", bucket: "", prefix: "", pathStyle: false, accessKey: "", secret: "", grace: "14"});
+  const [confirmPublic, setConfirmPublic] = useState(false);
+  const [needsConfirm, setNeedsConfirm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const actions = useResourceActions("file_store", onChange, onDropped);
+  const showForm = !resource || editing;
+  const config = resource?.config;
+  useEffect(() => {
+    if (editing && config) setForm(value => ({...value, endpoint: config.endpoint ?? "", region: config.region ?? "", bucket: config.bucket ?? "", prefix: (config.prefix ?? "").replace(/\/$/, ""), pathStyle: Boolean(config.path_style), grace: String(config.delete_grace_days ?? 14), accessKey: "", secret: ""}));
+  }, [editing, config]);
+  const set = (key: keyof typeof form) => (event: {target: {value: string}}) => { setForm(value => ({...value, [key]: event.target.value})); actions.setError(""); };
+  const ready = form.endpoint.trim() && form.bucket.trim() && (resource || (form.accessKey.trim() && form.secret.trim()));
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    if (saving || !ready) return;
+    setSaving(true); actions.setError(""); actions.setNotice("");
+    try {
+      onChange(await adminOrgApi.putResource("file_store", {kind: "s3", endpoint: form.endpoint.trim(), region: form.region.trim(), bucket: form.bucket.trim(), prefix: form.prefix.trim(), path_style: form.pathStyle, delete_grace_days: Number(form.grace) || 14, confirm_public: confirmPublic,
+        ...(form.accessKey.trim() && form.secret.trim() ? {access_key_id: form.accessKey.trim(), key: form.secret.trim()} : {})}));
+      setForm(value => ({...value, accessKey: "", secret: ""})); setEditing(false); setNeedsConfirm(false); actions.setNotice(t("admin.org.saved", {name: t("admin.org.file_store.name")}));
+    } catch (cause) {
+      actions.setError(orgError(cause));
+      setNeedsConfirm(cause instanceof ApiError && cause.code === "bucket_is_public");
+    } finally { setSaving(false); }
+  }
+  async function destination(kind: "s3" | "disk") {
+    actions.setError(""); actions.setNotice("");
+    try { onChange(await adminOrgApi.putResource("file_store", {kind})); }
+    catch (cause) { actions.setError(orgError(cause)); }
+  }
+  return <article className="detail-content provider-card org-resource" data-resource="file_store" aria-labelledby={titleId} aria-busy={saving || loading}>
+    <CardHead id={titleId} title={t("admin.org.file_store.name")} state={resourceState(resource, loading)} status={badge(resource)} tag={t("admin.org.file_store.tag")}/>
+    {resource && <p className={`provider-key-line${resource.status === "rejected" ? " is-failed" : ""}`} role="status"><code className="provider-key-mask">{t("admin.org.file_store.summary", {bucket: config?.bucket ?? "", endpoint: config?.endpoint ?? ""})}</code>{resource.key_hint && <code className="provider-key-mask">{maskedKey(resource)}</code>}<StatusLine resource={resource}/></p>}
+    {resource && <div className="provider-key-row">
+      <label htmlFor={`${formId}-dest`}>{t("admin.org.file_store.destination")}</label>
+      <select id={`${formId}-dest`} data-field="destination" value={config?.kind === "disk" ? "disk" : "s3"} onChange={event => void destination(event.target.value as "s3" | "disk")}>
+        <option value="s3">{t("admin.org.file_store.dest_bucket")}</option>
+        <option value="disk">{t("admin.org.file_store.dest_disk")}</option>
+      </select>
+    </div>}
+    {resource && <p className="field-note">{t("admin.org.file_store.dest_note", {days: config?.delete_grace_days ?? 14})}</p>}
+    {resource && <div className="provider-actions">
+      <button type="button" className="text-button" aria-expanded={editing} onClick={() => { setEditing(value => !value); actions.setNotice(""); }}>{t("admin.org.edit")}</button>
+      <button type="button" className="text-button" data-action="test" disabled={actions.testing} onClick={() => void actions.test()}>{actions.testing ? t("webtools.testing") : t("admin.org.file_store.test")}</button>
+      <ConfirmAction label={t("providers.remove")} question={t("admin.org.remove_question", {name: t("admin.org.file_store.name")})} onConfirm={actions.remove}/>
+    </div>}
+    {showForm && !loading && <form className="provider-key-form" onSubmit={event => void save(event)}>
+      <label htmlFor={`${formId}-endpoint`}>{t("admin.org.file_store.endpoint")}</label>
+      <input id={`${formId}-endpoint`} name="org-file-store-endpoint" type="url" autoComplete="off" spellCheck={false} placeholder="https://<account>.r2.cloudflarestorage.com" value={form.endpoint} disabled={saving} onChange={set("endpoint")}/>
+      <label htmlFor={`${formId}-region`}>{t("admin.org.file_store.region")}</label>
+      <input id={`${formId}-region`} name="org-file-store-region" type="text" autoComplete="off" spellCheck={false} placeholder="auto" value={form.region} disabled={saving} onChange={set("region")}/>
+      <label htmlFor={`${formId}-bucket`}>{t("admin.org.file_store.bucket")}</label>
+      <input id={`${formId}-bucket`} name="org-file-store-bucket" type="text" autoComplete="off" spellCheck={false} autoCapitalize="off" value={form.bucket} disabled={saving} onChange={set("bucket")}/>
+      <label htmlFor={`${formId}-prefix`}>{t("admin.org.file_store.prefix")}</label>
+      <input id={`${formId}-prefix`} name="org-file-store-prefix" type="text" autoComplete="off" spellCheck={false} placeholder="tofi" value={form.prefix} disabled={saving} onChange={set("prefix")}/>
+      <label className="check-row"><input type="checkbox" name="org-file-store-path-style" checked={form.pathStyle} disabled={saving} onChange={event => setForm(value => ({...value, pathStyle: event.target.checked}))}/>{t("admin.org.file_store.path_style")}</label>
+      <label htmlFor={`${formId}-access`}>{t("admin.org.file_store.access_key")}</label>
+      <input id={`${formId}-access`} name="org-file-store-access-key" type="text" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={form.accessKey} disabled={saving} onChange={set("accessKey")}/>
+      <label htmlFor={`${formId}-secret`}>{t("admin.org.file_store.secret_key")}</label>
+      <input id={`${formId}-secret`} name="org-file-store-secret-key" type="password" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={form.secret} disabled={saving} onChange={set("secret")}/>
+      <label htmlFor={`${formId}-grace`}>{t("admin.org.file_store.grace")}</label>
+      <input id={`${formId}-grace`} name="org-file-store-grace" type="number" min={1} max={365} value={form.grace} disabled={saving} onChange={set("grace")}/>
+      {needsConfirm && <label className="check-row"><input type="checkbox" name="org-file-store-confirm-public" checked={confirmPublic} onChange={event => setConfirmPublic(event.target.checked)}/>{t("admin.org.file_store.confirm_public")}</label>}
+      <div className="provider-key-row"><button type="submit" className="st-button" disabled={saving || !ready || (needsConfirm && !confirmPublic)}>{saving ? t("providers.verifying") : t("admin.org.file_store.save")}</button>{resource && <button type="button" className="st-button" disabled={saving} onClick={() => setEditing(false)}>{t("action.cancel")}</button>}</div>
+      <p className="field-note">{t("admin.org.file_store.note")}</p>
     </form>}
     <Feedback error={actions.error} notice={actions.notice}/>
   </article>;

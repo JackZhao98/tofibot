@@ -19,7 +19,7 @@ export type AccountPolicy = {group: {id: string; name: string}; overrides: Parti
 /** The value a capability takes in `self_serve`, the group an account is in until an administrator moves it: today's behavior. */
 export const SELF_SERVE: PolicyMap = {ai_models: {mode: "own"}, computer: {mode: "host"}, web_search: {mode: "own"}, web_fetch: {mode: "own"}};
 
-export type OrgResourceId = "provider:anthropic" | "provider:openai" | "provider:compatible" | "computer:e2b" | "webtool:tavily" | "webtool:brave" | "webtool:firecrawl" | "webtool:brightdata";
+export type OrgResourceId = "provider:anthropic" | "provider:openai" | "provider:compatible" | "computer:e2b" | "webtool:tavily" | "webtool:brave" | "webtool:firecrawl" | "webtool:brightdata" | "file_store";
 export type OrgResourceStatus = "stored" | "verified" | "rejected";
 /** The organization's E2B computer image (`computer:e2b` only): custom (the admin's own template, never rebuilt) or the build for this TOFI version. */
 export type OrgBuild = {
@@ -43,12 +43,14 @@ export type OrgResource = {
   error_code?: string;
   updated_at: string;
   build?: OrgBuild;
-  config: {base_url?: string; models?: string[]; zone?: string; template_id?: string; [key: string]: unknown};
+  config: {base_url?: string; models?: string[]; zone?: string; template_id?: string; endpoint?: string; region?: string; bucket?: string; prefix?: string; path_style?: boolean; kind?: "s3" | "disk"; delete_grace_days?: number; [key: string]: unknown};
 };
 /** A capability some group (or account override) provides while the organization holds nothing to serve it. */
 export type OrgMissing = {capability: CapabilityId; group_ids: string[]; account_ids: string[]};
 export type OrgResources = {resources: OrgResource[]; missing: OrgMissing[]};
 export type OrgResourceInput = {key?: string; base_url?: string; models?: string[]; zone?: string; template_id?: string; workspace_id?: string};
+/** `PUT file_store`: the bucket, its access key pair (the secret is `key`, write-only), or just `kind` to choose where new files go. */
+export type FileStoreInput = {kind?: "s3" | "disk"; endpoint?: string; region?: string; bucket?: string; prefix?: string; path_style?: boolean; access_key_id?: string; key?: string; delete_grace_days?: number; confirm_public?: boolean};
 
 /** `GET /api/admin/org/web-tools`: the organization's chains. Keys go through the resources endpoints; this holds order, switches, address and caps. */
 export type OrgWebProvider = {id: string; chain: "search" | "fetch"; label: string; kind: "api" | "self_hosted"; paid: boolean; enabled: boolean; status: "ready" | "needs_key" | "needs_address" | "error"; key_prefix?: string; key_hint?: string; zone?: string; base_url?: string; error_code?: string; tested_at?: string};
@@ -66,7 +68,7 @@ export const adminOrgApi = {
   accountPolicy: (id: string) => request<AccountPolicy>(`/api/admin/accounts/${enc(id)}/policy`),
   setAccountPolicy: (id: string, body: {group_id?: string; overrides?: Partial<PolicyMap>}) => request<AccountPolicy>(`/api/admin/accounts/${enc(id)}/policy`, send("PUT", body)),
   resources: () => request<OrgResources>("/api/admin/org/resources"),
-  putResource: (id: OrgResourceId, body: OrgResourceInput) => request<OrgResource>(`/api/admin/org/resources/${enc(id)}`, send("PUT", body)),
+  putResource: (id: OrgResourceId, body: OrgResourceInput | FileStoreInput) => request<OrgResource>(`/api/admin/org/resources/${enc(id)}`, send("PUT", body)),
   deleteResource: (id: OrgResourceId) => request<{deleted: boolean; id: string; missing: OrgMissing[]}>(`/api/admin/org/resources/${enc(id)}`, send("DELETE")),
   retryBuild: () => request<OrgResource>("/api/admin/org/resources/computer:e2b/build", send("POST")),
   testResource: (id: OrgResourceId) => request<OrgResource>(`/api/admin/org/resources/${enc(id)}/test`, send("POST")),
@@ -74,7 +76,7 @@ export const adminOrgApi = {
   putWebTools: (body: {search_order?: string[]; fetch_order?: string[]; disabled?: string[]; searxng_url?: string; daily_search?: number; daily_fetch?: number}) => request<OrgWebTools>("/api/admin/org/web-tools", send("PUT", body)),
 };
 
-const errorCodes = ["invalid_policy", "group_exists", "group_limit", "group_builtin_readonly", "group_in_use", "not_found", "invalid_key", "invalid_workspace", "invalid_template", "invalid_zone", "invalid_base_url", "invalid_models", "invalid_address", "no_models", "no_quota", "provider_unreachable", "endpoint_not_allowed", "invalid_request", "custom_template", "forbidden", "storage"] as const;
+const errorCodes = ["invalid_policy", "group_exists", "group_limit", "group_builtin_readonly", "group_in_use", "not_found", "invalid_key", "invalid_workspace", "invalid_template", "invalid_zone", "invalid_base_url", "invalid_models", "invalid_address", "no_models", "no_quota", "provider_unreachable", "endpoint_not_allowed", "invalid_request", "custom_template", "forbidden", "storage", "endpoint_unreachable", "credentials_rejected", "bucket_not_found", "write_denied", "conditional_put_unsupported", "range_unsupported", "delete_denied", "bucket_is_public", "invalid_endpoint", "invalid_bucket", "invalid_prefix", "invalid_grace", "file_store_in_use"] as const;
 
 /** Words for a failed Administration call, from the server's stable code. The provider's own text is never shown. Resolved at call time. */
 export function orgError(cause: unknown): string {

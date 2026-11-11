@@ -527,7 +527,8 @@
         "computer": "Removing the Bot computer and freeing its disk",
         "data": "Removing Bots, conversations and files",
         "sessions": "Removing sign-ins",
-        "record": "Removing the account"
+        "record": "Removing the account",
+        "files": "Removing files from object storage"
       }
     },
     "deleting": {
@@ -541,7 +542,8 @@
         "computer_unverified": "The Bot computer service answered, but the removal couldn't be verified.",
         "data_failed": "The account's data folder couldn't be removed.",
         "sessions_failed": "The account's sign-ins couldn't be removed.",
-        "record_failed": "The account record couldn't be removed."
+        "record_failed": "The account record couldn't be removed.",
+        "files_failed": "The account's files couldn't be removed from object storage."
       }
     },
     "result": {
@@ -702,7 +704,20 @@
         "invalid_request": "The request was not valid.",
         "forbidden": "Administrator access is required.",
         "storage": "The server could not save this.",
-        "custom_template": "This computer uses a template you supplied. It is never rebuilt."
+        "custom_template": "This computer uses a template you supplied. It is never rebuilt.",
+        "endpoint_unreachable": "The endpoint did not answer from this server.",
+        "credentials_rejected": "The bucket rejected the access key.",
+        "bucket_not_found": "The bucket does not exist at this endpoint.",
+        "write_denied": "The access key cannot write to this bucket.",
+        "conditional_put_unsupported": "The endpoint does not support write-once puts (If-None-Match).",
+        "range_unsupported": "The endpoint does not support ranged reads.",
+        "delete_denied": "The access key cannot delete objects in this bucket.",
+        "bucket_is_public": "The bucket answers reads without credentials. Make it private, or confirm to keep it.",
+        "invalid_endpoint": "Enter the endpoint as https://host, with no path.",
+        "invalid_bucket": "Enter the bucket name.",
+        "invalid_prefix": "The prefix takes lowercase letters, digits, dots, dashes and slashes.",
+        "invalid_grace": "Deleted files are kept 1 to 365 days.",
+        "file_store_in_use": "Files are stored in this bucket. Its address cannot change, and it cannot be removed, until they are moved."
       },
       "missing_accounts_one": "{{count}} account override",
       "missing_accounts_other": "{{count}} account overrides",
@@ -731,6 +746,32 @@
           "e2b_limit": "The E2B account limit is reached. Free capacity in E2B, then retry the build.",
           "template_stale_in_team": "The E2B team already holds a template named tofi-computer-{{version}} whose last build failed, and E2B won't accept a new build on it. Delete that template in the E2B dashboard (the team owner can), then retry the build."
         }
+      },
+      "storage": {
+        "title": "File storage",
+        "help": "Where this server keeps the files people upload and Bots produce. Without a bucket, files stay on this server's disk."
+      },
+      "file_store": {
+        "name": "Object storage",
+        "tag": "S3-compatible",
+        "summary": "{{bucket}} at {{endpoint}}",
+        "endpoint": "Endpoint",
+        "region": "Region",
+        "bucket": "Bucket",
+        "prefix": "Prefix (optional)",
+        "path_style": "Path-style addressing",
+        "access_key": "Access key ID",
+        "secret_key": "Secret access key",
+        "grace": "Keep deleted files (days)",
+        "destination": "New files go to",
+        "dest_bucket": "Object storage",
+        "dest_disk": "This server's disk",
+        "dest_note": "Files already in the bucket stay readable whichever you choose. Deleted files are kept {{days}} days.",
+        "confirm_public": "Keep this bucket although it answers requests without credentials",
+        "save": "Test and save",
+        "test": "Test connection",
+        "test_ok": "Connection verified.",
+        "note": "The access key pair is stored sealed and never shown again. Use a private bucket and a key limited to it."
       }
     }
   },

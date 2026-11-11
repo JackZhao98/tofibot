@@ -52,7 +52,10 @@
     "problem": {
       "file_on_detached_computer": "このファイルは、切り離された Bot コンピューターにしかありません。Bot コンピューターを接続し直すと開けます。",
       "file_missing_on_computer": "このファイルは Bot コンピューターからなくなり、サーバーにもコピーされていないため、復元できません。",
-      "open_computer": "Bot コンピューターの設定を開く"
+      "open_computer": "Bot コンピューターの設定を開く",
+      "file_missing_in_store": "このファイルはファイルストアにありません。",
+      "file_store_unavailable": "ファイルストアに現在接続できません。しばらくしてからもう一度お試しください。",
+      "file_store_misconfigured": "ファイルストアの設定が正しくありません。管理者に「ファイルストレージ」の確認を依頼してください。"
     }
   },
   "botPanel": {

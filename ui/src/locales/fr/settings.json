@@ -532,7 +532,8 @@
         "computer": "Suppression de l’ordinateur Bot et libération du disque",
         "data": "Suppression des Bots, conversations et fichiers",
         "sessions": "Suppression des connexions",
-        "record": "Suppression du compte"
+        "record": "Suppression du compte",
+        "files": "Suppression des fichiers du stockage objet"
       }
     },
     "deleting": {
@@ -546,7 +547,8 @@
         "computer_unverified": "Le service d’ordinateur Bot a répondu, mais la suppression n’a pas pu être vérifiée.",
         "data_failed": "Le dossier de données du compte n’a pas pu être supprimé.",
         "sessions_failed": "Les connexions du compte n’ont pas pu être supprimées.",
-        "record_failed": "L’enregistrement du compte n’a pas pu être supprimé."
+        "record_failed": "L’enregistrement du compte n’a pas pu être supprimé.",
+        "files_failed": "Les fichiers du compte n'ont pas pu être supprimés du stockage objet."
       }
     },
     "result": {
@@ -709,7 +711,20 @@
         "invalid_request": "La requête n’est pas valide.",
         "forbidden": "Un accès administrateur est requis.",
         "storage": "Le serveur n’a pas pu l’enregistrer.",
-        "custom_template": "Cet ordinateur utilise un modèle que vous avez fourni. Il n’est jamais reconstruit."
+        "custom_template": "Cet ordinateur utilise un modèle que vous avez fourni. Il n’est jamais reconstruit.",
+        "endpoint_unreachable": "L'endpoint ne répond pas depuis ce serveur.",
+        "credentials_rejected": "Le bucket a refusé la clé d'accès.",
+        "bucket_not_found": "Ce bucket n'existe pas sur cet endpoint.",
+        "write_denied": "La clé d'accès ne peut pas écrire dans ce bucket.",
+        "conditional_put_unsupported": "L'endpoint ne prend pas en charge les écritures uniques (If-None-Match).",
+        "range_unsupported": "L'endpoint ne prend pas en charge les lectures par plage.",
+        "delete_denied": "La clé d'accès ne peut pas supprimer d'objets dans ce bucket.",
+        "bucket_is_public": "Le bucket répond aux lectures sans identifiants. Rendez-le privé, ou confirmez pour le garder tel quel.",
+        "invalid_endpoint": "Saisissez l'endpoint sous la forme https://hôte, sans chemin.",
+        "invalid_bucket": "Saisissez le nom du bucket.",
+        "invalid_prefix": "Le préfixe accepte les minuscules, les chiffres, les points, les tirets et les barres obliques.",
+        "invalid_grace": "Les fichiers supprimés sont conservés de 1 à 365 jours.",
+        "file_store_in_use": "Des fichiers sont stockés dans ce bucket. Son adresse ne peut pas changer, et il ne peut pas être retiré, tant qu'ils ne sont pas déplacés."
       },
       "missing_accounts_one": "{{count}} exception de compte",
       "missing_accounts_many": "{{count}} exceptions de compte",
@@ -739,6 +754,32 @@
           "e2b_limit": "La limite du compte E2B est atteinte. Libérez de la capacité dans E2B, puis relancez la construction.",
           "template_stale_in_team": "L’équipe E2B contient déjà un modèle nommé tofi-computer-{{version}} dont la dernière construction a échoué, et E2B n’en accepte pas de nouvelle dessus. Supprimez ce modèle dans le tableau de bord E2B (le propriétaire de l’équipe le peut), puis relancez la construction."
         }
+      },
+      "storage": {
+        "title": "Stockage de fichiers",
+        "help": "L'endroit où ce serveur conserve les fichiers envoyés par les personnes et produits par les Bots. Sans bucket, les fichiers restent sur le disque de ce serveur."
+      },
+      "file_store": {
+        "name": "Stockage objet",
+        "tag": "Compatible S3",
+        "summary": "{{bucket}} sur {{endpoint}}",
+        "endpoint": "Endpoint",
+        "region": "Région",
+        "bucket": "Bucket",
+        "prefix": "Préfixe (facultatif)",
+        "path_style": "Adressage path-style",
+        "access_key": "ID de clé d'accès",
+        "secret_key": "Clé d'accès secrète",
+        "grace": "Conserver les fichiers supprimés (jours)",
+        "destination": "Les nouveaux fichiers vont dans",
+        "dest_bucket": "Stockage objet",
+        "dest_disk": "Disque de ce serveur",
+        "dest_note": "Les fichiers déjà dans le bucket restent lisibles quel que soit le choix. Les fichiers supprimés sont conservés {{days}} jours.",
+        "confirm_public": "Garder ce bucket bien qu'il réponde aux requêtes sans identifiants",
+        "save": "Tester et enregistrer",
+        "test": "Tester la connexion",
+        "test_ok": "Connexion vérifiée.",
+        "note": "La paire de clés d'accès est stockée scellée et ne s'affiche plus jamais. Utilisez un bucket privé et une clé limitée à ce bucket."
       }
     }
   },

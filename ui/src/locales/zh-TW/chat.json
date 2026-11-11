@@ -52,7 +52,10 @@
     "problem": {
       "file_on_detached_computer": "這個檔案只存放在已分離的 Bot 電腦上。重新連接 Bot 電腦後即可開啟。",
       "file_missing_on_computer": "這個檔案已不在 Bot 電腦上，也沒有複製到伺服器，無法復原。",
-      "open_computer": "開啟 Bot 電腦設定"
+      "open_computer": "開啟 Bot 電腦設定",
+      "file_missing_in_store": "檔案儲存中已沒有這個檔案。",
+      "file_store_unavailable": "檔案儲存暫時無法連線，請稍後再試。",
+      "file_store_misconfigured": "檔案儲存設定不正確，請聯絡管理員檢查「檔案儲存」。"
     }
   },
   "botPanel": {
