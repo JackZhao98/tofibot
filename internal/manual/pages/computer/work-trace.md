@@ -2,13 +2,13 @@
 id: computer/work-trace
 title: Work trace
 summary: The pictures of a Bot's screen work, what is never kept, how long they stay, and how to turn them off or delete them.
-link: /settings/automation#computer
+link: /settings/advanced#computer
 kind: guide
-see_also: computer/kvm, settings/automation
+see_also: computer/kvm, settings/advanced
 ---
 # Work trace
 
-Open this page: [{{ui:settings:shell.page.automation.name}}](/settings/automation#computer)
+Open this page: [{{ui:settings:shell.page.advanced.name}}](/settings/advanced#computer)
 
 When a Bot works on the Bot computer, the server keeps a small picture of each screenshot the Bot looks at. When the run ends, the pictures join into one strip. The strip is a folded line at the end of the run's Activity list. Open it to see the whole strip, then select one step to see its picture.
 

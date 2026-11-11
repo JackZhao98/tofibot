@@ -58,16 +58,12 @@
         "name": "Environnements",
         "description": "Ordinateurs cloud, ce serveur et vos Mac"
       },
-      "keys": {
-        "name": "Clés de l’ordinateur Bot",
-        "description": "Variables d’environnement et clés SSH de l’ordinateur Bot"
-      },
       "usage": {
         "name": "Utilisation",
         "description": "Consommation des modèles et compression du contexte par agent"
       },
       "advanced": {
-        "name": "Maintenance",
+        "name": "Système",
         "description": "Version, serveur, données, débogage et réinitialisation."
       },
       "admin": {
@@ -77,14 +73,6 @@
       "automation": {
         "name": "Comportement",
         "description": "Voir et ajuster ce que Tofi fait tout seul"
-      },
-      "allowances": {
-        "name": "Règles des outils",
-        "description": "Relecteur, demandes des outils et autorisations"
-      },
-      "tools": {
-        "name": "Recherche et lecture",
-        "description": "Où les Bots cherchent et lisent le web"
       },
       "devices": {
         "name": "Autres appareils",
@@ -127,8 +115,7 @@
     "tag": {
       "beta": "Bêta",
       "dev": "En développement"
-    },
-    "more": "Plus"
+    }
   },
   "appearance": {
     "title": "Thème",
@@ -557,7 +544,7 @@
       "once": "Affichée une seule fois. Tofi ne la conserve pas après cette étape.",
       "expires": "Disponible jusqu’au {{date}}.",
       "message_label": "Message à envoyer",
-      "message": "Votre compte TOFI a été fermé. Téléchargez vos Bots : {{link}} (phrase secrète envoyée séparément), disponible jusqu’au {{date}}. Importez-les dans Tofi : Réglages → Maintenance → Transfert de données, puis saisissez la phrase secrète.",
+      "message": "Votre compte TOFI a été fermé. Téléchargez vos Bots : {{link}} (phrase secrète envoyée séparément), disponible jusqu’au {{date}}. Importez-les dans Tofi : Réglages → Système → Données → Import, puis saisissez la phrase secrète.",
       "message_note": "Envoyez la phrase secrète dans un autre message ou par un autre canal.",
       "copy_message": "Copier le message",
       "done": "J’ai enregistré la phrase secrète"
@@ -771,7 +758,9 @@
     "mode_auto": "Automatique · Revoir, puis suivre la politique d’exécution",
     "note_off": "Désactivé : aucune revue n’est demandée. L’approbation humaine existante et les exemptions en lecture seule de confiance restent en place. La désactivation annule aussitôt les approbations automatiques qui n’ont pas encore obtenu leur exécution.",
     "note_shadow": "Observation : enregistre en arrière-plan un avis pour chaque outil externe, sans ajouter d’attente ni de droit d’exécution. L’approbation humaine existante et les circuits en lecture seule de confiance restent en vigueur. La désactivation annule aussitôt les approbations automatiques qui n’ont pas encore obtenu leur exécution.",
-    "note_auto": "Automatique : revoit chaque outil externe. Les propositions autorisées à risque faible ou moyen peuvent obtenir automatiquement une exécution unique ; celles à risque élevé qui demandent une confirmation nécessitent toujours votre approbation. Les refus, les contextes manquants et les liaisons invalides ne peuvent pas s’exécuter. La désactivation annule aussitôt les approbations automatiques qui n’ont pas encore obtenu leur exécution."
+    "note_auto": "Automatique : revoit chaque outil externe. Les propositions autorisées à risque faible ou moyen peuvent obtenir automatiquement une exécution unique ; celles à risque élevé qui demandent une confirmation nécessitent toujours votre approbation. Les refus, les contextes manquants et les liaisons invalides ne peuvent pas s’exécuter. La désactivation annule aussitôt les approbations automatiques qui n’ont pas encore obtenu leur exécution.",
+    "observe": "Mode observation",
+    "observe_hint": "Le relecteur note ses conseils sans rien changer d'autre. Il ne compte que tant que les approbations vous interrogent."
   },
   "dictation": {
     "load_failed": "Impossible de charger les réglages de Dictate",
@@ -936,7 +925,9 @@
     "data": "Données",
     "debug": "Débogage",
     "danger": "Zone de danger",
-    "version": "Version"
+    "version": "Version",
+    "behavior_hint": "Ce que les Bots font seuls, et jusqu’où",
+    "diagnostics": "Dépannage"
   },
   "update": {
     "banner": {
@@ -1112,7 +1103,7 @@
         "description": "Quel modèle prend en charge quel type de travail."
       },
       "replies": {
-        "title": "Réponses",
+        "title": "Réponses et historique",
         "description": "Comment les Bots livrent ce qu’ils disent."
       },
       "history": {
@@ -1138,6 +1129,15 @@
       "widgets": {
         "title": "Widgets latéraux",
         "description": "De petits blocs qui s'ouvrent seuls à côté de la conversation."
+      },
+      "groups": {
+        "title": "Conversations de groupe"
+      },
+      "reviews": {
+        "title": "Vérifications"
+      },
+      "tasks": {
+        "title": "Répartition des tâches"
       }
     },
     "item": {
@@ -1331,7 +1331,13 @@
     "keep_all": "Tout conserver",
     "in_permissions": "À régler dans « Autorisations »",
     "origins_placeholder": "bank.example.com",
-    "empty_list": "Aucune"
+    "empty_list": "Aucune",
+    "common": "Courants",
+    "more": "Plus",
+    "fold": {
+      "items": "{{n}} réglages",
+      "changed": "{{n}} réglages · {{changed}} modifié(s)"
+    }
   },
   "webtools": {
     "title": "Recherche et lecture web",
@@ -1450,6 +1456,9 @@
       "read": "Outils que le service ou vous marquez en lecture seule.",
       "write": "Par défaut. Chaque appel est examiné : ce que vous avez demandé s’exécute, le reste vous demande d’abord.",
       "high": "Vous décidez de chaque appel. Sans personne à qui demander, l’appel ne s’exécute pas."
+    },
+    "advanced": {
+      "title": "Avancé"
     }
   },
   "chats": {
@@ -1671,10 +1680,6 @@
     "reset": "Rétablir le groupe",
     "member": {
       "managed": "Géré par la politique",
-      "banner_title": "Certaines ressources sont fournies par votre organisation",
-      "banner_body": "Votre administrateur gère une partie de ce que les Bots utilisent, comme les modèles, la recherche ou l’ordinateur du Bot. Ces réglages sont en lecture seule ici.",
-      "banner_action": "Consulter",
-      "banner_dismiss": "Ignorer",
       "models": {
         "title": "Modèles fournis par votre organisation",
         "body": "Les Bots s’exécutent sur les comptes de modèles de votre organisation. Les clés d’API et la connexion sont gérées par votre administrateur.",
@@ -1692,5 +1697,11 @@
   "changed": {
     "note": "Modifié · par défaut {{value}}",
     "reset": "Réinitialiser"
+  },
+  "models": {
+    "more": "Plus"
+  },
+  "computer": {
+    "keys_row": "Variables d'environnement et clés SSH"
   }
 }

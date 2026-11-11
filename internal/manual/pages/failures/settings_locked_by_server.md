@@ -2,12 +2,12 @@
 id: failures/settings_locked_by_server
 title: settings_locked_by_server
 summary: The server environment sets this value, so neither the page nor the tool can change it.
-link: /settings/automation
+link: /settings/advanced#behavior
 kind: failure
 ---
 # settings_locked_by_server
 
-Open this page: [Where to look](/settings/automation)
+Open this page: [Where to look](/settings/advanced#behavior)
 
 **Meaning.** The server environment sets this value, so neither the page nor the tool can change it.
 

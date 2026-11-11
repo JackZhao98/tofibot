@@ -9,4 +9,6 @@ kind: reference
 
 Open this page: [{{ui:settings:shell.page.connections.name}}](/settings/connections)
 
-The settings tool has no key on this page. A person changes it on the page.
+| Name | Key | Values | Default | Change class | Where |
+|---|---|---|---|---|---|
+| {{ui:settings:webtools.title}} | `web_tools.keys` | not available to the tool |  | forbidden: the person changes it on the page | `/settings/connections#web` |

@@ -58,16 +58,12 @@
         "name": "Environments",
         "description": "Cloud computers, this server and your Macs"
       },
-      "keys": {
-        "name": "Bot computer keys",
-        "description": "Environment variables and SSH keys for the Bot computer"
-      },
       "usage": {
         "name": "Usage",
         "description": "Model usage and context compaction for each agent"
       },
       "advanced": {
-        "name": "Maintenance",
+        "name": "System",
         "description": "Version, server, data, debugging and Start over."
       },
       "admin": {
@@ -77,14 +73,6 @@
       "automation": {
         "name": "Behavior",
         "description": "See and adjust what Tofi does on its own"
-      },
-      "allowances": {
-        "name": "Tool rules",
-        "description": "Reviewer, how tools ask, and what you’ve allowed"
-      },
-      "tools": {
-        "name": "Search & fetch",
-        "description": "Where Bots search and read the web"
       },
       "devices": {
         "name": "Other devices",
@@ -127,8 +115,7 @@
     "tag": {
       "beta": "Beta",
       "dev": "In development"
-    },
-    "more": "More"
+    }
   },
   "appearance": {
     "title": "Theme",
@@ -552,7 +539,7 @@
       "once": "Shown once. Tofi doesn't keep it after you continue.",
       "expires": "Available until {{date}}.",
       "message_label": "Message to send",
-      "message": "Your TOFI account was closed. Download your Bots: {{link}} (passphrase sent separately), available until {{date}}. Import it in Tofi: Settings → Maintenance → Data transfer, then enter the passphrase.",
+      "message": "Your TOFI account was closed. Download your Bots: {{link}} (passphrase sent separately), available until {{date}}. Import it in Tofi: Settings → System → Data → Import, then enter the passphrase.",
       "message_note": "Send the passphrase in a different message or channel.",
       "copy_message": "Copy message",
       "done": "I've saved the passphrase"
@@ -763,7 +750,9 @@
     "mode_auto": "Auto · Review, then follow the execution policy",
     "note_off": "Off: no reviews are requested. Existing human approval and trusted read-only exemptions stay in place. Turning it off immediately voids automatic approvals that haven't claimed execution yet.",
     "note_shadow": "Observe: records advice for every external tool in the background, without adding waits or execution permission. Existing human approval and trusted read-only paths stay in effect. Turning it off immediately voids automatic approvals that haven't claimed execution yet.",
-    "note_auto": "Auto: reviews every external tool. Authorized low- or medium-risk proposals can claim a single execution automatically; high-risk proposals that need confirmation still need your approval. Denials, missing context and invalid bindings can't run. Turning it off immediately voids automatic approvals that haven't claimed execution yet."
+    "note_auto": "Auto: reviews every external tool. Authorized low- or medium-risk proposals can claim a single execution automatically; high-risk proposals that need confirmation still need your approval. Denials, missing context and invalid bindings can't run. Turning it off immediately voids automatic approvals that haven't claimed execution yet.",
+    "observe": "Observe mode",
+    "observe_hint": "The reviewer records its advice and changes nothing else. It applies only while approvals still ask you."
   },
   "dictation": {
     "load_failed": "Couldn't load Dictate settings",
@@ -924,7 +913,9 @@
     "data": "Data",
     "debug": "Debug",
     "danger": "Danger zone",
-    "version": "Version"
+    "version": "Version",
+    "behavior_hint": "What Bots do on their own, and how far",
+    "diagnostics": "Troubleshooting"
   },
   "update": {
     "banner": {
@@ -1100,7 +1091,7 @@
         "description": "Which model handles which kind of work."
       },
       "replies": {
-        "title": "Replies",
+        "title": "Replies and history",
         "description": "How Bots deliver what they say."
       },
       "history": {
@@ -1126,6 +1117,15 @@
       "widgets": {
         "title": "Side widgets",
         "description": "Small blocks that open beside the chat on their own."
+      },
+      "groups": {
+        "title": "Group chats"
+      },
+      "reviews": {
+        "title": "Reviews"
+      },
+      "tasks": {
+        "title": "Task splitting"
       }
     },
     "item": {
@@ -1319,7 +1319,13 @@
     "keep_all": "Keep everything",
     "in_permissions": "Set in Permissions",
     "origins_placeholder": "bank.example.com",
-    "empty_list": "None"
+    "empty_list": "None",
+    "common": "Common",
+    "more": "More",
+    "fold": {
+      "items": "{{n}} settings",
+      "changed": "{{n}} settings · {{changed}} changed"
+    }
   },
   "webtools": {
     "title": "Web search & fetch",
@@ -1437,6 +1443,9 @@
       "read": "Read-only tools the service marks, or you mark.",
       "write": "The default. Each call is reviewed: what you asked for runs, the rest asks you.",
       "high": "You decide every call. When no one is there to ask, the call does not run."
+    },
+    "advanced": {
+      "title": "Advanced"
     }
   },
   "chats": {
@@ -1658,10 +1667,6 @@
     "reset": "Reset to group",
     "member": {
       "managed": "Managed by policy",
-      "banner_title": "Some resources are provided by your organization",
-      "banner_body": "Your administrator manages some of what Bots use, such as models, search or the Bot computer. Those settings are read-only here.",
-      "banner_action": "Review",
-      "banner_dismiss": "Dismiss",
       "models": {
         "title": "Models provided by your organization",
         "body": "Bots run on your organization's model accounts. API keys and sign-in are managed by your administrator.",
@@ -1679,5 +1684,11 @@
   "changed": {
     "note": "Changed · default {{value}}",
     "reset": "Reset"
+  },
+  "models": {
+    "more": "More"
+  },
+  "computer": {
+    "keys_row": "Environment variables and SSH keys"
   }
 }

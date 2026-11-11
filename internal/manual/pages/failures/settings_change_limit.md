@@ -2,12 +2,12 @@
 id: failures/settings_change_limit
 title: settings_change_limit
 summary: This run already made the most settings changes it may make.
-link: /settings/automation#checks
+link: /settings/advanced#data
 kind: failure
 ---
 # settings_change_limit
 
-Open this page: [Where to look](/settings/automation#checks)
+Open this page: [Where to look](/settings/advanced#data)
 
 **Meaning.** This run already made the most settings changes it may make.
 

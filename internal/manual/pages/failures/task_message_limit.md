@@ -2,12 +2,12 @@
 id: failures/task_message_limit
 title: task_message_limit
 summary: The Bots passed the limit of messages to each other without progress.
-link: /settings/automation#reliability
+link: /settings/advanced#tasks
 kind: failure
 ---
 # task_message_limit
 
-Open this page: [Where to look](/settings/automation#reliability)
+Open this page: [Where to look](/settings/advanced#tasks)
 
 **Meaning.** The Bots passed the limit of messages to each other without progress.
 

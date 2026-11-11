@@ -1043,7 +1043,7 @@ func TestRetentionIsASettingAndZeroKeepsEverything(t *testing.T) {
 		t.Fatalf("default %d, want 30", got)
 	}
 	item, ok := automationItemFor(autoTaskRetentionDays)
-	if !ok || item.Group != "history" || item.Min != 0 {
+	if !ok || item.Group != "replies" || item.Min != 0 {
 		t.Fatalf("item %+v", item)
 	}
 	zero := "0"

@@ -2,12 +2,12 @@
 id: failures/settings_primary_reassign_required
 title: settings_primary_reassign_required
 summary: The Primary Assistant cannot be archived or deleted while other Bots exist.
-link: /settings/general#primary
+link: /b/{bot}/settings#identity
 kind: failure
 ---
 # settings_primary_reassign_required
 
-Open this page: [Where to look](/settings/general#primary)
+Open this page: [Where to look](/b/{bot}/settings#identity)
 
 **Meaning.** The Primary Assistant cannot be archived or deleted while other Bots exist.
 

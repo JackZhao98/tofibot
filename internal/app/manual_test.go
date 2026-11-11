@@ -44,7 +44,7 @@ func TestManualCoversSettings(t *testing.T) {
 		if item.Key == autoMCPReview {
 			continue
 		}
-		page, _ := manual.Get("settings/automation")
+		page, _ := manual.Get("settings/advanced")
 		if !strings.Contains(page.Body, "`automation."+item.Key+"`") {
 			t.Errorf("automation item %s has no row in the manual", item.Key)
 		}
