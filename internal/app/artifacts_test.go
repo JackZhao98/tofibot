@@ -283,3 +283,30 @@ func TestArtifactsAccountIsolation(t *testing.T) {
 		t.Fatalf("anonymous: %d", w.Code)
 	}
 }
+
+func TestArtifactsListBotFilesOnlyInTheFilesView(t *testing.T) {
+	s, err := OpenStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	srv := &Server{store: s}
+	b, _ := s.CreateBot("one", "", "m")
+	publishArtifact(t, s, b.DMConversationID, "assistant", b.ID, "report.md", "text/markdown", "2026-01-01T00:00:01Z")
+	shot := publishArtifact(t, s, b.DMConversationID, "assistant", b.ID, "screen.png", "image/png", "2026-01-01T00:00:02Z")
+	if _, err = s.db.Exec(`UPDATE attachments SET origin=? WHERE id=?`, attachmentOriginBotFile, shot.ID); err != nil {
+		t.Fatal(err)
+	}
+	if got := artifactNames(getArtifacts(t, srv, "scope=all")); got != "report.md" {
+		t.Fatalf("deliverables: %s", got)
+	}
+	if got := artifactNames(getArtifacts(t, srv, "scope=bot&id="+b.ID)); got != "report.md" {
+		t.Fatalf("bot deliverables: %s", got)
+	}
+	if got := artifactNames(getArtifacts(t, srv, "scope=all&include_uploads=1")); got != "screen.png,report.md" {
+		t.Fatalf("files: %s", got)
+	}
+	if got := artifactNames(getArtifacts(t, srv, "scope=bot&id="+b.ID+"&include_uploads=1")); got != "screen.png,report.md" {
+		t.Fatalf("bot files: %s", got)
+	}
+}

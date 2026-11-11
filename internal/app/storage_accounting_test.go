@@ -400,7 +400,7 @@ func TestStorageAPIShape(t *testing.T) {
 	if c := out["computer"].(map[string]any); c["logical_bytes"].(float64) != 5 || c["allocated_bytes"].(float64) != 7 {
 		t.Fatalf("computer: %v", c)
 	}
-	if classes := out["classes"].([]any); len(classes) != 7 {
+	if classes := out["classes"].([]any); len(classes) != 8 {
 		t.Fatalf("classes: %v", classes)
 	}
 	// The counters are live: a new file shows without another reconcile.
@@ -559,4 +559,26 @@ func newMultipart(body *bytes.Buffer, field, filename, content string) string {
 	part.Write([]byte(content))
 	form.Close()
 	return form.FormDataContentType()
+}
+
+func TestBotFileOriginCountsInItsOwnClass(t *testing.T) {
+	s, conv, _ := storageStore(t)
+	addOrigin(t, s, conv.ID, "shot.png", attachmentOriginBotFile, "12345")
+	if b, o := counter(t, s, "bot_files"); b != 5 || o != 1 {
+		t.Fatalf("bot_files = %d / %d", b, o)
+	}
+	if b, _ := counter(t, s, "uploads"); b != 0 {
+		t.Fatalf("uploads = %d", b)
+	}
+	// A database with the old triggers picks the new mapping up on start.
+	if _, err := s.db.Exec(`DROP TRIGGER storage_attachments_ai`); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrateStorageCounters(s.db); err != nil {
+		t.Fatal(err)
+	}
+	addOrigin(t, s, conv.ID, "shot2.png", attachmentOriginBotFile, "123")
+	if b, o := counter(t, s, "bot_files"); b != 8 || o != 2 {
+		t.Fatalf("bot_files after = %d / %d", b, o)
+	}
 }

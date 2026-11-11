@@ -51,7 +51,7 @@ func TestMailDraftStoresAttachmentIDAndComputerFile(t *testing.T) {
 		t.Fatalf("attachments=%+v", got)
 	}
 	var origin, botID string
-	if err := s.store.db.QueryRow(`SELECT origin,COALESCE(bot_id,'') FROM attachments WHERE id=?`, got[1].ID).Scan(&origin, &botID); err != nil || origin != attachmentOriginGenerated || botID != bot.ID {
+	if err := s.store.db.QueryRow(`SELECT origin,COALESCE(bot_id,'') FROM attachments WHERE id=?`, got[1].ID).Scan(&origin, &botID); err != nil || origin != attachmentOriginBotFile || botID != bot.ID {
 		t.Fatalf("draft attachment origin=%q bot=%q err=%v", origin, botID, err)
 	}
 	// The upload stays an upload.

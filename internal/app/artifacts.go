@@ -81,7 +81,7 @@ func (s *Store) listArtifacts(q artifactQuery) ([]ArtifactItem, bool, error) {
 	}
 	var args []any
 	origin := `SELECT a.id,a.name,a.mime,a.size,a.created_at,a.conversation_id,c.name AS cname,c.kind AS ckind,COALESCE(c.bot_id,'') AS cbot,c.archived AS carch,
-		m.id AS mid,m.seq AS mseq,m.role AS role,COALESCE(m.sender_bot_id,'') AS sender,
+		m.id AS mid,m.seq AS mseq,m.role AS role,COALESCE(m.sender_bot_id,'') AS sender,a.origin AS origin,
 		ROW_NUMBER() OVER (PARTITION BY a.id ORDER BY m.created_at,m.seq,am.rowid) AS ord
 		FROM attachments a
 		JOIN attachment_messages am ON am.attachment_id=a.id
@@ -93,9 +93,10 @@ func (s *Store) listArtifacts(q artifactQuery) ([]ArtifactItem, bool, error) {
 		args = append(args, q.id)
 	}
 	where := []string{`ord=1`}
-	roles := `(role='assistant' AND sender<>'')`
+	// A bot_file is a File, not a Bot deliverable: it lists only in the files view.
+	roles := `(role='assistant' AND sender<>'' AND origin<>'bot_file')`
 	if q.includeUploads {
-		roles = `(` + roles + ` OR role='user')`
+		roles = `(role='user' OR (role='assistant' AND sender<>''))`
 	}
 	where = append(where, roles)
 	if q.scope == "bot" {

@@ -13,6 +13,7 @@
     "generated": "Erzeugte Bilder",
     "outbox": "Outbox des Bot-Computers",
     "mirror": "Spiegelkopien",
+    "bot_files": "Bot-Dateien",
     "conversations": "Unterhaltungen",
     "db": "Datenbank"
   },

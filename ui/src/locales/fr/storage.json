@@ -13,6 +13,7 @@
     "generated": "Images générées",
     "outbox": "Outbox de l'ordinateur Bot",
     "mirror": "Copies miroir",
+    "bot_files": "Fichiers du bot",
     "conversations": "Conversations",
     "db": "Base de données"
   },

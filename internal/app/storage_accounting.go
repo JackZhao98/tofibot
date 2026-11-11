@@ -53,12 +53,12 @@ const (
 )
 
 // storageAttachmentClasses are the billable file classes, in display order.
-var storageAttachmentClasses = []string{"uploads", "published", "generated", "outbox", "mirror"}
+var storageAttachmentClasses = []string{"uploads", "published", "generated", "outbox", "mirror", "bot_files"}
 
 // storageClassSQL maps attachments.origin to a counter class. `upload` and any
 // unknown origin count as uploads so no byte is ever left out.
 func storageClassSQL(row string) string {
-	return "CASE " + row + ".origin WHEN 'published' THEN 'published' WHEN 'generated' THEN 'generated' WHEN 'outbox' THEN 'outbox' WHEN 'mirror' THEN 'mirror' ELSE 'uploads' END"
+	return "CASE " + row + ".origin WHEN 'published' THEN 'published' WHEN 'generated' THEN 'generated' WHEN 'outbox' THEN 'outbox' WHEN 'mirror' THEN 'mirror' WHEN 'bot_file' THEN 'bot_files' ELSE 'uploads' END"
 }
 
 // Error codes. They are part of the API; keep them stable.
@@ -126,15 +126,18 @@ func migrateStorageCounters(db *sql.DB) error {
 		 class TEXT PRIMARY KEY, bytes INTEGER NOT NULL DEFAULT 0, objects INTEGER NOT NULL DEFAULT 0, measured_at TEXT NOT NULL)`,
 		`CREATE TABLE IF NOT EXISTS storage_breakdown(
 		 id INTEGER PRIMARY KEY CHECK(id=1), measured_at TEXT NOT NULL, detail TEXT NOT NULL)`,
-		`CREATE TRIGGER IF NOT EXISTS storage_attachments_ai AFTER INSERT ON attachments BEGIN
+		`DROP TRIGGER IF EXISTS storage_attachments_ai`,
+		`CREATE TRIGGER storage_attachments_ai AFTER INSERT ON attachments BEGIN
 		 INSERT INTO storage_counters(class,bytes,objects,measured_at) VALUES(` + storageClassSQL("NEW") + `,MAX(0,NEW.size),1,strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 		 ON CONFLICT(class) DO UPDATE SET bytes=bytes+excluded.bytes,objects=objects+1,measured_at=excluded.measured_at;
 		END`,
-		`CREATE TRIGGER IF NOT EXISTS storage_attachments_ad AFTER DELETE ON attachments BEGIN
+		`DROP TRIGGER IF EXISTS storage_attachments_ad`,
+		`CREATE TRIGGER storage_attachments_ad AFTER DELETE ON attachments BEGIN
 		 INSERT INTO storage_counters(class,bytes,objects,measured_at) VALUES(` + storageClassSQL("OLD") + `,0,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 		 ON CONFLICT(class) DO UPDATE SET bytes=MAX(0,bytes-OLD.size),objects=MAX(0,objects-1),measured_at=excluded.measured_at;
 		END`,
-		`CREATE TRIGGER IF NOT EXISTS storage_attachments_au AFTER UPDATE OF size,origin ON attachments BEGIN
+		`DROP TRIGGER IF EXISTS storage_attachments_au`,
+		`CREATE TRIGGER storage_attachments_au AFTER UPDATE OF size,origin ON attachments BEGIN
 		 INSERT INTO storage_counters(class,bytes,objects,measured_at) VALUES(` + storageClassSQL("OLD") + `,0,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 		 ON CONFLICT(class) DO UPDATE SET bytes=MAX(0,bytes-OLD.size),objects=MAX(0,objects-1),measured_at=excluded.measured_at;
 		 INSERT INTO storage_counters(class,bytes,objects,measured_at) VALUES(` + storageClassSQL("NEW") + `,MAX(0,NEW.size),1,strftime('%Y-%m-%dT%H:%M:%fZ','now'))
@@ -176,7 +179,7 @@ func reconcileAttachmentCounters(db *sql.DB) ([]counterDrift, error) {
 	defer tx.Rollback()
 	type pair struct{ bytes, objs int64 }
 	stored, actual := map[string]pair{}, map[string]pair{}
-	rows, err := tx.Query(`SELECT class,bytes,objects FROM storage_counters WHERE class IN ('uploads','published','generated','outbox','mirror')`)
+	rows, err := tx.Query(`SELECT class,bytes,objects FROM storage_counters WHERE class IN ('uploads','published','generated','outbox','mirror','bot_files')`)
 	if err != nil {
 		return nil, err
 	}
@@ -296,7 +299,7 @@ func (s *Store) databaseBytes() int64 {
 // serverBytes is the billable usage: counted file bytes plus database bytes.
 func (s *Store) serverBytes() (int64, error) {
 	var files int64
-	err := s.db.QueryRow(`SELECT COALESCE(SUM(bytes),0) FROM storage_counters WHERE class IN ('uploads','published','generated','outbox','mirror')`).Scan(&files)
+	err := s.db.QueryRow(`SELECT COALESCE(SUM(bytes),0) FROM storage_counters WHERE class IN ('uploads','published','generated','outbox','mirror','bot_files')`).Scan(&files)
 	if err != nil {
 		return 0, err
 	}

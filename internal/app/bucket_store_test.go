@@ -78,7 +78,7 @@ func TestBucketHoldsNewFilesUnderTheKeyLayout(t *testing.T) {
 	s, conv, f := bucketStore(t)
 	cases := map[string]string{
 		attachmentOriginUpload: "uploads", attachmentOriginPublished: "artifacts", attachmentOriginGenerated: "artifacts",
-		attachmentOriginOutbox: "artifacts", attachmentOriginMirror: "artifacts", attachmentOriginTrace: "traces", attachmentOriginImport: "imports",
+		attachmentOriginOutbox: "artifacts", attachmentOriginMirror: "uploads", attachmentOriginBotFile: "files", attachmentOriginTrace: "traces", attachmentOriginImport: "imports",
 	}
 	for origin, kind := range cases {
 		body := []byte("body of " + origin)

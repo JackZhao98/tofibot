@@ -422,7 +422,7 @@ func (s *Server) shareCapture(r Run, result string) (string, error) {
 		ext = ".jpg"
 	}
 	name := "screenshot-" + time.Now().UTC().Format("20060102-150405") + ext
-	a, err := s.store.addAttachmentOpts(context.Background(), c.ID, name, mime, bytes.NewReader(pixels), attachmentOpts{Origin: attachmentOriginPublished, BotID: r.BotID})
+	a, err := s.store.addAttachmentOpts(context.Background(), c.ID, name, mime, bytes.NewReader(pixels), attachmentOpts{Origin: attachmentOriginBotFile, BotID: r.BotID})
 	if err != nil {
 		return "", err
 	}

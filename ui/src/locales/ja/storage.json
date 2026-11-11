@@ -13,6 +13,7 @@
     "generated": "生成した画像",
     "outbox": "Bot コンピューターの outbox",
     "mirror": "ミラーコピー",
+    "bot_files": "ボットのファイル",
     "conversations": "会話",
     "db": "データベース"
   },
