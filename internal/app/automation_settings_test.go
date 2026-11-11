@@ -230,7 +230,7 @@ func TestCodexOnlyWorkspaceFallsBackToCodexModel(t *testing.T) {
 func TestAutomationSettingsInventoryAndDefaults(t *testing.T) {
 	s := providerServer(t, nil, nil)
 	body := autoGet(t, s)
-	want := []string{autoConversationModel, autoBackgroundModel, autoStructuredOutput, autoForceSayHaikuDM, autoWebSearch, autoWebFetchLimit, autoGroupExchangeGists, autoOwnRepliesVerbatim, autoTaskRetentionDays, autoCompletionReview, autoAnswerGate, autoMCPReview, autoPersonalInputReview, autoRememberedApprovalHrs, autoProviderRetries, autoScheduleReceiptReview, autoDesktopIdle, autoBrowserEngine, autoDesktopEngine, autoGroupTriage, autoGroupTriageModel, autoGroupFollowUp, autoCommandCheckMinutes, autoComputerIdleOff, autoTaskStallRounds, autoTaskTreeIdleLimit, autoTaskFanoutWidth, autoTaskFanoutDepth, autoTaskPartDeadline, autoTaskPartDeadlineSched, autoWidgetArtifacts, autoWidgetComputer, autoWorkTrace, autoTraceRetentionDays, autoTracePrivateOrigins, autoMonthlySpendLimit, autoSettingsChangeLimit}
+	want := []string{autoConversationModel, autoBackgroundModel, autoStructuredOutput, autoWebSearch, autoWebFetchLimit, autoGroupExchangeGists, autoOwnRepliesVerbatim, autoTaskRetentionDays, autoCompletionReview, autoAnswerGate, autoMCPReview, autoPersonalInputReview, autoRememberedApprovalHrs, autoProviderRetries, autoScheduleReceiptReview, autoDesktopIdle, autoBrowserEngine, autoDesktopEngine, autoGroupTriage, autoGroupTriageModel, autoGroupFollowUp, autoCommandCheckMinutes, autoComputerIdleOff, autoTaskStallRounds, autoTaskTreeIdleLimit, autoTaskFanoutWidth, autoTaskFanoutDepth, autoTaskPartDeadline, autoTaskPartDeadlineSched, autoWidgetArtifacts, autoWidgetComputer, autoWorkTrace, autoTraceRetentionDays, autoTracePrivateOrigins, autoMonthlySpendLimit, autoSettingsChangeLimit}
 	if len(body.Items) != len(want) {
 		t.Fatalf("%d items, want %d", len(body.Items), len(want))
 	}
@@ -239,7 +239,7 @@ func TestAutomationSettingsInventoryAndDefaults(t *testing.T) {
 			t.Fatalf("item %d is %s, want %s", i, body.Items[i].Key, key)
 		}
 	}
-	defaults := map[string]any{autoConversationModel: "claude-sonnet-5-5", autoStructuredOutput: true, autoForceSayHaikuDM: true, autoWebSearch: true, autoGroupExchangeGists: true, autoGroupTriage: true, autoGroupFollowUp: true, autoWidgetArtifacts: true, autoWidgetComputer: true, autoOwnRepliesVerbatim: float64(3), autoTaskRetentionDays: float64(30), autoCommandCheckMinutes: float64(60), autoComputerIdleOff: float64(15), autoTaskStallRounds: float64(3), autoTaskTreeIdleLimit: float64(30), autoTaskFanoutWidth: float64(4), autoTaskFanoutDepth: float64(2), autoTaskPartDeadline: float64(30), autoTaskPartDeadlineSched: float64(60), autoCompletionReview: true, autoAnswerGate: float64(2), autoMCPReview: "off", autoPersonalInputReview: "commands", autoBrowserEngine: "playwright", autoDesktopEngine: "classic", autoRememberedApprovalHrs: float64(24), autoProviderRetries: float64(8), autoScheduleReceiptReview: true}
+	defaults := map[string]any{autoConversationModel: "claude-sonnet-5-5", autoStructuredOutput: true, autoWebSearch: true, autoGroupExchangeGists: true, autoGroupTriage: true, autoGroupFollowUp: true, autoWidgetArtifacts: true, autoWidgetComputer: true, autoOwnRepliesVerbatim: float64(3), autoTaskRetentionDays: float64(30), autoCommandCheckMinutes: float64(60), autoComputerIdleOff: float64(15), autoTaskStallRounds: float64(3), autoTaskTreeIdleLimit: float64(30), autoTaskFanoutWidth: float64(4), autoTaskFanoutDepth: float64(2), autoTaskPartDeadline: float64(30), autoTaskPartDeadlineSched: float64(60), autoCompletionReview: true, autoAnswerGate: float64(2), autoMCPReview: "off", autoPersonalInputReview: "commands", autoBrowserEngine: "playwright", autoDesktopEngine: "classic", autoRememberedApprovalHrs: float64(24), autoProviderRetries: float64(8), autoScheduleReceiptReview: true}
 	for key, def := range defaults {
 		item := body.find(t, key)
 		if item.Default != def || item.Value != def || item.Source != "default" {
@@ -261,7 +261,6 @@ func TestAutomationSettingsReadWriteEachItem(t *testing.T) {
 		live      func() bool
 	}{
 		{autoStructuredOutput, "false", false, func() bool { return !s.store.structuredOutputOn() }},
-		{autoForceSayHaikuDM, "false", false, func() bool { return !s.forceSayHaikuDMEnabled() }},
 		{autoWebSearch, "false", false, func() bool { return !s.webSearchEnabled() && s.searchUses("claude-sonnet-5-5", nil) == 0 }},
 		{autoGroupExchangeGists, "false", false, func() bool { return !s.groupExchangeGistsEnabled() }},
 		{autoOwnRepliesVerbatim, "7", float64(7), func() bool { return s.ownRepliesVerbatim() == 7 }},
@@ -381,17 +380,16 @@ func TestAutomationSettingsValidation(t *testing.T) {
 
 func TestAutomationSettingsEnvironmentOverridesWin(t *testing.T) {
 	s := providerServer(t, nil, nil)
-	if code := autoPutCode(t, s, `{"web_search":true,"force_say_haiku_dm":true,"provider_retries":4}`); code != http.StatusOK {
+	if code := autoPutCode(t, s, `{"web_search":true,"provider_retries":4}`); code != http.StatusOK {
 		t.Fatal(code)
 	}
 	t.Setenv("TOFI_WEB_SEARCH", "off")
-	t.Setenv("TOFI_FORCE_SAY", "off")
 	t.Setenv("TOFI_PROVIDER_RETRIES", "1")
-	if s.webSearchEnabled() || s.forceSayHaikuDMEnabled() || s.providerRetries() != 1 {
+	if s.webSearchEnabled() || s.providerRetries() != 1 {
 		t.Fatal("stored values beat the environment")
 	}
 	body := autoGet(t, s)
-	for key, env := range map[string]string{autoWebSearch: "TOFI_WEB_SEARCH", autoForceSayHaikuDM: "TOFI_FORCE_SAY", autoProviderRetries: "TOFI_PROVIDER_RETRIES"} {
+	for key, env := range map[string]string{autoWebSearch: "TOFI_WEB_SEARCH", autoProviderRetries: "TOFI_PROVIDER_RETRIES"} {
 		item := body.find(t, key)
 		if !item.Locked || item.Source != "env" || item.Env != env {
 			t.Errorf("%s: %+v", key, item)
@@ -460,8 +458,9 @@ func TestRunRequestFollowsAutomationSettings(t *testing.T) {
 		final bool
 	}{
 		{"defaults", ``, true, true, true},
-		{"everything off", `{"force_say_haiku_dm":false,"web_search":false,"completion_review":false}`, false, false, false},
+		{"everything off", `{"web_search":false,"completion_review":false}`, true, false, false},
 		{"only web search off", `{"web_search":false}`, true, false, true},
+		{"operator switch off", ``, false, true, true},
 		{"only completion review off", `{"completion_review":false}`, true, true, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -474,6 +473,9 @@ func TestRunRequestFollowsAutomationSettings(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer s.Close()
+			if tc.name == "operator switch off" {
+				t.Setenv("TOFI_FORCE_SAY", "false")
+			}
 			if tc.put != "" {
 				if code := autoPutCode(t, s, tc.put); code != http.StatusOK {
 					t.Fatalf("put=%d", code)

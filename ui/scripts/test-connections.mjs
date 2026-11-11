@@ -412,7 +412,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await workspace.getByRole("button", {name: /Advanced: Google Workspace MCP/}).click();
       await dialog.locator('[data-integration-id="google-gmail"]').waitFor({state: "visible"});
       assert.match(await workspace.innerText(), /Workspace Developer Preview Program/, "the folded section states the enrolment requirement");
-      assert.match(await workspace.locator(".settings-banner.is-warn").innerText(), /2026-11-11/, "a dated warning says what Google requires of the OAuth client");
+      assert.match(await workspace.locator(".settings-banner.is-warn").innerText(), /2026-11-11|rejects OAuth clients/, "the warning says what Google requires of the OAuth client (dated until that day, plain after it)");
       assert.equal(await dialog.locator("form").count(), 0, "not a form yet: the Google step is the gogcli setup");
       await dialog.locator('[data-integration-id="google-docs"]').click();
       await dialog.locator("form").waitFor();

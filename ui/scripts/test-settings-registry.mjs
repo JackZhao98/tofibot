@@ -51,16 +51,21 @@ const source = async path => readFile(join(root, "src", path), "utf8");
   assert.ok(checked > 40, "most registry links are checked");
 
   // 4. Every section id is in the component that owns it.
-  const pages = (await Promise.all(["settings/SettingsPages.tsx", "EnvironmentsPage.tsx", "StandingAllowances.tsx", "FollowupsSettings.tsx", "DictationSettings.tsx", "AdminGroups.tsx", "AdminResources.tsx"].map(source))).join("\n");
+  const pages = (await Promise.all(["settings/SettingsPages.tsx", "AutomationSettings.tsx", "EnvironmentsPage.tsx", "StandingAllowances.tsx", "FollowupsSettings.tsx", "DictationSettings.tsx", "AdminGroups.tsx", "AdminResources.tsx"].map(source))).join("\n");
   const ids = new Set([...pages.matchAll(/(?:<SectionAnchor|<SettingsSection)[^>]*?\bid="([a-z-]+)"/g)].map(match => match[1]));
   const automation = await source("AutomationSettings.tsx");
-  const groupOrder = /const groupOrder: AutomationGroup\[\] = \[([^\]]+)\]/.exec(automation)?.[1].match(/"([a-z]+)"/g)?.map(item => item.slice(1, -1));
-  assert.deepEqual(groupOrder, tsTabs.automation, "the automation sections are the Behavior page's groups, in order");
-  assert.match(automation, /<SettingsSection key=\{group\} id=\{group\}/, "each Behavior group carries its id");
+  // System > Behavior: its common rows are `behavior`, its folded groups are the other group ids, in order; the rest are on their own pages.
+  const folded = /const foldedGroups = \[([^\]]+)\] as const/.exec(automation)?.[1].match(/"([a-z]+)"/g)?.map(item => item.slice(1, -1));
+  assert.deepEqual(folded, ["groups", "replies", "reviews", "tasks", "computer"], "Behavior's folded groups");
+  assert.deepEqual(tsTabs.advanced.filter(id => folded.includes(id)), folded, "the System sections list Behavior's groups, in order");
+  assert.match(automation, /<SettingsSection id="behavior"/, "Behavior's common rows carry their id");
+  assert.match(automation, /<FoldGroup key=\{group\} tab="advanced" id=\{group\}/, "each Behavior group carries its id");
+  const folds = new Set([...pages.matchAll(/<FoldGroup[^>]*?\bid="([a-z-]+)"/g)].map(match => match[1]));
   for (const [tab, list] of Object.entries(tsTabs)) {
-    if (tab === "automation") continue;
-    for (const section of list) assert.ok(ids.has(section), `${tab}#${section} has an id in its component`);
+    for (const section of list) assert.ok(ids.has(section) || folds.has(section) || (tab === "advanced" && (folded.includes(section) || section === "behavior")), `${tab}#${section} has an id in its component`);
   }
+  // The server and the app read the same table of older positions (settings-simplify section 7).
+  assert.deepEqual(registry.legacy_links, sections.LEGACY_SETTINGS_LINKS, "legacy links match the Go registry");
   const bot = await source("BotSettingsPanel.tsx");
   const botIds = [...(/const SECTIONS:[^=]+= \[([^;]+)\];/.exec(bot)?.[1] ?? "").matchAll(/id: "([a-z]+)"/g)].map(match => match[1]);
   assert.deepEqual(botIds, [...sections.BOT_SETTINGS_SECTIONS], "Bot settings sections match");

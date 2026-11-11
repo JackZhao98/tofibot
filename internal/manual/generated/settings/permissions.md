@@ -12,3 +12,4 @@ Open this page: [{{ui:settings:shell.page.permissions.name}}](/settings/permissi
 | Name | Key | Values | Default | Change class | Where |
 |---|---|---|---|---|---|
 | {{ui:settings:approval.label}} | `permissions.approval_mode` | ask, auto |  | confirm | `/settings/permissions#mode` |
+| {{ui:settings:permissionsPage.standing.title}} | `permissions.standing_allowances` | managed with tools:  |  | confirm | `/settings/permissions#standing` |

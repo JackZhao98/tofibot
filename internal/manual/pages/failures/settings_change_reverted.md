@@ -2,12 +2,12 @@
 id: failures/settings_change_reverted
 title: settings_change_reverted
 summary: This change was already undone.
-link: /settings/advanced#changes
+link: /settings/advanced#data
 kind: failure
 ---
 # settings_change_reverted
 
-Open this page: [Where to look](/settings/advanced#changes)
+Open this page: [Where to look](/settings/advanced#data)
 
 **Meaning.** This change was already undone.
 

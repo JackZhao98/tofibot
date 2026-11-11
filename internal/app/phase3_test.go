@@ -427,6 +427,7 @@ func TestForceSayFollowsTheMeasuredPolicy(t *testing.T) {
 		{"haiku dm", dm, plain, "claude-haiku-5-5", true},
 		{"haiku dm, upper case id", dm, plain, "Claude-Haiku-5-5", true},
 		{"sonnet dm", dm, plain, "claude-sonnet-5-5", false},
+		{"unknown model dm", dm, plain, "some-new-model", false},
 		{"haiku group", group, plain, "claude-haiku-5-5", false},
 		{"haiku hidden trace", hidden, plain, "claude-haiku-5-5", false},
 		{"haiku scheduled root", dm, Run{Kind: runKindSchedule}, "claude-haiku-5-5", false},
@@ -744,5 +745,17 @@ func TestLatestMessageLineIsBesideTheRequestOfAnUnaddressedGroupMessage(t *testi
 	}
 	if has(group, runKindGroupChat, false) || has(group, runKindGroupMention, true) || has(dm, "", true) {
 		t.Fatal("the latest-message line leaked into flag-off, mention or DM runs")
+	}
+}
+
+func TestForceSayOperatorSwitch(t *testing.T) {
+	dm := Conversation{Kind: "dm", UserVisible: true}
+	t.Setenv("TOFI_FORCE_SAY", "false")
+	if forceSayFor(dm, Run{}, "claude-haiku-5-5") {
+		t.Fatal("TOFI_FORCE_SAY=false must turn the forcing off")
+	}
+	t.Setenv("TOFI_FORCE_SAY", "")
+	if !forceSayFor(dm, Run{}, "claude-haiku-5-5") {
+		t.Fatal("forcing is on by default")
 	}
 }

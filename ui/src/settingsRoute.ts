@@ -1,5 +1,5 @@
 import {
-  BOT_SETTINGS_SECTIONS, CONNECTION_SECTIONS, GROUP_SETTINGS_SECTIONS, LEGACY_SETTINGS_TABS, SETTINGS_SECTIONS,
+  BOT_SETTINGS_SECTIONS, CONNECTION_SECTIONS, GROUP_SETTINGS_SECTIONS, LEGACY_SETTINGS_LINKS, SETTINGS_SECTIONS,
   type BotSettingsSection, type GroupSettingsSection, type SettingsTabId,
 } from "./settings/sections";
 
@@ -9,6 +9,8 @@ import {
  */
 export type SettingsLink =
   | { kind: "settings"; tab: SettingsTabId; section?: string }
+  /** The old `/settings/general#primary`: the primary Bot's own settings, or General when there is no Bot. */
+  | { kind: "primary-settings" }
   | { kind: "connection"; name: string; section?: string; tool?: string }
   | { kind: "bot-settings"; botId: string; section: BotSettingsSection }
   | { kind: "group-settings"; groupId: string; section: GroupSettingsSection };
@@ -19,6 +21,7 @@ const safeId = (value: string): string | null => {
     return id && id.length <= 200 && !/[\x00-\x20/\\]/.test(id) ? id : null;
   } catch { return null; }
 };
+const legacy = (key: string): string | undefined => (Object.prototype.hasOwnProperty.call(LEGACY_SETTINGS_LINKS, key) ? LEGACY_SETTINGS_LINKS[key] : undefined);
 const sectionFrom = (hash: string, known: readonly string[]): string | undefined => {
   const id = hash.replace(/^#/, "");
   return known.includes(id) ? id : undefined;
@@ -36,10 +39,13 @@ export function readSettingsLink(pathname: string, hash = "", search = ""): Sett
   }
   const tabMatch = /^\/settings\/([a-z]+(?:-[a-z]+)*)\/?$/.exec(pathname);
   if (tabMatch) {
-    const id = LEGACY_SETTINGS_TABS[tabMatch[1]] ?? tabMatch[1];
+    const old = hash.replace(/^#/, "");
+    if (tabMatch[1] === "general" && old === "primary") return { kind: "primary-settings" };
+    // An older position first (the section id may be one that no longer exists), then the page as it is now.
+    const [id, newer] = (legacy(`${tabMatch[1]}#${old}`) ?? legacy(tabMatch[1]) ?? tabMatch[1]).split("#");
     if (!Object.prototype.hasOwnProperty.call(SETTINGS_SECTIONS, id)) return null;
     const tab = id as SettingsTabId;
-    const section = sectionFrom(hash, SETTINGS_SECTIONS[tab]);
+    const section = sectionFrom(newer ?? hash, SETTINGS_SECTIONS[tab]);
     return { kind: "settings", tab, ...(section ? { section } : {}) };
   }
   const bot = /^\/b\/([^/]+)\/settings\/?$/.exec(pathname);
@@ -59,6 +65,7 @@ export function readSettingsLink(pathname: string, hash = "", search = ""): Sett
 export function settingsLinkPath(link: SettingsLink): string {
   switch (link.kind) {
     case "settings": return `/settings/${link.tab}${link.section ? `#${link.section}` : ""}`;
+    case "primary-settings": return "/settings/general";
     case "connection": return `/settings/connections/${encodeURIComponent(link.name)}${link.tool ? `?tool=${encodeURIComponent(link.tool)}` : ""}${link.section ? `#${link.section}` : ""}`;
     case "bot-settings": return `/b/${encodeURIComponent(link.botId)}/settings#${link.section}`;
     case "group-settings": return `/g/${encodeURIComponent(link.groupId)}/settings#${link.section}`;

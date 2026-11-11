@@ -2,12 +2,12 @@
 id: failures/settings_change_not_revertable
 title: settings_change_not_revertable
 summary: This change cannot be undone with the tool.
-link: /settings/advanced#changes
+link: /settings/advanced#data
 kind: failure
 ---
 # settings_change_not_revertable
 
-Open this page: [Where to look](/settings/advanced#changes)
+Open this page: [Where to look](/settings/advanced#data)
 
 **Meaning.** This change cannot be undone with the tool.
 

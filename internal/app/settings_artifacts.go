@@ -104,8 +104,9 @@ func SettingsRegistryArtifacts(repoRoot string) (map[string][]byte, error) {
 		GroupSections      []string              `json:"group_sections"`
 		ConnectionSections []string              `json:"connection_sections"`
 		SidebarViews       []string              `json:"sidebar_views"`
+		LegacyLinks        map[string]string     `json:"legacy_links"`
 		Settings           []registryJSONSetting `json:"settings"`
-	}{Version: 1, ConnectionSections: connectionSections, SidebarViews: sidebarViews}
+	}{Version: 1, ConnectionSections: connectionSections, SidebarViews: sidebarViews, LegacyLinks: settingsLegacyLinks}
 	for _, p := range settingsTabPages {
 		doc.Tabs = append(doc.Tabs, registryJSONPage{ID: p.ID, Sections: p.Sections})
 	}

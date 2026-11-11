@@ -58,16 +58,12 @@
         "name": "环境",
         "description": "云电脑、这台服务器和你的 Mac"
       },
-      "keys": {
-        "name": "Bot 电脑密钥",
-        "description": "直接配置 Bot 电脑需要的环境变量和 SSH 密钥"
-      },
       "usage": {
         "name": "用量",
         "description": "查看 Agent 的模型消耗与上下文压缩进度"
       },
       "advanced": {
-        "name": "维护",
+        "name": "系统",
         "description": "版本、服务器、数据、调试与从头开始。"
       },
       "admin": {
@@ -77,14 +73,6 @@
       "automation": {
         "name": "行为",
         "description": "查看并调整 Tofi 代你自动做的事"
-      },
-      "allowances": {
-        "name": "工具规则",
-        "description": "审核方式、工具如何询问、你放行了什么"
-      },
-      "tools": {
-        "name": "搜索与抓取",
-        "description": "Bot 搜索和读取网页的来源"
       },
       "devices": {
         "name": "其他设备",
@@ -127,8 +115,7 @@
     "tag": {
       "beta": "测试版",
       "dev": "开发中"
-    },
-    "more": "更多"
+    }
   },
   "appearance": {
     "title": "主题",
@@ -549,7 +536,7 @@
       "once": "仅显示一次，继续之后 Tofi 不会保留。",
       "expires": "有效期至 {{date}}。",
       "message_label": "待发送的消息",
-      "message": "你的 TOFI 账号已关闭。下载你的 Bot：{{link}}（口令另行发送），有效期至 {{date}}。在 Tofi 中导入：设置 → 维护 → 数据迁移，然后输入口令。",
+      "message": "你的 TOFI 账号已关闭。下载你的 Bot：{{link}}（口令另行发送），有效期至 {{date}}。在 Tofi 中导入：设置 → 系统 → 数据 → 导入，然后输入口令。",
       "message_note": "请通过另一条消息或另一个渠道发送口令。",
       "copy_message": "复制消息",
       "done": "我已保存口令"
@@ -796,7 +783,9 @@
     "mode_auto": "自动 · 审查后按执行策略决定",
     "note_off": "关闭：不请求审查，保留原有人工审批及可信只读豁免。关闭后，尚未领取执行权的自动批准立即失效。",
     "note_shadow": "观察：异步记录所有外部工具的建议，不新增等待或执行权限；原有人工审批及可信只读路径继续生效。关闭后，尚未领取执行权的自动批准立即失效。",
-    "note_auto": "自动：审查所有外部工具；已授权的低或中风险提案可自动领取一次执行权；高风险、需要确认的提案仍须由你批准。拒绝、上下文缺口及无效绑定不能执行。关闭后，尚未领取执行权的自动批准立即失效。"
+    "note_auto": "自动：审查所有外部工具；已授权的低或中风险提案可自动领取一次执行权；高风险、需要确认的提案仍须由你批准。拒绝、上下文缺口及无效绑定不能执行。关闭后，尚未领取执行权的自动批准立即失效。",
+    "observe": "观察模式",
+    "observe_hint": "复核只记录建议，不改变其他行为；仅在审批仍会询问你时生效。"
   },
   "dictation": {
     "load_failed": "读取 Dictate 设置失败",
@@ -953,7 +942,9 @@
     "data": "数据",
     "debug": "调试",
     "danger": "危险区",
-    "version": "版本"
+    "version": "版本",
+    "behavior_hint": "Bot 自动做什么、做到什么程度",
+    "diagnostics": "排查问题"
   },
   "update": {
     "banner": {
@@ -1129,7 +1120,7 @@
         "description": "不同类型的工作交给哪个模型。"
       },
       "replies": {
-        "title": "回复",
+        "title": "回复与历史",
         "description": "Bot 如何把话送到对话里。"
       },
       "history": {
@@ -1155,6 +1146,15 @@
       "widgets": {
         "title": "侧边小组件",
         "description": "会自己在聊天旁边打开的小块。"
+      },
+      "groups": {
+        "title": "群聊"
+      },
+      "reviews": {
+        "title": "复核"
+      },
+      "tasks": {
+        "title": "分工"
       }
     },
     "item": {
@@ -1164,19 +1164,15 @@
       },
       "background_model": {
         "name": "后台模型",
-        "what": "负责幕后的轻量工作：历史摘要、分流、复核和跟进检查。选“自动”时，用 Claude 就走 Haiku，其他情况沿用对话模型。"
+        "what": "负责幕后的轻量工作：历史摘要、分流、复核和跟进检查。选“自动”时，使用与对话模型同一提供方的轻量模型。"
       },
       "structured_output": {
         "name": "结构化回复",
         "what": "对话里只出现 Bot 的正式回复；它干活过程中写的内容留在工作过程里。关闭后恢复为全部直接发出。"
       },
-      "force_say_haiku_dm": {
-        "name": "Haiku 必须使用回复工具",
-        "what": "在私聊里，Haiku 每一轮都必须给出正式回复，确保回答一定出现在对话中。"
-      },
       "web_search": {
         "name": "联网搜索",
-        "what": "当问题可能比自身知识更新时，Claude 模型会先自行上网搜索，并打开所依据的网页读完，再回答。"
+        "what": "当问题可能比自身知识更新时，支持联网搜索的模型会先自行上网搜索，并打开所依据的网页读完，再回答。"
       },
       "web_fetch_limit": {
         "name": "每次运行读取的网页数",
@@ -1348,7 +1344,13 @@
     "keep_all": "全部保留",
     "in_permissions": "在“权限”里设置",
     "origins_placeholder": "bank.example.com",
-    "empty_list": "无"
+    "empty_list": "无",
+    "common": "常用",
+    "more": "更多",
+    "fold": {
+      "items": "{{n}} 项",
+      "changed": "{{n}} 项 · {{changed}} 项已改"
+    }
   },
   "webtools": {
     "title": "网页搜索与抓取",
@@ -1465,6 +1467,9 @@
       "read": "服务方或你标为只读的工具。",
       "write": "默认档。每次调用都会审核：你明确要求的直接执行，其余的先问你。",
       "high": "每次调用都由你决定。没人可问时，调用不会执行。"
+    },
+    "advanced": {
+      "title": "高级"
     }
   },
   "chats": {
@@ -1686,10 +1691,6 @@
     "reset": "恢复为用户组设置",
     "member": {
       "managed": "由策略管理",
-      "banner_title": "部分资源由你的组织提供",
-      "banner_body": "管理员统一管理 Bot 用到的部分资源，例如模型、搜索或 Bot 电脑；这些设置在这里只读。",
-      "banner_action": "查看",
-      "banner_dismiss": "关闭提示",
       "models": {
         "title": "模型由你的组织提供",
         "body": "Bot 使用组织的模型账户运行；API 密钥与登录由管理员管理。",
@@ -1707,5 +1708,11 @@
   "changed": {
     "note": "已改 · 默认 {{value}}",
     "reset": "恢复默认"
+  },
+  "models": {
+    "more": "更多"
+  },
+  "computer": {
+    "keys_row": "环境变量与 SSH 密钥"
   }
 }

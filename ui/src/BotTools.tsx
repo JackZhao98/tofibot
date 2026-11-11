@@ -162,7 +162,7 @@ export function BotTools({ bot, refreshToken = 0, leaveTo, onOpenSettings }: {
   bot: { id: string; name: string }; refreshToken?: number;
   /** Runs `go` once the cover may close (unsaved changes are asked about first). */
   leaveTo: (go: () => void) => void;
-  onOpenSettings: (tab: "skills" | "models" | "tools" | "computer" | "permissions" | "connections") => void;
+  onOpenSettings: (tab: "skills" | "models" | "computer" | "permissions" | "connections") => void;
 }) {
   const { t } = useTranslation("bots");
   const [environments, setEnvironments] = useState<Environment[] | "error" | null>(null);
@@ -238,7 +238,7 @@ export function BotTools({ bot, refreshToken = 0, leaveTo, onOpenSettings }: {
   return <BotToolsView botName={bot.name} connections={rows} connectionsError={error} saving={saving}
     onToggle={(server, next) => void toggle(server, next)} onOpenConnection={server => leaveTo(() => openConnectionDeepLink({ server }))} onAddConnection={() => leaveTo(() => onOpenSettings("connections"))}
     skills={<BotSkills botId={bot.id} refreshToken={refreshToken} bare />} onOpenSkills={() => leaveTo(() => onOpenSettings("skills"))}
-    web={web} onOpenWeb={() => leaveTo(() => onOpenSettings("tools"))} environments={environments} onOpenComputer={() => leaveTo(() => onOpenSettings("computer"))}
+    web={web} onOpenWeb={() => leaveTo(() => onOpenSettings("connections"))} environments={environments} onOpenComputer={() => leaveTo(() => onOpenSettings("computer"))}
     inspector={<BotInspector botId={bot.id} tools />}
     allowances={allowances} leaving={leaving} onGone={gone} remembered={remembered} revoking={revoking} permissionsError={permissionsError} serverName={server => names.get(server) ?? server}
     onRevoke={item => void revoke(item)} onOpenPermissions={() => leaveTo(() => onOpenSettings("permissions"))} />;

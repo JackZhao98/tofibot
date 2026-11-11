@@ -125,23 +125,50 @@ type settingsPage struct {
 // settingsTabPages lists every Settings tab with the stable ids of the sections
 // the app can scroll to (ui/src/settings/sections.ts mirrors this).
 var settingsTabPages = []settingsPage{
-	{"general", "settings:shell.page.general.name", []string{"account", "appearance", "primary", "region", "chats"}},
-	{"connections", "settings:shell.page.connections.name", []string{"list"}},
+	{"general", "settings:shell.page.general.name", []string{"account", "appearance", "region", "chats"}},
+	{"connections", "settings:shell.page.connections.name", []string{"list", "web"}},
 	{"skills", "settings:shell.page.skills.name", []string{"library"}},
-	{"permissions", "settings:shell.page.permissions.name", []string{"mode"}},
-	{"allowances", "settings:shell.page.allowances.name", []string{"reviewer", "how", "standing", "remembered"}},
-	{"followups", "settings:shell.page.followups.name", []string{"bots", "nudges", "digest", "today", "limits"}},
-	{"models", "settings:shell.page.models.name", []string{"providers", "defaults", "dictation"}},
-	{"tools", "settings:shell.page.tools.name", []string{"web"}},
-	{"automation", "settings:shell.page.automation.name", []string{"models", "replies", "history", "checks", "reliability", "schedules", "computer", "widgets"}},
-	{"computer", "settings:shell.page.computer.name", []string{"resources", "environment"}},
+	{"permissions", "settings:shell.page.permissions.name", []string{"mode", "standing", "remembered", "advanced"}},
+	{"models", "settings:shell.page.models.name", []string{"providers", "defaults", "more"}},
+	{"computer", "settings:shell.page.computer.name", []string{"resources", "environment", "keys"}},
 	{"devices", "settings:shell.page.devices.name", []string{"devices"}},
-	{"keys", "settings:shell.page.keys.name", []string{"keys"}},
-	{"usage", "settings:shell.page.usage.name", []string{"health", "spend", "usage"}},
-	{"advanced", "settings:shell.page.advanced.name", []string{"version", "server", "data", "changes", "debug", "danger"}},
+	{"usage", "settings:shell.page.usage.name", []string{"spend", "usage", "storage"}},
+	// System holds Behavior (the automatic behaviors) as a subpage: "behavior" is its common rows, the five group ids
+	// are its folded groups, "followups" its Follow-ups subpage.
+	{"advanced", "settings:shell.page.advanced.name", []string{"version", "server", "behavior", "groups", "replies", "reviews", "tasks", "computer", "followups", "data", "diagnostics", "danger"}},
 	{"admin", "settings:shell.page.admin.name", []string{"accounts"}},
 	{"admin-groups", "settings:shell.page.admin-groups.name", []string{"policy", "members"}},
 	{"admin-resources", "settings:shell.page.admin-resources.name", []string{"models", "computers", "web"}},
+}
+
+// settingsLegacyLinks maps an older settings position ("tab" or "tab#section") to where the setting lives now
+// (settings-simplify section 7). Links a Bot sent earlier stay in conversation history, so the old positions keep
+// resolving; ui/src/settings/sections.ts carries the same table (test:settings-registry compares them).
+// "general#primary" is not listed: the app opens the primary Bot's settings for it, or General when there is no Bot.
+var settingsLegacyLinks = map[string]string{
+	"approvals":              "permissions",
+	"devices":                "computer",
+	"allowances":             "permissions",
+	"allowances#how":         "permissions",
+	"allowances#standing":    "permissions#standing",
+	"allowances#remembered":  "permissions#remembered",
+	"allowances#reviewer":    "permissions#advanced",
+	"followups":              "advanced#followups",
+	"tools":                  "connections#web",
+	"keys":                   "computer#keys",
+	"usage#health":           "advanced#diagnostics",
+	"advanced#changes":       "advanced#data",
+	"advanced#debug":         "advanced#diagnostics",
+	"models#dictation":       "models#more",
+	"automation":             "advanced#behavior",
+	"automation#models":      "models#more",
+	"automation#history":     "advanced#replies",
+	"automation#checks":      "advanced#reviews",
+	"automation#schedules":   "advanced#reviews",
+	"automation#reliability": "advanced#tasks",
+	"automation#replies":     "advanced#replies",
+	"automation#computer":    "advanced#computer",
+	"automation#widgets":     "advanced#behavior",
 }
 
 var botSettingsPages = []settingsPage{
@@ -220,7 +247,8 @@ func buildSettingsRegistry() []SettingDef {
 	add(d)
 	d = acct("account.notify_spend_alerts", KindBool, riskDirect, "chats", "settings:chats.spend_alert_notifications")
 	add(d)
-	d = acct("account.primary_bot", KindString, riskConfirm, "primary", "settings:primary.label")
+	// The Primary Assistant is chosen in a Bot's own settings ("Make primary"), so the link opens the acting Bot's settings.
+	d = entry("account.primary_bot", ScopeAccount, KindString, riskConfirm, linkBotSettings+"#identity", "bot-settings/identity", "settings:primary.label")
 	add(d)
 
 	bot := func(key string, kind SettingKind, risk RiskSpec, section, page, label string) SettingDef {
@@ -276,7 +304,7 @@ func buildSettingsRegistry() []SettingDef {
 	d = entry("permissions.approval_mode", ScopeAccount, KindEnum, riskConfirm, "/settings/permissions#mode", "settings/permissions", "settings:approval.label")
 	d.Options = []string{"ask", "auto"}
 	add(d)
-	d = entry("permissions.standing_allowances", ScopeAccount, KindCollection, riskConfirm, "/settings/allowances#standing", "settings/allowances", "settings:permissionsPage.standing.title")
+	d = entry("permissions.standing_allowances", ScopeAccount, KindCollection, riskConfirm, "/settings/permissions#standing", "settings/permissions", "settings:permissionsPage.standing.title")
 	d.Audit = false
 	add(d)
 
@@ -284,15 +312,9 @@ func buildSettingsRegistry() []SettingDef {
 		if item.Key == autoMCPReview {
 			continue // the approval mode owns this value
 		}
-		link := "/settings/automation#" + item.Group
-		if item.Key == autoMonthlySpendLimit {
-			link = "/settings/usage#spend" // the limit lives beside the spend it caps
-		}
-		d := entry("automation."+item.Key, ScopeAccount, automationSettingKind(item), automationRisk(item), link, "settings/automation", "settings:automation.item."+item.Key+".name")
+		d := entry("automation."+item.Key, ScopeAccount, automationSettingKind(item), automationRisk(item), automationGroupLinks[item.Group], "settings/advanced", "settings:automation.item."+item.Key+".name")
 		d.DescKey = "settings:automation.item." + item.Key + ".what"
 		d.Options, d.Min, d.Max = item.Options, item.Min, item.Max
-		if d.Kind == KindModel {
-		}
 		add(d)
 	}
 
@@ -319,7 +341,7 @@ func buildSettingsRegistry() []SettingDef {
 	d.Options = []string{"read_only", "write", "high_risk"}
 	add(d)
 
-	add(entry("web_tools.keys", ScopeAccount, KindNone, riskForbidden, "/settings/tools#web", "settings/tools", "settings:webtools.title"))
+	add(entry("web_tools.keys", ScopeAccount, KindNone, riskForbidden, "/settings/connections#web", "settings/connections", "settings:webtools.title"))
 
 	for _, f := range []struct{ key, link, page, label string }{
 		{"system.version", "/settings/advanced#version", "settings/advanced", "settings:advanced.version"},
@@ -328,7 +350,7 @@ func buildSettingsRegistry() []SettingDef {
 		{"system.purge", "/settings/advanced#danger", "settings/advanced", "settings:advanced.danger"},
 		{"system.accounts", "/settings/admin#accounts", "settings/admin", "settings:shell.page.admin.name"},
 		{"system.computer_resources", "/settings/computer#resources", "settings/computer", "settings:shell.page.computer.name"},
-		{"keys.secrets", "/settings/keys#keys", "settings/keys", "settings:shell.page.keys.name"},
+		{"keys.secrets", "/settings/computer#keys", "settings/computer", "settings:computer.keys_row"},
 		{"account.sign_out", "/settings/general#account", "settings/general", "settings:shell.page.general.name"},
 	} {
 		scope := ScopeSystem
@@ -382,6 +404,16 @@ func automationRisk(item automationItem) RiskSpec {
 		return riskForbidden
 	}
 	return riskDirect
+}
+
+// automationGroupLinks says where each automation group is shown. Most live in System > Behavior; the groups named for
+// another page ("models", "remembered", ...) sit beside the setting they belong with (settings-simplify section 3).
+var automationGroupLinks = map[string]string{
+	"common": "/settings/advanced#behavior", "groups": "/settings/advanced#groups", "replies": "/settings/advanced#replies",
+	"reviews": "/settings/advanced#reviews", "tasks": "/settings/advanced#tasks", "computer": "/settings/advanced#computer",
+	"defaults": "/settings/models#defaults", "models": "/settings/models#more",
+	"remembered": "/settings/permissions#remembered", "permissions": "/settings/permissions#advanced",
+	"environment": "/settings/computer#environment", "changes": "/settings/advanced#data", "usage": "/settings/usage#spend",
 }
 
 // settingDefFor finds an entry by key.

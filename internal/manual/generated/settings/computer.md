@@ -11,4 +11,5 @@ Open this page: [{{ui:settings:shell.page.computer.name}}](/settings/computer)
 
 | Name | Key | Values | Default | Change class | Where |
 |---|---|---|---|---|---|
+| {{ui:settings:computer.keys_row}} | `keys.secrets` | not available to the tool |  | forbidden: the person changes it on the page | `/settings/computer#keys` |
 | {{ui:settings:shell.page.computer.name}} | `system.computer_resources` | not available to the tool |  | forbidden: the person changes it on the page | `/settings/computer#resources` |

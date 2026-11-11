@@ -2,12 +2,12 @@
 id: failures/work_trace_off
 title: work_trace_off
 summary: The work trace is off, so desktop.trace has nothing to join.
-link: /settings/automation#computer
+link: /settings/advanced#computer
 kind: failure
 ---
 # work_trace_off
 
-Open this page: [{{ui:settings:shell.page.automation.name}}](/settings/automation#computer)
+Open this page: [{{ui:settings:shell.page.advanced.name}}](/settings/advanced#computer)
 
 **Meaning.** The action desktop.trace needs stored captures, and this workspace keeps none.
 

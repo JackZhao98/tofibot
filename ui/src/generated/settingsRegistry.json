@@ -6,7 +6,6 @@
       "sections": [
         "account",
         "appearance",
-        "primary",
         "region",
         "chats"
       ]
@@ -14,7 +13,8 @@
     {
       "id": "connections",
       "sections": [
-        "list"
+        "list",
+        "web"
       ]
     },
     {
@@ -26,26 +26,10 @@
     {
       "id": "permissions",
       "sections": [
-        "mode"
-      ]
-    },
-    {
-      "id": "allowances",
-      "sections": [
-        "reviewer",
-        "how",
+        "mode",
         "standing",
-        "remembered"
-      ]
-    },
-    {
-      "id": "followups",
-      "sections": [
-        "bots",
-        "nudges",
-        "digest",
-        "today",
-        "limits"
+        "remembered",
+        "advanced"
       ]
     },
     {
@@ -53,33 +37,15 @@
       "sections": [
         "providers",
         "defaults",
-        "dictation"
-      ]
-    },
-    {
-      "id": "tools",
-      "sections": [
-        "web"
-      ]
-    },
-    {
-      "id": "automation",
-      "sections": [
-        "models",
-        "replies",
-        "history",
-        "checks",
-        "reliability",
-        "schedules",
-        "computer",
-        "widgets"
+        "more"
       ]
     },
     {
       "id": "computer",
       "sections": [
         "resources",
-        "environment"
+        "environment",
+        "keys"
       ]
     },
     {
@@ -89,17 +55,11 @@
       ]
     },
     {
-      "id": "keys",
-      "sections": [
-        "keys"
-      ]
-    },
-    {
       "id": "usage",
       "sections": [
-        "health",
         "spend",
-        "usage"
+        "usage",
+        "storage"
       ]
     },
     {
@@ -107,9 +67,15 @@
       "sections": [
         "version",
         "server",
+        "behavior",
+        "groups",
+        "replies",
+        "reviews",
+        "tasks",
+        "computer",
+        "followups",
         "data",
-        "changes",
-        "debug",
+        "diagnostics",
         "danger"
       ]
     },
@@ -159,6 +125,31 @@
     "terminal",
     "archive"
   ],
+  "legacy_links": {
+    "advanced#changes": "advanced#data",
+    "advanced#debug": "advanced#diagnostics",
+    "allowances": "permissions",
+    "allowances#how": "permissions",
+    "allowances#remembered": "permissions#remembered",
+    "allowances#reviewer": "permissions#advanced",
+    "allowances#standing": "permissions#standing",
+    "approvals": "permissions",
+    "automation": "advanced#behavior",
+    "automation#checks": "advanced#reviews",
+    "automation#computer": "advanced#computer",
+    "automation#history": "advanced#replies",
+    "automation#models": "models#more",
+    "automation#reliability": "advanced#tasks",
+    "automation#replies": "advanced#replies",
+    "automation#schedules": "advanced#reviews",
+    "automation#widgets": "advanced#behavior",
+    "devices": "computer",
+    "followups": "advanced#followups",
+    "keys": "computer#keys",
+    "models#dictation": "models#more",
+    "tools": "connections#web",
+    "usage#health": "advanced#diagnostics"
+  },
   "settings": [
     {
       "key": "account.timezone",
@@ -278,8 +269,8 @@
       "risk": {
         "self": "confirm"
       },
-      "link": "/settings/general#primary",
-      "manual": "settings/general",
+      "link": "/b/{bot}/settings#identity",
+      "manual": "bot-settings/identity",
       "label_key": "settings:primary.label",
       "audit": true
     },
@@ -536,8 +527,8 @@
       "risk": {
         "self": "confirm"
       },
-      "link": "/settings/allowances#standing",
-      "manual": "settings/allowances",
+      "link": "/settings/permissions#standing",
+      "manual": "settings/permissions",
       "label_key": "settings:permissionsPage.standing.title",
       "audit": false
     },
@@ -548,8 +539,8 @@
       "risk": {
         "self": "confirm"
       },
-      "link": "/settings/automation#models",
-      "manual": "settings/automation",
+      "link": "/settings/models#defaults",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.conversation_model.name",
       "audit": true
     },
@@ -560,8 +551,8 @@
       "risk": {
         "self": "confirm"
       },
-      "link": "/settings/automation#models",
-      "manual": "settings/automation",
+      "link": "/settings/models#more",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.background_model.name",
       "audit": true
     },
@@ -572,21 +563,9 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#replies",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#behavior",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.structured_output.name",
-      "audit": true
-    },
-    {
-      "key": "automation.force_say_haiku_dm",
-      "scope": "account",
-      "kind": "bool",
-      "risk": {
-        "self": "direct"
-      },
-      "link": "/settings/automation#replies",
-      "manual": "settings/automation",
-      "label_key": "settings:automation.item.force_say_haiku_dm.name",
       "audit": true
     },
     {
@@ -596,8 +575,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#replies",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#behavior",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.web_search.name",
       "audit": true
     },
@@ -610,8 +589,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#replies",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#replies",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.web_fetch_limit.name",
       "audit": true
     },
@@ -622,8 +601,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#history",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#groups",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.group_exchange_gists.name",
       "audit": true
     },
@@ -636,8 +615,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#history",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#replies",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.own_replies_verbatim.name",
       "audit": true
     },
@@ -649,8 +628,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#history",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#replies",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.task_retention_days.name",
       "audit": true
     },
@@ -661,8 +640,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#checks",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#reviews",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.completion_review.name",
       "audit": true
     },
@@ -674,8 +653,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#checks",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#reviews",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.answer_gate.name",
       "audit": true
     },
@@ -691,8 +670,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#checks",
-      "manual": "settings/automation",
+      "link": "/settings/permissions#advanced",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.personal_input_review.name",
       "audit": true
     },
@@ -705,8 +684,8 @@
       "risk": {
         "self": "confirm"
       },
-      "link": "/settings/automation#checks",
-      "manual": "settings/automation",
+      "link": "/settings/permissions#remembered",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.remembered_approval_hours.name",
       "audit": true
     },
@@ -718,8 +697,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#reliability",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#behavior",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.provider_retries.name",
       "audit": true
     },
@@ -730,8 +709,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#schedules",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#reviews",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.schedule_receipt_review.name",
       "audit": true
     },
@@ -742,8 +721,8 @@
       "risk": {
         "self": "forbidden"
       },
-      "link": "/settings/automation#computer",
-      "manual": "settings/automation",
+      "link": "/settings/computer#environment",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.desktop_idle_seconds.name",
       "audit": true
     },
@@ -758,8 +737,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#computer",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#computer",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.browser_engine.name",
       "audit": true
     },
@@ -774,8 +753,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#computer",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#computer",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.desktop_engine.name",
       "audit": true
     },
@@ -786,8 +765,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#replies",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#groups",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.group_triage.name",
       "audit": true
     },
@@ -798,8 +777,8 @@
       "risk": {
         "self": "confirm"
       },
-      "link": "/settings/automation#models",
-      "manual": "settings/automation",
+      "link": "/settings/models#more",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.group_triage_model.name",
       "audit": true
     },
@@ -810,8 +789,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#replies",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#groups",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.group_followup_to_working.name",
       "audit": true
     },
@@ -824,8 +803,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#computer",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#computer",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.command_check_minutes.name",
       "audit": true
     },
@@ -838,8 +817,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#computer",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#behavior",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.computer_idle_off_minutes.name",
       "audit": true
     },
@@ -852,8 +831,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#checks",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#reviews",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.task_stall_rounds.name",
       "audit": true
     },
@@ -866,8 +845,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#reliability",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#tasks",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.task_tree_idle_message_limit.name",
       "audit": true
     },
@@ -880,8 +859,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#reliability",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#tasks",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.task_fanout_width.name",
       "audit": true
     },
@@ -894,8 +873,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#reliability",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#tasks",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.task_fanout_depth.name",
       "audit": true
     },
@@ -908,8 +887,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#reliability",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#tasks",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.task_part_deadline_minutes.name",
       "audit": true
     },
@@ -922,8 +901,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#reliability",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#tasks",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.task_part_deadline_scheduled_minutes.name",
       "audit": true
     },
@@ -934,8 +913,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#widgets",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#behavior",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.widget_artifacts_auto.name",
       "audit": true
     },
@@ -946,8 +925,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#widgets",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#behavior",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.widget_computer_auto.name",
       "audit": true
     },
@@ -958,8 +937,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#computer",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#behavior",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.work_trace.name",
       "audit": true
     },
@@ -971,8 +950,8 @@
       "risk": {
         "self": "direct"
       },
-      "link": "/settings/automation#computer",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#computer",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.trace_retention_days.name",
       "audit": true
     },
@@ -984,8 +963,8 @@
       "risk": {
         "self": "confirm"
       },
-      "link": "/settings/automation#computer",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#computer",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.trace_private_origins.name",
       "audit": true
     },
@@ -998,7 +977,7 @@
         "self": "forbidden"
       },
       "link": "/settings/usage#spend",
-      "manual": "settings/automation",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.monthly_spend_limit_usd.name",
       "audit": true
     },
@@ -1011,8 +990,8 @@
       "risk": {
         "self": "forbidden"
       },
-      "link": "/settings/automation#checks",
-      "manual": "settings/automation",
+      "link": "/settings/advanced#data",
+      "manual": "settings/advanced",
       "label_key": "settings:automation.item.settings_change_limit.name",
       "audit": true
     },
@@ -1113,8 +1092,8 @@
       "risk": {
         "self": "forbidden"
       },
-      "link": "/settings/tools#web",
-      "manual": "settings/tools",
+      "link": "/settings/connections#web",
+      "manual": "settings/connections",
       "label_key": "settings:webtools.title",
       "audit": true
     },
@@ -1197,9 +1176,9 @@
       "risk": {
         "self": "forbidden"
       },
-      "link": "/settings/keys#keys",
-      "manual": "settings/keys",
-      "label_key": "settings:shell.page.keys.name",
+      "link": "/settings/computer#keys",
+      "manual": "settings/computer",
+      "label_key": "settings:computer.keys_row",
       "audit": true
     },
     {

@@ -2,12 +2,12 @@
 id: failures/settings_revert_failed
 title: settings_revert_failed
 summary: The undo did not work.
-link: /settings/advanced#changes
+link: /settings/advanced#data
 kind: failure
 ---
 # settings_revert_failed
 
-Open this page: [Where to look](/settings/advanced#changes)
+Open this page: [Where to look](/settings/advanced#data)
 
 **Meaning.** The undo did not work.
 

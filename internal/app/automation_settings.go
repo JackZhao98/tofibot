@@ -33,7 +33,6 @@ const (
 	autoConversationModel     = "conversation_model"
 	autoBackgroundModel       = "background_model"
 	autoStructuredOutput      = "structured_output"
-	autoForceSayHaikuDM       = "force_say_haiku_dm"
 	autoWebSearch             = "web_search"
 	autoGroupExchangeGists    = "group_exchange_gists"
 	autoOwnRepliesVerbatim    = "own_replies_verbatim"
@@ -105,43 +104,42 @@ type automationItem struct {
 
 // automationItems is the inventory, in display order.
 var automationItems = []automationItem{
-	{Key: autoConversationModel, Group: "models", Kind: autoKindModel, Default: defaultConversationModel},
+	{Key: autoConversationModel, Group: "defaults", Kind: autoKindModel, Default: defaultConversationModel},
 	{Key: autoBackgroundModel, Group: "models", Kind: autoKindModel, Env: "TOFI_BACKGROUND_MODEL"},
-	{Key: autoStructuredOutput, Group: "replies", Kind: autoKindBool, Default: "true"},
-	{Key: autoForceSayHaikuDM, Group: "replies", Kind: autoKindBool, Default: "true", Env: "TOFI_FORCE_SAY"},
-	{Key: autoWebSearch, Group: "replies", Kind: autoKindBool, Default: "true", Env: "TOFI_WEB_SEARCH"},
+	{Key: autoStructuredOutput, Group: "common", Kind: autoKindBool, Default: "true"},
+	{Key: autoWebSearch, Group: "common", Kind: autoKindBool, Default: "true", Env: "TOFI_WEB_SEARCH"},
 	{Key: autoWebFetchLimit, Group: "replies", Kind: autoKindInt, Default: strconv.Itoa(defaultWebFetchLimit), Min: 1, Max: 100},
-	{Key: autoGroupExchangeGists, Group: "history", Kind: autoKindBool, Default: "true"},
-	{Key: autoOwnRepliesVerbatim, Group: "history", Kind: autoKindInt, Default: strconv.Itoa(ownVerbatimReplies), Min: 1, Max: 20},
-	{Key: autoTaskRetentionDays, Group: "history", Kind: autoKindInt, Default: taskRetentionDefault(), Min: 0, Max: 3650, Unit: "days"},
-	{Key: autoCompletionReview, Group: "checks", Kind: autoKindBool, Default: "true"},
-	{Key: autoAnswerGate, Group: "checks", Kind: autoKindInt, Default: "2", Min: 0, Max: 5},
-	{Key: autoMCPReview, Group: "checks", Kind: autoKindEnum, Default: "off", Options: []string{"off", "shadow", "auto"}},
-	{Key: autoPersonalInputReview, Group: "checks", Kind: autoKindEnum, Default: personalReviewCommands, Options: []string{personalReviewDeclared, personalReviewCommands, personalReviewAll}},
-	{Key: autoRememberedApprovalHrs, Group: "checks", Kind: autoKindInt, Default: strconv.Itoa(int(rememberedApprovalValidity / time.Hour)), Min: 1, Max: 720, Unit: "hours"},
-	{Key: autoProviderRetries, Group: "reliability", Kind: autoKindInt, Default: strconv.Itoa(defaultProviderRetries), Min: 0, Max: 10, Env: "TOFI_PROVIDER_RETRIES"},
-	{Key: autoScheduleReceiptReview, Group: "schedules", Kind: autoKindBool, Default: "true"},
-	{Key: autoDesktopIdle, Group: "computer", Kind: autoKindReadOnly, Unit: "seconds"},
+	{Key: autoGroupExchangeGists, Group: "groups", Kind: autoKindBool, Default: "true"},
+	{Key: autoOwnRepliesVerbatim, Group: "replies", Kind: autoKindInt, Default: strconv.Itoa(ownVerbatimReplies), Min: 1, Max: 20},
+	{Key: autoTaskRetentionDays, Group: "replies", Kind: autoKindInt, Default: taskRetentionDefault(), Min: 0, Max: 3650, Unit: "days"},
+	{Key: autoCompletionReview, Group: "reviews", Kind: autoKindBool, Default: "true"},
+	{Key: autoAnswerGate, Group: "reviews", Kind: autoKindInt, Default: "2", Min: 0, Max: 5},
+	{Key: autoMCPReview, Group: "permissions", Kind: autoKindEnum, Default: "off", Options: []string{"off", "shadow", "auto"}},
+	{Key: autoPersonalInputReview, Group: "permissions", Kind: autoKindEnum, Default: personalReviewCommands, Options: []string{personalReviewDeclared, personalReviewCommands, personalReviewAll}},
+	{Key: autoRememberedApprovalHrs, Group: "remembered", Kind: autoKindInt, Default: strconv.Itoa(int(rememberedApprovalValidity / time.Hour)), Min: 1, Max: 720, Unit: "hours"},
+	{Key: autoProviderRetries, Group: "common", Kind: autoKindInt, Default: strconv.Itoa(defaultProviderRetries), Min: 0, Max: 10, Env: "TOFI_PROVIDER_RETRIES"},
+	{Key: autoScheduleReceiptReview, Group: "reviews", Kind: autoKindBool, Default: "true"},
+	{Key: autoDesktopIdle, Group: "environment", Kind: autoKindReadOnly, Unit: "seconds"},
 	{Key: autoBrowserEngine, Group: "computer", Kind: autoKindEnum, Default: browserEnginePlaywright, Env: "TOFI_BROWSER_ENGINE", Options: []string{browserEngineClassic, browserEnginePlaywright}},
 	{Key: autoDesktopEngine, Group: "computer", Kind: autoKindEnum, Default: desktopEngineClassic, Env: "TOFI_DESKTOP_ENGINE", Options: []string{desktopEngineClassic, desktopEngineA11y}},
-	{Key: autoGroupTriage, Group: "replies", Kind: autoKindBool, Default: "true"},
+	{Key: autoGroupTriage, Group: "groups", Kind: autoKindBool, Default: "true"},
 	{Key: autoGroupTriageModel, Group: "models", Kind: autoKindModel},
-	{Key: autoGroupFollowUp, Group: "replies", Kind: autoKindBool, Default: "true"},
+	{Key: autoGroupFollowUp, Group: "groups", Kind: autoKindBool, Default: "true"},
 	{Key: autoCommandCheckMinutes, Group: "computer", Kind: autoKindInt, Default: commandCheckMinutesDefault(), Min: 5, Max: 1440, Unit: "minutes"},
-	{Key: autoComputerIdleOff, Group: "computer", Kind: autoKindInt, Default: strconv.Itoa(defaultComputerIdleOffMins), Min: 5, Max: 60, Unit: "minutes"},
-	{Key: autoTaskStallRounds, Group: "checks", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskStallRounds), Min: 1, Max: 20},
-	{Key: autoTaskTreeIdleLimit, Group: "reliability", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskTreeIdleLimit), Min: 10, Max: 500},
-	{Key: autoTaskFanoutWidth, Group: "reliability", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskFanoutWidth), Min: 1, Max: 12},
-	{Key: autoTaskFanoutDepth, Group: "reliability", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskFanoutDepth), Min: 1, Max: 5},
-	{Key: autoTaskPartDeadline, Group: "reliability", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskPartDeadline), Min: 1, Max: 1440, Unit: "minutes"},
-	{Key: autoTaskPartDeadlineSched, Group: "reliability", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskPartDeadlineSch), Min: 1, Max: 1440, Unit: "minutes"},
-	{Key: autoWidgetArtifacts, Group: "widgets", Kind: autoKindBool, Default: "true"},
-	{Key: autoWidgetComputer, Group: "widgets", Kind: autoKindBool, Default: "true"},
-	{Key: autoWorkTrace, Group: "computer", Kind: autoKindBool, Default: "true"},
+	{Key: autoComputerIdleOff, Group: "common", Kind: autoKindInt, Default: strconv.Itoa(defaultComputerIdleOffMins), Min: 5, Max: 60, Unit: "minutes"},
+	{Key: autoTaskStallRounds, Group: "reviews", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskStallRounds), Min: 1, Max: 20},
+	{Key: autoTaskTreeIdleLimit, Group: "tasks", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskTreeIdleLimit), Min: 10, Max: 500},
+	{Key: autoTaskFanoutWidth, Group: "tasks", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskFanoutWidth), Min: 1, Max: 12},
+	{Key: autoTaskFanoutDepth, Group: "tasks", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskFanoutDepth), Min: 1, Max: 5},
+	{Key: autoTaskPartDeadline, Group: "tasks", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskPartDeadline), Min: 1, Max: 1440, Unit: "minutes"},
+	{Key: autoTaskPartDeadlineSched, Group: "tasks", Kind: autoKindInt, Default: strconv.Itoa(defaultTaskPartDeadlineSch), Min: 1, Max: 1440, Unit: "minutes"},
+	{Key: autoWidgetArtifacts, Group: "common", Kind: autoKindBool, Default: "true"},
+	{Key: autoWidgetComputer, Group: "common", Kind: autoKindBool, Default: "true"},
+	{Key: autoWorkTrace, Group: "common", Kind: autoKindBool, Default: "true"},
 	{Key: autoTraceRetentionDays, Group: "computer", Kind: autoKindInt, Default: traceRetentionDefault(), Min: 0, Max: 90, Unit: "days"},
 	{Key: autoTracePrivateOrigins, Group: "computer", Kind: autoKindText, Max: 4000},
 	{Key: autoMonthlySpendLimit, Group: "usage", Kind: autoKindInt, Default: "0", Min: 0, Max: maxSpendLimitUSD, Unit: "usd"},
-	{Key: autoSettingsChangeLimit, Group: "checks", Kind: autoKindInt, Default: strconv.Itoa(defaultSettingsChange), Min: 1, Max: 50},
+	{Key: autoSettingsChangeLimit, Group: "changes", Kind: autoKindInt, Default: strconv.Itoa(defaultSettingsChange), Min: 1, Max: 50},
 }
 
 func automationItemFor(key string) (automationItem, bool) {
@@ -333,11 +331,6 @@ func (s *Server) autoInt(key string) int {
 
 // The accessors below are the read points the rest of the server uses. Each
 // is cheap enough for a hot path.
-
-// forceSayHaikuDMEnabled says whether a Haiku run in a direct message must
-// call a tool on every model turn (tool_choice required), so its reply goes
-// through say. Read at the ForceToolUse call site of a run.
-func (s *Server) forceSayHaikuDMEnabled() bool { return s.autoBool(autoForceSayHaikuDM) }
 
 // webSearchEnabled says whether Anthropic runs may use server-side web search
 // and the server-side page reader that goes with it.

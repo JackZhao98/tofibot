@@ -33,12 +33,22 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
   }
 
   // Every link the reader accepts is written back unchanged.
-  // A retired tab (Settings > Other devices is now part of Environments) opens the tab that replaced it.
-  for (const [legacy, tab] of Object.entries(sections.LEGACY_SETTINGS_TABS)) {
-    assert.deepEqual(readSettingsLink(`/settings/${legacy}`, ""), { kind: "settings", tab }, `/settings/${legacy}`);
+  // An older position opens where the setting lives now (settings-simplify section 7). Every row of the table resolves to a real page and section.
+  for (const [from, to] of Object.entries(sections.LEGACY_SETTINGS_LINKS)) {
+    const [tab, section] = to.split("#");
+    assert.ok(tab in sections.SETTINGS_SECTIONS && (!section || sections.SETTINGS_SECTIONS[tab].includes(section)), `${from} -> ${to} exists`);
+    const [oldTab, oldSection] = from.split("#");
+    assert.deepEqual(readSettingsLink(`/settings/${oldTab}`, oldSection ? `#${oldSection}` : ""), { kind: "settings", tab, ...(section ? { section } : {}) }, `/settings/${from}`);
   }
+  assert.deepEqual(readSettingsLink("/settings/allowances", "#nowhere"), { kind: "settings", tab: "permissions" }, "an old page with an unknown section still lands on its replacement");
+  assert.deepEqual(readSettingsLink("/settings/followups", "#limits"), { kind: "settings", tab: "advanced", section: "followups" }, "a section of a retired page goes to the page's new home");
+  assert.deepEqual(readSettingsLink("/settings/automation"), { kind: "settings", tab: "advanced", section: "behavior" }, "Behavior is a subpage of System");
+  assert.deepEqual(readSettingsLink("/settings/tools", "#web"), { kind: "settings", tab: "connections", section: "web" });
+  assert.deepEqual(readSettingsLink("/settings/general", "#primary"), { kind: "primary-settings" }, "the Primary Assistant moved to the Bot's own settings");
+  assert.equal(settingsLinkPath({ kind: "primary-settings" }), "/settings/general");
+  for (const tab of ["allowances", "followups", "tools", "keys", "automation"]) assert.ok(!(tab in sections.SETTINGS_SECTIONS), `${tab} is not a page any more`);
   for (const [tab, list] of Object.entries(sections.SETTINGS_SECTIONS)) {
-    if (tab in sections.LEGACY_SETTINGS_TABS) continue;
+    if (tab === "devices") continue;
     for (const section of [undefined, ...list]) {
       const link = { kind: "settings", tab, ...(section ? { section } : {}) };
       const path = settingsLinkPath(link);

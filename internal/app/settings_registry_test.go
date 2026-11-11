@@ -43,9 +43,6 @@ func linkTarget(link string) (ok bool, why string) {
 		for _, p := range settingsTabPages {
 			if p.ID == tab {
 				if section != "" && !inList(p.Sections, section) {
-					if tab == "automation" && section != "" {
-						return false, "unknown automation group " + section
-					}
 					return false, "unknown section " + section + " on " + tab
 				}
 				return true, ""
@@ -204,6 +201,21 @@ func TestSettingsRegistryGenerated(t *testing.T) {
 	for _, f := range existing {
 		if _, ok := files[manualGeneratedDir+"/"+filepath.ToSlash(f)]; !ok {
 			t.Errorf("%s is not generated any more; run `go generate ./internal/app`", f)
+		}
+	}
+}
+
+// Every older settings position resolves to a page and section that exist now, and no older position is also a live one.
+func TestSettingsLegacyLinksResolve(t *testing.T) {
+	for from, to := range settingsLegacyLinks {
+		tab, section, _ := strings.Cut(from, "#")
+		for _, p := range settingsTabPages {
+			if p.ID == tab && (section == "" || inList(p.Sections, section)) && tab != "devices" {
+				t.Errorf("legacy link %q is a live position", from)
+			}
+		}
+		if ok, why := linkTarget("/settings/" + to); !ok {
+			t.Errorf("legacy link %q -> %q: %s", from, to, why)
 		}
 	}
 }

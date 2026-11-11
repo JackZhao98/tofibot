@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { request } from "./api";
 import { BotAvatar } from "./BotAvatar";
 import { useTranslation } from "./i18n";
@@ -36,7 +36,7 @@ export interface RememberedEntry {
 type Listing = { allowances: StandingAllowance[]; remembered: RememberedEntry[] };
 
 /** Settings > Permissions: every place the system uses a tool without asking, each with Revoke. */
-export function StandingAllowances() {
+export function StandingAllowances({ rememberedExtra }: { rememberedExtra?: ReactNode } = {}) {
   const { t } = useTranslation("settings");
   const { timezone } = useUserTimezone();
   const [listing, setListing] = useState<Listing | null>(null);
@@ -95,6 +95,7 @@ export function StandingAllowances() {
       </SettingsCard>
     </SettingsSection>
     <SettingsSection id="remembered" title={t("permissionsPage.standing.remembered.title")} description={t("permissionsPage.standing.remembered.description")}>
+      {rememberedExtra}
       <SettingsCard>
         {listing !== null && listing.remembered.length === 0 && <p className="muted standing-empty">{t("permissionsPage.standing.remembered.empty")}</p>}
         {listing !== null && listing.remembered.length > 0 && <ul className="standing-list" aria-label={t("permissionsPage.standing.remembered.title")}>

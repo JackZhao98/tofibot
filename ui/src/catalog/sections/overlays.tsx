@@ -219,7 +219,5 @@ export const listboxes: CatalogSection = {
       drive: async step => { await step.type(".composer textarea", "@"); await step.find(".mention-menu"); } },
     { id: "mention-filtered", kind: "app", label: "@ mention menu, filtered", app: GROUP, probe: ".mention-menu",
       drive: async step => { await step.type(".composer textarea", "@mi"); await step.find(".mention-menu"); } },
-    { id: "select", kind: "app", label: "Native select (Settings)", note: "the browser draws the open list", app: DM,
-      drive: async step => { await step.click(".sidebar-account-settings"); await step.find(".settings-shell select"); }, force: [{ selector: ".settings-shell select", state: "focus" }] },
   ],
 };

@@ -4,7 +4,7 @@ title: Tool permissions of a connection
 summary: The three marks a tool can have, who sets them, and what loosening needs.
 link: /settings/connections
 kind: guide
-see_also: permissions, settings/allowances
+see_also: permissions, settings/permissions
 ---
 # Tool permissions of a connection
 

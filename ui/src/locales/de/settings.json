@@ -58,16 +58,12 @@
         "name": "Umgebungen",
         "description": "Cloud-Computer, dieser Server und deine Macs"
       },
-      "keys": {
-        "name": "Bot-Computer-Schlüssel",
-        "description": "Umgebungsvariablen und SSH-Schlüssel für den Bot-Computer"
-      },
       "usage": {
         "name": "Nutzung",
         "description": "Modellnutzung und Kontextkomprimierung pro Agent"
       },
       "advanced": {
-        "name": "Wartung",
+        "name": "System",
         "description": "Version, Server, Daten, Debugging und Neu beginnen."
       },
       "admin": {
@@ -77,14 +73,6 @@
       "automation": {
         "name": "Verhalten",
         "description": "Ansehen und anpassen, was Tofi selbstständig tut"
-      },
-      "allowances": {
-        "name": "Werkzeugregeln",
-        "description": "Prüfer, Nachfragen der Werkzeuge und deine Freigaben"
-      },
-      "tools": {
-        "name": "Suche & Abruf",
-        "description": "Wo Bots im Web suchen und lesen"
       },
       "devices": {
         "name": "Weitere Geräte",
@@ -127,8 +115,7 @@
     "tag": {
       "beta": "Beta",
       "dev": "In Entwicklung"
-    },
-    "more": "Mehr"
+    }
   },
   "appearance": {
     "title": "Design",
@@ -554,7 +541,7 @@
       "once": "Wird nur einmal angezeigt. Tofi speichert sie danach nicht.",
       "expires": "Verfügbar bis {{date}}.",
       "message_label": "Nachricht zum Versenden",
-      "message": "Dein TOFI-Konto wurde geschlossen. Lade deine Bots herunter: {{link}} (Passphrase folgt separat), verfügbar bis {{date}}. Importiere sie in Tofi: Einstellungen → Wartung → Datenübertragung, dann die Passphrase eingeben.",
+      "message": "Dein TOFI-Konto wurde geschlossen. Lade deine Bots herunter: {{link}} (Passphrase folgt separat), verfügbar bis {{date}}. Importiere sie in Tofi: Einstellungen → System → Daten → Import, dann die Passphrase eingeben.",
       "message_note": "Sende die Passphrase in einer anderen Nachricht oder über einen anderen Kanal.",
       "copy_message": "Nachricht kopieren",
       "done": "Ich habe die Passphrase gespeichert"
@@ -804,7 +791,9 @@
     "mode_auto": "Automatisch · Prüfen, dann nach Ausführungsrichtlinie entscheiden",
     "note_off": "Aus: Es werden keine Prüfungen angefordert. Bisherige manuelle Freigaben und vertrauenswürdige Nur-Lese-Ausnahmen bleiben bestehen. Beim Ausschalten verfallen automatische Freigaben, die noch keine Ausführung beansprucht haben, sofort.",
     "note_shadow": "Beobachten: Zeichnet im Hintergrund Empfehlungen für alle externen Tools auf, ohne Wartezeiten oder Ausführungsrechte hinzuzufügen. Bisherige manuelle Freigaben und vertrauenswürdige Nur-Lese-Wege gelten weiter. Beim Ausschalten verfallen automatische Freigaben, die noch keine Ausführung beansprucht haben, sofort.",
-    "note_auto": "Automatisch: Prüft alle externen Tools. Freigegebene Vorschläge mit niedrigem oder mittlerem Risiko können automatisch eine einmalige Ausführung beanspruchen; Vorschläge mit hohem Risiko, die eine Bestätigung brauchen, musst du weiterhin selbst freigeben. Ablehnungen, fehlender Kontext und ungültige Bindungen können nicht ausgeführt werden. Beim Ausschalten verfallen automatische Freigaben, die noch keine Ausführung beansprucht haben, sofort."
+    "note_auto": "Automatisch: Prüft alle externen Tools. Freigegebene Vorschläge mit niedrigem oder mittlerem Risiko können automatisch eine einmalige Ausführung beanspruchen; Vorschläge mit hohem Risiko, die eine Bestätigung brauchen, musst du weiterhin selbst freigeben. Ablehnungen, fehlender Kontext und ungültige Bindungen können nicht ausgeführt werden. Beim Ausschalten verfallen automatische Freigaben, die noch keine Ausführung beansprucht haben, sofort.",
+    "observe": "Beobachtungsmodus",
+    "observe_hint": "Die Prüfung gibt nur Hinweise aus und ändert nichts sonst. Sie gilt nur, solange Freigaben noch nachfragen."
   },
   "dictation": {
     "load_failed": "Dictate-Einstellungen konnten nicht geladen werden",
@@ -965,7 +954,9 @@
     "data": "Daten",
     "debug": "Debug",
     "danger": "Gefahrenzone",
-    "version": "Version"
+    "version": "Version",
+    "behavior_hint": "Was Bots von allein tun und wie weit",
+    "diagnostics": "Fehlersuche"
   },
   "update": {
     "banner": {
@@ -1141,7 +1132,7 @@
         "description": "Welches Modell welche Art von Arbeit übernimmt."
       },
       "replies": {
-        "title": "Antworten",
+        "title": "Antworten und Verlauf",
         "description": "Wie Bots ausliefern, was sie sagen."
       },
       "history": {
@@ -1167,6 +1158,15 @@
       "widgets": {
         "title": "Seitliche Widgets",
         "description": "Kleine Blöcke, die sich von selbst neben dem Chat öffnen."
+      },
+      "groups": {
+        "title": "Gruppenchats"
+      },
+      "reviews": {
+        "title": "Prüfungen"
+      },
+      "tasks": {
+        "title": "Aufgabenverteilung"
       }
     },
     "item": {
@@ -1176,19 +1176,15 @@
       },
       "background_model": {
         "name": "Hintergrundmodell",
-        "what": "Erledigt leichte Arbeit im Hintergrund: Verlaufszusammenfassungen, Weiterleitung, Prüfungen und Nachfass-Checks. Automatisch heißt: Haiku bei Claude, sonst das Gesprächsmodell."
+        "what": "Erledigt leichte Arbeit im Hintergrund: Verlaufszusammenfassungen, Weiterleitung, Prüfungen und Nachfass-Checks. Automatisch nutzt ein leichtes Modell desselben Anbieters wie das Gesprächsmodell."
       },
       "structured_output": {
         "name": "Strukturierte Antworten",
         "what": "Im Chat erscheinen nur die fertigen Antworten eines Bots; was er während der Arbeit schreibt, bleibt in der Aktivitätsansicht. Ausschalten, um ihn wie bisher zu veröffentlichen."
       },
-      "force_say_haiku_dm": {
-        "name": "Antwortwerkzeug für Haiku erzwingen",
-        "what": "In Direktnachrichten muss Haiku in jedem Schritt eine richtige Antwort geben, damit sie sicher im Chat landet."
-      },
       "web_search": {
         "name": "Websuche",
-        "what": "Claude-Modelle suchen vor der Antwort selbst im Web und lesen die Seiten, auf die sie sich stützen, wenn eine Frage neuer sein könnte als ihr Wissen."
+        "what": "Modelle mit Websuche suchen vor der Antwort selbst im Web und lesen die Seiten, auf die sie sich stützen, wenn eine Frage neuer sein könnte als ihr Wissen."
       },
       "web_fetch_limit": {
         "name": "Gelesene Seiten pro Lauf",
@@ -1360,7 +1356,13 @@
     "keep_all": "Alles behalten",
     "in_permissions": "In „Berechtigungen“ festlegen",
     "origins_placeholder": "bank.example.com",
-    "empty_list": "Keine"
+    "empty_list": "Keine",
+    "common": "Häufig",
+    "more": "Mehr",
+    "fold": {
+      "items": "{{n}} Einstellungen",
+      "changed": "{{n}} Einstellungen · {{changed}} geändert"
+    }
   },
   "webtools": {
     "title": "Websuche und Abruf",
@@ -1478,6 +1480,9 @@
       "read": "Tools, die der Dienst oder du als nur lesend markierst.",
       "write": "Standard. Jeder Aufruf wird geprüft: Was du verlangt hast, läuft, alles andere fragt dich zuerst.",
       "high": "Du entscheidest jeden Aufruf. Ist niemand da, den man fragen kann, läuft der Aufruf nicht."
+    },
+    "advanced": {
+      "title": "Erweitert"
     }
   },
   "chats": {
@@ -1699,10 +1704,6 @@
     "reset": "Auf Gruppe zurücksetzen",
     "member": {
       "managed": "Per Richtlinie verwaltet",
-      "banner_title": "Einige Ressourcen stellt Ihre Organisation bereit",
-      "banner_body": "Ihr Administrator verwaltet einen Teil dessen, was Bots nutzen, etwa Modelle, Suche oder den Bot-Computer. Diese Einstellungen sind hier schreibgeschützt.",
-      "banner_action": "Ansehen",
-      "banner_dismiss": "Ausblenden",
       "models": {
         "title": "Modelle stellt Ihre Organisation bereit",
         "body": "Bots laufen über die Modellkonten Ihrer Organisation. API-Schlüssel und Anmeldung verwaltet Ihr Administrator.",
@@ -1720,5 +1721,11 @@
   "changed": {
     "note": "Geändert · Standard {{value}}",
     "reset": "Zurücksetzen"
+  },
+  "models": {
+    "more": "Mehr"
+  },
+  "computer": {
+    "keys_row": "Umgebungsvariablen und SSH-Schlüssel"
   }
 }

@@ -10,13 +10,13 @@ import {useConnectionAttention} from "./settings/useConnectionAttention";
 import {legacySettingsTabs} from "./settings/deepLinks";
 import {takeSettingsSection} from "./settings/pendingSection";
 import {jumpWhenReady} from "./settings/sectionJump";
+import {revealSection} from "./settings/subpages";
 import {SETTINGS_SECTIONS} from "./settings/sections";
 import {providerForModel, providerLabels} from "./modelCatalog";
 import {useLanguage, useTranslation} from "./i18n";
 import {ConfirmDialog} from "./overlays/ModalDialog";
-import {useHasComputer} from "./computerCapability";
 
-export type SettingsTab="general"|"connections"|"skills"|"permissions"|"allowances"|"followups"|"models"|"tools"|"automation"|"computer"|"devices"|"keys"|"usage"|"advanced"|"admin"|"admin-groups"|"admin-resources";
+export type SettingsTab="general"|"connections"|"skills"|"permissions"|"models"|"computer"|"devices"|"usage"|"advanced"|"admin"|"admin-groups"|"admin-resources";
 // Compile-time check: every tab has its section list in settings/sections.ts (the ids a link can scroll to).
 export const SETTINGS_TAB_SECTIONS:Record<SettingsTab,readonly string[]>=SETTINGS_SECTIONS;
 export type SettingsView="home"|"page";
@@ -27,21 +27,19 @@ export type SettingsEntry={seq:number;view:SettingsView};
 export type PageTag="beta"|"dev";
 // A page's description (`shell.page.<id>.description`) is no longer shown in the window; the manual and reference pages the server generates still read it (internal/app/settings_artifacts.go).
 type Page={id:SettingsTab;icon:TofiIconName;tag?:PageTag;name:`shell.page.${SettingsTab}.name`};
-// Groups are spacing clusters in the rail. Only Administration shows a heading; "more" is the folded cluster behind one quiet rail item.
-type GroupId="you"|"bots"|"workspace"|"system"|"admin"|"more";
+// Groups are spacing clusters in the rail. Only Administration shows a heading.
+type GroupId="you"|"bots"|"workspace"|"system"|"admin";
 type Group={id:GroupId;items:Page[]};
 const page=(id:SettingsTab,icon:TofiIconName,tag?:PageTag):Page=>({id,icon,tag,name:`shell.page.${id}.name`});
 const group=(id:GroupId,items:Page[]):Group=>({id,items});
 // Administration is its own navigation group, for administrators of a multi-account install only.
 const adminGroup=group("admin",[page("admin","group"),page("admin-groups","layers"),page("admin-resources","key")]);
-// The "advanced" tab id is the System page (version, server, data, debug, Start over); its label is "Maintenance" so it
-// does not clash with the collapsible "Advanced" group ("more"), which holds the long, rarely used and unfinished pages.
+// The "advanced" tab id is the System page: version, server, Behavior (a subpage), data, troubleshooting, Start over.
 const groups:Group[]=[
  group("you",[page("general","sliders")]),
- group("bots",[page("connections","plug"),page("skills","skill"),page("permissions","shield-check"),page("models","sparkles"),page("tools","globe"),page("automation","workflow")]),
+ group("bots",[page("models","sparkles"),page("connections","plug"),page("skills","skill"),page("permissions","shield-check")]),
  group("workspace",[page("computer","layers"),page("usage","progress")]),
- group("system",[page("advanced","settings")]),
- group("more",[page("allowances","checklist"),page("followups","bell","beta"),page("keys","key")])
+ group("system",[page("advanced","settings")])
 ];
 type Target=SettingsTab|"close"|"home";
 const narrowQuery="(max-width: 700px)";
@@ -51,17 +49,16 @@ function useNarrow(){
  return narrow;
 }
 /** Right-side value hints for the mobile list. Fetched only while the list is showing, and none of them probes a service. */
-function useMobileHints(enabled:boolean,hasComputer:boolean){
- const [hints,setHints]=useState<{model?:string;environments?:number;keys?:number}>({});
+function useMobileHints(enabled:boolean){
+ const [hints,setHints]=useState<{model?:string;environments?:number}>({});
  useEffect(()=>{
   if(!enabled)return;
   const controller=new AbortController();const {signal}=controller;
   const merge=(patch:object)=>{if(!signal.aborted)setHints(current=>({...current,...patch}))};
   request<{model:string}>("/api/model-settings",{signal}).then(value=>merge({model:value.model?providerLabels[providerForModel(value.model)]:undefined})).catch(()=>{});
   readEnvironments(signal).then(value=>merge({environments:value.environments.length})).catch(()=>{});
-  if(hasComputer)request<{credentials:{kind?:string}[]}>("/api/computer/credentials",{signal}).then(value=>merge({keys:(value.credentials??[]).length})).catch(()=>{});
   return()=>controller.abort();
- },[enabled,hasComputer]);
+ },[enabled]);
  return hints;
 }
 export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,refreshToken=0}:{tab:SettingsTab;onTab:(tab:SettingsTab)=>void;onClose:()=>void;renderPage:(tab:SettingsTab)=>ReactNode;entry?:SettingsEntry;refreshToken?:number}){
@@ -71,13 +68,7 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
  const {language}=useLanguage();
  const session=useOwnerSession();
  const isAdmin=Boolean(session?.multi_account&&session.owner?.role==="admin");
- const hasComputer=useHasComputer();
- // Without a computer the Keys page (environment variables and SSH keys, used only inside it) is hidden; Computer stays and explains the options.
- const visibleGroups:Group[]=useMemo(()=>{
-  const base=groups.map(item=>({...item,items:item.items.filter(page=>(hasComputer||page.id!=="keys"))}));
-  // Administration sits between System and the folded Advanced group.
-  return isAdmin?[...base.slice(0,-1),adminGroup,...base.slice(-1)]:base;
- },[isAdmin,hasComputer]);
+  const visibleGroups:Group[]=useMemo(()=>isAdmin?[...groups,adminGroup]:groups,[isAdmin]);
  const allItems=visibleGroups.flatMap(item=>item.items);
  const attention=useConnectionAttention(refreshToken);
  const counts:Partial<Record<SettingsTab,{value:number;tone:"honey"|"iris"}>>={...(attention>0?{connections:{value:attention,tone:"honey"}}:{})};
@@ -85,14 +76,9 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
  const [mobileView,setMobileView]=useState<SettingsView>(entry?.view??"home");
  const entrySeq=useRef(entry?.seq);
  useEffect(()=>{if(entry&&entry.seq!==entrySeq.current){entrySeq.current=entry.seq;setMobileView(entry.view)}},[entry]);
- const hints=useMobileHints(narrow&&mobileView==="home",hasComputer);
+ const hints=useMobileHints(narrow&&mobileView==="home");
  useEffect(()=>{if(tab!==requestedTab)onTab(tab)},[tab,requestedTab,onTab]);
  useEffect(()=>{if((tab==="admin"||tab==="admin-groups"||tab==="admin-resources")&&!isAdmin)onTab("general")},[tab,isAdmin,onTab]);
- useEffect(()=>{if(tab==="keys"&&!hasComputer)onTab("computer")},[tab,hasComputer,onTab]);
- // The Advanced group is folded until opened; a selected page inside it keeps it open.
- const [advancedOpen,setAdvancedOpen]=useState(false);
- const inAdvanced=visibleGroups.some(item=>item.id==="more"&&item.items.some(page=>page.id===tab));
- useEffect(()=>{if(inAdvanced)setAdvancedOpen(true)},[inAdvanced]);
  const [visited,setVisited]=useState<SettingsTab[]>([tab]);
  const [drafts,setDrafts]=useState<Record<string,SettingsDraft>>({});
  const [pending,setPending]=useState<Target|null>(null);
@@ -144,7 +130,7 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
   if(!button||!button.offsetHeight){setIndicator(null);return}
   setIndicator(current=>current&&current.y===button.offsetTop&&current.h===button.offsetHeight?current:{y:button.offsetTop,h:button.offsetHeight});
  },[]);
- useLayoutEffect(measure,[measure,tab,language,isAdmin,attention,advancedOpen]);
+ useLayoutEffect(measure,[measure,tab,language,isAdmin,attention]);
  useEffect(()=>{if(!indicator)return;const id=requestAnimationFrame(()=>setSlide(true));return()=>cancelAnimationFrame(id)},[indicator===null]);
  useEffect(()=>{const element=list.current;if(!element||typeof ResizeObserver==="undefined")return;const observer=new ResizeObserver(measure);observer.observe(element);return()=>observer.disconnect()},[measure]);
 
@@ -155,13 +141,14 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
   if(section)jump.current=section;
   const target=jump.current;
   if(!target)return;
-  return jumpWhenReady(()=>document.querySelector(`.settings-content [data-page="${tab}"]`),target,()=>{if(jump.current===target)jump.current=null});
+  // A section inside a subpage or a folded group: open that first, then scroll to it.
+  revealSection(tab,target);
+  return jumpWhenReady(()=>document.querySelector(`.settings-content [data-page="${tab}"]`),target,()=>{if(jump.current===target)jump.current=null;revealSection(tab,null)});
  },[entry?.seq,tab]);
  const [slot,setSlot]=useState<HTMLElement|null>(null);
  const hint=(id:SettingsTab):string=>{
   if(id==="models")return hints.model??"";
   if(id==="computer")return hints.environments===undefined?"":hints.environments>0?String(hints.environments):t("shell.hint.computer.none");
-  if(id==="keys")return hints.keys===undefined?"":String(hints.keys);
   return "";
  };
  const badge=(id:SettingsTab)=>{const count=counts[id];return count&&count.value>0?<span className={`settings-count is-${count.tone}`} aria-label={t("shell.attention",{count:count.value})}>{count.value}</span>:null};
@@ -173,11 +160,9 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
    <div className="settings-rail-list" ref={list}>
     <span className={`settings-rail-indicator${slide?" is-ready":""}`} aria-hidden="true" style={indicator?{transform:`translateY(${indicator.y}px)`,height:indicator.h}:{display:"none"}}/>
     {visibleGroups.map(section=>{
-     const folded=section.id==="more";const shown=!folded||advancedOpen;
      return <div className="settings-nav-group" key={section.id} data-group={section.id}>
       {section.id==="admin"&&<p>{t("shell.group.admin")}</p>}
-      {folded&&<button type="button" className="settings-nav-more" aria-expanded={advancedOpen} aria-controls="settings-nav-more" onClick={()=>setAdvancedOpen(open=>!open)}><TofiIcon name="more" size={18} aria-hidden="true"/><span className="settings-nav-label">{t("shell.more")}</span><TofiIcon name={advancedOpen?"chevron-down":"chevron-right"} size={14} aria-hidden="true"/></button>}
-      {shown&&<div className="settings-nav-items" id={folded?"settings-nav-more":undefined}>{section.items.map(item=><button key={item.id} data-tab={item.id} className={tab===item.id?"selected":""} aria-current={tab===item.id?"page":undefined} onClick={()=>navigate(item.id)}><TofiIcon name={item.icon} size={18} variant="outline"/><span className="settings-nav-label">{t(item.name)}</span>{badge(item.id)}</button>)}</div>}
+      <div className="settings-nav-items">{section.items.map(item=><button key={item.id} data-tab={item.id} className={tab===item.id?"selected":""} aria-current={tab===item.id?"page":undefined} onClick={()=>navigate(item.id)}><TofiIcon name={item.icon} size={18} variant="outline"/><span className="settings-nav-label">{t(item.name)}</span>{badge(item.id)}</button>)}</div>
      </div>;
     })}
    </div>
@@ -186,11 +171,9 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
    <header className="settings-mbar"><span aria-hidden="true"/><h2>{t("shell.title")}</h2><button className="settings-dismiss" aria-label={t("shell.close")} onClick={()=>navigate("close")}><TofiIcon name="close" size={20}/></button></header>
    <div className="settings-mscroll">
     {visibleGroups.map(section=>{
-     const folded=section.id==="more";
      return <section key={section.id} className="settings-mgroup" data-group={section.id}>
       {section.id==="admin"&&<p>{t("shell.group.admin")}</p>}
-      {folded&&<div className="settings-mlist"><button type="button" className="settings-mrow settings-mmore" aria-expanded={advancedOpen} onClick={()=>setAdvancedOpen(open=>!open)}><span className="settings-mtile" aria-hidden="true"><TofiIcon name="more" size={18}/></span><span className="settings-mname">{t("shell.more")}</span><TofiIcon name={advancedOpen?"chevron-down":"chevron-right"} size={14} aria-hidden="true"/></button></div>}
-      {(!folded||advancedOpen)&&<div className="settings-mlist">{section.items.map(item=><button type="button" className="settings-mrow" key={item.id} data-tab={item.id} onClick={()=>navigate(item.id)}><span className="settings-mtile" aria-hidden="true"><TofiIcon name={item.icon} size={18}/></span><span className="settings-mname">{t(item.name)}</span>{badge(item.id)}{hint(item.id)&&<span className="settings-mhint">{hint(item.id)}</span>}<TofiIcon name="chevron-right" size={16} aria-hidden="true"/></button>)}</div>}
+      <div className="settings-mlist">{section.items.map(item=><button type="button" className="settings-mrow" key={item.id} data-tab={item.id} onClick={()=>navigate(item.id)}><span className="settings-mtile" aria-hidden="true"><TofiIcon name={item.icon} size={18}/></span><span className="settings-mname">{t(item.name)}</span>{badge(item.id)}{hint(item.id)&&<span className="settings-mhint">{hint(item.id)}</span>}<TofiIcon name="chevron-right" size={16} aria-hidden="true"/></button>)}</div>
      </section>;
     })}
    </div>
