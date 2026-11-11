@@ -231,8 +231,14 @@ func TestQuotaRefusesUpload(t *testing.T) {
 		t.Fatalf("counter moved from %d to %d", before, after)
 	}
 	entries, _ := os.ReadDir(filepath.Join(dir, "attachments"))
-	if len(entries) != 2 {
-		t.Fatalf("%d files on disk, want 2", len(entries))
+	files := 0
+	for _, e := range entries {
+		if e.Name() != spoolDirName { // the empty spool directory is not a file
+			files++
+		}
+	}
+	if files != 2 {
+		t.Fatalf("%d files on disk, want 2", files)
 	}
 	// A full account refuses any new file, including a model-side import.
 	zero := int64(0)
