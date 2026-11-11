@@ -1396,6 +1396,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       assert.equal(report.primaries, 0, `${id}: no add or submit action, so no primary button`);
       assert.ok(report.column <= 640.5, `${id}: content column is at most 640px (saw ${report.column})`);
     }
+    // Switch: 36x22 Radix switch, button role, saved in place. Measured before the admin pages,
+    // where a rail click on General did not switch the page in this test (open question in the PR).
+    await page.locator('.settings-tabs [data-tab="general"]').click();
+    const switchBox = await page.locator('.settings-page-body[data-page="general"] [role="switch"]').first().evaluate(element => ({tag: element.tagName, w: element.offsetWidth, h: element.offsetHeight}));
+    assert.deepEqual(switchBox, {tag: "BUTTON", w: 36, h: 22}, "a switch is a 36x22 Radix button");
     // At most one primary button per view; Connections has the add action, Environments, Models and System none.
     const primaries = {};
     for (const id of [...TABS, "admin", "admin-groups", "admin-resources"]) {
@@ -1407,10 +1412,6 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     }
     assert.equal(primaries.connections, 1, "Connections: Add connection is the one primary");
     for (const id of ["computer", "models", "advanced", "permissions", "usage"]) assert.equal(primaries[id], 0, `${id}: no primary button`);
-    // Switch: 36x22 Radix switch, button role, saved in place.
-    await page.locator('.settings-tabs [data-tab="general"]').click();
-    const switchBox = await page.locator('.settings-page-body[data-page="general"] [role="switch"]').first().evaluate(element => ({tag: element.tagName, w: element.offsetWidth, h: element.offsetHeight}));
-    assert.deepEqual(switchBox, {tag: "BUTTON", w: 36, h: 22}, "a switch is a 36x22 Radix button");
     // A phone column is 16px from the edge and nothing is wider than the viewport.
     await close();
     console.log("PASS visual language: 56px header, 20px title, no group headings but Administration, 640px column, no bordered container or hard shadow on General and System, at most one primary per view, 36x22 switch");
