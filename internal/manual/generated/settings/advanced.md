@@ -20,7 +20,6 @@ Open this page: [{{ui:settings:shell.page.advanced.name}}](/settings/advanced)
 | {{ui:settings:automation.item.conversation_model.name}} | `automation.conversation_model` | a configured model ID, or default | claude-sonnet-5-5 | confirm | `/settings/models#defaults` |
 | {{ui:settings:automation.item.desktop_engine.name}} | `automation.desktop_engine` | classic, a11y | classic | direct | `/settings/advanced#computer` |
 | {{ui:settings:automation.item.desktop_idle_seconds.name}} | `automation.desktop_idle_seconds` | read only |  | forbidden: the person changes it on the page | `/settings/computer#environment` |
-| {{ui:settings:automation.item.force_say_haiku_dm.name}} | `automation.force_say_haiku_dm` | on or off | true | direct | `/settings/advanced#replies` |
 | {{ui:settings:automation.item.group_exchange_gists.name}} | `automation.group_exchange_gists` | on or off | true | direct | `/settings/advanced#groups` |
 | {{ui:settings:automation.item.group_followup_to_working.name}} | `automation.group_followup_to_working` | on or off | true | direct | `/settings/advanced#groups` |
 | {{ui:settings:automation.item.group_triage.name}} | `automation.group_triage` | on or off | true | direct | `/settings/advanced#groups` |
@@ -69,8 +68,6 @@ Open this page: [{{ui:settings:shell.page.advanced.name}}](/settings/advanced)
 **{{ui:settings:automation.item.desktop_engine.name}}.** {{ui:settings:automation.item.desktop_engine.what}}
 
 **{{ui:settings:automation.item.desktop_idle_seconds.name}}.** {{ui:settings:automation.item.desktop_idle_seconds.what}}
-
-**{{ui:settings:automation.item.force_say_haiku_dm.name}}.** {{ui:settings:automation.item.force_say_haiku_dm.what}}
 
 **{{ui:settings:automation.item.group_exchange_gists.name}}.** {{ui:settings:automation.item.group_exchange_gists.what}}
 

@@ -13,12 +13,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/JackZhao98/tofibot/internal/provider"
 	"github.com/JackZhao98/tofibot/internal/runtime"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"github.com/google/uuid"
@@ -813,8 +815,10 @@ func (answeredEngine) Run(context.Context, runtime.Request) (runtime.Result, err
 
 // forceSayFor reports whether a run's model requests require a tool call, so
 // that a model which tends to write its reply as plain text delivers it
-// through say. Measured on Haiku 5.5, whose say adherence was 81% on tool_choice
-// auto and 100% when required. It stays off where a plain-text ending is a
+// through say. The per-model fact is ReplyNeedsToolChoice in the provider model
+// registry (measured: one model ended 19% of DM turns with plain text on
+// tool_choice auto, and 0% when required). TOFI_FORCE_SAY=false turns the
+// forcing off. It stays off where a plain-text ending is a
 // legitimate outcome (a scheduled run that cannot produce its result), where the
 // extra step changes how members talk (group chats, not yet measured), and for
 // models with 95% or better adherence.
@@ -822,7 +826,19 @@ func forceSayFor(c Conversation, r Run, model string) bool {
 	if c.Kind != "dm" || !c.UserVisible || r.Kind == runKindSchedule || r.scheduleTask != nil || r.Kind == runKindTriage {
 		return false
 	}
-	return strings.Contains(strings.ToLower(model), "haiku")
+	if !forceSayEnvOn() {
+		return false
+	}
+	return provider.ReplyNeedsToolChoice(model)
+}
+
+// forceSayEnvOn is the operator switch: on unless TOFI_FORCE_SAY is a false value.
+func forceSayEnvOn() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("TOFI_FORCE_SAY"))) {
+	case "off", "false", "0", "no":
+		return false
+	}
+	return true
 }
 
 // runMadeSchedule reports whether this run completed a create_schedule or

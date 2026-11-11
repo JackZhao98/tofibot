@@ -25,10 +25,10 @@ const {default: react} = await import("@vitejs/plugin-react");
 const shots = process.env.AUTOMATION_SHOTS;
 if (shots) await mkdir(shots, {recursive: true});
 
-const KEYS = ["conversation_model", "background_model", "structured_output", "force_say_haiku_dm", "web_search", "group_exchange_gists", "own_replies_verbatim", "completion_review", "answer_gate", "mcp_auto_review", "personal_input_review", "remembered_approval_hours", "provider_retries", "schedule_receipt_review", "task_fanout_width", "desktop_idle_seconds", "browser_engine", "desktop_engine", "command_check_minutes", "computer_idle_off_minutes", "widget_artifacts_auto", "widget_computer_auto", "work_trace"];
+const KEYS = ["conversation_model", "background_model", "structured_output", "web_search", "group_exchange_gists", "own_replies_verbatim", "completion_review", "answer_gate", "mcp_auto_review", "personal_input_review", "remembered_approval_hours", "provider_retries", "schedule_receipt_review", "task_fanout_width", "desktop_idle_seconds", "browser_engine", "desktop_engine", "command_check_minutes", "computer_idle_off_minutes", "widget_artifacts_auto", "widget_computer_auto", "work_trace"];
 // System > Behavior: the common rows in their order, then the five folded groups with their rows.
 const COMMON = ["web_search", "structured_output", "widget_artifacts_auto", "widget_computer_auto", "computer_idle_off_minutes", "work_trace", "provider_retries"];
-const FOLDED = {groups: ["group_exchange_gists"], replies: ["force_say_haiku_dm", "own_replies_verbatim"], reviews: ["completion_review", "answer_gate", "schedule_receipt_review"], tasks: ["task_fanout_width"], computer: ["browser_engine", "desktop_engine", "command_check_minutes"]};
+const FOLDED = {groups: ["group_exchange_gists"], replies: ["own_replies_verbatim"], reviews: ["completion_review", "answer_gate", "schedule_receipt_review"], tasks: ["task_fanout_width"], computer: ["browser_engine", "desktop_engine", "command_check_minutes"]};
 
 const fixture = await mkdtemp(join(ui, ".automation-settings-"));
 let server, browser;
@@ -60,7 +60,6 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     conversation_model: {group: "defaults", kind: "model", def: "claude-sonnet-5-5"},
     background_model: {group: "models", kind: "model", def: "claude-haiku-5-5", auto: true},
     structured_output: {group: "common", kind: "bool", def: true},
-    force_say_haiku_dm: {group: "replies", kind: "bool", def: true},
     web_search: {group: "common", kind: "bool", def: true},
     group_exchange_gists: {group: "groups", kind: "bool", def: true},
     own_replies_verbatim: {group: "replies", kind: "int", def: 3, min: 1, max: 20},

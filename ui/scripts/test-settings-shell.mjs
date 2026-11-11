@@ -108,7 +108,6 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     {"key": "conversation_model", "group": "defaults", "kind": "model", "default": "codex-gpt-6-sol"},
     {"key": "background_model", "group": "models", "kind": "model", "default": "gpt-6-luna"},
     {"key": "structured_output", "group": "common", "kind": "bool", "default": true},
-    {"key": "force_say_haiku_dm", "group": "replies", "kind": "bool", "default": true},
     {"key": "web_search", "group": "common", "kind": "bool", "default": true},
     {"key": "web_fetch_limit", "group": "replies", "kind": "int", "default": 20, "min": 1, "max": 100},
     {"key": "group_exchange_gists", "group": "groups", "kind": "bool", "default": true},
@@ -1420,7 +1419,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   {
     const MOVED = ["conversation_model", "background_model", "group_triage_model", "mcp_auto_review", "personal_input_review", "remembered_approval_hours", "desktop_idle_seconds", "settings_change_limit", "monthly_spend_limit_usd"];
     const behavior = ["web_search", "structured_output", "widget_artifacts_auto", "widget_computer_auto", "computer_idle_off_minutes", "work_trace", "provider_retries"];
-    const folded = ["group_exchange_gists", "group_triage", "group_followup_to_working", "force_say_haiku_dm", "web_fetch_limit", "own_replies_verbatim", "task_retention_days", "completion_review", "answer_gate", "schedule_receipt_review", "task_stall_rounds", "task_tree_idle_message_limit", "task_fanout_width", "task_fanout_depth", "task_part_deadline_minutes", "task_part_deadline_scheduled_minutes", "browser_engine", "desktop_engine", "command_check_minutes", "trace_retention_days", "trace_private_origins"];
+    const folded = ["group_exchange_gists", "group_triage", "group_followup_to_working", "web_fetch_limit", "own_replies_verbatim", "task_retention_days", "completion_review", "answer_gate", "schedule_receipt_review", "task_stall_rounds", "task_tree_idle_message_limit", "task_fanout_width", "task_fanout_depth", "task_part_deadline_minutes", "task_part_deadline_scheduled_minutes", "browser_engine", "desktop_engine", "command_check_minutes", "trace_retention_days", "trace_private_origins"];
     const {page, close} = await open({tab: "advanced"});
     const body = page.locator('.settings-page-body[data-page="advanced"]');
     const keys = scope => scope.locator(".auto-row").evaluateAll(rows => rows.map(row => row.dataset.key).sort());
@@ -1462,7 +1461,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await close();
     // Old links and section links open the right place first (the subpage or folded group, then the scroll).
     const lands = async (params, find) => { const view = await open(params); await view.page.locator(find).first().waitFor({timeout: 15000}); await view.close(); };
-    await lands({tab: "advanced", section: "replies"}, '.settings-page-body[data-page="advanced"] .st-fold[data-section="replies"] .auto-row[data-key="force_say_haiku_dm"]');
+    await lands({tab: "advanced", section: "replies"}, '.settings-page-body[data-page="advanced"] .st-fold[data-section="replies"] .auto-row[data-key="web_fetch_limit"]');
     await lands({tab: "advanced", section: "behavior"}, '.settings-page-body[data-page="advanced"] .st-subpage .auto-row[data-key="web_search"]');
     await lands({tab: "advanced", section: "followups"}, '.settings-page-body[data-page="advanced"] .st-subpage [data-section="followups"]');
     await lands({tab: "connections", section: "web"}, '.settings-page-body[data-page="connections"] .st-subpage .web-tools');

@@ -1147,19 +1147,15 @@
       },
       "background_model": {
         "name": "Modèle d’arrière-plan",
-        "what": "Gère le travail léger en coulisses : résumés d’historique, aiguillage, vérifications et suivis. Automatique signifie Haiku avec Claude, et le modèle de conversation sinon."
+        "what": "Gère le travail léger en coulisses : résumés d’historique, aiguillage, vérifications et suivis. Automatique utilise un modèle léger du même fournisseur que le modèle de conversation."
       },
       "structured_output": {
         "name": "Réponses structurées",
         "what": "Seules les réponses finales d’un Bot apparaissent dans la discussion ; ce qu’il écrit en travaillant reste dans la vue d’activité. Désactivez pour le publier comme avant."
       },
-      "force_say_haiku_dm": {
-        "name": "Outil de réponse imposé à Haiku",
-        "what": "En message direct, Haiku doit donner une vraie réponse à chaque tour, pour qu’elle arrive toujours dans la discussion."
-      },
       "web_search": {
         "name": "Recherche web",
-        "what": "Les modèles Claude cherchent eux-mêmes sur le web et lisent les pages sur lesquelles ils s'appuient avant de répondre quand une question peut être plus récente que leurs connaissances."
+        "what": "Les modèles capables de chercher sur le web le font eux-mêmes et lisent les pages sur lesquelles ils s'appuient avant de répondre quand une question peut être plus récente que leurs connaissances."
       },
       "web_fetch_limit": {
         "name": "Pages lues par exécution",

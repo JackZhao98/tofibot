@@ -16,6 +16,9 @@ type ModelInfo struct {
 	// Prompt-cache prices per 1M tokens; 0 = 0.1x / 1.25x input (5-minute TTL).
 	CacheReadCostPer1M  float64
 	CacheWriteCostPer1M float64
+	// ReplyNeedsToolChoice marks a model that ends too many direct-message turns
+	// with plain text on tool_choice auto, so its reply must be forced through say.
+	ReplyNeedsToolChoice bool
 }
 
 // Registry maps model names/prefixes to their metadata.
@@ -64,11 +67,11 @@ var Registry = map[string]ModelInfo{
 	"claude-sonnet-4-6":        {Provider: "anthropic", ContextWindow: 1000000, MaxOutputTokens: 128000, InputCostPer1M: 3.00, OutputCostPer1M: 15.00},
 	"claude-sonnet-4-5":        {Provider: "anthropic", ContextWindow: 200000, MaxOutputTokens: 64000, InputCostPer1M: 3.00, OutputCostPer1M: 15.00},
 	"claude-sonnet-4-0":        {Provider: "anthropic", ContextWindow: 200000, MaxOutputTokens: 64000, InputCostPer1M: 3.00, OutputCostPer1M: 15.00},
-	"claude-haiku-5-5":         {Provider: "anthropic", ContextWindow: 200000, MaxOutputTokens: 64000, InputCostPer1M: 1.00, OutputCostPer1M: 5.00}, // priced as 4-5 until published
-	"claude-haiku-4-5":         {Provider: "anthropic", ContextWindow: 200000, MaxOutputTokens: 64000, InputCostPer1M: 1.00, OutputCostPer1M: 5.00},
+	"claude-haiku-5-5":         {ReplyNeedsToolChoice: true, Provider: "anthropic", ContextWindow: 200000, MaxOutputTokens: 64000, InputCostPer1M: 1.00, OutputCostPer1M: 5.00}, // priced as 4-5 until published
+	"claude-haiku-4-5":         {ReplyNeedsToolChoice: true, Provider: "anthropic", ContextWindow: 200000, MaxOutputTokens: 64000, InputCostPer1M: 1.00, OutputCostPer1M: 5.00},
 	"claude-opus-4-20250514":   {Provider: "anthropic", ContextWindow: 200000, MaxOutputTokens: 32000, InputCostPer1M: 15.00, OutputCostPer1M: 75.00},
 	"claude-sonnet-4-20250514": {Provider: "anthropic", ContextWindow: 200000, MaxOutputTokens: 64000, InputCostPer1M: 3.00, OutputCostPer1M: 15.00},
-	"claude-haiku-4-20250514":  {Provider: "anthropic", ContextWindow: 200000, InputCostPer1M: 0.80, OutputCostPer1M: 4.00},
+	"claude-haiku-4-20250514":  {ReplyNeedsToolChoice: true, Provider: "anthropic", ContextWindow: 200000, InputCostPer1M: 0.80, OutputCostPer1M: 4.00},
 
 	// ─── Google Gemini ───
 	"gemini-2.5-pro":   {Provider: "gemini", ContextWindow: 1048576, InputCostPer1M: 1.25, OutputCostPer1M: 10.00},
@@ -309,4 +312,11 @@ func ListAllModels() map[string]ModelInfo {
 		result[k] = v
 	}
 	return result
+}
+
+// ReplyNeedsToolChoice reports whether the model is known to need a required
+// tool call for its reply to be delivered. Unknown models answer false.
+func ReplyNeedsToolChoice(model string) bool {
+	info, ok := GetModelInfo(strings.ToLower(model))
+	return ok && info.ReplyNeedsToolChoice
 }

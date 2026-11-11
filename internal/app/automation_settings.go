@@ -33,7 +33,6 @@ const (
 	autoConversationModel     = "conversation_model"
 	autoBackgroundModel       = "background_model"
 	autoStructuredOutput      = "structured_output"
-	autoForceSayHaikuDM       = "force_say_haiku_dm"
 	autoWebSearch             = "web_search"
 	autoGroupExchangeGists    = "group_exchange_gists"
 	autoOwnRepliesVerbatim    = "own_replies_verbatim"
@@ -108,7 +107,6 @@ var automationItems = []automationItem{
 	{Key: autoConversationModel, Group: "defaults", Kind: autoKindModel, Default: defaultConversationModel},
 	{Key: autoBackgroundModel, Group: "models", Kind: autoKindModel, Env: "TOFI_BACKGROUND_MODEL"},
 	{Key: autoStructuredOutput, Group: "common", Kind: autoKindBool, Default: "true"},
-	{Key: autoForceSayHaikuDM, Group: "replies", Kind: autoKindBool, Default: "true", Env: "TOFI_FORCE_SAY"},
 	{Key: autoWebSearch, Group: "common", Kind: autoKindBool, Default: "true", Env: "TOFI_WEB_SEARCH"},
 	{Key: autoWebFetchLimit, Group: "replies", Kind: autoKindInt, Default: strconv.Itoa(defaultWebFetchLimit), Min: 1, Max: 100},
 	{Key: autoGroupExchangeGists, Group: "groups", Kind: autoKindBool, Default: "true"},
@@ -333,11 +331,6 @@ func (s *Server) autoInt(key string) int {
 
 // The accessors below are the read points the rest of the server uses. Each
 // is cheap enough for a hot path.
-
-// forceSayHaikuDMEnabled says whether a Haiku run in a direct message must
-// call a tool on every model turn (tool_choice required), so its reply goes
-// through say. Read at the ForceToolUse call site of a run.
-func (s *Server) forceSayHaikuDMEnabled() bool { return s.autoBool(autoForceSayHaikuDM) }
 
 // webSearchEnabled says whether Anthropic runs may use server-side web search
 // and the server-side page reader that goes with it.

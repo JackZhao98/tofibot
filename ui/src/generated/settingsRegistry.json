@@ -569,18 +569,6 @@
       "audit": true
     },
     {
-      "key": "automation.force_say_haiku_dm",
-      "scope": "account",
-      "kind": "bool",
-      "risk": {
-        "self": "direct"
-      },
-      "link": "/settings/advanced#replies",
-      "manual": "settings/advanced",
-      "label_key": "settings:automation.item.force_say_haiku_dm.name",
-      "audit": true
-    },
-    {
       "key": "automation.web_search",
       "scope": "account",
       "kind": "bool",
