@@ -550,6 +550,10 @@ func TestSharedCaptureBecomesAPublishedAttachmentOfTheRun(t *testing.T) {
 	if err != nil || a.ConversationID != run.ConversationID {
 		t.Fatalf("attachment %+v %v", a, err)
 	}
+	var origin string
+	if err := s.store.db.QueryRow(`SELECT origin FROM attachments WHERE id=?`, res.Shared.ID).Scan(&origin); err != nil || origin != attachmentOriginBotFile {
+		t.Fatalf("origin %q %v", origin, err)
+	}
 	if _, err := s.shareCapture(run, `{"ok":true}`); err == nil {
 		t.Fatal("a capture without a picture was shared")
 	}

@@ -13,6 +13,7 @@
     "generated": "Generated images",
     "outbox": "Bot computer outbox",
     "mirror": "Mirror copies",
+    "bot_files": "Bot files",
     "conversations": "Conversations",
     "db": "Database"
   },

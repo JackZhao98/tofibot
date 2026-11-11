@@ -13,6 +13,7 @@
     "generated": "생성한 이미지",
     "outbox": "Bot 컴퓨터 outbox",
     "mirror": "미러 사본",
+    "bot_files": "봇 파일",
     "conversations": "대화",
     "db": "데이터베이스"
   },

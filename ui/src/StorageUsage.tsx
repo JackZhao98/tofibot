@@ -5,7 +5,7 @@ import {Banner, SettingsCard, SettingsSection} from "./settings/components";
 import {formatBytes, storageApi, type StorageClass, type StorageItem, type StorageView} from "./storageApi";
 import "./storage-usage.css";
 
-const FILE_CLASSES = ["uploads", "published", "generated", "outbox", "mirror"] as const;
+const FILE_CLASSES = ["uploads", "published", "generated", "outbox", "mirror", "bot_files"] as const;
 
 /** Settings storage card: one bar for what the server keeps, a class legend, the computer disk as a separate line. */
 export function StorageUsage() {

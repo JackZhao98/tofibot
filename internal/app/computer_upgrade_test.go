@@ -159,7 +159,7 @@ func TestUpgradeOverTheTopKeepsEveryRow(t *testing.T) {
 			}
 			// The storage counters were seeded from the rows that were already there.
 			var uploads int64
-			s.store.db.QueryRow(`SELECT COALESCE(SUM(bytes),0) FROM storage_counters WHERE class IN ('uploads','published','generated','outbox','mirror')`).Scan(&uploads)
+			s.store.db.QueryRow(`SELECT COALESCE(SUM(bytes),0) FROM storage_counters WHERE class IN ('uploads','published','generated','outbox','mirror','bot_files')`).Scan(&uploads)
 			var sizes int64
 			s.store.db.QueryRow(`SELECT COALESCE(SUM(size),0) FROM attachments`).Scan(&sizes)
 			if uploads != sizes {

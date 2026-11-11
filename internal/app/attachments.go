@@ -84,6 +84,8 @@ const (
 	attachmentOriginOutbox    = "outbox"
 	attachmentOriginMirror    = "mirror"
 	attachmentOriginImport    = "import"
+	// A file a Bot made or passed along during work that is not a deliverable (a process screenshot, a draft attachment). A File, not an Artifact.
+	attachmentOriginBotFile = "bot_file"
 )
 
 // attachmentOpts carries what the server records beside the bytes.

@@ -117,11 +117,13 @@ func (s *Store) objStore(ctx context.Context, key string) (filestore.Store, erro
 	return b.Store, nil
 }
 
-// attachmentKind groups the origins into the four key kinds.
+// attachmentKind groups the origins into the key kinds (artifacts, files, traces, imports, uploads).
 func attachmentKind(origin string) string {
 	switch origin {
-	case attachmentOriginPublished, attachmentOriginGenerated, attachmentOriginOutbox, attachmentOriginMirror:
+	case attachmentOriginPublished, attachmentOriginGenerated, attachmentOriginOutbox:
 		return "artifacts"
+	case attachmentOriginBotFile:
+		return "files"
 	case attachmentOriginTrace:
 		return "traces"
 	case attachmentOriginImport:
