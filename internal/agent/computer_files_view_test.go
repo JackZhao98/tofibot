@@ -45,7 +45,7 @@ func imageResultReachesTheModel(t *testing.T, name string) {
 		if m.Role != "tool" {
 			continue
 		}
-		found = len(m.ImageURLs) == 1 && m.ImageURLs[0] == uri && !strings.Contains(m.Content, "base64") && strings.Contains(m.Content, "image_attached")
+		found = len(m.ImageURLs) == 1 && m.ImageURLs[0] == uri && !strings.Contains(m.Content, "base64") && strings.Contains(m.Content, "image_visible_to_you")
 	}
 	if !found {
 		t.Fatalf("the image did not arrive as vision input: %+v", p.requests[1].Messages)

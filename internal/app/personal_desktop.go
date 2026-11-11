@@ -7,10 +7,13 @@ package app
 // which applies the approval gate for that computer.
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/JackZhao98/tofibot/internal/computer"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
@@ -36,6 +39,7 @@ type desktopToolInput struct {
 	CaptureSeqs      []int    `json:"capture_seqs,omitempty"`
 	Columns          int      `json:"columns,omitempty"`
 	Detail           string   `json:"detail,omitempty"`
+	Share            bool     `json:"share,omitempty"`
 	Direction        string   `json:"direction,omitempty"`
 	Amount           int      `json:"amount,omitempty"`
 	X                *int     `json:"x,omitempty"`
@@ -111,6 +115,9 @@ func (s *Server) parseDesktopTool(raw json.RawMessage) (string, json.RawMessage,
 	if in.Action == "desktop.snapshot" || in.Action == "desktop.screenshot" {
 		// Models borrow browser.snapshot's verb; it means a screen capture.
 		in.Action = "desktop.capture"
+	}
+	if in.Share && (in.Action != "desktop.capture" || s.desktopToolComputer("computer_desktop", raw) == microVMComputerID) {
+		return "", nil, tooloutcome.InvalidArguments("share applies to capture on a person's own computer (set computer_id).")
 	}
 	if s.desktopToolComputer("computer_desktop", raw) != microVMComputerID {
 		return personalDesktopArgs(in)
@@ -330,7 +337,7 @@ func keyChord(key string, modifiers []string) ([]string, string) {
 // personalDesktop runs one translated computer_desktop call on a person's own
 // computer. The approval gate, the computer's lock and the Mac's own refusals
 // are in computerActionOn and the provider.
-func (s *Server) personalDesktop(ctx context.Context, r Run, id, action string, args json.RawMessage, detail string) (string, error) {
+func (s *Server) personalDesktop(ctx context.Context, r Run, id, action string, args json.RawMessage, detail string, share bool) (string, error) {
 	if id == desktopNeedsComputerID {
 		msg := "Pass computer_id: there is no Bot computer"
 		if macs := s.desktopMacs(); len(macs) > 0 {
@@ -351,6 +358,11 @@ func (s *Server) personalDesktop(ctx context.Context, r Run, id, action string, 
 	if err := s.personalOfflineError(ctx, id); err != nil {
 		return "", err
 	}
+	if share {
+		if _, err := s.guardShare(ctx, r, row.Name); err != nil {
+			return "", err
+		}
+	}
 	out, err := s.computerActionOn(ctx, r, id, action, args)
 	if err != nil {
 		return "", err
@@ -359,7 +371,70 @@ func (s *Server) personalDesktop(ctx context.Context, r Run, id, action string, 
 	if action == "desktop.capture" {
 		out = applyCaptureDetail(out, detail)
 	}
+	if share {
+		return s.shareCapture(r, out)
+	}
 	return out, nil
+}
+
+// guardShare asks the Mac's owner (an approval card) before a picture of the
+// screen goes to a conversation that has other people in it.
+func (s *Server) guardShare(ctx context.Context, r Run, mac string) (func(error), error) {
+	c, err := s.store.GetConversation(r.ConversationID)
+	if err != nil {
+		return nil, err
+	}
+	if !s.store.conversationHasOtherPeople(c) {
+		return func(error) {}, nil
+	}
+	label := "Show a screenshot of " + oneLine(mac, 60) + " to everyone in this conversation"
+	if id, ok := s.claimApproval(r, label); ok {
+		return func(execErr error) { s.settleApprovalClaim(id, execErr) }, nil
+	}
+	return nil, tooloutcome.New(tooloutcome.NeedApproval, "user_confirmation_required", "not_executed",
+		"This screenshot would be shown to other people in the conversation and needs the Mac owner's confirmation. Ask with request_approval and set target to exactly the label on the next line. Repeat the call only after they approve.\n"+approvalLabelText(label),
+		"request_approval").Err()
+}
+
+// conversationHasOtherPeople reports whether a person besides the account owner
+// takes part. A conversation holds the owner and Bots only (members lists Bots),
+// so no conversation has another person today; the gate exists for the day one does.
+func (st *Store) conversationHasOtherPeople(Conversation) bool { return false }
+
+// shareCapture keeps the capture's picture as a published attachment of this
+// run's reply and tells the model exactly what was attached.
+func (s *Server) shareCapture(r Run, result string) (string, error) {
+	fields, uri, ok := captureResultFields(result)
+	if !ok {
+		return "", errors.New("the capture returned no picture to share")
+	}
+	mime, encoded, _ := strings.Cut(strings.TrimPrefix(uri, "data:"), ";base64,")
+	pixels, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return "", errors.New("the capture picture could not be read")
+	}
+	c, err := s.store.GetConversation(r.ConversationID)
+	if err != nil {
+		return "", err
+	}
+	ext := ".png"
+	if mime == "image/jpeg" {
+		ext = ".jpg"
+	}
+	name := "screenshot-" + time.Now().UTC().Format("20060102-150405") + ext
+	a, err := s.store.addAttachmentOpts(context.Background(), c.ID, name, mime, bytes.NewReader(pixels), attachmentOpts{Origin: attachmentOriginPublished, BotID: r.BotID})
+	if err != nil {
+		return "", err
+	}
+	created := a
+	if a, err = s.store.stageRunAttachment(r, c, a, ""); err != nil {
+		_ = s.store.deleteUnboundAttachment(created.ID)
+		return "", err
+	}
+	shared, _ := json.Marshal(map[string]any{"attachment_id": a.ID, "name": a.Name, "url": s.attachmentLink(a.ID), "attached_to_reply": s.store.runAttachmentNames(r.ID)})
+	fields["shared"] = shared
+	out, err := json.Marshal(fields)
+	return string(out), err
 }
 
 // desktopMacs lists the paired personal computers that declared a desktop
@@ -395,7 +470,7 @@ func (s *Server) personalDesktopTools(r Run) []Tool {
 	}
 	return []Tool{{
 		Name:        "computer_desktop",
-		Description: "Control the screen of a person's own paired Mac: capture, click, double_click, triple_click, move, drag, scroll, type, key. Coordinates are pixels of the latest capture. Each input declares its effect. Input with an effect other than none, or with none declared, is reviewed, and only a few need the person's confirmation. A system permission or privacy prompt on the Mac is the person's to answer: tell them what it asks and leave it. Pass computer_id when more than one Mac is paired. Files and commands: computer_action.",
+		Description: "Control the screen of a person's own paired Mac: capture (share attaches the picture to your reply), click, double_click, triple_click, move, drag, scroll, type, key. Coordinates are pixels of the latest capture. A left click result says via: ax_press (the control was pressed without moving the pointer) or pointer. Each input declares its effect. Input with an effect other than none, or with none declared, is reviewed, and only a few need the person's confirmation. A system permission or privacy prompt on the Mac is the person's to answer: tell them what it asks and leave it. Pass computer_id when more than one Mac is paired. Files and commands: computer_action.",
 		Parameters:  desktopToolSchema(),
 		Timeout:     computerToolTimeout,
 		Identity: func(raw json.RawMessage) tooloutcome.Identity {
@@ -428,12 +503,16 @@ func (s *Server) personalDesktopTools(r Run) []Tool {
 			if err != nil {
 				return "", err
 			}
-			return s.personalDesktop(ctx, r, s.desktopToolComputer("computer_desktop", raw), action, args, detail)
+			var sh struct {
+				Share bool `json:"share"`
+			}
+			_ = json.Unmarshal(raw, &sh)
+			return s.personalDesktop(ctx, r, s.desktopToolComputer("computer_desktop", raw), action, args, detail, sh.Share)
 		},
 	}}
 }
 
 // desktopToolSchema is the argument schema of computer_desktop, the same for every kind of computer.
 func desktopToolSchema() map[string]any {
-	return objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"desktop.start", "desktop.stop", "desktop.capture", "desktop.snapshot", "desktop.trace", "desktop.click", "desktop.double_click", "desktop.triple_click", "desktop.type", "desktop.key", "desktop.scroll", "desktop.move", "desktop.drag", "start", "stop", "capture", "trace", "click", "double_click", "triple_click", "type", "key", "scroll", "move", "drag"}, "description": "desktop.start/stop/capture/click/double_click/triple_click/type/key/scroll (desktop.snapshot = capture). A double or triple click is one action: opening a folder, a word or a line selection is never two separate click calls."}, "x": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel X from the latest capture"}, "y": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel Y from the latest capture"}, "screenshot_width": map[string]any{"type": "integer", "minimum": 1, "maximum": 1280, "description": "Width of the screenshot used for x/y; provide together with screenshot_height"}, "screenshot_height": map[string]any{"type": "integer", "minimum": 1, "maximum": 800, "description": "Height of the screenshot used for x/y; provide together with screenshot_width"}, "direction": map[string]any{"type": "string", "enum": []string{"up", "down", "left", "right"}, "description": "Visible page scroll direction"}, "amount": map[string]any{"type": "integer", "minimum": 1, "maximum": 20, "description": "Mouse wheel steps, default 3"}, "text": map[string]any{"type": "string"}, "key": map[string]any{"type": "string", "description": "X11 key name, for example Return or Escape"}, "effect": effectParam, "computer_id": desktopComputerIDParam, "button": desktopButtonParam, "to_x": desktopToParam("X"), "to_y": desktopToParam("Y"), "display": desktopDisplayParam, "modifiers": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "detail": captureDetailParam, "last": traceActionParams["last"], "capture_seqs": traceActionParams["capture_seqs"], "columns": traceActionParams["columns"]}, []string{"action"})
+	return objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"desktop.start", "desktop.stop", "desktop.capture", "desktop.snapshot", "desktop.trace", "desktop.click", "desktop.double_click", "desktop.triple_click", "desktop.type", "desktop.key", "desktop.scroll", "desktop.move", "desktop.drag", "start", "stop", "capture", "trace", "click", "double_click", "triple_click", "type", "key", "scroll", "move", "drag"}, "description": "desktop.start/stop/capture/click/double_click/triple_click/type/key/scroll (desktop.snapshot = capture). A double or triple click is one action: opening a folder, a word or a line selection is never two separate click calls."}, "x": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel X from the latest capture"}, "y": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel Y from the latest capture"}, "screenshot_width": map[string]any{"type": "integer", "minimum": 1, "maximum": 1280, "description": "Width of the screenshot used for x/y; provide together with screenshot_height"}, "screenshot_height": map[string]any{"type": "integer", "minimum": 1, "maximum": 800, "description": "Height of the screenshot used for x/y; provide together with screenshot_width"}, "direction": map[string]any{"type": "string", "enum": []string{"up", "down", "left", "right"}, "description": "Visible page scroll direction"}, "amount": map[string]any{"type": "integer", "minimum": 1, "maximum": 20, "description": "Mouse wheel steps, default 3"}, "text": map[string]any{"type": "string"}, "key": map[string]any{"type": "string", "description": "X11 key name, for example Return or Escape"}, "effect": effectParam, "computer_id": desktopComputerIDParam, "button": desktopButtonParam, "to_x": desktopToParam("X"), "to_y": desktopToParam("Y"), "display": desktopDisplayParam, "modifiers": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "detail": captureDetailParam, "share": map[string]any{"type": "boolean", "description": "capture on a person's own computer: also attach this picture to your reply, where everyone in the conversation sees it. Without it only you see the picture. Use it only when they asked to receive it."}, "last": traceActionParams["last"], "capture_seqs": traceActionParams["capture_seqs"], "columns": traceActionParams["columns"]}, []string{"action"})
 }

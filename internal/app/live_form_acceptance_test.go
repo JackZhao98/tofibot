@@ -906,7 +906,7 @@ func liveFormAssertStoredToolEvidence(t *testing.T, server *Server, conversation
 			if strings.Contains(activity.Arguments, "desktop.type") {
 				typed = true
 			}
-			if strings.Contains(activity.Arguments, "desktop.capture") && strings.Contains(activity.Result, `"image_attached":true`) {
+			if strings.Contains(activity.Arguments, "desktop.capture") && strings.Contains(activity.Result, `"image_visible_to_you":true`) {
 				// A real screenshot may carry the receipt visually. The independent
 				// fixture and assistant-response checks still require the exact nonce.
 				browser, receiptObserved = true, true

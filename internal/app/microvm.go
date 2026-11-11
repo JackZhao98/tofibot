@@ -472,7 +472,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 				return "", err
 			}
 			if cid := s.desktopToolComputer(name, raw); cid != microVMComputerID {
-				return s.personalDesktop(ctx, r, cid, action, args, captureDetail)
+				return s.personalDesktop(ctx, r, cid, action, args, captureDetail, false)
 			}
 			inputs.ensure(ctx, s, r)
 			s.flushGeneratedImages(ctx, r)

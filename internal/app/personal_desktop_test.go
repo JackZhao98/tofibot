@@ -526,3 +526,50 @@ func TestKeyChord(t *testing.T) {
 		}
 	}
 }
+
+func TestSharedCaptureBecomesAPublishedAttachmentOfTheRun(t *testing.T) {
+	s, _, run := captureServer(t)
+	if ok, err := s.store.SetRunStatus(run.ID, "running", ""); err != nil || !ok {
+		t.Fatalf("running %v %v", ok, err)
+	}
+	out, err := s.shareCapture(run, `{"image_url":"`+tinyPNGURL+`","width":1,"height":1}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var res struct {
+		Shared struct {
+			ID    string   `json:"attachment_id"`
+			Name  string   `json:"name"`
+			Reply []string `json:"attached_to_reply"`
+		} `json:"shared"`
+	}
+	if json.Unmarshal([]byte(out), &res) != nil || res.Shared.ID == "" || len(res.Shared.Reply) != 1 || res.Shared.Reply[0] != res.Shared.Name {
+		t.Fatalf("result %s", out)
+	}
+	a, _, err := s.store.Attachment(res.Shared.ID)
+	if err != nil || a.ConversationID != run.ConversationID {
+		t.Fatalf("attachment %+v %v", a, err)
+	}
+	if _, err := s.shareCapture(run, `{"ok":true}`); err == nil {
+		t.Fatal("a capture without a picture was shared")
+	}
+}
+
+func TestShareIsForCaptureOnAPersonalComputer(t *testing.T) {
+	s, _, _ := captureServer(t)
+	for _, raw := range []string{`{"action":"desktop.click","x":1,"y":2,"share":true}`, `{"action":"desktop.capture","share":true}`} {
+		if _, _, err := s.parseDesktopTool(json.RawMessage(raw)); err == nil {
+			t.Errorf("accepted %s", raw)
+		}
+	}
+	if _, _, err := s.parseDesktopTool(json.RawMessage(`{"action":"desktop.capture","share":true,"computer_id":"x"}`)); err != nil && strings.Contains(err.Error(), "share applies") {
+		t.Errorf("refused a personal capture: %v", err)
+	}
+}
+
+func TestScreenPermissionPendingIsANamedStateNotARetry(t *testing.T) {
+	err := personalJobError("failed", "screen_permission_pending: Screen Recording is not granted", "desktop.capture")
+	if err == nil || !strings.Contains(err.Error(), "Do not retry") || strings.Contains(err.Error(), "Screen Recording is not granted") {
+		t.Fatalf("%v", err)
+	}
+}

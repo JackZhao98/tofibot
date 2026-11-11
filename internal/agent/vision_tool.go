@@ -74,7 +74,7 @@ var resultCarriesImage = map[string]bool{
 // Computer images originate in a paired device's bounded screenshot result.
 // Keep their bytes out of the textual transcript and send them through the
 // provider's existing vision input, preserving the associated tool call.
-func computerScreenshot(result string) (string, []string) {
+func computerScreenshot(tool, result string) (string, []string) {
 	if len(result) > 1<<20 {
 		return result, nil
 	}
@@ -99,7 +99,12 @@ func computerScreenshot(result string) (string, []string) {
 		return result, nil
 	}
 	delete(payload, "image_url")
-	payload["image_attached"] = json.RawMessage("true")
+	// The picture reached only the model. A computer screenshot says whether the
+	// person got it too; sharing it adds the "shared" field.
+	payload["image_visible_to_you"] = json.RawMessage("true")
+	if _, shared := payload["shared"]; !shared && (tool == "computer_desktop" || tool == "computer_browser") {
+		payload["shared_with_person"] = json.RawMessage("false")
+	}
 	cleaned, err := json.Marshal(payload)
 	if err != nil {
 		return result, nil
