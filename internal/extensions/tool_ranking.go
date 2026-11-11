@@ -26,6 +26,29 @@ func RankTools(tools []runtime.Tool, query string) []runtime.Tool {
 	return rankToolMatches(tools, query)
 }
 
+// QueryCoverage is the share of the query's distinct terms that appear in the
+// tool's name or description: 1 when every term does, 0 when none does.
+func QueryCoverage(tool runtime.Tool, query string) float64 {
+	have := map[string]bool{}
+	for _, t := range searchTerms(tool.Name + " " + tool.Description) {
+		have[t] = true
+	}
+	want := map[string]bool{}
+	for _, t := range searchTerms(query) {
+		want[t] = true
+	}
+	if len(want) == 0 {
+		return 0
+	}
+	hit := 0
+	for t := range want {
+		if have[t] {
+			hit++
+		}
+	}
+	return float64(hit) / float64(len(want))
+}
+
 // BM25 lexical ranking over the bounded server page. Unlike AND matching,
 // extra words in a natural-language query do not discard a relevant tool.
 // This does not provide translation or semantic/synonym matching.

@@ -73,6 +73,16 @@ func rankCapabilityNames(registered []Tool, query string) []string {
 	return names
 }
 
+// queryFits reports whether the best-ranked tool covers at least half of the
+// query's terms. An empty ranking never fits.
+func queryFits(byName map[string]Tool, ranked []string, query string) bool {
+	if len(ranked) == 0 {
+		return false
+	}
+	t := byName[ranked[0]]
+	return extensions.QueryCoverage(runtime.Tool{Name: t.Name, Description: t.Description}, query) >= 0.5
+}
+
 // Describe the actual registered tool set, not the capabilities of a UI mockup.
 func capabilityTool(registered []Tool) Tool {
 	type entry struct {
@@ -104,6 +114,11 @@ func capabilityTool(registered []Tool) Tool {
 		}
 		if q := strings.TrimSpace(in.Query); q != "" && len(in.Names) == 0 {
 			in.Names = rankCapabilityNames(registered, q)
+			if !queryFits(byName, in.Names, q) {
+				// The nearest tools are listed anyway, but the answer says none fits.
+				data, err := json.Marshal(map[string]any{"no_close_match": true, "nearest": in.Names, "note": "No tool matches this query closely. Do not assume the capability exists; tell the person it is not available here unless a listed tool plainly does it."})
+				return string(data), err
+			}
 		}
 		if len(in.Names) > maxCapabilitySchemaNames {
 			return "", errors.New("request at most 5 tool schemas at a time")

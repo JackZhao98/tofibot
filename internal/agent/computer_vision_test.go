@@ -17,12 +17,12 @@ func TestComputerScreenshotUsesVisionWithoutBase64Text(t *testing.T) {
 	}
 	uri := "data:image/png;base64," + base64.StdEncoding.EncodeToString(b.Bytes())
 	raw, _ := json.Marshal(map[string]any{"image_url": uri, "width": 2, "height": 2})
-	text, images := computerScreenshot(string(raw))
-	if len(images) != 1 || images[0] != uri || strings.Contains(text, "base64") || !strings.Contains(text, "image_attached") {
+	text, images := computerScreenshot("computer_desktop", string(raw))
+	if len(images) != 1 || images[0] != uri || strings.Contains(text, "base64") || !strings.Contains(text, "image_visible_to_you") || !strings.Contains(text, `"shared_with_person":false`) {
 		t.Fatal("screenshot not separated into visual input")
 	}
 	for _, value := range []string{`{"image_url":"https://elsewhere/image.png"}`, `{"image_url":"data:image/png;base64,aGVsbG8="}`, `{"image_url":"data:image/svg+xml;base64,PHN2Zz4="}`} {
-		if _, images = computerScreenshot(value); len(images) != 0 {
+		if _, images = computerScreenshot("computer_desktop", value); len(images) != 0 {
 			t.Fatal("invalid screenshot became visual input")
 		}
 	}
