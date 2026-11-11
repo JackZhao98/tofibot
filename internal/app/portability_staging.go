@@ -1,16 +1,21 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"github.com/google/uuid"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
+
+	"github.com/JackZhao98/tofibot/internal/filestore"
+	"github.com/google/uuid"
 )
 
 // Imported attachment bytes go straight into the server file store (S2 of
@@ -36,67 +41,81 @@ func (s *Store) portableBlobBackend() portableBlobStorage {
 
 func portableServerDisk(id string) string { return id + ".upload" }
 
-// writePortableAttachmentFile stores one imported file as <root>/<id>.upload.
-// The bytes are fsynced before the rename; the hash is read back from disk.
-func (s *Store) writePortableAttachmentFile(id string, data []byte, digest string) error {
+// portableLocation is where an imported file goes: the bucket when one is
+// configured (kind imports), else <root>/<id>.upload.
+func portableLocation(b FileBackend, id string) (disk, store string) {
+	if b.Kind == fileStoreKindS3 {
+		return objPrefix + b.objectKey(attachmentOriginImport, id), b.Gen
+	}
+	return portableServerDisk(id), ""
+}
+
+// writePortableAttachmentFile stores one imported file where portableLocation
+// says, through the same Put as every other new file. The hash is read back.
+func (s *Store) writePortableAttachmentFile(ctx context.Context, b FileBackend, id string, data []byte, digest string) error {
+	var target filestore.Store
+	disk, _ := portableLocation(b, id)
+	key := disk
+	if b.Kind == fileStoreKindS3 {
+		if b.Store == nil {
+			return newFileStoreError(codeFileStoreMisconfigured, errors.New("no bucket configured"))
+		}
+		target, key = b.Store, strings.TrimPrefix(disk, objPrefix)
+	} else {
+		root, err := s.attachmentRoot()
+		if err != nil {
+			return err
+		}
+		target = filestore.Disk{Root: root}
+	}
+	if err := target.Put(ctx, key, bytes.NewReader(data), filestore.ObjectMeta{Size: int64(len(data)), SHA256: digest, SafeMIME: "application/octet-stream"}); err != nil {
+		if b.Kind == fileStoreKindS3 {
+			return fileStoreFailure(err)
+		}
+		return err
+	}
+	r, _, err := target.Open(ctx, key)
+	if err == nil {
+		defer r.Close()
+		h := sha256.New()
+		if _, err = io.Copy(h, r); err == nil && hex.EncodeToString(h.Sum(nil)) == digest {
+			return nil
+		}
+	}
+	_ = target.Delete(context.WithoutCancel(ctx), key)
+	return errPortableStorage
+}
+
+// removePortableAttachmentFile removes a staged file by the location journaled for it.
+func (s *Store) removePortableAttachmentFile(ctx context.Context, id, disk string) error {
+	if disk == "" {
+		disk = portableServerDisk(id)
+	}
+	if strings.HasPrefix(disk, objPrefix) {
+		return s.removeAttachmentFile(ctx, disk)
+	}
 	root, err := s.attachmentRoot()
 	if err != nil {
 		return err
 	}
-	disk := portableServerDisk(id)
-	tmp := filepath.Join(root, "."+disk+".tmp")
-	final := filepath.Join(root, disk)
-	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
-	if err != nil {
-		return err
-	}
-	_, err = f.Write(data)
-	if err == nil {
-		err = f.Sync()
-	}
-	if closeErr := f.Close(); err == nil {
-		err = closeErr
-	}
-	if err != nil {
-		_ = os.Remove(tmp)
-		return err
-	}
-	if err = os.Rename(tmp, final); err != nil {
-		_ = os.Remove(tmp)
-		return err
-	}
-	syncDir(root)
-	got, err := hashFile(final)
-	if err != nil || got != digest {
-		_ = os.Remove(final)
-		return errPortableStorage
-	}
+	_ = os.Remove(filepath.Join(root, disk))
+	_ = os.Remove(filepath.Join(root, "."+disk+".tmp"))
 	return nil
 }
 
-func (s *Store) removePortableAttachmentFile(id string) {
-	root, err := s.attachmentRoot()
-	if err != nil {
-		return
-	}
-	disk := portableServerDisk(id)
-	_ = os.Remove(filepath.Join(root, disk))
-	_ = os.Remove(filepath.Join(root, "."+disk+".tmp"))
-}
-
 func (s *Store) recoverPortableAssets(ctx context.Context) error {
-	rows, err := s.db.QueryContext(ctx, `SELECT import_id,target_id,sha256,size FROM portability_asset_staging ORDER BY import_id,target_id LIMIT ?`, portableMaxAttachments*32+1)
+	rows, err := s.db.QueryContext(ctx, `SELECT import_id,target_id,sha256,size,disk_name FROM portability_asset_staging ORDER BY import_id,target_id LIMIT ?`, portableMaxAttachments*32+1)
 	if err != nil {
 		return err
 	}
 	type orphan struct {
-		importID, id, digest string
-		size                 int64
+		importID, id, digest, disk string
+		size                       int64
 	}
 	staged := []orphan{}
 	for rows.Next() {
 		var x orphan
-		if err = rows.Scan(&x.importID, &x.id, &x.digest, &x.size); err != nil {
+		if err = rows.Scan(&x.importID, &x.id, &x.digest, &x.size, &x.disk); err != nil {
 			break
 		}
 		staged = append(staged, x)
@@ -124,7 +143,9 @@ func (s *Store) recoverPortableAssets(ctx context.Context) error {
 		if err = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM attachments WHERE id=? OR disk_name=? OR disk_name=?`, x.id, guestAttachmentPrefix+x.id, portableServerDisk(x.id)).Scan(&owned); err != nil || owned != 0 {
 			return errPortableStorage
 		}
-		s.removePortableAttachmentFile(x.id)
+		if err = s.removePortableAttachmentFile(ctx, x.id, x.disk); err != nil {
+			return errPortableStorage
+		}
 		if backend != nil {
 			if err = backend.DeleteStagedBlob(ctx, x.id, x.digest); err != nil {
 				return errPortableStorage
@@ -172,10 +193,15 @@ func (s *Store) preparePortableAssets(ctx context.Context, b portableBundle, pre
 	if _, replayed, err := s.portablePreviewState(ctx, tx, b, previewID); err != nil || replayed {
 		return targets, err
 	}
+	backend, err := s.fileBackend(ctx)
+	if err != nil {
+		return targets, err
+	}
 	for _, x := range b.Attachments {
 		target := uuid.NewString()
 		targets[x.ID] = target
-		if _, err = tx.ExecContext(ctx, `INSERT INTO portability_asset_staging(import_id,target_id,sha256,size,created_at) VALUES(?,?,?,?,?)`, previewID, target, x.SHA256, x.Size, now()); err != nil {
+		disk, gen := portableLocation(backend, target)
+		if _, err = tx.ExecContext(ctx, `INSERT INTO portability_asset_staging(import_id,target_id,sha256,size,created_at,disk_name,store) VALUES(?,?,?,?,?,?,?)`, previewID, target, x.SHA256, x.Size, now(), disk, gen); err != nil {
 			return targets, err
 		}
 	}
@@ -187,8 +213,8 @@ func (s *Store) preparePortableAssets(ctx context.Context, b portableBundle, pre
 		if err != nil {
 			return targets, err
 		}
-		if err = s.writePortableAttachmentFile(targets[x.ID], data, x.SHA256); err != nil {
-			return targets, errPortableStorage
+		if err = s.writePortableAttachmentFile(ctx, backend, targets[x.ID], data, x.SHA256); err != nil {
+			return targets, err
 		}
 	}
 	return targets, nil

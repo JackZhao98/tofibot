@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/JackZhao98/tofibot/internal/computer"
+	"github.com/JackZhao98/tofibot/internal/filestore"
 	"github.com/google/uuid"
 )
 
@@ -271,6 +272,17 @@ func (s *Store) copyGuestRows(ctx context.Context, limit int) (copied, failed in
 }
 
 func (s *Store) openAttachment(ctx context.Context, path string) (io.ReadCloser, error) {
+	if key, ok := strings.CutPrefix(path, objPrefix); ok {
+		st, err := s.objStore(ctx, key)
+		if err != nil {
+			return nil, err
+		}
+		f, _, err := st.Open(ctx, key)
+		if err != nil {
+			return nil, fileStoreFailure(err)
+		}
+		return f, nil
+	}
 	if strings.HasPrefix(path, guestAttachmentPrefix) {
 		id, err := guestAttachmentID(path)
 		if err != nil {
@@ -291,15 +303,18 @@ func (s *Store) openAttachment(ctx context.Context, path string) (io.ReadCloser,
 		}
 		path = filepath.Join(root, id+".upload")
 	}
-	root, err := os.OpenRoot(filepath.Dir(path))
-	if err != nil {
-		return nil, err
-	}
-	defer root.Close()
-	return root.Open(filepath.Base(path))
+	f, _, err := filestore.Disk{Root: filepath.Dir(path)}.Open(ctx, filepath.Base(path))
+	return f, err
 }
 
 func (s *Store) removeAttachmentFile(ctx context.Context, path string) error {
+	if key, ok := strings.CutPrefix(path, objPrefix); ok {
+		st, err := s.objStore(ctx, key)
+		if err != nil {
+			return err
+		}
+		return fileStoreFailure(st.Delete(ctx, key))
+	}
 	if strings.HasPrefix(path, guestAttachmentPrefix) {
 		id, err := guestAttachmentID(path)
 		if err != nil {

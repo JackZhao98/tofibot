@@ -22,10 +22,12 @@ import (
 //	          (account_export.go); nothing below runs unless it succeeded
 //	computer  broker op "delete": stops the manager, removes the computer's
 //	          state/socket/config/jail/disk and releases the ledger row
+//	files     removes every object under the account's prefix in the file
+//	          store bucket, with no grace (nothing when no bucket is configured)
 //	data      removes <data>/accounts/<id> (Bots, chats, memory, files)
 //	sessions  removes the account's control-DB sessions
 //	record    removes the account row itself
-var accountDeleteSteps = []string{"export", "computer", "data", "sessions", "record"}
+var accountDeleteSteps = []string{"export", "computer", "files", "data", "sessions", "record"}
 
 var (
 	errAccountDeleting = errors.New("account is being deleted")
@@ -235,6 +237,8 @@ func (g *AccountGateway) deleteStep(ctx context.Context, step string, a Account)
 	case "computer":
 		g.reclaimOrgE2BSandbox(ctx, a.ID)
 		return g.deleteComputer(ctx, a.ID)
+	case "files":
+		return g.deleteAccountFiles(ctx, a.ID)
 	case "data":
 		if err := g.deleteRunnerState(ctx, a.ID); err != nil {
 			return err

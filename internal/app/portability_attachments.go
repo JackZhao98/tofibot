@@ -421,7 +421,19 @@ func (s *Store) exportPortableAttachmentBytes(ctx context.Context, b *portableBu
 }
 func (s *Store) readPortableAttachment(ctx context.Context, dbFile, id, disk string, size int64) ([]byte, string) {
 	var data []byte
-	if strings.HasPrefix(disk, guestAttachmentPrefix) {
+	if strings.HasPrefix(disk, objPrefix) {
+		f, err := s.openAttachment(ctx, disk)
+		if err != nil {
+			if fe, ok := asFileStoreError(err); ok && fe.code == codeFileMissingInStore {
+				return nil, "missing"
+			}
+			return nil, "unavailable"
+		}
+		defer f.Close()
+		if data, err = io.ReadAll(io.LimitReader(f, portableMaxAttachmentBytes+1)); err != nil {
+			return nil, "unavailable"
+		}
+	} else if strings.HasPrefix(disk, guestAttachmentPrefix) {
 		alias, err := guestAttachmentID(disk)
 		if err != nil || alias != id {
 			return nil, "unsafe_file"

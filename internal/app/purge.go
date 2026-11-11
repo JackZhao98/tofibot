@@ -18,6 +18,10 @@ const purgeConfirmation = "PURGE"
 // are intentionally preserved; this operation resets user data, not the
 // installation itself.
 func (s *Store) purgeWorkspaceData() error {
+	// A reset removes the workspace's bucket objects too, before any row that names them goes.
+	if err := s.deleteObjectRows(); err != nil {
+		return err
+	}
 	rows, err := s.db.Query(`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`)
 	if err != nil {
 		return err

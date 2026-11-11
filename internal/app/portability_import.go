@@ -126,12 +126,15 @@ func (s *Store) applyPortableSQL(ctx context.Context, b portableBundle, previewI
 		}
 	}
 	for _, x := range b.Attachments {
-		var digest string
+		var digest, disk, gen string
 		var size int64
-		if err = tx.QueryRowContext(ctx, `SELECT sha256,size FROM portability_asset_staging WHERE import_id=? AND target_id=?`, previewID, id(x.ID)).Scan(&digest, &size); err != nil || digest != x.SHA256 || size != x.Size {
+		if err = tx.QueryRowContext(ctx, `SELECT sha256,size,disk_name,store FROM portability_asset_staging WHERE import_id=? AND target_id=?`, previewID, id(x.ID)).Scan(&digest, &size, &disk, &gen); err != nil || digest != x.SHA256 || size != x.Size {
 			return result, false, errPortableStorage
 		}
-		if _, err = tx.ExecContext(ctx, `INSERT INTO attachments(id,conversation_id,name,mime,size,disk_name,created_at,sha256,origin) VALUES(?,?,?,?,?,?,?,?,?)`, id(x.ID), id(x.ConversationID), x.Name, x.MIME, x.Size, portableServerDisk(id(x.ID)), x.CreatedAt, x.SHA256, attachmentOriginImport); err != nil {
+		if disk == "" {
+			disk = portableServerDisk(id(x.ID))
+		}
+		if _, err = tx.ExecContext(ctx, `INSERT INTO attachments(id,conversation_id,name,mime,size,disk_name,created_at,sha256,origin,store) VALUES(?,?,?,?,?,?,?,?,?,?)`, id(x.ID), id(x.ConversationID), x.Name, x.MIME, x.Size, disk, x.CreatedAt, x.SHA256, attachmentOriginImport, gen); err != nil {
 			return result, false, err
 		}
 		if err = provenance("attachment", x.ID, x.Origin); err != nil {

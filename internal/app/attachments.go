@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/JackZhao98/tofibot/internal/filestore"
 	"github.com/google/uuid"
 )
 
@@ -65,6 +66,8 @@ func migrateAttachments(db *sql.DB) error {
 		{"sha256", `ALTER TABLE attachments ADD COLUMN sha256 TEXT`},
 		{"origin", `ALTER TABLE attachments ADD COLUMN origin TEXT NOT NULL DEFAULT 'upload'`},
 		{"bot_id", `ALTER TABLE attachments ADD COLUMN bot_id TEXT`},
+		// '' = this server's disk (or a legacy `vm:` row); else the bucket generation of an `obj:` row.
+		{"store", `ALTER TABLE attachments ADD COLUMN store TEXT NOT NULL DEFAULT ''`},
 	} {
 		if err = ensureColumn(db, "attachments", col.name, col.ddl); err != nil {
 			return err
@@ -170,43 +173,44 @@ func (s *Store) addAttachmentOpts(ctx context.Context, conv, name, declaredMIME 
 		limit = room
 	}
 	id := uuid.NewString()
-	disk := id + ".upload"
-	tmp := filepath.Join(root, "."+disk+".tmp")
-	final := filepath.Join(root, disk)
-	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	backend, err := s.fileBackend(ctx)
 	if err != nil {
 		return Attachment{}, err
 	}
+	toBucket := backend.Kind == fileStoreKindS3
+	if toBucket && backend.Store == nil {
+		return Attachment{}, newFileStoreError(codeFileStoreMisconfigured, errors.New("no bucket configured"))
+	}
+	// Every file is first written whole to a local spool file; size, type and
+	// hash are settled there, then Put hands it to the backend.
+	spoolDir := filepath.Join(root, spoolDirName)
+	if err = os.MkdirAll(spoolDir, 0700); err != nil {
+		return Attachment{}, err
+	}
+	spool := filepath.Join(spoolDir, id)
+	f, err := os.OpenFile(spool, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return Attachment{}, err
+	}
+	defer func() { f.Close(); _ = os.Remove(spool) }()
 	hash := sha256.New()
 	written, copyErr := io.Copy(io.MultiWriter(f, hash), io.LimitReader(src, limit+1))
 	if copyErr == nil {
 		copyErr = f.Sync()
 	}
-	closeErr := f.Close()
-	if copyErr != nil || closeErr != nil || written > limit {
-		_ = os.Remove(tmp)
+	if copyErr != nil || written > limit {
 		if written > limit {
 			if quotaCapped {
 				return Attachment{}, newQuotaError()
 			}
 			return Attachment{}, fmt.Errorf("attachment exceeds %d MB", limit>>20)
 		}
-		if copyErr != nil {
-			return Attachment{}, copyErr
-		}
-		return Attachment{}, closeErr
-	}
-	if err = os.Rename(tmp, final); err != nil {
-		_ = os.Remove(tmp)
-		return Attachment{}, err
+		return Attachment{}, copyErr
 	}
 	actual := "application/octet-stream"
-	if f, e := os.Open(final); e == nil {
-		var b [512]byte
-		n, _ := f.Read(b[:])
-		_ = f.Close()
-		actual = http.DetectContentType(b[:n])
-	}
+	var b [512]byte
+	n, _ := f.ReadAt(b[:], 0)
+	actual = http.DetectContentType(b[:n])
 	// A client supplied type is useful for otherwise opaque formats, but never
 	// allows a browser to render active content.
 	if strings.HasPrefix(actual, "text/") || strings.HasPrefix(actual, "image/") || actual == "application/pdf" || actual == "application/json" {
@@ -216,16 +220,43 @@ func (s *Store) addAttachmentOpts(ctx context.Context, conv, name, declaredMIME 
 	} else {
 		declaredMIME = actual
 	}
-	if strings.HasPrefix(declaredMIME, "image/") && !isRasterFile(final, declaredMIME) {
+	if strings.HasPrefix(declaredMIME, "image/") && !isRasterFile(spool, declaredMIME) {
 		declaredMIME = "application/octet-stream"
 	}
+	digest := hex.EncodeToString(hash.Sum(nil))
+	var target filestore.Store = filestore.Disk{Root: root}
+	key := id + ".upload"
+	disk, gen := key, ""
+	if toBucket {
+		target, key = backend.Store, backend.objectKey(opts.Origin, id)
+		disk, gen = objPrefix+key, backend.Gen
+	}
+	if _, err = f.Seek(0, io.SeekStart); err != nil {
+		return Attachment{}, err
+	}
+	if err = target.Put(ctx, key, f, filestore.ObjectMeta{Size: written, SHA256: digest, SafeMIME: declaredMIME}); err != nil {
+		if toBucket {
+			return Attachment{}, fileStoreFailure(err)
+		}
+		return Attachment{}, err
+	}
 	a := Attachment{ID: id, ConversationID: conv, Name: name, MIME: declaredMIME, Size: written, CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)}
-	_, err = s.db.ExecContext(ctx, `INSERT INTO attachments(id,conversation_id,name,mime,size,disk_name,created_at,sha256,origin,bot_id) VALUES(?,?,?,?,?,?,?,?,?,?)`, a.ID, a.ConversationID, a.Name, a.MIME, a.Size, disk, a.CreatedAt, hex.EncodeToString(hash.Sum(nil)), opts.Origin, nullString(opts.BotID))
+	_, err = s.db.ExecContext(ctx, `INSERT INTO attachments(id,conversation_id,name,mime,size,disk_name,created_at,sha256,origin,bot_id,store) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, a.ID, a.ConversationID, a.Name, a.MIME, a.Size, disk, a.CreatedAt, digest, opts.Origin, nullString(opts.BotID), gen)
 	if err != nil {
-		_ = os.Remove(final)
+		_ = target.Delete(context.WithoutCancel(ctx), key)
 		return Attachment{}, err
 	}
 	return a, nil
+}
+
+// spoolDirName is the local staging directory inside the attachments directory.
+// Its files never outlive a request; start-up empties it.
+const spoolDirName = ".spool"
+
+func (s *Store) clearSpool() {
+	if root, err := s.attachmentRoot(); err == nil {
+		_ = os.RemoveAll(filepath.Join(root, spoolDirName))
+	}
 }
 
 func isRasterFile(path, typ string) bool {
@@ -250,6 +281,9 @@ func (s *Store) Attachment(id string) (Attachment, string, error) {
 	err := s.db.QueryRow(`SELECT id,conversation_id,name,mime,size,created_at,disk_name FROM attachments WHERE id=?`, id).Scan(&a.ID, &a.ConversationID, &a.Name, &a.MIME, &a.Size, &a.CreatedAt, &disk)
 	if err != nil {
 		return Attachment{}, "", err
+	}
+	if strings.HasPrefix(disk, objPrefix) {
+		return a, disk, nil
 	}
 	if strings.HasPrefix(disk, guestAttachmentPrefix) {
 		id, err := guestAttachmentID(disk)
@@ -393,6 +427,10 @@ func (s *Server) routeAttachments(w http.ResponseWriter, r *http.Request, p stri
 		defer file.Close()
 		a, err := s.store.addAttachment(r.Context(), conv, filename, typ, file)
 		if err != nil {
+			if fe, ok := asFileStoreError(err); ok {
+				writeErr(w, fe.status, fe.code, fileStoreMessage(fe.code))
+				return true
+			}
 			if code := storageErrorCode(err); code != "" {
 				var se *storageError
 				errors.As(err, &se)
@@ -417,7 +455,10 @@ func (s *Server) routeAttachments(w http.ResponseWriter, r *http.Request, p stri
 	}
 	f, err := s.store.openAttachment(r.Context(), path)
 	if err != nil {
+		fe, isStoreErr := asFileStoreError(err)
 		switch {
+		case isStoreErr:
+			writeErr(w, fe.status, fe.code, fileStoreMessage(fe.code))
 		case errors.Is(err, errFileOnDetachedComputer):
 			writeErr(w, 409, "file_on_detached_computer", "This file is on the detached Bot computer. Attach it to recover.")
 		case errors.Is(err, errFileGoneFromComputer):

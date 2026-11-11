@@ -109,10 +109,14 @@ func (s *Store) deleteUnboundAttachment(id string) error {
 	}
 	defer tx.Rollback()
 	disk := filepath.Base(path)
-	if strings.HasPrefix(path, guestAttachmentPrefix) {
+	var after any
+	if strings.HasPrefix(path, guestAttachmentPrefix) || strings.HasPrefix(path, objPrefix) {
 		disk = path
 	}
-	if _, err = tx.Exec(`INSERT OR IGNORE INTO deleted_attachment_files VALUES(?)`, disk); err != nil {
+	if strings.HasPrefix(path, objPrefix) {
+		after = s.deleteDeadline(context.Background())
+	}
+	if _, err = tx.Exec(`INSERT OR IGNORE INTO deleted_attachment_files(disk_name,delete_after) VALUES(?,?)`, disk, after); err != nil {
 		return err
 	}
 	if _, err = tx.Exec(`DELETE FROM attachments WHERE id=?`, id); err != nil {

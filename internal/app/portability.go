@@ -168,7 +168,16 @@ PRAGMA synchronous=FULL;
 CREATE TABLE IF NOT EXISTS portability_asset_staging(import_id TEXT NOT NULL,target_id TEXT NOT NULL UNIQUE,sha256 TEXT NOT NULL,size INTEGER NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(import_id,target_id));
 CREATE TABLE IF NOT EXISTS portability_missing_assets(id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL,metadata_json TEXT NOT NULL,FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS portability_secret_recovery(id TEXT PRIMARY KEY,import_id TEXT NOT NULL,source_id TEXT NOT NULL,capsule BLOB NOT NULL,size INTEGER NOT NULL CHECK(size>0 AND size<=65536),created_at TEXT NOT NULL,UNIQUE(import_id,source_id));`)
-	return err
+	if err != nil {
+		return err
+	}
+	// Where a staged file was written ('' = <id>.upload on this server's disk).
+	for _, col := range []string{"disk_name", "store"} {
+		if err = ensureColumn(db, "portability_asset_staging", col, `ALTER TABLE portability_asset_staging ADD COLUMN `+col+` TEXT NOT NULL DEFAULT ''`); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Detect duplicate fields, excessive nesting and trailing input before typed

@@ -136,7 +136,7 @@ func (s *Server) imageGenerationTool(c Conversation, r Run, generate func(contex
 		if _, _, err = image.Decode(bytes.NewReader(data)); err != nil {
 			return "", errors.New("image provider returned a damaged PNG")
 		}
-		a, err := s.store.AddAttachment(c.ID, name, "image/png", bytes.NewReader(data))
+		a, err := s.store.addAttachmentOpts(ctx, c.ID, name, "image/png", bytes.NewReader(data), attachmentOpts{Origin: attachmentOriginGenerated, BotID: r.BotID})
 		if err != nil {
 			return "", err
 		}

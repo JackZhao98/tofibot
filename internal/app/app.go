@@ -273,6 +273,9 @@ type Config struct {
 	// OrgConfig returns the non-secret configuration of an organization
 	// resource (the web-tools order, for one); found is false when none is stored.
 	OrgConfig func(ctx context.Context, resource string) (config json.RawMessage, found bool, err error)
+	// FileStore resolves where this workspace's files go (gateway only; nil means
+	// the account's attachments directory). It returns a handle, never a credential.
+	FileStore func(ctx context.Context) (FileBackend, error)
 	// OrgResourceOutcome records that the provider refused an organization credential (code names why).
 	OrgResourceOutcome func(resource, code string)
 	// OrgE2BTemplate is the organization's E2B template state, read at each use of a
@@ -430,6 +433,8 @@ type Store struct {
 	spendSnapshot func(SpendStatus)
 	// guestBlobs reads and deletes legacy `vm:` attachments only (S1).
 	guestBlobs guestBlobStorage
+	// files resolves the object store for new files and `obj:` rows (nil = disk only).
+	files func(ctx context.Context) (FileBackend, error)
 	// guestBlobsMu guards guestBlobs, which a hot attach and detach change.
 	guestBlobsMu sync.RWMutex
 	// maxPersonalComputers caps personal computers (0 = DefaultMaxPersonalComputers).
@@ -3056,6 +3061,8 @@ func NewServer(c Config) (*Server, error) {
 		c.TranscriptionURL = defaultTranscriptionURL
 	}
 	st.maxPersonalComputers = c.MaxPersonalComputers
+	st.files = c.FileStore
+	st.clearSpool()
 	st.deviceTag = deviceTagFor(c.AccountID)
 	// The factory builds the VM provider from the configured control socket. It
 	// is what a hot attach calls; start-up uses it too unless an administrator

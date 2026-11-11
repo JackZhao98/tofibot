@@ -50,6 +50,11 @@ func TestGeneratedImageReachesTheComputerOnNextSyncWithoutBootingIt(t *testing.T
 	if p != guestUploadsRoot+"/"+conv.ID+"/generated/comic.png" {
 		t.Fatalf("path=%q", p)
 	}
+	// A generated image is a Bot product: origin generated and the Bot's id, so it files under artifacts/.
+	var origin, botID string
+	if err := s.store.db.QueryRow(`SELECT origin,COALESCE(bot_id,'') FROM attachments WHERE conversation_id=? AND name='comic.png'`, conv.ID).Scan(&origin, &botID); err != nil || origin != attachmentOriginGenerated || botID != run.BotID || botID == "" {
+		t.Fatalf("origin=%q bot=%q err=%v", origin, botID, err)
+	}
 	if _, err := os.Stat(p); err == nil || len(*statuses) != 0 {
 		t.Fatalf("generate_image touched the computer: %v transfers=%v", err, *statuses)
 	}
