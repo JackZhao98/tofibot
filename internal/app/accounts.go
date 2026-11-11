@@ -89,6 +89,12 @@ type AccountGateway struct {
 	// orgE2B is the organization's E2B template build (org_e2b.go): one at a time.
 	orgE2B    orgE2BGate
 	orgBuilds sync.WaitGroup
+	// Remote backups (org_backup.go): one job at a time; restoring fences an account.
+	backupMu     sync.Mutex
+	backupBusy   atomic.Bool
+	backupCancel context.CancelFunc
+	backupWG     sync.WaitGroup
+	restoring    map[string]bool
 }
 
 func NewAccountGateway(c Config) (*AccountGateway, error) {
@@ -149,6 +155,10 @@ func NewAccountGateway(c Config) (*AccountGateway, error) {
 		root.Close()
 		return nil, err
 	}
+	if _, err = tx.Exec(backupStateDDL); err != nil {
+		root.Close()
+		return nil, err
+	}
 	if err = tx.Commit(); err != nil {
 		root.Close()
 		return nil, err
@@ -189,6 +199,7 @@ func NewAccountGateway(c Config) (*AccountGateway, error) {
 		}
 	}
 	g.startExportSweeper()
+	g.startBackupScheduler()
 	return g, nil
 }
 func (g *AccountGateway) Close() error {
@@ -198,6 +209,7 @@ func (g *AccountGateway) Close() error {
 		return nil
 	}
 	g.closed = true
+	defer g.stopBackupScheduler()
 	if g.sweepStop != nil {
 		close(g.sweepStop)
 		g.sweepStop = nil
@@ -370,6 +382,9 @@ func (g *AccountGateway) workspace(a Account) (*Server, error) {
 	defer g.mu.Unlock()
 	if g.closed {
 		return nil, errors.New("account gateway closed")
+	}
+	if g.restoring[a.ID] {
+		return nil, errAccountRestoring
 	}
 	var disabled bool
 	if err := g.root.store.db.QueryRow(`SELECT disabled FROM accounts WHERE id=?`, a.ID).Scan(&disabled); err != nil || disabled {
@@ -638,6 +653,9 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 	if g.adminComputer(w, r, a) {
 		return
 	}
+	if g.adminBackups(w, r, a) {
+		return
+	}
 	if g.manageAccount(w, r, a) {
 		return
 	}
@@ -662,6 +680,10 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 			var in struct{ Username, Email, Password string }
 			if decodeStrict(r, 8<<10, &in) != nil {
 				writeErr(w, 400, "invalid_request", "invalid account")
+				return
+			}
+			if g.backupBusy.Load() {
+				writeErr(w, 409, "backup_in_progress", "a backup is running; try again in a few minutes")
 				return
 			}
 			created, err := g.create(r.Context(), in.Username, in.Email, in.Password, false, "")
