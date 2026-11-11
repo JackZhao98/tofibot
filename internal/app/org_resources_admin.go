@@ -66,6 +66,10 @@ func (g *AccountGateway) serveOrg(w http.ResponseWriter, r *http.Request, rest s
 				g.putOrgFileStore(w, r, sp)
 				return
 			}
+			if sp.ID == orgBackupStoreID {
+				g.putOrgBackupStore(w, r, sp)
+				return
+			}
 			g.putOrgResource(w, r, sp)
 		case http.MethodDelete:
 			g.deleteOrgResource(w, r, sp)
@@ -663,7 +667,7 @@ func (g *AccountGateway) testOrgResource(w http.ResponseWriter, r *http.Request,
 		res = g.verifyOrgCompat(ctx, cfg)
 	case sp.ID == e2bKeyVaultID:
 		res = verifyOrgE2B(ctx, secret.Value)
-	case sp.ID == orgFileStoreID:
+	case sp.ID == orgFileStoreID || sp.ID == orgBackupStoreID:
 		var cfg fileStoreConfig
 		accessKey, key, _ := strings.Cut(secret.Value, "\x00")
 		if json.Unmarshal([]byte(row.Config), &cfg) != nil {

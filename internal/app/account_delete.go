@@ -181,6 +181,10 @@ func (g *AccountGateway) deleteAccount(w http.ResponseWriter, r *http.Request, c
 		writeErr(w, 403, "forbidden", "admin required")
 		return
 	}
+	if g.backupBusy.Load() {
+		writeErr(w, 409, "backup_in_progress", "a backup is running; try again in a few minutes")
+		return
+	}
 	target, derr := g.beginAccountDelete(r.Context(), caller.ID, id, in.ConfirmUsername)
 	if derr != nil {
 		writeErr(w, derr.status, derr.code, derr.message)

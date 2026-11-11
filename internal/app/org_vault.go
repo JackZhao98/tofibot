@@ -138,6 +138,7 @@ var orgResourceSpecs = []orgResourceSpec{
 	{ID: webVaultID("firecrawl"), Kind: webProviderKind, Target: "firecrawl", Name: "Firecrawl API key"},
 	{ID: webVaultID("brightdata"), Kind: webProviderKind, Target: "brightdata", Name: "Bright Data API key", Zone: true},
 	{ID: orgFileStoreID, Kind: orgFileStoreKind, Target: fileStoreKindS3, Name: "File storage access key"},
+	{ID: orgBackupStoreID, Kind: orgBackupKind, Target: fileStoreKindS3, Name: "Backup storage access key"},
 }
 
 func orgSpecFor(id string) (orgResourceSpec, bool) {

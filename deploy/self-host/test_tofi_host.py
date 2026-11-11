@@ -3487,6 +3487,36 @@ class HostControlClientTests(NoComputerCase):
         self.assertFalse(tofi_host.attach_computers_hot(env, quiet=True))
         self.assertFalse(tofi_host.detach_computers_hot(env, 1))
 
+    def test_a_downloaded_tree_becomes_an_ordinary_local_backup(self):
+        self.installed()
+        tree = self.root / 'downloaded' / 'data'
+        tree.mkdir(parents=True)
+        (tree / 'tofi.db').write_bytes(b'from-the-bucket')
+        meta = tofi_host.backup_data('remote', check_space=False, data_root=tree)
+        item = tofi_host.find_backup(meta['id'])
+        tofi_host.verify_backup(item['path'])
+        out = self.root / 'unpacked'
+        out.mkdir()
+        tofi_host.extract_archive(item['path'] / meta['archives']['data'], out)
+        self.assertEqual((out / 'tofi.db').read_bytes(), b'from-the-bucket')
+
+    def test_the_remote_restore_tool_gets_keys_on_stdin_and_names_failures(self):
+        env = {'TOFI_APP_IMAGE': image('app', '1')}
+        seen = []
+
+        def fake(args, check=True, timeout=300, **kwargs):
+            seen.append((list(args), kwargs.get('input')))
+            return subprocess.CompletedProcess(args, 1, json.dumps({'error': 'backup_recovery_key_wrong'}), '')
+
+        request = {'action': 'snapshots', 'secret': 'SECRET-VALUE-XYZ', 'recovery_key': 'RECOVERY-KEY-ABC'}
+        with mock.patch.object(tofi_host, 'run', side_effect=fake):
+            with self.assertRaisesRegex(tofi_host.HostError, 'Recovery Key does not open'):
+                tofi_host.remote_restore_tool(env, request, self.root)
+        args, stdin = seen[0]
+        self.assertNotIn('SECRET-VALUE-XYZ', ' '.join(args))
+        self.assertNotIn('RECOVERY-KEY-ABC', ' '.join(args))
+        self.assertIn('RECOVERY-KEY-ABC', stdin)
+
     def test_the_caddyfile_never_proxies_the_host_route(self):
         text = tofi_host.render_caddyfile(Path(__file__).parent, 'tofi.example.com', '')
         self.assertIn('@host path /api/host/*', text)

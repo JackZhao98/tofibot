@@ -19,7 +19,7 @@ export type AccountPolicy = {group: {id: string; name: string}; overrides: Parti
 /** The value a capability takes in `self_serve`, the group an account is in until an administrator moves it: today's behavior. */
 export const SELF_SERVE: PolicyMap = {ai_models: {mode: "own"}, computer: {mode: "host"}, web_search: {mode: "own"}, web_fetch: {mode: "own"}};
 
-export type OrgResourceId = "provider:anthropic" | "provider:openai" | "provider:compatible" | "computer:e2b" | "webtool:tavily" | "webtool:brave" | "webtool:firecrawl" | "webtool:brightdata" | "file_store";
+export type OrgResourceId = "provider:anthropic" | "provider:openai" | "provider:compatible" | "computer:e2b" | "webtool:tavily" | "webtool:brave" | "webtool:firecrawl" | "webtool:brightdata" | "file_store" | "backup_store";
 export type OrgResourceStatus = "stored" | "verified" | "rejected";
 /** The organization's E2B computer image (`computer:e2b` only): custom (the admin's own template, never rebuilt) or the build for this TOFI version. */
 export type OrgBuild = {
@@ -52,6 +52,12 @@ export type OrgResourceInput = {key?: string; base_url?: string; models?: string
 /** `PUT file_store`: the bucket, its access key pair (the secret is `key`, write-only), or just `kind` to choose where new files go. */
 export type FileStoreInput = {kind?: "s3" | "disk"; endpoint?: string; region?: string; bucket?: string; prefix?: string; path_style?: boolean; access_key_id?: string; key?: string; delete_grace_days?: number; confirm_public?: boolean};
 
+/** `GET /api/admin/backups`: the Backups card's whole state. Keys are never in it. */
+export type BackupSettings = {remote: "on" | "off"; schedule: "daily" | "6h" | "hourly" | "manual"; keep_daily: number; keep_weekly: number; keep_monthly: number; verify: "weekly" | "monthly" | "manual"; stale_after_hours: number};
+export type BackupStatus = {running: boolean; last_attempt_at?: string; last_status?: "ok" | "failed" | "blocked"; last_code?: string; last_account?: string; last_success_at?: string; last_snapshot?: string; last_duration_ms?: number; prune_code?: string; verified_at?: string; verified_snapshot?: string; verify_status?: "ok" | "failed"; verify_code?: string; verify_duration_ms?: number};
+export type BackupView = {configured: boolean; destination?: {endpoint: string; bucket: string; prefix: string}; settings: BackupSettings; key: {present: boolean; fingerprint: string; confirmed_at: string}; status: BackupStatus; stale: boolean; resource?: OrgResource};
+export type BackupSnapshot = {name: string; at: string; reason: string; rows?: Record<string, number>; files?: number};
+
 /** `GET /api/admin/org/web-tools`: the organization's chains. Keys go through the resources endpoints; this holds order, switches, address and caps. */
 export type OrgWebProvider = {id: string; chain: "search" | "fetch"; label: string; kind: "api" | "self_hosted"; paid: boolean; enabled: boolean; status: "ready" | "needs_key" | "needs_address" | "error"; key_prefix?: string; key_hint?: string; zone?: string; base_url?: string; error_code?: string; tested_at?: string};
 export type OrgWebTools = {search_order: string[]; fetch_order: string[]; disabled: string[]; searxng_url: string; daily_search?: number | null; daily_fetch?: number | null; providers: OrgWebProvider[]};
@@ -75,6 +81,26 @@ export const adminOrgApi = {
   webTools: (signal?: AbortSignal) => request<OrgWebTools>("/api/admin/org/web-tools", {signal}),
   putWebTools: (body: {search_order?: string[]; fetch_order?: string[]; disabled?: string[]; searxng_url?: string; daily_search?: number; daily_fetch?: number}) => request<OrgWebTools>("/api/admin/org/web-tools", send("PUT", body)),
 };
+
+const backupApi = {
+  state: () => request<BackupView>("/api/admin/backups"),
+  settings: (body: Partial<BackupSettings>) => request<BackupView>("/api/admin/backups/settings", send("PUT", body)),
+  run: () => request<{started: boolean}>("/api/admin/backups/run", send("POST")),
+  verify: () => request<{started: boolean}>("/api/admin/backups/verify", send("POST")),
+  recoveryKey: (body: {import?: string} = {}) => request<{recovery_key?: string; fingerprint: string; confirmed_at: string}>("/api/admin/backups/recovery-key", send("POST", body)),
+  confirmKey: () => request<BackupView>("/api/admin/backups/recovery-key/confirm", send("POST", {})),
+  snapshots: () => request<{snapshots: BackupSnapshot[]}>("/api/admin/backups/snapshots"),
+  accountSnapshots: (id: string) => request<{snapshots: BackupSnapshot[]; undo_available: boolean}>(`/api/admin/accounts/${enc(id)}/backups`),
+  restoreAccount: (id: string, body: {snapshot: string; confirm_username: string}) => request<{restored: boolean}>(`/api/admin/accounts/${enc(id)}/restore`, send("POST", body)),
+  undoRestore: (id: string) => request<{undone: boolean}>(`/api/admin/accounts/${enc(id)}/restore/undo`, send("POST", {})),
+};
+export {backupApi};
+
+/** Words for a failed backup call, from the server's stable code; the account is named when the server names one. */
+export function backupError(cause: unknown): string {
+  if (cause instanceof ApiError && cause.code) return i18n.t(`settings:admin.org.backup.error.${cause.code}` as "settings:admin.org.backup.error.generic", {defaultValue: orgError(cause)});
+  return i18n.t("settings:admin.org.backup.error.generic");
+}
 
 const errorCodes = ["invalid_policy", "group_exists", "group_limit", "group_builtin_readonly", "group_in_use", "not_found", "invalid_key", "invalid_workspace", "invalid_template", "invalid_zone", "invalid_base_url", "invalid_models", "invalid_address", "no_models", "no_quota", "provider_unreachable", "endpoint_not_allowed", "invalid_request", "custom_template", "forbidden", "storage", "endpoint_unreachable", "credentials_rejected", "bucket_not_found", "write_denied", "conditional_put_unsupported", "range_unsupported", "delete_denied", "bucket_is_public", "invalid_endpoint", "invalid_bucket", "invalid_prefix", "invalid_grace", "file_store_in_use"] as const;
 
