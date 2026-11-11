@@ -100,7 +100,7 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
  const navigate=(target:Target)=>{
   if(pending)return;
   if(target===tab){setMobileView("page");return}
-  if(busy||document.querySelector('.settings-content [aria-busy="true"]'))return;
+  if(busy||document.querySelector('.settings-content .settings-page-body:not([hidden]) [aria-busy="true"]'))return;
   if(activeDrafts.length){setPending(target);return}
   if(target==="close"&&dirty){setPending(target);return}
   go(target);

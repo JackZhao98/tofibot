@@ -1406,6 +1406,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       assert.ok(primaries[id] <= 1, `${id}: ${primaries[id]} primary buttons (at most one per view)`);
     }
     assert.equal(primaries.connections, 1, "Connections: Add connection is the one primary");
+    // A card that is still reading must not trap the person on Organization resources (owner 11-11: nothing could be clicked, not even close).
+    await page.locator('.settings-tabs [data-tab="general"]').click();
+    await page.waitForFunction(() => !document.querySelector('.settings-page-body[data-page="general"]')?.hidden, null, {timeout: 3000});
     for (const id of ["computer", "models", "advanced", "permissions", "usage"]) assert.equal(primaries[id], 0, `${id}: no primary button`);
     // Switch: 36x22 Radix switch, button role, saved in place.
     await page.locator('.settings-tabs [data-tab="general"]').click();

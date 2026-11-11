@@ -198,7 +198,7 @@ function ModelKeyCard({id, title, resource, loading, onChange, onDropped}: CardP
     } catch (cause) { actions.setError(orgError(cause)); }
     finally { setSaving(false); }
   }
-  return <article className="detail-content provider-card org-resource" data-resource={id} aria-labelledby={titleId} aria-busy={saving || loading}>
+  return <article className="detail-content provider-card org-resource" data-resource={id} aria-labelledby={titleId} aria-busy={saving}>
     <CardHead id={titleId} title={title} state={resourceState(resource, loading)} status={badge(resource)} tag={t("providers.api_key_tag")}/>
     {resource && <p className={`provider-key-line${resource.status === "rejected" ? " is-failed" : ""}`} role="status"><code className="provider-key-mask">{maskedKey(resource) || t("admin.org.no_hint")}</code><StatusLine resource={resource}/></p>}
     {resource && <ResourceActions resource={resource} label={title} actions={actions} replacing={replacing} onReplace={() => { setReplacing(value => !value); actions.setNotice(""); }}/>}
@@ -247,7 +247,7 @@ function CompatCard({resource, loading, onChange, onDropped}: CardProps) {
     } catch (cause) { actions.setError(orgError(cause)); }
     finally { setSaving(false); }
   }
-  return <article className="detail-content provider-card org-resource" data-resource="provider:compatible" aria-labelledby={titleId} aria-busy={saving || loading}>
+  return <article className="detail-content provider-card org-resource" data-resource="provider:compatible" aria-labelledby={titleId} aria-busy={saving}>
     <CardHead id={titleId} title={t("admin.org.compat_name")} state={resourceState(resource, loading)} status={badge(resource)} tag={t("admin.org.endpoint_tag")}/>
     {resource && <p className={`provider-key-line${resource.status === "rejected" ? " is-failed" : ""}`} role="status"><code className="provider-key-mask">{resource.config.base_url}</code>{resource.key_hint && <code className="provider-key-mask">{maskedKey(resource)}</code>}<StatusLine resource={resource}/></p>}
     {resource && (resource.config.models ?? []).length > 0 && <p className="field-note">{t("admin.org.compat_models", {models: (resource.config.models ?? []).join(", ")})}</p>}
@@ -287,7 +287,7 @@ function E2BCard({resource, loading, onChange, onDropped}: CardProps) {
     } catch (cause) { actions.setError(orgError(cause)); }
     finally { setSaving(false); }
   }
-  return <article className="detail-content provider-card org-resource" data-resource="computer:e2b" aria-labelledby={titleId} aria-busy={saving || loading}>
+  return <article className="detail-content provider-card org-resource" data-resource="computer:e2b" aria-labelledby={titleId} aria-busy={saving}>
     <CardHead id={titleId} title={t("admin.org.e2b_name")} state={resourceState(resource, loading)} status={badge(resource)} tag={t("providers.api_key_tag")}/>
     {resource && <p className={`provider-key-line${resource.status === "rejected" ? " is-failed" : ""}`} role="status"><code className="provider-key-mask">{maskedKey(resource) || t("admin.org.no_hint")}</code><StatusLine resource={resource}/></p>}
     {resource && <BuildState resource={resource} onChange={onChange}/>}
@@ -344,7 +344,7 @@ function FileStoreCard({resource, loading, onChange, onDropped}: CardProps) {
     try { onChange(await adminOrgApi.putResource("file_store", {kind})); }
     catch (cause) { actions.setError(orgError(cause)); }
   }
-  return <article className="detail-content provider-card org-resource" data-resource="file_store" aria-labelledby={titleId} aria-busy={saving || loading}>
+  return <article className="detail-content provider-card org-resource" data-resource="file_store" aria-labelledby={titleId} aria-busy={saving}>
     <CardHead id={titleId} title={t("admin.org.file_store.name")} state={resourceState(resource, loading)} status={badge(resource)} tag={t("admin.org.file_store.tag")}/>
     {resource && <p className={`provider-key-line${resource.status === "rejected" ? " is-failed" : ""}`} role="status"><code className="provider-key-mask">{t("admin.org.file_store.summary", {bucket: config?.bucket ?? "", endpoint: config?.endpoint ?? ""})}</code>{resource.key_hint && <code className="provider-key-mask">{maskedKey(resource)}</code>}<StatusLine resource={resource}/></p>}
     {resource && <div className="provider-key-row">
