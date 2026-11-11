@@ -111,7 +111,19 @@
     "fold": "折りたたむ",
     "fold_aria": "Bot コンピューターをバーに折りたたむ",
     "unfold_aria": "Bot コンピューターを表示",
-    "outdated_required": "このコンピューターのイメージはサポート対象外です。設定 > 環境でアップグレードしてください。"
+    "outdated_required": "このコンピューターのイメージはサポート対象外です。設定 > 環境でアップグレードしてください。",
+    "look": "見る",
+    "look_aria": "Bot のコンピュータを見る",
+    "pip": {
+      "menu": "Bot コンピュータのミニウィンドウ",
+      "corner_tl": "左上に移動",
+      "corner_tr": "右上に移動",
+      "corner_bl": "左下に移動",
+      "corner_br": "右下に移動",
+      "size_small": "小",
+      "size_medium": "中",
+      "size_large": "大"
+    }
   },
   "remote": {
     "error": {

@@ -2,7 +2,8 @@ import { TofiIcon as Icon } from "./icons";
 import { MessageMarkdown } from "./MessageMarkdown";
 import { requestFullToolResult } from "./toolResultLoader";
 import { ToolStatusIcon } from "./ToolStatusIcon";
-import { toolDisplayLabel, toolDisplayState, toolActionLabel, toolArgumentPreview, toolSourceLabel, toolActivityKey, foldToolRuns, formatStepSeconds } from "./toolTimeline";
+import { ComputerLookButton } from "./ComputerLookButton";
+import { isComputerAction, toolDisplayLabel, toolDisplayState, toolActionLabel, toolArgumentPreview, toolSourceLabel, toolActivityKey, foldToolRuns, formatStepSeconds } from "./toolTimeline";
 import { useTranslation } from "./i18n";
 import { formatExactTime } from "./timezone";
 import { toggleDisclosure } from "./TaskRunBlock";
@@ -37,7 +38,7 @@ export function WebToolSteps({ entries, live, now, timezone }: { entries: WebToo
       <details className="web-tool-step-detail" onToggle={event => { if (event.currentTarget.open) requestFullToolResult(activity); }}><summary onClick={toggleDisclosure}><span className="web-tool-step-label">{toolStepLabel(activity)}{toolArgumentPreview(activity) ? ` · ${toolArgumentPreview(activity)}` : ""}{toolSourceLabel(activity) ? ` · ${toolSourceLabel(activity)}` : ""}</span></summary>
         <div className="tool-activity-details"><small>{Number.isFinite(Date.parse(activity.started_at)) ? formatExactTime(activity.started_at, timezone) : ""} · {timezone}</small><div><span>{t("tools.arguments")}</span><pre>{activity.arguments || t("tools.none")}</pre></div><div><span>{t("tools.result")}</span>{activity.outcome && <p className="tool-outcome" role="note">{activity.outcome.message}</p>}<pre>{activity.result || (active ? t("tools.waiting_result") : t("tools.none"))}</pre></div>{activity.truncated && <small>{t("tools.truncated")}</small>}</div>
       </details>
-      <span className="web-tool-step-meta">{problem && <span className="web-tool-step-state">{toolDisplayLabel(activity)}</span>}{duration !== undefined && duration >= 1 && <span className="web-tool-quiet">{formatStepSeconds(duration)}</span>}</span>
+      <span className="web-tool-step-meta">{problem && <span className="web-tool-step-state">{toolDisplayLabel(activity)}</span>}{duration !== undefined && duration >= 1 && <span className="web-tool-quiet">{formatStepSeconds(duration)}</span>}{isComputerAction(activity) && <ComputerLookButton />}</span>
     </li>;
   };
   const stepList = (() => {
@@ -55,7 +56,7 @@ export function WebToolSteps({ entries, live, now, timezone }: { entries: WebToo
           <ToolStatusIcon state="completed" label={toolDisplayLabel(activity)} />
           <details className="web-tool-step-detail"><summary onClick={toggleDisclosure}><span className="web-tool-step-label">{toolStepLabel(activity)}<span className="web-tool-count" aria-label={t("tools.call_count", { count: entry.group.length })}>{entry.group.length}</span><Icon className="web-tool-group-chevron" name="chevron-right" size={12} aria-hidden="true" /></span></summary>
             <ol className="web-tool-group-steps">{entry.group.map(item => renderStep(item, false))}</ol></details>
-          <span className="web-tool-step-meta">{(() => { const total = entry.group.reduce((sum, item) => sum + (webToolSeconds(item, now) ?? 0), 0); return total >= 1 ? formatStepSeconds(total) : ""; })()}</span>
+          <span className="web-tool-step-meta">{(() => { const total = entry.group.reduce((sum, item) => sum + (webToolSeconds(item, now) ?? 0), 0); return total >= 1 ? formatStepSeconds(total) : ""; })()}{isComputerAction(activity) && <ComputerLookButton />}</span>
         </li>;
         return renderStep(activity, live);
       })}</>;

@@ -86,7 +86,7 @@ import { DeliveryNote, SendReceipt, SendReceiptMark, preloadSendFailure } from "
 import { applyInbox } from "./messageDelivery";
 import { receiptFor, runsByTrigger } from "./sendReceipts";
 import { activeBotRuns, botRecentlyActive, latestBotWorkTime, latestHumanMessageTime } from "./botActivity";
-import { reconcileToolActivity, activeToolForRun, buildToolRunAnchors, buildToolSummaryAnchors, buildToolTimeline, compareActivityTime, compareToolActivities, elapsedToolSeconds,  orderToolActivities, toolActionLabel, toolArgumentPreview, toolAttemptIssues, toolSourceLabel } from "./toolTimeline";
+import { reconcileToolActivity, activeToolForRun, buildToolRunAnchors, buildToolSummaryAnchors, buildToolTimeline, compareActivityTime, compareToolActivities, elapsedToolSeconds,  isComputerAction, orderToolActivities, toolActionLabel, toolArgumentPreview, toolAttemptIssues, toolSourceLabel } from "./toolTimeline";
 import { foldCompletedProgress, isMidRunKind } from "./runProgress";
 import { mergeRunUpdates } from "./runMerge";
 import { draftDeltaApplies } from "./draftDelta";
@@ -108,6 +108,7 @@ import { getBotAvatarConfig, subscribeBotAvatar } from "./avatarStore";
 import type { Attachment, Bot, ComputerHealth, Config, Conversation, EventEnvelope, Memory, Message, Run, StreamDraft, ToolActivity, ToolActivityRunSummary, WorkItem, WorkspaceEventEnvelope } from "./types";
 import { MOTION, EASE } from "./motion";
 import { useWidgetAutomation } from "./useWidgetAutomation";
+import { ComputerLookButton, ComputerLookContext } from "./ComputerLookButton";
 import { closeAll, closeCover, closeSidebar, closeWidget, emptySurfaces, enterConversation, foldWidget, forgetWidgets, isEmpty, moveWidget, normalizeWidgetOrder, openCover, openSidebar, openWidget, stashWidgets, suppressedRunsOf, toggleSidebar, WIDGET_ORDER, toggleSidebarExpanded, toggleWidget, type CoverId, type SidebarId, type Surfaces, type WidgetId, type WidgetsByConversation } from "./surfaces";
 import { useSurfaceEscape } from "./useSurfaceEscape";
 import type { SurfaceCtx } from "./SurfaceViews";
@@ -1357,6 +1358,8 @@ function Workspace() {
   // Narrow screens skip the small window: the big view is a full-screen sheet.
   const desktopExpanded = desktopOpen && (desktopSheet || desktopSize === "big");
   const desktopSmall = desktopOpen && !desktopExpanded;
+  // A computer step row's "look" button: open the mini window, or when it is already up, bring it forward with a glow on its bezel.
+  const lookAtComputer = useCallback(() => { if (computerShown) window.dispatchEvent(new Event("tofi:computer-look")); else { setDesktopSize("small"); openWidgetId("computer"); } }, [computerShown, openWidgetId]);
   useEffect(() => {
     if (computerShown && !desktopBot) closeWidgetId("computer");
   }, [computerShown, desktopBot, closeWidgetId]);
@@ -1380,7 +1383,7 @@ function Workspace() {
   const currentDesktopOwner = desktopPresence.ownership?.owner;
     const activeDesktopOwner = !desktopPresence.unavailable && currentDesktopOwner?.kind === "bot" && currentDesktopOwner.conversation_id === active?.id ? currentDesktopOwner : null;
   const computerOn = computerInfo ? computerInfo.state === "ready" : desktopReady;
-  widgetNotes.current = useWidgetAutomation({ activeId: activeId ?? undefined, ready: loadedId === activeId && !loadingMessages, messages: messageRecords, columnMode, hasComputer: Boolean(desktopBot), surfaces, setSurfaces, botRunId: activeDesktopOwner?.run_id, holderKind: currentDesktopOwner?.kind, bigComputer: desktopExpanded, memory: widgetMemory });
+  widgetNotes.current = useWidgetAutomation({ activeId: activeId ?? undefined, ready: loadedId === activeId && !loadingMessages, messages: messageRecords, columnMode, hasComputer: Boolean(desktopBot), surfaces, setSurfaces, botRunId: activeDesktopOwner?.run_id, phoneSheet: desktopSheet, holderKind: currentDesktopOwner?.kind, bigComputer: desktopExpanded, memory: widgetMemory });
   // Escape closes one surface at a time, in the order of useSurfaceEscape.ts.
   useSurfaceEscape({ surfaces: surfacesRef, bigComputer: desktopExpanded, phoneSheet: desktopSheet, shrinkComputer: () => setDesktopSize("small"), closeWidget: closeWidgetId, closeSidebar: closeSidebarPanel, closeSettings: () => {
     // The Settings shell answers with preventDefault (it asks about unsaved edits first); the frame shown while its code loads has no listener, so that one closes here.
@@ -2730,7 +2733,7 @@ function Workspace() {
             {teamBoardOpen && active.kind === "group" ? <Suspense fallback={null}><TeamBoard key={`team-board-${active.id}`} conversation={active} bots={bots} timezone={timezone} onClose={() => setTeamBoardOpen(false)} onOpenWork={() => { setTeamBoardOpen(false); openSidebarId("tasks"); }} /></Suspense> : <>
             <div className="chat-body">
               <div className="message-scroll" ref={viewport.scrollRef} onScroll={viewport.onScroll}>
-                <ExpiryFinishingContext.Provider value={expiryFinishing}><RunStartContext.Provider value={runStarts}><ActivityViewContext.Provider value={activityView}><div className={`message-list${viewport.unpositioned ? " is-positioning" : ""}`} ref={messageListRef} onPointerOver={isDesktop ? undefined : onMessageListPointerOver} onPointerLeave={isDesktop ? undefined : onMessageListPointerLeave} onFocus={isDesktop ? undefined : onMessageListFocus} onBlur={isDesktop ? undefined : onMessageListBlur} onKeyDown={isDesktop ? undefined : onMessageListKeyDown}>
+                <ExpiryFinishingContext.Provider value={expiryFinishing}><RunStartContext.Provider value={runStarts}><ActivityViewContext.Provider value={activityView}><ComputerLookContext.Provider value={desktopBot ? lookAtComputer : null}><div className={`message-list${viewport.unpositioned ? " is-positioning" : ""}`} ref={messageListRef} onPointerOver={isDesktop ? undefined : onMessageListPointerOver} onPointerLeave={isDesktop ? undefined : onMessageListPointerLeave} onFocus={isDesktop ? undefined : onMessageListFocus} onBlur={isDesktop ? undefined : onMessageListBlur} onKeyDown={isDesktop ? undefined : onMessageListKeyDown}>
                   {viewport.boundaryError && <div className="history-error" role="alert">{t("history.boundary_failed")}<button onClick={viewport.retryBoundary}>{t("common:action.retry")}</button><button onClick={jumpLatest}>{t("history.view_latest")}</button></div>}
                   {historyError && !viewport.boundaryError && <div className="history-error history-error-older" role="alert"><span>{t("history.older_failed", { error: historyError })}</span><button onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.retrying") : t("common:action.retry")}</button></div>}
                   {hasMore && <button className="load-older" onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.loading") : t("history.load_older")}</button>}
@@ -2840,7 +2843,7 @@ function Workspace() {
                   {placementsAt(undefined).map(renderPlacement)}
                   {!isDesktop && pendingRuns.filter(run => !ownedRunIDs.has(run.id)).map(run => <LiveRunStatus key={run.id} run={run} botName={run.kind === "triage" ? "Tofi" : botById.get(run.bot_id)?.name ?? "Bot"} showName={active.kind === "group"} />)}
                   {error && !proxyChallenged && <div className="error-banner system-notice" role="alert">{error}</div>}
-                </div></ActivityViewContext.Provider></RunStartContext.Provider></ExpiryFinishingContext.Provider>
+                </div></ComputerLookContext.Provider></ActivityViewContext.Provider></RunStartContext.Provider></ExpiryFinishingContext.Provider>
               </div>
               {viewport.showJump && <button className="jump-latest" aria-label={t("history.jump_latest")} onClick={jumpLatest}><Icon name="arrow-down" size={18} variant="filled" />{viewport.newCount > 0 && <span className="jump-new-count">{t("history.new_count", { count: viewport.newCount })}</span>}</button>}
             </div>
@@ -3348,6 +3351,7 @@ function WebToolActivityRun({ runId, items, notes, summary, summaryError, summar
             : <><Icon className="web-tool-glyph" name="terminal" size={14} aria-hidden="true" /><span ref={labelRef} className="process-line-text web-tool-compact" aria-hidden="true">{count !== undefined && <span>{count}</span>}{duration !== undefined && <span className="web-tool-quiet">{duration}</span>}{issueCount > 0 && <span className="web-tool-issues"><Icon name="alert" size={13} aria-hidden="true" />{issueCount}</span>}{notes.length > 0 && <span className="web-tool-quiet"><Icon name="file-text" size={13} aria-hidden="true" />{notes.length}</span>}</span></>}
           {live && <Icon className="web-tool-chevron" name="chevron-right" size={14} aria-hidden="true" />}
         </button>
+        {live && current && isComputerAction(current) && <ComputerLookButton />}
       </div>
       <div className={`web-tool-drawer${expanded ? " is-open" : ""}`} id={`web-tool-drawer-${runId}`} aria-hidden={!expanded} inert={!expanded}><div className="web-tool-drawer-inner">
       {clipped && <p className="web-tool-full">{fullLabel}</p>}

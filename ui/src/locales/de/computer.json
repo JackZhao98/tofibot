@@ -112,7 +112,19 @@
     "fold": "Einklappen",
     "fold_aria": "Bot-Computer zu einem Streifen einklappen",
     "unfold_aria": "Bot-Computer anzeigen",
-    "outdated_required": "Das Image dieses Computers wird nicht mehr unterstützt. Aktualisieren Sie ihn unter Einstellungen > Umgebungen."
+    "outdated_required": "Das Image dieses Computers wird nicht mehr unterstützt. Aktualisieren Sie ihn unter Einstellungen > Umgebungen.",
+    "look": "Ansehen",
+    "look_aria": "Bot-Computer ansehen",
+    "pip": {
+      "menu": "Mini-Fenster des Bot-Computers",
+      "corner_tl": "Nach oben links",
+      "corner_tr": "Nach oben rechts",
+      "corner_bl": "Nach unten links",
+      "corner_br": "Nach unten rechts",
+      "size_small": "Klein",
+      "size_medium": "Mittel",
+      "size_large": "Groß"
+    }
   },
   "remote": {
     "error": {

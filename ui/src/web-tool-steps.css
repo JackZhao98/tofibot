@@ -90,3 +90,8 @@
 :root .workspace .web-tool-run.has-tool-issues .web-tool-toggle:not(.is-static){color:var(--text-process)}
 :root .workspace .web-tool-run.has-tool-issues .web-tool-toggle:not(.is-static):hover{color:var(--text-secondary)}
 :root .workspace .web-tool-steps{padding-inline-end:var(--space-2)}
+/* The "look" button at the end of a computer step row (and of its live line): quiet until the row is hovered or focused, always there on touch. */
+:root .workspace .computer-look{display:inline-grid;place-items:center;flex:none;width:24px;height:24px;margin:-4px -4px -4px 0;padding:0;border:0;border-radius:50%;background:transparent;color:var(--muted);opacity:.7;transition:opacity var(--m-quick) var(--ease-out),background-color var(--m-quick) var(--ease-out)}
+:root .workspace .computer-look:is(:hover,:focus-visible){opacity:1;background:var(--surface-hover);color:var(--ink)}
+:root .workspace .computer-look:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:1px}
+@media(forced-colors:active){:root .workspace .computer-look{color:ButtonText;opacity:1}}

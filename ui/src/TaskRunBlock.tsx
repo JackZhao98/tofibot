@@ -2,7 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 import { flushSync } from "react-dom";
 import { TofiIcon } from "./icons";
 import { LiveMark } from "./LiveMark";
-import { toolDisplayState, formatStepSeconds, orderToolActivities, toolActivityKey } from "./toolTimeline";
+import { ComputerLookButton } from "./ComputerLookButton";
+import { isComputerAction, toolDisplayState, formatStepSeconds, orderToolActivities, toolActivityKey } from "./toolTimeline";
 import { TaskIssueCard } from "./TaskIssueCard";
 import { canAnswerQuestion, presentTaskIssue, taskPhaseLabel, taskPhaseVisible, type TaskOwner } from "./taskIssuePresentation";
 import { useTranslation, type Language } from "./i18n";
@@ -245,7 +246,7 @@ export function TaskRunBlock({ owner, segment, tools, questions, drafts, message
     {silentNotes.length > 0 && <details className="task-silent-note"><summary>{t("activity.left_note")}</summary><SilentNoteBody notes={silentNotes} /></details>}
     {issue && superseded ? <p ref={retriedNote} className="task-issue-retried" tabIndex={-1} role="status" data-issue-retried="true"><TofiIcon name="retry" size={16} aria-hidden="true" />{t("issue.retried")}</p> : issue ? <TaskIssueCard issue={issue} locale={locale} onRetry={onRetryRun ? () => onRetryRun(run.id) : undefined} onFeedback={onFeedback} onOpenStep={openStep} onAction={issue.action === "open_tools" ? onOpenTools : issue.action === "open_codex" ? () => { window.dispatchEvent(new Event("tofi:open-codex-settings")); } : issue.action === "refresh_status" ? onRefresh : viewActivity} /> : taskPhaseVisible(run) && <p className="task-run-phase">{taskPhaseLabel(input)}</p>}
     {/* A separate valid proposal survives another call's failure/unknown effect. */}
-    {!showActivity && liveLine && <p className="task-run-live-line"><button type="button" className="process-line" aria-expanded="false" onClick={viewActivity}><LiveMark />{namedLive && <span className="task-activity-name">{botName}</span>}<span className="process-line-text task-activity-live" role="status">{liveLine.label}</span><TofiIcon className="process-line-chevron" name="chevron-right" size={14} aria-hidden="true" /></button></p>}
+    {!showActivity && liveLine && <p className="task-run-live-line"><button type="button" className="process-line" aria-expanded="false" onClick={viewActivity}><LiveMark />{namedLive && <span className="task-activity-name">{botName}</span>}<span className="process-line-text task-activity-live" role="status">{liveLine.label}</span><TofiIcon className="process-line-chevron" name="chevron-right" size={14} aria-hidden="true" /></button>{currentTools.some(tool => tool.status === "running" && isComputerAction(tool)) && <ComputerLookButton />}</p>}
     {showActivity && <ActivityDisclosure locale={locale} detail={activityDetail} count={toolTotal || undefined} duration={runSecondsOk ? formatStepSeconds(runSeconds) : undefined} issues={activityIssues} live={liveLine} disclosureRef={disclosure} onOpen={loadInitial}>
       <TaskActivityBody owner={owner} tools={shownTools} head={firstPart} tail={primary} allTools={tools} drafts={drafts} messages={messages} summaries={summaries} details={details} live={runLive} now={now} locale={locale} recordedQuestions={recordedQuestions} rememberedDecisions={rememberedDecisions} notes={notes} onOpenTools={onOpenTools} onLoadDetails={onLoadDetails} renderMessage={renderMessage} renderQuestion={renderQuestion} renderDraft={renderDraft} />
     </ActivityDisclosure>}

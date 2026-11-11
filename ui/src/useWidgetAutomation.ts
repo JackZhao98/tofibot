@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { request } from "./api";
-import { autoOpenWidget, setWidgetFolded, spaceFoldTarget, suppressedRunsOf, type Surfaces, type WidgetId, type WidgetsByConversation } from "./surfaces";
+import { autoOpenWidget, closeWidget, setWidgetFolded, spaceFoldTarget, suppressedRunsOf, type Surfaces, type WidgetId, type WidgetsByConversation } from "./surfaces";
 import type { Message } from "./types";
 
 type Switches = { artifacts: boolean; computer: boolean };
+/** TOFI is in front: the page is visible and its window has focus (the client's window, or the browser tab). */
+const frontmost = () => document.visibilityState === "visible" && (typeof document.hasFocus !== "function" || document.hasFocus());
 const media = (query: string) => typeof matchMedia === "function" ? matchMedia(query) : null;
 
 /** Settings › Automatic behavior: whether the Artifacts and the Computer widget open by themselves. Both default on until the server says otherwise. */
@@ -28,7 +30,7 @@ function useSwitches(): React.RefObject<Switches> {
  * after the Bot lets go, and stays closed for a run the person closed it in; with three or more widgets open on a short window the ones at the bottom of the
  * person's order fold (never the computer), except the ones the person unfolded. Nothing here moves focus or closes a cover.
  */
-export function useWidgetAutomation({ activeId, ready, messages, columnMode, hasComputer, surfaces, setSurfaces, botRunId, holderKind, bigComputer, memory }: {
+export function useWidgetAutomation({ activeId, ready, messages, columnMode, hasComputer, surfaces, setSurfaces, botRunId, holderKind, bigComputer, phoneSheet, memory }: {
   activeId?: string; ready: boolean; messages: readonly Message[]; columnMode: boolean; hasComputer: boolean; surfaces: Surfaces;
   setSurfaces: (update: (current: Surfaces) => Surfaces) => void;
   /** The run of the Bot that holds the desktop in this conversation. */
@@ -36,6 +38,8 @@ export function useWidgetAutomation({ activeId, ready, messages, columnMode, has
   /** Who holds the desktop now, in any conversation. */
   holderKind?: string;
   bigComputer: boolean;
+  /** A narrow screen shows the big window as a full-screen sheet and has no small one: nothing opens there by itself. */
+  phoneSheet: boolean;
   /** What each conversation remembers of its widgets (surfaces.ts); the runs the person closed the computer in are kept there. */
   memory: { readonly current: WidgetsByConversation };
 }) {
@@ -68,28 +72,41 @@ export function useWidgetAutomation({ activeId, ready, messages, columnMode, has
     }
   }, [activeId, ready, messages, columnMode, setSurfaces, switches]);
 
-  // Computer: a Bot takes the desktop in this conversation.
+  // Computer: a Bot takes the desktop in this conversation. `autoOpened`: this window came up by itself, so it also leaves by itself.
+  const autoOpened = useRef(false);
   const lastRun = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (!botRunId) { lastRun.current = undefined; return; }
     if (lastRun.current === botRunId) return;
     lastRun.current = botRunId;
-    if (!columnMode || !hasComputer || !switches.current.computer || !activeId || suppressedRunsOf(memory.current, activeId).has(botRunId)) return;
+    if (!hasComputer || !switches.current.computer || !activeId || suppressedRunsOf(memory.current, activeId).has(botRunId)) return;
+    // Every layout, but only while TOFI is in front and this is the conversation being looked at (this hook is scoped to it); a Bot at work
+    // in the background only lights the computer button. Never on a phone, where opening means a full-screen sheet.
+    if (!columnMode && phoneSheet || !frontmost()) return;
     // A folded strip opens again for a new run: the person should see the Bot at work.
-    setSurfaces(state => state.widgets.includes("computer") ? setWidgetFolded(state, "computer", false) : autoOpenWidget(state, "computer"));
-  }, [botRunId, columnMode, hasComputer, setSurfaces, switches, activeId, memory]);
+    setSurfaces(state => {
+      if (state.widgets.includes("computer")) return setWidgetFolded(state, "computer", false);
+      autoOpened.current = true;
+      return autoOpenWidget(state, "computer");
+    });
+  }, [botRunId, columnMode, phoneSheet, hasComputer, setSurfaces, switches, activeId, memory]);
 
   // Thirty seconds after the Bot let go of the desktop, the open computer folds into its strip (not while someone else holds it or the big window is up).
   const botRan = useRef(false);
   const computerOpen = surfaces.widgets.includes("computer");
   const computerFolded = surfaces.folded.includes("computer");
-  if (!computerOpen) botRan.current = false;
+  if (!computerOpen) { botRan.current = false; autoOpened.current = false; }
   else if (botRunId) botRan.current = true;
   useEffect(() => {
     if (!computerOpen || computerFolded || !botRan.current || botRunId || holderKind === "human" || bigComputer) return;
-    const timer = window.setTimeout(() => { botRan.current = false; setSurfaces(state => setWidgetFolded(state, "computer", true)); }, 30_000);
+    // In the column the card folds into its strip. A floating mini window that the Bot opened closes (the person's own never does).
+    const timer = window.setTimeout(() => {
+      botRan.current = false;
+      if (columnMode) setSurfaces(state => setWidgetFolded(state, "computer", true));
+      else if (autoOpened.current) { autoOpened.current = false; setSurfaces(state => closeWidget(state, "computer")); }
+    }, 30_000);
     return () => window.clearTimeout(timer);
-  }, [computerOpen, computerFolded, botRunId, holderKind, bigComputer, setSurfaces]);
+  }, [computerOpen, computerFolded, botRunId, holderKind, bigComputer, columnMode, setSurfaces]);
 
   // Space: three or more widgets on a short window. The bottom one of the person's order folds first (the Usage widget, then Artifacts
   // and Members in the default order); the next follows only if the column still overflows. The computer never folds this way.

@@ -112,7 +112,19 @@
     "fold": "Fold",
     "fold_aria": "Fold Bot computer to a strip",
     "unfold_aria": "Show Bot computer",
-    "outdated_required": "This computer's image is no longer supported. Upgrade it in Settings > Environments."
+    "outdated_required": "This computer's image is no longer supported. Upgrade it in Settings > Environments.",
+    "look": "Look",
+    "look_aria": "Look at the Bot computer",
+    "pip": {
+      "menu": "Bot computer window",
+      "corner_tl": "Move to top left",
+      "corner_tr": "Move to top right",
+      "corner_bl": "Move to bottom left",
+      "corner_br": "Move to bottom right",
+      "size_small": "Small",
+      "size_medium": "Medium",
+      "size_large": "Large"
+    }
   },
   "remote": {
     "error": {

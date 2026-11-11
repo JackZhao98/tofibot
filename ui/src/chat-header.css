@@ -57,5 +57,3 @@
 .computer-driven-dot { position:absolute; top:5px; right:5px; width:7px; height:7px; border-radius:50%; background:var(--green-text); box-shadow:0 0 0 2px var(--surface); }
 @media (forced-colors:active) { .computer-button.is-on { border:1px solid Highlight; } .computer-driven-dot { background:Highlight; } }
 
-/* While the small computer window is open (>=1024px) the message column leaves its width free on the right. */
-html[data-desktop-reserve]:root .workspace .message-scroll { padding-right:var(--desktop-reserve); }

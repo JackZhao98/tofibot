@@ -157,6 +157,9 @@ function toolActionCode(activity: Pick<ToolActivity, "name" | "arguments">): Too
   return "call";
 }
 
+/** Whether a step acts on the Bot computer (its row gets the "look" button that opens the mini window). */
+export const isComputerAction = (activity: Pick<ToolActivity, "name" | "arguments">): boolean => toolActionCode(activity) === "computer";
+
 /** Labels reflect observed tool events, never an inferred task the Bot has not started. */
 export function toolActionLabel(activity: Pick<ToolActivity, "name" | "arguments">, locale?: Language): string {
   return i18n.getFixedT(locale ?? null, "tasks")(`tool.action.${toolActionCode(activity)}`, { name: activity.name });

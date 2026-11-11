@@ -225,11 +225,12 @@ try {
     await flush(page);
     within(await ratio(page), "small ready");
     await shot(page, "small-ready-light-1440");
-    // Hover reveals the glass controls, 8px inside the top-right corner.
+    // Hover reveals the glass controls, 10px inside the top-left corner: close, then enlarge.
     await page.locator("[data-desktop-frame]").hover();
     const controls = await page.locator(".desktop-window-controls").boundingBox();
     const smallDetail = await page.locator(".computer-detail").boundingBox();
-    assert.ok(Math.abs(smallDetail.x + smallDetail.width - (controls.x + controls.width) - 14) <= 3 && Math.abs(controls.y - smallDetail.y - 14) <= 3, "controls sit 8px inside the screen corner");
+    assert.ok(Math.abs(controls.x - smallDetail.x - 10) <= 3 && Math.abs(controls.y - smallDetail.y - 10) <= 3, "controls sit 10px inside the screen's top-left corner");
+    assert.deepEqual(await page.locator(".desktop-window-controls .desktop-control-button").evaluateAll(buttons => buttons.map(button => button.getAttribute("aria-label"))), ["Close Bot computer", "Enlarge Bot computer"], "two controls, close then enlarge");
     await page.waitForTimeout(1100); // the CRT reveal of the first picture
     await page.evaluate(() => { window.__flips.length = 0; });
     await page.locator("[data-desktop-frame]").click({ position: { x: 40, y: 80 } });
@@ -247,12 +248,12 @@ try {
     await shell(page, "is-small").waitFor();
     assert.equal(await shell(page, "is-expanded").count(), 0, "Escape shrinks big to small");
     await page.locator("[data-desktop-frame]").hover();
-    await page.getByRole("button", { name: "Enlarge Bot computer" }).click();
+    await page.locator(".desktop-control-expand").click();
     await shell(page, "is-expanded").waitFor();
     await page.getByRole("button", { name: "Shrink Bot computer" }).click();
     await shell(page, "is-small").waitFor();
     // Close from big removes the window entirely; the header button always reopens small.
-    await page.getByRole("button", { name: "Enlarge Bot computer" }).click();
+    await page.locator(".desktop-control-expand").click();
     await shell(page, "is-expanded").waitFor();
     await page.getByRole("button", { name: "Close Bot computer" }).click();
     await page.waitForFunction(() => !document.querySelector(".desktop-floating-shell"));
@@ -434,47 +435,168 @@ try {
     await context.close();
   }
 
-  // 8. Placement: while the small window is open the messages reflow beside it; nothing is covered, the composer stays usable.
+  // 8. Placement: the floating small form is a mini window over the chat. It no longer pushes the messages aside (no --desktop-reserve);
+  //    wide pages keep it docked in the column. Its default is the bottom-right corner, above the composer.
   for (const [width, height] of [[1440, 900], [1180, 820], [1024, 768]]) {
     const messages = Array.from({ length: 14 }, (_, index) => ({ id: `m${index}`, seq: index + 1, conversation_id: "conv-synthetic", role: index % 2 ? "assistant" : "user", content: "Synthetic message ".repeat(14), created_at: "2026-10-09T12:00:00Z" }));
     const state = { info: info("ready"), capture: "image", requests: [], messages };
     const { context, page, errors, button } = await open({ width, height, state });
-    const textRects = () => page.evaluate(() => {
-      const out = [];
-      const walker = document.createTreeWalker(document.querySelector(".message-scroll"), NodeFilter.SHOW_TEXT);
-      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-        if (!node.textContent.trim()) continue;
-        const range = document.createRange(); range.selectNodeContents(node);
-        for (const r of range.getClientRects()) if (r.width > 0) out.push({ x: r.x, y: r.y, w: r.width, h: r.height });
-        const bubble = node.parentElement.closest(".bubble, .message-card, [class*=bubble]");
-        if (bubble) { const r = bubble.getBoundingClientRect(); out.push({ x: r.x, y: r.y, w: r.width, h: r.height }); }
-      }
-      return out;
-    });
+    const column = () => page.evaluate(() => { const scroll = document.querySelector(".message-scroll"); return { padding: getComputedStyle(scroll).paddingRight, width: scroll.clientWidth }; });
     await page.getByText("Synthetic message").first().waitFor();
-    const before = await textRects();
-    assert.ok(before.length > 5, `${width}: message text found (${before.length})`);
+    const before = await column();
     await button.click();
     await shell(page, "is-small").waitFor();
     await page.locator("img.computer-screen, video").first().waitFor({ state: "attached", timeout: 10000 });
     await page.waitForTimeout(500);
-    const box = await shell(page, "is-small").boundingBox();
-    const text = await textRects();
-    const overlaps = text.filter(r => r.x < box.x + box.width && r.x + r.w > box.x && r.y < box.y + box.height && r.y + r.h > box.y);
-    assert.deepEqual(overlaps, [], `${width}x${height}: the small window covers ${overlaps.length} message text/bubble rects`);
-    const composer = await page.locator(".composer .composer-row").first().boundingBox();
-    assert.ok(box.y + box.height <= composer.y, "window ends above the composer");
-    assert.equal(await page.locator(".composer textarea, .composer [contenteditable]").first().isVisible(), true, "composer input stays visible");
+    if (width < 1100) assert.deepEqual(await column(), before, `${width}: opening the floating window does not move the messages`);
+    assert.equal(await page.evaluate(() => document.documentElement.hasAttribute("data-desktop-reserve") || document.documentElement.style.getPropertyValue("--desktop-reserve") !== ""), false, "no --desktop-reserve");
+    if (width < 1100) {
+      const box = await shell(page, "is-small").boundingBox();
+      const composer = await page.locator(".composer .composer-row").first().boundingBox();
+      assert.ok(Math.abs(box.x + box.width - (width - 20)) <= 2, `${width}: default sits at the right edge, 20px in (${box.x + box.width})`);
+      assert.ok(box.y + box.height <= composer.y, "window ends above the composer");
+      assert.equal(await page.locator(".composer textarea, .composer [contenteditable]").first().isVisible(), true, "composer input stays visible");
+    }
     await shot(page, `quiet-placement-${width}`);
-    // Closing the window gives the width back.
-    await page.getByRole("button", { name: "Close Bot computer" }).click({ trial: false }).catch(async () => { await page.locator("[data-desktop-frame]").hover(); await page.getByRole("button", { name: "Close Bot computer" }).click(); });
+    await page.locator("[data-desktop-frame]").hover();
+    await page.getByRole("button", { name: "Close Bot computer" }).click();
     await page.waitForFunction(() => !document.querySelector(".desktop-floating-shell"));
-    assert.equal(await page.evaluate(() => document.documentElement.hasAttribute("data-desktop-reserve")), false, "padding removed after close");
     assert.deepEqual(errors, []);
-    console.log(`placement ${width}x${height}: window x=${box.x}..${box.x + box.width}, ${text.length} text rects, 0 overlap`);
+    console.log(`placement ${width}x${height}: ${width < 1100 ? "floating" : "docked"}`);
     await context.close();
   }
   results.push("placement");
+
+  // 9. The mini window: drag, snap to four corners, Alt places freely, remembered as corner + offset, context menu and keyboard move it,
+  //    a drag is not a click, reduced motion jumps. Floating form only (1024 wide).
+  for (const reducedMotion of [false, true]) {
+    const state = { info: info("ready"), capture: "image", requests: [] };
+    const { context, page, errors, button } = await open({ width: 1024, height: 768, state, reducedMotion });
+    await button.click();
+    await shell(page, "is-small").waitFor();
+    await page.locator("img.computer-screen, video").first().waitFor({ state: "attached", timeout: 10000 });
+    await page.waitForTimeout(1200);
+    const box = () => shell(page, "is-small").boundingBox();
+    const stored = () => page.evaluate(() => JSON.parse(localStorage.getItem("tofi.pip.v1") ?? "null"));
+    const drag = async (to, { alt = false, from } = {}) => {
+      const b = await box();
+      const start = from ?? { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+      await page.mouse.move(start.x, start.y);
+      if (alt) await page.keyboard.down("Alt");
+      await page.mouse.down();
+      await page.mouse.move((start.x + to.x) / 2, (start.y + to.y) / 2, { steps: 6 });
+      await page.mouse.move(to.x, to.y, { steps: 6 });
+      await page.mouse.up();
+      if (alt) await page.keyboard.up("Alt");
+      await page.waitForFunction(() => !document.querySelector(".desktop-floating-shell")?.dataset.pip, null, { timeout: 2000 });
+    };
+    const label = reducedMotion ? "reduced motion" : "motion";
+    const shortOf = (b, w, h) => ({ left: Math.abs(b.x - 20) <= 2, right: Math.abs(b.x + b.width - (w - 20)) <= 2, top: Math.abs(b.y - 64) <= 2 });
+    // Dragging to the top-left snaps to that corner (the title bar is 64px clear); a drag does not enlarge the screen.
+    await drag({ x: 150, y: 120 });
+    let b = await box();
+    assert.ok(shortOf(b, 1024, 768).left && shortOf(b, 1024, 768).top, `${label}: snapped to the top-left corner (${b.x},${b.y})`);
+    assert.equal(await shell(page, "is-expanded").count(), 0, `${label}: a drag is not a click`);
+    assert.deepEqual(await stored(), { corner: "tl", dx: 0, dy: 0, size: 392 });
+    await drag({ x: 900, y: 120 });
+    b = await box();
+    assert.ok(shortOf(b, 1024, 768).right && shortOf(b, 1024, 768).top, `${label}: top-right`);
+    await drag({ x: 150, y: 700 });
+    b = await box();
+    const composer = await page.locator(".composer .composer-row").first().boundingBox();
+    assert.ok(Math.abs(b.x - 20) <= 2 && b.y + b.height <= composer.y, `${label}: bottom-left ends above the composer`);
+    // Alt places freely: it stays where it was let go (offset from the nearest corner), and no spring runs.
+    await drag({ x: 560, y: 260 }, { alt: true });
+    b = await box();
+    const free = await stored();
+    assert.ok(b.x > 150 && b.x < 700 && b.y > 100 && b.y < 400, `${label}: Alt keeps the window where it was let go (${b.x},${b.y})`);
+    assert.ok(free.dx !== 0 || free.dy !== 0, "a free place is stored as corner + offset");
+    // The place survives a reload.
+    await page.reload();
+    await page.locator("[data-computer-toggle]").first().click();
+    await shell(page, "is-small").waitFor();
+    await page.waitForTimeout(300);
+    const again = await box();
+    assert.ok(Math.abs(again.x - b.x) <= 2 && Math.abs(again.y - b.y) <= 2, `${label}: position remembered across a reload`);
+    // The menu is the keyboard and screen-reader way to move it.
+    await page.locator("[data-desktop-frame]").first().click({ button: "right" });
+    await page.getByRole("menuitem", { name: "Move to bottom right" }).click();
+    await page.waitForTimeout(100);
+    b = await box();
+    assert.ok(Math.abs(b.x + b.width - 1004) <= 2, `${label}: menu moved it to the bottom right`);
+    await page.locator("[data-desktop-frame]").first().click({ button: "right" });
+    await page.getByRole("menuitemradio", { name: "Small" }).click();
+    await page.waitForTimeout(150);
+    b = await box();
+    assert.ok(Math.abs(b.width - 280) <= 1, `${label}: the menu sets the size (${b.width})`);
+    // Arrow keys on the screen button move it by 16 px; Alt + arrow snaps to that side's corner.
+    await page.locator(".desktop-enlarge").focus();
+    const x0 = (await box()).x;
+    await page.keyboard.press("ArrowLeft");
+    assert.ok(Math.abs(x0 - (await box()).x - 16) <= 1, `${label}: ArrowLeft moves 16px`);
+    await page.keyboard.press("Alt+ArrowLeft");
+    b = await box();
+    assert.ok(Math.abs(b.x - 20) <= 2, `${label}: Alt+ArrowLeft snaps to the left corner`);
+    // A click on the screen still enlarges, from wherever the window is (one FLIP).
+    await page.evaluate(() => { window.__flips.length = 0; });
+    await page.locator(".desktop-enlarge").click();
+    await shell(page, "is-expanded").waitFor();
+    if (!reducedMotion) assert.equal((await page.evaluate(() => window.__flips)).length, 1, "enlarging from the moved window is one FLIP");
+    assert.equal(await page.evaluate(() => document.querySelector(".desktop-floating-shell").style.transform), "", "the big window carries no placement transform");
+    await page.keyboard.press("Escape");
+    await shell(page, "is-small").waitFor();
+    assert.deepEqual(errors, []);
+    await context.close();
+  }
+  results.push("mini window drag/menu/keyboard");
+
+  // 10. A Bot taking the desktop opens the mini window by itself on a narrow page too (all layouts), while TOFI is in front; the
+  //     step row's look button opens it by hand; it folds away 30 s after the Bot lets go only when it came up by itself.
+  {
+    const owner = { owner: { bot_id: "bot-synthetic", run_id: "run-2", kind: "bot", conversation_id: "conv-synthetic" }, waiting: [] };
+    const state = { info: info("ready"), capture: "image", requests: [], ownership: { owner: null, waiting: [] } };
+    const { context, page, errors } = await open({ width: 1024, height: 768, state });
+    await page.waitForTimeout(800);
+    assert.equal(await shell(page).count(), 0, "closed until a Bot takes the computer");
+    state.ownership = owner;
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    await shell(page, "is-small").waitFor({ timeout: 8000 });
+    assert.equal(await shell(page, "is-docked").count(), 0, "narrow page: the floating mini window, not the column");
+    assert.equal(await shell(page, "is-expanded").count(), 0);
+    assert.deepEqual(errors, []);
+    await context.close();
+  }
+  results.push("auto-show on a narrow page");
+
+  // 11. A computer step's live line ends in a look button: it opens the mini window by hand, whatever the automatic setting says.
+  {
+    const now = Date.now();
+    const iso = ms => new Date(now - ms).toISOString();
+    const messages = [{ id: "u-live", seq: 1, conversation_id: "conv-synthetic", role: "user", content: "Open the page.", created_at: iso(9000), run_id: "run_live" }];
+    const runs = [{ id: "run_live", bot_id: "bot-synthetic", conversation_id: "conv-synthetic", origin_conversation_id: "conv-synthetic", queue_seq: 1, model: "synthetic-model", status: "running", trigger_message_id: "u-live", created_at: iso(8000), updated_at: iso(0) }];
+    const tools = [{ conversation_id: "conv-synthetic", bot_id: "bot-synthetic", run_id: "run_live", call_id: "live_1", name: "computer_action", arguments: "{\"action\":\"mouse.click\"}", result: "", status: "running", truncated: false, started_at: iso(4000), updated_at: iso(0) }];
+    const state = { info: info("ready"), capture: "image", requests: [], messages, ownership: { owner: null, waiting: [] } };
+    const { context, page, errors } = await open({ width: 1024, height: 768, state });
+    await page.route("**/api/**", route => {
+      const url = new URL(route.request().url());
+      const json = body => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+      if (url.pathname.endsWith("/runs")) return json({ runs });
+      if (url.pathname.endsWith("/tools")) return url.searchParams.has("run_ids") ? json({ summaries: [] }) : json({ activities: tools, summaries: [], tool_count: 1, has_more: false });
+      return route.fallback();
+    });
+    await page.reload();
+    const look = page.locator(".computer-look");
+    await look.waitFor({ timeout: 8000 });
+    assert.equal(await shell(page).count(), 0, "nothing opens by itself here (no Bot holds the computer)");
+    await look.click();
+    await shell(page, "is-small").waitFor();
+    await page.evaluate(() => document.querySelector(".desktop-floating-shell").setAttribute("data-flash-probe", ""));
+    await look.click();
+    assert.equal(await shell(page, "is-small").count(), 1, "look on an open window keeps one window");
+    assert.deepEqual(errors, []);
+    await context.close();
+  }
+  results.push("look button");
   console.log(`PASS computer window: ${results.join("; ")}`);
 } finally {
   await browser.close();
