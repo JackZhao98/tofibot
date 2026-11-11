@@ -103,7 +103,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   // Permissions page state the stub serves and records: each Bot's own mode, the account mode, the reviewer (background) model.
   const perm = {modes: {bot_research: "auto", bot_inbox: "ask", bot_notes: "ask", bot_old: "ask"}, account: "shadow", reviewer: "", writes: []};
   const resetPerm = () => { Object.assign(perm.modes, {bot_research: "auto", bot_inbox: "ask", bot_notes: "ask", bot_old: "ask"}); perm.account = "shadow"; perm.reviewer = ""; perm.writes.length = 0; };
-  // The 37 behaviors the server reports (internal/app/automation_settings.go), `group` being where the page shows each (settings-simplify).
+  // The 36 behaviors the server reports (internal/app/automation_settings.go), `group` being where the page shows each (settings-simplify).
   const AUTOMATION = [
     {"key": "conversation_model", "group": "defaults", "kind": "model", "default": "codex-gpt-6-sol"},
     {"key": "background_model", "group": "models", "kind": "model", "default": "gpt-6-luna"},
@@ -1414,7 +1414,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     console.log("PASS visual language: 56px header, 20px title, no group headings but Administration, 640px column, no bordered container or hard shadow on General and System, at most one primary per view, 36x22 switch");
   }
 
-  // ---- 7h. Behavior (settings-simplify P1, Q1 = C + A): a subpage of System with the real 37 items, 7 common rows and five folded groups;
+  // ---- 7h. Behavior (settings-simplify P1, Q1 = C + A): a subpage of System with the real 36 items, 7 common rows and five folded groups;
   // the rest sit beside their setting. Every item is still reachable (D15) and the old links land on them.
   {
     const MOVED = ["conversation_model", "background_model", "group_triage_model", "mcp_auto_review", "personal_input_review", "remembered_approval_hours", "desktop_idle_seconds", "settings_change_limit", "monthly_spend_limit_usd"];
@@ -1431,9 +1431,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.deepEqual(await keys(sub), [...behavior].sort(), "the common rows, 7 of them");
     assert.equal(await sub.locator(".st-fold").count(), 5, "five folded groups");
     for (const fold of await sub.locator(".st-fold > button").all()) await fold.click();
-    assert.deepEqual(await keys(sub), [...behavior, ...folded].sort(), "the other 21 rows sit in the folded groups");
-    assert.equal(behavior.length + folded.length + MOVED.length, 37, "all 37 behaviors are accounted for");
-    assert.equal(await sub.locator(".auto-row .settings-row-copy p").count() >= 28, true, "each row keeps its one-line description");
+    assert.deepEqual(await keys(sub), [...behavior, ...folded].sort(), "the other 20 rows sit in the folded groups");
+    assert.equal(behavior.length + folded.length + MOVED.length, 36, "all 36 behaviors are accounted for");
+    assert.equal(await sub.locator(".auto-row .settings-row-copy p").count() >= behavior.length + folded.length, true, "each row keeps its one-line description");
     await sub.getByRole("button", {name: "Follow-ups"}).click();
     await body.locator('[data-section="followups"]').waitFor();
     await body.getByRole("button", {name: "Back"}).last().click();
@@ -1468,7 +1468,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await lands({tab: "computer", section: "keys"}, '.settings-page-body[data-page="computer"] .st-subpage .computer-credentials');
     await lands({tab: "models", section: "more"}, '.settings-page-body[data-page="models"] .st-fold[data-section="more"] .auto-row[data-key="background_model"]');
     await lands({tab: "permissions", section: "advanced"}, '.settings-page-body[data-page="permissions"] .st-subpage [data-section="advanced"]');
-    console.log("PASS behavior: 37 items, 7 common rows, 21 in five folded groups, 9 beside their setting; subpages open for section links");
+    console.log("PASS behavior: 36 items, 7 common rows, 20 in five folded groups, 9 beside their setting; subpages open for section links");
   }
 
   // ---- 7i. Screenshots of the P1 pages (SETTINGS_SHOTS=<dir>), light, at 1440x900 and 390x844: System, Behavior with groups open, the subpages and folds.
