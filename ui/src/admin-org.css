@@ -96,3 +96,8 @@
   .admin-bulk{bottom:8px}
   .ag-new{min-height:44px}
 }
+
+/* Remote backups card: the Recovery Key is shown once, selectable and in monospace. */
+.backup-recovery-key { display: block; margin: 8px 0; padding: 10px 12px; font-family: var(--font-mono, ui-monospace, monospace); font-size: 15px; letter-spacing: 0.04em; word-break: break-all; user-select: all; border-radius: 8px; background: var(--surface-sunken, rgba(127, 127, 127, 0.12)); }
+.backup-key, .backup-settings, .backup-status, .backup-restore { display: grid; gap: 8px; margin-top: 16px; }
+.backup-snapshots { margin: 0; padding-left: 18px; }

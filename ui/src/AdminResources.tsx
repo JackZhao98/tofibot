@@ -1,6 +1,7 @@
 import {useCallback, useEffect, useId, useMemo, useState, type FormEvent, type ReactNode} from "react";
 import {ApiError} from "./api";
 import {useGroups} from "./AdminGroupBits";
+import {BackupsSection} from "./AdminBackups";
 import {adminOrgApi, createOrgWebToolsAdapter, orgError, type OrgMissing, type OrgResource, type OrgResourceId, type OrgResourceInput} from "./adminOrgApi";
 import {useHostHasComputer} from "./computerCapability";
 import {useTranslation} from "./i18n";
@@ -66,6 +67,8 @@ export function AdminResources({openTab}: {openTab: (tab: SettingsTab) => void})
     <SettingsSection id="storage" title={t("admin.org.storage.title")} description={t("admin.org.storage.help")}>
       <SettingsCard className="provider-list org-card"><FileStoreCard resource={find("file_store")} loading={loading} onChange={adopt} onDropped={dropped}/></SettingsCard>
     </SettingsSection>
+
+    <BackupsSection resource={find("backup_store")} onResource={adopt}/>
 
     <SettingsSection id="web" title={t("admin.org.web.title")} description={t("admin.org.web.help")}>
       <WebToolsSettings adapter={webAdapter} bare/>

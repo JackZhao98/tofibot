@@ -776,3 +776,7 @@ then also checks that the session cookie is `Secure`.
   differs"); covered by unit tests and only by clean-host acceptance on KVM.
 - Not supported: container-only Bot computers, macOS/Windows servers, adopting an
   existing deployment, multi-node, unattended updates, backups beyond retained data.
+
+## Remote backups
+
+Settings > Administration > Organization resources > Backups sends a full encrypted copy of every database to a bucket of your own (default daily at 03:00, off until you set up the bucket and confirm the Recovery Key). Keep the Recovery Key and the recovery card offline; without the key the backups cannot be opened. On a new host, run `sudo tofi install`, then `sudo tofi restore --from-remote`: it asks for the bucket, the access key and the Recovery Key, lets you pick a snapshot, and restores through the same pre-restore backup, health check and rollback as `tofi restore <id>`.
