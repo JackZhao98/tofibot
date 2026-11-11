@@ -111,7 +111,19 @@
     "fold": "摺疊",
     "fold_aria": "把 Bot 電腦摺成窄欄",
     "unfold_aria": "顯示 Bot 電腦",
-    "outdated_required": "這台電腦的映像已不再受支援。請在 設定 > 環境 中升級。"
+    "outdated_required": "這台電腦的映像已不再受支援。請在 設定 > 環境 中升級。",
+    "look": "查看",
+    "look_aria": "查看 Bot 電腦",
+    "pip": {
+      "menu": "Bot 電腦小視窗",
+      "corner_tl": "移到左上角",
+      "corner_tr": "移到右上角",
+      "corner_bl": "移到左下角",
+      "corner_br": "移到右下角",
+      "size_small": "小",
+      "size_medium": "中",
+      "size_large": "大"
+    }
   },
   "remote": {
     "error": {

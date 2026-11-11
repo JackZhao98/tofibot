@@ -194,10 +194,9 @@ html:not([data-desktop]) .desktop-floating-shell .remote-desktop>.error-text{bor
 @media(forced-colors:active){.desktop-presence-dot{background:Highlight}}
 /* Computer window. Small is a floating picture-in-picture screen docked above the composer; big is the dialog.
    Both are the same 16:10 frame, so nothing is ever squashed while the picture loads. */
-.desktop-floating-shell.is-small{width:min(392px,calc(100vw - 24px));pointer-events:auto}
+.desktop-floating-shell.is-small{pointer-events:auto}
 .desktop-floating-shell.is-small .computer-detail :is(.computer-info,.computer-aux-fields){display:none}
 .desktop-floating-shell.is-small .desktop-preview-surface{cursor:zoom-in;touch-action:auto}
-html:not([data-desktop]) .desktop-floating-shell.is-small .desktop-presence-canvas>.computer-detail{margin-bottom:44px}
 html:not([data-desktop]) .desktop-floating-shell.is-small .remote-desktop-surface{aspect-ratio:8/5}
 html:not([data-desktop]) .desktop-floating-shell.is-expanded .remote-desktop-surface{aspect-ratio:8/5}
 @media(prefers-reduced-motion:no-preference){html:not([data-desktop]) .desktop-floating-shell.is-expanded{animation:desktop-scrim-in var(--m-base) var(--ease-out) both}}
@@ -260,8 +259,18 @@ html:not([data-desktop]) .desktop-floating-shell:not(.is-expanded) .desktop-pres
 html:not([data-desktop]) .desktop-floating-shell:not(.is-expanded) .desktop-presence-canvas>.computer-detail.is-driven-by-bot{box-shadow:0 0 0 1px var(--lagoon)}
 html:not([data-desktop]) .desktop-floating-shell:not(.is-expanded) .desktop-presence-canvas>.computer-detail.is-driven-by-you{box-shadow:0 0 0 1px var(--clay)}
 .computer-detail:not(.is-expanded) .desktop-chin{display:contents}
-.desktop-floating-shell:not(.is-expanded) .desktop-window-controls{top:12px;right:12px;padding:2px;border-radius:999px}
-.desktop-floating-shell:not(.is-expanded) .desktop-window-controls .desktop-control-button{border-radius:50%}
+.desktop-floating-shell:not(.is-expanded) .desktop-window-controls{top:10px;left:10px;right:auto;padding:2px;border-radius:999px}
+.desktop-floating-shell:not(.is-expanded) .desktop-window-controls .desktop-control-button{flex-basis:28px;width:28px;height:28px;border-radius:50%}
+/* The mini window's menu: the same surface as the other menus, and the keyboard and screen-reader way to move the window. */
+.pip-menu{box-sizing:border-box;min-width:184px;max-width:calc(100vw - 24px);padding:6px;border:1px solid var(--line);border-radius:12px;background:var(--surface);box-shadow:var(--float-shadow);color:var(--ink);font:14px/1.3 var(--body);z-index:var(--z-menu)}
+.pip-menu-item{position:relative;display:flex;align-items:center;gap:8px;min-height:34px;padding:7px 28px 7px 10px;border-radius:8px;outline:0;cursor:default;user-select:none}
+.pip-menu-item[data-highlighted]{background:var(--surface-2)}
+.pip-menu-separator{height:1px;margin:5px 4px;background:var(--line)}
+.pip-menu-check{position:absolute;right:10px;width:9px;height:5px;border:solid currentColor;border-width:0 0 1.6px 1.6px;transform:translateY(-1px) rotate(-45deg)}
+@media(forced-colors:active){.pip-menu-item[data-highlighted]{outline:1px solid Highlight}}
+/* "Look" from a step row on a window that is already open: the bezel glows once. Paint only; reduced motion skips it. */
+@media(prefers-reduced-motion:no-preference){.desktop-floating-shell[data-flash] .desktop-presence-frame{animation:desktop-pip-flash 800ms var(--ease-out)}}
+@keyframes desktop-pip-flash{0%,100%{box-shadow:0 0 0 0 transparent}35%{box-shadow:0 0 0 4px var(--lagoon)}}
 .desktop-enlarge{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;position:absolute;inset:0;z-index:3;display:grid;place-items:center;width:100%;height:100%;padding:0;border:0;border-radius:inherit;background:transparent;color:var(--desktop-controls-ink);cursor:zoom-in;transition:background-color var(--m-quick) var(--ease-out)}
 .desktop-enlarge-hint{display:inline-flex;align-items:center;gap:8px;max-width:calc(100% - 24px);padding:8px 14px;border-radius:999px;background:var(--desktop-controls-glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);font:600 13px/1 var(--body);white-space:nowrap;opacity:0;transition:opacity var(--m-quick) var(--ease-out);pointer-events:none}
 .desktop-enlarge:is(:hover,:focus-visible){background:color-mix(in srgb,var(--desktop-bezel) 26%,transparent)}

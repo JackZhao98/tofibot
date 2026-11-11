@@ -1,37 +1,23 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import * as ContextMenu from "@radix-ui/react-context-menu";
 import { createPortal } from "react-dom";
 import { useTranslation } from "./i18n";
 import { MOTION, EASE } from "./motion";
+import { layerRoot } from "./layers";
+import { createPipEngine, translate, type PipEngine } from "./pipDrag";
+import { PIP_SIZES, defaultPipStored, nudgePipPoint, parsePipStored, pipPlaceFromPoint, resolvePipPlace, snapPipSide, type PipCorner, type PipPlace, type PipStored } from "./floatingDesktopPosition";
 import "./desktop-shell.css";
 
-/** Docks the small screen in the right gutter (the viewport edge, past the message column), above the composer and its perched cat. */
-function useComposerAnchor(active: boolean) {
-  const [style, setStyle] = useState<CSSProperties>();
-  useLayoutEffect(() => {
-    if (!active) return;
-    // .composer spans the column; .composer-row is the visible bordered box. A notice (e.g. "Connect a model")
-    // can sit above the row inside .composer, so the top edge is the highest visible child, not the row.
-    const parts = () => {
-      const container = document.querySelector<HTMLElement>(".composer");
-      const row = container?.querySelector<HTMLElement>(".composer-row") ?? container;
-      return { container, row, children: container ? Array.from(container.children) as HTMLElement[] : [] };
-    };
-    const place = () => {
-      const { row, children } = parts();
-      if (!row) { setStyle(undefined); return; }
-      const box = row.getBoundingClientRect();
-      const top = children.reduce((min, child) => { const r = child.getBoundingClientRect(); return r.height > 0 ? Math.min(min, r.top) : min; }, box.top);
-      // The cat perches on the composer's top edge; the screen sits above it.
-      setStyle({ right: 16, bottom: Math.max(16, window.innerHeight - top + 64) });
-    };
-    place();
-    const { container, row, children } = parts();
-    const observer = row ? new ResizeObserver(place) : undefined;
-    for (const target of new Set([container, row, ...children])) if (target) observer?.observe(target);
-    window.addEventListener("resize", place);
-    return () => { observer?.disconnect(); window.removeEventListener("resize", place); };
-  }, [active]);
-  return style;
+const PIP_KEY = "tofi.pip.v1";
+const loadPip = (): PipStored => { try { return parsePipStored(localStorage.getItem(PIP_KEY)); } catch { return defaultPipStored; } };
+const savePip = (value: PipStored) => { try { localStorage.setItem(PIP_KEY, JSON.stringify(value)); } catch { /* private mode: the position lasts for the page */ } };
+
+/** The highest visible top edge of the composer (a notice above its row counts): the bottom corners end above it. */
+function composerTop(): number | undefined {
+  const container = document.querySelector<HTMLElement>(".composer");
+  if (!container) return undefined;
+  const row = container.querySelector<HTMLElement>(".composer-row") ?? container;
+  return Array.from(container.children).reduce((min, child) => { const r = (child as HTMLElement).getBoundingClientRect(); return r.height > 0 ? Math.min(min, r.top) : min; }, row.getBoundingClientRect().top);
 }
 
 /** The window opens only on the user's explicit request (the header computer button). */
@@ -69,20 +55,61 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   const contentId = useId();
-  const anchor = useComposerAnchor(small && !docked);
-  // Beside the small window the messages reflow instead of sitting under it (desktop widths only).
+  // The mini window (docs/design/computer-pip.md section 5): the floating small form is dragged, snapped to a corner and remembered.
+  const pipActive = small && !docked;
+  const [pip, setPip] = useState<PipStored>(loadPip);
+  const [tick, setTick] = useState(0);
+  const pipRef = useRef(pip);
+  pipRef.current = pip;
+  const measure = useCallback(() => {
+    const el = shellRef.current;
+    if (!el) return null;
+    const rect = el.getBoundingClientRect();
+    return { size: { width: el.offsetWidth, height: el.offsetHeight }, viewport: { width: window.innerWidth, height: window.innerHeight }, composerTop: composerTop(), point: { left: rect.left, top: rect.top } };
+  }, []);
+  const place = useCallback((next: PipPlace | { size: number }) => { const value = { ...pipRef.current, ...next }; savePip(value); setPip(value); }, []);
+  const engineRef = useRef<PipEngine | null>(null);
+  engineRef.current ??= createPipEngine({ element: () => shellRef.current, measure, controls: ".desktop-window-controls, .desktop-control-button", commit: place });
+  useEffect(() => () => engineRef.current?.dispose(), []);
+  // Placement is the one write to the shell: before the FLIP below measures it, and again whenever the stored place, the viewport or the composer changes.
   useLayoutEffect(() => {
-    if (!small || docked) return;
-    const root = document.documentElement;
-    const apply = () => {
-      const width = shellRef.current?.getBoundingClientRect().width ?? 0;
-      if (window.innerWidth >= 1024 && width) { root.style.setProperty("--desktop-reserve", `${Math.ceil(width) + 32}px`); root.dataset.desktopReserve = ""; }
-      else { root.style.removeProperty("--desktop-reserve"); delete root.dataset.desktopReserve; }
+    const el = shellRef.current;
+    if (!el) return;
+    if (!pipActive) { el.style.transform = ""; return; }
+    if (engineRef.current?.busy()) return;
+    const m = measure();
+    if (m) el.style.transform = translate(resolvePipPlace(pip, m.size, m.viewport, m.composerTop));
+  }, [pipActive, pip, tick, measure]);
+  useEffect(() => {
+    if (!pipActive) return;
+    let frame = 0;
+    const again = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; if (!engineRef.current?.busy()) setTick(value => value + 1); }); };
+    const composer = document.querySelector<HTMLElement>(".composer");
+    const observer = composer ? new ResizeObserver(again) : undefined;
+    if (composer) for (const target of new Set([composer, ...Array.from(composer.children) as HTMLElement[]])) observer?.observe(target);
+    window.addEventListener("resize", again);
+    return () => { observer?.disconnect(); window.removeEventListener("resize", again); cancelAnimationFrame(frame); };
+  }, [pipActive]);
+  // The step rows' "look" button on an already open window: bring it forward and flash the bezel.
+  useEffect(() => {
+    const flash = () => {
+      const el = shellRef.current;
+      if (!el) return;
+      el.dataset.flash = "";
+      window.setTimeout(() => { delete el.dataset.flash; }, 900);
     };
-    apply();
-    window.addEventListener("resize", apply);
-    return () => { window.removeEventListener("resize", apply); root.style.removeProperty("--desktop-reserve"); delete root.dataset.desktopReserve; };
-  }, [small, docked]);
+    window.addEventListener("tofi:computer-look", flash);
+    return () => window.removeEventListener("tofi:computer-look", flash);
+  }, []);
+  const arrowKeys = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (!pipActive || event.defaultPrevented || event.ctrlKey || event.metaKey || !event.key.startsWith("Arrow") || !(event.target as Element).closest(".desktop-enlarge")) return;
+    const m = measure();
+    if (!m) return;
+    event.preventDefault();
+    event.stopPropagation();
+    place(event.altKey ? { corner: snapPipSide(pipRef.current.corner, event.key), dx: 0, dy: 0 } : pipPlaceFromPoint(nudgePipPoint(m.point, event.key, event.shiftKey), m.size, m.viewport, m.composerTop));
+  };
+  const pipWidth = Math.min(pip.size, window.innerWidth - 24);
 
   useEffect(() => {
     if (!expanded) return;
@@ -176,11 +203,30 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
     for (const item of detail.querySelectorAll<HTMLElement>(folded ? ".desktop-chin-text, .desktop-driver-switch" : ".desktop-chin")) item.animate([{ opacity: 0 }, { opacity: 1 }], { ...timing, delay: MOTION.base * 0.4, fill: "backwards" });
   }, [folded]);
 
-  const shell = <div ref={shellRef} className={`desktop-floating-shell${expanded ? " is-expanded" : ""}${folded && docked && !expanded ? " is-folded" : ""}${small ? " is-small" : ""}${expanded && sheet ? " is-sheet" : ""}${docked ? " is-docked" : ""}`} style={small && !docked ? anchor : undefined}
+  const shell = <div ref={shellRef} className={`desktop-floating-shell${expanded ? " is-expanded" : ""}${folded && docked && !expanded ? " is-folded" : ""}${small ? " is-small" : ""}${expanded && sheet ? " is-sheet" : ""}${docked ? " is-docked" : ""}`} style={pipActive ? { "--pip-width": `${pipWidth}px` } as CSSProperties : undefined}
+    onPointerDown={pipActive ? event => engineRef.current?.press(event.nativeEvent) : undefined} onKeyDown={arrowKeys}
+    onClickCapture={pipActive ? event => { if (engineRef.current?.wasDragged()) { event.preventDefault(); event.stopPropagation(); } } : undefined}
     role={expanded ? "dialog" : "group"} aria-modal={expanded || undefined} aria-label={t("desktop.title")} tabIndex={expanded ? -1 : undefined}>
     <div id={contentId} className="desktop-presence-content">
       <div className="desktop-presence-canvas">{children}</div>
     </div>
   </div>;
-  return <><div ref={attachSlot} className="desktop-host-slot" style={docked ? undefined : { display: "contents" }} />{createPortal(shell, host)}</>;
+  const corners: { corner: PipCorner; key: "tl" | "tr" | "bl" | "br" }[] = [{ corner: "tl", key: "tl" }, { corner: "tr", key: "tr" }, { corner: "bl", key: "bl" }, { corner: "br", key: "br" }];
+  // The shell is always wrapped (the trigger is only disabled outside the small form), so the live video never remounts when the form changes.
+  const wrapped = <ContextMenu.Root modal={false}>
+    <ContextMenu.Trigger asChild disabled={!pipActive}>{shell}</ContextMenu.Trigger>
+    {pipActive && <ContextMenu.Portal container={layerRoot()}>
+      <ContextMenu.Content className="pip-menu" aria-label={t("desktop.pip.menu")} collisionPadding={8}
+        onCloseAutoFocus={event => { event.preventDefault(); shellRef.current?.querySelector<HTMLElement>(".desktop-enlarge")?.focus({ preventScroll: true }); }}>
+        {corners.map(({ corner, key }) => <ContextMenu.Item key={corner} className="pip-menu-item" onSelect={() => place({ corner, dx: 0, dy: 0 })}>{t(`desktop.pip.corner_${key}`)}</ContextMenu.Item>)}
+        <ContextMenu.Separator className="pip-menu-separator" />
+        <ContextMenu.RadioGroup value={String(pip.size)} onValueChange={value => place({ size: Number(value) })}>
+          {PIP_SIZES.map((size, index) => <ContextMenu.RadioItem key={size} value={String(size)} className="pip-menu-item">{t(`desktop.pip.size_${(["small", "medium", "large"] as const)[index]}`)}<ContextMenu.ItemIndicator className="pip-menu-check" /></ContextMenu.RadioItem>)}
+        </ContextMenu.RadioGroup>
+        <ContextMenu.Separator className="pip-menu-separator" />
+        <ContextMenu.Item className="pip-menu-item" onSelect={() => closeRef.current()}>{t("desktop.close")}</ContextMenu.Item>
+      </ContextMenu.Content>
+    </ContextMenu.Portal>}
+  </ContextMenu.Root>;
+  return <><div ref={attachSlot} className="desktop-host-slot" style={docked ? undefined : { display: "contents" }} />{createPortal(wrapped, host)}</>;
 }
