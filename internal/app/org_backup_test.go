@@ -213,3 +213,74 @@ func TestAccountRestoreCrashWindowIsSettled(t *testing.T) {
 		t.Fatalf("account directory not put back: %v", err)
 	}
 }
+
+func restoreRemote(t *testing.T, req map[string]any) (int, map[string]json.RawMessage) {
+	t.Helper()
+	in, _ := json.Marshal(req)
+	var out bytes.Buffer
+	code := RunRestoreRemote(t.Context(), bytes.NewReader(in), &out)
+	var got map[string]json.RawMessage
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("answer %q: %v", out.String(), err)
+	}
+	return code, got
+}
+
+// The bare-host path: list, choose, fetch with the Recovery Key alone; the
+// restored tree opens with the app's own code and the old server is fenced off.
+func TestRestoreRemoteRebuildsTheDataDirAndTakesOver(t *testing.T) {
+	b := newBackupFixture(t)
+	ws, err := b.g.workspace(b.member)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = ws.store.CreateBot("kept", "", "model"); err != nil {
+		t.Fatal(err)
+	}
+	if st := b.run(t); st.LastStatus != "ok" {
+		t.Fatalf("%+v", st)
+	}
+	base := map[string]any{"endpoint": b.srv.URL, "region": "us-east-1", "bucket": "bkt", "prefix": "tofi", "path_style": true, "access_key_id": testAccessKeyID, "secret": testSecretKey}
+	with := func(extra map[string]any) map[string]any {
+		m := map[string]any{}
+		for k, v := range base {
+			m[k] = v
+		}
+		for k, v := range extra {
+			m[k] = v
+		}
+		return m
+	}
+	code, got := restoreRemote(t, with(map[string]any{"action": "instances"}))
+	if code != 0 || !strings.Contains(string(got["instances"]), b.g.root.instance.ID) {
+		t.Fatalf("instances: %d %s", code, got["instances"])
+	}
+	id := b.g.root.instance.ID
+	if code, got = restoreRemote(t, with(map[string]any{"action": "snapshots", "instance_id": id, "recovery_key": "WRONG-KEY"})); code == 0 || string(got["error"]) != `"backup_recovery_key_wrong"` {
+		t.Fatalf("wrong key: %d %s", code, got["error"])
+	}
+	if code, got = restoreRemote(t, with(map[string]any{"action": "snapshots", "instance_id": id, "recovery_key": b.key})); code != 0 || !strings.Contains(string(got["snapshots"]), `"schema_supported":true`) {
+		t.Fatalf("snapshots: %d %s", code, got["snapshots"])
+	}
+	out := t.TempDir()
+	if code, got = restoreRemote(t, with(map[string]any{"action": "fetch", "instance_id": id, "recovery_key": b.key, "mode": "takeover", "out": out})); code != 0 {
+		t.Fatalf("fetch: %s", got["error"])
+	}
+	restored := filepath.Join(out, "data")
+	if _, err = os.Stat(filepath.Join(restored, "accounts", b.member.ID, "tofi.db")); err != nil {
+		t.Fatal(err)
+	}
+	store, err := openStoreWithLimit(filepath.Join(restored, "accounts", b.member.ID), false, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bots, _ := store.ListBots()
+	store.Close()
+	if len(bots) != 1 || bots[0].Name != "kept" {
+		t.Fatalf("restored bots %+v", bots)
+	}
+	// The original server is no longer the writer.
+	if st := b.run(t); st.LastStatus != "blocked" || st.LastCode != "backup_repo_diverged" {
+		t.Fatalf("old server: %+v", st)
+	}
+}

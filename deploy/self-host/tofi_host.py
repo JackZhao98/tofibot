@@ -14,6 +14,7 @@ import argparse
 import calendar
 from contextlib import contextmanager
 import fcntl
+import getpass
 import hashlib
 import json
 import os
@@ -2372,7 +2373,7 @@ def backup_timestamp():
     return time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())
 
 
-def backup_data(reason, env=None, note=None, check_space=True, disks=False):
+def backup_data(reason, env=None, note=None, check_space=True, disks=False, data_root=None):
     """Archive /var/lib/tofi/data and /etc/tofi into a new backup; return its meta.
 
     Call only while the services are stopped. The backup is assembled in a
@@ -2381,8 +2382,9 @@ def backup_data(reason, env=None, note=None, check_space=True, disks=False):
     workspace disk (only a manual backup asks for it).
     """
     env = env if env is not None else read_env()
+    source = Path(data_root) if data_root is not None else P.data  # a tree downloaded by `restore --from-remote`
     estimate = (check_backup_space('this backup', disks_estimate() if disks else 0) if check_space
-                else tree_bytes(P.data) + tree_bytes(P.etc))
+                else tree_bytes(source) + tree_bytes(P.etc))
     P.backups.mkdir(parents=True, exist_ok=True)
     os.chmod(P.backups, 0o700)
     stamp = backup_timestamp()
@@ -2399,7 +2401,7 @@ def backup_data(reason, env=None, note=None, check_space=True, disks=False):
     compression = 'zst' if zstd_available() else 'gz'
     data_name, etc_name = 'data.tar.' + compression, 'etc.tar.gz'
     try:
-        write_archive(partial / data_name, compression, P.data)
+        write_archive(partial / data_name, compression, source)
         write_archive(partial / etc_name, 'gz', P.etc, exclude=etc_excluded)
         worker_name = 'worker-meta.tar.gz'
         write_archive(partial / worker_name, 'gz', worker_meta_roots(), exclude=worker_meta_excluded,
@@ -2411,7 +2413,7 @@ def backup_data(reason, env=None, note=None, check_space=True, disks=False):
             'caddy_image': env.get('TOFI_CADDY_IMAGE'), 'guest': env.get('TOFI_GUEST_VERSION'),
             'created_at': iso_now(), 'reason': reason, 'note': note or '',
             'archives': {'data': data_name, 'etc': etc_name, 'worker': worker_name},
-            'sizes': {'data_bytes': tree_bytes(P.data), 'etc_bytes': tree_bytes(P.etc),
+            'sizes': {'data_bytes': tree_bytes(source), 'etc_bytes': tree_bytes(P.etc),
                       'data_archive': (partial / data_name).stat().st_size,
                       'etc_archive': (partial / etc_name).stat().st_size,
                       'worker_archive': (partial / worker_name).stat().st_size, 'estimate': estimate},
@@ -5871,7 +5873,9 @@ def parse_args(argv):
     backups_parser.add_argument('--json', action='store_true', help='machine-readable output')
     backups_parser.add_argument('--remove', metavar='ID', help='delete this backup')
     restore_parser = sub.add_parser('restore', help='restore a backup and switch to its version')
-    restore_parser.add_argument('backup_id', help='an id from `tofi backups` (or a unique prefix)')
+    restore_parser.add_argument('backup_id', nargs='?', help='an id from `tofi backups` (or a unique prefix)')
+    restore_parser.add_argument('--from-remote', dest='from_remote', action='store_true',
+                                help='rebuild this host from the encrypted off-site backups (asks for the bucket and the Recovery Key)')
     restore_parser.add_argument('--yes', '-y', action='store_true', help='do not ask for confirmation')
     restore_parser.add_argument('--no-disks', action='store_true',
                                 help='keep the current computer disks even if the backup carries them')
@@ -5982,6 +5986,104 @@ def confirm_update(installed, manifest):
         raise HostError('Update cancelled; nothing was changed.')
 
 
+REMOTE_RESTORE_ERRORS = {
+    'backup_recovery_key_wrong': 'That Recovery Key does not open this repository.',
+    'backup_repo_missing': 'No backup repository is at that location.',
+    'backup_store_unavailable': 'The bucket did not answer. Check the endpoint and the network.',
+    'backup_store_misconfigured': 'The bucket refused the access key, or does not exist.',
+    'backup_schema_too_new': 'That snapshot is newer than this install can open. Run `sudo tofi update`, then try again.',
+    'backup_object_damaged': 'A backup object failed its integrity check; nothing was restored.',
+    'backup_capture_corrupt': 'A restored database failed its check; nothing was restored.',
+    'backup_snapshot_missing': 'That snapshot is not in the repository.',
+    'backup_no_snapshot': 'The repository has no snapshot yet.',
+    'backup_repo_diverged': 'Another server is writing to this repository.',
+}
+
+
+def remote_restore_tool(env, request, out_dir):
+    """Run `tofi restore-remote` once in the installed App image. The request, keys included, goes in on stdin."""
+    command = ['docker', 'run', '--rm', '-i', '-v', '%s:/out' % out_dir, '--entrypoint', '/app/tofi',
+               env['TOFI_APP_IMAGE'], 'restore-remote']
+    try:
+        result = run(command, check=False, timeout=6 * 3600, input=json.dumps(request))
+        answer = json.loads(result.stdout)
+    except (OSError, ValueError, subprocess.TimeoutExpired) as error:
+        raise HostError('The restore tool did not answer (%s).' % type(error).__name__) from error
+    if result.returncode != 0 or not isinstance(answer, dict) or 'error' in answer:
+        code = answer.get('error') if isinstance(answer, dict) else None
+        raise HostError(REMOTE_RESTORE_ERRORS.get(code, 'The restore tool failed (%s).' % (code or 'no detail')))
+    return answer
+
+
+def choose(title, options):
+    """Ask for one of `options` (a list of labels); the first is the default."""
+    say(title)
+    for number, label in enumerate(options, 1):
+        say('  %d) %s%s' % (number, label, '  [default]' if number == 1 else ''))
+    while True:
+        reply = input('> ').strip()
+        if not reply:
+            return 0
+        if reply.isdigit() and 1 <= int(reply) <= len(options):
+            return int(reply) - 1
+
+
+def restore_from_remote(wait=0, force=False):
+    """`tofi restore --from-remote`: rebuild this host from the encrypted off-site backups.
+
+    Nothing is written before every check passed. The snapshot is downloaded and
+    checked in a scratch directory by the installed App image, packed as an
+    ordinary local backup, and then put in place by `restore_backup`, so the
+    pre-restore backup, the health check and the rollback are the existing ones.
+    """
+    state = load_state()
+    if state is None or state['phase'] != 'installed':
+        raise HostError('Restore needs an installed TOFI in phase installed; run `sudo tofi install` first.')
+    if not sys.stdin.isatty():
+        raise HostError('`tofi restore --from-remote` asks for the bucket and the Recovery Key; run it in a terminal.')
+    env = read_env()
+    ask = lambda label, default='': (input('%s%s: ' % (label, ' [%s]' % default if default else '')).strip() or default)
+    request = {'endpoint': ask('Endpoint (https://...)'), 'region': ask('Region', 'auto'), 'bucket': ask('Bucket'),
+               'prefix': ask('Prefix', 'tofi'), 'path_style': ask('Path-style addressing (y/N)', 'N').lower().startswith('y'),
+               'access_key_id': ask('Access key ID'), 'secret': getpass.getpass('Secret access key: ')}
+    work = Path(tempfile.mkdtemp(prefix='remote-restore-', dir=str(P.var)))
+    os.chmod(work, 0o777)
+    try:
+        instances = remote_restore_tool(env, dict(request, action='instances'), work)['instances']
+        if not instances:
+            raise HostError('That location holds no TOFI backup repository.')
+        request['instance_id'] = instances[choose('Servers in this bucket:', instances)]
+        request['recovery_key'] = getpass.getpass('Recovery Key: ')
+        snapshots = remote_restore_tool(env, dict(request, action='snapshots'), work)['snapshots']
+        if not snapshots:
+            raise HostError('The repository has no snapshot yet.')
+        labels = ['%s  TOFI %s  %s  %s account(s)%s' % (item['at'], item['version'], item['reason'], item['accounts'],
+                                                      '' if item['schema_supported'] else '  (needs a newer TOFI)')
+                  for item in snapshots]
+        picked = snapshots[choose('Snapshots (newest first):', labels)]
+        if not picked['schema_supported']:
+            raise HostError(REMOTE_RESTORE_ERRORS['backup_schema_too_new'])
+        request['snapshot'] = picked['name']
+        request['mode'] = ['takeover', 'replica'][choose(
+            'Is the original server permanently retired?',
+            ['Yes: take over this repository (the original server will be reported as diverged if it is still alive)',
+             'No: it is still in use. Make this a copy with its own identity; backups stay off until you set them up'])]
+        say('Restoring replaces all current data and settings; the current state is backed up first (pre-restore).')
+        if not ask_yes('Download and restore snapshot %s?' % picked['name']):
+            raise HostError('Restore cancelled; nothing was changed.')
+        answer = remote_restore_tool(env, dict(request, action='fetch', out='/out'), work)
+        for entry in answer['report']['entries']:
+            say('  %s: %s, %s file(s) back, %s missing from the bucket, %s on Bot computers'
+                % ('server' if entry['id'] == 'root' else entry['id'],
+                   ', '.join('%s %s' % (count, table) for table, count in sorted((entry.get('rows') or {}).items())),
+                   entry['disk_files'], entry['missing_files'], entry['vm_refs']))
+        meta = backup_data('remote', env=env, note='downloaded from the remote repository', check_space=False,
+                           data_root=work / 'data')
+    finally:
+        remove_tree(work)
+    restore_backup(meta['id'], True, wait, force)
+
+
 def confirm_restore(item, meta):
     say('Restore backup %s (TOFI %s, taken %s, %s).' % (item['id'], meta.get('version'), meta.get('created_at'),
                                                        meta.get('reason')))
@@ -6080,6 +6182,13 @@ def main(argv=None):
                 sys.stdout.write(render_backups(backups))
             return 0
         if args.command == 'restore':
+            if args.from_remote:
+                if args.backup_id:
+                    raise HostError('--from-remote takes no backup id.')
+                restore_from_remote(*guard_options(args, interactive_default=True))
+                return 0
+            if not args.backup_id:
+                raise HostError('Name a backup id from `tofi backups`, or use --from-remote.')
             restore_backup(args.backup_id, args.yes, *guard_options(args, interactive_default=not args.yes),
                            confirm=confirm_restore if sys.stdin.isatty() else None, disks=not args.no_disks)
             return 0

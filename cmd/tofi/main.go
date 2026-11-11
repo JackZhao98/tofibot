@@ -18,6 +18,9 @@ import (
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "restore-remote" {
+		os.Exit(app.RunRestoreRemote(context.Background(), os.Stdin, os.Stdout))
+	}
 	tlsConfig, err := serverTLSConfig(os.Getenv("TOFI_TLS_CERT_FILE"), os.Getenv("TOFI_TLS_KEY_FILE"))
 	if err != nil {
 		log.Printf("TLS configuration unavailable: %v", err)
