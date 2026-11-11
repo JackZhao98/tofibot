@@ -602,6 +602,7 @@
       "title": "Contrôler ce Mac à distance",
       "off": "Les Bots voient l'écran et utilisent la souris et le clavier. Les actions à conséquences demandent d'abord votre accord.",
       "on": "Les actions à conséquences demandent toujours votre accord. Un bandeau s'affiche pendant le travail d'un Bot ; ⌃⌥⌘Esc l'arrête.",
+      "screen_prompt": "De temps en temps, macOS demande si Tofi peut continuer à lire l'écran. Cela vaut pour toutes les apps qui capturent l'écran ; choisissez Autoriser.",
       "no_personal": "Ce serveur ne propose pas d'ordinateurs personnels.",
       "this_mac": "Ce Mac",
       "in_use": "Un Bot l'utilise",

@@ -596,6 +596,7 @@
       "title": "Remote control this Mac",
       "off": "Bots can see the screen and use the mouse and keyboard. Actions with consequences ask you first.",
       "on": "Actions with consequences still ask you first. A banner shows while a Bot works, and ⌃⌥⌘Esc stops it.",
+      "screen_prompt": "macOS asks from time to time whether Tofi may keep reading the screen. It asks every app that captures the screen; choose Allow.",
       "no_personal": "This server doesn't offer personal computers.",
       "this_mac": "This Mac",
       "in_use": "A Bot is using it",

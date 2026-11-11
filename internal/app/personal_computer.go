@@ -222,6 +222,8 @@ func personalJobError(status, message, action string) error {
 		return tooloutcome.New(tooloutcome.Denied, code, "not_executed", "The person paused this Mac's control in the TOFI desktop app, so nothing was run. Do not retry automatically. Tell the person control is paused and that they can resume it in the desktop app when they want you to continue.", "explain_blocker").Err()
 	case "user_takeover":
 		return tooloutcome.New(tooloutcome.Denied, code, "not_executed", "The person took over the mouse or keyboard, so the TOFI desktop app paused this step and nothing was run. Do not retry automatically. Tell the person you stopped because they took over and ask whether to continue; capture the screen again before the next action.", "explain_blocker").Err()
+	case "screen_permission_pending":
+		return tooloutcome.New(tooloutcome.Denied, code, "not_executed", "This Mac is waiting for its person to confirm screen access: macOS asks them again from time to time whether TOFI may keep reading the screen, and that question is theirs to answer. Do not retry. Tell the person to answer it on the Mac (or turn on Screen Recording for TOFI in System Settings) and wait for them.", "explain_blocker").Err()
 	case "secure_input":
 		return tooloutcome.New(tooloutcome.Denied, code, "not_executed", "A secure text field on the Mac has keyboard focus (a password field or similar), so typing was refused and nothing was typed. Do not type secrets or passwords. Ask the person to enter the value themselves, then continue.", "explain_blocker").Err()
 	case "capability_not_granted":

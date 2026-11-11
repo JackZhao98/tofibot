@@ -596,6 +596,7 @@
       "title": "Diesen Mac fernsteuern",
       "off": "Bots sehen den Bildschirm und bedienen Maus und Tastatur. Folgenreiche Aktionen fragen vorher nach.",
       "on": "Folgenreiche Aktionen fragen weiterhin vorher nach. Ein Banner zeigt, wenn ein Bot arbeitet; ⌃⌥⌘Esc stoppt ihn.",
+      "screen_prompt": "macOS fragt von Zeit zu Zeit, ob Tofi den Bildschirm weiter lesen darf. Das gilt für jede App, die den Bildschirm aufnimmt; wähle Erlauben.",
       "no_personal": "Dieser Server bietet keine persönlichen Computer an.",
       "this_mac": "Dieser Mac",
       "in_use": "Ein Bot nutzt ihn",

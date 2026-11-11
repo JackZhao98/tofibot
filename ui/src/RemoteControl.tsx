@@ -75,7 +75,7 @@ export function RemoteControlBlock({rc, offered, onOpenFiles, onOpenDenied, menu
   const note = rc.failure ? {text: t(`environments.rc.reason.${rc.failure}`), alert: true} : kept ? {text: t(`environments.rc.reason.${kept}`), alert: false} : !offered && !enabled ? {text: t("environments.rc.no_personal"), alert: false} : null;
   return <section className="rc-block" data-remote-control="" data-enabled={enabled}>
     <div className="rc-row rc-switch-row">
-      <div className="rc-copy"><strong>{t("environments.rc.title")}</strong><p>{t(enabled ? "environments.rc.on" : "environments.rc.off")}</p></div>
+      <div className="rc-copy"><strong>{t("environments.rc.title")}</strong><p>{t(enabled ? "environments.rc.on" : "environments.rc.off")} {t("environments.rc.screen_prompt")}</p></div>
       <Switch checked={enabled} label={t("environments.rc.title")} disabled={locked} busy={rc.busy === "set"} onChange={value => void rc.set(value)}/>
     </div>
     {note && <p className={`rc-note${note.alert ? " is-error" : ""}`} role={note.alert ? "alert" : "status"} data-failure={rc.failure ?? undefined}>{note.text}</p>}

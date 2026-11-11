@@ -566,3 +566,10 @@ func TestShareIsForCaptureOnAPersonalComputer(t *testing.T) {
 		t.Errorf("refused a personal capture: %v", err)
 	}
 }
+
+func TestScreenPermissionPendingIsANamedStateNotARetry(t *testing.T) {
+	err := personalJobError("failed", "screen_permission_pending: Screen Recording is not granted", "desktop.capture")
+	if err == nil || !strings.Contains(err.Error(), "Do not retry") || strings.Contains(err.Error(), "Screen Recording is not granted") {
+		t.Fatalf("%v", err)
+	}
+}

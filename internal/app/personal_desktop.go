@@ -470,7 +470,7 @@ func (s *Server) personalDesktopTools(r Run) []Tool {
 	}
 	return []Tool{{
 		Name:        "computer_desktop",
-		Description: "Control the screen of a person's own paired Mac: capture (share attaches the picture to your reply), click, double_click, triple_click, move, drag, scroll, type, key. Coordinates are pixels of the latest capture. Each input declares its effect. Input with an effect other than none, or with none declared, is reviewed, and only a few need the person's confirmation. A system permission or privacy prompt on the Mac is the person's to answer: tell them what it asks and leave it. Pass computer_id when more than one Mac is paired. Files and commands: computer_action.",
+		Description: "Control the screen of a person's own paired Mac: capture (share attaches the picture to your reply), click, double_click, triple_click, move, drag, scroll, type, key. Coordinates are pixels of the latest capture. A left click result says via: ax_press (the control was pressed without moving the pointer) or pointer. Each input declares its effect. Input with an effect other than none, or with none declared, is reviewed, and only a few need the person's confirmation. A system permission or privacy prompt on the Mac is the person's to answer: tell them what it asks and leave it. Pass computer_id when more than one Mac is paired. Files and commands: computer_action.",
 		Parameters:  desktopToolSchema(),
 		Timeout:     computerToolTimeout,
 		Identity: func(raw json.RawMessage) tooloutcome.Identity {
