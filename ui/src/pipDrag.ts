@@ -1,4 +1,5 @@
 import { SPRING } from "./motion";
+import { stepSpring } from "./pipSpring";
 import {
   PIP_DRAG_PX, PIP_HOLD_MS, nearestPipCorner, pipPlaceFromPoint, projectPipPoint, resolvePipPlace, rubberBandPipPoint,
   type FloatingPoint, type FloatingSize, type PipPlace,
@@ -17,17 +18,6 @@ export const translate = (point: FloatingPoint) => `translate3d(${point.left}px,
 
 const reduced = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 const spring = () => ({ ...SPRING.pipSnap, ...((window as unknown as { __TOFI_PIP?: { snap?: Tune } }).__TOFI_PIP?.snap ?? {}) });
-
-/** Semi-implicit Euler at a fixed 1/120 s, one frame at most 32 ms (a tab coming back to the front does not blow up). */
-export function stepSpring(state: { x: number; v: number }, target: number, dt: number, tune: { stiffness: number; damping: number; mass: number }) {
-  let left = Math.min(dt, 0.032);
-  while (left > 1e-9) {
-    const h = Math.min(left, 1 / 120);
-    state.v += ((-tune.stiffness * (state.x - target) - tune.damping * state.v) / tune.mass) * h;
-    state.x += state.v * h;
-    left -= h;
-  }
-}
 
 export type PipEngine = {
   /** Wire to the shell's `pointerdown`. `controls` selects what a press must leave alone (the buttons). */

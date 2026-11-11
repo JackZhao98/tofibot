@@ -9,7 +9,7 @@ const run = promisify(execFile);
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const output = await mkdtemp(join(tmpdir(), "tofi-floating-desktop-"));
 try {
-  await run(join(root, "node_modules/.bin/tsc"), ["src/floatingDesktopPosition.ts", "--ignoreConfig", "--target", "ES2022", "--module", "ES2022", "--moduleResolution", "Bundler", "--outDir", output, "--skipLibCheck", "--pretty", "false"], { cwd: root });
+  await run(join(root, "node_modules/.bin/tsc"), ["src/floatingDesktopPosition.ts", "src/pipSpring.ts", "src/motion.ts", "--ignoreConfig", "--target", "ES2022", "--module", "ES2022", "--moduleResolution", "Bundler", "--outDir", output, "--skipLibCheck", "--pretty", "false"], { cwd: root });
   const pip = await import(pathToFileURL(join(output, "floatingDesktopPosition.js")));
   const { clampFloatingPosition, dockFloatingPosition } = await import(pathToFileURL(join(output, "floatingDesktopPosition.js")));
   const size = { width: 360, height: 210 };
@@ -45,6 +45,20 @@ try {
   eq(pip.parsePipStored("{broken"), pip.defaultPipStored, "unreadable storage");
   eq(pip.parsePipStored(JSON.stringify({ corner: "tl", dx: 12.4, dy: -3, size: 280 })), { corner: "tl", dx: 12, dy: -3, size: 280 }, "stored place");
   eq(pip.parsePipStored(JSON.stringify({ corner: "x", dx: 1, dy: 1, size: 99 })), pip.defaultPipStored, "unknown corner");
+  // The pipSnap spring (the engine's own integrator): from 300 px away at rest it is within 1% of home inside 300 ms and overshoots by under 1%.
+  const { stepSpring } = await import(pathToFileURL(join(output, "pipSpring.js")));
+  const { SPRING } = await import(pathToFileURL(join(output, "motion.js")));
+  const travel = 300, state = { x: travel, v: 0 };
+  let t = 0, peakPast = 0, nearAt = null;
+  while (t < 2000) {
+    stepSpring(state, 0, 1 / 60, SPRING.pipSnap);
+    t += 1000 / 60;
+    peakPast = Math.max(peakPast, -state.x);
+    if (nearAt === null && Math.abs(state.x) < travel * 0.01) nearAt = t;
+  }
+  if (nearAt === null || nearAt > 300) throw new Error(`pipSnap needs ${nearAt} ms to come within 1% of home, over 300`);
+  if (peakPast > travel * 0.01) throw new Error(`pipSnap overshoots by ${peakPast.toFixed(2)} px of ${travel} (over 1%)`);
+  console.log(`pipSnap: within 1% in ${Math.round(nearAt)} ms, overshoot ${peakPast.toFixed(2)} px of ${travel}`);
   console.log("floating desktop position checks: PASS");
 } finally {
   await rm(output, { recursive: true, force: true });
