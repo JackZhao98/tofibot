@@ -68,7 +68,7 @@ export function BackupsSection({resource, onResource}: {resource?: OrgResource; 
   const patch = (change: Partial<BackupView["settings"]>) => setDraft(value => ({...(value ?? view!.settings), ...change}));
   const num = (key: "keep_daily" | "keep_weekly" | "keep_monthly" | "stale_after_hours") => (event: {target: {value: string}}) => patch({[key]: Number(event.target.value) || 0});
   return <SettingsSection id="backups" title={t("admin.org.backup.title")} description={t("admin.org.backup.help")}>
-    <SettingsCard className="provider-list org-card"><article className="detail-content provider-card org-resource" data-resource="backup_store" aria-labelledby={titleId} aria-busy={saving || !view}>
+    <SettingsCard className="provider-list org-card"><article className="detail-content provider-card org-resource" data-resource="backup_store" aria-labelledby={titleId} aria-busy={saving}>
       <CardHead id={titleId} title={t("admin.org.backup.name")} state={state} status={!view?.configured ? t("admin.org.backup.not_configured") : view.stale ? t("admin.org.backup.stale") : undefined} tag={t("admin.org.backup.tag")}/>
       {view?.configured && view.destination && <p className="provider-key-line"><code className="provider-key-mask">{t("admin.org.file_store.summary", {bucket: view.destination.bucket, endpoint: view.destination.endpoint})}</code></p>}
       {view?.configured && <div className="provider-actions">
