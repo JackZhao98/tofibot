@@ -58,7 +58,9 @@ await check("bundle: entry within budget, Radix only in the lazy RadixOverlays c
   const chunk = readFileSync(join(fx.outDir, lazy[0]), "utf8");
   // The popper (positioning) is shared with the lazy Select chunk, so Rollup may hoist it into a common non-entry chunk.
   const lazyText = [chunk, ...readdirSync(join(fx.outDir, "assets")).filter(name => name.endsWith(".js") && !eager.includes(`assets/${name}`)).map(name => readFileSync(join(fx.outDir, "assets", name), "utf8"))].join("\n");
-  assert.ok(chunk.includes("data-radix-menu-content") && lazyText.includes("data-radix-popper-content-wrapper"), "Radix menu lives in RadixOverlays, the popper in a lazy chunk");
+  // The menu core is shared with the Bot-computer mini window's ContextMenu (the lazy desktop chunk), so Rollup may hoist it out of RadixOverlays too:
+  // what matters is that it and the popper are in lazy chunks (the entry has none, above) and that RadixOverlays pulls in a lazy menu.
+  assert.ok(lazyText.includes("data-radix-menu-content") && lazyText.includes("data-radix-popper-content-wrapper"), "Radix menu and popper live in lazy chunks");
   console.log(`  RadixOverlays chunk: ${zlib.gzipSync(Buffer.from(chunk), { level: 9 }).length} bytes gzip`);
 });
 
