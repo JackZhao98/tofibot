@@ -246,7 +246,6 @@ button.settings-row-v2.is-link:focus-visible{outline:var(--focus-ring-width) sol
 .settings-page-body .detail-content,.settings-page-body .connection-info{padding:0;margin:0;border:0;background:transparent;box-shadow:none;border-radius:0}
 .settings-page-body .detail-heading{padding-right:0;padding-left:0}
 .settings-page-body .detail-heading h2{font-size:16px}
-.legacy-archive-entry{margin:0;padding:12px 16px;border-radius:14px;background:var(--surface-2)}
 .integration-search input{padding-left:42px;background:var(--surface-2)}
 .integration-grid>:last-child:nth-child(odd){grid-column:1/-1}
 .admin-accounts{max-width:none}
@@ -299,3 +298,8 @@ button.settings-row-v2.is-link:focus-visible{outline:var(--focus-ring-width) sol
 
 /* Checked boxes and radios in Settings: no hard shadow. */
 .settings-page-body :is(input[type="checkbox"],input[type="radio"]):checked{box-shadow:none}
+
+/* Folded group (a line with a count; the rows open under it) and its rows. */
+.st-fold>*+*{border-top:1px solid var(--line-soft)}
+.st-fold>.settings-row-v2:not(.is-link),.st-fold>.settings-sec{padding-left:0;padding-right:0}
+.st-fold>.settings-sec{margin:0}

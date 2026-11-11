@@ -86,6 +86,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/computer/contents") return {environment: ["WEB_API_TOKEN", "DEPLOY_REGION"], ssh_keys: ["id_work"], pending_file_copies: 2};
     if (path === "/api/computer/credentials") return {credentials: [{id: "cred_1", name: "WEB_API_TOKEN", kind: "env", target: "WEB_API_TOKEN", created_at: "2026-10-20T10:00:00Z"}]};
     if (path === "/api/computer/ssh-keys") return {keys: []};
+    // Environments shows the Bot computer service's idle timeout (a read-only Behavior row) when there is a computer.
+    if (path === "/api/models") return {models: [], source: "live", warning: ""};
+    if (path === "/api/automation-settings") return {items: [{key: "desktop_idle_seconds", group: "environment", kind: "readonly", default: null, value: 300, source: "default", read_only: true, unit: "seconds"}]};
     if (path === "/api/extensions/mcp") return {servers: []};
     if (path === "/api/command-waits") return {count: 0, bots: []};
     if (path === "/api/settings-changes") return {changes: []};
@@ -134,9 +137,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   {
     requested.length = 0;
     const {page, close} = await open({computer: "none", tab: "general", view: "page"});
-    assert.ok(!(await railTabs(page)).includes("keys"), "Keys is hidden without a Bot computer");
+    assert.ok(!(await railTabs(page)).includes("keys"), "there is no Keys page in the rail");
     await goTab(page, "computer");
     await page.getByText(en.none.title).waitFor();
+    assert.equal(await page.getByRole("button", {name: "Environment variables and SSH keys"}).count(), 0, "no Keys row without a Bot computer");
     assert.equal(await page.getByText(en.contents.title).count(), 0, "no 'What is on this Bot computer' without a Bot computer");
     await goTab(page, "advanced");
     await page.getByText("PURGE").first().waitFor();
@@ -145,8 +149,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.deepEqual(apiOfComputer(), [], `no /api/computer request without a Bot computer: ${apiOfComputer().join(", ")}`);
     if (shots) { await goTab(page, "computer"); await page.waitForTimeout(500); await page.screenshot({path: join(shots, "no-computer-1440.png")}); }
     await close();
-    // A saved link to the Keys page lands on Computer, still without a request.
-    const deep = await open({computer: "none", tab: "keys", view: "page"});
+    // A saved link to the old Keys page lands on Computer, still without a request.
+    const deep = await open({computer: "none", tab: "computer", view: "page"});
     await deep.page.waitForFunction(() => document.querySelector(`.settings-tabs [aria-current="page"]`)?.dataset.tab === "computer");
     await deep.page.waitForTimeout(500);
     assert.deepEqual(apiOfComputer(), [], "a saved Keys link makes no /api/computer request without a Bot computer");
@@ -165,10 +169,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     requested.length = 0;
     const {page, close} = await open({computer: "kvm", tab: "computer", view: "page"});
     await page.locator(".environments-page").waitFor();
-    await page.locator(".settings-tabs .settings-nav-more").click();
-    assert.ok((await railTabs(page)).includes("keys"), "Keys is shown, in the Advanced group, with a Bot computer");
+    await page.getByRole("button", {name: "Environment variables and SSH keys"}).waitFor();
     assert.equal(await page.locator(".computer-contents").count(), 0, "the Environments page has no 'what is on this computer' list");
-    await goTab(page, "keys");
+    await page.getByRole("button", {name: "Environment variables and SSH keys"}).click();
     await page.locator(".computer-credentials").waitFor();
     // The wipe list sits above the typed confirmation.
     await goTab(page, "advanced");

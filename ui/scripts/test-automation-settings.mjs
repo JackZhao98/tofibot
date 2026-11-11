@@ -25,7 +25,10 @@ const {default: react} = await import("@vitejs/plugin-react");
 const shots = process.env.AUTOMATION_SHOTS;
 if (shots) await mkdir(shots, {recursive: true});
 
-const KEYS = ["conversation_model", "background_model", "structured_output", "force_say_haiku_dm", "web_search", "group_exchange_gists", "own_replies_verbatim", "completion_review", "answer_gate", "mcp_auto_review", "remembered_approval_hours", "provider_retries", "schedule_receipt_review", "desktop_idle_seconds", "browser_engine", "desktop_engine", "widget_artifacts_auto", "widget_computer_auto"];
+const KEYS = ["conversation_model", "background_model", "structured_output", "force_say_haiku_dm", "web_search", "group_exchange_gists", "own_replies_verbatim", "completion_review", "answer_gate", "mcp_auto_review", "personal_input_review", "remembered_approval_hours", "provider_retries", "schedule_receipt_review", "task_fanout_width", "desktop_idle_seconds", "browser_engine", "desktop_engine", "command_check_minutes", "computer_idle_off_minutes", "widget_artifacts_auto", "widget_computer_auto", "work_trace"];
+// System > Behavior: the common rows in their order, then the five folded groups with their rows.
+const COMMON = ["web_search", "structured_output", "widget_artifacts_auto", "widget_computer_auto", "computer_idle_off_minutes", "work_trace", "provider_retries"];
+const FOLDED = {groups: ["group_exchange_gists"], replies: ["force_say_haiku_dm", "own_replies_verbatim"], reviews: ["completion_review", "answer_gate", "schedule_receipt_review"], tasks: ["task_fanout_width"], computer: ["browser_engine", "desktop_engine", "command_check_minutes"]};
 
 const fixture = await mkdtemp(join(ui, ".automation-settings-"));
 let server, browser;
@@ -38,36 +41,45 @@ try {
   await writeFile(join(fixture, "main.tsx"), `${styles}
 import React from 'react';import {createRoot} from 'react-dom/client';
 import {i18nReady,setLanguage} from '../src/i18n';
-import {AutomationSettings} from '../src/AutomationSettings';
-import {AllowancesPage} from '../src/settings/SettingsPages';
+import {AutomationRows,BehaviorPage} from '../src/AutomationSettings';
+import {PermissionsPage} from '../src/settings/SettingsPages';
+import {StandingAllowances} from '../src/StandingAllowances';
 import {TimezoneProvider} from '../src/UserTimezone';
 const query=new URLSearchParams(location.search);
-void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><div className="workspace"><div className="settings-page-body" data-page={query.get('page')||'automation'}>{query.get('page')==='permissions'?<AllowancesPage openTab={tab=>{(window as any).__openTab=tab}}/>:<AutomationSettings onOpenPermissions={()=>{(window as any).__openTab='permissions'}}/>}</div></div></TimezoneProvider>));
+const page=query.get('page')||'behavior';
+const body=page==='permissions'?<PermissionsPage/>:page==='allowances'?<StandingAllowances/>:page==='rows'?<AutomationRows groups={['models','remembered','permissions','environment']}/>:<BehaviorPage onOpenFollowups={()=>{(window as any).__openTab='followups'}}/>;
+void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><div className="workspace"><div className="settings-page-body" data-page={page}>{body}</div></div></TimezoneProvider>));
 `);
   server = await createServer({configFile: false, root: ui, plugins: [react()], server: {host: "127.0.0.1", port: 0, hmr: false}, logLevel: "error"});
   await server.listen();
   const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
   browser = await chromium.launch({executablePath: process.env.TOFI_TEST_CHROME || undefined});
 
+  // `group` is where the server says a row is shown (settings-simplify): common and the five folded groups are System > Behavior; the others sit beside their setting.
   const meta = {
-    conversation_model: {group: "models", kind: "model", def: "claude-sonnet-5-5"},
+    conversation_model: {group: "defaults", kind: "model", def: "claude-sonnet-5-5"},
     background_model: {group: "models", kind: "model", def: "claude-haiku-5-5", auto: true},
-    structured_output: {group: "replies", kind: "bool", def: true},
+    structured_output: {group: "common", kind: "bool", def: true},
     force_say_haiku_dm: {group: "replies", kind: "bool", def: true},
-    web_search: {group: "replies", kind: "bool", def: true},
-    group_exchange_gists: {group: "history", kind: "bool", def: true},
-    own_replies_verbatim: {group: "history", kind: "int", def: 3, min: 1, max: 20},
-    completion_review: {group: "checks", kind: "bool", def: true},
-    answer_gate: {group: "checks", kind: "int", def: 2, min: 0, max: 5},
-    mcp_auto_review: {group: "checks", kind: "enum", def: "off", options: ["off", "shadow", "auto"]},
-    remembered_approval_hours: {group: "checks", kind: "int", def: 24, min: 1, max: 720, unit: "hours"},
-    provider_retries: {group: "reliability", kind: "int", def: 5, min: 0, max: 10},
-    schedule_receipt_review: {group: "schedules", kind: "bool", def: true},
-    desktop_idle_seconds: {group: "computer", kind: "readonly"},
+    web_search: {group: "common", kind: "bool", def: true},
+    group_exchange_gists: {group: "groups", kind: "bool", def: true},
+    own_replies_verbatim: {group: "replies", kind: "int", def: 3, min: 1, max: 20},
+    completion_review: {group: "reviews", kind: "bool", def: true},
+    answer_gate: {group: "reviews", kind: "int", def: 2, min: 0, max: 5},
+    mcp_auto_review: {group: "permissions", kind: "enum", def: "off", options: ["off", "shadow", "auto"]},
+    personal_input_review: {group: "permissions", kind: "enum", def: "commands", options: ["declared", "commands", "all"]},
+    remembered_approval_hours: {group: "remembered", kind: "int", def: 24, min: 1, max: 720, unit: "hours"},
+    provider_retries: {group: "common", kind: "int", def: 5, min: 0, max: 10},
+    schedule_receipt_review: {group: "reviews", kind: "bool", def: true},
+    task_fanout_width: {group: "tasks", kind: "int", def: 3, min: 1, max: 12},
+    desktop_idle_seconds: {group: "environment", kind: "readonly"},
     browser_engine: {group: "computer", kind: "enum", def: "playwright", options: ["classic", "playwright"]},
     desktop_engine: {group: "computer", kind: "enum", def: "classic", options: ["classic", "a11y"]},
-    widget_artifacts_auto: {group: "widgets", kind: "bool", def: true},
-    widget_computer_auto: {group: "widgets", kind: "bool", def: true},
+    command_check_minutes: {group: "computer", kind: "int", def: 30, min: 5, max: 1440, unit: "minutes"},
+    computer_idle_off_minutes: {group: "common", kind: "int", def: 15, min: 5, max: 60, unit: "minutes"},
+    widget_artifacts_auto: {group: "common", kind: "bool", def: true},
+    widget_computer_auto: {group: "common", kind: "bool", def: true},
+    work_trace: {group: "common", kind: "bool", def: true},
   };
   const state = {};
   const requests = [];
@@ -127,6 +139,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       return {ok: true, id};
     }
     if (path === "/api/models") return {models, source: "live", warning: ""};
+    if (path === "/api/bots") return {bots: []};
     return undefined;
   };
   async function open(params = {}, {width = 1100, height = 900, theme = "light", locale = "en-US"} = {}) {
@@ -148,47 +161,59 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await route.fulfill({status, contentType: "application/json", body: JSON.stringify(payload)});
     });
     await page.goto(`${origin}/${basename(fixture)}/index.html?${new URLSearchParams(params)}`);
-    await page.locator(params.page === "permissions" ? ".permissions-page" : ".auto-row").first().waitFor({timeout: 20000});
+    await page.locator(params.page === "permissions" ? ".permissions-page" : params.page === "allowances" ? ".settings-sec" : ".auto-row").first().waitFor({timeout: 20000});
     return {page, errors, close: () => context.close()};
   }
   const row = (page, key) => page.locator(`.auto-row[data-key="${key}"]`);
 
-  // ---- 1. Every item shows what it does, its default and its current value.
+  // ---- 1. Behavior: the common rows show, the rest sit in five folded groups; every row shows what it does and its value.
   {
     reset();
     const t = await open({}, {height: 2400});
-    assert.deepEqual(await t.page.locator(".auto-row").evaluateAll(rows => rows.map(r => r.dataset.key)), KEYS, "every behavior is listed, in order");
-    for (const key of KEYS) {
+    const keys = () => t.page.locator(".auto-row").evaluateAll(rows => rows.map(r => r.dataset.key));
+    assert.deepEqual(await keys(), COMMON, "the common rows, in order, and nothing else until a group is opened");
+    assert.deepEqual(await t.page.locator(".st-fold").evaluateAll(folds => folds.map(f => f.dataset.section)), Object.keys(FOLDED), "five folded groups, in order");
+    assert.match(await t.page.locator('.st-fold[data-section="reviews"] > button').innerText(), /3 settings/, "a folded line says how many settings it holds");
+    for (const id of Object.keys(FOLDED)) await t.page.locator(`.st-fold[data-section="${id}"] > button`).click();
+    assert.deepEqual(await keys(), [...COMMON, ...Object.values(FOLDED).flat()], "opening the groups lists every other row, in order");
+    for (const key of [...COMMON, ...Object.values(FOLDED).flat()]) {
       const text = (await row(t.page, key).innerText()).replace(/\s+/g, " ");
       assert.ok(!/automation\./.test(text), `${key}: raw i18n key on the page: ${text}`);
-      assert.ok(text.length > 60, `${key}: name and one-sentence description are shown: ${text}`);
+      assert.ok(text.length > 40, `${key}: name and one-sentence description are shown: ${text}`);
       // A value at its default says nothing; "Changed · default X · Reset" appears only once it differs (settings-simplify 5.4).
       assert.doesNotMatch(text, /Default: |Changed/, `${key}: nothing about a default while the value is the default`);
     }
-    assert.equal(await t.page.locator(".settings-sec h4").count(), 8, "eight calm groups; the allowance tables live on the Permissions page");
-    assert.equal(await t.page.locator(".standing-item, .standing-list").count(), 0, "no allowance table on this page");
-    assert.match(await row(t.page, "conversation_model").innerText(), /Claude Sonnet 5\.5/, "conversation model default and value are named");
-    assert.equal(await row(t.page, "conversation_model").locator(".ui-select-trigger").getAttribute("data-value"), "claude-sonnet-5-5");
-    assert.match(await row(t.page, "background_model").innerText(), /Automatic · Claude Haiku 5\.5/, "background model says what automatic means");
+    assert.equal(await row(t.page, "conversation_model").count() + await row(t.page, "mcp_auto_review").count(), 0, "the conversation model and the reviewer mode have no row here: Models and Permissions own them");
     assert.equal(await row(t.page, "web_search").getByRole("switch").isChecked(), true, "on-by-default switches start on");
-    // The reviewer mode has one control, on the Permissions page; this row shows the value (D15) and links there.
-    assert.equal(await row(t.page, "mcp_auto_review").locator(".ui-select-trigger, input, [role=switch]").count(), 0, "no second control for the reviewer mode");
-    assert.match(await row(t.page, "mcp_auto_review").innerText(), /Off/);
-    await row(t.page, "mcp_auto_review").getByRole("button", {name: "Set in Permissions"}).click();
-    assert.equal(await t.page.evaluate(() => window.__openTab), "permissions", "the link opens the Permissions page");
     assert.equal(await row(t.page, "provider_retries").locator(".ui-select-trigger").getAttribute("data-value"), "5");
-    assert.equal(await row(t.page, "remembered_approval_hours").locator(".ui-select-trigger").getAttribute("data-value"), "24");
-    assert.match(await row(t.page, "desktop_idle_seconds").innerText(), /5 min/, "the Bot computer service's idle timeout is shown");
-    assert.equal(await row(t.page, "desktop_idle_seconds").locator(".ui-select-trigger, input").count(), 0, "a value owned elsewhere has no control");
     assert.equal(await row(t.page, "browser_engine").locator(".ui-select-trigger").getAttribute("data-value"), "playwright", "the browser engine is a real choice, Playwright by default");
     assert.match(await row(t.page, "browser_engine").locator("[data-testid=default-changed]").innerText(), /Default changed/, "the browser engine row says its default changed");
     assert.equal(await row(t.page, "desktop_engine").locator("[data-testid=default-changed]").count(), 0, "only the browser engine row carries the note");
     assert.equal(await row(t.page, "desktop_engine").locator(".ui-select-trigger").getAttribute("data-value"), "classic", "the desktop engine is a real choice, classic by default");
     assert.equal(await t.page.locator(".st-changed").count(), 0, "nothing is marked changed at the defaults");
+    await t.page.getByRole("button", {name: "Follow-ups"}).click();
+    assert.equal(await t.page.evaluate(() => window.__openTab), "followups", "the Follow-ups row opens its subpage");
     assert.deepEqual(t.errors, [], `page errors: ${t.errors}`);
     if (shots) await t.page.locator(".settings-page-body").screenshot({path: join(shots, "automation-light.png")});
     await t.close();
-    console.log("PASS every behavior renders with what it does, its default and its current value");
+    console.log("PASS Behavior shows the common rows, folds the rest, and every row renders with what it does and its value");
+  }
+
+  // ---- 1b. Rows that sit beside their setting: the background model, the remembered-approval window, the Mac input review, the idle timeout.
+  {
+    reset();
+    const t = await open({page: "rows"});
+    assert.deepEqual(await t.page.locator(".auto-row").evaluateAll(rows => rows.map(r => r.dataset.key)), ["background_model", "personal_input_review", "remembered_approval_hours", "desktop_idle_seconds"], "the rows of the requested groups, without the reviewer mode");
+    assert.match(await row(t.page, "background_model").innerText(), /Automatic · Claude Haiku 5\.5/, "background model says what automatic means");
+    assert.equal(await row(t.page, "remembered_approval_hours").locator(".ui-select-trigger").getAttribute("data-value"), "24");
+    assert.match(await row(t.page, "desktop_idle_seconds").innerText(), /5 min/, "the Bot computer service's idle timeout is shown");
+    assert.equal(await row(t.page, "desktop_idle_seconds").locator(".ui-select-trigger, input").count(), 0, "a value owned elsewhere has no control");
+    await pickSelect(row(t.page, "background_model"), "claude-opus-5-5");
+    await t.page.waitForFunction(() => document.querySelector('.auto-row[data-key="background_model"] .st-changed'));
+    assert.deepEqual(requests, ['PUT /api/automation-settings {"values":{"background_model":"claude-opus-5-5"}}']);
+    assert.deepEqual(t.errors, [], `page errors: ${t.errors}`);
+    await t.close();
+    console.log("PASS rows placed beside their setting render and save on their own");
   }
 
   // ---- 2. A change is sent once, persists across a reload, and renders only its own row.
@@ -212,15 +237,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.ok(elapsed < 1500, `toggle round trip took ${elapsed}ms`);
     await pickSelect(row(t.page, "provider_retries"), "2");
     await t.page.waitForFunction(() => document.querySelector('.auto-row[data-key="provider_retries"] .st-changed'));
-    await pickSelect(row(t.page, "background_model"), "claude-opus-5-5");
-    await t.page.waitForFunction(() => document.querySelector('.auto-row[data-key="background_model"] .st-changed'));
-    assert.equal(requests.length, 3);
-    assert.deepEqual(state.stored, {web_search: false, provider_retries: 2, background_model: "claude-opus-5-5"});
+    assert.equal(requests.length, 2);
+    assert.deepEqual(state.stored, {web_search: false, provider_retries: 2});
     await t.page.reload();
     await t.page.locator(".auto-row").first().waitFor();
     assert.equal(await row(t.page, "web_search").getByRole("switch").isChecked(), false, "persisted across a reload");
     assert.equal(await row(t.page, "provider_retries").locator(".ui-select-trigger").getAttribute("data-value"), "2");
-    assert.equal(await row(t.page, "background_model").locator(".ui-select-trigger").getAttribute("data-value"), "claude-opus-5-5");
     // Reset returns to the default and drops the marker.
     requests.length = 0;
     await row(t.page, "web_search").getByRole("button", {name: "Reset to default"}).click();
@@ -244,7 +266,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await row(t.page, "provider_retries").locator(".ui-select-trigger").isDisabled(), true);
     assert.equal(await row(t.page, "provider_retries").locator(".ui-select-trigger").getAttribute("data-value"), "1");
     assert.equal(await locked.getByRole("button", {name: "Reset to default"}).count(), 0, "no reset for a locked item");
-    assert.equal(await row(t.page, "completion_review").getByRole("switch").isDisabled(), false, "other items stay editable");
+    assert.equal(await row(t.page, "structured_output").getByRole("switch").isDisabled(), false, "other items stay editable");
     if (shots) 
     await t.close();
     console.log("PASS environment-locked items show the value in force and stay read-only");
@@ -255,10 +277,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     reset();
     const t = await open();
     state.failNext = true;
-    await row(t.page, "completion_review").getByRole("switch").click();
-    await row(t.page, "completion_review").getByRole("alert").waitFor();
-    assert.match(await row(t.page, "completion_review").innerText(), /Could not save this setting/);
-    assert.equal(await row(t.page, "completion_review").getByRole("switch").isChecked(), true, "the control still shows what is in force");
+    await row(t.page, "structured_output").getByRole("switch").click();
+    await row(t.page, "structured_output").getByRole("alert").waitFor();
+    assert.match(await row(t.page, "structured_output").innerText(), /Could not save this setting/);
+    assert.equal(await row(t.page, "structured_output").getByRole("switch").isChecked(), true, "the control still shows what is in force");
     assert.deepEqual(state.stored, {});
     await t.close();
     console.log("PASS a failed save keeps the old value and shows the reason");
@@ -277,17 +299,13 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   {
     reset();
     Object.assign(state, sample());
-    const t = await open({page: "permissions"}, {});
-    await t.page.locator(".permissions-page").waitFor();
+    const t = await open({page: "allowances"}, {});
     const items = t.page.locator(".standing-item[data-allowance-id]");
     await items.first().waitFor();
     assert.equal(await items.count(), 4);
     assert.match(await t.page.locator(".settings-page-body").innerText(), /also applies when the Bot works on its own, for example on a schedule/, "Settings says the allowance applies when the Bot works on its own");
-    assert.deepEqual(await t.page.locator(".permissions-how-row strong").allInnerTexts(), ["Runs without asking", "Asks when unsure", "Always asks me"], "the three words, in order");
-    assert.equal(await t.page.locator("#auto-review-mode").getAttribute("data-value"), "off", "the reviewer mode has its one control here");
-    assert.equal(await t.page.locator(".permissions-page .settings-banner").count(), 0, "no 'more controls are on the way' banner");
-    assert.match(await t.page.locator(".permissions-page").innerText(), /Always allowed/);
-    assert.match(await t.page.locator(".permissions-page").innerText(), /Remembered in chats/);
+    assert.match(await t.page.locator(".settings-page-body").innerText(), /Always allowed/);
+    assert.match(await t.page.locator(".settings-page-body").innerText(), /Remembered in chats/);
     const first = (await items.nth(0).innerText()).replace(/\s+/g, " ");
     assert.match(first, /tofi/); assert.match(first, /notion-update-page/); assert.match(first, /notion/);
     assert.match(first, /Allowed .*2026/); assert.match(first, /Last used .*2026/); assert.match(first, /used 3 times/);
@@ -318,8 +336,32 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     console.log("PASS standing allowances list Bot, server, tool and dates, and Revoke removes them");
   }
 
+  // ---- 4c. Permissions: Advanced is a subpage holding the reviewer model, Observe mode and the Mac input review; Observe is one switch.
+  {
+    reset();
+    const t = await open({page: "permissions"});
+    await t.page.getByRole("button", {name: "Advanced"}).click();
+    await t.page.locator('[data-section="advanced"]').waitFor();
+    assert.equal(await t.page.locator(".permissions-page [data-section=mode]").isHidden(), true, "the page itself is hidden while the subpage is open");
+    const observe = t.page.getByRole("switch", {name: "Observe mode"});
+    await observe.waitFor();
+    assert.equal(await observe.isChecked(), false);
+    assert.equal(await t.page.locator("[data-section=advanced] .auto-row").count(), 1, "the Mac input review is the one Behavior row on this subpage");
+    assert.equal(await t.page.locator("#approval-reviewer-model").count(), 1, "the reviewer model is here");
+    await observe.click();
+    await t.page.waitForFunction(() => document.querySelector('[role=switch][aria-label="Observe mode"]')?.getAttribute("aria-checked") === "true");
+    assert.deepEqual(requests, ['PUT /api/auto-review-settings {"mode":"shadow"}'], "Observe writes the shadow mode");
+    await t.page.getByRole("button", {name: "Back"}).click();
+    await t.page.locator(".permissions-page [data-section=mode]").waitFor();
+    assert.equal(await t.page.locator(".auto-row[data-key=remembered_approval_hours]").count(), 1, "the remembered-approval window sits in Remembered in chats");
+    assert.deepEqual(t.errors, [], `page errors: ${t.errors}`);
+    await t.close();
+    console.log("PASS Permissions: Advanced subpage with the reviewer model, Observe and the Mac input review");
+  }
+
   // ---- 5. Seven languages: no raw keys, no horizontal overflow at 390px.
-  for (const [lang, locale, title] of [["en", "en-US", "Conversation model"], ["zh-CN", "zh-CN", "对话模型"], ["zh-TW", "zh-TW", "對話模型"], ["ja", "ja-JP", "会話モデル"], ["ko", "ko-KR", "대화 모델"], ["de", "de-DE", "Gesprächsmodell"], ["fr", "fr-FR", "Modèle de conversation"]]) {
+  for (const [lang, locale] of [["en", "en-US"], ["zh-CN", "zh-CN"], ["zh-TW", "zh-TW"], ["ja", "ja-JP"], ["ko", "ko-KR"], ["de", "de-DE"], ["fr", "fr-FR"]]) {
+    const title = JSON.parse(await readFile(join(ui, "src/locales", lang, "settings.json"), "utf8")).automation.item.web_search.name;
     reset();
     state.stored = {remembered_approval_hours: 48, provider_retries: 0};
     Object.assign(state, sample());

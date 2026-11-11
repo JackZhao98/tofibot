@@ -1190,7 +1190,7 @@
       },
       "link": "/settings/computer#keys",
       "manual": "settings/computer",
-      "label_key": "settings:shell.page.keys.name",
+      "label_key": "settings:computer.keys_row",
       "audit": true
     },
     {

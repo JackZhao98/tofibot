@@ -30,7 +30,7 @@ export function ApprovalModeSetting() {
   const [error, setError] = useState("");
   const [version, setVersion] = useState(0);
   const writing = useRef(false);
-  // Re-read whenever the page is shown: Advanced > Tool rules writes the account mode, a Bot's page can add Bots.
+  // Re-read whenever the page is shown: Permissions > Advanced (Observe) writes the account mode, a Bot's page can add Bots.
   useEffect(() => {
     if (!active || writing.current) return;
     const controller = new AbortController();
@@ -89,14 +89,13 @@ export function ApprovalModeSetting() {
         </div>)}
       </SettingsCard>
     </SettingsSection>}
-    <ReviewerModel/>
   </div>;
 }
 
 type BackgroundItem = {key: string; value: string | null; default: string | null; locked?: boolean};
 
-/** The reviewer is the background model (Settings > Behavior lists the same setting): "Automatic" or a chosen model. */
-function ReviewerModel() {
+/** The reviewer is the background model (Settings > Models > More lists the same setting): "Automatic" or a chosen model. */
+export function ReviewerModel() {
   const {t} = useTranslation("settings");
   const active = useSettingsActive();
   const {catalog} = useModelCatalog();

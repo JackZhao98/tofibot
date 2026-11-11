@@ -1,6 +1,6 @@
 // Rendered acceptance for the Primary Assistant role and the Follow-ups (preview) page.
 // Mounts the real components in a Vite fixture with every /api/* call stubbed (synthetic data) and drives them with
-// Playwright: the Settings selector, the delete / hide dialogs that force a successor, the sidebar badge, and the
+// Playwright: the delete / hide dialogs that force a successor, the sidebar badge, and the
 // preview page with its review buttons. Needs PLAYWRIGHT_MODULE.
 import {selectValue, selectLabels, pickSelect} from "./lib/select.mjs";
 import assert from "node:assert/strict";
@@ -29,20 +29,15 @@ import {ApiError,api} from '../src/api';
 import {TimezoneProvider} from '../src/UserTimezone';
 import {DeleteConversationDialog} from '../src/DeleteConversationDialog';
 import {PrimaryBadge} from '../src/PrimaryAssistant';
-import {PrimaryAssistantSetting} from '../src/PrimaryAssistantSetting';
 import {ReassignPrimaryDialog} from '../src/ReassignPrimaryDialog';
 import {FollowupsSettings} from '../src/FollowupsSettings';
 const query=new URLSearchParams(location.search);
-const scene=query.get('scene')||'selector';
+const scene=query.get('scene')||'followups';
 function useBots(){
  const [bots,setBots]=useState<any[]>([]);
  const reload=useCallback(async()=>{setBots((await api.bots()).bots)},[]);
  useEffect(()=>{void reload()},[reload]);
  return {bots,reload};
-}
-function Selector(){
- const {bots,reload}=useBots();
- return <div className="workspace"><div className="settings-page-body" data-page="general"><div className="settings-stack"><PrimaryAssistantSetting bots={bots} onChanged={reload}/></div></div></div>;
 }
 function Followups(){
  return <div className="workspace"><div className="settings-page-body" data-page="followups"><FollowupsSettings/></div></div>;
@@ -58,7 +53,7 @@ function Hide(){
  return bot?<ReassignPrimaryDialog bot={bot} bots={bots} onClose={()=>{(window as any).__closed=true}} onConfirm={async id=>{(window as any).__hidden={successor:id}}}/>:null;
 }
 function Badge(){return <div className="workspace"><div className="contact-copy"><strong><span className="contact-name">A very long Bot name that has to be truncated before the tag</span><PrimaryBadge/></strong></div></div>}
-const scenes:Record<string,()=>JSX.Element|null>={selector:Selector,followups:Followups,delete:Delete,hide:Hide,badge:Badge};
+const scenes:Record<string,()=>JSX.Element|null>={followups:Followups,delete:Delete,hide:Hide,badge:Badge};
 const Scene=scenes[scene];
 void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><Scene/></TimezoneProvider>));
 `);
@@ -126,24 +121,6 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     });
     await page.goto(`${origin}/${basename(fixture)}/index.html?${new URLSearchParams(params)}`);
     return {page, errors, close: () => context.close()};
-  }
-
-  // ---- 1. Settings selector: shows the current Primary, lists active Bots only, applies at once.
-  {
-    reset();
-    const {page, errors, close} = await open({scene: "selector"});
-    const select = page.locator("#primary-assistant");
-    await select.waitFor({timeout: 15000});
-    assert.equal(await selectValue(select), "bot_research", "selector shows the current Primary");
-    assert.deepEqual(await selectLabels(select), ["Research Bot", "Inbox Bot", "Notes Bot"], "archived Bots are not offered");
-    assert.ok(await page.getByText("Primary Assistant", {exact: true}).first().isVisible(), "section title");
-    await pickSelect(select, "bot_inbox");
-    await page.waitForFunction(() => document.querySelector("#primary-assistant")?.dataset.value === "bot_inbox");
-    assert.equal(state.primary, "bot_inbox", "the choice reached the server");
-    assert.deepEqual(requests, ['PUT /api/primary-assistant {"bot_id":"bot_inbox"}'], "one write, no other");
-    assert.deepEqual(errors, [], `page errors: ${errors}`);
-    await close();
-    console.log("PASS selector: current Primary, active Bots only, applies at once");
   }
 
   // ---- 2. Delete dialog: the Primary needs a successor; others do not.
@@ -288,7 +265,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   }
 
   // ---- 7. Seven locales: the new surfaces are translated and fit at 390px.
-  for (const [lang, locale, title, primary] of [["zh-CN", "zh-CN", "仅预览，不会发送任何内容。", "主助理"], ["zh-TW", "zh-TW", "僅預覽，不會傳送任何內容。", "主要助理"], ["ja", "ja-JP", "プレビューのみです。何も送信されません。", "メインアシスタント"], ["ko", "ko-KR", "미리보기 전용입니다. 아무것도 전송되지 않습니다.", "기본 어시스턴트"], ["de", "de-DE", "Nur Vorschau. Es wird nichts gesendet.", "Hauptassistent"], ["fr", "fr-FR", "Aperçu uniquement. Rien n’est envoyé.", "Assistant principal"]]) {
+  for (const [lang, locale, title] of [["zh-CN", "zh-CN", "仅预览，不会发送任何内容。", "主助理"], ["zh-TW", "zh-TW", "僅預覽，不會傳送任何內容。", "主要助理"], ["ja", "ja-JP", "プレビューのみです。何も送信されません。", "メインアシスタント"], ["ko", "ko-KR", "미리보기 전용입니다. 아무것도 전송되지 않습니다.", "기본 어시스턴트"], ["de", "de-DE", "Nur Vorschau. Es wird nichts gesendet.", "Hauptassistent"], ["fr", "fr-FR", "Aperçu uniquement. Rien n’est envoyé.", "Assistant principal"]]) {
     reset();
     let t = await open({scene: "followups", lang}, {width: 390, height: 844, locale});
     // The preview banner is gone; the page is ready when its first section is, and it holds no raw catalog key.
@@ -297,8 +274,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const overflow = await t.page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     assert.ok(overflow <= 1, `${lang}: followups page overflows by ${overflow}px`);
     await t.close();
-    t = await open({scene: "selector", lang}, {width: 390, height: 844, locale});
-    await t.page.getByText(primary).first().waitFor({timeout: 15000});
+    t = await open({scene: "badge", lang}, {width: 390, height: 844, locale});
+    await t.page.locator(".primary-badge").waitFor({timeout: 15000});
     await t.close();
   }
   console.log("PASS locales: zh-CN, zh-TW, ja, ko, de, fr render both surfaces without horizontal overflow");

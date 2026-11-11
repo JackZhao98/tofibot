@@ -441,26 +441,12 @@ try {
     assert.equal(await own.page.locator(".policy-banner").count(), 0);
     await own.close();
 
-    // The Settings banner: shown while something is managed, opens the page that explains it, dismissible and remembered.
-    const banner = await open({tab: "general", policy: capabilities(provided)});
-    await banner.page.locator('[data-testid="policy-banner"]').waitFor();
-    assert.match(await text(banner.page.locator('[data-testid="policy-banner"]')), /Some resources are provided by your organization.*Review/);
-    await shot(banner.page, "member-banner-light-1440");
-    await banner.page.locator('[data-testid="policy-banner"]').getByRole("button", {name: "Review"}).click();
-    await banner.page.locator('.settings-tabs [data-tab="models"][aria-current="page"]').waitFor();
-    await banner.page.locator('.settings-tabs [data-tab="general"]').click();
-    await banner.page.getByRole("button", {name: "Dismiss"}).click();
-    await banner.page.locator('[data-testid="policy-banner"]').waitFor({state: "detached"});
-    await banner.page.reload();
-    await banner.page.locator(".settings-shell").first().waitFor();
-    await banner.page.locator('.settings-page-body[data-page="general"] [data-section="account"]').waitFor();
-    assert.equal(await banner.page.locator('[data-testid="policy-banner"]').count(), 0, "a dismissed banner stays dismissed in this browser");
-    // A change in what is managed shows it again.
-    await banner.context.close();
-    const again = await open({tab: "general", policy: capabilities(provided, {web_search: {mode: "off", source: "none"}})});
-    await again.page.locator('[data-testid="policy-banner"]').waitFor();
-    await again.close();
-    console.log("PASS member side: provided models are read-only with no key or sign-in, a missing model says so, the banner links and is dismissible, the administrator's own pages stay personal");
+    // General no longer carries a "provided by your organization" banner: the managed rows say it themselves (settings-simplify P1).
+    const general = await open({tab: "general", policy: capabilities(provided)});
+    await general.page.locator('.settings-page-body[data-page="general"] [data-section="account"]').waitFor();
+    assert.equal(await general.page.locator('[data-testid="policy-banner"]').count(), 0, "no banner on General");
+    await general.close();
+    console.log("PASS member side: provided models are read-only with no key or sign-in, a missing model says so, General has no banner, the administrator's own pages stay personal");
   }
 
   // ---- 9b. Own models alongside the organization's (D79, P1): under provided the member may also sign in with ChatGPT unless the

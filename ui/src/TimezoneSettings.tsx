@@ -1,8 +1,7 @@
-import {useEffect,useMemo,useRef,useState} from "react";
+import {useMemo,useState} from "react";
 import {browserTimezone,timezoneChoices,validTimezone} from "./timezone";
 import "./timezone-settings.css";
-import {useSettingsDraft} from "./settingsDraft";
-import {SettingsRow,SettingsSwitch} from "./settings/components";
+import {SavedNote,SettingsRow,SettingsSwitch,useSavedFlash} from "./settings/components";
 import {useTranslation} from "./i18n";
 import {Select} from "./Select";
 import {useUserTimezone} from "./UserTimezone";
@@ -21,18 +20,15 @@ export function TimezoneSelect({value,onChange,disabled,label,hideLabel=false}:{
  const zones=useMemo(()=>timezoneChoices(value),[value]);
  return <label className="timezone-select"><span className={hideLabel?"sr-only":undefined}>{label??t("timezone.label")}</span><Select value={value} disabled={disabled} onValueChange={value =>onChange(value)}>{zones.map(zone=><option key={zone} value={zone}>{zone.replaceAll("_"," ")}</option>)}</Select></label>;
 }
+/** The zone applies as soon as it is chosen, like the language beside it. */
 export function TimezoneSetting(){
  const {t}=useTranslation(["settings","common"]);
- const preference=useUserTimezone();const [draft,setDraft]=useState(preference.timezone);const [saved,setSaved]=useState(false);const dirty=useRef(false);
- useEffect(()=>{if(!dirty.current)setDraft(preference.timezone)},[preference.timezone]);
- async function save(){const ok=await preference.save(draft);if(ok){dirty.current=false;setSaved(true)}return ok}
- useSettingsDraft({label:t("timezone.label"),dirty:preference.ready&&draft!==preference.timezone,busy:preference.busy,save,discard:()=>{dirty.current=false;setDraft(preference.timezone);setSaved(false)}});
+ const preference=useUserTimezone();const [saved,flash]=useSavedFlash();
+ const choose=async(zone:string)=>{if(await preference.save(zone))flash()};
  return <section className="timezone-setting"><div><h3>{t("timezone.label")}</h3><p className="field-note">{t("timezone.note")}</p></div>
-  <form onSubmit={event=>{event.preventDefault();void save()}}>
-   <TimezoneSelect hideLabel label={t("timezone.current")} value={draft} disabled={preference.busy} onChange={zone=>{dirty.current=true;setDraft(zone);setSaved(false)}}/>
-   {!preference.ready&&<p className="field-note">{t("timezone.loading")}</p>}
-  </form>
-  {saved&&<p className="settings-feedback" role="status">{t("timezone.saved")}</p>}
+  <SavedNote show={saved}/>
+  <TimezoneSelect hideLabel label={t("timezone.current")} value={preference.timezone} disabled={preference.busy||!preference.ready} onChange={zone=>void choose(zone)}/>
+  {!preference.ready&&<p className="field-note">{t("timezone.loading")}</p>}
   {preference.error&&<div className="timezone-error" role="alert"><span>{preference.error}</span><button className="text-button" type="button" onClick={()=>void preference.refresh()} disabled={preference.busy}>{t("common:action.retry")}</button></div>}
  </section>;
 }

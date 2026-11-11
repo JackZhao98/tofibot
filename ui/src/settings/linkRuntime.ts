@@ -3,6 +3,7 @@ import type { SettingsLink } from "../settingsRoute";
 import type { Bot, Conversation } from "../types";
 import { openConnectionDeepLink, getLinkDeps } from "./deepLinks";
 import { readSettingsHref, readSettingsLink } from "../settingsRoute";
+import { primaryBotOf } from "../PrimaryAssistant";
 import { setPendingSection } from "./pendingSection";
 
 /** What opening a link needs from the app. */
@@ -25,6 +26,12 @@ export function openSettingsLink(link: SettingsLink, deps: OpenLinkDeps): void {
       setPendingSection(link.section ? { scope: "settings", page: link.tab, section: link.section } : null);
       deps.openSettings(link.tab);
       return;
+    case "primary-settings": {
+      const primary = primaryBotOf(deps.bots);
+      if (primary) openSettingsLink({ kind: "bot-settings", botId: primary.id, section: "identity" }, deps);
+      else openSettingsLink({ kind: "settings", tab: "general" }, deps);
+      return;
+    }
     case "connection":
       openConnectionDeepLink({ server: link.name, tool: link.tool });
       return;

@@ -20,22 +20,21 @@ const {createServer} = await import("vite");
 const {default: react} = await import("@vitejs/plugin-react");
 
 const LANGS = ["en", "zh-CN", "zh-TW", "ja", "ko", "de", "fr"];
-// The rail with the Advanced group folded; the folded group holds ADV_TABS ("advanced" is the System page, labelled Maintenance).
-const TABS = ["general", "connections", "skills", "permissions", "models", "tools", "automation", "computer", "usage", "advanced"];
-// "devices" (Other devices) is merged into Environments: no rail item, its id still routes to the Environments page. Keys sits in the folded group.
-const ADV_TABS = ["allowances", "followups", "keys"];
+// The rail: eight pages ("advanced" is the System page). Behavior, Follow-ups and Search & fetch are subpages now, not pages (settings-simplify P1).
+const TABS = ["general", "models", "connections", "skills", "permissions", "computer", "usage", "advanced"];
+// "devices" (Other devices) is merged into Environments: no rail item, its id still routes to the Environments page. Behavior and Follow-ups keep their names as subpage titles.
+const SUBPAGE_NAMES = ["automation", "followups"];
 const ICONS = {general: "sliders", connections: "plug", skills: "skill", permissions: "shield-check", allowances: "checklist", followups: "bell", devices: "laptop", models: "sparkles", tools: "globe", automation: "workflow", computer: "layers", keys: "key", usage: "progress", advanced: "settings", admin: "group", "admin-groups": "workspace", "admin-resources": "server"};
-const NAMES = {general: "General", connections: "Connections", skills: "Skills", permissions: "Permissions", allowances: "Tool rules", followups: "Follow-ups", devices: "Other devices", models: "AI Models", tools: "Search & fetch", automation: "Behavior", computer: "Environments", keys: "Bot computer keys", usage: "Usage", advanced: "Maintenance", admin: "Accounts", "admin-groups": "Groups", "admin-resources": "Organization resources"};
+const NAMES = {general: "General", connections: "Connections", skills: "Skills", permissions: "Permissions", allowances: "Tool rules", followups: "Follow-ups", devices: "Other devices", models: "AI Models", tools: "Search & fetch", automation: "Behavior", computer: "Environments", keys: "Bot computer keys", usage: "Usage", advanced: "System", admin: "Accounts", "admin-groups": "Groups", "admin-resources": "Organization resources"};
 
 // ---- Catalog checks (every locale): page names and descriptions are real translations. Descriptions are no longer shown in the window; the manual and reference pages the server generates read them.
 const catalogs = {};
 for (const lang of LANGS) catalogs[lang] = JSON.parse(await readFile(join(ui, "src/locales", lang, "settings.json"), "utf8"));
 for (const lang of LANGS) {
   const shell = catalogs[lang].shell;
-  // Only Administration keeps a heading; "More" is a rail item (shell.more), the other clusters are spacing.
+  // Only Administration keeps a heading; the other clusters are spacing.
   assert.deepEqual(Object.keys(shell.group).sort(), ["admin"], `${lang}: shell.group keys`);
-  assert.ok(shell.more && (lang === "en" || shell.more !== catalogs.en.shell.more), `${lang}: shell.more is translated`);
-  assert.deepEqual(Object.keys(shell.page).sort(), [...TABS, ...ADV_TABS, "devices", "admin", "admin-groups", "admin-resources"].sort(), `${lang}: shell.page keys (no stale tab ids)`);
+  assert.deepEqual(Object.keys(shell.page).sort(), [...TABS, ...SUBPAGE_NAMES, "devices", "admin", "admin-groups", "admin-resources"].sort(), `${lang}: shell.page keys (no stale tab ids)`);
   let sameAsEnglish = 0;
   for (const [id, page] of Object.entries(shell.page)) {
     assert.ok(page.name && page.description, `${lang}: ${id} needs a name and a description`);
@@ -51,7 +50,7 @@ for (const lang of LANGS) {
     if (lang !== "en") assert.notEqual(catalogs[lang].dictation.model[id].hint, catalogs.en.dictation.model[id].hint, `${lang}: dictation hint is an English copy`);
   }
 }
-console.log(`PASS catalogs: ${LANGS.length} locales have the Administration heading, More, 15 page names, descriptions of at most 70 characters, dictation copy`);
+console.log(`PASS catalogs: ${LANGS.length} locales have the Administration heading, 14 page names, descriptions of at most 70 characters, dictation copy`);
 
 const shots = process.env.SETTINGS_SHOTS;
 if (shots) await mkdir(shots, {recursive: true});
@@ -75,7 +74,9 @@ import {subscribeSettingsDeepLinks} from '../src/settings/deepLinks';
 
 import {UpdateBanner} from '../src/UpdateNotice';
 import {setComputerCapability} from '../src/computerCapability';
+import {setPendingSection} from '../src/settings/pendingSection';
 const query=new URLSearchParams(location.search);
+if(query.get('section'))setPendingSection({scope:'settings',page:query.get('tab')||'general',section:query.get('section')!});
 if(query.get('cap')==='detached')setComputerCapability({backend:'none',available:false,attached:false,host_backend:'kvm',capabilities:[]});
 if(query.get('personal'))setComputerCapability({backend:'kvm',available:true,capabilities:[],personal_computers:true});
 const bots=[{id:'bot_research',name:'Research Bot',is_primary:true,archived:false,model:'default',reasoning_effort:'default'},{id:'bot_inbox',name:'Inbox Bot',archived:false,model:'gpt-6-luna',reasoning_effort:'medium'},{id:'bot_notes',name:'Notes Bot',archived:false,model:'default',reasoning_effort:'default'},{id:'bot_old',name:'Retired Bot',archived:true,model:'default',reasoning_effort:'default'}] as any;
@@ -102,7 +103,47 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   // Permissions page state the stub serves and records: each Bot's own mode, the account mode, the reviewer (background) model.
   const perm = {modes: {bot_research: "auto", bot_inbox: "ask", bot_notes: "ask", bot_old: "ask"}, account: "shadow", reviewer: "", writes: []};
   const resetPerm = () => { Object.assign(perm.modes, {bot_research: "auto", bot_inbox: "ask", bot_notes: "ask", bot_old: "ask"}); perm.account = "shadow"; perm.reviewer = ""; perm.writes.length = 0; };
-  const automationItems = () => [{key: "web_search", group: "replies", kind: "bool", default: true, value: true, source: "default"}, {key: "conversation_model", group: "models", kind: "model", default: "codex-gpt-6-sol", value: "codex-gpt-6-sol", source: "default"}, {key: "background_model", group: "models", kind: "model", default: "gpt-6-luna", value: perm.reviewer, source: perm.reviewer ? "stored" : "default"}];
+  // The 37 behaviors the server reports (internal/app/automation_settings.go), `group` being where the page shows each (settings-simplify).
+  const AUTOMATION = [
+    {"key": "conversation_model", "group": "defaults", "kind": "model", "default": "codex-gpt-6-sol"},
+    {"key": "background_model", "group": "models", "kind": "model", "default": "gpt-6-luna"},
+    {"key": "structured_output", "group": "common", "kind": "bool", "default": true},
+    {"key": "force_say_haiku_dm", "group": "replies", "kind": "bool", "default": true},
+    {"key": "web_search", "group": "common", "kind": "bool", "default": true},
+    {"key": "web_fetch_limit", "group": "replies", "kind": "int", "default": 20, "min": 1, "max": 100},
+    {"key": "group_exchange_gists", "group": "groups", "kind": "bool", "default": true},
+    {"key": "own_replies_verbatim", "group": "replies", "kind": "int", "default": 3, "min": 1, "max": 20},
+    {"key": "task_retention_days", "group": "replies", "kind": "int", "default": 30, "min": 0, "max": 3650, "unit": "days"},
+    {"key": "completion_review", "group": "reviews", "kind": "bool", "default": true},
+    {"key": "answer_gate", "group": "reviews", "kind": "int", "default": 2, "min": 0, "max": 5},
+    {"key": "mcp_auto_review", "group": "permissions", "kind": "enum", "default": "off", "options": ["off", "shadow", "auto"]},
+    {"key": "personal_input_review", "group": "permissions", "kind": "enum", "default": "commands", "options": ["declared", "commands", "all"]},
+    {"key": "remembered_approval_hours", "group": "remembered", "kind": "int", "default": 24, "min": 1, "max": 720, "unit": "hours"},
+    {"key": "provider_retries", "group": "common", "kind": "int", "default": 8, "min": 0, "max": 10},
+    {"key": "schedule_receipt_review", "group": "reviews", "kind": "bool", "default": true},
+    {"key": "desktop_idle_seconds", "group": "environment", "kind": "readonly", "default": null, "unit": "seconds"},
+    {"key": "browser_engine", "group": "computer", "kind": "enum", "default": "playwright", "options": ["classic", "playwright"]},
+    {"key": "desktop_engine", "group": "computer", "kind": "enum", "default": "classic", "options": ["classic", "a11y"]},
+    {"key": "group_triage", "group": "groups", "kind": "bool", "default": true},
+    {"key": "group_triage_model", "group": "models", "kind": "model", "default": ""},
+    {"key": "group_followup_to_working", "group": "groups", "kind": "bool", "default": true},
+    {"key": "command_check_minutes", "group": "computer", "kind": "int", "default": 60, "min": 5, "max": 1440, "unit": "minutes"},
+    {"key": "computer_idle_off_minutes", "group": "common", "kind": "int", "default": 15, "min": 5, "max": 60, "unit": "minutes"},
+    {"key": "task_stall_rounds", "group": "reviews", "kind": "int", "default": 3, "min": 1, "max": 20},
+    {"key": "task_tree_idle_message_limit", "group": "tasks", "kind": "int", "default": 30, "min": 10, "max": 500},
+    {"key": "task_fanout_width", "group": "tasks", "kind": "int", "default": 4, "min": 1, "max": 12},
+    {"key": "task_fanout_depth", "group": "tasks", "kind": "int", "default": 2, "min": 1, "max": 5},
+    {"key": "task_part_deadline_minutes", "group": "tasks", "kind": "int", "default": 30, "min": 1, "max": 1440, "unit": "minutes"},
+    {"key": "task_part_deadline_scheduled_minutes", "group": "tasks", "kind": "int", "default": 60, "min": 1, "max": 1440, "unit": "minutes"},
+    {"key": "widget_artifacts_auto", "group": "common", "kind": "bool", "default": true},
+    {"key": "widget_computer_auto", "group": "common", "kind": "bool", "default": true},
+    {"key": "work_trace", "group": "common", "kind": "bool", "default": true},
+    {"key": "trace_retention_days", "group": "computer", "kind": "int", "default": 7, "min": 0, "max": 90, "unit": "days"},
+    {"key": "trace_private_origins", "group": "computer", "kind": "text", "default": "", "max": 4000},
+    {"key": "monthly_spend_limit_usd", "group": "usage", "kind": "int", "default": 0, "min": 0, "max": 100000, "unit": "usd"},
+    {"key": "settings_change_limit", "group": "changes", "kind": "int", "default": 8, "min": 1, "max": 50},
+  ];
+  const automationItems = () => AUTOMATION.map(item => item.kind === "readonly" ? {...item, value: 300, source: "default", read_only: true} : item.key === "background_model" ? {...item, value: perm.reviewer, source: perm.reviewer ? "stored" : "default"} : {...item, value: item.default, source: "default"});
   // The skill library the stub serves (decision 0058): owner-installed, Bot-installed with versions, a bundle, an official skill.
   const libWrites = [];
   const libState = () => ({
@@ -439,10 +480,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   const selectedTab = page => page.locator('.settings-tabs [aria-current="page"]').getAttribute("data-tab");
   const settle = page => page.waitForTimeout(450);
 
-  // ---- 1. Rail: exactly the ten tabs in order; admin only for a multi-account admin session.
+  // ---- 1. Rail: exactly the eight tabs in order; admin only for a multi-account admin session.
   {
     const {page, close} = await open({admin: "0"});
-    assert.deepEqual(await railTabs(page), TABS, "rail shows the ten tabs in order for a non-admin session");
+    assert.deepEqual(await railTabs(page), TABS, "rail shows the eight tabs in order for a non-admin session");
     // No group headings (the clusters are spacing), no account card: General is the first rail item.
     assert.deepEqual(await page.$$eval(".settings-tabs .settings-nav-group>p", items => items.map(item => item.textContent)), []);
     assert.equal(await page.locator(".settings-account-card").count(), 0, "the account card at the top of the rail is gone");
@@ -456,8 +497,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal((await page.locator('.settings-tabs [data-tab="connections"] .settings-count').textContent()).trim(), "1");
     assert.equal(await page.locator('.settings-tabs [data-tab="permissions"] .settings-count').count(), 0, "permissions badge stays hidden in Phase 1");
     await page.waitForTimeout(600);
-    // The storage card (S3): one bar, class legend, computer line, breakdown; version 1 of GET /api/storage.
+    for (const forbidden of ["/api/extensions/local-mcp", "/api/computers", "/api/computer/"]) assert.ok(!requested.some(line => line.includes(forbidden)), `opening Settings on General made no ${forbidden} request`);
+    // The storage card (S3) lives on Usage: one bar, class legend, computer line, breakdown; version 1 of GET /api/storage.
     {
+      await page.locator('.settings-tabs [data-tab="usage"]').click();
       const card = page.locator(".storage-card");
       await card.waitFor();
       const words = (await card.innerText()).replace(/\s+/g, " ");
@@ -472,22 +515,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await card.locator("summary").click();
       assert.match((await card.innerText()).replace(/\s+/g, " "), /By Bot.*Research Bot.*You.*By conversation.*Weekly summary.*Untitled conversation/);
     }
-    for (const forbidden of ["/api/extensions/local-mcp", "/api/computers", "/api/computer/"]) assert.ok(!requested.some(line => line.includes(forbidden)), `opening Settings on General made no ${forbidden} request`);
-    // The Advanced group is folded until opened; opening lists Tool rules, Follow-ups (Beta) and Other devices (In development).
-    const fold = page.locator(".settings-tabs .settings-nav-more");
-    assert.equal((await fold.innerText()).trim(), "More", "the folded group is one quiet rail item, no heading, no tag");
-    assert.equal(await fold.getAttribute("aria-expanded"), "false", "Advanced starts folded");
-    await fold.click();
-    assert.equal(await fold.getAttribute("aria-expanded"), "true");
-    assert.deepEqual(await railTabs(page), [...TABS, ...ADV_TABS], "the folded group lists its pages when opened");
-    assert.equal(await page.locator(".settings-nav-tag").count(), 0, "no tag pill in the rail");
+    assert.equal(await page.locator(".settings-nav-more, .settings-nav-tag").count(), 0, "no folded group and no tag pill in the rail");
     assert.equal(await page.locator('.settings-tabs [data-tab="devices"]').count(), 0, "Other devices has no rail item: it is part of Environments");
-    await fold.click();
-    assert.deepEqual(await railTabs(page), TABS, "folding hides them again");
     await close();
     const personal = await open({admin: "0", personal: "1"});
-    await personal.page.locator(".settings-tabs .settings-nav-more").click();
-    assert.deepEqual(await railTabs(personal.page), [...TABS, ...ADV_TABS], "personal computers on: still no Other devices item");
+    assert.deepEqual(await railTabs(personal.page), TABS, "personal computers on: still no Other devices item");
     await personal.close();
     const admin = await open({admin: "1"});
     assert.deepEqual(await railTabs(admin.page), [...TABS, "admin", "admin-groups", "admin-resources"], "the Administration group appears for a multi-account admin");
@@ -497,15 +529,14 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const adminIcon = await admin.page.locator('.settings-tabs [data-tab="admin"] svg').getAttribute("data-tofi-icon");
     assert.equal(adminIcon, ICONS.admin);
     await admin.close();
-    console.log("PASS rail: ten tabs in order, admin only for a multi-account admin, unique icons, badge from the saved list only");
+    console.log("PASS rail: eight tabs in order, admin only for a multi-account admin, unique icons, badge from the saved list only");
   }
 
   // ---- 2. Each tab renders its heading and description; 3. deep links; 6. dirty draft.
   {
     const {page, close} = await open({admin: "1"});
-    const markers = {general: "Language and region", connections: "Add", skills: "research-assistant", permissions: "Approval mode for this account", allowances: "Reviewer", followups: null, devices: "Other devices", models: "Defaults for new Bots", tools: "Search", computer: null, keys: null, usage: null, advanced: "Danger zone", admin: null};
-    for (const id of [...TABS, ...ADV_TABS, "admin"]) {
-      if (ADV_TABS.includes(id) && await page.locator(`.settings-tabs [data-tab="${id}"]`).count() === 0) await page.locator(".settings-tabs .settings-nav-more").click();
+    const markers = {general: "Language and region", connections: "Add", skills: "research-assistant", permissions: "Approval mode", models: "Defaults for new Bots", computer: null, usage: null, advanced: "Danger zone", admin: null};
+    for (const id of [...TABS, "admin"]) {
       await page.locator(`.settings-tabs [data-tab="${id}"]`).click();
       await page.waitForFunction(tab => document.querySelector(`.settings-tabs [aria-current="page"]`)?.dataset.tab === tab, id);
       const heading = (await page.locator(".settings-content .settings-page-title h2").textContent()).replace(/(Beta|In development)$/, "").trim();
@@ -520,6 +551,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     // The Models page: both columns, Dictation copy from i18n, no AutoReview section, reasoning as a segmented control.
     await page.locator('.settings-tabs [data-tab="models"]').click();
     const models = page.locator('.settings-page-body[data-page="models"]');
+    await models.locator('.st-fold[data-section="more"] > button').click();
     await models.getByText("Dictation", {exact: true}).first().waitFor();
     await models.getByText("Cheaper, good for everyday use.", {exact: false}).waitFor();
     await models.getByText("$0.003 / min", {exact: false}).waitFor();
@@ -537,29 +569,28 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     // The Connections page keeps the existing panel.
     await page.locator('.settings-tabs [data-tab="connections"]').click();
     await page.locator('.settings-page-body[data-page="connections"] .mcp-service').first().waitFor();
-    // A dirty Timezone draft blocks switching away behind the leave dialog.
-    await page.locator('.settings-tabs [data-tab="general"]').click();
-    const zone = page.locator('.settings-page-body[data-page="general"] .timezone-setting').last();
-    await zone.locator(".ui-select-trigger").waitFor();
-    await pickSelect(zone, "Europe/Berlin");
-    await page.locator(".settings-save-bar").waitFor();
+    // A dirty default-model draft blocks switching away behind the leave dialog.
     await page.locator('.settings-tabs [data-tab="models"]').click();
+    await models.locator(".segmented button").nth(0).click();
+    await page.locator(".settings-save-bar").waitFor();
+    await page.locator('.settings-tabs [data-tab="general"]').click();
     await page.locator(".settings-leave-dialog").waitFor();
-    assert.equal(await selectedTab(page), "general", "still on General while the dialog is open");
+    assert.equal(await selectedTab(page), "models", "still on Models while the dialog is open");
     await page.getByRole("button", {name: "Keep editing"}).click();
     assert.equal(await page.locator(".settings-leave-dialog").count(), 0);
-    assert.equal(await selectedTab(page), "general");
-    await page.locator('.settings-tabs [data-tab="models"]').click();
+    assert.equal(await selectedTab(page), "models");
+    await page.locator('.settings-tabs [data-tab="general"]').click();
     await page.locator(".settings-leave-dialog").getByRole("button", {name: "Discard changes"}).click();
-    await page.waitForFunction(() => document.querySelector('.settings-tabs [aria-current="page"]')?.dataset.tab === "models");
+    await page.waitForFunction(() => document.querySelector('.settings-tabs [aria-current="page"]')?.dataset.tab === "general");
     await close();
-    console.log("PASS pages: heading and description for all eleven tabs, deep links, Models layout, dirty-draft leave dialog");
+    console.log("PASS pages: heading for all eight tabs and Accounts, deep links, Models layout, dirty-draft leave dialog");
   }
 
   // ---- 3b. Unknown dictation model shows no copy.
   {
     const {page, close} = await open({tab: "models", dict: "unknown"});
     const body = page.locator('.settings-page-body[data-page="models"]');
+    await body.locator('.st-fold[data-section="more"] > button').click();
     await body.getByText("Mystery Transcribe").first().waitFor({state: "attached"});
     await page.waitForTimeout(300);
     assert.equal(await body.getByText("API reference price").count(), 0, "unknown dictation model shows no price");
@@ -645,7 +676,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await page.locator('.settings-tabs [data-tab="general"]').click();
     await page.locator('.settings-tabs [data-tab="permissions"]').click();
     assert.equal(await top.getByRole("radio", {name: "Auto"}).getAttribute("aria-checked"), "true");
-    // Reviewer model: the background model, picked from the catalog; Automatic names what it falls back to.
+    // Reviewer model (Permissions > Advanced): the background model, picked from the catalog; Automatic names what it falls back to.
+    await body.getByRole("button", {name: "Advanced"}).click();
     const reviewer = body.locator("#approval-reviewer-model");
     assert.match(await reviewer.innerText(), /Automatic/);
     perm.writes.length = 0;
@@ -672,11 +704,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await page.locator(".settings-content").evaluate(element => getComputedStyle(element).visibility), "hidden", "page is parked off-screen on the home list");
     assert.equal(await page.locator('.settings-mhome [data-tab="general"]').count(), 1, "the phone list reaches General without an account card");
     assert.equal(await page.locator(".settings-maccount").count(), 0);
-    await page.locator(".settings-mhome .settings-mmore").click();
-    await settle(page);
     const hints = await page.$$eval(".settings-mhome .settings-mrow", rows => Object.fromEntries(rows.map(row => [row.dataset.tab, row.querySelector(".settings-mhint")?.textContent ?? ""])));
     assert.equal(hints.models, "Codex", "Models hint is the provider of the global model");
-    assert.equal(hints.keys, "2", "Keys hint is the number of variables");
     assert.equal(hints.computer, "2", "Environments hint is the number of environments");
     assert.equal(hints.usage, "", "Usage has no hint in Phase 1");
     assert.deepEqual(await page.$$eval(".settings-mhome .settings-mgroup>p", items => items.map(item => item.textContent)), ["Administration"], "only Administration keeps a heading on the phone list");
@@ -728,7 +757,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       const lineHeight = parseFloat(style.lineHeight);
       return {text: label.textContent, ellipsis: style.textOverflow === "ellipsis", clipped: label.scrollWidth > label.clientWidth, lines: Math.round(box.height / lineHeight), inside: box.right <= row.right + 0.5 && box.left >= row.left - 0.5};
     }));
-    assert.equal(report.length, 13, "ten pages and the three Administration pages");
+    assert.equal(report.length, 11, "eight pages and the three Administration pages");
     for (const item of report) {
       assert.equal(item.ellipsis, false, `${item.text}: no text-overflow ellipsis`);
       assert.equal(item.clipped, false, `${item.text}: scrollWidth <= clientWidth`);
@@ -739,7 +768,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const rail = await page.locator(".settings-tabs").evaluate(element => element.getBoundingClientRect().width);
     assert.equal(Math.round(rail), 216, "rail is 216px wide");
     await close();
-    console.log("PASS german: Verbindungen, Berechtigungen and Bot-Computer-Schlüssel fit the 216px rail in at most two lines, no clipping");
+    console.log("PASS german: Verbindungen, Berechtigungen and Umgebungen fit the 216px rail in at most two lines, no clipping");
   }
 
   // ---- 7b. Skill library (decision 0058): installer and version on each row, bundles expand, rollback, remove, one-click add.
@@ -824,19 +853,23 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     console.log("PASS skill library: installer and version per row, bundle expands without member Remove, rollback, confirmed Remove, one-click starter, translated");
   }
 
-  // ---- 7d. Run health card on the Usage page: counts by status, named failure reasons, tool timeouts; no provider text.
+  // ---- 7d. Run health card (System > Troubleshooting > Run health): counts by status, named failure reasons, tool timeouts; no provider text.
   {
-    const {page, close} = await open({tab: "usage"});
-    const card = page.locator('.settings-page-body[data-page="usage"] .settings-sec').filter({hasText: "Run health"});
+    const {page, close} = await open({tab: "advanced"});
+    await page.locator('.settings-page-body[data-page="advanced"] [data-section="diagnostics"]').getByRole("button", {name: "Run health"}).click();
+    assert.equal(await page.locator('.settings-page-body[data-page="usage"] .settings-sec').filter({hasText: "Run health"}).count(), 0, "Usage no longer carries Run health");
+    const card = page.locator('.settings-page-body[data-page="advanced"] .st-subpage .settings-sec').filter({hasText: "Run health"});
     await card.waitFor();
+    await card.getByText("Tool timeouts").waitFor();
     const text = await card.innerText();
     for (const expected of ["Last 7 days", "41", "Completed", "4", "Failed", "Cancelled", "Running", "Model sign-in rejected", "Connection dropped", "Tool timeouts", "2"]) assert.ok(text.includes(expected), `run health shows ${expected}: ${text}`);
     assert.ok(!/model_auth_invalid|api error|invalid_api_key/i.test(text), "no raw codes or provider text");
     assert.equal(await card.getByRole("alert").count(), 0, "no error when the read succeeds");
     if (process.env.RUN_HEALTH_SHOT) await card.screenshot({path: process.env.RUN_HEALTH_SHOT});
     await close();
-    const german = await open({tab: "usage", lang: "de"});
-    await german.page.locator('.settings-page-body[data-page="usage"] .settings-sec').filter({hasText: "Ausführungsstatus"}).waitFor();
+    const german = await open({tab: "advanced", lang: "de"});
+    await german.page.locator('.settings-page-body[data-page="advanced"] [data-section="diagnostics"] button').first().click();
+    await german.page.locator('.settings-page-body[data-page="advanced"] .st-subpage .settings-sec').filter({hasText: "Ausführungsstatus"}).waitFor();
     await german.close();
     console.log("PASS run health: counts by status, named failure reasons, tool timeouts, no provider text, translated");
   }
@@ -1118,7 +1151,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await result.getByLabel("Passphrase").inputValue(), "ABCD-EFGH-IJKL-MNOP-QRST-UVWX-YZ23-4567");
     assert.equal(await result.getByRole("button", {name: "Copy", exact: true}).count(), 2, "link and passphrase each have Copy");
     const message = await result.getByLabel("Message to send").inputValue();
-    assert.match(message, /^Your TOFI account was closed\. Download your Bots: http.*\/exports\/C+ \(passphrase sent separately\), available until November 8, 2026\. Import it in Tofi: Settings → Maintenance → Data transfer, then enter the passphrase\.$/);
+    assert.match(message, /^Your TOFI account was closed\. Download your Bots: http.*\/exports\/C+ \(passphrase sent separately\), available until November 8, 2026\. Import it in Tofi: Settings → System → Data → Import, then enter the passphrase\.$/);
     assert.ok(!message.includes("ABCD-EFGH"), "the message never carries the passphrase");
     await page.keyboard.press("Escape");
     assert.equal(await result.count(), 1);
@@ -1216,13 +1249,13 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
 
   // ---- 7d. Storage card states (S3): full, unlimited, translated, phone width.
   {
-    const full = await open({storage: "full"});
+    const full = await open({storage: "full", tab: "usage"});
     const fullCard = full.page.locator(".storage-card");
     await fullCard.waitFor();
     assert.match((await fullCard.innerText()).replace(/\s+/g, " "), /10 GiB of 10 GiB.*Storage is full\. Delete files or ask the administrator\./);
     assert.equal(await fullCard.locator(".storage-bar.is-full").count(), 1, "the bar shows the full state");
     await full.close();
-    const open_ = await open({storage: "unlimited"});
+    const open_ = await open({storage: "unlimited", tab: "usage"});
     const card = open_.page.locator(".storage-card");
     await card.waitFor();
     assert.match((await card.innerText()).replace(/\s+/g, " "), /1\.5 GiB used\s*No limit/);
@@ -1230,14 +1263,14 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.ok(!/Storage is full/.test(await card.innerText()));
     await open_.close();
     for (const lang of LANGS.filter(item => item !== "en")) {
-      const view = await open({lang});
+      const view = await open({lang, tab: "usage"});
       await view.page.locator(".storage-card").waitFor();
       const heading = (await view.page.locator(".storage-card").locator("xpath=ancestor::section[1]").locator("h4").textContent()).trim();
       assert.ok(heading && heading !== "Storage", `${lang}: the storage heading is translated (got ${heading})`);
       await view.close();
     }
     const phone = await open({}, {width: 390, height: 844});
-    await phone.page.locator('.settings-mhome [data-tab="general"]').click();
+    await phone.page.locator('.settings-mhome [data-tab="usage"]').click();
     await phone.page.locator(".storage-card").waitFor();
     assert.equal(await phone.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "no horizontal scroll at 390px");
     await phone.close();
@@ -1245,9 +1278,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   }
 
 
-  // ---- 7e. Opening a deleted account's export: Advanced -> Data transfer asks for the passphrase (with or without dashes).
+  // ---- 7e. Opening a deleted account's export: System > Data > Import asks for the passphrase (with or without dashes).
   {
     const {page, close} = await open({tab: "advanced"});
+    await page.locator('.settings-page-body[data-page="advanced"] [data-section="data"]').getByRole("button", {name: "Import"}).click();
     const section = page.locator('.settings-page-body[data-page="advanced"] .portability-section');
     await section.waitFor();
     await section.locator('input[type="file"]').setInputFiles(join(ui, "test-fixtures/server-sealed-export.tofi"));
@@ -1265,6 +1299,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.ok(await section.getByRole("button", {name: /preview/i}).count() > 0, "the unchanged preview step follows");
     await close();
     const damaged = await open({tab: "advanced"});
+    await damaged.page.locator('.settings-page-body[data-page="advanced"] [data-section="data"]').getByRole("button", {name: "Import"}).click();
     const dsection = damaged.page.locator('.settings-page-body[data-page="advanced"] .portability-section');
     await dsection.waitFor();
     await dsection.locator('input[type="file"]').setInputFiles({name: "broken.tofi", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({format: "tofi.encrypted", version: 1, kdf: "PBKDF2-SHA256", iterations: 1, salt: "AA==", iv: "AA==", ciphertext: "AA=="}))});
@@ -1276,10 +1311,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       assert.notEqual(catalogs[lang].portability.error.file_damaged, catalogs.en.portability.error.file_damaged, `${lang}: file_damaged is translated`);
       const message = catalogs[lang].admin.result.message;
       assert.notEqual(message, catalogs.en.admin.result.message, `${lang}: the message to send is translated`);
-      assert.ok(message.includes(catalogs[lang].portability.title) && message.includes(catalogs[lang].shell.page.advanced.name), `${lang}: the message names Advanced and Data transfer as this locale shows them`);
+      assert.ok([catalogs[lang].shell.page.advanced.name, catalogs[lang].advanced.data, catalogs[lang].portability.import].every(word => message.includes(word)), `${lang}: the message names System, Data and Import as this locale shows them`);
     }
-    assert.ok(catalogs.en.admin.result.message.includes("Settings → Maintenance → Data transfer, then enter the passphrase."));
-    console.log("PASS export import: passphrase prompt, wrong passphrase, with/without dashes, damaged file, preview step follows, message names the path in 7 locales");
+    assert.ok(catalogs.en.admin.result.message.includes("Settings → System → Data → Import, then enter the passphrase."));
+    console.log("PASS export import: Import subpage, passphrase prompt, wrong passphrase, with/without dashes, damaged file, preview step follows, message names the path in 7 locales");
   }
 
   // ---- 7d. Admin console screenshots (ADMIN_SHOTS=<dir>): list, detail, delete sheet, stopped and retry states, result sheet.
@@ -1360,7 +1395,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       assert.equal(report.primaries, 0, `${id}: no add or submit action, so no primary button`);
       assert.ok(report.column <= 640.5, `${id}: content column is at most 640px (saw ${report.column})`);
     }
-    // At most one primary button per view; Connections has the add action, Environments, Models and Maintenance none.
+    // At most one primary button per view; Connections has the add action, Environments, Models and System none.
     const primaries = {};
     for (const id of [...TABS, "admin", "admin-groups", "admin-resources"]) {
       await page.locator(`.settings-tabs [data-tab="${id}"]`).click();
@@ -1370,24 +1405,95 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       assert.ok(primaries[id] <= 1, `${id}: ${primaries[id]} primary buttons (at most one per view)`);
     }
     assert.equal(primaries.connections, 1, "Connections: Add connection is the one primary");
-    for (const id of ["computer", "models", "advanced", "tools", "permissions", "automation", "usage"]) assert.equal(primaries[id], 0, `${id}: no primary button`);
+    for (const id of ["computer", "models", "advanced", "permissions", "usage"]) assert.equal(primaries[id], 0, `${id}: no primary button`);
     // Switch: 36x22 Radix switch, button role, saved in place.
     await page.locator('.settings-tabs [data-tab="general"]').click();
     const switchBox = await page.locator('.settings-page-body[data-page="general"] [role="switch"]').first().evaluate(element => ({tag: element.tagName, w: element.offsetWidth, h: element.offsetHeight}));
     assert.deepEqual(switchBox, {tag: "BUTTON", w: 36, h: 22}, "a switch is a 36x22 Radix button");
     // A phone column is 16px from the edge and nothing is wider than the viewport.
     await close();
-    console.log("PASS visual language: 56px header, 20px title, no group headings but Administration, 640px column, no bordered container or hard shadow on General and Maintenance, at most one primary per view, 36x22 switch");
+    console.log("PASS visual language: 56px header, 20px title, no group headings but Administration, 640px column, no bordered container or hard shadow on General and System, at most one primary per view, 36x22 switch");
+  }
+
+  // ---- 7h. Behavior (settings-simplify P1, Q1 = C + A): a subpage of System with the real 37 items, 7 common rows and five folded groups;
+  // the rest sit beside their setting. Every item is still reachable (D15) and the old links land on them.
+  {
+    const MOVED = ["conversation_model", "background_model", "group_triage_model", "mcp_auto_review", "personal_input_review", "remembered_approval_hours", "desktop_idle_seconds", "settings_change_limit", "monthly_spend_limit_usd"];
+    const behavior = ["web_search", "structured_output", "widget_artifacts_auto", "widget_computer_auto", "computer_idle_off_minutes", "work_trace", "provider_retries"];
+    const folded = ["group_exchange_gists", "group_triage", "group_followup_to_working", "force_say_haiku_dm", "web_fetch_limit", "own_replies_verbatim", "task_retention_days", "completion_review", "answer_gate", "schedule_receipt_review", "task_stall_rounds", "task_tree_idle_message_limit", "task_fanout_width", "task_fanout_depth", "task_part_deadline_minutes", "task_part_deadline_scheduled_minutes", "browser_engine", "desktop_engine", "command_check_minutes", "trace_retention_days", "trace_private_origins"];
+    const {page, close} = await open({tab: "advanced"});
+    const body = page.locator('.settings-page-body[data-page="advanced"]');
+    const keys = scope => scope.locator(".auto-row").evaluateAll(rows => rows.map(row => row.dataset.key).sort());
+    await body.locator('[data-section="diagnostics"]').waitFor();
+    assert.equal(await body.locator(".auto-row").count(), 0, "System itself lists no behavior row");
+    await body.getByRole("button", {name: "Behavior"}).click();
+    const sub = body.locator(".st-subpage").first();
+    await sub.locator(".auto-row").first().waitFor();
+    assert.deepEqual(await keys(sub), [...behavior].sort(), "the common rows, 7 of them");
+    assert.equal(await sub.locator(".st-fold").count(), 5, "five folded groups");
+    for (const fold of await sub.locator(".st-fold > button").all()) await fold.click();
+    assert.deepEqual(await keys(sub), [...behavior, ...folded].sort(), "the other 21 rows sit in the folded groups");
+    assert.equal(behavior.length + folded.length + MOVED.length, 37, "all 37 behaviors are accounted for");
+    assert.equal(await sub.locator(".auto-row .settings-row-copy p").count() >= 28, true, "each row keeps its one-line description");
+    await sub.getByRole("button", {name: "Follow-ups"}).click();
+    await body.locator('[data-section="followups"]').waitFor();
+    await body.getByRole("button", {name: "Back"}).last().click();
+    assert.equal(await sub.isVisible(), true, "Back from Follow-ups returns to Behavior");
+    await body.getByRole("button", {name: "Back"}).first().click();
+    await body.locator('[data-section="diagnostics"]').waitFor();
+    // Beside their setting: Models > More, Permissions, Environments, System > Data > Changes.
+    await page.locator('.settings-tabs [data-tab="models"]').click();
+    const models = page.locator('.settings-page-body[data-page="models"]');
+    await models.locator('.st-fold[data-section="more"] > button').click();
+    await models.locator(".auto-row").first().waitFor();
+    assert.deepEqual(await keys(models), ["background_model", "group_triage_model"], "Models > More holds the two background models");
+    await page.locator('.settings-tabs [data-tab="permissions"]').click();
+    const permissions = page.locator('.settings-page-body[data-page="permissions"]');
+    await permissions.locator('.auto-row[data-key="remembered_approval_hours"]').waitFor();
+    await permissions.getByRole("button", {name: "Advanced"}).click();
+    await permissions.locator('.auto-row[data-key="personal_input_review"]').waitFor();
+    assert.equal(await permissions.locator('.auto-row[data-key="mcp_auto_review"]').count() + await page.locator('.auto-row[data-key="conversation_model"]').count(), 0, "the reviewer mode and the conversation model have no Behavior row");
+    await page.locator('.settings-tabs [data-tab="computer"]').click();
+    await page.locator('.settings-page-body[data-page="computer"] .auto-row[data-key="desktop_idle_seconds"]').waitFor();
+    await page.locator('.settings-tabs [data-tab="advanced"]').click();
+    await body.locator('[data-section="data"]').getByRole("button", {name: "Changes by Bots"}).click();
+    await body.locator('.auto-row[data-key="settings_change_limit"]').waitFor();
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+    await close();
+    // Old links and section links open the right place first (the subpage or folded group, then the scroll).
+    const lands = async (params, find) => { const view = await open(params); await view.page.locator(find).first().waitFor({timeout: 15000}); await view.close(); };
+    await lands({tab: "advanced", section: "replies"}, '.settings-page-body[data-page="advanced"] .st-fold[data-section="replies"] .auto-row[data-key="force_say_haiku_dm"]');
+    await lands({tab: "advanced", section: "behavior"}, '.settings-page-body[data-page="advanced"] .st-subpage .auto-row[data-key="web_search"]');
+    await lands({tab: "advanced", section: "followups"}, '.settings-page-body[data-page="advanced"] .st-subpage [data-section="followups"]');
+    await lands({tab: "connections", section: "web"}, '.settings-page-body[data-page="connections"] .st-subpage .web-tools');
+    await lands({tab: "computer", section: "keys"}, '.settings-page-body[data-page="computer"] .st-subpage .computer-credentials');
+    await lands({tab: "models", section: "more"}, '.settings-page-body[data-page="models"] .st-fold[data-section="more"] .auto-row[data-key="background_model"]');
+    await lands({tab: "permissions", section: "advanced"}, '.settings-page-body[data-page="permissions"] .st-subpage [data-section="advanced"]');
+    console.log("PASS behavior: 37 items, 7 common rows, 21 in five folded groups, 9 beside their setting; subpages open for section links");
+  }
+
+  // ---- 7i. Screenshots of the P1 pages (SETTINGS_SHOTS=<dir>), light, at 1440x900 and 390x844: System, Behavior with groups open, the subpages and folds.
+  if (shots) {
+    const views = [["1440", 1440, 900], ["390", 390, 844]];
+    const scenes = [["system", {tab: "advanced"}], ["behavior", {tab: "advanced", section: "replies"}], ["behavior-reviews", {tab: "advanced", section: "reviews"}], ["followups", {tab: "advanced", section: "followups"}],
+      ["models-more", {tab: "models", section: "more"}], ["permissions", {tab: "permissions"}], ["permissions-advanced", {tab: "permissions", section: "advanced"}], ["connections-web", {tab: "connections", section: "web"}],
+      ["computer-keys", {tab: "computer", section: "keys"}], ["usage", {tab: "usage"}], ["general", {tab: "general"}]];
+    for (const [width, w, h] of views) for (const [name, params] of scenes) {
+      const view = await open({...params, view: "page"}, {width: w, height: h, theme: "light"});
+      await view.page.waitForTimeout(1800);
+      await view.page.screenshot({path: join(shots, `p1-${name}-${width}-light.png`)});
+      await view.close();
+    }
+    console.log(`PASS p1 screenshots saved to ${shots}`);
   }
 
   // ---- 8. Screenshots: every tab (the folded ones and Administration too) at 1440x900 and 390x844, light and dark.
   if (shots) {
     let count = 0;
-    const ALL = [...TABS, ...ADV_TABS, "admin", "admin-groups", "admin-resources"];
+    const ALL = [...TABS, "admin", "admin-groups", "admin-resources"];
     for (const theme of ["light", "dark"]) {
       const desktop = await open({admin: "1"}, {theme});
       for (const id of ALL) {
-        if (await desktop.page.locator(`.settings-tabs [data-tab="${id}"]`).count() === 0) { await desktop.page.locator(".settings-tabs .settings-nav-more").click(); await desktop.page.waitForTimeout(150); }
         await desktop.page.locator(`.settings-tabs [data-tab="${id}"]`).click();
         await desktop.page.waitForFunction(tab => (document.querySelector(`.settings-page-body[data-page="${tab}"]`)?.innerText ?? "").trim().length > 20, id);
         await desktop.page.waitForTimeout(id === "usage" ? 1800 : 900);
@@ -1407,7 +1513,6 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await mobile.page.screenshot({path: join(shots, `mobile-${theme}-home.png`)});
       count++;
       for (const id of ALL) {
-        if (await mobile.page.locator(`.settings-mhome [data-tab="${id}"]`).count() === 0) { await mobile.page.locator(".settings-mhome .settings-mmore").click(); await mobile.page.waitForTimeout(150); }
         await mobile.page.locator(`.settings-mhome [data-tab="${id}"]`).first().scrollIntoViewIfNeeded().catch(() => {});
         await mobile.page.locator(`.settings-mhome [data-tab="${id}"]`).first().click();
         await mobile.page.waitForFunction(tab => (document.querySelector(`.settings-page-body[data-page="${tab}"]`)?.innerText ?? "").trim().length > 20, id);

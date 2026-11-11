@@ -45,7 +45,8 @@ function AccordionGroup({ id, title, count, summary, checked, mixed, onToggleAll
   </div>;
 }
 
-export function PortabilitySettings({ bots, initialFile, initialBotID = "", onInitialFileConsumed }: { bots: Bot[]; initialFile?: File; initialBotID?: string; onInitialFileConsumed?: () => void }) {
+/** `show` limits it to one half (System > Data opens Export and Import as separate subpages). */
+export function PortabilitySettings({ bots, initialFile, initialBotID = "", onInitialFileConsumed, show }: { bots: Bot[]; initialFile?: File; initialBotID?: string; onInitialFileConsumed?: () => void; show?: "export" | "import" }) {
   const { t } = useTranslation("settings");
   const timezone = useUserTimezone();
   const [kind, setKind] = useState<"account" | "bot">(initialBotID ? "bot" : "account");
@@ -161,8 +162,8 @@ export function PortabilitySettings({ bots, initialFile, initialBotID = "", onIn
   // One "Details" per card, at its bottom-left: the full explanations behind the short help text.
   const detailsRow = (notes: string[]) => <div className="portability-details"><SettingsDetails>{notes.map(note => <p key={note}>{note}</p>)}</SettingsDetails></div>;
   return <section className="portability-section" aria-label={t("portability.title")}>
-    <p className="portability-summary">{t("portability.summary")}</p>
-    <fieldset className="settings-card portability-card portability-export" disabled={busy} aria-busy={exporting}>
+    {!show && <p className="portability-summary">{t("portability.summary")}</p>}
+    {show !== "import" && <fieldset className="settings-card portability-card portability-export" disabled={busy} aria-busy={exporting}>
       <div className="portability-head"><h5>{t("portability.export")}</h5></div>
       <SettingsRow label={t("portability.scope")} labelFor="portability-scope" control={<Select id="portability-scope" value={kind} onValueChange={value => { const next = value as "account" | "bot"; setKind(next); if (next === "bot") { setBotIDs(exportBots[0] ? [exportBots[0].id] : []); setIncluded(c => c.filter(x => x !== "settings" && x !== ENVIRONMENT_CATEGORY)); } }}><option value="account">{t("portability.scope_account")}</option><option value="bot">{t("portability.scope_bot")}</option></Select>}/>
       <div className="portability-groups">
@@ -194,8 +195,8 @@ export function PortabilitySettings({ bots, initialFile, initialBotID = "", onIn
         {exporting && <span className="portability-progress" role="progressbar" aria-label={t("portability.exporting")}><span/></span>}
         <button type="button" className="st-button" disabled={exportDisabled} onClick={() => void exportBundle()}>{exporting ? t("portability.exporting") : t("portability.download")}</button>
       </div>
-    </fieldset>
-    <fieldset className="settings-card portability-card" disabled={busy}>
+    </fieldset>}
+    {show !== "export" && <fieldset className="settings-card portability-card" disabled={busy}>
       <div className="portability-head"><h5>{t("portability.import")}</h5></div>
       <div className="portability-block"><FilePicker accept=".json,.tofi,application/json" label={t("portability.choose_file")} fileName={fileName} dropHint={t("portability.drop_hint")} disabled={busy} onFile={file => void loadFile(file)}/></div>
       {encryptedFile && !bundle && <>
@@ -222,8 +223,8 @@ export function PortabilitySettings({ bots, initialFile, initialBotID = "", onIn
       </div>}
       {preview && <div className="portability-actions"><button type="button" className="st-button" disabled={preview.can_apply === false} onClick={() => void apply()}>{t("portability.apply")}</button></div>}
       {bundle && detailsRow([...(bundle.included.includes(ENVIRONMENT_CATEGORY) ? [t("portability.import_environment_note")] : []), t("portability.preview_note")])}
-    </fieldset>
-    {environmentLoaded && <div className="settings-card portability-card"><div className="portability-head"><h5>{t("portability.recovery_title")}</h5></div><div className="portability-block"><p className="portability-help">{t("portability.recovery_help")}</p></div>{environmentRecords.filter(x => x.source_category === "inactive_recovery").map(x => <div className="portability-recovery-row" key={x.id}><span>{x.name || x.target} · {x.target} · {t("portability.bytes", { count: x.bytes ?? 0 })} · {t("portability.inactive")}</span><button type="button" className="danger-link" disabled={busy} onClick={() => void deleteRecovery(x.id)}>{t("portability.recovery_delete")}</button></div>)}{detailsRow([t("portability.recovery_note")])}</div>}
+    </fieldset>}
+    {environmentLoaded && show !== "import" && <div className="settings-card portability-card"><div className="portability-head"><h5>{t("portability.recovery_title")}</h5></div><div className="portability-block"><p className="portability-help">{t("portability.recovery_help")}</p></div>{environmentRecords.filter(x => x.source_category === "inactive_recovery").map(x => <div className="portability-recovery-row" key={x.id}><span>{x.name || x.target} · {x.target} · {t("portability.bytes", { count: x.bytes ?? 0 })} · {t("portability.inactive")}</span><button type="button" className="danger-link" disabled={busy} onClick={() => void deleteRecovery(x.id)}>{t("portability.recovery_delete")}</button></div>)}{detailsRow([t("portability.recovery_note")])}</div>}
     {busy && <p className="portability-status" role="status">{t("action.processing")}</p>}
     {error && <Banner tone="error" title={error}/>}
     {done && <div role="status"><Banner tone="info" title={done}/></div>}

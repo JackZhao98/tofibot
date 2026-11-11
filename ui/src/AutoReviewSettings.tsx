@@ -1,38 +1,37 @@
 import {useEffect, useState} from "react";
 import {request} from "./api";
-import {useSettingsDraft} from "./settingsDraft";
 import {useTranslation} from "./i18n";
-import {SettingsCard, SettingsRow, SettingsSection} from "./settings/components";
-import { Select } from "./Select";
+import {SettingsCard, SettingsRow, SettingsSwitch} from "./settings/components";
 
 type Mode = "off" | "shadow" | "auto";
-type Settings = {mode: Mode; review_scope: "all_external_tools"};
 
-export function AutoReviewSettings() {
+/**
+ * Permissions > Advanced: Observe mode. Off and Auto are the approval mode (Permissions); Observe records the reviewer's advice and
+ * changes nothing else, so it is one switch. It means something only while approvals ask a person, so Auto leaves it off the table.
+ */
+export function ObserveModeRow() {
   const {t} = useTranslation("settings");
-  const [settings, setSettings] = useState<Settings | null>(null);
-  const [mode, setMode] = useState<Mode>("off");
-  const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<Mode | null>(null);
   const [error, setError] = useState("");
-  const [status, setStatus] = useState("");
-  const [version, setVersion] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
-    request<Settings>("/api/auto-review-settings", {signal: controller.signal}).then(value => {setSettings(value); setMode(value.mode); setError("");}).catch(cause => {if (!controller.signal.aborted) setError(cause.message);});
+    request<{mode: Mode}>("/api/auto-review-settings", {signal: controller.signal}).then(value => setMode(value.mode)).catch(cause => {if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : t("action.save_failed"));});
     return () => controller.abort();
-  }, [version]);
-  async function save() {
-    if (busy || !settings) return false;
-    setBusy(true); setError(""); setStatus("");
+  }, [t]);
+  async function change(observe: boolean) {
+    setError("");
     try {
-      await request("/api/auto-review-settings", {method: "PUT", body: JSON.stringify({mode})});
-      setSettings({...settings, mode}); setStatus(t("auto_review.saved")); return true;
-    } catch (cause) {setError(cause instanceof Error ? cause.message : t("action.save_failed")); return false;}
-    finally {setBusy(false);}
+      await request("/api/auto-review-settings", {method: "PUT", body: JSON.stringify({mode: observe ? "shadow" : "off"})});
+      setMode(observe ? "shadow" : "off");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t("action.save_failed"));
+      return false;
+    }
   }
-  useSettingsDraft({label: t("permissionsPage.draft_label"), dirty: Boolean(settings && settings.mode !== mode), busy, save, discard: () => {if (settings) setMode(settings.mode); setError(""); setStatus("");}});
-  return <SettingsSection title={t("permissionsPage.heading")} description={t("auto_review.description")}>
-    {settings ? <><SettingsCard><SettingsRow labelFor="auto-review-mode" label={t("auto_review.mode_label")} control={<Select id="auto-review-mode" value={mode} disabled={busy} onValueChange={value => {setMode(value as Mode); setStatus("");}}><option value="off">{t("auto_review.mode_off")}</option><option value="shadow">{t("auto_review.mode_shadow")}</option><option value="auto">{t("auto_review.mode_auto")}</option></Select>}/><p className="settings-card-note" data-autoreview-mode={mode}>{t(`auto_review.note_${mode}`)}</p></SettingsCard><span role="status">{status}</span></> : !error && <p className="muted">{t("action.loading_settings")}</p>}
-    {error && <p className="error-text" role="alert">{error}{!settings && <button className="text-button" onClick={() => setVersion(current => current + 1)}>{t("action.retry")}</button>}</p>}
-  </SettingsSection>;
+  return <>
+    <SettingsCard>
+      <SettingsRow inline label={t("auto_review.observe")} description={t("auto_review.observe_hint")} control={<SettingsSwitch label={t("auto_review.observe")} checked={mode === "shadow"} disabled={mode === null || mode === "auto"} onChange={change}/>}/>
+    </SettingsCard>
+    {error && <p className="error-text" role="alert">{error}</p>}
+  </>;
 }

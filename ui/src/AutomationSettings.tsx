@@ -6,6 +6,7 @@ import {modelName, groupModels} from "./modelCatalog";
 import type {ModelCatalog} from "./types";
 import {useModelCatalog} from "./useModelCatalog";
 import {useTranslation} from "./i18n";
+import {FoldGroup} from "./settings/subpages";
 import {ChangedNote, SavedNote, SettingsCard, SettingsRow, SettingsSection, SettingsSwitch} from "./settings/components";
 import "./settings/automation.css";
 import { Select } from "./Select";
@@ -19,8 +20,14 @@ export type AutomationKey =
   | "task_fanout_width" | "task_fanout_depth" | "task_part_deadline_minutes" | "task_part_deadline_scheduled_minutes"
   | "widget_artifacts_auto" | "widget_computer_auto" | "browser_engine" | "desktop_engine" | "personal_input_review"
   | "work_trace" | "trace_retention_days" | "trace_private_origins" | "monthly_spend_limit_usd";
-export type AutomationGroup = "models" | "replies" | "history" | "checks" | "reliability" | "schedules" | "computer" | "widgets";
-const groupOrder: AutomationGroup[] = ["models", "replies", "history", "checks", "reliability", "schedules", "computer", "widgets"];
+/** Where a row is shown (the server's `group`): the Behavior page's own groups, or beside the setting it belongs with. */
+export type AutomationGroup = "common" | "groups" | "replies" | "reviews" | "tasks" | "computer" | "defaults" | "models" | "remembered" | "permissions" | "environment" | "changes" | "usage";
+/** Behavior's folded groups, in order; `common` is always shown. */
+const foldedGroups = ["groups", "replies", "reviews", "tasks", "computer"] as const;
+/** The common rows, in order. */
+const commonOrder: AutomationKey[] = ["web_search", "structured_output", "widget_artifacts_auto", "widget_computer_auto", "computer_idle_off_minutes", "work_trace", "provider_retries"];
+/** Rows that do nothing without a Bot computer (the whole `computer` group too). */
+const computerOnly = new Set<AutomationKey>(["widget_computer_auto", "computer_idle_off_minutes", "work_trace"]);
 
 export type AutomationItem = {
   key: AutomationKey;
@@ -143,10 +150,9 @@ const AutomationRow = memo(function AutomationRow({item, catalog, busy, saved, e
   </div>;
 });
 
-export function AutomationSettings({onOpenPermissions}: {onOpenPermissions?: () => void} = {}) {
+/** Reads the automation items and writes one at a time; every instance on a page keeps its own copy. */
+function useAutomation() {
   const {t} = useTranslation("settings");
-  // The computer's own switches (idle sleep, command checks, the widget auto-open) do nothing without one.
-  const hasComputer = useHasComputer();
   const [items, setItems] = useState<AutomationItem[] | null>(null);
   const {catalog} = useModelCatalog();
   const [loadError, setLoadError] = useState("");
@@ -185,18 +191,50 @@ export function AutomationSettings({onOpenPermissions}: {onOpenPermissions?: () 
       setBusy(null);
     }
   }, [t]);
+  return {items, catalog, loadError, retry: () => setVersion(current => current + 1), busy, saved, errors, change};
+}
+type Automation = ReturnType<typeof useAutomation>;
 
-  if (!items) {
-    return <SettingsSection>{loadError ? <p className="error-text" role="alert">{loadError}<button type="button" className="text-button" onClick={() => setVersion(current => current + 1)}>{t("action.retry")}</button></p> : <p className="muted">{t("action.loading_settings")}</p>}</SettingsSection>;
-  }
+function Loading({automation}: {automation: Automation}) {
+  const {t} = useTranslation("settings");
+  return automation.loadError ? <p className="error-text" role="alert">{automation.loadError}<button type="button" className="text-button" onClick={automation.retry}>{t("action.retry")}</button></p> : <p className="muted">{t("action.loading_settings")}</p>;
+}
+
+/** The rows of the given groups, as one card (a group that lives beside the setting it belongs with: Models > More, Permissions, ...). */
+export function AutomationRows({groups, flat = false}: {groups: AutomationGroup[]; /** Rows only, for a place that already is a card (a folded group). */ flat?: boolean}) {
+  const automation = useAutomation();
+  const hasComputer = useHasComputer();
+  if (!automation.items) return <Loading automation={automation}/>;
+  const rows = automation.items.filter(item => groups.includes(item.group) && item.key !== "mcp_auto_review" && (hasComputer || (item.group !== "computer" && item.group !== "environment" && !computerOnly.has(item.key))));
+  const list = rows.map(item => <Row key={item.key} automation={automation} item={item}/>);
+  return !rows.length ? null : flat ? <>{list}</> : <SettingsCard>{list}</SettingsCard>;
+}
+
+const Row = ({automation, item}: {automation: Automation; item: AutomationItem}) =>
+  <AutomationRow item={item} catalog={automation.catalog} busy={automation.busy === item.key} saved={automation.saved === item.key} error={automation.errors[item.key] ?? ""} onChange={automation.change}/>;
+
+/** System > Behavior: the common rows, then one folded line per group (a count and how many were changed), then Follow-up reminders. */
+export function BehaviorPage({onOpenFollowups}: {onOpenFollowups: () => void}) {
+  const {t} = useTranslation("settings");
+  const hasComputer = useHasComputer();
+  const automation = useAutomation();
+  if (!automation.items) return <Loading automation={automation}/>;
+  const common = commonOrder.map(key => automation.items!.find(item => item.key === key)).filter((item): item is AutomationItem => Boolean(item) && (hasComputer || !computerOnly.has(item!.key)));
   return <div className="settings-stack auto-page">
-    <p className="settings-sec-desc auto-intro">{t("automation.intro")}</p>
-    {groupOrder.map(group => {
-      const rows = items.filter(item => item.group === group && (hasComputer || (item.group !== "computer" && item.key !== "widget_computer_auto")));
-      if (!rows.length) return null;
-      return <SettingsSection key={group} id={group} title={t(`automation.group.${group}.title`)} description={t(`automation.group.${group}.description`)}>
-        <SettingsCard>{rows.map(item => <AutomationRow key={item.key} item={item} catalog={catalog} busy={busy === item.key} saved={saved === item.key} error={errors[item.key] ?? ""} onChange={change} onOpenPermissions={onOpenPermissions}/>)}</SettingsCard>
-      </SettingsSection>;
-    })}
+    <SettingsSection id="behavior" title={t("automation.common")}>
+      <SettingsCard>{common.map(item => <Row key={item.key} automation={automation} item={item}/>)}</SettingsCard>
+    </SettingsSection>
+    <SettingsSection title={t("automation.more")}>
+      <SettingsCard className="st-folds">
+        {foldedGroups.filter(group => hasComputer || group !== "computer").map(group => {
+          const rows = automation.items!.filter(item => item.group === group);
+          const changed = rows.filter(item => item.source === "stored").length;
+          return <FoldGroup key={group} tab="advanced" id={group} title={t(`automation.group.${group}.title`)} summary={changed ? t("automation.fold.changed", {n: rows.length, changed}) : t("automation.fold.items", {n: rows.length})}>
+            {rows.map(item => <Row key={item.key} automation={automation} item={item}/>)}
+          </FoldGroup>;
+        })}
+        <SettingsRow label={t("shell.page.followups.name")} link={{label: t("shell.page.followups.name"), onOpen: onOpenFollowups}}/>
+      </SettingsCard>
+    </SettingsSection>
   </div>;
 }

@@ -4,20 +4,17 @@
  * fails when the two disagree or when a listed id is missing from the component that owns it.
  */
 export const SETTINGS_SECTIONS = {
-  general: ["account", "appearance", "primary", "region", "chats"],
-  connections: ["list"],
+  general: ["account", "appearance", "region", "chats"],
+  connections: ["list", "web"],
   skills: ["library"],
-  permissions: ["mode"],
-  allowances: ["reviewer", "how", "standing", "remembered"],
-  followups: ["bots", "nudges", "digest", "today", "limits"],
-  models: ["providers", "defaults", "dictation"],
-  tools: ["web"],
-  automation: ["models", "replies", "history", "checks", "reliability", "schedules", "computer", "widgets"],
-  computer: ["resources", "environment"],
+  permissions: ["mode", "standing", "remembered", "advanced"],
+  models: ["providers", "defaults", "more"],
+  computer: ["resources", "environment", "keys"],
   devices: ["devices"],
-  keys: ["keys"],
-  usage: ["health", "spend", "usage"],
-  advanced: ["version", "server", "data", "changes", "debug", "danger"],
+  usage: ["spend", "usage", "storage"],
+  // System holds Behavior (the automatic behaviors) as a subpage: "behavior" is its common rows, the five group ids are its
+  // folded groups, "followups" its Follow-ups subpage.
+  advanced: ["version", "server", "behavior", "groups", "replies", "reviews", "tasks", "computer", "followups", "data", "diagnostics", "danger"],
   admin: ["accounts"],
   "admin-groups": ["policy", "members"],
   "admin-resources": ["models", "computers", "web"],
@@ -37,5 +34,19 @@ export type GroupSettingsSection = (typeof GROUP_SETTINGS_SECTIONS)[number];
 /** Sections of one connection's page. */
 export const CONNECTION_SECTIONS = ["status", "tools", "advanced", "danger"] as const;
 
-/** Settings tab ids that were renamed: the old id still opens the page that replaced it. */
-export const LEGACY_SETTINGS_TABS: Record<string, SettingsTabId> = { approvals: "permissions", devices: "computer" };
+/**
+ * Older settings positions ("tab" or "tab#section") and where the setting lives now (settings-simplify section 7). The Go registry
+ * carries the same table (`settingsLegacyLinks`); `test:settings-registry` compares them. "general#primary" is not listed: it opens the
+ * primary Bot's settings (`readSettingsLink`), or General when there is no Bot.
+ */
+export const LEGACY_SETTINGS_LINKS: Record<string, string> = {
+  approvals: "permissions", devices: "computer",
+  allowances: "permissions", "allowances#how": "permissions", "allowances#standing": "permissions#standing",
+  "allowances#remembered": "permissions#remembered", "allowances#reviewer": "permissions#advanced",
+  followups: "advanced#followups", tools: "connections#web", keys: "computer#keys",
+  "usage#health": "advanced#diagnostics", "advanced#changes": "advanced#data", "advanced#debug": "advanced#diagnostics",
+  "models#dictation": "models#more",
+  automation: "advanced#behavior", "automation#models": "models#more", "automation#history": "advanced#replies",
+  "automation#checks": "advanced#reviews", "automation#schedules": "advanced#reviews", "automation#reliability": "advanced#tasks",
+  "automation#replies": "advanced#replies", "automation#computer": "advanced#computer", "automation#widgets": "advanced#behavior",
+};
