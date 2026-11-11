@@ -1,15 +1,15 @@
 import type { AttachmentProblem } from "./filePreviewModel";
 
-/** Why a stored file cannot be read right now (computer-decoupling S1/S2): its bytes are still only on a computer that is detached (409), or the computer answered and no longer has them (404). */
+/** Why a stored file cannot be read right now (computer-decoupling S1/S2): its bytes are still only on a computer that is detached (409), or the computer answered and no longer has them (404); or the file store (a bucket) is unreachable (503), refuses this server (503), or no longer holds the file (404). */
 export class AttachmentUnavailable extends Error {
   constructor(readonly problem: AttachmentProblem) { super(problem); }
 }
 /** The problem a failed attachment response names, or null for any other failure. */
 export async function attachmentProblem(response: Response): Promise<AttachmentProblem | null> {
-  if (response.ok || (response.status !== 409 && response.status !== 404)) return null;
+  if (response.ok || (response.status !== 409 && response.status !== 404 && response.status !== 503)) return null;
   try {
     const code = ((await response.clone().json()) as { error?: { code?: string } }).error?.code;
-    return code === "file_on_detached_computer" || code === "file_missing_on_computer" ? code : null;
+    return code === "file_on_detached_computer" || code === "file_missing_on_computer" || code === "file_missing_in_store" || code === "file_store_unavailable" || code === "file_store_misconfigured" ? code : null;
   } catch { return null; }
 }
 /** A failed response as an Error: `AttachmentUnavailable` when the server named a problem, else the status text. */

@@ -50,6 +50,14 @@ func TestMailDraftStoresAttachmentIDAndComputerFile(t *testing.T) {
 	if got[0].ID != made[0].ID || got[0].Name != "upload.pdf" || got[1].Name != "季度报告.pdf" || got[1].Size != 9 || got[1].ID == "" {
 		t.Fatalf("attachments=%+v", got)
 	}
+	var origin, botID string
+	if err := s.store.db.QueryRow(`SELECT origin,COALESCE(bot_id,'') FROM attachments WHERE id=?`, got[1].ID).Scan(&origin, &botID); err != nil || origin != attachmentOriginGenerated || botID != bot.ID {
+		t.Fatalf("draft attachment origin=%q bot=%q err=%v", origin, botID, err)
+	}
+	// The upload stays an upload.
+	if err := s.store.db.QueryRow(`SELECT origin FROM attachments WHERE id=?`, made[0].ID).Scan(&origin); err != nil || origin != attachmentOriginUpload {
+		t.Fatalf("upload origin=%q err=%v", origin, err)
+	}
 	// The computer file now belongs to the conversation, so it can be sent later.
 	if ok, err := s.store.attachmentAvailableInConversation(got[1].ID, conv.ID); err != nil || !ok {
 		t.Fatalf("stored file not in the conversation: %v %v", ok, err)

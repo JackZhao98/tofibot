@@ -62,6 +62,10 @@ func (g *AccountGateway) serveOrg(w http.ResponseWriter, r *http.Request, rest s
 			}
 			writeJSON(w, 200, row.view())
 		case http.MethodPut:
+			if sp.ID == orgFileStoreID {
+				g.putOrgFileStore(w, r, sp)
+				return
+			}
 			g.putOrgResource(w, r, sp)
 		case http.MethodDelete:
 			g.deleteOrgResource(w, r, sp)
@@ -592,6 +596,16 @@ func (g *AccountGateway) deleteOrgResource(w http.ResponseWriter, r *http.Reques
 		writeErr(w, 404, "not_found", "resource not found")
 		return
 	}
+	if sp.ID == orgFileStoreID {
+		// Rows that live in the bucket are read from it: its credentials stay while any exist.
+		if n, cerr := g.objectRowsAnywhere(ctx); cerr != nil {
+			storageFailure(w, "count stored files", cerr)
+			return
+		} else if n > 0 {
+			writeErr(w, 409, "file_store_in_use", "Files are stored in this bucket. It cannot be removed until they are moved.")
+			return
+		}
+	}
 	v, err := g.orgSecrets()
 	if err != nil {
 		storageFailure(w, "open organization vault", err)
@@ -649,6 +663,14 @@ func (g *AccountGateway) testOrgResource(w http.ResponseWriter, r *http.Request,
 		res = g.verifyOrgCompat(ctx, cfg)
 	case sp.ID == e2bKeyVaultID:
 		res = verifyOrgE2B(ctx, secret.Value)
+	case sp.ID == orgFileStoreID:
+		var cfg fileStoreConfig
+		accessKey, key, _ := strings.Cut(secret.Value, "\x00")
+		if json.Unmarshal([]byte(row.Config), &cfg) != nil {
+			writeErr(w, 404, "not_found", "resource not found")
+			return
+		}
+		res = g.verifyFileStore(ctx, cfg, accessKey, key)
 	default:
 		key, zone, _ := strings.Cut(secret.Value, "\x00")
 		res = verifyOrgWeb(g.orgWebProbe(ctx, sp.Target, key, zone))

@@ -1957,6 +1957,82 @@ def pending_guest_copies():
     return total, unreadable
 
 
+# The first release that reads `disk_name = "obj:<key>"` rows (files in the object store).
+# An older release treats such a name as a local file and answers 404 for every one.
+OBJECT_ROWS_MIN_VERSION = 'v0.6.3-rc.9'
+
+
+def count_object_rows(database):
+    """(rows, bytes) of one App database whose file bytes live in the object store."""
+    uri = 'file:%s?mode=ro' % urllib.parse.quote(str(database))
+    connection = sqlite3.connect(uri, uri=True, timeout=5)
+    try:
+        row = connection.execute("SELECT COUNT(*),COALESCE(SUM(size),0) FROM attachments "
+                                 "WHERE disk_name>='obj:' AND disk_name<'obj;'").fetchone()
+    except sqlite3.OperationalError as error:
+        if str(error).startswith('no such table'):
+            return 0, 0  # an App older than the attachments table has none
+        raise
+    finally:
+        connection.close()
+    return int(row[0]), int(row[1])
+
+
+def object_rows():
+    """(rows, bytes, unreadable) over every App database, read-only. An unreadable
+    database is reported, never counted as 0."""
+    rows, size, unreadable = 0, 0, []
+    for database in run_databases():
+        try:
+            count, nbytes = count_object_rows(database)
+        except (sqlite3.Error, OSError, ValueError, TypeError):
+            unreadable.append(str(database))
+            continue
+        rows, size = rows + count, size + nbytes
+    return rows, size, unreadable
+
+
+def file_store_summary():
+    """What a backup must say about the object store, or None when no file lives there:
+    {kind, bucket, gen, objects, bytes}. The bucket name is not a secret; keys never are read."""
+    rows, size, unreadable = object_rows()
+    if not rows and not unreadable:
+        return None
+    summary = {'kind': 's3', 'bucket': None, 'gen': None, 'objects': rows, 'bytes': size}
+    if unreadable:
+        summary['unreadable'] = len(unreadable)
+    try:
+        uri = 'file:%s?mode=ro' % urllib.parse.quote(str(P.data / 'tofi.db'))
+        connection = sqlite3.connect(uri, uri=True, timeout=5)
+        try:
+            row = connection.execute("SELECT config FROM org_resources WHERE id='file_store'").fetchone()
+        finally:
+            connection.close()
+        config = json.loads(row[0]) if row else {}
+        summary['bucket'], summary['gen'] = config.get('bucket'), config.get('gen')
+    except (sqlite3.Error, OSError, ValueError, TypeError, AttributeError):
+        pass
+    return summary
+
+
+def check_object_rows(version):
+    """Refuse a release that predates `obj:` rows while files live in the object store.
+    The files must be moved back to disk first, or the release must be one that reads them."""
+    target, minimum = version_key(version), version_key(OBJECT_ROWS_MIN_VERSION)
+    if target is None or minimum is None or target >= minimum:
+        return
+    rows, _, unreadable = object_rows()
+    if unreadable:
+        raise HostError(
+            'Cannot tell whether files live in the object store: %s could not be read. Nothing was changed.'
+            % ', '.join(unreadable))
+    if rows:
+        raise HostError(
+            'Update refused: %s predates the object store and %d file%s live in it. That release would answer 404 '
+            'for each of them. Nothing was changed. Update to %s or later, or move the files back to this server '
+            'first.' % (version, rows, '' if rows == 1 else 's', OBJECT_ROWS_MIN_VERSION))
+
+
 def vault_files():
     """Every secret vault: the root one and one per account (multi-account)."""
     found = [P.data / 'secrets' / 'vault.json']
@@ -2342,6 +2418,12 @@ def backup_data(reason, env=None, note=None, check_space=True, disks=False):
             'sha256': {data_name: sha256_file(partial / data_name), etc_name: sha256_file(partial / etc_name),
                        worker_name: sha256_file(partial / worker_name)},
         }
+        try:
+            store_files = file_store_summary()
+        except (sqlite3.Error, OSError, ValueError, TypeError):
+            store_files = {'unreadable': 1}
+        if store_files:
+            meta['file_store'] = store_files  # the file bytes are in the bucket, not in this backup
         if disk_entries is not None:
             meta['disks'] = disk_entries
             meta['sizes']['disks_allocated'] = sum(entry['compressed'] for entry in disk_entries)
@@ -2707,6 +2789,11 @@ def render_backups(backups):
              human_bytes(item['size']), item['meta'].get('reason') or '-'
              ] for item in backups]
     lines = format_table(['ID', 'CREATED (UTC)', 'VERSION', 'SIZE', 'REASON'], rows)
+    in_store = [item for item in backups if item['meta'].get('file_store')]
+    if in_store:
+        lines += ['', '  Files in the object store are not in a backup: %s.'
+                  % ', '.join('%s keeps %s in bucket %s' % (item['id'], plural(item['meta']['file_store'].get('objects') or 0, 'file'),
+                                                         item['meta']['file_store'].get('bucket') or '?') for item in in_store)]
     lines += ['', '  Restore one with: sudo tofi restore <ID>',
               '  Automatic backups (pre-update, pre-restore): the last %d are kept. Manual ones stay until you '
               'remove them: sudo tofi backups --remove <ID>' % BACKUP_KEEP]
@@ -3929,6 +4016,7 @@ def _upgrade(info, version, manifest_path, allow_schema_change, manifest, wait, 
             say('TOFI %s is already installed.' % manifest['version'])
             return {'upgraded': False, 'version': manifest['version']}
         check_runner_downgrade(manifest, allow_runner_downgrade)
+        check_object_rows(manifest['version'])
         if confirm is not None:
             confirm(previous['env']['TOFI_VERSION'], manifest)
         wait_for_idle('the update', wait, force)
@@ -5898,6 +5986,10 @@ def confirm_restore(item, meta):
     say('Restore backup %s (TOFI %s, taken %s, %s).' % (item['id'], meta.get('version'), meta.get('created_at'),
                                                        meta.get('reason')))
     say('All current data and settings are replaced; the current state is backed up first (pre-restore).')
+    if meta.get('file_store'):
+        say('Its files are in the object store (bucket %s), not in this backup. A file deleted since the backup stays '
+            'readable only for the deletion grace; a file added since is not in the restored data.'
+            % (meta['file_store'].get('bucket') or 'unknown'))
     if meta.get('disks'):
         say('It carries %s: they replace the current ones, which are kept beside them (workspace-before-restore-*.ext4); '
             'open pages of those Bot computers are lost. --no-disks leaves the disks as they are.'

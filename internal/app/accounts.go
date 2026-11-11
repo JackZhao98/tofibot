@@ -79,6 +79,7 @@ type AccountGateway struct {
 	// the root's own secrets directory), opened on first use. orgWriteMu
 	// serializes resource writes.
 	orgVault   *secretVault
+	fileCache  fileStoreCache
 	orgInitMu  sync.Mutex
 	orgWriteMu sync.Mutex
 	// orgWebEndpoints redirects an organization web-key probe; tests only.
@@ -426,6 +427,7 @@ func (g *AccountGateway) workspace(a Account) (*Server, error) {
 	c.AccountIsAdmin = func() bool { return g.accountIsAdmin(a.ID) }
 	g.wireStorage(&c, a)
 	g.wirePolicy(&c, a)
+	g.wireFileStore(&c, a)
 	createRuntime := g.runtimeFactory
 	if createRuntime == nil {
 		createRuntime = NewServer

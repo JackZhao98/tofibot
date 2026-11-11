@@ -25,7 +25,11 @@ func migrateDeletion(db *sql.DB) error {
 	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS deleted_bot_identities(bot_id TEXT PRIMARY KEY,name TEXT NOT NULL);
  CREATE TABLE IF NOT EXISTS deleted_attachment_files(disk_name TEXT PRIMARY KEY);
  CREATE TABLE IF NOT EXISTS deleted_bot_creations(client_creation_id TEXT PRIMARY KEY);`)
-	return err
+	if err != nil {
+		return err
+	}
+	// A bucket object is removed only after delete_after (the deletion grace).
+	return ensureColumn(db, "deleted_attachment_files", "delete_after", `ALTER TABLE deleted_attachment_files ADD COLUMN delete_after TEXT`)
 }
 
 func (s *Store) DeleteBot(id string) (DeleteResult, error) {
@@ -160,7 +164,7 @@ func (s *Store) deleteWorkspaceTargetWith(id string, bot bool, actor *Run, succe
 	}
 	// Only files owned by the deleted conversation are candidates. Shared
 	// bindings to another conversation's attachment never transfer ownership.
-	if _, err = tx.Exec(`INSERT OR IGNORE INTO deleted_attachment_files(disk_name) SELECT disk_name FROM attachments WHERE conversation_id=?`, conv); err != nil {
+	if _, err = tx.Exec(`INSERT OR IGNORE INTO deleted_attachment_files(disk_name,delete_after) SELECT disk_name,CASE WHEN disk_name>='obj:' AND disk_name<'obj;' THEN ? END FROM attachments WHERE conversation_id=?`, s.deleteDeadline(context.Background()), conv); err != nil {
 		return DeleteResult{}, err
 	}
 	// These tables intentionally lack a complete FK to their conversation/run.
@@ -202,18 +206,38 @@ func (s *Store) deleteWorkspaceTargetWith(id string, bot bool, actor *Run, succe
 }
 
 func (s *Store) cleanupDeletedAttachments() {
-	rows, err := s.db.Query(`SELECT disk_name FROM deleted_attachment_files`)
+	rows, err := s.db.Query(`SELECT disk_name,COALESCE(delete_after,'') FROM deleted_attachment_files`)
 	if err != nil {
 		return
 	}
-	var files []string
+	var files, objects []string
+	nowStamp := time.Now().UTC().Format(time.RFC3339)
 	for rows.Next() {
-		var disk string
-		if rows.Scan(&disk) == nil {
-			files = append(files, disk)
+		var disk, after string
+		if rows.Scan(&disk, &after) != nil {
+			continue
 		}
+		if strings.HasPrefix(disk, objPrefix) {
+			if after <= nowStamp { // an object waits out its grace first
+				objects = append(objects, disk)
+			}
+			continue
+		}
+		files = append(files, disk)
 	}
 	rows.Close()
+	for _, disk := range objects {
+		var owned int
+		if s.db.QueryRow(`SELECT COUNT(*) FROM attachments WHERE disk_name=?`, disk).Scan(&owned) != nil || owned != 0 {
+			continue
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		err := s.removeAttachmentFile(ctx, disk)
+		cancel()
+		if err == nil {
+			_, _ = s.db.Exec(`DELETE FROM deleted_attachment_files WHERE disk_name=?`, disk)
+		}
+	}
 	var local []string
 	for _, disk := range files {
 		if !strings.HasPrefix(disk, guestAttachmentPrefix) {

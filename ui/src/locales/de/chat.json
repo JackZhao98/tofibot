@@ -52,7 +52,10 @@
     "problem": {
       "file_on_detached_computer": "Diese Datei liegt nur auf dem getrennten Bot-Computer. Verbinde den Bot-Computer wieder, um sie zu öffnen.",
       "file_missing_on_computer": "Diese Datei ist nicht mehr auf dem Bot-Computer und wurde nie auf den Server kopiert. Sie lässt sich nicht wiederherstellen.",
-      "open_computer": "Bot-Computer-Einstellungen öffnen"
+      "open_computer": "Bot-Computer-Einstellungen öffnen",
+      "file_missing_in_store": "Diese Datei liegt nicht mehr im Dateispeicher.",
+      "file_store_unavailable": "Der Dateispeicher ist gerade nicht erreichbar. Versuche es gleich noch einmal.",
+      "file_store_misconfigured": "Der Dateispeicher ist nicht richtig eingerichtet. Bitte die Administration, „Dateispeicher“ zu prüfen."
     }
   },
   "botPanel": {

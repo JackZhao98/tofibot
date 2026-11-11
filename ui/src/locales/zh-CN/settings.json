@@ -522,7 +522,8 @@
         "computer": "移除 Bot 电脑并释放磁盘",
         "data": "移除 Bot、对话和文件",
         "sessions": "移除登录状态",
-        "record": "移除账号"
+        "record": "移除账号",
+        "files": "正在从对象存储删除文件"
       }
     },
     "deleting": {
@@ -536,7 +537,8 @@
         "computer_unverified": "Bot 电脑服务有响应，但无法验证移除结果。",
         "data_failed": "无法删除该账号的数据文件夹。",
         "sessions_failed": "无法移除该账号的登录状态。",
-        "record_failed": "无法移除账号记录。"
+        "record_failed": "无法移除账号记录。",
+        "files_failed": "无法从对象存储删除该账户的文件。"
       }
     },
     "result": {
@@ -695,7 +697,20 @@
         "invalid_request": "请求无效。",
         "forbidden": "需要管理员权限。",
         "storage": "服务器未能保存。",
-        "custom_template": "此电脑使用你提供的模板，不会重新构建。"
+        "custom_template": "此电脑使用你提供的模板，不会重新构建。",
+        "endpoint_unreachable": "本服务器无法连上该 Endpoint。",
+        "credentials_rejected": "存储桶拒绝了该 Access key。",
+        "bucket_not_found": "该 Endpoint 下不存在此存储桶。",
+        "write_denied": "该 Access key 没有写入此存储桶的权限。",
+        "conditional_put_unsupported": "该 Endpoint 不支持一次性写入（If-None-Match）。",
+        "range_unsupported": "该 Endpoint 不支持范围读取。",
+        "delete_denied": "该 Access key 没有删除此存储桶对象的权限。",
+        "bucket_is_public": "该存储桶无需凭证即可读取。请改为私有，或确认继续使用。",
+        "invalid_endpoint": "请按 https://host 填写 Endpoint，不带路径。",
+        "invalid_bucket": "请填写存储桶名称。",
+        "invalid_prefix": "前缀只能包含小写字母、数字、点、短横线和斜杠。",
+        "invalid_grace": "已删除文件保留 1 到 365 天。",
+        "file_store_in_use": "文件已存放在此存储桶中。在迁走之前，不能更改其地址，也不能移除。"
       },
       "missing_accounts_other": "{{count}} 个账户覆盖",
       "intro": "这些密钥属于这台服务器，供所在组由组织提供资源的账户使用；它们不是你的个人密钥，你的在 设置 › AI 模型、环境、搜索与抓取。",
@@ -723,6 +738,32 @@
           "e2b_limit": "已达到 E2B 账户上限。请先在 E2B 释放额度，再重试构建。",
           "template_stale_in_team": "E2B 团队中已有一个名为 tofi-computer-{{version}} 的模板，其上次构建失败，E2B 不接受在它上面重新构建。请在 E2B 控制台删除该模板（团队所有者可以操作），然后重试构建。"
         }
+      },
+      "storage": {
+        "title": "文件存储",
+        "help": "本服务器存放用户上传文件和 Bot 产出文件的位置。未配置存储桶时，文件保存在本服务器磁盘上。"
+      },
+      "file_store": {
+        "name": "对象存储",
+        "tag": "兼容 S3",
+        "summary": "{{endpoint}} 上的 {{bucket}}",
+        "endpoint": "Endpoint",
+        "region": "Region",
+        "bucket": "Bucket",
+        "prefix": "前缀（可选）",
+        "path_style": "Path-style 寻址",
+        "access_key": "Access key ID",
+        "secret_key": "Secret access key",
+        "grace": "已删除文件保留天数",
+        "destination": "新文件写入",
+        "dest_bucket": "对象存储",
+        "dest_disk": "本服务器磁盘",
+        "dest_note": "无论选哪一项，已在存储桶里的文件仍可读取。已删除的文件保留 {{days}} 天。",
+        "confirm_public": "该存储桶无需凭证即可读取，仍然保留使用",
+        "save": "测试并保存",
+        "test": "测试连接",
+        "test_ok": "连接已验证。",
+        "note": "Access key 对以密封形式保存，之后不再显示。请使用私有存储桶和仅限该桶的密钥。"
       }
     }
   },

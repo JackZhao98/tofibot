@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -47,8 +48,13 @@ func TestAttachmentOversizedRollsBackFile(t *testing.T) {
 	}
 	root, _ := s.attachmentRoot()
 	entries, _ := os.ReadDir(root)
-	if len(entries) != 0 {
-		t.Fatalf("temporary upload left behind: %d", len(entries))
+	for _, e := range entries {
+		if e.Name() != spoolDirName {
+			t.Fatalf("temporary upload left behind: %s", e.Name())
+		}
+	}
+	if spooled, _ := os.ReadDir(filepath.Join(root, spoolDirName)); len(spooled) != 0 {
+		t.Fatalf("spool file left behind: %d", len(spooled))
 	}
 }
 

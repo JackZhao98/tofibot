@@ -359,7 +359,7 @@ func (s *Server) resolveMailAttachments(ctx context.Context, c Conversation, r R
 	out := make([]MailDraftAttachment, 0, len(files))
 	for _, f := range files {
 		if f.path != "" {
-			a, err := s.store.AddAttachment(c.ID, f.att.Name, "application/octet-stream", bytes.NewReader(f.data))
+			a, err := s.store.addAttachmentOpts(ctx, c.ID, f.att.Name, "application/octet-stream", bytes.NewReader(f.data), attachmentOpts{Origin: attachmentOriginGenerated, BotID: r.BotID})
 			if err != nil {
 				return nil, fmt.Errorf("Cannot keep %s as an attachment: %v. Nothing was saved", f.path, err)
 			}

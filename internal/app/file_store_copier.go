@@ -8,7 +8,8 @@ import (
 )
 
 // The background copier of legacy `vm:` attachments (design §5.4). It runs once
-// at start and then every ten minutes while `vm:` rows remain. The row is the
+// at start and then every ten minutes: it copies `vm:` rows while any remain and
+// removes bucket objects whose deletion grace has ended. The row is the
 // only state, so a restart, a crash or a second copier changes nothing.
 const (
 	fileCopyInterval = 10 * time.Minute
@@ -26,7 +27,7 @@ type fileStoreRuntime struct {
 }
 
 func (s *Server) startFileStoreCopier() {
-	if s.computer() == nil || s.store == nil {
+	if s.store == nil {
 		return
 	}
 	rt := &s.fileStore
@@ -73,7 +74,11 @@ func (s *Server) stopFileStoreCopier() {
 // once an hour, so the migration does not keep a computer awake.
 func (s *Server) copyLegacyFiles(ctx context.Context) {
 	pending, err := s.store.pendingGuestCopies()
-	if err != nil || pending == 0 {
+	if err != nil {
+		return
+	}
+	if pending == 0 {
+		s.store.cleanupDeletedAttachments() // bucket objects whose deletion grace has ended
 		return
 	}
 	if s.computer() != nil {
