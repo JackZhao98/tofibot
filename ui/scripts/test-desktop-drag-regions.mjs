@@ -137,6 +137,28 @@ for (const size of SIZES) {
   await page.locator(".computer-hide-button, [aria-label='Close Bot computer']").first().waitFor();
   await check(page, "Bot computer card", size);
 
+  // The mini window is dragged anywhere, so each corner (the top-left one sits by the traffic lights and the sidebar's title strip) and a
+  // free spot pushed right under the title strip must keep both controls out of the drag area.
+  for (const [corner, label] of [["top-left", "top left"], ["top-right", "top right"], ["bottom-left", "bottom left"], ["bottom-right", "bottom right"]]) {
+    await page.locator("[data-desktop-frame]").first().click({ button: "right" });
+    await page.getByRole("menuitem", { name: `Move to ${label}` }).click();
+    await page.waitForTimeout(150);
+    await check(page, `Bot computer mini window, ${corner} corner`, size);
+  }
+  {
+    const box = await page.locator(".desktop-floating-shell.is-small").boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.keyboard.down("Alt");
+    await page.mouse.down();
+    await page.mouse.move(60, 30, { steps: 8 });
+    await page.mouse.up();
+    await page.keyboard.up("Alt");
+    await page.waitForTimeout(150);
+    const free = await page.locator(".desktop-floating-shell.is-small").boundingBox();
+    assert.ok(free.y < 48, `${size.width}x${size.height}: the free spot sits under the title strip (${free.y})`);
+    await check(page, "Bot computer mini window, free under the title strip", size);
+  }
+
   await page.locator("[aria-label='Enlarge Bot computer']").last().click();
   await page.locator("[aria-label='Shrink Bot computer']").first().waitFor();
   await check(page, "enlarged Bot computer", size);
