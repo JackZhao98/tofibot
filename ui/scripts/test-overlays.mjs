@@ -221,16 +221,22 @@ await check("collapsed sidebar: the new and account menus open beside the rail, 
   await context.close();
 });
 
-await check("account menu: the theme choices are radio items that keep the menu open", async () => {
+await check("account menu: the theme icon cycles and keeps the menu open", async () => {
   const { page, context } = await fx.open({});
   await page.locator(".sidebar-account-identity").click();
   await onTop(page, ".sidebar-account-menu");
-  const dark = page.locator(".sidebar-account-menu [role=menuitemradio]").filter({ hasText: "Dark" });
-  await dark.click();
-  await sleep(300);
-  assert.equal(await page.locator(".sidebar-account-menu").count(), 1, "choosing a theme keeps the menu open");
-  assert.equal(await dark.getAttribute("aria-checked"), "true");
-  assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "dark");
+  const theme = page.locator(".sidebar-account-theme");
+  const current = await theme.getAttribute("aria-label");
+  const cycle = ["System", "Light", "Dark"];
+  const start = cycle.indexOf(current);
+  assert.ok(start >= 0);
+  for (let offset = 1; offset <= 3; offset++) {
+    await theme.click();
+    const next = cycle[(start + offset) % cycle.length];
+    await page.waitForFunction(label => document.querySelector(".sidebar-account-theme")?.getAttribute("aria-label") === label, next);
+    assert.equal(await page.locator(".sidebar-account-menu").count(), 1, "choosing a theme keeps the menu open");
+    if (next !== "System") assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), next.toLowerCase());
+  }
   await context.close();
 });
 

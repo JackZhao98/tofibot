@@ -41,3 +41,33 @@ func TestAcceptanceIdentityPersists(t *testing.T) {
 		t.Fatal("test data accepted for personal instance")
 	}
 }
+
+func TestHostingEnvironment(t *testing.T) {
+	for _, value := range []string{"", "self", "cloud", "Cloud", " self", "other"} {
+		t.Run("value="+value, func(t *testing.T) {
+			t.Setenv("TOFI_HOSTING", value)
+			got, err := hostingFromEnvironment()
+			switch value {
+			case "", "self", "cloud":
+				want := value
+				if want == "" {
+					want = "self"
+				}
+				if err != nil || got != want {
+					t.Fatalf("hosting=%q, err=%v; want %q", got, err, want)
+				}
+			default:
+				const message = "TOFI_HOSTING must be cloud or self"
+				if err == nil || err.Error() != message {
+					t.Fatalf("error=%v; want %s", err, message)
+				}
+				if _, err := NewServer(Config{DataDir: t.TempDir()}); err == nil || err.Error() != message {
+					t.Fatalf("startup error=%v; want %s", err, message)
+				}
+				if _, err := NewAccountGateway(Config{DataDir: t.TempDir()}); err == nil || err.Error() != message {
+					t.Fatalf("gateway startup error=%v; want %s", err, message)
+				}
+			}
+		})
+	}
+}
