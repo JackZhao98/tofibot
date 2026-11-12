@@ -739,7 +739,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 	vmBrowser := browser
 	browser = s.browserTool(r, &vmBrowser)
 	tools = append(tools, browser)
-	return append(tools, computerHelpToolFor(playwright, a11y, s.browserMacPaired()), s.terminalTool(r), s.sshKeyTool(r))
+	return append(tools, computerHelpToolFor(playwright, a11y), s.terminalTool(r), s.sshKeyTool(r))
 }
 
 // browserProcessGone reports a browser call that failed because Chrome's
