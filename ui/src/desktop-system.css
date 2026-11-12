@@ -75,6 +75,6 @@ html[data-desktop="darwin"][data-theme="dark"] .contact-pane{background:var(--si
   html[data-desktop="darwin"]:not([data-fullscreen="true"]) .workspace .sidebar-collapsed .sidebar-top button{width:40px;height:40px;-webkit-app-region:no-drag}
   html[data-desktop="darwin"]:not([data-fullscreen="true"]) .workspace .sidebar-collapsed .sidebar-logo-art{display:none}
   html[data-desktop="darwin"]:not([data-fullscreen="true"]) .workspace .sidebar-collapsed .sidebar-logo-arrow{opacity:1;transform:none}
-  html[data-desktop="darwin"]:not([data-fullscreen="true"]) .workspace .sidebar-collapsed .chat-header{padding-top:58px}
-  html[data-desktop="darwin"]:not([data-fullscreen="true"]) .workspace .sidebar-collapsed .chat-header>.chat-header-drag{top:48px}
+  /* One title row, as in Claude and ChatGPT: traffic lights, the three rail buttons (they end at 78 + 3 x 40 + 2 x 4 = 206 px), then the chat title. */
+  html[data-desktop="darwin"]:not([data-fullscreen="true"]) .workspace .sidebar-collapsed .chat-header{min-height:48px;padding-top:3px;padding-bottom:3px;padding-left:calc(206px + 14px - var(--sidebar-collapsed))}
 }

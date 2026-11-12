@@ -9,7 +9,7 @@
 :root :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu { background:color-mix(in srgb,var(--surface) 98%,transparent); -webkit-backdrop-filter:blur(32px) saturate(1.2); backdrop-filter:blur(32px) saturate(1.2); animation:account-menu-fade var(--m-quick) var(--ease-out) both; }
 @keyframes account-menu-fade { from { opacity:0; } to { opacity:1; } }
 .workspace .sidebar-account { align-items:center; }
-.workspace .sidebar-app-update[data-state="downloaded"] { color:var(--honey-text); }
+.workspace .sidebar-app-update[data-state="downloaded"] { color:var(--clay-text); }
 .workspace .sidebar-app-update[data-state="downloading"] svg { animation:account-update-pulse 1.4s var(--ease-inout) infinite alternate; }
 @keyframes account-update-pulse { from { opacity:.45; } to { opacity:1; } }
 .workspace .sidebar-app-update-error { position:absolute; bottom:100%; left:0; padding:8px; background:var(--surface); border-radius:8px; font-size:12px; }

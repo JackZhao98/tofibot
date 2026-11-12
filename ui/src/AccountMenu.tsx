@@ -21,10 +21,10 @@ export function AccountMenu({ setOpen, name, trigger, menu, session, logout, onS
       <div className="sidebar-account-menu-heading"><strong>{name}</strong></div>
       <button onClick={() => navigate(onSettings)}><TofiIcon name="settings" size={16}/>{t("common:nav.settings")}</button>
       <button onClick={() => navigate(onUsage)}><TofiIcon name="activity" size={16}/>{t("common:nav.usage")}</button>
+      <button onClick={() => navigate(onArtifacts)}><TofiIcon name="folder" size={16}/>{t("common:nav.artifacts")}</button>
       <OverlaySubmenu label={t("common:language.label")} icon={<TofiIcon name="globe" size={16}/>} className="sidebar-account-menu sidebar-account-submenu">
         {languageChoices(browserLanguage).map(choice => <button key={choice.value} role="menuitemradio" lang={choice.lang} aria-checked={selectedLanguageChoice(language, browserLanguage) === choice.value} data-keep-open="" onClick={() => pickLanguage(choice.value)}>{choice.label}{choice.tag && <span className="menu-default-tag">{t("settings:language.default")}</span>}</button>)}
       </OverlaySubmenu>
-      <button onClick={() => navigate(onArtifacts)}><TofiIcon name="folder" size={16}/>{t("common:nav.artifacts")}</button>
       <div className="sidebar-account-menu-rule"/>
       <div className="sidebar-account-menu-footer">
         {session?.enabled && <button className="sidebar-account-logout" disabled={busy} onClick={() => { setBusy(true); setError(""); void logout().catch(cause => setError(cause instanceof Error ? cause.message : t("account.sign_out_failed"))).finally(() => setBusy(false)); }}><TofiIcon name="logout" size={16}/>{busy ? t("account.signing_out") : t("account.sign_out")}</button>}
