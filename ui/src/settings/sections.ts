@@ -15,7 +15,7 @@ export const SETTINGS_SECTIONS = {
   // System holds Behavior (the automatic behaviors) as a subpage: "behavior" is its common rows, the five group ids are its
   // folded groups, "followups" its Follow-ups subpage.
   advanced: ["version", "server", "behavior", "groups", "replies", "reviews", "tasks", "computer", "followups", "data", "diagnostics", "danger"],
-  admin: ["accounts"],
+  admin: ["accounts", "version"],
   "admin-groups": ["policy", "members"],
   "admin-resources": ["models", "computers", "web"],
 } as const;

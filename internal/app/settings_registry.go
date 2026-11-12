@@ -136,7 +136,7 @@ var settingsTabPages = []settingsPage{
 	// System holds Behavior (the automatic behaviors) as a subpage: "behavior" is its common rows, the five group ids
 	// are its folded groups, "followups" its Follow-ups subpage.
 	{"advanced", "settings:shell.page.advanced.name", []string{"version", "server", "behavior", "groups", "replies", "reviews", "tasks", "computer", "followups", "data", "diagnostics", "danger"}},
-	{"admin", "settings:shell.page.admin.name", []string{"accounts"}},
+	{"admin", "settings:shell.page.admin.name", []string{"accounts", "version"}},
 	{"admin-groups", "settings:shell.page.admin-groups.name", []string{"policy", "members"}},
 	{"admin-resources", "settings:shell.page.admin-resources.name", []string{"models", "computers", "web"}},
 }

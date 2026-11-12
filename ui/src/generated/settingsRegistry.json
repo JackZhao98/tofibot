@@ -82,7 +82,8 @@
     {
       "id": "admin",
       "sections": [
-        "accounts"
+        "accounts",
+        "version"
       ]
     },
     {
