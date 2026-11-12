@@ -83,7 +83,7 @@ export const hasPreview = (id: string) => previews.has(id);
 export const thumbnailUrl = (id: string) => previews.get(id) ?? local.get(id) ?? attachmentUrl(id);
 
 /** The box a single image takes: fitted into max x maxHeight, never below `min` on the short side. Unknown size: 4:3. */
-export function singleBox(id: string, max = 320, maxHeight = 360, min = 96): { width: number; height: number; known: boolean } {
+export function singleBox(id: string, max = 280, maxHeight = 280, min = 96): { width: number; height: number; known: boolean } {
   const size = imageSize(id);
   const [w, h] = size ?? [4, 3];
   const scale = Math.min(1, max / w, maxHeight / h);

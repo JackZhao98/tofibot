@@ -238,8 +238,8 @@ try {
     await shell(page, "is-expanded").waitFor();
     assert.equal(await shell(page, "is-expanded").getAttribute("role"), "dialog");
     assert.equal(await shell(page, "is-small").count(), 0);
-    assert.equal((await page.evaluate(() => window.__flips)).length, 1, "small -> big expands from the small window's rect (FLIP)");
-    assert.match((await page.evaluate(() => window.__flips))[0], /translate\(.*scale\(/);
+    assert.equal((await page.evaluate(() => window.__flips)).length, 1, "small -> big opens with one in-place fade");
+    assert.deepEqual(JSON.parse((await page.evaluate(() => window.__flips))[0]), [{ opacity: 0 }, { opacity: 1 }], "enlarging never translates or scales from a corner");
     await page.waitForTimeout(400);
     within(await ratio(page), "big ready");
     for (const value of await samples(page)) within(value, "ready (small, expanding, big)");
@@ -322,7 +322,7 @@ try {
       return target?.closest?.(".desktop-floating-shell") && animation.playState === "running";
     }).map(animation => `${animation.constructor.name}:${animation.transitionProperty ?? animation.animationName ?? "waapi"}`));
     assert.deepEqual(running, [], "reduced motion leaves no running transition or animation on the window");
-    assert.equal((await page.evaluate(() => window.__flips)).length, 0, "reduced motion skips the FLIP");
+    assert.equal((await page.evaluate(() => window.__flips)).length, 0, "reduced motion skips the fade");
     await page.keyboard.press("Escape");
     await shell(page, "is-small").waitFor();
     assert.deepEqual(errors, []);
@@ -538,11 +538,11 @@ try {
     await page.keyboard.press("Alt+ArrowLeft");
     b = await box();
     assert.ok(Math.abs(b.x - 20) <= 2, `${label}: Alt+ArrowLeft snaps to the left corner`);
-    // A click on the screen still enlarges, from wherever the window is (one FLIP).
+    // A click on the screen still enlarges in place, wherever the mini window was moved.
     await page.evaluate(() => { window.__flips.length = 0; });
     await page.locator(".desktop-enlarge").click();
     await shell(page, "is-expanded").waitFor();
-    if (!reducedMotion) assert.equal((await page.evaluate(() => window.__flips)).length, 1, "enlarging from the moved window is one FLIP");
+    if (!reducedMotion) assert.equal((await page.evaluate(() => window.__flips)).length, 1, "enlarging from the moved window is one in-place fade");
     assert.equal(await page.evaluate(() => document.querySelector(".desktop-floating-shell").style.transform), "", "the big window carries no placement transform");
     await page.keyboard.press("Escape");
     await shell(page, "is-small").waitFor();

@@ -9,8 +9,8 @@ import { MOTION, EASE } from "./motion";
 
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/** The image lightbox (native <dialog>, top layer): zooms from the thumbnail, Copy / Download, arrows step through the message's images. */
-export default function AttachmentLightbox({ images, index, onIndex, onClose, origin, cellAt, stepButtons, stepsLabel }: { images: Attachment[]; index: number | null; onIndex: (index: number) => void; onClose: () => void; origin: () => HTMLElement | null; /** A click on the picture asks which image to show next, from the point as fractions of its width and height (the work-trace strip). */ cellAt?: (index: number, fx: number, fy: number) => number | null; /** The same step pick for the keyboard and screen readers: one button per image, shown when focused. */ stepButtons?: { label: string; to: number }[]; stepsLabel?: string }) {
+/** The image lightbox (native <dialog>, top layer): opens in place, Copy / Download, arrows step through the message's images. */
+export default function AttachmentLightbox({ images, index, onIndex, onClose, cellAt, stepButtons, stepsLabel }: { images: Attachment[]; index: number | null; onIndex: (index: number) => void; onClose: () => void; origin: () => HTMLElement | null; /** A click on the picture asks which image to show next, from the point as fractions of its width and height (the work-trace strip). */ cellAt?: (index: number, fx: number, fy: number) => number | null; /** The same step pick for the keyboard and screen readers: one button per image, shown when focused. */ stepButtons?: { label: string; to: number }[]; stepsLabel?: string }) {
   const { t } = useTranslation(["chat", "common"]);
   const dialog = useRef<HTMLDialogElement>(null);
   const zoomImage = useRef<HTMLImageElement>(null);
@@ -18,26 +18,21 @@ export default function AttachmentLightbox({ images, index, onIndex, onClose, or
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
   const current = index === null ? null : images[index] ?? null;
-  const delta = useCallback(() => {
-    const from = origin()?.getBoundingClientRect(); const to = zoomImage.current?.getBoundingClientRect();
-    return from && to && from.width && from.height && to.width && to.height ? `translate(${from.left - to.left}px,${from.top - to.top}px) scale(${from.width / to.width},${from.height / to.height})` : null;
-  }, [origin]);
   useEffect(() => {
     const d = dialog.current; if (!d) return;
     if (index !== null && !d.open) {
       d.showModal();
-      if (!reducedMotion()) { const start = delta(); if (start) zoomImage.current?.animate({ transform: [start, "none"] }, { duration: MOTION.panelIn, easing: EASE.out }); }
+      if (!reducedMotion()) d.animate({ opacity: [0, 1] }, { duration: MOTION.quick, easing: EASE.out });
     }
     if (index === null && d.open) d.close();
-  }, [index, delta]);
+  }, [index]);
   const close = useCallback(async () => {
     const d = dialog.current; if (!d || closing.current) return;
     if (reducedMotion()) { onClose(); return; }
     closing.current = true; d.classList.add("is-closing");
-    const end = delta();
-    if (end) { try { await zoomImage.current?.animate({ transform: ["none", end] }, { duration: MOTION.panelOut, easing: EASE.inout, fill: "forwards" }).finished; } catch { /* Closing still proceeds if animation is interrupted. */ } }
+    try { await d.animate({ opacity: [1, 0] }, { duration: MOTION.instant, easing: EASE.settle }).finished; } catch { /* Closing still proceeds if animation is interrupted. */ }
     d.classList.remove("is-closing"); closing.current = false; onClose();
-  }, [delta, onClose]);
+  }, [onClose]);
   useEffect(() => { setCopied(false); setError(""); }, [index]);
   async function copy() {
     if (!current) return;

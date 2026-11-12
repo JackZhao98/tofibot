@@ -1,9 +1,9 @@
 /* Search palette (SearchPalette.tsx, lazy). Centred floating panel on the dialog layer; a full-width sheet on a phone.
    Motion: --m-base in / --m-panel-out out (leaving is shorter). Colours only from tokens, so dark mode follows. No backdrop blur: it re-rasterises the whole window on every key (72 ms vs 32 ms per key, measured). */
-.search-palette-scrim{position:fixed;inset:0;z-index:var(--z-dialog);display:grid;justify-items:center;align-items:start;padding:12vh 24px 24px;background:color-mix(in srgb,var(--ink) 28%,transparent);animation:search-scrim-in var(--m-base) var(--ease-out)}
-.search-palette-scrim[data-state="closing"]{animation:search-scrim-out var(--m-panel-out) var(--ease-in) forwards;pointer-events:none}
-.search-palette{display:flex;flex-direction:column;width:min(640px,100%);max-height:min(560px,76dvh);overflow:hidden;border:var(--edge) solid var(--line);border-radius:var(--radius-2xl);background:var(--surface);box-shadow:var(--hard);color:var(--ink);animation:search-panel-in var(--m-base) var(--ease-out)}
-.search-palette[data-state="closing"]{animation:search-panel-out var(--m-panel-out) var(--ease-in) forwards}
+.search-palette-scrim{position:fixed;inset:0;z-index:var(--z-dialog);display:grid;justify-items:center;align-items:start;padding:12vh 24px 24px;background:var(--scrim);animation:search-scrim-in var(--m-quick) var(--ease-out)}
+.search-palette-scrim[data-state="closing"]{animation:search-scrim-out var(--m-instant) var(--ease-in) forwards;pointer-events:none}
+.search-palette{display:flex;flex-direction:column;width:min(640px,100%);max-height:min(560px,76dvh);overflow:hidden;border:var(--edge) solid var(--line);border-radius:var(--radius-2xl);background:var(--surface);box-shadow:var(--hard);color:var(--ink);animation:search-panel-in var(--m-quick) var(--ease-out)}
+.search-palette[data-state="closing"]{animation:search-panel-out var(--m-instant) var(--ease-in) forwards}
 .search-palette:focus{outline:none}
 .search-palette-head{display:flex;align-items:center;gap:12px;padding:6px 10px 6px 18px;color:var(--muted);border-bottom:1px solid var(--line-soft)}
 /* The global field style (inset shadow, radius, fill) would draw an arc above the line: :root:root outranks it. */
@@ -48,12 +48,8 @@
   .search-palette-row{min-height:48px}
 }
 @media (hover:none){.search-palette-foot{display:none}}
-@media (prefers-reduced-motion:reduce){.search-palette-scrim,.search-palette{animation:none}}
+@media (prefers-reduced-motion:reduce){:root :is(.search-palette-scrim,.search-palette){animation:none}}
 @keyframes search-scrim-in{from{opacity:0}to{opacity:1}}
 @keyframes search-scrim-out{from{opacity:1}to{opacity:0}}
-@keyframes search-panel-in{from{opacity:0;transform:translateY(-8px) scale(.98)}to{opacity:1;transform:none}}
-@keyframes search-panel-out{from{opacity:1;transform:none}to{opacity:0;transform:translateY(-6px) scale(.985)}}
-@media (max-width:640px){
-  @keyframes search-panel-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
-  @keyframes search-panel-out{from{opacity:1;transform:none}to{opacity:0;transform:translateY(12px)}}
-}
+@keyframes search-panel-in{from{opacity:0}to{opacity:1}}
+@keyframes search-panel-out{from{opacity:1}to{opacity:0}}

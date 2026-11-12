@@ -143,10 +143,10 @@ try {
     assert.ok(size.includes(`${Buffer.byteLength(files.md_new.body)} B`), `newest size shown: ${size}`);
   });
 
-  await step("file row is 340px with a colored tile per type and an always-visible download", async () => {
+  await step("file row is 300px with a colored tile per type and an always-visible download", async () => {
     const row = page.locator(".delivered-attachment.is-file").first();
     const box = await row.boundingBox();
-    assert.equal(Math.round(box.width), 340);
+    assert.equal(Math.round(box.width), 300);
     const tones = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll(".attachment-file-row")].map(r => { const t = r.querySelector(".file-tile"); return [r.querySelector(".attachment-name").textContent, { tone: t.dataset.fileTone, label: t.textContent, bg: getComputedStyle(t.querySelector(".ft-label")).backgroundColor }]; })));
     assert.deepEqual(Object.fromEntries(Object.entries(tones).map(([k, v]) => [k, v.tone])), { "frevana-seo-analysis.md": "md", "notes.txt": "txt", "data.csv": "sheet", "config.json": "json", "paper.pdf": "pdf", "model.xlsx": "sheet", "bundle.zip": "archive", "tool.py": "code", "huge.log": "txt" });
     assert.equal(tones["model.xlsx"].label, "XLSX"); assert.equal(tones["paper.pdf"].label, "PDF"); assert.equal(tones["tool.py"].label, "PY");

@@ -242,7 +242,7 @@ html:not([data-desktop]) .workspace .composer-rich-text { font-size:16px; }
 .workspace .composer-add-wrap>.secondary-button:hover,.workspace .composer-row>.dictation-button:hover { transform:none; box-shadow:none; color:var(--ink); border-color:var(--line); background:var(--surface-2); }
 .workspace .composer-add-wrap>.secondary-button:active,.workspace .composer-row>.dictation-button:active { transform:none; box-shadow:none; background:var(--surface-2); }
 .workspace .composer-add-wrap>.secondary-button[aria-expanded="true"] { border:2px solid var(--yellow); color:var(--ink); }
-:is(.workspace,[id="tofi-layers"]) .composer-add-menu { position:relative; z-index:var(--z-menu); width:220px; padding:8px; border:2px solid var(--line); border-radius:16px; background:color-mix(in srgb,var(--surface) 99.5%,transparent); box-shadow:var(--hard-sm); -webkit-backdrop-filter:blur(32px) saturate(1.4); backdrop-filter:blur(32px) saturate(1.4); }
+:is(.workspace,[id="tofi-layers"]) .composer-add-menu { position:relative; z-index:var(--z-menu); width:220px; padding:8px; border:2px solid var(--line); border-radius:16px; background:var(--glass); box-shadow:var(--hard-sm); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur); }
 :is(.workspace,[id="tofi-layers"]) .composer-add-menu>button { display:flex; align-items:center; gap:12px; width:100%; min-height:40px; margin:0; padding:6px 8px; border:0; border-radius:10px; background:transparent; color:var(--ink); box-shadow:none; text-align:left; font:14px/1.3 var(--body); }
 :is(.workspace,[id="tofi-layers"]) .composer-add-menu>button:hover,:is(.workspace,[id="tofi-layers"]) .composer-add-menu>button:focus-visible { background:var(--surface-2); box-shadow:none; outline:none; }
 :is(.workspace,[id="tofi-layers"]) .composer-add-menu .composer-add-icon { display:grid; place-items:center; flex:none; width:20px; color:var(--ink-soft); font:18px/1 var(--body); }
@@ -413,7 +413,7 @@ html:not([data-desktop]) .workspace .composer .working-member.work-companion .wo
 .workspace .bot-v2-subtitle { margin:18px 0 16px; }
 .workspace .bot-v2-subtitle h2 { margin:0 0 4px; color:var(--ink); font:600 20px/1.3 var(--display); }
 .workspace .bot-v2-subtitle p { margin:0; color:var(--muted); font-size:12px; }
-:is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu) { background:color-mix(in srgb,var(--surface) 99.5%,transparent); border:2px solid var(--line); border-radius:16px; box-shadow:var(--sheen),var(--hard-sm); -webkit-backdrop-filter:blur(32px) saturate(1.4); backdrop-filter:blur(32px) saturate(1.4); }
+:is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu) { background:var(--glass); border:2px solid var(--line); border-radius:16px; box-shadow:var(--sheen),var(--hard-sm); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur); }
 :is(.workspace,[id="tofi-layers"]) .sidebar-context-menu { padding:6px; }
 :is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.sidebar-account-menu,.mcp-menu)>button,
 :is(.workspace,[id="tofi-layers"]) .mention-menu>button { display:flex; align-items:center; gap:9px; width:100%; min-height:42px; padding:8px 10px; border:0; border-radius:10px; background:transparent; color:var(--ink); box-shadow:none; text-align:left; font:14px/1.3 var(--body); white-space:normal; overflow-wrap:anywhere; }
@@ -506,3 +506,35 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>a.sidebar-account-link>svg:last-child { color:var(--muted); }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>a.sidebar-account-link:hover { color:var(--ink); background:var(--surface-2); }
 .menu-default-tag { margin-left:8px; color:var(--muted); font:12px/1.3 var(--body); }
+
+/* Shared overlay material. Specificity keeps lazy component sheets from weakening the glass.
+   Scrims dim the surrounding workspace; surface fills obscure the content directly below them. */
+:root :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu,.composer-add-menu,.ui-select-content,.pip-menu,.bot-identity-card,.context-card,.delete-dialog,.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-window-controls,.computer-floating-actions,.desktop-presence-actor,.desktop-enlarge-hint) {
+  background:var(--glass); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur);
+}
+:root :is(.desktop-window-controls,.computer-floating-actions,.desktop-enlarge-hint) { color:var(--ink); }
+:root :is(.desktop-window-controls,.computer-floating-actions) button { color:var(--ink); }
+:root :is(.desktop-window-controls,.computer-floating-actions) button:hover { background:var(--surface-2); }
+:root :is(.delete-dialog-overlay,.detail-backdrop,.cover-scrim,.cover-leave-scrim,.new-group-scrim,.sheet-overlay,.mcp-oauth-overlay,.handover-overlay,.settings-leave-overlay,.search-palette-scrim,.terminal-confirm) {
+  background:var(--scrim); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur);
+}
+/* A fade never changes a popup's anchor or travels across the workspace. */
+:root :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu,.composer-add-menu,.ui-select-content,.pip-menu,.bot-identity-card,.cover-window,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.permission-coach) {
+  transform-origin:center; animation:menu-enter var(--m-quick) var(--ease-out) both;
+}
+:root :is(.cover-scrim,.cover-leave-scrim,.new-group-scrim) { animation-duration:var(--m-quick); }
+:root :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu,.composer-add-menu,.ui-select-content,.pip-menu,.bot-identity-card)[data-state="closed"],
+:root :is(.cover-window,.cover-scrim,.new-group-dialog,.new-group-scrim).is-leaving {
+  animation:menu-leave var(--m-instant) var(--ease-settle) both; pointer-events:none;
+}
+:root[data-theme="dark"] .workspace .contact-pane { border-right-color:var(--line-soft); }
+:root[data-theme="dark"] .workspace .composer .composer-row { border-color:var(--line-soft); }
+@media (prefers-reduced-motion:reduce) {
+  :root:root :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu,.composer-add-menu,.ui-select-content,.pip-menu,.bot-identity-card,.cover-window,.cover-scrim,.cover-leave-scrim,.cover-leave-dialog,.new-group-dialog,.new-group-scrim,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.permission-coach) { animation:none; }
+}
+@media (prefers-reduced-transparency:reduce) {
+  :root :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu,.composer-add-menu,.ui-select-content,.pip-menu,.bot-identity-card,.context-card,.delete-dialog,.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-window-controls,.computer-floating-actions,.desktop-presence-actor,.desktop-enlarge-hint) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
+}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
+  :root,:root[data-theme="dark"] { --glass:var(--surface); }
+}

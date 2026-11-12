@@ -33,11 +33,12 @@
   --edge:2px; --edge-bold:3px; --r:14px; --r-lg:20px;
   --hard:3px 4px 0 #2a2019; --hard-sm:2px 3px 0 #2a2019;
   --dots:radial-gradient(#2a201914 1px,transparent 1.2px) 0 0/16px 16px;
-  --glass:rgba(252,251,249,.58); --glass-strong:rgba(252,251,249,.85);
+  --glass:rgba(252,251,249,.96); --glass-strong:var(--glass);
+  --scrim:rgba(12,14,18,.45);
   --glass-edge:rgba(42,32,25,.14); --blur:blur(40px) saturate(1.8);
   --sheen:inset 0 1px 0 rgba(255,255,255,.7);
   /* FloatingDesktop preview keeps dark glass legible over any desktop frame. */
-  --desktop-controls-glass:rgba(12,14,18,.45);
+  --desktop-controls-glass:var(--glass);
   --desktop-controls-solid:#0c0e12;
   --desktop-controls-edge:rgba(255,255,255,.14);
   --desktop-controls-ink:#f3eadb;
@@ -147,7 +148,8 @@
   --ft-pdf:#d8604f; --ft-image:#cc5c8a; --ft-sheet:#3f9467; --ft-doc:#4a7fd0; --ft-md:#8267d8; --ft-slides:#d27a3a;
   --ft-code:#2f9484; --ft-json:#b8861a; --ft-archive:#b8704a; --ft-media:#6870d4; --ft-text:#857d6e; --ft-other:#857d6e;
   --dots:radial-gradient(#ffffff14 1px,transparent 1.2px) 0 0/16px 16px;
-  --glass:rgba(31,28,24,.52); --glass-strong:rgba(31,28,24,.8);
+  --glass:rgba(31,28,24,.96); --glass-strong:var(--glass);
+  --sidebar-bg:var(--sunk);
   --glass-edge:rgba(241,230,214,.2); --sheen:inset 0 1px 0 rgba(255,255,255,.08);
   --float-shadow:var(--hard);
   --card-elevation:0 1px 2px color-mix(in srgb,var(--shade) 45%,transparent), 0 12px 30px -14px color-mix(in srgb,var(--shade) 70%,transparent), inset 0 1px 0 color-mix(in srgb,var(--white) 4%,transparent);

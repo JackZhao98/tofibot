@@ -18,8 +18,8 @@
 @media (prefers-reduced-motion:reduce) { .cover-dirty-bar, .cover-dirty-bar[data-open], .cover-dirty-bar button { transition:none; } }
 
 /* Leave question: a small filled card over the cover. */
-.cover-leave-scrim { position:fixed; inset:0; z-index:calc(var(--z-dialog) + 1); display:grid; place-items:center; padding:24px; background:color-mix(in srgb,var(--ink) 30%,transparent); animation:cover-leave-scrim-in var(--m-quick) var(--ease-out) both; }
-.cover-leave-dialog { width:min(400px,100%); padding:24px; border-radius:20px; background:var(--surface); color:var(--ink); box-shadow:0 24px 60px -20px color-mix(in srgb,var(--shade-warm) 55%,transparent); outline:none; animation:modal-enter var(--m-base) var(--ease-out) both; }
+.cover-leave-scrim { position:fixed; inset:0; z-index:calc(var(--z-dialog) + 1); display:grid; place-items:center; padding:24px; background:var(--scrim); animation:cover-leave-scrim-in var(--m-quick) var(--ease-out) both; }
+.cover-leave-dialog { width:min(400px,100%); padding:24px; border-radius:20px; background:var(--surface); color:var(--ink); box-shadow:0 24px 60px -20px color-mix(in srgb,var(--shade-warm) 55%,transparent); outline:none; animation:modal-enter var(--m-quick) var(--ease-out) both; }
 .cover-leave-dialog h3 { margin:0 0 8px; font:600 18px/1.3 var(--display); }
 .cover-leave-dialog p { margin:0 0 22px; color:var(--ink-soft); font:14px/1.6 var(--body); }
 .cover-leave-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }

@@ -121,7 +121,7 @@ async function check(page, surface, size) {
   const { out, drags, headerDrag } = await blocked(page);
   // Without a drag box the check would pass on nothing (a rule that stopped applying, or a renamed header).
   assert.ok(drags > 0, `${size.width}x${size.height} ${surface}: no macOS drag area found; the check would be empty`);
-  if (surface === "conversation") {
+  if (surface === "conversation" || surface === "collapsed conversation") {
     if (!headerDrag?.middle) out.push("the empty middle of the chat header does not move the window");
     if (headerDrag?.below) out.push("the message list just under the chat header moves the window");
   }
@@ -133,6 +133,24 @@ async function check(page, surface, size) {
 for (const size of SIZES) {
   let page = await open(size);
   await check(page, "conversation", size);
+
+  await page.getByRole("button", { name: "Collapse sidebar", exact: true }).click();
+  await page.locator(".workspace-grid.sidebar-collapsed").waitFor();
+  await check(page, "collapsed conversation", size);
+  const collapsed = await page.evaluate(() => ({
+    controls: [...document.querySelectorAll(".sidebar-top button")].filter(el => el.getBoundingClientRect().width).map(el => {
+      const box = el.getBoundingClientRect(); return { left: box.left, top: box.top, bottom: box.bottom };
+    }),
+    identityTop: document.querySelector(".chat-identity").getBoundingClientRect().top,
+    stripWidth: document.querySelector(".native-titlebar").getBoundingClientRect().width,
+    viewportWidth: innerWidth,
+  }));
+  assert.equal(collapsed.stripWidth, collapsed.viewportWidth, "the collapsed native titlebar spans the window");
+  assert.ok(collapsed.controls.length >= 2, "collapsed titlebar keeps the navigation controls");
+  for (const box of collapsed.controls) assert.ok(box.left >= 78 && box.top >= 0 && box.bottom <= 48, `titlebar control clears traffic lights: ${JSON.stringify(box)}`);
+  assert.ok(collapsed.identityTop >= 48, "conversation content starts below the native titlebar strip");
+  await page.getByRole("button", { name: "Expand sidebar", exact: true }).click();
+  await page.locator(".workspace-grid:not(.sidebar-collapsed)").waitFor();
 
   await page.getByRole("button", { name: /^Bot computer/ }).first().click();
   await page.locator(".computer-hide-button, [aria-label='Close Bot computer']").first().waitFor();

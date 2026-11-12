@@ -203,7 +203,7 @@ html:not([data-desktop]) .desktop-floating-shell.is-expanded .remote-desktop-sur
 @keyframes desktop-scrim-in{from{opacity:0}to{opacity:1}}
 
 /* Glass control group, 8px inside the screen's top-right corner: enlarge or shrink, and close. */
-.desktop-window-controls{position:absolute;z-index:12;top:14px;right:14px;display:flex;align-items:center;gap:2px;padding:3px;border:1px solid var(--desktop-controls-edge);border-radius:10px;background:color-mix(in srgb,var(--desktop-controls-solid) 72%,transparent);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);opacity:0;transition:opacity var(--m-quick) var(--ease-out)}
+.desktop-window-controls{position:absolute;z-index:12;top:14px;right:14px;display:flex;align-items:center;gap:2px;padding:3px;border:1px solid var(--desktop-controls-edge);border-radius:10px;background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);opacity:0;transition:opacity var(--m-quick) var(--ease-out)}
 .computer-detail:is(:hover,:focus-within) .desktop-window-controls,.desktop-floating-shell.is-expanded .desktop-window-controls{opacity:1}
 @media(hover:none){.desktop-window-controls{opacity:1}}
 .desktop-window-controls .desktop-control-button{color:var(--desktop-controls-ink)}
