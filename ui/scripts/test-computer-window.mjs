@@ -2,6 +2,7 @@
 // Run: PLAYWRIGHT_MODULE=<playwright/index.mjs> npm run test:computer-window
 // Synthetic only: a Vite dev server for the real App and Playwright stubs for every /api/* call.
 import assert from "node:assert/strict";
+import {exerciseBrowserEntry} from "./test-bot-browser-pip.mjs";
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { installStubs, launch, startUi, ui } from "./computer-window-fixture.mjs";
@@ -597,6 +598,7 @@ try {
     await context.close();
   }
   results.push("look button");
+  await exerciseBrowserEntry(browser, origin);
   console.log(`PASS computer window: ${results.join("; ")}`);
 } finally {
   await browser.close();

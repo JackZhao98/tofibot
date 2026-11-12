@@ -1,3 +1,5 @@
+import { useBotBrowserSources } from "./useBotBrowserSources";
+import { sourceKey, type ComputerSource } from "./botBrowserSource";
 import { useGraceFlag } from "./useGraceFlag";
 import { readReplyMarker } from "./replyMarker";
 import { thinkingHeadline } from "./thinkingHeadline";
@@ -114,6 +116,8 @@ import { useSurfaceEscape } from "./useSurfaceEscape";
 import type { SurfaceCtx } from "./SurfaceViews";
 
 // The page-wide file drop target loads right after first paint; it is not needed to draw the shell.
+const BotBrowserPanel = lazy(() => import("./BotBrowserPanel").then(m => ({default: m.BotBrowserPanel})));
+
 const WebFileDropOverlay = lazy(() => import("./WebFileDropOverlay").then(module => ({ default: module.WebFileDropOverlay })));
 // Shown only before the first Bot exists.
 /** The work trace line under a run's final reply, for a run whose Activity list is not drawn; the same chunk as in Activity. */
@@ -1350,19 +1354,46 @@ function Workspace() {
   const botById = useMemo(() => new Map(bots.map((bot) => [bot.id, bot])), [bots]);
   const botByConversationId = useMemo(() => new Map(bots.map((bot) => [bot.dm_conversation_id, bot])), [bots]);
   const activeBot = active?.bot_id ? botById.get(active.bot_id) : undefined;
-  // No computer backend: no desktop Bot, so the header button, the Computer widget, its auto-open and the Terminal panel all stay away.
+  // VM surfaces keep their capability gate. Personal browser sources are selected independently below.
   const desktopBot = noComputer ? undefined : activeBot ?? (active?.kind === "group" ? botById.get(active.bot_ids[0]) : undefined);
+  const {t: browserT} = useTranslation("computer");
+  const browserSources = useBotBrowserSources(Boolean(activeId));
+  const [chosenSource, setChosenSource] = useState<ComputerSource | null>(null);
   const computerShown = surfaces.widgets.includes("computer");
   const computerFolded = surfaces.folded.includes("computer");
-  const desktopOpen = Boolean(desktopBot && computerShown);
-  // Narrow screens skip the small window: the big view is a full-screen sheet.
+  // Multiple Macs require an explicit choice, even when only one happens to be working.
+  const automaticMac = browserSources.sources.length === 1 && browserSources.sources[0].activity?.conversation_id === activeId ? browserSources.sources[0] : undefined;
+  const chosenMac = chosenSource?.kind === "mac_browser" ? browserSources.sources.find(item => item.computer_id === chosenSource.computer_id) : undefined;
+  // Keep the selected identity while a window is open. Activity can never steal a manual window.
+  const macSource = computerShown && chosenSource ? chosenMac : automaticMac;
+  const viewDesktopBot = chosenSource?.kind === "bot_computer" ? botById.get(chosenSource.bot_id) : desktopBot;
+  const observable = computerShown && chosenSource?.kind === "mac_browser" ? Boolean(macSource) : Boolean(macSource || viewDesktopBot);
+  const desktopOpen = Boolean(observable && computerShown);
   const desktopExpanded = desktopOpen && (desktopSheet || desktopSize === "big");
   const desktopSmall = desktopOpen && !desktopExpanded;
-  // A computer step row's "look" button: open the mini window, or when it is already up, bring it forward with a glow on its bezel.
-  const lookAtComputer = useCallback(() => { if (computerShown) window.dispatchEvent(new Event("tofi:computer-look")); else { setDesktopSize("small"); openWidgetId("computer"); } }, [computerShown, openWidgetId]);
+  const chooseComputer = useCallback((source: ComputerSource) => { setChosenSource(source); setDesktopSize("small"); openWidgetId("computer"); }, [openWidgetId]);
+  const lookAtComputer = useCallback((source?: ComputerSource) => {
+    if (source) {
+      if (source.kind === "mac_browser" && !browserSources.sources.some(s => s.computer_id === source.computer_id) || source.kind === "bot_computer" && noComputer) return;
+      if (!computerShown || !chosenSource || sourceKey(source) !== sourceKey(chosenSource)) { chooseComputer(source); return; }
+    }
+    if (computerShown) window.dispatchEvent(new Event("tofi:computer-look"));
+    else if (automaticMac) chooseComputer({kind: "mac_browser", computer_id: automaticMac.computer_id});
+    else if (desktopBot) chooseComputer({kind: "bot_computer", bot_id: desktopBot.id});
+  }, [computerShown, automaticMac, desktopBot, chooseComputer, chosenSource, browserSources.sources, noComputer]);
+  const computerLook = useMemo(() => {
+    const sources: ComputerSource[] = [
+      ...(desktopBot ? [{kind: "bot_computer" as const, bot_id: desktopBot.id}] : []),
+      ...browserSources.sources.map(source => ({kind: "mac_browser" as const, computer_id: source.computer_id})),
+    ];
+    return sources.length ? {open: lookAtComputer, sources, defaultSource: computerShown && chosenSource ? chosenSource : sources.length === 1 ? sources[0] : null} : null;
+  }, [desktopBot, browserSources.sources, lookAtComputer, computerShown, chosenSource]);
   useEffect(() => {
-    if (computerShown && !desktopBot) closeWidgetId("computer");
-  }, [computerShown, desktopBot, closeWidgetId]);
+    if (!computerShown) setChosenSource(null);
+  }, [computerShown]);
+  useEffect(() => {
+    if (computerShown && !observable) closeWidgetId("computer");
+  }, [computerShown, observable, closeWidgetId]);
   // The "command finished" line in the chat opens the Terminal tab of the Bot that ran the command.
   const [terminalBotId, setTerminalBotId] = useState<string | null>(null);
   useEffect(() => {
@@ -1382,8 +1413,14 @@ function Workspace() {
   const desktopPresence = useDesktopPresence(Boolean(activeId) && !noComputer && (computerShown || (computerInfo ? computerInfo.state === "ready" : desktopReady)));
   const currentDesktopOwner = desktopPresence.ownership?.owner;
     const activeDesktopOwner = !desktopPresence.unavailable && currentDesktopOwner?.kind === "bot" && currentDesktopOwner.conversation_id === active?.id ? currentDesktopOwner : null;
+  useEffect(() => {
+    if (computerShown && !chosenSource) {
+      if (automaticMac) setChosenSource({kind: "mac_browser", computer_id: automaticMac.computer_id});
+      else if (desktopBot) setChosenSource({kind: "bot_computer", bot_id: desktopBot.id});
+    }
+  }, [computerShown, chosenSource, automaticMac, desktopBot]);
   const computerOn = computerInfo ? computerInfo.state === "ready" : desktopReady;
-  widgetNotes.current = useWidgetAutomation({ activeId: activeId ?? undefined, ready: loadedId === activeId && !loadingMessages, messages: messageRecords, columnMode, hasComputer: Boolean(desktopBot), surfaces, setSurfaces, botRunId: activeDesktopOwner?.run_id, phoneSheet: desktopSheet, holderKind: currentDesktopOwner?.kind, bigComputer: desktopExpanded, memory: widgetMemory });
+  widgetNotes.current = useWidgetAutomation({ activeId: activeId ?? undefined, ready: loadedId === activeId && !loadingMessages, messages: messageRecords, columnMode, hasComputer: observable, externalComputer: Boolean(macSource), surfaces, setSurfaces, botRunId: macSource ? (macSource.activity?.conversation_id === activeId ? macSource.activity.run_id : undefined) : activeDesktopOwner?.run_id, phoneSheet: desktopSheet, holderKind: macSource ? (macSource.state === "human" ? "human" : macSource.activity ? "bot" : undefined) : currentDesktopOwner?.kind, bigComputer: desktopExpanded, memory: widgetMemory });
   // Escape closes one surface at a time, in the order of useSurfaceEscape.ts.
   useSurfaceEscape({ surfaces: surfacesRef, bigComputer: desktopExpanded, phoneSheet: desktopSheet, shrinkComputer: () => setDesktopSize("small"), closeWidget: closeWidgetId, closeSidebar: closeSidebarPanel, closeSettings: () => {
     // The Settings shell answers with preventDefault (it asks about unsaved edits first); the frame shown while its code loads has no listener, so that one closes here.
@@ -2675,8 +2712,8 @@ function Workspace() {
   if (loading && !conversations.length) return <BootScreen label={t("workspace.loading")} />;
 
   const artifactsOn = columnMode ? surfaces.widgets.includes("artifacts") : cover === "artifacts";
-  const desktopNode = (leaving = false) => desktopBot && (desktopOpen || leaving) ? <Suspense key={desktopBot.id} fallback={<DesktopSkeleton botId={desktopBot.id} />}><FloatingDesktop docked={columnMode} folded={columnMode && computerFolded} expanded={desktopExpanded} small={desktopSmall || leaving} sheet={desktopSheet} onClose={() => closeWidgetId("computer")}><Suspense fallback={<DesktopSkeleton botId={desktopBot.id} />}><BotDesktopPanel presence={desktopPresence} folded={columnMode && computerFolded} onFold={columnMode ? () => foldWidgetId("computer") : undefined} onUnfold={() => foldWidgetId("computer")} autoConnect={currentDesktopOwner?.kind === "bot"} expanded={desktopExpanded} sheet={desktopSheet} botId={desktopBot.id} botName={desktopBot.name} members={bots.map(bot => ({ id: bot.id, name: bot.name }))} onClose={(reason) => { if (reason === "shutdown") { setDesktopReady(false); setComputerInfo({ state: "stopped" }); } closeWidgetId("computer"); }} onReadyChange={setDesktopReady} onExpandedChange={expanded => { setDesktopSize(expanded ? "big" : "small"); openWidgetId("computer"); }} /></Suspense></FloatingDesktop></Suspense> : null;
-  const computerButton = desktopBot && <button className={`computer-button${computerOn ? " is-on" : ""}${computerOn && activeDesktopOwner ? " is-driven" : ""}`} data-computer-toggle="" data-computer-state={computerOn ? (activeDesktopOwner ? "driven" : "on") : "off"} data-hint={computerStateLabel} title={computerStateLabel} aria-label={computerStateLabel} aria-pressed={computerShown} onClick={() => { if (computerShown) closeWidgetId("computer"); else { setDesktopSize("small"); openWidgetId("computer"); } }}><Icon name="monitor" size={17} variant={computerShown ? "filled" : "outline"} animated />{computerOn && activeDesktopOwner && <span className="computer-driven-dot" aria-hidden="true" />}</button>;
+  const desktopNode = (leaving = false) => macSource && (desktopOpen || leaving) ? <Suspense key={`mac:${macSource.computer_id}`} fallback={null}><FloatingDesktop label={browserT("browser.source")} externalSourceKey={isDesktop ? sourceKey({kind: "mac_browser", computer_id: macSource.computer_id}) : undefined} docked={columnMode && !isDesktop} folded={columnMode && !isDesktop && computerFolded} expanded={desktopExpanded} small={desktopSmall || leaving} sheet={desktopSheet} onClose={() => closeWidgetId("computer")}><BotBrowserPanel source={macSource} expanded={desktopExpanded} folded={columnMode && !isDesktop && computerFolded} onClose={() => closeWidgetId("computer")} onExpand={() => { if (!desktopExpanded && isDesktop) window.focus(); setDesktopSize(desktopExpanded ? "small" : "big"); }} /></FloatingDesktop></Suspense> : chosenSource?.kind !== "mac_browser" && viewDesktopBot && (desktopOpen || leaving) ? <Suspense key={viewDesktopBot.id} fallback={<DesktopSkeleton botId={viewDesktopBot.id} />}><FloatingDesktop externalSourceKey={isDesktop && window.tofiDesktop?.pip ? sourceKey({kind: "bot_computer", bot_id: viewDesktopBot.id}) : undefined} docked={columnMode && !(isDesktop && window.tofiDesktop?.pip)} folded={columnMode && computerFolded} expanded={desktopExpanded} small={desktopSmall || leaving} sheet={desktopSheet} onClose={() => closeWidgetId("computer")}><Suspense fallback={<DesktopSkeleton botId={viewDesktopBot.id} />}><BotDesktopPanel presence={desktopPresence} folded={columnMode && computerFolded} onFold={columnMode ? () => foldWidgetId("computer") : undefined} onUnfold={() => foldWidgetId("computer")} autoConnect={currentDesktopOwner?.kind === "bot"} expanded={desktopExpanded} sheet={desktopSheet} botId={viewDesktopBot.id} botName={viewDesktopBot.name} members={bots.map(bot => ({ id: bot.id, name: bot.name }))} onClose={(reason) => { if (reason === "shutdown") { setDesktopReady(false); setComputerInfo({ state: "stopped" }); } closeWidgetId("computer"); }} onReadyChange={setDesktopReady} onExpandedChange={expanded => { if (expanded && isDesktop) window.focus(); setDesktopSize(expanded ? "big" : "small"); openWidgetId("computer"); }} /></Suspense></FloatingDesktop></Suspense> : null;
+  const computerButton = <>{desktopBot && <button className={`computer-button${computerOn ? " is-on" : ""}${computerOn && activeDesktopOwner ? " is-driven" : ""}`} data-computer-toggle="" data-computer-state={computerOn ? (activeDesktopOwner ? "driven" : "on") : "off"} data-hint={computerStateLabel} title={computerStateLabel} aria-label={computerStateLabel} aria-pressed={computerShown && !macSource} onClick={() => { if (computerShown && !macSource) closeWidgetId("computer"); else chooseComputer({kind: "bot_computer", bot_id: desktopBot.id}); }}><Icon name="monitor" size={17} variant={computerShown && !macSource ? "filled" : "outline"} animated />{computerOn && activeDesktopOwner && <span className="computer-driven-dot" aria-hidden="true" />}</button> }{browserSources.sources.map(source => <button key={source.computer_id} type="button" className="computer-button" data-browser-toggle={source.computer_id} title={browserT("browser.source")} aria-label={browserT("browser.look", {id: source.computer_id})} aria-pressed={computerShown && macSource?.computer_id === source.computer_id} onClick={() => { if (computerShown && macSource?.computer_id === source.computer_id) closeWidgetId("computer"); else chooseComputer({kind: "mac_browser", computer_id: source.computer_id}); }}><Icon name="globe" size={17}/></button>)}</>;
   // The markup of the sidebar views, widgets and covers lives in the lazy chunk SurfaceViews; the workspace hands it the data and the few actions.
   // Opening a conversation from a panel: the cover has done its job; below 1100 px the drawer covers the chat and goes too. On the wide
   // layout the sidebar stays and re-scopes to the new conversation (the Archive stays as it is).
@@ -2733,7 +2770,7 @@ function Workspace() {
             {teamBoardOpen && active.kind === "group" ? <Suspense fallback={null}><TeamBoard key={`team-board-${active.id}`} conversation={active} bots={bots} timezone={timezone} onClose={() => setTeamBoardOpen(false)} onOpenWork={() => { setTeamBoardOpen(false); openSidebarId("tasks"); }} /></Suspense> : <>
             <div className="chat-body">
               <div className="message-scroll" ref={viewport.scrollRef} onScroll={viewport.onScroll}>
-                <ExpiryFinishingContext.Provider value={expiryFinishing}><RunStartContext.Provider value={runStarts}><ActivityViewContext.Provider value={activityView}><ComputerLookContext.Provider value={desktopBot ? lookAtComputer : null}><div className={`message-list${viewport.unpositioned ? " is-positioning" : ""}`} ref={messageListRef} onPointerOver={isDesktop ? undefined : onMessageListPointerOver} onPointerLeave={isDesktop ? undefined : onMessageListPointerLeave} onFocus={isDesktop ? undefined : onMessageListFocus} onBlur={isDesktop ? undefined : onMessageListBlur} onKeyDown={isDesktop ? undefined : onMessageListKeyDown}>
+                <ExpiryFinishingContext.Provider value={expiryFinishing}><RunStartContext.Provider value={runStarts}><ActivityViewContext.Provider value={activityView}><ComputerLookContext.Provider value={computerLook}><div className={`message-list${viewport.unpositioned ? " is-positioning" : ""}`} ref={messageListRef} onPointerOver={isDesktop ? undefined : onMessageListPointerOver} onPointerLeave={isDesktop ? undefined : onMessageListPointerLeave} onFocus={isDesktop ? undefined : onMessageListFocus} onBlur={isDesktop ? undefined : onMessageListBlur} onKeyDown={isDesktop ? undefined : onMessageListKeyDown}>
                   {viewport.boundaryError && <div className="history-error" role="alert">{t("history.boundary_failed")}<button onClick={viewport.retryBoundary}>{t("common:action.retry")}</button><button onClick={jumpLatest}>{t("history.view_latest")}</button></div>}
                   {historyError && !viewport.boundaryError && <div className="history-error history-error-older" role="alert"><span>{t("history.older_failed", { error: historyError })}</span><button onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.retrying") : t("common:action.retry")}</button></div>}
                   {hasMore && <button className="load-older" onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.loading") : t("history.load_older")}</button>}
@@ -3351,7 +3388,7 @@ function WebToolActivityRun({ runId, items, notes, summary, summaryError, summar
             : <><Icon className="web-tool-glyph" name="terminal" size={14} aria-hidden="true" /><span ref={labelRef} className="process-line-text web-tool-compact" aria-hidden="true">{count !== undefined && <span>{count}</span>}{duration !== undefined && <span className="web-tool-quiet">{duration}</span>}{issueCount > 0 && <span className="web-tool-issues"><Icon name="alert" size={13} aria-hidden="true" />{issueCount}</span>}{notes.length > 0 && <span className="web-tool-quiet"><Icon name="file-text" size={13} aria-hidden="true" />{notes.length}</span>}</span></>}
           {live && <Icon className="web-tool-chevron" name="chevron-right" size={14} aria-hidden="true" />}
         </button>
-        {live && current && isComputerAction(current) && <ComputerLookButton />}
+        {live && current && isComputerAction(current) && <ComputerLookButton activity={current} />}
       </div>
       <div className={`web-tool-drawer${expanded ? " is-open" : ""}`} id={`web-tool-drawer-${runId}`} aria-hidden={!expanded} inert={!expanded}><div className="web-tool-drawer-inner">
       {clipped && <p className="web-tool-full">{fullLabel}</p>}

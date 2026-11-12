@@ -661,5 +661,50 @@
         "allow": "Allow again"
       }
     }
+  },
+  "browser": {
+    "source": "Your Mac · Bot browser",
+    "look": "Look at Bot browser ({{id}})",
+    "open": "Open and sign in",
+    "enlarge": "Enlarge Bot browser",
+    "shrink": "Make Bot browser smaller",
+    "status": {
+      "idle": "Ready",
+      "working": "Bot is working",
+      "human": "You are in control · Waiting for you to hand back to Bot",
+      "stopped": "Stopped · Hand back to Bot in the browser window",
+      "closed": "Browser closed",
+      "disabled": "Browser permission is off",
+      "offline": "Mac is offline",
+      "unsupported": "Update the Mac App to use the Bot browser",
+      "minimized": "Window minimized · Preview paused",
+      "locked": "Mac is locked",
+      "unavailable": "Preview unavailable",
+      "frames_disabled": "Preview is off · Bot can keep working",
+      "browser_preview_limited": "Preview is limited",
+      "browser_preview_busy": "Preview is busy. Close another viewer.",
+      "browser_server_unsupported": "Update the server to use the Bot browser",
+      "browser_client_unsupported": "Update the Mac App to use the Bot browser",
+      "browser_transport_unavailable": "Preview interrupted",
+      "browser_not_enabled": "Enable the Bot browser in Mac advanced settings",
+      "browser_control_lost": "Browser control was lost. Check the Mac App.",
+      "browser_target_gone": "Browser page closed. Open it again when ready.",
+      "browser_session_changed": "Browser session changed. Observe it again.",
+      "browser_viewport_changed": "Page changed. Take a new snapshot.",
+      "browser_login_required": "Open the browser and sign in, then hand back to Bot",
+      "browser_action_unsupported": "This browser action is unsupported",
+      "app_not_allowed": "Allow access in the Mac App",
+      "bot_not_allowed": "Allow this Bot in the Mac App",
+      "user_takeover": "You are in control · Waiting for you to hand back to Bot",
+      "user_stop": "Stopped · Hand back to Bot in the browser window",
+      "computer_offline": "Mac is offline",
+      "computer_lost": "Mac connection was lost",
+      "device_revoked": "Device access revoked",
+      "browser_clear_failed": "Could not clear browser data. The browser stays paused.",
+      "computer_not_configured": "No Bot computer is configured"
+    },
+    "in_app": "Set this up in the App on this Mac",
+    "settings": "Browser settings",
+    "close": "Close Bot browser preview"
   }
 }

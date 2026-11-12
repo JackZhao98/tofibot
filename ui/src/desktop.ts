@@ -81,6 +81,29 @@ export type DesktopDeviceStatus = {
 export type DesktopSettingsInput = { name?: string; workspaceRoot?: string; fileAccess?: boolean };
 export type DesktopSandboxSelection = { selectionID: string; root: string; serverLabel: string };
 
+export type BrowserSettings = {
+  botBrowserEnabled: boolean; botBrowserRetainLogin: boolean; botBrowserShareFrames: boolean;
+  pipAboveOtherApps: boolean; pipAllSpaces: boolean;
+};
+export type BrowserStatus = {
+  supported: boolean; code: string | null; deviceID: string | null;
+  phase: 'idle'|'bot'|'human'|'stopped'|'closed'; settings: BrowserSettings;
+};
+export type BrowserResult = {ok: boolean; code: string | null; status: BrowserStatus};
+export type BotBrowserBridge = {
+  status(): Promise<BrowserStatus>;
+  update(patch: Partial<BrowserSettings>): Promise<BrowserResult>;
+  clear(): Promise<BrowserResult>;
+  open(): Promise<BrowserResult>;
+  onStatus(listener: (status: BrowserStatus) => void): () => void;
+};
+export type PipStatus = {visible: boolean; source_key: string | null};
+export type PipBridge = {
+  status(): Promise<PipStatus>;
+  onStatus(listener: (status: PipStatus) => void): () => void;
+  setBounds(bounds: {source_key: string; x: number; y: number; width: number; height: number}): Promise<void>;
+};
+
 declare global {
   interface Window {
     tofiDesktop?: {
@@ -91,6 +114,8 @@ declare global {
       notifications?: DesktopNotificationsBridge;
       /** Present in a Mac app that has the one-switch remote control. Without it (a browser, an older app) the page shows no switch. */
       remoteControl?: RemoteControlBridge;
+      botBrowser?: BotBrowserBridge;
+      pip?: PipBridge;
       onWindowState: (listener: (state: { focused: boolean; fullscreen: boolean }) => void) => () => void;
       appearance: (preference: "light" | "dark" | "system") => Promise<void>;
       requestMicrophoneAccess: () => Promise<boolean>;

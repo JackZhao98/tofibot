@@ -14,6 +14,7 @@
 // This mounts the real workspace with the desktop bridge stubbed, opens every surface that can cover the title strips,
 // rebuilds the drag region the way Electron does, and fails when a visible control is inside it.
 import assert from "node:assert/strict";
+import {exerciseBrowserEntry} from "./test-bot-browser-pip.mjs";
 import { installStubs, startUi, launch } from "./computer-window-fixture.mjs";
 
 // 1110 px: the drawer still overlays the chat (up to 1120 px) while the layout already counts as wide (from 1100 px).
@@ -237,6 +238,7 @@ for (const size of SIZES) {
   await page.close();
 }
 
+await exerciseBrowserEntry(browser, origin, page => check(page, "Mac browser enlarged", {width:1024,height:800}));
 await browser.close();
 await server.close();
 assert.ok(checked >= 27, `checked ${checked} surfaces`);

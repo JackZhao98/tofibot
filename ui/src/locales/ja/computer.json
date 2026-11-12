@@ -655,5 +655,50 @@
         "allow": "もう一度許可"
       }
     }
+  },
+  "browser": {
+    "source": "あなたの Mac · Bot ブラウザ",
+    "look": "Bot ブラウザを見る（{{id}}）",
+    "open": "開いてログイン",
+    "enlarge": "Bot ブラウザを拡大",
+    "shrink": "Bot ブラウザを縮小",
+    "status": {
+      "idle": "準備完了",
+      "working": "Bot が作業中",
+      "human": "操作中 · Bot への返却待ち",
+      "stopped": "停止中 · ブラウザで Bot に返却してください",
+      "closed": "ブラウザを閉じました",
+      "disabled": "ブラウザの許可はオフです",
+      "offline": "Mac はオフラインです",
+      "unsupported": "Bot ブラウザを使うには Mac App を更新してください",
+      "minimized": "最小化中 · プレビュー停止",
+      "locked": "Mac はロック中です",
+      "unavailable": "プレビューを表示できません",
+      "frames_disabled": "画面はオフ · Bot は作業を続けられます",
+      "browser_preview_limited": "プレビューが制限されています",
+      "browser_preview_busy": "視聴数の上限です。他の視聴画面を閉じてください",
+      "browser_server_unsupported": "Bot ブラウザを使うにはサーバーを更新してください",
+      "browser_client_unsupported": "Bot ブラウザを使うには Mac App を更新してください",
+      "browser_transport_unavailable": "画面が中断されました",
+      "browser_not_enabled": "Mac の詳細設定で Bot ブラウザを有効にしてください",
+      "browser_control_lost": "ブラウザの制御が失われました。Mac App を確認してください",
+      "browser_target_gone": "ページが閉じられました。必要なら開き直してください",
+      "browser_session_changed": "セッションが変わりました。再度確認してください",
+      "browser_viewport_changed": "ページが変わりました。再撮影してください",
+      "browser_login_required": "ブラウザを開いてログインし、Bot に返却してください",
+      "browser_action_unsupported": "このブラウザ操作は未対応です",
+      "app_not_allowed": "Mac App でアクセスを許可してください",
+      "bot_not_allowed": "Mac App でこの Bot を許可してください",
+      "user_takeover": "操作中 · Bot への返却待ち",
+      "user_stop": "停止中 · ブラウザで Bot に返却してください",
+      "computer_offline": "Mac はオフラインです",
+      "computer_lost": "Mac との接続が切れました",
+      "device_revoked": "デバイスへのアクセスは取り消されました",
+      "browser_clear_failed": "データを消去できませんでした。ブラウザは停止したままです",
+      "computer_not_configured": "Bot コンピュータが未設定です"
+    },
+    "in_app": "この Mac の App で設定してください",
+    "settings": "ブラウザ設定",
+    "close": "Bot ブラウザのプレビューを閉じる"
   }
 }

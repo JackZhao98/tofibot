@@ -292,3 +292,19 @@ html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .d
 /* Shared with the placeholder's status dot; the keyframes left with the old mini TV (5369c760) and the dot stood still since. */
 @keyframes desktop-mini-breathe{50%{opacity:.35}}
 @media(prefers-reduced-motion:reduce){.desktop-control-power.is-changing svg{animation:none}}
+
+/* The browser preview is observation only; the canvas never receives input. */
+.bot-browser-panel { position: relative; }
+.bot-browser-screen { position: relative; aspect-ratio: 8 / 5; overflow: hidden; }
+.bot-browser-video { display: block; width: 100%; height: 100%; object-fit: contain; background: var(--bg); pointer-events: none; }
+.bot-browser-state, .bot-browser-stream-error { position: absolute; inset: 0; display: grid; place-content: center; margin: 0; padding: 24px; text-align: center; background: var(--bg); color: var(--muted); }
+.bot-browser-panel .desktop-chin { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.bot-browser-panel .desktop-window-controls { position: absolute; z-index: 2; }
+[data-external-pip] .desktop-floating-shell.is-small:not(.is-docked) { position: fixed; inset: 0; width: 100%; max-width: none; transform: none; }
+[data-external-pip] body { margin: 0; background: transparent; overflow: hidden; }
+.bot-browser-panel .desktop-window-controls { top: 8px; left: 8px; display: flex; gap: 4px; }
+.bot-browser-panel .desktop-chin { position: static; width: auto; height: auto; min-height: 44px; padding: 8px; translate: none; color: var(--ink); font: var(--type-status); }
+.bot-browser-panel .desktop-control-button { background: var(--surface); color: var(--ink); }
+.bot-browser-panel .bot-browser-screen { flex: none; }
+.desktop-floating-shell .bot-browser-panel.is-expanded .bot-browser-screen { flex: 1; }
+[data-external-pip] .desktop-presence-canvas > .bot-browser-panel { margin: 0; }
