@@ -438,6 +438,11 @@ func (g *AccountGateway) workspace(a Account) (*Server, error) {
 		}
 	}
 	g.configureAccountRunner(&c, a.ID)
+	c.BrowserInstanceID = g.root.instance.ID
+	c.BrowserSessionValid = func(r *http.Request) bool {
+		current, ok := g.session(r)
+		return ok && current.ID == a.ID && !current.MustChangePassword
+	}
 	c.AccountID = a.ID
 	c.AccountIsAdmin = func() bool { return g.accountIsAdmin(a.ID) }
 	g.wireStorage(&c, a)
@@ -493,7 +498,7 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 		if g.auth != nil && g.auth.allowLAN {
 			auth["lan_http"] = true
 		}
-		writeJSON(w, 200, map[string]any{"service": "tofi", "protocol_version": 1, "instance_id": workspace.instance.ID, "environment": workspace.instance.Environment, "auth": auth, "desktop": desktopServerInfo(), "notifications": notificationsServerInfo()})
+		writeJSON(w, 200, map[string]any{"service": "tofi", "protocol_version": 1, "instance_id": workspace.instance.ID, "environment": workspace.instance.Environment, "auth": auth, "desktop": desktopServerInfo(), "bot_browser": botBrowserServerInfo(), "notifications": notificationsServerInfo()})
 		return
 	}
 	if workspace, served := g.deviceWorkspace(r); served {

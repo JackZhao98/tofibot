@@ -430,7 +430,7 @@ const computerBrowserFallbackNote = "Fallback only: use the browser_ tools. Use 
 
 func (s *Server) microVMTools(r Run) []Tool {
 	if s.computer() == nil {
-		return s.personalDesktopTools(r)
+		return append(s.personalDesktopTools(r), s.browserTool(r, nil))
 	}
 	inputs := &guestInputSync{}
 	decode := func(raw json.RawMessage, target any) error {
@@ -732,6 +732,8 @@ func (s *Server) microVMTools(r Run) []Tool {
 		tools = append(tools, s.browserEngineTools(r, prepare, browser)...)
 		browser.Description = computerBrowserFallbackNote + " " + browser.Description
 	}
+	vmBrowser := browser
+	browser = s.browserTool(r, &vmBrowser)
 	tools = append(tools, browser)
 	return append(tools, computerHelpToolFor(playwright, a11y), s.terminalTool(r), s.sshKeyTool(r))
 }

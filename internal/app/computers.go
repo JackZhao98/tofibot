@@ -42,6 +42,7 @@ const (
 )
 
 var computerActions = map[string]bool{
+	"browser.open": true, "browser.navigate": true, "browser.read": true, "browser.snapshot": true, "browser.click": true, "browser.type": true, "browser.key": true, "browser.scroll": true, "browser.back": true, "browser.close": true,
 	"files.list": true, "files.read": true, "files.write": true,
 	"screen.capture": true, "desktop.click": true, "desktop.type": true, "desktop.key": true,
 	"sandbox.exec": true,
@@ -477,6 +478,9 @@ func (s *Store) updateComputerCapabilities(id, token string, capabilities []stri
 }
 
 func validateComputerArgs(action string, raw json.RawMessage) error {
+	if strings.HasPrefix(action, "browser.") {
+		return validateBrowserArgs(action, raw)
+	}
 	if len(raw) == 0 || len(raw) > maxComputerResult || !json.Valid(raw) {
 		return errors.New("args must be a JSON object no larger than 1 MiB")
 	}
@@ -680,6 +684,9 @@ func validateHostInfoArgs(raw json.RawMessage) error {
 }
 
 func (s *Store) queueComputerJob(r Run, deviceID, action string, args json.RawMessage) (ComputerJob, error) {
+	if browserActions[action] && r.BotID == "" {
+		return ComputerJob{}, browserError("app_not_allowed", "not_executed")
+	}
 	if err := validateComputerArgs(action, args); err != nil {
 		return ComputerJob{}, tooloutcome.InvalidArguments(err.Error())
 	}
@@ -716,7 +723,11 @@ func (s *Store) queueComputerJob(r Run, deviceID, action string, args json.RawMe
 		return ComputerJob{}, tooloutcome.New(tooloutcome.Permanent, "computer_queue_full", "not_executed", "computer has too many outstanding jobs", "explain_blocker").Err()
 	}
 	t := time.Now().UTC()
-	j := ComputerJob{ID: uuid.NewString(), DeviceID: deviceID, BotID: r.BotID, RunID: r.ID, Action: action, Args: append(json.RawMessage(nil), args...), ExpiresAt: t.Add(computerJobTTL).Format(time.RFC3339Nano), Status: "pending"}
+	ttl := computerJobTTL
+	if browserActions[action] {
+		ttl = 30 * time.Second
+	}
+	j := ComputerJob{ID: uuid.NewString(), DeviceID: deviceID, BotID: r.BotID, RunID: r.ID, Action: action, Args: append(json.RawMessage(nil), args...), ExpiresAt: t.Add(ttl).Format(time.RFC3339Nano), Status: "pending"}
 	if _, err = tx.Exec(`INSERT INTO computer_jobs(id,device_id,bot_id,run_id,action,args,status,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?)`, j.ID, j.DeviceID, j.BotID, j.RunID, j.Action, string(j.Args), j.Status, t.Format(time.RFC3339Nano), j.ExpiresAt); err != nil {
 		return ComputerJob{}, err
 	}
@@ -815,8 +826,8 @@ func (s *Store) completeComputerJob(deviceID, token, jobID string, result json.R
 	if err = authenticateDevice(tx, deviceID, token); err != nil {
 		return err
 	}
-	var action, runID, status, expires string
-	if err = tx.QueryRow(`SELECT action,run_id,status,expires_at FROM computer_jobs WHERE id=? AND device_id=?`, jobID, deviceID).Scan(&action, &runID, &status, &expires); err != nil {
+	var action, runID, status, expires, jobArgs string
+	if err = tx.QueryRow(`SELECT action,run_id,status,expires_at,args FROM computer_jobs WHERE id=? AND device_id=?`, jobID, deviceID).Scan(&action, &runID, &status, &expires, &jobArgs); err != nil {
 		return errors.New("job not found")
 	}
 	if status != "running" {
@@ -845,6 +856,11 @@ func (s *Store) completeComputerJob(deviceID, token, jobID string, result json.R
 				return commitErr
 			}
 			return errors.New("parent run is no longer active")
+		}
+	}
+	if browserActions[action] {
+		if err = validateBrowserResult(action, []byte(jobArgs), result, resultErr); err != nil {
+			return err
 		}
 	}
 	if resultErr != "" {
@@ -1420,6 +1436,10 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 				return true
 			}
 			writeJSON(w, 201, j)
+			return true
+		}
+		if strings.HasPrefix(v.Action, "browser.") {
+			writeErr(w, 400, "browser_action_unsupported", "Use the approved Bot browser tool")
 			return true
 		}
 		// The owner may name one of their Bots, as the model path does: the Mac

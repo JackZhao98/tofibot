@@ -199,7 +199,9 @@ type Memory struct {
 }
 
 type Config struct {
-	AccountID string // Set by the account gateway; never accepted from an HTTP body.
+	BrowserInstanceID   string                   // Root instance identity, supplied by the gateway.
+	BrowserSessionValid func(*http.Request) bool // Live account session check for previews.
+	AccountID           string                   // Set by the account gateway; never accepted from an HTTP body.
 	// AccountIsAdmin is set by the account gateway: it reads the account's
 	// current role, so a demotion takes effect on the next check.
 	AccountIsAdmin         func() bool
@@ -283,6 +285,9 @@ type Config struct {
 	OrgE2BTemplate func(ctx context.Context) (e2b.State, error)
 }
 type Server struct {
+	browserHubs         sync.Map
+	browserInstanceID   string
+	browserSessionValid func(*http.Request) bool
 	// personalComputers is Config.PersonalComputers: the pairing routes answer only when it is set.
 	personalComputers                    bool
 	dispositions                         sync.Map // run id -> groupChoice recorded by the respond tool
@@ -3103,7 +3108,7 @@ func NewServer(c Config) (*Server, error) {
 	if savedSettings.ReasoningEffort == "" {
 		savedSettings.ReasoningEffort = "medium"
 	}
-	server := &Server{accountID: c.AccountID, accountIsAdmin: c.AccountIsAdmin, orgPolicy: c.OrgPolicy, orgCredential: c.OrgCredential, orgUsage: c.OrgUsage, orgConfig: c.OrgConfig, orgOutcome: c.OrgResourceOutcome, orgE2BTemplate: c.OrgE2BTemplate, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerFactory: computerFactory, computerSlots: map[string]*computerSlot{}, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}, providerEndpoints: map[string]string{}, envProviderKeys: map[string]string{}, envProviderErrors: map[string]string{}, providerCatalogs: map[string]providerCatalog{}}
+	server := &Server{browserInstanceID: c.BrowserInstanceID, browserSessionValid: c.BrowserSessionValid, accountID: c.AccountID, accountIsAdmin: c.AccountIsAdmin, orgPolicy: c.OrgPolicy, orgCredential: c.OrgCredential, orgUsage: c.OrgUsage, orgConfig: c.OrgConfig, orgOutcome: c.OrgResourceOutcome, orgE2BTemplate: c.OrgE2BTemplate, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerFactory: computerFactory, computerSlots: map[string]*computerSlot{}, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}, providerEndpoints: map[string]string{}, envProviderKeys: map[string]string{}, envProviderErrors: map[string]string{}, providerCatalogs: map[string]providerCatalog{}}
 	server.personalComputers = c.PersonalComputers
 	st.storage = storageGate{limit: c.StorageLimit, minFree: c.HostMinFreeBytes}
 	st.spendSnapshot = c.SpendSnapshot
@@ -3229,6 +3234,7 @@ func NewServer(c Config) (*Server, error) {
 	return server, nil
 }
 func (s *Server) Close() error {
+	s.browserHubs.Range(func(key, value any) bool { s.closeBrowser(key.(string)); return true })
 	s.traceWG.Wait()
 	s.stopLocalRunnerMigration()
 	s.stopShadowMCPReviews()
@@ -3357,6 +3363,9 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if s.handleBotSecrets(w, r) || s.handleBotSkills(w, r) || s.handleBotConnections(w, r) || s.handleSecrets(w, r) || s.handleSSHKeys(w, r) || s.routeComputerResources(w, r, p) || s.routeComputerAttach(w, r, p) || s.routeStorage(w, r, p) {
 		return
 	}
+	if s.routeBrowser(w, r, p) {
+		return
+	}
 	if s.routeComputers(w, r, p) {
 		return
 	}
@@ -3429,6 +3438,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 			"auth":             s.ownerAuthInfo(),
 			"tenancy":          map[string]string{"mode": "single"},
 			"desktop":          desktopServerInfo(),
+			"bot_browser":      botBrowserServerInfo(),
 			"notifications":    notificationsServerInfo(),
 		})
 	case p == "system/update" || strings.HasPrefix(p, "system/update/"):

@@ -515,6 +515,13 @@ func traceTileJPEG(img image.Image) ([]byte, int, int, bool) {
 // model. It decides what the person's trace may keep, stores the picture, then
 // scales the result for the requested detail and numbers it.
 func (s *Server) finishCapture(ctx context.Context, r Run, tool, action string, args json.RawMessage, result, detail string) (string, error) {
+	// Personal browser results carry a connection epoch and never belong to a VM trace.
+	var browser struct {
+		Connection string `json:"connection_epoch"`
+	}
+	if tool == "computer_browser" && json.Unmarshal([]byte(result), &browser) == nil && browser.Connection != "" {
+		return result, nil
+	}
 	pageURL := pageURLFromResult(result)
 	if pageURL != "" {
 		s.noteTracePage(r.ID, pageURL)
