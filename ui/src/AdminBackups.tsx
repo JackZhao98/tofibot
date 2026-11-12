@@ -29,7 +29,11 @@ export function BackupsSection({resource, onResource}: {resource?: OrgResource; 
   const seq = useRef(0);
   const load = useCallback(async () => {
     const mine = ++seq.current;
-    try { const next = await backupApi.state(); if (mine === seq.current) { setView(next); setDraft(value => value ?? next.settings); } }
+    try {
+      const next = await backupApi.state();
+      if (!next?.status || !next.settings || !next.key) throw new Error("Invalid backup view");
+      if (mine === seq.current) { setView(next); setDraft(value => value ?? next.settings); setError(""); }
+    }
     catch (cause) { if (mine === seq.current) setError(backupError(cause)); }
   }, []);
   useEffect(() => { void load(); }, [load, resource?.updated_at]);

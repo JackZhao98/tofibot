@@ -98,12 +98,19 @@ async function compatibilityCases(browser, origin) {
       if(path.endsWith('/browser/stream')) {streams++;return route.abort();}
       return route.fallback();
     });
+    let computerReads=0;page.on('request',r=>{if(new URL(r.url()).pathname.startsWith('/api/computer'))computerReads++;});
     await page.goto(origin);
-    await page.locator('[data-browser-toggle]').click();
-    await page.locator('.bot-browser-state').getByText(legacy?'Update the server to use the Bot browser':'Update the Mac App to use the Bot browser',{exact:true}).waitFor();
-    await page.waitForTimeout(1300);
+    if(legacy) {
+      // An older server: no Mac source, no new route and no computer request at all.
+      await page.waitForLoadState('networkidle');
+      assert.equal(await page.locator('[data-browser-toggle]').count(),0,'old server shows no Mac source');
+      assert.equal(newRoutes,0,'old server sees no new route or 404 retry loop');
+      assert.equal(computerReads,0,'old server makes no computer request');
+    } else {
+      await page.locator('[data-browser-toggle]').click();
+      await page.locator('.bot-browser-state').getByText('Update the Mac App to use the Bot browser',{exact:true}).waitFor();
+    }
     assert.equal(streams,0,'unsupported sources never subscribe');
-    if(legacy) assert.equal(newRoutes,0,'old server sees no new route or 404 retry loop');
     await page.close();
   }
 }

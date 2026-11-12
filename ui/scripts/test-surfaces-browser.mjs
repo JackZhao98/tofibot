@@ -154,7 +154,7 @@ try {
     await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
     // The big computer window steps back to compact before anything else.
     await page.locator("[data-desktop-frame]").hover();
-    await page.getByRole("button", { name: "Enlarge Bot computer" }).click();
+    await page.locator(".desktop-window-controls").getByRole("button", { name: "Enlarge Bot computer", exact: true }).click();
     await page.locator(".desktop-floating-shell.is-expanded").waitFor();
     await escape(page);
     assert.equal(await page.locator(".desktop-floating-shell.is-expanded").count(), 0, "big computer -> compact");
