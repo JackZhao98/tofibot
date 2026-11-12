@@ -27,7 +27,8 @@ test("footer omits client wording; menu fades without translation or corner scal
   const footer = source("ui/src/OwnerSession.tsx").split("export function SidebarAccount")[1];
   assert.ok(footer);
   assert.doesNotMatch(footer, /desktop_client/);
-  assert.match(footer, /hosting === "self" && !isDesktop \? window.location.host : ""/);
+  assert.match(footer, /hosting !== "self" \? "" : isDesktop \? desktopAddress : window.location.host/);
+  assert.match(footer, /window\.tofiDesktop\?\.serverAddress\?\.\(\)/);
   assert.match(footer, /address && <small>\{address\}<\/small>/);
   assert.match(footer, /<AppUpdateButton\/>/);
   const css = source("ui/src/account-menu.css");

@@ -101,6 +101,7 @@
     "test:chat-bubbles": "node scripts/test-chat-bubbles.mjs",
     "test:chat-motion": "node scripts/test-chat-motion.mjs",
     "test:arrival-glide": "node scripts/test-arrival-glide.mjs",
+    "test:scroll-layout": "node scripts/test-scroll-layout.mjs",
     "test:live-fixes": "node scripts/test-live-fixes.mjs",
     "test:visual-surfaces": "node --test scripts/test-visual-surfaces.mjs",
     "test:motion-tokens": "node scripts/test-motion-tokens.mjs",

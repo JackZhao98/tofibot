@@ -22,7 +22,9 @@ const modes = {
 assert.deepEqual(exported.color.themes.map(theme => theme.id).sort(), Object.keys(modes).sort(), "JSON themes must match CSS modes");
 const exportedColors = Object.fromEntries(exported.color.tokens.map(token => [token.name, token.value]));
 assert.equal(Object.keys(exportedColors).length, exported.color.tokens.length, "Duplicate JSON color token");
-const expectedNames = [...new Set(Object.values(modes).flatMap(mode => Object.keys(mode.expected)))].sort();
+const shadows = exported.shadow.tokens.filter(token => ["hard", "hard-sm"].includes(token.name));
+const shadowNames = shadows.map(token => token.name);
+const expectedNames = [...new Set(Object.values(modes).flatMap(mode => Object.keys(mode.expected)))].filter(name => !shadowNames.includes(name)).sort();
 assert.deepEqual(Object.keys(exportedColors).sort(), expectedNames, "JSON must export every CSS color token and alias exactly once");
 for (const [name, value] of Object.entries(exportedColors)) {
   assert.deepEqual(Object.keys(value).sort(), Object.keys(modes).sort(), `JSON --${name} must define both modes`);
@@ -43,9 +45,13 @@ function contrast(a, b) {
 }
 for (const [theme, { actual, expected }] of Object.entries(modes)) {
   const exportedMode = Object.fromEntries(Object.entries(exportedColors).map(([name, value]) => [name, value[theme]]));
-  for (const name of Object.keys(expected)) {
+  for (const name of expectedNames) {
     assert.equal(resolve(exportedMode, name), resolve(expected, name), `JSON ${theme} --${name}`);
     assert.equal(resolve(actual, name), resolve(expected, name), `${theme} --${name}`);
+  }
+  for (const token of shadows) {
+    assert.equal(resolve(actual, token.name), resolve(expected, token.name), `${theme} --${token.name}`);
+    assert.equal(resolve({ [token.name]: token.value[theme] }, token.name), resolve(expected, token.name), `JSON ${theme} --${token.name}`);
   }
   for (const hue of ["clay", "iris", "lagoon", "honey", "green", "danger"]) {
     for (const surface of ["bg", "surface", "surface-2"]) {

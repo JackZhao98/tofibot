@@ -77,6 +77,8 @@ html[data-desktop="darwin"][data-theme="dark"] .contact-pane{background:var(--si
   html[data-desktop="darwin"]:not([data-fullscreen="true"]) .workspace .sidebar-collapsed .sidebar-logo-arrow{opacity:1;transform:none}
   /* One title row, as in Claude and ChatGPT: traffic lights, the three rail buttons (they end at 78 + 3 x 40 + 2 x 4 = 206 px), then the chat title. */
   html[data-desktop="darwin"]:not([data-fullscreen="true"]) .workspace .sidebar-collapsed .chat-header{min-height:48px;padding-top:3px;padding-bottom:3px;padding-left:calc(206px + 14px - var(--sidebar-collapsed))}
+  /* The header's drag layer starts after the rail buttons, so the buttons never sit on a drag area. */
+  html[data-desktop="darwin"]:not([data-fullscreen="true"]) .workspace .sidebar-collapsed .chat-header>.chat-header-drag{left:calc(206px + 4px - var(--sidebar-collapsed))}
 }
 /* A drawer's backdrop starts under the titlebar strip: the strip keeps moving the window and the traffic lights stay clear. */
 html[data-desktop="darwin"] .detail-backdrop{top:48px;height:auto;-webkit-app-region:no-drag}

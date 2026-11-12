@@ -139,16 +139,20 @@ for (const size of SIZES) {
   await check(page, "collapsed conversation", size);
   const collapsed = await page.evaluate(() => ({
     controls: [...document.querySelectorAll(".sidebar-top button")].filter(el => el.getBoundingClientRect().width).map(el => {
-      const box = el.getBoundingClientRect(); return { left: box.left, top: box.top, bottom: box.bottom };
+      const box = el.getBoundingClientRect(); return { left: box.left, right: box.right, top: box.top, bottom: box.bottom };
     }),
-    identityTop: document.querySelector(".chat-identity").getBoundingClientRect().top,
+    identity: (box => ({ left: box.left, middle: box.top + box.height / 2 }))(document.querySelector(".chat-identity").getBoundingClientRect()),
     stripWidth: document.querySelector(".native-titlebar").getBoundingClientRect().width,
     viewportWidth: innerWidth,
   }));
   assert.equal(collapsed.stripWidth, collapsed.viewportWidth, "the collapsed native titlebar spans the window");
   assert.ok(collapsed.controls.length >= 2, "collapsed titlebar keeps the navigation controls");
   for (const box of collapsed.controls) assert.ok(box.left >= 78 && box.top >= 0 && box.bottom <= 48, `titlebar control clears traffic lights: ${JSON.stringify(box)}`);
-  assert.ok(collapsed.identityTop >= 48, "conversation content starts below the native titlebar strip");
+  // One title row (owner 11-12, as in Claude and ChatGPT): the chat title follows the rail buttons on their centre line.
+  const lastRight = Math.max(...collapsed.controls.map(box => box.right));
+  const controlMiddle = (collapsed.controls[0].top + collapsed.controls[0].bottom) / 2;
+  assert.ok(collapsed.identity.left >= lastRight, `the chat title starts after the rail buttons (${collapsed.identity.left} >= ${lastRight})`);
+  assert.ok(Math.abs(collapsed.identity.middle - controlMiddle) <= 6, `the chat title shares the buttons' centre line (${collapsed.identity.middle} vs ${controlMiddle})`);
   await page.getByRole("button", { name: "Expand sidebar", exact: true }).click();
   await page.locator(".workspace-grid:not(.sidebar-collapsed)").waitFor();
 

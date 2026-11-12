@@ -37,5 +37,6 @@ test("native collapsed controls clear traffic lights and use no-drag hit targets
   const css = read("desktop-system.css");
   assert.match(css, /\.sidebar-top\{[^}]*left:78px/);
   assert.match(css, /\.sidebar-top button\{[^}]*-webkit-app-region:no-drag/);
-  assert.match(css, /\.chat-header>\.chat-header-drag\{top:48px\}/);
+  // Collapsed: one title row; the header drag layer starts after the rail buttons.
+  assert.match(css, /\.sidebar-collapsed \.chat-header>\.chat-header-drag\{left:calc\(206px/);
 });

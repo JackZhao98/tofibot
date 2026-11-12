@@ -143,3 +143,6 @@
 .workspace .bot-attachments .attachment-gallery:not(.is-single) .attachment-thumb { width:180px; height:180px; max-width:100%; }
 /* Mid-run messages are narration; the final reply keeps its normal bubble. */
 .workspace .message-bot.message-segment .message-content { background:none; border:0; box-shadow:none; padding:4px 0; }
+
+/* A file-only Bot message is still the closing sender unit and needs its avatar. */
+.workspace .message-bot.is-media-only .bot-attachments { position:relative; }

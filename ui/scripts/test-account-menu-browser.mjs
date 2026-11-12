@@ -58,7 +58,7 @@ for (const engine of [chromium, webkit]) {
       const menu = page.locator('.sidebar-account-menu:not(.sidebar-account-submenu)');
       await menu.waitFor();
       assert.equal(await menu.locator(".sidebar-account-menu-heading strong").innerText(), "Example");
-      assert.deepEqual(await menu.locator(":scope > [role=menuitem]").allTextContents(), ["Settings", "Usage", "Language", "Artifacts"]);
+      assert.deepEqual(await menu.locator(":scope > [role=menuitem]").allTextContents(), ["Settings", "Usage", "Artifacts", "Language"]);
       const animation = await menu.evaluate(element => getComputedStyle(element).animationName);
       assert.equal(animation, "account-menu-fade");
       const theme = menu.locator(".sidebar-account-theme");
