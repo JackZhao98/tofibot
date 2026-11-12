@@ -1664,8 +1664,13 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
 
     // Up to date: no banner; the Version card says so.
     updateState.latest = "v0.1.0";
-    const current = await open({admin: "1", tab: "advanced"});
-    await current.page.locator(".version-card").waitFor({timeout: 15000});
+    // On a multi-account server the Version card is in Administration, not System.
+    const current = await open({admin: "1", tab: "admin"});
+    await current.page.locator('.settings-page-body[data-page="admin"] .version-card').waitFor({timeout: 15000});
+    assert.equal(await current.page.locator('.settings-page-body[data-page="advanced"] .version-card').count(), 0, "System has no Version card on a multi-account server");
+    const single = await open({admin: "0", tab: "advanced"});
+    await single.page.locator('.settings-page-body[data-page="advanced"] .version-card').waitFor({timeout: 15000});
+    await single.close();
     await current.page.waitForTimeout(500);
     assert.equal(await current.page.locator(banner).count(), 0, "no banner when up to date");
     const card = (await current.page.locator(".version-card").innerText()).replace(/\s+/g, " ");
@@ -1691,7 +1696,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
 
     // Update available + auto on: card shows the install hint and the state.
     updateState.latest = "v0.1.1";
-    const pending = await open({admin: "1", tab: "advanced", auto: "patch"});
+    const pending = await open({admin: "1", tab: "admin", auto: "patch"});
     await pending.page.locator(".version-card").waitFor({timeout: 15000});
     await pending.page.getByText("Update available", {exact: true}).waitFor();
     const pendingCard = (await pending.page.locator(".version-card").innerText()).replace(/\s+/g, " ");
@@ -1701,8 +1706,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await pending.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
     await pending.close();
     // No horizontal scroll at 390px.
-    const narrow = await open({admin: "1", tab: "advanced"}, {width: 390, height: 844});
-    await narrow.page.locator(".settings-mhome [data-tab=\"advanced\"]").click().catch(() => {});
+    const narrow = await open({admin: "1", tab: "admin"}, {width: 390, height: 844});
+    await narrow.page.locator(".settings-mhome [data-tab=\"admin\"]").click().catch(() => {});
     await narrow.page.locator(".version-card").waitFor({timeout: 15000});
     await narrow.page.waitForTimeout(500);
     assert.equal(await narrow.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "no horizontal scroll at 390px");
@@ -1765,7 +1770,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       // Release candidates: the switch is in the Version card; with it on, the candidate has its own button and badge.
       resetUpdateFlow("done");
       updateFlow.rc = false;
-      const rc = await open({admin: "1", host: "1", tab: "advanced"});
+      const rc = await open({admin: "1", host: "1", tab: "admin"});
       await rc.page.locator(".version-card").waitFor({timeout: 15000});
       assert.equal(await rc.page.getByRole("button", {name: /^Try v/}).count(), 0, "no candidate offered while the setting is off");
       const toggle = rc.page.getByRole("switch", {name: "Receive release candidates"});
@@ -1787,8 +1792,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       resetUpdateFlow("done");
 
       // 390 px: the progress and the dialog fit.
-      const narrowFlow = await open({admin: "1", host: "1", tab: "advanced"}, {width: 390, height: 844});
-      await narrowFlow.page.locator(".settings-mhome [data-tab=\"advanced\"]").click().catch(() => {});
+      const narrowFlow = await open({admin: "1", host: "1", tab: "admin"}, {width: 390, height: 844});
+      await narrowFlow.page.locator(".settings-mhome [data-tab=\"admin\"]").click().catch(() => {});
       await narrowFlow.page.locator(".version-card").waitFor({timeout: 15000});
       assert.equal(await narrowFlow.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "no horizontal scroll with the Update row at 390px");
       await narrowFlow.page.locator(".version-card").getByRole("button", {name: "Update to v0.1.1"}).click();
@@ -1808,7 +1813,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     }
 
     // Translations render (Japanese banner and card).
-    const ja = await open({admin: "1", lang: "ja", tab: "advanced", auto: "off"});
+    const ja = await open({admin: "1", lang: "ja", tab: "admin", auto: "off"});
     await ja.page.locator(banner).waitFor({timeout: 15000});
     assert.match((await ja.page.locator(banner).innerText()).replace(/\s+/g, " "), /Tofi v0\.1\.1 が公開されました/);
     assert.match(await ja.page.locator(".version-card").innerText(), /現在のバージョン/);
@@ -1821,14 +1826,14 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       let count = 0;
       updateState.latest = "v0.1.1";
       for (const theme of ["light", "dark"]) for (const [label, size] of [["1440", {width: 1440, height: 900}], ["390", {width: 390, height: 844}]]) {
-        const {page, close} = await open({admin: "1", tab: "advanced", auto: "patch"}, {...size, theme});
+        const {page, close} = await open({admin: "1", tab: "admin", auto: "patch"}, {...size, theme});
         await page.locator(banner).waitFor({timeout: 15000});
-        if (label === "390") await page.locator(".settings-mhome [data-tab=\"advanced\"]").click().catch(() => {});
+        if (label === "390") await page.locator(".settings-mhome [data-tab=\"admin\"]").click().catch(() => {});
         await page.locator(".version-card").waitFor({timeout: 15000});
         await page.waitForTimeout(900);
         await page.screenshot({path: join(dir, `update-${label}-${theme}.png`)}); count++;
         await close();
-        const manual = await open({admin: "1", tab: "advanced", auto: "off"}, {...size, theme});
+        const manual = await open({admin: "1", tab: "admin", auto: "off"}, {...size, theme});
         await manual.page.locator(banner).waitFor({timeout: 15000});
         if (label === "390") await manual.page.getByRole("button", {name: "Close settings"}).first().click();
         if (label === "390") await manual.page.evaluate(() => document.querySelector("aside.detail-pane")?.remove());

@@ -23,6 +23,7 @@ import {TimezoneSetting} from "../TimezoneSettings";
 import {UsagePanel} from "../UsagePanel";
 import {SpendCap} from "../SpendCap";
 import {VersionCard,useIsUpdateAdmin} from "../UpdateNotice";
+import {useOwnerSession} from "../OwnerSession";
 import {WorkspacePurgeSettings} from "../WorkspacePurgeSettings";
 import {useTranslation} from "../i18n";
 import type {Bot, Conversation} from "../types";
@@ -65,7 +66,7 @@ export function SettingsPages(props:SettingsPagesProps){
   case "computer": return <ComputerPage openTab={props.openTab} bots={activeBots}/>;
   case "usage": return <div className="settings-stack"><SectionAnchor id="spend"><SpendCap/></SectionAnchor><SectionAnchor id="usage" wide><UsagePanel preferredBotId={props.usageBotId} timezone={props.timezone}/></SectionAnchor><SectionAnchor id="storage"><Suspense fallback={null}><StorageUsage/></Suspense></SectionAnchor></div>;
   case "advanced": return <AdvancedPage {...props} bots={bots} activeBots={activeBots}/>;
-  case "admin": return <Suspense fallback={null}><SectionAnchor id="accounts" wide><AdminAccounts/></SectionAnchor></Suspense>;
+  case "admin": return <Suspense fallback={null}><div className="settings-stack"><SectionAnchor id="accounts" wide><AdminAccounts/></SectionAnchor><AdminVersion/></div></Suspense>;
   case "admin-groups": return <Suspense fallback={null}><AdminGroups openTab={props.openTab}/></Suspense>;
   case "admin-resources": return <Suspense fallback={null}><AdminResources openTab={props.openTab}/></Suspense>;
   default: return unreachable(page);
@@ -157,9 +158,16 @@ export function PermissionsPage(){
  */
 type SystemSub="behavior"|"followups"|"export"|"import"|"changes"|"health"|"debug";
 const systemOwner:Record<string,SystemSub>={behavior:"behavior",groups:"behavior",replies:"behavior",reviews:"behavior",tasks:"behavior",computer:"behavior",followups:"followups"};
+/** Administration's Version card: server version and updates, for the administrator of a multi-account server. */
+function AdminVersion(){
+ const {t}=useTranslation("settings");
+ return useIsUpdateAdmin()?<SettingsSection id="version" title={t("advanced.version")}><VersionCard/></SettingsSection>:null;
+}
 function AdvancedPage({portabilityBotID,portabilityFile,onPortabilityFileConsumed,bots,activeBots,conversation}:SettingsPagesProps&{activeBots:Bot[]}){
  const {t}=useTranslation("settings");
- const admin=useIsUpdateAdmin();
+ // On a multi-account server the Version card is in Administration; a single-account owner keeps it here.
+ const updateAdmin=useIsUpdateAdmin(),session=useOwnerSession();
+ const admin=updateAdmin&&!session?.multi_account;
  const [sub,setSub]=useSubpage<SystemSub>("advanced",systemOwner);
  // A file or a Bot handed over from elsewhere opens the half it is for.
  useEffect(()=>{if(portabilityFile)setSub("import");else if(portabilityBotID)setSub("export")},[portabilityFile,portabilityBotID,setSub]);
