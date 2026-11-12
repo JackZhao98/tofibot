@@ -61,3 +61,16 @@ func initializeInstance(dir, environment string) (instanceIdentity, error) {
 	}
 	return identity, closeErr
 }
+
+// hostingFromEnvironment describes the deployment, independently of its image or tenancy.
+func hostingFromEnvironment() (string, error) {
+	hosting := os.Getenv("TOFI_HOSTING")
+	switch hosting {
+	case "":
+		return "self", nil
+	case "cloud", "self":
+		return hosting, nil
+	default:
+		return "", errors.New("TOFI_HOSTING must be cloud or self")
+	}
+}

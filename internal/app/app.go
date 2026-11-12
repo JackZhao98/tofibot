@@ -326,6 +326,7 @@ type Server struct {
 	runnerMigration                      localRunnerMigration
 	ownerAuth                            *ownerAuth
 	secretVault                          *secretVault
+	hosting                              string
 	instance                             instanceIdentity
 	store                                *Store
 	engine                               runtime.Engine
@@ -2996,6 +2997,10 @@ func (s *Store) EventCursor(conv string) int64 {
 }
 
 func NewServer(c Config) (*Server, error) {
+	hosting, err := hostingFromEnvironment()
+	if err != nil {
+		return nil, err
+	}
 	if c.DataDir == "" {
 		c.DataDir = os.Getenv("TOFI_DATA_DIR")
 	}
@@ -3108,7 +3113,7 @@ func NewServer(c Config) (*Server, error) {
 	if savedSettings.ReasoningEffort == "" {
 		savedSettings.ReasoningEffort = "medium"
 	}
-	server := &Server{browserInstanceID: c.BrowserInstanceID, browserSessionValid: c.BrowserSessionValid, accountID: c.AccountID, accountIsAdmin: c.AccountIsAdmin, orgPolicy: c.OrgPolicy, orgCredential: c.OrgCredential, orgUsage: c.OrgUsage, orgConfig: c.OrgConfig, orgOutcome: c.OrgResourceOutcome, orgE2BTemplate: c.OrgE2BTemplate, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerFactory: computerFactory, computerSlots: map[string]*computerSlot{}, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}, providerEndpoints: map[string]string{}, envProviderKeys: map[string]string{}, envProviderErrors: map[string]string{}, providerCatalogs: map[string]providerCatalog{}}
+	server := &Server{browserInstanceID: c.BrowserInstanceID, browserSessionValid: c.BrowserSessionValid, accountID: c.AccountID, accountIsAdmin: c.AccountIsAdmin, orgPolicy: c.OrgPolicy, orgCredential: c.OrgCredential, orgUsage: c.OrgUsage, orgConfig: c.OrgConfig, orgOutcome: c.OrgResourceOutcome, orgE2BTemplate: c.OrgE2BTemplate, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, hosting: hosting, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerFactory: computerFactory, computerSlots: map[string]*computerSlot{}, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}, providerEndpoints: map[string]string{}, envProviderKeys: map[string]string{}, envProviderErrors: map[string]string{}, providerCatalogs: map[string]providerCatalog{}}
 	server.personalComputers = c.PersonalComputers
 	st.storage = storageGate{limit: c.StorageLimit, minFree: c.HostMinFreeBytes}
 	st.spendSnapshot = c.SpendSnapshot
@@ -3435,6 +3440,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 			"service":          "tofi",
 			"protocol_version": 1,
 			"instance_id":      s.instance.ID,
+			"hosting":          s.hosting,
 			"auth":             s.ownerAuthInfo(),
 			"tenancy":          map[string]string{"mode": "single"},
 			"desktop":          desktopServerInfo(),

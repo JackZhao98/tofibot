@@ -10,6 +10,8 @@
     "build": "tsc -b && vite build && vite build --config vite.motion-lab.config.ts && vite build --config vite.desktop-settings.config.ts",
     "typecheck": "tsc -b --pretty false",
     "test:portability": "node scripts/test-portability.mjs",
+    "test:account-menu": "node --test scripts/test-account-menu.mjs",
+    "test:account-menu-browser": "node scripts/test-account-menu-browser.mjs",
     "test:owner-bootstrap": "node scripts/test-owner-bootstrap.mjs",
     "test:composer-draft": "node scripts/test-composer-draft.mjs",
     "test:conversation-route": "node scripts/test-conversation-route.mjs",

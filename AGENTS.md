@@ -43,6 +43,10 @@ Web UI text is localized: user-visible strings live in `ui/src/locales/<lang>/<n
 
 People read "Bot computer" (owner, 10-31) for the computer a Bot uses; it is the umbrella term and can have kinds (backends). Two kinds: the built-in VM (Firecracker microVM on the TOFI host; label `computer:kind.vm`, "Built-in VM") and the E2B cloud computer that the person adds with their own E2B key (`internal/computer/e2b`; see "Environments and the E2B computer" below). The personal-computer pairing (Mac app, `TOFI_PERSONAL_COMPUTERS`, listed in Settings > Environments) is another thing and keeps its names. Code identifiers, tool names, JSON keys, API paths, env vars and CLI commands keep "computer". Model-facing text (`internal/app`, `internal/manual`) says "Bot computer" too; always-on prompts are size-tested (`prompt_budget_test.go`), so say it in few words.
 
+# Deployment hosting (D78)
+
+`TOFI_HOSTING=cloud|self` describes the deployment; unset defaults to `self`. Any other value stops startup with `TOFI_HOSTING must be cloud or self` (`internal/app/environment.go`). Both single-account and gateway `GET /api/server-info` responses include `hosting`. The cloud uses the same image; never infer hosting from tenancy or the hostname. The sidebar footer shows `location.host` only for `self` in a browser; `cloud` and older servers without the field have no address line. The current `window.tofiDesktop` bridge exposes no connected server URL, so the Mac app also omits the line until that information is available.
+
 # Computer is optional
 
 A workspace may have no computer. `TOFI_COMPUTER_BACKEND=none|kvm` (unset: `kvm` when a computer socket is configured, else `none`; `cmd/tofi/accounts.go`)

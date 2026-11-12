@@ -14,6 +14,7 @@ import {FollowupsSettings} from "../FollowupsSettings";
 import {AppearancePicker} from "../InteractionSystem";
 import {LanguageSetting} from "../LanguageSetting";
 import {ModelDefaults} from "../ModelSettings";
+import {HelpAndFeedback} from "./HelpAndFeedback";
 import {OwnerAccount} from "../OwnerAccount";
 import {PortabilitySettings} from "../PortabilitySettings";
 import {ModelProviders} from "../ProviderSettings";
@@ -114,6 +115,7 @@ function GeneralPage({appearance}:SettingsPagesProps){
   <SectionAnchor id="appearance"><AppearancePicker value={appearance.preference} onChange={appearance.choose}/></SectionAnchor>
   <SettingsSection id="region" title={t("general.region")}><SettingsCard className="settings-region"><LanguageSetting/><TimezoneSetting/></SettingsCard></SettingsSection>
   <SettingsSection id="chats" title={t("general.chat")}><ChatsSettings/></SettingsSection>
+  <HelpAndFeedback/>
  </div>;
 }
 
