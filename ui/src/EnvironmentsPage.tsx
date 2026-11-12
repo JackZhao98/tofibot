@@ -205,6 +205,7 @@ export function EnvironmentsPage({openTab}: {openTab: (tab: SettingsTab) => void
   return <div className="settings-stack environments-page">
     {error && <Banner tone="error" title={error}/>}
     {data && rc.available && <RemoteControlBlock rc={rc} offered={add?.mac !== false} onOpenFiles={openFiles} onOpenDenied={() => setDialog({kind: "denied"})}/>}
+    <SettingsRow label={t("browser.source")} description={!window.tofiDesktop ? t("browser.in_app") : !window.tofiDesktop.botBrowser ? t("browser.status.browser_client_unsupported") : undefined} control={window.tofiDesktop?.botBrowser && window.tofiDesktop.openDesktopSettings ? <button type="button" className="st-button" onClick={() => { void window.tofiDesktop?.openDesktopSettings?.(); }}>{t("browser.settings")}</button> : undefined}/>
     {body}
     {data && !has && canAttach && computerMode === "host" && <SettingsSection id="attach" title={t("environments.attach_title")}><ComputerAttach base={base}/></SettingsSection>}
     {dialog?.kind === "e2b" && <E2BDialog onClose={() => setDialog(null)} onSaved={body => { replace(body); setDialog(null); }}/>}

@@ -4,6 +4,7 @@
 // and viewer in a Vite fixture with every /api/* call stubbed (synthetic data only). Needs PLAYWRIGHT_MODULE.
 //   NO_COMPUTER_SHOTS=<dir>  also saves screenshots at 1440x900 and 390x844.
 import assert from "node:assert/strict";
+import {exerciseBrowserEntry} from "./test-bot-browser-pip.mjs";
 import {mkdtemp, mkdir, readFile, rm, writeFile} from "node:fs/promises";
 import {basename, dirname, join} from "node:path";
 import {fileURLToPath, pathToFileURL} from "node:url";
@@ -272,6 +273,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     console.log("PASS files: detached and missing say so in the card and the viewer (text and PDF), the link opens the Bot computer settings, good files download, 390px, 7 languages");
   }
 
+  await exerciseBrowserEntry(browser, origin);
   assert.deepEqual(unexpected, [], `unexpected requests or page errors: ${unexpected.join("; ")}`);
   assert.deepEqual(writes, [], `no writes expected: ${writes.join("; ")}`);
   console.log("PASS no unstubbed /api request, no write, no page error");

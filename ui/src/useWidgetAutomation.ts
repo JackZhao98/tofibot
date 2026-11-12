@@ -30,10 +30,10 @@ function useSwitches(): React.RefObject<Switches> {
  * after the Bot lets go, and stays closed for a run the person closed it in; with three or more widgets open on a short window the ones at the bottom of the
  * person's order fold (never the computer), except the ones the person unfolded. Nothing here moves focus or closes a cover.
  */
-export function useWidgetAutomation({ activeId, ready, messages, columnMode, hasComputer, surfaces, setSurfaces, botRunId, holderKind, bigComputer, phoneSheet, memory }: {
-  activeId?: string; ready: boolean; messages: readonly Message[]; columnMode: boolean; hasComputer: boolean; surfaces: Surfaces;
+export function useWidgetAutomation({ activeId, ready, messages, columnMode, hasComputer, externalComputer = false, surfaces, setSurfaces, botRunId, holderKind, bigComputer, phoneSheet, memory }: {
+  activeId?: string; ready: boolean; messages: readonly Message[]; columnMode: boolean; hasComputer: boolean; externalComputer?: boolean; surfaces: Surfaces;
   setSurfaces: (update: (current: Surfaces) => Surfaces) => void;
-  /** The run of the Bot that holds the desktop in this conversation. */
+  /** The run of the Bot using the selected source in this conversation. */
   botRunId?: string;
   /** Who holds the desktop now, in any conversation. */
   holderKind?: string;
@@ -98,15 +98,16 @@ export function useWidgetAutomation({ activeId, ready, messages, columnMode, has
   if (!computerOpen) { botRan.current = false; autoOpened.current = false; }
   else if (botRunId) botRan.current = true;
   useEffect(() => {
+    if (externalComputer && !autoOpened.current) return;
     if (!computerOpen || computerFolded || !botRan.current || botRunId || holderKind === "human" || bigComputer) return;
     // In the column the card folds into its strip. A floating mini window that the Bot opened closes (the person's own never does).
     const timer = window.setTimeout(() => {
       botRan.current = false;
-      if (columnMode) setSurfaces(state => setWidgetFolded(state, "computer", true));
+      if (columnMode && !externalComputer) setSurfaces(state => setWidgetFolded(state, "computer", true));
       else if (autoOpened.current) { autoOpened.current = false; setSurfaces(state => closeWidget(state, "computer")); }
     }, 30_000);
     return () => window.clearTimeout(timer);
-  }, [computerOpen, computerFolded, botRunId, holderKind, bigComputer, columnMode, setSurfaces]);
+  }, [computerOpen, computerFolded, botRunId, holderKind, bigComputer, columnMode, externalComputer, setSurfaces]);
 
   // Space: three or more widgets on a short window. The bottom one of the person's order folds first (the Usage widget, then Artifacts
   // and Members in the default order); the next follows only if the column still overflows. The computer never folds this way.

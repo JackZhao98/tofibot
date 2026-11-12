@@ -61,3 +61,9 @@ html[data-desktop] .view-only-chat-body{overscroll-behavior:contain}
 .attachment-native-actions [draggable="true"]{cursor:grab}.attachment-native-actions [draggable="true"]:active{cursor:grabbing}
 .attachment-status{font-size:11px;color:var(--muted);padding:4px 0}
 @media(prefers-reduced-transparency:reduce){html[data-desktop="darwin"] .contact-pane{background:var(--sidebar-bg)}html[data-desktop] :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu){background:var(--surface);-webkit-backdrop-filter:none;backdrop-filter:none}}
+
+.bot-browser-settings > summary { cursor: pointer; padding: 12px 0; }
+.bot-browser-panel, .bot-browser-panel .desktop-window-controls, .bot-browser-panel button,
+[data-external-pip] .desktop-floating-shell { -webkit-app-region: no-drag; }
+/* An enlarged mini window covers the whole window; it must sit above the titlebar drag strip or its close and shrink controls cannot be pressed. */
+html[data-desktop="darwin"] .desktop-floating-shell.is-expanded{z-index:var(--z-dialog)}

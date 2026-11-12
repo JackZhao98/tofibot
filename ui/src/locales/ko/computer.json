@@ -655,5 +655,50 @@
         "allow": "다시 허용"
       }
     }
+  },
+  "browser": {
+    "source": "내 Mac · Bot 브라우저",
+    "look": "Bot 브라우저 보기 ({{id}})",
+    "open": "열고 로그인",
+    "enlarge": "Bot 브라우저 확대",
+    "shrink": "Bot 브라우저 축소",
+    "status": {
+      "idle": "준비됨",
+      "working": "Bot 작업 중",
+      "human": "사용자 조작 중 · Bot에 돌려주기 대기",
+      "stopped": "중지됨 · 브라우저에서 Bot에 돌려주세요",
+      "closed": "브라우저 닫힘",
+      "disabled": "브라우저 권한이 꺼져 있습니다",
+      "offline": "Mac이 오프라인입니다",
+      "unsupported": "Bot 브라우저를 사용하려면 Mac App을 업데이트하세요",
+      "minimized": "창 최소화 · 미리보기 일시 중지",
+      "locked": "Mac이 잠겨 있습니다",
+      "unavailable": "미리보기를 사용할 수 없습니다",
+      "frames_disabled": "화면 꺼짐 · Bot은 계속 작업할 수 있습니다",
+      "browser_preview_limited": "미리보기가 제한되었습니다",
+      "browser_preview_busy": "시청 인원이 찼습니다. 다른 창을 닫으세요",
+      "browser_server_unsupported": "Bot 브라우저를 사용하려면 서버를 업데이트하세요",
+      "browser_client_unsupported": "Bot 브라우저를 사용하려면 Mac App을 업데이트하세요",
+      "browser_transport_unavailable": "화면이 중단되었습니다",
+      "browser_not_enabled": "Mac 고급 설정에서 Bot 브라우저를 켜세요",
+      "browser_control_lost": "브라우저 제어가 끊겼습니다. Mac App을 확인하세요",
+      "browser_target_gone": "페이지가 닫혔습니다. 필요할 때 다시 여세요",
+      "browser_session_changed": "브라우저 세션이 변경되었습니다. 다시 확인하세요",
+      "browser_viewport_changed": "페이지가 변경되었습니다. 새 스냅샷을 찍으세요",
+      "browser_login_required": "브라우저를 열어 로그인한 후 Bot에 돌려주세요",
+      "browser_action_unsupported": "지원되지 않는 브라우저 작업입니다",
+      "app_not_allowed": "Mac App에서 접근을 허용하세요",
+      "bot_not_allowed": "Mac App에서 이 Bot을 허용하세요",
+      "user_takeover": "사용자 조작 중 · Bot에 돌려주기 대기",
+      "user_stop": "중지됨 · 브라우저에서 Bot에 돌려주세요",
+      "computer_offline": "Mac이 오프라인입니다",
+      "computer_lost": "Mac 연결이 끊겼습니다",
+      "device_revoked": "기기 접근이 취소되었습니다",
+      "browser_clear_failed": "데이터를 지울 수 없습니다. 브라우저는 일시 중지 상태입니다",
+      "computer_not_configured": "Bot 컴퓨터가 설정되지 않았습니다"
+    },
+    "in_app": "이 Mac의 App에서 설정하세요",
+    "settings": "브라우저 설정",
+    "close": "Bot 브라우저 미리보기 닫기"
   }
 }

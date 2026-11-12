@@ -7,6 +7,7 @@ import { layerRoot } from "./layers";
 import { createPipEngine, translate, type PipEngine } from "./pipDrag";
 import { PIP_SIZES, defaultPipStored, nudgePipPoint, parsePipStored, pipPlaceFromPoint, resolvePipPlace, snapPipSide, type PipCorner, type PipPlace, type PipStored } from "./floatingDesktopPosition";
 import "./desktop-shell.css";
+import { externalPipHost } from "./externalPipHost";
 
 const PIP_KEY = "tofi.pip.v1";
 const loadPip = (): PipStored => { try { return parsePipStored(localStorage.getItem(PIP_KEY)); } catch { return defaultPipStored; } };
@@ -21,9 +22,9 @@ function composerTop(): number | undefined {
 }
 
 /** The window opens only on the user's explicit request (the header computer button). */
-export function FloatingDesktop({ expanded, small = false, sheet = false, docked = false, folded = false, onClose, children }: {
+export function FloatingDesktop({ expanded, small = false, sheet = false, docked = false, folded = false, onClose, children, externalSourceKey, label }: {
   /** The big window (dialog). `small` is the floating picture-in-picture window; `sheet` is the narrow-screen full-screen form of the big one. */
-  expanded: boolean; small?: boolean; sheet?: boolean; /** The small form sits in the context column's card instead of floating over the chat. */ docked?: boolean; /** Docked and folded: the monitor is a 56px strip (the video stays mounted). */ folded?: boolean; onClose: () => void; children: ReactNode;
+  expanded: boolean; small?: boolean; sheet?: boolean; /** The small form sits in the context column's card instead of floating over the chat. */ docked?: boolean; /** Docked and folded: the monitor is a 56px strip (the video stays mounted). */ folded?: boolean; onClose: () => void; children: ReactNode; externalSourceKey?: string; label?: string;
 }) {
   const { t } = useTranslation("computer");
   const shellRef = useRef<HTMLDivElement>(null);
@@ -51,12 +52,19 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
     } else slot.style.minHeight = "";
     target.appendChild(host);
   }, [docked, expanded, host]);
+  useLayoutEffect(() => {
+    if (!externalSourceKey || !small || expanded || !window.tofiDesktop?.pip) return;
+    let external: ReturnType<typeof externalPipHost> | undefined;
+    try { external = externalPipHost(host, externalSourceKey, () => closeRef.current()); }
+    catch { host.dataset.pipError = ''; window.dispatchEvent(new CustomEvent('tofi:pip-error', {detail: 'browser_client_unsupported'})); }
+    return () => { delete host.dataset.pipError; external?.dispose(); };
+  }, [externalSourceKey, small, expanded, host]);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   const contentId = useId();
   // The mini window (docs/design/computer-pip.md section 5): the floating small form is dragged, snapped to a corner and remembered.
-  const pipActive = small && !docked;
+  const pipActive = small && !docked && !externalSourceKey;
   const [pip, setPip] = useState<PipStored>(loadPip);
   const [tick, setTick] = useState(0);
   const pipRef = useRef(pip);
@@ -109,6 +117,63 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
     event.stopPropagation();
     place(event.altKey ? { corner: snapPipSide(pipRef.current.corner, event.key), dx: 0, dy: 0 } : pipPlaceFromPoint(nudgePipPoint(m.point, event.key, event.shiftKey), m.size, m.viewport, m.composerTop));
   };
+  useEffect(() => {
+    if (!externalSourceKey || !small || expanded) return;
+    const el = shellRef.current;
+    const child = el?.ownerDocument.defaultView;
+    const bridge = window.tofiDesktop?.pip;
+    if (!el || !child || !bridge || child === window) return;
+    const send = (x: number, y: number) => { void bridge.setBounds({source_key: externalSourceKey, x, y, width: Math.min(640, Math.max(240, pipRef.current.size)), height: Math.min(500, Math.max(150, Math.ceil(pipRef.current.size * 5 / 8 + 48)))}).catch(() => {}); };
+    let drag: {x: number; y: number; left: number; top: number} | null = null;
+    let moved = false;
+    let suppressClick = false;
+    const snap = (x: number, y: number) => {
+      const screen = child.screen as Screen & {availLeft?: number; availTop?: number};
+      const left = screen.availLeft ?? 0, top = screen.availTop ?? 0;
+      const width = Math.min(640, Math.max(240, pipRef.current.size)), height = Math.min(500, Math.max(150, Math.ceil(width * 5 / 8 + 48)));
+      return {x: x + width / 2 < left + screen.availWidth / 2 ? left : left + screen.availWidth - width, y: y + height / 2 < top + screen.availHeight / 2 ? top : top + screen.availHeight - height};
+    };
+    const down = (event: PointerEvent) => {
+      if (event.button !== 0 || (event.target as Element).closest('.desktop-window-controls')) return;
+      moved = false; suppressClick = false;
+      drag = {x: event.screenX, y: event.screenY, left: child.screenX, top: child.screenY};
+      (event.target as Element).setPointerCapture?.(event.pointerId);
+    };
+    const move = (event: PointerEvent) => {
+      if (!drag) return;
+      if (Math.hypot(event.screenX - drag.x, event.screenY - drag.y) > 6) moved = true;
+      if (moved) send(drag.left + event.screenX - drag.x, drag.top + event.screenY - drag.y);
+    };
+    const up = (event: PointerEvent) => {
+      if (drag && moved) {
+        suppressClick = true;
+        const x = drag.left + event.screenX - drag.x, y = drag.top + event.screenY - drag.y;
+        const point = event.altKey ? {x,y} : snap(x,y);
+        send(point.x, point.y);
+      }
+      drag = null;
+    };
+    const click = (event: MouseEvent) => { if (suppressClick) { suppressClick = false; event.preventDefault(); event.stopPropagation(); } };
+    const keys = (event: KeyboardEvent) => {
+      if (!event.key.startsWith('Arrow') || event.ctrlKey || event.metaKey) return;
+      event.preventDefault();
+      const step = event.shiftKey ? 4 : 16;
+      let x = child.screenX + (event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0);
+      let y = child.screenY + (event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0);
+      if (event.altKey) {
+        const screen = child.screen as Screen & {availLeft?: number; availTop?: number};
+        if (event.key === 'ArrowLeft') x = screen.availLeft ?? 0;
+        if (event.key === 'ArrowRight') x = (screen.availLeft ?? 0) + screen.availWidth;
+        if (event.key === 'ArrowUp') y = screen.availTop ?? 0;
+        if (event.key === 'ArrowDown') y = (screen.availTop ?? 0) + screen.availHeight;
+        ({x,y} = snap(x,y));
+      }
+      send(x,y);
+    };
+    send(child.screenX, child.screenY);
+    el.addEventListener('click', click, true); el.addEventListener('pointerdown', down); el.addEventListener('pointermove', move); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('keydown', keys);
+    return () => { el.removeEventListener('click', click, true); el.removeEventListener('pointerdown', down); el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up); el.removeEventListener('keydown', keys); };
+  }, [externalSourceKey, small, expanded]);
   const pipWidth = Math.min(pip.size, window.innerWidth - 24);
 
   useEffect(() => {
@@ -206,7 +271,7 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
   const shell = <div ref={shellRef} className={`desktop-floating-shell${expanded ? " is-expanded" : ""}${folded && docked && !expanded ? " is-folded" : ""}${small ? " is-small" : ""}${expanded && sheet ? " is-sheet" : ""}${docked ? " is-docked" : ""}`} style={pipActive ? { "--pip-width": `${pipWidth}px` } as CSSProperties : undefined}
     onPointerDown={pipActive ? event => engineRef.current?.press(event.nativeEvent) : undefined} onKeyDown={arrowKeys}
     onClickCapture={pipActive ? event => { if (engineRef.current?.wasDragged()) { event.preventDefault(); event.stopPropagation(); } } : undefined}
-    role={expanded ? "dialog" : "group"} aria-modal={expanded || undefined} aria-label={t("desktop.title")} tabIndex={expanded ? -1 : undefined}>
+    role={expanded ? "dialog" : "group"} aria-modal={expanded || undefined} aria-label={label ?? t("desktop.title")} tabIndex={expanded ? -1 : undefined}>
     <div id={contentId} className="desktop-presence-content">
       <div className="desktop-presence-canvas">{children}</div>
     </div>

@@ -661,5 +661,50 @@
         "allow": "Wieder erlauben"
       }
     }
+  },
+  "browser": {
+    "source": "Dein Mac · Bot-Browser",
+    "look": "Bot-Browser ansehen ({{id}})",
+    "open": "Öffnen und anmelden",
+    "enlarge": "Bot-Browser vergrößern",
+    "shrink": "Bot-Browser verkleinern",
+    "status": {
+      "idle": "Bereit",
+      "working": "Bot arbeitet",
+      "human": "Du steuerst · Warte auf Rückgabe an Bot",
+      "stopped": "Gestoppt · Im Browser an Bot zurückgeben",
+      "closed": "Browser geschlossen",
+      "disabled": "Browserfreigabe ist aus",
+      "offline": "Mac ist offline",
+      "unsupported": "Aktualisiere die Mac App für den Bot-Browser",
+      "minimized": "Fenster minimiert · Vorschau pausiert",
+      "locked": "Mac ist gesperrt",
+      "unavailable": "Vorschau nicht verfügbar",
+      "frames_disabled": "Vorschau ist aus · Bot kann weiterarbeiten",
+      "browser_preview_limited": "Vorschau eingeschränkt",
+      "browser_preview_busy": "Zu viele Zuschauer. Schließe eine andere Ansicht.",
+      "browser_server_unsupported": "Aktualisiere den Server für den Bot-Browser",
+      "browser_client_unsupported": "Aktualisiere die Mac App für den Bot-Browser",
+      "browser_transport_unavailable": "Vorschau unterbrochen",
+      "browser_not_enabled": "Aktiviere den Bot-Browser in den erweiterten Mac-Einstellungen",
+      "browser_control_lost": "Browsersteuerung verloren. Prüfe die Mac App.",
+      "browser_target_gone": "Seite geschlossen. Öffne sie bei Bedarf erneut.",
+      "browser_session_changed": "Browsersitzung geändert. Erneut prüfen.",
+      "browser_viewport_changed": "Seite geändert. Neue Aufnahme erstellen.",
+      "browser_login_required": "Browser öffnen, anmelden und an Bot zurückgeben",
+      "browser_action_unsupported": "Diese Browseraktion wird nicht unterstützt",
+      "app_not_allowed": "Erlaube den Zugriff in der Mac App",
+      "bot_not_allowed": "Erlaube diesen Bot in der Mac App",
+      "user_takeover": "Du steuerst · Warte auf Rückgabe an Bot",
+      "user_stop": "Gestoppt · Im Browser an Bot zurückgeben",
+      "computer_offline": "Mac ist offline",
+      "computer_lost": "Mac-Verbindung verloren",
+      "device_revoked": "Gerätezugriff widerrufen",
+      "browser_clear_failed": "Browserdaten konnten nicht gelöscht werden. Der Browser bleibt pausiert.",
+      "computer_not_configured": "Kein Bot-Computer eingerichtet"
+    },
+    "in_app": "Richte dies in der App auf diesem Mac ein",
+    "settings": "Browsereinstellungen",
+    "close": "Bot-Browservorschau schließen"
   }
 }

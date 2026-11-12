@@ -655,5 +655,50 @@
         "allow": "重新允許"
       }
     }
+  },
+  "browser": {
+    "source": "你的 Mac · Bot 瀏覽器",
+    "look": "查看 Bot 瀏覽器（{{id}}）",
+    "open": "開啟並登入",
+    "enlarge": "放大 Bot 瀏覽器",
+    "shrink": "縮小 Bot 瀏覽器",
+    "status": {
+      "idle": "已就緒",
+      "working": "Bot 正在工作",
+      "human": "你正在操作 · 等待交還 Bot",
+      "stopped": "已停止 · 請在瀏覽器視窗交還 Bot",
+      "closed": "瀏覽器已關閉",
+      "disabled": "瀏覽器許可已關閉",
+      "offline": "Mac 已離線",
+      "unsupported": "請更新 Mac App 以使用 Bot 瀏覽器",
+      "minimized": "視窗已最小化，預覽暫停",
+      "locked": "Mac 已鎖定",
+      "unavailable": "畫面無法使用",
+      "frames_disabled": "畫面已關閉 · Bot 仍可工作",
+      "browser_preview_limited": "畫面受限",
+      "browser_preview_busy": "觀看人數已滿，請關閉另一個觀看視窗",
+      "browser_server_unsupported": "請更新伺服器以使用 Bot 瀏覽器",
+      "browser_client_unsupported": "請更新 Mac App 以使用 Bot 瀏覽器",
+      "browser_transport_unavailable": "畫面已中斷",
+      "browser_not_enabled": "請在 Mac 進階設定開啟 Bot 瀏覽器",
+      "browser_control_lost": "瀏覽器控制已中斷，請檢查 Mac App",
+      "browser_target_gone": "頁面已關閉，需要時請重新開啟",
+      "browser_session_changed": "瀏覽器工作階段已變更，請重新觀察",
+      "browser_viewport_changed": "頁面已變更，請重新擷取畫面",
+      "browser_login_required": "請開啟瀏覽器登入，然後交還 Bot",
+      "browser_action_unsupported": "不支援此瀏覽器操作",
+      "app_not_allowed": "請在 Mac App 中允許存取",
+      "bot_not_allowed": "請在 Mac App 中允許此 Bot",
+      "user_takeover": "你正在操作 · 等待交還 Bot",
+      "user_stop": "已停止 · 請在瀏覽器視窗交還 Bot",
+      "computer_offline": "Mac 已離線",
+      "computer_lost": "Mac 連線已中斷",
+      "device_revoked": "裝置存取已撤銷",
+      "browser_clear_failed": "無法清除瀏覽器資料，瀏覽器保持暫停",
+      "computer_not_configured": "尚未設定 Bot 電腦"
+    },
+    "in_app": "請在這台 Mac 的 App 中設定",
+    "settings": "瀏覽器設定",
+    "close": "關閉 Bot 瀏覽器畫面"
   }
 }
