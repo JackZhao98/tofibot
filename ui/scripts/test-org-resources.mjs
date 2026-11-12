@@ -48,15 +48,15 @@ try {
     }
   };
 
-  // ---- 1. The page: what it is, and the three sections.
+  // ---- 1. The page: what it is, and its sections.
   {
     stub.reset();
     const {page, close} = await open();
     await ready(page);
     assert.equal((await page.locator(".settings-page-title h2").textContent()).trim(), "Organization resources");
     assert.match(await text(pane(page).locator(".admin-intro")), /These keys belong to this server and serve accounts whose group provides them\. They are not your personal keys; yours are in Settings › AI Models, Environments and Search & fetch\./);
-    assert.deepEqual(await pane(page).locator("[data-section]").evaluateAll(items => items.map(item => item.dataset.section).filter(Boolean)), ["models", "computers", "web"]);
-    assert.deepEqual(await pane(page).locator("[data-resource]").evaluateAll(items => items.map(item => item.dataset.resource)), ["provider:anthropic", "provider:openai", "provider:compatible", "computer:e2b"]);
+    assert.deepEqual(await pane(page).locator("[data-section]").evaluateAll(items => items.map(item => item.dataset.section).filter(Boolean)), ["models", "computers", "storage", "backups", "web"]);
+    assert.deepEqual(await pane(page).locator("[data-resource]").evaluateAll(items => items.map(item => item.dataset.resource)), ["provider:anthropic", "provider:openai", "provider:compatible", "computer:e2b", "file_store", "backup_store"]);
     assert.match(await text(card(page, "provider:anthropic")), /^Claude.*Needs setup/);
     assert.equal(await card(page, "provider:anthropic").locator("input[type=password]").count(), 1, "a key field while nothing is stored");
     assert.match(await text(pane(page).locator(".org-vm")), /Server VM This server can run VMs/);
@@ -65,7 +65,7 @@ try {
     assert.ok(!/\b(admin\.org|policy)\.[a-z_.]+/.test(await pane(page).innerText()), "no raw i18n keys");
     await shot(page, "resources-empty-light-1440");
     await close();
-    console.log("PASS page: says the keys belong to the server, three sections, nothing stored yet");
+    console.log("PASS page: says the keys belong to the server, five sections, nothing stored yet");
   }
 
   // ---- 2. Claude: key and workspace ID are both required; the card then shows only the masked hint; the key leaves the page.
@@ -534,6 +534,18 @@ try {
     await shot(offPhone.page, "member-own-forbidden-dark-390");
     await offPhone.close();
     console.log("PASS member side, own models alongside: Your own holds only the ChatGPT card when allowed, one muted line when not");
+  }
+
+  // A successful HTTP response with a missing status is still an error, never a render crash.
+  {
+    stub.reset();
+    const {status, ...withoutStatus} = stub.handle(new URL("http://fixture.test/api/admin/backups"), "GET")[1];
+    const malformed = {...stub, handle: (url, method, body) => new URL(url).pathname === "/api/admin/backups"
+      ? [200, withoutStatus] : stub.handle(url, method, body)};
+    const view = await openSettings({browser, fixture, stub: malformed, errors, params: {tab: "admin-resources"}});
+    await card(view.page, "backup_store").getByRole("alert").filter({hasText: "The backup storage did not answer."}).waitFor();
+    await view.close();
+    console.log("PASS malformed backup view: the card shows its error state without a page error");
   }
 
   // ---- 8. Every language renders the page without raw keys.

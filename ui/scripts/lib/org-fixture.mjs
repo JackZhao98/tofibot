@@ -165,6 +165,12 @@ export function createOrgStub() {
     if (path === "/api/admin/capacity") return [200, {total_bytes: 500 * 2 ** 30, available_bytes: 300 * 2 ** 30, allocated_bytes: 100 * 2 ** 30, promised_bytes: 100 * 2 ** 30, admission_remaining_bytes: 120 * 2 ** 30, warning: false, accounts: []}];
     if (path === "/api/admin/storage") return [200, {version: 1, host: {total_bytes: 500 * 2 ** 30, available_bytes: 300 * 2 ** 30}, accounts: state.accounts.map(a => ({account_id: a.id, server_bytes: 2 ** 30, limit_bytes: null, over_limit: false, source: "measured"}))}];
     if (path === "/api/admin/spend") return [200, {version: 1, accounts: state.accounts.map(a => ({account_id: a.id, spend_usd: 0, limit_usd: 0, state: "off", available: true}))}];
+    // The unconfigured view still includes settings, key and status (org_backup.go).
+    if (path === "/api/admin/backups" && method === "GET") return [200, {
+      configured: false, stale: false,
+      settings: {endpoint: "", region: "", bucket: "", prefix: "", path_style: false, remote: "off", schedule: "daily", keep_daily: 7, keep_weekly: 4, keep_monthly: 12, verify: "weekly", stale_after_hours: 36},
+      key: {present: false, fingerprint: "", confirmed_at: ""}, status: {running: false},
+    }];
     if (path === "/api/admin/deleted-exports") return [200, []];
     if (path === "/api/admin/groups" && method === "GET") return [200, state.groups.map(groupView)];
     if (path === "/api/admin/groups" && method === "POST") {

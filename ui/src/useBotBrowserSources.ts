@@ -22,12 +22,8 @@ export function useBotBrowserSources(chatVisible: boolean) {
       try {
         if (supported === undefined) supported = supportsBotBrowser(await request('/api/server-info', {signal: controller.signal}));
         if (!supported) {
-          // Legacy metadata can name the Mac, but must never authorize a new browser route.
-          const legacy = await request<{computers?: {id: string; kind: string}[]}>('/api/computers', {signal: controller.signal});
-          if (alive) {
-            setSources((legacy.computers ?? []).filter(s => s.kind === 'personal').map(s => ({computer_id: s.id, kind: 'mac_browser', label_key: 'browser.source', supported: false, enabled: false, share_frames: false, state: 'unsupported', code: 'browser_server_unsupported', connection_epoch: null, session_epoch: null, target_id: null, viewport_epoch: 0, activity: null})));
-            setCode('browser_server_unsupported');
-          }
+          // An older server has no Bot browser: show no Mac source and make no computer request (an account without a computer makes none).
+          if (alive) { setSources([]); setCode('browser_server_unsupported'); }
           return;
         }
         const body = await request<{v: number; sources: unknown[]}>('/api/browser-sources', {signal: controller.signal, cache: 'no-store'});
