@@ -388,3 +388,27 @@ func TestPersonalBrowserApprovalRejectsPageNavigation(t *testing.T) {
 		t.Fatal("action dispatched after page changed")
 	}
 }
+
+func TestBrowserToolKeepsBotComputerParamsAndDescribesMacOnParams(t *testing.T) {
+	s := &Server{}
+	vm := Tool{Name: "computer_browser", Description: "Bot computer browser.", Parameters: map[string]any{"properties": map[string]any{
+		"action": map[string]any{"type": "string", "enum": []string{"navigate", "read"}, "description": "Bot computer action."},
+	}}}
+	tool := s.browserTool(Run{}, &vm)
+	props := tool.Parameters["properties"].(map[string]any)
+	action := props["action"].(map[string]any)
+	if _, ok := action["enum"]; !ok {
+		t.Fatal("the Bot computer's action enum was dropped")
+	}
+	if d := action["description"].(string); !strings.HasPrefix(d, "Bot computer action.") || !strings.Contains(d, "browser.open") {
+		t.Fatalf("action description = %q", d)
+	}
+	for _, name := range []string{"computer_id", "session_epoch", "target_id", "viewport_epoch", "key", "modifiers"} {
+		if d, _ := props[name].(map[string]any)["description"].(string); d == "" {
+			t.Errorf("%s has no description", name)
+		}
+	}
+	if !strings.HasPrefix(tool.Description, "Bot computer browser.") || len(tool.Description) > 1024 {
+		t.Fatalf("description = %q (%d bytes)", tool.Description, len(tool.Description))
+	}
+}
