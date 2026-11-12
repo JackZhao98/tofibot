@@ -45,7 +45,8 @@
       "group": "Gemeinsame Erinnerungen dieser Gruppe erscheinen hier.",
       "bot": "Erinnerungen, die dieser Bot speichert, erscheinen hier."
     },
-    "cat_name": "Mochi"
+    "cat_name": "Mochi",
+    "add": "Erinnerung hinzufügen"
   },
   "apiError": {
     "archive_busy": "Es laufen noch Aufgaben. Warte, bis sie fertig sind, oder stoppe sie, und stelle dann wieder her.",

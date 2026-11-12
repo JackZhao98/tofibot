@@ -488,7 +488,14 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await observe.click();
       await page.waitForFunction(() => document.querySelector('[role="switch"][aria-label="Observe mode"]')?.getAttribute("aria-checked") === "false");
     }},
-    {id: "models-key-form", tab: "models", run: async ({page}) => { await page.locator(".provider-key-row input").first().fill("sk-proj-synthetic-0000000000").catch(() => warnings.push("step skipped: provider key input")); await page.waitForTimeout(400); }},
+    {id: "models-key-form", tab: "models", run: async ({page}) => {
+      const providers = page.locator(".model-providers");
+      await providers.locator(".provider-anthropic .status-badge[data-state=need]").waitFor();
+      assert.equal(await providers.locator(".provider-key-form").count(), 0, "provider forms start collapsed");
+      await providers.locator(".provider-anthropic").getByRole("button", {name: "Add", exact: true}).click();
+      await providers.locator('input[name="anthropic-api-key"]').fill("sk-ant-synthetic-0000000000");
+      await providers.locator('input[name="anthropic-workspace-id"]').fill("wrkspc_synthetic");
+    }},
     {id: "keys-add-env", tab: "computer", section: "keys", run: async ({page}) => { await click(page.getByRole("button", {name: /Add environment variable|Add variable/}), "Keys: add env"); await page.waitForTimeout(500); }},
     {id: "keys-ssh", tab: "computer", section: "keys", run: async ({page}) => { await click(page.getByRole("tab").nth(1), "Keys: SSH tab"); await page.waitForTimeout(400); await click(page.getByRole("button", {name: /Show public|public key/i}), "Keys: show public key"); await click(page.getByRole("button", {name: /Add (SSH )?key/}), "Keys: add key"); await page.waitForTimeout(500); }},
     {id: "computer-expanded", tab: "computer", run: async ({page}) => { await page.waitForTimeout(600); }},

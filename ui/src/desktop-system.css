@@ -67,3 +67,5 @@ html[data-desktop] .view-only-chat-body{overscroll-behavior:contain}
 [data-external-pip] .desktop-floating-shell { -webkit-app-region: no-drag; }
 /* An enlarged mini window covers the whole window; it must sit above the titlebar drag strip or its close and shrink controls cannot be pressed. */
 html[data-desktop="darwin"] .desktop-floating-shell.is-expanded{z-index:var(--z-dialog)}
+/* A drawer's backdrop starts under the titlebar strip: the strip keeps moving the window and the traffic lights stay clear. */
+html[data-desktop="darwin"] .detail-backdrop{top:48px;height:auto;-webkit-app-region:no-drag}

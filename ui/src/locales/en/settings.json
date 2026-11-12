@@ -203,7 +203,7 @@
     "also_key": "An API key is also saved ({{key}}). Bots use the ChatGPT account.",
     "method_chatgpt": "ChatGPT account",
     "choose_method": "How to use OpenAI",
-    "chatgpt_title": "Sign in with your ChatGPT account",
+    "chatgpt_title": "Sign in with ChatGPT",
     "chatgpt_note": "Codex models, within your plan's limits.",
     "key_title": "Use an API key",
     "key_note_choice": "GPT models, billed by API usage.",
@@ -212,18 +212,18 @@
       "tag": "Your endpoint",
       "description": "Connect Ollama, LM Studio, vLLM, OpenRouter or any server that speaks the OpenAI API. Requests go out from this server.",
       "url_label": "Base URL",
-      "url_note": "The address ends in /v1, for example http://192.168.1.20:11434/v1 for Ollama.",
+      "url_note": "Base URL ending in /v1.",
       "key_label": "API key (optional)",
       "key_keep": "Leave empty to keep the saved key",
       "models_label": "Model IDs",
-      "models_note": "Optional. Add IDs the server doesn't list, or all of them if it has no model list. Separate with commas.",
+      "models_note": "Optional IDs, separated by commas.",
       "fetch": "Fetch models",
       "fetching": "Fetching…",
       "found": "Models found: {{count}}",
       "none_found": "The endpoint listed no models.",
       "window": "{{tokens}} tokens",
       "more": "and {{count}} more",
-      "network_note": "This server connects to the address, so use one it can reach. In Docker, localhost is the container, not your computer.",
+      "network_note": "Use an address this server can reach.",
       "saved": "Endpoint saved and verified.",
       "removed": "Removed the OpenAI-compatible endpoint. Bots using its models need another connected model.",
       "remove_question": "Remove the OpenAI-compatible endpoint?",
@@ -238,7 +238,7 @@
       "unreachable": "Couldn't reach the endpoint from this server. Check the address, or type the model IDs by hand.",
       "no_models": "The endpoint returned no model list. Type the model IDs by hand.",
       "presets": "Start from",
-      "ollama_note": "Ollama needs no key. Start it with OLLAMA_HOST=0.0.0.0 so this server can reach it. From the App container, use http://host.docker.internal:11434/v1, or the computer's LAN address. Ollama's default context is small: set OLLAMA_CONTEXT_LENGTH=32768 (or num_ctx in a Modelfile) so Bots keep their instructions."
+      "ollama_note": "Ollama needs no API key."
     },
     "cost": {
       "plan": "Uses your ChatGPT plan's limits. There is no per-token charge.",
@@ -246,7 +246,11 @@
       "endpoint": "Cost depends on the server: free on your own hardware, per token on a hosted one. The Usage page counts these requests but shows no price for them.",
       "api_setup": "An API key is billed per token by the provider. What your Bots use shows on the Usage page in Settings.",
       "open_usage": "Open Usage"
-    }
+    },
+    "manage": "Manage",
+    "add": "Add",
+    "disconnect": "Disconnect",
+    "reconnect": "Reconnect"
   },
   "usage": {
     "label": "Usage",

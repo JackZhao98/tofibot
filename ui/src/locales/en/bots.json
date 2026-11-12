@@ -45,7 +45,8 @@
       "group": "Shared memories saved in this group will appear here.",
       "bot": "Memories this Bot saves will appear here."
     },
-    "cat_name": "Mochi"
+    "cat_name": "Mochi",
+    "add": "Add memory"
   },
   "apiError": {
     "archive_busy": "Some tasks are still running. Wait for them to finish or stop them, then restore.",

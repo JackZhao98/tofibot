@@ -204,7 +204,7 @@
     "also_key": "Une clé API est aussi enregistrée ({{key}}). Les Bots utilisent le compte ChatGPT.",
     "method_chatgpt": "Compte ChatGPT",
     "choose_method": "Comment utiliser OpenAI",
-    "chatgpt_title": "Se connecter avec votre compte ChatGPT",
+    "chatgpt_title": "Se connecter avec ChatGPT",
     "chatgpt_note": "Modèles Codex, dans les limites de votre forfait.",
     "key_title": "Utiliser une clé API",
     "key_note_choice": "Modèles GPT, facturés à l'usage de l'API.",
@@ -213,18 +213,18 @@
       "tag": "Votre point d'accès",
       "description": "Connectez Ollama, LM Studio, vLLM, OpenRouter ou tout serveur qui parle l'API OpenAI. Les requêtes partent de ce serveur.",
       "url_label": "URL de base",
-      "url_note": "L'adresse se termine par /v1, par exemple http://192.168.1.20:11434/v1 pour Ollama.",
+      "url_note": "URL de base se terminant par /v1.",
       "key_label": "Clé API (facultative)",
       "key_keep": "Laissez vide pour garder la clé enregistrée",
       "models_label": "Identifiants de modèles",
-      "models_note": "Facultatif. Ajoutez les identifiants que le serveur ne liste pas, ou tous s'il n'a pas de liste de modèles. Séparez-les par des virgules.",
+      "models_note": "IDs facultatifs, séparés par des virgules.",
       "fetch": "Récupérer les modèles",
       "fetching": "Récupération…",
       "found": "Modèles trouvés : {{count}}",
       "none_found": "Le point d'accès n'a listé aucun modèle.",
       "window": "{{tokens}} jetons",
       "more": "et {{count}} autres",
-      "network_note": "Ce serveur se connecte à l'adresse, utilisez-en donc une qu'il atteint. Dans Docker, localhost désigne le conteneur, pas votre ordinateur.",
+      "network_note": "Utilisez une adresse accessible depuis ce serveur.",
       "saved": "Point d'accès enregistré et vérifié.",
       "removed": "Point d'accès compatible OpenAI supprimé. Les Bots qui utilisent ses modèles ont besoin d'un autre modèle connecté.",
       "remove_question": "Supprimer le point d'accès compatible OpenAI ?",
@@ -239,7 +239,7 @@
       "unreachable": "Ce serveur n'a pas pu joindre le point d'accès. Vérifiez l'adresse ou saisissez les identifiants de modèles à la main.",
       "no_models": "Le point d'accès n'a renvoyé aucune liste de modèles. Saisissez les identifiants à la main.",
       "presets": "Partir de",
-      "ollama_note": "Ollama n'a pas besoin de clé. Démarrez-le avec OLLAMA_HOST=0.0.0.0 pour que ce serveur puisse l'atteindre. Depuis le conteneur de l'App, utilisez http://host.docker.internal:11434/v1 ou l'adresse réseau local de l'ordinateur. Le contexte par défaut d'Ollama est petit : définissez OLLAMA_CONTEXT_LENGTH=32768 (ou num_ctx dans un Modelfile) pour que les Bots gardent leurs instructions."
+      "ollama_note": "Ollama ne nécessite pas de clé API."
     },
     "cost": {
       "plan": "Utilise les limites de votre forfait ChatGPT. Il n'y a pas de facturation au jeton.",
@@ -247,7 +247,11 @@
       "endpoint": "Le coût dépend du serveur : gratuit sur votre propre matériel, au jeton sur un serveur hébergé. La page Utilisation compte ces requêtes mais n'affiche aucun prix.",
       "api_setup": "Une clé API est facturée au jeton par le fournisseur. Ce que vos Bots consomment apparaît sur la page Utilisation, dans les réglages.",
       "open_usage": "Ouvrir Utilisation"
-    }
+    },
+    "manage": "Gérer",
+    "add": "Ajouter",
+    "disconnect": "Déconnecter",
+    "reconnect": "Reconnecter"
   },
   "usage": {
     "label": "Utilisation",

@@ -72,6 +72,7 @@ export async function openWorkspace(browser, origin, state, { width = 1440, heig
       const items = scope === "conversation" ? all.filter(item => item.conversation_id === id) : scope === "bot" ? all.filter(item => item.bot_id === id) : all;
       return json({ items: items.sort((a, b) => b.message_seq - a.message_seq).slice(0, Number(url.searchParams.get("limit") || 50)), next_cursor: "" });
     }
+    if (p.endsWith("/memories") && route.request().method() === "GET" && state.memoryGate) { await state.memoryGate; return json({memories: []}); }
     const usage = p.match(/^\/api\/conversations\/([^/]+)\/usage$/);
     if (usage) { state.usageReads = (state.usageReads ?? 0) + 1; if (state.usage === "404") return route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: { code: "not_found", message: "not found" } }) });
       return state.usage === "fail" ? route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: { code: "internal", message: "synthetic" } }) }) : json(state.usage ?? usageFor(usage[1])); }

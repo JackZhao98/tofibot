@@ -608,14 +608,19 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await page.waitForTimeout(400);
     assert.equal(await body.getByText("Dictation", {exact: true}).count(), 0, "no Dictation section without an OpenAI method");
     assert.equal(await body.locator(".settings-two").count(), 0, "one column when Dictation is not offered");
-    // Nothing is set up on OpenAI: the card offers both ways, side by side and the same size, and no Codex card.
+    // Unconfigured providers are rows; no key or endpoint form mounts until requested.
     const openai = body.locator("article.provider-card").filter({has: page.getByRole("heading", {name: "OpenAI", exact: true})});
     await openai.locator(".provider-choice").first().waitFor();
-    assert.equal(await body.getByRole("heading", {name: "Codex", exact: true}).count(), 0, "Codex has no card of its own");
-    assert.deepEqual(await openai.locator(".provider-choice strong").allInnerTexts(), ["Sign in with your ChatGPT account", "Use an API key"]);
-    const [a, b] = await openai.locator(".provider-choice").evaluateAll(nodes => nodes.map(node => { const r = node.getBoundingClientRect(); return {w: Math.round(r.width), h: Math.round(r.height), y: Math.round(r.y)}; }));
-    assert.ok(Math.abs(a.w - b.w) <= 1 && Math.abs(a.h - b.h) <= 1 && a.y === b.y, `equal choices side by side ${JSON.stringify([a, b])}`);
-    assert.equal(await openai.locator("input").count(), 0, "no key input until a method is chosen");
+    assert.equal(await body.getByRole("heading", {name: "Codex", exact: true}).count(), 0);
+    assert.deepEqual(await openai.locator(".provider-choice").allInnerTexts(), ["Sign in with ChatGPT", "Use an API key"]);
+    assert.equal(await body.locator(".provider-key-form").count(), 0, "all provider forms are collapsed on load");
+    for (const provider of [".provider-anthropic", ".provider-compatible"]) {
+      const row = body.locator(provider);
+      await row.getByRole("button", {name: "Add", exact: true}).click();
+      await row.locator(".provider-key-form").waitFor();
+      await row.getByRole("button", {name: "Cancel", exact: true}).click();
+      assert.equal(await row.locator(".provider-key-form").count(), 0, "Cancel collapses the provider form");
+    }
     if (shots) await body.screenshot({path: join(shots, "ai-models-chooser.png")});
     await openai.getByRole("button", {name: /Use an API key/}).click();
     await openai.getByLabel("OpenAI API key").waitFor();
@@ -623,6 +628,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     // An API key alone: the key is masked (prefix and last four) with its verified time, no input, no Replace heading.
     const keyed = await open({tab: "models", prov: "key"});
     const card = keyed.page.locator("article.provider-card").filter({has: keyed.page.getByRole("heading", {name: "OpenAI", exact: true})});
+    await card.getByRole("button", {name: "Manage", exact: true}).waitFor();
+    assert.equal(await card.locator(".provider-card-head .status-badge").count(), 1);
+    assert.equal(await card.locator("button").count(), 1, "a connected provider has one action");
+    await card.getByRole("button", {name: "Manage", exact: true}).click();
     await card.getByText("sk-p••••••••9fa2").waitFor();
     assert.match(await card.innerText(), /Verified/);
     assert.equal(await card.locator("input").count(), 0, "no replace input while a key is set");
@@ -633,7 +642,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await card.getByRole("button", {name: "Cancel"}).click();
     assert.equal(await card.locator("input").count(), 0);
     await keyed.close();
-    console.log("PASS ai models: Dictation hidden without OpenAI, one OpenAI card with two equal choices, masked key with Replace and Remove on demand");
+    console.log("PASS ai models: Dictation hidden without OpenAI, compact provider rows, all forms collapsed, management reveals key actions");
   }
 
   // ---- 3d. Permissions: the account mode is a bulk control over every Bot; Per Bot unlocks the list; the reviewer model is a picker.

@@ -202,7 +202,7 @@
     "also_key": "還儲存著一個 API 金鑰（{{key}}）。Bot 使用 ChatGPT 帳號。",
     "method_chatgpt": "ChatGPT 帳號",
     "choose_method": "使用 OpenAI 的方式",
-    "chatgpt_title": "使用 ChatGPT 帳號登入",
+    "chatgpt_title": "透過 ChatGPT 登入",
     "chatgpt_note": "在方案額度內使用 Codex 模型。",
     "key_title": "使用 API 金鑰",
     "key_note_choice": "GPT 模型，依 API 用量計費。",
@@ -211,18 +211,18 @@
       "tag": "自有端點",
       "description": "連接 Ollama、LM Studio、vLLM、OpenRouter 或任何相容 OpenAI API 的服務。請求由此伺服器發出。",
       "url_label": "基礎 URL",
-      "url_note": "位址以 /v1 結尾，例如 Ollama 使用 http://192.168.1.20:11434/v1。",
+      "url_note": "以 /v1 結尾的位址。",
       "key_label": "API 金鑰（選填）",
       "key_keep": "留空則沿用已儲存的金鑰",
       "models_label": "模型 ID",
-      "models_note": "選填。填寫伺服端未列出的 ID；若伺服端沒有模型清單，則填寫全部。以逗號分隔。",
+      "models_note": "選填，多個 ID 以逗號分隔。",
       "fetch": "取得模型",
       "fetching": "取得中…",
       "found": "找到的模型：{{count}}",
       "none_found": "此端點沒有列出任何模型。",
       "window": "{{tokens}} 個 token",
       "more": "另有 {{count}} 個",
-      "network_note": "由此伺服器連線到該位址，請使用它連得到的位址。在 Docker 中，localhost 指的是容器本身，而不是你的電腦。",
+      "network_note": "使用此伺服器可存取的位址。",
       "saved": "端點已儲存並驗證。",
       "removed": "已移除 OpenAI 相容端點。使用其模型的 Bot 需要改用其他已連接的模型。",
       "remove_question": "移除 OpenAI 相容端點？",
@@ -237,7 +237,7 @@
       "unreachable": "此伺服器無法連線到該端點。請檢查位址，或手動填寫模型 ID。",
       "no_models": "此端點沒有回傳模型清單，請手動填寫模型 ID。",
       "presets": "快速填入",
-      "ollama_note": "Ollama 不需要金鑰。請以 OLLAMA_HOST=0.0.0.0 啟動，這樣此伺服器才連得到。在 App 容器內使用 http://host.docker.internal:11434/v1，或這台電腦的區域網路位址。Ollama 預設的上下文很小：設定 OLLAMA_CONTEXT_LENGTH=32768（或在 Modelfile 中設定 num_ctx），Bot 才不會遺失指令。"
+      "ollama_note": "Ollama 無需 API key。"
     },
     "cost": {
       "plan": "使用你的 ChatGPT 方案額度，不另按 token 計費。",
@@ -245,7 +245,11 @@
       "endpoint": "費用取決於伺服器：自有硬體上免費，託管服務按 token 計費。「用量」頁會統計這些請求，但不顯示價格。",
       "api_setup": "API 金鑰由服務商按 token 計費。你的 Bot 的用量可在「設定」的「用量」頁查看。",
       "open_usage": "開啟用量"
-    }
+    },
+    "manage": "管理",
+    "add": "新增",
+    "disconnect": "中斷連線",
+    "reconnect": "重新連線"
   },
   "usage": {
     "label": "用量",
