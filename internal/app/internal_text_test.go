@@ -81,7 +81,8 @@ func TestInternalAndProgressKindsStayDistinct(t *testing.T) {
 	if k := visibleOrFoldedKinds(t, s.store, "Looking at the numbers"); k[messageKindInternal] != 1 || len(k) != 1 {
 		t.Fatalf("plain turn kinds = %v", k)
 	}
-	if k := visibleOrFoldedKinds(t, s.store, "Halfway through"); k["segment"] != 1 || len(k) != 1 {
+	// A say note is public progress narration (it shows between step groups), never internal text.
+	if k := visibleOrFoldedKinds(t, s.store, "Halfway through"); k["progress"] != 1 || len(k) != 1 {
 		t.Fatalf("say note kinds = %v", k)
 	}
 	s2, run2 := dmRunMode(t, dmFuncEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
