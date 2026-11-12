@@ -132,7 +132,9 @@
 .workspace .message-bot .bot-attachments { margin:6px 0 0; width:auto; align-items:flex-start; }
 .workspace .bot-attachments .attachment-gallery { width:min(380px,100%); gap:6px; }
 .workspace .bot-attachments .attachment-gallery.is-single { max-width:240px; }
+/* A file row needs room for its name; pictures stay small. */
 .workspace .bot-attachments .delivered-attachment { max-width:240px; }
+.workspace .bot-attachments .delivered-attachment.is-file { max-width:300px; width:300px; }
 :root .workspace .attachment-lightbox { max-width:calc(100vw - 32px); }
 :root .workspace .attachment-lightbox img { max-width:calc(100vw - 32px); border:0; box-shadow:none; border-radius:8px; touch-action:pan-y; }
 :root .workspace .attachment-lightbox::backdrop { backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); }

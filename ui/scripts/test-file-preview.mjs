@@ -315,7 +315,7 @@ try {
 
   const dark = await open(1180, 820, { theme: "dark", locale: "en" });
   await step("english + dark theme", async () => {
-    assert.equal(await dark.page.locator(".attachment-file-row", { hasText: "notes.txt" }).locator("small").innerText(), `${Buffer.byteLength(files.att_txt.body)} B · Click to preview`);
+    assert.equal(await dark.page.locator(".attachment-file-row", { hasText: "notes.txt" }).locator("small").innerText(), `${Buffer.byteLength(files.att_txt.body)} B`, "a file row shows its size only (no action hint)");
     await card(dark.page, "model.xlsx").click(); await viewer(dark.page).waitFor();
     assert.equal(await viewer(dark.page).locator(".fp-unsupported strong").innerText(), "Preview not available");
     await dark.page.screenshot({ path: join(shots, "ipad-dark-unsupported.png") });

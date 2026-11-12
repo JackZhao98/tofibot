@@ -43,12 +43,12 @@ try {
   await writeFile(join(fixture,'main.tsx'), `${styles}
 import React from 'react'; import {createRoot} from 'react-dom/client';
 import WorkTimeline from '../src/WorkTimeline'; import {MessageBubble} from '../src/App';
-import {i18nReady,setLanguage} from '../src/i18n';
+import {i18nReady,setLanguage} from '../src/i18n'; import {TimezoneProvider} from '../src/UserTimezone';
 const query=new URLSearchParams(location.search);
 const runs=[{id:'r',conversation_id:'c',bot_id:'b',status:'done',trace:{attachment_id:'strip',tiles:5,steps:5,created_at:'2026-11-12T10:00:01Z'},created_at:'2026-11-12T10:00:00Z',updated_at:'2026-11-12T10:00:01Z'}];
 const message={id:'final',conversation_id:'c',role:'assistant',run_id:'r',seq:3,content:'Both checks passed.',created_at:'2026-11-12T10:00:01Z',attachments:[{id:'output',conversation_id:'c',mime:'image/png',name:'Synthetic output',size:100,created_at:'2026-11-12T10:00:01Z'},{id:'document',conversation_id:'c',mime:'text/plain',name:'Synthetic notes.txt',size:80,created_at:'2026-11-12T10:00:01Z'}]};
 document.documentElement.dataset.theme=query.get('theme')||'light';
-void i18nReady.then(()=>setLanguage(query.get('lang')||'en')).then(()=>createRoot(document.getElementById('root')!).render(<div className="workspace" style={{padding:16}}><WorkTimeline tools={${JSON.stringify(tools)}} notes={${JSON.stringify(notes)}} runs={runs as any}/><MessageBubble message={message as any} showAvatar={false}/></div>));`);
+void i18nReady.then(()=>setLanguage(query.get('lang')||'en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><div className="workspace" style={{padding:16}}><WorkTimeline tools={${JSON.stringify(tools)}} notes={${JSON.stringify(notes)}} runs={runs as any}/><MessageBubble message={message as any} showAvatar={false}/></div></TimezoneProvider>));`);
   server = await createServer({configFile:false,root:uiRoot,plugins:[react()],server:{host:'127.0.0.1',port:0,hmr:false},logLevel:'error'});
   await server.listen();
   const origin=`http://127.0.0.1:${server.httpServer.address().port}`;
@@ -61,6 +61,8 @@ void i18nReady.then(()=>setLanguage(query.get('lang')||'en')).then(()=>createRoo
         const url=new URL(route.request().url());
         if(url.origin!==origin) return route.abort();
         if(url.pathname==='/api/runs/r/captures') return route.fulfill({json:{captures}});
+        // TimezoneProvider reads the person's preferences once.
+        if(url.pathname==='/api/preferences') return route.fulfill({json:{timezone:'UTC'}});
         if(url.pathname.startsWith('/api/attachments/')) return route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800"><rect width="1280" height="800" fill="#6688bb"/></svg>'});
         if(url.pathname.startsWith('/api/')) throw new Error(`Unexpected API ${url.pathname}`);
         return route.continue();

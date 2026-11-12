@@ -14,7 +14,7 @@
 .work-narration { color:var(--ink-soft); font:var(--type-body); }
 .work-narration p { margin:0; }
 .work-batch { display:flex; align-items:flex-start; gap:12px; min-width:0; }
-.work-command-group { flex:1; min-width:0; color:var(--text-process); font:var(--type-meta); }
+.work-command-group { flex:0 1 auto; min-width:0; color:var(--text-process); font:var(--type-meta); }
 .work-command-group > summary { display:flex; align-items:center; gap:6px; min-height:40px; cursor:pointer; list-style:none; }
 .work-command-group > summary::-webkit-details-marker { display:none; }
 .work-command-group[open] > summary > svg { transform:rotate(90deg); }

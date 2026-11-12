@@ -56,7 +56,7 @@ function FileCard({ attachment }: { attachment: Attachment }) {
       <FileTile name={attachment.name} kind={kind} />
       <button type="button" className="attachment-file-open" onClick={() => openFilePreview(targetOf(attachment))} aria-label={t("attachment.open_preview", { name: attachment.name })} draggable={isDesktop ? Boolean(nativeFile) : undefined} onDragStart={event => { if (!isDesktop) return; event.preventDefault(); if (nativeFile) window.tofiDesktop?.dragAttachment(nativeFile.handle); }}>
         <b className="attachment-name">{attachment.name}</b>
-        <small>{[attachment.expired_at ? t("attachment.expired") : fileSize(attachment.size), isPreviewable(kind) ? t("attachment.preview_hint") : t("attachment.download_only"), attachment.kept_by ? t("attachment.kept_by", { name: attachment.kept_by }) : ""].filter(Boolean).join(" · ")}</small>
+        <small>{[attachment.expired_at ? t("attachment.expired") : fileSize(attachment.size), attachment.kept_by ? t("attachment.kept_by", { name: attachment.kept_by }) : ""].filter(Boolean).join(" · ")}</small>
       </button>
       {isDesktop
         ? <div className="attachment-native-actions">
