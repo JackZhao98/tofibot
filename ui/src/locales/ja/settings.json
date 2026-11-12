@@ -137,6 +137,7 @@
     "legacy_effort": "以前の設定を使う（{{effort}}）",
     "model_default": "モデルの既定",
     "model_default_effort": "モデルの既定（{{effort}}）",
+    "no_models_here": "上でプロバイダーを追加すると、モデルを選べます。",
     "no_models": "使えるモデルがまだありません。設定の「モデル」で Codex に接続するか、OpenAI / Claude の APIキーを追加してください。",
     "open_settings": "設定を開く",
     "cached_list": "最後に取得したモデル一覧を表示しています。",

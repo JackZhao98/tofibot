@@ -137,6 +137,7 @@
     "legacy_effort": "Bisherige Einstellung behalten ({{effort}})",
     "model_default": "Modellstandard",
     "model_default_effort": "Modellstandard ({{effort}})",
+    "no_models_here": "Füge oben einen Anbieter hinzu, um ein Modell zu wählen.",
     "no_models": "Noch keine Modelle verfügbar. Verbinde Codex in den Einstellungen unter „Modelle“ oder füge einen OpenAI- bzw. Claude-API-Schlüssel hinzu.",
     "open_settings": "Einstellungen öffnen",
     "cached_list": "Angezeigt wird die zuletzt abgerufene Modellliste.",

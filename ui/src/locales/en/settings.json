@@ -137,6 +137,7 @@
     "legacy_effort": "Keep previous setting ({{effort}})",
     "model_default": "Model default",
     "model_default_effort": "Model default ({{effort}})",
+    "no_models_here": "Add a provider above to choose a model.",
     "no_models": "No models available yet. Connect Codex on the Models page in Settings, or add an OpenAI or Claude API key.",
     "open_settings": "Open settings",
     "cached_list": "Showing the most recently fetched model list.",

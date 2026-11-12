@@ -137,6 +137,7 @@
     "legacy_effort": "Garder l’ancien réglage ({{effort}})",
     "model_default": "Par défaut du modèle",
     "model_default_effort": "Par défaut du modèle ({{effort}})",
+    "no_models_here": "Ajoutez un fournisseur ci-dessus pour choisir un modèle.",
     "no_models": "Aucun modèle disponible pour l’instant. Connectez Codex dans Réglages, page Modèles, ou ajoutez une clé API OpenAI ou Claude.",
     "open_settings": "Ouvrir les réglages",
     "cached_list": "Affichage de la dernière liste de modèles récupérée.",

@@ -137,6 +137,7 @@
     "legacy_effort": "이전 설정 유지({{effort}})",
     "model_default": "모델 기본값",
     "model_default_effort": "모델 기본값({{effort}})",
+    "no_models_here": "위에서 제공업체를 추가하면 모델을 고를 수 있어요.",
     "no_models": "아직 사용할 수 있는 모델이 없습니다. 설정의 '모델' 페이지에서 Codex를 연결하거나 OpenAI / Claude API 키를 추가하세요.",
     "open_settings": "설정으로 이동",
     "cached_list": "최근에 가져온 모델 목록을 표시하고 있습니다.",

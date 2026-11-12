@@ -137,6 +137,7 @@
     "legacy_effort": "沿用旧设置（{{effort}}）",
     "model_default": "模型默认",
     "model_default_effort": "模型默认（{{effort}}）",
+    "no_models_here": "先在上方添加一个提供方，再选择模型。",
     "no_models": "还没有可用的模型。在设置的「模型」页连接 Codex，或添加 OpenAI / Claude API key。",
     "open_settings": "前往设置",
     "cached_list": "当前显示最近获取的模型列表。",
