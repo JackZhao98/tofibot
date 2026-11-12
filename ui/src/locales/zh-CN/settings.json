@@ -202,7 +202,7 @@
     "also_key": "还保存着一个 API key（{{key}}）。Bot 使用 ChatGPT 账号。",
     "method_chatgpt": "ChatGPT 账号",
     "choose_method": "使用 OpenAI 的方式",
-    "chatgpt_title": "使用 ChatGPT 账号登录",
+    "chatgpt_title": "通过 ChatGPT 登录",
     "chatgpt_note": "在套餐额度内使用 Codex 模型。",
     "key_title": "使用 API key",
     "key_note_choice": "GPT 模型，按 API 用量计费。",
@@ -211,18 +211,18 @@
       "tag": "自有端点",
       "description": "接入 Ollama、LM Studio、vLLM、OpenRouter 或任何兼容 OpenAI API 的服务。请求由本服务器发出。",
       "url_label": "基础 URL",
-      "url_note": "地址以 /v1 结尾，例如 Ollama 用 http://192.168.1.20:11434/v1。",
+      "url_note": "以 /v1 结尾的地址。",
       "key_label": "API 密钥（可选）",
       "key_keep": "留空则沿用已保存的密钥",
       "models_label": "模型 ID",
-      "models_note": "可选。填写服务端未列出的 ID；若服务端没有模型列表，则填写全部。用逗号分隔。",
+      "models_note": "可选，多个 ID 用逗号分隔。",
       "fetch": "获取模型",
       "fetching": "正在获取…",
       "found": "找到的模型：{{count}}",
       "none_found": "该端点没有列出任何模型。",
       "window": "{{tokens}} 个 token",
       "more": "另有 {{count}} 个",
-      "network_note": "由本服务器连接该地址，请使用它能访问到的地址。在 Docker 中，localhost 指容器本身而不是你的电脑。",
+      "network_note": "使用此服务器可访问的地址。",
       "saved": "端点已保存并验证。",
       "removed": "已移除 OpenAI 兼容端点。使用其模型的 Bot 需要改用其他已连接的模型。",
       "remove_question": "移除 OpenAI 兼容端点？",
@@ -237,7 +237,7 @@
       "unreachable": "本服务器无法连接该端点。请检查地址，或手动填写模型 ID。",
       "no_models": "该端点没有返回模型列表，请手动填写模型 ID。",
       "presets": "快速填入",
-      "ollama_note": "Ollama 不需要密钥。请用 OLLAMA_HOST=0.0.0.0 启动它，这样本服务器才能访问。在 App 容器内使用 http://host.docker.internal:11434/v1，或这台电脑的局域网地址。Ollama 默认的上下文很小：设置 OLLAMA_CONTEXT_LENGTH=32768（或在 Modelfile 中设置 num_ctx），Bot 才不会丢掉指令。"
+      "ollama_note": "Ollama 无需 API key。"
     },
     "cost": {
       "plan": "使用你的 ChatGPT 套餐额度，不按 token 另外计费。",
@@ -245,7 +245,11 @@
       "endpoint": "费用取决于服务器：自有硬件上免费，托管服务按 token 计费。“用量”页会统计这些请求，但不显示价格。",
       "api_setup": "API 密钥由服务商按 token 计费。你的 Bot 的用量可在“设置”的“用量”页查看。",
       "open_usage": "打开用量"
-    }
+    },
+    "manage": "管理",
+    "add": "添加",
+    "disconnect": "断开连接",
+    "reconnect": "重新连接"
   },
   "usage": {
     "label": "用量",

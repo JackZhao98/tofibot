@@ -45,7 +45,8 @@
       "group": "Les souvenirs partagés enregistrés dans ce groupe apparaîtront ici.",
       "bot": "Les souvenirs enregistrés par ce Bot apparaîtront ici."
     },
-    "cat_name": "Mochi"
+    "cat_name": "Mochi",
+    "add": "Ajouter un souvenir"
   },
   "apiError": {
     "archive_busy": "Des tâches sont encore en cours. Attendez qu'elles se terminent ou arrêtez-les, puis restaurez.",

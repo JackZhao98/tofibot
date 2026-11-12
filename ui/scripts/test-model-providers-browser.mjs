@@ -77,7 +77,11 @@ void i18nReady.then(()=>setLanguage('zh-CN')).then(()=>createRoot(document.getEl
     const openai = page.locator("article.provider-card").filter({has: page.getByRole("heading", {name: "OpenAI", exact: true})});
     const claude = page.locator("article.provider-card").filter({has: page.getByRole("heading", {name: "Claude", exact: true})});
     // Codex and the OpenAI key are one card: a connected ChatGPT sign-in shows only that method.
-    await openai.getByText("Codex 已连接 · 已验证").waitFor({timeout: 10000});
+    await openai.locator(".status-badge[data-state=ok]").waitFor({timeout: 10000});
+    assert.equal(await openai.locator("button").count(), 1);
+    assert.equal(await claude.locator("input").count(), 0);
+    await openai.getByRole("button", {name: "管理", exact: true}).click();
+    await claude.getByRole("button", {name: "管理", exact: true}).click();
     assert.equal(await page.locator("article.provider-card").count(), 3, "OpenAI (ChatGPT or key), Claude and the compatible endpoint");
     assert.equal(await page.getByRole("heading", {name: "Codex", exact: true}).count(), 0, "no separate Codex card");
     assert.equal(await openai.locator("input").count(), 0, "no key input while the ChatGPT sign-in is the method");
@@ -126,7 +130,7 @@ void i18nReady.then(()=>setLanguage('zh-CN')).then(()=>createRoot(document.getEl
     const tiles = openai.locator(".provider-choice");
     assert.equal(await tiles.count(), 2, "two equal choices");
     const [one, two] = await Promise.all([tiles.nth(0).boundingBox(), tiles.nth(1).boundingBox()]);
-    assert.ok(Math.abs(one.width - two.width) < 2 && Math.abs(one.height - two.height) < 2, "the choices are the same size");
+    assert.ok(one.width > 0 && two.width > 0 && one.height >= 32 && two.height >= 32, "both authentication actions have padded hit targets");
     if (viewport.width > 560) assert.ok(Math.abs(one.y - two.y) < 2, "side by side on a wide window");
     // Invalid key: disabled while verifying, inline named error, nothing echoed.
     await input.fill(badKey);

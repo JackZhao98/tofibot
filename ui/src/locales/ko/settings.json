@@ -202,7 +202,7 @@
     "also_key": "API 키도 저장되어 있습니다({{key}}). Bot은 ChatGPT 계정을 사용합니다.",
     "method_chatgpt": "ChatGPT 계정",
     "choose_method": "OpenAI 사용 방법",
-    "chatgpt_title": "ChatGPT 계정으로 로그인",
+    "chatgpt_title": "ChatGPT로 로그인",
     "chatgpt_note": "요금제 한도 안에서 Codex 모델을 사용합니다.",
     "key_title": "API 키 사용",
     "key_note_choice": "GPT 모델, API 사용량에 따라 과금됩니다.",
@@ -211,18 +211,18 @@
       "tag": "직접 운영하는 엔드포인트",
       "description": "Ollama, LM Studio, vLLM, OpenRouter 등 OpenAI API를 지원하는 서버에 연결합니다. 요청은 이 서버에서 나갑니다.",
       "url_label": "기본 URL",
-      "url_note": "주소는 /v1로 끝납니다. 예를 들어 Ollama는 http://192.168.1.20:11434/v1 입니다.",
+      "url_note": "/v1로 끝나는 URL.",
       "key_label": "API 키(선택)",
       "key_keep": "비워 두면 저장된 키를 유지합니다",
       "models_label": "모델 ID",
-      "models_note": "선택 사항입니다. 서버가 목록에 올리지 않은 ID를 추가하거나, 모델 목록이 없으면 모두 입력하세요. 쉼표로 구분합니다.",
+      "models_note": "선택 사항: ID를 쉼표로 구분하세요.",
       "fetch": "모델 가져오기",
       "fetching": "가져오는 중…",
       "found": "찾은 모델: {{count}}",
       "none_found": "이 엔드포인트가 모델을 반환하지 않았습니다.",
       "window": "{{tokens}} 토큰",
       "more": "외 {{count}}개",
-      "network_note": "이 서버가 해당 주소에 접속하므로, 서버가 닿을 수 있는 주소를 사용하세요. Docker에서 localhost는 내 컴퓨터가 아니라 컨테이너를 가리킵니다.",
+      "network_note": "이 서버에서 연결할 수 있는 주소를 사용하세요.",
       "saved": "엔드포인트를 저장하고 확인했습니다.",
       "removed": "OpenAI 호환 엔드포인트를 제거했습니다. 해당 모델을 쓰는 Bot은 연결된 다른 모델이 필요합니다.",
       "remove_question": "OpenAI 호환 엔드포인트를 제거할까요?",
@@ -237,7 +237,7 @@
       "unreachable": "이 서버에서 엔드포인트에 연결하지 못했습니다. 주소를 확인하거나 모델 ID를 직접 입력하세요.",
       "no_models": "엔드포인트가 모델 목록을 반환하지 않았습니다. 모델 ID를 직접 입력하세요.",
       "presets": "빠른 입력",
-      "ollama_note": "Ollama에는 키가 필요 없습니다. 이 서버가 접근할 수 있도록 OLLAMA_HOST=0.0.0.0으로 실행하세요. App 컨테이너에서는 http://host.docker.internal:11434/v1 또는 이 컴퓨터의 LAN 주소를 사용합니다. Ollama의 기본 컨텍스트는 작으니 OLLAMA_CONTEXT_LENGTH=32768(또는 Modelfile의 num_ctx)을 설정해야 Bot이 지시문을 잃지 않습니다."
+      "ollama_note": "Ollama는 API key가 필요 없습니다."
     },
     "cost": {
       "plan": "ChatGPT 요금제의 한도 안에서 사용합니다. 토큰 단위 요금은 없습니다.",
@@ -245,7 +245,11 @@
       "endpoint": "비용은 서버에 따라 다릅니다. 내 하드웨어에서는 무료이고, 호스팅 서버는 토큰 단위로 청구됩니다. 사용량 페이지는 이 요청을 집계하지만 가격은 표시하지 않습니다.",
       "api_setup": "API 키는 제공업체가 토큰 단위로 청구합니다. Bot의 사용량은 설정의 사용량 페이지에서 볼 수 있습니다.",
       "open_usage": "사용량 열기"
-    }
+    },
+    "manage": "관리",
+    "add": "추가",
+    "disconnect": "연결 해제",
+    "reconnect": "다시 연결"
   },
   "usage": {
     "label": "사용량",

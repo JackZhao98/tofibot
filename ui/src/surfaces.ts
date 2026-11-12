@@ -9,7 +9,7 @@
  * Everything here is pure: the workspace holds one `Surfaces` value and calls these to get the next one.
  */
 export type WidgetId = "computer" | "members" | "artifacts" | "usage";
-export type SidebarId = "tasks" | "memory" | "terminal" | "archive" | "conversation";
+export type SidebarId = "tasks" | "memory" | "terminal" | "archive" | "conversation" | "usage";
 export type CoverId = "settings" | "bot-settings" | "group-settings" | "new-group" | "approvals" | "artifacts";
 
 /**
