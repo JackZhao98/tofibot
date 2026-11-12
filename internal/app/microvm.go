@@ -430,7 +430,11 @@ const computerBrowserFallbackNote = "Fallback only: use the browser_ tools. Use 
 
 func (s *Server) microVMTools(r Run) []Tool {
 	if s.computer() == nil {
-		return s.personalDesktopTools(r)
+		tools := s.personalDesktopTools(r)
+		if s.browserMacPaired() {
+			tools = append(tools, s.browserTool(r, nil))
+		}
+		return tools
 	}
 	inputs := &guestInputSync{}
 	decode := func(raw json.RawMessage, target any) error {
@@ -732,8 +736,10 @@ func (s *Server) microVMTools(r Run) []Tool {
 		tools = append(tools, s.browserEngineTools(r, prepare, browser)...)
 		browser.Description = computerBrowserFallbackNote + " " + browser.Description
 	}
+	vmBrowser := browser
+	browser = s.browserTool(r, &vmBrowser)
 	tools = append(tools, browser)
-	return append(tools, computerHelpToolFor(playwright, a11y), s.terminalTool(r), s.sshKeyTool(r))
+	return append(tools, computerHelpToolFor(playwright, a11y, s.browserMacPaired()), s.terminalTool(r), s.sshKeyTool(r))
 }
 
 // browserProcessGone reports a browser call that failed because Chrome's

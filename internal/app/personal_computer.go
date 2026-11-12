@@ -144,7 +144,27 @@ func (p *personalProvider) ActionWithin(ctx context.Context, a computer.Action, 
 	if limit <= 0 {
 		limit = computerActionTimeout
 	}
+	var hub *browserHub
+	if browserActions[a.Name] {
+		hub = p.s.browserHub(p.id)
+		hub.mu.Lock()
+		if stamp, ok := ctx.Value(browserGenerationContextKey{}).(browserGeneration); ok {
+			if e := hub.checkGeneration(stamp); e != nil {
+				hub.mu.Unlock()
+				return computer.ActionResult{}, e
+			}
+		}
+		var m map[string]json.RawMessage
+		_ = json.Unmarshal(a.Args, &m)
+		if e := hub.checkBrowser(a.Name, m); e != nil {
+			hub.mu.Unlock()
+			return computer.ActionResult{}, e
+		}
+	}
 	job, err := p.s.store.queueComputerJob(Run{ID: a.RunID, BotID: a.BotID}, p.id, personalActionName(a.Name), a.Args)
+	if hub != nil {
+		hub.mu.Unlock()
+	}
 	if err != nil {
 		return computer.ActionResult{}, err
 	}
@@ -179,6 +199,11 @@ func (p *personalProvider) ActionWithin(ctx context.Context, a computer.Action, 
 			}
 			switch current.Status {
 			case "completed":
+				if browserActions[job.Action] {
+					if e := p.s.browserDelivery(p.id, job.Action, current.Result); e != nil {
+						return computer.ActionResult{}, e
+					}
+				}
 				return computer.ActionResult{OK: true, Result: current.Result}, nil
 			case "failed", "cancelled", "expired", "interrupted":
 				msg := current.Error
@@ -187,6 +212,14 @@ func (p *personalProvider) ActionWithin(ctx context.Context, a computer.Action, 
 				}
 				// A job the Mac ran and refused carries its own words (folder not
 				// granted, Bot not allowed). Everything else is the server's.
+				if browserActions[job.Action] {
+					if current.Status == "failed" {
+						return computer.ActionResult{}, browserFailure(current.Result, msg)
+					}
+					if msg == "browser_transport_unavailable" {
+						return computer.ActionResult{}, browserError(msg, "unknown")
+					}
+				}
 				return computer.ActionResult{}, personalJobError(current.Status, msg, job.Action)
 			}
 			// A claimed job whose Mac went quiet ends here as computer_lost; the
@@ -381,6 +414,7 @@ func (s *Server) registerPersonalSlots() {
 
 // UnregisterComputer removes a computer's slot. Calls in flight end as detached.
 func (s *Server) UnregisterComputer(id string) {
+	s.closeBrowser(id)
 	s.computerMu.Lock()
 	slot := s.computerSlots[id]
 	if slot != nil && s.microVM != nil && s.microVM.ID() == id {

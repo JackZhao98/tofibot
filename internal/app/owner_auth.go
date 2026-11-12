@@ -636,6 +636,9 @@ func ownerIndependentRoute(r *http.Request) bool {
 		return true
 	}
 	if len(p) >= 3 && p[0] == "computers" && p[1] != "" {
+		if len(p) == 4 && p[2] == "browser" && p[3] == "channel" && r.Method == http.MethodGet {
+			return true
+		}
 		if len(p) == 3 && ((p[2] == "capabilities" && r.Method == http.MethodPatch) || (p[2] == "heartbeat" && r.Method == http.MethodPost) || (p[2] == "jobs" && r.Method == http.MethodGet)) {
 			return true
 		}

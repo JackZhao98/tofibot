@@ -412,18 +412,41 @@ func (s *Server) computerActionOn(ctx context.Context, r Run, id, name string, a
 		return "", err
 	}
 	if slot.rowKind == computer.RowKindPersonal {
+		if strings.HasPrefix(name, "browser.") && !browserActions[name] {
+			return "", browserError("browser_action_unsupported", "not_executed")
+		}
 		if !personalActionAllowed(name) {
 			return "", tooloutcome.InvalidArguments(fmt.Sprintf("unsupported computer action %q", name))
 		}
 	} else if !microVMActions[name] {
 		return "", tooloutcome.InvalidArguments(fmt.Sprintf("unsupported computer action %q", name))
 	}
+	isBrowser := slot.rowKind == computer.RowKindPersonal && strings.HasPrefix(name, "browser.")
+	var browserStamp browserGeneration
+	if isBrowser {
+		if r.BotID == "" {
+			return "", browserError("app_not_allowed", "not_executed")
+		}
+		if _, e := s.store.GetBot(r.BotID); e != nil {
+			return "", browserError("app_not_allowed", "not_executed")
+		}
+		browserStamp = s.browserGeneration(id)
+		args, err = s.prepareBrowser(id, name, args)
+		if err != nil {
+			return "", err
+		}
+	}
 	// A personal computer goes through the same approval gate as the VM: a
 	// consequential input or write raises the approval card before it queues.
 	settle := func(error) {}
 	if slot.rowKind == computer.RowKindPersonal {
 		var guardErr error
-		if settle, guardErr = s.guardPersonalAction(ctx, r, slot, name, args); guardErr != nil {
+		if isBrowser {
+			settle, guardErr = s.guardBrowser(ctx, r, id, name, args)
+		} else {
+			settle, guardErr = s.guardPersonalAction(ctx, r, slot, name, args)
+		}
+		if guardErr != nil {
 			return "", guardErr
 		}
 		args = withoutEffect(args)
@@ -433,6 +456,16 @@ func (s *Server) computerActionOn(ctx context.Context, r Run, id, name string, a
 		settle(err)
 		return "", err
 	}
+	if isBrowser {
+		if err = s.recheckBrowser(id, name, args); err == nil {
+			err = s.browserGenerationCheck(id, browserStamp)
+		}
+		if err != nil {
+			releaseLock()
+			settle(err)
+			return "", err
+		}
+	}
 	defer releaseLock() // a lease per call: the next Bot in line gets the computer when this call ends
 	callCtx, done, err := slot.begin(ctx, false)
 	if err != nil {
@@ -440,11 +473,21 @@ func (s *Server) computerActionOn(ctx context.Context, r Run, id, name string, a
 		return "", err
 	}
 	defer done()
+	if isBrowser {
+		callCtx = context.WithValue(callCtx, browserGenerationContextKey{}, browserStamp)
+	}
 	botName := ""
 	if s.store != nil {
 		if bot, e := s.store.GetBot(r.BotID); e == nil {
 			botName = bot.Name
 		}
+	}
+	if isBrowser && r.ID != "" {
+		h := s.browserHub(id)
+		h.mu.Lock()
+		h.activity = &browserActivity{Bot: r.BotID, Run: r.ID, Conversation: r.ConversationID}
+		h.notify()
+		h.mu.Unlock()
 	}
 	started := time.Now()
 	result, err := slot.provider.ActionWithin(callCtx, computer.Action{BotID: r.BotID, BotName: botName, RunID: r.ID, Name: name, Args: args, Source: "model"}, computerDispatchTimeoutFor(name, args))
@@ -455,6 +498,10 @@ func (s *Server) computerActionOn(ctx context.Context, r Run, id, name string, a
 			return "", slot.lostOrDetachedError()
 		}
 		return "", err
+	}
+	if isBrowser {
+		s.noteBrowserResult(id, name, result.Result)
+		return browserModelResult(name, result.Result), nil
 	}
 	return string(result.Result), nil
 }

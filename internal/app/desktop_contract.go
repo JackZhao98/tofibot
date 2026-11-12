@@ -15,3 +15,7 @@ const DesktopMinClient = "0.2.1"
 func desktopServerInfo() map[string]any {
 	return map[string]any{"contract": DesktopContract, "min_client": DesktopMinClient}
 }
+
+func botBrowserServerInfo() map[string]any {
+	return map[string]any{"version": 1, "upload": "websocket-json", "view": "ndjson-jpeg"}
+}

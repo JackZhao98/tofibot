@@ -99,6 +99,9 @@ func manualFailureCodes(t *testing.T) []string {
 		"mcp_needs_human_unattended", "mcp_high_risk_unattended", "mcp_review_context_missing", "mcp_review_policy_denied", "mcp_review_setup_missing", "mcp_review_unavailable", "mcp_proposal_closed", "mcp_result_unknown", "mcp_call_failed", "mcp_retry_exhausted", "mcp_reported_error", "mcp_permission_denied", "mcp_timeout", "mcp_config_changed", "mcp_server_unknown", "mcp_auth_required", "mcp_not_configured", "mcp_unavailable", "mcp_unknown"} {
 		set[code] = true
 	}
+	for _, code := range []string{"browser_not_enabled", "app_not_allowed", "browser_target_gone", "browser_session_changed", "browser_viewport_changed", "browser_control_lost", "browser_login_required", "browser_action_unsupported", "browser_server_unsupported", "browser_client_unsupported", "browser_transport_unavailable", "browser_clear_failed", "browser_preview_limited", "browser_preview_busy", "computer_not_configured"} {
+		set[code] = true
+	}
 	codes := make([]string, 0, len(set))
 	for c := range set {
 		codes = append(codes, c)
