@@ -104,7 +104,7 @@ func TestSaySecondAnswerIsRefused(t *testing.T) {
 }
 
 // A progress update is a real message in the chat, not a folded line.
-func TestSayNoteIsAVisibleMessage(t *testing.T) {
+func TestSayNoteIsPersistedNarration(t *testing.T) {
 	s, run := dmRun(t, dmFuncEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
 		if _, err := say(ctx, req, "n1", "note", "Reading the report now."); err != nil {
 			return runtime.Result{}, err
@@ -112,7 +112,7 @@ func TestSayNoteIsAVisibleMessage(t *testing.T) {
 		_, err := say(ctx, req, "a1", "answer", "The report says revenue grew.")
 		return runtime.Result{}, err
 	}))
-	want := []string{"segment|Reading the report now.", "|The report says revenue grew."}
+	want := []string{"progress|Reading the report now.", "|The report says revenue grew."}
 	if rows := assistantRows(t, s.store, run.ConversationID); !equalStrings(kindsAndText(rows), want) {
 		t.Fatalf("messages = %q, want %q", kindsAndText(rows), want)
 	}
@@ -163,7 +163,7 @@ func TestSayPublicationIsIdempotentPerProviderCall(t *testing.T) {
 	if replay != nil || answerReplay != nil || conflict == nil {
 		t.Fatalf("replay=%v answerReplay=%v conflict=%v", replay, answerReplay, conflict)
 	}
-	want := []string{"segment|step one done", "segment|hello there", "|final words"}
+	want := []string{"progress|step one done", "segment|hello there", "|final words"}
 	if rows := assistantRows(t, s.store, run.ConversationID); !equalStrings(kindsAndText(rows), want) {
 		t.Fatalf("messages = %q, want %q", kindsAndText(rows), want)
 	}
@@ -467,8 +467,8 @@ func TestAnswerEqualToAnEarlierMessageIsDropped(t *testing.T) {
 	}
 }
 
-// A note is visible, so an answer that only repeats it adds nothing.
-func TestAnswerEqualToAnEarlierNoteIsDropped(t *testing.T) {
+// Narration is separate from the answer, even when the final sentence repeats it.
+func TestAnswerEqualToNarrationStillHasReply(t *testing.T) {
 	s, run := dmRun(t, dmFuncEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
 		if _, err := say(ctx, req, "n1", "note", "Revenue grew four percent."); err != nil {
 			return runtime.Result{}, err
@@ -476,7 +476,7 @@ func TestAnswerEqualToAnEarlierNoteIsDropped(t *testing.T) {
 		_, err := say(ctx, req, "a1", "answer", "Revenue grew four percent.")
 		return runtime.Result{}, err
 	}))
-	want := []string{"segment|Revenue grew four percent."}
+	want := []string{"progress|Revenue grew four percent.", "|Revenue grew four percent."}
 	if rows := assistantRows(t, s.store, run.ConversationID); !equalStrings(kindsAndText(rows), want) {
 		t.Fatalf("messages = %q, want %q", kindsAndText(rows), want)
 	}
@@ -714,7 +714,7 @@ func TestSayNoteStreamsIntoTheDraftThenPostsInPlace(t *testing.T) {
 		return runtime.Result{}, err
 	}))
 	rows := assistantRows(t, s.store, run.ConversationID)
-	if !equalStrings(kindsAndText(rows), []string{"segment|Checking the inbox.", "|Two mails."}) {
+	if !equalStrings(kindsAndText(rows), []string{"progress|Checking the inbox.", "|Two mails."}) {
 		t.Fatalf("messages = %q", kindsAndText(rows))
 	}
 	events := eventsOfType(t, s.store, run.ConversationID, "delta")

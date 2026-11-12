@@ -123,7 +123,9 @@
     "test:admin-groups": "node scripts/test-admin-groups.mjs",
     "test:org-resources": "node scripts/test-org-resources.mjs",
     "test:bot-browser-pip": "node scripts/test-bot-browser-pip.mjs",
-    "test:bot-browser-settings": "node scripts/test-bot-browser-settings.mjs"
+    "test:bot-browser-settings": "node scripts/test-bot-browser-settings.mjs",
+    "test:work-timeline": "node scripts/test-work-timeline.mjs",
+    "test:work-timeline-browser": "node scripts/test-work-timeline.mjs --browser"
   },
   "dependencies": {
     "@emoji-mart/data": "1.2.1",

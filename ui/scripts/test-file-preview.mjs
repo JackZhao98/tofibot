@@ -158,23 +158,25 @@ try {
     assert.equal(await page.locator(".attachment-file-row").first().evaluate(el => getComputedStyle(el.closest(".delivered-attachment")).backgroundColor !== "rgba(0, 0, 0, 0)"), true);
   });
 
-  await step("images: thumbnails in a gallery (2 cols for 2, 3 for 5), reserved boxes, lightbox; single image keeps its box", async () => {
+  await step("images: output thumbnails outside the bubble, reserved boxes, lightbox; single image keeps its box", async () => {
     const grid = page.locator(".attachment-gallery:not(.is-single)").first();
     assert.equal(await grid.locator(".attachment-thumb").count(), 5);
     assert.equal(await grid.getAttribute("data-count"), "5");
-    assert.equal(await grid.evaluate(el => getComputedStyle(el).gridTemplateColumns.split(" ").length), 3);
+    assert.equal(await grid.evaluate(el => getComputedStyle(el).display), "flex");
+    assert.equal(await grid.evaluate(el => el.closest(".message-content") === null), true);
+    assert.ok((await grid.locator(".attachment-thumb").first().boundingBox()).width <= 180);
     assert.ok(await grid.locator("img").first().evaluate(img => img.getAttribute("loading") === "lazy" && img.hasAttribute("width") && img.hasAttribute("height")), "lazy with reserved size");
-    assert.ok((await grid.boundingBox()).width <= 320);
+    assert.ok((await grid.boundingBox()).width <= 560);
     await grid.locator(".attachment-thumb").first().click();
-    // The lightbox is a lazy chunk, drawn once a picture is opened.
+    // The shared lightbox is ready on activation.
     await grid.locator("dialog[open]").waitFor({ timeout: 5000 });
     assert.equal(await grid.locator("dialog[open]").count(), 1);
     await page.keyboard.press("Escape");
-    await page.waitForTimeout(100);
+    await grid.locator("dialog[open]").waitFor({ state: "detached" });
     const single = page.locator(".attachment-gallery.is-single");
     assert.equal(await single.count(), 1);
     const box = await single.boundingBox();
-    assert.ok(box.width <= 320 && box.height <= 360 && box.width >= 96, JSON.stringify(box));
+    assert.ok(box.width <= 240 && box.height <= 240 && box.width >= 96, JSON.stringify(box));
     assert.equal(await single.locator(".attachment-thumb").evaluate(el => getComputedStyle(el).borderRadius), "14px");
   });
 

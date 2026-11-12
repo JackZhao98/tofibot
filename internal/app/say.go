@@ -637,10 +637,6 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 					// A co-addressed member's note can carry its whole part for a
 					// later member to build on; it stays folded, so it may be longer.
 					limit = maxSayCoAddressedNoteRunes
-				} else if c.UserVisible && r.Kind != runKindSchedule {
-					// A progress update is a real message the person reads in the
-					// chat, not a line hidden in the run's activity.
-					kind = "segment"
 				}
 			}
 			if utf8.RuneCountInString(text) > limit {
@@ -665,7 +661,7 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 
 const chatSegmentClientPrefix = "chat-segment:"
 
-// publishSay stores a note (kind segment, or progress where it folds) or a
+// publishSay stores narration (kind progress) or a
 // message (kind segment). The
 // provider call ID in clientID makes a replay return the first publication.
 // With adopt, the message takes the identity of the draft the call's text

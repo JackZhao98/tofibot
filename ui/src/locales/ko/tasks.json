@@ -663,6 +663,9 @@
     "delete_yes": "삭제",
     "delete_no": "유지",
     "delete_failed": "트레이스를 삭제하지 못했습니다.",
-    "deleted": "작업 트레이스를 삭제했습니다."
+    "deleted": "작업 트레이스를 삭제했습니다.",
+    "commands_other": "명령 {{count}}개 실행",
+    "pages_other": "{{count}}페이지 읽음",
+    "working_other": "작업 중 · {{count}}단계"
   }
 }
