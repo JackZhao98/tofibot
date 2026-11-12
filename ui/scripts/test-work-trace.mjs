@@ -51,7 +51,7 @@ assert.equal(layout.traceCellAt(0.5, 1.2, 5), null);
 }
 {
   const base = { hasTrace: true, isFinalReply: true, hasTaskBlock: true, activityShown: false };
-  assert.equal(layout.traceUnderReply(base), true, "Activity hidden: the line goes under the final reply");
+  assert.equal(layout.traceUnderReply(base), false, "The timeline carries captures even with the audit hidden");
   assert.equal(layout.traceUnderReply({ ...base, hasTaskBlock: false }), true, "no task block drawn: under the reply");
   assert.equal(layout.traceUnderReply({ ...base, hasTaskBlock: false, activityShown: true }), true, "Activity on but no block: under the reply");
   assert.equal(layout.traceUnderReply({ ...base, activityShown: true }), false, "Activity drawn: only there, never twice");
@@ -157,7 +157,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const t = await open();
     const text = (await t.page.locator(".work-trace-line").innerText()).replace(/\s+/g, " ");
     assert.match(text, /Work trace · 5 steps/);
-    assert.equal(await t.page.locator(".work-trace-thumb").count(), 5, "one cut of the strip per step, up to six");
+    assert.equal(await t.page.locator(".work-trace-thumb").count(), 3, "at most three overlapping cuts of the strip");
     const style = await t.page.locator(".work-trace-thumb").nth(1).evaluate(el => ({ image: el.style.backgroundImage, size: el.style.backgroundSize, pos: el.style.backgroundPosition, w: el.getBoundingClientRect().width }));
     assert.match(style.image, /\/api\/attachments\/strip1/, "the thumbnails are cut from the strip, no second file");
     assert.deepEqual(numbers(style.size), numbers(`${(1280 * 64 / 424).toFixed(2)}px ${(572 * 64 / 424).toFixed(2)}px`));
@@ -170,7 +170,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   {
     const t = await open({ tiles: 11, steps: 15 }, { height: 1200 });
     assert.match(await t.page.locator(".work-trace-line").innerText(), /15 steps/);
-    assert.equal(await t.page.locator(".work-trace-thumb").count(), 6);
+    assert.equal(await t.page.locator(".work-trace-thumb").count(), 3);
     const pos = await t.page.locator(".work-trace-thumb").first().evaluate(el => el.style.backgroundPosition);
     assert.deepEqual(numbers(pos), numbers(`${(-(2 + 426) * 64 / 424).toFixed(2)}px ${(-2 * 64 / 424).toFixed(2)}px`), "the summary cell is skipped: the first thumbnail is the second cell");
     await t.close();

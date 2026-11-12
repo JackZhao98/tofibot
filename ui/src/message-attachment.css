@@ -88,7 +88,7 @@
 
 
 /* Message attachments. A user's sit in .message-attachments above the text bubble (no bubble of their own, like a photo in iMessage);
-   a Bot's stay in its message. Images are one gallery; files are cards. */
+   a Bot's sit below its text bubble. Images are one gallery; files are cards. */
 .workspace .message-attachments { display:flex; flex-direction:column; gap:6px; width:min(300px,100%); max-width:100%; margin:0 0 4px auto; align-items:flex-end; }
 .workspace .message-attachments > .delivered-attachment { margin:0; }
 .workspace .message-user.is-media-only .message-attachments { margin-bottom:8px; }
@@ -127,3 +127,17 @@
 .workspace .attachment-lightbox-steps { display:flex; flex-wrap:wrap; gap:4px 10px; margin:6px 0 0; padding:0; list-style:none; }
 .workspace .attachment-lightbox-steps:not(:focus-within) { position:absolute; width:1px; height:1px; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
 .workspace .attachment-lightbox-steps [aria-current="true"] { font-weight:600; }
+
+/* Outputs sit beside the answer as small, independently previewable files. */
+.workspace .message-bot .bot-attachments { margin:6px 0 0; width:auto; align-items:flex-start; }
+.workspace .bot-attachments .attachment-gallery { width:min(380px,100%); gap:6px; }
+.workspace .bot-attachments .attachment-gallery.is-single { max-width:240px; }
+.workspace .bot-attachments .delivered-attachment { max-width:240px; }
+:root .workspace .attachment-lightbox { max-width:calc(100vw - 32px); }
+:root .workspace .attachment-lightbox img { max-width:calc(100vw - 32px); border:0; box-shadow:none; border-radius:8px; touch-action:pan-y; }
+:root .workspace .attachment-lightbox::backdrop { backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); }
+
+.workspace .bot-attachments .attachment-gallery:not(.is-single) { display:flex; flex-wrap:wrap; width:min(560px,100%); }
+.workspace .bot-attachments .attachment-gallery:not(.is-single) .attachment-thumb { width:180px; height:180px; max-width:100%; }
+/* Mid-run messages are narration; the final reply keeps its normal bubble. */
+.workspace .message-bot.message-segment .message-content { background:none; border:0; box-shadow:none; padding:4px 0; }

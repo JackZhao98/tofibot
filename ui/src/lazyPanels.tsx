@@ -37,6 +37,7 @@ const loaders = {
   runContext: () => import("./RunContext"),
   stopMenu: () => import("./ComposerStopMenu"),
   taskCard: () => import("./TaskCard"),
+  workTimeline: () => import("./WorkTimeline"),
   taskActivity: () => import("./TaskActivityBody"),
   toolSteps: () => import("./WebToolSteps"),
 } as const;
@@ -130,6 +131,7 @@ function quiet<K extends PanelChunk, P extends object>(name: K, pick: (module: L
     return <Component {...props} />;
   };
 }
+export const WorkTimeline = quiet("workTimeline", module => module.default);
 export const TaskActivityBody = quiet("taskActivity", module => module.TaskActivityBody);
 export const SilentNoteBody = quiet("taskActivity", module => module.SilentNoteBody);
 export const WebToolSteps = quiet("toolSteps", module => module.WebToolSteps);
