@@ -138,8 +138,9 @@ export function useSystemUpdate(enabled: boolean): UpdateFlow {
   return { info, view: hidden ? { kind: "none" } : view, watch: startWatch, dismissView, setInfo };
 }
 
-function safeNotes(url: string): string {
-  return url.startsWith("https://") ? url : "";
+// A release without a notes link (older servers, a fixture) has none to show; only an https link is ever offered.
+function safeNotes(url: string | undefined): string {
+  return url?.startsWith("https://") ? url : "";
 }
 
 const NOTHING_CHANGED = new Set(["request_invalid", "request_too_large", "request_stale", "channel_mismatch", "not_newer", "rejected_before", "not_latest_stable", "request_cooldown", "rc_superseded", "version_unpublished", "release_check_failed", "runs_still_active", "host_busy", "schema_change_blocked", "insufficient_disk"]);
