@@ -215,6 +215,17 @@ a change only when the browser's `Origin` equals `https://` + the `Host` it used
 any of the server's addresses works. Owner sign-in accepts the connection
 because it is TLS, and the session cookie is `Secure`.
 
+The same port also answers plain HTTP, but only to private and loopback
+addresses (`TOFI_OWNER_ALLOW_LAN_HTTP=1`, the default since 11-12): on the LAN,
+`http://<server-ip>:8321` works in a browser and in the Mac app without the
+certificate warning. The App tells the two apart by the first byte of each
+connection; a plain-HTTP connection from a public address gets `400` and must use
+HTTPS. Over HTTP the session cookie is not `Secure` and `Origin` must be
+`http://` + the `Host`. To require HTTPS on the LAN too, set
+`TOFI_OWNER_ALLOW_LAN_HTTP=0` in `/etc/tofi/tofi.env`, then
+`sudo tofi stop && sudo tofi start`. Installs from before 11-12 keep `0` until
+you change it.
+
 Installs made before this default (plain HTTP on `127.0.0.1`) keep their
 `tofi.env` on update; to switch, add `TOFI_BIND=0.0.0.0`,
 `TOFI_TLS_CERT_FILE=/etc/tofi-tls/cert.pem`, `TOFI_TLS_KEY_FILE=/etc/tofi-tls/key.pem`

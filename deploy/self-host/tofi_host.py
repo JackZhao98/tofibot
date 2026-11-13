@@ -1148,11 +1148,12 @@ def render_env(manifest, options, budgets):
         allow_lan_http = '1'
         trusted_proxies = LOCAL_PROXY_CIDRS
     else:
-        # Direct mode always serves HTTPS with the host's self-signed certificate.
+        # Direct mode serves HTTPS with the host's self-signed certificate and, on the same port, plain HTTP to LAN
+        # addresses only (owner 11-12: the Mac app and browsers on the LAN must not trip over the self-signed certificate).
         bind = options['bind']
         origin = ''
         cert, key = TLS_REAL + '/cert.pem', TLS_REAL + '/key.pem'
-        allow_lan_http = '0'
+        allow_lan_http = '1'
         # Behind a reverse proxy the user already runs: trust exactly the
         # addresses they named; otherwise nobody.
         trusted_proxies = options.get('behind_proxy') or ''
@@ -6428,9 +6429,10 @@ def audit_lan_http(env):
         return audit_finding(AUDIT_PASS, 'exposure.lan_http', title,
                              'plain HTTP is accepted only from Caddy over the Docker bridge (by design with --domain)')
     if (env.get('TOFI_OWNER_ALLOW_LAN_HTTP') or '1') == '1':  # compose: ${...:-1}, empty means 1
-        return audit_finding(AUDIT_WARN, 'exposure.lan_http', title,
-                             'TOFI_OWNER_ALLOW_LAN_HTTP=1 lets the Admin sign in over plain HTTP from private addresses',
-                             'set TOFI_OWNER_ALLOW_LAN_HTTP=0 in /etc/tofi/tofi.env, then sudo tofi stop && sudo tofi start')
+        # The default since 11-12: plain HTTP is answered only for private and loopback peers; public peers get HTTPS only.
+        return audit_finding(AUDIT_PASS, 'exposure.lan_http', title,
+                             'plain HTTP is accepted from private addresses only; public addresses need HTTPS '
+                             '(set TOFI_OWNER_ALLOW_LAN_HTTP=0 in /etc/tofi/tofi.env to require HTTPS on the LAN too)')
     return audit_finding(AUDIT_PASS, 'exposure.lan_http', title, 'sign-in over plain HTTP is refused')
 
 

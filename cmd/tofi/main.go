@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -54,7 +55,13 @@ func main() {
 	serveErr := make(chan error, 1)
 	go func() {
 		if tlsConfig != nil {
-			serveErr <- httpServer.ListenAndServeTLS("", "")
+			// One port, TLS for everyone and plain HTTP for LAN peers when the operator allows it (TOFI_OWNER_ALLOW_LAN_HTTP=1).
+			listener, err := net.Listen("tcp", httpServer.Addr)
+			if err != nil {
+				serveErr <- err
+				return
+			}
+			serveErr <- httpServer.Serve(newDualListener(listener, tlsConfig, os.Getenv("TOFI_OWNER_ALLOW_LAN_HTTP") == "1"))
 		} else {
 			serveErr <- httpServer.ListenAndServe()
 		}
