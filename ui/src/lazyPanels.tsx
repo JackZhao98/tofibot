@@ -177,7 +177,7 @@ const entryPoints: Array<[selector: string, chunk: PanelChunk]> = [
 const WARM_START_MS = 500;
 const WARM_STEP_MS = 200;
 export function warmPanelsWhenIdle(): () => void {
-  const order: PanelChunk[] = ["settings", "accountMenu", "taskActivity", "toolSteps", "desktop", "contextCard", "sidebarShell", "coverShell", "surfaceViews", "botSettings", "artifacts", "usageWidget", "work", "memory", "team", "archive", "viewOnly", "remembered", "deleteDialog", "reassignPrimary", "permissionCoach", "updateBanner", "questionCard", "stopMenu", "searchPalette"];
+  const order: PanelChunk[] = ["settings", "taskActivity", "toolSteps", "desktop", "contextCard", "sidebarShell", "coverShell", "surfaceViews", "botSettings", "artifacts", "usageWidget", "work", "memory", "team", "archive", "viewOnly", "remembered", "deleteDialog", "reassignPrimary", "permissionCoach", "updateBanner", "questionCard", "stopMenu", "searchPalette"];
   let timer = window.setTimeout(function step() {
     const next = order.shift();
     if (!next) return;
