@@ -201,6 +201,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await t.page.locator(".settings-banner").count(), 0, "a ready source removes the banner");
     await row(t.page, "search", "tavily").locator(".web-grip").focus();
     await t.page.keyboard.press("Space");
+    // dnd-kit's keyboard sensor starts listening for keys in a timer it queues at the lift (a person's next key always
+    // comes later); a timer queued after the lift runs after that one, so the next key is heard.
+    await t.page.waitForFunction(() => document.querySelector(".web-row[data-dragging], .web-row [data-dragging], [data-sortable-dragging]") !== null || document.documentElement.hasAttribute("data-sortable-dragging"));
+    await t.page.evaluate(() => new Promise(resolve => setTimeout(resolve, 0)));
     await t.page.keyboard.press("ArrowDown");
     await t.page.waitForTimeout(300);
     await t.page.keyboard.press("Space");
