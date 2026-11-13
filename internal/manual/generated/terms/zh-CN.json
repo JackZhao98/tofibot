@@ -126,6 +126,8 @@
   "settings:permissionsPage.standing.title": "始终放行",
   "settings:primary.label": "主助理",
   "settings:providers.title": "模型提供方",
+  "settings:shell.page.admin-design.description": "示例组件与设计令牌",
+  "settings:shell.page.admin-design.name": "设计系统",
   "settings:shell.page.admin-groups.description": "按组设置账户可用的资源",
   "settings:shell.page.admin-groups.name": "用户组",
   "settings:shell.page.admin-resources.description": "服务器提供给用户组的密钥",

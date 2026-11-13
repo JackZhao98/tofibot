@@ -85,6 +85,10 @@
       "admin-resources": {
         "name": "组织资源",
         "description": "服务器提供给用户组的密钥"
+      },
+      "admin-design": {
+        "name": "设计系统",
+        "description": "示例组件与设计令牌"
       }
     },
     "category": "设置分类",
@@ -1863,5 +1867,8 @@
     "device_revoked": "设备访问已撤销",
     "browser_clear_failed": "无法清除浏览器数据，浏览器保持暂停",
     "computer_not_configured": "尚未配置 Bot 电脑"
+  },
+  "design": {
+    "open_tab": "在新标签页中打开"
   }
 }

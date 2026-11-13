@@ -126,6 +126,8 @@
   "settings:permissionsPage.standing.title": "Autorisations permanentes",
   "settings:primary.label": "Assistant principal",
   "settings:providers.title": "Fournisseurs de modèles",
+  "settings:shell.page.admin-design.description": "Composants de démonstration et jetons de design",
+  "settings:shell.page.admin-design.name": "Système de design",
   "settings:shell.page.admin-groups.description": "Politique de ressources par groupe de comptes",
   "settings:shell.page.admin-groups.name": "Groupes",
   "settings:shell.page.admin-resources.description": "Clés que le serveur fournit aux groupes",

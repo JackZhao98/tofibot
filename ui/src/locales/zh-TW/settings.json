@@ -85,6 +85,10 @@
       "admin-resources": {
         "name": "組織資源",
         "description": "伺服器提供給群組的金鑰"
+      },
+      "admin-design": {
+        "name": "設計系統",
+        "description": "範例元件與設計令牌"
       }
     },
     "category": "設定分類",
@@ -1863,5 +1867,8 @@
     "device_revoked": "裝置存取已撤銷",
     "browser_clear_failed": "無法清除瀏覽器資料，瀏覽器保持暫停",
     "computer_not_configured": "尚未設定 Bot 電腦"
+  },
+  "design": {
+    "open_tab": "在新分頁中開啟"
   }
 }

@@ -139,6 +139,7 @@ var settingsTabPages = []settingsPage{
 	{"admin", "settings:shell.page.admin.name", []string{"accounts", "version"}},
 	{"admin-groups", "settings:shell.page.admin-groups.name", []string{"policy", "members"}},
 	{"admin-resources", "settings:shell.page.admin-resources.name", []string{"models", "computers", "web"}},
+	{"admin-design", "settings:shell.page.admin-design.name", []string{}},
 }
 
 // settingsLegacyLinks maps an older settings position ("tab" or "tab#section") to where the setting lives now

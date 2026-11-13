@@ -5,10 +5,10 @@
 //   the dev server proxies /api to a real TOFI with the owner's session cookie, so a request that slipped through
 //   would read or change real data. scripts/test-catalog.mjs fails if any /api request reaches the network;
 // - the event streams, sockets and popups the product opens go nowhere.
-// Dev only (docs/decisions/0034-component-catalog-dev-only.md): this file must never be imported by product code.
+// Isolated bundle: this file must never be imported by workspace code.
 
-/** A string unique to the catalog. scripts/test-catalog.mjs fails if it appears anywhere in a production build. */
-export const CATALOG_MARKER = "tofi-component-catalog-dev-only";
+/** A string unique to the catalog. scripts/test-catalog.mjs keeps it out of workspace bundles. */
+export const CATALOG_MARKER = "tofi-design-system-synthetic";
 
 class MemoryStorage implements Storage {
   #items = new Map<string, string>();

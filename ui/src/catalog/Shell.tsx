@@ -16,8 +16,8 @@ function readView(): View {
   const language = hash.get("l") as Language;
   return {
     section: SECTIONS.some(item => item.id === hash.get("s")) ? hash.get("s")! : SECTIONS[0].id,
-    themes: THEME_CHOICES[hash.get("t") ?? "light"] ?? THEME_CHOICES.light,
-    widths: WIDTH_CHOICES[hash.get("w") ?? "both"] ?? WIDTH_CHOICES.both,
+    themes: THEME_CHOICES[hash.get("t") ?? "both"] ?? THEME_CHOICES.light,
+    widths: WIDTH_CHOICES[hash.get("w") ?? "desktop"] ?? WIDTH_CHOICES.both,
     language: LANGUAGES.includes(language) ? language : "en",
   };
 }
@@ -29,7 +29,7 @@ function writeView(view: View) {
 export function frameSrc(section: string, state: string, theme: Theme, language: Language) {
   const query = new URLSearchParams({ frame: section, theme, lng: language });
   if (state) query.set("state", state);
-  return `/catalog.html?${query}`;
+  return `${import.meta.env.DEV ? "/catalog.html" : "/design-system.html"}?${query}`;
 }
 
 function Frame({ section, state, theme, width, language, fixedHeight }: { section: string; state: string; theme: Theme; width: Width; language: Language; fixedHeight?: number }) {
@@ -93,11 +93,11 @@ export function Shell() {
   useEffect(() => { document.title = `${section.number}. ${section.title} · Tofi component catalog`; }, [section]);
   return <div className="catalog-shell">
     <nav className="catalog-nav" aria-label="Sections">
-      <header><strong>Tofi component catalog</strong><small>Dev only · synthetic data · {count} states</small></header>
+      <header><strong>Tofi component catalog</strong><small>Design system · synthetic data · {count} states</small></header>
       <ol>{SECTIONS.map(item => <li key={item.id}><a href={`#${new URLSearchParams({ s: item.id, t: themeKey, w: widthKey, l: view.language })}`} aria-current={item.id === section.id ? "page" : undefined}>
         <span>{item.number}</span>{item.title}</a></li>)}</ol>
     </nav>
-    <main className="catalog-main">
+    <main className="catalog-main" data-catalog-section={section.id}>
       <div className="catalog-toolbar">
         <Segmented label="Theme" value={themeKey} options={[["light", "Light"], ["dark", "Dark"], ["both", "Both"]]} onChange={key => update({ themes: THEME_CHOICES[key] })} />
         <Segmented label="Width" value={widthKey} options={[["desktop", "1280"], ["phone", "390"], ["both", "Both"]]} onChange={key => update({ widths: WIDTH_CHOICES[key] })} />

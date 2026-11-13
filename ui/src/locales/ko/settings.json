@@ -85,6 +85,10 @@
       "admin-resources": {
         "name": "조직 리소스",
         "description": "서버가 그룹에 제공하는 키"
+      },
+      "admin-design": {
+        "name": "디자인 시스템",
+        "description": "예제 구성 요소 및 디자인 토큰"
       }
     },
     "category": "설정 분류",
@@ -1863,5 +1867,8 @@
     "device_revoked": "기기 접근이 취소되었습니다",
     "browser_clear_failed": "데이터를 지울 수 없습니다. 브라우저는 일시 중지 상태입니다",
     "computer_not_configured": "Bot 컴퓨터가 설정되지 않았습니다"
+  },
+  "design": {
+    "open_tab": "새 탭에서 열기"
   }
 }

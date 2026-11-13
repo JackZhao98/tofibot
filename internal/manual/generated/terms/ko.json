@@ -126,6 +126,8 @@
   "settings:permissionsPage.standing.title": "상시 허용",
   "settings:primary.label": "기본 어시스턴트",
   "settings:providers.title": "모델 제공업체",
+  "settings:shell.page.admin-design.description": "예제 구성 요소 및 디자인 토큰",
+  "settings:shell.page.admin-design.name": "디자인 시스템",
   "settings:shell.page.admin-groups.description": "계정 묶음별 리소스 정책",
   "settings:shell.page.admin-groups.name": "그룹",
   "settings:shell.page.admin-resources.description": "서버가 그룹에 제공하는 키",
