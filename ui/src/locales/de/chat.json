@@ -919,7 +919,7 @@
     "at_bottom": "{{title}} steht schon ganz unten",
     "at_top": "{{title}} steht schon ganz oben",
     "grip": "{{title}} verschieben",
-    "grip_hint": "Ziehen oder mit den Pfeiltasten verschieben",
+    "grip_hint": "Zum Verschieben ziehen oder Leertaste zum Anheben, Pfeiltasten zum Bewegen, Leertaste zum Ablegen, Escape zum Abbrechen. Alt+Auf/Ab verschiebt um einen Platz.",
     "moved": "{{title}} ist jetzt Nummer {{position}} von {{count}}"
   },
   "working": {

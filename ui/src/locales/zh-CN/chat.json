@@ -890,7 +890,7 @@
     "at_bottom": "{{title}}已在最下",
     "at_top": "{{title}}已在最上",
     "grip": "移动{{title}}",
-    "grip_hint": "拖动移动，或用方向键",
+    "grip_hint": "拖动移动，或按空格拿起、方向键移动、空格放下、Escape 取消。Alt+上/下移动一位。",
     "moved": "{{title}}现在排第 {{position}} / {{count}}"
   },
   "working": {

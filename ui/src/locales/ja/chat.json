@@ -890,7 +890,7 @@
     "at_bottom": "{{title}}はすでに末尾です",
     "at_top": "{{title}}はすでに先頭です",
     "grip": "{{title}}を移動",
-    "grip_hint": "ドラッグで移動、または矢印キー",
+    "grip_hint": "ドラッグで移動。またはスペースで持ち上げ、矢印キーで移動、スペースで確定、Escapeでキャンセル。Alt+上下キーで1つ移動。",
     "moved": "{{title}}は {{count}} 件中 {{position}} 番目になりました"
   },
   "working": {

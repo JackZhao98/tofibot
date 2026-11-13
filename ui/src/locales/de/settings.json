@@ -1510,7 +1510,7 @@
     "set_up": "Einrichten",
     "edit": "Bearbeiten",
     "move_label": "{{name}} verschieben",
-    "move_hint": "Ziehen oder Pfeiltasten verwenden",
+    "move_hint": "Zum Verschieben ziehen oder Leertaste zum Anheben, Pfeiltasten zum Bewegen, Leertaste zum Ablegen, Escape zum Abbrechen. Alt+Auf/Ab verschiebt um einen Platz.",
     "move_up": "{{name}} nach oben",
     "move_down": "{{name}} nach unten",
     "moved": "{{name}} steht jetzt an Position {{position}} von {{total}}",

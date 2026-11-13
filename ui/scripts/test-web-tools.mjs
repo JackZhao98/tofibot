@@ -200,12 +200,15 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const t = await open();
     assert.equal(await t.page.locator(".settings-banner").count(), 0, "a ready source removes the banner");
     await row(t.page, "search", "tavily").locator(".web-grip").focus();
+    await t.page.keyboard.press("Space");
     await t.page.keyboard.press("ArrowDown");
+    await t.page.waitForTimeout(300);
+    await t.page.keyboard.press("Space");
     await t.page.waitForFunction(() => document.querySelector('.web-row[data-chain="search"][data-id="tavily"]')?.previousElementSibling?.dataset.id === "brave");
     assert.deepEqual(requests, ['PUT /api/web-tools/search/order {"order":["brave","tavily","searxng"]}'], "one write with the whole order");
     assert.deepEqual(await ids(t.page, "search"), ["native", "brave", "tavily", "searxng"]);
     assert.equal(await t.page.evaluate(() => document.activeElement?.closest("[data-id]")?.dataset.id), "tavily", "focus follows the moved row");
-    assert.match(await t.page.locator(".sr-only[aria-live]").innerText(), /Tavily is now 2 of 3/, "the move is announced");
+    assert.match((await t.page.locator("#tofi-layers [role=status]").allTextContents()).join(" "), /Tavily is now 2 of 3/, "the move is announced");
     await row(t.page, "search", "searxng").getByRole("button", {name: "Move SearXNG up"}).click();
     await t.page.waitForFunction(() => document.querySelector('.web-row[data-chain="search"][data-id="searxng"]')?.previousElementSibling?.dataset.id === "brave");
     assert.deepEqual(await ids(t.page, "search"), ["native", "brave", "searxng", "tavily"]);

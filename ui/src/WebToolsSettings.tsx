@@ -1,8 +1,9 @@
-import {useCallback, useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent} from "react";
+import {useCallback, useEffect, useId, useState, type FormEvent} from "react";
 import {api, ApiError} from "./api";
 import {ConfirmAction} from "./InteractionSystem";
 import {ServiceMark} from "./ServiceMark";
 import {TofiIcon} from "./icons";
+import {SortableList, SortableStatus, useSortableItem} from "./SortableList";
 import {GripGlyph} from "./widgetGrip";
 import {useTranslation} from "./i18n";
 import {Banner, SettingsCard, SettingsSection, SettingsSwitch, StatusBadge, type BadgeState} from "./settings/components";
@@ -102,7 +103,7 @@ export function WebToolsSettings({initial, adapter = ownWebTools, bare = false, 
     </Select>
    </div>)}
   </SettingsCard>}
-  <p className="sr-only" role="status" aria-live="polite">{announce}</p>
+  <SortableStatus>{announce}</SortableStatus>
  </>;
  return bare ? <div className="web-tools">{content}</div> : <SettingsSection className="web-tools" title={title ?? t("webtools.title")} description={description ?? t("webtools.description")}>{content}</SettingsSection>;
 }
@@ -110,61 +111,27 @@ export function WebToolsSettings({initial, adapter = ownWebTools, bare = false, 
 function ChainCard({chain, entries, outcomes, testing, readOnly, organization, managedNote, onMove, onEnabled, onSave, onRemove, onTest}: {chain: Chain; entries: WebSourceEntry[]; outcomes: Record<string, Outcome>; testing: string | null; /** Managed by policy: no grip, switch, test or key form. */ readOnly: boolean; /** The sources are the organization's: each row carries its mark. */ organization: boolean; managedNote: string; onMove: (from: number, to: number) => void; onEnabled: (id: string, enabled: boolean) => void; onSave: (id: string, body: {key?: string; zone?: string; base_url?: string}) => Promise<boolean>; onRemove: (id: string) => Promise<boolean>; onTest: (id: string) => void}) {
  const {t} = useTranslation("settings");
  const titleId = useId();
- const list = useRef<HTMLOListElement>(null);
- const [dragging, setDragging] = useState<{from: number; over: number} | null>(null);
  const movable = entries.filter(item => !item.fixed);
- const fixedCount = entries.length - movable.length;
- const overIndex = (clientY: number) => {
-  const rows = list.current ? Array.from(list.current.querySelectorAll<HTMLElement>("[data-movable='true']")) : [];
-  let best = rows.length - 1;
-  for (const [index, row] of rows.entries()) { const box = row.getBoundingClientRect(); if (clientY < box.top + box.height / 2) { best = index; break; } }
-  return Math.max(0, best);
- };
- function press(event: ReactPointerEvent<HTMLButtonElement>, from: number) {
-  if (event.button !== 0 && event.pointerType === "mouse") return;
-  event.preventDefault();
-  const target = event.currentTarget;
-  target.setPointerCapture(event.pointerId);
-  setDragging({from, over: from});
- }
- function dragMove(event: ReactPointerEvent<HTMLButtonElement>) {
-  if (dragging) setDragging({from: dragging.from, over: overIndex(event.clientY)});
- }
- function release(event: ReactPointerEvent<HTMLButtonElement>) {
-  if (!dragging) return;
-  const {from, over} = dragging;
-  if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-  setDragging(null);
-  if (over !== from) onMove(from, over);
- }
- function key(event: ReactKeyboardEvent<HTMLButtonElement>, index: number) {
-  const step = event.key === "ArrowUp" ? -1 : event.key === "ArrowDown" ? 1 : 0;
-  if (!step) return;
-  event.preventDefault();
-  onMove(index, index + step);
-  const id = movable[index].id;
-  requestAnimationFrame(() => list.current?.querySelector<HTMLElement>(`[data-id='${id}'] .web-grip`)?.focus());
- }
+ const say = (id: string, index: number) => t("webtools.moved", {name: entries.find(entry => entry.id === id)?.label, position: index + 1, total: movable.length});
  return <SettingsCard className="web-chain">
   <div className="web-chain-head"><h5 id={titleId}>{t(`webtools.${chain}_title`)}</h5><p>{readOnly && managedNote ? managedNote : t(`webtools.${chain}_note`)}</p></div>
-  <ol ref={list} className="web-chain-list" aria-labelledby={titleId}>
+  <SortableList items={readOnly ? [] : movable.map(entry => entry.id)} onMove={(id, to) => onMove(movable.findIndex(entry => entry.id === id), to)} announce={say} instructions={t("webtools.move_hint")}>
+  <ol className="web-chain-list" aria-labelledby={titleId}>
    {entries.map(entry => {
     const index = movable.indexOf(entry);
-    return <SourceRow key={entry.id} entry={entry} chain={chain} readOnly={readOnly} organization={organization} index={index} count={movable.length} first={fixedCount} outcome={outcomes[entry.id]} testing={testing === entry.id} busy={testing !== null}
-     dragging={dragging?.from === index && !entry.fixed} over={dragging !== null && dragging.over === index && dragging.from !== index && !entry.fixed}
-     grip={{onPointerDown: event => press(event, index), onPointerMove: dragMove, onPointerUp: release, onPointerCancel: () => setDragging(null), onKeyDown: event => key(event, index)}}
+    return <SourceRow key={entry.id} entry={entry} chain={chain} readOnly={readOnly} organization={organization} index={index} count={movable.length} outcome={outcomes[entry.id]} testing={testing === entry.id} busy={testing !== null}
      onMove={step => onMove(index, index + step)} onEnabled={enabled => onEnabled(entry.id, enabled)} onSave={body => onSave(entry.id, body)} onRemove={() => onRemove(entry.id)} onTest={() => onTest(entry.id)} />;
    })}
   </ol>
+  </SortableList>
  </SettingsCard>;
 }
 
-type GripHandlers = {onPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void; onPointerMove: (event: ReactPointerEvent<HTMLButtonElement>) => void; onPointerUp: (event: ReactPointerEvent<HTMLButtonElement>) => void; onPointerCancel: () => void; onKeyDown: (event: ReactKeyboardEvent<HTMLButtonElement>) => void};
-
-function SourceRow({entry, chain, readOnly, organization, index, count, outcome, testing, busy, dragging, over, grip, onMove, onEnabled, onSave, onRemove, onTest}: {entry: WebSourceEntry; chain: Chain; readOnly: boolean; organization: boolean; index: number; count: number; first: number; outcome?: Outcome; testing: boolean; busy: boolean; dragging: boolean; over: boolean; grip: GripHandlers; onMove: (step: -1 | 1) => void; onEnabled: (enabled: boolean) => void; onSave: (body: {key?: string; zone?: string; base_url?: string}) => Promise<boolean>; onRemove: () => Promise<boolean>; onTest: () => void}) {
+function SourceRow({entry, chain, readOnly, organization, index, count, outcome, testing, busy, onMove, onEnabled, onSave, onRemove, onTest}: {entry: WebSourceEntry; chain: Chain; readOnly: boolean; organization: boolean; index: number; count: number; outcome?: Outcome; testing: boolean; busy: boolean; onMove: (step: -1 | 1) => void; onEnabled: (enabled: boolean) => void; onSave: (body: {key?: string; zone?: string; base_url?: string}) => Promise<boolean>; onRemove: () => Promise<boolean>; onTest: () => void}) {
  const {t} = useTranslation("settings");
  const [editing, setEditing] = useState(false);
  const switchId = useId();
+ const sortable = useSortableItem(entry.id, readOnly || entry.fixed, onMove);
  const state: BadgeState = testing ? "testing" : badge[entry.status];
  const code = entry.status === "error" ? entry.error_code : outcome && !outcome.ok ? outcome.code : "";
  const needsSetup = entry.status === "needs_key" || entry.status === "needs_address";
@@ -175,9 +142,9 @@ function SourceRow({entry, chain, readOnly, organization, index, count, outcome,
  // An organization source shows its state and nothing of its key or address, whatever the payload carries.
  const fromOrganization = organization || entry.source === "organization";
  const detail = fromOrganization && entry.kind === "self_hosted" ? "" : entry.kind === "self_hosted" ? entry.base_url : [entry.key_hint && !fromOrganization ? t("providers.configured_hint", {hint: entry.key_hint}) : "", entry.used_today ? t("webtools.used_today", {count: entry.used_today}) : ""].filter(Boolean).join(" · ");
- return <li className="web-row" data-id={entry.id} data-chain={chain} data-movable={!entry.fixed} data-status={entry.status} data-dragging={dragging || undefined} data-over={over || undefined}>
+ return <li ref={sortable.setNodeRef} style={sortable.style} className="web-row" data-id={entry.id} data-chain={chain} data-movable={!entry.fixed} data-status={entry.status} data-dragging={sortable.isDragging || undefined}>
   <div className="web-row-main">
-   {entry.fixed || readOnly ? <span className="web-grip-spacer" aria-hidden="true" /> : <button type="button" className="web-grip" aria-label={t("webtools.move_label", {name: entry.label})} aria-keyshortcuts="ArrowUp ArrowDown" title={t("webtools.move_hint")} {...grip}><GripGlyph size={16} /></button>}
+   {entry.fixed || readOnly ? <span className="web-grip-spacer" aria-hidden="true" /> : <button ref={sortable.setActivatorNodeRef} type="button" className="web-grip" aria-label={t("webtools.move_label", {name: entry.label})} aria-keyshortcuts="Space Alt+ArrowUp Alt+ArrowDown" title={t("webtools.move_hint")} {...sortable.attributes} {...sortable.activator}><GripGlyph size={16} /></button>}
    <span className="web-row-mark">{entry.kind === "native" ? <span className="service-mark service-mark-generic" aria-hidden="true"><TofiIcon name="sparkles" size={22} /></span> : entry.kind === "builtin" ? <span className="service-mark service-mark-generic" aria-hidden="true"><TofiIcon name="globe" size={22} /></span> : entry.kind === "computer" ? <span className="service-mark service-mark-generic" aria-hidden="true"><TofiIcon name="monitor" size={22} /></span> : <ServiceMark name={entry.label} id={entry.id} />}</span>
    <div className="web-row-copy">
     <div className="web-row-title"><strong>{entry.kind === "native" ? t("webtools.native_label") : entry.kind === "builtin" ? t("webtools.builtin_label") : entry.kind === "computer" ? t("webtools.computer_label") : entry.label}</strong>{entry.paid && <span className="settings-tag" data-tag="paid">{t("webtools.paid")}</span>}{fromOrganization && !entry.fixed && <span className="settings-tag web-org-tag" data-tag="organization"><TofiIcon name="lock" size={12} aria-hidden="true"/>{t("webtools.managed.organization")}</span>}</div>

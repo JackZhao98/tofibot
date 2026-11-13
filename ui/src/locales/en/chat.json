@@ -919,7 +919,7 @@
     "at_bottom": "{{title}} is already last",
     "at_top": "{{title}} is already first",
     "grip": "Move {{title}}",
-    "grip_hint": "Drag to move, or use the arrow keys",
+    "grip_hint": "Drag to move, or press Space to lift, arrows to move, Space to drop, Escape to cancel. Alt+Up/Down moves one place.",
     "moved": "{{title}} is now {{position}} of {{count}}"
   },
   "working": {

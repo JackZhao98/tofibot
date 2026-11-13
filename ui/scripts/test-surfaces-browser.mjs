@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 //    `tofi:open-sidebar` opens it, and an unknown value is ignored;
 //  - Usage widget: More > Usage opens it, it reads the conversation's usage once, again (throttled) when a run finishes and never while idle,
 //    says why a tool split is missing instead of inventing one, and links to Settings > Usage;
-//  - widgets reorder: Alt+Up / Down and the grip's arrow keys (announced, focus stays), dragging by the header or by pressing and moving on the computer's screen (live
+//  - widgets reorder: Alt+Up / Down and Space/arrow/Space on the grip (announced, focus stays), dragging by the header or by pressing and moving on the computer's screen (live
 //    reflow, Escape puts it back, no click-to-enlarge), the order is the person's (every conversation, a reload, auto-open lands in place);
 //  - Escape closes one thing per press, in the order: Radix menu, big computer -> compact, cover, sidebar, widgets bottom-up
 //    (Artifacts, then Members, then Computer); a native top-layer dialog is left to itself.
@@ -24,7 +24,7 @@ const poll = (page, fn, arg, timeout = 8000) => page.waitForFunction(fn, arg, { 
 const settled = page => page.waitForTimeout(500);
 /** The cards top to bottom as they are on screen (the DOM keeps a fixed order; CSS `order` places them). */
 const visual = page => page.locator(".widget-column [data-card]").evaluateAll(nodes => nodes.map(node => [node.dataset.card, node.getBoundingClientRect().top]).sort((a, b) => a[1] - b[1]).map(item => item[0]));
-const live = page => page.locator(".widget-column [role=status]").last().textContent();
+const live = async page => (await page.locator("#tofi-layers [role=status]").allTextContents()).join(" ");
 const openUsage = async page => { await page.getByRole("button", { name: "More actions" }).click(); await page.getByRole("menuitem", { name: "Usage" }).click(); await page.locator('.widget-column [data-card="usage"] .usage-now').waitFor(); };
 const grip = (page, card) => page.locator(`.widget-column [data-card="${card}"] .widget-grip`);
 const header = (page, card) => page.locator(`.widget-column [data-card="${card}"] .context-card-header`);
@@ -267,21 +267,62 @@ try {
     await poll(page, () => document.querySelector('.widget-column [data-card="computer"]'));
     await settled(page);
     assert.deepEqual(await visual(page), ["computer", "artifacts", "usage"], "the default order");
-    // Keyboard on the grip: Up / Down move, focus stays, the move is announced.
+    // Touch uses the library's hold sensor: early travel cancels, a 400 ms hold lifts, Escape restores.
+    const touchAt = await grip(page, "usage").boundingBox();
+    const touch = (type, dy = 0) => page.evaluate(({ type, x, y }) => {
+      const target = document.querySelector('[data-card="usage"] .widget-grip');
+      const point = { identifier: 1, target, clientX: x, clientY: y };
+      const event = new TouchEvent(type, { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "touches", { value: type === "touchend" ? [] : [point] });
+      Object.defineProperty(event, "changedTouches", { value: [point] });
+      target.dispatchEvent(event);
+    }, { type, x: touchAt.x + touchAt.width / 2, y: touchAt.y + touchAt.height / 2 + dy });
+    await touch("touchstart");
+    await touch("touchmove", 12);
+    await page.waitForTimeout(450);
+    assert.equal(await page.locator("[data-dragging]").count(), 0, "early touch travel cancels activation");
+    await touch("touchend", 12);
+    await touch("touchstart");
+    await page.waitForTimeout(150);
+    assert.equal(await page.locator("[data-dragging]").count(), 0, "a short touch does not lift");
+    await page.waitForTimeout(300);
+    assert.equal(await page.locator("[data-dragging]").count(), 1, "a 400 ms hold lifts");
+    await touch("touchmove", -120);
+    await page.keyboard.press("Escape");
+    await touch("touchend", -120);
+    await settled(page);
+    assert.deepEqual(await visual(page), ["computer", "artifacts", "usage"], "touch Escape preserves the order");
+    // Space lifts; arrows preview without persisting; Space drops. Unlifted arrows do not move a widget.
     await grip(page, "usage").focus();
     await page.keyboard.press("ArrowUp");
+    assert.deepEqual(await visual(page), ["computer", "artifacts", "usage"], "arrows alone do not reorder");
+    await page.keyboard.press("Space");
+    await poll(page, () => document.querySelector(".widget-column [data-dragging]") !== null);
+    // dnd-kit's keyboard sensor starts listening for keys in a timer it queues at the lift (a person's next key always
+    // comes later); a timer queued after the lift runs after that one, so the next key is heard.
+    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 0)));
+    await page.keyboard.press("ArrowUp");
     await settled(page);
-    assert.deepEqual(await visual(page), ["computer", "usage", "artifacts"], "ArrowUp on the grip moves it up");
+    assert.match(await live(page), /Usage is now 2 of 3/, "the preview is announced from the layer root");
+    await page.keyboard.press("Space");
+    await settled(page);
+    assert.deepEqual(await visual(page), ["computer", "usage", "artifacts"], "Space drops in the preview position");
     assert.equal(await page.evaluate(() => document.activeElement?.className.includes("widget-grip")), true, "focus stays on the grip");
-    assert.match(await live(page), /Usage is now 2 of 3/, "announced");
-    await page.keyboard.press("ArrowUp");
-    await page.keyboard.press("ArrowUp");
+    await page.keyboard.press("Alt+ArrowUp");
+    await page.keyboard.press("Alt+ArrowUp");
     await settled(page);
     assert.deepEqual(await visual(page), ["usage", "computer", "artifacts"]);
     assert.match(await live(page), /already first/, "the top says so");
-    await page.keyboard.press("End");
+    await page.keyboard.press("Space");
+    await page.keyboard.press("ArrowDown");
     await settled(page);
-    assert.deepEqual(await visual(page), ["computer", "artifacts", "usage"], "End sends it to the bottom");
+    await page.keyboard.press("Escape");
+    await settled(page);
+    assert.deepEqual(await visual(page), ["usage", "computer", "artifacts"], "keyboard Escape restores and closes nothing");
+    await page.keyboard.press("Alt+ArrowDown");
+    await page.keyboard.press("Alt+ArrowDown");
+    await settled(page);
+    assert.deepEqual(await visual(page), ["computer", "artifacts", "usage"]);
     // Alt+Up / Alt+Down from any control in the header.
     await page.getByRole("button", { name: /^Collapse Artifacts/ }).focus();
     await page.keyboard.press("Alt+ArrowDown");
@@ -313,18 +354,21 @@ try {
       await settled(page);
       assert.equal((await visual(page)).at(-1), "computer", "dragged by the screen to the bottom");
       assert.equal(await page.locator(".computer-detail.is-expanded").count(), 0, "a drag is not a click: nothing enlarged");
-      // Held, then a small move also drags (Escape cancels).
+      // A mouse hold does not reduce the 6 px threshold. Escape cancels once lifted.
       at = await screen();
       await page.mouse.move(at.x + at.width / 2, at.y + at.height / 2);
       await page.mouse.down();
       await page.waitForTimeout(450);
       await page.mouse.move(at.x + at.width / 2, at.y + at.height / 2 - 3, { steps: 2 });
-      assert.equal(await page.locator("[data-dragging]").count(), 1, "held, a small move drags");
+      assert.equal(await page.locator("[data-dragging]").count(), 0, "held mouse still needs 6 px travel");
+      await page.mouse.move(at.x + at.width / 2, at.y + at.height / 2 - 12, { steps: 3 });
+      assert.equal(await page.locator("[data-dragging]").count(), 1, "past 6 px lifts even after a hold");
       await page.keyboard.press("Escape");
       await page.mouse.up();
       await settled(page);
       assert.equal(await page.locator(".computer-detail.is-expanded").count(), 0, "cancelled: nothing enlarged");
-      // A short press without movement is the click.
+      // After click suppression expires, a short press without movement is the click.
+      await page.waitForTimeout(450);
       at = await screen();
       await page.mouse.click(at.x + at.width / 2, at.y + at.height / 2);
       await page.locator(".computer-detail.is-expanded").waitFor({ timeout: 4000 });
@@ -341,7 +385,7 @@ try {
     const from = await box("usage");
     await page.mouse.move(from.x + 60, from.y + from.height / 2);
     await page.mouse.down();
-    await page.mouse.move(from.x + 60, from.y + from.height / 2 + 6, { steps: 2 });
+    await page.mouse.move(from.x + 60, from.y + from.height / 2 + 12, { steps: 2 });
     assert.equal(await page.locator("[data-dragging]").count(), 1, "a lifted card while dragging");
     assert.equal(await page.evaluate(() => document.documentElement.hasAttribute("data-widget-dragging")), true);
     await page.mouse.move(from.x + 60, from.y + from.height / 2 + 700, { steps: 24 });
@@ -370,7 +414,7 @@ try {
     // The order is the person's: every conversation, and a reload (a non-default one is stored; the default is not).
     assert.equal(await page.evaluate(() => localStorage.getItem("tofi:widget-order:local")), null, "the default order is not stored");
     await grip(page, "usage").focus();
-    await page.keyboard.press("ArrowUp");
+    await page.keyboard.press("Alt+ArrowUp");
     await settled(page);
     const chosen = await visual(page);
     assert.deepEqual(chosen, ["computer", "usage", "artifacts"]);
@@ -436,7 +480,7 @@ try {
       assert.equal(await page.locator('[data-card="usage"].is-collapsed').count(), 0, "a drag does not fold it");
     }
     assert.deepEqual(errors, []);
-    results.push("reorder: grip arrows, Alt+Up/Down, End, the Bot computer's screen (Alt+arrows, press-and-move, hold-then-move, plain press enlarges), header and title drag with live reflow, Escape restores, order kept across conversations and reloads");
+    results.push("reorder: Space/arrow/Space, Alt+Up/Down, keyboard Escape, the Bot computer's screen (Alt+arrows, press-and-move, mouse hold keeps threshold, plain press enlarges), header and title drag with live reflow, Escape restores, order kept across conversations and reloads");
     await context.close();
   }
 
@@ -448,8 +492,8 @@ try {
     await openUsage(page);
     await settled(page);
     await grip(page, "usage").focus();
-    await page.keyboard.press("ArrowUp");
-    const running = await page.evaluate(() => document.getAnimations().filter(animation => animation.transitionProperty === "translate").length);
+    await page.keyboard.press("Alt+ArrowUp");
+    const running = await page.evaluate(() => document.getAnimations().filter(animation => ["translate", "transform"].includes(animation.transitionProperty)).length);
     assert.equal(running, 0, "no slide under reduced motion");
     assert.deepEqual(await visual(page), ["usage", "artifacts"]);
     assert.deepEqual(errors, []);

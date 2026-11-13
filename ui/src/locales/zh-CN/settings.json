@@ -1498,7 +1498,7 @@
     "set_up": "设置",
     "edit": "编辑",
     "move_label": "移动 {{name}}",
-    "move_hint": "拖动，或使用方向键",
+    "move_hint": "拖动移动，或按空格拿起、方向键移动、空格放下、Escape 取消。Alt+上/下移动一位。",
     "move_up": "将 {{name}} 上移",
     "move_down": "将 {{name}} 下移",
     "moved": "{{name}} 现在排第 {{position}}/{{total}}",

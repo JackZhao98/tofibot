@@ -1510,7 +1510,7 @@
     "set_up": "Set up",
     "edit": "Edit",
     "move_label": "Move {{name}}",
-    "move_hint": "Drag, or use the arrow keys",
+    "move_hint": "Drag to move, or press Space to lift, arrows to move, Space to drop, Escape to cancel. Alt+Up/Down moves one place.",
     "move_up": "Move {{name}} up",
     "move_down": "Move {{name}} down",
     "moved": "{{name}} is now {{position}} of {{total}}",

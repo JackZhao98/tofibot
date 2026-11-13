@@ -55,6 +55,9 @@ await check("Radix ships only in lazy chunks; the entry files carry none of it a
   }
   const radix = [...seen].filter(([, text]) => RADIX_MARKERS.some(marker => text.includes(marker))).map(([file]) => file);
   truthy(radix.length, `no chunk carries Radix (looked for ${RADIX_MARKERS.join(", ")} in ${seen.size} chunks)`);
+  for (const file of eager) {
+    truthy(!["DndDescribedBy", "sortableKeyboardCoordinates", "draggableDescribedById"].some(marker => seen.get(file)?.includes(marker)), `dnd-kit is in the entry: ${file}`);
+  }
   const eagerRadix = radix.filter(file => eager.includes(file));
   truthy(!eagerRadix.length, `Radix is in the entry: ${eagerRadix.join(", ")}`);
   for (const name of ["ReassignPrimaryDialog", "DeleteConversationDialog", "DialogShell", "ModalDialog"]) {

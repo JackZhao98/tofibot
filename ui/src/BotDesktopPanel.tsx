@@ -756,8 +756,8 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
 
   // The small form keeps two quiet controls on its top-left corner, in every layout: close, then enlarge (the screen itself enlarges too,
   // the button below). The fold is automatic and the strip is one click back; the big window's own controls sit in its heading.
-  // In the widget column the monitor has no header and no handle: pressing the screen and moving (or holding, then moving) drags the widget, a plain
-  // press is the click that enlarges, and Alt+Up / Alt+Down on the screen button move it (ContextCard's engine, through the grip context).
+  // In the widget column the monitor has no header and no handle: moving 6 px on the screen (or holding 400 ms on touch) drags the widget, a plain
+  // press is the click that enlarges, and Alt+Up / Alt+Down on the screen button move it (dnd-kit, through the grip context).
   const widgetGrip = useWidgetGrip();
   // The power button sits with the window's own controls in every form (the small screen and the strip too): whether the
   // computer is on is the one thing worth a glance. Only a computer that has one (the server says can_sleep).
@@ -775,8 +775,8 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   const closeButton = <button key="close" type="button" className="desktop-control-button computer-hide-button" aria-label={t("desktop.close_aria")} data-hint={!expanded ? t("desktop.close") : undefined} title={expanded ? t("desktop.close") : undefined} onClick={() => closePanel("hide")}><TofiIcon name="close" size={16} /></button>;
   const windowButtons = expanded ? [powerButton, expandButton, closeButton] : [closeButton, expandButton, powerButton];
   // The small screen is one button: the middle of it enlarges. The hint (glyph and words) fades in over a soft scrim on hover and focus.
-  const enlargeButton = !expanded && !folded && <button type="button" className="desktop-enlarge" aria-label={t("desktop.expand_aria")} aria-keyshortcuts={widgetGrip ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
-    onPointerDown={widgetGrip ? widgetGrip.onPress : undefined} onKeyDown={widgetGrip ? widgetGrip.onKeyDown : undefined}
+  const enlargeButton = !expanded && !folded && <button ref={widgetGrip?.ref} type="button" className="desktop-enlarge" aria-label={t("desktop.expand_aria")} aria-keyshortcuts={widgetGrip ? "Space Alt+ArrowUp Alt+ArrowDown" : undefined}
+    {...widgetGrip?.attributes} {...widgetGrip?.activator}
     onClick={() => { if (widgetGrip?.wasDragged()) return; setExpanded(true); }}>
     <span className="desktop-enlarge-hint" aria-hidden="true"><span className="desktop-expand-glyph" />{t("desktop.enlarge_hint")}</span>
   </button>;

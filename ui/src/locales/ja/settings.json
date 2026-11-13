@@ -1498,7 +1498,7 @@
     "set_up": "設定",
     "edit": "編集",
     "move_label": "{{name}} を移動",
-    "move_hint": "ドラッグ、または矢印キーで移動",
+    "move_hint": "ドラッグで移動。またはスペースで持ち上げ、矢印キーで移動、スペースで確定、Escapeでキャンセル。Alt+上下キーで1つ移動。",
     "move_up": "{{name}} を上へ",
     "move_down": "{{name}} を下へ",
     "moved": "{{name}} は {{total}} 件中 {{position}} 番目になりました",

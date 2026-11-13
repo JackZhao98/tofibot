@@ -1522,7 +1522,7 @@
     "set_up": "Configurer",
     "edit": "Modifier",
     "move_label": "Déplacer {{name}}",
-    "move_hint": "Glissez, ou utilisez les flèches",
+    "move_hint": "Glissez pour déplacer, ou Espace pour saisir, les flèches pour déplacer, Espace pour déposer, Échap pour annuler. Alt+Haut/Bas déplace d’une place.",
     "move_up": "Monter {{name}}",
     "move_down": "Descendre {{name}}",
     "moved": "{{name}} est maintenant en position {{position}} sur {{total}}",
