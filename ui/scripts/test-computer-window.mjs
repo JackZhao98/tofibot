@@ -533,9 +533,13 @@ try {
     // Arrow keys on the screen button move it by 16 px; Alt + arrow snaps to that side's corner.
     await page.locator(".desktop-enlarge").focus();
     const x0 = (await box()).x;
+    // Motion applies a placement on the next frame.
+    const nextFrame = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await page.keyboard.press("ArrowLeft");
+    await nextFrame();
     assert.ok(Math.abs(x0 - (await box()).x - 16) <= 1, `${label}: ArrowLeft moves 16px`);
     await page.keyboard.press("Alt+ArrowLeft");
+    await nextFrame();
     b = await box();
     assert.ok(Math.abs(b.x - 20) <= 2, `${label}: Alt+ArrowLeft snaps to the left corner`);
     // A click on the screen still enlarges in place, wherever the mini window was moved.
@@ -543,7 +547,7 @@ try {
     await page.locator(".desktop-enlarge").click();
     await shell(page, "is-expanded").waitFor();
     if (!reducedMotion) assert.equal((await page.evaluate(() => window.__flips)).length, 1, "enlarging from the moved window is one in-place fade");
-    assert.equal(await page.evaluate(() => document.querySelector(".desktop-floating-shell").style.transform), "", "the big window carries no placement transform");
+    assert.ok(["", "none"].includes(await page.evaluate(() => document.querySelector(".desktop-floating-shell").style.transform)), "the big window carries no placement transform");
     await page.keyboard.press("Escape");
     await shell(page, "is-small").waitFor();
     assert.deepEqual(errors, []);

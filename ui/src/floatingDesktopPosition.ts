@@ -20,7 +20,7 @@ export function dockFloatingPosition(point: FloatingPoint, size: FloatingSize, v
 }
 
 /*
- * The Bot-computer mini window (docs/design/computer-pip.md section 5). Pure geometry, no DOM: the engine in pipDrag.ts feeds it
+ * The Bot-computer mini window (docs/design/computer-pip.md section 5). Pure geometry, no DOM: FloatingDesktop feeds it
  * measurements. A position is stored as a corner plus an offset from it, so a resized window or a toggled sidebar leaves the mini
  * window hugging the same corner.
  */
@@ -36,9 +36,6 @@ export const PIP_DEFAULT_SIZE = 392;
 const TOP_INSET = 64;
 /** The perched cat needs room on the right above the composer. */
 const BOTTOM_RIGHT_GAP = 64;
-const RUBBER = 0.35;
-export const PIP_DRAG_PX = 6;
-export const PIP_HOLD_MS = 350;
 
 export const pipCorners: readonly PipCorner[] = ["tl", "tr", "bl", "br"];
 export const defaultPipStored: PipStored = { corner: "br", dx: 0, dy: 0, size: PIP_DEFAULT_SIZE };
@@ -52,10 +49,17 @@ export function pipCornerPoint(corner: PipCorner, size: FloatingSize, viewport: 
   return { left, top: Math.max(EDGE, Math.min(floor, above)) };
 }
 
+/** Keep the whole mini window above the composer, including a remembered free position. */
+export function clampPipPoint(point: FloatingPoint, size: FloatingSize, viewport: FloatingSize, composerTop?: number): FloatingPoint {
+  const inside = clampFloatingPosition(point, size, viewport);
+  const bottom = pipCornerPoint("bl", size, viewport, composerTop).top;
+  return { left: inside.left, top: Math.min(inside.top, bottom) };
+}
+
 /** The window's visible position for a stored place, kept inside the viewport. */
 export function resolvePipPlace(place: PipPlace, size: FloatingSize, viewport: FloatingSize, composerTop?: number): FloatingPoint {
   const origin = pipCornerPoint(place.corner, size, viewport, composerTop);
-  return clampFloatingPosition({ left: origin.left + place.dx, top: origin.top + place.dy }, size, viewport);
+  return clampPipPoint({ left: origin.left + place.dx, top: origin.top + place.dy }, size, viewport, composerTop);
 }
 
 /** The corner whose point is nearest to `point` (the window's top-left, usually the projected landing point). */
@@ -72,7 +76,7 @@ export function nearestPipCorner(point: FloatingPoint, size: FloatingSize, viewp
 
 /** A free spot (the Alt placement) as corner + offset, measured from the nearest corner. */
 export function pipPlaceFromPoint(point: FloatingPoint, size: FloatingSize, viewport: FloatingSize, composerTop?: number): PipPlace {
-  const clamped = clampFloatingPosition(point, size, viewport);
+  const clamped = clampPipPoint(point, size, viewport, composerTop);
   const corner = nearestPipCorner(clamped, size, viewport, composerTop);
   const origin = pipCornerPoint(corner, size, viewport, composerTop);
   return { corner, dx: Math.round(clamped.left - origin.left), dy: Math.round(clamped.top - origin.top) };
@@ -81,13 +85,6 @@ export function pipPlaceFromPoint(point: FloatingPoint, size: FloatingSize, view
 /** Where a release lands: the corner nearest to the point 120 ms of speed ahead. */
 export function projectPipPoint(point: FloatingPoint, velocity: { x: number; y: number }, ahead = 0.12): FloatingPoint {
   return { left: point.left + velocity.x * ahead, top: point.top + velocity.y * ahead };
-}
-
-/** Beyond the bounds the window follows the finger at 0.35, and springs back on release. */
-export function rubberBandPipPoint(point: FloatingPoint, size: FloatingSize, viewport: FloatingSize, soft = true): FloatingPoint {
-  const inside = clampFloatingPosition(point, size, viewport);
-  if (!soft) return inside;
-  return { left: inside.left + (point.left - inside.left) * RUBBER, top: inside.top + (point.top - inside.top) * RUBBER };
 }
 
 /** One arrow press from a window position: 16 px, Shift 64 px. Alt moves to the corner on that side instead (`snapPipSide`). */
