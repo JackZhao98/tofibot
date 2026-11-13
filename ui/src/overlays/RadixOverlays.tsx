@@ -28,7 +28,9 @@ const keepOnFocusMove = (event: Event) => event.preventDefault();
 function restoreFocus(target: HTMLElement | null | undefined, outside: boolean) {
   if (outside || !target?.isConnected) return;
   const active = document.activeElement;
-  if (!active || active === document.body) target.focus({ preventScroll: true });
+  // Focus is lost when it fell to <body>, or when a FocusScope around the trigger (the Settings pane) parked it on its own
+  // container while the menu unmounted; focus the person moved elsewhere stays where it is.
+  if (!active || active === document.body || (active !== target && active.contains(target))) target.focus({ preventScroll: true });
 }
 
 /** Tab out of a menu continues from its trigger, as if the menu sat right after it in the page; inside a modal (Settings) it

@@ -33,9 +33,10 @@ const truthy = (value, message) => { if (!value) throw new Error(message); };
 // DIALOGS_ONLY=app or DIALOGS_ONLY=harness runs one half (used while proving each check fails on a reverted tree).
 const only = process.env.DIALOGS_ONLY || "app,harness";
 // D31 as amended by D82: the entry may carry the small Radix pieces that every chat shows (the message action bar's Toolbar and
-// DismissableLayer, the tool-step Collapsible); dialogs, menus, popovers and the Settings controls stay in lazy chunks.
-const ENTRY_RADIX = ["ToolbarButton", "CollapsibleTrigger", "dismissableLayer.pointerDownOutside", "rovingFocusGroup.onEntryFocus"];
-const LAZY_RADIX = ["focusScope.autoFocusOnMount", "data-scroll-locked", "TabsTrigger", "RadioGroupItem", "HoverCardContent", "SwitchThumb", "MenuItem", "PopperContent"];
+// DismissableLayer, the tool-step Collapsible, the FocusScope of the Settings pane and the computer window); dialogs, menus,
+// popovers and the Settings controls stay in lazy chunks.
+const ENTRY_RADIX = ["ToolbarButton", "CollapsibleTrigger", "dismissableLayer.pointerDownOutside", "rovingFocusGroup.onEntryFocus", "focusScope.autoFocusOnMount"];
+const LAZY_RADIX = ["DialogContent", "data-scroll-locked", "TabsTrigger", "RadioGroupItem", "HoverCardContent", "SwitchThumb", "MenuItem", "PopperContent"];
 const RADIX_MARKERS = [...ENTRY_RADIX, ...LAZY_RADIX];
 
 // ---- 1 + 2: the production app

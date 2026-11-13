@@ -500,7 +500,9 @@ await check("touch: tapping beside the bubble does nothing; tapping the bubble o
   // the bar): wait for it instead of sleeping a fixed time.
   await page.touchscreen.tap(5, 300);
   await page.waitForFunction(() => document.querySelectorAll(".message-hover-actions").length === 0, null, { timeout: 2000 }).catch(() => {});
-  assert.equal(await bar(page).count(), 0, "a tap elsewhere closes it");
+  // Failed once in eight runs (2026-11-13) with no cause found; say what kept the bar if it happens again.
+  const left = await page.evaluate(() => { const b = document.querySelector(".message-hover-actions"); return b ? { message: b.closest(".message-block")?.dataset.messageId, focused: document.activeElement?.className?.toString().slice(0, 60), focusVisible: document.activeElement?.matches(":focus-visible") } : null; });
+  assert.equal(left, null, `a tap elsewhere closes it (still open: ${JSON.stringify(left)})`);
   await context.close();
 });
 
