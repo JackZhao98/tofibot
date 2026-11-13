@@ -57,9 +57,40 @@ jobs:
       - name: Release notes exist for this tag
         run: scripts/check-release-notes.sh "$TAG"
 
+  # The tagged commit was already tested by ci.yml when it reached main. Instead of running every
+  # test again (26 minutes), wait for that run: green continues, anything else stops the release.
   test:
     needs: version
-    uses: ./.github/workflows/ci.yml
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+          fetch-depth: 0
+      - name: main CI is green for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          if ! git fetch -q origin main || ! git merge-base --is-ancestor "$sha" origin/main; then
+            echo "::error::$TAG ($sha) is not on main; tag a commit that main's CI tested"
+            exit 1
+          fi
+          for attempt in $(seq 1 120); do
+            row=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml --commit "$sha" --event push --limit 1 --json status,conclusion,url --jq '.[0] // empty | "\(.status) \(.conclusion) \(.url)"')
+            case "$row" in
+              "completed success "*) echo "main CI passed: ${row##* }"; exit 0 ;;
+              completed*) echo "::error::main CI did not pass for $sha: $row"; exit 1 ;;
+              "") [ "$attempt" -le 8 ] || { echo "::error::no ci.yml push run for $sha"; exit 1; } ;;
+            esac
+            sleep 30
+          done
+          echo "::error::main CI for $sha did not finish within 60 minutes"
+          exit 1
 
   # Every image is built natively per architecture (hosted runners: ubuntu-24.04
   # for amd64, ubuntu-24.04-arm for arm64; the repo is public) and pushed by
