@@ -3,12 +3,14 @@
    the offset (tight rows use a negative one) but never the width or color. */
 
 /* Baseline: any focusable control without a rule of its own still shows the shared ring for the keyboard. */
+@layer base {
 :where(a[href], button, summary, select, input, textarea, iframe, [tabindex]:not([tabindex="-1"], .fp-body)):focus-visible {
   outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: var(--focus-ring-offset);
 }
 /* Containers that only receive script focus (dialogs, panes, anchored records) are never ringed. */
 :is(dialog, [role="dialog"], [role="alertdialog"], [tabindex="-1"]):focus,
 :is(dialog, [role="dialog"], [role="alertdialog"], [tabindex="-1"]):focus-visible { outline: none; }
+}
 
 /* Pointer modality (see focusModality.ts): clicks, taps and script focus that follows them draw nothing.
    Text-entry fields keep their frame: it marks where typing lands, and the caret alone is not enough. */

@@ -106,6 +106,7 @@
     "test:visual-surfaces": "node --test scripts/test-visual-surfaces.mjs",
     "test:motion-tokens": "node scripts/test-motion-tokens.mjs",
     "test:layers": "node scripts/test-layers.mjs",
+    "test:css-layers": "node scripts/test-css-layers.mjs",
     "test:select-guard": "node scripts/test-select-guard.mjs",
     "test:overlays": "node scripts/test-overlays.mjs",
     "test:dialogs": "node scripts/test-dialogs.mjs",

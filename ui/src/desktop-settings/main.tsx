@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { i18nReady, useLanguage } from "../i18n";
 import { MacSettingsPage } from "./MacSettingsPage";
+import "../cascade.css";
 import "../fonts.css";
 import "../styles.css";
 import "../interaction-system.css";

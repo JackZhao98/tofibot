@@ -7,6 +7,7 @@ import { ProxyChallengeSlot } from "./ProxyChallengeSlot";
 import { i18nReady, useLanguage } from "./i18n";
 import { installFocusModality } from "./focusModality";
 import { watchInstallPrompt } from "./installApp";
+import "./cascade.css";
 import "./fonts.css";
 import "./styles.css";
 

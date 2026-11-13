@@ -185,6 +185,26 @@ Design: `docs/design/user-groups.md` section 5 (local). The UI reads policy from
 - The computer status (`/api/computers/firecracker/info`, `computer.Info.error_code`) names why an E2B computer is in error (`org_resource_missing`, `guest_outdated_required`, a build code). The workspace banner in `App.tsx` and the Bot computer window say "Your organization hasn't provisioned a Bot computer" for `org_resource_missing` instead of the generic failure; Retry stays, because nothing restarts a member's computer when the admin adds the key later (`test:computer-window`).
 - Tests: `test:admin-groups` and `test:org-resources` (browser suites over `scripts/lib/org-fixture.mjs`, a stateful stub of the Administration API; `UG_BROWSER=webkit` runs them in WebKit, `UG_SHOTS=<dir>` saves screenshots), plus the member-side blocks in `test:environments`, `test:web-tools`, `test:onboarding`, `test:settings-choices` (policy derivation), `test:settings-shell` and `test:settings-registry`.
 
+# Web UI CSS: global defaults below, components above
+
+Owner 2026-11-13: no global or fallback style may override a component. The global base is small and stable; components
+add their own styles on top; a thing used in many places is defined once.
+
+- `ui/src/cascade.css` declares `@layer reset, tokens, base, components, platform, utilities;`. Every entry (`main.tsx`,
+  `desktop-settings/main.tsx`, `catalog/main.tsx`, `motion-lab/main.tsx`, the Mac pages) imports it before any other
+  stylesheet.
+- Global defaults go in a layer: `reset` (box sizing), `tokens` (all custom properties, `design-tokens.css`, including the
+  high-contrast and no-blur overrides and the few component tokens), `base` (element defaults: page colours, selection,
+  caret, the default field look, the default focus ring). Component styles are not in a layer, and a style outside a
+  layer always wins over every layer, whatever its specificity or load order.
+- Rules that must force a result stay outside the layers on purpose: reduced motion, `forced-colors`, the iOS 16 px
+  input size, the pointer-modality focus rule (`focus-ring.css`), platform drag regions (`desktop-system.css`).
+- `test:css-layers` (CI and `ci-local`) checks the order line and ratchets, per stylesheet, the unlayered global rules,
+  `:root` specificity bumps, `html:not([data-desktop])` forks, `!important` and `:root` token definitions outside the
+  tokens file (`ui/scripts/css-layers-baseline.json`). Counts only go down; lower the baseline with `--update` in the
+  commit that removes them. Totals at the start (2026-11-13): global 22, rootBump 241, webFork 47, important 79,
+  tokenDef 1. A new component never needs a `:root` bump: the field and focus defaults no longer outrank it.
+
 # Web UI motion
 
 One vocabulary, in `ui/src/design-tokens.css` and mirrored for Web Animations in `ui/src/motion.ts`: durations

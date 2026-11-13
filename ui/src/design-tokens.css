@@ -1,5 +1,6 @@
 /* Final V2 tokens. Legacy variable names below are temporary aliases for
    production selectors; the final-system palette is the sole color source. */
+@layer tokens {
 :root {
   color-scheme:light;
   /* Final V2 system: semantic palette is authoritative; historical names below
@@ -158,6 +159,37 @@
   --tooltip-bg:#f2efe9; --tooltip-ink:#171411;
   --bubble-bot:#2b2722; --bubble-user:#4a3125; --bubble-inset:#1c1915; --bubble-inset-ink:#f0e2cf;
   --mail-paper:#fbf4e6;
+}
+
+/* Widget column and sidebar panels (context-card.css). */
+:root { --panel-elevation-edge:-14px 0 32px -22px color-mix(in srgb,var(--shade-ink) 32%,transparent); --panel-float-elevation:0 1px 3px color-mix(in srgb,var(--shade-ink) 8%,transparent), 0 3px 12px -3px color-mix(in srgb,var(--shade-ink) 22%,transparent); --panel-gap:12px; --panel-radius:16px; --widget-bleed-l:44px; --widget-bleed-r:16px; --widget-bleed-b:16px; }
+:root[data-theme="dark"] { --panel-elevation-edge:-14px 0 32px -20px color-mix(in srgb,var(--shade) 75%,transparent); --panel-float-elevation:0 1px 3px color-mix(in srgb,var(--shade) 50%,transparent), 0 3px 12px -3px color-mix(in srgb,var(--shade) 65%,transparent), inset 0 1px 0 color-mix(in srgb,var(--white) 4%,transparent); }
+
+/* File tiles (file-tile.css). */
+:root {
+  --ft-page-mix:9%; --ft-fold-mix:26%; --ft-edge-mix:24%;
+}
+:root[data-theme="dark"] {
+  --ft-page-mix:16%; --ft-fold-mix:34%; --ft-edge-mix:34%;
+}
+
+/* Message sender groups (sender-groups.css). */
+:root { --sender-avatar:34px; --sender-gap:10px; --sender-gutter:calc(var(--sender-avatar) + var(--sender-gap)); --sender-caption:21px; }
+
+/* Shell widths (v2-app.css). */
+:root {
+  --v2-sidebar-width:272px;
+  --v2-chat-width:760px;
+}
+
+/* High contrast: author colours give way to system colours. Both theme selectors, or the dark block would win. */
+@media (forced-colors:active){
+  :root,:root[data-theme="dark"]{--bg:Canvas;--surface:Canvas;--surface-soft:Canvas;--sidebar-bg:Canvas;--selected-bg:Highlight;--line:ButtonText;--line-strong:ButtonText;--text:CanvasText;--text-soft:CanvasText;--muted:CanvasText;--accent:Highlight;--success:Highlight;--danger:LinkText;--focus-ring:Highlight}
+}
+/* Without backdrop blur, glass is the plain surface. */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
+  :root,:root[data-theme="dark"] { --glass:var(--surface); }
+}
 }
 
 /* The avatar picker's paint reveal animates this (BotAvatarPicker.tsx). Registered here, not in the picker's lazy CSS:

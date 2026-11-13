@@ -1,0 +1,6 @@
+/* Cascade layer order. Every entry loads this file first (test:css-layers checks it).
+   reset, tokens and base hold the global defaults: element selectors, custom properties and the default focus ring.
+   Component styles are not in a layer, and a style outside a layer always wins over every layer, so a global default
+   can never override a component, whatever its specificity or load order. components, platform and utilities are
+   reserved for the shared classes that move in later. */
+@layer reset, tokens, base, components, platform, utilities;
