@@ -1,5 +1,8 @@
 // Every section of docs/design/components.md, in its order. The catalog is that document made visible: a component
 // added there gets a section here, and states the catalog cannot show yet are listed as gaps on the page.
+import { foundations } from "./foundations";
+import { primitives } from "./primitives";
+import { surfaces } from "./surfaces";
 import type { CatalogSection } from "../types";
 import { actions, bubbles, composer, edges, perch, receipts } from "./chat";
 import { dialogs, hints, listboxes, menus, popovers } from "./overlays";
@@ -8,6 +11,7 @@ import { settings } from "./settings";
 import { boot, computer, notices, other, pins, push, rows } from "./workspace";
 
 export const SECTIONS: CatalogSection[] = [
+  foundations, primitives, surfaces,
   bubbles, actions, receipts, composer, perch, rows, pins, dialogs, menus, hints, popovers, listboxes,
   questions, approvals, handover, standing, settings, notices, boot, computer, push, edges, other,
 ];

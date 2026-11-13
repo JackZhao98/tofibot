@@ -37,3 +37,7 @@ The menus and popovers are Radix primitives in the lazily loaded chunk `assets/R
 | `aria-hidden`, `get-nonce`, `react-remove-scroll`, `react-remove-scroll-bar`, `react-style-singleton`, `use-callback-ref`, `use-sidecar`, Copyright (c) Anton Korzunov | MIT | `public/licenses/react-remove-scroll.txt` |
 | `detect-node-es`, Copyright (c) 2017 Ilya Kantor | MIT | `public/licenses/detect-node-es.txt` |
 | `tslib`, Copyright (c) Microsoft Corporation | 0BSD | `public/licenses/tslib.txt` |
+
+## Sortable lists (MIT)
+
+Widget and Web tools reordering uses `@dnd-kit/core` 6.3.1, `@dnd-kit/sortable` 10.0.0 and `@dnd-kit/modifiers` 9.0.0, with `@dnd-kit/accessibility` and `@dnd-kit/utilities`. Copyright (c) 2021, Claudéric Demers. These packages are bundled only in lazy panel chunks; the full MIT license is in `public/licenses/dnd-kit.txt`.

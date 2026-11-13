@@ -1,4 +1,4 @@
-// The component catalog (docs/design/migration.md step 6). Dev only: docs/decisions/0034-component-catalog-dev-only.md.
+// The isolated Design System bundle. Never imported by the workspace.
 // The sandbox must evaluate before any product module (it replaces storage and the network): keep it the first import.
 import { CATALOG_MARKER, frameParams } from "./sandbox";
 import { mountFrame } from "./Frame";
@@ -34,7 +34,6 @@ import { Shell, catalogIndex } from "./Shell";
 
 // The marker comes first so that any bundle containing this entry carries it (scripts/test-catalog.mjs looks for it).
 document.documentElement.dataset.catalog = CATALOG_MARKER;
-if (!import.meta.env.DEV) throw new Error("The component catalog is dev only (D34).");
 
 void i18nReady.finally(() => {
   if (frameParams.section) {

@@ -40,6 +40,10 @@ const loaders = {
   workTimeline: () => import("./WorkTimeline"),
   taskActivity: () => import("./TaskActivityBody"),
   toolSteps: () => import("./WebToolSteps"),
+  // Popups opened by one press: once warm they draw on the press's own commit (React.lazy would suspend once and React holds
+  // a revealed Suspense boundary for 300 ms, which was the first account-menu open: 314 ms).
+  accountMenu: () => import("./AccountMenu"),
+  reactionPicker: () => import("./ReactionEmojiPicker"),
 } as const;
 export type PanelChunk = keyof typeof loaders;
 
@@ -80,6 +84,8 @@ export function chunk<K extends PanelChunk, P extends object>(name: K, pick: (mo
 }
 
 export const SettingsPanel = chunk("settings", module => module.SettingsPanel);
+export const AccountMenu = chunk("accountMenu", module => module.AccountMenu);
+export const ReactionEmojiPicker = chunk("reactionPicker", module => module.default);
 export const BotDesktopPanel = chunk("desktop", module => module.BotDesktopPanel);
 export const FloatingDesktop = chunk("desktop", module => module.FloatingDesktop);
 export const WorkPanel = chunk("work", module => module.WorkPanel);
@@ -160,6 +166,8 @@ const entryPoints: Array<[selector: string, chunk: PanelChunk]> = [
   [".composer-stop", "stopMenu"],
   [".task-activity > summary", "taskActivity"],
   [".web-tool-toggle", "toolSteps"],
+  [".sidebar-account", "accountMenu"],
+  [".reaction-options", "reactionPicker"],
 ];
 
 /**

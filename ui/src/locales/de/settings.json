@@ -85,6 +85,10 @@
       "admin-resources": {
         "name": "Organisationsressourcen",
         "description": "Schlüssel, die der Server Gruppen bereitstellt"
+      },
+      "admin-design": {
+        "name": "Designsystem",
+        "description": "Beispielkomponenten und Designtokens"
       }
     },
     "category": "Einstellungsbereich",
@@ -1510,7 +1514,7 @@
     "set_up": "Einrichten",
     "edit": "Bearbeiten",
     "move_label": "{{name}} verschieben",
-    "move_hint": "Ziehen oder Pfeiltasten verwenden",
+    "move_hint": "Zum Verschieben ziehen oder Leertaste zum Anheben, Pfeiltasten zum Bewegen, Leertaste zum Ablegen, Escape zum Abbrechen. Alt+Auf/Ab verschiebt um einen Platz.",
     "move_up": "{{name}} nach oben",
     "move_down": "{{name}} nach unten",
     "moved": "{{name}} steht jetzt an Position {{position}} von {{total}}",
@@ -1876,5 +1880,8 @@
     "device_revoked": "Gerätezugriff widerrufen",
     "browser_clear_failed": "Browserdaten konnten nicht gelöscht werden. Der Browser bleibt pausiert.",
     "computer_not_configured": "Kein Bot-Computer eingerichtet"
+  },
+  "design": {
+    "open_tab": "In neuem Tab öffnen"
   }
 }

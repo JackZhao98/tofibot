@@ -85,6 +85,10 @@
       "admin-resources": {
         "name": "組織資源",
         "description": "伺服器提供給群組的金鑰"
+      },
+      "admin-design": {
+        "name": "設計系統",
+        "description": "範例元件與設計令牌"
       }
     },
     "category": "設定分類",
@@ -1498,7 +1502,7 @@
     "set_up": "設定",
     "edit": "編輯",
     "move_label": "移動 {{name}}",
-    "move_hint": "拖曳，或使用方向鍵",
+    "move_hint": "拖曳移動，或按空白鍵拿起、方向鍵移動、空白鍵放下、Escape 取消。Alt+上/下移動一位。",
     "move_up": "將 {{name}} 上移",
     "move_down": "將 {{name}} 下移",
     "moved": "{{name}} 現在排第 {{position}}/{{total}}",
@@ -1863,5 +1867,8 @@
     "device_revoked": "裝置存取已撤銷",
     "browser_clear_failed": "無法清除瀏覽器資料，瀏覽器保持暫停",
     "computer_not_configured": "尚未設定 Bot 電腦"
+  },
+  "design": {
+    "open_tab": "在新分頁中開啟"
   }
 }

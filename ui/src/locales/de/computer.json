@@ -706,5 +706,20 @@
     "in_app": "Richte dies in der App auf diesem Mac ein",
     "settings": "Browsereinstellungen",
     "close": "Bot-Browservorschau schließen"
+  },
+  "bot_browser_chrome": {
+    "address": "Suchen oder Adresse eingeben",
+    "back": "Zurück",
+    "forward": "Vorwärts",
+    "reload": "Neu laden",
+    "stop": "Stopp",
+    "hand_back": "An Bot zurückgeben",
+    "bot": "Bot surft",
+    "human": "Du surfst",
+    "paused": "Pausiert",
+    "close": "Bot-Browser schließen",
+    "empty_title": "Bot-Browser",
+    "empty_body": "Seiten, die der Bot öffnet, erscheinen hier. Du kannst auch selbst eine Adresse eingeben.",
+    "hand_back_short": "Zurückgeben"
   }
 }

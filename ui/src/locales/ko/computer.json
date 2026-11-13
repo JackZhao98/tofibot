@@ -700,5 +700,20 @@
     "in_app": "이 Mac의 App에서 설정하세요",
     "settings": "브라우저 설정",
     "close": "Bot 브라우저 미리보기 닫기"
+  },
+  "bot_browser_chrome": {
+    "address": "검색 또는 주소 입력",
+    "back": "뒤로",
+    "forward": "앞으로",
+    "reload": "새로고침",
+    "stop": "중지",
+    "hand_back": "Bot에게 돌려주기",
+    "bot": "Bot이 탐색 중",
+    "human": "직접 탐색 중",
+    "paused": "일시정지됨",
+    "close": "Bot 브라우저 닫기",
+    "empty_title": "Bot 브라우저",
+    "empty_body": "Bot이 연 페이지가 여기에 표시됩니다. 주소를 입력해 직접 탐색할 수도 있습니다.",
+    "hand_back_short": "돌려주기"
   }
 }

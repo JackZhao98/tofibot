@@ -1,10 +1,10 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import type { Message, Reaction } from "./types";
 import { TofiIcon } from "./icons";
 import { useTranslation } from "./i18n";
 import "./message-reactions.css";
 import { OverlayPopover } from "./overlays/OverlayHost";
-const EmojiPicker = lazy(() => import("./ReactionEmojiPicker"));
+import { ReactionEmojiPicker as EmojiPicker } from "./lazyPanels";
 const choices = ["👍", "❤️", "😂", "🎉", "👀", "🙌", "🤔", "🐱"];
 type MenuPosition = { x: number; y: number; h?: number } | null;
 

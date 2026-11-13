@@ -1,7 +1,6 @@
 // Component catalog guard (docs/design/migration.md step 6, docs/decisions/0034-component-catalog-dev-only.md).
-//  1. Dev only: the production build (every `vite build` in package.json's "build" script, run into a temp directory)
-//     contains no catalog.html, no file carrying the catalog's marker string and no catalog source path; no product file
-//     imports from src/catalog; and the catalog loads the same global stylesheets, in the same order, as src/main.tsx.
+//  1. Separate production bundle: design-system.html exists; no product source imports src/catalog;
+//     the separate build preserves every workspace file byte-for-byte and cannot leak synthetic code into it.
 //  2. It is components.md made visible: one section per numbered component section (1-23), same numbers.
 //  3. Browser (Chromium, Vite dev server, synthetic data only): every state at every width it declares opens without a
 //     page error or a failed drive step, in light and (at 1280 px) dark; no /api request ever reaches the network; each
@@ -31,13 +30,15 @@ if (productCss.join() !== catalogCss.join()) fail(`catalog/main.tsx must import 
 else pass(`catalog loads the ${productCss.length} global stylesheets of src/main.tsx in order`);
 const leaks = walk(src).filter(file => /\.(tsx?|css)$/.test(file) && !relative(src, file).startsWith("catalog/"))
   .filter(file => /(?:from\s+|import\s*\(?\s*)["'][^"']*\/catalog\//.test(readFileSync(file, "utf8")));
-if (leaks.length) fail(`product code imports the dev-only catalog: ${leaks.map(file => relative(ui, file)).join(", ")}`);
+if (leaks.length) fail(`product code imports the isolated catalog: ${leaks.map(file => relative(ui, file)).join(", ")}`);
 else pass("no product file imports from src/catalog");
 const pkg = JSON.parse(readFileSync(join(ui, "package.json"), "utf8"));
-for (const file of ["vite.config.ts", "vite.motion-lab.config.ts"]) if (/catalog/i.test(readFileSync(join(ui, file), "utf8"))) fail(`${file} mentions the catalog: it must not be a build input`);
-if (/catalog/i.test(pkg.scripts.build)) fail(`package.json "build" mentions the catalog: ${pkg.scripts.build}`);
+// Every product build in package.json; only the Design System build may include the catalog.
+const productConfigs = pkg.scripts.build.split("&&").map(step => step.trim()).filter(step => /^vite build\b/.test(step))
+  .map(step => /--config\s+(\S+)/.exec(step)?.[1] ?? "vite.config.ts").filter(file => file !== "vite.design-system.config.ts");
+for (const file of productConfigs) if (/catalog/i.test(readFileSync(join(ui, file), "utf8"))) fail(`${file} must not include the catalog in its graph`);
 
-// ---- 1b. the real production build contains no trace of the catalog
+// ---- 1b. the separate build adds the catalog without modifying any workspace file
 const { build } = await import("vite");
 // vite build sets NODE_ENV=production for the whole process; the dev server below must start as development again.
 const nodeEnv = process.env.NODE_ENV;
@@ -45,19 +46,32 @@ const outDir = mkdtempSync(join(tmpdir(), "tofi-catalog-dist-"));
 try {
   const steps = pkg.scripts.build.split("&&").map(step => step.trim()).filter(step => /^vite build\b/.test(step));
   if (!steps.length) fail(`package.json "build" runs no vite build: ${pkg.scripts.build}`);
+  let workspaceFiles;
+  let separateFiles = [];
   for (const [index, step] of steps.entries()) {
     const config = /--config\s+(\S+)/.exec(step)?.[1] ?? "vite.config.ts";
+    const design = config === "vite.design-system.config.ts";
+    if (design) workspaceFiles = new Map(walk(outDir).map(file => [relative(outDir, file), readFileSync(file)]));
     await build({ configFile: resolve(ui, config), root: ui, logLevel: "error", build: { outDir, ...(index === 0 ? { emptyOutDir: true } : {}) } });
+    if (design && workspaceFiles) {
+      for (const [name, bytes] of workspaceFiles) {
+        const file = join(outDir, name);
+        if (!existsSync(file) || !readFileSync(file).equals(bytes)) fail(`separate Design System build changed workspace file ${name}`);
+      }
+      separateFiles = walk(outDir).map(file => relative(outDir, file)).filter(name => !workspaceFiles.has(name));
+    }
   }
-  const files = walk(outDir);
-  const names = files.map(file => relative(outDir, file));
-  if (!names.includes("index.html")) fail(`the build produced no index.html (${names.length} files): the check did not run`);
-  // (dist/icons/catalog.js is the icon set's own catalog, not this page.)
-  const named = names.filter(name => /(^|\/)catalog\.html$|(^|\/)assets\/catalog[-.]/i.test(name));
-  const carrying = files.filter(file => { const text = readFileSync(file).toString("latin1"); return (marker && text.includes(marker)) || text.includes("src/catalog/") || text.includes("catalog.html"); }).map(file => relative(outDir, file));
-  if (named.length) fail(`production build contains catalog files: ${named.join(", ")}`);
-  if (carrying.length) fail(`production build carries catalog code: ${carrying.join(", ")}`);
-  if (!named.length && !carrying.length) pass(`production build (${steps.length} vite builds, ${names.length} files) has no catalog page, chunk or marker`);
+  if (!workspaceFiles) fail("build script must run vite.design-system.config.ts");
+  if (!existsSync(join(outDir, "index.html"))) fail("the build produced no index.html");
+  if (!separateFiles.includes("design-system.html")) fail("the separate build produced no design-system.html");
+  const carrying = [...(workspaceFiles ?? [])].filter(([name, bytes]) => /\.(js|html|css)$/.test(name) && ((marker && bytes.includes(marker)) || bytes.includes("src/catalog/"))).map(([name]) => name);
+  if (carrying.length) fail(`workspace carries synthetic catalog code: ${carrying.join(", ")}`);
+  const separateJs = separateFiles.filter(name => name.endsWith(".js"));
+  if (!separateJs.some(name => readFileSync(join(outDir, name), "utf8").includes(marker))) fail("no separate JS chunk carries the synthetic sandbox marker");
+  const html = existsSync(join(outDir, "design-system.html")) ? readFileSync(join(outDir, "design-system.html"), "utf8") : "";
+  if (![...html.matchAll(/(?:src|href)="([^"?#]+)[^"]*"/g)].every(([, path]) => !path.startsWith("/assets/") || existsSync(join(outDir, path)))) fail("Design System HTML references a missing asset");
+  if (!carrying.length && workspaceFiles && separateFiles.includes("design-system.html")) pass(`separate Design System bundle; ${workspaceFiles.size} workspace files preserved byte-for-byte`);
+
 } finally {
   rmSync(outDir, { recursive: true, force: true });
   if (nodeEnv === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = nodeEnv;
@@ -102,8 +116,8 @@ try {
   // 2. one section per numbered section of components.md
   // components.md is an internal doc, untracked in the public repo; the check runs only where it exists.
   const componentsDoc = join(ui, "..", "docs", "design", "components.md");
-  const documented = !existsSync(componentsDoc) ? index.map(section => Number(section.number)) : [...readFileSync(componentsDoc, "utf8").matchAll(/^## (\d+)\. /gm)].map(m => Number(m[1])).filter(n => n >= 1 && n <= 23);
-  const numbers = index.map(section => Number(section.number));
+  const documented = !existsSync(componentsDoc) ? index.map(section => Number(section.number)).filter(Number.isFinite) : [...readFileSync(componentsDoc, "utf8").matchAll(/^## (\d+)\. /gm)].map(m => Number(m[1])).filter(n => n >= 1 && n <= 23);
+  const numbers = index.map(section => Number(section.number)).filter(Number.isFinite);
   const missing = documented.filter(n => !numbers.includes(n));
   if (missing.length || numbers.length !== documented.length) fail(`catalog sections ${numbers.join(",")} do not match components.md sections ${documented.join(",")}`);
   else pass(`one catalog section for each of components.md §${documented[0]}–§${documented.at(-1)} (${index.reduce((n, s) => n + s.states.length, 0)} states)`);

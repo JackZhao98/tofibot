@@ -31,6 +31,9 @@ function inventory(dir, prefix = "") {
 const revision = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
 if (execFileSync("git", ["status", "--porcelain", "--", "ui"], { cwd: root, encoding: "utf8" }).trim()) throw new Error("Web source must be committed before artifact export");
 if (!fs.existsSync(path.join(source, "index.html"))) throw new Error("Build Web UI first");
+for (const entry of ["desktop-settings.html", "desktop-bot-browser.html"]) {
+  if (!fs.existsSync(path.join(source, entry))) throw new Error(`Build desktop pages first: missing ${entry}`);
+}
 fs.cpSync(source, destination, { recursive: true, errorOnExist: true, force: false });
 fs.writeFileSync(path.join(destination, "ui-artifact.json"), JSON.stringify({ schema: 1, desktop_contract: desktopContract, server_version: serverVersion, revision, files: inventory(destination) }, null, 2)+"\n");
 console.log(destination);

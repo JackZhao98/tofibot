@@ -890,7 +890,7 @@
     "at_bottom": "{{title}}은(는) 이미 맨 아래입니다",
     "at_top": "{{title}}은(는) 이미 맨 위입니다",
     "grip": "{{title}} 이동",
-    "grip_hint": "드래그하거나 화살표 키로 이동",
+    "grip_hint": "드래그하여 이동하거나, Space로 들어 올리고 화살표로 이동한 뒤 Space로 놓으세요. Escape로 취소합니다. Alt+위/아래로 한 칸 이동합니다.",
     "moved": "{{title}}: {{count}}개 중 {{position}}번째"
   },
   "working": {

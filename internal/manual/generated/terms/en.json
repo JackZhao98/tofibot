@@ -126,6 +126,8 @@
   "settings:permissionsPage.standing.title": "Always allowed",
   "settings:primary.label": "Primary Assistant",
   "settings:providers.title": "Model providers",
+  "settings:shell.page.admin-design.description": "Synthetic components and design tokens",
+  "settings:shell.page.admin-design.name": "Design system",
   "settings:shell.page.admin-groups.description": "Resource policy for sets of accounts",
   "settings:shell.page.admin-groups.name": "Groups",
   "settings:shell.page.admin-resources.description": "Keys this server provides to groups",

@@ -514,19 +514,25 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
 :root :is(.delete-dialog-overlay,.detail-backdrop,.cover-scrim,.cover-leave-scrim,.new-group-scrim,.sheet-overlay,.mcp-oauth-overlay,.handover-overlay,.settings-leave-overlay,.search-palette-scrim,.terminal-confirm) {
   background:var(--scrim); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur);
 }
-/* A fade never changes a popup's anchor or travels across the workspace. */
-:root :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu,.composer-add-menu,.ui-select-content,.pip-menu,.bot-identity-card,.cover-window,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.permission-coach) {
-  transform-origin:center; animation:menu-enter var(--m-quick) var(--ease-out) both;
+/* Popups (menus, popovers, selects, context menus, hover cards: .tofi-pop, set by the Radix adapters) grow out of the
+   side of their trigger; Radix puts that origin on the popper wrapper. Small dialogs grow from their centre; the big
+   panels (cover, sheet) only fade. One curve and one pair of durations for all of them (owner 2026-11-13). */
+.tofi-pop { transform-origin:var(--radix-popper-transform-origin,center); animation:pop-in var(--m-pop-in) var(--ease-pop) both; }
+.tofi-pop[data-state="closed"] { animation:pop-out var(--m-pop-out) var(--ease-in) both; pointer-events:none; }
+@keyframes pop-in { from { opacity:0; transform:scale(.96); } }
+@keyframes pop-out { to { opacity:0; transform:scale(.98); } }
+:root :is(.new-group-dialog,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.permission-coach) {
+  transform-origin:center; animation:pop-in var(--m-pop-in) var(--ease-pop) both;
 }
+:root :is(.cover-window,.sheet) { animation:menu-enter var(--m-pop-in) var(--ease-pop) both; }
 :root :is(.cover-scrim,.cover-leave-scrim,.new-group-scrim) { animation-duration:var(--m-quick); }
-:root :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu,.composer-add-menu,.ui-select-content,.pip-menu,.bot-identity-card)[data-state="closed"],
 :root :is(.cover-window,.cover-scrim,.new-group-dialog,.new-group-scrim).is-leaving {
-  animation:menu-leave var(--m-instant) var(--ease-settle) both; pointer-events:none;
+  animation:menu-leave var(--m-pop-out) var(--ease-in) both; pointer-events:none;
 }
 :root[data-theme="dark"] .workspace .contact-pane { border-right-color:var(--line-soft); }
 :root[data-theme="dark"] .workspace .composer .composer-row { border-color:var(--line-soft); }
 @media (prefers-reduced-motion:reduce) {
-  :root:root :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu,.composer-add-menu,.ui-select-content,.pip-menu,.bot-identity-card,.cover-window,.cover-scrim,.cover-leave-scrim,.cover-leave-dialog,.new-group-dialog,.new-group-scrim,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.permission-coach) { animation:none; }
+  .tofi-pop[data-state], :root:root :is(.cover-window,.cover-scrim,.cover-leave-scrim,.cover-leave-dialog,.new-group-dialog,.new-group-scrim,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.permission-coach) { animation:none; }
 }
 @media (prefers-reduced-transparency:reduce) {
   :root :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu,.composer-add-menu,.ui-select-content,.pip-menu,.bot-identity-card,.context-card,.delete-dialog,.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-window-controls,.desktop-presence-actor,.desktop-enlarge-hint) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }

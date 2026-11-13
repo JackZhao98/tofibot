@@ -20,7 +20,7 @@ const ui = dirname(dirname(fileURLToPath(import.meta.url)));
 const src = join(ui, "src");
 const baselinePath = join(ui, "scripts", "motion-tokens-baseline.json");
 const flag = name => process.argv.includes(name);
-const tracked = pattern => execSync(`git ls-files '${pattern}'`, { cwd: src }).toString().trim().split("\n").filter(Boolean);
+const tracked = pattern => execSync(`git ls-files '${pattern}'`, { cwd: src }).toString().trim().split("\n").filter(file => file && existsSync(join(src, file)));
 const skip = file => file.startsWith("motion-lab/") || file.startsWith("lib/tofi-avatar/") || file.includes("acceptance") || file.startsWith("locales/");
 const failures = [];
 const fail = message => failures.push(message);

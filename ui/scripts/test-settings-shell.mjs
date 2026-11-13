@@ -24,8 +24,8 @@ const LANGS = ["en", "zh-CN", "zh-TW", "ja", "ko", "de", "fr"];
 const TABS = ["general", "models", "connections", "skills", "permissions", "computer", "usage", "advanced"];
 // "devices" (Other devices) is merged into Environments: no rail item, its id still routes to the Environments page. Behavior and Follow-ups keep their names as subpage titles.
 const SUBPAGE_NAMES = ["automation", "followups"];
-const ICONS = {general: "sliders", connections: "plug", skills: "skill", permissions: "shield-check", allowances: "checklist", followups: "bell", devices: "laptop", models: "sparkles", tools: "globe", automation: "workflow", computer: "layers", keys: "key", usage: "progress", advanced: "settings", admin: "group", "admin-groups": "workspace", "admin-resources": "server"};
-const NAMES = {general: "General", connections: "Connections", skills: "Skills", permissions: "Permissions", allowances: "Tool rules", followups: "Follow-ups", devices: "Other devices", models: "AI Models", tools: "Search & fetch", automation: "Behavior", computer: "Environments", keys: "Bot computer keys", usage: "Usage", advanced: "System", admin: "Accounts", "admin-groups": "Groups", "admin-resources": "Organization resources"};
+const ICONS = {general: "sliders", connections: "plug", skills: "skill", permissions: "shield-check", allowances: "checklist", followups: "bell", devices: "laptop", models: "sparkles", tools: "globe", automation: "workflow", computer: "layers", keys: "key", usage: "progress", advanced: "settings", admin: "group", "admin-groups": "workspace", "admin-resources": "server", "admin-design": "layout-grid"};
+const NAMES = {general: "General", connections: "Connections", skills: "Skills", permissions: "Permissions", allowances: "Tool rules", followups: "Follow-ups", devices: "Other devices", models: "AI Models", tools: "Search & fetch", automation: "Behavior", computer: "Environments", keys: "Bot computer keys", usage: "Usage", advanced: "System", admin: "Accounts", "admin-groups": "Groups", "admin-resources": "Organization resources", "admin-design": "Design system"};
 
 // ---- Catalog checks (every locale): page names and descriptions are real translations. Descriptions are no longer shown in the window; the manual and reference pages the server generates read them.
 const catalogs = {};
@@ -34,7 +34,7 @@ for (const lang of LANGS) {
   const shell = catalogs[lang].shell;
   // Only Administration keeps a heading; the other clusters are spacing.
   assert.deepEqual(Object.keys(shell.group).sort(), ["admin"], `${lang}: shell.group keys`);
-  assert.deepEqual(Object.keys(shell.page).sort(), [...TABS, ...SUBPAGE_NAMES, "devices", "admin", "admin-groups", "admin-resources"].sort(), `${lang}: shell.page keys (no stale tab ids)`);
+  assert.deepEqual(Object.keys(shell.page).sort(), [...TABS, ...SUBPAGE_NAMES, "devices", "admin", "admin-groups", "admin-resources", "admin-design"].sort(), `${lang}: shell.page keys (no stale tab ids)`);
   let sameAsEnglish = 0;
   for (const [id, page] of Object.entries(shell.page)) {
     assert.ok(page.name && page.description, `${lang}: ${id} needs a name and a description`);
@@ -484,16 +484,16 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   // ---- 1. Rail: exactly the eight tabs in order; admin only for a multi-account admin session.
   {
     const {page, close} = await open({admin: "0"});
-    assert.deepEqual(await railTabs(page), TABS, "rail shows the eight tabs in order for a non-admin session");
-    // No group headings (the clusters are spacing), no account card: General is the first rail item.
-    assert.deepEqual(await page.$$eval(".settings-tabs .settings-nav-group>p", items => items.map(item => item.textContent)), []);
+    assert.deepEqual(await railTabs(page), [...TABS, "admin-design"], "single-account owner sees Design system after the eight pages");
+    // Only Administration has a heading; General stays the first rail item.
+    assert.deepEqual(await page.$$eval(".settings-tabs .settings-nav-group>p", items => items.map(item => item.textContent)), ["Administration"]);
     assert.equal(await page.locator(".settings-account-card").count(), 0, "the account card at the top of the rail is gone");
     assert.equal(await page.locator('.settings-tabs [data-tab="general"]').count(), 1);
     assert.equal(await page.locator(".settings-tabs").evaluate(element => element.offsetWidth), 216, "rail is 216px wide (layout width: the window may still be scaling in)");
     assert.equal(await page.locator("#settings-category").count(), 0, "no category select");
     const icons = await page.$$eval(".settings-tabs .settings-nav-group button[data-tab]", buttons => buttons.map(button => button.querySelector("svg").dataset.tofiIcon));
     assert.equal(new Set(icons).size, icons.length, "no two tabs share an icon");
-    assert.deepEqual(icons, TABS.map(id => ICONS[id]), "icons match the contract");
+    assert.deepEqual(icons, [...TABS, "admin-design"].map(id => ICONS[id]), "icons match the contract");
     // The connections badge counts saved connections that need sign-in, from the saved list alone.
     assert.equal((await page.locator('.settings-tabs [data-tab="connections"] .settings-count').textContent()).trim(), "1");
     assert.equal(await page.locator('.settings-tabs [data-tab="permissions"] .settings-count').count(), 0, "permissions badge stays hidden in Phase 1");
@@ -520,16 +520,24 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await page.locator('.settings-tabs [data-tab="devices"]').count(), 0, "Other devices has no rail item: it is part of Environments");
     await close();
     const personal = await open({admin: "0", personal: "1"});
-    assert.deepEqual(await railTabs(personal.page), TABS, "personal computers on: still no Other devices item");
+    assert.deepEqual(await railTabs(personal.page), [...TABS, "admin-design"], "personal computers on: still no Other devices item");
     await personal.close();
     const admin = await open({admin: "1"});
-    assert.deepEqual(await railTabs(admin.page), [...TABS, "admin", "admin-groups", "admin-resources"], "the Administration group appears for a multi-account admin");
+    assert.deepEqual(await railTabs(admin.page), [...TABS, "admin", "admin-groups", "admin-resources", "admin-design"], "the Administration group appears for a multi-account admin");
     assert.deepEqual(await admin.page.$$eval(".settings-tabs .settings-nav-group>p", items => items.map(item => item.textContent)), ["Administration"], "only Administration keeps a heading, after System");
-    assert.deepEqual(await admin.page.$$eval('.settings-tabs [data-group="admin"] button[data-tab]', items => items.map(item => item.dataset.tab)), ["admin", "admin-groups", "admin-resources"]);
+    assert.deepEqual(await admin.page.$$eval('.settings-tabs [data-group="admin"] button[data-tab]', items => items.map(item => item.dataset.tab)), ["admin", "admin-groups", "admin-resources", "admin-design"]);
     assert.equal(await admin.page.locator('.settings-tabs [data-group="system"] [data-tab="admin"]').count(), 0, "Accounts no longer sits in System");
     const adminIcon = await admin.page.locator('.settings-tabs [data-tab="admin"] svg').getAttribute("data-tofi-icon");
     assert.equal(adminIcon, ICONS.admin);
+    await admin.page.locator('.settings-tabs [data-tab="admin-design"]').click();
+    await admin.page.locator('[data-page="admin-design"] iframe').waitFor();
+    assert.equal(await admin.page.locator('[data-page="admin-design"] iframe').getAttribute("src"), "/catalog.html");
+    assert.equal(await admin.page.getByRole("link", {name: "Open in a new tab"}).getAttribute("target"), "_blank");
     await admin.close();
+    const member = await open({role: "user", tab: "admin-design"});
+    assert.equal(await member.page.locator('.settings-tabs [data-tab="admin-design"]').count(), 0);
+    assert.equal(await member.page.locator('[data-page="admin-design"] iframe').count(), 0);
+    await member.close();
     console.log("PASS rail: eight tabs in order, admin only for a multi-account admin, unique icons, badge from the saved list only");
   }
 
@@ -767,7 +775,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       const lineHeight = parseFloat(style.lineHeight);
       return {text: label.textContent, ellipsis: style.textOverflow === "ellipsis", clipped: label.scrollWidth > label.clientWidth, lines: Math.round(box.height / lineHeight), inside: box.right <= row.right + 0.5 && box.left >= row.left - 0.5};
     }));
-    assert.equal(report.length, 11, "eight pages and the three Administration pages");
+    assert.equal(report.length, 12, "eight pages and the four Administration pages");
     for (const item of report) {
       assert.equal(item.ellipsis, false, `${item.text}: no text-overflow ellipsis`);
       assert.equal(item.clipped, false, `${item.text}: scrollWidth <= clientWidth`);
@@ -1397,7 +1405,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     });
     for (const id of ["general", "advanced"]) {
       await page.locator(`.settings-tabs [data-tab="${id}"]`).click();
-      await page.waitForFunction(tab => (document.querySelector(`.settings-page-body[data-page="${tab}"]`)?.innerText ?? "").trim().length > 20, id);
+      await page.waitForFunction(tab => (document.querySelector(`.settings-page-body[data-page="${tab}"]`)?.innerText ?? "").trim().length > 20 || Boolean(document.querySelector(`.settings-page-body[data-page="${tab}"] iframe`)), id);
       await page.waitForTimeout(500);
       const report = await inspect(id);
       assert.deepEqual(report.bordered, [], `${id}: no bordered container`);
@@ -1412,9 +1420,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.deepEqual(switchBox, {tag: "BUTTON", w: 36, h: 22}, "a switch is a 36x22 Radix button");
     // At most one primary button per view; Connections has the add action, Environments, Models and System none.
     const primaries = {};
-    for (const id of [...TABS, "admin", "admin-groups", "admin-resources"]) {
+    for (const id of [...TABS, "admin", "admin-groups", "admin-resources", "admin-design"]) {
       await page.locator(`.settings-tabs [data-tab="${id}"]`).click();
-      await page.waitForFunction(tab => (document.querySelector(`.settings-page-body[data-page="${tab}"]`)?.innerText ?? "").trim().length > 20, id);
+      await page.waitForFunction(tab => (document.querySelector(`.settings-page-body[data-page="${tab}"]`)?.innerText ?? "").trim().length > 20 || Boolean(document.querySelector(`.settings-page-body[data-page="${tab}"] iframe`)), id);
       await page.waitForTimeout(id === "usage" ? 1500 : 500);
       primaries[id] = (await inspect(id)).primaries;
       assert.ok(primaries[id] <= 1, `${id}: ${primaries[id]} primary buttons (at most one per view)`);
@@ -1504,12 +1512,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   // ---- 8. Screenshots: every tab (the folded ones and Administration too) at 1440x900 and 390x844, light and dark.
   if (shots) {
     let count = 0;
-    const ALL = [...TABS, "admin", "admin-groups", "admin-resources"];
+    const ALL = [...TABS, "admin", "admin-groups", "admin-resources", "admin-design"];
     for (const theme of ["light", "dark"]) {
       const desktop = await open({admin: "1"}, {theme});
       for (const id of ALL) {
         await desktop.page.locator(`.settings-tabs [data-tab="${id}"]`).click();
-        await desktop.page.waitForFunction(tab => (document.querySelector(`.settings-page-body[data-page="${tab}"]`)?.innerText ?? "").trim().length > 20, id);
+        await desktop.page.waitForFunction(tab => (document.querySelector(`.settings-page-body[data-page="${tab}"]`)?.innerText ?? "").trim().length > 20 || Boolean(document.querySelector(`.settings-page-body[data-page="${tab}"] iframe`)), id);
         await desktop.page.waitForTimeout(id === "usage" ? 1800 : 900);
         await desktop.page.screenshot({path: join(shots, `desktop-${theme}-${id}.png`)});
         count++;
@@ -1529,7 +1537,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       for (const id of ALL) {
         await mobile.page.locator(`.settings-mhome [data-tab="${id}"]`).first().scrollIntoViewIfNeeded().catch(() => {});
         await mobile.page.locator(`.settings-mhome [data-tab="${id}"]`).first().click();
-        await mobile.page.waitForFunction(tab => (document.querySelector(`.settings-page-body[data-page="${tab}"]`)?.innerText ?? "").trim().length > 20, id);
+        await mobile.page.waitForFunction(tab => (document.querySelector(`.settings-page-body[data-page="${tab}"]`)?.innerText ?? "").trim().length > 20 || Boolean(document.querySelector(`.settings-page-body[data-page="${tab}"] iframe`)), id);
         await mobile.page.waitForTimeout(id === "usage" ? 1800 : 1000);
         await mobile.page.screenshot({path: join(shots, `mobile-${theme}-${id}.png`)});
         count++;

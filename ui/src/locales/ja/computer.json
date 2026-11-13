@@ -700,5 +700,20 @@
     "in_app": "この Mac の App で設定してください",
     "settings": "ブラウザ設定",
     "close": "Bot ブラウザのプレビューを閉じる"
+  },
+  "bot_browser_chrome": {
+    "address": "検索またはアドレスを入力",
+    "back": "戻る",
+    "forward": "進む",
+    "reload": "再読み込み",
+    "stop": "中止",
+    "hand_back": "Bot に戻す",
+    "bot": "Bot が閲覧中",
+    "human": "あなたが操作中",
+    "paused": "一時停止中",
+    "close": "Bot ブラウザを閉じる",
+    "empty_title": "Bot ブラウザ",
+    "empty_body": "Bot が開いたページはここに表示されます。アドレスを入力して自分で閲覧することもできます。",
+    "hand_back_short": "戻す"
   }
 }

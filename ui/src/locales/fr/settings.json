@@ -85,6 +85,10 @@
       "admin-resources": {
         "name": "Ressources de l’organisation",
         "description": "Clés que le serveur fournit aux groupes"
+      },
+      "admin-design": {
+        "name": "Système de design",
+        "description": "Composants de démonstration et jetons de design"
       }
     },
     "category": "Catégorie de réglages",
@@ -1522,7 +1526,7 @@
     "set_up": "Configurer",
     "edit": "Modifier",
     "move_label": "Déplacer {{name}}",
-    "move_hint": "Glissez, ou utilisez les flèches",
+    "move_hint": "Glissez pour déplacer, ou Espace pour saisir, les flèches pour déplacer, Espace pour déposer, Échap pour annuler. Alt+Haut/Bas déplace d’une place.",
     "move_up": "Monter {{name}}",
     "move_down": "Descendre {{name}}",
     "moved": "{{name}} est maintenant en position {{position}} sur {{total}}",
@@ -1889,5 +1893,8 @@
     "device_revoked": "Accès à l’appareil révoqué",
     "browser_clear_failed": "Impossible d’effacer les données. Le navigateur reste en pause.",
     "computer_not_configured": "Aucun ordinateur Bot configuré"
+  },
+  "design": {
+    "open_tab": "Ouvrir dans un nouvel onglet"
   }
 }

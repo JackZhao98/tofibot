@@ -28,7 +28,9 @@
 
   .workspace .sidebar-pane {
     grid-column:3; grid-row:1; position:relative; z-index:var(--z-panel); display:flex; justify-content:flex-end; box-sizing:border-box; min-width:0; min-height:0; height:100%; overflow:hidden;
-    padding:var(--panel-gap); background:transparent;
+    /* The gap around the floating shell is the chat's own background. Transparent showed the window behind it in the Mac
+       app, where the workspace is see-through for the sidebar's vibrancy: a black band around the panel. */
+    padding:var(--panel-gap); background:var(--bg);
   }
   /* The sidebar is a floating panel: the track carries the gap (to the window edge, the top and bottom, and the chat), the shell inside is the
      rounded --surface rectangle with a soft elevation and no outline (docs/design/widgets-and-sidebar.md section 2.2). */
@@ -81,6 +83,10 @@
   .workspace .workspace-grid.sidebar-open { --context-room:0px; }
   .workspace .workspace-grid.sidebar-open .detail-pane.widget-column { visibility:hidden; transition:visibility 0s linear var(--sidebar-dur), width var(--sidebar-dur) var(--ease-settle); }
 }
+/* Two side panels at most: with the Mac app's browser panel open, the sidebar takes the widget column's place at any width
+   (the rule above already does this below 1392 px). */
+.workspace .workspace-grid.native-panel-open.sidebar-open { --context-room:0px; }
+.workspace .workspace-grid.native-panel-open.sidebar-open .detail-pane.widget-column { visibility:hidden; transition:visibility 0s linear var(--sidebar-dur), width var(--sidebar-dur) var(--ease-settle); }
 @keyframes sidebar-shell-in { from { opacity:.4; } }
 @media (prefers-reduced-motion:reduce) {
   .workspace .sidebar-pane > *, .workspace .sidebar-pane.is-leaving { animation:none; transition:none; }

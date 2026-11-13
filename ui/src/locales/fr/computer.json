@@ -712,5 +712,20 @@
     "in_app": "Configurez ceci dans l’App sur ce Mac",
     "settings": "Réglages du navigateur",
     "close": "Fermer l’aperçu du navigateur Bot"
+  },
+  "bot_browser_chrome": {
+    "address": "Rechercher ou saisir une adresse",
+    "back": "Précédent",
+    "forward": "Suivant",
+    "reload": "Actualiser",
+    "stop": "Arrêter",
+    "hand_back": "Rendre au Bot",
+    "bot": "Le Bot navigue",
+    "human": "Vous naviguez",
+    "paused": "En pause",
+    "close": "Fermer le navigateur du Bot",
+    "empty_title": "Navigateur du Bot",
+    "empty_body": "Les pages ouvertes par le Bot s’affichent ici. Vous pouvez aussi saisir une adresse.",
+    "hand_back_short": "Rendre"
   }
 }

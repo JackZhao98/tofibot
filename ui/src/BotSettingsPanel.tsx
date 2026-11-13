@@ -15,7 +15,7 @@ import { useTranslation } from "./i18n";
 import { TofiIcon as Icon, type TofiIconName } from "./icons";
 import { followsGlobal } from "./modelCatalog";
 import { ModelFields } from "./ModelSettings";
-import { OverlayPopover } from "./overlays/OverlayHost";
+import { OverlayPopover, pressToggle } from "./overlays/OverlayHost";
 import { PrimaryBadge } from "./PrimaryAssistant";
 import { takeSettingsSection } from "./settings/pendingSection";
 import { jumpWhenReady } from "./settings/sectionJump";
@@ -173,7 +173,7 @@ export function BotSettingsPanel({ bot, refreshToken = 0, onUpdate, onMakePrimar
       <div className="bs-row bs-avatar-row">
         <span className="bs-avatar" aria-hidden="true"><BotAvatar id={bot.id} config={avatar} motion="awake" /></span>
         <div className="bs-row-copy"><strong>{t("botSettings.avatar_title")}</strong><small>{t("botSettings.avatar_hint")}</small></div>
-        <button ref={styleButton} type="button" className="bs-button" aria-haspopup="dialog" aria-expanded={styleOpen} aria-label={t("botPanel.change_style_label", { name: draft.name.trim() || bot.name })} onClick={() => setStyleOpen(value => !value)}>{t("botPanel.change_style")}</button>
+        <button ref={styleButton} type="button" className="bs-button" aria-haspopup="dialog" aria-expanded={styleOpen} aria-label={t("botPanel.change_style_label", { name: draft.name.trim() || bot.name })} {...pressToggle(() => setStyleOpen(value => !value))}>{t("botPanel.change_style")}</button>
       </div>
       <label className="bs-field"><span>{t("botPanel.name")}</span>
         <input value={draft.name} maxLength={200} disabled={busy} aria-invalid={!canSave || undefined} onChange={event => setDraft(current => ({ ...current, name: event.target.value }))} />

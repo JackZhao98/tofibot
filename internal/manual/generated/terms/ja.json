@@ -126,6 +126,8 @@
   "settings:permissionsPage.standing.title": "常時許可",
   "settings:primary.label": "メインアシスタント",
   "settings:providers.title": "モデルプロバイダ",
+  "settings:shell.page.admin-design.description": "サンプルコンポーネントとデザイントークン",
+  "settings:shell.page.admin-design.name": "デザインシステム",
   "settings:shell.page.admin-groups.description": "アカウントの集合ごとにリソースポリシーを設定します",
   "settings:shell.page.admin-groups.name": "グループ",
   "settings:shell.page.admin-resources.description": "サーバーがグループに提供するキー",

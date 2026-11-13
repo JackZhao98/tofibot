@@ -126,6 +126,8 @@
   "settings:permissionsPage.standing.title": "Dauerfreigaben",
   "settings:primary.label": "Hauptassistent",
   "settings:providers.title": "Modellanbieter",
+  "settings:shell.page.admin-design.description": "Beispielkomponenten und Designtokens",
+  "settings:shell.page.admin-design.name": "Designsystem",
   "settings:shell.page.admin-groups.description": "Ressourcenrichtlinie für Kontogruppen",
   "settings:shell.page.admin-groups.name": "Gruppen",
   "settings:shell.page.admin-resources.description": "Schlüssel, die der Server Gruppen bereitstellt",

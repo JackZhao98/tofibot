@@ -1,9 +1,10 @@
 import { createContext, Fragment, lazy, Suspense, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { AccountMenu, preloadPanel } from "./lazyPanels";
 import { CATS, EmptyCat } from "./EmptyCat";
 import { BrandLogo } from "./BrandLogo";
 import { BootScreen } from "./BootScreen";
 import { useAppearance } from "./InteractionSystem";
-import { arrowOpens } from "./overlays/OverlayHost";
+import { arrowOpens, pressToggle } from "./overlays/OverlayHost";
 import { TofiIcon } from "./icons";
 import { hydrateDesktopState, isDesktop, flushDesktopState } from "./desktop";
 import { i18n, useTranslation } from "./i18n";
@@ -12,9 +13,6 @@ import { AppUpdateButton } from "./AppUpdateButton";
 import "./account-menu.css";
 import { AuthLanguageSwitch } from "./AuthLanguageSwitch";
 
-// Warm the account menu when the dock mounts so opening it does not wait for its chunk.
-const loadAccountMenu = () => import("./AccountMenu").then(module => ({ default: module.AccountMenu }));
-const AccountMenu = lazy(loadAccountMenu);
 // First-run setup and the password checklist are only ever drawn on the gate: keep them out of the entry bundle.
 const OwnerSetup = lazy(() => import("./OwnerSetup").then(module => ({ default: module.OwnerSetup })));
 const PasswordChecklist = lazy(() => import("./OwnerSetup").then(module => ({ default: module.PasswordChecklist })));
@@ -156,7 +154,8 @@ export function useAccountIdentity() {
 export function SidebarAccount({ onSettings, onUsage, onArtifacts, connected = true }: { onSettings: () => void; onUsage: () => void; onConnection: () => void; onArtifacts: () => void; connected?: boolean }) {
   const { session, logout, hosting } = useContext(SessionContext);
   const [open, setOpen] = useState(false);
-  useEffect(() => { void loadAccountMenu(); }, []);
+  // Warm the account menu when the dock mounts so the first press draws it at once.
+  useEffect(() => { preloadPanel("accountMenu"); }, []);
   const menu = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const { t } = useTranslation(["auth", "common", "settings"]);
@@ -172,7 +171,7 @@ export function SidebarAccount({ onSettings, onUsage, onArtifacts, connected = t
   }, [hosting]);
   const address = hosting !== "self" ? "" : isDesktop ? desktopAddress : window.location.host;
   return <div className={`sidebar-account${!connected ? " is-offline" : ""}`} ref={menu}>
-    <button ref={trigger} className="sidebar-account-identity" aria-label={t("account.menu_label", { name, status: connected ? t("account.live_ok") : t("account.live_lost") })} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(value => !value)} onKeyDown={arrowOpens(setOpen)} data-hint={t("account.settings_hint", { name })}>
+    <button ref={trigger} className="sidebar-account-identity" aria-label={t("account.menu_label", { name, status: connected ? t("account.live_ok") : t("account.live_lost") })} aria-haspopup="menu" aria-expanded={open} {...pressToggle(() => setOpen(value => !value))} onKeyDown={arrowOpens(setOpen)} data-hint={t("account.settings_hint", { name })}>
       <span className="sidebar-account-monogram" aria-hidden="true">{initial}<i key={String(connected)} /></span>
       <span className="sidebar-account-copy"><strong>{name}</strong>{address && <small>{address}</small>}</span>
     </button>

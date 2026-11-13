@@ -174,6 +174,8 @@ await check("overlays stacked on one point paint in the order of the scale, the 
     pane.dataset.probe = "settings";
   }, STACK);
   await page.waitForTimeout(400); // reduced motion still runs a 0.01 ms transition on every property
+  // The mini window's box rules ride the lazy desktop chunk (warmed when idle): measure once they are in, not on the warm-up's clock.
+  await page.waitForFunction(() => [...document.styleSheets].some(sheet => { try { return [...sheet.cssRules].some(rule => rule.selectorText === ".desktop-floating-shell"); } catch { return false; } }), null, { timeout: 10000 });
   const order = await page.evaluate(debug => {
     const composer = document.querySelector(".composer"), r = composer.getBoundingClientRect();
     const x = Math.round(r.left + r.width / 2), y = Math.round(r.top + r.height / 2);

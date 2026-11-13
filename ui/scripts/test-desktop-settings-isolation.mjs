@@ -44,7 +44,7 @@ function resolveLocal(from, spec) {
 
 const seen = new Map(); // file -> importer
 const packages = new Set();
-const queue = [[entry, "(entry)"]];
+const queue = [[entry, "(entry)"], [join(src, "desktop-bot-browser", "main.tsx"), "(entry)"]];
 while (queue.length) {
   const [file, importer] = queue.pop();
   if (seen.has(file)) continue;
@@ -76,7 +76,7 @@ while (queue.length) {
 }
 
 const files = [...seen.keys()].filter(file => SOURCE.test(file));
-const own = files.filter(file => rel(file).startsWith("desktop-settings/"));
+const own = files.filter(file => /^(desktop-settings|desktop-bot-browser)\//.test(rel(file)));
 const failures = [];
 for (const file of files) {
   const name = rel(file);
@@ -128,12 +128,13 @@ console.log(`PASS import graph: ${files.length} modules, ${own.length} own, pack
 
 // ---- The build: package.json builds the entry, and the entry's own config produces the page.
 const pkg = JSON.parse(readFileSync(join(ui, "package.json"), "utf8"));
-assert.match(pkg.scripts.build, /vite build --config vite\.desktop-settings\.config\.ts\s*$/, "npm run build ends with the desktop-settings build");
+assert.match(pkg.scripts.build, /vite build --config vite\.desktop-pages\.config\.ts\s*$/, "npm run build ends with the desktop-settings build");
 const out = mkdtempSync(join(tmpdir(), "tofi-desktop-settings-"));
 try {
-  execFileSync("npx", ["vite", "build", "--config", "vite.desktop-settings.config.ts", "--outDir", out, "--emptyOutDir", "--logLevel", "error"], { cwd: ui, stdio: "inherit" });
+  execFileSync("npx", ["vite", "build", "--config", "vite.desktop-pages.config.ts", "--outDir", out, "--emptyOutDir", "--logLevel", "error"], { cwd: ui, stdio: "inherit" });
   const htmlPath = join(out, "desktop-settings.html");
   assert.ok(existsSync(htmlPath), "dist/desktop-settings.html exists after the build");
+  assert.ok(existsSync(join(out, "desktop-bot-browser.html")), "desktop Bot browser entry is built");
   assert.ok(!existsSync(join(out, "index.html")), "the second build does not emit the workspace index.html");
   const html = readFileSync(htmlPath, "utf8");
   const refs = [...html.matchAll(/(?:src|href)="\/(assets\/[^"]+)"/g)].map(m => m[1]);

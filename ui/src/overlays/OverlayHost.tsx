@@ -2,7 +2,7 @@
 // RadixOverlays chunk, fetched in idle time; the entry carries these two thin wrappers and one import() stub. Each caller
 // keeps its own open state next to its trigger and renders the wrapper only while the surface is open or leaving, so a
 // closed menu costs nothing per render. Triggers stay TOFI's own <button>s: no component is added to a row.
-import { useEffect, useState, useSyncExternalStore, type HTMLAttributes, type KeyboardEvent, type ReactNode, type RefObject } from "react";
+import { useEffect, useState, useSyncExternalStore, type HTMLAttributes, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode, type RefObject } from "react";
 
 type Placement = { side?: "top" | "right" | "bottom" | "left"; align?: "start" | "center" | "end"; sideOffset?: number; alignOffset?: number };
 type Measurable = { getBoundingClientRect(): DOMRect };
@@ -67,6 +67,12 @@ export function SlotView<T>({ slot, children }: { slot: OverlaySlot<T>; children
   const value = useSyncExternalStore(slot.subscribe, slot.get);
   return value === null ? null : children(value);
 }
+/** A menu button opens on the press, as Radix's own trigger and native menus do; a second press closes it. Enter and Space
+ * still click it (a click with no pointer, detail 0). Spread on the button: {...pressToggle(() => setOpen(open => !open))}. */
+export const pressToggle = (toggle: () => void) => ({
+  onPointerDown: (event: PointerEvent) => { if (event.button === 0 && !event.ctrlKey) { event.preventDefault(); toggle(); } },
+  onClick: (event: MouseEvent) => { if (event.detail === 0) toggle(); },
+});
 /** ArrowDown on a menu button opens the menu (Enter and Space already click it); the menu then focuses its first item. */
 export const arrowOpens = (open: (value: boolean) => void) => (event: KeyboardEvent) => { if (event.key === "ArrowDown") { event.preventDefault(); open(true); } };
 

@@ -85,6 +85,10 @@
       "admin-resources": {
         "name": "组织资源",
         "description": "服务器提供给用户组的密钥"
+      },
+      "admin-design": {
+        "name": "设计系统",
+        "description": "示例组件与设计令牌"
       }
     },
     "category": "设置分类",
@@ -1498,7 +1502,7 @@
     "set_up": "设置",
     "edit": "编辑",
     "move_label": "移动 {{name}}",
-    "move_hint": "拖动，或使用方向键",
+    "move_hint": "拖动移动，或按空格拿起、方向键移动、空格放下、Escape 取消。Alt+上/下移动一位。",
     "move_up": "将 {{name}} 上移",
     "move_down": "将 {{name}} 下移",
     "moved": "{{name}} 现在排第 {{position}}/{{total}}",
@@ -1863,5 +1867,8 @@
     "device_revoked": "设备访问已撤销",
     "browser_clear_failed": "无法清除浏览器数据，浏览器保持暂停",
     "computer_not_configured": "尚未配置 Bot 电脑"
+  },
+  "design": {
+    "open_tab": "在新标签页中打开"
   }
 }
