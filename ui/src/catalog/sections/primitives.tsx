@@ -51,7 +51,7 @@ export const primitives: CatalogSection = {
     { id: "controls-focus", kind: "inline", label: "Form controls · focus ring", render: () => <Controls/>, force: [{ selector: "input,textarea,button", state: "focus" }] },
     { id: "controls-disabled", kind: "inline", label: "Form controls · disabled", render: () => <Controls disabled/> },
     { id: "disclosure", kind: "inline", label: "Disclosure · closed and open", render: () => <><Disclosure title="Details">Synthetic details</Disclosure><Disclosure title="Details" defaultOpen>Synthetic details</Disclosure></> },
-    { id: "tabs", kind: "app", label: "Radix tabs · artifact scope and type", app: { path: "/b/bot_mochi" }, drive: async step => { await step.click("button[aria-label='Open artifacts']"); await step.click(".artifacts-widget-all"); await step.find(".artifacts-kinds"); } },
+    { id: "tabs", kind: "app", label: "Radix tabs · artifact scope and type", note: "the widget column, so desktop width only", app: { path: "/b/bot_mochi" }, widths: ["desktop"], drive: async step => { await step.click("button[aria-label='Open artifacts']"); await step.click(".artifacts-widget-all"); await step.find(".artifacts-kinds"); } },
     { id: "message-toolbar", kind: "app", label: "Radix message toolbar · hover", app: { path: "/b/bot_mochi" }, drive: async step => { await step.hover(".message-block:last-child .message-hover-host"); await step.find(".message-hover-actions"); } },
   ],
 };

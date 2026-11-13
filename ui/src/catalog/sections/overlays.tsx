@@ -134,11 +134,11 @@ export const hints: CatalogSection = {
 export const popovers: CatalogSection = {
   id: "popovers", number: "11", title: "Popovers",
   states: [
-    { id: "identity", kind: "overlay", label: "Bot identity card", note: "keyboard focus on the avatar; hover after 400 ms", probe: ".bot-identity-card", keyboard: { close: "Escape" },
-      drive: async step => { await step.focus(".identity-card-anchor"); await step.find(".bot-identity-card"); await step.wait(250); },
+    { id: "identity", kind: "overlay", label: "Bot identity card", note: "keyboard focus on the avatar; hover after 400 ms (Radix HoverCard, lazy: the anchor gets data-state once its chunk is in)", probe: ".bot-identity-card", keyboard: { close: "Escape" },
+      drive: async step => { await step.focus(".identity-card-anchor[data-state]"); await step.find(".bot-identity-card"); await step.wait(250); },
       render: () => <div style={{ padding: 40 }}><BotIdentityCard bot={bot("bot_miso")} onOpen={noop} onMention={noop}><BotAvatar id="bot_miso" mini /></BotIdentityCard></div> },
     { id: "identity-in-chat", kind: "app", label: "Bot identity card in a group", app: GROUP, probe: ".bot-identity-card",
-      drive: async step => { await step.wait(800); await step.focus(".sender-avatar .identity-card-anchor"); await step.find(".bot-identity-card"); await step.wait(250); } },
+      drive: async step => { await step.wait(800); await step.focus(".sender-avatar .identity-card-anchor[data-state]"); await step.find(".bot-identity-card"); await step.wait(250); } },
     { id: "widget-computer", kind: "app", label: "Widget: computer (≥1100 px)", note: "the header computer button opens the operable desktop in the widget column inside the chat (docs/design/widgets-and-sidebar.md)", app: DM, widths: ["desktop"], probe: ".context-card",
       drive: async step => { await step.click("[data-computer-toggle]"); await step.find(".context-card[data-card='computer']"); await step.wait(1200); } },
     { id: "widget-artifacts", kind: "app", label: "Widget: Artifacts (≥1100 px)", note: "the latest files of this conversation, one column; All opens the full view as a cover", app: DM, widths: ["desktop"], probe: ".context-card",
