@@ -32,7 +32,7 @@ const check = async (name, run) => {
 const truthy = (value, message) => { if (!value) throw new Error(message); };
 // DIALOGS_ONLY=app or DIALOGS_ONLY=harness runs one half (used while proving each check fails on a reverted tree).
 const only = process.env.DIALOGS_ONLY || "app,harness";
-const RADIX_MARKERS = ["focusScope.autoFocusOnMount", "dismissableLayer.pointerDownOutside", "data-scroll-locked"];
+const RADIX_MARKERS = ["focusScope.autoFocusOnMount", "dismissableLayer.pointerDownOutside", "data-scroll-locked", "ToolbarButton", "TabsTrigger"];
 
 // ---- 1 + 2: the production app
 if (only.includes("app")) {
