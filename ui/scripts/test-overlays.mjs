@@ -566,8 +566,7 @@ await check("group read-by names are a quiet hint in #tofi-layers", async () => 
   await context.close();
 });
 
-// The Bot identity card is a Radix Popover too. Nothing in the app opens it today (App.tsx builds it only for a delegation
-// notice, which returns earlier), so it is mounted on its own in a dev-server page with the app's CSS.
+// The identity card uses Radix HoverCard dwell, presence and dismissal. Exercise it with the app CSS.
 await check("identity card: hover opens it in #tofi-layers without taking focus; moving into it keeps it; leaving and Escape close it", async () => {
   if (engineName !== "chromium") return console.log("  (dev-server page: Chromium only)");
   const fixture = await mkdtemp(join(ui, ".overlays-fixture-"));
@@ -606,7 +605,8 @@ void i18nReady.then(() => createRoot(document.getElementById('root')!).render(<d
     await sleep(300);
     const card = await page.evaluate(() => { const c = document.querySelector(".bot-identity-card"), r = c.getBoundingClientRect(); return { layers: Boolean(c.closest("#tofi-layers")), role: c.getAttribute("role"), focusOutside: !c.contains(document.activeElement), left: r.left, top: r.top, label: c.getAttribute("aria-label") }; });
     assert.ok(card.layers, "the card is in #tofi-layers");
-    assert.equal(card.role, "dialog");
+    assert.equal(card.role, null, "HoverCard is non-modal information, not a dialog");
+    assert.equal(await page.locator(".bot-identity-card.tofi-pop[data-state=open]").count(), 1, "shared popup motion and Radix presence");
     assert.match(card.label ?? "", /Ledger Cat/, "the card is labelled with the Bot's name");
     assert.ok(card.focusOutside, "hover does not move focus into the card");
     assert.ok(Math.abs(card.left - box.x) <= 1 && Math.abs(card.top - (box.y + box.height + 8)) <= 1, `the card sits 8 px under the name (${card.left},${card.top} vs ${box.x},${box.y + box.height + 8})`);
@@ -619,6 +619,12 @@ void i18nReady.then(() => createRoot(document.getElementById('root')!).render(<d
     await page.waitForFunction(() => !document.querySelector(".bot-identity-card"), null, { timeout: 2000 });
     await page.mouse.move(box.x + 10, box.y + box.height / 2);
     await page.locator(".bot-identity-card").waitFor({ timeout: 5000 });
+    await page.locator(".bot-identity-card button").first().click();
+    assert.equal(await page.evaluate(() => window.__mentioned), 1, "Mention remains an explicit card action");
+    await page.waitForFunction(() => !document.querySelector(".bot-identity-card"), null, { timeout: 2000 });
+    await page.mouse.move(5, 590);
+    await anchor.focus();
+    await page.locator(".bot-identity-card").waitFor();
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => !document.querySelector(".bot-identity-card"), null, { timeout: 2000 });
     assert.deepEqual(errors, []);

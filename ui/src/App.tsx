@@ -1,3 +1,5 @@
+import { MessageHoverActions } from "./MessageHoverActions";
+import * as Collapsible from "@radix-ui/react-collapsible";
 import { useNativeSidePanel } from "./useNativeSidePanel";
 import { useBotBrowserSources } from "./useBotBrowserSources";
 import { sourceKey, type ComputerSource } from "./botBrowserSource";
@@ -26,7 +28,6 @@ import {MessageReactions} from "./MessageReactions";
 import { applyUserReaction } from "./reactionState";
 import { applyMessageTask } from "./messageLink";
 import { clearMessageActions, setMessageActions, tappedMessageActionsId, useMessageActionsOpen } from "./messageActionsStore";
-import { CopyFeedbackIcon } from "./CopyFeedbackIcon";
 import { attachmentUrl, fileKind } from "./filePreviewModel";
 import { DisplayCard } from "./DisplayCard";
 import { useQuestions } from "./useQuestions";
@@ -62,7 +63,7 @@ import { useScheduleMetadata } from "./useScheduleMetadata";
 import type { Schedule } from "./types";
 import { TofiIcon as Icon } from "./icons";
 import { ComposerGlyph } from "./ComposerGlyph";
-import { formatRelativeTime, intlLocale } from "./i18n/format";
+import { intlLocale } from "./i18n/format";
 import { BrandLogo } from "./BrandLogo";
 import { PinDock, PinDropZone, PinTile } from "./PinnedDock";
 import { applyLayout, fillSlots, keepLocalLayout, listOrder, pinnedOf, type SidebarIds } from "./sidebarOrder";
@@ -85,7 +86,7 @@ import { LoadingCat } from "./motion-lab/lib/LoadingCat";
 import { flipList } from "./motion-lab/lib/flip";
 import { flySentMessage } from "./sendFlight";
 import { FileTile } from "./FileTile";
-import { DeliveryNote, SendReceipt, SendReceiptMark, preloadSendFailure } from "./SendReceipt";
+import { DeliveryNote, SendReceipt, preloadSendFailure } from "./SendReceipt";
 import { applyInbox } from "./messageDelivery";
 import { receiptFor, runsByTrigger } from "./sendReceipts";
 import { activeBotRuns, botRecentlyActive, latestBotWorkTime, latestHumanMessageTime } from "./botActivity";
@@ -309,73 +310,12 @@ function messageId() {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-function formatHoverTime(value: string, timeZone: string) {
-  const sameDay = dateInTimezone(value, timeZone) === dateInTimezone(new Date().toISOString(), timeZone);
-  return dateTimeFormat(intlLocale(), { ...(sameDay ? {} : { month: "numeric", day: "numeric" }), hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(value));
-}
-
-/** The bar's quiet timestamp: relative while it is recent, the clock time once it is old. The exact time is the tooltip. */
-function formatBarTime(value: string, timeZone: string, justNow: string) {
-  const age = Date.now() - new Date(value).getTime();
-  if (!Number.isFinite(age)) return formatHoverTime(value, timeZone);
-  if (age < 45_000) return justNow;
-  return age < 7 * 24 * 3600_000 ? formatRelativeTime(value) : formatHoverTime(value, timeZone);
-}
-
 /** What Copy puts on the clipboard: the message as the reader sees it, without the sender context label or reply marker. */
 function copyableMessageText(message: Message) {
   const body = readReplyMarker(message.content.replace(/^\[sender [^\]\n]*? id=[^\]\n]+\]\s*/, "")).body.trim();
   return body.replace(/\]\(attachment:([^)\s]+)\)/g, (_, id) => `](${location.origin}${attachmentUrl(id)})`);
 }
-async function writeClipboard(text: string) {
-  try { await navigator.clipboard.writeText(text); return true; } catch { /* LAN HTTP and blocked permissions have no async clipboard */ }
-  const field = document.createElement("textarea");
-  field.value = text; field.setAttribute("readonly", ""); field.style.cssText = "position:fixed;top:0;left:0;opacity:0";
-  document.body.appendChild(field); field.select();
-  let ok = false;
-  try { ok = document.execCommand("copy"); } catch { ok = false; }
-  field.remove();
-  return ok;
-}
 
-/** Browser-mode message actions, mounted only for the message the pointer, focus or a tap is on. */
-const MessageHoverActions = memo(function MessageHoverActions({ message, timezone, onReact, onReply, onActivity, activityOpen, copyText, mark }: { message: Message; timezone: string; onReact: (anchor: DOMRect) => void; onReply?: () => void; onActivity?: () => void; activityOpen?: boolean; copyText?: string; mark?: { state: "delivered" | "read"; names: string[]; group: boolean } }) {
-  const { t } = useTranslation("chat");
-  const [copied, setCopied] = useState(false);
-  const copiedTimer = useRef<number | undefined>(undefined);
-  useEffect(() => () => window.clearTimeout(copiedTimer.current), []);
-  async function copy() {
-    if (!copyText || !await writeClipboard(copyText)) return;
-    setCopied(true);
-    window.clearTimeout(copiedTimer.current);
-    copiedTimer.current = window.setTimeout(() => setCopied(false), 1200);
-  }
-  // One tab stop per bar (the first button); arrows, Home and End move inside it, as the toolbar role promises.
-  function onKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
-    const keys = ["ArrowLeft", "ArrowRight", "Home", "End"];
-    if (!keys.includes(event.key)) return;
-    const buttons = [...event.currentTarget.querySelectorAll<HTMLElement>("button, [data-roving]")];
-    const at = buttons.indexOf(document.activeElement as HTMLElement);
-    if (at < 0) return;
-    event.preventDefault();
-    const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (at + (event.key === "ArrowRight" ? 1 : -1) + buttons.length) % buttons.length;
-    buttons.forEach((button, index) => { button.tabIndex = index === next ? 0 : -1; });
-    buttons[next].focus();
-  }
-  let first = true;
-  const stop = () => { const index = first ? 0 : -1; first = false; return index; };
-  return <div className="message-hover-actions" role="toolbar" aria-label={t("hover.toolbar")} onKeyDown={onKeyDown}>
-    {copyText && <button type="button" tabIndex={stop()} aria-label={copied ? t("hover.copied") : t("hover.copy")} data-hint={copied ? t("hover.copied") : t("hover.copy")} data-action="copy" onClick={() => void copy()}><CopyFeedbackIcon copied={copied} size={15} /></button>}
-    {message.role !== "user" && <button type="button" tabIndex={stop()} aria-label={t("hover.react")} data-hint={t("hover.react")} data-action="react" onClick={event => onReact(event.currentTarget.getBoundingClientRect())}><Icon name="emoji" size={15} /></button>}
-    {onReply && <button type="button" tabIndex={stop()} aria-label={t("hover.reply")} data-hint={t("hover.reply")} data-action="reply" onClick={onReply}><Icon name="reply" size={15} /></button>}
-    {onActivity && <button type="button" tabIndex={stop()} className="message-activity-action" aria-label={activityOpen ? t("hover.hide_activity") : t("hover.view_activity")} aria-pressed={activityOpen} data-hint={activityOpen ? t("hover.hide_activity") : t("hover.view_activity")} data-action="activity" onClick={onActivity}><Icon name="activity" size={15} /></button>}
-    <time dateTime={message.created_at} title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}>{formatBarTime(message.created_at, timezone, t("hover.just_now"))}</time>
-    {mark && <SendReceiptMark state={mark.state} names={mark.names} group={mark.group} />}
-  </div>;
-}, (previous, next) => previous.message === next.message && previous.timezone === next.timezone && previous.activityOpen === next.activityOpen && previous.copyText === next.copyText
-  && previous.mark?.state === next.mark?.state && previous.mark?.group === next.mark?.group && previous.mark?.names.join("\u0000") === next.mark?.names.join("\u0000")
-  // The handlers are rebuilt every render; they act on the same message, so only their presence matters here.
-  && Boolean(previous.onReply) === Boolean(next.onReply) && Boolean(previous.onActivity) === Boolean(next.onActivity));
 
 /** Holds a message's action bar and mounts it only while that message is the active one. */
 function MessageActionsSlot({ id, children }: { id: string; children: React.ReactNode }) {
@@ -2447,15 +2387,6 @@ function Workspace() {
     setRevealedRuns(current => { const next = new Set(current); if (opening) next.add(runId); else next.delete(runId); return next; });
     if (opening) window.setTimeout(() => messageListRef.current?.querySelector<HTMLElement>(`[data-activity-run="${CSS.escape(runId)}"], [data-run-id="${CSS.escape(runId)}"]`)?.scrollIntoView({ block: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }), 60);
   }
-  useEffect(() => {
-    // A press anywhere but on the tapped message (or its bar) closes the touch actions; the bar is mounted only while it is open.
-    const close = (event: Event) => {
-      const open = tappedMessageActionsId();
-      if (open && (event.target as HTMLElement).closest?.(".message-hover-host, .message-actions-row")?.getAttribute("data-host-id") !== open) setMessageActions("tap", "");
-    };
-    document.addEventListener("pointerdown", close);
-    return () => document.removeEventListener("pointerdown", close);
-  }, []);
   // Message actions follow the pointer and focus through one delegated handler each: no per-message listeners, no App state.
   const messageIdOf = (target: EventTarget | null) => (target as HTMLElement | null)?.closest?.<HTMLElement>(".message-block")?.dataset.messageId ?? "";
   // Entering a message raises its bar in the same event; leaving it (into the gap between messages, or out of the list) lets go after a short grace.
@@ -3325,10 +3256,10 @@ function toolRunTimes(items: ToolActivity[], notes: Message[], summary?: ToolAct
 function RunContextEntry({ runId, timezone }: { runId: string; timezone: string }) {
   const { t } = useTranslation("chat");
   const [open, setOpen] = useState(false);
-  return <div className="run-context-entry">
-    <button type="button" className="run-context-toggle" aria-expanded={open} aria-controls={`run-context-${runId}`} onClick={() => setOpen(value => !value)}><Icon className="web-tool-chevron" name="chevron-right" size={14} /><span>{t("runContext.toggle")}</span></button>
-    {open && <div id={`run-context-${runId}`}><Suspense fallback={null}><RunContextView runId={runId} timezone={timezone} /></Suspense></div>}
-  </div>;
+  return <Collapsible.Root className="run-context-entry" open={open} onOpenChange={setOpen}>
+    <Collapsible.Trigger className="run-context-toggle"><Icon className="web-tool-chevron" name="chevron-right" size={14} /><span>{t("runContext.toggle")}</span></Collapsible.Trigger>
+    <Collapsible.Content className="collapsible-content"><Suspense fallback={null}><RunContextView runId={runId} timezone={timezone} /></Suspense></Collapsible.Content>
+  </Collapsible.Root>;
 }
 
 function WebToolActivityRun({ runId, items, notes, summary, summaryError, summaryLoading, detail, onLoadDetails, onRetrySummary, live, now, timezone, botName, senderId }: ToolRunProps) {
@@ -3389,31 +3320,30 @@ function WebToolActivityRun({ runId, items, notes, summary, summaryError, summar
   const fullLabel = `${activityLabel}${!live && count !== undefined ? ` · ${t("tools.call_count", { count })}` : ""}${issues ? ` · ${issues}` : ""}${notes.length ? ` · ${t("tools.report_count", { count: notes.length })}` : ""}${!live && duration !== undefined ? ` · ${duration}` : ""}`;
   return <section data-activity-run={runId} className={`tool-message web-tool-run${live ? " is-live" : ` is-complete${issues ? " has-tool-issues" : ""}`}`} aria-label={t("tools.steps_label", { name: botName })} data-sender={senderId || undefined} data-at={senderId && Number.isFinite(lastTime) ? new Date(lastTime).toISOString() : undefined}>
     {senderId && <SenderHead id={senderId} name={botName} />}
-    <div className="web-tool-disclosure">
+    <Collapsible.Root className="web-tool-disclosure" open={expanded} onOpenChange={next => {
+      const label = labelRef.current;
+      if (next) { if (label && label.scrollWidth > label.clientWidth) setClipped(true); loadDetails(); }
+      // The drawer opens on its steps, never empty: a cold chunk is waited for (it is warmed on hover) before the open starts.
+      if (next && !panelLoaded("toolSteps")) void whenPanelLoaded("toolSteps").then(() => setExpanded(true));
+      else setExpanded(next);
+    }}>
       <div className="web-tool-summary">
         {!live && Number.isFinite(lastTime) && <time>{formatTime(new Date(lastTime).toISOString(), timezone)}</time>}
-        <button type="button" ref={toggleRef} className="web-tool-toggle" aria-label={live ? undefined : fullLabel} aria-expanded={expanded} aria-controls={`web-tool-drawer-${runId}`} onClick={() => {
-          const next = !expanded;
-          const label = labelRef.current;
-          if (next) { if (label && label.scrollWidth > label.clientWidth) setClipped(true); loadDetails(); }
-          // The drawer opens on its steps, never empty: a cold chunk is waited for (it is warmed on hover) before the open starts.
-          if (next && !panelLoaded("toolSteps")) void whenPanelLoaded("toolSteps").then(() => setExpanded(true));
-          else setExpanded(next);
-        }}>
+        <Collapsible.Trigger asChild><button type="button" ref={toggleRef} className="web-tool-toggle" aria-label={live ? undefined : fullLabel}>
           {live && <LiveMark />}
           {!live && <Icon className="web-tool-chevron" name="chevron-right" size={14} />}
           {live ? <span ref={labelRef} className="process-line-text web-tool-live-label">{fullLabel}</span>
             : <><Icon className="web-tool-glyph" name="terminal" size={14} aria-hidden="true" /><span ref={labelRef} className="process-line-text web-tool-compact" aria-hidden="true">{count !== undefined && <span>{count}</span>}{duration !== undefined && <span className="web-tool-quiet">{duration}</span>}{issueCount > 0 && <span className="web-tool-issues"><Icon name="alert" size={13} aria-hidden="true" />{issueCount}</span>}{notes.length > 0 && <span className="web-tool-quiet"><Icon name="file-text" size={13} aria-hidden="true" />{notes.length}</span>}</span></>}
           {live && <Icon className="web-tool-chevron" name="chevron-right" size={14} aria-hidden="true" />}
-        </button>
+        </button></Collapsible.Trigger>
         {live && current && isComputerAction(current) && <ComputerLookButton activity={current} />}
       </div>
-      <div className={`web-tool-drawer${expanded ? " is-open" : ""}`} id={`web-tool-drawer-${runId}`} aria-hidden={!expanded} inert={!expanded}><div className="web-tool-drawer-inner">
+      <Collapsible.Content forceMount className={`web-tool-drawer collapsible-content${expanded ? " is-open" : ""}`} inert={!expanded}><div className="web-tool-drawer-inner">
       {clipped && <p className="web-tool-full">{fullLabel}</p>}
       <ol className="web-tool-steps" ref={stepsRef}>{summaryLoading && <li className="web-tool-step is-note"><span>{t("tools.summary_loading")}</span></li>}{summaryError && <li className="web-tool-step is-note"><span>{t("tools.summary_failed", { error: summaryError })}</span><button type="button" className="secondary-button" onClick={() => onRetrySummary?.(runId)}>{t("common:action.retry")}</button></li>}{!entries.length && <li className="web-tool-step is-note"><span>{detail?.loading ? t("tools.details_loading") : detail?.error ? t("tools.details_failed", { error: detail.error }) : t("tools.expand_to_load")}</span></li>}<WebToolSteps entries={entries} live={live} now={now} timezone={timezone} />{hasMoreDetails && <li className="web-tool-step is-note"><button type="button" className="secondary-button" disabled={detail?.loading} onClick={loadDetails}>{detail?.loading ? t("action.loading") : t("tools.load_more", { shown: items.length, total: count ?? "?" })}</button></li>}</ol>
       <RunContextEntry runId={runId} timezone={timezone} />
-      </div></div>
-    </div>
+      </div></Collapsible.Content>
+    </Collapsible.Root>
   </section>;
 }
 

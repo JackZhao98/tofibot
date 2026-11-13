@@ -1,5 +1,5 @@
 import { TofiIcon } from "./icons";
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "./i18n";
 import { layerRoot, topLayerDialog } from "./layers";
@@ -40,18 +40,6 @@ export function useSurfacePresence<T>(value: T | null, duration = 220) {
     return () => clearTimeout(timer);
   }, [value, duration]);
   return value ?? retained;
-}
-
-export function AppearancePicker({ value, onChange }: { value: ThemePreference; onChange: (theme: ThemePreference) => void }) {
-  const { t } = useTranslation("settings");
-  // A choice applies at once; "Saved" shows for 1.5 s (the same note as SettingsSwitch, kept local: this file is in the entry chunk).
-  const [saved, setSaved] = useState(false);
-  const timer = useRef<number | undefined>(undefined);
-  useEffect(() => () => window.clearTimeout(timer.current), []);
-  const choose = (theme: ThemePreference) => { onChange(theme); setSaved(true); window.clearTimeout(timer.current); timer.current = window.setTimeout(() => setSaved(false), 1500); };
-  return <section className="appearance-setting"><div className="appearance-head"><h3>{t("appearance.title")}</h3><span className="settings-saved" aria-live="polite">{saved ? t("saved") : ""}</span></div><div className="appearance-options" role="group" aria-label={t("appearance.label")}>
-    {(["system", "light", "dark"] as const).map((theme) => <button key={theme} aria-pressed={value === theme} onClick={() => choose(theme)}><span className={`theme-swatch theme-swatch-${theme}`} aria-hidden="true"><i /><i /><i /></span><span>{t(`appearance.${theme}`)}</span></button>)}
-  </div></section>;
 }
 
 /** Quiet, delayed tooltips for icon-only actions. No timers or listeners per row. */
@@ -110,16 +98,6 @@ export function ActionHints() {
     return () => { hide(); document.removeEventListener("pointerover", show); document.removeEventListener("pointerout", leave); document.removeEventListener("focusin", show); document.removeEventListener("focusout", hide); document.removeEventListener("pointerdown", hide); document.removeEventListener("keydown", hide); window.removeEventListener("scroll", scrolled, true); };
   }, []);
   return hint ? createPortal(<div className={`action-hint${hint.tone ? ` is-${hint.tone}` : ""}`} role="tooltip" style={{ left: hint.x, top: hint.y, transform: hint.side ? "translate(0, -50%)" : `translate(-50%, ${hint.above ? "-100%" : "0"})` }}>{hint.text}</div>, hint.host) : null;
-}
-
-/** Keep content mounted through collapse; inert removes closed controls from tab order. */
-export function Disclosure({ title, children, defaultOpen = false }: { title: ReactNode; children: ReactNode; defaultOpen?: boolean }) {
-  const [open, setOpen] = useState(defaultOpen);
-  const id = useId();
-  return <div className="disclosure" data-open={open}>
-    <button className="disclosure-toggle" type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen(value => !value)}><span>{title}</span><TofiIcon className="disclosure-chevron" name="chevron-down" size={16} /></button>
-    <div className="disclosure-region" id={id} inert={!open || undefined} aria-hidden={!open}><div className="disclosure-inner">{children}</div></div>
-  </div>;
 }
 
 /** Destructive actions stay beside their content and always offer a way back. */

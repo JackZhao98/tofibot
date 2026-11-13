@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { ApiError, request } from "./api";
 import type { Bot } from "./types";
 import { VMOAuthDialog, type VMOAuthSession } from "./VMOAuthDialog";
-import { Disclosure } from "./InteractionSystem";
+import { Disclosure } from "./InteractionPrimitives";
 import { TofiIcon } from "./icons";
 import { integrationCatalog, LOCAL_PLUGIN_REPOS, type IntegrationPreset } from "./integrationCatalog";
 import { useRepoStars } from "./connections/repoStars";

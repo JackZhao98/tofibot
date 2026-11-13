@@ -572,6 +572,21 @@ unmounts with the menu and the workspace turns inert in the same commit; from th
 on (recorded by the `OverlaySlot` listener; `test:overlays` holds it). Menus and dialogs share one copy of the Radix primitives
 (one layer stack), so keep the four `@radix-ui/*` packages on versions npm dedupes.
 
+# Web UI controls on Radix
+
+Tabs (`@radix-ui/react-tabs`), segmented choices (`react-radio-group`), switches (`react-switch`), disclosures
+(`react-collapsible`), the Bot identity card (`react-hover-card`) and the message action bar (`react-toolbar` in a
+`DismissableLayer`) are Radix. Do not write a hand-made version of a behaviour that one of these covers.
+- Entry bundle (D31 as amended by D82, `test:dialogs`): only the parts every chat shows are eager: the message action bar
+  (`ui/src/MessageHoverActions.tsx`, Toolbar + DismissableLayer) and the tool-step drawer and run-context toggle in the message
+  list (`App.tsx`, Collapsible). Dialogs, menus, popovers and the Settings controls stay in lazy chunks. The entry may grow
+  for a better library, up to 371,712 B gzip in total (D82); change `EAGER_GZIP_BUDGET` and record it in D82.
+- `Disclosure` and `AppearancePicker` are in `ui/src/InteractionPrimitives.tsx` (lazy chunks only).
+- Collapsible content gets the class `collapsible-content` (`interaction-system.css`): one height animation from
+  `--radix-collapsible-content-height`. Folded content that must stay mounted uses `forceMount` and `inert`; the class hides it.
+- Radix selects a radio and moves a toolbar or tab on a timer after `keydown`. A test that presses an arrow key holds the key for
+  one timer turn (`keyboard.down`, `setTimeout(0)`, `keyboard.up`), as a person does. Do not select on `focus` to pass a test.
+
 # Web UI side panels
 
 Web only, 1100 px and wider; the design is `docs/design/widgets-and-sidebar.md` and decision D67 (`side-panels.md` is the superseded first version). What a conversation can open has three tiers; the state is `surfaces` in `ui/src/surfaces.ts` (pure functions, `npm --prefix ui run test:surfaces`), and call sites use those functions directly (there is no `Panel` type or `setPanel` adapter any more: `openSurface`, `openSidebarId`, `openCoverPanel`, `toggleWidgetId` in `App.tsx`).

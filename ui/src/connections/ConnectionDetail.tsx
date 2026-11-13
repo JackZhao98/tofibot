@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { request } from "../api";
 import { BotAvatar } from "../BotAvatar";
 import type { StandingAllowance } from "../StandingAllowances";
-import { Disclosure } from "../InteractionSystem";
+import { Disclosure } from "../InteractionPrimitives";
 import { TofiIcon } from "../icons";
 import { ServiceMark } from "../ServiceMark";
 import { useTranslation } from "../i18n";

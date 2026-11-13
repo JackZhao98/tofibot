@@ -1,8 +1,10 @@
+import * as Collapsible from "@radix-ui/react-collapsible";
+import * as RadioGroup from "@radix-ui/react-radio-group";
 import {useCallback, useEffect, useId, useRef, useState, type ReactNode} from "react";
 import * as Switch from "@radix-ui/react-switch";
 import {TofiIcon} from "../icons";
 import {useTranslation} from "../i18n";
-import {Disclosure} from "../InteractionSystem";
+import { Disclosure } from "../InteractionPrimitives";
 import "./settings-components.css";
 
 /** Section: a 16px display heading, an optional count or hint, an optional description. */
@@ -106,7 +108,7 @@ export function Banner({tone, title, children, action, details}: {tone: "error" 
   return <div className={`settings-banner is-${tone}`} role={tone === "error" ? "alert" : undefined}>
     <TofiIcon name={bannerIcon[tone]} size={18} aria-hidden="true"/>
     <div className="settings-banner-copy"><strong>{title}</strong>{children && <p>{children}</p>}
-      {details && <><button type="button" className="settings-banner-more" aria-expanded={open} aria-controls={detailsId} onClick={() => setOpen(value => !value)}>{t("banner.details")}</button>{open && <pre id={detailsId} className="settings-banner-details">{details}</pre>}</>}
+      {details && <Collapsible.Root open={open} onOpenChange={setOpen}><Collapsible.Trigger className="settings-banner-more">{t("banner.details")}</Collapsible.Trigger><Collapsible.Content className="collapsible-content"><pre id={detailsId} className="settings-banner-details">{details}</pre></Collapsible.Content></Collapsible.Root>}
     </div>
     {action && <button type="button" className="st-button settings-banner-action" disabled={action.disabled} onClick={action.onClick}>{action.label}</button>}
   </div>;
@@ -120,9 +122,9 @@ export function DangerZone({title, children}: {title: ReactNode; children: React
 
 /** Segmented control: a radiogroup over a short list. */
 export function Segmented<T extends string>({value, options, onChange, label, disabled = false}: {value: T; options: readonly {value: T; label: ReactNode}[]; onChange: (value: T) => void; label: string; disabled?: boolean}) {
-  return <div className="segmented" role="radiogroup" aria-label={label}>
-    {options.map(option => <button key={option.value} type="button" role="radio" aria-checked={value === option.value} disabled={disabled} onClick={() => onChange(option.value)}>{option.label}</button>)}
-  </div>;
+  return <RadioGroup.Root value={value} onValueChange={onChange} disabled={disabled} className="segmented" aria-label={label}>
+    {options.map(option => <RadioGroup.Item key={option.value} value={option.value}>{option.label}</RadioGroup.Item>)}
+  </RadioGroup.Root>;
 }
 
 /** Short help text stays visible; the long version sits behind a "Details" disclosure. */

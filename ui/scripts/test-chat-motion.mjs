@@ -445,17 +445,29 @@ await check("keyboard: the list is one tab stop, arrows move between messages, t
   const tabbable = await page.evaluate(() => [...document.querySelectorAll(".message-list .message-block")].filter(b => b.tabIndex >= 0).map(b => b.dataset.messageId));
   assert.deepEqual(tabbable, ["m5"], "only the newest message is a tab stop");
   await block(page, "m5").focus();
-  assert.equal(await bar(page).count(), 1, "focus mounts the bar");
+  await bar(page).waitFor();
+  assert.equal(await bar(page).count(), 1, "focus mounts the lazy bar");
   await page.keyboard.press("ArrowUp");
   assert.equal(await page.evaluate(() => document.activeElement?.dataset.messageId), "m4");
+  await block(page, "m4").locator(".message-hover-actions").waitFor();
   assert.equal(await block(page, "m4").locator(".message-hover-actions").count(), 1, "the bar follows focus");
   assert.equal(await block(page, "m5").locator(".message-hover-actions").count(), 0);
   await page.keyboard.press("Tab");
   assert.ok(await page.evaluate(() => document.activeElement?.closest(".message-hover-actions") !== null), "Tab enters the bar");
   const stops = await page.evaluate(() => [...document.querySelectorAll(".message-hover-actions button")].map(b => b.tabIndex));
   assert.deepEqual(stops.filter(v => v === 0).length, 1, "the bar has one tab stop");
+  const beforeArrow = await page.evaluate(() => document.activeElement?.getAttribute("data-action"));
   await page.keyboard.press("ArrowRight");
+  await page.waitForFunction(previous => document.activeElement?.closest(".message-hover-actions") && document.activeElement.getAttribute("data-action") !== previous, beforeArrow);
   assert.ok(await page.evaluate(() => document.activeElement?.tabIndex === 0 && document.activeElement.closest(".message-hover-actions") !== null), "arrows move inside the bar");
+  await page.keyboard.press("End");
+  await page.waitForFunction(() => document.activeElement === document.querySelector(".message-hover-actions button:last-of-type"));
+  const last = await bar(page).locator("button").last().getAttribute("data-action");
+  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("data-action")), last, "End reaches the last enabled Toolbar.Button");
+  await page.keyboard.press("ArrowRight");
+  await page.waitForFunction(() => document.activeElement === document.querySelector(".message-hover-actions button"));
+  const first = await bar(page).locator("button").first().getAttribute("data-action");
+  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("data-action")), first, "Radix toolbar loops");
   await page.keyboard.press("Escape");
   assert.equal(await page.evaluate(() => document.activeElement?.dataset.messageId), "m4", "Escape returns to the message");
   await context.close();
@@ -484,8 +496,10 @@ await check("touch: tapping beside the bubble does nothing; tapping the bubble o
   await page.touchscreen.tap(time.x + time.width / 2, time.y + time.height / 2);
   await page.waitForTimeout(150);
   assert.equal(await bar(page).count(), 1, "a tap on the bar does not close it");
+  // Radix DismissableLayer closes a touch layer on the tap's click, not on pointerdown (so the tap cannot reach what was under
+  // the bar): wait for it instead of sleeping a fixed time.
   await page.touchscreen.tap(5, 300);
-  await page.waitForTimeout(150);
+  await page.waitForFunction(() => document.querySelectorAll(".message-hover-actions").length === 0, null, { timeout: 2000 }).catch(() => {});
   assert.equal(await bar(page).count(), 0, "a tap elsewhere closes it");
   await context.close();
 });

@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from "react";
 import { openSettings } from "../drive";
 import { Banner, ChangedNote, DangerZone, FilePicker, Segmented, SettingsCard, SettingsDetails, SettingsRow, SettingsSection, SettingsSubpage, SettingsSwitch, StatusBadge, type BadgeState } from "../../settings/components";
-import { AppearancePicker, ConfirmAction, Disclosure } from "../../InteractionSystem";
+import { ConfirmAction } from "../../InteractionSystem";
+import { AppearancePicker, Disclosure } from "../../InteractionPrimitives";
 import { i18n } from "../../i18n";
 import "../../extensions-system.css";
 import "../../settings/section-jump.css";

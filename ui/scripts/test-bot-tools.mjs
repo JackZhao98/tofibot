@@ -143,7 +143,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.match(envText, /Studio MacBook\s*When you allow it on that Mac\s*Online/, "a Mac: only where the Bot is allowed on it");
     assert.ok(!/E2B/.test(envText), "an environment that is not the Bot computer is not listed");
     assert.equal(await environments.getByRole("button", {name: /Manage environments/}).count(), 1, "one link to Settings > Environments");
-    assert.equal(await page.locator('[data-group="builtin"] .disclosure-region').getAttribute("aria-hidden"), "true", "Built in is folded");
+    assert.equal(await page.locator('[data-group="builtin"] .disclosure-toggle').getAttribute("aria-expanded"), "false", "Built in is folded");
+    assert.equal(await page.locator('[data-group="builtin"] .disclosure-region').evaluate(node => node.inert && node.getAttribute("aria-hidden") === "true"), true, "closed disclosure retains its content outside focus and accessibility navigation");
     assert.equal(await page.locator('.bot-skill-row').count(), 2, "Skills are the library checkboxes");
     assert.equal(await page.locator('[data-group="skills"] h2').count(), 0, "the group is the Skills heading; the Skills view adds none");
     assert.equal(await page.locator('[data-allowance-id]').count(), 2);

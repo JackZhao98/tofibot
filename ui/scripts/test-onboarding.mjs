@@ -191,6 +191,22 @@ async function walkthrough({ width, height, theme, locale = "en-US", shotsOn = t
     if (strict) await assertNoTruncation(page, "model default");
     await shoot(page, "2-model-default");
 
+    const choices = page.locator(".onb-choice");
+    await choices.nth(1).click();
+    assert.equal(await choices.nth(1).getAttribute("aria-checked"), "true", "the API key radio can be clicked");
+    await choices.first().click();
+    assert.equal(await choices.first().getAttribute("aria-checked"), "true", "the ChatGPT radio can be clicked");
+    // Radix moves roving focus on a timer after keydown and selects only while the arrow is still down, as it is for a
+    // person; Playwright's press() releases the key in the same turn, so hold it for one timer turn.
+    const arrow = async key => { await page.keyboard.down(key); await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 0))); await page.keyboard.up(key); };
+    await choices.first().focus();
+    await arrow("ArrowRight");
+    await page.waitForFunction(() => document.querySelectorAll(".onb-choice")[1]?.getAttribute("aria-checked") === "true");
+    assert.equal(await choices.nth(1).evaluate(el => el === document.activeElement), true, "Radix moves focus and selection together");
+    await arrow("ArrowLeft");
+    await page.waitForFunction(() => document.querySelector(".onb-choice")?.getAttribute("aria-checked") === "true");
+    assert.equal(await choices.evaluateAll(items => items.filter(el => el.tabIndex === 0).length), 1, "one radio tab stop");
+
     // 2b. ChatGPT waiting state: lagoon dot, code, Copy, Cancel.
     await page.locator(".onb-primary").click();
     await page.locator(".onb-code").waitFor();

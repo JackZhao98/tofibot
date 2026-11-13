@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Disclosure } from "../InteractionSystem";
+import { Disclosure } from "../InteractionPrimitives";
 import { TofiIcon } from "../icons";
 import { Banner } from "../settings/components";
 import { googleAPIEnableURL, googleAudienceURL, type IntegrationPreset } from "../integrationCatalog";

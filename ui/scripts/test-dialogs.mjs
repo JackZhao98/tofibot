@@ -1,5 +1,5 @@
 // Modal dialogs on Radix Dialog / AlertDialog (docs/design/migration.md step 3, ui/src/overlays/ModalDialog.tsx).
-//  1. Bundle (production build): Radix is only in lazy chunks, never in the entry files (D31); the dialogs that used to
+//  1. Bundle (production build): dialogs, menus and popovers are only in lazy chunks (D31, D82); the dialogs that used to
 //     sit in the entry (ReassignPrimaryDialog, DialogShell) are lazy too; menus and dialogs share one copy of Radix's
 //     layer and focus primitives (ds/integrate).
 //  2. Real app (production build, synthetic data, Chromium): the delete dialog takes focus on Cancel, keeps Tab and
@@ -32,14 +32,18 @@ const check = async (name, run) => {
 const truthy = (value, message) => { if (!value) throw new Error(message); };
 // DIALOGS_ONLY=app or DIALOGS_ONLY=harness runs one half (used while proving each check fails on a reverted tree).
 const only = process.env.DIALOGS_ONLY || "app,harness";
-const RADIX_MARKERS = ["focusScope.autoFocusOnMount", "dismissableLayer.pointerDownOutside", "data-scroll-locked", "ToolbarButton", "TabsTrigger"];
+// D31 as amended by D82: the entry may carry the small Radix pieces that every chat shows (the message action bar's Toolbar and
+// DismissableLayer, the tool-step Collapsible); dialogs, menus, popovers and the Settings controls stay in lazy chunks.
+const ENTRY_RADIX = ["ToolbarButton", "CollapsibleTrigger", "dismissableLayer.pointerDownOutside", "rovingFocusGroup.onEntryFocus"];
+const LAZY_RADIX = ["focusScope.autoFocusOnMount", "data-scroll-locked", "TabsTrigger", "RadioGroupItem", "HoverCardContent", "SwitchThumb", "MenuItem", "PopperContent"];
+const RADIX_MARKERS = [...ENTRY_RADIX, ...LAZY_RADIX];
 
 // ---- 1 + 2: the production app
 if (only.includes("app")) {
 const { createFixture } = await import("./lib/chat-fixture.mjs");
 const fixture = await createFixture();
 
-await check("Radix ships only in lazy chunks; the entry files carry none of it and no dialog code", async () => {
+await check("dialogs, menus, popovers and Settings controls ship in lazy chunks; the entry carries only the chat's small Radix parts and no dialog code", async () => {
   const get = async path => (await fetch(`${fixture.origin}/${path}`)).text();
   const html = await get("");
   const eager = [...html.matchAll(/(?:src|href)="\/(assets\/[^"]+\.js)"/g)].map(match => match[1]);
@@ -58,8 +62,8 @@ await check("Radix ships only in lazy chunks; the entry files carry none of it a
   for (const file of eager) {
     truthy(!["DndDescribedBy", "sortableKeyboardCoordinates", "draggableDescribedById"].some(marker => seen.get(file)?.includes(marker)), `dnd-kit is in the entry: ${file}`);
   }
-  const eagerRadix = radix.filter(file => eager.includes(file));
-  truthy(!eagerRadix.length, `Radix is in the entry: ${eagerRadix.join(", ")}`);
+  const eagerRadix = eager.filter(file => LAZY_RADIX.some(marker => seen.get(file)?.includes(marker)));
+  truthy(!eagerRadix.length, `a lazy-only Radix part is in the entry: ${eagerRadix.map(file => `${file} (${LAZY_RADIX.filter(marker => seen.get(file).includes(marker)).join(", ")})`).join("; ")}`);
   for (const name of ["ReassignPrimaryDialog", "DeleteConversationDialog", "DialogShell", "ModalDialog"]) {
     const files = [...seen.keys()].filter(file => file.startsWith(`assets/${name}-`));
     truthy(files.length, `${name} is not a chunk of its own`);
@@ -67,7 +71,7 @@ await check("Radix ships only in lazy chunks; the entry files carry none of it a
   }
   // Menus (RadixOverlays, step 2) and dialogs (ModalDialog, step 3) must share one copy of Radix's layer and focus
   // primitives: two copies keep two layer stacks, and Escape in a menu over a dialog would close both.
-  for (const marker of ["dismissableLayer.pointerDownOutside", "focusScope.autoFocusOnMount"]) {
+  for (const marker of ["dismissableLayer.pointerDownOutside", "focusScope.autoFocusOnMount", "rovingFocusGroup.onEntryFocus"]) {
     const copies = [...seen].reduce((count, [, text]) => count + text.split(marker).length - 1, 0);
     truthy(copies === 1, `${marker} is bundled ${copies} times; the Radix packages must resolve to one copy of each primitive`);
   }
