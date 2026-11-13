@@ -1,12 +1,12 @@
 @import "./design-tokens.css";
+@layer base {
 body{font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
-/* Browser affordances use the final V2 palette in every route, including auth. */
-::selection{background:color-mix(in srgb,var(--iris) 45%,transparent);color:var(--ink)}
-:is(input,textarea){caret-color:var(--clay)}
+button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+form[aria-busy=true]{cursor:progress}
+}
 .workspace :is(button,a,summary):focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:3px}
 .contact-section,.message-scroll,.settings-page-body{scrollbar-color:var(--line-soft) transparent}
 .workspace .contact-row:focus-visible{outline-offset:-3px}
-button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 /* V2 controls live in v2-foundations.css, not a second generic rule set. */
 .search-box:has(:focus-visible){outline:2px solid var(--focus-ring);outline-offset:2px}
 .search-box input:focus-visible,.composer-row textarea:focus-visible{outline:none}
@@ -243,7 +243,6 @@ html[data-desktop] .new-arrival .message-user .message-content{transform-origin:
 
 /* Shared form geometry; fieldsets freeze pending inputs without another visual box. */
 .form-fields{display:contents;border:0;padding:0;margin:0;min-width:0}
-form[aria-busy=true]{cursor:progress}
 
 .notification-status{font-size:13px;color:var(--muted);margin:12px 0 0;line-height:1.6}
 
@@ -252,7 +251,6 @@ form[aria-busy=true]{cursor:progress}
   .scheduled-task-row summary,.tool-activity summary,.work-item-details summary{min-height:44px}
 }
 @media(forced-colors:active){
-  :root,:root[data-theme="dark"]{--focus-ring:Highlight;--muted:CanvasText}
   .workspace .contact-row.active,.workspace .settings-tabs button.selected{background:Highlight;color:HighlightText}
   .workspace .contact-row.active :is(strong,small,time){color:HighlightText}
   .workspace .contact-row.active>.conversation-status{background:HighlightText;color:Highlight}

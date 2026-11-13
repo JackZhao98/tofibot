@@ -6,7 +6,6 @@
    facing the avatar. Direct chat: the same bubble with no tail (there is no avatar to face), a little wider so long answers read well.
    Activity, process and live-status lines are never bubbles: they stay quiet lines in the column, in groups and in direct chat.
    Grouping is computed in senderGroups.ts as [data-continues] and [data-last]. */
-:root { --sender-avatar:34px; --sender-gap:10px; --sender-gutter:calc(var(--sender-avatar) + var(--sender-gap)); --sender-caption:21px; }
 html[data-desktop] { --sender-avatar:38px; }
 
 /* Avatar + caption: only on the closing unit of a group. */

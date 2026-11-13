@@ -1,9 +1,12 @@
-*{box-sizing:border-box}
+@layer reset { *{box-sizing:border-box} }
+@layer base {
  html,body,#root{min-width:320px;min-height:100%}
  body{margin:0}
  /* Cursor convention (Claude.ai): controls keep the arrow; only a plain text link keeps the native hand. No component declares a pointer cursor. */
  button,summary,select,label[for],[role="button"],[role="tab"],[role="menuitem"],[role="option"],[role="switch"],[role="checkbox"],[role="radio"],input[type="checkbox"],input[type="radio"],input[type="range"],input[type="file"],input[type="button"],input[type="submit"]{cursor:default}
  button:disabled{cursor:not-allowed}
+input,textarea,select{width:100%;margin-top:7px;resize:vertical}
+}
 
 .center-state{display:flex;align-items:center;justify-content:center;gap:10px;min-height:100dvh;color:var(--muted);font-size:14px}
 .center-state.startup-error{flex-direction:column;padding:24px;text-align:center}
@@ -19,7 +22,6 @@
 
 :is(.owner-card,.settings-section)>form,
 form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential-form,.question-card,.work-create){display:grid;gap:10px}
-input,textarea,select{width:100%;margin-top:7px;resize:vertical}
 
 .workspace{height:var(--viewport-height,100dvh);min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .workspace-grid{height:100%;min-height:0;flex:1;display:grid;grid-template-columns:var(--sidebar-width,260px) minmax(0,1fr);overflow:hidden}
@@ -377,7 +379,6 @@ input,textarea,select{width:100%;margin-top:7px;resize:vertical}
 
 /* Keep the high-contrast palette legible when author colors are remapped. */
 @media (forced-colors:active){
-  :root{--bg:Canvas;--surface:Canvas;--surface-soft:Canvas;--sidebar-bg:Canvas;--selected-bg:Highlight;--line:ButtonText;--line-strong:ButtonText;--text:CanvasText;--text-soft:CanvasText;--muted:CanvasText;--accent:Highlight;--success:Highlight;--danger:LinkText}
   body,.workspace,.workspace-grid,.contact-pane,.detail-pane,.chat-pane{color:CanvasText;background:Canvas}
   button,input,textarea,select{forced-color-adjust:auto}
   input,textarea,select{color:FieldText;background:Field;border-color:ButtonText}

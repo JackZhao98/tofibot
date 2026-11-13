@@ -90,6 +90,8 @@ jobs:
           npx playwright install --with-deps chromium
           echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/pw/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
       - run: npm --prefix ui run test:layers
+      # Global defaults stay in cascade layers; no new global rule, :root bump, web fork or !important.
+      - run: npm --prefix ui run test:css-layers
       - run: npm --prefix ui run test:dialogs
       - run: npm --prefix ui run test:overlays
       # Controls covered by a macOS drag strip cannot be clicked in the desktop app.

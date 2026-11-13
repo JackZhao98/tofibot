@@ -1,0 +1,317 @@
+{
+  "account-menu.css": {
+    "global": 0,
+    "rootBump": 3,
+    "webFork": 0,
+    "important": 0,
+    "tokenDef": 0
+  },
+  "admin-accounts.css": {
+    "global": 0,
+    "rootBump": 0,
+    "webFork": 0,
+    "important": 2,
+    "tokenDef": 0
+  },
+  "approval-card.css": {
+    "global": 0,
+    "rootBump": 0,
+    "webFork": 0,
+    "important": 2,
+    "tokenDef": 0
+  },
+  "artifacts-panel.css": {
+    "global": 0,
+    "rootBump": 0,
+    "webFork": 0,
+    "important": 1,
+    "tokenDef": 0
+  },
+  "boot-screen.css": {
+    "global": 0,
+    "rootBump": 1,
+    "webFork": 0,
+    "important": 5,
+    "tokenDef": 0
+  },
+  "bot-avatar-picker-motion.css": {
+    "global": 0,
+    "rootBump": 4,
+    "webFork": 0,
+    "important": 0,
+    "tokenDef": 0
+  },
+  "bot-settings.css": {
+    "global": 0,
+    "rootBump": 2,
+    "webFork": 0,
+    "important": 2,
+    "tokenDef": 0
+  },
+  "bot-tools.css": {
+    "global": 0,
+    "rootBump": 0,
+    "webFork": 0,
+    "important": 1,
+    "tokenDef": 0
+  },
+  "chat-header.css": {
+    "global": 0,
+    "rootBump": 26,
+    "webFork": 0,
+    "important": 0,
+    "tokenDef": 0
+  },
+  "connections/connections.css": {
+    "global": 0,
+    "rootBump": 2,
+    "webFork": 0,
+    "important": 2,
+    "tokenDef": 0
+  },
+  "context-card.css": {
+    "global": 0,
+    "rootBump": 0,
+    "webFork": 0,
+    "important": 2,
+    "tokenDef": 0
+  },
+  "context-column.css": {
+    "global": 1,
+    "rootBump": 0,
+    "webFork": 0,
+    "important": 0,
+    "tokenDef": 0
+  },
+  "copy-feedback.css": {
+    "global": 0,
+    "rootBump": 6,
+    "webFork": 0,
+    "important": 0,
+    "tokenDef": 0
+  },
+  "cover-shell.css": {
+    "global": 0,
+    "rootBump": 0,
+    "webFork": 0,
+    "important": 1,
+    "tokenDef": 0
+  },
+  "desktop-presence.css": {
+    "global": 1,
+    "rootBump": 0,
+    "webFork": 0,
+    "important": 17,
+    "tokenDef": 0
+  },
+  "desktop-system.css": {
+    "global": 2,
+    "rootBump": 0,
+    "webFork": 0,
+    "important": 0,
+    "tokenDef": 0
+  },
+  "environments.css": {
+    "global": 0,
+    "rootBump": 0,
+    "webFork": 1,
+    "important": 0,
+    "tokenDef": 0
+  },
+  "extensions-system.css": {
+    "global": 0,
+    "rootBump": 0,
+    "webFork": 0,
+    "important": 5,
+    "tokenDef": 0
+  },
+  "file-preview.css": {
+    "global": 0,
+    "rootBump": 0,
+    "webFork": 0,
+    "important": 3,
+    "tokenDef": 0
+  },
+  "focus-ring.css": {
+    "global": 3,
+    "rootBump": 0,
+    "webFork": 0,
+    "important": 2,
+    "tokenDef": 0
+  },
+  "greeting-setup.css": {
+    "global": 0,
+    "rootBump": 1,
+    "webFork": 0,
+    "important": 0,
+    "tokenDef": 0
+  },
+  "group-settings.css": {
+    "global": 0,
+    "rootBump": 1,
+    "webFork": 0,
+    "important": 0,
+    "tokenDef": 0
+  },
+  "interaction-system.css": {
+    "global": 0,
+    "rootBump": 16,
+    "webFork": 0,
+    "important": 3,
+    "tokenDef": 0
+  },
+  "message-attachment.css": {
+    "global": 0,
+    "rootBump": 13,
+    "webFork": 0,
+    "important": 0,
+    "tokenDef": 0
+  },
+  "new-group.css": {
+    "global": 0,
+    "rootBump": 1,
+    "webFork": 0,
+    "important": 1,
+    "tokenDef": 0
+  },
+  "onboarding.css": {
+    "global": 0,
+    "rootBump": 0,
+    "webFork": 0,
+    "important": 3,
+    "tokenDef": 0
+  },
+  "owner-setup.css": {
+    "global": 0,
+    "rootBump": 0,
+    "webFork": 0,
+    "important": 3,
+    "tokenDef": 0
+  },
+  "progressive-blur.css": {
+    "global": 0,
+    "rootBump": 13,
+    "webFork": 0,
+    "important": 0,
+    "tokenDef": 0
+  },
+  "question-card.css": {
+    "global": 0,
+    "rootBump": 23,
+    "webFork": 0,
+    "important": 0,
+    "tokenDef": 0
+  },
+  "scheduled-run.css": {
+    "global": 0,
+    "rootBump": 0,
+    "webFork": 0,
+    "important": 1,
+    "tokenDef": 0
+  },
+  "scheduled-task-row.css": {
+    "global": 0,
+    "rootBump": 3,
+    "webFork": 0,
+    "important": 1,
+    "tokenDef": 0
+  },
+  "search-palette.css": {
+    "global": 0,
+    "rootBump": 2,
+    "webFork": 0,
+    "important": 0,
+    "tokenDef": 0
+  },
+  "sender-groups.css": {
+    "global": 1,
+    "rootBump": 0,
+    "webFork": 4,
+    "important": 0,
+    "tokenDef": 1
+  },
+  "settings-system.css": {
+    "global": 0,
+    "rootBump": 0,
+    "webFork": 0,
+    "important": 4,
+    "tokenDef": 0
+  },
+  "settings/section-jump.css": {
+    "global": 2,
+    "rootBump": 0,
+    "webFork": 0,
+    "important": 0,
+    "tokenDef": 0
+  },
+  "settings/settings-polish.css": {
+    "global": 2,
+    "rootBump": 0,
+    "webFork": 0,
+    "important": 5,
+    "tokenDef": 0
+  },
+  "styles.css": {
+    "global": 7,
+    "rootBump": 0,
+    "webFork": 0,
+    "important": 9,
+    "tokenDef": 0
+  },
+  "task-issue-card.css": {
+    "global": 0,
+    "rootBump": 0,
+    "webFork": 0,
+    "important": 1,
+    "tokenDef": 0
+  },
+  "usage-panel.css": {
+    "global": 0,
+    "rootBump": 15,
+    "webFork": 0,
+    "important": 0,
+    "tokenDef": 0
+  },
+  "v2-app.css": {
+    "global": 0,
+    "rootBump": 15,
+    "webFork": 28,
+    "important": 3,
+    "tokenDef": 0
+  },
+  "v2-foundations.css": {
+    "global": 3,
+    "rootBump": 3,
+    "webFork": 0,
+    "important": 0,
+    "tokenDef": 0
+  },
+  "web-file-drop.css": {
+    "global": 0,
+    "rootBump": 0,
+    "webFork": 14,
+    "important": 0,
+    "tokenDef": 0
+  },
+  "web-sidebar-list.css": {
+    "global": 0,
+    "rootBump": 5,
+    "webFork": 0,
+    "important": 0,
+    "tokenDef": 0
+  },
+  "web-tool-steps.css": {
+    "global": 0,
+    "rootBump": 85,
+    "webFork": 0,
+    "important": 0,
+    "tokenDef": 0
+  },
+  "work-panel.css": {
+    "global": 0,
+    "rootBump": 1,
+    "webFork": 0,
+    "important": 0,
+    "tokenDef": 0
+  }
+}

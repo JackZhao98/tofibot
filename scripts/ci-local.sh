@@ -33,7 +33,7 @@ while [ $# -gt 0 ]; do
 done
 
 # ---- the job table: name, what it is, how ci.yml runs it
-JOBS="go-gofmt go-build go-vet go-test ui-typecheck ui-i18n ui-motion-tokens ui-final-v2-tokens ui-build ui-desktop-settings ui-layers ui-dialogs ui-overlays ui-desktop-drag ui-shell-budget ui-catalog python playwright-mcp shell runner-root compose"
+JOBS="go-gofmt go-build go-vet go-test ui-typecheck ui-i18n ui-css-layers ui-motion-tokens ui-final-v2-tokens ui-build ui-desktop-settings ui-layers ui-dialogs ui-overlays ui-desktop-drag ui-shell-budget ui-catalog python playwright-mcp shell runner-root compose"
 if [ "$mode" = list ]; then echo "$JOBS" | tr ' ' '\n'; exit 0; fi
 
 export PLAYWRIGHT_MODULE="${PLAYWRIGHT_MODULE:-$HOME/.claude/skills/gstack/node_modules/playwright/index.mjs}"
@@ -141,6 +141,7 @@ job go-test      "$GO"  go_test
 job go-manual    '^release-notes/' go test ./internal/app -run 'TestSettingsRegistryGenerated' -count=1
 job ui-typecheck "$UI"  npm_ui typecheck
 job ui-i18n      always npm_ui test:i18n
+job ui-css-layers always npm_ui test:css-layers
 job ui-motion-tokens always npm_ui test:motion-tokens
 job ui-final-v2-tokens always npm_ui test:final-v2-tokens
 job ui-build     "$UI"  ui_build

@@ -1,12 +1,13 @@
 /* Final V2 primitives shared by every Web surface. Component-specific geometry
    belongs to the owning surface, not to the old global control rules. */
 
+@layer base {
 :root { color:var(--ink); background:var(--bg); }
 body { color:var(--ink); background:var(--bg); font-family:var(--body); }
-.workspace ::selection,::selection {
-  background:color-mix(in srgb,var(--pink) 45%,transparent); color:var(--ink);
-}
+/* Browser affordances use the final V2 palette in every route, including auth. */
+::selection { background:color-mix(in srgb,var(--pink) 45%,transparent); color:var(--ink); }
 :is(input,textarea) { caret-color:var(--yellow); }
+}
 
 /* Buttons — only primary actions have the chunky outline and offset shadow. */
 :is(.primary-button,.secondary-button) {
@@ -66,7 +67,8 @@ body { color:var(--ink); background:var(--bg); font-family:var(--body); }
 :is(.icon-button,.top-icon-button,.close-button) svg { width:18px; height:18px; }
 .close-button { border-radius:50%; }
 
-/* FormControls — preserve existing validation and input behaviour. */
+/* FormControls: the default look of every field. In the base layer, so a component's own field style always wins. */
+@layer base {
 :is(input:not([type="checkbox"]):not([type="radio"]),textarea,select) {
   min-height:42px; padding:var(--field-pad-y,10px) 12px var(--field-pad-y,10px) 12px; border:2px solid transparent;
   border-radius:14px; background:var(--sunk); color:var(--ink); font:14px/1.5 var(--body);
@@ -110,6 +112,7 @@ input[type="checkbox"]:not([role="switch"]):checked::after {
 input[type="radio"]:checked { background:var(--surface); box-shadow:none; }
 input[type="radio"]:checked::after { content:""; width:8px; height:8px; border-radius:50%; background:var(--yellow); }
 :is(input[type="checkbox"]:not([role="switch"]),input[type="radio"]):disabled { opacity:.45; cursor:not-allowed; }
+}
 .field-note { color:var(--muted); font-size:11px; }
 .error-text,.settings-feedback.error { color:var(--danger-text); font-size:11px; }
 .search-box { min-height:42px; border:1.5px solid var(--line-soft); background:var(--surface-2); }

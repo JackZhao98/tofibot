@@ -1,9 +1,5 @@
 /* Claude Design v2, applied to real application surfaces. The preview CSS is
    intentionally not imported: its demo class names and static cats are not app UI. */
-:root {
-  --v2-sidebar-width:272px;
-  --v2-chat-width:760px;
-}
 
 /* Shell and navigation: the web sidebar is solid, never decorative glass. */
 .workspace,.workspace .chat-pane,.workspace .chat-body,.workspace .message-scroll {
@@ -535,6 +531,4 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
 @media (prefers-reduced-transparency:reduce) {
   :root :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu,.composer-add-menu,.ui-select-content,.pip-menu,.bot-identity-card,.context-card,.delete-dialog,.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-window-controls,.desktop-presence-actor,.desktop-enlarge-hint) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
 }
-@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
-  :root,:root[data-theme="dark"] { --glass:var(--surface); }
-}
+

@@ -1,10 +1,4 @@
 /* File type tile (FileTile.tsx): one set for attachments, artifacts and the viewer. Sized by --tile (the tile's height). */
-:root {
-  --ft-page-mix:9%; --ft-fold-mix:26%; --ft-edge-mix:24%;
-}
-:root[data-theme="dark"] {
-  --ft-page-mix:16%; --ft-fold-mix:34%; --ft-edge-mix:34%;
-}
 .file-tile { --ft:var(--ft-other); --tile:40px; position:relative; display:block; flex:0 0 auto; width:calc(var(--tile) * .8); height:var(--tile); color:var(--ft); font-size:var(--tile); line-height:1; }
 .file-tile[data-file-tone="pdf"] { --ft:var(--ft-pdf); }
 .file-tile[data-file-tone="image"] { --ft:var(--ft-image); }

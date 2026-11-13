@@ -1,5 +1,6 @@
 // Base styles load first so each station's own CSS (imported by MotionLab)
 // wins over the shared page rules at equal specificity.
+import "../cascade.css";
 import "../design-tokens.css";
 import "./motion-lab.css";
 import { StrictMode } from "react";
