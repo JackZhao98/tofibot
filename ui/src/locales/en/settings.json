@@ -239,7 +239,7 @@
       "unreachable": "Couldn't reach the endpoint from this server. Check the address, or type the model IDs by hand.",
       "no_models": "The endpoint returned no model list. Type the model IDs by hand.",
       "presets": "Start from",
-      "ollama_note": "Ollama needs no API key."
+      "ollama_note": "Ollama needs no key. Start it with OLLAMA_HOST=0.0.0.0 so this server can reach it. From the App container, use http://host.docker.internal:11434/v1, or the computer's LAN address. Ollama's default context is small: set OLLAMA_CONTEXT_LENGTH=32768 (or num_ctx in a Modelfile) so Bots keep their instructions."
     },
     "cost": {
       "plan": "Uses your ChatGPT plan's limits. There is no per-token charge.",

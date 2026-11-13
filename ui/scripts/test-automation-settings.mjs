@@ -345,6 +345,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const observe = t.page.getByRole("switch", {name: "Observe mode"});
     await observe.waitFor();
     assert.equal(await observe.isChecked(), false);
+    // The row arrives with the automation list; wait for it before counting.
+    await t.page.locator("[data-section=advanced] .auto-row").first().waitFor();
     assert.equal(await t.page.locator("[data-section=advanced] .auto-row").count(), 1, "the Mac input review is the one Behavior row on this subpage");
     assert.equal(await t.page.locator("#approval-reviewer-model").count(), 1, "the reviewer model is here");
     await observe.click();

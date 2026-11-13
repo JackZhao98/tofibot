@@ -472,14 +472,14 @@ try {
     await section(out.page).locator('[data-provider="codex"]').waitFor();
     assert.match(await text(models(out.page).locator(".provided-card")), /Models provided by your organization/);
     assert.equal(await section(out.page).locator(".provider-card").count(), 1, "one card in Your own: the ChatGPT sign-in");
-    assert.match(await text(section(out.page)), /^Your own .*ChatGPT.*Sign in with your ChatGPT account$/);
+    assert.match(await text(section(out.page)), /^Your own .*ChatGPT.*Sign in with ChatGPT$/);
     assert.equal(await models(out.page).locator(".provided-own-off").count(), 0, "no 'organization manages' line while allowed");
     await noOwnKeys(out.page); await primaries(out.page);
     assert.equal(await models(out.page).locator(".settings-banner").count(), 0);
     await shot(out.page, "member-own-allowed-signed-out-light-1440");
     // Signing in goes through the Codex endpoints and shows the state.
     await section(out.page).locator('[data-method="chatgpt"]').click();
-    await section(out.page).getByText("Codex connected").waitFor({timeout: 15000});
+    await section(out.page).getByText("Connected", {exact: true}).waitFor({timeout: 15000});
     assert.equal(stub.state.codex.connected, true);
     await out.close();
 
@@ -491,9 +491,12 @@ try {
       {id: "codex-gpt-6-luna", name: "Codex · GPT-6 Luna", provider: "codex", reasoning_efforts: ["medium"], default_reasoning: "medium"},
     ];
     const signed = await open({tab: "models", policy: capabilities(true)});
-    await section(signed.page).getByText(/Codex connected/).waitFor();
+    await section(signed.page).getByText("Connected", {exact: true}).waitFor();
     assert.equal(await models(signed.page).locator(".provided-card").count(), 1);
-    assert.equal(await section(signed.page).getByRole("button", {name: "Disconnect Codex"}).count(), 1);
+    // One action per row: Disconnect sits under Manage.
+    await section(signed.page).getByRole("button", {name: "Manage"}).click();
+    await section(signed.page).getByRole("button", {name: "Disconnect", exact: true}).waitFor();
+    assert.equal(await section(signed.page).getByRole("button", {name: "Disconnect", exact: true}).count(), 1);
     // The default-model picker shows the saved default (the empty select in the first screenshot was a fixture with no model-settings) and lists Codex beside the organization's models.
     const picker = models(signed.page).locator(".ui-select-trigger").first();
     await picker.waitFor();

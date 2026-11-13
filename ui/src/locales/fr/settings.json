@@ -240,7 +240,7 @@
       "unreachable": "Ce serveur n'a pas pu joindre le point d'accès. Vérifiez l'adresse ou saisissez les identifiants de modèles à la main.",
       "no_models": "Le point d'accès n'a renvoyé aucune liste de modèles. Saisissez les identifiants à la main.",
       "presets": "Partir de",
-      "ollama_note": "Ollama ne nécessite pas de clé API."
+      "ollama_note": "Ollama n'a pas besoin de clé. Démarrez-le avec OLLAMA_HOST=0.0.0.0 pour que ce serveur puisse l'atteindre. Depuis le conteneur de l'App, utilisez http://host.docker.internal:11434/v1 ou l'adresse réseau local de l'ordinateur. Le contexte par défaut d'Ollama est petit : définissez OLLAMA_CONTEXT_LENGTH=32768 (ou num_ctx dans un Modelfile) pour que les Bots gardent leurs instructions."
     },
     "cost": {
       "plan": "Utilise les limites de votre forfait ChatGPT. Il n'y a pas de facturation au jeton.",
