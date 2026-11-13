@@ -1,5 +1,7 @@
 import { MessageHoverActions } from "./MessageHoverActions";
 import * as Collapsible from "@radix-ui/react-collapsible";
+import { FocusScope } from "@radix-ui/react-focus-scope";
+import { keepFocus } from "./focusModality";
 import { useNativeSidePanel } from "./useNativeSidePanel";
 import { useBotBrowserSources } from "./useBotBrowserSources";
 import { sourceKey, type ComputerSource } from "./botBrowserSource";
@@ -1215,41 +1217,6 @@ function Workspace() {
     return () => {
       if (frame !== undefined) window.cancelAnimationFrame(frame);
     };
-  }, [modalPanelOpen]);
-  useEffect(() => {
-    if (!modalPanelOpen) return;
-    const trap = (event: KeyboardEvent) => {
-      // A dialog above the pane (ui/src/overlays/ModalDialog.tsx) owns Tab; Escape is useSurfaceEscape's.
-      if (document.querySelector("[data-tofi-modal]")) return;
-      // A menu over the pane has already moved focus on this Tab (RadixOverlays tabFrom) and cancelled the key.
-      if (event.key !== "Tab" || event.defaultPrevented) return;
-      const pane = detailPaneRef.current;
-      if (!pane) return;
-      const focusable = Array.from(pane.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], summary, [tabindex]:not([tabindex=\"-1\"])")).filter(element => {
-        if (element.matches(":disabled") || element.hidden || element.getAttribute("aria-hidden") === "true") return false;
-        const style = window.getComputedStyle(element);
-        return style.display !== "none" && style.visibility !== "hidden" && element.getClientRects().length > 0;
-      });
-      if (!focusable.length) {
-        event.preventDefault();
-        pane.focus();
-        return;
-      }
-      const active = document.activeElement;
-      const current = focusable.indexOf(active as HTMLElement);
-      if (current < 0) {
-        event.preventDefault();
-        (event.shiftKey ? focusable.at(-1) : focusable[0])?.focus();
-      } else if (event.shiftKey && current === 0) {
-        event.preventDefault();
-        focusable.at(-1)?.focus();
-      } else if (!event.shiftKey && current === focusable.length - 1) {
-        event.preventDefault();
-        focusable[0]?.focus();
-      }
-    };
-    document.addEventListener("keydown", trap);
-    return () => document.removeEventListener("keydown", trap);
   }, [modalPanelOpen]);
   // Closing the outside panel gives focus back to what opened it.
   const hadPanel = useRef(false);
@@ -2842,10 +2809,12 @@ function Workspace() {
         {columnMode && displayedSidebar && <aside className={`sidebar-pane${surfaces.sidebar ? "" : " is-leaving"}${cover ? " is-covered" : ""}`} inert={!surfaces.sidebar || undefined} aria-label={t("detail.label")}>
           <Suspense fallback={<div className="sidebar-shell">{displayedSidebar === "memory" || displayedSidebar === "usage" ? sidebarContent(displayedSidebar) : sidebarLoading}</div>}><SidebarShell id={displayedSidebar} expanded={sidebarExpandedShown} focusN={surfaces.focus.id === displayedSidebar ? surfaces.focus.n : 0} onExpand={() => setSurfaces(toggleSidebarExpanded)} onClose={closeSidebarPanel} content={sidebarContent} /></Suspense>
         </aside>}
-        <aside ref={detailPaneRef} className={`detail-pane ${settingsShown || drawerShown ? "visible" : ""} ${drawerShown ? "context-panel" : ""} ${(settingsShown && !cover) || (drawerShown && !surfaces.sidebar) ? "surface-exiting" : ""}`} inert={!(cover === "settings" || (!columnMode && surfaces.sidebar && !cover)) || undefined} role={modalPanelOpen ? "dialog" : undefined} aria-modal={modalPanelOpen ? true : undefined} aria-label={settingsShown ? t("common:nav.settings") : displayedSidebar === "terminal" ? t("header.terminal") : t("detail.label")} tabIndex={modalPanelOpen ? -1 : undefined}>
+        {/* Settings and the narrow drawer are modal panes: Radix FocusScope keeps Tab inside while modalPanelOpen (a dialog or menu
+            above it pauses the scope). Entry focus and return are the effect above. */}
+        <FocusScope asChild trapped={modalPanelOpen} loop onMountAutoFocus={keepFocus} onUnmountAutoFocus={keepFocus}><aside ref={detailPaneRef} className={`detail-pane ${settingsShown || drawerShown ? "visible" : ""} ${drawerShown ? "context-panel" : ""} ${(settingsShown && !cover) || (drawerShown && !surfaces.sidebar) ? "surface-exiting" : ""}`} inert={!(cover === "settings" || (!columnMode && surfaces.sidebar && !cover)) || undefined} role={modalPanelOpen ? "dialog" : undefined} aria-modal={modalPanelOpen ? true : undefined} aria-label={settingsShown ? t("common:nav.settings") : displayedSidebar === "terminal" ? t("header.terminal") : t("detail.label")} tabIndex={modalPanelOpen ? -1 : undefined}>
           {settingsShown && <Suspense fallback={<SettingsSkeleton onClose={closeCoverPanel} />}><AfterPaint fallback={<SettingsSkeleton onClose={closeCoverPanel} />}><SettingsPanel tab={settingsTab} onTab={setSettingsTab} onClose={closeCoverPanel} entry={settingsEntry} refreshToken={extensionRefresh} codexRefresh={codexStatusRefresh} onCodexConfigured={() => void refreshIndex()} pages={{ bots, conversation: active, timezone, usageBotId, portabilityBotID, portabilityFile, onPortabilityFileConsumed: () => setPortabilityFile(undefined), appearance, extensionRefresh, providersRefresh: codexStatusRefresh, onProvidersConfigured: () => void refreshIndex(), openTab: (tab) => openSettings(tab) }} /></AfterPaint></Suspense>}
           {drawerShown && displayedSidebar && sidebarContent(displayedSidebar)}
-        </aside>
+        </aside></FocusScope>
         {displayedCover && displayedCover !== "settings" && displayedCover !== "approvals" && (displayedCover !== "bot-settings" || botSettingsReady) && <Suspense fallback={null}><CoverShell id={displayedCover} leaving={!cover} wide={displayedCover === "artifacts"} returnFocus={panelOpener.current} onClose={closeCoverPanel}><CoverView id={displayedCover} ctx={surfaceCtx} /></CoverShell></Suspense>}
         {cover === "approvals" && active && <Suspense fallback={null}><RememberedApprovalsSheet conversationId={active.id} onClose={closeCoverPanel} /></Suspense>}
       </div>

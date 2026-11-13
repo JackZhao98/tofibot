@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import { FocusScope } from "@radix-ui/react-focus-scope";
+import { keepFocus } from "./focusModality";
 import { createPortal } from "react-dom";
 import { useTranslation } from "./i18n";
 import { animate, drag, readTransformValue, type AnimationPlaybackControls } from "motion";
@@ -264,8 +265,9 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
   const corners: { corner: PipCorner; key: "tl" | "tr" | "bl" | "br" }[] = [{ corner: "tl", key: "tl" }, { corner: "tr", key: "tr" }, { corner: "bl", key: "bl" }, { corner: "br", key: "br" }];
   // The shell is always wrapped (the trigger is only disabled outside the small form), so the live video never remounts when the form changes.
   const wrapped = <ContextMenu.Root modal={false}>
-    {/* The big window keeps Tab inside (Radix FocusScope; Escape is useSurfaceEscape's). Entry focus and return stay in the effect above. */}
-    <ContextMenu.Trigger asChild disabled={!pipActive}><FocusScope asChild trapped={expanded} loop>{shell}</FocusScope></ContextMenu.Trigger>
+    {/* The big window keeps Tab inside (Radix FocusScope; Escape is useSurfaceEscape's). The scope is always mounted, so its
+        mount and unmount focus moves are off (keepFocus): entry focus and return stay in the effect above. */}
+    <ContextMenu.Trigger asChild disabled={!pipActive}><FocusScope asChild trapped={expanded} loop onMountAutoFocus={keepFocus} onUnmountAutoFocus={keepFocus}>{shell}</FocusScope></ContextMenu.Trigger>
     {pipActive && <ContextMenu.Portal container={layerRoot()}>
       <ContextMenu.Content className="tofi-pop pip-menu" aria-label={t("desktop.pip.menu")} collisionPadding={8}
         onCloseAutoFocus={event => { event.preventDefault(); shellRef.current?.querySelector<HTMLElement>(".desktop-enlarge")?.focus({ preventScroll: true }); }}>
