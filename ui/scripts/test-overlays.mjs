@@ -104,7 +104,8 @@ async function settingsMcp(page) {
 // Where each menu sat before Radix (its old CSS offsets), as [anchor selector, edge relations]: the look must not move.
 const MENUS = [
   { name: "new", trigger: ".create-menu-anchor > button", menu: ".create-menu", place: [".create-menu-anchor", (m, a) => [m.right - a.right, m.top - (a.bottom + 8)]] },
-  { name: "more", trigger: ".header-more > button", menu: ".more-menu", place: [".chat-header", (m, a) => [m.right - (a.right - 14), m.top - (a.bottom + 8)]] },
+  // The header menu hangs from its own button (owner 2026-11-13): right edges aligned, 6 px below it.
+  { name: "more", trigger: ".header-more > button", menu: ".more-menu", place: [".header-more > button", (m, a) => [m.right - a.right, m.top - (a.bottom + 6)]] },
   { name: "account", trigger: ".sidebar-account-identity", menu: ".sidebar-account-menu", place: [".sidebar-account", (m, a) => [m.left - a.left, m.bottom - (a.top - 10)]] },
   { name: "attachments", trigger: ".composer-add-wrap > button", menu: ".composer-add-menu", place: [".composer-add-wrap", (m, a) => [m.left - a.left, m.bottom - (a.top - 12)]] },
   { name: "MCP tool permission", trigger: ".mcp-tier-trigger", menu: ".mcp-tier-menu", setup: settingsMcp, place: [".mcp-tier-anchor", (m, a) => [m.right - a.right, m.top - (a.bottom + 6)]] },
