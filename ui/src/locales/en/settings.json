@@ -1835,8 +1835,6 @@
     "botBrowserEnabled": "Allow Bots to use the dedicated browser",
     "botBrowserRetainLogin": "Keep browser sign-ins",
     "botBrowserShareFrames": "Allow window previews through the server",
-    "pipAboveOtherApps": "Keep mini window above other apps",
-    "pipAllSpaces": "Show on all desktops",
     "login_hint": "Bots in this server account share this browser’s sign-ins, separate from your everyday browser.",
     "frames_hint": "Only the Bot browser page is shown, through the server. When off, Bot can still work and task screenshots may still be sent to the model.",
     "login_actions": "Browser sign-ins",

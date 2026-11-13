@@ -1848,8 +1848,6 @@
     "botBrowserEnabled": "Autoriser le navigateur dédié aux Bots",
     "botBrowserRetainLogin": "Conserver les connexions du navigateur",
     "botBrowserShareFrames": "Autoriser l’aperçu via le serveur",
-    "pipAboveOtherApps": "Garder la mini-fenêtre au-dessus des apps",
-    "pipAllSpaces": "Afficher sur tous les bureaux",
     "login_hint": "Les Bots de ce compte serveur partagent les connexions de ce navigateur, séparées du navigateur habituel.",
     "frames_hint": "Seule la page du navigateur Bot est affichée via le serveur. Sans aperçu, Bot peut travailler et envoyer des captures de tâche au modèle.",
     "login_actions": "Connexions du navigateur",

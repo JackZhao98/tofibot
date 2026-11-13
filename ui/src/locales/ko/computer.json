@@ -95,7 +95,6 @@
       "browser": "브라우저"
     },
     "video_aria": "Bot 데스크톱 실시간 영상",
-    "pointer_click": "{{name}} · 클릭",
     "placeholder": {
       "waking": "Bot 컴퓨터를 깨우는 중",
       "connecting": "화면에 연결하는 중",
@@ -657,9 +656,9 @@
     }
   },
   "browser": {
+    "panel": "Bot 브라우저",
     "source": "내 Mac · Bot 브라우저",
     "look": "Bot 브라우저 보기 ({{id}})",
-    "open": "열고 로그인",
     "enlarge": "Bot 브라우저 확대",
     "shrink": "Bot 브라우저 축소",
     "status": {
@@ -695,7 +694,8 @@
       "computer_lost": "Mac 연결이 끊겼습니다",
       "device_revoked": "기기 접근이 취소되었습니다",
       "browser_clear_failed": "데이터를 지울 수 없습니다. 브라우저는 일시 중지 상태입니다",
-      "computer_not_configured": "Bot 컴퓨터가 설정되지 않았습니다"
+      "computer_not_configured": "Bot 컴퓨터가 설정되지 않았습니다",
+      "no_connection": "이 Mac이 아직 서버에 연결하는 중입니다. 잠시 후 다시 시도하세요."
     },
     "in_app": "이 Mac의 App에서 설정하세요",
     "settings": "브라우저 설정",

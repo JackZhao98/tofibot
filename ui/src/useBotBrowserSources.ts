@@ -9,11 +9,10 @@ export function useBotBrowserSources(chatVisible: boolean) {
   useEffect(() => {
     let alive = true;
     let timer = 0;
-    let externalVisible = false;
     let supported: boolean | undefined;
     let busy = false;
     let controller: AbortController | undefined;
-    const visible = () => chatVisible && !document.hidden || externalVisible;
+    const visible = () => chatVisible && !document.hidden;
     const poll = async () => {
       window.clearTimeout(timer);
       if (!alive || busy || !visible() || supported === false) return;
@@ -35,15 +34,11 @@ export function useBotBrowserSources(chatVisible: boolean) {
       } finally { busy = false; if (alive && visible() && supported !== false) timer = window.setTimeout(() => void poll(), 1000); }
     };
     const visibility = () => { if (visible()) void poll(); else { controller?.abort(); window.clearTimeout(timer); } };
-    const pip = window.tofiDesktop?.pip;
-    const sync = (s: {visible: boolean}) => { externalVisible = s.visible; visibility(); };
-    const off = pip?.onStatus(sync);
-    void pip?.status().then(sync, () => {});
     document.addEventListener('visibilitychange', visibility);
     const unauthorized = () => { controller?.abort(); setSources([]); alive = false; window.clearTimeout(timer); };
     window.addEventListener('tofi:unauthorized', unauthorized);
     void poll();
-    return () => { alive = false; controller?.abort(); window.clearTimeout(timer); off?.(); document.removeEventListener('visibilitychange', visibility); window.removeEventListener('tofi:unauthorized', unauthorized); };
+    return () => { alive = false; controller?.abort(); window.clearTimeout(timer); document.removeEventListener('visibilitychange', visibility); window.removeEventListener('tofi:unauthorized', unauthorized); };
   }, [chatVisible]);
   return {sources, code};
 }

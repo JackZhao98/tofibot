@@ -95,7 +95,6 @@
       "browser": "瀏覽器"
     },
     "video_aria": "Bot 目前桌面的即時影像",
-    "pointer_click": "{{name}} · 點擊",
     "placeholder": {
       "waking": "正在喚醒 Bot 電腦",
       "connecting": "正在連接螢幕",
@@ -657,9 +656,9 @@
     }
   },
   "browser": {
+    "panel": "Bot 瀏覽器",
     "source": "你的 Mac · Bot 瀏覽器",
     "look": "查看 Bot 瀏覽器（{{id}}）",
-    "open": "開啟並登入",
     "enlarge": "放大 Bot 瀏覽器",
     "shrink": "縮小 Bot 瀏覽器",
     "status": {
@@ -695,7 +694,8 @@
       "computer_lost": "Mac 連線已中斷",
       "device_revoked": "裝置存取已撤銷",
       "browser_clear_failed": "無法清除瀏覽器資料，瀏覽器保持暫停",
-      "computer_not_configured": "尚未設定 Bot 電腦"
+      "computer_not_configured": "尚未設定 Bot 電腦",
+      "no_connection": "這台 Mac 還在連線伺服器，請稍後再試。"
     },
     "in_app": "請在這台 Mac 的 App 中設定",
     "settings": "瀏覽器設定",

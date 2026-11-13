@@ -96,7 +96,6 @@
       "browser": "Browser"
     },
     "video_aria": "Live-Video vom Desktop des Bots",
-    "pointer_click": "{{name}} · Klick",
     "placeholder": {
       "waking": "Bot-Computer wird geweckt",
       "connecting": "Verbindung zum Bildschirm wird hergestellt",
@@ -663,9 +662,9 @@
     }
   },
   "browser": {
+    "panel": "Bot-Browser",
     "source": "Dein Mac · Bot-Browser",
     "look": "Bot-Browser ansehen ({{id}})",
-    "open": "Öffnen und anmelden",
     "enlarge": "Bot-Browser vergrößern",
     "shrink": "Bot-Browser verkleinern",
     "status": {
@@ -701,7 +700,8 @@
       "computer_lost": "Mac-Verbindung verloren",
       "device_revoked": "Gerätezugriff widerrufen",
       "browser_clear_failed": "Browserdaten konnten nicht gelöscht werden. Der Browser bleibt pausiert.",
-      "computer_not_configured": "Kein Bot-Computer eingerichtet"
+      "computer_not_configured": "Kein Bot-Computer eingerichtet",
+      "no_connection": "Dieser Mac verbindet sich noch mit dem Server. Versuche es gleich noch einmal."
     },
     "in_app": "Richte dies in der App auf diesem Mac ein",
     "settings": "Browsereinstellungen",

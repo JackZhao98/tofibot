@@ -97,7 +97,6 @@
       "browser": "Navigateur"
     },
     "video_aria": "Vidéo en direct du bureau du Bot",
-    "pointer_click": "{{name}} · clic",
     "placeholder": {
       "waking": "Réveil de l'ordinateur Bot",
       "connecting": "Connexion à l'écran",
@@ -669,9 +668,9 @@
     }
   },
   "browser": {
+    "panel": "Navigateur Bot",
     "source": "Votre Mac · Navigateur Bot",
     "look": "Voir le navigateur Bot ({{id}})",
-    "open": "Ouvrir et se connecter",
     "enlarge": "Agrandir le navigateur Bot",
     "shrink": "Réduire le navigateur Bot",
     "status": {
@@ -707,7 +706,8 @@
       "computer_lost": "Connexion au Mac perdue",
       "device_revoked": "Accès à l’appareil révoqué",
       "browser_clear_failed": "Impossible d’effacer les données. Le navigateur reste en pause.",
-      "computer_not_configured": "Aucun ordinateur Bot configuré"
+      "computer_not_configured": "Aucun ordinateur Bot configuré",
+      "no_connection": "Ce Mac se connecte encore au serveur. Réessayez dans un instant."
     },
     "in_app": "Configurez ceci dans l’App sur ce Mac",
     "settings": "Réglages du navigateur",

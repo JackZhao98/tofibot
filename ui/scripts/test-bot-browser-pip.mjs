@@ -164,10 +164,6 @@ export async function browserStaticChecks() {
   assert.match(video, /352 \* 1024/);
   const frameBranch = video.slice(video.indexOf("value.type === 'frame'"), video.indexOf('} else throw'));
   assert.doesNotMatch(frameBranch, /set[A-Z]\w*\(/, 'frames never commit React state');
-  const host = await readFile(join(ui, 'src/externalPipHost.ts'), 'utf8');
-  assert.match(host, /window.open\('about:blank', `tofi-pip-v1:/);
-  assert.match(host, /appendChild\(host\)/);
-  assert.doesNotMatch(host, /createRoot|cloneNode\(host/);
   const modules = await openUiModules({language:'en'});
   try {
     const model = await modules.load('/src/botBrowserSource.ts');
@@ -204,11 +200,11 @@ import {BotBrowserPanel} from '../src/BotBrowserPanel';import {FloatingDesktop} 
 import '../src/desktop-system.css';import '../src/v2-foundations.css';
 function Probe(){const [s,S]=useState((window as any).__source);const [v,V]=useState(true);const [big,B]=useState(false);const [open,O]=useState(true);
 (window as any).__setSource=S;(window as any).__visible=V;(window as any).__close=()=>O(false);
-return <div className="workspace">{open&&(location.search.includes('shell')?<FloatingDesktop small={!big} expanded={big} externalSourceKey={(window as any).tofiDesktop?'mac:mac-synthetic':undefined} onClose={()=>O(false)}><BotBrowserPanel source={s} expanded={big} onClose={()=>O(false)} onExpand={()=>B(!big)}/></FloatingDesktop>:<Profiler id="video" onRender={()=>{(window as any).__commits++}}><BotBrowserVideo source={s} visible={v} onStatus={S}/></Profiler>)}</div>}
+return <div className="workspace">{open&&(location.search.includes('shell')?<FloatingDesktop small={!big} expanded={big} onClose={()=>O(false)}><BotBrowserPanel source={s} expanded={big} onClose={()=>O(false)} onExpand={()=>B(!big)}/></FloatingDesktop>:<Profiler id="video" onRender={()=>{(window as any).__commits++}}><BotBrowserVideo source={s} visible={v} onStatus={S}/></Profiler>)}</div>}
 void i18nReady.then(()=>createRoot(document.getElementById('root')!).render(<Probe/>));`);
-    async function open({shell = false, external = false, oldShell = false} = {}) {
+    async function open({shell = false} = {}) {
       const page = await browser.newPage({viewport: {width: 1024, height: 800}, reducedMotion: 'reduce'});
-      await page.addInitScript(({s, external, oldShell}) => {
+      await page.addInitScript(({s}) => {
         window.__source = s; window.__commits = 0; window.__aborts = 0; window.__requests = [];
         window.__streams = []; window.__draws = 0;
         const draw = CanvasRenderingContext2D.prototype.drawImage;
@@ -220,15 +216,7 @@ void i18nReady.then(()=>createRoot(document.getElementById('root')!).render(<Pro
           const stream = new ReadableStream({start(controller) {window.__streams.push(controller); init.signal.addEventListener('abort', () => {window.__aborts++; controller.close();});}});
           return new Response(stream, {headers: {'content-type': 'application/x-ndjson'}});
         };
-        if (oldShell) window.tofiDesktop = {};
-        if (external) {
-          let visible = false; const listeners = new Set();
-          window.__pipStatus = value => {visible = value; for (const fn of listeners) fn({visible,source_key: 'mac:mac-synthetic'});};
-          window.tofiDesktop = {pip: {status: async () => ({visible,source_key: 'mac:mac-synthetic'}), onStatus: fn => {listeners.add(fn);return()=>listeners.delete(fn);}, setBounds: async b => {window.__bounds = b;}}};
-          const nativeOpen = window.open.bind(window);
-          window.open = (url, name) => {window.__openArgs = [url,name]; const child = nativeOpen(url,name); window.__child=child; queueMicrotask(()=>window.__pipStatus(true));return child;};
-        }
-      }, {s: source(), external, oldShell});
+      }, {s: source()});
       await page.goto(`${origin}/${basename(fixture)}/index.html${shell ? '?shell' : ''}`);
       return page;
     }
@@ -273,25 +261,7 @@ void i18nReady.then(()=>createRoot(document.getElementById('root')!).render(<Pro
     await hidden.waitForFunction(baseline => window.__aborts === baseline.aborts + 1 && window.__requests.length === baseline.requests, beforeClose);
     await hidden.close();
 
-    const oldShell = await open({shell:true,oldShell:true});
-    await oldShell.getByText('Update the Mac App to use the Bot browser').first().waitFor();
-    assert.equal(await oldShell.evaluate(()=>window.__streams.length),0,'old shell does not use inline preview as a native fallback');
-    await oldShell.close();
-
-    const external = await open({shell: true, external: true});
-    const nativeMounted = await mountedStreamCounts(external);
-    assert.deepEqual(await external.evaluate(() => window.__openArgs), ['about:blank','tofi-pip-v1:mac:mac-synthetic']);
-    await external.evaluate(() => {Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});document.dispatchEvent(new Event('visibilitychange'));});
-    await external.waitForTimeout(200);
-    assert.deepEqual(await external.evaluate(() => ({requests: window.__requests.length, aborts: window.__aborts})), nativeMounted, 'visible native PiP survives hidden main document without a request or abort');
-    await external.evaluate(() => window.__message({type:'status',v:1,source:{...window.__source,share_frames:false,state:'working',activity:{bot_id:'bot-synthetic',run_id:'run-synthetic',conversation_id:'conv-synthetic'}}}));
-    await external.waitForFunction(() => window.__child.document.body.textContent.includes('Preview is off · Bot can keep working'));
-    assert.deepEqual(await external.evaluate(() => ({requests: window.__requests.length, aborts: window.__aborts})), nativeMounted, 'turning off preview keeps the same task/status stream alive');
-    await external.evaluate(() => window.__pipStatus(false));
-    await external.waitForFunction(baseline => window.__aborts === baseline.aborts + 1 && window.__requests.length === baseline.requests, nativeMounted);
-    assert.equal(await external.evaluate(() => window.__child.document.querySelectorAll('.bot-browser-panel').length), 1, 'same DOM lives in child');
-    await external.close();
-    console.log('PASS stream validation, bounded lines, clear/abort, zero frame commits, external host protocol');
+    console.log('PASS stream validation, bounded lines, clear/abort, zero frame commits');
   } finally {await rm(fixture, {recursive:true,force:true});}
 }
 

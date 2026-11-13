@@ -1,7 +1,4 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { isDesktop } from "./desktop";
-import { BotAvatar } from "./BotAvatar";
-import { useTranslation } from "./i18n";
 import { DesktopPointerGlyph } from "./DesktopPointerGlyph";
 import { desktopPointerPosition, visibleDesktopPointer, type DesktopPresenceState, type DesktopPointer } from "./desktopPresence";
 
@@ -24,10 +21,8 @@ function WebPointer({ pointer, width, height, name }: { pointer: DesktopPointer 
 }
 
 export function DesktopPointerMarker({ presence, humanControlled, botLabel }: { presence: DesktopPresenceState; humanControlled: boolean; botLabel: (id: string) => string }) {
-  const { t } = useTranslation("computer");
   const overlay = useRef<HTMLSpanElement>(null);
   const [bounds, setBounds] = useState({ width:0, height:0 });
-  const [timestamp, setTimestamp] = useState(Date.now());
   useEffect(() => {
     const element = overlay.current;
     if (!element) return;
@@ -36,19 +31,9 @@ export function DesktopPointerMarker({ presence, humanControlled, botLabel }: { 
     observer.observe(element); update();
     return () => observer.disconnect();
   }, []);
-  useEffect(() => {
-    if (!isDesktop) return;
-    setTimestamp(Date.now());
-    const timer = window.setInterval(() => setTimestamp(Date.now()), 500);
-    return () => window.clearInterval(timer);
-  }, [presence.ownership?.pointer?.updated_at]);
-  const pointer = visibleDesktopPointer(presence, humanControlled, isDesktop ? timestamp : Date.now(), isDesktop ? 5000 : Infinity);
-  const position = pointer && desktopPointerPosition(pointer, bounds.width, bounds.height);
+  const pointer = visibleDesktopPointer(presence, humanControlled, Date.now(), Infinity);
   const owner = presence.ownership?.owner;
   return <span className="desktop-pointer-overlay" ref={overlay} aria-hidden="true">
-    {isDesktop ? pointer && position && <span className={`desktop-pointer-confirmed${position.left > bounds.width / 2 ? " is-right" : ""}${position.top > bounds.height - 36 ? " is-bottom" : ""}`} style={position}>
-      <span key={pointer.updated_at} className="desktop-click-ring" />
-      <span className="desktop-pointer-label"><BotAvatar id={pointer.bot_id} mini animated={false}/><span>{t("desktop.pointer_click", { name: botLabel(pointer.bot_id) })}</span></span>
-    </span> : <WebPointer key={`${owner?.bot_id}:${owner?.run_id}:${humanControlled}`} pointer={pointer} name={botLabel} {...bounds} />}
+    <WebPointer key={`${owner?.bot_id}:${owner?.run_id}:${humanControlled}`} pointer={pointer} name={botLabel} {...bounds} />
   </span>;
 }

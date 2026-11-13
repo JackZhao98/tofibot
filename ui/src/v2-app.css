@@ -509,12 +509,12 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
 
 /* Shared overlay material. Specificity keeps lazy component sheets from weakening the glass.
    Scrims dim the surrounding workspace; surface fills obscure the content directly below them. */
-:root :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu,.composer-add-menu,.ui-select-content,.pip-menu,.bot-identity-card,.context-card,.delete-dialog,.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-window-controls,.computer-floating-actions,.desktop-presence-actor,.desktop-enlarge-hint) {
+:root :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu,.composer-add-menu,.ui-select-content,.pip-menu,.bot-identity-card,.context-card,.delete-dialog,.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-window-controls,.desktop-presence-actor,.desktop-enlarge-hint) {
   background:var(--glass); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur);
 }
-:root :is(.desktop-window-controls,.computer-floating-actions,.desktop-enlarge-hint) { color:var(--ink); }
-:root :is(.desktop-window-controls,.computer-floating-actions) button { color:var(--ink); }
-:root :is(.desktop-window-controls,.computer-floating-actions) button:hover { background:var(--surface-2); }
+:root :is(.desktop-window-controls,.desktop-enlarge-hint) { color:var(--ink); }
+:root :is(.desktop-window-controls) button { color:var(--ink); }
+:root :is(.desktop-window-controls) button:hover { background:var(--surface-2); }
 :root :is(.delete-dialog-overlay,.detail-backdrop,.cover-scrim,.cover-leave-scrim,.new-group-scrim,.sheet-overlay,.mcp-oauth-overlay,.handover-overlay,.settings-leave-overlay,.search-palette-scrim,.terminal-confirm) {
   background:var(--scrim); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur);
 }
@@ -533,7 +533,7 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
   :root:root :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu,.composer-add-menu,.ui-select-content,.pip-menu,.bot-identity-card,.cover-window,.cover-scrim,.cover-leave-scrim,.cover-leave-dialog,.new-group-dialog,.new-group-scrim,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.permission-coach) { animation:none; }
 }
 @media (prefers-reduced-transparency:reduce) {
-  :root :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu,.composer-add-menu,.ui-select-content,.pip-menu,.bot-identity-card,.context-card,.delete-dialog,.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-window-controls,.computer-floating-actions,.desktop-presence-actor,.desktop-enlarge-hint) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
+  :root :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu,.composer-add-menu,.ui-select-content,.pip-menu,.bot-identity-card,.context-card,.delete-dialog,.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-window-controls,.desktop-presence-actor,.desktop-enlarge-hint) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
 }
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
   :root,:root[data-theme="dark"] { --glass:var(--surface); }
