@@ -1502,7 +1502,7 @@
     "set_up": "설정",
     "edit": "편집",
     "move_label": "{{name}} 이동",
-    "move_hint": "드래그하거나 화살표 키를 사용하세요",
+    "move_hint": "드래그하여 이동하거나, Space로 들어 올리고 화살표로 이동한 뒤 Space로 놓으세요. Escape로 취소합니다. Alt+위/아래로 한 칸 이동합니다.",
     "move_up": "{{name}} 위로 이동",
     "move_down": "{{name}} 아래로 이동",
     "moved": "{{name}} 위치: {{total}}개 중 {{position}}번째",

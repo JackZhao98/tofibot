@@ -1502,7 +1502,7 @@
     "set_up": "設定",
     "edit": "編輯",
     "move_label": "移動 {{name}}",
-    "move_hint": "拖曳，或使用方向鍵",
+    "move_hint": "拖曳移動，或按空白鍵拿起、方向鍵移動、空白鍵放下、Escape 取消。Alt+上/下移動一位。",
     "move_up": "將 {{name}} 上移",
     "move_down": "將 {{name}} 下移",
     "moved": "{{name}} 現在排第 {{position}}/{{total}}",

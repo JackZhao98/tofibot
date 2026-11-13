@@ -1,18 +1,12 @@
-import { createContext, useContext, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { createContext, useContext, type DOMAttributes, type RefCallback } from "react";
 
-/**
- * What a widget needs to be moved in the column (docs/design/widgets-and-sidebar.md section 2.1): the grip button's label and the two
- * handlers. A card with a header draws its own grip; the bare computer has no header, so `ContextCard` offers the same engine through this
- * context and the monitor's screen starts the drag itself (`onPress`: press and move or hold, no handle). Tiny on purpose: the contextCard and desktop chunks share it.
- */
+/** Lightweight context shared by the lazy column and computer screen. dnd-kit lives in SortableList. */
 export type WidgetGripApi = {
   label: string; hint: string;
-  onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
-  /** A press on a surface that also clicks (the computer's screen): a drag only once the pointer travels ~6 px, or is held (mouse ~350 ms, touch ~400 ms) and then moves; otherwise the press stays a click. */
-  onPress: (event: ReactPointerEvent<HTMLElement>) => void;
-  /** True for a moment after a drag ends, so the click that follows the release does not also fire. */
+  ref: RefCallback<HTMLElement>;
+  attributes: import("@dnd-kit/core").DraggableAttributes;
+  activator: Pick<DOMAttributes<HTMLElement>, "onMouseDown" | "onTouchStart" | "onKeyDown">;
   wasDragged: () => boolean;
-  onKeyDown: (event: ReactKeyboardEvent<HTMLElement>) => void;
 };
 
 export const WidgetGripContext = createContext<WidgetGripApi | null>(null);
@@ -27,5 +21,5 @@ export function GripGlyph({ size = 16 }: { size?: number }) {
 
 /** The grip button; the same markup in a card header and in the computer's cluster, styled by the container. */
 export function WidgetGrip({ grip, className }: { grip: WidgetGripApi; className: string }) {
-  return <button type="button" className={`${className} widget-grip`} aria-label={grip.label} data-hint={grip.hint} aria-keyshortcuts="ArrowUp ArrowDown Alt+ArrowUp Alt+ArrowDown" onPointerDown={grip.onPointerDown} onKeyDown={grip.onKeyDown}><GripGlyph /></button>;
+  return <button ref={grip.ref} type="button" className={`${className} widget-grip`} aria-label={grip.label} data-hint={grip.hint} aria-keyshortcuts="Space Alt+ArrowUp Alt+ArrowDown" {...grip.attributes} {...grip.activator}><GripGlyph /></button>;
 }

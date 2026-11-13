@@ -7,13 +7,13 @@
 /* A widget's slot owns its enter and exit. Entering, the row grows from nothing while the card rises, so the widgets below
    it slide down instead of jumping; leaving, the row closes with --m-panel-out (shorter than entering) and the card sinks.
    The clip only exists while the motion runs (the card's shadow is not cut afterwards). Reduced motion: instant. */
-.widget-slot { position:relative; display:grid; grid-template-rows:1fr; flex:none; min-width:0; padding-bottom:12px; animation:widget-rise var(--m-quick) var(--ease-out) backwards; transition:translate var(--m-base) var(--ease-settle); }
+.widget-slot { position:relative; display:grid; grid-template-rows:1fr; flex:none; min-width:0; padding-bottom:12px; animation:widget-rise var(--m-quick) var(--ease-out) backwards; }
 .widget-slot[data-leaving] { grid-template-rows:0fr; padding-bottom:0; opacity:0; clip-path:inset(0 -40px 0 -40px); pointer-events:none;
-  transition:grid-template-rows var(--m-panel-out) var(--ease-settle), padding-bottom var(--m-panel-out) var(--ease-settle), opacity var(--m-panel-out) var(--ease-settle), translate var(--m-panel-out) var(--ease-settle); }
+  transition:grid-template-rows var(--m-panel-out) var(--ease-settle), padding-bottom var(--m-panel-out) var(--ease-settle), opacity var(--m-panel-out) var(--ease-settle); }
 @keyframes widget-rise { from { opacity:.4; } }
 
 /* Moving a widget (ContextCard.tsx): the slot follows the pointer with no transition and lifts (a stronger elevation, a hair larger, no outline);
-   the others slide into place with the translate transition above; it settles with the same transition when let go. No hand cursor anywhere. */
+   the others slide into place with dnd-kit transforms; it settles with the same transition when let go. No hand cursor anywhere. */
 .widget-slot[data-dragging] { z-index:3; transition:none; }
 .context-card { transition:scale var(--m-quick) var(--ease-out), box-shadow var(--m-quick) var(--ease-out); }
 .widget-slot[data-dragging] .context-card { scale:1.012; box-shadow:var(--card-lift); }

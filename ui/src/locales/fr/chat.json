@@ -948,7 +948,7 @@
     "at_bottom": "{{title}} est déjà en dernier",
     "at_top": "{{title}} est déjà en premier",
     "grip": "Déplacer {{title}}",
-    "grip_hint": "Faites glisser, ou utilisez les flèches",
+    "grip_hint": "Glissez pour déplacer, ou Espace pour saisir, les flèches pour déplacer, Espace pour déposer, Échap pour annuler. Alt+Haut/Bas déplace d’une place.",
     "moved": "{{title}} est maintenant en position {{position}} sur {{count}}"
   },
   "working": {
