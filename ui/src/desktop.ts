@@ -104,6 +104,16 @@ export type PipBridge = {
   setBounds(bounds: {source_key: string; x: number; y: number; width: number; height: number}): Promise<void>;
 };
 
+export type AppUpdateStatus = {
+  state: "idle" | "checking" | "available" | "downloading" | "downloaded" | "waiting_idle" | "installing" | "error";
+  version: string | null;
+};
+export type AppUpdateBridge = {
+  status(): Promise<AppUpdateStatus>;
+  onStatus(listener: (status: AppUpdateStatus) => void): () => void;
+  install(): Promise<void>;
+};
+
 declare global {
   interface Window {
     tofiDesktop?: {
@@ -112,6 +122,8 @@ declare global {
       onCommand: (listener: (command: DesktopCommand) => void) => () => void;
       /** Present in a Mac app that notifies from its main process. Its existence picks the outlet (attentionNotifier.ts). */
       notifications?: DesktopNotificationsBridge;
+      appUpdate?: AppUpdateBridge;
+      serverAddress?: () => Promise<string | null>;
       /** Present in a Mac app that has the one-switch remote control. Without it (a browser, an older app) the page shows no switch. */
       remoteControl?: RemoteControlBridge;
       botBrowser?: BotBrowserBridge;

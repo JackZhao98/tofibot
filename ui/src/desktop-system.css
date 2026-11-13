@@ -1,7 +1,7 @@
 /* Native shell: only the navigation lets the actual macOS material through. */
 html[data-desktop="darwin"],html[data-desktop="darwin"] body,html[data-desktop="darwin"] #root,
 html[data-desktop="darwin"] .workspace,html[data-desktop="darwin"] .workspace-grid{background:transparent}
-html[data-desktop="darwin"] .contact-pane{background:color-mix(in srgb,var(--sidebar-bg) 34%,transparent);padding-top:56px;border-right-color:color-mix(in srgb,var(--line) 65%,transparent)}
+html[data-desktop="darwin"] .contact-pane{background:color-mix(in srgb,var(--sidebar-bg) 34%,transparent);padding-top:56px;border-right-color:var(--line-soft)}
 html[data-desktop="darwin"] .chat-pane{background:var(--bg)}
 /* A window does not rubber-band: lists scroll inside themselves (overscroll-behavior:contain on each list). */
 html[data-desktop] body{overscroll-behavior:none}
@@ -27,11 +27,7 @@ html[data-desktop="darwin"][data-window-focused="false"] .contact-row.active{bac
 html[data-desktop="darwin"][data-window-focused="false"] .sidebar-top,html[data-desktop="darwin"][data-window-focused="false"] .sidebar-footer{color:var(--text-soft)}
 html[data-desktop="darwin"][data-fullscreen="true"] .contact-pane{padding-top:16px}
 html[data-desktop="darwin"][data-fullscreen="true"] .native-titlebar{display:none}
-/* One menu material on macOS: every popup menu (the base recipe is v2-app.css) lets the window's material through. */
-html[data-desktop] :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu){background:color-mix(in srgb,var(--surface) 88%,transparent);-webkit-backdrop-filter:blur(24px) saturate(1.25);backdrop-filter:blur(24px) saturate(1.25);border-color:color-mix(in srgb,var(--line) 70%,transparent)}
 html[data-desktop] .search-box{background:color-mix(in srgb,var(--surface-soft) 70%,transparent)}
-html[data-desktop] .view-only-chat{background:color-mix(in srgb,var(--surface) 92%,transparent);-webkit-backdrop-filter:blur(24px) saturate(1.08);backdrop-filter:blur(24px) saturate(1.08)}
-html[data-desktop] .view-only-chat-header,html[data-desktop] .view-only-chat-footer{background:color-mix(in srgb,var(--surface) 68%,transparent);-webkit-backdrop-filter:blur(24px) saturate(1.2);backdrop-filter:blur(24px) saturate(1.2)}
 html[data-desktop="darwin"] .view-only-chat-header{-webkit-app-region:drag;padding-top:56px;user-select:none}
 html[data-desktop="darwin"] .view-only-chat-header button,html[data-desktop="darwin"] .view-only-chat-header a{-webkit-app-region:no-drag}
 html[data-desktop="darwin"][data-fullscreen="true"] .view-only-chat-header{padding-top:12px}
@@ -67,3 +63,22 @@ html[data-desktop] .view-only-chat-body{overscroll-behavior:contain}
 [data-external-pip] .desktop-floating-shell { -webkit-app-region: no-drag; }
 /* An enlarged mini window covers the whole window; it must sit above the titlebar drag strip or its close and shrink controls cannot be pressed. */
 html[data-desktop="darwin"] .desktop-floating-shell.is-expanded{z-index:var(--z-dialog)}
+
+/* Keep the native material close to the reading plane in dark mode. The light material is unchanged. */
+html[data-desktop="darwin"][data-theme="dark"] .contact-pane{background:var(--sidebar-bg);border-right-color:var(--line-soft)}
+/* In the collapsed layout the rail's existing controls occupy the titlebar after the traffic lights.
+   The full strip drags the window; buttons cut their own no-drag holes. */
+@media(min-width:768px){
+  html[data-desktop="darwin"]:not([data-fullscreen="true"]) .workspace:has(.sidebar-collapsed) .native-titlebar{width:100%;pointer-events:none}
+  html[data-desktop="darwin"]:not([data-fullscreen="true"]) .workspace .sidebar-collapsed .sidebar-top{position:fixed;top:4px;left:78px;display:flex;flex-direction:row;align-items:center;gap:4px;margin:0;min-height:40px}
+  html[data-desktop="darwin"]:not([data-fullscreen="true"]) .workspace .sidebar-collapsed :is(.sidebar-actions,.create-menu-anchor){width:auto;flex-direction:row;gap:4px}
+  html[data-desktop="darwin"]:not([data-fullscreen="true"]) .workspace .sidebar-collapsed .sidebar-top button{width:40px;height:40px;-webkit-app-region:no-drag}
+  html[data-desktop="darwin"]:not([data-fullscreen="true"]) .workspace .sidebar-collapsed .sidebar-logo-art{display:none}
+  html[data-desktop="darwin"]:not([data-fullscreen="true"]) .workspace .sidebar-collapsed .sidebar-logo-arrow{opacity:1;transform:none}
+  /* One title row, as in Claude and ChatGPT: traffic lights, the three rail buttons (they end at 78 + 3 x 40 + 2 x 4 = 206 px), then the chat title. */
+  html[data-desktop="darwin"]:not([data-fullscreen="true"]) .workspace .sidebar-collapsed .chat-header{min-height:48px;padding-top:3px;padding-bottom:3px;padding-left:calc(206px + 14px - var(--sidebar-collapsed))}
+  /* The header's drag layer starts after the rail buttons, so the buttons never sit on a drag area. */
+  html[data-desktop="darwin"]:not([data-fullscreen="true"]) .workspace .sidebar-collapsed .chat-header>.chat-header-drag{left:calc(206px + 4px - var(--sidebar-collapsed))}
+}
+/* A drawer's backdrop starts under the titlebar strip: the strip keeps moving the window and the traffic lights stay clear. */
+html[data-desktop="darwin"] .detail-backdrop{top:48px;height:auto;-webkit-app-region:no-drag}

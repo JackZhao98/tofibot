@@ -212,30 +212,16 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
     };
   }, [expanded]);
 
-  // Small <-> big: the screen grows from (or shrinks back into) the other form's rectangle.
+  // Window forms appear in place; never fly between the mini window and a corner.
   const windowMode = expanded ? "big" : small ? "small" : "none";
   const modeRef = useRef(windowMode);
-  const fromRectRef = useRef<DOMRect | null>(null);
   const detailSelector = ".desktop-presence-canvas > .computer-detail";
-  // The DOM still shows the previous form while this render runs, so this is the "first" of the FLIP.
-  if (modeRef.current !== windowMode && modeRef.current !== "none" && windowMode !== "none") fromRectRef.current = shellRef.current?.querySelector<HTMLElement>(detailSelector)?.getBoundingClientRect() ?? null;
   useLayoutEffect(() => {
     const previous = modeRef.current;
     modeRef.current = windowMode;
-    const from = fromRectRef.current;
-    fromRectRef.current = null;
     const detail = shellRef.current?.querySelector<HTMLElement>(detailSelector);
     if (!detail || windowMode === "none" || previous === windowMode || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    if (from && previous !== "none") {
-      const to = detail.getBoundingClientRect();
-      if (!from.width || !to.width) return;
-      detail.animate([
-        { transformOrigin: "0 0", transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width})` },
-        { transformOrigin: "0 0", transform: "none" },
-      ], { duration: MOTION.base, easing: EASE.settle });
-    } else if (windowMode === "small") {
-      detail.animate([{ opacity: 0, transform: "translateY(14px) scale(.96)" }, { opacity: 1, transform: "none" }], { duration: MOTION.base, easing: EASE.settle });
-    }
+    detail.animate([{ opacity: 0 }, { opacity: 1 }], { duration: MOTION.quick, easing: EASE.out });
   }, [windowMode]);
 
   // Compact <-> strip: the bezel's height, the screen (its box animates from the old size) and the chin's contents move with --m-base.

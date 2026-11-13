@@ -22,7 +22,7 @@ try {
   const assistant = (id, seq, kind, content, extra = {}) => ({ id, conversation_id: "g", seq, role: "assistant", sender_bot_id: "mochi", run_id: "r1", content, created_at: at, ...(kind ? { kind } : {}), ...extra });
   const note = assistant("n1", 2, "progress", "My pick: **Glance**.", { client_message_id: "say-note:abc" });
   const props = (messages, extra = {}) => ({ owner: p.buildTaskOwners([run], messages, [], [])[0], tools: [], questions: [], drafts: [], messages, summaries: [], details: {}, connected: true, locale: "en", hideActivity: true, botName: "Mochi", showName: true, onOpenTools: () => {}, onRefresh: async () => {}, renderQuestion: () => null, renderDraft: () => null, ...extra });
-  const render = messages => { globalThis.document = { documentElement: { lang: "en" } }; return renderToStaticMarkup(createElement(TaskRunBlock, props(messages))); };
+  const render = (messages, extra = {}) => { globalThis.document = { documentElement: { lang: "en" } }; return renderToStaticMarkup(createElement(TaskRunBlock, props(messages, extra))); };
 
   assert.equal(taskBlockVisible(props([user, note])), true, "a silent finished run with a note draws its row");
   const html = render([user, note]);
@@ -35,6 +35,16 @@ try {
     assert.equal(taskBlockVisible(props([user, note, answer])), false, `a visible answer (${JSON.stringify(kind)}) keeps today's behaviour: no row`);
     assert.ok(!render([user, note, answer]).includes("task-silent-note"), "no extra row beside an answer");
   }
+  const tool = { conversation_id: "g", bot_id: "mochi", run_id: "r1", call_id: "c1", name: "say", arguments: "{}", result: "ok", status: "completed", started_at: at, updated_at: at };
+  const answeredMessages = [user, note, assistant("a2", 3, "", "Here is the pick.")];
+  assert.equal(taskBlockVisible(props(answeredMessages, { tools: [tool] })), false, "say is a message, not an extra public work row");
+  assert.equal(taskBlockVisible(props(answeredMessages, { summaries: [{ run_id: "r1", tool_count: 1 }] })), false, "a summary without public work must not leave an empty row");
+  const work = { ...tool, name: "computer_shell" };
+  const workHTML = render(answeredMessages, { tools: [work], senderHead: createElement("div", { className: "sender-head" }, "Mochi") });
+  assert.match(workHTML, /data-sender="mochi"/, "public work participates in sender grouping with Activity hidden");
+  assert.match(workHTML, /class="sender-head"/);
+  assert.equal(taskBlockVisible(props(answeredMessages, { tools: [work] })), true, "approved public work stays visible");
+  assert.equal(taskBlockVisible(props(answeredMessages, { tools: [{ ...work, conversation_id: "other" }] })), false, "another conversation cannot create a public work row");
   assert.equal(taskBlockVisible(props([user, assistant("i1", 3, "internal", "thinking")])), false, "private working text is never a note row");
   const running = { ...run, status: "running" };
   const live = props([user, note]); live.owner = p.buildTaskOwners([running], [user, note], [], [])[0];

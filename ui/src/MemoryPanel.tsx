@@ -3,8 +3,6 @@ import { CATS, EmptyState } from "./EmptyCat";
 import { TofiIcon as Icon } from "./icons";
 import { ConfirmAction } from "./InteractionSystem";
 import { useDebugMode } from "./debugMode";
-import { isDesktop } from "./desktop";
-import { WakeableCat } from "./motion-lab/lib/WakeableCat";
 import { memoryDisplay } from "./displayMetadata";
 import { ApiError } from "./api";
 import { contentEditPatch } from "./contentEditPatch";
@@ -18,6 +16,7 @@ const ready = (input: MemoryInput) => !!(input.title.trim() && input.description
 export function MemoryPanel({ memories, scope = "bot", onClose, onCreate, onUpdate, onDelete }: { memories: Memory[]; scope?: "bot" | "group"; conversationId: string; onClose: () => void; onCreate: (input: MemoryInput) => Promise<void>; onUpdate: (id: string, input: ContentPatch) => Promise<void>; onDelete: (id: string) => Promise<void> }) {
   const debug = useDebugMode();
   const { t } = useTranslation("bots");
+  const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<MemoryInput>(empty);
   const [editing, setEditing] = useState<string | null>(null);
   const [edit, setEdit] = useState<MemoryInput>(empty);
@@ -44,12 +43,12 @@ export function MemoryPanel({ memories, scope = "bot", onClose, onCreate, onUpda
   const visible = memories.filter(item => [item.title, item.description, item.content].some(value => value?.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())));
   return <div className="detail-content">
     <div className="detail-heading"><h2>{scope === "group" ? t("memory.heading.group") : t("memory.heading.bot")}</h2><button className="close-button" aria-label={t("memory.close_aria")} onClick={onClose}><Icon name="close" size={18} /></button></div>
-    <p className="field-note">{scope === "group" ? t("memory.note.group") : t("memory.note.bot")}</p>
     {error && <p className="error-text" role="alert">{error}</p>}
-    <form className="memory-create" onSubmit={event => { event.preventDefault(); if (ready(draft)) void save(() => onCreate(draft), () => setDraft(empty)); }}>
+    <button type="button" className="secondary-button memory-add" aria-expanded={creating} onClick={() => setCreating(value => !value)}>{t("memory.add")}</button>
+    {creating && <form className="memory-create" onSubmit={event => { event.preventDefault(); if (ready(draft)) void save(() => onCreate(draft), () => { setDraft(empty); setCreating(false); }); }}>
       {fields(draft, setDraft)}
       <button className="secondary-button" disabled={!ready(draft) || busy}>{t("memory.save_memory")}</button>
-    </form>
+    </form>}
     {!!memories.length && <label className="memory-search">{t("memory.search")}<input type="search" aria-label={t("memory.search")} value={query} onChange={event => setQuery(event.target.value)} /></label>}
     <div className="memory-list">{visible.map(memory => {
       const display = memoryDisplay(memory);

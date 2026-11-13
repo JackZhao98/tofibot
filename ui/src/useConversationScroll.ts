@@ -30,6 +30,8 @@ interface Visit {
   height: number;
   /** The message list's own width at the last sync (-1 before the first): a widget opening beside it narrows the column without resizing the pane. */
   listWidth: number;
+  /** Content height at the last position sync, before any pending native scroll/resize notifications. */
+  contentHeight: number;
   baseline: number;
   detached: boolean;
   resumeIntent: boolean;
@@ -142,7 +144,7 @@ export function useConversationScroll(options: Options) {
     const snapshot = id ? snapshots.current.get(id) ?? null : null;
     visit.current = { id, readSeq: options.conversation?.read_seq ?? 0, entryMax: snapshot?.entryMax ?? null,
       resume: snapshot, positioned: false, landing: snapshot ? (snapshot.atBottom ? "bottom" : "elsewhere") : null, atBottom: snapshot?.atBottom ?? true, nearBottom: true, width: 0, height: 0, listWidth: -1,
-      baseline: 0, detached: snapshot?.detached ?? false, resumeIntent: false, lastScrollTop: 0,
+      contentHeight: 0, baseline: 0, detached: snapshot?.detached ?? false, resumeIntent: false, lastScrollTop: 0,
       prepend: null, followNext: false, loadingBoundary: false, boundaryFailed: false, hold: null, glide: null, lastGrowth: 0, bottomTop: 0, dipFrame: -1, positionedAt: 0, lastRecordId: "", distance: 0, gestureAt: 0, press: null };
   }
 
@@ -168,6 +170,7 @@ export function useConversationScroll(options: Options) {
     v.width = el.clientWidth;
     v.height = el.clientHeight;
     v.listWidth = listWidth;
+    v.contentHeight = el.scrollHeight;
     const distanceFromBottom = el.scrollHeight - el.clientHeight - el.scrollTop;
     // The reader moved the pane during a press (a selection dragged past the edge): there is nothing left to hold.
     if (fromUserScroll && v.press && Math.abs(el.scrollTop - v.press.top) > 2) v.press = null;
@@ -555,7 +558,14 @@ export function useConversationScroll(options: Options) {
   const unreadSeq = boundaryLoaded ? firstUnread?.seq : undefined;
   const newCount = current.positioned && !current.atBottom
     ? records.filter(m => m.seq > current.baseline && m.role === "assistant" && m.kind !== "notice" && m.kind !== "message_ref").length : 0;
-  const onScroll = useCallback(() => { syncPosition(true); }, [syncPosition]);
+  const onScroll = useCallback(() => {
+    const el = scrollRef.current, v = visit.current;
+    // Lazy work rows can resize history and trigger native scroll anchoring before ResizeObserver runs.
+    // Position that layout first: reading its new bottom gap as a reader's scroll would abandon following,
+    // leaving every later streaming delta stranded. Explicit reading gestures still detach in pauseFollow.
+    if (el && v?.positioned && el.scrollHeight !== v.contentHeight) position();
+    else syncPosition(true);
+  }, [position, syncPosition]);
 
   // Content that is loaded but not yet positioned must never reach the screen: it would paint at the wrong
   // place and then jump. Only a pending restore that has to page in older history can keep it waiting.

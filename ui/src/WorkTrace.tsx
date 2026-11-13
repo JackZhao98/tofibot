@@ -1,4 +1,5 @@
-import { lazy, Suspense, useRef, useState } from "react";
+import Lightbox from "./AttachmentLightbox";
+import { Suspense, useRef, useState } from "react";
 import { request } from "./api";
 import { TofiIcon } from "./icons";
 import { attachmentUrl } from "./filePreviewModel";
@@ -7,10 +8,10 @@ import type { Attachment, Run } from "./types";
 import { traceCellAt, traceCells, traceThumbStyle } from "./workTraceLayout";
 import "./work-trace.css";
 
-const Lightbox = lazy(() => import("./AttachmentLightbox"));
+
 
 type Capture = { seq: number; attachment_id?: string; label: string; redacted: boolean };
-const THUMBS = 6, THUMB_WIDTH = 64;
+const THUMBS = 3, THUMB_WIDTH = 64;
 
 /**
  * The work trace of a run: one folded line at the end of its Activity list. It shows the first steps as small cuts of the strip
@@ -41,6 +42,7 @@ export default function WorkTrace({ run }: { run: Run }) {
 
   async function open() {
     setError("");
+    setIndex(0);
     try {
       if (!captures) setCaptures((await request<{ captures: Capture[] }>(`/api/runs/${encodeURIComponent(run.id)}/captures`)).captures);
       setIndex(0);
@@ -62,6 +64,7 @@ export default function WorkTrace({ run }: { run: Run }) {
       await request(`/api/runs/${encodeURIComponent(run.id)}/captures`, { method: "DELETE" });
       setIndex(null);
       setGone(true);
+      window.dispatchEvent(new CustomEvent("tofi:trace-deleted", { detail: run.id }));
     } catch {
       setError(t("trace.delete_failed"));
       setAsking(false);
@@ -69,7 +72,7 @@ export default function WorkTrace({ run }: { run: Run }) {
   }
   return <div className="work-trace" data-run-id={run.id}>
     <button ref={button} type="button" className="process-line work-trace-line" aria-label={`${t("trace.open")} · ${t("trace.steps", { count: trace.steps })}`} onPointerEnter={() => void import("./AttachmentLightbox")} onClick={() => void open()}>
-      <span className="work-trace-thumbs" aria-hidden="true">{thumbs.map(i => <span key={i} className="work-trace-thumb" style={traceThumbStyle(url, i, cells, THUMB_WIDTH)} />)}</span>
+      <span className="work-trace-thumbs" aria-hidden="true">{thumbs.map(i => <span key={i} className="work-trace-thumb" style={traceThumbStyle(url, i, cells, THUMB_WIDTH)} />)}{trace.steps > THUMBS && <span>+{trace.steps - THUMBS}</span>}</span>
       <span className="process-line-text">{t("trace.title")} · {t("trace.steps", { count: trace.steps })}</span>
       <TofiIcon className="process-line-chevron" name="chevron-right" size={14} aria-hidden="true" />
     </button>

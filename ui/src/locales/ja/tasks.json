@@ -663,6 +663,9 @@
     "delete_yes": "削除",
     "delete_no": "残す",
     "delete_failed": "トレースを削除できませんでした。",
-    "deleted": "作業トレースを削除しました。"
+    "deleted": "作業トレースを削除しました。",
+    "commands_other": "{{count}} 件のコマンドを実行",
+    "pages_other": "{{count}} ページを閲覧",
+    "working_other": "作業中 · {{count}} ステップ"
   }
 }

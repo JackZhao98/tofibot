@@ -13,7 +13,7 @@ import { escapeTarget, type EscapeTarget, type Surfaces, type WidgetId } from ".
  *  5. the sidebar;
  *  6. the widgets from the bottom up: Artifacts, Members, and the computer last.
  *
- * A surface that is busy (`aria-busy`) is not closed by Escape. Step 3 listens in the capture phase: the remote screen's keyboard
+ * A surface that is saving (`aria-busy`, not a loading skeleton) is not closed by Escape. Step 3 listens in the capture phase: the remote screen's keyboard
  * receiver stops the keys it forwards from bubbling, and Escape must still step the window back. Every other step is the bubble phase,
  * after Radix has had its turn.
  */
@@ -33,13 +33,16 @@ export function useSurfaceEscape({ surfaces, bigComputer, phoneSheet, shrinkComp
   live.current = { bigComputer, phoneSheet, shrinkComputer, closeWidget, closeSidebar, closeSettings };
 
   useEffect(() => {
-    const busy = () => Boolean(document.querySelector('.widget-column [aria-busy="true"], .sidebar-pane [aria-busy="true"], .detail-pane [aria-busy="true"]'));
+    // A save in progress keeps its surface open; a read that is still loading (a skeleton or a loading shell) never blocks Escape.
+    const saving = '[aria-busy="true"]:not(.usage-widget-skeleton):not(.surface-loading):not(.surface-loading *)';
+    const busy = () => Boolean(document.querySelector(`.widget-column ${saving}, .sidebar-pane ${saving}, .detail-pane ${saving}`));
     const run = (event: KeyboardEvent, target: EscapeTarget) => {
       const act = live.current;
       // Every cover but Settings is a Radix dialog that took the key before this ran; one that is already leaving takes nothing.
       if (target.layer === "cover" && target.id !== "settings") return;
       // A surface that is still loading is not closed from under the person (Settings answers at once: its frame is the loading state).
-      if (target.layer !== "cover" && target.layer !== "computer-big" && busy()) return;
+      const dismissibleRead = target.layer === "sidebar" && (target.id === "memory" || target.id === "usage") || target.layer === "widget" && target.id === "usage";
+      if (!dismissibleRead && target.layer !== "cover" && target.layer !== "computer-big" && busy()) return;
       event.preventDefault();
       if (target.layer === "computer-big") { if (act.phoneSheet) act.closeWidget("computer"); else act.shrinkComputer(); event.stopPropagation(); }
       else if (target.layer === "cover") act.closeSettings();

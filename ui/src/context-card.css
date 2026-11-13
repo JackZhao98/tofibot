@@ -1,4 +1,4 @@
-/* Widgets and the sidebar on the wide web layout (docs/design/widgets-and-sidebar.md). Web only, >= 1100 px; below that the drawer /
+/* Widgets and the sidebar on the wide web layout (docs/design/widgets-and-sidebar.md). All platforms, >= 1100 px; below that the drawer /
    sheet rules in conversation-workspace.css and styles.css keep working.
 
    Widgets: the .widget-column holds the open widgets stacked top to bottom. It lives INSIDE the chat area: the grid keeps no track
@@ -12,7 +12,7 @@
 :root { --panel-elevation-edge:-14px 0 32px -22px color-mix(in srgb,var(--shade-ink) 32%,transparent); --panel-float-elevation:0 1px 3px color-mix(in srgb,var(--shade-ink) 8%,transparent), 0 3px 12px -3px color-mix(in srgb,var(--shade-ink) 22%,transparent); --panel-gap:12px; --panel-radius:16px; --widget-bleed-l:44px; --widget-bleed-r:16px; --widget-bleed-b:16px; }
 :root[data-theme="dark"] { --panel-elevation-edge:-14px 0 32px -20px color-mix(in srgb,var(--shade) 75%,transparent); --panel-float-elevation:0 1px 3px color-mix(in srgb,var(--shade) 50%,transparent), 0 3px 12px -3px color-mix(in srgb,var(--shade) 65%,transparent), inset 0 1px 0 color-mix(in srgb,var(--white) 4%,transparent); }
 @media (min-width:1100px) {
-  html:not([data-desktop]) .workspace .workspace-grid {
+  .workspace .workspace-grid, .workspace .workspace-grid.context-open {
     position:relative;
     --context-width:clamp(320px,28vw,384px);
     --widget-w:var(--context-width);
@@ -22,13 +22,13 @@
     transition:grid-template-columns var(--m-panel-out) var(--ease-settle);
   }
   /* Expanded: clamp(480px, 50vw, 760px), never so wide that the chat falls under 480px. */
-  html:not([data-desktop]) .workspace .workspace-grid.sidebar-expanded { --sidebar-w:max(360px, min(clamp(480px,50vw,760px), calc(100vw - var(--sidebar-width) - 480px))); --sidebar-dur:var(--m-base); }
-  html:not([data-desktop]) .workspace .workspace-grid.sidebar-open { grid-template-columns:var(--sidebar-width) minmax(0,1fr) var(--sidebar-w); transition:grid-template-columns var(--sidebar-dur) var(--ease-settle); }
+  .workspace .workspace-grid.sidebar-expanded { --sidebar-w:max(360px, min(clamp(480px,50vw,760px), calc(100vw - var(--sidebar-width) - 480px))); --sidebar-dur:var(--m-base); }
+  .workspace .workspace-grid.sidebar-open { grid-template-columns:var(--sidebar-width) minmax(0,1fr) var(--sidebar-w); transition:grid-template-columns var(--sidebar-dur) var(--ease-settle); }
   /* With the sidebar open the widgets share what is left of the chat: never more than 44% of it. */
-  html:not([data-desktop]) .workspace .workspace-grid.sidebar-open { --widget-w:max(240px, min(var(--context-width), calc((100vw - var(--sidebar-width) - var(--sidebar-w)) * .44))); }
-  html:not([data-desktop]) .workspace .workspace-grid > .chat-pane { grid-column:2; grid-row:1; }
+  .workspace .workspace-grid.sidebar-open { --widget-w:max(240px, min(var(--context-width), calc((100vw - var(--sidebar-width) - var(--sidebar-w)) * .44))); }
+  .workspace .workspace-grid > .chat-pane { grid-column:2; grid-row:1; }
 
-  html:not([data-desktop]) .workspace .sidebar-pane {
+  .workspace .sidebar-pane {
     grid-column:3; grid-row:1; position:relative; z-index:var(--z-panel); display:flex; justify-content:flex-end; box-sizing:border-box; min-width:0; min-height:0; height:100%; overflow:hidden;
     padding:var(--panel-gap); background:transparent;
   }
@@ -36,14 +36,14 @@
      rounded --surface rectangle with a soft elevation and no outline (docs/design/widgets-and-sidebar.md section 2.2). */
   /* The shell keeps the track's final width and sits against the window edge, so while the track opens the panel slides in with its
      edge instead of squeezing its content. Expanding animates the width with the track (same duration). */
-  html:not([data-desktop]) .workspace .sidebar-pane > * { flex:none; width:calc(var(--sidebar-w) - 2 * var(--panel-gap)); max-width:100%; height:100%; border-radius:var(--panel-radius); box-shadow:var(--panel-float-elevation); background:var(--surface); overflow:hidden; transition:width var(--sidebar-dur) var(--ease-settle), opacity var(--m-panel-out) var(--ease-settle); animation:sidebar-shell-in var(--m-panel-in) var(--ease-out) backwards; }
-  html:not([data-desktop]) .workspace .sidebar-pane.is-leaving > * { opacity:0; }
+  .workspace .sidebar-pane > * { flex:none; width:calc(var(--sidebar-w) - 2 * var(--panel-gap)); max-width:100%; height:100%; border-radius:var(--panel-radius); box-shadow:var(--panel-float-elevation); background:var(--surface); overflow:hidden; transition:width var(--sidebar-dur) var(--ease-settle), opacity var(--m-panel-out) var(--ease-settle); animation:sidebar-shell-in var(--m-panel-in) var(--ease-out) backwards; }
+  .workspace .sidebar-pane.is-leaving > * { opacity:0; }
 
   /* Widgets. The column is a scroll container, so it would clip its cards' shadows at its own edge: it is laid out --widget-bleed-* larger than
      the cards on the left, right and bottom and pads them back in, so the shadows draw in full on every side. It also runs up under the header
      (top 0, padding for the header's height) and sits one layer below it, and the composer's box (which spans under the column and is one layer above it) lets the pointer through its empty padding (below), so cards that scroll up pass under the same progressive blur as the
      messages (progressive-blur.css) instead of ending at a hard line. */
-  html:not([data-desktop]) .workspace .detail-pane.widget-column {
+  .workspace .detail-pane.widget-column {
     display:flex; flex-direction:column; align-items:stretch; gap:0; box-sizing:border-box;
     border:0; background:transparent; box-shadow:none; overflow:hidden auto; overscroll-behavior:contain; animation:none;
     grid-column:2; grid-row:1; justify-self:end; align-self:start; z-index:calc(var(--z-chrome) - 1); position:relative; inset:auto; translate:none;
@@ -51,43 +51,43 @@
     padding:calc(var(--chat-header-height,64px) + 6px) calc(14px + var(--widget-bleed-r)) calc(16px + var(--widget-bleed-b)) calc(2px + var(--widget-bleed-l)); pointer-events:none; scrollbar-width:none; scrollbar-gutter:auto;
     transition:width var(--m-panel-out) var(--ease-settle);
   }
-  html:not([data-desktop]) .workspace .workspace-grid.sidebar-open .detail-pane.widget-column { transition-duration:var(--sidebar-dur); }
-  html:not([data-desktop]) .workspace .detail-pane.widget-column::-webkit-scrollbar { display:none; }
+  .workspace .workspace-grid.sidebar-open .detail-pane.widget-column { transition-duration:var(--sidebar-dur); }
+  .workspace .detail-pane.widget-column::-webkit-scrollbar { display:none; }
   /* An expanded computer is a full-window dialog: it leaves the column in place and floats over the page. */
-  html:not([data-desktop]) .workspace .detail-pane.widget-column:has(.computer-detail.is-expanded) { position:relative; inset:auto; z-index:auto; width:auto; height:100%; margin:0; padding:0; overflow:hidden auto; background:transparent; box-shadow:none; pointer-events:auto; }
+  .workspace .detail-pane.widget-column:has(.computer-detail.is-expanded) { position:relative; inset:auto; z-index:auto; width:auto; height:100%; margin:0; padding:0; overflow:hidden auto; background:transparent; box-shadow:none; pointer-events:auto; }
   /* The composer box spans the whole chat width (its padding-right only keeps the field clear of the column), so while widgets are open it passes the pointer through its empty
      padding and only its own parts take it; the column, one layer below the header and the composer, stays clickable at the bottom of a short window. */
-  html:not([data-desktop]) .workspace .workspace-grid.context-open .composer { pointer-events:none; }
-  html:not([data-desktop]) .workspace .workspace-grid.context-open .composer > * { pointer-events:auto; }
+  .workspace .workspace-grid.context-open .composer { pointer-events:none; }
+  .workspace .workspace-grid.context-open .composer > * { pointer-events:auto; }
   /* Only the widgets take the pointer; wheel over them scrolls the column, over empty chat space it scrolls the messages. */
-  html:not([data-desktop]) .workspace .detail-pane.widget-column > * { pointer-events:auto; }
-  html:not([data-desktop]) .workspace .workspace-grid.context-open { --context-room:calc(var(--widget-w) + var(--scroll-bar-w,0px)); }
+  .workspace .detail-pane.widget-column > * { pointer-events:auto; }
+  .workspace .workspace-grid.context-open { --context-room:calc(var(--widget-w) + var(--scroll-bar-w,0px)); }
 
   /* The chat gives way to the widgets with the same motion: --m-panel-in while they open, --m-panel-out while they close. */
-  html:not([data-desktop]) .workspace .workspace-grid .message-scroll { padding-right:calc(clamp(18px,4vw,64px) + var(--context-room,0px)); transition:padding-right var(--m-panel-out) var(--ease-settle); }
+  .workspace .workspace-grid .message-scroll { padding-right:calc(clamp(18px,4vw,64px) + var(--context-room,0px)); transition:padding-right var(--m-panel-out) var(--ease-settle); }
   /* The jump pill sits at the middle of the message column, so it moves left with the column when widgets open. */
-  html:not([data-desktop]) .workspace .workspace-grid .jump-latest { left:0; right:var(--context-room,0px); transition:right var(--m-panel-out) var(--ease-settle); }
-  html:not([data-desktop]) .workspace .workspace-grid .team-board-screen { padding-right:calc(clamp(12px,3vw,30px) + var(--context-room,0px)); transition:padding-right var(--m-panel-out) var(--ease-settle); }
-  html:not([data-desktop]) .workspace .workspace-grid .composer { padding-right:calc(clamp(16px,4vw,32px) + var(--context-room,0px)); transition:padding-right var(--m-panel-out) var(--ease-settle); }
-  html:not([data-desktop]) .workspace .workspace-grid:is(.context-open,.sidebar-open) .message-scroll { transition-duration:var(--sidebar-dur); transition-timing-function:var(--ease-out); }
-  html:not([data-desktop]) .workspace .workspace-grid:is(.context-open,.sidebar-open) :is(.jump-latest,.team-board-screen,.composer) { transition-duration:var(--sidebar-dur); transition-timing-function:var(--ease-out); }
+  .workspace .workspace-grid .jump-latest { left:0; right:var(--context-room,0px); transition:right var(--m-panel-out) var(--ease-settle); }
+  .workspace .workspace-grid .team-board-screen { padding-right:calc(clamp(12px,3vw,30px) + var(--context-room,0px)); transition:padding-right var(--m-panel-out) var(--ease-settle); }
+  .workspace .workspace-grid .composer { padding-right:calc(clamp(16px,4vw,32px) + var(--context-room,0px)); transition:padding-right var(--m-panel-out) var(--ease-settle); }
+  .workspace .workspace-grid:is(.context-open,.sidebar-open) .message-scroll { transition-duration:var(--sidebar-dur); transition-timing-function:var(--ease-out); }
+  .workspace .workspace-grid:is(.context-open,.sidebar-open) :is(.jump-latest,.team-board-screen,.composer) { transition-duration:var(--sidebar-dur); transition-timing-function:var(--ease-out); }
 
   /* Focus mode: an expanded sidebar, or a sidebar on a window too narrow to share (chat under ~640px), gives the whole chat to the
      messages. The widgets stay open and mounted, hidden once the track is in, and return as it closes. */
-  html:not([data-desktop]) .workspace .workspace-grid.sidebar-open.sidebar-expanded { --context-room:0px; }
-  html:not([data-desktop]) .workspace .workspace-grid.sidebar-open.sidebar-expanded .detail-pane.widget-column { visibility:hidden; transition:visibility 0s linear var(--sidebar-dur), width var(--sidebar-dur) var(--ease-settle); }
+  .workspace .workspace-grid.sidebar-open.sidebar-expanded { --context-room:0px; }
+  .workspace .workspace-grid.sidebar-open.sidebar-expanded .detail-pane.widget-column { visibility:hidden; transition:visibility 0s linear var(--sidebar-dur), width var(--sidebar-dur) var(--ease-settle); }
   /* A cover is exclusive: widgets and sidebar are hidden (kept mounted) once it is in, and come back the moment it starts to leave. */
-  html:not([data-desktop]) .workspace .detail-pane.widget-column.is-covered, html:not([data-desktop]) .workspace .sidebar-pane.is-covered { visibility:hidden; transition:visibility 0s linear var(--m-panel-in); }
+  .workspace .detail-pane.widget-column.is-covered, .workspace .sidebar-pane.is-covered { visibility:hidden; transition:visibility 0s linear var(--m-panel-in); }
 }
 @media (min-width:1100px) and (max-width:1391px) {
-  html:not([data-desktop]) .workspace .workspace-grid.sidebar-open { --context-room:0px; }
-  html:not([data-desktop]) .workspace .workspace-grid.sidebar-open .detail-pane.widget-column { visibility:hidden; transition:visibility 0s linear var(--sidebar-dur), width var(--sidebar-dur) var(--ease-settle); }
+  .workspace .workspace-grid.sidebar-open { --context-room:0px; }
+  .workspace .workspace-grid.sidebar-open .detail-pane.widget-column { visibility:hidden; transition:visibility 0s linear var(--sidebar-dur), width var(--sidebar-dur) var(--ease-settle); }
 }
-@keyframes sidebar-shell-in { from { opacity:0; } }
+@keyframes sidebar-shell-in { from { opacity:.4; } }
 @media (prefers-reduced-motion:reduce) {
-  html:not([data-desktop]) .workspace .sidebar-pane > *, html:not([data-desktop]) .workspace .sidebar-pane.is-leaving { animation:none; transition:none; }
-  html:not([data-desktop]) .workspace .workspace-grid, html:not([data-desktop]) .workspace .detail-pane.widget-column { transition:none!important; }
-  html:not([data-desktop]) .workspace .workspace-grid :is(.message-scroll,.composer,.jump-latest,.team-board-screen) { transition:none!important; }
+  .workspace .sidebar-pane > *, .workspace .sidebar-pane.is-leaving { animation:none; transition:none; }
+  .workspace .workspace-grid, .workspace .detail-pane.widget-column { transition:none!important; }
+  .workspace .workspace-grid :is(.message-scroll,.composer,.jump-latest,.team-board-screen) { transition:none!important; }
 }
 
 /* Read-only chat reads top-down (avatar beside the name, then the message), and the messages that
@@ -97,3 +97,22 @@
 .view-only-message[data-focused="true"] .view-only-message-bubble { box-shadow:none; }
 .view-only-message.is-bot[data-focused="true"] .view-only-message-bubble { background:color-mix(in srgb,var(--lagoon) 22%,var(--bubble-bot)); }
 .view-only-message.is-user[data-focused="true"] .view-only-message-bubble { background:color-mix(in srgb,var(--lagoon) 22%,var(--bubble-user)); }
+
+/* Cold Memory and Usage chunks occupy their final surface on the first paint. */
+.surface-loading{padding:16px;min-height:160px}
+.surface-skeleton{display:grid;gap:12px;padding:14px;min-height:112px}
+.surface-skeleton i{display:block;height:16px;border-radius:6px;background:var(--surface-2)}
+.surface-skeleton i:last-child{width:65%}
+/* Narrow work panels open where they will be read, with no off-screen travel. */
+.workspace .detail-pane.context-panel:not(.widget-column){transform:none;translate:none;transition:opacity var(--m-quick) var(--ease-out),visibility var(--m-quick);opacity:0;background:color-mix(in srgb,var(--surface) 96%,transparent);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
+.workspace .detail-pane.context-panel:not(.widget-column).visible{opacity:1;transform:none}
+@media(min-width:768px) and (max-width:1099px){
+ .workspace .detail-pane.context-panel:not(.widget-column){inset:var(--panel-gap) var(--panel-gap) var(--panel-gap) auto;height:auto;max-height:calc(var(--viewport-height,100dvh) - 2 * var(--panel-gap));border:0;border-radius:var(--panel-radius);box-shadow:var(--panel-float-elevation)}
+}
+@media(prefers-reduced-motion:reduce){.workspace .detail-pane.context-panel:not(.widget-column){transition:none}}
+@media(prefers-reduced-transparency:reduce){.workspace .detail-pane.context-panel:not(.widget-column){background:var(--surface);-webkit-backdrop-filter:none;backdrop-filter:none}}
+.surface-loading.context-card{background:var(--surface);border-radius:14px}
+.workspace .detail-pane.context-panel:not(.widget-column).visible:not(.surface-exiting){animation:context-panel-in var(--m-quick) var(--ease-out) both}
+.workspace .detail-pane.context-panel:not(.widget-column).surface-exiting{animation:none;opacity:0;transform:none}
+@keyframes context-panel-in{from{opacity:.4}}
+@media(prefers-reduced-motion:reduce){.workspace .detail-pane.context-panel:not(.widget-column).visible:not(.surface-exiting){animation:none}}

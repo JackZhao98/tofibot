@@ -3,7 +3,7 @@ import { flushSync } from "react-dom";
 import { TofiIcon } from "./icons";
 import { LiveMark } from "./LiveMark";
 import { ComputerLookButton } from "./ComputerLookButton";
-import { isComputerAction, toolDisplayState, formatStepSeconds, orderToolActivities, toolActivityKey } from "./toolTimeline";
+import { isComputerAction, compareActivityTime, toolDisplayState, formatStepSeconds, orderToolActivities, toolActivityKey } from "./toolTimeline";
 import { TaskIssueCard } from "./TaskIssueCard";
 import { canAnswerQuestion, presentTaskIssue, taskPhaseLabel, taskPhaseVisible, type TaskOwner } from "./taskIssuePresentation";
 import { useTranslation, type Language } from "./i18n";
@@ -12,7 +12,7 @@ import type { MailDraft } from "./MailDraftCard";
 import type { Message, Run, ToolActivity, ToolActivityRunSummary } from "./types";
 import { isTerminalRun } from "./runFamily";
 import { prefersReducedMotion } from "./motion-lab/lib/hooks";
-import { SilentNoteBody, TaskActivityBody, panelLoaded, usePanelLoaded, whenPanelLoaded } from "./lazyPanels";
+import { WorkTimeline, SilentNoteBody, TaskActivityBody, panelLoaded, usePanelLoaded, whenPanelLoaded } from "./lazyPanels";
 import "./task-issue-card.css";
 import { MOTION, EASE } from "./motion";
 
@@ -128,17 +128,19 @@ function scopeTaskBlock({ owner, tools, questions, drafts, messages, summaries, 
   const primary = !segment || segment.primary;
   const issue = primary ? presentTaskIssue({...input, family:owner.family, tools, questions, drafts}) : undefined;
   const decisions = primary ? currentQuestions.filter(question => canAnswerQuestion(question)) : [];
-  return { run, ids, silentNotes, tools, shownTools, questions, drafts, currentTools, currentQuestions, currentDrafts: primary ? currentDrafts : [], input, issue, decisions };
+  const hasWork = shownTools.some(tool => tool.name !== "say");
+  return { run, ids, silentNotes, hasWork, tools, shownTools, questions, drafts, currentTools, currentQuestions, currentDrafts: primary ? currentDrafts : [], input, issue, decisions };
 }
 
 /**
- * Whether the block draws anything. With Activity hidden a finished run that raised no card (no issue, no pending
- * decision or draft) draws nothing at all: no name label, no row.
+ * Public narration and collapsed batches remain visible with the detailed audit hidden.
+ * A finished run with neither work nor a card still draws nothing.
  */
 export function taskBlockVisible(props: BlockScopeInput & { hideActivity?: boolean; revealed?: boolean }): boolean {
   if (!props.hideActivity || props.revealed) return true;
+  const { run, issue, decisions, currentDrafts, silentNotes, hasWork } = scopeTaskBlock(props);
+  if (hasWork) return true;
   if (props.segment && !props.segment.primary) return false;
-  const { run, issue, decisions, currentDrafts, silentNotes } = scopeTaskBlock(props);
   return !isTerminalRun(run) || silentNotes.length > 0 || Boolean(issue) || taskPhaseVisible(run) || decisions.length > 0 || currentDrafts.some(draft => draft.status !== "unknown");
 }
 
@@ -146,7 +148,7 @@ export function TaskRunBlock({ owner, segment, tools, questions, drafts, message
   const disclosure = useRef<HTMLDetailsElement>(null);
   const block = useRef<HTMLElement>(null);
   const needsFocus = useRef(false);
-  const { run, ids, silentNotes, tools: scopedTools, shownTools, questions: scopedQuestions, drafts: scopedDrafts, currentTools, currentQuestions, currentDrafts, input, issue, decisions } = scopeTaskBlock({ owner, tools, questions, drafts, messages, summaries, details, connected, locale, segment });
+  const { run, ids, silentNotes, hasWork, tools: scopedTools, shownTools, questions: scopedQuestions, drafts: scopedDrafts, currentTools, currentQuestions, currentDrafts, input, issue, decisions } = scopeTaskBlock({ owner, tools, questions, drafts, messages, summaries, details, connected, locale, segment });
   const primary = !segment || segment.primary, firstPart = !segment || segment.index === 0;
   tools = scopedTools; questions = scopedQuestions; drafts = scopedDrafts;
   const { t } = useTranslation("tasks", { lng: locale });
@@ -169,7 +171,7 @@ export function TaskRunBlock({ owner, segment, tools, questions, drafts, message
   const recordedQuestions = !firstPart ? [] : questions.filter(question => question.question_type !== "approval" && !decisions.some(item => item.question_id === question.question_id));
   // A card decided by a remembered approval ("Approve and remember in this chat") stays visible as a record: nobody was asked.
   const rememberedDecisions = !firstPart ? [] : questions.filter(question => question.question_type === "approval" && (question.answered_by === REMEMBERED_APPROVAL_ACTOR || question.answered_by === STANDING_ALLOWANCE_ACTOR) && !decisions.some(item => item.question_id === question.question_id));
-  const inWindow = (message: Message) => !segment || (!segment.from || Date.parse(message.created_at) >= Date.parse(segment.from)) && (!segment.until || Date.parse(message.created_at) < Date.parse(segment.until));
+  const inWindow = (message: Message) => !segment || (!segment.from || compareActivityTime(message.created_at, segment.from) >= 0) && (!segment.until || compareActivityTime(message.created_at, segment.until) < 0);
   const notes = messages.filter(message => ids.has(message.run_id ?? "") && message.conversation_id === run.conversation_id && message.role === "assistant" && message.kind === "progress" && inWindow(message));
   function loadInitial() {
     for (const attempt of owner.family.attempts) {
@@ -177,6 +179,9 @@ export function TaskRunBlock({ owner, segment, tools, questions, drafts, message
       if (!detail && onLoadDetails) void onLoadDetails(attempt.id, 0);
     }
   }
+  useEffect(() => {
+    if (firstPart) loadInitial();
+  }, [owner.key, firstPart]); // eslint-disable-line react-hooks/exhaustive-deps
   const segmentSeconds = segment && segment.tools.every(tool => tool.status !== "running" && tool.status !== "queued") ? (Math.max(...segment.tools.map(tool => Date.parse(tool.updated_at))) - Math.min(...segment.tools.map(tool => Date.parse(tool.started_at)))) / 1000 : NaN;
   const toolTotal = segment ? segment.tools.length : owner.family.attempts.reduce<number | undefined>((sum, attempt) => { const count = summaries.find(item => item.run_id === attempt.id)?.tool_count ?? details[attempt.id]?.toolCount; return count === undefined || sum === undefined ? undefined : sum + count; }, 0);
   const runSeconds = segment ? segmentSeconds : run.status !== "running" && run.status !== "queued" ? (Date.parse(run.updated_at) - Date.parse(run.created_at)) / 1000 : NaN;
@@ -237,14 +242,20 @@ export function TaskRunBlock({ owner, segment, tools, questions, drafts, message
     else { openWhenShown.current = true; setRevealedHere(true); }
   }
   if (!taskBlockVisible({ owner, tools, questions, drafts, messages, summaries, details, connected, locale, hideActivity, revealed })) return null;
-  // With Activity hidden a group block holds only cards (which carry their own sender) and the live line,
-  // so it is not a sender unit: the live line names the Bot itself instead of a second avatar and caption.
-  const head = senderHead && (showActivity || issue || silentNotes.length) ? senderHead : undefined;
+  // Public work is a sender unit too. A block with only a live line keeps its inline Bot name.
+  const head = senderHead && (showActivity || hasWork || issue || silentNotes.length) ? senderHead : undefined;
   const namedLive = Boolean(senderHead && !head && botName);
   return <section ref={block} className={`task-run-block${senderHead ? " in-group" : ""}`} data-sender={head ? run.bot_id : undefined} data-at={head ? run.created_at : undefined} data-task-owner={owner.key} data-run-id={run.id} data-latest-run-id={run.id} data-segment={segment ? segment.index : undefined} tabIndex={-1} aria-label={t("activity.records_label")} onFocusCapture={event => { if ((event.target as Element).closest(".task-issue-card")) cardHadFocus.current = true; }} onBlurCapture={event => { if ((event.target as Element).closest(".task-issue-card") && event.relatedTarget) cardHadFocus.current = false; }}>
     {senderHead ? head : showName && botName && <p className="task-run-identity">{botName}</p>}
     {silentNotes.length > 0 && <details className="task-silent-note"><summary>{t("activity.left_note")}</summary><SilentNoteBody notes={silentNotes} /></details>}
     {issue && superseded ? <p ref={retriedNote} className="task-issue-retried" tabIndex={-1} role="status" data-issue-retried="true"><TofiIcon name="retry" size={16} aria-hidden="true" />{t("issue.retried")}</p> : issue ? <TaskIssueCard issue={issue} locale={locale} onRetry={onRetryRun ? () => onRetryRun(run.id) : undefined} onFeedback={onFeedback} onOpenStep={openStep} onAction={issue.action === "open_tools" ? onOpenTools : issue.action === "open_codex" ? () => { window.dispatchEvent(new Event("tofi:open-codex-settings")); } : issue.action === "refresh_status" ? onRefresh : viewActivity} /> : taskPhaseVisible(run) && <p className="task-run-phase">{taskPhaseLabel(input)}</p>}
+    {hasWork && <WorkTimeline tools={shownTools} notes={notes} runs={owner.family.attempts} locale={locale} />}
+    {primary && owner.family.attempts.map(attempt => {
+      const detail = details[attempt.id];
+      // "Load more" only after the first page has arrived: before it, hasMore is a guess and the button would flash in and out.
+      if (!detail || (!detail.error && !(detail.hasMore && detail.loaded > 0 && !detail.loading))) return null;
+      return <button key={attempt.id} type="button" className="text-button" disabled={detail.loading} onClick={() => void onLoadDetails?.(attempt.id, detail.loaded)}>{t(detail.error ? "activity.records_unavailable" : "activity.load")}</button>;
+    })}
     {/* A separate valid proposal survives another call's failure/unknown effect. */}
     {!showActivity && liveLine && <p className="task-run-live-line"><button type="button" className="process-line" aria-expanded="false" onClick={viewActivity}><LiveMark />{namedLive && <span className="task-activity-name">{botName}</span>}<span className="process-line-text task-activity-live" role="status">{liveLine.label}</span><TofiIcon className="process-line-chevron" name="chevron-right" size={14} aria-hidden="true" /></button>{currentTools.some(tool => tool.status === "running" && isComputerAction(tool)) && <ComputerLookButton />}</p>}
     {showActivity && <ActivityDisclosure locale={locale} detail={activityDetail} count={toolTotal || undefined} duration={runSecondsOk ? formatStepSeconds(runSeconds) : undefined} issues={activityIssues} live={liveLine} disclosureRef={disclosure} onOpen={loadInitial}>

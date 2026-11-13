@@ -5,7 +5,7 @@
   /* Final V2 system: semantic palette is authoritative; historical names below
      are aliases, not a second colour source. */
   --bg:#f1efeb; --surface:#fcfbf9; --surface-2:#f5f3ef; --sunk:#e9e6e1;
-  --line:#2a2019; --line-soft:#dcd8d1; --ink:#241b14; --ink-soft:#54473a; --muted:#6f6252;
+  --line:rgba(36,27,20,.14); --line-soft:#dcd8d1; --ink:#241b14; --ink-soft:#54473a; --muted:#6f6252;
   /* Sep 25 system: fills and readable foregrounds are distinct in each mode. */
   --clay:#e07f55; --clay-text:#a8502a; --iris:#a58ee6; --iris-text:#6a4fbf;
   --lagoon:#4fb3a0; --lagoon-text:#1d7466; --honey:#e0a82a; --honey-text:#8a6106;
@@ -31,13 +31,14 @@
   --radius-sm:9px; --radius-md:12px; --radius-lg:16px; --radius-xl:20px; --radius-2xl:22px; --radius-pill:999px;
   --edge-soft:1px; --ease-press:var(--m-press);
   --edge:2px; --edge-bold:3px; --r:14px; --r-lg:20px;
-  --hard:3px 4px 0 #2a2019; --hard-sm:2px 3px 0 #2a2019;
+  --hard:0 1px 2px rgba(36,27,20,.06), 0 10px 28px rgba(36,27,20,.10); --hard-sm:0 1px 2px rgba(36,27,20,.08), 0 3px 8px rgba(36,27,20,.06);
   --dots:radial-gradient(#2a201914 1px,transparent 1.2px) 0 0/16px 16px;
-  --glass:rgba(252,251,249,.58); --glass-strong:rgba(252,251,249,.85);
+  --glass:rgba(252,251,249,.96); --glass-strong:var(--glass);
+  --scrim:rgba(12,14,18,.45);
   --glass-edge:rgba(42,32,25,.14); --blur:blur(40px) saturate(1.8);
   --sheen:inset 0 1px 0 rgba(255,255,255,.7);
   /* FloatingDesktop preview keeps dark glass legible over any desktop frame. */
-  --desktop-controls-glass:rgba(12,14,18,.45);
+  --desktop-controls-glass:var(--glass);
   --desktop-controls-solid:#0c0e12;
   --desktop-controls-edge:rgba(255,255,255,.14);
   --desktop-controls-ink:#f3eadb;
@@ -80,7 +81,7 @@
   --mail-note-muted:#6d5a2a; --mail-line:#eadfca; --mail-footer:#f6ecd9;
   --mail-note-shadow:2px 3px 0 rgba(0,0,0,.18);
   /* Image lightbox scrim and its caption, the same in both themes. */
-  --lightbox-scrim:rgba(20,18,15,.74);
+  --lightbox-scrim:rgba(8,8,10,.96);
   --lightbox-ink:#f3eadb;
   --menu-shadow:0 12px 32px rgb(0 0 0 / .18);
   --field-inset-shadow:inset 0 1px 2px rgba(0,0,0,.08);
@@ -134,7 +135,7 @@
 :root[data-theme="dark"] {
   color-scheme:dark;
   --bg:#14120f; --surface:#1f1c18; --surface-2:#2a2621; --sunk:#181613;
-  --line:#f1e6d6; --line-soft:#3a352e; --ink:#f3eadb; --ink-soft:#c9bca8; --muted:#a3957f;
+  --line:rgba(243,234,219,.14); --line-soft:#3a352e; --ink:#f3eadb; --ink-soft:#c9bca8; --muted:#a3957f;
   --clay:#ec9a74; --clay-text:#f2a887; --iris:#c0acf0; --iris-text:#c9b8f4;
   --lagoon:#72cdbc; --lagoon-text:#7fd6c6; --honey:#f3c75a; --honey-text:#f5cf6e;
   --green:#93cfa1; --green-text:#9dd6ab; --wait:#c9bca8;
@@ -142,12 +143,13 @@
   --paper:#fbf4e6;
   --code-inline-bg:#332b23; --code-inline-ink:#ead8bf; --code-inline-edge:#4b3d30;
   --code-block-bg:#25201b; --code-block-ink:#f0e2cf; --code-block-edge:#493d32;
-  --hard:3px 4px 0 #000; --hard-sm:2px 3px 0 #000; --hard-ink:#000;
+  --hard:0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.45); --hard-sm:0 1px 2px rgba(0,0,0,.35), 0 3px 8px rgba(0,0,0,.3); --hard-ink:#000;
   --shade:#000; --shade-warm:#140e08; --shade-ink:#2a2019; --amber:#c98a1b;
   --ft-pdf:#d8604f; --ft-image:#cc5c8a; --ft-sheet:#3f9467; --ft-doc:#4a7fd0; --ft-md:#8267d8; --ft-slides:#d27a3a;
   --ft-code:#2f9484; --ft-json:#b8861a; --ft-archive:#b8704a; --ft-media:#6870d4; --ft-text:#857d6e; --ft-other:#857d6e;
   --dots:radial-gradient(#ffffff14 1px,transparent 1.2px) 0 0/16px 16px;
-  --glass:rgba(31,28,24,.52); --glass-strong:rgba(31,28,24,.8);
+  --glass:rgba(31,28,24,.96); --glass-strong:var(--glass);
+  --sidebar-bg:var(--sunk);
   --glass-edge:rgba(241,230,214,.2); --sheen:inset 0 1px 0 rgba(255,255,255,.08);
   --float-shadow:var(--hard);
   --card-elevation:0 1px 2px color-mix(in srgb,var(--shade) 45%,transparent), 0 12px 30px -14px color-mix(in srgb,var(--shade) 70%,transparent), inset 0 1px 0 color-mix(in srgb,var(--white) 4%,transparent);

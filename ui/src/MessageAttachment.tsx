@@ -1,3 +1,4 @@
+import Lightbox from "./AttachmentLightbox";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { isDesktop, type NativeFile } from "./desktop";
 import type { Attachment } from "./types";
@@ -12,9 +13,7 @@ import "./message-attachment.css";
 const AttachmentNotice = lazy(() => import("./AttachmentNotice").then(module => ({ default: module.AttachmentNotice })));
 
 const isImage = (a: Attachment) => a.mime.startsWith("image/") && a.mime !== "image/svg+xml";
-/** The lightbox is only drawn once a picture is opened: its code is a lazy chunk (kept out of the entry bundle). */
-const Lightbox = lazy(() => import("./AttachmentLightbox"));
-const loadLightbox = () => void import("./AttachmentLightbox");
+/** The shared viewer is ready before a touch or keyboard activation. */
 
 /** Optimistic send: how far the file has gone up. A real progressbar for assistive tech; the bar is a transform, never a layout change. */
 function UploadProgress({ pending, name, ring = false }: { pending: NonNullable<Attachment["pending"]>; name: string; ring?: boolean }) {
@@ -57,7 +56,7 @@ function FileCard({ attachment }: { attachment: Attachment }) {
       <FileTile name={attachment.name} kind={kind} />
       <button type="button" className="attachment-file-open" onClick={() => openFilePreview(targetOf(attachment))} aria-label={t("attachment.open_preview", { name: attachment.name })} draggable={isDesktop ? Boolean(nativeFile) : undefined} onDragStart={event => { if (!isDesktop) return; event.preventDefault(); if (nativeFile) window.tofiDesktop?.dragAttachment(nativeFile.handle); }}>
         <b className="attachment-name">{attachment.name}</b>
-        <small>{[attachment.expired_at ? t("attachment.expired") : fileSize(attachment.size), isPreviewable(kind) ? t("attachment.preview_hint") : t("attachment.download_only"), attachment.kept_by ? t("attachment.kept_by", { name: attachment.kept_by }) : ""].filter(Boolean).join(" · ")}</small>
+        <small>{[attachment.expired_at ? t("attachment.expired") : fileSize(attachment.size), attachment.kept_by ? t("attachment.kept_by", { name: attachment.kept_by }) : ""].filter(Boolean).join(" · ")}</small>
       </button>
       {isDesktop
         ? <div className="attachment-native-actions">
@@ -76,7 +75,7 @@ function FileCard({ attachment }: { attachment: Attachment }) {
 }
 
 /**
- * The images of one message as thumbnails: one image keeps its aspect ratio (fitted into 320 x 360), several share a
+ * The images of one message as thumbnails: one image keeps its aspect ratio (fitted into 240 x 240), several share a
  * tidy grid (2 -> 2 columns, 3 -> 3, 4 -> 2x2, 5-6 -> 3, 7-8 -> 4). Every box is reserved from the known size (or 4:3)
  * before the picture loads, because WebKit has no scroll anchoring. A click opens the lightbox.
  */
@@ -95,7 +94,7 @@ function ImageGallery({ images }: { images: Attachment[] }) {
       {hasPreview(a.id) ? <img src={thumbnailUrl(a.id)} alt="" width={box?.width ?? 160} height={box?.height ?? 160} decoding="async" draggable={false} /> : <FileTile name={a.name} kind="image" size={32} />}
       <UploadProgress pending={a.pending} name={a.name} ring />
     </div>;
-    return <button type="button" key={a.clientKey ?? a.id} ref={node => { tiles.current[index] = node; }} className="attachment-thumb" onPointerEnter={loadLightbox} onFocus={loadLightbox} onClick={() => setZoom(index)} aria-label={t("attachment.zoom_image", { name: a.name })}>
+    return <button type="button" key={a.clientKey ?? a.id} ref={node => { tiles.current[index] = node; }} className="attachment-thumb" onClick={() => setZoom(index)} aria-label={t("attachment.zoom_image", { name: a.name })}>
       <img src={thumbnailUrl(a.id)} alt={a.name} width={box?.width ?? 160} height={box?.height ?? 160} loading="lazy" decoding="async" draggable={false}
         onLoad={event => { const img = event.currentTarget; if (!imageSize(a.id)) rememberImageSize(a.id, img.naturalWidth, img.naturalHeight); }}
         onError={() => setFailed(current => new Set(current).add(a.id))} />

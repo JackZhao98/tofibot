@@ -258,10 +258,10 @@ try {
       await page.waitForTimeout(300);
       const four = await checkBottomRoom(page, `${label} (4 lines)`);
       assert.ok(four > one + 20, `${label}: composer grew (${one} -> ${four})`);
-      // Default: the timeline carries only the Bot's messages. Toggle on: Activity rows come back.
+      // Public collapsed work stays in the timeline; the toggle adds detailed Activity drawers.
       const rows = await page.evaluate(() => ({ blocks: document.querySelectorAll(".message-list .task-run-block").length, tool: document.querySelectorAll(".message-list .web-tool-run").length, activity: document.querySelectorAll(".message-list .task-activity").length, heads: document.querySelectorAll(".message-list .sender-head").length, text: document.querySelector(".message-list").textContent }));
       if (showActivity) assert.ok(rows.activity + rows.tool > 0, `${label}: Activity rows return with the toggle on`);
-      else { assert.deepEqual([rows.blocks, rows.tool, rows.activity, rows.heads], [0, 0, 0, 0], `${label}: finished runs draw no Activity row, block or orphan name label`); assert.ok(!rows.text.includes("工作过程"), `${label}: no Activity text in the timeline`); }
+      else { assert.ok(rows.blocks > 0, `${label}: public work groups stay visible`); assert.deepEqual([rows.tool, rows.activity], [0, 0], `${label}: detailed Activity stays hidden`); assert.ok(!rows.text.includes("工作过程"), `${label}: no Activity text in the timeline`); }
       results.push(label);
       console.log("PASS", label);
     } catch (error) {
@@ -278,6 +278,33 @@ try {
     catch (error) { failed++; console.log("FAIL", name, "\n  " + String(error.stack ?? error.message).split("\n").slice(0, 10).join("\n  ")); }
   };
   const lastMessageId = "a6";
+  await scenario("external Bot files stay in their sender group", async () => {
+    const attachment = id => ({ id, conversation_id: "grp_1", name: "Synthetic notes.txt", mime: "text/plain", size: 80, created_at: iso(901) });
+    const world = { ...emptyWorld(), messages: [
+      { id: "file_user", role: "user", content: "Send the synthetic files.", created_at: iso(900) },
+      { id: "file_text", role: "assistant", sender_bot_id: "bot_a", content: "Here are the notes.", attachments: [attachment("file_1")], created_at: iso(901) },
+      { id: "file_only", role: "assistant", sender_bot_id: "bot_a", content: "", attachments: [attachment("file_2")], created_at: iso(902) },
+      { id: "file_next", role: "assistant", sender_bot_id: "bot_b", content: "Received.", created_at: iso(903) },
+    ] };
+    const { page, context, errors } = await open("/g/grp_1", { width: 390, height: 820, theme: "light", world });
+    try {
+      const first = page.locator('[data-message-id="file_text"] article.message');
+      const last = page.locator('[data-message-id="file_only"] article.message');
+      assert.equal(await first.getAttribute("data-last"), null, "external files do not end the sender group");
+      assert.equal(await first.locator(".message-meta strong").isVisible(), true, "the first unit names the sender");
+      assert.equal(await first.locator(".sender-avatar").isVisible(), false);
+      assert.equal(await last.getAttribute("data-continues"), "true");
+      assert.equal(await last.getAttribute("data-last"), "true");
+      assert.equal(await last.locator(".message-meta strong").isVisible(), false);
+      assert.equal(await last.locator(".sender-avatar").isVisible(), true, "a file-only closing unit carries the avatar");
+      assert.equal(await last.locator(".message-content").count(), 0, "files stay outside a bubble");
+      assert.equal(await first.locator(".message-content .delivered-attachment").count(), 0);
+      const box = await last.boundingBox();
+      const next = await page.locator('[data-message-id="file_next"] article.message').boundingBox();
+      assert.ok(next.y - (box.y + box.height) >= 18, "external files keep the gap before the next speaker");
+      assert.deepEqual(errors, []);
+    } finally { await context.close(); }
+  });
   const liveWorld = (conv) => ({
     ...emptyWorld(),
     messages: [{ id: "u3", role: "user", content: "@Simile Cat look something up on the web.", created_at: iso(900), run_id: "run_live" }],
@@ -292,24 +319,24 @@ try {
       const { page, context, errors } = await open(url, { width: 1180, height: 820, theme: "light", world, fakeEvents: true });
       try {
         await page.waitForSelector(".task-run-live-line");
-        const live = await page.evaluate(() => ({ lines: [...document.querySelectorAll(".task-run-live-line")].map(el => el.textContent), steps: document.querySelectorAll(".task-step, .task-activity, .web-tool-run:not(.live-run-status)").length, heads: document.querySelectorAll(".message-list .task-run-block .sender-head").length, names: [...document.querySelectorAll(".task-run-live-line .task-activity-name")].map(el => el.textContent), cats: document.querySelectorAll(".message-list .task-run-block :is(.task-activity-cat, .sender-avatar)").length, marks: document.querySelectorAll(".message-list .task-run-live-line .live-mark").length, button: document.querySelectorAll(".message-list .task-run-live-line button.process-line[aria-expanded=false]").length, weight: Number(getComputedStyle(document.querySelector(".task-run-live-line .process-line")).fontWeight), wraps: document.querySelector(".task-run-live-line .process-line-text").scrollHeight <= document.querySelector(".task-run-live-line .process-line-text").clientHeight + 1, last: document.querySelector(".message-list").lastElementChild?.className ?? "" }));
+        const live = await page.evaluate(() => ({ lines: [...document.querySelectorAll(".task-run-live-line")].map(el => el.textContent), steps: document.querySelectorAll(".task-step, .task-activity, .web-tool-run:not(.live-run-status)").length, heads: document.querySelectorAll('[data-run-id="run_live"] .sender-head').length, names: [...document.querySelectorAll(".task-run-live-line .task-activity-name")].map(el => el.textContent), cats: document.querySelectorAll('[data-run-id="run_live"] :is(.task-activity-cat, .sender-avatar)').length, marks: document.querySelectorAll(".message-list .task-run-live-line .live-mark").length, button: document.querySelectorAll(".message-list .task-run-live-line button.process-line[aria-expanded=false]").length, weight: Number(getComputedStyle(document.querySelector(".task-run-live-line .process-line")).fontWeight), wraps: document.querySelector(".task-run-live-line .process-line-text").scrollHeight <= document.querySelector(".task-run-live-line .process-line-text").clientHeight + 1, last: document.querySelector(".message-list").lastElementChild?.className ?? "" }));
         assert.equal(live.lines.length, 1, "exactly one live status line");
         assert.match(live.lines[0], /正在浏览网页 · \d+s/, "the live line names the current action and the elapsed time");
         assert.equal(live.steps, 0, "no tool list while live");
-        assert.equal(live.heads, 0, "a live-only block carries no sender caption");
-        assert.deepEqual(live.names, kind === "group" ? ["Simile Cat"] : [], "the live line names the Bot in a group, not in a direct chat");
-        assert.equal(live.cats, 0, "no avatar on the live line: a loading mark takes the cat's place");
+        assert.equal(live.heads, kind === "group" ? 1 : 0, "public work blocks carry sender heads in groups");
+        assert.deepEqual(live.names, [], "public work carries the sender head instead of repeating the name on the live line");
+        assert.equal(live.cats, kind === "group" ? 1 : 0, "public work has one avatar host per group block");
         assert.equal(live.marks, 1, "one loading mark on the live line");
         assert.equal(live.button, 1, "the live line is a collapsed button");
         assert.equal(live.weight, 400, "the live line is regular weight");
         assert.ok(live.wraps, "the live line is one line");
         await page.locator(".task-run-live-line").scrollIntoViewIfNeeded(); await page.waitForTimeout(200);
         await page.screenshot({ path: join(heroDir, `after-live-${kind}-1180x820-light.png`) });
-        // The run ends without a message or card: the line and its name label disappear and nothing is left behind.
+        // The live line disappears on completion; the public work remains collapsed.
         await page.evaluate(({ conv, botId }) => window.__emit("run", { conversation_id: conv, run: { id: "run_live", conversation_id: conv, bot_id: botId, status: "done", updated_at: new Date().toISOString() } }), { conv, botId: kind === "dm" ? "bot_a" : "bot_b" });
         await page.waitForFunction(() => !document.querySelector(".task-run-live-line"));
-        const gone = await page.evaluate(() => ({ blocks: document.querySelectorAll('[data-run-id="run_live"]').length, heads: document.querySelectorAll(".message-list .sender-head").length, live: document.querySelectorAll(".live-run-status, .web-tool-run").length }));
-        assert.deepEqual(gone, { blocks: 0, heads: 0, live: 0 }, "a silent finished run renders nothing at all");
+        const gone = await page.evaluate(() => ({ blocks: document.querySelectorAll('[data-run-id="run_live"]').length, heads: document.querySelectorAll('[data-run-id="run_live"] .sender-head').length, live: document.querySelectorAll(".live-run-status, .web-tool-run").length }));
+        assert.deepEqual(gone, { blocks: 1, heads: kind === "group" ? 1 : 0, live: 0 }, "finished work remains without a live status line");
         assert.deepEqual(errors, [], "page errors");
       } finally { await context.close(); }
     });
@@ -330,7 +357,7 @@ try {
         const seen = await page.evaluate(() => {
           const prompt = getComputedStyle(document.querySelector(".question-prompt"));
           const line = document.querySelector(".task-run-live-line");
-          return { size: parseFloat(prompt.fontSize), weight: Number(prompt.fontWeight), cats: line.querySelectorAll(".live-mark").length, name: line.querySelector(".task-activity-name")?.textContent ?? "", heads: document.querySelectorAll(".message-list .task-run-block .sender-head").length };
+          return { size: parseFloat(prompt.fontSize), weight: Number(prompt.fontWeight), cats: line.querySelectorAll(".live-mark").length, name: line.querySelector(".task-activity-name")?.textContent ?? "", heads: document.querySelectorAll('[data-run-id="run_live"] .sender-head').length };
         });
         assert.ok(seen.size <= 15 && seen.weight < 600, `question text reads at chat size (${seen.size}px/${seen.weight})`);
         assert.deepEqual([seen.cats, seen.name, seen.heads], [1, "Simile Cat", 0], "one loading mark and the Bot's name on the live line, no extra caption");
@@ -441,13 +468,13 @@ try {
         await action.tap();
         await page.waitForSelector('.task-run-block[data-run-id="run_c"] .task-activity[open]');
         assert.ok(await page.locator('.task-run-block[data-run-id="run_c"] .task-step').count() >= 7, "the run's seven steps load inside the opened details");
-        assert.equal(await page.locator('.task-run-block[data-run-id="run_a"]').count(), 0, "only the asked run opens");
+        assert.equal(await page.locator('.task-run-block[data-run-id="run_a"] .task-activity').count(), 0, "only the asked run opens");
         await page.screenshot({ path: join(heroDir, `after-view-activity-${kind}-1180x820-light.png`) });
         // Tapping again on the same message offers Hide activity.
         await page.locator(`.message-block[data-message-id="a5"] .message-content`).first().tap();
         await page.waitForSelector(`.message-block[data-message-id="a5"] .message-hover-actions`, { state: "visible" });
         await host.locator('button[aria-label="收起工作过程"]').tap();
-        await page.waitForFunction(() => !document.querySelector('.task-run-block[data-run-id="run_c"]'));
+        await page.waitForFunction(() => !document.querySelector('.task-run-block[data-run-id="run_c"] .task-activity'));
         assert.deepEqual(errors, [], "page errors");
       } finally { await context.close(); }
     });

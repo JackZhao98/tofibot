@@ -1,11 +1,11 @@
 /* Covers (docs/design/widgets-and-sidebar.md section 2.3): the Settings window's geometry (centred, 22px radius, --float-shadow,
    --z-dialog) on a ModalDialog scrim. Enter with --m-panel-in, leave with --m-panel-out; the same keyframes the Settings window uses.
    Loads with CoverShell. */
-.cover-scrim { position:fixed; inset:0; z-index:var(--z-dialog); display:grid; place-items:center; padding:24px; background:color-mix(in srgb,var(--ink) 19%,transparent); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); animation:cover-scrim-in var(--m-base) var(--ease-out) both; }
+.cover-scrim { position:fixed; inset:0; z-index:var(--z-dialog); display:grid; place-items:center; padding:24px; background:var(--scrim); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); animation:cover-scrim-in var(--m-base) var(--ease-out) both; }
 .cover-scrim.is-leaving { animation:cover-scrim-out var(--m-panel-out) var(--ease-settle) both; pointer-events:none!important; }
-.cover-window { display:flex; flex-direction:column; width:var(--window-w-cover); height:var(--window-h); max-height:var(--window-h); overflow:hidden; border:3px solid var(--line); border-radius:22px; background:var(--surface); color:var(--ink); box-shadow:var(--hard),var(--float-shadow); outline:none; animation:modal-enter var(--m-panel-in) var(--ease-out) both; }
+.cover-window { display:flex; flex-direction:column; width:var(--window-w-cover); height:var(--window-h); max-height:var(--window-h); overflow:hidden; border:3px solid var(--line); border-radius:22px; background:var(--surface); color:var(--ink); box-shadow:var(--hard),var(--float-shadow); outline:none; animation:modal-enter var(--m-quick) var(--ease-out) both; }
 .cover-window.is-wide { width:var(--window-w-cover-wide); }
-.cover-window.is-leaving { animation:modal-leave var(--m-panel-out) var(--ease-settle) both; }
+.cover-window.is-leaving { animation:modal-leave var(--m-instant) var(--ease-settle) both; }
 .cover-header { display:flex; align-items:center; gap:8px; flex:none; min-height:60px; padding:10px 14px 10px 28px; border-bottom:1px solid var(--line-soft); }
 .cover-header h2 { flex:1; min-width:0; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:600 18px/1.3 var(--display); }
 .cover-close { display:grid; place-items:center; flex:none; width:40px; height:40px; padding:0; border:0; border-radius:12px; background:transparent; color:var(--ink-soft); }

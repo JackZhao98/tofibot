@@ -28,7 +28,7 @@ body { color:var(--ink); background:var(--bg); font-family:var(--body); }
   background:var(--surface-2); color:var(--ink);
 }
 :is(.primary-button,.secondary-button):not(:disabled):hover {
-  transform:translate(-1px,-1px); box-shadow:3px 4px 0 var(--line);
+  transform:translate(-1px,-1px); box-shadow:3px 4px 0 var(--hard-ink);
 }
 :is(.primary-button,.secondary-button):not(:disabled):active {
   transform:translate(2px,3px); box-shadow:none;
@@ -41,7 +41,7 @@ body { color:var(--ink); background:var(--bg); font-family:var(--body); }
   background:var(--danger); color:var(--on-danger); box-shadow:var(--hard-sm);
   font:600 14px/1.2 var(--display);
 }
-.delete-dialog-submit:not(:disabled):hover { transform:translate(-1px,-1px); box-shadow:3px 4px 0 var(--line); background:var(--danger); }
+.delete-dialog-submit:not(:disabled):hover { transform:translate(-1px,-1px); box-shadow:3px 4px 0 var(--hard-ink); background:var(--danger); }
 .delete-dialog-submit:not(:disabled):active { transform:translate(2px,3px); box-shadow:none; }
 .delete-dialog-submit:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px; }
 .danger-link {
@@ -100,7 +100,7 @@ body { color:var(--ink); background:var(--bg); font-family:var(--body); }
 input[type="radio"] { border-radius:50%; }
 :is(input[type="checkbox"]:not([role="switch"]),input[type="radio"]):not(:disabled):hover { border-color:var(--ink-soft); }
 :is(input[type="checkbox"]:not([role="switch"]),input[type="radio"]):checked {
-  border:2px solid var(--line); background:var(--yellow); box-shadow:1px 2px 0 var(--line);
+  border:2px solid var(--line); background:var(--yellow); box-shadow:1px 2px 0 var(--hard-ink);
 }
 input[type="checkbox"]:not([role="switch"]):checked::after {
   content:""; width:14px; height:14px; background:var(--on-block);
@@ -150,7 +150,7 @@ input[type="radio"]:checked::after { content:""; width:8px; height:8px; border-r
 }
 .workspace .composer-row>.send-button:not(:disabled):hover {
   background:color-mix(in srgb,var(--yellow) 88%,var(--surface)); color:var(--on-block);
-  transform:translate(-1px,-1px); box-shadow:3px 4px 0 var(--line);
+  transform:translate(-1px,-1px); box-shadow:3px 4px 0 var(--hard-ink);
 }
 .workspace .composer-row>.send-button:disabled {
   border:1.5px dashed var(--line-soft); background:transparent; color:var(--muted); box-shadow:none;

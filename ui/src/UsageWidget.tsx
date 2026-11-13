@@ -4,6 +4,7 @@ import { useTranslation } from "./i18n";
 import { formatNumber } from "./i18n/format";
 import { TofiIcon as Icon } from "./icons";
 import { modelName } from "./modelCatalog";
+import { DelayedFeedback } from "./DelayedFeedback";
 import { useModelCatalog } from "./useModelCatalog";
 import "./usage-widget.css";
 
@@ -45,6 +46,7 @@ function useConversationUsage(conversationId: string, running: boolean) {
     const controller = new AbortController();
     abort.current = controller;
     last.current = Date.now();
+    setFailed(false);
     request<ConversationUsage>(`/api/conversations/${encodeURIComponent(conversationId)}/usage`, { signal: controller.signal }).then(
       body => { setData(body); setFailed(false); },
       error => { if (!controller.signal.aborted) setFailed((error instanceof ApiError && (error.status === 404 || error.status === 405)) ? "unsupported" : "error"); },
@@ -74,7 +76,7 @@ export function UsageWidget({ conversationId, running, onAll }: { conversationId
       ? <p className="usage-widget-note" role="status">{t("usageWidget.needs_newer_server")}</p>
       : failed
       ? <div className="usage-widget-note" role="alert">{t("usageWidget.error")} <button type="button" className="usage-widget-retry" onClick={reload}>{t("usageWidget.retry")}</button></div>
-      : <div className="usage-widget-skeleton" aria-busy="true" aria-label={t("usageWidget.loading")}><i /><i /><i /></div>;
+      : <DelayedFeedback delay={150}><div className="usage-widget-skeleton" aria-busy="true" aria-label={t("usageWidget.loading")}><i /><i /><i /></div></DelayedFeedback>;
   } else if (!data.latest_context && !data.totals.input_tokens && !data.totals.output_tokens) {
     body = <p className="usage-widget-note">{t("usageWidget.empty")}</p>;
   } else {
@@ -133,6 +135,7 @@ export function UsageWidget({ conversationId, running, onAll }: { conversationId
     </>;
   }
   return <div className="usage-widget" data-running={running || undefined}>
+    {data && failed && <div className="usage-widget-note" role="alert">{t("usageWidget.error")} <button type="button" className="usage-widget-retry" onClick={reload}>{t("usageWidget.retry")}</button></div>}
     {body}
     <button type="button" className="usage-widget-all" onClick={onAll}>{t("usageWidget.all")}<Icon name="arrow-right" size={14} /></button>
   </div>;

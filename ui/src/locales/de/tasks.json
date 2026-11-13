@@ -671,6 +671,12 @@
     "delete_yes": "Löschen",
     "delete_no": "Behalten",
     "delete_failed": "Die Spur konnte nicht gelöscht werden.",
-    "deleted": "Arbeitsspur gelöscht."
+    "deleted": "Arbeitsspur gelöscht.",
+    "commands_other": "{{count}} Befehle ausgeführt",
+    "commands_one": "{{count}} Befehl ausgeführt",
+    "pages_other": "{{count}} Seiten gelesen",
+    "pages_one": "{{count}} Seite gelesen",
+    "working_other": "In Arbeit · {{count}} Schritte",
+    "working_one": "In Arbeit · {{count}} Schritt"
   }
 }

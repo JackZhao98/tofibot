@@ -27,6 +27,7 @@ const TerminalPanel = lazy(() => import("./TerminalPanel").then(module => ({ def
  */
 export type SurfaceCtx = {
   active?: Conversation; activeBot?: Bot; desktopBot?: Bot; bots: Bot[]; conversations: Conversation[]; botById: Map<string, Bot>;
+  memoriesReady?: boolean; memoriesError?: string; retryMemories?: () => void;
   memories: Memory[]; setMemories: (update: (current: Memory[]) => Memory[]) => void;
   terminalBotId: string | null; viewOnlyChat: ViewOnlyChatTarget | null; setViewOnlyChat: (target: ViewOnlyChatTarget | null) => void;
   refreshToken: number; roster?: ReadonlyMap<string, TaskCardModel[]>; lastMessageId?: string;
@@ -51,6 +52,11 @@ function Loading() {
   return <DelayedFeedback><div className="inline-state" role="status"><div className="spinner" /></div></DelayedFeedback>;
 }
 
+/** A cold widget chunk reserves its content immediately without flashing a spinner. */
+function SurfaceSkeleton() {
+ return <div className="surface-skeleton" aria-busy="true"><i/><i/><i/></div>;
+}
+
 /** One sidebar view. The wide layout draws it under SidebarShell, the narrow drawer bare (the panels carry their own heading and close then). */
 export function SidebarView({ id, ctx }: { id: SidebarId; ctx: SurfaceCtx }) {
   const { t } = useTranslation("chat");
@@ -61,9 +67,11 @@ export function SidebarView({ id, ctx }: { id: SidebarId; ctx: SurfaceCtx }) {
     const bot = (ctx.terminalBotId && ctx.botById.get(ctx.terminalBotId)) || desktopBot;
     return bot ? <Suspense fallback={<DelayedFeedback><div className="inline-state" role="status">{t("detail.loading_terminal")}</div></DelayedFeedback>}><TerminalPanel key={bot.id} botId={bot.id} botName={bot.name} onClose={close} /></Suspense> : null;
   }
+  if (id === "usage") return active ? <div className="detail-content"><div className="detail-heading"><h2>{t("contextCard.title.usage")}</h2><button className="close-button" aria-label={t("detail.close")} onClick={close}><Icon name="close" size={18}/></button></div><Suspense fallback={<SurfaceSkeleton/>}><UsageWidget key={active.id} conversationId={active.id} running={ctx.running} onAll={ctx.openUsageSettings}/></Suspense></div> : null;
   if (id === "memory") {
     if (!active) return <div className="detail-empty"><button className="close-button" aria-label={t("detail.close_memory")} onClick={close}><Icon name="close" size={18} /></button><EmptyState name="memory-pick" look={CATS.azuki} pose="curious" size={56}><p>{t("detail.memory_pick")}</p></EmptyState></div>;
-    return <Suspense fallback={<Loading />}><MemoryPanel key={active.id} memories={ctx.memories} conversationId={active.id} scope={active.kind === "group" ? "group" : "bot"} onClose={close}
+    if (ctx.memoriesReady === false) return <div className="detail-content"><div className="detail-heading"><h2>{t("contextCard.title.memory")}</h2><button className="close-button" aria-label={t("detail.close_memory")} onClick={close}><Icon name="close" size={18}/></button></div>{ctx.memoriesError ? <div className="error-text" role="alert">{ctx.memoriesError} <button type="button" className="text-button" onClick={ctx.retryMemories}>{t("usageWidget.retry")}</button></div> : <SurfaceSkeleton/>}</div>;
+    return <Suspense fallback={<div className="detail-content"><div className="detail-heading"><h2>{t("contextCard.title.memory")}</h2><button className="close-button" aria-label={t("detail.close_memory")} onClick={close}><Icon name="close" size={18}/></button></div><SurfaceSkeleton/></div>}><MemoryPanel key={active.id} memories={ctx.memories} conversationId={active.id} scope={active.kind === "group" ? "group" : "bot"} onClose={close}
       onCreate={async input => { const memory = await api.createMemory(active.id, input); ctx.setMemories(current => [...current.filter(item => item.id !== memory.id), memory]); }}
       onUpdate={async (memoryId, input) => { const memory = await api.updateMemory(memoryId, input); ctx.setMemories(current => current.map(item => item.id === memoryId ? memory : item)); }}
       onDelete={async memoryId => { await api.deleteMemory(memoryId); ctx.setMemories(current => current.filter(item => item.id !== memoryId)); }} /></Suspense>;
@@ -76,7 +84,7 @@ export function SidebarView({ id, ctx }: { id: SidebarId; ctx: SurfaceCtx }) {
 export function WidgetView({ id, ctx }: { id: Exclude<WidgetId, "computer">; ctx: SurfaceCtx }) {
   const { active } = ctx;
   if (id === "members") return active?.kind === "group" ? <MembersWidget conversation={active} bots={ctx.bots} tasksByBot={ctx.roster} onOpen={ctx.openConversation} onSettings={() => ctx.surf(current => openCover(current, "group-settings"))} /> : null;
-  if (id === "usage") return active ? <Suspense fallback={null}><UsageWidget conversationId={active.id} running={ctx.running} onAll={ctx.openUsageSettings} /></Suspense> : null;
+  if (id === "usage") return active ? <Suspense fallback={<SurfaceSkeleton/>}><UsageWidget conversationId={active.id} running={ctx.running} onAll={ctx.openUsageSettings} /></Suspense> : null;
   return active ? <Suspense fallback={null}><ArtifactsWidget conversationId={active.id} refreshToken={ctx.lastMessageId} onAll={() => { ctx.setArtifactsMode("artifacts-group"); ctx.surf(current => openCover(current, "artifacts")); }} /></Suspense> : null;
 }
 

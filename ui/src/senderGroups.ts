@@ -78,7 +78,7 @@ function runUnit(block: Element): { from: string; at: number; open: boolean; joi
   }
   const joinable = block.firstElementChild === host;
   const article = host.querySelector<HTMLElement>(":scope > article.message[data-from]");
-  if (!article || article.matches(NOT_BUBBLE) || article.querySelector(".message-tools")) return undefined;
+  if (!article || article.matches(NOT_BUBBLE) || article.querySelector(".message-tools, .message-attachments")) return undefined;
   return { from: article.dataset.from ?? "", at: Date.parse(article.dataset.at ?? ""), open, joinable };
 }
 

@@ -35,10 +35,6 @@
   .workspace .workspace-grid{--context-width:420px;grid-template-columns:var(--sidebar-width) minmax(0,1fr) 0px;overflow:hidden;transition:grid-template-columns var(--m-panel-in) var(--ease-out)}
   .workspace .workspace-grid.terminal-context{--context-width:clamp(340px,38vw,560px)}
   .workspace .workspace-grid.context-open{grid-template-columns:var(--sidebar-width) minmax(0,1fr) var(--context-width)}
-  /* Release the closing context column immediately. Otherwise the legacy
-     :has(.detail-pane.visible) rule keeps it alive until the retained panel
-     unmounts, producing two separate closing motions with a pause between. */
-  html[data-desktop] .workspace .workspace-grid:not(.context-open):not(:has(.settings-tabs)):not(:has(.computer-detail.is-expanded)){grid-template-columns:var(--sidebar-width) minmax(0,1fr) 0px}
   .workspace .detail-pane.context-panel{position:relative;inset:auto;grid-column:3;grid-row:1;display:block;min-width:0;width:auto;height:100%;max-height:100%;overflow:auto;transform:none;translate:none;scale:none;animation:none;transition:none;border-radius:0;box-shadow:none;visibility:hidden}
   .workspace .detail-pane.context-panel.visible{visibility:visible;pointer-events:auto}
   .workspace .detail-pane.context-panel.surface-exiting{pointer-events:none}
@@ -58,8 +54,8 @@
   .workspace .workspace-grid{grid-template-columns:var(--sidebar-width) minmax(0,1fr)}
   .workspace .detail-pane.context-panel{width:min(400px,calc(100vw - 48px))}
   /* The drawer floats like the wide sidebar: a 12px gap on every side, rounded, --surface, soft elevation, no outline. */
-  html:not([data-desktop]) .workspace .detail-pane.context-panel:not(:has(.computer-detail.is-expanded)){inset:var(--panel-gap,12px) var(--panel-gap,12px) var(--panel-gap,12px) auto;height:auto;max-height:calc(var(--viewport-height,100dvh) - 2 * var(--panel-gap,12px));border:0;border-radius:var(--panel-radius,16px);background:var(--surface);box-shadow:var(--panel-float-elevation)}
-  html:not([data-desktop]) .workspace .detail-pane.context-panel:not(.visible){transform:translateX(calc(100% + var(--panel-gap,12px) + 24px))}
+  .workspace .detail-pane.context-panel:not(:has(.computer-detail.is-expanded)){inset:var(--panel-gap,12px) var(--panel-gap,12px) var(--panel-gap,12px) auto;height:auto;max-height:calc(var(--viewport-height,100dvh) - 2 * var(--panel-gap,12px));border:0;border-radius:var(--panel-radius,16px);background:color-mix(in srgb,var(--surface) 96%,transparent);box-shadow:var(--panel-float-elevation)}
+  .workspace .detail-pane.context-panel:not(.visible){transform:none}
 }
 /* Container width, rather than window width, also covers desktop context panels. */
 .workspace .chat-pane{container-type:inline-size}

@@ -8,18 +8,19 @@ import { TofiIcon } from "./icons";
 import { hydrateDesktopState, isDesktop, flushDesktopState } from "./desktop";
 import { i18n, useTranslation } from "./i18n";
 import { authRequest, type OwnerSession } from "./ownerAuthApi";
+import { AppUpdateButton } from "./AppUpdateButton";
+import "./account-menu.css";
 import { AuthLanguageSwitch } from "./AuthLanguageSwitch";
 
-// The account menu body loads on first open.
-const AccountMenu = lazy(() => import("./AccountMenu").then(module => ({ default: module.AccountMenu })));
-// The iOS "Add to Home Screen" how-to sheet loads when it is opened.
-const InstallSheet = lazy(() => import("./InstallSheet").then(module => ({ default: module.InstallSheet })));
+// Warm the account menu when the dock mounts so opening it does not wait for its chunk.
+const loadAccountMenu = () => import("./AccountMenu").then(module => ({ default: module.AccountMenu }));
+const AccountMenu = lazy(loadAccountMenu);
 // First-run setup and the password checklist are only ever drawn on the gate: keep them out of the entry bundle.
 const OwnerSetup = lazy(() => import("./OwnerSetup").then(module => ({ default: module.OwnerSetup })));
 const PasswordChecklist = lazy(() => import("./OwnerSetup").then(module => ({ default: module.PasswordChecklist })));
 
 export function useOwnerSession(){return useContext(SessionContext).session}
-export const SessionContext = createContext<{ session: OwnerSession | null; logout: () => Promise<void> }>({ session: null, logout: async () => {} });
+export const SessionContext = createContext<{ session: OwnerSession | null; logout: () => Promise<void>; hosting?: "cloud" | "self" }>({ session: null, logout: async () => {} });
 const anonymous: OwnerSession = { enabled: false, setup_required: false, authenticated: false, password_transport_allowed: false };
 
 export function OwnerSessionGate({ children }: { children: ReactNode }) {
@@ -31,6 +32,7 @@ export function OwnerSessionGate({ children }: { children: ReactNode }) {
   const [expired, setExpired] = useState(false);
   const [checked, setChecked] = useState(false);
   const [instanceID, setInstanceID] = useState("");
+  const [hosting, setHosting] = useState<"cloud" | "self">();
   const observedInstance = useRef("");
   const sessionRef = useRef(session);
   sessionRef.current = session;
@@ -59,6 +61,7 @@ export function OwnerSessionGate({ children }: { children: ReactNode }) {
       if (version !== requestVersion.current) return;
       if (!next.enabled || next.authenticated) await hydrateDesktopState(info.instance_id);
       if (version !== requestVersion.current) return;
+      setHosting(info.hosting === "self" || info.hosting === "cloud" ? info.hosting : undefined);
       setInstanceID(info.instance_id); setSession(next); setError(""); setChecked(true);
     } catch (cause) {
       // A refused connection surfaces as the browser's own "Failed to fetch" / "Load failed": say what happened instead.
@@ -104,7 +107,7 @@ export function OwnerSessionGate({ children }: { children: ReactNode }) {
   const finishAuth = async () => { setExpired(false); sessionRef.current = null; setSession(null); setChecked(false); await refresh(); };
   const mustChange = Boolean(session?.authenticated && session?.owner?.must_change_password);
   const allowed = checked && session && (!session.enabled || session.authenticated) && !mustChange;
-  return <SessionContext.Provider value={{ session, logout }}>{allowed ? <Fragment key={`${instanceID}:${session?.owner?.id ?? "legacy"}`}>{children}</Fragment> : !session && !error ? <BootScreen label={t("gate.connecting")} /> : <div className="owner-gate">
+  return <SessionContext.Provider value={{ session, logout, hosting }}>{allowed ? <Fragment key={`${instanceID}:${session?.owner?.id ?? "legacy"}`}>{children}</Fragment> : !session && !error ? <BootScreen label={t("gate.connecting")} /> : <div className="owner-gate">
     <div className="native-titlebar" aria-hidden="true" />
     <AuthLanguageSwitch />
     <section className="owner-card">
@@ -150,25 +153,31 @@ export function useAccountIdentity() {
 
 /** The compact identity dock shares the authenticated session with Settings. */
 
-export function SidebarAccount({ onSettings, onUsage, onConnection, onArtifacts, connected = true }: { onSettings: () => void; onUsage: () => void; onConnection: () => void; onArtifacts: () => void; connected?: boolean }) {
-  const { session, logout } = useContext(SessionContext);
+export function SidebarAccount({ onSettings, onUsage, onArtifacts, connected = true }: { onSettings: () => void; onUsage: () => void; onConnection: () => void; onArtifacts: () => void; connected?: boolean }) {
+  const { session, logout, hosting } = useContext(SessionContext);
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [installHelp, setInstallHelp] = useState(false);
+  useEffect(() => { void loadAccountMenu(); }, []);
   const menu = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const { t } = useTranslation(["auth", "common", "settings"]);
   const name = session?.owner?.username ?? "Tofi";
-  const host = isDesktop ? t("account.desktop_client") : connected ? window.location.host : t("account.offline_reconnecting");
   const initial = Array.from(name)[0]?.toUpperCase() ?? "T";
-  return <div className={`sidebar-account${!connected && !isDesktop ? " is-offline" : ""}`} ref={menu}>
+  // The Mac page is served by a local proxy: ask the app which server it is connected to.
+  const [desktopAddress, setDesktopAddress] = useState("");
+  useEffect(() => {
+    if (!isDesktop || hosting !== "self") return;
+    let alive = true;
+    void window.tofiDesktop?.serverAddress?.().then(value => { if (alive) setDesktopAddress(typeof value === "string" ? value : ""); }, () => {});
+    return () => { alive = false; };
+  }, [hosting]);
+  const address = hosting !== "self" ? "" : isDesktop ? desktopAddress : window.location.host;
+  return <div className={`sidebar-account${!connected ? " is-offline" : ""}`} ref={menu}>
     <button ref={trigger} className="sidebar-account-identity" aria-label={t("account.menu_label", { name, status: connected ? t("account.live_ok") : t("account.live_lost") })} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(value => !value)} onKeyDown={arrowOpens(setOpen)} data-hint={t("account.settings_hint", { name })}>
       <span className="sidebar-account-monogram" aria-hidden="true">{initial}<i key={String(connected)} /></span>
-      <span className="sidebar-account-copy"><strong>{name}</strong><small>{host}</small></span>
+      <span className="sidebar-account-copy"><strong>{name}</strong>{address && <small>{address}</small>}</span>
     </button>
+    <AppUpdateButton/>
     <button className="sidebar-account-settings" aria-label={t("common:nav.settings")} data-hint={t("common:nav.settings")} onClick={onSettings}><TofiIcon name="settings" size={20}/></button>
-    {open && <Suspense fallback={null}><AccountMenu setOpen={setOpen} name={name} host={host} trigger={trigger} menu={menu} session={session} logout={logout} onSettings={onSettings} onUsage={onUsage} onConnection={onConnection} onArtifacts={onArtifacts} onInstallHelp={() => setInstallHelp(true)}/></Suspense>}
-    {installHelp && <Suspense fallback={null}><InstallSheet onClose={() => setInstallHelp(false)} returnFocus={trigger.current}/></Suspense>}
+    {open && <Suspense fallback={null}><AccountMenu setOpen={setOpen} name={name} trigger={trigger} menu={menu} session={session} logout={logout} onSettings={onSettings} onUsage={onUsage} onArtifacts={onArtifacts}/></Suspense>}
   </div>;
 }

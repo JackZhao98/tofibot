@@ -10,6 +10,8 @@
     "build": "tsc -b && vite build && vite build --config vite.motion-lab.config.ts && vite build --config vite.desktop-settings.config.ts",
     "typecheck": "tsc -b --pretty false",
     "test:portability": "node scripts/test-portability.mjs",
+    "test:account-menu": "node --test scripts/test-account-menu.mjs",
+    "test:account-menu-browser": "node scripts/test-account-menu-browser.mjs",
     "test:owner-bootstrap": "node scripts/test-owner-bootstrap.mjs",
     "test:composer-draft": "node scripts/test-composer-draft.mjs",
     "test:conversation-route": "node scripts/test-conversation-route.mjs",
@@ -99,7 +101,9 @@
     "test:chat-bubbles": "node scripts/test-chat-bubbles.mjs",
     "test:chat-motion": "node scripts/test-chat-motion.mjs",
     "test:arrival-glide": "node scripts/test-arrival-glide.mjs",
+    "test:scroll-layout": "node scripts/test-scroll-layout.mjs",
     "test:live-fixes": "node scripts/test-live-fixes.mjs",
+    "test:visual-surfaces": "node --test scripts/test-visual-surfaces.mjs",
     "test:motion-tokens": "node scripts/test-motion-tokens.mjs",
     "test:layers": "node scripts/test-layers.mjs",
     "test:select-guard": "node scripts/test-select-guard.mjs",
@@ -122,7 +126,9 @@
     "test:admin-groups": "node scripts/test-admin-groups.mjs",
     "test:org-resources": "node scripts/test-org-resources.mjs",
     "test:bot-browser-pip": "node scripts/test-bot-browser-pip.mjs",
-    "test:bot-browser-settings": "node scripts/test-bot-browser-settings.mjs"
+    "test:bot-browser-settings": "node scripts/test-bot-browser-settings.mjs",
+    "test:work-timeline": "node scripts/test-work-timeline.mjs",
+    "test:work-timeline-browser": "node scripts/test-work-timeline.mjs --browser"
   },
   "dependencies": {
     "@emoji-mart/data": "1.2.1",

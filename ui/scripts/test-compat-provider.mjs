@@ -1,6 +1,5 @@
 // Settings > AI Models, OpenAI-compatible card: the Ollama preset fills the address and shows the Ollama note (no key,
-// OLLAMA_HOST, context length), Fetch models lists what the server reports, Save sends the typed IDs, and the saved card
-// shows the endpoint with its cost line. The app's /api is answered in the browser with synthetic data.
+// one short hint), Fetch models lists what the server reports, Save sends the typed IDs, and Manage reopens the saved endpoint. The app's /api is answered in the browser with synthetic data.
 // Run: PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:compat-provider
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
@@ -62,12 +61,14 @@ try {
   const card = page.locator("article.provider-card", { has: page.getByRole("heading", { name: "OpenAI-compatible" }) });
   await card.waitFor();
   assert.equal(await card.locator("[data-compat-note='ollama']").count(), 0, "no Ollama note before an Ollama address");
-  assert.match(await card.innerText(), /Cost depends on the server/, "the cost line is there before anything is saved");
+  assert.equal(await card.locator("form").count(), 0, "endpoint form is collapsed on load");
+  await card.getByRole("button", { name: "Add", exact: true }).click();
+  await card.getByLabel("Base URL").waitFor();
 
   await card.getByRole("button", { name: "Ollama" }).click();
   assert.equal(await card.getByLabel("Base URL").inputValue(), "http://host.docker.internal:11434/v1");
   const note = await card.locator("[data-compat-note='ollama']").innerText();
-  for (const word of ["OLLAMA_HOST=0.0.0.0", "host.docker.internal", "OLLAMA_CONTEXT_LENGTH"]) assert.ok(note.includes(word), `the Ollama note names ${word}`);
+  assert.equal(note, "Ollama needs no API key.", "one short setup hint");
 
   await card.getByRole("button", { name: "Fetch models" }).click();
   await card.getByText("Models found: 2").waitFor();
@@ -78,8 +79,10 @@ try {
   await card.getByRole("button", { name: "Save and verify" }).click();
   await card.getByText("Endpoint saved and verified.").waitFor();
   assert.deepEqual(sent.config[0], { base_url: "http://host.docker.internal:11434/v1", models: ["my-model", "qwen3:8b"] }, "no key is sent when none is typed");
-  assert.match(await card.innerText(), /host\.docker\.internal:11434\/v1/);
-  assert.match(await card.innerText(), /Typed models: my-model, qwen3:8b/);
+  assert.equal(await card.locator("form").count(), 0, "saving collapses the endpoint form");
+  await card.getByRole("button", { name: "Manage", exact: true }).click();
+  assert.equal(await card.getByLabel("Base URL").inputValue(), status.base_url);
+  assert.equal(await card.getByLabel("Model IDs").inputValue(), "my-model, qwen3:8b");
   assert.ok((await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)) <= 0);
   assert.deepEqual(errors, []);
   console.log("PASS: compatible card: Ollama preset and note, fetch, save without a key, saved summary");

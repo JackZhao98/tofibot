@@ -16,7 +16,7 @@ export function SidebarShell({ id, expanded, focusN = 0, onExpand, onClose, cont
 }) {
   const fading = usePreviousWhileFading(id, 180);
   const { t } = useTranslation("chat");
-  const title = t(id === "tasks" ? "contextCard.title.schedule" : id === "memory" ? "contextCard.title.memory" : id === "terminal" ? "contextCard.title.terminal" : id === "archive" ? "contextCard.title.archive" : "viewOnly.label");
+  const title = t(id === "tasks" ? "contextCard.title.schedule" : id === "memory" ? "contextCard.title.memory" : id === "usage" ? "contextCard.title.usage" : id === "terminal" ? "contextCard.title.terminal" : id === "archive" ? "contextCard.title.archive" : "viewOnly.label");
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     if (focusN <= 0) return;

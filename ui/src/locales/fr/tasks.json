@@ -679,6 +679,15 @@
     "delete_yes": "Supprimer",
     "delete_no": "Conserver",
     "delete_failed": "Impossible de supprimer la trace.",
-    "deleted": "Trace de travail supprimée."
+    "deleted": "Trace de travail supprimée.",
+    "commands_other": "{{count}} commandes exécutées",
+    "commands_one": "{{count}} commande exécutée",
+    "commands_many": "{{count}} commandes exécutées",
+    "pages_other": "{{count}} pages lues",
+    "pages_one": "{{count}} page lue",
+    "pages_many": "{{count}} pages lues",
+    "working_other": "En cours · {{count}} étapes",
+    "working_one": "En cours · {{count}} étape",
+    "working_many": "En cours · {{count}} étapes"
   }
 }

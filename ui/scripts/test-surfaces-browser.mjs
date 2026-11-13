@@ -517,6 +517,78 @@ try {
     }
     results.push("widgets: opening them reserves no right-hand grid track at 1122-2000 px, the sidebar still does; a host with no computer shows no computer button or widget");
   }
+  // Mac and browser use the same responsive surfaces. Hold the request itself, never sleep to manufacture slowness.
+  for (const desktop of [false, true]) for (const width of [900, 1280]) {
+    const state = newState();
+    let releaseMemory;
+    state.memoryGate = new Promise(resolve => { releaseMemory = resolve; });
+    const initScript = desktop ? () => {
+      const off = () => () => {};
+      window.tofiDesktop = {
+        platform: "darwin", themePreference: "dark", onCommand: off, onWindowState: off, onFlushState: off,
+        appearance: async () => {}, remoteInputFocus: () => {},
+        readWorkspaceState: async () => ({}), writeWorkspaceState: async () => {},
+      };
+    } : undefined;
+    const {context, page, errors} = await openWorkspace(browser, origin, state, {width, height: 700, theme: "dark", initScript});
+    let release;
+    const held = new Promise(resolve => { release = resolve; });
+    await page.route("**/api/conversations/*/usage", async route => {
+      await held;
+      await route.fulfill({status: 200, json: usageFor(DM.id)});
+    });
+    await page.getByRole("button", {name: "More actions"}).click();
+    const firstFrame = await page.getByRole("menuitem", {name: "Usage", exact: true}).evaluate(item => {
+      item.click();
+      return new Promise(resolve => requestAnimationFrame(() => {
+        const surface = document.querySelector('[data-card="usage"], .widget-column .surface-loading, .detail-pane.context-panel.visible');
+        resolve(Boolean(surface && surface.getBoundingClientRect().width > 0));
+      }));
+    });
+    assert.equal(firstFrame, true, "Usage has a surface in the first animation frame");
+    const usage = width >= 1100 ? page.locator('[data-card="usage"]') : page.locator(".detail-pane.context-panel.visible");
+    await usage.waitFor({state: "visible"});
+    assert.equal(await page.locator(".settings-shell").count(), 0, "Usage opens beside the chat");
+    await usage.locator('[aria-busy="true"]').waitFor();
+    await page.keyboard.press("Escape");
+    await usage.waitFor({state: "hidden"});
+    release();
+    await page.getByRole("button", {name: "More actions"}).click();
+    await page.getByRole("menuitem", {name: "Usage", exact: true}).click();
+    await usage.locator(".usage-now").waitFor();
+    const box = await usage.boundingBox();
+    assert.ok(box.x >= 0 && box.x + box.width <= width + 1 && box.y >= 0 && box.y + box.height <= 701, "Usage fits the window");
+    assert.equal(await usage.evaluate(el => el.scrollWidth > el.clientWidth + 1), false, "Usage has no horizontal overflow");
+    await page.keyboard.press("Escape");
+    await usage.waitFor({state: "hidden"});
+    await page.getByRole("button", {name: "More actions"}).click();
+    const memoryFrame = await page.getByRole("menuitem", {name: "This Bot's memory", exact: true}).evaluate(item => {
+      item.click();
+      return new Promise(resolve => requestAnimationFrame(() => {
+        const surface = document.querySelector('.sidebar-pane, .detail-pane.context-panel.visible');
+        resolve(Boolean(surface && surface.getBoundingClientRect().width > 0));
+      }));
+    });
+    assert.equal(memoryFrame, true, "Memory has a surface in the first animation frame");
+    const memory = width >= 1100 ? page.locator(".sidebar-pane") : page.locator(".detail-pane.context-panel.visible");
+    await memory.locator(".surface-skeleton").waitFor();
+    await page.keyboard.press("Escape");
+    await memory.waitFor({state: "hidden"});
+    releaseMemory();
+    await page.getByRole("button", {name: "More actions"}).click();
+    await page.getByRole("menuitem", {name: "This Bot's memory", exact: true}).click();
+    await memory.getByRole("button", {name: "Add memory", exact: true}).waitFor();
+    assert.equal(await memory.locator(".memory-create").count(), 0, "Memory opens on the saved notes");
+    await memory.getByRole("button", {name: "Add memory", exact: true}).click();
+    await memory.locator(".memory-create").waitFor();
+    assert.equal(await memory.evaluate(el => el.scrollWidth > el.clientWidth + 1), false, "Memory fits the narrower panel");
+    await page.keyboard.press("Escape");
+    await memory.waitFor({state: "hidden"});
+    assert.deepEqual(errors, []);
+    await context.close();
+  }
+  results.push("Mac/browser at 900 and 1280: Usage opens beside chat, loading is dismissible, Memory creation is collapsed, panels fit and Escape closes");
+
   console.log(results.map(line => `PASS ${line}`).join("\n"));
   console.log("surfaces browser: PASS");
 } finally {

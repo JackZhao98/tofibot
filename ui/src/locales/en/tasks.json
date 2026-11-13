@@ -671,6 +671,12 @@
     "delete_yes": "Delete",
     "delete_no": "Keep",
     "delete_failed": "Could not delete the trace.",
-    "deleted": "Work trace deleted."
+    "deleted": "Work trace deleted.",
+    "commands_other": "Ran {{count}} commands",
+    "commands_one": "Ran {{count}} command",
+    "pages_other": "Read {{count}} pages",
+    "pages_one": "Read {{count}} page",
+    "working_other": "Working · {{count}} steps",
+    "working_one": "Working · {{count}} step"
   }
 }

@@ -143,10 +143,10 @@ try {
     assert.ok(size.includes(`${Buffer.byteLength(files.md_new.body)} B`), `newest size shown: ${size}`);
   });
 
-  await step("file row is 340px with a colored tile per type and an always-visible download", async () => {
+  await step("file row is 300px with a colored tile per type and an always-visible download", async () => {
     const row = page.locator(".delivered-attachment.is-file").first();
     const box = await row.boundingBox();
-    assert.equal(Math.round(box.width), 340);
+    assert.equal(Math.round(box.width), 300);
     const tones = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll(".attachment-file-row")].map(r => { const t = r.querySelector(".file-tile"); return [r.querySelector(".attachment-name").textContent, { tone: t.dataset.fileTone, label: t.textContent, bg: getComputedStyle(t.querySelector(".ft-label")).backgroundColor }]; })));
     assert.deepEqual(Object.fromEntries(Object.entries(tones).map(([k, v]) => [k, v.tone])), { "frevana-seo-analysis.md": "md", "notes.txt": "txt", "data.csv": "sheet", "config.json": "json", "paper.pdf": "pdf", "model.xlsx": "sheet", "bundle.zip": "archive", "tool.py": "code", "huge.log": "txt" });
     assert.equal(tones["model.xlsx"].label, "XLSX"); assert.equal(tones["paper.pdf"].label, "PDF"); assert.equal(tones["tool.py"].label, "PY");
@@ -158,23 +158,25 @@ try {
     assert.equal(await page.locator(".attachment-file-row").first().evaluate(el => getComputedStyle(el.closest(".delivered-attachment")).backgroundColor !== "rgba(0, 0, 0, 0)"), true);
   });
 
-  await step("images: thumbnails in a gallery (2 cols for 2, 3 for 5), reserved boxes, lightbox; single image keeps its box", async () => {
+  await step("images: output thumbnails outside the bubble, reserved boxes, lightbox; single image keeps its box", async () => {
     const grid = page.locator(".attachment-gallery:not(.is-single)").first();
     assert.equal(await grid.locator(".attachment-thumb").count(), 5);
     assert.equal(await grid.getAttribute("data-count"), "5");
-    assert.equal(await grid.evaluate(el => getComputedStyle(el).gridTemplateColumns.split(" ").length), 3);
+    assert.equal(await grid.evaluate(el => getComputedStyle(el).display), "flex");
+    assert.equal(await grid.evaluate(el => el.closest(".message-content") === null), true);
+    assert.ok((await grid.locator(".attachment-thumb").first().boundingBox()).width <= 180);
     assert.ok(await grid.locator("img").first().evaluate(img => img.getAttribute("loading") === "lazy" && img.hasAttribute("width") && img.hasAttribute("height")), "lazy with reserved size");
-    assert.ok((await grid.boundingBox()).width <= 320);
+    assert.ok((await grid.boundingBox()).width <= 560);
     await grid.locator(".attachment-thumb").first().click();
-    // The lightbox is a lazy chunk, drawn once a picture is opened.
+    // The shared lightbox is ready on activation.
     await grid.locator("dialog[open]").waitFor({ timeout: 5000 });
     assert.equal(await grid.locator("dialog[open]").count(), 1);
     await page.keyboard.press("Escape");
-    await page.waitForTimeout(100);
+    await grid.locator("dialog[open]").waitFor({ state: "detached" });
     const single = page.locator(".attachment-gallery.is-single");
     assert.equal(await single.count(), 1);
     const box = await single.boundingBox();
-    assert.ok(box.width <= 320 && box.height <= 360 && box.width >= 96, JSON.stringify(box));
+    assert.ok(box.width <= 240 && box.height <= 240 && box.width >= 96, JSON.stringify(box));
     assert.equal(await single.locator(".attachment-thumb").evaluate(el => getComputedStyle(el).borderRadius), "14px");
   });
 
@@ -313,7 +315,7 @@ try {
 
   const dark = await open(1180, 820, { theme: "dark", locale: "en" });
   await step("english + dark theme", async () => {
-    assert.equal(await dark.page.locator(".attachment-file-row", { hasText: "notes.txt" }).locator("small").innerText(), `${Buffer.byteLength(files.att_txt.body)} B · Click to preview`);
+    assert.equal(await dark.page.locator(".attachment-file-row", { hasText: "notes.txt" }).locator("small").innerText(), `${Buffer.byteLength(files.att_txt.body)} B`, "a file row shows its size only (no action hint)");
     await card(dark.page, "model.xlsx").click(); await viewer(dark.page).waitFor();
     assert.equal(await viewer(dark.page).locator(".fp-unsupported strong").innerText(), "Preview not available");
     await dark.page.screenshot({ path: join(shots, "ipad-dark-unsupported.png") });

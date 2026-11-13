@@ -663,6 +663,9 @@
     "delete_yes": "删除",
     "delete_no": "保留",
     "delete_failed": "无法删除留痕。",
-    "deleted": "工作留痕已删除。"
+    "deleted": "工作留痕已删除。",
+    "commands_other": "运行了 {{count}} 条命令",
+    "pages_other": "阅读了 {{count}} 页",
+    "working_other": "正在处理 · {{count}} 个步骤"
   }
 }

@@ -1,0 +1,3 @@
+.settings-help-links > a { display:block; padding:13px 16px; color:var(--ink); font:14px/1.4 var(--body); text-decoration:none; }
+.settings-help-links > a + a { border-top:1px solid var(--line-soft); }
+.settings-help-links > a:hover { background:var(--surface-2); }
